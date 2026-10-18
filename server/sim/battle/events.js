@@ -6,6 +6,7 @@ import { EVENT_BUFFER_CAP } from '../constants.js';
 import { elementView } from '../damage.js';
 import { unitInfo, snapshotUnits } from '../snapshot.js';
 import { hudLists } from '../local-hud.js'; // local patch
+import { stormView } from '../content/devices.js'; // 战场#06's 沙尘暴 for the client (fieldMeta)
 
 export class BattleEvents {
   fx(kind, params = {}) {
@@ -105,13 +106,16 @@ export class BattleEvents {
   }
 
   /**
-   * Field meta for m.field: { fieldId, kind, rect, stageId, units: UnitInfo[] } — the units on the field, knocked-out
-   * operators waiting to redeploy included (a client joining mid-battle shows them down).
+   * Field meta for m.field: { fieldId, kind, rect, stageId, units: UnitInfo[], storm? } — the units on the field, knocked-out
+   * operators waiting to redeploy included (a client joining mid-battle shows them down); `storm`: 战场#06's 沙尘暴 spans
+   * (content/devices.js stormView), only on a stage with one.
    */
   fieldMeta() {
+    const storm = stormView(this);
     return {
       fieldId: this.fieldId, kind: this.kind, rect: { ...this.rect }, stageId: this.stageId,
       units: this.units.filter((u) => (u.alive && u.deployed && !u.hidden) || this.isDown(u)).map(unitInfo),
+      ...(storm ? { storm } : {}),
     };
   }
 }

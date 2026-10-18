@@ -76,14 +76,15 @@ SHAPE_NAMES = {6: 'Mesh', 13: 'MeshRenderer', 14: 'SkinnedMeshRenderer', 19: 'Sp
 
 # material textures / values render/fxplayer.js reads (makeMaterial, CLIP_UNIFORM, CLIP_COMP) — test/local-extract.test.js
 # keeps these lists equal to the names in fxplayer.js
-PLAYER_TEXTURES = {'_MainTex', '_AddTex', '_DissolveTex', '_DissolveTex_01', '_DissolveTex_02', '_DisturbTex', '_NoiseTex',
+PLAYER_TEXTURES = {'_MainTex', '_AddTex', '_DissolveTex', '_DissolveTex_01', '_DissolveTex_02', '_DissolveTexB', '_DissolveTexC', '_DisturbTex', '_NoiseTex',
                    '_DisturTex', '_DisturTex_02', '_MaskTex', '_RamTex', '_WeightTex'}
 PLAYER_VALUES = {'_Color', '_MainColor', '_TintColor', '_UVTween', '_AddFactor', '_Amount', '_Amount_01', '_Amount_02',
                  '_AnchorU', '_AnchorU_02', '_AnchorV', '_AnchorV_02', '_BorderWidth', '_BorderWidth_01', '_BorderWidth_02',
                  '_DissolveIntensity', '_DissolveUSpeed', '_DissolveVSpeed', '_DisturbInfluenceDissolveUV',
                  '_DisturbInfluenceMainUV', '_DisturbUSpeed', '_DisturbVSpeed', '_DstBlend', '_HGCustomVertexStream',
                  '_IntensityU', '_IntensityU_02', '_IntensityV', '_IntensityV_02', '_MainColorACtrl', '_MainUSpeed',
-                 '_MainVSpeed', '_Opacity', '_RimPower', '_ToggleUseDissolve', '_ToggleUseDisturb2', '_UseDissolveTex', '_ZTest'}
+                 '_MainVSpeed', '_Opacity', '_RimPower', '_ToggleUseDissolve', '_ToggleUseDisturb2', '_UseDissolveTex', '_ZTest',
+                 '_Dissolve', '_TexSpeed', '_TexSpeed2', '_TintColorB', '_TintColorC'}
 # shaders whose behaviour render/fxplayer.js was checked against (by name: blend, tint, distortion, dissolve families)
 # (2026-10-16: every shader of the extracted effects then — a shader outside the list is new to the player)
 SHADERS_CHECKED = {
@@ -95,6 +96,7 @@ SHADERS_CHECKED = {
     'Torappu/Particles/Dissolve/Dissolve AB UVTween', 'Torappu/Particles/Dissolve/Dissolve Add UVTween',
     'Torappu/Particles/Dissolve/Dissolve AB (VertexColor Major)', 'Torappu/Particles/Dissolve/Dissolve Add (VertexColor Major)',
     'Torappu/Particles/Dissolve/Dissolve AB Double', 'Torappu/Particles/Dissolve/Dissolve Add Double',
+    'Torappu/Particles/Optimize/Dissolve AB MultiTex',   # 2026-10-18 (战场#06's screen_desert_*)
     'Torappu/Particles/Rim/Rim Texture (Add)', 'Torappu/Particles/Rim/Rim Texture (AlphaBlend)',
     'Torappu/Particles/Rim/Rim Tint (Add)', 'Torappu/Particles/Rim/Rim Tint (AlphaBlend)',
     'Torappu/Particles/Mask/Mask (Add)', 'Torappu/Particles/Mask/Mask (AlphaBlend)',

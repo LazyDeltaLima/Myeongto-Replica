@@ -64,7 +64,7 @@ while (!b.finished) b.step();      // 1 TICK = 1/30 game s; live battles run at 
 b.snapshot();  b.drainEvents();   // every 3 ticks for watchers (§8.2 wire format)
 b.result();                        // BattleResult (DESIGN §5.1) — see §1.3
 b.forceEnd('forced' | 'timeout'); // 'timeout' converts remaining enemies to leaks
-b.fieldMeta();                     // { fieldId, kind, rect, stageId, units: UnitInfo[] } for m.field
+b.fieldMeta();                     // { fieldId, kind, rect, stageId, units: UnitInfo[], storm? } for m.field (storm: 战场#06's 沙尘暴 spans)
 ```
 
 Construction creates every ally unit (not yet deployed) and installs content (kits, then domain modules). The first

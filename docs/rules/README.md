@@ -62,6 +62,7 @@
 | 휴식 진입·현상 수배·전투 종료 화면 공식 모양 (라운드 시작 배너, 机变/悬赏 선택 화면, 전투 종료 배너) | `public/js/ui/phaseArt.js`, `public/css/phase-art.css` | `ui.md` |
 | 공식 전투 이펙트 (클라이언트에서 추출한 이펙트 프리팹 재생) | `tools/local-extract/fx_extract.py` → `public/assets/local/fx/**`, `public/js/render/fxplayer.js`·`fxgame.js`·`fxmap.js` | `fx.md` |
 | 스킬 중 매 공격 이펙트(공식 모드 바인딩)·이펙트 배속·투사체 꼬리·시전자 이펙트는 유닛 아래 | `shared/skill-modes.js`, `tools/local-extract/char_modes.py` → `public/assets/local/fx/modes.json`(git 밖), `test/local-patch-fxmodes.test.js` | `fx.md` |
+| 战场#06(상반기) 沙尘暴·土石结构: 2초마다 바람 피해·감속, 구조물 가림, 화면·유닛·구조물 모래 연출, 구조물 공식 모델 | `server/sim/content/devices.js`(`tickStorm`·`stormView`), `public/js/render/fxgame.js setStorm`·`fxstatus.js`, `tools/local-extract/scene_extract.py` `DEVICE_EFFECT_MESHES` | `sim.md`·`fx.md` |
 | 공식 스테이지 3D 씬 (스테이지별 사막·카시미어·시라쿠사 씬, 라이트맵, 필드별 숨김 세트) | `tools/local-extract/scene_extract.py` → `public/assets/local/scene/**`, `public/js/render/board3d/official.js`, `test/render/board3d-official.test.js` | `render.md` 「공식 스테이지 3D 씬」 |
 | 오퍼레이터 배치 낙하 연출 (각 모델의 Start 클립으로 하늘에서 떨어짐) | `public/js/render/units.js` `onDeploy` | `render.md` 「배치 낙하」 |
 | 성능 표시 `?perf=1` (fps·시뮬레이션·그리기·이펙트·3D 드로우콜, 멈춤·한 프레임 최대·설명 안 되는 시간, 진단 정보의 라운드별 `perf:` 줄) | `public/js/ui/perfHud.js`, `public/js/diag.js setPerfSource`, `public/js/render/app.js takePeaks`, `test/ui/perf-hud.test.js` | `render.md` 「성능 표시」 |

@@ -573,6 +573,26 @@ function stormFor(battle, st, playerId) {
 }
 
 /**
+ * What the client draws of the 沙尘暴 (render: the camera's sand sheet, the 土石结构's sand marks): the column spans where a
+ * storm blows and its direction — [{ c0, c1, dir }], one per half a player's card leaves it on (the whole field for one
+ * player), or null on a stage without a storm. Display only (Battle.fieldMeta), nothing in the sim reads it.
+ * @returns {{c0: number, c1: number, dir: string}[]|null}
+ */
+export function stormView(battle) {
+  const st = stateOf(battle);
+  if (!st?.storms.length) return null;
+  const players = battle.players || [];
+  const spans = players.length <= 1 ? [[0, COLS - 1, players[0]?.playerId ?? null]]
+    : [[0, 10, playerForCol(battle, 0)], [11, COLS - 1, playerForCol(battle, COLS - 1)]];
+  const out = [];
+  for (const [c0, c1, pid] of spans) {
+    const s = stormFor(battle, st, pid);
+    if (s) out.push({ c0, c1, dir: s.dir });
+  }
+  return out;
+}
+
+/**
  * Sheltered from a storm blowing `dir`: a 土石结构 stands on a tile in the line from (r, c) against the wind, up to
  * the map edge (client node `HasCertainCharacterInFrontOfMe` RVA 0xE0A970: `MapUtil.GetGridPositionsAlongTheDirection`
  * from the unit's tile in `InverseDirection(storm.direction)`, own tile excluded, no distance limit — any character
@@ -621,7 +641,8 @@ function tickStorm(battle, st, u) {
   if (r >= 0 && r < ROWS && c >= 0 && c < COLS && stormSheltered(st, r, c, s.dir)) { battle.removeBuff(u, key); return; }
   if (ally) {
     stormDamage(battle, u, s.damage);
-    if (u.alive && !u.findBuff(key)) battle.addBuff(u, { key, mods: { atkMul: s.atkMul }, visible: true });
+    // fxTag: the storm's direction — the client's SwitchDirection picks the buff's effect by it (render/fxstatus.js)
+    if (u.alive && !u.findBuff(key)) battle.addBuff(u, { key, mods: { atkMul: s.atkMul }, visible: true, fxTag: s.dir });
   } else if (!u.findBuff(key)) battle.addBuff(u, { key, mods: { moveMul: s.moveMul }, visible: true });
 }
 

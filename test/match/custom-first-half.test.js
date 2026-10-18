@@ -58,6 +58,7 @@ test('real match path, 战场#06 normal field: enemies walking in the open are s
   let slowed = 0;
   for (let i = 0; i < 30 * 40 && !slowed; i++) { b.step(); slowed = b.enemies.filter((e) => e.alive && e.findBuff('terrain:sandstormSlow')).length; }
   assert.ok(slowed > 0, 'a slowed enemy');
+  assert.deepEqual(b.fieldMeta().storm, [{ c0: 0, c1: 20, dir: 'DOWN' }], 'the m.field meta: where the client draws the storm');
   assert.deepEqual(b.errors ?? [], []);
   h.m.dispose();
 });
@@ -87,6 +88,7 @@ test('战场#06 boss field: the top row has 6 土石结构 (the board 4) — an 
   assert.equal(under.stats.taken, 0);
   assert.ok(open.findBuff('terrain:sandstorm'), 'col 9: nothing upwind');
   assert.ok(open.stats.taken >= 200, `two storm ticks by 3 s: ${open.stats.taken}`);
+  assert.deepEqual(b.fieldMeta().storm, [{ c0: 0, c1: 10, dir: 'DOWN' }, { c0: 11, c1: 20, dir: 'DOWN' }], 'both halves of the pair field');
   // the board's col 7 has the sealed floor above it, not a mound: no shelter there
   assert.equal(DATA.stages[M06].devices.some((d) => d.role === 'mound' && d.pos[0] === 12 && d.pos[1] === 7), false);
   assert.equal(DATA.stages[M06].devices.some((d) => d.role === 'mound' && d.pos[0] === 5 && d.pos[1] === 7), true);

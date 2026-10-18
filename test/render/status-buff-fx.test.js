@@ -90,6 +90,15 @@ describe('client: status → the official buff effect', () => {
     assert.deepEqual(names(enemy(['apoptosisBurst', 'burnBurst', 'erosionDown'], [])), ['common_darkdamage_debuff']);
   });
 
+  test('战场#06 沙尘暴: an operator in the wind wears map_desert_03_<the side it comes from> and buff_desert_01, an enemy nothing', () => {
+    const op = (fx) => unit('char_002_amiya', { statuses: new Set(['terrain:sandstorm']), statusFrom: new Map([['terrain:sandstorm', { src: null, fx, n: 0 }]]) });
+    assert.deepEqual(names(op('DOWN')), ['buff_desert_01', 'map_desert_03_up'], 'the m06 storm blows DOWN');
+    assert.deepEqual(names(op('RIGHT')), ['buff_desert_01', 'map_desert_03_left']);
+    for (const s of F.wantedStatusFx(op('DOWN')).values()) assert.equal(s[2], F.OWN, `${s[1]} at its own spawn point`);
+    // sand_storm[enemy]'s slow_down names no effect: not the 'slow' fallback
+    assert.deepEqual(names(enemy(['terrain:sandstormSlow'], [])), []);
+  });
+
   test('耀骑士临光 S2: one shield per layer left, one fewer per parry (UnitView.onStatusHit)', async () => {
     const v = unit('char_1014_nearl2', { statuses: new Set(['nearl2:shield']), statusFrom: new Map([['nearl2:shield', { src: null, fx: null, n: 3 }]]) });
     assert.deepEqual(names(v), ['nearl2_skill_02_buff_02', 'nearl2_skill_02_buff_03', 'nearl2_skill_02_buff_04']);

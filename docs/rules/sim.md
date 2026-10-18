@@ -1539,7 +1539,8 @@ upstream v0.2.4 뒤 버그 수정 커밋 중 우리에게도 같은 버그가 �
 - **맵 카드** 模拟战场演变·模式八(`map_m06_1`, `trap_036_storm#1/#2` 0): 폭풍 장치는 필드 밖 (18,0)이라 어느 절반에도 없으므로, 유닛이 선 절반의 플레이어 카드를 따른다
   (다른 맵 카드처럼 자기 절반만) **[ASSUMED]**.
 - **[ASSUMED]**: 폭풍은 전투 첫 틱부터(장치 등장 시간 무시). 적 이동 속도 MULTIPLIER를 다른 감속과 곱으로 합침(`moveMul`). `sand_storm[ally]` `ON_OWNER_FINISH`의 카드
-  버프(재배치 비용 계열)는 이 모드에 재배치가 없어 뺌. 연출(`map_desert_03_*`·`buff_desert_01`·`screen_desert_*`)은 렌더 몫이고 아직 없음.
+  버프(재배치 비용 계열)는 이 모드에 재배치가 없어 뺌. 연출(`map_desert_03_*`·`buff_desert_01`·`map_desert_02_*`·`screen_desert_*`)은 렌더 몫 → `fx.md` 「战场#06 沙尘暴 연출」
+  (sim은 오퍼레이터 버프의 `fxTag`에 폭풍 방향, `fieldMeta().storm`에 폭풍이 부는 열 범위만 싣는다).
 - 코드 `server/sim/content/devices.js`(`buildStorm`·`stormSheltered`·`tickStorm`). 테스트 `test/content/tokens_devices.test.js` 「沙尘暴」 2건,
   `test/match/custom-first-half.test.js`(실제 판 경로: 일반 필드 적 감속, 보스 필드 윗줄 6개). golden: 코퍼스가 모든 전장을 돌아가며 써서 m06 시나리오가
   움직임 — roster-006·roster-028, bond-indomShip-high·bond-miraShip-low·bond-skillfulShip-high·bond-visiShip-low, boss-boss_1-solo·boss-boss_7-pair,

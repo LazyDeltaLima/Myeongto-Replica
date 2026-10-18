@@ -742,6 +742,39 @@
   렌더에 알리는 sim 이벤트는 없어 `onEvent`는 아직 쓰지 않는다.
 - 확인: `test/render/fx-face-delay.test.js`(`tplfx` 처리·번들 순서·`onEvent` 분리 소스 고정). [화면 미확인] — 쉐라그 눈바람 위치·크기, 에기르 맹약 삼킴.
 
+### 战场#06 沙尘暴 연출 (2026-10-18, 상반기 전장 m06 — 규칙은 `sim.md` 「战场#06(上半) 沙尘暴 · 土石结构」)
+- 공식(EN 버프 템플릿 `sand_storm[ally]`·`[trap]`·`[camera_effect]`, 노드 `SwitchDirection`이 폭풍 방향으로 고름 — 참고 덤프 「공식 버프 템플릿 추출」):
+  - 바람 맞는 오퍼레이터·소환물: `storm[attr_to_ally]` → `map_desert_03_<바람이 오는 쪽>`(DOWN → `_up`, HIT 점, 몸 주변 모래 소용돌이)와
+    `storm[attr_to_ally_mark]` → `buff_desert_01`(머리 위 아이콘). 가려지는 트리거에 둘 다 끝남. → `fxstatus.js KEY_FX['terrain:sandstorm']`, 방향은 sim 버프의
+    `fxTag`(상태 이벤트 `fx`).
+  - 적: `sand_storm[enemy]`가 만드는 `sand_storm[slow_down]`은 이펙트 이름이 없다 → `terrain:sandstormSlow`는 아무것도 안 그림(전에는 이름의 `slow`로 `buff_slowdown`이 나왔음).
+  - 土石结构: 바람 쪽에 다른 구조물이 없는 것(sim 가림 규칙과 같음)에 `storm_ally_mark` → `map_desert_02_<방향>`(SpecialPoint0 = 칸 가운데 바닥, 구조물 위를 덮는 모래).
+    강화 상태는 피해만 막고 표시는 막지 않는다(템플릿의 피해 분기와 표시 분기가 따로). → `fxgame.js stormMarks`.
+  - 화면: 폭풍 장치의 `sand_storm[camera_effect]` → `screen_desert_up_to_down_empty`(`_effects` 감싸개) 안의 `screen_desert_up_to_down`(`_spawnLocation` 12 CAMERA,
+    루프): 카메라 앞 1.32에 22° 기운 모래 판(`Plane001` × 8.56, 셰이더 Optimize/Dissolve AB MultiTex) + 화면 위쪽에서 내려오는 먼지 입자. → `fxgame.js setStorm`이
+    카메라 자세를 매 프레임 복사(Unity 카메라 +z ↔ three −z는 이펙트 Unity 그룹의 z 거울이 맞춤), 카메라 효과가 있으면 near 0.3.
+    **[ASSUMED]** 카메라의 위치·회전을 따름(부모로 붙임), 우리 카메라 시야각이 공식 40°와 다르면 카메라 기준 x·y를 tan(fov/2) ÷ tan 20°로 줄임(입자 크기는 그대로),
+    어느 절반에서든 폭풍이 불면 켬.
+- 폭풍 상태: sim `content/devices.js stormView` → `Battle.fieldMeta().storm` = `[{ c0, c1, dir }]`(한 사람 판은 전체, 둘이면 절반마다 맵 카드 「모래 폭풍 정지」를 반영,
+  폭풍 없는 스테이지는 키 없음). `render/app.js enterBattle` → `fxGame.setStorm(storm, 활성 토석 구조물)`; `clear()`가 끝냄. 고정(`pinned`)이라 개수 상한에 안 잘림.
+- Optimize/Dissolve AB MultiTex(클라 DXBC + 변형별 파라미터 표의 이름·오프셋으로 확인): 키워드 `_DISSOLVE_ONE/TWO/THREE` = 재질 `_Dissolve` 0/1/2 [ASSUMED: 키워드 열거 순서],
+  `_Amount`·`_BorderWidth`는 벡터(.x/.y/.z = 디졸브 텍스처 A/B/C), `_TexSpeed` = (메인 uv .xy, 디졸브 A .zw), `_TexSpeed2` = (B .xy, C .zw), 흐름 = frac(2 · _Time.y · 속도);
+  `_MainTexSpeed`는 선언만 있고 어느 변형도 안 읽음. 색 = 2 · 메인 · 정점색 × `_TintColor` / `B` / `C`, 각 알파 = saturate(알파 × 자르기) — A 위에 B를 B 알파로 lerp,
+  그 위에 C × C 알파를 더함(네 채널 모두). → `fxplayer.js` FRAG `uMulti`.
+- 土石结构 모델: 프리팹 `pkgrps/btl_pfb_tokens_0.ab` `trap_032_mound/Graphic/Mesh/S_desert_wall/S_desert_wall_01`의 조각 9개(Unlit/Texture, 죽을 때 `Wall06`로 무너짐 —
+  m06에선 안 죽음) + 강화 버프 `mound_s_1[mesh_effect]`의 `S_desert_wall_02_start_Mesh`(`s.ab`, SpecialPoint0 위치만 — 루트 위치·점의 회전·0.01 배율은 안 받음)를
+  장치 모델 하나로 구움(`scene_extract.py --devices`, `DEVICE_EFFECT_MESHES`; 효과 묶음의 의존 번들은 `.cache/fx-cab-index.json`). 텍스처가 나무 틀·파란 마름모·모래 덩어리라
+  얼핏 阻隔工事와 비슷하다. `official.js`는 Unity 내장 Unlit/Texture를 불투명·조명 없음·뒷면 컬링으로(특制水上平台 배도 같은 셰이더 — 전에는 셰이더를 못 찾아 조명 받는
+  표준으로 그려짐). 2D 보드는 예전 모래 더미 그림 그대로.
+- 안 한 것: 강화 시작 이펙트 `S_desert_wall_02_start`(한 번, 2.5 s — 클라는 구조물이 강화될 때, m06은 전투 시작 [추정]), `S_desert_wall_die`(m06 구조물은 안 죽음),
+  `map_desert_01_line`·방향 없는 `map_desert_02`/`_03`(템플릿이 안 씀), `screen_sandstorm_01/02`(m06 아님).
+- 추출: `fx_extract.py --bundle map --match '^map_desert_0[23]'` · `--bundle buff --match '^buff_desert_01$'` · `--bundle screen --match '^screen_desert_[a-z]+_to_[a-z]+$'` ·
+  `--bundle s --match '^S_desert_wall'`(EN 클라) → `scene_extract.py --devices` → `node tools/build-browser-resources.mjs`(서비스 워커 목록).
+- 확인: `test/render/sandstorm-fx.test.js`(구조물 표시 선정·방향별 이름·MultiTex 유니폼·장치 모델), `status-buff-fx.test.js`(오퍼레이터 둘·적 없음),
+  `test/content/tokens_devices.test.js` 「沙尘暴」(상태 `fx`·`fieldMeta().storm`·카드로 꺼짐), `test/match/custom-first-half.test.js`(실제 판 경로·보스 필드 두 절반).
+  화면: Windows Chrome 커스텀 단독 m06 판(3D·2D 보드) — 바람 맞는 구조물 위 모래, 오퍼레이터 머리 위 아이콘, 위쪽에 구조물이 있는 칸은 없음, 적 감속 이펙트 없음.
+  [화면 미확인] 화면 모래 판의 진하기·먼지 위치, 오퍼레이터 몸 모래 소용돌이 크기 — 공식 녹화와 대조 전.
+
 ### 사용자 제보 묶음 (2026-10-10, 렌더·이펙트 담당)
 - **혼(号角) 저지 중 공격에 원거리 폭발** (제보: 저지 중인 적에게 원거리 공격용 폭발 이펙트가 나오면 안 됨): 모드 바인딩이 한 모드의 근접·원거리 능력을
   하나로 합쳐(`hit` = `horn_attack_01_hit` + 투사체 `projectile_chr_horn`의 `horn_attack_01_hit_02`) 모든 공격에 둘 다 틀었다. 클라 charpack

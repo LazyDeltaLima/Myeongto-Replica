@@ -50,7 +50,7 @@
 // While they play, her 'atk' arrow of render/fx.js is not drawn (the event's projectile kind is replaced); without the
 // official effects (quality low, no WebP, no bundle, load level 3 for normal-attack notes) the arrow stays.
 
-import { syncThreeCamera } from './projection.js';
+import { syncThreeCamera, OFFICIAL } from './projection.js';
 import { fxBundleOf, effectsFor } from './fxmap.js';
 import { noteEffects, NOTE_FLIGHT } from './fxmap.js';
 import { attackMode, boundEffects, fortressEffects, modelessTrail } from './fxmap.js'; // local patch: the mode bindings (modes.json)
@@ -216,6 +216,33 @@ export function liveOverCap(list, now, capShort, capLasting) {
 
 /** Forward vector [dRow, dCol] of a deploy direction (server/sim/dir.js DIR_VEC; RIGHT for anything else). */
 const DIR_FWD = Object.freeze({ UP: [1, 0], RIGHT: [0, 1], DOWN: [-1, 0], LEFT: [0, -1] });
+
+/** tan of half the client battle camera's vertical field of view (projection.js OFFICIAL.fovY 40°) — a camera effect's frame. */
+const TAN_CLIENT_HALF_FOV = Math.tan((OFFICIAL.fovY * Math.PI) / 360);
+/** 战场#06's 沙尘暴: its direction → the camera effect (EN template sand_storm[camera_effect]: DOWN → up_to_down …). */
+export const STORM_SCREEN = Object.freeze({ DOWN: 'screen_desert_up_to_down', UP: 'screen_desert_down_to_up', LEFT: 'screen_desert_right_to_left', RIGHT: 'screen_desert_left_to_right' });
+/**
+ * The sand marks of a 沙尘暴 on the 土石结构 (EN template sand_storm[trap]): every mound `{ r, c, z }` in a span `{ c0, c1,
+ * dir }` of `storm` (m.field `storm`, sim content/devices.js stormView) with no other mound against the wind up to the map
+ * edge (its HasCertainCharacterInFrontOfMe: sim stormSheltered) wears storm_ally_mark's map_desert_02_<dir> (DOWN → _down).
+ * Every mound is strengthened on 战场#06, which spares it the damage, not the mark. → [{ r, c, z, name }]
+ * @param {{c0: number, c1: number, dir: string}[]|null|undefined} storm
+ * @param {{r: number, c: number, z?: number}[]} mounds
+ */
+export function stormMarks(storm, mounds) {
+  const out = [];
+  if (!Array.isArray(storm) || !Array.isArray(mounds)) return out;
+  const at = new Set(mounds.map((m) => `${m.r},${m.c}`));
+  for (const m of mounds) {
+    const s = storm.find((x) => x && m.c >= x.c0 && m.c <= x.c1 && DIR_FWD[x.dir]);
+    if (!s) continue;
+    const [dr, dc] = DIR_FWD[s.dir];
+    let sheltered = false;
+    for (let r = m.r - dr, c = m.c - dc; r >= 0 && r < 19 && c >= 0 && c < 21; r -= dr, c -= dc) if (at.has(`${r},${c}`)) { sheltered = true; break; }
+    if (!sheltered) out.push({ r: m.r, c: m.c, z: Number(m.z) || 0, name: `map_desert_02_${s.dir.toLowerCase()}` });
+  }
+  return out;
+}
 /** 余 S3's piece offset toward his front (yu_skill3_range_01_root `_offset`). */
 export const YU_WALL_OFFSET = 0.4;
 /**
@@ -284,6 +311,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const movers = new Map();          // caster id → { inst, at, t } — effects carried along a kit's moving fx
   const notes = new Map();           // 丰川祥子's notes: sim note id → { pos, dx, dy, mode, state, … } (noteFx)
   let clockS = 0;
+  let stormGen = 0;                  // 2026-10-18: setStorm's battle (clear() ends it; a load finishing after drops its effect)
   let lastViews = null;               // the views map of the last event (the notes trace their targets' views)
   const perf = { updateMs: 0, renderMs: 0, calls: 0 };
   const recent = []; // local patch: the last prefabs started ({ n: name, t: battle clock, seq }) — stats().recent, /debug.html's log
@@ -3248,6 +3276,31 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       return { stop: (now = false) => inst.stop(now), alive: () => live.some((l) => l.inst === inst) };
     },
     /**
+     * 2026-10-18: 战场#06's 沙尘暴 over the battle (render/app.js enterBattle: m.field `storm`, `mounds` the active 土石结构
+     * { r, c, z }), until the next clear(). The storm device's sand_storm[camera_effect] (ON_BUFF_START, SwitchDirection on
+     * its direction) wears screen_desert_<from>_to_<to>_empty, a wrapper (`_effects`) of the looping
+     * screen_desert_<from>_to_<to> (`_spawnLocation` 12 CAMERA): played here on the camera, which it follows (update) —
+     * [ASSUMED] the camera's position and turn, as Unity parents it, and on while the storm blows over any half; and the
+     * mounds the wind reaches wear their sand marks (stormMarks).
+     */
+    async setStorm(storm, mounds) {
+      const gen = stormGen;
+      if (!Array.isArray(storm) || !storm.length || q() === 'low' || failed || !(await ensure()) || gen !== stormGen) return;
+      const dir = storm[0].dir;
+      const play = async (bundle, name, at, extra) => {
+        if (!index?.bundles?.[bundle]?.includes(name)) return;
+        const def = await lib.load(bundle, name);
+        if (!mod || !def || gen !== stormGen) return;
+        const inst = new mod.fxp.FxInstance(def, { quality: q() });
+        inst.object.position.set(at.x, at.y, at.z || 0);
+        addLive(inst, { view: extra?.camera ? null : at, owner: null, buff: true, keep: true, pinned: true, tag: 'storm', ...extra }, layers.over);   // pinned: never ended by the caps
+      };
+      const jobs = [];
+      if (STORM_SCREEN[dir]) jobs.push(play('screen', STORM_SCREEN[dir], { x: 0, y: 0, z: 0 }, { camera: true }));
+      for (const m of stormMarks(storm, mounds)) jobs.push(play('map', m.name, { x: m.c, y: m.r, z: m.z }));
+      await Promise.all(jobs);
+    },
+    /**
      * 2026-10-10: whether an enemy's death is drawn here with its official dead effect (edeathFx) — render/app.js then skips
      * render/fx.js's procedural death puff (the client plays only the dead effect: `DeadState._PlayAnimation`).
      */
@@ -3499,7 +3552,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const s = L.renderer.getSize(size);
         if (s.x !== w || s.y !== h) L.renderer.setSize(w, h, false);
       }
-      syncThreeCamera(cam, camera, w, h, { near: Math.max(0.3, cam.dist * 0.08), far: cam.dist + 70 });
+      // 2026-10-18: a camera effect (setStorm) stands 0.9–1.7 in front of the camera — the near plane stays before it
+      const onCam = live.some((l) => l.camera);
+      syncThreeCamera(cam, camera, w, h, { near: onCam ? 0.3 : Math.max(0.3, cam.dist * 0.08), far: cam.dist + 70 });
       syncOccluders(); // local patch
       const t0 = performance.now();
       for (const [id, m] of movers) {
@@ -3511,7 +3566,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       stepBackSwitches();
       for (let i = live.length - 1; i >= 0; i--) {
         const l = live[i];
-        if (l.view && l.view.alive !== false && !l.view.remove) {
+        // 2026-10-18: a camera effect in the camera's frame — Unity's camera looks down +z, three's down −z: the effect's
+        // Unity group (z mirrored) maps camera-local (x, y, z) to three's (x, y, −z), so the camera's own transform places it
+        // [ASSUMED] scaled across the view by tan(fov / 2) / tan(20°): the client's battle camera has a 40° vertical field of
+        // view (projection.js OFFICIAL.fovY) — a fitted camera's narrower one keeps the same framing (the sand along the top)
+        if (l.camera) {
+          l.inst.object.position.copy(camera.position); l.inst.object.quaternion.copy(camera.quaternion);
+          const k = Math.tan((camera.fov * Math.PI) / 360) / TAN_CLIENT_HALF_FOV;
+          l.inst.object.scale.set(k, k, 1);
+        }
+        else if (l.view && l.view.alive !== false && !l.view.remove) {
           l.inst.object.position.set(l.view.x, l.view.y, l.view.z || 0);
           const r = l.view.rot;   // local patch: its mount point's turn (lifted)
           if (r != null && l.inst.nodes?.[0]) l.inst.nodes[0].rotation.set(0, 0, r);
@@ -3548,6 +3612,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     },
 
     clear() {
+      stormGen++;
       for (const l of live) dropLive(l);
       live.length = 0;
       lastAtk.clear(); healAtk.clear(); aimed.clear(); chainLines.clear(); strikes.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear(); packs.clear(); lemMarks.clear();

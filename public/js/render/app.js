@@ -1570,6 +1570,13 @@ export async function createFieldView(host, options = {}) {
     tiles.setBattleRect(rect);
     board3d?.setBattleRect(rect);
     for (const u of Array.isArray(meta.units) ? meta.units : []) addInfo(u);
+    // 2026-10-18: 战场#06's 沙尘暴 (the camera's sand, the 土石结构's marks — fxgame.js setStorm): the meta's storm spans and
+    // the stage's active mounds
+    if (!battleMeta.prep && Array.isArray(meta.storm) && meta.storm.length) {
+      const mounds = (stageRec?.devices || []).filter((d) => d?.role === 'mound' && Array.isArray(d.pos) && (typeof d.active === 'boolean' ? d.active : !d.hidden))
+        .map((d) => ({ r: d.pos[0], c: d.pos[1], z: tiles.grid[d.pos[0]]?.[d.pos[1]]?.h || 0 }));
+      fxGame.setStorm(meta.storm, mounds);
+    }
     return true;
   }
 

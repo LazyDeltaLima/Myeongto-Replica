@@ -308,7 +308,11 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
   uniform bool uHasWeight; uniform sampler2D uWeight; uniform vec4 uWeightST;
   uniform bool uHasAdd; uniform sampler2D uAdd; uniform vec4 uAddST; uniform sampler2D uMask; uniform float uAddFactor;
   uniform bool uUVRot; uniform vec4 uRot[4];
+  uniform int uMulti; uniform sampler2D uDisB; uniform vec4 uDisBST; uniform vec2 uSpeedB; uniform vec4 uTintB;
+  uniform sampler2D uDisC; uniform vec4 uDisCST; uniform vec2 uSpeedC; uniform vec4 uTintC; uniform vec3 uAmountV; uniform vec3 uBorderV;
   varying vec2 vUv; varying vec4 vColor; varying vec4 vC1; varying vec4 vC2;
+  // 2026-10-18 (client DXBC): a dissolve cut — saturate((d − amount + border · (1 − roundEven(amount + .5))) / border)
+  float cut(float d, float amt, float bw) { bw = max(bw, 1e-3); return clamp((d - amt + bw * (1.0 - roundEven(amt + 0.5))) / bw, 0.0, 1.0); }
   // 2026-10-14 (client DXBC, _HG_UV_ROTATION): FxUVRotation turns a texture's tiled uv about its centre, before the scroll
   vec2 rotUV(vec2 t, vec4 r) { vec2 c = t - 0.5; return vec2(r.x * c.x + r.z * c.y, r.y * c.x + r.w * c.y) + 0.5; }
   void main() {
@@ -379,6 +383,20 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
         float bw2 = max(uBorder2, 1e-3);
         col.a *= clamp((d2 - uAmount2 + bw2 * (1.0 - roundEven(uAmount2 + 0.5))) / bw2, 0.0, 1.0);
       }
+      // 2026-10-18 (client DXBC, Optimize/Dissolve AB MultiTex _DISSOLVE_TWO / _THREE): the main colour (2 · texture · vertex)
+      // tinted again by _TintColorB (C), each cut by its own dissolve texture (_DissolveTexB / C, _Amount / _BorderWidth .y / .z,
+      // scrolled by _TexSpeed2 .xy / .zw), layered: lerp(first, B, B's alpha), then + C × C's alpha (all four channels)
+      if (uMulti >= 2) {
+        vec4 base = tex * vColor;
+        vec4 cb = base * uTintB;
+        cb.a = clamp(cb.a * cut(texture2D(uDisB, vUv * uDisBST.xy + uDisBST.zw + uSpeedB * uTime).r, uAmountV.y, uBorderV.y), 0.0, 1.0);
+        col = mix(col, cb, cb.a);
+        if (uMulti >= 3) {
+          vec4 cc = base * uTintC;
+          cc.a = clamp(cc.a * cut(texture2D(uDisC, vUv * uDisCST.xy + uDisCST.zw + uSpeedC * uTime).r, uAmountV.z, uBorderV.z), 0.0, 1.0);
+          col += cc * cc.a;
+        }
+      }
     }
     // local patch: Torappu/Particles/Rim — opaque at the silhouette, clear facing the camera [ASSUMED: alpha × (1 − |N·V|)^power]
     // (client DXBC, 2026-10-07: the rim term scales the colour as well as the alpha)
@@ -431,6 +449,14 @@ function makeMaterial(m, lib) {
   const dissolve = double ? tex('_DissolveTex_01') : tex('_DissolveTex');
   const dissolve2 = double ? tex('_DissolveTex_02') : null;
   const toggles = /Disturb Anchor/.test(shader), useTex = /Dissolve\(CustomData\)/.test(shader); // local patch
+  // 2026-10-18 (client shader + DXBC): Optimize/Dissolve AB MultiTex (战场#06's screen_desert_*) — `_Dissolve` picks the
+  // _DISSOLVE_ONE / _TWO / _THREE variant (its KeywordEnum order [ASSUMED]: the materials carry no keyword); `_Amount` /
+  // `_BorderWidth` are vectors (x, y, z per dissolve texture); `_TexSpeed` scrolls the main uv (.xy) and the first dissolve
+  // (.zw), `_TexSpeed2` the second (.xy) and third (.zw), by 2 · _Time.y (the constant slots by name: the variants'
+  // parameter tables); `_MainTexSpeed` is declared but read by no variant
+  const multi = /Dissolve AB MultiTex/.test(shader) ? Math.min(3, Math.max(1, Math.round(f._Dissolve ?? 0) + 1)) : 0;
+  const vec = (a, i) => (Array.isArray(a) ? +a[i] || 0 : 0);
+  const tintOf = (a) => (Array.isArray(a) ? new THREE.Vector4(a[0] * 2, a[1] * 2, a[2] * 2, a[3] * 2) : new THREE.Vector4(1, 1, 1, 1));
   const mat = new THREE.ShaderMaterial({
     vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthWrite: false, depthTest: false,
     side: THREE.DoubleSide, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
@@ -441,7 +467,7 @@ function makeMaterial(m, lib) {
     blendSrcAlpha: additive ? THREE.ZeroFactor : THREE.OneFactor, blendDstAlpha: additive ? THREE.OneFactor : THREE.OneMinusSrcAlphaFactor,
     uniforms: {
       uMain: { value: tex('_MainTex') || WHITE }, uMainST: { value: st('_MainTex') },
-      uMainSpeed: { value: tween ? new THREE.Vector2(uvTween[0], uvTween[1]) : new THREE.Vector2(sp(f._MainUSpeed), sp(f._MainVSpeed)) },
+      uMainSpeed: { value: multi ? new THREE.Vector2(2 * vec(c._TexSpeed, 0), 2 * vec(c._TexSpeed, 1)) : tween ? new THREE.Vector2(uvTween[0], uvTween[1]) : new THREE.Vector2(sp(f._MainUSpeed), sp(f._MainVSpeed)) },
       uHasAdd: { value: !!add }, uAdd: { value: add || WHITE }, uAddST: { value: st('_AddTex') },
       uMask: { value: tex('_MaskTex') || WHITE }, uAddFactor: { value: f._AddFactor ?? 1 },
       uTint: { value: new THREE.Vector4(tint[0] * tintMul, tint[1] * tintMul, tint[2] * tintMul, tint[3] * tintMul) },
@@ -462,10 +488,17 @@ function makeMaterial(m, lib) {
       uDisturbMain: { value: f._DisturbInfluenceMainUV ?? 1 }, uDisturbDissolve: { value: f._DisturbInfluenceDissolveUV ?? 0 },
       uHasDissolve: { value: !!dissolve && (toggles ? (f._ToggleUseDissolve ?? 1) !== 0 : useTex ? (f._UseDissolveTex ?? 1) !== 0 : true) }, uDissolve: { value: dissolve || WHITE },
       uDissolveST: { value: st(double ? '_DissolveTex_01' : '_DissolveTex') },
-      uDissolveSpeed: { value: disMode === 0 && tween ? new THREE.Vector2(uvTween[2], uvTween[3]) : new THREE.Vector2(sp(f._DissolveUSpeed), sp(f._DissolveVSpeed)) },
+      uDissolveSpeed: { value: multi ? new THREE.Vector2(2 * vec(c._TexSpeed, 2), 2 * vec(c._TexSpeed, 3)) : disMode === 0 && tween ? new THREE.Vector2(uvTween[2], uvTween[3]) : new THREE.Vector2(sp(f._DissolveUSpeed), sp(f._DissolveVSpeed)) },
       // local patch (client DXBC): Dissolve(CustomData)'s amount is _DissolveIntensity (no _Amount), … (VertexColor Major) has none:
       // its vertex alpha is the amount (uVCMajor)
-      uAmount: { value: (double ? f._Amount_01 : useTex ? f._DissolveIntensity : f._Amount) || 0 }, uVCMajor: { value: /VertexColor Major/.test(shader) }, uBorder: { value: (double ? f._BorderWidth_01 : f._BorderWidth) || 0 },
+      uAmount: { value: multi ? vec(c._Amount, 0) : (double ? f._Amount_01 : useTex ? f._DissolveIntensity : f._Amount) || 0 }, uVCMajor: { value: /VertexColor Major/.test(shader) },
+      uBorder: { value: multi ? vec(c._BorderWidth, 0) : (double ? f._BorderWidth_01 : f._BorderWidth) || 0 },
+      uMulti: { value: multi }, uDisB: { value: tex('_DissolveTexB') || WHITE }, uDisBST: { value: st('_DissolveTexB') },
+      uDisC: { value: tex('_DissolveTexC') || WHITE }, uDisCST: { value: st('_DissolveTexC') },
+      uSpeedB: { value: new THREE.Vector2(2 * vec(c._TexSpeed2, 0), 2 * vec(c._TexSpeed2, 1)) }, uSpeedC: { value: new THREE.Vector2(2 * vec(c._TexSpeed2, 2), 2 * vec(c._TexSpeed2, 3)) },
+      uTintB: { value: tintOf(c._TintColorB) }, uTintC: { value: tintOf(c._TintColorC) },
+      uAmountV: { value: new THREE.Vector3(vec(c._Amount, 0), vec(c._Amount, 1), vec(c._Amount, 2)) },
+      uBorderV: { value: new THREE.Vector3(vec(c._BorderWidth, 0), vec(c._BorderWidth, 1), vec(c._BorderWidth, 2)) },
       uHasDissolve2: { value: !!dissolve2 }, uDissolve2: { value: dissolve2 || WHITE }, uDissolve2ST: { value: st('_DissolveTex_02') },
       uAmount2: { value: f._Amount_02 || 0 }, uBorder2: { value: f._BorderWidth_02 || 0 },
       // local patch: vertex colours / Rim — turned on by the geometry's owner (useMeshAttrs); the floor (FxInstance opts.floor)

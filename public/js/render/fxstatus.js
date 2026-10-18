@@ -94,7 +94,7 @@ const ANGEL2_SELF = Object.freeze(['angel2', 'angel2_skill_2_buff_01', 0]);
 const ANGEL2_OTHER = Object.freeze(['angel2', 'angel2_skill_2_buff_02', 0]);
 /**
  * A kit buff → the official buff's effect: by its key; a list of specs when the buff stands for several; a function picks by
- * the holder (`view`) or returns null for none.
+ * the holder (`view`) and its statusSource() (`from`) or returns null for none.
  */
 export const KEY_FX = Object.freeze({
   'papyrs:shield': ['papyrs', 'papyrs_talent_01', 0.5],                   // papyrs_t_1[shield_core]
@@ -128,7 +128,15 @@ export const KEY_FX = Object.freeze({
   // texas2_t_1[recast_effect] and [recast_effect_02]'s derived buff until the recast [추정: S3's texas2_s[no_effect_02] window
   // that hides the second is not modelled]
   'texas2:recast': [['texas2', 'texas2_buff_02_start', OWN], ['texas2', 'texas2_buff_02_start_02', OWN]],
+  // 战场#06's 沙尘暴 on an unsheltered operator (EN template sand_storm[ally], ON_BUFF_TRIGGER): storm[attr_to_ally] — its
+  // SwitchDirection on the storm's direction (the buff's `fx`, devices.js tickStorm) creates map_desert_03_<the side the
+  // wind comes from> (DOWN → _up) at the HIT point — and storm[attr_to_ally_mark] buff_desert_01 over the head
+  'terrain:sandstorm': (v, from) => [['map', `map_desert_03_${STORM_FROM[from?.fx] || 'up'}`, OWN], ['buff', 'buff_desert_01', OWN]],
+  // … and on an enemy: sand_storm[enemy] creates sand_storm[slow_down], which names no effect (not the 'slow' fallback)
+  'terrain:sandstormSlow': () => null,
 });
+/** A storm direction → the suffix of its map_desert_03 operator effect (sand_storm[ally]: RIGHT → _left …). */
+const STORM_FROM = Object.freeze({ DOWN: 'up', UP: 'down', LEFT: 'right', RIGHT: 'left' });
 
 /**
  * A kit buff whose official effect is one prefab per layer left: nearl2_s_2 creates [shield][a..d] while `times` ≥ 1..4;
@@ -225,7 +233,7 @@ export function wantedStatusFx(v, out = WANT) {
       }
       const kf = KEY_FX[k] ?? KEY_FX[k.replace(/:\d+$/, '')];
       if (kf) {
-        const spec = typeof kf === 'function' ? kf(v) : kf;
+        const spec = typeof kf === 'function' ? kf(v, from) : kf;
         if (spec && Array.isArray(spec[0])) for (const s of spec) byName(out, s); else byName(out, spec);
         continue;
       }

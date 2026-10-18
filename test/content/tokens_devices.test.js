@@ -872,6 +872,12 @@ test('沙尘暴 (act1 m06): every 2 s an operator with no 土石结构 upwind ta
   approx(h.enemy('enemy_open').s.moveSpeed, 0.2 * (1 + bb['sand_storm[enemy].move_speed']), 1e-9, 'enemy slow');
   approx(h.enemy('enemy_cover').s.moveSpeed, 0.2, 1e-9, 'enemy under a mound: no slow');
   assert.equal(h.enemy('enemy_open').stats.taken ?? 0, 0, 'enemies take no storm damage');
+  // the client's part: the operator's status names the storm's direction (its effect, render/fxstatus.js) and the field
+  // meta the spans the storm blows over (the camera's sand, the mounds' marks, render/fxgame.js setStorm)
+  const on = h.eventsOf('status').find((e) => e[1] === open.id && e[2] === 'terrain:sandstorm' && e[3] === 1);
+  assert.equal(on?.[5]?.fx, 'DOWN', 'the status carries the direction');
+  assert.ok(!h.eventsOf('status').some((e) => e[1] === cover.id && e[2] === 'terrain:sandstorm'), 'none under a mound');
+  assert.deepEqual(h.b.fieldMeta().storm, [{ c0: 0, c1: 20, dir: 'DOWN' }]);
   checkInvariants(h.b);
   // 模拟战场演变·模式八 (map_m06_1): the storm stops on the card owner's half
   const card = ds.raw.effects?.map_m06_1?.params ?? { 'trap_036_storm#1': 0, 'trap_036_storm#2': 0 };
@@ -879,6 +885,8 @@ test('沙尘暴 (act1 m06): every 2 s an operator with no 土石结构 upwind ta
   const off = mk(players);
   off.run(4.5);
   assert.equal(off.unit('g_open').stats.taken, 0, 'no storm after the card');
+  assert.deepEqual(off.b.fieldMeta().storm, [], 'no span: nothing drawn');
+  assert.equal(makeBattle({ autoFinish: false }).b.fieldMeta().storm, undefined, 'a stage without a storm: no key');
   approx(off.unit('g_open').s.atk, 1000, 1e-9);
   approx(off.enemy('enemy_open').s.moveSpeed, 0.2, 1e-9);
 });
