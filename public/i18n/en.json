@@ -1620,7 +1620,7 @@
   "官方：没有": "official: none",
   "上半战场": "1st-half battlefields",
   "收录上半战场": "Include 1st-half battlefields",
-  "{names} 加入战场池（与战场#01 同权重）· 战场#05、#07 的机制尚未实现": "{names} joins the pool (weighted like Battlefield #01) · #05 and #07 have no mechanics yet",
+  "{names} 加入战场池（与战场#01 同权重）": "{names} joins the pool (weighted like Battlefield #01)",
   "战场池": "Battlefield pool",
   "使用 {n} / {total} — 点击图片禁用 · 至少保留 1 张": "{n} / {total} in use: tap a picture to ban it · keep at least one",
   "固定秒数": "Fixed seconds",

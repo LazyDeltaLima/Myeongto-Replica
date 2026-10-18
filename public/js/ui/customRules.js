@@ -441,7 +441,7 @@ function StagesPane({ work, set, setWork, readonly, mode }) {
       <//>
     <//>
     <${Sec} title=${t('上半战场')}>
-      <${Row} label=${t('收录上半战场')} note=${t('{names} 加入战场池（与战场#01 同权重）· 战场#05、#07 的机制尚未实现', { names: firstNames })} official=${t('官方：关闭')}>
+      <${Row} label=${t('收录上半战场')} note=${t('{names} 加入战场池（与战场#01 同权重）', { names: firstNames })} official=${t('官方：关闭')}>
         <${Switch} on=${work.stages.firstHalf} disabled=${readonly} testid="custom-stage-first-half" onChange=${setFirstHalf} />
       <//>
     <//>
