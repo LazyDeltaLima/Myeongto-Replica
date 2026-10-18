@@ -217,6 +217,14 @@ export function liveOverCap(list, now, capShort, capLasting) {
 /** Forward vector [dRow, dCol] of a deploy direction (server/sim/dir.js DIR_VEC; RIGHT for anything else). */
 const DIR_FWD = Object.freeze({ UP: [1, 0], RIGHT: [0, 1], DOWN: [-1, 0], LEFT: [0, -1] });
 
+/**
+ * The turn of the 土石结构's SpecialPoint0 (prefab trap_032_mound/Graphic/Mesh/SpecialPoint0, local rotation; Graphic and Mesh
+ * do not turn, `_enableRotate` 0) — its sand marks are created at that point WITH its turn, not its 0.01 scale (maintainer
+ * report 2026-10-18: drawn without it, map_desert_02_down blew right to left; the four directional copies differ only in their
+ * static_offset turn, which lines up with the wind — down / up along the rows, left / right along the columns — only under
+ * this one).
+ */
+export const MOUND_SP0_TURN = Object.freeze([-0.5, -0.5, 0.5, 0.5]);
 /** tan of half the client battle camera's vertical field of view (projection.js OFFICIAL.fovY 40°) — a camera effect's frame. */
 const TAN_CLIENT_HALF_FOV = Math.tan((OFFICIAL.fovY * Math.PI) / 360);
 /** 战场#06's 沙尘暴: its direction → the camera effect (EN template sand_storm[camera_effect]: DOWN → up_to_down …). */
@@ -3287,17 +3295,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const gen = stormGen;
       if (!Array.isArray(storm) || !storm.length || q() === 'low' || failed || !(await ensure()) || gen !== stormGen) return;
       const dir = storm[0].dir;
-      const play = async (bundle, name, at, extra) => {
+      const play = async (bundle, name, at, extra, turn = null) => {
         if (!index?.bundles?.[bundle]?.includes(name)) return;
         const def = await lib.load(bundle, name);
         if (!mod || !def || gen !== stormGen) return;
         const inst = new mod.fxp.FxInstance(def, { quality: q() });
         inst.object.position.set(at.x, at.y, at.z || 0);
+        if (turn) inst.nodes[0]?.quaternion.set(turn[0], turn[1], turn[2], turn[3]);   // the point's turn (Unity frame)
         addLive(inst, { view: extra?.camera ? null : at, owner: null, buff: true, keep: true, pinned: true, tag: 'storm', ...extra }, layers.over);   // pinned: never ended by the caps
       };
       const jobs = [];
       if (STORM_SCREEN[dir]) jobs.push(play('screen', STORM_SCREEN[dir], { x: 0, y: 0, z: 0 }, { camera: true }));
-      for (const m of stormMarks(storm, mounds)) jobs.push(play('map', m.name, { x: m.c, y: m.r, z: m.z }));
+      for (const m of stormMarks(storm, mounds)) jobs.push(play('map', m.name, { x: m.c, y: m.r, z: m.z }, null, MOUND_SP0_TURN));
       await Promise.all(jobs);
     },
     /**

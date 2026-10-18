@@ -748,8 +748,10 @@
     `storm[attr_to_ally_mark]` → `buff_desert_01`(머리 위 아이콘). 가려지는 트리거에 둘 다 끝남. → `fxstatus.js KEY_FX['terrain:sandstorm']`, 방향은 sim 버프의
     `fxTag`(상태 이벤트 `fx`).
   - 적: `sand_storm[enemy]`가 만드는 `sand_storm[slow_down]`은 이펙트 이름이 없다 → `terrain:sandstormSlow`는 아무것도 안 그림(전에는 이름의 `slow`로 `buff_slowdown`이 나왔음).
-  - 土石结构: 바람 쪽에 다른 구조물이 없는 것(sim 가림 규칙과 같음)에 `storm_ally_mark` → `map_desert_02_<방향>`(SpecialPoint0 = 칸 가운데 바닥, 구조물 위를 덮는 모래).
-    강화 상태는 피해만 막고 표시는 막지 않는다(템플릿의 피해 분기와 표시 분기가 따로). → `fxgame.js stormMarks`.
+  - 土石结构: 바람 쪽에 다른 구조물이 없는 것(sim 가림 규칙과 같음)에 `storm_ally_mark` → `map_desert_02_<방향>`(구조물 위를 넘어 바람 반대쪽 면으로 흘러내리는 모래).
+    강화 상태는 피해만 막고 표시는 막지 않는다(템플릿의 피해 분기와 표시 분기가 따로). → `fxgame.js stormMarks`. 붙는 자리 SpecialPoint0(칸 가운데 바닥)의 **회전**
+    (−0.5, −0.5, 0.5, 0.5)을 이펙트 루트에 준다(`MOUND_SP0_TURN`, 배율 0.01은 안 받음) — 네 방향 사본은 `static_offset` 회전만 다르고, 이 회전 아래서만 down·up이 행,
+    left·right가 열 방향으로 흐른다(관리자 제보 2026-10-18: 회전 없이 위치만 쓰니 `_down`이 오른쪽→왼쪽으로 흘렀음).
   - 화면: 폭풍 장치의 `sand_storm[camera_effect]` → `screen_desert_up_to_down_empty`(`_effects` 감싸개) 안의 `screen_desert_up_to_down`(`_spawnLocation` 12 CAMERA,
     루프): 카메라 앞 1.32에 22° 기운 모래 판(`Plane001` × 8.56, 셰이더 Optimize/Dissolve AB MultiTex) + 화면 위쪽에서 내려오는 먼지 입자. → `fxgame.js setStorm`이
     카메라 자세를 매 프레임 복사(Unity 카메라 +z ↔ three −z는 이펙트 Unity 그룹의 z 거울이 맞춤), 카메라 효과가 있으면 near 0.3.
@@ -770,7 +772,8 @@
   `map_desert_01_line`·방향 없는 `map_desert_02`/`_03`(템플릿이 안 씀), `screen_sandstorm_01/02`(m06 아님).
 - 추출: `fx_extract.py --bundle map --match '^map_desert_0[23]'` · `--bundle buff --match '^buff_desert_01$'` · `--bundle screen --match '^screen_desert_[a-z]+_to_[a-z]+$'` ·
   `--bundle s --match '^S_desert_wall'`(EN 클라) → `scene_extract.py --devices` → `node tools/build-browser-resources.mjs`(서비스 워커 목록).
-- 확인: `test/render/sandstorm-fx.test.js`(구조물 표시 선정·방향별 이름·MultiTex 유니폼·장치 모델), `status-buff-fx.test.js`(오퍼레이터 둘·적 없음),
+- 커스텀 설정 창·브리핑의 전장 #06 미리보기(`stage/preview`, git 밖)는 구조물 모델이 바뀐 뒤 `node tools/map-previews.mjs --only act1autochess_m06`으로 다시 찍음.
+- 확인: `test/render/sandstorm-fx.test.js`(구조물 표시 선정·SP0 회전 아래 네 사본의 흐름 방향·방향별 이름·MultiTex 유니폼·장치 모델), `status-buff-fx.test.js`(오퍼레이터 둘·적 없음),
   `test/content/tokens_devices.test.js` 「沙尘暴」(상태 `fx`·`fieldMeta().storm`·카드로 꺼짐), `test/match/custom-first-half.test.js`(실제 판 경로·보스 필드 두 절반).
   화면: Windows Chrome 커스텀 단독 m06 판(3D·2D 보드) — 바람 맞는 구조물 위 모래, 오퍼레이터 머리 위 아이콘, 위쪽에 구조물이 있는 칸은 없음, 적 감속 이펙트 없음.
   [화면 미확인] 화면 모래 판의 진하기·먼지 위치, 오퍼레이터 몸 모래 소용돌이 크기 — 공식 녹화와 대조 전.

@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { stormMarks, STORM_SCREEN } from '../../public/js/render/fxgame.js';
+import { stormMarks, STORM_SCREEN, MOUND_SP0_TURN } from '../../public/js/render/fxgame.js';
 import { OFFICIAL_DEVICE } from '../../public/js/render/board3d/official.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -15,6 +15,7 @@ const STAGES = JSON.parse(readFileSync(path.join(ROOT, 'data/stages.json'), 'utf
 const M06 = 'act1autochess_m06';
 const SCREEN = path.join(ROOT, 'public/assets/local/fx/screen/screen_desert_up_to_down.json');
 const DEVICES = path.join(ROOT, 'public/assets/local/scene/devices/scene.json');
+const MAPFX = path.join(ROOT, 'public/assets/local/fx/map');
 
 const mounds = () => (STAGES.stages ?? STAGES)[M06].devices.filter((d) => d.role === 'mound').map((d) => ({ r: d.pos[0], c: d.pos[1], z: 0 }));
 
@@ -81,4 +82,23 @@ test('the mound\'s device model (skipped without the extracted scenes): the wall
   const [lo, hi] = doc.devices.trap_032_mound.bounds;
   assert.ok(hi[2] > 0.8 && hi[2] < 1 && lo[2] > -0.05, 'about 0.9 tile high, on the ground');
   assert.ok(Math.abs(lo[0] + hi[0]) < 0.05 && Math.abs(lo[1] + hi[1]) < 0.05, 'centred on its tile');
+});
+
+const qmul = (a, b) => [a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1], a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0],
+  a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3], a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2]];
+const qrot = (q, v) => qmul(qmul(q, [...v, 0]), [-q[0], -q[1], -q[2], q[3]]).slice(0, 3).map((c) => Math.round(c * 1000) / 1000 + 0);
+
+test('the mound marks take SpecialPoint0\'s turn (skipped without public/assets): the copies\' sand runs with the wind — down / up along the rows, left / right along the columns', { skip: !existsSync(path.join(MAPFX, 'map_desert_02_down.json')) && 'no extracted fx' }, () => {
+  const src = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
+  assert.match(src, /play\('map', m\.name, \{ x: m\.c, y: m\.r, z: m\.z \}, null, MOUND_SP0_TURN\)/);
+  assert.deepEqual([...MOUND_SP0_TURN], [-0.5, -0.5, 0.5, 0.5]);
+  // the sand's run in the copies' shared `fixed` frame is its x axis (shazi_di drifts along it); the battle frame: x = column, y = row
+  const run = (dir) => {
+    const d = JSON.parse(readFileSync(path.join(MAPFX, `map_desert_02_${dir}.json`), 'utf8'));
+    return qrot(qmul(MOUND_SP0_TURN, d.nodes.find((n) => n.name === 'static_offset').rot), [1, 0, 0]);
+  };
+  assert.deepEqual(run('down'), [0, -1, 0], 'DOWN: toward the lower rows (down the screen)');
+  assert.deepEqual(run('up'), [0, 1, 0]);
+  assert.deepEqual(run('left'), [-1, 0, 0]);
+  assert.deepEqual(run('right'), [1, 0, 0]);
 });
