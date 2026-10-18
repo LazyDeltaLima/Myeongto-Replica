@@ -492,7 +492,8 @@ export class BoardScene {
     this.staticCrates = [];
     // local patch (LOCAL-PATCH.md 「공식 스테이지 3D 씬」): with the official scene the procedural board mesh (where the
     // 射击台 and 特制水上平台 slabs lived) is not drawn; the client's own device models stand on their tiles instead
-    // (特制水上平台: upstream 205f3bb7 found 战场#05's water platforms missing; 封印的地面 has no client model)
+    // (特制水上平台: upstream 205f3bb7 found 战场#05's water platforms missing; 封印的地面 has no client model; 土石结构:
+    // the wall's pieces + its strengthened mesh effect, scene_extract.py DEVICE_EFFECT_MESHES)
     const OD = this._officialDevices;
     // (setStage can re-enter through onOfficial → the app's setStage: drop what an inner build placed)
     for (const g of this._officialStatic || []) this.root.remove(g);
@@ -500,7 +501,7 @@ export class BoardScene {
     if (OD) {
       const seen = new Set();  // board.devices may list a tile twice (a device of two overlapping areas)
       for (const d of board.devices) {
-        const key = d.kind === 'platform' || d.kind === 'waterPlatform' ? OFFICIAL_DEVICE[d.kind] : null;
+        const key = d.kind === 'platform' || d.kind === 'waterPlatform' || d.kind === 'mound' ? OFFICIAL_DEVICE[d.kind] : null;
         if (!key || !OD.has(key) || seen.has(`${d.r},${d.c}`)) continue;
         seen.add(`${d.r},${d.c}`);
         const g = OD.mesh(key);
@@ -514,7 +515,7 @@ export class BoardScene {
       else if (d.kind === 'blower' && wind && this.mat.wind) blowers.push(placeMesh(wind, { x: d.c, y: d.r, z: d.z0 + 0.078, rot: DIR_TURNS[d.dir] ?? 0 }));
       else if (d.kind === 'platform' || d.kind === 'waterPlatform') { /* procedural: in the board mesh (layout.js slabDevice); official: above */ }
       else if (d.kind === 'blower' || d.kind === 'turret') crates.push(placeMesh(boxWithTop(this.pack?.uv, d.kind), { x: d.c, y: d.r, z: d.z0 }));
-      else if (d.kind === 'mound') crates.push(placeMesh(this.crateGeometry(), { x: d.c, y: d.r, z: d.z0, s: 0.95, sz: 0.55 }));
+      else if (d.kind === 'mound' && !OD?.has(OFFICIAL_DEVICE.mound)) crates.push(placeMesh(this.crateGeometry(), { x: d.c, y: d.r, z: d.z0, s: 0.95, sz: 0.55 }));
       else if (d.kind === 'bush') crates.push(placeMesh(bushData(), { x: d.c, y: d.r, z: d.z0 }));
     }
     if (blowers.length) this.meshes.blowers = this._mesh(mergeInto(blowers), this.mat.wind, { receive: false });

@@ -615,8 +615,17 @@ def export_stage(roots, index, stage, out_root, manifest, written):
 # 阻隔工事, 射击台, 特制水上平台 (战场#05's water platforms: Graphic/boat + a shadow quad, in btl_pfb_tokens_0.ab). 封印的地面
 # (trap_1107_acblock, 战场#06) is not listed: its prefab has no renderer at all (Graphic is empty; it only sets the tile's
 # buildable / passable options and destroys itself), so the client draws nothing for it on the scene either.
-DEVICE_KEYS = ('trap_1105_accrate', 'trap_1106_achplat', 'trap_040_canoe')
+# 土石结构 (trap_032_mound, 战场#06): Graphic/Mesh/S_desert_wall/S_desert_wall_01 holds the wall's nine pieces (Unlit/Texture;
+# the legacy Animation `Wall06` breaks them apart on Die, which the m06 mounds never reach).
+DEVICE_KEYS = ('trap_1105_accrate', 'trap_1106_achplat', 'trap_040_canoe', 'trap_032_mound')
 DEVICE_PACKS = 'pkgrps/btl_pfb_tokens_*.ab'
+# Effect meshes a device always wears, extracted into its model: (effect bundle, prefab, the device's point it is created
+# at). The m06 mounds start strengthened (level file `mainSkillLvl` 2: 风沙掩体 SP 10/10), and sktok_mound's permanent buff
+# mound_s_1[mesh_effect] creates S_desert_wall_02_start_Mesh at SpecialPoint0 (_spawnLocation 8). The effect takes the
+# point's position only (its root's own position is dropped, as render/fxgame.js places every effect), not its turn or
+# its 0.01 scale. The bundle's dependencies come from the effect extractor's CAB index (.cache/fx-cab-index.json).
+DEVICE_EFFECT_MESHES = {'trap_032_mound': (('battle/prefabs/effects/s.ab', 'S_desert_wall_02_start_Mesh', 'SpecialPoint0'),)}
+FX_CAB_INDEX = ROOT / '.cache' / 'fx-cab-index.json'
 
 
 def _load_with_deps(index, first):
@@ -642,10 +651,48 @@ def _load_with_deps(index, first):
     return env, loaded
 
 
+def _effect_nodes(roots, index, bundle, prefab, local):
+    """[(GameObject, matrix)] of an effect prefab's active nodes, the root at the origin with its own turn and scale."""
+    path = next((roots[k] / bundle for k in ('pd', 'sa') if (roots[k] / bundle).is_file()), None)
+    if path is None:
+        return None
+    env, _ = _load_with_deps(index, path)
+    tf, go = {}, {}
+    for f in env.files.values():
+        for sf in getattr(f, 'files', {}).values():
+            for pid, o in (getattr(sf, 'objects', None) or {}).items():
+                if o.type.name == 'Transform':
+                    tf[pid] = o.read()
+                elif o.type.name == 'GameObject':
+                    go[pid] = o.read()
+    root = next((pid for pid, t in tf.items() if go.get(t.m_GameObject.m_PathID) and go[t.m_GameObject.m_PathID].m_Name == prefab
+                 and not (t.m_Father and t.m_Father.m_PathID)), None)
+    if root is None:
+        return None
+    r = tf[root]
+    stack = [(root, trs([0, 0, 0], [r.m_LocalRotation.x, r.m_LocalRotation.y, r.m_LocalRotation.z, r.m_LocalRotation.w],
+                        [r.m_LocalScale.x, r.m_LocalScale.y, r.m_LocalScale.z]))]
+    out = []
+    while stack:
+        pid, m = stack.pop()
+        t = tf[pid]
+        g = go.get(t.m_GameObject.m_PathID)
+        if not g or not g.m_IsActive:
+            continue
+        out.append((g, m))
+        stack += [(c.m_PathID, mul(m, local(tf[c.m_PathID]))) for c in t.m_Children if c.m_PathID in tf]
+    return out
+
+
 def export_devices(roots, index, out_root, manifest, written, keys=DEVICE_KEYS):
     """scene/devices/scene.json + geom.bin (the scene format, version 2): one group per (device, material), positions
     in board space relative to the device's tile centre on the ground (z = up), lightmap −1."""
     from UnityPy.helpers.MeshHelper import MeshHandler
+    # the effect extractor's CAB index too: the effect bundles and the built-in shaders (Unlit/Texture of the mound) are
+    # not in the scene index
+    if FX_CAB_INDEX.exists():
+        game = roots['pd'].parent.parent
+        index = {**{k: str(game / v) for k, v in json.loads(FX_CAB_INDEX.read_text(encoding='utf-8')).items()}, **index}
     out = out_root / 'scene' / 'devices'
     out.mkdir(parents=True, exist_ok=True)
     out_tex = out_root / 'scene' / 'tex'
@@ -713,6 +760,14 @@ def export_devices(roots, index, out_root, manifest, written, keys=DEVICE_KEYS):
             m = mul(parent, local(t))
             nodes.append((g, m))
             stack += [(c.m_PathID, m) for c in t.m_Children if c.m_PathID in tf]
+        for bundle, prefab, point in DEVICE_EFFECT_MESHES.get(key, ()):
+            at = next((m for g, m in nodes if g.m_Name == point), None)
+            fx_nodes = _effect_nodes(roots, index, bundle, prefab, local) if at is not None else None
+            if not fx_nodes:
+                log(f'  device {key}: effect {prefab} at {point} not found')
+                continue
+            place = trs([at[0][3], at[1][3], at[2][3]], [0, 0, 0, 1], [1, 1, 1])
+            nodes += [(g, mul(place, m)) for g, m in fx_nodes]
         grp_keys = []
         for g, m in nodes:
             r = component(g, 'MeshRenderer')
@@ -978,7 +1033,7 @@ def main():
     ap.add_argument('--reflections', action='store_true',
                     help='only add the reflection probe (scene.json reflection) to the scenes already under --out (needs the client)')
     ap.add_argument('--devices', action='store_true',
-                    help='only export the device models (scene/devices: 阻隔工事, 射击台, 特制水上平台) and their textures (needs the client)')
+                    help='only export the device models (scene/devices: 阻隔工事, 射击台, 特制水上平台, 土石结构) and their textures (needs the client)')
     ap.add_argument('--requantize', action='store_true',
                     help='only rewrite the version-1 geometry already under --out in the quantized version 2 (no client)')
     args = ap.parse_args()

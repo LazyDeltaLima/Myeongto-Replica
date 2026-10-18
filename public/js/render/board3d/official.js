@@ -52,7 +52,7 @@ export const DEVICES_ID = 'devices';
 /** Stage device roles drawn with an official model (scene/devices keys). */
 // (特制水上平台 — 战场#05's water platforms — upstream 205f3bb7 found them missing on the official scene; 封印的地面
 // trap_1107_acblock has no model in the client: nothing to draw)
-export const OFFICIAL_DEVICE = Object.freeze({ crate: 'trap_1105_accrate', platform: 'trap_1106_achplat', waterPlatform: 'trap_040_canoe' });
+export const OFFICIAL_DEVICE = Object.freeze({ crate: 'trap_1105_accrate', platform: 'trap_1106_achplat', waterPlatform: 'trap_040_canoe', mound: 'trap_032_mound' });
 
 /** Is an official scene listed for `stageId`? (manifest only) */
 export function officialSceneListed(assets, stageId) {
@@ -447,7 +447,9 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
       const mainTex = tex(X._MainTex?.file);
       const st = X._MainTex ? [...X._MainTex.scale, ...X._MainTex.offset] : [1, 1, 0, 0];
       const particle = /Particles|Unlit|DynamicWaterTile/.test(shader);
-      const blend = !/Scene\/Trap/.test(shader) && (kw.has('_ALPHABLEND_ON') || particle || (F._Mode ?? 0) >= 2);
+      // Unity's built-in Unlit/Texture (the 土石结构 and 特制水上平台 device models): the texture as is, opaque, culled
+      const unlitTex = shader === 'Unlit/Texture';
+      const blend = !/Scene\/Trap/.test(shader) && !unlitTex && (kw.has('_ALPHABLEND_ON') || particle || (F._Mode ?? 0) >= 2);
       const defines = {};
       if (kw.has('_ALPHATEST_ON')) defines.ALPHATEST = 1;
       if (kw.has('_HG_VERTEX_COLOR_BLEND_ON')) defines.VERTEX_BLEND = 1;
@@ -468,7 +470,7 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
       const col = raw(T, color);
       mat = new T.ShaderMaterial({
         vertexShader: VERT, fragmentShader: FRAG, defines,
-        transparent: blend, depthWrite: !blend, side: particle ? T.DoubleSide : T.FrontSide,
+        transparent: blend, depthWrite: !blend, side: particle && !unlitTex ? T.DoubleSide : T.FrontSide,
         uniforms: {
           // (q · s0 + o0) · st.xy + st.zw
           uMainST: { value: new T.Vector4(q0[0] * st[0], q0[1] * st[1], q0[2] * st[0] + st[2], q0[3] * st[1] + st[3]) },

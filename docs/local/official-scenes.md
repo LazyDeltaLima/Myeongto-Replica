@@ -68,9 +68,11 @@ board's atlas, the first-season look): act1 m01–m07, act2 m02 and m04 use `map
   them, shaded like Torappu/Scene/Trap/Shadow (`albedo × (_Ambient + _Diffuse · N·L · main light)`, no lightmap —
   [ASSUMED] from the material's properties). BoardScene places a 射击台 on each active platform tile and the 阻隔工事
   model for the static and battle crates (`createDevice` switches once the scene is built); the app sets
-  `stage.platformHeight` (style.js `tileTop('platform')`), so units on a 射击台 stand on its plate. The 土石结构 mound
-  (act1 m06 `trap_032_mound`) keeps the procedural crate (its standing height is not settled) and so does the “双眼皮”
-  turret (no prefab root in the token packs).
+  `stage.platformHeight` (style.js `tileTop('platform')`), so units on a 射击台 stand on its plate. The “双眼皮”
+  turret keeps the procedural crate (no prefab root in the token packs). The 土石结构 mound (act1 m06 `trap_032_mound`,
+  2026-10-18) is the fourth model: the wall's nine Unlit/Texture pieces plus the strengthened mesh effect its m06 level
+  starts with (`S_desert_wall_02_start_Mesh` at SpecialPoint0, scene_extract.py `DEVICE_EFFECT_MESHES`), 0.91 high; nobody
+  stands on it (an obstacle), so it adds no standing height.
   特制水上平台 (`trap_040_canoe`, 战场#05's 64 water platforms; upstream 205f3bb7 found them missing on the scene) is the
   third model (boat + an alpha-blended shadow quad, deck 0.133 under its 0.153 rim, hull to −0.079 under the water line;
   pkgrps/btl_pfb_tokens_0.ab): one on each active water platform tile, units stand on the deck (`stage.waterPlatformHeight`
