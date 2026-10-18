@@ -40,13 +40,14 @@ export class PlayerEconomy {
 
   /**
    * Bond layer gain (prep-side). `requireActive` = "使已激活的【X】层数+N". Returns layers added: at most the room left
-   * under BOND_LAYER_CAP (999, shared/constants.js) — a gain at the cap adds 0 and dispatches nothing.
+   * under the match's cap (GameData.layerCap: BOND_LAYER_CAP 999, shared/constants.js; none under the custom setting) — a
+   * gain at the cap adds 0 and dispatches nothing.
    */
   addLayers(bondId, n, { requireActive = false, reason = '' } = {}) {
     if (!this.gd.bond(bondId) || !Number.isFinite(n) || n <= 0) return 0;
     if (requireActive && !(this.bonds[bondId] && this.bonds[bondId].active)) return 0;
     const before = this.layers[bondId] || 0;
-    const add = layerGainRoom(before, Math.floor(n));
+    const add = layerGainRoom(before, Math.floor(n), this.gd.layerCap);
     if (add <= 0) return 0;
     this.layers[bondId] = before + add;
     this.recompute();

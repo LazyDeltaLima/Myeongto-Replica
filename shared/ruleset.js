@@ -17,9 +17,9 @@
 //   match  the server's match flow (server/match/match/phases.js infoReroll, views.js bossRoutePreview)
 //   sim    a battle spec flag (simRuleFlags → spec.flags, read by server/sim; set only when it differs from the official
 //          value, so a classic battle's spec stays what it was)
-// The match flow reads the custom settings through its GameData (server/match/gamedata.js: the round plan, the bans, the
-// prep, the 目标生命值 rules); the battle settings (enemy stats, 限伤 value, the layer cap) are not read yet — a later
-// step. docs/rules/ui.md 「규칙 모드」 has the rules and their evidence.
+// The match reads the custom settings through its GameData (server/match/gamedata.js: the round plan, the bans, the
+// prep, the 目标生命值 rules, the layer cap, the enemy and leader stats) and its battles through simRuleFlags (限伤, the
+// layer cap). docs/rules/ui.md 「규칙 모드」 has the rules and their evidence.
 
 import { N_ } from './i18n.js';
 import { BOSS_HIT_LIMIT } from './constants.js';
@@ -394,17 +394,29 @@ export function rulesetWire(rs) {
 export const rulesetKey = (rs) => resolveRuleset(rs).preset;
 
 /**
- * The battle spec flags of a ruleset's `sim` options: only those that differ from the official value, so a classic
- * battle's spec (and its golden digest) is unchanged.
+ * The battle spec flags of a ruleset: its `sim` options and a custom ruleset's battle settings, only those that differ
+ * from the official value, so a classic battle's spec (and its golden digest) is unchanged. The match puts them on every
+ * battle it builds (normal, 联防, boss, the stats preview):
+ *   bossHitClamp  true: a leader's hit over the 限伤 lands as the limit (休闲, custom 按上限计算)
+ *   bossHitLimit  the custom 限伤 value, 0 = none (custom 不限制) — shared/constants.js bossHitLimitOf
+ *   noLayerCap    true: no per-bond layer cap (custom 解除盟约层数上限) — shared/constants.js layerCapOf
+ * (the enemy stat settings reach the battles as spawn mods and `flags.enemyScale`: server/match/gamedata.js enemyScale
+ * / leaderScale).
  * @param {unknown} rs
- * @returns {Record<string, true>}
+ * @returns {{ bossHitClamp?: true, bossHitLimit?: number, noLayerCap?: true }}
  */
 export function simRuleFlags(rs) {
-  const { options } = resolveRuleset(rs);
-  /** @type {Record<string, true>} */
+  const r = resolveRuleset(rs);
+  /** @type {Record<string, any>} */
   const flags = {};
   for (const [k, o] of Object.entries(RULE_OPTIONS)) {
-    if (o.scope === 'sim' && o.flag && options[k] !== o.official) flags[o.flag] = true;
+    if (o.scope === 'sim' && o.flag && r.options[k] !== o.official) flags[o.flag] = true;
+  }
+  const c = r.custom;
+  if (c) {
+    if (c.bosses.hitMode === 'none') flags.bossHitLimit = 0;
+    else if (c.bosses.hitLimit !== BOSS_HIT_LIMIT) flags.bossHitLimit = c.bosses.hitLimit;
+    if (c.bonds.noLayerCap) flags.noLayerCap = true;
   }
   return flags;
 }

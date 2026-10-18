@@ -69,9 +69,10 @@ export function collectViolations(m, { limit = 25 } = {}) {
     if (!(ps.shop.level >= 1 && ps.shop.level <= gd.maxShopLevel)) fail(`${id}: shop level ${ps.shop.level}`);
     if (!(ps.shop.upgradePrice >= 0)) fail(`${id}: upgradePrice ${ps.shop.upgradePrice}`);
     if (!Number.isInteger(ps.shop.freeRefreshes) || ps.shop.freeRefreshes < 0) fail(`${id}: freeRefreshes ${ps.shop.freeRefreshes}`);
-    // the official per-bond layer cap (shared/constants.js): no writer may pass it
+    // the per-bond layer cap (shared/constants.js; GameData.layerCap: none under the custom setting): no writer may pass it
+    const cap = gd.layerCap ?? BOND_LAYER_CAP;
     for (const [b, v] of Object.entries(ps.layers || {})) {
-      if (!(Number.isFinite(v) && v >= 0 && (!(BOND_LAYER_CAP > 0) || v <= BOND_LAYER_CAP))) fail(`${id}: ${b} layers ${v}`);
+      if (!(Number.isFinite(v) && v >= 0 && (!(cap > 0) || v <= cap))) fail(`${id}: ${b} layers ${v}`);
     }
 
     if (!ps.alive) {

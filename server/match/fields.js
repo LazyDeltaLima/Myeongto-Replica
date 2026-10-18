@@ -32,7 +32,7 @@
 //                                          offspring bound) — the live counter's clamp
 //   syntheticResult(players, progress)     stand-in when a boss field's client never reported
 import { TICK, SNAPSHOT_EVERY } from '../sim/constants.js';
-import { layerGainRoom } from '../../shared/constants.js';
+import { layerGainRoom, layerCapOf } from '../../shared/constants.js';
 import { uniteLeft, prebuiltSeconds } from '../sim/spec.js';
 import { diyTokenOwner, diyRecordOf } from '../../shared/diy.js';
 
@@ -597,7 +597,7 @@ function layerBondsOf(p, gd) {
  * units), up to the per-battle cap the sim applies (content/garrisons/battle.js: `max_add_count_per_battle` — a handed-out
  * trait's too, 华法琳's 7 / 14, GitHub #175). A trait the data gives no cap (初雪 / 银灰's freeze trait, 菲莱 / 百炼嘉维尔's per-skill
  * 萨尔贡, 斯卡蒂's per-kill …) — or a 魔王, whose +extra on every trait gain counts toward no cap — leaves its bonds bounded
- * only by the room under 999 (Infinity here): such boards legitimately gain hundreds of layers a battle.
+ * only by the room under the layer cap (Infinity here): such boards legitimately gain hundreds of layers a battle.
  * @returns {Map<string, number>} bondId → extra allowance (Infinity: uncapped)
  */
 function layerAllowanceOf(p, gd) {
@@ -701,7 +701,7 @@ export function specBounds(spec, gd = null) {
         if (gd && u.diy) for (const t of diySummonsOf(gd, defId, u.diy)) defIds.add(t);
       }
     }
-    // the layers each bond starts the battle with (PlayerBattleInput.bonds): a gain never passes BOND_LAYER_CAP
+    // the layers each bond starts the battle with (PlayerBattleInput.bonds): a gain never passes the battle's cap
     const startLayers = new Map();
     for (const [id, b] of Object.entries(p.bonds && typeof p.bonds === 'object' ? p.bonds : {})) {
       const v = Number(b && b.layers);
@@ -757,7 +757,8 @@ const sameMods = (a, b) => {
  * content spawns); 联防: leaks + never-spawned re-entries per (enemy, leaker) ≤ what that leaker sent in, and a split /
  * summon only on a leaker who sent in its parent, ≤ the parents' data offspring count (offspringPerParent); per-bond layer
  * gains ≤ 60 + 4·round + what the player's layer 特质 can add to that bond (layerAllowanceOf: their per-battle caps, no
- * flat bound when one is uncapped) and ≤ the room left under BOND_LAYER_CAP (999) from the bond's starting layers, only
+ * flat bound when one is uncapped) and ≤ the room left under the spec's layer cap (layerCapOf: 999, none under a custom
+ * 规则 match's `noLayerCap`) from the bond's starting layers, only
  * on bonds the player's lineup / band / effects / items name, none when the spec disables gains; coins ≤ the spawns' bounty coins;
  * perfect consistent with the counted leaks; unit states only for the player's own units, within range. `resolved` (the
  * HUD capsule's numerator): the result's own — the FIELD's, what the client's capsule showed — is kept as reported,
@@ -852,8 +853,8 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
       const layerGains = {};
       for (const [bondId, n] of Object.entries(p.layerGains || {})) {
         // ≤ 60 + 4·round + what the player's layer 特质 can add to the bond (layerAllowanceOf; uncapped ones: no flat
-        // bound), and never past BOND_LAYER_CAP from the layers the bond started with (Battle.addLayers clamps)
-        const bound = Math.min(B.layerCap + (own.layerAllow.get(bondId) || 0), layerGainRoom(own.startLayers.get(bondId) || 0, Infinity));
+        // bound), and never past the spec's cap from the layers the bond started with (Battle.addLayers clamps)
+        const bound = Math.min(B.layerCap + (own.layerAllow.get(bondId) || 0), layerGainRoom(own.startLayers.get(bondId) || 0, Infinity, layerCapOf(spec.flags)));
         if (!finiteIn(n, 0, bound)) return bad('layer bound');
         if (n > 0 && spec.flags && spec.flags.layerGainsEnabled === false) return bad('layers disabled');
         if (gd && typeof gd.bond === 'function' && !gd.bond(bondId)) return bad('bond');

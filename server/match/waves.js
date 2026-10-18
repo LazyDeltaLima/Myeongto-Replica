@@ -29,7 +29,8 @@
 //   * leader / hidden rounds use the pick of their own slot (14, 15; solo 标准 9), so only E or EF escorts spawn
 //   * stat scaling: mods = config.modes[m].enemyScale[r] (the PRTS table = the ENEMY effects 攻坚装备 / 补给线 / 急行军,
 //     which hit every enemy but 炎佑 — no other multiplier), also for bounty enemies and leader parts; the leader takes
-//     the ATK / speed multipliers but never HP (its HP is the shared server pool)
+//     the ATK / speed multipliers but never HP (its HP is the shared server pool); a custom 规则 match shapes both with
+//     its curve and percents (GameData.enemyScale / leaderScale: the leader its own 敌方领袖 ones, plus DEF / RES)
 //   * every SpawnSpec = one action ({ time, enemyKey, routeIndex, count, interval, mods, actionIndex, preview }):
 //     `mods.slot` (placeholder class) lets 联防 route leaks, `preview` = { gate, start, fly, elite, boss } feeds previewOf
 // Bounties (bountySpawns / withBounties): each bounty unit joins the round template's first `lrsldr` (walker) / `yokai`
@@ -237,15 +238,32 @@ export function roundPick(gd, rng, factionsOrSetup, round) {
   return pickRoundEntry(gd, rng, weightedPick(rng, pairs), round);
 }
 
-/** Enemy scale mods for round r (bosses excluded by the caller). */
+/** Enemy scale mods for round r (bosses excluded by the caller: leaderMods). */
 export function scaleFor(gd, r) {
   return gd.enemyScale(r);
 }
 
-/** The spawn mods of a round's scale for a non-leader enemy: HP / ATK / speed, plus `supplyHpMul` when the round has one. */
+/**
+ * The spawn mods of a round's scale for a non-leader enemy: HP / ATK / speed, plus `supplyHpMul` when the round has
+ * one and `defMul` / `resMul` when a custom 规则 match sets them (GameData.enemyScale).
+ */
 export function roundMods(scale) {
   const m = { hpMul: scale.hpMul, atkMul: scale.atkMul, speedMul: scale.speedMul };
   if (scale.supplyHpMul != null) m.supplyHpMul = scale.supplyHpMul;
+  if (scale.defMul != null) m.defMul = scale.defMul;
+  if (scale.resMul != null) m.resMul = scale.resMul;
+  return m;
+}
+
+/**
+ * The spawn mods of a leader (tag 'boss') in round r: the round's ATK / speed but not its HP (the shared pool) —
+ * GameData.leaderScale, which a custom 规则 match shapes with its 敌方领袖 percents (DEF / RES only when it sets them).
+ */
+export function leaderMods(gd, r) {
+  const s = gd.leaderScale(r);
+  const m = { atkMul: s.atkMul, speedMul: s.speedMul };
+  if (s.defMul != null) m.defMul = s.defMul;
+  if (s.resMul != null) m.resMul = s.resMul;
   return m;
 }
 
@@ -296,6 +314,7 @@ function previewInfo(gd, key, route, boss = false, leader = undefined) {
  */
 function templateSpawns(gd, tpl, round, pick) {
   const scale = scaleFor(gd, round);
+  const lead = leaderMods(gd, round);
   const ph = placeholderMap(gd);
   const routes = Array.isArray(tpl.routes) ? tpl.routes : [];
   const leader = isLeaderTemplate(tpl);
@@ -345,7 +364,7 @@ function templateSpawns(gd, tpl, round, pick) {
       // enemy_exclude = enemy_9012_acloon): leader parts take them all; the leader takes ATK / speed but not HP — its HP
       // is the server pool, "领袖单位于服务器的生命值加成不受上述加成影响" (PRTS 下半). `supplyHpMul` (roundMods) rides along for
       // the 器物 hit-count units, which 补给线 / 补给线II leave out (archetypes.js `times`; also a 频次 enemy's death spawn)
-      mods: isBoss ? { atkMul: scale.atkMul, speedMul: scale.speedMul, slot } : { ...roundMods(scale), slot },
+      mods: isBoss ? { ...lead, slot } : { ...roundMods(scale), slot },
       actionIndex: i,
       preview: previewInfo(gd, key, routes[routeIndex], isBoss, leader),
     };

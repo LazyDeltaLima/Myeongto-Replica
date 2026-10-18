@@ -3,8 +3,8 @@
 // settings that differ from the official ones and the unsaved mark, 复制代码 · 粘贴代码) and 休闲值 / 官方值 / 取消 / 应用.
 // The ⚙ of the 规则 switch opens it (ui/ruleset.js): in the lobby it edits the lobby's settings, in a room the host's
 // edit the room's (room.setRuleset), anybody else sees them read-only with 保存为我的预设.
-// What a match does not read yet carries the 「后续更新生效」 tag (PENDING): the match flow reads its settings (bonds, leader
-// and stage bans, rounds, prep, 目标生命值), the battle settings (enemy stats, 限伤 value, the layer cap) come later.
+// Every setting reaches the match: the match flow (bonds, leader and stage bans, rounds, prep, 目标生命值) through its
+// GameData, the battle settings (enemy and leader stats, 限伤, the layer cap) through the spawn mods and the spec flags.
 //
 //   openCustomRules({ rules, readonly, roomMode, difficulty, onApply })   CustomRulesDialog (mounted by the lobby and the room)
 
@@ -27,9 +27,6 @@ import { modeIdFor, DIFFICULTIES } from '../../../shared/constants.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
-
-/** The settings a match does not read yet (their rows carry the 「后续更新生效」 tag). */
-export const PENDING = new Set(['bonds.noLayerCap', 'enemies', 'bosses.hitLimit']);
 
 /** The tabs: id, name, the settings paths it counts (customDiffs prefixes). */
 const TABS = [
@@ -104,18 +101,16 @@ function Seg({ options, value, onChange, disabled }) {
     onClick=${() => o.v !== value && onChange(o.v)}>${o.label}</button>`)}</span>`;
 }
 
-const Pending = ({ k }) => (PENDING.has(k) ? html`<span class="crx-pending">${t('后续更新生效')}</span>` : null);
-
-function Row({ label, note, official, children, pending, locked }) {
+function Row({ label, note, official, children, locked }) {
   return html`<div class=${cx('crx-row', locked && 'is-locked')}>
-    <div class="crx-row__l"><span>${label}${pending ? html`<${Pending} k=${pending} />` : null}</span>${note ? html`<em>${note}</em>` : null}</div>
+    <div class="crx-row__l"><span>${label}</span>${note ? html`<em>${note}</em>` : null}</div>
     ${official ? html`<span class="crx-official">${official}</span>` : null}
     ${children}
   </div>`;
 }
 
-const Sec = ({ title, sub, pending, children }) => html`<section class="crx-sec">
-  <h3 class="crx-sec__h">${title}${pending ? html`<${Pending} k=${pending} />` : null}${sub ? html`<small>${sub}</small>` : null}</h3>
+const Sec = ({ title, sub, children }) => html`<section class="crx-sec">
+  <h3 class="crx-sec__h">${title}${sub ? html`<small>${sub}</small>` : null}</h3>
   ${children}
 </section>`;
 
@@ -280,7 +275,7 @@ function BondsPane({ work, set, readonly, mode, bans }) {
   const coreN = work.bonds.banCore ?? bans?.core ?? 0;
   const addonN = work.bonds.banAddon ?? bans?.addon ?? 0;
   return html`
-    <${Sec} title=${t('盟约禁用抽取')} sub=${t('每局随机禁用的盟约数 — 只从设为「随机」的盟约中抽取')} pending="bonds">
+    <${Sec} title=${t('盟约禁用抽取')} sub=${t('每局随机禁用的盟约数 — 只从设为「随机」的盟约中抽取')}>
       <${Row} label=${t('国家盟约（核心）随机禁用')} official=${t('难度默认 {n}', { n: bans?.core ?? 0 })}>
         <${Stepper} value=${coreN} min=${CUSTOM_LIMITS.banCore[0]} max=${CUSTOM_LIMITS.banCore[1]} disabled=${readonly} testid="custom-ban-core"
           onChange=${(v) => set('bonds', 'banCore', v === (bans?.core ?? null) ? null : v)} />
@@ -289,11 +284,11 @@ function BondsPane({ work, set, readonly, mode, bans }) {
         <${Stepper} value=${addonN} min=${CUSTOM_LIMITS.banAddon[0]} max=${CUSTOM_LIMITS.banAddon[1]} disabled=${readonly}
           onChange=${(v) => set('bonds', 'banAddon', v === (bans?.addon ?? null) ? null : v)} />
       <//>
-      <${Row} label=${t('解除盟约层数上限')} pending="bonds.noLayerCap" note=${t('官方规则下每个盟约最多 999 层 — 解除后没有上限')} official=${t('官方：{n}', { n: 999 })}>
+      <${Row} label=${t('解除盟约层数上限')} note=${t('官方规则下每个盟约最多 999 层 — 解除后没有上限')} official=${t('官方：{n}', { n: 999 })}>
         <${Switch} on=${work.bonds.noLayerCap} disabled=${readonly} onChange=${(v) => set('bonds', 'noLayerCap', v)} />
       <//>
     <//>
-    <${Sec} title=${t('逐个盟约设置')} pending="bonds">
+    <${Sec} title=${t('逐个盟约设置')}>
       <div class="crx-legend"><span><i class="lg-r"></i>${t('随机：交给抽取')}</span><span><i class="lg-b"></i>${t('禁用：每局缺席')}</span><span><i class="lg-a"></i>${t('允许：不会被抽为缺席')}</span></div>
       <div class="crx-note">${t('国家盟约（核心）· {n}', { n: core.length })}</div>
       <div class="crx-bonds">${core.map((b) => card(b))}</div>
@@ -315,20 +310,20 @@ function EnemiesPane({ work, set, readonly, mode }) {
     { v: 'official', label: t('官方') }, { v: 'gentle', label: t('平缓') }, { v: 'steep', label: t('陡峭') }, { v: 'flat', label: t('持平（固定第 1 回合）') },
   ];
   return html`
-    <${Sec} title=${t('普通敌人')} sub=${t('含特训敌人、护卫、部件 · 各 {lo}% – {hi}%', { lo: CUSTOM_LIMITS.pct[0], hi: CUSTOM_LIMITS.pct[1] })} pending="enemies">
+    <${Sec} title=${t('普通敌人')} sub=${t('含特训敌人、护卫、部件 · 各 {lo}% – {hi}%', { lo: CUSTOM_LIMITS.pct[0], hi: CUSTOM_LIMITS.pct[1] })}>
       ${pct('enemies', 'hp', t('生命值'))}
       ${pct('enemies', 'atk', t('攻击力'))}
       ${pct('enemies', 'def', t('防御力'))}
       ${pct('enemies', 'res', t('法术抗性'), t('乘以倍率后法术抗性也不超过 100'))}
       ${pct('enemies', 'speed', t('移动速度'))}
     <//>
-    <${Sec} title=${t('敌方领袖')} sub=${t('最终攻势、隐秘核心的敌方领袖及其召唤物')} pending="enemies">
+    <${Sec} title=${t('敌方领袖')} sub=${t('最终攻势、隐秘核心的敌方领袖及其召唤物')}>
       ${pct('leaders', 'hp', t('生命值'), t('乘在共享生命值池（按人数）上'))}
       ${pct('leaders', 'atk', t('攻击力'))}
       ${pct('leaders', 'def', t('防御力'))}
       ${pct('leaders', 'res', t('法术抗性'))}
     <//>
-    <${Sec} title=${t('逐回合能力成长')} sub=${t('以难度的官方曲线为基础 — 图表为生命值倍率')} pending="enemies">
+    <${Sec} title=${t('逐回合能力成长')} sub=${t('以难度的官方曲线为基础 — 图表为生命值倍率')}>
       <${Row} label=${t('成长曲线')}><${Seg} options=${curves} value=${work.enemies.curve} disabled=${readonly} onChange=${(v) => set('enemies', 'curve', v)} /><//>
       <${CurveChart} work=${work} mode=${mode} />
     <//>`;
@@ -391,17 +386,17 @@ function BossesPane({ work, set, setWork, readonly, mode }) {
   const hasHidden = Object.keys(mode?.hiddenBossWeights || {}).length > 0;
   const modes = [{ v: 'void', label: t('无效（官方）') }, { v: 'clamp', label: t('按上限计算') }, { v: 'none', label: t('不限制') }];
   return html`
-    <${Sec} title=${t('最终攻势敌方领袖')} sub=${t('禁用的领袖不会被抽到 — 至少保留 1 名 · 其余按官方权重抽取')} pending="bosses.ban">
+    <${Sec} title=${t('最终攻势敌方领袖')} sub=${t('禁用的领袖不会被抽到 — 至少保留 1 名 · 其余按官方权重抽取')}>
       <div class="crx-bosses">${finals.map(card)}</div>
     <//>
-    <${Sec} title=${t('隐秘核心领袖')} sub=${hasHidden ? t('同样的规则') : t('本难度没有隐秘核心')} pending="bosses.ban">
+    <${Sec} title=${t('隐秘核心领袖')} sub=${hasHidden ? t('同样的规则') : t('本难度没有隐秘核心')}>
       <div class="crx-bosses">${hiddens.map(card)}</div>
     <//>
     <${Sec} title=${t('领袖限伤')} sub=${t('对敌方领袖单次造成的伤害')}>
       <${Row} label=${t('超过上限的一击')} note=${t('官方：达到上限的一击整个无效 · 按上限计算：只计上限的伤害（与休闲规则相同）')}>
         <${Seg} options=${modes} value=${work.bosses.hitMode} disabled=${readonly} onChange=${(v) => setWork((w) => sanitizeCustom({ ...w, bosses: { ...w.bosses, hitMode: v } }))} />
       <//>
-      <${Row} label=${t('上限值')} pending="bosses.hitLimit" official=${t('官方 {n}', { n: fmt(CUSTOM_OFFICIAL.bosses.hitLimit) })}
+      <${Row} label=${t('上限值')} official=${t('官方 {n}', { n: fmt(CUSTOM_OFFICIAL.bosses.hitLimit) })}
           note=${t('{lo} – {hi} · 更高请选「不限制」', { lo: fmt(CUSTOM_LIMITS.hitLimit[0]), hi: fmt(CUSTOM_LIMITS.hitLimit[1]) })} locked=${work.bosses.hitMode === 'none'}>
         <${Stepper} value=${work.bosses.hitLimit} min=${CUSTOM_LIMITS.hitLimit[0]} max=${CUSTOM_LIMITS.hitLimit[1]} step=${100000} wide=${true}
           disabled=${readonly || work.bosses.hitMode === 'none'} onChange=${(v) => set('bosses', 'hitLimit', v)} />
@@ -433,7 +428,7 @@ function StagesPane({ work, set, readonly, mode }) {
         <${Switch} on=${work.stages.reroll} disabled=${readonly} onChange=${(v) => set('stages', 'reroll', v)} />
       <//>
     <//>
-    <${Sec} title=${t('战场池')} sub=${t('使用 {n} / {total} — 点击图片禁用 · 至少保留 1 张', { n: used, total: pool.size })} pending="stages.ban">
+    <${Sec} title=${t('战场池')} sub=${t('使用 {n} / {total} — 点击图片禁用 · 至少保留 1 张', { n: used, total: pool.size })}>
       <div class="crx-stages">${all.map((s) => {
         const off = !pool.has(s.id);
         const isBan = ban.has(s.id);
@@ -467,7 +462,7 @@ function FlowPane({ work, set, readonly, solo, mode, base }) {
   const custom = (p) => customPrepSeconds(work.flow, p);
   const preps = [{ v: 'official', label: t('官方') }, { v: 'x1.5', label: '×1.5' }, { v: 'x2', label: '×2' }, { v: 'fixed', label: t('固定秒数') }];
   return html`
-    <${Sec} title=${t('回合')} sub=${t('增加时在最终攻势前加入轮换后期波次的追加回合，减少时先去掉敌人能力相同的中期普通回合')} pending="flow.rounds">
+    <${Sec} title=${t('回合')} sub=${t('增加时在最终攻势前加入轮换后期波次的追加回合，减少时先去掉敌人能力相同的中期普通回合')}>
       <${Row} label=${t('回合数')} note=${t('{lo} – {hi} · 追加回合的敌人能力按成长曲线继续提升 [推定]', { lo: CUSTOM_LIMITS.rounds[0], hi: CUSTOM_LIMITS.rounds[1] })}
           official=${t('官方 {n}', { n: official })}>
         <${Stepper} value=${n} min=${CUSTOM_LIMITS.rounds[0]} max=${CUSTOM_LIMITS.rounds[1]} disabled=${readonly} testid="custom-rounds"
@@ -480,7 +475,7 @@ function FlowPane({ work, set, readonly, solo, mode, base }) {
       <div class="crx-legend"><span><i class="lg-sp"></i>${t('机变回合')}</span><span><i class="lg-boss"></i>${t('最终攻势')}</span>
         ${plan.hidden ? html`<span><i class="lg-hid"></i>${t('隐秘核心（满足条件时）')}</span>` : null}<span><i class="lg-ext"></i>${t('追加回合（←原波次）')}</span></div>
     <//>
-    <${Sec} title=${t('休整期')} sub=${solo ? t('仅同盟 — 独立模拟按官方规则不限时') : t('仅同盟')} pending="flow.prep">
+    <${Sec} title=${t('休整期')} sub=${solo ? t('仅同盟 — 独立模拟按官方规则不限时') : t('仅同盟')}>
       <${Row} label=${t('休整期时长')} locked=${solo}>
         <${Seg} options=${preps} value=${work.flow.prep} disabled=${readonly || solo} onChange=${(v) => set('flow', 'prep', v)} />
       <//>
@@ -494,7 +489,7 @@ function FlowPane({ work, set, readonly, solo, mode, base }) {
         <span class="k">${t('自定义')}</span>${cols.map((c, i) => html`<span key=${`c${i}`} class="v">${t('{n} 秒', { n: custom(c.p) })}</span>`)}
       </div>` : null}
     <//>
-    <${Sec} title=${t('目标生命值')} sub=${t('仅同盟')} pending="flow.lp">
+    <${Sec} title=${t('目标生命值')} sub=${t('仅同盟')}>
       <${Row} label=${t('解除每回合目标生命值减少上限')} note=${t('官方：一回合最多减少 10 — 解除后漏怪多少就减少多少')} official=${t('官方：{n}', { n: 10 })} locked=${solo}>
         <${Switch} on=${work.flow.lpCapOff} disabled=${readonly || solo} onChange=${(v) => set('flow', 'lpCapOff', v)} />
       <//>

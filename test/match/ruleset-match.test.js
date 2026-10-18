@@ -89,7 +89,7 @@ test('casual: a 999-layer 炎 board\'s leader hits of ≥ 300000 land as 300000 
   m.dispose();
 });
 
-test('custom (maintainer decision 2026-10-18): the match carries the settings; the battle settings are not read yet', async () => {
+test('custom (maintainer decision 2026-10-18): the match carries the settings and reads them (the battle ones: test/match/custom-battle.test.js)', async () => {
   const { INFO_REROLL_MIN_MS } = await import('../../server/match/match/phases.js');
   const { ERR } = await import('../../shared/constants.js');
   const custom = { enemies: { hp: 1000, atk: 500 }, bonds: { noLayerCap: true }, stages: { reroll: true } };
@@ -99,10 +99,11 @@ test('custom (maintainer decision 2026-10-18): the match carries the settings; t
   assert.equal(pub.ruleset.custom.enemies.hp, 1000);
   assert.equal(pub.ruleset.custom.bonds.noLayerCap, true);
   assert.deepEqual({ ...pub.ruleset.options }, { battlefieldInfo: false, infoReroll: true, bossRoutePreview: false, bossHitClamp: false });
-  // the enemy stats are carried only (the match-flow settings: test/match/custom-flow.test.js)
+  // the enemy stats change no draw (the match-flow settings: test/match/custom-flow.test.js)
   const classic = makeMatch({ mode: 'solo', difficulty: 'HARD', seed: 3, fake: true }).start();
   assert.equal(h.m.gd.lastRound, classic.m.gd.lastRound);
-  assert.deepEqual(h.m.gd.enemyScale(5), classic.m.gd.enemyScale(5));
+  assert.equal(h.m.gd.enemyScale(5).hpMul, classic.m.gd.enemyScale(5).hpMul * 10);
+  assert.equal(h.m.gd.layerCap, Infinity);
   assert.equal(h.m.stageId, classic.m.stageId, 'the same draws');
   assert.equal(h.m.bossId, classic.m.bossId);
   classic.m.dispose();

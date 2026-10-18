@@ -10,6 +10,7 @@ import { planUnite } from '../unite.js';
 import { FieldRunner, DeadBattle } from '../fields.js';
 import { DELAYS } from './common.js';
 import { previewPlayer } from '../preview.js';
+import { simRuleFlags } from '../../../shared/ruleset.js';
 
 export class MatchCombat {
   /** Construct a battle; a constructor failure yields a finished stand-in (clean result) and is logged. */
@@ -66,7 +67,7 @@ export class MatchCombat {
       spawns: this._sanitizeSpawns(Array.isArray(ev.spawns) ? ev.spawns : spawns, ps.playerId),
       routes: wave.routes,
       sharedBoss: null,
-      flags: { layerGainsEnabled: true, ...this.gd.dp },
+      flags: { layerGainsEnabled: true, ...this.gd.dp, ...simRuleFlags(this.ruleset) },
       fieldId: `n:${ps.playerId}`,
       enemyOverrides: wave.overrides,
       waveId: wave.templateId,

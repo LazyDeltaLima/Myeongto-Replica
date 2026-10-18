@@ -313,8 +313,9 @@ function branchSpawn(b, tpl, name, phaseIdx, { fallback = null, mods = null, at 
  * Spawn mods of a leader's mid-fight summon (死亡集群's 妖怪, 刺胄之弹, “裂管之音”/“断弦之音”, 不祥幻影): the round's enemy
  * effects (攻坚装备 / II / III, 补给线 / II, 急行军 — `enemy_attribute_mul` / `enemy_move_speed_mul` on 所有敌人, `enemy_exclude`
  * only 炎佑 and, for 补给线, the 器物) reach a summon like any enemy; only the leader's own HP, the server pool, is exempt
- * ("领袖单位于服务器的生命值加成不受上述加成影响", PRTS 下半). They come as the battle's `flags.enemyScale` (gd.enemyScale of the
- * boss round, set by the match — a BattleSpec flag, so browsers run the same); `hpRatio` = the skill's own summon HP ratio
+ * ("领袖单位于服务器的生命值加成不受上述加成影响", PRTS 下半). They come as the battle's `flags.enemyScale` (gd.leaderScale of
+ * the boss round, set by the match — a BattleSpec flag, so browsers run the same; a custom 规则 match's 敌方领袖 percents
+ * reach the summons too, `defMul` / `resMul` included when it sets them); `hpRatio` = the skill's own summon HP ratio
  * (死亡集群 `summon.hp_ratio`), multiplied in. No flags (tests, tools): the ratio alone. Until 0.2.1 the summons took no
  * round effect at all (PR #272). 王权号令's equipment is left out: invulnerable, untargetable, it never fights. So are the
  * tokens 子代 and 黄金回响 (`Trap`, not `Enemy`: the client's enemy runes skip them — spawnBrood, goldenDef).
@@ -324,6 +325,8 @@ function summonMods(b, hpRatio = null) {
   if (!s || typeof s !== 'object') return hpRatio ? { hpMul: hpRatio } : null;
   const m = { hpMul: (Number.isFinite(s.hpMul) && s.hpMul > 0 ? s.hpMul : 1) * (hpRatio || 1), atkMul: s.atkMul, speedMul: s.speedMul };
   if (s.supplyHpMul != null) m.supplyHpMul = s.supplyHpMul;
+  if (s.defMul != null) m.defMul = s.defMul;
+  if (s.resMul != null) m.resMul = s.resMul;
   return m;
 }
 

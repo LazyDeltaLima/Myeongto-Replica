@@ -128,7 +128,7 @@ test('custom settings: every field at its official value by default; numbers cla
   assert.deepEqual(sanitizeCustom(JSON.parse(JSON.stringify(c))), c, 'idempotent');
 });
 
-test('custom ruleset: options read from the settings; casual settings give the casual options; sim flags only for a clamp', () => {
+test('custom ruleset: options read from the settings; casual settings give the casual options; sim flags only for what differs', () => {
   const off = resolveRuleset({ preset: 'custom' });
   assert.equal(off.preset, 'custom');
   assert.deepEqual({ ...off.options }, { ...resolveRuleset('classic').options });
@@ -136,7 +136,12 @@ test('custom ruleset: options read from the settings; casual settings give the c
   const cas = resolveRuleset({ preset: 'custom', custom: CUSTOM_CASUAL });
   assert.deepEqual({ ...cas.options }, { ...resolveRuleset('casual').options });
   assert.deepEqual(simRuleFlags(cas), { bossHitClamp: true });
-  assert.deepEqual(simRuleFlags({ preset: 'custom', custom: { bosses: { hitMode: 'none' } } }), {}, 'no limit is a later step, not a clamp');
+  assert.deepEqual(simRuleFlags({ preset: 'custom', custom: { bosses: { hitMode: 'none', hitLimit: 500000 } } }), { bossHitLimit: 0 }, 'no limit: 0, not a clamp');
+  assert.deepEqual(simRuleFlags({ preset: 'custom', custom: { bosses: { hitLimit: 500000 } } }), { bossHitLimit: 500000 }, 'another value, still cancelled');
+  assert.deepEqual(simRuleFlags({ preset: 'custom', custom: { bosses: { hitMode: 'clamp', hitLimit: 1e6 } } }), { bossHitClamp: true, bossHitLimit: 1e6 });
+  assert.deepEqual(simRuleFlags({ preset: 'custom', custom: { bosses: { hitMode: 'clamp', hitLimit: 300000 } } }), { bossHitClamp: true }, 'the official value: no flag');
+  assert.deepEqual(simRuleFlags({ preset: 'custom', custom: { bonds: { noLayerCap: true } } }), { noLayerCap: true });
+  assert.deepEqual(simRuleFlags({ preset: 'custom', custom: { enemies: { hp: 500 }, leaders: { atk: 20 } } }), {}, 'the stats travel as spawn mods, not flags');
   assert.deepEqual({ ...optionsOfCustom(sanitizeCustom({ flow: { routePreview: true } })) },
     { battlefieldInfo: false, infoReroll: false, bossRoutePreview: true, bossHitClamp: false });
   assert.equal(rulesetKey(cas), 'custom');

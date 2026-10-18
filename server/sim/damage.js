@@ -51,7 +51,7 @@
 // has `hitSleep` or the damage carries `ignoreSleep`.
 
 import { MIN_DAMAGE_RATIO, ELEMENT, ELEMENT_ORDER, PALSY_MAX } from './constants.js';
-import { BOSS_HIT_LIMIT } from '../../shared/constants.js';
+import { bossHitLimitOf } from '../../shared/constants.js';
 import { evadesGround } from './targeting.js';
 import { damageNumberFlag, blockedEvent } from './local-hud.js'; // local patch
 
@@ -194,17 +194,20 @@ export function mitigate(amount, type, target, ign = {}) {
  * battle outside training) and ceil(amount) ≥ BOSS_HIT_LIMIT. Such a hit is cancelled whole (0: no HP / pool loss, no
  * credit, no damage number); a 'hitCap' fx event `{ id, n: ceil(amount) }` marks it for the client, which draws nothing —
  * the official shows no number [ASSUMED]. With the battle's `flags.bossHitClamp` (the 休闲 ruleset, shared/ruleset.js;
- * maintainer decision 2026-10-15) it lands as BOSS_HIT_LIMIT instead — not in the official game — and no event is sent.
+ * maintainer decision 2026-10-15) it lands as the limit instead — not in the official game — and no event is sent. A
+ * custom 规则 match sets the limit (`flags.bossHitLimit`: its value, 0 = none; shared/constants.js bossHitLimitOf;
+ * maintainer decision 2026-10-18).
  * Every HP-damage kind is checked as the official `modifier.isDamage` (phys, arts, true, 元素伤害 incl. element bursts,
  * DoT ticks — they all come through dealDamage — and losses passed on to a leader through Battle.loseHp, except the 胄
  * drone link's pool share: `noHitLimit`, DESIGN §25.13.4); element 损伤 (gauge fill, 'element') removes no HP and is
  * never checked. Deterministic (Math.ceil of the same double on every engine).
  */
 export function leaderHitLimit(battle, target, amount) {
-  if (!(BOSS_HIT_LIMIT > 0) || !target || !target.isBoss || (battle.kind !== 'boss' && battle.kind !== 'hidden')) return amount;
-  if (!(Math.ceil(amount) >= BOSS_HIT_LIMIT)) return amount;
-  // 규칙 모드 休闲 (shared/ruleset.js bossHitClamp → spec.flags.bossHitClamp): the hit lands as BOSS_HIT_LIMIT
-  if (battle.flags && battle.flags.bossHitClamp === true) return Math.min(amount, BOSS_HIT_LIMIT);
+  if (!target || !target.isBoss || (battle.kind !== 'boss' && battle.kind !== 'hidden')) return amount;
+  const limit = bossHitLimitOf(battle.flags);
+  if (!(Math.ceil(amount) >= limit)) return amount;
+  // 규칙 모드 休闲 (shared/ruleset.js bossHitClamp → spec.flags.bossHitClamp): the hit lands as the limit
+  if (battle.flags && battle.flags.bossHitClamp === true) return Math.min(amount, limit);
   battle.fx('hitCap', { x: target.x, y: target.y, id: target.id, n: Math.ceil(amount) });
   return 0;
 }

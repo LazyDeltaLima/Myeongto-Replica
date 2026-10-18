@@ -13,12 +13,15 @@
 //
 // A custom 规则 match (shared/ruleset.js) hands its settings to the constructor: the round plan (customRoundPlan — every
 // round-keyed table is read at the round's source round, srcRound), the bond ban counts, the leader and stage bans, the
-// co-op prep and the 目标生命值 rules come out of the accessors below; without settings every accessor is the official one.
+// co-op prep, the 目标生命值 rules, the layer cap and the enemy / leader stat multipliers (the curve and the percents:
+// enemyScale, leaderScale, bossHpMul) come out of the accessors below; without settings every accessor is the official
+// one (and returns the same object shapes, so a classic battle spec is unchanged).
 
 import { getConfig, getMode } from '../data.js';
 import { isShopItem } from '../sim/simdata.js';
 import { standInRecord } from '../../shared/standIn.js';
-import { customRoundPlan, customPrepSeconds, keepUnbanned } from '../../shared/ruleset.js';
+import { customRoundPlan, customPrepSeconds, keepUnbanned, curveScale } from '../../shared/ruleset.js';
+import { BOND_LAYER_CAP } from '../../shared/constants.js';
 
 const own = (map, id) => (map && typeof map === 'object' && typeof id === 'string' && Object.hasOwn(map, id) && map[id] && typeof map[id] === 'object' ? map[id] : null);
 const numOr = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -167,12 +170,13 @@ export class GameData {
   }
 
   /**
-   * Leader HP pool multiplier — always 1 (no custom balance). Kept for callers written against the old tuning layer
-   * (finalAssault.bossPoolHp); use `bossPoolHp` / `bossPoolShare` for the official pool.
-   * @deprecated
+   * Leader HP pool multiplier: 1 (the official pool, no tuning layer), or a custom 规则 match's leader HP percent ÷ 100
+   * (its 敌方领袖 生命值 — on the shared pool, the only HP a leader has). Read by both pool sizes (finalAssault.bossPoolHp,
+   * bossPoolHp below).
    */
   bossHpMul(bossId) { // eslint-disable-line no-unused-vars
-    return 1;
+    const hp = this.custom?.leaders?.hp;
+    return Number.isFinite(hp) && hp !== 100 ? hp / 100 : 1;
   }
 
   /**
@@ -192,7 +196,7 @@ export class GameData {
     let base = boss && boss.bloodPoint && Number.isFinite(boss.bloodPoint[diff]) ? boss.bloodPoint[diff] : null;
     if (base == null && boss && boss.bloodPoint) base = Object.values(boss.bloodPoint).find((v) => Number.isFinite(v)) ?? null;
     if (base == null) base = 500000;
-    return Math.max(1, Math.round(base * this.bossPoolShare(aliveCount)));
+    return Math.max(1, Math.round(base * this.bossPoolShare(aliveCount) * this.bossHpMul(bossId)));
   }
 
   /**
@@ -505,9 +509,54 @@ export class GameData {
     };
   }
 
-  /** Enemy multipliers of round r = the official table (baseEnemyScale; no custom multiplier). */
+  /**
+   * Enemy multipliers of round r for every enemy but the leaders (their parts, escorts and the 特训 enemies included):
+   * the official table (baseEnemyScale) — under a custom 规则 match shaped by its curve and times its 敌人 percents
+   * (customScale). The leaders take leaderScale.
+   */
   enemyScale(r) {
-    return this.baseEnemyScale(r);
+    const base = this.baseEnemyScale(r);
+    const e = this.custom?.enemies;
+    return e ? this._customScale(r, base, e) : base;
+  }
+
+  /**
+   * Multipliers of the leaders of round r (the 最终攻势 / 隐秘核心 leaders: their ATK / speed / DEF / RES — HP is the shared
+   * pool, bossHpMul — and their mid-fight summons, content/bosses.js summonMods, which take the HP too): the round's
+   * official ones (baseEnemyScale), under a custom 规则 match shaped by its curve and times its 敌方领袖 percents (the
+   * 敌人 percents never reach them; their speed keeps the round's).
+   */
+  leaderScale(r) {
+    const base = this.baseEnemyScale(r);
+    const c = this.custom;
+    return c ? this._customScale(r, base, { ...c.leaders, speed: 100, curve: c.enemies?.curve }) : base;
+  }
+
+  /**
+   * The custom form of a round's multipliers `base`: HP / ATK on the curve (shared/ruleset.js curveScale, around round
+   * 1's), then × the percents; `defMul` / `resMul` only when not 100 % (a spawn reads a missing one as 1; RES stays ≤ 100
+   * in the unit's stats, units.js). `supplyHpMul` (the 补给线 share of hpMul) is kept as the official ratio.
+   * @param {number} r @param {ReturnType<GameData['baseEnemyScale']>} base
+   * @param {{ hp?: number, atk?: number, def?: number, res?: number, speed?: number, curve?: string }} pct
+   */
+  _customScale(r, base, pct) {
+    const p = (v) => (Number.isFinite(v) ? v / 100 : 1);
+    const curve = pct.curve ?? 'official';
+    let { hpMul, atkMul } = base;
+    if (curve !== 'official' && r !== 1) {
+      const b1 = this.baseEnemyScale(1);
+      hpMul = curveScale(hpMul, b1.hpMul, curve);
+      atkMul = curveScale(atkMul, b1.atkMul, curve);
+    }
+    const out = { ...base, hpMul: hpMul * p(pct.hp), atkMul: atkMul * p(pct.atk), speedMul: base.speedMul * p(pct.speed) };
+    if (p(pct.def) !== 1) out.defMul = p(pct.def);
+    if (p(pct.res) !== 1) out.resMul = p(pct.res);
+    return out;
+  }
+
+  /** The per-bond layer cap of the match: BOND_LAYER_CAP (999), none (Infinity) under the custom 「解除盟约层数上限」. */
+  get layerCap() {
+    return this.custom?.bonds?.noLayerCap ? Infinity : BOND_LAYER_CAP;
   }
 
   timer(key) {

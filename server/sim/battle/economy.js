@@ -2,7 +2,7 @@
 // coins.
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
-import { layerGainRoom } from '../../../shared/constants.js';
+import { layerGainRoom, layerCapOf } from '../../../shared/constants.js';
 
 export class BattleEconomy {
   addDp(playerId, n) {
@@ -14,7 +14,8 @@ export class BattleEconomy {
 
   /**
    * Record an IN_BATTLE layer gain (no-op when gains are disabled). Returns the layers added: at most the room left
-   * under BOND_LAYER_CAP (999, shared/constants.js) on the live copy — the client's AddBondCount `min(L + n, 999)`; the
+   * under the cap on the live copy — BOND_LAYER_CAP (999, shared/constants.js), the client's AddBondCount `min(L + n, 999)`,
+   * or none under the spec's `flags.noLayerCap` (a custom 规则 match: layerCapOf); the
    * `layerGain` hook (魔王's +1 …) runs first, then the clamp; a bond already at the cap gains 0 (no hook, no event).
    * Without a live copy of the bond (a partial PlayerBattleInput) the battle's own gains count; the match's settle
    * clamps the persistent count the same way.
@@ -25,11 +26,12 @@ export class BattleEconomy {
     if (!pp) return 0;
     const ps = this.getPlayer(playerId);
     const live = ps && ps.bonds[bondId] ? (ps.bonds[bondId].layers ?? 0) : (pp.layerGains[bondId] ?? 0);
-    if (!(layerGainRoom(live, Infinity) > 0)) return 0;
+    const cap = layerCapOf(this.flags);
+    if (!(layerGainRoom(live, Infinity, cap) > 0)) return 0;
     const source = opts.source ?? null;
     const ctx = { playerId, bondId, n, reason, source, tile: Array.isArray(opts.tile) ? opts.tile : this._sourceTile(source) };
     if (this._hooks.layerGain) { this.emit('layerGain', ctx); if (!(ctx.n > 0) || !Number.isFinite(ctx.n)) return 0; }
-    const add = layerGainRoom(live, ctx.n);
+    const add = layerGainRoom(live, ctx.n, cap);
     if (!(add > 0)) return 0;
     pp.layerGains[bondId] = (pp.layerGains[bondId] ?? 0) + add;
     if (ps && ps.bonds[bondId]) ps.bonds[bondId].layers = (ps.bonds[bondId].layers ?? 0) + add;

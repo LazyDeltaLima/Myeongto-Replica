@@ -226,19 +226,20 @@ export function bondList(gd, bonds, { full = false, off = null } = {}) {
 /**
  * The bond states the views show (m.private / m.public players[].bonds, DESIGN §20.15): `bonds` with this round's
  * IN_BATTLE gains of a finished normal battle (`gains` = the result's layerGains, PlayerState.pendingLayerGains, set
- * when the COMBAT phase ends) added the way settle() will add them — at most up to BOND_LAYER_CAP — so the strip of a
+ * when the COMBAT phase ends) added the way settle() will add them — at most up to the cap — so the strip of a
  * player (and of a teammate watching him) keeps the layers his battle reached through the 联防 until the settlement
  * makes them persistent. `bonds` itself when there is nothing to add; the persistent state is never touched.
  * @param {ReturnType<typeof computeBonds>} bonds
  * @param {Record<string, number>|null|undefined} gains
+ * @param {number} [cap] the match's layer cap (GameData.layerCap; BOND_LAYER_CAP when omitted)
  */
-export function bondsWithGains(bonds, gains) {
+export function bondsWithGains(bonds, gains, cap) {
   if (!gains || typeof gains !== 'object') return bonds;
   let out = null;
   for (const [id, n] of Object.entries(gains)) {
     const b = bonds && bonds[id];
     if (!b) continue;
-    const add = layerGainRoom(b.layers, Math.floor(Number(n) || 0));
+    const add = layerGainRoom(b.layers, Math.floor(Number(n) || 0), cap);
     if (!(add > 0)) continue;
     if (!out) out = { ...bonds };
     out[id] = { ...b, layers: (b.layers || 0) + add };

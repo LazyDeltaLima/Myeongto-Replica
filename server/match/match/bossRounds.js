@@ -98,9 +98,10 @@ export class MatchBoss {
         spawns: this._sanitizeSpawns(spawns),
         routes: wave.routes,
         sharedBoss: this.bossPool,
-        // the round's enemy effects for the leaders' mid-fight summons (server/sim/content/bosses.js summonMods); the
-        // ruleset's sim options (shared/ruleset.js simRuleFlags: 休闲 → bossHitClamp; none in classic)
-        flags: { layerGainsEnabled: false, ...this.gd.dp, enemyScale: this.gd.enemyScale(this.round), ...simRuleFlags(this.ruleset) },
+        // the round's enemy effects for the leaders' mid-fight summons (server/sim/content/bosses.js summonMods: the
+        // leaders' multipliers, GameData.leaderScale); the ruleset's sim options (shared/ruleset.js simRuleFlags: 休闲 →
+        // bossHitClamp, custom → its 限伤 / layer cap; none in classic)
+        flags: { layerGainsEnabled: false, ...this.gd.dp, enemyScale: this.gd.leaderScale(this.round), ...simRuleFlags(this.ruleset) },
         fieldId,
         enemyOverrides: wave.overrides,
         waveId: wave.templateId,

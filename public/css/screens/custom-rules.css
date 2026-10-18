@@ -59,7 +59,6 @@
 .crx-sec { display: flex; flex-direction: column; gap: .08rem; }
 .crx-sec__h { display: flex; align-items: baseline; flex-wrap: wrap; gap: .1rem; margin: 0; font-size: max(.16rem, 12px); font-weight: 800; color: var(--text-hi); }
 .crx-sec__h small { font-weight: 500; font-size: max(.12rem, 10px); color: var(--text-lo); }
-.crx-pending { margin-left: .08rem; padding: 0 .06rem; border: 1px dashed rgba(246, 163, 41, .6); color: var(--amber); font-size: max(.11rem, 9px); font-weight: 600; vertical-align: .01rem; white-space: nowrap; }
 .crx-row { display: flex; align-items: center; gap: .14rem; min-height: .46rem; padding: .04rem .12rem; background: rgba(255, 255, 255, .025); border: 1px solid var(--line); }
 .crx-row.is-locked { opacity: .5; }
 .crx-row__l { flex: 1 1 auto; min-width: 0; }

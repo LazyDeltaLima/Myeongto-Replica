@@ -133,12 +133,10 @@ test('the lobby and the room: room.create / room.setRuleset carry the settings; 
   assert.match(read('public/index.html'), /css\/screens\/custom-rules\.css/);
 });
 
-test('the dialog marks what a match does not read yet; every text has its English', async () => {
-  const { PENDING, CUSTOM_TABS } = await import('../../public/js/ui/customRules.js');
+test('the dialog has its five tabs and no 「后续更新生效」 tag (a match reads every setting); every text has its English', async () => {
+  const { CUSTOM_TABS } = await import('../../public/js/ui/customRules.js');
   assert.deepEqual([...CUSTOM_TABS], ['bonds', 'enemies', 'bosses', 'stages', 'flow']);
-  for (const k of ['stages.info', 'stages.reroll', 'flow.routePreview', 'bosses.hitMode', 'bonds', 'bosses.ban', 'stages.ban', 'flow.rounds', 'flow.prep', 'flow.lp']) {
-    assert.equal(PENDING.has(k), false, `${k} works now`);
-  }
+  assert.doesNotMatch(read('public/js/ui/customRules.js'), /后续更新生效|PENDING/);
   const en = JSON.parse(read('public/i18n/en.json'));
   const src = read('public/js/ui/customRules.js');
   for (const m of src.matchAll(/\bt\('((?:[^'\\]|\\.)*)'/g)) {

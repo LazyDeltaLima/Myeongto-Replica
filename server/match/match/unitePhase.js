@@ -11,6 +11,7 @@ import { uniteLeft } from '../../sim/spec.js';
 import { FLOW_TICKER_PRIORITY, DELAYS } from './common.js';
 import { msg } from '../../../shared/i18n.js';
 import { onStartUnite } from '../botEmotes.js';
+import { simRuleFlags } from '../../../shared/ruleset.js';
 
 export class MatchUnite {
   startUnite(plan) {
@@ -61,7 +62,7 @@ export class MatchUnite {
       spawns: this._sanitizeSpawns(wave.spawns),
       routes: wave.routes,
       sharedBoss: null,
-      flags: { layerGainsEnabled: false, ...this.gd.dp },
+      flags: { layerGainsEnabled: false, ...this.gd.dp, ...simRuleFlags(this.ruleset) },
       fieldId: 'u',
       // leaked enemies re-enter with the stats they had: the round template's stat overrides apply again
       enemyOverrides: this.wave && this.wave.overrides ? this.wave.overrides : {},

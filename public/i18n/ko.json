@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1425 of 1643 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1424 of 1642 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false
@@ -1536,7 +1536,6 @@
   "战斗开始时揭晓": "전투가 시작되면 공개됩니다",
   "敌人能力": "적 능력치",
   "进程": "진행",
-  "后续更新生效": "다음 업데이트에서 적용",
   "已保存预设「{name}」": "프리셋 「{name}」을 저장했습니다",
   "预设": "프리셋",
   "预设已满，请先删除不用的预设": "프리셋이 가득 찼습니다. 쓰지 않는 프리셋을 먼저 지워 주세요",

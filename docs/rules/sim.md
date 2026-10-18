@@ -1346,6 +1346,7 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
   캐주얼 규칙 모드는 이 상한을 무효 대신 절삭으로 바꾼다(관리자 결정 2026-10-15, `ui.md` 「규칙 모드 — 클래식·캐주얼」; 공식에는 없는 규칙): 보스전 spec의 `flags.bossHitClamp`(`shared/ruleset.js simRuleFlags`)가 있으면 `leaderHitLimit`가 그런 한 방을 `min(피해, 300000)`으로 들여보낸다 — 리더 HP·공유 풀에 300,000이 들어가고 공로·BOSS_HIT 방송도 그 값으로 센다. 30만 아래의 한 방은 그대로, `ceil`이 선에 닿는 299999.2 같은 값도 올리지 않는다. 판정 위치는 클래식과 같다(모든 배율 뒤, 보호막 앞; 부위가 넘기는 `loseHp`도 같음, 胄 드론 연결 몫은 예외). 무효가 아니므로 `hitCap` fx는 보내지 않는다.
   같은 날 처음 구현은 상한을 아예 껐다(큰 한 방이 그대로 들어감); 관리자 결정으로 같은 릴리스 안에서 절삭으로 바꿨다.
 - 플래그는 공식 값과 다를 때만 붙어 클래식 보스전의 spec은 바뀌지 않는다. 브라우저 전투(`clientCombat`)와 서버 검증이 같은 spec을 읽는다.
+- 커스텀 규칙 모드(2026-10-18, 관리자 결정)는 상한 값(`flags.bossHitLimit`, 100,000–5,000,000)과 「제한 없음」(`bossHitLimit: 0`)을 더하고, 999중첩 상한도 풀 수 있다(`flags.noLayerCap`) — `shared/constants.js bossHitLimitOf`·`layerCapOf`, 규칙은 `ui.md` 「규칙 모드 — 커스텀」 전투.
 - 확인: `test/match/ruleset-match.test.js`(실제 판, 999층 炎 보드 + 피해 ×2000: 최종 공세·숨겨진 핵심 모두 리더가 받은 가장 큰 한 방이 정확히 300000, 공유 풀 공로도 300000을 넘지 않고 `hitCap` 0), `test/sim/playtest6_limits.test.js` 「限伤 with the 休闲 ruleset's flags.bossHitClamp」(299999 그대로 · 299999.2 그대로 · 500만 → 300000 · `loseHp`도 절삭), 클래식은 그대로 `test/match/playtest6-limits.test.js`.
 
 ## 나무 버든비스트 승객 (2026-10-16, 관리자 제보, 클라 `DurbusAbility`)

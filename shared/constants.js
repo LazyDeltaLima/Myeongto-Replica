@@ -101,20 +101,33 @@ export const PREBUILT_INTERVAL = 0.2;
  * copy (server/sim/battle/economy.js addLayers, as the client's AddBondCount) — and the dev tools' direct writes (tools/matchrun.mjs
  * --layers, tools/balance.mjs applyBoard); a gain at the cap adds 0 (no onLayers, no 'layer'
  * event), and the client-result check (server/match/fields.js) bounds a reported gain by the room left. Milestones paid
- * per N layers (远见, 奇迹, 维多利亚 …) stop with the count. 0 / Infinity = no cap.
+ * per N layers (远见, 奇迹, 维多利亚 …) stop with the count. 0 / Infinity = no cap. A custom 规则 match may lift it
+ * (shared/ruleset.js `noLayerCap`, maintainer decision 2026-10-18): the match reads its cap from GameData.layerCap, a
+ * battle from its spec flag `noLayerCap` (layerCapOf) — the milestones then go on past 999.
  */
 export const BOND_LAYER_CAP = 999;
 
 /**
- * The layers a gain of `n` actually adds to a bond holding `before` under BOND_LAYER_CAP: min(n, cap − before), never
- * negative (a count already at or over the cap gains 0 and is never lowered); 0 for a non-positive / non-finite `n`
- * except +Infinity (= "the room left").
+ * The per-bond layer cap of a battle spec's flags: BOND_LAYER_CAP, or none (Infinity) under `flags.noLayerCap` (the
+ * custom 规则 setting, shared/ruleset.js simRuleFlags).
+ * @param {{ noLayerCap?: unknown } | null | undefined} flags
  */
-export function layerGainRoom(before, n) {
+export function layerCapOf(flags) {
+  if (flags && flags.noLayerCap === true) return Infinity;
+  return BOND_LAYER_CAP > 0 ? BOND_LAYER_CAP : Infinity;
+}
+
+/**
+ * The layers a gain of `n` actually adds to a bond holding `before` under the cap (BOND_LAYER_CAP unless given:
+ * GameData.layerCap, layerCapOf): min(n, cap − before), never negative (a count already at or over the cap gains 0 and
+ * is never lowered); 0 for a non-positive / non-finite `n` except +Infinity (= "the room left").
+ * @param {number} before @param {number} n @param {number} [cap]
+ */
+export function layerGainRoom(before, n, cap = BOND_LAYER_CAP) {
   if (!(n > 0)) return 0;
-  const cap = BOND_LAYER_CAP > 0 ? BOND_LAYER_CAP : Infinity;
+  const c = cap > 0 ? cap : Infinity;
   const b = Number.isFinite(before) && before > 0 ? before : 0;
-  return Math.max(0, Math.min(n, cap - b));
+  return Math.max(0, Math.min(n, c - b));
 }
 
 /**
@@ -126,9 +139,21 @@ export function layerGainRoom(before, n) {
  * (`AutoChessStepModeManager._OnBossEnemyTakeDamage` → `modifier.Cancel()`). It is not a clamp: a hit of 299999 lands.
  * Checked in server/sim/damage.js (dealDamage after DEF / RES and every multiplier, before shields; Battle.loseHp — not
  * the 胄 drone link's pool share, `noHitLimit`, DESIGN §25.13.4). Minions, normal rounds and 联防 are unaffected.
- * 0 / Infinity = off.
+ * 0 / Infinity = off. A battle's spec flag `bossHitLimit` (a custom 规则 match's value, or 0 = none) replaces it
+ * (bossHitLimitOf).
  */
 export const BOSS_HIT_LIMIT = 300000;
+
+/**
+ * The 限伤 of a battle spec's flags: `flags.bossHitLimit` when it is a number ≥ 0 (0 = no limit; shared/ruleset.js
+ * simRuleFlags), else BOSS_HIT_LIMIT. Infinity for none.
+ * @param {{ bossHitLimit?: unknown } | null | undefined} flags
+ */
+export function bossHitLimitOf(flags) {
+  const v = flags ? flags.bossHitLimit : undefined;
+  const n = typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : BOSS_HIT_LIMIT;
+  return n > 0 ? n : Infinity;
+}
 
 // Snapshot unit flag bits (DESIGN §8.2)
 export const UF = Object.freeze({
