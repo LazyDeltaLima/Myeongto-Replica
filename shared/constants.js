@@ -68,6 +68,10 @@ export const GEO = Object.freeze({
   FIELD: { r0: 9, r1: 12, c0: 2, c1: 10 },        // own deployable board region
   NORMAL_RECT: { r0: 9, r1: 12, c0: 0, c1: 10 },  // simulation rect for a normal battle
   UNITE_RECT: { r0: 9, r1: 12, c0: 0, c1: 20 },
+  // the 8-player mode's 联防 field of 3–4 helpers (maintainer decision 2026-10-19): the 2-helper field twice side by side —
+  // the stage's columns 3–18 repeated WIDE_SHIFT columns to the right (server/sim/wideStage.js), WIDE_COLS wide
+  WIDE_COLS: 37, WIDE_SHIFT: 16,
+  UNITE_WIDE_RECT: { r0: 9, r1: 12, c0: 0, c1: 36 },
   BOSS_RECT: { r0: 0, r1: 5, c0: 0, c1: 20 },
   HAND_ROW: 7, HAND_SIZE: 10,                      // hand slot idx = col 0..9
   TEMP_ROW: 8, TEMP_C0: 4, TEMP_SIZE: 5,           // temp slot idx 0..4 = cols 4..8

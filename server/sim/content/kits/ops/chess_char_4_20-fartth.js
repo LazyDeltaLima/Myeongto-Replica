@@ -1,14 +1,15 @@
 // server/sim/content/kits/ops/chess_char_4_20-fartth.js — 远牙 (char_430_fartth) kit, tier 4.
 // Conventions of the tier-4 kits: ../shared/tier4.js; kit contract and rules: ../README.md.
 
-import { COLS } from '../../../constants.js';
+import { COLS, STAGE_COLS } from '../../../constants.js';
 import { bodyInRange } from '../../../body.js';
 import { absoluteRangeKeys, sortEnemyTargets } from '../../../targeting.js';
 import { isHpLoss } from '../../../damage.js';
 import { num, tbb, whileDeployed, toggleBuff, skillActive, isSel, alt, withDefaults } from '../shared/tier4.js';
 import { hypot } from '../../../detmath.js';
 
-const LINE = Object.freeze(Array.from({ length: COLS }, (_, i) => Object.freeze([0, i])));
+// the stage's width of tiles (21; the grid is wider for the 8-player mode's wide 联防 field, constants.js COLS)
+const LINE = Object.freeze(Array.from({ length: STAGE_COLS }, (_, i) => Object.freeze([0, i])));
 const tileKey = (u) => Math.round(u.y) * COLS + Math.round(u.x);
 /** HP at 0 (boss pool: pool HP) — a `damaged` hook sees the lethal hit before the kill, while the unit is still `alive`. */
 const downed = (u) => (u.bossPool ? !(u.bossPool.hp > 0) : !(u.hp > 0));

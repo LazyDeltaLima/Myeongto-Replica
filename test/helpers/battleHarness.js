@@ -50,6 +50,7 @@ import { Battle } from '../../server/sim/Battle.js';
 import { DataSource, getDefaultSource, spawnsFromTemplate } from '../../server/sim/simdata.js';
 import { TICK } from '../../server/sim/constants.js';
 import { standInRecord, composeUnitRecord, unitForm } from '../../shared/standIn.js';
+import { COLS } from '../../server/sim/constants.js';
 
 export const ALL_HOOKS = Object.freeze([
   'battleStart', 'deploy', 'tick', 'beforeAttack', 'attack', 'hit', 'damaged', 'heal', 'kill', 'death',
@@ -356,7 +357,7 @@ export function checkInvariants(b) {
       // occupancy map consistency: a living deployed ally is what its tile says it is
       // (a flying ally — 炎佑 — holds no tile at all)
       if (u.side === 'ally' && u.deployed && u.motion === 'FLY') { if (b._occ.includes(u)) bad('flying ally holds a tile', u); }
-      else if (u.side === 'ally' && u.deployed && b._occ[u.tileR * 21 + u.tileC] !== u) bad(`occupancy map out of sync at ${u.tileR},${u.tileC}`, u);
+      else if (u.side === 'ally' && u.deployed && b._occ[u.tileR * COLS + u.tileC] !== u) bad(`occupancy map out of sync at ${u.tileR},${u.tileC}`, u);
     } else if (u.removeReason === 'killed' && u.hp !== 0 && !u.bossPool) bad(`killed with hp ${u.hp}`, u);
     else if (u.hp < 0) bad(`negative hp ${u.hp}`, u);
     if (u.side === 'enemy' && u.blockedBy && !u.blockedBy.blocking.includes(u)) bad('block link broken', u);

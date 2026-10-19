@@ -640,6 +640,7 @@ async function checkFacingChain(c) {
     const e = R && priv && [...R._entries.values()].find((x) => x.kind === 'normal' && x.fieldId === 'n:' + priv.playerId);
     if (!e) return { err: 'no local battle of the own field' };
     const { rangeTiles } = await import('/js/ui/facing.js');
+    const { COLS } = await import('/sim/constants.js'); // the sim's tile key = row × COLS + col
     const sp = (e.spec.players || []).find((p) => p && p.playerId === priv.playerId);
     const views = globalThis.__SP_VIEW__?.raw?.debug?.views;
     const rows = [];
@@ -650,7 +651,7 @@ async function checkFacingChain(c) {
       const bu = e.battle.units.find((u) => u.uid === p.uid && u.side === 'ally');
       let range = null;
       if (bu && Array.isArray(bu.baseRangeKeys) && Number.isInteger(bu.tileR)) {
-        const ui = rangeTiles(bu.rangeGrid || [[0, 0]], bu.tileR, bu.tileC, want, { extend: bu.s.baseRangeExtend || 0 }).map(([r, cc]) => r * 21 + cc).sort((a, b) => a - b);
+        const ui = rangeTiles(bu.rangeGrid || [[0, 0]], bu.tileR, bu.tileC, want, { extend: bu.s.baseRangeExtend || 0 }).map(([r, cc]) => r * COLS + cc).sort((a, b) => a - b);
         range = JSON.stringify(ui) === JSON.stringify([...bu.baseRangeKeys].sort((a, b) => a - b));
       }
       let shown = null;

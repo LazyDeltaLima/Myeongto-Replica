@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle } from '../helpers/battleHarness.js';
 import { hasGeneratedData } from '../../server/sim/simdata.js';
+import { COLS } from '../../server/sim/constants.js';
 
 const REAL = { skip: !hasGeneratedData() };
 const YAN = ['chess_char_1_03', 'chess_char_2_04', 'chess_char_3_03', 'chess_char_3_04', 'chess_char_4_15', 'chess_char_4_17', 'chess_char_5_03', 'chess_char_5_12', 'chess_char_6_03'];
@@ -61,7 +62,7 @@ test('an operator or a summon standing on the branch point does not stop the 炎
   assert.equal(y.length, 1);
   assert.deepEqual([y[0].x, y[0].y], [7, 11]);
   const op = h.b.allyUnits.find((u) => u.defId === `${YAN[0]}_a`);
-  assert.ok(op && op.alive && op.deployed && h.b._occ[11 * 21 + 7] === op, 'the operator keeps its tile');
+  assert.ok(op && op.alive && op.deployed && h.b._occ[11 * COLS + 7] === op, 'the operator keeps its tile');
   // 9 炎: both of them over the occupied point
   const nine = YAN.map((id, i) => ({ chessId: `${id}_a`, row: i ? TILES[i][0] : 11, col: i ? TILES[i][1] : 7 }));
   const h9 = makeBattle({ stageId: 'act2autochess_m02', waveTemplate: 'act1autochess_02', autoFinish: false, timeLimit: 60, seed: 5, units: nine, bonds: bonds(9) });

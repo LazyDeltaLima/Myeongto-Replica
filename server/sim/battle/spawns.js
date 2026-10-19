@@ -10,6 +10,7 @@ import { compileRoute } from '../ai.js';
 import { unitInfo } from '../snapshot.js';
 import { normalizeRoute, normalizeEnemy } from '../simdata.js';
 import { fin } from './util.js';
+import { widePlayerAt } from '../wideStage.js';
 
 const FALLBACK_ENEMY = Object.freeze({
   type: 'enemy', id: 'enemy_unknown', key: 'enemy_unknown', name: '未知敌人', rank: 'NORMAL', maxHp: 2000, atk: 200, def: 100, res: 0,
@@ -73,6 +74,8 @@ export class BattleSpawns {
     if (!this.players.length) return null;
     if (this.players.length === 1 || !tile) return this.players[0].playerId;
     const c = Array.isArray(tile) ? tile[1] : tile.c;
+    // the wide 联防 field: the player whose column span holds the tile (wideStage.js)
+    if (this.wide) return (widePlayerAt(this.players, c, this.rect) ?? this.players[0]).playerId;
     const half = c >= 11 ? 'R' : 'L';
     return (this.players.find((p) => p.half === half) ?? this.players[0]).playerId;
   }

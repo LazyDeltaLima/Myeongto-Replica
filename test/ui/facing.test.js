@@ -266,6 +266,8 @@ describe('the wheel\'s intent reaches the stored facing through the real Match.h
 describe('client range preview = sim range (every rangeGrid of chess / tokens / Arts, 4 dirs, rangeExtend 0..3)', () => {
   test('rangeTiles matches server/sim/targeting.js absoluteRangeKeys tile for tile', async () => {
     const { absoluteRangeKeys } = await import('../../server/sim/targeting.js');
+    // the sim's grid is wider than the stage (constants.js COLS: room for the 8-player mode's wide 联防 field)
+    const { COLS } = await import('../../server/sim/constants.js');
     const grids = new Map();
     for (const src of [chess, tokens, items]) for (const rec of Object.values(src)) {
       if (Array.isArray(rec?.rangeGrid) && rec.rangeGrid.length) grids.set(JSON.stringify(rec.rangeGrid), rec.rangeGrid);
@@ -273,7 +275,7 @@ describe('client range preview = sim range (every rangeGrid of chess / tokens / 
     assert.ok(grids.size >= 10, `distinct range shapes (${grids.size})`);
     let n = 0;
     for (const g of grids.values()) for (const dir of DIRS) for (const ext of [0, 1, 2, 3]) for (const [r, c] of [[9, 0], [10, 5], [12, 9], [11, 2]]) {
-      const a = rangeTiles(g, r, c, dir, { extend: ext }).map(([rr, cc]) => rr * GEO.COLS + cc).sort((x, y) => x - y);
+      const a = rangeTiles(g, r, c, dir, { extend: ext, cols: COLS }).map(([rr, cc]) => rr * COLS + cc).sort((x, y) => x - y);
       const b = absoluteRangeKeys(g, r, c, dir, ext).slice().sort((x, y) => x - y);
       assert.deepEqual(a, b, `${JSON.stringify(g)} ${dir} +${ext} @${r},${c}`);
       n++;

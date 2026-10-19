@@ -40,7 +40,7 @@
 import { GEO } from '../../shared/constants.js';
 import { meleeOnHighGround } from '../../shared/highGround.js';
 import { DEFAULT_DIR, isDir, rotateOffset } from '../sim/dir.js';
-import { BOSS_ROW_OFFSET, COLS } from '../sim/constants.js';
+import { BOSS_ROW_OFFSET, STAGE_COLS } from '../sim/constants.js';
 
 export const FIELD = GEO.FIELD; // { r0: 9, r1: 12, c0: 2, c1: 10 }
 export const tileKey = (r, c) => `${r},${c}`;
@@ -65,7 +65,7 @@ export const DEPLOY_FIELDS = Object.freeze(['normal', 'bossL', 'bossR']);
  */
 export const BOARD_ROWS_ABOVE_BOSS = -BOSS_ROW_OFFSET;
 /** Mirror column of the right boss half: board col c ↔ field col 20 − c (sim Battle.mapTile). */
-export const BOSS_MIRROR_COL = COLS - 1;
+export const BOSS_MIRROR_COL = STAGE_COLS - 1;
 const fieldOf = (f) => (DEPLOY_FIELDS.includes(f) ? f : 'normal');
 
 /** The stage tile [row, col] a board tile (r, c) stands on in deploy field `field`. */

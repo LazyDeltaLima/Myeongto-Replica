@@ -18,7 +18,7 @@ export class MatchUnite {
     if (this.clientCombat) { this._startUniteClient(plan); return; }
     this.phase = PHASE.UNITE;
     this.unitePlan = plan;
-    const limit = this.wave ? this.wave.timeLimit : 60;
+    const limit = this._uniteLimit(plan);
     const battle = this.newBattle(this._uniteOpts(plan, limit));
     this.fields = [{ fieldId: 'u', kind: 'unite', players: plan.helpers.map((p) => p.playerId), battle, live: true }];
     this.deadline = this.sched.instant ? 0 : this.sched.now() + Math.round((limit / this.gameSpeed) * 1000);
@@ -50,14 +50,17 @@ export class MatchUnite {
    */
   _uniteOpts(plan, limit) {
     const { wave, players } = uniteBattleOpts(this, plan, limit);
+    const wide = wave.wide === true;
     return {
       seed: deriveSeed(this.seed, `u:${this.round}`),
       kind: 'unite',
       modeId: this.modeId,
       round: this.round,
       stageId: this.stageId,
-      rect: { ...GEO.UNITE_RECT },
+      rect: { ...(wide ? GEO.UNITE_WIDE_RECT : GEO.UNITE_RECT) },
       timeLimit: limit,
+      // the 8-player mode's doubled field (3–4 helpers, server/sim/wideStage.js); only set there
+      ...(wide ? { wide: true } : {}),
       players,
       spawns: this._sanitizeSpawns(wave.spawns),
       routes: wave.routes,
@@ -70,10 +73,20 @@ export class MatchUnite {
     };
   }
 
+  /**
+   * The 联防 time limit: the round's combat limit (60 s without a wave), × gd.unite.wideTimeScale (2) on the wide field
+   * of 3–4 helpers (8-player mode, unite.js header).
+   */
+  _uniteLimit(plan) {
+    const base = this.wave ? this.wave.timeLimit : 60;
+    const n = plan && Array.isArray(plan.helpers) ? plan.helpers.length : 0;
+    return n >= this.gd.unite.wideFrom ? base * this.gd.unite.wideTimeScale : base;
+  }
+
   _startUniteClient(plan) {
     this.phase = PHASE.UNITE;
     this.unitePlan = plan;
-    const limit = this.wave ? this.wave.timeLimit : 60;
+    const limit = this._uniteLimit(plan);
     const f = this._ccField({ fieldId: 'u', kind: 'unite', players: plan.helpers.map((p) => p.playerId), opts: this._uniteOpts(plan, limit) });
     this.deadline = this.sched.instant ? 0 : this.sched.now() + Math.round((limit / this.gameSpeed) * 1000);
     this.watchers.clear();

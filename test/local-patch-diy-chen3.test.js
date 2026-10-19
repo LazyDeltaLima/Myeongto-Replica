@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 
 import { makeBattle, enemyRec } from './helpers/battleHarness.js';
 import { diyRecord } from '../shared/diy.js';
+import { COLS } from '../server/sim/constants.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = { chess: JSON.parse(readFileSync(path.join(ROOT, 'data/chess.json'), 'utf8')), backups: JSON.parse(readFileSync(path.join(ROOT, 'data/backups.json'), 'utf8')) };
@@ -169,7 +170,7 @@ describe('赤刃明霄陈 kit — research 2026-10-07 §2 fixes', () => {
     const u = h.unit(1);
     h.spawn('enemy_post', { pos: [10, 6] });   // in the S3 range, outside her own (Default range)
     h.step();
-    assert.ok(!u.rangeKeySet.has(10 * 21 + 6), 'her own range before the cast');
+    assert.ok(!u.rangeKeySet.has(10 * COLS + 6), 'her own range before the cast');
     u.skill.activate('manual', { free: true });
     const qi = () => h.eventsOf('fx').some((e) => e[1] === 'chen3Qi' && e[4].id === u.id);
     let hits = 0;
@@ -177,12 +178,12 @@ describe('赤刃明霄陈 kit — research 2026-10-07 §2 fixes', () => {
     h.run(0.6);
     assert.ok(qi(), 'the 剑气 left without an attack (技能开启时向前释放)');
     assert.equal(u.skill.spec.attack?.hits, 3, 'the S3 profile');
-    assert.ok(u.rangeKeySet.has(10 * 21 + 6), 'the S3 range');
+    assert.ok(u.rangeKeySet.has(10 * COLS + 6), 'the S3 range');
     h.run(2.4);
     assert.ok(hits >= 3, `her S3 attacks reach it (${hits} hits)`);
     h.runUntil(() => !u.skill.active, 40);
     assert.ok(!u.skill.active && u.skill.spec.attack?.hits === 3 && u.skill.spec.targeting?.rangeGrid, 'the spec is put back at the end');
-    assert.ok(!u.rangeKeySet.has(10 * 21 + 6), 'her own range again');
+    assert.ok(!u.rangeKeySet.has(10 * COLS + 6), 'her own range again');
     assert.equal(h.b.errors.length, 0);
   });
 

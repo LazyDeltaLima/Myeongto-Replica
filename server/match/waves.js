@@ -41,6 +41,7 @@
 // largest owner group (client `_CalculateActionPredelayConsiderUid`, decoded).
 
 import { createRng, deriveSeed } from '../sim/rng.js';
+import { widenRoute } from '../sim/wideStage.js';
 import { keepUnbanned, customStagePool, CUSTOM_FIRST_HALF_STAGES, CUSTOM_FIRST_HALF_WEIGHT_OF } from '../../shared/ruleset.js';
 
 const ACLOON = 'enemy_9012_acloon';
@@ -643,15 +644,20 @@ export function previewOf(spawns) {
  * player, first-leak order); with W = count·interval of the host action and M = the largest owner group,
  * step = min(max(W / M, 0.05·W), MAX_ACTION_INTERVAL_FOR_UID 5 s), and unit i of the k-th owner spawns at
  * preDelay + k·ACTION_INTERVAL_FOR_UID (0.5 s) + i·step.
+ * The wide field of the 8-player mode (3–4 helpers, gd.unite.wideFrom; server/sim/wideStage.js) plays the 2-helper
+ * template with every route widened (widenRoute: in at the far right, through both pairs) [ASSUMED].
  * @param {Array<{ enemyKey: string, mods: object|null, sourcePlayerId: string, bounty?: object|null, isToken?: boolean }>} leaked
- * @param {number} helperCount 1 | 2
- * @returns {{ templateId: string|null, spawns: object[], routes: object[] }}
+ * @param {number} helperCount 1 | 2 (3 | 4 in an 8-player match)
+ * @returns {{ templateId: string|null, spawns: object[], routes: object[], wide: boolean }}
  */
 export function buildUniteWave(gd, leaked, helperCount, timeLimit) { // eslint-disable-line no-unused-vars
   const templates = gd.unite.templates;
-  const templateId = templates[String(helperCount)] || templates[helperCount] || null;
+  const wide = helperCount >= gd.unite.wideFrom;
+  const n = wide ? 2 : helperCount;
+  const templateId = templates[String(n)] || templates[n] || null;
   const tpl = templateId ? gd.wave(templateId) : null;
-  const routes = tpl && Array.isArray(tpl.routes) ? tpl.routes : [];
+  const routes0 = tpl && Array.isArray(tpl.routes) ? tpl.routes : [];
+  const routes = wide ? routes0.map(widenRoute) : routes0;
   const ts = gd.factions.templateSlots || {};
   const list = tpl && Array.isArray(tpl.spawns) ? tpl.spawns : [];
   const isSpawn = (s) => s && !(s.action && String(s.action).toUpperCase() !== 'SPAWN');
@@ -702,5 +708,5 @@ export function buildUniteWave(gd, leaked, helperCount, timeLimit) { // eslint-d
     }
   }
   spawns.sort((a, b) => a.time - b.time);
-  return { templateId, spawns, routes };
+  return { templateId, spawns, routes, wide };
 }

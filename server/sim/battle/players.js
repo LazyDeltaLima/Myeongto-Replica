@@ -2,7 +2,7 @@
 // from the PlayerBattleInput, token defs for an owner's loadout, and the kit / profile / skill setup of a unit.
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
-import { COLS, BOSS_ROW_OFFSET } from '../constants.js';
+import { COLS, STAGE_COLS, BOSS_ROW_OFFSET } from '../constants.js';
 import { GEO } from '../../../shared/constants.js';
 import { Unit } from '../units.js';
 import { normDir, mirrorDir } from '../dir.js';
@@ -115,7 +115,7 @@ export class BattlePlayers {
     let r = row;
     if (ps.rowOffset != null) r = row + ps.rowOffset;
     else if (bossLike && row >= 7) r = row + BOSS_ROW_OFFSET;
-    const c = ps.mirror ? (col <= 10 ? COLS - 1 - col : col) : col + ps.colOffset;
+    const c = ps.mirror ? (col <= 10 ? STAGE_COLS - 1 - col : col) : col + ps.colOffset;
     return [r, c];
   }
 

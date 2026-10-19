@@ -37,7 +37,8 @@
 // canoe (特制水上平台) makes its 深水区 deployable in the prep's deploy map only (server/match/board.js); the sim's Grid
 // keeps those tiles NONE (grid.js DEPLOY_REFUSED_TILES), so automatic placements never use them [ASSUMED].
 
-import { COLS, ROWS } from '../constants.js';
+import { COLS, ROWS, STAGE_COLS } from '../constants.js';
+import { widePlayerAt, wideSpan } from '../wideStage.js';
 import { performAttack, attackCountdown } from '../ai.js';
 import { sortEnemyTargets } from '../targeting.js';
 import { DIR_VEC, normDir, oppositeDir } from '../dir.js';
@@ -190,6 +191,7 @@ function topLayers(battle, playerId) {
 function playerForCol(battle, c) {
   if (!battle.players.length) return null;
   if (battle.players.length === 1) return battle.players[0].playerId;
+  if (battle.wide) return (widePlayerAt(battle.players, c, battle.rect) ?? battle.players[0]).playerId;
   const half = c >= 11 ? 'R' : 'L';
   return (battle.players.find((p) => p.half === half) ?? battle.players[0]).playerId;
 }
@@ -582,8 +584,10 @@ export function stormView(battle) {
   const st = stateOf(battle);
   if (!st?.storms.length) return null;
   const players = battle.players || [];
-  const spans = players.length <= 1 ? [[0, COLS - 1, players[0]?.playerId ?? null]]
-    : [[0, 10, playerForCol(battle, 0)], [11, COLS - 1, playerForCol(battle, COLS - 1)]];
+  const last = STAGE_COLS - 1; // the stage's last column (the grid is wider: constants.js COLS)
+  const spans = players.length <= 1 ? [[0, last, players[0]?.playerId ?? null]]
+    : battle.wide ? players.map((p) => [...wideSpan(players, p, battle.rect), p.playerId])
+      : [[0, 10, playerForCol(battle, 0)], [11, last, playerForCol(battle, last)]];
   const out = [];
   for (const [c0, c1, pid] of spans) {
     const s = stormFor(battle, st, pid);

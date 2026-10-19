@@ -20,6 +20,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { makeBattle, enemyRec } from './helpers/battleHarness.js';
 import * as WANG from '../server/sim/content/kits/ops/op-wang.js';
+import { COLS } from '../server/sim/constants.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BACKUPS = JSON.parse(readFileSync(path.join(ROOT, 'data/backups.json'), 'utf8'));
@@ -292,8 +293,8 @@ describe('望 kit — maintainer decisions 2026-10-07 (op-wang.js)', () => {
       const w = h.unit(1);
       if (cast) { w.skill.activate('manual', { free: true }); h.step(1); assert.ok(w.skill.active); }
       else w.skill.blockTicks = Infinity; // (automatic operations blocked: never cast)
-      assert.equal(!!w.rangeKeySet.has(12 * 21 + 4), true, '12,4 is in her range');
-      assert.equal(!!w.rangeKeySet.has(home[0] * 21 + home[1]), home[1] <= 7);
+      assert.equal(!!w.rangeKeySet.has(12 * COLS + 4), true, '12,4 is in her range');
+      assert.equal(!!w.rangeKeySet.has(home[0] * COLS + home[1]), home[1] <= 7);
       const s = stoneOn(h, home[0], home[1]);
       useUp(h, s);
       const e = holdEnemy(h, home[0], home[1]);

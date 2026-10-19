@@ -52,7 +52,7 @@ Unknown options or a missing option value are errors (exit code 2); `--refresh` 
 
 ## 1. `config.json` — modes, economy and all global tunables
 
-Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAfter, bossOvertimeDrainPerSec, bossHpScale, hiddenCore, dp, unite, finalAssault, timers, bans, bandDraft, titles, titleRule, tips, broadcasts, trophies, roundScores, rewards, constants }`.
+Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAfter, bossOvertimeDrainPerSec, bossHpScale, hiddenCore, dp, unite, finalAssault, eightPlayer, timers, bans, bandDraft, titles, titleRule, tips, broadcasts, trophies, roundScores, rewards, constants }`.
 
 ### 1.1 `modes[modeId]` (9 modes; `modeId = mode_${single|multi}_${difficulty}` + `mode_training_1`)
 
@@ -128,6 +128,7 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 | `dp` | `{"init":10,"perSec":1,"max":99}` | |
 | `unite` | `{"maxHelpers":2,"helperOrder":"unitsOnField>activeBond>undownedUnits; pair: unitsOnField>activeBond>activeLayers>undownedUnits, first = right field (PRTS 帮助)","layerGainsEnabled":false,"templates":{"1":"act1autochess_escaped_single","2":"act1autochess_escaped_multi"},…}` | 联防; `helperOrder` documents the rule `server/match/unite.js helperOrder` implements (research 08 §5; ties → seat) |
 | `finalAssault` | `{"pairing":"seatOrderPairs","oddPlayerAlone":true,"movableBossPerAlivePlayerSide":true,"layerGainsEnabled":false}` | |
+| `eightPlayer` | `{"seats":8,"coopPoolMultiplier":4,"itemPoolMultiplier":2,"bans":{"NORMAL":{"core":1,"addon":2},…},"bossOvertimeDrainPerSec":2,"hiddenCoreMulti":2400,"aliveFull":8,"spDraftCards":12,"unite":{"maxHelpers":4,"wideFrom":3,"wideTimeScale":2}}` | the 8-player co-op mode (a remake feature, maintainer decisions 2026-10-16 / 2026-10-19, every value [ASSUMED]): `GameData` (`seats` 8, `large`) reads it over the 4-player values — the shop pool multiplier, × the item stock, the bans, the overtime drain, the 隐秘核心 threshold, the leader head count, the 机变 cards, and 联防 up to 4 helpers, 3–4 of them on the wide field (`server/sim/wideStage.js`) for `wideTimeScale` × the round's limit |
 | `timers` | `{"infoCheck":25,"infoCheckHint":5,"bandDraft":50,"bandDraftHint":15,"bandTurn":50,"battleCheck":3,"spFirst":30,"spTurn":16,"soloPrepTimeData":300,"soloSpTimeData":150,"chatCd":1,"chatBubble":3,"broadcastDelay":1,"enterSteps":[…]}` | seconds |
 | `bans[difficulty]` | `{"core":3,"addon":4}` (FUNNY `{0,1}`) + `rule` | per-match disabled-bond draw (research 01 A2) |
 | `bandDraft` | `{"skipsPerPlayer":1,"order":"random","duplicatesAllowed":true,"timeoutBandId":"band_bldsk"}` | |

@@ -9,6 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { hasGeneratedData } from '../../server/sim/simdata.js';
+import { COLS } from '../../server/sim/constants.js';
 
 const TRAP = 'token_10031_swire2_gdtrap';
 const SW = 'chess_char_3_04_a';
@@ -56,7 +57,7 @@ test('香槟炸弹 (her kit): no HP loss on 活性源石, 禁疗, a lethal 流�
   h.run(3.2);
   assert.equal(bomb.hp, bomb.s.maxHp, '活性源石 takes nothing');
   assert.equal(h.b.heal(h.unit(1), bomb, 500), 0, 'no heal reaches it');
-  assert.equal(h.b.injuredAlliesInKeys([9 * 21 + 6], h.unit(1)).length, 0, 'no healer picks it');
+  assert.equal(h.b.injuredAlliesInKeys([9 * COLS + 6], h.unit(1)).length, 0, 'no healer picks it');
   h.b.dealDamage(null, bomb, { amount: 1e6, type: 'true', tags: ['test'] });
   h.b.loseHp(bomb, 1e6, { tags: ['test'] });
   h.step();

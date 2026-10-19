@@ -87,7 +87,7 @@
 // TOKEN_IDS; mapCharTalents and touchGospel (Touch's 攫升 / 超脱 and 恳切福音, shared with the Touch 补位 stand-in kit,
 // kits/ops/standin-acmedc.js).
 
-import { COLS, ROWS, MOVE_SCALE, FORCED_EXIT } from '../constants.js';
+import { COLS, ROWS, STAGE_COLS, MOVE_SCALE, FORCED_EXIT } from '../constants.js';
 import { absoluteRangeKeys, sortEnemyTargets, canTargetEnemy } from '../targeting.js';
 import { bodyInRange, bodyInRangeTile } from '../body.js';
 import { hasHp } from '../damage.js';
@@ -95,6 +95,7 @@ import { genericKit } from './generic.js';
 import { bardRegen } from '../professions.js';
 import { normDir, localOrder } from '../dir.js';
 import { SKILL_SUMMON_START_DEPLOY } from '../../../shared/constants.js';
+import { wideSpan } from '../wideStage.js';
 import { hypot } from '../detmath.js';
 import { atPotential } from '../../../shared/potential.js';
 
@@ -1374,7 +1375,10 @@ function airTile(battle, playerId, taken) {
   const R = battle.rect;
   const ps = battle.getPlayer(playerId);
   let c0 = R.c0, c1 = R.c1;
-  if (battle.players.length > 1 && ps) { if (ps.half === 'R') c0 = Math.max(c0, 11); else c1 = Math.min(c1, 10); }
+  if (battle.players.length > 1 && ps) {
+    if (battle.wide) [c0, c1] = wideSpan(battle.players, ps, R);
+    else if (ps.half === 'R') c0 = Math.max(c0, 11); else c1 = Math.min(c1, 10);
+  }
   const cr = (R.r0 + R.r1) / 2, cc = (c0 + c1) / 2;
   const held = mapCharKeys(battle);
   let best = null, bs = null;
@@ -1415,7 +1419,7 @@ function yanyouSpawnPoint(battle, ps) {
   const route = s && Array.isArray(tpl.extraRoutes) ? tpl.extraRoutes[s.routeIndex] : null;
   const st = route && Array.isArray(route.start) ? route.start : null;
   if (!st || !Number.isFinite(st[0]) || !Number.isFinite(st[1])) return null;
-  const r = st[0], c = ps?.mirror ? COLS - 1 - st[1] : st[1];
+  const r = st[0], c = ps?.mirror ? STAGE_COLS - 1 - st[1] : st[1];
   const R = battle.rect;
   if (r < R.r0 || r > R.r1 || c < R.c0 || c > R.c1) return null;
   const sr = Array.isArray(route.spawnRandom) ? route.spawnRandom : null;
