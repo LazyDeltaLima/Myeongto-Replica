@@ -138,9 +138,12 @@ export default {
             if (unit.skill?.active) unit.skill.end('downed');
             battle.releaseBlocked(unit);
             const dep = unit.deploySeq;
+            // "倒地期间不能攻击": disarm holds the attack loop only — her skills cast outside it (MANUAL S3 by the automatic
+            // operations, Skill.autoTrigger; tick rules), so silence holds them too (as the 傀儡师 替身, professions.js).
+            // Maintainer report 2026-10-19: S3 cast while she was downed.
             battle.addBuff(unit, {
               key: 'blaze2:downed', visible: true, shield: num(t1.dynamic), interval: 0.2,
-              flags: { disarm: true, noHeal: true },
+              flags: { disarm: true, silence: true, noHeal: true },
               mods: mods({ hpRegenRatio: num(t1.hp_recovery_per_sec_by_max_hp_ratio), blockCnt: -99 }),
               onTick: ({ unit: u, buff }) => {
                 if (u.deploySeq !== dep || u.hp < u.s.maxHp - 1e-6) return;

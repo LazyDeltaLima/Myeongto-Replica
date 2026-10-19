@@ -1560,3 +1560,13 @@ AUTO 스킬은 스킬 시작(`[trig]`) 경로뿐이었다. 瑕光 S1(`skchr_blem
   세지 않는 것일 수도 있으나 이 녹화로는 구분 안 됨 — 우리는 무적 적도 셈(`raidEnemyClose`). 공격하지 않은 이유는 순간이동 직후의 무적·저지 불가.
 - 테스트 `test/content/bonds_addon.test.js` 「突袭: a ready AUTO skill …」 2건(충전되면 다음 폴링에 점프하고 적이 범위에 있으면 머묾 / 저지·대상 불가 적이
   상자를 벗어날 때마다 다시 점프, S1은 시작 안 함). golden: roster-027(瑕光 S1 + 斯卡蒂로 기습 2명) — 瑕光이 충전되자 뛰어 처치 42 → 37 등.
+
+## 烛煌 绝处重燃 쓰러짐 중에는 스킬도 안 켜짐 (2026-10-19, 관리자 제보)
+
+제보: 이격 블레이즈(烛煌, `chess_char_5_03`)가 재능 绝处重燃으로 쓰러져 있는 동안(공격 불가) S3가 발동한다.
+- **원인**: 쓰러짐 버프 `blaze2:downed`가 `disarm`만 걸었다. `disarm`은 평타 루프(`ai.js updateAlly`)만 막고, 스킬은 그 밖에서 켜진다 — MANUAL S3는
+  자동 조작(`Skill.autoTrigger`, rangeId 4-11 칸에 적만 있으면 됨), S2도 같은 길. 쓰러진 채 S3가 켜지면 초당 3% 체력 손실이 3% 재생과 상쇄돼 일어나지 못했다.
+- **변경**: 쓰러짐 버프에 `silence`를 더함(`server/sim/content/kits/ops/chess_char_5_03-blaze2.js`) — 傀儡师 <替身>(`professions.js`, 「不进行普通攻击」)과 같은 꼴.
+  쓰러지는 순간 켜져 있던 스킬은 예전처럼 끝냄. SP는 계속 참(PRTS 재능 문구에 SP 언급 없음) **[ASSUMED]**. 화면은 그대로(버프 플래그는 상태 아이콘에 안 실림 — `snapshot.js flagsOf`, `protocol.js`의 `silenced`는 적 카드만).
+- 테스트 `test/sim/blaze2-downed-skill.test.js`(S1–S3: 쓰러진 동안 SP를 채워도 시전·공격 없음, 일어난 뒤 다시 시전; 고치기 전 S2·S3 실패).
+  golden: roster-013·hidden-boss_9-solo(烛煌이 일어나 싸움 — hidden-boss_9 烛煌 피해 119,635 → 208,184).
