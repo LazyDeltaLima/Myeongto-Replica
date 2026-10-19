@@ -82,9 +82,8 @@ This is a remake of the official mode; the official game decides.
   pages), then community wikis, then the maintainer's memory of the game. Numbers come from the blackboards, never from
   memory. Screenshots or recordings of the official game are valuable: attach them to the issue or pull request.
 - **What no source settles** is implemented the simplest way closest to the official game and marked `[ASSUMED]` in the
-  code and the pull request. A decision the maintainer takes is cited as "maintainer decision YYYY-MM-DD". Some decisions
-  are explicitly provisional (for example the wide skill-range auto-cast, `docs/rules/sim.md` 「스킬 범위 발동」) and are
-  never marked settled.
+  code and the pull request. A decision the maintainer takes is cited as "maintainer decision YYYY-MM-DD". A decision
+  the maintainer calls provisional stays marked so in `docs/rules/` and is never presented as settled.
 - **Rules that differ from upstream or from the official game** are recorded with their evidence in
   [docs/rules/](docs/rules/README.md), one file per domain (`sim`, `diy`, `ui`, `render`, `fx`, `audio`, `upstream`).
   Before changing a rule read the owning section of `docs/design/` and the official source; after the change update
