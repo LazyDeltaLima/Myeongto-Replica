@@ -1624,9 +1624,11 @@ AUTO 스킬은 스킬 시작(`[trig]`) 경로뿐이었다. 瑕光 S1(`skchr_blem
 - **방 트래픽**(관리자 요청 2026-10-19): `m.public` 방송은 인원만큼 커지고 인원 모두에게 가서 방 전체로 n². 방송 대부분이 앞 방송의 되풀이였다
   (맹약 줄만 8인 62%) → 판의 첫 방송 다음부터 바뀐 것만: `delta: true`, 바뀐 윗단 칸(`t`·`serverNow`·`players`는 늘)과 없어진 칸 `$rm`, `players[]`
   줄마다 `playerId`·바뀐 칸·`$rm`(`server/match/match/messaging.js _publicDelta`, 브라우저는 `shared/protocol.js mergePublic`으로 가진 것에 합침).
-  재접속·관전 입장의 한 사람 m.public(그 뒤 첫 방송도)·판의 마지막 방송은 전부. 전원 托管 NORMAL seed 3 한 판: 8인 방송 1805 → 378 KB(21%, 방 전체
-  약 14.1 → 3.0 MB), 4인 739 → 157 KB(21%). 남은 몫은 바뀐 맹약 줄 전체(8인 146 KB)·机变 카드 묶음(고를 때마다 통째, 131 KB).
-  확인 `test/match/public-delta.test.js`(합친 방송 = 전체 view, 첫·마지막 방송 전부, 재접속 뒤 첫 방송 전부).
+  바뀐 칸은 통째나, 그보다 짧을 때 그 칸만의 delta: 목록(`shared/protocol.js PUBLIC_LIST_KEYS` — 줄의 맹약 `bondId`, `fields`의 `fieldId`, 机变
+  카드 `idx`)은 `{ $list }`로 안 바뀐 항목을 키로만, 객체(机变·전략 드래프트)는 `{ $d: 1 }`로 바뀐 칸만 — 맹약 하나가 움직여도 그 사람 맹약 목록이
+  통째로, 机变을 고를 때마다 카드 12장이 통째로 가던 몫. 재접속·관전 입장의 한 사람 m.public(그 뒤 첫 방송도)·판의 마지막 방송은 전부. 전원 托管
+  NORMAL seed 3 한 판: 8인 방송 1805 → 185 KB(10%, 방 전체 약 14.1 → 1.4 MB; 맹약 151 → 74 KB, 机变 131 → 16 KB), 4인 739 → 92 KB(12%).
+  확인 `test/match/public-delta.test.js`(합친 방송 = 전체 view, 첫·마지막 방송 전부, 재접속 뒤 첫 방송 전부, 맹약 `$list`·机变 `$d`).
 - **시뮬 격자**: 전투 격자 폭(`server/sim/constants.js COLS`)을 37로 넓힘 — 다른 필드는 그 안의 21열만 씀. 좌우 반전(최종 공세 오른쪽)은 전장 폭
   `STAGE_COLS`(21)로(`battle/players.js`, `content/tokens.js`, `match/finalAssault.js`, `match/board.js`). 넓힌 뒤 골든 161개 그대로, 실행 시간 같음.
 - **규칙 모드**: 4인·8인 모두 클래식·캐주얼·커스텀을 고름(방 크기와 규칙은 따로; 공개 매칭은 클래식·캐주얼만, 크기별 대기열). 8석 방의 커스텀 설정 창·요약의

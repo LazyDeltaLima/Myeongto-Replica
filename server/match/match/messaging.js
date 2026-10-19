@@ -8,20 +8,63 @@
 
 import { DELAYS } from './common.js';
 import { wireMessage } from '../../../shared/i18n.js';
+import { PUBLIC_LIST_KEYS } from '../../../shared/protocol.js';
 
 /** m.public fields every delta carries (the rest only when changed; _publicDelta) */
 const ALWAYS = new Set(['t', 'serverNow', 'players']);
 
+const isPlain = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+
 /**
- * The fields of `obj` whose JSON (`now`) differs from `before`, and `$rm`: those `before` had and `now` lacks.
- * @param {Record<string, any>} obj @param {Map<string, string>} now @param {Map<string, string>} before
+ * What _publicDelta remembers of a field sent: its JSON and, `depth` levels down, an object's fields (`sub`) or a
+ * PUBLIC_LIST_KEYS list's entries by key (`items`; only when every entry has its own key).
+ * @returns {{ json: string, sub?: Map<string, any>, items?: Map<any, string> }}
+ */
+function entryOf(k, v, depth) {
+  const e = { json: JSON.stringify(v) };
+  if (depth <= 0) return e;
+  const key = PUBLIC_LIST_KEYS[k];
+  if (key && Array.isArray(v)) {
+    const items = new Map(v.map((x) => [isPlain(x) ? x[key] : undefined, JSON.stringify(x)]));
+    if (items.size === v.length && !items.has(undefined)) e.items = items;
+  } else if (isPlain(v)) {
+    e.sub = entriesOf(v, depth - 1);
+  }
+  return e;
+}
+
+/** @param {Record<string, any>} obj @param {number} depth @param {Set<string>} [skip] */
+function entriesOf(obj, depth, skip) {
+  const out = new Map();
+  for (const [k, v] of Object.entries(obj)) if (!skip?.has(k)) out.set(k, entryOf(k, v, depth));
+  return out;
+}
+
+/**
+ * The fields of `obj` whose JSON (`now`) differs from `before`, each whole or as its own delta when that is shorter
+ * (fieldDelta), and `$rm`: those `before` had and `now` lacks.
  */
 function changedOf(obj, now, before) {
   const out = {};
-  for (const [k, j] of now) if (before.get(k) !== j) out[k] = obj[k];
+  for (const [k, e] of now) {
+    const b = before.get(k);
+    if (b?.json !== e.json) out[k] = b ? fieldDelta(k, obj[k], e, b) : obj[k];
+  }
   const rm = [...before.keys()].filter((k) => !now.has(k));
   if (rm.length) out.$rm = rm;
   return out;
+}
+
+/** A changed field: a list's unchanged entries by key (`{ $list }`), an object's changed fields (`{ $d: 1 }`) or whole. */
+function fieldDelta(k, v, e, b) {
+  let d = null;
+  if (e.items && b.items) {
+    const key = PUBLIC_LIST_KEYS[k];
+    d = { $list: v.map((x) => (b.items.get(x[key]) === e.items.get(x[key]) ? x[key] : x)) };
+  } else if (e.sub && b.sub) {
+    d = { $d: 1, ...changedOf(v, e.sub, b.sub) };
+  }
+  return d && JSON.stringify(d).length < e.json.length ? d : v;
 }
 
 export class MatchMessaging {
@@ -138,21 +181,24 @@ export class MatchMessaging {
    * The broadcast form of m.public: after the match's first broadcast it is a delta (`delta: true`; the client merges:
    * shared/protocol.js mergePublic) — the top-level fields that changed since the previous broadcast (`t`, `serverNow`
    * and `players` always), `$rm` naming those that went away (draft, sp, teamLp…), and in players[] each row's
-   * `playerId`, its changed fields and its own `$rm`. Most of a broadcast repeated the previous one (an 8-player match:
-   * the bonds alone 62 % of the bytes; the match's settings every time). Every viewer that missed a broadcast gets a
+   * `playerId`, its changed fields and its own `$rm`. A changed field goes whole or, when shorter, as a delta of its
+   * own (fieldDelta): a row's bonds, the fields and the 机变 cards name their unchanged entries by key (`{ $list }`), an
+   * object (the 机变 draft, the strategy draft) sends its changed fields (`{ $d: 1 }`). Most of a broadcast repeated the
+   * previous one (an 8-player match: the bonds alone 62 % of the bytes, then a player's whole bond list for one bond
+   * that moved and the twelve 机变 cards for every pick; the match's settings every time). Every viewer that missed a broadcast gets a
    * whole m.public on its way back (platform.js _resync, after which the next broadcast is whole too; only b.snap frames
    * are ever skipped under backpressure, server/net.js); the match's final broadcast is whole as well — the lobby keeps
    * it for the result replay.
    */
   _publicDelta(view) {
-    const top = new Map(Object.entries(view).filter(([k]) => !ALWAYS.has(k)).map(([k, v]) => [k, JSON.stringify(v)]));
+    const top = entriesOf(view, 2, ALWAYS);
     const beforeTop = this._pubTopSent;
-    const sent = (this._pubRowsSent ||= new Map()); // playerId → Map(field → JSON) of the last broadcast
+    const sent = (this._pubRowsSent ||= new Map()); // playerId → the row's entriesOf at the last broadcast
     const whole = this.ended || !beforeTop;
     this._pubTopSent = top;
     const players = view.players.map((p) => {
       const before = sent.get(p.playerId);
-      const now = new Map(Object.entries(p).map(([k, v]) => [k, JSON.stringify(v)]));
+      const now = entriesOf(p, 1);
       sent.set(p.playerId, now);
       if (whole || !before) return p;
       return { playerId: p.playerId, ...changedOf(p, now, before) };

@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { mergePublic } from '../../shared/protocol.js';
+import { mergePublic, PUBLIC_LIST_KEYS } from '../../shared/protocol.js';
 import { PHASE } from '../../shared/constants.js';
 import { makeMatch } from './harness.js';
 
@@ -29,6 +29,21 @@ test('mergePublic: changed fields over the held frame and rows, $rm deletes at b
   assert.ok('draft' in prevTop, 'the held frame is not changed');
 });
 
+test('mergePublic: a field sent as its own delta — a list by key ($list), an object by its changed fields ($d)', () => {
+  const card = (idx, o = {}) => ({ idx, kind: 'item', id: `c${idx}`, soldOut: false, ...o });
+  const prev = {
+    phase: 'SP_DRAFT', sp: { family: 'f', cards: [card(0), card(1), card(2)], picks: {}, turn: 'a' },
+    players: [{ playerId: 'a', bonds: [{ bondId: 'x', count: 2 }, { bondId: 'y', count: 1 }] }],
+  };
+  const out = mergePublic(prev, { t: 'm.public', delta: true, sp: { $d: 1, cards: { $list: [0, card(1, { soldOut: true }), 2] }, picks: { a: 1 }, $rm: ['turn'] },
+    players: [{ playerId: 'a', bonds: { $list: ['y', { bondId: 'x', count: 3 }, { bondId: 'z', count: 1 }] } }] });
+  assert.deepEqual(out.sp, { family: 'f', cards: [card(0), card(1, { soldOut: true }), card(2)], picks: { a: 1 } });
+  assert.ok(out.sp.cards[0] === prev.sp.cards[0], 'an entry named by its key is the one held');
+  assert.deepEqual(out.players[0].bonds, [{ bondId: 'y', count: 1 }, { bondId: 'x', count: 3 }, { bondId: 'z', count: 1 }], 'reordered, changed, added; the rest dropped');
+  assert.deepEqual(prev.sp.turn, 'a', 'the held frame is not changed');
+  assert.deepEqual(Object.keys(PUBLIC_LIST_KEYS).sort(), ['bonds', 'cards', 'fields']);
+});
+
 /** A match whose whole views (before the delta) are recorded next to the frames sent. */
 function recorded(o) {
   const h = makeMatch(o);
@@ -38,7 +53,7 @@ function recorded(o) {
   return { h, wholes };
 }
 
-test('an 8-player match: every merged broadcast equals the whole view, at about a fifth of the bytes; the first and last are whole', () => {
+test('an 8-player match: every merged broadcast equals the whole view, at about a tenth of the bytes; the first and last are whole', () => {
   const seats = Array.from({ length: 8 }, (_, i) => ({ seat: i, playerId: `ai_${i}`, name: `AI${i}`, isBot: true, connected: true }));
   const { h, wholes } = recorded({ seats, size: 8, difficulty: 'NORMAL', seed: 3 });
   h.start();
@@ -49,7 +64,11 @@ test('an 8-player match: every merged broadcast equals the whole view, at about 
   for (let i = 0; i < wholes.length; i++) assert.deepEqual(merged[i], wholes[i], `broadcast ${i} (${wholes[i].phase} R${wholes[i].round})`);
   const wire = h.wirePublic.reduce((n, x) => n + bytes(x), 0);
   const full = wholes.reduce((n, x) => n + bytes(x), 0);
-  assert.ok(wire < full * 0.25, `wire ${wire} B vs whole ${full} B`);
+  assert.ok(wire < full * 0.13, `wire ${wire} B vs whole ${full} B`);
+  const rows = h.wirePublic.flatMap((x) => x.players);
+  assert.ok(rows.some((p) => Array.isArray(p.bonds?.$list) && p.bonds.$list.some((e) => typeof e === 'string')), 'a bond list names the unchanged bonds by id');
+  const sps = h.wirePublic.filter((x) => x.sp?.$d === 1);
+  assert.ok(sps.length > 0 && sps.every((x) => !Array.isArray(x.sp.cards)), 'a 机变 pick sends the picks, not the twelve cards again');
   assert.equal('delta' in h.wirePublic[0], false, 'the first broadcast is whole');
   assert.ok(h.wirePublic.slice(1, -1).every((x) => x.delta === true));
   assert.ok(h.wirePublic.some((x) => x.players.some((p) => Array.isArray(p.$rm))), 'a row field going away travels as $rm');

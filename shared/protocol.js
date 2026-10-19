@@ -522,28 +522,51 @@ export const S2C = [
 ];
 
 /**
+ * m.public lists whose entries a delta may name by their key instead of repeating them (a players[] row's bonds, the
+ * fields, the 机变 cards): `{ $list: [entry | key] }` — an entry that did not change is its key (server/match/match/
+ * messaging.js _publicDelta). Keys are unique within a list.
+ */
+export const PUBLIC_LIST_KEYS = Object.freeze({ bonds: 'bondId', fields: 'fieldId', cards: 'idx' });
+
+/** One field of a delta over the value held: whole, `{ $list }` (PUBLIC_LIST_KEYS) or `{ $d: 1, …changed, $rm }`. */
+function patchValue(k, old, v) {
+  if (!isPlain(v)) return v;
+  if (Array.isArray(v.$list)) {
+    const key = PUBLIC_LIST_KEYS[k];
+    const was = new Map((Array.isArray(old) ? old : []).filter(isPlain).map((x) => [x[key], x]));
+    return v.$list.map((x) => (isPlain(x) ? x : was.get(x)));
+  }
+  if (v.$d === 1) return patchObject(old, v);
+  return v;
+}
+
+function patchObject(base, d) {
+  const { $rm, $d, delta, ...changed } = d;
+  void $d; void delta;
+  const out = { ...(isPlain(base) ? base : {}) };
+  for (const [k, v] of Object.entries(changed)) out[k] = patchValue(k, out[k], v);
+  if (Array.isArray($rm)) for (const k of $rm) delete out[k];
+  return out;
+}
+
+/**
  * The whole m.public from a broadcast. After a match's first broadcast it is a delta (`delta: true`, server/match/match/
  * messaging.js _publicDelta): the top-level fields that changed since the previous broadcast (`t`, `serverNow` and
  * `players` always) and `$rm`, the fields that went away (draft, sp, teamLp…); in players[] each row holds its
- * `playerId`, its changed fields and its own `$rm` (pendingLp, uniteLeft, reroll… are left out when 0 / false). Most of
- * a broadcast repeated the previous one — the bonds alone were 62 % of an 8-player match's bytes, and an 8-player room
- * sends each broadcast to eight browsers. A frame without `delta` (the first broadcast, a one-to-one resync, the
- * match's final one) is whole.
+ * `playerId`, its changed fields and its own `$rm` (pendingLp, uniteLeft, reroll… are left out when 0 / false). A
+ * changed field is whole or, when shorter, a delta of its own: an object as `{ $d: 1, …its changed fields, $rm }` (the
+ * 机变 draft's picks without its cards), a PUBLIC_LIST_KEYS list as `{ $list }` (a row's bonds: the one bond that
+ * changed, the others by id). Most of a broadcast repeated the previous one — the bonds alone were 62 % of an
+ * 8-player match's bytes, and an 8-player room sends each broadcast to eight browsers. A frame without `delta` (the
+ * first broadcast, a one-to-one resync, the match's final one) is whole.
  * @param {any} prev the m.public held (merged; or null) @param {any} next the m.public that arrived
- * @returns {any} `next` itself when whole, else the merged frame (no `delta` / `$rm` keys)
+ * @returns {any} `next` itself when whole, else the merged frame (no `delta` / `$rm` / `$d` / `$list` keys)
  */
 export function mergePublic(prev, next) {
   if (!next || next.delta !== true || !Array.isArray(next.players)) return next;
-  const apply = (base, d) => {
-    const { $rm, delta, ...changed } = d;
-    void delta;
-    const out = { ...base, ...changed };
-    if (Array.isArray($rm)) for (const k of $rm) delete out[k];
-    return out;
-  };
   const before = new Map((Array.isArray(prev?.players) ? prev.players : []).filter(Boolean).map((p) => [p.playerId, p]));
-  const players = next.players.map((d) => (d && typeof d === 'object' ? apply(before.get(d.playerId) || {}, d) : d));
-  return { ...apply(prev && typeof prev === 'object' ? prev : {}, next), players };
+  const players = next.players.map((d) => (isPlain(d) ? patchObject(before.get(d.playerId), d) : d));
+  return { ...patchObject(prev, { ...next, players: null }), players };
 }
 
 /**
