@@ -26,7 +26,7 @@ import { FakeBattle } from './fakeBattle.js';
 import { GEO } from '../../shared/constants.js';
 import { collectViolations } from '../../server/match/invariants.js';
 import { attachSimClients } from './simClient.js';
-import { mergePublicRows } from '../../shared/protocol.js';
+import { mergePublic } from '../../shared/protocol.js';
 
 export const DATA = getData({ log: { warn() {}, error() {}, info() {} } });
 
@@ -65,11 +65,11 @@ export function makeMatch(o = {}) {
       h.sent.push([id, msg]);
       return true;
     },
-    // m.public as the browser holds it (a broadcast is a delta of the players[] rows: mergePublicRows); the frames as
+    // m.public as the browser holds it (a broadcast is a delta: mergePublic); the frames as
     // sent in h.wirePublic
     broadcast: (raw) => {
       let msg = raw;
-      if (raw.t === 'm.public') { h.wirePublic.push(raw); msg = mergePublicRows(h.bc.findLast((x) => x.t === 'm.public') ?? null, raw); }
+      if (raw.t === 'm.public') { h.wirePublic.push(raw); msg = mergePublic(h.bc.findLast((x) => x.t === 'm.public') ?? null, raw); }
       for (const fn of h.onBroadcast) fn(msg); checkFrame(msg); h.bc.push(msg);
     },
     onEnd: (s) => { h.ended = s; h.endedCount++; },

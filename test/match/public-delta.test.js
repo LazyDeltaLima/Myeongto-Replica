@@ -1,27 +1,32 @@
-// m.public broadcasts as deltas of their players[] rows (server/match/match/messaging.js _publicDelta; the client merges:
-// shared/protocol.js mergePublicRows): after a match's first broadcast each row holds its playerId, the fields that
-// changed since the previous broadcast and, in `$rm`, the fields it lost. The rows were most of m.public's bytes — an
-// 8-player room sends every broadcast to eight browsers.
+// m.public broadcasts as deltas (server/match/match/messaging.js _publicDelta; the client merges: shared/protocol.js
+// mergePublic): after a match's first broadcast a frame holds the top-level fields that changed since the previous one
+// (t, serverNow, players always) and `$rm` for those that went away, and each players[] row its playerId, its changed
+// fields and its own `$rm`. Most of a broadcast repeated the previous one — an 8-player room sends each to eight browsers.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { mergePublicRows } from '../../shared/protocol.js';
+import { mergePublic } from '../../shared/protocol.js';
 import { PHASE } from '../../shared/constants.js';
 import { makeMatch } from './harness.js';
 
 const bytes = (o) => Buffer.byteLength(JSON.stringify(o));
 
-test('mergePublicRows: changed fields over the held row, $rm deletes, a whole frame passes as is', () => {
+test('mergePublic: changed fields over the held frame and rows, $rm deletes at both levels, a whole frame passes as is', () => {
   const prev = { phase: 'PREP', players: [{ playerId: 'a', lp: 10, bonds: [{ bondId: 'x', count: 2 }], pendingLp: 3 }, { playerId: 'b', lp: 8, bonds: [] }] };
   const whole = { phase: 'COMBAT', players: [{ playerId: 'a', lp: 9, bonds: [] }] };
-  assert.ok(mergePublicRows(prev, whole) === whole);
-  const out = mergePublicRows(prev, { phase: 'SETTLE', delta: true, players: [{ playerId: 'a', lp: 9, $rm: ['pendingLp'] }, { playerId: 'b' }, { playerId: 'c', lp: 7 }] });
+  assert.ok(mergePublic(prev, whole) === whole);
+  const prevTop = { ...prev, round: 3, draft: { order: ['a', 'b'] } };
+  const out = mergePublic(prevTop, { t: 'm.public', serverNow: 5, phase: 'SETTLE', delta: true, $rm: ['draft'],
+    players: [{ playerId: 'a', lp: 9, $rm: ['pendingLp'] }, { playerId: 'b' }, { playerId: 'c', lp: 7 }] });
   assert.equal('delta' in out, false);
-  assert.equal(out.phase, 'SETTLE');
+  assert.equal('$rm' in out, false);
+  assert.equal('draft' in out, false, 'a top-level field that went away');
+  assert.deepEqual([out.phase, out.round, out.serverNow, out.t], ['SETTLE', 3, 5, 'm.public'], 'changed, kept, always sent');
   assert.deepEqual(out.players, [{ playerId: 'a', lp: 9, bonds: [{ bondId: 'x', count: 2 }] }, { playerId: 'b', lp: 8, bonds: [] }, { playerId: 'c', lp: 7 }]);
   assert.deepEqual(prev.players[0].pendingLp, 3, 'the held frame is not changed');
-  assert.equal(mergePublicRows(prev, null), null);
+  assert.equal(mergePublic(prev, null), null);
+  assert.ok('draft' in prevTop, 'the held frame is not changed');
 });
 
 /** A match whose whole views (before the delta) are recorded next to the frames sent. */
@@ -33,7 +38,7 @@ function recorded(o) {
   return { h, wholes };
 }
 
-test('an 8-player match: every merged broadcast equals the whole view, at a third of the bytes; the first and last are whole', () => {
+test('an 8-player match: every merged broadcast equals the whole view, at about a fifth of the bytes; the first and last are whole', () => {
   const seats = Array.from({ length: 8 }, (_, i) => ({ seat: i, playerId: `ai_${i}`, name: `AI${i}`, isBot: true, connected: true }));
   const { h, wholes } = recorded({ seats, size: 8, difficulty: 'NORMAL', seed: 3 });
   h.start();
@@ -41,13 +46,15 @@ test('an 8-player match: every merged broadcast equals the whole view, at a thir
   const merged = h.bc.filter((x) => x.t === 'm.public');
   assert.ok(wholes.length > 100, `${wholes.length} broadcasts`);
   assert.equal(merged.length, wholes.length);
-  for (let i = 0; i < wholes.length; i++) assert.deepEqual(merged[i].players, wholes[i].players, `broadcast ${i}`);
+  for (let i = 0; i < wholes.length; i++) assert.deepEqual(merged[i], wholes[i], `broadcast ${i} (${wholes[i].phase} R${wholes[i].round})`);
   const wire = h.wirePublic.reduce((n, x) => n + bytes(x), 0);
   const full = wholes.reduce((n, x) => n + bytes(x), 0);
-  assert.ok(wire < full * 0.4, `wire ${wire} B vs whole ${full} B`);
+  assert.ok(wire < full * 0.25, `wire ${wire} B vs whole ${full} B`);
   assert.equal('delta' in h.wirePublic[0], false, 'the first broadcast is whole');
   assert.ok(h.wirePublic.slice(1, -1).every((x) => x.delta === true));
-  assert.ok(h.wirePublic.some((x) => x.players.some((p) => Array.isArray(p.$rm))), 'a field going away travels as $rm');
+  assert.ok(h.wirePublic.some((x) => x.players.some((p) => Array.isArray(p.$rm))), 'a row field going away travels as $rm');
+  assert.ok(h.wirePublic.some((x) => Array.isArray(x.$rm) && x.$rm.includes('sp')), 'so does a top-level one (the 机变 draft after SP_DRAFT)');
+  assert.ok(h.wirePublic.slice(1, -1).every((x) => !('modeId' in x) && !('factions' in x)), 'the match settings travel once');
   const last = h.wirePublic.at(-1);
   assert.equal(last.phase, PHASE.RESULT);
   assert.equal('delta' in last, false, 'the final broadcast (kept for the result replay) is whole');
@@ -75,5 +82,5 @@ test('a reconnect gets a whole m.public and the next broadcast is whole; then de
 
 test('the browser merges m.public with the one it holds', () => {
   const src = readFileSync(new URL('../../public/js/main.js', import.meta.url), 'utf8');
-  assert.match(src, /store\.patch\('match', \{ public: mergePublicRows\(store\.get\(\)\.match\.public, payload\(msg\)\) \}\)/);
+  assert.match(src, /store\.patch\('match', \{ public: mergePublic\(store\.get\(\)\.match\.public, payload\(msg\)\) \}\)/);
 });

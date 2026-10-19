@@ -139,8 +139,7 @@ export class MatchPlatform {
     const playerId = ps.playerId;
     this.sendTo(playerId, this.publicView());
     // the next broadcast is whole: its delta would be against the previous broadcast, not this newer state
-    // (messaging.js _publicDelta)
-    this._pubRowsSent?.clear();
+    this._publicWholeNext();
     if (!this.ended) {
       if (!ps.spectator) {
         ps._lastPriv = null;

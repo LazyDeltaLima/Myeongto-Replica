@@ -9,6 +9,21 @@
 import { DELAYS } from './common.js';
 import { wireMessage } from '../../../shared/i18n.js';
 
+/** m.public fields every delta carries (the rest only when changed; _publicDelta) */
+const ALWAYS = new Set(['t', 'serverNow', 'players']);
+
+/**
+ * The fields of `obj` whose JSON (`now`) differs from `before`, and `$rm`: those `before` had and `now` lacks.
+ * @param {Record<string, any>} obj @param {Map<string, string>} now @param {Map<string, string>} before
+ */
+function changedOf(obj, now, before) {
+  const out = {};
+  for (const [k, j] of now) if (before.get(k) !== j) out[k] = obj[k];
+  const rm = [...before.keys()].filter((k) => !now.has(k));
+  if (rm.length) out.$rm = rm;
+  return out;
+}
+
 export class MatchMessaging {
   sendTo(playerId, msg) {
     if (this.disposed) return false;
@@ -120,27 +135,35 @@ export class MatchMessaging {
   }
 
   /**
-   * The broadcast form of m.public: after the match's first broadcast, each players[] row holds only its `playerId`, the
-   * fields that changed since the previous broadcast and, in `$rm`, those it lost (`delta: true`; the client merges:
-   * shared/protocol.js mergePublicRows). The rows were most of its bytes (an 8-player match: the bonds alone 62 %), and
-   * a row changes a few fields a phase. Every viewer that missed a broadcast gets a whole m.public on its way back
-   * (platform.js _resync, after which the next broadcast is whole too; only b.snap frames are ever skipped under
-   * backpressure, server/net.js); the match's final broadcast is whole as well — the lobby keeps it for the result replay.
+   * The broadcast form of m.public: after the match's first broadcast it is a delta (`delta: true`; the client merges:
+   * shared/protocol.js mergePublic) — the top-level fields that changed since the previous broadcast (`t`, `serverNow`
+   * and `players` always), `$rm` naming those that went away (draft, sp, teamLp…), and in players[] each row's
+   * `playerId`, its changed fields and its own `$rm`. Most of a broadcast repeated the previous one (an 8-player match:
+   * the bonds alone 62 % of the bytes; the match's settings every time). Every viewer that missed a broadcast gets a
+   * whole m.public on its way back (platform.js _resync, after which the next broadcast is whole too; only b.snap frames
+   * are ever skipped under backpressure, server/net.js); the match's final broadcast is whole as well — the lobby keeps
+   * it for the result replay.
    */
   _publicDelta(view) {
+    const top = new Map(Object.entries(view).filter(([k]) => !ALWAYS.has(k)).map(([k, v]) => [k, JSON.stringify(v)]));
+    const beforeTop = this._pubTopSent;
     const sent = (this._pubRowsSent ||= new Map()); // playerId → Map(field → JSON) of the last broadcast
-    const whole = this.ended || !sent.size;
+    const whole = this.ended || !beforeTop;
+    this._pubTopSent = top;
     const players = view.players.map((p) => {
       const before = sent.get(p.playerId);
       const now = new Map(Object.entries(p).map(([k, v]) => [k, JSON.stringify(v)]));
       sent.set(p.playerId, now);
       if (whole || !before) return p;
-      const row = { playerId: p.playerId };
-      for (const [k, j] of now) if (before.get(k) !== j) row[k] = p[k];
-      const rm = [...before.keys()].filter((k) => !now.has(k));
-      if (rm.length) row.$rm = rm;
-      return row;
+      return { playerId: p.playerId, ...changedOf(p, now, before) };
     });
-    return whole ? view : { ...view, players, delta: true };
+    if (whole) return view;
+    return { t: view.t, serverNow: view.serverNow, delta: true, ...changedOf(view, top, beforeTop), players };
+  }
+
+  /** The next broadcast is whole (a viewer just got a whole m.public: a delta would be against an older state). */
+  _publicWholeNext() {
+    this._pubTopSent = null;
+    this._pubRowsSent?.clear();
   }
 }

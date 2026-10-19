@@ -505,8 +505,8 @@ export const S2C = [
   // { difficulty, ruleset, size, players, accepted, mine, inMs } · lobby.queueCounts { counts: { [ruleset]: { [difficulty]: n } },
   // counts8: the same for the 8-player queues } (the waiting Doctors of every queue, server/matchmaking.js)
   'room.queueState', 'room.matchFound', 'lobby.queueCounts',
-  // m.public: a broadcast after the match's first is a delta of its players[] rows (`delta: true`, mergePublicRows); a
-  // one-to-one m.public (a reconnect / resync, a spectator taking a seat) and the match's final broadcast are whole
+  // m.public: a broadcast after the match's first is a delta (`delta: true`, mergePublic); a one-to-one m.public (a
+  // reconnect / resync, a spectator taking a seat) and the match's final broadcast are whole
   'm.public', 'm.private', 'm.field', 'm.toast', 'm.ticker', 'm.emote', 'm.result',
   // m.layer { playerId, bondId, add } — the player's own bond layer gain in ROUND_START / SP_DRAFT / PREP (upstream #482:
   // the layer-up sound); live only, never replayed on a resync
@@ -522,27 +522,28 @@ export const S2C = [
 ];
 
 /**
- * m.public with whole players[] rows. A broadcast after the match's first is a delta (`delta: true`, server/match/match/
- * messaging.js _publicDelta): each row holds its `playerId`, the fields that changed since the previous broadcast and,
- * in `$rm`, the fields it no longer has (pendingLp, uniteLeft, reroll… are left out when 0 / false). The rows were most
- * of every broadcast — the bonds alone 62 % of an 8-player match's — and an 8-player room sends each one to eight
- * browsers. A frame without `delta` (the first broadcast, a one-to-one resync, the match's final one) is whole.
+ * The whole m.public from a broadcast. After a match's first broadcast it is a delta (`delta: true`, server/match/match/
+ * messaging.js _publicDelta): the top-level fields that changed since the previous broadcast (`t`, `serverNow` and
+ * `players` always) and `$rm`, the fields that went away (draft, sp, teamLp…); in players[] each row holds its
+ * `playerId`, its changed fields and its own `$rm` (pendingLp, uniteLeft, reroll… are left out when 0 / false). Most of
+ * a broadcast repeated the previous one — the bonds alone were 62 % of an 8-player match's bytes, and an 8-player room
+ * sends each broadcast to eight browsers. A frame without `delta` (the first broadcast, a one-to-one resync, the
+ * match's final one) is whole.
  * @param {any} prev the m.public held (merged; or null) @param {any} next the m.public that arrived
- * @returns {any} `next` itself when whole, else the merged frame (no `delta` key)
+ * @returns {any} `next` itself when whole, else the merged frame (no `delta` / `$rm` keys)
  */
-export function mergePublicRows(prev, next) {
+export function mergePublic(prev, next) {
   if (!next || next.delta !== true || !Array.isArray(next.players)) return next;
+  const apply = (base, d) => {
+    const { $rm, delta, ...changed } = d;
+    void delta;
+    const out = { ...base, ...changed };
+    if (Array.isArray($rm)) for (const k of $rm) delete out[k];
+    return out;
+  };
   const before = new Map((Array.isArray(prev?.players) ? prev.players : []).filter(Boolean).map((p) => [p.playerId, p]));
-  const players = next.players.map((d) => {
-    if (!d || typeof d !== 'object') return d;
-    const { $rm, ...changed } = d;
-    const row = { ...(before.get(d.playerId) || {}), ...changed };
-    if (Array.isArray($rm)) for (const k of $rm) delete row[k];
-    return row;
-  });
-  const { delta, ...rest } = next;
-  void delta;
-  return { ...rest, players };
+  const players = next.players.map((d) => (d && typeof d === 'object' ? apply(before.get(d.playerId) || {}, d) : d));
+  return { ...apply(prev && typeof prev === 'object' ? prev : {}, next), players };
 }
 
 /**

@@ -71,7 +71,7 @@ import { emoteSet } from '../../shared/emote-art.js';
 import { initLang, useLang, tickerText } from './ui/lang.js';
 import { t, N_, translateWire } from '../../shared/i18n.js';
 import { PHASE } from '../../shared/constants.js';
-import { mergePublicRows } from '../../shared/protocol.js';
+import { mergePublic } from '../../shared/protocol.js';
 import { battleArt } from './ui/battleArt.js';
 import { recordError, installPageRecord } from './diag.js';
 
@@ -288,8 +288,8 @@ function wireNet() {
     backToLobby();
     toast(text, 'warn');
   });
-  // a broadcast is a delta of the players[] rows: merged onto the m.public held (shared/protocol.js mergePublicRows)
-  net.on('m.public', (msg) => { matchAt = Date.now(); store.patch('match', { public: mergePublicRows(store.get().match.public, payload(msg)) }); maybeFinishRestore(); });
+  // a broadcast is a delta: merged onto the m.public held (shared/protocol.js mergePublic)
+  net.on('m.public', (msg) => { matchAt = Date.now(); store.patch('match', { public: mergePublic(store.get().match.public, payload(msg)) }); maybeFinishRestore(); });
   net.on('m.private', (msg) => { matchAt = Date.now(); store.patch('match', { private: payload(msg) }); });
   // upstream #482: the own bond's layers rose in 回合开始 / 机变 / 休整期 (the server sends it live only, never on a resync)
   net.on('m.layer', (msg) => {
