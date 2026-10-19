@@ -8,6 +8,8 @@ import { bondBb, procChance, prdBase, dicePRD } from '../../server/sim/content/b
 import { registerMeta } from '../../server/sim/content/bonds/addon.js';
 import { createRegistry } from '../../server/match/effectsMeta.js';
 import { makeMatch, give, legalTileFor } from '../match/harness.js';
+import { bodyOnTile } from '../../server/sim/body.js';
+import { normDir, rotateOffset } from '../../server/sim/dir.js';
 
 const close = (a, b, msg, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps, `${msg ?? ''} expected ${b}, got ${a}`);
 const op = (id, bonds, extra = {}) => chessRec({ id, bonds, profession: 'WARRIOR', skill: null, ...extra });
@@ -582,6 +584,67 @@ test('突袭 #49: non-passive members unchanged — a charged skill jumps at onc
   assert.equal(jumped(un).length, 0, 'uncharged: not yet');
   assert.ok(h.runUntil(() => jumped(un).length > 0, idle + 1), 'uncharged: after the idle time');
   assert.ok(h.b.time >= idle - 1e-6, `at ${h.b.time.toFixed(2)} s`);
+  checkInvariants(h.b);
+});
+
+// An official recording (maintainer decision 2026-10-19): 瑕光 with S1 (AUTO "下次攻击", two charges, skill_table
+// skchr_blemsh_1) waited at home, charged, until a landing tile freed, jumped with no attack, jumped again 0.7 s later when
+// the boss — unblockable after its blink — had walked off her front tile, then attacked. Until then only a MANUAL skill
+// jumped on being ready; an AUTO one only on its start (which needs an enemy to attack), so she waited for the idle time.
+const BLEMSH = 'chess_char_3_12_b';
+/** An enemy on the member's own tile or the one in front of it (the "1-1" box of raidEnemyClose) — `at`: [row, col, dir]. */
+const raidBoxHas = (at, e) => [[0, 0], [0, 1]].some(([gr, gc]) => {
+  const [dr, dc] = rotateOffset(gr, gc, normDir(at[2]));
+  return bodyOnTile(e, at[0] + dr, at[1] + dc);
+});
+
+test('突袭: a ready AUTO skill counts as 技能就绪 like a MANUAL one — 瑕光 S1 jumps as soon as it is charged, not after the idle time, then stays while her enemy is in range', () => {
+  const h = makeBattle({
+    defs: { enemies: DUMMY }, bonds: { raidShip: bond(1, 10) }, enemies: [{ key: 'enemy_addon_dummy', pos: [9, 8] }],
+    units: [{ chessId: BLEMSH, row: 12, col: 3, skillIndex: 0 }], hooks: ['deploy', 'death', 'skillStart'], autoFinish: false, timeLimit: 60,
+  });
+  h.step();
+  const u = h.unit(BLEMSH), e = h.enemy('enemy_addon_dummy');
+  assert.deepEqual([u.skill.id, u.skill.def.skillType, u.skill.maxCharges, u.skill.ready], ['skchr_blemsh_1', 'AUTO', 2, false]);
+  assert.ok(h.runUntil(() => u.skill.ready, 10), 'S1 charges (time SP)');
+  const tReady = h.b.time;
+  assert.equal(raidJumps(h).length, 0, 'not before it is ready');
+  assert.ok(h.runUntil(() => raidJumps(h).length > 0, 1), 'jumped at the next poll');
+  assert.ok(h.b.time - tReady <= 0.25 + 1e-6 && h.b.time < bondBb('raidShip').no_attack_duration - 3, `at ${h.b.time.toFixed(2)} s (ready at ${tReady.toFixed(2)} s)`);
+  const casts = h.hooksOf('skillStart').filter((c) => c.unit === u).length; // (S1 may go out at the landing: the enemy is there)
+  assert.equal(u.skill.charges + casts, u.skill.maxCharges, 'landed with full SP ([spawn] modify_sp 1.0)');
+  assert.ok(raidBoxHas([u.tileR, u.tileC, u.dir], e), `landed (${u.tileR},${u.tileC}) with the enemy on its own / front tile`);
+  h.run(8);
+  assert.equal(raidJumps(h).length, 1, 'busy there: no further jump');
+  checkInvariants(h.b);
+});
+
+test('突袭: a ready AUTO skill jumps again whenever its enemy leaves the member\'s own / front tile (瑕光 S1 following an unblockable, untargetable walker)', () => {
+  const idle = bondBb('raidShip').no_attack_duration;
+  const h = makeBattle({
+    defs: { enemies: { enemy_raid_walker: enemyRec({ key: 'enemy_raid_walker', hp: 1e7, speed: 0.6 }) } },
+    bonds: { raidShip: bond(1, 10) }, enemies: [{ key: 'enemy_raid_walker', time: 0.5, routeIndex: 0 }],
+    units: [{ chessId: BLEMSH, row: 12, col: 3, skillIndex: 0 }], hooks: ['deploy', 'death', 'skillStart'], autoFinish: false, timeLimit: 60,
+    // she can neither block nor hit it, so her charges stay and it walks out of her box
+    setup: (b) => b.on('enemySpawn', ({ enemy }) => b.addBuff(enemy, { key: 'test:ghost', persist: true, flags: { unblockable: true, untargetable: true } })),
+  });
+  h.step();
+  const u = h.unit(BLEMSH);
+  u.skill.setSpTotal(u.skill.maxCharges * u.skill.spCost);
+  const times = [];
+  while (h.b.time < 15 && times.length < 3) {
+    const at = [u.tileR, u.tileC, u.dir], n = raidJumps(h).length;
+    h.step();
+    if (raidJumps(h).length === n) continue;
+    const e = h.enemy('enemy_raid_walker');
+    times.push(h.b.time);
+    if (times.length > 1) assert.ok(!raidBoxHas(at, e), `jump ${times.length}: the walker had left (${at[0]},${at[1]}) and the tile in front`);
+    assert.ok(raidBoxHas([u.tileR, u.tileC, u.dir], e), `jump ${times.length}: landed (${u.tileR},${u.tileC}) on it or behind it`);
+  }
+  assert.ok(times.length >= 2, `jumps at ${times.map((t) => t.toFixed(2)).join(', ')} s`);
+  for (let i = 1; i < times.length; i++) assert.ok(times[i] - times[i - 1] < idle - 1, `not the idle trigger (${(times[i] - times[i - 1]).toFixed(2)} s apart)`);
+  assert.equal(h.hooksOf('skillStart').filter((c) => c.unit === u).length, 0, 'S1 never started: the ready-skill way, not the AUTO start');
+  assert.equal(u.skill.charges, u.skill.maxCharges);
   checkInvariants(h.b);
 });
 
