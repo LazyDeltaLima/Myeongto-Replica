@@ -18,11 +18,26 @@ import { battleArt, ObInfo } from './battleArt.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
+/**
+ * The teammates the progress list names one by one: all of them, or — more than four (the 8-player mode) — only those still
+ * fighting, the finished ones folded into one 「作战结束 n/N」 pill (two or three rows of seven pills otherwise) [추정].
+ * @param {Array<{ playerId: string, done?: boolean }>} list
+ * @returns {{ rows: any[], done: number | null, total: number }}
+ */
+export function progressRows(list) {
+  const all = Array.isArray(list) ? list : [];
+  if (all.length <= 4) return { rows: all, done: null, total: all.length };
+  const rows = all.filter((p) => !p.done);
+  return { rows, done: all.length - rows.length, total: all.length };
+}
+
 /** Teammates' progress under the waiting pill (css/screens/game.css .chud__progress / .chud__prog). */
 function ProgressList({ list }) {
   if (!Array.isArray(list) || !list.length) return null;
+  const { rows, done, total } = progressRows(list);
   return html`<div class="chud__progress" role="list" aria-label=${t('队友作战进度')}>
-    ${list.map((p) => html`<span key=${p.playerId} role="listitem" class=${cx('chud__prog', p.done && 'is-done')}>
+    ${done ? html`<span key="done" role="listitem" class="chud__prog is-done"><b>${t('作战结束')}</b><span class="num chud__prog__ok">${done}/${total}</span></span>` : null}
+    ${rows.map((p) => html`<span key=${p.playerId} role="listitem" class=${cx('chud__prog', p.done && 'is-done')}>
       <b>${p.name}</b>
       ${p.done
         ? html`<span class="chud__prog__ok" aria-label=${t('作战结束')}>✓</span>`

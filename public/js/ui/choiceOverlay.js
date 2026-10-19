@@ -15,6 +15,8 @@
 // spinner over its text — user playtest #3 item 9), dropped as soon as the pick shows in m.public (spBusy itself resets
 // when the request settles, ≤ 8 s, or the phase moves on). Untimed drafts (solo, a single-human match: sp.untimed) show
 // no countdown and say so.
+// The 8-player mode (maintainer decisions 2026-10-16, 2026-10-19): 12 cards in a 4×3 grid (spov__grid--12, a smaller unit
+// in the official look) and the eight-name pick order wrapping (spov__order is-8) [추정: the official draft has 6 cards].
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, TierChip, Countdown, MicroLabel, Button, useScrollEdges } from './components.js';
@@ -223,7 +225,7 @@ export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = nu
           ${timed ? html`<${Countdown} deadline=${pub?.deadline} total=${total ?? undefined} size="sm" />` : null}
         </div>
       </header>
-      ${order.length ? html`<div class="spov__order" aria-label=${t('决策顺序')}>
+      ${order.length ? html`<div class=${cx('spov__order', order.length > 4 && 'is-8')} aria-label=${t('决策顺序')}>
         ${order.map((pid, i) => {
           const p = players.get(pid);
           const picked = sp.pickOf.has(pid);
@@ -238,7 +240,7 @@ export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = nu
         })}
       </div>` : null}
       ${turnFlash && art.cls ? html`<${YourTurn} />` : null}
-      <div class=${cx('spov__grid', sp.cards.length <= 3 && 'spov__grid--3')}>
+      <div class=${cx('spov__grid', sp.cards.length <= 3 && 'spov__grid--3', sp.cards.length > 6 && 'spov__grid--12')}>
         ${sp.cards.map((card) => {
           const r = resolveSpCard(card, sp.family);
           const taker = card.takenBy ? players.get(card.takenBy) : null;

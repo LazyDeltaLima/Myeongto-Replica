@@ -10,7 +10,11 @@
 // lobby's ruleset, the dialogs name it, and every Doctor in the lobby gets the waiting counts of every queue
 // (lobby.queueCounts → store ui.queueCounts, shown by screens/lobby.js through ui/ruleset.js).
 //
-// store ui.queue: null, or { difficulty, ruleset, count, since, party, found } — since in this page's clock; party = queued with
+// The 8-player mode (maintainer decisions 2026-10-16, 2026-10-19) has queues of its own: room.queue { size: 8 }, every
+// message about such a queue carries `size: 8` (kept as ui.queue.size) and lobby.queueCounts their counts as `counts8`
+// (store ui.queueCounts8); the dialogs count to the queue's size.
+//
+// store ui.queue: null, or { difficulty, ruleset, size, count, since, party, found } — since in this page's clock; party = queued with
 // the room; found: null or { players, accepted, mine, deadline, total } (deadline in server time for components.js
 // Countdown, total = the window's seconds for its gauge).
 //
@@ -19,7 +23,7 @@
 // that forms while the tab is hidden blinks the tab title until the player comes back (flashTitle).
 
 import { useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTY_NAMES } from '../../../shared/constants.js';
+import { DIFFICULTY_NAMES, MAX_SEATS, seatsOf } from '../../../shared/constants.js';
 import { html, Button, Countdown, Modal, Spinner, useTicker } from './components.js';
 import { toast, toastError } from './toasts.js';
 import { net } from '../net.js';
@@ -109,14 +113,14 @@ export function installMatchQueue({ net: n = net } = {}) {
     }
     // back in the queue from a group: someone did not accept
     if (prev?.found) toast(t('有博士未接受，继续匹配'), 'info');
-    setQueue({ difficulty: msg.difficulty, ruleset: msg.ruleset ?? null, count: msg.count ?? 1, since: Date.now() - (msg.waitedMs ?? 0), party: !!msg.party, found: null });
+    setQueue({ difficulty: msg.difficulty, ruleset: msg.ruleset ?? null, size: seatsOf(msg.size), count: msg.count ?? 1, since: Date.now() - (msg.waitedMs ?? 0), party: !!msg.party, found: null });
   });
   n.on('room.matchFound', (msg) => {
     const prev = store.get().ui.queue;
     cue(queueCue('room.matchFound', prev, msg));
     if (!prev?.found) flashTitle(t('匹配成功'));
     setQueue({
-      ...(prev || { difficulty: msg.difficulty, ruleset: msg.ruleset ?? null, count: msg.players, since: Date.now(), party: false }),
+      ...(prev || { difficulty: msg.difficulty, ruleset: msg.ruleset ?? null, size: seatsOf(msg.size), count: msg.players, since: Date.now(), party: false }),
       found: { players: msg.players, accepted: msg.accepted, mine: !!msg.mine, deadline: serverNow() + msg.inMs,
         total: prev?.found?.total ?? Math.max(1, Math.ceil(msg.inMs / 1000)) },
     });
@@ -127,8 +131,9 @@ export function installMatchQueue({ net: n = net } = {}) {
     if (q && (!q.party || msg.inMatch || !msg.matching)) setQueue(null);
   });
   n.on('room.closed', () => { if (store.get().ui.queue?.party) setQueue(null); });
-  // the waiting Doctors of every queue (the lobby's 同盟匹配 card): { [ruleset]: { [difficulty]: n } }
-  n.on('lobby.queueCounts', (msg) => store.patch('ui', { queueCounts: msg.counts && typeof msg.counts === 'object' ? msg.counts : null }));
+  // the waiting Doctors of every queue (the lobby's 同盟匹配 card): { [ruleset]: { [difficulty]: n } }, of the 8-player queues too
+  const countsOf = (c) => (c && typeof c === 'object' ? c : null);
+  n.on('lobby.queueCounts', (msg) => store.patch('ui', { queueCounts: countsOf(msg.counts), queueCounts8: countsOf(msg.counts8) }));
   n.on('welcome', (msg) => { if (!msg.resumed && store.get().ui.queue) setQueue(null); });
   // while queued the page's audio stays up in a hidden tab; the title blink ends with its group
   store.subscribe((s, prev) => {
@@ -139,8 +144,12 @@ export function installMatchQueue({ net: n = net } = {}) {
   });
 }
 
-/** room.queue for the difficulty and ruleset (the lobby's 开始匹配 button). @returns {Promise<any>} */
-export const joinQueue = (difficulty, ruleset) => net.request('room.queue', ruleset ? { difficulty, ruleset } : { difficulty });
+/**
+ * room.queue for the difficulty, ruleset and alliance size (the lobby's 开始匹配 button; `size` only for an 8-player queue).
+ * @returns {Promise<any>}
+ */
+export const joinQueue = (difficulty, ruleset, size = MAX_SEATS) =>
+  net.request('room.queue', { difficulty, ...(ruleset ? { ruleset } : {}), ...(size !== MAX_SEATS ? { size } : {}) });
 
 /** m:ss of a waiting time. */
 export const mmss = (ms) => {
@@ -163,7 +172,9 @@ export function MatchQueueDialog() {
     try { await net.request(msg.t, msg); } catch (err) { toastError(err); } finally { setBusy(null); }
   };
   const cancel = () => run('cancel', { t: 'room.unqueue' });
-  const name = t(DIFFICULTY_NAMES[queue.difficulty] || queue.difficulty) + (queue.ruleset ? ` · ${presetName(queue.ruleset)}` : '');
+  const cap = seatsOf(queue.size);
+  const name = t(DIFFICULTY_NAMES[queue.difficulty] || queue.difficulty) + (queue.ruleset ? ` · ${presetName(queue.ruleset)}` : '')
+    + (cap !== MAX_SEATS ? ` · ${t('{n} 人同盟', { n: cap })}` : '');
 
   if (queue.found) {
     const f = queue.found;
@@ -189,8 +200,8 @@ export function MatchQueueDialog() {
       <div class="queue-dialog__clock num">${mmss(Date.now() - queue.since)}</div>
       <div class="queue-dialog__lines">
         <span class="queue-dialog__mode">${t('同盟模拟')} · ${name}</span>
-        <span>${t('排队中的博士：{count}/4', { count: Math.min(4, queue.count) })}</span>
-        <span class="t-lo">${t('凑齐 4 名博士后开始')}</span>
+        <span>${t('排队中的博士：{count}/{n}', { count: Math.min(cap, queue.count), n: cap })}</span>
+        <span class="t-lo">${t('凑齐 {n} 名博士后开始', { n: cap })}</span>
       </div>
     </div>
   <//>`;

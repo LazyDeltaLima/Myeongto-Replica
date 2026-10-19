@@ -1,5 +1,5 @@
 /* ==========================================================================================
-   screens/room.css — room/waiting screen: invite key, 4 seat cards, bottom action bar.
+   screens/room.css — room/waiting screen: invite key, 4 seat cards (8 in two rows: the 8-player mode), bottom action bar.
    ========================================================================================== */
 
 .room-screen .topbar { height: 1.36rem; }
@@ -49,6 +49,18 @@
   padding: .3rem .6rem .24rem;
 }
 .seats--solo { grid-template-columns: 3.8rem minmax(0, 6.4rem); }
+/* the 8-player mode: two rows of four, each card about half as tall (avatar, name and foot shrunk to fit) */
+.seats--8 { grid-template-rows: repeat(2, minmax(0, 3.1rem)); gap: .18rem .3rem; padding-top: .18rem; padding-bottom: .16rem; }
+.seats--8 .seat { gap: .03rem; padding: .08rem .16rem .1rem; }
+.seats--8 .seat__no { font-size: .18rem; }
+.seats--8 .seat__art { margin: .03rem 0 .02rem; gap: .04rem; }
+.seats--8 .seat__art .avatar { --av: 1.05rem; }
+.seats--8 .seat__radar { width: .8rem; height: .8rem; }
+.seats--8 .seat__wait { font-size: .16rem; }
+.seats--8 .seat__name { font-size: .2rem; }
+.seats--8 .seat__foot { min-height: .36rem; margin-top: .02rem; padding-top: .05rem; }
+.seats--8 .seat__state { font-size: .15rem; }
+.seats--8 .seat__state .icon { width: .18rem; height: .18rem; }
 
 .seat {
   --bk-c: var(--line-3);
@@ -319,6 +331,7 @@
 .rpick__opt.is-active .rpick__n { background: rgba(255, 255, 255, .14); background: color-mix(in srgb, var(--d-color) 25%, transparent); color: var(--d-color); }
 .rtag { padding: .02rem .1rem; border: 1px solid currentColor; font-size: .16rem; letter-spacing: .06em; color: var(--amber); }
 .rtag--casual { color: var(--mint-400); }
+.rtag--size { color: var(--ice); } /* the 8-player mode */
 
 .ready-count[hidden] { display: none; }
 .ready-count { display: flex; align-items: baseline; gap: .06rem; font-size: .16rem; }

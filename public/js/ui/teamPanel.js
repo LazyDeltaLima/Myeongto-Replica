@@ -17,6 +17,9 @@
 // report, ~1 Hz). The ×N tag sits on the portrait's top edge (the HP pill on its bottom edge), the −N tick on the official
 // bg_lose_hp plate against the HP pill, dropped while it reads the ×N tag's number (samePlate); a pending loss tints the
 // HP icon and number in the official tweening red (docs/rules/ui.md 「누수 때 위 HP 숫자」, maintainer decision 2026-10-16).
+// The 8-player mode (maintainer decisions 2026-10-16, 2026-10-19): more than four rows mark the list `is-8`, which
+// shrinks every row (css/hud-art.css: a smaller --u; css/screens/game.css: smaller portraits and gaps) so eight fit
+// between the top bar and the shop bar [추정: the official list has four].
 
 import { useEffect, useState } from '../../vendor/hooks.module.js';
 import { PHASE } from '../../../shared/constants.js';
@@ -126,7 +129,7 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
     if (!t.fieldId) { setOpenPid(null); onWatch(p); return; } // the game screen toasts the reason
     setOpenPid((cur) => (cur === p.playerId ? null : p.playerId));
   };
-  return html`<aside class=${cx('team', compact && 'team--compact', watching && players.some((p) => watching === p.fieldId || watching === `n:${p.playerId}`) && 'has-watched', players.length === 1 && 'is-solo' /* local patch: css/hud-art.css */)} aria-label=${t('同盟成员')}>
+  return html`<aside class=${cx('team', compact && 'team--compact', watching && players.some((p) => watching === p.fieldId || watching === `n:${p.playerId}`) && 'has-watched', players.length === 1 && 'is-solo' /* local patch: css/hud-art.css */, players.length > 4 && 'is-8' /* the 8-player mode: smaller rows */)} aria-label=${t('同盟成员')}>
     ${players.map((p) => {
       const self = p.playerId === myId;
       const status = p.alive === false ? 'dead' : p.status;

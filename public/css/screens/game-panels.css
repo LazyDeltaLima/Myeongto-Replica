@@ -428,6 +428,11 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .spov__grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: .2rem; }
 .spov__grid--3 { grid-template-columns: repeat(3, minmax(0, 4.3rem)); grid-template-rows: minmax(0, 4.6rem); justify-content: center; align-content: start; gap: .36rem; margin-top: .3rem; }
 .spov__grid--3 .spcard__icon { width: 1.3rem; height: 1.3rem; }
+/* the 8-player mode: 12 cards in four columns and three rows; the eight-name order wraps, names shorter */
+.spov__grid--12 { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); gap: .14rem; }
+.spov__grid--12 .spcard__icon { width: .8rem; height: .8rem; }
+.spov__order.is-8 { flex-wrap: wrap; gap: .06rem; }
+.spov__order.is-8 .spov__wname { max-width: .8rem; }
 /* The official card (research 06 §11.5; the official 悬赏 / 机密商店 / 战术 screenshots): a framed icon at the top-left
    with the bold name beside it, the effect text under both across the card, left-aligned; the tier chip on the icon's
    corner, the taker's round avatar at the top-right (user playtest #6 item 6: the centred icon + name used to push the

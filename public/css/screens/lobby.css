@@ -17,6 +17,9 @@
 /* ---- mode cards ------------------------------------------------------------------------------------ */
 /* three cards: 独立模拟 · 同盟模拟 · 同盟匹配 (the random matchmaking, ui/matchQueue.js) */
 .mode-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .2rem; margin-bottom: .34rem; }
+/* 人数 (同盟模拟 / 同盟匹配: a 4-seat or an 8-seat alliance) under the cards, pulled up into their bottom margin */
+.lobby-size { display: flex; align-items: center; gap: .12rem; margin: -.2rem 0 .3rem; }
+.lobby-size .rpick__opt[data-size] { --d-color: var(--mint-400); }
 .mode-card {
   --bk-c: transparent;
   --bk-l: .2rem;

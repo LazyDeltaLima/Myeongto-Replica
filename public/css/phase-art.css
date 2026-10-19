@@ -122,6 +122,9 @@
    text 16 #cecece · 80 %; the grid at the prefab size, scaled down to fit two rows of six on a 16:9 screen */
 .spov.has-phase-art .spov__grid { --pu: min(var(--ui-u, .015rem), .125vh); grid-template-columns: repeat(3, calc(var(--pu) * 307)); grid-template-rows: repeat(2, calc(var(--pu) * 271));
   justify-content: center; align-content: center; column-gap: calc(var(--pu) * 25); row-gap: calc(var(--pu) * 34); flex: 1; }
+/* the 8-player mode: 12 cards, four columns × three rows of the same card at a smaller unit (881 units tall: .08vh fits a 16:9
+   screen under the title) [추정] */
+.spov.has-phase-art .spov__grid--12 { --pu: min(var(--ui-u, .015rem) * .64, .08vh); grid-template-columns: repeat(4, calc(var(--pu) * 307)); grid-template-rows: repeat(3, calc(var(--pu) * 271)); }
 .spov.has-phase-art .spov__grid--3 { --pu: min(var(--ui-u, .015rem), .2vh); grid-template-rows: calc(var(--pu) * 271); column-gap: calc(var(--pu) * 48); margin-top: 0; }
 .spov.has-phase-art .spcard { width: calc(var(--pu) * 307); height: calc(var(--pu) * 271); padding: calc(var(--pu) * 21.5) calc(var(--pu) * 22) calc(var(--pu) * 17.5) calc(var(--pu) * 20.5);
   gap: calc(var(--pu) * 10); overflow: visible; border: 0; box-shadow: none; transform: none; filter: none; color: #fff;

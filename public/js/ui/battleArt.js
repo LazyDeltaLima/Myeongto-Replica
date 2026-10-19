@@ -575,7 +575,13 @@ export function BossPrepare({ kind, portrait = null, team = [], onDone }) {
   const multi = kind === 'multi';
   const total = team.reduce((s, m) => s + Math.max(0, Math.trunc(Number(m.lp) || 0)), 0);
   // the member slots of group_team (panel_mumber_01…04 at x −199.5), spread over the same span for fewer players [추정]
-  const YS = { 1: [0], 2: [72, -77], 3: [110.8, -2.2, -115], 4: [110.8, 33.7, -40.2, -115] }[Math.min(4, Math.max(1, team.length))] || [];
+  const ysOf = (n) => ({ 1: [0], 2: [72, -77], 3: [110.8, -2.2, -115], 4: [110.8, 33.7, -40.2, -115] }[Math.min(4, Math.max(1, n))] || []);
+  // the 8-player mode (maintainer decision 2026-10-16): the first four on the left of the middle ring, the others mirrored
+  // on its right; in_02 shrinks the team as it slides left so its right column clears the leader [추정: no official layout]
+  const wide = team.length > 4;
+  const sides = wide ? [team.slice(0, 4), team.slice(4, 8)] : [team.slice(0, 4)];
+  const RING = 97.5;
+  const mx = (x, r) => (r ? 2 * RING - x : x); // a right-column x: mirrored around the ring
   const mainX = multi ? 287.9 : -1.2;
   const mainY = multi ? -28.7 : -17.7;
   const doc = (side) => html`<i class=${`bbp__doc is-${side}`} style=${box(side === 'l' ? -229.7 + 71.31 - 47.5 : 182 - 23.69 + 47.5, 25 - 0.2, 95, 2)}>
@@ -603,16 +609,17 @@ export function BossPrepare({ kind, portrait = null, team = [], onDone }) {
           <i class="bbp__lower is-r" style=${box(426.3 + 2.44 - 85, -170 + 49 - 10.8 - 17.5, 220, 60)}></i>`}
       </i>
       ${multi ? null : html`<i class="bbp__rings" style=${box(-98.8 + 97.5, 12 - 1.6, 294, 294)} aria-hidden="true"></i>`}
-      ${multi ? html`<div class="bbp__team" style=${box(-96, 8.8, 585.42, 340)}>
-        <i class="bbp__rings" style=${box(97.5, -1.6, 294, 294)} aria-hidden="true"></i>
+      ${multi ? html`<div class=${wide ? 'bbp__team is-8' : 'bbp__team'} style=${box(-96, 8.8, 585.42, 340)}>
+        <i class="bbp__rings" style=${box(RING, -1.6, 294, 294)} aria-hidden="true"></i>
         <svg class="bbp__lines" viewBox="-292.71 -170 585.42 340" aria-hidden="true">
-          ${YS.map((y, k) => html`<polyline key=${k} style=${`--k:${k}`} points=${`${-199.5 + 75},${-y} ${-60},${-y} ${97.5 - 50},${1.6 - (y > 0 ? 18 : y < 0 ? -18 : 0)}`} />`)}
+          ${sides.map((list, r) => ysOf(list.length).slice(0, list.length).map((y, k) => html`<polyline key=${`${r}:${k}`} style=${`--k:${k + 4 * r}`}
+            points=${`${mx(-199.5 + 75, r)},${-y} ${mx(-60, r)},${-y} ${mx(RING - 50, r)},${1.6 - (y > 0 ? 18 : y < 0 ? -18 : 0)}`} />`))}
         </svg>
-        ${team.slice(0, 4).map((m, k) => html`<div key=${m.id} class="bbp__member" style=${`${box(-199.5, YS[k] ?? 0, 150, 70)};--k:${k}`}>
-          <span class="bbp__avatar" style=${box(-40.5, 0.7, 59, 59)}>${m.avatar}</span>
-          ${m.mine ? html`<i class="bbp__mine" style=${box(-64.7, 23.4, 28, 28)} aria-hidden="true"></i>` : null}
-          <span class="bbp__plp" style=${box(46.9, 3.3, 100, 34.6)}><i class="bbp__plpicon" aria-hidden="true"></i><b class="num">${Math.max(0, Math.trunc(Number(m.lp) || 0))}</b></span>
-        </div>`)}
+        ${sides.map((list, r) => { const ys = ysOf(list.length); return list.map((m, k) => html`<div key=${m.id} class=${r ? 'bbp__member is-r' : 'bbp__member'} style=${`${box(mx(-199.5, r), ys[k] ?? 0, 150, 70)};--k:${k + 4 * r}`}>
+          <span class="bbp__avatar" style=${box(r ? 40.5 : -40.5, 0.7, 59, 59)}>${m.avatar}</span>
+          ${m.mine ? html`<i class="bbp__mine" style=${box(r ? 64.7 : -64.7, 23.4, 28, 28)} aria-hidden="true"></i>` : null}
+          <span class="bbp__plp" style=${box(r ? -46.9 : 46.9, 3.3, 100, 34.6)}><i class="bbp__plpicon" aria-hidden="true"></i><b class="num">${Math.max(0, Math.trunc(Number(m.lp) || 0))}</b></span>
+        </div>`); })}
         <div class="bbp__middle" style=${box(97.5, -1.6, 100, 100)}>
           <i class="bbp__bring" style=${box(0, 0, 72, 71)}></i><i class="bbp__bmask" style=${box(1.3, 0, 100, 100)}></i>
           <i class="bbp__bicon" style=${box(0, 15.2, 23, 35)}></i>

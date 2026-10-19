@@ -10,14 +10,17 @@
 // owner's decision of 2026-10-12): a color closer than MIN_COLOR_DE (OKLab ΔE × 100) to one an earlier seat holds — the
 // same faction, or one of the eight's six close pairs (쉐라그–에기르, 염국–라테라노, …) — falls back to a default slot; a
 // default slot itself only has to clear the faction colors in use (the four defaults are a set validated together), and
-// the spare violet (no faction is violet) comes when all four are too close.
+// the spare violet (no faction is violet) comes when all four are too close; the other spares serve the 8-player mode.
 
 import { chatFaction } from '../../../../shared/local.js';
 
 /** Default seat colors (a categorical set validated for the dark result screen: CVD ΔE ≥ 8 between neighbours). */
 export const DEFAULT_PLAYER_COLORS = Object.freeze(['#3987e5', '#d95926', '#199e70', '#c98500']);
-/** After the defaults: violet clears all eight faction colors and the defaults; a light neutral last. */
-export const SPARE_PLAYER_COLORS = Object.freeze(['#b05ce0', '#b8c4be']);
+/**
+ * After the defaults: violet clears all eight faction colors and the defaults; then lime and pink, which clear the defaults
+ * and violet (ΔE ≥ 15; the 8-player mode's seats 5–8 need eight colors without factions), and a light neutral last.
+ */
+export const SPARE_PLAYER_COLORS = Object.freeze(['#b05ce0', '#a3e635', '#e88fd0', '#b8c4be']);
 /** Below this OKLab distance (× 100) two player colors read as one. */
 export const MIN_COLOR_DE = 15;
 

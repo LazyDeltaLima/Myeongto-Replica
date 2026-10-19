@@ -12,6 +12,10 @@
 // In 同盟匹配 the switch shows each ruleset's waiting Doctors and every difficulty card those of its queue
 // (lobby.queueCounts, ui/ruleset.js queueCountOf). Beside a picked 自定义: the preset in use and how many settings
 // differ from the official ones.
+// The 8-player mode (maintainer decisions 2026-10-16, 2026-10-19): under the mode cards of 同盟模拟 / 同盟匹配 the 人数 switch
+// picks a 4-seat or an 8-seat alliance (room.create / room.queue `size`, remembered in `lobby.size`); with 8 the queue
+// counts are those of the 8-player queues (lobby.queueCounts `counts8`), the cards and hints name 8 Doctors, the
+// custom rules compare with the 8-player bans (config.eightPlayer), and 同盟模拟 has no AI teammates.
 //
 // Difficulty descriptions come from data/config.json `modes[modeId]` when present, else from the
 // official act2autochess `modeDataDict` texts embedded below (desc + effectDescList), so the
@@ -22,7 +26,7 @@
 // config.json mode texts come localized from data.js.
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, MAX_SPECTATORS, modeIdFor, ERR } from '../../../shared/constants.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, LARGE_SEATS, ROOM_SIZES, MAX_SPECTATORS, modeIdFor, ERR } from '../../../shared/constants.js';
 import { html, Button, Icon, MicroLabel, Panel, TextField, PingPill, OnlinePill, AvatarFrame, Tooltip, Spinner, DifficultyIcon, doctorNo } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { GuideButton } from '../ui/guide.js';
@@ -101,14 +105,31 @@ const MODE_CARDS = [
     id: 'coop', name: N_('同盟模拟'), en: 'ALLIANCE SIMULATION', icon: 'users',
     desc: N_('与至多 {n} 名博士组成同盟，共享干员池，联防协作抵御敌潮。'), params: { n: MAX_SEATS - 1 },
     points: [N_('1–{n} 名博士 · 可由 AI 队友补位'), N_('联防阶段 · 最终攻势合并生命值')], pointParams: { n: MAX_SEATS },
+    // the 8-seat alliance: every seat a Doctor
+    big: { desc: N_('与另外 {n} 名博士组成同盟，共享干员池，联防协作抵御敌潮。'), params: { n: LARGE_SEATS - 1 },
+      points: [N_('{n} 名博士坐满后开始 · 没有 AI 队友'), N_('联防阶段 · 最终攻势合并生命值')], pointParams: { n: LARGE_SEATS } },
   },
   {
     id: 'match', name: N_('同盟匹配'), en: 'ALLIANCE MATCHMAKING', icon: 'signal',
     desc: N_('独自进入公共匹配池，与其他博士组成同盟后开始模拟。'),
-    points: [N_('单人加入 · 自动匹配队友'), N_('仅匹配真人 · 满四人后开始')],
+    points: [N_('单人加入 · 自动匹配队友'), N_('仅匹配真人 · 满 {n} 人后开始')], pointParams: { n: MAX_SEATS },
+    big: { points: [N_('单人加入 · 自动匹配队友'), N_('仅匹配真人 · 满 {n} 人后开始')], pointParams: { n: LARGE_SEATS } },
   },
 ];
 const MODE_IDS = MODE_CARDS.map((c) => c.id);
+
+/** The lobby's remembered alliance size (4 the first time). */
+export function lobbySize() {
+  const v = loadPref('lobby.size', MAX_SEATS);
+  return ROOM_SIZES.includes(v) ? v : MAX_SEATS;
+}
+
+/**
+ * The room.create / room.queue fields of the lobby's choice: `size` only for an 8-seat alliance (a solo room is never one).
+ * @param {'solo'|'coop'|'match'} roomMode @param {number} size
+ * @returns {{ size?: number }}
+ */
+export const sizeFields = (roomMode, size) => (roomMode !== 'solo' && size === LARGE_SEATS ? { size: LARGE_SEATS } : {});
 
 /**
  * Text for a difficulty card, preferring data/config.json.
@@ -278,7 +299,8 @@ function TipsPanel() {
   </div>`;
 }
 
-function ModeCard({ card, selected, onSelect }) {
+function ModeCard({ card, selected, onSelect, big = false }) {
+  const v = big && card.big ? { ...card, ...card.big } : card;
   return html`<button type="button" class=${`mode-card brackets${selected ? ' is-selected' : ''}`} onClick=${() => onSelect(card.id)}
       aria-pressed=${selected ? 'true' : 'false'}>
     <span class="mode-card__bg" aria-hidden="true"></span>
@@ -286,8 +308,8 @@ function ModeCard({ card, selected, onSelect }) {
     <span class="mode-card__text">
       <${MicroLabel} tone=${selected ? 'mint' : undefined}>${card.en}<//>
       <span class="mode-card__name">${t(card.name)}</span>
-      <span class="mode-card__desc">${t(card.desc, card.params)}</span>
-      <span class="mode-card__points">${card.points.map((p) => html`<span key=${p}>${t(p, card.pointParams)}</span>`)}</span>
+      <span class="mode-card__desc">${t(v.desc, v.params)}</span>
+      <span class="mode-card__points">${v.points.map((p) => html`<span key=${p}>${t(p, v.pointParams)}</span>`)}</span>
     </span>
     <span class="mode-card__check" aria-hidden="true"><${Icon} name="check" />${t('已选定')}</span>
   </button>`;
@@ -313,6 +335,24 @@ function DifficultyCard({ roomMode, difficulty, selected, onSelect, waiting = nu
   </button>`;
 }
 
+/**
+ * The 人数 switch of 同盟模拟 / 同盟匹配: a 4-seat or an 8-seat alliance (styled like the rules switch). `counts` = { [size]: n }
+ * shows the Doctors waiting in the queues of each size (同盟匹配).
+ */
+function SizeSwitch({ value, onPick, counts = null }) {
+  return html`<div class="lobby-size">
+    <span class="lobby-rules__k">${t('人数')}</span>
+    <${Tooltip} text=${t('八人同盟：{n} 名博士坐满后开始，没有 AI 队友；联防最多 4 名博士同时迎战', { n: LARGE_SEATS })}>
+      <div class="dpick rpick" role="radiogroup" aria-label=${t('人数')}>
+        ${ROOM_SIZES.map((n) => html`<button key=${n} type="button" role="radio" aria-checked=${value === n ? 'true' : 'false'} data-size=${n}
+            class=${`dpick__opt rpick__opt${value === n ? ' is-active' : ''}`} onClick=${() => value !== n && onPick(n)}>
+          ${t('{n} 人同盟', { n })}${counts ? html`<span class="rpick__n num" data-testid=${`queue-size-${n}`}>${counts[n] ?? 0}</span>` : null}
+        </button>`)}
+      </div>
+    <//>
+  </div>`;
+}
+
 /** Lobby screen component. */
 export function LobbyScreen() {
   useDocClass('sp-topbar'); // toasts sit under the top bar instead of over its title (components.css)
@@ -328,7 +368,12 @@ export function LobbyScreen() {
   const [ruleset, setRuleset] = useState(lobbyRuleset);
   const [queueRuleset, setQueueRuleset] = useState(lobbyQueueRuleset);
   const customRules = useStore((s) => s, Object.is, customRulesStore);
-  const queueCounts = useStore((s) => s.ui.queueCounts);
+  const [size, setSize] = useState(lobbySize);
+  const queueCounts4 = useStore((s) => s.ui.queueCounts);
+  const queueCounts8 = useStore((s) => s.ui.queueCounts8);
+  const big = roomMode !== 'solo' && size === LARGE_SEATS;
+  // the waiting Doctors of the queues of the chosen size
+  const queueCounts = big ? queueCounts8 : queueCounts4;
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(null);
   const [recent] = useState(recentRooms);
@@ -341,12 +386,13 @@ export function LobbyScreen() {
 
   const pickMode = (m) => { setRoomMode(m); savePref('lobby.mode', m); };
   const pickDifficulty = (d) => { setDifficulty(d); savePref('lobby.difficulty', d); };
+  const pickSize = (n) => { setSize(n); savePref('lobby.size', n); };
   const pickRuleset = (p) => { setRuleset(p); if (isQueuePreset(p)) setQueueRuleset(p); saveLobbyRuleset(p); };
   const matching = roomMode === 'match';
   // 同盟匹配 has no 自定义 (QUEUE_PRESETS): it queues with the last of 经典 / 休闲 picked
   const shownRuleset = matching ? queueRuleset : ruleset;
   const editCustom = () => openCustomRules({ rules: customDraft(), roomMode: roomMode === 'solo' ? 'solo' : 'coop', difficulty,
-    onApply: () => pickRuleset('custom') });
+    size: big ? LARGE_SEATS : MAX_SEATS, onApply: () => pickRuleset('custom') });
 
   const run = async (kind, fn) => {
     if (inFlight.current) return;
@@ -359,8 +405,9 @@ export function LobbyScreen() {
     }
   };
   const create = () => run('create', () => net.request('room.create', ruleset === 'custom'
-    ? { mode: roomMode, difficulty, ruleset, custom: customDraft() } : { mode: roomMode, difficulty, ruleset }));
-  const queue = () => run('create', () => joinQueue(difficulty, queueRuleset));
+    ? { mode: roomMode, difficulty, ruleset, custom: customDraft(), ...sizeFields(roomMode, size) }
+    : { mode: roomMode, difficulty, ruleset, ...sizeFields(roomMode, size) }));
+  const queue = () => run('create', () => joinQueue(difficulty, queueRuleset, big ? LARGE_SEATS : MAX_SEATS));
   const join = (c = code) => {
     // `onClick=${join}` hands the click EVENT as the first argument, and a default parameter only applies to
     // `undefined` — codeArg keeps an event target out of the key and falls back to the input field
@@ -423,8 +470,10 @@ export function LobbyScreen() {
       <section class="lobby-left">
         <div class="section-label"><span class="section-label__idx num">01</span>${t('模拟方式')}<${MicroLabel}>MODE<//></div>
         <div class="mode-cards">
-          ${MODE_CARDS.map((c) => html`<${ModeCard} key=${c.id} card=${c} selected=${roomMode === c.id} onSelect=${pickMode} />`)}
+          ${MODE_CARDS.map((c) => html`<${ModeCard} key=${c.id} card=${c} selected=${roomMode === c.id} onSelect=${pickMode} big=${big} />`)}
         </div>
+        ${roomMode !== 'solo' ? html`<${SizeSwitch} value=${size} onPick=${pickSize}
+          counts=${matching ? { [MAX_SEATS]: queueCountOf(queueCounts4, queueRuleset), [LARGE_SEATS]: queueCountOf(queueCounts8, queueRuleset) } : null} />` : null}
 
         <div class="section-label"><span class="section-label__idx num">03</span>${t('加入同盟')}<${MicroLabel}>JOIN WITH ALLIANCE KEY<//></div>
         <${Panel} class="join-panel" tone="amber">
@@ -453,7 +502,7 @@ export function LobbyScreen() {
             <${RulesetSwitch} value=${shownRuleset} onPick=${pickRuleset} onGear=${editCustom}
               customLock=${matching ? t('自定义规则不能用于公开匹配，可在独立模拟或用同盟密钥创建的同盟中选择。') : null}
               counts=${matching ? Object.fromEntries(QUEUE_PRESETS.map((p) => [p, queueCountOf(queueCounts, p)])) : null} />
-            ${!matching && ruleset === 'custom' ? html`<${CustomSummary} rules=${customRules.draft} store=${customRules} roomMode=${roomMode} difficulty=${difficulty} />` : null}
+            ${!matching && ruleset === 'custom' ? html`<${CustomSummary} rules=${customRules.draft} store=${customRules} roomMode=${roomMode} difficulty=${difficulty} size=${big ? LARGE_SEATS : MAX_SEATS} />` : null}
           </div>
         </div>
         <div class="diff-list">
@@ -469,7 +518,7 @@ export function LobbyScreen() {
           <//>
           <div class="create-box__hint">
             ${online
-              ? html`<span>${roomMode === 'solo' ? t('创建后即可开始模拟') : roomMode === 'match' ? t('与选择同一难度和规则的博士组成同盟') : t('创建后可邀请好友或添加 AI 队友')}</span>`
+              ? html`<span>${roomMode === 'solo' ? t('创建后即可开始模拟') : roomMode === 'match' ? t('与选择同一难度和规则的博士组成同盟') : big ? t('创建后邀请好友坐满 {n} 个席位', { n: LARGE_SEATS }) : t('创建后可邀请好友或添加 AI 队友')}</span>`
               : html`<${Spinner} size="sm" label="CONNECTING" />`}
           </div>
         </div>

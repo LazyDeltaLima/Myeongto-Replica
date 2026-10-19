@@ -291,6 +291,11 @@
 .bbp.is-multi .bbp__team { animation: bbp-team 2.44s linear both; }
 @keyframes bbp-team { 0% { transform: translateX(calc(var(--pu) * 133)); opacity: 0; } 4% { opacity: 1; } 52% { transform: translateX(calc(var(--pu) * 133)); }
   59% { transform: translateX(calc(var(--pu) * 34)); } 72%, 100% { transform: none; opacity: 1; } }
+/* the 8-player mode: four a side of the ring — in_01 the ring in the screen's middle, in_02 the team shrinks about the ring
+   (66.66 % of the block) as it slides left, so its right column ends left of the leader [추정] */
+.bbp.is-multi .bbp__team.is-8 { transform-origin: 66.66% 50%; animation-name: bbp-team8; }
+@keyframes bbp-team8 { 0% { transform: translateX(calc(var(--pu) * -1.5)); opacity: 0; } 4% { opacity: 1; } 52% { transform: translateX(calc(var(--pu) * -1.5)); }
+  59% { transform: translateX(calc(var(--pu) * -80)) scale(.85); } 72%, 100% { transform: translateX(calc(var(--pu) * -201.5)) scale(.62); opacity: 1; } }
 .bbp.is-multi .bbp__main, .bbp.is-multi .bbp__info, .bbp.is-multi .bbp__desc { animation-delay: 1.27s !important; }
 .bbp.is-multi .bbp__main { animation: bart-in .3s ease-out 1.27s both; }
 .bbp.is-multi .bbp__main > *, .bbp.is-multi .bbp__info, .bbp.is-multi .bbp__small, .bbp.is-multi .bbp__big { animation-delay: calc(1.27s + .1s) !important; }
@@ -304,6 +309,7 @@
 .bbp__mine { background: var(--bb-mine) center / 100% 100% no-repeat; }
 .bbp__plp { display: flex !important; align-items: center; gap: calc(var(--pu) * 8); padding-left: calc(var(--pu) * 6);
   background: var(--bb-pshadow) calc(var(--pu) * 0) center / calc(var(--pu) * 83) calc(var(--pu) * 38) no-repeat; }
+.bbp__member.is-r .bbp__plp { flex-direction: row-reverse; padding: 0 calc(var(--pu) * 6) 0 0; background-position: right center; } /* 8-player mode: the right column, mirrored */
 .bbp__plpicon { position: static !important; width: calc(var(--pu) * 10); height: calc(var(--pu) * 16); background: var(--bb-pblood) center / 100% 100% no-repeat; }
 .bbp__plp b { position: static !important; font-size: calc(var(--pu) * 18); color: #fff; }
 .bbp__bring { background: #22e8bd; -webkit-mask: var(--bb-round) center / 100% 100% no-repeat; mask: var(--bb-round) center / 100% 100% no-repeat; }

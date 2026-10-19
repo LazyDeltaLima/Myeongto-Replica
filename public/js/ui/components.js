@@ -762,7 +762,13 @@ export function Spinner({ size = 'md', label, tone = 'mint', class: cls }) {
 
 // ---- Avatar frame ------------------------------------------------------------------------------
 
-const SEAT_HUES = [162, 196, 38, 280];
+/**
+ * The seat colours (hue of --seat-hue): the four of a co-op room, then four more for the 8-player mode's seats 5–8
+ * (rose, lime, blue, vermilion — apart from the first four and from each other) [추정: the official game has 4 seats].
+ */
+export const SEAT_HUES = Object.freeze([162, 196, 38, 280, 340, 96, 222, 12]);
+/** The hue of a seat (wraps past the last). @param {number} seat */
+export const seatHue = (seat) => SEAT_HUES[(((seat | 0) % SEAT_HUES.length) + SEAT_HUES.length) % SEAT_HUES.length];
 /**
  * Square avatar frame with bracket corners. Falls back to a glyph (first letter / robot).
  * `mark` (local patch): content shown instead of the first letter (ui/faction.js FactionGlyph), when not null.
@@ -772,7 +778,7 @@ const SEAT_HUES = [162, 196, 38, 280];
 export function AvatarFrame({ name = '', src, size = 'md', seat = 0, host, bot, self, ready, offline, dead, empty, mark = null, class: cls }) {
   const [badSrc, setBadSrc] = useState(null);
   const imgOk = !!src && badSrc !== src;
-  const hue = SEAT_HUES[((seat | 0) % 4 + 4) % 4];
+  const hue = seatHue(seat);
   const glyph = [...(name || '').trim()][0] || '?';
   return html`<div class=${cx('avatar', `avatar--${size}`, 'brackets', host && 'is-host', bot && 'is-bot', self && 'is-self',
       ready && 'is-ready', offline && 'is-offline', dead && 'is-dead', empty && 'is-empty', cls)} style=${`--seat-hue:${hue}`}>

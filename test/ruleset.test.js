@@ -88,7 +88,8 @@ test('the switch tooltip: one line per preset without a colon inside, then the �
 test("the room's 匹配补位 button shows its own queue's waiting count (difficulty × ruleset)", async () => {
   const { readFileSync } = await import('node:fs');
   const src = readFileSync(new URL('../public/js/screens/room.js', import.meta.url), 'utf8');
-  assert.match(src, /queueCountOf\(queueCounts, resolveRuleset\(room\.ruleset\)\.preset, room\.difficulty\)/);
+  // the room's size picks the queues (an 8-seat room: the 8-player ones)
+  assert.match(src, /queueCountOf\(facts\.large \? queueCounts8 : queueCounts, resolveRuleset\(room\.ruleset\)\.preset, room\.difficulty\)/);
   assert.match(src, /data-testid="fill-waiting"/);
   const { queueCountOf } = await import('../public/js/ui/ruleset.js');
   const counts = { casual: { NORMAL: 2 }, classic: { NORMAL: 1 } };

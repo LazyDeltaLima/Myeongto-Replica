@@ -20,10 +20,13 @@
 // ruleset tag is beside the title's difficulty. 自定义 takes the host's settings (ui/customRulesStore.js) and its ⚙ opens
 // them (ui/customRules.js: the host edits them — room.setRuleset { preset: 'custom', custom } —, anybody else sees the
 // room's read-only); a custom room has no 匹配补位 (the server refuses room.queueRoom, maintainer decision 2026-10-18).
+// The 8-player mode (maintainer decisions 2026-10-16, 2026-10-19): a room of `size` 8 shows its 8 seats in two rows, has no
+// AI teammates (no add button, no 「AI 队友最后选择」), starts only with every seat a Doctor (SEATS_OPEN: 开始模拟 stays
+// locked and says so) and fills its empty seats from the 8-player queues (匹配补位 under the ready rule alone).
 // Texts go through t() (docs/I18N.md).
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SEATS, MAX_SPECTATORS } from '../../../shared/constants.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SEATS, MAX_SPECTATORS, seatsOf } from '../../../shared/constants.js';
 import { SeatMark } from '../ui/faction.js'; // local patch
 import {
   html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyTag, DifficultyIcon, Tooltip, confirmDialog, doctorNo, useTicker,
@@ -48,12 +51,12 @@ import { CustomRulesDialog, openCustomRules } from '../ui/customRules.js';
 import { customDraft } from '../ui/customRulesStore.js';
 
 /**
- * Seats padded to the room's capacity (co-op 4, solo 1), each null or a seat record.
+ * Seats padded to the room's capacity (co-op 4 or its `size` 8, solo 1), each null or a seat record.
  * @param {any} room room.state payload
  * @returns {(null | {seat:number, playerId:any, name:string, isBot:boolean, ready:boolean, connected:boolean})[]}
  */
 export function normalizeSeats(room) {
-  const cap = room?.mode === 'solo' ? 1 : MAX_SEATS;
+  const cap = room?.mode === 'solo' ? 1 : seatsOf(room?.size);
   const src = Array.isArray(room?.seats) ? room.seats : [];
   const out = [];
   for (let i = 0; i < cap; i++) {
@@ -83,11 +86,16 @@ export function roomFacts(room, myId) {
   // SP_MAX_BOTS (local patch): room.state maxBots, null = only the seats limit the AI teammates
   const maxBots = Number.isInteger(room?.maxBots) && room.maxBots >= 0 ? room.maxBots : null;
   const botCount = occupied.filter((s) => s.isBot).length;
+  // the 8-player mode: no AI teammates, and the match starts only with every seat a Doctor (server/lobby.js SEATS_OPEN)
+  const large = room?.mode !== 'solo' && seatsOf(room?.size) > MAX_SEATS;
+  const seatsOpen = large && (humans.length < seats.length || botCount > 0);
   return {
-    seats, occupied, humans, mine, isHost, readyHumans, isReady, maxBots, botCount,
-    canAddBot: room?.mode !== 'solo' && isHost && (maxBots == null || botCount < maxBots),
+    seats, occupied, humans, mine, isHost, readyHumans, isReady, maxBots, botCount, large, seatsOpen,
+    canAddBot: room?.mode !== 'solo' && !large && isHost && (maxBots == null || botCount < maxBots),
     emptySeats: seats.filter((s) => !s).length,
-    canStart: isHost && othersReady && !!mine,
+    canStart: isHost && othersReady && !!mine && !seatsOpen,
+    // 匹配补位: the ready rule alone (the seats it fills are the open ones)
+    canQueue: isHost && othersReady && !!mine,
     othersReady,
     // spectator seats (never players: not in `humans`, never counted for ready / start)
     spectators: Array.isArray(room?.spectators) ? room.spectators.filter((s) => s && typeof s === 'object') : [],
@@ -153,7 +161,7 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
   if (!seat) {
     const canAdd = coop && facts.isHost && facts.canAddBot !== false && !room.matching;
     // the host sees why the add button is gone (SP_MAX_BOTS, local patch)
-    const capped = coop && facts.isHost && !canAdd && !room.matching;
+    const capped = coop && facts.isHost && !canAdd && !room.matching && !facts.large;
     return html`<article class="seat seat--empty" style=${`--seat-i:${index}`}>
       <header class="seat__head"><span class="seat__no num">P${index + 1}</span><${MicroLabel}>SEAT ${String(index + 1).padStart(2, '0')}<//></header>
       <div class="seat__art seat__art--empty">
@@ -279,6 +287,7 @@ export function RoomScreen() {
   const conn = useStore((s) => s.connection, shallowEqual);
   const queue = useStore((s) => s.ui.queue);
   const queueCounts = useStore((s) => s.ui.queueCounts);
+  const queueCounts8 = useStore((s) => s.ui.queueCounts8);
   const [busy, setBusy] = useState(null);
   const alive = useRef(true);
   const inFlight = useRef(false); // synchronous guard against double clicks (state updates are async)
@@ -337,10 +346,11 @@ export function RoomScreen() {
   const sit = () => run('sit', () => net.request('room.join', { code: room.code }));
   // 랜덤 매칭 for the empty seats (header): the host queues the room, any Doctor of it cancels
   const matching = coop && !!room.matching;
-  const canFill = coop && facts.isHost && facts.humans.length < MAX_SEATS && !matching;
-  const fillTip = isCustom ? t('自定义规则不能使用匹配补位') : facts.canStart ? t('用随机匹配的博士补满空位（AI 队友会被移出）') : t('仍有博士未准备就绪');
-  // the Doctors already waiting with this room's difficulty and ruleset (lobby.queueCounts; the lobby's cards show the same)
-  const fillWaiting = queueCountOf(queueCounts, resolveRuleset(room.ruleset).preset, room.difficulty);
+  const canFill = coop && facts.isHost && facts.humans.length < facts.seats.length && !matching;
+  const fillTip = isCustom ? t('自定义规则不能使用匹配补位') : !facts.canQueue ? t('仍有博士未准备就绪')
+    : facts.large ? t('用随机匹配的博士补满空位') : t('用随机匹配的博士补满空位（AI 队友会被移出）');
+  // the Doctors already waiting with this room's difficulty, ruleset and size (lobby.queueCounts; the lobby's cards show the same)
+  const fillWaiting = queueCountOf(facts.large ? queueCounts8 : queueCounts, resolveRuleset(room.ruleset).preset, room.difficulty);
   const fill = () => run('fill', () => net.request('room.queueRoom', {}));
   const unfill = () => run('unfill', () => net.request('room.unqueue', {}));
   const leave = async () => {
@@ -369,7 +379,7 @@ export function RoomScreen() {
     ? html`<span class="t-orange"><${Icon} name="wifiOff" />${t('连接中断，正在重连…')}</span>`
     : matching
       ? html`<span class="t-amber room-bar__match"><${Icon} name="signal" />${t('正在匹配空位')}${waiting
-        ? html` · <b class="num">${mmss(Date.now() - waiting.since)}</b> · ${t('排队中的博士：{count}/4', { count: Math.min(MAX_SEATS, waiting.count) })}` : null}</span>`
+        ? html` · <b class="num">${mmss(Date.now() - waiting.since)}</b> · ${t('排队中的博士：{count}/{n}', { count: Math.min(facts.seats.length, waiting.count), n: facts.seats.length })}` : null}</span>`
     : facts.spectating
       ? html`<span class="t-lo"><${Icon} name="eye" />${t('观战中 · 不占博士席位，模拟开始后可切换观看各位博士')}</span>`
     : !coop
@@ -377,6 +387,8 @@ export function RoomScreen() {
     : facts.isHost
       ? facts.canStart
         ? html`<span class="t-mint">${t('*同盟人数达标，准许进入模拟')}</span>`
+        : facts.seatsOpen
+        ? html`<span class="t-lo">${t('八人同盟需坐满 8 名博士后才能开始')}</span>`
         : html`<span class="t-lo">${t('等待所有博士准备就绪')}</span>`
       : myReady
         ? html`<span class="t-mint">${t('已就绪 · 等待创建者开始模拟')}</span>`
@@ -397,15 +409,15 @@ export function RoomScreen() {
         <${GuideButton} class="room-guide" variant="secondary" label=${t('玩法说明')} />
       </div>
       <div class="topbar__center">
-        <${MicroLabel} tone="mint">${coop ? 'ALLIANCE LOBBY' : 'SOLO SIMULATION'}<//>
-        <h1 class="topbar__title">${coop ? t('同盟模拟') : t('独立模拟')}<span class="topbar__sep"></span><${DifficultyTag} difficulty=${room.difficulty} size="lg" /><span class=${`rtag rtag--${roomRules.preset}`} data-testid="room-ruleset">${presetName(roomRules)}</span></h1>
+        <${MicroLabel} tone="mint">${coop ? (facts.large ? 'ALLIANCE LOBBY · 8' : 'ALLIANCE LOBBY') : 'SOLO SIMULATION'}<//>
+        <h1 class="topbar__title">${coop ? t('同盟模拟') : t('独立模拟')}<span class="topbar__sep"></span><${DifficultyTag} difficulty=${room.difficulty} size="lg" /><span class=${`rtag rtag--${roomRules.preset}`} data-testid="room-ruleset">${presetName(roomRules)}</span>${facts.large ? html`<span class="rtag rtag--size" data-testid="room-size">${t('{n} 人同盟', { n: facts.seats.length })}</span>` : null}</h1>
       </div>
       <div class="topbar__right">
         ${coop ? html`<${InviteBox} code=${room.code} name=${me.name} difficulty=${room.difficulty} />` : html`<div class="solo-note"><${MicroLabel}>SINGLE OPERATOR<//><span>${t('仅限 1 名博士')}</span></div>`}
       </div>
     </header>
 
-    <main class=${`seats${coop ? '' : ' seats--solo'}`}>
+    <main class=${`seats${coop ? '' : ' seats--solo'}${facts.large ? ' seats--8' : ''}`}>
       ${facts.seats.map((s, i) => html`<${SeatCard} key=${s ? `p${s.playerId}` : `e${i}`} seat=${s} index=${i} room=${room} facts=${facts}
         myId=${me.playerId} busy=${busy} onAddBot=${addBot} onRemoveBot=${removeBot} onKick=${kick} />`)}
       ${coop ? null : html`<aside class="solo-brief brackets">
@@ -450,14 +462,14 @@ export function RoomScreen() {
           ? html`<div class="room-bar__stack">
               <${LoadoutButton} from="room" class="room-loadout" label=${t('干员调配')} />
               <${Tooltip} block=${true} text=${fillTip}>
-                <${Button} variant="secondary" icon="signal" block=${true} class="room-fill" loading=${busy === 'fill'} disabled=${isCustom || !facts.canStart || !online} onClick=${fill}>${t('匹配补位')}<span class=${`rpick__n room-fill__n num${fillWaiting > 0 ? ' is-on' : ''}`} data-testid="fill-waiting">${fillWaiting}</span><//>
+                <${Button} variant="secondary" icon="signal" block=${true} class="room-fill" loading=${busy === 'fill'} disabled=${isCustom || !facts.canQueue || !online} onClick=${fill}>${t('匹配补位')}<span class=${`rpick__n room-fill__n num${fillWaiting > 0 ? ' is-on' : ''}`} data-testid="fill-waiting">${fillWaiting}</span><//>
               <//>
             </div>`
           : html`<${LoadoutButton} from="room" size="lg" class="room-loadout" label=${t('干员调配')} />`}
         ${matching && !facts.spectating
           ? html`<${Button} variant="secondary" size="xl" icon="close" loading=${busy === 'unfill'} disabled=${!online} onClick=${unfill}>${t('取消匹配')}<//>`
           : facts.isHost
-          ? html`<${Tooltip} text=${facts.canStart ? null : t('仍有博士未准备就绪')}>
+          ? html`<${Tooltip} text=${facts.canStart ? null : facts.seatsOpen && facts.othersReady ? t('八人同盟需坐满 8 名博士后才能开始') : t('仍有博士未准备就绪')}>
               <${Button} variant="primary" size="xl" icon="play" loading=${busy === 'start'} disabled=${!facts.canStart || !online} onClick=${start}>${t('开始模拟')}<//>
             <//>`
           : facts.spectating

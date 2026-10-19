@@ -28,6 +28,16 @@
 .dorder.is-cur { border-color: var(--gold); background: linear-gradient(90deg, rgba(255, 198, 0, .12), rgba(12, 15, 14, .82)); box-shadow: 0 0 .2rem rgba(255, 198, 0, .15); }
 .dorder.is-done { border-color: var(--mint-800); }
 .dorder.is-self .dorder__name { color: var(--mint-400); }
+/* the 8-player mode (more than four in the order): compact rows so eight fit above the buttons; the column scrolls on a short screen */
+.draft-order.is-8 { gap: .05rem; overflow-y: auto; }
+.draft-order.is-8 .dorder { gap: .08rem; padding: .04rem .1rem .04rem .06rem; }
+.draft-order.is-8 .pavatar { --pa: .42rem; }
+.draft-order.is-8 .dorder__idx { font-size: .16rem; width: .2rem; }
+.draft-order.is-8 .dorder__name { font-size: .15rem; }
+.draft-order.is-8 .dorder__state { font-size: .12rem; }
+.draft-order.is-8 .dorder__box { width: .42rem; height: .42rem; }
+.draft-order.is-8 .dorder__box > :first-child { max-width: 100%; max-height: 100%; }
+.draft-order.is-8 .dorder__finger { width: .32rem; height: .32rem; }
 .draft-order__tip { margin-top: auto; font-size: .13rem; line-height: 1.6; color: var(--text-dim); }
 
 .draft-grid {

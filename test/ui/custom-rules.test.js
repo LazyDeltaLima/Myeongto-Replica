@@ -118,12 +118,12 @@ test('the switch: 自定义 with its ⚙ after it; 同盟匹配 locks it with th
 
 test('the lobby and the room: room.create / room.setRuleset carry the settings; a custom room has no 匹配补位; the bar line-up', () => {
   const lobby = read('public/js/screens/lobby.js');
-  assert.match(lobby, /ruleset === 'custom'\s*\? \{ mode: roomMode, difficulty, ruleset, custom: customDraft\(\) \}/);
-  assert.match(lobby, /joinQueue\(difficulty, queueRuleset\)/);
+  assert.match(lobby, /ruleset === 'custom'\s*\? \{ mode: roomMode, difficulty, ruleset, custom: customDraft\(\), \.\.\.sizeFields\(roomMode, size\) \}/);
+  assert.match(lobby, /joinQueue\(difficulty, queueRuleset, big \? LARGE_SEATS : MAX_SEATS\)/);
   assert.match(lobby, /<\$\{CustomRulesDialog\} \/>/);
   const room = read('public/js/screens/room.js');
   assert.match(room, /net\.request\('room\.setRuleset', \{ preset: 'custom', custom \}\)/);
-  assert.match(room, /disabled=\$\{isCustom \|\| !facts\.canStart \|\| !online\}/);
+  assert.match(room, /disabled=\$\{isCustom \|\| !facts\.canQueue \|\| !online\}/);
   assert.match(room, /readonly: true/);
   // 「AI 队友最后选择」 under the ready count, the switch alone in the row under the difficulty
   const center = room.slice(room.indexOf('<div class="room-bar__center">'), room.indexOf('<div class="room-bar__status">'));
