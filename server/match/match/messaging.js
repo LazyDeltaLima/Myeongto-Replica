@@ -116,6 +116,28 @@ export class MatchMessaging {
     this._lastPubJson = json;
     // Snapshot building / serialization can take time; throttle from the actual broadcast, not its start.
     this._lastPubAt = this.sched.now();
-    this.broadcast(view);
+    this.broadcast(this._publicDelta(view));
+  }
+
+  /**
+   * The broadcast form of m.public: a player's `bonds` only when they changed since the previous broadcast (the client
+   * keeps the last ones: shared/protocol.js mergePublicBonds) — they were most of its bytes (an 8-player match: 62 %, a
+   * row's bonds changing a few times a round). Every viewer that missed a broadcast gets a whole m.public on its way back
+   * (platform.js _resync); the match's final broadcast is whole too — the lobby keeps it for the result replay.
+   */
+  _publicDelta(view) {
+    const sent = (this._pubBondsSent ||= new Map());
+    const whole = this.ended;
+    const players = view.players.map((p) => {
+      const k = JSON.stringify(p.bonds);
+      if (!whole && sent.get(p.playerId) === k) {
+        const { bonds, ...rest } = p;
+        void bonds;
+        return rest;
+      }
+      sent.set(p.playerId, k);
+      return p;
+    });
+    return { ...view, players };
   }
 }

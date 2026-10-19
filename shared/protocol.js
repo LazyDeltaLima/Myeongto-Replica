@@ -505,6 +505,9 @@ export const S2C = [
   // { difficulty, ruleset, size, players, accepted, mine, inMs } · lobby.queueCounts { counts: { [ruleset]: { [difficulty]: n } },
   // counts8: the same for the 8-player queues } (the waiting Doctors of every queue, server/matchmaking.js)
   'room.queueState', 'room.matchFound', 'lobby.queueCounts',
+  // m.public: a broadcast row of players[] carries `bonds` only when they changed since the previous broadcast
+  // (mergePublicBonds); a one-to-one m.public (a reconnect / resync, a spectator taking a seat) and the match's final one
+  // carry every row's
   'm.public', 'm.private', 'm.field', 'm.toast', 'm.ticker', 'm.emote', 'm.result',
   // m.layer { playerId, bondId, add } — the player's own bond layer gain in ROUND_START / SP_DRAFT / PREP (upstream #482:
   // the layer-up sound); live only, never replayed on a resync
@@ -518,6 +521,21 @@ export const S2C = [
   // server-run combat streaming (legacy / SP_COMBAT=server only)
   'b.snap', 'b.ev',
 ];
+
+/**
+ * m.public with every players[] row complete: a row without `bonds` keeps the bonds the previous m.public gave that player
+ * (none known: []). The server sends a player's bonds only when they changed (server/match/match/messaging.js
+ * _publicDelta): they were most of every broadcast — an 8-player room sends each one to eight browsers — and change a
+ * few times a round.
+ * @param {any} prev the previous m.public (or null) @param {any} next the m.public that arrived
+ * @returns {any} `next` itself when every row has its bonds, else a copy with them filled in
+ */
+export function mergePublicBonds(prev, next) {
+  const rows = Array.isArray(next?.players) ? next.players : null;
+  if (!rows || rows.every((p) => !p || 'bonds' in p)) return next;
+  const before = new Map((Array.isArray(prev?.players) ? prev.players : []).filter(Boolean).map((p) => [p.playerId, p.bonds]));
+  return { ...next, players: rows.map((p) => (!p || 'bonds' in p ? p : { ...p, bonds: Array.isArray(before.get(p.playerId)) ? before.get(p.playerId) : [] })) };
+}
 
 /**
  * Validate a decoded client message. Returns `null` when valid, otherwise a short reason string.

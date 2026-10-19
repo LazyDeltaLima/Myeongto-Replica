@@ -26,6 +26,7 @@ import { FakeBattle } from './fakeBattle.js';
 import { GEO } from '../../shared/constants.js';
 import { collectViolations } from '../../server/match/invariants.js';
 import { attachSimClients } from './simClient.js';
+import { mergePublicBonds } from '../../shared/protocol.js';
 
 export const DATA = getData({ log: { warn() {}, error() {}, info() {} } });
 
@@ -43,7 +44,7 @@ export function makeMatch(o = {}) {
   const sched = new VirtualScheduler({ instantCombat: o.instant !== false });
   const logs = { error: [], warn: [] };
   const log = { info() {}, debug() {}, warn: (...a) => logs.warn.push(a.map(String).join(' ')), error: (...a) => logs.error.push(a.map(String).join(' ')) };
-  const h = { sent: [], bc: [], ended: null, endedCount: 0, logs, sched, frames: 0, badFrames: [], onSend: [], onBroadcast: [], clients: null };
+  const h = { sent: [], bc: [], wirePublic: [], ended: null, endedCount: 0, logs, sched, frames: 0, badFrames: [], onSend: [], onBroadcast: [], clients: null };
   const captureFrames = o.captureFrames !== false;
   const checkFrame = (msg) => {
     // every frame must be JSON-safe: no NaN/Infinity, no undefined-only structures, serializable
@@ -64,7 +65,13 @@ export function makeMatch(o = {}) {
       h.sent.push([id, msg]);
       return true;
     },
-    broadcast: (msg) => { for (const fn of h.onBroadcast) fn(msg); checkFrame(msg); h.bc.push(msg); },
+    // m.public as the browser holds it (a broadcast row without `bonds` keeps the previous ones: mergePublicBonds); the
+    // frames as sent in h.wirePublic
+    broadcast: (raw) => {
+      let msg = raw;
+      if (raw.t === 'm.public') { h.wirePublic.push(raw); msg = mergePublicBonds(h.bc.findLast((x) => x.t === 'm.public') ?? null, raw); }
+      for (const fn of h.onBroadcast) fn(msg); checkFrame(msg); h.bc.push(msg);
+    },
     onEnd: (s) => { h.ended = s; h.endedCount++; },
     scheduler: sched,
     registry: o.registry,
