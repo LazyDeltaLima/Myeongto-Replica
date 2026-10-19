@@ -138,6 +138,9 @@ export class MatchPlatform {
   _resync(ps) {
     const playerId = ps.playerId;
     this.sendTo(playerId, this.publicView());
+    // the next broadcast is whole: its delta would be against the previous broadcast, not this newer state
+    // (messaging.js _publicDelta)
+    this._pubRowsSent?.clear();
     if (!this.ended) {
       if (!ps.spectator) {
         ps._lastPriv = null;

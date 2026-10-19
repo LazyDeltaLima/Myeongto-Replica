@@ -25,7 +25,7 @@ test('public throttling starts at broadcast time even when building the previous
       return { t: 'm.public', serverNow: now, revision: ++revision };
     },
     broadcast: (view) => sent.push(view.serverNow),
-    _publicDelta: (view) => view, // (no players here: the bonds delta is test/match/public-bonds.test.js)
+    _publicDelta: (view) => view, // (no players here: the row delta is test/match/public-delta.test.js)
     _maybeSendPublic: Match.prototype._maybeSendPublic,
   };
   match._maybeSendPublic(false);

@@ -120,24 +120,27 @@ export class MatchMessaging {
   }
 
   /**
-   * The broadcast form of m.public: a player's `bonds` only when they changed since the previous broadcast (the client
-   * keeps the last ones: shared/protocol.js mergePublicBonds) — they were most of its bytes (an 8-player match: 62 %, a
-   * row's bonds changing a few times a round). Every viewer that missed a broadcast gets a whole m.public on its way back
-   * (platform.js _resync); the match's final broadcast is whole too — the lobby keeps it for the result replay.
+   * The broadcast form of m.public: after the match's first broadcast, each players[] row holds only its `playerId`, the
+   * fields that changed since the previous broadcast and, in `$rm`, those it lost (`delta: true`; the client merges:
+   * shared/protocol.js mergePublicRows). The rows were most of its bytes (an 8-player match: the bonds alone 62 %), and
+   * a row changes a few fields a phase. Every viewer that missed a broadcast gets a whole m.public on its way back
+   * (platform.js _resync, after which the next broadcast is whole too; only b.snap frames are ever skipped under
+   * backpressure, server/net.js); the match's final broadcast is whole as well — the lobby keeps it for the result replay.
    */
   _publicDelta(view) {
-    const sent = (this._pubBondsSent ||= new Map());
-    const whole = this.ended;
+    const sent = (this._pubRowsSent ||= new Map()); // playerId → Map(field → JSON) of the last broadcast
+    const whole = this.ended || !sent.size;
     const players = view.players.map((p) => {
-      const k = JSON.stringify(p.bonds);
-      if (!whole && sent.get(p.playerId) === k) {
-        const { bonds, ...rest } = p;
-        void bonds;
-        return rest;
-      }
-      sent.set(p.playerId, k);
-      return p;
+      const before = sent.get(p.playerId);
+      const now = new Map(Object.entries(p).map(([k, v]) => [k, JSON.stringify(v)]));
+      sent.set(p.playerId, now);
+      if (whole || !before) return p;
+      const row = { playerId: p.playerId };
+      for (const [k, j] of now) if (before.get(k) !== j) row[k] = p[k];
+      const rm = [...before.keys()].filter((k) => !now.has(k));
+      if (rm.length) row.$rm = rm;
+      return row;
     });
-    return { ...view, players };
+    return whole ? view : { ...view, players, delta: true };
   }
 }

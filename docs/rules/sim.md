@@ -1621,10 +1621,11 @@ AUTO 스킬은 스킬 시작(`[trig]`) 경로뿐이었다. 瑕光 S1(`skchr_blem
   공유 풀이라 8인은 평균 기여 12.5%로 거의 안 뜸 → 보스 라운드 시작 때 산 사람이 4명을 넘으면 기준 × 4 ÷ 산 사람(8명 10/25/40%, 5명 16/40/64%).
   공식 문구는 숫자가 박혀 있어 그때는 우리 문구 「{이름} 박사님이 리더 적에게 입힌 대미지 N% 초과!」(같은 종류·우선순위 30, 방송 id 없음). 4명
   이하(4인·단독)는 공식 그대로. 확인 `test/match/bosshit-ticker.test.js`(8명 실제 매치 경로: 최종 공세 40%, 히든 코어 각자 10%).
-- **방 트래픽**(관리자 요청 2026-10-19): `m.public` 방송은 인원만큼 커지고 인원 모두에게 가서 방 전체로 n². 대부분이던 플레이어별 `players[].bonds`
-  (8인 62%)를 바뀔 때만 보냄(`server/match/match/messaging.js _publicDelta`, 브라우저는 `shared/protocol.js mergePublicBonds`로 앞의 것을 유지;
-  재접속·관전 입장의 한 사람 m.public과 판의 마지막 방송은 전부). 전원 托管 NORMAL seed 3 한 판: 8인 방송 1805 → 820 KB(방 전체 약 14.1 → 6.4 MB),
-  4인 739 → 399 KB. 확인 `test/match/public-bonds.test.js`(합친 방송 = 전체 view, 재접속 전부).
+- **방 트래픽**(관리자 요청 2026-10-19): `m.public` 방송은 인원만큼 커지고 인원 모두에게 가서 방 전체로 n². 대부분이던 `players[]` 줄(맹약만
+  8인 62%)을 바뀐 칸만 보냄 — 판의 첫 방송 다음부터 `delta: true`, 줄마다 `playerId`·바뀐 칸·없어진 칸 `$rm`(`server/match/match/messaging.js
+  _publicDelta`, 브라우저는 `shared/protocol.js mergePublicRows`로 가진 것에 합침). 재접속·관전 입장의 한 사람 m.public(그 뒤 첫 방송도)·판의
+  마지막 방송은 전부. 전원 托管 NORMAL seed 3 한 판: 8인 방송 1805 → 529 KB(29%, 방 전체 약 14.1 → 4.1 MB), 4인 739 → 307 KB(42%).
+  확인 `test/match/public-delta.test.js`(합친 방송 = 전체 view, 첫·마지막 방송 전부, 재접속 뒤 첫 방송 전부).
 - **시뮬 격자**: 전투 격자 폭(`server/sim/constants.js COLS`)을 37로 넓힘 — 다른 필드는 그 안의 21열만 씀. 좌우 반전(최종 공세 오른쪽)은 전장 폭
   `STAGE_COLS`(21)로(`battle/players.js`, `content/tokens.js`, `match/finalAssault.js`, `match/board.js`). 넓힌 뒤 골든 161개 그대로, 실행 시간 같음.
 - **규칙 모드**: 4인·8인 모두 클래식·캐주얼·커스텀을 고름(방 크기와 규칙은 따로; 공개 매칭은 클래식·캐주얼만, 크기별 대기열). 8석 방의 커스텀 설정 창·요약의

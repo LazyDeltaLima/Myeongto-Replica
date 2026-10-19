@@ -1,6 +1,6 @@
 // test/helpers/wsClient.js — promise-based WebSocket test client for server tests.
 //
-// Every inbound JSON frame is appended to an inbox. `waitFor(type, predicate)` consumes the first matching
+// Every inbound JSON frame is appended to an inbox (m.public merged like the browser's: mergePublicRows). `waitFor(type, predicate)` consumes the first matching
 // frame already in the inbox or the next one to arrive (so there is no race between an action and the
 // wait for its effect). `request(msg)` assigns a `rid` and resolves with the server's direct reply
 // (`ok` / `error` / `welcome` / `pong` carrying that rid).
@@ -12,6 +12,7 @@
 //   await c.close();
 
 import WebSocket from 'ws';
+import { mergePublicRows } from '../../shared/protocol.js';
 
 const REPLY_TYPES = new Set(['ok', 'error', 'welcome', 'pong']);
 
@@ -38,6 +39,8 @@ export class TestClient {
     this.inbox = [];
     /** @type {any[]} every frame ever received (never consumed) */
     this.log = [];
+    /** the m.public held (merged) */
+    this.lastPublic = null;
     /** @type {{ match: (m: any) => boolean, resolve: Function }[]} */
     this.waiters = [];
     this.nextRid = 1;
@@ -54,6 +57,8 @@ export class TestClient {
       if (isBinary) return;
       let msg;
       try { msg = JSON.parse(data.toString()); } catch { return; }
+      // m.public as the browser holds it: a broadcast is a delta of its players[] rows (shared/protocol.js mergePublicRows)
+      if (msg.t === 'm.public') msg = this.lastPublic = mergePublicRows(this.lastPublic, msg);
       this.log.push(msg);
       const i = this.waiters.findIndex((w) => w.match(msg));
       if (i >= 0) {
