@@ -1,6 +1,6 @@
 # 명토 레플리카 · Myeongto Replica
 
-명일방주의 별도 게임 모드 「위수 협의: 맹약」(卫戍协议：盟约 · _Stronghold Protocol: Alliance_, 유저들이 부르는 이름은 「명토체스」)을 **인게임과 최대한 같게** 브라우저에서 재현하는 비공식 팬 프로젝트입니다. 혼자(단독 시뮬레이션) 또는 1–4인 협동(연합 시뮬레이션)으로 플레이합니다.
+명일방주의 별도 게임 모드 「위수 협의: 맹약」(卫戍协议：盟约 · _Stronghold Protocol: Alliance_, 유저들이 부르는 이름은 「명토체스」)을 **인게임과 최대한 같게** 브라우저에서 재현하는 비공식 팬 프로젝트입니다. 혼자(단독 시뮬레이션), 1–4인 협동(연합 시뮬레이션), 또는 이 저장소에만 있는 8인 협동(8인 연합)으로 플레이합니다.
 
 [sganggs/Stronghold-Protocol](https://github.com/sganggs/Stronghold-Protocol) v0.2.0에서 갈라져 나온 **한국어 하드 포크**입니다.
 
@@ -28,6 +28,7 @@ English summary: [below](#english) · 中文说明：[见下](#中文)
 - **한국어가 기본입니다.** 공식 한국 서버 문구와 직접 다듬은 UI 번역, 오퍼레이터 음성 언어 선택(한국어/일본어/끄기), 협동 방 채팅이 있습니다.
 - **공식 화면과 연출.** 정비 화면 HUD, 상점, 배치 UI, 전투 HUD, 라운드 배너를 클라이언트 프리팹의 좌표와 그림 그대로 재현합니다. 클라이언트에서 추출한 전투 이펙트 프리팹을 그대로 재생하는 이펙트 플레이어와 스테이지별 공식 3D 씬도 있습니다(둘 다 직접 추출해야 보입니다).
 - **선발 오퍼레이터**는 키트를 구현하고 공식 동작과 대조한 8명만 고를 수 있습니다: 왕, 첸 더 던스트릭, 위셔델, 토가와 사키코, 아스카론, 켈시 에스페란타, 클레멘티아, 안젤리나 더 멜로우 위시(뒤의 세 이름은 한국 서버 출시 전이라 비공식 번역).
+- **8인 연합**(공식에 없는 모드). 박사 8명이 모두 앉아야 시작하고 AI 팀원은 없습니다. 1인당 체감이 4인과 같도록 상점 풀·장비 재고·맹약 밴·리더 체력을 조정했고, 연합 방어는 최대 4명이 넓힌 전장에서 막습니다. 수치와 근거는 [docs/rules/sim.md](docs/rules/sim.md) 「8인 협동 모드」.
 - **원본과의 관계.** 2026-10-07에 v0.2.0을 병합한 것이 마지막입니다. 그 뒤로는 원본의 버그 수정과 기능을 골라서 손으로 옮겨 옵니다([docs/rules/upstream.md](docs/rules/upstream.md)).
 
 현재 버전은 **1.4.9**이며 타이틀 화면 아래에 `v1.4.9 · WEB SIMULATION`으로 표시됩니다. 버전 번호는 이 저장소가 따로 매깁니다. 완성본 zip(Releases)은 배포하지 않으므로 소스에서 실행합니다.
@@ -118,7 +119,7 @@ Issue와 Pull Request를 환영합니다. **한국어로** 써 주세요.
 
 ## English
 
-An **unofficial, non-commercial fan remake** of Arknights' standalone game mode _Stronghold Protocol: Alliance_ (卫戍协议：盟约; Korean players call it 「명토체스」), played in the browser solo or in 1–4 player co-op. It is a Korean **hard fork** of [sganggs/Stronghold-Protocol](https://github.com/sganggs/Stronghold-Protocol) at v0.2.0 whose goal is to match the in-game behaviour as closely as possible; rules and their evidence are in [docs/rules/](docs/rules/README.md) (Korean).
+An **unofficial, non-commercial fan remake** of Arknights' standalone game mode _Stronghold Protocol: Alliance_ (卫戍协议：盟约; Korean players call it 「명토체스」), played in the browser solo, in 1–4 player co-op, or in this fork's own 8-player co-op. It is a Korean **hard fork** of [sganggs/Stronghold-Protocol](https://github.com/sganggs/Stronghold-Protocol) at v0.2.0 whose goal is to match the in-game behaviour as closely as possible; rules and their evidence are in [docs/rules/](docs/rules/README.md) (Korean).
 
 - **Run:** Node.js 22 or 24, then `npm install && npm run setup && npm start` and open <http://localhost:3000>. `setup` downloads ~460 MB of art from public community mirrors. There are no release bundles.
 - **Client-only assets are not provided:** the official battle effects, per-stage 3D scenes and a few models are extracted from your own installed client (`node tools/setup.mjs --local`, `tools/local-extract/scene_extract.py`, `tools/local-extract/fx_extract.py`). Without them the game falls back to the 2D board and its own effects. Do not redistribute extracted files.

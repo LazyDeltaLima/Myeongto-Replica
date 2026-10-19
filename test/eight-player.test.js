@@ -10,7 +10,7 @@ import { GameData } from '../server/match/gamedata.js';
 import { generateDraft } from '../server/match/choices.js';
 import { createRng } from '../server/sim/rng.js';
 import { TestClient } from './helpers/wsClient.js';
-import { ERR, LARGE_SEATS, MAX_SEATS } from '../shared/constants.js';
+import { ERR, LARGE_SEATS, MAX_SEATS, DIFFICULTIES } from '../shared/constants.js';
 import { validateC2S, RESULT_LIMITS } from '../shared/protocol.js';
 import { DATA, makeMatch } from './match/harness.js';
 import { GEO } from '../shared/constants.js';
@@ -97,8 +97,9 @@ describe('8-player match (real match path)', () => {
 function clientPool(getUrl) {
   const open = new Set();
   return {
-    async player(name) {
-      const c = await TestClient.connect(getUrl());
+    /** `net`: an internet address the socket claims (X-Forwarded-For from loopback: net.js clientAddress) — the per-network limits */
+    async player(name, net = null) {
+      const c = await TestClient.connect(getUrl(), net ? { wsOptions: { headers: { 'X-Forwarded-For': net } } } : {});
       open.add(c);
       const w = await c.hello(name);
       c.id = w.playerId;
@@ -112,9 +113,9 @@ function clientPool(getUrl) {
 }
 const ok = async (c, msg) => { const r = await c.request(msg); assert.equal(r.t, 'ok', `${msg.t}: ${JSON.stringify(r)}`); return r; };
 const err = async (c, msg, code) => { const r = await c.request(msg); assert.equal(r.t, 'error', JSON.stringify(r)); assert.equal(r.code, code, JSON.stringify(r)); return r; };
-async function players(pool, n, prefix = 'P') {
+async function players(pool, n, prefix = 'P', net = null) {
   const out = [];
-  for (let i = 0; i < n; i++) out.push(await pool.player(`${prefix}${i + 1}`));
+  for (let i = 0; i < n; i++) out.push(await pool.player(`${prefix}${i + 1}`, net));
   return out;
 }
 
@@ -191,6 +192,21 @@ describe('8-player room and queue (server/lobby.js, server/matchmaking.js)', () 
     // the 4-player queue still holds its one player
     assert.equal(srv.lobby.queue.counts().classic.HARD, 1);
     assert.equal(srv.lobby.queue.counts(LARGE_SEATS).classic.HARD, 0);
+  });
+
+  test('one network may queue eight for the 8-player queue (twice the 4-player limit); the count spans every queue', async () => {
+    const ps = await players(pool, 10, 'N', '203.0.113.7');
+    // the 4-player queues: four from one network (one per difficulty: no group forms), the fifth refused
+    for (const [i, c] of ps.slice(0, 4).entries()) await ok(c, { t: 'room.queue', difficulty: DIFFICULTIES[i] });
+    await err(ps[4], { t: 'room.queue', difficulty: 'NORMAL' }, 'RATE');
+    // the 8-player queue: up to eight from the network, those four included
+    for (const c of ps.slice(4, 8)) await ok(c, { t: 'room.queue', difficulty: 'NORMAL', size: 8 });
+    await err(ps[8], { t: 'room.queue', difficulty: 'NORMAL', size: 8 }, 'RATE');
+    // moving a queued player to another queue is not a new entry
+    await ok(ps[0], { t: 'room.queue', difficulty: 'NORMAL', size: 8 });
+    // another network is not counted
+    const other = await pool.player('Other', '198.51.100.9');
+    await ok(other, { t: 'room.queue', difficulty: 'NORMAL', size: 8 });
   });
 
   test('room.queueRoom of an 8-seat room waits for eight; seven never start', async () => {

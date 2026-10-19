@@ -43,7 +43,8 @@
 //     ended up in a room some other way (an invitation link) is dropped when a group would take them (reason 'room').
 //     A queued room's offline human is the room's business: the lobby grace (60 s) removes them, which cancels the entry.
 //   * Limits: at most `maxQueuedPerAddr` waiting single players from one client network (internet clients only, net.js
-//     clientAddress; room.queue → ERR.RATE; queued rooms are already capped by the lobby's room limits); no queue entry
+//     clientAddress; twice that to join an 8-player queue, so a whole 8-seat group can come from one network — the
+//     count is over every queue; room.queue → ERR.RATE; queued rooms are already capped by the lobby's room limits); no queue entry
 //     and no match start during the deploy countdown's last minutes (server/local-restart.js startRefusal →
 //     ERR.RESTARTING; a group that completes then is dissolved with reason 'restarting').
 //   * The queue lives in memory: a server restart forgets it (the client's queue screen closes on the new `welcome`).
@@ -132,10 +133,12 @@ export class Matchmaker {
     if (late) return late;
     const key = session.limitKey || null;
     if (key && this.opts.maxQueuedPerAddr > 0 && !had) {
+      // an 8-player queue takes a whole 8-seat group from one network: twice the limit (maintainer decision 2026-10-19)
+      const limit = this.opts.maxQueuedPerAddr * (cap / MAX_SEATS);
       let n = 0;
       for (const e of this.entries.values()) if (e.playerId && e.limitKey === key) n++;
-      if (n >= this.opts.maxQueuedPerAddr) {
-        lobby.limitWarn(`queue limit (${this.opts.maxQueuedPerAddr}) reached for ${session.addr}`);
+      if (n >= limit) {
+        lobby.limitWarn(`queue limit (${limit}) reached for ${session.addr}`);
         return fail(ERR.RATE, 'too many queued players from your network');
       }
     }
