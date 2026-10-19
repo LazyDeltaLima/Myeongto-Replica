@@ -6,6 +6,10 @@
 //     case-insensitive.
 //   * 'solo' rooms hold exactly one human and never bots. 'coop' rooms have 4 seats (humans + AI bots).
 //     Humans and bots take the lowest free seat index; seat indexes never compact.
+//   * The 8-player mode (maintainer decisions 2026-10-16, 2026-10-19; shared/constants.js LARGE_SEATS): room.create
+//     { mode: 'coop', size: 8 } makes a co-op room of 8 seats (room.state `size`; every other room is 4). It holds humans
+//     only — room.addBot is refused (ROOM_FULL) and a handed-over AI seat is dropped — and room.start needs all eight seats
+//     taken (SEATS_OPEN), connected and ready like any start. The match gets `size` 8 (its numbers: config.eightPlayer).
 //   * ▸ Being in a LOBBY room and sending room.create / room.join implicitly leaves it. While your room is
 //     in a match, create/join of another room fails with ROOM_STARTED (send g.leave or room.leave first).
 //   * Host-only: room.setDifficulty, room.setRuleset, room.setAiPicksLast, room.addBot, room.removeBot, room.kick, room.start.
@@ -122,7 +126,7 @@
 //     A resume whose room is gone says why (the room.closed notice). Players outside rooms are not logged.
 
 import { randomBytes, randomInt } from 'node:crypto';
-import { DIFFICULTIES, ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor } from '../shared/constants.js';
+import { DIFFICULTIES, ERR, LARGE_SEATS, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor, seatsOf } from '../shared/constants.js';
 import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks } from '../shared/protocol.js';
 import { encode, isDroppable, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
@@ -196,12 +200,17 @@ function freezeDiy(picks) {
   return Object.freeze(out);
 }
 
-/** One room: 4 seat slots, host, difficulty, optional running match. */
+/** One room: 4 seat slots (8 in the 8-player mode), host, difficulty, optional running match. */
 export class Room {
-  /** @param {string} code @param {'solo'|'coop'} mode @param {string} difficulty @param {number} now */
-  constructor(code, mode, difficulty, now) {
+  /**
+   * @param {string} code @param {'solo'|'coop'} mode @param {string} difficulty @param {number} now
+   * @param {number} [size] a co-op room's seat count (ROOM_SIZES; header), 4 otherwise
+   */
+  constructor(code, mode, difficulty, now, size = MAX_SEATS) {
     this.code = code;
     this.mode = mode;
+    /** seat count: 4, or 8 for an 8-player co-op room */
+    this.size = mode === 'coop' ? seatsOf(size) : MAX_SEATS;
     this.difficulty = difficulty;
     /**
      * 「AI 队友最后选择」 (room.setAiPicksLast, GitHub #338; co-op only, off by default): the match's strategy and 机变 drafts
@@ -215,7 +224,7 @@ export class Room {
     /** @type {string | null} */
     this.hostId = null;
     /** @type {(Seat | null)[]} */
-    this.seats = new Array(MAX_SEATS).fill(null);
+    this.seats = new Array(this.size).fill(null);
     /** @type {{ playerId: string, name: string, connected: boolean }[]} spectator seats, ≤ MAX_SPECTATORS (header) */
     this.spectators = [];
     /** @type {any} running Match instance */
@@ -260,6 +269,7 @@ export class Room {
       code: this.code,
       hostId: this.hostId,
       mode: this.mode,
+      size: this.size,
       difficulty: this.difficulty,
       ruleset: this.ruleset,
       aiPicksLast: this.aiPicksLast,
@@ -457,7 +467,8 @@ export class Lobby {
   // room.* handlers
   // ---------------------------------------------------------------------------------------------------
 
-  create(session, { mode, difficulty, ruleset, custom }) {
+  create(session, { mode, difficulty, ruleset, custom, size }) {
+    if (size === LARGE_SEATS && mode !== 'coop') return fail(ERR.BAD_MSG, 'only a co-op room has 8 seats');
     const cur = this.roomOf(session);
     if (cur && cur.match) return fail(ERR.ROOM_STARTED, 'leave your running match first');
     if (this.rooms.size >= this.opts.maxRooms) return fail(ERR.INTERNAL, 'too many rooms');
@@ -473,7 +484,7 @@ export class Lobby {
     const code = this.genCode();
     if (!code) return fail(ERR.INTERNAL, 'no room code available');
     if (cur) this.removeMember(cur, session.playerId);
-    const room = new Room(code, mode, difficulty, this.now());
+    const room = new Room(code, mode, difficulty, this.now(), size);
     room.ruleset = resolveRuleset({ preset: ruleset, custom });
     room.ownerKey = key;
     room.seats[0] = this.humanSeat(0, session);
@@ -482,7 +493,7 @@ export class Lobby {
     session.roomCode = code;
     session.notice = null;
     session.pendingResult = null;
-    this.log.info(`[lobby] ${code} created (${mode}/${difficulty}/${room.ruleset.preset}) by ${session.name}`);
+    this.log.info(`[lobby] ${code} created (${mode}${room.size > MAX_SEATS ? room.size : ''}/${difficulty}/${room.ruleset.preset}) by ${session.name}`);
     this.broadcastState(room);
     return OK;
   }
@@ -596,10 +607,11 @@ export class Lobby {
 
   /**
    * lobby.queueCounts (server/matchmaking.js header) to every connected session outside a running match.
-   * @param {Record<string, Record<string, number>>} counts
+   * @param {Record<string, Record<string, number>>} counts the 4-player queues
+   * @param {Record<string, Record<string, number>>} [counts8] the 8-player queues
    */
-  broadcastQueueCounts(counts) {
-    const frame = encode({ t: 'lobby.queueCounts', counts });
+  broadcastQueueCounts(counts, counts8 = this.queue.counts(LARGE_SEATS)) {
+    const frame = encode({ t: 'lobby.queueCounts', counts, counts8 });
     for (const session of this.registry.all()) {
       if (!session.connected || this.roomOf(session)?.match) continue;
       sendRaw(session.ws, frame);
@@ -608,7 +620,7 @@ export class Lobby {
 
   /** lobby.queueCounts to one session (hello, back from a match). @param {any} session */
   sendQueueCounts(session) {
-    if (session && session.connected) sendSession(session, { t: 'lobby.queueCounts', counts: this.queue.counts() });
+    if (session && session.connected) sendSession(session, { t: 'lobby.queueCounts', counts: this.queue.counts(), counts8: this.queue.counts(LARGE_SEATS) });
   }
 
   /** 규칙 모드 (header): host-only, before the match; a queued room keeps its ruleset (its queue is the ruleset's). */
@@ -652,6 +664,7 @@ export class Lobby {
     if (room.match) return fail(ERR.ROOM_STARTED);
     this.dropReplay(room, session.playerId);
     if (room.mode === 'solo') return fail(ERR.ROOM_FULL, 'solo rooms cannot have AI teammates');
+    if (room.size > MAX_SEATS) return fail(ERR.ROOM_FULL, 'the 8-player mode has no AI teammates');
     if (room.matching) return fail(ERR.MATCHING, 'matchmaking fills the seats with Doctors');
     const capped = localPatch.botCap(room, this, session); if (capped) return capped; // local patch: SP_MAX_BOTS(_TOTAL/_PER_ADDR)
     const idx = room.freeSeat();
@@ -714,6 +727,8 @@ export class Lobby {
     if (humans.length < 1 || (room.mode === 'solo' && (humans.length !== 1 || bots.length > 0))) {
       return fail(ERR.BAD_MSG, 'invalid seat configuration');
     }
+    // the 8-player mode starts with eight Doctors (header)
+    if (room.size > MAX_SEATS && (humans.length !== room.size || bots.length > 0)) return fail(ERR.SEATS_OPEN, `${humans.length}/${room.size} Doctors`);
     const key = session.limitKey || null;
     if (key && this.opts.maxMatchesPerAddr > 0 && this.countRooms((r) => !!r.match && r.matchKey === key) >= this.opts.maxMatchesPerAddr) {
       this.limitWarn(`match limit (${this.opts.maxMatchesPerAddr}) reached for ${session.addr}`);
@@ -832,6 +847,8 @@ export class Lobby {
       const match = new this.MatchClass({
         roomCode: room.code,
         mode: room.mode,
+        // the room size: 8 = the 8-player mode (config.eightPlayer)
+        size: room.size,
         difficulty: room.difficulty,
         modeId: modeIdFor(room.mode, room.difficulty),
         // 규칙 모드 (shared/ruleset.js): fixed for the match
@@ -858,7 +875,7 @@ export class Lobby {
       room.matchKey = key;
       room.replay = null;
       room.matchCount++;
-      this.log.info(`[lobby] ${room.code} match #${room.matchCount} starting (${room.mode}/${room.difficulty}/${room.ruleset.preset}, ${seats.length} seats, seed ${seed})`);
+      this.log.info(`[lobby] ${room.code} match #${room.matchCount} starting (${room.mode}${room.size > MAX_SEATS ? room.size : ''}/${room.difficulty}/${room.ruleset.preset}, ${seats.length} seats, seed ${seed})`);
       this.broadcastState(room);
       match.start();
     } catch (e) {
@@ -1250,7 +1267,7 @@ export class Lobby {
       return session && session.roomCode === room.code ? { playerId: s.playerId, name: s.name, token: session.token } : null;
     };
     return {
-      code: room.code, mode: room.mode, difficulty: room.difficulty, ruleset: rulesetWire(room.ruleset), aiPicksLast: room.aiPicksLast,
+      code: room.code, mode: room.mode, size: room.size, difficulty: room.difficulty, ruleset: rulesetWire(room.ruleset), aiPicksLast: room.aiPicksLast,
       hostId: room.hostId,
       seats: room.seats.map((s) => {
         if (!s || s.left) return null;
@@ -1275,7 +1292,7 @@ export class Lobby {
     const code = asked.length === ROOM_CODE_LEN && [...asked].every((c) => CODE_ALPHABET.includes(c)) && !this.rooms.has(asked) ? asked : this.genCode();
     if (!code) return null;
     const now = this.now();
-    const room = new Room(code, mode, snap.difficulty, now);
+    const room = new Room(code, mode, snap.difficulty, now, snap.size);
     room.ruleset = resolveRuleset(snap.ruleset);
     room.aiPicksLast = mode === 'coop' && snap.aiPicksLast === true;
     const ids = new Map(); // the previous server's playerId → this one's
@@ -1287,9 +1304,9 @@ export class Lobby {
       return session;
     };
     for (const s of snap.seats) {
-      if (!s || !Number.isInteger(s.seat) || s.seat < 0 || s.seat >= MAX_SEATS || room.seats[s.seat]) continue;
+      if (!s || !Number.isInteger(s.seat) || s.seat < 0 || s.seat >= room.size || room.seats[s.seat]) continue;
       if (s.isBot) {
-        if (mode === 'coop' && typeof s.playerId === 'string' && typeof s.name === 'string') {
+        if (mode === 'coop' && room.size === MAX_SEATS && typeof s.playerId === 'string' && typeof s.name === 'string') {
           room.seats[s.seat] = { seat: s.seat, playerId: s.playerId, name: s.name, isBot: true, ready: true, connected: true, left: false };
         }
         continue;

@@ -1,7 +1,7 @@
 // Normative message catalogue (DESIGN §8). Used by server (validation) and client (building requests).
 // Every client→server message is `{ t, rid?, ...fields }`. Unknown `t` or invalid fields ⇒ ERR.BAD_MSG.
 
-import { DIFFICULTIES, NAME_MAX_LEN, ROOM_CODE_LEN, MAX_SEATS, EMOTES, GEO } from './constants.js';
+import { DIFFICULTIES, NAME_MAX_LEN, ROOM_CODE_LEN, LARGE_SEATS, ROOM_SIZES, EMOTES, GEO } from './constants.js';
 import { isDroppableChess } from './standIn.js';
 import { diySlotIds, validateDiyPicks } from './diy.js';
 import { extendProtocol } from './local.js'; // local patch: room chat, chat factions, emote sets
@@ -27,6 +27,8 @@ const isMap = (v, max, key, val) => {
   return true;
 };
 const isList = (v, max, item) => Array.isArray(v) && v.length <= max && v.every(item);
+/** A co-op room size (shared/constants.js ROOM_SIZES). */
+const isRoomSize = (v) => ROOM_SIZES.includes(v);
 /** 규칙 모드 custom settings on the wire: a plain object of bounded size; shared/ruleset.js sanitizeCustom reads the rest. */
 const isCustomWire = (v) => {
   if (!isPlain(v)) return false;
@@ -35,8 +37,8 @@ const isCustomWire = (v) => {
 
 // ---- client-side combat (DESIGN §14): b.progress / b.result payloads -------------------------------------------
 
-/** Size limits of a b.result payload (the whole frame also obeys the 64 KB inbound limit). */
-export const RESULT_LIMITS = Object.freeze({ players: 4, leaked: 400, unitsEnd: 64, unitStats: 160, layerGains: 40, mods: 16, unspawned: 400 });
+/** Size limits of a b.result payload (the whole frame also obeys the 64 KB inbound limit); `players`: the largest room. */
+export const RESULT_LIMITS = Object.freeze({ players: LARGE_SEATS, leaked: 400, unitsEnd: 64, unitStats: 160, layerGains: 40, mods: 16, unspawned: 400 });
 const BIG = 1e13;
 const isStat = (v) => v === undefined || isNum(v, 0, BIG);
 const isModVal = (v) => v === null || isNum(v, -BIG, BIG) || isStr(v, 64) || isBool(v);
@@ -393,9 +395,10 @@ export const C2S = {
     noReplace: isBool, claimAt: (v) => isNum(v, 0, Number.MAX_SAFE_INTEGER), $optional: ['token', 'version', 'noReplace', 'claimAt'] },
   ping: { c: (v) => typeof v === 'number' && Number.isFinite(v) },
   // `ruleset`: the room's 규칙 모드 preset (shared/ruleset.js; absent = the default, classic); `custom`: the settings of
-  // the custom preset (sanitizeCustom; ignored by the other presets)
+  // the custom preset (sanitizeCustom; ignored by the other presets); `size`: a co-op room's seat count (ROOM_SIZES; absent
+  // = 4, 8 = the 8-player mode — server/lobby.js)
   'room.create': { mode: (v) => v === 'solo' || v === 'coop', difficulty: (v) => DIFFICULTIES.includes(v), ruleset: isRulePreset,
-    custom: isCustomWire, $optional: ['ruleset', 'custom'] },
+    custom: isCustomWire, size: isRoomSize, $optional: ['ruleset', 'custom', 'size'] },
   'room.join': { code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v) },
   'room.leave': {},
   'room.ready': { ready: isBool },
@@ -406,10 +409,10 @@ export const C2S = {
   // human seat before every AI seat (server/match/match/phases.js humansFirst); room.state.aiPicksLast
   'room.setAiPicksLast': { on: isBool },
   'room.addBot': {},
-  'room.removeBot': { seat: (v) => isInt(v, 0, MAX_SEATS - 1) },
+  'room.removeBot': { seat: (v) => isInt(v, 0, LARGE_SEATS - 1) },
   // the host removes another human before the match (server/lobby.js kick; community report #17); playerId = the one the
   // host confirmed — a seat that changed hands meanwhile is refused
-  'room.kick': { seat: (v) => isInt(v, 0, MAX_SEATS - 1), playerId: isId },
+  'room.kick': { seat: (v) => isInt(v, 0, LARGE_SEATS - 1), playerId: isId },
   'room.start': {},
   // operator loadout (DESIGN §16): stored per session/seat; accepted until the match leaves INFO_CHECK — `ops` (0.2.2):
   // the per-operator 潜能 / 练度 (absent = none set: every operator at 潜能 6, 精英2 Lv.60)
@@ -425,11 +428,11 @@ export const C2S = {
   // room.closed { reason: 'kicked' }). room.leave / g.leave leave a spectator seat like a player seat.
   'room.spectate': { code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v) },
   'room.removeSpectator': { playerId: isId },
-  // 랜덤 매칭 (server/matchmaking.js): the per-difficulty co-op queue of four; queue = alone, queueRoom = the host queues
+  // 랜덤 매칭 (server/matchmaking.js): the per-difficulty co-op queue of four (`size` 8: of eight); queue = alone, queueRoom = the host queues
   // the co-op room's humans for its empty seats, unqueue leaves (a room: the whole room), queueAccept answers room.matchFound.
   // The custom 규칙 모드 never queues (maintainer decision 2026-10-18): room.queue takes the queue presets only, and the
   // server refuses room.queueRoom of a custom room (server/matchmaking.js)
-  'room.queue': { difficulty: (v) => DIFFICULTIES.includes(v), ruleset: isQueuePreset, $optional: ['ruleset'] },
+  'room.queue': { difficulty: (v) => DIFFICULTIES.includes(v), ruleset: isQueuePreset, size: isRoomSize, $optional: ['ruleset', 'size'] },
   'room.queueRoom': {},
   'room.unqueue': {},
   'room.queueAccept': { accept: isBool },
@@ -498,9 +501,9 @@ export const C2S = {
 export const S2C = [
   'welcome', 'ok', 'error', 'pong',
   'room.state', 'room.closed',
-  // 랜덤 매칭: room.queueState { queued, difficulty, ruleset, count?, waitedMs?, party?, reason?, by? } · room.matchFound
-  // { difficulty, ruleset, players, accepted, mine, inMs } · lobby.queueCounts { counts: { [ruleset]: { [difficulty]: n } } }
-  // (the waiting Doctors of every queue, server/matchmaking.js)
+  // 랜덤 매칭: room.queueState { queued, difficulty, ruleset, size, count?, waitedMs?, party?, reason?, by? } · room.matchFound
+  // { difficulty, ruleset, size, players, accepted, mine, inMs } · lobby.queueCounts { counts: { [ruleset]: { [difficulty]: n } },
+  // counts8: the same for the 8-player queues } (the waiting Doctors of every queue, server/matchmaking.js)
   'room.queueState', 'room.matchFound', 'lobby.queueCounts',
   'm.public', 'm.private', 'm.field', 'm.toast', 'm.ticker', 'm.emote', 'm.result',
   // m.layer { playerId, bondId, add } — the player's own bond layer gain in ROUND_START / SP_DRAFT / PREP (upstream #482:

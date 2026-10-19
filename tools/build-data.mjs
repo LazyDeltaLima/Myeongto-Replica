@@ -3954,6 +3954,29 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
     unite: { maxHelpers: 2, helperOrder: 'unitsOnField>activeBond>undownedUnits; pair: unitsOnField>activeBond>activeLayers>undownedUnits, first = right field (PRTS 帮助)', layerGainsEnabled: false, keepsHpSpPositions: true, leakedEnemyFullHp: true,
       templates: { 1: templateIdOf(act.constData.escapedBattleTemplateMapSinglePlayer), 2: templateIdOf(act.constData.escapedBattleTemplateMapMultiPlayer) } },
     finalAssault: { pairing: 'seatOrderPairs', oddPlayerAlone: true, movableBossPerAlivePlayerSide: true, layerGainsEnabled: false },
+    // the 8-player co-op mode (a remake feature, maintainer decisions 2026-10-16 and 2026-10-19; no official data — every
+    // value [ASSUMED], chosen so one player's share matches the 4-player co-op): server/match/gamedata.js reads it for a
+    // match of `seats` players, every other key of this file stays the 4-player value
+    eightPlayer: {
+      seats: 8,
+      // shop pool: the solo table × 4 (4 players: × 2) — the same copies per player and the same odds of one operator
+      coopPoolMultiplier: 4,
+      // item stock: the table × 2 (4 players: × 1)
+      itemPoolMultiplier: 2,
+      // bonds drawn absent: NORMAL+ 1 core / 2 add-on (4 players: 3 / 4), FUNNY as the 4 players
+      bans: { FUNNY: { core: 0, addon: 1 }, NORMAL: { core: 1, addon: 2 }, HARD: { core: 1, addon: 2 }, ABYSS: { core: 1, addon: 2 } },
+      // boss overtime: 2 team LP per real second (4 players: 1) — twice the team LP drains in the same time
+      bossOvertimeDrainPerSec: 2,
+      // 隐秘核心: Σ activated layers > 2400, fixed (4 players: 1200; maintainer decision 2026-10-19)
+      hiddenCoreMulti: 2400,
+      // leader HP: bloodPoint × the players alive, up to 8 (4 players: 4)
+      aliveFull: 8,
+      // 机变 cards per draft: 12 (4 players: 6)
+      spDraftCards: 12,
+      // 联防: up to 4 helpers; 3–4 helpers play the 2-helper field twice side by side, for twice the round's time limit
+      // (1–2 helpers: the 4-player fields)
+      unite: { maxHelpers: 4, wideFrom: 3, wideTimeScale: 2 },
+    },
     timers: {
       infoCheck: step('INFO_CHECK')?.time ?? 25, infoCheckHint: step('INFO_CHECK')?.hintTime ?? 5,
       // bandTurn: one turn of the co-op strategy draft = its only countdown (server/match/Match.js BAND_TURN_SECONDS):

@@ -1489,6 +1489,7 @@
   "匹配补位": "Fill by Matchmaking",
   "仅匹配真人 · 满四人后开始": "Doctors only · starts at 4",
   "同盟正在匹配中，请先取消匹配": "The Alliance is matchmaking: cancel it first",
+  "八人同盟需坐满 8 名博士后才能开始": "An 8-Doctor Alliance starts only with all 8 seats taken",
   "与选择同一难度和规则的博士组成同盟": "Forms an Alliance with Doctors who chose the same difficulty and rules",
   "{n} 人匹配中": "{n} matching",
   "这个规则还没有记录 —— 可在左上角切换规则。": "No records under these rules yet — switch the rules at the top left.",

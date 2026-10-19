@@ -47,8 +47,12 @@
 //     and no match start during the deploy countdown's last minutes (server/local-restart.js startRefusal →
 //     ERR.RESTARTING; a group that completes then is dissolved with reason 'restarting').
 //   * The queue lives in memory: a server restart forgets it (the client's queue screen closes on the new `welcome`).
+//   * The 8-player mode (maintainer decisions 2026-10-16, 2026-10-19) has queues of its own: room.queue { size: 8 } and
+//     room.queueRoom of an 8-seat room wait for a group of exactly eight humans (no AI fill, like the four), matched into
+//     an 8-seat room; every message about such a queue carries `size: 8`, and lobby.queueCounts its `counts8` beside
+//     `counts` (the 4-player queues, unchanged).
 
-import { ERR, MAX_SEATS, DIFFICULTIES } from '../shared/constants.js';
+import { ERR, LARGE_SEATS, MAX_SEATS, DIFFICULTIES, seatsOf } from '../shared/constants.js';
 import { QUEUE_PRESETS, resolveRuleset, rulesetKey } from '../shared/ruleset.js';
 import { sendSession } from './net.js';
 
@@ -64,15 +68,19 @@ const fail = (code, detail) => (detail ? { error: code, detail } : { error: code
 
 /**
  * @typedef {{ key: string, playerId: string | null, room: import('./lobby.js').Room | null, difficulty: string,
- *   ruleset: string, qk: string, joinedAt: number, limitKey: string | null, group: Group | null, offline: NodeJS.Timeout | null }} Entry
- *   a single player (playerId) or a queued room (room); key = the playerId, or 'room:' + the room code; qk = its queue
- * @typedef {{ id: number, difficulty: string, ruleset: string, qk: string, members: Entry[], ids: string[], accepted: Set<string>,
- *   deadline: number, timer: NodeJS.Timeout | null }} Group
+ *   ruleset: string, cap: number, qk: string, joinedAt: number, limitKey: string | null, group: Group | null,
+ *   offline: NodeJS.Timeout | null }} Entry
+ *   a single player (playerId) or a queued room (room); key = the playerId, or 'room:' + the room code; qk = its queue;
+ *   cap = the room size it waits for (4, or 8 for the 8-player mode)
+ * @typedef {{ id: number, difficulty: string, ruleset: string, cap: number, qk: string, members: Entry[], ids: string[],
+ *   accepted: Set<string>, deadline: number, timer: NodeJS.Timeout | null }} Group
  */
 
 const roomKey = (room) => `room:${room.code}`;
-/** A queue's key: its difficulty and ruleset key (shared/ruleset.js rulesetKey). */
-const queueKey = (difficulty, ruleset) => `${difficulty}|${ruleset}`;
+/** A queue's key: its difficulty, ruleset key (shared/ruleset.js rulesetKey) and room size (the 8-player queues). */
+const queueKey = (difficulty, ruleset, cap = MAX_SEATS) => (cap > MAX_SEATS ? `${difficulty}|${ruleset}|${cap}` : `${difficulty}|${ruleset}`);
+/** The `size` field of a queue message: only for the 8-player queues (header). */
+const sizeOf = (cap) => (cap > MAX_SEATS ? { size: cap } : {});
 
 export class Matchmaker {
   /**
@@ -109,10 +117,11 @@ export class Matchmaker {
   // Messages
   // ---------------------------------------------------------------------------------------------------
 
-  /** room.queue { difficulty, ruleset? } — a single player. */
-  queue(session, { difficulty, ruleset: preset }) {
+  /** room.queue { difficulty, ruleset?, size? } — a single player. */
+  queue(session, { difficulty, ruleset: preset, size }) {
     const ruleset = rulesetKey(preset);
-    const qk = queueKey(difficulty, ruleset);
+    const cap = seatsOf(size);
+    const qk = queueKey(difficulty, ruleset, cap);
     const lobby = this.lobby;
     const cur = lobby.roomOf(session);
     if (cur && cur.match) return fail(ERR.ROOM_STARTED, 'leave your running match first');
@@ -135,7 +144,7 @@ export class Matchmaker {
     session.pendingResult = null;
     if (had) this.drop(had, null); // moved to another queue: no queued:false in between
     /** @type {Entry} */
-    const entry = { key: session.playerId, playerId: session.playerId, room: null, difficulty, ruleset, qk, joinedAt: lobby.now(), limitKey: key, group: null, offline: null };
+    const entry = { key: session.playerId, playerId: session.playerId, room: null, difficulty, ruleset, cap, qk, joinedAt: lobby.now(), limitKey: key, group: null, offline: null };
     this.entries.set(entry.key, entry);
     this.queueOf(qk).push(entry);
     if (had) this.broadcastQueue(had.qk);
@@ -158,7 +167,7 @@ export class Matchmaker {
     const had = this.entries.get(roomKey(room));
     if (had) { this.sendState(had); return OK; }
     const humans = room.activeHumans();
-    if (humans.length >= MAX_SEATS) return fail(ERR.ROOM_FULL, 'no seat to fill');
+    if (humans.length >= room.size) return fail(ERR.ROOM_FULL, 'no seat to fill');
     for (const s of humans) {
       if (s.playerId !== room.hostId && (!s.connected || !s.ready)) return fail(ERR.NOT_READY);
     }
@@ -168,12 +177,12 @@ export class Matchmaker {
     for (const s of humans) lobby.dropReplay(room, s.playerId);
     /** @type {Entry} */
     const ruleset = rulesetKey(room.ruleset);
-    const entry = { key: roomKey(room), playerId: null, room, difficulty: room.difficulty, ruleset, qk: queueKey(room.difficulty, ruleset),
+    const entry = { key: roomKey(room), playerId: null, room, difficulty: room.difficulty, ruleset, cap: room.size, qk: queueKey(room.difficulty, ruleset, room.size),
       joinedAt: lobby.now(), limitKey: session.limitKey || null, group: null, offline: null };
     this.entries.set(entry.key, entry);
     this.queueOf(entry.qk).push(entry);
     room.matching = true;
-    lobby.log.info(`[queue] ${room.code} queued (${humans.length} player(s), ${entry.difficulty}/${ruleset})`);
+    lobby.log.info(`[queue] ${room.code} queued (${humans.length} player(s), ${entry.difficulty}/${ruleset}${room.size > MAX_SEATS ? `/${room.size}` : ''})`);
     lobby.broadcastState(room);
     this.broadcastQueue(entry.qk);
     this.tryForm(entry.qk);
@@ -245,7 +254,7 @@ export class Matchmaker {
   onRoomChange(room, goneId, goneName) {
     const entry = this.entries.get(roomKey(room));
     if (!entry || entry.room !== room) return;
-    if (goneId) sendSession(this.lobby.registry.byId(goneId), { t: 'room.queueState', queued: false, difficulty: entry.difficulty, ruleset: entry.ruleset, reason: 'left' });
+    if (goneId) sendSession(this.lobby.registry.byId(goneId), { t: 'room.queueState', queued: false, difficulty: entry.difficulty, ruleset: entry.ruleset, ...sizeOf(entry.cap), reason: 'left' });
     const reason = room.disposed ? null : 'changed';
     const why = { by: goneName ?? null };
     if (entry.group) { this.decline(entry.group, entry, reason, why); return; }
@@ -268,22 +277,24 @@ export class Matchmaker {
   // Groups
   // ---------------------------------------------------------------------------------------------------
 
-  /** Form every group of four the queue allows (header). @param {string} qk */
+  /** Form every group of four (eight in an 8-player queue) the queue allows (header). @param {string} qk */
   tryForm(qk) {
     const q = this.queueOf(qk);
     this.dropSeated(q);
     for (;;) {
-      const members = this.pickFour(q.filter((e) => this.online(e)));
+      const live = q.filter((e) => this.online(e));
+      const members = live.length ? this.pickFour(live, live[0].cap) : null;
       if (!members) break;
       this.form(members);
     }
   }
 
   /**
-   * The first entries, in queue order, whose humans add up to exactly MAX_SEATS (the earliest entries win: a depth-first
-   * search that tries taking each entry before skipping it). @param {Entry[]} list @returns {Entry[] | null}
+   * The first entries, in queue order, whose humans add up to exactly `cap` (MAX_SEATS; 8 in an 8-player queue — the
+   * earliest entries win: a depth-first search that tries taking each entry before skipping it).
+   * @param {Entry[]} list @param {number} [cap] @returns {Entry[] | null}
    */
-  pickFour(list) {
+  pickFour(list, cap = MAX_SEATS) {
     const sizes = list.map((e) => this.size(e));
     const out = [];
     const dfs = (i, left) => {
@@ -296,15 +307,15 @@ export class Matchmaker {
       }
       return false;
     };
-    return dfs(0, MAX_SEATS) ? out : null;
+    return dfs(0, cap) ? out : null;
   }
 
   /** @param {Entry[]} members */
   form(members) {
-    const { difficulty, ruleset, qk } = members[0];
+    const { difficulty, ruleset, cap, qk } = members[0];
     const q = this.queueOf(qk);
     /** @type {Group} */
-    const group = { id: ++this.groupSeq, difficulty, ruleset, qk, members, ids: members.flatMap((e) => this.ids(e)), accepted: new Set(),
+    const group = { id: ++this.groupSeq, difficulty, ruleset, cap, qk, members, ids: members.flatMap((e) => this.ids(e)), accepted: new Set(),
       deadline: this.lobby.now() + this.opts.queueConfirmMs, timer: null };
     for (const e of members) {
       q.splice(q.indexOf(e), 1);
@@ -361,7 +372,7 @@ export class Matchmaker {
     // who moves where is read before any room changes; the entries go first, so the moves below cancel nothing
     const movers = group.members.filter((e) => e !== host).flatMap((e) => this.ids(e));
     for (const e of group.members) this.unlist(e);
-    const room = host ? host.room : new this.Room(code, 'coop', group.difficulty, lobby.now());
+    const room = host ? host.room : new this.Room(code, 'coop', group.difficulty, lobby.now(), group.cap);
     if (!host) room.ruleset = resolveRuleset(group.ruleset);
     const seated = [];
     for (const playerId of movers) {
@@ -384,7 +395,7 @@ export class Matchmaker {
       lobby.rooms.set(code, room);
     }
     const humans = room.activeHumans().length;
-    lobby.log.info(`[lobby] ${code} matched (coop/${group.difficulty}/${group.ruleset}, ${humans} player(s)${host ? `, ${seated.length} joined the room` : ''}, group #${group.id})`);
+    lobby.log.info(`[lobby] ${code} matched (coop${group.cap > MAX_SEATS ? group.cap : ''}/${group.difficulty}/${group.ruleset}, ${humans} player(s)${host ? `, ${seated.length} joined the room` : ''}, group #${group.id})`);
     lobby.startMatch(room, room.ownerKey);
     return OK;
   }
@@ -472,7 +483,7 @@ export class Matchmaker {
       let code = reason;
       if (entry.room && byId && id !== byId) code = reason === 'declined' ? 'partyDeclined' : 'party';
       else if (entry.room && reason === 'timeout' && accepted?.has(id)) code = 'partyTimeout';
-      const msg = { t: 'room.queueState', queued: false, difficulty: entry.difficulty, ruleset: entry.ruleset, reason: code };
+      const msg = { t: 'room.queueState', queued: false, difficulty: entry.difficulty, ruleset: entry.ruleset, ...sizeOf(entry.cap), reason: code };
       if (name != null && id !== byId && code !== 'partyTimeout') msg.by = name;
       sendSession(this.lobby.registry.byId(id), msg);
     }
@@ -489,7 +500,7 @@ export class Matchmaker {
     const waited = Math.max(0, now - entry.joinedAt);
     let count = 0;
     for (const e of this.queueOf(entry.qk)) count += this.size(e);
-    const msg = { t: 'room.queueState', queued: true, difficulty: entry.difficulty, ruleset: entry.ruleset, count, waitedMs: waited, party: !!entry.room };
+    const msg = { t: 'room.queueState', queued: true, difficulty: entry.difficulty, ruleset: entry.ruleset, ...sizeOf(entry.cap), count, waitedMs: waited, party: !!entry.room };
     for (const id of only ? [only] : this.ids(entry)) sendSession(this.lobby.registry.byId(id), msg);
   }
 
@@ -500,16 +511,17 @@ export class Matchmaker {
   }
 
   /**
-   * The humans waiting in every queue (header): { [ruleset]: { [difficulty]: n } }, every preset and difficulty listed.
+   * The humans waiting in every queue of a room size (header): { [ruleset]: { [difficulty]: n } }, every preset and
+   * difficulty listed. @param {number} [cap] 4, or 8 for the 8-player queues
    * @returns {Record<string, Record<string, number>>}
    */
-  counts() {
+  counts(cap = MAX_SEATS) {
     /** @type {Record<string, Record<string, number>>} */
     const out = {};
     for (const p of QUEUE_PRESETS) out[p] = Object.fromEntries(DIFFICULTIES.map((d) => [d, 0]));
     for (const q of this.queues.values()) {
       for (const e of q) {
-        if (e.group || !out[e.ruleset] || !(e.difficulty in out[e.ruleset])) continue;
+        if (e.group || e.cap !== cap || !out[e.ruleset] || !(e.difficulty in out[e.ruleset])) continue;
         out[e.ruleset][e.difficulty] += this.size(e);
       }
     }
@@ -523,11 +535,12 @@ export class Matchmaker {
     this.countsTimer = setTimeout(() => {
       this.countsTimer = null;
       const counts = this.counts();
-      const json = JSON.stringify(counts);
+      const counts8 = this.counts(LARGE_SEATS);
+      const json = JSON.stringify([counts, counts8]);
       if (json === this.countsSent) return;
       this.countsSent = json;
       this.countsAt = this.lobby.now();
-      this.lobby.broadcastQueueCounts(counts);
+      this.lobby.broadcastQueueCounts(counts, counts8);
     }, wait);
     this.countsTimer.unref?.();
   }
@@ -537,7 +550,7 @@ export class Matchmaker {
     const inMs = Math.max(0, group.deadline - this.lobby.now());
     for (const id of only ? [only] : group.ids) {
       sendSession(this.lobby.registry.byId(id), {
-        t: 'room.matchFound', difficulty: group.difficulty, ruleset: group.ruleset, players: group.ids.length,
+        t: 'room.matchFound', difficulty: group.difficulty, ruleset: group.ruleset, ...sizeOf(group.cap), players: group.ids.length,
         accepted: group.accepted.size, mine: group.accepted.has(id), inMs,
       });
     }

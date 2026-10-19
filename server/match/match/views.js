@@ -70,6 +70,8 @@ export class MatchViews {
       deadline: this.deadline,
       serverNow: this.sched.now(),
       modeId: this.modeId,
+      // the room size, only in an 8-player match (absent = a 4-seat co-op or solo match)
+      ...(this.size > 4 ? { size: this.size } : {}),
       difficulty: this.difficulty,
       // 규칙 모드 (shared/ruleset.js): the client hides what the ruleset turns off (the briefing's battlefield card, 重新抽取)
       ruleset: this.ruleset,

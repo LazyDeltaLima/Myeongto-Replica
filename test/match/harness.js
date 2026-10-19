@@ -80,6 +80,7 @@ export function makeMatch(o = {}) {
     headlessSliceMs: o.headlessSliceMs,
     aiPicksLast: o.aiPicksLast,
     ruleset: o.ruleset,
+    size: o.size,
   });
   const m = h.m;
   if (m.clientCombat && o.clients !== false) {

@@ -118,7 +118,7 @@ function formatCount(gd) {
   const f = gd.choices.format || {};
   const multi = f.multi && Number.isInteger(f.multi.cards) ? f.multi.cards : 6;
   const solo = f.solo && Number.isInteger(f.solo.cards) ? f.solo.cards : 3;
-  return gd.isSolo ? solo : multi;
+  return gd.isSolo ? solo : gd.spDraftCards ? gd.spDraftCards(multi) : multi;
 }
 
 function eligibleItems(gd, lo, hi) {
@@ -142,7 +142,8 @@ export function generateDraft(gd, rng, matchRound, { stageId = null, bondAvailab
   const sch = scheduleFor(gd, round);
   const fams = Array.isArray(sch.families) && sch.families.length ? sch.families.map((f) => [f.family, f.weight]) : [['supply', 1]];
   let family = weightedPick(rng, fams) || 'supply';
-  const n = Number.isInteger(sch.cards) && sch.cards > 0 ? Math.min(sch.cards, 6) : formatCount(gd);
+  // co-op: 6 cards, 12 in an 8-player match (GameData.spDraftCards)
+  const n = Number.isInteger(sch.cards) && sch.cards > 0 ? (gd.spDraftCards && !gd.isSolo ? gd.spDraftCards(sch.cards) : Math.min(sch.cards, 6)) : formatCount(gd);
   const opts = { stageId, bondAvailable, round, itemAvailable };
   let cards = buildCards(gd, rng, family, n, sch, opts);
   if (!cards.length && family !== 'supply') { family = 'supply'; cards = buildCards(gd, rng, family, n, sch, opts); }

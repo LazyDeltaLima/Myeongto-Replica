@@ -15,10 +15,12 @@
 //   opts.ruleset     { preset, custom? } | string (optional) 규칙 모드 (shared/ruleset.js resolveRuleset; missing =
 //                                              classic): which remake conveniences the match turns on (this.ruleset.options);
 //                                              a custom one carries its settings (this.ruleset.custom)
+//   opts.size        4 | 8 (optional)            a co-op room's size (shared/constants.js ROOM_SIZES; missing = 4): 8 = the
+//                                              8-player mode, whose numbers come from config.eightPlayer (gamedata.js)
 //   opts.aiPicksLast boolean (optional)         the co-op room option 「AI 队友最后选择」 (room.setAiPicksLast, GitHub #338):
 //                                              the strategy and 机变 drafts put every human seat before every AI seat
 //                                              (MatchPhases.humansFirst); only `true` turns it on; ignored in solo
-//   opts.seats       Array<{ seat: 0..3, playerId: string, name: string, isBot: boolean, connected: boolean,
+//   opts.seats       Array<{ seat: 0..size-1, playerId: string, name: string, isBot: boolean, connected: boolean,
 //                            loadout?: { [baseChessId]: { skill: index, module: uniEquipId|'none'|null } } | null,
 //                            ops?: { [charId]: { potential: 1–6, cultivate: 0–3 } } | null,
 //                            notOwned?: string[] | null,
@@ -187,7 +189,7 @@
 //   common.js        what the modules share (FLOW_TICKER_PRIORITY, DELAYS, BAND_TURN_SECONDS — re-exported here, OK,
 //                    fail, BOSS_CLOCK_MS)
 
-import { PHASE, modeIdFor } from '../../shared/constants.js';
+import { PHASE, modeIdFor, seatsOf } from '../../shared/constants.js';
 import { Battle } from '../sim/Battle.js';
 import { DataSource } from '../sim/simdata.js';
 import { createRng, deriveSeed } from '../sim/rng.js';
@@ -259,8 +261,11 @@ export class Match {
     this.data = opts.data && typeof opts.data === 'object' ? opts.data : {};
     /** 규칙 모드 (opts.ruleset, shared/ruleset.js): { preset, options, custom? }, fixed for the match */
     this.ruleset = resolveRuleset(opts.ruleset);
-    // a custom ruleset's settings shape the match's tables (gamedata.js: rounds, bans, prep, 目标生命值)
-    this.gd = new GameData(this.data, this.modeId, this.ruleset.custom ?? null);
+    /** the co-op room size (opts.size): 4, or 8 for the 8-player mode; 1 in solo */
+    this.size = this.mode === 'solo' ? 1 : seatsOf(opts.size);
+    // a custom ruleset's settings shape the match's tables (gamedata.js: rounds, bans, prep, 目标生命值), the size its
+    // 8-player numbers
+    this.gd = new GameData(this.data, this.modeId, this.ruleset.custom ?? null, { seats: this.size });
     if (!this.difficulty) this.difficulty = this.gd.difficulty;
     this.isSolo = this.mode === 'solo' || this.gd.isSolo;
     /** 「AI 队友最后选择」 (opts.aiPicksLast, GitHub #338): humans draft before AI seats (MatchPhases.humansFirst) */

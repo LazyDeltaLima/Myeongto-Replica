@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { PHASE } from '../../shared/constants.js';
 import { makeMatch } from './harness.js';
 import { tallyBattle, unitRows } from '../../server/match/unitTally.js';
-import { isBattleResult } from '../../shared/protocol.js';
+import { isBattleResult, RESULT_LIMITS } from '../../shared/protocol.js';
 
 /** A whole co-op match in virtual time (client-side combat unless `clientCombat: false`), boosted toward the Hidden Core. */
 function runCoop({ seed, clientCombat = true, boost = null }) {
@@ -141,6 +141,8 @@ test('b.result wire check: the unit fields are optional and bounded (boss ≥ 0,
   assert.ok(isBattleResult(withUnit({ boss: 12.5, assist: { p_1: 3 }, ownerUid: 7 })));
   assert.ok(!isBattleResult(withUnit({ boss: -1 })));
   assert.ok(!isBattleResult(withUnit({ assist: { p_1: 1.5 } })));
-  assert.ok(!isBattleResult(withUnit({ assist: { a: 1, b: 1, c: 1, d: 1, e: 1 } })), 'at most RESULT_LIMITS.players leakers');
+  const assist = (n) => Object.fromEntries(Array.from({ length: n }, (_, i) => [`p_${i}`, 1]));
+  assert.ok(isBattleResult(withUnit({ assist: assist(RESULT_LIMITS.players) })));
+  assert.ok(!isBattleResult(withUnit({ assist: assist(RESULT_LIMITS.players + 1) })), 'at most RESULT_LIMITS.players leakers');
   assert.ok(!isBattleResult(withUnit({ ownerUid: 0 })));
 });

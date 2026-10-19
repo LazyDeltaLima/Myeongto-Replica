@@ -16,12 +16,16 @@
 // co-op prep, the 目标生命值 rules, the layer cap and the enemy / leader stat multipliers (the curve and the percents:
 // enemyScale, leaderScale, bossHpMul) come out of the accessors below; without settings every accessor is the official
 // one (and returns the same object shapes, so a classic battle spec is unchanged).
+//
+// An 8-player co-op match (shared/constants.js LARGE_SEATS; the constructor's `seats`) reads config.eightPlayer over the
+// 4-player values: the shop pool and item stock multipliers, the bond ban counts, the overtime drain, the 隐秘核心
+// threshold, the leader HP head count, the 机变 card count and the 联防 helpers (`large`; null in every other match).
 
 import { getConfig, getMode } from '../data.js';
 import { isShopItem } from '../sim/simdata.js';
 import { standInRecord } from '../../shared/standIn.js';
 import { customRoundPlan, customPrepSeconds, keepUnbanned, curveScale } from '../../shared/ruleset.js';
-import { BOND_LAYER_CAP } from '../../shared/constants.js';
+import { BOND_LAYER_CAP, LARGE_SEATS } from '../../shared/constants.js';
 
 const own = (map, id) => (map && typeof map === 'object' && typeof id === 'string' && Object.hasOwn(map, id) && map[id] && typeof map[id] === 'object' ? map[id] : null);
 const numOr = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -100,13 +104,17 @@ export class GameData {
    * @param {string} modeId e.g. 'mode_multi_hard'
    * @param {Readonly<import('../../shared/ruleset.js').CustomSettings> | null} [custom] a custom ruleset's settings
    *   (sanitizeCustom), null = the official rules
+   * @param {{ seats?: number }} [opts] `seats`: the co-op room size (LARGE_SEATS = the 8-player mode, header)
    */
-  constructor(data, modeId, custom = null) {
+  constructor(data, modeId, custom = null, { seats } = {}) {
     this.raw = data && typeof data === 'object' ? data : {};
     this.config = getConfig(this.raw) || {};
     this.modeId = modeId;
     this.mode = getMode(modeId, this.raw) || {};
     this.economy = this.config.economy && typeof this.config.economy === 'object' ? this.config.economy : {};
+    const big = this.config.eightPlayer;
+    /** config.eightPlayer in an 8-player co-op match (header), else null */
+    this.large = seats === LARGE_SEATS && !this.isSolo && big && typeof big === 'object' ? big : null;
     const chess = this.raw.chess && typeof this.raw.chess === 'object' ? this.raw.chess : {};
     this._chess = chess;
     this._items = this.raw.items && typeof this.raw.items === 'object' ? this.raw.items : {};
@@ -204,7 +212,9 @@ export class GameData {
    * @param {number} [aliveCount]
    */
   bossPoolShare(aliveCount) {
-    return bossPoolShareOf(this.mode.bossHpScale, this.config.bossHpScale, this.isSolo, aliveCount);
+    const full = this.large ? posIntOr(this.large.aliveFull, LARGE_SEATS) : null;
+    const modeScale = full ? { ...(this.mode.bossHpScale || {}), aliveFull: full } : this.mode.bossHpScale;
+    return bossPoolShareOf(modeScale, this.config.bossHpScale, this.isSolo, aliveCount);
   }
 
   /** config.titles with the tuning overrides (stat / rule per title id) merged in. */
@@ -341,7 +351,7 @@ export class GameData {
    * whatever the team size (路标月报#2, bilibili BV1eLXXBqEgF; GitHub #430, upstream PR #477 / 6bfc0827). A 自选 slot's
    * private stock (player/diy.js) doubles with it (16 / 10), so a 自选 piece keeps its solo share of a co-op roll
    * [ASSUMED: the measured table has no 自选 row; maintainer decision 2026-10-11, as upstream PR #477]. A config
-   * without the multiplier keeps the solo table.
+   * without the multiplier keeps the solo table. An 8-player match: config.eightPlayer.coopPoolMultiplier (4).
    */
   poolCopies(baseId) {
     const ov = this.economy.poolCopiesOverrides;
@@ -349,7 +359,7 @@ export class GameData {
     const pc = this.economy.poolCopies;
     const v = ov && typeof ov === 'object' && Number.isInteger(ov[baseId]) && ov[baseId] >= 0 ? ov[baseId] : (pc && typeof pc === 'object' ? pc[tier] : undefined);
     const base = Number.isInteger(v) && v >= 0 ? v : (DEFAULTS.poolCopies[tier] ?? 10);
-    const multiplier = this.isSolo ? 1 : posIntOr(this.economy.coopPoolMultiplier, 1);
+    const multiplier = this.isSolo ? 1 : posIntOr(this.large?.coopPoolMultiplier, 0) || posIntOr(this.economy.coopPoolMultiplier, 1);
     return base * multiplier;
   }
 
@@ -357,12 +367,13 @@ export class GameData {
    * Shared stock of a shop item (pool.js SharedItemPool, upstream 6bfc0827): `economy.itemPoolCopiesOverrides[base]`,
    * else `economy.itemPoolCopies[tier]` — the 路标月报#2 table (bilibili BV1eLXXBqEgF, ~1:30), the same in solo and co-op.
    * Null (uncapped) for an item that is not a shop item (effect-only special equipment) or a config without the table.
+   * An 8-player match: × config.eightPlayer.itemPoolMultiplier (2).
    */
   itemPoolCopies(id) {
     const base = this.baseIdOf(id), rec = this.item(base);
     if (!rec || !isShopItem(rec)) return null;
     const count = this.economy.itemPoolCopiesOverrides?.[base] ?? this.economy.itemPoolCopies?.[rec.tier];
-    return Number.isInteger(count) && count >= 0 ? count : null;
+    return Number.isInteger(count) && count >= 0 ? count * posIntOr(this.large?.itemPoolMultiplier, 1) : null;
   }
 
   /**
@@ -579,8 +590,10 @@ export class GameData {
    * start at 75 real s (45 s before the countdown ends) at 2 LP per real second.
    */
   get bossOvertimeAfterReal() { return Math.max(0, numOr(this.config.bossOvertimeAfter, DEFAULTS.bossOvertimeAfter)); }
-  /** Team LP drained per REAL second of overtime. */
-  get bossOvertimeDrainReal() { return Math.max(0, numOr(this.config.bossOvertimeDrainPerSec, DEFAULTS.bossOvertimeDrainPerSec)); }
+  /** Team LP drained per REAL second of overtime (an 8-player match: config.eightPlayer's, 2). */
+  get bossOvertimeDrainReal() {
+    return Math.max(0, numOr(this.large?.bossOvertimeDrainPerSec, numOr(this.config.bossOvertimeDrainPerSec, DEFAULTS.bossOvertimeDrainPerSec)));
+  }
   /** Overtime start in GAME seconds of a boss field clock (150 real s × the forced 2× = 300). */
   get bossOvertimeAfter() { return this.bossOvertimeAfterReal * this.combatTimeScale; }
   /** Team LP drained per GAME second of overtime (1 per real second = 0.5 per game second). */
@@ -619,25 +632,44 @@ export class GameData {
     const d = this.config.dp && typeof this.config.dp === 'object' ? this.config.dp : {};
     return { dpInit: numOr(d.init, 10), dpPerSec: numOr(d.perSec, 1), dpMax: numOr(d.max, 99) };
   }
+  /**
+   * 联防: `maxHelpers` (an 8-player match: config.eightPlayer.unite's, 4), `templates` (the escaped levels of 1 / 2
+   * helpers), `wideFrom` (the helper count from which the field is the 2-helper field twice side by side — 3 in an
+   * 8-player match, never in the others) and `wideTimeScale` (that field's time limit ÷ the round's, 2).
+   */
   get unite() {
     const u = this.config.unite && typeof this.config.unite === 'object' ? this.config.unite : {};
+    const lu = this.large?.unite && typeof this.large.unite === 'object' ? this.large.unite : null;
     return {
-      maxHelpers: posIntOr(u.maxHelpers, DEFAULTS.unite.maxHelpers),
+      maxHelpers: posIntOr(lu?.maxHelpers, 0) || posIntOr(u.maxHelpers, DEFAULTS.unite.maxHelpers),
       templates: u.templates && typeof u.templates === 'object' ? u.templates : DEFAULTS.unite.templates,
+      wideFrom: lu ? posIntOr(lu.wideFrom, Infinity) : Infinity,
+      wideTimeScale: lu ? numOr(lu.wideTimeScale, 1) : 1,
     };
   }
+
+  /** 机变 cards of a co-op draft whose schedule says `cards` (6): an 8-player match draws config.eightPlayer.spDraftCards (12). */
+  spDraftCards(cards) {
+    const n = Number.isInteger(cards) && cards > 0 ? cards : 6;
+    return this.large ? posIntOr(this.large.spDraftCards, n) : Math.min(n, 6);
+  }
+  /** 隐秘核心 conditions (`multi`: an 8-player match's is config.eightPlayer.hiddenCoreMulti, 2400). */
   get hiddenCore() {
     const h = this.config.hiddenCore && typeof this.config.hiddenCore === 'object' ? this.config.hiddenCore : {};
     return {
       single: numOr(h.single, DEFAULTS.hiddenCore.single),
-      multi: numOr(h.multi, DEFAULTS.hiddenCore.multi),
+      multi: numOr(this.large?.hiddenCoreMulti, numOr(h.multi, DEFAULTS.hiddenCore.multi)),
       minTeamLpExclusive: numOr(h.minTeamLpExclusive, DEFAULTS.hiddenCore.minTeamLpExclusive),
       difficulties: Array.isArray(h.difficulties) ? h.difficulties : DEFAULTS.hiddenCore.difficulties,
     };
   }
-  /** The bonds drawn absent per match: config bans[difficulty], a custom count (not null) in its place. */
+  /**
+   * The bonds drawn absent per match: config bans[difficulty] (an 8-player match: config.eightPlayer.bans[difficulty]),
+   * a custom count (not null) in its place.
+   */
   bans(difficulty) {
-    const b = this.config.bans && this.config.bans[difficulty];
+    const lb = this.large?.bans;
+    const b = lb && typeof lb === 'object' && lb[difficulty] ? lb[difficulty] : this.config.bans && this.config.bans[difficulty];
     const d = DEFAULTS.bans[difficulty] || { core: 0, addon: 0 };
     const off = !b || typeof b !== 'object' ? { ...d }
       : { core: Number.isInteger(b.core) && b.core >= 0 ? b.core : d.core, addon: Number.isInteger(b.addon) && b.addon >= 0 ? b.addon : d.addon };
