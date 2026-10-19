@@ -35,7 +35,7 @@
 //   助力 deputShip     all operators DEF +(base + per·L), redeploy time ×(1 + respawn_time)
 //   突袭 raidShip      a member jumps — retreat + free redeploy next to a ground enemy (a 隐匿, asleep or untargetable one
 //                      too), the highest 嘲讽 then the most advanced first — on: its passive skill (once per battle), its
-//                      ready MANUAL skill with no enemy on its own / front tile, its AUTO skill's start (not blocking),
+//                      ready MANUAL or AUTO skill with no enemy on its own / front tile, its AUTO skill's start (not blocking),
 //                      or no_attack_duration s without an attack (SP kept; the skill ways land with full SP). Landing:
 //                      the enemy's tile or the one behind it as seen from the member, on a battlefield tile of this
 //                      field (both halves of a boss field and of a two-helper 联防 field, never the hand rows) it may
@@ -292,10 +292,15 @@ function applyAura(battle, st, u) {
 //                    the character's buffs go; community report of 2026-10-06 item 44: a revived passive member jumps
 //                    at once]), whatever is in its range: one jump per deployment, as soon as a candidate enemy exists
 //                    (缄默德克萨斯's ON_DEPLOY skills are PASSIVE in the client tables).
-//   MANUAL skill   — the skill is ready (CheckCharSkillAvailable), not running (CheckCharSkillAffecting) and no enemy
-//                    stands on the member's own tile or the tile in front of it (CheckHasEnemyInRange, range "1-1",
-//                    _useAttackRange false: client code `Nodes.CheckHasEnemyInRange.Execute` RVA 0xB8C7F0 reads the
-//                    blackboard / node range id, not the attack range, and counts every valid enemy whose body overlaps it).
+//   ready skill    — MANUAL or AUTO: the skill is ready (CheckCharSkillAvailable), not running (CheckCharSkillAffecting)
+//                    and no enemy stands on the member's own tile or the tile in front of it (CheckHasEnemyInRange, range
+//                    "1-1", _useAttackRange false: client code `Nodes.CheckHasEnemyInRange.Execute` RVA 0xB8C7F0 reads the
+//                    blackboard / node range id, not the attack range, and counts every valid enemy whose body overlaps
+//                    it). No [spawn] check: it jumps again whenever the enemy leaves that box. The AUTO skills too, by an
+//                    official recording (maintainer decision 2026-10-19; until then MANUAL only): 瑕光 with S1 (AUTO,
+//                    "下次攻击", two charges) waited, charged, until a landing tile freed, jumped with both charges kept,
+//                    jumped again 0.7 s later — the enemy, unblockable after its blink, had walked off her front tile
+//                    [ASSUMED: read from the recording] —, then attacked. The skill-start [trig] below stays.
 //   AUTO skill     — on its skill start, when the member carries no [spawn] mark and blocks nothing (CheckBlocked): the
 //                    derived [trig] jumps RAID_TRIG s later (triggerInterval 0.3, waitFirstTriggerInterval) and again
 //                    every RAID_TRIG s while the skill runs (the retreat ends the skill, so once) [ASSUMED: the jump ends
@@ -442,7 +447,7 @@ function raidPoll(battle, st) {
     const sk = u.skill;
     const type = raidSkillType(sk);
     if (type === 'PASSIVE' && !u.mem[RAID_SPAWN] && raidJump(battle, st, u, true)) continue;
-    if (type === 'MANUAL' && sk.ready && !sk.active && !raidEnemyClose(battle, u) && raidJump(battle, st, u, true)) continue;
+    if ((type === 'MANUAL' || type === 'AUTO') && sk.ready && !sk.active && !raidEnemyClose(battle, u) && raidJump(battle, st, u, true)) continue;
     const since = Math.max(u.lastAttackAt ?? -Infinity, u.deployedAt ?? -Infinity, u.mem[KEY.raid] ?? -Infinity);
     if (battle.time - since >= idle - 1e-9) raidJump(battle, st, u, false);
   }

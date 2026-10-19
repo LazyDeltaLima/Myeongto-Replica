@@ -723,7 +723,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   코드 `server/sim/content/bonds/addon/battle.js` 「突袭 relocation」. 뛰는 경우 넷:
   - PASSIVE 스킬 멤버: `[spawn]` 표시가 없으면(아무 점프나 붙임) 범위와 상관없이 → 배치마다 한 번(缄默德克萨斯의 배치 후 스킬은 표에서 PASSIVE).
     `[spawn]`은 durable 버프라 점프 자체(MoveLikeRespawnSelf)에서는 남고, 멤버가 다른 이유로 필드를 떠나면 지움 **[ASSUMED]**(2026-10-06 제보 44 「부활하면 바로 突袭」과 맞춤).
-  - MANUAL 스킬: 스킬 준비됨(CheckCharSkillAvailable)·안 켜짐·자기 칸과 앞 칸에 적 없음(`CheckHasEnemyInRange` 0xB8C7F0: `_useAttackRange` false면 범위 `1-1`, 적이면 은신·비행 가리지 않고 셈).
+  - MANUAL·AUTO 스킬: 스킬 준비됨(CheckCharSkillAvailable)·안 켜짐·자기 칸과 앞 칸에 적 없음(`CheckHasEnemyInRange` 0xB8C7F0: `_useAttackRange` false면 범위 `1-1`, 적이면 은신·비행 가리지 않고 셈). `[spawn]`과 무관해 적이 그 칸을 벗어나면 또 뜀. AUTO는 2026-10-19부터(아래 「突袭 AUTO 스킬도 준비되면 점프」).
   - AUTO 스킬: 스킬 시작 때 `[spawn]` 없음·저지 중 아님(CheckBlocked = 지금 막는 적 있음 [추정: 노드 이름])이면 0.3초 뒤(그 뒤 0.3초마다, 스킬 동안) 점프.
   - 10초 무공격(`[attack]`): 범위·스킬 조건 없음(범위에 적이 있어도 10초 동안 공격하지 않았으면 뜀 — 커뮤니티 16.1의 「범위에 적이 있으면 안 뜀」을 되돌린 것, 관리자 결정 2026-10-10 「공식대로, 필요하면 나중에 수정」), SP 비율 유지. 착지 후 10초를 다시 셈 **[ASSUMED]**. 스킬 세 경우는 SP 가득(`[spawn]` = `modify_sp[ratio]` sp 1.0, `ModifySp` 0xB80BC0: RoundToInt(maxSp×비율)).
   - 후보: 진영 ENEMY·WALK_ONLY, 고급 옵션 꺼짐(`TargetOptions._VerifyAdvanced` 0x6DEF10가 바로 true) → 은신·잠듦·선택 불가·기절 지상 적 모두 후보, 비행만 빠짐. 순서 `FilterUtil` HATRED_DES, 128명까지:
@@ -1570,3 +1570,18 @@ upstream v0.2.4 뒤 버그 수정 커밋 중 우리에게도 같은 버그가 �
   `test/match/custom-first-half.test.js`(실제 판 경로: 일반 필드 적 감속, 보스 필드 윗줄 6개). golden: 코퍼스가 모든 전장을 돌아가며 써서 m06 시나리오가
   움직임 — roster-006·roster-028, bond-indomShip-high·bond-miraShip-low·bond-skillfulShip-high·bond-visiShip-low, boss-boss_1-solo·boss-boss_7-pair,
   standin-06, diy-006(폭풍); 커스텀 판 custom-coop2-HARD-11-flow·custom-solo-ABYSS-12-battle-boosted는 규칙 기록에 `stages.firstHalf: false`만 늚.
+
+## 突袭 AUTO 스킬도 준비되면 점프 (2026-10-19, 관리자 결정 「공식 녹화대로」)
+
+제보: 기습 맹약에서 瑕光이 S1을 충전해 둬도 적 쪽으로 잘 안 움직인다. 원인: `raidPoll`의 「스킬 준비됨 + 범위에 적 없음」 경로가 MANUAL 스킬만 봤고,
+AUTO 스킬은 스킬 시작(`[trig]`) 경로뿐이었다. 瑕光 S1(`skchr_blemsh_1`, AUTO·DEFAULT·「下次攻击」)은 공격하려는 순간에만 시작하고, 그때는 보통 이미 적을 막고 있어
+`CheckBlocked`에 걸리므로 사실상 10초 무공격 경로로만 움직였다. 같은 처지의 기본 멤버 AUTO 스킬: 休谟斯·伊内丝·史尔特尔·仇白 S1(「下次攻击」), 耀骑士临光 S1(무한 지속).
+- **근거(공식 녹화, 보스 라운드 卢西恩)**: 瑕光(정예2, S1 2회 충전)이 109초에 1회, 106초에 2회 충전된 채 집 칸에서 기다림(보스가 배치 불가 칸에 있어 착지 칸 없음) →
+  卢西恩이 저지자를 뚫고 순간이동한 직후(104초) 다른 기습 멤버와 함께 점프, 착지 때 「SP 10」 표시(최대 SP로 채움 = 스킬 경로) → 0.7초 동안 충전 그대로(공격 없음) →
+  다시 점프(「SP 10」 다시 표시)해 보스를 막고 그때부터 공격. 두 점프 모두 S1이 시작되기 전이라 스킬 시작 경로가 아니고, 10초 무공격 경로도 아니다.
+  첫 착지 칸은 보스 칸(다른 멤버가 차지) 다음의 「멤버가 볼 때 적 뒤 칸」으로 `raidTile` 순서와 같았다.
+- **변경**: AUTO 스킬도 MANUAL과 같이 준비됨·안 켜짐·자기 칸과 앞 칸에 적 없음이면 점프(`server/sim/content/bonds/addon/battle.js raidPoll`). 스킬 시작 `[trig]` 경로는 그대로 둠.
+- **[ASSUMED]**: 두 번째 점프는 순간이동 뒤 저지 불가인 보스가 걸어서 瑕光의 앞 칸을 벗어났기 때문으로 읽음(녹화에서 보스가 약 1/3칸 이동). 판정이 무적 적을
+  세지 않는 것일 수도 있으나 이 녹화로는 구분 안 됨 — 우리는 무적 적도 셈(`raidEnemyClose`). 공격하지 않은 이유는 순간이동 직후의 무적·저지 불가.
+- 테스트 `test/content/bonds_addon.test.js` 「突袭: a ready AUTO skill …」 2건(충전되면 다음 폴링에 점프하고 적이 범위에 있으면 머묾 / 저지·대상 불가 적이
+  상자를 벗어날 때마다 다시 점프, S1은 시작 안 함). golden: roster-027(瑕光 S1 + 斯卡蒂로 기습 2명) — 瑕光이 충전되자 뛰어 처치 42 → 37 등.
