@@ -12,8 +12,8 @@
 // In 同盟匹配 the switch shows each ruleset's waiting Doctors and every difficulty card those of its queue
 // (lobby.queueCounts, ui/ruleset.js queueCountOf). Beside a picked 自定义: the preset in use and how many settings
 // differ from the official ones.
-// The 8-player mode (maintainer decisions 2026-10-16, 2026-10-19): under the mode cards of 同盟模拟 / 同盟匹配 the 人数 switch
-// picks a 4-seat or an 8-seat alliance (room.create / room.queue `size`, remembered in `lobby.size`); with 8 the queue
+// The 8-player mode (maintainer decisions 2026-10-16, 2026-10-19): the 人数 switch at the right end of the 01 label (locked
+// on 4 for 独立模拟) picks a 4-seat or an 8-seat alliance (room.create / room.queue `size`, remembered in `lobby.size`); with 8 the queue
 // counts are those of the 8-player queues (lobby.queueCounts `counts8`), the cards and hints name 8 Doctors, the
 // custom rules compare with the 8-player bans (config.eightPlayer), and 同盟模拟 has no AI teammates.
 //
@@ -336,18 +336,26 @@ function DifficultyCard({ roomMode, difficulty, selected, onSelect, waiting = nu
 }
 
 /**
- * The 人数 switch of 同盟模拟 / 同盟匹配: a 4-seat or an 8-seat alliance (styled like the rules switch). `counts` = { [size]: n }
- * shows the Doctors waiting in the queues of each size (同盟匹配).
+ * The 人数 switch at the right end of the 01 模拟方式 label (like 规则 on the 02 label; maintainer decision 2026-10-19): a
+ * 4-seat or an 8-seat alliance for 同盟模拟 / 同盟匹配. 独立模拟 keeps it in place, locked on 4 with 8 marked by a lock, so
+ * the label row never changes height. `counts` = { [size]: n } shows the Doctors waiting in the queues of each size
+ * (同盟匹配).
  */
-function SizeSwitch({ value, onPick, counts = null }) {
-  return html`<div class="lobby-size">
+function SizeSwitch({ value, onPick, counts = null, solo = false }) {
+  const tip = solo ? t('独立模拟只有 1 名博士') : t('八人同盟：{n} 名博士坐满后开始，没有 AI 队友；联防最多 4 名博士同时迎战', { n: LARGE_SEATS });
+  const cur = solo ? MAX_SEATS : value;
+  return html`<div class="lobby-rules lobby-size">
     <span class="lobby-rules__k">${t('人数')}</span>
-    <${Tooltip} text=${t('八人同盟：{n} 名博士坐满后开始，没有 AI 队友；联防最多 4 名博士同时迎战', { n: LARGE_SEATS })}>
+    <${Tooltip} text=${tip}>
       <div class="dpick rpick" role="radiogroup" aria-label=${t('人数')}>
-        ${ROOM_SIZES.map((n) => html`<button key=${n} type="button" role="radio" aria-checked=${value === n ? 'true' : 'false'} data-size=${n}
-            class=${`dpick__opt rpick__opt${value === n ? ' is-active' : ''}`} onClick=${() => value !== n && onPick(n)}>
-          ${t('{n} 人同盟', { n })}${counts ? html`<span class="rpick__n num" data-testid=${`queue-size-${n}`}>${counts[n] ?? 0}</span>` : null}
-        </button>`)}
+        ${ROOM_SIZES.map((n) => {
+          const locked = solo && n !== MAX_SEATS;
+          return html`<button key=${n} type="button" role="radio" aria-checked=${cur === n ? 'true' : 'false'} data-size=${n} disabled=${solo}
+              class=${`dpick__opt rpick__opt${cur === n ? ' is-active' : ''}${locked ? ' is-locked' : ''}`} onClick=${() => !solo && value !== n && onPick(n)}>
+            ${t('{n}人', { n })}${counts ? html`<span class="rpick__n num" data-testid=${`queue-size-${n}`}>${counts[n] ?? 0}</span>` : null}
+            ${locked ? html`<${Icon} name="lock" class="rpick__lock" />` : null}
+          </button>`;
+        })}
       </div>
     <//>
   </div>`;
@@ -468,12 +476,13 @@ export function LobbyScreen() {
 
     <div class="lobby-body screen__scroll">
       <section class="lobby-left">
-        <div class="section-label"><span class="section-label__idx num">01</span>${t('模拟方式')}<${MicroLabel}>MODE<//></div>
+        <div class="section-label section-label--rules"><span class="section-label__idx num">01</span>${t('模拟方式')}<${MicroLabel}>MODE<//>
+          <${SizeSwitch} value=${size} onPick=${pickSize} solo=${roomMode === 'solo'}
+            counts=${matching ? { [MAX_SEATS]: queueCountOf(queueCounts4, queueRuleset), [LARGE_SEATS]: queueCountOf(queueCounts8, queueRuleset) } : null} />
+        </div>
         <div class="mode-cards">
           ${MODE_CARDS.map((c) => html`<${ModeCard} key=${c.id} card=${c} selected=${roomMode === c.id} onSelect=${pickMode} big=${big} />`)}
         </div>
-        ${roomMode !== 'solo' ? html`<${SizeSwitch} value=${size} onPick=${pickSize}
-          counts=${matching ? { [MAX_SEATS]: queueCountOf(queueCounts4, queueRuleset), [LARGE_SEATS]: queueCountOf(queueCounts8, queueRuleset) } : null} />` : null}
 
         <div class="section-label"><span class="section-label__idx num">03</span>${t('加入同盟')}<${MicroLabel}>JOIN WITH ALLIANCE KEY<//></div>
         <${Panel} class="join-panel" tone="amber">
