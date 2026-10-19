@@ -6,7 +6,7 @@
 // Every setting reaches the match: the match flow (bonds, leader and stage bans, rounds, prep, 目标生命值) through its
 // GameData, the battle settings (enemy and leader stats, 限伤, the layer cap) through the spawn mods and the spec flags.
 //
-//   openCustomRules({ rules, readonly, roomMode, difficulty, onApply })   CustomRulesDialog (mounted by the lobby and the room)
+//   openCustomRules({ rules, readonly, roomMode, difficulty, size, onApply })   CustomRulesDialog (mounted by the lobby and the room)
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, Button, Modal, confirmDialog } from './components.js';
@@ -22,7 +22,7 @@ import {
 } from './customRulesStore.js';
 import {
   sanitizeCustom, customDiffs, customRoundPlan, curveScale, customPrepSeconds, customStagePool, CUSTOM_OFFICIAL, CUSTOM_CASUAL, CUSTOM_LIMITS,
-  CUSTOM_FIRST_HALF_STAGES,
+  CUSTOM_FIRST_HALF_STAGES, officialBans,
 } from '../../../shared/ruleset.js';
 import { modeIdFor, DIFFICULTIES } from '../../../shared/constants.js';
 import { t, N_ } from '../../../shared/i18n.js';
@@ -43,12 +43,13 @@ export const customDialogStore = createStore({ open: false, seq: 0, rules: null,
 /**
  * Open the settings. `onApply(rules)` runs after 应用 (the lobby picks custom, a room's host sends room.setRuleset).
  * `live` (read-only): a function giving the settings to show now — a room's, which its host may change meanwhile.
+ * `size`: the room's seat count (an 8-seat room compares with the 8-player official values — shared/ruleset.js officialBans).
  * @param {{ rules: unknown, readonly?: boolean, live?: (() => unknown) | null, roomMode?: 'solo'|'coop', difficulty?: string,
- *   onApply?: ((rules: any) => void) | null }} opts
+ *   size?: number, onApply?: ((rules: any) => void) | null }} opts
  */
-export function openCustomRules({ rules, readonly = false, live = null, roomMode = 'coop', difficulty = 'FUNNY', onApply = null }) {
+export function openCustomRules({ rules, readonly = false, live = null, roomMode = 'coop', difficulty = 'FUNNY', size = 4, onApply = null }) {
   customDialogStore.set((s) => ({ open: true, seq: s.seq + 1, rules: sanitizeCustom(rules), readonly, live: readonly ? live : null, roomMode,
-    difficulty: DIFFICULTIES.includes(difficulty) ? difficulty : 'FUNNY', onApply }));
+    difficulty: DIFFICULTIES.includes(difficulty) ? difficulty : 'FUNNY', size, onApply }));
 }
 
 export const closeCustomRules = () => customDialogStore.set({ open: false, onApply: null, live: null });
@@ -59,7 +60,7 @@ export function CustomRulesDialog() {
   useEffect(() => closeCustomRules, []);
   if (!st.open) return null;
   return html`<${CustomRulesBody} key=${st.seq} init=${st.rules} readonly=${st.readonly} live=${st.live} roomMode=${st.roomMode}
-    difficulty=${st.difficulty} onApply=${st.onApply} />`;
+    difficulty=${st.difficulty} size=${st.size} onApply=${st.onApply} />`;
 }
 
 const fmt = (n) => Number(n).toLocaleString('en-US');
@@ -117,7 +118,7 @@ const Sec = ({ title, sub, children }) => html`<section class="crx-sec">
 
 // ---- the dialog --------------------------------------------------------------------------------------------------
 
-function CustomRulesBody({ init, readonly, live, roomMode, difficulty, onApply }) {
+function CustomRulesBody({ init, readonly, live, roomMode, difficulty, size, onApply }) {
   useData('config', 'bonds', 'bosses', 'stages', 'assets', 'local');
   const [own, setWork] = useState(init);
   // read-only: what the room has now (its host may change it while this is open)
@@ -132,7 +133,7 @@ function CustomRulesBody({ init, readonly, live, roomMode, difficulty, onApply }
   const solo = roomMode === 'solo';
   const config = data.get('config');
   const mode = getMode(modeIdFor(solo ? 'solo' : 'coop', difficulty));
-  const bans = config?.bans?.[difficulty] || null;
+  const bans = officialBans(config, difficulty, size);
   const base = { bans, rounds: Number.isInteger(mode?.lastRound) ? mode.lastRound : null };
   const diffs = customDiffs(work, base);
   const tabCount = (tb) => diffs.filter((d) => tb.keys.some((k) => d.startsWith(k))).length;

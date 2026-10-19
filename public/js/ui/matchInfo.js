@@ -33,6 +33,7 @@ import { bondIconUrl, chessAvatarUrl } from './assetUrls.js';
 import { data, localAsset } from '../data.js';
 import { t, dn } from '../../../shared/i18n.js';
 import { customSummary, CustomRulesInfo } from './customSummary.js';
+import { officialBans } from '../../../shared/ruleset.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -50,7 +51,7 @@ const cx = (...p) => p.flat().filter(Boolean).join(' ');
  * @param {{ bonds?: any[], chess?: (id: string) => any, mode?: any, priv?: any, diyData?: any, bans?: any }} [src]
  *   bonds: bonds.json records (data.list('bonds')); chess: the chess lookup; mode: config.json modes[pub.modeId]; priv: the
  *   viewer's m.private (its 自选 pieces out of the shop, diyBanned) with diyData (`{ chess, backups }`: data.get('chess') /
- *   data.get('backups')) to name them; bans: the difficulty's official bond ban counts (config.json bans[pub.difficulty],
+ *   data.get('backups')) to name them; bans: the difficulty's official bond ban counts (shared/ruleset.js officialBans,
  *   by default from the loaded config) for the custom lines
  * @returns {MatchInfoModel}
  *   stateOf: 'off' = the mode never activates the bond (本局禁用), 'drawn' = in the drawn set D (阵容不完整), null = normal;
@@ -89,7 +90,7 @@ function customLines(pub, bonds, mode, bans) {
   const name = (kind, id) => (kind === 'bond' ? bondNames.get(id) : data.lookup(kind === 'boss' ? 'bosses' : 'stages', id)?.name) || id;
   return customSummary(rs.custom, {
     solo: String(pub.modeId || '').includes('single'),
-    bans: bans !== undefined ? bans : data.get('config')?.bans?.[pub.difficulty] ?? null,
+    bans: bans !== undefined ? bans : officialBans(data.get('config'), pub.difficulty, pub.size),
     rounds: Number.isInteger(mode?.lastRound) ? mode.lastRound : null,
     name,
     hidden: (id) => !!data.lookup('bosses', id)?.hidden,

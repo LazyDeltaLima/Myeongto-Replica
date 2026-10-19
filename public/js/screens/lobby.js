@@ -32,7 +32,7 @@ import { LoadoutButton } from './loadout.js';
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
 import { MatchQueueDialog, joinQueue } from '../ui/matchQueue.js';
 import { RulesetSwitch, lobbyRuleset, lobbyQueueRuleset, saveLobbyRuleset, queueCountOf } from '../ui/ruleset.js';
-import { QUEUE_PRESETS, isQueuePreset, customDiffs } from '../../../shared/ruleset.js';
+import { QUEUE_PRESETS, isQueuePreset, customDiffs, officialBans } from '../../../shared/ruleset.js';
 import { CustomRulesDialog, openCustomRules } from '../ui/customRules.js';
 import { customRulesStore, customDraft } from '../ui/customRulesStore.js';
 import { PatchNotesModal, usePatchNotes, isUnseen, markSeen, slidesOf, Inline } from '../ui/patchNotes.js';
@@ -482,11 +482,11 @@ export function LobbyScreen() {
 
 /**
  * Beside a picked 自定义: the preset whose settings are in use (none when they were changed after it) and how many
- * settings differ from the official ones of the chosen difficulty.
+ * settings differ from the official ones of the chosen difficulty (and room size: an 8-seat room's official bans).
  */
-export function CustomSummary({ rules, store: st, roomMode, difficulty }) {
+export function CustomSummary({ rules, store: st, roomMode, difficulty, size }) {
   const mode = DIFFICULTIES.includes(difficulty) ? getMode(modeIdFor(roomMode === 'solo' ? 'solo' : 'coop', difficulty)) : null;
-  const n = customDiffs(rules, { bans: getConfig()?.bans?.[difficulty] || null, rounds: mode?.lastRound ?? null }).length;
+  const n = customDiffs(rules, { bans: officialBans(getConfig(), difficulty, size), rounds: mode?.lastRound ?? null }).length;
   const p = st.presets.find((x) => x.id === st.active && JSON.stringify(x.rules) === JSON.stringify(rules));
   return html`<span class="lobby-rules__sum" data-testid="custom-summary">${p ? html`<b>${p.name}</b> · ` : null}${t('与官方不同的设置 {n} 项', { n })}</span>`;
 }

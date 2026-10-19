@@ -5,6 +5,7 @@
 
 import { PHASE, GEO } from '../../../shared/constants.js';
 import { deriveSeed } from '../../sim/rng.js';
+import { wideHalves, wideRect } from '../../sim/wideStage.js';
 import { uniteBattleOpts, uniteSurvivors } from '../unite.js';
 import { FieldRunner, timelineAt, uniteBillBounds } from '../fields.js';
 import { uniteLeft } from '../../sim/spec.js';
@@ -50,17 +51,17 @@ export class MatchUnite {
    */
   _uniteOpts(plan, limit) {
     const { wave, players } = uniteBattleOpts(this, plan, limit);
-    const wide = wave.wide === true;
+    const wide = wave.wide || 0;
     return {
       seed: deriveSeed(this.seed, `u:${this.round}`),
       kind: 'unite',
       modeId: this.modeId,
       round: this.round,
       stageId: this.stageId,
-      rect: { ...(wide ? GEO.UNITE_WIDE_RECT : GEO.UNITE_RECT) },
+      rect: wide ? wideRect(wide) : { ...GEO.UNITE_RECT },
       timeLimit: limit,
-      // the 8-player mode's doubled field (3–4 helpers, server/sim/wideStage.js); only set there
-      ...(wide ? { wide: true } : {}),
+      // the halves of the 8-player mode's wide field (3 | 4 helpers, server/sim/wideStage.js); only set there
+      ...(wide ? { wide } : {}),
       players,
       spawns: this._sanitizeSpawns(wave.spawns),
       routes: wave.routes,
@@ -74,13 +75,14 @@ export class MatchUnite {
   }
 
   /**
-   * The 联防 time limit: the round's combat limit (60 s without a wave), × gd.unite.wideTimeScale (2) on the wide field
-   * of 3–4 helpers (8-player mode, unite.js header).
+   * The 联防 time limit: the round's combat limit (60 s without a wave); on a wide field of 3–4 helpers (8-player mode,
+   * unite.js header) × gd.unite.wideTimePerHalf (0.5) per half — the path's length (× 1.5, × 2).
    */
   _uniteLimit(plan) {
     const base = this.wave ? this.wave.timeLimit : 60;
     const n = plan && Array.isArray(plan.helpers) ? plan.helpers.length : 0;
-    return n >= this.gd.unite.wideFrom ? base * this.gd.unite.wideTimeScale : base;
+    const halves = n >= this.gd.unite.wideFrom ? wideHalves(n) : 0;
+    return halves ? base * halves * this.gd.unite.wideTimePerHalf : base;
   }
 
   _startUniteClient(plan) {

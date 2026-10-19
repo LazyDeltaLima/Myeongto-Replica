@@ -14,7 +14,7 @@ import { ERR, LARGE_SEATS, MAX_SEATS } from '../shared/constants.js';
 import { validateC2S, RESULT_LIMITS } from '../shared/protocol.js';
 import { DATA, makeMatch } from './match/harness.js';
 import { GEO } from '../shared/constants.js';
-import { widenRow, widenStage, widenRoute, wideCols, WIDE_OFFSETS } from '../server/sim/wideStage.js';
+import { widenRow, widenStage, widenRoute, wideCols, wideOffsets, wideRect } from '../server/sim/wideStage.js';
 import { normalizeStage, DataSource } from '../server/sim/simdata.js';
 import { Battle } from '../server/sim/Battle.js';
 import { buildUniteWave } from '../server/match/waves.js';
@@ -52,7 +52,7 @@ describe('8-player numbers (config.eightPlayer)', () => {
     assert.equal(g8.bossPoolShare(5), 5);
     assert.equal(g8.bossPoolShare(), 8);
     assert.deepEqual([g4.unite.maxHelpers, g8.unite.maxHelpers], [2, 4]);
-    assert.deepEqual([g4.unite.wideFrom, g8.unite.wideFrom, g8.unite.wideTimeScale], [Infinity, 3, 2]);
+    assert.deepEqual([g4.unite.wideFrom, g8.unite.wideFrom, g8.unite.wideTimePerHalf], [Infinity, 3, 0.5]);
     for (const r of [3, 9, 11]) {
       assert.equal(generateDraft(g4, createRng(r), r).cards.length, 6, `R${r}`);
       assert.equal(generateDraft(g8, createRng(r), r).cards.length, 12, `R${r}`);
@@ -211,60 +211,73 @@ describe('8-player room and queue (server/lobby.js, server/matchmaking.js)', () 
   });
 });
 
-// ---- the wide 联防 field (server/sim/wideStage.js) --------------------------------------------------------------
+// ---- the wide 联防 fields (server/sim/wideStage.js) -------------------------------------------------------------
 
-describe('8-player 联防: the 2-helper field twice side by side', () => {
+describe('8-player 联防: 3 helpers = the 1-helper half + the 2-helper field, 4 = the 2-helper field twice', () => {
   const STAGE = 'act2autochess_m04';
 
-  test('a stage row repeats columns 3–18 sixteen columns further; devices and map characters stand on both copies', () => {
+  test('a stage row: 3 halves repeat columns 11–18 eight columns further, 4 halves columns 3–18 sixteen further', () => {
     const row = '##ErrbrrrrSrrbrrrrS##';
-    const wide = widenRow(row);
-    assert.equal(wide.length, GEO.WIDE_COLS);
-    assert.equal(wide, '##ErrbrrrrSrrbrrrrS' + 'rrbrrrrSrrbrrrrS' + '##');
-    assert.deepEqual([wide[2], wide[10], wide[18], wide[26], wide[34]], ['E', 'S', 'S', 'S', 'S']);
-    assert.deepEqual([wideCols(2), wideCols(3), wideCols(18), wideCols(19)], [[2], [3, 19], [18, 34], [35]]);
-    const st = widenStage(normalizeStage(STAGE, DATA.stages[STAGE]));
-    assert.ok(st._wide && st._norm);
-    for (const r of st.rows) if (typeof r === 'string' && r.length) assert.equal(r.length, GEO.WIDE_COLS);
-    const src = DATA.stages[STAGE].devices.filter((d) => d.pos[1] >= 3 && d.pos[1] <= 18).length;
-    const total = DATA.stages[STAGE].devices.length;
-    assert.equal(st.devices.length, total + src);
-    const aliases = st.raw.mapChars.map((m) => m.alias);
-    assert.equal(new Set(aliases).size, aliases.length, 'every map character alias stays unique');
+    const w4 = widenRow(row, 4), w3 = widenRow(row, 3);
+    assert.equal(w4, '##ErrbrrrrSrrbrrrrS' + 'rrbrrrrSrrbrrrrS' + '##');
+    assert.equal(w3, '##ErrbrrrrSrrbrrrrS' + 'rrbrrrrS' + '##');
+    assert.equal(w4.length, GEO.WIDE_COLS);
+    assert.deepEqual([w3.length, wideRect(3).c1 + 1, wideRect(4).c1 + 1], [29, 29, 37]);
+    assert.deepEqual([w4[2], w4[10], w4[18], w4[26], w4[34]], ['E', 'S', 'S', 'S', 'S']);
+    assert.deepEqual([w3[2], w3[10], w3[18], w3[26]], ['E', 'S', 'S', 'S']);
+    assert.deepEqual([wideCols(2, 4), wideCols(3, 4), wideCols(18, 4), wideCols(19, 4)], [[2], [3, 19], [18, 34], [35]]);
+    assert.deepEqual([wideCols(10, 3), wideCols(11, 3), wideCols(18, 3), wideCols(20, 3)], [[10], [11, 19], [18, 26], [28]]);
+    assert.equal(widenRow(row, 2), row, 'no wide field below 3 halves');
   });
 
-  test('a route enters at the far right, walks the right pair, the old spawn, then the left pair to the same exit', () => {
-    const r = widenRoute({ motion: 'WALK', start: [9, 18], end: [9, 2], checkpoints: [[9, 10]] });
-    assert.deepEqual(r, { motion: 'WALK', start: [9, 34], end: [9, 2], checkpoints: [[9, 26], [9, 18], [9, 10]] });
-    assert.deepEqual(WIDE_OFFSETS, [24, 16, 8, 0]);
+  test('devices and map characters stand on each copy of their column; aliases stay unique', () => {
+    for (const halves of [3, 4]) {
+      const st = widenStage(normalizeStage(STAGE, DATA.stages[STAGE]), halves);
+      assert.equal(st._wide, halves);
+      for (const r of st.rows) if (typeof r === 'string' && r.length) assert.equal(r.length, wideRect(halves).c1 + 1);
+      const first = halves === 4 ? 3 : 11;
+      const src = DATA.stages[STAGE].devices.filter((d) => d.pos[1] >= first && d.pos[1] <= 18).length;
+      assert.equal(st.devices.length, DATA.stages[STAGE].devices.length + src);
+      const aliases = st.raw.mapChars.map((m) => m.alias);
+      assert.equal(new Set(aliases).size, aliases.length);
+    }
   });
 
-  test('a walker on the wide field crosses all four halves and leaks at the exit, taking about twice as long', () => {
+  test('a route enters at the far right, walks the added halves, the old spawn, then the whole route to the same exit', () => {
+    const walk = { motion: 'WALK', start: [9, 18], end: [9, 2], checkpoints: [[9, 10]] };
+    assert.deepEqual(widenRoute(walk, 4), { motion: 'WALK', start: [9, 34], end: [9, 2], checkpoints: [[9, 26], [9, 18], [9, 10]] });
+    assert.deepEqual(widenRoute(walk, 3), { motion: 'WALK', start: [9, 26], end: [9, 2], checkpoints: [[9, 18], [9, 10]] });
+    const fly = { motion: 'FLY', start: [9, 18], end: [9, 2], checkpoints: [[9, 17], [12, 11], [10, 9], [9, 3]] };
+    assert.deepEqual(widenRoute(fly, 3).checkpoints, [[9, 25], [12, 19], [9, 18], [9, 17], [12, 11], [10, 9], [9, 3]]);
+    assert.deepEqual([wideOffsets(3), wideOffsets(4)], [[16, 8, 0], [24, 16, 8, 0]]);
+  });
+
+  test('a walker crosses every half and leaks at the exit: × 1.5 the time on 3 halves, × 2 on 4', () => {
     const ds = new DataSource(DATA, null);
     const tpl = DATA.waves.act1autochess_escaped_multi;
     const walk = tpl.routes.findIndex((x) => x.motion === 'WALK');
     const key = Object.keys(DATA.enemies).find((k) => !DATA.enemies[k].tokenOnly && DATA.enemies[k].motion !== 'FLY' && /^enemy_10\d\d_/.test(k));
-    const run = (wide) => {
-      const routes = wide ? tpl.routes.map(widenRoute) : tpl.routes;
-      const b = new Battle({ kind: 'unite', wide, stageId: STAGE, data: ds, timeLimit: 400, players: [{ playerId: 'p1', units: [] }],
+    const run = (halves) => {
+      const routes = halves ? tpl.routes.map((r) => widenRoute(r, halves)) : tpl.routes;
+      const b = new Battle({ kind: 'unite', wide: halves, stageId: STAGE, data: ds, timeLimit: 400, players: [{ playerId: 'p1', units: [] }],
         spawns: [{ time: 0, enemyKey: key, routeIndex: walk, count: 1, interval: 0, sourcePlayerId: 'p9' }], routes, logger: { warn() {}, error() {}, info() {} } });
       let maxX = -1;
       while (!b.finished && b.time < 400) {
         b.step();
         for (const e of b.enemies) maxX = Math.max(maxX, e.x);
       }
-      return { b, maxX, time: b.time, leaked: b.result().perPlayer.p1?.leaked?.length ?? 0 };
+      return { b, maxX, time: b.time };
     };
-    const two = run(false), four = run(true);
-    assert.equal(four.b.grid.tile(9, 34).pass, 'ALL');
-    assert.deepEqual([four.b.rect.c0, four.b.rect.c1], [0, 36]);
-    assert.ok(two.maxX <= 18.6 && four.maxX >= 33, `${two.maxX} / ${four.maxX}`);
-    assert.ok(four.time > two.time * 1.6 && four.time < two.time * 2.4, `${two.time} s → ${four.time} s`);
+    const two = run(0), three = run(3), four = run(4);
+    assert.deepEqual([three.b.rect.c1, four.b.rect.c1], [28, 36]);
+    assert.ok(two.maxX <= 18.6 && three.maxX >= 25 && three.maxX <= 26.6 && four.maxX >= 33, `${two.maxX} / ${three.maxX} / ${four.maxX}`);
+    assert.ok(three.time > two.time * 1.3 && three.time < two.time * 1.7, `${two.time} s → ${three.time} s`);
+    assert.ok(four.time > two.time * 1.8 && four.time < two.time * 2.2, `${two.time} s → ${four.time} s`);
   });
 });
 
 describe('8-player 联防 through the match', () => {
-  test('3–4 helpers play the wide field for twice the round\'s time, on the halves from the right', () => {
+  test('3–4 helpers play a wide field of a half each, for × 0.5 the round\'s time per half, on the halves from the right', () => {
     const seats = Array.from({ length: 8 }, (_, i) => ({ seat: i, playerId: `ai_${i}`, name: `AI${i}`, isBot: true, connected: true }));
     const h = makeMatch({ seats, size: LARGE_SEATS, difficulty: 'HARD', seed: 3 }).start();
     const m = h.m;
@@ -272,7 +285,7 @@ describe('8-player 联防 through the match', () => {
     const orig = m._uniteOpts.bind(m);
     m._uniteOpts = (plan, limit) => {
       const o = orig(plan, limit);
-      seen.push({ n: plan.helpers.length, wide: o.wide === true, limit, base: m.wave.timeLimit, offsets: o.players.map((p) => p.colOffset), rect: o.rect });
+      seen.push({ n: plan.helpers.length, wide: o.wide ?? 0, limit, base: m.wave.timeLimit, offsets: o.players.map((p) => p.colOffset), rect: o.rect });
       return o;
     };
     h.runToEnd();
@@ -280,21 +293,44 @@ describe('8-player 联防 through the match', () => {
     assert.ok(seen.some((s) => s.n >= 3), `a 联防 of 3+ helpers happened: ${JSON.stringify(seen.map((s) => s.n))}`);
     for (const s of seen) {
       if (s.n >= 3) {
-        assert.equal(s.wide, true);
-        assert.equal(s.limit, s.base * 2);
-        assert.deepEqual(s.offsets, WIDE_OFFSETS.slice(0, s.n));
-        assert.deepEqual(s.rect, GEO.UNITE_WIDE_RECT);
+        assert.equal(s.wide, s.n);
+        assert.equal(s.limit, s.base * s.n * 0.5);
+        assert.deepEqual(s.offsets, wideOffsets(s.n));
+        assert.deepEqual(s.rect, wideRect(s.n));
       } else {
-        assert.equal(s.wide, false);
+        assert.equal(s.wide, 0);
         assert.equal(s.limit, s.base);
         assert.deepEqual(s.rect, GEO.UNITE_RECT);
       }
     }
   });
 
-  test('a 4-player match never plays the wide field', () => {
+  test('a 4-player match never plays a wide field', () => {
     const g = new GameData(DATA, 'mode_multi_hard');
-    assert.equal(buildUniteWave(g, [], 2, 60).wide, false);
+    assert.equal(buildUniteWave(g, [], 2, 60).wide, 0);
     assert.equal(Number.isFinite(g.unite.wideFrom), false);
+  });
+});
+
+describe('8-player rooms × 규칙 모드: the custom settings compare with the 8-player official values', () => {
+  test('officialBans: an 8-seat room has 1 / 2 (FUNNY 0 / 1), every other room the 4-player table', async () => {
+    const { officialBans, customDiffs } = await import('../shared/ruleset.js');
+    const cfg = DATA.config;
+    assert.deepEqual(officialBans(cfg, 'HARD', LARGE_SEATS), { core: 1, addon: 2 });
+    assert.deepEqual(officialBans(cfg, 'FUNNY', LARGE_SEATS), { core: 0, addon: 1 });
+    assert.deepEqual(officialBans(cfg, 'HARD', MAX_SEATS), { core: 3, addon: 4 });
+    assert.deepEqual(officialBans(cfg, 'HARD'), { core: 3, addon: 4 });
+    const rules = { bonds: { banCore: 1, banAddon: 2 } };
+    assert.deepEqual(customDiffs(rules, { bans: officialBans(cfg, 'HARD', LARGE_SEATS) }), [], 'the 8-player official counts are no difference');
+    assert.deepEqual(customDiffs(rules, { bans: officialBans(cfg, 'HARD', MAX_SEATS) }), ['bonds.banCore', 'bonds.banAddon']);
+    assert.deepEqual(customDiffs({ bonds: { banCore: 3, banAddon: 4 } }, { bans: officialBans(cfg, 'HARD', LARGE_SEATS) }), ['bonds.banCore', 'bonds.banAddon'],
+      'the 4-player counts are a difference in an 8-seat room');
+  });
+
+  test('the room screen hides 「AI 队友最后选择」 in an 8-seat room (no AI seat)', async () => {
+    const { aiLastOption } = await import('../public/js/screens/room.js');
+    const room = { mode: 'coop', hostId: 'h', aiPicksLast: false };
+    assert.equal(aiLastOption({ ...room, size: 8 }, 'h'), null);
+    assert.deepEqual(aiLastOption({ ...room, size: 4 }, 'h'), { on: false, editable: true });
   });
 });

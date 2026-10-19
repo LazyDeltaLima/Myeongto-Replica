@@ -30,15 +30,16 @@
 // like settle() — the strip's count; "以其阵地当前的状态" [ASSUMED] includes them; until 0.1.3 the round-start layers),
 // and settle() still adds those gains once. Time limit = the round's combat limit.
 // The 8-player mode (maintainer decision 2026-10-19 [ASSUMED]; config.eightPlayer.unite): up to 4 helpers, ordered like
-// the pair; 3–4 of them play the wide field — the 2-helper field twice side by side (server/sim/wideStage.js), the
-// helpers on its halves from the right (column offsets 24 / 16 / 8 / 0; with 3 the left-most half stays empty), the
-// enemies in at the far right through every half — for twice the round's combat limit (Match._uniteLimit).
+// the pair; 3–4 of them play a wide field (server/sim/wideStage.js) — 3: the 1-helper half attached right of the 2-helper
+// field, 4: the 2-helper field twice side by side — one helper per half from the right (column offsets 16 / 8 / 0, or
+// 24 / 16 / 8 / 0), the enemies in at the far right through every half, for the round's combat limit × halves ÷ 2 (the
+// path's length: × 1.5, × 2; Match._uniteLimit).
 // LP: an enemy still alive at the end (leaked in the unite battle, or never spawned before the limit) costs its
 // SOURCE player 1 LP; each player's round loss = min(lpCap, survivors attributed to them + leaks that could not
 // re-enter) — the same 10 cap as a normal round.
 
 import { buildUniteWave } from './waves.js';
-import { WIDE_OFFSETS } from '../sim/wideStage.js';
+import { wideOffsets } from '../sim/wideStage.js';
 import { layerGainRoom } from '../../shared/constants.js';
 
 /**
@@ -147,8 +148,8 @@ export function uniteBattleOpts(m, plan, timeLimit) {
       carry.set(u.uid, { hpPct: Number.isFinite(u.hpPct) ? Math.max(0.01, Math.min(1, u.hpPct)) : 1, sp });
     }
     // 2 helpers: the first one meets the enemies first on the right-hand field (escaped_multi enters at col 18); the
-    // wide field (3–4 helpers, 8-player mode): the halves from the right, 24 / 16 / 8 / 0 (server/sim/wideStage.js)
-    const colOffset = wave.wide ? WIDE_OFFSETS[i] : plan.helpers.length > 1 && i === 0 ? 8 : 0;
+    // wide field (3–4 helpers, 8-player mode): the halves from the right, 16 / 8 / 0 or 24 / 16 / 8 / 0 (wideStage.js)
+    const colOffset = wave.wide ? wideOffsets(wave.wide)[i] : plan.helpers.length > 1 && i === 0 ? 8 : 0;
     // the layers its own combat reached (bondsView, the round's pending gains; PRTS "以其阵地当前的状态") — see header
     const input = ps.battleInput({ side: 'L', colOffset, carry, reached: true });
     const ev = { input, kind: 'unite', round: m.round, spawns: wave.spawns };

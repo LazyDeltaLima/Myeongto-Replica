@@ -21,9 +21,9 @@
 //            placeable summons on the board; every equipment item, band, battle-side 机变 card and stage map card in
 //            turn; bonds from the board (bondsMeta.computeBonds) with 0–120 layers
 //   bonds    46 battles: every bond at its activation threshold (1 layer) and at its top tier (999 layers), 8 operators
-//   fields   23 battles: every Final Assault / Hidden Core leader on its pair and its solo template (a shared boss pool,
-//            ended at 200 game s) and 联防 fields (1 and 2 helpers on a battle stage, both halves, and 4 on the 8-player
-//            mode's wide field; carried HP / SP, a knocked-out operator, two leakers' enemies with a summoned-only kind
+//   fields   24 battles: every Final Assault / Hidden Core leader on its pair and its solo template (a shared boss pool,
+//            ended at 200 game s) and 联防 fields (1 and 2 helpers on a battle stage, both halves, and 4 / 3 on the 8-player
+//            mode's wide fields; carried HP / SP, a knocked-out operator, two leakers' enemies with a summoned-only kind
 //            and a bounty)
 //   matches  24 matches run to the end in virtual time with the match's default bot rehearsal: 17 bot-only (solo 标准 /
 //            险境 / 绝境 / 终极 ×2 seeds, co-op 2 / 3 / 4 / 8 — the 8-player mode —, one server-run combat match, two with
@@ -84,7 +84,7 @@ import { unitForm } from '../shared/standIn.js';
 import { POTENTIAL_DEFAULT, CULTIVATE_DEFAULT } from '../shared/potential.js';
 import { OPERATOR_KITS, KITTED_CHARS } from '../server/sim/content/kits/index.js';
 import { GEO, LARGE_SEATS } from '../shared/constants.js';
-import { WIDE_OFFSETS } from '../server/sim/wideStage.js';
+import { wideOffsets, wideRect } from '../server/sim/wideStage.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 /** The default player's 潜能 / 练度 of every owned operator (shared/potential.js; the owner's decision of 2026-10-08). */
@@ -149,7 +149,7 @@ export function runBattle(sc, probe = {}) {
     battleId: sc.id, fieldId: sc.fieldId ?? 'g', kind: sc.kind, seed: sc.seed, modeId: sc.modeId, round: sc.round,
     stageId: sc.stageId, rect: sc.rect, timeLimit: sc.timeLimit, players: sc.players, spawns: sc.spawns, routes: sc.routes,
     flags: sc.flags, enemyOverrides: sc.enemyOverrides ?? {}, waveId: sc.waveId ?? null, bossId: sc.bossId ?? null,
-    boss: sc.boss ?? null, content: 'full', wide: sc.wide === true,
+    boss: sc.boss ?? null, content: 'full', wide: sc.wide ?? 0,
   });
   const b = createBattleFromSpec(spec, ds, { quiet: true, logger: QUIET, recordEvents: probe.recordEvents !== false });
   const hooks = {};
@@ -610,9 +610,9 @@ export function fieldScenarios() {
       });
     }
   }
-  // 联防: 1 and 2 helpers, and 4 on the wide field of the 8-player mode (server/sim/wideStage.js); the leakers' enemies
-  // (walkers, flyers, a summoned-only kind, a bounty) re-enter
-  for (const helpers of [1, 2, 4]) {
+  // 联防: 1 and 2 helpers, and 4 and 3 on the wide fields of the 8-player mode (server/sim/wideStage.js; 3 last, so the
+  // earlier scenarios keep their inputs); the leakers' enemies (walkers, flyers, a summoned-only kind, a bounty) re-enter
+  for (const helpers of [1, 2, 4, 3]) {
     const i = n++;
     const modeId = helpers === 1 ? 'mode_multi_normal' : 'mode_multi_hard';
     const wide = helpers > 2;
@@ -622,7 +622,7 @@ export function fieldScenarios() {
     const stageId = STAGES[(i * 5) % STAGES.length];
     const seed = deriveSeed(20261005, `unite:${helpers}`);
     const src = normalWave(gd, round, seed);
-    const leakers = helpers === 1 ? ['p2', 'p3'] : helpers === 2 ? ['p3', 'p4'] : ['p5', 'p6'];
+    const leakers = helpers === 1 ? ['p2', 'p3'] : helpers === 2 ? ['p3', 'p4'] : helpers === 4 ? ['p5', 'p6'] : ['p4', 'p5'];
     const keys = [...new Set(src.spawns.map((s) => s.enemyKey))];
     const tokenOnly = Object.keys(data.enemies).filter((k) => data.enemies[k].tokenOnly).sort(byId);
     const leaked = [];
@@ -633,7 +633,7 @@ export function fieldScenarios() {
     const wave = buildUniteWave(gd, leaked, helpers, src.timeLimit);
     let uid = 1;
     const players = [];
-    const offsetOf = (h) => (wide ? WIDE_OFFSETS[h] : helpers > 1 && h === 0 ? 8 : 0);
+    const offsetOf = (h) => (wide ? wideOffsets(helpers)[h] : helpers > 1 && h === 0 ? 8 : 0);
     for (let h = 0; h < helpers; h++) {
       const t = team(gd, stageId, 'normal', uid, 8, offsetOf(h));
       uid = t.nextUid;
@@ -645,8 +645,8 @@ export function fieldScenarios() {
       players.push(playerInput(`p${h + 1}`, h, t.units, { colOffset: offsetOf(h), bonds: bondsOf(gd, t.units, 5 + 30 * h), bandId: bands.next() }));
     }
     scenarios.push({
-      id: `unite-${helpers}${wide ? '-wide' : ''}`, family: 'fields', kind: 'unite', modeId, round, stageId, seed, ...(wide ? { wide: true } : {}),
-      rect: { ...(wide ? GEO.UNITE_WIDE_RECT : GEO.UNITE_RECT) }, timeLimit: src.timeLimit * gd.unite.wideTimeScale, routes: wave.routes, waveId: wave.templateId, enemyOverrides: src.overrides,
+      id: `unite-${helpers}${wide ? '-wide' : ''}`, family: 'fields', kind: 'unite', modeId, round, stageId, seed, ...(wide ? { wide: helpers } : {}),
+      rect: wide ? wideRect(helpers) : { ...GEO.UNITE_RECT }, timeLimit: wide ? src.timeLimit * helpers * gd.unite.wideTimePerHalf : src.timeLimit, routes: wave.routes, waveId: wave.templateId, enemyOverrides: src.overrides,
       flags: { layerGainsEnabled: false, ...gd.dp }, fieldId: 'u', players, spawns: wave.spawns,
       about: `联防 ${helpers} helper(s), ${leaked.length} leaked: ${players.map((p) => placeName(p.units).join(' ')).join(' | ')}`,
     });

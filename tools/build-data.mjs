@@ -3973,9 +3973,10 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
       aliveFull: 8,
       // 机变 cards per draft: 12 (4 players: 6)
       spDraftCards: 12,
-      // 联防: up to 4 helpers; 3–4 helpers play the 2-helper field twice side by side, for twice the round's time limit
-      // (1–2 helpers: the 4-player fields)
-      unite: { maxHelpers: 4, wideFrom: 3, wideTimeScale: 2 },
+      // 联防: up to 4 helpers; 3–4 play a wide field, a half per helper (3: the 1-helper half + the 2-helper field, 4: the
+      // 2-helper field twice), for the round's time limit × 0.5 per half (the path's length: × 1.5, × 2; maintainer
+      // decision 2026-10-19); 1–2 helpers: the 4-player fields
+      unite: { maxHelpers: 4, wideFrom: 3, wideTimePerHalf: 0.5 },
     },
     timers: {
       infoCheck: step('INFO_CHECK')?.time ?? 25, infoCheckHint: step('INFO_CHECK')?.hintTime ?? 5,

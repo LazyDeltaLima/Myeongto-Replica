@@ -12,7 +12,7 @@ export const ROWS = GEO.ROWS;
 /** The stage width (21): the mirrored right side of a pair field maps col → STAGE_COLS − 1 − col (DESIGN §3). */
 export const STAGE_COLS = GEO.COLS;
 /**
- * The battle grid's width: room for the doubled 联防 field of the 8-player mode (GEO.WIDE_COLS, server/sim/wideStage.js);
+ * The battle grid's width: room for the widest 联防 field of the 8-player mode (GEO.WIDE_COLS, server/sim/wideStage.js);
  * every other field uses the stage's 21 columns of it, the rest is off the stage. A tile key is row × COLS + col.
  */
 export const COLS = GEO.WIDE_COLS;

@@ -634,8 +634,9 @@ export class GameData {
   }
   /**
    * 联防: `maxHelpers` (an 8-player match: config.eightPlayer.unite's, 4), `templates` (the escaped levels of 1 / 2
-   * helpers), `wideFrom` (the helper count from which the field is the 2-helper field twice side by side — 3 in an
-   * 8-player match, never in the others) and `wideTimeScale` (that field's time limit ÷ the round's, 2).
+   * helpers), `wideFrom` (the helper count from which the field is a wide one, a half per helper — 3 in an 8-player
+   * match, never in the others; server/sim/wideStage.js) and `wideTimePerHalf` (its time limit ÷ the round's, per half:
+   * 0.5, so × 1.5 for 3 halves and × 2 for 4).
    */
   get unite() {
     const u = this.config.unite && typeof this.config.unite === 'object' ? this.config.unite : {};
@@ -644,7 +645,7 @@ export class GameData {
       maxHelpers: posIntOr(lu?.maxHelpers, 0) || posIntOr(u.maxHelpers, DEFAULTS.unite.maxHelpers),
       templates: u.templates && typeof u.templates === 'object' ? u.templates : DEFAULTS.unite.templates,
       wideFrom: lu ? posIntOr(lu.wideFrom, Infinity) : Infinity,
-      wideTimeScale: lu ? numOr(lu.wideTimeScale, 1) : 1,
+      wideTimePerHalf: lu ? numOr(lu.wideTimePerHalf, 0.5) : 0.5,
     };
   }
 

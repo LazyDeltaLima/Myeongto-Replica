@@ -35,6 +35,7 @@ import { Battle } from './Battle.js';
 import { toDataSource, withUnitLoadouts } from './simdata.js';
 import { isPotential, isCultivate } from '../../shared/potential.js';
 import { BOSS_POOL_MIN_HP, PREBUILT_INTERVAL } from './constants.js';
+import { wideHalves } from './wideStage.js';
 
 export const SPEC_VERSION = 1;
 
@@ -98,8 +99,8 @@ export function buildBattleSpec(o = {}) {
     content: o.content ?? 'full',
     boss: bossLike && o.boss ? { poolHp: Number(o.boss.poolHp) || 0, poolMax: Number(o.boss.poolMax) || 1 } : null,
   };
-  // the 8-player mode's doubled 联防 field (Battle `wide`, wideStage.js); absent on every other field
-  if (o.wide === true && spec.kind === 'unite') spec.wide = true;
+  // the halves (3 | 4) of an 8-player mode's wide 联防 field (Battle `wide`, wideStage.js); absent on every other field
+  if (wideHalves(o.wide) && spec.kind === 'unite') spec.wide = o.wide;
   const out = JSON.parse(JSON.stringify(spec, specReplacer));
   for (const p of out.players) for (const u of (p && Array.isArray(p.units) ? p.units : [])) if (u && typeof u === 'object') sanitizeUnitLoadout(u);
   return out;
@@ -185,7 +186,7 @@ export function createBattleFromSpec(spec, dataSource, opts = {}) {
     content: opts.content ?? s.content ?? 'full',
   };
   if (s.bossId != null) battleOpts.bossId = s.bossId;
-  if (s.wide === true) battleOpts.wide = true;
+  if (wideHalves(s.wide)) battleOpts.wide = s.wide;
   if (opts.logger) battleOpts.logger = opts.logger;
   if (opts.recordEvents === false) battleOpts.recordEvents = false;
   if (opts.quiet) battleOpts.quiet = true;

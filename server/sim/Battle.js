@@ -2,8 +2,8 @@
 //
 //   const b = new Battle({ seed, kind, modeId, round, stage|stageId, rect, timeLimit, players, spawns, routes,
 //                          sharedBoss, flags, fieldId?, wide?, data?, content?, recordEvents?, logger? })
-// `wide`: the 8-player mode's doubled 联防 field (wideStage.js): the stage widened to GEO.WIDE_COLS, the default rect
-// GEO.UNITE_WIDE_RECT, the column spans of its players by their offsets (wideSpan).
+// `wide`: the halves (3 | 4) of an 8-player mode's wide 联防 field (wideStage.js): the stage widened, the default rect
+// wideRect(halves), the column spans of its players by their offsets (wideSpan).
 //   b.step(); b.finished; b.forceEnd(reason); b.time; b.result(); b.snapshot(); b.drainEvents(); b.on/off(...)
 //
 // Construction creates every ally unit (undeployed) and installs content (kits + domain modules). The first
@@ -53,7 +53,7 @@ import { Grid } from './grid.js';
 import { ProjectileSystem } from './projectiles.js';
 import { remainingDistance } from './ai.js';
 import { toDataSource, normalizeRoute, normalizeStage } from './simdata.js';
-import { widenStage } from './wideStage.js';
+import { widenStage, wideHalves, wideRect } from './wideStage.js';
 import { installContent } from './content/index.js';
 import { BattlePlayers } from './battle/players.js';
 import { BattleLifecycle } from './battle/lifecycle.js';
@@ -90,16 +90,16 @@ export class Battle {
     this.data = toDataSource(opts.data);
     let stage = opts.stage ?? (opts.stageId ? this.data.getStage(opts.stageId) : null);
     if (stage && !stage._norm) stage = normalizeStage(stage.id ?? opts.stageId, stage);
-    /** the doubled 联防 field of the 8-player mode (header) */
-    this.wide = this.kind === 'unite' && opts.wide === true;
-    if (stage && this.wide) stage = widenStage(stage);
+    /** the halves of an 8-player mode's wide 联防 field (header), 0 on every other field */
+    this.wide = this.kind === 'unite' ? wideHalves(opts.wide) : 0;
+    if (stage && this.wide) stage = widenStage(stage, this.wide);
     this.stage = stage || { id: 'empty', rows: [], devices: [] };
     this.stageId = this.stage.id ?? opts.stageId ?? null;
-    const defRect = this.wide ? GEO.UNITE_WIDE_RECT : DEFAULT_RECTS[this.kind] ?? GEO.NORMAL_RECT;
+    const defRect = this.wide ? wideRect(this.wide) : DEFAULT_RECTS[this.kind] ?? GEO.NORMAL_RECT;
     this.rect = { ...(opts.rect ?? defRect) };
     { // a malformed rect (non-integers, inverted, off the stage) falls back to the kind's default field
       const R = this.rect;
-      const maxC = this.wide ? GEO.WIDE_COLS : GEO.COLS;
+      const maxC = this.wide ? wideRect(this.wide).c1 + 1 : GEO.COLS;
       const ok = [R.r0, R.r1, R.c0, R.c1].every(Number.isInteger) && R.r0 >= 0 && R.c0 >= 0 && R.r1 < ROWS && R.c1 < Math.min(COLS, maxC) && R.r0 <= R.r1 && R.c0 <= R.c1;
       if (!ok) this.rect = { ...defRect };
     }

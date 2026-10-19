@@ -110,14 +110,14 @@ export function joinedDoctors(prev, room, myId) {
 
 /**
  * The co-op room option 「AI 队友最后选择」 (GitHub #338; room.setAiPicksLast, room.state.aiPicksLast): in the strategy and
- * 机变 drafts every human picks before the AI teammates. null in a solo room (no AI teammates); otherwise its state (off
+ * 机变 drafts every human picks before the AI teammates. null in a solo room and an 8-seat room (no AI teammates); otherwise its state (off
  * when the server sends none) and whether this player may switch it — the host only, the others see it read-only.
  * @param {any} room room.state payload
  * @param {any} myId
  * @returns {{ on: boolean, editable: boolean } | null}
  */
 export function aiLastOption(room, myId) {
-  if (!room || room.mode === 'solo') return null;
+  if (!room || room.mode === 'solo' || room.size > 4) return null;
   return { on: room.aiPicksLast === true, editable: room.hostId != null && room.hostId === myId };
 }
 
@@ -328,9 +328,9 @@ export function RoomScreen() {
   const rulesEditable = rulesetOption(room, me.playerId).editable;
   // the ⚙: the host edits (the room's settings when it is custom, else the lobby's), anybody else views a custom room's
   const customGear = rulesEditable
-    ? () => openCustomRules({ rules: isCustom ? roomRules.custom : customDraft(), roomMode: room.mode, difficulty: room.difficulty,
+    ? () => openCustomRules({ rules: isCustom ? roomRules.custom : customDraft(), roomMode: room.mode, difficulty: room.difficulty, size: room.size,
       onApply: (custom) => run('rules', () => net.request('room.setRuleset', { preset: 'custom', custom })) })
-    : isCustom ? () => openCustomRules({ rules: roomRules.custom, readonly: true, roomMode: room.mode, difficulty: room.difficulty,
+    : isCustom ? () => openCustomRules({ rules: roomRules.custom, readonly: true, roomMode: room.mode, difficulty: room.difficulty, size: room.size,
       live: () => store.get().room?.ruleset?.custom ?? null }) : null;
   // spectator seats: the host frees one; a spectator takes a free player seat with room.join of this room
   const removeSpectator = (playerId) => run(`rs${playerId}`, () => net.request('room.removeSpectator', { playerId }));

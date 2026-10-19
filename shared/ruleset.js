@@ -22,7 +22,7 @@
 // layer cap). docs/rules/ui.md 「규칙 모드」 has the rules and their evidence.
 
 import { N_ } from './i18n.js';
-import { BOSS_HIT_LIMIT } from './constants.js';
+import { BOSS_HIT_LIMIT, LARGE_SEATS } from './constants.js';
 
 /**
  * `note` = one line for players who do not know the rule (the switch's tooltip; `{n}` = the option's `noteN`).
@@ -237,6 +237,17 @@ export function customStagePool(stageIds, custom) {
 /** The boolean options of custom settings. @param {Readonly<typeof CUSTOM_OFFICIAL>} c */
 export function optionsOfCustom(c) {
   return Object.freeze(Object.fromEntries(Object.keys(RULE_OPTIONS).map((k) => [k, !!OPTION_FIELDS[k](c)])));
+}
+
+/**
+ * The official bond ban counts { core, addon } of a difficulty (config.json bans[difficulty]; an 8-seat room's:
+ * config.eightPlayer.bans[difficulty] — shared/constants.js LARGE_SEATS), null when the config has none. The custom
+ * dialog's 「官方值」, its differences (customDiffs `base.bans`) and the summaries compare with it.
+ * @param {any} config data/config.json @param {string} difficulty @param {number} [size] the room size (4 | 8)
+ */
+export function officialBans(config, difficulty, size) {
+  const big = size === LARGE_SEATS ? config?.eightPlayer?.bans?.[difficulty] : null;
+  return big || config?.bans?.[difficulty] || null;
 }
 
 /**
