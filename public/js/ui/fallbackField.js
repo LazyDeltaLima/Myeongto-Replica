@@ -22,6 +22,7 @@
 import { render } from '../../vendor/preact.module.js';
 import { html, TierChip } from './components.js';
 import { GEO } from '../../../shared/constants.js';
+import { wideHalves, widenStageData } from '../../../shared/wideField.js';
 import { chessAvatarUrl, itemIconUrl, tokenAvatarUrl, enemyIconUrl } from './assetUrls.js';
 import { tileKey, hasFlag, UF, penPlacement, PEN, fieldTile, ownStandIn, ownDiyRecord } from './gameLogic.js';
 import { t } from '../../../shared/i18n.js';
@@ -109,7 +110,8 @@ export function createFallbackView(host, opts = {}) {
     const bottom0 = h - rem * (prep ? 3.3 : 1.1);
     const availW = w * (prep ? 0.58 : 0.8);
     const availH = Math.max(rem, bottom0 - top0);
-    const tile = Math.max(24, Math.floor(Math.min(availW / cols, availH / rows)));
+    // (a wide 联防 field's 29 / 37 columns go down to 12 px tiles rather than past the screen's edges)
+    const tile = Math.max(cols > 21 ? 12 : 24, Math.floor(Math.min(availW / cols, availH / rows)));
     const bw = tile * cols;
     const bh = tile * rows;
     const left = Math.round(w * (prep ? 0.44 : 0.5) - bw / 2);
@@ -232,7 +234,16 @@ export function createFallbackView(host, opts = {}) {
   // the stage tile a board tile shows: in a boss round's prep the player's half of the boss field (fieldTile)
   function tileClass(row, col) {
     const [r, c] = st.mode === 'prep' ? fieldTile(st.deployField, row, col) : [row, col];
-    return fallbackTileClass(st.stage, r, c);
+    return fallbackTileClass(shownStage(), r, c);
+  }
+
+  // the stage behind the board: widened on the 8-player mode's wide 联防 field (shared/wideField.js; one copy per stage)
+  let wideMemo = { base: null, halves: 0, out: null };
+  function shownStage() {
+    const halves = st.mode === 'battle' && st.field?.kind === 'unite' ? wideHalves(st.field.wide) : 0;
+    if (!halves || !st.stage) return st.stage;
+    if (wideMemo.base !== st.stage || wideMemo.halves !== halves) wideMemo = { base: st.stage, halves, out: widenStageData(st.stage, halves) };
+    return wideMemo.out;
   }
 
   function dropState(target) {
@@ -404,7 +415,7 @@ export function createFallbackView(host, opts = {}) {
       else if (kind === 'prep' || kind === 'bossPrep' || kind === 'normal') st.rect = { ...GEO.NORMAL_RECT };
       st.deployField = kind === 'bossPrep' ? (o?.side === 'R' ? 'bossR' : 'bossL') : 'normal';
       if (kind === 'bossPrep') st.camera = 'prep';
-      else if (kind === 'unite') st.rect = { ...GEO.UNITE_RECT };
+      else if (kind === 'unite' && !o?.rect) st.rect = { ...GEO.UNITE_RECT };
       else if (kind === 'boss') st.rect = { ...GEO.BOSS_RECT };
       st.side = o?.side || 'L';
       schedule();

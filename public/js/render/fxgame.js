@@ -225,6 +225,8 @@ const DIR_FWD = Object.freeze({ UP: [1, 0], RIGHT: [0, 1], DOWN: [-1, 0], LEFT: 
  * this one).
  */
 export const MOUND_SP0_TURN = Object.freeze([-0.5, -0.5, 0.5, 0.5]);
+/** Columns of the battle grid (GEO.WIDE_COLS): a stage's 21, the 8-player mode's wide 联防 field up to 37. */
+const BATTLE_COLS = 37;
 /** tan of half the client battle camera's vertical field of view (projection.js OFFICIAL.fovY 40°) — a camera effect's frame. */
 const TAN_CLIENT_HALF_FOV = Math.tan((OFFICIAL.fovY * Math.PI) / 360);
 /** 战场#06's 沙尘暴: its direction → the camera effect (EN template sand_storm[camera_effect]: DOWN → up_to_down …). */
@@ -246,7 +248,7 @@ export function stormMarks(storm, mounds) {
     if (!s) continue;
     const [dr, dc] = DIR_FWD[s.dir];
     let sheltered = false;
-    for (let r = m.r - dr, c = m.c - dc; r >= 0 && r < 19 && c >= 0 && c < 21; r -= dr, c -= dc) if (at.has(`${r},${c}`)) { sheltered = true; break; }
+    for (let r = m.r - dr, c = m.c - dc; r >= 0 && r < 19 && c >= 0 && c < BATTLE_COLS; r -= dr, c -= dc) if (at.has(`${r},${c}`)) { sheltered = true; break; }
     if (!sheltered) out.push({ r: m.r, c: m.c, z: Number(m.z) || 0, name: `map_desert_02_${s.dir.toLowerCase()}` });
   }
   return out;
@@ -2831,7 +2833,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const cells = [];
     for (let k = 0; k < 64; k++) {
       const r = r0 + dir[1] * k * dist, c = c0 + dir[0] * k * dist;
-      if (r < -0.5 || c < -0.5 || r > 18.5 || c > 20.5) break;   // off the stage: the main projectile stops
+      if (r < -0.5 || c < -0.5 || r > 18.5 || c > BATTLE_COLS - 0.5) break;   // off the grid: the main projectile stops
       cells.push({ r, c, t: (k * dist) / speed });
     }
     const official = !!(subFx.length || mainR);

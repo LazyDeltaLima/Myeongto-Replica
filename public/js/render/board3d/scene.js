@@ -26,7 +26,7 @@
 // material), cyan field edges, terrain overlays (≤ 4), background plane + its shadow catcher — ~12–16 in total.
 // The key light's shadow map is rendered only when the geometry changes (autoUpdate off).
 
-import { buildBoard, objToBoard, boxProjectUV, ROWS, COLS, DEVICE_H, AREAS } from './layout.js';
+import { buildBoard, objToBoard, boxProjectUV, ROWS, colsOf, DEVICE_H, AREAS } from './layout.js';
 import { surfaceUV } from './atlas.js';
 import {
   focusUniforms, makeTexture, boardMaterial, glassMaterial, decalMaterial, pipeMaterial, unlitMaterial, gateMaterial, glowMaterial,
@@ -340,6 +340,9 @@ export class BoardScene {
         this.opts.onOfficial?.({ stageId: built.stageId, highland: built.highland, platform: built.devices?.top(OFFICIAL_DEVICE.platform) ?? null,
           waterPlatform: built.devices?.top(OFFICIAL_DEVICE.waterPlatform) ?? null });
       }
+      // the 8-player mode's wide 联防 field (render/app.js shows the stage widened): a second copy of the island
+      const copy = this.officialBuilt.setWide?.(stage._wide || 0);
+      if (copy && copy.parent !== this.officialRoot) this.officialRoot.add(copy);
       this.officialBuilt.setArea(this.area);
       this._buildDevices(board);
       this._buildGates(board);
@@ -651,7 +654,7 @@ export class BoardScene {
   _buildBackground(board) {
     const T = this.THREE;
     const B = LIGHTING.bg;
-    const cx = (COLS - 1) / 2, cy = (ROWS - 1) / 2;
+    const cx = (colsOf(board.grid) - 1) / 2, cy = (ROWS - 1) / 2; // (a wide 联防 field's board is 29 / 37 columns)
     let plane = null;
     const obj = this.pack?.meshes?.bgPlane;
     if (obj) plane = objToBoard(obj, B.size / 100);

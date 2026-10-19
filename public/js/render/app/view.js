@@ -2,6 +2,7 @@
 
 import { AREAS, areaFor } from '../board3d/layout.js';
 import { normRect } from '../projection.js';
+import { wideHalves, wideShift } from '../../../../shared/wideField.js';
 
 const VIEW_KINDS = new Set(['prep', 'normal', 'unite', 'boss', 'bossPrep', 'pen']);
 
@@ -27,11 +28,14 @@ const AREA_NO_PEN = Object.freeze({
  * 3D area built for a view kind (viewKind): the enemy preview pen (rows 14–18) only for the 'pen' camera — the prep,
  * battle and 联防 cameras show the field alone (user playtest #2 item 6) with its separator rows 6 and 13 (the row-13
  * devices blow into the field: act2 m01's blowers, user playtest #5 item 6; the boss field's row-6 devices are drawn
- * with the boss field only — board3d/layout.js stageDevices); the boss kinds build the boss field.
+ * with the boss field only — board3d/layout.js stageDevices); the boss kinds build the boss field. `halves`: the wide
+ * 联防 field on screen (render/app.js shownWide), whose rows reach its last column.
  */
-export function boardArea(vk) {
+export function boardArea(vk, halves = 0) {
   if (vk === 'pen') return AREAS.normal;
   if (vk === 'prep' || vk === 'normal') return AREA_NO_PEN.normal.length ? AREA_NO_PEN.normal : AREAS.normal;
+  // the 8-player mode's wide 联防 field (3 | 4 halves, shared/wideField.js): its rows, as wide as the widened stage
+  if (vk === 'unite' && wideHalves(halves)) return [{ ...AREA_NO_PEN.unite[0], c1: AREA_NO_PEN.unite[0].c1 + wideShift(halves) }];
   if (vk === 'unite') return AREA_NO_PEN.unite.length ? AREA_NO_PEN.unite : AREAS.unite;
   return areaFor(vk);
 }

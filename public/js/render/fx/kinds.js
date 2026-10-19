@@ -189,7 +189,8 @@ export function wallTiles(x, y, axis, rect) {
     const [a, b] = ok ? [rect.r0, rect.r1] : [R - 4, R + 4];
     for (let r = a; r <= b; r++) out.push([r, C]);
   }
-  return out.filter(([r, c]) => r >= 0 && r <= 18 && c >= 0 && c <= 20);
+  // the battle grid: 19 rows, 37 columns (the 8-player mode's wide 联防 field; a stage is 21 wide)
+  return out.filter(([r, c]) => r >= 0 && r <= 18 && c >= 0 && c <= 36);
 }
 
 /**

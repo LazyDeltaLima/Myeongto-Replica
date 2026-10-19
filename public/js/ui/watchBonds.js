@@ -22,7 +22,7 @@
 // strip's owner, or the chip's — its entry, member list and "👁 name" label always belong to that one player.
 
 import { BOND_LAYER_CAP } from '../../../shared/constants.js';
-import { sidesOf, nameOf, cameraLayers } from '../battle/observe.js';
+import { sidesOf, nameOf, cameraLayers, isHalfLayer } from '../battle/observe.js';
 
 const isObj = (v) => !!v && typeof v === 'object';
 const playersOf = (pub) => (Array.isArray(pub?.players) ? pub.players.filter(isObj) : []);
@@ -45,7 +45,7 @@ export function screenFieldId({ combat = false, settle = false, watchingOther = 
 
 /**
  * The player whose bonds the strip shows (see the header).
- * @param {{ pub: any, myId: string, fieldId?: string|null, field?: any, layer?: 'L'|'ALL'|'R', halves?: boolean,
+ * @param {{ pub: any, myId: string, fieldId?: string|null, field?: any, layer?: string, halves?: boolean,
  *   watched?: string|null }} o — field: the field meta on screen (store.match.field: `sides` / `players`), consulted when
  *   it is `fieldId`; halves: the ‹ › pill is offered (battle/observe.js cameraLayers non-empty); watched: the player
  *   picked with 前往查看 (watchedPlayer), consulted on a shared field the viewer does not fight on
@@ -62,7 +62,7 @@ export function bondOwnerId({ pub, myId, fieldId = null, field = null, layer = '
   }
   const meta = isObj(field) && field.fieldId === fieldId ? field : null;
   const sides = meta ? sidesOf(meta) : {};
-  if (halves && meta && (layer === 'L' || layer === 'R')) {
+  if (halves && meta && isHalfLayer(layer)) {
     const pid = Object.keys(sides).find((id) => sides[id] === layer);
     if (ok(pid)) return pid;
   }
@@ -88,16 +88,17 @@ export function watchedPlayer(who, watching) {
 }
 
 /**
- * The ‹ › layer that shows `playerId`'s half of a two-half shared field (联防 with two helpers, a pair's boss field),
- * or null (a normal / lone field, a player not on it). 前往查看 of such a player moves the camera there.
+ * The ‹ › layer that shows `playerId`'s half of a shared field (联防 with two helpers — or the 8-player mode's wide one,
+ * H0…H3 —, a pair's boss field), or null (a normal / lone field, a player not on it). 前往查看 of such a player moves the
+ * camera there.
  * @param {any} field the field meta on screen @param {any} pub @param {string} myId @param {string|null} playerId
- * @returns {'L'|'R'|null}
+ * @returns {string|null} 'L' | 'R' | 'H0'…'H3'
  */
 export function playerLayer(field, pub, myId, playerId) {
   if (!isObj(field) || typeof playerId !== 'string' || !playerId) return null;
   if (!cameraLayers(field, pub, myId).length) return null;
   const side = sidesOf(field)[playerId];
-  return side === 'L' || side === 'R' ? side : null;
+  return isHalfLayer(side) ? side : null;
 }
 
 /**
@@ -184,7 +185,7 @@ export function ownerBoard(field, ownerId, extra = null) {
 
 /**
  * Everything the strip needs: whose bonds, their name (null for your own) and the list with the live layers laid over.
- * @param {{ pub: any, priv?: any, myId: string, fieldId?: string|null, field?: any, layer?: 'L'|'ALL'|'R', halves?: boolean,
+ * @param {{ pub: any, priv?: any, myId: string, fieldId?: string|null, field?: any, layer?: string, halves?: boolean,
  *   watched?: string|null, live?: Record<string, Record<string, number>>|null }} o — live: the runner's bondLayers (null
  *   outside a battle)
  * @returns {{ ownerId: string, self: boolean, name: string|null, bonds: any[] }}
@@ -201,7 +202,7 @@ export function stripView({ pub, priv = null, myId, fieldId = null, field = null
  * it, the picked teammate, the live layers (battle phases and SETTLE only) — then stripView. Also returns `fieldId`.
  * @param {{ pub: any, priv?: any, myId: string, combat?: boolean, settle?: boolean, watchingOther?: boolean,
  *   watching?: string|null, home?: string|null, battleFieldId?: string|null, field?: any, layers?: any[],
- *   layer?: 'L'|'ALL'|'R', who?: { fieldId?: string, playerId?: string }|null,
+ *   layer?: string, who?: { fieldId?: string, playerId?: string }|null,
  *   bondLayers?: Record<string, Record<string, number>>|null }} o — layers: the ‹ › pill's layers on offer
  *   (battle/observe.js cameraLayers of `field`, [] when not offered); bondLayers: the runner's state().bondLayers
  * @returns {{ fieldId: string|null, ownerId: string, self: boolean, name: string|null, bonds: any[] }}

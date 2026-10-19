@@ -119,6 +119,7 @@
 // working. createFieldView stays here: it is one closure over the view's own state.
 
 import { GEO, ANIM } from '../../../shared/constants.js';
+import { wideHalves, widenStageData } from '../../../shared/wideField.js';
 import { fxForm } from '../../../shared/protocol.js';
 import { Camera, presetCamera, lerpCamera, easeInOutCubic, pickTile, normRect } from './projection.js';
 import { SnapshotBuffer, frameTime } from './interp.js';
@@ -304,6 +305,8 @@ export async function createFieldView(host, options = {}) {
 
   let mode = 'idle';          // 'idle' | 'prep' | 'battle'
   let stageRec = null;
+  let stageBase = null; // the stage as set (stageRec: as shown — widened on a wide 联防 field, showStage)
+  let wideMemo = { base: null, halves: 0, out: null };
   let cam = presetCamera('prep', { width: s0.width, height: s0.height, padding: defaultPadding('prep', s0) }, { hud: hudBands('prep', s0) });
   let camFrom = null, camTo = null, camT0 = 0, camKind = 'prep', camOpts = {}, camMs = CAMERA_MS;
   let pendingView = null;     // tile band/focus to apply when the camera transition ends
@@ -466,7 +469,7 @@ export async function createFieldView(host, options = {}) {
           const p = info?.platform ?? null;  // the official 射击台 model's plate (style.js tileTop 'platform')
           const w = info?.waterPlatform ?? null;  // the official 特制水上平台 deck (tiles.js devH)
           if (!stageRec || ((stageRec.highlandHeight ?? null) === h && (stageRec.platformHeight ?? null) === p && (stageRec.waterPlatformHeight ?? null) === w)) return;
-          const { highlandHeight: _drop, platformHeight: _dropP, waterPlatformHeight: _dropW, ...base } = stageRec;
+          const { highlandHeight: _drop, platformHeight: _dropP, waterPlatformHeight: _dropW, ...base } = stageBase || stageRec;
           setStage({ ...base, ...(h != null ? { highlandHeight: h } : {}), ...(p != null ? { platformHeight: p } : {}), ...(w != null ? { waterPlatformHeight: w } : {}) });
         },
         official: !/[?&]officialBoard=0\b/.test(globalThis.location?.search || ''),
@@ -484,7 +487,7 @@ export async function createFieldView(host, options = {}) {
         const fu = assets.localUrl?.('board/fx', 'flow_26'), mu = assets.localUrl?.('board/fx', 'mask_123');
         if (fu && mu && assets.image) Promise.all([assets.image(fu), assets.image(mu)]).then(([flow, mask]) => { if (board3d === b) b.infectionFx?.setImages({ flow, mask }); }, () => {});
       } catch { /* no tile effect */ }
-      b.setArea(boardArea(viewKind(camKind, camOpts)));
+      b.setArea(boardArea(viewKind(camKind, camOpts), shownWide()));
       if (stageRec) b.setStage(stageRec);
       b.setFocus(camRect());
       b.setBattleRect(mode === 'battle' && battleMeta ? battleMeta.rect : null);
@@ -657,7 +660,7 @@ export async function createFieldView(host, options = {}) {
     // shop's HUD band (re-evaluated on resize: camOpts keep the flag)
     const vk = viewKind(kind, o); // (a 'prep' camera on the boss rows = the Final Assault prep)
     return presetCamera(k, { width: sz.width, height: sz.height, padding: o.padding || defaultPadding(k, sz) }, {
-      rect, side: o.side, half: !!o.half, shop: o.shop, fit: !!o.fit, config: stageRec?.config || null,
+      rect, side: o.side, half: !!o.half, halfOffset: o.halfOffset, shop: o.shop, fit: !!o.fit, config: stageRec?.config || null,
       hud: hudBands(vk, sz, { shop: o.shop !== false }),
     });
   }
@@ -691,7 +694,7 @@ export async function createFieldView(host, options = {}) {
     board3d?.setFocus(focus);
     camMs = Number.isFinite(o.ms) && o.ms >= 0 ? o.ms : (vk === 'pen' || prevView === 'pen' ? PEN_CAMERA_MS : CAMERA_MS);
     if (o.instant || camMs === 0 || mode === 'idle' && !camTo) {
-      board3d?.setArea(boardArea(vk));
+      board3d?.setArea(boardArea(vk, shownWide()));
       cam = target; camFrom = camTo = null;
       tiles.setView(band, focus, field);
       setPenHidden(!penShown(vk));
@@ -703,10 +706,10 @@ export async function createFieldView(host, options = {}) {
       camT0 = performance.now();
       // keep both fields drawn (and lit) while the camera flies between them
       tiles.setView([Math.min(prevBand[0], band[0]), Math.max(prevBand[1], band[1])], focus, [Math.min(prevField[0], field[0]), Math.max(prevField[1], field[1])]);
-      board3d?.setArea(unionAreas(boardArea(prevView), boardArea(vk)));
+      board3d?.setArea(unionAreas(boardArea(prevView, shownWide()), boardArea(vk, shownWide())));
       setPenHidden(!penShown(vk, prevView));
       setLeaderHidden(!leaderShown(vk, prevView));
-      pendingView = { band, focus, field, area: boardArea(vk), pen: penShown(vk), leader: leaderShown(vk) };
+      pendingView = { band, focus, field, area: boardArea(vk, shownWide()), pen: penShown(vk), leader: leaderShown(vk) };
     }
     return true;
   }
@@ -773,8 +776,35 @@ export async function createFieldView(host, options = {}) {
 
   // ---- stage ----------------------------------------------------------------------------------------------
 
+  /**
+   * The halves (3 | 4) of the wide 联防 field on screen (8-player mode, shared/wideField.js), else 0: the board then
+   * shows the stage widened (widenStageData); every other view shows it as given.
+   */
+  function shownWide() {
+    return mode === 'battle' && battleMeta && battleMeta.kind === 'unite' ? battleMeta.wide : 0;
+  }
+
   function setStage(st) {
     if (!st || typeof st !== 'object' || !Array.isArray(st.rows)) return false;
+    stageBase = st;
+    return showStage();
+  }
+
+  /** Columns of the board on screen: 21, or the wide 联防 field's 29 / 37 (tile picks reach its last column). */
+  function boardCols() {
+    return tiles.grid?.[0]?.length || 21;
+  }
+
+  /** Put stageBase on the board — widened while a wide 联防 field is on screen (shownWide). */
+  function showStage() {
+    let st = stageBase;
+    if (!st) return false;
+    const halves = shownWide();
+    if (halves) {
+      // one widened record per stage set (the game screen sets the same stage again on every change)
+      if (wideMemo.base !== st || wideMemo.halves !== halves) wideMemo = { base: st, halves, out: widenStageData(st, halves) };
+      st = wideMemo.out;
+    }
     // local patch: a stage drawn from its official scene stands on the scene's tile heights (style.js tileTop)
     const hl = board3d?.highlandFor?.(st.id) ?? null;
     if (hl != null && st.highlandHeight !== hl) st = { ...st, highlandHeight: hl };
@@ -868,7 +898,7 @@ export async function createFieldView(host, options = {}) {
   }
   /** The tile under a canvas point in BOARD space (null off-grid; an impossible tile off the player's half). */
   function pickBoardTile(x, y) {
-    const t = pickTile(cam, x, y, heightAt, tiles.levels);
+    const t = pickTile(cam, x, y, heightAt, tiles.levels, 19, boardCols());
     if (!t || prepXf === IDENTITY) return t;
     const b = prepXf.toBoard(t.row, t.col);
     return b ? { ...t, row: b.row, col: b.col } : { row: -1, col: -1, x: t.x, y: t.y };
@@ -1067,6 +1097,7 @@ export async function createFieldView(host, options = {}) {
     infos.clear();
     gone.clear();
     battleMeta = null;
+    if (stageRec?._wide) showStage();
     interp.reset();
     fx.clear(); fxGame.clear(); // local patch
     battleCursors.clear();
@@ -1201,7 +1232,7 @@ export async function createFieldView(host, options = {}) {
 
   /** The display tile under a canvas point (raised tops first) and the point on its top (world x, y), or null. */
   function groundTile(x, y) {
-    const t = pickTile(cam, x, y, heightAt, tiles.levels);
+    const t = pickTile(cam, x, y, heightAt, tiles.levels, 19, boardCols());
     return t ? { row: t.row, col: t.col, x: t.x, y: t.y } : null;
   }
 
@@ -1347,7 +1378,7 @@ export async function createFieldView(host, options = {}) {
       const g = cam.unproject(p.x, p.y, 0);
       const hold = item ? 0 : DRAG_HOLD_TILES;
       const s0 = g ? cam.scaleAt(g.x, g.y, 0) : cam.scale;
-      const t = pickTile(cam, p.x, p.y + hold * s0, heightAt, tiles.levels);
+      const t = pickTile(cam, p.x, p.y + hold * s0, heightAt, tiles.levels, 19, boardCols());
       const z = t ? heightAt(t.row, t.col) : 0;
       const up = item ? z : z + (v.lift || 0) + (v.hover || 0);
       let w = cam.unproject(p.x, p.y + hold * s0, up);
@@ -1553,7 +1584,9 @@ export async function createFieldView(host, options = {}) {
     mode = 'battle';
     const rect = meta.rect ? normRect(meta.rect) : (meta.kind === 'boss' || meta.kind === 'hidden' ? { ...GEO.BOSS_RECT } : meta.kind === 'unite' ? { ...GEO.UNITE_RECT } : { ...GEO.NORMAL_RECT });
     // prep: true = a read-only scouting board (a teammate's lineup during prep): prep-style pieces, no bars
-    battleMeta = { fieldId: meta.fieldId ?? null, kind: meta.kind || 'normal', rect, stageId: meta.stageId ?? null, prep: meta.prep === true };
+    // wide: the halves (3 | 4) of an 8-player mode's wide 联防 field (Battle.fieldMeta), 0 elsewhere
+    battleMeta = { fieldId: meta.fieldId ?? null, kind: meta.kind || 'normal', rect, stageId: meta.stageId ?? null, prep: meta.prep === true,
+      wide: meta.kind === 'unite' ? wideHalves(meta.wide) : 0 };
     // local patch (maintainer 2026-10-08 「협동 모드 중 휴식 기간에 다른 사람을 확인하려 갈때도 배치 연출이 보여」): a scouted board drops in
     if (battleMeta.prep) {
       scoutSeen = { fieldId: battleMeta.fieldId, at: new Map(), prev: scoutSeen && scoutSeen.fieldId === battleMeta.fieldId ? scoutSeen.at : null };
@@ -1566,7 +1599,7 @@ export async function createFieldView(host, options = {}) {
     if (meta.stageId && (!stageRec || stageRec.id !== meta.stageId)) {
       const st = data.stage(meta.stageId);
       if (st) setStage(st);
-    }
+    } else if ((stageRec?._wide || 0) !== battleMeta.wide) showStage();
     tiles.setBattleRect(rect);
     board3d?.setBattleRect(rect);
     for (const u of Array.isArray(meta.units) ? meta.units : []) addInfo(u);

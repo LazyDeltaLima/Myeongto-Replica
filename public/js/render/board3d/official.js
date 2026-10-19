@@ -223,6 +223,7 @@ uniform vec2 uTrap;          // Torappu/Scene/Trap/Shadow: _Ambient, _Diffuse
 uniform vec4 uFocus;
 uniform float uFocusDim;
 uniform float uFocusSoft;
+uniform vec2 uClipX;         // world x drawn (the two copies of the scene on a wide unite field meet at x 18.5: setWide)
 varying vec2 vUv;
 varying vec2 vUv1;
 varying vec3 vNormalW;
@@ -247,6 +248,7 @@ vec3 reflCube(vec3 d) {
 }
 
 void main() {
+  if (vWorld.x < uClipX.x || vWorld.x > uClipX.y) discard;
   vec4 albedo = texture2D(uMap, vUv) * uColor;
   #ifdef ALPHATEST
     if (albedo.a < uCutoff) discard;
@@ -335,12 +337,14 @@ uniform vec2 uWaveTiling;
 uniform vec4 uFocus;
 uniform float uFocusDim;
 uniform float uFocusSoft;
+uniform vec2 uClipX;         // world x drawn (the two copies of the scene on a wide unite field meet at x 18.5: setWide)
 varying vec2 vUv;
 varying vec2 vUv1;
 varying vec3 vNormalW;
 varying vec3 vWorld;
 varying vec4 vColor;
 void main() {
+  if (vWorld.x < uClipX.x || vWorld.x > uClipX.y) discard;
   vec2 p = vWorld.xy * 0.5;
   vec3 w1 = texture2D(uWaves, p * uWaveTiling + vec2(0.03, 0.017) * uTime).xyz * 2.0 - 1.0;
   vec3 w2 = texture2D(uWaves, p * uWaveTiling * 1.7 - vec2(0.021, 0.034) * uTime).xyz * 2.0 - 1.0;
@@ -417,6 +421,9 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
 
   const materials = new Map();
   const animated = [];
+  // the x range the stage's meshes draw (setWide), shared by every stage material; the device models draw everywhere
+  const OPEN = 1e4;
+  const clipStage = { value: new T.Vector2(-OPEN, OPEN) };
   // q: a version-2 group's uv ranges ({ uv0, uv1: [sx, sy, ox, oy] }, u16 normalized → uv); folded into uMainST /
   // uUv1ST, so a quantized group gets a material of its own (same program, no extra draw calls)
   const materialFor = (name, lmIndex, q = null) => {
@@ -439,6 +446,7 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
           uWaterTint: { value: new T.Vector3(...(C._WaterColor || [1, 1, 1]).slice(0, 3)).multiplyScalar(F._WaterColorIntensity ?? 1) },
           uLightDir: { value: lightDir }, uLightColor: { value: lightColor }, uTime: { value: 0 },
           uWaveTiling: { value: new T.Vector2(...(X._BumpMap?.scale || [0.6, 0.37])) },
+          uClipX: matSrc === doc.materials ? clipStage : { value: new T.Vector2(-OPEN, OPEN) },
           ...focus,
         },
       });
@@ -492,6 +500,7 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
           uLmGain: { value: OFFICIAL_LIGHTING.lmGain }, uDirectGain: { value: OFFICIAL_LIGHTING.directGain },
           uEmissionGain: { value: OFFICIAL_LIGHTING.emissionGain }, uOpacity: { value: 1 },
           uTrap: { value: new T.Vector2(F._Ambient ?? 0.85, F._Diffuse ?? 0.2) },
+          uClipX: matSrc === doc.materials ? clipStage : { value: new T.Vector2(-OPEN, OPEN) },
           ...focus,
         },
       });
@@ -617,21 +626,83 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
   const hiddenTiles = doc.hidden || {};
   const overlaps = (t, a) => !!t && t[0] <= a.r1 && t[1] >= a.r0 && t[2] <= a.c1 && t[3] >= a.c0;
   const hl = Number(doc.map?.highlandHeight);
+  const showHidden = (list, rects) => {
+    for (const m of list) {
+      const k = m.userData.hidden;
+      if (k && !m.userData.tideWarning) m.visible = rects.some((a) => overlaps(hiddenTiles[k]?.tiles, a));
+    }
+  };
+  // the 8-player mode's wide 联防 field (setWide): a second copy of the island `shift` columns to the right, drawn from
+  // x 18.5 (the old right spawn, where the added halves end — shared/wideField.js) while the stage's own stops there
+  const SEAM = 18.5;
+  let wide = null; // { halves, shift, group, meshes, materials }
+  let area = [];
+  const dropWide = () => {
+    if (!wide) return;
+    wide.group.parent?.remove(wide.group);
+    for (const mt of wide.materials) mt.dispose();
+    wide = null;
+    clipStage.value.set(-OPEN, OPEN);
+  };
   return {
     stageId: data.stageId,
     highland: Number.isFinite(hl) && hl > 0 ? hl : null,
     meshes,
     materials: [...materials.values()],
     setArea(rects) {
-      const list = Array.isArray(rects) ? rects : [];
-      for (const m of meshes) {
-        const k = m.userData.hidden;
-        if (k && !m.userData.tideWarning) m.visible = list.some((a) => overlaps(hiddenTiles[k]?.tiles, a));
-      }
+      area = Array.isArray(rects) ? rects : [];
+      showHidden(meshes, area);
+      // the copy's hidden sets by the stage tiles under it (the area moved back by the shift)
+      if (wide) showHidden(wide.meshes, area.map((a) => ({ ...a, c0: a.c0 - wide.shift, c1: a.c1 - wide.shift })));
+    },
+    /**
+     * Draw the island for a wide 联防 field of `halves` (3 | 4: the copy 8 / 16 columns right, from x 18.5), or as the
+     * stage alone (0). Returns the copy's Group to add to the scene (null when there is none); its meshes share the
+     * geometry, its materials share every uniform but the clip (the copy's are disposed with it). [ASSUMED] the
+     * scenery around the island is cut at the seam as well — no official scene has a wide field.
+     * @param {number} halves
+     */
+    setWide(halves) {
+      const shift = halves === 3 || halves === 4 ? 8 * (halves - 2) : 0;
+      if ((wide?.shift || 0) === shift) return wide ? wide.group : null;
+      dropWide();
+      if (!shift) return null;
+      const clipCopy = { value: new T.Vector2(SEAM, OPEN) };
+      const own = new Map();
+      const copyOf = (mt) => {
+        if (!own.has(mt)) {
+          const c = mt.clone();
+          c.uniforms = { ...mt.uniforms, uClipX: clipCopy };
+          c.userData = { ...mt.userData };
+          own.set(mt, c);
+        }
+        return own.get(mt);
+      };
+      const group = new T.Group();
+      group.name = `official-wide:${halves}`;
+      group.position.set(shift, 0, 0);
+      group.updateMatrix();
+      const copies = meshes.map((m) => {
+        const c = new T.Mesh(m.geometry, copyOf(m.material));
+        c.matrixAutoUpdate = false;
+        c.matrix.copy(m.matrix);
+        c.castShadow = m.castShadow; c.receiveShadow = m.receiveShadow;
+        c.renderOrder = m.renderOrder;
+        c.visible = m.visible;
+        c.name = `${m.name}:wide`;
+        c.userData = { ...m.userData };
+        group.add(c);
+        return c;
+      });
+      clipStage.value.set(-OPEN, SEAM);
+      wide = { halves, shift, group, meshes: copies, materials: [...own.values()] };
+      if (area.length) this.setArea(area);
+      return group;
     },
     lightDir, lightColor,
     devices,
     dispose() {
+      dropWide();
       for (const m of meshes) m.geometry.dispose();
       for (const g of devGeos) g.dispose();
       for (const m of materials.values()) m.dispose();

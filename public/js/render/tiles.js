@@ -45,6 +45,8 @@ export const ROW_KEY = Object.freeze({ blocks: 0, devices: 0.01, surface: 0.02 }
 export const boxDepthKey = (cam, row) => -cam.depthOf(0, row + 0.45, 0) * 100;
 
 const ROWS = 19, COLS = 21;
+/** Columns of a parsed grid: 21, or 29 / 37 on the 8-player mode's wide 联防 field (shared/wideField.js widenStageData). */
+const colsOf = (G) => G?.[0]?.length || COLS;
 const PLAYABLE_DIST = 2;         // margin tiles farther than this from a playable tile are not drawn
 const CLIFF_DEPTH = 0.62;        // how far the island's edge faces go down to the ground plane (tiles)
 /** Brightness of the board meshes (vertex colour above 1 lifts the mid-grey board art a little). */
@@ -101,11 +103,13 @@ const SIDE_MAT = {
 export function parseStage(stage, band = [0, ROWS - 1], field = [0, 13]) {
   const rows = Array.isArray(stage?.rows) ? stage.rows : [];
   const legend = stage && typeof stage.tiles === 'object' && stage.tiles ? stage.tiles : {};
+  // 21 columns; a widened stage's rows are longer (the wide 联防 field)
+  const cols = Math.max(COLS, ...rows.map((l) => (typeof l === 'string' ? l.length : 0)));
   const grid = [];
   for (let r = 0; r < ROWS; r++) {
     const line = typeof rows[r] === 'string' ? rows[r] : '';
     const row = [];
-    for (let c = 0; c < COLS; c++) {
+    for (let c = 0; c < cols; c++) {
       let g = line[c] || '#';
       if (!GLYPH[g]) g = TILEKEY_GLYPH[legend[g]?.tileKey] || (legend[g]?.height === 'HIGH' ? '#' : 'R');
       const def = GLYPH[g];
@@ -125,7 +129,7 @@ export function parseStage(stage, band = [0, ROWS - 1], field = [0, 13]) {
   const INF = 99;
   for (const row of grid) for (const t of row) t.dist = t.playable ? 0 : INF;
   for (let pass = 0; pass < PLAYABLE_DIST + 1; pass++) {
-    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < cols; c++) {
       const t = grid[r][c];
       if (t.dist === 0) continue;
       let best = t.dist;
@@ -372,7 +376,7 @@ export class TileField {
       if (!DEVICE_ROLES.has(d.role)) continue;
       const active = typeof d.active === 'boolean' ? d.active : !d.hidden;
       if (!active) continue;
-      if (d.pos[0] < 0 || d.pos[0] >= ROWS || d.pos[1] < 0 || d.pos[1] >= COLS || d.pos[0] >= 14) continue;
+      if (d.pos[0] < 0 || d.pos[0] >= ROWS || d.pos[1] < 0 || d.pos[1] >= colsOf(this.grid) || d.pos[0] >= 14) continue;
       const gt = this.grid[d.pos[0]] && this.grid[d.pos[0]][d.pos[1]];
       // devices stand on the island (playable tiles + the ring around them, dist ≤ 1 — the 3D board's drawn tiles), not
       // on the faded margin. A device on the field's edge wall is drawn like any other (board3d/layout.js stageDevices):
@@ -522,7 +526,7 @@ export class TileField {
     if (Array.isArray(tiles)) {
       for (const t of tiles) {
         const r = Array.isArray(t) ? t[0] : t?.row, c = Array.isArray(t) ? t[1] : t?.col;
-        if (Number.isInteger(r) && Number.isInteger(c) && r >= 0 && r < ROWS && c >= 0 && c < COLS) list.push([r, c]);
+        if (Number.isInteger(r) && Number.isInteger(c) && r >= 0 && r < ROWS && c >= 0 && c < colsOf(this.grid)) list.push([r, c]);
       }
     }
     if (!list.length) this.highlights.delete(key);
@@ -638,7 +642,7 @@ export class TileField {
     const P = this.P;
     const fx = fxAtlas();
     const R = rng(4242);
-    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < colsOf(this.grid); c++) {
       const t = this.grid[r][c];
       if (!t.drawn || t.scenery || r >= 13) continue;
       const add = (kind, tex, blend, tint, n = 1) => {
@@ -722,7 +726,7 @@ export class TileField {
     // the field's gates / objectives, and the enemy preview pen's two gates (the red cubes behind which the next
     // round's enemies wait, also while the pen is dim scenery behind the prep board)
     const pen = parsePenRect(this.stage?.config?.enemy_place_rect) || PEN_RECT;
-    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < colsOf(this.grid); c++) {
       const tile = this.grid[r][c];
       if (!tile.drawn || (tile.glyph !== 'S' && tile.glyph !== 'E')) continue;
       const penGate = tile.glyph === 'S' && r >= pen.r0 && r <= pen.r1 && c >= pen.c0 && c <= pen.c1;
@@ -878,7 +882,7 @@ export function buildPlaneQuads(G, tilesPerRepeat = 5) {
   const z = -CLIFF_DEPTH;
   // distance field (tiles) to the nearest drawn tile, sampled at vertices
   const drawn = [];
-  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (G[r]?.[c]?.drawn) drawn.push([c, r]);
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < colsOf(G); c++) if (G[r]?.[c]?.drawn) drawn.push([c, r]);
   const occl = (x, y) => {
     if (!drawn.length) return 1;
     let best = Infinity;
@@ -972,7 +976,7 @@ export function buildTileQuads(G, uv) {
     const fx = faceDir === 'E' ? tile.c + 0.5 : faceDir === 'W' ? tile.c - 0.5 : tile.c;
     quads.push({ kind, pts, u, shade, alpha, order, faceDir, row: tile.r, col: tile.c, fx });
   };
-  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < colsOf(G); c++) {
     const t = G[r][c];
     if (!t.drawn) continue;
     const H = t.h;

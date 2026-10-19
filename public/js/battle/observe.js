@@ -12,6 +12,7 @@
 import { PHASE } from '../../../shared/constants.js';
 import { data } from '../data.js';
 import { t } from '../../../shared/i18n.js';
+import { wideHalves } from '../../../shared/wideField.js';
 
 const isObj = (v) => !!v && typeof v === 'object';
 const COMBAT = new Set([PHASE.COMBAT, PHASE.UNITE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE]);
@@ -120,6 +121,20 @@ export function teammateProgress(pub, myId) {
   return out;
 }
 
+/**
+ * The half a battle spec's player holds (the runner's field meta `sides`): 'L' | 'R' — 联防 (the first of two helpers
+ * takes the right half, colOffset 8) and boss pairs —, or on the 8-player mode's wide 联防 field (`wide` 3 | 4) the half
+ * counted from the left, 'H0'…'H3' (colOffset 0, 8, 16, 24; shared/wideField.js).
+ * @param {{ side?: string, colOffset?: number }} p @param {number} [wide]
+ */
+export function halfSide(p, wide = 0) {
+  if (wideHalves(wide)) return `H${Math.max(0, Math.round((Number(p?.colOffset) || 0) / 8))}`;
+  return p?.side === 'R' || Number(p?.colOffset) >= 8 ? 'R' : 'L';
+}
+
+/** Whether `layer` is a half of a field (`L`, `R`, a wide field's `H0`…), not 全景. */
+export const isHalfLayer = (layer) => layer === 'L' || layer === 'R' || /^H\d$/.test(String(layer));
+
 /** Side of each player of a local field meta (`sides` from the runner, else seat order). */
 export function sidesOf(field) {
   if (isObj(field?.sides)) return field.sides;
@@ -129,7 +144,8 @@ export function sidesOf(field) {
 
 /**
  * The ‹ › camera layers of a 联防 / boss field: LEFT half, 全景, RIGHT half with captions "你自己" / "👁 name" /
- * "全景" / "无人在家". Empty for normal fields and single-player boss fields.
+ * "全景" / "无人在家"; the 8-player mode's wide 联防 field has one per half from the left with 全景 in the middle
+ * (H0 H1 全景 H2 H3 / H0 全景 H1 H2). Empty for normal fields and single-player boss fields.
  */
 export function cameraLayers(field, pub, myId) {
   if (!isObj(field) || (field.kind !== 'unite' && field.kind !== 'boss' && field.kind !== 'hidden')) return [];
@@ -141,6 +157,15 @@ export function cameraLayers(field, pub, myId) {
   if ((field.kind === 'boss' || field.kind === 'hidden') && (!left || !right)) return [];
   // `kind` / `pid`: the official panel_ob_info part (ui/battleArt.js ObInfo) — ob_self / ob_other / ob_empty / ob_overview
   const kind = (pid) => (!pid ? 'empty' : pid === myId ? 'self' : 'other');
+  const n = field.kind === 'unite' ? wideHalves(field.wide) : 0;
+  if (n) {
+    const out = Array.from({ length: n }, (_, i) => {
+      const pid = at(`H${i}`);
+      return { key: `H${i}`, label: label(pid), self: pid === myId, watch: !!pid && pid !== myId, kind: kind(pid), pid };
+    });
+    out.splice(Math.floor(n / 2), 0, { key: 'ALL', label: t('全景'), self: false, watch: false, kind: 'all', pid: null });
+    return out;
+  }
   return [
     { key: 'L', label: label(left), self: left === myId, watch: !!left && left !== myId, kind: kind(left), pid: left },
     { key: 'ALL', label: t('全景'), self: false, watch: false, kind: 'all', pid: null },
@@ -152,6 +177,9 @@ export function cameraLayers(field, pub, myId) {
 export function layerCamera(field, layer, mySide = 'L') {
   const rect = field?.rect;
   if (layer === 'L' || layer === 'R') return { rect, side: layer, half: true };
+  // a wide 联防 field's half: the official left half's camera moved by its column offset (render/projection.js presetCamera)
+  const h = /^H(\d)$/.exec(String(layer));
+  if (h) return { rect, side: 'L', half: true, halfOffset: 8 * Number(h[1]) };
   if (layer === 'ALL' && field?.kind === 'unite') {
     const occupied = ['L', 'R'].filter((side) => Object.values(sidesOf(field)).includes(side));
     if (occupied.length === 1) return { rect, side: occupied[0], half: true };

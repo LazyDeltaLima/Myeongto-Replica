@@ -40,6 +40,9 @@
 
 export const DEG = Math.PI / 180;
 
+/** Columns of the battle grid (GEO.WIDE_COLS: room for the widest 联防 field) and the last column of a stage (21 wide). */
+const BATTLE_COLS = 37, STAGE_LAST = 20;
+
 /** Arknights' standard battle camera (see header). */
 export const OFFICIAL = Object.freeze({
   base: Object.freeze([0, -4.81, -7.76]), // standard view position in the centred Unity frame
@@ -297,11 +300,16 @@ export function lerpCamera(a, b, t, out = new Camera()) {
   return out.update();
 }
 
-/** Normalised copy of a rect ({r0,r1,c0,c1} inclusive; swapped bounds fixed; clamped to the 19×21 grid). */
-export function normRect(rect, rows = 19, cols = 21) {
+/**
+ * Normalised copy of a rect ({r0,r1,c0,c1} inclusive; swapped bounds fixed; missing bounds = the 19 × 21 stage; clamped
+ * to the battle grid: 19 rows, 37 columns — the stages' 21 and the 8-player mode's wide 联防 fields of 29 / 37,
+ * shared/wideField.js).
+ */
+export function normRect(rect, rows = 19, cols = BATTLE_COLS) {
   const src = rect && typeof rect === 'object' ? rect : {};
   let r0 = Math.round(finite(src.r0, 0)), r1 = Math.round(finite(src.r1, rows - 1));
-  let c0 = Math.round(finite(src.c0, 0)), c1 = Math.round(finite(src.c1, cols - 1));
+  // a missing right edge is the stage's (21 columns), not the battle grid's
+  let c0 = Math.round(finite(src.c0, 0)), c1 = Math.round(finite(src.c1, Math.min(cols - 1, STAGE_LAST)));
   if (r0 > r1) [r0, r1] = [r1, r0];
   if (c0 > c1) [c0, c1] = [c1, c0];
   return { r0: clamp(r0, 0, rows - 1), r1: clamp(r1, 0, rows - 1), c0: clamp(c0, 0, cols - 1), c1: clamp(c1, 0, cols - 1) };
@@ -433,6 +441,8 @@ const sameRect = (a, b) => !!a && !!b && a.r0 === b.r0 && a.r1 === b.r1 && a.c0 
  * viewport is narrower than 4:3 (portrait), `opts.fit` is set, or `opts.rect` is a custom rect — then the rect is
  * fitted into the padded viewport (`fitCamera`). `opts.side` 'L'|'R' picks the side's param (right boss half);
  * `opts.half` frames only that half of a unite/boss field; `opts.shop === false` uses the shop-collapsed prep camera.
+ * A wide 联防 field (the 8-player mode, `opts.rect` past column 20) is fitted as a whole; its half views take the
+ * official left half's param moved by the half's column offset (`opts.halfOffset`: 0, 8, 16, 24 — shared/wideField.js).
  * `opts.hud` = { top, bottom } (CSS px of HUD along the top / bottom edge): the official prep / Final Assault prep
  * camera keeps the bench and the field clear of it (`clearHud`, the preset's `keep` band).
  */
@@ -446,15 +456,18 @@ export function presetCamera(kind, viewport, options) {
   const preset = CAMERA_PRESETS[k];
   const side = opts.side === 'R' ? 'R' : 'L';
   const W = Math.max(1, finite(viewport?.width, 1)), H = Math.max(1, finite(viewport?.height, 1));
+  const wideUnite = k === 'unite' && !!rect && rect.c1 > STAGE_LAST;
+  const halfAt = wideUnite && opts.half && Number.isFinite(opts.halfOffset) ? opts.halfOffset : null;
   const knownRect = !rect || sameRect(rect, preset.rect) || (k === 'prep' && rect.r0 >= 6 && rect.r1 <= 12 && rect.c1 <= 10)
-    || (k === 'normal' && rect.r0 >= 6 && rect.r1 <= 13) || (k === 'unite' && rect.r0 >= 6 && rect.r1 <= 13)
+    || (k === 'normal' && rect.r0 >= 6 && rect.r1 <= 13) || (k === 'unite' && rect.r0 >= 6 && rect.r1 <= 13 && (!wideUnite || halfAt != null))
     || (k === 'boss' && rect.r1 <= 6) || k === 'bossPrep' || k === 'pen';
   const useOfficial = !opts.fit && knownRect && W / H >= 4 / 3 - 1e-6;
   if (useOfficial) {
     const table = opts.half && preset.half ? preset.half : opts.shop === false && preset.officialNoShop ? preset.officialNoShop : preset.official;
-    const key = table[side];
+    const key = table[halfAt != null ? 'L' : side];
     const cfg = opts.config && typeof opts.config === 'object' ? opts.config : null;
-    const param = (cfg && parseCameraParam(cfg[key])) || parseCameraParam(OFFICIAL_PARAMS[key]);
+    let param = (cfg && parseCameraParam(cfg[key])) || parseCameraParam(OFFICIAL_PARAMS[key]);
+    if (halfAt != null && param) param = [param[0] + halfAt, ...param.slice(1)];
     const cam = officialCamera(param, { width: W, height: H }, opts);
     return preset.keep && opts.hud ? clearHud(cam, opts.hud, preset.keep, { width: W, height: H }) : cam;
   }
@@ -464,7 +477,8 @@ export function presetCamera(kind, viewport, options) {
     if (k === 'bossPrep' && side === 'R') rect = { ...rect, c0: 20 - preset.rect.c1, c1: 20 - preset.rect.c0 };
   }
   if (k === 'prep') rect = { ...rect, r0: Math.min(rect.r0, 7) };
-  if (opts.half && (k === 'boss' || k === 'unite')) {
+  if (halfAt != null) rect = { ...rect, c0: halfAt, c1: halfAt + 10 };
+  else if (opts.half && (k === 'boss' || k === 'unite')) {
     const mid = Math.floor((rect.c0 + rect.c1) / 2);
     rect = side === 'R' ? { ...rect, c0: mid } : { ...rect, c1: mid };
   }

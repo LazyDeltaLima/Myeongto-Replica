@@ -72,7 +72,7 @@
 import { net as appNet } from '../net.js';
 import { store as appStore } from '../store.js';
 import { unitStatsEntry, fxForm, RESULT_LIMITS } from '../../../shared/protocol.js';
-import { spectateEffects } from './observe.js';
+import { spectateEffects, halfSide } from './observe.js';
 import { recordError, setBattleSource, rememberBattle } from '../diag.js';
 import { data as appData } from '../data.js';
 
@@ -606,7 +606,8 @@ export function createBattleRunner(deps) {
       // the watched player's effects column (user playtest #2; undefined for 联防 / boss pairs and server-run fields)
       effects: spectateEffects(e.spec, e.members),
       // which half each player holds (联防: the first helper takes the right half; boss pairs: L / R)
-      sides: Object.fromEntries((e.spec.players || []).filter((p) => p && p.playerId).map((p) => [p.playerId, p.side === 'R' || Number(p.colOffset) >= 8 ? 'R' : 'L'])),
+      // (the 8-player mode's wide 联防 field: H0…H3 from the left — battle/observe.js halfSide)
+      sides: Object.fromEntries((e.spec.players || []).filter((p) => p && p.playerId).map((p) => [p.playerId, halfSide(p, e.spec.kind === 'unite' ? e.spec.wide : 0)])),
       // the route preview cursors [{ t, motion, pts }] (render/fxroute.js createBattleCursors)
       routeCursors: Array.isArray(e.cursors) ? e.cursors : [],
     };

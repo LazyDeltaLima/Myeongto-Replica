@@ -192,8 +192,9 @@ describe('framing', () => {
   });
 
   test('normRect swaps and clamps', () => {
-    assert.deepEqual(normRect({ r0: 12, r1: 9, c0: 30, c1: -4 }), { r0: 9, r1: 12, c0: 0, c1: 20 });
-    assert.deepEqual(normRect(null), { r0: 0, r1: 18, c0: 0, c1: 20 });
+    assert.deepEqual(normRect({ r0: 12, r1: 9, c0: 30, c1: -4 }), { r0: 9, r1: 12, c0: 0, c1: 30 }, 'the battle grid: 37 columns (a wide 联防 field)');
+    assert.deepEqual(normRect({ r0: 9, r1: 12, c0: 0, c1: 50 }), { r0: 9, r1: 12, c0: 0, c1: 36 });
+    assert.deepEqual(normRect(null), { r0: 0, r1: 18, c0: 0, c1: 20 }, 'missing bounds: the 21-column stage');
   });
 
   test('lerpCamera endpoints and midpoint; ease', () => {
