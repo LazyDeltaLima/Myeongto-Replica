@@ -35,6 +35,7 @@
 //     co-op 1200) and team LP > minTeamLpExclusive (1).
 
 import { BOSS_ROW_OFFSET, STAGE_COLS, BOSS_POOL_MIN_HP } from '../sim/constants.js';
+import { MAX_SEATS } from '../../shared/constants.js';
 import { mirrorDir, normDir } from '../sim/dir.js';
 import { bossPoolShareOf } from './gamedata.js';
 
@@ -44,6 +45,19 @@ import { bossPoolShareOf } from './gamedata.js';
  * (SharedBossPool.byPlayer — one pool per boss round, so the Final Assault and the Hidden Core count apart).
  */
 export const BOSS_HIT_STEPS = [0.2, 0.5, 0.8];
+
+/**
+ * The BOSS_HIT thresholds of a boss round with `alive` players: the official ones up to four (the 4-player mode, solo);
+ * with more — the 8-player mode — scaled by 4 / alive, so a player who does a four-player team's share hears the same
+ * line (8 alive: 10 / 25 / 40 %; maintainer decision 2026-10-19 — at 20 / 50 / 80 % an 8-player team's average 12.5 %
+ * share almost never reached one).
+ * @param {number} alive the players alive at the boss round's start
+ * @returns {number[]}
+ */
+export function bossHitSteps(alive) {
+  const f = Math.min(1, MAX_SEATS / Math.max(1, alive | 0));
+  return BOSS_HIT_STEPS.map((s) => s * f);
+}
 
 /**
  * Where a board piece (board row / col / dir) stands on a boss field for side 'L' | 'R' — the same mapping as the

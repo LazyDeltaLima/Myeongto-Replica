@@ -1490,6 +1490,7 @@
   "仅匹配真人 · 满四人后开始": "Doctors only · starts at 4",
   "同盟正在匹配中，请先取消匹配": "The Alliance is matchmaking: cancel it first",
   "八人同盟需坐满 8 名博士后才能开始": "An 8-Doctor Alliance starts only with all 8 seats taken",
+  "{name}博士对敌方领袖造成的伤害超过{pct}%!": "Dr. {name} has dealt over {pct}% of the damage to the enemy Leader!",
   "与另外 {n} 名博士组成同盟，共享干员池，联防协作抵御敌潮。": "Form an Alliance with {n} other Doctors, share the Operator pool, and Unite to hold back the enemy tide.",
   "{n} 名博士坐满后开始 · 没有 AI 队友": "Starts with all {n} Doctors seated · no AI Teammates",
   "仅匹配真人 · 满 {n} 人后开始": "Doctors only · starts at {n}",

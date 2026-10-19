@@ -12,7 +12,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PHASE } from '../../shared/constants.js';
-import { BOSS_HIT_STEPS } from '../../server/match/finalAssault.js';
+import { BOSS_HIT_STEPS, bossHitSteps } from '../../server/match/finalAssault.js';
 import { makeMatch, checkInvariants } from './harness.js';
 
 /**
@@ -20,8 +20,8 @@ import { makeMatch, checkInvariants } from './harness.js';
  * `hiddenDps` (a share of the hidden pool per game second). Every BOSS_HIT ticker is recorded with the phase and the
  * player's real share of the leader in play at that moment (the current pool).
  */
-function toHiddenCore({ mode = 'coop', difficulty = 'NORMAL', humans = 1, clientCombat = false, seed = 61, bossId, hiddenBossId, hiddenDps = 0.02, onHidden = null }) {
-  const h = makeMatch({ mode, difficulty, humans, seed, fake: true, clientCombat, instant: !clientCombat,
+function toHiddenCore({ mode = 'coop', size, difficulty = 'NORMAL', humans = 1, clientCombat = false, seed = 61, bossId, hiddenBossId, hiddenDps = 0.02, onHidden = null }) {
+  const h = makeMatch({ mode, size, difficulty, humans, seed, fake: true, clientCombat, instant: !clientCombat,
     script: (b) => (b.kind === 'boss' ? { bossDps: 1e9 } : b.kind === 'hidden' ? { bossDps: b.sharedBoss.maxHp * hiddenDps } : {}) }).start();
   const m = h.m;
   m.bossId = bossId;
@@ -30,7 +30,7 @@ function toHiddenCore({ mode = 'coop', difficulty = 'NORMAL', humans = 1, client
   h.onBroadcast.push((msg) => {
     if (msg.t !== 'm.ticker' || msg.type !== 'BOSS_HIT') return;
     const pool = m.bossPool;
-    hits.push({ phase: m.phase, playerId: msg.playerId, text: msg.text, id: msg.id,
+    hits.push({ phase: m.phase, playerId: msg.playerId, text: msg.text, id: msg.id, msgid: msg.msgid ?? null, priority: msg.priority,
       share: pool ? (pool.byPlayer.get(msg.playerId) || 0) / pool.maxHp : null,
       leaderHpPct: pool ? pool.hp / pool.maxHp : null });
   });
@@ -120,5 +120,40 @@ test('C1 (solo, client-side combat, server takeover mid-fight): the re-simulated
   const hidden = assertTruthful(hits, PHASE.HIDDEN_CORE, ['p_0']);
   assert.deepEqual(hidden.map(stepOf), BOSS_HIT_STEPS);
   checkInvariants(m);
+  m.dispose();
+});
+
+test('the 8-player mode: thresholds × 4 / alive (8 alive: 10 / 25 / 40 %), our own line naming the share, the broadcast\'s priority', () => {
+  assert.deepEqual(bossHitSteps(1), BOSS_HIT_STEPS, 'solo: the official steps');
+  assert.deepEqual(bossHitSteps(4), BOSS_HIT_STEPS, 'four alive: the official steps');
+  assert.deepEqual(bossHitSteps(8).map((x) => +x.toFixed(4)), [0.1, 0.25, 0.4]);
+  assert.deepEqual(bossHitSteps(5).map((x) => +x.toFixed(4)), [0.16, 0.4, 0.64]);
+  // eight humans on four boss fields: the Final Assault cleared by one hit, the Hidden Core drained evenly (each player
+  // about 12.5 % of the hidden leader — over the scaled 10 %, never the official 20 %)
+  const players = Array.from({ length: 8 }, (_, i) => `p_${i}`);
+  const { m, end, hits } = toHiddenCore({ size: 8, humans: 8, bossId: 'boss_4', hiddenBossId: 'boss_9', hiddenDps: 0.004 });
+  assert.equal(end.hiddenReached, true);
+  assert.ok(hits.length > 0);
+  for (const x of hits) {
+    assert.equal(x.id, null, 'no official broadcast id: its text says 20 / 50 / 80 %');
+    assert.equal(x.msgid, '{name}博士对敌方领袖造成的伤害超过{pct}%!');
+    assert.equal(x.priority, 30, 'the BOSS_HIT priority');
+  }
+  const fa = assertTruthful(hits, PHASE.FINAL_ASSAULT, players);
+  assert.ok(fa.every((x) => stepOf(x) === 0.4), 'one hit cleared the Final Assault: the highest scaled step');
+  const hidden = assertTruthful(hits, PHASE.HIDDEN_CORE, players);
+  assert.deepEqual([...new Set(hidden.map(stepOf))], [0.1], 'an even share of eight reaches the scaled 10 %');
+  assert.equal(new Set(hidden.map((x) => x.playerId)).size, 8, 'every Doctor hears their line');
+  checkInvariants(m);
+  m.dispose();
+});
+
+test('four players keep the official lines (the broadcast id, its 20 / 50 / 80 %)', () => {
+  const { m, hits } = toHiddenCore({ humans: 4, bossId: 'boss_4', hiddenBossId: 'boss_9', hiddenDps: 0.01 });
+  assert.ok(hits.length > 0);
+  for (const x of hits) {
+    assert.match(String(x.id), /^comment_boss_hit_[123]$/);
+    assert.equal(x.msgid, null);
+  }
   m.dispose();
 });

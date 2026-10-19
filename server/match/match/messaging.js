@@ -28,15 +28,22 @@ export class MatchMessaging {
     this.sendTo(ps.playerId, { t: 'm.toast', kind, ...wireMessage(text) });
   }
 
-  /** Broadcast ticker from config.broadcasts by type; `param` picks the variant (SHOP_LEVEL level, BOSS_HIT share…). */
-  tickerFor(type, args = [], { playerId = null, to = null, param = null } = {}) {
+  /**
+   * Broadcast ticker from config.broadcasts by type; `param` picks the variant (SHOP_LEVEL level, BOSS_HIT share…).
+   * `own` (a msg()): the remake's own text in place of the broadcast's, keeping its type and priority (no `id`, so the
+   * client translates the msgid — the 8-player BOSS_HIT lines name their scaled share).
+   */
+  tickerFor(type, args = [], { playerId = null, to = null, param = null, own = null } = {}) {
     const list = Array.isArray(this.gd.config.broadcasts) ? this.gd.config.broadcasts.filter((b) => b && b.type === type) : [];
     let b = list[0];
     if (param != null) b = list.find((x) => Array.isArray(x.params) && x.params.includes(String(param))) || b;
     const tpl = b && typeof b.text === 'string' ? b.text : null;
     if (!tpl) return;
     const text = tpl.replace(/\{(\d)\}/g, (_, i) => (args[Number(i)] != null ? String(args[Number(i)]) : ''));
-    const msg = { t: 'm.ticker', text, id: b.id, type, priority: Number(b.priority) || 0, playerId, args: args.map((a) => String(a ?? '')) };
+    const w = own ? wireMessage(own) : null;
+    const msg = w
+      ? { t: 'm.ticker', ...w, text: w.text.slice(0, 200), id: null, type, priority: Number(b.priority) || 0, playerId, args: args.map((a) => String(a ?? '')) }
+      : { t: 'm.ticker', text, id: b.id, type, priority: Number(b.priority) || 0, playerId, args: args.map((a) => String(a ?? '')) };
     if (to) this.sendTo(to, msg);
     else this.broadcast(msg);
   }

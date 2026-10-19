@@ -8,11 +8,12 @@
 import { PHASE, GEO } from '../../../shared/constants.js';
 import { deriveSeed } from '../../sim/rng.js';
 import { buildBossWave, bountySpawns } from '../waves.js';
-import { pairPlayers, bossPoolHp, SharedBossPool, CreditPool, hiddenEligible, BOSS_HIT_STEPS } from '../finalAssault.js';
+import { pairPlayers, bossPoolHp, SharedBossPool, CreditPool, hiddenEligible, BOSS_HIT_STEPS, bossHitSteps } from '../finalAssault.js';
 import { FieldRunner, HeadlessPacer, syntheticResult, BOSS_SILENCE_MS, CATCHUP_TICKS_PER_INTERVAL } from '../fields.js';
 import { FLOW_TICKER_PRIORITY, BOSS_CLOCK_MS, DELAYS } from './common.js';
 import { tallyBattle } from '../unitTally.js';
 import { simRuleFlags } from '../../../shared/ruleset.js';
+import { msg } from '../../../shared/i18n.js';
 
 /** b.pool broadcasts at most this often (ms). */
 const POOL_MIN_GAP_MS = 250;
@@ -48,6 +49,10 @@ export class MatchBoss {
     // BOSS_HIT tickers ("对敌方领袖造成的伤害超过20% / 50% / 80%"): the player's damage to THIS leader over its pool —
     // the pool's own per-player tally, one pool per boss round. stats.bossDamage (the result's 领袖伤害) adds up both
     // rounds, so it would credit the Final Assault's damage to the hidden leader ("隐藏boss还没打就出了50%播报").
+    // more than four alive (the 8-player mode): thresholds scaled by 4 / alive (bossHitSteps) and our own line naming the
+    // real share — the official lines say 20 / 50 / 80 %
+    const steps = bossHitSteps(alive.length);
+    const scaled = steps[0] !== BOSS_HIT_STEPS[0];
     const hitSteps = new Map();
     const pool = new SharedBossPool(bossPoolHp(this.gd, bossId, alive.length), {
       onHit: (pid, dmg) => {
@@ -57,10 +62,11 @@ export class MatchBoss {
         const share = (pool.byPlayer.get(pid) || 0) / pool.maxHp;
         const done = hitSteps.get(pid) || 0;
         let reached = done;
-        BOSS_HIT_STEPS.forEach((s, i) => { if (share >= s) reached = Math.max(reached, i + 1); });
+        steps.forEach((s, i) => { if (share >= s) reached = Math.max(reached, i + 1); });
         if (reached > done) {
           hitSteps.set(pid, reached);
-          this.tickerFor('BOSS_HIT', [ps.name], { playerId: pid, param: String(BOSS_HIT_STEPS[reached - 1]) });
+          const own = scaled ? msg('{name}博士对敌方领袖造成的伤害超过{pct}%!', { name: ps.name, pct: Math.round(steps[reached - 1] * 100) }) : null;
+          this.tickerFor('BOSS_HIT', [ps.name], { playerId: pid, param: String(BOSS_HIT_STEPS[reached - 1]), own });
         }
       },
     });
