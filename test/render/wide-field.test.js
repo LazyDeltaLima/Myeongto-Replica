@@ -18,7 +18,7 @@ import { boardArea } from '../../public/js/render/app/view.js';
 import { presetCamera } from '../../public/js/render/projection.js';
 import { cameraLayers, layerCamera, halfSide, isHalfLayer } from '../../public/js/battle/observe.js';
 import { playerLayer, bondOwnerId } from '../../public/js/ui/watchBonds.js';
-import { buildOfficialScene } from '../../public/js/render/board3d/official.js';
+import { buildOfficialScene, wideKeys, WIDE_KEY } from '../../public/js/render/board3d/official.js';
 import { focusUniforms } from '../../public/js/render/board3d/materials.js';
 import { Battle } from '../../server/sim/Battle.js';
 import { DataSource } from '../../server/sim/simdata.js';
@@ -196,6 +196,9 @@ describe('the official scene on a wide field (setWide)', { skip: !PY && 'no pyth
     assert.ok(g.children[0].material !== built.meshes[0].material && g.children[0].material.uniforms.uFocus === built.meshes[0].material.uniforms.uFocus,
       'a material of its own sharing every uniform but the clip');
     assert.ok(built.setWide(4) === g, 'the same halves again: the same copy');
+    // the quad lies on the 联防 rows: cut at the seam (key 0), the copy adds its shift to a whole piece's key
+    assert.deepEqual([...built.meshes[0].geometry.getAttribute('aKey').array], [0, 0, 0, 0]);
+    assert.deepEqual([built.meshes[0].material.uniforms.uKeyShift.value, g.children[0].material.uniforms.uKeyShift.value], [0, 16]);
     // the copy's hidden set by the stage tiles under it: the wide area (c 0–36) moved back by 16 still reaches HIDDEN@2
     built.setArea([{ r0: 6, r1: 13, c0: 0, c1: 36 }]);
     assert.deepEqual([built.meshes[1].visible, g.children[1].visible], [true, true]);
@@ -211,8 +214,27 @@ describe('the official scene on a wide field (setWide)', { skip: !PY && 'no pyth
 
   test('the shaders discard what lies outside the clip', () => {
     const src2 = readFileSync(path.join(ROOT, 'public/js/render/board3d/official.js'), 'utf8');
-    assert.equal(src2.match(/if \(vWorld\.x < uClipX\.x \|\| vWorld\.x > uClipX\.y\) discard;/g)?.length, 2);
+    assert.equal(src2.match(/float clipX = vKey > 0\.5 \? vKey - \$\{WIDE_KEY\.bias\.toFixed\(1\)\} \+ uKeyShift : vWorld\.x;\n  if \(clipX < uClipX\.x \|\| clipX > uClipX\.y\) discard;/g)?.length, 2);
     const scene = readFileSync(path.join(ROOT, 'public/js/render/board3d/scene.js'), 'utf8');
     assert.match(scene, /this\.officialBuilt\.setWide\?\.\(stage\._wide \|\| 0\)/);
+  });
+});
+
+describe('wideKeys: the pieces drawn whole across the wide field\'s seam', () => {
+  // a piece = triangles joined by an index or by a shared position; vertices given on the board (x, y, 0)
+  const keysOf = (tris) => {
+    const pos = tris.flat(2), n = pos.length / 3;
+    const idx = Array.from({ length: n }, (_, i) => i);
+    return [...wideKeys(pos, idx, n, (i) => [pos[3 * i], pos[3 * i + 1]])];
+  };
+  test('off the 联防 rows and at most WIDE_KEY.maxW wide: centre x + bias for every vertex of the piece', () => {
+    // two triangles of one rock above the field, sharing the corner (17, 4) by position only
+    const k = keysOf([[[15, 2, 0], [17, 2, 0], [17, 4, 0]], [[17, 4, 0], [20, 3, 0], [19, 5, 1]]]);
+    assert.deepEqual(k, new Array(6).fill(17.5 + WIDE_KEY.bias));
+  });
+  test('cut at the seam (0): a piece on the 联防 rows, a piece wider than maxW', () => {
+    assert.deepEqual(keysOf([[[17, 7, 0], [20, 7, 0], [19, 9, 0]]]), [0, 0, 0]);
+    assert.deepEqual(keysOf([[[0, 15, 0], [WIDE_KEY.maxW + 1, 15, 0], [3, 18, 0]]]), [0, 0, 0]);
+    assert.deepEqual(keysOf([[[15, 14, 0], [17, 14, 0], [16, 16, 0]]]), new Array(3).fill(16 + WIDE_KEY.bias));
   });
 });

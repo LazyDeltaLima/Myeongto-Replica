@@ -166,6 +166,69 @@ export function unDzs(buffer, r, w, comps) {
 /** Forget cached scenes (tests / hot reload). */
 export function resetOfficialScenes() { cache.clear(); }
 
+/**
+ * The seam of a wide 联防 field (setWide): the stage's scene draws up to x 18.5 and its copy from there. Cut there, the
+ * rocks, cliffs and props around the island showed half a boulder next to half of another (maintainer screen check
+ * 2026-10-20), so a piece of the scene — triangles joined by shared vertices or positions — that stays off the 联防 rows
+ * (`rows`) and is at most `maxW` tiles wide is drawn whole by the side its centre falls on; the rest (the field, its
+ * walls, the sand floor and the sea) is cut at the seam as before. `bias` keeps the key (centre x + bias) above 0, the
+ * value of a piece that is cut. [ASSUMED] — no official scene has a wide field.
+ */
+export const WIDE_KEY = Object.freeze({ rows: Object.freeze([8.5, 12.5]), maxW: 14, bias: 100 });
+
+/**
+ * The seam key per vertex (WIDE_KEY): `pos` the vertex positions (`comps` per vertex, `toBoard(i)` → [x, y] of vertex
+ * i on the board), `idx` the triangle indices. Returns a Float32Array: centre x + bias of the vertex's piece, or 0 for a
+ * piece cut at the seam.
+ * @param {ArrayLike<number>} pos @param {ArrayLike<number>} idx @param {number} n @param {(i: number) => number[]} toBoard
+ */
+export function wideKeys(pos, idx, n, toBoard) {
+  const par = new Int32Array(n);
+  for (let i = 0; i < n; i++) par[i] = i;
+  const find = (i) => { while (par[i] !== i) { par[i] = par[par[i]]; i = par[i]; } return i; };
+  const join = (a, b) => { a = find(a); b = find(b); if (a !== b) par[a] = b; };
+  for (let i = 0; i + 2 < idx.length; i += 3) { join(idx[i], idx[i + 1]); join(idx[i], idx[i + 2]); }
+  // split normals / uvs make several vertices of one corner: the same position joins them
+  const at = new Map();
+  for (let i = 0; i < n; i++) {
+    const k = `${pos[3 * i]},${pos[3 * i + 1]},${pos[3 * i + 2]}`;
+    const j = at.get(k);
+    if (j === undefined) at.set(k, i); else join(i, j);
+  }
+  const box = new Map(); // root → [x0, x1, y0, y1]
+  const xy = new Float64Array(2 * n);
+  for (let i = 0; i < n; i++) {
+    const [x, y] = toBoard(i);
+    xy[2 * i] = x; xy[2 * i + 1] = y;
+    const r = find(i), b = box.get(r);
+    if (!b) box.set(r, [x, x, y, y]);
+    else { if (x < b[0]) b[0] = x; if (x > b[1]) b[1] = x; if (y < b[2]) b[2] = y; if (y > b[3]) b[3] = y; }
+  }
+  const [r0, r1] = WIDE_KEY.rows;
+  const keyOf = new Map();
+  for (const [r, b] of box) keyOf.set(r, b[1] - b[0] <= WIDE_KEY.maxW && (b[3] < r0 || b[2] > r1) ? (b[0] + b[1]) / 2 + WIDE_KEY.bias : 0);
+  const out = new Float32Array(n);
+  for (let i = 0; i < n; i++) out[i] = keyOf.get(find(i));
+  return out;
+}
+
+/** Give a stage mesh's geometry its seam keys (`aKey`, wideKeys) once; the copies share the geometry. */
+function keyGeometry(mesh) {
+  const geo = mesh.geometry;
+  if (geo.userData.wideKeyed) return;
+  const p = geo.getAttribute('position'), index = geo.getIndex();
+  if (!p || !index) return;
+  const a = p.array, norm = p.normalized && a instanceof Uint16Array ? 1 / 65535 : 1, e = mesh.matrix.elements;
+  const v = [0, 0];
+  const toBoard = (i) => {
+    const x = a[3 * i] * norm, y = a[3 * i + 1] * norm, z = a[3 * i + 2] * norm;
+    v[0] = e[0] * x + e[4] * y + e[8] * z + e[12]; v[1] = e[1] * x + e[5] * y + e[9] * z + e[13];
+    return v;
+  };
+  geo.setAttribute('aKey', new p.constructor(wideKeys(a, index.array, p.count, toBoard), 1)); // (a BufferAttribute)
+  geo.userData.wideKeyed = true;
+}
+
 // ---- shaders -------------------------------------------------------------------------------------------------------
 
 const VERT = /* glsl */`
@@ -173,6 +236,8 @@ const VERT = /* glsl */`
 #include <fog_pars_vertex>
 attribute vec2 uv1;
 attribute vec4 color;
+attribute float aKey;        // the wide field's seam key (setWide wideKeys): 0 = cut by the fragment's x
+varying float vKey;
 varying vec2 vUv;
 varying vec2 vUv1;
 varying vec3 vNormalW;
@@ -184,6 +249,7 @@ void main() {
   vUv = uv * uMainST.xy + uMainST.zw;
   vUv1 = uv1 * uUv1ST.xy + uUv1ST.zw;
   vColor = color;
+  vKey = aKey;
   vec4 wp = modelMatrix * vec4(position, 1.0);
   vWorld = wp.xyz;
   vNormalW = normalize(mat3(modelMatrix) * normal);
@@ -224,6 +290,8 @@ uniform vec4 uFocus;
 uniform float uFocusDim;
 uniform float uFocusSoft;
 uniform vec2 uClipX;         // world x drawn (the two copies of the scene on a wide unite field meet at x 18.5: setWide)
+uniform float uKeyShift;     // the copy's shift (setWide), added to a whole piece's key
+varying float vKey;
 varying vec2 vUv;
 varying vec2 vUv1;
 varying vec3 vNormalW;
@@ -248,7 +316,8 @@ vec3 reflCube(vec3 d) {
 }
 
 void main() {
-  if (vWorld.x < uClipX.x || vWorld.x > uClipX.y) discard;
+  float clipX = vKey > 0.5 ? vKey - ${WIDE_KEY.bias.toFixed(1)} + uKeyShift : vWorld.x;
+  if (clipX < uClipX.x || clipX > uClipX.y) discard;
   vec4 albedo = texture2D(uMap, vUv) * uColor;
   #ifdef ALPHATEST
     if (albedo.a < uCutoff) discard;
@@ -338,13 +407,16 @@ uniform vec4 uFocus;
 uniform float uFocusDim;
 uniform float uFocusSoft;
 uniform vec2 uClipX;         // world x drawn (the two copies of the scene on a wide unite field meet at x 18.5: setWide)
+uniform float uKeyShift;     // the copy's shift (setWide), added to a whole piece's key
+varying float vKey;
 varying vec2 vUv;
 varying vec2 vUv1;
 varying vec3 vNormalW;
 varying vec3 vWorld;
 varying vec4 vColor;
 void main() {
-  if (vWorld.x < uClipX.x || vWorld.x > uClipX.y) discard;
+  float clipX = vKey > 0.5 ? vKey - ${WIDE_KEY.bias.toFixed(1)} + uKeyShift : vWorld.x;
+  if (clipX < uClipX.x || clipX > uClipX.y) discard;
   vec2 p = vWorld.xy * 0.5;
   vec3 w1 = texture2D(uWaves, p * uWaveTiling + vec2(0.03, 0.017) * uTime).xyz * 2.0 - 1.0;
   vec3 w2 = texture2D(uWaves, p * uWaveTiling * 1.7 - vec2(0.021, 0.034) * uTime).xyz * 2.0 - 1.0;
@@ -446,7 +518,7 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
           uWaterTint: { value: new T.Vector3(...(C._WaterColor || [1, 1, 1]).slice(0, 3)).multiplyScalar(F._WaterColorIntensity ?? 1) },
           uLightDir: { value: lightDir }, uLightColor: { value: lightColor }, uTime: { value: 0 },
           uWaveTiling: { value: new T.Vector2(...(X._BumpMap?.scale || [0.6, 0.37])) },
-          uClipX: matSrc === doc.materials ? clipStage : { value: new T.Vector2(-OPEN, OPEN) },
+          uClipX: matSrc === doc.materials ? clipStage : { value: new T.Vector2(-OPEN, OPEN) }, uKeyShift: { value: 0 },
           ...focus,
         },
       });
@@ -500,7 +572,7 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
           uLmGain: { value: OFFICIAL_LIGHTING.lmGain }, uDirectGain: { value: OFFICIAL_LIGHTING.directGain },
           uEmissionGain: { value: OFFICIAL_LIGHTING.emissionGain }, uOpacity: { value: 1 },
           uTrap: { value: new T.Vector2(F._Ambient ?? 0.85, F._Diffuse ?? 0.2) },
-          uClipX: matSrc === doc.materials ? clipStage : { value: new T.Vector2(-OPEN, OPEN) },
+          uClipX: matSrc === doc.materials ? clipStage : { value: new T.Vector2(-OPEN, OPEN) }, uKeyShift: { value: 0 },
           ...focus,
         },
       });
@@ -633,7 +705,8 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
     }
   };
   // the 8-player mode's wide 联防 field (setWide): a second copy of the island `shift` columns to the right, drawn from
-  // x 18.5 (the old right spawn, where the added halves end — shared/wideField.js) while the stage's own stops there
+  // x 18.5 (the old right spawn, where the added halves end — shared/wideField.js) while the stage's own stops there;
+  // the pieces around the field go whole to one side (WIDE_KEY)
   const SEAM = 18.5;
   let wide = null; // { halves, shift, group, meshes, materials }
   let area = [];
@@ -658,8 +731,8 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
     /**
      * Draw the island for a wide 联防 field of `halves` (3 | 4: the copy 8 / 16 columns right, from x 18.5), or as the
      * stage alone (0). Returns the copy's Group to add to the scene (null when there is none); its meshes share the
-     * geometry, its materials share every uniform but the clip (the copy's are disposed with it). [ASSUMED] the
-     * scenery around the island is cut at the seam as well — no official scene has a wide field.
+     * geometry, its materials share every uniform but the clip and the key shift (the copy's are disposed with it).
+     * The pieces of scenery around the field are drawn whole by one side (WIDE_KEY, wideKeys) [ASSUMED].
      * @param {number} halves
      */
     setWide(halves) {
@@ -672,12 +745,13 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
       const copyOf = (mt) => {
         if (!own.has(mt)) {
           const c = mt.clone();
-          c.uniforms = { ...mt.uniforms, uClipX: clipCopy };
+          c.uniforms = { ...mt.uniforms, uClipX: clipCopy, uKeyShift: { value: shift } };
           c.userData = { ...mt.userData };
           own.set(mt, c);
         }
         return own.get(mt);
       };
+      for (const m of meshes) keyGeometry(m);
       const group = new T.Group();
       group.name = `official-wide:${halves}`;
       group.position.set(shift, 0, 0);
