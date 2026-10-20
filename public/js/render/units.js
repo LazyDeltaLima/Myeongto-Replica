@@ -142,6 +142,8 @@ export function syncView(v, s, t) {
 }
 /** World step (x = col, y = row) of a direction. */
 export const DIR_STEP = Object.freeze({ UP: [0, 1], RIGHT: [1, 0], DOWN: [0, -1], LEFT: [-1, 0] });
+/** CSS px per battle-HUD unit: the view's (hud-bars.js hudUnit) × the wide 联防 field's zoom (render/app.js updateHudZoom). */
+const hudU = (ctx) => hudUnit(ctx.viewport?.()) * (ctx.hudZoom?.() ?? 1);
 const nowMs = () => (globalThis.performance ? globalThis.performance.now() : Date.now());
 /**
  * local patch (official deploy, maintainer's notes 2026-10-07): an allied unit with a Spine model
@@ -1971,12 +1973,12 @@ export class UnitView {
       const g = this.maxHp > 0 ? clamp(this.ghostHp / this.maxHp, 0, 1) : 0;
       if (lp && this.isEnemy) {
         // (an enemy's SP is 圣堂剑士's bullets alone: sim/content/local-patch.js)
-        lpBottom = this.lpBars.update(this.screen.x, this.screen.y, hudUnit(this.ctx.viewport?.()), s, dt,
+        lpBottom = this.lpBars.update(this.screen.x, this.screen.y, hudU(this.ctx), s, dt,
           { hp: k, ghost: g, ammo: this.spMax > 0 ? [this.sp, this.spMax] : null, sp: this.bsp ? clamp(this.bsp[0] / this.bsp[1], 0, 1) : null }, this.ctx.assets);
       } else if (lp) {
         // the bullet bar whenever the sim lists it (b.snap `ammo`, sim local-hud.js bulletView): a running ammo skill, or a
         // bullet-mode skill while it is affecting — a passive one (琳琅诗怀雅's coins) carries no UF.SKILL
-        const u = hudUnit(this.ctx.viewport?.()), active = !!(this.flags & UF.SKILL);
+        const u = hudU(this.ctx), active = !!(this.flags & UF.SKILL);
         const sp = this.spMax > 0 ? clamp(this.sp / this.spMax, 0, 1) : null;
         const bar = shieldedBar(this.hp, this.maxHp, this.ghostHp, this.barrier);
         lpBottom = this.lpBars.update(this.screen.x + sx, this.screen.y, u, { hp: bar.hp, ghost: bar.ghost, split: bar.split, sp, cast: active, ammo: this.ammo }, this.ctx.assets);
@@ -1992,10 +1994,10 @@ export class UnitView {
     // enemy's barrier and the plain bars
     const shielded = showHp && (this.flags & UF.SHIELD) && !(lp && !this.isEnemy);
     this.shieldBar.visible = !!shielded;
-    if (shielded && lp) { const u = hudUnit(this.ctx.viewport?.()), b = this.lpBars.box; this.shieldBar.position.set(b.x0, b.top - 1.5 * u); this.shieldBar.width = b.w; this.shieldBar.height = Math.max(1.5, 2.5 * u); } // local patch: a strip over the official HP bar
+    if (shielded && lp) { const u = hudU(this.ctx), b = this.lpBars.box; this.shieldBar.position.set(b.x0, b.top - 1.5 * u); this.shieldBar.width = b.w; this.shieldBar.height = Math.max(1.5, 2.5 * u); } // local patch: a strip over the official HP bar
     else if (shielded) { this.shieldBar.position.set(x0, cy - bh / 2 - 1); this.shieldBar.width = bw; this.shieldBar.height = Math.max(1.5, bh * 0.35); }
     // the official stored-charge mark over the unit (hud-bars.js SkillMark): an AUTO skill of several charges, while one is stored
-    if (this.lpMark) { if (showBars && this.charge > 0) this.lpMark.update(this.screen.x + sx, this.screen.y, hudUnit(this.ctx.viewport?.()), this.charge, this.ctx.assets, this); else this.lpMark.hide(); }
+    if (this.lpMark) { if (showBars && this.charge > 0) this.lpMark.update(this.screen.x + sx, this.screen.y, hudU(this.ctx), this.charge, this.ctx.assets, this); else this.lpMark.hide(); }
     // SP
     const showSp = showBars && this.spMax > 0; // local patch: an enemy sends SP only for 圣堂剑士's bullets (sim/content/local-patch.js)
     this.spBg.visible = this.spFill.visible = showSp && !lp; // local patch: allies' SP is in their official bars
@@ -2024,7 +2026,7 @@ export class UnitView {
       // sprite at `shop_hud`'s place when the local client art is installed (hud-bars.js PREP_CHIP)
       const off = prep ? prepChip(this.P, this.ctx.assets, this.tier) : null;
       if (off) {
-        const u = hudUnit(this.ctx.viewport?.());
+        const u = hudU(this.ctx);
         if (this.chip.texture !== off.tex) this.chip.texture = off.tex;
         this.chip.scale.set(off.k * u);
         this.chip.visible = this.alive;
@@ -2056,7 +2058,7 @@ export class UnitView {
     }
     // element gauge row under the bars (b.snap `elem`); redeploy ring above a knocked-down operator (b.snap `down`)
     if (lp) { // local patch: the official element ring at the feet (hud-bars.js ElementRing); without its art the row under the bars
-      const u = hudUnit(this.ctx.viewport?.()), w = (this.isEnemy ? 105 : 125) * u, side = this.isEnemy ? 'enemy' : 'ally';
+      const u = hudU(this.ctx), w = (this.isEnemy ? 105 : 125) * u, side = this.isEnemy ? 'enemy' : 'ally';
       const want = showBars && !!this.el;
       if (want && !this._elRing && epRingReady(this.P, this.ctx.assets, side)) this._elRing = new ElementRing(this.P, this.hud, side);
       const ring = want && !!this._elRing && this._elRing.update(this.ctx.assets, this.el, this.elementLeft(), this.elementCooling(), this.screen.x, this.screen.y, u, dt);
@@ -2082,7 +2084,7 @@ export class UnitView {
     }
     // local patch (LOCAL-PATCH.md 「전투 화면 UI」): in prep the official equip bar stands for the item pips when installed
     const eqTex = prep && this._equip?.length && this.alive ? equipTextures(this.P, this.ctx.assets) : null;
-    if (eqTex) (this._equipBar || (this._equipBar = new EquipBar(this.P, this.hud))).update(this.screen.x, this.screen.y, hudUnit(this.ctx.viewport?.()), this._equip, eqTex);
+    if (eqTex) (this._equipBar || (this._equipBar = new EquipBar(this.P, this.hud))).update(this.screen.x, this.screen.y, hudU(this.ctx), this._equip, eqTex);
     else if (this._equipBar) this._equipBar.hide();
     for (let i = 0; i < this.itemPips.length; i++) {
       const pip = this.itemPips[i];

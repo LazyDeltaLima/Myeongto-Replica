@@ -782,6 +782,10 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   절반 보기는 공식 왼쪽 절반 카메라(`left_battle_camera_param`)를 그 절반의 열 오프셋(0·8·16·24)만큼 옮긴 것(`halfOffset`). 세로 화면은 그 절반 11열에 맞춤.
 - **‹ › 전환**: 도우미마다 절반 하나 — 왼쪽부터 `H0`…`H3`(열 오프셋 ÷ 8; 첫 도우미가 맨 오른쪽), 가운데에 全景(4명 H0 H1 全景 H2 H3, 3명 H0 全景 H1 H2;
   `battle/observe.js cameraLayers·halfSide·layerCamera`). 前往查看·맹약 줄도 그 절반을 따름(`ui/watchBonds.js`). 2명 필드는 L / 全景 / R 그대로.
+- **유닛 HUD 크기**: 공식 HUD(HP·SP 막대, 적 HP, 원소 고리 — `render/hud-bars.js`)는 카메라와 상관없이 화면에 고정된 크기라, 全景처럼 카메라가
+  멀어지면 작아진 유닛에 비해 너무 크다(관리자 화면 확인 2026-10-20). 넓은 필드가 화면에 있는 동안 `render/app.js updateHudZoom`이 지금 카메라의 타일
+  크기를 공식 2인 연합 방어 카메라의 타일 크기로 나눈 비율(최대 1, 최소 0.45)만큼 HUD 단위를 줄인다(`units.js hudU`). 절반 보기는 공식 배율이라 1.
+  피해 숫자(`num-official.js`)는 그대로. **[ASSUMED]** 공식에 넓은 필드가 없어 비율 기준은 우리가 정함.
 - **간이 보기**(`ui/fallbackField.js`): 같은 넓힌 무대, 타일은 12 px까지 줄여 화면 안에.
 - 확인: `test/render/wide-field.test.js`(넓힌 무대 기록·장치 사본, 2D·3D 격자 폭, 3D 영역, 全景이 양 끝을 담음·절반 카메라 = 공식 왼쪽 절반 + 오프셋,
   ‹ › 층, 前往查看·맹약 줄, `fieldMeta.wide`, 공식 씬 사본의 위치·자르기·숨김 묶음 — 합성 지오메트리). 클라우드 헤드리스 Chromium으로는 간이 보기만 봄

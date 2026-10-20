@@ -170,6 +170,8 @@ export { releaseGl } from './app/host.js';
  * drop-ins stay. true restores the maintainer decision of 2026-10-08 「남의 보드도 소리 남」.
  */
 export const SCOUT_DEPLOY_SFX = false;
+/** The smallest battle-HUD zoom on a wide 联防 field (updateHudZoom): the bars stay readable on a phone. */
+const HUD_ZOOM_MIN = 0.45;
 
 /**
  * Create the battlefield view inside `host` (an element sized by CSS; the canvas fills it).
@@ -309,6 +311,7 @@ export async function createFieldView(host, options = {}) {
   let wideMemo = { base: null, halves: 0, out: null };
   let cam = presetCamera('prep', { width: s0.width, height: s0.height, padding: defaultPadding('prep', s0) }, { hud: hudBands('prep', s0) });
   let camFrom = null, camTo = null, camT0 = 0, camKind = 'prep', camOpts = {}, camMs = CAMERA_MS;
+  let hudZoom = 1, hudRef = { key: '', stage: null, px: 1 }; // the battle HUD's zoom on a wide 联防 field (updateHudZoom)
   let pendingView = null;     // tile band/focus to apply when the camera transition ends
   const views = new Map();    // key → view (prep: 'p:'+uid; battle: unit id)
   let prepPieces = [];        // { uid, piece, area, idx, row, col, key }
@@ -383,6 +386,7 @@ export async function createFieldView(host, options = {}) {
     impostorSlot: () => impSlot++,
     clipAllowed: () => clipAllowed,
     viewport: () => vp,
+    hudZoom: () => hudZoom,
     loadLevel: () => loadLevel,
     surfaceLayer: (row) => tiles.surfaceLayer(row),
     terrainAt: (r, c) => (tiles ? tiles.tile(r, c).mat : null),   // the stage tile's material ('deepsea': units.js deepSink)
@@ -788,6 +792,24 @@ export async function createFieldView(host, options = {}) {
     if (!st || typeof st !== 'object' || !Array.isArray(st.rows)) return false;
     stageBase = st;
     return showStage();
+  }
+
+  /**
+   * The battle HUD's zoom (render/hud-bars.js hudUnit × this): the official HUD is screen-fixed for the official cameras,
+   * so the wide 联防 field's whole-field camera (8-player mode, its tiles far smaller) shrinks it by its tile size over the
+   * official 2-helper 联防 camera's [ASSUMED: no official wide field]; 1 everywhere else (a half view keeps the official zoom).
+   */
+  function updateHudZoom() {
+    if (!shownWide() || !cam) { hudZoom = 1; return; }
+    const sz = size(), key = `${sz.width}x${sz.height}`;
+    const mid = (r) => [(r.c0 + r.c1) / 2, (r.r0 + r.r1) / 2];
+    if (hudRef.key !== key || hudRef.stage !== stageRec) {
+      const [x, y] = mid(GEO.UNITE_RECT);
+      hudRef = { key, stage: stageRec, px: targetCamera('unite', {}).scaleAt(x, y) };
+    }
+    const [x, y] = mid(camRect());
+    const k = cam.scaleAt(x, y) / hudRef.px;
+    hudZoom = Number.isFinite(k) && k > 0 ? Math.min(1, Math.max(HUD_ZOOM_MIN, k)) : 1;
   }
 
   /** Columns of the board on screen: 21, or the wide 联防 field's 29 / 37 (tile picks reach its last column). */
@@ -2065,6 +2087,7 @@ export async function createFieldView(host, options = {}) {
     if ((globalThis.devicePixelRatio || 1) !== lastDpr) { lastDpr = globalThis.devicePixelRatio || 1; resize(); }
     try {
       stepCamera(now);
+      updateHudZoom();
       if (board3d) {
         if (board3d.lost) onBoard3dLost();
         else if (!board3d.warming) {
