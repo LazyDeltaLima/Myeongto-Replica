@@ -43,7 +43,7 @@
 // drops its extras at level ≥ 2): level 2 plays 'high' as 'medium', level 3 also skips the normal-attack effects.
 // stats() → { live, loaded, updateMs, renderMs, calls, particles, notes } (view.stats().fxGame). `trace` (tests): called with
 // { kind, names, by, at } for every effect play() starts, before it loads (node has no WebP, so nothing is drawn there), and
-// { kind: 'spawn', names, by, on, tag } for every extracted prefab spawn() starts. `dry` (tests, 2026-10-20): nothing ever
+// { kind: 'spawn', names, by, on, tag, facing } for every extracted prefab spawn() starts. `dry` (tests, 2026-10-20): nothing ever
 // loads and the layer never fails — every event takes the path it takes in a browser up to the load, so `trace` sees them all
 // (without it node's missing WebP fails the layer at the first load and the later events skip the official effects).
 // 丰川祥子's notes (kits/ops/op-oblvns.js, battle.fx 'oblvnsNote' born / track / free / hit / gone): each note is her client trail
@@ -1325,7 +1325,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   async function spawn(bundle, name, at, entry, { over = true, facing = 1, drop = null, aim = null, dir = null } = {}) {
     if (!index?.bundles?.[bundle]?.includes(name)) return null;
-    if (trace) trace({ kind: 'spawn', names: [name], by: entry.owner ?? null, on: at && at.info ? ownerOf(at) ?? null : null, tag: entry.tag ?? null }); // tests
+    if (trace) trace({ kind: 'spawn', names: [name], by: entry.owner ?? null, on: at && at.info ? ownerOf(at) ?? null : null, tag: entry.tag ?? null, facing }); // tests
     if (!(await ensure())) return null;
     const def = await lib.load(bundle, name);
     if (!mod || !def) return null;
@@ -1867,8 +1867,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const packOn = () => !!(index?.bundles?.[PACK_FX]?.includes('vigil_token_sub_start_1') && q() !== 'low' && !failed);
   const packs = new Map();   // wolf id → { n, subs: [live|null, live|null], ghost, ready, tac }
   const packOf = (id) => { let p = packs.get(id); if (!p) packs.set(id, (p = { n: 2, subs: [null, null], ghost: null, ready: null, tac: false })); return p; };
-  function packFx(name, at, entry) {
-    return index?.bundles?.[PACK_FX]?.includes(name) ? spawn(PACK_FX, name, at, entry, { over: false, facing: at?.info ? efacing(at) : 1 }) : Promise.resolve(null);
+  /** `facing`: for a point `at` (no view), the wolf's facing (2026-10-21: vigil_token_die is FLIP_TWO_SIDE). */
+  function packFx(name, at, entry, facing = at?.info ? efacing(at) : 1) {
+    return index?.bundles?.[PACK_FX]?.includes(name) ? spawn(PACK_FX, name, at, entry, { over: false, facing }) : Promise.resolve(null);
   }
   /** Its extra wolves for `n` wolves now (the standing view `v`); `lost`: the one gone plays its sub_die. */
   function packSubs(id, v, n, lost) {
@@ -1918,9 +1919,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (n === 0) {   // its 战术点形态
       p.tac = true;
       for (let k = 0; k < 2; k++) if (p.subs[k]) { p.subs[k].then((l) => l?.inst.stop()); p.subs[k] = null; }
-      const at = { x: Number(e[2]), y: Number(e[3]), z: v?.z || 0 };
-      packFx('vigil_token_die', at, { owner: null, buff: false });
-      if (!p.ghost) p.ghost = packFx('vigil_token_ghost', at, { owner: null, buff: false, until: clockS + 40, tag: 'pack' });
+      const at = { x: Number(e[2]), y: Number(e[3]), z: v?.z || 0 }, f = v?.info ? efacing(v) : 1;   // (the place it fell on, as the wolf faced)
+      packFx('vigil_token_die', at, { owner: null, buff: false }, f);
+      if (!p.ghost) p.ghost = packFx('vigil_token_ghost', at, { owner: null, buff: false, until: clockS + 40, tag: 'pack' }, f);
       return true;
     }
     if (v && v.alive !== false) {

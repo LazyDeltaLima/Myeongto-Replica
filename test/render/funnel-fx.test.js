@@ -149,8 +149,11 @@ test("伺夜's pack: extra wolves by the count, a lost one's sub_die, its bite b
     assert.deepEqual(got(), ['vigil_token_heal', 'vigil_token_skill_02_hint', 'vigil_token_skill_02_ready']);
     layer.onEvent(['atk', 3, 9, 'none'], views);
     assert.deepEqual(got(), ['vigil_token_attack_hit_2', 'vigil_token_attack_hit_extra', 'vigil_token_sub_attack_1']);
+    wolf.visFacing = -1;   // its 战术点 effects at the place it fell on, turned as it faced (vigil_token_die flips)
     fx('wolfShadowLost', { wolves: 0 });
+    const lost = plays.filter((p) => p.kind === 'spawn' && /^vigil_token_(die|ghost)$/.test(p.names[0])).map((p) => `${p.names[0]} ${p.facing}`).sort();
     assert.deepEqual(got(), ['vigil_token_die', 'vigil_token_ghost']);
+    assert.deepEqual(lost, ['vigil_token_die -1', 'vigil_token_ghost -1']);
     fx('summon', { src: 7, wolves: 1 });
     layer.onEvent(['deploy', 3], views);
     layer.update(0.02, null, null);

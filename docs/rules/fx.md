@@ -1519,7 +1519,9 @@
   (`vigil_wolf_s_2`)이 있으면 `_extra`; 추가 늑대의 시전 `_vigilWolfCastEffects` `vigil_token_sub_attack_1`/`_2`; S2 시전 `vigil_token_skill_02_hint`,
   선물 동안 `_ready`; S1 ③·S2 회복 `vigil_token_heal`.
 - 고친 것: `fxgame.js` `packEvent`·`packDeploy`·`packAtk` — 늑대 수는 시뮬의 'summon'·'revive'·'wolfShadow'·'wolfShadowLost'(`wolves`/`n`)에서
-  (시뮬 변경 없음). 0이면 전술점 형태: 쓰러진 칸에 `die` + `ghost`(돌아오는 배치까지), 돌아오면 `start`.
+  (시뮬 변경 없음). 0이면 전술점 형태: 쓰러진 칸에 `die` + `ghost`(돌아오는 배치까지), 돌아오면 `start`. 칸(점)에 트는 둘은 늑대 뷰가 있으면 그
+  늑대가 바라보던 쪽으로 튼다(2026-10-21 — 전엔 점이라 늘 +1; `vigil_token_die`는 `_rotateType` 1 FLIP_TWO_SIDE라 왼쪽을 보던 늑대면 뒤집힘,
+  `ghost`는 0이라 안 바뀜; `test/render/funnel-fx.test.js`, `trace`의 spawn에 `facing`).
 - 장식 자리 (2026-10-16 묶음 3 재점검): `vigil_token_buff_1~4`가 발밑에 겹쳐 있었다 — 프리팹의 FollowMountPoint(`mount` 5·6·8·9 = SPECIAL_0~3)는 맞았는데
   `points.json`에 토큰 항목이 없었다(`char_points.py`는 오퍼의 chararts만 읽음). 토큰 모델은 `pkgrps/btl_pfb_tokens_*.ab`의 프리팹이고 한 번들에 여럿이라
   뿌리 이름으로 그 애니메이터를 고름 → `char_points.py TOKENS`(지금은 늑대만 — 다른 토큰은 점을 대조하기 전까지 렌더 대체 그대로): sp0 `C_Head`·sp1
