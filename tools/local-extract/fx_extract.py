@@ -473,6 +473,7 @@ class Extractor:
         # 2026-10-16: what the run meets and the pipeline leaves out (fx_coverage.py; the dump names unknown scripts)
         self.cov = Coverage(dump=ROOT / '.cache' / 'il2cpp' / 'dump.cs')
         self.shader_props = {}   # shader path id -> [(name, type, defaults)] (Coverage.material)
+        self.keep = None         # 2026-10-20: a dict to collect each walked prefab's JSON in ('bundle/name' -> data; fx_golden.py)
         self.dry = False         # --coverage: no texture / mesh file written
 
     def load(self, bundle_rel):
@@ -2086,6 +2087,8 @@ class Extractor:
             data = self.prefab(go, out)
             written.append(name)
             self.cov.prefab(data)   # 2026-10-20: its signature, for the unverified kind (fx-verified.json)
+            if self.keep is not None:
+                self.keep[f'{bundle}/{name}'] = json.loads(json.dumps(data, ensure_ascii=False))
             if not write:
                 # (2026-10-16) the file on disk against what this extractor writes now: an extractor fix that only some
                 # bundles were re-extracted with (the built-in Quad, 2026-10-08) leaves the others drawing less

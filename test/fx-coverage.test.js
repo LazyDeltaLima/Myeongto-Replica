@@ -265,6 +265,47 @@ print(json.dumps({'ver': json.load(open(ver))['prefabs'], 'u': json.load(open(os
     assert.deepEqual(d, ['face (gone)', 'nodes[].mesh (new)', 'spawn (new)']);
   });
 
+  test('fx_golden.py: update stores the set and the extractions, check reports the changed paths and the prefabs it cannot extract', () => {
+    const r = py(`
+import io, os, tempfile, contextlib
+import fx_golden as g
+out = {'b/one': {'spawn': 1, 'nodes': [{'name': 'a'}]}, 'b/two': {'spawn': 2}, 'k/cn': {'spawn': 3}}
+class Fake:
+    def __init__(self, game, cab):
+        self.keep = None
+    def run(self, b, names, pack=None, write=True):
+        assert not write
+        for n in names:
+            if f'{b}/{n}' in out:
+                self.keep[f'{b}/{n}'] = json.loads(json.dumps(out[f'{b}/{n}']))
+g.fx.Extractor = Fake
+d = tempfile.mkdtemp()
+def run(*a):
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        code = g.main(list(a) + ['--game', 'x'])
+    return [code, buf.getvalue()]
+res = {}
+res['add'] = run('update', d, '--add', 'b/one', '--add', 'b/two')
+res['addcn'] = run('update', d, '--client', 'cn', '--add', 'k/cn')
+res['same'] = run('check', d)
+out['b/one']['nodes'][0]['mesh'] = 'Quad'
+del out['b/two']
+res['moved'] = run('check', d)
+res['cn'] = run('check', d, '--client', 'cn')
+res['set'] = json.load(open(os.path.join(d, 'golden.json')))
+res['stored'] = json.load(open(os.path.join(d, 'b', 'one.json')))
+print(json.dumps(res))`);
+    assert.equal(r.add[0], 0);
+    assert.deepEqual(r.set.prefabs, { 'b/one': { client: 'en', pack: null }, 'b/two': { client: 'en', pack: null }, 'k/cn': { client: 'cn', pack: null } });
+    assert.deepEqual(r.stored, { spawn: 1, nodes: [{ name: 'a' }] });
+    assert.deepEqual([r.same[0], r.same[1].trim()], [0, '[golden] en: 2 of 2 unchanged']);
+    assert.equal(r.moved[0], 1);
+    assert.match(r.moved[1], /b\/one: 1 path\(s\) differ\n {2}nodes\[\]\.mesh \(new\)/);
+    assert.match(r.moved[1], /b\/two: not extracted/);
+    assert.deepEqual([r.cn[0], r.cn[1].trim()], [0, '[golden] cn: 1 of 1 unchanged']);
+  });
+
   test('type_paths: the dotted field paths a Mecanim binding hashes (ParticleSystem.EmissionModule.rateOverTime.scalar)', () => {
     const hit = py(`
 ps = {'EmissionModule': {'enabled': 1, 'rateOverTime': {'scalar': 5.0, 'minMaxState': 0}}, 'lengthInSec': 1.0}

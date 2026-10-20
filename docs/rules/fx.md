@@ -770,6 +770,10 @@
   표준으로 그려짐). 2D 보드는 예전 모래 더미 그림 그대로.
 - 안 한 것: 강화 시작 이펙트 `S_desert_wall_02_start`(한 번, 2.5 s — 클라는 구조물이 강화될 때, m06은 전투 시작 [추정]), `S_desert_wall_die`(m06 구조물은 안 죽음),
   `map_desert_01_line`·방향 없는 `map_desert_02`/`_03`(템플릿이 안 씀), `screen_sandstorm_01/02`(m06 아님).
+  fx_coverage는 `shader:Unlit/Texture`를 `hand`로 둔다(2026-10-20): 그 셰이더를 쓰는 효과 프리팹은 `S_desert_wall_02_start_Mesh` 하나이고 효과
+  플레이어는 그것을 틀지 않는다(장치 모델로 구워 `official.js`가 그림). 플레이어에는 이 셰이더 규칙이 없어 틀면 재질에 남은 Standard의
+  `_Color`(1,1,1,1)를 ×2 색으로 쓰고 텍스처 알파를 그대로 쓴다 — 강화 시작 이펙트 `S_desert_wall_02_start`를 플레이어로 틀게 되면 먼저 불투명·×1
+  규칙을 넣을 것.
 - 추출: `fx_extract.py --bundle map --match '^map_desert_0[23]'` · `--bundle buff --match '^buff_desert_01$'` · `--bundle screen --match '^screen_desert_[a-z]+_to_[a-z]+$'` ·
   `--bundle s --match '^S_desert_wall'`(EN 클라) → `scene_extract.py --devices` → `node tools/build-browser-resources.mjs`(서비스 워커 목록).
 - 커스텀 설정 창·브리핑의 전장 #06 미리보기(`stage/preview`, git 밖)는 구조물 모델이 바뀐 뒤 `node tools/map-previews.mjs --only act1autochess_m06`으로 다시 찍음.
@@ -1592,8 +1596,14 @@
   `unverified` = 그 실행의 프리팹 기능 중 검증 목록 어느 프리팹에도 없는 것(기능 → 그 기능을 쓰는 프리팹), 추출 끝 요약에 한 줄. 클라 없이 디스크
   추출물로: `python3 tools/local-extract/fx_coverage.py unverified`(미검증 기능과, 그것을 **가장 드문 기능부터** 덮는 프리팹 — 10~15개씩 묶어 대조,
   관리자 결정 2026-10-20), `… verify <bundle/name>… --by arena|match [--note …]`(`.cache/fx-coverage.json`의 todo를 같이 적음). 2026-10-20 디스크
-  기준: 프리팹 2,178 · 기능 370 · 3개 이하 프리팹에만 있는 기능 36 · 드문 쪽부터 덮기 47개(탐욕 덮기 48). 다음 층 추출 JSON 골든(추출 JSON은
-  게임 데이터 파생물이라 공개 저장소 밖)은 관리자 노트, 이벤트 기록 골든은 아래.
+  기준: 프리팹 2,178 · 기능 370 · 3개 이하 프리팹에만 있는 기능 36 · 드문 쪽부터 덮기 47개(탐욕 덮기 48). 다음 층은 아래 둘.
+- **추출 JSON 골든 (2026-10-20)**: `tools/local-extract/fx_golden.py check|update <폴더> --game … --cab-index …` — 고정한 프리팹 묶음을 지금의
+  `fx_extract.py`로 다시 걸어(dry: 텍스처·메시 파일을 안 씀) 저장해 둔 추출 JSON과 `json_diff`로 경로별 비교, 다르거나 못 뽑으면 종료 코드 1.
+  추출기를 고치거나 CAB 색인·클라이언트가 바뀔 때 화면보다 먼저 「무엇이 바뀌었나」를 본다(필드가 한 칸 밀린 리더, 엉뚱한 칸에서 읽은 플래그).
+  폴더 = `golden.json`(`{"prefabs": {"묶음/이름": {"client": "en", "pack": null}}}`) + `<묶음>/<이름>.json`(들여쓰기·키 정렬); 추출 JSON은 게임
+  데이터 파생물이라 공개 저장소 밖(관리자 폴더). 한 번에 한 클라이언트(`--client cn` + CN 클라·CN CAB 색인), `update --add 묶음/이름`으로 더함,
+  `--only`로 일부만. 텍스처·메시 내용은 비교 안 함(JSON이 주는 이름만). 묶음 = `unverified`의 드문 쪽부터 덮기 전체(2026-10-20 47개: EN 35 · CN
+  12 — 관리자 결정 2026-10-20: 추출 골든은 추출기 회귀 장치라 화면 대조와 따로 가고, 대조 여부는 `fx-verified.json`이 표시).
 - **이벤트 기록 골든 (2026-10-20)**: 서명과 추출 JSON 골든은 프리팹 그림만 보고 「언제·누구에게 트나」(바인딩: `fxgame.js`·`fxmap.js`·추출
   `modes.json`/`index.json`)는 못 본다. `tools/fx-golden.mjs`가 골든 전투 묶음(`tools/golden.mjs`의 roster·standins·diy·fields, 94판)을
   실제 판 경로(`battleOf` → BattleSpec)로 돌리며 3틱마다 이벤트를 브라우저처럼 `createFxLayer({ dry: true, trace })`에 흘린다(`dry`: 아무것도

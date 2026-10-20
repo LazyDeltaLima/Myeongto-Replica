@@ -192,6 +192,8 @@ KNOWN = {
     "material:Unity's default particle material on an emitting system": (
         _TODO, 'the client draws Unity\'s plain default particle; the extract reads that material as none (UNITY_DEFAULT_MATERIALS)'),
     'shader:Legacy Shaders/Particles/Alpha Blended': (_TODO, 'no name rule in the player: blended by `_DstBlend`'),
+    'shader:Unlit/Texture': (_HAND, 'only S_desert_wall_02_start_Mesh (s.ab), which the player never plays: scene_extract.py '
+                                    '--devices bakes its mesh into the 土石结构 model, drawn opaque and unlit by board3d/official.js'),
     **{f'clip:material {n}: declared by the shader, not saved on the material': (
         _TODO, 'the shader reads it but fx_extract material_prop looks on the material only: the track is dropped')
        for n in ('_MainTex_ST', '_DissolveTex_ST', '_AddTex_ST', '_Amount', '_TintColor')},
