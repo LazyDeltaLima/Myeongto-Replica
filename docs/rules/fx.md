@@ -1581,6 +1581,19 @@
   `aglna2`, 103 프리팹)도 같음. 대조가 바로 찾은 것: SwitchableRightEffect의 원시 대비책은 두 클라 모두에서 이미 아무것도 못 읽고 있었다 — 문자열 뒤
   정수가 EN은 10-14 갱신으로 2개(`_reverseLeftRight`), CN은 3개(`_reactivationMode`까지)라 1~3개를 받게 고침. 타입 트리를 먼저 읽어 왔기에 출력은
   그대로다. 새 두 필드는 본 사본 모두 0이고 옮기지 않는다.
+- **미검증 표시 — 이펙트 골든 세트 (2026-10-20, 관리자 결정)**: 보고는 「파이프라인이 버린 것」만 보고, 옮기긴 했지만 아무도 화면으로 공식과 대조한
+  적 없는 것은 몰랐다. 이제 추출한 프리팹마다 **기능 서명**(`fx_coverage.signature`)을 만든다 — 플레이어가 쓰는 것을 지금까지 버그가 났던 값까지
+  (붙는 자리·`spawn`·`face.rot`·입자 렌더 모드·공간·Shape 종류·모듈·셰이더·텍스처 칸·`_CullMode` 같은 블렌드/깊이/컬링 스위치·키워드·재생하는 클립
+  트랙) 더하고, 재질 밖의 **추출 JSON 필드 경로 전부**(`key:…`)를 자동으로 더한다. 그래서 추출기가 새 필드를 옮기기 시작하면 아무도 목록에 안 넣어도
+  그 필드가 미검증으로 뜬다. 플레이어가 재생하지 않는 `attr:<crc32>` 트랙은 서명에 넣지 않는다(`clip` 종류가 보고). 검증 목록
+  `tools/local-extract/fx-verified.json` = 관리자가 화면에서 공식 인게임과 대조한 프리팹 — `by`(`arena` = 디버그 아레나 `/debug.html`, 기본 /
+  `match` = 실제 판: 마운트 지점에 붙거나 바라보는 방향으로 바뀌는 것), 대조 날의 서명(`features`), 그 프리팹에 걸린 fx_coverage todo(`todo`, 자동),
+  화면에서 본 차이(`notes`)를 적는다. 서명을 그날 것으로 고정해 두므로 나중에 새로 옮긴 필드는 다시 볼 때까지 미검증이다. 보고의 새 종류
+  `unverified` = 그 실행의 프리팹 기능 중 검증 목록 어느 프리팹에도 없는 것(기능 → 그 기능을 쓰는 프리팹), 추출 끝 요약에 한 줄. 클라 없이 디스크
+  추출물로: `python3 tools/local-extract/fx_coverage.py unverified`(미검증 기능과, 그것을 **가장 드문 기능부터** 덮는 프리팹 — 10~15개씩 묶어 대조,
+  관리자 결정 2026-10-20), `… verify <bundle/name>… --by arena|match [--note …]`(`.cache/fx-coverage.json`의 todo를 같이 적음). 2026-10-20 디스크
+  기준: 프리팹 2,178 · 기능 370 · 3개 이하 프리팹에만 있는 기능 36 · 드문 쪽부터 덮기 47개(탐욕 덮기 48). 다음 층(추출 JSON 골든·이벤트 기록
+  골든)은 관리자 노트.
 - 기준선의 큰 todo(비공개 조사 기록에 전체 목록): `FollowDirection` 183개(주인·대상 방향을 매 프레임 따라 돎) · 셰이더 `_CullMode`(플레이어는 늘
   양면) · Disturb Origin `_SrcBlend`(대부분 SrcAlpha, 2개가 One) · `InheritVelocityModule` 78 · `FxLODSetting` 37 · Shape Mesh 36(점으로 대체) ·
   `EmptyEffect` 35 · `OnPlayEmitter` 29 / `OnFinishEmitter` 14(다른 이펙트를 틂) · `CollisionModule` 28 · `PauseEffectIf` 26 · 기본 상태 밖 Animator

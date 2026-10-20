@@ -2085,6 +2085,7 @@ class Extractor:
             self.cov.begin(f'{bundle}/{name}')
             data = self.prefab(go, out)
             written.append(name)
+            self.cov.prefab(data)   # 2026-10-20: its signature, for the unverified kind (fx-verified.json)
             if not write:
                 # (2026-10-16) the file on disk against what this extractor writes now: an extractor fix that only some
                 # bundles were re-extracted with (the built-in Quad, 2026-10-08) leaves the others drawing less

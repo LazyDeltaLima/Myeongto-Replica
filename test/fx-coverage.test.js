@@ -196,6 +196,68 @@ print(json.dumps([r['what'] for r in cov.report()]))`);
     assert.deepEqual(rep, ['ParticleEffect: raw words ≠ type tree: spawn']);
   });
 
+  test('signature: the hand-picked values plus a key: feature per extracted field; materials by shader / texture / switch, played tracks only', () => {
+    const sig = py(`
+d = {'name': 'x', 'spawn': 2, 'face': {'rot': 1, 'limit': 1}, 'mount': {'type': 9, 'keepOriginRotation': 0},
+     'nodes': [{'name': 'a', 'active': False, 'ps': {'render': {'mode': 1}, 'space': 0, 'shape': {'type': 4}, 'mods': {'velOL': {'x': {'m': 0, 's': 1.0}}}}}],
+     'materials': {'m1': {'shader': 'S', 'tex': {'_MainTex': {'img': 'a'}}, 'floats': {'_CullMode': 2.0, '_Metallic': 0}, 'keywords': ['_K']}},
+     'clips': [{'name': 'c', 'tracks': [{'prop': 'mat:_TintColor.a', 'type': 23}, {'prop': 'attr:2086281974', 'type': 1},
+                                         {'prop': 'attr:123', 'type': 137}, {'prop': 'pos', 'type': 4, 'curves': [[[0, 1]]]}]}]}
+print(json.dumps(sorted(c.signature(d))))`);
+    for (const f of ['top:spawn=2', 'face:rot=1', 'face:limit', 'mount:type=9', 'mount:keep=0', 'node:inactive', 'ps:render=1',
+      'ps:space=0', 'ps:shape=4', 'ps:mod:velOL', 'shader:S', 'tex:_MainTex', 'mat:_CullMode=2', 'kw:_K', 'clip:mecanim',
+      'track:mat:_TintColor', 'track:active', 'track:pos', 'key:nodes[].ps.mods.velOL.x', 'key:clips[].tracks[].curves',
+      'key:face.limit', 'key:spawn']) assert.ok(sig.includes(f), f);
+    assert.ok(!sig.some((f) => f.includes('attr:') || f.startsWith('key:materials') || f.includes('_Metallic') || f.includes('velOL.x.m')), sig.join(' '));
+  });
+
+  test('unverified: the features of the run\'s prefabs that no verified prefab had when it was checked', () => {
+    const r = py(`
+import tempfile, os
+v = os.path.join(tempfile.mkdtemp(), 'v.json')
+open(v, 'w').write(json.dumps({'prefabs': {'b/old': {'features': ['top:spawn=2', 'key:spawn', 'key:name', 'key:nodes[].name', 'key:nodes[].active']}}}))
+cov = c.Coverage(verified=v)
+base = {'name': 'x', 'nodes': [{'name': 'a', 'active': True}], 'materials': {}, 'clips': []}
+cov.begin('b/old'); cov.prefab(dict(base, spawn=2, height=1.0))   # checked before the extract carried height
+cov.begin('b/new'); cov.prefab(dict(base, spawn=3))
+cov.begin('b/new'); cov.component('MeshCollider')
+rep = cov.report()
+print(json.dumps({'unv': {r['what']: r['prefabs'] for r in rep if r['kind'] == 'unverified'},
+                  'status': sorted({r['status'] for r in rep}), 'summary': cov.summary()}))`);
+    assert.deepEqual(r.unv, { 'key:height': ['b/old'], 'top:height': ['b/old'], 'top:spawn=3': ['b/new'] });
+    assert.deepEqual(r.status, ['none', 'unverified']);
+    assert.equal(r.summary.length, 2);
+    assert.match(r.summary[0], /known gaps: 0 todo, 0 drawn by hand-written code, 1 draw nothing/);
+    assert.match(r.summary[1], /^\[fx\] unverified: 3 of 8 feature\(s\) of these 2 prefab\(s\) on no verified prefab/);
+  });
+
+  test('on its own: verify snapshots a prefab\'s features and its coverage todo items; unverified covers the rarest feature first', () => {
+    const r = py(`
+import tempfile, os, io, contextlib
+d = tempfile.mkdtemp()
+fx = os.path.join(d, 'fx'); os.makedirs(os.path.join(fx, 'b'))
+base = {'name': 'x', 'nodes': [], 'materials': {}, 'clips': []}
+files = {'common1': dict(base, spawn=1), 'common2': dict(base, spawn=1), 'rare': dict(base, spawn=1, height=1.0), 'other': dict(base, spawn=7)}
+for n, v in files.items():
+    open(os.path.join(fx, 'b', n + '.json'), 'w').write(json.dumps(v))
+open(os.path.join(fx, 'index.json'), 'w').write(json.dumps({'bundles': {'b': sorted(files)}}))
+cov = os.path.join(d, 'cov.json')
+open(cov, 'w').write(json.dumps([{'kind': 'script', 'what': 'FollowDirection', 'status': 'todo', 'prefabs': ['b/other']},
+                                 {'kind': 'module', 'what': 'X', 'status': 'none', 'prefabs': ['b/other']}]))
+ver = os.path.join(d, 'v.json')
+out = io.StringIO()
+with contextlib.redirect_stdout(out):
+    c.main(['--fx', fx, '--verified', ver, 'verify', 'b/other', '--by', 'arena', '--note', 'a bit dimmer', '--date', '2026-10-20', '--coverage', cov])
+    c.main(['--fx', fx, '--verified', ver, 'unverified', '--json', os.path.join(d, 'u.json')])
+print(json.dumps({'ver': json.load(open(ver))['prefabs'], 'u': json.load(open(os.path.join(d, 'u.json')))}))`);
+    const e = r.ver['b/other'];
+    assert.deepEqual([e.date, e.by, e.todo, e.notes], ['2026-10-20', 'arena', ['script:FollowDirection'], ['a bit dimmer']]);
+    assert.ok(e.features.includes('top:spawn=7'));
+    assert.deepEqual(r.u.unverified, ['key:height', 'top:height', 'top:spawn=1']);
+    assert.deepEqual(r.u.cover, [{ prefab: 'b/rare', adds: 3 }]);
+    assert.deepEqual(r.u.rare.map((x) => x.feature), ['key:height', 'top:height', 'top:spawn=1']);
+  });
+
   test('json_diff: the paths where an extracted file and a fresh extraction differ, list indices as []', () => {
     const d = py(`print(json.dumps(sorted(fe.json_diff(
   {'nodes': [{'name': 'a'}, {'name': 'qizi'}], 'duration': 1.0, 'face': {'rot': 1}},
