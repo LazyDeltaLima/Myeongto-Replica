@@ -3,13 +3,14 @@
 // settings that differ from the official ones and the unsaved mark, 复制代码 · 粘贴代码) and 休闲值 / 官方值 / 取消 / 应用.
 // The ⚙ of the 规则 switch opens it (ui/ruleset.js): in the lobby it edits the lobby's settings, in a room the host's
 // edit the room's (room.setRuleset), anybody else sees them read-only with 保存为我的预设.
-// Every setting reaches the match: the match flow (bonds, leader and stage bans, rounds, prep, 目标生命值) through its
-// GameData, the battle settings (enemy and leader stats, 限伤, the layer cap) through the spawn mods and the spec flags.
+// Every setting reaches the match: the match flow (bonds, leader and stage bans, rounds, prep, 目标生命值, the shop pool
+// sizes) through its GameData, the battle settings (enemy and leader stats, 限伤, the layer cap) through the spawn mods
+// and the spec flags.
 //
 //   openCustomRules({ rules, readonly, roomMode, difficulty, size, onApply })   CustomRulesDialog (mounted by the lobby and the room)
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { html, Icon, Button, Modal, confirmDialog } from './components.js';
+import { html, Icon, Button, Modal, confirmDialog, roman } from './components.js';
 import { Img } from './gameComponents.js';
 import { bondIconUrl, enemyIconUrl } from './assetUrls.js';
 import { createStore, useStore, loadPref, savePref } from '../store.js';
@@ -21,10 +22,10 @@ import {
   encodeCustomCode, decodeCustomCode, CUSTOM_NAME_MAX,
 } from './customRulesStore.js';
 import {
-  sanitizeCustom, customDiffs, customRoundPlan, curveScale, customPrepSeconds, customStagePool, CUSTOM_OFFICIAL, CUSTOM_CASUAL, CUSTOM_LIMITS,
-  CUSTOM_FIRST_HALF_STAGES, officialBans,
+  sanitizeCustom, customDiffs, customRoundPlan, curveScale, customPrepSeconds, customStagePool, customPoolCount, CUSTOM_OFFICIAL, CUSTOM_CASUAL,
+  CUSTOM_LIMITS, CUSTOM_FIRST_HALF_STAGES, officialBans,
 } from '../../../shared/ruleset.js';
-import { modeIdFor, DIFFICULTIES } from '../../../shared/constants.js';
+import { modeIdFor, DIFFICULTIES, LARGE_SEATS } from '../../../shared/constants.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -35,7 +36,7 @@ const TABS = [
   { id: 'enemies', name: N_('敌人能力'), micro: 'ENEMIES', keys: ['enemies.', 'leaders.'] },
   { id: 'bosses', name: N_('敌方领袖'), micro: 'LEADERS', keys: ['bosses.'] },
   { id: 'stages', name: N_('战场'), micro: 'BATTLEFIELD', keys: ['stages.'] },
-  { id: 'flow', name: N_('进程'), micro: 'FLOW', keys: ['flow.'] },
+  { id: 'flow', name: N_('进程'), micro: 'FLOW', keys: ['flow.', 'pool.'] },
 ];
 
 export const customDialogStore = createStore({ open: false, seq: 0, rules: null, readonly: false, live: null, roomMode: 'coop', difficulty: 'FUNNY', onApply: null });
@@ -216,7 +217,7 @@ function CustomRulesBody({ init, readonly, live, roomMode, difficulty, size, onA
       <${Button} variant="secondary" size="sm" icon="close" onClick=${() => setPaste(null)}>${t('关闭窗口')}<//>
     </div>` : null;
 
-  const ctx = { work, set, readonly, solo, mode, bans, base, difficulty, setWork };
+  const ctx = { work, set, readonly, solo, mode, bans, base, difficulty, size, config, setWork };
   const Pane = PANES[tab];
 
   const actions = readonly
@@ -461,7 +462,7 @@ function StagesPane({ work, set, setWork, readonly, mode }) {
 }
 
 
-function FlowPane({ work, set, readonly, solo, mode, base }) {
+function FlowPane({ work, set, readonly, solo, mode, base, size, config }) {
   const official = base.rounds ?? 14;
   const n = work.flow.rounds ?? official;
   const plan = mode ? customRoundPlan(mode, work.flow.rounds) : { rounds: [], hidden: null };
@@ -516,11 +517,44 @@ function FlowPane({ work, set, readonly, solo, mode, base }) {
         <${Switch} on=${work.flow.lpShared} disabled=${readonly || solo} onChange=${(v) => set('flow', 'lpShared', v)} />
       <//>
     <//>
+    <${PoolSec} work=${work} set=${set} readonly=${readonly} solo=${solo} size=${size} config=${config} />
     <${Sec} title=${t('其他便利功能')} sub=${t('休闲规则的项目')}>
       <${Row} label=${t('移动型领袖路线预览')} note=${t('最终攻势休整期中敌方领袖将要走的路线')} official=${t('官方：没有')}>
         <${Switch} on=${work.flow.routePreview} disabled=${readonly} onChange=${(v) => set('flow', 'routePreview', v)} />
       <//>
     <//>`;
+}
+
+/**
+ * The shop pool sizes (pool.chess / pool.items): two percents and the per-tier counts they give in a room of this size —
+ * the official count already holds the room's multiplier (server/match/gamedata.js poolCopies / itemPoolCopies).
+ */
+function PoolSec({ work, set, readonly, solo, size, config }) {
+  const eco = config?.economy || {};
+  const big = !solo && size === LARGE_SEATS ? config?.eightPlayer || {} : null;
+  const chessMul = solo ? 1 : (big?.coopPoolMultiplier || eco.coopPoolMultiplier || 1);
+  const itemMul = big?.itemPoolMultiplier || 1;
+  const tiers = [1, 2, 3, 4, 5, 6];
+  const chess = tiers.map((k) => (eco.poolCopies?.[k] ?? 0) * chessMul);
+  const items = tiers.map((k) => (eco.itemPoolCopies?.[k] ?? 0) * itemMul);
+  const who = solo ? t('独立模拟') : t('{n} 人同盟', { n: size === LARGE_SEATS ? LARGE_SEATS : 4 });
+  const pct = (k, label, note) => html`<${Row} label=${label} note=${note} official=${t('官方 100%')}>
+    <${Stepper} value=${work.pool[k]} min=${CUSTOM_LIMITS.pct[0]} max=${CUSTOM_LIMITS.pct[1]} step=${10} suffix="%" disabled=${readonly}
+      testid=${`custom-pool-${k}`} onChange=${(v) => set('pool', k, v)} />
+  <//>`;
+  const row = (label, list, cls = '') => html`<span class="k">${label}</span>${list.map((n, i) => html`<span key=${i} class=${cls}>${n}</span>`)}`;
+  return html`<${Sec} title=${t('商店卡池')} sub=${t('当前人数的官方数量乘以百分比 — 干员：同盟为独立模拟的 ×2、8 人同盟 ×4；装备：8 人同盟 ×2')}>
+    ${pct('chess', t('干员卡池'), t('每名干员在共享卡池中的张数（自选干员的个人库存也一样）'))}
+    ${pct('items', t('装备库存'), t('每件商店装备全队同时持有的上限'))}
+    <div class="crx-note">${t('{who}的每阶数量 — 部分干员和装备的官方数量与本阶不同，同样按比例增减', { who })}</div>
+    <div class="crx-ptable" style="--cols:6" data-testid="custom-pool-table">
+      ${row(t('阶级'), tiers.map((k) => roman(k)))}
+      ${row(t('干员（官方）'), chess)}
+      ${row(t('干员（自定义）'), chess.map((n) => customPoolCount(n, work.pool.chess)), 'v')}
+      ${row(t('装备（官方）'), items)}
+      ${row(t('装备（自定义）'), items.map((n) => customPoolCount(n, work.pool.items)), 'v')}
+    </div>
+  <//>`;
 }
 
 const PANES = { bonds: BondsPane, enemies: EnemiesPane, bosses: BossesPane, stages: StagesPane, flow: FlowPane };

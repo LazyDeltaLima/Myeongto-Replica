@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1443 of 1661 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1470 of 1688 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false
@@ -1690,5 +1690,18 @@
   "领袖限伤：不限制": "리더 적 대미지 상한: 제한 없음",
   "领袖限伤：{n}（按上限计算）": "리더 적 대미지 상한: {n} (상한으로 계산)",
   "领袖限伤：{n}": "리더 적 대미지 상한: {n}",
-  "回合数 {n}": "라운드 수 {n}"
+  "回合数 {n}": "라운드 수 {n}",
+  "商店卡池": "상점 풀",
+  "当前人数的官方数量乘以百分比 — 干员：同盟为独立模拟的 ×2、8 人同盟 ×4；装备：8 人同盟 ×2": "지금 인원의 공식 수량에 퍼센트를 곱한다 — 오퍼레이터: 연합은 단독 시뮬레이션의 ×2, 8인 연합 ×4 · 장비: 8인 연합 ×2",
+  "干员卡池": "오퍼레이터 풀",
+  "每名干员在共享卡池中的张数（自选干员的个人库存也一样）": "오퍼레이터마다 공유 풀에 든 장 수 (선발 오퍼레이터의 개인 재고도 같이)",
+  "装备库存": "장비 재고",
+  "每件商店装备全队同时持有的上限": "상점 장비마다 모두가 한꺼번에 가질 수 있는 수",
+  "{who}的每阶数量 — 部分干员和装备的官方数量与本阶不同，同样按比例增减": "{who} 티어별 수량 — 공식 수량이 티어 값과 다른 일부 오퍼레이터·장비도 같은 비율로 바뀐다",
+  "干员（官方）": "오퍼레이터(공식)",
+  "干员（自定义）": "오퍼레이터(커스텀)",
+  "装备（官方）": "장비(공식)",
+  "装备（自定义）": "장비(커스텀)",
+  "干员卡池 {n}%": "오퍼레이터 풀 {n}%",
+  "装备库存 {n}%": "장비 재고 {n}%"
 }

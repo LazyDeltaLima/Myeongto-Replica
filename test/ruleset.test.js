@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import {
   RULE_OPTIONS, RULE_PRESETS, QUEUE_PRESETS, DEFAULT_PRESET, PRESET_LABELS, isRulePreset, isQueuePreset, resolveRuleset, rulesetKey,
   simRuleFlags, sanitizeCustom, optionsOfCustom, customDiffs, sameRuleset, rulesetWire, customRoundPlan, curveScale, CUSTOM_CURVE_POWER,
-  customPrepSeconds, keepUnbanned,
+  customPrepSeconds, keepUnbanned, customPoolCount,
   CUSTOM_OFFICIAL, CUSTOM_CASUAL, CUSTOM_LIMITS, CUSTOM_VERSION,
 } from '../shared/ruleset.js';
 
@@ -110,6 +110,7 @@ test('custom settings: every field at its official value by default; numbers cla
     bosses: { ban: ['boss_5', 'boss_1', 'boss_5', 7, ''], hitMode: 'none', hitLimit: 1 },
     stages: { info: true, ban: ['b', 'a'] },
     flow: { rounds: 99, prep: 'x2', prepSec: 5, lpShared: true },
+    pool: { chess: 2000, items: 44.6, extra: 1 },
   });
   assert.equal(c.v, CUSTOM_VERSION);
   assert.equal('extra' in c, false);
@@ -125,6 +126,7 @@ test('custom settings: every field at its official value by default; numbers cla
   assert.equal(c.bosses.hitLimit, CUSTOM_LIMITS.hitLimit[0]);
   assert.deepEqual([...c.stages.ban], ['a', 'b']);
   assert.deepEqual([c.flow.rounds, c.flow.prep, c.flow.prepSec, c.flow.lpShared], [20, 'x2', 30, true]);
+  assert.deepEqual({ ...c.pool }, { chess: 1000, items: 45 });
   assert.ok(Object.isFrozen(c) && Object.isFrozen(c.bonds.pick) && Object.isFrozen(c.bosses.ban));
   assert.deepEqual(sanitizeCustom(JSON.parse(JSON.stringify(c))), c, 'idempotent');
 });
@@ -173,6 +175,12 @@ test('customDiffs: one path per differing setting (one per bond, leader and stag
     'stages.ban.m1', 'stages.ban.m2', 'flow.prep', 'flow.lpCapOff']);
   assert.deepEqual(customDiffs({ bonds: { banCore: 3 }, flow: { rounds: 14 } }), ['bonds.banCore', 'flow.rounds'], 'no base: explicit is a difference');
   assert.deepEqual(customDiffs({ bosses: { hitMode: 'none', hitLimit: 500000 } }), ['bosses.hitMode'], 'no limit: its value does not count');
+  assert.deepEqual(customDiffs({ pool: { chess: 150, items: 100 } }), ['pool.chess']);
+});
+
+test('customPoolCount: the official count × percent, rounded, at least 1 while the count is above 0; 100 % or none is the count', () => {
+  assert.deepEqual([customPoolCount(24, 150), customPoolCount(24, 50), customPoolCount(5, 10), customPoolCount(5, 1000)], [36, 12, 1, 50]);
+  assert.deepEqual([customPoolCount(7, 100), customPoolCount(7, undefined), customPoolCount(0, 300)], [7, 7, 0]);
 });
 
 describe('custom round plan and curves', () => {

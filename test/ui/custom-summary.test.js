@@ -50,11 +50,13 @@ test('one line per group, in the dialog\'s tab order, with the values (not the o
     bosses: { ban: ['boss_1'], hitMode: 'clamp', hitLimit: 500000 },
     stages: { info: true, reroll: true, firstHalf: true, ban: ['s1'] },
     flow: { prep: 'x1.5', lpCapOff: true, lpShared: true, routePreview: true },
+    pool: { chess: 150, items: 50 },
   };
   const name = (kind, id) => `${kind}:${id}`;
   const l = customSummary(c, { name });
   assert.deepEqual(keys(l), ['bonds.noLayerCap', 'bonds.pick.ban', 'bonds.pick.allow', 'enemies.stats', 'leaders.stats', 'enemies.curve',
-    'bosses.ban.final', 'bosses.hit', 'stages.info', 'stages.reroll', 'stages.firstHalf', 'stages.ban', 'flow.prep', 'flow.lpCapOff', 'flow.lpShared', 'flow.routePreview']);
+    'bosses.ban.final', 'bosses.hit', 'stages.info', 'stages.reroll', 'stages.firstHalf', 'stages.ban', 'flow.prep', 'flow.lpCapOff', 'flow.lpShared', 'pool.chess', 'pool.items',
+    'flow.routePreview']);
   const text = Object.fromEntries(l.map((x) => [x.key, x.text]));
   assert.equal(text['stages.firstHalf'], '收录上半战场：stage:act1autochess_m06');
   assert.equal(text['bonds.pick.ban'], '始终禁用盟约：bond:sargonShip、bond:yanShip');
@@ -63,6 +65,8 @@ test('one line per group, in the dialog\'s tab order, with the values (not the o
   assert.equal(text['enemies.curve'], '敌人能力成长曲线：陡峭');
   assert.equal(text['bosses.hit'], '领袖限伤：500,000（按上限计算）');
   assert.equal(text['flow.prep'], '休整期 ×1.5');
+  assert.equal(text['pool.chess'], '干员卡池 150%');
+  assert.equal(text['pool.items'], '装备库存 50%');
   // the 最终攻势 and 隐秘核心 leaders apart (the 假想敌 ones are in both groups under one name)
   const hidden = (id) => ['boss_8', 'boss_9', 'boss_10'].includes(id);
   assert.deepEqual(customSummary({ bosses: { ban: ['boss_2', 'boss_1', 'boss_10'] } }, { name, hidden }).map((x) => [x.key, x.text]),

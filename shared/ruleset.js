@@ -18,7 +18,7 @@
 //   sim    a battle spec flag (simRuleFlags → spec.flags, read by server/sim; set only when it differs from the official
 //          value, so a classic battle's spec stays what it was)
 // The match reads the custom settings through its GameData (server/match/gamedata.js: the round plan, the bans, the
-// prep, the 目标生命值 rules, the layer cap, the enemy and leader stats) and its battles through simRuleFlags (限伤, the
+// prep, the 目标生命值 rules, the layer cap, the enemy and leader stats, the shop pool sizes) and its battles through simRuleFlags (限伤, the
 // layer cap). docs/rules/ui.md 「규칙 모드」 has the rules and their evidence.
 
 import { N_ } from './i18n.js';
@@ -103,6 +103,7 @@ export const CUSTOM_BOND_PICKS = Object.freeze(['ban', 'allow']);
  *            CUSTOM_FIRST_HALF_STAGES join the pool · ban: stage ids never drawn (one stays)
  *   flow     rounds · prep / prepSec · lpCapOff: no 10-per-round cap · lpShared: one 目标生命值 for the
  *            alliance in every round · routePreview: the walking leader's route
+ *   pool     chess / items: percent of the shared chess pool's copies and of the shop equipment stock (customPoolCount)
  */
 export const CUSTOM_OFFICIAL = deepFreeze({
   v: CUSTOM_VERSION,
@@ -112,6 +113,7 @@ export const CUSTOM_OFFICIAL = deepFreeze({
   bosses: { ban: [], hitMode: 'void', hitLimit: BOSS_HIT_LIMIT },
   stages: { info: false, reroll: false, firstHalf: false, ban: [] },
   flow: { rounds: null, prep: 'official', prepSec: 90, lpCapOff: false, lpShared: false, routePreview: false },
+  pool: { chess: 100, items: 100 },
 });
 
 /** @typedef {typeof CUSTOM_OFFICIAL} CustomSettings */
@@ -161,7 +163,7 @@ export function sanitizeCustom(raw) {
   const r = isObj(raw) ? /** @type {any} */ (raw) : {};
   const sec = (k) => (isObj(r[k]) ? r[k] : {});
   const O = CUSTOM_OFFICIAL;
-  const b = sec('bonds'), e = sec('enemies'), l = sec('leaders'), bo = sec('bosses'), s = sec('stages'), f = sec('flow');
+  const b = sec('bonds'), e = sec('enemies'), l = sec('leaders'), bo = sec('bosses'), s = sec('stages'), f = sec('flow'), p = sec('pool');
   const pct = (v, d) => intIn(v, CUSTOM_LIMITS.pct, d);
   const pick = {};
   if (isObj(b.pick)) {
@@ -196,6 +198,7 @@ export function sanitizeCustom(raw) {
       lpShared: bool(f.lpShared, O.flow.lpShared),
       routePreview: bool(f.routePreview, O.flow.routePreview),
     },
+    pool: { chess: pct(p.chess, 100), items: pct(p.items, 100) },
   });
 }
 
@@ -280,7 +283,19 @@ export function customDiffs(raw, base = {}) {
   if (!same(c.flow.rounds, base.rounds)) out.push('flow.rounds');
   if (c.flow.prep !== O.flow.prep) out.push('flow.prep');
   for (const k of ['lpCapOff', 'lpShared', 'routePreview']) if (c.flow[k] !== O.flow[k]) out.push(`flow.${k}`);
+  for (const k of ['chess', 'items']) if (c.pool[k] !== O.pool[k]) out.push(`pool.${k}`);
   return out;
+}
+
+/**
+ * A shop pool size under a custom percent (pool.chess / pool.items): the official count of the match — the room size's
+ * multiplier already in it (co-op ×2, 8 players ×4, the 8 players' equipment ×2: server/match/gamedata.js poolCopies /
+ * itemPoolCopies) — × pct ÷ 100, rounded, never below 1 while the official count is above 0. No percent: the count.
+ * @param {number} n @param {number | null | undefined} pct
+ */
+export function customPoolCount(n, pct) {
+  if (!Number.isFinite(pct) || pct === 100 || !(n > 0)) return n;
+  return Math.max(1, Math.round((n * pct) / 100));
 }
 
 // ---- the custom round plan and stat curve -----------------------------------------------------------------------

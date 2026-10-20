@@ -2483,7 +2483,8 @@
           "leaders": {"hp":100,"atk":100,"def":100,"res":100},
           "bosses": {"ban":["boss_1","boss_2","boss_3"],"hitMode":"void","hitLimit":300000},
           "stages": {"info":false,"reroll":false,"firstHalf":false,"ban":["act1autochess_m02","act2autochess_m01"]},
-          "flow": {"rounds":9,"prep":"x1.5","prepSec":90,"lpCapOff":true,"lpShared":true,"routePreview":false}
+          "flow": {"rounds":9,"prep":"x1.5","prepSec":90,"lpCapOff":true,"lpShared":true,"routePreview":false},
+          "pool": {"chess":100,"items":100}
         },
         "lastRound": 9,
         "hiddenBossId": "boss_8"
@@ -2588,7 +2589,8 @@
           "leaders": {"hp":70,"atk":130,"def":80,"res":200},
           "bosses": {"ban":["boss_8"],"hitMode":"none","hitLimit":300000},
           "stages": {"info":false,"reroll":false,"firstHalf":false,"ban":[]},
-          "flow": {"rounds":16,"prep":"official","prepSec":90,"lpCapOff":false,"lpShared":false,"routePreview":false}
+          "flow": {"rounds":16,"prep":"official","prepSec":90,"lpCapOff":false,"lpShared":false,"routePreview":false},
+          "pool": {"chess":100,"items":100}
         },
         "lastRound": 16,
         "hiddenBossId": "boss_10"

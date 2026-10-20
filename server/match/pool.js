@@ -4,8 +4,9 @@
 // Model:
 //   * Every visible (non-hidden, non-DIY) base chess that is not banned this match has `cap` copies
 //     (GameData.poolCopies: the 独立模拟 (solo) table config.economy.poolCopies[tier] with its per-operator
-//     poolCopiesOverrides, × coopPoolMultiplier in a 同盟模拟 co-op match). `left[baseId]` = the signed capacity minus
-//     the copies owned; the public left() and the rolls clamp a deficit to zero.
+//     poolCopiesOverrides, × coopPoolMultiplier in a 同盟模拟 co-op match, × a custom ruleset's pool percent).
+//     `left[baseId]` = the signed capacity minus the copies owned; the public left() and the rolls clamp a deficit
+//     to zero.
 //   * Owning a piece takes copies: a normal piece holds 1, an elite holds 3 (merge of 3 normals). Shop displays
 //     do NOT reserve copies, and an operator card already shown stays buyable when left = 0 (the stock only gates what
 //     the shop draws: 路标月报#2 ~2:55, GitHub #498 — the purchase overdraws like a grant). A reward offer's pick still

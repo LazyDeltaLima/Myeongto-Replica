@@ -1681,5 +1681,18 @@
   "领袖限伤：不限制": "Leader damage limit: none",
   "领袖限伤：{n}（按上限计算）": "Leader damage limit: {n} (hits over it count as it)",
   "领袖限伤：{n}": "Leader damage limit: {n}",
-  "回合数 {n}": "Rounds: {n}"
+  "回合数 {n}": "Rounds: {n}",
+  "商店卡池": "Shop Pool",
+  "当前人数的官方数量乘以百分比 — 干员：同盟为独立模拟的 ×2、8 人同盟 ×4；装备：8 人同盟 ×2": "A percent of the official counts for this room size — Operators: Alliance ×2 of Solo, 8-Doctor Alliance ×4; Equipment: 8-Doctor Alliance ×2",
+  "干员卡池": "Operator Pool",
+  "每名干员在共享卡池中的张数（自选干员的个人库存也一样）": "Copies of each Operator in the shared pool (a Custom Squad Operator's own stock too)",
+  "装备库存": "Equipment Stock",
+  "每件商店装备全队同时持有的上限": "How many of each shop Equipment the whole team can hold at once",
+  "{who}的每阶数量 — 部分干员和装备的官方数量与本阶不同，同样按比例增减": "{who}, per tier — a few Operators and Equipment have their own official count, scaled the same way",
+  "干员（官方）": "Operators (official)",
+  "干员（自定义）": "Operators (custom)",
+  "装备（官方）": "Equipment (official)",
+  "装备（自定义）": "Equipment (custom)",
+  "干员卡池 {n}%": "Operator Pool {n}%",
+  "装备库存 {n}%": "Equipment Stock {n}%"
 }

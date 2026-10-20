@@ -13,8 +13,8 @@
 //
 // A custom 规则 match (shared/ruleset.js) hands its settings to the constructor: the round plan (customRoundPlan — every
 // round-keyed table is read at the round's source round, srcRound), the bond ban counts, the leader and stage bans, the
-// co-op prep, the 目标生命值 rules, the layer cap and the enemy / leader stat multipliers (the curve and the percents:
-// enemyScale, leaderScale, bossHpMul) come out of the accessors below; without settings every accessor is the official
+// co-op prep, the 目标生命值 rules, the layer cap, the enemy / leader stat multipliers (the curve and the percents:
+// enemyScale, leaderScale, bossHpMul) and the shop pool sizes (poolCopies, itemPoolCopies) come out of the accessors below; without settings every accessor is the official
 // one (and returns the same object shapes, so a classic battle spec is unchanged).
 //
 // An 8-player co-op match (shared/constants.js LARGE_SEATS; the constructor's `seats`) reads config.eightPlayer over the
@@ -24,7 +24,7 @@
 import { getConfig, getMode } from '../data.js';
 import { isShopItem } from '../sim/simdata.js';
 import { standInRecord } from '../../shared/standIn.js';
-import { customRoundPlan, customPrepSeconds, keepUnbanned, curveScale } from '../../shared/ruleset.js';
+import { customRoundPlan, customPrepSeconds, keepUnbanned, curveScale, customPoolCount } from '../../shared/ruleset.js';
 import { BOND_LAYER_CAP, LARGE_SEATS } from '../../shared/constants.js';
 
 const own = (map, id) => (map && typeof map === 'object' && typeof id === 'string' && Object.hasOwn(map, id) && map[id] && typeof map[id] === 'object' ? map[id] : null);
@@ -352,6 +352,7 @@ export class GameData {
    * private stock (player/diy.js) doubles with it (16 / 10), so a 自选 piece keeps its solo share of a co-op roll
    * [ASSUMED: the measured table has no 自选 row; maintainer decision 2026-10-11, as upstream PR #477]. A config
    * without the multiplier keeps the solo table. An 8-player match: config.eightPlayer.coopPoolMultiplier (4).
+   * A custom ruleset's pool.chess percent scales the result (shared/ruleset.js customPoolCount), the 自选 stock with it.
    */
   poolCopies(baseId) {
     const ov = this.economy.poolCopiesOverrides;
@@ -360,20 +361,20 @@ export class GameData {
     const v = ov && typeof ov === 'object' && Number.isInteger(ov[baseId]) && ov[baseId] >= 0 ? ov[baseId] : (pc && typeof pc === 'object' ? pc[tier] : undefined);
     const base = Number.isInteger(v) && v >= 0 ? v : (DEFAULTS.poolCopies[tier] ?? 10);
     const multiplier = this.isSolo ? 1 : posIntOr(this.large?.coopPoolMultiplier, 0) || posIntOr(this.economy.coopPoolMultiplier, 1);
-    return base * multiplier;
+    return customPoolCount(base * multiplier, this.custom?.pool?.chess);
   }
 
   /**
    * Shared stock of a shop item (pool.js SharedItemPool, upstream 6bfc0827): `economy.itemPoolCopiesOverrides[base]`,
    * else `economy.itemPoolCopies[tier]` — the 路标月报#2 table (bilibili BV1eLXXBqEgF, ~1:30), the same in solo and co-op.
    * Null (uncapped) for an item that is not a shop item (effect-only special equipment) or a config without the table.
-   * An 8-player match: × config.eightPlayer.itemPoolMultiplier (2).
+   * An 8-player match: × config.eightPlayer.itemPoolMultiplier (2). A custom ruleset's pool.items percent scales the result.
    */
   itemPoolCopies(id) {
     const base = this.baseIdOf(id), rec = this.item(base);
     if (!rec || !isShopItem(rec)) return null;
     const count = this.economy.itemPoolCopiesOverrides?.[base] ?? this.economy.itemPoolCopies?.[rec.tier];
-    return Number.isInteger(count) && count >= 0 ? count * posIntOr(this.large?.itemPoolMultiplier, 1) : null;
+    return Number.isInteger(count) && count >= 0 ? customPoolCount(count * posIntOr(this.large?.itemPoolMultiplier, 1), this.custom?.pool?.items) : null;
   }
 
   /**
