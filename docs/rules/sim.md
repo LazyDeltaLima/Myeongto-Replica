@@ -1635,6 +1635,8 @@ AUTO 스킬은 스킬 시작(`[trig]`) 경로뿐이었다. 瑕光 S1(`skchr_blem
   `STAGE_COLS`(21)로(`battle/players.js`, `content/tokens.js`, `match/finalAssault.js`, `match/board.js`). 넓힌 뒤 골든 161개 그대로, 실행 시간 같음.
 - **규칙 모드**: 4인·8인 모두 클래식·캐주얼·커스텀을 고름(방 크기와 규칙은 따로; 공개 매칭은 클래식·캐주얼만, 크기별 대기열). 8석 방의 커스텀 설정 창·요약의
   「공식값」(맹약 밴)은 8인 값과 비교(`shared/ruleset.js officialBans`), 8석 방에는 「AI 队友最后选择」를 안 보임(AI 좌석 없음; 관리자 결정 2026-10-19).
+  8석 방에서도 커스텀을 막지 않고, 커스텀이 정한 값이 8인 수치 대신 쓰인다(맹약 밴 수 `gd.bans`; 상점 풀 %는 8인 수량에 곱함 — `ui.md` 「상점 풀」;
+  관리자 결정 2026-10-20).
 - **화면**: 29·37열 필드 그리기(넓힌 무대 기록 `shared/wideField.js`, 공식 3D 씬 사본, 카메라, ‹ › H0–H3)는 `render.md` 「8인 넓은 연합 방어 필드
   그리기」(화면 확인은 그쪽), 로비·방·본판 화면은 `ui.md` 「8인 협동 모드 화면」. 열 함수(`wideCols`·`widenRow`…)는 `shared/wideField.js`에 있고
   `server/sim/wideStage.js`가 다시 내보냄.
