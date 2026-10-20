@@ -174,12 +174,13 @@ export const KIT_OFFICIAL = {
   },
   // 新约能天使: S3's strike on her coordinate (`signal` fireToToken: S3FireToToken fires projectile_chr_angel2_s3_start —
   // `_mainEffect` angel2_skill_3_begin_trail_01 at `_speed` 10, its `_effectsWhenReached` angel2_skill_3_begin_range_01 where
-  // it lands; its cast angel2_skill_3_begin_start_001 comes with the S3 mode's attack bindings); her talent's bomb
+  // it lands; its cast angel2_skill_3_begin_start_001 — an empty prefab — on her: char_modes.py keeps that ability's casts out
+  // of the S3 mode's attack bindings, which played it with every attack, 2026-10-21); her talent's bomb
   // (CommonAbilities/TalentBomb: projectile_chr_angel2_t1 without a trail, `_hitEffects` angel2_buff_01_trail_01 on the
   // enemy it marks, `tgt`). angel2_skill_3_ground_01: no client reference.
   airstrike: {
     angel2: (o) => (o.signal === 'fireToToken'
-      ? { play: [{ n: 'angel2_skill_3_begin_trail_01', fly: 10 }, { n: 'angel2_skill_3_begin_range_01', on: 'point', life: 'once', after: 'fly' }] }
+      ? { play: [once('angel2_skill_3_begin_start_001'), { n: 'angel2_skill_3_begin_trail_01', fly: 10 }, { n: 'angel2_skill_3_begin_range_01', on: 'point', life: 'once', after: 'fly' }] }
       : { play: [once('angel2_buff_01_trail_01', 'tgt')] }),
   },
   // 缪尔赛思: her 流形 copies an operator (mlyss_wtrman_switch_melee_trigger / _range_trigger: CreateEffect

@@ -151,6 +151,10 @@ MODE_HIT_KEYS = ('_hitEffects', '_castTargetEffects')
 # a 要塞's attack abilities (charpack `Modes/<mode>/Body/Attack/`): the melee ones while it blocks, the ranged ones otherwise
 MELEE_ABILITY = re.compile(r'^(Blocked)?MeleeAttack$')
 RANGED_ABILITY = re.compile(r'^(Blocked|Self)?RangedAttack$')
+# 2026-10-21: an attack ability fired at a placed coordinate token (新约能天使 S3FireToToken: her S3's opening strike, _animKey
+# Skill_3_Skill, beside its Common attack) is no attack of the mode: the kit sends it as its own event (render/fx/kitofficial.js
+# 'airstrike'), so its casts stay out of the mode's attack lists (its projectile is still listed in `proj`)
+TOKEN_FIRE = re.compile(r'FireToToken$')
 PROJ_HIT_KEYS = ('_effectsWhenHit', '_effectsWhenReached')
 PROJ_SUB_KEYS = ('_projectileKey', '_subProjectileKey', '_childProjectileKey')
 # a drone's ability GameObject (Funnel, Funnel_0, Funnel1, S1Funnel2, S2Funnel — not the attack that leads them: M0FunnelsNormalAttack)
@@ -662,7 +666,7 @@ def modes_of(path, projectiles=None):
                 proj[i].append(k)
         if isinstance(d.get('_projectileKey'), str) and d['_projectileKey'] and isinstance(d.get('_mountPointType'), int):
             shot_mp.setdefault((i, d['_projectileKey']), d['_mountPointType'])
-        if skipped(gp):
+        if skipped(gp) or any(TOKEN_FIRE.search(x) for x in gp.split('/')):
             continue
         ab = gp.rpartition('/')[2]
         kind = 'melee' if MELEE_ABILITY.match(ab) else 'ranged' if RANGED_ABILITY.match(ab) else None

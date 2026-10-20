@@ -1320,7 +1320,13 @@
     바인딩 프리팹 13개가 추출에서 빠져 있었다(S1 `blkkgt_skill_01_*`, S2 `blkkgt_skill_02_start_01~06`·`hit_1`) — 같은 꼴로 빠진 空弦 S1·S2
     11개(같은 이름 틀의 `_B`·`trail_02`까지 13개)와 仇白 S2 `qiubai_skill_02_hit_01`까지 그 프리팹만 추출(`fx_extract.py --bundle … --match`/`--prefab`,
     `index.json`엔 더해지기만 함). 그 뒤 `local-char-modes.json` 바인딩 이름 중 자기 번들에 추출이 없는 것은 없음(대체 스킬도 고를 수 있어 그려짐).
-- 안 한 것: 心烛 선의 방향 확인. 新约能天使 S3 모드 바인딩이 `S3FireToToken`의 cast `angel2_skill_3_begin_start_001`을 S3 공격마다 트는 것.
+- 안 한 것: 心烛 선의 방향 확인.
+- 新约能天使 S3 (2026-10-21): 모드 바인딩이 `S3FireToToken`의 cast `angel2_skill_3_begin_start_001`(빈 프리팹 — 화면 차이 없음)을 S3 공격마다 틀었다.
+  클라 charpack에서 `S3FireToToken`은 S3·S3_Down 모드 `Body/Attack/`의 평소 공격 `Common`(`Skill_3_Loop`) 옆 능력으로 `_animKey` `Skill_3_Skill`
+  — S3 첫 사격(투사 좌표 포격)이고 시뮬은 그것을 키트 이벤트 'airstrike' `signal: 'fireToToken'`으로 따로 보낸다. 쿨다운 키(`duration`)·
+  `_selectTargetSource`(1)는 다른 오퍼레이터의 평소 공격에도 흔해 구분이 안 됨 → `char_modes.py TOKEN_FIRE`(이름이 `…FireToToken`인 능력, 지금 클라엔
+  이 둘뿐)의 시전은 모드 공격 목록에서 빼고(`proj`엔 그대로), `kitofficial.js` 'airstrike' fireToToken이 그 cast를 그녀 위에 한 번 튼다.
+  `char_modes.py --id char_1041_angel2`로 다시 뽑아 바뀐 것은 S3·S3_Down의 `cast`·`castOpt`에서 그 이름뿐(같은 코드로 먼저 다시 뽑아 차이 없음 확인).
 - 확인: 단위 `test/render/kit-event-fx.test.js`. Windows Chrome 디버그 아레나(지금 발동 3번 동안 만들어진 프리팹): 号角 S2
   `horn_skill_02_buff_03_front` 1(스킬 끝에 꺼짐)·S3 `horn_skill_03_buff_02_03_front`, 寒芒克洛丝 S2 `kroos2_skill_02_buff_01~03`, 隐德来希 S3
   `etlchi_skill_03_ghosting_01` 2·`etlchi_skill_03_line_01` 2, 妮芙 S2 `nymph_talent_buff_01`, 오류 0. 阿罗玛 S2 착지는 허수아비가 안 떠 못 봄.

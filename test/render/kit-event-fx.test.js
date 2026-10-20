@@ -214,8 +214,10 @@ test('kitOfficialPlan: the moments and lifetimes of the templates', () => {
   assert.deepEqual(rf.play.map((x) => [x.n, x.life]), [['mudrok_skill_03_awake', 'once'], ['mudrok_skill_03_awake_02', 'once'], ['mudrok_skill_03_buff', 'skill']]);
   // 新约能天使: S3's shot flies to her coordinate and its reach effect waits for it; the talent bomb hits the marked enemy
   const as = kitOfficialPlan('airstrike', { id: 1, signal: 'fireToToken' }, 'angel2');
-  assert.deepEqual(as.play, [{ n: 'angel2_skill_3_begin_trail_01', fly: 10 }, { n: 'angel2_skill_3_begin_range_01', on: 'point', life: 'once', after: 'fly' }]);
+  assert.deepEqual(as.play, [{ n: 'angel2_skill_3_begin_start_001', on: 'op', life: 'once' }, { n: 'angel2_skill_3_begin_trail_01', fly: 10 }, { n: 'angel2_skill_3_begin_range_01', on: 'point', life: 'once', after: 'fly' }]);
   assert.deepEqual(kitOfficialPlan('airstrike', { id: 1, tgt: 9 }, 'angel2').play, [{ n: 'angel2_buff_01_trail_01', on: 'tgt', life: 'once' }]);
+  // … and her S3 attacks no longer play that cast (char_modes.py TOKEN_FIRE: S3FireToToken is not one of the mode's attacks)
+  assert.ok(!MODES.char_1041_angel2.cast.flat().includes('angel2_skill_3_begin_start_001'));
   // 缪尔赛思's 流形: its switch in the token's bundle, by the copied operator's range; her id is `by`, not the copied `src`
   assert.deepEqual(kitOfficialPlan('copy', { id: 4, src: 7, by: 1, mode: 'Range' }, 'mlyss').play,
     [{ n: 'token_10030_mlyss_wtrman_c1_to_c3', bundle: 'mlyss_token', on: 'id', life: 'once' }]);
