@@ -8,6 +8,7 @@
 //   chatFactionOf(room, playerId)    Match opts.factionOf: the player's faction for m.result (the result screen's player colors)
 //   botCap(room, lobby, session)     Lobby.addBot: the refusal when SP_MAX_BOTS / _TOTAL / _PER_ADDR is reached, else null
 //   maxBotsSetting()                 room.state `maxBots` (null when unset)
+//   largeBots()                      Lobby.addBot / start, room.state `largeBots`: AI teammates in an 8-player room, local debug mode only
 //   welcomeInfo(lobby)               Lobby.welcomeInfo: `feedback: true` while the feedback inbox is on (local-feedback.js)
 //   fb.send                          (via onMessage) the settlement screen's feedback, kept in SP_FEEDBACK_DIR (local-feedback.js)
 //   debugPageHidden(path)            server/index.js static route: the effect / sound debug page only with SP_DEBUG_PAGE=1
@@ -59,6 +60,15 @@ export function sanitizeText(raw, max) {
 export function maxBotsSetting(env = process.env) {
   const n = Number.parseInt(env.SP_MAX_BOTS ?? '', 10);
   return n >= 0 ? n : null;
+}
+
+/**
+ * AI teammates in an 8-player room (local debug mode only, for testing the mode without eight browsers): the room takes
+ * them like a 4-seat co-op room and starts once every seat is taken, humans and AI together. A deployed server keeps
+ * the rule of server/lobby.js (eight Doctors, no AI seat).
+ */
+export function largeBots(env = process.env) {
+  return debugMode(env);
 }
 
 /**

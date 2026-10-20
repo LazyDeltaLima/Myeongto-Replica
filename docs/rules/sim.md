@@ -1601,7 +1601,9 @@ AUTO 스킬은 스킬 시작(`[trig]`) 경로뿐이었다. 瑕光 S1(`skchr_blem
 공식 방은 1–4명이고 8인용 데이터는 없다(`act2autochess`에는 난이도별 `bloodPoint*`와 단일·멀티 연합 방어 템플릿뿐). 아래 수치·규칙은 모두
 **[ASSUMED]** — 원칙은 「1인당 체감을 4인 협동과 같게」(관리자 결정 2026-10-16).
 - **방·매칭** (`server/lobby.js`, `server/matchmaking.js`): 별도 방 크기 — `room.create { mode: 'coop', size: 8 }`, `room.state.size`. 사람만 앉고(AI 좌석
-  거부, 넘겨받은 AI 좌석은 버림) 8자리가 다 차야 시작(`ERR.SEATS_OPEN`, 코드 방 포함 — 관리자 결정 2026-10-19). 8인 전용 대기열(`room.queue { size: 8 }`,
+  거부, 넘겨받은 AI 좌석은 버림) 8자리가 다 차야 시작(`ERR.SEATS_OPEN`, 코드 방 포함 — 관리자 결정 2026-10-19). 예외는 시험용 로컬
+  디버그 모드(`SP_DEBUG_PAGE=1`이나 `SP_DEBUG_FUNDS`, `server/local-patch.js largeBots`): 8석 방에도 AI 좌석을 받고 사람·AI 합쳐 8자리면 시작
+  (`room.state.largeBots`, 방 화면의 「添加 AI 队友」). 배포 서버는 둘 다 꺼져 있어 위 규칙 그대로. 8인 전용 대기열(`room.queue { size: 8 }`,
   8석 방의 `room.queueRoom`)은 정확히 8명으로만 묶이고, 대기열 메시지에 `size: 8`, `lobby.queueCounts`에 `counts8`. 끊긴 사람은 4인처럼 AI 托管 없이
   전투만 서버가 이어 돌림(관리자 확인 2026-10-19, `server/match/match/platform.js onDisconnect`).
 - **수치** (`data/config.json eightPlayer` ← `tools/build-data.mjs`, `server/match/gamedata.js` `large`): 상점 풀 솔로 ×4(4인 ×2), 장비 재고 ×2,

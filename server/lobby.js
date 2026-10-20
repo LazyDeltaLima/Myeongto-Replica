@@ -9,7 +9,8 @@
 //   * The 8-player mode (maintainer decisions 2026-10-16, 2026-10-19; shared/constants.js LARGE_SEATS): room.create
 //     { mode: 'coop', size: 8 } makes a co-op room of 8 seats (room.state `size`; every other room is 4). It holds humans
 //     only — room.addBot is refused (ROOM_FULL) and a handed-over AI seat is dropped — and room.start needs all eight seats
-//     taken (SEATS_OPEN), connected and ready like any start. The match gets `size` 8 (its numbers: config.eightPlayer).
+//     taken (SEATS_OPEN), connected and ready like any start. Local debug mode (server/local-patch.js largeBots) lets AI
+//     seats fill an 8-player room for testing (room.state `largeBots`). The match gets `size` 8 (its numbers: config.eightPlayer).
 //   * ▸ Being in a LOBBY room and sending room.create / room.join implicitly leaves it. While your room is
 //     in a match, create/join of another room fails with ROOM_STARTED (send g.leave or room.leave first).
 //   * Host-only: room.setDifficulty, room.setRuleset, room.setAiPicksLast, room.addBot, room.removeBot, room.kick, room.start.
@@ -278,6 +279,7 @@ export class Room {
       // the room's match number (DESIGN §14): a briefing reroll replaces the match while inMatch stays true
       matchNo: this.matchCount,
       maxBots: localPatch.maxBotsSetting(), // local patch
+      ...(this.size > MAX_SEATS && localPatch.largeBots() ? { largeBots: true } : {}), // AI seats in an 8-player room (local debug)
       seats: this.seats.map((s) => (s
         ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left }
         : null)),
@@ -664,7 +666,7 @@ export class Lobby {
     if (room.match) return fail(ERR.ROOM_STARTED);
     this.dropReplay(room, session.playerId);
     if (room.mode === 'solo') return fail(ERR.ROOM_FULL, 'solo rooms cannot have AI teammates');
-    if (room.size > MAX_SEATS) return fail(ERR.ROOM_FULL, 'the 8-player mode has no AI teammates');
+    if (room.size > MAX_SEATS && !localPatch.largeBots()) return fail(ERR.ROOM_FULL, 'the 8-player mode has no AI teammates');
     if (room.matching) return fail(ERR.MATCHING, 'matchmaking fills the seats with Doctors');
     const capped = localPatch.botCap(room, this, session); if (capped) return capped; // local patch: SP_MAX_BOTS(_TOTAL/_PER_ADDR)
     const idx = room.freeSeat();
@@ -728,7 +730,9 @@ export class Lobby {
       return fail(ERR.BAD_MSG, 'invalid seat configuration');
     }
     // the 8-player mode starts with eight Doctors (header)
-    if (room.size > MAX_SEATS && (humans.length !== room.size || bots.length > 0)) return fail(ERR.SEATS_OPEN, `${humans.length}/${room.size} Doctors`);
+    // (local debug mode: AI seats count — server/local-patch.js largeBots)
+    const full = localPatch.largeBots() ? humans.length + bots.length === room.size : humans.length === room.size && bots.length === 0;
+    if (room.size > MAX_SEATS && !full) return fail(ERR.SEATS_OPEN, `${humans.length}/${room.size} Doctors`);
     const key = session.limitKey || null;
     if (key && this.opts.maxMatchesPerAddr > 0 && this.countRooms((r) => !!r.match && r.matchKey === key) >= this.opts.maxMatchesPerAddr) {
       this.limitWarn(`match limit (${this.opts.maxMatchesPerAddr}) reached for ${session.addr}`);

@@ -88,10 +88,12 @@ export function roomFacts(room, myId) {
   const botCount = occupied.filter((s) => s.isBot).length;
   // the 8-player mode: no AI teammates, and the match starts only with every seat a Doctor (server/lobby.js SEATS_OPEN)
   const large = room?.mode !== 'solo' && seatsOf(room?.size) > MAX_SEATS;
-  const seatsOpen = large && (humans.length < seats.length || botCount > 0);
+  // room.state largeBots: a local debug server lets AI seats fill the 8-player room (server/local-patch.js largeBots)
+  const largeBots = large && room?.largeBots === true;
+  const seatsOpen = large && (largeBots ? occupied.length < seats.length : humans.length < seats.length || botCount > 0);
   return {
     seats, occupied, humans, mine, isHost, readyHumans, isReady, maxBots, botCount, large, seatsOpen,
-    canAddBot: room?.mode !== 'solo' && !large && isHost && (maxBots == null || botCount < maxBots),
+    canAddBot: room?.mode !== 'solo' && (!large || largeBots) && isHost && (maxBots == null || botCount < maxBots),
     emptySeats: seats.filter((s) => !s).length,
     canStart: isHost && othersReady && !!mine && !seatsOpen,
     // 匹配补位: the ready rule alone (the seats it fills are the open ones)

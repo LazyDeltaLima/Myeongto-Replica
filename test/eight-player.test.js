@@ -171,6 +171,29 @@ describe('8-player room and queue (server/lobby.js, server/matchmaking.js)', () 
     await ok(a, { t: 'room.addBot' });
   });
 
+  test('local debug mode lets AI seats fill an 8-seat room; the start waits for every seat', async () => {
+    const saved = process.env.SP_DEBUG_PAGE;
+    process.env.SP_DEBUG_PAGE = '1';
+    try {
+      const [a, b] = await players(pool, 2, 'D');
+      await ok(a, { t: 'room.create', mode: 'coop', difficulty: 'HARD', size: 8 });
+      const room = await a.waitFor('room.state', (s) => s.hostId === a.id);
+      assert.equal(room.largeBots, true);
+      await ok(b, { t: 'room.join', code: room.code });
+      await ok(b, { t: 'room.ready', ready: true });
+      await a.waitFor('room.state', (s) => s.seats[1]?.ready);
+      for (let i = 0; i < 5; i++) await ok(a, { t: 'room.addBot' });
+      await err(a, { t: 'room.start' }, ERR.SEATS_OPEN);
+      await ok(a, { t: 'room.addBot' });
+      await err(a, { t: 'room.addBot' }, ERR.ROOM_FULL);
+      await ok(a, { t: 'room.start' });
+      const st = await a.waitFor('room.state', (s) => s.inMatch);
+      assert.deepEqual([st.size, st.seats.filter((s) => s?.isBot).length], [8, 6]);
+    } finally {
+      if (saved === undefined) delete process.env.SP_DEBUG_PAGE; else process.env.SP_DEBUG_PAGE = saved;
+    }
+  });
+
   test('the 8-player queue: its own counts, a group of exactly eight, matched into an 8-seat room', async () => {
     const ps = await players(pool, 9, 'R');
     // one player in the 4-player queue of the same difficulty does not join the eight
