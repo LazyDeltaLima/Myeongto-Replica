@@ -69,6 +69,8 @@ PROJECTILE_EFFECT_SCRIPT = 4524653206994915020
 # 2026-10-16: the MonoScript PathID of Torappu.Fx.ParticleEffect (root_effect, which recognises it by its shape; fx_coverage
 # checks that every root carrying one was recognised)
 PARTICLE_EFFECT_SCRIPT = 6196809664641094801
+# (2026-10-20) the MonoScript PathID of SwitchableRightEffect (right_effect; fx_coverage checks its raw fallback)
+RIGHT_SCRIPT = 7347111497538980357
 # (2026-10-16) Unity's built-in particle materials (an anonymous bundle, anon/*.bin): read as no material, as before the CAB
 # index knew that bundle — nearly all sit on empty container systems (227 of 234); fx_coverage lists the 7 that emit
 UNITY_DEFAULT_MATERIALS = {'Default-Particle', 'Default-ParticleSystem'}
@@ -82,6 +84,7 @@ ROOT_EFFECT_FIELDS = {'delayToPlay': '_delayToPlay', 'delayToFinish': '_delayToF
                       'useSpeed': '_usePlaybackSpeed', 'limited': '_limitedPlaybackSpeed', 'rotate': '_rotateType',
                       'spawn': '_spawnLocation', 'leftIsDefault': '_leftIsDefault', 'body': '_useBodyRotation',
                       'mainDir': '_mainDir', 'overwrite': '_overwriteHeight', 'heightOffset': '_heightOffset'}
+ROOT_EFFECT_FLOATS = {'delayToPlay', 'delayToFinish', 'limited', 'heightOffset'}
 
 
 def r4(v):
@@ -91,6 +94,15 @@ def r4(v):
             return 0
         return round(v, 4)
     return v
+
+
+def same_value(a, b):
+    """(2026-10-20, check_readers) a raw read equals the type tree's: numbers within 1e-4, lists / tuples item by item."""
+    if isinstance(a, (list, tuple)) and isinstance(b, (list, tuple)):
+        return len(a) == len(b) and all(same_value(x, y) for x, y in zip(a, b))
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        return abs(float(a) - float(b)) <= 1e-4
+    return a == b
 
 
 def bundle_path(game, rel):
@@ -671,7 +683,6 @@ class Extractor:
 
     def prefab(self, root, out):
         nodes, mats, paths = [], {}, {}
-        root_sids = set()
         self.gobjs = {}   # node index -> GameObject (clip bindings named by their component, fx_coverage)
         animators = []
         skinned = []
@@ -687,9 +698,8 @@ class Extractor:
             paths[idx] = path
             gos[go.path_id] = idx
             self.gobjs[idx] = go
-            sids = self.note_components(go, d)
-            if parent < 0:
-                root_sids.update(sids)
+            self.note_components(go, d)
+            self.check_readers(go, parent < 0)
             if parent >= 0:
                 dl = self.fx_delay(go)
                 if dl:
@@ -848,34 +858,55 @@ class Extractor:
         line = self.line_dynamic(root)
         if line:
             out_def['lineDyn'] = line
-        self.check_readers(root, root_sids, mount)
         return out_def
 
-    def check_readers(self, root, sids, mount):
-        """(2026-10-16, fx_coverage) the components read by raw words: one the reader did not recognise read nothing, and
-        one whose type tree reads must agree with it field by field — a client update that adds a field shifts the words
-        (FollowMountPoint, 2026-10-14)."""
-        if PARTICLE_EFFECT_SCRIPT in sids:
-            pe, t = self.root_effect(root), self.script_tree(root, PARTICLE_EFFECT_SCRIPT)
-            off = [k for k, f in ROOT_EFFECT_FIELDS.items() if pe and t and f in t and abs(float(pe[k]) - float(t[f] or 0)) > 1e-4]
-            self.cov.reader('ParticleEffect', pe is not None and not off, f"raw words ≠ type tree: {', '.join(off)}" if off else None)
-        if PROJECTILE_EFFECT_SCRIPT in sids:
-            pj, t = self.projectile_effect(root), self.script_tree(root, PROJECTILE_EFFECT_SCRIPT)
-            off = pj and t and '_delayToFinish' in t and abs(pj['delayToFinish'] - float(t['_delayToFinish'] or 0)) > 1e-4
-            self.cov.reader('ProjectileEffect', pj is not None and not off, 'raw words ≠ type tree: delayToFinish' if off else None)
-        if MOUNT_SCRIPT in sids:
-            self.cov.reader('FollowMountPoint', mount is not None)
-
-    def script_tree(self, go, sid):
-        """The type tree of the GameObject's MonoBehaviour of MonoScript `sid`, or None when it has none / it does not read."""
+    def monos(self, go):
+        """(2026-10-20) the GameObject's MonoBehaviours as (MonoScript PathID or None, raw bytes, type tree or None when it
+        does not read) — the readers below take a component's field names first and its raw words only without them."""
         try:
-            for c in go.read_typetree()['m_Component']:
-                comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], go)
-                if comp is not None and comp.type.name == 'MonoBehaviour' and struct.unpack_from('<q', comp.get_raw_data(), 20)[0] == sid:
-                    return comp.read_typetree()
+            d = go.read_typetree()
         except Exception:
-            pass
-        return None
+            return []
+        out = []
+        for c in d['m_Component']:
+            comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], go)
+            if comp is None or comp.type.name != 'MonoBehaviour':
+                continue
+            raw = comp.get_raw_data()
+            try:
+                t = comp.read_typetree()
+            except Exception:
+                t = None
+            out.append((struct.unpack_from('<q', raw, 20)[0] if len(raw) >= 28 else None, raw, t))
+        return out
+
+    def check_readers(self, go, root):
+        """(2026-10-16, fx_coverage; 2026-10-20 field names first) the components with a raw-word fallback, on the root
+        (`root`) or, FxDelay only, on a child: without a type tree the raw words are read unchecked, which the report says;
+        with one the fallback must still recognise the layout and agree with it field by field — a client update that adds
+        a field shifts the words (FollowMountPoint, 2026-10-14), and this shows it before the day the fallback is needed."""
+        readers = {FXDELAY_SCRIPT: ('FxDelay', self.fx_delay_tree, self.fx_delay_raw)}
+        if root:
+            readers.update({PARTICLE_EFFECT_SCRIPT: ('ParticleEffect', self.root_effect_tree, self.root_effect_raw),
+                            PROJECTILE_EFFECT_SCRIPT: ('ProjectileEffect', self.projectile_tree, self.projectile_raw),
+                            RIGHT_SCRIPT: ('SwitchableRightEffect', self.right_tree, self.right_raw),
+                            MOUNT_SCRIPT: ('FollowMountPoint', self.mount_tree, self.mount_raw)})
+        for sid, raw, t in self.monos(go):
+            if sid not in readers:
+                continue
+            name, from_tree, from_raw = readers[sid]
+            r = from_raw(raw)
+            if t is None:
+                self.cov.reader(name, False, 'no type tree: read by raw words, unchecked' if r is not None else None)
+                continue
+            v = from_tree(t)
+            if v is None:
+                self.cov.reader(name, False, 'the type tree lacks the fields read')
+            elif r is None:
+                self.cov.reader(name, False, 'raw fallback: layout not recognised')
+            else:
+                off = [k for k in v if not same_value(v[k], r.get(k))] if isinstance(v, dict) else ([] if same_value(v, r) else ['value'])
+                self.cov.reader(name, not off, f"raw fallback ≠ type tree: {', '.join(off)}" if off else None)
 
     def line_dynamic(self, root):
         """2026-10-10, decompile check — client `LineEffectEmitterDynamic` (`Update` RVA 0xCA0600 → `_UpdateMountPoint`
@@ -943,121 +974,139 @@ class Extractor:
     def right_effect(self, root):
         """local patch: the client's left / right effect pair — a second component on the root with `_rightEffect` (the
         prefab played instead while the owner faces right; this one is the left-facing copy) and `_onlyCheckOnPlay`
-        (chen3 S3 buff_L / buff_R, mlynar, texas2, tippi: 15 pairs). Read by its type tree, else raw: header, empty name,
-        one string, one int. None when the root has no such component."""
-        try:
-            d = root.read_typetree()
-        except Exception:
-            return None
-        for c in d['m_Component']:
-            comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], root)
-            if comp is None or comp.type.name != 'MonoBehaviour':
-                continue
-            try:
-                t = comp.read_typetree()
-                if isinstance(t.get('_rightEffect'), str):
-                    return t['_rightEffect'] or None
-                continue
-            except Exception:
-                pass
-            raw = comp.get_raw_data()
-            off = 12 + 4 + 12
-            if len(raw) > 200 or len(raw) < off + 12 or struct.unpack_from('<i', raw, off)[0] != 0:
-                continue
-            off += 4
-            n = struct.unpack_from('<i', raw, off)[0]
-            end = (off + 4 + n + 3) & ~3
-            if not 0 < n <= 128 or end + 4 != len(raw):
-                continue
-            s = raw[off + 4:off + 4 + n].decode('utf-8', 'replace')
-            if re.fullmatch(r'[\w#.\-]+', s):
-                return s
+        (chen3 S3 buff_L / buff_R, mlynar, texas2, tippi: 15 pairs). Read by its type tree (right_tree), else raw
+        (right_raw). None when the root has no such component."""
+        for _sid, raw, t in self.monos(root):
+            v = self.right_tree(t) if t is not None else self.right_raw(raw)
+            if v is not None:
+                return v['effect'] or None
         return None
 
-    def root_effect(self, root):
-        """The raw fields of the root's effect component (the client's ParticleEffect, `Torappu.Fx`; its script's type tree
-        is not in the bundle) and of its FxDelay, or None without an effect component. After the MonoBehaviour header and
-        name: ints #0–#2, #3 = the length n of `_subFXDelayConfigs` (4 ints an entry), then from s = 4 + 4n the fields in
-        the order of the client's dump — s `_delayToPlay`, s+1 `_delayToFinish`, s+2 `_maxLifetime`, s+3 `_randomPlayDelay`,
-        s+4 `_autoReuse`, s+5 `_usePlaybackSpeed`, s+6 `_limitedPlaybackSpeed`, s+8 `_rotateType`, s+9 `_spawnLocation`,
-        s+10 `_leftIsDefault`, s+11 `_useBodyRotation`, s+12 `_mainDir`, s+13 `_holdByOwner`, s+14 `_overwriteHeight`,
-        s+15 `_heightOffset`. (2026-10-11, decompile check round 2: the component used to be recognised by
-        `_limitedPlaybackSpeed` == 2.0 — 51 bound prefabs with another limit (−1, 4, 0: 텍사스 디 오메르토사 S2
-        texas2_skill_02_start) lost their `spawn`, and a non-empty `_subFXDelayConfigs` shifted every field.) Recognised by
-        its shape: n ≤ 64, `_maxLifetime` −1 or in (0, 100), the bools 0 / 1, `_rotateType` ≤ 8, `_spawnLocation` < 64.
-        Two layouts (2026-10-11): the EN client's has 28 words from s; the CN client's (newer) 30 — one int before
-        `_rotateType` (s+8) and one at the end, both 0 in every component compared, so `_rotateType` and everything after it
-        sit one word later (checked on the same prefabs of both clients: 158 components of texas2 / etlchi / chen3 / swire,
-        every field equal under this mapping). Without it a CN prefab read `_spawnLocation` from `_rotateType`.
-        FxDelay (`Torappu.Fx.FxDelay`, one float `_delayTime`: the GameObject starts `_delayTime` ÷ the playback speed later —
-        `FxDelay.OnEnable`, RVA 0x34C1650) by its MonoScript (FXDELAY_SCRIPT)."""
-        try:
-            d = root.read_typetree()
-        except Exception:
+    @staticmethod
+    def right_tree(t):
+        """right_effect by its field names: { effect: `_rightEffect` }, None without the field."""
+        return {'effect': t['_rightEffect']} if isinstance(t.get('_rightEffect'), str) else None
+
+    @staticmethod
+    def right_raw(raw):
+        """right_effect's raw fallback: header, empty name, one string, then `_onlyCheckOnPlay`, `_reverseLeftRight` (the
+        EN client since its 2026-10-14 update) and `_reactivationMode` (the CN client) — one to three ints (2026-10-20: the
+        one-int layout alone matched neither client any more, check_readers); { effect } or None."""
+        off = 12 + 4 + 12
+        if len(raw) > 200 or len(raw) < off + 12 or struct.unpack_from('<i', raw, off)[0] != 0:
             return None
+        off += 4
+        n = struct.unpack_from('<i', raw, off)[0]
+        end = (off + 4 + n + 3) & ~3
+        if not 0 < n <= 128 or len(raw) - end not in (4, 8, 12):
+            return None
+        s = raw[off + 4:off + 4 + n].decode('utf-8', 'replace')
+        return {'effect': s} if re.fullmatch(r'[\w#.\-]+', s) else None
+
+    def root_effect(self, root):
+        """The fields of the root's effect component (the client's ParticleEffect, `Torappu.Fx`) and of its FxDelay, or None
+        without an effect component: { delayToPlay, delayToFinish, randomDelay, useSpeed, limited, rotate, spawn,
+        leftIsDefault, body, mainDir, overwrite, heightOffset (ROOT_EFFECT_FIELDS), subs: [(m_FileID, m_PathID, delayTime)]
+        (`_subFXDelayConfigs`), fxDelay }. (2026-10-20) Read by its field names (root_effect_tree) when its type tree reads —
+        the EN client's has, since the 2026-10-16 extraction; the raw words (root_effect_raw) are the fallback for a
+        component whose type tree does not read, and check_readers says when it was used. FxDelay (`Torappu.Fx.FxDelay`, one
+        float `_delayTime`: the GameObject starts `_delayTime` ÷ the playback speed later — `FxDelay.OnEnable`, RVA
+        0x34C1650) by its MonoScript (FXDELAY_SCRIPT)."""
         pe, delay = None, None
-        for c in d['m_Component']:
-            comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], root)
-            if comp is None or comp.type.name != 'MonoBehaviour':
-                continue
-            raw = comp.get_raw_data()
-            if len(raw) < 32:
-                continue
-            n = struct.unpack_from('<i', raw, 28)[0]
-            if not 0 <= n <= 256:
-                continue
-            b = raw[(32 + n + 3) & ~3:]
-            if len(b) == 4 and struct.unpack_from('<q', raw, 20)[0] == FXDELAY_SCRIPT:
-                delay = struct.unpack_from('<f', b, 0)[0]
-                continue
-            if pe is not None or len(b) < 24 * 4:
-                continue
-            i = lambda k: struct.unpack_from('<i', b, 4 * k)[0]  # noqa: E731
-            f = lambda k: struct.unpack_from('<f', b, 4 * k)[0]  # noqa: E731
-            subs = i(3)
-            if not 0 <= subs <= 64:
-                continue
-            s = 4 + 4 * subs
-            if len(b) < (s + 16) * 4:
-                continue
-            x = 1 if len(b) // 4 - s == 30 else 0   # the CN layout: one more word before `_rotateType`
-            life = f(s + 2)
-            if life != -1.0 and not 0 < life < 100:
-                continue
-            if not (0 <= i(s + 8 + x) <= 8 and 0 <= i(s + 9 + x) < 64 and i(s + 3) in (0, 1) and i(s + 5) in (0, 1) and i(s + 14 + x) in (0, 1)):
-                continue
-            pe = {'delayToPlay': f(s), 'delayToFinish': f(s + 1), 'randomDelay': i(s + 3), 'useSpeed': i(s + 5), 'limited': f(s + 6), 'rotate': i(s + 8 + x),
-                  'spawn': i(s + 9 + x), 'leftIsDefault': i(s + 10 + x), 'body': i(s + 11 + x), 'mainDir': i(s + 12 + x), 'overwrite': i(s + 14 + x),
-                  'heightOffset': f(s + 15 + x),
-                  # `_subFXDelayConfigs` (2026-10-11): { GameObject PPtr (m_FileID int, m_PathID int64), delayTime float } each
-                  'subs': [(i(4 + 4 * k), struct.unpack_from('<q', b, 4 * (5 + 4 * k))[0], f(7 + 4 * k)) for k in range(subs)]}
+        for sid, raw, t in self.monos(root):
+            if sid == FXDELAY_SCRIPT:
+                v = self.fx_delay_tree(t) if t is not None else self.fx_delay_raw(raw)
+                if v is not None:
+                    delay = v['delay']
+                    continue
+            if pe is None:
+                pe = self.root_effect_tree(t) if t is not None else self.root_effect_raw(raw)
         if pe is None:
             return None
         pe['fxDelay'] = delay
         return pe
 
+    @staticmethod
+    def root_effect_tree(t):
+        """root_effect by the ParticleEffect field names, None when the type tree lacks one of them."""
+        if not all(f in t for f in ROOT_EFFECT_FIELDS.values()):
+            return None
+        pe = {k: float(t[f] or 0) if k in ROOT_EFFECT_FLOATS else int(t[f] or 0) for k, f in ROOT_EFFECT_FIELDS.items()}
+        pe['subs'] = [(int(e['transform'].get('m_FileID') or 0), int(e['transform'].get('m_PathID') or 0), float(e.get('delayTime') or 0))
+                      for e in t.get('_subFXDelayConfigs') or []]
+        return pe
+
+    @staticmethod
+    def root_effect_raw(raw):
+        """root_effect's raw fallback (the ParticleEffect's script type tree was not in the bundles until the 2026-10-14 client
+        update). After the MonoBehaviour header and name: ints #0–#2, #3 = the length n of `_subFXDelayConfigs` (4 ints an
+        entry), then from s = 4 + 4n the fields in the order of the client's dump — s `_delayToPlay`, s+1 `_delayToFinish`,
+        s+2 `_maxLifetime`, s+3 `_randomPlayDelay`, s+4 `_autoReuse`, s+5 `_usePlaybackSpeed`, s+6 `_limitedPlaybackSpeed`,
+        s+8 `_rotateType`, s+9 `_spawnLocation`, s+10 `_leftIsDefault`, s+11 `_useBodyRotation`, s+12 `_mainDir`, s+13
+        `_holdByOwner`, s+14 `_overwriteHeight`, s+15 `_heightOffset`. (2026-10-11, decompile check round 2: the component
+        used to be recognised by `_limitedPlaybackSpeed` == 2.0 — 51 bound prefabs with another limit (−1, 4, 0: 텍사스 디
+        오메르토사 S2 texas2_skill_02_start) lost their `spawn`, and a non-empty `_subFXDelayConfigs` shifted every field.)
+        Recognised by its shape: n ≤ 64, `_maxLifetime` −1 or in (0, 100), the bools 0 / 1, `_rotateType` ≤ 8,
+        `_spawnLocation` < 64. Two layouts (2026-10-11): the EN client's has 28 words from s; the CN client's (newer) 30 —
+        one int before `_rotateType` (s+8) and one at the end, both 0 in every component compared, so `_rotateType` and
+        everything after it sit one word later (checked on the same prefabs of both clients: 158 components of texas2 /
+        etlchi / chen3 / swire, every field equal under this mapping). Without it a CN prefab read `_spawnLocation` from
+        `_rotateType`. None when the shape does not match."""
+        if len(raw) < 32:
+            return None
+        n = struct.unpack_from('<i', raw, 28)[0]
+        if not 0 <= n <= 256:
+            return None
+        b = raw[(32 + n + 3) & ~3:]
+        if len(b) < 24 * 4:
+            return None
+        i = lambda k: struct.unpack_from('<i', b, 4 * k)[0]  # noqa: E731
+        f = lambda k: struct.unpack_from('<f', b, 4 * k)[0]  # noqa: E731
+        subs = i(3)
+        if not 0 <= subs <= 64:
+            return None
+        s = 4 + 4 * subs
+        if len(b) < (s + 16) * 4:
+            return None
+        x = 1 if len(b) // 4 - s == 30 else 0   # the CN layout: one more word before `_rotateType`
+        life = f(s + 2)
+        if life != -1.0 and not 0 < life < 100:
+            return None
+        if not (0 <= i(s + 8 + x) <= 8 and 0 <= i(s + 9 + x) < 64 and i(s + 3) in (0, 1) and i(s + 5) in (0, 1) and i(s + 14 + x) in (0, 1)):
+            return None
+        return {'delayToPlay': f(s), 'delayToFinish': f(s + 1), 'randomDelay': i(s + 3), 'useSpeed': i(s + 5), 'limited': f(s + 6), 'rotate': i(s + 8 + x),
+                'spawn': i(s + 9 + x), 'leftIsDefault': i(s + 10 + x), 'body': i(s + 11 + x), 'mainDir': i(s + 12 + x), 'overwrite': i(s + 14 + x),
+                'heightOffset': f(s + 15 + x),
+                # `_subFXDelayConfigs` (2026-10-11): { GameObject PPtr (m_FileID int, m_PathID int64), delayTime float } each
+                'subs': [(i(4 + 4 * k), struct.unpack_from('<q', b, 4 * (5 + 4 * k))[0], f(7 + 4 * k)) for k in range(subs)]}
+
     def fx_delay(self, go):
         """(2026-10-11, maintainer decision 16) the `_delayTime` of a FxDelay component on this GameObject (MonoScript
         FXDELAY_SCRIPT; `FxDelay.OnEnable` RVA 0x34C1650 hides the GameObject and shows it `_delayTime` ÷ its playback speed
         later — a child's own FxDelay keeps the default speed 1.0 [추정: only the root's is set by `Effect.UpdatePlaybackSpeed`
-        0xC8AE50]), rounded; None without one or ≤ 0. 텍사스 디 오메르토사 S2 texas2_birth_02_start: its four slashes 0 / 0.1 / 0.15 / 0.3."""
-        try:
-            d = go.read_typetree()
-        except Exception:
-            return None
-        for c in d['m_Component']:
-            comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], go)
-            if comp is None or comp.type.name != 'MonoBehaviour':
+        0xC8AE50]), rounded; None without one or ≤ 0. 텍사스 디 오메르토사 S2 texas2_birth_02_start: its four slashes 0 / 0.1 / 0.15 / 0.3.
+        (2026-10-20) By its field name, the raw word without a type tree."""
+        for sid, raw, t in self.monos(go):
+            if sid != FXDELAY_SCRIPT:
                 continue
-            raw = comp.get_raw_data()
-            if len(raw) < 32 or struct.unpack_from('<q', raw, 20)[0] != FXDELAY_SCRIPT:
-                continue
-            n = struct.unpack_from('<i', raw, 28)[0]
-            b = raw[(32 + n + 3) & ~3:] if 0 <= n <= 256 else b''
-            if len(b) == 4:
-                v = struct.unpack_from('<f', b, 0)[0]
-                return r4(v) if v > 0 else None
+            v = self.fx_delay_tree(t) if t is not None else self.fx_delay_raw(raw)
+            if v is not None:
+                return r4(v['delay']) if v['delay'] > 0 else None
         return None
+
+    @staticmethod
+    def fx_delay_tree(t):
+        """fx_delay by its field name: { delay: `_delayTime` }, None without it."""
+        return {'delay': float(t['_delayTime'] or 0)} if '_delayTime' in t else None
+
+    @staticmethod
+    def fx_delay_raw(raw):
+        """fx_delay's raw fallback: the one float after the MonoBehaviour header and name; { delay } or None."""
+        if len(raw) < 32:
+            return None
+        n = struct.unpack_from('<i', raw, 28)[0]
+        b = raw[(32 + n + 3) & ~3:] if 0 <= n <= 256 else b''
+        return {'delay': struct.unpack_from('<f', b, 0)[0]} if len(b) == 4 else None
 
     def sub_delays(self, root, gos):
         """(2026-10-11) the root effect's `_subFXDelayConfigs` as { node index: delayTime } (`gos`: GameObject / Transform
@@ -1591,40 +1640,50 @@ class Extractor:
         (`Projectile.OnProjectileStop` RVA 0x5FC1A0 → `ClearMainEffectIfNot` 0x5F9550 → `Effect.FinishMe` 0xC88FE0):
         `ProjectileEffect.OnFinish` (0xCB42B0) stops its first particle system with its children (`Awake` 0xCB3A00:
         GetComponentInChildren<ParticleSystem>, `Stop(true)`) and switches off every `_inactiveOnFinish` Transform, and the
-        pool takes the whole effect back `_delayToFinish` s later (at once when 0). The raw fields after the MonoBehaviour
-        name (dump order): the Effect base `_bodyTransofrm` (PPtr, 3 words) and `_subFXDelayConfigs` (count n + 4 words
-        each), then from s = 4 + 4n: s `_resetMainDir`, s+1 `_mainDir`, s+2 `_rotate180Y`, s+3 `_randomAngle`, s+4
-        `_delayToFinish`, s+5 `_allowAutoReuse`, s+6 `_preloadCnt`, s+7 `_flipIfLeft`, s+8 `_inactiveOnFinish` (count + 3
-        words each), then `_inactiveOnHit` (count + 3 words each) — the same in the EN and CN clients (202 + 11 compared)."""
-        try:
-            d = root.read_typetree()
-        except Exception:
-            return None
-        for c in d['m_Component']:
-            comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], root)
-            if comp is None or comp.type.name != 'MonoBehaviour':
+        pool takes the whole effect back `_delayToFinish` s later (at once when 0). (2026-10-20) Read by its field names
+        (projectile_tree), the raw words (projectile_raw) without a type tree."""
+        for sid, raw, t in self.monos(root):
+            if sid != PROJECTILE_EFFECT_SCRIPT:
                 continue
-            raw = comp.get_raw_data()
-            if len(raw) < 32 or struct.unpack_from('<q', raw, 20)[0] != PROJECTILE_EFFECT_SCRIPT:
-                continue
-            n = struct.unpack_from('<i', raw, 28)[0]
-            if not 0 <= n <= 256:
-                continue
-            b = raw[(32 + n + 3) & ~3:]
-            words = len(b) // 4
-            i = lambda k: struct.unpack_from('<i', b, 4 * k)[0]  # noqa: E731
-            if words < 4 or not 0 <= i(3) <= 64:
-                continue
-            s = 4 + 4 * i(3)
-            if words < s + 10:
-                continue
-            a = i(s + 8)
-            h = s + 9 + 3 * a
-            if not 0 <= a <= 256 or words < h + 1 or words != h + 1 + 3 * i(h):
-                continue   # not the layout above
-            return {'delayToFinish': struct.unpack_from('<f', b, 4 * (s + 4))[0],
-                    'off': [struct.unpack_from('<q', b, 4 * (s + 10 + 3 * k))[0] for k in range(a) if i(s + 9 + 3 * k) == 0]}
+            v = self.projectile_tree(t) if t is not None else self.projectile_raw(raw)
+            if v is not None:
+                return v
         return None
+
+    @staticmethod
+    def projectile_tree(t):
+        """projectile_effect by its field names (`_inactiveOnFinish` entries of this file only), None without them."""
+        if '_delayToFinish' not in t or '_inactiveOnFinish' not in t:
+            return None
+        return {'delayToFinish': float(t['_delayToFinish'] or 0),
+                'off': [int(p.get('m_PathID') or 0) for p in t['_inactiveOnFinish'] or [] if not p.get('m_FileID')]}
+
+    @staticmethod
+    def projectile_raw(raw):
+        """projectile_effect's raw fallback. The fields after the MonoBehaviour name (dump order): the Effect base
+        `_bodyTransofrm` (PPtr, 3 words) and `_subFXDelayConfigs` (count n + 4 words each), then from s = 4 + 4n: s
+        `_resetMainDir`, s+1 `_mainDir`, s+2 `_rotate180Y`, s+3 `_randomAngle`, s+4 `_delayToFinish`, s+5 `_allowAutoReuse`,
+        s+6 `_preloadCnt`, s+7 `_flipIfLeft`, s+8 `_inactiveOnFinish` (count + 3 words each), then `_inactiveOnHit` (count +
+        3 words each) — the same in the EN and CN clients (202 + 11 compared). None when it is not that layout."""
+        if len(raw) < 32:
+            return None
+        n = struct.unpack_from('<i', raw, 28)[0]
+        if not 0 <= n <= 256:
+            return None
+        b = raw[(32 + n + 3) & ~3:]
+        words = len(b) // 4
+        i = lambda k: struct.unpack_from('<i', b, 4 * k)[0]  # noqa: E731
+        if words < 4 or not 0 <= i(3) <= 64:
+            return None
+        s = 4 + 4 * i(3)
+        if words < s + 10:
+            return None
+        a = i(s + 8)
+        h = s + 9 + 3 * a
+        if not 0 <= a <= 256 or words < h + 1 or words != h + 1 + 3 * i(h):
+            return None
+        return {'delayToFinish': struct.unpack_from('<f', b, 4 * (s + 4))[0],
+                'off': [struct.unpack_from('<q', b, 4 * (s + 10 + 3 * k))[0] for k in range(a) if i(s + 9 + 3 * k) == 0]}
 
     def off_on_finish(self, root, gos):
         """(2026-10-11) the node indices of the ProjectileEffect's `_inactiveOnFinish` (projectile_effect; `gos`: GameObject /
@@ -1741,45 +1800,43 @@ class Extractor:
 
     def mount_point(self, root):
         """local patch (maintainer report): the root's FollowMountPoint component — the effect follows
-        a model point of its owner every frame (스펙터 디 언체인드 S2's red ring on her saw). Its script's type tree is not in
-        the bundle; the component is recognised by its MonoScript (PathID MOUNT_SCRIPT) and read raw: after the header and
-        the empty name, 7 ints in the field order of global-metadata's field table — _mountPointType (MountPointType,
-        its constants: 0 FOOT, 1 HIT, 2 MUZZLE, 3 HEAD, 4 UI, 5 SPECIAL_0, 6 SPECIAL_1, 7 GROUND, 8–21 SPECIAL_2–15;
-        render/fxpoints.js mountSpawn), _followScaleSign, _followScale,
-        _pauseWhenMountPointInvalid, _onlyPauseWhenMountPointInvalid, _keepOriginRotation, _useBehaviourPause (bools as
-        ints). The CN client's (newer) component has 9 words: a float (1.0) and an int (0) after `_followScale` (checked on
-        the same prefabs of both clients — swire, texas2, horn, svash2, etlchi —, the four bools in the same order after
-        them); without it a CN prefab read the float's bits as `_pauseWhenMountPointInvalid`. None when the root has none.
-        (2026-10-16) Read by its field names when the type tree reads — the EN client's 2026-10-14 update added
-        `_pauseWhenFollowScaleNearlyZero` after `_followScale` (8 words), and the raw read took it for
-        `_pauseWhenMountPointInvalid` in 332 of 372 prefabs (fx_coverage `reader`); the raw words stay the fallback, for
-        the 7-, 8- and 9-word layouts only (any other: None)."""
-        try:
-            d = root.read_typetree()
-        except Exception:
-            return None
-        for c in d['m_Component']:
-            comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], root)
-            if comp is None or comp.type.name != 'MonoBehaviour':
+        a model point of its owner every frame (스펙터 디 언체인드 S2's red ring on her saw), recognised by its MonoScript
+        (PathID MOUNT_SCRIPT): { type, followScaleSign, followScale, pauseWhenInvalid, onlyPauseWhenInvalid,
+        keepOriginRotation, useBehaviourPause } (MOUNT_FIELDS; `type` is a MountPointType, its constants: 0 FOOT, 1 HIT,
+        2 MUZZLE, 3 HEAD, 4 UI, 5 SPECIAL_0, 6 SPECIAL_1, 7 GROUND, 8–21 SPECIAL_2–15; render/fxpoints.js mountSpawn). None
+        when the root has none. (2026-10-16) Read by its field names when the type tree reads (mount_tree), the raw words
+        (mount_raw) the fallback."""
+        for sid, raw, t in self.monos(root):
+            if sid != MOUNT_SCRIPT or len(raw) < 32:
                 continue
-            raw = comp.get_raw_data()
-            if len(raw) < 32 or struct.unpack_from('<q', raw, 20)[0] != MOUNT_SCRIPT:
-                continue
-            try:
-                t = comp.read_typetree()
-            except Exception:
-                t = {}
-            if '_mountPointType' in t:
-                return {k: int(t.get(f) or 0) for k, f in MOUNT_FIELDS.items()}
-            n = struct.unpack_from('<i', raw, 28)[0]
-            off = (32 + n + 3) & ~3
-            words = (len(raw) - off) // 4
-            if words not in (7, 8, 9):
-                return None
-            w = struct.unpack_from(f'<{words}i', raw, off)
-            v = w[:3] + w[3 + words - 7:]   # 8: skip `_pauseWhenFollowScaleNearlyZero`; 9 (CN): a float and that int
-            return dict(zip(MOUNT_FIELDS, v))
+            v = self.mount_tree(t) if t is not None else None
+            return v if v is not None else self.mount_raw(raw)
         return None
+
+    @staticmethod
+    def mount_tree(t):
+        """mount_point by its field names, None without `_mountPointType`."""
+        return {k: int(t.get(f) or 0) for k, f in MOUNT_FIELDS.items()} if '_mountPointType' in t else None
+
+    @staticmethod
+    def mount_raw(raw):
+        """mount_point's raw fallback: after the header and the empty name, 7 ints in the field order of global-metadata's
+        field table (MOUNT_FIELDS, bools as ints). The CN client's (newer) component has 9 words: a float (1.0) and an int
+        (0) after `_followScale` (checked on the same prefabs of both clients — swire, texas2, horn, svash2, etlchi —, the
+        four bools in the same order after them); without it a CN prefab read the float's bits as
+        `_pauseWhenMountPointInvalid`. The EN client's 2026-10-14 update added `_pauseWhenFollowScaleNearlyZero` after
+        `_followScale` (8 words), and the raw read took it for `_pauseWhenMountPointInvalid` in 332 of 372 prefabs
+        (fx_coverage `reader`, 2026-10-16). Only the 7-, 8- and 9-word layouts (any other: None)."""
+        if len(raw) < 32:
+            return None
+        n = struct.unpack_from('<i', raw, 28)[0]
+        off = (32 + n + 3) & ~3
+        words = (len(raw) - off) // 4
+        if words not in (7, 8, 9):
+            return None
+        w = struct.unpack_from(f'<{words}i', raw, off)
+        v = w[:3] + w[3 + words - 7:]   # 8: skip `_pauseWhenFollowScaleNearlyZero`; 9 (CN): a float and that int
+        return dict(zip(MOUNT_FIELDS, v))
 
     def animator_clips(self, anim, aidx, nodes, paths, mats):
         if anim.type.name == 'Animation':

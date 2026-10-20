@@ -7,7 +7,9 @@ Every run of fx_extract.py collects, per extracted prefab, what it met that the 
     script      a client MonoBehaviour (by its MonoScript PathID; named by the il2cpp dump when one is there)
     dependency  a dependency bundle the CAB index names a missing file for, or does not know (a client update moved
                 it): its textures are missing from the extract
-    reader      a component the extract reads by raw words whose layout was not recognised (it read nothing)
+    reader      a component the extract reads by its field names with a raw-word fallback (fx_extract check_readers):
+                without a type tree the raw words were read unchecked, or the fallback no longer recognises the
+                layout / disagrees with the type tree (a client update shifted the words)
     module      an enabled ParticleSystem module the extract does not carry
     shape       a ParticleSystem shape type the player has no emitter for
     texture     a texture the shader declares and the material sets, which the player never samples
@@ -35,15 +37,15 @@ COMPONENTS_READ = {'Transform', 'ParticleSystem', 'ParticleSystemRenderer', 'Mes
 # by their serialized fields, 2026-10-16). The read ones are what fx_extract.py takes; the others are named so the report
 # says what they are — their status is in KNOWN. A script with no serialized field keeps its id (#…)
 SCRIPTS = {
-    6196809664641094801: 'ParticleEffect',            # root_effect (raw words)
-    4524653206994915020: 'ProjectileEffect',          # projectile_effect (raw words)
-    4526430437831129839: 'FxDelay',                   # fx_delay / root_effect
-    8889037078861433556: 'FollowMountPoint',          # mount_point (raw words)
+    6196809664641094801: 'ParticleEffect',            # root_effect (field names, raw fallback)
+    4524653206994915020: 'ProjectileEffect',          # projectile_effect (field names, raw fallback)
+    4526430437831129839: 'FxDelay',                   # fx_delay / root_effect (field names, raw fallback)
+    8889037078861433556: 'FollowMountPoint',          # mount_point (field names, raw fallback)
     568963171123803239: 'FxUVTweener',                # uv_tween
     1369540917083035942: 'FxUVTweenerAdvance',        # uv_tween
     7163214010000414217: 'FxUVRotation',              # uv_rotation
     7599136815520768295: 'SwitchableBackEffect',      # switch_back
-    7347111497538980357: 'SwitchableRightEffect',     # right_effect
+    7347111497538980357: 'SwitchableRightEffect',     # right_effect (field names, raw fallback)
     -2385344539842054984: 'LineEffectEmitterDynamic',  # line_dynamic
     # not read (KNOWN)
     -337322108846137150: 'FollowDirection', 1149374055237060560: 'FxLODSetting', -488665936260092151: 'EmptyEffect',
@@ -62,7 +64,7 @@ SCRIPTS = {
     4106883806711907659: 'Svash2FlyToPredefinedTokenCard', -6677432354943165660: 'ColorModifier',
     -4538866681947353501: 'YuS3EffectBehaviour', 4140733268730780971: 'YuS3EffectWithEdgeBehaviour',
 }
-# what the extract reads of the scripts above (reader() checks the raw ones)
+# what the extract reads of the scripts above (reader() checks the raw fallbacks)
 SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoint', 'FxUVTweener', 'FxUVTweenerAdvance',
                 'FxUVRotation', 'SwitchableBackEffect', 'SwitchableRightEffect', 'LineEffectEmitterDynamic'}
 
@@ -237,8 +239,9 @@ class Coverage:
         self.add('script', name, f'MonoScript {script_id}')
 
     def reader(self, script, ok, why=None):
-        """A raw-word reader (root_effect …) ran on a component of that script: not ok = its layout was not recognised
-        (nothing read) or, `why`, what it read disagrees with the type tree."""
+        """A reader with a raw-word fallback (root_effect …) ran on a component of that script: not ok = `why` (the raw
+        words were read because the type tree did not, the fallback does not recognise the layout or disagrees with the
+        type tree), or without `why` nothing was read at all."""
         if not ok:
             self.add('reader', f'{script}: {why or "layout not recognised, nothing read"}')
 

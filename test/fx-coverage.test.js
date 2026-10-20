@@ -120,6 +120,72 @@ print(json.dumps({k: v and [v['type'], v['pauseWhenInvalid'], v['onlyPauseWhenIn
     assert.deepEqual(r, { tree: [5, 1, 0, 0], raw7: [5, 1, 0, 1], raw8: [5, 1, 0, 1], raw9: [5, 1, 0, 1], raw10: null });
   });
 
+  test('ParticleEffect / FxDelay / ProjectileEffect / right effect: field names first; check_readers reports an unchecked or drifted raw fallback', () => {
+    const r = py(`
+import struct
+from types import SimpleNamespace as NS
+class Comp:
+    def __init__(self, sid, body, tree=None):
+        self.type = NS(name='MonoBehaviour')
+        self.raw = b'\\0' * 20 + struct.pack('<q', sid) + struct.pack('<i', 0) + body
+        self.tree = tree
+    def get_raw_data(self): return self.raw
+    def read_typetree(self):
+        if self.tree is None: raise ValueError('no type tree')
+        return self.tree
+def root(*comps):
+    files = NS(objects={7 + k: comp for k, comp in enumerate(comps)})
+    for comp in comps: comp.assets_file = files
+    return NS(read_typetree=lambda: {'m_Component': [{'component': {'m_FileID': 0, 'm_PathID': 7 + k}} for k in range(len(comps))]}, assets_file=files)
+def pe_raw(spawn, subs):   # the EN layout: 28 words from s
+    b = struct.pack('<iqi', 0, 0, len(subs)) + b''.join(struct.pack('<iqf', 0, pid, t) for pid, t in subs)
+    return b + struct.pack('<fffiiifiiiiiiiif', 0.0, 0.5, -1.0, 0, 1, 1, 2.0, 2, 1, spawn, 0, 0, 0, 0, 0, 0.0) + b'\\0' * 48
+def pj_raw(off):
+    return (struct.pack('<iqi', 0, 0, 0) + struct.pack('<iiiffiii', 1, 0, 0, 0.0, 0.5, 1, 2, 0)
+            + struct.pack('<i', len(off)) + b''.join(struct.pack('<iq', 0, p) for p in off) + struct.pack('<i', 0))
+def right_raw(name):
+    s = name.encode()
+    return struct.pack('<i', len(s)) + s + b'\\0' * ((-len(s)) % 4) + struct.pack('<ii', 0, 0)
+PE, PJ, FXD, RIGHT = fe.PARTICLE_EFFECT_SCRIPT, fe.PROJECTILE_EFFECT_SCRIPT, fe.FXDELAY_SCRIPT, fe.RIGHT_SCRIPT
+pe_tree = {f: 0 for f in fe.ROOT_EFFECT_FIELDS.values()}
+pe_tree.update(_delayToFinish=0.5, _usePlaybackSpeed=1, _limitedPlaybackSpeed=2.0, _rotateType=1, _spawnLocation=2,
+               _subFXDelayConfigs=[{'transform': {'m_FileID': 0, 'm_PathID': 9}, 'delayTime': 0.25}])
+pj_tree = {'_delayToFinish': 0.5, '_inactiveOnFinish': [{'m_FileID': 0, 'm_PathID': 11}, {'m_FileID': 0, 'm_PathID': 12}]}
+ex = fe.Extractor.__new__(fe.Extractor)
+ex.cov = c.Coverage()
+read = {
+  'peTree': ex.root_effect(root(Comp(PE, pe_raw(5, []), pe_tree)))['spawn'],
+  'peRaw': ex.root_effect(root(Comp(PE, pe_raw(5, [(9, 0.25)]))))['subs'],
+  'fxDelay': ex.root_effect(root(Comp(PE, pe_raw(2, []), pe_tree), Comp(FXD, struct.pack('<f', 0.1), {'_delayTime': 0.15})))['fxDelay'],
+  'childDelay': ex.fx_delay(root(Comp(FXD, struct.pack('<f', 0.1)))),
+  'pjTree': ex.projectile_effect(root(Comp(PJ, pj_raw([11]), pj_tree)))['off'],
+  'right': ex.right_effect(root(Comp(RIGHT, right_raw('x_buff_R')))),
+}
+reports = {}
+for name, go, is_root in (
+    ('agree', root(Comp(PE, pe_raw(2, [(9, 0.25)]), pe_tree), Comp(PJ, pj_raw([11, 12]), pj_tree),
+                   Comp(RIGHT, right_raw('x_buff_R'), {'_rightEffect': 'x_buff_R'})), True),
+    ('noTree', root(Comp(PE, pe_raw(2, []))), True),
+    ('subs', root(Comp(PE, pe_raw(2, [(9, 0.5)]), pe_tree)), True),
+    ('off', root(Comp(PJ, pj_raw([11]), pj_tree)), True),
+    ('right', root(Comp(RIGHT, struct.pack('<iii', 1, 2, 3), {'_rightEffect': 'x_buff_R'})), True),
+    ('child', root(Comp(FXD, struct.pack('<f', 0.1), {'_delayTime': 0.15}), Comp(PE, pe_raw(2, []))), False)):
+    ex.cov = c.Coverage()
+    ex.cov.begin('x/' + name)
+    ex.check_readers(go, is_root)
+    reports[name] = [r['what'] for r in ex.cov.report()]
+print(json.dumps({'read': read, 'reports': reports}))`);
+    assert.deepEqual(r.read, { peTree: 2, peRaw: [[0, 9, 0.25]], fxDelay: 0.15, childDelay: 0.1, pjTree: [11, 12], right: 'x_buff_R' });
+    assert.deepEqual(r.reports, {
+      agree: [],
+      noTree: ['ParticleEffect: no type tree: read by raw words, unchecked'],
+      subs: ['ParticleEffect: raw fallback ≠ type tree: subs'],
+      off: ['ProjectileEffect: raw fallback ≠ type tree: off'],
+      right: ['SwitchableRightEffect: raw fallback: layout not recognised'],
+      child: ['FxDelay: raw fallback ≠ type tree: delay'],   // a child's ParticleEffect is not read: not checked
+    });
+  });
+
   test('a raw reader that disagrees with the type tree is reported with the fields', () => {
     const rep = py(`
 cov = c.Coverage()

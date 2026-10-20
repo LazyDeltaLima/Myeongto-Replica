@@ -1572,6 +1572,15 @@
     빠짐 25(플레이어는 셰이더 이름으로 고름 — 영향 없음), 불피스폴리아 S3 `start_02` 3종 `_delayToFinish` 0.5 → 0·`start_01` 0.3(타입 트리로 확인).
     CN 묶음은 바뀐 것 없음. 뒤 `--coverage`의 `stale`은 `kalts2` `_PremultiplyAlpha` 33뿐(EN으로 걷는 CN 추출물 — 클라 차이). 테스트 기대값 고침:
     `status-buff-fx.test.js` 이네스 `bg_01`·미즈키 `an`/`bg`(order −1)가 뒤 렌더러.
+- **필드 이름 먼저, 원시 칸은 대비책 (2026-10-20)**: `root_effect`(ParticleEffect·루트의 FxDelay)·`projectile_effect`·`right_effect`·`fx_delay`
+  (가지의 FxDelay)·`mount_point`는 컴포넌트의 타입 트리가 읽히면 필드 이름으로 읽고, 원시 칸은 타입 트리가 안 읽힐 때만 쓴다(EN·CN 클라 모두 지금은
+  다 읽힘). `check_readers`가 매 추출마다 같은 컴포넌트에서 대비책도 돌려 비교하고, 타입 트리가 안 읽혀 대비책을 대조 없이 쓴 때(`no type tree: read
+  by raw words, unchecked`), 대비책이 배치를 못 알아볼 때, 값이 다를 때(필드 이름과 함께) `reader`로 찍는다 — 전에는 타입 트리가 안 읽히면 대조가
+  조용히 꺼졌다. 새로 대조하는 필드: `_subFXDelayConfigs`(가지 지연)·ProjectileEffect `_inactiveOnFinish`·FxDelay `_delayTime`(루트와 가지)·
+  `_rightEffect`. 확인: EN 2,090 프리팹의 루트와 모든 가지에서 바꾸기 전과 읽은 값이 같고 `--coverage` 72항목도 같음, CN 묶음(`kalts2`·`clemnt`·
+  `aglna2`, 103 프리팹)도 같음. 대조가 바로 찾은 것: SwitchableRightEffect의 원시 대비책은 두 클라 모두에서 이미 아무것도 못 읽고 있었다 — 문자열 뒤
+  정수가 EN은 10-14 갱신으로 2개(`_reverseLeftRight`), CN은 3개(`_reactivationMode`까지)라 1~3개를 받게 고침. 타입 트리를 먼저 읽어 왔기에 출력은
+  그대로다. 새 두 필드는 본 사본 모두 0이고 옮기지 않는다.
 - 기준선의 큰 todo(비공개 조사 기록에 전체 목록): `FollowDirection` 183개(주인·대상 방향을 매 프레임 따라 돎) · 셰이더 `_CullMode`(플레이어는 늘
   양면) · Disturb Origin `_SrcBlend`(대부분 SrcAlpha, 2개가 One) · `InheritVelocityModule` 78 · `FxLODSetting` 37 · Shape Mesh 36(점으로 대체) ·
   `EmptyEffect` 35 · `OnPlayEmitter` 29 / `OnFinishEmitter` 14(다른 이펙트를 틂) · `CollisionModule` 28 · `PauseEffectIf` 26 · 기본 상태 밖 Animator
