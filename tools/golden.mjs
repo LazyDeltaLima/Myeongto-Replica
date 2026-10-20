@@ -135,6 +135,22 @@ const HASH_WINDOW = 300; // ticks (10 game seconds) per published hash
 const DRAIN_EVERY = 3; // ticks (the match's watcher cadence)
 
 /**
+ * A battle scenario's Battle, built through the production BattleSpec path and not yet stepped (also the effect event
+ * golden's battles, tools/fx-golden.mjs).
+ * @param {object} sc a battle scenario (runBattle)
+ * @param {{ recordEvents?: boolean }} [opts]
+ */
+export function battleOf(sc, { recordEvents = true } = {}) {
+  const spec = buildBattleSpec({
+    battleId: sc.id, fieldId: sc.fieldId ?? 'g', kind: sc.kind, seed: sc.seed, modeId: sc.modeId, round: sc.round,
+    stageId: sc.stageId, rect: sc.rect, timeLimit: sc.timeLimit, players: sc.players, spawns: sc.spawns, routes: sc.routes,
+    flags: sc.flags, enemyOverrides: sc.enemyOverrides ?? {}, waveId: sc.waveId ?? null, bossId: sc.bossId ?? null,
+    boss: sc.boss ?? null, content: 'full', wide: sc.wide ?? 0,
+  });
+  return createBattleFromSpec(spec, ds, { quiet: true, logger: QUIET, recordEvents });
+}
+
+/**
  * Run one battle scenario to its end and digest it.
  * @param {object} sc { id, kind, modeId, round, stageId, seed, players, spawns, routes, timeLimit, flags, enemyOverrides,
  *   waveId, bossId, boss, rect, fieldId, cap (game seconds; boss / hidden fields end by the pool or here) }
@@ -145,13 +161,7 @@ const DRAIN_EVERY = 3; // ticks (the match's watcher cadence)
 export function runBattle(sc, probe = {}) {
   const snapEvery = probe.snapEvery ?? SNAP_EVERY;
   const drainEvery = probe.drainEvery ?? DRAIN_EVERY;
-  const spec = buildBattleSpec({
-    battleId: sc.id, fieldId: sc.fieldId ?? 'g', kind: sc.kind, seed: sc.seed, modeId: sc.modeId, round: sc.round,
-    stageId: sc.stageId, rect: sc.rect, timeLimit: sc.timeLimit, players: sc.players, spawns: sc.spawns, routes: sc.routes,
-    flags: sc.flags, enemyOverrides: sc.enemyOverrides ?? {}, waveId: sc.waveId ?? null, bossId: sc.bossId ?? null,
-    boss: sc.boss ?? null, content: 'full', wide: sc.wide ?? 0,
-  });
-  const b = createBattleFromSpec(spec, ds, { quiet: true, logger: QUIET, recordEvents: probe.recordEvents !== false });
+  const b = battleOf(sc, { recordEvents: probe.recordEvents !== false });
   const hooks = {};
   for (const name of HOOKS) { hooks[name] = 0; if (probe.countHooks !== false) b.on(name, () => { hooks[name]++; }, { priority: -1000 }); }
   const ev = {};

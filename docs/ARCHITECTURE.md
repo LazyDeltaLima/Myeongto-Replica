@@ -162,7 +162,8 @@ public/assets/ ─────────▶ public/js/render/, public/js/audio
   stand-in and every 自选 operator — reduced to digests. `npm test` checks a fast subset; `npm run golden` or
   `GOLDEN_FULL=1 node --test test/golden.test.js` checks everything. A refactor must never change them; a gameplay
   change runs `npm run golden:update` and commits the new digests with the change, naming the scenarios that moved
-  and why (`test/golden/README.md`).
+  and why (`test/golden/README.md`). With the extracted effects installed, `test/golden/fx-events.json` also fixes
+  which official effect prefabs the corpus battles' events start (`tools/fx-golden.mjs`).
 - **Import boundaries** (`tools/check-imports.mjs`, `npm run check:imports`): `server/sim/` is served to browsers, so it
   may not import the match, the lobby, the server entry, the net layer (`ws`, `node:http` …), `public/` or any Node
   builtin; `server/match/` may not import `public/` or the net layer. The one listed exception is

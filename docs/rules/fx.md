@@ -1592,8 +1592,18 @@
   `unverified` = 그 실행의 프리팹 기능 중 검증 목록 어느 프리팹에도 없는 것(기능 → 그 기능을 쓰는 프리팹), 추출 끝 요약에 한 줄. 클라 없이 디스크
   추출물로: `python3 tools/local-extract/fx_coverage.py unverified`(미검증 기능과, 그것을 **가장 드문 기능부터** 덮는 프리팹 — 10~15개씩 묶어 대조,
   관리자 결정 2026-10-20), `… verify <bundle/name>… --by arena|match [--note …]`(`.cache/fx-coverage.json`의 todo를 같이 적음). 2026-10-20 디스크
-  기준: 프리팹 2,178 · 기능 370 · 3개 이하 프리팹에만 있는 기능 36 · 드문 쪽부터 덮기 47개(탐욕 덮기 48). 다음 층(추출 JSON 골든·이벤트 기록
-  골든)은 관리자 노트.
+  기준: 프리팹 2,178 · 기능 370 · 3개 이하 프리팹에만 있는 기능 36 · 드문 쪽부터 덮기 47개(탐욕 덮기 48). 다음 층 추출 JSON 골든(추출 JSON은
+  게임 데이터 파생물이라 공개 저장소 밖)은 관리자 노트, 이벤트 기록 골든은 아래.
+- **이벤트 기록 골든 (2026-10-20)**: 서명과 추출 JSON 골든은 프리팹 그림만 보고 「언제·누구에게 트나」(바인딩: `fxgame.js`·`fxmap.js`·추출
+  `modes.json`/`index.json`)는 못 본다. `tools/fx-golden.mjs`가 골든 전투 묶음(`tools/golden.mjs`의 roster·standins·diy·fields, 94판)을
+  실제 판 경로(`battleOf` → BattleSpec)로 돌리며 3틱마다 이벤트를 브라우저처럼 `createFxLayer({ dry: true, trace })`에 흘린다(`dry`: 아무것도
+  불러오지 않고 레이어가 실패하지도 않음 — node에는 WebP가 없어 첫 로드에서 레이어가 꺼지던 것을 막음). 한 판의 기록 = 서로 다른 줄
+  `<유닛> <이벤트 종류> <프리팹> → self|ally|foe`의 **집합**(횟수·시각·맞은 적의 정체는 빼서 전투 규칙이 바뀌어도 거의 안 움직이고, 바인딩이
+  바뀌면 더해진 줄(+)·빠진 줄(−)이 곧 화면에서 볼 목록). 유닛 이름은 모델(spine), 적은 def id. 모델 없는 뷰에서 클립 변형을 고르는
+  `Math.random`(`castGroup`)은 판마다 고정 시드. `test/golden/fx-events.json`과 비교하는 `test/render/fx-golden.test.js`(기본 = 골든 빠른 묶음,
+  `GOLDEN_FULL=1` 전부, 추출물 없으면 건너뜀), 의도한 바인딩 변경 뒤 `node tools/fx-golden.mjs --update`(`--print <id>`로 한 판의 줄). 못 보는
+  것: 상태 이상 이펙트(`fxstatus.js`가 스냅숏 플래그로 그림), 丰川祥子의 음표(WebP 확인 뒤에만 시작), 프리팹을 불러온 뒤에야 시작하는 하위
+  이펙트(선 끝·꼬리), 이벤트가 아닌 연출(보드·모래폭풍). 2026-10-20 기준 드문 쪽부터 덮기 47개 중 31개가 기록에 나온다.
 - 기준선의 큰 todo(비공개 조사 기록에 전체 목록): `FollowDirection` 183개(주인·대상 방향을 매 프레임 따라 돎) · 셰이더 `_CullMode`(플레이어는 늘
   양면) · Disturb Origin `_SrcBlend`(대부분 SrcAlpha, 2개가 One) · `InheritVelocityModule` 78 · `FxLODSetting` 37 · Shape Mesh 36(점으로 대체) ·
   `EmptyEffect` 35 · `OnPlayEmitter` 29 / `OnFinishEmitter` 14(다른 이펙트를 틂) · `CollisionModule` 28 · `PauseEffectIf` 26 · 기본 상태 밖 Animator

@@ -9,6 +9,11 @@ through.
   digest. Its header documents the families and the digest fields.
 - `test/golden/<family>.json` hold the digests (`roster`, `bonds`, `fields`, `matches`, `standins`, `diy`).
 - `test/golden.test.js` recomputes them and compares. On a mismatch it prints the scenario, the field and old → new.
+- `test/golden/fx-events.json` is the effect event golden (`tools/fx-golden.mjs`, `test/render/fx-golden.test.js`): the
+  battle scenarios of `roster`, `standins`, `diy` and `fields` replayed through the effect layer (`render/fxgame.js`),
+  per scenario the set of official effect prefabs each unit's events start. It needs the extracted effects (skipped
+  without them) and moves with the effect bindings, not with gameplay; after a corpus change or an intended binding
+  change, `node tools/fx-golden.mjs --update` (docs/rules/fx.md 「이벤트 기록 골든」).
 
 ## The corpus
 

@@ -43,7 +43,9 @@
 // drops its extras at level ≥ 2): level 2 plays 'high' as 'medium', level 3 also skips the normal-attack effects.
 // stats() → { live, loaded, updateMs, renderMs, calls, particles, notes } (view.stats().fxGame). `trace` (tests): called with
 // { kind, names, by, at } for every effect play() starts, before it loads (node has no WebP, so nothing is drawn there), and
-// { kind: 'spawn', names, by, on, tag } for every extracted prefab spawn() starts.
+// { kind: 'spawn', names, by, on, tag } for every extracted prefab spawn() starts. `dry` (tests, 2026-10-20): nothing ever
+// loads and the layer never fails — every event takes the path it takes in a browser up to the load, so `trace` sees them all
+// (without it node's missing WebP fails the layer at the first load and the later events skip the official effects).
 // 丰川祥子's notes (kits/ops/op-oblvns.js, battle.fx 'oblvnsNote' born / track / free / hit / gone): each note is her client trail
 // prefab (fxmap.js NOTE_FX) flown here between the sim's events — free flight on its heading (the 扩张正弦 weave drawn
 // around it), tracing the target's view, the hit prefab on arrival (a piano note flies on 0.5 s); w = 2 draws two notes.
@@ -295,7 +297,7 @@ export function yuWallPieces(dir, tiles, midX) {
   return out;
 }
 
-export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1, fieldRect = () => null, grid = () => null, enemyDef = () => null, unitDef = () => null, audio = () => null, standIn = () => {}, trace = null }) {
+export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1, fieldRect = () => null, grid = () => null, enemyDef = () => null, unitDef = () => null, audio = () => null, standIn = () => {}, trace = null, dry = false }) {
   let index = null, modes = null, emodes = null;
   if (typeof fetch === 'function') {
     loadIndex().then((i) => { index = i; }); loadModes().then((m) => { modes = m; });
@@ -342,6 +344,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   async function ensure() {
     if (mod) return true;
     if (failed || q() === 'low') return false;
+    if (dry) return false;
     // the extracted textures are WebP (tools/local-extract/fx_extract.py): a browser without it (iOS Safari < 14) keeps
     // the procedural FX
     if (!(await webpOk())) { failed = true; return false; }
