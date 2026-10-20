@@ -1395,7 +1395,10 @@
   치료가 0.5 미만이면 시뮬이 'heal'을 안 보내므로 이펙트도 없다 [추정: 공식은 닿으면 양과 관계없이 틀 것 — 메딕은 다친 아군만 노려 드묾].
 - 확인: 단위 `test/render/heal-hit-fx.test.js`(`createFxLayer` `trace`로 트는 이름: 첫 대상·튕긴 대상, 다른 치료자·공격 없는 치료는 없음),
   `test/sim/op-shot.test.js` 실제 판 경로 'heal'의 치료자. Windows Chrome 디버그 아레나(관리자 노트의 확인 스크립트, FxInstance 첫 update로 프리팹 수, 오류 0): 莎草(다친 아군 옵션 — 자기 치료) `papyrs_hit_01` 4.
-  赫默는 명중 프리팹 `myrrh_attack_01_hit`이 추출돼 있지 않아 안 나옴(관리자 노트의 할 일). [화면 미확인: 실제 판의 다른 아군, 공식 녹화]
+  赫默의 명중 프리팹 `myrrh_attack_01_hit`은 末药 번들(`myrrh.ab`)에 있어 안 나왔다 → 2026-10-21 그 하나만 赫默 묶음으로 추출
+  (`fx_extract.py --bundle silent --pack battle/prefabs/effects/myrrh.ab --prefab myrrh_attack_01_hit`, EN 클라; `index.json` `silent`에 더해짐) —
+  이벤트 기록 골든에 `char_108_silent attackHit myrrh_attack_01_hit → ally`가 생김(3판). 묶음 전체를 다시 뽑는 도구는 이 프리팹을 `silent.ab`에서
+  못 찾으니 같은 `--pack`으로. [화면 미확인: 실제 판의 다른 아군, 공식 녹화]
 
 ### 타격별 명중 — MultiHitUberEffectEmitter `_hitGroups` (2026-10-16, 이펙트 연결 전수, 디컴파일 확인)
 
