@@ -60,10 +60,10 @@ export default withDefaults({
             }
             hits.sort((a, b) => a.t - b.t || a.d - b.d || a.e.id - b.e.id);
             const amount = unit.s.atk * num(bb.atk_scale, 1.1); // one projectile: ATK taken when it flies back
-            for (const { e } of hits.slice(0, Math.max(1, Math.floor(num(bb.max_target, 4))))) {
-              battle.dealDamage(unit, e, { amount, type: 'phys', isSkill: true, tags: ['skill', 'sentryRecall'] });
-            }
-            battle.fx('beam', { x: ax, y: ay, tx: bx, ty: by, id: unit.id });
+            const struck = hits.slice(0, Math.max(1, Math.floor(num(bb.max_target, 4)))).map(({ e }) => e);
+            for (const e of struck) battle.dealDamage(unit, e, { amount, type: 'phys', isSkill: true, tags: ['skill', 'sentryRecall'] });
+            // `hits`: the enemies it struck on its way, in order (the renderer flies projectile_chr_ines_guard_back)
+            battle.fx('beam', { x: ax, y: ay, tx: bx, ty: by, id: unit.id, hits: struck.map((e) => e.id) });
           },
           onEnd({ battle, unit }) { battle.removeBuff(unit, 'ines:s3'); },
         }),

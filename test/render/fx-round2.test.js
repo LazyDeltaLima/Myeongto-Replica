@@ -88,7 +88,7 @@ test('fxgame: input effects on the main target, looping hits end with the cast, 
   assert.match(SRC, /for \(const l of live\) if \(l\.cast === c && !l\.inst\.stopping\) l\.inst\.stop\(\);/);
   assert.match(SRC, /if \(entry\.cast\?\.cut\) \{ inst\.dispose\(\); return null; \}/);
   // clip groups: cast at the swing, hits at the damage
-  assert.match(SRC, /c\.group = castGroup\(src, mode\);/);
+  assert.match(SRC, /c\.group = castGroup\(src, mode, sig, .*\);/);
   assert.match(SRC, /const hits = withGroup\(hitList, c\?\.group\?\.hit\)\.slice\(0, MAX_HIT_FX\);/);
   // the enemy's debuff mark: one per name per unit, renewed by a hit while it stands
   assert.match(SRC, /if \(Array\.isArray\(part\.hitBuff\) && part\.hitBuff\.length\) eholdBuff\(src, part, tgt\);/);

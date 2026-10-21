@@ -87,7 +87,7 @@ test('char_modes.py: the shot\'s hits are its own projectile\'s; a shot\'s stop 
 
 test('fxgame: a mode-less skill\'s attack takes its shot once; its trail and hits follow', () => {
   assert.match(SRC, /const shot = mode === -1 && takeShot\(src\);/);
-  assert.match(SRC, /lastAtk\.set\(tgt\.id \?\? tgt\.info\?\.id, \{ src, t: clockS, mode, kind: e\[3\], shot, combat: !!src\._fxCombat \}\);/);
+  assert.match(SRC, /lastAtk\.set\(tgt\.id \?\? tgt\.info\?\.id, \{ src, t: clockS, mode, kind: e\[3\], shot, combat: !!src\._fxCombat, sig \}\);/);
   assert.match(SRC, /if \(spec && mode === -1\) \(\{ name, mode \} = modelessTrail\(bindOf\(src\), bundleOf\(src\)\?\.prefabs, skillIdx\(src\), shot\)\);/);
   assert.match(SRC, /a\.shot \? \{ names: extracted\(a\.src, skillBind\(a\.src\)\?\.shotHit\), split: false \}/);
   assert.match(SRC, /v\._fxShot = e\[2\] \? \{ t: null \} : null;/);

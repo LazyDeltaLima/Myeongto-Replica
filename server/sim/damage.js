@@ -117,6 +117,8 @@ export function makeDamageInfo(d = {}) {
     // the strike of its attack (0, 1 …: an attack of several hits — profile `hits` / `hitsFn`, ai.js resolveHit), else null:
     // the 'dmg' event's 8th field — the renderer plays that strike's official hit / shot by it (render/fxgame.js strikeGroups)
     strike: Number.isInteger(d.strike) ? d.strike : null,
+    // the client ability its attack is when not the normal one (a talent's own attack, 'T.1' — ai.js performAttack `signal`)
+    signal: typeof d.signal === 'string' && d.signal ? d.signal : null,
     // 咒愈师 skills whose damage triggers their trait for ONE named ally ("并仅对该角色/干员触发…特性"): the instance
     // carries that ally, and the trait hook (professions.js installIncantation) heals it instead of the lowest-HP ally
     // in range. null = the ordinary target of the trait.

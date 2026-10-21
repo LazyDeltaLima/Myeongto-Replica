@@ -217,6 +217,7 @@ export default {
               const n = unit.mem.coins ?? 0;
               unit.mem.coins = 0;
               let spent = 0;
+              const paid = [];   // each coin's target, in order (the renderer flies projectile_chr_swire2_s_3 at each)
               // PRTS 备注: closing it "立即对前方范围2-4内的地面敌方单位与自身阻挡的所有单位施加【金币标记】", the coins going to
               // marked units at random — 弹道（不可对空）: air units (FLY, 近地悬浮, 浮空) are never paid. Until 0.1.1 the
               // coins went to her attack range (1-1) instead of range 2-4.
@@ -225,13 +226,14 @@ export default {
                 const e = battle.rng.pick(marked.filter((x) => x.alive && !x.isFlying));
                 if (!e) break;
                 spent++;
+                paid.push(e.id);
                 battle.dealDamage(unit, e, { amount: unit.s.atk * cash, type: 'phys', isSkill: true, tags: ['skill', 'swire2Cash'] });
                 // "将目标小力地向前推开" — PRTS 备注 "金币弹道…推开效果为径向推动", client knockback[relative]: a radial push
                 // away from her centre (not along her direction, so no 45° / 0.25-tile 特殊修正), official 力度 − 重量
                 // distance (Battle.push)
                 if (e.alive) battle.push(e, force, { from: unit });
               }
-              fx(battle, 'coin', unit, { n: 0, spent, skill: 'swire2_3' });
+              fx(battle, 'coin', unit, { n: 0, spent, skill: 'swire2_3', targets: paid });
             },
           };
         },

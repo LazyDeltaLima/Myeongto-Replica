@@ -597,6 +597,71 @@ def ability_groups(tree, mode_paths, by_pid, projectiles=None):
     return out, own, timing, tgt
 
 
+def mode_parts(tree, mode_paths, projectiles=None):
+    """2026-10-21 (이펙트 연결 전수 ①·②): two kinds of ability a mode casts in place of its attack, whose effects are not the
+    attack's (before, they went into the mode's lists and played with every attack). Returns (talent, side, gos, projs,
+    timing):
+      talent[mode] = { 'T.<n>': { cast, trail, hit } } — a mode talent (charpack `Body/Talents/<n>` with `_isModeTalent` 1):
+        寒芒克洛丝's 中的 (`_probKey` prob: the client casts it instead of the attack — its arrow projectile_chr_kroos2_2 and
+        kroos2_attack_start_02), 圣约送葬人's 受选之人 shot; the sim marks such a swing and its 'atk' events with 'T.<n>'.
+      side[mode] = { ally: { cast, trail, hit }, foe: { … } } — the children of the mode's attack (`Body/Attack/<child>`) whose
+        own Trigger picks one side (`_targetSide` 1 allies / 2 enemies), when both sides are there: 凯尔希·思衡托 S2 HealAlly /
+        AttackEnemy (projectile_chr_kalts2_s2_heal / _dmg, start_heal / start_damage) — the attack takes the one of its target.
+      gos = the GameObject paths of those abilities (and below), projs[mode] = their projectile keys, timing[mode] = their
+      cast effects' castOpt."""
+    n = len(mode_paths)
+    talent, side, projs, timing = [None] * n, [None] * n, [set() for _ in range(n)], [{} for _ in range(n)]
+    gos = set()
+    by_go = {}
+    for gp, d, _ in tree:
+        by_go.setdefault(gp, []).append(d)
+
+    def collect(i, ap):
+        cast, hit, trail = [], [], []
+        for gq, comps in by_go.items():
+            if gq != ap and not gq.startswith(ap + '/'):
+                continue
+            gos.add(gq)
+            for x in comps:
+                add(cast, effect_names(x.get('_castEffects') or []))
+                for k in MODE_HIT_KEYS:
+                    add(hit, effect_names(x.get(k) or []))
+                for c in x.get('_castEffects') or []:
+                    if isinstance(c, dict):
+                        for e in c.get('_effects') or []:
+                            if isinstance(e, str) and e:
+                                timing[i].setdefault(e, cast_timing(c))
+                pk = x.get('_projectileKey')
+                if isinstance(pk, str) and pk:
+                    projs[i].add(pk)
+                    if projectiles:
+                        pe = projectiles.effects(pk)
+                        add(trail, pe['trail'])
+                        add(hit, pe['hit'])
+        return {'cast': cast, 'trail': trail, 'hit': hit}
+
+    for i, mp in enumerate(mode_paths):
+        if not mp:
+            continue
+        tal, sides = {}, {}
+        for gp, comps in by_go.items():
+            sub = gp[len(mp):] if gp.startswith(mp + '/') else None
+            if sub is None:
+                continue
+            parts = sub.strip('/').split('/')
+            if len(parts) == 3 and parts[:2] == ['Body', 'Talents'] and parts[2].isdigit() and any(x.get('_isModeTalent') == 1 for x in comps):
+                tal[f'T.{parts[2]}'] = gp
+            if len(parts) == 3 and parts[:2] == ['Body', 'Attack']:
+                ts = [x.get('_targetSide') for x in by_go.get(gp + '/Trigger', []) if x.get('_targetSide') in (1, 2)]
+                if ts:
+                    sides.setdefault('ally' if ts[0] == 1 else 'foe', gp)
+        if tal:
+            talent[i] = {k: collect(i, ap) for k, ap in sorted(tal.items())}
+        if len(sides) == 2:
+            side[i] = {k: collect(i, ap) for k, ap in sorted(sides.items())}
+    return talent, side, gos, projs, timing
+
+
 def cast_timing(c):
     """{ s, e, o, d?, once?, t?, p? } of a CastEffectOptions entry (castOpt): t = an InputTargetEffectOptions (on the main
     target), p = its `_useInputPos`."""
@@ -698,6 +763,8 @@ def modes_of(path, projectiles=None):
     for gp, d, _ in tree:
         if '[switch2stand]/StandBorn' in gp:
             add(doll_born, effect_names(d.get('_castEffects') or []))
+    # 2026-10-21: a mode talent / a per-side child of the attack (mode_parts) keeps its effects to itself
+    talent, side, part_go, part_proj, part_timing = mode_parts(tree, mode_paths, projectiles)
     # alternatives: the first sibling (by name) of each parent stands for all
     alt_first = {}
     for gp, _, _ in tree:
@@ -745,6 +812,8 @@ def modes_of(path, projectiles=None):
         if isinstance(d.get('_projectileKey'), str) and d['_projectileKey'] and isinstance(d.get('_mountPointType'), int):
             shot_mp.setdefault((i, d['_projectileKey']), d['_mountPointType'])
         if skipped(gp) or any(TOKEN_FIRE.search(x) for x in gp.split('/')):
+            continue
+        if gp in part_go:
             continue
         ab = gp.rpartition('/')[2]
         kind = 'melee' if MELEE_ABILITY.match(ab) else 'ranged' if RANGED_ABILITY.match(ab) else None
@@ -841,8 +910,9 @@ def modes_of(path, projectiles=None):
     main = re.compile(rf'^projectile_chr_{re.escape(short)}(_default|_s\d+|_[a-z])?$', re.I)
     for i in range(n):
         proj[i].sort(key=lambda k: 0 if main.match(k) else 1)
-        if projectiles and proj[i]:
-            e = projectiles.effects(proj[i][0])
+        own_shot = next((k for k in proj[i] if k not in part_proj[i]), None)   # not a mode talent's / a per-side child's
+        if projectiles and own_shot:
+            e = projectiles.effects(own_shot)
             add(hit[i], e['hit'])
             add(trail[i], e['trail'])
             add(chain[i], e['line'])
@@ -874,6 +944,9 @@ def modes_of(path, projectiles=None):
                     sg[k] = [[x for x in g if x not in mine] if isinstance(g, list) else g for g in sg[k]]
             if isinstance(sg.get('base'), list):
                 sg['base'] = [x for x in sg['base'] if x not in mine]
+    for i in range(n):
+        for k, v in part_timing[i].items():
+            cast_opt[i].setdefault(k, v)
     shot_from = [shot_mp.get((i, proj[i][0])) if proj[i] else None for i in range(n)]
     res = {'modes': modes, 'proj': proj, 'cast': cast, 'hit': hit, 'trail': trail, 'attach': attach}
     if any(cast_opt):
@@ -896,6 +969,10 @@ def modes_of(path, projectiles=None):
         res['clipFx'] = clip_fx
     if any(alt_fx):
         res['altFx'] = alt_fx
+    if any(talent):
+        res['talentAtk'] = talent
+    if any(side):
+        res['sideFx'] = side
     combat_split = [{k: {'cast': p[k]['cast'], 'hit': p[k]['hit']} for k in ('attack', 'combat')}
                     if p['attack'].get('seen') and p['combat'].get('seen') else None for p in cpart]
     if any(combat_split):
@@ -1072,7 +1149,7 @@ def main():
     doc.update({k: out[k] for k in sorted(out)})
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if FX_OUT.parent.exists():
-        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'input', 'hit', 'hitGroups', 'tgtStart', 'hitLoop', 'castTgt', 'clipFx', 'altFx', 'combatSplit', 'trail', 'chain', 'chainHit', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'hitAim', 'fortress', 'funnels', 'skills', 'turn', 'dirs', 'start', 'startOnce', 'modeStart', 'dead', 'common') if f in v} for k, v in sorted(out.items())}
+        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'input', 'hit', 'hitGroups', 'tgtStart', 'hitLoop', 'castTgt', 'clipFx', 'altFx', 'talentAtk', 'sideFx', 'combatSplit', 'trail', 'chain', 'chainHit', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'hitAim', 'fortress', 'funnels', 'skills', 'turn', 'dirs', 'start', 'startOnce', 'modeStart', 'dead', 'common') if f in v} for k, v in sorted(out.items())}
         FX_OUT.write_text(json.dumps(fx, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     print(f'{len(out)} operator(s) → {OUT.relative_to(ROOT)}' + (f' + {FX_OUT.relative_to(ROOT)}' if FX_OUT.parent.exists() else '')
           + f'; no charpack: {", ".join(missing) or "none"}')

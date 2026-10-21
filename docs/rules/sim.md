@@ -845,6 +845,14 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   시각부터 간격 한 번 다시).
 - **휘두름 이벤트**: 휘두름을 시작하는 틱에 `['swing', unitId, windup, projKind]`(타격까지 게임 초, 그 타격 'atk'의 kind). 렌더는 이것으로 Spine 휘두름을
   공식 속도로 시작한다(`render.md` 「공격 모션」). fx 담당도 같은 이벤트를 쓴다.
+- **재능이 고르는 공격** (2026-10-21, fx.md 「다른 필드 투사체」): 모드의 `Body/Talents/<n>`이 `_isModeTalent` 1·`_probKey`인 공격 능력이면 클라는 그
+  확률로 공격 **대신** 그것을 시전한다 — 고르는 때는 시전(휘두름) 시작. 시뮬: 오퍼레이터 휘두름 시작에 훅 `swing` { unit, targets, isSkill, signal }
+  (`ai.js updateAlly`)을 내고, 키트가 `signal`('T.<n>')을 정하면 'swing' 9번째 칸(앞 칸은 base·null·combat·first로 채움)·그 타격의 'atk' 5번째 칸
+  (`performAttack` opts.signal, 圣约送葬人의 `forceAttack`과 같은 칸)·그 명중 피해의 `dmg.signal`에 실린다. 寒芒克洛丝 中的: 스킬 밖(`isSkill` 거짓)
+  휘두름에서 prob를 굴려 'T.1', 명중 'hit'에서 `dmg.signal` 'T.1'이면 ×atk_scale·stun; 스킬 모드는 버프 템플릿 `kroos2_t_1[critical]`
+  (ON_CALCULATE_DAMAGE Dice)이라 그대로 착탄 때 굴림(`dmg.isSkill`). 전엔 모든 공격을 착탄 때 굴렸다 — 맞히는 확률·배율은 같고 난수 순서만 바뀐다
+  (그녀가 있는 golden 13개 시나리오가 움직임: roster 009·011·030, bonds arcane·mira·stead-low·swift, fields boss 2·4·6·hidden 8·10, matches
+  coop2-NORMAL-70-diy). 대상이 쏜 뒤 죽으면 그 굴림은 버려진다(클라도 시전 때 고름).
 - [추정] 휘두름 중 스킬이 켜지거나 꺼지면(공격 프로필이 바뀜) 타격 때 대상을 다시 고른다 — 클라는 모드를 바꾸고 새 모드의 공격 능력이 따로 대상·쿨다운을
   가진다(아래 차이). [추정] 클립 이름: `ThreePartOneshotAnimation`의 `_oneshotAnim`(`_beginAnim`은 아래 「첫 공격 begin」), 골격에 없는 `_animKey`는 `<key>_Loop`, 그래도 없으면
   렌더가 그 모드에 쓰는 클립(`anims.attack`/`anims.skills[i]`) — 왕 Default, 마운틴 S2·S3, 시·수르트·민트·플레임테일·파투스 스킬 모드 등 10개 능력. 적은 Default 모드의 능력 하나(형태별 클립은 기존 [ASSUMED]).

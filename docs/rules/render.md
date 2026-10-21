@@ -446,7 +446,9 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     2026-10-21 고르는 법 디컴파일(fx.md 「능력 묶음의 자식·COMBAT 상태 공격」): 维什戴尔·迷迭香은 `_diffFromLastOneIfNotFirst`라 `other`(전엔 `random`),
     AbilityRandomGroup Loop(阿斯卡纶·隐德来希 S3)는 `m_loopIndex`를 먼저 +1 해 읽고 붙을 때마다 0으로 돌아가므로 두 번째 클립부터(`from: 1`), 스킬이
     켜지거나 꺼질 때(모드 전환) 차례를 처음부터 [추정: 모드를 안 바꾸는 스킬도 처음부터]. 伺夜 S3(AbilitySelectableGroup 순차)는 첫 클립부터 그대로;
-    望·圣聆初雪 S3(UberAnimationEffectEmitter LOOP, `_CalculatePlayIndex`)는 안 읽음.
+    望·圣聆初雪 S3(UberAnimationEffectEmitter LOOP)는 2026-10-21 디컴파일: `_CalculatePlayIndex`(10-14 덤프 RVA 0xCD3970)가 `m_currentIndex`(0x78)를
+    먼저 +1 하고 묶음 수에 닿으면 0, 생성자·`SetData`(0xCD37F0)가 −1로 두므로 첫 시전은 첫 묶음 — 지금 `loop`(`from` 없음) 그대로 맞음. `SetData`가
+    언제 다시 불리는지(스킬마다?)는 안 봄 [추정: 렌더처럼 역할 클립이 바뀔 때 처음부터].
   - **C** 첫 공격 begin·공격 end: `ThreePartOneshotAnimation`(`_onlyPlayBeginAnimWhenFirstAttack`, `_endAnimKey`). 클라 코드(2026-10-14, 관리자 노트):
     `InitAnimation`이 배율 = 공격 시간 ÷ (begin(첫 공격일 때만) + oneshot + end)로 셋을 함께 늘이고(`UpdatePlaybackSpeed`가 그 재생 속도를 능력에 줌), 코루틴
     `DoPlayAnimation`이 begin → oneshot 순으로 틀며, 타격은 oneshot 클립의 OnAttack 이벤트를 기다린다 → **첫 공격의 타격은 begin만큼 늦다**. 로스터의 ThreePart

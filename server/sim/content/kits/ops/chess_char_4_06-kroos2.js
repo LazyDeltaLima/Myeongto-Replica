@@ -28,11 +28,19 @@ export default withDefaults({
         onEnd({ unit }) { if (unit.form === 'quad') unit.form = null; },   // (the view ends it with the skill: endsWithSkill)
       },
       talents: [{ install(battle, unit) {
-        // 中的: the ×1.5 is rolled before mitigation; the stun (and the S2 "击中目标" count) only for shots that landed
+        // 中的: the ×1.5 is applied before mitigation; the stun (and the S2 "击中目标" count) only for shots that landed. Outside
+        // her skills it is the Default mode's talent ability (charpack Modes/Default/Body/Talents/1 `_isModeTalent`, `_probKey`
+        // prob: its own arrow projectile_chr_kroos2_2), which the client casts instead of the attack — rolled as the swing
+        // starts, the swing and its arrow carry 'T.1'; in her skill modes a buff template rolls it as the damage is calculated
+        // (kroos2_t_1[critical] ON_CALCULATE_DAMAGE Dice) — rolled at the hit
         const crits = new WeakSet();
+        battle.on('swing', (c) => {
+          if (c.unit !== unit || c.isSkill || !battle.rng.chance(num(t0.prob, 0.2))) return;
+          c.signal = 'T.1';
+        }, { owner: unit });
         battle.on('hit', (c) => {
           if (c.source !== unit || !c.dmg.isAttack || c.target.side !== 'enemy') return;
-          if (battle.rng.chance(num(t0.prob, 0.2))) { c.dmg.mul *= num(t0.atk_scale, 1.5); crits.add(c.dmg); }
+          if (c.dmg.signal === 'T.1' || (c.dmg.isSkill && battle.rng.chance(num(t0.prob, 0.2)))) { c.dmg.mul *= num(t0.atk_scale, 1.5); crits.add(c.dmg); }
         }, { owner: unit });
         battle.on('damaged', (c) => {
           if (c.source !== unit || !c.dmg || !c.dmg.isAttack || c.target.side !== 'enemy') return;

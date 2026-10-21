@@ -1194,8 +1194,9 @@
   붙는 자리는 그 모드의 `shotFrom`(스킬 투사체는 Muzzle) [추정: 스킬 능력의 `_mountPointType`은 안 읽음].
 - 스킬 창 안에 'atk'이 없는 스킬(流星 S2 'volley', 崖心 S2 'pull', 波登可 S2·锡人·引星棘刺 'zone')의 `shot`은 2026-10-21부터 키트 이벤트가
   날린다 → 아래 「키트 이벤트가 쏘는 스킬 투사체」.
-- 남은 것: charpack 모드의 두 번째 투사체(寒芒克洛丝 두 번째 화살, 耶拉·洛洛·至简 드론, 凯尔希·思衡托 S2)와 다른 필드로 이어진 투사체(伺夜 S3,
-  魔王 재능, 琳琅诗怀雅 S3, 丰川祥子 S1 음표 2~8, 号角 S2 `_full`, 伊内丝 S3 되돌림)는 이 기록에 없다(관리자 노트 「이펙트 연결 전수」).
+- 남은 것: charpack 모드의 두 번째 투사체(耶拉·洛洛·至简 드론)와 다른 필드로 이어진 투사체(伺夜 S3, 魔王 재능, 丰川祥子 S1 음표 2~8, 号角 S2
+  `_full`)는 이 기록에 없다(관리자 노트 「이펙트 연결 전수」). 寒芒克洛丝 재능 화살·琳琅诗怀雅 S3·伊内丝 S3 되돌림·凯尔希·思衡托 S2는 2026-10-21 →
+  아래 「다른 필드 투사체」·「대상 쪽별 능력」.
 - 확인: 단위 `test/render/skill-shot-trail.test.js`. Windows Chrome 디버그 아레나(지금 발동 3번, `FxInstance` 프리팹 집계): 号角 S1
   `horn_skill_01_trail_02` 3, 歌蕾蒂娅 S1 `glady_skill_01_trail` 5, 流星 S1 3, 异客 S1 `pasngr_skill_01_trail` 2(첫 발은 불러오는 중), 维什戴尔 S1 2,
   断崖 S1 3, 焰影苇草 S2 일반 공격 `reed2_attack_trail` 7(불덩이 꼬리 없음), 오류 0. [화면 미확인: 공식 녹화와 꼬리 모양·속도 대조]
@@ -1613,9 +1614,9 @@
   - 'zone': 장판 이펙트(`zone.fx`·`aura`)가 착지 때 나온다(클라 `OnProjectileReached`) — 시뮬의 장판 피해는 이벤트 순간부터라 그림이 비행 시간만큼 늦다
     [추정: 시뮬 시간은 그대로 둠]. 그 스킬의 `shot`을 이미 'atk'이 가져간 장판(号角 S1 조명탄: 'atk' 뒤 명중 때 'zone')은 다시 안 날림(`_fxShot`).
     키 있는 장판의 갱신(引星棘刺 S2 표류)은 첫 이벤트만 날린다.
-  - 목록의 `_line`(崖心 `slchan_skill_02_line`)은 착지부터 그녀와 그 적을 잇는다(프리팹 자체 길이) [추정: 클라는 날아가는 머리에 붙은 선].
-- 안 한 것: 같은 꼴인 다른 필드 투사체(寒芒克洛丝 재능 화살, 琳琅诗怀雅 S3 동전 `RandomGold`, 伊内丝 S3 `guard_back`, 歌蕾蒂娅 S3 작살
-  `_harpoonEffect`)와 'atk'으로 나가는 스킬 투사체의 `_line`(歌蕾蒂娅 S1·崖心 S1·溯光星源 S2) — §「모드 없는 스킬의 투사체 꼬리」 남은 것.
+  - 목록의 `_line`(崖心 `slchan_skill_02_line`)은 그녀와 날아가는 머리를 잇는다(2026-10-21부터 — 아래 「다른 필드 투사체」 밧줄; 전엔 착지부터).
+- 같은 꼴인 다른 필드 투사체(寒芒克洛丝 재능 화살, 琳琅诗怀雅 S3 동전 `RandomGold`, 伊内丝 S3 `guard_back`, 歌蕾蒂娅 S3 작살 `_harpoonEffect`)와
+  'atk'으로 나가는 스킬 투사체의 `_line`(歌蕾蒂娅 S1·崖心 S1·溯光星源 S2)은 2026-10-21 → 아래 「다른 필드 투사체」.
 - 확인: 단위 `test/render/skill-shot-alt-fx.test.js`(流星 S2 꼬리 2·착지 명중, 崖心 S2, 锡人 S2 장판이 착지 뒤), 이벤트 기록 골든에 `- spawn
   shotst_skill_02_trail`·`podego_skill_02_trail`·`tinman_skill_02_trail_02`·`thorn2_attack_trail`이 더해지고 `- spawn shotst_skill_01_hit`이 착지
   명중으로 바뀜. [화면 미확인: 꼬리 모양·포물선 높이·착지 시각]
@@ -1647,6 +1648,63 @@
 - 확인: 단위 `test/render/skill-shot-alt-fx.test.js`(추출값, `altGroup`, 迷迭香 B 클립 → B 시전·`rosmon_attack_B_hit_01`, 仇白 저지 → 검 B만·원거리 →
   화살만), `test/render/attack-alts.test.js`. 이벤트 기록 골든: 위 다섯 명의 B/C 시전·명중이 더해지고 拉普兰德·银灰·断崖·伊内丝의 COMBAT 시전이
   저지 없는 판에서 빠짐(维娜·维多利亚 한 줄은 시나리오 난수 순서가 밀린 것). [화면 미확인: 실제 판에서 클립과 시전 이펙트가 같은 자식인지]
+
+### 다른 필드 투사체 — 재능 화살·동전·되돌아오는 影哨·작살·밧줄 (2026-10-21, 이펙트 연결 전수 ①)
+
+- 원인: 공격 모드의 첫 투사체도 스킬 프리팹의 `shot`도 아닌 투사체는 아무도 날리지 않았다. 寒芒克洛丝 재능 화살 `projectile_chr_kroos2_2`는
+  시뮬이 치명을 착탄 때 굴려 꼬리를 고를 수 없었고(그 재능의 시전 `kroos2_attack_start_02`는 모드 시전 목록에 섞여 모든 일반 공격에 나왔다),
+  琳琅诗怀雅 S3 끝 동전·伊内丝 S3 되돌림·歌蕾蒂娅 S3 捕网 작살은 키트 이벤트에 그릴 것이 없었고, 'atk'으로 나가는 작살의 밧줄 `_line`은 버려졌다.
+- 클라(EN charpack·`[uc]projectiles.ab`):
+  - 寒芒克洛丝: Default 모드의 `Body/Talents/1`은 `_isModeTalent` 1·`_probKey` prob인 공격 능력(`_projectileKey` `projectile_chr_kroos2_2` 18칸/s —
+    꼬리 `kroos2_attack_trail_02`, `_effectsWhenHit` `kroos2_attack_hit_02`, `_castEffects` `kroos2_attack_start_02` 휘두름 시작, `_atkScaleKey`·stun) —
+    클라가 그 확률로 공격 대신 이것을 시전한다. 스킬 모드(S1·S2·S2_Sub)의 재능은 버프 `kroos2_t_1[critical]`(ON_CALCULATE_DAMAGE Dice →
+    AtkScaleUp·stun·`overrideEffectKey` `kroos2_attack_hit_02` 0.5 s) — 화살은 그 모드의 것, 피해 계산 때 굴림. 圣约送葬人의 `Talents/1`도 모드 재능
+    (受选之人 추가 사격, 시뮬 `forceAttack` 'T.1').
+  - 琳琅诗怀雅 S3: 공용 능력 `Others/Direction/CommonAbilities/RandomGold`(`_projectileKey` `projectile_chr_swire2_s_3` 8칸/s, `_randomOffset` 0.3,
+    `_triggerDelta` 0.07 s, 선택기 `swire2_s_3[mark_to_enemy]`) — 꼬리 `swire2_skill_03_trail`, `_effectsWhenHit` `swire2_skill_03_hit_02`.
+  - 伊内丝 S3: `projectile_chr_ines_guard_back`(10칸/s, `_maxHitNum` 블랙보드) — 꼬리 `ines_skill_03_label_trail_01`, 선 컴포넌트 `_mainEffect`
+    `ines_skill_03_pullLabel_line_01`(`_useEndPointAsStartPos`), 지나며 친 적에게 `ines_skill_03_label_hit_01`, 닿으면 `_useTraceTargetWhenReach`로
+    그녀에게 `ines_skill_03_getLabel_01`·`getLabel_range_01`.
+  - 歌蕾蒂娅 S3 끝: `projectile_chr_glady_s3_3`(`_attachToMountPoint`, `_hookedStartPointType` 2 = Muzzle) — `_harpoonEffect` `glady_skill_03_line`,
+    `_firstPartTime` 0.3 s 나가고 `_secondPartTime` 1 s 당겨 옴, `_effectsWhenReached` `glady_skill_03_range_05`, `_movingEffectsWhenReached` `_range_04`.
+  - 밧줄: 歌蕾蒂娅 S1 `projectile_chr_glady_s1`·崖心 `projectile_slchan_s1`/`_s2`의 둘째 선 컴포넌트(`_mainEffect` `_line`, `_throwEffect`)와
+    `_linkDuration` 1 s, 溯光星源 S2는 따로 나가는 `projectile_chr_halo2_s2_link`(1000칸/s, `_onlyUpdateEnd`) [추정: 컴포넌트 클래스는 디컴파일 안 함 —
+    필드로 보아 쏜 이에서 날아가는 머리까지 이어지는 선].
+- 고친 것:
+  - 추출: `char_modes.py mode_parts` → 모드 `talentAtk[mode]` = { 'T.<n>': { cast, trail, hit } }(`Body/Talents/<n>`의 `_isModeTalent` 1 능력), 그
+    이름은 모드 목록(cast·hit·trail)에서 뺀다. 전체 재추출 diff: 寒芒克洛丝(`kroos2_attack_start_02`가 Default 시전에서 빠짐)·圣约送葬人
+    (`excu2_beidong_hit`이 일반 공격 명중에서 빠지고 T.1 사격의 것)뿐.
+  - 시뮬: 모드 재능은 휘두름 시작에 고른다 — 훅 'swing'(`ai.js updateAlly`)이 `signal`을 정하면 'swing' 9번째 칸·그 'atk' 5번째 칸·그 피해의
+    `dmg.signal`에 실린다(`docs/rules/sim.md` 「재능이 고르는 공격」). 寒芒克洛丝 키트가 스킬 밖 휘두름에서 굴림.
+  - 렌더: `fxmap.js modePart`(신호의 재능, `replace`) → `fxgame.js castGroup`이 그 휘두름의 시전을 재능 것**만**(공격 대신 시전), `trailShot`이 재능
+    꼬리, `attackHit`이 'atk' 신호의 재능 명중. 스킬 모드의 치명은 그대로 'crit' 표시.
+  - 키트 이벤트(`render/fx/kitofficial.js`, 문법: 비행 `fly`에 `to`(유닛 필드마다, `gap` 간격, 착지 때 `hit`)·`from: 'point'`(그 점에서 오퍼레이터로)·
+    `rope`·`pass`(지나는 유닛에), `harpoon` { out, back, moving }): 琳琅诗怀雅 'coin'(S3 끝, 키트가 동전마다 대상 `targets`를 보냄)·伊内丝 'beam'(키트가
+    지나며 친 적 `hits`를 보냄; 그 전엔 절차 빔)·歌蕾蒂娅 'pull'(捕网, `range_05`는 작살이 닿을 때). `fxgame.js planShots`·`planHarpoon`.
+  - 밧줄: `fxgame.js ropeLine` — `_line`을 쏜 이의 Muzzle에서 날아가는 머리까지, 착지 뒤 맞은 유닛까지 1 s(`_linkDuration`). 'atk' 스킬 투사체
+    (`trailShot`의 스킬 `shot`)와 `skillShotOut`(崖心 S2 — 전엔 착지부터 프리팹 길이) 모두.
+- [추정] 동전은 시뮬 피해가 한순간이라 그림만 0.07 s씩 늦게·비행 시간만큼 늦게 닿는다; 동전의 `_randomOffset`은 안 씀. 되돌아오는 影哨의 명중은 적이
+  비행선에 비친 자리를 지날 때, 높이는 그녀의 명중점 높이. 작살 머리는 Muzzle 높이에서 땅으로 직선. 溯光星源의 연결은 그녀의 꼬리와 같이 날아감.
+- 확인: 단위 `test/sim/talent-shot-events.test.js`(寒芒克洛丝 'T.1' 휘두름·화살·치명 1:1, 스킬 중엔 착탄 굴림, 동전 대상, 되돌림 `hits`),
+  `test/render/talent-side-fx.test.js`(추출값, `modePart`, T.1 시전·명중, 동전 간격·착지 명중, 되돌림 지남·착지), `test/render/kit-event-fx.test.js`.
+  이벤트 기록 골든: `kroos2_attack_hit_02`, `glady_skill_03_line`·`_range_04`·`_range_05`가 더해지고 圣约送葬人 일반 명중에서 `excu2_beidong_hit`이
+  빠짐(나머지 두 줄은 시나리오 난수 순서). [화면 미확인: 꼬리·밧줄·동전·작살 모양과 시각을 공식 녹화와]
+
+### 대상 쪽별 능력·뒤따르는 투사체 — 凯尔希·思衡托 S2 (2026-10-21, 이펙트 연결 전수 ②, CN 클라)
+
+- 원인: S2 모드의 공격은 묶음(`_abilityConfigs`) 안의 두 능력인데 `char_modes.py`가 한 목록에 섞어, 적에게도 치료 투사체 꼬리
+  (`kalts2_skill_02_trail_heal_01`)가 나가고 시전 `start_damage_01`·`start_heal_01`이 매번 둘 다 나왔다. 착지 뒤 따라 나가는 투사체의 표시도 없었다.
+- 클라(charpack — 지금 EN 클라에도 있어 EN에서 다시 뽑음, 나머지 값은 CN 추출과 같음 — 와 CN `[uc]projectiles.ab`):
+  `Modes/s2/Body/Attack/HealAlly`(Trigger `_targetSide` 1, 치료 대상 — `projectile_chr_kalts2_s2_heal`, `start_heal_01`)·`AttackEnemy`(Trigger `_targetSide` 2 — `projectile_chr_kalts2_s2_dmg`, `start_damage_01`). 두
+  투사체 모두 착지(`ProjectileActionBehaviour` `_ev` ON_HIT_OBJECT)에 반대쪽 반을 `EmitProjectile`로 투사체 자리에서 쏜다: 피해 탄 → `_sub_heal`,
+  치료 탄 → `_sub_dmg`(0.4 s, `_onlyCheckHitWhenStop`) — 그 `_effectsToTargetWhenStart`가 `indicator_damage_01`+`range_heal_01_delay` /
+  `indicator_heal_01`+`range_damage_01_delay`(이름은 데이터 그대로).
+- 고친 것: `char_modes.py mode_parts` → 모드 `sideFx[mode]` = { ally, foe } 각 { cast, trail, hit } — 공격 아래 자식 중 자기 Trigger가 한쪽만 고르는
+  것이 양쪽 다 있을 때. 그 이름은 모드 목록에서 빠짐(diff: 凯尔希·思衡托 s2만). `fxmap.js modePart`(쪽, 더함) → `castGroup`이 휘두름의 대상
+  (그 6번째 칸 — 돌아볼 대상, 없으면 지난 대상; 치료 탄은 'atk' 대상) 쪽 시전을, `trailShot`이 그 쪽 꼬리. 명중은 그대로 'aoe' 표시(`pickFx`, 시뮬
+  `ally`)가 착지 이펙트 + 뒤따르는 투사체의 두 이펙트를 그 자리에.
+- [추정] 시뮬은 두 반을 한순간에 내는데 클라는 둘째 반이 0.4 s 뒤(뒤따르는 투사체가 멈출 때). 시뮬 시간은 그대로.
+- 확인: `test/render/talent-side-fx.test.js`(추출값, 적 → `start_damage_01`, 아군 → `start_heal_01`, 착지 세 이펙트). [화면 미확인: 실제 판]
 
 ### 버프 스택 수로 바뀌는 이펙트 — 스택 단계·최대 스택·회피 준비 (2026-10-21)
 

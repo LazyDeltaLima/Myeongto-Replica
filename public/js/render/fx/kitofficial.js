@@ -17,6 +17,11 @@
  * or a line `line: [from, to]` (the event's fields naming two units; `to` may name a list) while both stand, or for the
  * line prefab's own duration with `life: 'once'`; or a flight `fly` (tiles / s) from the operator to the event's point —
  * a play with `after: 'fly'` starts when it lands. A 'point' play may name its own ground point `at: [x, y]`.
+ * 2026-10-21: a flight with `to` (the event's field naming units) is a projectile at each unit from the operator's muzzle,
+ * `gap` s apart, followed, playing `hit` [names] on it as it lands; one with `from: 'point'` flies from the event's point
+ * back to the operator; either may carry `rope` (a line from the operator to the flying head) and `pass` { n, on } (`n` on
+ * each unit of field `on` as the head passes it). A `harpoon` { out, back, moving? } play is a line from the operator to
+ * a head going out to the event's point in `out` s and back in `back` s (`moving` on the head from its arrival).
  * A `slot` play holds one effect per operator and slot until the operator leaves: a later play of the same prefab in that
  * slot keeps it running, another prefab replaces it, `{ slot, off: true }` ends it (AttachListenerToTileAbility
  * `_HoldCastedEffectOnTile` with `_dontCreateNewEffectWhenCastedTimesSame`); on a 'point' (or `at`) or on / circling a
@@ -77,7 +82,24 @@ export const KIT_OFFICIAL = {
       { n: 'ines_range_01', on: 'point', life: 'tag', tag: 'inesSentry' },
     ] }),
   },
-  beam: { ines: () => ({ stop: ['inesSentry'], play: [], pass: true }) },
+  // 伊内丝 S3 独影归途 (2026-10-21): the sentry recalled — projectile_chr_ines_guard_back (10 tiles / s) from where it stood back
+  // to her: `_mainEffect` label_trail_01, its line pullLabel_line_01 from her to it (`_useEndPointAsStartPos`), label_hit_01
+  // on each enemy it strikes on its way (`_effectsWhenHit`, the kit's `hits`), getLabel_01 + getLabel_range_01 where it
+  // reaches her (`_effectsWhenReached`, `_useTraceTargetWhenReach`)
+  beam: {
+    ines: () => ({ stop: ['inesSentry'], play: [
+      { n: 'ines_skill_03_label_trail_01', fly: 10, from: 'point', rope: 'ines_skill_03_pullLabel_line_01', pass: { n: 'ines_skill_03_label_hit_01', on: 'hits' } },
+      { n: 'ines_skill_03_getLabel_01', on: 'op', life: 'once', after: 'fly' },
+      { n: 'ines_skill_03_getLabel_range_01', on: 'op', life: 'once', after: 'fly' },
+    ] }),
+  },
+  // 琳琅诗怀雅 S3 (2026-10-21): the purse paid out as the skill ends — her common ability RandomGold (charpack Others/Direction/
+  // CommonAbilities, `_triggerDelta` 0.07 s) shoots projectile_chr_swire2_s_3 (8 tiles / s, `_mainEffect` swire2_skill_03_trail,
+  // `_effectsWhenHit` swire2_skill_03_hit_02) at each marked enemy a coin goes to (the kit's `targets`, in order)
+  coin: {
+    swire2: (o) => (o.skill === 'swire2_3' && Array.isArray(o.targets) && o.targets.length
+      ? { play: [{ n: 'swire2_skill_03_trail', fly: 8, to: 'targets', gap: 0.07, hit: ['swire2_skill_03_hit_02'] }] } : null),
+  },
   // 烛煌 T2 绝处重燃: downed (blaze2_t_2 → buff [reborn_state], effect blaze2_revive_buff, and its [vfx1]
   // blaze2_revive_buff_03 — [추정: kept until she stands, the sim has no shield-break event]) …
   downed: {
@@ -241,6 +263,16 @@ export const KIT_OFFICIAL = {
   tornado: { glady: () => ({ play: [{ n: 'glady_skill_03_buff', on: 'tgt', life: 'skill' }] }) },
   // 歌蕾蒂娅 S3: each pull of the tornado (projectile_chr_glady_s3_2 `_interval`: `_castEffect` glady_skill_03_range_03)
   tornadoPulse: { glady: () => ({ play: [{ n: 'glady_skill_03_range_03', on: 'point', life: 'once' }] }) },
+  // 歌蕾蒂娅 S3's end, the 捕网 (2026-10-21): projectile_chr_glady_s3_3 hooked to her muzzle (`_hookedStartPointType` 2) —
+  // `_harpoonEffect` glady_skill_03_line out to the tornado's point in `_firstPartTime` 0.3 s and pulled back in
+  // `_secondPartTime` 1 s; `_effectsWhenReached` glady_skill_03_range_05 where it lands, `_movingEffectsWhenReached`
+  // glady_skill_03_range_04 on the head coming back [추정: the moving effect rides the head]
+  pull: {
+    glady: () => ({ play: [
+      { n: 'glady_skill_03_line', harpoon: { out: 0.3, back: 1, moving: 'glady_skill_03_range_04' } },
+      { n: 'glady_skill_03_range_05', on: 'point', life: 'once', after: 'fly' },
+    ] }),
+  },
 };
 
 /** 圣聆初雪's tile effect by snow layers (SnowAccumulation `_effectSettings`: thresholds 1 → _01, 2 / 3 / 4 → _02, 5 → _03). */

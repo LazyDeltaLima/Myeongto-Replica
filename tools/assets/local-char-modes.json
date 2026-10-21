@@ -868,7 +868,6 @@
   ],
   "cast": [
    [
-    "kroos2_attack_start_02",
     "kroos2_attack_start_01"
    ],
    [
@@ -919,12 +918,12 @@
   ],
   "castOpt": [
    {
-    "kroos2_attack_start_02": {
+    "kroos2_attack_start_01": {
      "s": 2,
      "e": 3,
      "o": 0
     },
-    "kroos2_attack_start_01": {
+    "kroos2_attack_start_02": {
      "s": 2,
      "e": 3,
      "o": 0
@@ -951,6 +950,24 @@
      "o": 0
     }
    }
+  ],
+  "talentAtk": [
+   {
+    "T.1": {
+     "cast": [
+      "kroos2_attack_start_02"
+     ],
+     "trail": [
+      "kroos2_attack_trail_02"
+     ],
+     "hit": [
+      "kroos2_attack_hit_02"
+     ]
+    }
+   },
+   null,
+   null,
+   null
   ],
   "skillMode": [
    1,
@@ -1582,20 +1599,16 @@
   ],
   "hit": [
    [
-    "excu2_attack_01_hit_01",
-    "excu2_beidong_hit"
+    "excu2_attack_01_hit_01"
    ],
    [
-    "excu2_attack_01_hit_01",
-    "excu2_beidong_hit"
+    "excu2_attack_01_hit_01"
    ],
    [
-    "excu2_skill_02_hit_01",
-    "excu2_beidong_hit"
+    "excu2_skill_02_hit_01"
    ],
    [
-    "excu2_skill_03_hit_01",
-    "excu2_beidong_hit"
+    "excu2_skill_03_hit_01"
    ],
    []
   ],
@@ -1714,6 +1727,61 @@
      "o": 0
     }
    }
+  ],
+  "talentAtk": [
+   {
+    "T.1": {
+     "cast": [
+      "excu2_attack_01_start_01",
+      "excu2_attack_01_range_01"
+     ],
+     "trail": [],
+     "hit": [
+      "excu2_attack_01_hit_01",
+      "excu2_beidong_hit"
+     ]
+    }
+   },
+   {
+    "T.1": {
+     "cast": [
+      "excu2_attack_01_start_01",
+      "excu2_skill_01_range_01"
+     ],
+     "trail": [],
+     "hit": [
+      "excu2_attack_01_hit_01",
+      "excu2_beidong_hit"
+     ]
+    }
+   },
+   {
+    "T.1": {
+     "cast": [
+      "excu2_skill_02_start_01",
+      "excu2_skill_02_range_01"
+     ],
+     "trail": [],
+     "hit": [
+      "excu2_skill_02_hit_01",
+      "excu2_beidong_hit"
+     ]
+    }
+   },
+   {
+    "T.1": {
+     "cast": [
+      "excu2_skill_03_start_01",
+      "excu2_skill_03_range_01"
+     ],
+     "trail": [],
+     "hit": [
+      "excu2_skill_03_hit_01",
+      "excu2_beidong_hit"
+     ]
+    }
+   },
+   null
   ],
   "turn": [
    "excu2_skill_02_range_01",
@@ -3951,8 +4019,6 @@
     "kalts2_skill_01_start_01"
    ],
    [
-    "kalts2_skill_02_start_damage_01",
-    "kalts2_skill_02_start_heal_01",
     "folnic_skill_02_start"
    ]
   ],
@@ -3969,9 +4035,7 @@
    [
     "kalts2_skill_01_hit_01"
    ],
-   [
-    "kalts2_skill_02_range_heal_01"
-   ]
+   []
   ],
   "trail": [
    [
@@ -3986,9 +4050,7 @@
    [
     "kalts2_skill_01_trail_01"
    ],
-   [
-    "kalts2_skill_02_trail_heal_01"
-   ]
+   []
   ],
   "attach": [
    [],
@@ -4023,20 +4085,50 @@
     }
    },
    {
-    "kalts2_skill_02_start_damage_01": {
+    "folnic_skill_02_start": {
      "s": 2,
      "e": 3,
-     "o": 0
+     "o": 1
     },
     "kalts2_skill_02_start_heal_01": {
      "s": 2,
      "e": 3,
      "o": 0
     },
-    "folnic_skill_02_start": {
+    "kalts2_skill_02_start_damage_01": {
      "s": 2,
      "e": 3,
-     "o": 1
+     "o": 0
+    }
+   }
+  ],
+  "sideFx": [
+   null,
+   null,
+   null,
+   null,
+   {
+    "ally": {
+     "cast": [
+      "kalts2_skill_02_start_heal_01"
+     ],
+     "trail": [
+      "kalts2_skill_02_trail_heal_01"
+     ],
+     "hit": [
+      "kalts2_skill_02_range_heal_01"
+     ]
+    },
+    "foe": {
+     "cast": [
+      "kalts2_skill_02_start_damage_01"
+     ],
+     "trail": [
+      "kalts2_skill_02_trail_damage_01"
+     ],
+     "hit": [
+      "kalts2_skill_02_range_damage_01"
+     ]
     }
    }
   ],

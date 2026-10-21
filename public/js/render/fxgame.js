@@ -63,6 +63,7 @@ import { foeEffects, castTiming, castPhase, CAST_EVENT } from './fxmap.js'; // 2
 import { clipGroup, hitLoopEnd, deployEffect, deadEffect } from './fxmap.js'; // 2026-10-11: clip variants, looping hits, deploy / dead effects
 import { commonEffects } from './fxmap.js'; // 2026-10-16: the always-on effects of the common abilities
 import { altGroup, combatEffects } from './fxmap.js'; // 2026-10-21: ability group children, the COMBAT state's effects
+import { modePart } from './fxmap.js'; // 2026-10-21: a mode talent's attack, a per-side child of the attack
 import { projSpeed } from './fx.js'; // local patch: the trails' flight time (the sim's projectile speeds)
 import { bodyZ } from './fx.js'; // local patch: status effects at a unit's head / body (fxstatus.js)
 import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
@@ -1254,7 +1255,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     let name = null;
     const sg = spec && e[3] !== 'boomerang' ? strikeGroups(src, mode, shot) : null; // 跃跃's second boomerang: caperSecond
     if (spec && mode === -1) ({ name, mode } = modelessTrail(bindOf(src), bundleOf(src)?.prefabs, skillIdx(src), shot));
-    else if (spec) name = bound(src, mode, 'trail')[0];
+    else if (spec) {
+      // 2026-10-21: the trail of the ability cast in place of the attack (modePart: a talent's 'T.1' arrow, 凯尔希·思衡托 S2's
+      // per-side shot), else the mode's
+      const sig = typeof e[4] === 'string' && e[4] ? e[4] : null;
+      name = modePart(bindOf(src), bundleOf(src)?.prefabs, mode, sig, tgt.info?.side ? tgt.info.side !== 'enemy' : null)?.trail[0] || bound(src, mode, 'trail')[0];
+    }
     if (!name) return false;
     const b = bundleOf(src);
     const key = `${b.bundle}/${name}`;
@@ -1282,6 +1288,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (/_skill_02_/.test(name)) rec.arc = caperArc(dist, false);
     }
     launchTrail(rec, b.bundle, name);
+    // 2026-10-21: a skill shot's rope (its list's `_line`: 歌蕾蒂娅 S1, 崖心 S1, 溯光星源 S2) from her to the flying head
+    if (shot && mode === -1) { const line = shotLine(src, name); if (line) ropeLine(b.bundle, line, src, rec); }
     // 2026-10-16: the attack's later strikes shoot projectiles of their own (strikeGroups `shots`: 伺夜 S3's second and third
     // arrows, 新约能天使 S1's eight) — each `dt` (`_triggerDelta`) after the one before, from where the first left
     // [추정: the sim lands every strike with the first; the client shoots strike n at n × _triggerDelta]
@@ -1299,9 +1307,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * of the projectile its skill prefab's ability shoots) from `src` to `to` (a unit, followed, or a ground point), for the kit
    * events of skills whose window has no attack to carry it (takeShot): 流星 S2 'volley', 崖心 S2 'pull', 波登可 S2 / 锡人 /
    * 引星棘刺 'zone'. At the sim's speed of that skill's shot (data/chess.json shot.skills[i]: speeds.js opShot; none read:
-   * 10 tiles / s [추정]) on its PARACURVE `height` arc, from her muzzle; a `_line` of the list (崖心's rope) joins her to a
-   * unit target from its landing for the line prefab's own time [추정: the client's line follows the flying head]. `land`
-   * runs as it lands. The flight time (s), or -1 with nothing to fly.
+   * 10 tiles / s [추정]) on its PARACURVE `height` arc, from her muzzle; a `_line` of the list (崖心's rope) runs from her to
+   * the flying head (ropeLine). `land` runs as it lands. The flight time (s), or -1 with nothing to fly.
    */
   function skillShotOut(src, to, land = null) {
     if (!isOp(src) || !bundleOf(src) || failed || level() >= 3 || !to) return -1;
@@ -1322,14 +1329,33 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     trails.push(rec);
     spawn(b.bundle, name, { x: from.x, y: from.y, z: from.z }, { owner: null, buff: false, until: clockS + dur + 5 }, { drop: rec })
       .then((l) => { if (!l) { const k = trails.indexOf(rec); if (k >= 0) trails.splice(k, 1); } });
-    const line = unit ? (skillBind(src)?.shot || []).find((x) => x !== name && LINE_FX.test(x) && b.prefabs.includes(x)) : null;
-    castsDelayed.push({ t: clockS + dur, run: () => {
-      if (line && camRef && unit.alive !== false && !unit.remove) startLine(b.bundle, line, src, unit, -1, { sMount: 2, eMount: 1 });
-      land?.();
-    } });
+    const line = unit ? shotLine(src, name) : null;
+    if (line) ropeLine(b.bundle, line, src, rec);
+    castsDelayed.push({ t: clockS + dur, run: () => land?.() });
     return dur;
   }
   const LINE_FX = /_line(_|$)/i;   // char_modes.py LINE_FX: a rope / link of the list, not a projectile
+  /** The `_line` of `src`'s running skill's shot list beside its trail `name` (extracted), or null. */
+  const shotLine = (src, name) => (skillBind(src)?.shot || []).find((x) => x !== name && LINE_FX.test(x) && bundleOf(src)?.prefabs.includes(x)) ?? null;
+  let ropeSeq = 0;
+  /**
+   * 2026-10-21 (이펙트 연결 전수 ①): a harpoon's rope — the second line component of the skill's projectile (its `_mainEffect`
+   * with `_throwEffect`: projectile_chr_glady_s1 glady_skill_01_line, projectile_slchan_s1 / _s2 slchan_skill_0N_line;
+   * 溯光星源 S2's link projectile_chr_halo2_s2_link halo2_skill_02_line_01) — from the shooter's muzzle to the flying head of
+   * trail record `rec`, then to where it struck for the projectile's `_linkDuration` (1 s) [추정: the component's class is not
+   * decompiled — its fields read as a rope after the head; 溯光星源's link flies at 1000 tiles / s, drawn here with her shot].
+   */
+  function ropeLine(bundle, name, src, rec, link = 1) {
+    if (!camRef) return;
+    const at = () => {
+      const t = rec.tgt;
+      if (rec.k >= 1 && t && t.alive !== false && !t.remove) return [mx(t), t.y, shotTo(t)];
+      const k = Math.min(1, rec.k);
+      return [rec.x0 + (rec.tx - rec.x0) * k, rec.y0 + (rec.ty - rec.y0) * k, rec.z0 + (rec.tz - rec.z0) * k + (rec.arc ? rec.arc * 4 * k * (1 - k) : 0)];
+    };
+    const head = { id: `rope:${++ropeSeq}`, alive: true, get x() { return at()[0]; }, get y() { return at()[1]; }, get z() { return at()[2]; } };
+    startLine(bundle, name, src, head, rec.dur + link, { sMount: 2, eMount: 7 });
+  }
   /**
    * 2026-10-21: the kit events of skills without an attack that shoot their skill's projectile at units — 流星 S2 'volley'
    * { id, targets } (an arrow at each), 崖心 S2 'pull' { src, id } (the harpoon at the enemy it drags): skillShotOut, and the
@@ -1854,14 +1880,23 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         return true;
       }
       // 凯尔希·思衡托 S2: the 医疗单元 lands — projectile_chr_kalts2_s2_dmg / _s2_heal `_effectsWhenReached` range_damage_01 at an enemy,
-      // range_heal_01 at an ally (the sim's `ally`); its 'healAoe' of the same moment draws nothing more
+      // range_heal_01 at an ally (the sim's `ally`); its 'healAoe' of the same moment draws nothing more. (2026-10-21) Landing,
+      // it emits the other half (its ProjectileActionBehaviour ON_HIT_OBJECT EmitProjectile, from the projectile): the
+      // damage shot projectile_chr_kalts2_s2_sub_heal, the heal shot _sub_dmg — 0.4 s projectiles whose
+      // `_effectsToTargetWhenStart` play there: indicator_damage_01 + range_heal_01_delay / indicator_heal_01 +
+      // range_damage_01_delay [추정: the sim lands both halves at once, the client the second at the sub projectile's stop]
       case 'aoe': case 'healAoe': {
         const b = pickOf(views.get(o.id), 'kalts2');
         if (!b || (e[1] === 'aoe' && o.skill !== 'kalts2:s2')) return false;
-        const n = pickName(b, o.ally || e[1] === 'healAoe' ? 'kalts2_skill_02_range_heal_01' : 'kalts2_skill_02_range_damage_01');
+        const heal = !!o.ally || e[1] === 'healAoe';
+        const n = pickName(b, heal ? 'kalts2_skill_02_range_heal_01' : 'kalts2_skill_02_range_damage_01');
         if (!n) return false;
         ownFx.add(e);
-        if (e[1] === 'aoe') spawn(b.bundle, n, { x, y, z: 0 }, { owner: null, buff: false }, { over: false });
+        if (e[1] !== 'aoe') return true;
+        for (const m of [n, ...(heal ? ['kalts2_skill_02_indicator_heal_01', 'kalts2_skill_02_range_damage_01_delay'] : ['kalts2_skill_02_indicator_damage_01', 'kalts2_skill_02_range_heal_01_delay'])]) {
+          const k = pickName(b, m);
+          if (k) spawn(b.bundle, k, { x, y, z: 0 }, { owner: null, buff: false }, { over: false });
+        }
         return true;
       }
       // 凯尔希·思衡托 S3 takes off for her anchor: teleport_01 where she leaves [추정: by its name], and projectile_chr_kalts2_s3_2's
@@ -1997,6 +2032,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         }
         continue;
       }
+      if (p.harpoon) { flight = Math.max(flight, planHarpoon(pb, name, op, p.harpoon, x, y)); n++; continue; }
+      if (p.fly && (p.to || p.from)) { flight = Math.max(flight, planShots(pb, name, op, p, o, x, y, views)); n++; continue; }
       if (p.fly) { // a projectile's `_mainEffect` from the operator to the event's point at `fly` tiles / s, along its flight
         const dur = Math.hypot(x - op.x, y - op.y) / p.fly, z = camRef ? bodyZ(camRef, op, SPAWN_FRAC[2]) - (op.z || 0) : 0.5;
         flight = Math.max(flight, dur);
@@ -2022,6 +2059,71 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!n || plan.pass) return false;
     ownFx.add(e);
     return true;
+  }
+  /**
+   * 2026-10-21 (이펙트 연결 전수 ①): a plan's projectile flights (render/fx/kitofficial.js `fly` with `to` / `from`) on trail
+   * records (stepTrails flies them, followed targets): from the operator's muzzle to each unit of the event's field `p.to`
+   * (`gap` s apart — 琳琅诗怀雅 S3's coins, RandomGold `_triggerDelta`), or (`from: 'point'`) from the event's point back to
+   * the operator (伊内丝 S3's recalled 影哨). On landing `hit` plays on its unit; `rope` runs from the operator to the head
+   * (ropeLine — the guard_back projectile's line, `_useEndPointAsStartPos`); `pass` { n, on } plays on each unit of the
+   * event's field `on` as the head passes it (its projection on the flight). The longest flight's time (s).
+   */
+  function planShots(pb, name, op, p, o, x, y, views) {
+    const speed = Number(p.fly) > 0 ? Number(p.fly) : 10;
+    const hits = (Array.isArray(p.hit) ? p.hit : []).map((h) => pickName(pb, h)).filter(Boolean);
+    const rope = p.rope ? pickName(pb, p.rope) : null;
+    const back = p.from === 'point';
+    const tos = back ? [op] : [o[p.to]].flat().map((id) => views.get(id)).filter((u) => u && u.alive !== false && !u.remove);
+    let longest = 0;
+    tos.forEach((u, k) => {
+      const go = () => {
+        if (level() >= 3 || trails.length >= MAX_TRAILS || (!back && (u.alive === false || u.remove))) return;
+        const from = back ? { x, y, z: shotTo(op) } : shotFrom(op, null);
+        const tx = mx(u), ty = u.y, dur = Math.max(0.04, Math.hypot(tx - (back ? x : op.x), ty - (back ? y : op.y)) / speed);
+        const rec = { inst: null, tgt: u, x0: from.x, y0: from.y, z0: from.z, tx, ty, tz: shotTo(u), k: 0, dur, arc: 0 };
+        trails.push(rec);
+        spawn(pb.bundle, name, { x: from.x, y: from.y, z: from.z }, { owner: null, buff: false, until: clockS + dur + 5 }, { drop: rec })
+          .then((l) => { if (!l) { const i = trails.indexOf(rec); if (i >= 0) trails.splice(i, 1); } });
+        if (rope) ropeLine(pb.bundle, rope, op, rec, 0);
+        if (hits.length && !back) castsDelayed.push({ t: clockS + dur, run: () => { if (u.alive !== false && !u.remove) play(op, 'attackHit', 0, { at: u, names: hits, aim: op }); } });
+        const pn = p.pass ? pickName(pb, p.pass.n) : null;
+        if (pn) {
+          const L2 = (tx - from.x) ** 2 + (ty - from.y) ** 2;
+          for (const id of [o[p.pass.on]].flat()) {
+            const v = views.get(id);
+            if (!v) continue;
+            const f = L2 > 1e-9 ? Math.max(0, Math.min(1, ((v.x - from.x) * (tx - from.x) + (v.y - from.y) * (ty - from.y)) / L2)) : 0;
+            castsDelayed.push({ t: clockS + f * dur, run: () => { if (v.alive !== false && !v.remove) play(op, 'attackHit', 0, { at: v, names: [pn], aim: op }); } });
+          }
+        }
+        return dur;
+      };
+      const wait = (Number(p.gap) || 0) * k;
+      const dur = Math.hypot(mx(u) - (back ? x : op.x), u.y - (back ? y : op.y)) / speed;
+      longest = Math.max(longest, wait + dur);
+      if (wait > 0) castsDelayed.push({ t: clockS + wait, run: go }); else go();
+    });
+    return longest;
+  }
+  /**
+   * 2026-10-21: a plan's harpoon (render/fx/kitofficial.js `harpoon` { out, back }: 歌蕾蒂娅 S3's 捕网, projectile_chr_glady_s3_3
+   * `_harpoonEffect` glady_skill_03_line — `_firstPartTime` out to the event's point, `_secondPartTime` pulled back): the line
+   * from her muzzle to a head that goes out and comes back; `moving` plays on that head from its arrival (`_movingEffectsWhenReached`).
+   * The out time (s: the plan's `after: 'fly'` plays at the arrival).
+   */
+  function planHarpoon(pb, name, op, h, x, y) {
+    if (!camRef) return 0;
+    const out = Math.max(0.04, Number(h.out) || 0.3), backT = Math.max(0.04, Number(h.back) || 1), t0 = clockS;
+    const o0 = shotFrom(op, null);
+    const at = () => {
+      const t = clockS - t0, k = t < out ? t / out : Math.max(0, 1 - (t - out) / backT);
+      return [o0.x + (x - o0.x) * k, o0.y + (y - o0.y) * k, o0.z * (1 - k)];
+    };
+    const head = { id: `rope:${++ropeSeq}`, alive: true, get x() { return at()[0]; }, get y() { return at()[1]; }, get z() { return at()[2]; } };
+    startLine(pb.bundle, name, op, head, out + backT, { sMount: 2, eMount: 7 });
+    const mv = h.moving ? pickName(pb, h.moving) : null;
+    if (mv) castsDelayed.push({ t: clockS + out, run: () => spawn(pb.bundle, mv, head, { owner: null, buff: false, until: clockS + backT }, { over: false }) });
+    return out;
   }
   // officialKitFx `slot` plays: `${operator}|${slot}` → { name, l: its live entry once loaded, done: loading finished }
   const slots = new Map();
@@ -2455,6 +2557,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // range on the caster for the whole skill besides
     'clemnt_skill_02_bullet_01', 'clemnt_skill_02_bullet_02', 'clemnt_skill_02_bullet_range_01', 'clemnt_skill_02_mark_enemy',
     'clemnt_skill_03_Mark_all_01', 'kalts2_skill_02_range_damage_01', 'kalts2_skill_02_range_heal_01', 'kalts2_skill_03_teleport_01',
+    'kalts2_skill_02_range_damage_01_delay', 'kalts2_skill_02_range_heal_01_delay',   // (2026-10-21: the follow-up shot's)
     'kalts2_skill_03_teleport_trail_01', 'kalts2_skill_03_teleport_end_01', 'aglna2_skill_02_fly_trail_rightAndLeft_01',
     'aglna2_skill_02_fly_trail_up_01', 'aglna2_skill_02_fly_trail_down_01', 'aglna2_skill_02_fly_range_01', 'aglna2_skill_02_fly_end_01',
     'aglna2_skill_02_fly_end_02', 'aglna2_skill_02_fly_end_03', 'aglna2_skill_03_fly_trail_01', 'aglna2_skill_03_buff_right_01',
@@ -2595,12 +2698,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * The clip group of a new cast of `v` (modes.json clipFx[mode], fxmap.js clipGroup — 비나 빅토리아's Attack_1 / Attack_2
    * cast siege2_attack_start_01 / _02): the group of the attack clip its model plays; its extracted cast / hit names. And
    * (2026-10-21) the child of the mode's ability group the attack casts (altFx, fxmap.js altGroup — 迷迭香 Attack_A / _B,
-   * 凛御银灰 AttackA / B / C, 仇白's blocked-enemy Combat_A / _B): its own cast / hit / shot-start effects (`start`).
+   * 凛御银灰 AttackA / B / C, 仇白's blocked-enemy Combat_A / _B): its own cast / hit / shot-start effects (`start`). And
+   * (2026-10-21) the ability cast in place of the mode's attack (fxmap.js modePart): the mode talent of the swing's signal
+   * `sig` (寒芒克洛丝's 中的 arrow — `replace`: its cast instead of the attack's), else the per-side child for target `tgt`
+   * (凯尔希·思衡托 S2: HealAlly at an ally, AttackEnemy at an enemy; no target: its last one).
    */
-  function castGroup(v, mode) {
+  function castGroup(v, mode, sig = null, tgt = null) {
     const bind = bindOf(v);
     const cf = Number.isInteger(mode) && mode >= 0 ? bind?.clipFx?.[mode] : null;
     const af = Number.isInteger(mode) && mode >= 0 ? bind?.altFx?.[mode] : null;
+    const t = tgt || lastTarget(v);
+    const part = modePart(bind, bundleOf(v)?.prefabs, mode, sig, t?.info?.side ? t.info.side !== 'enemy' : null);
+    if (part) return { cast: part.cast, hit: [], start: [], replace: part.replace };
     if (!cf && !af) return null;
     let clip = null;
     try { const a = v.actor, ac = a?._attackClip?.(); clip = ac ? (a._loopOf ? a._loopOf(ac) : ac.loop) : null; } catch { /* none */ }
@@ -2613,6 +2722,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       start: extracted(v, h?.start || []) };
   }
   const withGroup = (names, more) => (more?.length ? [...new Set([...names, ...more])] : names);
+  /** The cast list of a cast whose own list is `own` and group `g` (castGroup): a `replace` group's alone. */
+  const castOf = (own, g) => (g?.replace ? g.cast : withGroup(own, g?.cast));
   /**
    * An attack's hits on `tgt` (its mode's hit list): a looping one (modes.json hitLoop) ends at its `_endEvent` — the cast's
    * end for ON_CAST_END / ON_ATTACK_FINISH (엑시아 angle_attack_01_hit, `_convertCastEndToAttachFinish`), at once for
@@ -2661,15 +2772,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return f ? { names: f, split: true } : { names: mode != null ? bound(v, mode, role) : [], split: false };
   }
   /** A swing starts: the cast effects of ON_CAST_START (the mode's, or the name mapping's attack start without bindings). */
-  function swingFx(src, windup, views, kind = null) {
+  function swingFx(src, windup, views, kind = null, sig = null, faceId = null) {
     if (!isOp(src) || !bundleOf(src)) return;
     skillByFlag(src, views);
     const mode = modeNow(src);
     const c = beginCast(src, windup, mode);
-    c.group = castGroup(src, mode);
+    c.sig = sig;
+    c.group = castGroup(src, mode, sig, faceId != null ? views.get(faceId) : null);
     if (c.skip) return;
     const { names: own, split } = boundFor(src, mode, 'cast', kind);
-    const cast = withGroup(own, c.group?.cast);
+    const cast = castOf(own, c.group);
     inputFx(src, c, mode, 'swing');
     if (cast.length || split) { playCast(src, c, cast.filter((n) => phaseOf(src, mode, n) === 'swing')); return; }
     // no mode binding: the name mapping's attack start, at the swing like the client's ON_CAST_START majority [추정]
@@ -2679,15 +2791,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * The strike ('atk' on `tgt`): the cast effects of ON_SPELL_ON / ON_SPELL_END; the swing's own when no swing was
    * announced. Its first target is the cast's main target (input-target effects, lastTarget).
    */
-  function strikeFx(src, mode, kind = null, tgt = null) {
+  function strikeFx(src, mode, kind = null, tgt = null, sig = null) {
     let c = src._fxCast;
-    const same = c && c.mode === mode && clockS <= c.hitAt + SWING_SLACK && (c.struckAt == null || clockS - c.struckAt < 0.03);
+    const same = c && c.mode === mode && clockS <= c.hitAt + SWING_SLACK && (c.struckAt == null || clockS - c.struckAt < 0.03) && (c.sig ?? null) === sig;
     const { names: own, split } = boundFor(src, mode, 'cast', kind);
     if (!same) {   // no 'swing' for this attack: its swing effects now (the moment they had before)
       c = beginCast(src, 0, mode);
-      c.group = castGroup(src, mode);
+      c.sig = sig;
+      c.group = castGroup(src, mode, sig, tgt);
       if (!c.skip) {
-        const cast = withGroup(own, c.group?.cast);
+        const cast = castOf(own, c.group);
         if (cast.length || split) playCast(src, c, cast.filter((n) => phaseOf(src, mode, n) === 'swing'));
         else if (!src._fxSkillOn) play(src, 'attackStart', 0, { tag: 'cast' });
         inputFx(src, c, mode, 'swing', tgt);
@@ -2696,7 +2809,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (c.struckAt != null && clockS - c.struckAt < 0.03) return;   // another target of the same strike
     c.struckAt = clockS;
     if (tgt) src._fxTgt = ownerOf(tgt);
-    const cast = withGroup(own, c.group?.cast);
+    const cast = castOf(own, c.group);
     if (!c.skip && cast.length) playCast(src, c, cast.filter((n) => phaseOf(src, mode, n) === 'strike'));
     inputFx(src, c, mode, 'strike', tgt);
   }
@@ -2901,7 +3014,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!again && clockS - (lastHit.get(key) ?? -9) < HIT_GAP_S) return;
     lastHit.set(key, clockS);
     if (sg) { a.n = strike ?? (again ? a.n + 1 : 0); a.hitT = clockS; } else map.delete(tid);
-    let { names: hitList, split } = sg?.base ? { names: extracted(a.src, sg.base), split: false }   // strikes with shots of their own
+    // (2026-10-21) a talent's own attack (`sig`): that ability's hits instead of the mode's (modePart `replace`)
+    const tp = a.sig ? modePart(bindOf(a.src), bundleOf(a.src)?.prefabs, a.mode, a.sig, null) : null;
+    let { names: hitList, split } = tp?.replace ? { names: tp.hit, split: true }
+      : sg?.base ? { names: extracted(a.src, sg.base), split: false }   // strikes with shots of their own
       : a.shot ? { names: extracted(a.src, skillBind(a.src)?.shotHit), split: false } : boundFor(a.src, a.mode, 'hit', a.kind, !!a.combat);
     if (sg) hitList = [...new Set([...hitList, ...extracted(a.src, sg.g[strikeIndex(sg, a.n)])])];
     const c = a.src._fxCast?.mode === a.mode ? a.src._fxCast : null; // 2026-10-11: its cast (clip group, loop end, speed)
@@ -3772,7 +3888,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (tgt && fxBundleOf(src.info.spine || src.info.defId) === 'oblvns' && notesOn(src)) noteAtks.add(e);
           const mode = modeNow(src); // local patch: the mode this attack belongs to (its bound cast / hit effects)
           const shot = mode === -1 && takeShot(src); // 2026-10-16: a mode-less skill's own shot
-          if (tgt) lastAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode, kind: e[3], shot, combat: !!src._fxCombat });
+          const sig = typeof e[4] === 'string' && e[4] ? e[4] : null; // 2026-10-21: a talent's own attack ('T.1': modePart)
+          if (tgt) lastAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode, kind: e[3], shot, combat: !!src._fxCombat, sig });
           if (tgt && tgt.info?.side !== 'enemy') healAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode, kind: e[3], shot }); // healHit
           if (tgt) aimed.set(`${src.id ?? src.info?.id}:${tgt.id ?? tgt.info?.id}`, { t: clockS, mode }); // the chain it may start (chainHop)
           if (aimed.size > 256) for (const [k, x] of aimed) if (clockS - x.t > 2.5) aimed.delete(k);
@@ -3781,7 +3898,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // local patch: the mode's own cast effects (a skill's on each of its attacks) — since 2026-10-10 on the attack's own
           // clock: those of ON_CAST_START already started at its 'swing', the strike's (ON_SPELL_ON) now (strikeFx); the
           // throttle (ATTACK_GAP_S) and load level 3 skip them as before (beginCast)
-          strikeFx(src, mode, e[3], tgt);
+          strikeFx(src, mode, e[3], tgt, sig);
           droneShot(src, tgt, mode);   // 2026-10-16: its drones
           if (tgt && (src._fxSkillOn || level() < 3)) shotStartFx(src, tgt, mode, shot);
           return;
@@ -3792,7 +3909,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           const src = views.get(e[1]);
           if (src?.info?.side === 'enemy') { if (eOn(src)) eswingFx(src, Number(e[2]) || 0, e[3]); return; }
           if (src) src._fxCombat = Number(e[6]) === 1;   // 2026-10-21: at an enemy it blocks (combatEffects, altGroup)
-          if (src) swingFx(src, Number(e[2]) || 0, views, e[3]);
+          // (2026-10-21) the 9th field: a talent ability cast in place of the attack; the 6th: its target, when it turns to it
+          if (src) swingFx(src, Number(e[2]) || 0, views, e[3], typeof e[8] === 'string' && e[8] ? e[8] : null, typeof e[5] === 'number' ? e[5] : null);
           return;
         }
         case 'dmg': {

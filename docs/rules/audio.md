@@ -312,7 +312,8 @@
   `audio_data.json`. 소리는 `sfx.kit` 키(`tools/assets/kit-sfx.mjs`), 소환물 모드는 매니페스트 `sfx.units[토큰].tm[모드 이름]`(`skill-mode-sfx.mjs tokenModeSets`).
   - 크루스 더 킨 글린트 재능 「中的」(T.1, 따로 고르는 공격 능력): START p_atk_krossbow_d·ON p_imp_krossbow_d. sim은 확률을 착탄 때 굴리므로(`chess_char_4_06-kroos2.js`)
     그 표시 fx `crit`에 **`by`(그녀 id)**를 더하고, 오디오가 그 순간 START+ON을 같이 낸다 [추정: 공식은 휘두름 시작에 T.1을 골라 START를 휘두름에, 그 사격의 평타
-    큐 대신 낸다 — 우리는 평타 큐도 이미 났고 START가 휘두름 길이만큼 늦음].
+    큐 대신 낸다 — 우리는 평타 큐도 이미 났고 START가 휘두름 길이만큼 늦음]. 2026-10-21부터 sim은 스킬 밖에선 휘두름 시작에 고르고 'swing'·'atk'에
+    'T.1'을 싣는다(`sim.md` 「재능이 고르는 공격」) — 오디오는 아직 'crit' 그대로(스킬 모드의 치명은 버프 템플릿이라 T.1 능력 소리가 없을 수도 [미확인]).
   - 이그제큐터 디 엑스 포에데레 재능 「受选之人」 추가 사격(T.1): START p_atk_shotgunxdouble(ON·HIT 뱅크 없음). sim은 그 사격을 `forceAttack(…, { signal: 'T.1' })`로
     쏘고 그 'atk' 이벤트 끝에 `'T.1'`을 단다(`ai.js performAttack`, `docs/SIM.md`) → `audio.js talentAttackKeys`: 그 순간 T.1 START 한 번, 평타 큐(p_atk_shotgunx_n)·
     착탄음 없음. 버프 `excu2_multi_attack[audio]`(p_atk_shotgunxdouble_2)·`[s3][audio]`(p_atk_shotgunxdouble3)는 붙는 곳이 버프 템플릿에 없다(캐릭터 프리팹 능력

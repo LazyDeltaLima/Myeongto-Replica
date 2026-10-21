@@ -169,9 +169,23 @@ export function updateAlly(b, u, dt) {
   if (combat || t.begun) { if (swingEv.length < 6) swingEv.push(null); swingEv.push(combat); }
   // the swing opens on its first-attack begin clip, inside the wind-up (render/spine.js swing) — the 8th field, 1
   if (t.begun) swingEv.push(1);
+  // a talent ability the client casts instead of this attack (a mode talent with `_isModeTalent` and `_probKey`: 寒芒克洛丝's
+  // 中的 arrow) is chosen as the swing starts: the hook 'swing' sets `signal` — the 9th field, carried by its 'atk' events
+  // and its hits' damage (`dmg.signal`)
+  let signal = null;
+  if (b._hooks.swing) {
+    const c = { unit: u, targets, isSkill: !!prof.isSkill, signal: null };
+    b.emit('swing', c);
+    if (typeof c.signal === 'string' && c.signal) {
+      signal = c.signal;
+      const pad = [base, null, combat, t.begun ? 1 : 0];
+      while (swingEv.length < 8) swingEv.push(pad[swingEv.length - 4]);
+      swingEv.push(signal);
+    }
+  }
   b._ev(swingEv);
   u.castLeft = t.action;
-  u.swing = { left: t.strike, targets, sel: t.sel, isSkill: !!prof.isSkill };
+  u.swing = { left: t.strike, targets, sel: t.sel, isSkill: !!prof.isSkill, signal };
   if (!(t.strike > 1e-9)) allyStrike(b, u, prof);
 }
 
@@ -292,7 +306,7 @@ function allyStrike(b, u, prof) {
     targets = targets.filter(strikable);
     if (!targets.length) return;
   }
-  performAttack(b, u, prof, targets);
+  performAttack(b, u, prof, targets, sw.signal ? { signal: sw.signal } : null);
 }
 
 const TIMING = { strike: 0, action: 0, sel: 0, begun: false };
@@ -508,7 +522,7 @@ export function performAttack(b, u, prof, targets, opts = null) {
       else doHeal(b, u, prof, t);
       continue;
     }
-    const info = { isSkill, index: i, attackId, energy: i === 0 ? energy : 0 };
+    const info = { isSkill, index: i, attackId, energy: i === 0 ? energy : 0, ...(opts?.signal ? { signal: opts.signal } : {}) };
     const foe = t.side === 'enemy' || b.isAllyTarget(t);
     if (ranged && foe && prof.projectile === 'boomerang') {
       throwBoomerang(b, u, prof, t, info);
@@ -622,7 +636,7 @@ export function resolveHit(b, u, prof, target, info, x, y) {
     }
     for (let h = 0; h < hits && target.alive; h++) {
       const d = { amount: atk * scale * mulT * (attachedFunnel ? funnelMul : 1), type: baseType, isAttack: !attachedFunnel, isSkill: info.isSkill,
-        tags: attachedFunnel ? [...(prof.tags || []), 'addition', 'funnel'] : (prof.tags || []), attackId, strike: h };
+        tags: attachedFunnel ? [...(prof.tags || []), 'addition', 'funnel'] : (prof.tags || []), attackId, strike: h, signal: info.signal };
       if (split != null) { d.mul = split; if (h > 0) d.noSp = true; }
       dealtMain += b.dealDamage(u, target, d);
     }

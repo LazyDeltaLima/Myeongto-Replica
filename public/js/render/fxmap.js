@@ -286,6 +286,31 @@ export function combatEffects(bind, prefabs, n, role, combatNow) {
   return Array.isArray(list) ? list.filter((x) => prefabs.includes(x)) : [];
 }
 
+/**
+ * 2026-10-21 (이펙트 연결 전수 ①·②): the ability an attack of mode `n` casts in place of the mode's attack (char_modes.py
+ * mode_parts), its `{ cast, trail, hit, replace }` (extracted names only) or null:
+ *   - `sig` (the sim's 'swing' 9th / 'atk' 5th field): the mode talent of that signal (talentAtk[n]['T.1'] — 寒芒克洛丝's 中的
+ *     arrow, 圣约送葬人's 受选之人 shot). `replace`: the client casts it instead of the attack, so the mode's own cast list
+ *     does not play with it.
+ *   - else `ally` (the target is an ally: true, an enemy: false, unknown: null): the child of the mode's attack whose
+ *     Trigger picks that side (sideFx[n] — 凯尔希·思衡托 S2 HealAlly / AttackEnemy), added to the mode's list.
+ * @param {any} bind modes.json entry
+ * @param {string[]|null|undefined} prefabs
+ * @param {number|null} n
+ * @param {string|null|undefined} sig
+ * @param {boolean|null} ally
+ */
+export function modePart(bind, prefabs, n, sig, ally) {
+  if (!bind || !Array.isArray(prefabs) || !Number.isInteger(n) || n < 0) return null;
+  const pick = (p, replace) => (p ? { replace, ...Object.fromEntries(['cast', 'trail', 'hit'].map((r) => [r, (Array.isArray(p[r]) ? p[r] : []).filter((x) => prefabs.includes(x))])) } : null);
+  if (typeof sig === 'string' && sig) {
+    const t = bind.talentAtk?.[n]?.[sig];
+    if (t) return pick(t, true);
+  }
+  const s = bind.sideFx?.[n];
+  return s && ally != null ? pick(s[ally ? 'ally' : 'foe'], false) : null;
+}
+
 /** The end event of a looping hit effect (modes.json hitLoop), or null for a one-shot. */
 export const hitLoopEnd = (bind, name) => (Number.isInteger(bind?.hitLoop?.[name]) ? bind.hitLoop[name] : null);
 

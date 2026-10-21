@@ -125,12 +125,13 @@ test('the rules name prefabs the client binds for that operator', () => {
   for (const [n, by] of Object.entries(KIT_OFFICIAL)) {
     for (const [b, rule] of Object.entries(by)) {
       assert.equal(typeof rule, 'function');
-      const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((ctx) => kitOfficialPlan(n, { left: 0, t: 2, id: 1, of: 2, n: 2, cap: 3, name: 'extradition', cells: [[1, 1, 1], [2, 1, 3], [3, 1, 5], [4, 1, 0]] }, b, ctx)).filter(Boolean);
+      const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((ctx) => kitOfficialPlan(n, { left: 0, t: 2, id: 1, of: 2, n: 2, cap: 3, name: 'extradition', cells: [[1, 1, 1], [2, 1, 3], [3, 1, 5], [4, 1, 0]], skill: 'swire2_3', targets: [2] }, b, ctx)).filter(Boolean);
       assert.ok(plans.length, `${n} (${b}) plans nothing`);
       for (const plan of plans) {
         for (const p of plan.play) {
           if (!p.off) assert.ok(p.bundle ? p.n.includes(`_${b}_`) : p.n.startsWith(`${b}_`), `${n} (${b}): ${p.n}`);
           if (p.ready) assert.ok(p.ready.startsWith(`${b}_`), `${n} (${b}): ${p.ready}`);
+          for (const x of [p.rope, p.pass?.n, p.harpoon?.moving, ...(p.hit || [])].filter(Boolean)) assert.ok(x.startsWith(`${b}_`), `${n} (${b}): ${x}`);
         }
       }
     }
@@ -157,11 +158,25 @@ test('kitOfficialPlan: the moments and lifetimes of the templates', () => {
   assert.deepEqual(names(kitOfficialPlan('shieldBreak', { id: 1, left: 2 }, 'mudrok')), []);
   assert.deepEqual(kitOfficialPlan('stacks', { id: 1, buff: 'mudrok:layers', n: 2 }, 'mudrok').play, [{ n: 'mudrok_buff_01_begin', on: 'op', life: 'once' }]);
   assert.equal(kitOfficialPlan('stacks', { id: 5, src: 1, buff: 'billro:mark', n: 5 }, 'billro'), null, "the mark's stacks are fxstatus.js STACK_FX's");
-  // 伊内丝: a new sentry replaces the old one; her recall ('beam') ends it and keeps its own stand-in
+  // 伊内丝: a new sentry replaces the old one; her recall ('beam', 2026-10-21) ends it and flies it back to her —
+  // projectile_chr_ines_guard_back with its line, a hit on each enemy it passes, its reach effects on her as it lands
   const s = kitOfficialPlan('sentry', { id: 1 }, 'ines');
   assert.deepEqual(s.stop, ['inesSentry']);
   assert.deepEqual(s.play.map((x) => [x.n, x.on, x.life]), [['ines_label_start_01', 'point', 'once'], ['ines_label_01', 'point', 'tag'], ['ines_range_01', 'point', 'tag']]);
-  assert.deepEqual(kitOfficialPlan('beam', { id: 1 }, 'ines'), { stop: ['inesSentry'], play: [], pass: true });
+  const rc = kitOfficialPlan('beam', { id: 1, hits: [5] }, 'ines');
+  assert.deepEqual(rc.stop, ['inesSentry']);
+  assert.equal(rc.pass, false);
+  assert.deepEqual(rc.play[0], { n: 'ines_skill_03_label_trail_01', fly: 10, from: 'point', rope: 'ines_skill_03_pullLabel_line_01', pass: { n: 'ines_skill_03_label_hit_01', on: 'hits' } });
+  assert.deepEqual(rc.play.slice(1).map((x) => [x.n, x.on, x.after]), [['ines_skill_03_getLabel_01', 'op', 'fly'], ['ines_skill_03_getLabel_range_01', 'op', 'fly']]);
+  // 琳琅诗怀雅 S3's end: a coin at each paid enemy, 0.07 s apart; her other coin events have no rule
+  assert.deepEqual(kitOfficialPlan('coin', { id: 1, n: 0, skill: 'swire2_3', targets: [5, 6] }, 'swire2').play,
+    [{ n: 'swire2_skill_03_trail', fly: 8, to: 'targets', gap: 0.07, hit: ['swire2_skill_03_hit_02'] }]);
+  assert.equal(kitOfficialPlan('coin', { id: 1, n: 3 }, 'swire2'), null);
+  assert.equal(kitOfficialPlan('coin', { id: 1, n: 0, skill: 'swire2_3', targets: [] }, 'swire2'), null);
+  // 歌蕾蒂娅 S3's end: the 捕网 harpoon out 0.3 s and back 1 s, its reach effect where it lands
+  const gp = kitOfficialPlan('pull', { id: 1 }, 'glady');
+  assert.deepEqual(gp.play[0], { n: 'glady_skill_03_line', harpoon: { out: 0.3, back: 1, moving: 'glady_skill_03_range_04' } });
+  assert.deepEqual(gp.play[1], { n: 'glady_skill_03_range_05', on: 'point', life: 'once', after: 'fly' });
   // 烛煌: downed loops until she stands (and gone with her), then the end cast
   const dn = kitOfficialPlan('downed', { id: 1 }, 'blaze2');
   assert.ok(dn.pass && dn.play.every((x) => x.tag === 'blazeDown' && x.leave));
