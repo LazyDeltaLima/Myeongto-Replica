@@ -373,8 +373,12 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   - 스와이어 디 엘리건트 위트 S1·S2의 치유·샴페인 폭탄 클립(관리자 요청 2026-10-22): 모드의 `Body/Trigger` 묶음이 Attack 대신 `HealAlly`
     `_animKey "Skill_1"`(동전 치유) / `SpawnToken` `_animKey "Skill_2"`(폭탄 던지기)를 고름 → 키트가 fx 'coin' `{ signal: 'healAlly' }`(공격에 얹힌
     치유는 `strike`: 그 타격 프레임부터) / 'swire2Throw' `{ signal: 'spawnToken' }`을 보내고 평타 역할 `signals`(`SIGNAL_CLIPS`)가 그 클립을 틂.
-    [ASSUMED] 공격에 얹힌 치유는 공식처럼 스윙 처음부터 `Skill_1`이 아니라 `Attack` 스윙의 타격 프레임부터 `Skill_1`(시뮬이 치유를 타격 때 정함 —
-    공격과 치유를 같이 하는 2026-10-04 관리자 결정). `signalSwing`은 타격이 지난 스윙의 꼬리를 끊고 들어감(새 스윙처럼; 그 전엔 거절해 평타 직후 던진
+    공격에 얹힌 치유는 `Attack` 스윙의 타격 프레임부터 `Skill_1` — 공식과 다름(클라 확인 2026-10-22): 묶음은 `AbilitySelectableGroup`
+    (`_selectAbilitySequentially` 0)이고 `_DoCastInternal`(RVA 0xC49C50)이 공격 차례를 시작할 때 `_abilityConfigs`를 [0]부터 `TryCastToTarget`해
+    처음 성공한 하나만 시전한다. [0] = `HealAlly`(조건 `_checkType` 1 = 둘 다: 버프 `swire2_can_use_gold` + 선택기 `x-4` 아군 HP ≤ 70 % 한 명),
+    [1] = `Attack` — 동전과 다친 아군이 있으면 그 차례는 처음부터 `Skill_1` 치유 시전(아군 대상, `_waitForAttackEvent` 1: OnAttack 때 치유)이고
+    적은 안 친다. 우리 시뮬은 치유를 타격 때 정하고 그 공격도 적을 침(공격과 치유를 같이 — 적이 없을 때도 치유하는 2026-10-04 관리자 결정과 함께
+    들어온 방식); 렌더만으로는 스윙 시작에 치유를 알 수 없음. `signalSwing`은 타격이 지난 스윙의 꼬리를 끊고 들어감(새 스윙처럼; 그 전엔 거절해 평타 직후 던진
     폭탄이 클립 없이 지나감). 테스트 `test/render/swire2-signal-clips.test.js`. [화면 미확인]
   - 모드 키 = Default 키(평타 클립) + 스킬 클립이 Begin·idle 없는 한 개 → 그 클립은 시전 한 번(스킬 프리팹 시전 능력 `local-skill-cast.json`:
     블레미샤인 S2 `Skill_2`, 스펙터 S1 `Skill_1`, 치우바이 S2 `Skill_2`, 데겐블레허 S1 `Skill_1`(ReplacementSkill), 필라에 S1 `Skill_1`), 공격은 평타 클립.
