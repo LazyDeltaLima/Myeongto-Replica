@@ -85,7 +85,10 @@ function kitEvents() {
   walk(KITS);
   return [...out.values()];
 }
-const silenced = () => kitEvents().filter(([n]) => STAND_IN.has(fxSpec(n, {}).a) && !new RegExp(`'${n}'`).test(GAME));
+// (2026-10-21) the element bursts' branch (the sim's fx 'burst' with an `element`, damage.js — fxgame.js burstFx) is not a kit
+// event's: 丰川祥子's / 维什戴尔's 'burst' carries none and goes on to the stand-in rules
+const GAME_KIT = GAME.replace(/if \(e\[1\] === 'burst' && e\[4\]\?\.element\)[^\n]*/, '');
+const silenced = () => kitEvents().filter(([n]) => STAND_IN.has(fxSpec(n, {}).a) && !new RegExp(`'${n}'`).test(GAME_KIT));
 const charOf = (bundle) => Object.keys(MODES).find((k) => k.endsWith(`_${bundle}`));
 
 test('every kit event whose stand-in an operator with official effects drops has a rule or a verdict', () => {

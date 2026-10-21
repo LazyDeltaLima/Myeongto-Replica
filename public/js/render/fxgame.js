@@ -1539,6 +1539,24 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!index?.bundles?.[b]?.includes(n)) return;
     spawn(b, n, tgt, { owner: null, buff: false, on: tgt.id ?? e[4].id, tag: 'parry' }, { over: true, facing: efacing(tgt) });
   }
+  // (2026-10-21) An element burst (sim damage.js resolveBurst → its fx burst {id, element}): the EN buff templates'
+  // ep_break_<el>_char / _enemy play one CreateEffect on the BUFF_OWNER at ON_BUFF_START — fire on an enemy
+  // common_firedamage_hit (none on an operator: its 灼燃 shows ep_fire_magic_res_down's buff_burn, fxstatus.js), water
+  // common_waterElementExplosion / common_waterdamage_hit, dark common_darkdamage_hit on both; 神经 on an operator is
+  // ep_break_sanity[epfree]'s overrideEffectKey common_nerve_injury_01_hit, on an enemy palsy[stack] (none) [operator, enemy]
+  const BURST_FX = {
+    burn: [null, 'common_firedamage_hit'],
+    erosion: ['common_waterElementExplosion', 'common_waterdamage_hit'],
+    apoptosis: ['common_darkdamage_hit', 'common_darkdamage_hit'],
+    neural: ['common_nerve_injury_01_hit', null],
+  };
+  function burstFx(e, views) {
+    const tgt = views?.get?.(e[4]?.id);
+    const n = BURST_FX[e[4]?.element]?.[tgt?.info?.side === 'enemy' ? 1 : 0];
+    if (!tgt || !n || failed || q() === 'low' || !index?.bundles?.common?.includes(n)) return false;
+    spawn('common', n, tgt, { owner: null, buff: false, on: tgt.id ?? e[4].id, tag: 'elemBurst' }, { over: true, facing: efacing(tgt) });
+    return true;
+  }
 
   /**
    * A 'dmg' of this moment on `tid` that waiting skill effects claim (expect(); each plays its effect on the target once —
@@ -3617,6 +3635,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'lightning' && chainFx(e, views)) return;
           if (e[1] === 'oblvnsNote' && e[4]) { noteFx(e, views); return; }
           if (e[1] === 'parry' && e[4]) { parryFx(e, views); return; }
+          if (e[1] === 'burst' && e[4]?.element) { if (burstFx(e, views)) ownFx.add(e); return; }
           if (e[1] === 'whitw2Drones' && e[4]) { wolfFx(e); return; }
           // 2026-10-16: 伺夜's wolf pack (its count, its gift)
           if (['summon', 'revive', 'wolfShadow', 'wolfShadowLost', 'buff'].includes(e[1]) && packEvent(e, views)) ownFx.add(e);

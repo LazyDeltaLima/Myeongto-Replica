@@ -580,6 +580,10 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
     레코드키퍼 S2 `reckpr_skill2_hit_buff`, 산탈라 재능(`sntlla:born`) `common_ resistance_01`, 카넬리안 S3 표식 `billro_skill_03_buff_03_01`([part]; 스택이 가득 찬
     [full] `_03_02`는 스택 수가 이벤트에 없어 안 씀 [추정]), 엑시아 더 뉴 커버넌트 S2 屏障 — 본인 `angel2_skill_2_buff_01`([trigger]), 공속을 뺏긴 팀원 `_02`([select_target])
     [추정: 주인 짝]; 원소 폭발 — 凋亡 양쪽 `common_darkdamage_debuff`, 오퍼레이터의 灼燃 `buff_burn`·侵蚀 방어 감소 `buff_defdown`(적의 灼燃·侵蚀은 타격 이펙트뿐).
+    폭발 순간의 타격(2026-10-21, `fxgame.js burstFx`, 시뮬 fx 'burst' {id, element}): EN 버프 템플릿 `ep_break_<원소>_char`/`_enemy`의 ON_BUFF_START
+    `CreateEffect`(BUFF_OWNER) — 灼燃 적 `common_firedamage_hit`(오퍼레이터는 없음), 侵蚀 오퍼레이터 `common_waterElementExplosion`·적
+    `common_waterdamage_hit`, 凋亡 양쪽 `common_darkdamage_hit`; 神经 오퍼레이터는 `ep_break_sanity[epfree]`의 overrideEffectKey
+    `common_nerve_injury_01_hit`(적은 palsy[stack], 없음). 공식 것이 나오면 옛 절차 'burst'는 안 그림. 추출 `--bundle common --prefab …` 5개. [화면 미확인]
   - 층별(`LAYER_FX`): 니어 더 래디언트 나이트 S2 `nearl2_s_2[shield][a..d]` = 남은 횟수 ≥ 1..4마다 `nearl2_skill_02_buff_02..05` 하나씩, 'parry' fx마다 하나 줄임.
   - 일반 스킬 보호막(`generic:shield:*`)·아이템·인연 보호막 층·우리 키트의 무적(첸 더 던스트릭 S2, 머드락 S3 闭锁, 데겐블레허 S3, 튤립, 카제마루 교체)·도발(벤델라)·
     메테오 파쇄·비질 늑대 표식(공식 이펙트는 늑대 쪽)은 공식 버프에 이펙트가 없어 아무것도 안 그린다.
