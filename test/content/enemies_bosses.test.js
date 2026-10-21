@@ -689,7 +689,7 @@ test(`${nm('enemy_1275_dwlock_2')}: apoptosis on hit; DeathEye channels arts dam
   h.step();
   const e = put(h, 'enemy_1275_dwlock_2', [9, 7]);
   const s = skb('enemy_1275_dwlock_2', 'DeathEye');
-  h.run(s.initCooldown + s.bb.hit_duration + 1);
+  h.run(s.initCooldown + e.s.interval + s.bb.hit_duration + 1);   // cast at its first attack slot once ready (onSkillSlot)
   assert.ok(h.eventsOf('fx').some((f) => f[1] === 'beam' && f[4].kind === 'deathEye'));
   const w2 = h.unit('t_wall2');
   assert.ok(w2.elem.apoptosis >= e.s.atk * s.bb.ep_damage_ratio - 1e-6 || w2.findBuff('apoptosisBurst'));
@@ -2194,7 +2194,7 @@ test(`${nm('enemy_2004_balloon')}: takes off (unblockable) when blocked`, () => 
   const h = arena({ units: [{ chessId: 't_wall', row: 9, col: 5 }] });
   h.step();
   const e = put(h, 'enemy_2004_balloon', [9, 5]);
-  h.run(skb('enemy_2004_balloon', 'TakeOff').initCooldown + 0.2);
+  h.run(skb('enemy_2004_balloon', 'TakeOff').initCooldown + e.s.interval + 0.2);   // at its first attack slot once ready
   assert.ok(e.s.flags.unblockable && !e.blockedBy);
 });
 
@@ -2317,7 +2317,8 @@ test(`${nm('enemy_1513_dekght')}: 蓄力攻击 — ${skb('enemy_1513_dekght', 'C
   h.step();
   const e = put(h, 'enemy_1513_dekght', [10, 5]);
   const s = skb('enemy_1513_dekght', 'ChargeAttack');
-  h.run(s.initCooldown + 0.1);
+  // cast at its first attack slot once ready (onSkillSlot)
+  h.runUntil(() => h.eventsOf('fx').some((f) => f[1] === 'telegraph' && f[4].kind === 'chargeAttack'), s.initCooldown + e.s.interval + 0.1);
   assert.ok(h.eventsOf('fx').some((f) => f[1] === 'telegraph' && f[4].kind === 'chargeAttack'));
   const n0 = e.stats.attacks;
   h.run(s.bb.duration - 0.2);
@@ -2808,7 +2809,8 @@ test('假想敌：胄: arts ray on a random target in range; <20 % pool: damage 
   const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 6 }, { chessId: 't_wall2', row: 12, col: 4 }] });
   h.step();
   const e = put(h, 'enemy_9013_acstmk', [3, 10], { tag: 'boss' });
-  h.run(9);
+  // 死亡集群 (initCooldown 0) takes the first attack slot and its cast (onSkillSlot): the rays from the next slot on
+  h.run(13);
   const arts = h.eventsOf('dmg').filter((d) => d[3] === 'arts' && (d[1] === h.unit('t_wall').id || d[1] === h.unit('t_wall2').id));
   assert.ok(arts.length >= 2);
   h.b.sharedBoss.hp = h.b.sharedBoss.maxHp * 0.1;
@@ -2816,7 +2818,7 @@ test('假想敌：胄: arts ray on a random target in range; <20 % pool: damage 
   approx(e.s.physTakenMul, tb('enemy_9013_acstmk', '1.damage_scale'));
   approx(e.s.artsTakenMul, tb('enemy_9013_acstmk', '1.damage_scale'));
   assert.equal(e.s.trueTakenMul, 1);
-  h.run(skb('enemy_9013_acstmk', '1').initCooldown - 9);
+  h.run(skb('enemy_9013_acstmk', '1').initCooldown + e.s.interval - 13);
   assert.equal(h.eventsOf('fx').filter((f) => f[1] === 'shell').length, 1);
   assert.equal(alive(h, 'enemy_9016_acstmr').length, 1);
 });
@@ -2882,13 +2884,15 @@ test('假想敌：胄 死亡集群: drones from the branch; a drone that dies (w
   h.b.kill(d, h.unit('t_gun'));
   approx(before - h.b.sharedBoss.hp, loss);
   const newest = () => alive(h, 'enemy_1005_yokai').sort((a, b) => b.id - a.id)[0];
-  h.run(s2.cooldown + 0.5);
+  // the cooldown runs again from the end of the cast, then the next attack slot (onSkillSlot): ≤ 2 intervals more
+  const slack = 2 * boss.s.interval;
+  h.run(s2.cooldown + slack + 0.5);
   const d2 = newest();
   assert.ok(d2);
   before = h.b.sharedBoss.hp;
   h.b.kill(d2, null);                                                   // 无来源: "该无人机单位死亡时"
   approx(before - h.b.sharedBoss.hp, loss);
-  h.run(s2.cooldown);
+  h.run(s2.cooldown + slack);
   const d3 = newest();
   assert.notEqual(d3, d2);
   assert.ok(d3);
@@ -3189,7 +3193,7 @@ test('假想敌：铳 最终之罚: with only a flying unit it casts but does no
   h.step();
   spawnYanyou(h.b, 'p1', { atk: 0, hp: 50000 });
   const e = put(h, 'enemy_9017_achunt', [3, 10], { tag: 'boss' });
-  h.run(skb('enemy_9017_achunt', '1').initCooldown + 0.2);
+  h.run(skb('enemy_9017_achunt', '1').initCooldown + e.s.interval + 0.2);   // at its first attack slot once ready
   assert.ok(h.eventsOf('fx').some((f) => f[1] === 'enemySkill' && f[4].id === e.id), 'cast');
   assert.ok(!e.findBuff('boss:charge') && !e.trace, 'no charge');
 });
@@ -3709,11 +3713,13 @@ test('盐风主教昆图斯: 2 highest-DEF targets + neural; 崩坍 / 大潮 / �
   assert.ok(h.unit('t_wall').stats.taken > 0 && h.unit('t_wall2').stats.taken > 0);
   assert.equal(h.unit('t_wall3').stats.taken, 0);
   assert.ok(h.unit('t_wall').elem.neural > 0);
-  h.run(skb('enemy_1521_dslily', 'Rockfall').initCooldown - h.b.time + ROCK);
+  // each skill at the first attack slot once ready, in place of that attack (onSkillSlot): up to one interval late
+  const late = e.s.interval;
+  h.run(skb('enemy_1521_dslily', 'Rockfall').initCooldown - h.b.time + late + ROCK);
   assert.ok(h.eventsOf('fx').some((f) => f[1] === 'rockfall'));
-  h.run(skb('enemy_1521_dslily', 'Tidewater').initCooldown - h.b.time + 0.2);
+  h.run(skb('enemy_1521_dslily', 'Tidewater').initCooldown - h.b.time + late + 0.2);
   assert.ok(h.eventsOf('fx').some((f) => f[1] === 'tide') && h.unit('t_wall3').stats.taken > 0, 'global tide');
-  h.run(skb('enemy_1521_dslily', 'SummonTentac').initCooldown - h.b.time + 0.2);
+  h.run(skb('enemy_1521_dslily', 'SummonTentac').initCooldown - h.b.time + late + 0.2);
   assert.equal(h.b.enemies.filter((q) => q.alive && q.defId === 'trap_039_dstnta').length, 1, '断裂生殖 switches on a 子代');
   const atk0 = e.s.atk;
   h.b.sharedBoss.hp = h.b.sharedBoss.maxHp * 0.6;
@@ -3722,7 +3728,7 @@ test('盐风主教昆图斯: 2 highest-DEF targets + neural; 崩坍 / 大潮 / �
   h.b.sharedBoss.hp = h.b.sharedBoss.maxHp * 0.3;
   h.run(0.5);
   approx(e.s.atk, atk0 * (1 + tb('enemy_1521_dslily', 'atkup2.atk')));
-  h.run(6);
+  h.run(6 + 2 * late);   // 物种爆发 and 大潮 come ready together (initCooldown 1): the drawn one first, the other a slot later
   assert.equal(h.hooksOf('lpLoss')[0].amount, 100);
   assert.equal(h.result().lpLoss ?? h.b.result().lpLoss ?? 100, 100);
 });

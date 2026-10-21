@@ -2436,6 +2436,34 @@ function withSkillProjectiles(skills, P) {
   });
 }
 
+/**
+ * How an enemy's skills are cast (tools/assets/local-attack-timing.json `enemies[…].skills`, tools/local-extract/
+ * attack_timing.py) → enemies.json `skillCast` {skill name in lower case: { family, dur?, clip?, max?, resetMain?, waitFirst? }}.
+ * The client casts an enemy skill in place of a normal attack — at an attack slot, the skills first (client code
+ * `Enemy.AttackWrapper.SearchTarget` / `Cast`; `family` = its `_familyMask`, every skill of the mode has ATTACK and / or
+ * COMBAT) — and restarts its cooldown as the cast ends (`EnemySkill._OnCastFinish`): `dur` = the clip of its animated
+ * ability (data/assets.json, the same model as the attack; absent when it plays none), `max` its `_maxAnimScale`;
+ * `resetMain` (+ `waitFirst`) = `_resetMainAbilityCdWhenCastEnd`, the main attack's cooldown restarted as the cast ends
+ * (`ResetCooldown(_resetCdWaitFirstPeriod)`). Keyed by the skill's GameObject name, matched to the table's prefabKey case
+ * aside (as the projectiles); a template's `overrides.skills` use the same keys. Server/sim/content/enemies.js.
+ */
+function enemySkillCast(ctx, manifest, spineId, key) {
+  const e = ctx.attackTiming?.enemies?.[spineId] ?? ctx.attackTiming?.enemies?.[key];
+  if (!e || !e.skills) return null;
+  const anims = manifest?.enemies?.[spineId]?.spine?.animations || {};
+  const out = {};
+  for (const [name, s] of Object.entries(e.skills)) {
+    const dur = s.anim ? anims[s.anim] : null;
+    if (s.anim && !(dur > 0)) warn(`enemy ${key} skill ${name}: clip ${s.anim} not in data/assets.json`);
+    out[name.toLowerCase()] = {
+      family: s.family,
+      ...(dur > 0 ? { clip: s.anim, dur, ...(Number.isFinite(s.max) ? { max: s.max } : {}) } : {}),
+      ...(s.resetMain ? { resetMain: 1, waitFirst: s.waitFirst ? 1 : 0 } : {}),
+    };
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 /** An enemy's attack ability (local-attack-timing.json `enemies`): the blocked one (Combat) for a melee enemy, else Attack. */
 function enemyAbility(ctx, spineId, key, applyWay) {
   const e = ctx.attackTiming?.enemies?.[spineId] ?? ctx.attackTiming?.enemies?.[key];
@@ -2681,6 +2709,7 @@ function buildEnemies(ctx) {
     const modelScaleY = MODEL_STRETCH_Y_BY_PREFAB.get(mv(data.prefabKey) || key) ?? null;
     const attackAnim = enemyAttackAnim(ctx.manifest, mv(data.prefabKey) || key, enemyAbility(ctx, mv(data.prefabKey) || key, key, applyWay));
     const shots = enemyProjectiles(ctx, mv(data.prefabKey) || key, key);
+    const skillCast = enemySkillCast(ctx, ctx.manifest, mv(data.prefabKey) || key, key);
     out[key] = {
       key, name, level: wantLevel, rank: mv(data.levelType, 'NORMAL'), handbookIndex: hb?.enemyIndex || null,
       desc: stripRich(descRaw), descRaw: richRaw(descRaw),
@@ -2688,6 +2717,7 @@ function buildEnemies(ctx) {
       abilities,
       talents: { bb: talents.bb, bbStr: talents.bbStr },
       skills: withSkillProjectiles(enemySkills(data.skills, `enemy ${key}`), shots),
+      ...(skillCast ? { skillCast } : {}),
       // SP pool of SP-cost skills (e.g. 假想敌：黑云 技力上限 3 = 全弹发射 hits); only when the database has one
       ...(data.spData ? { sp: { type: data.spData.spType ?? null, maxSp: data.spData.maxSp ?? 0, initSp: data.spData.initSp ?? 0, increment: data.spData.increment ?? 0 } } : {}),
       notCountInTotal: !!mv(data.notCountInTotal, false),

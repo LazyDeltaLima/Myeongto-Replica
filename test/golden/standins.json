@@ -34,7 +34,7 @@
           "leaks": 31,
           "leaksUncounted": 0,
           "coins": 4,
-          "dmg": 247891,
+          "dmg": 247867,
           "bossDmg": 0,
           "heal": 17726,
           "deaths": 23,
@@ -42,17 +42,17 @@
         }
       },
       "units": [
-        ["p1",1,"op","chess_char_3_12_a",2,null,0,0,75,3,39626,3455,0,28,3],
+        ["p1",1,"op","chess_char_3_12_a",2,null,0,0,75,2,39415,3455,0,27,3],
         ["p1",2,"op","chess_char_4_09_a",0,null,333.6,1,86,3,43528,5634,0,33,2],
-        ["p1",3,"op","chess_char_3_05_a",2,null,806.17,1,78,0,20146,12004,0,47,2],
+        ["p1",3,"op","chess_char_3_05_a",2,null,806.17,1,78,1,20026,12004,0,47,2],
         ["p1",4,"op","chess_char_3_18_a",2,null,0,0,7,2,9060,5086,0,14,1],
         ["p1",5,"op","chess_char_4_04_a",1,null,0,0,93,1,20240,6631,0,90,10],
         ["p1",6,"op","chess_char_4_07_a",1,null,0,0,77,2,17832,10087,0,38,1],
-        ["p1",7,"op","chess_char_4_16_a",1,null,0,0,90,2,19814,9625,0,109,14],
+        ["p1",7,"op","chess_char_4_16_a",1,null,0,0,90,2,19787,9625,0,109,14],
         ["p1",8,"op","chess_char_3_01_a",2,null,491.06,1,5,2,25966,780,0,158,3],
         ["p1",9,"op","chess_char_3_04_a",2,null,1218,1,85,0,0,1670,17726,35,2],
-        ["p1",10,"op","chess_char_3_21_a",2,null,1272,1,95,2,31365,1272,0,61,1],
-        ["p1",11,"op","chess_char_4_02_a",1,null,1272,1,88,2,12097,1272,0,66,1],
+        ["p1",10,"op","chess_char_3_21_a",2,null,1272,1,95,2,31348,1272,0,61,1],
+        ["p1",11,"op","chess_char_4_02_a",1,null,1272,1,88,2,12446,1272,0,66,1],
         ["p1",12,"op","chess_char_4_13_a",1,null,0,0,2,0,8217,812,0,23,1]
       ],
       "enemies": {
@@ -65,13 +65,13 @@
         "enemy_10034_cnvsax": [1,0,1,0,0],
         "enemy_10042_prtrop": [1,0,1,0,0],
         "enemy_1116_liprr_2": [21,10,10,3709,114878],
-        "enemy_1119_vofsd": [12,5,5,16713,85162],
-        "enemy_1121_lifbos_2": [9,0,7,12642,25373]
+        "enemy_1119_vofsd": [12,5,5,16713,85155],
+        "enemy_1121_lifbos_2": [9,0,7,12642,25356]
       },
-      "hooks": [1,95,5100,815,815,1253,1250,3024,42,84,41,38,0,17618,23,38,50,26,1,42,5,0,3],
-      "events": {"atk":896,"bounty":2,"deploy":45,"die":58,"dmg":1250,"engage":11,"face":10,"fx":83,"heal":35,"layer":5,"leak":26,"skill":79,"spawn":62,"status":122,"swing":843},
-      "fx": {"blink":16,"dodge":4,"dp":6,"enemySkill":2,"explode":8,"garrison":5,"liberate":14,"phase":11,"slash":16,"telegraph":1},
-      "snaps": "9deaafc1 a7553015 99c6ee47 1bc8fea7 50581868 e3d2db84 93ad1ac9 475bcf26 60a482d6 d1a7e35e b018d4dc 652faadb a5ef8290 0f548c45 7ac19ca4 800253a1 6e246abe"
+      "hooks": [1,95,5100,814,814,1252,1249,3024,42,84,41,38,0,17612,23,38,50,26,1,42,5,0,3],
+      "events": {"atk":895,"bounty":2,"deploy":45,"die":58,"dmg":1249,"engage":11,"face":10,"fx":82,"heal":35,"layer":5,"leak":26,"skill":79,"spawn":62,"status":122,"swing":841},
+      "fx": {"blink":16,"dodge":4,"dp":5,"enemySkill":2,"explode":8,"garrison":5,"liberate":14,"phase":11,"slash":16,"telegraph":1},
+      "snaps": "9deaafc1 d079f2f1 f3d00974 a08488e3 6f3410c4 2e1dbe39 525d9fb8 76b93b10 5ffbbd27 1d955a98 dc8f9a46 7aec12e5 a47209bb 740d5d7c 83f8e6f7 98c647c0 263dc107"
     },
     "standin-02": {
       "about": "normal band 5 as stand-ins: chess_char_4_17_a→char_610_acfend chess_char_4_18_a→char_602_cdfend chess_char_5_05_a→char_602_cdfend chess_char_4_19_a→char_608_acpion chess_char_5_01_a→char_600_cpione chess_char_4_22_a→char_609_acguad chess_char_4_23_a→char_609_acguad chess_char_5_06_a→char_609_acguad chess_char_4_20_a→char_603_csnipe chess_char_4_24_a→char_604_ccast chess_char_5_02_a→char_604_ccast chess_char_5_03_a→char_612_accast",

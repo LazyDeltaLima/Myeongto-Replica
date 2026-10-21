@@ -923,6 +923,35 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   넣어 'atk'·일반 명중 이펙트까지 그 적에 나왔다 → `chess_char_4_07-bpipe.js`('hit' 우선순위 1: 모듈 115 %보다 먼저 원래 피해를 읽음, 추가 피해는 SP 없음).
   테스트 `kits_t4.test.js` 「风笛 S2」.
 
+## 적 스킬 = 일반 공격 차례 (2026-10-21, 관리자 제보 「퀸투스가 HP가 낮아지면 기억보다 너무 셈」, 관리자 결정 2026-10-21 「엔진 전체로」)
+적 스킬(enemy_database `skills`)을 EN 클라 코드대로 일반 공격 **자리에서** 쓴다. 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 클래스 없음.
+- **공식**: 적의 MOVE 상태가 틱마다 `Enemy._SearchAttackTarget` → `Enemy.AttackWrapper.SearchTarget`(RVA 0x81CCE0)을 부른다. 일반 공격 능력이 `isReady`(쿨 끝)일
+  때만 스킬들을 보고, `EnemySkill.CheckFamilyMask`(ATTACK)·`CheckAvailable`(0x3A03FC0: 켜짐·쿨·`_ignoreSilence` 아니면 침묵/기절 아님·`isSkillActivatable`·SP)을
+  통과하고 대상을 찾은 스킬 중 `priority`가 가장 높은 것(같으면 `IBattleRandom.Uniform`)을 고른다. `AttackState.OnEnter` → `AttackWrapper.Cast`(0x81C8A0)가 그 스킬을
+  **일반 공격 대신** 시전하고(`EnemySkill.CastToTarget`), 시전한 능력이 일반 공격이 아니면 `mainAttack.ResetCooldown(true)` — 일반 공격 쿨이 처음부터 다시 돈다.
+  막힌 근접 적의 Combat도 같은 구조(`CombatWrapper._PickAbility` 0x8216B0: 우선순위·COMBAT 가족). 스킬 자신의 쿨은 시전 중 멈추고(`EnemySkill.OnTick` 0x3A04B20:
+  `isCasting`이면 갱신 안 함) **시전이 끝날 때** 다시 시작한다(`_OnCastFinish` 0x3A05480: `m_cooldownTimer.Reset`) → 다음 준비 = 시전 길이 + 쿨. 그 스킬의
+  `_resetMainAbilityCdWhenCastEnd`면 그때 일반 공격 쿨도 `ResetCooldown(_resetCdWaitFirstPeriod)`. `Enemy.TriggerEnemySkill`(0x80E320)은 강제 시전 경로로, 역시
+  공격·전투 래퍼로 보낸다. 모드의 적 프리팹 스킬 126개는 모두 `_familyMask`에 ATTACK이나 COMBAT이 있다(3이 109개, 2가 9개, 1이 7개, 31이 1개).
+- **우리**: `server/sim/ai.js` `enemyAttack`이 공격 차례(쿨 끝·지난 휘두름/시전 끝·麻痹震颤 아님, 恐惧·缴械·战栗(막힘) 아님)에 대상을 찾기 **전에** 훅
+  `enemySkillSlot`을 내고(docs/SIM.md 훅 표), `server/sim/content/enemies.js` `onSkillSlot`이 준비된 스킬(`cond` = 대상 조건, `canCast`)을 위 규칙대로 하나 골라 시전한다:
+  일반 공격 쿨 = 간격 전체(또는 `resetMain`이면 시전 끝 + 간격/0), `castLeft` = 시전 길이(그동안 일반 공격 없음, 「不停止移动」이 아니면 서 있음), 스킬 쿨 =
+  쿨 + 시전 길이. 시전 길이 = 스킬 능력 클립 × clamp(공격 간격 ÷ 클립, 0.1, `_maxAnimScale`) **[ASSUMED: 스킬 능력도 적의 공격 간격을 공격 시간으로 읽음]**.
+  데이터: `tools/local-extract/attack_timing.py`가 적 프리팹 `EnemySkill`(`_familyMask` 있는 MonoBehaviour)과 같은 GameObject의 애니메이션 능력(`_animKey`·`_maxAnimScale`)을
+  `tools/assets/local-attack-timing.json` `enemies[…].skills`에 쓰고, `tools/build-data.mjs` `enemySkillCast`가 `data/enemies.json` `skillCast`(스킬 이름 소문자 →
+  `family`·`clip`·`dur`·`max`·`resetMain`·`waitFirst`, 클립 길이는 `data/assets.json`)로 싣는다. 템플릿 `overrides.skills`도 같은 이름으로 찾는다.
+  **[ASSUMED]**: 일반 공격이 없는 적(`noAttack`·`none`·ATK 0)과 키트 자체 타이머(표에 없는 이름)는 예전처럼 제 쿨로 쏜다(공식은 그런 적에게도 공격·전투 능력이
+  있다 — 우리가 그리지 않을 뿐); ATTACK·COMBAT 가족을 막힘 여부로 나누지 않음(가족 1·2인 16개는 키트 `cond`가 대신함); 스킬 쿨에 `slowDown`을 곱하지 않음
+  (`OnTick`은 곱함); 형태가 바뀌어도 일반 공격 쿨은 이어짐; 클립이 매니페스트에 없는 스킬 3개(`enemy_9014_acstma` `2`·`enemy_10065_ftzlc` `onfire`·
+  `enemy_10141_xdpeng_2` `switch`)는 시전 길이 0.
+- **퀸투스(盐风主教昆图斯) 셋째 형태**: 공격 차례 3.5 s마다 하나 — 【大潮】(쿨 3.5 + 시전 1.667 = 5.167 s)가 차례를 하나 건너 7 s마다, 그 사이 차례는 일반
+  공격, 【崩坍】(시전 3 s)·【断裂生殖】(2 s)는 차례 하나를 차지한다. 이전에는 3.5 s마다 일반 공격(2명 × ATK 100 % 물리 + 20 % 신경) **과** 【大潮】(전원 ×
+  20 % 법술 + 20 % 신경)가 함께 나가 셋째 형태 출력이 공식의 두 배 가까이였다(첫째·둘째 형태는 스킬 쿨 35~40 s라 차이가 작음). upstream PR #799(열림)는
+  퀸투스 스킬만 공격 쿨을 소모시키는 부분 수정이다.
+- **옛 동작**: 스킬은 쿨이 차면 바로, 일반 공격과 따로(즉시) 나갔다. 테스트 `test/content/enemy-skill-attack-slot.test.js`, 고친 것:
+  `hidden-gun-pursuit.test.js`(【末日布道】 = 준비 뒤 다음 공격 차례), `boss-patterns-real.test.js`(铳 휘두름 간격은 스킬이 끼지 않은 쌍),
+  `feedback5-cb4-pins.test.js` item 52(공격 + 스킬 시전 = 공격 차례 수), `enemies_bosses.test.js`의 발동 시각.
+
 ## 적 투사체·공식 바인딩용 이벤트 필드 (관리자 결정 (2026-10-10) 「동작 변경 모두 공식이랑 동일하게」)
 근거: EN 클라(2026-08) 적 프리팹 `battle/enm_pfb_*.ab`·투사체 `battle/prefabs/[uc]projectiles.ab`의 값과 클라 코드(디컴파일 — 레포에는 클래스·메서드 이름만,
 RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 클래스 없음. 렌더·소리(공식 이펙트·뱅크 바인딩)가 쓰는 계약이다.
@@ -1329,7 +1358,8 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
   떠나면 다음 타에 원 안의 다른 오퍼레이터(2026-10-15, 옛 [ASSUMED]: 처음 대상만, 반경 밖이면 끝). 대상이 죽거나(`_interuptIfTargetDead` 1, 철수 포함)
   子代가 기절·침묵되면(`_canSilenced`) 끝나고, [ASSUMED] 타 순간 원 안에 아무도 없어도 끝난다(기본 경로라 안 읽음) — SP 0부터 → 1 s 뒤 다시 고른다.
   테스트 「子代 摄食: every hit picks…」.
-- **공격 속도 대조**(2026-10-16, 관리자 제보 「수정 뒤 공격이 너무 빨라진 느낌」): 공식과 다른 곳 없음, 바꾼 것 없음. 摄食 간격은 공격 속도를 받지
+- **공격 속도 대조**(2026-10-16, 관리자 제보 「수정 뒤 공격이 너무 빨라진 느낌」; 본체 쪽 결론은 2026-10-21에 틀린 것으로 확인 — 공식은 보스 스킬이
+  일반 공격 **대신** 나간다, 「적 스킬 = 일반 공격 차례」): 子代 쪽은 공식과 다른 곳 없음. 摄食 간격은 공격 속도를 받지
   않는다 — `ChannelingMeleeAttack.DoSetData`가 `m_triggerDelta`를 블랙보드 `interval`(이 스킬엔 없음)에서, 없으면 프리팹 `_triggerDelta` 1.0으로 정하고
   `OnWaitForTriggerDelta`는 그 값 그대로 `WaitForFixedSeconds`. 한 번 붙잡으면 계속 문다: `CheckAnotherSpell` = 남은 `m_duration` > `_postDelayChecker`(1.0),
   `m_duration`은 블랙보드 `duration`이고 `SkillData.InitIfNot`이 스킬 `duration`(999999)을 블랙보드 `duration`으로 넣는다(그래서 한 시전 한 타가 아님).

@@ -16,7 +16,8 @@
 //   before(c,…) (beforeAttack of e) · attack(c,…) · blocked(c,…) · killed(c,…) (return true = revived; the kill is then
 //   hidden from later 'kill' handlers) · death(c,…) · status(c,…) (statusApplied on e) · burst(c,…) (elementBurst on e)
 //   · tick(b,e,a,dt) every `iv` s (every tick when iv is 0) · skill: `cd`/`left`(=icd)/`cond`/`fire` (cooldown runs
-//   continuously; fires when ready, the enemy can act and `cond` holds). `sil: true` = the ability's handbook line
+//   continuously; fires when ready, the enemy can act and `cond` holds — a skill of the enemy's table on an armed enemy
+//   only at an attack slot, in place of the normal attack: onSkillSlot). `sil: true` = the ability's handbook line
 //   is flagged SILENCE (沉默 disables it: exactly the data's `format: "SILENCE"` lines — and 萨卡兹枯朽战士 / 组长's
 //   死亡爆炸, a NORMAL line whose client template checks 沉默: archetypes.js kitPolluted); stun / freeze / sleep block
 //   skills. Enemy SP skills ("数次攻击后…"): SP +1 per attack, the (spCost+1)-th attack is the skill attack (official
@@ -117,6 +118,7 @@ import { FLY_KITS } from './enemies/fly.js';
 import { SPECIAL_KITS } from './enemies/special.js';
 import { LEADER_KITS } from './enemies/leaders.js';
 import { hypot } from '../detmath.js';
+import { enemyHasAttack } from '../ai.js';
 
 export {
   EROSION, EROSION_BURST, HUSK_REBIRTH, nthOf, abOf, attach, T, silenced, canCast, unbalancedNow, elem, hurt, shoot, alliesInTiles,
@@ -158,6 +160,7 @@ export function ensureInstalled(b) {
   }, { priority: -50 });
   b.on('elementBurst', (c) => onBurst(b, c), { priority: 50 });
   b.on('tick', (c) => onTick(b, c.dt), { priority: 50 });
+  b.on('enemySkillSlot', (c) => onSkillSlot(b, c), { priority: 50 });
   b.on('battleEnd', ({ result }) => { if (st.lpLoss > 0 && result) result.lpLoss = (result.lpLoss ?? 0) + st.lpLoss; });
   return st;
 }
@@ -260,21 +263,86 @@ function onTick(b, dt) {
       }
       if (a.fire && a.cd != null) {
         a.left -= dt;
+        // an attack-slot skill waits for its enemy's attack slot (skillSlot); the others fire on their own cooldown
+        if (slotSkill(e, ab, a)) continue;
         if (a.left <= 1e-9 && canCast(e, a.sil, b) && (!a.cond || safe(b, e, () => a.cond(b, e, a)))) {
           a.left = Math.max(TICK, a.cd);
-          a.casts = (a.casts ?? 0) + 1;
-          e.skillAnimUntil = b.time + 0.5;
-          // the cast's events name the official ability (docs/SIM.md events; the client binds the enemy's effects and
-          // sounds by it — the prefab's `Skills/<name>`, research of the client's UnitMode.GenerateSignalId): fx
-          // 'enemySkill' { id, ability, n } as it starts, and `ability` / `caster` on every fx the cast makes now
-          if (a.name) b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: a.name, n: a.casts });
-          const prev = b._castAbility;
-          b._castAbility = a.name ? { id: e.id, ability: a.name } : null;
-          try { safe(b, e, () => a.fire(b, e, a)); } finally { b._castAbility = prev; }
+          castSkill(b, e, a);
         }
       }
     }
   }
+}
+
+/** Cast skill ability `a` of enemy `e` now (its cooldown already set). */
+function castSkill(b, e, a) {
+  a.casts = (a.casts ?? 0) + 1;
+  e.skillAnimUntil = b.time + 0.5;
+  // the cast's events name the official ability (docs/SIM.md events; the client binds the enemy's effects and
+  // sounds by it — the prefab's `Skills/<name>`, research of the client's UnitMode.GenerateSignalId): fx
+  // 'enemySkill' { id, ability, n } as it starts, and `ability` / `caster` on every fx the cast makes now
+  if (a.name) b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: a.name, n: a.casts });
+  const prev = b._castAbility;
+  b._castAbility = a.name ? { id: e.id, ability: a.name } : null;
+  try { safe(b, e, () => a.fire(b, e, a)); } finally { b._castAbility = prev; }
+}
+
+/**
+ * Whether cooldown ability `a` of enemy `e` is cast at an attack slot: a skill of the enemy's table whose prefab was read
+ * (`ab.sk[name].cast`, data/enemies.json `skillCast` — every one of the mode has the ATTACK and / or COMBAT family), on
+ * an enemy that makes normal attacks (ai.js enemyHasAttack). An unarmed enemy (noAttack, 'none', ATK 0) and the kits'
+ * own timers keep their own cooldown [ASSUMED: the client gives such an enemy a combat or attack ability we do not model].
+ */
+function slotSkill(e, ab, a) {
+  const s = a.name != null ? ab.sk[a.name] : null;
+  return !!(s && s.cast) && enemyHasAttack(e);
+}
+
+/**
+ * The length of a skill's cast (its `skillCast` clip): played at the speed of an attack ability — the clip × clamp(attack
+ * interval / clip, 0.1, `max`), `max` −1 = no bound (client code `AbstractAnimatedAbility.UpdatePlaybackSpeed`, as
+ * ai.js attackTiming) [ASSUMED: the skill's ability reads the enemy's attack interval as its attack time]; 0 for a skill
+ * whose ability plays no clip.
+ */
+function castLength(e, cast) {
+  const dur = cast && cast.dur > 0 ? cast.dur : 0;
+  if (!dur) return 0;
+  const hi = cast.max > 0 ? cast.max : cast.max < 0 ? Infinity : 1;
+  const k = Math.min(hi, Math.max(0.1, e.s.interval / dur));
+  return dur * k;
+}
+
+/**
+ * An attack slot of enemy `e` (the `enemySkillSlot` hook, ai.js enemyAttack; docs/rules/sim.md 「적 스킬 = 일반 공격 차례」):
+ * client code `Enemy.AttackWrapper.SearchTarget` — with the main attack ready, the enemy's skills of the attack family
+ * that are available (`EnemySkill.CheckAvailable`: cooldown over, not silenced unless `_ignoreSilence` (our `sil`),
+ * not stunned) and find their targets (our `cond`) are gathered, the highest `priority` wins and ties are drawn
+ * (`IBattleRandom.Uniform`) — then `Cast` casts it in place of the normal attack and restarts the main attack's cooldown
+ * (`ResetCooldown(true)`). The skill's own cooldown stands still while it casts (`EnemySkill.OnTick`: not while
+ * `isCasting`) and restarts as the cast ends (`_OnCastFinish` → `m_cooldownTimer.Reset`): ready again cooldown + cast
+ * later. `resetMain` (`_resetMainAbilityCdWhenCastEnd`): the main attack's cooldown restarts as the cast ends too, the
+ * full interval (`waitFirst`) or none.
+ */
+function onSkillSlot(b, c) {
+  const e = c.enemy;
+  const ab = e && e.mem && e.mem.ab;
+  if (!ab || c.cast || !e.alive) return;
+  const ready = [];
+  for (const a of ab.list) {
+    if (!a.fire || a.cd == null || !(a.left <= 1e-9) || !slotSkill(e, ab, a) || !canCast(e, a.sil, b)) continue;
+    if (a.cond && !safe(b, e, () => a.cond(b, e, a))) continue;
+    ready.push(a);
+  }
+  if (!ready.length) return;
+  let top = -Infinity;
+  for (const a of ready) top = Math.max(top, ab.sk[a.name].pri);
+  const best = ready.filter((a) => ab.sk[a.name].pri === top);
+  const a = best.length > 1 ? b.rng.pick(best) : best[0];
+  const cast = ab.sk[a.name].cast;
+  const dur = castLength(e, cast);
+  a.left = Math.max(TICK, a.cd + dur);
+  c.cast = { dur, atkCd: cast.resetMain ? dur + (cast.waitFirst ? e.s.interval : 0) : e.s.interval };
+  castSkill(b, e, a);
 }
 
 // ---------------------------------------------------------------------------------------------------------------

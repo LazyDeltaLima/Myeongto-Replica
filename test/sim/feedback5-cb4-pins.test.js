@@ -241,10 +241,13 @@ test('item 52: each leader attacks at its data interval while it has a target (1
     const L = bw.spawns.find((x) => x.tag === 'boss');
     const h = makeBattle({ kind: 'boss', stageId: 'act1autochess_m01', seed: 3, routes: bw.routes, sharedBoss: BIG_POOL(), autoFinish: false, timeLimit: 160,
       defs: { chess }, kits, units, enemies: [{ key: L.enemyKey, time: L.time, route: L.routeIndex, mods: L.mods, tag: 'boss' }], setup(b) { b.opts.waveId = bw.templateId; } });
+    // a skill cast takes an attack slot in place of the attack (content/enemies.js onSkillSlot) and holds it for its cast
+    let casts = 0, held = 0;
+    h.b.on('enemySkillSlot', (c) => { if (c.enemy.isBoss && c.cast) { casts++; held += Math.max(0, c.cast.dur - c.enemy.s.interval); } }, { priority: -1000 });
     h.run(150);
     const boss = h.b.enemies.find((e) => e.isBoss);
-    const max = Math.floor(150 / boss.s.interval);
-    assert.ok(boss.stats.attacks >= max - 1, `${bossId} ${L.enemyKey}: ${boss.stats.attacks} attacks, ${max} at its ${boss.s.interval} s interval`);
+    const max = Math.floor((150 - held) / boss.s.interval);
+    assert.ok(boss.stats.attacks + casts >= max - 1, `${bossId} ${L.enemyKey}: ${boss.stats.attacks} attacks + ${casts} skill casts, ${max} slots at its ${boss.s.interval} s interval`);
   }
 });
 

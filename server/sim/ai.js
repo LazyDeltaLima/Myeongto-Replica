@@ -1190,6 +1190,12 @@ function enemyAttack(b, e, dt) {
   if (dmgType === 'none' || e.s.atk <= 0) return cutSwing(e), false;
   // 恐惧 / 缴械 / 战栗 (被阻挡后无法进行普通攻击): no normal attack, and the one swung is interrupted
   if (e.s.flags.fear || e.s.flags.disarm || (e.s.flags.tremble && e.blockedBy)) return cutSwing(e), false;
+  const moves = !!(e.profile?.attackMoves ?? def.attackMoves);
+  // the attack slot: the main attack ready (its cooldown over, the last swing or cast played out, no 麻痹震颤) — a ready
+  // skill of the enemy is cast in its place before any normal attack is looked for (enemySkillSlot)
+  if (!e.swing && e.atkCd <= 0 && e.castLeft <= 0 && !(b.time < e.palsyUntil - 1e-9) && enemySkillSlot(b, e)) {
+    return e.castLeft > 0 && !moves;
+  }
   if (dmgType === 'heal') { if (e.atkCd <= 0) enemyHeal(b, e, e.base.rangeRadius); return false; }
   // applyWay MELEE enemies only ever hit their blocker, even when their data carries a rangeRadius (粉碎攻坚手 2.5,
   // 宿主士兵 2.5, 深池伙友卫队 1.4 … — that radius belongs to their abilities/splash, handled by content).
@@ -1201,7 +1207,6 @@ function enemyAttack(b, e, dt) {
   // `e.profile.canTarget(ally)`: the enemy's own target rule (只攻击地面单位, 不会攻击飞行单位 …; content/enemies/*.js),
   // applied to the candidates before the priority sort and the target count
   const own = e.profile && typeof e.profile.canTarget === 'function' ? e.profile.canTarget : null;
-  const moves = !!(e.profile?.attackMoves ?? def.attackMoves);
   if (e.swing) {
     e.swing.left = attackCountdown(e.swing.left, dt);
     if (e.swing.left > 0) return !moves;   // the wind-up (GitHub #58): the enemy stands through it
@@ -1220,6 +1225,36 @@ function enemyAttack(b, e, dt) {
   if (t.strike > 1e-9) return !moves;
   enemyStrike(b, e, radius, reach, own);
   return false;
+}
+
+/**
+ * Whether enemy `e` makes normal attacks (enemyAttack): an armed profile, a damage type and ATK. Only such an enemy has
+ * an attack slot for its skills (content/enemies.js skillSlot); an unarmed one casts them on their own cooldown.
+ */
+export function enemyHasAttack(e) {
+  if (e.profile && e.profile.noAttack) return false;
+  const dmgType = (e.profile && e.profile.dmgType) || e.def.dmgType;
+  return dmgType !== 'none' && e.s.atk > 0;
+}
+
+/**
+ * An attack slot of enemy `e` offered to its skills (client code `Enemy.AttackWrapper.SearchTarget` → `Cast`, from the
+ * MOVE state's `_SearchAttackTarget`; docs/rules/sim.md 「적 스킬 = 일반 공격 차례」): the `enemySkillSlot` hook
+ * { enemy, cast } — content casts the skill it picks and sets `cast` { dur, atkCd }: the enemy plays the cast for `dur`
+ * s (it stands, no normal attack meanwhile: `castLeft`) and its main attack's cooldown is `atkCd` (the full interval
+ * from now — `Cast` → `mainAttack.ResetCooldown(true)` — unless the skill restarts it as its cast ends). True = a skill
+ * was cast in place of the normal attack.
+ */
+function enemySkillSlot(b, e) {
+  if (!b._hooks.enemySkillSlot) return false;
+  const c = { enemy: e, cast: null };
+  b.emit('enemySkillSlot', c);
+  if (!c.cast) return false;
+  const dur = c.cast.dur > 0 ? c.cast.dur : 0;
+  e.atkCd = c.cast.atkCd ?? e.s.interval;
+  e.castLeft = dur;
+  if (dur > 0 && !(e.profile?.attackMoves ?? e.def.attackMoves)) e.atkStandUntil = Math.max(e.atkStandUntil, b.time + dur);
+  return true;
 }
 
 /** The candidates of one enemy attack, ordered (targeting.js sortAllyTargets) and cut to its target count. */

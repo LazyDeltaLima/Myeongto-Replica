@@ -179,8 +179,44 @@ def enemy_entries(path, wanted):
                 a = cands[sub_names[0]] if sub_names else None
             if a is not None:
                 e[key] = a
+        sk = enemy_skills(sub, modes)
+        if sk:
+            e['skills'] = sk
         if e:
             out[root] = e
+    return out
+
+
+# EnemySkill MonoBehaviour field → output key (its family mask, whether the main attack's cooldown restarts as its cast
+# ends and with what `waitFirstPeriod`)
+SKILL_FIELDS = {'_familyMask': 'family', '_resetMainAbilityCdWhenCastEnd': 'resetMain', '_resetCdWaitFirstPeriod': 'waitFirst'}
+
+
+def enemy_skills(sub, modes):
+    """{skill GameObject name: fields} of an enemy prefab's EnemySkill components (the MonoBehaviour with `_familyMask`,
+    `<root>/Modes/<mode>/Skills/<name>`): its family mask and main-attack reset flags, and the clip of the animated ability
+    on the same GameObject (`anim`, `max`, `wait`, `pre` as for the attack; none when the ability plays no clip). The
+    client casts such a skill in place of a normal attack (client code `Enemy.AttackWrapper.SearchTarget` / `Cast`) and
+    restarts its cooldown when the cast ends (`EnemySkill._OnCastFinish`). A name in several modes: the first mode's
+    (the prefab's `_modes` order), the others only when they differ (`alt`)."""
+    order = {p: i for i, p in enumerate(modes or []) if p}
+    rank = lambda gp: min((i for p, i in order.items() if gp.startswith(p + '/')), default=len(order))
+    by_gp = {}
+    for gp, d, _ in sub:
+        by_gp.setdefault(gp, []).append(d)
+    out = {}
+    for gp in sorted((gp for gp, ds in by_gp.items() if any('_familyMask' in d for d in ds)), key=lambda g: (rank(g), g)):
+        ds = by_gp[gp]
+        s = next(d for d in ds if '_familyMask' in d)
+        rec = {o: num(s[k]) if isinstance(s.get(k), (int, float)) else 0 for k, o in SKILL_FIELDS.items()}
+        a = next((x for x in (ability(d) for d in ds) if x is not None), None)
+        if a and a.get('anim'):
+            rec.update({k: a[k] for k in ('anim', 'max', 'wait', 'pre') if k in a})
+        name = gp.rsplit('/', 1)[-1]
+        if name not in out:
+            out[name] = rec
+        elif rec != out[name] and rec not in out[name].get('alt', []):
+            out[name].setdefault('alt', []).append(rec)
     return out
 
 

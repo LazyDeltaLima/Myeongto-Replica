@@ -925,7 +925,9 @@ describe('enemy skills with a ground-only client selector skip a flying ally', (
     const e = h.spawn(key, { pos, routeIndex: 0, mods: { speedMul: 0, hpMul: 1e3, ...mods } });
     return { h, u, e };
   };
+  // every skill ready at once; each is cast at an attack slot of its own (content/enemies.js onSkillSlot): wait that many slots
   const fireSkills = (e) => { for (const a of e.mem.ab.list) if (a && a.fire && a.cd != null) a.left = 0.1; };
+  const slotsFor = (e) => e.mem.ab.list.filter((a) => a && a.fire && a.cd != null).length * e.s.interval;
   const skillHits = (h, e, t) => h.hooksOf('damaged').filter((c) => c.target === t && c.source === e && c.dmg && !c.dmg.isAttack).length;
   const stuns = (h, t) => h.hooksOf('statusApplied').filter((c) => c.status === 'stun' && c.target === t).length;
   const UP = [enemiesMod, bossesMod], PATCHED = [enemiesMod, bossesMod, simPatch];
@@ -936,7 +938,7 @@ describe('enemy skills with a ground-only client selector skip a flying ally', (
     const r = field(extra, MOUSE, 'enemy_1509_mousek', [12, 9], { atkMul: 0.01 });
     r.h.run(0.5);
     fireSkills(r.e);
-    r.h.run(2);
+    r.h.run(2 + slotsFor(r.e));
     return r;
   };
   test('鼠王 upstream: 唱沙 / 沙狱 centre on a flyer (drop NO_AIR_PICKS when this fails)', () => {

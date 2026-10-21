@@ -2,7 +2,8 @@
 // "令全场的“碎铳之簧”获得5秒增益：移动速度+800%，无敌，增益期间切换为追逐模式", “碎铳之簧” 追逐模式 "持续追踪令其进入该形态的场上的
 // 假想敌：铳移动" (no arrival clause). Until 0.2.1 reaching the gun (or 1 tile from it) ended the chase. Each gun casts on its
 // own data timer (initCooldown 20, cooldown 45 — no stagger between the two guns of a pair field, no lock while a chase
-// runs: the data has neither, and the handbook's 「向自身」 means the later call takes the springs).
+// runs: the data has neither, and the handbook's 「向自身」 means the later call takes the springs) — cast at the gun's
+// first attack slot once ready, in place of that attack (content/enemies.js onSkillSlot): up to one attack interval late.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -39,6 +40,17 @@ function arena({ solo = false, manual = false, cooldown = null } = {}) {
   });
 }
 
+/**
+ * A call `late` s after its skill came ready: at the gun's next attack slot, within one attack interval — the longest
+ * the gun had (its 【枪弹交织】 stacks change it; `slowest`, recorded by watchIntervals).
+ */
+const slotLate = (late, gun, slowest) => late > -1e-6 && late < (slowest.get(gun) ?? gun.s.interval) + 0.1;
+function watchIntervals(h) {
+  const slowest = new Map();
+  h.b.on('tick', () => { for (const e of h.enemies()) if (e.defId === GUN) slowest.set(e, Math.max(slowest.get(e) ?? 0, e.s.interval)); });
+  return slowest;
+}
+
 /** Every 【末日布道】 call (a new chase object on the spring): { time, gun }. */
 function recordCalls(h) {
   const calls = [];
@@ -52,19 +64,20 @@ function recordCalls(h) {
   return calls;
 }
 
-test('隐秘核心铳 pair: each gun calls on its own data timer (20 s after it spawns, then every 45 s); the later call takes the springs', () => {
+test('隐秘核心铳 pair: each gun calls on its own data timer (20 s after it spawns, then every 45 s — at its next attack slot); the later call takes the springs', () => {
   const h = arena();
   const spawned = new Map();
   h.b.on('enemySpawn', (c) => { if (c.enemy.defId === GUN) spawned.set(c.enemy, h.b.time); });
   const calls = recordCalls(h);
+  const slowest = watchIntervals(h);
   h.run(150);
   assert.equal(spawned.size, 2, 'the pair field has two guns (the mirrored one)');
   const skill = W.act1autochess_h08_02.overrides[GUN].skills.find((s) => s.prefabKey === '2');
   for (const [gun, t0] of spawned) {
     const own = calls.filter((c) => c.gun === gun).map((c) => c.time);
     assert.equal(own.length, 3, 'three calls each in 150 s');
-    assert.ok(Math.abs(own[0] - t0 - skill.initCooldown) < h.TICK * 2, `first call ${skill.initCooldown} s after its spawn`);
-    for (let i = 1; i < own.length; i++) assert.ok(Math.abs(own[i] - own[i - 1] - skill.cooldown) < h.TICK * 2, `then every ${skill.cooldown} s`);
+    assert.ok(slotLate(own[0] - t0 - skill.initCooldown, gun, slowest), `first call ${skill.initCooldown} s after its spawn, at its next attack slot`);
+    for (let i = 1; i < own.length; i++) assert.ok(slotLate(own[i] - own[i - 1] - skill.cooldown, gun, slowest), `then every ${skill.cooldown} s, at the next attack slot`);
   }
   // the two mirrored guns call within a tick or two of each other (no half-cooldown stagger), the later one wins
   for (let i = 1; i < calls.length; i += 2) assert.ok(calls[i].time - calls[i - 1].time < h.TICK * 3, 'the two calls come together');
@@ -109,7 +122,8 @@ test('隐秘核心铳: the other gun\'s call during a chase retargets every spri
   assert.ok(first && first.gun === left, 'the first call takes the spring to the left gun');
   h.run(1);
   assert.equal(spring.mem.ab.dash, first, 'chasing the left gun');
-  call.left = 0;     // the right gun's call comes ready mid-chase
+  call.left = 0;     // the right gun's call comes ready mid-chase, with its attack slot open (onSkillSlot)
+  right.atkCd = 0; right.castLeft = 0; right.swing = null;
   h.step(2);
   const second = spring.mem.ab.dash;
   assert.ok(second && second !== first && second.gun === right, 'the later call takes the spring at once');
@@ -145,12 +159,14 @@ test('隐秘核心铳: with no gun left on the field the spring holds still, inv
 test('隐秘核心铳: solo keeps the template initial cooldown and repeated call timing', () => {
   const h = arena({ solo: true });
   const calls = recordCalls(h);
+  const slowest = watchIntervals(h);
   h.run(100);
   assert.equal(calls.length, 2);
   const tpl = W.act1autochess_h08_02_s;
   const spawnTime = tpl.spawns.find((s) => s.tag === 'boss').time;
   const skill = (tpl.overrides[GUN]?.skills ?? E[GUN].skills).find((s) => s.prefabKey === '2');
-  assert.ok(Math.abs(calls[0].time - spawnTime - skill.initCooldown) < h.TICK * 2);
-  assert.ok(Math.abs(calls[1].time - calls[0].time - skill.cooldown) < h.TICK * 2);
+  const gun = h.enemies().find((e) => e.defId === GUN);
+  assert.ok(slotLate(calls[0].time - spawnTime - skill.initCooldown, gun, slowest));
+  assert.ok(slotLate(calls[1].time - calls[0].time - skill.cooldown, gun, slowest));
   assert.equal(h.b.errorCount, 0);
 });

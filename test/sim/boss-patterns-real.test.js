@@ -46,6 +46,10 @@ test('real boss_2 field: 假想敌：铳 leaves 1 stack after a new target\'s fi
   b.on('attack', (c) => { if (c.attacker && c.attacker.isBoss) seen.push({ t: b.time, tgt: c.targets[0], aspd: c.attacker.s.aspd }); }, { priority: -1000 });
   const ev = b._ev.bind(b);
   b._ev = (x) => { const e = x[0] === 'swing' && b.enemies.find((u) => u.id === x[1]); if (e && e.isBoss) swings.push({ t: b.time, aspd: e.s.aspd }); return ev(x); };
+  // a skill cast takes an attack slot in place of a swing (content/enemies.js onSkillSlot): such a gap is no swing to swing
+  const casts = [];
+  const fx = b.fx.bind(b);
+  b.fx = (k, o) => { if (k === 'enemySkill' && b.enemies.find((u) => u.id === o.id)?.isBoss) casts.push(b.time); return fx(k, o); };
   for (let i = 0; i < 30 * 90 && !b.finished; i++) b.step();
   assert.ok(seen.length >= 5, `the gun attacked (${seen.length})`);
   let last = null, n = 0;
@@ -54,12 +58,13 @@ test('real boss_2 field: 假想敌：铳 leaves 1 stack after a new target\'s fi
     last = a.tgt;
     assert.equal(a.aspd, step * n, `t ${a.t.toFixed(2)}: ${n} stack(s)`);
   }
-  const k = seen.findIndex((a, i) => i > 0 && a.tgt === seen[i - 1].tgt);
-  assert.ok(k > 0, 'two attacks in a row on one target');
+  const swingOf = (a) => swings.filter((x) => x.t <= a.t + 1e-9).at(-1), nextOf = (a) => swings.find((x) => x.t > a.t + 1e-9);
+  const k = seen.findIndex((a, i) => i > 0 && a.tgt === seen[i - 1].tgt && nextOf(seen[i - 1]) && !casts.some((t) => t > swingOf(seen[i - 1]).t && t < nextOf(seen[i - 1]).t));
+  assert.ok(k > 0, 'two attacks in a row on one target, no skill cast between the swings');
   // the stack lands as the attack strikes, t into its swing; the running cooldown keeps its progress ratio (client
   // OnAttackTimeChanged): the next swing comes t + (1 − t/T_old)·T_new after this one
   const T = (aspd) => gd.enemy('enemy_9017_achunt').stats.bat * 100 / aspd;
-  const sw = swings.filter((x) => x.t <= seen[k - 1].t + 1e-9).at(-1), next = swings.find((x) => x.t > seen[k - 1].t + 1e-9);
+  const sw = swingOf(seen[k - 1]), next = nextOf(seen[k - 1]);
   const t = seen[k - 1].t - sw.t, want = t + (1 - t / T(sw.aspd)) * T(seen[k - 1].aspd);
   assert.ok(Math.abs(next.t - sw.t - want) < 0.1, `swing to swing: ${next.t - sw.t} ≈ ${want}`);
 });
