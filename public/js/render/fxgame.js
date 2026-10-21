@@ -359,6 +359,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!s || s.of !== index) { s = new Set(index?.emitted?.[bundle] || []); s.of = index; emittedSets.set(bundle, s); }
     return s;
   };
+  // (2026-10-21) and the prefabs packed in from another bundle (index.json `sources` with a `pack`, fx_extract.py --pack):
+  // only the client bindings that name them play them — the `_attack` name rule took common.ab's common_ignite_attack (a
+  // skill's activation buff) for the normal attack's cast of an operator with none bound (艾丝黛尔, 地灵: on every attack)
+  const packedSets = new Map();
+  const packedIn = (bundle) => {
+    let s = packedSets.get(bundle);
+    if (!s || s.of !== index) {
+      s = new Set(Object.entries(index?.sources || {}).filter(([k, v]) => v?.pack && k.startsWith(`${bundle}/`)).map(([k]) => k.slice(bundle.length + 1)));
+      s.of = index; packedSets.set(bundle, s);
+    }
+    return s;
+  };
 
   async function ensure() {
     if (mod) return true;
@@ -443,7 +455,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const b = bundleOf(view);
     if (!b) return;
     // local patch (maintainer report): a directional emitter entry plays the copy for the facing (dirPick)
-    const { names, unflip } = dirPick(view, given || effectsFor(b.prefabs, kind, skillIndex).filter((n) => !emittedIn(b.bundle).has(n)));
+    const { names, unflip } = dirPick(view, given || effectsFor(b.prefabs, kind, skillIndex).filter((n) => !emittedIn(b.bundle).has(n) && !packedIn(b.bundle).has(n)));
     if (names.length && trace) trace({ kind, names, by: ownerOf(view), at: at ? ownerOf(at) ?? null : null }); // tests: what it plays
     if (dry) for (const n of names) dryFollow(b.bundle, n, ownerOf(view) ?? null, (at || view).info ? ownerOf(at || view) ?? null : null);
     if (!names.length || !(await ensure())) return;

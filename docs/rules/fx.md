@@ -1540,6 +1540,13 @@
 - 고친 것: `fx_extract.py --bundle <자기> --pack <번들> --prefab …`로 그 이름들만 자기 묶음에 추출(EN 클라, 출처는 색인 `sources`에 저절로;
   묶음 전체 재추출 `reextract_sources.py`도 그대로 따라감). 코드 변경 없음. 이벤트 기록 골든에 그 줄들이 더해짐 —
   白面鸮의 공격 시전은 이름 매핑의 `plosis_attack_01_start` 대신 바인딩된 `common_heal_start_01`.
+- 이름 규칙은 가져온 프리팹을 안 고른다 (2026-10-21, 관리자 확인 「낮은 티어 오퍼레이터의 불꽃 버프가 스킬 없이 붙어 있음」): 가져온 이름도 이름
+  규칙(`fxmap.js effectsFor`)에는 자기 묶음 이름처럼 보여, `_attack` 규칙이 스킬 발동 버프 `common_ignite_attack`을 일반 공격 시전으로 골랐다 —
+  바인딩된 공격 시전이 없는 오퍼레이터(艾丝黛尔·地灵 등)가 공격마다 틂. 같은 길로 凯尔希·思衡托의 명중 바인딩이 빈 모드 공격에 모드 2의
+  `kalts_attack_01_hit`이 나왔다. → `fxgame.js packedIn`: 색인 `sources`에 `pack`이 있는 이름은 `play()`의 이름 규칙에서 뺀다(`emitted`와 같은 자리);
+  바인딩이 그 이름을 넘기면 그대로 튼다. 스킬 발동(`activationEffects`)의 이름 규칙은 그대로 [추정: 가져온 이름 중 `_skill_0N`이 든 것은
+  `folnic_skill_02_start`뿐이고 그것은 모드 시전이라 이미 빠짐]. 확인: 이펙트 골든 5줄만 빠짐(艾丝黛尔 attackStart 4판, 凯尔希·思衡托 명중 1줄),
+  디버그 아레나에서 艾丝黛尔 S1·S2·地灵 S2를 SP 없이 12초 — `common_ignite_attack` 0회, SP를 채운 S1은 발동 버프로 1회.
 - 넣지 않은 것: `buff_*`(공용 `buff` 묶음 — 상태 이상 층 `fxstatus.js`가 모든 유닛에 그리므로 자기 묶음에 넣으면 두 번), `common_empty`(빈 프리팹),
   塞雷娅 S3 모드 명중 `common_heal_hit_01` — 클라 S3 모드의 공격은 **아군**을 고른다(charpack `Modes/S3/Body/Attack/Trigger._targetSide` 1:
   치료 펄스가 그 모드의 공격)인데 시뮬은 S3 중에도 적을 쳐서, 넣으면 적 위에 치료 십자가 뜬다. 시뮬이 맞춰지면 넣는다.

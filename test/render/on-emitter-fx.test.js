@@ -76,7 +76,7 @@ test('the kids come from the emitting effect\'s bundle on its owner; the name ru
   assert.match(play, /l\.inst\.def\?\.bundle/);
   assert.match(play, /lastViews\?\.get\(l\.view\.id\)/);
   assert.match(SRC, /if \(l\.inst\.onEmit\?\.length\) stepOnEmit\(l\)/);
-  assert.match(SRC, /effectsFor\(b\.prefabs, kind, skillIndex\)\.filter\(\(n\) => !emittedIn\(b\.bundle\)\.has\(n\)\)/);
+  assert.match(SRC, /effectsFor\(b\.prefabs, kind, skillIndex\)\.filter\(\(n\) => !emittedIn\(b\.bundle\)\.has\(n\) && !packedIn\(b\.bundle\)\.has\(n\)\)/);
   assert.match(SRC, /new Set\(\[\.\.\.KIT_OWNED, \.\.\.em\]\)/);
   assert.match(SRC, /pickName\(b, k\)\)\.filter\(\(k\) => k && !emittedIn\(b\.bundle\)\.has\(k\)\)/);
 });
