@@ -108,7 +108,11 @@ export default {
             if (c.unit !== unit || unit.mem.mlyRamp == null) return;
             unit.trait.ramp = unit.mem.mlyRamp;
             unit.mem.mlyRamp = null;
-            if (unit.trait.ramp > 0 && unit.alive) battle.addBuff(unit, { key: 'trait:libratorRamp', mods: { atkPct: unit.trait.ramp } });
+            if (!(unit.trait.ramp > 0 && unit.alive)) return;
+            battle.addBuff(unit, { key: 'trait:libratorRamp', mods: { atkPct: unit.trait.ramp }, visible: true });
+            // the kept stacks keep their effects (mlynar_s_cast finishes only [killmark]; professions.js installLibrator)
+            const pf = unit.profile, n = Math.round(unit.trait.ramp / ((pf.rampMax ?? 2) / (pf.rampTime ?? 40)));
+            battle.fx('stacks', { x: unit.x, y: unit.y, id: unit.id, buff: 'trait:libratorRamp', n, max: pf.rampTime ?? 40, ...(pf.rampMid > 0 ? { mid: pf.rampMid } : {}) });
           }, { owner: unit, priority: -100 });
         }
         if (sid && sid !== 'skchr_mlynar_3') return;

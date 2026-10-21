@@ -90,7 +90,11 @@ export default {
           whileOn(battle, unit, 1, () => {
             const n = Math.min(max, Math.floor((battle.time - unit.deployedAt + 1e-6) / iv));
             const cur = unit.findBuff('saria:suit');
-            if (n > 0 && (!cur || cur.stacks !== n)) battle.addBuff(unit, { key: 'saria:suit', stacks: n, maxStacks: max, mods: mods({ atkPct: num(t0.atk), defPct: num(t0.def) }) });
+            if (n > 0 && (!cur || cur.stacks !== n)) {
+              battle.addBuff(unit, { key: 'saria:suit', stacks: n, maxStacks: max, mods: mods({ atkPct: num(t0.atk), defPct: num(t0.def) }), visible: true });
+              // demkni_t_1[stack]'s effect (render/fxstatus.js STACK_FX)
+              battle.fx('stacks', { x: unit.x, y: unit.y, id: unit.id, buff: 'saria:suit', n, max });
+            }
           });
         } },
         { install(battle, unit) { // 精神回复

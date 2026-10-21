@@ -145,7 +145,8 @@ KNOWN = {
     'script:SwitchableEffectByFaceDirection': (_TODO, 'plays an up / down / left variant by facing'),
     'script:SwitchableThreeFaceEffect': (_TODO, 'plays an up / down variant by facing'),
     'script:SwitchableWhenContainsEquipment': (_TODO, 'a variant per equipped module'),
-    'script:SwitchableEffectByBuffStackCnt': (_TODO, 'a variant by buff stack count'),
+    'script:SwitchableEffectByBuffStackCnt': (_HAND, 'a variant by buff stack count; only 信仰搅拌机\'s rmixer_buff_01 (`_stackCnt` 3, GE): '
+                                              'render/fxstatus.js STACK_FX \'rmixer:t1\''),
     'script:EmitterRandomGroup': (_TODO, 'plays one of a group at random'),
     'script:FunnelHitEffect': (_TODO, 'a random offset of a drone hit'),
     'script:RandomDirection': (_TODO, 'a random direction at play'),

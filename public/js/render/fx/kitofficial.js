@@ -55,7 +55,19 @@ export const KIT_OFFICIAL = {
   },
   // … and a layer gained (mudrok_t_1[init] at deploy / [recharge]: CreateEffect mudrok_buff_01_begin, then the layer's buff —
   // its loop is fxstatus.js LAYER_FX, from the same event's `n`). 卡涅利安's mark stacks: fxstatus.js STACK_FX only.
-  stacks: { mudrok: () => ({ play: [once('mudrok_buff_01_begin')] }) },
+  // 佩佩 S3: each attack's pepe_s_3_fx on the main target picks its range effect by her pepe_s3_range[atk] stacks before the
+  // attack adds one (the ability's _activeBuffsToMainTarget: [fx] before [range][active]): ≥ max_stack_cnt _03, ≥ 2 _02, else
+  // _01 — at the target's feet (`tgt`), facing UP (_constDirection)
+  stacks: {
+    mudrok: () => ({ play: [once('mudrok_buff_01_begin')] }),
+    pepe: (o) => {
+      const n = Number(o.n) || 0, lv = Number(o.max) > 0 && n >= Number(o.max) ? 3 : n >= 2 ? 2 : 1;
+      return { play: [once(`pepe_skill_03_hit_range_0${lv}`, 'tgt')] };
+    },
+  },
+  // 赤刃明霄陈 T2: the dodge held again (chen3_t2[timer] at stack_time: CreateEffect chen3_buff_start_01, and the heal's
+  // chen3_Shield_buff_02); its loop is the 'chen3:evade' status (fxstatus.js KEY_FX)
+  evadeReady: { chen3: () => ({ play: [once('chen3_buff_start_01'), once('chen3_Shield_buff_02')] }) },
   // 伊内丝 T2 影哨: projectile_chr_ines_guard `_effectsWhenReached` label_start_01 + label_01 + range_01 where it lands;
   // they last while the sentry stands (a new one replaces it, S3's recall — her 'beam' — ends it)
   sentry: {

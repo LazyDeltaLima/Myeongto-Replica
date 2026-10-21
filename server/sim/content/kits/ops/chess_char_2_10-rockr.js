@@ -96,8 +96,11 @@ export default {
           const n = Math.min(max, Math.floor((battle.time - unit.deployedAt + 1e-9) / iv));
           const cur = unit.findBuff('rockr:rock');
           if ((cur ? cur.stacks : 0) === n) return;
-          if (n > 0) battle.addBuff(unit, { key: 'rockr:rock', mods: { atkPct: v }, stacks: n, maxStacks: max, tags: ['talent'] });
-          else battle.removeBuff(unit, 'rockr:rock');
+          if (n > 0) {
+            battle.addBuff(unit, { key: 'rockr:rock', mods: { atkPct: v }, stacks: n, maxStacks: max, tags: ['talent'], visible: true });
+            // rockr_t_1[effect_1] at max_stack_cnt (render/fxstatus.js STACK_FX)
+            battle.fx('stacks', { x: unit.x, y: unit.y, id: unit.id, buff: 'rockr:rock', n, max });
+          } else battle.removeBuff(unit, 'rockr:rock');
         }, { owner: unit });
       } }],
     };

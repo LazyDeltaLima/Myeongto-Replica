@@ -308,13 +308,21 @@ const installLibrator = (battle, unit) => {
     else { battle.addBuff(unit, { key: 'trait:libratorBlock', mods: { blockCnt: -99 } }); battle.releaseBlocked(unit); }
   };
   unit.trait.ramp = 0;
+  // the client counts the ramp as mlynar_tr_atk stacks, one per second (max_stack_cnt): its effects come with the count —
+  // from the first, from mid_stack_cnt and at max_stack_cnt (render/fxstatus.js STACK_FX)
+  const rampBuff = () => {
+    battle.addBuff(unit, { key: 'trait:libratorRamp', mods: { atkPct: unit.trait.ramp }, visible: true });
+    const n = Math.round(unit.trait.ramp / (rampMax / rampTime));
+    battle.fx('stacks', { x: unit.x, y: unit.y, id: unit.id, buff: 'trait:libratorRamp', n, max: rampTime, ...(unit.profile.rampMid > 0 ? { mid: unit.profile.rampMid } : {}) });
+  };
   battle.every(1, () => {
     if (!unit.alive || !unit.deployed || unit.skill?.active) return;
+    const was = unit.trait.ramp;
     unit.trait.ramp = Math.min(rampMax, unit.trait.ramp + rampMax / rampTime);
-    battle.addBuff(unit, { key: 'trait:libratorRamp', mods: { atkPct: unit.trait.ramp } });
+    if (unit.trait.ramp !== was) rampBuff();
   }, { owner: unit });
   const applyRamp = () => {
-    if (unit.trait.ramp > 0) battle.addBuff(unit, { key: 'trait:libratorRamp', mods: { atkPct: unit.trait.ramp } });
+    if (unit.trait.ramp > 0) rampBuff();
     else battle.removeBuff(unit, 'trait:libratorRamp');
   };
   battle.on('deploy', (ctx) => { if (ctx.unit === unit) { unit.trait.ramp = rampInit; applyRamp(); applyBlock(); } }, { owner: unit });
@@ -662,7 +670,7 @@ const TUNE = {
   bard: (tb) => ({ auraRatio: num(tb['attack@atk_to_hp_recovery_ratio'], 0.1) }),
   hammer: (tb) => ({ splashScale: num(tb['attack@atk_scale_2'], 0.5), splashRadius: num(tb['attack@ability_range_radius'], 1) }),
   instructor: (tb) => ({ unblockedScale: num(tb.atk_scale, 1.2) }),
-  librator: (tb) => ({ rampMax: num(tb.atk, 2), rampTime: num(tb.max_stack_cnt, 40), rampInit: num(tb.init_atk, 0) }),
+  librator: (tb) => ({ rampMax: num(tb.atk, 2), rampTime: num(tb.max_stack_cnt, 40), rampInit: num(tb.init_atk, 0), rampMid: num(tb.mid_stack_cnt, 0) }),
   lord: (tb) => ({ rangedScale: num(tb.atk_scale, 0.8) }),
   musha: (tb) => ({ selfHeal: num(tb.value, 50) }),
   reaper: (tb) => ({ selfHeal: num(tb.value, 50) }),

@@ -1548,11 +1548,14 @@ export class UnitView {
   }
 
   /** The status `key` now has `n` layers / stacks (a kit's fx 'stacks'): fxstatus.js LAYER_FX / STACK_FX. */
-  onStatusCount(key, n) {
+  onStatusCount(key, n, o = null) {
     if (typeof key !== 'string' || !this.statuses.has(key)) return;
-    const from = (this.statusFrom ||= new Map()).get(key);
-    if (from) from.n = Math.max(0, Number(n) || 0);
-    else this.statusFrom.set(key, { src: null, fx: null, n: Math.max(0, Number(n) || 0) });
+    const from = (this.statusFrom ||= new Map()).get(key) || { src: null, fx: null, n: 0 };
+    from.n = Math.max(0, Number(n) || 0);
+    // the bounds of fxstatus.js STACK_FX ('max' / 'mid') come with the count
+    if (o && Number(o.max) > 0) from.max = Number(o.max);
+    if (o && Number(o.mid) > 0) from.mid = Number(o.mid);
+    this.statusFrom.set(key, from);
   }
 
   /**

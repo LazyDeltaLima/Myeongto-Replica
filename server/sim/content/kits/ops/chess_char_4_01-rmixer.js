@@ -74,8 +74,11 @@ export default withDefaults({
         { install(battle, unit) { // 扫射迎宾仪礼: every damage dealt → DEF +30 / ASPD +3 for 10 s, ≤ 3 stacks
           battle.on('damaged', (c) => {
             if (c.source !== unit || !unit.alive || c.target.side !== 'enemy' || !(c.amount > 0)) return;
-            battle.addBuff(unit, { key: 'rmixer:t1', duration: num(t0.duration, 10), refresh: 'stack', maxStacks: Math.max(1, num(t0.max_stack_cnt, 3)),
-              mods: { defFlat: num(t0.def), aspd: num(t0.attack_speed) } });
+            const max = Math.max(1, num(t0.max_stack_cnt, 3)), was = unit.findBuff('rmixer:t1')?.stacks ?? 0;
+            const b = battle.addBuff(unit, { key: 'rmixer:t1', duration: num(t0.duration, 10), refresh: 'stack', maxStacks: max,
+              mods: { defFlat: num(t0.def), aspd: num(t0.attack_speed) }, visible: true });
+            // rmixer_buff_01, swapped for _02 at 3 stacks (render/fxstatus.js STACK_FX)
+            if (b && b.stacks !== was) battle.fx('stacks', { x: unit.x, y: unit.y, id: unit.id, buff: 'rmixer:t1', n: b.stacks, max });
           }, { owner: unit });
         } },
         { install(battle, unit) { // 架盾送客仪礼: no active attack for 8 s → shield 15 % max HP; timer restarts when it breaks

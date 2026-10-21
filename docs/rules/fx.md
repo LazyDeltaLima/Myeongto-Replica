@@ -1648,6 +1648,47 @@
   화살만), `test/render/attack-alts.test.js`. 이벤트 기록 골든: 위 다섯 명의 B/C 시전·명중이 더해지고 拉普兰德·银灰·断崖·伊内丝의 COMBAT 시전이
   저지 없는 판에서 빠짐(维娜·维多利亚 한 줄은 시나리오 난수 순서가 밀린 것). [화면 미확인: 실제 판에서 클립과 시전 이펙트가 같은 자식인지]
 
+### 버프 스택 수로 바뀌는 이펙트 — 스택 단계·최대 스택·회피 준비 (2026-10-21)
+
+- 원인: 공식 버프 템플릿은 STACK 버프의 `overrideEffectKey`를 첫 스택부터 띄우고, `FilterByBuffStackCount`가 정한 수에 이른 순간 다른 효과의
+  파생 버프를 만든다. 시뮬은 그 버프들을 클라에 알리지 않거나(`visible` 없음) 스택 수를 안 보내 아무것도 안 나왔다. 조사·표는 관리자 노트(스택 단계
+  버프 이펙트, 2026-10-17).
+- 클라(EN 버프 템플릿 `config/buff_template_holder.ab`, charpack):
+  - 信仰搅拌机 T1 `rmixer_t1[attr_stack]` `rmixer_buff_01` — 그 프리팹의 `SwitchableEffectByBuffStackCnt`(`_stackCnt` 3, GE)가 3스택에 `rmixer_buff_02`로
+    바꾼다(앞 것은 멈춤, 역어셈 0xE9B9B0). 琳琅诗怀雅 T1 `swire2_tr` 스킬 중 결제마다 `swire2_t_1[atk]` `swire2_buff_01_start`, `max_stack_cnt`에
+    `[max]` `_01_start_02`. 阿斯卡纶 T1 적의 `ascln_t_1[debuff]` `ascln_buff_01`, 최대에 `[max_eff]` `ascln_buff_02`(1초마다 판정, 내려가면
+    `FinishDerivedBuff`). 夕 T1 `dusk_t_1[atk]` `dusk_buff_03_start`, 최대(EQUALS)에 `[effect]` `_03_start_02`. 塞雷娅 T1 `demkni_t_1[stack]`
+    `demkni_buff_01_self`. 妮芙 T2 최대(모듈 판 `nymph_e_002_t_2`는 `stack_cnt_check`)에 `nymph_t_2[atk][effect]` `nymph_talent_buff_02`. 洛洛 T1
+    최대(EQUALS)에 `[effect_1]` `rockr_buff_01`.
+  - 玛恩纳 解放者 특성 `mlynar_tr`: 초마다 `mlynar_tr_atk` 한 스택, 스킬 밖에서만 이펙트를 고침 — 1스택 `[a]` `mlynar_attack_01_buff_L_01`,
+    `mid_stack_cnt`(20) `[b]` `_L_02`, `max_stack_cnt`(40) `[c]` `_L_03`, 아래로 내려가면 b·c 끔; 스킬 끝 `mlynar_s_cast` ON_BUFF_FINISH가 스택과 셋을
+    함께 끝냄(S2 `[killmark]`가 있으면 그것만 — 스택·이펙트 유지).
+  - 佩佩 S2 `pepe_s_2[attack_speed]`: 첫 시전은 `first_skill`만 지우고, 둘째부터 `cnt`(= `max_stack_cnt`에서 시전마다 1씩 줄임)로 `≤ 0` `[effect_3]`
+    `pepe_buff_level_03` · `≤ 1` `[effect_1]` `_01` · 그 밖 `[effect_2]` `_02`; 스킬 끝에 `FinishDerivedBuff`. (데이터 `max_stack_cnt` 2: 둘째 시전 `_01`,
+    셋째부터 `_03`, `_02`는 안 나옴.) 佩佩 S3: `Modes/S3/Body/Attack`의 `_activeBuffsToMainTarget` [`pepe_s_3_fx`, `pepe_s_3_range[active]`, …] — 앞의
+    `pepe_s_3_fx`가 그녀의 `pepe_s3_range[atk]` 스택(이번 공격이 더하기 **전**)으로 주 대상 발밑에 `≥ max_stack_cnt` `_hit_range_03` · `≥ 2` `_02` ·
+    그 밖 `_01`(`_constDirection` UP) [추정: 목록 순서대로 적용].
+  - 회피 준비: 赤刃明霄陈 T2 `chen3_t2[timer]`가 `stack_time`에 `chen3_buff_start_01`(CreateEffect)·`[evade]` `chen3_Shield_buff_01`(Evade에 끝)·회복의
+    `chen3_Shield_buff_02`; 蒂比 `tippi_t[evade]` `tippi_buff_01`(Evade에 끝).
+- 고친 것: 키트가 그 버프를 `visible`로 만들고, 스택 수가 바뀔 때마다 fx 'stacks' { id, buff, n, max, mid? }(`max`·`mid`는 키트가 읽는 공식 블랙보드)를
+  보낸다(泥岩·卡涅利安과 같은 길). `fxstatus.js STACK_FX` 항목이 [from, spec, below?] — `from` 이상(이고 `below` 미만)일 때 켬, 경계에 `'max'`/`'mid'`
+  (그 이벤트의 값, 없으면 안 켬); 키 끝 `:<id>`(阿斯卡纶 적용자별)는 떼고 찾음. `UnitView.onStatusCount`가 `max`·`mid`를 함께 둠.
+  - 키: `rmixer:t1`(01은 3 미만만)·`talent:swire2_buyer`·`ascln:judg:<id>`·`dusk:realm`·`saria:suit`·`nymph:key`·`rockr:rock`·`trait:libratorRamp`
+    (해방자 램프를 공식처럼 초 = 스택으로 환산: `n` = 램프 ÷ (최대 ÷ `max_stack_cnt`), 모듈 시작 +100 %는 20스택; 玛恩纳 S2가 지킨 램프도 다시 보냄).
+  - 佩佩 S2 `pepe:rage`(둘째 시전부터의 버프)에 단계 `fxTag` 1/2/3 → `KEY_FX` 함수. 佩佩 S3는 공격마다 'stacks' { buff 'pepe:tremor', n: 이번 전
+    스택, max, tgt: 주 대상 } → `kitofficial.js stacks.pepe`가 `tgt`에.
+  - 赤刃明霄陈 `chen3:evade`(쥔 동안, 다시 배치되면 다시 켬)·蒂比 `tippi:evade`(준비된 순간부터 피해가 가져갈 때까지) → `KEY_FX`; 赤刃明霄陈의 순간 둘은
+    새 키트 이벤트 'evadeReady' → `kitofficial.js`(대체 그림 없음 `a: 'none'`).
+  - `fx_coverage.py`: `SwitchableEffectByBuffStackCnt` todo → hand(信仰搅拌机만).
+- 안 한 것: 阿斯卡纶의 `[max_eff]` 판정 주기(1초)는 안 따름 — 스택이 바뀌는 순간. 蒂比 회피 준비는 시뮬 그대로(배치 즉시 준비, 피하지 못하는 피해도
+  준비를 되돌림 — 공식 `tippi_t[evade]`는 `FilterDamageModifer`를 거친 피해에만 끝남 [추정]); 赤刃明霄陈의 쥔 회피는 시뮬처럼 퇴각에도 남는다.
+- 확인: 시뮬 `test/sim/stack-buff-fx-events.test.js`(키트마다 'status'·'stacks' 수와 경계, 佩佩 S2 단계, S3 `tgt`, 'evadeReady'), 렌더
+  `test/render/stack-buff-fx.test.js`(구간·`max`/`mid`·적용자 키·단계·회피 준비·佩佩 S3 명중 단계). 골든: 표시 이벤트 수(`status`·`fx`·`stacks`·
+  `evadeReady`)만; 이벤트 기록 골든 + 줄만(첫 단계들, 信仰搅拌机 `_02`, 佩佩 S3 `_01`~`_03`, 赤刃明霄陈 셋, 蒂比). Windows Chrome 디버그 아레나(정예,
+  오류 0, 전투 시계로 첫 재생): 信仰搅拌机 `_01` 2.0 s → `_02` 4.2 s, 佩佩 S3 `_01`·`_02`·`_03`, 佩佩 S2 둘째 시전에 `pepe_buff_level_01`, 玛恩纳
+  `_L_01`·`_L_02`(모듈 시작 +100 % = 20스택이라 배치 즉시), 赤刃明霄陈 8.3 s에 셋, 蒂比 `tippi_buff_01`, 塞雷娅 21.7 s, 琳琅诗怀雅 S3 `_01_start`, 阿斯卡纶
+  `_01`·`_02`, 洛洛 `rockr_buff_01`. [화면 미확인: 실제 판, 공식 녹화와 모양·자리 — 夕·妮芙·琳琅诗怀雅의 최대 단계, 玛恩纳 `_L_03`은 아레나에서 안 봄]
+
 ### 재능 버프·시전 이펙트 — 재능이 거는 버프와 시전 순간 (2026-10-16, 이펙트 연결 전수 묶음 3)
 
 - 원인: 재능의 버프 이펙트(`overrideEffectKey`)·시전 이펙트(`_castEffects`)·오라 이펙트(`_effects`)를 아무도 안 틀었다. 시뮬은 재능 버프를 클라에

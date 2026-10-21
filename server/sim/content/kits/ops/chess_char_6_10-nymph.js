@@ -54,9 +54,12 @@ function nymph(bb, chess, def) {
         battle.on('elementBurst', ({ target, element }) => {
           if (element !== 'apoptosis' || !live(unit) || !target || target.side !== 'enemy') return;
           if (!fieldWide && !bodyInRange(target, unit.rangeKeySet)) return;
-          unit.mem.nymphKey = Math.min(max, (unit.mem.nymphKey || 0) + 1);
+          const was = unit.mem.nymphKey || 0;
+          unit.mem.nymphKey = Math.min(max, was + 1);
           const n = unit.mem.nymphKey;
-          battle.addBuff(unit, { key: 'nymph:key', mods: { atkPct: atk * n, aspd: fieldWide && n >= aspdAt ? as : 0 } });
+          battle.addBuff(unit, { key: 'nymph:key', mods: { atkPct: atk * n, aspd: fieldWide && n >= aspdAt ? as : 0 }, visible: true });
+          // nymph_t_2[atk][effect] at max_stack_cnt — the module's at stack_cnt_check (nymph_e_002_t_2; render/fxstatus.js STACK_FX)
+          if (n !== was) battle.fx('stacks', { x: unit.x, y: unit.y, id: unit.id, buff: 'nymph:key', n, max: fieldWide ? aspdAt : max });
         }, { owner: unit });
       } },
       { install(battle, unit) { // elite module: ×1.1 vs targets in an element burst

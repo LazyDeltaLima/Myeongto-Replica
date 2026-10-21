@@ -61,6 +61,12 @@ export default {
         const st = num(t.stack_time), p = num(t.prob, 1);
         let last = -Infinity;
         battle.on('deploy', ({ unit: u }) => { if (u === unit) last = battle.time - st; }, { owner: unit });
+        // the dodge held: tippi_t[evade]'s effect from the moment it is ready until a damage takes it (render/fxstatus.js KEY_FX)
+        const ready = () => st > 0 && battle.time - last + 1e-9 >= st;
+        battle.on('tick', () => {
+          if (!up(unit) || unit.hasBuff('tippi:evade') || !ready()) return;
+          battle.addBuff(unit, { key: 'tippi:evade', visible: true });
+        }, { owner: unit });
         onHitOn(battle, unit, (ctx) => {
           const { dmg } = ctx;
           if (!dmg || dmg.cancel || !up(unit)) return;
@@ -70,6 +76,7 @@ export default {
           if (s2 && sk && sk.ready && !sk.active && unit.canAct && !unit.s.flags.silence && sk.activate('TAKE_DAMAGE')) dodged = dodgeable;
           else if (dodgeable && st > 0 && battle.time - last + 1e-9 >= st && battle.rng.chance(p)) dodged = true;
           last = battle.time;
+          if (unit.hasBuff('tippi:evade')) battle.removeBuff(unit, 'tippi:evade');
           if (dodged) { dmg.cancel = true; battle.fx('dodge', { x: unit.x, y: unit.y, id: unit.id }); }
         }, 5);
       } }],

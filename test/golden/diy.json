@@ -102,8 +102,8 @@
       ],
       "enemies": {"enemy_1006_shield_3":[21,6,14,16920,1847734],"enemy_1043_zomsbr":[66,66,0,0,610236],"enemy_1402_tgshd_2":[36,26,10,10085,1467389]},
       "hooks": [1,153,6900,669,669,10616,10600,7249,108,132,414,410,25,66445,3700,17,123,24,1,108,0,0,16],
-      "events": {"atk":804,"deploy":30,"die":108,"dmg":10600,"engage":12,"face":25,"fx":7799,"heal":2,"leak":24,"skill":824,"spawn":143,"status":3174,"swing":686},
-      "fx": {"bombardShell":135,"burst":344,"chen3Qi":772,"chen3Respawn":6,"chen3Vanish":6,"dodge":16,"explode":362,"expose":5689,"kitHit":139,"summon":8,"swordStorm":317,"wisdelOverload":5},
+      "events": {"atk":804,"deploy":30,"die":108,"dmg":10600,"engage":12,"face":25,"fx":7919,"heal":2,"leak":24,"skill":824,"spawn":143,"status":3210,"swing":686},
+      "fx": {"bombardShell":135,"burst":344,"chen3Qi":772,"chen3Respawn":6,"chen3Vanish":6,"dodge":16,"evadeReady":120,"explode":362,"expose":5689,"kitHit":139,"summon":8,"swordStorm":317,"wisdelOverload":5},
       "snaps": "f0d42ccb 22b8bab8 d107b227 d5bfd939 169ebea3 f4bb5e35 fff27f33 56466ab9 31be9800 058a2b42 d673d69e ef5412cc 54ca837d 0339f56d e6405a0d 3def9914 be00f17e 9cd385ff 03c41985 6767bf4f 4707a4b3 74e1ea90 47263fd4"
     },
     "diy-003": {
@@ -144,8 +144,8 @@
       ],
       "enemies": {"enemy_1166_dusbr_2":[39,39,0,208,320247],"enemy_1170_dushld_2":[39,39,0,6777,655050],"enemy_9011_acrefr":[39,39,0,22984,2181100]},
       "hooks": [1,136,5881,686,686,2163,2115,264,123,123,39,37,0,29068,76,64,117,0,1,123,0,0,48],
-      "events": {"atk":861,"deploy":16,"die":123,"dmg":2115,"engage":9,"face":61,"fx":3996,"heal":14,"skill":76,"spawn":132,"status":200,"swing":737},
-      "fx": {"chen3Qi":2610,"chen3Respawn":14,"chen3Vanish":15,"dodge":48,"kitHit":286,"phase":23,"swordStorm":1000},
+      "events": {"atk":861,"deploy":16,"die":123,"dmg":2115,"engage":9,"face":61,"fx":4260,"heal":14,"skill":76,"spawn":132,"status":300,"swing":737},
+      "fx": {"chen3Qi":2610,"chen3Respawn":14,"chen3Vanish":15,"dodge":48,"evadeReady":264,"kitHit":286,"phase":23,"swordStorm":1000},
       "snaps": "fdc138e2 856748db 4fa2182b b7221a32 0f5a555d 41378ca9 7875696b 3b2580e9 cdd620f9 732169fd f959a08d 1eb09914 4606090d 0655e09d 4d548a9c a01dd281 7cba85a0 5b250511 ae697bc8 80fabc6b"
     },
     "diy-004": {
@@ -225,8 +225,8 @@
       ],
       "enemies": {"enemy_1019_jshoot_2":[57,0,57,2851,49680],"enemy_1299_ymkilr_2":[27,0,27,0,16200],"enemy_1422_lrsldr_2":[39,39,0,0,205920]},
       "hooks": [1,135,6786,503,503,2375,2182,73,39,123,29,29,0,18900,124,0,123,84,1,39,0,0,170],
-      "events": {"atk":538,"deploy":12,"die":39,"dmg":2182,"engage":4,"face":68,"fx":206,"heal":37,"leak":84,"skill":58,"spawn":135,"status":126,"swing":517},
-      "fx": {"dodge":193,"kitHit":13},
+      "events": {"atk":538,"deploy":12,"die":39,"dmg":2182,"engage":4,"face":68,"fx":379,"heal":37,"leak":84,"skill":58,"spawn":135,"status":126,"swing":517},
+      "fx": {"dodge":193,"kitHit":13,"stacks":173},
       "snaps": "f8160fee 6f930996 fe17454c 479d6d9e 87a5340e 26c26c93 4ed82e6f f2455b97 c1808b5d 06d4aa27 28752167 a2e41bbb ff2e9136 f2d08680 edd95afe 2a75c9db ea88f6ab 57228c40 5cc3867c 13bf9c67 e407feda 301b3eeb 6a91cdab"
     },
     "diy-006": {

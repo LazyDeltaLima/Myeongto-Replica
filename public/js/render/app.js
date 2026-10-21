@@ -1872,7 +1872,7 @@ export async function createFieldView(host, options = {}) {
         // a 护盾 layer used up (sim damage.js absorbShields): one fewer layer effect (fxstatus.js LAYER_FX)
         if (e[1] === 'parry' && e[4] && typeof e[4] === 'object' && e[4].buff) views.get(e[4].id)?.onStatusHit?.(e[4].buff);
         // a kit buff's layers / stacks now (泥岩's layer gains, 卡涅利安's S3 mark): fxstatus.js LAYER_FX / STACK_FX
-        if (e[1] === 'stacks' && e[4] && typeof e[4] === 'object' && e[4].buff) views.get(e[4].id)?.onStatusCount?.(e[4].buff, e[4].n);
+        if (e[1] === 'stacks' && e[4] && typeof e[4] === 'object' && e[4].buff) views.get(e[4].id)?.onStatusCount?.(e[4].buff, e[4].n, e[4]);
         if (e[4] && typeof e[4] === 'object' && e[4].consumed && e[4].id != null) {
           consumedIds.add(e[4].id);
           if (consumedIds.size > 200) consumedIds.delete(consumedIds.values().next().value);

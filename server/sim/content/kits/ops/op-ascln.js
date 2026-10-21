@@ -55,6 +55,7 @@ function ascalon(bb, chess, def) {
   const judge = (battle, unit, e, n = 1) => {
     if (!e?.alive || e.side !== 'enemy') return;
     for (let i = 0; i < n; i++) {
+      const was = e.findBuff?.(dreadKey(unit))?.stacks ?? 0;
       const b = battle.addBuff(e, {
         key: dreadKey(unit), duration: dur, refresh: 'stack', stacks: 1, maxStacks, interval: 1, source: unit, visible: true,
         mods: { moveMul: 1 - slow },
@@ -65,6 +66,8 @@ function ascalon(bb, chess, def) {
       });
       // linear −18 % per stack (not compounding)
       if (b) { b.mods = { moveMul: Math.max(0.05, 1 - slow * Math.max(1, b.stacks || 1)) }; e.markDirty?.(); }
+      // ascln_buff_01, and [max_eff] ascln_buff_02 at max_stack_cnt (render/fxstatus.js STACK_FX)
+      if (b && b.stacks !== was) battle.fx('stacks', { x: e.x, y: e.y, id: e.id, src: unit.id, buff: b.key, n: b.stacks, max: maxStacks });
     }
   };
   const dodge = num(traitBb(chess).prob, 0.5);

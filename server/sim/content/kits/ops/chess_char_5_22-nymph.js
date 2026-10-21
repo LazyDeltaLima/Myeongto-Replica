@@ -71,7 +71,10 @@ export default {
         { install(battle, unit) { // 窥心钥
           battle.on('elementBurst', (c) => {
             if (c.element !== 'apoptosis' || c.target.side !== 'enemy' || !on(unit) || !inRange(unit, c.target)) return;
-            battle.addBuff(unit, { key: 'nymph:key', refresh: 'stack', maxStacks: Math.max(1, num(t1.max_stack_cnt, 10)), mods: { atkPct: num(t1.atk) } });
+            const max = Math.max(1, num(t1.max_stack_cnt, 10)), was = unit.findBuff('nymph:key')?.stacks ?? 0;
+            const b = battle.addBuff(unit, { key: 'nymph:key', refresh: 'stack', maxStacks: max, mods: { atkPct: num(t1.atk) }, visible: true });
+            // nymph_t_2[atk][effect] at max_stack_cnt (render/fxstatus.js STACK_FX)
+            if (b && b.stacks !== was) battle.fx('stacks', { x: unit.x, y: unit.y, id: unit.id, buff: 'nymph:key', n: b.stacks, max });
           }, { owner: unit });
         } },
       ],

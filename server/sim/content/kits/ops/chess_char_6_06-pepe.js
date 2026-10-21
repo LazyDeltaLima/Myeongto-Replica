@@ -32,9 +32,12 @@ function pepe(bb, chess, def) {
       ...(skillGridOf(def) ? { targeting: { rangeGrid: skillGridOf(def) } } : {}),
       onStart({ battle, unit }) {
         unit.mem.pepeKills = 0;
-        const n = unit.mem.pepeRage || 0;
-        if (n > 0) battle.addBuff(unit, { key: 'pepe:rage', mods: { aspd: num(bb.attack_speed_extra) * n } });
-        unit.mem.pepeRage = Math.min(Math.floor(num(bb.max_stack_cnt, 2)), n + 1);
+        const n = unit.mem.pepeRage || 0, max = Math.floor(num(bb.max_stack_cnt, 2));
+        // from the second cast: pepe_s_2[attack_speed]'s level effect by the casts left (`cnt` = max_stack_cnt − n: ≤ 0
+        // [effect_3], ≤ 1 [effect_1], else [effect_2]) until the skill ends (render/fxstatus.js KEY_FX 'pepe:rage')
+        const left = max - n;
+        if (n > 0) battle.addBuff(unit, { key: 'pepe:rage', mods: { aspd: num(bb.attack_speed_extra) * n }, visible: true, fxTag: left <= 0 ? 3 : left <= 1 ? 1 : 2 });
+        unit.mem.pepeRage = Math.min(max, n + 1);
       },
       onEnd({ battle, unit, skill }) { battle.removeBuff(unit, 'pepe:rage'); pastSp(unit, skill); },
     },
@@ -72,7 +75,10 @@ function pepe(bb, chess, def) {
         unit.mem.pepeR0 = num(unit.profile?.splashRadius, 1);
         skill.spec.attack.splashRadius = unit.mem.pepeR0;
       },
-      onAttack({ battle, unit, skill }) {
+      onAttack({ battle, unit, skill, targets }) {
+        // pepe_s_3_fx on the main target: its range effect by the stacks before this attack's (render/fx/kitofficial.js)
+        const t = targets?.[0];
+        if (t) battle.fx('stacks', { x: t.x, y: t.y, id: unit.id, tgt: t.id, buff: 'pepe:tremor', n: unit.mem.pepeStack, max: maxStack });
         if (unit.mem.pepeStack >= maxStack) return;
         unit.mem.pepeStack++;
         battle.addBuff(unit, { key: 'pepe:tremor', mods: { atkPct: stackAtk * unit.mem.pepeStack } });

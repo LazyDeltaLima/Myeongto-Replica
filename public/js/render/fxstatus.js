@@ -128,6 +128,15 @@ export const KEY_FX = Object.freeze({
   // texas2_t_1[recast_effect] and [recast_effect_02]'s derived buff until the recast [추정: S3's texas2_s[no_effect_02] window
   // that hides the second is not modelled]
   'texas2:recast': [['texas2', 'texas2_buff_02_start', OWN], ['texas2', 'texas2_buff_02_start_02', OWN]],
+  // 2026-10-21 (docs/rules/fx.md 「버프 스택 수로 바뀌는 이펙트」): 佩佩 S2 from its second cast, pepe_s_2[attack_speed]'s
+  // derived [effect_1/2/3] by the casts left (`cnt`: ≤ 0 → _03, ≤ 1 → _01, else _02; the kit's `fx` hint) until the skill ends
+  'pepe:rage': (v, from) => {
+    const lv = Number(from?.fx);
+    return lv >= 1 && lv <= 3 ? ['pepe', `pepe_buff_level_0${lv}`, OWN] : null;
+  },
+  // the held dodge: 赤刃明霄陈 T2 chen3_t2[evade] chen3_Shield_buff_01, 蒂比 T tippi_t[evade] tippi_buff_01 (each ended by its Evade)
+  'chen3:evade': ['chen3', 'chen3_Shield_buff_01', OWN],
+  'tippi:evade': ['tippi', 'tippi_buff_01', OWN],
   // 战场#06's 沙尘暴 on an unsheltered operator (EN template sand_storm[ally], ON_BUFF_TRIGGER): storm[attr_to_ally] — its
   // SwitchDirection on the storm's direction (the buff's `fx`, devices.js tickStorm) creates map_desert_03_<the side the
   // wind comes from> (DOWN → _up) at the HIT point — and storm[attr_to_ally_mark] buff_desert_01 over the head
@@ -152,12 +161,39 @@ export const LAYER_FX = Object.freeze({
 
 /**
  * A kit buff whose official effects come with its stack count (a kit's fx 'stacks', UnitView.onStatusCount): [from stacks,
- * spec] pairs, every one reached shows. 卡涅利安's S3 mark: billro_s_3[mark_effect] creates [part] at 1 stack and [full] at 5
- * (billro_s_3[charge][enhance] stacks), [part] staying.
+ * spec, below?] entries, each one shown while the count is ≥ `from` (and < `below` when given). A bound may be 'max' / 'mid':
+ * the event's `max` / `mid` (the official blackboard's max_stack_cnt / mid_stack_cnt, which the kit reads). A key ending in
+ * `:<id>` (one buff per applier) matches without it. 卡涅利安's S3 mark: billro_s_3[mark_effect] creates [part] at 1 stack and
+ * [full] at 5 (billro_s_3[charge][enhance] stacks), [part] staying. The rest (2026-10-21, EN buff templates; docs/rules/fx.md
+ * 「버프 스택 수로 바뀌는 이펙트」): a STACK buff's overrideEffectKey from its first stack, and the derived buff a
+ * FilterByBuffStackCount creates at its count.
  */
+const st = (bundle, name) => Object.freeze([bundle, name, OWN]);
 export const STACK_FX = Object.freeze({
   'billro:mark': Object.freeze([[1, Object.freeze(['billro', 'billro_skill_03_buff_03_01', HEAD])], [5, Object.freeze(['billro', 'billro_skill_03_buff_03_02', HEAD])]]),
+  // 信仰搅拌机 T1 rmixer_t1[attr_stack] rmixer_buff_01, whose SwitchableEffectByBuffStackCnt (`_stackCnt` 3, GE) swaps it for
+  // rmixer_buff_02 at 3 stacks (the first paused — disassembly 0xE9B9B0)
+  'rmixer:t1': Object.freeze([[1, st('rmixer', 'rmixer_buff_01'), 3], [3, st('rmixer', 'rmixer_buff_02')]]),
+  // 琳琅诗怀雅 T1 大买家: swire2_tr's swire2_t_1[atk] swire2_buff_01_start, at max_stack_cnt also [max] _01_start_02
+  'talent:swire2_buyer': Object.freeze([[1, st('swire2', 'swire2_buff_01_start')], ['max', st('swire2', 'swire2_buff_01_start_02')]]),
+  // 阿斯卡纶 T1 on the enemy: ascln_t_1[debuff] ascln_buff_01; at max_stack_cnt [max_eff] ascln_buff_02, ended when the
+  // stacks drop below (its 1 s ON_BUFF_TRIGGER FinishDerivedBuff)
+  'ascln:judg': Object.freeze([[1, st('ascln', 'ascln_buff_01')], ['max', st('ascln', 'ascln_buff_02')]]),
+  // 夕 T1 化境: dusk_t_1[atk] dusk_buff_03_start; at max_stack_cnt (EQUALS) [effect] dusk_buff_03_start_02
+  'dusk:realm': Object.freeze([[1, st('dusk', 'dusk_buff_03_start')], ['max', st('dusk', 'dusk_buff_03_start_02')]]),
+  // 塞雷娅 T1 莱茵充能护服: demkni_t_1[stack] demkni_buff_01_self
+  'saria:suit': Object.freeze([[1, st('demkni', 'demkni_buff_01_self')]]),
+  // 妮芙 T2 窥心钥: at max_stack_cnt (the module's stack_cnt_check) nymph_t_2[atk][effect] nymph_talent_buff_02
+  'nymph:key': Object.freeze([['max', st('nymph', 'nymph_talent_buff_02')]]),
+  // 洛洛 T1: at max_stack_cnt (EQUALS) rockr_t_1[effect_1] rockr_buff_01
+  'rockr:rock': Object.freeze([['max', st('rockr', 'rockr_buff_01')]]),
+  // 玛恩纳 解放者 trait: mlynar_tr's stack per second — [a] _L_01 from the first, [b] _L_02 from mid_stack_cnt, [c] _L_03 at
+  // max_stack_cnt (set while the skill is off; mlynar_s_cast's finish ends them with the stacks)
+  'trait:libratorRamp': Object.freeze([[1, st('mlynar', 'mlynar_attack_01_buff_L_01')], ['mid', st('mlynar', 'mlynar_attack_01_buff_L_02')],
+    ['max', st('mlynar', 'mlynar_attack_01_buff_L_03')]]),
 });
+/** A STACK_FX bound: a number, or the count info's `max` / `mid`. */
+const bound = (b, from) => (typeof b === 'number' ? b : Number(from?.[b]) || Infinity);
 
 /** The fx code of a view's character (fxmap.js fxBundleOf: 'char_469_indigo' → 'indigo'), or ''. */
 function fxCode(v) {
@@ -239,8 +275,12 @@ export function wantedStatusFx(v, out = WANT) {
       }
       const layers = LAYER_FX[k];
       if (layers) { for (let i = 0; i < Math.min(layers.length, from?.n || 0); i++) byName(out, layers[i]); continue; }
-      const stacks = STACK_FX[k];
-      if (stacks) { for (const [min, spec] of stacks) if ((from?.n || 1) >= min) byName(out, spec); continue; }
+      const stacks = STACK_FX[k] ?? STACK_FX[k.replace(/:\d+$/, '')];
+      if (stacks) {
+        const n = from?.n || 1;
+        for (const [min, spec, below] of stacks) if (n >= bound(min, from) && (below == null || n < bound(below, from))) byName(out, spec);
+        continue;
+      }
       const s = statusFxKey(k);
       if (s === 'stealth' || s === 'camou') continue; // by the flags above (side, 迷彩)
       if (s) put(out, s, STATUS_FX[s]);

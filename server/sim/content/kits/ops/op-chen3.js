@@ -307,6 +307,8 @@ function chen3(bb, chess, def) {
         const T = num(t1.stack_time, 7), lo = num(t1.heal_atk_scale_min, 30) / 100, hi = num(t1.heal_atk_scale_max, 160) / 100;
         let since = battle.time, dodge = false;
         battle.on('damaged', (c) => { if (c.target === unit && c.amount > 0 && !isHpLoss(c.dmg)) since = battle.time; }, { owner: unit });
+        // the held dodge's status back after a redeploy took her buffs (its effect only: the dodge itself is `dodge`)
+        battle.on('deploy', (c) => { if (c.unit === unit && dodge) battle.addBuff(unit, { key: 'chen3:evade', visible: true }); }, { owner: unit });
         // the held dodge (BT chen3_t2[evade]: Evade PHYSICAL_AND_MAGICAL, _applyWayFilter ALL, LOW_PRIORITY): any dodgeable
         // physical / arts damage instance, after her other dodges (PRTS 闪避优先级 −1000 — S2's 50 % is rolled first and,
         // when it dodges, the held one is kept). A dodge lands no damage: the counter goes on (chen3_t2 resets on
@@ -315,7 +317,7 @@ function chen3(bb, chess, def) {
           const d = c.dmg;
           if (c.target !== unit || !dodge || !d || d.cancel || !d.canDodge || (d.type !== 'phys' && d.type !== 'arts')) return;
           const p = d.type === 'phys' ? unit.s.dodgePhys : unit.s.dodgeArts;
-          if (!(p > 0 && battle.rng() < p)) dodge = false;
+          if (!(p > 0 && battle.rng() < p)) { dodge = false; battle.removeBuff(unit, 'chen3:evade'); }
           d.cancel = true;
           battle.fx('dodge', { x: unit.x, y: unit.y, id: unit.id });
           battle.emit('dodge', { source: c.credit ?? c.source, target: unit, dmg: d });
@@ -325,6 +327,9 @@ function chen3(bb, chess, def) {
           since = battle.time;
           battle.heal(unit, unit, unit.s.atk * (lo + battle.rng() * (hi - lo)), { self: true });
           dodge = true;
+          // chen3_t2[evade]'s effect while held (render/fxstatus.js KEY_FX) and the moment's two (render/fx/kitofficial.js)
+          battle.addBuff(unit, { key: 'chen3:evade', visible: true });
+          battle.fx('evadeReady', { x: unit.x, y: unit.y, id: unit.id });
         }, { owner: unit });
       } },
       { install(battle, unit) { // module trait: ASPD while blocking nobody

@@ -72,7 +72,10 @@ export default {
           battle.on('kill', (c) => {
             const k = c.killer;
             if (!k || c.victim.side !== 'enemy' || !(k === unit || (k.kind === 'token' && k.ownerUnit === unit)) || !on(unit)) return;
-            battle.addBuff(unit, { key: 'dusk:realm', refresh: 'stack', maxStacks: Math.max(1, num(t0.max_stack_cnt, 15)), mods: { atkPct: num(t0.atk) } });
+            const max = Math.max(1, num(t0.max_stack_cnt, 15)), was = unit.findBuff('dusk:realm')?.stacks ?? 0;
+            const b = battle.addBuff(unit, { key: 'dusk:realm', refresh: 'stack', maxStacks: max, mods: { atkPct: num(t0.atk) }, visible: true });
+            // dusk_t_1[atk]'s effect, and [effect]'s at max_stack_cnt (render/fxstatus.js STACK_FX)
+            if (b && b.stacks !== was) battle.fx('stacks', { x: unit.x, y: unit.y, id: unit.id, buff: 'dusk:realm', n: b.stacks, max });
           }, { owner: unit });
         } },
         { install(battle, unit) { // 点睛

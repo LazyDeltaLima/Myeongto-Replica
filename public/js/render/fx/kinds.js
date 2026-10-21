@@ -32,6 +32,7 @@ export const FX_KINDS = Object.freeze({
   shield: { a: 'shield', c: 0xdfe8ff }, catShield: { a: 'shield', c: 0xffe0a8 }, saltWard: { a: 'shield', c: 0xbfeeff }, shell: { a: 'shield', c: 0xc8b890 },
   vest: { a: 'shield', c: 0xdfe8ff }, sleepGuard: { a: 'shield', c: 0xa8b6ff }, truesilver: { a: 'shield', c: 0xfff3b8 }, shieldBreak: { a: 'shatter', c: 0xdfe8ff },
   parry: { a: 'none', c: 0xdfe8ff }, // a 护盾 layer's block: the official common_buff_parry_01 only (render/fxgame.js parryFx)
+  evadeReady: { a: 'none', c: 0xdfe8ff }, // a held dodge again (赤刃明霄陈 T2): its official effects only (render/fx/kitofficial.js)
   // counts the client draws per layer / stack / charge / mote (2026-10-16): a buff's layers or stacks (render/fxstatus.js
   // LAYER_FX / STACK_FX), 卡涅利安's stored charges and 魔王's motes (render/fx/kitofficial.js) — nothing in the fallback
   stacks: { a: 'none', c: 0xdfe8ff }, charges: { a: 'none', c: 0xd8c8a0 }, motes: { a: 'none', c: 0xe8e0ff },

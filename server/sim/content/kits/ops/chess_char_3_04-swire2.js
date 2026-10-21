@@ -246,7 +246,10 @@ export default {
           }
           if (!unit.skill?.active) return; // "技能期间"
           addCoins(battle, unit, num(t0.trait_sp, 1));
-          battle.addBuff(unit, { key: 'talent:swire2_buyer', refresh: 'stack', stacks: 1, maxStacks: Math.max(1, num(t0.max_stack_cnt, 8)), mods: { atkPct: num(t0.atk) } });
+          const max = Math.max(1, num(t0.max_stack_cnt, 8)), was = unit.findBuff('talent:swire2_buyer')?.stacks ?? 0;
+          const b = battle.addBuff(unit, { key: 'talent:swire2_buyer', refresh: 'stack', stacks: 1, maxStacks: max, mods: { atkPct: num(t0.atk) }, visible: true });
+          // swire2_t_1[atk]'s effect, and [max]'s at max_stack_cnt (render/fxstatus.js STACK_FX)
+          if (b && b.stacks !== was) battle.fx('stacks', { x: unit.x, y: unit.y, id: unit.id, buff: 'talent:swire2_buyer', n: b.stacks, max });
         }),
       },
       install(battle, unit) {
