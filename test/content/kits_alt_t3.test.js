@@ -234,9 +234,10 @@ test('3_04 琳琅诗怀雅 S1 仗义疏财: 2 coins; an attack spends one to hea
 });
 
 // Owner's decision 2026-10-04 (community report #5 「琳琅诗怀雅1技能不会主动奶身边受伤的干员」), a deliberate deviation from the official
-// 「下一次攻击会为…」: S1 heals an injured ally beside her without an attack or an enemy — at most once per attack cycle
-// (her attack interval, ASPD included) [ASSUMED cadence]; with an enemy the heal stays on her attack.
-test('3_04 琳琅诗怀雅 S1 仗义疏财 (owner\'s decision): an injured ally beside her is healed with no enemy on the field, once per attack cycle; with an enemy, once per attack', () => {
+// 「下一次攻击会为…」: S1 heals an injured ally beside her without an enemy too. Maintainer decision 2026-10-22 「공식대로 변경」: the
+// heal is her attack's turn (the client's HealAlly before Attack in one AbilitySelectableGroup) — one per attack interval,
+// landing at her attack's strike time, and no attack in that turn (test/content/swire2-heal-turn.test.js has the timing).
+test('3_04 琳琅诗怀雅 S1 仗义疏财: an injured ally beside her is healed with no enemy on the field, one heal turn per attack interval; with an enemy the heal turns replace her attacks', () => {
   const id = 'chess_char_3_04_a';
   const b = SB(id, 'skchr_swire2_1');
   const mk = (enemies = []) => makeBattle({ defs: { enemies: { enemy_d: dummy('enemy_d') } }, timeLimit: 60, autoFinish: false, hooks: ['heal', 'attack'], captureNoisy: true,
@@ -251,9 +252,9 @@ test('3_04 琳琅诗怀雅 S1 仗义疏财 (owner\'s decision): an injured ally 
   assert.equal(h.hooksOf('heal').filter((c) => c.source === u).length, 0, '80 %: not below 70 %');
   assert.equal(u.mem.coins, 2, 'the coin is kept');
   ally.hp = ally.s.maxHp * 0.5;
-  h.step();
+  assert.ok(h.runUntil(() => h.hooksOf('heal').some((c) => c.source === u), 1), 'healed within one cast, no enemy needed');
   const heals = h.hooksOf('heal').filter((c) => c.source === u);
-  assert.equal(heals.length, 1, 'healed at once, no enemy needed');
+  assert.equal(heals.length, 1);
   assert.equal(heals[0].target, ally);
   approx(heals[0].amount, u.s.atk * b['attack@heal_scale']);
   assert.equal(u.mem.coins, 1, 'one coin spent');
@@ -262,18 +263,23 @@ test('3_04 琳琅诗怀雅 S1 仗义疏财 (owner\'s decision): an injured ally 
   const n0 = h.hooksOf('heal').length, t0 = h.b.time;
   for (let i = 0; i < 300; i++) { ally.hp = ally.s.maxHp * 0.3; u.mem.coins = 2; h.step(); }
   const per = h.hooksOf('heal').slice(n0).filter((c) => c.source === u).length;
-  assert.equal(per, Math.floor((h.b.time - t0) / u.s.interval + 1e-6), `one heal per ${u.s.interval} s`);
+  const cycles = (h.b.time - t0) / u.s.interval;
+  assert.ok(Math.abs(per - cycles) <= 1, `one heal per ${u.s.interval} s (${per} in ${cycles.toFixed(2)} cycles)`);
   done(h);
-  // with an enemy in her range: the heal rides on each attack, never a second one in the cycle
+  // with an enemy in her range: each turn is a heal while one is due — no attack — and she attacks once none is
   h = mk([{ key: 'enemy_d', pos: [9, 6] }]);
   u = h.unit(id); ally = h.unit('chess_char_3_16_a');
   h.step();
-  const a0 = h.hooksOf('attack').length, h0 = h.hooksOf('heal').length;   // (its first attack, at deployment, found the ally unhurt)
+  h.run(0.5);   // (its first attack, at deployment, found the ally unhurt)
+  const a0 = h.hooksOf('attack').length, h0 = h.hooksOf('heal').length, t1 = h.b.time;
   for (let i = 0; i < 300; i++) { ally.hp = ally.s.maxHp * 0.3; u.mem.coins = 2; h.step(); }
   const atk = h.hooksOf('attack').slice(a0).filter((c) => c.attacker === u).length;
   const hl = h.hooksOf('heal').slice(h0).filter((c) => c.source === u).length;
-  assert.ok(atk >= 5, `attacks (${atk})`);
-  assert.equal(hl, atk, 'one heal per attack');
+  assert.ok(hl >= 5 && Math.abs(hl - (h.b.time - t1) / u.s.interval) <= 1, `heal turns (${hl})`);
+  assert.equal(atk, 0, 'no attack while a heal is due');
+  ally.hp = ally.s.maxHp;
+  h.run(4);
+  assert.ok(h.hooksOf('attack').slice(a0).some((c) => c.attacker === u), 'she attacks again');
   done(h);
 });
 

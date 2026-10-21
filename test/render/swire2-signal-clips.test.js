@@ -1,7 +1,8 @@
 // test/render/swire2-signal-clips.test.js — 琳琅诗怀雅's S1 heal and S2 champagne throw play their client clips (docs/rules/render.md
 // 「스킬 중 공격 클립」): the modes' Body/Trigger groups pick HealAlly `_animKey "Skill_1"` / SpawnToken `_animKey "Skill_2"`
 // over Attack; both skills are passive, so the render never turns the skill on and her attacks keep the attack role. The kit
-// signals each behaviour (fx 'coin' { signal: 'healAlly', strike? }, 'swire2Throw' { signal: 'spawnToken' }) and the
+// signals each behaviour (fx 'swire2Heal' { signal: 'healAlly', t } — the heal is the whole attack turn —, 'swire2Throw'
+// { signal: 'spawnToken' }) and the
 // manifest's attack role names the clips (tools/assets/anim-overrides.mjs SIGNAL_CLIPS). Real sim events, replayed in their
 // order into a SpineActor on the headless fake PIXI (test/render/fakepixi.js), as render/app.js hands them out.
 
@@ -45,7 +46,7 @@ function play(sk, { enemies = true, seconds = 30 } = {}) {
       else if (e[0] === 'fx' && e[4]?.id === op.id && typeof e[4].signal === 'string') {
         // UnitView.onSignal
         if (e[4].strike) a.attack(op.s.interval, false, e[4].signal);
-        else a.signalSwing(e[4].signal, op.s.interval);
+        else a.signalSwing(e[4].signal, Number(e[4].t) > 0 ? Number(e[4].t) : op.s.interval);
         signals.push([e[4].signal, !!e[4].strike, a.current]);
       }
     }
@@ -60,10 +61,10 @@ test('the manifest: her attack role names Skill_1 for the heal and Skill_2 for t
   assert.deepEqual(entry.anims.attack.signals, { healAlly: 'Skill_1', spawnToken: 'Skill_2' });
 });
 
-test('S1: every coin heal plays Skill_1 — on an attack from its strike frame, on her own timer as a whole swing', () => {
+test('S1: every coin heal turn plays Skill_1 from its start, in a fight and with no enemy', () => {
   const fight = play(0);
-  assert.ok(fight.signals.some(([, strike]) => strike) && fight.signals.some(([, strike]) => !strike), JSON.stringify(fight.signals));
-  for (const [sig, , clip] of fight.signals) assert.deepEqual([sig, clip], ['healAlly', 'Skill_1']);
+  assert.ok(fight.signals.length >= 3, JSON.stringify(fight.signals));
+  for (const [sig, strike, clip] of fight.signals) assert.deepEqual([sig, strike, clip], ['healAlly', false, 'Skill_1']);
   assert.ok(fight.clips.has('Attack'), 'her attacks keep Attack');
   const calm = play(0, { enemies: false });
   assert.ok(calm.signals.length >= 3);

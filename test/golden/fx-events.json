@@ -8606,7 +8606,6 @@
   ],
   "roster-027": [
    "- spawn angle_attack_02_hit → enemy",
-   "- spawn ayer_skill_01_hit → enemy",
    "- spawn blemsh_skill_01_hit → enemy",
    "- spawn blemsh_skill_01_hit_02 → enemy",
    "- spawn common_enemy_hit_01 → ally",

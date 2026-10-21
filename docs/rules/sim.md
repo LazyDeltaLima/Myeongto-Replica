@@ -1690,6 +1690,20 @@ AUTO 스킬은 스킬 시작(`[trig]`) 경로뿐이었다. 瑕光 S1(`skchr_blem
 - 테스트 `test/sim/leader-mdrock-charge.test.js`(실제 매치 경로: 막힌 머드락이 공격마다 1층, 6층에서 멈춤, ATK = 기본 × (1 + 0.6 × 층)), `enemies_bosses.test.js` 고침(2층 = +120%). golden: 움직인
   장면 없음(golden 판의 머드락(적)은 0층에서 한 번만 공격).
 
+## 스와이어 디 엘리건트 위트 S1 동전 치유 = 그 공격 차례 (2026-10-22, 관리자 결정 2026-10-22 「공식대로 변경」)
+- 증상: 동전 치유가 평타 타격 때 얹혀 나가고 그 평타도 적을 침(그래서 치유 클립 `Skill_1`이 평타 스윙 도중 타격 프레임부터).
+- 공식(클라 charpack char_1033_swire2 모드 S1 + 코드): 공격 능력 `Body/Trigger` = `AbilitySelectableGroup`(`_selectAbilitySequentially` 0).
+  `_DoCastInternal`(RVA 0xC49C50)이 공격 차례를 시작할 때 `_abilityConfigs`를 [0]부터 `AbilityConfigs.TryCastToTarget`(0xC481F0)해 처음 성공한 하나만
+  시전. [0] `HealAlly`(트리거 `_checkType` 1 = 둘 다: 버프 `swire2_can_use_gold` + 선택기 x-4 아군 HP ≤ 0.7 한 명, `_animKey "Skill_1"`,
+  `_waitForAttackEvent` 1 = OnAttack 때 치유, `_faceToTarget`), [1] `Attack`. → 동전과 다친 아군이 있으면 그 차례 전체가 치유이고 적은 안 맞는다.
+- 구현(`kits/ops/chess_char_3_04-swire2.js installS1`): 치유가 시전 중이거나 줄 수 있으면 `canAttack`이 공격을 막고, 공격이 준비되면(`atkCd` 0) 'tick'
+  훅이 시전 — 공격 간격을 쓰고(`atkCd`), 시전 대상 쪽으로 'face', fx 'swire2Heal' `{ signal: 'healAlly', t }`(렌더 `Skill_1` 한 번, rules/render.md
+  「스킬 중 공격 클립」), 그녀의 평타 타격 시각(`ai.js attackTiming` — `Skill_1`과 `Attack`은 길이 1 s·OnAttack 0.2 s가 같음)에 동전을 쓰고 치유
+  (시전 대상, 그때 대상이 아니면 다시 고름). 시전 중 기절·빙결·무장 해제면 취소, 동전 유지 [ASSUMED: 능력 중단 때 `_runActionOnEvent` 동작을 안 탐].
+  적이 없을 때도 치유(2026-10-04 관리자 결정 — 공식 묶음은 적이 있어야 시전) 그대로. 예전의 「치유는 공격 주기마다 한 번」 타이머는 공격 간격 자체로 바뀜.
+- 테스트 `test/content/swire2-heal-turn.test.js`(치유 차례에 스윙·타격 없음, 치유는 시전 뒤 타격 시각, 적 없을 때 치유, 기절 취소, 다친 아군 없으면 공격),
+  `test/content/feedback5-swire2-self-heal.test.js`(자기 치유) 그대로 통과. golden: 아래 커밋 메시지.
+
 ## upstream 0.3.1·0.3.2 대조 이식 — 전투 (2026-10-22)
 
 upstream `6ab24682` → master `c9d804f4`·dev `06a92237` 대조에서 받은 전투 수정(관리자 결정 2026-10-22). upstream 판정 목록은 `upstream.md`.

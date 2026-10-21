@@ -10,6 +10,7 @@ import {
 import { powi } from '../../../detmath.js';
 import { CHAMPAGNE_TRIGGER, champagneHold } from '../../tokens.js';
 import { canTargetEnemy } from '../../../targeting.js';
+import { attackTiming } from '../../../ai.js';
 
 /**
  * 琳琅诗怀雅 S2 “见面礼”'s placement range: range_table "x-6" — her tile and the two tiles beyond it in each of the four
@@ -40,9 +41,9 @@ export default {
   // ---- 3_04 琳琅诗怀雅 · 行商 — S2 “见面礼” (passive): with a coin and a free tile of range x-6 her attack's turn
   //      throws a champagne bomb instead (onto an enemy's tile when one stands there; installS2);
   //      大买家: coin at skill start + coin & ATK stack per trait payment; 破财消灾: DP-paid revive (cost doubles)
-  //      S1 仗义疏财 (passive, 2 coins): a coin heals the most injured ally (< 70 % HP) of the 3×3 around her — herself
-  //      included — for attack@heal_scale × ATK — on her attack, or with no enemy to attack on her own attack timer (owner's decision
-  //      2026-10-04, against the official 「下一次攻击会为…」; installS1). S3 千金一掷 (持续时间无限): attacks hit twice, kills give a coin;
+  //      S1 仗义疏财 (passive, 2 coins): with a coin and an injured ally (< 70 % HP) in the 3×3 around her — herself
+  //      included — her attack's turn is a heal of attack@heal_scale × ATK instead (the client's HealAlly before Attack),
+  //      with or without an enemy to attack (owner's decision 2026-10-04, against the official 「下一次攻击会为…」; installS1). S3 千金一掷 (持续时间无限): attacks hit twice, kills give a coin;
   //      it stays open until she leaves the field, keeping its coins (cap bb.sp = 10): PRTS 卫戍协议/帮助 技能操作
   //      「通常不会自动关闭技能」, and the skill spends its coins only when 「主动关闭」, which this mode never does — so no coin
   //      burst and no push (maintainer decision 2026-10-22, withdrawing the inherited 2026-10-04 close at the cap).
@@ -92,44 +93,65 @@ export default {
     });
     const healRatio = textNum(d.skill?.description, /血量不足(\d+)%/, 70) / 100;
     /**
-     * 仗义疏财 — official text 「消耗一枚金币，下一次攻击会为周围八格内血量不足70%的一名友方单位恢复相当于攻击力40%的生命」: the heal rides on an
-     * attack, so with no enemy around she never healed (community report #5 「琳琅诗怀雅1技能不会主动奶身边受伤的干员」). Owner's
-     * decision 2026-10-04 (a deliberate deviation, like §21.29's 重装 casts): she heals an injured ally beside her whether
-     * she attacks or not. Same target (the lowest HP ratio below 70 % of the 3×3 around her, no 禁疗 / 孤立 unit, no
-     * device), coin and heal_scale × ATK. Cadence [ASSUMED]: at most one heal per attack cycle (her attack interval, ASPD
-     * included) — while she attacks, on the attack as before; when her last attack attempt found no target, on her own
-     * timer (the 'tick' hook runs after the attacks, so an attack due in the same tick takes it).
+     * 仗义疏财 — official text 「消耗一枚金币，下一次攻击会为周围八格内血量不足70%的一名友方单位恢复相当于攻击力40%的生命」. The client
+     * (char_1033_swire2, mode S1): her attack is the AbilitySelectableGroup Body/Trigger, which as an attack turn starts casts
+     * the first of its configs that can cast (client code `_DoCastInternal` RVA 0xC49C50) — [0] HealAlly, triggered by the
+     * coin buff swire2_can_use_gold AND an ally of its selector, `_animKey "Skill_1"`, the heal on its OnAttack event
+     * (`_waitForAttackEvent`); [1] Attack. So with a coin and an injured ally the whole turn is the heal and no enemy is
+     * hit (until 2026-10-22 the heal rode on the attack's strike and the attack still hit — maintainer decision
+     * 2026-10-22 「공식대로」). The group itself needs an enemy, so with none around she never healed (community report
+     * #5 「琳琅诗怀雅1技能不会主动奶身边受伤的干员」); owner's decision 2026-10-04 (a deliberate deviation, like §21.29's 重装
+     * casts): she heals with no enemy too. The turn: her attack is held back while a heal is due (`canAttack`) and the
+     * 'tick' hook (after the attacks) casts once her attack is ready — the attack interval spent, the heal at her attack's
+     * strike time (Skill_1 is as long as Attack, its OnAttack at the same 0.2 s: ai.js attackTiming), the target the
+     * cast's, again if it is no longer one by then; a stun, freeze or disarm meanwhile cancels it, coin kept.
      * 「周围八格」 includes herself: the client charpack (char_1033_swire2, mode S1, ability HealAlly) selects with range
      * x-4 — the 3×3 with her own tile — ally side, `_excludeOwner` 0, max HP ratio 0.7, one target. Until 0.2.0 she was
      * left out and never healed herself (community report of 2026-10-06 「琳琅诗怀雅不会治疗自己」).
      */
     const installS1 = (battle, unit) => {
       const hs = num(bb['attack@heal_scale'], num(bb.heal_scale, 0));
-      let nextAt = -Infinity;
+      const healable = (a) => {
+        if (!alive(a) || a.hidden || a.kind === 'device' || a.hpRatio >= healRatio) return false;
+        if (a !== unit && (a.s.flags.noHeal || a.profile?.noHeal)) return false; // 禁疗 / 孤立: never a heal target
+        if (a === unit && a.s.flags.healFree) return false; // her own 禁疗 (HEAL_FREE) stops a heal of herself too
+        return Math.max(Math.abs(a.tileR - unit.tileR), Math.abs(a.tileC - unit.tileC)) <= 1; // x-4: the 3×3, her tile too
+      };
       const healTarget = () => {
         let best = null;
         for (const a of battle.allyUnits) {
-          if (!alive(a) || a.hidden || a.kind === 'device' || a.hpRatio >= healRatio) continue;
-          if (a !== unit && (a.s.flags.noHeal || a.profile?.noHeal)) continue; // 禁疗 / 孤立: never a heal target
-          if (a === unit && a.s.flags.healFree) continue; // her own 禁疗 (HEAL_FREE) stops a heal of herself too
-          if (Math.max(Math.abs(a.tileR - unit.tileR), Math.abs(a.tileC - unit.tileC)) > 1) continue; // x-4: the 3×3, her tile too
+          if (!healable(a)) continue;
           if (!best || a.hpRatio < best.hpRatio || (a.hpRatio === best.hpRatio && a.deploySeq < best.deploySeq)) best = a;
         }
         return best;
       };
-      // the heal is the mode's HealAlly ability (`_animKey "Skill_1"`, beside Attack in its Trigger group): the fx `signal`
-      // plays Skill_1 — from its strike frame on an attack (`strike`), as a whole swing on her own timer (render SIGNAL_CLIPS)
-      const tryHeal = (onAttack) => {
-        if (!alive(unit) || (unit.mem.coins ?? 0) < coinCost || !(hs > 0) || battle.time < nextAt - 1e-9) return;
+      const canCast = () => alive(unit) && unit.deployed && unit.canAct && !unit.s.flags.disarm && hs > 0;
+      // (trait.canAttack) the turn is the heal's while one is cast or due
+      unit.mem.swire2HealHolds = () => !!unit.mem.swire2Heal || (canCast() && (unit.mem.coins ?? 0) >= coinCost && !!healTarget());
+      battle.on('tick', () => {
+        if (unit.mem.swire2Heal || !canCast() || unit.atkCd > 1e-9 || unit.castLeft > 0 || unit.skillStateUntil > battle.time + 1e-9) return;
+        if ((unit.mem.coins ?? 0) < coinCost) return;
         const best = healTarget();
         if (!best) return;
-        unit.mem.coins -= coinCost;
-        nextAt = battle.time + unit.s.interval;
-        battle.heal(unit, best, unit.s.atk * hs);
-        fx(battle, 'coin', unit, { n: unit.mem.coins, heal: best.id, skill: 'swire2_1', signal: 'healAlly', ...(onAttack ? { strike: 1 } : null) });
-      };
-      battle.on('attack', (ctx) => { if (ctx.attacker === unit) tryHeal(true); }, { owner: unit, priority: -10 });
-      battle.on('tick', () => { if (unit.deployed && unit.canAct && !unit.trait?.hadTarget) tryHeal(false); }, { owner: unit });
+        const t = attackTiming(unit, { strike: 0, action: 0, sel: 0, begun: false }, false);
+        unit.atkCd = Math.max(unit.atkCd, unit.s.interval);
+        const cast = { target: best };
+        unit.mem.swire2Heal = cast;
+        battle._ev(['face', unit.id, best.id]);   // HealAlly `_faceToTarget`
+        // Skill_1 over the cast (render SIGNAL_CLIPS: the attack role's `signals`)
+        fx(battle, 'swire2Heal', unit, { signal: 'healAlly', t: t.action, target: best.id });
+        battle.after(t.strike, () => {
+          if (unit.mem.swire2Heal !== cast) return;
+          unit.mem.swire2Heal = null;
+          if (!canCast() || (unit.mem.coins ?? 0) < coinCost) return;
+          const tgt = healable(cast.target) ? cast.target : healTarget();
+          if (!tgt) return;
+          unit.mem.coins -= coinCost;
+          battle.heal(unit, tgt, unit.s.atk * hs);
+          fx(battle, 'coin', unit, { n: unit.mem.coins, heal: tgt.id, skill: 'swire2_1' });
+        }, { owner: unit });
+      }, { owner: unit });
+      battle.on('deploy', (ctx) => { if (ctx.unit === unit) unit.mem.swire2Heal = null; }, { owner: unit });
     };
     /**
      * “见面礼” — 「消耗一枚金币在范围内一个可放置且可通行的地面放置香槟炸弹」. The client charpack (char_1033_swire2, mode S2)
@@ -193,8 +215,9 @@ export default {
         [S3]: () => ({ kind: 'toggle', attack: { hits: 2 } }),
       }),
       trait: {
-        // S2: a throw due takes her attack's turn (installS2)
+        // S2: a throw due takes her attack's turn (installS2); S1: a heal cast or due does (installS1)
         ...(sel === S2 || sel == null ? { canAttack: (battle, unit) => !throwDue(battle, unit) } : {}),
+        ...(sel === S1 ? { canAttack: (battle, unit) => !unit.mem.swire2HealHolds?.() } : {}),
         install: merchantInstall((battle, unit) => {
           // MER-Y "每次特性消耗费用时攻击力+4%，最多可以叠加5次" (any time, not only during the skill)
           if (modTal && num(modTal.atk) > 0) {
