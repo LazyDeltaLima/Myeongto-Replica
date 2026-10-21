@@ -861,7 +861,7 @@
 - 렌더(`fxgame.js` 「the enemies' official effects」): 모드 = 지금 클립 세트의 공격 클립이 그 모드 능력의 `_animKey`인 것(폼 전환이 바꿈), 없으면 0. sim 'swing' →
   공격의 ON_CAST_START 시전 이펙트(근접 타격 kind 'none' = `Combat` 능력, 사격 'enemy' = `Attack`), 'atk' → ON_SPELL_ON 것 + 투사체 `_mainEffect` 꼬리(마운트 점 →
   대상 hit 점, 비행 시간 = 거리 ÷ `data/enemies.json proj.speed`(폼별 `projModes`, sim이 그 속도로 날림; `proj` 없으면 sim 적 속도 10, `proj: null`·링크·즉발은 비행 없음), `_raiseHeight`면 호; 꼬리 없는 것·레이/링크형은 절차 구슬), 'dmg' →
-  능력 hit 이펙트 + 투사체 `_effectsWhenHit`/`_effectsWhenReached`(≤ 2, `_useOwnerToTargetDirection`은 공격자 → 대상)와 대상에 거는 버프의 자기 이펙트(2026-10-11: 버프 동안 유지·이름당 하나 — 아래 「입력 대상·루프 타격·클립별 이펙트·배치 이펙트」 ⑥), 'spawn' → 시작 이펙트(루트 `_startEffect`만 — 아래 「모드 전환」) + 「이펙트만 있는 버프」(템플릿 `empty`, 특성·CommonAbilities: 가상적: 갑주 `enemy_acstmk_buff_1` 등)
+  능력 hit 이펙트 + 투사체 `_effectsWhenHit`/`_effectsWhenReached`(≤ 2, `_useOwnerToTargetDirection`은 공격자 → 대상)와 대상에 거는 버프의 자기 이펙트(2026-10-11: 버프 동안 유지·이름당 하나 — 아래 「입력 대상·루프 타격·클립별 이펙트·배치 이펙트」 ⑥), 'spawn' → 시작 이펙트(루트 `_startEffect`만 — 아래 「모드 전환」) + 평생 붙는 자기 버프의 이펙트(`aura` — 2026-10-21부터 클라 능력 클래스로 고름, 아래 「적 상태의 버프 이펙트」; 가상적: 갑주 `enemy_acstmk_buff_1` 등)
   루프(2026-10-11 디컴파일 2라운드로 확정: `AttachEffectOptions.OnEvent`(RVA 0xB14330) — ON_ATTACHED(태어날 때·모드 전환으로 능력이 붙을 때)부터 ON_DETACHED까지, 재생 속도 1.0), 'die' → 사망 이펙트(그 자리; 아래 「사망 이펙트」), 'leak' → 루프 끝. 시전 이펙트는 능력 재생 속도, 타격은 1.0(위). 모드가 바뀌면 이전 모드의 루프 시전
   이펙트를 끈다(ON_DETACHED).
 - 'dmg'의 공격자: sim의 'dmg' 튜플 6번째 = 공격자 unit id(无来源이면 null, docs/SIM.md)를 읽는다 — 공격자가 있으면 마지막 공격의 주인이 다를 때 그 공격의 타격으로 치지 않고, 그 적의 능력이
@@ -879,7 +879,8 @@
   닿을 때 이미 — 겹침 방지). `t` 0(ATTACH·속도 없음)은 비행 없이 바로 닿음. 꼬리가 뽑혀 있으면 sim이 그 사격 직전에 내는 절차 대체 'beam'
   (`SHOT_BEAMS`: 黑云 fireWeapon, 碎铳之簧 springBullet·springCombo, 管·弦 acdumlStrike·acdummStrike, 陷落雪祀 chainBuff)은 그리지 않는다
   [추정: 꼬리가 MAX_TRAILS로 밀린 사격은 대체 beam도 없이 착탄 이펙트만].
-  지금 꼬리가 뽑혀 있는 것: 黑云 FireWeapon·碎铳之簧·管·弦. 凋零骑士·陷落雪祀·杰斯顿·迷路的巨像는 웨이브에 없어 안 뽑혀 있음(`--extract --all`이면 그려짐).
+  2026-10-21(이펙트 묶음 F)부터 모든 적의 이펙트가 뽑혀 있다(`--extract --all`, 아래 「적 상태의 버프 이펙트」) — 凋零骑士·陷落雪祀·杰斯顿·迷路的巨像
+  스킬 탄 꼬리도 그려진다(그 전: 黑云 FireWeapon·碎铳之簧·管·弦만).
   `shoot`을 안 거치는 콘텐츠 투사체(迷路的巨像 StunAttack·蚀裂 사망 구름·枯朽战车 秽蚀轰击)는 `enemyShot`이 없어 안 그림 — sim이 `shoot`으로 바꾸면
   그대로 그려진다.
   - 직선(FIXED_DIRECTION) 사격 — 重弩突袭者 直击(`enemies/helpers.js lineShot`, docs/rules/sim.md 「FIXED_DIRECTION 투사체」): `enemyShot`에 `dir` [dx, dy]
@@ -905,7 +906,7 @@
   elineFx`/`stepLines`, `fxplayer.js FxInstance.setLine`): 그 공격이 대상을 맞히면('dmg') 선을 대상에 만들고 매 프레임 두 점을 다시 놓음; 버프 끝(마지막
   타격 + `life`) → 0.5초 더 그린 뒤 멈춤(`_delayToFinish`), 대상 사망·출처가 사라짐 → 바로 끝; `life` 없음(무한) → 프리팹 길이 — 2026-10-11 디컴파일 2라운드: 공식 무한은 「버프가 없어질 때까지」(`_finishIfBuffNotExists`)라 다름(작음), 남김(그 버프의 끝을 렌더가 모름). [추정: 버프는 공격의 타격 때 붙음(`_activeBuffs`
   적용 시점 코드는 안 읽음); 버프가 있을 때 다시 맞으면 연장(maxStackCnt 1); 오프셋 y는 높이로]. 炎佑 `enemy_acloon_skill_loop_1_line`(模式甲 Skill)은 우리가
-  模式乙만 써서 안 나옴. 선 프리팹은 아직 안 뽑혀 있다 — `enemy_bindings.py --extract`를 다시 돌려야 보임.
+  模式乙만 써서 안 나옴. 선 프리팹은 2026-10-21 전체 추출로 뽑혔다.
 - **모드 전환** (2026-10-10 저녁, 디컴파일): 적에게는 UnitMode `_overrideStartEffect`가 쓰이지 않는다. 태어날 때 `Enemy.States.BornState._PlayAnimation`
   (0x73C6F0)이 `Enemy.get_startEffect`(0x733ED0 = 루트 `_startEffect` 필드 그대로)를 만들고, 그 override를 읽는 코드는 `Character.GetStartEffect`(0x6F74B0,
   오퍼·토큰)뿐(`Unit.get_currentMode` 호출처 18곳 확인). 모드 전환 `Unit.SwitchMode`(0x76E1D0) → `InactiveMode` → `ActivateMode`(0x766E20: 새 모드
@@ -916,17 +917,75 @@
 - **사망 이펙트** (2026-10-10 저녁, 디컴파일): `Enemy.get_deadEffect`(0x730300; `DeadState._PlayAnimation` 0x73F3D0이 조건 없이 만듦) = 지금 모드의
   `_overrideDeadEffect`, 없으면 루트 `_deadEffect`, 그것도 없으면 `common_enemy_die_01`. 렌더 표 `dead`의 기본값이 `common_enemy_die_01`(`enemy_bindings.py`,
   적 210종), 렌더도 같은 순서. 공식 사망 이펙트가 그려지면(`fxgame.js ownsDeath`) `app.js`가 fx.js의 절차 사망 퍼프를 안 그린다(`common_empty` 19종은
-  아무것도 안 보임 — 공식대로). `common_enemy_die_01`은 아직 안 뽑혀 있음 — 그 전에는 절차 퍼프 그대로.
+  아무것도 안 보임 — 공식대로). `common_enemy_die_01`은 2026-10-21 전체 추출로 뽑혀, 이제 자기 사망 이펙트가 없는 적은 모두 절차 퍼프 대신 그것.
 - 위 클래스·메서드는 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 없음.
-- 안 한 것: 버프 노드의 다른 이펙트(방패 깨짐·끝 이펙트 — 2026-10-11 디컴파일 2라운드: 전용 코드는 없고 템플릿 노드 `Nodes.CreateEffect`(RVA 0xB90880)가 그 노드의 이벤트(ON_BUFF_FINISH·ON_TAKE_DAMAGE …) 때 한 번 만든다; 2026-10-11: 추출기가 이벤트별로 나눠 기록 — 아래 「위수 협의 템플릿 이펙트」; 버프 끝·피격 이벤트를 렌더에 알리는 sim 이벤트는 아직 없음), 炎佑 선(우리가 안 쓰는 模式甲), 나오지 않는 적 82종의
-  이펙트(`--extract --all`), 소리(audio 담당). 화면 확인 없음.
-- 안 한 것(2026-10-14, 상태 아이콘 정리 — docs/rules/ui.md ⑤ 「버프 이펙트」): 머리 위 상태 아이콘이 빠지면서 적·보스의 아래 sim 버프는 이제 바인딩이
-  그 버프의 이펙트를 그릴 때만 보인다 — 이 바인딩이 공식 버프 이펙트를 그리는지 하나씩 대조하지 않았다: `ab:warden`(enemy_1516_jakill)·`ab:xiShield`
+- 안 한 것: 버프 노드의 다른 이펙트(방패 깨짐·끝 이펙트 — 2026-10-11 디컴파일 2라운드: 전용 코드는 없고 템플릿 노드 `Nodes.CreateEffect`(RVA 0xB90880)가 그 노드의 이벤트(ON_BUFF_FINISH·ON_TAKE_DAMAGE …) 때 한 번 만든다; 2026-10-11: 추출기가 이벤트별로 나눠 기록 — 아래 「위수 협의 템플릿 이펙트」; 2026-10-21: ON_BUFF_FINISH 것은 상태가 끝날 때 한 번 — 아래 「적 상태의 버프 이펙트」, 피격(ON_TAKE_DAMAGE) 것은 아직), 炎佑 선(우리가 안 쓰는 模式甲), 소리(audio 담당). 화면 확인 없음.
+- (2026-10-14, 상태 아이콘 정리 — docs/rules/ui.md ⑤ 「버프 이펙트」; 2026-10-21 하나씩 대조함 → 아래 「적 상태의 버프 이펙트」) 머리 위 상태
+  아이콘이 빠지면서 적·보스의 아래 sim 버프는 바인딩이 그 버프의 이펙트를 그릴 때만 보인다: `ab:warden`(enemy_1516_jakill)·`ab:xiShield`
   (enemy_1517_xi)·`ab:wolfGuard`(enemy_1535_wlfmster)·`kitLeaderMisc`의 `ab:burnDot`·`ab:sandDef`·`ab:rockPower`, `ab:artsBarrier`, 부활·KO 무적(`reborn` `…:inv`),
   `ab:exposed`, `boss:helmGuard`(enemy_9013_acstmk)·`boss:hover`(enemy_9014/9015)·`boss:dash`(enemy_9017_achunt)·`boss:springShield`(enemy_9018~9020)·`boss:eternal`
   (enemy_9022_acdumm)·`boss:equip`(enemy_10028~10030), 굴절(EN 템플릿에 refract 버프 없음 — 적 프리팹 쪽은 안 봄). EN 템플릿에서 이펙트가 있는 적 무적: `common_invincible_01`
   (enemy_amiy·wdslm·trcerb·cstlrs·bsnake·pppdth 등 10개 버프), `_02`(mmamiy), `_03`(mirbst), 전용(fthlgj·ldevil·ubbphw·lrking·ristar …) — 이 적들이 우리 웨이브에 나오는지도 안 봄.
 - 확인: `test/local-patch-fxspawn.test.js`(적이 바인딩한 muzzle/특수점 이펙트가 그 적의 점을 찾음 — 클라 데이터의 빈 곳 2개 목록), `test/render/enemy-fx.test.js`, `test/render/enemy-fx-layer.test.js`(모드 전환 → audio.enemyMode, 사망 이펙트 대체, 대체 beam, 冰凌 칸별 시각, 직선 사격).
+
+### 적 상태의 버프 이펙트 — 평생 버프·상태가 가리키는 클라 버프·재생 无敌·隐匿·끝 이펙트 (2026-10-21, 이펙트 묶음 F, 디컴파일 확인)
+근거: EN 클라 적 프리팹 `battle/enm_pfb_*.ab`(능력 컴포넌트의 MonoScript, BuffData `abnormalFlags`), 버프 템플릿 덤프(관리자 노트의 2026-10-10 덤프),
+디컴파일(10-14 EN 덤프) `PassiveBuffAbility.GetPassiveBuffs`(RVA 0xC3FEF0)·`AuraAbility.DoAttach`(0xC21750)·`Unit._InitUnitModes`(0x856350)·
+`UnitMode.InitOnce`(0x86FA00)·`UnitMode.OnInit`(0x86FF90). 클라는 상태를 그 버프의 이펙트로 그린다(위 「적 이펙트 바인딩」, docs/rules/ui.md ⑤).
+- **평생 버프(`aura`)를 능력 클래스로 고름**: 예전에는 특성·CommonAbilities의 템플릿 `empty` 버프를 다 태어날 때부터 그려, 재생 뒤에만 붙는 无敌
+  (`common_invincible_01` — '즈자이'·데겐블레허·'어벤져'), 체력 절반 아래 분노(`skulsr_buff_01_start` — '폼페이'·'즈자이'), 오라가 오퍼레이터에게
+  거는 버프(자로, '늑대 군주'의 `enemy_wlfmster_B_buff_02_02`, 디펜더-4·프로스트 등)가 처음부터 붙어 있었다(대부분 안 뽑혀 있어 안 보였을 뿐).
+  이제 `enemy_bindings.py`가 버프를 가진 컴포넌트의 클래스(`BUFF_CLASSES`)를 기록하고, `aura`는 `PassiveBuffAbility`의 패시브 버프(Attach부터
+  Detach까지 주인에게 — 그래서 모드 밖이면 평생)와 `AuraAbility`의 `_passiveBuffs`·`_selfOption` INCLUDE인 `_buffs`·자기 `_effects`(범위 표시,
+  DoAttach가 주인에 만듦) 중 끝나지 않는 것만: INFINITY이고, 자기 템플릿이 스스로 끝내지 않고(`FinishBuff`), 다른 버프 템플릿이
+  `FinishBuffsById`로 끝내지 않으며, 다른 능력 밑에 붙은 능력(`ActiveAbilityWrapper` 아래 — 자로의 FearAura, 더블린 계열의 traitAbility)이 아닌 것.
+  ToggleablePassiveBuffAbility(조건부: 체력 절반·隐匿)·RebornTalent·BuffAfterAffecting·AuraAbility가 남에게 거는 것은 빠진다. 모드가 하나뿐인 적의 모드
+  안 버프도 평생. 바뀐 적(쓰는 것): 새로 그림 — 디펜더-4·프로스트·후회하는 영혼의 성배 범위 표시, 가상적: 총 방패 `enemy_achunt_shield`, 패밀리
+  멸살자 눈 `enemy_sgkill_eye_01`, 센구안·배리어 등 20여 종(불타는 덩굴 `enemy_ftsjc_buff`는 첫 공격이 끝내 빠짐); 뺌 — 위 无敌·분노, 첸사 공격 단계(`enemy_sfji_atkup[effect1..4]` — 공격
+  수로 바뀜, 넷을 한꺼번에 그리던 것), 패밀리 멸살자·가상적: 골극 隐匿(아래). 여러 모드인 적의 모드 안 버프(`modes[i].aura`)는 공격 클립으로 모드를
+  가를 수 없어(거의 다 `Attack`) 그리지 않고, 시뮬 상태가 가리키면 아래 `buffFx`로 그린다(가리키는 상태가 없는 평범한 죄수 계열 해방 모드,
+  무덤지기 석상 모드별, '거대하고 못생긴 것' 기계 모드 등은 안 그림).
+- **시뮬 상태 → 그 적의 클라 버프(`buffFx`)**: 렌더 표 `buffFx` { 클라 버프 키: [이펙트] }(적이 가진 모든 자기 이펙트 버프 + 템플릿 `CreateBuff`가
+  만드는 파생 버프, 한 키가 여러 모드에 있으면 `<키>#<모드 번호>`), `buffEnd`(그 버프 템플릿의 ON_BUFF_FINISH `CreateEffect`). 시뮬 적 버프의 `fxTag`
+  `'buff:<클라 버프 키>|…'`(docs/SIM.md)를 상태 켬 이벤트가 `fx`로 싣고, `fxstatus.js wantedStatusFx`가 `fxgame.js enemyBuffFx`로 그 적의 이펙트를
+  고른다(맨 키는 모든 모드의 것). 끝 이펙트는 살아 있는 유닛에서 그 상태가 꺼질 때 한 번(`statusOnce`) — 죽거나 떠날 때는 아님 [추정: 죽을 때
+  ON_BUFF_FINISH가 도는지는 안 읽음]. 개별 대조(2026-10-14 목록):
+  | 시뮬 상태 | 적 | 클라 버프 → 그리는 것 |
+  |---|---|---|
+  | `ab:warden` / `ab:killer` | 제셀톤 윌리엄스 | `Modes/Default/Talents/Enhance` `jakill_enhance#0` → `enemy_jakill_buff_01_start` / R 모드 `jakill_enhance#1`·`[eff1]`·`[eff2]` → `_02_start`·`_02`·`_03` |
+  | `ab:xiShield` | '즈자이' | `ShieldBurst(Reborn)` `enemy_xi_s2[shield][a]`·`[b]`·`[c]` → `enemy_xi_skill_02_buff`·`_01`·`_02` 셋을 방벽 동안 [추정: 층마다 깨지는 순서·양 — 아래] |
+  | `ab:xiReborn` | '즈자이' | RebornTalent `reborn_up` → `skulsr_buff_01_start` |
+  | `ab:wolfGuard` / `ab:wolfRage` | 자로, '늑대 군주' | M1 `enemy_wlfmster_reduce_damage` → `enemy_wlfmster_A_buff_01` / `enemy_wlfmster_m2_eff` → `_B_buff_01` [추정: 클라는 재생 시작(M1 Reborn의 BuffToOwner)부터, 우리는 재생 끝부터] |
+  | `ab:sandDef` / `ab:lowhp` | 래트킹 | `Talents/shield` `mousek_shield[a/b/c]` → `mousek_buff_01/02/03_start` / `mousek_t` → `skulsr_buff_01_start` |
+  | `ab:rockPower` | 머드락(적) | `[shield][refresh]`가 만드는 `enemy_mdrock_s_2[shield_a/b/c]` → `enemy_mdrock_skill_buff_01/02/03` |
+  | `ab:lowhp` | 스컬슈레더·'폼페이'·리벤져·'어벤져' | `skulsr_t_1`·`lslime_t_buff`·`reveng_t_atkup`·`enemy_reid_atkup_effect`(토글 버프) |
+  | `ab:rage` | 부패한 기사 | `dekght[trigger_rage]`의 끝이 만드는 `dekght[rage]` → `dekght_buff_04_start` |
+  | `boss:hover` | '갑주를 베는 검' 둘 | 떠 있는 모드 GeneralAbilities `acstma/acstmb_passive[unmovable]` → `enemy_acstma_invincible` |
+  | `boss:springShield` | '총을 부수는 리드' 셋 | `actrpa/b/c_t_1`(깨지면 `[regenerate]` 끝이 다시 만듦) → `enemy_actrpa/b/c_shield` |
+  | `ab:reborn:inv`(재생 뒤 无敌) | 재생하는 적 전부 | 그 적의 INVINCIBLE 플래그 버프(`inv`, 재생 뒤에 붙는 것): 대개 `common_invincible_01`(자로는 M2 Passive2 `p2_invincible`) |
+  | 隐匿(플래그) | 隐匿 적 | 그 적의 INVISIBLE 플래그 버프(`stealth`): 대부분 `common_invisible`(그대로), 가상적: 골극 `enemy_acbunn_buff`, 패밀리 멸살자 `enemy_sgkill_buff`, 데겐블레허 둘째 형태 `enemy_blkswb_buff_03` |
+  | `boss:eternal` | 가상적: 현 | 평생 `acdumm_passive` → `enemy_acdumm_invincible`(전부터 `aura`) |
+  | 굴절 | 더블린 계열 | 평생 `enemy_refracting` → `enemy_dushdo_2_buff_01`/`_03`(전부터 `aura`; 침묵 때 끝나는지는 안 봄) |
+  | `boss:helmGuard`·`ab:exposed`·`boss:equip`·`ab:burnDot` | 가상적: 갑주·중장갑 정찰병/천리안·알리스테어 장비·'폼페이' | 클라 버프에 이펙트 없음(`enemy_acstmk[low_hp]`, `enemy_tgshd_exposed_mark`·`weak[limit]` 모두 `empty`) — 그대로 안 그림 |
+  `ab:artsBarrier`(기본 키)는 지금 쓰는 적이 없다(둘 다 자기 키). 끝 이펙트(`buffEnd`)가 있는 것은 자로의 `enemy_wlfmster_fearcage`(오퍼레이터 쪽,
+  시뮬 상태가 안 가리킴)뿐 — 아래 오퍼레이터 둘이 같은 길(`END_FX`).
+- **버프 노드의 끝 이펙트(오퍼레이터)**: `fxstatus.js END_FX` — 캐서린 장치 `catsld_t_1[shield_mark]` ON_BUFF_FINISH `CreateEffect` `token_cathy_catsld_shield_01_end`
+  (방패가 깨지거나 시간이 다 돼 표식이 끝날 때), 머드락 마지막 층 `mudrok_t_1[shield_c]` — [shield_a]·[shield_b]가 없을 때 맞으면 `mudrok_buff_01_end`
+  (렌더: `LAYER_FX` 첫 층 `mudrok_buff_03_start`가 꺼질 때). 층을 다시 얻을 때의 `mudrok_buff_01_begin`, 맞을 때마다의 `common_heal_hit_01`은 안 그림.
+- **모드 번호 = 프리팹 `_modes` 순서(확인)**: `Unit._InitUnitModes`가 `_modes[i].InitOnce(this, i)`(가상 슬롯 6)를 부르고 `InitOnce`가 `index`(0xB0)에 i를
+  넣으며, `UnitMode.OnInit`의 `GenerateSignalId`가 그 `index`를 쓴다 — 렌더 표·소리 표(`local-char-audio.json modes`)의 번호와 같다. (렌더가 공격
+  클립으로 모드를 가르는 한계는 위대로.)
+- **전체 추출·떠난 것**: `used_enemies`가 首领 이벤트(`data/choices.json`)의 리더 14종을 빠뜨려 그들 이펙트가 안 뽑혀 있었다 — 넣음. 그리고
+  `enemy_bindings.py --extract --all`로 모든 적의 이펙트(지금 797개, 전: 384)를 뽑음 — 凋零骑士·陷落雪祀·迷路的巨像 스킬 탄, 리더 전부, 가상적: 갑주 선,
+  `common_enemy_die_01`(이제 자기 사망 이펙트가 없는 적은 절차 퍼프 대신 그것).
+- 안 한 것: '즈자이' 방벽 층별 깨짐(클라 `shield_normal`/`shield_last`는 `dynamic`을 각자 들고 [a]부터 깨지며 마지막 층에 `_buff_03`, 맞을 때마다
+  `_specifyBlockEffect` `_buff_hit` — 층마다 양이 블랙보드 `dynamic`인지(그러면 시뮬 방벽이 1/3)는 안 읽음 [추정], 시뮬은 한 방벽), 래트킹 방벽
+  같은 꼴과 깨진 뒤 NoShield 모드 `mousek_buff_01_end`, '리드' 추적의 `achunt_dog_silence`(`enemy_actrpa_skill_a`, IMMEDIATELY), 자로 【远古威慑】가
+  오퍼레이터에게 거는 `_B_buff_02_02`, 재생 중 이펙트(RebornTalent `_effects` — 제셀톤 `enemy_jakill_reborn_01~03_start` 등, 만드는 순간 안 읽음),
+  천리안 사망 `enemy_hummbd_die_02`(ON_OWNER_KILLED, 침묵이 아닐 때), 불타는 덩굴 `SwitchableEffectByBlackboardValue`(아래 「추출 누락 보고」),
+  더블린 불꽃 전사 재생 无敌 `enemy_duskls_revive_2`. 화면 확인: 아래.
+- 확인: `test/render/enemy-buff-fx.test.js`(enemyBuffFx·wantedStatusFx·끝 이펙트), `test/sim/enemy-buff-tags.test.js`(상태 이벤트의 `fx`, 重弩突袭者 줄),
+  `enemy_bindings.py` 재생성 diff(위 `aura` 바뀐 적 목록을 하나씩 클래스로 확인).
 
 ### 보스 토큰·장비 이펙트 — 子代·黄金回响·알리스테어 장비 (2026-10-15)
 근거: EN 클라(2026-10-14 판) 토큰 프리팹 `pkgrps/btl_pfb_tokens_0`(子代 `trap_039_dstnta`)·`_1`(黄金回响 `trap_185_vtlntw`), 스킬 프리팹
@@ -1993,6 +2052,14 @@
     추출기로 다시 뽑음(EN 클라). 바뀐 파일은 위 `stale`과 같은 368개 — 텍스처가 돌아온 14 프리팹(`_MainTex`·`_DissolveTex`·`_DisturbTex`·
     `_DisturTex`), 深池逐火护卫 방패 꼬리 재질의 셰이더 없음 → `Legacy Shaders/Particles/Alpha Blended`(todo: `_DstBlend`로 섞음), `face.speed`
     빠짐, 새 재질 속성(기본값)·키워드 `_HG_UV_ROTATION` 빠짐(플레이어가 안 읽음). 새 텍스처 파일 2장. 뒤 `--coverage`의 적 `stale` 0.
+  - **적 전체 추출 (2026-10-21, 이펙트 묶음 F)**: `enemy_bindings.py --extract --all` → 적 800 프리팹(위 「적 상태의 버프 이펙트」). 뒤 `--coverage`: 새
+    종류 9개를 `KNOWN`에 todo로(클립 `MeshRenderer.m_Enabled`·`ParticleSystem.looping`·`gravityModifier`·`VelocityModule.enabled`·`startColor.a`, 셰이더
+    `Legacy Shaders/Particles/Additive`, 스크립트 `EffectImportData`·`SyncEffectScaleWithAuraRangeRadius`·`PauseEffectIfNotMove`) → `NOT HANDLED` 0, 적 todo 33 ·
+    hand 2 · none 7. `EffectData_Projectile`은 none(Effects.Data의 SourceData — 필드 둘과 생성자뿐, 런타임 코드가 그 TypeInfo를 안 씀, 10-14 EN 덤프),
+    `LineEffectEmitter`(炎佑 `projectile_enemy_acloon_line` 꼬리 — 링크 투사체라 지금은 절차 대체)·`SwitchableEffectByBlackboardValue`(`_UpdateEffect` RVA
+    0xE9A690: 주인 버프 `_buffKey`의 블랙보드 정수 v로 `_effects[v − 1]`, 1 ≤ v ≤ 개수 — 불타는 덩굴 첫 공격 전 공격력 단계 `effect_level`, 시뮬이 그
+    단계를 안 알림)는 todo 그대로. 직렬화 필드가 없어 이름을 몰랐던 운영자 쪽 스크립트 셋도 클라 MonoScript 번들(모든 `m_Script`가 가리키는 CAB의
+    `m_Namespace`·`m_ClassName`)로 이름을 찾음 — `PauseEffectIfDisappeared`·`FollowOwner`·`FollowOwnerRootTileHeight`(todo, 하는 일은 이름으로만 [추정]).
 - **필드 이름 먼저, 원시 칸은 대비책 (2026-10-20)**: `root_effect`(ParticleEffect·루트의 FxDelay)·`projectile_effect`·`right_effect`·`fx_delay`
   (가지의 FxDelay)·`mount_point`는 컴포넌트의 타입 트리가 읽히면 필드 이름으로 읽고, 원시 칸은 타입 트리가 안 읽힐 때만 쓴다(EN·CN 클라 모두 지금은
   다 읽힘). `check_readers`가 매 추출마다 같은 컴포넌트에서 대비책도 돌려 비교하고, 타입 트리가 안 읽혀 대비책을 대조 없이 쓴 때(`no type tree: read

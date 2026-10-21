@@ -172,12 +172,13 @@ const allyAura = (r, key, mods, sil = true, iv = 0.5, flags = null) => ({
   tick(b, e) { for (const u of b.alliesInRadius(e.x, e.y, r)) auraBuff(b, u, key, iv, mods, flags, true); },
 });
 
-/** Self ATK buff once HP first drops below ratio. */
-const lowHpBuff = (ratio, mods, key = 'ab:lowhp') => ({
+/** Self ATK buff once HP first drops below ratio. `fxTag` 'buff:<client buff key>': the enemy's own buff effect the render draws
+ *  for it (render/fxstatus.js; its prefab's toggled half-HP buff, 2026-10-21). */
+const lowHpBuff = (ratio, mods, key = 'ab:lowhp', fxTag = null) => ({
   taken(c, b, e, a) {
     if (a.on || !(e.hpRatio < ratio)) return;
     a.on = true;
-    b.addBuff(e, { key, mods, persist: true, visible: true });
+    b.addBuff(e, { key, mods, persist: true, visible: true, fxTag });
   },
 });
 
@@ -433,13 +434,14 @@ function unbalanced(onMove) {
   };
 }
 
-/** An arts-only barrier ("吸收法术伤害的屏障") of `amount`; `a.left` = what is left, `refresh(b, e)` restores it. */
-function artsBarrier(amount, { key = 'ab:artsBarrier', whileUp = null } = {}) {
+/** An arts-only barrier ("吸收法术伤害的屏障") of `amount`; `a.left` = what is left, `refresh(b, e)` restores it. `fxTag`: its
+ *  client shield buffs' effects (render/fxstatus.js, 2026-10-21). */
+function artsBarrier(amount, { key = 'ab:artsBarrier', whileUp = null, fxTag = null } = {}) {
   return {
     refresh(b, e, a) {
       a.left = amount;
       b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'artsBarrier', value: amount });
-      if (whileUp) b.addBuff(e, { key, persist: true, visible: true, mods: whileUp });
+      if (whileUp) b.addBuff(e, { key, persist: true, visible: true, mods: whileUp, fxTag });
     },
     spawn(b, e, a) { if (amount > 0) a.refresh(b, e, a); },
     hitIn(c, b, e, a) {

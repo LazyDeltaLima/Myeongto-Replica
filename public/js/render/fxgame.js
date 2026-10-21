@@ -1096,6 +1096,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     trimLive();
   }
 
+  /** 2026-10-21: a one-shot status prefab on `view` at its own `_spawnLocation` (a buff's end effect: api.statusOnce). */
+  async function playOnce(view, bundle, name) {
+    if (!(await ensure())) return;
+    const def = await lib.load(bundle, name);
+    if (!mod || !def || view.remove) return;
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, floor: view.z || 0 });
+    const anchor = lifted(view, def);
+    inst.object.position.set(anchor.x, anchor.y, anchor.z);
+    addLive(inst, { view: anchor, owner: ownerOf(view), unit: view }, layers.over);
+    trimLive();
+  }
+
   function stoneFx(e, views) {
     const o = e[4];
     if (!o || typeof o !== 'object') return false;
@@ -3824,6 +3836,46 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     statusReady(bundle, name) { return !!(index && !failed && q() !== 'low' && index.bundles?.[bundle]?.includes(name) && !statusFailed.has(`${bundle}/${name}`)); },
     /** Whether status effects can play at all (index loaded, not 'low', no WebP failure): off, units draw their status icons (fxstatus.js). */
     statusLayer() { return !!(index && !failed && q() !== 'low'); },
+    /**
+     * 2026-10-21 (docs/rules/fx.md 「적 이펙트 바인딩」 「적 상태의 버프 이펙트」): an enemy's own buff effects for
+     * render/fxstatus.js — the client draws a status by its buff's effect (Entity.AddBuffEffect), and an enemy's buffs are
+     * its prefab's (enemy-modes.json `buffFx` / `buffEnd` / `inv` / `stealth`, enemy_bindings.py). `kind` 'key': the buffs
+     * the sim's status names (`fxTag` = the client buff keys, 'a|b'; a key one enemy uses in several modes is `<key>#<mode>`
+     * and a bare tag takes any of them), 'inv': its rebirth 无敌, 'stealth': its 隐匿. { on, ends } — the [bundle, prefab, 'own']
+     * specs of the extracted ones and, by `bundle/prefab` of one, what its buff's ON_BUFF_FINISH creates (once) — or null.
+     */
+    enemyBuffFx(v, kind, tag = '') {
+      const b = ebindOf(v);
+      if (!b) return null;
+      const memo = b._buffMemo || Object.defineProperty(b, '_buffMemo', { value: new Map(), enumerable: false })._buffMemo;
+      const mk = `${kind}:${tag}`;
+      if (memo.has(mk)) return memo.get(mk);
+      const specs = (names) => [...new Set(names)].map(efx).filter(Boolean).map((r) => [r[0], r[1], 'own']);
+      let on = [];
+      const ends = new Map();   // `bundle/prefab` of a buff's effect → that buff's end specs
+      if (kind === 'inv' || kind === 'stealth') on = Array.isArray(b[kind]) ? b[kind] : [];
+      else if (kind === 'key' && tag) {
+        const fx = b.buffFx || {}, fin = b.buffEnd || {};
+        for (const t of String(tag).split('|')) {
+          for (const k of Object.keys(fx)) {
+            if (k !== t && !k.startsWith(`${t}#`)) continue;
+            const mine = specs(fx[k] || []), end = specs(fin[k] || []);
+            on = on.concat(fx[k] || []);
+            if (end.length) for (const sp of mine) ends.set(`${sp[0]}/${sp[1]}`, end);
+          }
+        }
+      }
+      const r = { on: specs(on), ends };
+      memo.set(mk, r.on.length ? r : null);
+      return memo.get(mk);
+    },
+    /** 2026-10-21: `bundle`/`name` once on `view` at the prefab's own `_spawnLocation` — a buff's end (fxstatus.js `end`). */
+    statusOnce(view, bundle, name) {
+      if (!index?.bundles?.[bundle]?.includes(name) || q() === 'low' || failed) return;
+      if (trace) trace({ kind: 'statusEnd', names: [name], by: ownerOf(view) ?? null, at: null });
+      if (dry) dryFollow(bundle, name, ownerOf(view) ?? null, ownerOf(view) ?? null);
+      playOnce(view, bundle, name);
+    },
     /**
      * 2026-10-21: a battle unit's Spine clip event (render/app.js ctx.spineEvent): OnDeactivateEffect / OnActivateEffect
      * pause / unpause its effects' PauseEffectIfSpineEvent (`Entity.Event` ON_DEACTIVATE_EFFECT_EVENT 38 / ON_ACTIVATE 37 →

@@ -24,7 +24,12 @@ const CROSS_BOLT_SPEED = 5;   // projectile_enemy_msnip `_speed` (the data's ski
 
 function kitCrossbow(ab) {
   const s = ab.sk.CrossAttack;
-  const aligned = (b, e) => b.allies().filter((u) => canTargetAlly(e, u, true) && (Math.abs(u.y - e.y) < 0.5 || Math.abs(u.x - e.x) < 0.5) && hypot(u.x - e.x, u.y - e.y) <= CROSS_REACH);
+  // 2026-10-21 (client code AdvancedSelectorWithTrapSheltr.OnPostFilter RVA 0x77BD70, `_checkOnTheSameLine`; the prefab's
+  // Skills/CrossAttack/Selector at its root: _offsetMinX/MaxX −0.5/0.5, _offsetMinY/MaxY −0.5/0.1): a candidate stays when its
+  // own position minus the target's is within the X offsets OR within the Y offsets — MathUtil.Between (0x5A40000) is
+  // min − ε < v < max + ε. The rows are uneven: a unit up to 0.5 above it, 0.1 below (until 2026-10-21 ±0.5 both ways)
+  const between = (v, lo, hi) => v > lo - 1e-9 && v < hi + 1e-9;
+  const aligned = (b, e) => b.allies().filter((u) => canTargetAlly(e, u, true) && (between(e.x - u.x, -0.5, 0.5) || between(e.y - u.y, -0.5, 0.1)) && hypot(u.x - e.x, u.y - e.y) <= CROSS_REACH);
   const nearest = (b, e, l) => l.sort((p, q) => hypot(p.x - e.x, p.y - e.y) - hypot(q.x - e.x, q.y - e.y))[0];
   // PRTS 重弩突袭者: 天赋 "隐匿（被阻挡，主动攻击期间均可解除）"; 直击 "蓄力1.4s后向目标方向发射1支弩箭，对击中的首个目标造成攻击力100%
   // 的法术伤害与5s晕眩 ※技能持续2.5s": revealed for the whole skill, the bolt leaves CROSS_CHARGE s in the way of the unit it

@@ -377,7 +377,7 @@ export const SPECIAL_KITS = Object.freeze({
     spawn(b, e, a) { a.r = T(ab, 'takeDmg.range_radius') ?? 1.7; a.share = T(ab, 'takeDmg.damage_scale') ?? 0; stOf(b).chalices = (stOf(b).chalices ?? 0) + 1; },
     death(c, b) { stOf(b).chalices = Math.max(0, (stOf(b).chalices ?? 1) - 1); },
   }],
-  enemy_1025_reveng: (ab) => [lowHpBuff(0.5, { atkPct: T(ab, 'atkup.atk') ?? 0 })],     // 寻仇者 · ATK up below half HP
+  enemy_1025_reveng: (ab) => [lowHpBuff(0.5, { atkPct: T(ab, 'atkup.atk') ?? 0 }, 'ab:lowhp', 'buff:reveng_t_atkup')],     // 寻仇者 · ATK up below half HP
   enemy_1021_bslime: (ab) => [deathBoom({ scale: T(ab, 'boom.atk_scale') ?? 0 })],       // 高能源石虫 · death: phys blast
   enemy_1067_snslime: (ab, e) => [deathBoom({ scale: T(ab, 'boom.atk_scale') ?? 0, r: (e.def.raw.stats && e.def.raw.stats.rawRangeRadius) || BOOM_RADIUS, status: { key: 'cold', dur: T(ab, 'boom.freeze') ?? 0 } })], // 冰爆源石虫 · death: phys blast + cold
   enemy_1069_icebrk_2: (ab) => [{ hitOut(c, b, e) { if (c.dmg.isAttack && c.target.s.flags.freeze) c.dmg.amount *= T(ab, 'atkup.atk_scale') ?? 1; } }], // 雪怪小队破冰者 · ×3 vs frozen

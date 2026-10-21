@@ -634,7 +634,9 @@ mods, flags, onTick(ctx), interval, onExpire(ctx), onRemove(ctx), tags, shield, 
   `shieldType` ('phys' | 'arts' | 'true' | 'elemental') = a 屏障 that absorbs that damage type only (夜莺 S2 法术护盾 "能吸收…
   法术伤害"), or a list of them = those types only (机械师's 屏障 `['phys', 'arts']`: BlockDamage PHYSICAL_AND_MAGICAL — true
   damage passes); none = every type (PRTS 术语释义 屏障 "若无特殊说明，屏障可吸收全种类伤害"). Shields are spent oldest first.
-- `visible: true` emits `['status', id, key, 1/0]` client events. `battle.removeBuff(unit, key|buff)`.
+- `visible: true` emits `['status', id, key, 1/0]` client events. `battle.removeBuff(unit, key|buff)`. `fxTag` rides the on-event
+  as `{ fx }` (a hint for the client's buff effect); an enemy's own status that stands for one of its client buffs names them
+  `'buff:<client buff key>|…'` (docs/rules/fx.md 「적 상태의 버프 이펙트」).
 
 **Mod keys** — additive: `atkFlat atkPct atkFinal defFlat defPct hpFlat hpPct resFlat aspd batPct blockCnt rangeExtend
 defIgnoreFlat defIgnorePct resIgnoreFlat resIgnorePct dodgePhys dodgeArts spRecoveryFlat maxTargets taunt hpRegen

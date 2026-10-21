@@ -375,7 +375,9 @@
   없다(적 뱅크에 모드 전환 이벤트도 없음). 바뀌는 것은 그 모드 능력의 신호(`<능력>.<모드 번호>`, `UnitMode.GenerateSignalId`)와 전환 클립의 스파인 이벤트다.
   → plan이 적의 모드 1 이후 공격 신호를 `sfx.units[id].em[n] = { cues, sel? }`로(모드 0과 같으면 생략, 뱅크 없으면 `cues: []` = 그 모드 공격은 무음 — 37종),
   렌더가 공식 모드가 바뀐 것을 보면 `audio.enemyMode(unitId, defId, 모드 번호, 이전 번호)`(fx 담당 계약) → 그 뒤 공격은 그 모드의 큐. 모드 번호 = 프리팹
-  `_modes` 순서(local-char-audio.json `modes`) [추정: 렌더의 모드 판정이 같은 번호를 준다]. 확인: `test/local-patch-attack-signals.test.js` 「enemy modes」(직접 호출).
+  `_modes` 순서(local-char-audio.json `modes`) — 2026-10-21 클라 코드로 확인(`Unit._InitUnitModes`가 `_modes[i]`에 i를 `UnitMode.index`로 주고 신호 id가
+  그 index를 씀, docs/rules/fx.md 「적 상태의 버프 이펙트」); 렌더 표 `enemy-modes.json`의 모드도 같은 순서라 번호가 같다. 렌더가 모드를 공격 클립으로
+  가르므로 두 모드가 같은 클립(`Attack`)이면 바뀐 것을 못 본다(그 적은 모드 0 큐 그대로). 확인: `test/local-patch-attack-signals.test.js` 「enemy modes」(직접 호출).
 - 안 한 것: 적 버프·커스텀 트리거 소리(위 「버프·커스텀 트리거 소리」), `ON_BOSS_ENTER`(우리 보스엔 뱅크 없음). 적 스파인 이벤트는 위 「공격 소리 신호」의 스파인 이벤트로 남.
 
 ## 지속 피해 틱 (2026-10-11, 사용자 제보 「아스카론 S2 지속 피해 소리가 공격 소리와 같음」)

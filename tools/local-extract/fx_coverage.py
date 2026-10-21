@@ -81,6 +81,10 @@ SCRIPTS = {
     # (2026-10-21) the route cursors, the 战场#06 wall and the enemies' packs
     978915749116962969: 'PreviewCursor', -2553461985578519915: 'SimpleEffect', 8058004230779817607: 'EffectData_Projectile',
     8089147815673937552: 'LineEffectEmitter', -7751344843855468294: 'SwitchableEffectByBlackboardValue',
+    # (2026-10-21) named from the client's MonoScript bundle (the CAB every m_Script points at: m_Namespace / m_ClassName)
+    -342699933188949169: 'EffectImportData', 6704954098737650565: 'SyncEffectScaleWithAuraRangeRadius',
+    -1569843327534094582: 'PauseEffectIfNotMove', 8401462487392191767: 'PauseEffectIfDisappeared', -2862109401119915025: 'FollowOwner',
+    -1576532863054725745: 'FollowOwnerRootTileHeight',
 }
 # what the extract reads of the scripts above (reader() checks the raw fallbacks)
 SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoint', 'FxUVTweener', 'FxUVTweenerAdvance',
@@ -169,13 +173,19 @@ KNOWN = {
                                                    'bullet upside down when it flies left'),
     'script:PreviewCursor': (_HAND, 'the route preview cursor\'s mover (`_moveSpeed`, `_height`): render/fxroute.js'),
     'script:SimpleEffect': (_HAND, 'only S_desert_wall_02_start_Mesh (s.ab), which the player never plays (see shader:Unlit/Texture)'),
-    'script:EffectData_Projectile': (_TODO, 'switches transforms off when an enemy shot finishes / hits (`inactiveOnFinish` / '
-                                     '`inactiveOnHit`; ProjectileEffect\'s own `_inactiveOnFinish` is read)'),
-    'script:LineEffectEmitter': (_TODO, 'plays start / middle / end effects along a LineRenderer'),
-    'script:SwitchableEffectByBlackboardValue': (_TODO, 'a variant by a value of the owner\'s buff blackboard'),
-    'script:#8401462487392191767': (_TODO, 'no serialized field: name unknown'),
-    'script:#-2862109401119915025': (_TODO, 'no serialized field: name unknown'),
-    'script:#-1576532863054725745': (_TODO, 'no serialized field: name unknown'),
+    # (2026-10-21, decompile check) EffectData_Projectile (Effects.Data, a SourceData) is two Transform lists and a .ctor: no
+    # runtime code reads it (no TypeInfo reference in the 10-14 EN dump) — ProjectileEffect's own `_inactiveOnFinish` is
+    # what the client switches off
+    'script:EffectData_Projectile': (_NONE, 'data only: no runtime code reads it (ProjectileEffect\'s own `_inactiveOnFinish` is read)'),
+    'script:LineEffectEmitter': (_TODO, 'plays `_startEffect` / `_midEffect` / `_endEffect` along its LineRenderer (炎佑\'s '
+                                 'projectile_enemy_acloon_line trail: a link projectile, drawn by the procedural stand-in)'),
+    'script:SwitchableEffectByBlackboardValue': (_TODO, 'plays `_effects[v − 1]` for v = the int `_blackboardKey` of the owner\'s buff '
+                                                 '`_buffKey` (1..count, none otherwise; checked every `_updateInterval` — '
+                                                 '_UpdateEffect RVA 0xE9A690): 灼藤\'s ramp, which the sim does not report'),
+    # (2026-10-21) the three without a serialized field, named from the client's MonoScripts — what they do: by their names only
+    'script:PauseEffectIfDisappeared': (_TODO, 'pauses the effect while its owner has disappeared [추정: by the name]'),
+    'script:FollowOwner': (_TODO, 'keeps the effect on its owner every frame [추정: by the name]'),
+    'script:FollowOwnerRootTileHeight': (_TODO, 'follows the height of the tile under its owner [추정: by the name]'),
     # particle systems
     'module:CollisionModule': (_TODO, 'particles bounce on / die at planes or the world'),
     'module:InheritVelocityModule': (_TODO, 'particles inherit the moving emitter\'s velocity'),
@@ -206,7 +216,16 @@ KNOWN = {
     'clip:MonoBehaviour.yspeed': (_TODO, 'a clip animating FxUVTweener speed: the player keeps the authored value'),
     'clip:MonoBehaviour.secondYSpeed': (_TODO, 'a clip animating FxUVTweener speed: the player keeps the authored value'),
     **{f'clip:ParticleSystem.InitialModule.startColor.maxColor.{c}': (
-        _TODO, 'a clip animating a particle module: the player keeps the authored value') for c in 'rgb'},
+        _TODO, 'a clip animating a particle module: the player keeps the authored value') for c in 'rgba'},
+    # (2026-10-21) first met in the enemies' full extraction (enemy_bindings.py --extract --all)
+    **{f'clip:{k}': (_TODO, 'a clip animating it: the player keeps the authored value') for k in (
+        'MeshRenderer.m_Enabled', 'ParticleSystem.looping', 'ParticleSystem.InitialModule.gravityModifier.scalar',
+        'ParticleSystem.VelocityModule.enabled')},
+    'shader:Legacy Shaders/Particles/Additive': (_TODO, 'no name rule in the player: blended by `_DstBlend`'),
+    'script:EffectImportData': (_TODO, 'its import settings (`_importName`, `_resourceName`, `_sortingLayerId`, `_removeTopAnimator`) are '
+                                'not read [추정: authoring data]'),
+    'script:SyncEffectScaleWithAuraRangeRadius': (_TODO, 'scales the effect with its owner\'s aura ability range (÷ `_effectOriginRadius`)'),
+    'script:PauseEffectIfNotMove': (_TODO, 'pauses the effect while its owner stands still [추정: by the name; Update only]'),
     'clip:material property the shader does not declare': (_NONE, 'Unity sets a value no pass reads'),
     "material:Unity's default particle material on an emitting system": (
         _TODO, 'the client draws Unity\'s plain default particle; the extract reads that material as none (UNITY_DEFAULT_MATERIALS)'),

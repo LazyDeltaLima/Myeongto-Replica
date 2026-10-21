@@ -74,7 +74,7 @@ function kitDekght(ab) {
       const u = c.unit;
       if (a.raged || !u || u === e || !/enemy_1513_dekght/.test(u.defId || '')) return;
       a.raged = true;
-      b.addBuff(e, { key: 'ab:rage', mods: rage, persist: true, visible: true });
+      b.addBuff(e, { key: 'ab:rage', mods: rage, persist: true, visible: true, fxTag: 'buff:dekght[rage]' });   // dekght[trigger_rage]'s end creates it
     },
     spawn(b, e) { watchDeaths(b, e); },
   };
@@ -85,7 +85,7 @@ function kitLeaderMisc(key, ab, e) {
   switch (key) {
     case 'enemy_1050_lslime': {
       const dot = { dmg: T(ab, 'dot.damage') ?? 0, iv: T(ab, 'dot.interval') ?? 1, dur: T(ab, 'dot.duration') ?? 0 };
-      return [maxTargets(4), lowHpBuff(T(ab, 'selfbuff.hp_ratio') ?? 0.5, { aspd: T(ab, 'selfbuff.attack_speed') ?? 0 }), {
+      return [maxTargets(4), lowHpBuff(T(ab, 'selfbuff.hp_ratio') ?? 0.5, { aspd: T(ab, 'selfbuff.attack_speed') ?? 0 }, 'ab:lowhp', 'buff:lslime_t_buff'), {
         dealt(c, b, e2) {
           if (!(dot.dur > 0)) return;
           b.addBuff(c.target, { key: 'ab:burnDot', duration: dot.dur, refresh: 'replace', interval: dot.iv, visible: true,
@@ -114,7 +114,7 @@ function kitLeaderMisc(key, ab, e) {
       // splash is an area selection: a 隐匿 operator is spared, the one blocking this enemy included (GitHub #97; #32
       // item 6, DESIGN §22.12). Community report #14 (0.1.2): the grenade used to be a full attack + 100 % on 4 neighbours.
       const dd = -(T(ab, 'defdown.def') ?? 0);
-      return [lowHpBuff(T(ab, 'atkup.hp_ratio') ?? 0.5, { atkPct: T(ab, 'atkup.atk') ?? 0 }), noAirTargets(),
+      return [lowHpBuff(T(ab, 'atkup.hp_ratio') ?? 0.5, { atkPct: T(ab, 'atkup.atk') ?? 0 }, 'ab:lowhp', 'buff:skulsr_t_1'), noAirTargets(),
         splashAttack({ scale: SKULSR_GRENADE_SCALE, tiles: 1, fxKind: 'grenade',
           onEach: (b, e2, u) => { if (dd) b.applyStatus(u, 'defDown', { duration: SKULSR_DEFDOWN_DUR, source: e2, value: dd }); } })];
     }
@@ -137,9 +137,11 @@ function kitLeaderMisc(key, ab, e) {
     }
     case 'enemy_1509_mousek': {
       // 出场时拥有能够吸收大量法术伤害的屏障，屏障存在时防御力大幅增加 (arts-only barrier + DEF while it holds)
-      const bar = artsBarrier(T(ab, 'shield.dynamic') ?? 0, { key: 'ab:sandDef', whileUp: { defFlat: T(ab, 'defup.def') ?? 0 } });
+      // its client shield: three layers mousek_shield[a] / [b] / [c] (Talents/shield, each its own effect) [추정: the layers' split]
+      const bar = artsBarrier(T(ab, 'shield.dynamic') ?? 0, { key: 'ab:sandDef', whileUp: { defFlat: T(ab, 'defup.def') ?? 0 },
+        fxTag: 'buff:mousek_shield[a]|mousek_shield[b]|mousek_shield[c]' });
       const ds = ab.sk.DriftSand, ss = ab.sk.SandStorm;
-      return [bar, lowHpBuff(T(ab, 'enrage.hp_ratio') ?? 0.5, { dmgDealtMul: T(ab, 'enrage.damage_scale') ?? 1 }),
+      return [bar, lowHpBuff(T(ab, 'enrage.hp_ratio') ?? 0.5, { dmgDealtMul: T(ab, 'enrage.damage_scale') ?? 1 }, 'ab:lowhp', 'buff:mousek_t'),
         // 【唱沙】 the highest-max-HP unit on the field and everything in its cross: physical `damage`
         skill(ds, (b, e2) => {
           const t = allTargets(b, e2).sort((p, q) => q.s.maxHp - p.s.maxHp || aggroCmp(p, q))[0];
@@ -166,7 +168,9 @@ function kitLeaderMisc(key, ab, e) {
     case 'enemy_1511_mdrock': {
       // 拥有屏障吸收法术伤害，屏障存在时大幅提升生命上限与攻击速度; 周期性刷新屏障
       const s = ab.sk.RefreshShield;
+      // its client shield: enemy_mdrock_s_2[shield][refresh] creates the layers [shield_a] / [shield_b] / [shield_c]
       const bar = artsBarrier(s ? s.bb.dynamic ?? 0 : T(ab, 'shield.dynamic') ?? 0, { key: 'ab:rockPower',
+        fxTag: 'buff:enemy_mdrock_s_2[shield_a]|enemy_mdrock_s_2[shield_b]|enemy_mdrock_s_2[shield_c]',
         whileUp: { hpPct: (s ? s.bb.max_hp : null) ?? T(ab, 'shield.max_hp') ?? 0, aspd: (s ? s.bb.attack_speed : null) ?? T(ab, 'shield.attack_speed') ?? 0 } });
       return [bar, {
         // 攻击时攻击力永久提升，最多六层 (the blackboard ATK is the 6-stack total [ASSUMED split])
@@ -228,7 +232,7 @@ function kitLeaderMisc(key, ab, e) {
         const keys = pathKeysAhead(e2);
         return targetsNear(b, e2, RUSH_RADIUS).filter((u) => u.ground && keys.has(u.tileR * COLS + u.tileC));
       };
-      return [lowHpBuff(T(ab, 'atkup.hp_ratio') ?? 0.5, { atkPct: T(ab, 'AtkUp.atk', 'atkup.atk') ?? 0 }),
+      return [lowHpBuff(T(ab, 'atkup.hp_ratio') ?? 0.5, { atkPct: T(ab, 'AtkUp.atk', 'atkup.atk') ?? 0 }, 'ab:lowhp', 'buff:enemy_reid_atkup_effect'),
         reborn({ dur: T(ab, 'Reborn.duration') ?? 0, hpRatio: T(ab, 'Reborn.hp_ratio') ?? 0.5, invincible: T(ab, 'Reborn.invincible') ?? 0 }),
         skill(rush, (b, e2) => {
           b.addBuff(e2, { key: 'ab:rush', duration: rush.bb.duration ?? 0, refresh: 'replace', visible: true, mods: { moveMul: 1 + (rush.bb.move_speed ?? 0) } });
@@ -434,7 +438,8 @@ function kitWarden(ab) {
     spawn(b, e, a, ab2) {
       ab2.atkType = 'arts';                                    // 攻击造成远程法术伤害
       e.profile.melee = false;
-      b.addBuff(e, { key: 'ab:warden', persist: true, visible: true, mods: { resFlat: en('magic_resistance') } });  // 法术抗性大幅提升
+      // 法术抗性大幅提升 — the client's Modes/Default/Talents/Enhance jakill_enhance (enemy_jakill_buff_01_start)
+      b.addBuff(e, { key: 'ab:warden', persist: true, visible: true, mods: { resFlat: en('magic_resistance') }, fxTag: 'buff:jakill_enhance#0' });
     },
     before(c, b) { const s = P.killer ? pierce : iron; P.power = !!s && (P.n + 1) % nthOf(s) === 0; },
     hitOut(c) { if (P.killer && P.power && c.dmg.isAttack) c.dmg.defIgnorePct = Math.min(1, (c.dmg.defIgnorePct || 0) + pen()); },
@@ -462,7 +467,8 @@ function kitWarden(ab) {
       e.mem.ab.atkType = null;                                 // 攻击造成近战物理伤害
       e.profile.melee = true;
       b.removeBuff(e, 'ab:warden');
-      b.addBuff(e, { key: 'ab:killer', persist: true, visible: true,
+      // Modes/R/Talents/Enhance: jakill_enhance and its [eff1] / [eff2]
+      b.addBuff(e, { key: 'ab:killer', persist: true, visible: true, fxTag: 'buff:jakill_enhance#1|jakill_enhance[eff1]|jakill_enhance[eff2]',
         mods: { defFlat: en('def'), atkFlat: en('atk'), batPct: en('base_attack_time') / (e.base.bat || 1), moveFlat: en('move_speed') } });
     },
   })];
@@ -483,7 +489,9 @@ function kitXi(ab) {
   const burst = (s) => (b, e) => {
     const dur = s.bb.duration ?? 0, r = s.bb.range_radius ?? 0;
     b.fx('telegraph', { x: e.x, y: e.y, r, dur, kind: 'breakFree', id: e.id });
+    // its client barrier: the three layers enemy_xi_s2[shield][a] / [b] / [c] (each its own effect) [추정: the layers' split]
     b.addBuff(e, { key: 'ab:xiShield', duration: dur, shield: s.bb.dynamic ?? 0, visible: true,
+      fxTag: 'buff:enemy_xi_s2[shield][a]|enemy_xi_s2[shield][b]|enemy_xi_s2[shield][c]',
       // expiry (not breaking: a broken barrier is removed without onExpire) = the barrier held
       onExpire: ({ battle }) => {
         if (!e.alive) return;
@@ -499,7 +507,8 @@ function kitXi(ab) {
     onKo(b, e) { b.removeBuff(e, 'ab:xiShield'); },
     onReborn(b, e) {
       P.form2 = true;
-      b.addBuff(e, { key: 'ab:xiReborn', persist: true, visible: true, mods: { atkPct: T(ab, 'reborn.atk') ?? 0 } });   // 攻击力提升
+      // 攻击力提升 — the client's RebornTalent reborn_up (skulsr_buff_01_start)
+      b.addBuff(e, { key: 'ab:xiReborn', persist: true, visible: true, mods: { atkPct: T(ab, 'reborn.atk') ?? 0 }, fxTag: 'buff:reborn_up' });
       if (s2) s2.left = s2.icd;
     },
   });
@@ -586,7 +595,9 @@ function kitWolfLord(ab) {
   return [{
     spawn(b, e, a, ab2) {
       ab2.immune = new Set([...(ab2.immune || []), 'stun']);   // 第一形态: 不可被晕眩
-      b.addBuff(e, { key: 'ab:wolfGuard', persist: true, visible: true, mods: { dmgTakenMul: 1 - (T(ab, 'Passive.damage_resistance') ?? 0) } });
+      // Modes/M1/Talents/Passive enemy_wlfmster_reduce_damage (enemy_wlfmster_A_buff_01)
+      b.addBuff(e, { key: 'ab:wolfGuard', persist: true, visible: true, mods: { dmgTakenMul: 1 - (T(ab, 'Passive.damage_resistance') ?? 0) },
+        fxTag: 'buff:enemy_wlfmster_reduce_damage' });
     },
     iv: 0.1,
     tick(b, e, a, dt) {
@@ -646,7 +657,10 @@ function kitWolfLord(ab) {
       P.form2 = true;
       e.profile.melee = false;
       e.base.rangeRadius = Math.max(e.base.rangeRadius || 0, WOLF_RANGE);
-      b.addBuff(e, { key: 'ab:wolfRage', persist: true, visible: true, mods: { atkPct: T(ab, 'Passive2.atk') ?? 0, batPct: (T(ab, 'Passive2.base_attack_time') ?? 0) / (e.base.bat || 1) } });
+      // the form-2 look enemy_wlfmster_m2_eff (enemy_wlfmster_B_buff_01) [추정: from the rebirth's end — the client's
+      // Modes/M1/Talents/Reborn BuffToOwner adds it as the rebirth starts]
+      b.addBuff(e, { key: 'ab:wolfRage', persist: true, visible: true, mods: { atkPct: T(ab, 'Passive2.atk') ?? 0, batPct: (T(ab, 'Passive2.base_attack_time') ?? 0) / (e.base.bat || 1) },
+        fxTag: 'buff:enemy_wlfmster_m2_eff' });
     },
   })];
 }

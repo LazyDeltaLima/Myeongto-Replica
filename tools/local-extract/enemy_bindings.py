@@ -62,6 +62,21 @@ BUFF_KEYS = ('_buffs', '_activeBuffs', '_passiveBuffs', '_projectileBuffs', '_bu
 PROJ_FX = (('_mainEffect', 'trail'), ('_effectsWhenStart', 'start'), ('_effectsWhenReached', 'reached'), ('_effectsWhenHit', 'hit'),
            ('_effectsToTargetWhenStart', 'targetStart'), ('_effectsToTileWhenStart', 'tileStart'), ('_effectsWhenStop', 'stop'),
            ('_effectOnTrigger', 'trigger'))
+# (2026-10-21) the ability classes that hold buffs, by MonoScript PathID (EN client, the same ids as fx_extract.py's script
+# constants are read): where a buff goes and when. PassiveBuffAbility's `_buffs` are its passive buffs (`GetPassiveBuffs`, dump
+# RVA 0xC3FEF0) — on its owner from its Attach to its Detach: a talent / common ability's for the whole life, a mode's while
+# that mode is on (Unit.ActivateMode attaches the mode's abilities). The others add theirs at a moment (RebornTalent at the
+# rebirth, a Toggleable… when its condition turns on, BuffAfterAffecting after the ability) or on other units (AuraAbility,
+# GlobalAuraAbility): never an aura of the enemy itself.
+BUFF_CLASSES = {
+    3800760148018415462: 'passive',            # Torappu.Battle.Abilities.PassiveBuffAbility
+    5578302910068743633: 'toggle',             # Torappu.Battle.Abilities.ToggleablePassiveBuffAbility
+    -4310938555973424352: 'toggleOnce',        # Torappu.Battle.Abilities.ToggleableOnlyOncePassiveBuffAbility
+    -4458530021321694031: 'reborn',            # Torappu.Battle.RebornTalent
+    9073738633337710967: 'aura',               # Torappu.Battle.Abilities.AuraAbility (onto the units in its range)
+    -5793748974791823428: 'globalAura',        # Torappu.Battle.Abilities.GlobalAuraAbility
+    7085803614365642631: 'afterAffecting',     # Torappu.Battle.Abilities.BuffAfterAffecting
+}
 # statuses render/fxstatus.js already draws from the sim's status events (STATUS_FX): not an enemy's own aura
 STATUS_DRAWN = {'common_invisible', 'common_buff_micai_01', 'common_levitate_01'}
 # a hit's buff effect fxstatus.js draws from the sim's status (its stun: buff_stun — 子代's 摄食 trap_tentac_s[stun]): not
@@ -330,8 +345,10 @@ def emitter(e):
     return r
 
 
-def buff(b):
+def buff(b, by=None):
     r = {'key': b.get('buffKey') or b.get('templateKey')}
+    if by:
+        r['by'] = by
     if b.get('templateKey') and b.get('templateKey') != r['key']:
         r['tmpl'] = b['templateKey']
     if b.get('overrideEffectKey'):
@@ -344,6 +361,13 @@ def buff(b):
         r['life'] = round(b['lifeTime'], 3)
     elif b.get('lifeTimeType') == 0:
         r['life'] = 0
+    elif b.get('lifeTimeType') == 1:
+        r['limited'] = 1   # LIMITED with its time from the blackboard (`durationKey` / the ability's): it ends, no aura
+    # (2026-10-21) the abnormal flags it sets that the render keys an enemy's buff effect by: INVINCIBLE 5, INVISIBLE 9
+    # (Torappu.Battle.AbnormalFlag, 10-14 EN dump)
+    fl = [x for x in ((b.get('attributes') or {}).get('abnormalFlags') or []) if x in (5, 9)]
+    if fl:
+        r['flags'] = ['INVINCIBLE' if x == 5 else 'INVISIBLE' for x in fl]
     return r
 
 
@@ -405,9 +429,21 @@ def enemy_record(root, tree, fx_index, proj_keys, skills=None):
             if lst:
                 a.setdefault(k.strip('_'), []).extend(lst)
         for k in BUFF_KEYS:
-            lst = [buff(b) for b in d.get(k) or [] if isinstance(b, dict) and (b.get('buffKey') or b.get('templateKey'))]
+            cls = BUFF_CLASSES.get((d.get('m_Script') or {}).get('m_PathID'))
+            by = cls if k == '_buffs' else None
+            # an AuraAbility's `_buffs` go on the units in its range — its owner too when `_selfOption` is INCLUDE (1; DoAttach
+            # RVA 0xC21750 puts the owner in its target map), its `_passiveBuffs` on its owner (GetPassiveBuffs)
+            if cls in ('aura', 'globalAura') and k == '_buffs' and d.get('_selfOption') == 1:
+                by = 'auraSelf'
+            if cls in ('aura', 'globalAura') and k == '_passiveBuffs':
+                by = 'passive'
+            lst = [buff(b, by) for b in d.get(k) or [] if isinstance(b, dict) and (b.get('buffKey') or b.get('templateKey'))]
             if lst:
                 a.setdefault(k.strip('_'), []).extend(lst)
+        # (2026-10-21) an AuraAbility's own `_effects`: created on its owner as it attaches, finished as it detaches (DoAttach
+        # RVA 0xC21750 → BattleController.CreateEffect; `_createEffectOnDummy` aside) — its range drawn round the enemy
+        if BUFF_CLASSES.get((d.get('m_Script') or {}).get('m_PathID')) == 'aura' and strs(d.get('_effects')):
+            a['auraFx'] = list(dict.fromkeys(a.get('auraFx', []) + strs(d.get('_effects'))))
         if d.get('_projectileKey'):
             p = {'key': d['_projectileKey'], 'mount': enum(MOUNTS, d.get('_mountPointType'))}
             ex = strs([x.get('_projectileKey') if isinstance(x, dict) else x for x in d.get('_extraProjectileKeys') or []])
@@ -476,6 +512,25 @@ def template_info(key, BT, FX, proj_keys, depth=0, seen=None):
             # buff's own effect lasts until that ability starts
             if depth == 0 and ev == '1' and typ.endswith('TriggerAbility') and isinstance(o.get('_abilityName'), str) and o['_abilityName']:
                 out.setdefault('finish', o['_abilityName'])
+            # (2026-10-21) a node that ends the buff itself (Nodes.FinishBuff naming no other key: a shield layer broken by
+            # its ON_TAKE_DAMAGE) — such a buff is no aura held for the enemy's life
+            if depth == 0 and typ.endswith('+FinishBuff') and not any(k.startswith('_buffKey') for k in o):
+                out['ends'] = 1
+            # (2026-10-21) the buffs its nodes finish by key (Nodes.FinishBuffsById: 灼藤's first attack ends
+            # enemy_ftsjc[first_attack]) — those are no aura either
+            if typ.endswith('+FinishBuffsById') and isinstance(o.get('_buffKey'), str) and o['_buffKey']:
+                lst = out.setdefault('kills', [])
+                if o['_buffKey'] not in lst:
+                    lst.append(o['_buffKey'])
+            # (2026-10-21) a buff its nodes create on the owner (Nodes.CreateBuff `_buff`): its key → its own effect
+            # (overrideEffectKey, else its template's effectKey) — 泥岩's shield layers, the springs' regenerated shields
+            b = o.get('_buff')
+            if typ.endswith('+CreateBuff') and isinstance(b, dict) and b.get('buffKey'):
+                eff = b.get('overrideEffectKey') or (BT.get(b.get('templateKey') or '') or {}).get('effectKey')
+                if isinstance(eff, str) and eff and eff.lower() in FX:
+                    lst = out.setdefault('derived', {}).setdefault(b['buffKey'], [])
+                    if eff not in lst:
+                        lst.append(eff)
             for k, v in o.items():
                 if isinstance(v, str) and v:
                     if v.lower() in FX:
@@ -485,6 +540,17 @@ def template_info(key, BT, FX, proj_keys, depth=0, seen=None):
                     elif v in BT and v != key:
                         sub = template_info(v, BT, FX, proj_keys, depth + 1, seen)
                         for f, lst in (sub or {}).items():
+                            if f == 'kills':
+                                tgt = out.setdefault('kills', [])
+                                tgt += [x for x in lst if x not in tgt]
+                                continue
+                            if f == 'derived':
+                                for dk, dl in lst.items():
+                                    tgt = out.setdefault('derived', {}).setdefault(dk, [])
+                                    tgt += [x for x in dl if x not in tgt]
+                                continue
+                            if not isinstance(lst, list):
+                                continue
                             if f == 'onEvent':
                                 for e2, l2 in lst.items():
                                     for x in l2:
@@ -534,7 +600,8 @@ def proj_record(key, roots):
 
 
 def used_enemies():
-    """Enemy ids that appear in the game: data/waves.json (spawns, branches, overrides), data/bosses.json, the random
+    """Enemy ids that appear in the game: data/waves.json (spawns, branches, overrides), data/bosses.json, the leader events'
+    首领 (data/choices.json — 2026-10-21; until then their effects were left out), the random
     squads' template slots (data/enemies.json `templateSlot`), and the enemy-side tokens (device_keys)."""
     acc = set()
 
@@ -549,7 +616,7 @@ def used_enemies():
                 keys_in(v)
         elif isinstance(o, str) and re.match(r'^enemy_\d+_\w+$', o):
             acc.add(o)
-    for name in ('waves.json', 'bosses.json', 'factions.json'):
+    for name in ('waves.json', 'bosses.json', 'factions.json', 'choices.json'):   # choices.json: the leader events' 首领
         p = ROOT / 'data' / name
         if p.exists():
             keys_in(json.loads(p.read_text(encoding='utf-8')))
@@ -749,14 +816,41 @@ def render_entry(r, projs):
             skills[k] = part
     if skills:
         out['skills'] = skills
-    # an effect-only buff (template 'empty' — no stat, only its effect) of a talent / common ability: held while the enemy
-    # stands [추정: those abilities attach at the birth]; the statuses render/fxstatus.js draws are left to it
-    # the root's `_commonAbilities` wherever they sit (黄金回响's Others/Direction/commonAbility: trap_vtlntw_buff_01 and _02, two
-    # buffs of one key — BuffData.OverrideType DEFAULT keeps both: `Buff.OverrideGroup._DoAddInternal` RVA 0x39DF310 queues
-    # every one, 2026-10-14 client)
+    # an enemy's own buff held while the ability that holds it is attached (2026-10-21, client classes — BUFF_CLASSES): the
+    # passive buffs of a PassiveBuffAbility that last (INFINITY, no node of their own that finishes them) — outside the modes
+    # for its whole life (`aura`; a talent / common ability, the root's `_commonAbilities` wherever they sit: 黄金回响's
+    # Others/Direction/commonAbility trap_vtlntw_buff_01 and _02, two buffs of one key — BuffData.OverrideType DEFAULT keeps
+    # both: `Buff.OverrideGroup._DoAddInternal` RVA 0x39DF310 queues every one, 2026-10-14 client), inside a mode while that
+    # mode is on (`modes[i].aura`). Until 2026-10-21 any talent / common ability's buff of template 'empty' was taken: a
+    # rebirth's 无敌 (common_invincible_01), a half-HP rage (skulsr_buff_01_start), the buffs an aura puts on operators showed
+    # from the birth. The statuses render/fxstatus.js draws are left to it.
+    killed = {k for a in r['abilities'] for kk in BUFF_KEYS for b in a.get(kk.strip('_')) or []
+              for k in (b.get('template') or {}).get('kills') or []}
+
+    def held(b):
+        return (b.get('by') in ('passive', 'auraSelf') and 'life' not in b and not b.get('limited')
+                and not (b.get('template') or {}).get('ends') and b.get('key') not in killed)
+    own = lambda b: strs(b.get('fx')) or ((b.get('template') or {}).get('key') or [])  # noqa: E731
+    # attached with its holder: an ability straight under a container (Talents/X, CommonAbilities/X, a mode's
+    # Body/GeneralAbilities/X …), not one nested under another ability that attaches it when it runs (扎罗's
+    # CommonAbilities/FearAura/Aura under an ActiveAbilityWrapper: only while 【远古威慑】 is on)
+    def direct(a):
+        rest = re.sub(r'^Modes/[^/]+/(Body/)?', '', a['path'])
+        return bool(a.get('common')) or rest.count('/') <= 1
+
+    def held_of(lst):
+        lst = [a for a in lst if direct(a)]
+        return uniq([x for a in lst for b in (a.get('buffs') or []) + (a.get('passiveBuffs') or []) if held(b)
+                     for x in own(b) if x not in STATUS_DRAWN] + [x for a in lst for x in a.get('auraFx', [])])
+    aura = held_of([a for a in r['abilities'] if a.get('mode') is None])
+    for m, e in zip(r['modes'], modes):
+        ma = held_of([a for a in r['abilities'] if a.get('mode') == m['i']])
+        if ma and len(modes) == 1:
+            aura += ma         # the only mode: on for the enemy's whole life
+        elif ma:
+            e['aura'] = ma     # [추정 for the render: not drawn — the attack clip does not tell these modes apart; the sim's
+            #                    status that stands for the buff names it through `buffFx`]
     ab_aura = [a for a in r['abilities'] if a.get('common') or re.match(r'^(Talents?|CommonAbilit(y|ies))/', a['path'])]
-    aura = uniq(b.get('fx') for a in ab_aura
-                for b in a.get('buffs') or [] if b.get('tmpl') == 'empty' and b.get('fx') and b['fx'] not in STATUS_DRAWN)
     # a talent buff whose end casts one of its abilities (its template's ON_BUFF_FINISH TriggerAbility): its effect is held
     # until that ability starts — `auraEnd` { effect: ability key } (子代's tentac_grow: trap_dstnta_idle_01_start until Grow)
     aura_end = {}
@@ -771,6 +865,53 @@ def render_entry(r, projs):
         out['aura'] = aura
     if aura_end:
         out['auraEnd'] = aura_end
+    # (2026-10-21) every other buff of its own with an effect, by the client's buff key: the sim's status that stands for that
+    # buff names it (`fxTag`, render/fxstatus.js enemy buffs) — a rebirth's 无敌, a shield's layers, a toggled rage
+    held_names = set(aura)
+    buff_fx, inv, stealth = {}, [], []
+    # a key used in several modes (杰斯顿's jakill_enhance: 狱警 and 杀手) is told apart by the mode: `<key>#<mode index>`
+    modes_of = defaultdict(set)
+    for a in r['abilities']:
+        for kk in ('buffs', 'activeBuffs', 'passiveBuffs'):
+            for b in a.get(kk) or []:
+                if b.get('key') and own(b):
+                    modes_of[b['key']].add(a.get('mode'))
+    for a in r['abilities']:
+        for kk in ('buffs', 'activeBuffs', 'passiveBuffs'):
+            for b in a.get(kk) or []:
+                names = [x for x in own(b) if x not in STATUS_DRAWN]
+                if names and b.get('key') and not (held(b) and set(names) <= held_names):
+                    key = f"{b['key']}#{a['mode']}" if len(modes_of[b['key']]) > 1 and a.get('mode') is not None else b['key']
+                    lst = buff_fx.setdefault(key, [])
+                    lst += [x for x in names if x not in lst]
+                    # its own 无敌 / 隐匿 (the sim's rebirth 无敌 `…:inv` and its stealth flag draw these): on itself only
+                    if kk == 'buffs' and b.get('by') not in ('aura', 'globalAura'):
+                        if 'INVINCIBLE' in (b.get('flags') or []):
+                            inv += [x for x in names if x not in inv]
+                        if 'INVISIBLE' in (b.get('flags') or []):
+                            stealth += [x for x in names if x not in stealth]
+    # the buffs its buffs' nodes create on it (template `derived`), and what a buff's end creates (ON_BUFF_FINISH 1: played
+    # once as the sim's status ends — `buffEnd`)
+    buff_end = {}
+    for a in r['abilities']:
+        for kk in ('buffs', 'activeBuffs', 'passiveBuffs'):
+            for b in a.get(kk) or []:
+                t = b.get('template') or {}
+                for dk, dl in (t.get('derived') or {}).items():
+                    lst = buff_fx.setdefault(dk, [])
+                    lst += [x for x in dl if x not in STATUS_DRAWN and x not in lst]
+                fin = [x for x in (t.get('onEvent') or {}).get('1', []) if x not in STATUS_DRAWN]
+                if fin and b.get('key') in buff_fx:
+                    lst = buff_end.setdefault(b['key'], [])
+                    lst += [x for x in fin if x not in lst]
+    if buff_fx:
+        out['buffFx'] = buff_fx
+    if buff_end:
+        out['buffEnd'] = buff_end
+    if inv:
+        out['inv'] = inv
+    if stealth and stealth != ['common_invisible']:
+        out['stealth'] = stealth
     # what a talent hands to the operators (a `…[char]` buff — the client's naming of a buff for characters): its template's
     # effects, held on the operator (render/fxstatus.js KEY_FX: 阿利斯泰尔's pieces — enemy_vtswd_buff_01 …) [추정: by the name]
     handed = uniq(x for a in r['abilities'] if re.match(r'^Talents?/', a['path'])
@@ -785,8 +926,11 @@ def render_entry(r, projs):
 
 def entry_names(e):
     out = [e.get('start'), e.get('dead')] + list(e.get('aura', [])) + list(e.get('handed', []))
+    for k in ('buffFx', 'buffEnd'):
+        for lst in (e.get(k) or {}).values():
+            out += lst
     for m in e['modes']:
-        out += [m.get('start'), m.get('dead')] + list(m.get('attach', []))
+        out += [m.get('start'), m.get('dead')] + list(m.get('attach', [])) + list(m.get('aura', []))
         for k in ('melee', 'ranged'):
             if m.get(k):
                 out += names_of_part(m[k])

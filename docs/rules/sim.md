@@ -953,9 +953,13 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
     쪽 축으로 5 타일/초 직진, `SelectorHitBehaviour`(`_hitPasserby` 1, `_interval` 0.03 — 우리는 매 틱) 원 반경 0.3(Selector0/1의 CircleCollider2D)에
     충돌체(ALLY_COLLIDER_RADIUS 0.25)가 닿는 첫 아군 1명(`_maxHitNum` 1, `_stopAfterMaxHit` 1)에 법술 피해·기절 후 멈춤. 겨눈 대상이 사라지면 그 뒤의
     아군에, 축 위에 아무도 없으면 10 s(50타일) 날다 사라짐. 충돌 선택은 `areaSelectable`(투사체 충돌은 迷彩 무시 — Selector1 `_forceIgnoreCamouflage`).
-    [추정] 충전 중 겨눈 대상이 죽어도 쏨(스킬 `_allowNoTarget` 1), 출발점은 몸 중심(MUZZLE 높이 무시), 축 고르기의 동률(대각선 정확히 45°)은 가로.
-    스킬 대상 고르기(`AdvancedSelectorWithTrapSheltr` `_checkOnTheSameLine`, 오프셋 X ±0.5·Y −0.5~0.1 — 우리는 ±0.5)와 사거리 CROSS_REACH 6
-    [ASSUMED]은 그대로.
+    [추정] 충전 중 겨눈 대상이 죽어도 쏨(스킬 `_allowNoTarget` 1), 출발점은 몸 중심(MUZZLE 높이 무시 — 2026-10-21: 클라 Graphic은 x축 −30° 기울고
+    0.27배라 MUZZLE의 높이가 맵 y로도 옮겨진다; 셋업 포즈로는 앞 +0.57·위 +0.19칸이지만 쏘는 프레임의 뼈 위치를 안 읽어 그대로), 축 고르기의 동률(대각선
+    정확히 45°)은 가로. 사거리 CROSS_REACH 6 [ASSUMED]은 그대로.
+  - 스킬 대상 고르기 (2026-10-21, 클라 코드 `AdvancedSelectorWithTrapSheltr.OnPostFilter` RVA 0x77BD70, 프리팹 `Skills/CrossAttack/Selector` — 루트 자리):
+    `_checkOnTheSameLine`이면 「자기 위치 − 후보 위치」의 x가 −0.5…0.5(`_offsetMinX/MaxX`)이거나 y가 −0.5…0.1(`_offsetMinY/MaxY`)인 후보만 남는다
+    (`MathUtil.Between` = min − ε < v < max + ε). 그래서 같은 줄은 위로 0.5·아래로 0.1까지(이전: 위아래 ±0.5 미만). `enemies/invisible.js kitCrossbow`.
+    확인 `test/sim/enemy-buff-tags.test.js`.
 - **萨米的意志 冰凌** (`content/bosses.js kitDeer`, 이전: 공격 순간 열 전체 즉시): 공격 능력은 `ProjectileToTileAbility`, 휘두름의 OnAttack 프레임
   (`_waitForAttackEvent`, `attackAnim.hit` 1 s — 'swing' 이벤트 냄, 쿨다운은 휘두름 시작부터, 타격 때 대상 다시 고름 `_selectTargetTiming` 1, 아무도
   없으면 쿨다운 돌려받음)에 열마다(최대 1, 체력 절반 아래 2) 냄. 타일 선택기 `SmdeerTileSelector._TryGetTile`(0x6DD990)은 대상 열의 **맨 위 칸**

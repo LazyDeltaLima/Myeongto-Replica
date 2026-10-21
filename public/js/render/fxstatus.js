@@ -245,6 +245,20 @@ export function statusFxKey(key) {
 }
 
 const WANT = new Map();
+/**
+ * 2026-10-21 (docs/rules/fx.md 「적 상태의 버프 이펙트」): what a buff's end creates (its template's ON_BUFF_FINISH CreateEffect,
+ * once — Nodes.CreateEffect.Execute RVA 0xB90880), by the effect key of the buff's own effect: played as that effect ends
+ * on a living unit (syncStatusFx), not as the unit dies or leaves.
+ */
+export const END_FX = Object.freeze({
+  // 凯瑟琳's device: catsld_t_1[shield_mark] ON_BUFF_FINISH → token_cathy_catsld_shield_01_end on BUFF_OWNER — the mark's end,
+  // its shield broken (catsld_t_1[core] ON_TAKE_DAMAGE FinishBuffsById) or its timer out ([timer][interval] ON_BUFF_FINISH)
+  'cathy_token/token_cathy_catsld_shield_01': Object.freeze([Object.freeze(['cathy_token', 'token_cathy_catsld_shield_01_end', 'own'])]),
+  // 泥岩 T1: mudrok_t_1[shield_c] (her last layer, LAYER_FX's first) — a hit with neither [shield_a] nor [shield_b] left creates
+  // mudrok_buff_01_end on her (ON_TAKE_DAMAGE CreateEffect TARGET) as it breaks
+  'mudrok/mudrok_buff_03_start': Object.freeze([Object.freeze(['mudrok', 'mudrok_buff_01_end', 'own'])]),
+});
+const END_OF = new Map();   // enemy buff effect key → its end specs (wantedStatusFx, from fxgame.js enemyBuffFx)
 /** Every effect key syncStatusFx turns on (and so may turn off): not the prep 'golden' glow of fxgolden.js. */
 const MINE = new Set(Object.keys(STATUS_FX));
 
@@ -256,17 +270,34 @@ const byName = (out, spec) => { if (spec) put(out, `${spec[0]}/${spec[1]}`, spec
  * resolved to the side's prefab key), `bundle/prefab` for the buff effects (SOURCE_FX / KEY_FX / LAYER_FX / STACK_FX).
  * `v.statusFrom` (UnitView.onStatus): status key → statusSource().
  */
-export function wantedStatusFx(v, out = WANT) {
+export function wantedStatusFx(v, out = WANT, ebuff = null) {
   out.clear();
   const f = v.flags | 0;
+  // 2026-10-21: an enemy's own buff effects (fxgame.js enemyBuffFx — its prefab's buffs; ebuff(view, kind, tag) → { on, ends })
+  const own = v.isEnemy && typeof ebuff === 'function' ? (kind, tag) => ebuff(v, kind, tag) : null;
+  const byOwn = (r) => { for (const s of r.on) { byName(out, s); const e = r.ends?.get(`${s[0]}/${s[1]}`); if (e) END_OF.set(`${s[0]}/${s[1]}`, e); } };
   if (f & UF.STUNNED) put(out, 'stun', STATUS_FX.stun);
   if (f & UF.FROZEN) put(out, 'freeze', STATUS_FX.freeze);
   if (f & UF.COLD) put(out, 'cold', STATUS_FX.cold);
   if (f & UF.SLEEP) put(out, 'sleep', STATUS_FX.sleep);
-  if (f & UF.STEALTH) { const k = f & UF_CAMOU ? 'camou' : v.isEnemy ? 'stealth' : 'stealthAlly'; put(out, k, STATUS_FX[k]); }
+  if (f & UF.STEALTH) {
+    const k = f & UF_CAMOU ? 'camou' : v.isEnemy ? 'stealth' : 'stealthAlly';
+    // an enemy's 隐匿 is its own invisible buff's effect: common_invisible for most, 假想敌：骨刺's enemy_acbunn_buff, 家族灭迹人's
+    // enemy_sgkill_buff, 锏's second form enemy_blkswb_buff_03 (enemy-modes.json `stealth`: its buffs with the INVISIBLE flag)
+    const r = k === 'stealth' && own ? own('stealth') : null;
+    if (r) byOwn(r); else put(out, k, STATUS_FX[k]);
+  }
   if (v.statuses) {
     for (const k of v.statuses) {
       const from = v.statusFrom?.get?.(k) || null;
+      // the client buff an enemy's own status stands for (its `fxTag` 'buff:<client buff keys>'), a rebirth's 无敌 (`ab:…:inv`,
+      // reborn() in server/sim/content/enemies/archetypes.js): the enemy's own buff effects — none bound, nothing drawn
+      const tag = typeof from?.fx === 'string' && from.fx.startsWith('buff:') ? from.fx.slice(5) : null;
+      if (tag != null || /^ab:.*:inv$/.test(k)) {
+        const r = own ? (tag != null ? own('key', tag) : own('inv')) : null;
+        if (r) byOwn(r);
+        continue;
+      }
       const per = SOURCE_FX[k];
       if (per) {
         const e = per[from?.src || fxCode(v)];
@@ -306,12 +337,13 @@ function layerOn(fxGame) { return typeof fxGame.statusLayer === 'function' ? !!f
 export function syncStatusFx(views, fxGame, battle) {
   if (!fxGame || typeof fxGame.statusOn !== 'function') return;
   const icons = !layerOn(fxGame);
+  const ebuff = typeof fxGame.enemyBuffFx === 'function' ? fxGame.enemyBuffFx : null;
   for (const v of views.values()) {
     if (!v || typeof v.flags !== 'number') continue;
     v._statusIcons = icons;
     const on = v._fxStatusOn;
     const live = battle && v.alive && !v.prep && !v.remove;
-    const want = live ? wantedStatusFx(v) : (WANT.clear(), WANT);
+    const want = live ? wantedStatusFx(v, WANT, ebuff) : (WANT.clear(), WANT);
     for (const [k, spec] of want) {
       if (on && on.has(k)) continue;
       const [bundle, name, frac, hold] = spec;
@@ -320,6 +352,14 @@ export function syncStatusFx(views, fxGame, battle) {
     // local patch: not the prep 'golden' glow (fxgolden.js); local patch (maintainer report 2026-10-08): `now` — an ended
     // status takes its effect's particles with it (buff_stun's mark lives 10 s: it hung on beside the next stun's), after
     // the prefab's `_delayToFinish` as the client's Effect.FinishMe does (2026-10-11, fxgame.js statusOff; buff_stun 0)
-    if (on) for (const k of [...on]) if (!want.has(k) && MINE.has(k)) fxGame.statusOff(v, k, true);
+    if (on) {
+      for (const k of [...on]) {
+        if (want.has(k) || !MINE.has(k)) continue;
+        fxGame.statusOff(v, k, true);
+        // 2026-10-21: a buff's end effect, once, when the buff ends on a living unit (END_FX, an enemy buff's `buffEnd`)
+        const end = live ? END_FX[k] || END_OF.get(k) : null;
+        if (end && typeof fxGame.statusOnce === 'function') for (const [b, n] of end) fxGame.statusOnce(v, b, n);
+      }
+    }
   }
 }

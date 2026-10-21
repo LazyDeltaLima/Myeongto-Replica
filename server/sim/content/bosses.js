@@ -606,7 +606,9 @@ function kitBlade(ab, e, b, tpl) {
   const P = { state: 'hover', home: { x: e.x, y: e.y }, hits: 0, target: null };
   const leader = (b2) => nearestOf(b2, e, (o) => o.isBoss && /enemy_9013_acstmk/.test(o.defId));
   const hover = (b2, on) => {
-    if (on) b2.addBuff(e, { key: 'boss:hover', persist: true, visible: true, flags: { invulnerable: true, untargetable: true } });
+    // the client's GeneralAbilities passive acstma/acstmb_passive[unmovable] (enemy_acstma_invincible) of its hovering modes
+    if (on) b2.addBuff(e, { key: 'boss:hover', persist: true, visible: true, flags: { invulnerable: true, untargetable: true },
+      fxTag: 'buff:acstma_passive[unmovable]|acstmb_passive[unmovable]' });
     else b2.removeBuff(e, 'boss:hover');
   };
   const replace = (b2, e2) => { // 以关卡预设路径召唤一个继承自身生命值的初始模式的 copy，随后强制击杀自身
@@ -874,7 +876,8 @@ function kitSpring(ab, e) {
     P.sp = 0;   // actrpb/c_t_1[regenerate] ends with ClearEnemySp, then the shield
     if (kind === 'arts') P.barrier = e.s.maxHp * (T(ab, '1.shield_ratio') ?? 0);
     if (kind === 'hits') P.hits = T(ab, '1.block_damage_max_times') ?? 0;
-    b.addBuff(e, { key: 'boss:springShield', persist: true, visible: true });
+    // its client shield buff actrpa/b/c_t_1 (Talents/1; [regenerate]'s end creates it again): enemy_actrpX_shield
+    b.addBuff(e, { key: 'boss:springShield', persist: true, visible: true, fxTag: `buff:${(/_(actrp[abc])/.exec(e.defId) || [])[1] || 'actrpa'}_t_1` });
     b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: `spring_${kind}` });
   };
   const drop = (b) => { P.up = false; P.downAt = b.time; b.removeBuff(e, 'boss:springShield'); b.fx('shieldBreak', { x: e.x, y: e.y, id: e.id }); };
