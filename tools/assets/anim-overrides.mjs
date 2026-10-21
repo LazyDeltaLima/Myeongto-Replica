@@ -126,12 +126,18 @@ export const SKILL_CLIP_OVERRIDES = Object.freeze({
  * is one clip without a Begin or an idle = its attacks are the plain attack clip and the skill's clip is its cast, played
  * once (`plainAttack`; 瑕光 S2, 归溟幽灵鲨 S1 …: every attack played the cast clip). A skill with Begin / Loop / End clips
  * and a mode on the plain key (乌尔比安 S3, 处刑者 S1) is left as it is [ASSUMED: its skill prefab channels the loop].
- * MODE_ATTACK_KEEP leaves a skill out, PLAIN_ATTACK adds one with no mode of its own.
+ * MODE_ATTACK_KEEP leaves a skill out, PLAIN_ATTACK adds one with no mode of its own, MODE_STANCE a stance the rule cannot
+ * tell (the Default mode has no key to compare).
  */
 export const MODE_ATTACK_KEEP = Object.freeze({
   // 歌蕾蒂娅 S2: the mode's `_animKey ""`, but her S2 strikes through its own attack channel (Skill_2_Begin / _Loop / _End,
   // FIRST_ATTACK_BEGIN `attackBegin`)
   'op:char_474_glady:': Object.freeze([1]),
+});
+export const MODE_STANCE = Object.freeze({
+  // 薄绿 S2: the mode's `Attack` `_animKey ""`, and her Default mode has no attack (阵法术师: no attack unless a skill runs —
+  // `ShowRangeOnly`), so the rule has nothing to compare; maintainer 2026-10-22: her S2 plays no attack clip
+  'op:char_388_mint:': Object.freeze([1]),
 });
 export const PLAIN_ATTACK = Object.freeze({
   // 焰影苇草 S2: no mode (her attacks stay the Default `Attack`); skchr_reed2_2's own ability plays Skill_2 once per skill
@@ -148,12 +154,13 @@ export function applyModeAttacks(key, anims, timing, charModes) {
   const id = key.split(':')[1];
   const keep = Object.entries(MODE_ATTACK_KEEP).find(([p]) => key.startsWith(p))?.[1] || [];
   const plain = Object.entries(PLAIN_ATTACK).find(([p]) => key.startsWith(p))?.[1] || [];
+  const stance = Object.entries(MODE_STANCE).find(([p]) => key.startsWith(p))?.[1] || [];
   const t = timing?.ops?.[id];
   const dflt = t?.attack?.[0]?.anim;
   for (const [i, sk] of Object.entries(anims.skills)) {
     const n = Number(i);
     if (!sk || keep.includes(n)) continue;
-    let how = plain.includes(n) ? 'plain' : null;
+    let how = stance.includes(n) ? 'stance' : plain.includes(n) ? 'plain' : null;
     const m = t ? skillModeIndex(t.modes, n, charModes?.[id]?.skillMode ?? null) : -1;
     const a = m > 0 ? t.attack?.[m] : null;
     if (!how && a && typeof dflt === 'string' && dflt) {

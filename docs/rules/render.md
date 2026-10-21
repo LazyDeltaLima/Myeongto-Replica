@@ -361,14 +361,14 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   - 모드 `""` + Default에 키 있음 + 그 아래·옆에 키 가진 능력 없음 → 공격은 클립을 안 틀고 스킬 루프(모드가 Idle을 짝지으면 그 클립)가 자세로 계속:
     프틸롭시스 S2(`Body/Heal`), 사리아 S3, 인디고 S1·S2, 블레이즈 디 이그나이팅 스파크 S3,
     쿠오라 S2, 프라마닉스 S1·S2(모드 S1-2), 어스스피릿 S2, 시 S2, 노시스 S3, 안젤리나 S2·S3, 버블 S2, 로즈몬티스 S3, 파피루스 S2, 필라에 S2,
-    르무엔 S3(Idle → Skill_3_Idle).
+    르무엔 S3(Idle → Skill_3_Idle). 민트 S2도(모드 `""`, Default는 공격이 없어 비교 불가 — 관리자 확인 2026-10-22 「S2 중에는 공격 클립 재생이 원래 안 됨」,
+    손 목록 `MODE_STANCE`).
   - 모드 키 = Default 키(평타 클립) + 스킬 클립이 Begin·idle 없는 한 개 → 그 클립은 시전 한 번(스킬 프리팹 시전 능력 `local-skill-cast.json`:
     블레미샤인 S2 `Skill_2`, 스펙터 S1 `Skill_1`, 치우바이 S2 `Skill_2`, 데겐블레허 S1 `Skill_1`(ReplacementSkill), 필라에 S1 `Skill_1`), 공격은 평타 클립.
   - 리드 더 플레임 섀도우 S2는 모드가 없음(공격 = Default `Attack`); 스킬 프리팹 능력이 `Skill_2`를 지속마다 한 번(`cd 20`, `cdKey duration`) — 손 목록.
   - 니어 더 래디언트 나이트 S2: 모드 공격 `Attack_Loop`(Default와 같음), `_replaceAnimPairs` Die → Skill_2_Die(Stun → Die는 안 그림), 스킬 프리팹에
     시전 클립 없음 → 스킬 클립 = 평타(`via: 'attack'`) + `die: 'Skill_2_Die'`.
-- 뺀 것: 歌蕾蒂娅(글래디아) S2(모드 `""`이지만 자기 공격 채널 Skill_2_Begin/_Loop/_End로 침, `FIRST_ATTACK_BEGIN`), 민트 S2(Default도 `ShowRangeOnly ""` —
-  비교 불가), 모드 키가 평타인 Begin/Loop/End 스킬(울피아누스 S3, 이그제큐터 S1, 우타게 S1) [ASSUMED: 스킬 프리팹이 루프를 채널로 잡음 — 제보 때 확인],
+- 뺀 것: 歌蕾蒂娅(글래디아) S2(모드 `""`이지만 자기 공격 채널 Skill_2_Begin/_Loop/_End로 침, `FIRST_ATTACK_BEGIN`), 모드 키가 평타인 Begin/Loop/End 스킬(울피아누스 S3, 이그제큐터 S1, 우타게 S1) [ASSUMED: 스킬 프리팹이 루프를 채널로 잡음 — 제보 때 확인],
   키 이름이 스킨 키 표로 바뀌는 모드(시 S3 `Skill_3_Attack` → 클립 `Skill3_Attack` 등)는 지금 역할 그대로.
 - 구현: `tools/assets/anim-overrides.mjs applyModeAttacks`(fetch-assets가 `data/assets.json` 스킬 역할에 `stance` / `plainAttack`을 닮;
   `MODE_ATTACK_KEEP` 뺄 것, `PLAIN_ATTACK` 모드 없는 것) → `render/spine.js _stance` / `_attackClip`. 테스트 `test/render/stance-skill.test.js`.

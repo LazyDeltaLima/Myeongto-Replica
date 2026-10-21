@@ -54,9 +54,10 @@ test('the manifest follows the client modes: stance where the mode attack has no
   assert.equal(n.via, 'attack');
   assert.equal(n.loop, 'Attack_Loop');
   assert.equal(n.die, 'Skill_2_Die');
-  // left out: 歌蕾蒂娅 S2 (its own attack channel), 薄荷 S2 (the Default mode has no key to compare), 乌尔比安 S3 (Begin / Loop / End)
+  // 薄绿 S2: no Default key to compare — MODE_STANCE (maintainer 2026-10-22: no attack clip during S2)
+  assert.equal(skillOf('char_388_mint', 1).stance, true);
+  // left out: 歌蕾蒂娅 S2 (its own attack channel), 乌尔比安 S3 (Begin / Loop / End)
   assert.equal(skillOf('char_474_glady', 1).stance, undefined);
-  assert.equal(skillOf('char_388_mint', 1).stance, undefined);
   assert.equal(skillOf('char_4145_ulpia', 2).plainAttack, undefined);
 });
 
