@@ -1505,12 +1505,13 @@
   이름은 그대로. 예외 손 연결 둘: 안젤리나 더 멜로우 위시 S2 착지의 `fly_end_02`는 `fly_trail_rightAndLeft_01`이 끝날 때 트므로 활강 복귀 목록에서
   뺌, 머드락 S3 `buff_02`(KIT_OWNED)는 이제 `mudrok_skill_03_buff`가 튼다. [추정: 방향 없는 오버로드도 주인 방향; 주인이 없는 이펙트는 이펙트
   자리 — 클라의 「부모 transform」]
-- 안 한 것: 글래디아 S3 대상 버프 `glady_skill_03_buff`(modes.json `targetBuff`) 자체가 우리 판에 안 나와 그 child도 안 나옴(§11).
+- 안 한 것: (글래디아 S3 대상 버프 `glady_skill_03_buff`는 같은 날 「키트 이벤트의 공식 이펙트」에서 넣음.)
   `OnPlayEmitterIf`(`_checkType` MOTION_MODE·버프·Spine 방향 조건)·`RandomFinishEmitter`는 지금 추출물에 없다.
 - 확인: `test/render/on-emitter-fx.test.js`(추출물·`emitted`·`stepOnEmit` 시점·지우기·이름 규칙 제외), 이벤트 골든(child·뒷면 사본이 이름 규칙
   줄에서 빠짐 — 불러온 뒤 트는 child 자체는 골든이 못 봄), 추출 JSON 골든 갱신. Windows Chrome 디버그 아레나: 수르트 S3 buff → `_02`·`_03`·`_04`,
   파투스 S3 `buff_02` → `_XZ`(`_B`·`_B_XZ` 없음), 글래디아 S2 `buff` → `_02_front`·`_02_back`·`_03`, 스펙터 S2 `buff_02`, 비르투오사 S3·엔텔레키아 S3의
-  `_end`가 끝날 때 나옴, 페이지 오류 0. [화면 미확인: 실제 판, 공식 녹화와 모양 대조; 틴맨 S1·S2 범위 원은 부모가 아레나에서 안 나와 못 봄]
+  `_end`가 끝날 때 나옴, 틴맨 S1·S2 범위 원 → `_end`(이펙트 자리), 페이지 오류 0 — 틴맨 S1은 디버그 아레나가 숨은 1티어 항목(`chess_char_1_16`, S1
+  키트 없음·선택 불가)을 골라 범위가 안 나왔었다: `debug.js`가 보이는 항목을 고르게 함(레코드키퍼도 4_15 → 5_23). [화면 미확인: 실제 판, 공식 녹화와 모양 대조]
 
 ### 타격별 명중 — MultiHitUberEffectEmitter `_hitGroups` (2026-10-16, 이펙트 연결 전수, 디컴파일 확인)
 

@@ -51,7 +51,11 @@ const prefabsOf = (spine) => fxIndex?.bundles?.[fxBundleOf(spine)] || [];
 
 const ops = new Map(); // charId → { charId, name, diy, chess, tier }
 for (const c of data.list('chess')) {
-  if (!c?.charId || c.isGolden || c.isDiy || ops.has(c.charId)) continue;
+  if (!c?.charId || c.isGolden || c.isDiy) continue;
+  // (2026-10-21) a hidden entry gives way to the visible one the matches field: 锡人's tier-1 chess_char_1_16 (its S1 has no
+  // kit there — a generic stand-in, never selectable) came before chess_char_2_19, 레코드키퍼's 4_15 before 5_23
+  const had = ops.get(c.charId);
+  if (had && !(had.chess.isHidden && !c.isHidden)) continue;
   ops.set(c.charId, { charId: c.charId, name: c.name, diy: false, chess: c, tier: c.tier });
 }
 // the 自选 picks (data/backups.json diy.ownedPool): fielded in the tier-VI slot as the match does (shared/diy.js)
