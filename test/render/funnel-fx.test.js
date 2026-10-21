@@ -60,30 +60,30 @@ test('drones: idle by mode, a shot per attack (trail, then its hit), the S2 dron
     assert.deepEqual(got().filter((n) => n.startsWith('kjera')), ['kjera_token_attack_trail_01']);
     tick(0.5);
     assert.deepEqual(got().filter((n) => n.startsWith('kjera')), ['kjera_token_hit_01']);
-    // S2: its mode's two drones replace the Default look; they lock (AttachToTarget, INFINITY hits): an attack hides the
-    // first on its target and hits at once — no flight, no show while the lock holds
+    // S2: its mode's two drones replace the Default look; they lock (AttachToTarget, INFINITY hits). 2026-10-21: the kit's
+    // 'drone' events drive them, one per locked drone of a tick (the sim locks both on a lone enemy, as the client's
+    // Funnel_0 / Funnel_1 with `_alwaysIncludeTarget`) — each hides from her and hits at once, no flight, no show while held
     kj._fxSkillOn = true;
     layer.onEvent(['skill', 1, 1], views);
     assert.deepEqual(got().filter((n) => n.startsWith('kjera_token_F') || n === 'kjera_token_default'), ['kjera_token_F_01', 'kjera_token_F_02']);
     tick(0.02);
-    layer.onEvent(['atk', 1, 9, 'drone'], views);
-    assert.deepEqual(got().filter((n) => n.startsWith('kjera_token')), ['kjera_token_hide_01', 'kjera_token_skill_02_hit_F_L_01']);
+    const droneHit = (at) => layer.onEvent(['fx', 'drone', at.x, at.y, { x: at.x, y: at.y, id: 1 }], views);
+    droneHit(foe); droneHit(foe);
+    assert.deepEqual(got().filter((n) => n.startsWith('kjera_token')),
+      ['kjera_token_hide_01', 'kjera_token_hide_02', 'kjera_token_skill_02_hit_F_L_01', 'kjera_token_skill_02_hit_F_R_01']);
     tick(0.5);
-    assert.deepEqual(got().filter((n) => n.startsWith('kjera_token')), [], 'locked: it stays on the target');
-    // the next attack on the same target: that drone again, a hit only, the next effect group
+    assert.deepEqual(got().filter((n) => n.startsWith('kjera_token')), [], 'locked: they stay on the target');
+    // her body's own attack moves no drone of hers now
     layer.onEvent(['atk', 1, 9, 'drone'], views);
-    assert.deepEqual(got().filter((n) => n.startsWith('kjera_token')), ['kjera_token_skill_02_hit_F_L_02']);
+    assert.deepEqual(got().filter((n) => n.startsWith('kjera_token')), []);
+    // the next tick: the same drones again, a hit only each, the next effect group
+    droneHit(foe); droneHit(foe);
+    assert.deepEqual(got().filter((n) => n.startsWith('kjera_token')), ['kjera_token_skill_02_hit_F_L_02', 'kjera_token_skill_02_hit_F_R_02']);
     tick(0.5);
-    // a second enemy: the free drone locks it; then the first target falls — its drone comes back (show), the other holds
-    const foe2 = { id: 8, x: 2, y: 1, alive: true, info: { id: 8, side: 'enemy', defId: 'enemy_1001_bigbo' } };
-    views.set(8, foe2);
-    layer.onEvent(['atk', 1, 8, 'drone'], views);
-    assert.deepEqual(got().filter((n) => n.startsWith('kjera_token')), ['kjera_token_hide_02', 'kjera_token_skill_02_hit_F_R_01']);
-    layer.onEvent(['atk', 1, 9, 'drone'], views);
-    assert.deepEqual(got().filter((n) => n.startsWith('kjera_token')), ['kjera_token_skill_02_hit_F_L_01'], 'each drone keeps its own target');
+    // the target falls: both come back (show)
     foe.alive = false;
     tick(0.2);
-    assert.deepEqual(got().filter((n) => n.startsWith('kjera_token')), ['kjera_token_show_01']);
+    assert.deepEqual(got().filter((n) => n.startsWith('kjera_token')), ['kjera_token_show_01', 'kjera_token_show_02']);
     foe.alive = true;
     // 荒芜拉普兰德: every active drone strikes (end effect as it leaves) and bites at once (AttachToTarget), back 0.5 s later
     layer.onEvent(['atk', 2, 9, 'drone'], views);
@@ -113,13 +113,14 @@ test("洛洛 S2: her locked drone's hits alternate its groups, the overload ones
     ro._fxSkillOn = true;
     layer.onEvent(['skill', 4, 1], views);
     layer.update(0.02, null, null);
-    layer.onEvent(['atk', 4, 9, 'drone'], views);
+    const droneHit = () => layer.onEvent(['fx', 'drone', foe.x, foe.y, { x: foe.x, y: foe.y, id: 4 }], views);   // her kit's locked-drone hit
+    droneHit();
     layer.update(0.2, null, null);
-    layer.onEvent(['atk', 4, 9, 'drone'], views);
+    droneHit();
     assert.deepEqual(got(), ['rockr_token_skill_02_hit_L_01', 'rockr_token_skill_02_hit_R_01']);
     layer.onEvent(['fx', 'overload', 0, 0, { x: 0, y: 0, id: 4 }], views);
     layer.update(0.2, null, null);
-    layer.onEvent(['atk', 4, 9, 'drone'], views);
+    droneHit();
     assert.deepEqual(got(), ['rockr_token_skill_02_hit_L_overload_01']);
   } finally { globalThis.fetch = fetch0; }
 });

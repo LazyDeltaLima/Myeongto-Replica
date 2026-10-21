@@ -2335,12 +2335,23 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       }
     }
   }
-  /** An attack of `src` on `tgt` in `mode`: its drones' hide / shot / hit / show. */
-  function droneShot(src, tgt, mode) {
+  /**
+   * 2026-10-21 (user report: 쉐라 S2's second drone stayed on her): the operators whose kit sends each locked drone's hit
+   * ('fx' 'drone' at its target, kits chess_char_3_20-kjera / chess_char_4_03-kjera / chess_char_2_10-rockr) — their lock
+   * drones follow those events, one per drone (the client's Funnel_0 / Funnel_1 lock a target each, `_alwaysIncludeTarget`:
+   * both on a lone enemy), not her body's attacks, which locked one drone only.
+   */
+  const LOCK_BY_FX = new Set(['kjera', 'rockr']);
+  const lockByFx = (v) => LOCK_BY_FX.has(fxBundleOf(v?.info?.spine || v?.info?.defId));
+  /**
+   * An attack of `src` on `tgt` in `mode`: its drones' hide / shot / hit / show. `only`: 'lock' — the lock drones (a kit's
+   * 'drone' event), 'free' — the others (her attack, when lockByFx).
+   */
+  function droneShot(src, tgt, mode, only = null) {
     if (!tgt || level() >= 3 || failed) return;
     const b = bundleOf(src), id = ownerOf(src), tid = ownerOf(tgt);
     const n = Number.isInteger(mode) && mode >= 0 ? mode : funnelMode(src), list = funnelsOf(src, n);
-    const shots = list.map((x, j) => [x, j]).filter(([x]) => x.proj);
+    const shots = list.map((x, j) => [x, j]).filter(([x]) => x.proj && (!only || (only === 'lock') === !!x.lock));
     if (!b || !shots.length) return;
     const k = Math.min(shots.length, funnelCount(src, list));
     // the attacks of one moment take the next drones (耶拉 S2's two locks, 荒芜拉普兰德 S2's); her normal attack strikes with
@@ -2383,6 +2394,22 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const hit = () => { if (tgt.alive !== false && !tgt.remove) for (const nm of hits) spawn(b.bundle, nm, tgt, entry); };
       if (hits.length) { if (dur > 0) castsDelayed.push({ t: clockS + dur, run: hit }); else hit(); }
     }
+  }
+  /** A kit's locked-drone hit ('fx' 'drone' [x, y] at its target, lockByFx): the next lock drone of this moment on the enemy there. */
+  function lockDroneFx(e, views) {
+    const src = views.get(e[4].id);
+    if (!src || !lockByFx(src) || !src._fxSkillOn || !bundleOf(src)) return false;
+    const x = Number(e[2]), y = Number(e[3]);
+    let tgt = null, best = 0.6;
+    for (const v of views.values()) {
+      if (v?.info?.side !== 'enemy' || v.alive === false || v.remove) continue;
+      const d = Math.hypot(Number(v.x) - x, Number(v.y) - y);
+      if (d < best) { best = d; tgt = v; }
+    }
+    if (!tgt) return false;
+    ownFx.add(e);
+    droneShot(src, tgt, modeNow(src), 'lock');
+    return true;
   }
   /** Drone `j` locks `tgt`: the one it held comes back first; it hides once and comes back when `tgt` is gone. */
   function droneLock(src, rec, x, j, tgt, tid, idleNow) {
@@ -4108,7 +4135,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           strikeFx(src, mode, e[3], tgt, sig);
           svashBird(src, tgt);   // 2026-10-21: 凛御银灰 S3's eagle
           chargeRelease(src);    // 2026-10-21: a 秘术师's stored energies leave with it
-          droneShot(src, tgt, mode);   // 2026-10-16: its drones
+          droneShot(src, tgt, mode, lockByFx(src) ? 'free' : null);   // 2026-10-16: its drones (2026-10-21: the locks by 'drone')
           if (tgt && (src._fxSkillOn || level() < 3)) shotStartFx(src, tgt, mode, shot);
           return;
         }
@@ -4198,6 +4225,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (kitFx(e, views)) return; // local patch: 余 S3 wall, 蕾缪安 S3 lock / shells, 戴菲恩 S3 slashes / finisher
           if ((e[1] === 'substitute' || e[1] === 'swap' || e[1] === 'dollEnd') && e[4]) dollFx(e, views); // local patch: the 替身's own effects
           if (standInOff(e, views)) ownFx.add(e); // local patch: no old procedural stand-in for an operator with official effects
+          if (e[1] === 'drone' && e[4] && lockDroneFx(e, views)) return;   // 2026-10-21: 耶拉 / 洛洛 S2's locked drones
           if ((e[1] === 'drone' || e[1] === 'drones') && e[4] && wolvesOn() && wolves.has(e[4].id)) {   // her wolves: no generic puff
             ownFx.add(e);
             if (e[1] === 'drone') playNoteHit(WOLF.bundle, WOLF.hit, { x: Number(e[2]), y: Number(e[3]), z: WOLF.z });
