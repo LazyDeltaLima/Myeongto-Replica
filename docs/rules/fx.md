@@ -1612,6 +1612,10 @@
     `SimpleEffect`는 hand. 2026-10-21 전수: 운영자 2,179 프리팹(두 클라) — `new`·`stale`·`unwalked` 0, todo 60 · hand 7 · none 7; 적 382
     프리팹 — todo 24 · none 4, `stale` 368 프리팹(10-10 추출: 10-11에 뺀 `face.speed` 56, 클라 갱신의 새 재질 속성, 텍스처가 빠진 14 프리팹 —
     子代·黄金回响·防护背心·未装配刀片·冲击式施术单元, 셰이더가 바뀐 深池逐火护卫 방패 1).
+  - **적 이펙트 전체 재추출 (2026-10-21, 관리자 결정)**: `enemy-index.json` 27 묶음 382 프리팹을 같은 목록 그대로 기록된 출처(`sources`)에서 지금
+    추출기로 다시 뽑음(EN 클라). 바뀐 파일은 위 `stale`과 같은 368개 — 텍스처가 돌아온 14 프리팹(`_MainTex`·`_DissolveTex`·`_DisturbTex`·
+    `_DisturTex`), 深池逐火护卫 방패 꼬리 재질의 셰이더 없음 → `Legacy Shaders/Particles/Alpha Blended`(todo: `_DstBlend`로 섞음), `face.speed`
+    빠짐, 새 재질 속성(기본값)·키워드 `_HG_UV_ROTATION` 빠짐(플레이어가 안 읽음). 새 텍스처 파일 2장. 뒤 `--coverage`의 적 `stale` 0.
 - **필드 이름 먼저, 원시 칸은 대비책 (2026-10-20)**: `root_effect`(ParticleEffect·루트의 FxDelay)·`projectile_effect`·`right_effect`·`fx_delay`
   (가지의 FxDelay)·`mount_point`는 컴포넌트의 타입 트리가 읽히면 필드 이름으로 읽고, 원시 칸은 타입 트리가 안 읽힐 때만 쓴다(EN·CN 클라 모두 지금은
   다 읽힘). `check_readers`가 매 추출마다 같은 컴포넌트에서 대비책도 돌려 비교하고, 타입 트리가 안 읽혀 대비책을 대조 없이 쓴 때(`no type tree: read
