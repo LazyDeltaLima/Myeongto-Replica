@@ -1508,7 +1508,7 @@
 - 안 한 것: (글래디아 S3 대상 버프 `glady_skill_03_buff`는 같은 날 「키트 이벤트의 공식 이펙트」에서 넣음.)
   `OnPlayEmitterIf`(`_checkType` MOTION_MODE·버프·Spine 방향 조건)·`RandomFinishEmitter`는 지금 추출물에 없다.
 - 확인: `test/render/on-emitter-fx.test.js`(추출물·`emitted`·`stepOnEmit` 시점·지우기·이름 규칙 제외), 이벤트 골든(child·뒷면 사본이 이름 규칙
-  줄에서 빠짐 — 불러온 뒤 트는 child 자체는 골든이 못 봄), 추출 JSON 골든 갱신. Windows Chrome 디버그 아레나: 수르트 S3 buff → `_02`·`_03`·`_04`,
+  줄에서 빠짐 — 불러온 뒤 트는 child 자체는 그날 뒤 `dryFollow`부터 `spawn:emit` 줄로 보임: 아래 「이벤트 기록 골든」), 추출 JSON 골든 갱신. Windows Chrome 디버그 아레나: 수르트 S3 buff → `_02`·`_03`·`_04`,
   파투스 S3 `buff_02` → `_XZ`(`_B`·`_B_XZ` 없음), 글래디아 S2 `buff` → `_02_front`·`_02_back`·`_03`, 스펙터 S2 `buff_02`, 비르투오사 S3·엔텔레키아 S3의
   `_end`가 끝날 때 나옴, 틴맨 S1·S2 범위 원 → `_end`(이펙트 자리), 페이지 오류 0 — 틴맨 S1은 디버그 아레나가 숨은 1티어 항목(`chess_char_1_16`, S1
   키트 없음·선택 불가)을 골라 범위가 안 나왔었다: `debug.js`가 보이는 항목을 고르게 함(레코드키퍼도 4_15 → 5_23). [화면 미확인: 실제 판, 공식 녹화와 모양 대조]
@@ -1761,8 +1761,13 @@
   바뀌면 더해진 줄(+)·빠진 줄(−)이 곧 화면에서 볼 목록). 유닛 이름은 모델(spine), 적은 def id. 모델 없는 뷰에서 클립 변형을 고르는
   `Math.random`(`castGroup`)은 판마다 고정 시드. `test/golden/fx-events.json`과 비교하는 `test/render/fx-golden.test.js`(기본 = 골든 빠른 묶음,
   `GOLDEN_FULL=1` 전부, 추출물 없으면 건너뜀), 의도한 바인딩 변경 뒤 `node tools/fx-golden.mjs --update`(`--print <id>`로 한 판의 줄). 못 보는
-  것: 상태 이상 이펙트(`fxstatus.js`가 스냅숏 플래그로 그림), 丰川祥子의 음표(WebP 확인 뒤에만 시작), 프리팹을 불러온 뒤에야 시작하는 하위
-  이펙트(선 끝·꼬리), 이벤트가 아닌 연출(보드·모래폭풍). 2026-10-20 기준 드문 쪽부터 덮기 47개 중 31개가 기록에 나온다.
+  것: 상태 이상 이펙트(`fxstatus.js`가 스냅숏 플래그로 그림), 丰川祥子의 음표(WebP 확인 뒤에만 시작), 뒷면 사본(SwitchableBackEffect
+  `_backEffect` — 프레임마다 주인 방향을 보고 틂), 이벤트가 아닌 연출(보드·모래폭풍). 프리팹이 틀린 뒤 스스로 만드는 것은 2026-10-21부터 본다:
+  `dry` 레이어가 틀린 프리팹의 추출 JSON만 읽어(`fxgame.js dryFollow`) OnPlayEmitter / OnFinishEmitter 프리팹을 `spawn:emit`(부모가 붙은
+  유닛 기준), RandomEmitter 사본을 `spawn:random`(점)으로 실제 길과 같은 줄로 남기고, 그것들이 만드는 것도 따라간다 — 부모가 끝까지 사는지는
+  안 따지므로 OnFinishEmitter 프리팹도 틀 때 같이 적힌다. 실제 길의 RandomEmitter 사본(`emitCopy`)도 같은 날부터 `trace`에 나온다. 드문 쪽부터
+  덮기 47개 중 기록에 나오는 것: 2026-10-20 31개 → 2026-10-21 33개(니어 더 래디언트 나이트 S3 `buff_03_a`·에이야퍄들라 더 크비트 아스카 S3
+  `weapon_04`).
 - 기준선의 큰 todo(비공개 조사 기록에 전체 목록): `FollowDirection` 183개(주인·대상 방향을 매 프레임 따라 돎) · 셰이더 `_CullMode`(플레이어는 늘
   양면) · Disturb Origin `_SrcBlend`(대부분 SrcAlpha, 2개가 One) · `InheritVelocityModule` 78 · `FxLODSetting` 37 · Shape Mesh 36(점으로 대체) ·
   `EmptyEffect` 35 · `OnPlayEmitter` 29 / `OnFinishEmitter` 14(다른 이펙트를 틂) · `CollisionModule` 28 · `PauseEffectIf` 26 · 기본 상태 밖 Animator

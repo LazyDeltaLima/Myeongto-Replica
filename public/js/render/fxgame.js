@@ -45,7 +45,8 @@
 // { kind, names, by, at } for every effect play() starts, before it loads (node has no WebP, so nothing is drawn there), and
 // { kind: 'spawn', names, by, on, tag, facing } for every extracted prefab spawn() starts. `dry` (tests, 2026-10-20): nothing ever
 // loads and the layer never fails — every event takes the path it takes in a browser up to the load, so `trace` sees them all
-// (without it node's missing WebP fails the layer at the first load and the later events skip the official effects).
+// (without it node's missing WebP fails the layer at the first load and the later events skip the official effects); it
+// reads each started prefab's JSON alone to trace what that prefab creates once it plays (dryFollow, 2026-10-21).
 // 丰川祥子's notes (kits/ops/op-oblvns.js, battle.fx 'oblvnsNote' born / track / free / hit / gone): each note is her client trail
 // prefab (fxmap.js NOTE_FX) flown here between the sim's events — free flight on its heading (the 扩张正弦 weave drawn
 // around it), tracing the target's view, the hit prefab on arrival (a piano note flies on 0.5 s); w = 2 draws two notes.
@@ -438,6 +439,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // local patch (maintainer report): a directional emitter entry plays the copy for the facing (dirPick)
     const { names, unflip } = dirPick(view, given || effectsFor(b.prefabs, kind, skillIndex).filter((n) => !emittedIn(b.bundle).has(n)));
     if (names.length && trace) trace({ kind, names, by: ownerOf(view), at: at ? ownerOf(at) ?? null : null }); // tests: what it plays
+    if (dry) for (const n of names) dryFollow(b.bundle, n, ownerOf(view) ?? null, (at || view).info ? ownerOf(at || view) ?? null : null);
     if (!names.length || !(await ensure())) return;
     // local patch (maintainer report 2026-10-08: 赤刃明霄陈's S3 dragon twice, over her): a left / right pair (fx_extract.py
     // `right`: the client plays the left copy and swaps in its `_rightEffect` while the owner faces right) is one effect —
@@ -543,6 +545,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   async function emitCopy(l, rec, p) {
     const bundle = l.inst.def?.bundle;
     if (!bundle || !index?.bundles?.[bundle]?.includes(rec.effect)) return;
+    if (trace) trace({ kind: 'spawn', names: [rec.effect], by: l.owner ?? null, on: null, tag: 'random', facing: 1 }); // tests
     const def = await lib.load(bundle, rec.effect);
     if (!mod || !def || !layers.under) return;
     const inst = new mod.fxp.FxInstance(def, { quality: q(), split: l.layer === layers.split, floor: l.inst.object.position.z || 0 });
@@ -639,6 +642,36 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (em.finish) onEmitPlay(l, em.finish, em.finish.effPos);
       }
     }
+  }
+  // `dry` (tests, 2026-10-21): a dry layer loads no prefab, so what a prefab creates once it plays — its OnPlayEmitter /
+  // OnFinishEmitter prefabs (stepOnEmit) and RandomEmitter copies (stepEmitters) — never reached `trace`. Each started
+  // prefab's JSON alone is read here and those are traced as the live path traces them (spawn: tag 'emit', on the unit the
+  // parent sits on; emitCopy: tag 'random', at a point), then theirs. Whether the parent lives to finish is not followed:
+  // its OnFinishEmitter prefabs are traced with the ones it plays.
+  const dryDefs = new Map();
+  function dryFollow(bundle, name, by, on, seen = new Set()) {
+    const key = `${bundle}/${name}`;
+    if (!trace || typeof fetch !== 'function' || seen.has(key)) return;
+    seen.add(key);
+    let p = dryDefs.get(key);
+    if (!p) {
+      p = fetch(`/assets/local/fx/${encodeURIComponent(bundle)}/${encodeURIComponent(name)}.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      dryDefs.set(key, p);
+    }
+    p.then((def) => {
+      const has = (n) => typeof n === 'string' && !!index?.bundles?.[bundle]?.includes(n);
+      for (const node of def?.nodes || []) {
+        for (const n of [...(node.onPlay?.effects || []), ...(node.onFinish?.effects || [])]) {
+          if (!has(n)) continue;
+          trace({ kind: 'spawn', names: [n], by, on, tag: 'emit', facing: 1 });
+          dryFollow(bundle, n, by, on, seen);
+        }
+        if (node.emit?.count > 0 && has(node.emit.effect)) {
+          trace({ kind: 'spawn', names: [node.emit.effect], by, on: null, tag: 'random', facing: 1 });
+          dryFollow(bundle, node.emit.effect, by, null, seen);
+        }
+      }
+    });
   }
 
   // local patch (maintainer report 2026-10-08: 赤刃明霄陈's S3 dragon over the 阻隔工事 crate behind her): the client's map and its
@@ -1452,6 +1485,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   async function spawn(bundle, name, at, entry, { over = true, facing = 1, drop = null, aim = null, dir = null } = {}) {
     if (!index?.bundles?.[bundle]?.includes(name)) return null;
     if (trace) trace({ kind: 'spawn', names: [name], by: entry.owner ?? null, on: at && at.info ? ownerOf(at) ?? null : null, tag: entry.tag ?? null, facing }); // tests
+    if (dry) dryFollow(bundle, name, entry.owner ?? null, at && at.info ? ownerOf(at) ?? null : null);
     if (!(await ensure())) return null;
     const def = await lib.load(bundle, name);
     if (!mod || !def) return null;

@@ -4,8 +4,10 @@
 //
 // Every battle scenario runs through the production BattleSpec path (golden.mjs battleOf); its client events are drained every
 // 3 ticks (the match's watcher cadence) and handed, as the browser hands them (render/app.js), to render/fxgame.js
-// createFxLayer({ dry: true, trace }) with views built from the field's UnitInfo and the snapshots. The layer loads nothing
-// (`dry`) and reports every prefab it starts (`trace`: play() by event kind, spawn() by its caller). A scenario's digest is the
+// createFxLayer({ dry: true, trace }) with views built from the field's UnitInfo and the snapshots. The layer draws nothing
+// (`dry`) and reports every prefab it starts (`trace`: play() by event kind, spawn() by its caller), and from each started
+// prefab's JSON what that prefab creates once it plays (`spawn:emit` OnPlayEmitter / OnFinishEmitter, `spawn:random`
+// RandomEmitter copies — fxgame.js dryFollow). A scenario's digest is the
 // SET of distinct lines `<unit> <kind> <prefabs>[ → self | ally | foe]` (`-`: an effect with no owner, its target by side) — the bindings (fxgame.js, fxmap.js, the extracted modes.json /
 // index.json), not how often or when they fire, so a gameplay change that moves the golden digests rarely moves this one,
 // while a binding change shows as the lines it adds and drops: the list to check on screen.
@@ -13,7 +15,8 @@
 //
 // Needs the extracted effects (public/assets/local/fx, git-ignored, `npm run setup`); without them the test skips. Not
 // replayed: the status effects (render/fxstatus.js draws them from the snapshot flags, not the events), 丰川祥子's notes (they
-// start only after a WebP check the layer cannot pass in node) and anything that starts after a prefab has loaded.
+// start only after a WebP check the layer cannot pass in node) and what a prefab's frame loop starts besides its emitters
+// (a back switch's `_backEffect`).
 //
 // Usage: node tools/fx-golden.mjs [--family roster,diy] [--only id,id] [--update] [--print id]
 
@@ -40,14 +43,18 @@ const quiet = { warn() {}, error() {}, info() {}, debug() {} };
 let gameData = null;
 const enemyDef = (id) => (gameData ||= getData({ log: quiet })).enemies?.[id] ?? null;
 
-/** The layer's files from disk (the browser fetches them from /assets/local/fx/). */
+/** The layer's files from disk (the browser fetches them from /assets/local/fx/): its index and bindings, and the prefabs' JSON. */
 function serveFx() {
   const fetch0 = globalThis.fetch;
+  const cache = new Map();
   globalThis.fetch = async (url) => {
-    const m = /^\/assets\/local\/fx\/([\w-]+\.json)$/.exec(String(url));
-    const file = m && join(FX_DIR, m[1]);
+    const m = /^\/assets\/local\/fx\/((?:[^/]+\/)?[^/]+\.json)$/.exec(String(url));
+    const rel = m && m[1].split('/').map(decodeURIComponent);
+    const file = rel && !rel.some((s) => s === '..' || s.includes('/')) && join(FX_DIR, ...rel);
+    if (file && cache.has(file)) { const json = cache.get(file); return { ok: true, json: async () => json }; }
     if (!file || !existsSync(file)) return { ok: false, json: async () => null };
     const json = JSON.parse(readFileSync(file, 'utf8'));
+    cache.set(file, json);
     return { ok: true, json: async () => json };
   };
   return () => { globalThis.fetch = fetch0; };
