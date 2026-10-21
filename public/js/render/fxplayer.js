@@ -1608,6 +1608,11 @@ export class FxInstance {
       // backOnly (a status effect, render/fxgame.js playStatus): only sortingOrder < 0 goes behind the unit, the rest stays
       // in front as it was before the split
       const back = opts.split === 'backOnly' ? (o) => o >= 0 : null;
+      // 2026-10-22 (docs/rules/fx.md 「캐릭터 그림의 기울기」): the sides are judged in the prefab's own, untilted frame —
+      // WRAP_H / AHEAD_Y were set there. Tilted, every order-0 plane in the model's plane (a background quad behind her,
+      // 뮤엘시스 S3 bg_wave_01) stood 0.6–0.9 tall and counted as a dome around the unit, drawn over her
+      const turned = tilt.quaternion.clone();
+      tilt.quaternion.identity();
       this.object.updateMatrixWorld(true);
       def.nodes.forEach((n, i) => {
         if (this.meshMats[i]) {
@@ -1631,6 +1636,8 @@ export class FxInstance {
       }
       for (const t of this.trails) put(t.batch.mesh, back ? back(t.tr.order || 0) : (t.tr.order || 0) > 0);
       for (const t of this.lines) put(t.batch.mesh, back ? back(t.tr.order || 0) : (t.tr.order || 0) > 0); // local patch
+      tilt.quaternion.copy(turned);
+      this.object.updateMatrixWorld(true);
     } else this.layerN[0] = 1;
     // (2026-10-10, user report: buff effects that vanish) a clip with Unity's loop flag (fx_extract.py `loop` = the clip's
     // m_LoopTime) repeats — it was held on its last frame, and an effect whose only motion was such a clip ended with it

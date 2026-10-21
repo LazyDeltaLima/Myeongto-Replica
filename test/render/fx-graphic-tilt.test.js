@@ -85,3 +85,21 @@ test('fxgame.js passes the tilt where an effect is created on a unit (cast / hit
   for (const s of ['tilt: tiltOn(ground, def)', 'tilt: tiltOn(sw.unit, def)', 'hold, tilt: tiltOn(view, def)', 'floor: view.z || 0, tilt: tiltOn(view, def)',
     'tilt: drop ? null : tiltOn(unit, def)', 'tilt: tiltOn(at, def)']) assert.ok(src.includes(s), s);
 });
+
+// 뮤엘시스 S3 mlyss_skill_03_buff_02 `bg_wave_01`: an order-0 quad in the skeleton plane, 0.1 behind her
+const backdrop = () => ({ ...disc(), nodes: [node('b', -1), node('rotation_y', 0),
+  node('bg_wave_01', 1, { pos: [0.21, 0.58, 0.1], scale: [1.6, 1.4, 1], mesh: { mesh: 'g', mat: 'm', order: 0 } })],
+  geoms: new Proxy({}, { get: () => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0], 3)); g.setIndex([0, 1, 2, 0, 2, 3]); return g; } }) });
+
+test('the split sides are judged untilted: a backdrop in the skeleton plane stays behind the unit (뮤엘시스 / 비르투오사 S3)', () => {
+  const side = (tilt) => {
+    const inst = new fxp.FxInstance(backdrop(), { quality: 'high', split: true, tilt });
+    const mesh = inst.nodes[2].children.find((c) => c.isMesh);
+    const r = { back: mesh.layers.mask === 1 << fxp.FX_BACK, up: new THREE.Vector3(0, 1, 0).transformDirection(inst.nodes[0].matrixWorld) };
+    inst.dispose();
+    return r;
+  };
+  const flat = side(null), tilted = side(GRAPHIC_TILT);
+  assert.ok(flat.back && tilted.back, `tilted, the backdrop counted as a dome around her and covered her: ${flat.back} / ${tilted.back}`);
+  assert.ok(Math.abs(tilted.up.z - 0.5) < 1e-6, 'the tilt is put back after the judgment');
+});
