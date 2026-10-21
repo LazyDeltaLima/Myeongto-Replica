@@ -43,7 +43,8 @@
 // drops its extras at level ≥ 2): level 2 plays 'high' as 'medium', level 3 also skips the normal-attack effects.
 // stats() → { live, loaded, updateMs, renderMs, calls, particles, notes } (view.stats().fxGame). `trace` (tests): called with
 // { kind, names, by, at } for every effect play() starts, before it loads (node has no WebP, so nothing is drawn there), and
-// { kind: 'spawn', names, by, on, tag, facing } for every extracted prefab spawn() starts. `dry` (tests, 2026-10-20): nothing ever
+// { kind: 'spawn', names, by, on, tag, facing } for every extracted prefab spawn() starts, { kind: 'status', names, by } for every
+// status effect statusOn() starts on `by` (render/fxstatus.js, 2026-10-21). `dry` (tests, 2026-10-20): nothing ever
 // loads and the layer never fails — every event takes the path it takes in a browser up to the load, so `trace` sees them all
 // (without it node's missing WebP fails the layer at the first load and the later events skip the official effects); it
 // reads each started prefab's JSON alone to trace what that prefab creates once it plays (dryFollow, 2026-10-21).
@@ -3437,6 +3438,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const on = view._fxStatusOn || (view._fxStatusOn = new Set());
       if (on.has(key)) return;
       on.add(key);
+      if (trace) trace({ kind: 'status', names: [name], by: ownerOf(view) ?? null, at: null }); // tests: the status prefab on `view`
+      if (dry) dryFollow(bundle, name, ownerOf(view) ?? null, frac === 'own' ? ownerOf(view) ?? null : null);
       playStatus(view, bundle, name, key, frac, hold, under);
     },
     /**

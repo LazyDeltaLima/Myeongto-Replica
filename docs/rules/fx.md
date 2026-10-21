@@ -1761,13 +1761,15 @@
   바뀌면 더해진 줄(+)·빠진 줄(−)이 곧 화면에서 볼 목록). 유닛 이름은 모델(spine), 적은 def id. 모델 없는 뷰에서 클립 변형을 고르는
   `Math.random`(`castGroup`)은 판마다 고정 시드. `test/golden/fx-events.json`과 비교하는 `test/render/fx-golden.test.js`(기본 = 골든 빠른 묶음,
   `GOLDEN_FULL=1` 전부, 추출물 없으면 건너뜀), 의도한 바인딩 변경 뒤 `node tools/fx-golden.mjs --update`(`--print <id>`로 한 판의 줄). 못 보는
-  것: 상태 이상 이펙트(`fxstatus.js`가 스냅숏 플래그로 그림), 丰川祥子의 음표(WebP 확인 뒤에만 시작), 뒷면 사본(SwitchableBackEffect
+  것: 丰川祥子의 음표(WebP 확인 뒤에만 시작), 뒷면 사본(SwitchableBackEffect
   `_backEffect` — 프레임마다 주인 방향을 보고 틂), 이벤트가 아닌 연출(보드·모래폭풍). 프리팹이 틀린 뒤 스스로 만드는 것은 2026-10-21부터 본다:
   `dry` 레이어가 틀린 프리팹의 추출 JSON만 읽어(`fxgame.js dryFollow`) OnPlayEmitter / OnFinishEmitter 프리팹을 `spawn:emit`(부모가 붙은
   유닛 기준), RandomEmitter 사본을 `spawn:random`(점)으로 실제 길과 같은 줄로 남기고, 그것들이 만드는 것도 따라간다 — 부모가 끝까지 사는지는
   안 따지므로 OnFinishEmitter 프리팹도 틀 때 같이 적힌다. 실제 길의 RandomEmitter 사본(`emitCopy`)도 같은 날부터 `trace`에 나온다. 드문 쪽부터
-  덮기 47개 중 기록에 나오는 것: 2026-10-20 31개 → 2026-10-21 33개(니어 더 래디언트 나이트 S3 `buff_03_a`·에이야퍄들라 더 크비트 아스카 S3
-  `weapon_04`).
+  상태 이상 이펙트도 같은 날부터: 도구가 뷰에 `app.js`처럼 상태(`'status'`·fx `parry`/`stacks`)를 넣고 프레임마다 `fxstatus.js
+  syncStatusFx`를 돌려 `statusOn`의 trace를 남긴다 — 그 오퍼레이터 자기 묶음의 프리팹이면 `<유닛> status <프리팹>`, 아니면(기절·감속·남이 건
+  버프) 입은 유닛의 편만 `- status <프리팹> → ally|enemy`(누가 맞는지는 전투 규칙). 드문 쪽부터 덮기 47개 중 기록에 나오는 것: 2026-10-20
+  31개 → 2026-10-21 34개(니어 더 래디언트 나이트 S3 `buff_03_a`·에이야퍄들라 더 크비트 아스카 S3 `weapon_04`·战栗 `common_buff_thrill`).
 - 기준선의 큰 todo(비공개 조사 기록에 전체 목록): `FollowDirection` 183개(주인·대상 방향을 매 프레임 따라 돎) · 셰이더 `_CullMode`(플레이어는 늘
   양면) · Disturb Origin `_SrcBlend`(대부분 SrcAlpha, 2개가 One) · `InheritVelocityModule` 78 · `FxLODSetting` 37 · Shape Mesh 36(점으로 대체) ·
   `EmptyEffect` 35 · `OnPlayEmitter` 29 / `OnFinishEmitter` 14(다른 이펙트를 틂) · `CollisionModule` 28 · `PauseEffectIf` 26 · 기본 상태 밖 Animator

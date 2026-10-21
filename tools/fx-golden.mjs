@@ -7,14 +7,15 @@
 // createFxLayer({ dry: true, trace }) with views built from the field's UnitInfo and the snapshots. The layer draws nothing
 // (`dry`) and reports every prefab it starts (`trace`: play() by event kind, spawn() by its caller), and from each started
 // prefab's JSON what that prefab creates once it plays (`spawn:emit` OnPlayEmitter / OnFinishEmitter, `spawn:random`
-// RandomEmitter copies — fxgame.js dryFollow). A scenario's digest is the
+// RandomEmitter copies — fxgame.js dryFollow). Each frame render/fxstatus.js syncStatusFx asks the layer for the status
+// effects the views' flags and statuses call for (`<unit> status <prefab>`, 2026-10-21). A scenario's digest is the
 // SET of distinct lines `<unit> <kind> <prefabs>[ → self | ally | foe]` (`-`: an effect with no owner, its target by side) — the bindings (fxgame.js, fxmap.js, the extracted modes.json /
 // index.json), not how often or when they fire, so a gameplay change that moves the golden digests rarely moves this one,
 // while a binding change shows as the lines it adds and drops: the list to check on screen.
 // Units are named by their model (UnitInfo spine, else def id); enemies by def id.
 //
 // Needs the extracted effects (public/assets/local/fx, git-ignored, `npm run setup`); without them the test skips. Not
-// replayed: the status effects (render/fxstatus.js draws them from the snapshot flags, not the events), 丰川祥子's notes (they
+// replayed: 丰川祥子's notes (they
 // start only after a WebP check the layer cannot pass in node) and what a prefab's frame loop starts besides its emitters
 // (a back switch's `_backEffect`).
 //
@@ -25,6 +26,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { scenariosOf, battleOf, GOLDEN_DIR } from './golden.mjs';
 import { createFxLayer } from '../public/js/render/fxgame.js';
+import { syncStatusFx, statusSource } from '../public/js/render/fxstatus.js';
+import { fxBundleOf } from '../public/js/render/fxmap.js';
 import { getData } from '../server/data.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -62,10 +65,44 @@ function serveFx() {
 
 const macrotask = () => new Promise((r) => setImmediate(r));
 
-/** A view as render/units.js keeps it, reduced to what fxgame.js reads (position, life, facing, flags, info). */
+let fxIndex = null;
+/** Whether `prefab` is in the effect bundle of the view's operator (fxmap.js fxBundleOf, the extracted index.json). */
+function ownPrefab(v, prefab) {
+  const id = v?.info?.side !== 'enemy' && (v?.info?.spine || v?.info?.defId);
+  const b = id ? fxBundleOf(id) : null;
+  fxIndex ||= JSON.parse(readFileSync(join(FX_DIR, 'index.json'), 'utf8'));
+  return !!(b && fxIndex.bundles?.[b]?.includes(prefab));
+}
+
+/**
+ * A view as render/units.js keeps it, reduced to what fxgame.js and fxstatus.js read (position, life, facing, flags, info,
+ * the statuses it wears: UnitView.onStatus / onStatusHit / onStatusCount).
+ */
 function makeView(info) {
   const facing = info.facing === -1 ? -1 : 1;
-  return { id: info.id, info, x: info.x ?? 0, y: info.y ?? 0, z: 0, alive: true, facing, visFacing: info.side === 'enemy' ? -1 : facing, flags: 0, dir: info.dir };
+  return {
+    id: info.id, info, x: info.x ?? 0, y: info.y ?? 0, z: 0, alive: true, facing, visFacing: info.side === 'enemy' ? -1 : facing, flags: 0, dir: info.dir,
+    isEnemy: info.side === 'enemy', prep: false, statuses: new Set(), statusFrom: null,
+    onStatus(key, on, from = null) {
+      if (typeof key !== 'string') return;
+      if (on) this.statuses.add(key); else this.statuses.delete(key);
+      if (on && from) (this.statusFrom ||= new Map()).set(key, { ...from });
+      else this.statusFrom?.delete(key);
+    },
+    onStatusHit(key) { const f = this.statusFrom?.get(key); if (f && f.n > 0) f.n--; },
+    onStatusCount(key, n) {
+      if (typeof key !== 'string' || !this.statuses.has(key)) return;
+      const f = (this.statusFrom ||= new Map()).get(key), k = Math.max(0, Number(n) || 0);
+      if (f) f.n = k; else this.statusFrom.set(key, { src: null, fx: null, n: k });
+    },
+  };
+}
+/** The status side of an event, as render/app.js hands it to the views (its 'status' case and the fx 'parry' / 'stacks'). */
+function statusEvent(e, views) {
+  if (e[0] === 'status') { views.get(e[1])?.onStatus(e[2], !!e[3], e[3] ? statusSource(views, e) : null); return; }
+  if (e[0] !== 'fx' || !e[4] || typeof e[4] !== 'object' || !e[4].buff) return;
+  if (e[1] === 'parry') views.get(e[4].id)?.onStatusHit(e[4].buff);
+  if (e[1] === 'stacks') views.get(e[4].id)?.onStatusCount(e[4].buff, e[4].n);
 }
 
 /**
@@ -101,6 +138,13 @@ async function traceBattle(sc) {
   const side = (id) => views.get(id)?.info?.side ?? null;
   const rel = (by, tgt) => (tgt === by ? 'self' : by == null ? side(tgt) ?? '?' : side(tgt) === side(by) ? 'ally' : side(tgt) ? 'foe' : '?');
   const trace = (p) => {
+    // a status effect by the unit wearing it when the prefab is of its own bundle (its own buff), else by that unit's side
+    // only (which unit a stun or a heal lands on is gameplay)
+    if (p.kind === 'status') {
+      const n = p.names.join('+');
+      lines.add(ownPrefab(views.get(p.by), p.names[0]) ? `${name(p.by)} status ${n}` : `- status ${n} → ${side(p.by) ?? '?'}`);
+      return;
+    }
     const tgt = p.at ?? p.on ?? null;
     lines.add(`${name(p.by)} ${p.kind}${p.tag ? `:${p.tag}` : ''} ${p.names.join('+')}${tgt != null ? ` → ${rel(p.by, tgt)}` : ''}`);
   };
@@ -119,6 +163,7 @@ async function traceBattle(sc) {
   const frame = () => {
     for (const e of b.drainEvents()) {
       if (e[0] === 'spawn') add(e[1]);
+      statusEvent(e, views);
       layer.onEvent(e, views);
       if (e[0] === 'die') { const v = views.get(e[1]); if (v) v.alive = false; }
       else if (e[0] === 'deploy') { const v = views.get(e[1]); if (v) v.alive = true; }
@@ -132,6 +177,7 @@ async function traceBattle(sc) {
       v.x = u[1]; v.y = u[2]; v.flags = u[7];
     }
     layer.update(DRAIN_EVERY * TICK, cam, vp);
+    syncStatusFx(views, layer, true); // the status effects the flags and statuses ask for (render/app.js frame)
   };
   for (;;) {
     if (!rect) { const f = b.fieldMeta(); rect = f.rect; for (const u of f.units) add(u); }

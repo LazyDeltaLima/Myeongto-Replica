@@ -1,7 +1,8 @@
 // test/render/fx-dry-follow.test.js — render/fxgame.js `dry` (tools/fx-golden.mjs, docs/rules/fx.md 「이벤트 기록 골든」): a
 // dry layer loads no prefab, and still traces what a started prefab creates once it plays, from its JSON alone — its
 // OnPlayEmitter / OnFinishEmitter prefabs (`spawn:emit`, on the unit it sits on) and its RandomEmitter copies
-// (`spawn:random`, at a point), then theirs. Its own file: the layer caches the index per process.
+// (`spawn:random`, at a point), then theirs; and the status effects render/fxstatus.js turns on (`status`). Its own file:
+// the layer caches the index per process.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -33,5 +34,22 @@ test('a dry layer traces the prefabs a started prefab creates', async () => {
       'spawn:random copy on null', // p's RandomEmitter copies, at a point
       'spawn:tplfx p on 7',
     ]);
+  } finally { globalThis.fetch = fetch0; }
+});
+
+test('a status effect is traced once per unit and key, with what it creates', async () => {
+  const fetch0 = globalThis.fetch;
+  const files = { '/assets/local/fx/bond/p.json': { nodes: [{ onPlay: { effects: ['kid'] } }] } };
+  globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
+  try {
+    const seen = [];
+    const layer = createFxLayer({ host: null, above: null, quality: () => 'high', dry: true, trace: (p) => seen.push(`${p.kind}:${p.tag ?? ''} ${p.names.join('+')} by ${p.by} on ${p.on ?? null}`) });
+    await macrotask(); // the index (the first test's, cached for the process)
+    const v = { id: 3, info: { id: 3, side: 'enemy' }, x: 0, y: 0, z: 0, alive: true };
+    assert.ok(layer.statusReady('bond', 'p'));
+    layer.statusOn(v, 'bond', 'p', 'stun', 0.5);
+    layer.statusOn(v, 'bond', 'p', 'stun', 0.5); // already on: nothing
+    await macrotask();
+    assert.deepEqual(seen, ['status: p by 3 on null', 'spawn:emit kid by 3 on null']);
   } finally { globalThis.fetch = fetch0; }
 });
