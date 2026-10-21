@@ -2318,14 +2318,20 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       });
     }));
   }
-  /** Pause (`on`) or resume drone `j`'s idle loops (and their back copies); `off`: hidden while paused. */
-  function holdDrone(rec, j, on, off) {
+  /**
+   * Pause (`on`) or resume drone `j`'s idle loops (and their back copies). Paused is hidden too (2026-10-21, user report 「쉐라 S2
+   * 드론이 그녀에게 그림처럼 고정」): the client's pause (`ParticleEffect.OnPausedUpdated` RVA 0xEACFD0) switches off the
+   * GameObject of the effect's main particle system, and every drone idle prefab (耶拉 F / B / default, 洛洛, 至简, 荒芜拉普兰德)
+   * draws all it has under that node (`mainPs` 2 `fixed` / 4 `wolf (1)`) — as `_setActiveFalseWhenPause` (`off`) does
+   * with the whole effect; ours froze 耶拉's on her (`off` unset) while the lock's hit effect flew her drone at the target.
+   */
+  function holdDrone(rec, j, on) {
     for (const l of rec.ls[j] || []) {
       for (const x of [l, l.backSw?.entry]) {
         if (!x || x.inst.stopping) continue;
         x.held = on;
-        x.offHeld = on && off;
-        x.inst.object.visible = !(on && off) && !(x === l && l.hidden);
+        x.offHeld = on;
+        x.inst.object.visible = !on && !(x === l && l.hidden);
       }
     }
   }
@@ -2359,7 +2365,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (x.lock && rec && !held) droneLock(src, rec, x, j, tgt, tid, idleNow);
       else if (!x.lock && idleNow) {
         for (const nm of (x.hide || []).filter(has)) spawn(b.bundle, nm, src, { owner: null, buff: false, on: id }, { over: false, facing: efacing(src) });
-        holdDrone(rec, j, true, !!x.off);
+        holdDrone(rec, j, true);
         const back = x.attach ? Number(x.delay) || 0 : x.wait ? dur : 0.2;
         castsDelayed.push({ t: clockS + back, run: () => { if (src._fxDrone === rec) droneBack(src, rec, x, j); } });
       }
@@ -2386,7 +2392,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     rec.locks.set(j, lk);
     if (idleNow) {
       for (const nm of (x.hide || []).filter((s) => b.prefabs.includes(s))) spawn(b.bundle, nm, src, { owner: null, buff: false, on: id }, { over: false, facing: efacing(src) });
-      holdDrone(rec, j, true, !!x.off);
+      holdDrone(rec, j, true);
     }
     const watch = () => {
       if (src._fxDrone !== rec || rec.locks.get(j) !== lk) return;
@@ -2400,7 +2406,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const b = bundleOf(src), id = ownerOf(src);
     if (rec.locks.delete(j)) for (const l of live) if (l.tag === `droneHit:${j}` && l.owner === id) l.inst.stop();
     if (!(j < rec.k && x.idle?.length) || !b) return;
-    holdDrone(rec, j, false, false);
+    holdDrone(rec, j, false);
     for (const nm of (x.show || []).filter((s) => b.prefabs.includes(s))) spawn(b.bundle, nm, src, { owner: null, buff: false, on: id }, { over: false, facing: efacing(src) });
   }
   /** Where a drone's projectile leaves (its ability's `_mountPointType`: the drone's special point), else her muzzle. */

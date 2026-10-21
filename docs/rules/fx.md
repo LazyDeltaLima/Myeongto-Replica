@@ -1989,6 +1989,15 @@
   `fxgame.js droneShot`은 `attach`면 꼬리 없이 바로 명중·`delay` 뒤 등장, `lock`이면 드론별 잠금(`droneLock`: 같은 대상이면 명중만, 다른 대상이면 이전 잠금을
   끝내고 다시 숨김, 대상이 사라지면 등장 `droneBack`); 같은 순간의 공격은 그 대상을 이미 잠근 드론 → 빈 드론 순. 락락 과부하는 kitofficial `overload` 계획의
   `skillFlag` 'overDrones'(스킬 끝에 지움). [추정: 스킬 끝에 잠긴 드론의 등장 이펙트는 안 틂(모드가 바뀌며 새 모드 대기로 다시 시작)]
+- 멈춘 대기 드론은 숨는다 (2026-10-21, 관리자 확인 「쉐라 S2 드론이 그녀에게 그림처럼 고정되어 보임」): 시전 시작의 대기 멈춤
+  (`set_isPaused`)은 `ParticleEffect.OnPausedUpdated`(0xEACFD0)가 주 입자 시스템의 GameObject를 끄는 것이고, 드론 대기 프리팹은 모두 그림 전부가 그
+  노드 아래다(`mainPs` — 쉐라 F·B·기본·락락·至简 2 `fixed`, 라플란드 더 데카덴차 4 `wolf (1)`). 우리는 `_setActiveFalseWhenPause`(`off`)일 때만 숨겨
+  쉐라 S2 드론이 잠긴 동안 그녀 몸에 멈춘 채 보였다 → `fxgame.js holdDrone`: 멈춤이면 숨김. 적 옆의 드론은 잠금 명중 `_F_L_*`/`_F_R_*` 자신이
+  그린다(`token` 노드의 머리·꼬리 메시와 꼬리, 클립이 0.5초에 나타나 대상 옆 −0.51·0.33에서 떠 있음; 탄 `projectile_chr_kjera_funnel_s2_*`은
+  `_mainEffect` 없음, `Body`는 빈 Transform — 직접 확인). `SequenceEffectBehaviour.OnHitTarget`은 맞힐 때마다 새로 만들고 앞의 것을 끝내지 않는다
+  (탄이 멈출 때 `_clearHitEffectOnStop`) — 우리도 잠금 동안 쌓인다 [추정: 클라에서 그 이펙트가 저절로 끝나는지(입자 `loop`인 빛 둘)는 안 읽음].
+  아레나 기본 샌드백은 바로 옆 칸이라 그 드론이 그녀 쪽 0.5칸에 떠 그녀 위처럼 보인다. 확인: 단위 `funnel-fx.test.js` 「a paused idle drone is hidden」,
+  디버그 아레나(샌드백 3칸·2칸 앞): 잠근 드론은 그녀에게서 사라지고 적 옆에, 안 잠근 둘째는 그녀에게.
 - 확인: 단위 `test/render/funnel-fx.test.js`. 디버그 아레나(오류 0): 쉐라 기본 `kjera_token_default` 1·드론 꼬리·명중 14씩, S2 `kjera_token_F_01`/`_02`
   + 퇴장·등장·S2 명중 7씩(기본 모습은 꺼짐); 락락 `rockr_token_01`(기본·S2)·드론 꼬리·명중 8씩·S2 퇴장·등장 11씩; 라플란드 더 데카덴차 S1
   `whitw2_token_01`·`_02`(드론 둘)·드론 명중 13씩. [화면 미확인: 실제 판, 드론 자리·뒷모습·숨김 시점을 공식 녹화와]

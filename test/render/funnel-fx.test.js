@@ -3,6 +3,7 @@
 // of each attack, 荒芜拉普兰德's active count; the pack's extra wolves, bites and 战术点形态 by the sim's wolf count. Node has no WebP: the trace counts the prefabs the layer starts.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createFxLayer } from '../../public/js/render/fxgame.js';
 
 const files = {
@@ -187,4 +188,14 @@ test("伺夜's pack (2026-10-21): a board piece's first count ('wolfCount'), its
     layer.update(0.02, null, null);
     assert.ok(!got().includes('vigil_token_start'), 'the form ended without a return');
   } finally { globalThis.fetch = fetch0; }
+});
+
+test("a paused idle drone is hidden: the client's pause switches off its main particle system's node, over all it draws (耶拉 S2)", () => {
+  const SRC = readFileSync(new URL('../../public/js/render/fxgame.js', import.meta.url), 'utf8');
+  const at = SRC.indexOf('function holdDrone(rec, j, on) {');
+  assert.ok(at >= 0);
+  const body = SRC.slice(at, SRC.indexOf('\n  }\n', at));
+  assert.match(body, /x\.offHeld = on;/);
+  assert.match(body, /x\.inst\.object\.visible = !on && !\(x === l && l\.hidden\);/);
+  assert.doesNotMatch(SRC, /holdDrone\([^)]*x\.off/);
 });
