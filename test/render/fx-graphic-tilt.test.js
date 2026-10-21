@@ -103,3 +103,24 @@ test('the split sides are judged untilted: a backdrop in the skeleton plane stay
   assert.ok(flat.back && tilted.back, `tilted, the backdrop counted as a dome around her and covered her: ${flat.back} / ${tilted.back}`);
   assert.ok(Math.abs(tilted.up.z - 0.5) < 1e-6, 'the tilt is put back after the judgment');
 });
+
+// common_ignite_attack (the 낮은 티어 skill buff, 맹약·서포터 오퍼레이터 and others): its swirl bands are arcs seen edge-on in the
+// tilted frame; their rotation over lifetime about x (30–90°/s) opens them into the curved arcs of the official recording
+test('a mesh particle\'s rotation over lifetime turns it about x / y too (common_ignite_attack\'s swirl bands)', (t) => {
+  const at = new URL('../../public/assets/local/fx/pithst/common_ignite_attack.json', import.meta.url);
+  if (!fs.existsSync(at)) { t.skip('effect not extracted'); return; }
+  const def = { ...JSON.parse(fs.readFileSync(at, 'utf8')), geoms: new Proxy({}, { get: () => tri() }), lib: { texture: () => new THREE.Texture() } };
+  const rec = def.nodes.find((n) => n.name === 'liangsechaorao').ps.mods.rotOL.x;
+  const inst = new fxp.FxInstance(def, { quality: 'high', delays: false, tilt: GRAPHIC_TILT });
+  for (let k = 0; k < 20; k++) inst.update(0.02);
+  const sys = inst.systems.find((s) => s.node.name === 'liangsechaorao');
+  assert.ok(sys.n > 0, 'it emitted');
+  let turned = 0;
+  for (let i = 0; i < sys.n; i++) {
+    const rx = sys.rot[i * 3];
+    assert.ok(rx <= rec.n * sys.age[i] + 1e-4, `at most ${rec.n} rad/s: ${rx} after ${sys.age[i]} s`);
+    if (rx > 0) turned++;
+  }
+  assert.ok(turned > 0, 'the bands turn about x');
+  inst.dispose();
+});

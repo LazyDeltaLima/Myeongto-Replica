@@ -1159,7 +1159,13 @@ class ParticleSystem {
         ox += Math.sin((this.age[i] + ph) * f * 6.28) * s; oy += Math.cos((this.age[i] + ph * 1.3) * f * 6.28) * s;
       }
       this.pos[i * 3] += (vx + ox) * dt; this.pos[i * 3 + 1] += (vy + oy) * dt; this.pos[i * 3 + 2] += (vz + oz) * dt;
-      if (m.rotOL) this.rot[i * 3 + 2] += evalMM(m.rotOL.z, a, r) * dt;
+      if (m.rotOL) {
+        this.rot[i * 3 + 2] += evalMM(m.rotOL.z, a, r) * dt;
+        // 2026-10-22: a separate-axes module turns a mesh particle about x / y too (Unity adds angularVelocity3D to each
+        // euler of rotation3D) — common_ignite_attack's swirl bands tumble open from edge-on into arcs
+        if (m.rotOL.x) this.rot[i * 3] += evalMM(m.rotOL.x, a, r) * dt;
+        if (m.rotOL.y) this.rot[i * 3 + 1] += evalMM(m.rotOL.y, a, r) * dt;
+      }
       if (this.subs) this.emitSubs(i, age0, this.age[i], dt);
     }
     // instance data, uploaded by the used range in one call
