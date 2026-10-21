@@ -1562,7 +1562,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * A 'dmg' of this moment on `tid` that waiting skill effects claim (expect(); each plays its effect on the target once —
    * 戴菲恩's finisher hit and its last slash's mark come together).
    */
-  function pendingHit(tid, views) {
+  function pendingHit(tid, views, by = null) {
     while (pending.length && clockS - pending[0].t > PENDING_S) pending.shift();
     const tgt = pending.length ? views.get(tid) : null;
     if (!tgt) return false;
@@ -1572,6 +1572,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const a = lastAtk.get(tid);
       if (a && a.src !== p.src && clockS - a.t < 1) continue;
       if (Math.hypot(tgt.x - p.src.x, tgt.y - p.src.y) > PENDING_REACH) continue;
+      // (2026-10-21) nor damage on the caster's side (an enemy's hit on an operator), nor another operator's — the 'dmg'
+      // attacker (6th field) is the caster, its summon (维什戴尔's shade token_10035_wisdel_wward), or none (无来源); the
+      // event golden's `- spawn … → ally` lines (埃拉托·Ayer·塑心 …) were these
+      if (tgt.info?.side && tgt.info.side === p.src.info?.side) continue;
+      if (by != null && by !== (p.src.id ?? p.src.info?.id) && views.get(by)?.info?.kind === 'op') continue;
       claimed = true;
       p.done ||= new Set();
       if (p.done.has(tid)) continue;   // its second hit of the same moment (德克萨斯 S2: 2 swords)
@@ -3576,7 +3581,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // 2026-10-10: the attacker, the 6th field of the sim's damage event (null: 无来源 damage / an older sim)
           const by = e.length >= 6 && e[5] != null ? e[5] : null;
           if (stoneHit(tid, views)) return; // a 望 stone blast's hit effect
-          if (pendingHit(tid, views)) return; // local patch: a skill's damage without an attack
+          if (pendingHit(tid, views, by)) return; // local patch: a skill's damage without an attack
           let a = lastAtk.get(tid);
           if (a && by != null && ownerOf(a.src) !== by) a = null; // another unit's damage: not that attack's hit
           // an attack with per-strike hits keeps its record for its strikes of the same tick (strikeGroups); a DoT tick is none

@@ -28,7 +28,7 @@ test('a stone blast plays the client\'s cast effect at the stone and its hit eff
     assert.ok(![...fx.at, fx.target].includes('token_wang_skill_03_hit_03'), 'the unreferenced offset copy is never played');
   }
   // the hit effects go through the 'dmg' of the same moment (stoneHit before pendingHit)
-  assert.match(SRC, /if \(stoneHit\(tid, views\)\) return;[^\n]*\n\s+if \(pendingHit\(tid, views\)\) return;/);
+  assert.match(SRC, /if \(stoneHit\(tid, views\)\) return;[^\n]*\n\s+if \(pendingHit\(tid, views, by\)\) return;/);
 });
 
 test('the blast areas match the kit (op-wang.js trigger): own tile, S2 link lines ±3, S3 x-1 diamond', () => {
