@@ -637,6 +637,13 @@ mods, flags, onTick(ctx), interval, onExpire(ctx), onRemove(ctx), tags, shield, 
 - `visible: true` emits `['status', id, key, 1/0]` client events. `battle.removeBuff(unit, key|buff)`. `fxTag` rides the on-event
   as `{ fx }` (a hint for the client's buff effect); an enemy's own status that stands for one of its client buffs names them
   `'buff:<client buff key>|…'` (docs/rules/fx.md 「적 상태의 버프 이펙트」).
+- `removeBuff` fixes the matching instances in reverse order, then locates each in the current buff list before
+  removing it. Synchronous `onRemove` may remove other buffs: an absent candidate is skipped, its callback is not
+  repeated, and this call returns only its own actual removal count (null unit / no match = 0). Callbacks observe
+  each intermediate state through the existing removal path, including dirty stats, flags and last-instance status
+  events. Explicit removal calls `onRemove`, not `onExpire`; new same-key instances added by a callback wait for
+  another call — the same set the client removes (`BuffContainer.RemoveBuffs` only marks the matches finished; its next
+  finished-buff check drops them). [ASSUMED] Removal is immediate here, not at that check (docs/rules/sim.md).
 
 **Mod keys** — additive: `atkFlat atkPct atkFinal defFlat defPct hpFlat hpPct resFlat aspd batPct blockCnt rangeExtend
 defIgnoreFlat defIgnorePct resIgnoreFlat resIgnorePct dodgePhys dodgeArts spRecoveryFlat maxTargets taunt hpRegen

@@ -1707,6 +1707,15 @@ upstream `6ab24682` → master `c9d804f4`·dev `06a92237` 대조에서 받은 �
   fields boss-boss_3-pair·boss-boss_5-pair·hidden-boss_9-pair, matches solo-ABYSS-2·coop4-FUNNY-6·coop8-HARD-3·coop2-ABYSS-10-boosted·
   coop2-NORMAL-14-standins·custom-solo-ABYSS-12-battle-boosted).
 
+### `removeBuff`는 부른 순간 맞는 버프만, 하나씩 다시 찾아 지운다 (upstream `126f0bc0`)
+
+- 규칙: 맞는 버프를 먼저 모아(뒤에서부터) 지금 목록에서 하나씩 찾아 지운다. 지우는 중 `onRemove`가 같은 유닛의 다른 버프를 지우면 그 버프는 건너뛰고, 콜백이
+  더한 같은 키 버프는 다음 호출 몫(`server/sim/battle/status.js`). 전에는 목록 인덱스를 그대로 돌아 그런 콜백 뒤에 어긋났다(upstream: 萨尔贡 ATK 합산 버프의
+  TypeError). 바닐라 호출자는 그 경로에 안 닿는다 — 방어 수정.
+- 근거: 클라 코드 `BuffContainer.RemoveBuffs(key)`는 맞는 버프에 끝 표시만 하고 지우는 것은 다음 끝난 버프 확인이다(관리자 노트) — 그래서 클라에는 이 버그가
+  없고, 지우는 대상은 이 수정과 같다. **[ASSUMED]** 우리는 그 자리에서 지우고 끝 처리를 한다(클라는 다음 확인 때). 그 차이가 판에 보이는지는 확인 안 함.
+- 테스트 `test/sim/remove-buff.test.js`, `test/content/sargon-remove-buff.test.js`(upstream 그대로). golden 변화 없음.
+
 ## 8인 협동 모드 (관리자 결정 2026-10-16·2026-10-19, 공식에 없는 기능)
 
 공식 방은 1–4명이고 8인용 데이터는 없다(`act2autochess`에는 난이도별 `bloodPoint*`와 단일·멀티 연합 방어 템플릿뿐). 아래 수치·규칙은 모두
