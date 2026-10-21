@@ -267,7 +267,7 @@ describe('spine events from the renderer (render/spine.js onEvent → audio.spin
     assert.match(src('spine.js'), /state\.addListener\(\{ event:/);
     assert.match(src('units.js'), /actor\.onEvent = \(name\) =>/);
     assert.match(src('units.js'), /this\.ctx\.spineEvent\(uid, null\)/);
-    assert.match(src('app.js'), /spineEvent: \(id, name\) => \{ if \(mode === 'battle' && !battleMeta\?\.prep\) opts\.audio\?\.spineEvent\?\.\(id, name\)/);
+    assert.match(src('app.js'), /spineEvent: \(id, name\) => \{ if \(mode === 'battle' && !battleMeta\?\.prep\) \{ opts\.audio\?\.spineEvent\?\.\(id, name\)/);
   });
 });
 
