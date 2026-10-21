@@ -1344,7 +1344,7 @@ PRTS 选择器, is not in the data): "地面敌人" / "不可对空" ⇒ `!e.isF
 琳琅诗怀雅 S3 cash-out, 乌尔比安 S1 捕网 [ASSUMED like 雪雉's]); "可对空" or no note ⇒ air units too (no note = [ASSUMED]:
 风丸 折纸生花, 乌尔比安 S3, 缄默德克萨斯 S2, 余 S2, 见行者 S2, 耀骑士临光 不畏苦暗 and the token appear bursts — “耀阳”,
 沙之碑, 迷迭香的战术装备's stun, 纸偶). A melee skill whose attacks PRTS marks "可对空" sets `targeting.canHitFly` (玛恩纳
-S3 未照耀的荣光 — its CUSTOM_RANGE trigger also counts flyers). A stun / freeze / sleep from any of them drops a hovering 掠海漂移体 for good. Ranged attacks fly as projectiles:
+S3 未照耀的荣光 — its CUSTOM_RANGE trigger also counts flyers; 凛御银灰 S3 变革已至, its line targets too). A stun / freeze / sleep from any of them drops a hovering 掠海漂移体 for good. Ranged attacks fly as projectiles:
 an operator's at its attack mode's official projectile (data/chess.json `shot`, `ai.js opShot`, docs/rules/sim.md 「오퍼레이터 투사체」 — homing at its
 `speed`, a PARACURVE arc over the horizontal distance; an attack the client fires no projectile for hits at the strike, and so do the
 enemies an operator blocks when its mode's blocked attack has none; a medic's heal lands as its shot reaches the ally), anything the
