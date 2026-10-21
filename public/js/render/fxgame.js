@@ -76,6 +76,7 @@ import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2: when her
 import { playSpeed } from './fx/face.js'; // 2026-10-11 (maintainer decision 15): `_usePlaybackSpeed` / `_limitedPlaybackSpeed`
 import { kitOfficialPlan, kitOperator } from './fx/kitofficial.js'; // 2026-10-16: kit events the buff templates draw
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
+import { animPause, clipOf, facesBack, idlePause, pauseIfNow } from './fx/pause.js'; // 2026-10-21: the client's pause / finish behaviours
 
 /**
  * (maintainer re-report 2026-10-08, docs/rules/fx.md 「관리자 제보 (2026-10-07 밤)」) the official effects of a 望 stone's blast (createFxLayer stoneFx) — `at`:
@@ -400,7 +401,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     live.push(l);
     return l;
   }
-  function dropLive(l) { l.inst.dispose(); l.layer.n--; }
+  function dropLive(l) { if (l.inst.pausers?.length) releaseOthers(l); l.inst.dispose(); l.layer.n--; }
   /** End the oldest effects past their kind's cap (liveOverCap). */
   function trimLive() {
     if (!mod) return;
@@ -497,7 +498,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // `faceToBack` turns true, and the other way round when it turns back to the front ('common_empty' = nothing while back).
   // Here the owner faces back while its Back model is drawn (UnitView.entryBack; before the model loads, a deploy facing UP);
   // the paused front is not drawn [추정: the pause hides it — a frozen copy beside the back one is not seen in captures].
-  const faceBack = (v) => !!(v && (v.entryBack ?? v.dir === 'UP'));
+  const faceBack = facesBack;
   /** The back switch of `def` on its unit `unit` (an operator / enemy view), or null. */
   function backSwitch(def, unit, bundle) {
     const b = def?.back;
@@ -525,10 +526,87 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (back === sw.on) continue;
       sw.on = back;
       l.hidden = back;
-      l.inst.object.visible = !back && !l.offHeld;
+      l.inst.object.visible = !back && !l.offHeld && !l.paused;
       if (back) startBack(l);
       else if (sw.entry) { sw.entry.inst.stop(true); sw.entry = null; }
     }
+  }
+
+  // ---- pause / finish behaviours (2026-10-21, decompile check; docs/rules/fx.md 「이펙트 멈춤·끝 조건」) ----------------
+  // An effect pauses as its behaviours ask (FxInstance.pausers, fx_extract.py pause_scripts, render/fx/pause.js): the
+  // client's `Effect.set_isPaused` → `ParticleEffect.OnPausedUpdated` (RVA 0xEACFD0) switches its particle system off and
+  // pauses it, and the unpause plays it on — here it is not drawn and not stepped while `paused`. PauseEffectIf and
+  // PauseEffectIfNotIdle write the effect's own flag (`pzSelf`), PauseEffectWithAnimation / PauseEffectIfSpineEvent pause it
+  // per behaviour (`pzBeh`: `_useBehaviourPause`, the same pause — `Effect.get_isPaused` 0xE7D4D0), another effect's
+  // PauseAnotherEffect holds it (`pzBy`: `SetPausedByOthers`); FinishEffectIf finishes it.
+  const entryOwner = (l) => l.unit || (l.owner != null ? lastViews?.get(l.owner) : null) || null;
+  function setPaused(l) {
+    const p = !!(l.pzSelf || l.pzBeh?.size || l.pzBy?.size);
+    if (p === !!l.paused) return;
+    l.paused = p;
+    l.inst.object.visible = !p && !l.hidden && !l.offHeld;
+  }
+  const behPause = (l, pz, on) => { if (on) (l.pzBeh ||= new Set()).add(pz); else l.pzBeh?.delete(pz); };
+  /** The effects `l`'s PauseAnotherEffect holds are given back (it finished, ended or is paused itself). */
+  function releaseOthers(l) {
+    for (const pz of l.inst.pausers) {
+      if (pz.k !== 'pauseOther' || !pz.held) continue;
+      for (const o of pz.held) { o.pzBy?.delete(l); if (live.includes(o)) setPaused(o); }
+      pz.held.clear();
+    }
+  }
+  /** Each frame, before the effect steps: its pause / finish behaviours on its owner (entryOwner). */
+  function stepPauses(l) {
+    const inst = l.inst, v = entryOwner(l);
+    for (const pz of inst.pausers) {
+      const r = pz.rec;
+      if (pz.k === 'pauseIf') {
+        const x = v ? pauseIfNow(r, v) : null;
+        if (x != null) l.pzSelf = x;
+      } else if (pz.k === 'pauseIdle') {
+        const x = idlePause(r, v);
+        if (x != null) l.pzSelf = x;
+      } else if (pz.k === 'pauseAnim') {
+        // `_DoPause` (RVA 0xE94CE0): after `pre` s ÷ the playback speed, then `finish`; the restore (`_noPauseWhenValid`) after `back`
+        const want = animPause(r, clipOf(v));
+        if (want === true) {
+          pz.back = null;
+          if (!pz.on && pz.at == null) pz.at = clockS + (r.pre > 0 ? r.pre / (l.speed > 0 ? l.speed : 1) : 0);
+        } else if (want === false) {
+          pz.at = null;
+          if (pz.on && pz.back == null) pz.back = clockS + (r.back > 0 ? r.back : 0);
+        }
+        if (pz.at != null && clockS >= pz.at) { pz.at = null; pz.on = true; if (r.finish && !inst.stopping) inst.stop(); }
+        if (pz.back != null && clockS >= pz.back) { pz.back = null; pz.on = false; }
+        behPause(l, pz, pz.on);
+      } else if (pz.k === 'pauseSpine') {
+        // `_pauseAtStart`; the Spine events come through spineEvent(); outside `anims` it plays (`Update` RVA 0xE92FA0)
+        if (pz.on == null) pz.on = !!r.start;
+        const clip = r.anims?.length ? clipOf(v) : null;
+        if (clip && !r.anims.includes(clip)) pz.on = false;
+        behPause(l, pz, pz.on);
+      } else if (pz.k === 'pauseOther') {
+        // `OnPlay` (RVA 0xE911B0) / `Update` (0xE91270): the owner's effect named `effect`, after `pre` s; with `update`
+        // again each frame, and given back while this one is paused
+        pz.held ||= new Set();
+        pz.at ??= clockS + (r.pre > 0 ? r.pre : 0);
+        if (inst.stopping || inst.done || l.owner == null) { releaseOthers(l); continue; }
+        if (clockS < pz.at || (pz.done && !r.update)) continue;
+        pz.done = true;
+        if (r.update && l.paused) { releaseOthers(l); continue; }
+        for (const o of live) {
+          if (o === l || o.owner !== l.owner || o.inst.def?.name !== r.effect || o.inst.stopping || pz.held.has(o)) continue;
+          (o.pzBy ||= new Set()).add(l);
+          pz.held.add(o);
+          setPaused(o);
+        }
+      } else if (pz.k === 'finishIf' && !inst.stopping) {
+        const gone = l.owner != null && (!v || v.alive === false || v.remove);
+        const clipEnd = r.animEnd && inst.clips?.length && !inst.clipLoops && inst.time >= inst.clipLen;
+        if ((r.ownerGone && gone) || clipEnd) inst.stop();
+      }
+    }
+    setPaused(l);
   }
 
   // ---- RandomEmitter (2026-10-21, decompile check) -------------------------------------------------------------
@@ -3435,6 +3513,20 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     statusReady(bundle, name) { return !!(index && !failed && q() !== 'low' && index.bundles?.[bundle]?.includes(name) && !statusFailed.has(`${bundle}/${name}`)); },
     /** Whether status effects can play at all (index loaded, not 'low', no WebP failure): off, units draw their status icons (fxstatus.js). */
     statusLayer() { return !!(index && !failed && q() !== 'low'); },
+    /**
+     * 2026-10-21: a battle unit's Spine clip event (render/app.js ctx.spineEvent): OnDeactivateEffect / OnActivateEffect
+     * pause / unpause its effects' PauseEffectIfSpineEvent (`Entity.Event` ON_DEACTIVATE_EFFECT_EVENT 38 / ON_ACTIVATE 37 →
+     * `_OnPauseEffect` RVA 0xE93110 / `_OnPlayEffect` 0xE93190; `invert` swaps them).
+     */
+    spineEvent(id, name) {
+      const off = name === 'OnDeactivateEffect';
+      if (id == null || (!off && name !== 'OnActivateEffect')) return;
+      for (const l of live) {
+        if (l.owner !== id || !l.inst.pausers?.length) continue;
+        for (const pz of l.inst.pausers) if (pz.k === 'pauseSpine') { pz.on = pz.rec.invert ? !off : off; behPause(l, pz, pz.on); }
+        setPaused(l);
+      }
+    },
     /** local patch (⑤): loop `bundle`/`name` on `view` as its status `key` (once per key) at `frac` of its height. */
     statusOn(view, bundle, name, key, frac = 0, hold = null, under = false) {
       const on = view._fxStatusOn || (view._fxStatusOn = new Set());
@@ -3802,7 +3894,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (l.shotEnd != null && clockS >= l.shotEnd) { l.shotEnd = null; finishShot(l.inst, l); } // 2026-10-11: a flown main effect arrives
         if (l.finishAt != null && clockS >= l.finishAt) { l.finishAt = null; l.inst.stop(true); } // 2026-10-11: statusOff's delay
         if (l.backOf && (l.backOf.inst.stopping || !live.includes(l.backOf)) && !l.inst.stopping) l.inst.stop(); // 2026-10-10: a back copy ends with its front
-        if ((!l.view?.paused && !l.hidden && !l.held) || l.inst.stopping) l.inst.update(dt * rate2 * (l.speed > 0 ? l.speed : 1));   // local patch: every effect on the battle clock (the notes did already: trail = speed × time); a front paused for its back copy (stepBackSwitches) waits
+        if (l.inst.pausers?.length) stepPauses(l); // 2026-10-21: the client's pause / finish behaviours
+        if ((!l.view?.paused && !l.hidden && !l.held && !l.paused) || l.inst.stopping) l.inst.update(dt * rate2 * (l.speed > 0 ? l.speed : 1));   // local patch: every effect on the battle clock (the notes did already: trail = speed × time); a front paused for its back copy (stepBackSwitches) waits
         if (l.inst.emitters?.length) stepEmitters(l); // 2026-10-21: RandomEmitter copies
         if (l.inst.onEmit?.length) stepOnEmit(l); // 2026-10-21: OnPlayEmitter / OnFinishEmitter
         if (l.inst.done && l.status && l.again && l.unit?._fxStatusOn?.has(l.status) && l.unit.alive !== false) { const a = l.again; l.again = null; a(); } // local patch: a status loops
@@ -3881,6 +3974,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         calls: perf.calls, particles: mod ? mod.fxp.fxStats().particles : 0, notes: notes.size,
         recent: recent.slice(), trails: trails.length, // local patch
         buffs: live.filter((l) => l.buff && !l.inst.done).map((l) => l.inst.def?.name ?? '?'), // local patch: the looping effects on now
+        paused: live.filter((l) => l.paused && !l.inst.done).map((l) => l.inst.def?.name ?? '?'), // 2026-10-21: held by a pause behaviour (stepPauses)
         trailAt: trails.map((r) => (r.inst ? [+r.inst.object.position.x.toFixed(2), +r.inst.object.position.y.toFixed(2), +r.k.toFixed(2)] : [r.k])), // local patch
       };
     },

@@ -1513,6 +1513,46 @@
   `_end`가 끝날 때 나옴, 틴맨 S1·S2 범위 원 → `_end`(이펙트 자리), 페이지 오류 0 — 틴맨 S1은 디버그 아레나가 숨은 1티어 항목(`chess_char_1_16`, S1
   키트 없음·선택 불가)을 골라 범위가 안 나왔었다: `debug.js`가 보이는 항목을 고르게 함(레코드키퍼도 4_15 → 5_23). [화면 미확인: 실제 판, 공식 녹화와 모양 대조]
 
+### 이펙트 멈춤·끝 조건 — PauseEffectIf 등 (2026-10-21, 디컴파일 확인)
+
+- 원인: 이펙트를 스스로 멈추거나 끝내는 클라 스크립트 여섯과 EmptyEffect 루트를 안 읽어(추출 누락 기준선 todo: 운영자 85개·적 12개), 클라가
+  숨기는 동안에도 늘 보였다 — 비르투오사 S3 장판 중에도 재능 `cello_buff_01`, 머드락 층 이펙트 셋이 겹쳐서, 한기(`buff_cold`)가 빙결 중에도,
+  혼 S2·S3 버프가 기절 중에도.
+- 클라: 멈춤은 이펙트 전체 — `Effect.Behaviour.set_isPaused` → `Effect.set_isPaused`(RVA 0xE7DBC0) → `ParticleEffect.OnPausedUpdated`(0xEACFD0)가
+  파티클 GameObject를 끄고 `Pause`, 풀리면 켜고 `Play`(이어서). `Effect.get_isPaused`(0xE7D4D0) = 자기 플래그 ∨ 남이 건 멈춤 ∨ 동작별 멈춤 목록.
+  - PauseEffectIf(`GetCheckResult` 0xE93330, `Update` 0xE93DE0 매 프레임, `_checkOnPlay`면 틀 때도): 주인의 조건들을 순서대로 OR(`_requireAllConditions`면
+    AND — `_CombinePauseFlag` 0xE942C0)로 합쳐 하나라도 검사했으면 멈춤을 그 값으로(`_CheckPause` 0xE940E0). 조건: 이상 상태 플래그(목록 포함)·그
+    플래그 면역·콤보(SLEEPING/SHELTERING, `CHECK_YES`/`CHECK_NO` — `_CheckPauseIfFlag` 0xE94030)·모드 번호·사라짐·버프 보유·플래그 없음·뒤 보기·
+    오른쪽 보기·상태 번호·공유 블랙보드. `_disableMeshRendererWhenPause`는 `Init`(0xE93C70)이 `GetComponentsInParent<MeshRenderer>`로 모은 것만.
+  - PauseAnotherEffect: 틀 때(`_preDelay` 뒤 — `OnPlay` 0xE911B0·`Update` 0xE91270) 주인의 버프 이펙트 중 `_effect` 이름(`Entity.GetBuffEffect`)을
+    `SetPausedByOthers`로 멈추고(`_OnPause` 0xE91370) 끝날 때 푼다(`OnFinish` 0xE91140); `_checkUpdate`면 매 프레임 다시 잡고, 자기가 멈춰 있으면 돌려줌.
+  - PauseEffectWithAnimation(`_CheckPause` 0xE94A70): 주인의 현재 애니메이션이 `_validAnimation`에 없거나 `_invalidAnimation`에 있으면
+    `_delayToPause` ÷ 재생 속도 뒤 멈춤, `_finishIfPause`면 그때 끝냄(`_DoPause` 0xE94CE0); 아니면 `_noPauseWhenValid`일 때 `_delayToRestore` 뒤 풂.
+  - PauseEffectIfNotIdle(`Update` 0xE91DA0): 주인이 Idle 상태가 아니면(`Character.isInIdletState`) 멈춤, `_needCheckFaceSwitch`면 뒤/앞 볼 때도.
+  - PauseEffectIfSpineEvent: 주인 모델의 Spine 이벤트 OnDeactivateEffect / OnActivateEffect(`Entity.Event` 38 / 37 → `_OnPauseEffect` 0xE93110 /
+    `_OnPlayEffect` 0xE93190)로 멈춤/풂(`_invertSpineEventMapping`이면 반대), `onlyCheckedAnimations` 밖의 클립이면 풂(`Update` 0xE92FA0).
+  - FinishEffectIf(`Update` 0xE7F2E0): 주인이 없어지면 / 주인이 더미가 아니면 / 자기 GameObject의 Animator가 현재 상태 클립을 한 번 다 틀면(루프 아님)
+    끝냄. EmptyEffect는 `_delayToFinish`가 재활용 지연(`get_delayToRecycle` 0xEA47C0).
+- 고친 것: `fx_extract.py pause_scripts`가 노드에 `pauseIf` {when: [조건…], all, onPlay, meshOff}(조건 이름은 클라 열거형 그대로, EN 덤프 범위
+  밖 값 — CN 안젤리나 더 멜로우 위시 `aglna2_levitate_01_emit`의 46 — 은 숫자)·`pauseOther` [{effect, pre, update}](머드락 `mudrok_buff_01_start`은
+  둘)·`pauseAnim`·`pauseIdle`·`pauseSpine`·`finishIf`를 필드 이름으로 쓰고, `delay_to_finish`가 EmptyEffect 루트의 `_delayToFinish`도 `finish`로
+  (선 이펙트들 0.5 — 렌더에 [추정]으로 둔 `CHAIN_LINE_S` 0.5와 같음). 대상 96개만 다시 뽑음(전후 비교: 바뀐 키는 새 키뿐). `FxInstance.pausers`가
+  모으고 `fxgame.js stepPauses`가 프레임마다(이펙트 갱신 전) 주인 뷰로 판정해 멈춘 이펙트는 안 그리고 안 돌린다(`paused`; 뒷면 전환·드론과 같은
+  숨김 길). 판정은 `render/fx/pause.js`: 플래그 = 뷰의 `UF`(기절·빙결·한기·은신 — 迷彩는 따로)와 상태 키(침묵·공포·무장 해제·战栗·부유), 수면 콤보 =
+  `UF.SLEEP`, 뒤 보기 = 뒷면 모델(뒷면 전환과 같은 `facesBack`), Idle = 시뮬 동작 `ANIM.IDLE` [추정], 애니메이션 = Spine 트랙 0의 클립 이름. Spine
+  이벤트는 `units.js`의 클립 이벤트(`app.js ctx.spineEvent`)를 `fxGame.spineEvent`로도 넘김. 다른 이펙트 멈춤은 같은 주인(`owner`)의 같은 이름 항목.
+  [추정: 렌더가 모르는 조건(면역·클라 버프 키·모드 번호·블랙보드·SHELTERING·`SP_MODIFY_STOPPED` 등)은 검사 안 한 것으로 — 그 조건만 가진
+  모스티마 S2·시빌라이트 에테르나 S2 묶기·무장 해제 표시 등은 그대로 늘 보임]
+- 화면에서 바뀌는 것: 비르투오사 S3 장판 동안 재능 `cello_buff_01` 숨김, 머드락 층 이펙트가 한 겹(가장 높은 층만), 민트 S2 시작 0.2 s 뒤 범위가
+  시작 이펙트가 끝날 때까지 숨음, 퍼퓨머 S2·아스카론·시·스와이어 디 엘리건트 위트의 같은 꼴(소스 이펙트가 틀릴 때), 한기는 빙결 중,
+  혼 S2·S3 버프는 기절 중, 은신 버프(이네스 S2·은신 표시)는 은신이 깨지면, 수면 표시는 깨면 숨음, 안젤리나 더 멜로우 위시 S2 무기 이펙트는
+  `Skill_2_Takeoff_End` 클립 0.3 s 뒤 멈추고 활공 꼬리는 그 클립에 끝남, 실버애쉬 더 레인프로스트 S3 무기 버프는 `Skill_3_Combat`의
+  OnDeactivateEffect~OnActivateEffect 사이 숨음, 쏜즈 더 로드스타 무기 버프 `_05`·비질 늑대 `sub_start`는 Idle이 아닐 때 숨음.
+- 확인: `test/render/fx-pause.test.js`(추출 키·판정·`stepPauses`의 멈춤/재개·다른 이펙트·지연·끝냄·Spine 이벤트·끝 조건), 추출 JSON 골든 3개 갱신
+  (새 키뿐), 이벤트 기록 골든 그대로(멈춤은 「트는」 줄이 아님). Windows Chrome 디버그 아레나(`stats().fxGame.paused`): 비르투오사 S3 `cello_buff_01`
+  멈춤, 머드락 층 03 → 02(03 멈춤) → 01(02·03 멈춤), 민트 S2 범위 0.2 s 뒤 멈춤·시작 이펙트 끝에 풀림, 혼 S2(기절 없음) 그대로, 페이지 오류 0.
+  [화면 미확인: 실제 판 — 상태 이상(빙결·기절·수면)이 걸린 경우, 공식 녹화와 대조]
+
 ### 타격별 명중 — MultiHitUberEffectEmitter `_hitGroups` (2026-10-16, 이펙트 연결 전수, 디컴파일 확인)
 
 - 원인: `char_modes.py`가 `_hitGroups`를 읽지 않아 그 이미터만 명중을 가진 모드(锏 일반·S1, 赤刃明霄陈 S1·S3, 德克萨斯 S2, 玛恩纳 S2)와 스킬
@@ -1784,6 +1824,6 @@
     `screen_desert_down_to_up`(m06의 위 방향 폭풍 장치 `#2`는 어디서도 켜지지 않음; 서명은 기록되는 `up_to_down`과 같음 107개).
 - 기준선의 큰 todo(비공개 조사 기록에 전체 목록): `FollowDirection` 183개(주인·대상 방향을 매 프레임 따라 돎) · 셰이더 `_CullMode`(플레이어는 늘
   양면) · Disturb Origin `_SrcBlend`(대부분 SrcAlpha, 2개가 One) · `InheritVelocityModule` 78 · `FxLODSetting` 37 · Shape Mesh 36(점으로 대체) ·
-  `EmptyEffect` 35 · `OnPlayEmitter` 29 / `OnFinishEmitter` 14(다른 이펙트를 틂) · `CollisionModule` 28 · `PauseEffectIf` 26 · 기본 상태 밖 Animator
-  클립 23 · 클립이 움직이는 입자 모듈 값·트레일 길이·UV 흐름 속도. 재질에 저장 안 된 셰이더 속성을 움직이는 트랙은 2026-10-21에 고침(아래
+  `CollisionModule` 28 · 기본 상태 밖 Animator 클립 23 · 클립이 움직이는 입자 모듈 값·트레일 길이·UV 흐름 속도(`EmptyEffect`·`OnPlayEmitter` /
+  `OnFinishEmitter`·`PauseEffectIf` 등 멈춤·끝 스크립트는 2026-10-21에 읽음 — 위 「OnPlayEmitter · OnFinishEmitter」·「이펙트 멈춤·끝 조건」). 재질에 저장 안 된 셰이더 속성을 움직이는 트랙은 2026-10-21에 고침(아래
   「RandomEmitter · FlyToPredefinedLocation」의 셋째 항목).

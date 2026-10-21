@@ -148,7 +148,9 @@ test('projectiles leave the attack\'s _mountPointType point (로즈몬티스 S2 
 });
 
 test('SwitchableBackEffect: the front pauses and the back copy plays while the owner faces back', () => {
-  assert.match(SRC, /const faceBack = \(v\) => !!\(v && \(v\.entryBack \?\? v\.dir === 'UP'\)\);/);
+  // (2026-10-21) the test lives in render/fx/pause.js (PauseEffectIf's face check asks the same)
+  assert.match(SRC, /const faceBack = facesBack;/);
+  assert.match(readFileSync(path.join(ROOT, 'public/js/render/fx/pause.js'), 'utf8'), /export const facesBack = \(v\) => !!\(v && \(v\.entryBack \?\? v\.dir === 'UP'\)\);/);
   assert.match(SRC, /if \(back\) startBack\(l\);\n\s+else if \(sw\.entry\) \{ sw\.entry\.inst\.stop\(true\); sw\.entry = null; \}/);
   const py = readFileSync(path.join(ROOT, 'tools/local-extract/fx_extract.py'), 'utf8');
   assert.match(py, /BACK_SCRIPT = 7599136815520768295/);

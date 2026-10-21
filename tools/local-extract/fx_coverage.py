@@ -85,7 +85,8 @@ SCRIPTS = {
 # what the extract reads of the scripts above (reader() checks the raw fallbacks)
 SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoint', 'FxUVTweener', 'FxUVTweenerAdvance',
                 'FxUVRotation', 'SwitchableBackEffect', 'SwitchableRightEffect', 'LineEffectEmitterDynamic', 'RandomEmitter',
-                'FlyToPredefinedLocation', 'OnPlayEmitter', 'OnFinishEmitter'}
+                'FlyToPredefinedLocation', 'OnPlayEmitter', 'OnFinishEmitter', 'EmptyEffect', 'PauseEffectIf', 'PauseAnotherEffect',
+                'PauseEffectIfNotIdle', 'PauseEffectWithAnimation', 'PauseEffectIfSpineEvent', 'FinishEffectIf'}
 
 # ParticleSystem modules the extract carries (fx_extract.particle_system)
 MODULES_READ = {'InitialModule', 'EmissionModule', 'ShapeModule', 'SizeModule', 'ColorModule', 'RotationModule',
@@ -139,13 +140,6 @@ KNOWN = {
     'script:FollowDirection': (_TODO, 'turns the effect with its owner / target direction every frame (only the root '
                                'ParticleEffect `_rotateType` is read, `face`)'),
     'script:FxLODSetting': (_TODO, 'switches objects / particle details off by quality level [ASSUMED: nothing at the top level]'),
-    'script:EmptyEffect': (_TODO, 'an Effect root without particles: its `_delayToFinish` / sub delays are not read'),
-    'script:PauseEffectIf': (_TODO, 'pauses the effect on owner conditions (abnormal flags, blackboard keys)'),
-    'script:PauseAnotherEffect': (_TODO, 'pauses another effect of the owner'),
-    'script:PauseEffectIfNotIdle': (_TODO, 'pauses while the owner is not idle / faces back or front'),
-    'script:PauseEffectWithAnimation': (_TODO, 'pauses by the owner\'s current animation'),
-    'script:PauseEffectIfSpineEvent': (_TODO, 'pauses on the owner\'s Spine events'),
-    'script:FinishEffectIf': (_TODO, 'finishes on owner conditions (animation end, owner gone)'),
     'script:FinishEffectViaOwnerBuff': (_HAND, 'finishes when the owner\'s buff ends; only on 余 S3, drawn by render/fxgame.js (its tiles)'),
     'script:FollowTileHeight': (_TODO, 'follows the height of the tile under it'),
     'script:SwitchableEffectByFaceDirection': (_TODO, 'plays an up / down / left variant by facing'),

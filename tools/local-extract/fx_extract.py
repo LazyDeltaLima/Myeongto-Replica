@@ -80,6 +80,28 @@ RANDOM_EMITTER_SCRIPT = -1593825680945881793
 # (on_emitters, node `onPlay` / `onFinish`)
 ON_PLAY_EMITTER_SCRIPT = -5498265793651067281
 ON_FINISH_EMITTER_SCRIPT = 2565987927806955259
+# (2026-10-21, decompile check) the MonoScript PathIDs of the client's effect behaviours that pause or finish their effect
+# (pause_scripts, node `pauseIf` / `pauseOther` / `pauseAnim` / `pauseIdle` / `pauseSpine` / `finishIf`) and of EmptyEffect
+# (an Effect root without particles: delay_to_finish); the same ids in the CN client
+PAUSE_IF_SCRIPT = -5974768320951421776
+PAUSE_OTHER_SCRIPT = -8269937305055351653
+PAUSE_ANIM_SCRIPT = 6329958979451404875
+PAUSE_IDLE_SCRIPT = 2267209715737721819
+PAUSE_SPINE_SCRIPT = -654372255496816943
+FINISH_IF_SCRIPT = -6490124024613466648
+EMPTY_EFFECT_SCRIPT = -488665936260092151
+# Torappu.Battle.AbnormalFlag by value (10-14 EN dump; E_NUM = 44 means "no flag"). A value past the list (the CN client's
+# newer flags) stays a number.
+ABNORMAL_FLAGS = ('STUNNED', 'SP_RECOVER_STOPPED', 'TARGET_FREE', 'BLOCK_FREE', 'HIDDEN', 'INVINCIBLE', 'UNDEADABLE', 'HEAL_FREE',
+                  'UNBALANCE_IMMUNE', 'INVISIBLE', 'UNUSED_PLACEHOLDER_1', 'DISARMED', 'SILENCED', 'UNMOVABLE',
+                  'UNUSED_PLACEHOLDER_2', 'ALLY_TARGET_FREE', 'FROZEN', 'CAMOUFLAGE', 'FORCE_DISARMED',
+                  'STUNNED_NO_AMPLIFY_DAMAGE', 'DISABLE_COMBAT', 'ELEMENT_FREE_ALL', 'UNMOVABLE_PRIVATE', 'COLD',
+                  'SKILL_NOT_ACTIVATABLE', 'LEVITATE', 'DURANCE', 'NOT_WITHDRAWABLE', 'OUT_OF_GROUND', 'SP_MODIFY_STOPPED',
+                  'ANTI_STATUS_RESISTABLE', 'DISARMED_COMBAT', 'TOWER_TARGET_FREE', 'FEARED', 'SKILL_ACTIVABLE_IN_ABNORMAL',
+                  'MOTION_TARGET_FREE', 'FORCE_LEVITATE', 'BUFF_ADD_CAN_BE_CANCELED_IF_DEFENSE',
+                  'DEFENSE_BUFF_ADD_IF_CANCELABLE_BUFF', 'PALSY', 'PALSYING', 'ATTRACTED', 'FEARED_PRIVATE', 'DOZE')
+ABNORMAL_NONE = 44
+ABNORMAL_COMBOS = ('SLEEPING', 'SHELTERING')   # Torappu.Battle.AbnormalCombo (E_NUM = 2)
 # (2026-10-16) Unity's built-in particle materials (an anonymous bundle, anon/*.bin): read as no material, as before the CAB
 # index knew that bundle — nearly all sit on empty container systems (227 of 234); fx_coverage lists the 7 that emit
 UNITY_DEFAULT_MATERIALS = {'Default-Particle', 'Default-ParticleSystem'}
@@ -801,6 +823,7 @@ class Extractor:
             if emit:
                 node['emit'] = emit
             node.update(self.on_emitters(go))
+            node.update(self.pause_scripts(go))
             tr = None
             for c in d['m_Component']:
                 comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], go)
@@ -1142,6 +1165,117 @@ class Extractor:
             else:
                 out['onFinish'] = {'effects': effects, 'face': bool(t.get('_useFaceVector')),
                                    'effPos': bool(t.get('_useEffectPosition'))}
+        return out
+
+    def pause_scripts(self, go):
+        """(2026-10-21, decompile check) the client's effect behaviours on this GameObject that pause or finish the whole effect
+        they belong to, by their field names (none of them has a raw fallback: without a type tree nothing is read). A pause
+        (`Effect.Behaviour.set_isPaused` → `Effect.set_isPaused` RVA 0xE7DBC0 → `ParticleEffect.OnPausedUpdated` 0xEACFD0)
+        switches the effect's particle system GameObject off and pauses it; the unpause switches it on and plays on.
+        - `pauseIf` (PauseEffectIf; `GetCheckResult` 0xE93330 each frame from `Update` 0xE93DE0, and at play with `_checkOnPlay`
+          — `OnPlay` 0xE93D70; `_CheckPause` 0xE940E0 sets the pause only when some term was checked): { when: [term …],
+          all (`_requireAllConditions`: the terms are AND-ed, else OR-ed — `_CombinePauseFlag` 0xE942C0), onPlay, meshOff
+          (`_disableMeshRendererWhenPause`: the MeshRenderers of the effect off while paused) }. The terms, of the effect's
+          owner, in the client's order: { flag } its abnormal flag (`_checkAbnormalFlag`: `_pauseWhenAbnormalFlag` and each
+          of `_pauseWhenAbnormalFlags`); { immune } immune to that flag (`_checkAbnormalImmune`); { combo, not } the
+          abnormal combo (SLEEPING / SHELTERING; `_checkAbnormalCombo` CHECK_YES / CHECK_NO — `_CheckPauseIfFlag` 0xE94030);
+          { mode: [index], not } its unit mode index in the list; { gone } disappeared (`_checkDisappear`); { buff: [key],
+          not } holds the buff (`_pauseWhenContainBuffKey`, or any of `_pauseWhenContainBuffKeyList`); { flag, not: 1 }
+          lacks the flag (`_checkNotInAbnormalFlag`); { back, not } faces back; { right, not } faces right; { state, not }
+          its state id; { bb: [key], not } any of these shared-blackboard bools. Flags by name (ABNORMAL_FLAGS), E_NUM: none.
+        - `pauseOther` (PauseAnotherEffect, a list — one per component): [{ effect, pre, update }] — at play (`OnPlay` 0xE911B0; after `_preDelay` s:
+          `Update` 0xE91270) the owner's buff effect named `effect` (`Entity.GetBuffEffect`) is paused by this one
+          (`_OnPause` 0xE91370: `Effect.SetPausedByOthers`) until this one finishes (`OnFinish` 0xE91140 → `_OnUnpause`);
+          with `_checkUpdate` each frame again (a later one too), and given back while this one is paused itself.
+        - `pauseAnim` (PauseEffectWithAnimation; `_CheckPause` 0xE94A70 each frame): the owner's current animation pauses
+          it when `valid` (`_validAnimation`) is given and lacks it, or `invalid` (`_invalidAnimation`) holds it — after
+          `pre` (`_delayToPause` > 0) s ÷ the playback speed (`_DoPause` 0xE94CE0), and `finish` (`_finishIfPause`) finishes
+          the effect then; otherwise `restore` (`_noPauseWhenValid`) unpauses it (after `_delayToRestore` > 0 s: `back`).
+        - `pauseIdle` (PauseEffectIfNotIdle; `Update` 0xE91DA0): paused while the owner is not in its idle state
+          (`Character.isInIdletState`), and with `_needCheckFaceSwitch` while it faces back (`back`) / front (`front`).
+        - `pauseSpine` (PauseEffectIfSpineEvent): { start, invert, anims } — paused at play with `_pauseAtStart` (`OnPlay`
+          0xE92C20); the owner's Spine events OnDeactivateEffect / OnActivateEffect (`Entity.Event` 38 / 37 → `_OnPauseEffect`
+          0xE93110 / `_OnPlayEffect` 0xE93190) pause / unpause it (`_invertSpineEventMapping` swaps them), and while its
+          current animation is none of `anims` (`onlyCheckedAnimations`) it is unpaused (`Update` 0xE92FA0).
+        - `finishIf` (FinishEffectIf; `Update` 0xE7F2E0): { ownerGone, notDummy, animEnd } — finishes the effect when its
+          owner is gone (`_finishIfOwnerInvalid`), when its owner is not a dummy (`_finishIfNotDummy`), or when this
+          GameObject's Animator (`Awake` 0xE7F250) has played its current state's clip once (not a loop, normalized time ≥ 1:
+          `_finishIfCurrentAnimFinish`)."""
+        out = {}
+        for sid, _raw, t in self.monos(go):
+            what = {PAUSE_IF_SCRIPT: 'PauseEffectIf', PAUSE_OTHER_SCRIPT: 'PauseAnotherEffect', PAUSE_ANIM_SCRIPT: 'PauseEffectWithAnimation',
+                    PAUSE_IDLE_SCRIPT: 'PauseEffectIfNotIdle', PAUSE_SPINE_SCRIPT: 'PauseEffectIfSpineEvent',
+                    FINISH_IF_SCRIPT: 'FinishEffectIf'}.get(sid)
+            if what is None:
+                continue
+            if t is None or (isinstance(t, dict) and t.get('m_Enabled') == 0):
+                if t is None:
+                    self.cov.reader(what, False, 'no type tree: nothing read')
+                continue
+            g = lambda k, d=0: t.get(k, d) if t.get(k) is not None else d
+            names = lambda v: [x for x in (v or []) if isinstance(x, str) and x]
+            if sid == PAUSE_IF_SCRIPT:
+                out['pauseIf'] = self.pause_if(t)
+            elif sid == PAUSE_OTHER_SCRIPT:
+                if isinstance(t.get('_effect'), str) and t['_effect']:   # a list: 泥岩's mudrok_buff_01_start holds two
+                    out.setdefault('pauseOther', []).append({'effect': t['_effect'], 'pre': r4(max(0, float(g('_preDelay')))),
+                                                             'update': bool(g('_checkUpdate'))})
+            elif sid == PAUSE_ANIM_SCRIPT:
+                v = {'valid': names(t.get('_validAnimation')), 'invalid': names(t.get('_invalidAnimation')),
+                     'finish': bool(g('_finishIfPause')), 'restore': bool(g('_noPauseWhenValid')),
+                     'pre': r4(max(0, float(g('_delayToPause')))), 'back': r4(max(0, float(g('_delayToRestore'))))}
+                out['pauseAnim'] = {k: x for k, x in v.items() if x not in ([], 0, False)}
+            elif sid == PAUSE_IDLE_SCRIPT:
+                face = bool(g('_needCheckFaceSwitch'))
+                out['pauseIdle'] = {'back': face and bool(g('_pauseWhenBack')), 'front': face and bool(g('_pauseWhenFront'))}
+            elif sid == PAUSE_SPINE_SCRIPT:
+                out['pauseSpine'] = {'start': bool(g('_pauseAtStart')), 'invert': bool(g('_invertSpineEventMapping')),
+                                     'anims': names(t.get('onlyCheckedAnimations'))}
+            else:
+                v = {'ownerGone': bool(g('_finishIfOwnerInvalid')), 'notDummy': bool(g('_finishIfNotDummy')),
+                     'animEnd': bool(g('_finishIfCurrentAnimFinish'))}
+                if any(v.values()):
+                    out['finishIf'] = v
+        return out
+
+    @staticmethod
+    def pause_if(t):
+        """pause_scripts' `pauseIf` of one PauseEffectIf type tree (the terms in GetCheckResult's order)."""
+        g = lambda k, d=0: t.get(k) if t.get(k) is not None else d
+        flag = lambda v: ABNORMAL_FLAGS[v] if 0 <= v < len(ABNORMAL_FLAGS) else v
+        check = lambda k: int(g(k)) in (1, 2)   # PauseEffectIf.CheckType: NOT_CHECK 0, CHECK_YES 1, CHECK_NO 2
+        nope = lambda k: {'not': 1} if int(g(k)) == 2 else {}
+        when = []
+        if g('_checkAbnormalFlag'):
+            for v in [int(g('_pauseWhenAbnormalFlag'))] + [int(x) for x in g('_pauseWhenAbnormalFlags', []) or []]:
+                if v != ABNORMAL_NONE:
+                    when.append({'flag': flag(v)})
+        if g('_checkAbnormalImmune') and int(g('_pauseWhenAbnormalImmune')) != ABNORMAL_NONE:
+            when.append({'immune': flag(int(g('_pauseWhenAbnormalImmune')))})
+        if check('_checkAbnormalCombo'):
+            c = int(g('_pauseWhenAbnormalCombo'))
+            when.append({'combo': ABNORMAL_COMBOS[c] if 0 <= c < len(ABNORMAL_COMBOS) else c, **nope('_checkAbnormalCombo')})
+        if check('_checkUnitModeIndex'):
+            when.append({'mode': [int(x) for x in g('_pauseWhenModeIndexList', []) or []], **nope('_checkUnitModeIndex')})
+        if g('_checkDisappear'):
+            when.append({'gone': 1})
+        if check('_checkContainBuff'):
+            keys = [x for x in g('_pauseWhenContainBuffKeyList', []) or [] if isinstance(x, str)]
+            when.append({'buff': keys or [str(g('_pauseWhenContainBuffKey', '') or '')], **nope('_checkContainBuff')})
+        if g('_checkNotInAbnormalFlag') and int(g('_pauseWhenNotInAbnormalFlag')) != ABNORMAL_NONE:
+            when.append({'flag': flag(int(g('_pauseWhenNotInAbnormalFlag'))), 'not': 1})
+        if check('_checkFaceToBack'):
+            when.append({'back': 1, **nope('_checkFaceToBack')})
+        if check('_checkFaceToRight'):
+            when.append({'right': 1, **nope('_checkFaceToRight')})
+        if check('_checkState'):
+            when.append({'state': int(g('_pauseWhenCharState')), **nope('_checkState')})
+        if check('_checkCharacterSharedBlackboardKey'):
+            when.append({'bb': [x for x in g('_characterSharedBlackboardKeyList', []) or [] if isinstance(x, str)], **nope('_checkCharacterSharedBlackboardKey')})
+        out = {'when': when}
+        for k, f in (('all', '_requireAllConditions'), ('onPlay', '_checkOnPlay'), ('meshOff', '_disableMeshRendererWhenPause')):
+            if g(f):
+                out[k] = True
         return out
 
     @staticmethod
@@ -1793,6 +1927,12 @@ class Extractor:
         if pe is None:
             pj = self.projectile_effect(root)
             v = pj['delayToFinish'] if pj else None
+        if pe is None and v is None:
+            # (2026-10-21) an EmptyEffect root (no particles of its own: lines, emitters, wrappers): its `_delayToFinish` too
+            # — `EmptyEffect.get_delayToRecycle` RVA 0xEA47C0
+            for sid, _raw, t in self.monos(root):
+                if sid == EMPTY_EFFECT_SCRIPT and t is not None and t.get('_delayToFinish') is not None:
+                    v = float(t['_delayToFinish'])
         return r4(v) if v is not None and math.isfinite(v) and 0 <= v <= 60 else None
 
     def projectile_effect(self, root):

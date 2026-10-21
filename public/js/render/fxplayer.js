@@ -36,6 +36,8 @@ export const QUALITY = Object.freeze({
 });
 /** Short effects (hits, casts, trails) alive at once — render/fxgame.js trimLive ends the oldest past it. */
 export const MAX_INSTANCES = 24;
+/** (2026-10-21) the node keys of the client's pause / finish behaviours (fx_extract.py pause_scripts; render/fx/pause.js). */
+export const PAUSE_KEYS = Object.freeze(['pauseIf', 'pauseOther', 'pauseAnim', 'pauseIdle', 'pauseSpine', 'finishIf']);
 /** Lasting effects (buff loops, skill walls / zones: render/fxgame.js isLasting) alive at once besides them (2026-10-10:
  * 余 S3's wall alone is 2 per tile + 2 ends — 44 across the boss field). */
 export const MAX_LASTING = 48;
@@ -1457,6 +1459,7 @@ export class FxInstance {
     this.lines = [];   // local patch: LineRenderers
     this.emitters = []; // 2026-10-21: RandomEmitter nodes ({ o, rec: node `emit`, next }) — render/fxgame.js plays their copies
     this.onEmit = [];   // (2026-10-21) OnPlayEmitter / OnFinishEmitter nodes ({ o, play: node `onPlay`, finish: node `onFinish` }) — fxgame.js stepOnEmit
+    this.pausers = [];  // (2026-10-21) the behaviours that pause / finish the effect ({ k: PAUSE_KEYS, rec: the node's record — each of `pauseOther`'s }) — fxgame.js stepPauses
     if (!def || !this.q.budget) { this.empty = true; return; }
     const speed = Number(opts.speed) > 0 ? Number(opts.speed) : 1;
     const delays = opts.delays !== false;
@@ -1489,6 +1492,7 @@ export class FxInstance {
       this.nodes[i] = o;
       if (n.emit?.effect && n.emit.count > 0) this.emitters.push({ o, rec: n.emit, next: 0 });
       if (n.onPlay?.effects?.length || n.onFinish?.effects?.length) this.onEmit.push({ o, play: n.onPlay || null, finish: n.onFinish || null });
+      for (const k of PAUSE_KEYS) for (const rec of k === 'pauseOther' ? n[k] || [] : n[k] ? [n[k]] : []) this.pausers.push({ k, rec });
       const own = !delays || n.parent < 0 ? 0 : (Number(n.delay) > 0 ? Number(n.delay) * speed : 0) + (Number(n.sdelay) > 0 ? Number(n.sdelay) : 0);
       t0[i] = (n.parent >= 0 ? t0[n.parent] || 0 : 0) + own;
       o.userData.t0 = t0[i];
