@@ -2047,6 +2047,21 @@
   `units.js throwIn(2)`: `Start`를 2배속으로, 대기·어두운 프레임 없이 [추정: 토큰의 `Start` = 돌이 떨어져 들어오는 모양]. 2026-10-17 없앰: 跟子는 이제
   모델을 안 그리고 이펙트의 돌만(관리자 결정, 위 「望 바둑돌이 겹쳐 보임」 정정).
 
+### 소환물 스킬 오라 — 저주인형·스카디의 시본 (2026-10-22, upstream `5209873f`의 증상 — 우리 방식)
+
+- 원인: 소환물 뷰는 `fxBundleOf`가 토큰 id를 그대로 번들 이름으로 써서 번들이 없고, `modes.json`에도 토큰 키가 없어 스킬 이펙트가 하나도 안 나왔다.
+  시뮬은 지속 패시브에 스킬 이벤트를 보내지 않는다.
+- 클라(2026-10-22 직접): 소환물 스킬은 `battle/prefabs/[uc]skills.ab`의 자기 프리팹 — 그 AuraAbility `_effects`가 서 있는 동안의 오라.
+  저주인형(`token_10006_vodfox_doll`, 샤마르 S2) `sktok_vodfox_token/Aura` → `vodfox_skill_02_buff`(번들 `vodfox`); 스카디의 시본(`token_10017_skadi2_dedant`)
+  `sktok_skadi2_<n>/Aura` → `token_skadi2_skill_0<n>_buff`, n = 스카디 더 커럽팅 하트가 고른 스킬(`data/tokens.json` 변형 `skill`/`bySkill[i].skill`의
+  `index` = 주인의 스킬 번호, 시뮬 스냅숏 `skillIndex`가 그 값). 시본 프리팹 루트 `_startEffect` `token_skadi2_birth_01_start`(그동안은 공용
+  `common_call_start_01`). 프리팹 넷은 `pkgrps/btl_pfb_fx_token_2.ab` → 새 번들 `skadi2_token`(그것만 추출). 전 토큰을 훑어 오라가 있는 소환물은 이 둘뿐.
+- 고친 것: `char_modes.py token_auras` → `modes.json[토큰 id] = { owner, aura: { 주인 스킬 번호: [프리팹] }, start? }`; `fxgame.js tokenAura` — 배치마다
+  다시, 프레임마다 확인(배치 이벤트 없이 만든 뷰도 시작), 'die'·뷰가 사라지면 끝; 프리팹은 주인 번들 → `<주인>_token` 순으로 찾음(`tokenBundle`, 시작
+  이펙트도). 테스트 `test/render/token-aura-fx.test.js`(시뮬 스냅숏의 `skillIndex`까지).
+- 안 한 것: 시본 Default 모드 HealAura의 `token_skadi2_buff_01_range`(패시브 버프 `skadi2_heal[effect]` overrideEffectKey — 스킬이 모드를 바꾸면 사라지는
+  범위 표시)는 안 넣음. [화면 미확인]
+
 ### 추출 누락 보고 — fx_coverage (2026-10-16, 관리자 요청 「이펙트를 추출해 적용할 때마다 공식과 어긋나는 근본 원인」)
 
 - **원인**: 이펙트가 공식처럼 보이는지는 프리팹의 그림 데이터, 그것을 재생하는 로직(`fxplayer.js`), 언제·어디에 트는지(바인딩) 셋이 정하는데

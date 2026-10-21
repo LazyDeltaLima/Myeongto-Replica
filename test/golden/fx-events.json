@@ -2693,7 +2693,8 @@
    "enemy_9016_acstmr spawn lemuen_skill_03_crosshair_range → self",
    "enemy_9016_acstmr spawn lemuen_skill_03_trail_01 → self",
    "enemy_9016_acstmr spawn:born common_empty → self",
-   "token_10017_skadi2_dedant spawn:born common_call_start_01 → self",
+   "token_10017_skadi2_dedant spawn:born token_skadi2_birth_01_start → self",
+   "token_10017_skadi2_dedant spawn:tokAura token_skadi2_skill_03_buff → self",
    "token_10019_nearl2_sword spawn:born common_call_start_01 → self",
    "token_10030_mlyss_wtrman spawn:born common_call_start_01 → self"
   ],
@@ -4313,7 +4314,8 @@
    "enemy_9033_acdeer spawn:cast enemy_smdeer_skill_01_start_02 → self",
    "enemy_9033_acdeer spawn:cast enemy_smdeer_skill_01_start_03 → self",
    "enemy_9033_acdeer spawn:cast enemy_smdeer_skill_01_start_04 → self",
-   "token_10017_skadi2_dedant spawn:born common_call_start_01 → self",
+   "token_10017_skadi2_dedant spawn:born token_skadi2_birth_01_start → self",
+   "token_10017_skadi2_dedant spawn:tokAura token_skadi2_skill_03_buff → self",
    "token_10030_mlyss_wtrman spawn:born common_call_start_01 → self"
   ],
   "boss-boss_7-solo": [
@@ -5587,7 +5589,8 @@
    "enemy_9020_actrpc spawn lemuen_skill_03_crosshair_range → self",
    "enemy_9020_actrpc spawn lemuen_skill_03_trail_01 → self",
    "enemy_9020_actrpc spawn:cast enemy_actrpa_attack_start → self",
-   "token_10017_skadi2_dedant spawn:born common_call_start_01 → self",
+   "token_10017_skadi2_dedant spawn:born token_skadi2_birth_01_start → self",
+   "token_10017_skadi2_dedant spawn:tokAura token_skadi2_skill_03_buff → self",
    "token_10019_nearl2_sword spawn:born common_call_start_01 → self",
    "token_10030_mlyss_wtrman spawn:born common_call_start_01 → self",
    "token_10040_siege2_vlion spawn:born common_call_start_01 → self"
@@ -7593,7 +7596,8 @@
    "enemy_1433_dsbasi_2 spawn lemuen_skill_03_crosshair_range → self",
    "enemy_1433_dsbasi_2 spawn lemuen_skill_03_trail_01 → self",
    "enemy_2001_duckmi_2 spawn:aura duckmi_buff_02_start → self",
-   "token_10017_skadi2_dedant spawn:born common_call_start_01 → self"
+   "token_10017_skadi2_dedant spawn:born token_skadi2_birth_01_start → self",
+   "token_10017_skadi2_dedant spawn:tokAura token_skadi2_skill_03_buff → self"
   ],
   "roster-017": [
    "- spawn angel2_buff_01_trail_01 → enemy",
@@ -7877,7 +7881,8 @@
    "enemy_1367_dseed spawn:born common_empty → self",
    "enemy_2002_bearmi_2 spawn:aura bearmi_buff_01_start → self",
    "enemy_9008_acbunn spawn:cast enemy_acbunn_attack_1_start → self",
-   "token_10017_skadi2_dedant spawn:born common_call_start_01 → self",
+   "token_10017_skadi2_dedant spawn:born token_skadi2_birth_01_start → self",
+   "token_10017_skadi2_dedant spawn:tokAura token_skadi2_skill_03_buff → self",
    "token_10030_mlyss_wtrman spawn:born common_call_start_01 → self"
   ],
   "roster-019": [
@@ -11397,7 +11402,8 @@
    "enemy_1161_tidmag spawn lemuen_skill_03_crosshair_02 → self",
    "enemy_1161_tidmag spawn lemuen_skill_03_crosshair_range → self",
    "enemy_1161_tidmag spawn lemuen_skill_03_trail_01 → self",
-   "token_10017_skadi2_dedant spawn:born common_call_start_01 → self"
+   "token_10017_skadi2_dedant spawn:born token_skadi2_birth_01_start → self",
+   "token_10017_skadi2_dedant spawn:tokAura token_skadi2_skill_03_buff → self"
   ],
   "unite-2": [
    "- spawn enemy_cbshld_attack_hit → ally",

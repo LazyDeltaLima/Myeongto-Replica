@@ -3741,11 +3741,55 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const startedOnce = new Set();
   const opDead = new Set();     // units whose dead effect played (ownsDeath)
   const isAlly = (v) => !!(v?.info && v.info.side !== 'enemy' && (v.info.kind === 'op' || v.info.kind === 'token') && !isStone(v));
-  /** [bundle, prefab] of a deploy / dead effect of `v`: its own bundle's, else the shared common one; null when not extracted. */
+  /** [bundle, prefab] of a deploy / dead effect of `v`: its own bundle's (a summon's: tokenBundle), else the shared common one; null when not extracted. */
   function allyFx(v, name) {
     const b = bundleOf(v);
     if (b?.prefabs.includes(name)) return [b.bundle, name];
+    const t = tokenBundle(v, name);
+    if (t) return [t, name];
     return index?.bundles?.common?.includes(name) ? ['common', name] : null;
+  }
+  /**
+   * 2026-10-22 (upstream 5209873f's symptom, docs/rules/fx.md 「소환물 스킬 오라」): a summon's own effects — modes.json keyed by
+   * its token id (char_modes.py token_auras: { owner, aura: { owner skill index: [prefab…] }, start }) — live in its owner's
+   * bundle (诅咒娃娃: vodfox) or in `<owner>_token` (斯卡蒂的海嗣: skadi2_token, pkgrps/btl_pfb_fx_token_2.ab). The bundle of
+   * `name`, or null.
+   */
+  function tokenBundle(v, name) {
+    const owner = v?.info?.kind === 'token' ? bindOf(v)?.owner : null;
+    if (!owner || !name) return null;
+    const ob = fxBundleOf(owner);
+    return [ob, `${ob}_token`].find((b) => index?.bundles?.[b]?.includes(name)) ?? null;
+  }
+  /**
+   * The aura a summon's skill keeps on it while it stands (client AuraAbility `_effects`, attached with the token and
+   * finished as it leaves: 诅咒娃娃 vodfox_skill_02_buff, 斯卡蒂的海嗣 token_skadi2_skill_0<n>_buff by 浊心斯卡蒂's skill —
+   * the token's snapshot `skillIndex` is its owner's). The sim sends no skill event for such a passive: kept by the frame
+   * (stepTokenAuras — a view built mid-battle starts it too), restarted on each deploy (`force`), ended by its 'die'
+   * (stopOwned) or when it is gone.
+   */
+  function tokenAura(v, force = false) {
+    if (v?.info?.kind !== 'token') return;
+    const aura = bindOf(v)?.aura;
+    if (!aura || typeof aura !== 'object') return;
+    const id = ownerOf(v);
+    const list = v.alive !== false && !failed && q() !== 'low' ? aura[String(v.info.skillIndex ?? '')] ?? Object.values(aura)[0] ?? [] : [];
+    const names = list.map((n) => [tokenBundle(v, n), n]).filter(([b]) => b);
+    const key = names.map(([, n]) => n).join('|');
+    const rec0 = v._fxAura;
+    // the same aura still loading or playing (a lost one — its 'die' ended it, the view stands again — comes back after 1 s)
+    if (!force && (rec0?.key ?? '') === key && (!key || rec0.pending > 0 || rec0.lives.some((l) => !l.inst.done) || clockS - rec0.t < 1)) return;
+    for (const l of live) if (l.tag === 'tokAura' && l.owner === id) l.inst.stop(force);
+    const rec = { key, lives: [], pending: names.length, t: clockS };
+    v._fxAura = rec;
+    for (const [b, n] of names) {
+      spawn(b, n, v, { owner: id, buff: false, onCaster: true, until: null, tag: 'tokAura', pinned: true }, { over: false, facing: efacing(v) })
+        .then((l) => { rec.pending--; if (!l) return; if (v._fxAura !== rec) l.inst.stop(); else rec.lives.push(l); });
+    }
+  }
+  function stepTokenAuras(views) {
+    if (!views) return;
+    for (const v of views.values()) if (v?.info?.kind === 'token' && (v._fxAura || bindOf(v)?.aura)) tokenAura(v);
   }
   function flushDeploys(views) {
     if (!deployed.size || !views) return;
@@ -3756,6 +3800,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (!isAlly(v) || v.alive === false || failed || q() === 'low') continue;
       const bind = bindOf(v);
       alwaysOn(v, id);
+      tokenAura(v, true);   // 2026-10-22: a summon's skill aura
       defaultModeFx(v, true);   // 2026-10-21: the Default mode's own effects
       droneIdle(v, true);   // 2026-10-16: the Default mode's drones
       if (isPack(v)) packDeploy(v, id, t);   // 2026-10-16: 伺夜's wolf pack
@@ -4286,6 +4331,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       flushStoneBirths(lastViews); // local patch
       flushEnemyBirths(lastViews); stepEnemies(lastViews); // 2026-10-10: the enemies' born effects, modes, skill clips
       if (index) flushDeploys(lastViews); // 2026-10-11: the operators' / tokens' deploy effects
+      if (index) stepTokenAuras(lastViews); // 2026-10-22: the summons' skill auras
       stepLines(); // 2026-10-10: buff line effects follow their units
       // a frame without effects costs them nothing: the means decay (they used to stand at the last effect frame's cost)
       if (!mod || !live.length) { perf.updateMs *= 0.9; perf.renderMs *= 0.9; perf.calls = 0; }

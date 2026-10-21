@@ -1164,6 +1164,42 @@ def funnel_entries(abilities, emitters, idle, projectiles):
     return out
 
 
+def token_auras(tree, client):
+    """2026-10-22 (upstream 5209873f's symptom, docs/rules/fx.md 「소환물 스킬 오라」): the effects a summon's skill keeps on it
+    while it stands — the `_effects` of its skill prefab's auras (battle/prefabs/[uc]skills.ab AuraAbility: sktok_vodfox_token/Aura
+    vodfox_skill_02_buff, sktok_skadi2_<n>/Aura token_skadi2_skill_0<n>_buff) — and its prefab root's `_startEffect`
+    (pkgrps/btl_pfb_tokens_*.ab). A summon's skill follows its owner's skill choice: data/tokens.json `variants[…].skill` /
+    `bySkill[i].skill` (its `index` = the owner's skill index, which the unit's snapshot `skillIndex` carries). → { token id:
+    { owner, aura: { owner skill index: [prefab, …] }, start? } } for the tokens with an aura."""
+    assets = json.loads((ROOT / 'data/assets.json').read_text(encoding='utf-8')).get('tokens') or {}
+    toks = json.loads((ROOT / 'data/tokens.json').read_text(encoding='utf-8'))
+    toks = toks.get('tokens', toks)
+    eff = {}
+    for gp, d, *_ in tree:
+        if isinstance(d.get('_effects'), list) and ('_buffs' in d or '_passiveBuffs' in d):
+            eff.setdefault(gp.split('/')[0], []).extend(x for x in d['_effects'] if isinstance(x, str) and x)
+    out = {}
+    for tid, a in sorted(assets.items()):
+        rec = toks.get(tid)
+        if not isinstance(a, dict) or not a.get('owner') or not isinstance(rec, dict):
+            continue
+        per = {}
+        for v in (rec.get('variants') or {}).values():
+            for i, sk in [((v.get('skill') or {}).get('index'), v.get('skill') or {})] + [(int(k), b.get('skill') or {}) for k, b in (v.get('bySkill') or {}).items()]:
+                pid = sk.get('prefabId') or sk.get('skillId')
+                if isinstance(i, int) and pid and eff.get(pid):
+                    per.setdefault(str(i), list(dict.fromkeys(eff[pid])))
+        if per:
+            out[tid] = {'owner': a['owner'], 'aura': dict(sorted(per.items()))}
+    if out:
+        from char_points import token_files
+        for tid, f in token_files(client, list(out)).items():
+            for gp, d, *_ in load_tree(str(f))[0]:
+                if gp == tid and isinstance(d.get('_startEffect'), str) and d['_startEffect']:
+                    out[tid]['start'] = d['_startEffect']
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--client', default=DEFAULT_CLIENT)
@@ -1218,6 +1254,7 @@ def main():
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if FX_OUT.parent.exists():
         fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'input', 'hit', 'hitGroups', 'tgtStart', 'hitLoop', 'castTgt', 'clipFx', 'altFx', 'talentAtk', 'sideFx', 'combatSplit', 'trail', 'chain', 'chainHit', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'hitAim', 'fortress', 'funnels', 'charge', 'skills', 'turn', 'dirs', 'start', 'startOnce', 'modeStart', 'dead', 'common') if f in v} for k, v in sorted(out.items())}
+        fx.update(token_auras(stree, a.client))   # the summons' skill auras, keyed by token id (render/fxgame.js tokenAura)
         FX_OUT.write_text(json.dumps(fx, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     print(f'{len(out)} operator(s) → {OUT.relative_to(ROOT)}' + (f' + {FX_OUT.relative_to(ROOT)}' if FX_OUT.parent.exists() else '')
           + f'; no charpack: {", ".join(missing) or "none"}')
