@@ -223,6 +223,10 @@ export const KIT_OFFICIAL = {
       return Number(on) > 0 ? { n: 'blaze2_skill_02_hit_plot', on: 'point', at: [x, y], slot } : { slot, off: true };
     }) }),
   },
+  // 歌蕾蒂娅 S3 (2026-10-21): her opening ability skchr_glady_3/Chant's `_activeBuffs` glady_s3[effect] (INFINITY, overrideEffectKey
+  // glady_skill_03_buff — its OnPlayEmitter adds _02) on the target it binds, the kit's `tgt` [추정: until the skill ends — the
+  // ability's active buffs]; the tornado itself is fxgame.js zoneFx's. Its 束缚 glady_skill_03_buff_to_enemy is the status layer's
+  tornado: { glady: () => ({ play: [{ n: 'glady_skill_03_buff', on: 'tgt', life: 'skill' }] }) },
   // 歌蕾蒂娅 S3: each pull of the tornado (projectile_chr_glady_s3_2 `_interval`: `_castEffect` glady_skill_03_range_03)
   tornadoPulse: { glady: () => ({ play: [{ n: 'glady_skill_03_range_03', on: 'point', life: 'once' }] }) },
 };

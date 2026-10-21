@@ -1281,6 +1281,10 @@
       `lumen_skill_01_range` 수명(`t`)만큼 [추정: 틱마다 `lumen_skill_01_hit`은 안 그림], 키트에 `tgt`·`t`; 寒檀 S2 고드름 자리에
       `sntlla_skill_02_start_01`(`_effectsWhenReached`); 洛洛 S2 过载 드론 `_overloadIdleEffect` `rockr_token_overload_01` 스킬 끝까지; 蕾缪安 T2
       引渡 `lemuen_talent_buff_02` 배치 동안; 歌蕾蒂娅 S3 회오리 당김마다 `projectile_chr_glady_s3_2`의 `_castEffect` `glady_skill_03_range_03`.
+    - (2026-10-21) 歌蕾蒂娅 S3 'tornado': 시작 능력 `skchr_glady_3/Chant`의 `_activeBuffs` `glady_s3[effect]`(INFINITY, overrideEffectKey
+      `glady_skill_03_buff` — 그 OnPlayEmitter가 `_02`)를 키트가 속박하는 대상(`tgt`, 키트가 새로 실음)에 스킬 끝까지 [추정: 끝 = 능력 끝]. 'tornado'는
+      `zoneFx`가 먼저 그리고 그 뒤 `officialKitFx`도 본다. 속박의 `glady_skill_03_buff_to_enemy`(`glady_s_3[unmovable]`, `ChantAttack1`)는 상태 층 것.
+      전에는 `_02`만 이름 규칙으로 그녀에게 나왔다(27f5fef5에서 빠짐). 아레나 확인: 대상 위 `buff`·`_02`, 오류 0.
     - 판정만: 圣聆初雪 S1 'frostNova'·缇缇 S2 'sleepGuard'·魔王 'reweave'(S3 이름 규칙, S2 `cetsyr_skill_02_trail_start`) = 스킬; 圣约送葬人 T1
       추가 사격 = 공격(charpack 모드마다 Talents/1의 cast·hit이 모드 바인딩에 들어 있음); 史尔特尔 余烬 = 'healFree' 상태(`surtr_buff_01_start`),
       丰川祥子 S1 음표 적중 = 'oblvnsNote', 流明 정화 = 그 치유의 타격 = 다른 이벤트; 荒芜拉普兰德 T1 단계 = 없음.

@@ -3637,7 +3637,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // 2026-10-10: a skill projectile's reach effects; 2026-10-14: 歌蕾蒂娅 S3's tornado (kit fx 'tornado', its projectile's
           // reach effects glady_skill_03_range / _02 — the 2D zone stood in for them); 2026-10-16: 异客 S3's storm (kit fx
           // 'storm', projectile_chr_pasngr_s3's pasngr_skill_03_range) and its strikes (chainFx)
-          if ((e[1] === 'zone' || e[1] === 'tornado' || e[1] === 'storm') && zoneFx(e, views)) return;
+          // (2026-10-21) and the moment's other official effects (render/fx/kitofficial.js: 歌蕾蒂娅 S3's mark on her target)
+          if ((e[1] === 'zone' || e[1] === 'tornado' || e[1] === 'storm') && zoneFx(e, views)) { officialKitFx(e, views); return; }
           if (e[1] === 'lightning' && chainFx(e, views)) return;
           if (e[1] === 'oblvnsNote' && e[4]) { noteFx(e, views); return; }
           if (e[1] === 'parry' && e[4]) { parryFx(e, views); return; }

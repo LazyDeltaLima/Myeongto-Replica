@@ -60,7 +60,8 @@ export default withDefaults({
           unit.mem.tornado = t ? { x: t.x, y: t.y, acc: 0 } : null;
           if (!t) return;
           battle.applyStatus(t, 'bind', { duration: skill.duration, source: unit });
-          battle.fx('tornado', { x: t.x, y: t.y, id: unit.id, r: R, duration: skill.duration });
+          // `tgt`: the target of the client's opening ability (skchr_glady_3/Chant), which carries glady_s3[effect] (render only)
+          battle.fx('tornado', { x: t.x, y: t.y, id: unit.id, tgt: t.id, r: R, duration: skill.duration });
         },
         onTick({ battle, unit, dt }) {
           const T = unit.mem.tornado;

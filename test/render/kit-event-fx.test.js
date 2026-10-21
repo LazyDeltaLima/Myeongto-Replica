@@ -358,3 +358,9 @@ test('kitOfficialPlan: talent casts and 烛煌 S2\'s burning tiles (2026-10-16, 
     { n: 'blaze2_skill_02_hit_plot', on: 'point', at: [5, 10], slot: 'burn5,10' }, { slot: 'burn6,10', off: true },
   ]);
 });
+
+test('歌蕾蒂娅 S3: glady_s3[effect]\'s glady_skill_03_buff on the target the kit binds (`tgt`), for the skill', () => {
+  const plan = kitOfficialPlan('tornado', { id: 1, tgt: 2 }, 'glady', { skill: 2 });
+  assert.deepEqual(plan.play, [{ n: 'glady_skill_03_buff', on: 'tgt', life: 'skill' }]);
+  assert.match(readFileSync(path.join(KITS, 'ops/chess_char_4_12-glady.js'), 'utf8'), /battle\.fx\('tornado', \{ x: t\.x, y: t\.y, id: unit\.id, tgt: t\.id,/);
+});
