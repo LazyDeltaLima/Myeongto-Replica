@@ -12,8 +12,11 @@
  *   number     seconds
  *   'skill'    until the operator's skill ends (a buff entry: fxgame stopBuffs) or it leaves
  *   'deployed' until the operator leaves the field
- *   'unit'     until the `on` unit's 'die'
+ *   'unit'     until the `on` unit's 'die' — then `end` [prefab] plays where it stood (a buff template's ON_OWNER_FINISH)
  *   'tag'      until a later event's `stop` names `tag` (with `leave`: also when the operator leaves)
+ * A play whose `on` field holds a list plays on each of its units; `unit` names one unit by its id instead of `on`.
+ * 2026-10-21: a `cast` play is the operator's own cast effect, played as its attacks' casts are (fxgame.js play: its
+ * mode's `turn` — `_useFourDirectionalFace` — applies), for its prefab's duration.
  * or a line `line: [from, to]` (the event's fields naming two units; `to` may name a list) while both stand, or for the
  * line prefab's own duration with `life: 'once'`; or a flight `fly` (tiles / s) from the operator to the event's point —
  * a play with `after: 'fly'` starts when it lands. A 'point' play may name its own ground point `at: [x, y]`.
@@ -96,9 +99,32 @@ export const KIT_OFFICIAL = {
   // 琳琅诗怀雅 S3 (2026-10-21): the purse paid out as the skill ends — her common ability RandomGold (charpack Others/Direction/
   // CommonAbilities, `_triggerDelta` 0.07 s) shoots projectile_chr_swire2_s_3 (8 tiles / s, `_mainEffect` swire2_skill_03_trail,
   // `_effectsWhenHit` swire2_skill_03_hit_02) at each marked enemy a coin goes to (the kit's `targets`, in order)
+  // (2026-10-21) The skill's end switches her to mode S3_End (swire2_skill_3 ON_BUFF_FINISH SwitchMode), whose Body/Trigger
+  // ability (Skill_3_End) casts swire2_skill_03_start_03, _start_03_02 and swire2_skill_03_range (`_useFourDirectionalFace`)
+  // from its ON_CAST_START — coins or not [추정: for the prefabs' own duration; the client ends them at its ON_CAST_END]
   coin: {
-    swire2: (o) => (o.skill === 'swire2_3' && Array.isArray(o.targets) && o.targets.length
-      ? { play: [{ n: 'swire2_skill_03_trail', fly: 8, to: 'targets', gap: 0.07, hit: ['swire2_skill_03_hit_02'] }] } : null),
+    swire2: (o) => (o.skill === 'swire2_3' ? { play: [
+      ...['swire2_skill_03_start_03', 'swire2_skill_03_start_03_02', 'swire2_skill_03_range'].map((n) => ({ n, cast: true })),
+      ...(Array.isArray(o.targets) && o.targets.length ? [{ n: 'swire2_skill_03_trail', fly: 8, to: 'targets', gap: 0.07, hit: ['swire2_skill_03_hit_02'] }] : []),
+    ] } : null),
+  },
+  // 圣聆初雪 S2 (2026-10-21): the frozen protection point (token_10058_sbell2_icetgt, pkgrps/btl_pfb_tokens_4.ab): its Effect
+  // ability's INFINITY buff icetgt_a[effect] shows sbell2_tile_frozen (`overrideEffectKey`) while it stands, and the
+  // template's ON_OWNER_FINISH CreateEffect plays sbell2_tile_defrost on it as it goes
+  summon: {
+    sbell2: (o) => (/icetgt/.test(String(o.token ?? ''))
+      ? { play: [{ n: 'sbell2_tile_frozen', on: 'id', life: 'unit', end: 'sbell2_tile_defrost' }] } : null),
+  },
+  // 凯尔希·思衡托 S3 (2026-10-21, CN client): kalts2_s_3[withdraw]'s ON_BUFF_START CreateEffect kalts2_skill_03_teleport_02 on
+  // each 待投放 operator (`picks`) as the transport starts …
+  kalts2Takeoff: { kalts2: () => ({ play: [{ n: 'kalts2_skill_03_teleport_02', on: 'picks', life: 'once' }] }) },
+  // … and, S3 picked, the head mark kalts2_skill_03_indicator_head_01 on the operators it would pick while she is not
+  // flying (skchr_kalts2_3/Indicator → kalts2_s_3[indicator_fx][fx]): `ids` marked now, `off` no longer
+  kalts2Mark: {
+    kalts2: (o) => ({ play: [
+      ...(Array.isArray(o.off) ? o.off : []).map((id) => ({ slot: `mark${id}`, off: true })),
+      ...(Array.isArray(o.ids) ? o.ids : []).map((id) => ({ n: 'kalts2_skill_03_indicator_head_01', unit: id, slot: `mark${id}` })),
+    ] }),
   },
   // 烛煌 T2 绝处重燃: downed (blaze2_t_2 → buff [reborn_state], effect blaze2_revive_buff, and its [vfx1]
   // blaze2_revive_buff_03 — [추정: kept until she stands, the sim has no shield-break event]) …

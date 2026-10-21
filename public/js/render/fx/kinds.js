@@ -33,6 +33,8 @@ export const FX_KINDS = Object.freeze({
   vest: { a: 'shield', c: 0xdfe8ff }, sleepGuard: { a: 'shield', c: 0xa8b6ff }, truesilver: { a: 'shield', c: 0xfff3b8 }, shieldBreak: { a: 'shatter', c: 0xdfe8ff },
   parry: { a: 'none', c: 0xdfe8ff }, // a 护盾 layer's block: the official common_buff_parry_01 only (render/fxgame.js parryFx)
   evadeReady: { a: 'none', c: 0xdfe8ff }, // a held dodge again (赤刃明霄陈 T2): its official effects only (render/fx/kitofficial.js)
+  // (2026-10-21) marks only the official effects draw: 凯尔希·思衡托 S3's 待投放 head marks, 克莱门莎 S2's full carriage
+  kalts2Mark: { a: 'none', c: 0x9fe6ff }, cabinFull: { a: 'none', c: 0x5fe0ff },
   // counts the client draws per layer / stack / charge / mote (2026-10-16): a buff's layers or stacks (render/fxstatus.js
   // LAYER_FX / STACK_FX), 卡涅利安's stored charges and 魔王's motes (render/fx/kitofficial.js) — nothing in the fallback
   stacks: { a: 'none', c: 0xdfe8ff }, charges: { a: 'none', c: 0xd8c8a0 }, motes: { a: 'none', c: 0xe8e0ff },

@@ -227,12 +227,17 @@ function land(battle, unit) {
   battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX: f.from.x, fromY: f.from.y });
 }
 
-/** S3 ①②: the 待投放 operators and the take-off towards `anchor` (the flight, fly, from its OnAttack frame). */
-function startTransport(battle, unit, anchor) {
-  const picks = battle.allyUnits
+/** S3: the operators S3OperatorSelector picks now — hers other than her in her range, the last deployed first (≤ 2). */
+function withdrawPicks(battle, unit) {
+  return battle.allyUnits
     .filter((a) => otherOp(a, unit) && a.ownerId === unit.ownerId && unit.rangeKeySet?.has(a.tileR * COLS + a.tileC))
     .sort((a, b) => b.deploySeq - a.deploySeq)
     .slice(0, WITHDRAW_MAX);
+}
+
+/** S3 ①②: the 待投放 operators and the take-off towards `anchor` (the flight, fly, from its OnAttack frame). */
+function startTransport(battle, unit, anchor) {
+  const picks = withdrawPicks(battle, unit);
   for (const a of picks) {
     const seq = a.deploySeq;
     battle.after(WITHDRAW_DELAY, () => {
@@ -246,7 +251,9 @@ function startTransport(battle, unit, anchor) {
   // the take-off clip (Skill_3_Restart_Begin), then the flight from its OnAttack frame
   unit.mem.k2takeoff = true;
   battle.addBuff(unit, { key: 'kalts2:takeoff', duration: TAKEOFF_PRE, flags: { disarm: true } });
-  battle.fx('kalts2Takeoff', { x: unit.x, y: unit.y, id: unit.id, signal: 'takeoff', t: 1 });   // t: the clip's own 1 s
+  // t: the clip's own 1 s; `picks`: the 待投放 operators (kalts2_s_3[withdraw] ON_BUFF_START: CreateEffect
+  // kalts2_skill_03_teleport_02 on each — render/fx/kitofficial.js)
+  battle.fx('kalts2Takeoff', { x: unit.x, y: unit.y, id: unit.id, signal: 'takeoff', t: 1, picks: picks.map((a) => a.id) });
   const seq = unit.deploySeq;
   battle.after(TAKEOFF_PRE, () => {
     unit.mem.k2takeoff = false;
@@ -362,6 +369,21 @@ export default {
         battle.on('death', (c) => { if (c.unit === unit || c.unit === unit.mem.k2link) unit.mem.k2link = null; }, { owner: unit });
         // S3's flight: its collisions every tick
         battle.on('tick', () => { const f = unit.mem.k2flight; if (f && unit.alive) collide(battle, unit, f); }, { owner: unit });
+        // S3 picked: its extra ability Indicator (CN skchr_kalts2_3/Indicator, kalts2_s_3[indicator] every 0.1 s) marks the
+        // operators S3OperatorSelector would pick — [indicator_fx] (0.1 s) → [indicator_fx][fx], effect
+        // kalts2_skill_03_indicator_head_01 while it lasts — unless she is in mode 2 (s3_transporting: the flight
+        // [추정: the take-off is still mode s3]) or not on the field (her card RESPAWNING). 'kalts2Mark' { ids, off }
+        // when the set changes (render/fx/kitofficial.js)
+        if (picked === S3) {
+          let marked = [];
+          battle.every(TRANSPORT_CHECK, () => {
+            const ids = up(unit) && !unit.mem.k2flight ? withdrawPicks(battle, unit).map((a) => a.id) : [];
+            if (ids.length === marked.length && ids.every((id) => marked.includes(id))) return;
+            const off = marked.filter((id) => !ids.includes(id));
+            marked = ids;
+            battle.fx('kalts2Mark', { x: unit.x, y: unit.y, id: unit.id, ids, off });
+          }, { owner: unit, immediate: true });
+        }
         // S1: every other 起飞 operator's 阻挡半径倍率 +attack@block_radius_scale while it runs (同名效果取最高)
         const v1 = num(b1['attack@block_radius_scale']);
         if (picked === S1 && v1 > 0) {

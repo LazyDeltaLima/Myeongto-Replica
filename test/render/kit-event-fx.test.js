@@ -125,13 +125,13 @@ test('the rules name prefabs the client binds for that operator', () => {
   for (const [n, by] of Object.entries(KIT_OFFICIAL)) {
     for (const [b, rule] of Object.entries(by)) {
       assert.equal(typeof rule, 'function');
-      const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((ctx) => kitOfficialPlan(n, { left: 0, t: 2, id: 1, of: 2, n: 2, cap: 3, name: 'extradition', cells: [[1, 1, 1], [2, 1, 3], [3, 1, 5], [4, 1, 0]], skill: 'swire2_3', targets: [2] }, b, ctx)).filter(Boolean);
+      const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((ctx) => kitOfficialPlan(n, { left: 0, t: 2, id: 1, of: 2, n: 2, cap: 3, name: 'extradition', cells: [[1, 1, 1], [2, 1, 3], [3, 1, 5], [4, 1, 0]], skill: 'swire2_3', targets: [2], token: 'token_10058_sbell2_icetgt', ids: [2], off: [3], picks: [2] }, b, ctx)).filter(Boolean);
       assert.ok(plans.length, `${n} (${b}) plans nothing`);
       for (const plan of plans) {
         for (const p of plan.play) {
           if (!p.off) assert.ok(p.bundle ? p.n.includes(`_${b}_`) : p.n.startsWith(`${b}_`), `${n} (${b}): ${p.n}`);
           if (p.ready) assert.ok(p.ready.startsWith(`${b}_`), `${n} (${b}): ${p.ready}`);
-          for (const x of [p.rope, p.pass?.n, p.harpoon?.moving, ...(p.hit || [])].filter(Boolean)) assert.ok(x.startsWith(`${b}_`), `${n} (${b}): ${x}`);
+          for (const x of [p.rope, p.pass?.n, p.harpoon?.moving, p.end, ...(p.hit || [])].filter(Boolean)) assert.ok(x.startsWith(`${b}_`), `${n} (${b}): ${x}`);
         }
       }
     }
@@ -168,11 +168,13 @@ test('kitOfficialPlan: the moments and lifetimes of the templates', () => {
   assert.equal(rc.pass, false);
   assert.deepEqual(rc.play[0], { n: 'ines_skill_03_label_trail_01', fly: 10, from: 'point', rope: 'ines_skill_03_pullLabel_line_01', pass: { n: 'ines_skill_03_label_hit_01', on: 'hits' } });
   assert.deepEqual(rc.play.slice(1).map((x) => [x.n, x.on, x.after]), [['ines_skill_03_getLabel_01', 'op', 'fly'], ['ines_skill_03_getLabel_range_01', 'op', 'fly']]);
-  // 琳琅诗怀雅 S3's end: a coin at each paid enemy, 0.07 s apart; her other coin events have no rule
+  // 琳琅诗怀雅 S3's end: her S3_End mode's casts (2026-10-21), and a coin at each paid enemy, 0.07 s apart; her other coin
+  // events have no rule
+  const ends = ['swire2_skill_03_start_03', 'swire2_skill_03_start_03_02', 'swire2_skill_03_range'].map((n) => ({ n, cast: true }));
   assert.deepEqual(kitOfficialPlan('coin', { id: 1, n: 0, skill: 'swire2_3', targets: [5, 6] }, 'swire2').play,
-    [{ n: 'swire2_skill_03_trail', fly: 8, to: 'targets', gap: 0.07, hit: ['swire2_skill_03_hit_02'] }]);
+    [...ends, { n: 'swire2_skill_03_trail', fly: 8, to: 'targets', gap: 0.07, hit: ['swire2_skill_03_hit_02'] }]);
   assert.equal(kitOfficialPlan('coin', { id: 1, n: 3 }, 'swire2'), null);
-  assert.equal(kitOfficialPlan('coin', { id: 1, n: 0, skill: 'swire2_3', targets: [] }, 'swire2'), null);
+  assert.deepEqual(kitOfficialPlan('coin', { id: 1, n: 0, skill: 'swire2_3', targets: [] }, 'swire2').play, ends);
   // 歌蕾蒂娅 S3's end: the 捕网 harpoon out 0.3 s and back 1 s, its reach effect where it lands
   const gp = kitOfficialPlan('pull', { id: 1 }, 'glady');
   assert.deepEqual(gp.play[0], { n: 'glady_skill_03_line', harpoon: { out: 0.3, back: 1, moving: 'glady_skill_03_range_04' } });

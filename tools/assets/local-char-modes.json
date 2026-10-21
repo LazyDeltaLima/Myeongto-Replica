@@ -15376,6 +15376,25 @@
     "indigo_buff_01_start"
    ]
   ],
+  "charge": {
+   "hold": [
+    [
+     "indigo_attack_charge_02"
+    ],
+    [
+     "indigo_attack_charge_03"
+    ],
+    [
+     "indigo_attack_charge_04"
+    ],
+    [
+     "indigo_attack_charge_05"
+    ]
+   ],
+   "cast": [
+    "indigo_attack_charge_01_start"
+   ]
+  },
   "skills": [
    {
     "cast": [],

@@ -102,6 +102,9 @@ export default {
           battle._unblock(e);
           // [ASSUMED] PRTS has not yet resolved every status in 放逐; no invulnerability or hide is invented.
           battle.addBuff(e, { key: CARRY + unit.id, flags: { noMove: true, disarm: true, unblockable: true }, source: unit, tags: ['skill'] });
+          // clemnt_s2[sync_passenger_info]: the boarded mass reaching max_passenger_mass ends [mass_not_full_effect] and
+          // puts [mass_full_effect] on her (render: clemnt_skill_02_mark_01 → _mark_02) — once a carriage
+          if (!c.full && c.mass <= 1e-9) { c.full = true; battle.fx('cabinFull', { x: c.x, y: c.y, id: unit.id }); }
         }
         for (const e of c.passengers) {
           if (!e.findBuff(CARRY + unit.id)) continue;

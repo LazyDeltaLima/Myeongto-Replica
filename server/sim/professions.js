@@ -556,7 +556,8 @@ export const SUB = Object.freeze({
       unit.trait.stored = n + 1;
       // the store is an attack behaviour of its own in the client (深靛: Attack_Charge) — the client plays its clip
       // (render/units.js: an fx `signal` → the role's `signals` clip)
-      battle.fx('mysticStore', { x: unit.x, y: unit.y, id: unit.id, signal: 'store' });
+      // `n`: the energies stored now (render: the ChargableAttackGroup's charge effect of index n − 1 held on her)
+      battle.fx('mysticStore', { x: unit.x, y: unit.y, id: unit.id, signal: 'store', n: n + 1 });
       return true;
     },
     releaseEnergy: (battle, unit) => { const n = unit.trait.stored ?? 0; unit.trait.stored = 0; return n; },

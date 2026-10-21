@@ -1031,7 +1031,45 @@ def modes_of(path, projectiles=None):
     funnels = [funnel_entries(fun_ab[i], fun_em[i], fun_idle[i], projectiles) for i in range(n)]
     if any(funnels):
         res['funnels'] = funnels
+    charge = charge_effects(tree, by_pid)
+    if charge:
+        res['charge'] = charge
     return res
+
+
+def charge_effects(tree, by_pid):
+    """2026-10-21, decompile check (이펙트 묶음 D) — a 秘术师's stored attack energies: the charpack's ChargableAttackGroup
+    (`_maxChargeTimes`, `_abilities` = its charge abilities) carries a MultiChargeUberEffectEmitter on its GameObject.
+    `OnEvent` (RVA 0xCBA450) sets the charge index to `GetChargeTimes()` (0xCB9DD0) and, in a charge action (a store),
+    `CreateChargeEffects` (0xCB84B0) runs `_chargeEffectGroups[index]`'s entries — ChargeEffectOptions keep what they create
+    (`CreateEffect` 0xCB25F0) until `ClearChargeEffects` (0xCB2490): at the next cast on a target that is no store
+    (`OnCastOnTarget` 0xCBA1D0, the release) or ON_DETACHED. 深靛: [0] indigo_attack_charge_02 (SPECIAL_1 = mount 6), [1] _03
+    (8), [2] _04 (9), [3] _05 (5) — the points the stored projectiles leave from (`_mountPointForProjectiles` [6, 8, 9, 5]).
+    Each charge ability's own emitter casts its group's entries with the store (all indigo_attack_charge_01_start).
+    Returns { hold: [[names] per index], cast: [names] } or None."""
+    groups = [(gp, d) for gp, d, _ in tree if '_maxChargeTimes' in d and isinstance(d.get('_abilities'), list)]
+    if not groups:
+        return None
+    go_of = lambda d: (d.get('m_GameObject') or {}).get('m_PathID')   # noqa: E731
+    emitters = {go_of(d): d for _, d, _ in tree if isinstance(d.get('_chargeEffectGroups'), list)}
+    comp_go = {pid: go_of(d) for _, d, pid in tree}
+
+    def names(g):
+        out = []
+        for opt in (g or {}).get('effects') or []:
+            if isinstance(opt, dict):
+                add(out, [x for x in opt.get('_effects') or [] if isinstance(x, str) and x])
+        return out
+    hold, cast = [], []
+    for _, g in groups:
+        em = emitters.get(go_of(g))
+        if em:
+            hold = [names(x) for x in em['_chargeEffectGroups']]
+        for r in g['_abilities']:
+            sub = emitters.get(comp_go.get(r.get('m_PathID'))) if isinstance(r, dict) else None
+            for x in (sub or {}).get('_chargeEffectGroups') or []:
+                add(cast, names(x))
+    return {'hold': hold, 'cast': cast} if any(hold) or cast else None
 
 
 def funnel_entries(abilities, emitters, idle, projectiles):
@@ -1149,7 +1187,7 @@ def main():
     doc.update({k: out[k] for k in sorted(out)})
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if FX_OUT.parent.exists():
-        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'input', 'hit', 'hitGroups', 'tgtStart', 'hitLoop', 'castTgt', 'clipFx', 'altFx', 'talentAtk', 'sideFx', 'combatSplit', 'trail', 'chain', 'chainHit', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'hitAim', 'fortress', 'funnels', 'skills', 'turn', 'dirs', 'start', 'startOnce', 'modeStart', 'dead', 'common') if f in v} for k, v in sorted(out.items())}
+        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'input', 'hit', 'hitGroups', 'tgtStart', 'hitLoop', 'castTgt', 'clipFx', 'altFx', 'talentAtk', 'sideFx', 'combatSplit', 'trail', 'chain', 'chainHit', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'hitAim', 'fortress', 'funnels', 'charge', 'skills', 'turn', 'dirs', 'start', 'startOnce', 'modeStart', 'dead', 'common') if f in v} for k, v in sorted(out.items())}
         FX_OUT.write_text(json.dumps(fx, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     print(f'{len(out)} operator(s) → {OUT.relative_to(ROOT)}' + (f' + {FX_OUT.relative_to(ROOT)}' if FX_OUT.parent.exists() else '')
           + f'; no charpack: {", ".join(missing) or "none"}')

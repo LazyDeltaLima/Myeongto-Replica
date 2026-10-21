@@ -1819,6 +1819,17 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return { get x() { return x0 + (x1 - x0) * k(); }, get y() { return y0 + (y1 - y0) * k(); }, z, alive: true };
   }
   const cabinEnd = new Map();   // 克莱门莎 id → the clock her S2 carriage stops (its passengers' marks end then)
+  const cabinMarks = new Map(); // 克莱门莎 id → her carriage mark (_mark_01 / _mark_02): its spawn promise
+  /** End 克莱门莎's carriage mark (a buff's effect: FinishMe, its own finish) and put `name` on her until `until`. */
+  function cabinMark(v, b, name, until) {
+    const id = v ? ownerOf(v) : null;
+    if (id == null) return;
+    const prev = cabinMarks.get(id);
+    cabinMarks.delete(id);
+    if (prev) prev.then((l) => { if (l) l.inst.stop(); });
+    const n = name ? pickName(b, name) : null;
+    if (n && until > clockS) cabinMarks.set(id, spawn(b.bundle, n, v, { owner: id, buff: true, until, tag: 'cabinMark' }));
+  }
   const aglFlights = new Map(); // 予愿安洁莉娜 id → her S3 flight's effects { off, lives } (ended by the 'aglnaFlight' off)
   function pickFx(e, views) {
     const o = e[4];
@@ -1835,6 +1846,17 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         ownFx.add(e);
         cabinEnd.set(o.id, clockS + dur);
         if (dur > 0) spawn(b.bundle, n, glider(x0, y0, x, y, dur), { owner: o.id, buff: false, until: clockS + dur }, { over: false, facing: dx < 0 ? -1 : 1, dir: { x: Math.sign(dx), y: Math.sign(dy) } });
+        // (2026-10-21) clemnt_s2[emit_projectile]'s start puts [mass_not_full_effect] on her — clemnt_skill_02_mark_01 until the
+        // carriage stops (its trigger: FinishBuffsById) or is full ('cabinFull')
+        cabinMark(views.get(o.id), b, 'clemnt_skill_02_mark_01', clockS + dur);
+        return true;
+      }
+      // … full: [sync_passenger_info] ends _mark_01 and puts [mass_full_effect] clemnt_skill_02_mark_02 on her until it stops
+      case 'cabinFull': {
+        const b = pickOf(views.get(o.id), 'clemnt');
+        if (!pickName(b, 'clemnt_skill_02_mark_02')) return false;
+        ownFx.add(e);
+        cabinMark(views.get(o.id), b, 'clemnt_skill_02_mark_02', cabinEnd.get(o.id) ?? clockS);
         return true;
       }
       // …and its vortex where it stopped: projectile_chr_clemnt_s2_range (`_mainEffect` bullet_range_01, on the ground) for the
@@ -1843,6 +1865,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const b = pickOf(views.get(o.id), 'clemnt'), n = pickName(b, 'clemnt_skill_02_bullet_range_01');
         if (!n) return false;
         ownFx.add(e);
+        cabinMark(views.get(o.id), b, null, clockS);   // (2026-10-21) the stop ends her mark
         spawn(b.bundle, n, { x, y, z: 0 }, { owner: o.id, buff: true, until: clockS + Math.max(0.5, Number(o.dur) || 0) }, { over: false });
         return true;
       }
@@ -1996,18 +2019,21 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     for (const tag of plan.stop) for (const l of live) if (l.tag === tag && l.owner === opId) l.inst.stop();
     const x = Number(e[2]), y = Number(e[3]);
     let n = 0, flight = 0;
+    const casts = [];
     for (const p of plan.play) {
       const slot = p.slot != null ? `${opId}|${p.slot}` : null;
       if (slot && p.off) { endSlot(slot); continue; }
       const pb = p.bundle ? { bundle: p.bundle, prefabs: index?.bundles?.[p.bundle] || [] } : b;
       const name = pickName(pb, p.n);
       if (!name) continue;
+      if (p.cast) { casts.push(name); n++; continue; } // (2026-10-21) the operator's own cast effects, below
       if (slot) {
         const s = slots.get(slot);
         if (s && s.name === name && (s.l ? !s.l.inst.stopping && live.includes(s.l) : !s.done)) { n++; continue; } // kept
         endSlot(slot);
-        const sv = p.on && p.on !== 'point' ? (p.on === 'op' ? op : views.get(o[p.on])) : null;
-        if (p.on && p.on !== 'point' && !sv) continue;
+        const onUnit = p.unit != null || (p.on && p.on !== 'point');
+        const sv = p.unit != null ? views.get(p.unit) : onUnit ? (p.on === 'op' ? op : views.get(o[p.on])) : null;
+        if (onUnit && !sv) continue;
         const rec = { name, l: null, done: false };
         slots.set(slot, rec);
         const pt = sv ? (p.orbit ? orbiter(sv, p.orbit) : sv)
@@ -2042,20 +2068,27 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         n++;
         continue;
       }
-      const v = p.on === 'op' ? op : p.on === 'point' ? null : views.get(o[p.on]);
-      if (p.on !== 'point' && !v) continue;
-      const at = v && p.orbit ? orbiter(v, p.orbit) : v || (Array.isArray(p.at) ? { x: Number(p.at[0]), y: Number(p.at[1]), z: 0 } : { x, y, z: 0 });
-      const on = v ? ownerOf(v) : undefined;
-      const entry = p.life === 'skill' ? { owner: opId, buff: true, until: null, on }
-        : p.life === 'deployed' ? { owner: opId, buff: false, onCaster: true, until: null, on }
-          : p.life === 'tag' ? { owner: opId, buff: false, onCaster: !!p.leave, until: null, tag: p.tag, on }
-            : p.life === 'unit' ? { owner: null, buff: false, until: null, on }
-              : typeof p.life === 'number' ? { owner: null, buff: false, until: clockS + p.life, on }
-                : { owner: null, buff: false, on };
-      const go = () => spawn(pb.bundle, name, at, entry, { over: p.on !== 'point', facing: v ? efacing(v) : 1 });
-      if (p.after === 'fly' && flight > 0) castsDelayed.push({ t: clockS + flight, run: go }); else go();
-      n++;
+      // (2026-10-21) `unit`: one unit by its id; an `on` field holding a list: each of its units
+      const vs = p.unit != null ? [views.get(p.unit)] : p.on === 'op' ? [op] : p.on === 'point' ? [null] : [o[p.on]].flat().map((id) => views.get(id));
+      const endName = p.life === 'unit' && p.end ? pickName(pb, p.end) : null;
+      for (const v of vs) {
+        if (p.on !== 'point' && !v) continue;
+        const at = v && p.orbit ? orbiter(v, p.orbit) : v || (Array.isArray(p.at) ? { x: Number(p.at[0]), y: Number(p.at[1]), z: 0 } : { x, y, z: 0 });
+        const on = v ? ownerOf(v) : undefined;
+        const entry = p.life === 'skill' ? { owner: opId, buff: true, until: null, on }
+          : p.life === 'deployed' ? { owner: opId, buff: false, onCaster: true, until: null, on }
+            : p.life === 'tag' ? { owner: opId, buff: false, onCaster: !!p.leave, until: null, tag: p.tag, on }
+              : p.life === 'unit' ? { owner: null, buff: false, until: null, on }
+                : typeof p.life === 'number' ? { owner: null, buff: false, until: clockS + p.life, on }
+                  : { owner: null, buff: false, on };
+        const go = () => spawn(pb.bundle, name, at, entry, { over: p.on !== 'point', facing: v ? efacing(v) : 1 });
+        if (p.after === 'fly' && flight > 0) castsDelayed.push({ t: clockS + flight, run: go }); else go();
+        // (2026-10-21) its end effect where the unit stands as it goes ('die': unitEndFx)
+        if (endName && on != null) { const l = unitEnds.get(on) || []; l.push({ bundle: pb.bundle, name: endName }); unitEnds.set(on, l); }
+        n++;
+      }
     }
+    if (casts.length) play(op, 'skillStart', 0, { names: casts });
     if (!n || plan.pass) return false;
     ownFx.add(e);
     return true;
@@ -2125,8 +2158,72 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (mv) castsDelayed.push({ t: clockS + out, run: () => spawn(pb.bundle, mv, head, { owner: null, buff: false, until: clockS + backT }, { over: false }) });
     return out;
   }
+  /**
+   * 2026-10-21, decompile check (이펙트 묶음 D): 凛御银灰 S3's eagle. Each attack of his S3 mode triggers BirdAttack
+   * (svash2_s_3[trigger_self]), whose buff svash2_s_3[bird_on_self] fires projectile_chr_svash2_s3_bird_self through
+   * `Nodes.Svash2EmitProjectileFixedDirection.Execute` (RVA 0xE2B070): from him (`_startPositionType` BUFF_OWNER) towards the
+   * first enemy of his range_id box (`_GetTargetMountPoint`, 0xE2B7C0 [추정: the attack's target]) for `emit_count` tiles
+   * (none in the blackboard: 3.0) — 10 tiles / s, `_lifeTime` 0.3 s. Its Svash2ProjectileEffectBehaviour (`Init` 0xA8DFF0,
+   * `_CreateAlignToProjectileEffect` 0xA8E900, `OnProjectileStop` 0xA8E300) creates `_effectsAlignToProjectileDirection`
+   * svash2_skill_03_trail_02 at the start's foot point, turned along start → target, and finishes it when the projectile
+   * stops. (The bird on another operator — BirdAttack_Ally, projectile_chr_svash2_s3_bird: `…WhenDirRight` _trail_right_01
+   * when that direction's x > 0, else _trail_left_01 — needs the 战鹰 on a card, which the sim has not.) [추정: at the
+   * sim's strike]
+   */
+  /**
+   * 2026-10-21, decompile check (이펙트 묶음 D; upstream #633): a 秘术师's stored attack energies on its body. modes.json
+   * `charge` (char_modes.py charge_effects: the ChargableAttackGroup's MultiChargeUberEffectEmitter) — each store (sim fx
+   * 'mysticStore', `n` stored now) casts `cast` and keeps `hold[n − 1]` on the unit (深靛: a star at SpecialPoint 1 / 3 / 4,
+   * where that energy's projectile leaves from); the next attack cast on a target (the release, `OnCastOnTarget`) finishes
+   * them all, as does its leaving.
+   */
+  const charges = new Map();   // unit id → the spawn promises of its held charge effects
+  function chargeStore(e, views) {
+    const o = e[4], v = views.get(o.id), b = bundleOf(v), ch = bindOf(v)?.charge;
+    if (!v || !b || !ch || failed || q() === 'low') return false;
+    const k = Math.max(1, Number(o.n) || 1) - 1, id = ownerOf(v);
+    const cast = extracted(v, ch.cast);
+    if (cast.length) play(v, 'attackStart', 0, { names: cast });
+    const list = charges.get(id) || [];
+    for (const n of extracted(v, Array.isArray(ch.hold) ? ch.hold[k] : null)) {
+      list.push(spawn(b.bundle, n, v, { owner: id, buff: false, onCaster: true, until: null, tag: 'charge' }, { over: false, facing: efacing(v) }));
+    }
+    charges.set(id, list);
+    return true;
+  }
+  function chargeRelease(v) {
+    const id = v ? ownerOf(v) : null, list = id != null ? charges.get(id) : null;
+    if (!list) return;
+    charges.delete(id);
+    for (const p of list) p.then((l) => { if (l) l.inst.stop(); });
+  }
+  const SVASH_BIRD = { bundle: 'svash2', name: 'svash2_skill_03_trail_02', life: 0.3 };
+  function svashBird(src, tgt) {
+    const b = tgt && src?._fxSkillOn && skillIdx(src) === 2 ? pickOf(src, SVASH_BIRD.bundle) : null;
+    const n = pickName(b, SVASH_BIRD.name);
+    if (!n || level() >= 3) return;
+    const dx = mx(tgt) - mx(src), dy = tgt.y - src.y, d = Math.hypot(dx, dy);
+    if (!(d > 1e-6)) return;
+    const t0 = clockS;
+    spawn(b.bundle, n, src, { owner: ownerOf(src), buff: false, tag: 'svashBird' }, { over: false, dir: { x: dx / d, y: dy / d } }).then((l) => {
+      if (!l) return;
+      l.until = Math.max(clockS, t0 + SVASH_BIRD.life);
+      const fin = Number(l.inst.def?.finish);
+      l.finishAt = l.until + (fin > 0 ? fin : 0);
+    });
+  }
   // officialKitFx `slot` plays: `${operator}|${slot}` → { name, l: its live entry once loaded, done: loading finished }
   const slots = new Map();
+  // (2026-10-21) officialKitFx 'unit' plays with an `end`: unit id → [{ bundle, name }] played where it stands at its 'die'
+  // (a buff template's ON_OWNER_FINISH CreateEffect: 圣聆初雪's frozen protection point thawing, sbell2_tile_defrost)
+  const unitEnds = new Map();
+  function unitEndFx(id, v) {
+    const l = unitEnds.get(id);
+    if (!l) return;
+    unitEnds.delete(id);
+    if (!v || failed || q() === 'low') return;
+    for (const x of l) spawn(x.bundle, x.name, { x: v.x, y: v.y, z: v.z || 0 }, { owner: null, buff: false, tag: 'unitEnd' }, { over: false, facing: efacing(v) });
+  }
   /** End the effect held in `key` (and one still loading there). */
   function endSlot(key) {
     const s = slots.get(key);
@@ -3899,6 +3996,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // clock: those of ON_CAST_START already started at its 'swing', the strike's (ON_SPELL_ON) now (strikeFx); the
           // throttle (ATTACK_GAP_S) and load level 3 skip them as before (beginCast)
           strikeFx(src, mode, e[3], tgt, sig);
+          svashBird(src, tgt);   // 2026-10-21: 凛御银灰 S3's eagle
+          chargeRelease(src);    // 2026-10-21: a 秘术师's stored energies leave with it
           droneShot(src, tgt, mode);   // 2026-10-16: its drones
           if (tgt && (src._fxSkillOn || level() < 3)) shotStartFx(src, tgt, mode, shot);
           return;
@@ -3984,6 +4083,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (['summon', 'revive', 'wolfShadow', 'wolfShadowLost', 'buff'].includes(e[1]) && packEvent(e, views)) ownFx.add(e);
           // 2026-10-16: 荒芜拉普兰德's 头狼 stage (stage 3: one more drone — droneIdle)
           if (e[1] === 'talent' && e[4]?.name === 'alpha') { const v = views.get(e[4].id); if (v) { v._fxAlpha = Number(e[4].stage) || 0; droneIdle(v); } }
+          if (e[1] === 'mysticStore' && e[4] && chargeStore(e, views)) { ownFx.add(e); return; } // 2026-10-21: a 秘术师's stored energy
           if (skillShotFx(e, views)) return; // 2026-10-21: 流星 S2's arrows, 崖心 S2's harpoon (a skill's own projectile)
           if (kitFx(e, views)) return; // local patch: 余 S3 wall, 蕾缪安 S3 lock / shells, 戴菲恩 S3 slashes / finisher
           if ((e[1] === 'substitute' || e[1] === 'swap' || e[1] === 'dollEnd') && e[4]) dollFx(e, views); // local patch: the 替身's own effects
@@ -4025,6 +4125,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           const v = views.get(e[1]);
           if (v?.info?.side === 'enemy' && e[2] !== 'forcedExit') edeathFx(v); // 2026-10-10: its dead effect
           else if (v) allyDeathFx(v, e[2]); // 2026-10-11: an operator's / token's dead effect
+          unitEndFx(e[1], v); // 2026-10-21: a kit plan's end effect where it stood (圣聆初雪's thawing tile)
+          charges.delete(e[1]); // (its held charge effects: stopOwned above)
           for (const k of ebuffs.keys()) if (k.startsWith(`${e[1]}:`)) ebuffs.delete(k);
           return;
         }

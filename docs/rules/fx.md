@@ -987,8 +987,8 @@
   `fly_end_01–03`; 「이따 봐!」 표식 = `token_aglna2_agairp_01`. 이 프리팹들은 `KIT_OWNED` — 이름 규칙(`_range` 루프)이 시전자에게 또 틀던 것을 막는다.
   시뮬 쪽은 fx 내용만 늘었다(`aoe.ally`, `disappear.tx/ty/t`, `dash.chant`; golden 그대로). 디버그 아레나에서 확인: S2 방축선·적 표시, 켈시 S2·S3, 안젤리나 S2
   (클레멘티아 S3 포격은 침식 폭발이 필요해 화면 확인 못 함).
-- 안 붙인 것: 켈시 S3 待投放 오퍼레이터의 `teleport_02`(`kalts2_s_3[withdraw]` — 시뮬에 그 순간의 fx가 없음), 머리 위 표시(`[indicator_fx]`), 클레멘티아 `mark_01`/`mark_02`
-  (어느 유닛 버프인지 불명).
+- 안 붙였던 것(켈시 S3 待投放 오퍼레이터의 `teleport_02`·머리 위 표시 `[indicator_fx]`, 클레멘티아 `mark_01`/`mark_02`)은 2026-10-21에 붙임 → 아래
+  「안 나오던 공식 이펙트 메우기 … (2026-10-21, 이펙트 묶음 D)」.
 - (2026-10-11 뒤) 안젤리나 더 멜로우 위시 S3 비행: `aglna2_skill_03_fly_trail_01` + `aglna2_skill_03_buff_right_01`/`_left_01`이 sim fx `aglnaFlight` 켜기~끄기 동안
   붙는다. 「이따 봐!」 표식 유닛은 몸이 없어(프리팹 `EmptyAnimator`) 이펙트만 그린다 → `diy.md` 「안젤리나 더 멜로우 위시 S3 이동 · 「이따 봐!」 표식」.
 - (2026-10-12) 안젤리나 더 멜로우 위시 S2 활공 꼬리·`fly_range_01`은 吟唱 내내가 아니라 **모델이 끝점에 닿을 때까지**(`dash.t`)만 붙는다 — `[flying]`은
@@ -1746,6 +1746,54 @@
   오류 0, 전투 시계로 첫 재생): 信仰搅拌机 `_01` 2.0 s → `_02` 4.2 s, 佩佩 S3 `_01`·`_02`·`_03`, 佩佩 S2 둘째 시전에 `pepe_buff_level_01`, 玛恩纳
   `_L_01`·`_L_02`(모듈 시작 +100 % = 20스택이라 배치 즉시), 赤刃明霄陈 8.3 s에 셋, 蒂比 `tippi_buff_01`, 塞雷娅 21.7 s, 琳琅诗怀雅 S3 `_01_start`, 阿斯卡纶
   `_01`·`_02`, 洛洛 `rockr_buff_01`. [화면 미확인: 실제 판, 공식 녹화와 모양·자리 — 夕·妮芙·琳琅诗怀雅의 최대 단계, 玛恩纳 `_L_03`은 아레나에서 안 봄]
+
+### 안 나오던 공식 이펙트 메우기 — 얼린 보호 목표·전투 독수리·S3_End 시전·待投放 표시·운반선 표시·저장 에너지 (2026-10-21, 이펙트 묶음 D)
+
+바인딩이 없어 렌더가 한 번도 틀지 않던 공식 이펙트. 클라 필드를 찾아 키트 이벤트(`render/fx/kitofficial.js`)·`fxgame.js`·`modes.json`에 이었다.
+
+- **圣聆初雪 S2 얼린 보호 목표**: 토큰 `token_10058_sbell2_icetgt`(EN `pkgrps/btl_pfb_tokens_4.ab`)의 `Modes/Default/Body/GeneralAbilities/Effect`가 INFINITY
+  버프 `icetgt_a[effect]`(`overrideEffectKey` `sbell2_tile_frozen`)를 들고, 그 템플릿의 ON_OWNER_FINISH가 `CreateEffect sbell2_tile_defrost`(TARGET =
+  토큰). → 키트의 'summon'에 `token`을 싣고 `kitofficial.js summon.sbell2` = 토큰 위 `sbell2_tile_frozen`(그 유닛의 'die'까지) + 새 문법 `end`(그 유닛이
+  'die'할 때 선 자리에 한 번 — `fxgame.js unitEndFx`). 얼음 마름모(`units.js ICE_TOKENS`)는 그대로.
+- **凛御银灰 S3 전투 독수리**(디컴파일): S3 모드 공격의 `_activeBuffs` `svash2_s_3[trigger_self]` → `skchr_svash2_3/BirdAttack`의 `svash2_s_3[bird_on_self]` →
+  `Nodes.Svash2EmitProjectileFixedDirection.Execute`(RVA 0xE2B070)가 `projectile_chr_svash2_s3_bird_self`를 그(`_startPositionType` BUFF_OWNER)에서 range_id
+  상자의 첫 적(`_GetTargetMountPoint` 0xE2B7C0) 쪽으로 `emit_count`칸(블랙보드에 없으면 3.0 — 상수 0x62c9d38) 쏜다(10칸/s, `_lifeTime` 0.3 s).
+  그 `Svash2ProjectileEffectBehaviour`(`Init` 0xA8DFF0 · `OnProjectileBorn` 0xA8E280 · `_CreateAlignToProjectileEffect` 0xA8E900 · `OnTick` 0xA8E5B0 ·
+  `OnProjectileStop` 0xA8E300): `_useTargetAsMountPoint`가 없으면 출발점의 발 마운트에 `_effectsAlignToProjectileDirection`을 출발 → 목표 방향으로 만들고
+  (`…WhenDirRight`가 있고 그 방향 x > 0이면 그 목록), 투사체가 멈출 때 `FinishMe`. → `fxgame.js svashBird`: S3(스킬 3번) 중 그의 'atk'마다
+  `svash2_skill_03_trail_02`를 그에게 대상 쪽으로 0.3 s, 그 뒤 프리팹 `finish`. [추정: 첫 적 = 공격 대상, 시뮬 타격 순간에]. 다른 오퍼레이터 위
+  독수리(`BirdAttack_Ally` → `projectile_chr_svash2_s3_bird`, 오른쪽 `_trail_right_01`·그 밖 `_trail_left_01`)는 독수리가 카드(오퍼레이터)에 앉는 공식
+  기능이 시뮬에 없어 안 나온다.
+- **琳琅诗怀雅 S3 끝 `S3_End` 모드**: 스킬 끝(`swire2_skill_3` ON_BUFF_FINISH SwitchMode)의 `Modes/S3_End/Body/Trigger`(`Skill_3_End`)가 ON_CAST_START에
+  `swire2_skill_03_start_03`·`_start_03_02`·`swire2_skill_03_range`(`_useFourDirectionalFace`)를 시전 — 동전이 없어도. → `kitofficial.js coin.swire2`가
+  'coin' { skill 'swire2_3' }에 새 문법 `cast`(`fxgame.js play` — 그 오퍼레이터의 시전처럼, `turn` 적용)로 셋을 튼다 [추정: 프리팹 길이만큼 —
+  클라는 그 행동의 ON_CAST_END에 끝냄].
+- **凯尔希·思衡托 S3**(CN 버프 템플릿·`[uc]skills.ab`): `kalts2_s_3[on_token_born]`이 `S3OperatorSelector`가 고른 오퍼레이터에 `kalts2_s_3[withdraw]`를
+  거는데 그 ON_BUFF_START가 `CreateEffect kalts2_skill_03_teleport_02`(BUFF_OWNER). → 'kalts2Takeoff'에 `picks`(시뮬 `withdrawPicks`), `kitofficial.js`가
+  각자에. 머리 표시: S3를 고르면 그 스킬의 `_extraAbilities` `skchr_kalts2_3/Indicator`가 `kalts2_s_3[indicator]`(0.1 s마다)로 — 그녀가 모드 2
+  (`s3_transporting`)가 아니고 카드가 RESPAWNING이 아닐 때 — 선택기의 대상에 `[indicator_fx]`(0.1 s) → `[indicator_fx][fx]`
+  `kalts2_skill_03_indicator_head_01`(0.15 s마다 `[indicator_fx]`를 확인해 끝). → 시뮬 새 fx 'kalts2Mark' { ids, off }(S3를 골랐을 때 0.1 s마다 계산,
+  바뀔 때만; 비행 중 [추정: 이륙 클립은 아직 모드 s3]·자리에 없을 때 비움) → `kitofficial.js`가 대상마다 slot(새 문법 `unit`: id 하나), 'die'에 끝.
+- **克莱门莎 S2 운반선 표시**(CN 버프 템플릿): S2 모드 GeneralAbilities `EmitProjectile`의 `clemnt_s2[emit_projectile]` 시작이 그녀에게 `[mass_not_full_effect]`
+  `clemnt_skill_02_mark_01`, 태운 질량이 `max_passenger_mass`에 이르면(`[sync_passenger_info]`) 그것을 끝내고 `[mass_full_effect]` `_mark_02`, 운반선이 멈출
+  때(트리거) 둘 다 끝. → 'anchor'에 `_mark_01`(멈출 시각까지), 시뮬 새 fx 'cabinFull'(남은 무게 0이 되는 순간 한 번)에 `_mark_02`로, 'tide'에 끝(`fxgame.js
+  cabinMark`).
+- **秘术师 저장 에너지**(upstream #633 — 숫자 표시 PR #636은 안 받음, 관리자 결정 2026-10-15; 디컴파일): charpack `Trait/ChargableAttackGroup`의
+  MultiChargeUberEffectEmitter — `OnEvent`(0xCBA450)가 색인을 `GetChargeTimes()`(0xCB9DD0)로 두고 저장 행동 중이면 `CreateChargeEffects`(0xCB84B0)가
+  `_chargeEffectGroups[색인]`을 틀며, ChargeEffectOptions(`CreateEffect` 0xCB25F0)는 만든 것을 들고 있다가 `ClearChargeEffects`(0xCB2490): 저장이 아닌 공격이
+  대상에 시전할 때(`OnCastOnTarget` 0xCBA1D0 — 방출) 또는 ON_DETACHED. 深靛: [0] `indigo_attack_charge_02`(SpecialPoint 1) · [1] `_03` · [2] `_04` · [3] `_05`
+  — 저장 투사체가 나가는 자리 `_mountPointForProjectiles` [6, 8, 9, 5]와 같은 순서 [추정: 색인 = 저장 전 개수]; 저장 능력 각자의 그룹은
+  `indigo_attack_charge_01_start`(ON_CAST_START). → `char_modes.py charge_effects` → `modes.json charge` { hold, cast }(EN 전체 재추출: 深靛만),
+  'mysticStore'에 `n`(지금 개수), `fxgame.js chargeStore`가 `cast` + `hold[n − 1]`을 들고 그 유닛의 다음 'atk'(`chargeRelease`)·'die'에 끝. 정예 4개째는
+  `_05`(SPECIAL 0).
+- **덤 — 卡涅利安 `billro_beidong_buff_03`·蜜蜡 `beewax_buff_01_start`(출처 찾음, 안 붙임)**: 둘 다 기본 모드(`Modes/Default`, 卡涅利安은 `S1_Enhance`도)의
+  `_generalAbilities` 버프 `overrideEffectKey`(阵法术师 특성 — 스킬 밖 방어). 그 능력이 `Body/GeneralAbilities/` 밖(`Modes/Default/Trait_Eff`, 蜜蜡은
+  `Modes/Default` 자신)에 있어 `char_modes.py`가 `attach`로 안 읽고, 읽어도 기본 모드 `attach`는 아무도 안 틀어(관리자 판정 대기) 그 판정을 따른다.
+- 확인: 시뮬 `test/sim/kit-mark-fx-events.test.js`(picks·'kalts2Mark' 켜고 끔·S1/S2 없음, 'cabinFull' 한 번·안 참, `n` 1~4), 렌더
+  `test/render/kit-marks-fx.test.js`(추출값, 계획, dry 레이어 여섯). 골든: diy-009 `kalts2Mark` 13·diy-010 `cabinFull` 1(표시 이벤트 수만); 이벤트 기록 골든 + 줄만.
+  Windows Chrome 디버그 아레나(정예, 오류 0): 凛御银灰 S3 `trail_02` 31번(명중과 함께), 琳琅诗怀雅 S3 끝 셋 + 동전, 克莱门莎 `_mark_01`·소용돌이, 그리고
+  아레나가 못 만드는 순간은 시뮬 이벤트를 넣어(深靛 저장 셋 → `_02`~`_04`, 凯尔希·思衡托 표시·`teleport_02`, 圣聆初雪 `frozen` → 'die'에 `defrost`).
+  [화면 미확인: 실제 판 — 공식 녹화와 모양·자리, 克莱门莎 `_mark_02`]
 
 ### 재능 버프·시전 이펙트 — 재능이 거는 버프와 시전 순간 (2026-10-16, 이펙트 연결 전수 묶음 3)
 

@@ -81,7 +81,7 @@ function sbell2(bb, chess, def) {
     if (!ice) return false;
     unit.mem.snow.delete(k);
     touch(unit, k);
-    battle.fx('summon', { x: c, y: r, id: ice.id, src: unit.id });
+    battle.fx('summon', { x: c, y: r, id: ice.id, src: unit.id, token: iceId });
     return true;
   };
   const talents = [
