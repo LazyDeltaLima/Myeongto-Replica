@@ -1777,6 +1777,12 @@ export async function createFieldView(host, options = {}) {
     if (t && t !== v) v.turnToward(t.x, t.y);
   }
 
+  /** A 'skill' event on its view: the view's skill state and the procedural start (none over official effects). */
+  function skillEvent(v, e) {
+    v.setSkill?.(!!e[2], typeof e[3] === 'string' ? e[3] : null);
+    fx.skill(v, !!e[2], { burst: !fxGame.ownsSkill(v) }); // local patch: no gold pillar over an operator with official effects
+  }
+
   function handleEvent(e, now) {
     switch (e[0]) {
       case 'spawn': {
@@ -1794,6 +1800,7 @@ export async function createFieldView(host, options = {}) {
         // every 0.2 game s, docs/rules/render.md 「배치 낙하」) — each 'deploy' event drops its piece at once
         // `e[2]` 1: a unit that flew there itself only lands (sim Battle.moveRedeploy inPlace — 予愿安洁莉娜 S3): no drop-in
         if (v && e[2] !== 1) { v.onDeploy?.(typeof e[3] === 'string' ? e[3] : null); if (v.info?.kind !== 'device') fx.deploy(v); }
+        if (v?._skillAtDeploy) { const s = v._skillAtDeploy; v._skillAtDeploy = null; skillEvent(v, s); } // see 'skill'
         break;
       }
       case 'swing': {
@@ -1828,7 +1835,16 @@ export async function createFieldView(host, options = {}) {
       }
       case 'heal': { const v = views.get(e[1]); if (v) fx.heal(v, Number(e[2]) || 0); break; }
       case 'blk': { const v = views.get(e[1]); if (v) fx.blocked(v, Number(e[2]) || 0, !!e[3]); break; } // local patch: blue / BLOCK (sim local-hud.js)
-      case 'skill': { const v = views.get(e[1]); if (v) { v.setSkill?.(!!e[2], typeof e[3] === 'string' ? e[3] : null); fx.skill(v, !!e[2], { burst: !fxGame.ownsSkill(v) }); } break; } // local patch: no gold pillar over an operator with official effects
+      case 'skill': {
+        const v = views.get(e[1]);
+        if (!v) break;
+        // a unit redeployed under the same id gets its passive's 'skill' before its 'deploy' (sim deploy.js: skill.reset,
+        // then 'deploy') while its last death still fades (units.js `dying`, ≤ 2.15 s): the start waits for the unit that
+        // comes back instead of drawing the gold pillar over the falling one (docs/rules/fx.md 「돌아오는 돌 위 금빛 기둥」)
+        if (v.alive === false) { v._skillAtDeploy = e[2] ? e : null; if (e[2]) break; }
+        skillEvent(v, e);
+        break;
+      }
       case 'die': {
         const v = views.get(e[1]);
         const used = consumedIds.delete(e[1]);

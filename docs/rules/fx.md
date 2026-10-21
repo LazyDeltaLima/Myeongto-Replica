@@ -489,6 +489,10 @@
       처음 추정은 틀렸다: 실제 매치 경로 124개 summon 모두 spawn 뒤, Chrome 실제 판에서도 소환 대체 그림 0회, 跟子 탄생은 `wang_passive_01_buff`(3/3).
       확인 수준: 실제 판에서 돌의 `fx.skill`이 수정 전 `burst: true` → 후 `false`, 기둥 자체는 실제 판에서
       다시 찍히지 않음(쓰러지는 뷰와 겹치는 타이밍이 이번 판들에 없었음 — 원인은 이벤트 순서 데이터 + 페이드 시간으로 추론).
+      2026-10-21 일반화: 같은 순서('skill' → 'deploy')는 배치 때 패시브가 켜지는 **모든 재배치 유닛**에 있어(공식 이펙트가 없는 토큰 등은
+      `ownsSkill`이 거짓이라 금빛 기둥이 그대로 났다) `render/app.js`가 아직 쓰러지는 뷰(`alive` 거짓)에 온 'skill' 켜짐을 그 뷰에 맡겨 두고
+      (`_skillAtDeploy`) 그 id의 'deploy'에서 뷰가 되살아난 뒤 튼다(`skillEvent` — 스킬 상태·절차 시작 그림). 꺼짐은 바로 처리하고 맡긴 것을 지움.
+      쓰러졌다 일어나는 유닛도 'deploy'로 돌아오므로 시작을 잃지 않는다(`units.js setDown`).
   - **赤刃明霄陈 S3 용이 그녀를 가림** (관리자 제보 2026-10-07, 공식 캡처·녹화 — 비공개: 용은 그녀 뒤):
     ① 용 버프는 클라이언트가 **한쪽만** 튼다 — `skchr_chen3_3/SwitchMode` `overrideEffectKey` = `chen3_skill_03_buff_L_01`이고, 그 프리팹 루트의 두 번째
     컴포넌트 `_rightEffect` = `chen3_skill_03_buff_R_01`(`_onlyCheckOnPlay` 0)은 오른쪽을 볼 때 대신 트는 사본이다. 우리는 이름 규칙(`effectsFor

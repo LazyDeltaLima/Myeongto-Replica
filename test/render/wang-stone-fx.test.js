@@ -125,6 +125,16 @@ test('a stone gets no procedural skill burst (its passive \'skill\' on precedes 
   assert.match(APP, /fx\.skill\(v, !!e\[2\], \{ burst: !fxGame\.ownsSkill\(v\) \}\)/);
 });
 
+test('any redeployed unit: a skill start on its still-dying view waits for its \'deploy\' (no gold pillar on the falling one)', () => {
+  // the same order holds for every unit with a passive on deployment (not only 望's stones, which have official effects)
+  const APP = readFileSync(path.join(ROOT, 'public/js/render/app.js'), 'utf8');
+  const skill = APP.slice(APP.indexOf("case 'skill': {"), APP.indexOf("case 'die': {"));
+  assert.match(skill, /if \(v\.alive === false\) \{ v\._skillAtDeploy = e\[2\] \? e : null; if \(e\[2\]\) break; \}\n\s+skillEvent\(v, e\);/);
+  const deploy = APP.slice(APP.indexOf("case 'deploy': {"), APP.indexOf("case 'swing': {"));
+  assert.ok(deploy.indexOf('v.onDeploy?.(') < deploy.indexOf('skillEvent(v, s)'), 'started after the view is revived');
+  assert.match(deploy, /if \(v\?\._skillAtDeploy\) \{ const s = v\._skillAtDeploy; v\._skillAtDeploy = null; skillEvent\(v, s\); \}/);
+});
+
 test('the extracted activation prefabs: wisps that dissolve in and stay (skipped without public/assets)', { skip: !haveFx && 'no extracted fx' }, () => {
   // the activation wisps (`line` meshes) dissolve IN (_Amount 1 → ~0) and stay: nothing ends them but the effect
   for (const [b, n] of [['wang_token', 'token_wang_01_buff'], ['wang', 'wang_passive_01_buff_02']]) {
