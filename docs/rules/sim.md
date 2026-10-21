@@ -1618,6 +1618,30 @@ AUTO 스킬은 스킬 시작(`[trig]`) 경로뿐이었다. 瑕光 S1(`skchr_blem
 - 테스트 `test/content/kits_alt_t3.test.js`(시전 때 회복 없음, 첫 물기에 hp_ratio, 둘째 물기엔 없음). golden: roster-039·040(선물 물기 전에 판이 끝나
   회복이 사라짐; 승패 그대로), 그 밖은 같은 날의 새 표시 이벤트 'wolfCount'·'wolfTacEnd' 수만(rules/fx.md 「伺夜 늑대 무리」).
 
+## 리더 방벽 층 셋 — 층마다 블랙보드 양 전부 (2026-10-21, 관리자 결정 2026-10-21 「클라 코드가 확인하면 시뮬을 맞춤」)
+
+래트킹(`enemy_1509_mousek`), '즈자이' 破桎而出(`enemy_1517_xi`), 머드락(적)(`enemy_1511_mdrock`)의 방벽은 클라에서 방패 버프 셋이다(`mousek_shield[a/b/c]`,
+`enemy_xi_s2[shield][a/b/c]`, `enemy_mdrock_s_2[shield_a/b/c]`). 전에는 셋을 한 방벽(블랙보드 `dynamic` 하나)으로 두었다.
+- **클라 코드**(EN 클라 역어셈, 관리자 노트): 버프는 저마다 자기 블랙보드를 가지며 `Buff.Reset`이 그것을 비우고 넘겨받은 블랙보드·버프
+  데이터 블랙보드의 값을 **복사**한다(`Blackboard.Assign(IList)`, 참조 공유 아님). 층을 만드는 쪽은 셋 다 같은 블랙보드를 넘긴다 — 래트킹
+  `Talents/shield`(`PassiveBuffAbility`, `Ability.AddPassiveBuffs` → `owner.AddBuff(data, …, ability.blackboard)`), '즈자이' `BuffDuringCasting.OnCastStart`
+  (`AddBuffsToIdList(…, ability.blackboard)`), 머드락(적) `[shield][refresh]`의 `CreateBuff`(새 `Blackboard(그 버프의 블랙보드)`). 층 버프 데이터는
+  `stripBlackboardParamsWithBuffKey` 0·블랙보드 비어 있음(래트킹 c는 `mode` 1뿐). 각 층의 `BlockDamage`(`_useDynamicVar`)는 자기 블랙보드 `dynamic`에서
+  min(피해, dynamic)을 빼 다시 쓰고(`_AssignDynamicVar`), 남은 피해를 modifier에 되써 다음 ON_TAKE_DAMAGE로 넘기며, 다 막으면 취소; `dynamic`이 0이 되면
+  그 층만 끝남(`IsBlackboardZero` → `FinishBuff`). 층은 함께 붙어 있고(`disableOverride` 1, 수명 INFINITY) 버프 목록은 `onEventPriority`가 같으면 얻은
+  순서(`SortedDoubleBufferedBuffList.Add`) → **a → b → c 순서로 깎이고 넘친 피해는 다음 층으로, 방벽 전체 = 3 × `dynamic`**. Lua 핫픽스 없음.
+- **PRTS(2차 확인)**: 鼠王 「可吸收14001法术伤害的屏障」(4667×3, 레벨 1 22002 = 7334×3), “自在” 「可吸收7500物理/法术伤害的屏障」·둘째 형태 9000(2500×3·3000×3,
+  레벨 1 10500·12000), 泥岩(敌方) 「可吸收16500法术伤害的屏障」(5500×3, 레벨 1 20001 = 6667×3).
+- **변경**: `archetypes.js artsBarrier`에 `layers`(클라 층 버프 키) — 층마다 `amount` 전부, 차례로 깎고 넘침은 다음 층, 층마다 보이는 표시 버프
+  `<키>[1..3]`(`fxTag` 'buff:<그 층 키>')가 그 층이 깨질 때 빠짐(렌더가 그 층 이펙트만 끔). 보너스 버프(래트킹 DEF, 머드락 HP·공속)는 이제 이펙트
+  태그 없이 마지막 층까지. 머드락 刷新屏障은 세 층 모두 다시 채움. '즈자이'는 엔진 방벽 버프 셋 `ab:xiShield[a/b/c]`(각 `dynamic`, 붙인 순서로 흡수)이고
+  **물리·법술만** 막음(클라 `_damageMask` PHYSICAL_AND_MAGICAL, PRTS 「物理/法术伤害」 — 전에는 진실 피해도 막았음). 폭발은 마지막 층 c가 지속 시간을
+  버틸 때만(클라 `enemy_xi_s2[shield_last]`만 깨질 때 `InterruptEnemyAbility`) — a·b가 깨져도 c가 남으면 터짐. 파란 숫자 허용 키(`local-hud.js BLOCK_SHOWN`)에 세 층 키.
+- 남은 것: 래트킹 마지막 층이 깨질 때의 `NoShield` 모드 전환(`mousek_shield_end` `SwitchMode`)·층 피격 이펙트는 fx 쪽 미구현 그대로.
+- 테스트 `test/sim/leader-barrier-layers.test.js`(실제 매치 경로: 셋 다 3 × dynamic, 층 상태 셋·깨지는 순서, 래트킹 DEF는 마지막 층까지, '즈자이' 진실 피해 통과·
+  c가 버티면 폭발 / c가 깨지면 없음, 머드락 갱신), `enemies_bosses.test.js`·`enemy-buff-tags.test.js` 고침. golden: roster-005(래트킹 — 판이 시간 초과·
+  누출 1로 바뀜)·028(래트킹)·006·035(머드락(적))·011·040('즈자이')·matches coop8-HARD-3(피해 몇 점), fx 골든은 같은 판들의 게임 결과로 바뀐 줄만.
+
 ## 8인 협동 모드 (관리자 결정 2026-10-16·2026-10-19, 공식에 없는 기능)
 
 공식 방은 1–4명이고 8인용 데이터는 없다(`act2autochess`에는 난이도별 `bloodPoint*`와 단일·멀티 연합 방어 템플릿뿐). 아래 수치·규칙은 모두

@@ -1413,7 +1413,7 @@
           "title": {"id":"comment_4","name":"精英云集","picId":"comment_icon_4","text":"晋升精锐次数最多"},
           "trophies": 5,
           "reward": 425,
-          "stats": {"activatedLayers":340,"bossDamage":3288463,"dmgDealt":8288119,"gold":138,"itemsEquipped":22,"kills":442,"leaks":5,"lpLost":1,"merges":6,"perfectRounds":10,"refreshes":18},
+          "stats": {"activatedLayers":340,"bossDamage":3288463,"dmgDealt":8288240,"gold":138,"itemsEquipped":22,"kills":442,"leaks":5,"lpLost":1,"merges":6,"perfectRounds":10,"refreshes":18},
           "lineup": ["4_13_a@11,7[5_01_e_a+4_07_e_a]","5_12_a@11,8[3_05_e_a+3_07_e_b]","1_20_b@10,7","1_18_b@10,8","3_16_b@9,6[1_05_e_b+4_04_e_a]","1_02_b@9,7[3_05_e_b+1_01_e_b]","3_14_b@9,8[5_09_e_a+3_07_e_a]","5_07_a@9,9[4_02_e_a+3_06_e_b]"],
           "bonds": ["arcaneShip 1/28","indomShip 1/20","kazimierzShip 0/8","kjeragShip 1/46","raidShip 1/154","skillfulShip 0/10","steadShip 1/82","suntShip 2/0","swiftShip 0/8","visiShip 1/10"]
         },
@@ -1427,7 +1427,7 @@
           "title": {"id":"comment_6","name":"挥金如土","picId":"comment_icon_6","text":"消耗资金最多"},
           "trophies": 5,
           "reward": 425,
-          "stats": {"activatedLayers":199,"bossDamage":1011121,"dmgDealt":4722422,"gold":154,"itemsEquipped":20,"kills":402,"leaks":10,"lpLost":1,"merges":6,"perfectRounds":10,"refreshes":23},
+          "stats": {"activatedLayers":199,"bossDamage":1011121,"dmgDealt":4722432,"gold":154,"itemsEquipped":20,"kills":402,"leaks":10,"lpLost":1,"merges":6,"perfectRounds":10,"refreshes":23},
           "lineup": ["6_04_a@12,3","2_10_a@11,7[1_05_e_b+5_01_e_b]","4_13_b@11,8[3_10_e_a+4_08_e_b]","4_09_a@10,3[5_02_e_a+2_04_e_b]","5_08_a@10,5","4_11_a@9,4[4_04_e_a]","3_09_a@9,8","5_12_b@9,9[4_03_e_a+1_02_e_b]"],
           "bonds": ["arcaneShip 2/101","egirShip 1/25","kjeragShip 0/22","preciShip 0/8","raidShip 0/10","skillfulShip 1/29","soloShip 1/0","steadShip 0/23","suntShip 1/0","victoriaShip 1/44"]
         },

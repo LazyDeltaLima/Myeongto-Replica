@@ -114,7 +114,7 @@ export function damageNumberFlag(dmg, ss, expected, final) {
  * Allowed = the client's BlockDamage `_showDamageNumber` (17 of 115 block nodes): in our roster the shields of xi
  * (enemy_xi_s2), mdrock (enemy_mdrock_s_2) and mousek (mousek_shield) — their sim keys below.
  */
-export const BLOCK_SHOWN = new Set(['ab:xiShield', 'ab:sandDef', 'ab:rockPower']);
+export const BLOCK_SHOWN = new Set(['ab:xiShield', 'ab:xiShield[a]', 'ab:xiShield[b]', 'ab:xiShield[c]', 'ab:sandDef', 'ab:rockPower']);
 export function blockedEvent(battle, target, final, flag, key) {
   if (!(flag > 0) || !(final > 0) || !target) return;
   battle._ev(['blk', target.id, Math.round(final), BLOCK_SHOWN.has(key) ? 1 : 0]);

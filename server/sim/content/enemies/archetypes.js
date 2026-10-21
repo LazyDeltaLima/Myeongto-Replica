@@ -435,22 +435,45 @@ function unbalanced(onMove) {
 }
 
 /** An arts-only barrier ("吸收法术伤害的屏障") of `amount`; `a.left` = what is left, `refresh(b, e)` restores it. `fxTag`: its
- *  client shield buffs' effects (render/fxstatus.js, 2026-10-21). */
-function artsBarrier(amount, { key = 'ab:artsBarrier', whileUp = null, fxTag = null } = {}) {
+ *  client shield buffs' effects (render/fxstatus.js, 2026-10-21).
+ *  `layers` (2026-10-21, docs/rules/sim.md 「리더 방벽 층 셋」): the client buff keys of a barrier the client builds from
+ *  several shield buffs (鼠王 mousek_shield[a/b/c], 泥岩 enemy_mdrock_s_2[shield_a/b/c]). Each layer holds the whole
+ *  `amount` — every buff copies the ability's / parent buff's blackboard into its own (Buff.Reset), and each layer's
+ *  BlockDamage spends its own `dynamic` — so the barrier is `amount` × layers; they take damage in the order they were
+ *  added (the buff list keeps equal event priorities in that order), the overflow of one going on to the next. Each layer
+ *  is its own visible marker buff `<key>[n]` naming its client buff, removed when that layer is spent, so the render
+ *  drops that layer's effect; the `whileUp` bonus then carries no effect tag and stays until the last layer breaks. */
+function artsBarrier(amount, { key = 'ab:artsBarrier', whileUp = null, fxTag = null, layers = null } = {}) {
+  const n = layers ? layers.length : 1;
+  const layerKey = (i) => `${key}[${i + 1}]`;
   return {
     refresh(b, e, a) {
-      a.left = amount;
-      b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'artsBarrier', value: amount });
-      if (whileUp) b.addBuff(e, { key, persist: true, visible: true, mods: whileUp, fxTag });
+      a.left = amount * n;
+      a.layers = layers ? layers.map(() => amount) : null;
+      b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'artsBarrier', value: a.left });
+      if (whileUp) b.addBuff(e, { key, persist: true, visible: !layers, mods: whileUp, fxTag: layers ? null : fxTag });
+      if (layers) layers.forEach((t, i) => b.addBuff(e, { key: layerKey(i), persist: true, visible: true, fxTag: `buff:${t}` }));
     },
     spawn(b, e, a) { if (amount > 0) a.refresh(b, e, a); },
     hitIn(c, b, e, a) {
       if (!(a.left > 0)) return;
       const lpF = expectedFinal(c.source, e, c.dmg); // local patch: a red number it stops → blue (local-hud.js)
-      a.left -= absorbArts(c, a.left);
+      const take = absorbArts(c, a.left);
+      a.left -= take;
+      if (a.layers) {
+        let rest = take;
+        for (let i = 0; i < n && rest > 0; i++) {
+          if (!(a.layers[i] > 0)) continue;
+          const d = Math.min(a.layers[i], rest);
+          a.layers[i] -= d;
+          rest -= d;
+          if (a.layers[i] <= 1e-6 && a.left > 1e-6) { a.layers[i] = 0; b.removeBuff(e, layerKey(i)); }
+        }
+      }
       if (c.dmg.cancel) blockedEvent(b, e, lpF, damageNumberFlag(c.dmg, c.source && c.source.s, mitigate(c.dmg.amount, c.dmg.type, e.s, {}), lpF), key); // local patch
       if (a.left > 1e-6) return;
       a.left = 0;
+      if (a.layers) a.layers.forEach((x, i) => { a.layers[i] = 0; b.removeBuff(e, layerKey(i)); });
       b.fx('shieldBreak', { x: e.x, y: e.y, id: e.id });
       // the bonus it grants ends once the overflow of the breaking hit has landed (never before: an HP bonus removed
       // first would rescale HP and make the overflow count twice)

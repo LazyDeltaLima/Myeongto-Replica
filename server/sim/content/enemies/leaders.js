@@ -137,9 +137,10 @@ function kitLeaderMisc(key, ab, e) {
     }
     case 'enemy_1509_mousek': {
       // 出场时拥有能够吸收大量法术伤害的屏障，屏障存在时防御力大幅增加 (arts-only barrier + DEF while it holds)
-      // its client shield: three layers mousek_shield[a] / [b] / [c] (Talents/shield, each its own effect) [추정: the layers' split]
+      // its client shield: three layers mousek_shield[a] / [b] / [c] (Talents/shield PassiveBuffAbility), each holding the
+      // whole shield.dynamic — 3 × 4667 = PRTS 「可吸收14001法术伤害的屏障」 (docs/rules/sim.md 「리더 방벽 층 셋」)
       const bar = artsBarrier(T(ab, 'shield.dynamic') ?? 0, { key: 'ab:sandDef', whileUp: { defFlat: T(ab, 'defup.def') ?? 0 },
-        fxTag: 'buff:mousek_shield[a]|mousek_shield[b]|mousek_shield[c]' });
+        layers: ['mousek_shield[a]', 'mousek_shield[b]', 'mousek_shield[c]'] });
       const ds = ab.sk.DriftSand, ss = ab.sk.SandStorm;
       return [bar, lowHpBuff(T(ab, 'enrage.hp_ratio') ?? 0.5, { dmgDealtMul: T(ab, 'enrage.damage_scale') ?? 1 }, 'ab:lowhp', 'buff:mousek_t'),
         // 【唱沙】 the highest-max-HP unit on the field and everything in its cross: physical `damage`
@@ -168,9 +169,11 @@ function kitLeaderMisc(key, ab, e) {
     case 'enemy_1511_mdrock': {
       // 拥有屏障吸收法术伤害，屏障存在时大幅提升生命上限与攻击速度; 周期性刷新屏障
       const s = ab.sk.RefreshShield;
-      // its client shield: enemy_mdrock_s_2[shield][refresh] creates the layers [shield_a] / [shield_b] / [shield_c]
+      // its client shield: enemy_mdrock_s_2[shield][refresh] creates the layers [shield_a] / [shield_b] / [shield_c], each
+      // with the whole `dynamic` (CreateBuff copies the buff's blackboard) — 3 × 5500 = PRTS 「可吸收16500法术伤害的屏障」
+      // (docs/rules/sim.md 「리더 방벽 층 셋」); the HP / ASPD bonus ([shield][buff]) ends with the last layer
       const bar = artsBarrier(s ? s.bb.dynamic ?? 0 : T(ab, 'shield.dynamic') ?? 0, { key: 'ab:rockPower',
-        fxTag: 'buff:enemy_mdrock_s_2[shield_a]|enemy_mdrock_s_2[shield_b]|enemy_mdrock_s_2[shield_c]',
+        layers: ['enemy_mdrock_s_2[shield_a]', 'enemy_mdrock_s_2[shield_b]', 'enemy_mdrock_s_2[shield_c]'],
         whileUp: { hpPct: (s ? s.bb.max_hp : null) ?? T(ab, 'shield.max_hp') ?? 0, aspd: (s ? s.bb.attack_speed : null) ?? T(ab, 'shield.attack_speed') ?? 0 } });
       return [bar, {
         // 攻击时攻击力永久提升，最多六层 (the blackboard ATK is the 6-stack total [ASSUMED split])
@@ -474,6 +477,9 @@ function kitWarden(ab) {
   })];
 }
 
+/** “自在” 破桎而出: its client barrier's three layer buffs (enemy_xi_s2[shield][a/b/c]). */
+const XI_LAYERS = ['a', 'b', 'c'];
+
 /** “自在” · 【纬地经天】 arts cross on the nearest unit (form 2: + the farthest); 【破桎而出】 barrier — unbroken after its
  *  duration ⇒ ATK×atk_scale arts around; KO ⇒ second form (ATK up, double hits, stronger 破桎而出). 晦明 attributes n/a. */
 function kitXi(ab) {
@@ -489,11 +495,14 @@ function kitXi(ab) {
   const burst = (s) => (b, e) => {
     const dur = s.bb.duration ?? 0, r = s.bb.range_radius ?? 0;
     b.fx('telegraph', { x: e.x, y: e.y, r, dur, kind: 'breakFree', id: e.id });
-    // its client barrier: the three layers enemy_xi_s2[shield][a] / [b] / [c] (each its own effect) [추정: the layers' split]
-    b.addBuff(e, { key: 'ab:xiShield', duration: dur, shield: s.bb.dynamic ?? 0, visible: true,
-      fxTag: 'buff:enemy_xi_s2[shield][a]|enemy_xi_s2[shield][b]|enemy_xi_s2[shield][c]',
-      // expiry (not breaking: a broken barrier is removed without onExpire) = the barrier held
-      onExpire: ({ battle }) => {
+    // its client barrier: BuffDuringCasting adds the three layers enemy_xi_s2[shield][a] / [b] / [c], each a copy of the
+    // skill's blackboard with the whole `dynamic`, absorbing physical and arts damage (BlockDamage PHYSICAL_AND_MAGICAL) in
+    // the order they were added — 3 × 2500 = PRTS 「可吸收7500物理/法术伤害的屏障」 (docs/rules/sim.md 「리더 방벽 층 셋」).
+    // Only the last layer's break (enemy_xi_s2[shield_last] → InterruptEnemyAbility) stops the burst.
+    for (const l of XI_LAYERS) b.addBuff(e, { key: `ab:xiShield[${l}]`, duration: dur, shield: s.bb.dynamic ?? 0, shieldType: ['phys', 'arts'],
+      visible: true, fxTag: `buff:enemy_xi_s2[shield][${l}]`,
+      // expiry (not breaking: a broken layer is removed without onExpire) of the last layer = the barrier held
+      onExpire: l !== 'c' ? null : ({ battle }) => {
         if (!e.alive) return;
         battle.fx('explode', { x: e.x, y: e.y, r, kind: 'breakFree', id: e.id });
         for (const u of areaAllies(battle, e, e.x, e.y, r)) if (!u.isFlying) hurt(battle, e, u, e.s.atk * (s.bb.atk_scale ?? 0), 'arts'); // local patch: PRTS 「所有非飞行我方单位」, client Selector 1
@@ -504,7 +513,7 @@ function kitXi(ab) {
     // the 10 s 无敌 after the rebirth is untargetable too: PRTS 无敌 「无法被不同阵营选中」 (upstream #510); opt-in, the engine's
     // `invulnerable` flag stays damage protection only
     invincibleUntargetable: true,
-    onKo(b, e) { b.removeBuff(e, 'ab:xiShield'); },
+    onKo(b, e) { for (const l of XI_LAYERS) b.removeBuff(e, `ab:xiShield[${l}]`); },
     onReborn(b, e) {
       P.form2 = true;
       // 攻击力提升 — the client's RebornTalent reborn_up (skulsr_buff_01_start)

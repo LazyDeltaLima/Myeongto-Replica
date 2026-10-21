@@ -31,8 +31,10 @@ test('leaders: the statuses standing for their client buffs name them (杰斯顿
   h.run(0.2);
   assert.equal(tagOf(h, jakill.id, 'ab:warden'), 'buff:jakill_enhance#0');
   assert.equal(tagOf(h, wolf.id, 'ab:wolfGuard'), 'buff:enemy_wlfmster_reduce_damage');
-  assert.equal(tagOf(h, mouse.id, 'ab:sandDef'), 'buff:mousek_shield[a]|mousek_shield[b]|mousek_shield[c]');
-  assert.equal(tagOf(h, rock.id, 'ab:rockPower'), 'buff:enemy_mdrock_s_2[shield_a]|enemy_mdrock_s_2[shield_b]|enemy_mdrock_s_2[shield_c]');
+  // a barrier of three client layers: one status per layer (docs/rules/sim.md 「리더 방벽 층 셋」)
+  assert.deepEqual([1, 2, 3].map((i) => tagOf(h, mouse.id, `ab:sandDef[${i}]`)), ['buff:mousek_shield[a]', 'buff:mousek_shield[b]', 'buff:mousek_shield[c]']);
+  assert.deepEqual([1, 2, 3].map((i) => tagOf(h, rock.id, `ab:rockPower[${i}]`)),
+    ['buff:enemy_mdrock_s_2[shield_a]', 'buff:enemy_mdrock_s_2[shield_b]', 'buff:enemy_mdrock_s_2[shield_c]']);
 });
 
 test('a half-HP rage names its client toggle buff', () => {

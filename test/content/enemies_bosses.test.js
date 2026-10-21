@@ -2086,8 +2086,12 @@ test(`${nm('enemy_1509_mousek')}: opening arts-only barrier (${tb('enemy_1509_mo
   assert.equal(e.s.def, E.enemy_1509_mousek.stats.def + tb('enemy_1509_mousek', 'defup.def'));
   // arts is absorbed after RES (like a shield); physical and true damage pass the barrier
   assert.equal(h.b.dealDamage(null, e, { amount: 1000, type: 'arts' }), 0);
-  approx(e.mem.ab.list[0].left, cap - 1000 * (1 - res / 100));
+  approx(e.mem.ab.list[0].left, 3 * cap - 1000 * (1 - res / 100), 1e-6, 'three layers of the whole shield.dynamic (PRTS 14001)');
   approx(h.b.dealDamage(null, e, { amount: 500, type: 'true' }), 500);
+  // layer a spent first, then b — each a status naming its client buff; the DEF bonus stays to the last
+  assert.equal(h.b.dealDamage(null, e, { amount: (cap - 1000 * (1 - res / 100)) / (1 - res / 100), type: 'arts' }), 0);
+  assert.deepEqual([1, 2, 3].map((i) => !!e.findBuff(`ab:sandDef[${i}]`)), [false, true, true], 'layer a broken');
+  assert.equal(e.s.def, E.enemy_1509_mousek.stats.def + tb('enemy_1509_mousek', 'defup.def'), 'DEF bonus while b and c hold');
   const need = e.mem.ab.list[0].left / (1 - res / 100);
   approx(h.b.dealDamage(null, e, { amount: need + 1000, type: 'arts' }), 1000 * (1 - res / 100), 1e-6, 'overflow past the barrier');
   assert.equal(e.s.def, E.enemy_1509_mousek.stats.def, 'barrier broken ⇒ DEF bonus gone');
@@ -2553,7 +2557,7 @@ test(`${nm('enemy_1517_xi')}: 纬地经天 cross on the nearest unit; 破桎而�
   approx(h.unit('t_wall2').stats.taken, e.s.atk * cr.bb.atk_scale, 1e-6, 'same column, 2 rows away: inside the cross');
   assert.equal(h.unit('t_wall3').stats.taken, 0, 'outside the cross');
   h.run(sb.initCooldown - h.b.time + 0.1);
-  approx(e.s.shield, sb.bb.dynamic);
+  approx(e.s.shield, 3 * sb.bb.dynamic, 1e-6, 'three layers of the whole dynamic (client Buff.Reset copies; PRTS 7500)');
   const w0 = h.unit('t_wall').stats.taken;
   h.run(sb.bb.duration);
   assert.ok(h.eventsOf('fx').some((f) => f[1] === 'explode' && f[4].kind === 'breakFree'));
@@ -2564,7 +2568,14 @@ test(`${nm('enemy_1517_xi')}: 纬地经天 cross on the nearest unit; 破桎而�
   const x3 = put(h3, 'enemy_1517_xi', [10, 8]);
   x3.profile.noAttack = true;
   h3.run(sb.initCooldown + 0.1);
-  h3.b.dealDamage(null, x3, { amount: 1e5, type: 'true' });
+  const hp3 = x3.hp;
+  approx(h3.b.dealDamage(null, x3, { amount: 500, type: 'true' }), 500, 1e-6, 'true damage passes (BlockDamage PHYSICAL_AND_MAGICAL)');
+  assert.equal(x3.hp, hp3 - 500);
+  // the first two layers spent: the burst still comes while the last one holds
+  h3.b.dealDamage(null, x3, { amount: (2 * sb.bb.dynamic + 1) / (1 - x3.s.res / 100), type: 'arts' });
+  assert.deepEqual(['a', 'b', 'c'].map((l) => !!x3.findBuff(`ab:xiShield[${l}]`)), [false, false, true], 'layers a and b broken, c holds');
+  h3.b.dealDamage(null, x3, { amount: sb.bb.dynamic / (1 - x3.s.res / 100), type: 'arts' });
+  assert.ok(!x3.findBuff('ab:xiShield[c]'), 'the last layer broken');
   h3.run(sb.bb.duration);
   assert.ok(!h3.eventsOf('fx').some((f) => f[1] === 'explode' && f[4].kind === 'breakFree'));
   killed(h, e, null);
