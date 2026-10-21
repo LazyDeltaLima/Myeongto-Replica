@@ -2063,6 +2063,15 @@
 - 안 한 것: 시본 Default 모드 HealAura의 `token_skadi2_buff_01_range`(패시브 버프 `skadi2_heal[effect]` overrideEffectKey — 스킬이 모드를 바꾸면 사라지는
   범위 표시)는 안 넣음. [화면 미확인]
 
+### 진법·블래스트 캐스터 범위 공격에 옛 선 안 그림 (2026-10-22, 관리자 제보 「민트·아로마에게 옛날 버전 투사체가 적에게 날아감」)
+
+- 원인: 锁定攻击范围 공격(진법 캐스터·블래스트 캐스터, `server/sim/professions.js` rangeAoe)은 시뮬이 'atk' 종류를 `beam`(범위 안 모두 동시 타격)으로
+  보내고, 렌더 `fx/projectiles.js attack`이 `beam`을 공식 투사체 자료를 보기 전에 대상마다 절차형 선으로 그렸다.
+- 공식: 이 여섯(민트·비즈왁스·카넬리안·프라마닉스 더 프레리타·아로마·아코르트)의 모든 모드 공격에 `_projectileKey`가 없다(`data/chess.json` `shot` 모두
+  `move NONE`, `tools/local-extract/op_projectiles.py`).
+- 고친 것: 오퍼레이터의 `beam`은 그 모드의 shot이 날지 않으면(`shotSpeedOf` 0) 선을 그리지 않음 — 다른 무투사체 공격과 같은 규칙. 자료가 없는
+  오퍼레이터와 적의 `beam`은 그대로. 테스트 `test/render/fxproj.test.js`. [화면 미확인]
+
 ### 추출 누락 보고 — fx_coverage (2026-10-16, 관리자 요청 「이펙트를 추출해 적용할 때마다 공식과 어긋나는 근본 원인」)
 
 - **원인**: 이펙트가 공식처럼 보이는지는 프리팹의 그림 데이터, 그것을 재생하는 로직(`fxplayer.js`), 언제·어디에 트는지(바인딩) 셋이 정하는데

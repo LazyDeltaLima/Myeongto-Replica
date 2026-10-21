@@ -70,7 +70,13 @@ export class FxProjectiles {
     if (!src) return;
     // chain: the source is the previous target of the bounce (sim ai.js), so the arc hops unit to unit
     if (kind === 'chain' || kind === 'chainHeal') { if (tgt && tgt !== src) this._beam(src, tgt, kind === 'chainHeal' ? 0x7dffa8 : 0xc9a2ff, 0.22, 1, true); return; }
-    if (kind === 'beam') { if (tgt && tgt !== src) this._beam(src, tgt, src.isEnemy ? 0xff7a5a : 0xffe6a8, 0.18, 0.15); return; }
+    // 'beam' = a 锁定攻击范围 AoE's instant hits (阵法术师, 轰击术师: server/sim/professions.js rangeAoe). 2026-10-22 (maintainer report:
+    // 薄绿's and 阿罗玛's attacks still flew the old line at each enemy): an operator whose data says its mode's shot does not
+    // fly (data/chess.json `shot` move NONE — the client's attack has no projectile) draws none; its hits are the official ones
+    if (kind === 'beam') {
+      if (tgt && tgt !== src && (src.isEnemy || shotSpeedOf(this.ctx, src, tgt, Math.hypot(tgt.x - src.x, tgt.y - src.y)) !== 0)) this._beam(src, tgt, src.isEnemy ? 0xff7a5a : 0xffe6a8, 0.18, 0.15);
+      return;
+    }
     const spec = PROJ[kind];
     if (!spec || !tgt) {
       if (kind === 'none' || !kind) this._slashAt = src.id;

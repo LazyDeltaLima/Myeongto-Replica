@@ -210,6 +210,30 @@ describe('shots', () => {
     assert.equal(fx.beamList.length, 2);
     assert.equal(fx._slashAt, a.id);
   });
+
+  test('a 阵法术师 / 轰击术师 whose official attack has no projectile (shot move NONE) draws no beam line (薄绿 S2, 阿罗玛)', () => {
+    const P = fake.P;
+    const ctx = fakeViewCtx(P);
+    const defs = {
+      char_388_mint: { shot: { base: null, skills: [{ move: 'NONE', speed: 0 }, { move: 'NONE', speed: 0 }] } },
+      char_446_aroma: { shot: { base: { move: 'NONE', speed: 0 }, skills: [null, { move: 'NONE', speed: 0 }] } },
+    };
+    const fx = new FX.FxSystem({
+      P, layers: ctx.layers, cam: () => cam, heightAt: () => 0, settings: { quality: 'high', damageNumbers: true },
+      timeScale: () => 1, loadLevel: () => 0, subProfOf: () => null, view: () => null, lookupDef: (info) => defs[info?.defId] ?? null,
+      screenSize: () => ({ width: 1600, height: 900 }), fieldTop: () => 120,
+    });
+    const foe = unit(9, 5, 10, { isEnemy: true });
+    const mint = unit(1, 3, 10, { info: { defId: 'char_388_mint', skillIndex: 1 }, _fxSkillOn: true });
+    const aroma = unit(2, 3, 9, { info: { defId: 'char_446_aroma', skillIndex: 0 } });
+    fx.attack(mint, foe, 'beam');
+    fx.attack(aroma, foe, 'beam');
+    assert.equal(fx.beamList.length, 0);
+    // an operator the data says nothing about keeps the line; an enemy's beam too
+    fx.attack(unit(3, 3, 8, { info: { defId: 'char_x' } }), foe, 'beam');
+    fx.attack(foe, mint, 'beam');
+    assert.equal(fx.beamList.length, 2);
+  });
 });
 
 describe('回环射手 boomerang', () => {
