@@ -18,12 +18,14 @@ Every run of fx_extract.py collects, per extracted prefab, what it met that the 
     material    a material the extract reads as none (Unity's built-in defaults) on a system that emits
     clip        an Animator / Animation binding the extract could not resolve, or states past the default one
     stale       (--coverage) the extracted file differs from what the extractor writes now at this path: re-extract
+    unwalked    (--coverage) a prefab of the index the walk could not reach (its client not given, its bundle or the
+                prefab gone): the report says nothing about it
     unverified  a feature of the extracted prefabs (signature()) that no prefab of the verified list (fx-verified.json:
                 the maintainer compared it on screen with the official game) has: carried by the pipeline, never seen
 
 Each item has a status: `new` (nobody has looked at it: look before trusting the effect), `todo` (known and not done:
 KNOWN says what it does), `hand` (hand-written render code draws it instead), `none` (draws nothing, or the player
-already does the same) or `unverified` (the kind of that name). The run prints the new items with the prefabs
+already does the same), or `unverified` / `unwalked` (the kinds of those names). The run prints the new items with the prefabs
 that have them and one line for the known ones and one for the unverified ones; `--coverage` writes the whole list
 (fx_extract.py).
 
@@ -72,6 +74,9 @@ SCRIPTS = {
     -2505866108626100628: 'AuraProjectileSetAnimatorTrigger', -7693528729676623236: 'SetAnimatorTriggerOnEvent',
     4106883806711907659: 'Svash2FlyToPredefinedTokenCard', -6677432354943165660: 'ColorModifier',
     -4538866681947353501: 'YuS3EffectBehaviour', 4140733268730780971: 'YuS3EffectWithEdgeBehaviour',
+    # (2026-10-21) the route cursors, the 战场#06 wall and the enemies' packs
+    978915749116962969: 'PreviewCursor', -2553461985578519915: 'SimpleEffect', 8058004230779817607: 'EffectData_Projectile',
+    8089147815673937552: 'LineEffectEmitter', -7751344843855468294: 'SwitchableEffectByBlackboardValue',
 }
 # what the extract reads of the scripts above (reader() checks the raw fallbacks)
 SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoint', 'FxUVTweener', 'FxUVTweenerAdvance',
@@ -159,6 +164,17 @@ KNOWN = {
     'script:ColorModifier': (_HAND, 'tints the owner model: render/units.js (stealth greying)'),
     'script:YuS3EffectBehaviour': (_HAND, 'render/fxgame.js (余 S3 tiles)'),
     'script:YuS3EffectWithEdgeBehaviour': (_HAND, 'render/fxgame.js (余 S3 tiles)'),
+    # (2026-10-21) first met when --coverage walked the CN 선발 bundles, the route cursors and the enemies' packs
+    'script:#3354437260492772109 _ignoreOwnerValid,_rotateIfFaceLeft,_rotation': (
+        _TODO, 'CN client only (no class in the EN dump): turns 予愿安洁莉娜\'s S2 flight trails when facing left'),
+    'script:#7584231671898059191 _flipYWhenLeft': (_TODO, 'CN client only (no class in the EN dump): flips 克莱门莎\'s S2 '
+                                                   'bullet upside down when it flies left'),
+    'script:PreviewCursor': (_HAND, 'the route preview cursor\'s mover (`_moveSpeed`, `_height`): render/fxroute.js'),
+    'script:SimpleEffect': (_HAND, 'only S_desert_wall_02_start_Mesh (s.ab), which the player never plays (see shader:Unlit/Texture)'),
+    'script:EffectData_Projectile': (_TODO, 'switches transforms off when an enemy shot finishes / hits (`inactiveOnFinish` / '
+                                     '`inactiveOnHit`; ProjectileEffect\'s own `_inactiveOnFinish` is read)'),
+    'script:LineEffectEmitter': (_TODO, 'plays start / middle / end effects along a LineRenderer'),
+    'script:SwitchableEffectByBlackboardValue': (_TODO, 'a variant by a value of the owner\'s buff blackboard'),
     'script:#8401462487392191767': (_TODO, 'no serialized field: name unknown'),
     'script:#-2862109401119915025': (_TODO, 'no serialized field: name unknown'),
     'script:#-1576532863054725745': (_TODO, 'no serialized field: name unknown'),
@@ -188,6 +204,10 @@ KNOWN = {
     'clip:TrailRenderer.m_Time': (_TODO, 'a clip animating a trail\'s length: the player keeps the authored value'),
     'clip:MonoBehaviour.xspeed': (_TODO, 'a clip animating FxUVTweener speed: the player keeps the authored value'),
     'clip:MonoBehaviour.secondXSpeed': (_TODO, 'a clip animating FxUVTweener speed: the player keeps the authored value'),
+    'clip:MonoBehaviour.yspeed': (_TODO, 'a clip animating FxUVTweener speed: the player keeps the authored value'),
+    'clip:MonoBehaviour.secondYSpeed': (_TODO, 'a clip animating FxUVTweener speed: the player keeps the authored value'),
+    **{f'clip:ParticleSystem.InitialModule.startColor.maxColor.{c}': (
+        _TODO, 'a clip animating a particle module: the player keeps the authored value') for c in 'rgb'},
     'clip:material property the shader does not declare': (_NONE, 'Unity sets a value no pass reads'),
     "material:Unity's default particle material on an emitting system": (
         _TODO, 'the client draws Unity\'s plain default particle; the extract reads that material as none (UNITY_DEFAULT_MATERIALS)'),
@@ -404,6 +424,12 @@ class Coverage:
         """A dependency bundle (textures, shared meshes) the loader could not open for `bundle`."""
         self.add('dependency', what, 'what lives there (textures …) is missing from every effect of the bundle', key=bundle)
 
+    def unwalked(self, why, keys):
+        """(2026-10-21) prefabs of the index the --coverage walk could not reach (`why`: no extractor of their client, their
+        bundle missing, not in it): whatever they leave out is missing from the report."""
+        for k in keys:
+            self.add('unwalked', why, 'listed in the index, not walked: the report says nothing about them', key=k)
+
     def stale(self, path):
         self.add('stale', path, 'the file on disk differs from a fresh extraction here: re-extract the bundle')
 
@@ -443,8 +469,8 @@ class Coverage:
     # ------------------------------------------------------------ report
 
     def status(self, kind, what):
-        if kind == 'unverified':
-            return ('unverified', None)
+        if kind in ('unverified', 'unwalked'):
+            return (kind, None)
         k = KNOWN.get(f'{kind}:{what}')
         return k if k else ('new', None)
 
@@ -473,6 +499,9 @@ class Coverage:
             n = {st: sum(r['status'] == st for r in known) for st in ('todo', 'hand', 'none')}
             lines.append(f"[fx] known gaps: {n['todo']} todo, {n['hand']} drawn by hand-written code, {n['none']} draw nothing "
                          '(fx_extract.py --coverage lists them)')
+        for r in (r for r in rep if r['status'] == 'unwalked'):
+            ex = ', '.join(r['prefabs'][:examples]) + (' …' if r['count'] > examples else '')
+            lines.append(f"[fx] NOT WALKED {r['what']}: {r['count']} prefab(s) — {ex}")
         if len(known) + len(new) == 0:
             lines.append('[fx] coverage: nothing left out')
         unv = [r for r in rep if r['status'] == 'unverified']

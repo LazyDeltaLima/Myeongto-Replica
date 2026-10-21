@@ -265,6 +265,84 @@ print(json.dumps({'ver': json.load(open(ver))['prefabs'], 'u': json.load(open(os
     assert.deepEqual(d, ['face (gone)', 'nodes[].mesh (new)', 'spawn (new)']);
   });
 
+  test('sources: the client by app.info; the index keeps where a prefab came from only when it is not its own EN bundle', () => {
+    const r = py(`
+import os, tempfile
+d = tempfile.mkdtemp()
+cn = os.path.join(d, 'cn'); en = os.path.join(d, 'en'); os.makedirs(cn); os.makedirs(en)
+open(os.path.join(cn, 'app.info'), 'w').write('HyperGryph\\nArknights')
+open(os.path.join(en, 'app.info'), 'w').write('Yostar\\nArknights_EN')
+res = {'client': [fe.client_of(cn), fe.client_of(en), fe.client_of(d)]}
+pack = 'pkgrps/btl_pfb_fx_token_3.ab'
+ix = {'bundles': {}}
+fe.set_sources(ix, 'wang_token', ['a', 'b'], {'a', 'b'}, {'pack': pack, 'client': 'en'})
+res['pack'] = dict(ix['sources'])
+fe.set_sources(ix, 'silent', ['hit', 'myrrh_hit'], {'hit', 'myrrh_hit'}, {'pack': 'battle/prefabs/effects/silent.ab', 'client': 'en'})
+fe.set_sources(ix, 'silent', ['hit', 'myrrh_hit'], {'myrrh_hit'}, {'pack': 'battle/prefabs/effects/myrrh.ab', 'client': 'en'})
+fe.set_sources(ix, 'kalts2', ['s3'], {'s3'}, {'pack': 'battle/prefabs/effects/kalts2.ab', 'client': 'cn'})
+res['mixed'] = dict(ix['sources'])
+res['of'] = [fe.source_of(ix, 'silent', 'hit'), fe.source_of(ix, 'silent', 'myrrh_hit'), fe.source_of(ix, 'wang_token', 'b'), fe.source_of(ix, 'kalts2', 's3')]
+for b, ns in (('wang_token', ['a', 'b']), ('silent', ['hit', 'myrrh_hit']), ('kalts2', ['s3'])):
+    fe.set_sources(ix, b, ns, set(ns), {'pack': fe.own_pack(b), 'client': 'en'})
+res['gone'] = 'sources' in ix
+print(json.dumps(res))`);
+    assert.deepEqual(r.client, ['cn', 'en', 'en']);
+    assert.deepEqual(r.pack, { wang_token: { pack: 'pkgrps/btl_pfb_fx_token_3.ab' } });
+    assert.deepEqual(r.mixed, {
+      kalts2: { client: 'cn' },
+      'silent/myrrh_hit': { pack: 'battle/prefabs/effects/myrrh.ab' },
+      wang_token: { pack: 'pkgrps/btl_pfb_fx_token_3.ab' },
+    });
+    assert.deepEqual(r.of, [
+      { pack: 'battle/prefabs/effects/silent.ab', client: 'en' },
+      { pack: 'battle/prefabs/effects/myrrh.ab', client: 'en' },
+      { pack: 'pkgrps/btl_pfb_fx_token_3.ab', client: 'en' },
+      { pack: 'battle/prefabs/effects/kalts2.ab', client: 'cn' },
+    ]);
+    assert.equal(r.gone, false);
+  });
+
+  test('--coverage walks each prefab from its source; a client not given, a missing bundle or prefab is unwalked', () => {
+    const r = py(`
+import io, os, tempfile, argparse, contextlib
+d = tempfile.mkdtemp()
+fe.OUT = __import__('pathlib').Path(d)
+ix = {'bundles': {'silent': ['hit', 'myrrh_hit'], 'kalts2': ['s3'], 'gone': ['x'], 'mlyss_token': ['t', 'old']},
+      'sources': {'silent/myrrh_hit': {'pack': 'battle/prefabs/effects/myrrh.ab'}, 'kalts2': {'client': 'cn'},
+                  'mlyss_token': {'pack': 'pkgrps/btl_pfb_fx_token_1.ab'}}}
+open(os.path.join(d, 'index.json'), 'w').write(json.dumps(ix))
+calls = []
+class Fake:
+    def __init__(self, client, have):
+        self.client, self.have, self.cov, self.dry = client, have, c.Coverage(verified=os.path.join(d, 'none.json')), False
+    def run(self, b, names, all_skins=False, pack=None, index='index.json', write=True):
+        assert not write and self.dry
+        if pack not in self.have:
+            raise SystemExit(f'bundle not found: {pack}')
+        calls.append([self.client, b, pack, sorted(names)])
+        return [n.upper() for n in names if n in self.have[pack]]
+ex = Fake('en', {'battle/prefabs/effects/silent.ab': {'hit'}, 'battle/prefabs/effects/myrrh.ab': {'myrrh_hit'},
+                 'pkgrps/btl_pfb_fx_token_1.ab': {'t'}})
+a = argparse.Namespace(bundle=[], prefab=[], pack=None, all_skins=False, index='index.json', other_game=None, other_cab_index=None, png=False)
+with contextlib.redirect_stdout(io.StringIO()):
+    fe.coverage_walk(ex, a)
+rep = [r for r in ex.cov.report() if r['kind'] == 'unwalked']
+print(json.dumps({'calls': sorted(calls), 'unwalked': [[r['status'], r['what'], r['prefabs']] for r in rep],
+                  'summary': [l for l in ex.cov.summary() if 'NOT WALKED' in l]}))`);
+    assert.deepEqual(r.calls, [
+      ['en', 'mlyss_token', 'pkgrps/btl_pfb_fx_token_1.ab', ['old', 't']],
+      ['en', 'silent', 'battle/prefabs/effects/myrrh.ab', ['myrrh_hit']],
+      ['en', 'silent', 'battle/prefabs/effects/silent.ab', ['hit']],
+    ]);
+    assert.deepEqual(r.unwalked, [
+      ['unwalked', 'en battle/prefabs/effects/gone.ab: bundle not found: battle/prefabs/effects/gone.ab', ['gone/x']],
+      ['unwalked', 'extracted from the cn client: give --other-game', ['kalts2/s3']],
+      ['unwalked', 'not in en pkgrps/btl_pfb_fx_token_1.ab', ['mlyss_token/old']],
+    ]);
+    assert.equal(r.summary.length, 3);
+    assert.match(r.summary[1], /^\[fx\] NOT WALKED extracted from the cn client: give --other-game: 1 prefab\(s\) — kalts2\/s3$/);
+  });
+
   test('fx_golden.py: update stores the set and the extractions, check reports the changed paths and the prefabs it cannot extract', () => {
     const r = py(`
 import io, os, tempfile, contextlib

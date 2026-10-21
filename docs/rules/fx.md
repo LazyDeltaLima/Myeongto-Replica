@@ -1564,7 +1564,7 @@
   트리와 다른 값, 옮기지 않는 파티클 모듈, 플레이어에 방출기가 없는 Shape 종류, 셰이더가 선언하고 재질이 쓰는데 플레이어가 안 읽는 텍스처·값(셰이더
   기본값과 다를 때만), 처음 보는 셰이더, 풀지 못한 클립 바인딩(입자 모듈·트레일 길이를 움직이는 트랙 등), CAB 색인이 못 찾는 의존 번들. 상태는
   `new`(아무도 안 봄 — `NOT HANDLED`로 찍힘) · `todo`(알고 안 함) · `hand`(손으로 짠 렌더 코드가 대신 그림) · `none`(그리는 것 없음). 기준선
-  (`KNOWN`)은 2026-10-16 전수: 운영자 이펙트 2,071개(130 묶음) — todo 58 · hand 4 · none 7. `fx_extract.py --coverage <out.json>`은 아무 이펙트
+  (`KNOWN`)은 2026-10-16 전수: 운영자 이펙트 2,071개(130 묶음) — todo 58 · hand 4 · none 7(2026-10-21부터 CN·팩·적 묶음까지 — 아래 「출처 기록」). `fx_extract.py --coverage <out.json>`은 아무 이펙트
   파일도 쓰지 않고 이미 추출된 프리팹 전부를 같은 경로로 다시 걸어 목록 전체와 **디스크 파일 대 지금 추출기의 차이**(`stale`)를 낸다(약 3분).
   플레이어가 읽는 텍스처·값 목록과 Shape·모듈 목록은 `test/fx-coverage.test.js`가 `fxplayer.js`·`fx_extract.py` 소스와 같게 묶어 둔다.
 - **첫 전수에서 나온 것**:
@@ -1587,6 +1587,31 @@
     빠짐 25(플레이어는 셰이더 이름으로 고름 — 영향 없음), 불피스폴리아 S3 `start_02` 3종 `_delayToFinish` 0.5 → 0·`start_01` 0.3(타입 트리로 확인).
     CN 묶음은 바뀐 것 없음. 뒤 `--coverage`의 `stale`은 `kalts2` `_PremultiplyAlpha` 33뿐(EN으로 걷는 CN 추출물 — 클라 차이). 테스트 기대값 고침:
     `status-buff-fx.test.js` 이네스 `bg_01`·미즈키 `an`/`bg`(order −1)가 뒤 렌더러.
+- **출처 기록 — 모든 추출물을 걷는 보고 (2026-10-21)**: `--coverage`는 묶음마다 자기 번들(`battle/prefabs/effects/<묶음>.ab`)을 `--game` 한
+  클라에서만 걸어, 공유 팩에서 뽑은 묶음(`wang_token`·`cathy_token`·`mlyss_token`·`aglna2_token` — `pkgrps/btl_pfb_fx_token_N.ab`)과 적 묶음
+  (`enemy-index.json`, `pkgrps/btl_pfb_fx_enemy_N.ab` 16개)은 「번들 없음」 한 줄로 건너뛰었고, 다른 오퍼레이터 번들에서 뽑은 프리팹(赫默
+  `silent/myrrh_attack_01_hit` ← `myrrh.ab`)은 말없이 빠졌으며, CN 클라에서 뽑은 묶음(`kalts2`·`clemnt`·`aglna2`)은 건너뛰거나 EN으로 걸었다
+  (10-17 보고의 `kalts2` `stale` 33이 그 클라 차이). 출처가 어디에도 적혀 있지 않았기 때문이다. 이제 추출이 쓴 프리팹마다 출처를 색인(`index.json`·
+  `enemy-index.json`)의 `sources`에 적는다 — `{ pack, client }`, 기본(자기 번들·EN 클라)과 다를 때만, 묶음 전부가 같으면 `<묶음>` 한 줄, 아니면
+  `<묶음>/<이름>`마다. 클라는 `Arknights_Data/app.info`의 회사 이름(HyperGryph = cn, 그 밖 en; `--client`로 덮음). `--coverage`는 그 기록대로
+  묶어 걷고, `--other-game`·`--other-cab-index`로 두 번째 클라를 같은 보고에 넣는다. 그래도 못 걸은 프리팹(그 클라를 안 줌, 번들 없음, 번들에 이름
+  없음, `--all-skins` 없는 스킨 변형)은 새 종류 `unwalked`(`NOT WALKED` 줄)로 남아 보고가 말없이 좁아지지 않는다. 브라우저는 색인의 `bundles`만
+  읽는다. 이미 있던 추출물의 출처는 두 클라의 이펙트 번들 이름 목록으로 한 번 채움(운영자 9줄·적 16줄, 못 찾은 것 0; `route_cursor`는
+  `fxroute.js`대로 `battle/[pack]common.ab`).
+  - **`stale`이 프리팹마다 20경로에서 잘렸다**: `json_diff`의 기본 상한 20이 재질 경로를 `materials.*`로 합치기 전에 걸려, 재질이 많은 프리팹은
+    뒤쪽 차이를 못 셌다(10-16 보고의 입자 메시 47·클립 `prop` 62 = 실제로는 60·90 프리팹). 이제 상한 없이 센다.
+  - **그 입자 메시·`prop` 차이의 원인**(10-17 재추출로 이미 사라짐, 재추출 전 백업과 대조): 둘 다 내장 Quad / Plane(2026-10-08) 이전 추출이
+    남은 것 — 입자 렌더 모드 4(메시)인데 `mesh`가 빈 노드 153개, 그리고 내장 Quad 노드에 `mesh`가 없어 `material_prop`이 묶인 렌더러의 재질을
+    못 찾고 `attr:<crc32>`로 남긴 트랙 765개(`_TintColor`·`_MainColor`·`_Amount`·`_MainTex_ST`·`_AddTex_ST` …, 플레이어가 재생하지 않았음).
+    나머지 트랙 24개는 아르케토(10-16 추출)의 재질에서 텍스처가 빠져(낡은 CAB 색인) `_ST` 트랙의 이름을 못 지은 것. 추출물 파일 날짜는
+    `--root-only`·`--uvt-only`·`--mount-only` 같은 부분 갱신이 바꿔서 추출한 날이 아니다.
+  - **처음 걸린 묶음에서 나온 것**: CN CAB 색인(2026-10-11)이 `anon/*.bin`을 몰라 Unity 기본 입자 재질 번들을 `dependency`로 냄 → 다시 만듦
+    (`anon` 150개만 더해짐, CN 추출 JSON 골든 12개 그대로). CN 전용 스크립트 둘(予愿安洁莉娜 S2 날기 꼬리 `_rotateIfFaceLeft`·克莱门莎 S2 탄
+    `_flipYWhenLeft` — EN 덤프에 클래스 없음)과 적의 `EffectData_Projectile`·`LineEffectEmitter`·`SwitchableEffectByBlackboardValue`·클립
+    `MonoBehaviour.yspeed`/`secondYSpeed`·`InitialModule.startColor`는 todo, 경로 커서의 `PreviewCursor`(`fxroute.js`)와 战场#06 벽의
+    `SimpleEffect`는 hand. 2026-10-21 전수: 운영자 2,179 프리팹(두 클라) — `new`·`stale`·`unwalked` 0, todo 60 · hand 7 · none 7; 적 382
+    프리팹 — todo 24 · none 4, `stale` 368 프리팹(10-10 추출: 10-11에 뺀 `face.speed` 56, 클라 갱신의 새 재질 속성, 텍스처가 빠진 14 프리팹 —
+    子代·黄金回响·防护背心·未装配刀片·冲击式施术单元, 셰이더가 바뀐 深池逐火护卫 방패 1).
 - **필드 이름 먼저, 원시 칸은 대비책 (2026-10-20)**: `root_effect`(ParticleEffect·루트의 FxDelay)·`projectile_effect`·`right_effect`·`fx_delay`
   (가지의 FxDelay)·`mount_point`는 컴포넌트의 타입 트리가 읽히면 필드 이름으로 읽고, 원시 칸은 타입 트리가 안 읽힐 때만 쓴다(EN·CN 클라 모두 지금은
   다 읽힘). `check_readers`가 매 추출마다 같은 컴포넌트에서 대비책도 돌려 비교하고, 타입 트리가 안 읽혀 대비책을 대조 없이 쓴 때(`no type tree: read

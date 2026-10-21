@@ -9,7 +9,9 @@ properties. This script writes, per effect bundle:
     public/assets/local/fx/<bundle>/<prefab>.json   the tree, normalized particle modules, materials, clip curves
     public/assets/local/fx/tex/<texture>.webp       textures (shared by every effect; static WebP, --png for PNG)
     public/assets/local/fx/mesh/<mesh>.json         meshes (positions, uv, colors, indices)
-    public/assets/local/fx/index.json               { bundles: { <bundle>: [prefab, ...] } }
+    public/assets/local/fx/index.json               { bundles: { <bundle>: [prefab, ...] }, sources: { <bundle> or
+                                                    <bundle>/<prefab>: { pack, client } } } — sources: where a prefab
+                                                    was read from when that is not its own bundle of the EN client
 
 Textures usually live in other bundles, named only by their internal CAB file; `--cab-index` (built once with
 --build-cab-index, a JSON CAB -> bundle path) lets the loader pull them in. Nothing here is required by the game: an
@@ -21,6 +23,7 @@ Usage:
                          [--match REGEX] [--list] [--all-skins] [--prune]
     python fx_extract.py … --bundle wang_token --pack pkgrps/btl_pfb_fx_token_3.ab --match '^token_wang_'   (望's 棋子)
     python fx_extract.py … --coverage .cache/fx-coverage.json [--bundle chen3]   (what the pipeline leaves out, fx_coverage.py)
+                         [--other-game <CN Arknights_Data> --other-cab-index .cache/fx-cab-index-cn.json] [--index enemy-index.json]
 Default skin only unless --all-skins; --prune deletes textures / meshes no effect uses any more. Every extraction ends with
 the parts of its prefabs the pipeline leaves out (fx_coverage.py): `NOT HANDLED` lines are new — look before trusting the effect.
 Needs UnityPy + lz4 (requirements.txt); LZ4AK bundles are decoded by aklz4.py.
@@ -429,6 +432,55 @@ def json_diff(a, b, path='', out=None, limit=20):
     return out
 
 
+def client_of(game):
+    """(2026-10-21) the client a game folder is, by the company Unity's `app.info` names: HyperGryph = 'cn', anything else
+    'en' (Yostar; also a merged copy of bundle folders without the file)."""
+    try:
+        company = (Path(game) / 'app.info').read_text(encoding='utf-8', errors='replace').splitlines()[0].strip()
+    except (OSError, IndexError):
+        return 'en'
+    return 'cn' if company.lower() == 'hypergryph' else 'en'
+
+
+def own_pack(bundle):
+    return f'battle/prefabs/effects/{bundle}.ab'
+
+
+def source_of(index, bundle, name):
+    """(2026-10-21) where an extracted prefab was read from: {'pack': the bundle path, 'client': 'en' | 'cn'} — the index's
+    `sources` entry of `<bundle>/<name>`, else of `<bundle>`, else the bundle's own `battle/prefabs/effects/<bundle>.ab` in
+    the EN client. --coverage walks each prefab where it came from (a shared token pack, another operator's bundle, the
+    CN client, the enemies' packs)."""
+    s = index.get('sources') or {}
+    e = s.get(f'{bundle}/{name}', s.get(bundle)) or {}
+    return {'pack': e.get('pack') or own_pack(bundle), 'client': e.get('client', 'en')}
+
+
+def set_sources(index, bundle, names, written, src):
+    """(2026-10-21) record in `index['sources']` where the bundle's prefabs `names` come from: `src` ({pack, client}) for
+    the ones just `written`, the recorded source for the others. Only what differs from the default (source_of) is kept:
+    one `<bundle>` entry when every prefab of the bundle shares it, else one `<bundle>/<name>` entry per prefab."""
+    def short(e):
+        out = {}
+        if e.get('pack') and e['pack'] != own_pack(bundle):
+            out['pack'] = e['pack']
+        if e.get('client', 'en') != 'en':
+            out['client'] = e['client']
+        return out
+    per = {n: short(src if n in written else source_of(index, bundle, n)) for n in names}
+    s = {k: v for k, v in (index.get('sources') or {}).items() if k != bundle and not k.startswith(bundle + '/')}
+    if len({json.dumps(e, sort_keys=True) for e in per.values()}) == 1:
+        e = next(iter(per.values()))
+        if e:
+            s[bundle] = e
+    else:
+        s.update({f'{bundle}/{n}': e for n, e in per.items() if e})
+    if s:
+        index['sources'] = dict(sorted(s.items()))
+    else:
+        index.pop('sources', None)
+
+
 def type_paths(d, prefix=''):
     """The dotted paths of a type tree's nested fields (lists not entered) — the names a Mecanim binding's crc32 is of."""
     for k, v in d.items():
@@ -460,12 +512,13 @@ def sub_emitters(nodes, pss):
 # ---------------------------------------------------------------- extraction
 
 class Extractor:
-    def __init__(self, game, cab_index, png=False):
+    def __init__(self, game, cab_index, png=False, client=None):
         self.png = png
         import UnityPy
         import aklz4  # noqa: F401
         self.UnityPy = UnityPy
         self.game = Path(game)
+        self.client = client or client_of(game)   # 2026-10-21: recorded with each written prefab (index `sources`)
         self.cab = json.loads(Path(cab_index).read_text()) if cab_index else {}
         self.textures = {}   # path_id/name key -> file name
         self.meshes = {}
@@ -2045,8 +2098,9 @@ class Extractor:
         # pack: a shared battle pack instead (e.g. pkgrps/btl_pfb_fx_token_3.ab, the summons' effects), its roots written
         # as `bundle` — pick them with --match / --prefab. `prefabs` match without case (the enemy
         # prefabs name `…_B_hit_01`, the bundles' roots / containers may differ in case). `index`: the index file the bundle's
-        # list goes to (enemy_bindings.py: enemy-index.json — the operators' index.json stays as it is). `write` False
-        # (--coverage, 2026-10-16): walk the prefabs for the coverage report only, nothing written
+        # list goes to (enemy_bindings.py: enemy-index.json — the operators' index.json stays as it is), with where each
+        # written prefab was read from (`sources`, 2026-10-21). `write` False (--coverage, 2026-10-16): walk the prefabs for
+        # the coverage report only, nothing written. Returns the names walked
         want = {p.lower() for p in prefabs} if prefabs else None
         rel = pack or f'battle/prefabs/effects/{bundle}.ab'
         env = self.load(rel)
@@ -2094,18 +2148,20 @@ class Extractor:
                 # bundles were re-extracted with (the built-in Quad, 2026-10-08) leaves the others drawing less
                 f = out / bundle / f'{name}.json'
                 if f.exists():
-                    for path in json_diff(json.loads(f.read_text()), json.loads(json.dumps(data, ensure_ascii=False))):
+                    # every path (2026-10-21): json_diff's default cap of 20, taken before the materials were folded
+                    # into `materials.*`, hid the later differences of a prefab with many materials
+                    for path in json_diff(json.loads(f.read_text()), json.loads(json.dumps(data, ensure_ascii=False)), limit=10 ** 6):
                         self.cov.stale(re.sub(r'^materials\.[^.]+', 'materials.*', path))
                 continue
             (out / bundle / f'{name}.json').write_text(json.dumps(data, separators=(',', ':'), ensure_ascii=False))
         if not write:
             print(f'[fx] {bundle}: {len(written)} prefab(s) checked')
-            return
+            return written
         index_p = out / index
         index = json.loads(index_p.read_text()) if index_p.exists() else {'bundles': {}}
         if list_only:
             print(f'[fx] {bundle}: ' + ' '.join(sorted(written)))
-            return
+            return written
         keep = set(index['bundles'].get(bundle, [])) | set(written)
         if not all_skins:
             keep = {n for n in keep if not VARIANT_RE.search(n)}
@@ -2113,8 +2169,10 @@ class Extractor:
                 if VARIANT_RE.search(f.stem):
                     f.unlink()
         index['bundles'][bundle] = sorted(keep)
+        set_sources(index, bundle, sorted(keep), set(written), {'pack': rel, 'client': self.client})
         index_p.write_text(json.dumps(index, ensure_ascii=False, indent=1))
         print(f'[fx] {bundle}: {len(written)} prefab(s), {len(self.textures)} texture(s), {len(self.meshes)} mesh(es) -> {out}')
+        return written
 
 
 def main():
@@ -2158,12 +2216,18 @@ def main():
                     'of --index without --bundle; 2026-10-11)')
     ap.add_argument('--coverage', metavar='OUT', help='write no effect file or index: walk the already extracted prefabs of the bundles (every '
                     'bundle of --index without --bundle) and write the full list of what the pipeline leaves out to OUT '
-                    '(JSON, fx_coverage.py; 2026-10-16)')
+                    '(JSON, fx_coverage.py; 2026-10-16). Each prefab is walked from where it was extracted (the index\'s '
+                    '`sources`; 2026-10-21)')
+    ap.add_argument('--client', choices=('en', 'cn'), help='the client --game is, recorded with the written prefabs (default: '
+                    'by its app.info — HyperGryph = cn, else en)')
+    ap.add_argument('--other-game', metavar='DIR', help='--coverage: the Arknights_Data folder of the other client, for the '
+                    'prefabs extracted from it (the CN 선발 bundles)')
+    ap.add_argument('--other-cab-index', metavar='JSON', help='--coverage: the CAB index of --other-game')
     a = ap.parse_args()
     if a.build_cab_index:
         build_cab_index(a.game, a.build_cab_index)
         return
-    ex = Extractor(a.game, a.cab_index, png=a.png)
+    ex = Extractor(a.game, a.cab_index, png=a.png, client=a.client)
     if a.root_only:
         bundles = a.bundle or sorted(json.loads((OUT / a.index).read_text())['bundles'])
         tot = [ex.root_only(b, pack=a.pack) for b in bundles]
@@ -2215,15 +2279,7 @@ def main():
         print(f'[fx] mount: {sum(x[0] for x in tot)} prefab(s) with a mount, {sum(x[1] for x in tot)} file(s) changed')
         return
     if a.coverage:
-        ex.dry = True
-        listed = json.loads((OUT / a.index).read_text())['bundles']
-        for b in a.bundle or sorted(listed):
-            if not listed.get(b):
-                continue
-            try:
-                ex.run(b, set(a.prefab) or set(listed[b]), all_skins=a.all_skins, pack=a.pack, index=a.index, write=False)
-            except SystemExit as e:   # a bundle extracted from a shared pack (wang_token) or another client: give --pack
-                print(f'[fx] {b}: {e}, skipped')
+        coverage_walk(ex, a)
         rep = ex.cov.report()
         Path(a.coverage).parent.mkdir(parents=True, exist_ok=True)
         Path(a.coverage).write_text(json.dumps(rep, ensure_ascii=False, indent=1))
@@ -2236,6 +2292,45 @@ def main():
         print('\n'.join(ex.cov.summary()))   # 2026-10-16: what this run left out (fx_coverage.py)
     if a.prune:
         prune(OUT)
+
+
+def coverage_walk(ex, a):
+    """--coverage: walk the listed prefabs of the bundles (dry), each from its recorded source (source_of — `--pack`
+    overrides it): the prefabs of a client neither `ex` nor --other-game is, of a bundle the client lacks, or listed but
+    not in the bundle are reported `unwalked` (2026-10-21; before, a token pack, the CN bundles and the enemies' packs
+    were skipped with one printed line)."""
+    exs = {ex.client: ex}
+    if a.other_game:
+        other = Extractor(a.other_game, a.other_cab_index, png=a.png)
+        if other.client in exs:
+            raise SystemExit(f'--other-game is the same client ({other.client}) as --game')
+        other.cov = ex.cov   # one report
+        exs[other.client] = other
+    for e in exs.values():
+        e.dry = True
+    index = json.loads((OUT / a.index).read_text())
+    listed = index['bundles']
+    for b in a.bundle or sorted(listed):
+        names = set(a.prefab) or set(listed.get(b) or [])
+        groups = {}
+        for n in names:
+            s = source_of(index, b, n)
+            groups.setdefault((s['client'], a.pack or s['pack']), set()).add(n)
+        for (client, pack), ns in sorted(groups.items()):
+            keys = sorted(f'{b}/{n}' for n in ns)
+            e = exs.get(client)
+            if e is None:
+                ex.cov.unwalked(f'extracted from the {client} client: give --other-game', keys)
+                continue
+            try:
+                got = e.run(b, ns, all_skins=a.all_skins, pack=pack, index=a.index, write=False)
+            except SystemExit as err:
+                ex.cov.unwalked(f'{client} {pack}: {err}', keys)
+                continue
+            miss = [n for n in ns if n.lower() not in {g.lower() for g in got}]
+            skin = [n for n in miss if not a.all_skins and VARIANT_RE.search(n)]
+            ex.cov.unwalked('a skin variant: give --all-skins', sorted(f'{b}/{n}' for n in skin))
+            ex.cov.unwalked(f'not in {client} {pack}', sorted(f'{b}/{n}' for n in miss if n not in skin))
 
 
 def prune(out):
