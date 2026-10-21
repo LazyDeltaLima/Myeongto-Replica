@@ -1417,7 +1417,9 @@ export function hasBackOrder(def) {
 export class FxInstance {
   /**
    * @param {any} def FxLibrary.load result
-   * @param {{ quality?: 'high'|'medium'|'low', facing?: 1|-1, dir?: {x: number, y: number}|null, body?: string|null, speed?: number, delays?: boolean, scale?: number, floor?: number|null, split?: boolean|'backOnly', atSpawn?: boolean, pivot?: boolean, hold?: number|null, ahead?: boolean }} [opts]
+   * @param {{ quality?: 'high'|'medium'|'low', facing?: 1|-1, dir?: {x: number, y: number}|null, body?: string|null, speed?: number, delays?: boolean, scale?: number, floor?: number|null, split?: boolean|'backOnly', atSpawn?: boolean, pivot?: boolean, hold?: number|null, ahead?: boolean, tilt?: number[]|null }} [opts]
+   *   tilt (2026-10-22): a Unity quaternion the whole prefab is turned by inside the Unity frame — the `Graphic` rotation of
+   *   the unit it is created on (render/fxpoints.js GRAPHIC_TILT / takesGraphicTurn); world-space particles are not turned
    *   facing / dir / body (maintainer decision 2026-10-11 「공식대로」): the effect turns as the client's `ParticleEffect.FaceTo`
    *   (RVA 0xCB1DC0) does by its root `face` record (render/fx/face.js faceTurn) — `dir` = the direction it is played with
    *   (default ±x by `facing`, the owner's drawn side), `body` = the four-way facing of the unit it is created on (for
@@ -1462,6 +1464,13 @@ export class FxInstance {
     }
     this.object.add(unity);
     this.unity = unity;
+    // 2026-10-22 (decompile check, docs/rules/fx.md 「캐릭터 그림의 기울기」): an effect created on a unit takes its model's
+    // `Graphic` rotation, X −30° (opts.tilt: render/fxpoints.js takesGraphicTurn) — the prefab is authored in that plane,
+    // facing the camera; untilted, a shield disc lay on the board and was drawn as an ellipse. Its world-space particles
+    // and trails stay in the untilted Unity frame (they are kept in `unity`'s space)
+    const tilt = new THREE.Group();
+    if (Array.isArray(opts.tilt)) tilt.quaternion.set(opts.tilt[0], opts.tilt[1], opts.tilt[2], opts.tilt[3]);
+    unity.add(tilt);
     this.nodes = [];
     this.systems = [];
     this.meshMats = [];
@@ -1498,7 +1507,7 @@ export class FxInstance {
       if (n.rot) o.quaternion.set(n.rot[0], n.rot[1], n.rot[2], n.rot[3]);
       if (n.scale) o.scale.set(n.scale[0], n.scale[1], n.scale[2]);
       o.visible = n.active !== false;
-      (n.parent >= 0 ? this.nodes[n.parent] : unity).add(o);
+      (n.parent >= 0 ? this.nodes[n.parent] : tilt).add(o);
       this.nodes[i] = o;
       if (n.emit?.effect && n.emit.count > 0) this.emitters.push({ o, rec: n.emit, next: 0 });
       if (n.onPlay?.effects?.length || n.onFinish?.effects?.length) this.onEmit.push({ o, play: n.onPlay || null, finish: n.onFinish || null });

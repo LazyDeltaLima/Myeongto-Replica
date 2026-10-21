@@ -307,6 +307,29 @@
     FollowMountPoint가 5 = SPECIAL_0 = 톱날 링 본이라 공식은 톱날을 따라간다. 원인은 바닥 자르기도 `_spawnLocation`도 아니고, 추출기·바인딩·재생기가 모르던
     FollowMountPoint 컴포넌트와 S2 모드 `GeneralAbilities` 버프 이펙트(`ghost2_skill_02_buff_02`)를 아예 안 틀던 것 — 아래 절.
 
+### 캐릭터 그림의 기울기 — 유닛에 붙는 이펙트는 X축 −30° (2026-10-22, 관리자 제보 「머드락 보호막처럼 원형으로 그려지는 보호막이 타원형」)
+- 증상: 머드락 재능 보호막 `mudrok_buff_0N_start`, 적 머드락 `enemy_mdrock_*`, 엑시아 더 뉴 커버넌트 S2 `angel2_skill_2_buff_01/02`의 원판이 화면에서 타원.
+  셋 다 `_spawnLocation` 1(FOOT)이고, 보호막은 노드 XY 평면의 납작한 구·원뿔 메시다(스킬 평면 위 0.57). 기울이지 않으면 판에 누워, 전투 카메라에서 높이÷폭이
+  줄마다 0.78–1.08이었다.
+- 클라 코드(디컴파일 2026-10-22): `Effect._InitLocationFromEntity`(RVA 0xE7AF80)는 `_spawnLocation` − 1로 분기해 위치와 함께 **회전**도 정한다.
+  1 FOOT = `graphicFootTransform`의 회전, 2 HIT·4 HEAD = `graphicTransform`의 회전, 3 MUZZLE = 마운트 점 Transform의 회전, MP_SPECIAL = `_SetPosAndRotToMountPoint`.
+  0 NONE·6 MUZZLE_POINT_WITHOUT_ROTATION은 단위 회전이고, 5·7 GROUND_CENTER·17 TILE_CENTER는 엔티티·타일 자체 회전이다.
+  Spine 유닛에서는 `Unit.get_graphicFootTransform` → `UnitAnimator.get_graphicFootTransform`이 `graphicTransform`, 곧 `Graphic`을 돌려준다.
+- 클라 데이터: `Graphic`의 회전은 X축 −30°다(쿼터니언 (−0.2588, 0, 0, 0.9659)). 확인한 것은 오퍼레이터 `charpack/char_311_mudrok.ab`·`char_1041_angel2.ab`,
+  적 `enm_pfb_18.ab` `enemy_1511_mdrock`, 토큰·왕(render 연구 2026-10-17). 프리팹 쪽 근거로, FOOT 33개·HIT 48개는 루트 가까이에 X +30° 노드가 있다.
+  바닥에 눕거나 똑바로 서야 하는 부분을 되돌린 것이다. GROUND_CENTER 20개는 X −30° 노드로 스스로 기운다.
+  `fixed` 자식은 이름 그대로의 처리가 없고(문자열 참조는 Sirenix뿐), ANY_DIR의 `MapUtil.FaceTo2d`는 `localRotation`이라 기울기 안쪽에서 돈다.
+- 적용: `fxplayer.js FxInstance` `tilt`(Unity 프레임 안의 회전 그룹)와 `fxpoints.js GRAPHIC_TILT`·`takesGraphicTurn`(FOOT·HIT·HEAD·MUZZLE·MP_SPECIAL,
+  `_keepOriginRotation` 0 FollowMountPoint는 모델 점일 때)을 쓴다. `fxgame.js`는 유닛 위에서 만드는 곳(시전·명중 `play`, 상태 `playStatus`, 버프 끝 `playOnce`,
+  SwitchableBackEffect, 키트 `spawn`, 아레나 `debugPlay`)에서만 `tiltOn`으로 준다. 판 위 지점(바둑돌 `playAt`, 꼬리, 음표, RandomEmitter 사본)에는 주지 않는다.
+  월드 공간 입자·꼬리는 기울지 않는 Unity 프레임에 남는다(Unity와 같음). 마운트 회전(`pointTurn`)은 기울기 안쪽에서 돈다.
+  그래서 「이펙트 방향」 절 [추정]의 돌리는 축 차이는 없어졌다(클라 점 회전 = `Graphic` × 본). 니어·아르케토 화면 확인은 그 절대로 남는다.
+- 안 한 것: MUZZLE·MP_SPECIAL 점 자체의 고정 회전(예: 엑시아 더 뉴 커버넌트 `SpecialPoint1` z 약 167°)과 본 회전(`followBoneRotation`이 없는 점)은 여전히 안 받는다.
+  바둑돌(`playAt`)은 이 규칙 밖이다(그 프리팹 `qizi (1)`이 스스로 X −30°).
+- 확인: 단위 `test/render/fx-graphic-tilt.test.js`(분기표, 기울기 축, 전투 카메라에서 원판이 모든 줄에서 원(±1%), 추출 보호막 셋이 FOOT, `fxgame.js` 전달 자리).
+  이펙트 이벤트 골든 143개 변화 없음. 아레나 전·후 캡처(Windows Chrome)에서 머드락 재능 보호막과 엑시아 더 뉴 커버넌트 S2 보호막이 타원에서 원이 됐다.
+  아르케토 S3 부채꼴은 거의 같고, 대상 명중 고리는 둥글어졌다. 적 머드락 보호막은 아레나 샌드백에 안 나와 [화면 미확인].
+
 ### 이펙트 마운트 지점 FollowMountPoint — 스펙터 디 언체인드 S2 붉은 원형 (2026-10-08, 관리자 제보)
 - 관리자 결정(2026-10-08): S2 발동의 붉은 원형은 무기(톱날)에 붙어 따라가고 적과 겹쳐도 적 위에 떠 있어야 한다. 대역(替身) 전환 뒤 파란 2종(1칸 남짓 원 → 3×3 물결)은 바닥이 맞다.
 - 근거(클라이언트 데이터): 이펙트 프리팹 루트의 MonoBehaviour `FollowMountPoint`(MonoScript PathID `0x7b5c342088cfcad4`) — 이름 뒤 int 7개 = global-metadata

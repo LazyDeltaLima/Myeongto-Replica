@@ -98,6 +98,30 @@ export function pointTurn(entry, sk, back) {
 }
 
 /**
+ * The rotation of a unit's battle prefab `Graphic` (operators' charpack and enemies' battle prefabs: X −30°, a Unity
+ * quaternion), the plane its model is drawn in, facing the 30° camera.
+ */
+export const GRAPHIC_TILT = Object.freeze([-0.25881905, 0, 0, 0.96592583]);
+
+/**
+ * Whether an effect created on a unit takes its `Graphic`'s rotation (GRAPHIC_TILT). 2026-10-22, decompile check:
+ * `Effect._InitLocationFromEntity` (RVA 0xE7AF80; its switch is indexed by `_spawnLocation` − 1) sets the effect's
+ * rotation to the rotation of `graphicFootTransform` for 1 FOOT_POINT, of `graphicTransform` for 2 HIT_POINT / 4
+ * HEAD_POINT (on a Spine unit both are its `Graphic`: `Unit.get_graphicFootTransform` → `UnitAnimator.get_graphicFootTransform`
+ * → `graphicTransform`), of the mount point's own Transform for 3 MUZZLE_POINT and the MP_SPECIAL points
+ * (`_SetPosAndRotToMountPoint`; the points are children of `Graphic` — their own and their bone's turn are not taken
+ * here), and identity / the entity's or tile's own rotation for 0 NONE, 5 GROUND_CENTER, 6 MUZZLE_POINT_WITHOUT_ROTATION,
+ * 7 GROUND_CENTER_WITH_ZERO_HEIGHT, 12 CAMERA, 17 TILE_CENTER. A FollowMountPoint with `_keepOriginRotation` 0 takes its
+ * point's rotation every frame (lifted `rot`): tilted when it names a model point (mountSpawn).
+ * @param {{spawn?: number, mount?: {type?: number, keepOriginRotation?: number}}|null|undefined} def
+ */
+export function takesGraphicTurn(def) {
+  if (def?.mount && def.mount.keepOriginRotation === 0) return mountSpawn(def.mount) != null;
+  const s = def?.spawn;
+  return s === 1 || s === 2 || s === 4 || (s !== 6 && pointKey(s) != null);
+}
+
+/**
  * Whether skeleton `sk` lacks every bone point `entry` follows (an invalid mount point: the client pauses an effect whose
  * FollowMountPoint has _pauseWhenMountPointInvalid). A point at fixed spots only is never invalid.
  * @param {{F?: {bone?: string}, B?: {bone?: string}}|null|undefined} entry

@@ -71,6 +71,7 @@ import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
 import { fxSpec } from './fx.js'; // local patch: the stand-in archetype of a kit fx event (standInOff)
 import { SHOT_HEIGHT } from './fx.js'; // local patch: a trail's start without a muzzle point
 import { boneMissing, liftedPoint, loadPoints, mountSpawn, pointKey, pointOn, pointTurn } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
+import { GRAPHIC_TILT, takesGraphicTurn } from './fxpoints.js'; // 2026-10-22: an effect on a unit takes its Graphic's X −30°
 import { enemyProjSpeed, enemyShot } from './fx/speeds.js'; // 2026-10-10: an enemy shot's record / flight time (data/enemies.json `proj`)
 import { shotSpeedOf } from './fx/projectiles.js'; // 2026-10-16: an operator shot's flight time (data/chess.json `shot`)
 import { opShot } from './fx/speeds.js'; // 2026-10-21: a skill's own shot record (skillShotOut)
@@ -493,7 +494,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const facing = def.face ? side : aimed ? aimFacing(null, def, aim, at) : turnOld || sided || unflip.has(names[i]) ? 1 : side;
       const sp = playSpeed(def.face, speed, gameRate()); // `_usePlaybackSpeed` 0 → 1.0; ≤ `_limitedPlaybackSpeed` ÷ the battle speed
       // local patch: cut at the ground the unit stands on (fxplayer.js floor — a tile's height, not a flyer's hover)
-      const inst = new mod.fxp.FxInstance(def, { quality: q(), facing, dir, body: facingDir(at && at.info ? at : view), speed: sp, split, floor: ground.z || 0 });
+      const inst = new mod.fxp.FxInstance(def, { quality: q(), facing, dir, body: facingDir(at && at.info ? at : view), speed: sp, split, floor: ground.z || 0, tilt: tiltOn(ground, def) });
       if (turnOld) aimMover(inst, facingDir(view));
       if (aimed && !def.face) aimAlong(inst, aim, at);
       // its FxDelay / branch delays (inst.lead, effect seconds) come before its prefab's duration
@@ -526,7 +527,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (sw.name === 'common_empty' || !index?.bundles?.[sw.bundle]?.includes(sw.name)) return;
     const def = await lib.load(sw.bundle, sw.name);
     if (!mod || !def || !sw.on || !live.includes(l) || l.inst.stopping) return;
-    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (sw.unit.visFacing ?? sw.unit.facing ?? 1) < 0 ? -1 : 1, split: l.layer === layers.split, floor: sw.unit.z || 0 });
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (sw.unit.visFacing ?? sw.unit.facing ?? 1) < 0 ? -1 : 1, split: l.layer === layers.split, floor: sw.unit.z || 0, tilt: tiltOn(sw.unit, def) });
     const at = lifted(sw.unit, def); // created on the owner at its own _spawnLocation / mount point
     inst.object.position.set(at.x, at.y, at.z || 0);
     sw.entry = addLive(inst, { view: at, owner: l.owner, buff: l.buff, onCaster: l.onCaster, until: l.until, tag: l.tag, backOf: l }, l.layer);
@@ -1000,6 +1001,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * without a FollowMountPoint stays with the entity [추정: the client's Effect is held at the entity, not the model]; a
    * mounted one follows its point on the model (specialPoint).
    */
+  /**
+   * 2026-10-22 (docs/rules/fx.md 「캐릭터 그림의 기울기」): FxInstance `tilt` for prefab `def` created on `on` — its model's
+   * `Graphic` rotation when `on` is a unit and the prefab's `_spawnLocation` takes it (fxpoints.js takesGraphicTurn); a
+   * board point gets none.
+   */
+  const tiltOn = (on, def) => (on && on.info && takesGraphicTurn(def) ? GRAPHIC_TILT : null);
   const ex = (v) => (v.glideS ? Number(v.glideS.lx) + (Number(v.modelDX) || 0) : mx(v));
   const ey = (v) => (v.glideS ? Number(v.glideS.ly) : v.y);
   // local patch (maintainer report): a prefab with a FollowMountPoint (fx_extract.py `mount`) is placed
@@ -1103,7 +1110,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // local patch (maintainer request 2026-10-08): `under` (the prep elite glow, fxgolden.js — its glow / sparks are sortingOrder -1,
     // behind the model) splits by sorting at 'high' like a caster's effect, else draws under the units
     const split = !splitOn() ? false : under ? true : mod.fxp.hasBackOrder(def) ? 'backOnly' : false;
-    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: view.z || 0, hold });
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: view.z || 0, hold, tilt: tiltOn(view, def) });
     inst.object.position.set(anchor.x, anchor.y, anchor.z);
     addLive(inst, { view: anchor, owner: ownerOf(view), buff: true, status: key, again: () => playStatus(view, bundle, name, key, frac, hold, under), unit: view }, split ? layers.split : under ? layers.under : layers.over);
     trimLive();
@@ -1114,7 +1121,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!(await ensure())) return;
     const def = await lib.load(bundle, name);
     if (!mod || !def || view.remove) return;
-    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, floor: view.z || 0 });
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, floor: view.z || 0, tilt: tiltOn(view, def) });
     const anchor = lifted(view, def);
     inst.object.position.set(anchor.x, anchor.y, anchor.z);
     addLive(inst, { view: anchor, owner: ownerOf(view), unit: view }, layers.over);
@@ -1695,7 +1702,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (aim && !official) facing = aimFacing(null, def, aim, at);
     const d = aim ? { x: Number(at.x) - Number(aim.x), y: Number(at.y) - Number(aim.y) } : dir;
     const sp = playSpeed(def.face, entry.speed ?? 1, gameRate());
-    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing, dir: d, body: unit ? facingDir(unit) : null, speed: sp, split, floor: drop ? null : at.z && !over ? at.z : 0 });
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing, dir: d, body: unit ? facingDir(unit) : null, speed: sp, split, floor: drop ? null : at.z && !over ? at.z : 0, tilt: drop ? null : tiltOn(unit, def) });
     if (aim && !official) aimAlong(inst, aim, at);
     if (!drop) at = lifted(at, def); // local patch: its _spawnLocation
     if (!drop && Number.isFinite(def.height)) at = overHeight(at, def.height); // 2026-10-10: `_overwriteHeight`
@@ -4450,7 +4457,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (!mod || !def) return false;
       const f = facing ?? at.visFacing ?? at.facing ?? 1;
       const onOp = at.info?.side !== 'enemy', split = onOp && splitOn(); // local patch: as play() — split at 'high'
-      const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: f < 0 ? -1 : 1, split, floor: at.z || 0 });
+      const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: f < 0 ? -1 : 1, split, floor: at.z || 0, tilt: tiltOn(at, def) });
       inst.object.position.set(at.x, at.y, at.z || 0);
       addLive(inst, { view: at, owner: at.id ?? at.info?.id ?? null, buff: false, until: clockS + (def.duration || 3) + 0.5 }, onOp ? (split ? layers.split : layers.under) : layers.over);
       trimLive();
