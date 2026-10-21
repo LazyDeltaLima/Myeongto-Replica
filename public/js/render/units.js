@@ -916,7 +916,7 @@ export class UnitView {
         // reports them (the audio drops its stand-in for it)
         if (this.ctx.spineEvent) {
           const uid = this.info.id;
-          actor.onEvent = (name) => { if (!this.destroyed && actor === this.actor) this.ctx.spineEvent(uid, name); };
+          actor.onEvent = (name, value) => { if (!this.destroyed && actor === this.actor) this.ctx.spineEvent(uid, name, value); };
           this.ctx.spineEvent(uid, null);
         }
       } catch (err) {

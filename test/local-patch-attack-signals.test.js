@@ -163,7 +163,7 @@ describe('playing them (audio.js)', () => {
     a.played.length = 0;
     a.handleBattleEvents([['swing', 1, 0.3, 'none'], ['atk', 1, 2, 'none'], ['dmg', 2, 50, 'phys']]);
     assert.deepEqual(a.played.map((p) => p.f), ['p_imp_tigerpunch_d_1.mp3'], 'Skill_3_1 at the strike, nothing else');
-    a.spineEvent(1, 'Skill_3_2');
+    a.spineEvent(1, 'OnPlayAudio', 'Skill_3_2');
     assert.equal(a.played.at(-1).f, 'p_imp_tigerpunch_d_2.mp3', 'the renderer\'s spine event');
     a.played.length = 0;
     a.handleBattleEvents([['swing', 1, 0.3, 'none'], ['atk', 1, 2, 'none']]);
@@ -241,10 +241,16 @@ describe('spine events from the renderer (render/spine.js onEvent → audio.spin
     a.played.length = 0;
     a.handleBattleEvents([['swing', 1, 0.3, 'none'], ['atk', 1, 2, 'none'], ['swing', 4, 0.3, 'none'], ['atk', 4, 2, 'none']]);
     assert.deepEqual(a.played.map((p) => p.f), ['p_imp_tigerpunch_d_1.mp3'], 'only unit 4 (no model) gets the stand-in');
-    assert.equal(a.spineEvent(1, 'Skill_3_1'), true);
+    assert.equal(a.spineEvent(1, 'OnPlayAudio', 'Skill_3_1'), true, 'an audio event sounds its string value');
     assert.equal(a.played.at(-1).f, 'p_imp_tigerpunch_d_1.mp3');
-    assert.equal(a.spineEvent(1, 'OnAttack'), false, 'an event without a bank is silent');
-    assert.equal(a.spineEvent(99, 'Skill_3_1'), false, 'an unknown unit');
+    assert.equal(a.spineEvent(1, 'OnPlayAudio_2', 'Skill_3_2'), true, 'OnPlayAudio_1–3 too');
+    const n = a.played.length;
+    assert.equal(a.spineEvent(1, 'Skill_3_1'), false, 'the sound is the string value, not the event name');
+    assert.equal(a.spineEvent(1, 'OnAttack', 'Skill_3_1'), false, 'only the audio events sound');
+    assert.equal(a.spineEvent(1, 'OnPlayAudio', null), false, 'an empty string sounds nothing');
+    assert.equal(a.spineEvent(1, 'OnPlayAudio', 'nope'), false, 'a value without a bank is silent');
+    assert.equal(a.played.length, n);
+    assert.equal(a.spineEvent(99, 'OnPlayAudio', 'Skill_3_1'), false, 'an unknown unit');
     // a redeploy's spawn of the same model keeps the flag (its view keeps reporting)
     a.handleBattleEvents([['spawn', { id: 1, kind: 'op', side: 'ally', spine: 'char_264_f12yin', defId: 'chess_x', skillIndex: 2 }]]);
     assert.equal(a.units.get(1).spineLive, true);
@@ -258,16 +264,16 @@ describe('spine events from the renderer (render/spine.js onEvent → audio.spin
     const [eid, ue] = en[0];
     const ev = Object.keys(ue.spine)[0];
     a.setFieldUnits([{ id: 7, kind: 'enemy', side: 'enemy', spine: eid }]);
-    assert.equal(a.spineEvent(7, ev), true);
+    assert.equal(a.spineEvent(7, 'OnPlayAudio', ev), true);
     assert.equal(a.played.at(-1).f, file(ue.spine[ev].u));
   });
 
   test('the renderer wiring (source): the Spine listener, the unit view, the field view context', () => {
     const src = (f) => readFileSync(path.join(ROOT, 'public', 'js', 'render', f), 'utf8');
-    assert.match(src('spine.js'), /state\.addListener\(\{ event:/);
-    assert.match(src('units.js'), /actor\.onEvent = \(name\) =>/);
+    assert.match(src('spine.js'), /state\.addListener\(\{ event:.*this\.onEvent\(n, ev\.stringValue \|\| null\)/);
+    assert.match(src('units.js'), /actor\.onEvent = \(name, value\) => \{[^}]*this\.ctx\.spineEvent\(uid, name, value\)/);
     assert.match(src('units.js'), /this\.ctx\.spineEvent\(uid, null\)/);
-    assert.match(src('app.js'), /spineEvent: \(id, name\) => \{ if \(mode === 'battle' && !battleMeta\?\.prep\) \{ opts\.audio\?\.spineEvent\?\.\(id, name\)/);
+    assert.match(src('app.js'), /spineEvent: \(id, name, value\) => \{ if \(mode === 'battle' && !battleMeta\?\.prep\) \{ opts\.audio\?\.spineEvent\?\.\(id, name, value\)/);
   });
 });
 

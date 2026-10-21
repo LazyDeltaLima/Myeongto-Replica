@@ -291,10 +291,14 @@
     위셔델·토가와 사키코·라플란드 더 데카덴차·르무엔·스펙터 디 언체인드)은 빼고, 공격자마다 0.12초에 한 번 [추정: 지속 피해 틱은 공식 착탄 신호가 아님].
     공격자가 없는 `'dmg'`(옛 sim)는 예전처럼 「2.5초 안에 그 대상을 겨눈 'atk'」.
   - 지연 ÷ 배속: `audio.setGameSpeed(x)`가 있으면 그 값, 없으면 휘두름 → 첫 타격의 실제 간격으로 잰 값, 그것도 없으면 2 [추정].
-  - 스파인 이벤트 (2026-10-10 저녁): 공식은 `SpineAnimator._PlayBattleAudio`(RVA 0x3520A10)가 클립의 **모든** 이벤트에 신호 `<엔티티 id>.<이벤트 이름>`으로
-    `ON_SPINE_EVENT_TRIGGER`를 낸다(뱅크가 있는 것만 소리). 우리: `render/spine.js`의 AnimationState 리스너(`SpineActor.onEvent`) →
-    `render/units.js`(모델이 만들어지면 `spineEvent(id, null)`로 「이 유닛은 이벤트를 보고함」을 먼저 알림) → `render/app.js` ctx `spineEvent`(전투 화면만,
-    정탐 보드·적 미리보기 제외) → `audio.spineEvent(unitId, 이벤트)`. 이벤트를 보고하는 유닛은 대체음이 없고, 모델이 없는 유닛(마름모·혼잡한 저품질 필드)만
+  - 스파인 이벤트 (2026-10-10 저녁, 2026-10-22 고침): 공식은 `SpineAnimator._OnEvent`(이 덤프 RVA 0x3967040)가 이벤트 **이름**이 오디오 이벤트
+    (`AnimationConsts` `OnPlayAudio`·`OnPlayAudio_1~3`)일 때만 그 이벤트의 **문자열 값**(Spine `Event.String`, 필드 0x28)을 `_PlayBattleAudio`
+    (0x39675B0, 빈 문자열이면 없음)에 넘기고, 이것이 신호 `<엔티티 id>.<문자열>`로 `ON_SPINE_EVENT_TRIGGER`를 낸다(뱅크가 있는 것만 소리).
+    매니페스트 `spine` 키(마운틴 `Skill_2_1`…`Skill_3_2`, 필라에 `philae_shield`, 파투스 `Attact_1`·`Skill_1`, 적 13종)는 모두 모델의 `OnPlayAudio`
+    문자열 값이다(`test/audio-skill-hit-signals.test.js`가 모델 파일로 고정). 2026-10-22 전에는 이벤트 이름(`OnPlayAudio`)을 넘겨 모델이 그려진
+    유닛에서는 이 소리가 하나도 나지 않았다(관리자 제보 「마운틴 S3 타격음 없음」; 모델 없는 유닛의 대체음만 났음). 우리: `render/spine.js`의
+    AnimationState 리스너(`SpineActor.onEvent(이름, 문자열)`) → `render/units.js`(모델이 만들어지면 `spineEvent(id, null)`로 「이 유닛은 이벤트를 보고함」을
+    먼저 알림) → `render/app.js` ctx `spineEvent`(전투 화면만, 정탐 보드·적 미리보기 제외) → `audio.spineEvent(unitId, 이름, 문자열)`. 이벤트를 보고하는 유닛은 대체음이 없고, 모델이 없는 유닛(마름모·혼잡한 저품질 필드)만
     스킬 k 중 타격마다 `Skill_<k>_<n>`을 차례로, 평소엔 `Attack_<n>`/`Attact_<n>`을 대신 낸다(유닛마다 — 예전에는 아무 이벤트 하나로 전체가 꺼졌다)
     [추정: 대체음 시점 = 타격]. 적도 `spine`(신호 `battle.ON_SPINE_EVENT_TRIGGER.<적 id>.<이벤트>`, 변형 `_2`는 자기 id 먼저 — 14종).
 - 혼 S2 `Full Burst`(`attack.1.Burst.1–3`)는 **수동으로 끌 때** 남은 탄을 모두 쏘는 능력이다(skill_table skchr_horn_2: 「主动关闭时发射剩余全部弹药」) —
@@ -349,6 +353,10 @@
     BuffToOwnerDuringAbility(OnEvent RVA 0xCADE60) `_startEvent` ON_SPELL_ON(4)이 그녀에게 거는 `rockr_s_2[start_audio_trigger]` = 타격 순간 — 그 전엔
     'swing'에 냈다; hit는 그 Attack의 `_activeBuffs` `rockr_s_2[hit_audio_trigger]` = 대상에 닿을 때).
   - 티티 S3: `titi_s_3[dmg_ticker]`가 깨어난 적에 PlayAudio `titi_s_3[awake]` → sim fx `wake`(적 id; 글래디아 등 아군이 자기 id로 내는 `wake`는 아님).
+  - 페페 S3 (2026-10-22, 관리자 제보 「S3 타격음 없음」): 공격마다 주 대상에 붙는 `pepe_s_3_fx`의 `ON_BUFF_START`가 그녀의 `pepe_s3_range[atk]` 스택
+    (이번 공격이 더하기 전)으로 `≥ max_stack_cnt` PlayAudio `pepe_s3_hit_03` · `≥ 2` `_02` · 그 밖 `_01`(대상 위치, `p_imp_ctmnyhmr_s1~s3`)을 같은 단계의
+    `pepe_skill_03_hit_range_0N`과 함께 낸다(EN 클라 버프 템플릿). S3 모드에는 HIT 뱅크가 없어(`noHit`) 이것이 그녀 S3의 타격음 전부다. 우리: 키트의
+    'stacks' { buff 'pepe:tremor', n, max }(이펙트와 같은 이벤트) → `signalFxKey` → `pepe:s3:1~3`. 새 sfx 3개.
   - 아스카론 S2: `ascln_s_2[enemy]`의 `ON_OWNER_KILLED`(그 효과를 단 적이 처치됨) → PlayAudio `ASCLN_S_2_BOMB`(그녀 위치) → **새 sim 이벤트**
     `['fx', 'kitHit', x, y, { id: 아스카론, k: 'ascln:s2bomb' }]`(`op-ascln.js`, 처치된 적이 그녀 범위 안일 때 — 기존 확산 조건과 같음; `docs/SIM.md`).
   - 프라마닉스 더 프레리타 T1 눈 타일(2026-10-16): `AttachListenerToTileAbility._HoldCastedEffectOnTile`(RVA 0xBEE550)이 칸 이펙트를 **새로 만든

@@ -87,6 +87,12 @@ export const KIT_HIT_BANKS = Object.freeze({
   'mlyss:melee': 'battle.ON_BUFF_START.mlyss_wtrman_s_melee_audio',
   'mlyss:range': 'battle.ON_BUFF_START.mlyss_wtrman_s_range_audio',
   'mlyss:pull': 'battle.ON_BUFF_TRIGGER.mlyss_s_3[melee_audio]',
+  // 2026-10-22: 佩佩 S3 — every attack puts pepe_s_3_fx on its main target, whose ON_BUFF_START plays (PlayAudio, on the
+  // target) pepe_s3_hit_03 at her pepe_s3_range[atk] stacks ≥ max_stack_cnt, _02 at ≥ 2, else _01 — with the matching
+  // pepe_skill_03_hit_range_0N effect (public/js/audio.js signalFxKey, the kit's 'stacks' fx)
+  'pepe:s3:1': 'battle.ON_CUSTOM_TRIGGER.pepe_s3_hit_01',
+  'pepe:s3:2': 'battle.ON_CUSTOM_TRIGGER.pepe_s3_hit_02',
+  'pepe:s3:3': 'battle.ON_CUSTOM_TRIGGER.pepe_s3_hit_03',
   // 2026-10-22: 帝国炮火先兆者 / 中枢先兆者's shell (content/enemies/fly.js kitShell; public/js/audio.js kitHitKey) — its attack's
   // end as it fires, its attack's hit and its projectile's hit at the landing (the _2 banks hold the same files)
   'emppnt:aim': 'battle.ON_ABILITY_END.enemy_1112_emppnt.attack',

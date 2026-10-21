@@ -256,13 +256,14 @@ export class SpineActor {
     }
     try { this.spine.stateData.defaultMix = 0.12; } catch { /* ignore */ }
     /**
-     * Called with each Spine clip event's name as the clip reaches it (render/units.js → the audio's spineEvent: the
-     * client's SpineAnimator._PlayBattleAudio sounds battle.ON_SPINE_EVENT_TRIGGER.<id>.<event>, docs/rules/audio.md).
-     * @type {((name: string) => void)|null}
+     * Called with each Spine clip event's name and string value as the clip reaches it (render/units.js → the audio's
+     * spineEvent: the client's SpineAnimator._OnEvent sounds an OnPlayAudio event's string value as
+     * battle.ON_SPINE_EVENT_TRIGGER.<id>.<value>, docs/rules/audio.md).
+     * @type {((name: string, value: string|null) => void)|null}
      */
     this.onEvent = null;
     try {
-      this.spine.state.addListener({ event: (_entry, ev) => { const n = ev?.data?.name; if (n && this.onEvent) this.onEvent(n); } });
+      this.spine.state.addListener({ event: (_entry, ev) => { const n = ev?.data?.name; if (n && this.onEvent) this.onEvent(n, ev.stringValue || null); } });
     } catch { /* a runtime without listeners: no clip events */ }
     this.base = 'idle';
     this.mode = 'base';           // base | attack | skillBegin | skillEnd | chant | deploy | die | stun | change | held

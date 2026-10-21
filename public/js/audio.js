@@ -108,6 +108,8 @@ const VOICE_XFADE_S = 0.1;
 const CHAIN_KINDS = new Set(['chain', 'chainHeal']);
 /** 'dmg' types that are an attack's impact (element gauge fills / 元素伤害 carry the element's name instead). */
 const IMPACT_TYPES = new Set(['phys', 'arts', 'true']);
+/** The Spine clip events the client sounds (AnimationConsts ON_PLAY_AUDIO_EVENT[_1–3]; AudioManager.spineEvent). */
+const SPINE_AUDIO_EVENT = /^OnPlayAudio(?:_[1-3])?$/;
 
 /**
  * local patch: the `sfx.kit` key of a kit's skill hit (tools/assets/kit-sfx.mjs) for a battle.fx event, or null.
@@ -228,6 +230,12 @@ export function signalFxKey(fx, ex, unitOf) {
     if (u?.def === 'char_4040_rockr') return 'rockr:ovs';
   }
   if (fx === 'wake' && u?.side === 'enemy') return 'titi:awake';
+  // 2026-10-22: 佩佩 S3 — each attack's pepe_s_3_fx on its main target (the kit's 'stacks', `n` = her stacks before this
+  // attack's): PlayAudio pepe_s3_hit_03 at ≥ max_stack_cnt, _02 at ≥ 2, else _01 (as render/fx/kitofficial.js stacks.pepe)
+  if (fx === 'stacks' && ex.buff === 'pepe:tremor') {
+    const n = Number(ex.n) || 0;
+    return `pepe:s3:${Number(ex.max) > 0 && n >= Number(ex.max) ? 3 : n >= 2 ? 2 : 1}`;
+  }
   // 2026-10-11: 뮤엘시스's 流形 — turning melee / ranged on its copy (mlyss_wtrman_s_begin's audio buffs), S3's pull pulse of a
   // melee copy (mlyss_s_3[melee_audio], ON_BUFF_TRIGGER)
   if (u?.def === 'token_10030_mlyss_wtrman') {
@@ -1331,19 +1339,20 @@ export class AudioManager {
   }
 
   /**
-   * A unit's spine-event sound (`sfx.units[def].spine[event]`, battle.ON_SPINE_EVENT_TRIGGER.<id>.<event> — 마운틴 S2 / S3
-   * punches, 파투스 reload, 필라에's shield): the renderer calls this when the unit's Spine clip reaches that event (render/spine.js
-   * onEvent; the client's SpineAnimator._PlayBattleAudio RVA 0x3520A10 sounds `<entity id>.<event name>` for every event of
-   * the clip). `event` null = the unit's model is up and reports its events from now on (no strike stand-in, _spineStrike).
-   * Returns whether one played.
+   * A unit's spine-event sound (`sfx.units[def].spine[value]`, battle.ON_SPINE_EVENT_TRIGGER.<id>.<value> — 마운틴 S2 / S3
+   * punches, 파투스 reload, 필라에's shield): the renderer calls this when the unit's Spine clip reaches event `event` with
+   * string value `value` (render/spine.js onEvent). The client's SpineAnimator._OnEvent sounds only the audio events
+   * (OnPlayAudio, OnPlayAudio_1–3: AnimationConsts) and names the signal by the event's string (Spine Event.String, not its
+   * name; → _PlayBattleAudio `{0}.{1}`; an empty string sounds nothing). `event` null = the unit's model is up and reports
+   * its events from now on (no strike stand-in, _spineStrike). Returns whether one played.
    */
-  spineEvent(unitId, event) {
+  spineEvent(unitId, event, value = null) {
     try {
       const su = this.units.get(unitId);
       if (!su) return false;
       su.spineLive = true;
-      if (typeof event !== 'string' || !event) return false;
-      const c = this.getManifest()?.audio?.sfx?.units?.[su.def]?.spine?.[event];
+      if (typeof event !== 'string' || !SPINE_AUDIO_EVENT.test(event) || typeof value !== 'string' || !value) return false;
+      const c = this.getManifest()?.audio?.sfx?.units?.[su.def]?.spine?.[value];
       return c ? this._playCue(su.def, { ...c, at: 'a' }, !!su.skillOn) : false;
     } catch { return false; }
   }

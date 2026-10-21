@@ -392,7 +392,7 @@ export async function createFieldView(host, options = {}) {
     terrainAt: (r, c) => (tiles ? tiles.tile(r, c).mat : null),   // the stage tile's material ('deepsea': units.js deepSink)
     // a battle unit's Spine clip event (render/spine.js onEvent; null = its model is up) → its official sound
     // (audio.js spineEvent, docs/rules/audio.md 「공격 소리 신호」); not on a scouted prep board or the pen
-    spineEvent: (id, name) => { if (mode === 'battle' && !battleMeta?.prep) { opts.audio?.spineEvent?.(id, name); fxGame.spineEvent(id, name); } },
+    spineEvent: (id, name, value) => { if (mode === 'battle' && !battleMeta?.prep) { opts.audio?.spineEvent?.(id, name, value); fxGame.spineEvent(id, name); } },
   };
   const tiles = new TileField({ ground: layers.ground, overlay: layers.overlay, props: layers.units, anim: layers.anim });
   setupCleanup.push(() => tiles.destroy());
