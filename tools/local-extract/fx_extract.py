@@ -9,6 +9,8 @@ properties. This script writes, per effect bundle:
     public/assets/local/fx/<bundle>/<prefab>.json   the tree, normalized particle modules, materials, clip curves
     public/assets/local/fx/tex/<texture>.webp       textures (shared by every effect; static WebP, --png for PNG)
     public/assets/local/fx/mesh/<mesh>.json         meshes (positions, uv, colors, indices)
+    public/assets/local/fx/tex/wrap.json            { <texture>: [wrap u, wrap v] } of the textures that do not repeat
+                                                    (2026-10-22; --wrap-only rereads every extracted one)
     public/assets/local/fx/index.json               { bundles: { <bundle>: [prefab, ...] }, sources: { <bundle> or
                                                     <bundle>/<prefab>: { pack, client } } } — sources: where a prefab
                                                     was read from when that is not its own bundle of the EN client
@@ -476,6 +478,82 @@ def own_pack(bundle):
     return f'battle/prefabs/effects/{bundle}.ab'
 
 
+# 2026-10-22: a texture's wrap mode (Texture2D m_TextureSettings m_WrapU / m_WrapV, Unity TextureWrapMode: 0 Repeat,
+# 1 Clamp, 2 Mirror, 3 MirrorOnce). The effect player repeated every texture: a Clamp one tiled ×4 and scrolled along a
+# mesh (烛煌 S3's flame, blaze2_02) covered the whole mesh instead of passing along it as one streak.
+WRAP_FILE = 'tex/wrap.json'
+
+
+def tex_wrap(t):
+    """(u, v) wrap mode of a read Texture2D (an older serialisation's single m_WrapMode for both)."""
+    s = getattr(t, 'm_TextureSettings', None)
+    if s is None:
+        return (0, 0)
+    w = getattr(s, 'm_WrapMode', None)
+    u, v = getattr(s, 'm_WrapU', w), getattr(s, 'm_WrapV', w)
+    return (int(u or 0), int(v or 0))
+
+
+def merge_wraps(found, out=OUT):
+    """Write the wraps of the textures `found` ({file name: (u, v)}) into `out`/tex/wrap.json — { file: [u, v] } for the
+    textures that do not repeat both ways (render/fxplayer.js FxLibrary reads it; a texture not listed repeats). Returns
+    the number of listed textures."""
+    p = out / WRAP_FILE
+    cur = json.loads(p.read_text()) if p.exists() else {}
+    for name, (u, v) in found.items():
+        if u or v:
+            cur[name] = [u, v]
+        else:
+            cur.pop(name, None)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(dict(sorted(cur.items())), indent=0))
+    return len(cur)
+
+
+def wrap_walk(ex, a):
+    """--wrap-only: the wrap of every already extracted texture, read from the packs its effects came from (the index's
+    `sources` per client, like coverage_walk) and their dependency bundles. Returns {file name: (u, v)}."""
+    exs = {ex.client: ex}
+    if a.other_game:
+        other = Extractor(a.other_game, a.other_cab_index, png=a.png)
+        if other.client in exs:
+            raise SystemExit(f'--other-game is the same client ({other.client}) as --game')
+        exs[other.client] = other
+    have = {f.name for f in (OUT / 'tex').iterdir()}
+    packs = set()
+    for idx in ('index.json', 'enemy-index.json'):
+        p = OUT / idx
+        if not p.exists():
+            continue
+        index = json.loads(p.read_text())
+        for b, names in index['bundles'].items():
+            for n in names:
+                s = source_of(index, b, n)
+                packs.add((s['client'], s['pack']))
+    found = {}
+    for client, pack in sorted(packs):
+        e = exs.get(client)
+        if e is None:
+            print(f'[fx] wrap: {pack} is from the {client} client: give --other-game')
+            continue
+        try:
+            env = e.load(pack)
+        except SystemExit as err:
+            print(f'[fx] wrap: {client} {pack}: {err}')
+            continue
+        for o in env.objects:
+            if o.type.name != 'Texture2D':
+                continue
+            t = o.read()
+            for ext in ('.webp', '.png'):
+                name = f'{t.m_Name}_{o.path_id & 0xffffffff:08x}{ext}'
+                if name in have:
+                    found[name] = tex_wrap(t)
+    print(f'[fx] wrap: {len(found)} of {len(have)} texture file(s) found, '
+          f'{sum(1 for w in found.values() if w != (0, 0))} not repeating')
+    return found
+
+
 def source_of(index, bundle, name):
     """(2026-10-21) where an extracted prefab was read from: {'pack': the bundle path, 'client': 'en' | 'cn'} — the index's
     `sources` entry of `<bundle>/<name>`, else of `<bundle>`, else the bundle's own `battle/prefabs/effects/<bundle>.ab` in
@@ -578,6 +656,7 @@ class Extractor:
         self.client = client or client_of(game)   # 2026-10-21: recorded with each written prefab (index `sources`)
         self.cab = json.loads(Path(cab_index).read_text()) if cab_index else {}
         self.textures = {}   # path_id/name key -> file name
+        self.wraps = {}      # 2026-10-22: texture file name -> (wrap u, wrap v) of each texture met (merge_wraps)
         self.meshes = {}
         self.builtin = None  # the client's unity default resources, loaded on first use (mesh_ref)
         # 2026-10-16: what the run meets and the pipeline leaves out (fx_coverage.py; the dump names unknown scripts)
@@ -665,6 +744,7 @@ class Extractor:
         if key in self.textures:
             return self.textures[key]
         name = key + ('.png' if self.png else '.webp')
+        self.wraps[name] = tex_wrap(obj.read())
         p = out / 'tex' / name
         if not p.exists() and not self.dry:
             p.parent.mkdir(parents=True, exist_ok=True)
@@ -1513,7 +1593,8 @@ class Extractor:
         texture (XSpeed, YSpeed) by 2 × speed × dt (SPEED_SCALE 2; a texture with both speeds 0 is not touched); `OnEnable`
         starts the offsets from the material's own with `keepInitOffset`, else from 0; an Advance without `tweenRepeat` stops
         after `tweenAnmTime` s. Read by the component's type tree (found by its fields, not its script id): { maps:
-        [[texture, 2·sx, 2·sy], …], keep?, until? }, None without one. Drawn by render/fxplayer.js uvTween."""
+        [[texture, 2·sx, 2·sy, 1 when the offset keeps its fraction?], …], keep?, until? }, None without one. Drawn by
+        render/fxplayer.js uvTween."""
         try:
             d = go.read_typetree()
         except Exception:
@@ -1528,13 +1609,19 @@ class Extractor:
                 continue
             if 'xspeed' not in t or 'secondMapName' not in t:
                 continue
-            maps = [('_MainTex', t.get('xspeed'), t.get('yspeed'))]
+            # (2026-10-22, decompile check) the offset each frame keeps only its fraction (x − floorf(x)): FxUVTweener's
+            # `_MainTex` with `protectMainUV`, its second map with `protectSecondUV` (`Update` RVA 0x38DB890), every map of
+            # an Advance with `tweenRepeat` (0x38DB0A0) — the same on a repeating texture, not on a Clamp one (tex/wrap.json):
+            # the map's 4th field 1
+            adv = 'tweenRepeat' in t
+            rep = 1 if adv and t.get('tweenRepeat') else 0
+            maps = [('_MainTex', t.get('xspeed'), t.get('yspeed'), rep if adv else int(bool(t.get('protectMainUV'))))]
             if t.get('useSecondMap') and isinstance(t.get('secondMapName'), str) and t['secondMapName']:
-                maps.append((t['secondMapName'], t.get('secondXSpeed'), t.get('secondYSpeed')))
+                maps.append((t['secondMapName'], t.get('secondXSpeed'), t.get('secondYSpeed'), rep if adv else int(bool(t.get('protectSecondUV')))))
             for e in t.get('extraMapSettings') or []:
                 if e.get('enabled') and isinstance(e.get('mapName'), str) and e['mapName']:
-                    maps.append((e['mapName'], e.get('XSpeed'), e.get('YSpeed')))
-            maps = [[n, r4(2 * float(x or 0)), r4(2 * float(y or 0))] for n, x, y in maps if float(x or 0) or float(y or 0)]
+                    maps.append((e['mapName'], e.get('XSpeed'), e.get('YSpeed'), rep))
+            maps = [[n, r4(2 * float(x or 0)), r4(2 * float(y or 0))] + ([1] if fr else []) for n, x, y, fr in maps if float(x or 0) or float(y or 0)]
             if not maps:
                 return None
             out = {'maps': maps}
@@ -2562,9 +2649,16 @@ def main():
     ap.add_argument('--other-game', metavar='DIR', help='--coverage: the Arknights_Data folder of the other client, for the '
                     'prefabs extracted from it (the CN 선발 bundles)')
     ap.add_argument('--other-cab-index', metavar='JSON', help='--coverage: the CAB index of --other-game')
+    ap.add_argument('--wrap-only', action='store_true', help='only write tex/wrap.json: the wrap mode of every already '
+                    'extracted texture, read from the packs of both indexes (the CN ones with --other-game / '
+                    '--other-cab-index; 2026-10-22)')
     ap.add_argument('--emitted-only', action='store_true', help='only rewrite the index\'s `emitted` lists (the prefabs another '
                     'prefab of the bundle creates, from the already extracted files; every bundle of --index without --bundle; 2026-10-21)')
     a = ap.parse_args()
+    if a.wrap_only:
+        ex = Extractor(a.game, a.cab_index, png=a.png, client=a.client)
+        print(f'[fx] wrap: {merge_wraps(wrap_walk(ex, a))} texture(s) listed in {OUT / WRAP_FILE}')
+        return
     if a.emitted_only:
         index_p = OUT / a.index
         index = json.loads(index_p.read_text())
@@ -2639,6 +2733,7 @@ def main():
         ex.run(b, set(a.prefab) or None, all_skins=a.all_skins, match=re.compile(a.match) if a.match else None, list_only=a.list, pack=a.pack, index=a.index)
     if a.bundle and not a.list:
         print('\n'.join(ex.cov.summary()))   # 2026-10-16: what this run left out (fx_coverage.py)
+        merge_wraps(ex.wraps)   # 2026-10-22: the wraps of the textures it met (tex/wrap.json)
     if a.prune:
         prune(OUT)
 

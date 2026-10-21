@@ -1252,6 +1252,28 @@
   zone)를 타지 않아 2D 원(`areaAway`)이 대신 그려지던 것 → `fxgame.js`가 `'zone'`과 같이 공식 프리팹을 회오리 자리에 지속 시간 동안 튼다.
   테스트 `test/render/fx-cast-timing.test.js` 「歌蕾蒂娅 S3」. [화면 미확인: 실제 판에서 회오리 자리·크기]
 
+### 텍스처 반복 방식 — Clamp·Mirror (2026-10-22, 관리자 제보 「이격 블레이즈 S3 불기둥이 약 1초 남고 둘 사이 간격이 너무 짧다」)
+
+- **증상**: 블레이즈 디 이그나이팅 스파크(烛煌) S3의 솟는 불길(`blaze2_skill_03_start`)과 떨어지는 불길(`blaze2_skill_03_hit`)이 공식 영상처럼 한 줄기씩
+  지나가지 않고, 길이 약 5의 불기둥 둘이 통째로 나란히 서서 1초쯤 남았다.
+- **원인**: 플레이어(`fxplayer.js FxLibrary.texture`)가 모든 텍스처를 Repeat로 그렸다. 공식 Texture2D의 `m_TextureSettings` `m_WrapU`/`m_WrapV`
+  (Unity TextureWrapMode 0 Repeat · 1 Clamp · 2 Mirror · 3 MirrorOnce)는 텍스처마다 다르다 — 추출 텍스처 2,554개 중 382개가 Repeat가 아님(Clamp 양축
+  331·한 축 50·Mirror 1). 그 불기둥 메시는 u가 길이 방향(0→1)이고 주 텍스처 `blaze2_02`(Clamp)가 타일링 ×4, 클립이 `_MainTex_ST.z`를 −0.13 → 1로 민다.
+  Clamp면 기둥의 1/4 길이 불꽃 머리만 보이며 기둥을 따라 지나가 빠지고(시전은 위로 0.7초, 피격은 `fixed`가 10 → 0으로 0.47초 떨어지며 아래로),
+  Repeat면 무늬가 기둥 전체를 덮는다. 위치·크기·시점(공격 0.3초 뒤 주 대상만, `projectile_chr_blaze2_s3` AttachToTarget `_delayToStart` 0.3·
+  `_onlyPlayHitEffectOnTraceTarget`)은 원래 공식과 같았다.
+- **고친 것**: `fx_extract.py`가 텍스처마다 wrap을 읽어 `tex/wrap.json`({ 파일: [u, v] }, Repeat가 아닌 것만)에 합치고(추출할 때마다, 또는 `--wrap-only`가
+  두 색인의 출처 팩 전부에서), `FxLibrary`가 첫 이펙트 전에 한 번 받아 텍스처마다 ClampToEdge / MirroredRepeat를 준다(MirrorOnce는 three.js에 없어
+  MirroredRepeat [추정: 거울 한 번 밖에서만 다름]).
+- **함께 고친 소수부 처리**(Repeat에서는 결과가 같아 빼 두었던 것):
+  - 클라 셰이더 DXBC: (CustomData) 계열·MultiTex·Disturb Anchor는 흐름 항(속도 × 시간)의 소수부(`frc`)만 더하고, Dissolve AB / Add UVTween은 흐른 uv 전체의
+    소수부를 쓴다(`frac(uv + _UVTween × t)`, 위 「흐르는 텍스처」 2차의 DXBC). → FRAG의 모든 흐름 항 `fract`, `uFracUV`(UVTween 계열).
+  - 클라 코드: FxUVTweener `Update`(RVA 0x38DB890)는 `protectMainUV`면 `_MainTex` 오프셋을, `protectSecondUV`면 두 번째 맵 오프셋을 매 프레임
+    x − floorf(x)로 줄이고, FxUVTweenerAdvance `Update`(0x38DB0A0)는 `tweenRepeat`면 모든 맵을 그렇게 줄인다. → `uvt.maps[i]` 넷째 칸 1
+    (`--uvt-only`로 다시 씀: 맵 1,387개 중 691개), `setTime`이 그 오프셋을 [0, 1)로.
+- 영향: Clamp 텍스처의 uv가 0–1을 벗어나는(타일링·오프셋, 클립 `_ST`, uv 트위너, 셰이더 흐름, 메시 uv, Tile 꼬리·선) 프리팹 712개(묶음 112개, 관리자 노트에 목록).
+  테스트 `test/render/fx-texture-wrap.test.js`; 추출 JSON 골든은 `uvt.maps` 7개만 바뀜(EN 5·CN 2). [화면 미확인]
+
 ### 패신저 S3 폭풍·낙뢰 (2026-10-16, 관리자 제보 「패신저 S3 이펙트가 안 나와」)
 
 - 원인: 키트 fx `'storm'`이 `zoneFx`를 타지 않아(위 글래디아 회오리와 같은 꼴) 2D 원(`areaAway`)만 그려졌고, 낙뢰 `'lightning'`은 절차 번개선

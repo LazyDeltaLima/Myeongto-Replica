@@ -296,7 +296,7 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
   }`;
 
 const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
-  uniform sampler2D uMain; uniform vec4 uMainST; uniform vec2 uMainSpeed; uniform vec4 uTint; uniform float uOpacity;
+  uniform sampler2D uMain; uniform vec4 uMainST; uniform vec2 uMainSpeed; uniform vec4 uTint; uniform float uOpacity; uniform bool uFracUV;
   uniform bool uHasDisturb; uniform sampler2D uDisturb; uniform vec4 uDisturbST; uniform vec2 uDisturbSpeed; uniform vec2 uDisturbStr;
   uniform float uDisturbMain; uniform float uDisturbDissolve;
   uniform bool uHasDissolve; uniform sampler2D uDissolve; uniform vec4 uDissolveST; uniform vec2 uDissolveSpeed;
@@ -327,28 +327,31 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       // custom1.zw = extra distortion, custom2.x = dissolve amount — [ASSUMED] from the curves, tuned by eye
       if (uCustom) uv += vC1.xy;
       if (uUVRot) uv = rotUV(uv, uRot[0]);
-      uv += uMainSpeed * uTime;
+      // 2026-10-22 (client DXBC): every family scrolls by the fraction of speed × time (frc) — the same on a repeating
+      // texture, not on a Clamp one (tex/wrap.json); Dissolve AB / Add UVTween wraps the whole scrolled uv (uFracUV)
+      uv += fract(uMainSpeed * uTime);
       if (uHasDisturb) {
         vec2 duv = vUv * uDisturbST.xy + uDisturbST.zw;
         if (uUVRot) duv = rotUV(duv, uRot[3]);
-        duv += uDisturbSpeed * uTime;
+        duv += fract(uDisturbSpeed * uTime);
         // local patch (client DXBC): the noise's red channel times the strength, not centred
         vec2 n = vec2(texture2D(uDisturb, duv).r);
         dis = n * (uDisturbStr + (uCustom ? vC1.zw : vec2(0.0)));
         uv += dis * uDisturbMain;
       }
+      if (uFracUV) uv = fract(uv);
     } else {
       // 2026-10-14 (client DXBC): Disturb Origin (1) / Disturb Anchor (2) — the noise (.r − _Anchor, × the _WEIGHT_ON weight
       // texture's rg; Anchor's second noise when _ToggleUseDisturb2) × _Intensity moves the renderer's own uv before the
       // main texture's tiling / offset; Anchor scrolls the main uv by _UVTween.xy and the noise uv by .zw (uMainSpeed /
       // uDisturbSpeed)
       if (uHasDisturb) {
-        vec2 n = vec2(texture2D(uDisturb, vUv * uDisturbST.xy + uDisturbST.zw + uDisturbSpeed * uTime).r) - uDisAnchor;
+        vec2 n = vec2(texture2D(uDisturb, vUv * uDisturbST.xy + uDisturbST.zw + fract(uDisturbSpeed * uTime)).r) - uDisAnchor;
         vec2 n2 = uHasDisturb2 ? vec2(texture2D(uDisturb2, vUv * uDisturb2ST.xy + uDisturb2ST.zw).r) - uDisturb2Anchor : vec2(0.0);
         if (uHasWeight) { vec2 w = texture2D(uWeight, vUv * uWeightST.xy + uWeightST.zw).rg; n *= w; n2 *= w; }
         dis = n * uDisturbStr + n2 * uDisturb2Str;
       }
-      uv = (vUv + dis) * uMainST.xy + uMainST.zw + uMainSpeed * uTime;
+      uv = (vUv + dis) * uMainST.xy + uMainST.zw + fract(uMainSpeed * uTime);
     }
     vec4 tex = texture2D(uMain, uv);
     // 2026-10-14 (client DXBC): Mask (AlphaBlend) — main + 2 · _AddFactor · _AddTex(own uv) · _MaskTex.a(main uv)
@@ -366,8 +369,9 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
     if (uHasDissolve) {
       vec2 suv = vUv * uDissolveST.xy + uDissolveST.zw;
       if (uUVRot) suv = rotUV(suv, uRot[1]);
-      suv = uDisMode == 0 ? suv + uDissolveSpeed * uTime + dis * uDisturbDissolve
+      suv = uDisMode == 0 ? suv + fract(uDissolveSpeed * uTime) + dis * uDisturbDissolve
         : (vUv + dis) * uDissolveST.xy + uDissolveST.zw;   // Anchor: the moved uv through _DissolveTex_ST (client DXBC)
+      if (uFracUV) suv = fract(suv);
       float d = texture2D(uDissolve, suv).r;
       // local patch (client DXBC): saturate((d − amount + border · (1 − roundEven(amount + .5))) / border) — at amount 0
       // the border is added, so nothing is cut (the dark texels were holes before)
@@ -380,7 +384,7 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       col.a *= e;
       // local patch: the … Double family cuts by a second texture with its own amount / border too [ASSUMED: alpha × both]
       if (uHasDissolve2) {
-        float d2 = texture2D(uDissolve2, vUv * uDissolve2ST.xy + uDissolve2ST.zw + uDissolveSpeed * uTime + dis * uDisturbDissolve).r;
+        float d2 = texture2D(uDissolve2, vUv * uDissolve2ST.xy + uDissolve2ST.zw + fract(uDissolveSpeed * uTime) + dis * uDisturbDissolve).r;
         // 2026-10-14 (client DXBC): the second cut adds its border like the first
         float bw2 = max(uBorder2, 1e-3);
         col.a *= clamp((d2 - uAmount2 + bw2 * (1.0 - roundEven(uAmount2 + 0.5))) / bw2, 0.0, 1.0);
@@ -391,11 +395,11 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       if (uMulti >= 2) {
         vec4 base = tex * vColor;
         vec4 cb = base * uTintB;
-        cb.a = clamp(cb.a * cut(texture2D(uDisB, vUv * uDisBST.xy + uDisBST.zw + uSpeedB * uTime).r, uAmountV.y, uBorderV.y), 0.0, 1.0);
+        cb.a = clamp(cb.a * cut(texture2D(uDisB, vUv * uDisBST.xy + uDisBST.zw + fract(uSpeedB * uTime)).r, uAmountV.y, uBorderV.y), 0.0, 1.0);
         col = mix(col, cb, cb.a);
         if (uMulti >= 3) {
           vec4 cc = base * uTintC;
-          cc.a = clamp(cc.a * cut(texture2D(uDisC, vUv * uDisCST.xy + uDisCST.zw + uSpeedC * uTime).r, uAmountV.z, uBorderV.z), 0.0, 1.0);
+          cc.a = clamp(cc.a * cut(texture2D(uDisC, vUv * uDisCST.xy + uDisCST.zw + fract(uSpeedC * uTime)).r, uAmountV.z, uBorderV.z), 0.0, 1.0);
           col += cc * cc.a;
         }
       }
@@ -470,6 +474,7 @@ function makeMaterial(m, lib) {
     uniforms: {
       uMain: { value: tex('_MainTex') || WHITE }, uMainST: { value: st('_MainTex') },
       uMainSpeed: { value: multi ? new THREE.Vector2(2 * vec(c._TexSpeed, 0), 2 * vec(c._TexSpeed, 1)) : tween ? new THREE.Vector2(uvTween[0], uvTween[1]) : new THREE.Vector2(sp(f._MainUSpeed), sp(f._MainVSpeed)) },
+      uFracUV: { value: disMode === 0 && tween }, // 2026-10-22 (client DXBC): Dissolve AB / Add UVTween — frac(uv + _UVTween × t)
       uHasAdd: { value: !!add }, uAdd: { value: add || WHITE }, uAddST: { value: st('_AddTex') },
       uMask: { value: tex('_MaskTex') || WHITE }, uAddFactor: { value: f._AddFactor ?? 1 },
       uTint: { value: new THREE.Vector4(tint[0] * tintMul, tint[1] * tintMul, tint[2] * tintMul, tint[3] * tintMul) },
@@ -532,18 +537,18 @@ const TEX_ST = { _MainTex: 'uMainST', _AddTex: 'uAddST', _DisturbTex: 'uDisturbS
  * 2026-10-14 (client Torappu.Fx.FxUVTweener / FxUVTweenerAdvance, `Update` RVA 0x34C5F90 / 0x34C5780): a renderer's
  * script that moves its material's texture offsets — each named texture's offset grows by 2 × speed per second (SPEED_SCALE
  * 2), from the material's own offset with `keepInitOffset`, else from 0 (`OnEnable`), until `tweenAnmTime` for an Advance
- * without `tweenRepeat` (fx_extract.py `uvt`). The fractional wrap of `protect*UV` / `tweenRepeat` changes nothing on
- * repeating textures. Kept on `mat.userData.uvt`, moved by setTime; a texture a clip track drives is left to the clip
+ * without `tweenRepeat` (fx_extract.py `uvt`). The fractional wrap of `protect*UV` / `tweenRepeat` (the map's 4th field,
+ * 2026-10-22) matters on a Clamp texture (tex/wrap.json). Kept on `mat.userData.uvt`, moved by setTime; a texture a clip track drives is left to the clip
  * (bindTrack0 — the Animator's property block wins over the material) [ASSUMED: a shared material (`useSharedMaterial`) moves
  * as an own one].
  */
 function uvTween(mat, uvt, m) {
   if (!mat || !uvt || !Array.isArray(uvt.maps)) return;
   const list = [];
-  for (const [name, vx, vy] of uvt.maps) {
+  for (const [name, vx, vy, fr] of uvt.maps) {
     const u = TEX_ST[name] && m?.tex?.[name] ? mat.uniforms[TEX_ST[name]] : null;
     if (!u || list.some((e) => e.u === u)) continue;
-    list.push({ u, z0: uvt.keep ? u.value.z : 0, w0: uvt.keep ? u.value.w : 0, vx: +vx || 0, vy: +vy || 0, until: uvt.until > 0 ? uvt.until : Infinity });
+    list.push({ u, z0: uvt.keep ? u.value.z : 0, w0: uvt.keep ? u.value.w : 0, vx: +vx || 0, vy: +vy || 0, until: uvt.until > 0 ? uvt.until : Infinity, frac: fr === 1 });
   }
   if (list.length) mat.userData.uvt = list;
 }
@@ -573,8 +578,11 @@ function setTime(mat, t) {
   if (!uvt) return;
   for (const e of uvt) {
     const s = Math.max(0, Math.min(t, e.until));
-    e.u.value.z = e.z0 + e.vx * s;
-    e.u.value.w = e.w0 + e.vy * s;
+    const z = e.z0 + e.vx * s, w = e.w0 + e.vy * s;
+    // 2026-10-22: a map whose offset the client keeps to its fraction (fx_extract.py uv_tween: the map's 4th field —
+    // protectMainUV / protectSecondUV, an Advance's tweenRepeat): the same on a repeating texture, not on a Clamp one
+    e.u.value.z = e.frac ? z - Math.floor(z) : z;
+    e.u.value.w = e.frac ? w - Math.floor(w) : w;
   }
 }
 
@@ -593,6 +601,12 @@ function useMeshAttrs(g, src, mat) {
 
 // ---------------------------------------------------------------- library (shared textures, meshes, defs)
 
+/**
+ * A Unity TextureWrapMode as three.js wrapping: 1 Clamp → ClampToEdge, 2 Mirror → MirroredRepeat, 3 MirrorOnce →
+ * MirroredRepeat [ASSUMED: three.js has no mirror-once; it differs only beyond one mirrored copy], else Repeat.
+ */
+const wrapMode = (m) => (m === 1 ? THREE.ClampToEdgeWrapping : m === 2 || m === 3 ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping);
+
 /** A file name in a URL: names can hold '#' (skin texture names, e.g. `…_sale#10_…`) that would end the path. */
 const seg = (name) => encodeURIComponent(name);
 
@@ -605,10 +619,23 @@ export class FxLibrary {
     this.loader = new THREE.TextureLoader();
   }
 
+  /**
+   * 2026-10-22: each texture's Unity wrap mode (tools/local-extract/fx_extract.py tex/wrap.json: { file: [u, v] } for the
+   * ones that do not repeat; 0 Repeat, 1 Clamp, 2 Mirror, 3 MirrorOnce), fetched once before the first effect is built.
+   * Every texture used to repeat: 烛煌 S3's flame (blaze2_02, Clamp, tiled ×4 and scrolled along its mesh) covered the
+   * whole pillar for a second instead of passing along it as one streak.
+   */
+  wraps() {
+    if (!this._wraps) this._wraps = fetch(this.base + 'tex/wrap.json').then((r) => (r.ok ? r.json() : {})).catch(() => ({})).then((w) => (w && typeof w === 'object' ? w : {}));
+    return this._wraps;
+  }
+
   texture(name) {
     if (!this.textures.has(name)) {
       const tx = this.loader.load(this.base + 'tex/' + seg(name));
-      tx.wrapS = tx.wrapT = THREE.RepeatWrapping;
+      const w = this.wrapOf?.[name];
+      tx.wrapS = wrapMode(w?.[0]);
+      tx.wrapT = wrapMode(w?.[1]);
       tx.colorSpace = THREE.NoColorSpace;
       tx.flipY = true;    // PNGs are top-down; Unity's uv v = 0 is the bottom row
       this.textures.set(name, tx);
@@ -650,6 +677,7 @@ export class FxLibrary {
         const r = await fetch(`${this.base}${seg(bundle)}/${seg(prefab)}.json`);
         if (!r.ok) return null;
         const def = await r.json();
+        this.wrapOf = await this.wraps();   // the textures its materials make (FxInstance) take their wrap from it
         for (const n of def.nodes) {
           if (n.ps) prepareCurves(n.ps);
           if (n.trailR) { prepareCurves(n.trailR); if (n.trailR.widthCurve?.length) n.trailR.wf = flatKeys(n.trailR.widthCurve); }
