@@ -105,7 +105,7 @@
     같은 프리팹이 0.25×에서 1×보다 약 4배 길게 재생.
   - 전 오퍼레이터 추출 (2026-10-07, 공식과의 차이로는 가장 컸던 것): 풀 126명 중 이펙트가 없던 99명의 번들을
     기본 스킨 전체로 추출(`fx_extract.py --bundle …` ×99, 11분, 오류 0). 번들 125개·프리팹 1,955개, `public/assets/local/fx` 25 → 58MB.
-    클라이언트에 전용 번들이 없는 2명(엑시아 `char_103_angel`, 피스 `char_616_pithst`)은 절차 이펙트 그대로.
+    클라이언트에 전용 번들이 없는 2명(엑시아 `char_103_angel`, 盟约·辅助干员 `char_616_pithst`)은 절차 이펙트 그대로였다(2026-10-21 다른 번들에서 `--pack` — 아래 「다른 번들의 바인딩 프리팹」).
     Chrome 일괄 점검(124명 × 스킬 372개, 페이지 오류 0): 바인딩 시전 이펙트가 있는 187개 중 156개 재생(나머지는 측정 창 2.6초 안에 공격이
     없거나 시뮬레이션에서 스킬이 공격 전에 끝나는 경우). 이 추출로 두 가지를 고쳤다 — ① 자기 스킬 이펙트가 번들에 없는 스킬(저티어 S1 다수: 공식은
     추출 안 된 공용 버프 이펙트)은 발동 표시가 아예 없어졌다 → `ownsSkill`이 그 스킬에 공식 start/buff/모드 이펙트가 있을 때만 참(아니면 절차 금색
@@ -113,7 +113,7 @@
     `attach`와 합쳐 중복 없이 한 번.
   - 추출 범위: 바인딩된 이펙트 241개 중 69개가 추출본에 없었다(예전 추출이 스킬 일부만) → 16개 번들(nearl2 siege2 whitw2 blaze2 angel2
     sbell2 dusk yu cello aglina rosmon titi pepe mlynar lemuen pasngr)을 기본 스킨 전체로 다시 추출(`fx_extract.py --bundle …`, 19→25MB). 남은
-    3개는 aglina가 다른 번들(`glassb_*`, `common_magic_trail_01`)을 씀.
+    3개는 aglina가 다른 번들(`glassb_*`, `common_magic_trail_01`)을 씀(2026-10-21 `--pack`으로 넣음).
   - `stats().recent`(최근 시작한 프리팹 24개)를 `/debug.html` 로그가 「✦ 이펙트 재생」으로 보여 준다.
   - 모드 버프 이펙트 `attach` (2026-10-07 관리자 제보): 모드의 Talents 능력이 거는 버프의
     `overrideEffectKey`(丰川祥子 S3 `oblvns_s_3[eff]` → `oblvns_skill_03_range`)를 `char_modes.py`가 모드별 `attach`로 뽑고, `fxgame.js`가 그 스킬이
@@ -1405,6 +1405,34 @@
   (`fx_extract.py --bundle silent --pack battle/prefabs/effects/myrrh.ab --prefab myrrh_attack_01_hit`, EN 클라; `index.json` `silent`에 더해짐) —
   이벤트 기록 골든에 `char_108_silent attackHit myrrh_attack_01_hit → ally`가 생김(3판). 묶음 전체를 다시 뽑는 도구는 이 프리팹을 `silent.ab`에서
   못 찾으니 같은 `--pack`으로. [화면 미확인: 실제 판의 다른 아군, 공식 녹화]
+
+### 다른 번들의 바인딩 프리팹 — 자기 묶음에 `--pack`으로 (2026-10-21)
+
+- 원인: 렌더는 오퍼레이터의 바인딩 이름(`modes.json`의 cast·hit·trail·attach·skills)을 **자기 묶음**(`index.json bundles[codename]`)에서만 찾는다
+  (`fxgame.js bundleOf` → `b.prefabs.includes`). 클라가 다른 번들의 프리팹을 바인딩한 이름은 어디에도 추출되지 않아 아무것도 안 나왔다 — 赫默
+  명중(위)과 같은 꼴이 45개 묶음 66개(번들 이름 목록을 두 클라에서 읽어 모두 찾음, EN·CN 같은 번들):
+  - 전용 번들이 없는 둘: 能天使 `angle_*` 7개(`angle.ab` — 번들 이름이 오타 그대로), 盟约·辅助干员 `csuppo_attack_01_hit`·`_trail`(`csuppo.ab`) —
+    새 묶음 `angel`·`pithst`가 생겨 둘 다 절차 이펙트 대신 공식 이펙트(`ownsSkill` 참: 금색 빛기둥 없음).
+  - 다른 오퍼레이터 번들: 安洁莉娜 `Disarmed` 모드 `glassb_attack_01_start`·`_hit`(`glassb.ab`), 凯尔希·思衡托 모드 2 `kalts_attack_01_hit`·`_trail`
+    (`kalts.ab`)·모드 4 시전 `folnic_skill_02_start`(`folnic.ab`).
+  - `common.ab`: 스킬 발동 버프 `common_ignite_attack`·`_defense`·`_support`(낮은 티어 S1 등 36명 — 그 스킬은 지금까지 발동 표시가 없었다),
+    일반 타격 `common_hit_01`(4명), 치료 시전·명중 `common_heal_start_01`·`common_heal_hit_01`(白面鸮·调香师·波登可), 충전 시전
+    `common_charge_cost_start_01`(德克萨斯 S1 등 5명), 安洁莉娜 `Disarmed` 꼬리 `common_magic_trail_01`, 蒂比 이륙 `common_idle_ground`·`common_land_ground`.
+    공용 프리팹이 묶음마다 사본으로 들어간다(파일은 작고 텍스처는 공유) — 렌더의 이름 찾기를 바꾸지 않으려고.
+- 고친 것: `fx_extract.py --bundle <자기> --pack <번들> --prefab …`로 그 이름들만 자기 묶음에 추출(EN 클라, 출처는 색인 `sources`에 저절로;
+  묶음 전체 재추출 `reextract_sources.py`도 그대로 따라감). 코드 변경 없음. 이벤트 기록 골든에 그 줄들이 더해짐 —
+  白面鸮의 공격 시전은 이름 매핑의 `plosis_attack_01_start` 대신 바인딩된 `common_heal_start_01`.
+- 넣지 않은 것: `buff_*`(공용 `buff` 묶음 — 상태 이상 층 `fxstatus.js`가 모든 유닛에 그리므로 자기 묶음에 넣으면 두 번), `common_empty`(빈 프리팹),
+  塞雷娅 S3 모드 명중 `common_heal_hit_01` — 클라 S3 모드의 공격은 **아군**을 고른다(charpack `Modes/S3/Body/Attack/Trigger._targetSide` 1:
+  치료 펄스가 그 모드의 공격)인데 시뮬은 S3 중에도 적을 쳐서, 넣으면 적 위에 치료 십자가 뜬다. 시뮬이 맞춰지면 넣는다.
+- 추출 보고에 새로 나온 것: `RandomEmitter`(`common_charge_cost_start_01`이 0.1 s 뒤 `common_charge_cost_01` 3개를 상자 안 무작위 자리에 틂 —
+  todo, 지금은 본체만), 셰이더 `Torappu/Particles-L2D/AlphaBlend`(盟约·辅助干员 명중: 선언 속성·태그·블렌드가 `Particles/AlphaBlend`와 같음 —
+  확인 목록에 넣음), 클립 `rateOverTime.minScalar`(todo).
+- 확인: Windows Chrome 디버그 아레나(SP 채우기, 오류 0)에서 能天使 일반 공격 시전·명중·S1 꼬리·S2 버프, 盟约·辅助干员 명중·꼬리·발동 버프,
+  艾丝黛尔·安洁莉娜 S1 `common_ignite_attack`, 德克萨斯 S1 충전 시전, 白面鸮 치료 시전·명중·발동 버프, 雷蛇 명중·발동 버프, 蒂比 S1 `common_idle_ground`가
+  틀어짐. 能天使 S1의 `angle_skill_01_start`(castLoop)·`angle_attack_02_hit`(target)은 안 나옴 — 앞 것은 `activation()`이 S2·S3 모드의 공격 시전과
+  같은 이름이라 빼고, 뒤 것은 스킬 틱의 피해에만 붙는데 S1 피해는 다음 공격이다(기존 매핑 한계). [화면 미확인: 安洁莉娜 `Disarmed`(아레나에서
+  못 일으킴), 凯尔希·思衡托 모드 2·4, 공식 녹화]
 
 ### 타격별 명중 — MultiHitUberEffectEmitter `_hitGroups` (2026-10-16, 이펙트 연결 전수, 디컴파일 확인)
 

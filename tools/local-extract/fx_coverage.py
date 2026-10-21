@@ -77,6 +77,8 @@ SCRIPTS = {
     # (2026-10-21) the route cursors, the 战场#06 wall and the enemies' packs
     978915749116962969: 'PreviewCursor', -2553461985578519915: 'SimpleEffect', 8058004230779817607: 'EffectData_Projectile',
     8089147815673937552: 'LineEffectEmitter', -7751344843855468294: 'SwitchableEffectByBlackboardValue',
+    # (2026-10-21) the common.ab prefabs packed into the operators' own bundles
+    -1593825680945881793: 'RandomEmitter',
 }
 # what the extract reads of the scripts above (reader() checks the raw fallbacks)
 SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoint', 'FxUVTweener', 'FxUVTweenerAdvance',
@@ -118,6 +120,7 @@ SHADERS_CHECKED = {
     'Torappu/Particles/Mask/Mask (Add)', 'Torappu/Particles/Mask/Mask (AlphaBlend)',
     'Torappu/Particles-L2D/Ram/Disturb(CustomData)', 'Torappu/Particles-L2D/Disturb/Disturb(CustomData)',
     'Torappu/Particles-L2D/Dissolve/Dissolve(CustomData)', 'Torappu/Particles-L2D/Dissolve/Dissolve Add',
+    'Torappu/Particles-L2D/AlphaBlend',   # 2026-10-21 (盟约·辅助干员's csuppo hit): properties, tags and blend state = Particles/AlphaBlend
 }
 
 # known items: 'kind:what' -> (status, note). `todo` = known, not drawn as the client does (the 2026-10-16 baseline; the
@@ -136,6 +139,8 @@ KNOWN = {
     'script:EmptyEffect': (_TODO, 'an Effect root without particles: its `_delayToFinish` / sub delays are not read'),
     'script:OnPlayEmitter': (_TODO, 'plays other effects when this one starts'),
     'script:OnFinishEmitter': (_TODO, 'plays other effects when this one finishes'),
+    'script:RandomEmitter': (_TODO, 'plays `_count` copies of the prefab `_effect` at random offsets in a box, `_preDelay` / '
+                             '`_delayPerEffect` apart (common_charge_cost_start_01 → 3 × common_charge_cost_01, 2026-10-21)'),
     'script:PauseEffectIf': (_TODO, 'pauses the effect on owner conditions (abnormal flags, blackboard keys)'),
     'script:PauseAnotherEffect': (_TODO, 'pauses another effect of the owner'),
     'script:PauseEffectIfNotIdle': (_TODO, 'pauses while the owner is not idle / faces back or front'),
@@ -198,6 +203,7 @@ KNOWN = {
                                                     'Unity binds nothing either'),
     'clip:Animator clips past the first (other states: set by client scripts)': (_TODO, 'only the default state\'s clip plays'),
     'clip:ParticleSystem.EmissionModule.rateOverTime.scalar': (_TODO, 'a clip animating a particle module: the player keeps the authored value'),
+    'clip:ParticleSystem.EmissionModule.rateOverTime.minScalar': (_TODO, 'a clip animating a particle module: the player keeps the authored value'),
     'clip:ParticleSystem.ShapeModule.radius.value': (_TODO, 'a clip animating a particle module: the player keeps the authored value'),
     'clip:ParticleSystem.SizeModule.curve.scalar': (_TODO, 'a clip animating a particle module: the player keeps the authored value'),
     'clip:ParticleSystem.TrailModule.colorOverLifetime.maxColor.a': (_TODO, 'a clip animating a particle module: the player keeps the authored value'),
