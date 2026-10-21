@@ -1690,6 +1690,23 @@ AUTO 스킬은 스킬 시작(`[trig]`) 경로뿐이었다. 瑕光 S1(`skchr_blem
 - 테스트 `test/sim/leader-mdrock-charge.test.js`(실제 매치 경로: 막힌 머드락이 공격마다 1층, 6층에서 멈춤, ATK = 기본 × (1 + 0.6 × 층)), `enemies_bosses.test.js` 고침(2층 = +120%). golden: 움직인
   장면 없음(golden 판의 머드락(적)은 0층에서 한 번만 공격).
 
+## upstream 0.3.1·0.3.2 대조 이식 — 전투 (2026-10-22)
+
+upstream `6ab24682` → master `c9d804f4`·dev `06a92237` 대조에서 받은 전투 수정(관리자 결정 2026-10-22). upstream 판정 목록은 `upstream.md`.
+
+### 관통은 고정 먼저, 그다음 % (upstream PR #798)
+
+- 규칙: 물리 `max(ATK×5%, ATK − max(0, DEF − 고정 관통) × (1 − % 관통))`, 법술
+  `max(ATK×5%, ATK × max(0, 100 − max(0, RES − 고정 관통) × (1 − % 관통)) / 100)`(`server/sim/damage.js mitigate`). 전에는 % 먼저
+  (`max(0, DEF × (1 − %) − 고정)`)라 둘을 함께 가진 공격이 공식보다 조금 더 셌다(DEF 300·고정 50·50% → 900, 공식 875).
+- 근거: 클라 코드 `BattleFormula.CalculateDamageInternal`(EN 클라, 핫픽스 없음, 관리자 노트), PRTS 「游戏数据基础」 伤害公式도 같다.
+  upstream PR #798(upstream 미병합)이 같은 순서로 고친다 — upstream 리팩터 위라 손으로.
+- 그대로 둔 것: 피해 숫자의 크리 판정 기대 피해(`local-hud.js`, 관통 없이 셈). 스카디 더 커럽팅 하트 모듈 新生代의 물리 피해 감소는 고정 관통을 음수로
+  더하는 방식이라 % 관통이 있는 공격이면 `30 × (1 − %)`만큼 준다.
+- 테스트 `test/sim/core.test.js`(고정+% 동시, 고정 > 방어·저항이면 0 하한). golden: 고정·% 관통을 함께 쓰는 판(roster-003·017·018·037·045, standin-04·09,
+  fields boss-boss_3-pair·boss-boss_5-pair·hidden-boss_9-pair, matches solo-ABYSS-2·coop4-FUNNY-6·coop8-HARD-3·coop2-ABYSS-10-boosted·
+  coop2-NORMAL-14-standins·custom-solo-ABYSS-12-battle-boosted).
+
 ## 8인 협동 모드 (관리자 결정 2026-10-16·2026-10-19, 공식에 없는 기능)
 
 공식 방은 1–4명이고 8인용 데이터는 없다(`act2autochess`에는 난이도별 `bloodPoint*`와 단일·멀티 연합 방어 템플릿뿐). 아래 수치·규칙은 모두

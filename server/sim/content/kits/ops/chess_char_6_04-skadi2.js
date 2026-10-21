@@ -141,7 +141,7 @@ function skadi2(bb, chess, def) {
         battle.on('hit', (ctx) => {
           const t = ctx.target, d = ctx.dmg;
           if (!t || t.side !== 'ally' || t.kind === 'device' || !live(unit) || !unit.skill?.active || !inCover(battle, unit, t)) return;
-          if (d.type === 'phys') d.defIgnoreFlat -= flat; // +flat effective DEF ⇒ −flat damage (above the 5 % floor)
+          if (d.type === 'phys') d.defIgnoreFlat -= flat; // +flat effective DEF ⇒ −flat damage (above the 5 % floor; × (1 − %) under a % 穿透, damage.js mitigate)
           else if (d.type === 'arts') d.amount = Math.max(0, d.amount - flat / Math.max(0.05, 1 - (t.s.res ?? 0) / 100));
         }, { owner: unit, priority: -10 });
       }

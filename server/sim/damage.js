@@ -167,17 +167,19 @@ function liftoffEvades(target, source, dmg) {
 
 /**
  * Pure mitigation formula (exported for tests). `target` = the target's stats; `ign.elementalRes` = its 元素抗性
- * (epDamageResistance) for 'elemental' damage.
+ * (epDamageResistance) for 'elemental' damage. 穿透 order: the flat ignore first (0 floor), then the percentage —
+ * client `BattleFormula.CalculateDamageInternal`: phys `max(atk×floor, atk − max(0, def − flat) × (1 − pct))`, arts
+ * `max(atk×floor, atk × max(0, 100 − max(0, res − flat) × (1 − pct)) / 100)` (PRTS 伤害公式 reads the same).
  */
 export function mitigate(amount, type, target, ign = {}) {
   if (type === 'phys') {
     const D = target.def ?? 0;
-    const eff = Math.max(0, D * (1 - clamp01(ign.defIgnorePct ?? 0)) - (ign.defIgnoreFlat ?? 0));
+    const eff = Math.max(0, D - (ign.defIgnoreFlat ?? 0)) * (1 - clamp01(ign.defIgnorePct ?? 0));
     return Math.max(amount - eff, MIN_DAMAGE_RATIO * amount);
   }
   if (type === 'arts') {
     const R = target.res ?? 0;
-    const eff = Math.max(0, R * (1 - clamp01(ign.resIgnorePct ?? 0)) - (ign.resIgnoreFlat ?? 0));
+    const eff = Math.max(0, R - (ign.resIgnoreFlat ?? 0)) * (1 - clamp01(ign.resIgnorePct ?? 0));
     return Math.max(amount * (1 - Math.min(100, eff) / 100), MIN_DAMAGE_RATIO * amount);
   }
   if (type === 'elemental') {

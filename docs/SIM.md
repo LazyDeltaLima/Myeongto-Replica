@@ -801,7 +801,7 @@ abilities skip her and a shot in flight when she took off lands on nothing [ASSU
 PRTS 异常效果: 无法选择 effects "仅在选择时生效"); checked before `hit` only — 蒂比 S2 takes off inside the
 `hit` of the attack that set it off, which resolves as usual) → **`hit`** (mutate `dmg`, set `dmg.cancel`) → dodge
 (`rng()`) → mitigation (phys
-`max(A − max(0, D×(1−defIgnorePct) − defIgnoreFlat), 5 %A)`, arts `max(A×(1 − R′/100), 5 %A)`, elemental
+`max(A − max(0, D − defIgnoreFlat)×(1−defIgnorePct), 5 %A)`, arts `max(A×(1 − R′/100), 5 %A)` with `R′ = max(0, R − resIgnoreFlat)×(1−resIgnorePct)` (flat 穿透 first — client `BattleFormula.CalculateDamageInternal`), elemental
 `max(A×(1 − 元素抗性/100), 5 %A)`, true = A; source ignore mods are added) → × source `dmgDealtMul` (× phys/artsDealtMul)
 × target `dmgTakenMul` (not for elemental) × type-taken mul × `dmg.mul` (a `sourceless` hit skips every source term) →
 **限伤** (`leaderHitLimit`: on a leader — `isBoss`, the tag-'boss' units: data/bosses.json `enemyKey`, the official
