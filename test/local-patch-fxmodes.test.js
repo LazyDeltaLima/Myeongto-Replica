@@ -98,7 +98,8 @@ describe('skill activation effects', () => {
     const mly = act('char_4064_mlynar', 2);
     assert.ok(!mly.loops.includes('mlynar_skill_03_range_01') && mly.loops.includes('mlynar_skill_03_buff_03'), '무에나 S3: range_01 is each attack\'s cast; buff_03 its loop');
     const tex = act('char_102_texas', 1);
-    assert.deepEqual(tex.start, ['texas_skill_01_start', 'texas_skill_01_range'], '텍사스 S2 (its files are named _skill_01_)');
+    // its cast also binds common.ab's charge cast (packed into its bundle since the other-bundle prefabs were extracted)
+    assert.deepEqual(tex.start, ['texas_skill_01_start', 'common_charge_cost_start_01', 'texas_skill_01_range'], '텍사스 S2 (its files are named _skill_01_)');
     assert.deepEqual(fx.char_102_texas.skills[1].target, ['texas_skill_01_hit'], 'the falling sword on each target');
     assert.deepEqual(act('char_4116_blkkgt', 2).start, ['blkkgt_skill_03_start_01', 'blkkgt_skill_03_start_02'], '데겐블레허 S3: the finisher pieces wait for its end');
     assert.deepEqual(fx.char_4116_blkkgt.skills[2].end, { cast: ['blkkgt_skill_03_end', 'blkkgt_skill_03_start_03', 'blkkgt_skill_03_start_04'], hit: ['blkkgt_skill_03_hit_2'] });
