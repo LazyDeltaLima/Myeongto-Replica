@@ -398,7 +398,8 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   발밑 FOOT 마운트)의 `static_offset`이 (0, −0.414, +0.666) — 발밑에서 0.666칸 아래(바닥 밑), 0.414칸 앞 — 으로, 발이 땅에 있으면 원이 한 칸 아래에 보이고
   (관리자 제보 「원형 이펙트가 약 한 칸 아래 타일에」), 비행 높이에서 시작하면 그녀 칸에 온다(디버그 아레나 확인). 다른 발밑 이펙트의 오프셋은 거의 0이다.
 - 코드: 스냅숏 비트 `shared/local.js UF_LIFTOFF`(2048, `server/sim/snapshot.js flagsOf`), `render/units.js` `liftoff` → `hover`, `render/fxgame.js lifted()`의
-  발밑 기준점이 이륙한 오퍼레이터면 그 높이를 탄다(비행 적의 발밑 이펙트는 그대로 — 클라의 FOOT·NONE도 비행 높이를 포함하지만 이번에 바꾸지 않음).
+  발밑 기준점이 이륙한 오퍼레이터면 그 높이를 탄다. (2026-10-21) 비행 적(`units.js flying`: UnitInfo `motion` FLY 또는 스냅숏 UF.FLYING)도 같다 —
+  클라의 FOOT·NONE은 엔티티 자리라 비행 높이를 포함하는데 우리는 그 아래 길에 두었다(`test/render/fly-feet-fx.test.js`). [화면 미확인]
 - golden: 결과는 그대로, 이륙 유닛이 있는 시나리오의 스냅숏 해시만(roster-004·006·025, diy-009·011).
 
 ## upstream 0.2.4 이식 — 렌더 (2026-10-11)

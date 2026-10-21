@@ -909,8 +909,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!frac || !v || !(v.info || v.screen)) {
       // 2026-10-11: an airborne (起飞) operator's feet are at the flyers' height (render/units.js `liftoff`; the client's
       // _spawnLocation FOOT / NONE is the entity's place, its fly height included) — 予愿安洁莉娜 S3's range ring is authored to
-      // come down from there onto her tile (docs/rules/render.md 「이륙 높이」)
-      if (v && v.liftoff) {
+      // come down from there onto her tile (docs/rules/render.md 「이륙 높이」). (2026-10-21) A flying enemy's too (render/units.js
+      // `flying`: UnitInfo motion FLY or the snapshot's UF.FLYING, drawn `hover` up): its feet effects stayed on the road under it
+      if (v && (v.liftoff || v.flying)) {
         return {
           get x() { return ex(v); }, get y() { return ey(v); }, get z() { return (v.z || 0) + (v.hover || 0); },
           get alive() { return v.alive; }, get remove() { return v.remove; }, id: v.id, info: v.info,
