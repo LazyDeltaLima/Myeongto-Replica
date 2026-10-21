@@ -335,7 +335,10 @@ describe('buff and custom-trigger sounds (EN client buff templates → sfx.kit)'
     field(a, 'char_4040_rockr', 1);
     a.handleBattleEvents([['skill', 1, 1]]);
     a.played.length = 0;
-    a.handleBattleEvents([['swing', 1, 0.3, 'bolt'], ['atk', 1, 2, 'bolt'], ['dmg', 2, 50, 'arts', 0, 1]]);
+    // (2026-10-21) the start sounds at her strike (BuffToOwnerDuringAbility ON_SPELL_ON), not at the swing
+    a.handleBattleEvents([['swing', 1, 0.3, 'bolt']]);
+    assert.ok(!a.played.some((p) => p.f === 'p_atk_elecwand_h.mp3'), 'not at the swing');
+    a.handleBattleEvents([['atk', 1, 2, 'bolt'], ['dmg', 2, 50, 'arts', 0, 1]]);
     for (const f of ['p_atk_elecwand_h.mp3', 'p_imp_elecwand_h.mp3']) assert.ok(a.played.some((p) => p.f === f), f);
     a.handleBattleEvents([['fx', 'overload', 0, 0, { id: 1 }]]);
     assert.ok(a.played.some((p) => p.f === 'p_skill_elecwandoverload.mp3'));

@@ -54,10 +54,13 @@ test('finishShot: the main effect\'s finishMain, then gone `finish` s later (fin
   assert.match(SRC, /l\.finishAt != null && clockS >= l\.finishAt\) \{ l\.finishAt = null; l\.inst\.stop\(true\); \}/);
 });
 
-test('fx_extract.py reads the ProjectileEffect root: `_delayToFinish` → finish, `_inactiveOnFinish` → offFinish', () => {
+test('fx_extract.py reads the ProjectileEffect root: `_delayToFinish` → finish, `_inactiveOnFinish` → offFinish, the stopped system → mainPs', () => {
   assert.match(EXTRACT, /PROJECTILE_EFFECT_SCRIPT = 4524653206994915020/);
   assert.match(EXTRACT, /def projectile_effect\(self, root\)/);
   assert.match(EXTRACT, /out_def\['offFinish'\] = off/);
+  assert.match(EXTRACT, /def main_ps\(self, root, parents, actives, ps_nodes, drawn\)/);
+  assert.match(EXTRACT, /out_def\['mainPs'\] = main/);
+  assert.match(PLAYER, /this\.def\.mainPs/);
   assert.match(PLAYER, /finishMain\(\) \{/);
 });
 
@@ -72,7 +75,7 @@ test('the extracted values (skipped without public/assets): 언더플로우 0.1 
   }
 });
 
-test('FxInstance.finishMain (skipped without public/assets): 애쉬락\'s shell goes off for good, the sparks keep running', { skip: !existsSync(ASHLOK) && 'no extracted fx' }, async () => {
+test('FxInstance.finishMain (skipped without public/assets): 애쉬락\'s shell goes off for good, its container system stops the rest', { skip: !existsSync(ASHLOK) && 'no extracted fx' }, async () => {
   const fxp = await import('../../public/js/render/fxplayer.js');
   const def = await loadDef(ASHLOK);
   const inst = new fxp.FxInstance(def, { quality: 'high', delays: false });
@@ -83,8 +86,11 @@ test('FxInstance.finishMain (skipped without public/assets): 애쉬락\'s shell 
   inst.update(0.05);
   assert.equal(shell.visible, false, 'switched off as it lands');
   const sys = (n) => inst.systems.find((s) => s.node.name === n);
-  assert.equal(sys('smoke').stopped, true, 'its first particle system stops');
-  assert.ok(!sys('xindian').stopped, 'the sparks (another branch) run on until the recycle');
+  // (2026-10-21) the client's first system is the empty container `fixed` (no material, dropped by the extract: def.mainPs):
+  // Stop(true) takes the smoke and the sparks under it — their live particles stay until the recycle
+  assert.equal(def.nodes[def.mainPs].name, 'fixed');
+  assert.equal(sys('smoke').stopped, true, 'the smoke stops emitting');
+  assert.equal(sys('xindian').stopped, true, 'the sparks too (under the container)');
   assert.equal(inst.stopping, undefined, 'not stopped as a whole: the pool takes it back `finish` s later');
   inst.stop(true);
   inst.update(0.016);

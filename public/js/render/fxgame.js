@@ -2250,8 +2250,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // paused from the attack's cast start with its `hide` effect (`off`: hidden too) and resumed with its `show` effect at the
   // attack's finish (`wait`: when the drone's projectile ends); a Default mode without emitters keeps its drone buff's look
   // (`idle` alone). Each attack also flies a drone's projectile (`trail` from its mount point `from`, `hit` on arrival) —
-  // the sim's one 'atk' of a 驭械术师 stands for her shot and the drone's. [추정: the hide at the 'atk' (the client: its swing),
-  // the show 0.2 s after the shot unless `wait`; a projectile without `speed` at 10 tiles / s]
+  // the sim's one 'atk' of a 驭械术师 stands for her shot and the drone's. The hide at the 'atk' (2026-10-21, decompile check):
+  // the drone's ON_CAST_START is its own ability's, which her attack casts from its DoCastOnTargets — after her shot, at
+  // her strike (MultiFunnelsNormalAttack RVA 0xBF2CC0 / MultiFunnelRemoteAttack 0xBF2080: RangedAttack.DoCastOnTargets,
+  // then CastToTarget of each active `_funnelActions`). [추정: the show 0.2 s after the shot unless `wait` (no drone with a
+  // hide lacks it today); a projectile without `speed` at 10 tiles / s]
   // An `attach` projectile does not fly (AttachToTarget): it hits at once and ends `delay` s later (荒芜拉普兰德's normal
   // attack: her drone comes back 0.5 s after its bite). A `lock` one stays on its target (耶拉 / 洛洛 S2, 荒芜拉普兰德 S1 / S2):
   // its drone hides once, every attack on that target is a hit only, and it comes back when the target is gone (droneLock);
@@ -2261,8 +2264,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const funnelMode = (v) => { const m = v._fxSkillOn ? modeNow(v) : 0; return Number.isInteger(m) && m >= 0 ? m : 0; };
   /** Whether `list` are 荒芜拉普兰德's normal-attack drones (her Default / S1 modes: idle ones; S2's lock their targets one each). */
   const wolfPair = (v, list) => fxBundleOf(v.info?.spine || v.info?.defId) === 'whitw2' && list.some((x) => x.idle?.length);
-  /** How many of a mode's drones act: 荒芜拉普兰德's 1 + S1's passive 浮游单元+1 + 头狼 stage 3 (the sim's profile.hits) [추정: the
-   * client's `_useExtraActiveCntAbility` count not decompiled]; every one otherwise. */
+  /** How many of a mode's drones act: 荒芜拉普兰德's 1 + S1's passive 浮游单元+1 + 头狼 stage 3 (the sim's profile.hits); every one
+   * otherwise. (2026-10-21, decompile check) the client's MultiFunnelsNormalAttack.UpdateActiveCntIfAdded (RVA 0xBF3290): min(the
+   * `_funnelActions` count, 1 + blackboard `cnt` (M0_1 / S1 attack@cnt 0) + MultiFunnelExtraActiveCntAbility's count by ability
+   * name) — AddFunnelAbilityActiveCnt +1 from whitw2_s1[passive] (M0 / M1) and whitw2_t[extra_ability]'s third trigger (M0–M2,
+   * WolvesDispersed). */
   function funnelCount(v, list) {
     if (!wolfPair(v, list)) return list.length;
     return Math.min(list.length, 1 + (skillIdx(v) === 0 ? 1 : 0) + ((v._fxAlpha | 0) >= 3 ? 1 : 0));
@@ -2387,9 +2393,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // sim's 战术点形态 — until its vigil_wolf_switch cast vigil_token_start; [block_cnt] vigil_token_buff_1–4 on its head / body /
   // hands (SPECIAL_0–3) while it stands. Its bite (vigil_wolf_hit_effect): _hit_1 / _2 / _3 by its extra wolves, _extra with
   // 伺夜 S2's gift (vigil_wolf_s_2: vigil_token_skill_02_hint at the cast, _ready until that bite); the extra wolves' cast
-  // (_vigilWolfCastEffects) vigil_token_sub_attack_1 / _2; S1 / S2's heal vigil_token_heal. The count comes with the sim's
-  // 'summon' / 'revive' / 'wolfShadow' / 'wolfShadowLost' (`wolves` / `n`). [추정: a board piece's first count 2 (初始两只);
-  // its 战术点 ghost at the tile it fell on, 40 s at most when no return comes]
+  // (_vigilWolfCastEffects) vigil_token_sub_attack_1 / _2; S1 ③'s heal and S2's (at the gifted bite: vigil_wolf_s_2
+  // ON_ABILITY_CAST_ON_TARGET) vigil_token_heal. The count comes with the sim's 'summon' / 'revive' / 'wolfShadow' /
+  // 'wolfShadowLost' / 'wolfCount' (a board piece's first, 2026-10-21) (`wolves` / `n`); its 战术点 ghost stays at the tile it
+  // fell on until it comes back or 'wolfTacEnd' (伺夜 left: the Recharge mode leaves with the token) — 40 s at most otherwise
   const PACK = 'token_10028_vigil_wolf', PACK_FX = 'vigil';
   const isPack = (v) => !!(v?.info && (v.info.defId === PACK || v.info.spine === PACK));
   const packOn = () => !!(index?.bundles?.[PACK_FX]?.includes('vigil_token_sub_start_1') && q() !== 'low' && !failed);
@@ -2435,9 +2442,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (o.skill !== 'vigil_2' || !isPack(v)) return false;
       const p = packOf(o.id);
       packFx('vigil_token_skill_02_hint', v, { owner: null, buff: false });
-      packFx('vigil_token_heal', v, { owner: null, buff: false });
       if (!p.readyOn) p.ready = packFx('vigil_token_skill_02_ready', v, { owner: o.id, buff: false, onCaster: true, until: null, tag: 'pack' });
       p.readyOn = true;
+      return true;
+    }
+    if (e[1] === 'wolfTacEnd') {   // 2026-10-21: its 战术点形态 ends without a return (伺夜 left)
+      const p = packs.get(o.id);
+      if (!p) return true;
+      if (p.ghost) { p.ghost.then((l) => l?.inst.stop()); p.ghost = null; }
+      p.tac = false;
       return true;
     }
     const n = Number(o.wolves ?? o.n);
@@ -2468,6 +2481,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (p.readyOn) {
       p.readyOn = false;
       packFx('vigil_token_attack_hit_extra', tgt, { owner: null, buff: false });
+      packFx('vigil_token_heal', v, { owner: null, buff: false });   // 2026-10-21: the gift heals on this bite
       if (p.ready) { p.ready.then((l) => l?.inst.stop()); p.ready = null; }
     }
   }
@@ -4080,7 +4094,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'burst' && e[4]?.element) { if (burstFx(e, views)) ownFx.add(e); return; }
           if (e[1] === 'whitw2Drones' && e[4]) { wolfFx(e); return; }
           // 2026-10-16: 伺夜's wolf pack (its count, its gift)
-          if (['summon', 'revive', 'wolfShadow', 'wolfShadowLost', 'buff'].includes(e[1]) && packEvent(e, views)) ownFx.add(e);
+          if (['summon', 'revive', 'wolfShadow', 'wolfShadowLost', 'wolfCount', 'wolfTacEnd', 'buff'].includes(e[1]) && packEvent(e, views)) ownFx.add(e);
           // 2026-10-16: 荒芜拉普兰德's 头狼 stage (stage 3: one more drone — droneIdle)
           if (e[1] === 'talent' && e[4]?.name === 'alpha') { const v = views.get(e[4].id); if (v) { v._fxAlpha = Number(e[4].stage) || 0; droneIdle(v); } }
           if (e[1] === 'mysticStore' && e[4] && chargeStore(e, views)) { ownFx.add(e); return; } // 2026-10-21: a 秘术师's stored energy

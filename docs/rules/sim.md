@@ -1604,6 +1604,16 @@ AUTO 스킬은 스킬 시작(`[trig]`) 경로뿐이었다. 瑕光 S1(`skchr_blem
 - 테스트 `test/sim/blaze2-downed-skill.test.js`(S1–S3: 쓰러진 동안 SP를 채워도 시전·공격 없음, 일어난 뒤 다시 시전; 고치기 전 S2·S3 실패).
   golden: roster-013(烛煌이 일어나 싸움). hidden-boss_9-solo는 「假想敌：铳 【最终之罚】 돌진 속도·추적」 수정 뒤의 판에서는 바뀌지 않음.
 
+## 伺夜 S2 领袖的馈赠 회복은 물 때 (2026-10-21, 클라 버프 템플릿)
+
+- **공식**(EN 버프 템플릿 `vigil_s_2` → 늑대 무리에 `vigil_wolf_s_2`): 회복(`HealViaMaxHpRatio`, `_ignoreHealFree`)과 `vigil_token_heal`은 늑대의 Attack 능력의
+  ON_ABILITY_CAST_ON_TARGET — 선물을 받은 다음 물기(타격) 때다. 그때 `[mark_finish]`를 만들어 그 능력이 끝나면(ON_ABILITY_FINISH) 선물이 끝난다. 토큰
+  Attack은 대상 하나에 한 번 시전하므로(`_additionalTimes` 없음 — 추가 늑대의 물기는 `vigil_wolf_t_1_enhance[damage]` 추가 피해) 회복도 한 번.
+- **변경**: 시전 때 하던 회복을 선물을 쓰는 그 공격의 타격으로 옮김(`chess_char_3_19-vigil.js installGift`의 `beforeAttack` — 선물에 `hr`). 전술점 형태의 무리는
+  돌아와 문 때 회복. DP·×atk_scale·처치 DP는 그대로.
+- 테스트 `test/content/kits_alt_t3.test.js`(시전 때 회복 없음, 첫 물기에 hp_ratio, 둘째 물기엔 없음). golden: roster-039·040(선물 물기 전에 판이 끝나
+  회복이 사라짐; 승패 그대로), 그 밖은 같은 날의 새 표시 이벤트 'wolfCount'·'wolfTacEnd' 수만(rules/fx.md 「伺夜 늑대 무리」).
+
 ## 8인 협동 모드 (관리자 결정 2026-10-16·2026-10-19, 공식에 없는 기능)
 
 공식 방은 1–4명이고 8인용 데이터는 없다(`act2autochess`에는 난이도별 `bloodPoint*`와 단일·멀티 연합 방어 템플릿뿐). 아래 수치·규칙은 모두

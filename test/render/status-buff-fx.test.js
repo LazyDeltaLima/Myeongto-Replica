@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { makeBattle, enemyRec } from '../helpers/battleHarness.js';
 import * as F from '../../public/js/render/fxstatus.js';
 import { statusIconKey } from '../../public/js/render/style.js';
+import { UF } from '../../shared/constants.js';
 
 const DUMMY = enemyRec({ key: 'enemy_dummy', hp: 1e9, speed: 0, atk: 0 });
 const MEDIC = 'chess_char_2_02_a';   // 赫默
@@ -73,11 +74,18 @@ describe('client: status → the official buff effect', () => {
     assert.deepEqual(names(e('udflow:dot:3')), ['udflow_debuff_01']);
     assert.deepEqual(names(unit('char_4130_mlynar', { statuses: new Set(['agoat2:mist:7', 'inside:ammo:9', 'rosmon:stable']) })), ['agoat2_recover_01', 'inside_buff_01_start', 'rosmon_buff_01_start']);
     assert.deepEqual(names(unit('char_1028_texas2', { statuses: new Set(['texas2:swordplay', 'texas2:recast']) })), ['texas2_buff_01_start', 'texas2_buff_02_start', 'texas2_buff_02_start_02']);
+    // (2026-10-21) S3's texas2_s[no_effect_02] window: the second is off while S3 runs, back when she is stunned or it ends
+    const s3 = (o) => unit('char_1028_texas2', { statuses: new Set(['texas2:recast']), _fxSkillOn: true, ...o });
+    assert.deepEqual(names(s3({ info: { defId: 'char_1028_texas2', skillIndex: 2 } })), ['texas2_buff_02_start']);
+    assert.deepEqual(names(s3({ info: { defId: 'char_1028_texas2', skillIndex: 2 }, flags: UF.STUNNED })).filter((n) => n.startsWith('texas2')), ['texas2_buff_02_start', 'texas2_buff_02_start_02']);
+    assert.deepEqual(names(s3({ info: { defId: 'char_1028_texas2', skillIndex: 1 } })), ['texas2_buff_02_start', 'texas2_buff_02_start_02'], 'S2: no window');
+    assert.deepEqual(names(s3({ info: { defId: 'char_1028_texas2', skillIndex: 2 }, _fxSkillOn: false })), ['texas2_buff_02_start', 'texas2_buff_02_start_02'], 'S3 over');
     assert.deepEqual(names(unit('char_1047_halo2', { statuses: new Set(['halo2:t2full']) })), ['halo2_talent_02']);
     assert.deepEqual(names(unit('char_2015_dusk', { statuses: new Set(['dusk:pending']) })), ['dusk_buff_04_start']);
     // at the prefab's own spawn point (fxgame.js playStatus → lifted), and no drawn icon while the layer is off
     for (const k of ['agoat2:mist:7', 'pasngr:enhance:1', 'udflow:dot:1', 'rosmon:stable', 'inside:ammo:9', 'dusk:pending', 'halo2:t2', 'halo2:t2full', 'texas2:swordplay', 'texas2:recast']) {
-      const spec = F.KEY_FX[k.replace(/:\d+$/, '')];
+      const raw = F.KEY_FX[k.replace(/:\d+$/, '')];
+      const spec = typeof raw === 'function' ? raw({ info: {}, flags: 0 }, null) : raw;
       for (const s of Array.isArray(spec[0]) ? spec : [spec]) assert.equal(s[2], F.OWN, k);
       assert.equal(statusIconKey(k), null, `${k}: no icon`);
     }

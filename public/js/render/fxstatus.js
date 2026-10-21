@@ -125,9 +125,15 @@ export const KEY_FX = Object.freeze({
   'halo2:t2': ['halo2', 'halo2_talent_01', OWN],                          // halo2_t_2[fx] (_passiveBuffs) until the stacks are full …
   'halo2:t2full': ['halo2', 'halo2_talent_02', OWN],                      // … then halo2_t_2[full]
   'texas2:swordplay': ['texas2', 'texas2_buff_01_start', OWN],            // texas2_t_2 (ended by ON_TARGET_KILLED)
-  // texas2_t_1[recast_effect] and [recast_effect_02]'s derived buff until the recast [추정: S3's texas2_s[no_effect_02] window
-  // that hides the second is not modelled]
-  'texas2:recast': [['texas2', 'texas2_buff_02_start', OWN], ['texas2', 'texas2_buff_02_start_02', OWN]],
+  // texas2_t_1[recast_effect] and [recast_effect_02]'s derived buff until the recast. (2026-10-21) The second is off while S3
+  // runs and she is not stunned: skchr_texas2_3's AppearSwordRain creates texas2_s[no_effect_02] as the skill starts
+  // (texas2_s_3[create_no_effect_02], an immediate buff), ModeWithSwordRain's texas2_s_3 (life `duration`) ends it, and
+  // [recast_effect_02]'s trigger (every 0.1 s) finishes the effect while it is there unless STUNNED (EN buff templates)
+  'texas2:recast': (v) => {
+    const s3 = !!v?._fxSkillOn && v.info?.skillIndex === 2 && !((v.flags | 0) & UF.STUNNED);
+    const first = ['texas2', 'texas2_buff_02_start', OWN];
+    return s3 ? [first] : [first, ['texas2', 'texas2_buff_02_start_02', OWN]];
+  },
   // 2026-10-21 (docs/rules/fx.md 「버프 스택 수로 바뀌는 이펙트」): 佩佩 S2 from its second cast, pepe_s_2[attack_speed]'s
   // derived [effect_1/2/3] by the casts left (`cnt`: ≤ 0 → _03, ≤ 1 → _01, else _02; the kit's `fx` hint) until the skill ends
   'pepe:rage': (v, from) => {

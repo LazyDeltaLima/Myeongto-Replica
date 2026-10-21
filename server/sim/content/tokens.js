@@ -750,11 +750,13 @@ export function installWolfTacticalPoint(battle, unit, { onEnter = null } = {}) 
   }, { owner: unit, priority: -10 });
   // its owner leaving ends the form without a return ("不触发上述效果"): the piece waits for the owner's redeploy, which
   // brings a fresh pack (its initial 狼影) — as for a standing pack, which leaves with its owner
+  // (the client's Recharge mode leaves with the token: 'wolfTacEnd' ends its ghost effect — render/fxgame.js packEvent)
   battle.on('death', (ctx) => {
     const tp = wolfTacticalPoint(unit);
     if (!tp || !unit.ownerUnit || ctx.unit !== unit.ownerUnit) return;
     unit.mem.wolfTac = null;
     if (tp.timer) tp.timer.cancel();
+    battle.fx('wolfTacEnd', { x: unit.x, y: unit.y, id: unit.id });
   }, { owner: unit });
 }
 
@@ -788,8 +790,10 @@ function wolfPack(bb, raw, def) {
         const back = unit.mem.wolfReturn;
         setShadows(battle, unit, back ? 1 : initShadows);
         unit.hp = unit.s.maxHp;
-        // (伺夜 S1 ① shows its own summon fx)
+        // (伺夜 S1 ① shows its own summon fx); a fresh deployment announces its first count (the client's extra-wolf effects:
+        // render/fxgame.js packEvent)
         if (back && back.src == null) battle.fx('wolfShadow', { x: unit.x, y: unit.y, id: unit.id, n: 1 });
+        else if (!back) battle.fx('wolfCount', { x: unit.x, y: unit.y, id: unit.id, n: unit.mem.shadows });
         const seq = unit.deploySeq;
         if (interval > 0) {
           battle.every(interval, (b, sched) => {

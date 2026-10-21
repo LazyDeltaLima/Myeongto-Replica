@@ -90,6 +90,8 @@ PAUSE_IDLE_SCRIPT = 2267209715737721819
 PAUSE_SPINE_SCRIPT = -654372255496816943
 FINISH_IF_SCRIPT = -6490124024613466648
 EMPTY_EFFECT_SCRIPT = -488665936260092151
+# (2026-10-21, decompile check) the MonoScript PathID of Torappu.Battle.Effects.FunnelHitEffect (funnel_hit, `jitter`)
+FUNNEL_HIT_SCRIPT = 8922258000712749090
 # Torappu.Battle.AbnormalFlag by value (10-14 EN dump; E_NUM = 44 means "no flag"). A value past the list (the CN client's
 # newer flags) stays a number.
 ABNORMAL_FLAGS = ('STUNNED', 'SP_RECOVER_STOPPED', 'TARGET_FREE', 'BLOCK_FREE', 'HIDDEN', 'INVINCIBLE', 'UNDEADABLE', 'HEAL_FREE',
@@ -963,6 +965,13 @@ class Extractor:
         off = self.off_on_finish(root, gos)
         if off:
             out_def['offFinish'] = off
+        main = self.main_ps(root, [n['parent'] for n in nodes], [n['active'] for n in nodes], set(pss.values()),
+                            [i for i, n in enumerate(nodes) if n.get('ps')])
+        if main is not None:
+            out_def['mainPs'] = main
+        jitter = self.funnel_hit(root)
+        if jitter:
+            out_def['jitter'] = jitter
         right = self.right_effect(root)
         if right:
             out_def['right'] = right
@@ -1116,6 +1125,22 @@ class Extractor:
             if t.get('_ignorePlayerSide'):
                 out['anySide'] = True
             return out
+        return None
+
+    def funnel_hit(self, root):
+        """(2026-10-21, decompile check) the client's FunnelHitEffect on the root: its `_randomRange` [x, y, z] — `OnPlay` (10-14
+        EN dump RVA 0xE83830) turns the effect to `RandomUtil.RandomDirectionV2()` (a random unit vector of the map plane, x / y
+        each `Random.value` × 2 − 1, normalised: 0x5A81160) through `Effect.Behaviour.FaceTo`, then moves the effect's transform
+        by `RandomUtil.RandomVector3(_randomRange)` (`Random.Range(−r, r)` per axis: 0x5A814D0) in world space — a drone hit at a
+        random point around its target (耶拉 S2 kjera_token_skill_02_hit_*; 流明 S2 lumen_skill_02_hit has a zero range — only
+        the random facing). By its field names; None without one."""
+        for sid, _raw, t in self.monos(root):
+            if sid != FUNNEL_HIT_SCRIPT:
+                continue
+            if t is None or not isinstance(t.get('_randomRange'), dict):
+                self.cov.reader('FunnelHitEffect', False, 'no type tree: nothing read')
+                return None
+            return [r4(t['_randomRange'].get(k) or 0) for k in ('x', 'y', 'z')]
         return None
 
     def random_emitter(self, go):
@@ -1989,33 +2014,75 @@ class Extractor:
 
     def off_on_finish(self, root, gos):
         """(2026-10-11) the node indices of the ProjectileEffect's `_inactiveOnFinish` (projectile_effect; `gos`: GameObject /
-        Transform PathID → node index), sorted, or None: switched off the moment its projectile stops."""
+        Transform PathID → node index), sorted, or None: switched off the moment its projectile stops. (2026-10-21, decompile
+        check) A ParticleEffect root's own `_inactiveOnFinish` (0xF0) the same: `ParticleEffect.OnFinish` (10-14 EN dump RVA
+        0xEACD20) stops its first system and `SetActiveIfNecessary(false)` on each — by its field names only (the EN and CN
+        clients' type trees read since 2026-10-16)."""
         pj = self.projectile_effect(root)
-        off = sorted({gos[p] for p in (pj or {}).get('off') or [] if p in gos})
+        ids = (pj or {}).get('off') or []
+        if pj is None:
+            for _sid, _raw, t in self.monos(root):
+                if t is not None and all(f in t for f in ROOT_EFFECT_FIELDS.values()) and isinstance(t.get('_inactiveOnFinish'), list):
+                    ids = [int(x.get('m_PathID') or 0) for x in t['_inactiveOnFinish'] if isinstance(x, dict) and not x.get('m_FileID')]
+                    break
+        off = sorted({gos[p] for p in ids if p in gos})
         return off or None
+
+    def main_ps(self, root, parents, actives, ps_nodes, drawn):
+        """(2026-10-21, decompile check) the node index of the particle system the client stops when it finishes this effect,
+        when it is not the one render/fxplayer.js FxInstance.finishMain takes by itself (the first extracted system of an
+        active node) — else None. `parents` / `actives`: the nodes' parent index and m_IsActive, `ps_nodes`: the nodes with a
+        ParticleSystem component (also those the walk drops: no material, a disabled renderer), `drawn`: the extracted ones
+        (a list, or False). The client takes it in Awake with GetComponentInChildren<ParticleSystem> (depth first = the walk
+        order): `ProjectileEffect.Awake` (10-14 EN dump RVA 0xEADE10) the overload without `includeInactive` (active nodes
+        only), `ParticleEffect.Awake` (0xEABEB0) with `includeInactive` true; both OnFinish (0xEAE6C0 / 0xEACD20) call
+        `ParticleSystem.Stop(true)` (0x5F1B440: with its children, emission only). So a system without a material can be the
+        one stopped (and nothing visible stops), or one under an inactive node (a ParticleEffect's)."""
+        if not ps_nodes:
+            return None
+
+        def active_in(i):
+            while i >= 0:
+                if actives[i] is False:
+                    return False
+                i = parents[i]
+            return True
+        if self.projectile_effect(root) is not None:
+            client = next((i for i in sorted(ps_nodes) if active_in(i)), None)
+        elif self.root_effect(root) is not None:
+            client = min(ps_nodes)
+        else:
+            return None
+        player = next((i for i in (drawn or []) if active_in(i)), None)
+        return client if client is not None and client != player else None
 
     def tree_ids(self, go):
         """(2026-10-11) the node names of the prefab under `go` in the extractor's walk order and its GameObject / Transform
         PathID → node index map (prefab()'s `gos`), for the *_only rewrites."""
         names, gos = [], {}
+        self.tree_more = {'parents': [], 'actives': [], 'ps': set()}   # (2026-10-21) for main_ps
 
-        def walk(g):
+        def walk(g, parent):
             dd = g.read_typetree()
             idx = len(names)
             gos[g.path_id] = idx
             names.append(dd['m_Name'])
+            self.tree_more['parents'].append(parent)
+            self.tree_more['actives'].append(bool(dd.get('m_IsActive', 1)))
             tr = None
             for c in dd['m_Component']:
                 comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], g)
                 if comp is not None and comp.type.name == 'Transform':
                     tr = comp.read_typetree()
                     gos[comp.path_id] = idx
+                elif comp is not None and comp.type.name == 'ParticleSystem':
+                    self.tree_more['ps'].add(idx)
             for ch in (tr or {}).get('m_Children') or []:
                 cto = self.resolve(ch, g)
                 cgo = self.resolve(cto.read_typetree()['m_GameObject'], cto) if cto is not None else None
                 if cgo is not None:
-                    walk(cgo)
-        walk(go)
+                    walk(cgo, idx)
+        walk(go, -1)
         return names, gos
 
     def finish_only(self, bundle, pack=None):
@@ -2044,14 +2111,16 @@ class Extractor:
             v = self.delay_to_finish(go) or None
             d = json.loads(f.read_text())
             found += v is not None
-            want = {'finish': v}
-            if self.projectile_effect(go) is not None:
+            want = {'finish': v, 'jitter': self.funnel_hit(go)}
+            if self.projectile_effect(go) is not None or self.root_effect(go) is not None:
                 names, gos = self.tree_ids(go)
                 nodes = d.get('nodes') or []
                 if len(nodes) == len(names) and all(n.get('name') == names[k] for k, n in enumerate(nodes)):
                     want['offFinish'] = self.off_on_finish(go, gos)
+                    tm = self.tree_more
+                    want['mainPs'] = self.main_ps(go, tm['parents'], tm['actives'], tm['ps'], [k for k, n in enumerate(nodes) if n.get('ps')])
                 else:
-                    print(f'[fx] {bundle}/{f.stem}: node tree differs from the bundle, offFinish skipped')
+                    print(f'[fx] {bundle}/{f.stem}: node tree differs from the bundle, offFinish / mainPs skipped')
             if all(d.get(k) == x for k, x in want.items()):
                 continue
             for k, x in want.items():
@@ -2482,8 +2551,8 @@ def main():
     ap.add_argument('--height-only', action='store_true', help='only write the `_overwriteHeight` `height` into the already '
                     'extracted prefabs of the bundles (every bundle of index.json without --bundle; 2026-10-10)')
     ap.add_argument('--finish-only', action='store_true', help='only write the `_delayToFinish` `finish` (and a projectile '
-                    'effect\'s `_inactiveOnFinish` `offFinish`) into the already extracted prefabs of the bundles (every bundle '
-                    'of --index without --bundle; 2026-10-11)')
+                    'or particle effect\'s `_inactiveOnFinish` `offFinish` and the system it stops `mainPs`, 2026-10-21) into the '
+                    'already extracted prefabs of the bundles (every bundle of --index without --bundle; 2026-10-11)')
     ap.add_argument('--coverage', metavar='OUT', help='write no effect file or index: walk the already extracted prefabs of the bundles (every '
                     'bundle of --index without --bundle) and write the full list of what the pipeline leaves out to OUT '
                     '(JSON, fx_coverage.py; 2026-10-16). Each prefab is walked from where it was extracted (the index\'s '

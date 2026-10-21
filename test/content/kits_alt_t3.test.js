@@ -1004,7 +1004,7 @@ test('3_19 伺夜 狼群: a 撤退 also ends in the 战术点形态 (狼影 0); 
   }
 });
 
-test('3_19 伺夜 S2 领袖的馈赠: +DP, the pack recovers HP, its next attack ×atk_scale, a kill by it pays +DP', () => {
+test('3_19 伺夜 S2 领袖的馈赠: +DP, its next attack ×atk_scale and the pack recovers HP as it bites, a kill by it pays +DP', () => {
   for (const id of BOTH('chess_char_3_19_a')) {
     const b = SB(id, 'skchr_vigil_2');
     const h = makeBattle({ defs: { enemies: { enemy_d: dummy('enemy_d') }, chess: noGarrison(id) }, timeLimit: 60, hooks: ['damaged', 'attack'], captureNoisy: true, flags: { dpPerSec: 0 },
@@ -1019,10 +1019,14 @@ test('3_19 伺夜 S2 领袖的馈赠: +DP, the pack recovers HP, its next attack
     assert.ok(h.runUntil(() => u.skill.activations === 1, 3));
     out(h, u);
     approx(p.dp, dp0 + b.cost);
-    approx(w.hp, w.s.maxHp * (0.5 + b['vigil_wolf_s_2.hp_ratio']));
+    // (2026-10-21) the client's vigil_wolf_s_2 heals on its Attack's cast on target: nothing at the cast, the gifted bite heals
+    approx(w.hp, w.s.maxHp * 0.5, 1e-6, 'no heal at the cast');
     h.b.addBuff(u, { key: 'test:disarm', flags: { disarm: true } });
     const n0 = h.hooksOf('attack').length;
+    assert.ok(h.runUntil(() => h.hooksOf('attack').slice(n0).some((c) => c.attacker === w), 6));
+    approx(w.hp, w.s.maxHp * (0.5 + b['vigil_wolf_s_2.hp_ratio']), 1e-6, 'healed by the gifted bite');
     assert.ok(h.runUntil(() => h.hooksOf('attack').slice(n0).filter((c) => c.attacker === w).length >= 2, 6));
+    approx(w.hp, w.s.maxHp * (0.5 + b['vigil_wolf_s_2.hp_ratio']), 1e-6, 'once');
     const bites = h.hooksOf('attack').slice(n0).filter((c) => c.attacker === w);
     const dmgOf = (a) => h.hooksOf('damaged').filter((c) => c.source === w && c.dmg?.isAttack && c.dmg.attackId === a);
     const ids = [...new Set(h.hooksOf('damaged').filter((c) => c.source === w && c.dmg?.isAttack).map((c) => c.dmg.attackId))].filter((a) => a > 0).slice(-bites.length);

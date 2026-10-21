@@ -1444,12 +1444,22 @@ export class FxInstance {
     this.object = new THREE.Group();            // placed in board coordinates by the caller
     const unity = new THREE.Group();            // Unity battle frame: mirror z (z = −height)
     const facing = opts.facing || 1;
-    const turn = faceTurn(def?.face, opts.dir || { x: facing, y: 0 }, opts.body ?? null);
+    // (2026-10-21, decompile check) the client's FunnelHitEffect (fx_extract.py `jitter`): OnPlay (RVA 0xE83830) turns the
+    // effect to a random direction of the map plane (RandomUtil.RandomDirectionV2) and moves it by Random.Range(−r, r) per
+    // axis of `_randomRange` in world space — a drone hit at a random point (Unity's display random: Math.random here)
+    const jit = Array.isArray(def?.jitter) && def.jitter.length === 3 ? def.jitter.map((v) => Number(v) || 0) : null;
+    const rdir = jit ? { x: Math.random() * 2 - 1, y: Math.random() * 2 - 1 } : null;
+    const turn = faceTurn(def?.face, rdir || opts.dir || { x: facing, y: 0 }, rdir ? null : opts.body ?? null);
     this.turn = turn;
     // the mirror: by FollowMountPoint `_followScaleSign` (its point's scale sign = the Spine flip) when the prefab has its
     // face record, else (no ParticleEffect root) the old rule — mirrored when its owner faces left
     const mirror = turn ? (def?.mount?.followScaleSign ? facing : 1) : facing;
     unity.scale.set(mirror * (opts.scale || 1), opts.scale || 1, -(opts.scale || 1));
+    if (jit) {   // Unity world (x, y, z = −height)
+      const r = (a) => (a ? (Math.random() * 2 - 1) * a : 0);
+      const x = r(jit[0]), y = r(jit[1]), z = r(jit[2]);
+      unity.position.set(x, y, z ? -z : 0);
+    }
     this.object.add(unity);
     this.unity = unity;
     this.nodes = [];
@@ -1717,15 +1727,20 @@ export class FxInstance {
    * `ProjectileEffect.OnFinish` (0xCB42B0) stops the effect's first particle system with its children (`Awake` 0xCB3A00:
    * GetComponentInChildren<ParticleSystem> — the active ones, depth first: the extract's node order) and switches off its
    * `_inactiveOnFinish` nodes (fx_extract.py `offFinish`: the bullet, shell, arrow head …), whose particles go with them. The
-   * rest keeps running until the caller ends it `finish` s later (the pool's recycle). [ASSUMED: a system the extract
-   * dropped (no material) is not counted as the first one]
+   * rest keeps running until the caller ends it `finish` s later (the pool's recycle).
+   * (2026-10-21, decompile check) The first system counts every ParticleSystem — also one the extract dropped (no material,
+   * a disabled renderer: often the empty container over the others), and for a ParticleEffect root (`ParticleEffect.Awake`
+   * 10-14 EN dump RVA 0xEABEB0: includeInactive) an inactive node's too: the extract writes that node as `mainPs` when it is
+   * not the first extracted system of an active node (fx_extract.py main_ps); `Stop(true)` (0x5F1B440) takes its children.
+   * A ParticleEffect root's own `_inactiveOnFinish` is `offFinish` as well.
    */
   finishMain() {
     if (this.empty || this.disposed || this.offFinish) return;
     const nodes = this.def.nodes;
     const activeIn = (i) => { for (let k = i; k >= 0; k = nodes[k].parent) if (nodes[k].active === false) return false; return true; };
     const within = (o, top) => { for (let p = o; p && p !== this.unity; p = p.parent) if (p === top) return true; return false; };
-    const first = nodes.findIndex((n, i) => n.ps && activeIn(i));
+    const main = Number.isInteger(this.def.mainPs) && this.def.mainPs >= 0 && this.def.mainPs < nodes.length ? this.def.mainPs : -1;
+    const first = main >= 0 ? main : nodes.findIndex((n, i) => n.ps && activeIn(i));
     if (first >= 0) for (const s of this.systems) if (within(s.node, this.nodes[first])) s.stop();
     this.offFinish = (this.def.offFinish || []).map((i) => this.nodes[i]).filter(Boolean);
     for (const o of this.offFinish) {

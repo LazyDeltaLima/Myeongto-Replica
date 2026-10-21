@@ -189,7 +189,7 @@ export function tokenModeName(su, owner) {
  * 2026-10-10, docs/rules/audio.md 「버프·커스텀 트리거 소리」: the buff sound of tracked unit `su`'s attack moment `at` ('s' swing,
  * 'a' strike, 'd' its impact; `melee` = a melee strike) — an sfx.kit key (tools/assets/kit-sfx.mjs) or null. 혼 S2 / S3: every
  * strike sounds horn_s_<n>[overload|normal][melee|ranged].attack (buff template horn_s_<n>[signal_melee|signal_ranged], event
- * ON_ABILITY_SPELL_ON); 락락 S2: rockr_s2_common_attack_start / _hit (+ _overload) at the swing / impact. `su.over` = the
+ * ON_ABILITY_SPELL_ON); 락락 S2: rockr_s2_common_attack_start / _hit (+ _overload) at the strike / impact. `su.over` = the
  * running skill's 过载 (sim fx 'overload', signalFxKey).
  */
 export function signalAttackKey(su, at, melee) {
@@ -197,7 +197,9 @@ export function signalAttackKey(su, at, melee) {
   if (su.def === 'char_4039_horn' && at === 'a' && (su.skillIndex === 1 || su.skillIndex === 2)) {
     return `horn:${su.skillIndex + 1}:${su.over ? 'overload' : 'normal'}:${melee ? 'melee' : 'ranged'}`;
   }
-  if (su.def === 'char_4040_rockr' && su.skillIndex === 1 && (at === 's' || at === 'd')) return `rockr:${at === 's' ? 'atk' : 'hit'}${su.over ? 'o' : ''}`;
+  // (2026-10-21, decompile check) the start at her strike: rockr_s_2[attack_start_audio] is the S2 Attack's
+  // BuffToOwnerDuringAbility (OnEvent RVA 0xCADE60) with _startEvent ON_SPELL_ON (4); the hit is its `_activeBuffs` on the target
+  if (su.def === 'char_4040_rockr' && su.skillIndex === 1 && (at === 'a' || at === 'd')) return `rockr:${at === 'a' ? 'atk' : 'hit'}${su.over ? 'o' : ''}`;
   // 2026-10-11: 실버애쉬 더 레인프로스트 S3 — every strike fires projectile_chr_svash2_s3 (skill prefab projectile): its BORN
   if (su.def === 'char_1045_svash2' && su.skillIndex === 2 && at === 'a') return 'svash2:s3born';
   return null;

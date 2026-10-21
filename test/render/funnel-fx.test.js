@@ -145,10 +145,11 @@ test("伺夜's pack: extra wolves by the count, a lost one's sub_die, its bite b
     assert.deepEqual(got(), ['vigil_token_attack_hit_3', 'vigil_token_sub_attack_1', 'vigil_token_sub_attack_2']);
     fx('revive', { wolves: 2 });
     assert.deepEqual(got(), ['vigil_token_sub_die_2']);
+    // (2026-10-21) the gift's heal comes with its bite (vigil_wolf_s_2 ON_ABILITY_CAST_ON_TARGET), not with the cast
     fx('buff', { src: 7, skill: 'vigil_2' });
-    assert.deepEqual(got(), ['vigil_token_heal', 'vigil_token_skill_02_hint', 'vigil_token_skill_02_ready']);
+    assert.deepEqual(got(), ['vigil_token_skill_02_hint', 'vigil_token_skill_02_ready']);
     layer.onEvent(['atk', 3, 9, 'none'], views);
-    assert.deepEqual(got(), ['vigil_token_attack_hit_2', 'vigil_token_attack_hit_extra', 'vigil_token_sub_attack_1']);
+    assert.deepEqual(got(), ['vigil_token_attack_hit_2', 'vigil_token_attack_hit_extra', 'vigil_token_heal', 'vigil_token_sub_attack_1']);
     wolf.visFacing = -1;   // its 战术点 effects at the place it fell on, turned as it faced (vigil_token_die flips)
     fx('wolfShadowLost', { wolves: 0 });
     const lost = plays.filter((p) => p.kind === 'spawn' && /^vigil_token_(die|ghost)$/.test(p.names[0])).map((p) => `${p.names[0]} ${p.facing}`).sort();
@@ -158,5 +159,32 @@ test("伺夜's pack: extra wolves by the count, a lost one's sub_die, its bite b
     layer.onEvent(['deploy', 3], views);
     layer.update(0.02, null, null);
     assert.deepEqual(got(), ['vigil_token_buff_1', 'vigil_token_buff_2', 'vigil_token_buff_3', 'vigil_token_buff_4', 'vigil_token_start'], 'one wolf: no extra');
+  } finally { globalThis.fetch = fetch0; }
+});
+
+test("伺夜's pack (2026-10-21): a board piece's first count ('wolfCount'), its 战术点形态 ended by 伺夜 leaving ('wolfTacEnd')", async () => {
+  const fetch0 = globalThis.fetch;
+  globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
+  try {
+    const plays = [];
+    const layer = createFxLayer({ host: null, above: null, quality: () => 'high', trace: (p) => plays.push(p) });
+    await settle();
+    const wolf = { id: 3, x: 1, y: 0, alive: true, info: { id: 3, side: 'ally', kind: 'token', defId: 'token_10028_vigil_wolf' } };
+    const views = new Map([[3, wolf]]);
+    const got = () => plays.splice(0).filter((p) => p.kind === 'spawn').map((p) => p.names[0]).filter((n) => n.startsWith('vigil')).sort();
+    const fx = (name, o) => layer.onEvent(['fx', name, 1, 0, { x: 1, y: 0, id: 3, ...o }], views);
+    // a board piece: its deploy, then the sim's count (3 here — not the old assumed 2)
+    layer.onEvent(['deploy', 3], views);
+    layer.update(0.02, null, null);
+    fx('wolfCount', { n: 3 });
+    assert.ok(got().includes('vigil_token_sub_start_2'), 'two extra wolves');
+    fx('wolfShadowLost', { wolves: 0 });
+    assert.deepEqual(got(), ['vigil_token_die', 'vigil_token_ghost']);
+    fx('wolfTacEnd', {});
+    // a fresh pack later: its deploy is no return from the 战术点形态 (no vigil_token_start)
+    fx('summon', { src: 7, wolves: 2 });
+    layer.onEvent(['deploy', 3], views);
+    layer.update(0.02, null, null);
+    assert.ok(!got().includes('vigil_token_start'), 'the form ended without a return');
   } finally { globalThis.fetch = fetch0; }
 });

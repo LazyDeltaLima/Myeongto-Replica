@@ -86,7 +86,7 @@ SCRIPTS = {
 SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoint', 'FxUVTweener', 'FxUVTweenerAdvance',
                 'FxUVRotation', 'SwitchableBackEffect', 'SwitchableRightEffect', 'LineEffectEmitterDynamic', 'RandomEmitter',
                 'FlyToPredefinedLocation', 'OnPlayEmitter', 'OnFinishEmitter', 'EmptyEffect', 'PauseEffectIf', 'PauseAnotherEffect',
-                'PauseEffectIfNotIdle', 'PauseEffectWithAnimation', 'PauseEffectIfSpineEvent', 'FinishEffectIf'}
+                'PauseEffectIfNotIdle', 'PauseEffectWithAnimation', 'PauseEffectIfSpineEvent', 'FinishEffectIf', 'FunnelHitEffect'}
 
 # ParticleSystem modules the extract carries (fx_extract.particle_system)
 MODULES_READ = {'InitialModule', 'EmissionModule', 'ShapeModule', 'SizeModule', 'ColorModule', 'RotationModule',
@@ -148,7 +148,6 @@ KNOWN = {
     'script:SwitchableEffectByBuffStackCnt': (_HAND, 'a variant by buff stack count; only 信仰搅拌机\'s rmixer_buff_01 (`_stackCnt` 3, GE): '
                                               'render/fxstatus.js STACK_FX \'rmixer:t1\''),
     'script:EmitterRandomGroup': (_TODO, 'plays one of a group at random'),
-    'script:FunnelHitEffect': (_TODO, 'a random offset of a drone hit'),
     'script:RandomDirection': (_TODO, 'a random direction at play'),
     'script:OnPlayAudioPlayer': (_NONE, 'a sound, not drawn (audio is separate)'),
     'script:OnFinishAnime': (_TODO, 'sets an Animator trigger at finish (Animator states past the first)'),

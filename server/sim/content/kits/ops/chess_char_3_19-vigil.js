@@ -17,8 +17,8 @@ export default {
   //      S1 领袖的呼唤 (自动触发, only while the pack is on the field — standing or in its 战术点形态): +cost DP, and by the
   //      pack's state (PRTS 备注) ① 战术点形态: back at once with one “狼影” and a fresh growth cycle, ② below the
   //      talent's maximum: one more “狼影” (its own cycle untouched), ③ at the maximum: the pack's HP to max; S2 领袖的馈赠
-  //      (only while the pack stands): +cost DP, the pack recovers hp_ratio of its max HP and its next attack hits
-  //      ×atk_scale — a kill by that attack gives +cost DP.
+  //      (only while the pack stands): +cost DP; the pack's next attack hits ×atk_scale and, as it strikes, the pack
+  //      recovers hp_ratio of its max HP (the client heals on that bite) — a kill by that attack gives +cost DP.
   //      精锐 module TAC-Y: trait ×165 % (profession layer) and "援军阻挡的敌人更容易受到我方的攻击": the pack's token module
   //      talent taunt_level (+1) goes to the enemies it blocks — the enemy-side 嘲讽等级 our operators target first
   //      (targeting.js; research 05: "更容易受到我方的攻击" = enemy taunt.taunt_level), never to the pack itself.
@@ -169,11 +169,15 @@ export default {
         if (!alive(unit) || !sk || !sk.ready || sk.active || !unit.canAct || unit.s.flags.silence || !w || w.mem.vigilGift) return;
         sk.activate('SP_FULL');
       }, { owner: unit });
+      // the gifted bite: the client's vigil_wolf_s_2 heals the pack (HealViaMaxHpRatio hp_ratio) and plays vigil_token_heal on
+      // ON_ABILITY_CAST_ON_TARGET of its Attack — at this strike, not at the cast (EN buff template; the token's Attack is
+      // one spell on one target, so once)
       battle.on('beforeAttack', (ctx) => {
         const w = wolfOf(unit);
         if (!w || ctx.attacker !== w || !w.mem.vigilGift) return;
-        w.mem.vigilGiftOn = w.mem.vigilGift;
+        const g = w.mem.vigilGiftOn = w.mem.vigilGift;
         w.mem.vigilGift = null;
+        if (g.hr > 0) battle.heal(w, w, w.s.maxHp * g.hr, { self: true });
       }, { owner: unit, priority: -100 });
       battle.on('hit', (ctx) => {
         const g = ctx.source?.mem?.vigilGiftOn;
@@ -283,10 +287,9 @@ export default {
             dpGain(battle, unit, num(s.bb.cost, 0));
             const w = packOf(unit);
             if (!w) return;
-            // (a pack in its 战术点形态 has no HP to restore: it comes back at full HP, the gift kept on it)
+            // the heal comes with the gifted bite (installGift), as the client's buff heals on that attack's cast on target
             const hr = num(s.bb['vigil_wolf_s_2.hp_ratio'], 0);
-            if (hr > 0 && w.alive) battle.heal(w, w, w.s.maxHp * hr, { self: true });
-            w.mem.vigilGift = { scale: num(s.bb['vigil_wolf_s_2.atk_scale'], 1), dp: num(s.bb['vigil_wolf_s_2.cost'], 0), paid: false };
+            w.mem.vigilGift = { scale: num(s.bb['vigil_wolf_s_2.atk_scale'], 1), dp: num(s.bb['vigil_wolf_s_2.cost'], 0), hr, paid: false };
             fx(battle, 'buff', w, { src: unit.id, skill: 'vigil_2' });
           },
         }),

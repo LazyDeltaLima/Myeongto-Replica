@@ -345,7 +345,9 @@
     `horn_s_<n>[overload][melee|ranged].attack`, 없으면 `[normal]…`(audioSignal을 가진 즉시 버프) → 우리 'atk'(근접 = `none`)마다. 과부하 시작
     `horn_s_<n>[overload_start]`은 sim fx `overload`(S3 = 지속시간 절반, S2 = 탄 절반 [ASSUMED, kit]); 과부하는 스킬 끝에 풀림.
   - 락락 S2: 과부하 시작 `rockr_overload_start`(fx `overload`), 끝 `rockr_overload_finish`(`rockr_s_2[overload]`의 ON_BUFF_FINISH → 과부하 중 스킬이 끝날 때),
-    자기 공격 `rockr_s2_common_attack_start`/`_hit`(+`_overload`) → 'swing'/자기 대상 착탄 [추정: 버프 이름의 start/hit = 휘두름/착탄].
+    자기 공격 `rockr_s2_common_attack_start`/`_hit`(+`_overload`) → 'atk'/자기 대상 착탄 (2026-10-21 클라 확인: start는 S2 Attack의
+    BuffToOwnerDuringAbility(OnEvent RVA 0xCADE60) `_startEvent` ON_SPELL_ON(4)이 그녀에게 거는 `rockr_s_2[start_audio_trigger]` = 타격 순간 — 그 전엔
+    'swing'에 냈다; hit는 그 Attack의 `_activeBuffs` `rockr_s_2[hit_audio_trigger]` = 대상에 닿을 때).
   - 티티 S3: `titi_s_3[dmg_ticker]`가 깨어난 적에 PlayAudio `titi_s_3[awake]` → sim fx `wake`(적 id; 글래디아 등 아군이 자기 id로 내는 `wake`는 아님).
   - 아스카론 S2: `ascln_s_2[enemy]`의 `ON_OWNER_KILLED`(그 효과를 단 적이 처치됨) → PlayAudio `ASCLN_S_2_BOMB`(그녀 위치) → **새 sim 이벤트**
     `['fx', 'kitHit', x, y, { id: 아스카론, k: 'ascln:s2bomb' }]`(`op-ascln.js`, 처치된 적이 그녀 범위 안일 때 — 기존 확산 조건과 같음; `docs/SIM.md`).

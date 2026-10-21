@@ -1026,8 +1026,15 @@
   가상적: 흑운 10초, 방문단 공격수 챔피언·살카즈 부패의 전차·최첨단 살카즈 부패의 전차 5초, '염의 가호' 2초, 가상적: 골극·관·현, 제국 아틸러리 타게티어 ×2 1.5초,
   '총을 부수는 리드'·가상적: 총 1.2초, 은신 캐스터·Dor-β호 복제품·아츠 마스터 A1/A2·부유의 표류체·군단 중형 화포·가상적: 갑주·살카즈 왕정군 정예 캐스터·'영장' 1초,
   패밀리 멸살자 ×2·'산크타의 눈'·폭탄새·작열/폭염 원석충·더블린 그림자 캐스터 ×2·무덤지기 석상 ×2·알리스테어·스칼릿 싱어·잠수부(탄두 노드만) 0.15–0.8초.
-- [추정] 추출기가 버린 파티클 시스템(재질 없음)은 「첫 시스템」으로 세지 않음. ParticleEffect 루트 꼬리(그레인버즈 등 몇 개)도 같은 규칙(첫 시스템 정지 + `finish`)으로 끝냄 —
-  `ParticleEffect.OnFinish`(0xCB2AB0)도 시스템 하나를 멈추고 목록을 끄지만 그 목록은 안 읽음.
+- 첫 시스템 (2026-10-21, 이펙트 묶음 E, 디컴파일 확인 — 10-14 EN 덤프): `ProjectileEffect.Awake`(0xEADE10)는 `includeInactive` 없는
+  `GetComponentInChildren<ParticleSystem>()`(켜진 노드만, 깊이 우선), `ParticleEffect.Awake`(0xEABEB0)는 `includeInactive` 참 — 둘 다 재질 없는 시스템도 센다
+  (대부분 루트 아래 `fixed`·`rotation_y` 같은 빈 그릇이 첫 시스템이다). OnFinish(0xEAE6C0 / 0xEACD20)는 그것을 `Stop(true)`(0x5F1B440: 자식째, 방출만)하고
+  ParticleEffect는 자기 `_inactiveOnFinish`(0xF0)도 끈다. 그래서 그 전에는 첫 *추출된* 시스템만 멈춰 그릇 아래 다른 가지(애쉬락 포탄의 불꽃 등)가 회수까지
+  계속 뿜었다. 고친 것: `fx_extract.py main_ps` → 프리팹 `mainPs`(클라가 멈추는 노드, 플레이어의 기본 선택과 다를 때만), ParticleEffect의
+  `_inactiveOnFinish`도 `offFinish`로; `FxInstance.finishMain`이 `mainPs`를 쓴다(ParticleEffect 루트 꼬리 — 그레인버즈 등 — 도 같은 길). 2026-10-21
+  `--finish-only` 전체 재추출(운영자 EN·CN, 적): 2,583개 파일에 `mainPs`만 더해짐, ParticleEffect `_inactiveOnFinish`가 있는 추출 프리팹은 없음.
+  확인 `test/render/projectile-finish.test.js`(애쉬락: 그릇 `fixed` → 연기·불꽃 모두 방출 멈춤), 추출 JSON 골든 47개(`mainPs`만). 버프 이펙트의 끝
+  (`statusOff` — 모든 시스템 방출 멈춤)은 그대로 [추정: 클라는 같은 첫 시스템 규칙 — 차이는 `_delayToFinish` 동안 다른 가지가 뿜는 것뿐].
 - 재추출: `fx_extract.py --game <EN> --finish-only`(index.json 번들, CN 번들 aglna2·kalts2·clemnt는 `--game <CN>`), 적 번들은 `--index enemy-index.json
   --bundle <b>`(`pfx_enemy_N`은 `--pack pkgrps/btl_pfb_fx_enemy_N.ab`). 2026-10-11 실행: 204개 파일, `finish`·`offFinish` 말고 바뀐 것 없음(JSON 비교).
   적 번들은 처음 돌려 ParticleEffect `finish`도 새로 들어갔다(상태 이펙트 끝 `statusOff`에만 쓰임).
@@ -1823,7 +1830,13 @@
     `OnCastEnd`(0xC1FB70)에야 떼짐 — 시전이 배치 동안 안 끝남); 블레이즈 디 이그나이팅 스파크 S2 불 붙은 칸 'burnTiles' `cells` [[x, y, 1|0]] —
     `Modes/S2/Body/Talents/3` DoTile(AttachListenerToTileAbility)의 `_effectSettings` `blaze2_skill_02_hit_plot`(castedTimeThreshold 1)을 칸마다, 스킬
     끝(능력 떼짐: `AttachListenerToTileAbility.OnDetached`(0xBED740)가 `_ClearEffects`(0xBEE130)로 넘어감)에 모두 끔. RVA는 2026-10-14 EN 클라.
-- 안 한 것: 텍사스 디 오메르토사 S3의 `texas2_s[no_effect_02]` 창(그동안 `_02_start_02`를 숨김) [추정: 미구현]; `pasngr_beidong_buff_02`·
+- 텍사스 디 오메르토사 S3 창 (2026-10-21, 이펙트 묶음 E, EN `[uc]skills.ab`·charpack·버프 템플릿): S3 `skchr_texas2_3`의 시작 능력 AppearSwordRain이
+  즉시 버프(lifeTimeType 0) `texas2_s_3[create_no_effect_02]`를 걸어 그 ON_BUFF_FINISH에 `texas2_s[no_effect_02]`(INFINITY)를 만들고, ModeWithSwordRain의
+  `texas2_s_3`(수명 `duration`)가 끝날 때 `[finish_no_effect_02]`가 지운다. 재능 버프 `texas2_t_1[recast_effect_02]`(Talents/1, `triggerInterval` 0.1·첫
+  대기 없음)는 트리거마다 기절(STUNNED)이면 `_02_start_02`를 그리는 파생 버프를 만들고, 아니면 `no_effect_02`가 있을 때 그 파생 버프를 끝내고(FinishMe) 없을 때
+  만든다 → `fxstatus.js KEY_FX 'texas2:recast'`가 S3가 켜져 있고 기절이 아니면 `_02_start_02`를 빼서 끝낸다(statusOff, 끝 이펙트 `finish`), 창이 닫히면
+  다시 튼다. [추정: 0.1초 트리거 지연은 따르지 않음(그 틱에 바로)]. 확인 `test/render/status-buff-fx.test.js`.
+- 안 한 것: `pasngr_beidong_buff_02`·
   `billro_beidong_buff_03`·`wang_birth_02`는 클라 참조 없음. `common_ resistance_01`은 이미 `SOURCE_FX resist`(이름 안 공백 때문에 집계 오탐).
 - 확인: 시뮬 `test/sim/talent-fx-events.test.js`(키트마다 'status' 켜짐·꺼짐, 'talent'·'burnTiles'), 렌더 `status-buff-fx`(키 → 프리팹, `OWN`, 아이콘
   없음)·`common-ability-fx`(`TALENT_ALWAYS`)·`kit-event-fx`(새 규칙). 골든: 표시 이벤트 수(`status`·`fx`·`talent`·`burnTiles`)만. Windows Chrome
@@ -1848,8 +1861,22 @@
   켜짐/꺼짐마다 지금 모드의 대기 루프(뒷모습은 SwitchableBackEffect 전환 장치 `backSw`), `droneShot`: 'atk'마다 퇴장 이펙트 + 대기 멈춤(`off`면
   숨김) → 드론 탄 꼬리를 드론 자리에서 대상까지, 닿을 때 명중, `wait`면 그때(아니면 0.2초 뒤) 등장 이펙트 + 재개. 같은 순간의 공격은 다음 드론(쉐라
   S2 두 고정). 라플란드 더 데카덴차 일반 공격(기본·S1 모드)은 활성 드론 전부 — 수는 1 + S1 패시브 + 头狼 3단계(시뮬 `profile.hits`, 'talent' alpha
-  `stage`) [추정: 클라 `_useExtraActiveCntAbility` 미확인].
-- [추정]: 퇴장은 'atk' 때(클라는 휘두르기 시작), 등장은 `wait` 없으면 0.2초 뒤, `speed` 없는 탄은 10칸/초.
+  `stage`). 2026-10-21 디컴파일 확인(이펙트 묶음 E): `MultiFunnelsNormalAttack.UpdateActiveCntIfAdded`(RVA 0xBF3290, `DoSetData` 0xBF2FC0도 같은 식) =
+  min(`_funnelActions` 수, 1 + 능력 블랙보드 `cnt` + `MultiFunnelExtraActiveCntAbility.GetExtraFunnelActiveCnt(능력 이름)`), 그 추가는 버프 노드
+  `AddFunnelAbilityActiveCnt`(Execute 0xE01800 — 붙어 있는 능력에는 `RuntimeAddActiveCnt`로 바로도) — `whitw2_s1[passive]` M0·M1 +1, `whitw2_t[extra_ability]`의
+  세 번째 트리거 M0·M1·M2·WolvesDispersed +1. `cnt`는 M0_1·S1 `attack@cnt` 0, S2 3, S3 2, `_funnelActions`는 M0·M1 3, M2 6, S3 4 → 시뮬의 일반 공격·S2·S3
+  수와 같고 렌더 `funnelCount`도 그대로 맞다.
+- 퇴장 시점 (2026-10-21, 이펙트 묶음 E, 디컴파일 확인): 드론의 ON_CAST_START는 드론 능력 자신의 것이고, 그 능력은 그녀의 공격이 `DoCastOnTargets`에서
+  자기 탄(`RangedAttack.DoCastOnTargets`) 다음에 `CastToTarget`(가상 슬롯 33)으로 시전한다 — `MultiFunnelsNormalAttack.DoCastOnTargets`(0xBF2CC0, 활성 수만큼)·
+  `MultiFunnelRemoteAttack.DoCastOnTargets`(0xBF2080, 아직 잠그지 않은 것만 `MultiFunnelTrait.SetFunnelActive`). 쉐라·락락 S2 Attack도 `_funnelActions`를 가진
+  이 꼴이다. 그래서 퇴장 = 그녀의 타격 순간 = 시뮬 'atk' — 지금 그대로 맞다(「클라는 휘두르기 시작」은 드론 능력 자신의 휘두르기였다).
+- [추정]: 등장은 `wait` 없으면 0.2초 뒤(숨는 드론은 지금 모두 `wait`), `speed` 없는 탄은 10칸/초.
+- 명중 무작위 자리 (2026-10-21, 이펙트 묶음 E, 디컴파일 확인): `FunnelHitEffect.OnPlay`(RVA 0xE83830)가 이펙트를 맵 평면의 무작위 방향
+  (`RandomUtil.RandomDirectionV2` 0x5A81160: x·y 각 `Random.value`×2−1을 정규화)으로 `Effect.Behaviour.FaceTo`하고, 위치를 `RandomVector3(_randomRange)`
+  (0x5A814D0: 축마다 `Random.Range(−r, r)`)만큼 월드에서 옮긴다. 루트에 이 스크립트가 있는 추출 프리팹 5개: 쉐라 S2 `kjera_token_skill_02_hit_F_L_01`·`_02`·
+  `_F_R_01`·`_02`(0.2, 0.05, 0), 루멘 S2 `lumen_skill_02_hit`(0 — 방향만). `fx_extract.py funnel_hit` → 프리팹 `jitter`, `FxInstance`가 무작위 방향으로
+  `faceTurn`(FLIP_TWO_SIDE면 반반 뒤집힘)·Unity 월드 그대로 오프셋(`Math.random` — 클라도 표시용 `UnityEngine.Random`). `fx_coverage` todo → 읽음.
+  확인 `test/render/funnel-hit-fx.test.js`.
 - 잠금 (2026-10-16 묶음 3 재점검, 디컴파일 확인): 처음엔 쉐라·락락 S2와 라플란드 더 데카덴차 S1·S2 드론이 'atk'마다 숨었다 나타나 깜빡였고, 그녀의
   일반 공격 드론은 날지 않는데 거리÷10만큼 늦게 물었다. 클라의 이 탄들은 이동이 AttachToTarget(dump.cs 451030 — 틱마다 대상 위치에 둠, 날지 않음)이고,
   S1·S2·쉐라·락락 S2는 SimpleProjectile `_hitNumType` INFINITY(LifeType 2)라 대상에 붙은 채 공격마다 맞히다 대상이 사라지거나 스킬이 끝날 때(`_stopWhenSourceInvalid`)
@@ -1873,7 +1900,7 @@
   `[block_cnt]` `vigil_token_buff_1~4`(머리·몸·두 손 SPECIAL_0~3); 물기 `vigil_wolf_hit_effect` — 추가 늑대 0·1·2에 `_attack_hit_1`/`_2`/`_3`, 伺夜 S2 선물
   (`vigil_wolf_s_2`)이 있으면 `_extra`; 추가 늑대의 시전 `_vigilWolfCastEffects` `vigil_token_sub_attack_1`/`_2`; S2 시전 `vigil_token_skill_02_hint`,
   선물 동안 `_ready`; S1 ③·S2 회복 `vigil_token_heal`.
-- 고친 것: `fxgame.js` `packEvent`·`packDeploy`·`packAtk` — 늑대 수는 시뮬의 'summon'·'revive'·'wolfShadow'·'wolfShadowLost'(`wolves`/`n`)에서
+- 고친 것: `fxgame.js` `packEvent`·`packDeploy`·`packAtk` — 늑대 수는 시뮬의 'summon'·'revive'·'wolfShadow'·'wolfShadowLost'·'wolfCount'(`wolves`/`n`)에서
   (시뮬 변경 없음). 0이면 전술점 형태: 쓰러진 칸에 `die` + `ghost`(돌아오는 배치까지), 돌아오면 `start`. 칸(점)에 트는 둘은 늑대 뷰가 있으면 그
   늑대가 바라보던 쪽으로 튼다(2026-10-21 — 전엔 점이라 늘 +1; `vigil_token_die`는 `_rotateType` 1 FLIP_TWO_SIDE라 왼쪽을 보던 늑대면 뒤집힘,
   `ghost`는 0이라 안 바뀜; `test/render/funnel-fx.test.js`, `trace`의 spawn에 `facing`).
@@ -1881,8 +1908,12 @@
   `points.json`에 토큰 항목이 없었다(`char_points.py`는 오퍼의 chararts만 읽음). 토큰 모델은 `pkgrps/btl_pfb_tokens_*.ab`의 프리팹이고 한 번들에 여럿이라
   뿌리 이름으로 그 애니메이터를 고름 → `char_points.py TOKENS`(지금은 늑대만 — 다른 토큰은 점을 대조하기 전까지 렌더 대체 그대로): sp0 `C_Head`·sp1
   `C_Body_a`·sp2/sp3 `IK_C_L_Hand`/`IK_C_R_Hand`, 우리가 그리는 스킨(`_epoque_27`) 스켈레톤에도 네 뼈가 다 있음(`test/local-patch-fxspawn.test.js`).
-- [추정]: 판에 놓은 늑대 무리의 첫 수는 2(初始两只 — 그 배치엔 수 이벤트가 없음); 전술점 `ghost`는 돌아오지 않으면 40초에 끝(伺夜가 떠나 형태가 끝나도
-  이벤트가 없음); S2 회복 이펙트는 시전 때(시뮬의 회복 시점 — 클라는 선물 물기 때 ON_ABILITY_CAST_ON_TARGET); 쓰러질 때 토큰의 일반 사망 이펙트도 남음.
+- 시점 (2026-10-21, 이펙트 묶음 E): 판에 놓은 늑대 무리(`tokens.js` 판 기물)는 새 배치마다 첫 수를 새 시뮬 fx 'wolfCount' { n }로 알린다(전엔 렌더가
+  初始两只로 2를 가정). 伺夜가 떠나 전술점 형태가 돌아오지 않고 끝나면 새 fx 'wolfTacEnd'(`installWolfTacticalPoint`, 두 무리 모두 — 클라는 Recharge 모드가
+  토큰과 함께 떠남) → 렌더가 `ghost`를 끝내고 다음 배치를 귀환(`vigil_token_start`)으로 보지 않는다; 40초 상한은 안전장치로만 남음. S2의 회복과
+  `vigil_token_heal`은 선물 물기 때(`vigil_wolf_s_2` ON_ABILITY_CAST_ON_TARGET — 시뮬도 옮김: rules/sim.md 「伺夜 S2 领袖的馈赠 회복은 물 때」) → `packAtk`,
+  시전 때는 `_skill_02_hint`·`_ready`만. 확인 `test/render/funnel-fx.test.js`.
+- [추정]: 쓰러질 때 토큰의 일반 사망 이펙트도 남음.
 - 확인: 단위 `test/render/funnel-fx.test.js`. 디버그 아레나(오류 0): `vigil_token_buff_1~4`·`sub_start_1`(늑대 둘), S2 `_skill_02_hint`·`_heal` 2·`_ready` 1
   (아레나에선 늑대가 샌드백에 닿지 않아 물기는 단위만). [화면 미확인: 실제 판, 추가 늑대 자리·물기·전술점 모양을 공식 녹화와]
 - 덤: 왕의 跟子를 던질 때 `wang_passive_01_start`(charpack SpawnToken/BuildStone·`skchr_wang_3` InstantSpawn `_startEffect`)는 **돌이 놓일 칸에**
