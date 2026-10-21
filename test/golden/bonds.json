@@ -444,8 +444,8 @@
       ],
       "enemies": {"enemy_1158_divman":[15,15,0,760,44550],"enemy_1160_hvyslr":[2,2,0,1671,18000],"enemy_1161_tidmag":[1,1,0,3089,5400]},
       "hooks": [1,45,1626,139,139,205,221,294,19,32,10,9,0,4479,48,7,18,0,1,20,0,1,2],
-      "events": {"atk":149,"deploy":25,"die":32,"dmg":221,"engage":5,"face":24,"fx":92,"heal":1,"skill":23,"spawn":44,"status":83,"swing":151,"tplfx":1},
-      "fx": {"aoe":6,"burst":1,"coin":19,"dodge":2,"explode":13,"flame":1,"garrisonGrant":1,"revive":1,"riposte":1,"sp":1,"stacks":12,"summon":16,"swordRain":13,"swordStorm":3,"zone":2},
+      "events": {"atk":149,"deploy":25,"die":32,"dmg":221,"engage":5,"face":24,"fx":108,"heal":1,"skill":23,"spawn":44,"status":83,"swing":151,"tplfx":1},
+      "fx": {"aoe":6,"burst":1,"coin":19,"dodge":2,"explode":13,"flame":1,"garrisonGrant":1,"revive":1,"riposte":1,"sp":1,"stacks":12,"summon":16,"swire2Throw":16,"swordRain":13,"swordStorm":3,"zone":2},
       "snaps": "d7b1309b ac2b7773 3e2fe56d 6f37fe0d bddb7375 395ef926"
     },
     "bond-investShip-high": {
@@ -613,8 +613,8 @@
       ],
       "enemies": {"enemy_1000_gopro_2":[19,19,0,0,29070],"enemy_1325_cbgpro":[5,5,0,0,17100],"enemy_1325_cbgpro_2":[3,3,0,0,12420]},
       "hooks": [1,54,1363,37,37,94,94,0,27,42,2,2,0,4429,1,0,27,0,1,27,1,0,0],
-      "events": {"atk":37,"deploy":24,"die":42,"dmg":94,"engage":3,"face":30,"fx":75,"layer":1,"skill":6,"spawn":54,"status":3,"swing":71},
-      "fx": {"buff":1,"coin":16,"explode":15,"garrison":1,"garrisonGrant":1,"spGift":14,"stacks":9,"strike":1,"summon":16,"volley":1},
+      "events": {"atk":37,"deploy":24,"die":42,"dmg":94,"engage":3,"face":30,"fx":91,"layer":1,"skill":6,"spawn":54,"status":3,"swing":71},
+      "fx": {"buff":1,"coin":16,"explode":15,"garrison":1,"garrisonGrant":1,"spGift":14,"stacks":9,"strike":1,"summon":16,"swire2Throw":16,"volley":1},
       "snaps": "50efca0f 8808c86d c58a81c3 19d711ba 7fdaa9b2"
     },
     "bond-kjeragShip-high": {
@@ -1153,8 +1153,8 @@
       ],
       "enemies": {"enemy_1010_demon":[3,3,0,5180,25920],"enemy_1010_demon_2":[1,1,0,4290,17280],"enemy_1071_dftman":[15,15,0,503,48384]},
       "hooks": [1,28,2100,187,187,214,223,0,22,22,4,2,0,4579,22,23,19,0,1,22,0,0,0],
-      "events": {"atk":187,"deploy":9,"die":22,"dmg":223,"engage":6,"face":11,"fx":45,"skill":10,"spawn":28,"status":13,"swing":201},
-      "fx": {"aoe":9,"coin":4,"crit":3,"dp":1,"stacks":9,"strike":18,"summon":1},
+      "events": {"atk":187,"deploy":9,"die":22,"dmg":223,"engage":6,"face":11,"fx":46,"skill":10,"spawn":28,"status":13,"swing":201},
+      "fx": {"aoe":9,"coin":4,"crit":3,"dp":1,"stacks":9,"strike":18,"summon":1,"swire2Throw":1},
       "snaps": "39328caf 4194ae63 0b774cd1 d036c63d 54a34acf 852c4b06 4a12a596"
     },
     "bond-siracusaShip-high": {
@@ -1626,8 +1626,8 @@
       ],
       "enemies": {"enemy_1116_liprr":[11,11,0,108,69696],"enemy_1116_liprr_2":[4,4,0,307,34560],"enemy_1118_lidbox_2":[2,2,0,1086,21888]},
       "hooks": [1,43,1639,142,142,309,317,26,17,32,6,2,0,6254,13,13,17,0,1,17,0,0,0],
-      "events": {"atk":142,"deploy":24,"die":32,"dmg":317,"engage":5,"face":14,"fx":127,"heal":20,"skill":10,"spawn":43,"status":43,"swing":149},
-      "fx": {"aoe":4,"coin":18,"counter":3,"drone":23,"explode":15,"liberate":2,"overload":1,"phase":2,"stacks":12,"strike":30,"summon":16,"taunt":1},
+      "events": {"atk":142,"deploy":24,"die":32,"dmg":317,"engage":5,"face":14,"fx":143,"heal":20,"skill":10,"spawn":43,"status":43,"swing":149},
+      "fx": {"aoe":4,"coin":18,"counter":3,"drone":23,"explode":15,"liberate":2,"overload":1,"phase":2,"stacks":12,"strike":30,"summon":16,"swire2Throw":16,"taunt":1},
       "snaps": "4c227aa6 36615ebc 508b4007 e8c8ccd5 8dea2067 61c59386"
     },
     "bond-victoriaShip-high": {
@@ -1829,8 +1829,8 @@
       ],
       "enemies": {"enemy_1019_jshoot_2":[7,7,0,3496,47029],"enemy_1381_winman":[9,9,0,0,129890],"enemy_1389_winbab_2":[5,5,0,5109,87091]},
       "hooks": [1,44,2559,115,115,226,167,853,23,30,13,11,1,5695,3,12,21,0,1,24,0,0,0],
-      "events": {"atk":115,"deploy":20,"die":30,"dmg":151,"engage":6,"face":31,"fx":50,"heal":9,"skill":28,"spawn":44,"status":13,"swing":134},
-      "fx": {"coin":12,"downed":1,"explode":7,"firewall":1,"splash":1,"stacks":12,"summon":9,"yanyouFlame":5,"yanyouSummon":2},
+      "events": {"atk":115,"deploy":20,"die":30,"dmg":151,"engage":6,"face":31,"fx":58,"heal":9,"skill":28,"spawn":44,"status":13,"swing":134},
+      "fx": {"coin":12,"downed":1,"explode":7,"firewall":1,"splash":1,"stacks":12,"summon":9,"swire2Throw":8,"yanyouFlame":5,"yanyouSummon":2},
       "snaps": "7420aebf f0c0047b 2bdda5af 00a89b04 4c518abb 78c760b3 853fc78a 4f1dccb5 be9af7f1"
     }
   }

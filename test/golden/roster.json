@@ -365,8 +365,8 @@
         "enemy_2017_csphts": [1,1,0,1115,9600]
       },
       "hooks": [1,104,4200,407,407,1569,1533,9501,77,89,30,28,0,20688,55,39,78,0,1,77,0,0,3],
-      "events": {"atk":417,"bounty":5,"deploy":26,"die":89,"dmg":1533,"engage":7,"face":66,"fx":85,"heal":12,"skill":60,"spawn":104,"status":128,"swing":429,"tplfx":2},
-      "fx": {"aoe":5,"buff":1,"coin":17,"dodge":3,"enemySkill":4,"explode":14,"phase":2,"shieldBreak":1,"sp":2,"stacks":9,"summon":14,"takeoff":6,"zone":7},
+      "events": {"atk":417,"bounty":5,"deploy":26,"die":89,"dmg":1533,"engage":7,"face":66,"fx":99,"heal":12,"skill":60,"spawn":104,"status":128,"swing":429,"tplfx":2},
+      "fx": {"aoe":5,"buff":1,"coin":17,"dodge":3,"enemySkill":4,"explode":14,"phase":2,"shieldBreak":1,"sp":2,"stacks":9,"summon":14,"swire2Throw":14,"takeoff":6,"zone":7},
       "snaps": "3839d68b d174ad4f c7802e38 50c63e96 9751f6e7 1de59a3b 17774e29 9265a65c ba8a8010 fdd673d3 47745bd4 61b6a80c 958a92bc 4dddd103"
     },
     "roster-007": {
@@ -507,8 +507,8 @@
         "enemy_2025_syufo": [13,3,7,28652,115049]
       },
       "hooks": [1,133,5100,638,638,1264,1379,443,74,126,24,25,0,9312,87,58,88,27,1,79,8,13,0],
-      "events": {"atk":747,"bounty":4,"deploy":45,"die":99,"dmg":1299,"engage":12,"face":43,"fx":322,"heal":442,"layer":8,"leak":27,"skill":53,"spawn":124,"status":156,"swing":667},
-      "fx": {"aoe":21,"blink":2,"buff":1,"burst":13,"coin":29,"displace":40,"enemySkill":1,"explode":30,"garrison":8,"hunterReload":59,"parry":1,"phase":1,"pull":40,"revive":5,"shield":1,"shieldBreak":1,"stacks":22,"stone":1,"strike":11,"summon":25,"telegraph":1,"volley":9},
+      "events": {"atk":747,"bounty":4,"deploy":45,"die":99,"dmg":1299,"engage":12,"face":43,"fx":346,"heal":442,"layer":8,"leak":27,"skill":53,"spawn":124,"status":156,"swing":667},
+      "fx": {"aoe":21,"blink":2,"buff":1,"burst":13,"coin":29,"displace":40,"enemySkill":1,"explode":30,"garrison":8,"hunterReload":59,"parry":1,"phase":1,"pull":40,"revive":5,"shield":1,"shieldBreak":1,"stacks":22,"stone":1,"strike":11,"summon":25,"swire2Throw":24,"telegraph":1,"volley":9},
       "snaps": "85d507f3 5eee0441 28927c9f e9a6e53b d2ac8651 ca6e586a 6af8df3c 39a0a48e 0ea3bd8b c112634c 1acc53d3 b9af357d e6b2d9d6 083c3e74 84745562 97bc0b9a b051e42f"
     },
     "roster-009": {

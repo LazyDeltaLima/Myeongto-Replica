@@ -117,17 +117,19 @@ export default {
         }
         return best;
       };
-      const tryHeal = () => {
+      // the heal is the mode's HealAlly ability (`_animKey "Skill_1"`, beside Attack in its Trigger group): the fx `signal`
+      // plays Skill_1 — from its strike frame on an attack (`strike`), as a whole swing on her own timer (render SIGNAL_CLIPS)
+      const tryHeal = (onAttack) => {
         if (!alive(unit) || (unit.mem.coins ?? 0) < coinCost || !(hs > 0) || battle.time < nextAt - 1e-9) return;
         const best = healTarget();
         if (!best) return;
         unit.mem.coins -= coinCost;
         nextAt = battle.time + unit.s.interval;
         battle.heal(unit, best, unit.s.atk * hs);
-        fx(battle, 'coin', unit, { n: unit.mem.coins, heal: best.id, skill: 'swire2_1' });
+        fx(battle, 'coin', unit, { n: unit.mem.coins, heal: best.id, skill: 'swire2_1', signal: 'healAlly', ...(onAttack ? { strike: 1 } : null) });
       };
-      battle.on('attack', (ctx) => { if (ctx.attacker === unit) tryHeal(); }, { owner: unit, priority: -10 });
-      battle.on('tick', () => { if (unit.deployed && unit.canAct && !unit.trait?.hadTarget) tryHeal(); }, { owner: unit });
+      battle.on('attack', (ctx) => { if (ctx.attacker === unit) tryHeal(true); }, { owner: unit, priority: -10 });
+      battle.on('tick', () => { if (unit.deployed && unit.canAct && !unit.trait?.hadTarget) tryHeal(false); }, { owner: unit });
     };
     /**
      * “见面礼” — 「消耗一枚金币在范围内一个可放置且可通行的地面放置香槟炸弹」. The client charpack (char_1033_swire2, mode S2)
@@ -174,6 +176,8 @@ export default {
         if (!bomb) { unit.mem.bombHold = battle.time + unit.s.interval; return; }
         unit.mem.coins -= coinCost;
         fx(battle, 'summon', bomb, { src: unit.id, token: tokenId, coins: unit.mem.coins });
+        // the throw is the SpawnToken ability (`_animKey "Skill_2"`): its clip as a whole swing (render SIGNAL_CLIPS)
+        fx(battle, 'swire2Throw', unit, { signal: 'spawnToken' });
       }, { owner: unit });
     };
     const installS3 = (battle, unit) => { // 千金一掷: "击倒敌人时获得一枚金币"

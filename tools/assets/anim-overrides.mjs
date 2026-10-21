@@ -277,6 +277,10 @@ export const SIGNAL_CLIPS = Object.freeze({
   // 予愿安洁莉娜 (CN client) S3 ending away from her tile: the Comback flight home opens on Skill_3_Restart_Begin [ASSUMED]
   // (the kit's 'aglnaFlight' { signal: 'comeback' }, sent as the skill ends — it closes the skill instead of Skill_3_End)
   'op:char_1015_aglna2:': { skills: { 2: { comeback: 'Skill_3_Restart_Begin' } } },
+  // 琳琅诗怀雅 S1 / S2 (passive: the render never turns the skill on, her attacks keep the attack role): the modes'
+  // Body/Trigger groups pick HealAlly `_animKey "Skill_1"` (a coin's heal — the kit's 'coin' fx { signal: 'healAlly' },
+  // with `strike` on an attack) or SpawnToken `_animKey "Skill_2"` (the champagne throw — 'swire2Throw') over Attack
+  'op:char_1033_swire2:': { attack: { healAlly: 'Skill_1', spawnToken: 'Skill_2' } },
 });
 
 /**

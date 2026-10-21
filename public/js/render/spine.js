@@ -764,7 +764,10 @@ export class SpineActor {
    */
   signalSwing(signal, interval) {
     if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'held' || this.mode === 'chant') return false;
-    if (this._endPlaying() || this._swinging()) return false;
+    if (this._endPlaying()) return false;
+    // a swing before its strike is left alone; after it, its clip's tail is cut, as the next swing would (the behaviour
+    // takes the attack's turn: 琳琅诗怀雅 S2's throw came while her last Attack still played out and showed nothing)
+    if (this._swinging() && !(this.swingAt != null && this.clock >= this.swingAt + (this.swingWindup || 0))) return false;
     const name = this._attackClip()?.signals?.[signal];
     if (!this.has(name)) return false;
     // the skill's opening clip plays out first (新约能天使 S3: Skill_3_Begin, then the strike at the 投递坐标)

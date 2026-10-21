@@ -369,7 +369,13 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   - 타이밍 표에 `Body/Attack`이 없는 다른 스킬 점검(2026-10-22, 실제 시뮬 이벤트를 가짜 PIXI 액터에 이벤트 순서대로 재생): 스카디 더 커럽팅 하트 S1–3·
     첸 더 던스트릭 S2·왕 S3·비르투오사 S3·산탈라 S2·스즈란 S3·엔텔레키아 S2·시빌라이트 에테르나 S1–3·캐서린 S2·글래디아 S3는 스킬 중 공격 이벤트가 없음
     (공격 중지 스킬이거나 평타 없음), 노시스 S2는 충전형(시전마다 `Skill_2` 한 번), 스와이어 디 엘리건트 위트 S1·S2는 상시 스킬이라 렌더에서 스킬이 안 켜지고
-    공격은 평타 `Attack`(클라 모드도 공격 `Attack`; 치유·폭탄의 `Skill_1`·`Skill_2`는 안 그림). 자세가 깨지는 것은 위 둘뿐.
+    공격은 평타 `Attack`(클라 모드도 공격 `Attack`). 자세가 깨지는 것은 위 둘뿐.
+  - 스와이어 디 엘리건트 위트 S1·S2의 치유·샴페인 폭탄 클립(관리자 요청 2026-10-22): 모드의 `Body/Trigger` 묶음이 Attack 대신 `HealAlly`
+    `_animKey "Skill_1"`(동전 치유) / `SpawnToken` `_animKey "Skill_2"`(폭탄 던지기)를 고름 → 키트가 fx 'coin' `{ signal: 'healAlly' }`(공격에 얹힌
+    치유는 `strike`: 그 타격 프레임부터) / 'swire2Throw' `{ signal: 'spawnToken' }`을 보내고 평타 역할 `signals`(`SIGNAL_CLIPS`)가 그 클립을 틂.
+    [ASSUMED] 공격에 얹힌 치유는 공식처럼 스윙 처음부터 `Skill_1`이 아니라 `Attack` 스윙의 타격 프레임부터 `Skill_1`(시뮬이 치유를 타격 때 정함 —
+    공격과 치유를 같이 하는 2026-10-04 관리자 결정). `signalSwing`은 타격이 지난 스윙의 꼬리를 끊고 들어감(새 스윙처럼; 그 전엔 거절해 평타 직후 던진
+    폭탄이 클립 없이 지나감). 테스트 `test/render/swire2-signal-clips.test.js`. [화면 미확인]
   - 모드 키 = Default 키(평타 클립) + 스킬 클립이 Begin·idle 없는 한 개 → 그 클립은 시전 한 번(스킬 프리팹 시전 능력 `local-skill-cast.json`:
     블레미샤인 S2 `Skill_2`, 스펙터 S1 `Skill_1`, 치우바이 S2 `Skill_2`, 데겐블레허 S1 `Skill_1`(ReplacementSkill), 필라에 S1 `Skill_1`), 공격은 평타 클립.
   - 리드 더 플레임 섀도우 S2는 모드가 없음(공격 = Default `Attack`); 스킬 프리팹 능력이 `Skill_2`를 지속마다 한 번(`cd 20`, `cdKey duration`) — 손 목록.
