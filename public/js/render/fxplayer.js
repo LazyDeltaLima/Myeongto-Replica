@@ -1456,6 +1456,7 @@ export class FxInstance {
     this.trails = [];
     this.lines = [];   // local patch: LineRenderers
     this.emitters = []; // 2026-10-21: RandomEmitter nodes ({ o, rec: node `emit`, next }) — render/fxgame.js plays their copies
+    this.onEmit = [];   // (2026-10-21) OnPlayEmitter / OnFinishEmitter nodes ({ o, play: node `onPlay`, finish: node `onFinish` }) — fxgame.js stepOnEmit
     if (!def || !this.q.budget) { this.empty = true; return; }
     const speed = Number(opts.speed) > 0 ? Number(opts.speed) : 1;
     const delays = opts.delays !== false;
@@ -1487,6 +1488,7 @@ export class FxInstance {
       (n.parent >= 0 ? this.nodes[n.parent] : unity).add(o);
       this.nodes[i] = o;
       if (n.emit?.effect && n.emit.count > 0) this.emitters.push({ o, rec: n.emit, next: 0 });
+      if (n.onPlay?.effects?.length || n.onFinish?.effects?.length) this.onEmit.push({ o, play: n.onPlay || null, finish: n.onFinish || null });
       const own = !delays || n.parent < 0 ? 0 : (Number(n.delay) > 0 ? Number(n.delay) * speed : 0) + (Number(n.sdelay) > 0 ? Number(n.sdelay) : 0);
       t0[i] = (n.parent >= 0 ? t0[n.parent] || 0 : 0) + own;
       o.userData.t0 = t0[i];

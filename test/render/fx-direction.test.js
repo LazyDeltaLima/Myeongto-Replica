@@ -76,7 +76,7 @@ test('a mounted effect with _keepOriginRotation 0 turns its root about the board
   assert.doesNotMatch(SRC, /turn0 \?\?=/);
   assert.match(SRC, /if \(r != null && l\.inst\.nodes\?\.\[0\]\) l\.inst\.nodes\[0\]\.rotation\.set\(0, 0, r\);/);
   // the directional pick runs on every play()
-  assert.match(SRC, /const \{ names, unflip \} = dirPick\(view, given \|\| effectsFor\(b\.prefabs, kind, skillIndex\)\);/);
+  assert.match(SRC, /const \{ names, unflip \} = dirPick\(view, given \|\| effectsFor\(b\.prefabs, kind, skillIndex\)[^;]*\);/);
 });
 
 test('the extracted fan carries its mount (skipped without public/assets)', { skip: !existsSync(FAN) && 'no extracted fx' }, () => {

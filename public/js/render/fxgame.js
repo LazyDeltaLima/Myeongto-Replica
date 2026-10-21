@@ -156,7 +156,10 @@ export function mergeIndex(a, b) {
   if (!a || !a.bundles) return b;
   const bundles = { ...a.bundles };
   for (const [k, list] of Object.entries(b.bundles)) bundles[k] = bundles[k] ? [...new Set([...bundles[k], ...list])] : list;
-  return { ...a, bundles };
+  // (2026-10-21) their `emitted` lists (fx_extract.py set_emitted) the same way
+  const emitted = { ...(a.emitted || {}) };
+  for (const [k, list] of Object.entries(b.emitted || {})) emitted[k] = emitted[k] ? [...new Set([...emitted[k], ...list])] : list;
+  return { ...a, bundles, emitted };
 }
 let indexPromise = null;
 const loadIndex = () => (indexPromise ||= Promise.all([getJson(INDEX_URL), getJson(ENEMY_INDEX_URL)]).then(([a, b]) => mergeIndex(a, b)));
@@ -340,6 +343,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const b = id ? fxBundleOf(id) : null;
     return b && index && index.bundles && index.bundles[b] ? { bundle: b, prefabs: index.bundles[b] } : null;
   };
+  // (2026-10-21) the bundle's prefabs another of its prefabs creates (index.json `emitted`, fx_extract.py set_emitted: OnPlayEmitter /
+  // OnFinishEmitter — stepOnEmit): the name rules leave them to it (they started 歌蕾蒂娅 S2's buff_02_front, 苏尔特 S3's buff_02,
+  // 望 S3's range … with the skill besides, and 华法琳 S2's buff_end for the whole skill); a client binding naming one still plays it
+  const emittedSets = new Map();
+  const emittedIn = (bundle) => {
+    let s = emittedSets.get(bundle);
+    if (!s || s.of !== index) { s = new Set(index?.emitted?.[bundle] || []); s.of = index; emittedSets.set(bundle, s); }
+    return s;
+  };
 
   async function ensure() {
     if (mod) return true;
@@ -424,7 +436,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const b = bundleOf(view);
     if (!b) return;
     // local patch (maintainer report): a directional emitter entry plays the copy for the facing (dirPick)
-    const { names, unflip } = dirPick(view, given || effectsFor(b.prefabs, kind, skillIndex));
+    const { names, unflip } = dirPick(view, given || effectsFor(b.prefabs, kind, skillIndex).filter((n) => !emittedIn(b.bundle).has(n)));
     if (names.length && trace) trace({ kind, names, by: ownerOf(view), at: at ? ownerOf(at) ?? null : null }); // tests: what it plays
     if (!names.length || !(await ensure())) return;
     // local patch (maintainer report 2026-10-08: 赤刃明霄陈's S3 dragon twice, over her): a left / right pair (fx_extract.py
@@ -586,6 +598,45 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       while (em.next < count && t >= (Number(pre) + em.next * Number(per)) * sp) {
         em.next++;
         emitCopy(l, em.rec, emitAt(em));
+      }
+    }
+  }
+
+  // ---- OnPlayEmitter / OnFinishEmitter (2026-10-21, decompile check) ---------------------------------------------
+  // A node with the client's OnPlayEmitter (fx_extract.py node `onPlay`; 33 operator and enemy prefabs, all on the root: buffs
+  // that add their ground copy — fartth_skill_03_buff_02 → _XZ, skadi2_skill_03_buff_03 → _XZ — or their other parts) creates other
+  // prefabs when its effect plays (`_OnPlayInternal` RVA 0xE90F50: now when `_instant`, else `_preDelay` s later): `_DoEmit`
+  // (0xE90B10) through BattleController.CreateEffect on the effect's owner — the unit it was created on — each at its own
+  // _spawnLocation, or at this node with `_useSourceEffectPos`; `_clearWhenFinish` finishes them when this one finishes
+  // (OnFinish 0xE90810). OnFinishEmitter (`onFinish`; 22 prefabs: the `_end` copies of range rings and buffs) creates its prefabs when the
+  // effect finishes (OnFinish 0xE8FA40), on the owner or at the effect's map position (`_useEffectPosition`). Without an owner
+  // (an effect on a point) both play at the effect's place. They come from the bundle of the prefab that emits them, played
+  // with the owner's facing (the overload without a direction asks the target for one too [추정: its faceVector]).
+  const onEmitNow = (l, em) => (em.play.pre > 0 ? l.inst.time - (em.o.userData.t0 || 0) >= Number(em.play.pre) * (l.speed > 0 ? l.speed : 1) : true);
+  function onEmitPlay(l, rec, here) {
+    const bundle = l.inst.def?.bundle;
+    const unit = l.view?.info && l.view.id != null ? lastViews?.get(l.view.id) || null : null;
+    const pt = () => { const p = l.inst.object.position; return { x: p.x, y: p.y, z: p.z || 0 }; };
+    const at = here || !unit || unit.alive === false || unit.remove ? pt() : unit;
+    const kids = [];
+    for (const n of rec.effects) {
+      if (!index?.bundles?.[bundle]?.includes(n)) continue;
+      kids.push(spawn(bundle, n, at, { owner: l.owner ?? null, buff: !!l.buff, on: unit?.id ?? l.on ?? null, tag: 'emit', until: rec.clear ? l.until : undefined },
+        { over: l.layer === layers.over, facing: unit ? efacing(unit) : 1 }));
+    }
+    return kids;
+  }
+  /** Play a live effect's OnPlayEmitter prefabs when their time comes and its OnFinishEmitter prefabs when it finishes. */
+  function stepOnEmit(l) {
+    const inst = l.inst, ending = inst.stopping || inst.done;
+    for (const em of inst.onEmit) {
+      if (em.play && !em.kids && !ending && inst.wait <= 0 && onEmitNow(l, em)) {
+        em.kids = onEmitPlay(l, em.play, em.play.srcPos);
+      }
+      if (ending && !em.ended) {
+        em.ended = true;
+        if (em.play?.clear && em.kids) for (const k of em.kids) Promise.resolve(k).then((c) => { if (c && !c.inst.stopping) c.inst.stop(); });
+        if (em.finish) onEmitPlay(l, em.finish, em.finish.effPos);
       }
     }
   }
@@ -1674,7 +1725,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         }
         castsDelayed.push({ t: clockS + aglGlideBack(fly, chant), run: () => {
           if (!src || src.alive === false || src.remove || gone.has(o.id)) return;
-          for (const n of ['aglna2_skill_02_fly_end_01', 'aglna2_skill_02_fly_end_02', 'aglna2_skill_02_fly_end_03'].map((k) => pickName(b, k)).filter(Boolean)) {
+          // (2026-10-21) not the ones a trail creates as it finishes (fly_trail_rightAndLeft_01's OnFinishEmitter: fly_end_02)
+          for (const n of ['aglna2_skill_02_fly_end_01', 'aglna2_skill_02_fly_end_02', 'aglna2_skill_02_fly_end_03'].map((k) => pickName(b, k)).filter((k) => k && !emittedIn(b.bundle).has(k))) {
             spawn(b.bundle, n, src, { owner: o.id, buff: false });
           }
         } });
@@ -2205,7 +2257,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     'aglna2_skill_02_fly_end_02', 'aglna2_skill_02_fly_end_03', 'aglna2_skill_03_fly_trail_01', 'aglna2_skill_03_buff_right_01',
     'aglna2_skill_03_buff_left_01',
     // 2026-10-16 (render/fx/kitofficial.js): 卡涅利安's eff_cond buffs by charge, 泥岩 S3's sleep / wake (mudrok_skill_03_buff_02:
-    // no client reference — charpack, [uc]skills skchr_mudrok_3, buff templates), 新约能天使 S3's shell landing (the `_range`
+    // 2026-10-21, mudrok_skill_03_buff's OnPlayEmitter creates it — stepOnEmit), 新约能天使 S3's shell landing (the `_range`
     // name rule looped it on her)
     'billro_skill_01_buff_01', 'billro_skill_01_buff_01_02', 'billro_skill_01_buff_02', 'billro_skill_02_buff_01',
     'billro_skill_02_buff_01_02', 'billro_skill_02_buff_02', 'billro_skill_03_buff_01_01', 'billro_skill_03_buff_01_01_02',
@@ -2213,7 +2265,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     'mudrok_skill_03_awake_02', 'mudrok_skill_03_sleep', 'mudrok_skill_03_range', 'mudrok_skill_03_buff', 'mudrok_skill_03_buff_02',
     'angel2_skill_3_begin_range_01']);
   /** What a skill activation plays on the caster (fxmap.js activationEffects: { start, loops }). */
-  const activation = (v) => activationEffects(bindOf(v), bundleOf(v).prefabs, skillIdx(v), KIT_OWNED);
+  const activation = (v) => {
+    const b = bundleOf(v), em = emittedIn(b.bundle);
+    return activationEffects(bindOf(v), b.prefabs, skillIdx(v), em.size ? new Set([...KIT_OWNED, ...em]) : KIT_OWNED);
+  };
   // effects waiting for the damage of this tick: a skill that hits without an attack event (德克萨斯 S2's sword rain on
   // activation, 戴菲恩 S3's slashes / finisher) — the next 'dmg' events of the same moment are its targets
   const pending = [];   // { src view, names, buff, t }
@@ -3682,6 +3737,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (l.backOf && (l.backOf.inst.stopping || !live.includes(l.backOf)) && !l.inst.stopping) l.inst.stop(); // 2026-10-10: a back copy ends with its front
         if ((!l.view?.paused && !l.hidden && !l.held) || l.inst.stopping) l.inst.update(dt * rate2 * (l.speed > 0 ? l.speed : 1));   // local patch: every effect on the battle clock (the notes did already: trail = speed × time); a front paused for its back copy (stepBackSwitches) waits
         if (l.inst.emitters?.length) stepEmitters(l); // 2026-10-21: RandomEmitter copies
+        if (l.inst.onEmit?.length) stepOnEmit(l); // 2026-10-21: OnPlayEmitter / OnFinishEmitter
         if (l.inst.done && l.status && l.again && l.unit?._fxStatusOn?.has(l.status) && l.unit.alive !== false) { const a = l.again; l.again = null; a(); } // local patch: a status loops
         // a kept effect (playAt `keep`: 望's stone activation) stays until its owner's 'die' stops it
         if (l.inst.done && !(l.keep && !l.inst.stopping)) { dropLive(l); live.splice(i, 1); }

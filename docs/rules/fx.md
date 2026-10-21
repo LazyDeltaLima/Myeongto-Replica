@@ -1470,6 +1470,37 @@
   (텍사스 S2, 오른쪽 아래에 대역 `.dpbox`를 넣음): 시전 1·구슬 3, 구슬이 꼬리를 끌며 그 상자 쪽으로 날아가 약 0.5 s 안에 사라짐, 오류 0. 대역이
   없는 아레나에서는 제자리에서 0.5 s 뒤 끝남. 水月 S2·S3, 铃兰 S3, 斯卡蒂 S3 재생 오류 0. [화면 미확인: 실제 판의 DP 칸으로 나는 모양, 공식 녹화]
 
+### OnPlayEmitter · OnFinishEmitter (2026-10-21, 디컴파일 확인)
+
+- 원인: 이펙트가 시작·끝날 때 다른 프리팹을 트는 두 클라 스크립트를 안 읽어(추출 누락 기준선의 todo: 운영자 49개·적 6개, 모두 루트), child
+  프리팹이 아예 안 나오거나(파투스 S3 `fartth_skill_03_buff_02` → 바닥 사본 `_XZ`, 스카디 더 커럽팅 하트 S3 `_XZ`, 범위 원의 `_end` 사본 —
+  비르투오사·시빌라이트 에테르나·클레멘티아·틴맨 S1·S2·라플란드 더 데카덴차 S2 …), `_buff` 이름 규칙이 스킬 시작 때 같이 틀었다(글래디아 S2 `buff_02_front`,
+  수르트 S3 `buff_02`, 望 S3 `buff_02`·`range`, 와파린 S2 `buff_end`가 스킬 내내, 글래디아 S3 `buff_02`는 대상 버프 `glady_skill_03_buff`의
+  child인데 그녀에게).
+- 클라: `OnPlayEmitter._OnPlayInternal`(RVA 0xE90F50)은 `_instant`면 바로, 아니면(GameObject가 켜져 있을 때) `_preDelay` 뒤
+  (`<_DoEmitWithPreDelay>d__16` 0xE9F160) `_DoEmit`(0xE90B10): `_effects` 하나씩 `BattleController.CreateEffect` — `_useSourceEffectPos`면 그
+  노드 자리, 주인(`Behaviour.owner`, 이펙트가 만들어진 유닛)이 없으면 그 transform의 부모, 있으면 주인 위(`_useFaceVector`면 주인 faceVector로; 아니면
+  방향 없는 오버로드 0x3972670이 대상에게 방향을 물어 같은 오버로드로 넘김). `_clearWhenFinish`면 만든 것을 들고 있다가 `OnFinish`(0xE90810)에서
+  끝낸다. `OnFinishEmitter.OnFinish`(0xE8FA40): 주인이 있으면 `_useEffectPosition`일 때 이펙트 위치의 맵 좌표에(`CreateEffectsAtMapPos`), 아니면
+  주인 위에(`_useFaceVector`면 faceVector로) `_effects`를 만들고, 주인이 없으면 부모 transform에.
+- 고친 것: `fx_extract.py on_emitters`가 노드에 `onPlay` {effects, pre(`_instant`면 0), face, clear, srcPos}·`onFinish` {effects, face, effPos}를
+  필드 이름으로 쓰고, `set_emitted`가 묶음마다 다른 프리팹이 트는 이름을 `index.json`/`enemy-index.json`의 `emitted`에 적는다(추출 때마다, 또는
+  `--emitted-only`; SwitchableBackEffect의 뒷면 사본 `back`도 — 이름 규칙이 앞면 옆에 따로 틀던 파투스 S3 `fartth_skill_03_buff_02_B`, 블레미샤인
+  S1·로즈몬티스 S1·아르케토 S1 시작 `_B`, 위셔델 S3 `buff_02_B`; 뒷면 전환(「SwitchableBackEffect」)이 방향 따라 트는 것은 그대로). 53개 다시 뽑음(전후 비교: 바뀐 키는 `onPlay`/`onFinish`뿐), 빠져 있던 적 child 6개(`enemy_sfji_buff_end_01~04`·
+  `enemy_syufo_C1_buff_02`·`enemy_vtsk_birth_02`) 추출. `FxInstance.onEmit`이 그 노드를 모으고 `fxgame.js stepOnEmit`이 이펙트가 기다림을
+  끝내고 `pre`(게임 초)에 이르면 같은 묶음에서 child를 이펙트가 붙은 유닛 위에(그 유닛이 없으면 이펙트 자리) 그 프리팹의 `_spawnLocation`대로
+  틀고(`onEmitPlay` → `spawn`, 주인 방향), 이펙트가 끝날 때(`stopping`/`done`) `clear` child를 멈추고 `onFinish` 목록을 튼다(`effPos`면 이펙트
+  자리). 이름 규칙(`play()`의 `effectsFor`, `activation`의 skillBuff·skillStart)은 `emitted` 이름을 건너뛴다 — 클라 바인딩(modes.json)이 직접 부르는
+  이름은 그대로. 예외 손 연결 둘: 안젤리나 더 멜로우 위시 S2 착지의 `fly_end_02`는 `fly_trail_rightAndLeft_01`이 끝날 때 트므로 활강 복귀 목록에서
+  뺌, 머드락 S3 `buff_02`(KIT_OWNED)는 이제 `mudrok_skill_03_buff`가 튼다. [추정: 방향 없는 오버로드도 주인 방향; 주인이 없는 이펙트는 이펙트
+  자리 — 클라의 「부모 transform」]
+- 안 한 것: 글래디아 S3 대상 버프 `glady_skill_03_buff`(modes.json `targetBuff`) 자체가 우리 판에 안 나와 그 child도 안 나옴(§11).
+  `OnPlayEmitterIf`(`_checkType` MOTION_MODE·버프·Spine 방향 조건)·`RandomFinishEmitter`는 지금 추출물에 없다.
+- 확인: `test/render/on-emitter-fx.test.js`(추출물·`emitted`·`stepOnEmit` 시점·지우기·이름 규칙 제외), 이벤트 골든(child·뒷면 사본이 이름 규칙
+  줄에서 빠짐 — 불러온 뒤 트는 child 자체는 골든이 못 봄), 추출 JSON 골든 갱신. Windows Chrome 디버그 아레나: 수르트 S3 buff → `_02`·`_03`·`_04`,
+  파투스 S3 `buff_02` → `_XZ`(`_B`·`_B_XZ` 없음), 글래디아 S2 `buff` → `_02_front`·`_02_back`·`_03`, 스펙터 S2 `buff_02`, 비르투오사 S3·엔텔레키아 S3의
+  `_end`가 끝날 때 나옴, 페이지 오류 0. [화면 미확인: 실제 판, 공식 녹화와 모양 대조; 틴맨 S1·S2 범위 원은 부모가 아레나에서 안 나와 못 봄]
+
 ### 타격별 명중 — MultiHitUberEffectEmitter `_hitGroups` (2026-10-16, 이펙트 연결 전수, 디컴파일 확인)
 
 - 원인: `char_modes.py`가 `_hitGroups`를 읽지 않아 그 이미터만 명중을 가진 모드(锏 일반·S1, 赤刃明霄陈 S1·S3, 德克萨斯 S2, 玛恩纳 S2)와 스킬

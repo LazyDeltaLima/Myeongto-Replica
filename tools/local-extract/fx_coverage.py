@@ -60,9 +60,11 @@ SCRIPTS = {
     -2385344539842054984: 'LineEffectEmitterDynamic',  # line_dynamic
     -1593825680945881793: 'RandomEmitter',            # random_emitter (node `emit`)
     -7734721471322670107: 'FlyToPredefinedLocation',  # fly_location (`fly`)
+    -5498265793651067281: 'OnPlayEmitter',            # on_emitters (node `onPlay`)
+    2565987927806955259: 'OnFinishEmitter',           # on_emitters (node `onFinish`)
     # not read (KNOWN)
     -337322108846137150: 'FollowDirection', 1149374055237060560: 'FxLODSetting', -488665936260092151: 'EmptyEffect',
-    -5498265793651067281: 'OnPlayEmitter', 2565987927806955259: 'OnFinishEmitter', -5974768320951421776: 'PauseEffectIf',
+    -5974768320951421776: 'PauseEffectIf',
     -8269937305055351653: 'PauseAnotherEffect', 2267209715737721819: 'PauseEffectIfNotIdle',
     6329958979451404875: 'PauseEffectWithAnimation', -654372255496816943: 'PauseEffectIfSpineEvent',
     -6490124024613466648: 'FinishEffectIf', 8393240480824250599: 'FinishEffectViaOwnerBuff',
@@ -83,7 +85,7 @@ SCRIPTS = {
 # what the extract reads of the scripts above (reader() checks the raw fallbacks)
 SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoint', 'FxUVTweener', 'FxUVTweenerAdvance',
                 'FxUVRotation', 'SwitchableBackEffect', 'SwitchableRightEffect', 'LineEffectEmitterDynamic', 'RandomEmitter',
-                'FlyToPredefinedLocation'}
+                'FlyToPredefinedLocation', 'OnPlayEmitter', 'OnFinishEmitter'}
 
 # ParticleSystem modules the extract carries (fx_extract.particle_system)
 MODULES_READ = {'InitialModule', 'EmissionModule', 'ShapeModule', 'SizeModule', 'ColorModule', 'RotationModule',
@@ -138,8 +140,6 @@ KNOWN = {
                                'ParticleEffect `_rotateType` is read, `face`)'),
     'script:FxLODSetting': (_TODO, 'switches objects / particle details off by quality level [ASSUMED: nothing at the top level]'),
     'script:EmptyEffect': (_TODO, 'an Effect root without particles: its `_delayToFinish` / sub delays are not read'),
-    'script:OnPlayEmitter': (_TODO, 'plays other effects when this one starts'),
-    'script:OnFinishEmitter': (_TODO, 'plays other effects when this one finishes'),
     'script:PauseEffectIf': (_TODO, 'pauses the effect on owner conditions (abnormal flags, blackboard keys)'),
     'script:PauseAnotherEffect': (_TODO, 'pauses another effect of the owner'),
     'script:PauseEffectIfNotIdle': (_TODO, 'pauses while the owner is not idle / faces back or front'),

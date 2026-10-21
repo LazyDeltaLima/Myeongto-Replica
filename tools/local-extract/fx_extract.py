@@ -76,6 +76,10 @@ PARTICLE_EFFECT_SCRIPT = 6196809664641094801
 RIGHT_SCRIPT = 7347111497538980357
 # (2026-10-21, decompile check) the MonoScript PathID of Torappu.Battle.Effects.RandomEmitter (random_emitter, node `emit`)
 RANDOM_EMITTER_SCRIPT = -1593825680945881793
+# (2026-10-21, decompile check) the MonoScript PathIDs of Torappu.Battle.Effects.OnPlayEmitter and OnFinishEmitter
+# (on_emitters, node `onPlay` / `onFinish`)
+ON_PLAY_EMITTER_SCRIPT = -5498265793651067281
+ON_FINISH_EMITTER_SCRIPT = 2565987927806955259
 # (2026-10-16) Unity's built-in particle materials (an anonymous bundle, anon/*.bin): read as no material, as before the CAB
 # index knew that bundle — nearly all sit on empty container systems (227 of 234); fx_coverage lists the 7 that emit
 UNITY_DEFAULT_MATERIALS = {'Default-Particle', 'Default-ParticleSystem'}
@@ -458,6 +462,33 @@ def source_of(index, bundle, name):
     return {'pack': e.get('pack') or own_pack(bundle), 'client': e.get('client', 'en')}
 
 
+def set_emitted(index, bundle, out=OUT):
+    """(2026-10-21) record in `index['emitted'][bundle]` the bundle's prefabs another of its prefabs creates (its nodes'
+    OnPlayEmitter `onPlay` / OnFinishEmitter `onFinish`, its root's SwitchableBackEffect `back` — 远牙 S3's
+    fartth_skill_03_buff_02_B): render/fxgame.js's name rules leave them to their emitter. Read from the extracted files, so
+    it holds after any partial extraction; the key goes when there are none."""
+    listed = set(index['bundles'].get(bundle, []))
+    names = set()
+    for n in listed:
+        f = out / bundle / f'{n}.json'
+        if not f.exists():
+            continue
+        d = json.loads(f.read_text())
+        back = (d.get('back') or {}).get('effect')
+        if back in listed:
+            names.add(back)
+        for nd in d.get('nodes') or []:
+            for k in ('onPlay', 'onFinish'):
+                names.update(e for e in (nd.get(k) or {}).get('effects') or [] if e in listed)
+    em = index.setdefault('emitted', {})
+    if names:
+        em[bundle] = sorted(names)
+    else:
+        em.pop(bundle, None)
+    if not em:
+        index.pop('emitted')
+
+
 def set_sources(index, bundle, names, written, src):
     """(2026-10-21) record in `index['sources']` where the bundle's prefabs `names` come from: `src` ({pack, client}) for
     the ones just `written`, the recorded source for the others. Only what differs from the default (source_of) is kept:
@@ -769,6 +800,7 @@ class Extractor:
             emit = self.random_emitter(go)
             if emit:
                 node['emit'] = emit
+            node.update(self.on_emitters(go))
             tr = None
             for c in d['m_Component']:
                 comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], go)
@@ -1081,6 +1113,36 @@ class Extractor:
                     'per': r4(t.get('_delayPerEffect') or 0), 'from': v3(t.get('_randomRangeFrom') or {}),
                     'to': v3(t.get('_randomRangeTo') or {})}
         return None
+
+    def on_emitters(self, go):
+        """(2026-10-21, decompile check) the client's OnPlayEmitter / OnFinishEmitter on this GameObject, by their field
+        names: { onPlay: { effects, pre, face, clear, srcPos }, onFinish: { effects, face, effPos } } (either may be missing).
+        OnPlayEmitter `_OnPlayInternal` (RVA 0xE90F50): `_instant` → `_DoEmit` now, else (the GameObject active) after
+        `_preDelay` s (`<_DoEmitWithPreDelay>d__16` 0xE9F160) — `pre` is 0 when instant; `_DoEmit` (0xE90B10) creates each
+        of `_effects` through BattleController.CreateEffect: `_useSourceEffectPos` at this transform's position, else with no
+        owner on this transform's parent, else on the owner (with its faceVector when `_useFaceVector`); `_clearWhenFinish`
+        keeps them and OnFinish (0xE90810) finishes them. OnFinishEmitter `OnFinish` (0xE8FA40) creates `_effects` on the
+        owner (faceVector when `_useFaceVector`), or at the effect's map position when `_useEffectPosition`, or with no
+        owner on this transform's parent."""
+        out = {}
+        for sid, _raw, t in self.monos(go):
+            if sid not in (ON_PLAY_EMITTER_SCRIPT, ON_FINISH_EMITTER_SCRIPT):
+                continue
+            what = 'OnPlayEmitter' if sid == ON_PLAY_EMITTER_SCRIPT else 'OnFinishEmitter'
+            if t is None or not isinstance(t.get('_effects'), list):
+                self.cov.reader(what, False, 'no type tree: nothing read')
+                continue
+            effects = [e for e in t['_effects'] if isinstance(e, str) and e]
+            if not effects:
+                continue
+            if sid == ON_PLAY_EMITTER_SCRIPT:
+                out['onPlay'] = {'effects': effects, 'pre': 0 if t.get('_instant') else r4(t.get('_preDelay') or 0),
+                                 'face': bool(t.get('_useFaceVector')), 'clear': bool(t.get('_clearWhenFinish')),
+                                 'srcPos': bool(t.get('_useSourceEffectPos'))}
+            else:
+                out['onFinish'] = {'effects': effects, 'face': bool(t.get('_useFaceVector')),
+                                   'effPos': bool(t.get('_useEffectPosition'))}
+        return out
 
     @staticmethod
     def right_tree(t):
@@ -2237,6 +2299,7 @@ class Extractor:
                     f.unlink()
         index['bundles'][bundle] = sorted(keep)
         set_sources(index, bundle, sorted(keep), set(written), {'pack': rel, 'client': self.client})
+        set_emitted(index, bundle, out)
         index_p.write_text(json.dumps(index, ensure_ascii=False, indent=1))
         print(f'[fx] {bundle}: {len(written)} prefab(s), {len(self.textures)} texture(s), {len(self.meshes)} mesh(es) -> {out}')
         return written
@@ -2290,7 +2353,17 @@ def main():
     ap.add_argument('--other-game', metavar='DIR', help='--coverage: the Arknights_Data folder of the other client, for the '
                     'prefabs extracted from it (the CN 선발 bundles)')
     ap.add_argument('--other-cab-index', metavar='JSON', help='--coverage: the CAB index of --other-game')
+    ap.add_argument('--emitted-only', action='store_true', help='only rewrite the index\'s `emitted` lists (the prefabs another '
+                    'prefab of the bundle creates, from the already extracted files; every bundle of --index without --bundle; 2026-10-21)')
     a = ap.parse_args()
+    if a.emitted_only:
+        index_p = OUT / a.index
+        index = json.loads(index_p.read_text())
+        for b in a.bundle or sorted(index['bundles']):
+            set_emitted(index, b)
+        index_p.write_text(json.dumps(index, ensure_ascii=False, indent=1))
+        print(f"[fx] emitted: {sum(len(v) for v in (index.get('emitted') or {}).values())} prefab(s) in {len(index.get('emitted') or {})} bundle(s)")
+        return
     if a.build_cab_index:
         build_cab_index(a.game, a.build_cab_index)
         return
