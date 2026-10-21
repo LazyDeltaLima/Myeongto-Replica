@@ -64,6 +64,7 @@ import { clipGroup, hitLoopEnd, deployEffect, deadEffect } from './fxmap.js'; //
 import { commonEffects } from './fxmap.js'; // 2026-10-16: the always-on effects of the common abilities
 import { altGroup, combatEffects } from './fxmap.js'; // 2026-10-21: ability group children, the COMBAT state's effects
 import { modePart } from './fxmap.js'; // 2026-10-21: a mode talent's attack, a per-side child of the attack
+import { defaultModeEffects } from './fxmap.js'; // 2026-10-21: the Default mode's own effects
 import { projSpeed } from './fx.js'; // local patch: the trails' flight time (the sim's projectile speeds)
 import { bodyZ } from './fx.js'; // local patch: status effects at a unit's head / body (fxstatus.js)
 import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
@@ -3710,6 +3711,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (!isAlly(v) || v.alive === false || failed || q() === 'low') continue;
       const bind = bindOf(v);
       alwaysOn(v, id);
+      defaultModeFx(v, true);   // 2026-10-21: the Default mode's own effects
       droneIdle(v, true);   // 2026-10-16: the Default mode's drones
       if (isPack(v)) packDeploy(v, id, t);   // 2026-10-16: 伺夜's wolf pack
       const fx = deployEffect(bind, v.info.kind === 'token', v._fxSkillOn ? modeNow(v) ?? 0 : 0);
@@ -3731,6 +3733,29 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!names.length) return;
     for (const l of live) if (l.tag === 'common' && l.owner === id) l.inst.stop(true);
     for (const n of names) spawn(b.bundle, n, v, { owner: id, buff: false, onCaster: true, until: null, tag: 'common', pinned: true }, { over: false, facing: efacing(v) });
+  }
+  /**
+   * 2026-10-21 (maintainer decision 2026-10-21, decompile check): the Default mode's own effects (fxmap.js defaultModeEffects).
+   * The client attaches a mode's abilities with the mode and detaches them when another mode takes over (Unit.SwitchMode →
+   * ActivateMode); a detach ends their effects — an aura's own (AuraAbility.DoDetach RVA 0xC21E20 → _ClearEffects 0xC23390:
+   * Effect.FinishMe(false), it fades) and a buff's (Entity.RemoveBuffEffect). So they show while the operator is deployed and
+   * no running skill switched her mode (a skill that switches none, attackMode −1, keeps the Default mode) — through a stun
+   * too —, end at a mode-switching skill's start, come back at its end and end with her retreat / death (stopOwned).
+   * `force` (a deploy, a 【移动】 too: the client re-attaches) restarts them.
+   */
+  function defaultModeFx(v, force = false) {
+    const id = ownerOf(v), b = bundleOf(v);
+    const m = v._fxSkillOn ? modeNow(v) ?? -1 : 0;
+    const names = b && !failed && q() !== 'low' && v.alive !== false && !(m > 0) ? defaultModeEffects(bindOf(v), b.prefabs, KIT_OWNED) : [];
+    const key = names.join('|');
+    if (!force && (v._fxMode0?.key ?? '') === key) return;
+    for (const l of live) if (l.tag === 'mode0' && l.owner === id) l.inst.stop(force);
+    const rec = { key };
+    v._fxMode0 = rec;
+    for (const n of names) {
+      spawn(b.bundle, n, v, { owner: id, buff: false, onCaster: true, until: null, tag: 'mode0', pinned: true }, { over: false, facing: efacing(v) })
+        .then((l) => { if (l && v._fxMode0 !== rec) l.inst.stop(); });
+    }
   }
   function allyDeathFx(v, reason) {
     if (reason !== 'killed' || !isAlly(v) || failed || q() === 'low') return;
@@ -4027,6 +4052,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // (and the marks it left on its targets: 戴菲恩 S3's hit_1)
           else { v._fxSkillOn = false; v._fxSkillFlags?.clear(); stopBuffs(v.id ?? v.info.id, true); endWolves(v.id ?? v.info.id); }
           droneIdle(v);   // 2026-10-16: the drones of the mode now
+          defaultModeFx(v);   // 2026-10-21: the Default mode's own effects, off while a skill switched her mode
           return;
         }
         case 'atk': {
@@ -4347,6 +4373,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         recent: recent.slice(), trails: trails.length, // local patch
         buffs: live.filter((l) => l.buff && !l.inst.done).map((l) => l.inst.def?.name ?? '?'), // local patch: the looping effects on now
         paused: live.filter((l) => l.paused && !l.inst.done).map((l) => l.inst.def?.name ?? '?'), // 2026-10-21: held by a pause behaviour (stepPauses)
+        mode0: live.filter((l) => l.tag === 'mode0' && !l.inst.done && !l.inst.stopping).map((l) => l.inst.def?.name ?? '?'), // 2026-10-21: the Default mode's (defaultModeFx)
         trailAt: trails.map((r) => (r.inst ? [+r.inst.object.position.x.toFixed(2), +r.inst.object.position.y.toFixed(2), +r.k.toFixed(2)] : [r.k])), // local patch
       };
     },

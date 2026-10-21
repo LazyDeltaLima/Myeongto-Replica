@@ -32,7 +32,9 @@
    []
   ],
   "attach": [
-   [],
+   [
+    "skadi2_buff_01_range"
+   ],
    [],
    [],
    []
@@ -6941,15 +6943,9 @@
    []
   ],
   "attach": [
-   [
-    "buff_weak"
-   ],
-   [
-    "buff_weak"
-   ],
-   [
-    "buff_weak"
-   ]
+   [],
+   [],
+   []
   ],
   "castOpt": [
    {
@@ -7274,7 +7270,9 @@
   ],
   "attach": [
    [],
-   [],
+   [
+    "aglina_skill_02_gather"
+   ],
    [],
    [],
    []
@@ -8118,7 +8116,9 @@
    []
   ],
   "attach": [
-   [],
+   [
+    "beewax_buff_01_start"
+   ],
    [],
    []
   ],
@@ -9042,7 +9042,9 @@
    ]
   ],
   "attach": [
-   [],
+   [
+    "kjera_token_default"
+   ],
    []
   ],
   "castOpt": [
@@ -11697,7 +11699,9 @@
    []
   ],
   "attach": [
-   [],
+   [
+    "cetsyr_buff_01"
+   ],
    [],
    [],
    []
@@ -14159,7 +14163,9 @@
   "attach": [
    [],
    [],
-   [],
+   [
+    "blemsh_skill_02_range_02"
+   ],
    []
   ],
   "castOpt": [
@@ -14321,9 +14327,13 @@
    []
   ],
   "attach": [
+   [
+    "billro_beidong_buff_03"
+   ],
    [],
-   [],
-   [],
+   [
+    "billro_beidong_buff_03"
+   ],
    [],
    [],
    [],
@@ -15306,17 +15316,11 @@
   ],
   "attach": [
    [],
-   [
-    "indigo_buff_01_start"
-   ],
    [],
-   [
-    "indigo_buff_01_start"
-   ],
    [],
-   [
-    "indigo_buff_01_start"
-   ]
+   [],
+   [],
+   []
   ],
   "castOpt": [
    {
@@ -15361,20 +15365,6 @@
      "o": 1
     }
    }
-  ],
-  "attachFoe": [
-   [],
-   [
-    "indigo_buff_01_start"
-   ],
-   [],
-   [
-    "indigo_buff_01_start"
-   ],
-   [],
-   [
-    "indigo_buff_01_start"
-   ]
   ],
   "charge": {
    "hold": [

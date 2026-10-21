@@ -195,7 +195,8 @@ test('kitOfficialPlan: the moments and lifetimes of the templates', () => {
   assert.deepEqual(names(kitOfficialPlan('redistribute', { id: 1 }, 'cetsyr')), ['cetsyr_skill_03_burst_01']);
   // 卡涅利安: [half] or, cast with every charge, [full] + [half] for the skill; S3 with [full2] / [half2]; S2 keeps its stand-in
   assert.deepEqual(names(kitOfficialPlan('shell', { id: 1, charged: 0 }, 'billro')), ['billro_skill_01_buff_01_02']);
-  assert.deepEqual(names(kitOfficialPlan('shell', { id: 1, charged: 1 }, 'billro')), ['billro_skill_01_buff_02', 'billro_skill_01_buff_01_02']);
+  // (charged: S1_Enhance keeps the trait's billro_beidong_buff_03 — default-mode-fx.test.js)
+  assert.deepEqual(names(kitOfficialPlan('shell', { id: 1, charged: 1 }, 'billro')), ['billro_skill_01_buff_02', 'billro_skill_01_buff_01_02', 'billro_beidong_buff_03']);
   assert.ok(kitOfficialPlan('shell', { id: 1, charged: 1 }, 'billro').play.every((x) => x.life === 'skill'));
   assert.deepEqual(names(kitOfficialPlan('sandChainsCharged', { id: 1 }, 'billro')), ['billro_skill_02_buff_02', 'billro_skill_02_buff_01_02']);
   assert.equal(kitOfficialPlan('sandChains', { id: 1 }, 'billro').pass, true);

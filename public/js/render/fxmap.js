@@ -359,6 +359,25 @@ export function commonEffects(bind, prefabs, kitOwned = null, charId = null) {
   return list.filter((n) => typeof n === 'string' && (!prefabs || prefabs.includes(n)) && !kitOwned?.has(n));
 }
 
+/**
+ * 2026-10-21 (maintainer decision 2026-10-21): the Default mode's own effects — modes.json `attach[0]` (char_modes.py: the
+ * effects of the buffs its abilities hold, its UnitMode `_generalAbilities` included, and the ones they attach: 薄绿's talent
+ * aura mint_buff_01_range, the 阵法术师 trait buffs of 卡涅利安 / 蜜蜡), shown while the operator stands in that mode
+ * (fxgame.js defaultModeFx). Minus its drones' looks (`funnels[0]` idle / back: fxgame.js droneIdle), the always-on ones
+ * (`common`: alwaysOn), the ones on enemies (`attachFoe[0]`) and `kitOwned`; extracted only.
+ * @param {any} bind modes.json entry
+ * @param {string[]|null|undefined} prefabs
+ * @param {Set<string>|null} [kitOwned]
+ */
+export function defaultModeEffects(bind, prefabs, kitOwned = null) {
+  const other = new Set([
+    ...(Array.isArray(bind?.funnels?.[0]) ? bind.funnels[0] : []).flatMap((x) => [...(x?.idle || []), ...(x?.back || [])]),
+    ...(Array.isArray(bind?.common) ? bind.common : []),
+    ...foeEffects(bind, prefabs, 0),
+  ]);
+  return boundEffects(bind, prefabs, 0, 'attach').filter((x) => !other.has(x) && !kitOwned?.has(x));
+}
+
 // ---- a skill activation's effects (local patch, maintainer report 2026-10-07, 11 items) ------------------------------------------
 // modes.json[charId].skills[i] = { cast, castLoop, buff, target, targetBuff, end?: { cast, hit }, zone?: { fx, aura, onProj } } — the skill's own effects
 // (char_modes.py from battle/prefabs/[uc]skills.ab); turn = the prefabs the client turns to the unit's facing.

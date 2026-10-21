@@ -199,7 +199,17 @@ export const KIT_OFFICIAL = {
   // charge stored (billro_talent_enhance_mark) its [full] + [half] (S3 also [full2] + [half2]), else its [half] (S3 [half] +
   // [half2]); its off-skill branch is 'charges' below. fxgame.js KIT_OWNED keeps the name rules from playing these at the
   // skill's start. S2's own events keep their stand-ins (`pass`).
-  shell: { billro: (o) => billro(0, o.charged) },
+  // (2026-10-21, maintainer decision 2026-10-21) a charged S1 switches to S1_Enhance (billro_s_1 ON_BUFF_START: SwitchMode 2
+  // with billro_talent_enhance_mark, else 1), whose `_generalAbilities` keep the trait's Trait_Eff buff billro_trait_eff →
+  // billro_beidong_buff_03 (modes.json attach[2]): her Default mode's look stays through that skill (fxgame.js
+  // defaultModeFx ends it at the start, this plays it again until the end)
+  shell: {
+    billro: (o) => {
+      const p = billro(0, o.charged);
+      if (Number(o.charged)) p.play.push({ n: 'billro_beidong_buff_03', on: 'op', life: 'skill' });
+      return p;
+    },
+  },
   // … and outside the skill (`n` the charges stored, -1 while it runs: the branch above): 2 → [full] _buff_02 + [half]
   // _buff_01_02 (S3 _buff_01_02 + _buff_01_01_02), 1 → [half] _buff_01 (S3 _buff_01_01), 0 → none — held until the count
   // changes (FinishDerivedBuff, then the new ones)

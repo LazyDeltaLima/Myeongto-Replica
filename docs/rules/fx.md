@@ -119,7 +119,7 @@
     `overrideEffectKey`(丰川祥子 S3 `oblvns_s_3[eff]` → `oblvns_skill_03_range`)를 `char_modes.py`가 모드별 `attach`로 뽑고, `fxgame.js`가 그 스킬이
     켜져 있는 동안 오퍼레이터 아래 층에 버프로 띄운다(스킬 끝에 멈춤). 공격이 대상에 거는 버프(`_activeBuffs`)는 넣지 않는다. 모드 능력이 붙이는
     이펙트도 같다: 시전기의 `_attachEffects`와 능력의 `_effects` 목록(비르투오사 S3 `GeneralAbilities` → `cello_skill_03_buff_01`·`_front_02`·
-    `_buff_range`, 阿斯卡纶 S3 `ascln_skill_03_range_01` — 관리자 제보).
+    `_buff_range`, 阿斯卡纶 S3 `ascln_skill_03_range_01` — 관리자 제보). 기본 모드(0)의 `attach`는 아래 「기본 모드 attach」(2026-10-21).
   - 검은 사각형 (2026-10-07 관리자 제보): 이펙트 층은 페이지 위의 투명 캔버스인데
     `premultipliedAlpha: false`라, 가산(Additive) 재질도 캔버스 알파를 쌓았다 → 알파 없는(검은 바탕) 텍스처가 검은 사각형으로 합성되고, 밝은
     글로우도 아래를 살짝 가렸다. 캔버스를 premultiplied로 바꾸고(`fxgame.js`) 재질의 알파 채널 블렌드를 따로 지정(`fxplayer.js makeMaterial`:
@@ -615,6 +615,7 @@
   범위 선택기가 모두 `_targetSide 2`」를 더하고 `attachFoeMax`(선택기 상한)를 쓴다. `fxmap.js activationEffects`가 그 이펙트를 시전자 루프에서 빼고(이름 매핑 포함),
   `fxgame.js foeFx`가 스킬 중 그녀의 공격이 맞힌 적에 붙여 그 적이 살아 있고 스킬이 켜진 동안 유지, 죽으면 다음에 맞힌 적으로 [추정: 공식은 `halo2_s_3_link` 버프가
   있는 적을 먼저 고르고 그 버프가 언제 옮겨 가는지는 안 읽음]. 결과: `attachFoe` = 스펙터 디 언체인드 Stand·인디고 `_T1` 모드(전과 같음) + 아스트젠.
+  (2026-10-21: 인디고 것 `indigo_buff_01_start`는 공격 대상에게 주는 버프(`_additiveActiveBuffs`)라 `attach`·`attachFoe`에서 빠짐 — 아래 「기본 모드 attach」.)
 - **③ 투사체가 멈출 때 끝나는 효과** — 쏜즈 더 로드스타 `thorn2_skill_0N_token`/`_range`는 스킬이 아니라 투사체(`projectile_chr_thorn2_s1/2/3`)의 것:
   `EffectBehaviour.OnProjectileReached` (0x970110)가 `_effectsWhenReached`를 도착 자리에 만들고(`_setReachEffectOnProjectile` 1이면 투사체 몸에 붙어 같이 움직임 — S2),
   `_clearReachedEffectWhenStop`이면 `OnProjectileStop` (0x970650)에서 끈다; `ScalableAuraHitBehaviour` (0x982390 / 0x982620)는 `_effectKey`(`thorn2_skill_02_range`)를
@@ -1305,6 +1306,42 @@
   지금 발동 3번 뒤 갱신 중인 프리팹): 新约能天使 S3·引星棘刺 S3·圣聆初雪 S2·魔王 S2·夕 S2 모두 발동 전후 그대로, 오류 0; 3배 확대 캡처로 新约能天使
   머리 위 후광·등의 날개, 引星棘刺 무기 쪽 빛. [화면 미확인: 공식 녹화와 모양·자리 대조]
 
+### 기본 모드 attach — 모드가 붙이는 능력의 이펙트 (2026-10-21, 관리자 결정 2026-10-21, 디컴파일 확인)
+
+- 원인: 모드의 `attach`(그 모드 능력이 가진 버프·오라의 이펙트)는 스킬 모드 것만 그 스킬이 켜질 때 틀었다(위 「모드 버프 이펙트 `attach`」). 기본
+  모드(0)의 것은 아무도 안 틀어 薄绿 재능 범위 `mint_buff_01_range`가 추출되고도 안 나왔고, 阵法术师 특성 이펙트(卡涅利安 `billro_beidong_buff_03`·蜜蜡
+  `beewax_buff_01_start`)는 `char_modes.py`가 읽지도 않았다. 관리자 결정 2026-10-21: 판정할 일이 아니라 클라대로 — 클라는 이 이펙트를 기본 모드에 묶는다.
+- 클라: `UnitMode._InitAbilities`가 `_generalAbilities`를 모드 능력 목록에 넣고 `OnActivate`가 모드 재능(유효한 것)과 그 능력을 붙이며 `OnInactivate`가
+  뗀다 — 모드가 바뀌면(`Unit.SwitchMode`) 옛 모드 것이 떨어지고 새 모드 것이 붙는다. 능력이 떨어지면 이펙트도 끝: 오라 자신의 `_effects`는
+  `AuraAbility.DoDetach` → `_ClearEffects`가 `Effect.FinishMe(false)`(서서히), 버프 것은 버프가 지워질 때. 그래서 기본 모드 이펙트는 배치돼 있고
+  모드를 바꾸는 스킬이 돌지 않을 때 켜져 있다. 모드를 안 바꾸는 스킬(attackMode −1)은 기본 모드 그대로라 계속, 기절은 능력을 떼지 않아 그대로.
+  - 薄绿: `Modes/Default/Talent/1`(모드 재능) AuraAbility `_effects` `mint_buff_01_range`(`_createEffectOnDummy` 1) — 地质学者 범위. S1·S2 모드엔 없다.
+  - 卡涅利安: 기본 모드 `_generalAbilities` = [무장 해제 버프, `Trait_Eff`(버프 `billro_trait_eff` → `billro_beidong_buff_03`)], `S1_Enhance` = [`Trait_Eff`]만
+    (다른 스킬 모드는 `Trait_Override`). `billro_s_1`의 ON_BUFF_START가 `billro_talent_enhance_mark`(충전 둘 이상)면 모드 2(`S1_Enhance`), 아니면 1(`S1`)로
+    바꾼다 → 충전 S1 동안은 특성 모습이 그대로: 시뮬 'shell' `charged` 1에 `fx/kitofficial.js`가 `billro_beidong_buff_03`을 스킬 동안(`life: 'skill'`).
+  - 蜜蜡: 기본 모드 GameObject 자신의 PassiveBuffAbility(무장 해제 버프 `beewax_c_disarmed` → `beewax_buff_01_start`). S1·S2 모드엔 없다.
+  - 山 `buff_weak`: 모든 모드 `Body/Attack/Talents/1`의 PassiveAttachmentAbility `_additiveActiveBuffs` — 필드 설명 "These buffs would be added to the
+    target ability as active buffs", `DoAttach`가 공격 쪽 AbilityAttachment에 넘김 = 공격 대상(적)에게 가는 버프(재능 확률, `duration`), 그녀 것이 아니다.
+    적에게는 시뮬 'weaken' 상태가 그린다(fxstatus). 그녀에게 그려진 적은 없다 — `buff_weak`는 그녀 묶음이 아니라 공용 `buff` 묶음이라 `boundEffects`가
+    걸렀다. 深靛 `indigo_buff_01_start`(`_T1` 모드, 속박)도 같은 것이라 `attachFoe`에서도 빠짐(렌더가 `_T1` 모드를 고르지 않아 화면 변화 없음; 적에게는
+    'bind' 상태).
+  - 洛洛 `rockr_token_01`·至简 `malist_drone`·耶拉 `kjera_token_default`: 기본 모드 `Effect` 버프 = 드론 모습 — `droneIdle`이 그린다(아래 「驭械术师
+    드론」), 여기서는 빼 두 번 안 그린다.
+- 고친 것: `char_modes.py` — 모드 UnitMode의 `_generalAbilities`를 경로와 상관없이 읽어 그 능력 버프의 이펙트를 `attach`(적을 고르면 `attachFoe`)에,
+  능력이 남에게 주는 버프(`_activeBuffs`·`_additiveActiveBuffs`, `TARGET_BUFF_KEYS`)는 뺀다. EN 전체 재추출 diff = `attach`(+ 深靛 `attachFoe`)만, 9명:
+  위 넷(山·深靛은 빠짐) + 浊心斯卡蒂 기본 `skadi2_buff_01_range`(HealAura `_passiveBuffs`, 吟游者 범위), 魔王 기본 `cetsyr_buff_01`(`Body/CommonAbility/Effect`),
+  瑕光 S2 `blemsh_skill_02_range_02`(S2 Heal 오라 `_passiveBuffs` — 그 스킬 루프에 더해짐), 耶拉 기본 `kjera_token_default`(드론), 安洁莉娜 `Disarmed`
+  모드 `aglina_skill_02_gather`(렌더가 그 모드를 안 고름 — 변화 없음). `fxmap.js defaultModeEffects` = `attach[0]` − 드론(`funnels[0]` idle/back) −
+  상시(`common`) − `attachFoe[0]` − 키트 몫; `fxgame.js defaultModeFx`: 'deploy'마다 다시 켜고(【移动】 포함), 'skill' 켜짐/꺼짐마다 지금 모드가 기본(0)
+  이거나 모드 없는 스킬(−1)이면 켬, 아니면 서서히 끔, 'die'에 끝(stopOwned). `buff` 항목이 아니라(stopBuffs가 안 끔) `pinned`; `stats().mode0`.
+- [추정] 모드 전환 때 옛 이펙트가 끝나고 새 것이 처음부터(卡涅利安 기본 → `S1_Enhance` → 기본) — `ActivateMode`의 떼고 붙이는 순서는 안 읽음. 薄绿 모드
+  재능이 붙는 조건(`BasicTalent.get_isValid`)은 안 읽음 — 시뮬이 재능을 늘 깔아 늘 켬.
+- 확인: 단위 `test/render/default-mode-fx.test.js`(추출값, `defaultModeEffects`, 卡涅利安 충전 S1 계획, dry 레이어로 배치·스킬 켜짐/꺼짐·모드 없는 스킬·재배치).
+  전투 골든 그대로, 이벤트 기록 골든 + 줄만(薄绿·卡涅利安·浊心斯卡蒂·魔王 `mode0`, 瑕光 S2 루프, 卡涅利安 충전 S1 한 번). Windows Chrome 디버그 아레나(정예,
+  오류 0, `stats().mode0`): 薄绿·卡涅利安·蜜蜡·浊心斯卡蒂·魔王 배치 약 1.3초 뒤 켜짐 → 스킬 시작에 꺼짐 → 끝에 다시(薄绿 19.7초·蜜蜡 19.9초·浊心斯卡蒂 32.7초),
+  卡涅利安 충전 S1 동안 스킬 버프로 켜짐·이어 친 충전 없는 S1에는 없음·끝에 다시, 山 S3 그녀에게 `buff_weak` 없음(적 'weaken' 상태만), 洛洛·至简 드론 모습은
+  `droneIdle` 그대로(`mode0` 없음). [화면 미확인: 실제 판 — 공식 녹화와 모양·자리]
+
 ### 키트 이벤트의 공식 이펙트 — 버프 템플릿이 그리는 순간 (2026-10-16, 이펙트 연결 전수)
 
 - 원인: 공식 이펙트가 있는 오퍼의 키트 이벤트는 `standInOff`가 절차 대체(2D 원·고리·반짝임)를 끈다. 그 순간 대부분은 스킬 시작이나 공격이라
@@ -1852,9 +1889,9 @@
   `indigo_attack_charge_01_start`(ON_CAST_START). → `char_modes.py charge_effects` → `modes.json charge` { hold, cast }(EN 전체 재추출: 深靛만),
   'mysticStore'에 `n`(지금 개수), `fxgame.js chargeStore`가 `cast` + `hold[n − 1]`을 들고 그 유닛의 다음 'atk'(`chargeRelease`)·'die'에 끝. 정예 4개째는
   `_05`(SPECIAL 0).
-- **덤 — 卡涅利安 `billro_beidong_buff_03`·蜜蜡 `beewax_buff_01_start`(출처 찾음, 안 붙임)**: 둘 다 기본 모드(`Modes/Default`, 卡涅利安은 `S1_Enhance`도)의
+- **덤 — 卡涅利安 `billro_beidong_buff_03`·蜜蜡 `beewax_buff_01_start`(출처 찾음)**: 둘 다 기본 모드(`Modes/Default`, 卡涅利安은 `S1_Enhance`도)의
   `_generalAbilities` 버프 `overrideEffectKey`(阵法术师 특성 — 스킬 밖 방어). 그 능력이 `Body/GeneralAbilities/` 밖(`Modes/Default/Trait_Eff`, 蜜蜡은
-  `Modes/Default` 자신)에 있어 `char_modes.py`가 `attach`로 안 읽고, 읽어도 기본 모드 `attach`는 아무도 안 틀어(관리자 판정 대기) 그 판정을 따른다.
+  `Modes/Default` 자신)에 있어 `char_modes.py`가 `attach`로 안 읽었다 → 같은 날 붙임: 아래 「기본 모드 attach」(관리자 결정 2026-10-21).
 - 확인: 시뮬 `test/sim/kit-mark-fx-events.test.js`(picks·'kalts2Mark' 켜고 끔·S1/S2 없음, 'cabinFull' 한 번·안 참, `n` 1~4), 렌더
   `test/render/kit-marks-fx.test.js`(추출값, 계획, dry 레이어 여섯). 골든: diy-009 `kalts2Mark` 13·diy-010 `cabinFull` 1(표시 이벤트 수만); 이벤트 기록 골든 + 줄만.
   Windows Chrome 디버그 아레나(정예, 오류 0): 凛御银灰 S3 `trail_02` 31번(명중과 함께), 琳琅诗怀雅 S3 끝 셋 + 동전, 克莱门莎 `_mark_01`·소용돌이, 그리고

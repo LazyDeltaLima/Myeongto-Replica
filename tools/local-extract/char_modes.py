@@ -236,6 +236,19 @@ def buff_effects(o, out=None):
     return out
 
 
+# 2026-10-21 (maintainer decision 2026-10-21, decompile check): buffs an ability hands to others, not ones its owner holds — an
+# attack's `_activeBuffs` (on its targets) and a PassiveAttachmentAbility's `_additiveActiveBuffs` (field tooltip: "added to
+# the target ability as active buffs"; its DoAttach, RVA 0xC3F8D0, gives them to its AbilityAttachment): 마운틴's talent
+# f12yin_t_1[reduceAtk] → buff_weak sits on the enemy her attack hits (the sim's 'weaken' status draws it), never on her
+TARGET_BUFF_KEYS = ('_activeBuffs', '_additiveActiveBuffs')
+
+
+def held_buff_effects(d):
+    """The `overrideEffectKey` effects of the buffs an ability puts on its owner / its selection (buff_effects without
+    TARGET_BUFF_KEYS)."""
+    return buff_effects({k: v for k, v in d.items() if k not in TARGET_BUFF_KEYS}) if isinstance(d, dict) else []
+
+
 def add(lst, names):
     for n in names:
         if n and not DIRECTIONAL.search(n) and n not in lst:
@@ -682,8 +695,10 @@ def modes_of(path, projectiles=None):
     modes = the mode GameObject names; proj = the projectile keys under each mode; cast = the effects its attacks cast on
     the attacker; hit = those on the target (the emitters' hit lists + its own projectile's WhenHit / WhenReached); trail =
     that projectile's main effect (hitGroups: the mode's per-strike hits — hit_groups, 2026-10-16; tgtStart: its shot's effects on the target as it leaves; chain: a chain shot's line through its targets, chainHit: 1 when it runs through their hit points, 0 their feet; shotFrom: the MountPointType it leaves from when not MUZZLE; castOpt: each cast effect's
-    start / end events — 2026-10-10); attach = the effects of the mode's own (Talents) buffs and the effects its abilities
-    attach (`_attachEffects`, an ability's `_effects`), shown on the operator while it lasts. proj lists the mode's own shot first. Directional copies (_down_ …) are left out; of alternative attack abilities (Attack_A/B/C)
+    start / end events — 2026-10-10); attach = the effects of the mode's own (Talents, GeneralAbilities, its UnitMode's
+    `_generalAbilities`) buffs — not the ones they hand to others (TARGET_BUFF_KEYS) — and the effects its abilities attach
+    (`_attachEffects`, an ability's `_effects`), shown on the operator while it lasts (the Default mode's too: fxmap.js
+    defaultModeEffects, 2026-10-21). proj lists the mode's own shot first. Directional copies (_down_ …) are left out; of alternative attack abilities (Attack_A/B/C)
     only the first counts — an ability group's (ability_groups, 2026-10-21) go to altFx with each child's own effects, and a
     mode with a Body/Combat ability splits its casts / hits into combatSplit."""
     tree, go_name = load_tree(path)
@@ -724,6 +739,17 @@ def modes_of(path, projectiles=None):
         # how many enemies at once (`_limitTargetNum` → `_maxNum`), 0 = no limit
         return int(sd.get('_maxNum') or 0) if sd.get('_limitTargetNum') == 1 else 0
     attach_foe = [[] for _ in range(n)]
+
+    def mode_buffs(i, d):
+        """The effects of the buffs ability `d` of mode `i` holds (attach; attachFoe when the ability targets enemies)."""
+        own = held_buff_effects(d)
+        add(attach[i], own)
+        sel = selects_foes(d)
+        if d.get('m_GameObject', {}).get('m_PathID') in foe_go or sel is not False:
+            add(attach_foe[i], own)
+            if sel:
+                for x in own:
+                    foe_max.setdefault(x, sel)
     # 2026-10-11, decompile check round 2 (docs/rules/fx.md 「입력 대상·루프 타격·클립별 이펙트·배치 이펙트」):
     #  input   — per mode, the `_inputTargetEffects` (their timing in castOpt with t: 1, p: 1 for `_useInputPos`: on the
     #            target's last place when it died);
@@ -892,18 +918,22 @@ def modes_of(path, projectiles=None):
         # decision 2026-10-08 「켜줘」)
         sub = gp[len(mode_paths[i]):] + '/'
         if '/Talents/' in sub or '/GeneralAbilities/' in sub:
-            add(attach[i], buff_effects(d))
-            sel = selects_foes(d)
-            if d.get('m_GameObject', {}).get('m_PathID') in foe_go or sel is not False:
-                add(attach_foe[i], buff_effects(d))
-                if sel:
-                    for x in buff_effects(d):
-                        foe_max.setdefault(x, sel)
+            mode_buffs(i, d)
         # effects a mode's abilities attach while they run: an emitter's `_attachEffects`, and an ability's own `_effects`
         # list (비르투오사 S3's GeneralAbilities: cello_skill_03_buff_01 / _front_02 / _range — her range)
         add(attach[i], effect_names(d.get('_attachEffects') or []))
         if isinstance(d.get('_effects'), list) and all(isinstance(x, str) for x in d['_effects']):
             add(attach[i], d['_effects'])
+    # 2026-10-21 (maintainer decision 2026-10-21): the abilities a mode attaches with itself are its UnitMode's
+    # `_generalAbilities`, wherever they sit — 阵法术师's trait buffs: 卡涅利安 Modes/Default/Trait_Eff and S1_Enhance/Trait_Eff
+    # (billro_trait_eff → billro_beidong_buff_03), 蜜蜡 Modes/Default itself (beewax_c_disarmed → beewax_buff_01_start), which
+    # the path rule above never saw
+    for i, mp in enumerate(mode_paths):
+        um = next((x for gp, x, _ in tree if gp == mp and isinstance(x.get('_generalAbilities'), list)), None)
+        for r in (um or {}).get('_generalAbilities') or []:
+            pid = r.get('m_PathID') if isinstance(r, dict) else None
+            if pid and isinstance(mb.get(pid), dict) and not skipped(by_pid.get(pid) or ''):
+                mode_buffs(i, mb[pid])
     # the mode's own shot first (projectile_chr_<name>[_default|_s<n>|_<X>]) — drones / talent shots after it; only that
     # projectile's hit / trail effects are the mode's (whitw2's funnels hit with their own when they fire)
     short = re.sub(r'^char_\d+_', '', Path(path).stem)
