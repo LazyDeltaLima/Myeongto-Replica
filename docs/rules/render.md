@@ -364,7 +364,12 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     르무엔 S3(Idle → Skill_3_Idle). 민트 S2도(모드 `""`, Default는 공격이 없어 비교 불가 — 관리자 확인 2026-10-22 「S2 중에는 공격 클립 재생이 원래 안 됨」,
     손 목록 `MODE_STANCE`). 산크타 믹사파라토 S3도(관리자 제보 2026-10-22 「공격 받을 때마다 대기모션으로 돌아갔다가 스킬 자세로 돌아옴」:
     반격마다 `Skill_3_Idle`을 공격 클립으로 틀고 `Skill_3_End` → Idle; 모드 Sk3 / Sk3_Zero의 반격 능력은 `Body/Attack`이 아닌
-    `Body/S3Attack` / `Body/S3Attack_Zero` `_animKey ""`라 타이밍 표에 없음 — 손 목록 `MODE_STANCE`).
+    `Body/S3Attack` / `Body/S3Attack_Zero` `_animKey ""`라 타이밍 표에 없음 — 손 목록 `MODE_STANCE`). 그레인버즈 S2도 같은 틈(수면 뒤 공격 = 모드 S2의
+    `Body/S2`, 투사체 `projectile_chr_grabds_s2`, `_animKey ""` — 공격마다 Skill_2_Loop → Skill_2_End로 빠졌음, `MODE_STANCE`).
+  - 타이밍 표에 `Body/Attack`이 없는 다른 스킬 점검(2026-10-22, 실제 시뮬 이벤트를 가짜 PIXI 액터에 이벤트 순서대로 재생): 스카디 더 커럽팅 하트 S1–3·
+    첸 더 던스트릭 S2·왕 S3·비르투오사 S3·산탈라 S2·스즈란 S3·엔텔레키아 S2·시빌라이트 에테르나 S1–3·캐서린 S2·글래디아 S3는 스킬 중 공격 이벤트가 없음
+    (공격 중지 스킬이거나 평타 없음), 노시스 S2는 충전형(시전마다 `Skill_2` 한 번), 스와이어 디 엘리건트 위트 S1·S2는 상시 스킬이라 렌더에서 스킬이 안 켜지고
+    공격은 평타 `Attack`(클라 모드도 공격 `Attack`; 치유·폭탄의 `Skill_1`·`Skill_2`는 안 그림). 자세가 깨지는 것은 위 둘뿐.
   - 모드 키 = Default 키(평타 클립) + 스킬 클립이 Begin·idle 없는 한 개 → 그 클립은 시전 한 번(스킬 프리팹 시전 능력 `local-skill-cast.json`:
     블레미샤인 S2 `Skill_2`, 스펙터 S1 `Skill_1`, 치우바이 S2 `Skill_2`, 데겐블레허 S1 `Skill_1`(ReplacementSkill), 필라에 S1 `Skill_1`), 공격은 평타 클립.
   - 리드 더 플레임 섀도우 S2는 모드가 없음(공격 = Default `Attack`); 스킬 프리팹 능력이 `Skill_2`를 지속마다 한 번(`cd 20`, `cdKey duration`) — 손 목록.

@@ -142,6 +142,9 @@ export const MODE_STANCE = Object.freeze({
   // `Body/Attack` there, so the timing file has nothing for the rule); maintainer report 2026-10-22: each counter dropped her
   // to Idle and back into Skill_3_Idle
   'op:char_4194_rmixer:': Object.freeze([2]),
+  // 小满 S2: after the sleep her attacks are the mode S2's own ability `S2` (projectile_chr_grabds_s2), `_animKey ""` — the
+  // same gap; each attack dropped her out of Skill_2_Loop through Skill_2_End
+  'op:char_4122_grabds:': Object.freeze([1]),
 });
 export const PLAIN_ATTACK = Object.freeze({
   // 焰影苇草 S2: no mode (her attacks stay the Default `Attack`); skchr_reed2_2's own ability plays Skill_2 once per skill
