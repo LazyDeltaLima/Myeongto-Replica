@@ -10,6 +10,8 @@ import {
 } from '../shared/tier5.js';
 
 const isKjerag = (u) => inFaction(u, 'kjeragShip', ['kjerag']);
+/** S3's line targets: his profile + flying enemies (PRTS 备注 "可对空"). */
+const S3_PROFILE = (u) => ({ ...u.profile, canHitFly: true });
 
 export default {
   // ---------------------------------------------------------------------------------------------------------------
@@ -73,7 +75,8 @@ export default {
         }),
         skchr_svash2_3: () => ({
           kind: 'duration',
-          targeting: skillRange(chess, def),
+          // PRTS 备注 "可对空": the S3 attacks reach flying enemies (the guard's own attack does not)
+          targeting: skillRange(chess, def, { canHitFly: true }),
           attack: {
             atkScale: num(bb.bird_atk_scale, 1),
             onEachHit({ battle, unit, target }) {
@@ -159,14 +162,14 @@ export default {
         unit.mem.eyeCost = num(tok?.stats?.cost, 14);
         if (selectedId(chess, def) === 'skchr_svash2_3') {
           // S3: every attack hits the enemies of the skill range on the target's line (his facing frame): the line of
-          // the target's position; another enemy is on it when its body is (a huge one: any tile — body.js)
+          // the target's position; another enemy is on it when its body is (a huge one: any tile — body.js), flying ones too
           battle.on('beforeAttack', (c) => {
             if (c.attacker !== unit || !unit.skill?.active || !c.targets.length) return;
             const main = c.targets[0];
             const lat = (r, cc) => toLocal(r - unit.tileR, cc - unit.tileC, unit.dir)[0];
             const l0 = lat(Math.round(main.y), Math.round(main.x));
             const onLine = (e) => bodyKeys(e).some((k) => lat(Math.floor(k / COLS), k % COLS) === l0);
-            const line = battle.enemiesInKeys(unit.rangeKeys, unit, unit.profile).filter((e) => e !== main && onLine(e));
+            const line = battle.enemiesInKeys(unit.rangeKeys, unit, S3_PROFILE(unit)).filter((e) => e !== main && onLine(e));
             if (line.length) c.targets = [main, ...line];
           }, { owner: unit, priority: 10 });
         }

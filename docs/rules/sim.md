@@ -1716,6 +1716,14 @@ upstream `6ab24682` → master `c9d804f4`·dev `06a92237` 대조에서 받은 �
   없고, 지우는 대상은 이 수정과 같다. **[ASSUMED]** 우리는 그 자리에서 지우고 끝 처리를 한다(클라는 다음 확인 때). 그 차이가 판에 보이는지는 확인 안 함.
 - 테스트 `test/sim/remove-buff.test.js`, `test/content/sargon-remove-buff.test.js`(upstream 그대로). golden 변화 없음.
 
+### 凛御银灰(실버애쉬 더 레인프로스트) S3 变革已至는 공중 적도 친다 (upstream PR #749 일부)
+
+- 규칙: S3 동안 공격이 공중 적을 고르고, 같은 줄 추가 대상도 공중 적을 넣는다(`kits/ops/chess_char_5_14-svash2.js` 스킬 `targeting.canHitFly`,
+  `beforeAttack`의 줄 대상 프로필). 전에는 발동만 됐다 — 스킬 범위 발동은 이미 공중 적을 센다(`skills.js` `TRIGGER_PROFILE`) — 공중 적만 있으면 켜진 채
+  아무도 못 쳤다.
+- 근거: PRTS 凛御银灰 S3 备注 「可对空」. upstream PR #749의 트리거 범위 부분은 우리 「스킬 범위 발동」(위)과 겹쳐 안 받음.
+- 테스트 `test/content/kits_alt_t5.test.js` 「凛御银灰 S3 变革已至 hits flying enemies」(공중 적 둘만: 켜지고 둘 다 맞음). golden: roster-043.
+
 ## 8인 협동 모드 (관리자 결정 2026-10-16·2026-10-19, 공식에 없는 기능)
 
 공식 방은 1–4명이고 8인용 데이터는 없다(`act2autochess`에는 난이도별 `bloodPoint*`와 단일·멀티 연합 방어 템플릿뿐). 아래 수치·규칙은 모두

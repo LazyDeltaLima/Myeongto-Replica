@@ -1011,6 +1011,26 @@ test('凛御银灰 S3 变革已至: skill range, line attacks bird_atk_scale × 
   }
 });
 
+test('凛御银灰 S3 变革已至 hits flying enemies (PRTS 备注 "可对空"): cast with only flyers in the skill range, the line includes them', () => {
+  for (const id of pair('14')) {
+    const h = run({
+      defs: { enemies: { enemy_fly: dummy('enemy_fly', { motion: 'FLY' }) } },
+      units: [entry(id, 'skchr_svash2_3', { row: 10, col: 3 })],
+      enemies: [{ key: 'enemy_fly', pos: [10, 4] }, { key: 'enemy_fly', pos: [10, 6] }],
+    });
+    const u = sel(h, id, 'skchr_svash2_3');
+    const [f1, f2] = h.b.enemies;
+    assert.ok(f1.isFlying && f2.isFlying);
+    u.skill.gainSp(1000);
+    assert.ok(h.runUntil(() => u.skill.activations > 0, 2), `${id}: flyers alone set S3 off`);
+    assert.ok(h.runUntil(() => dealt(h, u, (c) => c.dmg.isAttack).length > 0, 5), `${id}: S3 attacks a flyer`);
+    const hit = dealt(h, u, (c) => c.dmg.isAttack);
+    const aid = hit[0].dmg.attackId;
+    assert.deepEqual(new Set(hit.filter((c) => c.dmg.attackId === aid).map((c) => c.target)), new Set([f1, f2]), `${id}: both flyers on the line`);
+    done(h);
+  }
+});
+
 // =================================================================================================================
 // 引星棘刺
 
