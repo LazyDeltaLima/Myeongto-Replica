@@ -203,16 +203,16 @@ export const KIT_OFFICIAL = {
     // 蕾缪安 T2: 引渡 ready (lemuen_t_2 → buff lemuen_t_2[buff], effect lemuen_talent_buff_02, INFINITY)
     lemuen: (o) => (o.name === 'extradition' ? { play: [{ n: 'lemuen_talent_buff_02', on: 'op', life: 'deployed' }] } : null),
     // 卡涅利安 T1 生命之餐 (her only 'talent'): the heal at each skill start — charpack Talents/1's abilities Billro_Heal_Self /
-    // _Enhance, each with a oneshot `_castEffects` at ON_SPELL_ON: billro_beidong_buff_01, cast with every charge _02 [추정: the
-    // pairing — the two cast components are siblings of the two abilities on one GameObject; _02 is the larger prefab]
+    // _Enhance, each with a oneshot `_castEffects` at ON_SPELL_ON: billro_beidong_buff_01, cast with every charge _02 (the
+    // pairing by `m_GameObject`: each cast component shares its GameObject with one of the two abilities)
     billro: (o) => ({ play: [once(Number(o.charged) ? 'billro_beidong_buff_02' : 'billro_beidong_buff_01')] }),
     // 风笛 T1 精密填弹 (her only 'talent'): bpipe_t_1's SplashDamage `_createEffect` with its blackboard `effect`
     // bpipe_attack_02_hit on the extra enemy the boosted attack hits (`id`)
     bpipe: () => ({ play: [once('bpipe_attack_02_hit', 'id')] }),
   },
   // 灵知 T2 殊途同归 (his only 'kitHit', 10 s after the deploy): charpack Talents/2's wrapper ability gnosis_t_2_buff casts
-  // gnosis_beidong_buff from ON_CAST_START to ON_CAST_END, and the wrapper is `_isInfinity` [추정: its cast never ends — the
-  // effect, a burst with a looping glow, stays while he is deployed]
+  // gnosis_beidong_buff from ON_CAST_START to ON_CAST_END, and the wrapper is `_isInfinity` (ActiveAbilityWrapper._GetLifeTime
+  // returns no end): its cast never ends, so the effect, a burst with a looping glow, stays while he is deployed
   kitHit: { gnosis: () => ({ play: [{ n: 'gnosis_beidong_buff', on: 'op', life: 'deployed' }] }) },
   // 烛煌 S2: the burning tiles (charpack Modes/S2/Body/Talents/3 DoTile, an AttachListenerToTileAbility: `_effectSettings`
   // blaze2_skill_02_hit_plot from the first cast on a tile, castedTimeThreshold 1, ended with the ability at the skill's end

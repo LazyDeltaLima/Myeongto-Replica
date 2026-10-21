@@ -1499,12 +1499,14 @@
     `texas2_buff_01_start`(첫 처치 `ON_TARGET_KILLED`에 끝)·传统 `texas2_t_1[recast_effect]`·`[recast_effect_02]` `texas2_buff_02_start`(sp0)·
     `_02_start_02`(sp1) 첫 처치 재시전까지. 적용자마다 따로인 키(`…:<id>`)는 끝 번호를 떼고 찾고, 버프 하나가 프리팹 여럿이면 목록.
   - **시전 순간**(키트 이벤트 → `kitofficial.js`): 카넬리안 生命之餐 스킬 시작 회복 'talent' `meal` — `Billro_Heal_Self`/`_Enhance`의 oneshot
-    `_castEffects`(ON_SPELL_ON) `billro_beidong_buff_01`, 충전 다 찬 시전 `_02` [추정: 두 시전 컴포넌트가 한 GameObject에 있어 짝은 프리팹 크기로];
+    `_castEffects`(ON_SPELL_ON) `billro_beidong_buff_01`, 충전 다 찬 시전 `_02`(짝은 컴포넌트의 `m_GameObject`로 확인: `Billro_Heal_Self`와 같은
+    GameObject의 시전 컴포넌트가 `_01`, `Billro_Heal_Self_Enhance`(`billro_t_1[enhance].`)와 같은 것이 `_02`);
     백파이프 精密填弹 'talent' `splash` — `bpipe_t_1` SplashDamage의 `_createEffect`(블랙보드 `effect` `bpipe_attack_02_hit`)를 강화 타격의 추가
     피해를 받은 적에(2026-10-16부터 공격 대상이 아니라 일반 명중은 안 겹침, rules/sim.md 「风笛 精密填弹」); 그노시스 殊途同归 'kitHit'(배치 10초 뒤) — 감싸는 능력 `gnosis_t_2_buff`의 `_castEffects` `gnosis_beidong_buff`(ON_CAST_START → ON_CAST_END)를
-    배치 동안 [추정: 그 능력이 `_isInfinity`라 시전이 안 끝남]; 블레이즈 디 이그나이팅 스파크 S2 불 붙은 칸 'burnTiles' `cells` [[x, y, 1|0]] —
+    배치 동안(그 능력이 `_isInfinity`라 `ActiveAbilityWrapper._GetLifeTime`(0xC20080)이 블랙보드 `duration` 대신 무한을 돌려주고, 감싼 능력은
+    `OnCastEnd`(0xC1FB70)에야 떼짐 — 시전이 배치 동안 안 끝남); 블레이즈 디 이그나이팅 스파크 S2 불 붙은 칸 'burnTiles' `cells` [[x, y, 1|0]] —
     `Modes/S2/Body/Talents/3` DoTile(AttachListenerToTileAbility)의 `_effectSettings` `blaze2_skill_02_hit_plot`(castedTimeThreshold 1)을 칸마다, 스킬
-    끝(능력 떼짐 `_ClearEffects`)에 모두 끔.
+    끝(능력 떼짐: `AttachListenerToTileAbility.OnDetached`(0xBED740)가 `_ClearEffects`(0xBEE130)로 넘어감)에 모두 끔. RVA는 2026-10-14 EN 클라.
 - 안 한 것: 텍사스 디 오메르토사 S3의 `texas2_s[no_effect_02]` 창(그동안 `_02_start_02`를 숨김) [추정: 미구현]; `pasngr_beidong_buff_02`·
   `billro_beidong_buff_03`·`wang_birth_02`는 클라 참조 없음. `common_ resistance_01`은 이미 `SOURCE_FX resist`(이름 안 공백 때문에 집계 오탐).
 - 확인: 시뮬 `test/sim/talent-fx-events.test.js`(키트마다 'status' 켜짐·꺼짐, 'talent'·'burnTiles'), 렌더 `status-buff-fx`(키 → 프리팹, `OWN`, 아이콘
