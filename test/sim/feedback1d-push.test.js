@@ -10,9 +10,6 @@
 // grabbed once a push freed it (the hand-over, DESIGN §19.2), or one coming at her back — was thrown 1.7–2.14 tiles
 // the other way, towards the protection objective (real act2 m01 R5: 7 % of her pushes facing RIGHT, up to 42 % in
 // other facings). Now: directional, so such a target moves at most the −2 distance (≤ 0.44 tile).
-// Audit (direction only): 琳琅诗怀雅 S3's coin push "向前推开" is radial — PRTS 备注 "推开效果为径向推动"; client
-// swire2_s_3[knockback] of template knockback[relative] (_useSourceDirection false) — and the remake pushed it along her
-// facing (and at −2 off the 45° cone); now radial from her centre, full force.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -171,46 +168,4 @@ test('D2 real battle (act2 m01, R5 official wave): no push of 野鬃 throws an e
   }
   assert.ok(total > 50, `pushes ${total}`);
   assert.ok(behind > 0, 'the hand-over case happens (an enemy grabbed behind her centre)');
-});
-
-// ---------------------------------------------------------------------------------------------------------------------
-// 琳琅诗怀雅 S3 千金一掷 — PRTS 备注 "金币弹道…推开效果为径向推动": the coin push is radial from her centre.
-
-function swireCoin(off, dir = 'RIGHT') {
-  const id = 'chess_char_3_04_a';
-  const [hr, hc] = [10, 5];
-  const [ar, ac] = rotateOffset(off[0], off[1], dir);
-  const h = makeBattle({
-    timeLimit: 30, autoFinish: false, hooks: [],
-    defs: { enemies: { enemy_t: foe('enemy_t', { mass: 1 }) } },
-    units: [{ chessId: id, row: hr, col: hc, dir, skillIndex: 2 }],
-    enemies: [{ key: 'enemy_t', pos: [hr + ar, hc + ac] }],
-  });
-  const u = h.unit(id);
-  assert.equal(u.skill.id, 'skchr_swire2_3');
-  h.step();
-  const e = h.enemies()[0];
-  assert.ok(u.skill.active || u.skill.activate('test', { free: true }), 'S3 on');
-  u.mem.coins = 1;
-  const y0 = e.y, x0 = e.x;
-  u.skill.end('manual');
-  const [ls, lf] = toLocal(e.y - y0, e.x - x0, dir);
-  return { fwd: lf, side: ls, len: Math.hypot(ls, lf) };
-}
-
-test('D2 audit: 琳琅诗怀雅 S3 coins push radially from her centre at full force (PRTS 备注 "推开效果为径向推动")', REAL, () => {
-  const ds = getDefaultSource();
-  const s3 = ds.rawChess('chess_char_3_04_a').skills.find((s) => s.skillId === 'skchr_swire2_3');
-  assert.equal(s3.bb.force, 0, 'data: 小力 (normal)');
-  const full = PUSH_TILES[-1]; // 小力 (0) vs weight 1
-  for (const dir of ['RIGHT', 'UP']) {
-    // 20.6° off her direction: radial, so partly sideways (the remake pushed it straight along her facing)
-    const a = swireCoin([0.3, 0.8], dir);
-    approx(a.len, full, 1e-6, `${dir} cone: full distance`);
-    approx(a.side / a.len, 0.3 / Math.hypot(0.3, 0.8), 1e-6, `${dir} cone: radial`);
-    // 66° off: radial at full force (the remake turned it into a −2 push: nothing at all)
-    const b = swireCoin([0.45, 0.2], dir);
-    approx(b.len, full, 1e-6, `${dir} beside: full distance`);
-    approx(b.side / b.len, 0.45 / Math.hypot(0.45, 0.2), 1e-6, `${dir} beside: radial`);
-  }
 });

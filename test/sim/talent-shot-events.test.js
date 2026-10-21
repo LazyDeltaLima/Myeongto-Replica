@@ -2,7 +2,8 @@
 // (docs/rules/fx.md 「다른 필드 투사체 — 재능 화살·동전·되돌아오는 영哨·작살」, 2026-10-21): 寒芒克洛丝's 中的 outside her
 // skills is the Default mode's talent ability, chosen as the swing starts — the 'swing' event's 9th field and its 'atk'
 // events carry 'T.1', and exactly those arrows crit (×1.5 + stun; in her skill modes the roll stays at the hit);
-// 琳琅诗怀雅 S3's coins name their targets; 伊内丝 S3's recalled sentry names the enemies it struck on its way.
+// 伊内丝 S3's recalled sentry names the enemies it struck on its way (琳琅诗怀雅 S3's coin burst is gone: that S3 never
+// closes in this mode, docs/rules/sim.md).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, enemyRec } from '../helpers/battleHarness.js';
@@ -55,24 +56,6 @@ test('寒芒克洛丝 in her skill: no talent swing — the roll stays at the hi
   const base = Math.min(...hits.map((c) => c.amount));
   assert.ok(hits.some((c) => Math.abs(c.amount / base - t0.atk_scale) < 1e-6), 'crits rolled at the hit');
   assert.ok(hits.every((c) => c.dmg.signal == null));
-});
-
-test('琳琅诗怀雅 S3: the coins of the closing name each paid enemy in order', REAL, () => {
-  const ID = 'chess_char_3_04_a';
-  const h = makeBattle({
-    defs: { enemies: { enemy_dummy: dummy() } }, units: [{ chessId: ID, row: 10, col: 5, skillIndex: 2 }],
-    enemies: [{ key: 'enemy_dummy', pos: [10, 6] }], autoFinish: false, timeLimit: 30, hooks: ['damaged'], captureNoisy: true,
-  });
-  h.step();
-  const u = h.unit(ID);
-  assert.ok(u.skill.active || u.skill.activate('test', { free: true }));
-  u.mem.coins = 10;
-  h.run(0.3);
-  const end = h.eventsOf('fx').find((e) => e[1] === 'coin' && e[4]?.skill === 'swire2_3');
-  assert.ok(end, 'the purse paid out');
-  const paid = h.hooksOf('damaged').filter((c) => c.source === u && c.dmg.tags.includes('swire2Cash')).map((c) => c.target.id);
-  assert.equal(end[4].spent, 10);
-  assert.deepEqual(end[4].targets, paid);
 });
 
 test('伊内丝 S3: the recalled sentry names the enemies it struck', REAL, () => {

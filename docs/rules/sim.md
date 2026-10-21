@@ -1724,6 +1724,18 @@ upstream `6ab24682` → master `c9d804f4`·dev `06a92237` 대조에서 받은 �
 - 근거: PRTS 凛御银灰 S3 备注 「可对空」. upstream PR #749의 트리거 범위 부분은 우리 「스킬 범위 발동」(위)과 겹쳐 안 받음.
 - 테스트 `test/content/kits_alt_t5.test.js` 「凛御银灰 S3 变革已至 hits flying enemies」(공중 적 둘만: 켜지고 둘 다 맞음). golden: roster-043.
 
+### 琳琅诗怀雅(스와이어 디 엘리건트 위트) S3 千金一掷는 닫히지 않는다 (관리자 결정 2026-10-22, upstream `4d11e97d`)
+
+- 규칙: S3는 켜지면 그녀가 필드를 떠날 때까지 켜져 있다 — 이중 타격, 처치·특성 지불 금화(상한 10)는 그대로, 금화는 상한에서 멈춘다. 닫힐 때의 금화 사격
+  (앞 2-4 범위와 막은 적에게 금화마다 물리 피해 + 작은 밀치기)은 판에서 나오지 않는다(`kits/ops/chess_char_3_04-swire2.js` S3 = `toggle` + `hits: 2`).
+- 전에는 포크 전 upstream 관리자 결정(2026-10-04)을 물려받아 금화가 상한이고 스킬 공격 범위에 지상 적이 있으면 스스로 닫고 쐈다. 우리 관리자 결정이 아니었고,
+  upstream도 플레이어 요청으로 철회했다.
+- 근거: PRTS 卫戍协议/帮助 技能操作 「通常不会自动关闭技能」, 스킬 글은 「主动关闭」 때만 금화를 쓴다 — 이 모드에는 손으로 닫는 조작이 없다.
+- 이펙트: S3 끝 동전·`S3_End` 렌더 연결은 남김(`fx.md`, 판에서는 안 나옴).
+- 테스트 `test/sim/feedback3-swire-s3.test.js`(upstream 그대로: 적이 범위 안·밖·없음 모두 상한에서 안 닫힘, 사격·밀치기 없음, 퇴각에도 사격 없음),
+  `kits_alt_t3.test.js` S3 사례(upstream 그대로). 사격·밀치기·동전 대상 사례는 지움(`feedback1-followups`·`feedback1b-displacement`·`feedback1d-push`
+  ·`talent-shot-events`·`playtest5-targeting` 목록). golden: roster-039.
+
 ## 8인 협동 모드 (관리자 결정 2026-10-16·2026-10-19, 공식에 없는 기능)
 
 공식 방은 1–4명이고 8인용 데이터는 없다(`act2autochess`에는 난이도별 `bloodPoint*`와 단일·멀티 연합 방어 템플릿뿐). 아래 수치·규칙은 모두

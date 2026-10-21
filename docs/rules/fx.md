@@ -1877,6 +1877,7 @@
   `swire2_skill_03_start_03`·`_start_03_02`·`swire2_skill_03_range`(`_useFourDirectionalFace`)를 시전 — 동전이 없어도. → `kitofficial.js coin.swire2`가
   'coin' { skill 'swire2_3' }에 새 문법 `cast`(`fxgame.js play` — 그 오퍼레이터의 시전처럼, `turn` 적용)로 셋을 튼다 [추정: 프리팹 길이만큼 —
   클라는 그 행동의 ON_CAST_END에 끝냄].
+  판에서는 안 나옴(관리자 결정 2026-10-22): 이 모드에서 S3는 닫히지 않아 키트가 S3 끝 'coin'을 보내지 않는다 — 이 셋과 위 `RandomGold` 동전은 렌더 연결만 남음(`sim.md` 「琳琅诗怀雅 S3」).
 - **凯尔希·思衡托 S3**(CN 버프 템플릿·`[uc]skills.ab`): `kalts2_s_3[on_token_born]`이 `S3OperatorSelector`가 고른 오퍼레이터에 `kalts2_s_3[withdraw]`를
   거는데 그 ON_BUFF_START가 `CreateEffect kalts2_skill_03_teleport_02`(BUFF_OWNER). → 'kalts2Takeoff'에 `picks`(시뮬 `withdrawPicks`), `kitofficial.js`가
   각자에. 머리 표시: S3를 고르면 그 스킬의 `_extraAbilities` `skchr_kalts2_3/Indicator`가 `kalts2_s_3[indicator]`(0.1 s마다)로 — 그녀가 모드 2
