@@ -160,7 +160,7 @@ test('the equipment a trait produces outright (SERVER_GAIN_EQUIP) holds no share
   m.dispose();
 });
 
-test('a golden merged from trait-produced copies stays outside the pool; a mixed merge keeps counting', () => {
+test('a golden merged from trait-produced copies stays outside the pool; a mixed merge keeps counting the bought copy only', () => {
   const h = makeMatch({ mode: 'coop', humans: 2, seed: 11, fake: true }).start().toPrep();
   const m = h.m, a = h.ps('p_0');
   const RATION = 'chess_item_3_05_e_a'; // 迅捷作战粮, tier Ⅲ, 7 copies, mergeable — 卡涅利安's <获得时> equipment (garrison 49)
@@ -177,7 +177,7 @@ test('a golden merged from trait-produced copies stays outside the pool; a mixed
   assert.ok(a.acquireItem(RATION, { noPool: true }));
   const g2 = [...a.hand, ...a.temp].find((p) => p && m.gd.isGolden(p.id) && m.gd.baseIdOf(p.id) === RATION);
   assert.ok(g2 && !g2.noPool, 'a mixed merge keeps the bought twin\'s occupation');
-  assert.equal(m.itemPool.held(RATION), 2);
+  assert.equal(m.itemPool.held(RATION), 1, 'its one bought copy, not the golden\'s 2 (until 2026-10-22: 2 — a cap of 1 was passed)');
   checkInvariants(m);
   m.dispose();
 });

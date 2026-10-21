@@ -301,9 +301,12 @@ export class PlayerAcquire {
     for (const l of locs) { if (consumed.length >= need) break; consumed.push(l); }
     if (consumed.length < need) return null;
     for (const l of consumed) if (l.area !== 'new') this._detach(l);
-    // the golden inherits noPool only when EVERY consumed copy was 特质-produced (held none); a mix keeps counting —
-    // the bought twin's copy still occupies, and a half-occupied golden is not expressible without a per-piece ledger
-    const golden = this.newPiece('item', rec.upgradeChessId || rec.goldenId, consumed.every((l) => l.piece.noPool) ? { noPool: true } : {});
+    // the golden inherits noPool only when EVERY consumed copy was 特质-produced (held none); a mix keeps counting what
+    // the bought copies held — `poolHeld` (pool.js SharedItemPool.held), not the golden's 2: a trait copy merged with a
+    // bought one occupies 1, so a cap of 1 is never passed (until 2026-10-22 such a golden held 2)
+    const pooled = consumed.filter((l) => !l.piece.noPool).reduce((n, l) => n + this.m.itemPool.copiesOf(l.piece), 0);
+    const extra = pooled === 0 ? { noPool: true } : pooled < this.m.itemPool.need(rec.upgradeChessId || rec.goldenId) ? { poolHeld: pooled } : {};
+    const golden = this.newPiece('item', rec.upgradeChessId || rec.goldenId, extra);
     this.stow(golden, { allowTemp: true });
     this.stats.itemMerges++;
     this.m.dispatch(this, 'onMerge', { kind: 'item', piece: golden, itemId, consumed: consumed.map((l) => l.piece.uid) });

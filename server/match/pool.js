@@ -223,13 +223,15 @@ export class SharedItemPool {
   cap(id) { return this.gd.itemPoolCopies(id); }
   /** Copies one piece of `id` occupies: an advanced (golden) item is the merge of two. */
   need(id) { return this.gd.isGolden(id) ? 2 : 1; }
+  /** Copies item piece `p` occupies: none when trait-produced (`noPool`), its `poolHeld` when merged from a trait copy and a bought one (player/acquire.js _mergeItem), else need(). */
+  copiesOf(p) { return p.noPool ? 0 : Number.isInteger(p.poolHeld) ? p.poolHeld : this.need(p.id); }
   held(id) {
     const base = this.gd.baseIdOf(id);
     let count = 0;
     const see = (p) => {
       if (!p) return;
-      if (p.kind === 'item' && !p.noPool && this.gd.baseIdOf(p.id) === base) count += this.need(p.id);
-      for (const item of p.items || []) if (!item.noPool && this.gd.baseIdOf(item.id) === base) count += this.need(item.id);
+      if (p.kind === 'item' && this.gd.baseIdOf(p.id) === base) count += this.copiesOf(p);
+      for (const item of p.items || []) if (this.gd.baseIdOf(item.id) === base) count += this.copiesOf(item);
     };
     for (const ps of this.players()) {
       for (const p of ps.hand) see(p);
