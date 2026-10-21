@@ -531,6 +531,72 @@ def skill_effects(tree, projectiles=None):
     return out
 
 
+def ability_groups(tree, mode_paths, by_pid, projectiles=None):
+    """2026-10-21, decompile check (이펙트 연결 전수 ②): the ability groups of each mode that cast one child per attack —
+    client `AbilityRandomGroup` (`_selectMethod`, `_abilities`; `_GetAbilityInternal` RVA 0xC19A50): Random (0) any child,
+    `_diffFromLastOneIfNotFirst` any but the one just cast (0xC19C30, by object), Loop (1) in turn with `m_loopIndex` + 1 read
+    first (the first attack after an attach is child 1: `Reset` 0xC197A0). Returns (groups, own) — groups[mode] = { pick:
+    'random' | 'other' | 'loop', from?: 1, combat?: 1 (a Body/Combat group: the COMBAT state's), groups: [{ anim, cast, hit,
+    start }] } with each child's own effects (those not every child has: its `_castEffects`, its hits — `_hitEffects`,
+    `_castTargetEffects`, its projectile's hit —, its projectile's `_effectsToTargetWhenStart`), anim = the child's clip key
+    (`_animKey`, else its ThreePartOneshotAnimation's `_oneshotAnim`); own[mode] = the set of those names (the mode's lists
+    hold the first child's: char_modes reads it as the mode's). castOpt / castTgt of every child go to `timing` / `tgt`."""
+    n = len(mode_paths)
+    out, own, timing, tgt = [None] * n, [set() for _ in range(n)], [{} for _ in range(n)], []
+    for gp, d, _ in tree:
+        if not (isinstance(d.get('_selectMethod'), int) and isinstance(d.get('_abilities'), list)):
+            continue
+        i = next((k for k, mp in enumerate(mode_paths) if mp and (gp == mp or gp.startswith(mp + '/'))), None)
+        if i is None:
+            continue
+        alts = []
+        for r in d['_abilities']:
+            p = by_pid.get(r.get('m_PathID')) if isinstance(r, dict) else None
+            if p and p not in alts:
+                alts.append(p)
+        if len(alts) < 2:
+            continue
+        sets = []
+        for ap in alts:
+            cast, hit, start, anim = [], [], [], ''
+            for gq, x, _ in tree:
+                if gq != ap and not gq.startswith(ap + '/'):
+                    continue
+                if gq == ap:
+                    for k in ('_animKey', '_oneshotAnim'):
+                        if not anim and isinstance(x.get(k), str) and x[k]:
+                            anim = x[k]
+                add(cast, effect_names(x.get('_castEffects') or []))
+                for k in MODE_HIT_KEYS:
+                    add(hit, effect_names(x.get(k) or []))
+                add(tgt, effect_names(x.get('_castTargetEffects') or []))
+                for c in x.get('_castEffects') or []:
+                    if isinstance(c, dict):
+                        for e in c.get('_effects') or []:
+                            if isinstance(e, str) and e:
+                                timing[i].setdefault(e, cast_timing(c))
+                pk = x.get('_projectileKey')
+                if projectiles and isinstance(pk, str) and pk:
+                    pe = projectiles.effects(pk)
+                    add(hit, pe['hit'])
+                    add(start, [e for e in pe['start'] if e not in pe['zone']])
+            sets.append({'anim': anim, 'cast': cast, 'hit': hit, 'start': start})
+        common = {r: set.intersection(*(set(s[r]) for s in sets)) for r in ('cast', 'hit', 'start')}
+        groups = [{'anim': s['anim'], **{r: [e for e in s[r] if e not in common[r]] for r in ('cast', 'hit', 'start')}} for s in sets]
+        if not any(g['cast'] or g['hit'] or g['start'] for g in groups):
+            continue
+        for g in groups:
+            own[i].update(g['cast'], g['hit'], g['start'])
+        loop = d['_selectMethod'] == 1
+        other = not loop and d.get('_diffFromLastOneIfNotFirst') == 1 and not d.get('_selectAllAtLeastOnce') and not d.get('_isConfigurableProb')
+        e = {'pick': 'loop' if loop else 'other' if other else 'random', **({'from': 1} if loop else {})}
+        if '/Body/Combat' in gp[len(mode_paths[i]):]:
+            e['combat'] = 1
+        e['groups'] = [{k: v for k, v in g.items() if v} for g in groups]
+        out[i] = e   # [추정: one group per mode — none has two]
+    return out, own, timing, tgt
+
+
 def cast_timing(c):
     """{ s, e, o, d?, once?, t?, p? } of a CastEffectOptions entry (castOpt): t = an InputTargetEffectOptions (on the main
     target), p = its `_useInputPos`."""
@@ -553,7 +619,8 @@ def modes_of(path, projectiles=None):
     that projectile's main effect (hitGroups: the mode's per-strike hits — hit_groups, 2026-10-16; tgtStart: its shot's effects on the target as it leaves; chain: a chain shot's line through its targets, chainHit: 1 when it runs through their hit points, 0 their feet; shotFrom: the MountPointType it leaves from when not MUZZLE; castOpt: each cast effect's
     start / end events — 2026-10-10); attach = the effects of the mode's own (Talents) buffs and the effects its abilities
     attach (`_attachEffects`, an ability's `_effects`), shown on the operator while it lasts. proj lists the mode's own shot first. Directional copies (_down_ …) are left out; of alternative attack abilities (Attack_A/B/C)
-    only the first counts."""
+    only the first counts — an ability group's (ability_groups, 2026-10-21) go to altFx with each child's own effects, and a
+    mode with a Body/Combat ability splits its casts / hits into combatSplit."""
     tree, go_name = load_tree(path)
     root = next((d for _, d, _ in tree if isinstance(d.get('_modes'), list) and d['_modes']), None)
     if root is None:
@@ -619,6 +686,10 @@ def modes_of(path, projectiles=None):
     # attack abilities (要塞: MeleeAttack / BlockedMeleeAttack vs RangedAttack) casts and hits with the effects of the
     # one it uses — `fortress[mode]` = { melee: { cast, hit }, ranged: { cast, hit } } (ranged: + its projectile's hit)
     split = [{'melee': {'cast': [], 'hit': []}, 'ranged': {'cast': [], 'hit': []}} for _ in range(n)]
+    # 2026-10-21 (이펙트 연결 전수 ②): a mode with a COMBAT state ability (`UnitMode._combat`, charpack Body/Combat — the attack
+    # on an enemy it blocks, Character._FetchCombatTarget) beside its Body/Attack casts and hits with that one's effects on
+    # such a swing (the sim's 'swing' 7th field), the attack's (+ its projectile's hit) otherwise: `combatSplit[mode]`
+    cpart = [{'attack': {'cast': [], 'hit': []}, 'combat': {'cast': [], 'hit': []}} for _ in range(n)]
     doll_born = []
     # 2026-10-16 (이펙트 연결 전수 묶음 3): a 驭械术师's drones — per mode, its `Funnel*` abilities (their projectile and mount
     # point) and their FunnelEffectEmitter (same GameObject), and the drone's idle look of a mode without an emitter: the buffs
@@ -684,6 +755,16 @@ def modes_of(path, projectiles=None):
             for k in MODE_HIT_KEYS:
                 add(part['hit'], effect_names(d.get(k) or []))
             if kind == 'ranged' and projectiles and isinstance(d.get('_projectileKey'), str) and d['_projectileKey']:
+                add(part['hit'], projectiles.effects(d['_projectileKey'])['hit'])
+        csub = gp[len(mode_paths[i]):] + '/'
+        ck = 'combat' if csub.startswith('/Body/Combat/') else 'attack' if csub.startswith('/Body/Attack/') else None
+        if ck:
+            part = cpart[i][ck]
+            part['seen'] = True
+            add(part['cast'], effect_names(d.get('_castEffects') or []))
+            for k in MODE_HIT_KEYS:
+                add(part['hit'], effect_names(d.get(k) or []))
+            if projectiles and isinstance(d.get('_projectileKey'), str) and d['_projectileKey']:
                 add(part['hit'], projectiles.effects(d['_projectileKey'])['hit'])
         add(cast[i], effect_names(d.get('_castEffects') or []))
         add(inputs[i], effect_names(d.get('_inputTargetEffects') or []))
@@ -774,6 +855,25 @@ def modes_of(path, projectiles=None):
             if strikes[i] is None:
                 own = set(x for k in keys for x in projectiles.effects(k)['hit'])
                 strikes[i] = shot_groups(projectiles, keys, [x for x in hit[i] if x not in own], ab)
+    # 2026-10-21: the alternatives of an ability group (ability_groups): each child's own effects leave the mode's lists (which
+    # held the first child's) for altFx — the renderer picks the child of the clip the model swings
+    alt_fx, alt_own, alt_timing, alt_tgt = ability_groups(tree, mode_paths, by_pid, projectiles)
+    add(cast_tgt, alt_tgt)
+    for i in range(n):
+        for k, v in alt_timing[i].items():
+            cast_opt[i].setdefault(k, v)
+        mine = alt_own[i]
+        if not mine:
+            continue
+        for lst in (cast[i], hit[i], tgt_start[i], *(x for p in cpart[i].values() for x in (p['cast'], p['hit']))):
+            lst[:] = [x for x in lst if x not in mine]
+        sg = strikes[i]
+        if isinstance(sg, dict):
+            for k in ('g', 'starts', 'shots'):
+                if isinstance(sg.get(k), list):
+                    sg[k] = [[x for x in g if x not in mine] if isinstance(g, list) else g for g in sg[k]]
+            if isinstance(sg.get('base'), list):
+                sg['base'] = [x for x in sg['base'] if x not in mine]
     shot_from = [shot_mp.get((i, proj[i][0])) if proj[i] else None for i in range(n)]
     res = {'modes': modes, 'proj': proj, 'cast': cast, 'hit': hit, 'trail': trail, 'attach': attach}
     if any(cast_opt):
@@ -794,6 +894,12 @@ def modes_of(path, projectiles=None):
         res['castTgt'] = cast_tgt
     if any(clip_fx):
         res['clipFx'] = clip_fx
+    if any(alt_fx):
+        res['altFx'] = alt_fx
+    combat_split = [{k: {'cast': p[k]['cast'], 'hit': p[k]['hit']} for k in ('attack', 'combat')}
+                    if p['attack'].get('seen') and p['combat'].get('seen') else None for p in cpart]
+    if any(combat_split):
+        res['combatSplit'] = combat_split
     # 2026-10-11, decompile check round 2 — client `Character.get_startEffect` (RVA 0x7085E0): the deploy effect is the
     # prefab root's `_startEffect`, else common_char_birth_01 (a token: common_call_start_01); a mode's
     # `_overrideStartEffect` comes first (`Character.GetStartEffect`, 0x6F74B0). The dead effect: `_deadEffect`, else
@@ -966,7 +1072,7 @@ def main():
     doc.update({k: out[k] for k in sorted(out)})
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if FX_OUT.parent.exists():
-        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'input', 'hit', 'hitGroups', 'tgtStart', 'hitLoop', 'castTgt', 'clipFx', 'trail', 'chain', 'chainHit', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'hitAim', 'fortress', 'funnels', 'skills', 'turn', 'dirs', 'start', 'startOnce', 'modeStart', 'dead', 'common') if f in v} for k, v in sorted(out.items())}
+        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'input', 'hit', 'hitGroups', 'tgtStart', 'hitLoop', 'castTgt', 'clipFx', 'altFx', 'combatSplit', 'trail', 'chain', 'chainHit', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'hitAim', 'fortress', 'funnels', 'skills', 'turn', 'dirs', 'start', 'startOnce', 'modeStart', 'dead', 'common') if f in v} for k, v in sorted(out.items())}
         FX_OUT.write_text(json.dumps(fx, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     print(f'{len(out)} operator(s) → {OUT.relative_to(ROOT)}' + (f' + {FX_OUT.relative_to(ROOT)}' if FX_OUT.parent.exists() else '')
           + f'; no charpack: {", ".join(missing) or "none"}')

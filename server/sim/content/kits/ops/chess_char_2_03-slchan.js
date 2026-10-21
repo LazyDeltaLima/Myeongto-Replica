@@ -21,7 +21,7 @@ export default {
           for (const e of foes) {
             const sx = e.x, sy = e.y;
             const moved = battle.pullToFront(e, unit, force);
-            battle.fx('pull', { x: e.x, y: e.y, id: e.id, fromX: sx, fromY: sy });
+            battle.fx('pull', { x: e.x, y: e.y, id: e.id, fromX: sx, fromY: sy, src: unit.id });   // src: her harpoon's trail (render)
             if (moved > 0 && num(tb.value) > 0) {
               battle.dealDamage(unit, e, { amount: num(tb.value) * moved / Math.max(0.01, num(tb.dist, 1)), type: 'arts', isSkill: true, canDodge: false, tags: ['drag'] });
             }

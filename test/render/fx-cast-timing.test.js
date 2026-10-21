@@ -55,7 +55,7 @@ test('castPhase / castTiming: ON_CAST_START → the swing, the rest (and an olde
 });
 
 test('fxgame: swing → ON_CAST_START effects, atk → ON_SPELL_ON ones; loops end with their cast, a mode switch or the next swing', () => {
-  assert.match(SRC, /case 'swing': \{\n\s+const src = views\.get\(e\[1\]\);\n.*eswingFx\(src, Number\(e\[2\]\) \|\| 0, e\[3\]\).*\n\s+if \(src\) swingFx\(src, Number\(e\[2\]\) \|\| 0, views, e\[3\]\);/);
+  assert.match(SRC, /case 'swing': \{\n\s+const src = views\.get\(e\[1\]\);\n.*eswingFx\(src, Number\(e\[2\]\) \|\| 0, e\[3\]\).*\n\s+if \(src\) src\._fxCombat = Number\(e\[6\]\) === 1;.*\n\s+if \(src\) swingFx\(src, Number\(e\[2\]\) \|\| 0, views, e\[3\]\);/);
   assert.match(SRC, /strikeFx\(src, mode, e\[3\], tgt\);/);
   assert.match(SRC, /playCast\(src, c, cast\.filter\(\(n\) => phaseOf\(src, mode, n\) === 'swing'\)\)/);
   assert.match(SRC, /playCast\(src, c, cast\.filter\(\(n\) => phaseOf\(src, mode, n\) === 'strike'\)\)/);
@@ -93,7 +93,7 @@ test('쏜즈 더 로드스타: the token / range are her projectile\'s, at its l
   const act = activationEffects(t, pre, 1);
   assert.ok(!act.loops.includes('thorn2_skill_02_range') && !act.start.includes('thorn2_skill_02_range'), 'the S2 range is not on her');
   assert.match(SRC, /if \(\(e\[1\] === 'zone' \|\| e\[1\] === 'tornado' \|\| e\[1\] === 'storm'\) && zoneFx\(e, views\)\) \{ officialKitFx\(e, views\); return; \}/);
-  assert.match(SRC, /spawn\(bundle, n, at, \{ owner: null, buff: false, until \}, \{ over: false \}\)/);
+  assert.match(SRC, /spawn\(bundle, n, at, \{ owner: null, buff: false, until: nrec\.until \}, \{ over: false \}\)/);
 });
 
 test('歌蕾蒂娅 S3: her tornado (kit fx \'tornado\') plays her S3 projectile\'s reach effects at the marked point', () => {

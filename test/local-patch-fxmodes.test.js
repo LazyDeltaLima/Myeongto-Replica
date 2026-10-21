@@ -44,7 +44,8 @@ describe('attack-mode effect bindings', () => {
     }
     const w = modes.char_1035_wisdel;
     assert.deepEqual(w.cast[3], ['wisdel_skill_03_start'], '维什戴尔 S3 casts on each attack');
-    assert.deepEqual(w.cast[0], ['wisdel_attack_a_start'], 'of Attack_A/B/C only the first');
+    assert.deepEqual(w.cast[0], [], 'Attack_A/B/C: each child\'s cast is its own (altFx, 2026-10-21)');
+    assert.deepEqual(w.altFx[0].groups.map((g) => g.cast), [['wisdel_attack_a_start'], ['wisdel_attack_b_start'], ['wisdel_attack_c_start']]);
     assert.equal(modes.char_1038_whitw2.proj[1][0], 'projectile_chr_whitw2_s1', '荒芜拉普兰德 S1: her shot before the drones');
     assert.deepEqual(modes.char_1038_whitw2.hit[0], ['whitw2_hit_01'], 'the drones\' hits are theirs, not the attack\'s');
     assert.deepEqual(w.trail[0], ['wisdel_attack_01_trail'], 'a ranged attack\'s projectile trail (its _mainEffect)');

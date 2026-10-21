@@ -62,6 +62,7 @@ import { activationEffects } from './fxmap.js'; // local patch: a skill activati
 import { foeEffects, castTiming, castPhase, CAST_EVENT } from './fxmap.js'; // 2026-10-10: enemy-held mode buffs, cast timings
 import { clipGroup, hitLoopEnd, deployEffect, deadEffect } from './fxmap.js'; // 2026-10-11: clip variants, looping hits, deploy / dead effects
 import { commonEffects } from './fxmap.js'; // 2026-10-16: the always-on effects of the common abilities
+import { altGroup, combatEffects } from './fxmap.js'; // 2026-10-21: ability group children, the COMBAT state's effects
 import { projSpeed } from './fx.js'; // local patch: the trails' flight time (the sim's projectile speeds)
 import { bodyZ } from './fx.js'; // local patch: status effects at a unit's head / body (fxstatus.js)
 import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
@@ -70,6 +71,7 @@ import { SHOT_HEIGHT } from './fx.js'; // local patch: a trail's start without a
 import { boneMissing, liftedPoint, loadPoints, mountSpawn, pointKey, pointOn, pointTurn } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
 import { enemyProjSpeed, enemyShot } from './fx/speeds.js'; // 2026-10-10: an enemy shot's record / flight time (data/enemies.json `proj`)
 import { shotSpeedOf } from './fx/projectiles.js'; // 2026-10-16: an operator shot's flight time (data/chess.json `shot`)
+import { opShot } from './fx/speeds.js'; // 2026-10-21: a skill's own shot record (skillShotOut)
 import { boomerangThrown, boomerangCaught } from './heldWheel.js'; // local patch: a 回环射手's boomerang leaves / is back in her hand
 import { PROJ } from './style.js';
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2: when her model is back home
@@ -1290,6 +1292,68 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const go = () => { if (trails.length < MAX_TRAILS && !gone.has(ownerOf(tgt))) launchTrail({ ...rec, inst: null, k: 0, tx: mx(tgt), ty: tgt.y, tz: shotTo(tgt) }, b.bundle, n); };
       if (sg.dt > 0) castsDelayed.push({ t: clockS + sg.dt * (k + 1), run: go }); else go();
     });
+    return true;
+  }
+  /**
+   * 2026-10-21 (이펙트 연결 전수 ①): a skill's own projectile (modes.json skills[i].shot, char_modes.py — the `_mainEffect`
+   * of the projectile its skill prefab's ability shoots) from `src` to `to` (a unit, followed, or a ground point), for the kit
+   * events of skills whose window has no attack to carry it (takeShot): 流星 S2 'volley', 崖心 S2 'pull', 波登可 S2 / 锡人 /
+   * 引星棘刺 'zone'. At the sim's speed of that skill's shot (data/chess.json shot.skills[i]: speeds.js opShot; none read:
+   * 10 tiles / s [추정]) on its PARACURVE `height` arc, from her muzzle; a `_line` of the list (崖心's rope) joins her to a
+   * unit target from its landing for the line prefab's own time [추정: the client's line follows the flying head]. `land`
+   * runs as it lands. The flight time (s), or -1 with nothing to fly.
+   */
+  function skillShotOut(src, to, land = null) {
+    if (!isOp(src) || !bundleOf(src) || failed || level() >= 3 || !to) return -1;
+    const b = bundleOf(src), i = skillIdx(src);
+    const { name, shot } = modelessTrail(bindOf(src), b.prefabs, i, true);
+    if (!shot || !name) return -1;
+    let def;
+    try { def = unitDef(src.info) ?? null; } catch { def = null; }
+    const s = opShot(def, true, i);
+    if (s && Number(s.speed) === 0 && s.move !== 'OTHER') return -1;   // no flight: the skill's shot lands at once
+    const unit = to.info ? to : null;
+    const from = shotFrom(src, null);
+    const tx = unit ? mx(unit) : Number(to.x), ty = Number(to.y), tz = unit ? shotTo(unit) : Number(to.z) || 0;
+    // the sim's flight: unit to unit (or point), as trailShot
+    const dur = Math.max(0.04, Math.hypot(tx - src.x, ty - src.y) / (Number(s?.speed) > 0 ? Number(s.speed) : 10));
+    const arc = s?.move === 'PARACURVE' && Number(s.height) > 0 ? Number(s.height) : 0;
+    const rec = { inst: null, tgt: unit, x0: from.x, y0: from.y, z0: from.z, tx, ty, tz, k: 0, dur, arc };
+    trails.push(rec);
+    spawn(b.bundle, name, { x: from.x, y: from.y, z: from.z }, { owner: null, buff: false, until: clockS + dur + 5 }, { drop: rec })
+      .then((l) => { if (!l) { const k = trails.indexOf(rec); if (k >= 0) trails.splice(k, 1); } });
+    const line = unit ? (skillBind(src)?.shot || []).find((x) => x !== name && LINE_FX.test(x) && b.prefabs.includes(x)) : null;
+    castsDelayed.push({ t: clockS + dur, run: () => {
+      if (line && camRef && unit.alive !== false && !unit.remove) startLine(b.bundle, line, src, unit, -1, { sMount: 2, eMount: 1 });
+      land?.();
+    } });
+    return dur;
+  }
+  const LINE_FX = /_line(_|$)/i;   // char_modes.py LINE_FX: a rope / link of the list, not a projectile
+  /**
+   * 2026-10-21: the kit events of skills without an attack that shoot their skill's projectile at units — 流星 S2 'volley'
+   * { id, targets } (an arrow at each), 崖心 S2 'pull' { src, id } (the harpoon at the enemy it drags): skillShotOut, and the
+   * shot's hit (skills[i].shotHit, else its target effects) on each as it lands instead of at the damage of the same moment
+   * (the kit sends the event before its damage: pendingHit finds the target taken). true = handled.
+   */
+  function skillShotFx(e, views) {
+    const o = e[4];
+    if (!o || typeof o !== 'object' || (e[1] !== 'volley' && e[1] !== 'pull')) return false;
+    const src = views.get(e[1] === 'pull' ? o.src : o.id);
+    const ids = e[1] === 'pull' ? [o.id] : Array.isArray(o.targets) ? o.targets : [];
+    if (!src?._fxSkillOn || !ids.length) return false;
+    const sk = skillBind(src), hits = extracted(src, sk?.shotHit?.length ? sk.shotHit : sk?.target);
+    let n = 0;
+    for (const id of ids) {
+      const tgt = views.get(id);
+      if (!tgt) continue;
+      const dur = skillShotOut(src, tgt, () => { if (hits.length && tgt.alive !== false && !tgt.remove) play(src, 'attackHit', 0, { at: tgt, names: hits, aim: src }); });
+      if (dur < 0) continue;
+      n++;
+      for (const p of pending) if (p.src === src) (p.done ||= new Set()).add(id);   // its hit waits for the landing
+    }
+    if (!n) return false;
+    ownFx.add(e);
     return true;
   }
   /** A trail record `rec` on its way (stepTrails flies it); the prefab `bundle`/`name` joins it once loaded. */
@@ -2529,17 +2593,24 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   /**
    * The clip group of a new cast of `v` (modes.json clipFx[mode], fxmap.js clipGroup — 비나 빅토리아's Attack_1 / Attack_2
-   * cast siege2_attack_start_01 / _02): the group of the attack clip its model plays; its extracted cast / hit names.
+   * cast siege2_attack_start_01 / _02): the group of the attack clip its model plays; its extracted cast / hit names. And
+   * (2026-10-21) the child of the mode's ability group the attack casts (altFx, fxmap.js altGroup — 迷迭香 Attack_A / _B,
+   * 凛御银灰 AttackA / B / C, 仇白's blocked-enemy Combat_A / _B): its own cast / hit / shot-start effects (`start`).
    */
   function castGroup(v, mode) {
-    const cf = Number.isInteger(mode) && mode >= 0 ? bindOf(v)?.clipFx?.[mode] : null;
-    if (!cf) return null;
+    const bind = bindOf(v);
+    const cf = Number.isInteger(mode) && mode >= 0 ? bind?.clipFx?.[mode] : null;
+    const af = Number.isInteger(mode) && mode >= 0 ? bind?.altFx?.[mode] : null;
+    if (!cf && !af) return null;
     let clip = null;
     try { const a = v.actor, ac = a?._attackClip?.(); clip = ac ? (a._loopOf ? a._loopOf(ac) : ac.loop) : null; } catch { /* none */ }
-    const g = clipGroup(cf, clip, v._fxClipLast ?? -1, Math.random());
-    if (!g) return null;
-    v._fxClipLast = g.index;
-    return { cast: extracted(v, g.cast), hit: extracted(v, g.hit) };
+    const g = cf ? clipGroup(cf, clip, v._fxClipLast ?? -1, Math.random()) : null;
+    if (g) v._fxClipLast = g.index;
+    const h = af ? altGroup(bind, mode, clip, !!v._fxCombat, v._fxAltLast ?? -1, Math.random()) : null;
+    if (h) v._fxAltLast = h.index;
+    if (!g && !h) return null;
+    return { cast: extracted(v, [...(g?.cast || []), ...(h?.cast || [])]), hit: extracted(v, [...(g?.hit || []), ...(h?.hit || [])]),
+      start: extracted(v, h?.start || []) };
   }
   const withGroup = (names, more) => (more?.length ? [...new Set([...names, ...more])] : names);
   /**
@@ -2582,7 +2653,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * 'swing' / 'atk' kind 'none'), its ranged ones' (+ the projectile's hit) otherwise; any other mode its whole list.
    * `split` tells whether the 要塞 lists answered (then no name-mapped stand-in either).
    */
-  function boundFor(v, mode, role, kind) {
+  function boundFor(v, mode, role, kind, combat = !!v._fxCombat) {
+    // 2026-10-21: a mode with a COMBAT state ability: its effects on a swing at an enemy it blocks (fxmap.js combatEffects)
+    const cs = combatEffects(bindOf(v), bundleOf(v)?.prefabs, mode, role, combat);
+    if (cs) return { names: cs, split: true };
     const f = fortressEffects(bindOf(v), bundleOf(v)?.prefabs, mode, role, kind);
     return f ? { names: f, split: true } : { names: mode != null ? bound(v, mode, role) : [], split: false };
   }
@@ -2636,7 +2710,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function shotStartFx(src, tgt, mode, shot = false) {
     const sg = strikeGroups(src, mode, shot);
     // an attack whose strikes shoot projectiles of their own: each one's (strikeGroups `starts`), else the mode's shot's
-    const names = sg?.starts ? extracted(src, [...new Set(sg.starts.flat())]) : bound(src, mode, 'tgtStart');
+    let names = sg?.starts ? extracted(src, [...new Set(sg.starts.flat())]) : bound(src, mode, 'tgtStart');
+    // (2026-10-21) and the shot of the ability group's child this attack cast (castGroup `start`: 迷迭香 Attack_B's)
+    const c = src._fxCast?.mode === mode ? src._fxCast : null;
+    if (c?.group?.start?.length) names = [...new Set([...names, ...c.group.start])];
     if (names.length) play(src, 'attackHit', 0, { at: tgt, names, aim: src });
   }
 
@@ -2699,14 +2776,21 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const nrec = { at, onProj: !!z.onProj, vx: 0, vy: 0, sx: x, sy: y, st: clockS, until, r0: r, list: [], aura: new Set() };
     if (k) zones.set(k, nrec);
     const bundle = bundleOf(src).bundle;
-    for (const n of [...fx, ...aura]) {
-      spawn(bundle, n, at, { owner: null, buff: false, until }, { over: false }).then((l) => {
-        if (!l) return;
-        nrec.list.push(l);
-        if (aura.includes(n)) nrec.aura.add(l);
-        zoneEnd(l, nrec.until, !nrec.aura.has(l));
-      });
-    }
+    const put = () => {
+      for (const n of [...fx, ...aura]) {
+        spawn(bundle, n, at, { owner: null, buff: false, until: nrec.until }, { over: false }).then((l) => {
+          if (!l) return;
+          nrec.list.push(l);
+          if (aura.includes(n)) nrec.aura.add(l);
+          zoneEnd(l, nrec.until, !nrec.aura.has(l));
+        });
+      }
+    };
+    // 2026-10-21: a skill without an attack in its window (锡人, 波登可 S2, 引星棘刺) throws its projectile here first — the reach
+    // effects play as it lands (OnProjectileReached); one that an attack already carried (号角 S1: takeShot) does not fly again
+    const s = src._fxShot;
+    const fly = s && (s.t == null || s.t === clockS) ? skillShotOut(src, { x, y, z: 0 }) : -1;
+    if (fly >= 0) { s.t = clockS; castsDelayed.push({ t: clockS + fly, run: put }); } else put();
     return true;
   }
   /**
@@ -2818,7 +2902,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     lastHit.set(key, clockS);
     if (sg) { a.n = strike ?? (again ? a.n + 1 : 0); a.hitT = clockS; } else map.delete(tid);
     let { names: hitList, split } = sg?.base ? { names: extracted(a.src, sg.base), split: false }   // strikes with shots of their own
-      : a.shot ? { names: extracted(a.src, skillBind(a.src)?.shotHit), split: false } : boundFor(a.src, a.mode, 'hit', a.kind);
+      : a.shot ? { names: extracted(a.src, skillBind(a.src)?.shotHit), split: false } : boundFor(a.src, a.mode, 'hit', a.kind, !!a.combat);
     if (sg) hitList = [...new Set([...hitList, ...extracted(a.src, sg.g[strikeIndex(sg, a.n)])])];
     const c = a.src._fxCast?.mode === a.mode ? a.src._fxCast : null; // 2026-10-11: its cast (clip group, loop end, speed)
     const hits = withGroup(hitList, c?.group?.hit).slice(0, MAX_HIT_FX);
@@ -3688,7 +3772,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (tgt && fxBundleOf(src.info.spine || src.info.defId) === 'oblvns' && notesOn(src)) noteAtks.add(e);
           const mode = modeNow(src); // local patch: the mode this attack belongs to (its bound cast / hit effects)
           const shot = mode === -1 && takeShot(src); // 2026-10-16: a mode-less skill's own shot
-          if (tgt) lastAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode, kind: e[3], shot });
+          if (tgt) lastAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode, kind: e[3], shot, combat: !!src._fxCombat });
           if (tgt && tgt.info?.side !== 'enemy') healAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode, kind: e[3], shot }); // healHit
           if (tgt) aimed.set(`${src.id ?? src.info?.id}:${tgt.id ?? tgt.info?.id}`, { t: clockS, mode }); // the chain it may start (chainHop)
           if (aimed.size > 256) for (const [k, x] of aimed) if (clockS - x.t > 2.5) aimed.delete(k);
@@ -3707,6 +3791,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         case 'swing': {
           const src = views.get(e[1]);
           if (src?.info?.side === 'enemy') { if (eOn(src)) eswingFx(src, Number(e[2]) || 0, e[3]); return; }
+          if (src) src._fxCombat = Number(e[6]) === 1;   // 2026-10-21: at an enemy it blocks (combatEffects, altGroup)
           if (src) swingFx(src, Number(e[2]) || 0, views, e[3]);
           return;
         }
@@ -3781,6 +3866,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (['summon', 'revive', 'wolfShadow', 'wolfShadowLost', 'buff'].includes(e[1]) && packEvent(e, views)) ownFx.add(e);
           // 2026-10-16: 荒芜拉普兰德's 头狼 stage (stage 3: one more drone — droneIdle)
           if (e[1] === 'talent' && e[4]?.name === 'alpha') { const v = views.get(e[4].id); if (v) { v._fxAlpha = Number(e[4].stage) || 0; droneIdle(v); } }
+          if (skillShotFx(e, views)) return; // 2026-10-21: 流星 S2's arrows, 崖心 S2's harpoon (a skill's own projectile)
           if (kitFx(e, views)) return; // local patch: 余 S3 wall, 蕾缪安 S3 lock / shells, 戴菲恩 S3 slashes / finisher
           if ((e[1] === 'substitute' || e[1] === 'swap' || e[1] === 'dollEnd') && e[4]) dollFx(e, views); // local patch: the 替身's own effects
           if (standInOff(e, views)) ownFx.add(e); // local patch: no old procedural stand-in for an operator with official effects

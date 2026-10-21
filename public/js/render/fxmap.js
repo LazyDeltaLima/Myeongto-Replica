@@ -239,6 +239,53 @@ export function clipGroup(cf, clip, last = -1, rnd = 0) {
   return { index: i, ...g[i] };
 }
 
+/**
+ * 2026-10-21, decompile check (이펙트 연결 전수 ②): the child of a mode's ability group one attack casts (modes.json
+ * altFx[mode], char_modes.py ability_groups — client AbilityRandomGroup, `_GetAbilityInternal` RVA 0xC19A50): the group whose
+ * `anim` is the clip the model swings (render/spine.js _nextAlt chose it by the same rule), else by `pick` — 'loop' the next
+ * after `last` (from `from` when none: the client reads `m_loopIndex` + 1), 'other' any but `last`, 'random' any (`rnd` in
+ * [0, 1)). A COMBAT state group (`combat`: Body/Combat) only on a swing at an enemy the unit blocks (`combatNow`, the sim's
+ * 'swing' 7th field); another group not on such a swing when the mode has a combatSplit. `{ index, cast, hit, start }` or null.
+ * @param {any} bind modes.json entry
+ * @param {number|null} n the mode
+ * @param {string|null|undefined} clip
+ * @param {boolean} combatNow
+ * @param {number} last the index the previous attack used (-1: none)
+ * @param {number} rnd
+ */
+export function altGroup(bind, n, clip, combatNow, last = -1, rnd = 0) {
+  const af = Number.isInteger(n) && n >= 0 ? bind?.altFx?.[n] : null;
+  const g = Array.isArray(af?.groups) ? af.groups : null;
+  if (!g || !g.length) return null;
+  if (af.combat ? !combatNow : combatNow && bind?.combatSplit?.[n]) return null;
+  const c = typeof clip === 'string' ? clip.toLowerCase() : null;
+  let i = c ? g.findIndex((x) => String(x?.anim || '').toLowerCase() === c) : -1;
+  if (i < 0) {
+    const pool = af.pick === 'other' && last >= 0 && g.length > 1 ? g.map((_, k) => k).filter((k) => k !== last) : g.map((_, k) => k);
+    i = af.pick === 'loop' ? (last < 0 ? Number(af.from) || 0 : last + 1) % g.length
+      : pool[Math.min(pool.length - 1, Math.floor(Math.max(0, rnd) * pool.length))];
+  }
+  return { index: i, cast: g[i].cast || [], hit: g[i].hit || [], start: g[i].start || [] };
+}
+
+/**
+ * 2026-10-21: a mode's `role` ('cast' / 'hit') effects of one attack when it has a COMBAT state ability (modes.json
+ * combatSplit[n], char_modes.py — charpack Body/Combat vs Body/Attack): the combat list on a swing at an enemy the unit
+ * blocks (`combatNow`), the attack list otherwise; extracted only. null without a split (the caller uses the whole list).
+ * @param {any} bind
+ * @param {string[]|null|undefined} prefabs
+ * @param {number|null} n
+ * @param {'cast'|'hit'} role
+ * @param {boolean} combatNow
+ */
+export function combatEffects(bind, prefabs, n, role, combatNow) {
+  if (!bind || !Array.isArray(prefabs) || !Number.isInteger(n) || n < 0) return null;
+  const f = bind.combatSplit?.[n];
+  if (!f) return null;
+  const list = f[combatNow ? 'combat' : 'attack']?.[role];
+  return Array.isArray(list) ? list.filter((x) => prefabs.includes(x)) : [];
+}
+
 /** The end event of a looping hit effect (modes.json hitLoop), or null for a one-shot. */
 export const hitLoopEnd = (bind, name) => (Number.isInteger(bind?.hitLoop?.[name]) ? bind.hitLoop[name] : null);
 
@@ -314,6 +361,8 @@ export function activationEffects(bind, prefabs, skillIndex, kitOwned = new Set(
   // (2026-10-21) a skill that switches no mode (−1) attacks in the Default mode: only mode 0's are its attacks' — 能天使 S1's
   // castLoop angle_skill_01_start is S2 / S3's mode cast too, never drawn during S1
   const modeOwn = new Set(['cast', 'hit', 'trail', 'input', 'tgtStart'].flatMap((r) => (n === -1 ? [(bind?.[r] || [])[0] || []] : bind?.[r] || []).flat()));
+  // (2026-10-21) and the own effects of an ability group's children (altFx), which left those lists
+  for (const a of n === -1 ? [bind?.altFx?.[0]] : bind?.altFx || []) for (const g of a?.groups || []) for (const x of [...(g.cast || []), ...(g.hit || []), ...(g.start || [])]) modeOwn.add(x);
   // (2026-10-10) the effects of its projectile's lasting reach / aura (`zone`: 쏜즈 더 로드스타's token / range) sit at that
   // projectile — render/fxgame.js zoneFx; 85d83c89's `_range` name rule put thorn2_skill_02_range on her for the whole battle
   const notCaster = new Set([...(sk?.target || []), ...(sk?.targetBuff || []), ...(sk?.end?.cast || []), ...(sk?.end?.hit || []),

@@ -19,7 +19,7 @@ test('char_modes.py: tgtStart per mode, the strikes\' own projectiles (hitGroups
   assert.deepEqual(MODES.char_172_svrash.tgtStart, [['svrash_attack_01_trail'], [], []], '银灰 projectile_svrash');
   const r = MODES.char_391_rosmon.hitGroups[0];
   assert.deepEqual(r.g, [['rosmon_attack_A_hit_02', 'rosmon_attack_A_range'], ['rosmon_attack_A_hit_02']], '迷迭香: projectile_chr_rosmon_A, then _after_shock');
-  assert.deepEqual(r.starts, [['rosmon_attack_A_hit_01'], []]);
+  assert.deepEqual(r.starts, [[], []], 'Attack_A\'s rosmon_attack_A_hit_01 is its child\'s own (altFx, test/render/skill-shot-alt-fx.test.js)');
   assert.equal(MODES.char_391_rosmon.hitGroups[1].g.length, 4, 'S2: _additionalTimes 3 → four strikes');
   const v = MODES.char_427_vigil.hitGroups[1];
   assert.deepEqual(v.g, [['vigil_skill_03_hit_1'], ['vigil_skill_03_hit_2'], ['vigil_skill_03_hit_3']], '伺夜 S3 _additionalProjectiles');
@@ -31,7 +31,7 @@ test('char_modes.py: tgtStart per mode, the strikes\' own projectiles (hitGroups
 });
 
 const pick = (id, keys) => Object.fromEntries(keys.filter((k) => k in MODES[id]).map((k) => [k, MODES[id][k]]));
-const BIND = (id) => pick(id, ['modes', 'skillMode', 'cast', 'hit', 'hitGroups', 'tgtStart', 'trail', 'skills']);
+const BIND = (id) => pick(id, ['modes', 'skillMode', 'cast', 'hit', 'hitGroups', 'tgtStart', 'trail', 'skills', 'altFx']);
 const files = {
   '/assets/local/fx/index.json': {
     bundles: {
@@ -59,6 +59,7 @@ test('fxgame.js: the shot\'s start effects on its target at the attack; each str
     const got = () => plays.splice(0).filter((p) => p.at === 9).map((p) => p.names.join('+'));
     const tick = (s = 0.3) => layer.update(s);
     // (no await between the events: in node the first spawn's WebP check fails the layer)
+    views.get(1).actor = { _attackClip: () => ({ loop: 'Attack_A' }), _loopOf: (c) => c.loop };   // her Attack_A child (altFx)
     layer.onEvent(['atk', 1, 9, 'arrow'], views);
     assert.deepEqual(got(), ['rosmon_attack_A_hit_01'], '迷迭香: projectile_chr_rosmon_A `_effectsToTargetWhenStart`');
     layer.onEvent(['dmg', 9, 739, 'phys', 0, 1, 0, 0], views);

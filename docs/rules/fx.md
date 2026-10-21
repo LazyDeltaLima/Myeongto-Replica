@@ -1192,8 +1192,9 @@
   있는 스킬은 기록하지 않는다(焰影苇草 S2의 불덩이는 쿨다운 20 s짜리 따로 도는 능력, 키트 'strike'). `fxmap.js modelessTrail` + `fxgame.js
   skillTrail`: 모드 없는 스킬 동안 'skill' 켜짐 뒤 첫 'atk'(같은 순간의 'atk'들 — 断崖 S1의 두 대상)은 `shot[0]`, 나머지는 Default 모드 꼬리.
   붙는 자리는 그 모드의 `shotFrom`(스킬 투사체는 Muzzle) [추정: 스킬 능력의 `_mountPointType`은 안 읽음].
-- 남은 것: 스킬 창 안에 'atk'이 없는 스킬(流星 S2 'volley', 崖心 S2 'pull', 波登可 S2·锡人 S2 'zone')의 `shot`은 아직 안 그려진다;
-  charpack 모드의 두 번째 투사체(寒芒克洛丝 두 번째 화살, 耶拉·洛洛·至简 드론, 凯尔希·思衡托 S2)와 다른 필드로 이어진 투사체(伺夜 S3,
+- 스킬 창 안에 'atk'이 없는 스킬(流星 S2 'volley', 崖心 S2 'pull', 波登可 S2·锡人·引星棘刺 'zone')의 `shot`은 2026-10-21부터 키트 이벤트가
+  날린다 → 아래 「키트 이벤트가 쏘는 스킬 투사체」.
+- 남은 것: charpack 모드의 두 번째 투사체(寒芒克洛丝 두 번째 화살, 耶拉·洛洛·至简 드론, 凯尔希·思衡托 S2)와 다른 필드로 이어진 투사체(伺夜 S3,
   魔王 재능, 琳琅诗怀雅 S3, 丰川祥子 S1 음표 2~8, 号角 S2 `_full`, 伊内丝 S3 되돌림)는 이 기록에 없다(관리자 노트 「이펙트 연결 전수」).
 - 확인: 단위 `test/render/skill-shot-trail.test.js`. Windows Chrome 디버그 아레나(지금 발동 3번, `FxInstance` 프리팹 집계): 号角 S1
   `horn_skill_01_trail_02` 3, 歌蕾蒂娅 S1 `glady_skill_01_trail` 5, 流星 S1 3, 异客 S1 `pasngr_skill_01_trail` 2(첫 발은 불러오는 중), 维什戴尔 S1 2,
@@ -1591,12 +1592,61 @@
   `trailShot`이 뒤 타격의 꼬리도 함께 날림 [추정: 시뮬은 타격들이 한 번에 닿음 — 공식은 `_triggerDelta` 간격, 跃跃 부메랑은 `caperSecond` 그대로],
   명중은 타격 번호의 투사체 명중 + `base`. 모드 없는 스킬의 첫 공격(`takeShot`)은 스킬 꼬리가 없어도 타격별 투사체가 있으면 그 스킬의 것(迷迭香 S1).
   `activationEffects`는 `tgtStart`를 시전자 이펙트에서 뺌. 시뮬: 轰击术师 여진 피해에 타격 번호(`strike: i`).
-- 안 한 것: 迷迭香 `Attack_A`/`Attack_B`(같은 모드의 대안 공격 — 기록은 A, 고르는 방식 미확인)·`projectile_chr_rosmon_B`의 `rosmon_attack_B_hit_01`.
-  [추정: 뒤 타격 꼬리를 첫 꼬리와 같은 자리·시각에 날림.]
+- 迷迭香 `Attack_A`/`Attack_B`(같은 모드의 대안 공격)와 `projectile_chr_rosmon_B`의 `rosmon_attack_B_hit_01`은 2026-10-21부터 → 아래 「능력 묶음의
+  자식·COMBAT 상태 공격」. [추정: 뒤 타격 꼬리를 첫 꼬리와 같은 자리·시각에 날림.]
 - 확인: 단위 `test/render/strike-shots-fx.test.js`(추출값, 迷迭香 쏠 때 이펙트·여진 0.3 s 뒤 명중, 伺夜 S3 화살마다 명중, 银灰). Windows Chrome 디버그 아레나(관리자 노트의 확인 스크립트, FxInstance 첫 update로 프리팹 수, 오류 0): 迷迭香
   일반 `rosmon_attack_A_hit_01` 2(쏠 때)·`_A_hit_02` 7(본탄 + 여진)·S1 `rosmon_skill_01_A_hit_01` 1, S2 `rosmon_skill_02_range` 9(사격마다 대상에 — 그녀
   몸에 안 남음), 伺夜 S3 `vigil_skill_03_trail_01`/`_02`/`_03` 22~23·`_hit_1`/`_2`/`_3` 24씩, 银灰 `svrash_attack_01_trail` 3, 新约能天使 S1
   `angel2_skill_1_close_trail_01` 84(0.05 s 간격). [화면 미확인: 실제 판, 공식 녹화와 꼬리 간격·모양]
+
+### 키트 이벤트가 쏘는 스킬 투사체 — 공격 없는 스킬의 꼬리 (2026-10-21, 이펙트 연결 전수 ①)
+
+- 원인: 위 「모드 없는 스킬의 투사체 꼬리」의 `shot`은 스킬 창 안의 첫 'atk'이 날린다. 공격 없이 키트 `onStart`에서 끝나는 스킬은 'atk'이 없어
+  공식 투사체가 안 나갔다 — 流星 S2(즉시 화살 ≤ 5발, 'volley'), 崖心 S2(작살로 끌어옴, 'pull'), 波登可 S2·锡人 S1·S2·引星棘刺 S1·S3(던진
+  장치가 떨어진 자리의 장판, 'zone'). 2026-10-21 아레나에서 锡人 S2 `tinman_skill_02_trail_02`가 안 나온 것이 이것.
+- 고친 것: `fxgame.js skillShotOut` — 그 스킬의 `shot[0]`을 오퍼레이터의 Muzzle에서 대상(유닛이면 따라감) 또는 땅 한 점으로, 시뮬이 그 스킬
+  투사체에 쓰는 속도(data/chess.json `shot.skills[i]`: 流星 S2 6칸/s·锡人 3칸/s·崖心 작살 10칸/s, 읽은 값이 없으면 10칸/s [추정])와 PARACURVE
+  `height` 포물선으로 날린다. 착지에:
+  - 'volley' { id, targets }·'pull' { src, id }: 그 투사체의 명중(`shotHit`, 없으면 `target`)을 그 적에게 — 같은 순간의 피해('dmg')가 아니라 착지
+    때. 그래서 키트가 피해보다 이벤트를 먼저 보낸다(流星 S2 키트 순서만 바꿈); `pendingHit`은 그 적을 「이미 받음」으로 본다. 崖心 'pull'에 시전자
+    `src`를 더함(전엔 끌린 적 `id`뿐).
+  - 'zone': 장판 이펙트(`zone.fx`·`aura`)가 착지 때 나온다(클라 `OnProjectileReached`) — 시뮬의 장판 피해는 이벤트 순간부터라 그림이 비행 시간만큼 늦다
+    [추정: 시뮬 시간은 그대로 둠]. 그 스킬의 `shot`을 이미 'atk'이 가져간 장판(号角 S1 조명탄: 'atk' 뒤 명중 때 'zone')은 다시 안 날림(`_fxShot`).
+    키 있는 장판의 갱신(引星棘刺 S2 표류)은 첫 이벤트만 날린다.
+  - 목록의 `_line`(崖心 `slchan_skill_02_line`)은 착지부터 그녀와 그 적을 잇는다(프리팹 자체 길이) [추정: 클라는 날아가는 머리에 붙은 선].
+- 안 한 것: 같은 꼴인 다른 필드 투사체(寒芒克洛丝 재능 화살, 琳琅诗怀雅 S3 동전 `RandomGold`, 伊内丝 S3 `guard_back`, 歌蕾蒂娅 S3 작살
+  `_harpoonEffect`)와 'atk'으로 나가는 스킬 투사체의 `_line`(歌蕾蒂娅 S1·崖心 S1·溯光星源 S2) — §「모드 없는 스킬의 투사체 꼬리」 남은 것.
+- 확인: 단위 `test/render/skill-shot-alt-fx.test.js`(流星 S2 꼬리 2·착지 명중, 崖心 S2, 锡人 S2 장판이 착지 뒤), 이벤트 기록 골든에 `- spawn
+  shotst_skill_02_trail`·`podego_skill_02_trail`·`tinman_skill_02_trail_02`·`thorn2_attack_trail`이 더해지고 `- spawn shotst_skill_01_hit`이 착지
+  명중으로 바뀜. [화면 미확인: 꼬리 모양·포물선 높이·착지 시각]
+
+### 능력 묶음의 자식·COMBAT 상태 공격 — 공격마다 하나 고르는 능력, 저지한 적을 치는 능력 (2026-10-21, 이펙트 연결 전수 ②, 디컴파일 확인)
+
+- 원인 둘: ① `char_modes.py`가 같은 모드의 대안 공격(`Attack_A/B/C` …)을 첫 자식만 읽어, 迷迭香 `Attack_B`의 시전 `rosmon_attack_B_start`·쏠 때
+  대상 `rosmon_attack_B_hit_01`, 凛御银灰 `AttackB/C`의 시전, 维什戴尔 `Attack_B/C`, 隐德来希 S3 `Skill_3_Loop_B`의 시전이 안 나오고 A의 것이 매번
+  나왔다. ② 仇白처럼 모드에 Body/Combat(저지한 적을 치는 COMBAT 상태 능력, `UnitMode._combat`)과 Body/Attack이 함께 있으면 둘의 이펙트가 한
+  목록에 섞여, 원거리 화살에 검 시전·명중이 함께 나왔다.
+- 클라(10-14 덤프, 직접 확인): `AbilityRandomGroup._GetAbilityInternal`(RVA 0xC19A50)이 공격마다 자식 **하나**를 골라 `CastToTarget`(0xC186A0)으로
+  시전. `_selectMethod` Random 0 = `_SelectAbilityForRandom`(0xC1A140, 앞 `m_randomRangeNum`개 중 균등), `_diffFromLastOneIfNotFirst`면
+  `_SelectAbilityDifferentFromLastOne`(0xC19C30, 지난 것과 **같은 객체**를 빼고 균등 — 山의 [Attack_1, Attack_2, Attack_1]은 같은 Attack_1 두 번이라 번갈아),
+  `_selectAllAtLeastOnce`면 셔플 백(0xC1A340); Loop 1 = `m_loopIndex`(0x168)를 **먼저 +1** 하고 읽음 — `Reset`(0xC197A0, 붙을 때마다: 모드 전환)이 0으로
+  돌려 첫 공격은 두 번째 자식. 「IfNotFirst」의 첫 공격 초기화는 묶음이 기반 `CastToTarget`을 부르지 않아 사실상 안 된다 [추정: `firstAttack` 0x10C를
+  쓰는 곳이 기반 Cast뿐]. `AbilitySelectableGroup`(伺夜 S3 `_selectAbilitySequentially`)은 `_DoCastInternal`(0xC49C50) — 0번부터, 성공 때만 다음.
+  XLua 핫픽스 다리(정적 0xA0)는 안 봄.
+- 고친 것:
+  - `char_modes.py ability_groups` → 모드 `altFx[mode]` = { pick: 'random' | 'other' | 'loop', from?: 1, combat?: 1, groups: [{ anim, cast, hit, start }] } —
+    자식마다 자기만의(모든 자식에 있지 않은) 시전·명중(그 투사체 명중 포함)·쏠 때 대상 이펙트, `anim` = 자식의 `_animKey`(없으면
+    ThreePartOneshotAnimation `_oneshotAnim`). 모드 목록(`cast`·`hit`·`tgtStart`·`hitGroups`)에서는 그 이름을 뺀다(전엔 첫 자식 것이 들어 있었음).
+    전체 재추출 diff: 维什戴尔·凛御银灰·迷迭香·隐德来希 S3·仇白뿐(山·阿斯卡纶은 자식 이펙트가 같음). `fxmap.js altGroup` + `fxgame.js castGroup`: 모델이
+    휘두르는 클립(아래 렌더 규칙이 같은 방식으로 고름)의 자식, 클립을 모르면 `pick`대로. `shotStartFx`가 그 자식의 `start`도 대상에.
+  - 모드에 Body/Combat과 Body/Attack이 함께 있으면 `combatSplit[mode]` = { attack, combat } 각 { cast, hit }(투사체 명중 포함) — 'swing' 7번째 칸
+    (주 대상이 그 유닛이 저지한 적, render.md 「Spine 클립 커버리지」 A와 같은 판정)이 1이면 combat, 아니면 attack(`fxmap.js combatEffects`, `boundFor`;
+    명중은 그 공격의 표시로). COMBAT 묶음(仇白 `Combat_A/B`, `combat: 1`)은 그런 휘두름에만. 대상: 拉普兰德(기본·S2)·银灰·断崖·伊内丝(기본·S2·S3)·
+    丰川祥子(기본·음색 모드)·仇白(기본·S2)·予愿安洁莉娜 S3(CN).
+- 렌더 클립도 같은 규칙으로 고침(render.md 「Spine 클립 커버리지」 B): 维什戴尔·迷迭香 `other`, 阿斯卡纶·隐德来希 S3 Loop는 두 번째 클립부터.
+- 확인: 단위 `test/render/skill-shot-alt-fx.test.js`(추출값, `altGroup`, 迷迭香 B 클립 → B 시전·`rosmon_attack_B_hit_01`, 仇白 저지 → 검 B만·원거리 →
+  화살만), `test/render/attack-alts.test.js`. 이벤트 기록 골든: 위 다섯 명의 B/C 시전·명중이 더해지고 拉普兰德·银灰·断崖·伊内丝의 COMBAT 시전이
+  저지 없는 판에서 빠짐(维娜·维多利亚 한 줄은 시나리오 난수 순서가 밀린 것). [화면 미확인: 실제 판에서 클립과 시전 이펙트가 같은 자식인지]
 
 ### 재능 버프·시전 이펙트 — 재능이 거는 버프와 시전 순간 (2026-10-16, 이펙트 연결 전수 묶음 3)
 

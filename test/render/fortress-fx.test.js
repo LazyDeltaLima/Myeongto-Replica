@@ -45,8 +45,8 @@ test('fortressEffects: melee lists for kind none, ranged ones otherwise, null wi
 
 test('fxgame: swing, strike and hit go through boundFor with the attack\'s kind', () => {
   assert.match(SRC, /const \{ names: own, split \} = boundFor\(src, mode, 'cast', kind\);/);
-  assert.match(SRC, /lastAtk\.set\(tgt\.id \?\? tgt\.info\?\.id, \{ src, t: clockS, mode, kind: e\[3\], shot \}\);/);
+  assert.match(SRC, /lastAtk\.set\(tgt\.id \?\? tgt\.info\?\.id, \{ src, t: clockS, mode, kind: e\[3\], shot, combat: !!src\._fxCombat \}\);/);
   assert.match(SRC, /let \{ names: hitList, split \} = sg\?\.base \?/);
-  assert.match(SRC, /: a\.shot \? .* : boundFor\(a\.src, a\.mode, 'hit', a\.kind\);/);
+  assert.match(SRC, /: a\.shot \? .* : boundFor\(a\.src, a\.mode, 'hit', a\.kind, !!a\.combat\);/);
   assert.match(SRC, /if \(split \|\| bound\(a\.src, a\.mode, 'input'\)\.length\) return;/);
 });

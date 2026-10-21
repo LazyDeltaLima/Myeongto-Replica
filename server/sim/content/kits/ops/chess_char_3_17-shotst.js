@@ -17,11 +17,12 @@ export default {
         kind: 'instant',
         onStart({ battle, unit }) {
           const list = enemiesOn(battle, unit, unit.rangeKeys, n, unit.profile);
+          // before the damage: the renderer flies the skill's arrows and holds their hits for the landing
+          if (list.length) fx(battle, 'volley', unit, { targets: list.map((e) => e.id), skill: 'shotst_2' });
           for (const e of list) {
             battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale, 1) * flyMul(unit, e), type: 'phys', isSkill: true, tags: ['skill', 'burst'] });
             if (e.alive) battle.addBuff(e, { key: 'skill:shotst_shred', duration: num(bb.duration, 5), refresh: 'extend', mods: { defPct: num(bb.def) }, source: unit, visible: true });
           }
-          if (list.length) fx(battle, 'volley', unit, { targets: list.map((e) => e.id), skill: 'shotst_2' });
         },
       },
       // S1 碎甲击: next attack ×atk_scale (fly × of the trait kept) and the target's DEF − for `duration` s
