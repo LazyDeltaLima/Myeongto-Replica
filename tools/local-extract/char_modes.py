@@ -467,6 +467,10 @@ def skill_effects(tree, projectiles=None):
             if isinstance(c, dict):
                 add(e['end']['cast'] if end else e['cast'] if c.get('_oneshot', 1) else e['castLoop'], effect_names(c))
         hg = hit_groups(d)
+        if not end:   # (2026-10-21) the hits of every component of this GameObject (shotHit below)
+            gh = e.setdefault('_gpHits', {}).setdefault(gp, [])
+            for k in HIT_KEYS:
+                add(gh, effect_names(d.get(k) or []))
         for k in HIT_KEYS:
             if k != '_hitEffects' or not hg or hg.get('keep'):
                 add(e['end']['hit'] if end else e['target'], effect_names(d.get(k) or []))
@@ -490,7 +494,7 @@ def skill_effects(tree, projectiles=None):
                 for k in HIT_KEYS:
                     add(hits, effect_names(d.get(k) or []))
                 add(hits, [x for x in p['start'] + p['hit'] if x not in p['zone']])
-                e.setdefault('_shots', []).append((fly, hits))
+                e.setdefault('_shots', []).append((fly, hits, gp))
             if p['zone'] or p['aura']:
                 z = e.setdefault('zone', {'fx': [], 'aura': [], 'onProj': 0})
                 add(z['fx'], p['zone'])
@@ -506,11 +510,14 @@ def skill_effects(tree, projectiles=None):
         dir_groups(d, e['dirs'])
     for e in out.values():
         shots = e.pop('_shots', [])
+        gp_hits = e.pop('_gpHits', {})
         if e.get('shot'):
             e['shot'].sort(key=lambda x: 1 if LINE_FX.search(x) else 0)
             # the hits of the projectile the shot is (维什戴尔 S1: S1_Common's, not the aftershocks' S1_Shock); none (号角 S1's
-            # shell: its flare's hit comes after) leaves the hit to the name rule
-            hit = next((h for fly, h in shots if e['shot'][0] in fly), [])
+            # shell: its flare's hit comes after) leaves the hit to the name rule. (2026-10-21) With the hits of the effect
+            # emitter beside the ability on its GameObject: 能天使 S1 skchr_angel_1's UberEffectEmitter `_hitEffects`
+            # angle_attack_02_hit (the ability that shoots projectile_angel has none of its own)
+            hit = next((h + [x for x in gp_hits.get(g, []) if x not in h] for fly, h, g in shots if e['shot'][0] in fly), [])
             if hit:
                 e['shotHit'] = hit
         else:

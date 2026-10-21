@@ -2691,6 +2691,9 @@
     "targetBuff": [],
     "shot": [
      "angle_skill_01_trail"
+    ],
+    "shotHit": [
+     "angle_attack_02_hit"
     ]
    },
    {

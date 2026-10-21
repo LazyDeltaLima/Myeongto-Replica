@@ -1436,8 +1436,11 @@
   확인 목록에 넣음), 클립 `rateOverTime.minScalar`(todo).
 - 확인: Windows Chrome 디버그 아레나(SP 채우기, 오류 0)에서 能天使 일반 공격 시전·명중·S1 꼬리·S2 버프, 盟约·辅助干员 명중·꼬리·발동 버프,
   艾丝黛尔·安洁莉娜 S1 `common_ignite_attack`, 德克萨斯 S1 충전 시전, 白面鸮 치료 시전·명중·발동 버프, 雷蛇 명중·발동 버프, 蒂比 S1 `common_idle_ground`가
-  틀어짐. 能天使 S1의 `angle_skill_01_start`(castLoop)·`angle_attack_02_hit`(target)은 안 나옴 — 앞 것은 `activation()`이 S2·S3 모드의 공격 시전과
-  같은 이름이라 빼고, 뒤 것은 스킬 틱의 피해에만 붙는데 S1 피해는 다음 공격이다(기존 매핑 한계). [화면 미확인: 安洁莉娜 `Disarmed`(아레나에서
+  틀어짐. 能天使 S1의 `angle_skill_01_start`(castLoop)·`angle_attack_02_hit`(target)은 안 나왔다 — (2026-10-21 고침) 클라 `skchr_angel_1`은
+  `projectile_angel`을 쏘는 능력과 같은 GameObject의 UberEffectEmitter가 `_hitEffects`·`_castEffects`를 가져, `char_modes.py`가 쏘는 능력 자신의
+  hit만 모으던 `shotHit`이 비었다 → 같은 GameObject 컴포넌트의 hit을 더함(바뀐 건 能天使 S1 `shotHit` 하나). 시전은 `fxmap.js activationEffects`가
+  모든 모드의 공격 시전 이름을 빼서 S2·S3 모드 시전과 같은 이름이 빠졌다 → 모드를 바꾸지 않는 스킬(−1)은 기본 모드(0)의 이름만 뺌(歌蕾蒂娅 S1
+  castLoop `glady_skill_01_buff`도 S2 모드 시전과 같은 이름이라 같이 나오게 됨). [화면 미확인: 安洁莉娜 `Disarmed`(아레나에서
   못 일으킴), 凯尔希·思衡托 모드 2·4, 공식 녹화]
 
 ### RandomEmitter · FlyToPredefinedLocation (2026-10-21, 디컴파일 확인)
