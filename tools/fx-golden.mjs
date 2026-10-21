@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // tools/fx-golden.mjs — the effect event golden (2026-10-20): which official effect prefabs the battle events start, per unit and
-// event kind, over the golden battle corpus (tools/golden.mjs: roster, standins, diy, fields).
+// event kind, over the golden battle corpus (tools/golden.mjs: roster, standins, diy, fields, bonds) and the battles of the
+// effect paths no golden battle takes (its family fxpaths, 2026-10-21: run here only, no battle digest).
 //
 // Every battle scenario runs through the production BattleSpec path (golden.mjs battleOf); its client events are drained every
 // 3 ticks (the match's watcher cadence) and handed, as the browser hands them (render/app.js), to render/fxgame.js
@@ -8,7 +9,8 @@
 // (`dry`) and reports every prefab it starts (`trace`: play() by event kind, spawn() by its caller), and from each started
 // prefab's JSON what that prefab creates once it plays (`spawn:emit` OnPlayEmitter / OnFinishEmitter, `spawn:random`
 // RandomEmitter copies — fxgame.js dryFollow). Each frame render/fxstatus.js syncStatusFx asks the layer for the status
-// effects the views' flags and statuses call for (`<unit> status <prefab>`, 2026-10-21). A scenario's digest is the
+// effects the views' flags and statuses call for (`<unit> status <prefab>`, 2026-10-21), and as the battle opens the board's
+// own effects (render/app.js enterBattle → fxgame.js setStorm: 战场#06's 沙尘暴, `- storm <prefab>`). A scenario's digest is the
 // SET of distinct lines `<unit> <kind> <prefabs>[ → self | ally | foe]` (`-`: an effect with no owner, its target by side) — the bindings (fxgame.js, fxmap.js, the extracted modes.json /
 // index.json), not how often or when they fire, so a gameplay change that moves the golden digests rarely moves this one,
 // while a binding change shows as the lines it adds and drops: the list to check on screen.
@@ -33,7 +35,7 @@ import { getData } from '../server/data.js';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const FX_DIR = join(ROOT, 'public/assets/local/fx');
 export const FX_GOLDEN = join(GOLDEN_DIR, 'fx-events.json');
-export const FX_FAMILIES = Object.freeze(['roster', 'standins', 'diy', 'fields']);
+export const FX_FAMILIES = Object.freeze(['roster', 'standins', 'diy', 'fields', 'bonds', 'fxpaths']);
 const DRAIN_EVERY = 3;
 const TICK = 1 / 30;
 
@@ -45,6 +47,12 @@ export function fxAvailable() {
 const quiet = { warn() {}, error() {}, info() {}, debug() {} };
 let gameData = null;
 const enemyDef = (id) => (gameData ||= getData({ log: quiet })).enemies?.[id] ?? null;
+/** The stage's active 土石结构 { r, c, z } as render/app.js enterBattle hands them to setStorm (z: the tile height, unused here). */
+function moundsOf(stageId) {
+  const devices = (gameData ||= getData({ log: quiet })).stages?.[stageId]?.devices || [];
+  return devices.filter((d) => d?.role === 'mound' && Array.isArray(d.pos) && (typeof d.active === 'boolean' ? d.active : !d.hidden))
+    .map((d) => ({ r: d.pos[0], c: d.pos[1], z: 0 }));
+}
 
 /** The layer's files from disk (the browser fetches them from /assets/local/fx/): its index and bindings, and the prefabs' JSON. */
 function serveFx() {
@@ -180,7 +188,12 @@ async function traceBattle(sc) {
     syncStatusFx(views, layer, true); // the status effects the flags and statuses ask for (render/app.js frame)
   };
   for (;;) {
-    if (!rect) { const f = b.fieldMeta(); rect = f.rect; for (const u of f.units) add(u); }
+    if (!rect) {
+      const f = b.fieldMeta();
+      rect = f.rect;
+      for (const u of f.units) add(u);
+      if (Array.isArray(f.storm) && f.storm.length) await layer.setStorm(f.storm, moundsOf(f.stageId ?? sc.stageId));
+    }
     if (b.finished) break;
     if (b.time >= cap - 1e-9) { b.forceEnd('forced'); break; }
     b.step();

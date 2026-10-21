@@ -1340,7 +1340,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const to = { x: Number(d[2 * i]), y: Number(d[2 * i + 1]) };
       if (w.list[i]) { w.list[i].to = to; continue; }
       if (i < w.list.length + w.pending) continue;   // still loading
-      w.pending++;
+      if (trace) trace({ kind: 'spawn', names: [WOLF.fly], by: o.id, on: null, tag: 'wolf', facing: 1 }); // tests
+      w.pending++;   // (a dry layer's never ends: nothing loads)
+      if (dry) { dryFollow(WOLF.bundle, WOLF.fly, o.id, null); continue; }
       (async () => {
         const def = (await ensure()) ? await lib.load(WOLF.bundle, WOLF.fly) : null;
         w.pending--;
@@ -3489,10 +3491,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
      */
     async setStorm(storm, mounds) {
       const gen = stormGen;
-      if (!Array.isArray(storm) || !storm.length || q() === 'low' || failed || !(await ensure()) || gen !== stormGen) return;
+      if (!Array.isArray(storm) || !storm.length || q() === 'low' || failed || !(dry || await ensure()) || gen !== stormGen) return;
       const dir = storm[0].dir;
       const play = async (bundle, name, at, extra, turn = null) => {
         if (!index?.bundles?.[bundle]?.includes(name)) return;
+        if (trace) trace({ kind: 'storm', names: [name], by: null, at: null }); // tests: the board's effects (no owner)
+        if (dry) { dryFollow(bundle, name, null, null); return; }
         const def = await lib.load(bundle, name);
         if (!mod || !def || gen !== stormGen) return;
         const inst = new mod.fxp.FxInstance(def, { quality: q() });

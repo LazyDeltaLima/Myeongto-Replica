@@ -1,8 +1,9 @@
 // test/render/fx-dry-follow.test.js — render/fxgame.js `dry` (tools/fx-golden.mjs, docs/rules/fx.md 「이벤트 기록 골든」): a
 // dry layer loads no prefab, and still traces what a started prefab creates once it plays, from its JSON alone — its
 // OnPlayEmitter / OnFinishEmitter prefabs (`spawn:emit`, on the unit it sits on) and its RandomEmitter copies
-// (`spawn:random`, at a point), then theirs; and the status effects render/fxstatus.js turns on (`status`). Its own file:
-// the layer caches the index per process.
+// (`spawn:random`, at a point), then theirs; the status effects render/fxstatus.js turns on (`status`); the board's
+// 沙尘暴 (`storm`, setStorm) and 荒芜拉普兰德's S3 wolves (`spawn:wolf`), which load before they trace in a browser. Its own
+// file: the layer caches the index per process (the first test's, every bundle the file's tests play).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -12,7 +13,7 @@ const macrotask = () => new Promise((r) => setImmediate(r));
 
 test('a dry layer traces the prefabs a started prefab creates', async () => {
   const files = {
-    '/assets/local/fx/index.json': { bundles: { bond: ['p', 'kid', 'end', 'copy', 'grand'] } },
+    '/assets/local/fx/index.json': { bundles: { bond: ['p', 'kid', 'end', 'copy', 'grand'], screen: ['screen_desert_up_to_down'], map: ['map_desert_02_down'], whitw2: ['whitw2_skill_03_token_trail_01'] } },
     '/assets/local/fx/bond/p.json': { nodes: [{ onPlay: { effects: ['kid', 'absent'] }, onFinish: { effects: ['end'] } }, { emit: { effect: 'copy', count: 3 } }] },
     '/assets/local/fx/bond/kid.json': { nodes: [{ onFinish: { effects: ['grand', 'p'] } }] },
   };
@@ -51,5 +52,22 @@ test('a status effect is traced once per unit and key, with what it creates', as
     layer.statusOn(v, 'bond', 'p', 'stun', 0.5); // already on: nothing
     await macrotask();
     assert.deepEqual(seen, ['status: p by 3 on null', 'spawn:emit kid by 3 on null']);
+  } finally { globalThis.fetch = fetch0; }
+});
+
+test('a dry layer traces the 沙尘暴 board effects and the S3 wolves (no load)', async () => {
+  const fetch0 = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: false, json: async () => null });
+  try {
+    const seen = [];
+    const layer = createFxLayer({ host: null, above: null, quality: () => 'high', dry: true, trace: (p) => seen.push(`${p.kind}:${p.tag ?? ''} ${p.names.join('+')} by ${p.by}`) });
+    await macrotask(); // the index (the first test's, cached for the process)
+    await layer.setStorm([{ c0: 0, c1: 12, dir: 'DOWN' }], [{ r: 12, c: 3, z: 0 }]);
+    assert.deepEqual(seen.splice(0), ['storm: screen_desert_up_to_down by null', 'storm: map_desert_02_down by null']);
+    const views = new Map([[5, { id: 5, info: { id: 5, side: 'player' }, x: 3, y: 10, z: 0, alive: true, facing: 1 }]]);
+    layer.onEvent(['fx', 'whitw2Drones', 3, 10, { id: 5, d: [4, 10, 2, 10] }], views);
+    layer.onEvent(['fx', 'whitw2Drones', 3, 10, { id: 5, d: [4.1, 10, 2, 10] }], views); // the same two wolves move on
+    await macrotask();
+    assert.deepEqual(seen, ['spawn:wolf whitw2_skill_03_token_trail_01 by 5', 'spawn:wolf whitw2_skill_03_token_trail_01 by 5']);
   } finally { globalThis.fetch = fetch0; }
 });

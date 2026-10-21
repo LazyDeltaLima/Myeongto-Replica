@@ -42,6 +42,8 @@
 //            under each of its skills, then every prototype pick with a kit at its locked selection (none on this server:
 //            data/backups.json diy.prototypes is empty), both forms of each tier;
 //            12 pieces per battle on a real stage against the round's real wave three times over (diyScenarios)
+//   fxpaths  not a digest family (FAMILY_NAMES leaves it out): the effect event golden's own battles (tools/fx-golden.mjs,
+//            fxPathScenarios) for effect paths the families above never take
 // Battles run through the production BattleSpec path (server/sim/spec.js buildBattleSpec → createBattleFromSpec, the
 // path browsers and the server's headless fields use) with every option explicit — every operator the player owns at
 // the default player's settings, 潜能 6 and 练度 精英2 Lv.60 (PlayerBattleInput `potential` / `cultivate`, as
@@ -1064,9 +1066,81 @@ export function diyScenarios() {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// family: fxpaths (the effect event golden's own battles, tools/fx-golden.mjs — not in FAMILY_NAMES: no battle digest)
+
+/**
+ * Battles for the effect paths no golden battle takes (2026-10-21): 凯尔希·思衡托 S3's flight to her 战术锚点 (the diy
+ * family places no summons), 予愿安洁莉娜 S2's glide up and down (the layouts face right) and her S3 flight (it needs an
+ * unblocked flyer in her range). 自选 pieces at their elite tier-6 form, laid out as diyScenarios does with the directions
+ * given, against the round's real wave twice over (+ `flyers`: flying kinds, one every 4 s from 12 s); `at` pins a piece's tile;
+ * a `anchor` piece adds her 战术锚点 on the nearest ranged tile outside her attack range ("仅可以部署在凯尔希·思衡托攻击
+ * 范围外的远程位"). Only tools/fx-golden.mjs runs them: a change here moves no battle digest.
+ */
+export function fxPathScenarios() {
+  const FXP_FLYERS = ['enemy_1005_yokai', 'enemy_1269_nhfly', 'enemy_1355_mrfly', 'enemy_1407_hummbd'].flatMap((k) => [k, k]);
+  const FXP = [
+    { id: 'fxpath-kalts2-s3', stageId: 'act1autochess_m01', modeId: 'mode_multi_normal', anchor: 'token_10068_kalts2_mtship', pieces: [
+      { chessId: 'chess_char_6_diy1_b', pick: { charId: 'char_1052_kalts2', skillIndex: 2 } },
+      { chessId: 'chess_char_6_diy2_b', pick: { charId: 'char_1050_chen3', skillIndex: 0 } },
+    ] },
+    { id: 'fxpath-aglna2-s2', stageId: 'act1autochess_m01', modeId: 'mode_multi_normal', pieces: [
+      { chessId: 'chess_char_6_diy1_b', pick: { charId: 'char_1015_aglna2', skillIndex: 1 }, dir: 'UP', at: [9, 4] },
+      { chessId: 'chess_char_6_diy2_b', pick: { charId: 'char_1015_aglna2', skillIndex: 1 }, dir: 'DOWN' },
+      { chessId: 'chess_char_5_diy1_b', pick: { charId: 'char_1050_chen3', skillIndex: 0 } },
+    ] },
+    { id: 'fxpath-aglna2-s3', stageId: 'act1autochess_m01', modeId: 'mode_multi_normal', round: 6, flyers: FXP_FLYERS, pieces: [
+      { chessId: 'chess_char_6_diy1_b', pick: { charId: 'char_1015_aglna2', skillIndex: 2 } },
+      { chessId: 'chess_char_6_diy2_b', pick: { charId: 'char_1050_chen3', skillIndex: 0 } },
+    ] },
+  ];
+  return FXP.map((f) => {
+    const gd = gdFor(f.modeId);
+    const wanted = f.pieces.map((p) => ({ chessId: p.chessId, diy: p.pick, rec: diyRecordOf(data.chess[p.chessId], p.pick, data) }));
+    for (const w of wanted) if (!w.rec) throw new Error(`fxpaths: ${w.diy.charId} is no legal pick of ${w.chessId}`);
+    const units = diyLayout(f.stageId, wanted);
+    if (units.length !== wanted.length) throw new Error(`fxpaths: ${f.id} does not fit on ${f.stageId}`);
+    for (const p of f.pieces) {
+      const u = units.find((x) => x.chessId === p.chessId);
+      u.dir = p.dir ?? 'RIGHT';
+      if (!p.at) continue;
+      const o = units.find((x) => x !== u && x.row === p.at[0] && x.col === p.at[1]);
+      if (o) [o.row, o.col] = [u.row, u.col];   // a piece laid out there takes this one's tile
+      [u.row, u.col] = p.at;
+    }
+    if (f.anchor) {
+      const u = units[units.findIndex((x) => x.chessId === f.pieces[0].chessId)];
+      const rec = wanted[0].rec;
+      const inRange = ownerRangeKeys(attackRangeGrid(loadoutRecord(rec, resolveRecordLoadout(rec, { skillIndex: u.diy.skillIndex }))), u.row, u.col, u.dir);
+      const map = buildDeployMap(data.stages[f.stageId], { field: 'normal' });
+      const used = new Set(units.map((x) => tileKey(x.row, x.col)));
+      const free = [];
+      for (let r = 12; r >= 9; r--) for (let c = 2; c <= 10; c++) if (!used.has(tileKey(r, c)) && !inRange.has(tileKey(r, c)) && canPlace(map, 'ranged', r, c)) free.push([r, c]);
+      free.sort((a, b) => Math.hypot(a[0] - u.row, a[1] - u.col) - Math.hypot(b[0] - u.row, b[1] - u.col));
+      if (!free.length) throw new Error(`fxpaths: no tile for ${f.anchor} on ${f.stageId}`);
+      units.push({ uid: units.length + 1, kind: 'token', tokenId: f.anchor, ownerUid: u.uid, row: free[0][0], col: free[0][1], dir: u.dir });
+    }
+    const round = f.round ?? BAND_ROUND[7];
+    const seed = deriveSeed(20261021, f.id);
+    const wave = normalWave(gd, round, seed);
+    const pid = 'p1';
+    const flyKeys = (f.flyers ?? []).filter((k) => isFlyKey(gd, k));
+    return {
+      id: f.id, family: 'fxpaths', kind: 'normal', modeId: f.modeId, round, stageId: f.stageId, seed, pass: 0,
+      rect: { ...GEO.NORMAL_RECT }, timeLimit: wave.timeLimit, routes: wave.routes, waveId: wave.templateId, enemyOverrides: wave.overrides,
+      flags: { layerGainsEnabled: true, ...gd.dp },
+      players: [playerInput(pid, 0, units)],
+      spawns: [0, 1].flatMap((k) => wave.spawns.map((s) => ({ ...s, time: s.time + k * Math.round(wave.timeLimit / 3), ownerPlayerId: pid })))
+        .concat(extraSpawns(gd, wave.routes, flyKeys, round, pid, 12, 4)),
+      about: `${units.map((u) => (u.kind === 'token' ? u.tokenId : `${u.diy.charId.replace(/^char_\d+_/, '')}/S${u.diy.skillIndex + 1}${u.dir !== 'RIGHT' ? `/${u.dir}` : ''}`)).join(' ')}${flyKeys.length ? ` + ${flyKeys.length} flyers` : ''}`,
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // families, fast subset, comparison
 
-const GENERATORS = { roster: rosterScenarios, bonds: bondScenarios, fields: fieldScenarios, matches: matchScenarios, standins: standInScenarios, diy: diyScenarios };
+// fxpaths: only tools/fx-golden.mjs (FX_FAMILIES) — FAMILY_NAMES, and so the battle golden, leaves it out
+const GENERATORS = { roster: rosterScenarios, bonds: bondScenarios, fields: fieldScenarios, matches: matchScenarios, standins: standInScenarios, diy: diyScenarios, fxpaths: fxPathScenarios };
 const ABOUT = {
   roster: 'every visible chess record × every selectable skill / module, every stage, every non-leader enemy kind, items, bands, 机变 cards, map cards, placeable summons',
   bonds: 'every bond at its activation threshold (layers 1) and at its top tier (layers 999)',

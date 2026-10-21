@@ -1754,7 +1754,7 @@
   `--only`로 일부만. 텍스처·메시 내용은 비교 안 함(JSON이 주는 이름만). 묶음 = `unverified`의 드문 쪽부터 덮기 전체(2026-10-20 47개: EN 35 · CN
   12 — 관리자 결정 2026-10-20: 추출 골든은 추출기 회귀 장치라 화면 대조와 따로 가고, 대조 여부는 `fx-verified.json`이 표시).
 - **이벤트 기록 골든 (2026-10-20)**: 서명과 추출 JSON 골든은 프리팹 그림만 보고 「언제·누구에게 트나」(바인딩: `fxgame.js`·`fxmap.js`·추출
-  `modes.json`/`index.json`)는 못 본다. `tools/fx-golden.mjs`가 골든 전투 묶음(`tools/golden.mjs`의 roster·standins·diy·fields, 94판)을
+  `modes.json`/`index.json`)는 못 본다. `tools/fx-golden.mjs`가 골든 전투 묶음(`tools/golden.mjs`의 roster·standins·diy·fields 94판, 2026-10-21부터 bonds·fxpaths 더해 143판)을
   실제 판 경로(`battleOf` → BattleSpec)로 돌리며 3틱마다 이벤트를 브라우저처럼 `createFxLayer({ dry: true, trace })`에 흘린다(`dry`: 아무것도
   불러오지 않고 레이어가 실패하지도 않음 — node에는 WebP가 없어 첫 로드에서 레이어가 꺼지던 것을 막음). 한 판의 기록 = 서로 다른 줄
   `<유닛> <이벤트 종류> <프리팹> → self|ally|foe`의 **집합**(횟수·시각·맞은 적의 정체는 빼서 전투 규칙이 바뀌어도 거의 안 움직이고, 바인딩이
@@ -1762,14 +1762,26 @@
   `Math.random`(`castGroup`)은 판마다 고정 시드. `test/golden/fx-events.json`과 비교하는 `test/render/fx-golden.test.js`(기본 = 골든 빠른 묶음,
   `GOLDEN_FULL=1` 전부, 추출물 없으면 건너뜀), 의도한 바인딩 변경 뒤 `node tools/fx-golden.mjs --update`(`--print <id>`로 한 판의 줄). 못 보는
   것: 丰川祥子의 음표(WebP 확인 뒤에만 시작), 뒷면 사본(SwitchableBackEffect
-  `_backEffect` — 프레임마다 주인 방향을 보고 틂), 이벤트가 아닌 연출(보드·모래폭풍). 프리팹이 틀린 뒤 스스로 만드는 것은 2026-10-21부터 본다:
+  `_backEffect` — 프레임마다 주인 방향을 보고 틂). 프리팹이 틀린 뒤 스스로 만드는 것은 2026-10-21부터 본다:
   `dry` 레이어가 틀린 프리팹의 추출 JSON만 읽어(`fxgame.js dryFollow`) OnPlayEmitter / OnFinishEmitter 프리팹을 `spawn:emit`(부모가 붙은
   유닛 기준), RandomEmitter 사본을 `spawn:random`(점)으로 실제 길과 같은 줄로 남기고, 그것들이 만드는 것도 따라간다 — 부모가 끝까지 사는지는
   안 따지므로 OnFinishEmitter 프리팹도 틀 때 같이 적힌다. 실제 길의 RandomEmitter 사본(`emitCopy`)도 같은 날부터 `trace`에 나온다. 드문 쪽부터
   상태 이상 이펙트도 같은 날부터: 도구가 뷰에 `app.js`처럼 상태(`'status'`·fx `parry`/`stacks`)를 넣고 프레임마다 `fxstatus.js
   syncStatusFx`를 돌려 `statusOn`의 trace를 남긴다 — 그 오퍼레이터 자기 묶음의 프리팹이면 `<유닛> status <프리팹>`, 아니면(기절·감속·남이 건
   버프) 입은 유닛의 편만 `- status <프리팹> → ally|enemy`(누가 맞는지는 전투 규칙). 드문 쪽부터 덮기 47개 중 기록에 나오는 것: 2026-10-20
-  31개 → 2026-10-21 34개(니어 더 래디언트 나이트 S3 `buff_03_a`·에이야퍄들라 더 크비트 아스카 S3 `weapon_04`·战栗 `common_buff_thrill`).
+  31개 → 2026-10-21 34개(니어 더 래디언트 나이트 S3 `buff_03_a`·에이야퍄들라 더 크비트 아스카 S3 `weapon_04`·战栗 `common_buff_thrill`) → 같은 날 39개:
+  - 보드 연출: 판이 열릴 때 `app.js enterBattle`처럼 `setStorm`을 불러 전장 #06 모래폭풍(`- storm <프리팹>`: 카메라 모래·토석 구조물 표시)을 남긴다.
+    `setStorm`·라플란드 더 데카덴차 S3 늑대(`wolfFx`, `spawn:wolf`)는 브라우저에서 불러온 뒤에 틀던 길이라 `dry`가 trace 전에 막혔다 — 이제
+    불러오기 전에 trace(늑대는 8판에 이미 있었음).
+  - bonds 묶음(맹약 문턱·최고 단계 판): 위수 협의 템플릿 이펙트(`tplfx`)가 거기서만 남(에기르 맹약 `bond_aegir_eat_01`).
+  - `fxpaths`(`tools/golden.mjs fxPathScenarios`, 전투 골든 `FAMILY_NAMES` 밖 — 전투 다이제스트 없음): 골든 판이 안 지나는 이펙트 길의 전용 판 —
+    켈시 에스페란타 S3 앵커 비행·착지(diy 묶음은 소환물을 안 놓음), 안젤리나 더 멜로우 위시 S2 위·아래 활공(배치가 오른쪽만 봄)·S3 비행(범위
+    안 막히지 않은 비행 적이 필요).
+  - 남은 8개는 골든이 아니라 렌더가 안 트는 것: 프라마닉스 더 프레리타 `sbell2_tile_defrost`·사리아 `demkni_buff_01_self`·카넬리안
+    `billro_beidong_buff_03`·엔텔레키아 `etlchi_skill_03_line_01_end`, 실버애쉬 더 레인프로스트 S3 `svash2_skill_03_trail_02`(클라 투사체
+    `_effectsAlignToProjectileDirection`, `_trail_left/_right_01`과 함께 렌더에 바인딩 없음), `map_act1autochess_place_01`(클라 데이터·코드
+    문자열 어디에도 없음), `S_desert_wall_02_start_Mesh`(장치 모델로 구워 `official.js`가 그림 — 아래 「战场#06 沙尘暴 연출」),
+    `screen_desert_down_to_up`(m06의 위 방향 폭풍 장치 `#2`는 어디서도 켜지지 않음; 서명은 기록되는 `up_to_down`과 같음 107개).
 - 기준선의 큰 todo(비공개 조사 기록에 전체 목록): `FollowDirection` 183개(주인·대상 방향을 매 프레임 따라 돎) · 셰이더 `_CullMode`(플레이어는 늘
   양면) · Disturb Origin `_SrcBlend`(대부분 SrcAlpha, 2개가 One) · `InheritVelocityModule` 78 · `FxLODSetting` 37 · Shape Mesh 36(점으로 대체) ·
   `EmptyEffect` 35 · `OnPlayEmitter` 29 / `OnFinishEmitter` 14(다른 이펙트를 틂) · `CollisionModule` 28 · `PauseEffectIf` 26 · 기본 상태 밖 Animator
