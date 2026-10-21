@@ -362,7 +362,9 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     프틸롭시스 S2(`Body/Heal`), 사리아 S3, 인디고 S1·S2, 블레이즈 디 이그나이팅 스파크 S3,
     쿠오라 S2, 프라마닉스 S1·S2(모드 S1-2), 어스스피릿 S2, 시 S2, 노시스 S3, 안젤리나 S2·S3, 버블 S2, 로즈몬티스 S3, 파피루스 S2, 필라에 S2,
     르무엔 S3(Idle → Skill_3_Idle). 민트 S2도(모드 `""`, Default는 공격이 없어 비교 불가 — 관리자 확인 2026-10-22 「S2 중에는 공격 클립 재생이 원래 안 됨」,
-    손 목록 `MODE_STANCE`).
+    손 목록 `MODE_STANCE`). 산크타 믹사파라토 S3도(관리자 제보 2026-10-22 「공격 받을 때마다 대기모션으로 돌아갔다가 스킬 자세로 돌아옴」:
+    반격마다 `Skill_3_Idle`을 공격 클립으로 틀고 `Skill_3_End` → Idle; 모드 Sk3 / Sk3_Zero의 반격 능력은 `Body/Attack`이 아닌
+    `Body/S3Attack` / `Body/S3Attack_Zero` `_animKey ""`라 타이밍 표에 없음 — 손 목록 `MODE_STANCE`).
   - 모드 키 = Default 키(평타 클립) + 스킬 클립이 Begin·idle 없는 한 개 → 그 클립은 시전 한 번(스킬 프리팹 시전 능력 `local-skill-cast.json`:
     블레미샤인 S2 `Skill_2`, 스펙터 S1 `Skill_1`, 치우바이 S2 `Skill_2`, 데겐블레허 S1 `Skill_1`(ReplacementSkill), 필라에 S1 `Skill_1`), 공격은 평타 클립.
   - 리드 더 플레임 섀도우 S2는 모드가 없음(공격 = Default `Attack`); 스킬 프리팹 능력이 `Skill_2`를 지속마다 한 번(`cd 20`, `cdKey duration`) — 손 목록.

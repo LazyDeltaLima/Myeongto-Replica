@@ -56,6 +56,8 @@ test('the manifest follows the client modes: stance where the mode attack has no
   assert.equal(n.die, 'Skill_2_Die');
   // 薄绿 S2: no Default key to compare — MODE_STANCE (maintainer 2026-10-22: no attack clip during S2)
   assert.equal(skillOf('char_388_mint', 1).stance, true);
+  // 信仰搅拌机 S3: the counters are the mode's own `S3Attack` (`_animKey ""`) — MODE_STANCE
+  assert.equal(skillOf('char_4194_rmixer', 2).stance, true);
   // left out: 歌蕾蒂娅 S2 (its own attack channel), 乌尔比安 S3 (Begin / Loop / End)
   assert.equal(skillOf('char_474_glady', 1).stance, undefined);
   assert.equal(skillOf('char_4145_ulpia', 2).plainAttack, undefined);
@@ -122,6 +124,29 @@ test('白面鸮 S2: her heals keep Skill_Loop on (they stood her up: Loop → En
     else {
       assert.ok(!seen.has('Idle') && !seen.has('Skill_End') && !seen.has('Attack'), [...seen].join());
       assert.equal(a._idleName(), 'Skill_Loop');
+    }
+  }
+});
+
+test('信仰搅拌机 S3: her counters keep Skill_3_Idle on (each one dropped her to Idle and back)', () => {
+  for (const strip of [false, true]) {
+    const a = actor('char_4194_rmixer', { strip });
+    a.setSkillIndex(2);
+    a.setSkill(true);
+    assert.equal(a.current, 'Skill_3_Begin');
+    run(a, 2);
+    const seen = new Set();
+    for (let k = 0; k < 3; k++) {
+      a.swing(0.2);
+      a.attack(0.9);
+      for (let t = 0; t < 1.2; t += 1 / 60) { a.update(1 / 60); seen.add(a.current); }
+    }
+    const left = ['Skill_3_End', 'Idle', 'Attack_Begin', 'Attack_Loop', 'Attack_End'].filter((c) => seen.has(c));
+    // the old manifest: each counter played Skill_3_Idle as an attack clip closed by Skill_3_End, Idle after it
+    if (strip) assert.ok(left.includes('Skill_3_End'), [...seen].join());
+    else {
+      assert.deepEqual(left, [], [...seen].join());
+      assert.equal(a._idleName(), 'Skill_3_Idle');
     }
   }
 });

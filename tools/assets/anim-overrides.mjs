@@ -138,6 +138,10 @@ export const MODE_STANCE = Object.freeze({
   // 薄绿 S2: the mode's `Attack` `_animKey ""`, and her Default mode has no attack (阵法术师: no attack unless a skill runs —
   // `ShowRangeOnly`), so the rule has nothing to compare; maintainer 2026-10-22: her S2 plays no attack clip
   'op:char_388_mint:': Object.freeze([1]),
+  // 信仰搅拌机 S3: her counters are the modes Sk3 / Sk3_Zero's own ability `S3Attack` / `S3Attack_Zero`, `_animKey ""` (no
+  // `Body/Attack` there, so the timing file has nothing for the rule); maintainer report 2026-10-22: each counter dropped her
+  // to Idle and back into Skill_3_Idle
+  'op:char_4194_rmixer:': Object.freeze([2]),
 });
 export const PLAIN_ATTACK = Object.freeze({
   // 焰影苇草 S2: no mode (her attacks stay the Default `Attack`); skchr_reed2_2's own ability plays Skill_2 once per skill
