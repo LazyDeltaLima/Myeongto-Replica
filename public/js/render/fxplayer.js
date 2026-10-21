@@ -661,6 +661,7 @@ export class FxLibrary {
         }
         await Promise.all([...keys].map(async (k) => { def.geoms[k] = await this.mesh(k); }));
         def.lib = this;
+        def.bundle = bundle; // 2026-10-21: where its RandomEmitter copies load from (render/fxgame.js stepEmitters)
         return def;
       })().catch(() => null));
     }
@@ -1454,6 +1455,7 @@ export class FxInstance {
     this.meshMats = [];
     this.trails = [];
     this.lines = [];   // local patch: LineRenderers
+    this.emitters = []; // 2026-10-21: RandomEmitter nodes ({ o, rec: node `emit`, next }) — render/fxgame.js plays their copies
     if (!def || !this.q.budget) { this.empty = true; return; }
     const speed = Number(opts.speed) > 0 ? Number(opts.speed) : 1;
     const delays = opts.delays !== false;
@@ -1484,6 +1486,7 @@ export class FxInstance {
       o.visible = n.active !== false;
       (n.parent >= 0 ? this.nodes[n.parent] : unity).add(o);
       this.nodes[i] = o;
+      if (n.emit?.effect && n.emit.count > 0) this.emitters.push({ o, rec: n.emit, next: 0 });
       const own = !delays || n.parent < 0 ? 0 : (Number(n.delay) > 0 ? Number(n.delay) * speed : 0) + (Number(n.sdelay) > 0 ? Number(n.sdelay) : 0);
       t0[i] = (n.parent >= 0 ? t0[n.parent] || 0 : 0) + own;
       o.userData.t0 = t0[i];

@@ -516,6 +516,80 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
   }
 
+  // ---- RandomEmitter (2026-10-21, decompile check) -------------------------------------------------------------
+  // A node with the client's RandomEmitter (fx_extract.py node `emit`: common_charge_cost_start_01 → 3 × common_charge_cost_01,
+  // 德克萨斯 S1 and four more) plays `count` copies of another prefab: `_DoEmit` (RVA 0xE9EDF0) waits `_preDelay`, then for
+  // each copy takes a random point of the box `from`–`to` through the node's transform (Transform.TransformPoint) and
+  // creates the prefab there (BattleController.CreateEffectAtWorldPos: it stays where it was made), `_delayPerEffect` apart.
+  // The copies come from the bundle of the prefab that emits them. [ASSUMED: RandomUtil.RandomVector3 is uniform per axis]
+  const emitAt = (em) => {
+    const { from, to } = em.rec;
+    const r = (k) => Number(from[k]) + Math.random() * (Number(to[k]) - Number(from[k]));
+    em.o.updateWorldMatrix(true, false);
+    return new mod.THREE.Vector3(r(0), r(1), r(2)).applyMatrix4(em.o.matrixWorld);
+  };
+  async function emitCopy(l, rec, p) {
+    const bundle = l.inst.def?.bundle;
+    if (!bundle || !index?.bundles?.[bundle]?.includes(rec.effect)) return;
+    const def = await lib.load(bundle, rec.effect);
+    if (!mod || !def || !layers.under) return;
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), split: l.layer === layers.split, floor: l.inst.object.position.z || 0 });
+    inst.object.position.copy(p);
+    const e = addLive(inst, { owner: l.owner, buff: false, until: clockS + (def.duration || 3) + 0.5 + inst.lead }, l.layer);
+    if (e && def.fly) startFly(e);
+    trimLive();
+  }
+  // ---- FlyToPredefinedLocation (2026-10-21, decompile check) ---------------------------------------------------
+  // A prefab with the client's FlyToPredefinedLocation (fx_extract.py `fly`: common_charge_cost_01, the RandomEmitter copies
+  // above) moves from where it was made to a HUD place and then finishes: `OnPlay` (RVA 0xE7FBC0) DOMove(place, `_duration`)
+  // with ease `_easeType`, unscaled time when `_isIndependentUpdate`, OnComplete → FinishMe. The place
+  // (BattleController.GetPredefinedLocationPosition → UIController.GetPredefinedLocationByUI) is the UI element's screen
+  // point taken down to the map height; 卫戍协议's HUD plugin (AutoChessUIPlugin.HookPredefinedUILocation 0xF20300) answers
+  // only AUTOCHESS_BOUND_BAR, so COST is the base battle UI's cost counter = our DP counter (`.dpbox`, ui/combatHud.js).
+  // [ASSUMED: its centre; the board the viewer looks at is the viewer's side — the client keeps another side's copy where it is]
+  const FLY_PLACE = { 0: '.dpbox' }; // PredefinedLocation COST; others are not drawn by this HUD
+  const EASE = { 1: (t) => t, 5: (t) => t * t }; // DOTween Linear, InQuad (others fall back to InQuad [ASSUMED])
+  function flyTarget(loc) {
+    const sel = FLY_PLACE[loc];
+    const el = sel && host.ownerDocument?.querySelector(sel);
+    const cv = layers.under?.canvas;
+    if (!el || !cv || !camera) return null;
+    const r = el.getBoundingClientRect(), c = cv.getBoundingClientRect();
+    if (!r.width || !c.width || !c.height) return null;
+    const { THREE } = mod;
+    const ndc = new THREE.Vector2(((r.left + r.width / 2 - c.left) / c.width) * 2 - 1, -(((r.top + r.height / 2 - c.top) / c.height) * 2 - 1));
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(ndc, camera);
+    return ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0), new THREE.Vector3()); // the map height
+  }
+  function startFly(l) {
+    const f = l.inst.def.fly;
+    const from = l.inst.object.position.clone();
+    const to = flyTarget(f.loc) || from; // no such place on this screen (the debug arena): it stays, and still finishes then
+    l.fly = { from: f.inv ? to : from, to: f.inv ? from : to, dur: Math.max(1e-3, Number(f.dur) || 0), real: !!f.real, t: 0, ease: EASE[f.ease] || EASE[5] };
+  }
+  /** One frame of a flying effect: `dt` real seconds, `dtGame` battle seconds; at the end it finishes. */
+  function stepFly(l, dt, dtGame) {
+    const f = l.fly;
+    f.t = Math.min(f.dur, f.t + (f.real ? dt : dtGame));
+    l.inst.object.position.lerpVectors(f.from, f.to, f.ease(f.t / f.dur));
+    if (f.t >= f.dur) { l.fly = null; if (!l.inst.stopping) l.inst.stop(); }
+  }
+
+  /** Play the copies of a live effect's emitters whose time has come (effect seconds since its node showed). */
+  function stepEmitters(l) {
+    const inst = l.inst;
+    if (inst.stopping || inst.wait > 0) return;
+    for (const em of inst.emitters) {
+      const { count, pre = 0, per = 0 } = em.rec;
+      const t = inst.time - (em.o.userData.t0 || 0), sp = l.speed > 0 ? l.speed : 1;
+      while (em.next < count && t >= (Number(pre) + em.next * Number(per)) * sp) {
+        em.next++;
+        emitCopy(l, em.rec, emitAt(em));
+      }
+    }
+  }
+
   // local patch (maintainer report 2026-10-08: 赤刃明霄陈's S3 dragon over the 阻隔工事 crate behind her): the client's map and its
   // devices are opaque geometry in the depth buffer, so an effect renderer that tests depth (`_ZTest` 4 — fxplayer.js
   // userData.ztest; her dragon head, most of the 剑气 trail) is hidden inside / behind a crate or a raised tile, while one
@@ -3601,11 +3675,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           SKY_Y ||= new mod.THREE.Vector3(0, 1, 0); skyUp ||= new mod.THREE.Vector3();
           l.inst.object.quaternion.setFromUnitVectors(SKY_Y, skyUp.setFromMatrixColumn(camera.matrixWorld, 1).normalize());
         }
+        if (l.fly) stepFly(l, dt, dt * rate2); // 2026-10-21: FlyToPredefinedLocation
         if (l.until != null && clockS > l.until && !l.stopped) { l.stopped = true; l.inst.stop(); }
         if (l.shotEnd != null && clockS >= l.shotEnd) { l.shotEnd = null; finishShot(l.inst, l); } // 2026-10-11: a flown main effect arrives
         if (l.finishAt != null && clockS >= l.finishAt) { l.finishAt = null; l.inst.stop(true); } // 2026-10-11: statusOff's delay
         if (l.backOf && (l.backOf.inst.stopping || !live.includes(l.backOf)) && !l.inst.stopping) l.inst.stop(); // 2026-10-10: a back copy ends with its front
         if ((!l.view?.paused && !l.hidden && !l.held) || l.inst.stopping) l.inst.update(dt * rate2 * (l.speed > 0 ? l.speed : 1));   // local patch: every effect on the battle clock (the notes did already: trail = speed × time); a front paused for its back copy (stepBackSwitches) waits
+        if (l.inst.emitters?.length) stepEmitters(l); // 2026-10-21: RandomEmitter copies
         if (l.inst.done && l.status && l.again && l.unit?._fxStatusOn?.has(l.status) && l.unit.alive !== false) { const a = l.again; l.again = null; a(); } // local patch: a status loops
         // a kept effect (playAt `keep`: 望's stone activation) stays until its owner's 'die' stops it
         if (l.inst.done && !(l.keep && !l.inst.stopping)) { dropLive(l); live.splice(i, 1); }

@@ -74,6 +74,8 @@ PROJECTILE_EFFECT_SCRIPT = 4524653206994915020
 PARTICLE_EFFECT_SCRIPT = 6196809664641094801
 # (2026-10-20) the MonoScript PathID of SwitchableRightEffect (right_effect; fx_coverage checks its raw fallback)
 RIGHT_SCRIPT = 7347111497538980357
+# (2026-10-21, decompile check) the MonoScript PathID of Torappu.Battle.Effects.RandomEmitter (random_emitter, node `emit`)
+RANDOM_EMITTER_SCRIPT = -1593825680945881793
 # (2026-10-16) Unity's built-in particle materials (an anonymous bundle, anon/*.bin): read as no material, as before the CAB
 # index knew that bundle — nearly all sit on empty container systems (227 of 234); fx_coverage lists the 7 that emit
 UNITY_DEFAULT_MATERIALS = {'Default-Particle', 'Default-ParticleSystem'}
@@ -764,6 +766,9 @@ class Extractor:
             uvr = self.uv_rotation(go)
             if uvr:
                 node['uvr'] = uvr
+            emit = self.random_emitter(go)
+            if emit:
+                node['emit'] = emit
             tr = None
             for c in d['m_Component']:
                 comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], go)
@@ -912,6 +917,9 @@ class Extractor:
         line = self.line_dynamic(root)
         if line:
             out_def['lineDyn'] = line
+        fly = self.fly_location(root)
+        if fly:
+            out_def['fly'] = fly
         return out_def
 
     def monos(self, go):
@@ -1034,6 +1042,44 @@ class Extractor:
             v = self.right_tree(t) if t is not None else self.right_raw(raw)
             if v is not None:
                 return v['effect'] or None
+        return None
+
+    def fly_location(self, root):
+        """(2026-10-21, decompile check) the client's FlyToPredefinedLocation on the root: { loc, dur, ease, real } — `OnPlay`
+        (RVA 0xE7FBC0) moves the effect from where it was made to the HUD place `_location` (PredefinedLocation: 0 COST = the
+        DP counter, 1 CARD, 4 MAX_COST, 8 AUTOCHESS_BOUND_BAR …; BattleController.GetPredefinedLocationPosition: the UI
+        element's screen point taken down to the map height) in `_duration` s with DOTween ease `_easeType`, unscaled time
+        when `_isIndependentUpdate`, then finishes it (FinishMe); `_inversStartEnd` (fly the other way) is kept as `inv`
+        (common_charge_cost_01: COST 0.5 s InQuad). By its field names only; None without one."""
+        for _sid, _raw, t in self.monos(root):
+            if t is None or '_location' not in t or '_easeType' not in t:
+                continue
+            out = {'loc': int(t['_location']), 'dur': r4(t.get('_duration') or 0), 'ease': int(t['_easeType']),
+                   'real': bool(t.get('_isIndependentUpdate'))}
+            if t.get('_inversStartEnd'):
+                out['inv'] = True
+            if t.get('_ignorePlayerSide'):
+                out['anySide'] = True
+            return out
+        return None
+
+    def random_emitter(self, go):
+        """(2026-10-21, decompile check) the client's RandomEmitter on this GameObject: { effect, count, pre, per, from, to } —
+        `_DoEmit` (RVA 0xE9EDF0) waits `_preDelay` s, then plays `_count` copies of the prefab `_effect`, each at a random
+        point of the box `_randomRangeFrom`–`_randomRangeTo` in this GameObject's space (TransformPoint), `_delayPerEffect`
+        s apart (common_charge_cost_start_01 → 3 × common_charge_cost_01). By its field names only; None without one."""
+        for sid, _raw, t in self.monos(go):
+            if sid != RANDOM_EMITTER_SCRIPT:
+                continue
+            if t is None or not isinstance(t.get('_effect'), str):
+                self.cov.reader('RandomEmitter', False, 'no type tree: nothing read')
+                return None
+            if not t['_effect'] or int(t.get('_count') or 0) <= 0:
+                return None
+            v3 = lambda v: [r4(v.get(k, 0)) for k in ('x', 'y', 'z')]
+            return {'effect': t['_effect'], 'count': int(t['_count']), 'pre': r4(t.get('_preDelay') or 0),
+                    'per': r4(t.get('_delayPerEffect') or 0), 'from': v3(t.get('_randomRangeFrom') or {}),
+                    'to': v3(t.get('_randomRangeTo') or {})}
         return None
 
     @staticmethod

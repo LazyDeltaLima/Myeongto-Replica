@@ -58,6 +58,8 @@ SCRIPTS = {
     7599136815520768295: 'SwitchableBackEffect',      # switch_back
     7347111497538980357: 'SwitchableRightEffect',     # right_effect (field names, raw fallback)
     -2385344539842054984: 'LineEffectEmitterDynamic',  # line_dynamic
+    -1593825680945881793: 'RandomEmitter',            # random_emitter (node `emit`)
+    -7734721471322670107: 'FlyToPredefinedLocation',  # fly_location (`fly`)
     # not read (KNOWN)
     -337322108846137150: 'FollowDirection', 1149374055237060560: 'FxLODSetting', -488665936260092151: 'EmptyEffect',
     -5498265793651067281: 'OnPlayEmitter', 2565987927806955259: 'OnFinishEmitter', -5974768320951421776: 'PauseEffectIf',
@@ -77,12 +79,11 @@ SCRIPTS = {
     # (2026-10-21) the route cursors, the 战场#06 wall and the enemies' packs
     978915749116962969: 'PreviewCursor', -2553461985578519915: 'SimpleEffect', 8058004230779817607: 'EffectData_Projectile',
     8089147815673937552: 'LineEffectEmitter', -7751344843855468294: 'SwitchableEffectByBlackboardValue',
-    # (2026-10-21) the common.ab prefabs packed into the operators' own bundles
-    -1593825680945881793: 'RandomEmitter',
 }
 # what the extract reads of the scripts above (reader() checks the raw fallbacks)
 SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoint', 'FxUVTweener', 'FxUVTweenerAdvance',
-                'FxUVRotation', 'SwitchableBackEffect', 'SwitchableRightEffect', 'LineEffectEmitterDynamic'}
+                'FxUVRotation', 'SwitchableBackEffect', 'SwitchableRightEffect', 'LineEffectEmitterDynamic', 'RandomEmitter',
+                'FlyToPredefinedLocation'}
 
 # ParticleSystem modules the extract carries (fx_extract.particle_system)
 MODULES_READ = {'InitialModule', 'EmissionModule', 'ShapeModule', 'SizeModule', 'ColorModule', 'RotationModule',
@@ -139,8 +140,6 @@ KNOWN = {
     'script:EmptyEffect': (_TODO, 'an Effect root without particles: its `_delayToFinish` / sub delays are not read'),
     'script:OnPlayEmitter': (_TODO, 'plays other effects when this one starts'),
     'script:OnFinishEmitter': (_TODO, 'plays other effects when this one finishes'),
-    'script:RandomEmitter': (_TODO, 'plays `_count` copies of the prefab `_effect` at random offsets in a box, `_preDelay` / '
-                             '`_delayPerEffect` apart (common_charge_cost_start_01 → 3 × common_charge_cost_01, 2026-10-21)'),
     'script:PauseEffectIf': (_TODO, 'pauses the effect on owner conditions (abnormal flags, blackboard keys)'),
     'script:PauseAnotherEffect': (_TODO, 'pauses another effect of the owner'),
     'script:PauseEffectIfNotIdle': (_TODO, 'pauses while the owner is not idle / faces back or front'),

@@ -1432,13 +1432,37 @@
   塞雷娅 S3 모드 명중 `common_heal_hit_01` — 클라 S3 모드의 공격은 **아군**을 고른다(charpack `Modes/S3/Body/Attack/Trigger._targetSide` 1:
   치료 펄스가 그 모드의 공격)인데 시뮬은 S3 중에도 적을 쳐서, 넣으면 적 위에 치료 십자가 뜬다. 시뮬이 맞춰지면 넣는다.
 - 추출 보고에 새로 나온 것: `RandomEmitter`(`common_charge_cost_start_01`이 0.1 s 뒤 `common_charge_cost_01` 3개를 상자 안 무작위 자리에 틂 —
-  todo, 지금은 본체만), 셰이더 `Torappu/Particles-L2D/AlphaBlend`(盟约·辅助干员 명중: 선언 속성·태그·블렌드가 `Particles/AlphaBlend`와 같음 —
+  아래 「RandomEmitter · FlyToPredefinedLocation」에서 구현), 셰이더 `Torappu/Particles-L2D/AlphaBlend`(盟约·辅助干员 명중: 선언 속성·태그·블렌드가 `Particles/AlphaBlend`와 같음 —
   확인 목록에 넣음), 클립 `rateOverTime.minScalar`(todo).
 - 확인: Windows Chrome 디버그 아레나(SP 채우기, 오류 0)에서 能天使 일반 공격 시전·명중·S1 꼬리·S2 버프, 盟约·辅助干员 명중·꼬리·발동 버프,
   艾丝黛尔·安洁莉娜 S1 `common_ignite_attack`, 德克萨斯 S1 충전 시전, 白面鸮 치료 시전·명중·발동 버프, 雷蛇 명중·발동 버프, 蒂比 S1 `common_idle_ground`가
   틀어짐. 能天使 S1의 `angle_skill_01_start`(castLoop)·`angle_attack_02_hit`(target)은 안 나옴 — 앞 것은 `activation()`이 S2·S3 모드의 공격 시전과
   같은 이름이라 빼고, 뒤 것은 스킬 틱의 피해에만 붙는데 S1 피해는 다음 공격이다(기존 매핑 한계). [화면 미확인: 安洁莉娜 `Disarmed`(아레나에서
   못 일으킴), 凯尔希·思衡托 모드 2·4, 공식 녹화]
+
+### RandomEmitter · FlyToPredefinedLocation (2026-10-21, 디컴파일 확인)
+
+- 원인: `common.ab`의 충전 시전 `common_charge_cost_start_01`(德克萨斯 S2 등, 묶음 5개: texas·svash2·mlyss·flamtl·vigil)은
+  본체만 그렸다. 클라는 그 루트의 `RandomEmitter`가 구슬 `common_charge_cost_01` 3개를 더 틀고, 구슬은 `FlyToPredefinedLocation`으로 DP 칸까지
+  날아가 사라진다.
+- 클라: `RandomEmitter._DoEmit`(RVA 0xE9EDF0)이 `_preDelay`(0.1 s, WaitForSeconds = 게임 시간)를 기다린 뒤 `_count`(3)번, 상자
+  `_randomRangeFrom`(−0.5, −0.5, −0.5)–`_randomRangeTo`(0.5, 0.5, −1)의 무작위 점(`RandomUtil.RandomVector3`)을 그 GameObject의
+  `Transform.TransformPoint`로 월드에 옮겨 `BattleController.CreateEffectAtWorldPos`로 `_effect`를 만든다(`_delayPerEffect` 0 간격). 구슬의
+  `FlyToPredefinedLocation.OnPlay`(0xE7FBC0)는 `GetPredefinedLocationPosition(_location)` — UI 요소의 화면 점을 맵 높이로 내린 월드 점
+  (`UIController.GetPredefinedLocationByUI` 0xF0DFE0 → `ScreenPointToWorldPositionAtMapHeight`) — 으로 `DOMove(_duration 0.5)`·`SetEase(_easeType
+  5 = InQuad)`·`SetUpdate(_isIndependentUpdate 1: 배속 무관)`·`OnComplete → Effect.FinishMe`. 卫戍协议의 HUD 플러그인
+  (`AutoChessUIPlugin.HookPredefinedUILocation` 0xF20300)은 `AUTOCHESS_BOUND_BAR`(8)만 답하므로 `COST`(0)는 기본 전투 UI의 코스트 칸 = 우리
+  DP 표시(rules/ui.md 「전투 HUD」). 이펙트의 진영이 보는 쪽과 다르면(`_ignorePlayerSide` 0) 날지 않는다.
+- 고친 것: `fx_extract.py random_emitter`가 노드에 `emit` {effect, count, pre, per, from, to}, `fly_location`이 루트에 `fly` {loc, dur, ease,
+  real}을 쓰고(필드 이름으로만), 묶음 5개의 두 프리팹을 `--pack`으로 다시 뽑음. `FxInstance.emitters`가 `emit` 노드를 모으고 `fxgame.js
+  stepEmitters`가 그 노드 시간(이펙트 시간 ÷ 속도 = 게임 시간)이 `pre + i·per`에 이르면 상자 점을 노드 행렬로 옮겨 같은 묶음의 구슬을 그 자리에
+  둔다(`emitCopy`, 주인을 따라가지 않음); `fly`가 있으면 `startFly`가 `.dpbox` 가운데의 화면 점을 땅(z 0)으로 내린 점까지 실제 시간으로
+  InQuad 이동, 끝나면 멈춤. [추정: 상자 점은 축마다 균등, 날아갈 자리는 `.dpbox`의 가운데, 보고 있는 판은 보는 사람 쪽 — 다른 사람 판을 볼 때도
+  날림] 클라 스크립트 둘은 `fx_coverage.py SCRIPTS_READ`로 옮김(`RandomEmitter`의 todo 삭제). `common_charge_cost_01_white`(MAX_COST로 남)와
+  `common_V050_hint_2`는 우리 묶음에 없음.
+- 확인: `test/render/random-emitter-fx.test.js`(추출물·`FxInstance.emitters`·`stepEmitters` 시점·`stepFly`). Windows Chrome 디버그 아레나
+  (텍사스 S2, 오른쪽 아래에 대역 `.dpbox`를 넣음): 시전 1·구슬 3, 구슬이 꼬리를 끌며 그 상자 쪽으로 날아가 약 0.5 s 안에 사라짐, 오류 0. 대역이
+  없는 아레나에서는 제자리에서 0.5 s 뒤 끝남. 水月 S2·S3, 铃兰 S3, 斯卡蒂 S3 재생 오류 0. [화면 미확인: 실제 판의 DP 칸으로 나는 모양, 공식 녹화]
 
 ### 타격별 명중 — MultiHitUberEffectEmitter `_hitGroups` (2026-10-16, 이펙트 연결 전수, 디컴파일 확인)
 
