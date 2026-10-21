@@ -87,6 +87,11 @@ export const KIT_HIT_BANKS = Object.freeze({
   'mlyss:melee': 'battle.ON_BUFF_START.mlyss_wtrman_s_melee_audio',
   'mlyss:range': 'battle.ON_BUFF_START.mlyss_wtrman_s_range_audio',
   'mlyss:pull': 'battle.ON_BUFF_TRIGGER.mlyss_s_3[melee_audio]',
+  // 2026-10-22: 帝国炮火先兆者 / 中枢先兆者's shell (content/enemies/fly.js kitShell; public/js/audio.js kitHitKey) — its attack's
+  // end as it fires, its attack's hit and its projectile's hit at the landing (the _2 banks hold the same files)
+  'emppnt:aim': 'battle.ON_ABILITY_END.enemy_1112_emppnt.attack',
+  'emppnt:hit': 'battle.ON_ABILITY_HIT.enemy_1112_emppnt.attack',
+  'emppnt:shell': 'battle.ON_PROJECTILE_HIT.projectile_enemy_emppnt',
 });
 
 /**

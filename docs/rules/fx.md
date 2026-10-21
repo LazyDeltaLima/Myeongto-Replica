@@ -2126,6 +2126,20 @@
 - 고친 것: 오퍼레이터의 `beam`은 그 모드의 shot이 날지 않으면(`shotSpeedOf` 0) 선을 그리지 않음 — 다른 무투사체 공격과 같은 규칙. 자료가 없는
   오퍼레이터와 적의 `beam`은 그대로. 테스트 `test/render/fxproj.test.js`. [화면 미확인]
 
+### 적 포탄 — 帝国炮火先兆者 (2026-10-22, 관리자 요청 「공식 포탄으로 수정」)
+
+- 시뮬: 제국 아틸러리 타게티어·코어 타게티어(`enemy_1112_emppnt`/`_2`, `content/enemies/fly.js kitShell`)는 쏠 때 대상 자리에 fx 'bombardShell'
+  { id, x, y, t: 3 }, 3초 뒤 같은 자리에 'bombard' { kind: 'emppnt' } + 무출처 피해. 예전 렌더는 공식 이펙트 없이 `fx/projectiles.js mortar`(쏜 적에게서
+  솟아 3초 동안 떨어지는 절차형 포탄)와 붉은 고리를 그렸다.
+- 공식: `projectile_enemy_emppnt`는 AttachToTarget `_delayToStart` 3(rules/sim.md) — `_effectsToTargetWhenStart` `enemy_emppnt_attack_01_start`(3초 조준
+  표시), `_mainEffect` `enemy_emppnt_attack_01_trail`(노드 `fixed`가 클립으로 y 3.73 → 0.22·높이 5.27 → 0.28을 0.27초에 — 르무엔 S3 포탄처럼 스스로
+  떨어짐, 화면 수직), `_effectsWhenReached` `enemy_emppnt_attack_01_hit`. 쏠 때 시전 `_start_02`는 예전부터 공격 이펙트로 나옴.
+- 고친 것 (`fxgame.js emortarFx`/`emortarLand`): 'bombardShell'에 조준 표시를 그 자리에, 착탄 0.27초 전에 포탄 프리팹을 그 자리에 돌리지 않고 틀고,
+  'bombard'에 포탄을 끝내고(`finishShot`) 조준 표시를 멈추고 착탄 이펙트. 둘 다 `ownFx`라 절차형 포탄·고리·폭발은 안 그림. 투사체는 그 적의 `proj.key`로
+  찾으므로(`enemyShot` → `eprojByKey`) 데이터만 맞으면 같은 꼴의 다른 적에도 같음; 아무 이펙트도 추출 안 된 적은 절차형 그대로.
+  [추정: 공식은 지연 3초 뒤 꼬리를 틀고 도착 시점은 안 읽음 — 착탄에 맞춰 0.27초 앞당김] 소리는 rules/audio.md 「적 소리」. 테스트
+  `test/render/enemy-mortar-fx.test.js`. [화면 미확인]
+
 ### 추출 누락 보고 — fx_coverage (2026-10-16, 관리자 요청 「이펙트를 추출해 적용할 때마다 공식과 어긋나는 근본 원인」)
 
 - **원인**: 이펙트가 공식처럼 보이는지는 프리팹의 그림 데이터, 그것을 재생하는 로직(`fxplayer.js`), 언제·어디에 트는지(바인딩) 셋이 정하는데

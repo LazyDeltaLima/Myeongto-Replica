@@ -378,6 +378,15 @@
   `_modes` 순서(local-char-audio.json `modes`) — 2026-10-21 클라 코드로 확인(`Unit._InitUnitModes`가 `_modes[i]`에 i를 `UnitMode.index`로 주고 신호 id가
   그 index를 씀, docs/rules/fx.md 「적 상태의 버프 이펙트」); 렌더 표 `enemy-modes.json`의 모드도 같은 순서라 번호가 같다. 렌더가 모드를 공격 클립으로
   가르므로 두 모드가 같은 클립(`Attack`)이면 바뀐 것을 못 본다(그 적은 모드 0 큐 그대로). 확인: `test/local-patch-attack-signals.test.js` 「enemy modes」(직접 호출).
+- 제국 아틸러리 타게티어·코어 타게티어 포탄 (2026-10-22, 관리자 요청): 포탄 피해는 3초 뒤 무출처라 유닛 큐(공격 HIT `e_atk_energyshotcast`·투사체 HIT
+  `e_imp_grenade_n`, 둘 다 착탄 'd')가 한 번도 안 났고, 쏠 때는 대체 `enemyHit`만 났다. 이제 `sfx.kit`(`tools/assets/kit-sfx.mjs`, `audio.js kitHitKey`/
+  `kitStartKey`): 쏠 때(fx 'bombardShell') `ON_ABILITY_END.enemy_1112_emppnt.attack` `e_atk_aim` [추정: 공식은 시전 끝 `OnCastEnd`, 우리는 쏘는 순간],
+  착탄 때 맞은 유닛마다(fx 'bombard' kind `emppnt`와 같은 묶음의 무출처 'dmg', `AudioManager._shellAt`) `ON_ABILITY_HIT…attack` `e_atk_energyshotcast` +
+  `ON_PROJECTILE_HIT.projectile_enemy_emppnt` `e_imp_grenade_n` — 공식 HIT 신호는 맞은 유닛마다(뱅크당 동시 2개, popOldest), 아무도 안 맞으면 무음
+  (REACH 뱅크 없음). 처음엔 포탄마다 한 번이었는데 관리자 청취 「기억보다 약함」(2026-10-22) — 파일은 EN 클라 `enmy_snd_imp_2.ab`의 원본과 같은 길이(2.54초),
+  음량은 공식 믹서 그룹(`Battle_E_NImp` 0.205). 'mortar' 공격에는 대체 `enemyHit`를 안 내고 `lastAttacker`도 안 남김(남기면 배속이 빨라 3초가
+  실제 2.5초 안에 지날 때 무출처 착탄 피해가 그 공격의 'd' 큐를 또 냈다). `_2`의 뱅크도 같은 파일. 확인:
+  `test/local-patch-audio.test.js` 「帝国炮火先兆者」.
 - 안 한 것: 적 버프·커스텀 트리거 소리(위 「버프·커스텀 트리거 소리」), `ON_BOSS_ENTER`(우리 보스엔 뱅크 없음). 적 스파인 이벤트는 위 「공격 소리 신호」의 스파인 이벤트로 남.
 
 ## 지속 피해 틱 (2026-10-11, 사용자 제보 「아스카론 S2 지속 피해 소리가 공격 소리와 같음」)

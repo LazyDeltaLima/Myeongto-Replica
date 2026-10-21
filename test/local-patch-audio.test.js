@@ -237,6 +237,22 @@ describe('normal attacks sound only their Default mode (maintainer report 2026-1
     for (const k of ['lemuen:mark', 'lemuen:s3end', 'lemuen:shell']) assert.match(manifest.audio.sfx.kit?.[k] || '', /\/p_(imp|atk)\/p_(imp|atk)_lmwlcrstr/, k);
     assert.equal(manifest.audio.sfx.kitGrp['lemuen:shell'], 'Battle_P_SImp');
   });
+
+  test('帝国炮火先兆者: its shell\'s aim as it fires, the attack\'s and the projectile\'s hit at the landing (2026-10-22)', async () => {
+    const { kitHitKey, kitStartKey } = await import('../public/js/audio.js');
+    const units = new Map([[5, { def: 'enemy_1112_emppnt', defId: 'enemy_1112_emppnt' }], [6, { def: 'enemy_1112_emppnt_2', defId: 'enemy_1112_emppnt_2' }],
+      [7, { def: 'enemy_1007_slime', defId: 'enemy_1007_slime' }]]);
+    const of = (id) => units.get(id);
+    assert.equal(kitHitKey('bombardShell', { id: 5, x: 1, y: 1, t: 3 }, of), 'emppnt:aim');
+    assert.equal(kitHitKey('bombardShell', { id: 6, x: 1, y: 1, t: 3 }, of), 'emppnt:aim');
+    assert.equal(kitHitKey('bombardShell', { id: 7, x: 1, y: 1, t: 3 }, of), null);
+    assert.equal(kitHitKey('bombard', { x: 1, y: 1, r: 1.2, kind: 'emppnt' }, of), null, 'the landing sounds per unit it hits (AudioManager)');
+    assert.equal(kitStartKey('bombard', { x: 1, y: 1, r: 1.2, kind: 'emppnt' }, of), null);
+    assert.match(manifest.audio.sfx.kit?.['emppnt:aim'] || '', /\/e_atk\/e_atk_aim\.mp3$/);
+    assert.match(manifest.audio.sfx.kit?.['emppnt:hit'] || '', /\/e_atk\/e_atk_energyshotcast\.mp3$/);
+    assert.match(manifest.audio.sfx.kit?.['emppnt:shell'] || '', /\/e_imp\/e_imp_grenade_n\.mp3$/);
+    assert.equal(manifest.audio.sfx.kitGrp['emppnt:shell'], 'Battle_E_NImp');
+  });
 });
 
 describe('every bank plays like the official SoundFXBank.Play: popOldest / maxSoundAllowed per bank, a random pitch (2026-10-10; 蕾缪安 S3 shells, maintainer report)', () => {
@@ -271,6 +287,30 @@ describe('every bank plays like the official SoundFXBank.Play: popOldest / maxSo
     assert.equal(stopped.length, 2, 'the two oldest were cut');
     assert.equal(a.limiter.count('kit:lemuen:shell'), 3, 'three playing');
     assert.deepEqual(manifest.audio.sfx.bank[url]?.slice(2), [3, 1], 'its bank values in sfx.bank');
+  });
+
+  test('帝国炮火先兆者 (2026-10-22): its shot sounds the aim (no stand-in enemy hit), the landing the attack\'s and the shell\'s hit', async () => {
+    const { a, started } = live();
+    a._buffer = async (u) => ({ duration: 30, u });
+    a.setFieldUnits([{ id: 5, kind: 'enemy', side: 'enemy', spine: 'enemy_1112_emppnt', defId: 'enemy_1112_emppnt' },
+      { id: 2, kind: 'op', side: 'ally', spine: 'char_4193_lemuen', defId: 'chess_x' }]);
+    const k = manifest.audio.sfx.kit;
+    a.handleBattleEvents([['atk', 5, 2, 'mortar'], ['fx', 'bombardShell', 3, 1, { x: 3, y: 1, id: 5, r: 1.2, t: 3 }]]);
+    await tick();
+    assert.deepEqual(started.map((s) => s.buffer?.u).filter(Boolean), [k['emppnt:aim']]);
+    started.length = 0;
+    a.handleBattleEvents([['fx', 'bombard', 3, 1, { x: 3, y: 1, r: 1.2, kind: 'emppnt' }], ['dmg', 2, 900, 'phys', 0, null, 0, null]]);
+    await tick();
+    assert.deepEqual(started.map((s) => s.buffer?.u).filter(Boolean).sort(), [k['emppnt:hit'], k['emppnt:shell']].sort(), 'one unit hit');
+    started.length = 0;
+    a.handleBattleEvents([['fx', 'bombard', 3, 1, { x: 3, y: 1, r: 1.2, kind: 'emppnt' }], ['dmg', 2, 900, 'phys', 0, null, 0, null],
+      ['dmg', 3, 900, 'phys', 0, null, 0, null]]);
+    await tick();
+    assert.equal(started.filter((s) => s.buffer?.u === k['emppnt:shell']).length, 2, 'two units hit: two landing sounds (the client\'s HIT is per unit)');
+    started.length = 0;
+    a.handleBattleEvents([['fx', 'bombard', 3, 1, { x: 3, y: 1, r: 1.2, kind: 'emppnt' }]]);
+    await tick();
+    assert.equal(started.length, 0, 'nobody hit: silent (no REACH bank)');
   });
 
   test('a unit bank (maxSoundAllowed 2, popOldest): a third copy cuts the oldest; a non-popOldest bank drops the new one; no per-unit gap', async () => {

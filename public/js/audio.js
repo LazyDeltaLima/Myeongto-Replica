@@ -127,7 +127,8 @@ export function kitHitKey(fx, ex, unitOf) {
     case 'swordStorm': return ex.id != null && def(ex.id) === 'char_1050_chen3' ? 'chen3:s2' : null;
     // local patch (maintainer report 2026-10-07): 蕾缪安 S3 — the bombardment's start (first shell), each landing, the lock
     // mark (S2's aim lock sends the same fx: only while her S3 is equipped)
-    case 'bombardShell': return def(ex.id) === 'char_1035_wisdel' ? 'wisdel:s2' : def(ex.id) === 'char_4193_lemuen' && ex.i === 0 ? 'lemuen:s3end' : null;
+    case 'bombardShell': return def(ex.id) === 'char_1035_wisdel' ? 'wisdel:s2' : def(ex.id) === 'char_4193_lemuen' && ex.i === 0 ? 'lemuen:s3end'
+      : emppnt(unitOf(ex.id)) ? 'emppnt:aim' : null;
     case 'bombard': return def(ex.id) === 'char_4193_lemuen' ? 'lemuen:shell' : null;
     case 'lock': { const u = unitOf(ex.src); return u?.def === 'char_4193_lemuen' && u.skillIndex === 2 ? 'lemuen:mark' : null; }
     case 'explode': return def(ex.by) === 'char_1035_wisdel' ? 'wisdel:bomb' : null;
@@ -161,6 +162,15 @@ export function kitStartKey(fx, ex, unitOf = () => undefined) {
   if (fx === 'crit' && ex.by != null && unitOf(ex.by)?.def === 'char_1021_kroos2') return 'kroos2:t1s';
   return null;
 }
+/**
+ * 2026-10-22 (maintainer request): 帝国炮火先兆者 / 中枢先兆者 (enemy_1112_emppnt / _2) — their shell attack's own banks, which
+ * their unit cues cannot play (the shell lands 3 s later as 无来源 damage, content/enemies/fly.js kitShell): the attack's
+ * ON_ABILITY_END (e_atk_aim) as it fires [추정: at the shot — the client sounds it at the cast's end], and for each unit
+ * the landing hits (the 无来源 'dmg' of the 'bombard' moment: AudioManager `_shellAt`) its ON_ABILITY_HIT (e_atk_energyshotcast)
+ * and the projectile's ON_PROJECTILE_HIT (e_imp_grenade_n) — the client's HIT signals are per unit hit (each bank keeps 2 at
+ * once, popOldest); a shell that hits nobody is silent (the projectile has no REACH bank).
+ */
+const emppnt = (u) => typeof (u?.defId ?? u?.def) === 'string' && (u.defId ?? u.def).startsWith('enemy_1112_emppnt');
 /**
  * 2026-10-11, docs/rules/audio.md 「재능·소환물 능력 소리」: the sfx.kit keys of a talent's own attack — sim 'atk' 5th field `signal`
  * (Battle.forceAttack, docs/SIM.md) — of unit model `def`, played instead of its normal attack's cues, or null. 이그제큐터 디 엑스
@@ -1699,12 +1709,15 @@ export class AudioManager {
               this._kitSound(signalAttackKey(src, 'a', e[3] === 'none' || e[3] == null)); // 2026-10-10: its buff's strike sound
             }
             src.lastAtkAt = now;
-            if (tgt && tgt.side !== src.side) this.lastAttacker.set(e[2], { def: src.def, at: now, mode, sw, id: e[1] });
-            if (src.side === 'enemy' && !sw.set.cues.some((c) => c.at === 's' || c.at === 'a')) this.battle('enemyHit', { volume: 0.35 });
+            // 2026-10-22: a shell fired at a spot (kind 'mortar') hits by itself 3 s later as 无来源 damage, sounding its own banks
+            // (kitHitKey 'bombard') — no impact of this attack for that damage to take (at a high game speed it fell inside the window)
+            if (tgt && tgt.side !== src.side && e[3] !== 'mortar') this.lastAttacker.set(e[2], { def: src.def, at: now, mode, sw, id: e[1] });
+            // (2026-10-22: a shell fired at a spot — kind 'mortar' — sounds its own banks: kitHitKey 'emppnt:aim')
+            if (src.side === 'enemy' && e[3] !== 'mortar' && !sw.set.cues.some((c) => c.at === 's' || c.at === 'a')) this.battle('enemyHit', { volume: 0.35 });
             continue;
           }
-          if (tgt && tgt.side !== src.side) this.lastAttacker.set(e[2], { def: src.def, at: now, mode, id: e[1] });
-          if (!this.unit(src.def, 'attack', e[1], undefined, mode) && src.side === 'enemy') this.battle('enemyHit', { volume: 0.35 });
+          if (tgt && tgt.side !== src.side && e[3] !== 'mortar') this.lastAttacker.set(e[2], { def: src.def, at: now, mode, id: e[1] });
+          if (!this.unit(src.def, 'attack', e[1], undefined, mode) && src.side === 'enemy' && e[3] !== 'mortar') this.battle('enemyHit', { volume: 0.35 });
           this.unit(src.def, 'on', e[1], undefined, mode); // 2026-10-10: its ON bank too (START and ON both sound)
         } else if (kind === 'dmg') {
           if (!IMPACT_TYPES.has(e[3])) continue;
@@ -1712,6 +1725,8 @@ export class AudioManager {
           // tick (the sim's 7th field, damage.js dotFlag) is a buff's damage in the client — no ability HIT, no sound — and
           // neither an attack's impact (it must not take the one lastAttacker keeps for the real hit) nor a skill impact
           if (e[6] === 1) continue;
+          // 2026-10-22: a unit 帝国炮火先兆者's shell hit as it landed (the 'bombard' of this moment; its damage has no source)
+          if (e.length > 5 && e[5] == null && this._shellAt === now) { this._kitSound('emppnt:hit'); this._kitSound('emppnt:shell'); continue; }
           const by = this.lastAttacker.get(e[1]);
           // 2026-10-10, docs/rules/audio.md 「공격 소리 신호」: the attacker the sim names (6th field, docs/SIM.md) —
           // the impact of its normal attack aimed at this target, or a splash of it (the same moment as its strike / impact), else
@@ -1835,6 +1850,7 @@ export class AudioManager {
           if (ev.some((x) => Array.isArray(x) && x[0] === 'fx' && x[1] === 'summon' && x[4]?.follower && x[4].id === e[1])) continue;
           this.playDeploySfx(u, e[1]);
         } else if (kind === 'fx') {
+          if (e[1] === 'bombard' && e[4]?.kind === 'emppnt') this._shellAt = now;   // 2026-10-22: its hits follow in this batch (dmg)
           // 2026-10-10, docs/rules/audio.md 「적 소리」: an enemy skill's cast (sim fx 'enemySkill' { id, ability }) —
           // its ability's START / ON banks and projectiles' BORN now, its impacts on the damage it deals (_skillImpact)
           if (e[1] === 'enemySkill' && e[4]?.id != null && typeof e[4].ability === 'string') {

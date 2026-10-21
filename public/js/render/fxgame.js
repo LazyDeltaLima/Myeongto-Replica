@@ -2643,6 +2643,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       }
       return true;
     }
+    if (e[1] === 'bombardShell' && emortarFx(e, views)) return true;   // 2026-10-22: 帝国炮火先兆者's shells (emortarFx)
+    if (e[1] === 'bombard' && emortarLand(e)) return true;
     if (e[1] === 'bombardShell' || e[1] === 'bombard') {
       const src = views.get(o.id);
       if (!lemuenOn(src)) return false;
@@ -3409,6 +3411,64 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return eprojAll.get(key) || null;
   }
   const eshotLand = new Map();   // `${shooter id}:${target id}` → battle clock its official shot lands (eskillHit)
+  /**
+   * 2026-10-22 (maintainer request): an enemy's shell fired at a spot (content/enemies/fly.js kitShell — 帝国炮火先兆者 /
+   * 中枢先兆者: fx 'bombardShell' { id, t } as it fires, 'bombard' at the spot `t` s later) with its projectile's official
+   * effects instead of fx.js's procedural mortar out of the shooter. projectile_enemy_emppnt is an AttachToTarget with
+   * `_delayToStart` 3 (docs/rules/sim.md): its `_effectsToTargetWhenStart` (enemy_emppnt_attack_01_start, a 3 s reticle) on
+   * the spot as it fires, its `_mainEffect` (enemy_emppnt_attack_01_trail) — a shell that falls by itself, clip 0.27 s, like
+   * 蕾缪安 S3's — played on the spot EMORTAR_FALL s before the landing so that it touches down then [추정: the client starts
+   * it after the delay; when it reaches is not read], and `_effectsWhenReached` (enemy_emppnt_attack_01_hit) at the landing
+   * (emortarLand). true = drawn here.
+   */
+  const EMORTAR_FALL = 0.27;
+  const emortars = [];   // { x, y, hits: [[bundle, prefab]], marks: [live entries], shell: live entry | null, done }
+  function emortarFx(e, views) {
+    const o = e[4], src = views.get(o.id);
+    if (!src || !eOn(src) || level() >= 3) return false;
+    let shot;
+    try { shot = enemyShot(enemyDef(src.info?.defId), src.info?.form); } catch { shot = undefined; }
+    const pr = shot?.key ? eprojByKey(src, shot.key) : null;
+    const trail = efx(Array.isArray(pr?.trail) ? pr.trail[0] : null);
+    const hits = [...new Set([...(pr?.reached || []), ...(pr?.hit || [])])].map(efx).filter(Boolean).slice(0, MAX_HIT_FX);
+    const starts = (pr?.targetStart || []).map(efx).filter(Boolean);
+    if (!pr || (!trail && !hits.length && !starts.length)) return false;
+    const x = Number(e[2]), y = Number(e[3]), t = Math.max(0.05, Number(o.t) || 0.5);
+    const rec = { x, y, hits, marks: [], shell: null, done: false };
+    emortars.push(rec);
+    if (emortars.length > 64) emortars.shift();
+    ownFx.add(e);
+    for (const [b, n] of starts) {
+      spawn(b, n, { x, y, z: 0 }, { owner: null, buff: false, until: clockS + t + 0.5 }).then((l) => {
+        if (!l) return;
+        if (rec.done) l.inst.stop(); else rec.marks.push(l);
+      });
+    }
+    if (trail) {
+      castsDelayed.push({ t: clockS + Math.max(0, t - EMORTAR_FALL), run: () => {
+        if (rec.done) return;
+        spawn(trail[0], trail[1], { x, y, z: 0 }, { owner: null, buff: false, until: clockS + EMORTAR_FALL + 4 }).then((l) => {
+          if (!l) return;
+          if (rec.done) finishShot(l.inst, l); else rec.shell = l;
+        });
+      } });
+    }
+    return true;
+  }
+  /** fx 'bombard' at the spot of a shell emortarFx drew: its shell ends as it lands, its reticle goes, its hit plays. */
+  function emortarLand(e) {
+    const x = Number(e[2]), y = Number(e[3]);
+    const i = emortars.findIndex((r) => !r.done && Math.hypot(r.x - x, r.y - y) < 0.05);
+    if (i < 0) return false;
+    const rec = emortars[i];
+    emortars.splice(i, 1);
+    rec.done = true;
+    ownFx.add(e);
+    for (const l of rec.marks) l.inst.stop();
+    if (rec.shell) finishShot(rec.shell.inst, rec.shell);
+    if (level() < 3) for (const [b, n] of rec.hits) spawn(b, n, { x, y, z: 0 }, { owner: null, buff: false });
+    return true;
+  }
   /** The projectile record of shot `key` when it can be drawn officially (the layer on, its trail or hit extracted), else null. */
   function eshotDrawable(owner, key) {
     if (!owner || !index || !emodes || failed || q() === 'low') return null;
@@ -4423,7 +4483,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       lastAtk.clear(); healAtk.clear(); aimed.clear(); chainLines.clear(); strikes.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear(); packs.clear(); lemMarks.clear();
       for (const r of trails) if (r.back) boomerangCaught(r.src); // local patch: back in hand for the next battle
       trails.length = 0; pending.length = 0; // local patch
-      castsDelayed.length = 0; zones.clear(); eborn.clear(); eskillSeen.clear(); elines.clear(); eshotLand.clear();
+      castsDelayed.length = 0; zones.clear(); eborn.clear(); eskillSeen.clear(); elines.clear(); eshotLand.clear(); emortars.length = 0;
       deployed.clear(); startedOnce.clear(); opDead.clear(); ebuffs.clear(); // 2026-10-11
       if (mod) showLayers();
     },
