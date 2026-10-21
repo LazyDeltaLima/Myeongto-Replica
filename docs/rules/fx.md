@@ -1460,6 +1460,12 @@
   InQuad 이동, 끝나면 멈춤. [추정: 상자 점은 축마다 균등, 날아갈 자리는 `.dpbox`의 가운데, 보고 있는 판은 보는 사람 쪽 — 다른 사람 판을 볼 때도
   날림] 클라 스크립트 둘은 `fx_coverage.py SCRIPTS_READ`로 옮김(`RandomEmitter`의 todo 삭제). `common_charge_cost_01_white`(MAX_COST로 남)와
   `common_V050_hint_2`는 우리 묶음에 없음.
+- 재질에 저장 안 된 셰이더 속성을 움직이는 클립 트랙(같은 날, 추출 누락 보고의 「쉬운 것」): `material_prop`이 재질에서 못 찾으면 그 렌더러
+  셰이더가 선언한 속성(`declared_props`, 텍스처는 `_ST`)에서 찾는다 — Unity는 재질에 없어도 렌더러의 속성 블록으로 값을 넣고 셰이더는 같게
+  읽는다. 함께 `skin`(SkinnedMeshRenderer) 노드의 재질도 찾게 함(플레이어 `meshMats`는 이미 둘 다 묶음). 다시 뽑은 7개(lisa S3 buff_02
+  `_AddTex_ST`, mizuki S3 start `_DissolveTex_ST`·S2 buff_02 `_MainTex_ST`, hsguma S3 buff, skadi S3 buff, skadi2 S3 buff_03·`_XZ`): 바뀐 것은 트랙의
+  `prop`뿐. 남은 둘(mostma `fangkuai`, nearl2 `add2`)은 MeshFilter가 비어 클라도 아무것도 안 그리는 노드 — 보고는 「material property on a node
+  with nothing drawn」(none).
 - 확인: `test/render/random-emitter-fx.test.js`(추출물·`FxInstance.emitters`·`stepEmitters` 시점·`stepFly`). Windows Chrome 디버그 아레나
   (텍사스 S2, 오른쪽 아래에 대역 `.dpbox`를 넣음): 시전 1·구슬 3, 구슬이 꼬리를 끌며 그 상자 쪽으로 날아가 약 0.5 s 안에 사라짐, 오류 0. 대역이
   없는 아레나에서는 제자리에서 0.5 s 뒤 끝남. 水月 S2·S3, 铃兰 S3, 斯卡蒂 S3 재생 오류 0. [화면 미확인: 실제 판의 DP 칸으로 나는 모양, 공식 녹화]
@@ -1717,4 +1723,5 @@
 - 기준선의 큰 todo(비공개 조사 기록에 전체 목록): `FollowDirection` 183개(주인·대상 방향을 매 프레임 따라 돎) · 셰이더 `_CullMode`(플레이어는 늘
   양면) · Disturb Origin `_SrcBlend`(대부분 SrcAlpha, 2개가 One) · `InheritVelocityModule` 78 · `FxLODSetting` 37 · Shape Mesh 36(점으로 대체) ·
   `EmptyEffect` 35 · `OnPlayEmitter` 29 / `OnFinishEmitter` 14(다른 이펙트를 틂) · `CollisionModule` 28 · `PauseEffectIf` 26 · 기본 상태 밖 Animator
-  클립 23 · 클립이 움직이는 입자 모듈 값·트레일 길이·UV 흐름 속도 · 재질에 저장 안 된 셰이더 속성을 움직이는 트랙(`material_prop`이 재질만 봄).
+  클립 23 · 클립이 움직이는 입자 모듈 값·트레일 길이·UV 흐름 속도. 재질에 저장 안 된 셰이더 속성을 움직이는 트랙은 2026-10-21에 고침(아래
+  「RandomEmitter · FlyToPredefinedLocation」의 셋째 항목).

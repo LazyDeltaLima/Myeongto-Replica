@@ -1976,24 +1976,27 @@ class Extractor:
                 if prop is None and node is not None and attr == WIDTH_ATTR:
                     prop = 'width'   # local patch: a Line / Trail Renderer's widthMultiplier
                 if prop is None and node is not None:
-                    prop = self.material_prop(attr, nodes[node], mats) or f'attr:{attr}'
+                    prop = self.material_prop(attr, nodes[node], mats, lambda: self.node_declared(node)) or f'attr:{attr}'
                 if node is not None and prop:
                     tracks.append({'node': node, 'prop': prop, 'type': tid, 'curves': curves[ci:ci + n]})
                 if node is None:
                     self.cov.clip('binding to a path outside the Animator')
                 elif prop.startswith('attr:') and not (tid == 1 and attr == crc32('m_IsActive')):
-                    self.cov.clip(self.binding_name(b, node))
+                    self.cov.clip(self.binding_name(b, node, nodes[node]))
                 ci += n
             clips_out.append({'name': clip['m_Name'], 'len': length, 'loop': bool(clip.get('m_MuscleClip', {}).get('m_LoopTime', 0)), 'tracks': tracks})
         return clips_out
 
-    def binding_name(self, b, node):
+    def binding_name(self, b, node, nd=None):
         """(2026-10-16, fx_coverage) a Mecanim binding no track takes, named: a material property the bound renderer's
-        material does not have (customType 22), else `<component type>.<property path>` by crc32 over the paths of that
-        component's type tree on the bound GameObject, else its type id and attribute."""
+        material does not have (customType 22) — (2026-10-21) or on a node the extract draws nothing on (`nd`, its node:
+        no mesh / skin / particles / trail / line, e.g. an empty MeshFilter) —, else `<component type>.<property path>`
+        by crc32 over the paths of that component's type tree on the bound GameObject, else its type id and attribute."""
         tid, attr = b['typeID'], b['attribute']
         go = self.gobjs.get(node)
         if b.get('customType') == 22:
+            if nd is not None and not any(nd.get(k) for k in ('mesh', 'skin', 'ps', 'trailR', 'lineR')):
+                return 'material property on a node with nothing drawn'
             low = attr & 0x0fffffff
             for m in self.node_materials(go):
                 for name, _t, _d in self.declared_props(self.resolve(m.get('m_Shader'), go)):
@@ -2049,23 +2052,41 @@ class Extractor:
         return [c] if c else []
 
     @staticmethod
-    def material_prop(attr, node, mats):
+    def material_prop(attr, node, mats, declared=None):
         """A material property binding (Mecanim customType 22): the low 28 bits are crc32(property name), the top nibble
-        the component — 4..7 = r/g/b/a (x/y/z/w), 8 = a float. Matched against the bound renderer's material."""
-        mk = (node.get('mesh') or {}).get('mat') or ((node.get('ps') or {}).get('render') or {}).get('mat') \
+        the component — 4..7 = r/g/b/a (x/y/z/w), 8 = a float. Matched against the bound renderer's material, then
+        (2026-10-21) against the properties its shader declares — `declared()` [(name, Unity property type)]: a clip may
+        drive one the material never saved (Unity sets it on the renderer's property block; the shader reads it the same).
+        A SkinnedMeshRenderer (`skin`, 2026-10-21) is bound like a mesh (the player's meshMats hold both)."""
+        mk = (node.get('mesh') or {}).get('mat') or (node.get('skin') or {}).get('mat') \
+            or ((node.get('ps') or {}).get('render') or {}).get('mat') \
             or (node.get('trailR') or {}).get('mat') or (node.get('lineR') or {}).get('mat')
         m = mats.get(mk) if mk else None
         if not m:
             return None
         low, comp = attr & 0x0fffffff, attr >> 28
+        named = lambda n: f'mat:{n}' + {4: '.r', 5: '.g', 6: '.b', 7: '.a'}.get(comp, '')
         for n in list(m['floats'].keys()) + list(m['colors'].keys()):
             if crc32(n) & 0x0fffffff == low:
-                return f'mat:{n}' + {4: '.r', 5: '.g', 6: '.b', 7: '.a'}.get(comp, '')
+                return named(n)
         # local patch: a texture's tiling / offset (_MainTex_ST: components 0..3 = tiling x, y, offset x, y) — scrolling lines
         for n in m['tex'].keys():
             if crc32(n + '_ST') & 0x0fffffff == low and comp <= 3:
                 return f'mat:{n}_ST.' + 'xyzw'[comp]
+        for n, t in (declared() if declared else []):
+            if t == 4:   # a texture: its _ST
+                if crc32(n + '_ST') & 0x0fffffff == low and comp <= 3:
+                    return f'mat:{n}_ST.' + 'xyzw'[comp]
+            elif crc32(n) & 0x0fffffff == low:
+                return named(n)
         return None
+
+    def node_declared(self, node):
+        """(2026-10-21) the properties the shaders of node `node`'s renderers declare: [(name, Unity property type)] (4 = a
+        texture), for material_prop."""
+        go = self.gobjs.get(node)
+        return [(name, t) for m in self.node_materials(go)
+                for name, t, _d in self.declared_props(self.resolve(m.get('m_Shader'), go))]
 
     def back_only(self, bundle, pack=None):
         """2026-10-10: write only the SwitchableBackEffect `back` of the bundle's already extracted prefabs
