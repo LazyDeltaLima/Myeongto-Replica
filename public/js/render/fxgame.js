@@ -1473,10 +1473,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const t = rec.tgt;
     if (t && t.alive !== false && !t.remove && Number.isFinite(t.x)) { rec.tx = mx(t); rec.ty = t.y; rec.tz = shotTo(t); }
     const k = Math.min(1, rec.k);
-    if (rec.dropZ) {   // local patch: a shell falling straight down (蕾缪안 S3), the trail's +x turned to −z
-      if (!rec.inst) return;
-      rec.inst.object.position.set(rec.x0, rec.y0, rec.dropZ * (1 - k));
-      rec.inst.object.rotation.set(0, Math.PI / 2, 0);
+    // 2026-10-22 (maintainer report: 蕾缪안's S3 shells came in at 45°): a stationary projectile (projectile_chr_lemuen_s3_attack
+    // has no mover, `_lifeTime 0.25`) stays on its landing point, unturned — the fall is its _mainEffect's own clip (trail_02
+    // node `pos` y 7.27 → 0.31 in 0.27 s under static_offset X −30°, straight down on screen); the old 3-tile drop with the
+    // root turned 90° added a second fall across it
+    if (rec.still) {
+      rec.inst?.object.position.set(rec.x0, rec.y0, 0);
       return;
     }
     const x = rec.x0 + (rec.tx - rec.x0) * k, y = rec.y0 + (rec.ty - rec.y0) * k;
@@ -1835,7 +1837,6 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const lemuenOn = (v) => !!(v && fxBundleOf(v.info?.spine || v.info?.defId) === 'lemuen' && bundleOf(v) && !failed);
   let SKY_Y = null, skyUp = null; // local patch: skyward beams (update; three.js loads lazily)
   const lemMarks = new Map();   // 蕾缪安 id → [[live entries of one lock's beam / reticle / mark]], in lock order (its shells land in that order)
-  const LEM_DROP_Z = 3;         // the shell falls from this height (tiles) [ASSUMED: straight down]
   // ---- 2026-10-11: the 선발 picks only the CN client has — 凯尔希·思衡托 (kalts2), 克莱门莎 (clemnt), 予愿安洁莉娜 (aglna2): their kit
   // events drawn with their official prefabs. Which prefab plays at which moment is read from the CN client's
   // battle/prefabs/[uc]projectiles.ab (`_mainEffect` / `_effectsWhenReached` / `_effectsToTargetWhenStart`) and its buff templates
@@ -2619,8 +2620,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       return true;
     }
     // 蕾缪安 S3 ([uc]projectiles.ab projectile_chr_lemuen_s3_aim / _s3_attack): the lock leaves crosshair_02 on the target
-    // (its _extraBuffsInTheEnd) until that target's shell lands; each shell (_mainEffect trail_02) falls onto its point over
-    // the sim's flight time and explodes (_effectsWhenReached hit_01). Her S2 aim (the same 'lock') keeps fx.js's reticle.
+    // (its _extraBuffsInTheEnd) until that target's shell lands; each shell (_mainEffect trail_02, played on its point — the
+    // prefab falls by itself) ends at the sim's flight time and explodes (_effectsWhenReached hit_01). Her S2 aim (the same 'lock') keeps fx.js's reticle.
     if (e[1] === 'lock') {
       const src = views.get(o.src);
       if (!lemuenOn(src) || skillIdx(src) !== 2) return false;
@@ -2653,9 +2654,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         return true;
       }
       const dur = Math.max(0.05, Number(o.t) || 0.5);
-      const rec = { inst: null, tgt: null, x0: x, y0: y, tx: x, ty: y, k: 0, dur, arc: 0, dropZ: LEM_DROP_Z };
+      const rec = { inst: null, tgt: null, x0: x, y0: y, tx: x, ty: y, k: 0, dur, arc: 0, still: true };
       trails.push(rec);
-      spawn(bundleOf(src).bundle, 'lemuen_skill_03_trail_02', { x, y, z: LEM_DROP_Z }, { view: null, owner: null, buff: false, until: clockS + dur + 2 }, { drop: rec })
+      spawn(bundleOf(src).bundle, 'lemuen_skill_03_trail_02', { x, y, z: 0 }, { view: null, owner: null, buff: false, until: clockS + dur + 2 }, { drop: rec })
         .then((l) => { if (!l) { const i = trails.indexOf(rec); if (i >= 0) trails.splice(i, 1); } });
       return true;
     }
