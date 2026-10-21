@@ -1,4 +1,4 @@
-// DESIGN §35.5: synthetic callbacks exercise the public API's re-entrant removal contract.
+// docs/SIM.md §3 (removeBuff): synthetic callbacks exercise the public API's re-entrant removal contract.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, chessRec, checkInvariants } from '../helpers/battleHarness.js';
