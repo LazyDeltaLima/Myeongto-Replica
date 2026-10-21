@@ -954,11 +954,11 @@
   | 시뮬 상태 | 적 | 클라 버프 → 그리는 것 |
   |---|---|---|
   | `ab:warden` / `ab:killer` | 제셀톤 윌리엄스 | `Modes/Default/Talents/Enhance` `jakill_enhance#0` → `enemy_jakill_buff_01_start` / R 모드 `jakill_enhance#1`·`[eff1]`·`[eff2]` → `_02_start`·`_02`·`_03` |
-  | `ab:xiShield` | '즈자이' | `ShieldBurst(Reborn)` `enemy_xi_s2[shield][a]`·`[b]`·`[c]` → `enemy_xi_skill_02_buff`·`_01`·`_02` 셋을 방벽 동안 [추정: 층마다 깨지는 순서·양 — 아래] |
+  | `ab:xiShield[a]`·`[b]`·`[c]`(층마다 상태 하나) | '즈자이' | `ShieldBurst(Reborn)` `enemy_xi_s2[shield][a]`·`[b]`·`[c]` → `enemy_xi_skill_02_buff`·`_01`·`_02` — 층마다 깨지면 그 층 이펙트만 꺼짐(rules/sim.md 「리더 방벽 층 셋」) |
   | `ab:xiReborn` | '즈자이' | RebornTalent `reborn_up` → `skulsr_buff_01_start` |
   | `ab:wolfGuard` / `ab:wolfRage` | 자로, '늑대 군주' | M1 `enemy_wlfmster_reduce_damage` → `enemy_wlfmster_A_buff_01` / `enemy_wlfmster_m2_eff` → `_B_buff_01` [추정: 클라는 재생 시작(M1 Reborn의 BuffToOwner)부터, 우리는 재생 끝부터] |
-  | `ab:sandDef` / `ab:lowhp` | 래트킹 | `Talents/shield` `mousek_shield[a/b/c]` → `mousek_buff_01/02/03_start` / `mousek_t` → `skulsr_buff_01_start` |
-  | `ab:rockPower` | 머드락(적) | `[shield][refresh]`가 만드는 `enemy_mdrock_s_2[shield_a/b/c]` → `enemy_mdrock_skill_buff_01/02/03` |
+  | `ab:sandDef[1..3]` / `ab:lowhp` | 래트킹 | `Talents/shield` `mousek_shield[a/b/c]` → `mousek_buff_01/02/03_start`(층마다 `fxTag` 하나, 그 층이 깨지면 꺼짐; DEF 보너스 `ab:sandDef`는 안 그림) / `mousek_t` → `skulsr_buff_01_start` |
+  | `ab:rockPower[1..3]` | 머드락(적) | `[shield][refresh]`가 만드는 `enemy_mdrock_s_2[shield_a/b/c]` → `enemy_mdrock_skill_buff_01/02/03`(층마다 하나; HP·공속 보너스 `ab:rockPower`는 안 그림) |
   | `ab:lowhp` | 스컬슈레더·'폼페이'·리벤져·'어벤져' | `skulsr_t_1`·`lslime_t_buff`·`reveng_t_atkup`·`enemy_reid_atkup_effect`(토글 버프) |
   | `ab:rage` | 부패한 기사 | `dekght[trigger_rage]`의 끝이 만드는 `dekght[rage]` → `dekght_buff_04_start` |
   | `boss:hover` | '갑주를 베는 검' 둘 | 떠 있는 모드 GeneralAbilities `acstma/acstmb_passive[unmovable]` → `enemy_acstma_invincible` |
@@ -979,9 +979,8 @@
 - **전체 추출·떠난 것**: `used_enemies`가 首领 이벤트(`data/choices.json`)의 리더 14종을 빠뜨려 그들 이펙트가 안 뽑혀 있었다 — 넣음. 그리고
   `enemy_bindings.py --extract --all`로 모든 적의 이펙트(지금 797개, 전: 384)를 뽑음 — 凋零骑士·陷落雪祀·迷路的巨像 스킬 탄, 리더 전부, 가상적: 갑주 선,
   `common_enemy_die_01`(이제 자기 사망 이펙트가 없는 적은 절차 퍼프 대신 그것).
-- 안 한 것: '즈자이' 방벽 층별 깨짐(클라 `shield_normal`/`shield_last`는 `dynamic`을 각자 들고 [a]부터 깨지며 마지막 층에 `_buff_03`, 맞을 때마다
-  `_specifyBlockEffect` `_buff_hit` — 층마다 양이 블랙보드 `dynamic`인지(그러면 시뮬 방벽이 1/3)는 안 읽음 [추정], 시뮬은 한 방벽), 래트킹 방벽
-  같은 꼴과 깨진 뒤 NoShield 모드 `mousek_buff_01_end`, '리드' 추적의 `achunt_dog_silence`(`enemy_actrpa_skill_a`, IMMEDIATELY), 자로 【远古威慑】가
+- 안 한 것: '즈자이' 방벽의 마지막 층 `_buff_03`·맞을 때마다 `_specifyBlockEffect` `_buff_hit`(층 양·깨지는 순서는 rules/sim.md 「리더 방벽 층 셋」),
+  래트킹 마지막 층 뒤 NoShield 모드 `mousek_buff_01_end`, '리드' 추적의 `achunt_dog_silence`(`enemy_actrpa_skill_a`, IMMEDIATELY), 자로 【远古威慑】가
   오퍼레이터에게 거는 `_B_buff_02_02`, 재생 중 이펙트(RebornTalent `_effects` — 제셀톤 `enemy_jakill_reborn_01~03_start` 등, 만드는 순간 안 읽음),
   천리안 사망 `enemy_hummbd_die_02`(ON_OWNER_KILLED, 침묵이 아닐 때), 불타는 덩굴 `SwitchableEffectByBlackboardValue`(아래 「추출 누락 보고」),
   더블린 불꽃 전사 재생 无敌 `enemy_duskls_revive_2`. 화면 확인: 아래.
