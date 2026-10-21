@@ -24,6 +24,8 @@
 // S3 序时之匙 switches to charpack mode 1 (switch_mode_restart_fsm blackboard `mode 1`), whose attack is `_animKey
 // "Skill_2_Loop"` / `_endAnimKey "Skill_2_Idle"` (Graphic Idle→Skill_2_Idle) — resolveSkill had the two swapped, so her
 // S3 stood in S2's channel pose without an attack motion.
+import { skillModeIndex } from '../../shared/skill-modes.js';
+
 const clips = (o) => Object.freeze({ begin: null, loop: null, end: null, idle: null, ...o });
 
 /** model key (tools/assets/plan.mjs `op:<charId>:<dir>`) prefix → { [0-based skill index]: 'attack' | clip object } */
@@ -110,7 +112,62 @@ export const SKILL_CLIP_OVERRIDES = Object.freeze({
     0: 'attack',
     1: clips({ loop: 'Attack_2' }),
   }),
+  // 耀骑士临光 (char_1014_nearl2): S2's mode attacks with the plain `Attack_Loop` and pairs Die→Skill_2_Die (SKILL_STATE_CLIPS);
+  // the skill casts no clip (skchr_nearl2_2 has no animated ability) — the name guess took Skill_2_Die for its clip.
+  'op:char_1014_nearl2:': Object.freeze({ 1: 'attack' }),
 });
+
+/**
+ * How a skill's mode attacks (docs/rules/render.md 「스킬 중 공격 클립」): the attack ability of the charpack mode the skill
+ * switches to (tools/assets/local-attack-timing.json, tools/local-extract/attack_timing.py — its `_animKey` after the mode's
+ * `_replaceAnimPairs`; shared/skill-modes.js skillModeIndex) against the Default mode's. A key `""` where the Default has one
+ * = the mode's attacks play no clip: the skill's idle — else its loop — stays on as the stance (`stance`; 烛煌 S3, 白面鸮 S2,
+ * 塞雷娅 S3 …: the attack used to cut the loop, End, Idle at every heal / shot). The Default's own key on a skill whose clip
+ * is one clip without a Begin or an idle = its attacks are the plain attack clip and the skill's clip is its cast, played
+ * once (`plainAttack`; 瑕光 S2, 归溟幽灵鲨 S1 …: every attack played the cast clip). A skill with Begin / Loop / End clips
+ * and a mode on the plain key (乌尔比安 S3, 处刑者 S1) is left as it is [ASSUMED: its skill prefab channels the loop].
+ * MODE_ATTACK_KEEP leaves a skill out, PLAIN_ATTACK adds one with no mode of its own.
+ */
+export const MODE_ATTACK_KEEP = Object.freeze({
+  // 歌蕾蒂娅 S2: the mode's `_animKey ""`, but her S2 strikes through its own attack channel (Skill_2_Begin / _Loop / _End,
+  // FIRST_ATTACK_BEGIN `attackBegin`)
+  'op:char_474_glady:': Object.freeze([1]),
+});
+export const PLAIN_ATTACK = Object.freeze({
+  // 焰影苇草 S2: no mode (her attacks stay the Default `Attack`); skchr_reed2_2's own ability plays Skill_2 once per skill
+  // duration (tools/assets/local-skill-cast.json `cd 20`, `cdKey duration`) as it fires the flame
+  'op:char_1020_reed2:': Object.freeze([1]),
+});
+
+/**
+ * Apply the client's mode attacks (the rule above) to the skill clips of operator model `key` (mutates `anims`).
+ * `timing` = local-attack-timing.json, `charModes` = local-char-modes.json (its `skillMode`); either may be empty.
+ */
+export function applyModeAttacks(key, anims, timing, charModes) {
+  if (!anims?.skills || typeof key !== 'string' || !key.startsWith('op:')) return anims;
+  const id = key.split(':')[1];
+  const keep = Object.entries(MODE_ATTACK_KEEP).find(([p]) => key.startsWith(p))?.[1] || [];
+  const plain = Object.entries(PLAIN_ATTACK).find(([p]) => key.startsWith(p))?.[1] || [];
+  const t = timing?.ops?.[id];
+  const dflt = t?.attack?.[0]?.anim;
+  for (const [i, sk] of Object.entries(anims.skills)) {
+    const n = Number(i);
+    if (!sk || keep.includes(n)) continue;
+    let how = plain.includes(n) ? 'plain' : null;
+    const m = t ? skillModeIndex(t.modes, n, charModes?.[id]?.skillMode ?? null) : -1;
+    const a = m > 0 ? t.attack?.[m] : null;
+    if (!how && a && typeof dflt === 'string' && dflt) {
+      if (a.anim === '') how = 'stance';
+      else if (a.anim === dflt && !sk.begin && !sk.idle) how = 'plain';
+    }
+    if (how === 'plain' && (sk.via === 'attack' || !anims.attack || sk.loop === anims.attack.loop)) how = null;
+    if (!how) continue;
+    for (const clip of new Set([sk, anims.skill?.index === n ? anims.skill : null])) {
+      if (clip) clip[how === 'stance' ? 'stance' : 'plainAttack'] = true;
+    }
+  }
+  return anims;
+}
 
 /**
  * Attack clips that take turns (docs/rules/render.md 「Spine 클립 커버리지」 B, EN client charpacks and skill prefabs,
@@ -311,6 +368,8 @@ export const SKILL_STATE_CLIPS = Object.freeze({
   },
   // 凯尔希·思衡托 (CN client) S3: she lands from the transport on Skill_3_Restart_End (the 【移动】's key 'land')
   'op:char_1052_kalts2:': { 2: { deploys: { land: 'Skill_3_Restart_End' } } },
+  // 耀骑士临光: the S2 mode pairs Die→Skill_2_Die (and Stun→Die, not drawn: a stun keeps the Stun clip)
+  'op:char_1014_nearl2:': { 1: { die: 'Skill_2_Die' } },
   // 缇比: the S1 / S2 flight modes (take-off and landing included) pair Die→Die_2
   'op:char_4191_tippi:': { 0: { die: 'Die_2' }, 1: { die: 'Die_2' } },
   // 迷迭香: only mode S3's animator hooker is the Graphic SimpleUnitAnimatorHooker with Stun→Stun_Skill_3

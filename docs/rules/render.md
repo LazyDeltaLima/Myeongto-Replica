@@ -348,9 +348,31 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   한 번 틀고, 공격 사이(`attackUntil` 뒤)는 기본 Idle로, 클립 끝(`clip.end` = Skill_3_End)도 공격마다 틀었다 — 첫 공격 뒤 S3 자세가 사라짐.
 - 공식(클라 charpack `char_1040_blaze2/Modes/S3`): `_replaceAnimPairs` Idle → Skill_3_Loop, 공격 능력 `_animKey ""`(`local-attack-timing.json` S3 anim "",
   wait 0) — S3 동안 Skill_3_Loop이 자세로 계속 돌고 공격은 클립을 바꾸지 않는다.
-- 고친 것: `units.js STANCE_SKILLS`(Spine id → 스킬 번호, 지금 烛煌 S3만) → `spine.js _stance()`: 스킬이 켜져 있으면 쉬는 클립 = 스킬 루프, 공격 클립 없음
+- 고친 것: `spine.js _stance()`: 스킬이 켜져 있으면 쉬는 클립 = 스킬 루프, 공격 클립 없음
   (swing / windUp / attack이 클립을 안 건드림). 시작 Skill_3_Begin, 끝 Skill_3_End는 그대로. 테스트 `test/render/stance-skill.test.js`. [화면 미확인]
-- 같은 꼴(모드 공격 `_animKey ""`)은 `local-attack-timing.json`에 23개 더 있으나 대부분 여러 능력 묶음의 빈 부모라 제보된 烛煌만 넣음 — 다른 오퍼레이터는 제보 때 확인.
+- 2026-10-22: 손 목록 `units.js STANCE_SKILLS`는 없어지고 클라 데이터 규칙(아래 「스킬 중 공격 클립」)이 烛煌 S3를 포함한 18개 스킬에 `stance`를 단다.
+
+## 스킬 중 공격 클립 (2026-10-22, upstream `2b461767` `60d182c3` `ad9aa983` `72cb65a6`의 증상 — 우리 방식)
+- 증상(가짜 PIXI 실행, upstream 대조 2026-10-21 기록): ① begin/loop/end에 자기 idle 없는 지속 스킬이 공격(치유)마다 Loop → End → Idle로 일어섬
+  (프틸롭시스 S2·사리아 S3·인디고 S1/S2 …), ② 클립 하나뿐인 지속 스킬이 공격마다 그 스킬 클립을 틂(블레미샤인 S2 `Skill_2`, 스펙터 디 언체인드 S1
+  `Skill_1`, 리드 더 플레임 섀도우 S2 `Skill_2`), ③ 니어 더 래디언트 나이트 S2의 스킬 클립이 이름 추측으로 `Skill_2_Die`(죽는 클립)였음.
+- 공식(클라 charpack 직접, 2026-10-22): 스킬이 바꾸는 모드의 공격 능력 `Body/Attack`(또는 `Body/Heal`) `_animKey`(모드의 `_replaceAnimPairs` 적용 뒤,
+  `tools/assets/local-attack-timing.json`)를 Default 모드와 비교.
+  - 모드 `""` + Default에 키 있음 + 그 아래·옆에 키 가진 능력 없음 → 공격은 클립을 안 틀고 스킬 루프(모드가 Idle을 짝지으면 그 클립)가 자세로 계속:
+    프틸롭시스 S2(`Body/Heal`), 사리아 S3, 인디고 S1·S2, 블레이즈 디 이그나이팅 스파크 S3,
+    쿠오라 S2, 프라마닉스 S1·S2(모드 S1-2), 어스스피릿 S2, 시 S2, 노시스 S3, 안젤리나 S2·S3, 버블 S2, 로즈몬티스 S3, 파피루스 S2, 필라에 S2,
+    르무엔 S3(Idle → Skill_3_Idle).
+  - 모드 키 = Default 키(평타 클립) + 스킬 클립이 Begin·idle 없는 한 개 → 그 클립은 시전 한 번(스킬 프리팹 시전 능력 `local-skill-cast.json`:
+    블레미샤인 S2 `Skill_2`, 스펙터 S1 `Skill_1`, 치우바이 S2 `Skill_2`, 데겐블레허 S1 `Skill_1`(ReplacementSkill), 필라에 S1 `Skill_1`), 공격은 평타 클립.
+  - 리드 더 플레임 섀도우 S2는 모드가 없음(공격 = Default `Attack`); 스킬 프리팹 능력이 `Skill_2`를 지속마다 한 번(`cd 20`, `cdKey duration`) — 손 목록.
+  - 니어 더 래디언트 나이트 S2: 모드 공격 `Attack_Loop`(Default와 같음), `_replaceAnimPairs` Die → Skill_2_Die(Stun → Die는 안 그림), 스킬 프리팹에
+    시전 클립 없음 → 스킬 클립 = 평타(`via: 'attack'`) + `die: 'Skill_2_Die'`.
+- 뺀 것: 歌蕾蒂娅(글래디아) S2(모드 `""`이지만 자기 공격 채널 Skill_2_Begin/_Loop/_End로 침, `FIRST_ATTACK_BEGIN`), 민트 S2(Default도 `ShowRangeOnly ""` —
+  비교 불가), 모드 키가 평타인 Begin/Loop/End 스킬(울피아누스 S3, 이그제큐터 S1, 우타게 S1) [ASSUMED: 스킬 프리팹이 루프를 채널로 잡음 — 제보 때 확인],
+  키 이름이 스킨 키 표로 바뀌는 모드(시 S3 `Skill_3_Attack` → 클립 `Skill3_Attack` 등)는 지금 역할 그대로.
+- 구현: `tools/assets/anim-overrides.mjs applyModeAttacks`(fetch-assets가 `data/assets.json` 스킬 역할에 `stance` / `plainAttack`을 닮;
+  `MODE_ATTACK_KEEP` 뺄 것, `PLAIN_ATTACK` 모드 없는 것) → `render/spine.js _stance` / `_attackClip`. 테스트 `test/render/stance-skill.test.js`.
+  [화면 미확인]
 
 ## 가상적: 관(假想敌：管) 숨겨진 핵심 모델 위치 (2026-10-10, 사용자 제보 「일반 관은 맞는데 숨겨진 핵심의 관은 왼쪽으로 치우쳐 보인다」, 공식 캡처 없음)
 - 찾은 것: 숨겨진 핵심 레벨(act1autochess_h08_03 / _s)은 관(`enemy_9021_acduml_2`)과 가상적: 현을 둘 다 (행 3, 열 9)에 세운다 — 일반 관(h07_03)은 열 10(필드 가운데).

@@ -19,7 +19,15 @@ import { kindOf, pngSize } from './formats.mjs';
 import { atlasInfo, normalizeAtlas } from './atlas.mjs';
 import { parseSkel } from './skel.mjs';
 import { resolveRoles } from './anim-roles.mjs';
-import { applyAnimOverrides } from './anim-overrides.mjs'; // local patch
+import { applyAnimOverrides, applyModeAttacks } from './anim-overrides.mjs'; // local patch
+import { loadCharModes } from './skill-mode-sfx.mjs';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+/** tools/assets/local-attack-timing.json ({} when absent or unreadable): the client's attack abilities per operator mode. */
+function loadAttackTiming(repo) {
+  try { return JSON.parse(readFileSync(join(repo, 'tools/assets/local-attack-timing.json'), 'utf8')); } catch { return {}; }
+}
 
 async function fileStat(p) { try { const s = await stat(p); return s.isFile() ? s : null; } catch { return null; } }
 
@@ -237,6 +245,8 @@ export const loadLocalEnemySpines = loadLocalSpines;
 export async function processModels(models, { root, dl, cachePath, download = true, writable = () => true, log = console.log }) {
   const problems = [];
   const list = [...models.values()];
+  const repo = fileURLToPath(new URL('../..', import.meta.url));
+  const timing = loadAttackTiming(repo), charModes = loadCharModes(repo);
   if (download) {
     const jobs = [];
     for (const m of list) jobs.push(m.skel, m.atlas, ...m.pngs);
@@ -322,6 +332,7 @@ export async function processModels(models, { root, dl, cachePath, download = tr
     if (fixed.missing.length) problems.push(`${m.key}: role fix not applied (clip missing) for ${fixed.missing.join(', ')}`);
     const anims = fixed.roles;
     applyAnimOverrides(m.key, anims, sk.animations); // local patch: skill clip fixes (tools/assets/anim-overrides.mjs); clips the skeleton lacks are dropped
+    applyModeAttacks(m.key, anims, timing, charModes); // how each skill's mode attacks (stance / plain attack clip)
     entries.set(m.key, {
       skel: assetUrl(m.skel.rel),
       atlas: assetUrl(m.atlas.rel),

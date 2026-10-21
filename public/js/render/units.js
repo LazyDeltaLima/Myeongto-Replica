@@ -483,15 +483,6 @@ export const FORTRESS_CLIPS = Object.freeze({
   char_431_ashlok: Object.freeze([['Attack02', 'Attack01']]),
 });
 /**
- * Skills whose mode keeps the skill's loop clip on as its stance and attacks without a clip of its own, per Spine id: the
- * 0-based skill indices (SpineActor.stanceSkills). Client charpack: 烛煌 `Modes/S3` `_replaceAnimPairs` Idle → Skill_3_Loop
- * and its Attack ability `_animKey ""` (tools/assets/local-attack-timing.json S3 anim "") — the Skill_3_Loop flame
- * stance runs from Skill_3_Begin to Skill_3_End while her attacks fire from it (maintainer report 2026-10-10: after her
- * first S3 attack she stood in Idle, the loop replayed from its start at each attack).
- */
-export const STANCE_SKILLS = Object.freeze({ char_1040_blaze2: Object.freeze([2]) });
-
-/**
  * Enemy models drawn this many columns right of their unit (body and shadow; the HP bar keeps its own giant offset), by
  * enemy key. [ASSUMED] 假想敌：管's hidden-core copy (enemy_9021_acduml_2, boss_10): its level stands it on (row 3, col 9) —
  * one column left of the normal 管 (act1autochess_h07_03, col 10) — while its prefab moves the hit box one column right
@@ -921,7 +912,6 @@ export class UnitView {
         // enemies play their attack clip once per attack, then walk on (GitHub #58: the sim stands them for that clip)
         actor.clipPerAttack = this.isEnemy;
         actor.fortressClips = FORTRESS_CLIPS[id] || null;
-        actor.stanceSkills = STANCE_SKILLS[id] || null;
         // its clip events go to the audio (render/app.js ctx.spineEvent); `null` first = this unit now has a model that
         // reports them (the audio drops its stand-in for it)
         if (this.ctx.spineEvent) {

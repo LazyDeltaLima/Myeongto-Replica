@@ -302,7 +302,6 @@ export class SpineActor {
     this.combatHit = false;       // the latest swing hits an enemy this unit blocks: the role's `combat` clip (units.js onSwing)
     this.alt = null;              // the attack clip a role with turns (anims `alts`) plays now: { clip, name, n }
     this.altRandom = Math.random; // its 'random' / 'other' choice
-    this.stanceSkills = null;     // skill indices whose loop is the stance while on, attacks clipless (render/units.js STANCE_SKILLS)
     this._applied = false;        // an update has posed the skeleton since its clip last changed (poseHeld)
     this._appliedTint = undefined; // the tint that update put on the slots (pixi-spine applies `tint` in update)
     this._play(this._idleName(), true);
@@ -475,15 +474,18 @@ export class SpineActor {
     try { const a = this.spine.spineData.findAnimation(name); return a && a.duration > 0 ? a.duration : 1; } catch { return 1; }
   }
 
-  /** The running skill keeps its loop clip on as the stance (stanceSkills: 烛煌 S3) — its attacks play no clip. */
+  /**
+   * The running skill's mode attacks without a clip (anims skill `stance`: the client's attack `_animKey ""`,
+   * tools/assets/anim-overrides.mjs applyModeAttacks — 烛煌 S3, 白面鸮 S2 …): its idle, else its loop, stays on as the stance.
+   */
   _stance() {
     const sk = this.roles.skill;
-    return !!(this.skillOn && sk && this.stanceSkills && this.stanceSkills.includes(sk.index) && this.has(sk.loop));
+    return !!(this.skillOn && sk?.stance && (this.has(sk.idle) || this.has(sk.loop)));
   }
 
   _idleName() {
     const sk = this.roles.skill;
-    if (this._stance()) return sk.loop;
+    if (this._stance()) return this.has(sk.idle) ? sk.idle : sk.loop;
     if (this.skillOn && sk && this.has(sk.idle)) return sk.idle;
     // a form's idle may list clips: the first this skeleton has (render/units.js FORMS: 泥岩 asleep)
     const idle = [this.roles.idle].flat().find((n) => this.has(n));
@@ -780,10 +782,15 @@ export class SpineActor {
     return true;
   }
 
+  /**
+   * The role an attack plays now: none while a stance skill runs (_stance), the running skill's clip — unless its mode
+   * attacks with the plain attack clip (anims skill `plainAttack`: 瑕光 S2's Skill_2 is the cast, her attacks Attack) —,
+   * else the attack role.
+   */
   _attackClip() {
     if (this._stance()) return null;   // the client's attack `_animKey ""`: the stance runs on
     const sk = this.roles.skill;
-    if (this.skillOn && !this.baseClip && sk && this.has(sk.loop) && sk.via !== 'attack' && !this._skillIsBuffOnly()) return sk;
+    if (this.skillOn && !this.baseClip && sk && !sk.plainAttack && this.has(sk.loop) && sk.via !== 'attack' && !this._skillIsBuffOnly()) return sk;
     const a = this.roles.attack;
     if (a && this.has(a.loop)) return a;
     return null;
