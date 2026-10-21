@@ -1674,6 +1674,22 @@ AUTO 스킬은 스킬 시작(`[trig]`) 경로뿐이었다. 瑕光 S1(`skchr_blem
   c가 버티면 폭발 / c가 깨지면 없음, 머드락 갱신), `enemies_bosses.test.js`·`enemy-buff-tags.test.js` 고침. golden: roster-005(래트킹 — 판이 시간 초과·
   누출 1로 바뀜)·028(래트킹)·006·035(머드락(적))·011·040('즈자이')·matches coop8-HARD-3(피해 몇 점), fx 골든은 같은 판들의 게임 결과로 바뀐 줄만.
 
+## 머드락(적) 공격 스택 — 층마다 블랙보드 값 전부 (2026-10-22, 관리자 결정 2026-10-21 「클라 코드가 확인하면 시뮬을 맞춤」)
+
+머드락(적)(`enemy_1511_mdrock`)의 「攻击时攻击力永久提升，最多六层」은 공격마다 클라 버프 `enemy_mdrock_s_1[charge]`를 한 번 만든다(재능 블랙보드
+`charge.attack@enemy_mdrock_s_1[charge].atk` 0.6, 레벨 0·1 같음). 전에는 0.6을 6층 합으로 보고 층마다 0.1을 주었다(`[ASSUMED split]`).
+- **클라 데이터**(EN 버프 템플릿): `[charge]`는 `overrideType` STACK·`maxStackCnt` 6·`maxValidStackCnt` −1·수명 INFINITY, 속성 수정
+  ATK `MULTIPLIER`(`loadFromBlackboard` 1, `stripBlackboardParamsWithBuffKey` 1 → 블랙보드 `atk`). `[persistent]`는 층 수 1·2·3·5·6에서 모드만
+  바꾼다(겉모습).
+- **클라 코드**(EN 클라 역어셈, 관리자 노트): STACK 묶음은 버프 하나다 — 둘째부터 `OverrideGroup._DoAddInternal`이 새 버프를 넣지 않고 맨 앞
+  버프의 `_AddStack`(층 수 +1, 남은 시간 max)을 부르며, 층이 `maxStackCnt`면 더하지 않는다. `_DoUpdateStack`은 `_LoadAttributesModifier(…, 층 수)`로
+  수정값을 다시 읽고, 그 함수는 블랙보드 값에 **층 수를 곱해**(`FP.FastMul`) MULTIPLIER 칸에 더한다(첫 버프는 `Buff.Reset`이 층 수 1로 읽음). Lua
+  핫픽스 없음. → **층마다 +60%, 6층 = +360%**(같은 단계 %는 합산 — 直接乘算).
+- **PRTS**: 泥岩(敌方) 「攻击成功时获得1层攻击力+60%的永久增益…最多叠加6层」 — 같다.
+- **변경**: `leaders.js` 머드락(적)의 `ab:rockCharge` 층 값 = 블랙보드 값 그대로(÷6 없앰). 층을 얻는 때(공격 훅, 타격 뒤)는 그대로.
+- 테스트 `test/sim/leader-mdrock-charge.test.js`(실제 매치 경로: 막힌 머드락이 공격마다 1층, 6층에서 멈춤, ATK = 기본 × (1 + 0.6 × 층)), `enemies_bosses.test.js` 고침(2층 = +120%). golden: 움직인
+  장면 없음(golden 판의 머드락(적)은 0층에서 한 번만 공격).
+
 ## 8인 협동 모드 (관리자 결정 2026-10-16·2026-10-19, 공식에 없는 기능)
 
 공식 방은 1–4명이고 8인용 데이터는 없다(`act2autochess`에는 난이도별 `bloodPoint*`와 단일·멀티 연합 방어 템플릿뿐). 아래 수치·규칙은 모두

@@ -2128,7 +2128,8 @@ test(`${nm('enemy_1511_mdrock')}: stacking ATK on attacks; barrier raises max HP
   h.run(0.3);
   assert.equal(e.s.aspd, 100 + tb('enemy_1511_mdrock', 'shield.attack_speed'));
   h.runUntil(() => e.stats.attacks >= 2, 20);
-  approx(e.s.atk, E.enemy_1511_mdrock.stats.atk * (1 + 2 * tb('enemy_1511_mdrock', 'charge.attack@enemy_mdrock_s_1[charge].atk') / 6));
+  // each stack is the whole blackboard value (client STACK buff: modifier × stack count; docs/rules/sim.md 「머드락(적) 공격 스택」)
+  approx(e.s.atk, E.enemy_1511_mdrock.stats.atk * (1 + 2 * tb('enemy_1511_mdrock', 'charge.attack@enemy_mdrock_s_1[charge].atk')));
 });
 
 test(`${nm('enemy_1513_dekght')} + ${nm('enemy_1513_dekght_2')}: plus-shaped hits / two targets; each rages when the other dies`, () => {

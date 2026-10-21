@@ -176,8 +176,10 @@ function kitLeaderMisc(key, ab, e) {
         layers: ['enemy_mdrock_s_2[shield_a]', 'enemy_mdrock_s_2[shield_b]', 'enemy_mdrock_s_2[shield_c]'],
         whileUp: { hpPct: (s ? s.bb.max_hp : null) ?? T(ab, 'shield.max_hp') ?? 0, aspd: (s ? s.bb.attack_speed : null) ?? T(ab, 'shield.attack_speed') ?? 0 } });
       return [bar, {
-        // 攻击时攻击力永久提升，最多六层 (the blackboard ATK is the 6-stack total [ASSUMED split])
-        attack(c, b, e2) { b.addBuff(e2, { key: 'ab:rockCharge', refresh: 'stack', stacks: 1, maxStacks: 6, persist: true, mods: { atkPct: (T(ab, 'charge.attack@enemy_mdrock_s_1[charge].atk') ?? 0) / 6 } }); },
+        // 攻击时攻击力永久提升，最多六层: the blackboard ATK is per stack — the client buff enemy_mdrock_s_1[charge] (STACK,
+        // maxStackCnt 6) is one buff whose ATK MULTIPLIER is the blackboard value × its stack count, so 6 stacks = 6 × atk
+        // (PRTS 「攻击力+60%…最多叠加6层」; docs/rules/sim.md 「머드락(적) 공격 스택」, maintainer decision 2026-10-21)
+        attack(c, b, e2) { b.addBuff(e2, { key: 'ab:rockCharge', refresh: 'stack', stacks: 1, maxStacks: 6, persist: true, mods: { atkPct: T(ab, 'charge.attack@enemy_mdrock_s_1[charge].atk') ?? 0 } }); },
       }, skill(s, (b, e2) => bar.refresh(b, e2, bar))];
     }
     case 'enemy_1513_dekght': {
