@@ -298,7 +298,7 @@
     문자열 값이다(`test/audio-skill-hit-signals.test.js`가 모델 파일로 고정). 2026-10-22 전에는 이벤트 이름(`OnPlayAudio`)을 넘겨 모델이 그려진
     유닛에서는 이 소리가 하나도 나지 않았다(관리자 제보 「마운틴 S3 타격음 없음」; 모델 없는 유닛의 대체음만 났음). 우리: `render/spine.js`의
     AnimationState 리스너(`SpineActor.onEvent(이름, 문자열)`) → `render/units.js`(모델이 만들어지면 `spineEvent(id, null)`로 「이 유닛은 이벤트를 보고함」을
-    먼저 알림) → `render/app.js` ctx `spineEvent`(전투 화면만, 정탐 보드·적 미리보기 제외) → `audio.spineEvent(unitId, 이름, 문자열)`. 이벤트를 보고하는 유닛은 대체음이 없고, 모델이 없는 유닛(마름모·혼잡한 저품질 필드)만
+    먼저 알림) → `render/app.js` ctx `spineEvent`(전투 화면만, 정탐 보드·적 미리보기 제외) → `audio.spineEvent(unitId, 이름, 문자열)`. [화면 미확인] 이벤트를 보고하는 유닛은 대체음이 없고, 모델이 없는 유닛(마름모·혼잡한 저품질 필드)만
     스킬 k 중 타격마다 `Skill_<k>_<n>`을 차례로, 평소엔 `Attack_<n>`/`Attact_<n>`을 대신 낸다(유닛마다 — 예전에는 아무 이벤트 하나로 전체가 꺼졌다)
     [추정: 대체음 시점 = 타격]. 적도 `spine`(신호 `battle.ON_SPINE_EVENT_TRIGGER.<적 id>.<이벤트>`, 변형 `_2`는 자기 id 먼저 — 14종).
 - 혼 S2 `Full Burst`(`attack.1.Burst.1–3`)는 **수동으로 끌 때** 남은 탄을 모두 쏘는 능력이다(skill_table skchr_horn_2: 「主动关闭时发射剩余全部弹药」) —
@@ -356,7 +356,7 @@
   - 페페 S3 (2026-10-22, 관리자 제보 「S3 타격음 없음」): 공격마다 주 대상에 붙는 `pepe_s_3_fx`의 `ON_BUFF_START`가 그녀의 `pepe_s3_range[atk]` 스택
     (이번 공격이 더하기 전)으로 `≥ max_stack_cnt` PlayAudio `pepe_s3_hit_03` · `≥ 2` `_02` · 그 밖 `_01`(대상 위치, `p_imp_ctmnyhmr_s1~s3`)을 같은 단계의
     `pepe_skill_03_hit_range_0N`과 함께 낸다(EN 클라 버프 템플릿). S3 모드에는 HIT 뱅크가 없어(`noHit`) 이것이 그녀 S3의 타격음 전부다. 우리: 키트의
-    'stacks' { buff 'pepe:tremor', n, max }(이펙트와 같은 이벤트) → `signalFxKey` → `pepe:s3:1~3`. 새 sfx 3개.
+    'stacks' { buff 'pepe:tremor', n, max }(이펙트와 같은 이벤트) → `signalFxKey` → `pepe:s3:1~3`. 새 sfx 3개. [화면 미확인]
   - 아스카론 S2: `ascln_s_2[enemy]`의 `ON_OWNER_KILLED`(그 효과를 단 적이 처치됨) → PlayAudio `ASCLN_S_2_BOMB`(그녀 위치) → **새 sim 이벤트**
     `['fx', 'kitHit', x, y, { id: 아스카론, k: 'ascln:s2bomb' }]`(`op-ascln.js`, 처치된 적이 그녀 범위 안일 때 — 기존 확산 조건과 같음; `docs/SIM.md`).
   - 프라마닉스 더 프레리타 T1 눈 타일(2026-10-16): `AttachListenerToTileAbility._HoldCastedEffectOnTile`(RVA 0xBEE550)이 칸 이펙트를 **새로 만든
