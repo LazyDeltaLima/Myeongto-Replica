@@ -35,8 +35,14 @@ function swings(a, n, first = false) {
   return out;
 }
 
-test('阿斯卡纶: Attack_A, Attack_B in turn (AbilityRandomGroup Loop)', () => {
-  assert.deepEqual(swings(actor('char_4132_ascln'), 5), ['Attack_A', 'Attack_B', 'Attack_A', 'Attack_B', 'Attack_A']);
+test('阿斯卡纶: Attack_B, Attack_A in turn (AbilityRandomGroup Loop: m_loopIndex + 1 first), anew from B after a skill', () => {
+  const a = actor('char_4132_ascln');
+  assert.deepEqual(swings(a, 5), ['Attack_B', 'Attack_A', 'Attack_B', 'Attack_A', 'Attack_B']);
+  a.setSkill(true);
+  run(a, 5);
+  a.setSkill(false);
+  run(a, 5);
+  assert.deepEqual(swings(a, 2), ['Attack_B', 'Attack_A'], 'the Default mode attached again: Reset');
 });
 
 test('伺夜 S3: Skill3_Attack_A → B → C in turn while the skill is on; the plain Attack outside it', () => {
@@ -56,7 +62,7 @@ test('阿斯卡纶 without a swing (an \'atk\' seen late): each attack plays one
     assert.equal(a.spine.state.tracks[0].loop, false, 'one clip per attack, not a loop');
     run(a, 0.1);
   }
-  assert.deepEqual(got, ['Attack_A', 'Attack_B', 'Attack_A']);
+  assert.deepEqual(got, ['Attack_B', 'Attack_A', 'Attack_B']);
   run(a, 5);
   assert.equal(a.mode, 'base', 'no swing after the last attack');
   // a wound-up attack keeps the clip its wind-up took
@@ -67,11 +73,17 @@ test('阿斯卡纶 without a swing (an \'atk\' seen late): each attack plays one
   assert.equal(a.current, wound);
 });
 
-test('维什戴尔: any of Attack_A / _B / _C (AbilityRandomGroup Random)', () => {
+test('维什戴尔: any of Attack_A / _B / _C but the one just played (AbilityRandomGroup Random, _diffFromLastOneIfNotFirst)', () => {
   const a = actor('char_1035_wisdel');
   const draws = [0.9, 0.1, 0.5, 0.95];
   a.altRandom = () => draws.shift();
-  assert.deepEqual(swings(a, 4), ['Attack_C', 'Attack_A', 'Attack_B', 'Attack_C']);
+  assert.deepEqual(swings(a, 4), ['Attack_C', 'Attack_A', 'Attack_C', 'Attack_B']);
+});
+
+test('迷迭香: Attack_A / _B, never twice in a row (_diffFromLastOneIfNotFirst)', () => {
+  const a = actor('char_391_rosmon');
+  a.altRandom = () => 0.2;
+  assert.deepEqual(swings(a, 4), ['Attack_A', 'Attack_B', 'Attack_A', 'Attack_B']);
 });
 
 test('山: a random first, then never the clip just played (_diffFromLastOneIfNotFirst)', () => {
@@ -87,12 +99,12 @@ test('a model swapped mid-swing keeps the swing\'s clip (swingElapsed alt → sw
   swings(a, 1);
   a.swing(0.3);
   const s = a.swingElapsed();
-  assert.equal(s.alt, 'Attack_B');
+  assert.equal(s.alt, 'Attack_A');
   const b = actor('char_4132_ascln', null, 'back');
   assert.ok(b.swing(s.windup, s.alt));
-  assert.equal(b.current, 'Attack_B');
+  assert.equal(b.current, 'Attack_A');
   run(b, 3);
-  assert.deepEqual(swings(b, 1), ['Attack_A'], 'then in turn from there');
+  assert.deepEqual(swings(b, 1), ['Attack_B'], 'then in turn from there');
 });
 
 // A skill whose `_defaultModeIndex` sets the operator's default mode (anims.equip, tools/assets/anim-overrides.mjs

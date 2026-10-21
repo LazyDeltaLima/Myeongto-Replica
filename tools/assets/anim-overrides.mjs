@@ -116,20 +116,24 @@ export const SKILL_CLIP_OVERRIDES = Object.freeze({
  * Attack clips that take turns (docs/rules/render.md 「Spine 클립 커버리지」 B, EN client charpacks and skill prefabs,
  * maintainer's notes 2026-10-14): model key prefix → { [the role's loop clip]: { alts, pick } }. Every role clip (attack,
  * skill, skills[i]) whose loop is that clip gains `alts` (the clips, in the client's order) and `pick`; render/spine.js
- * chooses one per swing. `pick`: 'loop' = in turn from the first (AbilityRandomGroup `_selectMethod` 1, an
- * UberAnimationEffectEmitter `_replaceGroup` with `_loopType` LOOP, an ability group `_selectAbilitySequentially`);
- * 'random' = any (`_selectMethod` 0, `_loopType` RANDOM); 'other' = a random first, then never the clip just played
- * (`_diffFromLastOneIfNotFirst`).
+ * chooses one per swing. `pick`: 'loop' = in turn (an UberAnimationEffectEmitter `_replaceGroup` with `_loopType` LOOP, an
+ * AbilitySelectableGroup `_selectAbilitySequentially` — from the first; AbilityRandomGroup `_selectMethod` 1 — `from: 1`,
+ * see below); 'random' = any (`_selectMethod` 0, `_loopType` RANDOM); 'other' = a random first, then never the clip just
+ * played (`_diffFromLastOneIfNotFirst`). Client code (2026-10-21, docs/rules/render.md 「Spine 클립 커버리지」 B):
+ * `AbilityRandomGroup._GetAbilityInternal` (RVA 0xC19A50) casts one child per attack; Loop adds 1 to `m_loopIndex` before
+ * reading it and `Reset` (0xC197A0, every attach — a mode switch) sets it to 0, so its first attack after an attach is the
+ * second child (`from: 1`); `_SelectAbilityDifferentFromLastOne` (0xC19C30) leaves out the child just cast — by object, so
+ * 山's [Attack_1, Attack_2, Attack_1] (the same Attack_1 twice) alternates.
  */
 export const ATTACK_ALTS = Object.freeze({
-  // 维什戴尔: Modes/Default/Body/Attack AbilityRandomGroup Random [Attack_A, Attack_B, Attack_C]
-  'op:char_1035_wisdel:': { Attack_A: { alts: ['Attack_A', 'Attack_B', 'Attack_C'], pick: 'random' } },
-  // 迷迭香: Modes/Default/Body/Attack AbilityRandomGroup Random [Attack_A, Attack_B]
-  'op:char_391_rosmon:': { Attack_A: { alts: ['Attack_A', 'Attack_B'], pick: 'random' } },
+  // 维什戴尔: Modes/Default/Body/Attack AbilityRandomGroup Random [Attack_A, Attack_B, Attack_C], `_diffFromLastOneIfNotFirst`
+  'op:char_1035_wisdel:': { Attack_A: { alts: ['Attack_A', 'Attack_B', 'Attack_C'], pick: 'other' } },
+  // 迷迭香: Modes/Default/Body/Attack AbilityRandomGroup Random [Attack_A, Attack_B], `_diffFromLastOneIfNotFirst`
+  'op:char_391_rosmon:': { Attack_A: { alts: ['Attack_A', 'Attack_B'], pick: 'other' } },
   // 阿斯卡纶: Modes/Default/Body/Attack AbilityRandomGroup Loop [Attack_A, Attack_B]
-  'op:char_4132_ascln:': { Attack_A: { alts: ['Attack_A', 'Attack_B'], pick: 'loop' } },
+  'op:char_4132_ascln:': { Attack_A: { alts: ['Attack_A', 'Attack_B'], pick: 'loop', from: 1 } },
   // 隐德来希 S3: Modes/S3/Body/Attack AbilityRandomGroup Loop [Skill_3_Loop_A, Skill_3_Loop_B]
-  'op:char_4010_etlchi:': { Skill_3_Loop_A: { alts: ['Skill_3_Loop_A', 'Skill_3_Loop_B'], pick: 'loop' } },
+  'op:char_4010_etlchi:': { Skill_3_Loop_A: { alts: ['Skill_3_Loop_A', 'Skill_3_Loop_B'], pick: 'loop', from: 1 } },
   // 望: Modes/Default/Body/Attack UberAnimationEffectEmitter LOOP [Attack_A, Attack_B] (skin keys → Attack_1_A / _B);
   // S3 skchr_wang_3/SpawnAnim LOOP [Skill_3_Attack_A, Skill_3_Attack_B]
   'op:char_2027_wang:': {
@@ -347,7 +351,7 @@ export function applyAnimOverrides(key, anims, names = null) {
       const alt = c && map[c.loop];
       if (!alt) continue;
       const alts = names ? alt.alts.filter((n) => names.includes(n)) : [...alt.alts];
-      if (alts.length > 1) Object.assign(c, { alts, pick: alt.pick });
+      if (alts.length > 1) Object.assign(c, { alts, pick: alt.pick }, alt.from ? { from: alt.from } : {});
     }
   }
   for (const [prefix, map] of Object.entries(COMBAT_CLIPS)) {

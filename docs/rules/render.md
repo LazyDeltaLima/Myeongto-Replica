@@ -443,6 +443,10 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     `anim-overrides.mjs ATTACK_ALTS` → 역할 클립 `alts`·`pick`(차례 `loop`·무작위 `random`·「직전과 다르게」 `other` = `_diffFromLastOneIfNotFirst`), `spine.js _nextAlt`가
     휘두름마다 고르고 모델이 바뀌어도(앞/뒤) 그 휘두름의 클립을 잇는다. 11명(维什戴尔·迷迭香·阿斯卡纶·隐德来希 S3·望 기본·S3·维娜·维多利亚·凛御银灰·
     圣聆初雪 S3·伺夜 S3·山). 'swing' 이벤트는 뷰가 이펙트보다 먼저 받는다(`app.js processEvents`, 이펙트 묶음이 고른 클립을 따름). [화면 미확인]
+    2026-10-21 고르는 법 디컴파일(fx.md 「능력 묶음의 자식·COMBAT 상태 공격」): 维什戴尔·迷迭香은 `_diffFromLastOneIfNotFirst`라 `other`(전엔 `random`),
+    AbilityRandomGroup Loop(阿斯卡纶·隐德来希 S3)는 `m_loopIndex`를 먼저 +1 해 읽고 붙을 때마다 0으로 돌아가므로 두 번째 클립부터(`from: 1`), 스킬이
+    켜지거나 꺼질 때(모드 전환) 차례를 처음부터 [추정: 모드를 안 바꾸는 스킬도 처음부터]. 伺夜 S3(AbilitySelectableGroup 순차)는 첫 클립부터 그대로;
+    望·圣聆初雪 S3(UberAnimationEffectEmitter LOOP, `_CalculatePlayIndex`)는 안 읽음.
   - **C** 첫 공격 begin·공격 end: `ThreePartOneshotAnimation`(`_onlyPlayBeginAnimWhenFirstAttack`, `_endAnimKey`). 클라 코드(2026-10-14, 관리자 노트):
     `InitAnimation`이 배율 = 공격 시간 ÷ (begin(첫 공격일 때만) + oneshot + end)로 셋을 함께 늘이고(`UpdatePlaybackSpeed`가 그 재생 속도를 능력에 줌), 코루틴
     `DoPlayAnimation`이 begin → oneshot 순으로 틀며, 타격은 oneshot 클립의 OnAttack 이벤트를 기다린다 → **첫 공격의 타격은 begin만큼 늦다**. 로스터의 ThreePart

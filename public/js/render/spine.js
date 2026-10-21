@@ -808,8 +808,9 @@ export class SpineActor {
   /**
    * A new attack of role `clip` begins: when the role's clips take turns (anims `alts`, tools/assets/anim-overrides.mjs
    * ATTACK_ALTS — the client's AbilityRandomGroup / UberAnimationEffectEmitter `_replaceGroup` / sequential ability group),
-   * choose this attack's clip by `pick`: 'loop' in turn from the first, 'random' any, 'other' a random first and then never
-   * the one just played. `keep` = the clip to keep (a model swapped mid-swing). True when the role has turns.
+   * choose this attack's clip by `pick`: 'loop' in turn from the first (from clip `from` — an AbilityRandomGroup Loop starts
+   * at its second child), 'random' any, 'other' a random first and then never the one just played. `keep` = the clip to keep
+   * (a model swapped mid-swing). True when the role has turns.
    */
   _nextAlt(clip, keep = null) {
     clip = clip && this._swingClip(clip);
@@ -818,7 +819,7 @@ export class SpineActor {
     const st = this.alt?.clip === clip ? this.alt : (this.alt = { clip, name: null, n: 0 });
     let name;
     if (keep && alts.includes(keep)) name = keep;
-    else if (clip.pick === 'loop') name = alts[st.n % alts.length];
+    else if (clip.pick === 'loop') name = alts[(st.name == null ? Number(clip.from) || 0 : st.n) % alts.length];
     else {
       const pool = clip.pick === 'other' && st.name ? alts.filter((a) => a !== st.name) : alts;
       name = pool[Math.min(pool.length - 1, Math.floor(this.altRandom() * pool.length))];
@@ -879,6 +880,9 @@ export class SpineActor {
     if (on === this.skillOn || this.dead) return;
     if (on && (variant || null) !== this.skillVariant) { this.skillVariant = variant || null; this._applyRoles(); }
     this.skillOn = on;
+    // 2026-10-21: a mode switch attaches the mode's abilities anew, and an attached in-turn group starts over
+    // (AbilityRandomGroup.Reset, AbilitySelectableGroup.DoAttach) [추정: a skill that switches no mode resets it too]
+    if (this.alt?.clip?.pick === 'loop') this.alt = null;
     if (!on) this.skillOffAt = this.clock;   // skillDying: an off right before the 'die' event
     this.baseClip = false;
     const sk = this.roles.skill;
