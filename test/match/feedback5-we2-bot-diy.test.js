@@ -5,9 +5,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buyScoreOf, levelUp, diyOpensAt, DIY_PIECE_BONUS } from '../../server/match/bot.js';
+import { buyScoreOf, levelUp, diyOpensAt, DIY_PIECE_BONUS, itemTarget } from '../../server/match/bot.js';
 import { diyGameData } from '../../server/match/player/diy.js';
-import { makeMatch, give, chessOfTier, checkInvariants } from './harness.js';
+import { makeMatch, give, giveItem, chessOfTier, checkInvariants } from './harness.js';
 
 const T5A = 'chess_char_5_diy1_a';
 const PICK = { charId: 'char_1035_wisdel', skillIndex: 2, uniEquipId: 'uniequip_002_wisdel' }; // 维什戴尔 (协防: never banned)
@@ -54,5 +54,18 @@ test('#13 levelUp: one round earlier for the step that opens a slotted tier (rou
   levelUp(m, p1);
   assert.equal(p0.shop.level, 5, 'p_0 (a tier-5 自选 piece) levels now');
   assert.equal(p1.shop.level, 4, 'p_1 waits for round 10 (LEVEL_TARGET)');
+  m.dispose();
+});
+
+test('itemTarget: 信标 skips the player\'s own 自选 pieces ("无法装备给自编干员") — the next carrier, else none', () => {
+  const { m, p0 } = prep(913);
+  for (const p of p0.allChess()) p0.returnCopies(p);
+  p0.board.clear(); p0.hand.fill(null);
+  const diy = give(m, p0, T5A, 'hand');
+  const beacon = giveItem(m, p0, 'chess_item_5_04_e_a');
+  assert.equal(itemTarget(m, p0, beacon), null, 'only a 自选 piece: kept');
+  const single = give(m, p0, chessOfTier(2).find((id) => m.pool.has(id) && m.pool.left(id) > 0), 'hand');
+  assert.equal(itemTarget(m, p0, beacon)?.uid, single.uid, 'the pool operator, though the 自选 piece is of a higher tier');
+  assert.ok(p0.find(diy.uid));
   m.dispose();
 });

@@ -522,6 +522,22 @@ describe('placement mirror (canPlace)', () => {
     assert.equal(canPlace(ctx, art.uid, { area: 'hand', idx: 0 }).ok, false, 'arts are not equipped');
     assert.deepEqual(canPlace(ctx, art.uid, { area: 'hand', idx: 1 }), { ok: true, action: 'swap' }, 'item ↔ item swap in the hand');
   });
+  test('信标 (normal and golden) refuses a 自选 piece ("无法装备给自编干员"); other items and operators take it', () => {
+    const diy = piece('chess_char_6_diy1_a');
+    const diyElite = piece('chess_char_6_diy1_b');
+    const plain = piece(RANGED);
+    const beacons = ['chess_item_5_04_e_a', 'chess_item_5_04_e_b'].map(item);
+    const eq = item(EQUIP);
+    const ctx = ctxFor(privWith({ hand: [diy, diyElite, plain, ...beacons, eq] }));
+    for (const b of beacons) {
+      for (const target of [0, 1]) {
+        const r = canPlace(ctx, b.uid, { area: 'hand', idx: target });
+        assert.deepEqual([r.ok, r.code, r.reason], [false, 'BAD_TARGET', '无法装备给自编干员'], `${b.id} on hand ${target}`);
+      }
+      assert.deepEqual(canPlace(ctx, b.uid, { area: 'hand', idx: 2 }), { ok: true, action: 'equip' }, `${b.id} on a pool operator`);
+    }
+    assert.deepEqual(canPlace(ctx, eq.uid, { area: 'hand', idx: 0 }), { ok: true, action: 'equip' }, 'other equipment on a 自选 piece');
+  });
   test('boardTargets lists legal tiles for highlighting', () => {
     const m = piece(MELEE);
     const r = piece(RANGED);

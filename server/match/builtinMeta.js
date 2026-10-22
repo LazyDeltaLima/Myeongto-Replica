@@ -178,10 +178,12 @@ const ITEM_HANDLERS = {
   // is sent as that elite (community report #6 after 0.1.2: it arrived as the normal card — the gift carried baseIdOf).
   // Destroying the carrier returns its pool copies (an elite's 3) at once; the gift takes them again when it is granted
   // (effect:builtin_gift: grantChess → acquireChess, an elite takes up to goldenCopies, as every effect grant).
+  // A 自选 piece is refused (both items' last line "无法装备给自编干员"): the item goes back, nothing is destroyed.
   use_equip_recruit_new_char_and_give_char_to_player_most_bond: {
     onEquip(ctx, ev) {
       const target = ctx.piece(ev.target.uid);
       if (!target) return;
+      if (ctx.chessRecord(target.id)?.diyFor) { ev.error = 'BAD_TARGET'; ev.detail = 'a 自选 piece'; return; }
       const tier = ctx.gd.tierOf(target.id);
       const n = Math.max(1, int(paramsOf(ctx, ev.item).refresh_cnt, 2));
       const bonds = ctx.pieceBonds(target.uid);
@@ -195,10 +197,8 @@ const ITEM_HANDLERS = {
         if (id) ids.push(id);
       }
       if (ids.length) ctx.offerChess(ids, { source: 'item', tier });
-      // co-op: next prep, send the original chess to the teammate with the most members of its bonds — except a 自选
-      // piece (0.2.0): its DIY slot is bound to this player's roster (no teammate's shop or slot can hold that operator),
-      // so nothing is sent [ASSUMED: the official text names no 自选 case]
-      const to = ctx.chessRecord(original)?.diyFor ? null : mostBondMate(ctx, bonds);
+      // co-op: next prep, send the original chess to the teammate with the most members of its bonds
+      const to = mostBondMate(ctx, bonds);
       if (to) ctx.addEffect({ id: `gift:${ev.item.uid}`, key: 'effect:builtin_gift', hidden: true, battle: false, params: { toPlayerId: to.playerId, chessId: original, bonds } });
     },
   },

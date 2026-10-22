@@ -410,10 +410,15 @@ export function canPlace(ctx, uid, target) {
   return no('BAD_TILE', t('无法放置在该位置'));
 }
 
+/** 信标's effect key (eff_acarm109 / eff_acgarm109). */
+const BEACON_KEY = 'use_equip_recruit_new_char_and_give_char_to_player_most_bond';
+
 function equipCheck(ctx, itemPiece, targetPiece) {
   const item = ctx.getItem(itemPiece.id);
   if (item?.itemType === 'MAGIC') return { ok: false, code: 'BAD_TARGET', reason: t('该道具需要放置在战场上使用') };
   if (!isObj(targetPiece) || targetPiece.kind !== 'chess') return { ok: false, code: 'BAD_TARGET', reason: t('装备只能配发给干员') };
+  // 信标 "无法装备给自编干员": a 自选 piece refuses it (server builtinMeta)
+  if (Array.isArray(item?.buffs) && item.buffs.some((b) => b?.key === BEACON_KEY) && ctx.getChess(targetPiece.id)?.isDiy) return { ok: false, code: 'BAD_TARGET', reason: t('无法装备给自编干员') };
   return { ok: true, action: 'equip' };
 }
 

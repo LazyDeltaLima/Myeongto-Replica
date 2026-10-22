@@ -344,7 +344,12 @@
   EN 클라이언트 `PersistentData/Bundles/pkgrps/btl_pfb_tokens_*.ab`의 `<id>_SkeletonData`에서 기본 모델을 뽑는다 — 0.2.0부터 upstream
   `tools/local-extract/extract.py TOKEN_SPINES`(→ `public/assets/local/spine/token/<id>/`) + `node tools/fetch-assets.mjs --local-spines`
   (→ `tools/assets/local-token-spines.json`, `data/assets.json tokens[id].spineLocal`). 적 로컬 모델과 같은 방식이라 `assets/local`이 없으면 아바타로 돌아간다.
-- 信标(비콘): 공식 「无法装备给自编干员」(KR 「선발 오퍼레이터는 장착 불가」) — 0.2.0 upstream 틀이 같은 규칙을 가진다.
+- 信标(비콘): 공식 「无法装备给自编干员」(KR 「선발 오퍼레이터는 장착 불가」, 일반·금색 둘 다 설명 마지막 줄). 선발 조각에 장착하면
+  `BAD_TARGET`으로 거절하고 아이템은 손패로 돌아온다(`builtinMeta.js` 信标 `onEquip`, 博士投影의 정예 거절과 같은 방식). 클라이언트
+  `gameLogic/placement.js equipCheck`가 같은 검사로 「无法装备给自编干员」를 띄우고, AI 托管은 선발 조각을 비콘 대상으로 고르지 않는다
+  (`bot.js itemTarget`). 처음 선발 구현(`shared/diy.js diyEquipRefused`)에 있던 거절이 0.2.0 upstream 틀로 옮길 때 빠졌고,
+  upstream 0.2.0은 「선발 조각은 팀원에게 보내지 않음 [ASSUMED]」만 있어 선발 오퍼레이터가 파괴되고 2명 중 1명 특수 갱신이 열렸다
+  (2026-10-22 수정, 테스트 `feedback3-gift.test.js`·`gameLogic.test.js`·`feedback5-we2-bot-diy.test.js`). [화면 미확인]
 - 모듈: 공식 甄选 칸에는 기본 모듈이 없어(게임에서 직접 장착) 처음엔 미장착이었다. 2026-10-05부터 후보의 첫 모듈(`uniequip_002`, X 타입)을
   기본으로 장착한다(상점 `defaultUniEquipId`). 오퍼레이터 구성 화면에서 「없음」을 고를 수 있다.
 - 한국어: `public/i18n/ko/diy.json` — 위셔델·아스카론은 KR 공식 테이블, 왕·첸 더 던스트릭·사키코는 `tools/i18n/diy-ko-manual.json` 수동 번역(이름·스킬·재능·모듈 이름은 나무위키 표기).

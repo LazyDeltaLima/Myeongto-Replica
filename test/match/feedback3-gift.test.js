@@ -16,6 +16,7 @@ const QUIET = { warn() {}, error() {}, info() {} };
 const REG = createRegistry({ log: QUIET });
 const OK = { ok: true };
 const BEACON = 'chess_item_5_04_e_a';
+const DIY_SLOT = 'chess_char_6_diy1_a';
 
 /** Co-op match of `humans` humans at PREP R1, every board / hand emptied (pool copies returned), no strategies. */
 function setup({ humans = 2, seed = 31 } = {}) {
@@ -73,6 +74,32 @@ test('信标 on a normal operator still sends the normal card', () => {
   assert.deepEqual(equip(giveItem(m, p0, BEACON), give(m, p0, cid, 'hand')), OK);
   h.toPrep(2);
   assert.deepEqual(ofBase(m, p1, cid).map((p) => [p.id, p.poolCopies]), [[cid, 1]]);
+  h.invariants();
+});
+
+test('信标 (normal and golden) refuses a 自选 piece ("无法装备给自编干员"): item back, carrier kept, no pick, no gift', () => {
+  const seats = [
+    { seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, diy: { [DIY_SLOT]: { charId: 'char_1035_wisdel', skillIndex: 0, uniEquipId: null } } },
+    { seat: 1, playerId: 'p_1', name: 'P1', isBot: false, connected: true },
+  ];
+  const h = makeMatch({ mode: 'coop', seats, seed: 13, registry: REG, fake: true }).start();
+  h.toPrep(1);
+  const m = h.m;
+  const p0 = h.ps('p_0');
+  p0.hand.fill(null); p0.offers.length = 0;
+  const carriers = [DIY_SLOT, m.gd.chess(DIY_SLOT).goldenId].map((id) => give(m, p0, id, 'hand'));
+  const items = [BEACON, m.gd.item(BEACON).goldenId].map((id) => giveItem(m, p0, id));
+  for (const t of carriers) {
+    assert.equal(p0.gd.chess(t.id).diyFor, DIY_SLOT, 'a 自选 piece');
+    for (const b of items) {
+      const r = m.handle('p_0', { t: 'g.equip', itemUid: b.uid, targetUid: t.uid });
+      assert.equal(r.error, 'BAD_TARGET', `${b.id} on ${t.id}`);
+      assert.ok(p0.find(t.uid), 'carrier kept');
+      assert.equal(p0.find(b.uid)?.area, 'hand', 'item back in the hand');
+      assert.equal(p0.offers.length, 0, 'no special refresh');
+      assert.equal(gifts(p0).length, 0, 'no gift');
+    }
+  }
   h.invariants();
 });
 

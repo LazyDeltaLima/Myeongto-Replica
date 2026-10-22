@@ -601,7 +601,8 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   reward offers]; an effect, reward pool or 机变 card that grants the player a random operator draws its stock too
   (effectsMeta `rollChess` / `rollPool`, the 驰援 fallback in choices.js: `ps.diyStockEntries()` — the roll's own tier
   rules, no 调度中心 gate, bonds through the player's view; 「自选干员放入后模拟中的补给池随机范围也将被相应扩大」, 0.2.0), and
-  信标 never sends one to a teammate [ASSUMED]. `battleInput` carries `diy` (the pick); `m.private.diy` / `diyBanned`; `prepFieldMeta` and
+  信标 refuses one (both items' "无法装备给自编干员": builtinMeta BAD_TARGET, the client's `equipCheck`, the bot's
+  `itemTarget`). `battleInput` carries `diy` (the pick); `m.private.diy` / `diyBanned`; `prepFieldMeta` and
   `m.result` lineups carry the pick (`diy`) so other players' cards compose the operator.
 * **Hand**: 10 slots filled right→left, plus an expandable temp queue for passive overflow (merge results, grants, returned equipment); only its first 5 slots are displayed, with later pieces queued in arrival order;
   a full hand refuses every buy and reward pick — also one whose copy would complete a merge at once (PRTS

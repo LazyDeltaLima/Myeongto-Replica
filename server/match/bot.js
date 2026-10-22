@@ -1812,7 +1812,7 @@ function lastPerfect(m, ps) {
 /**
  * The carrier of an item (null = keep it), by what the item does (itemEffect):
  *   信标 (destroys its carrier for a pick of two chess of the same tier): the highest-tier bench single, else the
- *     weakest normal deployed operator;
+ *     weakest normal deployed operator — never a 自选 piece (refused);
  *   拟态物质 (a third copy of a pair, else a member of a bond): a pair (highest tier), else a focus member — never one
  *     of 2 copies whose pool is out (the item gives nothing then);
  *   博士投影 (promotes to elite; the normal one at the next round start, the golden one at once): the strongest normal
@@ -1837,11 +1837,13 @@ export function itemTarget(m, ps, item, ctx = context(m, ps)) {
   const rel = (p) => { let r = 0; for (const b of chessRec(m, p.id, ps)?.bonds || []) r += b === ctx.focus ? 3 : b === ctx.second ? 2 : ps.bonds[b] && ps.bonds[b].active ? 1 : 0; return r; };
   switch (key) {
     case 'use_equip_recruit_new_char_and_give_char_to_player_most_bond': {
-      // a bench single of the highest tier (a pick of two of its tier), else the weakest deployed normal operator
+      // a bench single of the highest tier (a pick of two of its tier), else the weakest deployed normal operator — never
+      // a 自选 piece ("无法装备给自编干员", builtinMeta refuses it)
       const counts = copyCounts(m, ps);
-      const bench = owned.filter((p) => normal(p) && ps.find(p.uid)?.area !== 'board' && (counts.get(gd.baseIdOf(p.id)) || 0) < 2)
+      const fits = (p) => normal(p) && !chessRec(m, p.id, ps)?.diyFor;
+      const bench = owned.filter((p) => fits(p) && ps.find(p.uid)?.area !== 'board' && (counts.get(gd.baseIdOf(p.id)) || 0) < 2)
         .sort((a, b) => (chessRec(m, b.id, ps)?.tier || 0) - (chessRec(m, a.id, ps)?.tier || 0) || val(a) - val(b) || a.uid - b.uid);
-      return bench[0] || byVal(deployed.filter(normal), 1)[0] || null;
+      return bench[0] || byVal(deployed.filter(fits), 1)[0] || null;
     }
     case 'use_equip_reward_char_chess': {
       // with 2 copies owned and none left in the pool the item gives nothing (GitHub #207): such a pair is no carrier
