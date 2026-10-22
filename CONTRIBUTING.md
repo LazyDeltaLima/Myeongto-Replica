@@ -81,6 +81,9 @@ This is a remake of the official mode; the official game decides.
   locally, `docs/ASSETS.md`), [PRTS](https://prts.wiki/) (operator pages, the 备注 notes of skills and talents, the 卫戍协议
   pages), then community wikis, then the maintainer's memory of the game. Numbers come from the blackboards, never from
   memory. Screenshots or recordings of the official game are valuable: attach them to the issue or pull request.
+- **Client evidence** is cited by what the official client does — the table or prefab field, the class and method
+  name — never by how it was read: no code addresses, no excerpts of the client's code, no wording about the tools
+  that read it (maintainer decision 2026-10-22). Older text still has some; drop them when you rewrite that text.
 - **What no source settles** is implemented the simplest way closest to the official game and marked `[ASSUMED]` in the
   code and the pull request. A decision the maintainer takes is cited as "maintainer decision YYYY-MM-DD". A decision
   the maintainer calls provisional stays marked so in `docs/rules/` and is never presented as settled.
