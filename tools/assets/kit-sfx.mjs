@@ -114,6 +114,16 @@ export const KIT_HIT_BANKS = Object.freeze({
   // billroChargeKey, the kit's 'charges')
   ...Object.fromEntries([1, 2, 3].flatMap((n) => [[`billro:s${n}:half`, `battle.ON_BUFF_START.billro_s_${n}_reach_half`],
     [`billro:s${n}:full`, `battle.ON_BUFF_START.billro_s_${n}_reach_enhance`]])),
+  // 灵知 / 流明 S2's charge stages ([effect1] at 1 charge, [effect2] at 2 — public/js/audio.js chargeStageKey; 流明's are
+  // its buffs' show-effect banks)
+  'gnosis:s2:1': 'battle.ON_BUFF_START.gnosis_s_2[audio1]',
+  'gnosis:s2:2': 'battle.ON_BUFF_START.gnosis_s_2[audio2]',
+  'lumen:s2:1': 'battle.ON_BUFF_SHOW_EFFECT.lumen_s_2[audio1]',
+  'lumen:s2:2': 'battle.ON_BUFF_SHOW_EFFECT.lumen_s_2[audio2]',
+  // 圣聆初雪: an enemy taking the talent's damage as it enters snow (sbell2_t1[enemy_enter] PlayAudio), S2's snow tick on
+  // each enemy (sbell2_t1[s2_dot] PlayAudio) — the kit's kitHit
+  'sbell2:enter': 'battle.ON_CUSTOM_TRIGGER.sbell2_snow_tile_enter_damage_audio',
+  'sbell2:s2dot': 'battle.ON_CUSTOM_TRIGGER.sbell2_skill2_dot_audio',
 });
 
 /**

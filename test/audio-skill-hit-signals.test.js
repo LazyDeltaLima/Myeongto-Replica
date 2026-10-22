@@ -246,3 +246,75 @@ describe('卡涅利安: her charge stages outside the skill sound billro_s_N_rea
     assert.ok(a.played.some((p) => /^p_skill_goldexplobuff/.test(p.f)), a.played.map((p) => p.f).join());
   });
 });
+
+describe('灵知 / 流明 S2 charge stages and 圣聆初雪\'s snow damage (sim events added 2026-10-22)', () => {
+  const realBattle = async (chessId, seed = 11, T = 150) => {
+    const { makeMatch, give, legalTileFor } = await import('./match/harness.js');
+    const { buildBattleSpec, createBattleFromSpec } = await import('../server/sim/spec.js');
+    const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }];
+    const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed }).start();
+    h.toPrep(4);
+    const m = h.m, ps = h.ps('p_0');
+    for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+    ps.board.clear(); ps.hand.fill(null); ps.recompute();
+    give(m, ps, chessId, 'board', legalTileFor(m, ps, chessId));
+    const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'lp', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent });
+    const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+    b.start();
+    m.dispose?.();
+    const ev = [];
+    while (!b.finished && b.time < T) { b.step(); ev.push(...b.drainEvents()); }
+    return { b, ev };
+  };
+
+  test('the banks and the manifest keys', { skip: NO_DATA }, () => {
+    const out = kitHitSfx(indexAudio(JSON.parse(readFileSync(OFFICIAL, 'utf8'))), (p) => p);
+    const KEYS = {
+      'gnosis:s2:1': 'battle.ON_BUFF_START.gnosis_s_2[audio1]', 'gnosis:s2:2': 'battle.ON_BUFF_START.gnosis_s_2[audio2]',
+      'lumen:s2:1': 'battle.ON_BUFF_SHOW_EFFECT.lumen_s_2[audio1]', 'lumen:s2:2': 'battle.ON_BUFF_SHOW_EFFECT.lumen_s_2[audio2]',
+      'sbell2:enter': 'battle.ON_CUSTOM_TRIGGER.sbell2_snow_tile_enter_damage_audio', 'sbell2:s2dot': 'battle.ON_CUSTOM_TRIGGER.sbell2_skill2_dot_audio',
+    };
+    for (const [k, bank] of Object.entries(KEYS)) {
+      assert.equal(KIT_HIT_BANKS[k], bank, k);
+      assert.equal(file(manifest.audio.sfx.kit[k]), file(out[k][0]), k);
+    }
+  });
+
+  test('a stage sounds as it is reached; a cast (-1) and 0 charges clear it', () => {
+    for (const def of ['char_206_gnosis', 'char_4042_lumen']) {
+      const u = { def };
+      const s = def === 'char_206_gnosis' ? 'gnosis' : 'lumen';
+      const seq = [1, 2, 2, -1, 1, 1, 2, 0, 1].map((n) => signalFxKey('charges', { id: 1, n }, () => u));
+      assert.deepEqual(seq, [`${s}:s2:1`, `${s}:s2:2`, null, null, `${s}:s2:1`, null, `${s}:s2:2`, null, `${s}:s2:1`], def);
+    }
+  });
+
+  test('real match path: 灵知 S2 sends its charges — one stage sound per charge reached, a cast clears it', async () => {
+    const { b, ev } = await realBattle('chess_char_4_13_a');
+    const g = b.allyUnits.find((u) => u.def?.charId === 'char_206_gnosis');
+    const ch = ev.filter((x) => x[0] === 'fx' && x[1] === 'charges' && x[4]?.id === g.id);
+    assert.ok(ch.some((x) => x[4].n >= 1), 'a charge stored');
+    assert.ok(ch.some((x) => x[4].n === -1), 'a cast');
+    const a = manager();
+    a.setFieldUnits([{ id: g.id, kind: 'op', side: 'ally', spine: 'char_206_gnosis', defId: 'chess_char_4_13_a', skillIndex: 1 }]);
+    a.handleBattleEvents(ch);
+    assert.ok(a.played.some((p) => /^p_skill_iceprickbuff[12]\.mp3$/.test(p.f)), a.played.map((p) => p.f).join());
+  });
+
+  test('real match path: 圣聆初雪\'s talent sends a kitHit per enemy taking its entry damage', async () => {
+    const { b, ev } = await realBattle('chess_char_6_02_a');
+    const sb = b.allyUnits.find((u) => u.def?.charId === 'char_1046_sbell2');
+    const enter = ev.filter((x) => x[0] === 'fx' && x[1] === 'kitHit' && x[4]?.k === 'sbell2:enter' && x[4].id === sb.id);
+    assert.ok(enter.length, 'entry damage');
+  });
+
+  test('圣聆初雪: the talent\'s entry damage and S2\'s tick are kitHits (the tick once per enemy up to the bank\'s 2); her S2 damage plays no impact of its own', () => {
+    const a = manager();
+    a.setFieldUnits([{ id: 1, kind: 'op', side: 'ally', spine: 'char_1046_sbell2', defId: 'chess_x', skillIndex: 1 }, { id: 9, kind: 'enemy', side: 'enemy', spine: 'enemy_1007_slime_2', defId: 'e' }]);
+    const heard = (ev) => { a.played.length = 0; a.handleBattleEvents(ev); return a.played.map((p) => p.f); };
+    assert.deepEqual(heard([['fx', 'kitHit', 0, 0, { x: 0, y: 0, id: 1, k: 'sbell2:enter' }]]), ['p_imp_swlprdbl_n.mp3']);
+    assert.deepEqual(heard([['fx', 'kitHit', 0, 0, { x: 0, y: 0, id: 1, k: 'sbell2:s2dot', n: 5 }]]), ['p_imp_swcvr_h.mp3', 'p_imp_swcvr_h.mp3']);
+    a.handleBattleEvents([['skill', 1, 1]]);
+    assert.deepEqual(heard([['dmg', 9, 100, 'arts', 0, 1, 0, null]]), []);
+  });
+});

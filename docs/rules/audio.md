@@ -386,14 +386,22 @@
     스킬 중엔 [half](충전 시전이면 [full]도)를 소리 없이 둔다. 우리: 키트 fx `charges`(n, 스킬 중 -1) → `audio.js billroChargeKey`가 그녀 오디오 기록에
     가진 버프를 따라 만들 때만 `billro:sN:half`/`:full`(`p_skill_goldexplobuff[1]normal`/`p_skill_goldexplobuff[1]`, S3은 `…buff1…`). [추정: 이벤트에
     충전 시전 여부가 없어 스킬 중은 [half]만 가진 것으로 침 — 충전 시전 직후 2회에 다시 닿으면 소리가 남]. 새 sfx 4개.
-    노시스 S2 `gnosis_s_2[eff_cond]`(1회 `[audio1]`·2회 `[audio2]`)·루멘 S2 `lumen_s_2[eff_cond]`(`[audio1]`/`[audio2]`, SHOW_EFFECT 뱅크)는 같은
-    꼴인데 sim에 충전 수 이벤트가 없어 안 함(새 sim fx = golden 이동). 확인: 같은 테스트 파일 「卡涅利安」(키 순서·실제 매치 경로).
+    확인: 같은 테스트 파일 「卡涅利安」(키 순서·실제 매치 경로).
+  - 노시스·루멘 S2 충전 단계 (2026-10-22): `gnosis_s_2[eff_cond]`/`lumen_s_2[eff_cond]`(0.1초마다)이 충전 1회면 [effect1](audioSignal `[audio1]`)을,
+    2회면 그것을 지우고 [effect2](`[audio2]`)를 그 버프가 없을 때만 만들고, 시전마다 `*_enhance_judge`가 둘 다 지운다(루멘은 0회에도). **새 sim fx**
+    `charges` { n }(두 키트, S2를 골랐을 때만: 0.1초마다 수가 바뀌면, 시전 때 n −1 — 카넬리안과 같은 이벤트) → `audio.js chargeStageKey` →
+    `gnosis:s2:1/2` `p_skill_iceprickbuff2/1`, `lumen:s2:1/2` `p_skill_fishhealbuff1/2`(루멘은 SHOW_EFFECT 뱅크). 렌더는 이 이벤트에 아직 아무것도 안 그림
+    (`fx/kinds.js` `charges` = 'none'; 공식 이펙트 `gnosis_skill_02_buff_01/02`·`lumen_skill_02_buff[_02]`는 fx 담당 몫).
+  - 프라마닉스 더 프레리타 눈 피해 (2026-10-22): 재능 진입 피해(`sbell2_t1[enemy_enter]`/`[enemy_character]` — 피해 뒤 그 적에 PlayAudio
+    `sbell2_snow_tile_enter_damage_audio`, 뱅크 파일은 그녀 평타 착탄음 `p_imp_swlprdbl_n`)와 S2 눈 틱(`sbell2_t1[s2_dot]` — 초마다 적마다 PlayAudio
+    `sbell2_skill2_dot_audio` `p_imp_swcvr_h`)이 **새 sim fx** `kitHit` { k `sbell2:enter` }(맞은 적마다)·{ k `sbell2:s2dot`, n 맞은 적 수 }(틱마다 하나)
+    → `kitHitKey`; n이면 적마다 한 번씩 뱅크 상한(2, popOldest)까지. S2 중 그녀의 공격 없는 피해는 `_skillImpact`가 따로 소리 내지 않는다(`skillDamageKey` ''
+    — 예전엔 S2 모드 착탄음이 났음). 확인: 같은 테스트 파일 「灵知 / 流明 … 圣聆初雪」(키·단계 순서·실제 매치 경로 노시스 `charges`·프라마닉스 진입).
+    sim 결과는 그대로, golden은 fx 이벤트 수만 26개 시나리오 이동(`charges`·`kitHit`).
 - 안 한 것 [시점·조건을 sim에서 못 얻음]: 티티 `titi_s_3[spread_from]`(연쇄 수면 선 — sim 이벤트 없음)·재능 `titi_t_1`(잠든 적 틱), 시빌라이트 에테르나
   재능 미진 재생성 `projectile_chr_cetsyr_talent[_s1|_s2]_cooldown_ready`(재생성 순간 이벤트가 없음 — 로스터 kit라 이벤트를 넣으면 golden이 넓게 바뀜),
   위셔델 `WISDEL_S_OVERLOAD`·`WISDEL_S3_MARK`, 필라에 `philae_aoe`, 카넬리안·노시스·루멘 `[eff_cond]` 단계 버프, 뮤엘시스·비질 가짜 죽음, 실버애쉬 더 레인프로스트
-  S2·S3의 버프 소리(`svash2_s_2[show]`·`[range]`·`[hit]`, `svash2_eagle_token[locate]`), 쏜즈 더 로드스타, 프라마닉스 더 프레리타 S2 눈 틱
-  `sbell2_t1[s2_dot]`·재능 진입 피해 `sbell2_snow_tile_enter_damage_audio`(둘 다 공격 없는 그녀 피해라 'dmg'로는 못 가름 — sim fx가 필요, golden 이동),
-  르무엔 `lemuen_attack_end_audio` 등
+  S2·S3의 버프 소리(`svash2_s_2[show]`·`[range]`·`[hit]`, `svash2_eagle_token[locate]`), 쏜즈 더 로드스타, 르무엔 `lemuen_attack_end_audio` 등
   (관리자 메모 「오퍼레이터 효과음」 조사의 H·I 묶음), 적 버프·커스텀 트리거(적 91·122개 뱅크 — 적 스킬처럼 sim이 그 순간을 알려야 함).
 - 확인: `test/local-patch-attack-signals.test.js` 「buff and custom-trigger sounds」(표·혼 S3·락락 S2·티티·프라마닉스 더 프레리타 눈 타일·실제 매치 경로 아스카론 S2).
   [브라우저 미확인 — 혼 S3 과부하 후 공격음이 바뀌는지 들어 볼 것]

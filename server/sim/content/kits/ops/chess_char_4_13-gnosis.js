@@ -69,6 +69,23 @@ export default withDefaults({
         }
         const sp = num(tb.sp_recovery_per_sec, 0); // module UMD-Y
         if (sp > 0) whileDeployed(battle, unit, 0.1, () => toggleBuff(battle, unit, 'gnosis:module', enemiesOnRange(battle, unit).some(isEliteEnemy), { spRecoveryFlat: sp }));
+        if (isSel(def, 'skchr_gnosis_2')) {
+          // S2's charge stages: gnosis_s_2[eff_cond] checks the charges stored every 0.1 s (1 → [effect1], 2 → [effect2],
+          // each with its sound — public/js/audio.js chargeStageKey) and every cast clears both (gnosis_s_2_enhance_judge):
+          // 'charges' { n } when the count changes, n -1 at a cast
+          battle.on('deploy', (c) => { if (c.unit === unit) unit.mem.gnosisShown = 0; }, { owner: unit });
+          battle.on('skillStart', (c) => {
+            if (c.unit !== unit) return;
+            unit.mem.gnosisShown = -1;
+            battle.fx('charges', { x: unit.x, y: unit.y, id: unit.id, n: -1 });
+          }, { owner: unit });
+          whileDeployed(battle, unit, 0.1, () => {
+            const n = Math.min(2, unit.skill?.charges ?? 0);
+            if (n === (unit.mem.gnosisShown ?? 0)) return;
+            unit.mem.gnosisShown = n;
+            battle.fx('charges', { x: unit.x, y: unit.y, id: unit.id, n });
+          });
+        }
       },
       skill: {
         kind: (def.skill?.maxCharges ?? 1) > 1 ? 'charges' : 'instant',

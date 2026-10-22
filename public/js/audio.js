@@ -237,6 +237,7 @@ export function signalFxKey(fx, ex, unitOf) {
   }
   if (fx === 'wake' && u?.side === 'enemy') return 'titi:awake';
   if (fx === 'charges' && u?.def === 'char_426_billro' && Number.isInteger(u.skillIndex)) return billroChargeKey(u, Number(ex.n) || 0);
+  if (fx === 'charges' && (u?.def === 'char_206_gnosis' || u?.def === 'char_4042_lumen')) return chargeStageKey(u, Number(ex.n) || 0);
   // 2026-10-22: 刺玫 S2's counter on the attacker of her protégé (vendla_s_2[extra_damage]'s audioSignal, on the attacker)
   if (fx === 'counter' && u?.def === 'char_494_vendla') return 'vendla:s2';
   // 2026-10-22: 蕾缪安 S3's lock — its cast on a target puts lemuen_s3_audio_triggered there (UNIQUE, INFINITY: once per
@@ -277,6 +278,20 @@ export function billroChargeKey(u, n) {
   st.half = true; st.full = false;
   return `${s}:half`;
 }
+/**
+ * 2026-10-22, docs/rules/audio.md 「버프·커스텀 트리거 소리」: 灵知 / 流明 S2's charge stages — gnosis_s_2[eff_cond] /
+ * lumen_s_2[eff_cond] (every 0.1 s): 1 charge creates [effect1] (audioSignal gnosis_s_2[audio1] / lumen_s_2[audio1]) unless
+ * held, 2 charges replace it by [effect2] ([audio2]) unless held; a cast clears both (*_enhance_judge), and 流明's 0 charges
+ * too. `n` is the kit's 'charges' (-1 at a cast); the stage she holds is kept on her audio record `u`.
+ */
+export function chargeStageKey(u, n) {
+  const s = u.def === 'char_206_gnosis' ? 'gnosis' : 'lumen';
+  if (n <= 0) { u.cstage = 0; return null; }
+  const k = n >= 2 ? 2 : 1;
+  if ((u.cstage ?? 0) === k) return null;
+  u.cstage = k;
+  return `${s}:s2:${k}`;
+}
 /** 圣聆初雪's tile effect by snow layers (render/fx/kitofficial.js SNOW_GROUND: 1 → _01, 2–4 → _02, 5 → _03; 0 none). */
 const snowBand = (L) => (L >= 5 ? 3 : L >= 2 ? 2 : L >= 1 ? 1 : 0);
 /**
@@ -313,10 +328,11 @@ const SKILL_HIT_GAP_MS = 120;
 /**
  * 2026-10-22: the sfx.kit key of a skill's own damage (_skillImpact) whose client sound is a buff's audio signal on each enemy
  * it hits, not an ability's HIT — 隐德来希 S2's blood sickles (etlchi_s_2's AOEDamage gives each enemy etlchi_s_2[audio]).
- * Keyed by model, then skill index.
+ * Keyed by model, then skill index; '' = no sound here, the kit's own event sounds it (圣聆初雪 S2: her snow ticks and the
+ * talent's entry damage, kitHit 'sbell2:s2dot' / 'sbell2:enter' — buff damage, no ability HIT).
  */
-const SKILL_DAMAGE_KEYS = Object.freeze({ char_4010_etlchi: Object.freeze({ 1: 'etlchi:s2' }) });
-/** The sfx.kit key of unit model `def`'s skill damage during skill `skillIndex` (SKILL_DAMAGE_KEYS), or null. */
+const SKILL_DAMAGE_KEYS = Object.freeze({ char_4010_etlchi: Object.freeze({ 1: 'etlchi:s2' }), char_1046_sbell2: Object.freeze({ 1: '' }) });
+/** The sfx.kit key of unit model `def`'s skill damage during skill `skillIndex` (SKILL_DAMAGE_KEYS: '' silent), or null. */
 export function skillDamageKey(def, skillIndex) {
   return SKILL_DAMAGE_KEYS[def]?.[skillIndex] ?? null;
 }
@@ -1352,7 +1368,7 @@ export class AudioManager {
       if (au.eskill && now - au.eskill.at <= 3000) c = (ue?.sk?.[au.eskill.name] || []).find((x) => x.at === 'd') ?? null;
     } else if (au.skillOn && Number.isInteger(au.skillIndex)) {
       const sk = skillDamageKey(au.def, au.skillIndex);
-      if (sk) { au.kdAt = now; return this._kitSound(sk); }
+      if (sk != null) { au.kdAt = now; return this._kitSound(sk || null); }
       const kd = ue?.kd?.[au.skillIndex];
       c = Array.isArray(kd) && kd.length ? kd[0] : null;
       if (!c) {
@@ -1940,6 +1956,12 @@ export class AudioManager {
             if (tu && (tmode === 'Melee' || tmode === 'Range')) { tu.tmode = tmode; tu.tby = e[1] === 'copy' ? e[4].by ?? null : from.tby; tu.sw = null; tu.vm = null; }
           }
           for (const hk of [kitStartKey(e[1], e[4], unitOf), kitHitKey(e[1], e[4], unitOf), signalFxKey(e[1], e[4], unitOf)]) this._kitSound(hk);
+          // 2026-10-22: a kitHit for `n` units at once (圣聆初雪 S2's tick) — one per unit, at most the bank's own limit
+          if (e[1] === 'kitHit' && Number(e[4]?.n) > 1) {
+            const hk = kitHitKey(e[1], e[4], unitOf);
+            const max = this.getManifest()?.audio?.sfx?.kitLimit?.[hk]?.max ?? 2;
+            for (let i = 1; i < Math.min(Number(e[4].n), max); i++) this._kitSound(hk);
+          }
           // a summon used up by its own effect (香槟炸弹 exploding: `consumed`): its impact sound now, no death sound
           const ex = e[4];
           if (!ex || typeof ex !== 'object' || !ex.consumed || ex.id == null) continue;

@@ -3,7 +3,7 @@
 
 import { COLS } from '../../../constants.js';
 import {
-  num, bv, tbb, live, onDefaultSkill, instantKind, ABNORMAL, hasAbnormal, cleanseAbnormal,
+  num, bv, tbb, live, onDefaultSkill, selectedSkill, instantKind, ABNORMAL, hasAbnormal, cleanseAbnormal, aura,
 } from '../shared/tier6.js';
 
 // ------------------------------------------------------------------------------------------------------------------
@@ -111,6 +111,24 @@ function lumen(bb, chess, def) {
           battle.heal(unit, t, unit.s.atk * sc);
           battle.fx('emergency', { x: t.x, y: t.y, id: t.id, src: unit.id });
         }, { owner: unit });
+      } },
+      { install(battle, unit) { // S2's charge stages
+        if (selectedSkill(chess, def) !== 'skchr_lumen_2') return;
+        // lumen_s_2[eff_cond] checks the charges stored every 0.1 s (1 → [effect_1], 2 → [effect_2], each with its sound —
+        // public/js/audio.js chargeStageKey; 0 → none) and every cast clears both (lumen_s_2_enhance_judge): 'charges' { n }
+        // when the count changes, n -1 at a cast
+        battle.on('deploy', (c) => { if (c.unit === unit) unit.mem.lumenShown = 0; }, { owner: unit });
+        battle.on('skillStart', (c) => {
+          if (c.unit !== unit) return;
+          unit.mem.lumenShown = -1;
+          battle.fx('charges', { x: unit.x, y: unit.y, id: unit.id, n: -1 });
+        }, { owner: unit });
+        aura(battle, unit, 0.1, () => {
+          const n = Math.min(2, unit.skill?.charges ?? 0);
+          if (n === (unit.mem.lumenShown ?? 0)) return;
+          unit.mem.lumenShown = n;
+          battle.fx('charges', { x: unit.x, y: unit.y, id: unit.id, n });
+        });
       } },
       { install(battle, unit) { // elite module: taunt −1 and 抵抗
         const taunt = num(tb.taunt_level), res = -num(tb.one_minus_status_resistance);

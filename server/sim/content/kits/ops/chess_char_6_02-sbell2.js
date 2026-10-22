@@ -120,7 +120,11 @@ function sbell2(bb, chess, def) {
             last.set(e, k);
             const hadSnow = prev !== undefined && !e.isFlying && snow.has(prev);
             if (hadSnow) { snow.delete(prev); touch(unit, prev); } // first enemy leaving clears it
-            if (!e.isFlying && snow.has(k) && scale > 0) battle.dealDamage(unit, e, { amount: unit.s.atk * scale, type: 'arts', tags: ['talent', 'snow'] });
+            if (!e.isFlying && snow.has(k) && scale > 0) {
+              battle.dealDamage(unit, e, { amount: unit.s.atk * scale, type: 'arts', tags: ['talent', 'snow'] });
+              // sbell2_t1[enemy_enter]: PlayAudio sbell2_snow_tile_enter_damage_audio on it after the damage (audio.js kitHitKey)
+              battle.fx('kitHit', { x: e.x, y: e.y, id: unit.id, k: 'sbell2:enter' });
+            }
             if (S2 && hadSnow && !snow.has(k) && e.alive && S2.cold > 0) battle.applyStatus(e, 'cold', { duration: S2.cold, source: unit });
           }
           const L = snow.get(k);
@@ -131,9 +135,15 @@ function sbell2(bb, chess, def) {
         dotAcc += dt;
         if (dotAcc + 1e-9 < 1) return;
         dotAcc -= 1;
+        let hit = 0;
         for (const e of battle.enemies) {
-          if (e.alive && !e.hidden && !e.isFlying && bodyInKeys(e, snow)) battle.dealDamage(unit, e, { amount: unit.s.atk * S2.dot, type: 'arts', isSkill: true, tags: ['skill', 'snow'] });
+          if (!e.alive || e.hidden || e.isFlying || !bodyInKeys(e, snow)) continue;
+          battle.dealDamage(unit, e, { amount: unit.s.atk * S2.dot, type: 'arts', isSkill: true, tags: ['skill', 'snow'] });
+          hit++;
         }
+        // sbell2_t1[s2_dot]: PlayAudio sbell2_skill2_dot_audio on each enemy it damages — one event per tick, `n` enemies
+        // (audio.js kitHitKey; the bank keeps 2 at once)
+        if (hit) battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, k: 'sbell2:s2dot', n: hit });
       }, { owner: unit });
     } },
     { install(battle, unit) { // 圣山的祝福
