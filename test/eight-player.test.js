@@ -57,6 +57,14 @@ describe('8-player numbers (config.eightPlayer)', () => {
       assert.equal(generateDraft(g4, createRng(r), r).cards.length, 6, `R${r}`);
       assert.equal(generateDraft(g8, createRng(r), r).cards.length, 12, `R${r}`);
     }
+    // every family of R11 (悬赏决策 / 机密商店 / 战术决策) holds 12 cards: the six 机密商店 slots are drawn twice
+    const seen = new Set();
+    for (let s = 0; s < 60; s++) {
+      const d = generateDraft(g8, createRng(1100 + s), 11);
+      seen.add(d.family);
+      assert.equal(d.cards.length, 12, `R11 ${d.family} seed ${s}`);
+    }
+    assert.ok(seen.has('shop'), 'the seeds reach a 机密商店');
   });
 
   test('a solo match and a 4-seat co-op match keep their numbers whatever `seats` says', () => {

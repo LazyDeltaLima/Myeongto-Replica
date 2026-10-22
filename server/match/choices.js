@@ -28,7 +28,8 @@
 //   shop    机密商店  at the rounds of choices.json `shopDraft` (R11: the 4 official 机密商店; the user: "机密商店按官方改
 //                     成可以重复吧"): six slots, each drawn on its own — with replacement, so the same item can be
 //                     offered twice (official: 盟约之币 ×2, 变形同构体 ×2): VI, VI, V, 盟约之币 and twice V / IV / III /
-//                     盟约之币, an item within its tier by `itemWeights` (solo: 3 of the 6 slots [ASSUMED]); other rounds
+//                     盟约之币, an item within its tier by `itemWeights` (solo: 3 of the 6 slots [ASSUMED]; 8 players: the six slots twice,
+//                     maintainer decision 2026-10-22); other rounds
 //                     (标准 / 险境, no screenshot) and without `shopDraft`: random normal EQUIP shop items of any tier I–VI,
 //                     each card on its own (duplicates allowed) [ASSUMED]. FREE — the official card text is "无需消耗资金，获得装备
 //                     补给" (research 01 A4/04 addendum), so the price is 0. Two identical cards are two cards: picks,
@@ -344,7 +345,10 @@ export function shopDraftCards(gd, rng, n, round = null, itemAvailable = null) {
     return free(eligibleItems(gd, 1, 6));
   };
   const out = [];
-  for (const slot of slots) {
+  // an 8-player match asks for 12: the six slots are drawn twice (maintainer decision 2026-10-22; six cards left the
+  // seventh and eighth players without one)
+  for (let i = 0; i < Math.max(slots.length, n); i++) {
+    const slot = slots[i % slots.length];
     const kinds = Object.entries(slot).filter(([k]) => k === 'coin' ? !!coin : Number.isInteger(Number(k)));
     const kind = weightedPick(rng, kinds);
     if (kind == null) continue;
