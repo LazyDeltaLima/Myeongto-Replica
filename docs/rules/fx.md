@@ -2458,3 +2458,28 @@
   패스 상태」) · `FxLODSetting` 37 · Shape Mesh 36(점으로 대체) · 기본 상태 밖 Animator 클립 23 · 클립이 움직이는 입자 모듈 값·트레일 길이·UV 흐름 속도(`EmptyEffect`·`OnPlayEmitter` /
   `OnFinishEmitter`·`PauseEffectIf` 등 멈춤·끝 스크립트는 2026-10-21에 읽음 — 위 「OnPlayEmitter · OnFinishEmitter」·「이펙트 멈춤·끝 조건」). 재질에 저장 안 된 셰이더 속성을 움직이는 트랙은 2026-10-21에 고침(아래
   「RandomEmitter · FlyToPredefinedLocation」의 셋째 항목).
+
+### 바인딩 표 — 손 표를 클라 키로 대조 (2026-10-22, 관리자 결정 2026-10-22)
+
+- 무엇: 손으로 쓴 이펙트 표의 항목마다 그 항목이 가리키는 클라 키를 `cite`(`render/fx/cite.js`)로 단다 — `kitofficial.js KIT_OFFICIAL`, `fxstatus.js`
+  (`STATUS_FX`의 오퍼 버프 셋·`SOURCE_FX`·`KEY_FX`·`LAYER_FX`·`STACK_FX`·`END_FX`), `fxmap.js`(`TALENT_ALWAYS`·`NOTE_FX`·`DEPLOY_FX`). 렌더는 `src`를
+  읽지 않는다(동작·이펙트 골든 그대로). `fxgame.js` 함수 안의 프리팹 이름은 테스트의 옆 목록 `FXGAME`(이름 → 클라 키)에 둔다. 키는 버프 템플릿·버프
+  키(`horn_t_1[muso]` — 그 템플릿이 만드는 버프까지), 투사체(`projectile_chr_ines_guard`), 프리팹 경로(`char_1046_sbell2/Others/Direction/Talents/1/
+  SnowAccumulation` — 그 아래 GameObject까지).
+- 표는 출처로 나눈다(관리자 결정 2026-10-22):
+  - 버프 템플릿 행: `tools/build-fx-templates.mjs`가 공개 데이터셋 Kengxxiao ArknightsGameData `gamedata/battle/buff_template_data.json`(en_US에 있으면
+    그것, 없으면 zh_CN — 행에 `cn: true`)에서 만든다 → `tools/assets/fx-templates.json`(추적; 클라 없이 테스트가 돈다). build-data와 따로 둔 까닭: 게임이 읽는
+    데이터가 아니라 검사용이고 원본이 둘 합쳐 약 45 MB. 범위는 풀 오퍼·토큰 코드로 시작하는 템플릿, 스킬·재능·모듈 블랙보드가 가리키는 템플릿, 모드 공통
+    (원소 폭발·战场#06 沙尘暴·알리스테어 장비), 그리고 그것들이 부르는 템플릿·소환하는 적의 템플릿. 행 `{ key, src, moment, kind, fx, target, life, conds }` —
+    `conds`는 조건 노드 이름만(방향·스킬 번호·모드·스택 수·버프 키는 괄호에 하나), 노드 트리는 옮기지 않는다.
+  - 클라 전용 행(`abilityBuff` 능력이 쥔 버프 · `ability` 이미터와 이펙트 필드 · `projectile` · `token`): `tools/local-extract/fx_bindings.py`가 로컬 클라
+    (EN, EN에 없는 것은 `--cn`)에서 `public/assets/local/fx/bindings.json`으로 — git이 무시하고 공개하지 않는다.
+- 검사(`test/render/fx-bindings.test.js`, 판단은 `test/helpers/fxBindings.js`): 인용한 키의 행(그 키가 만드는 버프, 그 버프의 템플릿까지 따라감)에 항목의
+  프리팹이 있고, 수명(한 번 / 지속, LIMITED 초)과 쪽(능력 버프의 OWNER / TARGET)이 맞는가. 어긋남은 `KNOWN`에 종류와 이유로 — 고치면 그 줄을 지운다.
+  클라 전용 표가 없으면(클라우드·CI) 템플릿 행으로 보이는 것만 판단한다.
+- 아무것도 안 트는 행: 같은 테스트의 `UNPLAYED`(템플릿 행, `key|prefab` → 조건 없음 / 렌더가 판단할 수 있는 조건 / 그 밖 조건 / 방향 사본 / 다른 프리팹이
+  내보냄) — 추출 이펙트 목록(`index.json`)이 있을 때만 돈다. 렌더 코드의 이름, 공격 모드 바인딩, 이름 규칙, 손 표가 만드는 이름을 「튼다」로 센다.
+  클라 전용 행의 목록은 관리자 노트에.
+- 갱신: `node tools/build-fx-templates.mjs`(`--offline`은 캐시로), `.venv-extract/bin/python tools/local-extract/fx_bindings.py --cn <CN Arknights_Data>`.
+- 한계 [추정]: 정적 추출이라 「이 키가 이 순간 (이 조건에서) 이 프리팹을 만들 수 있다」까지만 안다. 코드 접두사 범위에는 같은 코드의 다른 모드 템플릿이
+  섞일 수 있다(`UNPLAYED`는 풀 번들의 추출 프리팹인 행만 센다).
