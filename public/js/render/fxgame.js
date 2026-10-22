@@ -72,6 +72,7 @@ import { fxSpec } from './fx.js'; // local patch: the stand-in archetype of a ki
 import { SHOT_HEIGHT } from './fx.js'; // local patch: a trail's start without a muzzle point
 import { boneMissing, liftedPoint, loadPoints, mountSpawn, pointKey, pointOn, pointTurn } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
 import { GRAPHIC_TILT, takesGraphicTurn } from './fxpoints.js'; // 2026-10-22: an effect on a unit takes its Graphic's X −30°
+import { MODEL_PLACE, modelOffset } from './fxpoints.js'; // 2026-10-22: 望's 棋子 model stands at its prefab's place (the ball)
 import { enemyProjSpeed, enemyShot } from './fx/speeds.js'; // 2026-10-10: an enemy shot's record / flight time (data/enemies.json `proj`)
 import { shotSpeedOf } from './fx/projectiles.js'; // 2026-10-16: an operator shot's flight time (data/chess.json `shot`)
 import { opShot } from './fx/speeds.js'; // 2026-10-21: a skill's own shot record (skillShotOut)
@@ -976,14 +977,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // to edge of the stone's tile, about its middle (8–10 px of a ~250 px tile above it); lifted to the ball it sat 0.15 tile
   // up the tile and slid off it by the perspective, so STONE_BORN plays on the ground again (the 跟子's rings are
   // `_effectsToTileWhenStart` too). The activation wisps and the link line stay on the ball (the wisps wrap it in the capture).
-  const STONE_BALL = 0.18;
+  // 2026-10-22 (docs/rules/render.md 「모델 위치값」): STONE_BALL is the ball above the MODEL's root, and the model stands
+  // at its prefab's FaceSwitcher place (units.js modelDY / modelDZ, fxpoints.js MODEL_PLACE) — about 0.16 tile below the
+  // stone's point on screen, so the ball is ~0.02 tile above it, where the 跟子's `qizi (1)` is
+  const STONE_BALL = 0.18, STONE_FACE = modelOffset(MODEL_PLACE[STONE].face);
   // (maintainer report 2026-10-16: the effects on the balls slid off them toward the board's edges) The ball is drawn
   // straight above the stone's root on screen (an upright billboard), but a point raised in world z drifts away from the
   // screen centre under the perspective camera (≈ 0.04 tile per column off centre at the ball's height): the world point
   // whose projection IS the drawn ball comes from fxpoints.js liftedPoint, as a model point's does.
   const BALL_P = { x: 0, y: 0, s: 0, depth: 0 }, BALL_Q = { x: 0, y: 0, s: 0, depth: 0 };
-  /** World point of a stone's ball centre at (x, y) on ground z0: drawn STONE_BALL tile above the root on screen. */
-  const ballAt = (x, y, z0, out = { x: 0, y: 0, z: 0 }) => {
+  /** World point of the ball centre of a stone at (x, y) on ground z0: drawn STONE_BALL tile above its model's root on screen. */
+  const ballAt = (x0, y0, g0, out = { x: 0, y: 0, z: 0 }) => {
+    const x = x0 + STONE_FACE.dx, y = y0 + STONE_FACE.dy, z0 = g0 + STONE_FACE.dz;
     if (!camRef || typeof camRef.project !== 'function') { out.x = x; out.y = y; out.z = z0 + STONE_BALL; return out; }
     const r = camRef.project(x, y, z0, BALL_P);
     return liftedPoint(camRef, x, y, z0, r.y, r.x, r.y - STONE_BALL * r.s, out, BALL_Q);

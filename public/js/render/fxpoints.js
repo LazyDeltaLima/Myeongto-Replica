@@ -104,6 +104,32 @@ export function pointTurn(entry, sk, back) {
 export const GRAPHIC_TILT = Object.freeze([-0.25881905, 0, 0, 0.96592583]);
 
 /**
+ * Where a unit's model and shadow sit in its battle prefab, by unit key (maintainer decision 2026-10-17: 望's placed 棋子
+ * first, the other operators' and tokens' later — their prefabs carry the same values). `face`: the localPosition of
+ * `Graphic/DefaultSkin/FaceSwitcher` (Unity units = tiles) in the Graphic's frame, turned by GRAPHIC_TILT; `shadow`:
+ * `Others/Shadow/Sprite` (`Others` is not turned) — its localPosition on the board (`at`: columns, rows) and its size there
+ * in tiles (`sprite_shadow`, 507 × 162 px at 100 px a unit, × its scale). token_10064_wang_stone1: EN client
+ * pkgrps/btl_pfb_tokens_4.ab — FaceSwitcher (0, −0.16, −0.1) at scale 0.27, the shadow (0, −0.17, 0) at scale 0.12.
+ */
+export const MODEL_PLACE = Object.freeze({
+  token_10064_wang_stone1: Object.freeze({
+    face: Object.freeze([0, -0.16, -0.1]),
+    shadow: Object.freeze({ at: Object.freeze([0, -0.17]), w: 5.07 * 0.12, h: 1.62 * 0.12 }),
+  }),
+});
+
+/**
+ * A FaceSwitcher position `face` (MODEL_PLACE) on the board: { dx: columns, dy: rows, dz: height }. The Graphic's X −30°
+ * turns Unity (y, z) into (y cos 30° + z sin 30°, z cos 30° − y sin 30°), and Unity's z points into the board (the height
+ * is its negative): (0, −0.16, −0.1) → 0.189 rows toward the camera and 0.007 up, about 0.16 tile lower on screen.
+ */
+export function modelOffset(face) {
+  const c = Math.cos(Math.PI / 6), s = Math.sin(Math.PI / 6);
+  const [x, y, z] = face;
+  return { dx: x, dy: y * c + z * s, dz: y * s - z * c };
+}
+
+/**
  * Whether an effect created on a unit takes its `Graphic`'s rotation (GRAPHIC_TILT). 2026-10-22, decompile check:
  * `Effect._InitLocationFromEntity` (RVA 0xE7AF80; its switch is indexed by `_spawnLocation` − 1) sets the effect's
  * rotation to the rotation of `graphicFootTransform` for 1 FOOT_POINT, of `graphicTransform` for 2 HIT_POINT / 4

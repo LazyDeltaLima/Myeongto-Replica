@@ -950,6 +950,8 @@
   `EffectBehaviour`(`_effectsToTileWhenStart` 칸 이펙트·`_effectOnTrigger`·`_effectsWhenHit`)와 던짐 `WangVisualStoneMarkAbility`(ProjectileToTile)의
   `_startEffect`뿐. 고친 것: 跟子(`follower`, 공식 돌 이펙트가 돌 때)의 연결선·활성 이펙트는 칸 점에(올림 없음), 놓은 棋子는 그대로 공에. 확인: 아레나
   2배 픽셀 잘라 보기 — 휘감김이 공을 감싸고 연결선 십자가 공 중심을 지나 공식 캡처(비공개 조사 기록 2026-10-07 「공식 바둑알 빛 위치」)와 같은 배치.
+  2026-10-22: 놓은 棋子 모델이 프리팹의 FaceSwitcher 자리로 내려가(render.md 「모델 위치값·그림자」) 공이 칸 점 ±0.05칸 — 跟子의 공과 같은 높이.
+  `ballAt`은 옮긴 모델 뿌리에서 `STONE_BALL` 0.18을 올리므로 놓은 棋子의 활성 이펙트·연결선 끝도 같이 내려간다(跟子 쪽은 그대로).
 
 ### 적 이펙트 바인딩 (2026-10-10, 관리자 결정 (2026-10-10))
 근거: EN 클라 적 프리팹 `battle/enm_pfb_*.ab`, `[uc]projectiles.ab`, `config/buff_template_holder.ab`(버프 템플릿), 이펙트 번들 `pkgrps/btl_pfb_fx_enemy_*.ab`·

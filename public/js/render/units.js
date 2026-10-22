@@ -80,6 +80,7 @@ import { EliteRing, eliteBadgeTexture, ELITE_BADGE } from './elite-mark.js'; // 
 import { faceOf, turnFace, turnWidth, dirVector, NEAR_SQ, SWITCH_TIME } from './face-turn.js'; // an operator turns to its target (「공격 방향」)
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2's glide: when her model is back
 import { syncHeldWeapon } from './heldWheel.js'; // local patch: a 回环射手's boomerang in her hand (Spine skin 'Bullet')
+import { MODEL_PLACE, modelOffset } from './fxpoints.js'; // 2026-10-22: a model's place and shadow in its battle prefab
 import { ElementRing, epRingReady, AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, prepChip, PREP_CHIP, EquipBar, equipTextures, shieldedBar, SkillMark } from './hud-bars.js'; // local patch: official battle HUD
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -717,6 +718,12 @@ export class UnitView {
     // (the Graphic's sx is negative, so the official draws the authored model flipped: 木制瑞印)
     this.modelKY = this.isEnemy ? enemyModelScaleY(def) : 1;
     this.modelDX = this.isEnemy ? MODEL_SHIFT[info.defId] || 0 : 0; // MODEL_SHIFT [ASSUMED]
+    // its battle prefab's FaceSwitcher place and shadow (fxpoints.js MODEL_PLACE: 望's 棋子 so far): the model is drawn that
+    // far from its unit's point, the shadow where the prefab puts it, at its size
+    this.modelPlace = MODEL_PLACE[info.defId] || null;
+    const off = this.modelPlace ? modelOffset(this.modelPlace.face) : null;
+    this.modelDY = off ? off.dy : 0;
+    this.modelDZ = off ? off.dz : 0;
     this.mirrorX = this.isEnemy && !!(def && def.mirrorX);
     this.isToken = info.kind === 'token';
     this.golden = !!info.golden;
@@ -1747,7 +1754,7 @@ export class UnitView {
     this.lunge = Math.max(0, this.lunge - dt * 5);
     const lx = this.lungeDir.x * lungeK, ly = this.lungeDir.y * lungeK;
     let bx = p.x, by = p.y;
-    if (lungeK || this.modelDX) { const q = cam.project(this.x + this.modelDX + lx, this.y + ly, this.z + this.hover + this.lift, LG_P); bx = q.x; by = q.y; }
+    if (lungeK || this.modelDX || this.modelDY || this.modelDZ) { const q = cam.project(this.x + this.modelDX + lx, this.y + this.modelDY + ly, this.z + this.modelDZ + this.hover + this.lift, LG_P); bx = q.x; by = q.y; }
     this.root.position.set(bx, by);
     this.root.alpha = alpha;
     this.root.zIndex = unitDepthKey(cam, this.x, this.y, this.lift);
@@ -1760,10 +1767,17 @@ export class UnitView {
     // flyer's lies on the tile under it while its body hovers from the road (shadowZ, GitHub #277)
     const shz = this.shadowZ ?? this.z;
     placeOnGround(this.ctx, this.shadow, this.ctx.layers.shadow, this.y, shz);
-    const sh = cam.project(this.x + this.modelDX, this.y, shz, SH_P);
+    const ps = this.modelPlace?.shadow;
+    const sh = cam.project(this.x + this.modelDX + (ps ? ps.at[0] : 0), this.y + (ps ? ps.at[1] : 0), shz, SH_P);
     this.shadow.position.set(sh.x, sh.y);
-    const shw = s * (this.isBoss ? 1.6 : 0.95) / this.shadow.texture.width;
-    this.shadow.scale.set(shw, shw * (this.shadow.texture === shadowTexture() ? 1 : 1.05));
+    if (ps) {
+      // the prefab's shadow sprite lies on the board: its width in tiles, its depth along the rows as the camera shows it
+      const tex = this.shadow.texture, far = cam.project(this.x + this.modelDX + ps.at[0], this.y + ps.at[1] + ps.h / 2, shz, SH_Q);
+      this.shadow.scale.set((ps.w * sh.s) / tex.width, (2 * Math.abs(sh.y - far.y)) / tex.height);
+    } else {
+      const shw = s * (this.isBoss ? 1.6 : 0.95) / this.shadow.texture.width;
+      this.shadow.scale.set(shw, shw * (this.shadow.texture === shadowTexture() ? 1 : 1.05));
+    }
     // 深水区: hidden under the water (DEEP_SHADOW_FADE)
     const dry = this.isEnemy && this.z < 0 ? Math.max(0, 1 + this.z / DEEP_SHADOW_FADE) : 1;
     this.shadow.alpha = this.bodyless ? 0 : 0.5 * alpha * (this.lift > 0 ? 0.6 : 1) * dry;
@@ -2377,6 +2391,7 @@ export class UnitView {
 }
 
 const SH_P = { x: 0, y: 0, s: 0, depth: 0 };
+const SH_Q = { x: 0, y: 0, s: 0, depth: 0 };
 const FA_P = { x: 0, y: 0, s: 0, depth: 0 };
 const FA_C = { x: 0, y: 0, s: 0, depth: 0 };
 const LG_P = { x: 0, y: 0, s: 0, depth: 0 };

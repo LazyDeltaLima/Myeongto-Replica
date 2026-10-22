@@ -32,8 +32,8 @@ test('MODEL_SHIFT moves the hidden 管\'s body and shadow, not its unit', async 
     assert.deepEqual({ ...MODEL_SHIFT }, { enemy_9021_acduml_2: 1 });
   } finally { fake.restore(); }
   assert.match(SRC, /this\.modelDX = this\.isEnemy \? MODEL_SHIFT\[info\.defId\] \|\| 0 : 0;/);
-  assert.match(SRC, /cam\.project\(this\.x \+ this\.modelDX \+ lx, this\.y \+ ly,/);
-  assert.match(SRC, /const sh = cam\.project\(this\.x \+ this\.modelDX, this\.y, shz, SH_P\);/);
+  assert.match(SRC, /cam\.project\(this\.x \+ this\.modelDX \+ lx, this\.y \+ this\.modelDY \+ ly,/);
+  assert.match(SRC, /const sh = cam\.project\(this\.x \+ this\.modelDX \+ \(ps \? ps\.at\[0\] : 0\), this\.y \+ \(ps \? ps\.at\[1\] : 0\), shz, SH_P\);/);
 });
 
 test('fxgame places effects, shots and line ends of a shifted model at its drawn column (mx)', () => {
