@@ -6,13 +6,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as F from '../../public/js/render/fxstatus.js';
+import { PLAYS } from '../helpers/fxPlays.js';
 import { kitOfficialPlan } from '../../public/js/render/fx/kitofficial.js';
 import { UnitView } from '../../public/js/render/units.js';
 
 const view = (spine, key, extra = {}) => ({
   info: { spine, defId: spine }, isEnemy: false, alive: true, flags: 0, statuses: new Set([key]), statusFrom: new Map([[key, { src: null, fx: null, n: 0 }]]), ...extra,
 });
-const names = (v) => [...F.wantedStatusFx(v, new Map()).values()].map((s) => s[1]).sort();
+const names = (v) => [...F.wantedStatusFx(v, new Map(), null, PLAYS).values()].map((s) => s[1]).sort();
 /** `v`'s effects after the kit's fx 'stacks' { n, ...o } of `key` (UnitView.onStatusCount). */
 const at = (v, key, n, o = {}) => { UnitView.prototype.onStatusCount.call(v, key, n, { n, ...o }); return names(v); };
 

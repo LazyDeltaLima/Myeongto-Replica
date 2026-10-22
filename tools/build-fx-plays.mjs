@@ -6,13 +6,16 @@
 // The prefabs come from the binding table — the template rows (tools/assets/fx-templates.json, tracked) and the client-only
 // rows (public/assets/local/fx/bindings.json, git-ignored) — through this file's output, beside the extracted effects:
 // public/assets/local/fx/plays.json (git-ignored like them; render/fxgame.js loads it with modes.json). Per key cited by
-// a KIT_OFFICIAL plan, its rows with no condition whose prefab is extracted, by role:
+// a hand effect table (a KIT_OFFICIAL plan, an fxstatus.js spec, fxmap.js TALENT_ALWAYS / NOTE_FX), its rows with no
+// condition whose prefab is extracted, by role:
 //   held  shown as long as the buff / the ability (a created buff's effect, an ability's `_effects`, a cast held to its end,
-//         a template effect held by its source) — the plan's `life` says how long
+//         a template effect held by its source) — the plan's `life` says how long, a status spec shows it with its buff
 //   once  created once at that moment (a template's ON_BUFF_START CreateEffect, a one-shot cast, an IMMEDIATELY buff)
 //   end   created as the buff ends (ON_BUFF_FINISH / ON_OWNER_FINISH) — the held play's `end` with life 'unit'
 //   lim   the held buffs' LIMITED lifetime in seconds when they all share one (the plan's life when it gives none)
-// Rows at other moments (an attack's hit, a projectile's flight, ON_TAKE_DAMAGE …) are not a key's plays.
+//   trail / reach / hit  a projectile's `_mainEffect` (its flight), `_effectsWhenReached` (where it lands),
+//         `_effectsWhenHit` (on what it strikes) — only when it has one
+// Rows at other moments (an attack's hit, ON_TAKE_DAMAGE, a projectile's other fields …) are not a key's plays.
 //
 // Usage: node tools/build-fx-plays.mjs [--out <file>]   (after tools/build-fx-templates.mjs or fx_bindings.py; the
 //   binding test checks the file is current when the client-only rows are present)
@@ -21,6 +24,8 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { KIT_OFFICIAL } from '../public/js/render/fx/kitofficial.js';
+import { STATUS_FX, SOURCE_FX, KEY_FX, LAYER_FX, STACK_FX, END_FX } from '../public/js/render/fxstatus.js';
+import { TALENT_ALWAYS, NOTE_FX } from '../public/js/render/fxmap.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const LOCAL = join(ROOT, 'public/assets/local/fx');
@@ -60,9 +65,14 @@ export function rowsFor(keys, rows) {
   return [...out];
 }
 
-/** A row's role as a key's play ('held' | 'once' | 'end'), or null when it plays at another moment. */
+/** A projectile field → its role as a key's play. */
+const PROJECTILE_ROLE = Object.freeze({ _mainEffect: 'trail', _effectsWhenReached: 'reach', _effectsWhenHit: 'hit' });
+const ROLES = Object.freeze(['held', 'once', 'end', 'trail', 'reach', 'hit']);
+
+/** A row's role as a key's play ('held' | 'once' | 'end' | 'trail' | 'reach' | 'hit'), or null when it plays at another moment. */
 export function playRole(r) {
   const m = r.moment || '';
+  if (r.src === 'projectile') return PROJECTILE_ROLE[m] || null;
   if (/^ON_(BUFF|OWNER)_FINISH$/.test(m)) return 'end';
   if (r.kind === 'buff') return r.life === 'IMMEDIATELY' ? 'once' : 'held';
   if (r.src === 'template') return m === 'ON_BUFF_START' ? (r.life === 'hold' ? 'held' : 'once') : null;
@@ -73,10 +83,13 @@ export function playRole(r) {
   return null;
 }
 
-/** The plays of one client key: { held, once, end, lim? } (prefab names sorted), or null when it has none. */
+/**
+ * The plays of one client key: { held, once, end, lim?, trail?, reach?, hit? } (prefab names sorted; the projectile roles
+ * only when not empty), or null when it has none.
+ */
 export function keyPlays(key, rows, index) {
   const known = index?.bundles ? new Set(Object.values(index.bundles).flat().map((n) => n.toLowerCase())) : null;
-  const out = { held: new Set(), once: new Set(), end: new Set() };
+  const out = Object.fromEntries(ROLES.map((k) => [k, new Set()]));
   const lims = new Set();
   for (const r of rowsFor([key], rows)) {
     if (!r.fx || (r.conds || []).length || (known && !known.has(r.fx.toLowerCase()))) continue;
@@ -85,15 +98,21 @@ export function keyPlays(key, rows, index) {
     out[role].add(r.fx);
     if (role === 'held') lims.add(/^LIMITED:([\d.]+)$/.exec(r.life || '')?.[1] ?? '-');
   }
-  if (!out.held.size && !out.once.size && !out.end.size) return null;
+  if (ROLES.every((k) => !out[k].size)) return null;
   const lim = lims.size === 1 && !lims.has('-') ? Number([...lims][0]) : null;
-  return { held: [...out.held].sort(), once: [...out.once].sort(), end: [...out.end].sort(), ...(lim > 0 ? { lim } : {}) };
+  const shot = Object.fromEntries(['trail', 'reach', 'hit'].filter((k) => out[k].size).map((k) => [k, [...out[k]].sort()]));
+  return { held: [...out.held].sort(), once: [...out.once].sort(), end: [...out.end].sort(), ...(lim > 0 ? { lim } : {}), ...shot };
 }
 
-/** Every client key a KIT_OFFICIAL plan cites (its `src`). */
+/** Every client key a hand effect table cites (the `src` of its entries: render/fx/cite.js), nested entries included. */
 export function citedKeys() {
   const keys = new Set();
-  for (const by of Object.values(KIT_OFFICIAL)) for (const fn of Object.values(by)) for (const k of fn?.src || []) keys.add(k);
+  const walk = (v, depth = 0) => {
+    if (!v || (typeof v !== 'object' && typeof v !== 'function') || depth > 3) return;
+    for (const k of v.src || []) keys.add(k);
+    if (typeof v === 'object') for (const x of Object.values(v)) walk(x, depth + 1);
+  };
+  for (const t of [KIT_OFFICIAL, STATUS_FX, SOURCE_FX, KEY_FX, LAYER_FX, STACK_FX, END_FX, TALENT_ALWAYS, NOTE_FX]) walk(t);
   return [...keys].sort();
 }
 
@@ -107,7 +126,7 @@ export function buildPlays(tables = bindingRows()) {
   }
   return {
     $comment: 'Generated by tools/build-fx-plays.mjs from the binding tables (the template rows and the client-only rows): '
-      + 'the plays of each client key a render/fx/kitofficial.js plan cites. Git-ignored like the extracted effects.',
+      + 'the plays of each client key a hand effect table of render/ cites. Git-ignored like the extracted effects.',
     keys,
   };
 }

@@ -13,6 +13,8 @@ import { KIT_OFFICIAL, kitOfficialPlan, kitOperator, tplPlays } from '../../publ
 import { keyPlays } from '../helpers/fxBindings.js';
 import { createFxLayer, buffProgressOn } from '../../public/js/render/fxgame.js';
 import { activationEffects } from '../../public/js/render/fxmap.js';
+// the fixed plays of the client keys the cases assert (they run without the client-only rows)
+import { PLAYS as FIXED } from '../helpers/fxPlays.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const GAME = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
@@ -175,11 +177,13 @@ test('kitOfficialPlan: the moments and lifetimes of the templates', () => {
   assert.deepEqual(rc.play.slice(1).map((x) => [x.n, x.on, x.after]), [['ines_skill_03_getLabel_01', 'op', 'fly'], ['ines_skill_03_getLabel_range_01', 'op', 'fly']]);
   // 琳琅诗怀雅 S3's end: her S3_End mode's casts (2026-10-21), and a coin at each paid enemy, 0.07 s apart; her other coin
   // events have no rule
-  const ends = ['swire2_skill_03_start_03', 'swire2_skill_03_start_03_02', 'swire2_skill_03_range'].map((n) => ({ n, cast: true }));
-  assert.deepEqual(kitOfficialPlan('coin', { id: 1, n: 0, skill: 'swire2_3', targets: [5, 6] }, 'swire2').play,
+  // (2026-10-23) by their client keys: the S3_End trigger's held casts, the coin projectile's `_mainEffect` / `_effectsWhenHit`
+  const ends = ['swire2_skill_03_range', 'swire2_skill_03_start_03', 'swire2_skill_03_start_03_02'].map((n) => ({ n, cast: true, life: undefined }));
+  assert.deepEqual(kitOfficialPlan('coin', { id: 1, n: 0, skill: 'swire2_3', targets: [5, 6] }, 'swire2', { plays: FIXED }).play,
     [...ends, { n: 'swire2_skill_03_trail', fly: 8, to: 'targets', gap: 0.07, hit: ['swire2_skill_03_hit_02'] }]);
   assert.equal(kitOfficialPlan('coin', { id: 1, n: 3 }, 'swire2'), null);
-  assert.deepEqual(kitOfficialPlan('coin', { id: 1, n: 0, skill: 'swire2_3', targets: [] }, 'swire2').play, ends);
+  assert.deepEqual(kitOfficialPlan('coin', { id: 1, n: 0, skill: 'swire2_3', targets: [] }, 'swire2', { plays: FIXED }).play, ends);
+  assert.deepEqual(kitOfficialPlan('coin', { id: 1, n: 0, skill: 'swire2_3', targets: [5] }, 'swire2').play, [], 'without the plays: none');
   // 歌蕾蒂娅 S3's end: the 捕网 harpoon out 0.3 s and back 1 s, its reach effect where it lands
   const gp = kitOfficialPlan('pull', { id: 1 }, 'glady');
   assert.deepEqual(gp.play[0], { n: 'glady_skill_03_line', harpoon: { out: 0.3, back: 1, moving: 'glady_skill_03_range_04' } });
@@ -239,9 +243,11 @@ test('kitOfficialPlan: the moments and lifetimes of the templates', () => {
   assert.deepEqual(rf.stop, ['mudSleep']);
   assert.deepEqual(rf.play.map((x) => [x.n, x.life]), [['mudrok_skill_03_awake', 'once'], ['mudrok_skill_03_awake_02', 'once'], ['mudrok_skill_03_buff', 'skill']]);
   // 新约能天使: S3's shot flies to her coordinate and its reach effect waits for it; the talent bomb hits the marked enemy
-  const as = kitOfficialPlan('airstrike', { id: 1, signal: 'fireToToken' }, 'angel2');
+  const as = kitOfficialPlan('airstrike', { id: 1, signal: 'fireToToken' }, 'angel2', { plays: FIXED });
   assert.deepEqual(as.play, [{ n: 'angel2_skill_3_begin_start_001', on: 'op', life: 'once' }, { n: 'angel2_skill_3_begin_trail_01', fly: 10 }, { n: 'angel2_skill_3_begin_range_01', on: 'point', life: 'once', after: 'fly' }]);
   assert.deepEqual(kitOfficialPlan('airstrike', { id: 1, tgt: 9 }, 'angel2').play, [{ n: 'angel2_buff_01_trail_01', on: 'tgt', life: 'once' }]);
+  // 寒檀 S2's icicle: projectile_chr_sntlla_s2's `_effectsWhenReached` where it lands (its `_effectsWhenHit` is no kit event's)
+  assert.deepEqual(kitOfficialPlan('iceSpike', { id: 1, x: 2, y: 3 }, 'sntlla', { plays: FIXED }).play, [{ n: 'sntlla_skill_02_start_01', on: 'point', life: 'once' }]);
   // … and her S3 attacks no longer play that cast (char_modes.py TOKEN_FIRE: S3FireToToken is not one of the mode's attacks)
   assert.ok(!MODES.char_1041_angel2.cast.flat().includes('angel2_skill_3_begin_start_001'));
   // 缪尔赛思's 流形: its switch in the token's bundle, by the copied operator's range; her id is `by`, not the copied `src`

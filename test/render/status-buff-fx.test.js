@@ -8,6 +8,7 @@ import { makeBattle, enemyRec } from '../helpers/battleHarness.js';
 import * as F from '../../public/js/render/fxstatus.js';
 import { statusIconKey } from '../../public/js/render/style.js';
 import { UF } from '../../shared/constants.js';
+import { PLAYS } from '../helpers/fxPlays.js';
 
 const DUMMY = enemyRec({ key: 'enemy_dummy', hp: 1e9, speed: 0, atk: 0 });
 const MEDIC = 'chess_char_2_02_a';   // 赫默
@@ -40,7 +41,7 @@ describe('sim: the status on-event carries the applier, the fx hint and the 护�
 describe('client: status → the official buff effect', () => {
   const unit = (spine, extra = {}) => ({ info: { spine, defId: spine }, isEnemy: false, alive: true, flags: 0, statuses: new Set(), ...extra });
   const enemy = (statuses, from) => ({ info: { defId: 'enemy_1001_bigbo' }, isEnemy: true, alive: true, flags: 0, statuses: new Set(statuses), statusFrom: new Map(from) });
-  const names = (v) => [...F.wantedStatusFx(v).values()].map((s) => s[1]).sort();
+  const names = (v) => [...F.wantedStatusFx(v, undefined, null, PLAYS).values()].map((s) => s[1]).sort();
 
   test('statusSource: the applier\'s fx code (resolved at the event), the hint and the layer count', () => {
     const views = new Map([[7, unit('char_469_indigo')]]);
@@ -102,7 +103,7 @@ describe('client: status → the official buff effect', () => {
     const op = (fx) => unit('char_002_amiya', { statuses: new Set(['terrain:sandstorm']), statusFrom: new Map([['terrain:sandstorm', { src: null, fx, n: 0 }]]) });
     assert.deepEqual(names(op('DOWN')), ['buff_desert_01', 'map_desert_03_up'], 'the m06 storm blows DOWN');
     assert.deepEqual(names(op('RIGHT')), ['buff_desert_01', 'map_desert_03_left']);
-    for (const s of F.wantedStatusFx(op('DOWN')).values()) assert.equal(s[2], F.OWN, `${s[1]} at its own spawn point`);
+    for (const s of F.wantedStatusFx(op('DOWN'), undefined, null, PLAYS).values()) assert.equal(s[2], F.OWN, `${s[1]} at its own spawn point`);
     // sand_storm[enemy]'s slow_down names no effect: not the 'slow' fallback
     assert.deepEqual(names(enemy(['terrain:sandstormSlow'], [])), []);
   });
@@ -144,7 +145,7 @@ describe('client: status → the official buff effect', () => {
     const calls = [];
     let layer = true;
     const fxGame = {
-      statusLayer: () => layer, statusReady: () => true,
+      statusLayer: () => layer, statusReady: () => true, plays: () => PLAYS,
       statusOn: (u, b, n, k) => { (u._fxStatusOn ||= new Set()).add(k); calls.push(`on:${k}`); },
       statusOff: (u, k) => { u._fxStatusOn.delete(k); calls.push(`off:${k}`); },
     };

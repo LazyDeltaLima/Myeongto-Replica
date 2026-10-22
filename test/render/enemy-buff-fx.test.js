@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { createFxLayer } from '../../public/js/render/fxgame.js';
 import * as F from '../../public/js/render/fxstatus.js';
 import { UF } from '../../shared/constants.js';
+import { PLAYS } from '../helpers/fxPlays.js';
 
 const EMODES = {
   $fx: { warden: ['b', 'warden'], killer: ['b', 'killer'], killer2: ['b', 'killer2'], inv: ['b', 'inv'], hide: ['b', 'hide'],
@@ -105,14 +106,15 @@ test('syncStatusFx: a buff\'s end effect plays once as it ends on a living unit 
   assert.equal(calls.filter((c) => c[0] === 'off').length, 2);
 });
 
-test('END_FX: 凯瑟琳\'s device shield mark and 泥岩\'s last layer end into their official end effects', () => {
-  assert.deepEqual(F.END_FX['cathy_token/token_cathy_catsld_shield_01'][0], ['cathy_token', 'token_cathy_catsld_shield_01_end', 'own']);
+test('END_FX: 凯瑟琳\'s device shield mark (its key\'s `end`) and 泥岩\'s last layer end into their official end effects', () => {
+  assert.equal(F.END_FX['cathy_token/token_cathy_catsld_shield_01'], undefined, 'the keyed spec\'s end (2026-10-23)');
+  assert.deepEqual(F.KEY_FX['cathy:shield'], ['cathy_token', { tpl: 'catsld_t_1[shield_mark]' }, 0]);
   assert.deepEqual(F.END_FX['mudrok/mudrok_buff_03_start'][0], ['mudrok', 'mudrok_buff_01_end', 'own']);
   // the layer it hangs on is the last one LAYER_FX keeps (its first)
   assert.equal(F.LAYER_FX['mudrok:layers'][0][1], 'mudrok_buff_03_start');
   const calls = [];
   const fxGame = {
-    statusLayer: () => true, statusReady: () => true,
+    statusLayer: () => true, statusReady: () => true, plays: () => PLAYS,
     statusOn: (v, b, n, k) => { (v._fxStatusOn ||= new Set()).add(k); },
     statusOff: (v, k) => { v._fxStatusOn.delete(k); },
     statusOnce: (v, b, n) => calls.push(n),

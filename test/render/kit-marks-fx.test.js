@@ -15,14 +15,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createFxLayer } from '../../public/js/render/fxgame.js';
 import { kitOfficialPlan } from '../../public/js/render/fx/kitofficial.js';
+// the plays of the kit plans' client keys (tools/build-fx-plays.mjs plays.json) these cases use
+import { PLAYS } from '../helpers/fxPlays.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const MODES = JSON.parse(readFileSync(path.join(ROOT, 'tools/assets/local-char-modes.json'), 'utf8'));
-// the plays of the kit plans' client keys (tools/build-fx-plays.mjs plays.json) these cases use
-const PLAYS = { keys: {
-  'icetgt_a[effect]': { held: ['sbell2_tile_frozen'], once: [], end: ['sbell2_tile_defrost'] },
-  'kalts2_s_3[withdraw]': { held: [], once: ['kalts2_skill_03_teleport_02'], end: [] },
-} };
 
 test('char_modes.py: 深靛\'s ChargableAttackGroup — a held effect per stored energy, the store\'s cast', () => {
   assert.deepEqual(MODES.char_469_indigo.charge, {
@@ -35,8 +32,8 @@ test('kitofficial: the plans of the frozen point, the S3_End casts, the 待投�
   assert.deepEqual(kitOfficialPlan('summon', { id: 7, src: 1, token: 'token_10058_sbell2_icetgt' }, 'sbell2', { plays: PLAYS }).play,
     [{ on: 'id', life: 'unit', n: 'sbell2_tile_frozen', end: 'sbell2_tile_defrost' }]);
   assert.equal(kitOfficialPlan('summon', { id: 7, src: 1, token: 'token_x' }, 'sbell2'), null);
-  assert.deepEqual(kitOfficialPlan('coin', { id: 1, skill: 'swire2_3', targets: [] }, 'swire2').play.map((p) => p.n),
-    ['swire2_skill_03_start_03', 'swire2_skill_03_start_03_02', 'swire2_skill_03_range'], 'coins or not');
+  assert.deepEqual(kitOfficialPlan('coin', { id: 1, skill: 'swire2_3', targets: [] }, 'swire2', { plays: PLAYS }).play.map((p) => p.n),
+    ['swire2_skill_03_range', 'swire2_skill_03_start_03', 'swire2_skill_03_start_03_02'], 'coins or not');
   assert.equal(kitOfficialPlan('coin', { id: 1, n: 2 }, 'swire2'), null, 'a coin gained: nothing');
   assert.deepEqual(kitOfficialPlan('kalts2Mark', { id: 1, ids: [5], off: [4] }, 'kalts2').play,
     [{ slot: 'mark4', off: true }, { n: 'kalts2_skill_03_indicator_head_01', unit: 5, slot: 'mark5' }]);
@@ -98,7 +95,7 @@ test('琳琅诗怀雅 S3\'s end: the S3_End casts on her even without coins', ()
   const views = new Map([[1, unit(1, 'ally', 'char_1033_swire2')]]);
   layer.onEvent(['fx', 'coin', 0, 0, { id: 1, n: 0, spent: 0, skill: 'swire2_3', targets: [] }], views);
   await settle();
-  assert.deepEqual(take(), ['skillStart:swire2_skill_03_start_03+swire2_skill_03_start_03_02+swire2_skill_03_range']);
+  assert.deepEqual(take(), ['skillStart:swire2_skill_03_range+swire2_skill_03_start_03+swire2_skill_03_start_03_02']);
 }));
 
 test('凯尔希·思衡托 S3: teleport_02 on each 待投放 operator; the head marks on and off', () => withLayer(async ({ layer, unit, take }) => {

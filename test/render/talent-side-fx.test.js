@@ -14,6 +14,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createFxLayer } from '../../public/js/render/fxgame.js';
 import { modePart } from '../../public/js/render/fxmap.js';
+import { PLAYS } from '../helpers/fxPlays.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (p) => JSON.parse(readFileSync(path.join(ROOT, p), 'utf8'));
@@ -67,6 +68,7 @@ const files = {
     ines: ['ines_skill_03_label_trail_01', 'ines_skill_03_pullLabel_line_01', 'ines_skill_03_label_hit_01', 'ines_skill_03_getLabel_01', 'ines_skill_03_getLabel_range_01'],
   } },
   '/assets/local/fx/modes.json': Object.fromEntries(['char_1021_kroos2', 'char_1052_kalts2'].filter((id) => MODES[id]).map((id) => [id, BIND(id)])),
+  '/assets/local/fx/plays.json': PLAYS,   // 琳琅诗怀雅's coin by its projectile key
   '/assets/local/fx/enemy-index.json': { bundles: {} },
   '/assets/local/fx/enemy-modes.json': { $fx: {} },
 };

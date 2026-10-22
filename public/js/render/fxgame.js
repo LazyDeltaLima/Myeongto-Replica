@@ -343,8 +343,10 @@ export function yuWallPieces(dir, tiles, midX) {
 export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1, fieldRect = () => null, grid = () => null, enemyDef = () => null, unitDef = () => null, audio = () => null, standIn = () => {}, trace = null, dry = false }) {
   let index = null, modes = null, emodes = null, plays = null;
   if (typeof fetch === 'function') {
-    loadIndex().then((i) => { index = i; }); loadModes().then((m) => { modes = m; });
-    loadPlays().then((p) => { plays = p && typeof p === 'object' ? p : null; });
+    // (2026-10-23) the index with the plays: what waits for the index (the status layer, a deploy's always-on effects, the
+    // notes) finds the client keys' prefabs already there
+    Promise.all([loadIndex(), loadPlays()]).then(([i, p]) => { plays = p && typeof p === 'object' ? p : null; index = i; });
+    loadModes().then((m) => { modes = m; });
     loadEnemyModes().then((m) => { emodes = m && typeof m === 'object' ? m : null; });
   }
   let mod = null, loading = null, failed = false;
@@ -1838,7 +1840,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * Whether her notes play as official effects now — decided as the events come, so the arrow can step aside; under
    * load level 3 only while a skill runs (S1's notes count as one), like the normal-attack effects.
    */
-  const notesOn = (src, skill = false) => !!(index && q() !== 'low' && !failed && webp === true && bundleOf(src)
+  const notesOn = (src, skill = false) => !!(index && plays && q() !== 'low' && !failed && webp === true && bundleOf(src)
     && !noteBroken.has(bundleOf(src).bundle) && (skill || src._fxSkillOn || level() < 3));
   // bundles whose note trail failed to load: her attacks fall back to render/fx.js's arrow and hit effect (review
   // 2026-10-06: the arrow was dropped before anything knew the trail could load — her attacks went invisible)
@@ -1849,7 +1851,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const ownFx = new WeakSet();
   async function startNote(rec, src) {
     const b = bundleOf(src);
-    const fx = noteEffects(rec.mode, rec.fan);
+    const fx = noteEffects(rec.mode, rec.fan, plays);
     if (!b || !fx || !b.prefabs.includes(fx.trail)) { if (b) noteBroken.add(b.bundle); return; }
     if (!(await ensure())) return;
     const def = await lib.load(b.bundle, fx.trail);
@@ -1889,7 +1891,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (o.e === 'track') { rec.state = 'track'; rec.tgt = o.t ?? null; return; }
     if (o.e === 'free') { rec.state = 'free'; rec.tgt = null; rec.dx = Math.cos(head); rec.dy = Math.sin(head); return; }
     if (o.e === 'hit') {
-      const fx = noteEffects(rec.mode, rec.fan), b = src && bundleOf(src);
+      const fx = noteEffects(rec.mode, rec.fan, plays), b = src && bundleOf(src);
       const tgt = o.t != null ? views.get(o.t) : null;
       if (fx && b && b.prefabs.includes(fx.hit)) playNoteHit(b.bundle, fx.hit, tgt || { x, y, z: rec.z - NOTE_Z });
       const pass = NOTE_FLIGHT[rec.mode]?.pass;
@@ -4152,7 +4154,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   function alwaysOn(v, id) {
     const b = bundleOf(v);
-    const names = b ? commonEffects(bindOf(v), b.prefabs, KIT_OWNED, v?.info?.spine || v?.info?.defId) : [];
+    const names = b ? commonEffects(bindOf(v), b.prefabs, KIT_OWNED, v?.info?.spine || v?.info?.defId, plays) : [];
     if (!names.length) return;
     for (const l of live) if (l.tag === 'common' && l.owner === id) l.inst.stop(true);
     for (const n of names) spawn(b.bundle, n, v, { owner: id, buff: false, onCaster: true, until: null, tag: 'common', pinned: true }, { over: false, facing: efacing(v) });
@@ -4282,6 +4284,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     },
     /** local patch (⑤): whether the shared status prefab `bundle`/`name` can play (index loaded, not 'low', listed). */
     statusReady(bundle, name) { return !!(index && !failed && q() !== 'low' && index.bundles?.[bundle]?.includes(name) && !statusFailed.has(`${bundle}/${name}`)); },
+    /** The loaded plays.json (tools/build-fx-plays.mjs: the hand tables' client keys → prefabs), or null: fxstatus.js keyed specs. */
+    plays() { return plays; },
     /** Whether status effects can play at all (index loaded, not 'low', no WebP failure): off, units draw their status icons (fxstatus.js). */
     statusLayer() { return !!(index && !failed && q() !== 'low'); },
     /**

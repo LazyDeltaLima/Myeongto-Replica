@@ -37,6 +37,12 @@ import { cite } from './fx/cite.js';
 
 /** The client's HEAD_POINT sits a little over the drawn head (the 战栗 fist of capture 10 floats above it) [추정 share]. */
 const HEAD = 1.1;
+/**
+ * 2026-10-23 (묶음 K2, docs/rules/fx.md 「바인딩 표」 「클라 키로 재생」): a spec naming the client key `key` in its prefab slot —
+ * `[bundle, { tpl: key }, height, hold?]`: the prefabs that key's buff holds with no condition (tools/build-fx-plays.mjs
+ * `held`, public/assets/local/fx/plays.json; specsOf), and what it creates as it ends (`end`: as END_FX). None without the file.
+ */
+const keyed = (key, bundle, frac, ...rest) => Object.freeze(cite(key, [bundle, Object.freeze({ tpl: key }), frac, ...rest]));
 /** status → [bundle, prefab, height share (0 feet, .5 body, HEAD head), hold (s: frozen there — local patch)]; `stealth` takes the side's prefab. */
 export const STATUS_FX = Object.freeze({
   stun: ['buff', 'buff_stun', HEAD], freeze: ['buff', 'buff_autochess_frozen', 0], cold: ['buff', 'buff_cold', HEAD],
@@ -56,13 +62,14 @@ export const STATUS_FX = Object.freeze({
   // 空弦's 铁弦 'talent:archet_shield' — its buff archet_t_2 carries overrideEffectKey archet_buff_01_start (EN charpack
   // char_332_archet Talents/2), a looping mesh at the feet (_spawnLocation 1) while the layer holds. Other 护盾 layers have
   // no buff effect (凯尔希·思衡托's kalts2_t_2[shield]: effectKey "", overrideEffectKey null — CN client)
-  archet_shield: cite('archet_t_2', ['archet', 'archet_buff_01_start', 0]),
+  archet_shield: keyed('archet_t_2', 'archet', 0),
 });
 const ALIAS = Object.freeze({ artsFragile: 'fragile', physFragile: 'fragile', elemFragile: 'fragile' });
 
 // ---- buff effects (docs/rules/ui.md ⑤ 「버프 이펙트」; EN buff templates, charpacks, [uc]skills.ab, 2026-10-14) ----------
 // A spec is [bundle, prefab, height share] as STATUS_FX (spawn 1 feet / 5 ground → 0, 2 body → 0.5, 4 head → HEAD), or
-// OWN for the prefab's own `_spawnLocation` (its special points too: fxgame.js statusOn). These effects are keyed by
+// OWN for the prefab's own `_spawnLocation` (its special points too: fxgame.js statusOn); a `keyed` spec names the client
+// key in the prefab slot (its rows give the prefabs). These effects are keyed by
 // `bundle/prefab`: the client keeps one effect per name on a unit (Entity.AddBuffEffect refCounter).
 
 /** A spec height: where the prefab's own `_spawnLocation` puts it (fxgame.js playStatus → lifted). */
@@ -75,22 +82,25 @@ export const OWN = 'own';
  */
 export const SOURCE_FX = Object.freeze({
   bind: Object.freeze({
-    indigo: cite('indigo_t[unmovable]', ['indigo', 'indigo_buff_01_start', 0]),   // charpack S2_T1/Talents/1
-    billro: cite('billro_s_2[enhance][root]', ['billro', 'billro_skill_02_buff_03', 0]),
-    mizuki: cite('mizuki_s_2[unmovable]', ['mizuki', 'mizuki_skill_02_buff_02', 0]),
-    cetsyr: cite('cetsyr_s_2[unmoveable]', ['cetsyr', 'cetsyr_skill_02_tie', 0]),   // template, spawn 5
+    indigo: keyed('indigo_t[unmovable]', 'indigo', 0),   // charpack S2_T1/Talents/1
+    billro: keyed('billro_s_2[enhance][root]', 'billro', 0),
+    mizuki: keyed('mizuki_s_2[unmovable]', 'mizuki', 0),
+    cetsyr: keyed('cetsyr_s_2[unmoveable]', 'cetsyr', 0),   // template, spawn 5
     ines: cite('ines_t_1[enemy][unmove]', ['ines', 'ines_imprison_01', 0.5]),
-    glady: cite('skchr_glady_3/ChantAttack1', ['glady', 'glady_skill_03_buff_to_enemy', 0]),   // _activeBuffs[0]
+    glady: keyed('skchr_glady_3/ChantAttack1', 'glady', 0),   // _activeBuffs[0]
     mlyss: cite('mlyss_s_3[unmoveable]', ['mlyss_token', 'token_10030_mlyss_wtrman_c3_debuff_01', 0]),   // the 流形's S3 bind
     // qiubai_s_1[unmovable_effect]; the talent / module 落英 binds carry none
     qiubai: Object.freeze({ s1: cite('qiubai_s_1[unmovable_effect]', ['qiubai', 'qiubai_skill_01_buff', 0.5]) }),
   }),
   // 抵抗: gnosis_t_2[effect] on the 谢拉格 operators (charpack Talents/2/karlan); 寒檀's is KEY_FX 'sntlla:born'
-  resist: Object.freeze({ gnosis: cite('gnosis_t_2[effect]', ['common', 'common_ resistance_01', 0]) }),
+  resist: Object.freeze({ gnosis: keyed('gnosis_t_2[effect]', 'common', 0) }),
   // 禁疗: 史尔特尔's 余烬 surtr_t_2[withdraw] (charpack Talents/2; the sim buff has no source: the holder's code)
-  healFree: Object.freeze({ surtr: cite('surtr_t_2[withdraw]', ['surtr', 'surtr_buff_01_start', 0]) }),
+  healFree: Object.freeze({ surtr: keyed('surtr_t_2[withdraw]', 'surtr', 0) }),
 });
 
+const BURN_BURST = keyed('ep_fire_magic_res_down', 'buff', 0.5);
+const EROSION_DOWN = keyed('ep_water_def_down', 'buff', HEAD);
+// (each of the two keys' rows holds both prefabs: the holder picks — not by key)
 const ANGEL2_SELF = Object.freeze(['angel2', 'angel2_skill_2_buff_01', 0]);
 const ANGEL2_OTHER = Object.freeze(['angel2', 'angel2_skill_2_buff_02', 0]);
 /**
@@ -100,16 +110,18 @@ const ANGEL2_OTHER = Object.freeze(['angel2', 'angel2_skill_2_buff_02', 0]);
 export const KEY_FX = Object.freeze({
   'papyrs:shield': cite('papyrs_t_1[shield_core]', ['papyrs', 'papyrs_talent_01', 0.5]),
   'svash2:barrier': cite('svash2_s_1[build]', ['svash2', 'svash2_skill_01_shield_01', 0]),   // the deployed card's 屏障
-  'cathy:shield': cite('catsld_t_1[shield_mark]', ['cathy_token', 'token_cathy_catsld_shield_01', 0]),
-  'reckpr:guard': cite('reckpr_02[listener]', ['reckpr', 'reckpr_skill2_hit_buff', 0]),   // S2's healed operator
-  'sntlla:born': cite('sntlla_t_1[atk]', ['common', 'common_ resistance_01', 0]),   // its 抵抗 with it
+  // 凯瑟琳's device: its end creates token_cathy_catsld_shield_01_end (the key's `end`) — the mark's end, its shield broken
+  // (catsld_t_1[core] ON_TAKE_DAMAGE FinishBuffsById) or its timer out ([timer][interval] ON_BUFF_FINISH)
+  'cathy:shield': keyed('catsld_t_1[shield_mark]', 'cathy_token', 0),
+  'reckpr:guard': keyed('reckpr_02[listener]', 'reckpr', 0),   // S2's healed operator
+  'sntlla:born': keyed('sntlla_t_1[atk]', 'common', 0),   // its 抵抗 with it
   // angel2_s_2[shield][trigger] on her, angel2_s_2[select_target] on the teammate she takes ASPD from [추정: the owners]
   'angel2:barrier': cite(['angel2_s_2[shield][trigger]', 'angel2_s_2[select_target]'], (v) => (fxCode(v) === 'angel2' ? ANGEL2_SELF : ANGEL2_OTHER)),
   // element bursts (ep_break_*): 凋亡 ep_break_dark[damage] on both sides; 灼燃 ep_fire_magic_res_down and 侵蚀
   // ep_water_def_down (the DEF cut, `erosionDown`) on operators only — an enemy's 灼燃 / 侵蚀 burst has its hit effect only
-  apoptosisBurst: cite('ep_break_dark[damage]', ['common', 'common_darkdamage_debuff', 0.5]),
-  burnBurst: cite('ep_fire_magic_res_down', (v) => (v.isEnemy ? null : ['buff', 'buff_burn', 0.5])),
-  erosionDown: cite('ep_water_def_down', (v) => (v.isEnemy ? null : ['buff', 'buff_defdown', HEAD])),
+  apoptosisBurst: keyed('ep_break_dark[damage]', 'common', 0.5),
+  burnBurst: cite('ep_fire_magic_res_down', (v) => (v.isEnemy ? null : BURN_BURST)),
+  erosionDown: cite('ep_water_def_down', (v) => (v.isEnemy ? null : EROSION_DOWN)),
   // 2026-10-15: 阿利斯泰尔's pieces held by an operator (bosses.js HELD_BUFF) — enemy_vtmstr_equip_A/C/B[char]'s
   // overrideEffectKey (the pieces' Talents/2 `…[char]` templates), INFINITY: for the battle; `_spawnLocation` 2 = its HIT point
   'boss:heldSword': cite('enemy_vtmstr_equip_A[char]', ['pfx_enemy_13', 'enemy_vtswd_buff_01', 0.5]),
@@ -117,15 +129,15 @@ export const KEY_FX = Object.freeze({
   'boss:heldWand': cite('enemy_vtmstr_equip_B[char]', ['pfx_enemy_13', 'enemy_vtwand_buff_01', 0.5]),
   // 2026-10-16 (이펙트 연결 전수 묶음 3, docs/rules/fx.md 「재능 버프·시전 이펙트」): talent buffs' overrideEffectKey (EN charpacks
   // Talents/N; a key ending in `:<id>` — one buff per applier — matches without it)
-  'agoat2:mist': cite('agoat2_t_1', ['agoat2', 'agoat2_recover_01', OWN]),   // (Talents/1 _additiveActiveBuffs) on the healed ally
+  'agoat2:mist': keyed('agoat2_t_1', 'agoat2', OWN),   // (Talents/1 _additiveActiveBuffs) on the healed ally
   'pasngr:enhance': cite('pasngr_t_1[enhance]', ['pasngr', 'pasngr_beidong_buff_01', OWN]),            // pasngr_t_1 → pasngr_t_1[enhance] on the enemy
-  'udflow:dot': cite('udflow_t_1', ['udflow', 'udflow_debuff_01', OWN]),   // on the enemy
-  'rosmon:stable': cite('rosmon_t_2', ['rosmon', 'rosmon_buff_01_start', OWN]),   // (Talents/2/Aura) on her and the 术师
-  'inside:ammo': cite('inside_t_1[active]', ['inside', 'inside_buff_01_start', OWN]),   // (CommonAbilities/AddAmmoWrapper) on the ally
-  'dusk:pending': cite('dusk_t_2[spawn]', ['dusk', 'dusk_buff_04_start', OWN]),   // until 点睛's summon
-  'halo2:t2': cite('halo2_t_2[fx]', ['halo2', 'halo2_talent_01', OWN]),   // (_passiveBuffs) until the stacks are full …
+  'udflow:dot': keyed('udflow_t_1', 'udflow', OWN),   // on the enemy
+  'rosmon:stable': keyed('rosmon_t_2', 'rosmon', OWN),   // (Talents/2/Aura) on her and the 术师
+  'inside:ammo': keyed('inside_t_1[active]', 'inside', OWN),   // (CommonAbilities/AddAmmoWrapper) on the ally
+  'dusk:pending': keyed('dusk_t_2[spawn]', 'dusk', OWN),   // until 点睛's summon
+  'halo2:t2': keyed('halo2_t_2[fx]', 'halo2', OWN),   // (_passiveBuffs) until the stacks are full …
   'halo2:t2full': cite('halo2_t_2[full]', ['halo2', 'halo2_talent_02', OWN]),                      // … then halo2_t_2[full]
-  'texas2:swordplay': cite('texas2_t_2', ['texas2', 'texas2_buff_01_start', OWN]),   // ended by ON_TARGET_KILLED
+  'texas2:swordplay': keyed('texas2_t_2', 'texas2', OWN),   // ended by ON_TARGET_KILLED
   // texas2_t_1[recast_effect] and [recast_effect_02]'s derived buff until the recast. (2026-10-21) The second is off while S3
   // runs and she is not stunned: skchr_texas2_3's AppearSwordRain creates texas2_s[no_effect_02] as the skill starts
   // (texas2_s_3[create_no_effect_02], an immediate buff), ModeWithSwordRain's texas2_s_3 (life `duration`) ends it, and
@@ -189,7 +201,7 @@ export const STACK_FX = Object.freeze({
   // 夕 T1 化境: dusk_t_1[atk] dusk_buff_03_start; at max_stack_cnt (EQUALS) [effect] dusk_buff_03_start_02
   'dusk:realm': Object.freeze(cite('dusk_t_1', [[1, st('dusk', 'dusk_buff_03_start')], ['max', st('dusk', 'dusk_buff_03_start_02')]])),
   // 塞雷娅 T1 莱茵充能护服: demkni_t_1[stack] demkni_buff_01_self
-  'saria:suit': Object.freeze(cite('demkni_t_1', [[1, st('demkni', 'demkni_buff_01_self')]])),
+  'saria:suit': Object.freeze(cite('demkni_t_1', [[1, keyed('demkni_t_1', 'demkni', OWN)]])),
   // 妮芙 T2 窥心钥: at max_stack_cnt (the module's stack_cnt_check) nymph_t_2[atk][effect] nymph_talent_buff_02
   'nymph:key': Object.freeze(cite('nymph_t_2', [['max', st('nymph', 'nymph_talent_buff_02')]])),
   // 洛洛 T1: at max_stack_cnt (EQUALS) rockr_t_1[effect_1] rockr_buff_01
@@ -252,27 +264,52 @@ const WANT = new Map();
  * on a living unit (syncStatusFx), not as the unit dies or leaves.
  */
 export const END_FX = Object.freeze({
-  // 凯瑟琳's device: catsld_t_1[shield_mark] ON_BUFF_FINISH → token_cathy_catsld_shield_01_end on BUFF_OWNER — the mark's end,
-  // its shield broken (catsld_t_1[core] ON_TAKE_DAMAGE FinishBuffsById) or its timer out ([timer][interval] ON_BUFF_FINISH)
-  'cathy_token/token_cathy_catsld_shield_01': Object.freeze(cite('catsld_t_1[shield_mark]', [Object.freeze(['cathy_token', 'token_cathy_catsld_shield_01_end', 'own'])])),
-  // 泥岩 T1: mudrok_t_1[shield_c] (her last layer, LAYER_FX's first) — a hit with neither [shield_a] nor [shield_b] left creates
+  // (a `keyed` spec's end comes with its key: specsOf) 泥岩 T1: mudrok_t_1[shield_c] (her last layer, LAYER_FX's first) — a hit with neither [shield_a] nor [shield_b] left creates
   // mudrok_buff_01_end on her (ON_TAKE_DAMAGE CreateEffect TARGET) as it breaks
   'mudrok/mudrok_buff_03_start': Object.freeze(cite('mudrok_t_1[shield_c]', [Object.freeze(['mudrok', 'mudrok_buff_01_end', 'own'])])),
 });
-const END_OF = new Map();   // enemy buff effect key → its end specs (wantedStatusFx, from fxgame.js enemyBuffFx)
+const END_OF = new Map();   // effect key → its end specs: an enemy buff's (wantedStatusFx, from fxgame.js enemyBuffFx), a keyed spec's (specsOf)
 /** Every effect key syncStatusFx turns on (and so may turn off): not the prep 'golden' glow of fxgolden.js. */
 const MINE = new Set(Object.keys(STATUS_FX));
 
+const NO_SPECS = Object.freeze([]);
+const KEYED = new WeakMap();   // plays document → keyed spec → its specs
+/**
+ * The concrete specs of a `keyed` spec: the prefabs its key holds in `plays` (the loaded plays.json) — none without it —,
+ * each ending into the key's `end` prefabs (END_OF). Memoised per plays document.
+ */
+function specsOf(spec, plays) {
+  const t = spec[1];
+  if (!plays) return NO_SPECS;
+  let memo = KEYED.get(plays);
+  if (!memo) KEYED.set(plays, (memo = new Map()));
+  let out = memo.get(spec);
+  if (!out) {
+    const k = plays.keys?.[t.tpl];
+    out = Object.freeze((k?.held || []).map((n) => Object.freeze([spec[0], n, ...spec.slice(2)])));
+    const ends = (k?.end || []).map((n) => Object.freeze([spec[0], n, OWN]));
+    if (ends.length) for (const s of out) END_OF.set(`${s[0]}/${s[1]}`, ends);
+    memo.set(spec, out);
+  }
+  return out;
+}
+
 function put(out, k, spec) { if (spec && !out.has(k)) out.set(k, spec); }
-const byName = (out, spec) => { if (spec) put(out, `${spec[0]}/${spec[1]}`, spec); };
+let playsNow = null;   // wantedStatusFx's `plays` (byName, keyed specs)
+const byName = (out, spec) => {
+  if (!spec) return;
+  if (typeof spec[1] === 'string') put(out, `${spec[0]}/${spec[1]}`, spec);
+  else for (const s of specsOf(spec, playsNow)) put(out, `${s[0]}/${s[1]}`, s);
+};
 
 /**
  * The effects `v` should show now: effect key → spec. STATUS_FX keys for the catalogue statuses (`stealth` already
  * resolved to the side's prefab key), `bundle/prefab` for the buff effects (SOURCE_FX / KEY_FX / LAYER_FX / STACK_FX).
- * `v.statusFrom` (UnitView.onStatus): status key → statusSource().
+ * `v.statusFrom` (UnitView.onStatus): status key → statusSource(). `plays`: the loaded plays.json (`keyed` specs).
  */
-export function wantedStatusFx(v, out = WANT, ebuff = null) {
+export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null) {
   out.clear();
+  playsNow = plays;
   const f = v.flags | 0;
   // 2026-10-21: an enemy's own buff effects (fxgame.js enemyBuffFx — its prefab's buffs; ebuff(view, kind, tag) → { on, ends })
   const own = v.isEnemy && typeof ebuff === 'function' ? (kind, tag) => ebuff(v, kind, tag) : null;
@@ -321,7 +358,7 @@ export function wantedStatusFx(v, out = WANT, ebuff = null) {
       }
       const s = statusFxKey(k);
       if (s === 'stealth' || s === 'camou') continue; // by the flags above (side, 迷彩)
-      if (s) put(out, s, STATUS_FX[s]);
+      if (s) put(out, s, typeof STATUS_FX[s][1] === 'string' ? STATUS_FX[s] : specsOf(STATUS_FX[s], plays)[0]);
     }
   }
   return out;
@@ -339,12 +376,13 @@ export function syncStatusFx(views, fxGame, battle) {
   if (!fxGame || typeof fxGame.statusOn !== 'function') return;
   const icons = !layerOn(fxGame);
   const ebuff = typeof fxGame.enemyBuffFx === 'function' ? fxGame.enemyBuffFx : null;
+  const plays = typeof fxGame.plays === 'function' ? fxGame.plays() : null;
   for (const v of views.values()) {
     if (!v || typeof v.flags !== 'number') continue;
     v._statusIcons = icons;
     const on = v._fxStatusOn;
     const live = battle && v.alive && !v.prep && !v.remove;
-    const want = live ? wantedStatusFx(v, WANT, ebuff) : (WANT.clear(), WANT);
+    const want = live ? wantedStatusFx(v, WANT, ebuff, plays) : (WANT.clear(), WANT);
     for (const [k, spec] of want) {
       if (on && on.has(k)) continue;
       const [bundle, name, frac, hold] = spec;

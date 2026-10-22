@@ -36,7 +36,9 @@ import { cite } from './cite.js';
  * unit as any play, with `ready` a prefab played there once when the slot was empty.
  * 2026-10-23: `tpl` (a key the plan cites) in place of `n`: each prefab the key holds (tools/build-fx-plays.mjs `held`) plays
  * as this play for `life` (none given: the key's LIMITED seconds) — with life 'unit' its `end` prefab as `end` —, and each
- * prefab it creates once (`once`) for its own duration.
+ * prefab it creates once (`once`) for its own duration. A projectile's key (its `trail` / `reach` / `hit`): with `fly`, the
+ * flight is its one `_mainEffect`, with its `_effectsWhenHit` as `hit` when it flies `to` units, and each of its
+ * `_effectsWhenReached` plays once on the event's point as it lands (`after: 'fly'`); without `fly`, they play once on `on`.
  */
 const once = (n, on = 'op') => ({ n, on, life: 'once' });
 
@@ -118,8 +120,8 @@ export const KIT_OFFICIAL = {
   // from its ON_CAST_START — coins or not [추정: for the prefabs' own duration; the client ends them at its ON_CAST_END]
   coin: {
     swire2: cite(['projectile_chr_swire2_s_3', 'char_1033_swire2/Modes/S3_End/Body/Trigger'], (o) => (o.skill === 'swire2_3' ? { play: [
-      ...['swire2_skill_03_start_03', 'swire2_skill_03_start_03_02', 'swire2_skill_03_range'].map((n) => ({ n, cast: true })),
-      ...(Array.isArray(o.targets) && o.targets.length ? [{ n: 'swire2_skill_03_trail', fly: 8, to: 'targets', gap: 0.07, hit: ['swire2_skill_03_hit_02'] }] : []),
+      { tpl: 'char_1033_swire2/Modes/S3_End/Body/Trigger', cast: true },
+      ...(Array.isArray(o.targets) && o.targets.length ? [{ tpl: 'projectile_chr_swire2_s_3', fly: 8, to: 'targets', gap: 0.07 }] : []),
     ] } : null)),
   },
   // 圣聆初雪 S2 (2026-10-21): the frozen protection point (token_10058_sbell2_icetgt, pkgrps/btl_pfb_tokens_4.ab): its Effect
@@ -264,7 +266,7 @@ export const KIT_OFFICIAL = {
   // enemy it marks, `tgt`). angel2_skill_3_ground_01: no client reference.
   airstrike: {
     angel2: cite(['char_1041_angel2/Modes/S3/Body/Attack/S3FireToToken', 'projectile_chr_angel2_s3_start', 'char_1041_angel2/Others/Direction/CommonAbilities/TalentBomb'], (o) => (o.signal === 'fireToToken'
-      ? { play: [once('angel2_skill_3_begin_start_001'), { n: 'angel2_skill_3_begin_trail_01', fly: 10 }, { n: 'angel2_skill_3_begin_range_01', on: 'point', life: 'once', after: 'fly' }] }
+      ? { play: [{ tpl: 'char_1041_angel2/Modes/S3/Body/Attack/S3FireToToken', on: 'op', life: 'once' }, { tpl: 'projectile_chr_angel2_s3_start', fly: 10 }] }
       : { play: [once('angel2_buff_01_trail_01', 'tgt')] })),
   },
   // 缪尔赛思: her 流形 copies an operator (mlyss_wtrman_switch_melee_trigger / _range_trigger: CreateEffect
@@ -282,7 +284,7 @@ export const KIT_OFFICIAL = {
   // `_mainEffect` is the same prefab) [추정: lumen_s_1[heal]'s lumen_skill_01_hit on each healed ally per tick is not drawn]
   healField: { lumen: cite('lumen_s_1[effect]', (o) => ({ play: [{ tpl: 'lumen_s_1[effect]', on: 'tgt', life: Math.max(0.1, Number(o.t) || 0) }] })) },
   // 寒檀 S2: an icicle (projectile_chr_sntlla_s2 `_effectsWhenReached` sntlla_skill_02_start_01 where it lands)
-  iceSpike: { sntlla: cite('projectile_chr_sntlla_s2', () => ({ play: [{ n: 'sntlla_skill_02_start_01', on: 'point', life: 'once' }] })) },
+  iceSpike: { sntlla: cite('projectile_chr_sntlla_s2', () => ({ play: [{ tpl: 'projectile_chr_sntlla_s2', on: 'point' }] })) },
   talent: {
     // 蕾缪安 T2: 引渡 ready (lemuen_t_2 → buff lemuen_t_2[buff], effect lemuen_talent_buff_02, INFINITY)
     lemuen: cite('lemuen_t_2[buff]', (o) => (o.name === 'extradition' ? { play: [{ tpl: 'lemuen_t_2[buff]', on: 'op', life: 'deployed' }] } : null)),
@@ -367,7 +369,13 @@ export function tplPlays(p, plays) {
   const k = plays?.keys?.[p.tpl];
   if (!k) return [];
   const { tpl, ...rest } = p;
+  const reach = (on, after) => (k.reach || []).map((n) => ({ n, on, life: 'once', ...after }));
+  if (rest.fly != null) {
+    if (k.trail?.length !== 1) return [];
+    return [{ ...rest, n: k.trail[0], ...(rest.to && k.hit?.length ? { hit: [...k.hit] } : {}) }, ...reach('point', { after: 'fly' })];
+  }
   const life = rest.life ?? k.lim;
   const end = life === 'unit' && k.end?.length ? { end: k.end[0] } : {};
-  return [...(k.held || []).map((n) => ({ ...rest, n, life, ...end })), ...(k.once || []).map((n) => ({ ...rest, n, life: 'once' }))];
+  return [...(k.held || []).map((n) => ({ ...rest, n, life, ...end })), ...(k.once || []).map((n) => ({ ...rest, n, life: 'once' })),
+    ...reach(rest.on ?? 'op', {})];
 }

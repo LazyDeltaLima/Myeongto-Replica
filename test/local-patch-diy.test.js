@@ -123,26 +123,32 @@ describe('선발 picks on upstream 自选 (shared/local-diy.js, server/lobby.js 
   test('丰川祥子 notes: client trail / hit prefab per sim note mode; the drawn flight is the sim\'s (render/fxmap.js NOTE_FX)', async () => {
     const { noteEffects, NOTE_FX, NOTE_FLIGHT } = await mod('render/fxmap.js');
     const { OBLVNS_NOTE } = await import('../server/sim/content/kits/ops/op-oblvns.js');
-    assert.deepEqual(noteEffects('base'), { trail: 'oblvns_attack_01_trail', hit: 'oblvns_attack_01_hit' });
-    assert.deepEqual(noteEffects('talent'), { trail: 'oblvns_talent_trail', hit: 'oblvns_attack_01_hit' });
-    assert.deepEqual(noteEffects('s1', 1), { trail: 'oblvns_skill_01_trail', hit: 'oblvns_skill_01_hit' });
-    assert.deepEqual(noteEffects('s1', 8), { trail: 'oblvns_skill_01_trail_08', hit: 'oblvns_skill_01_hit' });
-    assert.deepEqual(noteEffects('piano'), { trail: 'oblvns_skill_02_trail_02', hit: 'oblvns_skill_02_hit_02' });
-    assert.deepEqual(noteEffects('organ'), { trail: 'oblvns_skill_02_trail', hit: 'oblvns_skill_02_hit' });
-    assert.deepEqual(noteEffects('s3'), { trail: 'oblvns_skill_03_trail_02', hit: 'oblvns_skill_03_hit_02' });
-    assert.deepEqual(noteEffects('s3m'), { trail: 'oblvns_skill_03_trail', hit: 'oblvns_skill_03_hit' });
-    assert.equal(noteEffects('nope'), null);
+    // (2026-10-23) by the projectile key: its `_mainEffect` / `_effectsWhenHit` rows (plays.json; the fixed copy here)
+    const { PLAYS } = await import('./helpers/fxPlays.js');
+    assert.deepEqual(noteEffects('base', 0, PLAYS), { trail: 'oblvns_attack_01_trail', hit: 'oblvns_attack_01_hit' });
+    assert.deepEqual(noteEffects('talent', 0, PLAYS), { trail: 'oblvns_talent_trail', hit: 'oblvns_attack_01_hit' });
+    assert.deepEqual(noteEffects('s1', 1, PLAYS), { trail: 'oblvns_skill_01_trail', hit: 'oblvns_skill_01_hit' });
+    assert.deepEqual(noteEffects('s1', 8, PLAYS), { trail: 'oblvns_skill_01_trail_08', hit: 'oblvns_skill_01_hit' });
+    assert.deepEqual(noteEffects('piano', 0, PLAYS), { trail: 'oblvns_skill_02_trail_02', hit: 'oblvns_skill_02_hit_02' });
+    assert.deepEqual(noteEffects('organ', 0, PLAYS), { trail: 'oblvns_skill_02_trail', hit: 'oblvns_skill_02_hit' });
+    assert.deepEqual(noteEffects('s3', 0, PLAYS), { trail: 'oblvns_skill_03_trail_02', hit: 'oblvns_skill_03_hit_02' });
+    assert.deepEqual(noteEffects('s3m', 0, PLAYS), { trail: 'oblvns_skill_03_trail', hit: 'oblvns_skill_03_hit' });
+    assert.equal(noteEffects('nope', 0, PLAYS), null);
+    assert.equal(noteEffects('base'), null, 'without the plays: none (her arrow stays)');
     assert.deepEqual(Object.keys(NOTE_FX).sort(), Object.keys(OBLVNS_NOTE).sort(), 'one effect per sim note mode');
     for (const [k, f] of Object.entries(OBLVNS_NOTE)) {
       for (const p of ['free', 'track', 'turn']) assert.equal(NOTE_FLIGHT[k][p], f[p], `${k}.${p}`);
       assert.equal(NOTE_FLIGHT[k].sine ?? 0, f.sine ?? 0, `${k}.sine`);
     }
     const idx = path.join(ROOT, 'public/assets/local/fx/index.json');
-    if (existsSync(idx)) { // the extracted bundle (local client files only)
+    const plays = path.join(ROOT, 'public/assets/local/fx/plays.json');
+    if (existsSync(idx) && existsSync(plays)) { // the extracted bundle and its plays (local client files only)
       const index = JSON.parse(readFileSync(idx, 'utf8'));
+      const P = JSON.parse(readFileSync(plays, 'utf8'));
       const have = new Set(index.bundles.oblvns || []);
       for (const m of Object.keys(NOTE_FX)) for (let i = m === 's1' ? 1 : 0; i <= (m === 's1' ? 8 : 0); i++) {
-        const fx = noteEffects(m, i);
+        const fx = noteEffects(m, i, P);
+        assert.ok(fx, `${m}${i || ''}: one trail and a hit`);
         assert.ok(have.has(fx.trail) && have.has(fx.hit), `${m}${i || ''}: ${fx.trail} / ${fx.hit} extracted`);
       }
     }

@@ -12,7 +12,8 @@ import path from 'node:path';
 import { ROOT, loadTables, handEntries, judge, unplayed, renderNames, planTpls } from '../helpers/fxBindings.js';
 import { buildPlays, PLAYS_FILE } from '../../tools/build-fx-plays.mjs';
 import { KIT_OFFICIAL } from '../../public/js/render/fx/kitofficial.js';
-import { KEY_FX, SOURCE_FX, LAYER_FX, STACK_FX, END_FX } from '../../public/js/render/fxstatus.js';
+import { KEY_FX, SOURCE_FX, LAYER_FX, STACK_FX, END_FX, STATUS_FX } from '../../public/js/render/fxstatus.js';
+import { PLAYS as FIXED } from '../helpers/fxPlays.js';
 import { TALENT_ALWAYS, NOTE_FX } from '../../public/js/render/fxmap.js';
 
 const T = loadTables();
@@ -247,6 +248,29 @@ test('a plan\'s `tpl` plays name keys the plan cites, each with plays in the tab
       if (LOCAL) assert.ok(plays.keys[k], `${ev}.${b}: tpl ${k} has no plays (no row without a condition at that moment)`);
     }
   }
+});
+
+test('a keyed status spec, an always-on talent and a note name a key they cite, each with plays in the tables', () => {
+  const plays = buildPlays();
+  const keys = [];
+  const walk = (v, src, at) => {
+    if (Array.isArray(v) && v[1] && typeof v[1] === 'object' && v[1].tpl) keys.push([at, v[1].tpl, src]);
+    else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) walk(x, x?.src || src, `${at}.${k}`);
+  };
+  for (const [name, t] of Object.entries({ STATUS_FX, SOURCE_FX, KEY_FX, STACK_FX })) walk(t, null, name);
+  for (const [id, t] of Object.entries(TALENT_ALWAYS)) keys.push([`TALENT_ALWAYS.${id}`, t.tpl, t.src]);
+  for (const [m, n] of Object.entries(NOTE_FX)) for (const k of n.shots) keys.push([`NOTE_FX.${m}`, k, n.src]);
+  assert.ok(keys.length >= 30);
+  for (const [at, k, src] of keys) {
+    assert.ok(src?.includes(k), `${at}: ${k} is not one of its cited keys`);
+    if (LOCAL) assert.ok(plays.keys[k], `${at}: ${k} has no plays`);
+  }
+});
+
+test('the tests\' fixed plays (test/helpers/fxPlays.js) are the tables\'', { skip: !LOCAL && 'needs the client-only rows' }, () => {
+  const plays = buildPlays();
+  const full = (p) => ({ held: [], once: [], end: [], ...p });
+  for (const [k, p] of Object.entries(FIXED.keys)) assert.deepEqual(full(p), plays.keys[k], k);
 });
 
 test('public/assets/local/fx/plays.json is current (node tools/build-fx-plays.mjs)', { skip: !(LOCAL && existsSync(PLAYS_FILE)) && 'needs the client-only rows and the file' }, () => {

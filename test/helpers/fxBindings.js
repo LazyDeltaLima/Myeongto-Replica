@@ -13,6 +13,7 @@ import { KIT_OFFICIAL, tplPlays } from '../../public/js/render/fx/kitofficial.js
 import { rowsFor, buildPlays } from '../../tools/build-fx-plays.mjs';
 import { KEY_FX, SOURCE_FX, LAYER_FX, STACK_FX, END_FX, STATUS_FX } from '../../public/js/render/fxstatus.js';
 import { TALENT_ALWAYS, NOTE_FX, DEPLOY_FX, noteEffects, effectsFor, isVariant, isDirectional, fxBundleOf } from '../../public/js/render/fxmap.js';
+import { PLAYS as FIXED } from './fxPlays.js';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
@@ -52,9 +53,17 @@ export function planTpls(fn) {
   return [...out];
 }
 
-/** The plays (tools/build-fx-plays.mjs) of the cited keys, from the tables on disk: a plan's `tpl` plays as the layer plays them. */
+/**
+ * The plays (tools/build-fx-plays.mjs) of the cited keys, from the tables on disk: a plan's `tpl` plays as the layer plays
+ * them. Without the client-only rows the tests' fixed copy (test/helpers/fxPlays.js) stands in for the keys it holds.
+ */
 let PLAYS = null;
-export const keyPlays = () => (PLAYS ||= buildPlays());
+export const keyPlays = () => (PLAYS ||= withFixed(buildPlays()));
+function withFixed(plays) {
+  if (existsSync(path.join(LOCAL, 'bindings.json'))) return plays;
+  const full = (p) => ({ held: [], once: [], end: [], ...p });
+  return { ...plays, keys: { ...Object.fromEntries(Object.entries(FIXED.keys).map(([k, p]) => [k, full(p)])), ...plays.keys } };
+}
 
 /** The plays of a kit plan as { n, life, side } ('once' | 'held' | 'flight' | number; 'self' | 'other'). */
 function planPlays(fn) {
@@ -85,13 +94,21 @@ function planPlays(fn) {
   return out.filter((p) => { const k = `${p.n}|${p.life}|${p.side}`; if (seen.has(k)) return false; seen.add(k); return true; });
 }
 
-/** The prefabs of a status spec / spec list / spec function (sample holders and appliers). */
-function specNames(v) {
-  const out = new Set();
+/**
+ * The plays of a status spec / spec list / spec function (sample holders and appliers): its prefabs held, and a keyed
+ * spec's (fxstatus.js `keyed`: `{ tpl }` in the prefab slot) — the held prefabs of its key and, once, its `end` ones.
+ */
+function specPlays(v) {
+  const out = new Map();
   const take = (s) => {
     if (!s) return;
     if (Array.isArray(s) && Array.isArray(s[0])) { s.forEach(take); return; }
-    if (Array.isArray(s) && typeof s[1] === 'string') out.add(s[1]);
+    if (Array.isArray(s) && typeof s[1] === 'string') out.set(s[1], 'held');
+    else if (Array.isArray(s) && s[1]?.tpl) {
+      const k = keyPlays().keys[s[1].tpl];
+      for (const n of k?.held || []) out.set(n, 'held');
+      for (const n of k?.end || []) out.set(n, 'once');
+    }
   };
   if (typeof v === 'function') {
     const views = [{ info: { spine: 'char_1041_angel2' } }, { info: { spine: 'char_0_other' } }, { isEnemy: false },
@@ -99,7 +116,7 @@ function specNames(v) {
     const froms = [null, { fx: 1 }, { fx: 2 }, { fx: 3 }, { fx: 'DOWN' }, { fx: 'UP' }, { fx: 'LEFT' }, { fx: 'RIGHT' }];
     for (const w of views) for (const f of froms) { try { take(v(w, f)); } catch { /* a sample the entry does not take */ } }
   } else take(v);
-  return [...out];
+  return [...out].map(([n, life]) => ({ n, life }));
 }
 
 /**
@@ -111,20 +128,20 @@ export function handEntries() {
   const put = (table, entry, v, plays) => { if (v?.src) out.push({ table, entry, src: [...v.src], plays }); };
   for (const [ev, by] of Object.entries(KIT_OFFICIAL)) for (const [b, fn] of Object.entries(by)) put('KIT_OFFICIAL', `${ev}.${b}`, fn, planPlays(fn));
   const held = (names) => names.map((n) => ({ n, life: 'held' }));
-  for (const [k, v] of Object.entries(STATUS_FX)) put('STATUS_FX', k, v, held(specNames(v)));
+  for (const [k, v] of Object.entries(STATUS_FX)) put('STATUS_FX', k, v, specPlays(v));
   for (const [k, per] of Object.entries(SOURCE_FX)) {
     for (const [b, v] of Object.entries(per)) {
-      if (v?.src) put('SOURCE_FX', `${k}.${b}`, v, held(specNames(v)));
-      else if (v && typeof v === 'object') for (const [h, s] of Object.entries(v)) put('SOURCE_FX', `${k}.${b}.${h}`, s, held(specNames(s)));
+      if (v?.src) put('SOURCE_FX', `${k}.${b}`, v, specPlays(v));
+      else if (v && typeof v === 'object') for (const [h, s] of Object.entries(v)) put('SOURCE_FX', `${k}.${b}.${h}`, s, specPlays(s));
     }
   }
-  for (const [k, v] of Object.entries(KEY_FX)) put('KEY_FX', k, v, held(specNames(v)));
-  for (const [k, v] of Object.entries(LAYER_FX)) put('LAYER_FX', k, v, held(specNames(v)));
-  for (const [k, v] of Object.entries(STACK_FX)) put('STACK_FX', k, v, held(v.map((x) => x[1][1])));
-  for (const [k, v] of Object.entries(END_FX)) put('END_FX', k, v, specNames(v).map((n) => ({ n, life: 'once' })));
-  for (const [k, v] of Object.entries(TALENT_ALWAYS)) put('TALENT_ALWAYS', k, v, held([...v]));
+  for (const [k, v] of Object.entries(KEY_FX)) put('KEY_FX', k, v, specPlays(v));
+  for (const [k, v] of Object.entries(LAYER_FX)) put('LAYER_FX', k, v, specPlays(v));
+  for (const [k, v] of Object.entries(STACK_FX)) put('STACK_FX', k, v, v.flatMap((x) => specPlays(x[1])));
+  for (const [k, v] of Object.entries(END_FX)) put('END_FX', k, v, specPlays(v).map(({ n }) => ({ n, life: 'once' })));
+  for (const [k, v] of Object.entries(TALENT_ALWAYS)) put('TALENT_ALWAYS', k, v, held(keyPlays().keys[v.tpl]?.held || []));
   for (const [k, v] of Object.entries(NOTE_FX)) {
-    const fx = k === 's1' ? [1, 2, 3, 4, 5, 6, 7, 8].map((f) => noteEffects('s1', f)) : [v];
+    const fx = (k === 's1' ? [1, 2, 3, 4, 5, 6, 7, 8].map((f) => noteEffects('s1', f, keyPlays())) : [noteEffects(k, 0, keyPlays())]).filter(Boolean);
     put('NOTE_FX', k, v, [...new Set(fx.flatMap((x) => [x.trail]))].map((n) => ({ n, life: 'flight' }))
       .concat([...new Set(fx.map((x) => x.hit))].map((n) => ({ n, life: 'once' }))));
   }

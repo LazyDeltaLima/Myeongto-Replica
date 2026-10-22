@@ -1,0 +1,43 @@
+// test/helpers/fxPlays.js — a fixed copy of the plays (tools/build-fx-plays.mjs → public/assets/local/fx/plays.json, git-ignored)
+// of the client keys the render tests play, so they run without the client-only binding rows: each pair is one the hand
+// effect tables named themselves before they named the key (docs/rules/fx.md 「바인딩 표」 「클라 키로 재생」). Empty roles
+// left out. test/render/fx-bindings.test.js checks it against the tables when the client-only rows are there.
+
+export const PLAYS = Object.freeze({ keys: {
+  'indigo_t[unmovable]': { held: ['indigo_buff_01_start'] },
+  'mizuki_s_2[unmovable]': { held: ['mizuki_skill_02_buff_02'] },
+  'gnosis_t_2[effect]': { held: ['common_ resistance_01'] },
+  'surtr_t_2[withdraw]': { held: ['surtr_buff_01_start'] },
+  'sntlla_t_1[atk]': { held: ['common_ resistance_01'] },
+  'udflow_t_1': { held: ['udflow_debuff_01'] },
+  'agoat2_t_1': { held: ['agoat2_recover_01'] },
+  'inside_t_1[active]': { held: ['inside_buff_01_start'] },
+  'rosmon_t_2': { held: ['rosmon_buff_01_start'] },
+  'texas2_t_2': { held: ['texas2_buff_01_start'] },
+  'dusk_t_2[spawn]': { held: ['dusk_buff_04_start'] },
+  'halo2_t_2[fx]': { held: ['halo2_talent_01'] },
+  'ep_break_dark[damage]': { held: ['common_darkdamage_debuff'] },
+  'ep_fire_magic_res_down': { held: ['buff_burn'] },
+  'ep_water_def_down': { held: ['buff_defdown'] },
+  'archet_t_2': { held: ['archet_buff_01_start'] },
+  'demkni_t_1': { held: ['demkni_buff_01_self'] },
+  'catsld_t_1[shield_mark]': { held: ['token_cathy_catsld_shield_01'], end: ['token_cathy_catsld_shield_01_end'] },
+  'cello_t_1': { held: ['cello_buff_01'] },
+  'flower_t_1[eff]': { held: ['flower_buff_01_range'] },
+  'blemsh_t_2': { held: ['blemsh_buff_01_start'] },
+  'projectile_chr_oblvns': { trail: ['oblvns_attack_01_trail'], hit: ['oblvns_attack_01_hit'] },
+  'projectile_chr_oblvns_talent': { trail: ['oblvns_talent_trail'], hit: ['oblvns_attack_01_hit'] },
+  'projectile_chr_oblvns_s1_1': { trail: ['oblvns_skill_01_trail'], hit: ['oblvns_skill_01_hit'] },
+  'projectile_chr_oblvns_s1_8': { trail: ['oblvns_skill_01_trail_08'], hit: ['oblvns_skill_01_hit'] },
+  'projectile_chr_oblvns_s2': { trail: ['oblvns_skill_02_trail_02'], hit: ['oblvns_skill_02_hit_02'] },
+  'projectile_chr_oblvns_s2_slow': { trail: ['oblvns_skill_02_trail'], hit: ['oblvns_skill_02_hit'] },
+  'projectile_chr_oblvns_s3_phy': { trail: ['oblvns_skill_03_trail_02'], hit: ['oblvns_skill_03_hit_02'] },
+  'projectile_chr_oblvns_s3_mag': { trail: ['oblvns_skill_03_trail'], hit: ['oblvns_skill_03_hit'] },
+  'char_1033_swire2/Modes/S3_End/Body/Trigger': { held: ['swire2_skill_03_range', 'swire2_skill_03_start_03', 'swire2_skill_03_start_03_02'] },
+  'projectile_chr_swire2_s_3': { trail: ['swire2_skill_03_trail'], hit: ['swire2_skill_03_hit_02'] },
+  'char_1041_angel2/Modes/S3/Body/Attack/S3FireToToken': { held: ['angel2_skill_3_begin_start_001'] },
+  'projectile_chr_angel2_s3_start': { trail: ['angel2_skill_3_begin_trail_01'], reach: ['angel2_skill_3_begin_range_01'] },
+  'projectile_chr_sntlla_s2': { reach: ['sntlla_skill_02_start_01'], hit: ['sntlla_attack_hit_02'] },
+  'icetgt_a[effect]': { held: ['sbell2_tile_frozen'], end: ['sbell2_tile_defrost'] },
+  'kalts2_s_3[withdraw]': { once: ['kalts2_skill_03_teleport_02'] },
+} });

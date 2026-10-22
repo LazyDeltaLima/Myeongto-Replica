@@ -2492,11 +2492,23 @@
   인용한 키 `tpl`을 줄 수 있다 → `tools/build-fx-plays.mjs`가 두 표에서 인용 키마다 조건 없는 행(추출된 프리팹만)을 역할로 나눠
   `public/assets/local/fx/plays.json`(git 무시, 추출 이펙트와 함께 배포)에 쓰고, `fxgame.js`가 `modes.json`처럼 불러 `kitOfficialPlan`이 펼친다(`tplPlays`).
   역할: `held` 버프가 만드는 이펙트·능력 `_effects`·끝까지 가는 시전·주인이 쥐는 템플릿 이펙트(계획의 `life` 동안; 없으면 그 키의 LIMITED 초) · `once`
-  ON_BUFF_START CreateEffect·한 번 시전·IMMEDIATELY 버프 · `end` ON_BUFF_FINISH/ON_OWNER_FINISH(`life: 'unit'`의 `end`). 다른 시점의 행(공격 명중, 투사체 비행,
-  ON_TAKE_DAMAGE …)은 키의 재생이 아니다. 파일이 없으면 그 재생은 없고 이벤트는 대체 그림으로 남는다.
-  옮긴 계획 7: 에이야퍄들라 더 크비트 아스카 S2 범위, 프라마닉스 더 프레리타 보호점(언 칸·녹음), 켈시 에스페란타 S3 이송, 엔텔레키아 T2, 루멘 S1 치유 비,
-  르무엔 T2, 글래디아 S3 대상 — 이벤트 골든 그대로(파일을 빼면 이 6개 경로가 빠짐을 확인). 손 이름이 그대로인 나머지(역할·충전·층·방향으로 고르는 것,
-  조건 뒤 행)는 K3·다음 조각. 검사: 인용한 키만 `tpl`로, 그 키에 재생이 있음, `plays.json`이 최신(클라 전용 행이 있을 때) — `fx-bindings.test.js`.
+  ON_BUFF_START CreateEffect·한 번 시전·IMMEDIATELY 버프 · `end` ON_BUFF_FINISH/ON_OWNER_FINISH(`life: 'unit'`의 `end`) · 투사체 키의 `trail`
+  `_mainEffect`·`reach` `_effectsWhenReached`·`hit` `_effectsWhenHit`(있을 때만). 다른 시점의 행(공격 명중, 투사체의 다른 필드, ON_TAKE_DAMAGE …)은 키의
+  재생이 아니다. 파일이 없으면 그 재생은 없고 이벤트는 대체 그림으로 남는다(상태 이펙트·상시 재능은 안 그려지고, 토가와 사키코 음표는 화살로 남는다).
+  범위는 손 표 전부가 인용한 키(`citedKeys`: `KIT_OFFICIAL`·`fxstatus.js` 표·`TALENT_ALWAYS`·`NOTE_FX`).
+  - 계획: 투사체 키 `tpl`에 `fly`가 있으면 비행 = 그 투사체의 `_mainEffect` 하나(둘 이상이면 재생 없음), `to`로 유닛에 날면 `_effectsWhenHit`가 `hit`,
+    `_effectsWhenReached`는 착지점에 한 번(`after: 'fly'`); `fly`가 없으면 그것들을 `on`에 한 번.
+  - 상태 스펙(`fxstatus.js keyed`): 프리팹 자리에 `{ tpl: 키 }` — 그 키의 `held` 프리팹을 버프가 있는 동안, 키의 `end`는 그 이펙트가 끝날 때 한 번
+    (`END_FX`와 같은 길, `specsOf`). `fxgame.js`는 `plays()`로 넘기고, 색인은 `plays.json`과 함께 준비된다(상태·배치 때 상시 이펙트·음표가 먼저 색인을 봄).
+  - 옮긴 것 — 첫 조각(계획 7): 에이야퍄들라 더 크비트 아스카 S2 범위, 프라마닉스 더 프레리타 보호점(언 칸·녹음), 켈시 에스페란타 S3 이송, 엔텔레키아 T2,
+    루멘 S1 치유 비, 르무엔 T2, 글래디아 S3 대상. 둘째 조각: 상태 스펙 22(`SOURCE_FX` 束缚 5·抵抗·禁疗, `KEY_FX` 13 — 凯瑟琳 장치 표지는 끝 이펙트까지 키에서라
+    `END_FX` 줄이 빠짐 —, `STACK_FX` 사리아 T1, `STATUS_FX` 空弦 铁弦), 상시 재능 4(`TALENT_ALWAYS`), 음표 7(`NOTE_FX`: 투사체 키별 궤적·명중, S1은 부채꼴
+    번호의 투사체), 계획 3(琳琅诗怀雅 S3 끝 시전·동전, 新约能天使 S3 공습, 寒檀 S2 고드름). 이벤트 골든 그대로(전체 코퍼스).
+  - 손 이름으로 남는 것(K3·이유): 키 하나가 두 프리팹을 갖고 잡는 쪽으로 고르는 新约能天使 S2 방벽, 조건 뒤 행(텍사스 디 오메르토사 재시전 둘째 이펙트, 佩佩 S2
+    단계, 沙尘暴), 충전·모드·층·칸으로 고르는 계획(卡涅利安 T1, 缪尔赛思 복사, 圣聆初雪 T1 눈, 烛煌 S2 칸), `_mainEffect`가 둘인 伊内丝 S3 회수(선과 궤적),
+    끝 이펙트를 `once`로 트는 圣聆初雪 T2, 조건 없는 행이 없는 키.
+  검사: 인용한 키만 `tpl`로, 그 키에 재생이 있음(상태 스펙·상시 재능·음표도), `plays.json`이 최신(클라 전용 행이 있을 때) — `fx-bindings.test.js`. 렌더 테스트는
+  클라 전용 행 없이도 돌도록 고정 사본 `test/helpers/fxPlays.js`(손 표가 전에 직접 적던 키·프리팹 짝만)를 쓰고, 클라 전용 행이 있으면 같은 테스트가 사본을 표와 맞춘다.
   `bindings.json`은 검사용이라 사전 내려받기 목록(`build-browser-resources.mjs`)·배포에서 뺀다.
 - K1 대조의 버그 후보 넷 판정(2026-10-23): 에이야퍄들라 더 크비트 아스카 S2 범위 — 고침(위 「버프 진행 단계」). 실버애쉬 더 레인프로스트 S3 — 렌더가 맞고 인용 키가
   틀렸다(`[bird_on_target]`는 다른 오퍼 위 독수리의 투사체 `projectile_chr_svash2_s3_bird`) → `FXGAME` 인용만 고침; `svash2_eagle_*`(카드 위 战鹰)는 `UNPLAYED` 그대로.

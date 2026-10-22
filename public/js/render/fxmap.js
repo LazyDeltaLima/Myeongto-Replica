@@ -71,19 +71,20 @@ export function effectsFor(prefabs, kind, skillIndex = 0) {
 }
 
 // ---- 丰川祥子's notes (kits/ops/op-oblvns.js NOTE; battle.fx 'oblvnsNote', local patch 2026-10-06) ----------------------------
-// The client's note projectiles (EN [uc]projectiles.ab projectile_chr_oblvns*: `_mainEffect` = the trail, `_effectsWhenHit`
-// = the hit, `cite`d) per sim note mode, and their flight (a copy of the sim's NOTE — test/local-patch.test.js keeps them equal;
-// `sine` the 扩张正弦 amplitude of the free flight, drawn here only; `pass` the piano note's 【已命中】 flight on through
-// its target: PRTS "固定3.0速度当前方向移动，持续0.5s").
+// The client's note projectiles (EN [uc]projectiles.ab projectile_chr_oblvns*) per sim note mode — their `_mainEffect` is the
+// trail, their `_effectsWhenHit` the hit (2026-10-23, 묶음 K2: from the binding table by the projectile key, plays.json
+// `trail` / `hit`; tools/build-fx-plays.mjs) —, and their flight (a copy of the sim's NOTE — test/local-patch.test.js keeps
+// them equal; `sine` the 扩张正弦 amplitude of the free flight, drawn here only; `pass` the piano note's 【已命中】 flight on
+// through its target: PRTS "固定3.0速度当前方向移动，持续0.5s").
+const note = (keys) => Object.freeze(cite(keys, { shots: Object.freeze([keys].flat()) }));
 export const NOTE_FX = Object.freeze({
-  base: cite('projectile_chr_oblvns', { trail: 'oblvns_attack_01_trail', hit: 'oblvns_attack_01_hit' }),
-  talent: cite('projectile_chr_oblvns_talent', { trail: 'oblvns_talent_trail', hit: 'oblvns_attack_01_hit' }),   // 持续攻击, no skill
-  // _s1_1 … _s1_8: trail, trail_02 … _08
-  s1: cite([1, 2, 3, 4, 5, 6, 7, 8].map((i) => `projectile_chr_oblvns_s1_${i}`), { trail: 'oblvns_skill_01_trail', hit: 'oblvns_skill_01_hit' }),
-  piano: cite(['projectile_chr_oblvns_s2', 'projectile_chr_oblvns_s2_t'], { trail: 'oblvns_skill_02_trail_02', hit: 'oblvns_skill_02_hit_02' }),
-  organ: cite(['projectile_chr_oblvns_s2_slow', 'projectile_chr_oblvns_s2_slow_t'], { trail: 'oblvns_skill_02_trail', hit: 'oblvns_skill_02_hit' }),
-  s3: cite('projectile_chr_oblvns_s3_phy', { trail: 'oblvns_skill_03_trail_02', hit: 'oblvns_skill_03_hit_02' }),
-  s3m: cite('projectile_chr_oblvns_s3_mag', { trail: 'oblvns_skill_03_trail', hit: 'oblvns_skill_03_hit' }),
+  base: note('projectile_chr_oblvns'),
+  talent: note('projectile_chr_oblvns_talent'),   // 持续攻击, no skill
+  s1: note([1, 2, 3, 4, 5, 6, 7, 8].map((i) => `projectile_chr_oblvns_s1_${i}`)),   // the fan's own (1–8)
+  piano: note(['projectile_chr_oblvns_s2', 'projectile_chr_oblvns_s2_t']),
+  organ: note(['projectile_chr_oblvns_s2_slow', 'projectile_chr_oblvns_s2_slow_t']),
+  s3: note('projectile_chr_oblvns_s3_phy'),
+  s3m: note('projectile_chr_oblvns_s3_mag'),
 });
 export const NOTE_FLIGHT = Object.freeze({
   base: { free: 2.0, track: 2.0, turn: 5 },
@@ -94,12 +95,14 @@ export const NOTE_FLIGHT = Object.freeze({
   s3: { free: 0.8, sine: 0.5, track: 1.3, turn: 7.5 },
   s3m: { free: 0.8, sine: 0.5, track: 1.3, turn: 7.5 },
 });
-/** Trail / hit prefab of a note (`fan` 1–8: the S1 note's own trail). null for an unknown mode. */
-export function noteEffects(mode, fan = 0) {
+/**
+ * Trail / hit prefab of a note (`fan` 1–8: the S1 note's own projectile) from `plays` (the loaded plays.json). null for an
+ * unknown mode, without the file, or when its projectile has not one trail and a hit.
+ */
+export function noteEffects(mode, fan = 0, plays = null) {
   const fx = NOTE_FX[mode];
-  if (!fx) return null;
-  if (mode === 's1' && fan > 1 && fan <= 8) return { trail: `${fx.trail}_0${fan}`, hit: fx.hit };
-  return fx;
+  const k = fx ? plays?.keys?.[fx.shots[mode === 's1' && fan > 1 && fan <= fx.shots.length ? fan - 1 : 0]] : null;
+  return k?.trail?.length === 1 && k.hit?.length ? { trail: k.trail[0], hit: k.hit[0] } : null;
 }
 
 // ---- attack-mode bindings (local patch 2026-10-07, docs/LOCAL-PATCH.md 「스킬 중 공격 이펙트」) ---------------------------
@@ -341,23 +344,26 @@ export function deployEffect(bind, token, mode = 0) {
 export const deadEffect = (bind) => bind?.dead || DEPLOY_FX.dead;
 /**
  * 2026-10-16 (이펙트 연결 전수 묶음 3, docs/rules/fx.md 「재능 버프·시전 이펙트」): talents whose effect is on the operator for
- * as long as it is deployed, unconditionally — an INFINITY buff on itself or an aura's `_effects` (EN charpacks):
+ * as long as it is deployed, unconditionally — an INFINITY buff on itself or an aura's `_effects` (EN charpacks). By the
+ * client key (2026-10-23, 묶음 K2): the prefabs its rows hold with no condition (plays.json `held`).
  */
+const talentKey = (key) => Object.freeze(cite(key, { tpl: key }));
 export const TALENT_ALWAYS = Object.freeze({
-  char_423_blemsh: Object.freeze(cite('blemsh_t_2', ['blemsh_buff_01_start'])),   // Talents/2 (仁慈)
-  char_245_cello: Object.freeze(cite('cello_t_1', ['cello_buff_01'])),           // Others/Direction/Talents/1 (无词哀歌)
-  char_181_flower: Object.freeze(cite('flower_t_1[eff]', ['flower_buff_01_range'])),   // Talents/1 `_passiveBuffs` (熏衣草)
-  char_1019_siege2: Object.freeze(cite('char_1019_siege2/Others/Direction/Talents/1', ['siege2_buff_01'])),   // AuraAbility `_effects` (诸王的叹息)
+  char_423_blemsh: talentKey('blemsh_t_2'),   // Talents/2 (仁慈)
+  char_245_cello: talentKey('cello_t_1'),           // Others/Direction/Talents/1 (无词哀歌)
+  char_181_flower: talentKey('flower_t_1[eff]'),   // Talents/1 `_passiveBuffs` (熏衣草)
+  char_1019_siege2: talentKey('char_1019_siege2/Others/Direction/Talents/1'),   // AuraAbility `_effects` (诸王的叹息)
 });
 
 /**
  * 2026-10-16, decompile check (client `Unit.AttachCommonAbilities`): the always-on effects of an operator — the buffs its
  * prefab root's common abilities put on it for good (modes.json `common`, char_modes.py: 新约能天使's wings and halo,
- * 引星棘刺's weapon glow) and its always-on talents (TALENT_ALWAYS, by `charId`) — that are extracted, minus `kitOwned`
- * (prefabs a kit event draws instead).
+ * 引星棘刺's weapon glow) and its always-on talents (TALENT_ALWAYS, by `charId`, from `plays`) — that are extracted, minus
+ * `kitOwned` (prefabs a kit event draws instead).
  */
-export function commonEffects(bind, prefabs, kitOwned = null, charId = null) {
-  const list = [...(Array.isArray(bind?.common) ? bind.common : []), ...((charId && TALENT_ALWAYS[charId]) || [])];
+export function commonEffects(bind, prefabs, kitOwned = null, charId = null, plays = null) {
+  const talent = charId && TALENT_ALWAYS[charId];
+  const list = [...(Array.isArray(bind?.common) ? bind.common : []), ...((talent && plays?.keys?.[talent.tpl]?.held) || [])];
   return list.filter((n) => typeof n === 'string' && (!prefabs || prefabs.includes(n)) && !kitOwned?.has(n));
 }
 

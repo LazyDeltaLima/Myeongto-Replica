@@ -396,7 +396,11 @@ describe('⑤ official status effects (fxstatus.js → fxgame.js statusOn / stat
     assert.deepEqual(F.STATUS_FX.scorch.slice(0, 2), ['reed2', 'reed2_debuff_01']);
     // 空弦's 铁弦 护盾 layer: its buff's overrideEffectKey (EN charpack); 凯尔希·思衡托's layer has none
     assert.equal(F.statusFxKey('talent:archet_shield'), 'archet_shield');
-    assert.deepEqual(F.STATUS_FX.archet_shield, ['archet', 'archet_buff_01_start', 0]);
+    assert.deepEqual(F.STATUS_FX.archet_shield, ['archet', { tpl: 'archet_t_2' }, 0], 'by its client key (fxstatus.js keyed)');
+    const { PLAYS } = await import('./helpers/fxPlays.js');
+    const archet = { isEnemy: false, alive: true, flags: 0, statuses: new Set(['talent:archet_shield']) };
+    assert.deepEqual([...F.wantedStatusFx(archet, new Map(), null, PLAYS)], [['archet_shield', ['archet', 'archet_buff_01_start', 0]]]);
+    assert.deepEqual([...F.wantedStatusFx(archet, new Map())], [], 'without the plays: none');
     assert.equal(F.statusFxKey('talent:kalts2:shield'), null);
     assert.equal(F.statusFxKey('ines:aspdGain'), null, 'an ASPD gain is no 攻速下降');
     assert.equal(F.statusFxKey('bind'), null, 'no common prefab: the applier\'s buff effect (SOURCE_FX)');
