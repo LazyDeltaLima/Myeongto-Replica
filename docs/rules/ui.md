@@ -1545,3 +1545,14 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   시점 단추는 도우미마다 절반 하나 + 가운데 全景(`render.md` 「8인 넓은 연합 방어 필드 그리기」).
 - 확인: `test/ui/eight-player-ui.test.js`(로비 `size` 필드, 대기 창 크기·`counts8`, 8석 방의 좌석·시작·빈자리 매칭·AI 없음, 좌석 색 8개, 결산 색이
   진영 없이 8개·무작위 진영 배치 400개에서 겹침 없음, 진행 목록 접기, 본판 클래스, en·ko 문구).
+
+## 오퍼레이터 구성 기본 스킬·모듈 (2026-10-22, 관리자 결정)
+- 오퍼레이터 구성(干员调配)의 기본 선택을 공식 기본값(`defaultSkillIndex`·`defaultUniEquipId`) 대신 이렇게 둔다: **그라벨(砾) S1·모듈 없음**,
+  **스와이어 디 엘리건트 위트(琳琅诗怀雅) S1**(모듈은 공식 기본 그대로). 이격 이그제큐터(圣约送葬人)는 공식 기본이 이미 S2라 그대로.
+  표는 `shared/protocol.js LOADOUT_DEFAULT_DEVIATIONS`(일반 chess id 기준), `loadoutOptions`가 읽는다 — 구성 화면의 「기본」 표시, 저장 때 기본과 같은
+  항목 버리기(`checkLoadout`), 경기의 전투 입력(`resolveLoadout`: 따로 고르지 않은 플레이어와 AI 팀원)이 모두 이 기본을 따른다.
+- `data/chess.json`(`skill`·`module`·`stats`)과 키트의 기본 스펙은 공식 그대로다: sim은 고른 스킬·모듈을 명시적으로 받고, 공식 기본(그라벨 S2·모듈,
+  스와이어 디 엘리건트 위트 S2)은 고를 수 있는 선택으로 남는다. 데이터의 기본을 바꾸지 않은 까닭: 키트는 데이터 기본 스킬을 `skill`, 나머지를
+  `skills` 맵으로 쓰고, 소환물 표(`tokens.json`)도 기본 스킬이 만드는 소환물에서 시작한다(스와이어 디 엘리건트 위트 S2의 香槟炸弹).
+- 이미 저장된 구성 중 그라벨 S2+모듈·스와이어 디 엘리건트 위트 S2는 예전엔 기본이라 저장되지 않았으므로, 이제 새 기본(S1)으로 열린다.
+- 테스트 `test/ui/loadout.test.js` 「LOADOUT_DEFAULT_DEVIATIONS」, `test/match/loadout.test.js`, `test/sim/loadout.test.js`(로비 기본 = 기록 기본, 이 표만 예외).

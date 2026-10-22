@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { checkLoadout, MODULE_NONE } from '../../shared/protocol.js';
+import { checkLoadout, loadoutOptions, MODULE_NONE } from '../../shared/protocol.js';
 import { PHASE } from '../../shared/constants.js';
 import {
   parseStored, toStored, chessOptions, effectiveChoice, setChoice, resetChoice, sanitizeEntries, rosterOf, filterRoster,
@@ -177,7 +177,22 @@ test('selectedSkill / selectedModule for the in-match UI (shop cards, detail pan
   assert.equal(selectedModule(lo, IG, get), null);
   assert.equal(selectedModule({}, IG, get).uniEquipId, 'uniequip_002_inside');
   assert.equal(selectedModule(lo, IB, get), null, 'normal chess have no module');
-  assert.equal(selectedSkill(null, SB, get).index, SB.skill.index);
+  // 琳琅诗怀雅 starts on S1 (LOADOUT_DEFAULT_DEVIATIONS), not the record's official default S2
+  assert.equal(selectedSkill(null, SB, get).index, 0);
+  assert.equal(SB.skill.index, 1);
+});
+
+test('LOADOUT_DEFAULT_DEVIATIONS: 砾 S1 without a module, 琳琅诗怀雅 S1; the records keep the official defaults', () => {
+  const { base: GB, golden: GG } = recordsOf('chess_char_2_12_a', get);
+  assert.deepEqual([GB.skill.index, GG.modules.find((m) => m.isDefault)?.uniEquipId], [1, 'uniequip_002_gravel']);
+  const g = loadoutOptions(GB, GG);
+  assert.deepEqual([g.defaultSkill, g.defaultModule], [0, MODULE_NONE]);
+  const s = loadoutOptions(SB, SG);
+  assert.deepEqual([s.defaultSkill, s.defaultModule], [0, SG.modules.find((m) => m.isDefault).uniEquipId]);
+  // the official default is a choice that is kept, not dropped
+  assert.deepEqual(checkLoadout({ chess_char_2_12_a: { skill: 1, module: 'uniequip_002_gravel' } }, get).loadout,
+    { chess_char_2_12_a: { skill: 1, module: 'uniequip_002_gravel' } });
+  assert.deepEqual(checkLoadout({ chess_char_2_12_a: { skill: 0, module: MODULE_NONE } }, get).loadout, {});
 });
 
 test('roster and filters: 112 visible chess in shop order; tier / class / bond / search / changed-only', () => {
@@ -194,7 +209,7 @@ test('roster and filters: 112 visible chess in shop order; tier / class / bond /
   assert.deepEqual(filterRoster(roster, { query: '隐现' }, {}, get, getBond).map((c) => c.chessId), [INSIDE]);
   const bondName = getBond(bond).name;
   assert.ok(filterRoster(roster, { query: bondName }, {}, get, getBond).some((c) => c.chessId === INSIDE), 'search matches bond names');
-  assert.deepEqual(filterRoster(roster, { changedOnly: true }, { [INSIDE]: { skill: 0 }, [SWIRE]: { skill: SB.skill.index } }, get, getBond).map((c) => c.chessId), [INSIDE]);
+  assert.deepEqual(filterRoster(roster, { changedOnly: true }, { [INSIDE]: { skill: 0 }, [SWIRE]: { skill: loadoutOptions(SB, SG).defaultSkill } }, get, getBond).map((c) => c.chessId), [INSIDE]);
 });
 
 test('display helpers: module badge, stat rows, skill tags', () => {

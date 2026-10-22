@@ -102,7 +102,7 @@ describe('room.loadout (lobby, stub match)', () => {
     await host.waitFor('m.public', (p) => p.phase === 'INFO_CHECK');
     const seats = RecordingStub.instances.at(-1).opts.seats;
     const by = (id) => seats.find((s) => s.playerId === id);
-    assert.deepEqual(by(host.id).loadout, { [SWIRE]: { skill: C(SWIRE).skill.index, module: SWIRE_ALT } });
+    assert.deepEqual(by(host.id).loadout, { [SWIRE]: { skill: 0, module: SWIRE_ALT } });
     assert.deepEqual(by(guest.id).loadout, { [INSIDE]: { skill: 1, module: 'none' } });
     const bot = seats.find((s) => s.isBot);
     assert.equal(bot.loadout, null, 'bots fight with the defaults');

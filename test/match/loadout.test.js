@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ERR, PHASE } from '../../shared/constants.js';
-import { validateC2S, checkLoadout, loadoutOptions, resolveLoadout, isLoadoutEntries, MODULE_NONE, LOADOUT_LIMITS } from '../../shared/protocol.js';
+import { validateC2S, checkLoadout, loadoutOptions, resolveLoadout, isLoadoutEntries, MODULE_NONE, LOADOUT_LIMITS, LOADOUT_DEFAULT_DEVIATIONS } from '../../shared/protocol.js';
 import { buildBattleSpec } from '../../server/sim/spec.js';
 import { DATA, makeMatch } from './harness.js';
 
@@ -39,7 +39,7 @@ test('data carries the §16 choices every visible chess needs (skills at both st
     const o = loadoutOptions(c, g);
     assert.ok(o.skills.length >= 2, `${c.name}: selectable skills`);
     assert.ok(o.skills.includes(o.defaultSkill), `${c.name}: default skill is selectable`);
-    assert.equal(o.defaultSkill, c.skill.index, `${c.name}: default = defaultSkillIndex`);
+    assert.equal(o.defaultSkill, LOADOUT_DEFAULT_DEVIATIONS[c.chessId]?.skill ?? c.skill.index, `${c.name}: default = defaultSkillIndex`);
     assert.ok(o.modules.includes(MODULE_NONE) && o.modules.includes(o.defaultModule), `${c.name}: modules`);
   }
   const o = loadoutOptions(chess(INSIDE), chess(chess(INSIDE).goldenId));
@@ -113,7 +113,7 @@ test('resolveLoadout: normal chess → moduleId null; elite → the chosen modul
   assert.deepEqual(resolveLoadout(lo, g, chess), { skillIndex: 0, moduleId: 'none' });
   assert.deepEqual(resolveLoadout(null, g, chess), { skillIndex: 1, moduleId: 'uniequip_002_inside' });
   const other = chess(SWIRE);
-  assert.deepEqual(resolveLoadout(lo, other, chess), { skillIndex: other.skill.index, moduleId: null });
+  assert.deepEqual(resolveLoadout(lo, other, chess), { skillIndex: loadoutOptions(other, chess(other.goldenId)).defaultSkill, moduleId: null });
   // a stale entry (not selectable any more) falls back to the defaults, never throws
   assert.deepEqual(resolveLoadout({ [INSIDE]: { skill: 7, module: 'gone' } }, g, chess), { skillIndex: 1, moduleId: 'uniequip_002_inside' });
 });

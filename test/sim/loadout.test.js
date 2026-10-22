@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DataSource, getDefaultSource, resolveLoadout, loadoutRecord, hasGeneratedData, isLoadoutView } from '../../server/sim/simdata.js';
 import { Battle } from '../../server/sim/Battle.js';
-import { loadoutOptions, resolveLoadout as resolveSeatLoadout } from '../../shared/protocol.js';
+import { loadoutOptions, resolveLoadout as resolveSeatLoadout, LOADOUT_DEFAULT_DEVIATIONS } from '../../shared/protocol.js';
 import { buildBattleSpec, createBattleFromSpec, resultDigest, withUnitLoadouts, jsonClone } from '../../server/sim/spec.js';
 import { setupUnitKit, selectSkillSpec, skillSpecSource } from '../../server/sim/content/index.js';
 import { genericKit } from '../../server/sim/content/generic.js';
@@ -49,8 +49,10 @@ test('every choice the lobby accepts (shared loadoutOptions) resolves to itself 
     if (c.isGolden || !c.visible) continue;
     const g = C[c.goldenId];
     const opt = loadoutOptions(c, g);
-    assert.equal(opt.defaultSkill, c.skill.index, `${c.chessId}: default skill`);
-    assert.equal(opt.defaultModule, resolveLoadout(g, null).moduleId, `${c.chessId}: default module`);
+    // the lobby's default is the record's, except LOADOUT_DEFAULT_DEVIATIONS (which the seat then names explicitly)
+    const dev = LOADOUT_DEFAULT_DEVIATIONS[c.chessId];
+    assert.equal(opt.defaultSkill, dev?.skill ?? c.skill.index, `${c.chessId}: default skill`);
+    assert.equal(opt.defaultModule, dev?.module ?? resolveLoadout(g, null).moduleId, `${c.chessId}: default module`);
     for (const skill of opt.skills) {
       for (const module of opt.modules) {
         const seat = { [c.chessId]: { skill, module } };

@@ -92,9 +92,12 @@ test('香槟炸弹 (the token kit, spawned without her kit): the same 禁疗, no
 // The real match path (test/match/harness.js → buildBattleSpec → createBattleFromSpec): a bomb in a real battle of a
 // 琳琅诗怀雅 lineup keeps the same durability and stays out of ally selection.
 test('香槟炸弹 (real path): no HP loss, no heal, not ally-selectable — a stealth-free enemy still sets it off', { skip: !hasGeneratedData() }, async () => {
-  const { makeMatch } = await import('../match/harness.js');
+  const { makeMatch, DATA } = await import('../match/harness.js');
   const { buildBattleSpec, createBattleFromSpec } = await import('../../server/sim/spec.js');
-  const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }];
+  const { checkLoadout } = await import('../../shared/protocol.js');
+  // S2 throws the bombs; the 干员调配 default is S1 (LOADOUT_DEFAULT_DEVIATIONS)
+  const loadout = checkLoadout({ [SW]: { skill: 1 } }, (id) => DATA.chess[id] ?? null).loadout;
+  const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, loadout }];
   const hm = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed: 3 }).start();
   hm.toPrep(3);
   const m = hm.m, ps = hm.ps('p_0');

@@ -110,11 +110,23 @@ function skillIndexesOf(c) {
 }
 
 /**
+ * The 干员调配 default of a few chess in place of the official one (maintainer decision 2026-10-22), keyed by the normal
+ * chess id: `skill` = skill index, `module` = the elite's module ('none' = no module). Only the player's starting choice:
+ * the data record (its `skill` / `module`, the kits' default spec) stays official, the official default a choice.
+ */
+export const LOADOUT_DEFAULT_DEVIATIONS = Object.freeze({
+  chess_char_2_12_a: { skill: 0, module: MODULE_NONE }, // 砾: S1, no module
+  chess_char_3_04_a: { skill: 0 },                       // 琳琅诗怀雅: S1
+});
+
+/**
  * What the 干员调配 screen may choose for one chess (DESIGN §16).
  *   skills: skill indexes unlocked at BOTH the normal and the elite status (identical sets in the official data)
- *   defaultSkill: `defaultSkillIndex` (data: the skills[] entry flagged isDefault, else `skill.index`)
+ *   defaultSkill: `defaultSkillIndex` (data: the skills[] entry flagged isDefault, else `skill.index`), or the
+ *     LOADOUT_DEFAULT_DEVIATIONS one
  *   modules: the elite's modules (uniEquipId…) + 'none'; [] when the chess has no elite record
- *   defaultModule: the elite's default module (`defaultUniEquipId`), 'none' for module-less elites, null without elite
+ *   defaultModule: the elite's default module (`defaultUniEquipId`), 'none' for module-less elites, null without elite;
+ *     or the LOADOUT_DEFAULT_DEVIATIONS one
  * @param {any} base normal chess record
  * @param {any} [golden] its elite record (null when absent)
  * @returns {{ skills: number[], defaultSkill: number|null, modules: string[], defaultModule: string|null }}
@@ -125,6 +137,8 @@ export function loadoutOptions(base, golden = null) {
   const skills = g && g.length ? n.filter((i) => g.includes(i)) : n;
   const flagged = Array.isArray(base?.skills) ? base.skills.find((s) => s && s.isDefault && isInt(s.index, 0, LOADOUT_LIMITS.skillIndex)) : null;
   let defaultSkill = flagged ? flagged.index : isInt(base?.skill?.index, 0, LOADOUT_LIMITS.skillIndex) ? base.skill.index : null;
+  const dev = Object.hasOwn(LOADOUT_DEFAULT_DEVIATIONS, base?.chessId) ? LOADOUT_DEFAULT_DEVIATIONS[base.chessId] : null;
+  if (dev && dev.skill != null && skills.includes(dev.skill)) defaultSkill = dev.skill;
   if (defaultSkill == null || !skills.includes(defaultSkill)) defaultSkill = skills.length ? skills[0] : defaultSkill;
   let modules = [];
   let defaultModule = null;
@@ -139,6 +153,7 @@ export function loadoutOptions(base, golden = null) {
     }
     if (def == null && golden.module && golden.module.active && modules.includes(golden.module.id)) def = golden.module.id;
     modules.push(MODULE_NONE);
+    if (dev && dev.module != null && modules.includes(dev.module)) def = dev.module;
     defaultModule = def || MODULE_NONE;
   }
   return { skills, defaultSkill, modules, defaultModule };
