@@ -9214,7 +9214,6 @@
    "- spawn enemy_msnip_attack_hit → ally",
    "- spawn enemy_msnip_skill_hit → ally",
    "- spawn enemy_spnaxe_attack_hit → ally",
-   "- spawn etlchi_innate_hit_01 → ally",
    "- spawn etlchi_skill_01_hit_01 → enemy",
    "- spawn f12yin_skill_01_hit → enemy",
    "- spawn reckpr_skill1_hit → enemy",
