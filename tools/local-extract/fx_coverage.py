@@ -102,7 +102,7 @@ MODULES_READ = {'InitialModule', 'EmissionModule', 'ShapeModule', 'SizeModule', 
 MODULE_MODES = {'InheritVelocityModule': ('m_Mode', 0, 'mode 1 Current (follows the emitter all its life)'),
                 'CollisionModule': ('type', 0, 'type 1 World (collides with the scene\'s colliders)')}
 # shape types render/fxplayer.js emits from (the `switch (sh.type)` of its emitter); others fall back to a point
-SHAPES_DRAWN = {0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 15, 16, 17, 18}
+SHAPES_DRAWN = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 16, 17, 18}
 SHAPE_NAMES = {6: 'Mesh', 13: 'MeshRenderer', 14: 'SkinnedMeshRenderer', 19: 'Sprite', 20: 'SpriteRenderer'}
 
 # material textures / values render/fxplayer.js reads (makeMaterial, CLIP_UNIFORM, CLIP_COMP) — test/local-extract.test.js
@@ -194,29 +194,16 @@ KNOWN = {
     'script:FollowOwner': (_TODO, 'keeps the effect on its owner every frame [추정: by the name]'),
     'script:FollowOwnerRootTileHeight': (_TODO, 'follows the height of the tile under its owner [추정: by the name]'),
     # particle systems
-    'shape:6 Mesh': (_TODO, 'emits from a mesh: the player falls back to a point'),
     # materials (values: the extracted materials, 2026-10-16)
     'property:Torappu/Particles/Disturb/Disturb Anchor _Weight': (_NONE, 'the toggle behind keyword _WEIGHT_ON, which the player reads (all 198 materials agree)'),
     # clips
     'clip:binding to a path outside the Animator': (_NONE, 'the clip names a node the prefab does not have (deleted in authoring): '
                                                     'Unity binds nothing either'),
     'clip:Animator clips past the first (other states: set by client scripts)': (_TODO, 'only the default state\'s clip plays'),
-    'clip:ParticleSystem.EmissionModule.rateOverTime.scalar': (_TODO, 'a clip animating a particle module: the player keeps the authored value'),
-    'clip:ParticleSystem.EmissionModule.rateOverTime.minScalar': (_TODO, 'a clip animating a particle module: the player keeps the authored value'),
-    'clip:ParticleSystem.ShapeModule.radius.value': (_TODO, 'a clip animating a particle module: the player keeps the authored value'),
-    'clip:ParticleSystem.SizeModule.curve.scalar': (_TODO, 'a clip animating a particle module: the player keeps the authored value'),
-    'clip:ParticleSystem.TrailModule.colorOverLifetime.maxColor.a': (_TODO, 'a clip animating a particle module: the player keeps the authored value'),
-    'clip:TrailRenderer.m_Time': (_TODO, 'a clip animating a trail\'s length: the player keeps the authored value'),
-    'clip:MonoBehaviour.xspeed': (_TODO, 'a clip animating FxUVTweener speed: the player keeps the authored value'),
-    'clip:MonoBehaviour.secondXSpeed': (_TODO, 'a clip animating FxUVTweener speed: the player keeps the authored value'),
-    'clip:MonoBehaviour.yspeed': (_TODO, 'a clip animating FxUVTweener speed: the player keeps the authored value'),
-    'clip:MonoBehaviour.secondYSpeed': (_TODO, 'a clip animating FxUVTweener speed: the player keeps the authored value'),
-    **{f'clip:ParticleSystem.InitialModule.startColor.maxColor.{c}': (
-        _TODO, 'a clip animating a particle module: the player keeps the authored value') for c in 'rgba'},
-    # (2026-10-21) first met in the enemies' full extraction (enemy_bindings.py --extract --all)
-    **{f'clip:{k}': (_TODO, 'a clip animating it: the player keeps the authored value') for k in (
-        'MeshRenderer.m_Enabled', 'ParticleSystem.looping', 'ParticleSystem.InitialModule.gravityModifier.scalar',
-        'ParticleSystem.VelocityModule.enabled')},
+    # (2026-10-22) a clip's particle module values, trail length, MeshRenderer switch and FxUVTweener speeds are tracks now
+    # (fx_extract.py ANIMATED_VALUES → render/fxplayer.js PS_ANIM / UVT_ANIM); one met on a system without that module
+    # (the enemies' mcmstr_buff_04_start switching its VelocityModule on) keeps the authored state
+    'clip:ParticleSystem.VelocityModule.enabled': (_TODO, 'a clip switching the module on: the extract has no module to switch'),
     'script:EffectImportData': (_TODO, 'its import settings (`_importName`, `_resourceName`, `_sortingLayerId`, `_removeTopAnimator`) are '
                                 'not read [추정: authoring data]'),
     'script:SyncEffectScaleWithAuraRangeRadius': (_TODO, 'scales the effect with its owner\'s aura ability range (÷ `_effectOriginRadius`)'),
@@ -412,6 +399,12 @@ class Coverage:
         if sh.get('enabled') and sh.get('type') not in SHAPES_DRAWN:
             t = sh.get('type')
             self.add('shape', f'{t} {SHAPE_NAMES.get(t, "?")}')
+        if sh.get('enabled') and sh.get('type') == 6:   # (2026-10-22) the one way a Mesh shape is read
+            ms = sh.get('m_MeshSpawn') or {}
+            if ms.get('mode', 0) != 0:
+                self.add('shape', f'6 Mesh m_MeshSpawn mode {ms.get("mode")} (vertices / edges in order, not at random)')
+            if sh.get('m_MeshNormalOffset', 0) or sh.get('alignToDirection'):
+                self.add('shape', '6 Mesh normal offset / align to direction')
 
     def material(self, shader, props, tex, values):
         """A material: its shader name, the shader's declared properties [(name, type, defaults)], the textures it sets

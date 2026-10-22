@@ -236,7 +236,8 @@ test('screens/game.js buffers the form fx with the state-bearing events it repla
   const src = readFileSync(path.join(ROOT, 'public/js/screens/game.js'), 'utf8');
   const early = readFileSync(path.join(ROOT, 'public/js/screens/game/early.js'), 'utf8');
   // (+ 望's 'wangLink', maintainer re-report 2026-10-08: test/render/wang-stone-fx.test.js)
-  assert.match(early, /const keepEarly = \(e\) => Array\.isArray\(e\) && \(STATE_EV\.has\(e\[0\]\) \|\| fxForm\(e\) !== undefined \|\| \(e\[0\] === 'fx' && e\[1\] === 'wangLink'\)\);/);
+  // (2026-10-22: through shared/protocol.js stateFx, which runner.js keepsState and render/interp.js share)
+  assert.match(early, /const keepEarly = \(e\) => Array\.isArray\(e\) && \(STATE_EV\.has\(e\[0\]\) \|\| stateFx\(e\)\);/);
   assert.match(src, /for \(const e of msg\.ev\) if \(keepEarly\(e\)\) buf\.push\(e\);/);
   // a new m.field for the field on screen buffers its frames until the enter effect re-enters it (enterBattle resets)
   assert.match(src, /if \(msg\.fieldId === lastFieldRef\.current\) reentryRef\.current = msg\.fieldId;/);

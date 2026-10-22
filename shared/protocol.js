@@ -609,4 +609,14 @@ export function fxForm(ev) {
   return typeof x.form === 'string' ? x.form : null;
 }
 
+/**
+ * Whether a `b.ev` 'fx' tuple is kept like state: one that sets a model form (fxForm), or 望's 'wangLink' — a stone's
+ * 激活 effect shows for as long as it stands (render/fxgame.js STONE_ON). The four places that keep state keep these:
+ * battle/runner.js keepsState, screens/game/early.js keepEarly, render/interp.js isCosmeticEvent (2026-10-22: the first
+ * and the last had no 'wangLink', so a hidden tab or a long stall dropped the stone's activation).
+ */
+export function stateFx(ev) {
+  return fxForm(ev) !== undefined || (Array.isArray(ev) && ev[0] === EV.FX && ev[1] === 'wangLink');
+}
+
 extendProtocol(C2S, S2C); // local patch (shared/local.js)

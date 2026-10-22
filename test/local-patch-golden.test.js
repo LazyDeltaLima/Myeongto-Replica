@@ -100,7 +100,7 @@ test('fxplayer: by default the root position is dropped and the quad renderers g
   assert.ok(uPivot(keep).x > 0.9, 'and still pivots');
   keep.dispose();
   const flat = new fxp.FxInstance(def, { quality: 'high', pivot: false });
-  assert.deepEqual(uPivot(flat).toArray(), [0, 0], 'pivot false: no pivot');
+  assert.deepEqual(uPivot(flat).toArray(), [0, 0, 0], 'pivot false: no pivot');
   assert.deepEqual(flat.nodes[0].position.toArray(), [0, 0, 0]);
   flat.dispose();
 });

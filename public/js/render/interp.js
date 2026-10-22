@@ -40,7 +40,7 @@
 // Game times in all of them (`cooldownEnd`, `respawnAt`, `until`, `at`) are on the snapshots' clock, so a view compares
 // them with renderT.
 
-import { fxForm } from '../../../shared/protocol.js';
+import { stateFx } from '../../../shared/protocol.js';
 import { ANIM, UF } from '../../../shared/constants.js';
 
 export const TUPLE = Object.freeze({ ID: 0, X: 1, Y: 2, HP: 3, MAXHP: 4, SP: 5, SPMAX: 6, FLAGS: 7, ANIM: 8, EL: 9, EL_FILL: 10, EL_UNTIL: 11, EL_DUR: 12 });
@@ -68,9 +68,9 @@ export const COSMETIC_EVENTS = new Set(['atk', 'swing', 'dmg', 'heal', 'fx', 'la
  * Whether an event may be dropped when stale or shed from a full queue. An 'fx' that carries an enemy's model `form`
  * (shared/protocol.js fxForm) is state: dropping it left the view on the old model after a long main-thread stall, on a
  * watched field after a hidden tab and on a field entered late (user report #5 after 0.1.0) — the fourth place the client
- * keeps it, with battle/runner.js keepsState and screens/game.js keepEarly.
+ * keeps it, with battle/runner.js keepsState and screens/game.js keepEarly; so is 望's 'wangLink' (shared/protocol.js stateFx).
  */
-export const isCosmeticEvent = (ev) => Array.isArray(ev) && COSMETIC_EVENTS.has(ev[0]) && fxForm(ev) === undefined;
+export const isCosmeticEvent = (ev) => Array.isArray(ev) && COSMETIC_EVENTS.has(ev[0]) && !stateFx(ev);
 
 /**
  * Game time (s) of a b.snap / b.ev payload, or NaN. On the wire every frame is `{ t: '<type>', … }`, so the server

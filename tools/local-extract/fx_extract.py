@@ -49,6 +49,18 @@ BUNDLE_DIRS = ('PersistentData/Bundles', 'StreamingAssets/AB/Windows')  # Persis
 # skin / collab variants of a prefab (the remake draws the default skin only; keep in sync with render/fxmap.js isVariant)
 WEBP_QUALITY = 85
 WIDTH_ATTR = zlib.crc32(b'm_Parameters.widthMultiplier')   # local patch: the clip binding of a line / trail's width
+# (2026-10-22) clip bindings on a component's own values the player drives (render/fxplayer.js bindTrack0): the component
+# (Unity class id) → {its property path: the track's prop}. A Mecanim binding is the crc32 of the path, a legacy one the path
+ANIMATED_VALUES = {
+    198: {p: 'ps:' + p for p in (   # ParticleSystem
+        'EmissionModule.rateOverTime.scalar', 'EmissionModule.rateOverTime.minScalar', 'ShapeModule.radius.value',
+        'SizeModule.curve.scalar', 'InitialModule.gravityModifier.scalar', 'looping',
+        *(f'InitialModule.startColor.maxColor.{c}' for c in 'rgba'), *(f'TrailModule.colorOverLifetime.maxColor.{c}' for c in 'rgba'))},
+    96: {'m_Time': 'trail:time'},   # TrailRenderer
+    23: {'m_Enabled': 'mr:enabled'},   # MeshRenderer
+    114: {p: 'uvt:' + p for p in ('xspeed', 'yspeed', 'secondXSpeed', 'secondYSpeed')},   # MonoBehaviour: FxUVTweener
+}
+ANIMATED_CRC = {(cid, zlib.crc32(p.encode())): prop for cid, m in ANIMATED_VALUES.items() for p, prop in m.items()}
 VARIANT_RE = re.compile(r'#\d+|_sale|_iteration|_avemujica|_cn_topolect', re.I)
 # local patch: prefabs never extracted — common_stealth (texture common_leaf; only the 生息演算 buildings use it, and the maintainer has
 # never seen the leaf in the game, 2026-10-08: "그 텍스처는 폐기해")
@@ -244,7 +256,7 @@ def vec3(v):
 
 # ---------------------------------------------------------------- particle system
 
-def particle_system(ps, psr, mat_key, mesh_key, trail_mat=None):
+def particle_system(ps, psr, mat_key, mesh_key, trail_mat=None, shape_mesh=None):
     im = ps['InitialModule']
     o = {
         'dur': r4(ps['lengthInSec']), 'loop': bool(ps['looping']), 'delay': minmax(ps['startDelay']),
@@ -273,6 +285,10 @@ def particle_system(ps, psr, mat_key, mesh_key, trail_mat=None):
                       'box': vec3(sh.get('boxThickness', {'x': 0, 'y': 0, 'z': 0})),
                       'align': sh.get('alignToDirection', 0), 'randDir': r4(sh.get('randomDirectionAmount', 0)),
                       'sphDir': r4(sh.get('sphericalDirectionAmount', 0))}
+        if sh['type'] == 6 and shape_mesh:
+            # 2026-10-22: a Mesh shape — its mesh file, placementMode (0 vertex, 1 edge, 2 triangle) and m_UseMeshColors
+            # (the client's 79 systems: m_MeshSpawn mode 0 Random, no normal offset; fx_coverage reports another)
+            o['shape'].update({'mesh': shape_mesh, 'place': sh.get('placementMode', 0), 'meshCol': bool(sh.get('m_UseMeshColors', 1))})
     mods = {}
     if ps['SizeModule']['enabled']:
         s = ps['SizeModule']
@@ -447,7 +463,7 @@ def legacy_clip(clip, rel, wrap=0):
         if attr.startswith('material.'):
             prop = 'mat:' + attr[9:]
         else:
-            prop = f'attr:{crc32(attr)}'
+            prop = ANIMATED_VALUES.get(cv.get('classID', 0), {}).get(attr) or f'attr:{crc32(attr)}'
         tracks.append({'node': node, 'prop': prop, 'type': cv.get('classID', 0), 'curves': [hermite_keys(keys)]})
     if clip.get('m_CompressedRotationCurves'):
         print(f"[fx] legacy clip {clip['m_Name']}: compressed rotation curves skipped")
@@ -1021,11 +1037,18 @@ class Extractor:
                         mo = self.mesh_ref(psr_t.get('m_Mesh'), psr)
                         if mo is not None:
                             mesh_key = self.mesh(mo, out)
-                    ps_t = node.pop('_ps').read_typetree()
+                    ps_o = node.pop('_ps')
+                    ps_t = ps_o.read_typetree()
+                    shape_mesh = None   # 2026-10-22: a Mesh shape's mesh
+                    sh_t = ps_t.get('ShapeModule') or {}
+                    if sh_t.get('enabled') and sh_t.get('type') == 6:
+                        so = self.mesh_ref(sh_t.get('m_Mesh'), ps_o)
+                        if so is not None:
+                            shape_mesh = self.mesh(so, out)
                     # a system without a material / an enabled renderer draws nothing (often an empty container)
                     has_trail = ps_t.get('TrailModule', {}).get('enabled') and trail_mat
                     if (mat_key or has_trail) and psr_t.get('m_Enabled', 1):
-                        node['ps'] = particle_system(ps_t, psr_t, mat_key, mesh_key, trail_mat)
+                        node['ps'] = particle_system(ps_t, psr_t, mat_key, mesh_key, trail_mat, shape_mesh)
                         self.cov.particle(ps_t)
             node.pop('_psr', None)
             if '_mr' in node and '_mf' in node:
@@ -2500,6 +2523,8 @@ class Extractor:
                 node = rel.get(b['path'])
                 if prop is None and node is not None and attr == WIDTH_ATTR:
                     prop = 'width'   # local patch: a Line / Trail Renderer's widthMultiplier
+                if prop is None and node is not None and b.get('customType') != 22:
+                    prop = ANIMATED_CRC.get((tid, attr))   # 2026-10-22: a module / trail / renderer / UV tweener value
                 if prop is None and node is not None:
                     prop = self.material_prop(attr, nodes[node], mats, lambda: self.node_declared(node)) or f'attr:{attr}'
                 if node is not None and prop:

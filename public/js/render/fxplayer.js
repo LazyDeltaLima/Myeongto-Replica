@@ -223,7 +223,7 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
   attribute vec3 iPos; attribute vec3 iSize; attribute vec3 iRot; attribute vec4 iColor; attribute vec4 iC1; attribute vec4 iC2;
   attribute vec4 iUV; attribute vec3 iVel;
   attribute vec4 vcol; uniform bool uVCol; uniform bool uRim;
-  uniform int uMode; uniform float uLengthScale; uniform float uVelScale; uniform int uAlign; uniform vec2 uPivot;
+  uniform int uMode; uniform float uLengthScale; uniform float uVelScale; uniform int uAlign; uniform vec3 uPivot;
   varying vec2 vUv; varying vec4 vColor; varying vec4 vC1; varying vec4 vC2;
   // local patch: vH = the board height (scene z) of the fragment — what lies under the floor is cut (FRAG uFloor; the
   // official map's opaque ground hides it by depth); vN / vVP = view-space normal / position of a mesh (the Rim shaders)
@@ -257,7 +257,8 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       vec3 transformed = position;
       #include <skinbase_vertex>
       #include <skinning_vertex>
-      vec3 p = rm * (transformed * iSize);
+      // 2026-10-22: + the renderer's pivot (in particle sizes, the mesh's own axes) before the turn, as a quad's [추정]
+      vec3 p = rm * ((transformed + uPivot) * iSize);
       vH = (modelMatrix * vec4(iPos + p, 1.0)).z;
       if (uRim) { vN = normalMatrix * (rm * (normal / max(abs(iSize), vec3(1e-4)))); vVP = (modelViewMatrix * vec4(iPos + p, 1.0)).xyz; }
       gl_Position = projectionMatrix * modelViewMatrix * vec4(iPos + p, 1.0);
@@ -267,8 +268,8 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
     // (FxInstance opts.pivot, default on): the quad's centre sits pivot x size from the particle, turned with it (elite glow bao: pivot x
     // .95 at rotation -90 deg, its gold band runs from the feet back behind the unit, official recording 2026-10-08;
     // [ASSUMED] the sign: + puts that band behind the unit as recorded, - would put it in front of the feet).
-    // Billboards / aligned / horizontal quads only (stretched and mesh particles: not yet)
-    vec2 c = (position.xy + uPivot) * iSize.xy;
+    // Stretched and mesh particles: below / above (2026-10-22)
+    vec2 c = (position.xy + uPivot.xy) * iSize.xy;
     float cr = cos(-iRot.z), sr = sin(-iRot.z);
     if (uMode == 1) {                       // stretched billboard: along the view-space velocity
       vec4 cv = modelViewMatrix * vec4(iPos, 1.0);
@@ -277,7 +278,11 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       // local patch (maintainer video 2026-10-07, 锏 S3: long thin slash lines): the length is the size's y × lengthScale, the
       // width its x (3D start size 0.15 × 3.6 drew short fat petals the other way round); equal for a uniform size
       float len = iSize.y * uLengthScale + length(iVel) * uVelScale;
-      vec2 off = d * (position.x * len) + vec2(-d.y, d.x) * (position.y * iSize.x);
+      // 2026-10-22: the pivot in the stretched quad's frame — y along the stretch in lengths (pivot y ±0.5 puts one end on
+      // the particle: 爆刺 baoci −0.5 with a negative lengthScale), x across in widths. [추정: Unity's y runs against the
+      // velocity — the client's streaks (1,664 systems, |pivot y| 0.2–0.75 with its sign that of lengthScale) then trail
+      // behind their particle, a speed line's / spark's head on it; Unity builds these quads on the CPU, out of reach]
+      vec2 off = d * ((position.x - uPivot.y) * len) + vec2(-d.y, d.x) * ((position.y + uPivot.x) * iSize.x);
       vH = (modelMatrix * vec4(iPos, 1.0)).z + hOfView(vec3(off, 0.0));
       gl_Position = projectionMatrix * vec4(cv.xyz + vec3(off, 0.0), 1.0);
       return;
@@ -545,7 +550,7 @@ function makeMaterial(m, lib) {
       uCustom: { value: (f._HGCustomVertexStream ?? (/CustomData/.test(shader) ? 1 : 0)) !== 0 },
       uTime: { value: 0 }, uAdditive: { value: additive },
       uUVRot: { value: false }, uRot: { value: [0, 1, 2, 3].map(() => new THREE.Vector4(1, 0, 0, 1)) },   // uvRotation
-      uMode: { value: 0 }, uLengthScale: { value: 2 }, uVelScale: { value: 0 }, uAlign: { value: 0 }, uPivot: { value: new THREE.Vector2() },
+      uMode: { value: 0 }, uLengthScale: { value: 2 }, uVelScale: { value: 0 }, uAlign: { value: 0 }, uPivot: { value: new THREE.Vector3() },
     },
   });
   mat.userData.order = m?.queue ?? 3000;
@@ -618,7 +623,13 @@ function setTime(mat, t) {
   if (!uvt) return;
   for (const e of uvt) {
     const s = Math.max(0, Math.min(t, e.until));
-    const z = e.z0 + e.vx * s, w = e.w0 + e.vy * s;
+    let z, w;
+    if (e.dyn) {   // 2026-10-22: a speed a clip moves (bindTrack0 `uvt:`) — summed frame by frame, as the client's Update
+      const ds = e.s1 == null || s < e.s1 ? s : s - e.s1;
+      if (e.s1 == null || s < e.s1) { e.zs = e.z0; e.ws = e.w0; }
+      e.zs += e.vx * ds; e.ws += e.vy * ds; e.s1 = s;
+      z = e.zs; w = e.ws;
+    } else { z = e.z0 + e.vx * s; w = e.w0 + e.vy * s; }
     // 2026-10-22: a map whose offset the client keeps to its fraction (fx_extract.py uv_tween: the map's 4th field —
     // protectMainUV / protectSecondUV, an Advance's tweenRepeat): the same on a repeating texture, not on a Clamp one
     e.u.value.z = e.frac ? z - Math.floor(z) : z;
@@ -726,6 +737,7 @@ export class FxLibrary {
         const keys = new Set();
         for (const n of def.nodes) {
           if (n.ps?.render?.mesh) keys.add(n.ps.render.mesh);
+          if (n.ps?.shape?.mesh) keys.add(n.ps.shape.mesh);   // 2026-10-22: a Mesh shape's mesh
           if (n.mesh?.mesh) keys.add(n.mesh.mesh);
           if (n.skin?.mesh) keys.add(n.skin.mesh);
         }
@@ -842,6 +854,7 @@ const trailPts = new Float32Array(TRAIL_PTS * 3), trailW = new Float32Array(TRAI
 class TrailRenderer {
   constructor(tr, node, root, def) {
     this.tr = tr; this.node = node; this.root = root;
+    this.def0 = tr;   // 2026-10-22: the shared definition (a clip's `trail:time` drives an own copy)
     this.batch = new StripBatch(makeMaterial(def.materials[tr.mat], def.lib), TRAIL_PTS);
     this.batch.mesh.renderOrder = tr.order || 0;
     root.add(this.batch.mesh);
@@ -987,6 +1000,7 @@ class ParticleSystem {
     this.root = root;           // effect root (Unity frame)
     this.q = opts.q;
     this.world = ps.space === 1;
+    this.meshShape = ps.shape?.type === 6 ? meshShape(ps.shape, def.geoms?.[ps.shape.mesh]) : null;   // 2026-10-22
     const max = Math.max(1, Math.min(ps.max || 1000, opts.cap || 400));
     this.max = max;
     this.n = 0;
@@ -1026,7 +1040,7 @@ class ParticleSystem {
     mat.uniforms.uLengthScale.value = ps.render.lengthScale ?? 2;
     mat.uniforms.uVelScale.value = ps.render.velScale ?? 0;
     mat.uniforms.uAlign.value = ps.render.align ?? 0;
-    if (opts.pivot && Array.isArray(ps.render.pivot)) mat.uniforms.uPivot.value.set(+ps.render.pivot[0] || 0, +ps.render.pivot[1] || 0); // local patch (FxInstance opts.pivot, default on)
+    if (opts.pivot && Array.isArray(ps.render.pivot)) mat.uniforms.uPivot.value.set(+ps.render.pivot[0] || 0, +ps.render.pivot[1] || 0, +ps.render.pivot[2] || 0); // local patch (FxInstance opts.pivot, default on)
     if (geomSrc !== QUAD) { useMeshAttrs(g, geomSrc, mat); meshSide(mat); } // local patch
     this.material = mat;
     this.mesh = new THREE.Mesh(g, mat);
@@ -1126,7 +1140,8 @@ class ParticleSystem {
       if (sub?.rot != null) this.rot[i * 3 + 2] += sub.rot;
       // position + direction from the shape (local space of the node)
       const p = tmpV.set(0, 0, 0), d = tmpV2.set(0, 0, 1);
-      shapeSample(ps.shape, p, d);
+      shapeSample(ps.shape, p, d, this.meshShape);
+      if (this.meshShape?.C) for (let j = 0; j < 4; j++) this.col0[i * 4 + j] *= this.meshShape.c[j];
       if (this.world) { p.applyMatrix4(emitM); d.transformDirection(emitM); }
       if (sub) p.add(subOff);
       this.pos[i * 3] = p.x; this.pos[i * 3 + 1] = p.y; this.pos[i * 3 + 2] = p.z;
@@ -1137,6 +1152,24 @@ class ParticleSystem {
         this.vel[i * 3] += v.x * k; this.vel[i * 3 + 1] += v.y * k; this.vel[i * 3 + 2] += v.z * k;
       }
     }
+  }
+
+  /**
+   * 2026-10-22: where a clip writes the value at `keys` (PS_ANIM) — [object, key], each object on the way this system's own
+   * copy (the extracted definition is shared by every instance); null when the system has no such module.
+   */
+  animPath(keys) {
+    if (!keys) return null;
+    const own = this.own || (this.own = new Set());
+    let o = this, k = 'ps';
+    for (const key of keys) {
+      let v = o[k];
+      if (!v || typeof v !== 'object') return null;
+      if (!own.has(v)) { v = Array.isArray(v) ? v.slice() : { ...v }; o[k] = v; own.add(v); }
+      o = v; k = key;
+    }
+    if (this.tm) this.tm = this.ps.mods.trail;   // the trail module it keeps (a TrailModule colour copied above)
+    return [o, k];
   }
 
   /**
@@ -1465,7 +1498,85 @@ class ParticleSystem {
 }
 
 const SCALE = new THREE.Vector3(), shapeE = new THREE.Euler(), shapeV = new THREE.Vector3();
-function shapeSample(sh, p, d) {
+/**
+ * 2026-10-22: a BoxShell (15) / BoxEdge (16) point from the volume point `p` (box `size`): a shell puts one axis on a face —
+ * the face pair chosen by its area —, an edge two axes on an edge, chosen by its length; `thick` (ShapeModule
+ * boxThickness, 0..1 per axis) is the share of the half size inward the point may lie (0 = on the surface, 1 = the whole
+ * volume). [추정: the choice by area / length — Unity's own sampling is not public; the client's boxes are flat (one size
+ * 0), where a shell is the whole rectangle either way and an edge its outline.] A box without area / length keeps `p`.
+ */
+function boxSurface(type, size, thick, p) {
+  const a = size.map(Math.abs), t = Array.isArray(thick) ? thick : [0, 0, 0];
+  const w = type === 15 ? [a[1] * a[2], a[0] * a[2], a[0] * a[1]] : a;
+  const sum = w[0] + w[1] + w[2];
+  if (!(sum > 0)) return;
+  let r = Math.random() * sum, k = 0;
+  while (k < 2 && r >= w[k]) { r -= w[k]; k++; }
+  const put = (i) => { p.setComponent(i, (Math.random() < 0.5 ? -1 : 1) * (0.5 - Math.random() * 0.5 * Math.min(1, Math.max(0, +t[i] || 0))) * size[i]); };
+  if (type === 15) put(k);
+  else for (let i = 0; i < 3; i++) if (i !== k) put(i);
+}
+
+/**
+ * 2026-10-22: a Mesh shape's (6) sampler over geometry `g` (FxLibrary.mesh): placementMode `place` 0 = a vertex, 1 = a
+ * point on a triangle's edge (by its length), 2 = a point on a triangle (by its area), at random (m_MeshSpawn mode 0, the
+ * client's only one); the direction = the surface normal there (three's from the triangles — the mesh files carry none;
+ * their winding gives Unity's side). `meshCol` (m_UseMeshColors) tints the particle by the vertex colours there (a mesh
+ * without them: white). [추정: the length / area weights — Unity's own sampling is not public]
+ */
+function meshShape(sh, g) {
+  const pos = g?.getAttribute('position'), index = g?.getIndex();
+  if (!pos || !index || index.count < 3) return null;
+  if (!g.getAttribute('normal')) g.computeVertexNormals();
+  const I = index.array, P = pos.array, N = g.getAttribute('normal').array, C = sh.meshCol ? g.getAttribute('vcol')?.array || null : null;
+  const nt = Math.floor(I.length / 3), place = sh.place | 0;
+  const len = (a, b) => Math.hypot(P[b * 3] - P[a * 3], P[b * 3 + 1] - P[a * 3 + 1], P[b * 3 + 2] - P[a * 3 + 2]);
+  let cum = null, total = 0;
+  if (place === 1 || place === 2) {
+    cum = new Float64Array(place === 1 ? nt * 3 : nt);
+    for (let t = 0; t < nt; t++) {
+      const a = I[t * 3], b = I[t * 3 + 1], c = I[t * 3 + 2];
+      if (place === 1) { cum[t * 3] = total += len(a, b); cum[t * 3 + 1] = total += len(b, c); cum[t * 3 + 2] = total += len(c, a); }
+      else {
+        const ux = P[b * 3] - P[a * 3], uy = P[b * 3 + 1] - P[a * 3 + 1], uz = P[b * 3 + 2] - P[a * 3 + 2];
+        const vx = P[c * 3] - P[a * 3], vy = P[c * 3 + 1] - P[a * 3 + 1], vz = P[c * 3 + 2] - P[a * 3 + 2];
+        cum[t] = total += 0.5 * Math.hypot(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
+      }
+    }
+    if (!(total > 0)) return null;
+  }
+  return { place, cum, total, I, P, N, C, nv: pos.count, c: [1, 1, 1, 1] };
+}
+/** Binary search: the first index of `cum` above r. */
+function cumIndex(cum, r) {
+  let lo = 0, hi = cum.length - 1;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (cum[m] > r) hi = m; else lo = m + 1; }
+  return lo;
+}
+/** A point of mesh shape `ms` into p, its normal into d, its vertex colour into ms.c (weights w over vertices a, b, c). */
+function meshSample(ms, p, d) {
+  const rand = Math.random, { I, P, N, C } = ms;
+  let a, b = 0, c = 0, wa = 1, wb = 0, wc = 0;
+  if (ms.place === 0) a = Math.floor(rand() * ms.nv) % ms.nv;
+  else if (ms.place === 1) {
+    const e = cumIndex(ms.cum, rand() * ms.total), t = (e / 3) | 0, k = e % 3;
+    a = I[t * 3 + k]; b = I[t * 3 + (k + 1) % 3];
+    wb = rand(); wa = 1 - wb;
+  } else {
+    const t = cumIndex(ms.cum, rand() * ms.total);
+    a = I[t * 3]; b = I[t * 3 + 1]; c = I[t * 3 + 2];
+    let u = rand(), v = rand();
+    if (u + v > 1) { u = 1 - u; v = 1 - v; }
+    wa = 1 - u - v; wb = u; wc = v;
+  }
+  const mix = (A, n, j) => A[a * n + j] * wa + A[b * n + j] * wb + A[c * n + j] * wc;
+  p.set(mix(P, 3, 0), mix(P, 3, 1), mix(P, 3, 2));
+  d.set(mix(N, 3, 0), mix(N, 3, 1), mix(N, 3, 2));
+  if (d.lengthSq() > 1e-12) d.normalize(); else d.set(0, 0, 1);
+  if (C) for (let j = 0; j < 4; j++) ms.c[j] = mix(C, 4, j);
+}
+
+function shapeSample(sh, p, d, ms = null) {
   if (!sh) return;
   const rand = Math.random;
   const r = (sh.radius || 0) * (1 - (sh.thick ?? 1) * rand());
@@ -1488,10 +1599,13 @@ function shapeSample(sh, p, d) {
       d.set(bx * Math.sin(ang * k), by * Math.sin(ang * k), Math.cos(ang * k)).normalize();
       break;
     }
-    case 5: case 15: case 16: // box: +z
-      p.set((rand() - 0.5) * (sh.scale?.[0] ?? 1), (rand() - 0.5) * (sh.scale?.[1] ?? 1), (rand() - 0.5) * (sh.scale?.[2] ?? 1));
+    case 5: case 15: case 16: { // box: +z
+      const sx = sh.scale?.[0] ?? 1, sy = sh.scale?.[1] ?? 1, sz = sh.scale?.[2] ?? 1;
+      p.set((rand() - 0.5) * sx, (rand() - 0.5) * sy, (rand() - 0.5) * sz);
+      if (sh.type !== 5) boxSurface(sh.type, [sx, sy, sz], sh.box, p);
       d.set(0, 0, 1);
       break;
+    }
     case 10: case 11: { // circle in XY, outward
       const th = rand() * (sh.arc ?? 360) * D2R;
       d.set(Math.cos(th), Math.sin(th), 0); p.copy(d).multiplyScalar(sh.type === 11 ? sh.radius : r);
@@ -1505,6 +1619,9 @@ function shapeSample(sh, p, d) {
       p.set(Math.cos(th) * sh.radius, Math.sin(th) * sh.radius, 0); d.set(Math.cos(th), Math.sin(th), 0);
       break;
     }
+    case 6: // mesh (2026-10-22: meshSample; a mesh that did not load stays a point)
+      if (ms) meshSample(ms, p, d);
+      break;
     case 18: // rectangle in XY, +z
       p.set((rand() - 0.5) * (sh.scale?.[0] ?? 1), (rand() - 0.5) * (sh.scale?.[1] ?? 1), 0); d.set(0, 0, 1);
       break;
@@ -1576,6 +1693,20 @@ function aheadOf(node, obj) {
 /** local patch: three.js layers of a split instance's renderers (FxInstance opts.split) — behind / in front of the units. */
 export const FX_BACK = 1, FX_FRONT = 2;
 const CLIP_AXIS = { r: 'x', g: 'y', b: 'z', a: 'w', x: 'x', y: 'y', z: 'z', w: 'w' };
+/**
+ * 2026-10-22: a clip's ParticleSystem values (fx_extract.py ANIMATED_VALUES, track `ps:<property path>`) → their place in the
+ * extracted system (keys from `ps`; a MinMaxCurve's scalar = `s`, its minScalar `n`, a MinMaxGradient's colour = `a`).
+ * The system takes its own copy of each object on the way (ParticleSystem.animPath): the definition is shared.
+ */
+const PS_ANIM = {
+  'EmissionModule.rateOverTime.scalar': ['rate', 's'], 'EmissionModule.rateOverTime.minScalar': ['rate', 'n'],
+  'ShapeModule.radius.value': ['shape', 'radius'], 'SizeModule.curve.scalar': ['mods', 'sizeOL', 'x', 's'],
+  'InitialModule.gravityModifier.scalar': ['gravity', 's'], looping: ['loop'],
+  ...Object.fromEntries([...'rgba'].flatMap((c, k) => [[`InitialModule.startColor.maxColor.${c}`, ['color', 'a', k]],
+    [`TrailModule.colorOverLifetime.maxColor.${c}`, ['mods', 'trail', 'colorOL', 'a', k]]])),
+};
+/** 2026-10-22: a clip's FxUVTweener speeds (track `uvt:<field>`) → [its map (0 `_MainTex`, 1 the second map), the axis]. */
+const UVT_ANIM = { xspeed: [0, 'vx'], yspeed: [0, 'vy'], secondXSpeed: [1, 'vx'], secondYSpeed: [1, 'vy'] };
 // local patch: a clip's GameObject m_IsActive binding (Mecanim type 1, crc32('m_IsActive'); the extract keeps it as 'attr:…')
 const ACTIVE_PROP = 'attr:2086281974';
 const clipE = new THREE.Euler();
@@ -1607,6 +1738,7 @@ export class FxInstance {
    *   without it everything stays on layer 0; 'backOnly' (a status effect) puts only sortingOrder < 0 on FX_BACK; atSpawn (default on; false keeps it) = drop the root node's own position (the
    *   caller's placement replaces it); pivot (default on; false ignores it) = billboard / aligned / horizontal quads use their
    *   renderer's pivot (uPivot) — on for every effect by the maintainer's decision 2026-10-08 (docs/LOCAL-PATCH.md 「정예 기물 금빛」);
+   *   stretched billboards and mesh particles too since 2026-10-22;
    *   ahead (default on, with split; false keeps order 0 behind) = an order-0 particle system whose node lies in front of the unit
    *   goes to FX_FRONT — the elite glow first, every split effect by the maintainer's decision 2026-10-08
    */
@@ -1650,6 +1782,7 @@ export class FxInstance {
     this.nodes = [];
     this.systems = [];
     this.meshMats = [];
+    this.meshObjs = [];   // 2026-10-22: a node's MeshRenderer object (a clip's `mr:enabled`)
     this.trails = [];
     this.lines = [];   // local patch: LineRenderers
     this.emitters = []; // 2026-10-21: RandomEmitter nodes ({ o, rec: node `emit`, next }) — render/fxgame.js plays their copies
@@ -1714,6 +1847,7 @@ export class FxInstance {
         o.add(mesh);
         if (n.skin) skins.push({ mesh, skin: n.skin, bind: src.userData.bind });
         this.meshMats[i] = mat;
+        this.meshObjs[i] = mesh;
         mat.userData.t0 = t0[i];
       }
     });
@@ -1869,6 +2003,27 @@ export class FxInstance {
     if (tr.prop === 'pos' || tr.prop === 'scale' || tr.prop === 'quat' || tr.prop === 'euler') return { tr, o, kind: tr.prop, len };
     if (tr.prop === 'width') { const ln = this.lines.find((t) => t.node === o); return ln ? { tr, o, kind: 'width', ln, len } : null; } // local patch
     if (tr.prop === ACTIVE_PROP && tr.type === 1) return { tr, o, kind: 'active', len }; // local patch: m_IsActive
+    // 2026-10-22: a clip moving a particle module's value, a trail's length, a mesh renderer's switch, a UV tweener's speed
+    if (tr.prop.startsWith('ps:')) {
+      const at = this.systems.find((x) => x.node === o)?.animPath(PS_ANIM[tr.prop.slice(3)]);
+      return at ? { tr, o, kind: 'set', at: at[0], key: at[1], bool: tr.prop === 'ps:looping', len } : null;
+    }
+    if (tr.prop === 'trail:time') {
+      const t = this.trails.find((x) => x.node === o);
+      if (!t) return null;
+      if (t.tr === t.def0) t.tr = { ...t.tr };
+      return { tr, o, kind: 'set', at: t.tr, key: 'time', len };
+    }
+    if (tr.prop === 'mr:enabled') { const m = this.meshObjs[tr.node]; return m ? { tr, o, kind: 'visible', m, len } : null; }
+    if (tr.prop.startsWith('uvt:')) {
+      const [k, axis] = UVT_ANIM[tr.prop.slice(4)] || [];
+      const mat = this.meshMats[tr.node] || this.systems.find((x) => x.node === o)?.material
+        || this.trails.find((x) => x.node === o)?.batch.material || this.lines.find((x) => x.node === o)?.batch.material;
+      const e = axis && mat?.userData.uvt?.[k];
+      if (!e) return null;
+      e.dyn = true;   // setTime integrates a moving speed
+      return { tr, o, kind: 'set', at: e, key: axis, k: 2, len };   // the extract's speeds carry SPEED_SCALE 2
+    }
     if (!tr.prop.startsWith('mat:')) return null;
     const mat = this.meshMats[tr.node] || this.systems.find((s) => s.node === o)?.material
       || this.trails.find((t) => t.node === o)?.batch.material || this.lines.find((t) => t.node === o)?.batch.material;
@@ -2024,6 +2179,8 @@ export class FxInstance {
         case 'matComp': if (b.u.value?.isVector4 || b.u.value?.isVector2) b.u.value[b.axis] = v[0] * b.k; break;
         case 'width': b.ln.w = v[0]; break; // local patch
         case 'active': o.visible = v[0] > 0.5; break; // local patch: m_IsActive
+        case 'set': b.at[b.key] = b.bool ? v[0] > 0.5 : v[0] * (b.k || 1); break; // 2026-10-22
+        case 'visible': b.m.visible = v[0] > 0.5; break; // 2026-10-22: MeshRenderer.m_Enabled
         default: b.u.value = v[0];
       }
     }

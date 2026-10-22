@@ -125,7 +125,8 @@
     글로우도 아래를 살짝 가렸다. 캔버스를 premultiplied로 바꾸고(`fxgame.js`) 재질의 알파 채널 블렌드를 따로 지정(`fxplayer.js makeMaterial`:
     가산 = 알파 그대로(Zero, One), 알파 블렌드 = premultiplied over(One, OneMinusSrcAlpha)). 추출본 604개 중 가산 + 알파 없는 텍스처 155개가 해당.
     불투명 캔버스(벤치)의 그림은 그대로 — 픽셀 비교(GPU Chrome) 604개 × 4프레임 차이 0. 알려진 빈 곳: 望의 연결선
-    `token_wang_passive_01_line`은 LineRenderer 3개라 추출기가 지원하지 않아 아무것도 안 그린다(양 끝을 코드가 바둑알 위치로 정함 — 별도 작업).
+    `token_wang_passive_01_line`은 LineRenderer 3개라 추출기가 지원하지 않아 아무것도 안 그린다(양 끝을 코드가 바둑알 위치로 정함 — 별도 작업;
+    2026-10-22 「추출기가 못 읽던 모양」에서 줄 양 끝에 놓음).
   - 스킬이 끝나면 그 버프·범위 이펙트를 즉시 지운다(`stopBuffs(id, true)` — 예전엔 방출만 멈춰 입자가 약 1초 남았다: 관리자 제보). `stats().buffs` = 지금 켜진 버프 이펙트.
   - `/debug.html`은 시작할 때 게임처럼 리소스 캐시를 목록과 맞춘다(`resources.js installResources` → reconcile). 리소스 워커는 `/assets/`를 경로로
     캐시해 두고 내주므로, 게임 페이지를 다시 열기 전에는 디버그 페이지가 다시 만든 `fx/index.json`·`fx/modes.json`의 옛 사본을 받았다(사키코 S3
@@ -499,7 +500,7 @@
   보이는 빛은 `bao`(Additive, 1초 × speedMul 0.8 = 1.25초 주기)의 금빛 띠 — 로컬 정렬(align 2) 쿼드가 바닥면에 누워 pivot x 0.95·회전 −90°로
   발 앞에서 유닛 뒤로 뻗는다. 우리는 ① 렌더러 `m_Pivot`을 무시해 띠가 노드 자리(발 앞 0.4칸)에 놓였고 ② 프리팹 루트 위치(z −0.25)를 더해 전체가 떴다.
   → `fxplayer.js FxInstance` 옵션 두 개: `pivot`(빌보드·정렬·수평 쿼드가 회전 전 모서리를 pivot × 크기만큼 옮김, 셰이더 `uPivot`; 늘인 빌보드·메시 파티클은
-  미적용), `atSpawn`(루트 노드 자기 위치를 버림 — 호출자가 놓는 자리가 대신함). 처음(70430a17)에는 정예 금빛에만 켰고,
+  2026-10-22부터 — 「추출기가 못 읽던 모양」), `atSpawn`(루트 노드 자기 위치를 버림 — 호출자가 놓는 자리가 대신함). 처음(70430a17)에는 정예 금빛에만 켰고,
   **관리자 결정 2026-10-08 「둘 다 전체 적용」**으로 두 옵션 모두 기본값이 켜짐(`false`를 넘기면 예전 방식, 지금 끄는 호출자 없음).
   영향: pivot 쿼드 412 시스템 / 242 프리팹(전체 pivot 1,836 시스템 중 늘인 빌보드 1,193·메시 94 등은 아직 미구현), 루트 위치 104 프리팹(대부분 투사체 꼬리).
   - 비교(프리팹 단독 current / pivot / pivot+root)와 디버그 아레나 전·후(野鬃 S2, 空弦 공격):
@@ -583,8 +584,8 @@
       참조하지 않아(charpack, 토큰 번들, `[uc]` 6개, 표) 안 튼다 — 2칸 옆 두 번째 폭발과 ~9칸 직선 입자의 원인. 그리고 `fxplayer.js shapeSample`이
       BoxShell/BoxEdge(15/16)의 크기를 두 번 곱했다 → S3 `lizi_l`이 ±1×±1.5칸 대신 ±2×±4.5칸. **관리자 결정(2026-10-08): 전체 적용** — 58 시스템·36 프리팹
       (buff_sluggish, buff_autochess_frozen, 첸 S3 범위, 로즈몬티스 S3 …).
-      알려진 차이 [추정]: S3 `lizi2 (1)/(2)` 가는 호는 프리팹 자체가 반지름 2.2 원에서 나와 마름모 대각선 모서리를 조금 넘음(공식도 같다고 봄), 늘인 빌보드
-      pivot(`lizi2 (2)` 0.5, `sdx_line` 1, `baoci` −0.5) 미구현. 테스트 `test/render/wang-stone-fx.test.js`.
+      알려진 차이 [추정]: S3 `lizi2 (1)/(2)` 가는 호는 프리팹 자체가 반지름 2.2 원에서 나와 마름모 대각선 모서리를 조금 넘음(공식도 같다고 봄); 늘인 빌보드
+      pivot(`lizi2 (2)` 0.5, `sdx_line` 1, `baoci` −0.5)은 2026-10-22에 넣음(「추출기가 못 읽던 모양」). 테스트 `test/render/wang-stone-fx.test.js`.
     - **돌아오는 돌 위 금빛 기둥·육각형** (2026-10-08): 실제 판 캡처의 노란 기둥+흰 심지+
       육각형은 소환 대체 그림(민트)이 아니라 **스킬 발동 대체 그림** `fx.skill`이다. 소모된 놓은 돌이 같은 id로 돌아올 때 시뮬레이션은 토큰 패시브의
       `['skill', id, 1]`을 `['deploy', id]`보다 **먼저** 보낸다(`deploy.js` `skill.reset` → 'deploy'; 실제 매치 5판에서 S3 중 `die` 2.0초 뒤가 대부분).
@@ -1376,6 +1377,44 @@
 - 추출: 묶음 46·적 묶음 18을 다시 뽑아 전후 대조 — 새 키 `inherit` 111·`collide` 38·`sizeBySpeed` 6 파일, 기본 재질 계 8(재질·`duration` 2); 그 밖은 이전
   재추출에서 빠졌던 `face.hold` 7(공용 `common_ignite_attack` 사본)·`fly` 1(실버애쉬 더 레인프로스트 독수리)뿐. 추출 JSON 골든 EN 1·CN 2(`inherit`만).
   테스트 `test/render/fx-particle-modules.test.js`. 아레나: 민트 S1 범위 별·쿠오라 S2 돔 확인, 충돌·속도 상속은 단위 시험만 [화면 미확인].
+
+### 추출기가 못 읽던 모양 — 望 연결선·상자 표면·늘인 빌보드와 메시 pivot·메시 방출·클립이 움직이는 값 (2026-10-22, 추출 누락 기준선의 todo)
+
+- **望 연결선** `token_wang_passive_01_line`(월드 공간 LineRenderer 셋 `andi`·`add`·`hei`, 1초 클립이 폭·알파를 움직임): 추출은 10-10부터 됐지만 점이
+  저작값 (5, 2)–(7, 2) 그대로라 엉뚱한 곳에 그렸다. 클라 `WangStoneTriggerManager._TryTriggerStones`(RVA 0x5D3080)는 돌이 태어날 때 그 돌의 행·열에서
+  돌을 모아 정렬하고 그 돌을 지나는 끊김 없는 줄만 남긴 뒤(`_CollectTmpTiles` 0x5D17E0 → `_FilterContinuousCharacters` 0x5D2210), 줄마다(2개 이상)
+  `_PlayTriggeredLineEffect`(0x5D29F0)로 선을 태어난 돌에 한 번 만들고 모든 LineRenderer의 점 0·1 = 줄 첫 돌·끝 돌의 `worldPosition`(ILocatable
+  슬롯 2)으로 한 번 놓는다. → `fxgame.js linkLines`/`linkRun`: 시뮬 'wangLink'(이웃이 생긴 돌마다 — 태어난 돌과 이웃 모두)마다 그 돌에 새로 생긴
+  방향의 줄을 찾아 `FxInstance.setLine`으로 양 끝을 놓고, 같은 순간 같은 줄은 한 번만. 끝점: 跟子는 칸 점, 놓은 棋子는 공(활성 이펙트와 같은 자리,
+  2026-10-08) [추정: 클라 점은 그 아래 땅]. 던지는 중인 跟子가 끝에 있으면 착지(`THROW_S`) 뒤에 놓는다(클라 선은 돌의 탄생 때 — 시뮬은 던짐 시작에
+  잇는다 [추정]). 예전엔 활성(`first`) 때만 저작 점으로 틀었다. 아레나(Windows Chrome, 望 S1 자동 棋子): 선이 이웃 돌 사이에만, 1초 뒤 사라짐.
+- **'wangLink'는 상태**: 돌의 활성 이펙트가 돌이 서 있는 동안 남으므로(STONE_ON) 늦게 들어온 화면 버퍼(`keepEarly`)만이 아니라 따라잡기·숨긴 탭
+  (`runner.js keepsState`)·밀린 이벤트 버림(`interp.js isCosmeticEvent`)도 남긴다 — 세 곳이 `shared/protocol.js stateFx` 하나를 씀.
+- **상자 표면·모서리** (`fxplayer.js boxSurface`): BoxShell(15)은 면 한 쌍을 넓이로 골라 그 축을 ±½에, BoxEdge(16)는 모서리를 길이로 골라 나머지 두 축을
+  ±½에 둔다; `boxThickness`(축마다 0–1)는 반 크기 중 안쪽으로 들어갈 수 있는 몫. 예전엔 둘 다 부피(Box)처럼 뽑았다. 클라 상자는 거의 납작해(한 축 0 —
+  BoxShell 50·BoxEdge 30 시스템 중 4개만 아님) Shell은 전과 같은 직사각형, **Edge는 직사각형 테두리**(불피스폴리아 버프 `fangkuai` 네모·플레임테일 S2 범위 등).
+  [추정: 넓이·길이 가중 — Unity 샘플링 코드는 공개 안 됨]
+- **늘인 빌보드(mode 1)·메시 입자(mode 4)의 pivot** (`fxplayer.js` 셰이더 `uPivot` vec3): 늘인 빌보드 1,669 시스템·메시 입자 179 시스템이 pivot을 갖는데
+  2026-10-08 전체 적용 때 빌보드·정렬·수평 쿼드만 했다. 늘인 빌보드: 늘인 쿼드의 틀에서 y = 늘인 방향(길이 단위 — y ±0.5면 한 끝이 입자에: 爆刺 `baoci`
+  −0.5 + 음수 lengthScale), x = 가로(폭 단위). 메시: 빌보드와 같은 + 부호로 메시 축의 pivot × 크기를 회전 전에 더함. [추정: Unity의 늘인 y는 속도 반대
+  방향 — 그러면 클라 줄기(|pivot y| 0.2–0.75, 부호 = lengthScale 부호)가 입자 뒤로 끌려 속도선·불꽃의 머리가 입자에 온다; Unity는 이 쿼드를 CPU에서
+  만들어 클라에서 못 읽음] [화면 미확인]
+- **메시 방출** (Shape type 6, 클라 79 시스템·운영자 36·적 4 프리팹 — 대부분 범위 윤곽 메시 `general_range_08`·`FX_m_range_03_*`·`lap_s2range02` 위의
+  반짝임): 추출 `shape.mesh`(메시 파일)·`place`(placementMode 0 꼭짓점·1 변·2 삼각형)·`meshCol`(m_UseMeshColors); 클라는 모두 m_MeshSpawn mode 0
+  (무작위)·법선 오프셋 0 — 다른 값이면 `fx_coverage`가 알림. 플레이어 `meshShape`/`meshSample`: 꼭짓점 균등, 변은 길이·삼각형은 넓이 가중 [추정],
+  방향 = 그 자리 법선(메시 파일엔 법선이 없어 three가 삼각형으로 계산 — 감은 방향이 Unity 앞면과 같음), 정점 색이 있으면 시작 색에 곱함(없으면 흰색 —
+  Unity 매뉴얼의 「재질 색」은 MeshRenderer 모양에만 해당). 예전엔 한 점에서 뿜었다(범위 반짝임이 범위 가운데 한 점).
+- **클립이 움직이는 값** (`fx_extract.py ANIMATED_VALUES` → `fxplayer.js PS_ANIM`/`UVT_ANIM`): Mecanim 바인딩(경로의 crc32)·레거시 곡선(경로 이름)이
+  ParticleSystem의 `EmissionModule.rateOverTime.scalar`/`minScalar`(운영자 13)·`ShapeModule.radius.value`(5)·`SizeModule.curve.scalar`·
+  `InitialModule.gravityModifier.scalar`·`InitialModule.startColor.maxColor.*`·`TrailModule.colorOverLifetime.maxColor.*`·`looping`, TrailRenderer `m_Time`,
+  MeshRenderer `m_Enabled`, FxUVTweener `xspeed`/`yspeed`/`secondXSpeed`/`secondYSpeed`를 움직이면 트랙 `ps:<경로>`·`trail:time`·`mr:enabled`·`uvt:<필드>`.
+  플레이어는 그 시스템·트레일만의 사본에 매 프레임 쓰고(정의는 인스턴스끼리 공유), 움직이는 UV 속도는 프레임마다 속도 × 시간을 더한다(클라 `Update`).
+  남은 것: 꺼진 VelocityModule을 켜는 클립 하나(적 `mcmstr_buff_04_start` — 꺼진 모듈은 추출에 없음), 기본 상태 밖 Animator 클립(묶음 J).
+- 추출: 운영자 32·적 10 묶음(+ 보고가 꼽은 `ghost2`)을 다시 뽑아 전후 대조 — 3,060 파일 중 73개, 새 키 `shape.mesh`·`place`·`meshCol` 40 파일과
+  트랙 이름(`attr:` → `ps:`·`trail:`·`mr:`·`uvt:`) 36 파일뿐. 추출 JSON 골든 EN 2·CN 1 갱신. 보고 todo 운영자 26 → 17·적 21 → 8.
+  테스트 `test/render/wang-stone-fx.test.js`(연결선·stateFx·상자 표면)·`fx-mesh-shape.test.js`·`fx-clip-values.test.js`. 아레나(Windows Chrome, 전후):
+  아스카론 S3 범위의 붉은 점이 오퍼레이터 몸 → 범위 윤곽 꼭짓점, 에이야퍄들라 더 크비트 아스카 S2 범위 반짝임이 윤곽 변에. 늘인 빌보드 pivot·클립 값·BoxEdge는 작아서
+  판단 못 함 [화면 미확인].
 
 ### 패신저 S3 폭풍·낙뢰 (2026-10-16, 관리자 제보 「패신저 S3 이펙트가 안 나와」)
 

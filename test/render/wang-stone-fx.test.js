@@ -8,8 +8,10 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { stoneBlastFx, inStoneBlast } from '../../public/js/render/fxgame.js';
+import { stoneBlastFx, inStoneBlast, linkRun } from '../../public/js/render/fxgame.js';
 import { keepEarly } from '../../public/js/screens/game/early.js';
+import { keepsState } from '../../public/js/battle/runner.js';
+import { isCosmeticEvent } from '../../public/js/render/interp.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SRC = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
@@ -53,6 +55,32 @@ test('the pre-entry buffer keeps a stone\'s wangLink (the prep-linked stones act
   assert.ok(!keepEarly(['fx', 'zone', 5, 10, { token: 'token_10064_wang_stone1' }]), 'a blast is cosmetic: not replayed');
   assert.ok(!keepEarly(['fx', 'summon', 5, 10, { id: 7 }]));
   assert.ok(keepEarly(['spawn', { id: 7 }]));
+});
+
+test('a hidden tab, a catch-up frame and a stall keep a stone\'s wangLink too (shared/protocol.js stateFx, 2026-10-22)', () => {
+  const link = ['fx', 'wangLink', 5, 10, { id: 7, axes: ['h'], first: true }];
+  assert.ok(keepsState(link), 'runner catch-up / hidden-tab backlog');
+  assert.ok(!isCosmeticEvent(link), 'never dropped as stale, never shed');
+  assert.ok(isCosmeticEvent(['fx', 'zone', 5, 10, { token: 'token_10064_wang_stone1' }]), 'a blast stays cosmetic');
+  assert.ok(!keepsState(['fx', 'summon', 5, 10, { id: 7 }]));
+});
+
+test('the link line runs from end to end of the stones\' unbroken run through the linked stone (client _PlayTriggeredLineEffect)', () => {
+  const tiles = new Set(['2,3', '3,3', '4,3', '6,3', '3,4', '3,5']);
+  assert.deepEqual(linkRun(tiles, 3, 3, 'h'), ['2,3', '4,3'], 'the run stops at the gap (6,3 is not on it)');
+  assert.deepEqual(linkRun(tiles, 4, 3, 'h'), ['2,3', '4,3'], 'the same run from its end');
+  assert.deepEqual(linkRun(tiles, 3, 3, 'v'), ['3,3', '3,5']);
+  assert.equal(linkRun(tiles, 6, 3, 'h'), null, 'a stone alone on its row: no line');
+  assert.equal(linkRun(tiles, 2, 3, 'v'), null);
+  // the line is the prefab's world-space LineRenderers put on the run's two ends (FxInstance.setLine), once per run and
+  // moment (the born stone and its neighbours all say 'wangLink'), for each link direction new to the stone
+  assert.match(SRC, /inst\.setLine\(a, b\);/);
+  assert.match(SRC, /if \(linkRuns\.get\(key\) === clockS\) continue;/);
+  assert.match(SRC, /if \(e\[1\] === 'wangLink'\) \{\s+linkLines\(o, views\);/);
+  assert.ok(!/playAt\(\['token_wang_passive_01_line'\]/.test(SRC), 'no longer played at its authored world points');
+  // a 跟子 still in its throw: the line waits for it to land (the client's line comes with the stone's birth)
+  assert.match(SRC, /throwLand\.set\(v\.id, t0 \+ THROW_S\);/);
+  assert.match(SRC, /if \(wait > 0\) castsDelayed\.push\(\{ t: clockS \+ wait, run: \(\) => playLine\(linkEnd\(a0\), linkEnd\(b0\)\) \}\);/);
 });
 
 test('the activation effect is kept on the stone\'s ball until its die', () => {
@@ -112,7 +140,9 @@ test('the ball effects sit on the drawn ball anywhere on screen (maintainer repo
   assert.match(SRC, /return liftedPoint\(camRef, x, y, z0, r\.y, r\.x, r\.y - STONE_BALL \* r\.s, out, BALL_Q\);/);
   assert.match(SRC, /const onBall = ballAt\(at\.x, at\.y, 0\);/);
   // (2026-10-17) a 跟子's ball is its effects' quad on the tile point: its link line and activation stay there, unlifted
-  assert.match(SRC, /const flat = !!o\.follower && stonesOn\(\);\n\s+playAt\(\['token_wang_passive_01_line'\], flat \? at : onBall/);
+  // (2026-10-22: the link line's ends, a stone each — linkEnd)
+  assert.match(SRC, /const flat = !!o\.follower && stonesOn\(\);/);
+  assert.match(SRC, /return v\._fxBody \? \{ x: Number\(v\.x\), y: Number\(v\.y\), z \} : ballAt\(Number\(v\.x\), Number\(v\.y\), z\);/);
   assert.match(SRC, /\{ at: flat \? sv : ballOf\(sv\), owner: o\.id, keep: true \}/);
   assert.doesNotMatch(SRC, /ballZ\(/);
 });
@@ -192,4 +222,33 @@ test('a BoxShell / BoxEdge emitter spreads over its scale once, like a Box (fxpl
     assert.ok(mx <= 1 + 1e-6 && my <= 1.5 + 1e-6, `${s.node.name}: ±${mx.toFixed(2)} × ±${my.toFixed(2)} (the scale 2 × 3 once)`);
     assert.ok(mx > 0.8 && my > 1.2, `${s.node.name} fills its box`);
   }
+});
+
+test('a BoxShell emits on the box\'s faces, a BoxEdge on its edges (a flat box: the rectangle, its outline — 2026-10-22)', async () => {
+  const fxp = await import('../../public/js/render/fxplayer.js');
+  const mm = (s) => ({ m: 0, s });
+  const sys = (type, scale, box = [0, 0, 0]) => ({
+    dur: 1, loop: false, delay: mm(0), speedMul: 1, space: 0, scaling: 1, prewarm: false, life: mm(1), speed: mm(0),
+    color: { m: 0, a: [1, 1, 1, 1] }, size: mm(0.1), rot: mm(0), max: 1000, gravity: mm(0), flipRot: 0, rate: mm(0),
+    bursts: [{ t: 0, n: mm(400) }], mods: {},
+    shape: { type, radius: 1, angle: 0, arc: 360, thick: 1, length: 1, pos: [0, 0, 0], rotE: [0, 0, 0], scale, box },
+    render: { mode: 0, mat: 'm', mesh: null, align: 0, pivot: [0, 0, 0], order: 0 },
+  });
+  const node = (name, parent, ps) => ({ name, parent, active: true, pos: [0, 0, 0], rot: [0, 0, 0, 1], scale: [1, 1, 1], ...(ps ? { ps } : {}) });
+  const def = {
+    name: 'box', duration: 1, materials: { m: { shader: 'Torappu/Particles/Additive', tex: {}, floats: {}, colors: {} } }, clips: [], geoms: {}, lib: { texture: () => null },
+    nodes: [node('root', -1), node('edge', 0, sys(16, [2, 3, 0])), node('cube', 0, sys(15, [2, 2, 2])), node('thick', 0, sys(15, [2, 2, 2], [0.5, 0.5, 0.5]))],
+  };
+  const inst = new fxp.FxInstance(def, { quality: 'high' });
+  inst.update(1 / 30);
+  const pts = (s) => Array.from({ length: s.n }, (_, i) => [s.pos[i * 3], s.pos[i * 3 + 1], s.pos[i * 3 + 2]]);
+  const [edge, cube, thick] = inst.systems;
+  const onRim = ([x, y]) => Math.abs(Math.abs(x) - 1) < 1e-6 || Math.abs(Math.abs(y) - 1.5) < 1e-6;
+  assert.ok(edge.n > 100 && pts(edge).every(onRim), 'the flat box\'s edges: its outline');
+  const nx = pts(edge).filter(([x]) => Math.abs(Math.abs(x) - 1) < 1e-6).length;
+  assert.ok(nx > 0.5 * edge.n && nx < 0.7 * edge.n, `by length: the 3-long sides take 3/5 (${nx}/${edge.n} on x = ±1)`);
+  const onFace = (p) => p.some((v) => Math.abs(Math.abs(v) - 1) < 1e-6);
+  assert.ok(pts(cube).every(onFace), 'a shell: on a face');
+  const depth = (p) => 1 - Math.max(...p.map(Math.abs));
+  assert.ok(pts(thick).every((p) => depth(p) <= 0.5 + 1e-6) && pts(thick).some((p) => depth(p) > 0.3), 'boxThickness 0.5: the outer half of the half size');
 });

@@ -38,6 +38,7 @@ cov.particle({'EmissionModule': {'enabled': 1}, 'CollisionModule': {'enabled': 1
               'NoiseModule': {'enabled': 0}, 'ShapeModule': {'enabled': 1, 'type': 6}})
 cov.particle({'CollisionModule': {'enabled': 1, 'type': 1}, 'InheritVelocityModule': {'enabled': 1, 'm_Mode': 0}})
 cov.particle({'ShapeModule': {'enabled': 1, 'type': 20}})
+cov.particle({'ShapeModule': {'enabled': 1, 'type': 6, 'm_MeshSpawn': {'mode': 1}}})
 cov.material('Torappu/Particles/AlphaBlend', [('_MainTex', 4, [0, 0, 0, 0]), ('_GlowTex', 4, [0, 0, 0, 0]),
              ('_MainTexChannel', 2, [0, 0, 0, 0]), ('_Opacity', 2, [1, 0, 0, 0]), ('_Glow', 0, [0, 0, 0, 0])],
              {'_MainTex', '_GlowTex'}, {'_MainTexChannel': 1.0, '_Opacity': 0.3, '_Glow': [0, 0, 0, 0]})
@@ -48,7 +49,7 @@ print(json.dumps({r['kind'] + ':' + r['what']: r['status'] for r in cov.report()
       'script:SwitchableWhenContainsEquipment': 'todo', 'script:#123 _someField': 'new',
       'reader:FollowMountPoint: layout not recognised, nothing read': 'new',
       'module:LightsModule': 'new', "module:CollisionModule type 1 World (collides with the scene's colliders)": 'new',
-      'shape:6 Mesh': 'todo', 'shape:20 SpriteRenderer': 'new',
+      'shape:20 SpriteRenderer': 'new', 'shape:6 Mesh m_MeshSpawn mode 1 (vertices / edges in order, not at random)': 'new',
       'texture:Torappu/Particles/AlphaBlend _GlowTex': 'new',
       'property:Torappu/Particles/AlphaBlend _MainTexChannel': 'new',
       'shader:Torappu/Particles/NewShader': 'new',

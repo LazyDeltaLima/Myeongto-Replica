@@ -71,7 +71,7 @@
 
 import { net as appNet } from '../net.js';
 import { store as appStore } from '../store.js';
-import { unitStatsEntry, fxForm, RESULT_LIMITS } from '../../../shared/protocol.js';
+import { unitStatsEntry, stateFx, RESULT_LIMITS } from '../../../shared/protocol.js';
 import { spectateEffects, halfSide } from './observe.js';
 import { recordError, setBattleSource, rememberBattle } from '../diag.js';
 import { data as appData } from '../data.js';
@@ -85,9 +85,10 @@ const MAX_ENTRIES = 4;
 const STATE_EV = new Set(['spawn', 'die', 'deploy', 'status', 'skill', 'leak']);
 /**
  * The b.ev tuples a catch-up frame or the hidden-tab backlog keeps: the state-bearing kinds, and every fx that sets an
- * enemy's model form (shared/protocol.js fxForm — dropped, the view kept the old model: player report #5 after 0.1.0).
+ * enemy's model form (shared/protocol.js fxForm — dropped, the view kept the old model: player report #5 after 0.1.0)
+ * and 望's stone activation (stateFx).
  */
-export const keepsState = (x) => Array.isArray(x) && (STATE_EV.has(x[0]) || fxForm(x) !== undefined);
+export const keepsState = (x) => Array.isArray(x) && (STATE_EV.has(x[0]) || stateFx(x));
 /**
  * Hidden-tab backlog cap (tuples) of the battle on screen. Past it the backlog is compacted (compactHeld: only the last
  * 'status' per unit and status, the last 'skill' per unit — what the view ends up showing); only a backlog still past it

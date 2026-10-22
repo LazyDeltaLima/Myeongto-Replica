@@ -84,12 +84,6 @@ import { UF } from '../../../shared/constants.js'; // local patch: the views' sk
 import { animPause, clipOf, facesBack, idlePause, pauseIfNow } from './fx/pause.js'; // 2026-10-21: the client's pause / finish behaviours
 
 /**
- * (maintainer re-report 2026-10-08, docs/rules/fx.md 「관리자 제보 (2026-10-07 밤)」) the official effects of a 望 stone's blast (createFxLayer stoneFx) — `at`:
- * played at the stone (S1 sktok_wang_1 / S3 sktok_wang_3 `_castEffects`, S2 ExplodeRow·Col·Cross `_effectKey` once per
- * activated axis, a 跟子's `_effectOnTrigger`); `target`: on each enemy it damages (S2 ExplodeRow `_hitEffects` / a 跟子's
- * `_effectsWhenHit`; S3 a 跟子 only). token_wang_skill_03_hit_03 is referenced by nothing in the client: never played.
- */
-/**
  * local patch (maintainer report): `names` with each directional emitter entry of `groups` (char_modes.py `dirs` [{ t, s }])
  * replaced by its copy for facing `d` (0 UP, 1 RIGHT, 2 DOWN, 3 LEFT; `left` = drawn facing left) — see dirPick in
  * createFxLayer. Exported for the tests.
@@ -121,11 +115,31 @@ export function dirCopies(groups, names, d, left) {
   return { names: out, unflip };
 }
 
+/**
+ * (maintainer re-report 2026-10-08, docs/rules/fx.md 「관리자 제보 (2026-10-07 밤)」) the official effects of a 望 stone's blast (createFxLayer stoneFx) — `at`:
+ * played at the stone (S1 sktok_wang_1 / S3 sktok_wang_3 `_castEffects`, S2 ExplodeRow·Col·Cross `_effectKey` once per
+ * activated axis, a 跟子's `_effectOnTrigger`); `target`: on each enemy it damages (S2 ExplodeRow `_hitEffects` / a 跟子's
+ * `_effectsWhenHit`; S3 a 跟子 only). token_wang_skill_03_hit_03 is referenced by nothing in the client: never played.
+ */
 export function stoneBlastFx(skill, follower = false) {
   if (skill === 2) return { at: ['token_wang_skill_02_hit'], target: 'token_wang_skill_02_hit_02' };
   if (skill === 3) return { at: ['token_wang_skill_03_hit'], target: follower ? 'token_wang_skill_03_hit_02' : null };
   return { at: ['token_wang_skill_01_hit'], target: null };
 }
+
+/**
+ * 望's link line (fxgame stone effects): the unbroken run of stones through tile (x, y) along axis 'h' (x) or 'v' (y) —
+ * client WangStoneTriggerManager._FilterContinuousCharacters (RVA 0x5D2210) — as its two end tiles' keys `x,y` (first =
+ * the lower), or null for a stone alone on it. `tiles` has a key per stone tile (Set or Map).
+ */
+export function linkRun(tiles, x, y, axis) {
+  const dx = axis === 'h' ? 1 : 0, dy = axis === 'h' ? 0 : 1;
+  let lo = 0, hi = 0;
+  while (tiles.has(`${x + (lo - 1) * dx},${y + (lo - 1) * dy}`)) lo--;
+  while (tiles.has(`${x + (hi + 1) * dx},${y + (hi + 1) * dy}`)) hi++;
+  return hi > lo ? [`${x + lo * dx},${y + lo * dy}`, `${x + hi * dx},${y + hi * dy}`] : null;
+}
+
 /** Whether an enemy `dx`, `dy` tiles from a stone lies on its blast (kits/ops/op-wang.js trigger): S2 its activated link
  *  axes ('h' / 'v') ≤ 3 tiles each way, S3 the x-1 diamond (radius 2), S1 the stone's own tile. */
 export function inStoneBlast(skill, axes, dx, dy) {
@@ -1239,6 +1253,63 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     trimLive();
   }
 
+  // (2026-10-22) The link line, token_wang_passive_01_line (three world-space LineRenderers, one 1 s clip): the client's
+  // WangStoneTriggerManager._TryTriggerStones (RVA 0x5D3080) runs on a stone's birth — _CollectTmpTiles sorts the stones
+  // of its row and of its column and keeps the unbroken run through it (_FilterContinuousCharacters 0x5D2210) — and
+  // _PlayTriggeredLineEffect (0x5D29F0) makes the line once per run of two or more, on the born stone, with every
+  // LineRenderer's point 0 / 1 = the run's first / last stone's `worldPosition` (set once). The sim says 'wangLink' for
+  // each stone that gains a link direction, the born one and its neighbours alike: a line per direction new to that
+  // stone, the same run drawn once in a moment. The ends: a 跟子 on its tile point, a placed 棋子 on its ball (the
+  // activation's place, maintainer 2026-10-08; the client's entity point is the ground under it [추정: kept on the ball]).
+  const LINK_LINE = 'token_wang_passive_01_line';
+  const linkAxes = new Map();   // stone id → the link directions drawn for it
+  const linkRuns = new Map();   // run key → clockS it was drawn
+  // a 跟子 still in its throw (throwStart) — the client's line waits for its birth, the landing [추정: the sim links it as
+  // the throw starts]: a line with such an end is put off until it lands
+  const throwLand = new Map();  // 跟子 id → clockS it lands
+  function linkEnd(v) {
+    const z = (Number(v.z) || 0) + (Number(v.hover) || 0);
+    // a 跟子's view is drawn by its effects (units.js drawnByFx sets `_fxBody`)
+    return v._fxBody ? { x: Number(v.x), y: Number(v.y), z } : ballAt(Number(v.x), Number(v.y), z);
+  }
+  function linkLines(o, views) {
+    const sv = views.get(o.id);
+    if (!isStone(sv)) return;
+    const seen = linkAxes.get(o.id) || new Set();
+    linkAxes.set(o.id, seen);
+    const own = sv.info?.ownerUid;
+    const at = new Map();
+    for (const v of views.values()) {
+      if (!isStone(v) || v.alive === false || v.remove) continue;
+      if (own != null && v.info?.ownerUid != null && v.info.ownerUid !== own) continue;
+      at.set(`${Math.round(v.x)},${Math.round(v.y)}`, v);
+    }
+    for (const a of Array.isArray(o.axes) ? o.axes : []) {
+      if (seen.has(a)) continue;
+      seen.add(a);
+      const run = linkRun(at, Math.round(sv.x), Math.round(sv.y), a);
+      if (!run) continue;
+      const key = `${a}:${run[0]}:${run[1]}`;
+      if (linkRuns.get(key) === clockS) continue;
+      if (linkRuns.size > 64) for (const [k, t] of linkRuns) if (t !== clockS) linkRuns.delete(k);
+      linkRuns.set(key, clockS);
+      const a0 = at.get(run[0]), b0 = at.get(run[1]);
+      const wait = Math.max(0, ...[...at.values()].filter((v) => linkRun(at, Math.round(v.x), Math.round(v.y), a)?.[0] === run[0])
+        .map((v) => (throwLand.get(v.id) ?? 0) - clockS));
+      if (wait > 0) castsDelayed.push({ t: clockS + wait, run: () => playLine(linkEnd(a0), linkEnd(b0)) });
+      else playLine(linkEnd(a0), linkEnd(b0));
+    }
+  }
+  async function playLine(a, b) {
+    if (!index?.bundles?.[STONE_FX]?.includes(LINK_LINE) || !(await ensure())) return;
+    const def = await lib.load(STONE_FX, LINK_LINE);
+    if (!mod || !def) return;
+    const inst = new mod.fxp.FxInstance(def, { quality: q() });
+    inst.object.position.set(a.x, a.y, a.z || 0);
+    inst.setLine(a, b);
+    addLive(inst, { view: null, owner: null, buff: false, until: clockS + (def.duration || 1) + 0.5, keep: false }, layers.under);
+    trimLive();
+  }
   function stoneFx(e, views) {
     const o = e[4];
     if (!o || typeof o !== 'object') return false;
@@ -1258,12 +1329,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       return true;
     }
     if (e[1] === 'wangLink') {
+      linkLines(o, views);
       if (o.first) {
         // (2026-10-17) a 跟子 is its effects' stone (units.js drawnByFx): its ball, `qizi (1)`, is on the tile point and the
         // client makes its activation on the projectile there (WangStoneHitBehaviour.PlayStoneTriggeredEffect RVA 0xA935C0)
         // — the prefabs' own heights (wisps `line` 0.13–0.2) wrap it; STONE_BALL lifts only to a placed 棋子's model ball
         const flat = !!o.follower && stonesOn();
-        playAt(['token_wang_passive_01_line'], flat ? at : onBall, { under: true });
         // local patch: the activation effect of its own kind (STONE_ON), on the ball, kept while the stone stands
         const sv = views.get(o.id);
         const on = isStone(sv) ? { at: flat ? sv : ballOf(sv), owner: o.id, keep: true } : { at: flat ? at : onBall };
@@ -1297,6 +1368,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const THROW_S = 0.25;
   function throwStart(v) {
     const t0 = clockS;
+    throwLand.set(v.id, t0 + THROW_S);
     spawn(FOLLOWER_FX, 'wang_passive_01_start', { x: v.x, y: v.y, z: v.z || 0 }, { owner: null, buff: false }, { over: false }).then((l) => {
       if (!l) return;
       l.until = Math.max(clockS, t0 + THROW_S);
@@ -4489,6 +4561,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           else if (v) allyDeathFx(v, e[2]); // 2026-10-11: an operator's / token's dead effect
           unitEndFx(e[1], v); // 2026-10-21: a kit plan's end effect where it stood (圣聆初雪's thawing tile)
           charges.delete(e[1]); // (its held charge effects: stopOwned above)
+          linkAxes.delete(e[1]); throwLand.delete(e[1]); // 望's stone: a stone that comes back links anew
           for (const k of ebuffs.keys()) if (k.startsWith(`${e[1]}:`)) ebuffs.delete(k);
           return;
         }
@@ -4598,6 +4671,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       trails.length = 0; pending.length = 0; // local patch
       castsDelayed.length = 0; zones.clear(); eborn.clear(); eskillSeen.clear(); elines.clear(); eshotLand.clear(); emortars.length = 0;
       deployed.clear(); startedOnce.clear(); opDead.clear(); ebuffs.clear(); // 2026-10-11
+      linkAxes.clear(); linkRuns.clear(); throwLand.clear(); // 2026-10-22
       if (mod) showLayers();
     },
 
