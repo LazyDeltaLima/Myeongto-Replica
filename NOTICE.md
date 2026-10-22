@@ -31,6 +31,7 @@ Copyright (C) 2026 Stronghold-Protocol contributors
 
 - Release 完整包中的 `public/assets/**`（含从官方客户端本地提取的 3D 棋盘模型与贴图 `public/assets/local/**`）和 `public/fonts/**`（字体归各自作者）；
 - 由官方数据表生成的 `data/*.json` 与 `data/i18n/*.json`（官方英文服文本），以及含有或派生自游戏数据的 `docs/research/*.json`、`test/fixtures/official-waves.json`、`public/dev/recordings/*.json`；
+- 从本机安装的官方客户端提取后整理成表的 `tools/assets/local-*.json`（攻击时序、投射物、技能施放方式、模式与特效绑定、模型挂点等名称与数值），以及由它们写入 `data/*.json` 的字段；
 - `docs/img/` 中的游戏截图；
 - `docs/` 中引用的 PRTS、BWIKI、NGA、巴哈姆特等社区页面的文字（仍按其来源的许可，维基文本为 CC BY-NC-SA）。
 
@@ -62,9 +63,10 @@ Copyright (C) 2026 Stronghold-Protocol contributors
 
 **English summary.** Unofficial, non-commercial fan remake; not affiliated with or endorsed by Hypergryph or Yostar.
 The project's own code is GPL-3.0-or-later (with the Spine Runtimes linking permission above). All Arknights names,
-art, models, audio and data — including everything under `public/assets/` in the release bundle — are © Hypergryph /
-Yostar and their licensors, are **not** covered by the GPL, and may be used for study and personal non-commercial
-purposes only: no selling, paid distribution, paid hosting, ads, donations or any other monetisation. Rights holders
-can request removal through a GitHub issue and the content will be taken down. No warranty of any kind.
+art, models, audio and data — including everything under `public/assets/` in the release bundle and the tables
+extracted from the official client (`tools/assets/local-*.json`, and the fields they write into `data/*.json`) — are
+© Hypergryph / Yostar and their licensors, are **not** covered by the GPL, and may be used for study and personal
+non-commercial purposes only: no selling, paid distribution, paid hosting, ads, donations or any other monetisation.
+Rights holders can request removal through a GitHub issue and the content will be taken down. No warranty of any kind.
 The English UI strings were seeded from GitHub PR #70 by @YuriRestia (credited, released with the project under
 GPL-3.0-or-later); the English game texts (`data/i18n/en.json`) are official EN client data like `data/*.json`.
