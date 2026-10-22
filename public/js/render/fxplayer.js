@@ -1484,7 +1484,11 @@ export class FxInstance {
     // effect to a random direction of the map plane (RandomUtil.RandomDirectionV2) and moves it by Random.Range(−r, r) per
     // axis of `_randomRange` in world space — a drone hit at a random point (Unity's display random: Math.random here)
     const jit = Array.isArray(def?.jitter) && def.jitter.length === 3 ? def.jitter.map((v) => Number(v) || 0) : null;
-    const rdir = jit ? { x: Math.random() * 2 - 1, y: Math.random() * 2 - 1 } : null;
+    // (2026-10-22, decompile check) the client's RandomDirection (fx_extract.py `rdir` [from x, y, z, to x, y, z]): `OnPlay`
+    // (RVA 0xE95760) turns the effect to RandomUtil.RandomVector3(from, to) — Random.Range per axis, not normalised (锏 S2)
+    const rr = Array.isArray(def?.rdir) && def.rdir.length === 6 ? def.rdir.map((v) => Number(v) || 0) : null;
+    const span = (a, b) => a + Math.random() * (b - a);
+    const rdir = jit ? { x: Math.random() * 2 - 1, y: Math.random() * 2 - 1 } : rr ? { x: span(rr[0], rr[3]), y: span(rr[1], rr[4]) } : null;
     const turn = faceTurn(def?.face, rdir || opts.dir || { x: facing, y: 0 }, rdir ? null : opts.body ?? null);
     this.turn = turn;
     // the mirror: by FollowMountPoint `_followScaleSign` (its point's scale sign = the Spine flip) when the prefab has its

@@ -96,6 +96,13 @@ EMPTY_EFFECT_SCRIPT = -488665936260092151
 FUNNEL_HIT_SCRIPT = 8922258000712749090
 # (2026-10-22, decompile check) the MonoScript PathID of Torappu.Battle.Effects.FollowDirection (follow_direction, `follow`)
 FOLLOW_DIRECTION_SCRIPT = -337322108846137150
+# (2026-10-22, decompile check) the MonoScript PathIDs of Torappu.Battle.Effects.SwitchableEffectByFaceDirection
+# (switch_face, `swFace`), SwitchableThreeFaceEffect (three_face, `three`), RandomDirection (random_direction, `rdir`) and
+# FollowTileHeight (tile_height, `tileH`)
+SWITCH_FACE_SCRIPT = -4364771506185570144
+THREE_FACE_SCRIPT = 5365557655193992920
+RANDOM_DIRECTION_SCRIPT = 1115230818793786687
+FOLLOW_TILE_HEIGHT_SCRIPT = 2994498389723426252
 # Torappu.Battle.AbnormalFlag by value (10-14 EN dump; E_NUM = 44 means "no flag"). A value past the list (the CN client's
 # newer flags) stays a number.
 ABNORMAL_FLAGS = ('STUNNED', 'SP_RECOVER_STOPPED', 'TARGET_FREE', 'BLOCK_FREE', 'HIDDEN', 'INVINCIBLE', 'UNDEADABLE', 'HEAL_FREE',
@@ -569,8 +576,9 @@ def source_of(index, bundle, name):
 def set_emitted(index, bundle, out=OUT):
     """(2026-10-21) record in `index['emitted'][bundle]` the bundle's prefabs another of its prefabs creates (its nodes'
     OnPlayEmitter `onPlay` / OnFinishEmitter `onFinish`, its root's SwitchableBackEffect `back` — 远牙 S3's
-    fartth_skill_03_buff_02_B): render/fxgame.js's name rules leave them to their emitter. Read from the extracted files, so
-    it holds after any partial extraction; the key goes when there are none."""
+    fartth_skill_03_buff_02_B —, and (2026-10-22) its face switches' copies `swFace` / `three`): render/fxgame.js's name
+    rules leave them to their emitter. Read from the extracted files, so it holds after any partial extraction; the key
+    goes when there are none."""
     listed = set(index['bundles'].get(bundle, []))
     names = set()
     for n in listed:
@@ -581,6 +589,8 @@ def set_emitted(index, bundle, out=OUT):
         back = (d.get('back') or {}).get('effect')
         if back in listed:
             names.add(back)
+        for k in ('swFace', 'three'):
+            names.update(v for v in (d.get(k) or {}).values() if isinstance(v, str) and v in listed)
         for nd in d.get('nodes') or []:
             for k in ('onPlay', 'onFinish'):
                 names.update(e for e in (nd.get(k) or {}).get('effects') or [] if e in listed)
@@ -1057,6 +1067,11 @@ class Extractor:
         follow = self.follow_direction(root)
         if follow:
             out_def['follow'] = follow
+        for key, read in (('swFace', self.switch_face), ('three', self.three_face), ('rdir', self.random_direction),
+                          ('tileH', self.tile_height)):
+            v = read(root)
+            if v:
+                out_def[key] = v
         right = self.right_effect(root)
         if right:
             out_def['right'] = right
@@ -1262,6 +1277,77 @@ class Extractor:
                 out['lerp'] = r4(t.get('_lerpDuration') or 0)
             return out
         return None
+
+    def root_script(self, root, script, name, field):
+        """The type tree of the root's MonoBehaviour of MonoScript `script` (None without one, or without its type tree — the
+        report then says so for `name`; `field` is a field it must have)."""
+        for sid, _raw, t in self.monos(root):
+            if sid != script:
+                continue
+            if t is None or field not in t:
+                self.cov.reader(name, False, 'no type tree: nothing read')
+                return None
+            return t
+        return None
+
+    def switch_face(self, root):
+        """(2026-10-22, decompile check) the client's SwitchableEffectByFaceDirection on the root: { up?, down?, left?, oneShot?,
+        beh? } — `_UpdateFace` (10-14 EN dump RVA 0xE9C2E0, from `OnPlay` 0xE9C030 only) reads its owner's `faceDirection`
+        (MapUtil.ParseDirection of `faceTo`) as it plays: DOWN with `_downEffect`, UP with `_upEffect`, LEFT with `_leftEffect`
+        pauses this effect and creates that one on the owner, played with its faceVector; `_oneShot` then finishes this one
+        (the copy lives on by itself), else `OnFinish` (0xE9BE70) finishes the copy with it; `_useBehaviourPause` pauses per
+        behaviour. 新约能天使's attack / skill starts (`_down` copies only). By its field names; None without a copy."""
+        t = self.root_script(root, SWITCH_FACE_SCRIPT, 'SwitchableEffectByFaceDirection', '_downEffect')
+        if t is None:
+            return None
+        out = {k: t[f] for k, f in (('up', '_upEffect'), ('down', '_downEffect'), ('left', '_leftEffect')) if isinstance(t.get(f), str) and t[f]}
+        if not out:
+            return None
+        if t.get('_oneShot'):
+            out['oneShot'] = 1
+        if t.get('_useBehaviourPause'):
+            out['beh'] = 1
+        return out
+
+    def three_face(self, root):
+        """(2026-10-22, decompile check) the client's SwitchableThreeFaceEffect on the root: { up?, down?, check?, start? } —
+        `OnPlay` (0xEB33C0) creates both copies on the owner paused when `_createEffectOnStart` (`_CreateEffectOnStart`
+        0xEB34C0), then `_UpdateFace` (0xEB3800, again every frame from `Update` 0xEB3440 until it finishes) shows the up
+        copy while the owner's `faceToBack` (its Back model), the down copy while its `faceToDown` (a ThreeFaceAnimator's
+        `_down` face: CharacterAnimator.activeFace), else this one — the others paused; `_forceCheckInUpdate` re-applies
+        it every frame even when nothing changed. 维什戴尔 S3 wisdel_skill_03_start. By its field names."""
+        t = self.root_script(root, THREE_FACE_SCRIPT, 'SwitchableThreeFaceEffect', '_upEffect')
+        if t is None:
+            return None
+        out = {k: t[f] for k, f in (('up', '_upEffect'), ('down', '_downEffect')) if isinstance(t.get(f), str) and t[f]}
+        if not out:
+            return None
+        if t.get('_forceCheckInUpdate'):
+            out['check'] = 1
+        if t.get('_createEffectOnStart'):
+            out['start'] = 1
+        return out
+
+    def random_direction(self, root):
+        """(2026-10-22, decompile check) the client's RandomDirection on the root: [from x, y, z, to x, y, z] — `OnPlay`
+        (0xE95760), when its owner is valid, turns the effect through `Effect.Behaviour.FaceTo` to
+        `RandomUtil.RandomVector3(_randomRotationFrom, _randomRotationTo)` (0x5A81410: `Random.Range(from, to)` per axis — not
+        normalised). 锏 S2 blkkgt_skill_02_hit_2 (−1, −1, 0 → 1, 1, 0). By its field names."""
+        t = self.root_script(root, RANDOM_DIRECTION_SCRIPT, 'RandomDirection', '_randomRotationFrom')
+        if t is None:
+            return None
+        v3 = lambda v: [r4((v or {}).get(k) or 0) for k in ('x', 'y', 'z')]
+        return v3(t.get('_randomRotationFrom')) + v3(t.get('_randomRotationTo'))
+
+    def tile_height(self, root):
+        """(2026-10-22, decompile check) the client's FollowTileHeight on the root: its `_followTileHeightSpeed` — `_UpdateHeight`
+        (0xE834B0; from `OnPlay` 0xE833B0 at once, from `Update` 0xE83450 every frame after) moves the effect's world height
+        toward the height of the tile under it (MapUtil.GetTileHightByMapPosition of its own position), by at most speed ×
+        deltaTime a frame (at once as it plays). 伊内丝's sentry, 圣聆初雪's snow, 凛御银灰 S3's range. None without."""
+        t = self.root_script(root, FOLLOW_TILE_HEIGHT_SCRIPT, 'FollowTileHeight', '_followTileHeightSpeed')
+        if t is None:
+            return None
+        return r4(t.get('_followTileHeightSpeed') or 0)
 
     def random_emitter(self, go):
         """(2026-10-21, decompile check) the client's RandomEmitter on this GameObject: { effect, count, pre, per, from, to } —
@@ -2034,7 +2120,8 @@ class Extractor:
 
     def root_only(self, bundle, pack=None):
         """2026-10-11: rewrite only the root effect fields — `spawn`, `height` and `face` (root_effect / root_face), and
-        (2026-10-22) the FollowDirection `follow` — of the bundle's already extracted prefabs, like back_only (the spawn
+        (2026-10-22) the FollowDirection `follow`, the face switches `swFace` / `three`, the RandomDirection `rdir` and the
+        FollowTileHeight `tileH` — of the bundle's already extracted prefabs, like back_only (the spawn
         recognition fix: 51 bound prefabs gain a `spawn`).
         Returns (prefabs with an effect component, files changed)."""
         rel = pack or f'battle/prefabs/effects/{bundle}.ab'
@@ -2061,7 +2148,8 @@ class Extractor:
             d = json.loads(f.read_text())
             want = {'spawn': pe['spawn'] if pe else None,
                     'height': r4(pe['heightOffset']) if pe and pe['overwrite'] == 1 else None,
-                    'face': self.root_face(pe), 'follow': self.follow_direction(go)}
+                    'face': self.root_face(pe), 'follow': self.follow_direction(go), 'swFace': self.switch_face(go),
+                    'three': self.three_face(go), 'rdir': self.random_direction(go), 'tileH': self.tile_height(go) or None}
             if all(d.get(k) == v for k, v in want.items()):
                 continue
             for k, v in want.items():
@@ -2678,7 +2766,7 @@ def main():
     ap.add_argument('--pack', metavar='REL', help='read the prefabs from this bundle (relative to the bundle folders, e.g. '
                     'pkgrps/btl_pfb_fx_token_3.ab) and write them as --bundle (local patch: 望\'s 棋子 effects → wang_token)')
     ap.add_argument('--root-only', action='store_true', help='only rewrite the root effect fields `spawn` / `height` / `face` '
-                    '(and the FollowDirection `follow`, 2026-10-22) of the already extracted prefabs of the bundles (every bundle of index.json without --bundle; 2026-10-11)')
+                    '(and the FollowDirection `follow`, the face switches `swFace` / `three`, `rdir`, `tileH`, 2026-10-22) of the already extracted prefabs of the bundles (every bundle of index.json without --bundle; 2026-10-11)')
     ap.add_argument('--delay-only', action='store_true', help='only write the branch delays (node `delay` / `sdelay`: a child\'s '
                     'FxDelay, the root\'s _subFXDelayConfigs) into the already extracted prefabs of the bundles (every bundle of '
                     'index.json without --bundle; 2026-10-11)')

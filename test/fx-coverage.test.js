@@ -30,7 +30,7 @@ cov.begin('wang/wang_passive_01_start')
 for t in ('Transform', 'SpriteRenderer', 'MeshCollider', 'MonoBehaviour'):
     cov.component(t)
 cov.script(6196809664641094801, ['_delayToPlay'])     # ParticleEffect: read
-cov.script(2994498389723426252, ['_followTileHeightSpeed'])  # FollowTileHeight: known todo
+cov.script(1228563541688412297, ['_effects'])  # SwitchableWhenContainsEquipment: known todo
 cov.script(123, ['_someField'])                       # unknown, no dump: its id and fields
 cov.reader('ParticleEffect', True)
 cov.reader('FollowMountPoint', False)
@@ -44,7 +44,7 @@ cov.material('Torappu/Particles/NewShader', [], set(), {})
 print(json.dumps({r['kind'] + ':' + r['what']: r['status'] for r in cov.report()}))`);
     assert.deepEqual(rep, {
       'component:SpriteRenderer': 'new', 'component:MeshCollider': 'none',
-      'script:FollowTileHeight': 'todo', 'script:#123 _someField': 'new',
+      'script:SwitchableWhenContainsEquipment': 'todo', 'script:#123 _someField': 'new',
       'reader:FollowMountPoint: layout not recognised, nothing read': 'new',
       'module:CollisionModule': 'todo', 'module:LightsModule': 'new',
       'shape:6 Mesh': 'todo', 'shape:20 SpriteRenderer': 'new',

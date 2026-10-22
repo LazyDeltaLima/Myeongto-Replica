@@ -152,8 +152,8 @@ test('fxgame play() / spawn(): played with a direction and the prefab\'s speed; 
   assert.match(SRC, /const dir = aimed \? \{ x: Number\(at\.x\) - Number\(aim\.x\), y: Number\(at\.y\) - Number\(aim\.y\) \} : fourWay \? WAY4\[facingDir\(view\)\] : \{ x: side, y: 0 \};/);
   assert.match(SRC, /const sp = playSpeed\(def\.face, speed, gameRate\(\)\);/);
   assert.match(SRC, /new mod\.fxp\.FxInstance\(def, \{ quality: q\(\), facing, dir, body: facingDir\(at && at\.info \? at : view\), speed: sp, split, floor: ground\.z \|\| 0, tilt: tiltOn\(ground, def\) \}\)/);
-  assert.match(SRC, /const until = buff \? null : endAt \?\? clockS \+ \(def\.duration \|\| 3\) \+ 0\.5 \+ inst\.lead \/ sp;/);
-  assert.match(SRC, /speed: sp, cast, backSw/);
+  assert.match(SRC, /: buff \? null : endAt \?\? clockS \+ \(n === copy \? dur0 : def\.duration \|\| 3\) \+ 0\.5 \+ inst\.lead \/ sp;/);
+  assert.match(SRC, /speed: sp, cast: own \? null : cast, backSw/);
   assert.match(SRC, /const sp = playSpeed\(def\.face, entry\.speed \?\? 1, gameRate\(\)\);/);
   // the old mirror and turns stay only for a prefab without the record
   assert.match(SRC, /const turnOld = !def\.face && fourWay/);

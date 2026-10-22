@@ -91,7 +91,8 @@ SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoi
                 'FxUVRotation', 'SwitchableBackEffect', 'SwitchableRightEffect', 'LineEffectEmitterDynamic', 'RandomEmitter',
                 'FlyToPredefinedLocation', 'OnPlayEmitter', 'OnFinishEmitter', 'EmptyEffect', 'PauseEffectIf', 'PauseAnotherEffect',
                 'PauseEffectIfNotIdle', 'PauseEffectWithAnimation', 'PauseEffectIfSpineEvent', 'FinishEffectIf', 'FunnelHitEffect',
-                'FollowDirection'}
+                'FollowDirection', 'SwitchableEffectByFaceDirection', 'SwitchableThreeFaceEffect', 'RandomDirection',
+                'FollowTileHeight'}
 
 # ParticleSystem modules the extract carries (fx_extract.particle_system)
 MODULES_READ = {'InitialModule', 'EmissionModule', 'ShapeModule', 'SizeModule', 'ColorModule', 'RotationModule',
@@ -144,14 +145,10 @@ KNOWN = {
     # client scripts
     'script:FxLODSetting': (_TODO, 'switches objects / particle details off by quality level [ASSUMED: nothing at the top level]'),
     'script:FinishEffectViaOwnerBuff': (_HAND, 'finishes when the owner\'s buff ends; only on 余 S3, drawn by render/fxgame.js (its tiles)'),
-    'script:FollowTileHeight': (_TODO, 'follows the height of the tile under it'),
-    'script:SwitchableEffectByFaceDirection': (_TODO, 'plays an up / down / left variant by facing'),
-    'script:SwitchableThreeFaceEffect': (_TODO, 'plays an up / down variant by facing'),
     'script:SwitchableWhenContainsEquipment': (_TODO, 'a variant per equipped module'),
     'script:SwitchableEffectByBuffStackCnt': (_HAND, 'a variant by buff stack count; only 信仰搅拌机\'s rmixer_buff_01 (`_stackCnt` 3, GE): '
                                               'render/fxstatus.js STACK_FX \'rmixer:t1\''),
     'script:EmitterRandomGroup': (_TODO, 'plays one of a group at random'),
-    'script:RandomDirection': (_TODO, 'a random direction at play'),
     'script:OnPlayAudioPlayer': (_NONE, 'a sound, not drawn (audio is separate)'),
     'script:OnFinishAnime': (_TODO, 'sets an Animator trigger at finish (Animator states past the first)'),
     'script:TriggerAnimatorWhenFinish': (_TODO, 'sets an Animator trigger at finish (Animator states past the first)'),
@@ -166,10 +163,13 @@ KNOWN = {
     'script:YuS3EffectBehaviour': (_HAND, 'render/fxgame.js (余 S3 tiles)'),
     'script:YuS3EffectWithEdgeBehaviour': (_HAND, 'render/fxgame.js (余 S3 tiles)'),
     # (2026-10-21) first met when --coverage walked the CN 선발 bundles, the route cursors and the enemies' packs
+    # (2026-10-22) no class in the EN dump (the CN client's code is not read): judged by their field names
     'script:#3354437260492772109 _ignoreOwnerValid,_rotateIfFaceLeft,_rotation': (
-        _TODO, 'CN client only (no class in the EN dump): turns 予愿安洁莉娜\'s S2 flight trails when facing left'),
-    'script:#7584231671898059191 _flipYWhenLeft': (_TODO, 'CN client only (no class in the EN dump): flips 克莱门莎\'s S2 '
-                                                   'bullet upside down when it flies left'),
+        _NONE, 'CN client only: turns 予愿安洁莉娜\'s S2 flight trails by `_rotation` when facing left — (0, 0, 0) on both '
+               'prefabs, nothing to turn [ASSUMED]'),
+    'script:#7584231671898059191 _flipYWhenLeft': (_HAND, 'CN client only: flips 克莱门莎\'s S2 bullet upside down when it flies '
+                                                   'left — with the flight turned 180° the same as the left / right mirror '
+                                                   'render/fxgame.js gives it (pickFx \'anchor\') [ASSUMED]'),
     'script:PreviewCursor': (_HAND, 'the route preview cursor\'s mover (`_moveSpeed`, `_height`): render/fxroute.js'),
     'script:SimpleEffect': (_HAND, 'only S_desert_wall_02_start_Mesh (s.ab), which the player never plays (see shader:Unlit/Texture)'),
     # (2026-10-21, decompile check) EffectData_Projectile (Effects.Data, a SourceData) is two Transform lists and a .ctor: no

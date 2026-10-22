@@ -64,9 +64,9 @@ test('the extracts carry `follow` (skipped without public/assets)', { skip: !exi
 // 「이펙트 붙는 자리」 (decompile check 2026-10-22): a model-point effect without a FollowMountPoint is placed once — with the
 // muzzle's turn for MUZZLE_POINT 3, mirrored as π − θ for a model drawn facing left — and moves with its unit only when held
 test('a model-point effect without a mount is placed once; held ones ride with the unit, MUZZLE_POINT takes its turn', () => {
-  assert.match(SRC, /if \(!def\?\.mount\) return placedAt\(v, def, key, spawn, at\);/);
+  assert.match(SRC, /if \(!def\?\.mount\) return placedAt\(v, def, key, spawn, at, buff\);/);
   const body = SRC.slice(SRC.indexOf('function placedAt('), SRC.indexOf('const ownerOf = '));
-  assert.match(body, /const hold = !!def\?\.face\?\.hold;/);
+  assert.match(body, /const hold = !!def\?\.face\?\.hold \|\| buff;/);
   assert.match(body, /if \(spawn === 3\) \{[\s\S]*?pointTurn\([\s\S]*?< 0 \? Math\.PI - t : t;/);
   assert.match(body, /get x\(\) \{ first\(\); return hold \? ex\(v\) \+ p0\.x - b0\.x : p0\.x; \}/);
 });

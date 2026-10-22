@@ -78,7 +78,7 @@ import { opShot } from './fx/speeds.js'; // 2026-10-21: a skill's own shot recor
 import { boomerangThrown, boomerangCaught } from './heldWheel.js'; // local patch: a 回环射手's boomerang leaves / is back in her hand
 import { PROJ } from './style.js';
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2: when her model is back home
-import { faceTurn, followDir, playSpeed } from './fx/face.js'; // 2026-10-11 (maintainer decision 15): `_usePlaybackSpeed` / `_limitedPlaybackSpeed`; 2026-10-22 FollowDirection
+import { faceSwitchCopy, faceTurn, followDir, playSpeed } from './fx/face.js'; // 2026-10-11 (maintainer decision 15): `_usePlaybackSpeed` / `_limitedPlaybackSpeed`; 2026-10-22 FollowDirection, SwitchableEffectByFaceDirection
 import { kitOfficialPlan, kitOperator } from './fx/kitofficial.js'; // 2026-10-16: kit events the buff templates draw
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
 import { animPause, clipOf, facesBack, idlePause, pauseIfNow } from './fx/pause.js'; // 2026-10-21: the client's pause / finish behaviours
@@ -480,9 +480,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // 望's S3 wang_skill_03_range_start (looping 'line1/2', the range cross) stayed on the board for good
       if (!buff && endAt != null && endAt <= clockS) continue;
       const ground = at || view;
-      const anchor = lifted(ground, def); // local patch: its _spawnLocation
-      const fourWay = turns(view).has(n); // `_useFourDirectionalFace` (local patch, maintainer report 2026-10-07: 野鬃 S2 stood upright)
-      const aimed = !!(aim && at && aimSet(view).has(names[i])); // 2026-10-10: attacker → target
+      // 2026-10-22: its face switch's copy for the owner's facing (faceCopy) plays instead, with the owner's faceVector
+      const dur0 = def.duration || 3;
+      const copy = faceCopy(def, ground.info ? ground : view, b.bundle);
+      let own = false;   // `_oneShot`: the copy lives on by itself, else it ends with this effect
+      if (copy) {
+        const c = await lib.load(b.bundle, copy);
+        if (!mod) return;
+        if (c) { own = !!def.swFace.oneShot; n = copy; def = c; }
+      }
+      const anchor = lifted(ground, def, buff); // local patch: its _spawnLocation
+      const fourWay = !copy && turns(view).has(n); // `_useFourDirectionalFace` (local patch, maintainer report 2026-10-07: 野鬃 S2 stood upright)
+      const aimed = !copy && !!(aim && at && aimSet(view).has(names[i])); // 2026-10-10: attacker → target
       // only the effects that go to the split scene (on the caster) split — a hit on a target goes to the upper canvas,
       // which draws layer 0 only (split, every blast on a target was invisible at 'high' on the 3D board: 烛煌 S3)
       const split = (buff || !at) && splitOn();
@@ -498,14 +507,27 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (turnOld) aimMover(inst, facingDir(view));
       if (aimed && !def.face) aimAlong(inst, aim, at);
       // its FxDelay / branch delays (inst.lead, effect seconds) come before its prefab's duration
-      const until = buff ? null : endAt ?? clockS + (def.duration || 3) + 0.5 + inst.lead / sp;
+      const until = own ? clockS + (def.duration || 3) + 0.5 + inst.lead / sp
+        : buff ? null : endAt ?? clockS + (n === copy ? dur0 : def.duration || 3) + 0.5 + inst.lead / sp;
       inst.object.position.set(anchor.x, anchor.y, anchor.z || 0);
       // local patch (maintainer 2026-10-07: the skill effects covered the operator): every effect on the caster — its cast /
       // skill start as well as its buff loops — goes under the units; the hits on a target stay over
       // (local patch, maintainer report 2026-10-07: 마터호른 S2's dome must cover her) at 'high' the caster's effects split by their renderers' sorting
-      addLive(inst, { view: anchor, owner: view.id ?? view.info?.id, buff, onCaster: !at, until, tag, speed: sp, cast, backSw: backSwitch(def, at || view, b.bundle) }, split ? layers.split : buff || !at ? layers.under : layers.over);
+      addLive(inst, { view: anchor, owner: view.id ?? view.info?.id, buff, onCaster: !at, until, tag, speed: sp, cast: own ? null : cast, backSw: backSwitch(def, at || view, b.bundle) }, split ? layers.split : buff || !at ? layers.under : layers.over);
       trimLive();
     }
+  }
+
+  // ---- SwitchableEffectByFaceDirection (2026-10-22, decompile check; docs/rules/fx.md 「이펙트 방향」) ------------------
+  // A prefab with it on its root (fx_extract.py `swFace`: 新约能天使's attack / skill starts, `_down` copies) is swapped as it
+  // plays (`_UpdateFace` RVA 0xE9C2E0, from `OnPlay` only): for the owner's `faceDirection` (ParseDirection of faceTo — an
+  // attack turns it to its target: face-turn.js `dir4`) DOWN / UP / LEFT with a copy named, the client pauses this effect and
+  // creates the copy on the owner with its faceVector; `_oneShot` finishes this one at once (the copy runs its own course),
+  // else `OnFinish` (0xE9BE70) finishes the copy with it. Here the copy plays in its place — the paused one draws nothing.
+  /** The copy `def`'s face switch plays on `unit` facing as it does now, or null (this one plays). */
+  function faceCopy(def, unit, bundle) {
+    const name = unit ? faceSwitchCopy(def?.swFace, facingDir(unit)) : null;
+    return name && index?.bundles?.[bundle]?.includes(name) ? name : null;
   }
 
   // ---- SwitchableBackEffect (2026-10-10, decompile check) -----------------------------------------------------
@@ -515,10 +537,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // `faceToBack` turns true, and the other way round when it turns back to the front ('common_empty' = nothing while back).
   // Here the owner faces back while its Back model is drawn (UnitView.entryBack; before the model loads, a deploy facing UP);
   // the paused front is not drawn [추정: the pause hides it — a frozen copy beside the back one is not seen in captures].
+  // SwitchableThreeFaceEffect (2026-10-22, decompile check; fx_extract.py `three`: 维什戴尔 S3 wisdel_skill_03_start) is the same
+  // swap by `faceToBack` for its up copy — `_UpdateFace` (RVA 0xEB3800, every frame) shows `_upEffect` while the owner faces
+  // back, `_downEffect` while its ThreeFaceAnimator shows its `_down` face (the `*_Down*` clips, which this renderer does
+  // not draw — docs/rules/render.md 「Spine 클립 커버리지」 DOWN_FAMILY: the front copy stays), else itself.
   const faceBack = facesBack;
   /** The back switch of `def` on its unit `unit` (an operator / enemy view), or null. */
   function backSwitch(def, unit, bundle) {
-    const b = def?.back;
+    const b = def?.back || (def?.three?.up ? { effect: def.three.up } : null);
     if (!b || typeof b.effect !== 'string' || !unit || !unit.info) return null;
     return { name: b.effect, bundle, unit, on: false, entry: null };
   }
@@ -576,6 +602,17 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!t || (t.flip === was.flip && t.z === was.z && t.any === was.any)) return;
     l.inst.turn = t;
     l.inst.applyTurn(t);
+  }
+  // ---- FollowTileHeight (2026-10-22, decompile check; docs/rules/fx.md 「이펙트 방향」) --------------------------------------
+  // A prefab with the client's FollowTileHeight on its root (fx_extract.py `tileH`: 伊内丝's sentry label / range, 圣聆初雪's
+  // snow, 凛御银灰 S3's range) keeps its height at the tile under it: `_UpdateHeight` (RVA 0xE834B0) moves its world height
+  // toward that tile's (MapUtil.GetTileHightByMapPosition of its own position) by at most `_followTileHeightSpeed` × the
+  // frame's time — at once as it plays (`OnPlay` 0xE833B0), then every frame (`Update` 0xE83450)
+  function stepTileHeight(l, g) {
+    const p = l.inst.object.position, h = tileTop(p.x, p.y);
+    if (l.tileZ == null) l.tileZ = h;
+    else { const d = h - l.tileZ; l.tileZ += Math.sign(d) * Math.min(Math.abs(d), l.inst.def.tileH * g); }
+    p.z = l.tileZ;
   }
   function setPaused(l) {
     const p = !!(l.pzSelf || l.pzBeh?.size || l.pzBy?.size);
@@ -1031,8 +1068,27 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const ey = (v) => (v.glideS ? Number(v.glideS.ly) : v.y);
   // local patch (maintainer report): a prefab with a FollowMountPoint (fx_extract.py `mount`) is placed
   // at and follows its mount point instead of its _spawnLocation; with `pauseWhenInvalid` it stands still (`paused`, the
-  // frame loop skips its update) while the unit's current skeleton has none of the point's bones
-  function lifted(v, def) {
+  // frame loop skips its update) while the unit's current skeleton has none of the point's bones.
+  // 2026-10-22 (decompile check; docs/rules/fx.md 「붙는 자리」): any other effect on a unit is put once where its
+  // `_spawnLocation` is (`Effect._InitLocationFromEntity` RVA 0xE7AF80: every location ends at the same tail) and then moves
+  // with the unit only when held — `_holdByOwner` (face `hold`: `Entity.HoldEffect` 0x3A1CB90), or `buff`: a buff's effect
+  // (`Entity.AddBuffEffect` 0x3A16C10 holds every one it creates, the same parenting inlined); a cast or a hit without
+  // `_holdByOwner` stays where it was made (held)
+  function lifted(v, def, buff = false) {
+    const at = followed(v, def, buff);
+    return !v || !v.info || !at || at.placed || def?.mount || buff || def?.face?.hold ? at : placedOnce(v, at);
+  }
+  /** `f` read once, on the first access (its creation), for unit `v` — what a placed, unheld effect keeps. */
+  function placedOnce(v, f) {
+    let p0 = null;
+    const first = () => { p0 ||= { x: f.x, y: f.y, z: f.z || 0, hover: f.hover }; };
+    return {
+      get x() { first(); return p0.x; }, get y() { first(); return p0.y; }, get z() { first(); return p0.z; },
+      get hover() { first(); return p0.hover; },
+      get alive() { return v.alive; }, get remove() { return v.remove; }, id: v.id, info: v.info,
+    };
+  }
+  function followed(v, def, buff) {
     const spawn = mountSpawn(def?.mount) ?? def?.spawn;
     const key = pointKey(spawn);
     if (key && v && ptsOf(v)?.[key]) {
@@ -1052,7 +1108,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // (sign / axis of the turn: the client turns the effect in the skeleton's tilted plane, here about the board's normal
       // [추정]), to be checked on screen
       const turns = def?.mount && def.mount.keepOriginRotation === 0;
-      if (!def?.mount) return placedAt(v, def, key, spawn, at);
+      if (!def?.mount) return placedAt(v, def, key, spawn, at, buff);
       return {
         get x() { return at().x; }, get y() { return at().y; }, get z() { return at().z; },
         get alive() { return v.alive; }, get remove() { return v.remove; },
@@ -1097,8 +1153,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * frame (2026-10-08) and took no turn: 엑시아's muzzle flash (spawn 3, `_rotateType` 0) kept its authored rightward
    * direction, over her gun when she faced left.
    */
-  function placedAt(v, def, key, spawn, at) {
-    const hold = !!def?.face?.hold;
+  function placedAt(v, def, key, spawn, at, buff = false) {
+    const hold = !!def?.face?.hold || buff;   // 2026-10-22: a buff's effect is always held (lifted)
     let p0 = null, b0 = null, r0 = null;
     const first = () => {
       if (p0) return;
@@ -1116,7 +1172,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       get z() { first(); return hold ? (v.z || 0) + (v.hover || 0) + p0.z - b0.z : p0.z; },
       get rot() { first(); return r0; },
       get alive() { return v.alive; }, get remove() { return v.remove; },
-      id: v.id, info: v.info,
+      id: v.id, info: v.info, placed: true,
     };
   }
   const ownerOf = (v) => v.id ?? v.info?.id;
@@ -1126,14 +1182,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * thorn2_skill_01_range in the pool, offset 0, after its _spawnLocation 7 put it at height 0): `at` at the ground height of
    * its unit / of the tile under it plus `off` [추정: the entity — her S1 projectile where it landed — stands on that tile].
    */
+  /** The height of the drawn tile under board point (x, y) (its device included), 0 off the board. */
+  function tileTop(x, y) {
+    let g = null;
+    try { g = grid(); } catch { /* none */ }
+    const t = Array.isArray(g) ? g[Math.round(y)]?.[Math.round(x)] : null;
+    return t && t.drawn ? (t.h || 0) + (t.devH || 0) : 0;
+  }
   function overHeight(at, off) {
     const unit = at && at.info ? at : null;
-    const tileTop = (x, y) => {
-      let g = null;
-      try { g = grid(); } catch { /* none */ }
-      const t = Array.isArray(g) ? g[Math.round(y)]?.[Math.round(x)] : null;
-      return t && t.drawn ? (t.h || 0) + (t.devH || 0) : 0;
-    };
     return {
       get x() { return at.x; }, get y() { return at.y; },
       get z() { return (unit ? (unit.z || 0) + (unit.hover || 0) : tileTop(at.x, at.y)) + off; },
@@ -1150,7 +1207,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // status — a status turned off and on again while its file loaded started a second load; the first one lands here too
     if (live.some((l) => l.status === key && l.unit === view && !l.inst.stopping && !l.inst.done)) return;
     // 2026-10-16: `frac` 'own' (fxstatus.js OWN) — at the prefab's own `_spawnLocation`, special points included, as a kit's play
-    const anchor = frac === 'own' ? lifted(view, def) : {
+    const anchor = frac === 'own' ? lifted(view, def, true) : {
       get x() { return view.x; }, get y() { return view.y; },
       get z() { return frac > 0 && camRef ? bodyZ(camRef, view, frac) : (view.z || 0) + (view.hover || 0); },
       get alive() { return view.alive; }, get remove() { return view.remove; },
@@ -1760,7 +1817,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const sp = playSpeed(def.face, entry.speed ?? 1, gameRate());
     const inst = new mod.fxp.FxInstance(def, { quality: q(), facing, dir: d, body: unit ? facingDir(unit) : null, speed: sp, split, floor: drop ? null : at.z && !over ? at.z : 0, tilt: drop ? null : tiltOn(unit, def) });
     if (aim && !official) aimAlong(inst, aim, at);
-    if (!drop) at = lifted(at, def); // local patch: its _spawnLocation
+    if (!drop) at = lifted(at, def, !!entry.buff); // local patch: its _spawnLocation
     if (!drop && Number.isFinite(def.height)) at = overHeight(at, def.height); // 2026-10-10: `_overwriteHeight`
     inst.object.position.set(at.x, at.y, at.z || 0);
     const e = { view: at, ...entry, speed: sp, backSw: backSwitch(def, unit, bundle) };
@@ -4496,6 +4553,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (r != null && l.inst.nodes?.[0]) l.inst.nodes[0].rotation.set(0, 0, r);
         }
         if (l.inst.turn && l.inst.def?.follow && !(l.followed && l.inst.def.follow.once)) stepFollow(l); // 2026-10-22: FollowDirection
+        if (l.inst.def?.tileH > 0) stepTileHeight(l, dt * rate2); // 2026-10-22: FollowTileHeight
         // local patch (maintainer 2026-10-07: 蕾缪安's beams must come straight down from the sky wherever the target stands): the
         // effect's +y turned to the camera's up — a line along it projects to a screen-vertical line at any place
         if (l.skyward) {

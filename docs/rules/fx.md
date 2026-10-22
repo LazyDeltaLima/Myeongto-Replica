@@ -323,7 +323,14 @@
   우리 모델은 화면 배율로 좌우를 뒤집으니, 왼쪽으로 그려진 모델은 거울 각도 π − θ로 준다. 클라는 스켈레톤 안에서 뒤집어 본 각도 자체가 거울이고, 이펙트는 뒤집지 않는다.
   6 MUZZLE_POINT_WITHOUT_ROTATION은 회전이 없다.
 - 범위(추출물): 마운트 없는 모델 점 이펙트 — 2 HIT 616(붙들림 82), 3 MUZZLE 40(5), 4 HEAD 25(22), 특수점 30(23). 표가 있는 오퍼레이터·토큰에만 해당한다.
-  표가 없는 유닛(적 등, `SPAWN_FRAC` 높이)과 발·바닥 이펙트는 붙들림과 상관없이 지금처럼 유닛을 따라간다 [추정 남음: 클라는 붙들리지 않으면 그 자리에 남음].
+- **모든 자리·버프** (2026-10-22, 이펙트 묶음 G 나머지, 디컴파일 확인): `_InitLocationFromEntity`는 `_spawnLocation` 0~25 갈래(발·몸·머리·바닥 포함)가 모두
+  같은 끝(0xE7BC34: `_overwriteHeight` → `_holdByOwner`면 `HoldEffect`)으로 모인다 — 표 없는 유닛(적, `SPAWN_FRAC` 높이)과 발·바닥 이펙트도 만들 때 한 번 놓이고
+  붙들릴 때만 따라간다. 다만 **버프 이펙트는 늘 붙들린다**: `Entity.AddBuffEffect`(0x3A16C10)는 `CreateEffect` 뒤 `HoldEffect`를 안에 품고 있다(같은 핫픽스 칸
+  `__Hotfix0_HoldEffect` 0x6E8 검사 → 가상 76 `effectTransform`에 `SetParent`). 그래서 적에게 거는 디버프(이네스 S1 `ines_skill_01_debuff_01`, 스펙터 디 언체인드
+  `ghost2_beidong_buff_02` — `hold` 없음)도 걷는 적을 따라간다. 따로 있는 `FollowOwner`·`FollowOwnerRootTileHeight` 스크립트(이 풀에 없음)도 기본이 「안 따라감」임을 보여 준다.
+  → `fxgame.js lifted(v, def, buff)`: 마운트·`hold`·버프가 아니면 `placedOnce`(첫 읽기 자리에 고정), 모델 점은 `placedAt`의 `hold`에 버프를 더함. 버프 = `play`의
+  `buff`, 상태 이펙트(`playStatus`), `spawn`의 `entry.buff`(적 오라 등). 시전·타격·뒷면 사본(`SwitchableBackEffect`는 `CreateEffect`)·버프 끝 이펙트는 붙들림대로.
+  보이는 차이: 걷는 적 위의 타격·시전 이펙트(`hold` 없는 것)가 적을 따라 미끄러지지 않고 맞은 자리에 남는다. 확인: `test/render/fx-face-switch.test.js`(소스 고정). [화면 미확인]
 - 확인: 단위 `test/render/fx-follow-direction.test.js`(소스 고정, 추출물 `hold`). 아레나(Windows Chrome, 수정 전·후, 3배 확대 16장씩).
   엑시아 S1 왼쪽 배치: 전에는 화염 줄기가 총기 위였고, 뒤에는 총구 끝에서 별 모양 섬광이 왼쪽으로 뻗는다. 오른쪽 배치는 전·후 같다.
   첸 S2처럼 숨는 동안 본이 멀리 가는 버프는 다시 만든 자리(배치 링 안)에 남는다 [화면 미확인]. 상태 이펙트(`buff_stun` 머리, 붙들림)는 머리 본의 숨쉬기를 더 따라가지 않는다 [화면 미확인].
@@ -459,6 +466,24 @@
   → `fx/face.js followDir` + `fxgame.js stepFollow`(프레임 루프, `applyTurn`). 주인은 이펙트가 놓인 유닛 [추정: `CreateEffect`에 준 엔티티], 없으면 시전자.
   보이는 차이: FLIP_TWO_SIDE 버프(156개)가 오퍼레이터가 뒤의 적을 보고 돌아설 때 함께 뒤집힌다. 에이야퍄들라 더 크비트 아스카·아스카론의 FOUR_DIRECTION 범위(`owner`, 8개)는
   ±x 대신 배치 방향을 따라 눕는다. 확인: 단위 `test/render/fx-follow-direction.test.js`, 추출 JSON 골든(`follow`). [화면 미확인] — 아레나 샌드백은 제자리라 돌아서는 장면을 못 만듦.
+- **방향 전환 사본·무작위 방향·타일 높이** (2026-10-22, 이펙트 묶음 G 나머지, 디컴파일 확인; 모두 루트 스크립트 — `fx_extract.py`가 읽어 `--root-only`로 14개 파일에 씀):
+  - `SwitchableEffectByFaceDirection`(`swFace`, 엑시아 더 뉴 커버넌트 공격·S1~S3 시작 5개 — `_down` 사본만): `_UpdateFace`(0xE9C2E0, `OnPlay` 0xE9C030에서만)가
+    주인 `faceDirection`(`MapUtil.ParseDirection(faceTo)` 0x882440: FOUR_WAYS와의 내적 최댓값, 같으면 UP·RIGHT·DOWN·LEFT 앞 순서 — 우리 `face.dir4`)이 DOWN·UP·LEFT이고
+    그 사본 이름이 있으면 자기를 멈추고 그 사본을 주인에게 `faceVector`로 만든다. `_oneShot`이면 자기는 바로 끝나고 사본은 제 길이대로, 아니면 `OnFinish`(0xE9BE70)가
+    사본도 끝낸다. → `fx/face.js faceSwitchCopy` + `fxgame.js play()`(사본이 그 자리에서 재생, 시전 연결 `cast`는 `_oneShot`이면 끊음).
+  - `SwitchableThreeFaceEffect`(`three`, 위셔델 S3 `wisdel_skill_03_start`): `_UpdateFace`(0xEB3800, `Update` 0xEB3440로 매 프레임)가 주인 `faceToBack`(Entity 가상 44,
+    뒷모델)이면 `_upEffect`, `faceToDown`(가상 45 — `ThreeFaceAnimator`의 `_down` 면, `CharacterAnimator.activeFace`)이면 `_downEffect`, 아니면 자기를 보이고 나머지는 멈춘다.
+    `_createEffectOnStart`는 처음에 둘 다 멈춘 채 만든다. → 위 사본은 `SwitchableBackEffect`와 같은 뒷면 전환(`backSwitch`)으로. 아래 면은 Spine 앞모델의 `*_Down*` 클립
+    묶음인데 우리 렌더가 아래 방향 클립을 안 그리므로(render.md 「Spine 클립 커버리지」의 `DOWN_FAMILY` 전역 공백) 앞 이펙트가 그대로 돈다 — 그 클립을 그리게 되면 `three.down`을 같이 이을 것.
+  - `RandomDirection`(`rdir`, 데겐블레허 S2 `blkkgt_skill_02_hit_2`): `OnPlay`(0xE95760)가 주인이 유효하면 `RandomUtil.RandomVector3(from, to)`(0x5A81410: 축마다
+    `Random.Range`, 정규화 없음)로 `FaceTo`. → `FxInstance`가 그 범위의 무작위 벡터로 `faceTurn`(FLIP_TWO_SIDE: 반반 뒤집힘). 이 프리팹은 지금 어떤 바인딩에도 없어 안 나옴(§11).
+  - `FollowTileHeight`(`tileH`, 이네스 표식·범위 3, 프라마닉스 더 프레리타 눈 3(속도 1000), 실버애쉬 더 레인프로스트 S3 범위 1): `_UpdateHeight`(0xE834B0)가 이펙트의 월드
+    높이를 제 자리 타일 높이(`MapUtil.GetTileHightByMapPosition`)로 프레임마다 최대 `_followTileHeightSpeed` × 시간만큼 옮긴다. 재생 때(`OnPlay` 0xE833B0, force)는
+    차이를 한 번에 더하는데 그 갈래는 부호를 곱하지 않는다(|차이|) — 만든 높이가 타일 높이면 0이라, 우리는 바로 타일 높이에 둔다 [추정: 공식도 타일 높이에서 만듦]. → `fxgame.js stepTileHeight`.
+  - CN 전용 둘(EN 덤프에 클래스 없음, 필드 이름으로만 판단 [추정]): 안젤리나 더 멜로우 위시 S2 꼬리 `_rotateIfFaceLeft`는 `_rotation`이 두 프리팹 다 (0, 0, 0)이라
+    어느 해석이든 돌릴 것이 없음(안 함). 클레멘티아 S2 탄 `_flipYWhenLeft`는 왼쪽으로 날 때 180° 돌린 그림을 위아래로 뒤집는 것으로 보여, 지금의 좌우 거울과 같은 그림(그대로).
+  - 확인: 단위 `test/render/fx-face-switch.test.js`, 추출 JSON 골든 EN(`ines_label_01` `tileH`만). 아레나(Windows Chrome, 재생 이름 기록): 엑시아 더 뉴 커버넌트 S1 아래 배치
+    → `angel2_attack_down_loop_start_01`, 오른쪽 → 원래 것; 위셔델 S3 위 배치 → `wisdel_skill_03_up_start`, 오른쪽 → 없음. 공식 대조 [화면 미확인].
 
 ### 정예 기물 금빛 (2026-10-08, 관리자 요청 「정예화된 오퍼는 휴식 기간에 황금빛으로 빛나는 이펙트」)
 - 근거: zh_CN `gamedata/battle/battle_misc_table.json` `miscConfig.AUTOCHESS.act1autochess`·`act2autochess.effectConfig.goldenEffectId`

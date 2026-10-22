@@ -78,6 +78,20 @@ export function followDir(follow, o) {
 }
 
 /**
+ * (2026-10-22, decompile check) The copy the client's SwitchableEffectByFaceDirection plays instead (`_UpdateFace` RVA
+ * 0xE9C2E0, as the effect plays): its owner's `faceDirection` (`dir4`, MapUtil.ParseDirection of faceTo) DOWN / UP / LEFT
+ * with that copy named (`swFace` down / up / left: fx_extract.py switch_face), else null — this effect plays.
+ * @param {{ up?: string, down?: string, left?: string }|null|undefined} sw
+ * @param {string|null|undefined} dir4 'UP' | 'RIGHT' | 'DOWN' | 'LEFT'
+ * @returns {string|null}
+ */
+export function faceSwitchCopy(sw, dir4) {
+  if (!sw || typeof sw !== 'object') return null;
+  const n = { UP: sw.up, DOWN: sw.down, LEFT: sw.left }[dir4];
+  return typeof n === 'string' && n ? n : null;
+}
+
+/**
  * The playback speed an effect gets (`Effect._PlayInternal` RVA 0xC8C4F0): capped at `_limitedPlaybackSpeed` ÷ the battle
  * time scale when that is ≥ 0 (default 2.0 — the effect never runs faster than ×2 on screen), and used only with
  * `_usePlaybackSpeed` (`face.speed` 0: the prefab's own speed, 1.0). Without a record: `speed` as given.
