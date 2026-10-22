@@ -364,10 +364,29 @@
     유지·0층으로 비움은 무음; 뱅크 `p_imp_swcvr`, maxSoundAllowed 1·popOldest 없음, Battle_P_SImp). sim fx `snow`의 `cells`를 오디오 유닛 기록의 칸별
     구간(1·2~4·5층)과 비교해 구간이 새로 생기거나 바뀐 칸이 있으면 한 번(`audio.js snowRefreshed`, 키 `sbell2:snow`); 기록은 배치마다 새로 —
     떠날 때 클라가 칸 이펙트를 모두 지우는 것과 같음. 실버애쉬의 'snow'(S2)는 해당 없음.
+  - 2026-10-22 (스킬 타격 소리 묶음 A — 연구 메모 「연결 안 된 스킬 타격음」, EN 클라 버프 템플릿; sim 이벤트는 그대로라 golden 무변화). 새 sfx 7개:
+    - 벤델라 S2: 보호 대상이 맞을 때마다 `vendla_s_2`의 ON_TAKE_DAMAGE가 공격자에 즉시 버프 `vendla_s_2[extra_damage]`(audioSignal 같은 이름, 반격 피해 +
+      `vendla_skill_02_hit_01`) → 키트 fx `counter`(그녀 id) → `signalFxKey` `vendla:s2` `p_imp_brmblhldmg`.
+    - 락락 S2: 풀어 놓은 드론이 칠 때 대상에 `rockr_s_2[funnel_hit_audio]` — 그녀에게 `rockr_s_2[overload]`가 있으면 audioSignal
+      `rockr_s2_funnel_attack_hit_overload`, 아니면 `…_hit` → 키트 fx `drone` → `kitHitKey` `rockr:funnel`/`rockr:funnelo`(과부하 = fx `overload` 뒤).
+    - 아코르트 S2: 공격마다 범위 안 다른 오퍼레이터에 `akkord_s_2[aoe_damage]` — 그 자리 AOEDamage 뒤 `AlwaysNext` 다음 PlayAudio `akkord_aoe_audio`(적이 안
+      맞아도 남) → 키트 fx `sonic`(오퍼레이터마다) → `akkord:s2` `p_imp_mlysndvbm`. [미확인] 음파 피해가 그녀 공격·착탄 0.1초 안이면 「스플래시」로 잡혀
+      평타 착탄음도 맞은 적마다 날 수 있다(공식은 버프 AOEDamage라 HIT 신호 없음 — 'dmg'에 태그가 없어 오디오에서 못 가름).
+    - 엔텔레키아 S2: 피의 낫 `etlchi_s_2`의 ON_BUFF_TRIGGER AOEDamage가 맞힌 적마다 즉시 버프 `etlchi_s_2[audio]`(audioSignal) → 그녀의 공격 없는 스킬
+      피해(S2 중)를 `_skillImpact`가 `skillDamageKey` `etlchi:s2` `p_imp_vmprsckl_h`로(공격자마다 0.12초에 한 번 — 위 「공격 소리 신호」).
+    - 틴맨 S2 「大拉里」: 연금 유닛 안 적마다 `tinman_s_2[buff]`의 ON_BUFF_TRIGGER(초마다)가 PlayAudio `tinman_s_2[audio]` 뒤 피해 → 그녀 id가 실린 지속 피해
+      틱('dmg' 7번째 = 1)에 `dotTickKey` `tinman:s2` `p_imp_stmpnklchbm`(아래 「지속 피해 틱」의 예외). S1 `tinman_s_1[audio]`는 신호를 내는 템플릿이 없고
+      이 모드 키트에 S1도 없다.
+    - 르무엔 S3: 잠금(모드 3 능력)의 ON_ABILITY_CAST_ON_TARGET이 대상에 `lemuen_s3_audio_triggered`(UNIQUE·INFINITY, audioSignal 같은 이름) → fx `lock`
+      (`hold`, src 그녀)마다 그 적의 첫 잠금에만 `signalFxKey` `lemuen:s3lock` `p_atk_lmwlcrstr_s`(기존 `lemuen:mark`와 함께) [추정: 버프가 스킬 끝에도
+      남아 같은 적은 다시 안 남 — 오디오 유닛 기록 `lemS3`]. S2 조준 잠금(`hold` 없음)은 아님.
+    - 확인: `test/audio-skill-hit-signals.test.js` 「buff / custom-trigger hit sounds wired 2026-10-22」(뱅크·매니페스트, 키, 실제 매치 경로 틴맨 틱). [화면 미확인]
 - 안 한 것 [시점·조건을 sim에서 못 얻음]: 티티 `titi_s_3[spread_from]`(연쇄 수면 선 — sim 이벤트 없음)·재능 `titi_t_1`(잠든 적 틱), 시빌라이트 에테르나
   재능 미진 재생성 `projectile_chr_cetsyr_talent[_s1|_s2]_cooldown_ready`(재생성 순간 이벤트가 없음 — 로스터 kit라 이벤트를 넣으면 golden이 넓게 바뀜),
   위셔델 `WISDEL_S_OVERLOAD`·`WISDEL_S3_MARK`, 필라에 `philae_aoe`, 카넬리안·노시스·루멘 `[eff_cond]` 단계 버프, 뮤엘시스·비질 가짜 죽음, 실버애쉬 더 레인프로스트
-  S2·S3의 버프 소리(`svash2_s_2[show]`·`[range]`·`[hit]`, `svash2_eagle_token[locate]`), 쏜즈 더 로드스타·틴맨·프라마닉스 더 프레리타·페페·아코르트·엔텔레키아·르무엔(`lemuen_attack_end_audio`·`s3_audio_triggered`) 등
+  S2·S3의 버프 소리(`svash2_s_2[show]`·`[range]`·`[hit]`, `svash2_eagle_token[locate]`), 쏜즈 더 로드스타, 프라마닉스 더 프레리타 S2 눈 틱
+  `sbell2_t1[s2_dot]`·재능 진입 피해 `sbell2_snow_tile_enter_damage_audio`(둘 다 공격 없는 그녀 피해라 'dmg'로는 못 가름 — sim fx가 필요, golden 이동),
+  르무엔 `lemuen_attack_end_audio` 등
   (관리자 메모 「오퍼레이터 효과음」 조사의 H·I 묶음), 적 버프·커스텀 트리거(적 91·122개 뱅크 — 적 스킬처럼 sim이 그 순간을 알려야 함).
 - 확인: `test/local-patch-attack-signals.test.js` 「buff and custom-trigger sounds」(표·혼 S3·락락 S2·티티·프라마닉스 더 프레리타 눈 타일·실제 매치 경로 아스카론 S2).
   [브라우저 미확인 — 혼 S3 과부하 후 공격음이 바뀌는지 들어 볼 것]
@@ -410,8 +429,9 @@
   (`server/sim/damage.js dotFlag`, `docs/rules/sim.md`·`docs/SIM.md`; 이벤트 수·전투 결과 그대로라 golden 무변화). `public/js/audio.js`는 그 틱을 착탄으로 치지 않는다
   (공격 착탄·스플래시·스킬 착탄 모두 아님, `lastAttacker`도 안 건드림).
 - 같은 경로로 함께 무음이 된 것(예전에는 그 스킬 중 틱마다 스킬 착탄음): 위 다섯 + 포덴코 S2 포자 구역·틴맨 구역(`'dot', 'zone'`)·클레멘티아 S2 소용돌이.
-  [추정] 이 셋은 버프 템플릿이 아니라 확인 못 함 — 틴맨 `tinman_s_2[buff]`는 ON_BUFF_TRIGGER에 자기 PlayAudio가 있어(구역 맥동음) 공식은 틱마다 그 소리를
-  낸다(안 한 것: 그 소리 연결). 라플란드 더 데카덴차 드론·望 바둑돌은 원래 `sfx.kit`로 따로 내서 변화 없음. 无来源 틱(深水区·원소 등)은 원래 착탄음 없음.
+  [추정] 포덴코·클레멘티아는 버프 템플릿이 아니라 확인 못 함. 틴맨 `tinman_s_2[buff]`는 ON_BUFF_TRIGGER에 자기 PlayAudio가 있어(구역 맥동음) 공식은 틱마다
+  그 소리를 낸다 → 2026-10-22부터 그 틱만 `dotTickKey`로 `tinman:s2`(위 「버프·커스텀 트리거 소리」). 라플란드 더 데카덴차 드론·望 바둑돌은 원래 `sfx.kit`로
+  따로 내서 변화 없음. 无来源 틱(深水区·원소 등)은 원래 착탄음 없음.
 - 확인: `test/local-patch-attack-signals.test.js` 「damage-over-time ticks」(틱 무음·같은 피해 플래그 없으면 착탄음, 틱이 공격 착탄을 가져가지 않음, 실제 매치 경로
   아스카론 S2: 틱 7번째 = 1·공격 = 0·틱 무음). [브라우저 미확인]
 

@@ -119,3 +119,87 @@ describe('Spine audio events: the sound is the event\'s string value', () => {
     assert.deepEqual(a.played.map((p) => p.f), ['p_imp_tigerpunch_d_1.mp3']);
   });
 });
+
+describe('buff / custom-trigger hit sounds wired 2026-10-22 (刺玫, 洛洛, 协律, 隐德来希, 锡人, 蕾缪安)', () => {
+  const KEYS = {
+    'vendla:s2': ['battle.ON_BUFF_START.vendla_s_2[extra_damage]', 'p_imp_brmblhldmg.mp3'],
+    'rockr:funnel': ['battle.ON_BUFF_START.rockr_s2_funnel_attack_hit', 'p_atk_elecwandfunnel_n.mp3'],
+    'rockr:funnelo': ['battle.ON_BUFF_START.rockr_s2_funnel_attack_hit_overload', 'p_atk_elecwandfunnel_h.mp3'],
+    'akkord:s2': ['battle.ON_CUSTOM_TRIGGER.akkord_aoe_audio', 'p_imp_mlysndvbm.mp3'],
+    'etlchi:s2': ['battle.ON_BUFF_START.etlchi_s_2[audio]', 'p_imp_vmprsckl_h.mp3'],
+    'tinman:s2': ['battle.ON_CUSTOM_TRIGGER.tinman_s_2[audio]', 'p_imp_stmpnklchbm.mp3'],
+    'lemuen:s3lock': ['battle.ON_BUFF_START.lemuen_s3_audio_triggered', 'p_atk_lmwlcrstr_s.mp3'],
+  };
+  test('the banks and the manifest keys', { skip: NO_DATA }, () => {
+    const out = kitHitSfx(indexAudio(JSON.parse(readFileSync(OFFICIAL, 'utf8'))), (p) => p);
+    for (const [k, [bank, f]] of Object.entries(KEYS)) {
+      assert.equal(KIT_HIT_BANKS[k], bank, k);
+      assert.equal(file(out[k][0]), f, k);
+      assert.equal(file(manifest.audio.sfx.kit[k]), f, k);
+    }
+  });
+
+  const field = (a, units) => a.setFieldUnits(units.map(([id, spine, side = 'ally', skillIndex = 1]) => ({ id, kind: side === 'ally' ? 'op' : 'enemy', side, spine, defId: 'chess_x', skillIndex })));
+  const heard = (a, ev) => { a.played.length = 0; a.handleBattleEvents(ev); return a.played.map((p) => p.f); };
+
+  test('刺玫 S2 counter, 协律 S2 sonic boom, 洛洛 S2 drone (overloaded or not): their kit fx', () => {
+    const a = manager();
+    field(a, [[1, 'char_494_vendla'], [2, 'char_4051_akkord'], [3, 'char_4040_rockr'], [4, 'char_4040_rockr'], [9, 'enemy_1007_slime_2', 'enemy']]);
+    assert.deepEqual(heard(a, [['fx', 'counter', 0, 0, { x: 0, y: 0, id: 1 }]]), ['p_imp_brmblhldmg.mp3']);
+    assert.deepEqual(heard(a, [['fx', 'sonic', 0, 0, { x: 0, y: 0, radius: 0.9, id: 2 }]]), ['p_imp_mlysndvbm.mp3']);
+    assert.deepEqual(heard(a, [['fx', 'drone', 0, 0, { x: 0, y: 0, id: 3 }]]), ['p_atk_elecwandfunnel_n.mp3']);
+    heard(a, [['fx', 'overload', 0, 0, { x: 0, y: 0, id: 4 }]]);
+    assert.deepEqual(heard(a, [['fx', 'drone', 0, 0, { x: 0, y: 0, id: 4 }]]), ['p_atk_elecwandfunnel_h.mp3']);
+    assert.equal(signalFxKey('counter', { id: 5 }, () => ({ def: 'char_4013_rmixer' })), null, 'another kit\'s counter');
+  });
+
+  test('蕾缪安 S3: the first lock on an enemy sounds, a second lock on it does not; S2\'s aim lock (no hold) does not', () => {
+    const a = manager();
+    field(a, [[1, 'char_4193_lemuen'], [8, 'enemy_1007_slime_2', 'enemy'], [9, 'enemy_1007_slime_2', 'enemy']]);
+    const lock = (id, hold = 1) => ['fx', 'lock', 0, 0, { x: 0, y: 0, id, src: 1, ...(hold ? { hold } : {}) }];
+    assert.ok(heard(a, [lock(8)]).includes('p_atk_lmwlcrstr_s.mp3'));
+    assert.ok(!heard(a, [lock(8)]).includes('p_atk_lmwlcrstr_s.mp3'));
+    assert.ok(heard(a, [lock(9)]).includes('p_atk_lmwlcrstr_s.mp3'));
+    assert.equal(signalFxKey('lock', { id: 9, src: 1 }, (id) => (id === 1 ? { def: 'char_4193_lemuen' } : { side: 'enemy' })), null);
+  });
+
+  test('隐德来希 S2: the sickles\' damage (no attack) sounds etlchi_s_2[audio]; outside S2 it does not', () => {
+    const a = manager();
+    field(a, [[1, 'char_4010_etlchi'], [9, 'enemy_1007_slime_2', 'enemy']]);
+    assert.ok(!heard(a, [['dmg', 9, 100, 'phys', 0, 1, 0, null]]).includes('p_imp_vmprsckl_h.mp3'));
+    a.handleBattleEvents([['skill', 1, 1]]);
+    assert.deepEqual(heard(a, [['dmg', 9, 100, 'phys', 0, 1, 0, null]]), ['p_imp_vmprsckl_h.mp3']);
+  });
+
+  test('锡人: her alchemy unit\'s ticks sound; another unit\'s damage-over-time tick stays silent', () => {
+    const a = manager();
+    field(a, [[1, 'char_4151_tinman'], [2, 'char_4010_etlchi'], [9, 'enemy_1007_slime_2', 'enemy']]);
+    assert.deepEqual(heard(a, [['dmg', 9, 50, 'arts', 0, 1, 1, null]]), ['p_imp_stmpnklchbm.mp3']);
+    assert.deepEqual(heard(a, [['dmg', 9, 50, 'arts', 0, 2, 1, null]]), []);
+  });
+
+  test('real match path (Match → buildBattleSpec → createBattleFromSpec): 锡人\'s ticks are damage-over-time ticks credited to her', async () => {
+    const { makeMatch, give, legalTileFor } = await import('./match/harness.js');
+    const { buildBattleSpec, createBattleFromSpec } = await import('../server/sim/spec.js');
+    const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }];
+    const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed: 11 }).start();
+    h.toPrep(4);
+    const m = h.m, ps = h.ps('p_0');
+    for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+    ps.board.clear(); ps.hand.fill(null); ps.recompute();
+    give(m, ps, 'chess_char_2_19_a', 'board', legalTileFor(m, ps, 'chess_char_2_19_a'));
+    const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'lp', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent });
+    const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+    b.start();
+    m.dispose?.();
+    const ev = [];
+    while (!b.finished && b.time < 150) { b.step(); ev.push(...b.drainEvents()); }
+    const tin = b.allyUnits.find((u) => u.def?.charId === 'char_4151_tinman');
+    assert.ok(ev.some((x) => x[0] === 'fx' && x[1] === 'zone' && x[4]?.id === tin.id), 'she threw a unit');
+    const ticks = ev.filter((x) => x[0] === 'dmg' && x[5] === tin.id && x[6] === 1);
+    assert.ok(ticks.length, 'its ticks');
+    const a = manager();
+    a.setFieldUnits([{ id: tin.id, kind: 'op', side: 'ally', spine: 'char_4151_tinman', defId: 'chess_char_2_19_a', skillIndex: 1 }]);
+    assert.ok(heard(a, [ticks[0]]).includes('p_imp_stmpnklchbm.mp3'));
+  });
+});

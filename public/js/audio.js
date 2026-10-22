@@ -138,8 +138,14 @@ export function kitHitKey(fx, ex, unitOf) {
     case 'oblvnsNote': return ex.e === 'hit' && typeof ex.m === 'string' ? `oblvns:${ex.m}` : null;
     case 'drone': {
       const u = unitOf(ex.id);
+      // 2026-10-22: 洛洛 S2's released drone hitting (rockr_s_2[funnel_hit_audio] on its target: the _overload signal
+      // while she holds rockr_s_2[overload] — `over`, signalFxKey 'overload')
+      if (u?.def === 'char_4040_rockr') return u.over ? 'rockr:funnelo' : 'rockr:funnel';
       return u?.def === 'char_1038_whitw2' && Number.isInteger(u.skillIndex) ? `whitw2:s${u.skillIndex + 1}` : null;
     }
+    // 2026-10-22: 协律 S2's sonic boom at each other operator in range (akkord_s_2[aoe_damage] PlayAudio akkord_aoe_audio at
+    // that operator, whether or not an enemy is caught)
+    case 'sonic': return def(ex.id) === 'char_4051_akkord' ? 'akkord:s2' : null;
     // 2026-10-11, docs/rules/audio.md 「재능·소환물 능력 소리」: 실버애쉬 더 레인프로스트 S2's slash — its ability's ON (no attack event);
     // 크루스 더 킨 글린트's 中的 shot — her talent ability's ON (the START: kitStartKey)
     case 'aoe': return ex.skill === 'svash2' && def(ex.id) === 'char_1045_svash2' ? 'svash2:s2' : null;
@@ -230,6 +236,14 @@ export function signalFxKey(fx, ex, unitOf) {
     if (u?.def === 'char_4040_rockr') return 'rockr:ovs';
   }
   if (fx === 'wake' && u?.side === 'enemy') return 'titi:awake';
+  // 2026-10-22: 刺玫 S2's counter on the attacker of her protégé (vendla_s_2[extra_damage]'s audioSignal, on the attacker)
+  if (fx === 'counter' && u?.def === 'char_494_vendla') return 'vendla:s2';
+  // 2026-10-22: 蕾缪安 S3's lock — its cast on a target puts lemuen_s3_audio_triggered there (UNIQUE, INFINITY: once per
+  // enemy, a second lock on it is silent [추정: the buff outlives the skill]); `ex.id` is the enemy
+  if (fx === 'lock' && ex.hold && ex.src != null && unitOf(ex.src)?.def === 'char_4193_lemuen' && u && !u.lemS3) {
+    u.lemS3 = true;
+    return 'lemuen:s3lock';
+  }
   // 2026-10-22: 佩佩 S3 — each attack's pepe_s_3_fx on its main target (the kit's 'stacks', `n` = her stacks before this
   // attack's): PlayAudio pepe_s3_hit_03 at ≥ max_stack_cnt, _02 at ≥ 2, else _01 (as render/fx/kitofficial.js stacks.pepe)
   if (fx === 'stacks' && ex.buff === 'pepe:tremor') {
@@ -277,6 +291,24 @@ const KIT_SOUND_DEF = /^(char_\d+_(wang|chen3|wisdel|oblvns|whitw2|lemuen|ghost2
  * not per damage tick]. A DoT tick credited to its applier never gets here (2026-10-11: the 'dmg' 7th field, skipped first).
  */
 const SKILL_HIT_GAP_MS = 120;
+/**
+ * 2026-10-22: the sfx.kit key of a skill's own damage (_skillImpact) whose client sound is a buff's audio signal on each enemy
+ * it hits, not an ability's HIT — 隐德来希 S2's blood sickles (etlchi_s_2's AOEDamage gives each enemy etlchi_s_2[audio]).
+ * Keyed by model, then skill index.
+ */
+const SKILL_DAMAGE_KEYS = Object.freeze({ char_4010_etlchi: Object.freeze({ 1: 'etlchi:s2' }) });
+/** The sfx.kit key of unit model `def`'s skill damage during skill `skillIndex` (SKILL_DAMAGE_KEYS), or null. */
+export function skillDamageKey(def, skillIndex) {
+  return SKILL_DAMAGE_KEYS[def]?.[skillIndex] ?? null;
+}
+/**
+ * 2026-10-22, docs/rules/audio.md 「지속 피해 틱」: the sfx.kit key of a damage-over-time tick (the 'dmg' 7th field) of unit
+ * model `def`, or null — the ticks whose buff plays a sound: 锡人's alchemy unit (tinman_s_2[buff] ON_BUFF_TRIGGER on each
+ * enemy inside: PlayAudio tinman_s_2[audio], then the damage). Every other tick stays silent.
+ */
+export function dotTickKey(def) {
+  return def === 'char_4151_tinman' ? 'tinman:s2' : null;
+}
 /** 2026-10-10: the game speed assumed before a swing → strike pair measured it (render/app.js local feed: 2). */
 const DEFAULT_GAME_SPEED = 2;
 /** Official operator sound files of a skill mode: `…_d` / `…_h` / `…_s` (+ digits) — the normal attack's end in `_n`. */
@@ -1300,6 +1332,8 @@ export class AudioManager {
     if (au.side === 'enemy') {
       if (au.eskill && now - au.eskill.at <= 3000) c = (ue?.sk?.[au.eskill.name] || []).find((x) => x.at === 'd') ?? null;
     } else if (au.skillOn && Number.isInteger(au.skillIndex)) {
+      const sk = skillDamageKey(au.def, au.skillIndex);
+      if (sk) { au.kdAt = now; return this._kitSound(sk); }
       const kd = ue?.kd?.[au.skillIndex];
       c = Array.isArray(kd) && kd.length ? kd[0] : null;
       if (!c) {
@@ -1733,7 +1767,8 @@ export class AudioManager {
           // 2026-10-11 (user report: 아스카론's 死亡拘审 ticks sounded as her attack, docs/rules/audio.md 「지속 피해 틱」): a damage-over-time
           // tick (the sim's 7th field, damage.js dotFlag) is a buff's damage in the client — no ability HIT, no sound — and
           // neither an attack's impact (it must not take the one lastAttacker keeps for the real hit) nor a skill impact
-          if (e[6] === 1) continue;
+          // 2026-10-22: … unless its buff plays a sound of its own (dotTickKey: 锡人's alchemy unit)
+          if (e[6] === 1) { if (e.length > 5 && e[5] != null) this._kitSound(dotTickKey(this.units.get(e[5])?.def)); continue; }
           // 2026-10-22: a unit 帝国炮火先兆者's shell hit as it landed (the 'bombard' of this moment; its damage has no source)
           if (e.length > 5 && e[5] == null && this._shellAt === now) { this._kitSound('emppnt:hit'); this._kitSound('emppnt:shell'); continue; }
           const by = this.lastAttacker.get(e[1]);

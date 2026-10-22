@@ -98,6 +98,18 @@ export const KIT_HIT_BANKS = Object.freeze({
   'emppnt:aim': 'battle.ON_ABILITY_END.enemy_1112_emppnt.attack',
   'emppnt:hit': 'battle.ON_ABILITY_HIT.enemy_1112_emppnt.attack',
   'emppnt:shell': 'battle.ON_PROJECTILE_HIT.projectile_enemy_emppnt',
+  // 2026-10-22, docs/rules/audio.md 「버프·커스텀 트리거 소리」 (EN client buff templates; public/js/audio.js kitHitKey /
+  // signalFxKey / skillDamageKey / dotTickKey): 刺玫 S2's counter (vendla_s_2[extra_damage] on the attacker); 洛洛 S2's
+  // released drone hitting (rockr_s_2[funnel_hit_audio], _overload while overloaded); 协律 S2's sonic boom at an operator
+  // (akkord_s_2[aoe_damage] PlayAudio); 隐德来希 S2's sickles on each enemy (etlchi_s_2[audio]); 锡人's alchemy unit on each
+  // enemy every second (tinman_s_2[buff] PlayAudio); 蕾缪安 S3's lock on an enemy (lemuen_s_3 ON_ABILITY_CAST_ON_TARGET)
+  'vendla:s2': 'battle.ON_BUFF_START.vendla_s_2[extra_damage]',
+  'rockr:funnel': 'battle.ON_BUFF_START.rockr_s2_funnel_attack_hit',
+  'rockr:funnelo': 'battle.ON_BUFF_START.rockr_s2_funnel_attack_hit_overload',
+  'akkord:s2': 'battle.ON_CUSTOM_TRIGGER.akkord_aoe_audio',
+  'etlchi:s2': 'battle.ON_BUFF_START.etlchi_s_2[audio]',
+  'tinman:s2': 'battle.ON_CUSTOM_TRIGGER.tinman_s_2[audio]',
+  'lemuen:s3lock': 'battle.ON_BUFF_START.lemuen_s3_audio_triggered',
 });
 
 /**
