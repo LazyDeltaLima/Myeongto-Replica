@@ -19,7 +19,7 @@
 //                                                               shop: onBuy — a free pick / grant never uses it up)
 //   band_cost_coin_reach_cnt_gain_chess_from_pool      潘格尼尼 once coin_cnt funds spent in total: 1 chess of pool (elite 拉特兰 ≥ T4)
 //   round_start_bond_check_gain_layer                  余       round start of `round`: exactly factioncount active bonds → +count1, else each active +count2
-//   up_shop_add_special_goods {count,choice,pool}      凯瑟琳   every level-up: pick 1 of `count` items of pool (free)
+//   up_shop_add_special_goods {count,choice,pool}      凯瑟琳   every level-up: pick 1 of `count` items of pool (free); 突变细胞 once per match
 //   coin_carry_over {capital,interest,max}             坎诺特   leftover ≥ capital at round start → +min(max, ⌊left/capital⌋×interest) income
 //   round_start_all_player_change_enemy_2              鸭爵     global: every alive player's battle from `round` (own + teammates;
 //                                                                normal, Final Assault, Hidden Core — on the player's half of a
@@ -59,9 +59,19 @@ function grant(ctx, id, opts = {}) {
 /** Indices of unsold chess slots of the shop. */
 const chessSlots = (ctx) => ctx.shopSlots().map((s, i) => (s && s.kind === 'chess' && !s.sold ? i : -1)).filter((i) => i >= 0);
 
-/** Up to `n` distinct item ids of an equip pool. */
-function rollItems(ctx, poolId, n) {
+/** Up to `n` distinct item ids of an equip pool, none of `exclude`. */
+function rollItems(ctx, poolId, n, exclude = []) {
   const out = [];
+  if (exclude.length) {
+    // [ASSUMED] (upstream f8bca717 / 83ccfcd7): with ids excluded, draw without replacement — the excluded and the
+    // already drawn ids leave the candidates before each draw, so the offer is short only when the pool runs out
+    for (let k = 0; k < n; k++) {
+      const r = ctx.rollPool(poolId, { exclude: [...exclude, ...out] });
+      if (!r || r.kind !== 'item') break;
+      out.push(r.id);
+    }
+    return out;
+  }
   for (let k = 0; k < n * 6 && out.length < n; k++) {
     const r = ctx.rollPool(poolId);
     if (!r || r.kind !== 'item') break;
@@ -259,11 +269,17 @@ K.round_start_bond_check_gain_layer = (ps) => ({
   },
 });
 
-K.up_shop_add_special_goods = (ps) => ({
+// 凯瑟琳 gives 突变细胞 at most once per player and match (upstream #677, maintainer decision 2026-10-22 taking the
+// upstream maintainer's official play memory; activity_table aceffect_band_26 names no limit) [ASSUMED]: once a pick
+// from her offer took the cell (player/prep.js pickReward → counter band:cathy:cellTaken), her later offers leave it
+// out. 昆图斯's fixed cell does not use the allowance [ASSUMED].
+K.up_shop_add_special_goods = (ps, bandId) => ({
   onLevelUp(ctx) {
     const p = ps[0];
-    const ids = rollItems(ctx, p.pool, Math.max(1, int(p.count, 3)));
-    if (ids.length) ctx.offerItems(ids, { source: 'band' });
+    const cathy = bandId === 'band_cathy';
+    const exclude = cathy && ctx.counter('band:cathy:cellTaken') ? ['chess_item_5_08_e_a'] : [];
+    const ids = rollItems(ctx, p.pool, Math.max(1, int(p.count, 3)), exclude);
+    if (ids.length) ctx.offerItems(ids, { source: cathy ? 'band:band_cathy' : 'band' });
   },
 });
 

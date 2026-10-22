@@ -1750,6 +1750,26 @@ upstream `6ab24682` → master `c9d804f4`·dev `06a92237` 대조에서 받은 �
   `kits_alt_t3.test.js` S3 사례(upstream 그대로). 사격·밀치기·동전 대상 사례는 지움(`feedback1-followups`·`feedback1b-displacement`·`feedback1d-push`
   ·`talent-shot-events`·`playtest5-targeting` 목록). golden: roster-039.
 
+## upstream 0.3.1·0.3.2 대조 이식 — 매치 (2026-10-22)
+
+같은 대조에서 받은 매치 층 수정(관리자 결정 2026-10-22). upstream 판정 목록은 `upstream.md`.
+
+### 凯瑟琳(전략) 【定向投放】의 突变细胞는 한 판에 한 번 (upstream #677, `f8bca717` `83ccfcd7`)
+
+- 규칙: 凯瑟琳의 제시(위 「凯瑟琳 【定向投放】은 突变细胞도 준다」)에서 突变细胞를 **골라 손에 넣으면** 그 플레이어의 카운터
+  `band:cathy:cellTaken`이 서고, 그 뒤 그녀의 제시는 突变细胞를 빼고 뽑는다(`bands/meta.js up_shop_add_special_goods` — 출처 `band:band_cathy`로
+  표시). 이미 쌓여 있던 그녀의 제시에서도 突变细胞 칸만 빠지고 다른 칸은 다시 뽑지 않는다(`player/prep.js pickReward`, 칸이 다 빠진 제시는 사라짐).
+  빼야 할 것이 있으면 뽑기 전에 후보에서 빼고 겹치지 않게 하나씩 뽑아(`spDraft.js rollItemId`·`rollPool`의 `exclude`), 남은 후보가 있는 한 칸이 모자라지
+  않는다. 봇도 같은 `pickReward` 경로라 같은 제한.
+- 근거: activity_table `aceffect_band_26`(count 3, choice 1, `pool_equip_kathe`)에는 횟수 제한이 없다. upstream 관리자의 공식 플레이 기억(2026-10-17)
+  을 우리 관리자 결정 2026-10-22로 받음 — **[ASSUMED]**.
+- **[ASSUMED]**: 보여 주기만 하고 안 고르거나 손이 차서 거절된 고름은 제한을 쓰지 않는다. 昆图斯(전략)의 3라운드 突变细胞(`aceffect_band_41`)는 따로
+  — 그 지급은 제한을 안 쓰고, 제한이 선 뒤에도 그대로 받는다. 제한은 플레이어마다(협동에서 다른 플레이어의 凯瑟琳은 따로).
+- upstream과 다른 점: 우리 풀은 효과 전용 장비를 `plus`로 적고(upstream `also`) `weighted` 풀에는 `plus`를 안 붙인다. 효과를 물려받는 전략
+  (`effectRef`)이 우리에 없어 그 부분은 안 받음.
+- 테스트 `test/match/catherine-cell.test.js`(upstream 파일을 우리 하네스로 — 11건, 옛 코드에서 10건 실패 확인), `feedback5-cathy-pool.test.js` 그대로.
+  golden 변화 없음(凯瑟琳이 나오는 matches coop4-ABYSS-7은 突变细胞를 고르지 않음).
+
 ## 8인 협동 모드 (관리자 결정 2026-10-16·2026-10-19, 공식에 없는 기능)
 
 공식 방은 1–4명이고 8인용 데이터는 없다(`act2autochess`에는 난이도별 `bloodPoint*`와 단일·멀티 연합 방어 템플릿뿐). 아래 수치·규칙은 모두

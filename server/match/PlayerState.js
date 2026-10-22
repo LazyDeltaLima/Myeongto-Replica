@@ -219,7 +219,7 @@ export class PlayerState {
      * @type {null | { id: string, round: number, sourceItemId: string, cards: any[] }}
      */
     this.personalChoice = null;
-    /** free-form counters for content (ctx.counter / setCounter) */
+    /** free-form match-long counters for content (ctx.counter / setCounter), 凯瑟琳's band:cathy:cellTaken among them */
     this.counters = {};
     /** per-round counters (reset at round start) */
     this.round = { refreshes: 0, buys: 0, sells: 0, spent: 0, gainedChess: 0, arts: 0 };
