@@ -20,7 +20,7 @@ test('the settings rows sit in sections by function, in this order, before 快�
   const order = [
     sec('general', '通用', 'GENERAL'), at(/t\('语言'\)/), at(/<\$\{ResourceSetting\} \/>/),
     sec('sound', '声音', 'SOUND'), at(/t\('背景音乐'\)/), at(/t\('干员语音'\)/), at(/t\('音效'\)/), at(/<\$\{VoiceSetting\} \/>/), at(/t\('静音'\)/),
-    sec('chat', '聊天提示', 'CHAT ALERTS'), at(/<\$\{ChatSoundSection\} s=\$\{s\} \/>/),
+    sec('chat', '聊天提示', 'CHAT ALERTS'), at(/<\$\{ChatSoundSection\} s=\$\{s\} \/>/), at(/t\('常驻最近 3 条消息'\)/),
     sec('display', '画面', 'DISPLAY'), at(/t\('显示伤害数字'\)/), at(/<\$\{NumberStyleSetting\} \/>/), at(/t\('画面质量'\)/), at(/t\('对局通知'\)/), at(/<\$\{UiScaleSetting\} \/>/),
     at(/<\$\{HotkeySection\} /), at(/<\$\{DiagSection\} \/>/),
   ];

@@ -18,7 +18,8 @@
 //                  input); during a match a faction whose bond is off is dimmed
 //   RoomChat       the room screen's panel: log + input, folds to a button (unread count while folded)
 //   GameChat       the match: a 聊天 button beside 交流 (unread badge) + panel above it; while it is closed, new lines
-//                  of the others float above the corner for a few seconds. Enter opens it, Esc closes it.
+//                  of the others float above the corner for a few seconds, or, with settings 常驻最近 3 条消息
+//                  (chatPinRecent), the latest 3 chat lines stay there (pinnedLines). Enter opens it, Esc closes it.
 // Player text is never translated (data-i18n-skip) and only ever rendered as text.
 // Styles: public/css/chat.css.
 
@@ -67,6 +68,13 @@ export function mergeLines(cur, incoming, keep = KEEP) {
 export function feedLines(lines, { myId, seenSeq, now }) {
   return lines.filter((l) => l.seq > seenSeq && l.playerId !== myId && l.rx > 0 && now - l.rx < FEED_MS).slice(-FEED_MAX);
 }
+
+/**
+ * Lines kept above the corner with 常驻最近 3 条消息 on: the latest FEED_MAX chat lines, the player's own and history
+ * lines included, faction picks left out.
+ * @param {any[]} lines
+ */
+export const pinnedLines = (lines) => lines.filter((l) => l.kind !== 'faction').slice(-FEED_MAX);
 
 /**
  * Read mark after a history batch (join / resync): the lines the player had not received yet count as read, so a
@@ -310,6 +318,7 @@ export function RoomChat() {
 /** Match chat: button (beside 交流) + panel + floating feed. */
 export function GameChat({ open, onToggle, disabled = false }) {
   const { lines, seen, myId, online } = useChat();
+  const pin = useStore((s) => s.chatPinRecent, Object.is, settingsStore);
   const [now, setNow] = useState(Date.now);
   const live = useRef({});
   live.current = { open, onToggle };
@@ -334,7 +343,8 @@ export function GameChat({ open, onToggle, disabled = false }) {
     return () => window.removeEventListener('pointerdown', onDown, true);
   }, [open]);
 
-  const feed = open ? [] : feedLines(lines, { myId, seenSeq: seen, now });
+  const feed = open || pin ? [] : feedLines(lines, { myId, seenSeq: seen, now });
+  const pinned = !open && pin ? pinnedLines(lines) : [];
   // re-render when the oldest floating line expires
   useEffect(() => {
     if (!feed.length) return undefined;
@@ -356,6 +366,9 @@ export function GameChat({ open, onToggle, disabled = false }) {
     </section>` : null}
     ${feed.length ? html`<ol class="gchat__feed" aria-hidden="true">
       ${feed.map((l) => html`<${Line} key=${l.seq} l=${l} myId=${myId} cls="gchat__pop" style=${`--pop-age:${Math.max(0, now - l.rx)}ms`} />`)}
+    </ol>` : null}
+    ${pinned.length ? html`<ol class="gchat__feed" aria-hidden="true">
+      ${pinned.map((l) => html`<${Line} key=${l.seq} l=${l} myId=${myId} cls="gchat__pop is-pinned" />`)}
     </ol>` : null}
   </div>`;
 }

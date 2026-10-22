@@ -281,6 +281,8 @@ export function SettingsModal({ open, onClose }) {
       <//>
       <${SetSection} id="chat" title=${t('聊天提示')} micro="CHAT ALERTS">
         <${ChatSoundSection} s=${s} />
+        <${Toggle} label=${t('常驻最近 3 条消息')} micro="PIN RECENT" value=${s.chatPinRecent} onChange=${(v) => updateSettings({ chatPinRecent: v })} />
+        <p class="set-hint">${t('开启后对局中聊天收起时，最近 3 条聊天消息一直显示在聊天按钮上方，不再几秒后消失。')}</p>
       <//>
       <${SetSection} id="display" title=${t('画面')} micro="DISPLAY">
         <${Toggle} label=${t('显示伤害数字')} micro="DAMAGE NUMBERS" value=${s.damageNumbers} onChange=${(v) => updateSettings({ damageNumbers: v })} />

@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1470 of 1688 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1472 of 1690 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false
@@ -1211,6 +1211,8 @@
   "提示音音量": "알림음 볼륨",
   "提示间隔": "알림 간격",
   "阵营选择提示": "맹약 선택 알림",
+  "常驻最近 3 条消息": "최근 메시지 3개 항상 표시",
+  "开启后对局中聊天收起时，最近 3 条聊天消息一直显示在聊天按钮上方，不再几秒后消失。": "켜면 판 중 채팅을 닫아 둔 동안 최근 채팅 메시지 3개가 채팅 버튼 위에 계속 보이고, 몇 초 뒤 사라지지 않습니다.",
   "通用": "일반",
   "声音": "사운드",
   "聊天提示": "채팅 알림",

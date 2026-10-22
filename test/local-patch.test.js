@@ -242,8 +242,8 @@ test('emote sets: user pictures for all 36 ids exist on disk, six pages of six',
 // ---- client helpers ------------------------------------------------------------------------------------------------
 
 describe('client helpers', () => {
-  test('chat: mergeLines / feedLines / unreadCount / historySeen / notifiesChat / isChatHotkey', async () => {
-    const { mergeLines, feedLines, unreadCount, historySeen, notifiesChat, isChatHotkey, FEED_MS } = await mod('ui/chat.js');
+  test('chat: mergeLines / feedLines / pinnedLines / unreadCount / historySeen / notifiesChat / isChatHotkey', async () => {
+    const { mergeLines, feedLines, pinnedLines, unreadCount, historySeen, notifiesChat, isChatHotkey, FEED_MS } = await mod('ui/chat.js');
     const l = (seq, playerId = 'g', rx = 0) => ({ seq, playerId, name: playerId, text: `t${seq}`, at: seq, rx });
     assert.deepEqual(mergeLines([l(2), l(1)], [l(3), l(2)]).map((x) => x.seq), [1, 2, 3], 'sorted, deduplicated');
     assert.deepEqual(mergeLines([], [l(1), l(2), l(3)], 2).map((x) => x.seq), [2, 3], 'keeps the newest');
@@ -252,6 +252,9 @@ describe('client helpers', () => {
     const lines = [l(1, 'g', 0), l(2, 'h', now - 10), l(3, 'g', now - FEED_MS - 1), l(4, 'g', now - 10), l(5, 'g', now - 5)];
     assert.deepEqual(feedLines(lines, { myId: 'h', seenSeq: 0, now }).map((x) => x.seq), [4, 5], 'others, fresh, not history');
     assert.deepEqual(feedLines(lines, { myId: 'h', seenSeq: 4, now }).map((x) => x.seq), [5]);
+    assert.deepEqual(pinnedLines(lines).map((x) => x.seq), [3, 4, 5], '常驻最近 3 条消息: the latest 3, old or mine included');
+    assert.deepEqual(pinnedLines([...lines, { ...l(6, 'g', now), kind: 'faction' }]).map((x) => x.seq), [3, 4, 5], 'faction picks left out');
+    assert.deepEqual(pinnedLines([l(1, 'h')]).map((x) => x.seq), [1]);
     assert.equal(unreadCount(lines, 'h', 1), 3);
     assert.equal(historySeen([], [l(1), l(2), l(3)], 0), 3, 'history on joining is read');
     assert.equal(historySeen([l(1), l(4)], [l(1), l(2), l(3)], 1), 3, 'missed lines from a resync are read');

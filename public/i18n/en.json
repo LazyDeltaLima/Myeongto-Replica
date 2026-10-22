@@ -1202,6 +1202,8 @@
   "提示音音量": "Notification volume",
   "提示间隔": "Notification gap",
   "阵营选择提示": "Faction pick alerts",
+  "常驻最近 3 条消息": "Keep the last 3 messages",
+  "开启后对局中聊天收起时，最近 3 条聊天消息一直显示在聊天按钮上方，不再几秒后消失。": "When on, the last 3 chat messages stay above the chat button while the chat is closed during a match, instead of fading after a few seconds.",
   "通用": "General",
   "声音": "Sound",
   "聊天提示": "Chat alerts",

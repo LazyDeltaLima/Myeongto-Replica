@@ -1556,3 +1556,16 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   `skills` 맵으로 쓰고, 소환물 표(`tokens.json`)도 기본 스킬이 만드는 소환물에서 시작한다(스와이어 디 엘리건트 위트 S2의 香槟炸弹).
 - 이미 저장된 구성 중 그라벨 S2+모듈·스와이어 디 엘리건트 위트 S2는 예전엔 기본이라 저장되지 않았으므로, 이제 새 기본(S1)으로 열린다.
 - 테스트 `test/ui/loadout.test.js` 「LOADOUT_DEFAULT_DEVIATIONS」, `test/match/loadout.test.js`, `test/sim/loadout.test.js`(로비 기본 = 기록 기본, 이 표만 예외).
+
+## 채팅 최근 3줄 고정 표시 (2026-10-22, 관리자 결정)
+
+- 공식에 없는 기능(우리 채팅). 설정 「聊天提示」 절에 「常驻最近 3 条消息」(최근 메시지 3개 항상 표시, PIN RECENT) 스위치, 기본 꺼짐
+  (`ui/gameLogic/settings.js chatPinRecent`). 켜면 판 중(브리핑·드래프트·결과 화면 포함, `GameChat`) 채팅을 닫아 둔 동안 채팅 버튼 위에
+  최근 채팅 3줄이 계속 보인다(`ui/chat.js pinnedLines`). 떠오르는 새 줄(6초 뒤 사라짐)과 같은 자리·모양이고 사라지는 애니메이션만 없다
+  (`css/chat.css .gchat__pop.is-pinned`).
+- 3줄은 내 줄·입장 때 받은 이전 기록도 포함한 최근 대화 3줄이다(흐름이 보이도록); 맹약 선택 알림 줄은 빠진다. 스위치가 켜져 있으면 6초짜리
+  떠오름은 쓰지 않는다(새 줄이 곧 고정 3줄에 들어가므로). 읽음 표시는 그대로: 고정 줄을 본 것은 읽음으로 치지 않아 버튼 배지가 남는다.
+  방 화면 채팅(`RoomChat`)은 펼침/접힘뿐이라 바뀌지 않는다.
+- 문구: `en.json`·`ja.json`·`zh-TW.json`·`ko/ui.json`(→ `ko.json`).
+- 확인: `test/local-patch.test.js` 「chat: … pinnedLines …」, `test/ui/gameLogic.test.js` 「sanitizeSettings」, `test/ui/settings-sections.test.js`
+  (스위치가 「聊天提示」 절 안). [화면 미확인]

@@ -87,6 +87,8 @@
   font-size: .17rem; word-break: break-word; overflow-wrap: anywhere;
   animation: chat-pop 6000ms linear both; animation-delay: calc(-1 * var(--pop-age, 0ms));
 }
+/* settings 常驻最近 3 条消息: the latest lines stay, no fade-out */
+.gchat__pop.is-pinned { animation: none; }
 @keyframes chat-in { from { opacity: 0; transform: translateY(.08rem); } }
 @keyframes chat-pop {
   0% { opacity: 0; transform: translateY(.06rem); }
