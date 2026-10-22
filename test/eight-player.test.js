@@ -148,6 +148,13 @@ describe('8-player room and queue (server/lobby.js, server/matchmaking.js)', () 
     assert.equal(validateC2S({ t: 'room.kick', seat: 7, playerId: 'x' }), null);
   });
 
+  test('protocol: g.choice takes every card of an 8-player 机变 draft (12), not one past it', () => {
+    const n = generateDraft(big(), createRng(3), 3).cards.length;
+    assert.equal(n, 12);
+    for (let idx = 0; idx < n; idx++) assert.equal(validateC2S({ t: 'g.choice', idx }), null, `idx ${idx}`);
+    assert.notEqual(validateC2S({ t: 'g.choice', idx: n }), null);
+  });
+
   test('an 8-seat room: no AI seat, a solo room is never 8, the start waits for all eight Doctors', async () => {
     const ps = await players(pool, 8);
     await err(ps[0], { t: 'room.create', mode: 'solo', difficulty: 'HARD', size: 8 }, ERR.BAD_MSG);
