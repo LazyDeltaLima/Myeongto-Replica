@@ -130,6 +130,9 @@ export { TRANSLATOR_CHANGE } from './enemies/leaders.js';
 export { BOMBD_RELEASE, BOMBD_POST_DELAY } from './enemies/fly.js';
 export { HOVER_KEYS, blinkForward } from './enemies/archetypes.js';
 
+/** An enemy skill's `_familyMask` bits (client enum `Ability.FamilyGroup` ATTACK 0, COMBAT 1; data/enemies.json `skillCast.family`). */
+const FAMILY_ATTACK = 1, FAMILY_COMBAT = 2;
+
 // ---------------------------------------------------------------------------------------------------------------
 // per-battle state + installation
 
@@ -321,15 +324,21 @@ function castLength(e, cast) {
  * (`ResetCooldown(true)`). The skill's own cooldown stands still while it casts (`EnemySkill.OnTick`: not while
  * `isCasting`) and restarts as the cast ends (`_OnCastFinish` → `m_cooldownTimer.Reset`): ready again cooldown + cast
  * later. `resetMain` (`_resetMainAbilityCdWhenCastEnd`): the main attack's cooldown restarts as the cast ends too, the
- * full interval (`waitFirst`) or none.
+ * full interval (`waitFirst`) or none. Which wrapper looks depends on the block: a blocked enemy is in the COMBAT state
+ * (`Enemy.States.MoveState.OnTick` switches to it as soon as `blocker` is set, before `_SearchAttackTarget`) and
+ * `CombatWrapper._PickAbility` takes only the COMBAT family, an unblocked one only the ATTACK family (`skillCast.family`
+ * = `_familyMask`: bit 1 ATTACK, bit 2 COMBAT; `EnemySkill.CheckFamilyMask`). A cast already started goes on when a block
+ * comes (`AttackState.OnTick` does not look at the blocker).
  */
 function onSkillSlot(b, c) {
   const e = c.enemy;
   const ab = e && e.mem && e.mem.ab;
   if (!ab || c.cast || !e.alive) return;
+  const family = e.blockedBy ? FAMILY_COMBAT : FAMILY_ATTACK;
   const ready = [];
   for (const a of ab.list) {
     if (!a.fire || a.cd == null || !(a.left <= 1e-9) || !slotSkill(e, ab, a) || !canCast(e, a.sil, b)) continue;
+    if (!((ab.sk[a.name].cast.family ?? FAMILY_ATTACK | FAMILY_COMBAT) & family)) continue;
     if (a.cond && !safe(b, e, () => a.cond(b, e, a))) continue;
     ready.push(a);
   }

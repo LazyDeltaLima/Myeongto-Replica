@@ -35,6 +35,8 @@ function kitCrossbow(ab) {
   // 的法术伤害与5s晕眩 ※技能持续2.5s": revealed for the whole skill, the bolt leaves CROSS_CHARGE s in the way of the unit it
   // aimed at; it stands meanwhile [ASSUMED], and a stun / silence or its death before the release cancels the shot
   // [ASSUMED]. The blackboard's duration (2) is not the skill's length PRTS gives. Until 0.1.3: revealed 2 s, the bolt at once.
+  // Never begun while blocked: its `_familyMask` is ATTACK only (content/enemies.js onSkillSlot; until 2026-10-22 it shot
+  // its blocker too); a shot begun before the block still leaves.
   return [stealth(), skill(s, (b, e) => {
     const t = nearest(b, e, aligned(b, e));
     if (!t) return;

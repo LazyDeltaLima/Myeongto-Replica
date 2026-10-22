@@ -7,7 +7,9 @@
 //                      对碰撞范围内的1名当前生命值最高的我方单位造成攻击力100%的物理伤害，此后每0.53秒重复一次，最多命中8次"
 //                      upstream (content/enemies.js KITS.enemy_10027_vtsk): all 8 hits in one tick 0.5 s after it appears.
 //   蓄力 · 回忆里的怒守  "仅被阻挡时可触发" — a melee triple hit, 100 % ATK each. upstream: fires on the 15 s cooldown and
-//                      turns the next attack into three hits even when that attack is the unblocked ranged one.
+//                      turns the next attack into three hits even when that attack is the unblocked ranged one
+//                      (since 2026-10-22 the kit casts it only while blocked as well: content/enemies.js onSkillSlot
+//                      keeps a skill to its client family, MultiCombat's being COMBAT; the version below still runs).
 // How: an enemySpawn hook that runs before content/enemies.js's (priority 100) takes `Appear` / `MultiCombat` out of the
 // enemy's ability record, so the upstream kit builds neither; the versions below are attached instead (its ranged ×0.8
 // stays upstream's). When upstream fixes either skill, drop it here — test/local-patch.test.js pins upstream's current

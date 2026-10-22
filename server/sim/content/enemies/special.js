@@ -465,6 +465,8 @@ export const SPECIAL_KITS = Object.freeze({
       },
       hitOut(c, b, e) { if (c.dmg.isAttack && c.target !== e.blockedBy) c.dmg.amount *= T(ab, 'range.attack@atk_scale_range') ?? 1; },
     }, mc ? {
+      // MultiCombat's `_familyMask` is COMBAT only: cast while blocked, on the blocker (content/enemies.js onSkillSlot;
+      // until 2026-10-22 its ranged attacks took it too). A battle replaces it with content/local-patch.js chargedTriple.
       name: mc.name, cd: mc.cd, icd: mc.icd, fire(b, e) { e.mem.ab.multi = mc.bb.times ?? 1; },
       dealt(c, b, e) {
         const m = e.mem.ab.multi;

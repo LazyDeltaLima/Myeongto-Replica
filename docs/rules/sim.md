@@ -941,9 +941,19 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   `tools/assets/local-attack-timing.json` `enemies[…].skills`에 쓰고, `tools/build-data.mjs` `enemySkillCast`가 `data/enemies.json` `skillCast`(스킬 이름 소문자 →
   `family`·`clip`·`dur`·`max`·`resetMain`·`waitFirst`, 클립 길이는 `data/assets.json`)로 싣는다. 템플릿 `overrides.skills`도 같은 이름으로 찾는다.
   **[ASSUMED]**: 일반 공격이 없는 적(`noAttack`·`none`·ATK 0)과 키트 자체 타이머(표에 없는 이름)는 예전처럼 제 쿨로 쏜다(공식은 그런 적에게도 공격·전투 능력이
-  있다 — 우리가 그리지 않을 뿐); ATTACK·COMBAT 가족을 막힘 여부로 나누지 않음(가족 1·2인 16개는 키트 `cond`가 대신함); 스킬 쿨에 `slowDown`을 곱하지 않음
+  있다 — 우리가 그리지 않을 뿐); 스킬 쿨에 `slowDown`을 곱하지 않음
   (`OnTick`은 곱함); 형태가 바뀌어도 일반 공격 쿨은 이어짐; 클립이 매니페스트에 없는 스킬 3개(`enemy_9014_acstma` `2`·`enemy_10065_ftzlc` `onfire`·
   `enemy_10141_xdpeng_2` `switch`)는 시전 길이 0.
+- **막힘이 가족을 고른다** (2026-10-22, 제보 「강화 석궁 기습자가 저지됐을 때도 아군을 기절시킨다」, 클라 코드 EN 직접 확인):
+  `Enemy.States.MoveState.OnTick`(0x82E340)은 `Enemy.get_blocker`가 있으면 `_SearchAttackTarget`을 부르기 **전에** COMBAT 상태(3)로 바꾼다 → 막힌 적은
+  `CombatWrapper._PickAbility`(COMBAT 가족)만, 안 막힌 적은 `AttackWrapper.SearchTarget`(ATTACK 가족)만 스킬을 고른다(`EnemySkill.CheckFamilyMask`, `_familyMask`
+  비트 1 ATTACK·2 COMBAT). 우리: `content/enemies.js onSkillSlot`이 `skillCast.family`를 `e.blockedBy`로 거른다. 이미 시작한 시전은 막혀도 계속된다
+  (`AttackState.OnTick` 0x81C470에 막힘 검사 없음). 가족 1·2인 스킬 16개 중 동작이 바뀐 것은 重弩突袭者 直击 하나(가족 1: 이전엔 막은 유닛에도 쏴
+  기절시켰다). “帝国的甲胄” MultiCombat(가족 2)은 키트도 이제 막혔을 때만 쓰지만, 전투에서는 전부터 `content/local-patch.js` chargedTriple(막혔을 때만)이
+  대신하므로 그대로; 나머지(“复仇者” 冲锋·弑君者/锏/卢西恩 闪烁·喷气人 升空·乌顶巨角卢鲁 角力对决)는
+  키트 `cond`가 이미 같은 조건이었고, 出场 애니(bornanim·recoveranim)는 키트 스킬이 아니다. 기절 스킬을 가진 다른 적(迷路的巨像·纠缠藤蔓·粉碎攻坚手 등)은
+  가족 3이라 막혀도 쓴다(그대로). 테스트 `test/content/enemy-skill-attack-slot.test.js` 「the block picks the skill family」·「real match path: a 重弩突袭者」,
+  `enemies_bosses.test.js` “帝国的甲胄”.
 - **퀸투스(盐风主教昆图斯) 셋째 형태**: 공격 차례 3.5 s마다 하나 — 【大潮】(쿨 3.5 + 시전 1.667 = 5.167 s)가 차례를 하나 건너 7 s마다, 그 사이 차례는 일반
   공격, 【崩坍】(시전 3 s)·【断裂生殖】(2 s)는 차례 하나를 차지한다. 이전에는 3.5 s마다 일반 공격(2명 × ATK 100 % 물리 + 20 % 신경) **과** 【大潮】(전원 ×
   20 % 법술 + 20 % 신경)가 함께 나가 셋째 형태 출력이 공식의 두 배 가까이였다(첫째·둘째 형태는 스킬 쿨 35~40 s라 차이가 작음). upstream PR #799(열림)는

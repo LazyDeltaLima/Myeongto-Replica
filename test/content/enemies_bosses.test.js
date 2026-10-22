@@ -1833,7 +1833,7 @@ test(`${nm('enemy_10001_trslim')}: below half HP it runs (move ×${1 + skb('enem
   approx(e.s.moveSpeed, v * (1 + skb('enemy_10001_trslim', 'StartRun').bb.move_speed));
 });
 
-test(`${nm('enemy_10027_vtsk')}: entrance barrage (${skb('enemy_10027_vtsk', 'Appear').bb.times} hits on the highest-HP unit); ranged hits ×0.8; charged triple attack`, () => {
+test(`${nm('enemy_10027_vtsk')}: entrance barrage (${skb('enemy_10027_vtsk', 'Appear').bb.times} hits on the highest-HP unit); ranged hits ×0.8; charged triple attack only when blocked`, () => {
   const h = arena({ units: [{ chessId: 't_wall', row: 10, col: 7 }, { chessId: 't_gun', row: 12, col: 3 }], captureNoisy: true, hooks: ['damaged'], chess: { t_wall: WALL('t_wall', { stats: { maxHp: 2e7 } }) } });
   h.step();
   const e = put(h, 'enemy_10027_vtsk', [10, 8]);
@@ -1846,8 +1846,21 @@ test(`${nm('enemy_10027_vtsk')}: entrance barrage (${skb('enemy_10027_vtsk', 'Ap
   h.run(1);   // (its shot lands: since 0.2.0 the first strike comes at the clip's damage frame, after the barrage window)
   const d = h.hooksOf('damaged').find((c) => c.source === e && c.dmg.isAttack);
   approx(d.amount, e.s.atk * tb('enemy_10027_vtsk', 'range.attack@atk_scale_range'));
-  h.run(skb('enemy_10027_vtsk', 'MultiCombat').initCooldown + 6);
-  assert.ok(h.hooksOf('damaged').filter((c) => c.source === e && !c.dmg.isAttack).length > skb('enemy_10027_vtsk', 'Appear').bb.times);
+  // MultiCombat's `_familyMask` is COMBAT only (content/enemies.js onSkillSlot): never on its unblocked ranged attacks
+  const mc = skb('enemy_10027_vtsk', 'MultiCombat');
+  h.run(mc.initCooldown + 6);
+  assert.ok(!e.blockedBy);
+  assert.equal(h.hooksOf('damaged').filter((c) => c.source === e && !c.dmg.isAttack).length, skb('enemy_10027_vtsk', 'Appear').bb.times, 'no triple attack unblocked');
+  // blocked: the charged attack lands on its blocker as extra hits
+  const h2 = arena({ units: [{ chessId: 't_wall', row: 10, col: 7 }], captureNoisy: true, hooks: ['damaged'], chess: { t_wall: WALL('t_wall', { stats: { maxHp: 2e7 } }) } });
+  h2.step();
+  const e2 = put(h2, 'enemy_10027_vtsk', [10, 7]);
+  h2.run(0.6);
+  const n0 = h2.hooksOf('damaged').filter((c) => c.source === e2 && !c.dmg.isAttack).length;
+  h2.run(mc.initCooldown + 6);
+  assert.equal(e2.blockedBy, h2.unit('t_wall'));
+  const extra = h2.hooksOf('damaged').filter((c) => c.source === e2 && !c.dmg.isAttack).slice(n0);
+  assert.ok(extra.length >= (mc.bb.times ?? 1) - 1 && extra.every((c) => c.target === h2.unit('t_wall')), `the triple attack's extra hits on the blocker (${extra.length})`);
 });
 
 test(`${nm('enemy_10044_wintun')}: fast with its barrel; first hit ×${skb('enemy_10044_wintun', 'BlockedBoom').bb.blockee_atk_scale} and a buff zone for enemies`, () => {

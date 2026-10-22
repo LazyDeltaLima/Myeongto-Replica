@@ -631,14 +631,15 @@ describe('“帝国的甲胄” barrage and charged triple (server/sim/content/l
   const skillHits = (h, e) => h.hooksOf('damaged').filter((c) => c.source === e && !c.dmg.isAttack);
   const near = (a, b) => assert.ok(Math.abs(a - b) < 0.05, `${a} ≈ ${b}`);
 
-  test('upstream still lands all 8 barrage hits at once and casts the triple unblocked (drop the patch when this fails)', () => {
+  test('upstream still lands all 8 barrage hits at once (drop the barrage patch when this fails); its triple now waits for a block', () => {
     const h = arena([{ chessId: 't_wall', row: 10, col: 7 }], [enemiesMod]);
     h.step();
     const e = put(h, [10, 8]);
     h.run(0.6);
     assert.equal(skillHits(h, e).length, 8);
     h.run(40);
-    assert.ok(skillHits(h, e).length > 8, 'upstream: extra hits on unblocked ranged attacks');
+    // since 2026-10-22 the content kit's MultiCombat keeps to its COMBAT family too (content/enemies.js onSkillSlot)
+    assert.equal(skillHits(h, e).length, 8, 'no extra hits on unblocked ranged attacks');
   });
 
   test('barrage: first hit 1.33 s after it appears, then every 0.53 s, at most 8 hits, the highest-HP ally in the 3×3', () => {

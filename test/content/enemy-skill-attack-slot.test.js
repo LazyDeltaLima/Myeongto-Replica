@@ -16,6 +16,7 @@ import { buildBossWave, setupMatchWaves } from '../../server/match/waves.js';
 import { createRng } from '../../server/sim/rng.js';
 import { GEO } from '../../shared/constants.js';
 import { getData } from '../../server/data.js';
+import { hasGeneratedData } from '../../server/sim/simdata.js';
 
 const E = JSON.parse(fs.readFileSync(new URL('../../data/enemies.json', import.meta.url), 'utf8'));
 const WALL = (id) => chessRec({ id, profession: 'TANK', stats: { atk: 0, maxHp: 1e9, def: 0, res: 0, blockCnt: 3 }, rangeGrid: [[0, 0]], skill: null });
@@ -145,4 +146,64 @@ test('real boss_4 field, third form: one action per 3.5 s slot — 大潮 waits 
     // cooldown refunded, ai.js enemyStrike)
     assert.ok(gap > 3.5 + 1.667 - 0.05, `大潮 waits cooldown + cast: ${gap.toFixed(2)} s`);
   }
+});
+
+// The block picks the wrapper (client code Enemy.States.MoveState.OnTick: a blocker ⇒ the COMBAT state, before
+// _SearchAttackTarget; CombatWrapper._PickAbility takes the COMBAT family, AttackWrapper.SearchTarget the ATTACK one):
+// a skill whose `_familyMask` lacks the state's family is never begun there. Until 2026-10-22 the family was ignored —
+// 重弩突袭者 stunned its own blocker with 直击 (ATTACK only), “帝国的甲胄” charged its ranged attacks (MultiCombat, COMBAT only).
+test('the block picks the skill family: 重弩突袭者 直击 (ATTACK only) is never begun while blocked, in line unblocked it is', () => {
+  assert.equal(E.enemy_1404_msnip.skillCast.crossattack.family, 1);
+  const s = E.enemy_1404_msnip.skills.find((x) => x.prefabKey === 'CrossAttack');
+  const run = (col) => {
+    const h = arena({ units: [{ chessId: 't_wall', row: 9, col: 5 }] });
+    h.step();
+    const e = put(h, 'enemy_1404_msnip', [9, col]);
+    const slots = watchSlots(h, e);
+    const wall = h.unit('t_wall');
+    let stunned = false;
+    for (let t = 0; t < s.initCooldown + 2 * s.cooldown; t += 0.1) { h.run(0.1); stunned = stunned || !!wall.s.flags.stun; }
+    return { e, wall, stunned, casts: slots.filter((x) => x.skill === 'CrossAttack').length, attacks: slots.filter((x) => x.skill === null).length };
+  };
+  const blocked = run(5);
+  assert.equal(blocked.e.blockedBy, blocked.wall, 'blocked');
+  assert.equal(blocked.casts, 0, 'no 直击 on its blocker');
+  assert.equal(blocked.stunned, false, 'the blocker is never stunned');
+  assert.ok(blocked.attacks > 0, 'it fights its blocker with its normal (Combat) attack');
+  const free = run(8);
+  assert.equal(free.e.blockedBy, null);
+  assert.ok(free.casts >= 2 && free.stunned, `in line, unblocked: 直击 ×${free.casts}, the unit stunned`);
+});
+
+test('real match path: a 重弩突袭者 blocked by 角峰 never stuns it', { skip: !hasGeneratedData() }, async () => {
+  const KEY = 'enemy_1404_msnip', YAK = 'chess_char_1_02_a';
+  const { makeMatch } = await import('../match/harness.js');
+  const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', humans: 1, seed: 11 }).start();
+  h.toPrep(3);
+  const m = h.m, ps = h.ps('p_0');
+  for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+  ps.board.clear(); ps.hand.fill(null); ps.recompute();
+  const p = ps.acquireChess(YAK, { source: 'buy' });
+  assert.ok(m.handle('p_0', { t: 'g.move', uid: p.uid, to: { area: 'board', row: 10, col: 4 }, dir: 'RIGHT' }).ok);
+  const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'msnip', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent });
+  const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+  let started = false;
+  b.on('battleStart', () => { started = true; });
+  while (!started && b.time < 10) b.step();
+  b._pending.length = 0;           // the stage's own waves stay out of this field
+  const yak = b.allyUnits.find((u) => u.defId === YAK);
+  assert.ok(yak && yak.deployed, 'the defender stands on the field');
+  b.addBuff(yak, { key: 'test:tough', duration: Infinity, flags: { invulnerable: true, disarm: true, silence: true } });
+  const e = b.spawnEnemy(KEY, { pos: [yak.y, yak.x], mods: { speedMul: 0 } });
+  let casts = 0, stunned = false;
+  const fx = b.fx.bind(b);
+  b.fx = (k, o) => { if (k === 'enemySkill' && o.id === e.id) casts++; return fx(k, o); };
+  const end = b.time + 20;
+  while (b.time < end && !b.finished) { b.step(); stunned = stunned || !!yak.s.flags.stun; }
+  assert.equal(e.blockedBy, yak, 'blocked by the defender');
+  assert.ok(e.stats.attacks > 0, 'it attacks its blocker');
+  assert.equal(casts, 0, 'no 直击');
+  assert.equal(stunned, false);
+  assert.deepEqual(b.errors.map((x) => x.error?.message), []);
+  m.dispose?.();
 });
