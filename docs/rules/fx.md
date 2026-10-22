@@ -2483,10 +2483,21 @@
 - 아무것도 안 트는 행: 같은 테스트의 `UNPLAYED`(템플릿 행, `key|prefab` → 조건 없음 / 렌더가 판단할 수 있는 조건 / 그 밖 조건 / 방향 사본 / 다른 프리팹이
   내보냄) — 추출 이펙트 목록(`index.json`)이 있을 때만 돈다. 렌더 코드의 이름, 공격 모드 바인딩, 이름 규칙, 손 표가 만드는 이름을 「튼다」로 센다.
   클라 전용 행의 목록은 관리자 노트에.
-- 갱신: `node tools/build-fx-templates.mjs`(`--offline`은 캐시로), `.venv-extract/bin/python tools/local-extract/fx_bindings.py --cn <CN Arknights_Data>`.
+- 갱신: `node tools/build-fx-templates.mjs`(`--offline`은 캐시로), `.venv-extract/bin/python tools/local-extract/fx_bindings.py --cn <CN Arknights_Data>`,
+  그다음 `node tools/build-fx-plays.mjs`(계획의 인용 키를 바꿨을 때도).
 - 템플릿이 쏘는 투사체(2026-10-23): `fx_bindings.py`는 풀 프리팹이 부르는 투사체에 더해 풀 템플릿(`fx-templates.json templates`)이 이름을 부르는 투사체도
   읽는다 — 실버애쉬 더 레인프로스트 S3 `svash2_s_3[bird_on_self]` → `projectile_chr_svash2_s3_bird_self`(`_effectsAlignToProjectileDirection` = 렌더가 트는
   `svash2_skill_03_trail_02`). 그 행의 `char`는 부른 템플릿 키.
+- 클라 키로 재생(묶음 K2, 2026-10-23, 관리자 결정 2026-10-23: 키는 렌더 표에 단다 — 시뮬은 그대로): `kitofficial.js` 계획의 재생은 프리팹 `n` 대신 그 계획이
+  인용한 키 `tpl`을 줄 수 있다 → `tools/build-fx-plays.mjs`가 두 표에서 인용 키마다 조건 없는 행(추출된 프리팹만)을 역할로 나눠
+  `public/assets/local/fx/plays.json`(git 무시, 추출 이펙트와 함께 배포)에 쓰고, `fxgame.js`가 `modes.json`처럼 불러 `kitOfficialPlan`이 펼친다(`tplPlays`).
+  역할: `held` 버프가 만드는 이펙트·능력 `_effects`·끝까지 가는 시전·주인이 쥐는 템플릿 이펙트(계획의 `life` 동안; 없으면 그 키의 LIMITED 초) · `once`
+  ON_BUFF_START CreateEffect·한 번 시전·IMMEDIATELY 버프 · `end` ON_BUFF_FINISH/ON_OWNER_FINISH(`life: 'unit'`의 `end`). 다른 시점의 행(공격 명중, 투사체 비행,
+  ON_TAKE_DAMAGE …)은 키의 재생이 아니다. 파일이 없으면 그 재생은 없고 이벤트는 대체 그림으로 남는다.
+  옮긴 계획 7: 에이야퍄들라 더 크비트 아스카 S2 범위, 프라마닉스 더 프레리타 보호점(언 칸·녹음), 켈시 에스페란타 S3 이송, 엔텔레키아 T2, 루멘 S1 치유 비,
+  르무엔 T2, 글래디아 S3 대상 — 이벤트 골든 그대로(파일을 빼면 이 6개 경로가 빠짐을 확인). 손 이름이 그대로인 나머지(역할·충전·층·방향으로 고르는 것,
+  조건 뒤 행)는 K3·다음 조각. 검사: 인용한 키만 `tpl`로, 그 키에 재생이 있음, `plays.json`이 최신(클라 전용 행이 있을 때) — `fx-bindings.test.js`.
+  `bindings.json`은 검사용이라 사전 내려받기 목록(`build-browser-resources.mjs`)·배포에서 뺀다.
 - K1 대조의 버그 후보 넷 판정(2026-10-23): 에이야퍄들라 더 크비트 아스카 S2 범위 — 고침(위 「버프 진행 단계」). 실버애쉬 더 레인프로스트 S3 — 렌더가 맞고 인용 키가
   틀렸다(`[bird_on_target]`는 다른 오퍼 위 독수리의 투사체 `projectile_chr_svash2_s3_bird`) → `FXGAME` 인용만 고침; `svash2_eagle_*`(카드 위 战鹰)는 `UNPLAYED` 그대로.
   战场#06 沙尘暴 화면 — 손이 맞음: `screen_desert_*_empty`는 이 루프 프리팹을 `_effects`로 감싼 껍데기(추출 안 됨, 위 「战场#06 沙尘暴 연출」). 엔텔레키아 S3 선 —

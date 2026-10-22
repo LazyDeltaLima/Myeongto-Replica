@@ -19,6 +19,7 @@ Also `refs` {char: [buff / template keys its prefabs name]} — where the pool's
 Usage (from the repo root): .venv-extract/bin/python tools/local-extract/fx_bindings.py [--client <EN Arknights_Data>]
   [--cn <CN Arknights_Data>] [--out <file>]
 Operators, skills, projectiles and tokens the EN client lacks are read from --cn when given (rows `cn: true`).
+Then run `node tools/build-fx-plays.mjs` (the plays of the render plans' client keys, public/assets/local/fx/plays.json).
 Everything read is (c) Hypergryph; private fan use only.
 """
 import argparse

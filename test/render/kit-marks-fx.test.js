@@ -18,6 +18,11 @@ import { kitOfficialPlan } from '../../public/js/render/fx/kitofficial.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const MODES = JSON.parse(readFileSync(path.join(ROOT, 'tools/assets/local-char-modes.json'), 'utf8'));
+// the plays of the kit plans' client keys (tools/build-fx-plays.mjs plays.json) these cases use
+const PLAYS = { keys: {
+  'icetgt_a[effect]': { held: ['sbell2_tile_frozen'], once: [], end: ['sbell2_tile_defrost'] },
+  'kalts2_s_3[withdraw]': { held: [], once: ['kalts2_skill_03_teleport_02'], end: [] },
+} };
 
 test('char_modes.py: 深靛\'s ChargableAttackGroup — a held effect per stored energy, the store\'s cast', () => {
   assert.deepEqual(MODES.char_469_indigo.charge, {
@@ -27,8 +32,8 @@ test('char_modes.py: 深靛\'s ChargableAttackGroup — a held effect per stored
 });
 
 test('kitofficial: the plans of the frozen point, the S3_End casts, the 待投放 operators and the head marks', () => {
-  assert.deepEqual(kitOfficialPlan('summon', { id: 7, src: 1, token: 'token_10058_sbell2_icetgt' }, 'sbell2').play,
-    [{ n: 'sbell2_tile_frozen', on: 'id', life: 'unit', end: 'sbell2_tile_defrost' }]);
+  assert.deepEqual(kitOfficialPlan('summon', { id: 7, src: 1, token: 'token_10058_sbell2_icetgt' }, 'sbell2', { plays: PLAYS }).play,
+    [{ on: 'id', life: 'unit', n: 'sbell2_tile_frozen', end: 'sbell2_tile_defrost' }]);
   assert.equal(kitOfficialPlan('summon', { id: 7, src: 1, token: 'token_x' }, 'sbell2'), null);
   assert.deepEqual(kitOfficialPlan('coin', { id: 1, skill: 'swire2_3', targets: [] }, 'swire2').play.map((p) => p.n),
     ['swire2_skill_03_start_03', 'swire2_skill_03_start_03_02', 'swire2_skill_03_range'], 'coins or not');
@@ -48,6 +53,7 @@ const files = {
     indigo: ['indigo_attack_charge_01_start', 'indigo_attack_charge_02', 'indigo_attack_charge_03', 'indigo_attack_charge_04', 'indigo_attack_charge_05'],
   } },
   '/assets/local/fx/modes.json': BINDS,
+  '/assets/local/fx/plays.json': PLAYS,
   '/assets/local/fx/enemy-index.json': { bundles: {} },
   '/assets/local/fx/enemy-modes.json': { $fx: {} },
 };

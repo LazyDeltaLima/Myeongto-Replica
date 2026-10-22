@@ -7,9 +7,10 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { ROOT, loadTables, handEntries, judge, unplayed, renderNames } from '../helpers/fxBindings.js';
+import { ROOT, loadTables, handEntries, judge, unplayed, renderNames, planTpls } from '../helpers/fxBindings.js';
+import { buildPlays, PLAYS_FILE } from '../../tools/build-fx-plays.mjs';
 import { KIT_OFFICIAL } from '../../public/js/render/fx/kitofficial.js';
 import { KEY_FX, SOURCE_FX, LAYER_FX, STACK_FX, END_FX } from '../../public/js/render/fxstatus.js';
 import { TALENT_ALWAYS, NOTE_FX } from '../../public/js/render/fxmap.js';
@@ -236,4 +237,18 @@ test('the template rows nothing plays are exactly UNPLAYED', { skip: !T.index &&
   const diff = [...new Set([...Object.keys(got), ...Object.keys(UNPLAYED)])].filter((k) => got[k] !== UNPLAYED[k])
     .map((k) => `${k}: ${UNPLAYED[k] ?? '(new)'} → ${got[k] ?? '(played now: drop it)'}`);
   assert.deepEqual(diff, []);
+});
+
+test('a plan\'s `tpl` plays name keys the plan cites, each with plays in the tables', () => {
+  const plays = buildPlays();
+  for (const [ev, by] of Object.entries(KIT_OFFICIAL)) for (const [b, fn] of Object.entries(by)) {
+    for (const k of planTpls(fn)) {
+      assert.ok(fn.src.includes(k), `${ev}.${b}: tpl ${k} is not one of its cited keys`);
+      if (LOCAL) assert.ok(plays.keys[k], `${ev}.${b}: tpl ${k} has no plays (no row without a condition at that moment)`);
+    }
+  }
+});
+
+test('public/assets/local/fx/plays.json is current (node tools/build-fx-plays.mjs)', { skip: !(LOCAL && existsSync(PLAYS_FILE)) && 'needs the client-only rows and the file' }, () => {
+  assert.deepEqual(JSON.parse(readFileSync(PLAYS_FILE, 'utf8')), buildPlays(), 'run node tools/build-fx-plays.mjs');
 });

@@ -24,7 +24,8 @@ const opt = (name, dflt) => { const i = args.indexOf(name); return i >= 0 ? args
 const ASSETS = join(ROOT, opt('--assets', 'public/assets'));
 const VERIFY = Number(opt('--verify', 0)) || 0;
 const OUT = 'browser-resources.json';
-const SKIP = new Set([OUT]);
+// local/fx/bindings.json: the client-only binding rows, read by the tests only (tools/local-extract/fx_bindings.py)
+const SKIP = new Set([OUT, 'local/fx/bindings.json']);
 
 async function* walk(dir) {
   for (const e of await readdir(dir, { withFileTypes: true })) {

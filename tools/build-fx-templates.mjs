@@ -6,7 +6,8 @@
 // (ON_BUFF_START, ON_BUFF_TRIGGER, ON_BUFF_FINISH …) a list of nodes. This script reads them from the public community
 // dataset (Kengxxiao/ArknightsGameData `gamedata/battle/buff_template_data.json`: en_US from ArknightsGameData_YoStar
 // where the template exists there, else zh_CN — those rows carry `cn: true`) and writes, per template, the effects it
-// may create, statically: tools/assets/fx-templates.json. The renderer does not read it; test/render/fx-bindings.test.js
+// may create, statically: tools/assets/fx-templates.json. The renderer reads it only through tools/build-fx-plays.mjs (the
+// plays of the keys its kit plans name); test/render/fx-bindings.test.js
 // checks the hand-written effect tables of render/ against it. A row:
 //   { key, src: 'template', moment, kind, fx, target, life, conds, by?, cn? }
 //     key     the client key: the template (an effect node, the template's own `effectKey`) or the buff a CreateBuff

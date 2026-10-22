@@ -9,7 +9,8 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fxSpec } from '../../public/js/render/fx/kinds.js';
-import { KIT_OFFICIAL, kitOfficialPlan, kitOperator } from '../../public/js/render/fx/kitofficial.js';
+import { KIT_OFFICIAL, kitOfficialPlan, kitOperator, tplPlays } from '../../public/js/render/fx/kitofficial.js';
+import { keyPlays } from '../helpers/fxBindings.js';
 import { createFxLayer, buffProgressOn } from '../../public/js/render/fxgame.js';
 import { activationEffects } from '../../public/js/render/fxmap.js';
 
@@ -20,6 +21,10 @@ const KITS = path.join(ROOT, 'server/sim/content/kits');
 // the extracted effects (git-ignored, `npm run setup`): the skill activation's name rules need the bundle's prefab list
 const FX_INDEX = path.join(ROOT, 'public/assets/local/fx/index.json');
 const BUNDLES = existsSync(FX_INDEX) ? JSON.parse(readFileSync(FX_INDEX, 'utf8')).bundles : null;
+// the plans' client keys → prefabs (tools/build-fx-plays.mjs, from the binding tables on disk; a key only the client-only rows
+// hold is missing without them)
+const PLAYS = keyPlays();
+const LOCAL_ROWS = existsSync(path.join(ROOT, 'public/assets/local/fx/bindings.json'));
 const STAND_IN = new Set(/const STAND_IN = new Set\(\[([^\]]+)\]/.exec(GAME)[1].match(/'([^']+)'/g).map((s) => s.slice(1, -1)));
 
 /**
@@ -125,7 +130,7 @@ test('the rules name prefabs the client binds for that operator', () => {
   for (const [n, by] of Object.entries(KIT_OFFICIAL)) {
     for (const [b, rule] of Object.entries(by)) {
       assert.equal(typeof rule, 'function');
-      const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((ctx) => kitOfficialPlan(n, { left: 0, t: 2, id: 1, of: 2, n: 2, cap: 3, name: 'extradition', cells: [[1, 1, 1], [2, 1, 3], [3, 1, 5], [4, 1, 0]], skill: 'swire2_3', targets: [2], token: 'token_10058_sbell2_icetgt', ids: [2], off: [3], picks: [2] }, b, ctx)).filter(Boolean);
+      const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((c) => ({ ...c, plays: PLAYS })).map((ctx) => kitOfficialPlan(n, { left: 0, t: 2, id: 1, of: 2, n: 2, cap: 3, name: 'extradition', cells: [[1, 1, 1], [2, 1, 3], [3, 1, 5], [4, 1, 0]], skill: 'swire2_3', targets: [2], token: 'token_10058_sbell2_icetgt', ids: [2], off: [3], picks: [2] }, b, ctx)).filter(Boolean);
       assert.ok(plans.length, `${n} (${b}) plans nothing`);
       for (const plan of plans) {
         for (const p of plan.play) {
@@ -256,10 +261,10 @@ test('kitOfficialPlan: the moments and lifetimes of the templates', () => {
   assert.equal(fxSpec('snow', { cells: [[3, 2, 0]] }).a, 'none');
   assert.equal(fxSpec('snow', { cells: [[3, 2, 1]], tiles: 1 }).a, 'zone');
   assert.equal(fxSpec('snow', {}).a, 'zone');
-  assert.deepEqual(kitOfficialPlan('healField', { id: 1, tgt: 3, t: 4 }, 'lumen').play, [{ n: 'lumen_skill_01_range', on: 'tgt', life: 4 }]);
+  assert.deepEqual(kitOfficialPlan('healField', { id: 1, tgt: 3, t: 4 }, 'lumen', { plays: PLAYS }).play, [{ n: 'lumen_skill_01_range', on: 'tgt', life: 4 }]);
   // 蕾缪安's 引渡 only (her other talent moments have no rule)
   assert.equal(kitOfficialPlan('talent', { id: 1, name: 'other' }, 'lemuen'), null);
-  assert.deepEqual(names(kitOfficialPlan('talent', { id: 1, name: 'extradition' }, 'lemuen')), ['lemuen_talent_buff_02']);
+  assert.deepEqual(names(kitOfficialPlan('talent', { id: 1, name: 'extradition' }, 'lemuen', { plays: PLAYS })), ['lemuen_talent_buff_02']);
   // the operator of an event: src, then by, then id
   assert.equal(kitOperator({ id: 5, src: 1 }), 1);
   assert.equal(kitOperator({ id: 5, by: 2 }), 2);
@@ -377,8 +382,8 @@ test('kitOfficialPlan: talent casts and 烛煌 S2\'s burning tiles (2026-10-16, 
   ]);
 });
 
-test('歌蕾蒂娅 S3: glady_s3[effect]\'s glady_skill_03_buff on the target the kit binds (`tgt`), for the skill', () => {
-  const plan = kitOfficialPlan('tornado', { id: 1, tgt: 2 }, 'glady', { skill: 2 });
+test('歌蕾蒂娅 S3: glady_s3[effect]\'s glady_skill_03_buff on the target the kit binds (`tgt`), for the skill', { skip: !LOCAL_ROWS && 'the key\'s row is a client-only row' }, () => {
+  const plan = kitOfficialPlan('tornado', { id: 1, tgt: 2 }, 'glady', { skill: 2, plays: PLAYS });
   assert.deepEqual(plan.play, [{ n: 'glady_skill_03_buff', on: 'tgt', life: 'skill' }]);
   assert.match(readFileSync(path.join(KITS, 'ops/chess_char_4_12-glady.js'), 'utf8'), /battle\.fx\('tornado', \{ x: t\.x, y: t\.y, id: unit\.id, tgt: t\.id,/);
 });
@@ -397,4 +402,24 @@ test('纯烬艾雅法拉 S2: the barrier\'s range effect follows what it can sti
   // the kit sends r 0 as the pool runs out (its veil is then gone), and the plan cites the ability whose _effects it is
   assert.match(readFileSync(path.join(KITS, 'ops/chess_char_6_20-agoat2.js'), 'utf8'), /const r = v\.pool0 > 0 \? Math\.ceil\(\(v\.pool \/ v\.pool0\) \* 100 - 1e-9\) \/ 100 : 0;/);
   assert.deepEqual(KIT_OFFICIAL.shield.agoat2.src, ['skchr_agoat2_2/Shield/Aura', KEY]);
+});
+
+test('a `tpl` play: the key\'s held prefabs for its life (or the key\'s LIMITED seconds), its once prefabs, its end with life unit', () => {
+  const plays = { keys: { a: { held: ['a_buff'], once: ['a_start'], end: ['a_end'] }, b: { held: ['b_buff'], once: [], end: [], lim: 3 } } };
+  assert.deepEqual(tplPlays({ tpl: 'a', on: 'id', life: 'unit' }, plays), [
+    { on: 'id', n: 'a_buff', life: 'unit', end: 'a_end' }, { on: 'id', n: 'a_start', life: 'once' },
+  ]);
+  assert.deepEqual(tplPlays({ tpl: 'a', on: 'op', life: 'skill' }, plays), [{ on: 'op', n: 'a_buff', life: 'skill' }, { on: 'op', n: 'a_start', life: 'once' }]);
+  assert.deepEqual(tplPlays({ tpl: 'b', on: 'op' }, plays), [{ on: 'op', n: 'b_buff', life: 3 }]);
+  assert.deepEqual(tplPlays({ tpl: 'c', on: 'op' }, plays), [], 'a key the file lacks plays nothing');
+  assert.deepEqual(tplPlays({ tpl: 'a', on: 'op' }, null), [], 'no file');
+  assert.deepEqual(kitOfficialPlan('talent', { id: 1, name: 'extradition' }, 'lemuen', { plays: null }).play, [], 'the event keeps its stand-in');
+});
+
+test('the plans by client key play what their hand prefabs played (묶음 K2: the effect event golden does not move)', { skip: !LOCAL_ROWS && 'needs the client-only rows' }, () => {
+  const p = (ev, o, b, c = {}) => kitOfficialPlan(ev, o, b, { ...c, plays: PLAYS }).play;
+  assert.deepEqual(p('shield', { id: 1, duration: 12 }, 'agoat2'), [{ on: 'op', life: 12, n: 'agoat2_skill_02_range_01' }]);
+  assert.deepEqual(p('summon', { id: 4, token: 'token_10058_sbell2_icetgt' }, 'sbell2'), [{ on: 'id', life: 'unit', n: 'sbell2_tile_frozen', end: 'sbell2_tile_defrost' }]);
+  assert.deepEqual(p('kalts2Takeoff', { id: 1, picks: [2] }, 'kalts2'), [{ on: 'picks', n: 'kalts2_skill_03_teleport_02', life: 'once' }]);
+  assert.deepEqual(p('reborn', { id: 1 }, 'etlchi'), [{ on: 'op', life: 3, n: 'etlchi_innate_hit_01' }]);
 });

@@ -5,7 +5,8 @@
 // templates (config/buff_template_holder.ab: a CreateBuff's `overrideEffectKey`, a CreateEffect node) or a projectile's
 // `_effectsWhenReached`; without them the moment drew nothing. Pure: fxgame.js executes the plan (kitOfficialFx).
 // Each plan carries the client key(s) it stands for (`cite`: test/render/fx-bindings.test.js checks them against the
-// binding table, docs/rules/fx.md 「바인딩 표」).
+// binding table, docs/rules/fx.md 「바인딩 표」). 2026-10-23 (묶음 K2): a play may name one of those keys instead of a prefab,
+// `{ tpl: key, on, life }` — the table's rows of that key with no condition give the prefabs (tplPlays).
 
 import { cite } from './cite.js';
 
@@ -33,6 +34,9 @@ import { cite } from './cite.js';
  * slot keeps it running, another prefab replaces it, `{ slot, off: true }` ends it (AttachListenerToTileAbility
  * `_HoldCastedEffectOnTile` with `_dontCreateNewEffectWhenCastedTimesSame`); on a 'point' (or `at`) or on / circling a
  * unit as any play, with `ready` a prefab played there once when the slot was empty.
+ * 2026-10-23: `tpl` (a key the plan cites) in place of `n`: each prefab the key holds (tools/build-fx-plays.mjs `held`) plays
+ * as this play for `life` (none given: the key's LIMITED seconds) — with life 'unit' its `end` prefab as `end` —, and each
+ * prefab it creates once (`once`) for its own duration.
  */
 const once = (n, on = 'op') => ({ n, on, life: 'once' });
 
@@ -57,7 +61,7 @@ export const KIT_OFFICIAL = {
   // (2026-10-23) The effect is the `_effects` of the ability skchr_agoat2_2/Shield/Aura that holds the buff, and the buff's
   // ON_BUFF_TRIGGER interrupts that ability once its `value` is spent: its level follows what the barrier can still absorb,
   // and a spent barrier ends it early (fxgame.js buffProgress)
-  shield: { agoat2: cite(['skchr_agoat2_2/Shield/Aura', 'agoat2_s_2[shield]'], (o) => ({ play: [{ n: 'agoat2_skill_02_range_01', on: 'op', life: Math.max(0.1, Number(o.duration) || 12) }] })) },
+  shield: { agoat2: cite(['skchr_agoat2_2/Shield/Aura', 'agoat2_s_2[shield]'], (o) => ({ play: [{ tpl: 'skchr_agoat2_2/Shield/Aura', on: 'op', life: Math.max(0.1, Number(o.duration) || 12) }] })) },
   overload: {
     horn: cite(['horn_s_2[overload_switch_effect]', 'horn_s_3[overload_switch_effect]'], (o, c) => {
       const base = c.skill === 1 ? 'horn_skill_02_buff_03' : c.skill === 2 ? 'horn_skill_03_buff_02_03' : null;
@@ -123,11 +127,11 @@ export const KIT_OFFICIAL = {
   // template's ON_OWNER_FINISH CreateEffect plays sbell2_tile_defrost on it as it goes
   summon: {
     sbell2: cite('icetgt_a[effect]', (o) => (/icetgt/.test(String(o.token ?? ''))
-      ? { play: [{ n: 'sbell2_tile_frozen', on: 'id', life: 'unit', end: 'sbell2_tile_defrost' }] } : null)),
+      ? { play: [{ tpl: 'icetgt_a[effect]', on: 'id', life: 'unit' }] } : null)),
   },
   // 凯尔希·思衡托 S3 (2026-10-21, CN client): kalts2_s_3[withdraw]'s ON_BUFF_START CreateEffect kalts2_skill_03_teleport_02 on
   // each 待投放 operator (`picks`) as the transport starts …
-  kalts2Takeoff: { kalts2: cite('kalts2_s_3[withdraw]', () => ({ play: [{ n: 'kalts2_skill_03_teleport_02', on: 'picks', life: 'once' }] })) },
+  kalts2Takeoff: { kalts2: cite('kalts2_s_3[withdraw]', () => ({ play: [{ tpl: 'kalts2_s_3[withdraw]', on: 'picks' }] })) },
   // … and, S3 picked, the head mark kalts2_skill_03_indicator_head_01 on the operators it would pick while she is not
   // flying (skchr_kalts2_3/Indicator → kalts2_s_3[indicator_fx][fx]): `ids` marked now, `off` no longer
   kalts2Mark: {
@@ -273,15 +277,15 @@ export const KIT_OFFICIAL = {
   // _02 and the effects of each strike are not drawn]
   ember: { reed2: cite('projectile_chr_reed2_fire', () => ({ play: [{ n: 'reed2_skill_02_fireball_01', on: 'id', life: 'skill', orbit: { r: 1, spd: 150 } }] })) },
   // 隐德来希 T2 重盈: the talent's toggle (charpack Talents/2 `_unmanagedBuffsWhenToggleOn` etlchi_t_2[heal], lifeTime 3 s)
-  reborn: { etlchi: cite('etlchi_t_2[heal]', () => ({ play: [{ n: 'etlchi_innate_hit_01', on: 'op', life: 3 }] })) },
+  reborn: { etlchi: cite('etlchi_t_2[heal]', () => ({ play: [{ tpl: 'etlchi_t_2[heal]', on: 'op', life: 3 }] })) },
   // 流明 S1: the shot's heal rain (lumen_s_1[effect] on the target, LIMITED: projectile_life_time `t`; projectile_chr_lumen_s1's
   // `_mainEffect` is the same prefab) [추정: lumen_s_1[heal]'s lumen_skill_01_hit on each healed ally per tick is not drawn]
-  healField: { lumen: cite('lumen_s_1[effect]', (o) => ({ play: [{ n: 'lumen_skill_01_range', on: 'tgt', life: Math.max(0.1, Number(o.t) || 0) }] })) },
+  healField: { lumen: cite('lumen_s_1[effect]', (o) => ({ play: [{ tpl: 'lumen_s_1[effect]', on: 'tgt', life: Math.max(0.1, Number(o.t) || 0) }] })) },
   // 寒檀 S2: an icicle (projectile_chr_sntlla_s2 `_effectsWhenReached` sntlla_skill_02_start_01 where it lands)
   iceSpike: { sntlla: cite('projectile_chr_sntlla_s2', () => ({ play: [{ n: 'sntlla_skill_02_start_01', on: 'point', life: 'once' }] })) },
   talent: {
     // 蕾缪安 T2: 引渡 ready (lemuen_t_2 → buff lemuen_t_2[buff], effect lemuen_talent_buff_02, INFINITY)
-    lemuen: cite('lemuen_t_2[buff]', (o) => (o.name === 'extradition' ? { play: [{ n: 'lemuen_talent_buff_02', on: 'op', life: 'deployed' }] } : null)),
+    lemuen: cite('lemuen_t_2[buff]', (o) => (o.name === 'extradition' ? { play: [{ tpl: 'lemuen_t_2[buff]', on: 'op', life: 'deployed' }] } : null)),
     // 卡涅利安 T1 生命之餐 (her only 'talent'): the heal at each skill start — charpack Talents/1's abilities Billro_Heal_Self /
     // _Enhance, each with a oneshot `_castEffects` at ON_SPELL_ON: billro_beidong_buff_01, cast with every charge _02 (the
     // pairing by `m_GameObject`: each cast component shares its GameObject with one of the two abilities)
@@ -306,7 +310,7 @@ export const KIT_OFFICIAL = {
   // 歌蕾蒂娅 S3 (2026-10-21): her opening ability skchr_glady_3/Chant's `_activeBuffs` glady_s3[effect] (INFINITY, overrideEffectKey
   // glady_skill_03_buff — its OnPlayEmitter adds _02) on the target it binds, the kit's `tgt` [추정: until the skill ends — the
   // ability's active buffs]; the tornado itself is fxgame.js zoneFx's. Its 束缚 glady_skill_03_buff_to_enemy is the status layer's
-  tornado: { glady: cite('glady_s3[effect]', () => ({ play: [{ n: 'glady_skill_03_buff', on: 'tgt', life: 'skill' }] })) },
+  tornado: { glady: cite('glady_s3[effect]', () => ({ play: [{ tpl: 'glady_s3[effect]', on: 'tgt', life: 'skill' }] })) },
   // 歌蕾蒂娅 S3: each pull of the tornado (projectile_chr_glady_s3_2 `_interval`: `_castEffect` glady_skill_03_range_03)
   tornadoPulse: { glady: cite('projectile_chr_glady_s3_2', () => ({ play: [{ n: 'glady_skill_03_range_03', on: 'point', life: 'once' }] })) },
   // 歌蕾蒂娅 S3's end, the 捕网 (2026-10-21): projectile_chr_glady_s3_3 hooked to her muzzle (`_hookedStartPointType` 2) —
@@ -351,5 +355,19 @@ export function kitOfficialPlan(name, o, bundle, ctx = {}) {
   const rule = bundle ? KIT_OFFICIAL[name]?.[bundle] : null;
   if (typeof rule !== 'function' || !o || typeof o !== 'object') return null;
   const r = rule(o, { skill: Number.isInteger(ctx.skill) ? ctx.skill : 0, back: !!ctx.back, foe: !!ctx.foe });
-  return r ? { stop: r.stop || [], play: r.play || [], pass: !!r.pass, ...(r.skillFlag ? { skillFlag: r.skillFlag } : {}) } : null;
+  const play = (r?.play || []).flatMap((p) => (p.tpl ? tplPlays(p, ctx.plays) : [p]));
+  return r ? { stop: r.stop || [], play, pass: !!r.pass, ...(r.skillFlag ? { skillFlag: r.skillFlag } : {}) } : null;
+}
+
+/**
+ * A `tpl` play as the plays of its key in `plays` (the loaded public/assets/local/fx/plays.json; tools/build-fx-plays.mjs)
+ * — none when the file or the key is missing (the event then keeps its stand-in).
+ */
+export function tplPlays(p, plays) {
+  const k = plays?.keys?.[p.tpl];
+  if (!k) return [];
+  const { tpl, ...rest } = p;
+  const life = rest.life ?? k.lim;
+  const end = life === 'unit' && k.end?.length ? { end: k.end[0] } : {};
+  return [...(k.held || []).map((n) => ({ ...rest, n, life, ...end })), ...(k.once || []).map((n) => ({ ...rest, n, life: 'once' }))];
 }

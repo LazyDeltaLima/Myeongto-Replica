@@ -9,7 +9,8 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { KIT_OFFICIAL } from '../../public/js/render/fx/kitofficial.js';
+import { KIT_OFFICIAL, tplPlays } from '../../public/js/render/fx/kitofficial.js';
+import { rowsFor, buildPlays } from '../../tools/build-fx-plays.mjs';
 import { KEY_FX, SOURCE_FX, LAYER_FX, STACK_FX, END_FX, STATUS_FX } from '../../public/js/render/fxstatus.js';
 import { TALENT_ALWAYS, NOTE_FX, DEPLOY_FX, noteEffects, effectsFor, isVariant, isDirectional, fxBundleOf } from '../../public/js/render/fxmap.js';
 
@@ -26,32 +27,7 @@ export function loadTables() {
   return { template: t.rows, templates: t.templates || {}, local: b ? b.rows : null, index, modes };
 }
 
-/** A prefab key (a projectile, a token, a charpack / skill prefab path): it also stands for the GameObjects under it. */
-const isPath = (k) => k.includes('/') || /^(projectile_|token_|skchr_|sktok_|char_\d)/.test(k);
-
-/**
- * The rows a set of client keys stands for: the rows of those keys (a template, a buff, a projectile, a prefab path and
- * the GameObjects under it), and — transitively — the buffs they create (`by`) and the templates those buffs run (`tpl`).
- */
-export function rowsFor(keys, rows) {
-  const S = new Set(keys);
-  const paths = keys.filter(isPath);
-  const under = (x) => typeof x === 'string' && paths.some((k) => x === k || x.startsWith(`${k}/`));
-  const out = new Set();
-  for (let round = 0; round < 6; round++) {
-    const before = out.size;
-    for (const r of rows) {
-      if (out.has(r)) continue;
-      if (S.has(r.key) || (r.by && S.has(r.by)) || under(r.key) || under(r.at)) {
-        out.add(r);
-        S.add(r.key);
-        if (r.tpl) S.add(r.tpl);
-      }
-    }
-    if (out.size === before) break;
-  }
-  return [...out];
-}
+export { rowsFor };
 
 // ---- the hand tables' entries ------------------------------------------------------------------------------------------
 
@@ -65,6 +41,21 @@ const KIT_O = [
 ];
 const KIT_C = [0, 1, 2].flatMap((skill) => [false, true].flatMap((back) => [false, true].map((foe) => ({ skill, back, foe }))));
 
+/** The client keys a kit plan's `tpl` plays name, over the sample inputs. */
+export function planTpls(fn) {
+  const out = new Set();
+  for (const base of KIT_O) for (const c of KIT_C) {
+    let r;
+    try { r = fn({ id: 1, src: 2, x: 0, y: 0, tgt: 3, ...base }, c); } catch { continue; }
+    for (const p of r?.play || []) if (p.tpl) out.add(p.tpl);
+  }
+  return [...out];
+}
+
+/** The plays (tools/build-fx-plays.mjs) of the cited keys, from the tables on disk: a plan's `tpl` plays as the layer plays them. */
+let PLAYS = null;
+export const keyPlays = () => (PLAYS ||= buildPlays());
+
 /** The plays of a kit plan as { n, life, side } ('once' | 'held' | 'flight' | number; 'self' | 'other'). */
 function planPlays(fn) {
   const out = [];
@@ -73,7 +64,7 @@ function planPlays(fn) {
     for (const c of KIT_C) {
       let r;
       try { r = fn({ id: 1, src: 2, x: 0, y: 0, tgt: 3, ...base }, c); } catch { continue; }
-      for (const p of r?.play || []) {
+      for (const p of (r?.play || []).flatMap((q) => (q.tpl ? tplPlays(q, keyPlays()) : [q]))) {
         const side = p.on === 'op' || p.cast || p.fly || p.harpoon ? 'self' : p.on || p.unit != null || p.line ? 'other' : 'self';
         if (p.fly || p.harpoon) {
           add(p.n, 'flight', 'self');
@@ -264,6 +255,10 @@ export function unplayed(tables) {
   }
   const emitted = new Set(Object.values(tables.index.emitted || {}).flat());
   for (const e of handEntries()) for (const p of e.plays) names.add(p.n);   // the names the plans build (号角's _front / _back …)
+  // a plan's `tpl` key plays every prefab of its plays (an `end` too, which a held prefab only the client-only rows show carries)
+  for (const by of Object.values(KIT_OFFICIAL)) for (const fn of Object.values(by)) {
+    for (const k of planTpls(fn)) for (const n of Object.values(keyPlays().keys[k] || {}).flat()) if (typeof n === 'string') names.add(n);
+  }
   const plays = (n) => names.has(n) || bound.has(n) || named.has(n) || patterns.some((r) => r.test(n));
   const rows = tables.local ? [...tables.template, ...tables.local] : tables.template;
   const out = new Map();

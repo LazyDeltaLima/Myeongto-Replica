@@ -152,6 +152,7 @@ export function inStoneBlast(skill, axes, dx, dy) {
 
 const INDEX_URL = '/assets/local/fx/index.json';
 const MODES_URL = '/assets/local/fx/modes.json';   // effect bindings per attack mode (tools/local-extract/char_modes.py)
+const PLAYS_URL = '/assets/local/fx/plays.json';   // 2026-10-23: the kit plans' client keys → prefabs (tools/build-fx-plays.mjs)
 // 2026-10-10: the enemies' effect bindings and the bundles extracted for them (tools/local-extract/enemy_bindings.py)
 const ENEMY_MODES_URL = '/assets/local/fx/enemy-modes.json';
 const ENEMY_INDEX_URL = '/assets/local/fx/enemy-index.json';
@@ -188,6 +189,8 @@ let indexPromise = null;
 const loadIndex = () => (indexPromise ||= Promise.all([getJson(INDEX_URL), getJson(ENEMY_INDEX_URL)]).then(([a, b]) => mergeIndex(a, b)));
 let modesPromise = null;
 const loadModes = () => (modesPromise ||= getJson(MODES_URL));
+let playsPromise = null;
+const loadPlays = () => (playsPromise ||= getJson(PLAYS_URL));
 let enemyModesPromise = null;
 const loadEnemyModes = () => (enemyModesPromise ||= getJson(ENEMY_MODES_URL));
 
@@ -338,9 +341,10 @@ export function yuWallPieces(dir, tiles, midX) {
 }
 
 export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1, fieldRect = () => null, grid = () => null, enemyDef = () => null, unitDef = () => null, audio = () => null, standIn = () => {}, trace = null, dry = false }) {
-  let index = null, modes = null, emodes = null;
+  let index = null, modes = null, emodes = null, plays = null;
   if (typeof fetch === 'function') {
     loadIndex().then((i) => { index = i; }); loadModes().then((m) => { modes = m; });
+    loadPlays().then((p) => { plays = p && typeof p === 'object' ? p : null; });
     loadEnemyModes().then((m) => { emodes = m && typeof m === 'object' ? m : null; });
   }
   let mod = null, loading = null, failed = false;
@@ -2307,7 +2311,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function officialKitFx(e, views) {
     const o = e[4], opId = kitOperator(o, e[1]), op = views.get(opId), b = !failed && q() !== 'low' ? bundleOf(op) : null;
     const foe = views.get(o.id)?.info?.side === 'enemy';
-    const plan = b && isOp(op) ? kitOfficialPlan(e[1], o, b.bundle, { skill: skillIdx(op), back: faceBack(op), foe }) : null;
+    const plan = b && isOp(op) ? kitOfficialPlan(e[1], o, b.bundle, { skill: skillIdx(op), back: faceBack(op), foe, plays }) : null;
     if (!plan) return false;
     if (plan.skillFlag) (op._fxSkillFlags ||= new Set()).add(plan.skillFlag);   // until the skill ends (洛洛's overDrones)
     for (const tag of plan.stop) for (const l of live) if (l.tag === tag && l.owner === opId) l.inst.stop();
