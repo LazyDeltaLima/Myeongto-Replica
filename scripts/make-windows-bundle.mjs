@@ -45,9 +45,9 @@ const NODE_CACHE_DIR = path.join(ROOT, '.cache');
  * （并在 `--node-version` 的同时用 `--sha256` 显式覆盖）。
  */
 const NODE_PIN = Object.freeze({
-  version: 'v22.23.3',
-  file: 'node-v22.23.3-win-x64.zip',
-  sha256: '2b0ff57b049cda1bbcea2240eec20467018713c1efe1f7360c2681859b90ed71',
+  version: 'v22.23.4',
+  file: 'node-v22.23.4-win-x64.zip',
+  sha256: 'cbc74b5e0982c9dbb41525fd8fb5dcd32fbee237863f7829072f4639a1ce5f20',
 });
 
 /** 这几份不进版本库（npm / tools/setup.mjs 生成），但必须进包，否则游戏缺素材或缺前端库。 */

@@ -26,7 +26,7 @@ node tools/setup.mjs
 node scripts/make-windows-bundle.mjs                    # 产物默认在 <仓库上一级>/Stronghold-Protocol-Windows
 node scripts/make-windows-bundle.mjs --out D:\Game\Stronghold-Protocol-Windows --force
 node scripts/make-windows-bundle.mjs --no-node          # 目标机器已装 Node 22+ 时不必带便携 Node
-node scripts/make-windows-bundle.mjs --node-version v22.23.3 --sha256 <64 位十六进制>   # 换 Node 版本
+node scripts/make-windows-bundle.mjs --node-version v22.23.4 --sha256 <64 位十六进制>   # 换 Node 版本
 ```
 
 `--out` 请给一个**专用目录**（像上面那样指到某个父目录下的子目录）。加 `--force` 时只会删掉两种情况：
