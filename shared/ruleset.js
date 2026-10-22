@@ -244,7 +244,8 @@ export function optionsOfCustom(c) {
 
 /**
  * The official bond ban counts { core, addon } of a difficulty (config.json bans[difficulty]; an 8-seat room's:
- * config.eightPlayer.bans[difficulty] — shared/constants.js LARGE_SEATS), null when the config has none. The custom
+ * config.eightPlayer.bans[difficulty] when the config has it — shared/constants.js LARGE_SEATS; it has none, so the same
+ * table), null when the config has none. The custom
  * dialog's 「官方值」, its differences (customDiffs `base.bans`) and the summaries compare with it.
  * @param {any} config data/config.json @param {string} difficulty @param {number} [size] the room size (4 | 8)
  */

@@ -3993,8 +3993,8 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
       coopPoolMultiplier: 4,
       // item stock: the table × 2 (4 players: × 1)
       itemPoolMultiplier: 2,
-      // bonds drawn absent: NORMAL+ 1 core / 2 add-on (4 players: 3 / 4), FUNNY as the 4 players
-      bans: { FUNNY: { core: 0, addon: 1 }, NORMAL: { core: 1, addon: 2 }, HARD: { core: 1, addon: 2 }, ABYSS: { core: 1, addon: 2 } },
+      // bonds drawn absent: no key, so the 4-player bans of each difficulty — the doubled pool keeps every bond's odds
+      // (maintainer decision 2026-10-22; was 1 core / 2 add-on from NORMAL up). An eightPlayer `bans` would replace them.
       // boss overtime: 2 team LP per real second (4 players: 1) — twice the team LP drains in the same time
       bossOvertimeDrainPerSec: 2,
       // 隐秘核心: Σ activated layers > 2400, fixed (4 players: 1200; maintainer decision 2026-10-19)

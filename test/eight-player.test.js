@@ -31,14 +31,14 @@ describe('8-player numbers (config.eightPlayer)', () => {
     for (const id of items) assert.equal(g8.itemPoolCopies(id), g4.itemPoolCopies(id) * 2, id);
   });
 
-  test('bans 1 / 2 from NORMAL up, FUNNY 0 / 1; a custom count still wins', () => {
+  test('bans: the 4-player counts of each difficulty (3 / 4 from NORMAL up, FUNNY 0 / 1); a custom count still wins', () => {
     for (const d of ['NORMAL', 'HARD', 'ABYSS']) {
-      assert.deepEqual(big(d).bans(d), { core: 1, addon: 2 });
+      assert.deepEqual(big(d).bans(d), { core: 3, addon: 4 });
       assert.deepEqual(four(d).bans(d), { core: 3, addon: 4 });
     }
     assert.deepEqual(big('FUNNY').bans('FUNNY'), { core: 0, addon: 1 });
     const custom = new GameData(DATA, 'mode_multi_hard', { bonds: { banCore: 2, banAddon: null } }, { seats: LARGE_SEATS });
-    assert.deepEqual(custom.bans('HARD'), { core: 2, addon: 2 });
+    assert.deepEqual(custom.bans('HARD'), { core: 2, addon: 4 });
   });
 
   test('overtime 2 LP / s, 隐秘核心 > 2400 (fixed), leader HP up to 8 players, 12 机变 cards, 联防 up to 4 helpers', () => {
@@ -360,18 +360,16 @@ describe('8-player 联防 through the match', () => {
 });
 
 describe('8-player rooms × 규칙 모드: the custom settings compare with the 8-player official values', () => {
-  test('officialBans: an 8-seat room has 1 / 2 (FUNNY 0 / 1), every other room the 4-player table', async () => {
+  test('officialBans: an 8-seat room has the 4-player table (3 / 4, FUNNY 0 / 1)', async () => {
     const { officialBans, customDiffs } = await import('../shared/ruleset.js');
     const cfg = DATA.config;
-    assert.deepEqual(officialBans(cfg, 'HARD', LARGE_SEATS), { core: 1, addon: 2 });
+    assert.equal(cfg.eightPlayer.bans, undefined, 'no 8-player ban table (maintainer decision 2026-10-22)');
+    assert.deepEqual(officialBans(cfg, 'HARD', LARGE_SEATS), { core: 3, addon: 4 });
     assert.deepEqual(officialBans(cfg, 'FUNNY', LARGE_SEATS), { core: 0, addon: 1 });
     assert.deepEqual(officialBans(cfg, 'HARD', MAX_SEATS), { core: 3, addon: 4 });
     assert.deepEqual(officialBans(cfg, 'HARD'), { core: 3, addon: 4 });
-    const rules = { bonds: { banCore: 1, banAddon: 2 } };
-    assert.deepEqual(customDiffs(rules, { bans: officialBans(cfg, 'HARD', LARGE_SEATS) }), [], 'the 8-player official counts are no difference');
-    assert.deepEqual(customDiffs(rules, { bans: officialBans(cfg, 'HARD', MAX_SEATS) }), ['bonds.banCore', 'bonds.banAddon']);
-    assert.deepEqual(customDiffs({ bonds: { banCore: 3, banAddon: 4 } }, { bans: officialBans(cfg, 'HARD', LARGE_SEATS) }), ['bonds.banCore', 'bonds.banAddon'],
-      'the 4-player counts are a difference in an 8-seat room');
+    assert.deepEqual(customDiffs({ bonds: { banCore: 3, banAddon: 4 } }, { bans: officialBans(cfg, 'HARD', LARGE_SEATS) }), [], 'the 4-player counts are no difference in an 8-seat room');
+    assert.deepEqual(customDiffs({ bonds: { banCore: 1, banAddon: 2 } }, { bans: officialBans(cfg, 'HARD', LARGE_SEATS) }), ['bonds.banCore', 'bonds.banAddon']);
   });
 
   test('the room screen hides 「AI 队友最后选择」 in an 8-seat room (no AI seat)', async () => {

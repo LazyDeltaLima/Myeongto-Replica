@@ -666,8 +666,8 @@ export class GameData {
     };
   }
   /**
-   * The bonds drawn absent per match: config bans[difficulty] (an 8-player match: config.eightPlayer.bans[difficulty]),
-   * a custom count (not null) in its place.
+   * The bonds drawn absent per match: config bans[difficulty] (an 8-player match: config.eightPlayer.bans[difficulty]
+   * when the config has it — it has none, maintainer decision 2026-10-22), a custom count (not null) in its place.
    */
   bans(difficulty) {
     const lb = this.large?.bans;
