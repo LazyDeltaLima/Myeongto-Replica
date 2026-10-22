@@ -64,6 +64,7 @@ export const FX_KINDS = Object.freeze({
   chen3Qi: { a: 'wave', c: 0xff6a4a, r: 0.6 },
   kitHit: { a: 'none', c: 0xffffff }, // local patch: a kit's skill hit with no effect of its own — its sound only (audio.js kitHitKey)
   whitw2Drones: { a: 'none', c: 0x8fe6ff }, // local patch: 荒芜拉普兰德 S3 drone positions (the wolves, render/fxgame.js; nothing in the fallback)
+  buffProgress: { a: 'none', c: 0xdfe8ff }, // 2026-10-22: a buff's remaining share for its official effect (render/fxgame.js buffProgress)
   burnTiles: { a: 'none', c: 0xff7a33 }, // 烛煌 S2's burning tiles (render/fx/kitofficial.js; nothing in the fallback)
   // 予愿安洁莉娜 S3's flight on / off (sim kit op-aglna2.js): her body flies there itself — render/fxgame.js plays the official
   // trail, nothing in the fallback

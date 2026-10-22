@@ -504,6 +504,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (!mod) return;
         if (c) { own = !!def.swFace.oneShot; n = copy; def = c; }
       }
+      // 2026-10-22: its random group's pick, its owner's module variant (randomPick / equipVariant)
+      const pick = await randomPick(def, b.bundle, true);
+      if (pick) { n = pick.n; def = pick.def; }
+      const variant = await equipVariant(def, view, b.bundle);
+      if (!mod) return;
+      if (variant?.pause) { def = variant.def; }
       const anchor = lifted(ground, def, buff); // local patch: its _spawnLocation
       const fourWay = !copy && turns(view).has(n); // `_useFourDirectionalFace` (local patch, maintainer report 2026-10-07: 野鬃 S2 stood upright)
       const aimed = !copy && !!(aim && at && aimSet(view).has(names[i])); // 2026-10-10: attacker → target
@@ -518,7 +524,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const facing = def.face ? side : aimed ? aimFacing(null, def, aim, at) : turnOld || sided || unflip.has(names[i]) ? 1 : side;
       const sp = playSpeed(def.face, speed, gameRate()); // `_usePlaybackSpeed` 0 → 1.0; ≤ `_limitedPlaybackSpeed` ÷ the battle speed
       // local patch: cut at the ground the unit stands on (fxplayer.js floor — a tile's height, not a flyer's hover)
-      const inst = new mod.fxp.FxInstance(def, { quality: q(), facing, dir, body: facingDir(at && at.info ? at : view), speed: sp, split, floor: ground.z || 0, tilt: tiltOn(ground, def) });
+      const opts = { quality: q(), facing, dir, body: facingDir(at && at.info ? at : view), speed: sp, split, floor: ground.z || 0, tilt: tiltOn(ground, def) };
+      const inst = new mod.fxp.FxInstance(def, opts);
+      if (variant && !variant.pause) inst.adopt(new mod.fxp.FxInstance(variant.def, opts));
       if (turnOld) aimMover(inst, facingDir(view));
       if (aimed && !def.face) aimAlong(inst, aim, at);
       // its FxDelay / branch delays (inst.lead, effect seconds) come before its prefab's duration
@@ -531,6 +539,29 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       addLive(inst, { view: anchor, owner: view.id ?? view.info?.id, buff, onCaster: !at, until, tag, speed: sp, cast: own ? null : cast, backSw: backSwitch(def, at || view, b.bundle) }, split ? layers.split : buff || !at ? layers.under : layers.over);
       trimLive();
     }
+  }
+
+  // ---- EmitterRandomGroup · SwitchableWhenContainsEquipment (2026-10-22, effect bundle J; docs/rules/fx.md 「애니메이터 상태」)
+  // fx_extract.py random_group `rgroup` (迷迭香 S3's hits): as it plays, the effect stays itself with probability 1 / (n + 1)
+  // (`self`), else one of `pick` at random takes its place (the client pauses and finishes it, creating the pick on its
+  // owner); nothing without an owner unless `noOwner` / `mainPos`. equip_effects `equipFx` (莫斯提马 S2's ranges): with its
+  // owner carrying the module of a hook, that hook's effect plays with it (`pause`: instead of it) and ends with it — the
+  // owner's module level is not known here; every hook in the clients lists all three levels [추정: any level].
+  /** The def `def` plays as (its random pick, loaded) — { n, def } — or null (itself). */
+  async function randomPick(def, bundle, owned) {
+    const g = def?.rgroup;
+    if (!g || !Array.isArray(g.pick) || !g.pick.length || (!owned && !g.noOwner && !g.mainPos)) return null;
+    if (g.self && Math.random() < 1 / (g.pick.length + 1)) return null;
+    const n = g.pick[Math.floor(Math.random() * g.pick.length)];
+    const d = index?.bundles?.[bundle]?.includes(n) ? await lib.load(bundle, n) : null;
+    return d ? { n, def: d } : null;
+  }
+  /** The module variant of `def` for its owner `owner` (a view), loaded: { def, pause } or null. */
+  async function equipVariant(def, owner, bundle) {
+    const e = def?.equipFx, mid = owner?.info?.moduleId || owner?.info?.diy?.uniEquipId;
+    const h = e && mid ? (e.hooks || []).find((x) => x[0] === mid) : null;
+    const d = h && index?.bundles?.[bundle]?.includes(h[2]) ? await lib.load(bundle, h[2]) : null;
+    return d ? { def: d, pause: !!e.pause } : null;
   }
 
   // ---- SwitchableEffectByFaceDirection (2026-10-22, decompile check; docs/rules/fx.md 「이펙트 방향」) ------------------
@@ -691,7 +722,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         }
       } else if (pz.k === 'finishIf' && !inst.stopping) {
         const gone = l.owner != null && (!v || v.alive === false || v.remove);
-        const clipEnd = r.animEnd && inst.clips?.length && !inst.clipLoops && inst.time >= inst.clipLen;
+        const clipEnd = r.animEnd && inst.animEnded;
         if ((r.ownerGone && gone) || clipEnd) inst.stop();
       }
     }
@@ -1754,7 +1785,35 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (m.inst.time > 6) m.inst.time = 1;   // the prefab lasts 7 s: keep the wolf for the whole skill
     }
   }
-  function endWolves(id) { wolves.delete(id); }
+  // 2026-10-22 (effect bundle J, decompile check): her skill's end detaches the funnels — Whitw2Skill3FunnelRangedAttack.
+  // OnDetached (10-14 dump RVA 0xBFFC90) sets each funnel projectile's `_mainEffect` Animator int 'OnEnd' = 1 (the trail's
+  // s3_idle → s3_end01) and the projectiles stop (FinishMe: gone its `_delayToFinish` 0.35 s later); `fade` false (she
+  // left the field): they are already gone with her
+  /**
+   * 2026-10-22 (effect bundle J): kit fx 'buffProgress' { id, key, r } — the remaining share `r` of operator `id`'s buff `key`
+   * (纯烬艾雅法拉 S2's barrier agoat2_s_2[shield]: what it can still absorb ÷ its pool), which her effects' BuffProgressFloatSource
+   * reads every frame (fx_extract.py `animSrc` → FxInstance.setBuffProgress: the range's level 2 / 1 / 0).
+   */
+  function buffProgress(o) {
+    if (o.id == null || typeof o.key !== 'string') return;
+    for (const l of live) {
+      if ((l.owner === o.id || l.view?.id === o.id) && l.inst.def?.animSrc?.some((s) => s.buff === o.key)) l.inst.setBuffProgress(o.key, o.r);
+    }
+  }
+  function endWolves(id, fade = true) {
+    const w = wolves.get(id);
+    wolves.delete(id);
+    if (!fade) return;
+    for (const m of w?.list || []) {
+      const l = live.find((x) => x.inst === m.inst);
+      if (!l || m.inst.stopping) continue;
+      m.inst.setParam('OnEnd', 1);
+      l.buff = false;   // not ended at once with her loops (stopBuffs)
+      const fin = Number(m.inst.def?.finish);
+      m.inst.stop(false);
+      l.finishAt = clockS + (fin > 0 ? fin : 0);
+    }
+  }
 
   // ---- 丰川祥子's notes (see the header) ----
   const NOTE_Z = 0.35;           // flight height over the ground (tiles)
@@ -1880,7 +1939,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (trace) trace({ kind: 'spawn', names: [name], by: entry.owner ?? null, on: at && at.info ? ownerOf(at) ?? null : null, tag: entry.tag ?? null, facing }); // tests
     if (dry) dryFollow(bundle, name, entry.owner ?? null, at && at.info ? ownerOf(at) ?? null : null);
     if (!(await ensure())) return null;
-    const def = await lib.load(bundle, name);
+    let def = await lib.load(bundle, name);
+    const pick = await randomPick(def, bundle, entry.owner != null || !!at?.info);   // 2026-10-22: its random group's pick
+    if (pick) def = pick.def;
     if (!mod || !def) return null;
     if (entry.until != null && entry.until <= clockS) return null; // 2026-10-10: its end passed while it loaded
     if (entry.owner != null && gone.has(entry.owner) && (entry.buff || entry.onCaster)) return null;
@@ -2936,7 +2997,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     'billro_skill_02_buff_01_02', 'billro_skill_02_buff_02', 'billro_skill_03_buff_01_01', 'billro_skill_03_buff_01_01_02',
     'billro_skill_03_buff_01_02', 'billro_skill_03_buff_02_01', 'billro_skill_03_buff_02_02', 'mudrok_skill_03_awake',
     'mudrok_skill_03_awake_02', 'mudrok_skill_03_sleep', 'mudrok_skill_03_range', 'mudrok_skill_03_buff', 'mudrok_skill_03_buff_02',
-    'angel2_skill_3_begin_range_01']);
+    'angel2_skill_3_begin_range_01', 'agoat2_skill_02_range_01']);
   /** What a skill activation plays on the caster (fxmap.js activationEffects: { start, loops }). */
   const activation = (v) => {
     const b = bundleOf(v), em = emittedIn(b.bundle);
@@ -4396,7 +4457,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           }
           // local patch (maintainer 2026-10-07: the buffs / range stayed ~1 s after the skill): its loops end with it, at once
           // (and the marks it left on its targets: 戴菲恩 S3's hit_1)
-          else { v._fxSkillOn = false; v._fxSkillFlags?.clear(); stopBuffs(v.id ?? v.info.id, true); endWolves(v.id ?? v.info.id); }
+          else { v._fxSkillOn = false; v._fxSkillFlags?.clear(); endWolves(v.id ?? v.info.id); stopBuffs(v.id ?? v.info.id, true); }
           droneIdle(v);   // 2026-10-16: the drones of the mode now
           defaultModeFx(v);   // 2026-10-21: the Default mode's own effects, off while a skill switched her mode
           return;
@@ -4517,6 +4578,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'parry' && e[4]) { parryFx(e, views); return; }
           if (e[1] === 'burst' && e[4]?.element) { if (burstFx(e, views)) ownFx.add(e); return; }
           if (e[1] === 'whitw2Drones' && e[4]) { wolfFx(e); return; }
+          if (e[1] === 'buffProgress' && e[4]) { buffProgress(e[4]); ownFx.add(e); return; }
           // 2026-10-16: 伺夜's wolf pack (its count, its gift)
           if (['summon', 'revive', 'wolfShadow', 'wolfShadowLost', 'wolfCount', 'wolfTacEnd', 'buff'].includes(e[1]) && packEvent(e, views)) ownFx.add(e);
           // 2026-10-16: 荒芜拉普兰德's 头狼 stage (stage 3: one more drone — droneIdle)
@@ -4556,7 +4618,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           return;
         }
         case 'die': {
-          stopOwned(e[1]); endWolves(e[1]); for (const l of live) if (l.on === e[1]) l.inst.stop(true); // local patch: marks on it
+          stopOwned(e[1]); endWolves(e[1], false); for (const l of live) if (l.on === e[1]) l.inst.stop(true); // local patch: marks on it
           // 蕾缪安 knocked out / withdrawn mid-S3: no shells follow (kit onEnd 'death'), so her locks' marks end with her
           // (they are owned by their targets)
           const lm = lemMarks.get(e[1]);

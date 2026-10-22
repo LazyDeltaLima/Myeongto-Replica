@@ -48,6 +48,10 @@ export const KIT_OFFICIAL = {
   },
   // 号角 S2 / S3 过载 (horn_s_2 / horn_s_3[overload_switch_effect]: INFINITY derived buffs of the skill — _back when her
   // default direction is UP, else _front — CheckCharacterDefaultDirection)
+  // 纯烬艾雅法拉 S2 云霭荫佑 (2026-10-22): the barrier is the buff agoat2_s_2[shield] for its `duration` (kits/ops agoat2 'shield'
+  // { duration }); its effect agoat2_skill_02_range_01 lives with it — the instant skill's activation window (~1 s) ended it.
+  // Its level follows what the barrier can still absorb (fxgame.js buffProgress)
+  shield: { agoat2: (o) => ({ play: [{ n: 'agoat2_skill_02_range_01', on: 'op', life: Math.max(0.1, Number(o.duration) || 12) }] }) },
   overload: {
     horn: (o, c) => {
       const base = c.skill === 1 ? 'horn_skill_02_buff_03' : c.skill === 2 ? 'horn_skill_03_buff_02_03' : null;

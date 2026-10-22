@@ -10948,6 +10948,7 @@
   ],
   "roster-048": [
    "- spawn agoat2_skill_02_hit_01 → enemy",
+   "- spawn agoat2_skill_02_range_01 → ally",
    "- spawn blkkgt_skill_02_hit_1 → enemy",
    "- spawn dusk_skill_01_hit → enemy",
    "- spawn dusk_skill_01_hit_02 → enemy",
@@ -10971,7 +10972,6 @@
    "- status pasngr_beidong_buff_01 → enemy",
    "char_1016_agoat2 attackHit agoat2_attack_hit_01 → ally",
    "char_1016_agoat2 attackStart agoat2_attack_start_01",
-   "char_1016_agoat2 skillBuff agoat2_skill_02_range_01",
    "char_1016_agoat2 skillStart agoat2_skill_02_range_start_01+agoat2_skill_02_start_01+agoat2_skill_02_start_02",
    "char_1016_agoat2 spawn:born agoat2_birth_01 → self",
    "char_1023_ghost2 attackHit ghost2_attack_hit → foe",

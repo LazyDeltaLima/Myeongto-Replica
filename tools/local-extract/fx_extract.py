@@ -55,6 +55,7 @@ ANIMATED_VALUES = {
     198: {p: 'ps:' + p for p in (   # ParticleSystem
         'EmissionModule.rateOverTime.scalar', 'EmissionModule.rateOverTime.minScalar', 'ShapeModule.radius.value',
         'SizeModule.curve.scalar', 'InitialModule.gravityModifier.scalar', 'looping',
+        'simulationSpeed',   # (2026-10-22, effect bundle J) 纯烬艾雅法拉 S2 range's level clips
         *(f'InitialModule.startColor.maxColor.{c}' for c in 'rgba'), *(f'TrailModule.colorOverLifetime.maxColor.{c}' for c in 'rgba'))},
     96: {'m_Time': 'trail:time'},   # TrailRenderer
     23: {'m_Enabled': 'mr:enabled'},   # MeshRenderer
@@ -115,6 +116,24 @@ SWITCH_FACE_SCRIPT = -4364771506185570144
 THREE_FACE_SCRIPT = 5365557655193992920
 RANDOM_DIRECTION_SCRIPT = 1115230818793786687
 FOLLOW_TILE_HEIGHT_SCRIPT = 2994498389723426252
+# (2026-10-22, decompile check) the MonoScript PathIDs of the scripts that drive an Animator at the effect's finish / play
+# (anim_scripts, `animFin` / `animSrc`), and of EmitterRandomGroup (random_group, `rgroup`) and SwitchableWhenContainsEquipment
+# (equip_effects, `equipFx`)
+TRIGGER_WHEN_FINISH_SCRIPT = 4957269727245382446
+ON_FINISH_ANIME_SCRIPT = -7571717170868447701
+SWITCH_STATE_WHEN_FINISH_SCRIPT = -1577373638081991986
+TRIGGER_ON_EVENT_SCRIPT = -7693528729676623236
+TRIGGER_BY_CONDITION_SCRIPT = 70527413319701124
+AURA_TRIGGER_SCRIPT = -2505866108626100628
+SET_FLOAT_SCRIPT = 295235635984623506
+BUFF_PROGRESS_SCRIPT = -5165147848620574582
+RANDOM_GROUP_SCRIPT = -3960942007169782850
+EQUIP_SWITCH_SCRIPT = 1228563541688412297
+# Mecanim's parameter types (AnimatorControllerParameterType) and condition modes (AnimatorConditionMode; 5 = the exit time
+# itself, never stored as a condition)
+PARAM_TYPES = {1: 'float', 3: 'int', 4: 'bool', 9: 'trigger'}
+PARAM_VALUES = {1: 'm_FloatValues', 3: 'm_IntValues', 4: 'm_BoolValues', 9: 'm_BoolValues'}
+COND_MODES = {1: 'if', 2: 'ifnot', 3: 'gt', 4: 'lt', 6: 'eq', 7: 'ne'}
 # Torappu.Battle.AbnormalFlag by value (10-14 EN dump; E_NUM = 44 means "no flag"). A value past the list (the CN client's
 # newer flags) stays a number.
 ABNORMAL_FLAGS = ('STUNNED', 'SP_RECOVER_STOPPED', 'TARGET_FREE', 'BLOCK_FREE', 'HIDDEN', 'INVINCIBLE', 'UNDEADABLE', 'HEAL_FREE',
@@ -611,7 +630,8 @@ def source_of(index, bundle, name):
 def set_emitted(index, bundle, out=OUT):
     """(2026-10-21) record in `index['emitted'][bundle]` the bundle's prefabs another of its prefabs creates (its nodes'
     OnPlayEmitter `onPlay` / OnFinishEmitter `onFinish`, its root's SwitchableBackEffect `back` — 远牙 S3's
-    fartth_skill_03_buff_02_B —, and (2026-10-22) its face switches' copies `swFace` / `three`): render/fxgame.js's name
+    fartth_skill_03_buff_02_B —, and (2026-10-22) its face switches' copies `swFace` / `three`, its random group's picks `rgroup`
+    and its module variants `equipFx`): render/fxgame.js's name
     rules leave them to their emitter. Read from the extracted files, so it holds after any partial extraction; the key
     goes when there are none."""
     listed = set(index['bundles'].get(bundle, []))
@@ -626,6 +646,9 @@ def set_emitted(index, bundle, out=OUT):
             names.add(back)
         for k in ('swFace', 'three'):
             names.update(v for v in (d.get(k) or {}).values() if isinstance(v, str) and v in listed)
+        # (2026-10-22) the random group's picks and the module variants
+        names.update(v for v in (d.get('rgroup') or {}).get('pick') or [] if v in listed)
+        names.update(h[2] for h in (d.get('equipFx') or {}).get('hooks') or [] if h[2] in listed)
         for nd in d.get('nodes') or []:
             for k in ('onPlay', 'onFinish'):
                 names.update(e for e in (nd.get(k) or {}).get('effects') or [] if e in listed)
@@ -1081,9 +1104,9 @@ class Extractor:
         for k, t in self.sub_delays(root, gos).items():
             nodes[k]['sdelay'] = t
         spawn = self.spawn_location(root)
-        clips = []
+        clips, sms = [], []
         for aidx, anim in animators:
-            clips.extend(self.animator_clips(anim, aidx, nodes, paths, mats))
+            clips.extend(self.animator_clips(anim, aidx, nodes, paths, mats, len(clips), sms))
         dur = 0
         for n in nodes:
             ps = n.get('ps')
@@ -1092,9 +1115,19 @@ class Extractor:
                 lmax = max(life.get('s', 0), life.get('n', 0)) if life.get('m') in (0, 3) else max([k[1] for k in life.get('c', [[0, 1]])] or [1]) * life.get('s', 1)
                 dly = (ps['delay'] or {}).get('s', 0)
                 dur = max(dur, dly + (ps['dur'] if not ps['loop'] else 2) + lmax)
-        for c in clips:
-            dur = max(dur, c['len'])
+        first = {sm['states'][sm['def']]['clip'] for sm in sms}
+        for i, c in enumerate(clips):
+            if 'sm' not in c or i in first:   # a state machine's other states play only when something switches to them
+                dur = max(dur, c['len'])
         out_def = {'version': 1, 'name': nodes[0]['name'], 'duration': r4(min(dur, 10)), 'nodes': nodes, 'materials': mats, 'clips': clips}
+        if sms:
+            out_def['sms'] = sms
+            for key, v in self.anim_scripts(root, nodes, sms).items():
+                out_def[key] = v
+        for key, read in (('rgroup', self.random_group), ('equipFx', self.equip_effects)):
+            v = read(root)
+            if v:
+                out_def[key] = v
         if spawn is not None:
             out_def['spawn'] = spawn
         mount = self.mount_point(root)
@@ -2486,7 +2519,76 @@ class Extractor:
         v = w[:3] + w[3 + words - 7:]   # 8: skip `_pauseWhenFollowScaleNearlyZero`; 9 (CN): a float and that int
         return dict(zip(MOUNT_FIELDS, v))
 
-    def animator_clips(self, anim, aidx, nodes, paths, mats):
+    def state_machine(self, ct):
+        """(2026-10-22, effect bundle J) the controller's first layer as { def, states: [{ name, clip (index into its
+        m_AnimationClips or None), speed? }], params: { name: [type, default] }, trans: [{ from (state, -1 = any state), to,
+        dur, norm? (a duration in the source state's normalized time), exit? (the exit time, when it has one), offset?,
+        cond?: [[param, mode, threshold]] }] } — any-state transitions first (Mecanim checks them first), then each state's
+        in the order the controller lists them. A second layer, a blend tree of more than one clip, a speed parameter or a
+        transition out of the state machine is not read (the report says so). None without a layer."""
+        c = ct.get('m_Controller') or {}
+        tos = {int(k): v for k, v in ct.get('m_TOS') or []}
+        layers = c.get('m_LayerArray') or []
+        if not layers:
+            return None
+        if len(layers) > 1:
+            self.cov.clip('Animator layers past the first')
+        sm = c['m_StateMachineArray'][layers[0]['data']['m_StateMachineIndex']]['data']
+        sts = [s['data'] for s in sm.get('m_StateConstantArray') or []]
+        states = []
+        for s in sts:
+            clip = None
+            for bt in s.get('m_BlendTreeConstantArray') or []:
+                bn = bt['data']['m_NodeArray']
+                if len(bn) > 1:
+                    self.cov.clip('Animator blend tree')
+                if bn and bn[0]['data']['m_ClipID'] != 0xFFFFFFFF:
+                    clip = bn[0]['data']['m_ClipID']
+            st = {'name': tos.get(s['m_NameID'], ''), 'clip': clip}
+            if s.get('m_Speed', 1) != 1:
+                st['speed'] = r4(s['m_Speed'])
+            if s.get('m_SpeedParamID') or s.get('m_TimeParamID'):
+                self.cov.clip('Animator state speed / time parameter')
+            states.append(st)
+        dv = (c.get('m_DefaultValues') or {}).get('data') or {}
+        params = {}
+        for v in (c.get('m_Values') or {}).get('data', {}).get('m_ValueArray') or []:
+            t = PARAM_TYPES.get(v['m_Type'])
+            if t is None:
+                continue
+            arr = dv.get(PARAM_VALUES[v['m_Type']]) or []
+            x = arr[v['m_Index']] if v['m_Index'] < len(arr) else 0
+            params[tos.get(v['m_ID'], str(v['m_ID']))] = [t, bool(x) if t in ('bool', 'trigger') else (r4(x) if t == 'float' else int(x))]
+
+        def tr(t, frm):
+            t = t['data']
+            if t['m_DestinationState'] >= len(states):
+                self.cov.clip('Animator transition out of the state machine')
+                return None
+            out = {'from': frm, 'to': t['m_DestinationState'], 'dur': r4(t['m_TransitionDuration'])}
+            if not t.get('m_HasFixedDuration', True):
+                out['norm'] = True
+            if t.get('m_HasExitTime'):
+                out['exit'] = r4(t['m_ExitTime'])
+            if t.get('m_TransitionOffset'):
+                out['offset'] = r4(t['m_TransitionOffset'])
+            cond = [[tos.get(x['data']['m_EventID'], str(x['data']['m_EventID'])), COND_MODES[x['data']['m_ConditionMode']],
+                     r4(x['data']['m_EventThreshold'])] for x in t.get('m_ConditionConstantArray') or []
+                    if x['data']['m_ConditionMode'] in COND_MODES]
+            if cond:
+                out['cond'] = cond
+            return out
+        trans = [tr(t, -1) for t in sm.get('m_AnyStateTransitionConstantArray') or []]
+        trans += [tr(t, i) for i, s in enumerate(sts) for t in s.get('m_TransitionConstantArray') or []]
+        return {'def': min(sm.get('m_DefaultState', 0), max(0, len(states) - 1)), 'states': states, 'params': params,
+                'trans': [t for t in trans if t]}
+
+    def animator_clips(self, anim, aidx, nodes, paths, mats, at=0, sms=None):
+        """The Animator's clips as tracks over the prefab's nodes. (2026-10-22, effect bundle J) one state: that state's clip
+        (it was m_AnimationClips[0], which in 22 of the 26 controllers with more clips is not the default state's — 에이야퍄들라
+        더 크비트 아스카 S2's range played its level 2); more states: every clip a state plays, each with `sm` = the index of
+        the controller's state_machine in `sms` (appended here, with `node` = the Animator's node and each state's `clip`
+        as an index into the prefab's `clips`, which start at `at`)."""
         if anim.type.name == 'Animation':
             return self.legacy_clips(anim, aidx, paths)
         a = anim.read_typetree()
@@ -2502,9 +2604,17 @@ class Extractor:
                 continue
             rp = p[len(base) + 1:] if base and p != base else ('' if p == base else p)
             rel[crc32(rp)] = i
-        if len(ct.get('m_AnimationClips') or []) > 1:
-            self.cov.clip('Animator clips past the first (other states: set by client scripts)')
-        for cp in ct.get('m_AnimationClips', [])[:1]:  # the default state's clip
+        acl = ct.get('m_AnimationClips') or []
+        sm = self.state_machine(ct)
+        if sm and len(sm['states']) > 1 and sms is not None:
+            order = list(dict.fromkeys(s['clip'] for s in sm['states'] if s['clip'] is not None and s['clip'] < len(acl)))
+        else:
+            d = sm['states'][sm['def']]['clip'] if sm and sm['states'] else None
+            order = [d] if d is not None and d < len(acl) else list(range(min(1, len(acl))))
+            sm = None
+        made = {}   # controller clip index -> index in clips_out
+        for k in order:
+            cp = acl[k]
             co = self.resolve(cp, ctrl)
             if co is None:
                 continue
@@ -2534,8 +2644,136 @@ class Extractor:
                 elif prop.startswith('attr:') and not (tid == 1 and attr == crc32('m_IsActive')):
                     self.cov.clip(self.binding_name(b, node, nodes[node]))
                 ci += n
+            made[k] = len(clips_out)
             clips_out.append({'name': clip['m_Name'], 'len': length, 'loop': bool(clip.get('m_MuscleClip', {}).get('m_LoopTime', 0)), 'tracks': tracks})
+        if sm:
+            for c in clips_out:
+                c['sm'] = len(sms)
+            for s in sm['states']:
+                s['clip'] = at + made[s['clip']] if s['clip'] in made else -1
+            sm['node'] = aidx
+            sms.append(sm)
         return clips_out
+
+    def anim_scripts(self, root, nodes, sms):
+        """(2026-10-22, effect bundle J; decompile check, 10-14 EN dump) the root's scripts that drive one of the prefab's
+        state machines (`sms`) — at the effect's finish (Effect.FinishMe → each behaviour's OnFinish) `animFin`: [{ sm, p, v,
+        rec? }] sets parameter `p` to `v` (a trigger: true), or [{ sm, play }] plays state `play` at once (Animator.Play) — `rec`:
+        only when the effect waits before it is recycled (`delayToRecycle` > 0, the root's `finish`):
+        - TriggerAnimatorWhenFinish (`OnFinish` 0xEB6980, `Awake` 0xEB68C0: GetComponent<Animator>): the trigger `_customKey`,
+          or 'OnFinish' (the static `s_finishTrigger`, `.cctor` 0xEB6B10), `rec`;
+        - OnFinishAnime (`Init` 0xE8F700: GetComponentInChildren<Animator> — the first under the root, active; `OnFinish`
+          0xE8F7F0): `_isTrigger` → SetTrigger(`_triggerName`), else `_isInt` → SetInteger(name, `_triggerValue` ? 1 : 0),
+          else SetBool(name, `_triggerValue`);
+        - SwitchAnimatorStateWhenFinish (`OnFinish` 0xEB2760, `Awake` 0xEB26E0: GetComponent<Animator>): Play(`_stateName`), `rec`;
+        - SetAnimatorTriggerOnEvent (`OnFinish` 0xE97C90; `OnPlay` 0xE97D10 only Rebinds): `_event` ON_FINISH (0) →
+          SetTrigger(`_animatorTriggerName`);
+        - SetAnimatorTriggerByCondition (`_UpdateAnimator` 0xE8AF70: SetTrigger(its source's value) when it changes and is not
+          empty) with an AuraProjectileSetAnimatorTrigger source (`GetValue` 0xE75200: `_triggerKey` once `SetTriggerValue`
+          0xE75270, else `_defaultKey`): `aura` — set when the aura projectile stops (ScalableAuraHitBehaviour.OnProjectileStop
+          0xA84170: ThrowEffect — only re-parented, 0x3985560 — then SetTriggerValue instead of FinishMe), the moment
+          render/fxgame.js zoneFx ends the aura (引星棘刺 S2).
+        And `animSrc`: [{ sm, p, int, buff, max, prog, def, fin, curve }] — SetAnimatorFloatByCondition (`OnPlay` 0xE8A600:
+        the source's GetValueOnPlay; `Update` 0xE8A740: GetValue, set when it changed; SetInteger of the truncated value with
+        `_isInt`, else SetFloat) with a BuffProgressFloatSource (`GetValueOnPlay` 0xE768B0 = `_defaultVal`; `GetValue` 0xE76910:
+        `_finishedVal` once finished, else `_curve`(GetBlackboardProgress 0xE76660: the owner's first buff `_buffKey`, its
+        blackboard `_progressKey` ÷ `_maxKey` clamped to [0, 1]); curve keys [time, value, inSlope, outSlope]).
+        A script on another node than the root, or on an Animator with one state (nothing to switch), is left out."""
+        by_node = {sm['node']: k for k, sm in enumerate(sms)}
+
+        def live(i):
+            while i >= 0:
+                if nodes[i].get('active') is False:
+                    return False
+                i = nodes[i]['parent']
+            return True
+        # GetComponentInChildren: the first in depth-first order (the node order) — only a state machine counts, an
+        # Animator with one state ahead of it would take the trigger and switch nothing [추정: none in the clients]
+        child = next((by_node[i] for i in sorted(by_node) if live(i)), None)
+        own = by_node.get(0)
+        fin, src, sources = [], [], []
+        by_cond = aura = None
+        for sid, _raw, t in self.monos(root):
+            if t is None or t.get('m_Enabled') == 0:
+                continue
+            if sid == TRIGGER_WHEN_FINISH_SCRIPT and own is not None:
+                fin.append({'sm': own, 'p': t.get('_customKey') or 'OnFinish', 'v': True, 'rec': True})
+            elif sid == ON_FINISH_ANIME_SCRIPT and child is not None:
+                name, v = t.get('_triggerName') or '', bool(t.get('_triggerValue'))
+                fin.append({'sm': child, 'p': name, 'v': True if t.get('_isTrigger') else (int(v) if t.get('_isInt') else v)})
+            elif sid == SWITCH_STATE_WHEN_FINISH_SCRIPT and own is not None:
+                names = [s['name'] for s in sms[own]['states']]
+                if t.get('_stateName') in names:
+                    fin.append({'sm': own, 'play': names.index(t['_stateName']), 'rec': True})
+            elif sid == TRIGGER_ON_EVENT_SCRIPT and own is not None and t.get('_event', 0) == 0:
+                fin.append({'sm': own, 'p': t.get('_animatorTriggerName') or '', 'v': True})
+            elif sid == SET_FLOAT_SCRIPT and own is not None:
+                src.append((t, own))
+            elif sid == TRIGGER_BY_CONDITION_SCRIPT and own is not None:
+                by_cond = True
+            elif sid == AURA_TRIGGER_SCRIPT and t.get('_triggerKey'):
+                aura = t['_triggerKey']
+            elif sid == BUFF_PROGRESS_SCRIPT:
+                sources.append(t)
+        if by_cond and aura:   # [추정: its `_source` is that aura source — `_autoFindSource` on the one prefab]
+            fin.append({'sm': own, 'p': aura, 'v': True, 'aura': True})
+        out = {}
+        if fin:
+            out['animFin'] = fin
+        # a curve key's infinite tangent (a stepped key) as null: JSON has no Infinity
+        slope = lambda v: r4(v) if isinstance(v, (int, float)) and math.isfinite(v) else None
+        for t, k in src:
+            s = sources[0] if len(sources) == 1 else None   # the root's one source: what `_source` points at [추정 when more]
+            if s is None:
+                self.cov.clip('SetAnimatorFloatByCondition without one BuffProgressFloatSource')
+                continue
+            curve = [[r4(x['time']), r4(x['value']), slope(x['inSlope']), slope(x['outSlope'])] for x in (s.get('_curve') or {}).get('m_Curve') or []]
+            out.setdefault('animSrc', []).append({'sm': k, 'p': t.get('_paramName') or '', 'int': bool(t.get('_isInt')),
+                                                  'buff': s.get('_buffKey') or '', 'max': s.get('_maxKey') or '',
+                                                  'prog': s.get('_progressKey') or '', 'def': r4(s.get('_defaultVal') or 0),
+                                                  'fin': r4(s.get('_finishedVal') or 0), 'curve': curve})
+        return out
+
+    def random_group(self, root):
+        """(2026-10-22, effect bundle J; decompile check, 10-14 EN dump) the root's EmitterRandomGroup `rgroup`: { pick, self?,
+        noOwner?, keep?, mainPos? } — at play (`OnPlay` 0xE7E0A0 → `_PickOneEmitter` 0xE7E180): without an owner and neither
+        `_dontCheckOwner` (`noOwner`) nor `_useMainEffectPos` (`mainPos`), nothing; else, unless `_selfExcluded`, with probability
+        1 / (n + 1) (BattleController.randomTrivial) the effect stays itself (`self`); otherwise it pauses itself, creates
+        Uniform(`_effectPickFrom`) (`pick`) on its owner (at its own position without one, with `mainPos`) and — unless
+        `_finishEffectWhenSelfFinish` (`keep`: `OnFinish` 0xE7DE60 then finishes the created ones) — finishes itself."""
+        for sid, _raw, t in self.monos(root):
+            if sid != RANDOM_GROUP_SCRIPT or t is None or t.get('m_Enabled') == 0:
+                continue
+            pick = [x for x in t.get('_effectPickFrom') or [] if x]
+            if not pick:
+                return None
+            out = {'pick': pick}
+            for k, f in (('noOwner', '_dontCheckOwner'), ('keep', '_finishEffectWhenSelfFinish'), ('mainPos', '_useMainEffectPos')):
+                if t.get(f):
+                    out[k] = True
+            if not t.get('_selfExcluded'):
+                out['self'] = True
+            return out
+        return None
+
+    def equip_effects(self, root):
+        """(2026-10-22, effect bundle J; decompile check, 10-14 EN dump) the root's SwitchableWhenContainsEquipment `equipFx`:
+        { hooks: [[uniEquipId, level, effect]], pause? } — at play (`OnPlay` 0xEB4820 → `_TrySpawnHookEffect` 0xEB4B60): when
+        the owner (a Character) has the module `uniEquipId` at `level` (CharacterData's current UniqueEquipPair), the hook's
+        effect is created on it (BattleController.CreateEffect, its faceVector) and, with `_pauseWhenSwitch` (`pause`), this
+        one pauses; `OnFinish` (0xEB46F0) finishes the created one. Without hooks (the variants themselves): None."""
+        for sid, _raw, t in self.monos(root):
+            if sid != EQUIP_SWITCH_SCRIPT or t is None or t.get('m_Enabled') == 0:
+                continue
+            hooks = [[h['equipmentPair']['key'], int(h['equipmentPair']['level']), h['hookEffectKey']]
+                     for h in t.get('_equipmentEffectHookSchemas') or [] if h.get('hookEffectKey')]
+            if not hooks:
+                return None
+            out = {'hooks': hooks}
+            if t.get('_pauseWhenSwitch'):
+                out['pause'] = True
+            return out
+        return None
 
     def binding_name(self, b, node, nd=None):
         """(2026-10-16, fx_coverage) a Mecanim binding no track takes, named: a material property the bound renderer's

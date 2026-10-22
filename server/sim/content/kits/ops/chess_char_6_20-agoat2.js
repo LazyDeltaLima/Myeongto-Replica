@@ -46,7 +46,8 @@ function agoat2(bb, chess, def) {
         }
         const S = bstate(battle);
         S.agoatVeils ??= [];
-        S.agoatVeils.push({ keys: new Set(unit.rangeKeys || []), pool: unit.s.atk * bv(bb, 'atk_scale', 5), until: battle.time + num(bb.duration, 12), src: unit });
+        const pool = unit.s.atk * bv(bb, 'atk_scale', 5);
+        S.agoatVeils.push({ keys: new Set(unit.rangeKeys || []), pool, pool0: pool, r: 1, until: battle.time + num(bb.duration, 12), src: unit });
         battle.fx('shield', { x: unit.x, y: unit.y, id: unit.id, duration: num(bb.duration, 12) });
         if (!S.agoatVeilHook) {
           S.agoatVeilHook = true;
@@ -61,6 +62,14 @@ function agoat2(bb, chess, def) {
               if (!(eff > 0)) return;
               const take = Math.min(v.pool, eff);
               v.pool -= take;
+              // what the barrier can still absorb, in hundredths (rounded up: any left counts) — the render's level of its
+              // effect (the client's BuffProgressFloatSource reads the buff's blackboard `value` ÷ `dynamic`; render/fxgame.js
+              // buffProgress)
+              const r = v.pool0 > 0 ? Math.ceil((v.pool / v.pool0) * 100 - 1e-9) / 100 : 0;
+              if (r !== v.r) {
+                v.r = r;
+                battle.fx('buffProgress', { x: v.src.x, y: v.src.y, id: v.src.id, key: 'agoat2_s_2[shield]', r });
+              }
               if (take >= eff - 1e-9) { d.cancel = true; return; }
               d.mul *= (eff - take) / eff;
             }

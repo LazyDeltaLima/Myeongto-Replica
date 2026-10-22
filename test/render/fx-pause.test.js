@@ -97,7 +97,8 @@ function harness() {
 }
 const entry = (name, owner, pausers = [], extra = {}) => ({
   owner, paused: false,
-  inst: { def: { name }, pausers, stopping: false, done: false, time: 0, clips: [], clipLoops: false, clipLen: 0, object: { visible: true }, stop() { this.stopping = true; } },
+  inst: { def: { name }, pausers, stopping: false, done: false, time: 0, clips: [], clipLoops: false, clipLen: 0, object: { visible: true }, stop() { this.stopping = true; },
+    get animEnded() { return !!this.clips.length && !this.clipLoops && this.time >= this.clipLen; } },
   ...extra,
 });
 

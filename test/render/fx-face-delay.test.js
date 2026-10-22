@@ -151,7 +151,7 @@ test('텍사스 디 오메르토사 S2: her two cast effects show 0.17 / 0.30 s 
 test('fxgame play() / spawn(): played with a direction and the prefab\'s speed; the delay lengthens a one-shot\'s end', () => {
   assert.match(SRC, /const dir = aimed \? \{ x: Number\(at\.x\) - Number\(aim\.x\), y: Number\(at\.y\) - Number\(aim\.y\) \} : fourWay \? WAY4\[facingDir\(view\)\] : \{ x: side, y: 0 \};/);
   assert.match(SRC, /const sp = playSpeed\(def\.face, speed, gameRate\(\)\);/);
-  assert.match(SRC, /new mod\.fxp\.FxInstance\(def, \{ quality: q\(\), facing, dir, body: facingDir\(at && at\.info \? at : view\), speed: sp, split, floor: ground\.z \|\| 0, tilt: tiltOn\(ground, def\) \}\)/);
+  assert.match(SRC, /const opts = \{ quality: q\(\), facing, dir, body: facingDir\(at && at\.info \? at : view\), speed: sp, split, floor: ground\.z \|\| 0, tilt: tiltOn\(ground, def\) \};\n\s+const inst = new mod\.fxp\.FxInstance\(def, opts\);/);
   assert.match(SRC, /: buff \? null : endAt \?\? clockS \+ \(n === copy \? dur0 : def\.duration \|\| 3\) \+ 0\.5 \+ inst\.lead \/ sp;/);
   assert.match(SRC, /speed: sp, cast: own \? null : cast, backSw/);
   assert.match(SRC, /const sp = playSpeed\(def\.face, entry\.speed \?\? 1, gameRate\(\)\);/);

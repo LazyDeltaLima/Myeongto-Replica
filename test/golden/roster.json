@@ -3071,8 +3071,8 @@
         "enemy_2017_csphts": [1,1,0,5433,16589]
       },
       "hooks": [1,101,6127,228,228,2508,2508,22355,65,92,68,67,0,13630,504,26,87,27,1,81,10,1,9],
-      "events": {"atk":446,"bounty":3,"deploy":11,"die":65,"dmg":2508,"engage":6,"face":35,"fx":317,"heal":46,"layer":10,"leak":27,"skill":135,"spawn":97,"status":1037,"swing":252,"tplfx":22},
-      "fx": {"burst":1,"dodge":9,"enemySkill":3,"explode":11,"garrison":10,"lightning":211,"revive":1,"shield":7,"slash":4,"sp":18,"stacks":18,"storm":9,"substitute":3,"summon":2,"swap":3,"telegraph":2,"weightless":5},
+      "events": {"atk":446,"bounty":3,"deploy":11,"die":65,"dmg":2508,"engage":6,"face":35,"fx":321,"heal":46,"layer":10,"leak":27,"skill":135,"spawn":97,"status":1037,"swing":252,"tplfx":22},
+      "fx": {"buffProgress":4,"burst":1,"dodge":9,"enemySkill":3,"explode":11,"garrison":10,"lightning":211,"revive":1,"shield":7,"slash":4,"sp":18,"stacks":18,"storm":9,"substitute":3,"summon":2,"swap":3,"telegraph":2,"weightless":5},
       "snaps": "2f1dc807 a4ee3ad9 c41216f3 f3572d78 739a1c41 cd6fe9b4 35de4e5b 4ba0a4dc c17d5c75 4f1463e4 1b876b83 fa24d01e 21f43e1a 2add1d43 a9cb125f 26f84fb5 d03db064 8b7a76ad e5a39e27 49d0fffd 48572355"
     },
     "roster-049": {

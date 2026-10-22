@@ -213,6 +213,63 @@ function evalClipCurve(keys, t) {
   return ((k[1] * dt + k[2]) * dt + k[3]) * dt + k[4];
 }
 
+/** Write a clip track's value `v` to what it drives (FxInstance.bindTrack0). */
+function writeTrack(b, v) {
+  const o = b.o;
+  switch (b.kind) {
+    case 'pos': o.position.set(v[0], v[1], v[2]); break;
+    case 'scale': o.scale.set(v[0], v[1], v[2]); break;
+    case 'quat': o.quaternion.set(v[0], v[1], v[2], v[3]).normalize(); break;
+    case 'euler': o.quaternion.setFromEuler(clipE.set(v[0] * D2R, v[1] * D2R, v[2] * D2R, 'YXZ')); break;
+    case 'matComp': if (b.u.value?.isVector4 || b.u.value?.isVector2) b.u.value[b.axis] = v[0] * b.k; break;
+    case 'width': b.ln.w = v[0]; break; // local patch
+    case 'active': o.visible = v[0] > 0.5; break; // local patch: m_IsActive
+    case 'set': b.at[b.key] = b.bool ? v[0] > 0.5 : v[0] * (b.k || 1); break; // 2026-10-22
+    case 'visible': b.m.visible = v[0] > 0.5; break; // 2026-10-22: MeshRenderer.m_Enabled
+    default: b.u.value = v[0];
+  }
+}
+
+/**
+ * 2026-10-22 (effect bundle J): whether an exit time `exit` (normalized) was passed between state times `t0` and `t1` of a
+ * state `len` s long — a looping state's below 1 on the frame it is passed in each loop (Mecanim evaluates it every loop),
+ * else from then on [ASSUMED for a non-looping state: Unity's manual describes the looping case only].
+ */
+function exitPassed(t0, t1, len, loop, exit) {
+  if (!(len > 0)) return true;
+  const n0 = t0 / len, n1 = t1 / len;
+  if (loop && exit < 1) return n1 >= exit && Math.floor(n1 - exit) > Math.floor(n0 - exit);
+  if (loop) return n0 < exit && n1 >= exit;
+  return n1 >= exit;
+}
+
+/** A Mecanim transition condition (fx_extract.py COND_MODES) on parameter value `v`. */
+function condOk(v, mode, x) {
+  switch (mode) {
+    case 'if': return !!v;
+    case 'ifnot': return !v;
+    case 'gt': return Number(v) > x;
+    case 'lt': return Number(v) < x;
+    case 'eq': return Number(v) === x;
+    case 'ne': return Number(v) !== x;
+    default: return false;
+  }
+}
+
+/** A Unity AnimationCurve [[time, value, inSlope, outSlope]] at `t` (Hermite; a null tangent = a step), clamped at its ends. */
+function keyCurve(keys, t) {
+  if (!keys?.length) return 0;
+  if (t <= keys[0][0]) return keys[0][1];
+  for (let i = 1; i < keys.length; i++) {
+    const a = keys[i - 1], b = keys[i];
+    if (t >= b[0]) continue;
+    if (a[3] == null || b[2] == null) return a[1];
+    const h = b[0] - a[0], s = (t - a[0]) / h, s2 = s * s, s3 = s2 * s;
+    return (2 * s3 - 3 * s2 + 1) * a[1] + (s3 - 2 * s2 + s) * h * a[3] + (-2 * s3 + 3 * s2) * b[1] + (s3 - s2) * h * b[2];
+  }
+  return keys[keys.length - 1][1];
+}
+
 // ---------------------------------------------------------------- shader
 
 const BLEND = { 0: THREE.ZeroFactor, 1: THREE.OneFactor, 2: THREE.DstColorFactor, 3: THREE.SrcColorFactor,
@@ -1701,7 +1758,7 @@ const CLIP_AXIS = { r: 'x', g: 'y', b: 'z', a: 'w', x: 'x', y: 'y', z: 'z', w: '
 const PS_ANIM = {
   'EmissionModule.rateOverTime.scalar': ['rate', 's'], 'EmissionModule.rateOverTime.minScalar': ['rate', 'n'],
   'ShapeModule.radius.value': ['shape', 'radius'], 'SizeModule.curve.scalar': ['mods', 'sizeOL', 'x', 's'],
-  'InitialModule.gravityModifier.scalar': ['gravity', 's'], looping: ['loop'],
+  'InitialModule.gravityModifier.scalar': ['gravity', 's'], looping: ['loop'], simulationSpeed: ['speedMul'],
   ...Object.fromEntries([...'rgba'].flatMap((c, k) => [[`InitialModule.startColor.maxColor.${c}`, ['color', 'a', k]],
     [`TrailModule.colorOverLifetime.maxColor.${c}`, ['mods', 'trail', 'colorOL', 'a', k]]])),
 };
@@ -1901,7 +1958,11 @@ export class FxInstance {
     // on their material defaults). The extract resolves each clip's nodes into the whole tree; each starts when its branch shows
     // (2026-10-11: the sub-prefabs' own FxDelay 0–0.3 s, node `delay` — bindTrack `off`) and the effect's clip time is the longest
     this.clips = def.clips || [];
-    this.clipLen = this.clips.reduce((m, c) => Math.max(m, c.len || 0), 0);
+    // 2026-10-22 (effect bundle J): a controller with more states is a state machine (fx_extract.py state_machine, `sms`);
+    // its other states' clips play only when it switches to them, so the effect's clip time counts its default state's
+    this.sms = (def.sms || []).map((d, k) => this.newSm(d, k));
+    const first = new Set(this.sms.map((m) => m.d.states[m.d.def]?.clip));
+    this.clipLen = this.clips.reduce((m, c, i) => (c.sm == null || first.has(i) ? Math.max(m, c.len || 0) : m), 0);
     this.meshMatList = this.meshMats.filter(Boolean);
     // local patch: the floor cut and the per-renderer layers
     if (opts.floor !== null) {
@@ -1953,9 +2014,22 @@ export class FxInstance {
     } else this.layerN[0] = 1;
     // (2026-10-10, user report: buff effects that vanish) a clip with Unity's loop flag (fx_extract.py `loop` = the clip's
     // m_LoopTime) repeats — it was held on its last frame, and an effect whose only motion was such a clip ended with it
-    this.clipTracks = this.clips.flatMap((c) => c.tracks.map((tr) => this.bindTrack(tr, c.len || 0)).filter(Boolean)
-      .map((b) => (c.loop && c.len > 0 ? Object.assign(b, { loop: true }) : b)));
-    this.clipLoops = this.clips.some((c) => c.loop && c.len > 0);
+    this.clipTracks = [];
+    this.smSlots = new Map();   // a state machine's tracks by `${sm}|${node}|${prop}`: the clips of its states blend there
+    this.clips.forEach((c, ci) => {
+      for (const tr of c.tracks) {
+        const b = this.bindTrack(tr, c.len || 0);
+        if (!b) continue;
+        if (c.loop && c.len > 0) b.loop = true;
+        if (!this.sms[c.sm]) { this.clipTracks.push(b); continue; }
+        b.ci = ci;
+        const key = `${c.sm}|${tr.node}|${tr.prop}`;
+        const slot = this.smSlots.get(key) || { m: this.sms[c.sm], b, def: this.trackValue(b), tracks: [], v: [] };
+        slot.tracks.push(b);
+        this.smSlots.set(key, slot);
+      }
+    });
+    this.clipLoops = this.clips.some((c) => c.sm == null && c.loop && c.len > 0);
     for (const b of this.clipTracks) if (b.off > 0) this.clipLen = Math.max(this.clipLen, b.off + (b.len || 0)); // a delayed branch's clip ends later
     // …and a mesh renderer is drawn while its effect lives (Unity keeps a MeshRenderer on until the effect object goes): a
     // prefab with meshes ends only when it is stopped (a buff with its owner, a one-shot at its caller's `until`) — the skill
@@ -1966,7 +2040,7 @@ export class FxInstance {
     // lines follow by their node's visibility). And those under a node inactive from the start (maintainer 2026-10-08 「일단 꺼봐」):
     // in 164 of the 166 such prefabs nothing in the prefab switches the node on (maintainer's notes 2026-10-08, the
     // workspace root) — 아르케토 S3's stray `smoke` lives on, switched on, in archet_skill_03_start_01
-    const switched = new Set(this.clipTracks.filter((b) => b.kind === 'active').map((b) => b.o));
+    const switched = new Set([...this.clipTracks, ...[...this.smSlots.values()].map((s) => s.b)].filter((b) => b.kind === 'active').map((b) => b.o));
     const under = (o) => { for (let p = o; p && p !== unity; p = p.parent) if (switched.has(p) || !p.visible) return true; return false; };
     this.gated = [...this.systems, ...this.trails].filter((x) => under(x.node)).map((x) => ({ x, on: true }));
     this.clipV = [];
@@ -2065,7 +2139,9 @@ export class FxInstance {
 
   /** End emission (looping buffs); `now` also removes the live particles. */
   stop(now = false) {
+    if (!this.stopping) this.finishAnim();
     this.stopping = true;
+    if (this.kids) for (const c of this.kids) c.stop(now);
     for (const s of this.systems) { s.stop(); if (now) while (s.n) s.kill(s.n - 1); }
     if (now) this.time = Infinity;
   }
@@ -2100,10 +2176,11 @@ export class FxInstance {
 
   get done() {
     if (this.empty || this.disposed) return true;
+    if (this.kids?.some((c) => !c.done)) return false;
     // ended while it waited for its FxDelay: it never shows (the client's FinishMe recycles it hidden)
     if (this.wait > 0) return !!this.stopping;
     if (!this.stopping && this.branches.some((b) => !b.on)) return false;
-    const clipDone = !this.clips.length || this.stopping || (this.time >= this.clipLen && !this.clipLoops);
+    const clipDone = (!this.clips.length || this.stopping || (this.time >= this.clipLen && !this.clipLoops)) && this.sms.every((m) => this.smSettled(m));
     return clipDone && this.systems.every((s) => !s.alive) && this.trails.every((t) => !t.alive || this.time > this.clipLen + t.tr.time)
       && (!this.lines.length || !!this.stopping) // local patch: a line stays until its effect is ended
       && (!this.holdMeshes || !!this.stopping);
@@ -2112,6 +2189,7 @@ export class FxInstance {
   update(dt) {
     // disposed: ended here (PLAYER_CAP) while its owner still holds it — it must not keep simulating unseen
     if (this.empty || this.disposed) return;
+    if (this.kids) for (const c of this.kids) c.update(dt);
     if (this.wait > 0) { // its root FxDelay / _delayToPlay: nothing drawn or run yet
       if (this.stopping) return;
       const w = Math.min(this.wait, dt);
@@ -2123,6 +2201,10 @@ export class FxInstance {
     if (this.hold != null && !this.stopping && this.time + dt > this.hold) dt = Math.max(0, this.hold - this.time); // local patch
     this.time += dt;
     if (this.clipTracks.length) this.applyClip(this.time);
+    if (this.sms.length) {
+      for (const m of this.sms) this.stepSm(m, dt);
+      this.applySm();
+    }
     for (const b of this.branches) { // a delayed branch shows at its start (its systems start then — the gate below)
       if (this.time < b.at) b.o.visible = false;
       else if (!b.on) { b.on = true; b.o.visible = true; }
@@ -2170,25 +2252,175 @@ export class FxInstance {
       const curves = b.tr.curves, tc = b.loop ? tb % b.len : Math.min(tb, b.len);
       v.length = curves.length;
       for (let i = 0; i < curves.length; i++) v[i] = evalClipCurve(curves[i], tc);
-      const o = b.o;
-      switch (b.kind) {
-        case 'pos': o.position.set(v[0], v[1], v[2]); break;
-        case 'scale': o.scale.set(v[0], v[1], v[2]); break;
-        case 'quat': o.quaternion.set(v[0], v[1], v[2], v[3]).normalize(); break;
-        case 'euler': o.quaternion.setFromEuler(clipE.set(v[0] * D2R, v[1] * D2R, v[2] * D2R, 'YXZ')); break;
-        case 'matComp': if (b.u.value?.isVector4 || b.u.value?.isVector2) b.u.value[b.axis] = v[0] * b.k; break;
-        case 'width': b.ln.w = v[0]; break; // local patch
-        case 'active': o.visible = v[0] > 0.5; break; // local patch: m_IsActive
-        case 'set': b.at[b.key] = b.bool ? v[0] > 0.5 : v[0] * (b.k || 1); break; // 2026-10-22
-        case 'visible': b.m.visible = v[0] > 0.5; break; // 2026-10-22: MeshRenderer.m_Enabled
-        default: b.u.value = v[0];
-      }
+      writeTrack(b, v);
     }
+  }
+
+  /** What track `b` drives holds now, in the clip's units (the default a state machine blends towards). */
+  trackValue(b) {
+    const o = b.o;
+    switch (b.kind) {
+      case 'pos': return o.position.toArray();
+      case 'scale': return o.scale.toArray();
+      case 'quat': return o.quaternion.toArray();
+      case 'euler': clipE.setFromQuaternion(o.quaternion, 'YXZ'); return [clipE.x / D2R, clipE.y / D2R, clipE.z / D2R];
+      case 'matComp': return [(b.u.value?.[b.axis] ?? 0) / b.k];
+      case 'width': return [b.ln.w ?? 1];
+      case 'active': return [o.visible ? 1 : 0];
+      case 'set': return [b.bool ? (b.at[b.key] ? 1 : 0) : (Number(b.at[b.key]) || 0) / (b.k || 1)];
+      case 'visible': return [b.m.visible ? 1 : 0];
+      default: return [Number(b.u.value) || 0];
+    }
+  }
+
+  /**
+   * 2026-10-22 (effect bundle J; docs/rules/fx.md 「애니메이터 상태」): a controller's state machine (fx_extract.py `sms`) as
+   * Mecanim runs it — the current state's clip plays from its entry; each frame the transitions out of it (any-state ones
+   * first, then its own in their order) are checked: an exit time (normalized; a looping state's below 1 once in every loop,
+   * on the frame it is passed — a non-looping state's from then on [ASSUMED]) and every condition (a trigger is used up
+   * when its transition starts); a transition blends the two states over its duration (seconds, or of the source state's
+   * length with `norm`), both clips running, then the new state goes on from where it got to. Its parameters start at
+   * their defaults; the effect's finish (`animFin`), code (setParam) and a buff progress source (`animSrc`) set them.
+   */
+  newSm(d, k) {
+    const p = {};
+    for (const [n, [, v]] of Object.entries(d.params || {})) p[n] = v;
+    return { d, k, cur: d.def || 0, t: 0, fresh: true, tr: null, p, fin: false };
+  }
+
+  smClip(m, s) { return this.clips[m.d.states[s]?.clip] || null; }
+
+  stepSm(m, dt) {
+    // a nested sub-prefab's Animator starts when its branch shows
+    const off = this.nodes[m.d.node]?.userData.t0 || 0;
+    const step = Math.max(0, this.time - Math.max(this.time - dt, off));
+    if (this.time < off) return;
+    for (const s of this.def.animSrc || []) {
+      if (s.sm !== m.k) continue;
+      const v = this.srcValue(s);
+      m.p[s.p] = s.int ? Math.trunc(v) : v;
+    }
+    const st = m.d.states[m.cur], clip = this.smClip(m, m.cur), len = clip?.len || 0;
+    const prev = m.fresh ? -1e-6 : m.t;
+    m.fresh = false;
+    m.t += step * (st?.speed ?? 1);
+    if (m.tr) {
+      m.tr.t += step;
+      m.tr.dt += step * (m.d.states[m.tr.to]?.speed ?? 1);
+      if (m.tr.t >= m.tr.dur) this.enterState(m, m.tr.to, m.tr.dt);
+      return;
+    }
+    for (const tr of m.d.trans || []) {
+      if (tr.from !== m.cur && !(tr.from === -1 && tr.to !== m.cur)) continue;
+      if (tr.exit != null && !exitPassed(prev, m.t, len, !!clip?.loop, tr.exit)) continue;
+      if (!(tr.cond || []).every(([n, mode, x]) => condOk(m.p[n], mode, x))) continue;
+      for (const [n] of tr.cond || []) if (m.d.params?.[n]?.[0] === 'trigger') m.p[n] = false;
+      const dur = tr.norm ? tr.dur * len : tr.dur, at = (tr.offset || 0) * (this.smClip(m, tr.to)?.len || 0);
+      if (dur > 1e-6) m.tr = { to: tr.to, dur, t: 0, dt: at };
+      else this.enterState(m, tr.to, at);
+      break;
+    }
+  }
+
+  enterState(m, s, t = 0) {
+    m.cur = s;
+    m.t = t;
+    m.fresh = true;
+    m.tr = null;
+  }
+
+  /** The state machines' tracks: each slot the weighted clips of its machine's playing states, the rest its default. */
+  applySm() {
+    for (const slot of this.smSlots.values()) {
+      const m = slot.m, v = slot.v, n = slot.def.length;
+      const w = m.tr ? Math.min(1, m.tr.t / m.tr.dur) : 0;
+      const play = m.tr ? [[m.d.states[m.cur]?.clip, m.t, 1 - w], [m.d.states[m.tr.to]?.clip, m.tr.dt, w]] : [[m.d.states[m.cur]?.clip, m.t, 1]];
+      v.length = n;
+      v.fill(0);
+      let rest = 1;
+      for (const b of slot.tracks) {
+        const e = play.find((x) => x[0] === b.ci);
+        if (!e || !(e[2] > 0)) continue;
+        const tc = b.len > 0 ? (b.loop ? e[1] % b.len : Math.min(e[1], b.len)) : 0;
+        const curves = b.tr.curves;
+        let sign = 1;
+        if (b.kind === 'quat') { // the shorter way round
+          let dot = 0;
+          for (let i = 0; i < 4; i++) dot += evalClipCurve(curves[i], tc) * slot.def[i];
+          sign = dot < 0 ? -1 : 1;
+        }
+        for (let i = 0; i < n; i++) v[i] += e[2] * sign * evalClipCurve(curves[i], tc);
+        rest -= e[2];
+      }
+      if (rest > 1e-6) for (let i = 0; i < n; i++) v[i] += rest * slot.def[i];
+      writeTrack(slot.b, v);
+    }
+  }
+
+  /** Whether state machine `m` keeps the effect alive: running a clip, a transition, or one about to start by itself. */
+  smSettled(m) {
+    const c = this.smClip(m, m.cur);
+    const played = !m.tr && (!c || (!c.loop && m.t >= c.len));
+    // finished: a state its finish switched to plays out unless it loops (the pool recycles it `finish` s later)
+    if (this.stopping) return !m.fin || played || (!m.tr && !!c?.loop);
+    return played && !(m.d.trans || []).some((t) => (t.from === m.cur || t.from === -1) && !t.cond);
+  }
+
+  /** FinishEffectIf `_finishIfCurrentAnimFinish`: its Animator's current state, not looping, has played once. */
+  get animEnded() {
+    const m = this.sms.find((x) => x.d.node === 0);
+    if (m) {
+      const c = this.smClip(m, m.cur);
+      return !m.tr && !!c && !c.loop && m.t >= c.len;
+    }
+    return !!this.clips.length && !this.clipLoops && this.time >= this.clipLen;
+  }
+
+  /**
+   * 2026-10-22 (effect bundle J): `c` (another instance, made with the same options) plays with this one in its place,
+   * updated, finished and removed with it — the module variant a SwitchableWhenContainsEquipment creates on the owner and
+   * finishes at its own finish (render/fxgame.js equipVariant).
+   */
+  adopt(c) {
+    if (!c || c.empty) return;
+    (this.kids ||= []).push(c);
+    c.object.position.set(0, 0, 0);
+    this.object.add(c.object);
+  }
+
+  /** The effect's finish (Effect.FinishMe → each behaviour's OnFinish): its `animFin` set their parameters / states. */
+  finishAnim() {
+    const fin = Number(this.def.finish) > 0;
+    for (const f of this.def.animFin || []) {
+      const m = this.sms[f.sm];
+      if (!m || (f.rec && !fin)) continue;   // TriggerAnimatorWhenFinish / SwitchAnimatorStateWhenFinish: only with a delayToRecycle
+      m.fin = true;
+      if (Number.isInteger(f.play)) this.enterState(m, f.play);
+      else if (f.p) m.p[f.p] = f.v;
+    }
+  }
+
+  /** Set an Animator parameter of the effect's state machines (client code: Animator.SetInteger / SetTrigger …). */
+  setParam(name, v) {
+    for (const m of this.sms) if (m.d.params && name in m.d.params) m.p[name] = v;
+  }
+
+  /**
+   * The owner's buff `key`'s blackboard progress for a BuffProgressFloatSource (`animSrc`): `r` in [0, 1], null = no
+   * such buff. Unset, the buff is taken as full [추정: the buff the effect shows is added with it].
+   */
+  setBuffProgress(key, r) { (this.buffProg ||= new Map()).set(key, r == null ? null : Math.min(1, Math.max(0, Number(r) || 0))); }
+
+  srcValue(s) {
+    if (this.stopping) return s.fin;   // GetValue once finished: `_finishedVal`
+    const r = this.buffProg?.has(s.buff) ? this.buffProg.get(s.buff) : 1;
+    return r == null ? s.def : keyCurve(s.curve, r);
   }
 
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    if (this.kids) for (const c of this.kids) c.dispose();
     for (const s of this.systems) s.dispose();
     for (const t of this.trails) t.dispose();
     for (const t of this.lines) t.dispose(); // local patch

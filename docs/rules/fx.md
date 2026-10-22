@@ -1408,15 +1408,55 @@
   Unity 매뉴얼의 「재질 색」은 MeshRenderer 모양에만 해당). 예전엔 한 점에서 뿜었다(범위 반짝임이 범위 가운데 한 점).
 - **클립이 움직이는 값** (`fx_extract.py ANIMATED_VALUES` → `fxplayer.js PS_ANIM`/`UVT_ANIM`): Mecanim 바인딩(경로의 crc32)·레거시 곡선(경로 이름)이
   ParticleSystem의 `EmissionModule.rateOverTime.scalar`/`minScalar`(운영자 13)·`ShapeModule.radius.value`(5)·`SizeModule.curve.scalar`·
-  `InitialModule.gravityModifier.scalar`·`InitialModule.startColor.maxColor.*`·`TrailModule.colorOverLifetime.maxColor.*`·`looping`, TrailRenderer `m_Time`,
+  `InitialModule.gravityModifier.scalar`·`InitialModule.startColor.maxColor.*`·`TrailModule.colorOverLifetime.maxColor.*`·`looping`·`simulationSpeed`(2026-10-22, 묶음 J —
+  에이야퍄들라 더 크비트 아스카 S2 범위의 단계 클립이 처음 나옴), TrailRenderer `m_Time`,
   MeshRenderer `m_Enabled`, FxUVTweener `xspeed`/`yspeed`/`secondXSpeed`/`secondYSpeed`를 움직이면 트랙 `ps:<경로>`·`trail:time`·`mr:enabled`·`uvt:<필드>`.
   플레이어는 그 시스템·트레일만의 사본에 매 프레임 쓰고(정의는 인스턴스끼리 공유), 움직이는 UV 속도는 프레임마다 속도 × 시간을 더한다(클라 `Update`).
-  남은 것: 꺼진 VelocityModule을 켜는 클립 하나(적 `mcmstr_buff_04_start` — 꺼진 모듈은 추출에 없음), 기본 상태 밖 Animator 클립(묶음 J).
+  남은 것: 꺼진 VelocityModule을 켜는 클립 하나(적 `mcmstr_buff_04_start` — 꺼진 모듈은 추출에 없음). 기본 상태 밖 Animator 클립은 아래 「애니메이터 상태」.
 - 추출: 운영자 32·적 10 묶음(+ 보고가 꼽은 `ghost2`)을 다시 뽑아 전후 대조 — 3,060 파일 중 73개, 새 키 `shape.mesh`·`place`·`meshCol` 40 파일과
   트랙 이름(`attr:` → `ps:`·`trail:`·`mr:`·`uvt:`) 36 파일뿐. 추출 JSON 골든 EN 2·CN 1 갱신. 보고 todo 운영자 26 → 17·적 21 → 8.
   테스트 `test/render/wang-stone-fx.test.js`(연결선·stateFx·상자 표면)·`fx-mesh-shape.test.js`·`fx-clip-values.test.js`. 아레나(Windows Chrome, 전후):
   아스카론 S3 범위의 붉은 점이 오퍼레이터 몸 → 범위 윤곽 꼭짓점, 에이야퍄들라 더 크비트 아스카 S2 범위 반짝임이 윤곽 변에. 늘인 빌보드 pivot·클립 값·BoxEdge는 작아서
   판단 못 함 [화면 미확인].
+
+### 애니메이터 상태 — 상태 기계·끝날 때 트리거·버프 진행 단계·무작위 그룹·모듈 변형 (2026-10-22, 추출 누락 기준선의 todo, 디컴파일 확인)
+- **무엇이 틀렸나**: 추출이 컨트롤러의 `m_AnimationClips[0]` 하나만 틀었다. 클립이 둘 이상인 컨트롤러 운영자 23·적 3 프리팹(+ 한 상태뿐인 니어 더 래디언트 나이트·
+  머드락 버프 둘)에서 그것은 대개 기본 상태의 클립이 아니었다 — 에이야퍄들라 더 크비트 아스카 S2 범위는 기본 0단계 대신 2단계, 파투스 S3 버프·루멘 버프는 시작 대신
+  루프. 그리고 기본 상태 다음 상태(시작 → 루프, 루프 → 끝)로는 넘어가지 않았다.
+- **상태 기계** (`fx_extract.py state_machine` → 정의 `sms`: 상태·클립·전이·조건·파라미터 기본값, 첫 층만): 상태가 둘 이상이면 그 상태들의 클립을 모두 뽑고(`clips[].sm`),
+  한 상태면 그 상태의 클립 하나. 플레이어(`fxplayer.js stepSm`/`applySm`)는 Mecanim처럼 돈다 — 현재 상태의 클립을 들어간 때부터 틀고, 매 프레임 그 상태에서 나가는
+  전이(아무 상태 전이 먼저, 그다음 컨트롤러 순서)를 본다: exit time(정규화 시간; 루프 상태의 1 미만 값은 루프마다 그 지점을 지나는 프레임에만 — Unity 매뉴얼,
+  루프 아닌 상태는 그 뒤 계속 [추정]), 조건(`if`·`ifnot`·`gt`·`lt`·`eq`·`ne`; 트리거는 그 전이가 시작될 때 소모). 전이 길이(초, `norm`이면 원래 상태 길이 배수) 동안 두
+  상태의 클립을 무게로 섞고(둘 다 시간이 흐름), 어느 클립도 안 움직이는 값은 기본값으로 섞는다(WriteDefaultValues — 클라 상태 모두 켜짐). 이펙트의 클립 시간
+  (`duration`·`clipLen`)은 기본 상태 클립만 센다. 블렌드 트리·둘째 층·속도 파라미터·상태 기계 밖 전이는 안 읽음 — 나오면 `fx_coverage`가 알림(지금 0).
+- **끝날 때 거는 값** (`animFin`, 이펙트의 끝 = 클라 `Effect.FinishMe` → 행동마다 `OnFinish` = 우리 `FxInstance.stop`, 10-14 EN 덤프):
+  - `TriggerAnimatorWhenFinish`(`OnFinish` 0xEB6980·`Awake` 0xEB68C0): 자기 GameObject의 Animator에 트리거 `_customKey`, 없으면 `OnFinish`(`.cctor` 0xEB6B10).
+    **`delayToRecycle` > 0일 때만**(가상 16 = `_delayToFinish`, 우리 `finish`) — 글래디아 S1~S3 줄·버프·S3 작살 머리, 루멘 S1 범위·버프.
+  - `OnFinishAnime`(`Init` 0xE8F700 GetComponentInChildren, `OnFinish` 0xE8F7F0): `_isTrigger` → 트리거, `_isInt` → 정수 0/1, 아니면 bool — 실버애쉬 더 레인프로스트 S1 방패·S3 범위.
+  - `SwitchAnimatorStateWhenFinish`(`OnFinish` 0xEB2760): `delayToRecycle` > 0이면 `Animator.Play(_stateName)` — 이네스 S3 표식 비행 끝.
+  - `SetAnimatorTriggerOnEvent`(`OnFinish` 0xE97C90, `_event` ON_FINISH 0): 트리거 — 켈시 에스페란타 S3 순간이동 꼬리(CN).
+  - `SetAnimatorTriggerByCondition`(`_UpdateAnimator` 0xE8AF70) + `AuraProjectileSetAnimatorTrigger`(`GetValue` 0xE75200·`SetTriggerValue` 0xE75270): 오라 투사체가 멈출
+    때(`ScalableAuraHitBehaviour.OnProjectileStop` 0xA84170 — `ThrowEffect` 0x3985560은 부모만 바꿈 — 그다음 `FinishMe` 대신 `SetTriggerValue`) `OnFinish` → 쏜즈 더 로드스타 S2
+    오라의 1.47초 끝 클립. 우리는 `zoneFx`가 그 오라를 끝내는 순간(`until`)에 건다. [추정: 클라는 그 뒤 입자가 다 사라질 때 회수 — 우리도 방출을 멈추고 끝 클립·입자가 끝나면 지움]
+  - 끝난 뒤(`stop`) 이펙트는 그 끝 상태의 클립(루프 아님)이 다 틀릴 때까지 남는다(`smSettled`) — 전엔 멈추는 순간 클립을 끝난 것으로 쳤다. 대개 `finish`(풀 회수)가 먼저 온다.
+- **코드가 거는 값**: 라플란드 더 데카덴차 S3 드론 꼬리 — 스킬 끝 `Whitw2Skill3FunnelRangedAttack.OnDetached`(0xBFFC90)가 각 드론 투사체 `_mainEffect`의 Animator에
+  정수 `OnEnd` = 1(`s3_idle` → `s3_end01`), 투사체가 멈춰 0.35초(`finish`) 뒤 회수 → `fxgame.js endWolves`(전엔 스킬 끝에 바로 지움). 문자열 `OnEnd`를 쓰는 코드는
+  이것뿐(xref) — 첸 더 던스트릭 S3 궤적의 `OnEnd` 트리거와 적 셋(`smdeer`·방호 조끼·머드락)의 둘째 상태는 거는 곳이 없어 공식도 기본 상태 그대로 [추정: 문자열·스크립트 검색 기준].
+- **버프 진행 단계** (`animSrc`): `SetAnimatorFloatByCondition`(`OnPlay` 0xE8A600 · `Update` 0xE8A740 — 바뀌면 정수/실수로)에 `BuffProgressFloatSource`(`GetValueOnPlay`
+  0xE768B0 = `_defaultVal`, `GetValue` 0xE76910 = 끝나면 `_finishedVal`, 아니면 `_curve`(주인 첫 버프 `_buffKey`의 블랙보드 `_progressKey` ÷ `_maxKey`, [0, 1]))를
+  `fxplayer.js srcValue`(Hermite 곡선, 무한 접선 = 계단). 하나뿐: 에이야퍄들라 더 크비트 아스카 S2 범위 — `agoat2_s_2[shield]` `value`/`dynamic` → 단계 2(≥ 0.5)·1(> 0.01)·0. 시뮬
+  키트가 장벽 흡수 때마다 남은 몫(100분의 1, 올림)이 바뀌면 키트 fx `buffProgress` { id, key, r }(그림 없음, `fxgame.js buffProgress`); 알림 전엔 가득 찬 것으로 [추정].
+  같이 고침: 그 범위 이펙트를 즉발 스킬의 시전 창(~1초) 루프로 틀어 곧 사라졌다 → 키트 fx `shield` { duration }(장벽 12초) 동안(`kitofficial.js shield`, `KIT_OWNED`).
+- **무작위 그룹** (`rgroup`, `EmitterRandomGroup` `_PickOneEmitter` 0xE7E180): 틀 때 `_selfExcluded`가 아니면 1/(n+1) 확률로 자기, 아니면 자기를 멈추고 `_effectPickFrom` 중
+  하나(`BattleController.randomTrivial`)를 주인에게 만들고 자기는 끝냄(`_finishEffectWhenSelfFinish` 0) — 로즈몬티스 S3 명중 A/B → `fxgame.js randomPick`(`play`·`spawn`).
+- **모듈 변형** (`equipFx`, `SwitchableWhenContainsEquipment` `_TrySpawnHookEffect` 0xEB4B60·`OnFinish` 0xEB46F0): 주인이 그 모듈(`UniqueEquipPair` key·level)을 달았으면 hook 이펙트를
+  주인에게 같이 만들고(`_pauseWhenSwitch` 0 — 원래 것도 계속) 끝날 때 같이 끝냄 — 모스티마 S2 범위 둘(`uniequip_003_mostma` 1~3단계 모두 `_equipment_01`) →
+  `fxgame.js equipVariant` + `FxInstance.adopt`. 렌더는 모듈 단계를 모름 [추정: 클라 hook이 모두 세 단계를 다 적음]. 정예 모스티마가 그 모듈일 때만.
+- 무작위 그룹 후보·모듈 변형은 `index.json emitted`(이름 규칙이 따로 틀지 않음).
+- 추출: 운영자 14·적 3 묶음 다시 뽑음 — 3,060 파일 중 31개, `sms`·`clips`·`animFin`·`animSrc`·`rgroup`·`equipFx`와 파투스 넷의 `duration`만. 추출 JSON 골든 EN 2
+  (`agoat2_skill_02_range_01`·`whitw2_skill_03_token_trail_01`), CN 그대로. 시뮬 골든 `roster-048`의 `buffProgress` 4개만, 이벤트 골든 `roster-048`(범위가 키트 이벤트로).
+  테스트 `test/render/fx-animator-states.test.js`. 아레나(Windows Chrome, 전후 캡처): 루멘 S1 범위가 시작 끝 모습에 멈춰 있던 것 → 대기 루프로 깜빡임, 에이야퍄들라 더 크비트 아스카
+  S2 범위가 0단계에서 2단계로 섞여 들어감(2단계의 흰 안개가 전과 조금 다름), 쏜즈 더 로드스타 S2 오라가 끝 클립 뒤 사라짐; 끝 클립 장면 자체·공식 대조는 [화면 미확인].
 
 ### 패신저 S3 폭풍·낙뢰 (2026-10-16, 관리자 제보 「패신저 S3 이펙트가 안 나와」)
 

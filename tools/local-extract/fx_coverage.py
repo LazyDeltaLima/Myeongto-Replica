@@ -92,7 +92,11 @@ SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoi
                 'FlyToPredefinedLocation', 'OnPlayEmitter', 'OnFinishEmitter', 'EmptyEffect', 'PauseEffectIf', 'PauseAnotherEffect',
                 'PauseEffectIfNotIdle', 'PauseEffectWithAnimation', 'PauseEffectIfSpineEvent', 'FinishEffectIf', 'FunnelHitEffect',
                 'FollowDirection', 'SwitchableEffectByFaceDirection', 'SwitchableThreeFaceEffect', 'RandomDirection',
-                'FollowTileHeight'}
+                'FollowTileHeight',
+                # (2026-10-22, effect bundle J) the Animator drivers, the random group and the module variants
+                'OnFinishAnime', 'TriggerAnimatorWhenFinish', 'SwitchAnimatorStateWhenFinish', 'SetAnimatorTriggerOnEvent',
+                'SetAnimatorFloatByCondition', 'BuffProgressFloatSource', 'SetAnimatorTriggerByCondition',
+                'AuraProjectileSetAnimatorTrigger', 'EmitterRandomGroup', 'SwitchableWhenContainsEquipment'}
 
 # ParticleSystem modules the extract carries (fx_extract.particle_system)
 MODULES_READ = {'InitialModule', 'EmissionModule', 'ShapeModule', 'SizeModule', 'ColorModule', 'RotationModule',
@@ -153,19 +157,9 @@ KNOWN = {
     # client scripts
     'script:FxLODSetting': (_TODO, 'switches objects / particle details off by quality level [ASSUMED: nothing at the top level]'),
     'script:FinishEffectViaOwnerBuff': (_HAND, 'finishes when the owner\'s buff ends; only on 余 S3, drawn by render/fxgame.js (its tiles)'),
-    'script:SwitchableWhenContainsEquipment': (_TODO, 'a variant per equipped module'),
     'script:SwitchableEffectByBuffStackCnt': (_HAND, 'a variant by buff stack count; only 信仰搅拌机\'s rmixer_buff_01 (`_stackCnt` 3, GE): '
                                               'render/fxstatus.js STACK_FX \'rmixer:t1\''),
-    'script:EmitterRandomGroup': (_TODO, 'plays one of a group at random'),
     'script:OnPlayAudioPlayer': (_NONE, 'a sound, not drawn (audio is separate)'),
-    'script:OnFinishAnime': (_TODO, 'sets an Animator trigger at finish (Animator states past the first)'),
-    'script:TriggerAnimatorWhenFinish': (_TODO, 'sets an Animator trigger at finish (Animator states past the first)'),
-    'script:SwitchAnimatorStateWhenFinish': (_TODO, 'switches the Animator state at finish'),
-    'script:SetAnimatorFloatByCondition': (_TODO, 'drives an Animator parameter'),
-    'script:BuffProgressFloatSource': (_TODO, 'drives an Animator parameter by buff progress'),
-    'script:SetAnimatorTriggerByCondition': (_TODO, 'sets an Animator trigger on a condition'),
-    'script:AuraProjectileSetAnimatorTrigger': (_TODO, 'sets an Animator trigger'),
-    'script:SetAnimatorTriggerOnEvent': (_TODO, 'sets an Animator trigger on an event'),
     'script:Svash2FlyToPredefinedTokenCard': (_TODO, 'moves the eagle to a card position (one kit)'),
     'script:ColorModifier': (_HAND, 'tints the owner model: render/units.js (stealth greying)'),
     'script:YuS3EffectBehaviour': (_HAND, 'render/fxgame.js (余 S3 tiles)'),
@@ -199,7 +193,6 @@ KNOWN = {
     # clips
     'clip:binding to a path outside the Animator': (_NONE, 'the clip names a node the prefab does not have (deleted in authoring): '
                                                     'Unity binds nothing either'),
-    'clip:Animator clips past the first (other states: set by client scripts)': (_TODO, 'only the default state\'s clip plays'),
     # (2026-10-22) a clip's particle module values, trail length, MeshRenderer switch and FxUVTweener speeds are tracks now
     # (fx_extract.py ANIMATED_VALUES → render/fxplayer.js PS_ANIM / UVT_ANIM); one met on a system without that module
     # (the enemies' mcmstr_buff_04_start switching its VelocityModule on) keeps the authored state
