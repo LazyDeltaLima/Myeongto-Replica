@@ -315,7 +315,7 @@ describe('§20.15 the bonds: views + live layers', () => {
     };
     const visi = head('visiShip');
     assert.match(visi.head, /^成员2\//, '远见: the board member and the hand member (含整备区), not the temp one');
-    assert.deepEqual([visi.on, visi.owned], [1, 2], 'only 赫默 is 在场; 初雪 and 伊内丝 are owned');
+    assert.deepEqual([visi.on, visi.owned], [3, 0], '远见 is activeType ALL: every owned member is lit (gameLogic memberLit), the temp one too');
     const yan = head('yanShip');
     assert.match(yan.head, /^成员1\//, '炎: the board member only');
     assert.deepEqual([yan.on, yan.owned], [1, 2]);

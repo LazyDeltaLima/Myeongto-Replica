@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import {
   phaseMode, phaseBanner, isCombatPhase, isBossPhase, countdownState, phaseTotalSeconds, sortBonds, bondTier, nextThreshold, bondRequireCount,
   holdsBattleEnd, settleBattleEnd, ownRoundLoss, roundResultBox, RESULT_BOX_MS,
-  bondMembers, memberHeadCount, bannedPerBond, priceTone, mergeProgress, shopBlockReason, deploySets, indexPieces, placementContext, canPlace,
+  bondMembers, memberHeadCount, memberLit, bannedPerBond, priceTone, mergeProgress, shopBlockReason, deploySets, indexPieces, placementContext, canPlace,
   boardTargets, dropIntent, normalizeDraft, normalizeSp, normalizePersonalChoice, groupEnemies, factionTypes, snapHud, bossFrac, attackInterval, fmtNum,
   rangeGridBox, shortcutFor, sanitizeSettings, showMatchToast, DEFAULT_SETTINGS, normalizeResult, cycleField, fieldLabel, homeFieldId,
   activeBubbles, sortedPlayers, tileKey, prepCapsuleLabel, prepCamera, teamFrameIds, dropFailureReason, terrainInfo,
@@ -256,6 +256,28 @@ describe('bonds', () => {
     assert.equal(byId.get(m2).inHand, true, 'a golden copy in the hand marks the base in hand');
     assert.equal(rows[0].id, m1, 'on-board first');
     assert.equal(rows.length, b.visibleMembers.length - 1);
+  });
+  test('memberLit: an ALL bond lights an owned member anywhere, BATTLE / MANI only on the board (client CheckIfCharBondActive)', () => {
+    // 投资人 with 凛御银灰 (normal and elite) in the hand or the temporary slots: lit, as on the board
+    const inv = bonds.investShip;
+    const sa = 'chess_char_5_14_a';
+    assert.equal(inv.activeType, 'ALL');
+    for (const [where, id] of [['board', sa], ['hand', sa], ['hand', chess[sa].goldenId], ['temp', chess[sa].goldenId]]) {
+      const pc = where === 'board' ? { ...piece(id), row: 9, col: 3 } : piece(id);
+      const row = bondMembers(inv, privWith({ [where]: [pc] }), [], getChess).find((r) => r.id === sa);
+      assert.equal(memberLit(inv, row), true, `${id} in ${where}`);
+    }
+    const other = inv.visibleMembers.find((id) => id !== sa);
+    assert.equal(memberLit(inv, bondMembers(inv, privWith({}), [], getChess).find((r) => r.id === other)), false, 'not owned: dark');
+    for (const b of Object.values(bonds).filter((x) => x.activeType === 'ALL')) assert.equal(b.countsHand, true, `${b.name}: ALL ↔ counts the hand`);
+    // a BATTLE bond (谢拉格, the same operator) lights only the board copy
+    const kj = bonds.kjeragShip;
+    assert.equal(kj.activeType, 'BATTLE');
+    const inHand = bondMembers(kj, privWith({ hand: [piece(sa)] }), [], getChess).find((r) => r.id === sa);
+    const onBoard = bondMembers(kj, privWith({ board: [{ ...piece(sa), row: 9, col: 3 }] }), [], getChess).find((r) => r.id === sa);
+    assert.equal(memberLit(kj, inHand), false);
+    assert.equal(memberLit(kj, onBoard), true);
+    assert.equal(memberLit({ activeType: 'MANI' }, { owned: true, onBoard: false }), false);
   });
   test('memberHeadCount: the hand counts only for a bond that counts the hand, once per row', () => {
     const rows = [

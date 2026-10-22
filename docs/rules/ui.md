@@ -177,8 +177,14 @@
     줄·팝업 사실 줄·기물 카드 맹약 칩에도 씀(`gameLogic bondRequireCount`); 단계 진행은 단계 칸·점으로 본다.
   - 스크롤 내용(여백 24 / 20 / 30, 간격 19): 맹약 설명 하나(18, 공식 rich text 색 ba.vup #0098DC, ba.vdown #FF6237, ba.rem #F49800, ba.kw #00B0FF,
     ba.acrem #727272, autochess.gray #777777, autochess.dgreen #40B196 — Kengxxiao zh_CN `gamedata_const`)와 구성원 격자
-    (`autochess_hud_bond_char_item`: 칸 88, 한 줄 5, 간격 25.5 × 38, 아바타 76 + `avatar_border` 83, 필드에 있는 구성원은 `avatar_active_border` 92×90,
+    (`autochess_hud_bond_char_item`: 칸 88, 한 줄 5, 간격 25.5 × 38, 아바타 76 + `avatar_border` 83, 켜진 구성원은 `avatar_active_border` 92×90,
     나머지는 #3b3b3b 50 % 어둡게 — 회색 처리 없음, 등급 배지 30×30 왼쪽 아래 — 스프라이트 rect = 텍스처 45라 상자 그대로, 이름 16 아래). 얇은 스크롤바.
+  - 구성원이 켜지는 조건(2026-10-22 클라 코드로 확인, 관리자 제보: 투자자 팝업에서 정비 구역의 실버애쉬 더 레인프로스트가 어둡게): 맹약의
+    `activeType`을 따른다 — `AutoChessBattleUIBondCharItemView.Render`(RVA 0x2357850)가 `AutoChessBondCharModel.isActive`로 `_activeBorderObj`를 켜고
+    `_inactiveMaskObj`를 끄며, isActive = `AutoChessBattleUtil.CheckIfCharBondActive`(0x8A78E0): 그 플레이어의 ChessInst 중 일반 id가 같은 것이
+    ALL(투자자·예견·기적)이면 어디에 있든, BATTLE·MANI면 전투 중(필드)일 때. 정예(`_b`)도 일반 id로 맞춘다. 그래서 투자자·예견·기적은 정비 구역
+    구성원도 켜진다(전에는 모든 맹약에서 필드 구성원만 켬). 임시 칸 5개도 소유로 켠다 [추정]: 클라는 ChessInst를 전부 도는데 임시 칸이 ChessInst인지는
+    안 읽음. 코드 `gameLogic memberLit`.
   - 결석(본판 금지) 구성원은 **목록에서 뺀다**(2026-10-13 관리자 결정, 공식 화면 기억 [추정] — 목록을 만드는 클라 코드는 안 읽음): 공식
     `autochess_hud_bond_char_item`·`AutoChessBondCharModel`에 결석 상태가 없다. 맹약이 전부 꺼진 선발 pick(`m.private.diyBanned`)도 같이 빠진다
     (`gameLogic bondMembers`; 예전 빨간 원 ✕ 표시는 없앰). 「成员 x/y」의 y도 그만큼 줄고, 머리의 「n/m」(`activeCount`)은 그대로.
