@@ -7,6 +7,7 @@
 // [ASSUMED] the mapping by name; the client binds effects per ability in its charpack prefabs (`_startEffect` …).
 
 import { skillModeIndex } from '../../../shared/skill-modes.js';
+import { cite } from './fx/cite.js';
 
 /** Effect bundle of an operator (charId without its numeric prefix). */
 export const fxBundleOf = (charId) => String(charId || '').replace(/^char_\d+_/, '');
@@ -71,17 +72,18 @@ export function effectsFor(prefabs, kind, skillIndex = 0) {
 
 // ---- 丰川祥子's notes (kits/ops/op-oblvns.js NOTE; battle.fx 'oblvnsNote', local patch 2026-10-06) ----------------------------
 // The client's note projectiles (EN [uc]projectiles.ab projectile_chr_oblvns*: `_mainEffect` = the trail, `_effectsWhenHit`
-// = the hit) per sim note mode, and their flight (a copy of the sim's NOTE — test/local-patch.test.js keeps them equal;
+// = the hit, `cite`d) per sim note mode, and their flight (a copy of the sim's NOTE — test/local-patch.test.js keeps them equal;
 // `sine` the 扩张正弦 amplitude of the free flight, drawn here only; `pass` the piano note's 【已命中】 flight on through
 // its target: PRTS "固定3.0速度当前方向移动，持续0.5s").
 export const NOTE_FX = Object.freeze({
-  base: { trail: 'oblvns_attack_01_trail', hit: 'oblvns_attack_01_hit' },     // projectile_chr_oblvns
-  talent: { trail: 'oblvns_talent_trail', hit: 'oblvns_attack_01_hit' },      // _talent (持续攻击, no skill)
-  s1: { trail: 'oblvns_skill_01_trail', hit: 'oblvns_skill_01_hit' },         // _s1_1 … _s1_8 (trail, trail_02 … _08)
-  piano: { trail: 'oblvns_skill_02_trail_02', hit: 'oblvns_skill_02_hit_02' }, // _s2 / _s2_t
-  organ: { trail: 'oblvns_skill_02_trail', hit: 'oblvns_skill_02_hit' },       // _s2_slow / _s2_slow_t
-  s3: { trail: 'oblvns_skill_03_trail_02', hit: 'oblvns_skill_03_hit_02' },    // _s3_phy
-  s3m: { trail: 'oblvns_skill_03_trail', hit: 'oblvns_skill_03_hit' },         // _s3_mag
+  base: cite('projectile_chr_oblvns', { trail: 'oblvns_attack_01_trail', hit: 'oblvns_attack_01_hit' }),
+  talent: cite('projectile_chr_oblvns_talent', { trail: 'oblvns_talent_trail', hit: 'oblvns_attack_01_hit' }),   // 持续攻击, no skill
+  // _s1_1 … _s1_8: trail, trail_02 … _08
+  s1: cite([1, 2, 3, 4, 5, 6, 7, 8].map((i) => `projectile_chr_oblvns_s1_${i}`), { trail: 'oblvns_skill_01_trail', hit: 'oblvns_skill_01_hit' }),
+  piano: cite(['projectile_chr_oblvns_s2', 'projectile_chr_oblvns_s2_t'], { trail: 'oblvns_skill_02_trail_02', hit: 'oblvns_skill_02_hit_02' }),
+  organ: cite(['projectile_chr_oblvns_s2_slow', 'projectile_chr_oblvns_s2_slow_t'], { trail: 'oblvns_skill_02_trail', hit: 'oblvns_skill_02_hit' }),
+  s3: cite('projectile_chr_oblvns_s3_phy', { trail: 'oblvns_skill_03_trail_02', hit: 'oblvns_skill_03_hit_02' }),
+  s3m: cite('projectile_chr_oblvns_s3_mag', { trail: 'oblvns_skill_03_trail', hit: 'oblvns_skill_03_hit' }),
 });
 export const NOTE_FLIGHT = Object.freeze({
   base: { free: 2.0, track: 2.0, turn: 5 },
@@ -315,7 +317,7 @@ export function modePart(bind, prefabs, n, sig, ally) {
 export const hitLoopEnd = (bind, name) => (Number.isInteger(bind?.hitLoop?.[name]) ? bind.hitLoop[name] : null);
 
 /** Default deploy effects (client `DefaultEffects.CHARACTER_BORN` / `TOKEN_BORN`) and dead effect (`common_char_die_01`). */
-export const DEPLOY_FX = Object.freeze({ op: 'common_char_birth_01', token: 'common_call_start_01', dead: 'common_char_die_01' });
+export const DEPLOY_FX = Object.freeze(cite(['DefaultEffects.CHARACTER_BORN', 'DefaultEffects.TOKEN_BORN', 'DefaultEffects.CHARACTER_DEAD'], { op: 'common_char_birth_01', token: 'common_call_start_01', dead: 'common_char_die_01' }));
 /**
  * The deploy effect of an operator / token: the `_overrideStartEffect` of its mode now, the prefab root's `_startEffect`, else
  * the default for its kind (`Character.get_startEffect` / `GetStartEffect`, RVA 0x7085E0 / 0x6F74B0). With a skill mode on, a
@@ -342,10 +344,10 @@ export const deadEffect = (bind) => bind?.dead || DEPLOY_FX.dead;
  * as long as it is deployed, unconditionally — an INFINITY buff on itself or an aura's `_effects` (EN charpacks):
  */
 export const TALENT_ALWAYS = Object.freeze({
-  char_423_blemsh: Object.freeze(['blemsh_buff_01_start']),   // Talents/2 blemsh_t_2 (仁慈)
-  char_245_cello: Object.freeze(['cello_buff_01']),           // Others/Direction/Talents/1 cello_t_1 (无词哀歌)
-  char_181_flower: Object.freeze(['flower_buff_01_range']),   // Talents/1 `_passiveBuffs` flower_t_1[eff] (熏衣草)
-  char_1019_siege2: Object.freeze(['siege2_buff_01']),        // Others/Direction/Talents/1 AuraAbility `_effects` (诸王的叹息)
+  char_423_blemsh: Object.freeze(cite('blemsh_t_2', ['blemsh_buff_01_start'])),   // Talents/2 (仁慈)
+  char_245_cello: Object.freeze(cite('cello_t_1', ['cello_buff_01'])),           // Others/Direction/Talents/1 (无词哀歌)
+  char_181_flower: Object.freeze(cite('flower_t_1[eff]', ['flower_buff_01_range'])),   // Talents/1 `_passiveBuffs` (熏衣草)
+  char_1019_siege2: Object.freeze(cite('char_1019_siege2/Others/Direction/Talents/1', ['siege2_buff_01'])),   // AuraAbility `_effects` (诸王的叹息)
 });
 
 /**
