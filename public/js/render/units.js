@@ -420,9 +420,10 @@ export function headTilesForUnit(o) {
  *   (普通囚犯 / 老练囚犯 Idle …, 强壮囚犯 *3, the others *_red); no change clip (the prefab switches the set at once).
  * - the 傀儡师 operators' <替身> (sim professions.js installDollkeeper: form 'doll' from the start of the switch to it
  *   until the switch back starts, GitHub issue #44): the skeletons draw it on their *_B clips (their own slots — the
- *   本体's are hidden). 归溟幽灵鲨: Start_B fades it in (the 2 s switch, whose first second the client plays on Die), Idle_B (it never attacks), Die_B breaks it
- *   apart over its last second (`end`, timed from the 'substitute' fx's `dur`), the 本体 comes back on Start_2 (`leave`:
- *   played when the form ends); knocked out as the 替身 it collapses on Die_B_2 and stays down so. 风丸: Die_2 → Start_B
+ *   本体's are hidden). 归溟幽灵鲨: Die → Start_B (charpack CommonAbilities ghost2[switch2stand]: Die2Stand `_animKey Die`,
+ *   StandBorn `Start_B`), Idle_B (it never attacks), the 本体 back on Die_B → Start_2 ([switch2normal]: Die2Normal `Die_B`,
+ *   StandBorn `Start_2`; `leave`: played when the form ends); knocked out as the 替身 it collapses on Die_B_2 and stays down
+ *   so. 风丸: Die_2 → Start_B
  *   (charpack CommonAbilities kazema[switch2stand]), then Idle_B / Attack_B (her 替身 attacks), Die_B as its death; the
  *   本体 comes back on Die_B → Start ([switch2normal]: Die_B → Born) — two clips in a row each way, as long as the sim's
  *   switch (professions.js DOLL_SWITCH, 2 s). Facing
@@ -558,7 +559,7 @@ export const FORMS = Object.freeze({
     stopped: Object.freeze({ change: null, roles: clipSet('B_Idle', 'B_Move', 'B_Die', 'B_Attack') }),
   }),
   char_1023_ghost2: Object.freeze({
-    doll: Object.freeze({ change: 'Start_B', end: 'Die_B', leave: 'Start_2', roles: dollRoles('Idle_B', 'Die_B_2') }),
+    doll: Object.freeze({ change: Object.freeze(['Die', 'Start_B']), leave: Object.freeze(['Die_B', 'Start_2']), roles: dollRoles('Idle_B', 'Die_B_2') }),
   }),
   char_1040_blaze2: Object.freeze({
     downed: Object.freeze({ change: 'Revive_Begin', leave: 'Revive_End', endsOnDeath: true, roles: Object.freeze({ idle: 'Revive_Idle', deploy: 'Revive_Idle', move: loop('Revive_Idle'), stun: loop('Revive_Idle'), attack: null, skill: null }) }),
@@ -1008,11 +1009,19 @@ export class UnitView {
     let next = f && f.next ? FORMS[this.info.spine || this.info.defId]?.[f.next]?.roles || null : null;
     if (next && typeof f.roles.die === 'string') next = { ...next, die: f.roles.die };
     // an fx handed out late (render/app.js: a stall, a hidden tab) skips a change clip that would already have ended
+    // (and, of clips in a row, the ones that would have ended: 归溟幽灵鲨's Die of Die → Start_B)
     const late = fx && Number(fx.late) > 0 ? Number(fx.late) : 0;
-    const change = f && f.change && !(late > 0 && late >= (this.actor.dur?.(f.change) ?? Infinity)) ? f.change : null;
+    const unlate = (c) => {
+      if (!c || !(late > 0)) return c || null;
+      if (!Array.isArray(c)) return late >= (this.actor.dur?.(c) ?? Infinity) ? null : c;
+      let t = 0;
+      const rest = c.filter((n) => { const d = this.actor.has?.(n) ? this.actor.dur?.(n) ?? Infinity : 0; t += d; return t > late; });
+      return rest.length ? rest : null;
+    };
+    const change = f ? unlate(f.change) : null;
     if (f) this.actor.setForm(f.roles, change, f.end && dur > 0 ? { clip: f.end, in: dur, roles: next } : null, !!f.hold);
     // (`cut`: the form ended by something that plays its own clip — 雪猎's reload cut by an attack: no `leave` clip)
-    else if (prev) this.actor.setForm(null, prev.leave && !fx?.cut && !(late > 0 && late >= (this.actor.dur?.(prev.leave) ?? Infinity)) ? prev.leave : null);
+    else if (prev) this.actor.setForm(null, prev.leave && !fx?.cut ? unlate(prev.leave) : null);
   }
 
   // ---- HUD -------------------------------------------------------------------------------------------------

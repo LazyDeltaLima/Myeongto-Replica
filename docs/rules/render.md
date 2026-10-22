@@ -576,7 +576,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     `Skill_3_Startup` 뒤 `Skill_3_Chant`가 스킬 끝까지. [화면 미확인]
   - **H** 재능·특성 상태. 风丸 傀儡师: 替身으로 바뀔 때 `Die_2`→`Start_B`, 돌아올 때 `Die_B`→`Start`(charpack `CommonAbilities` `kazema[switch2stand]`·
     `[switch2normal]` 순차 묶음) — `FORMS`의 `change`·`leave`가 클립 배열이면 차례로 튼다(`spine.js _change`). 시뮬 전환(`professions.js DOLL_SWITCH`)도 두 클립 길이인
-    2 s(`sim.md` 「傀儡师 전환 2 s」). 归溟幽灵鲨는 클라가 `Die`→`Start_B`·`Die_B`→`Start_2`인데 렌더는 `Start_B` 하나·`Die_B`를 替身 끝 1초에 둔 채(GitHub #44 때 모양). 烛煌 绝处重燃: 쓰러짐 `Revive_Begin`→`Revive_Idle`, 일어남 `Revive_End` — 키트의 'downed'·'revive' fx에
+    2 s(`sim.md` 「傀儡师 전환 2 s」). 归溟幽灵鲨도 같은 모양(2026-10-22): 바뀔 때 `Die`→`Start_B`, 돌아올 때 `Die_B`→`Start_2`(charpack `CommonAbilities` `ghost2[switch2stand]` Die2Stand·StandBorn, `[switch2normal]` Die2Normal·StandBorn의 `_animKey`) — 전엔 `Start_B` 하나에 `Die_B`를 替身 끝 1초에 뒀다(GitHub #44 때 모양). 늦게 받은 전환 fx는 이미 끝났을 클립을 앞에서부터 뺀다(`units.js setForm`). 부활로 替身이 끝날 때도 `Die_B`→`Start_2` [추정]. 烛煌 绝处重燃: 쓰러짐 `Revive_Begin`→`Revive_Idle`, 일어남 `Revive_End` — 키트의 'downed'·'revive' fx에
     `form`(`'downed'`/null)을 실어 `FORMS.char_1040_blaze2`로(이벤트 수는 그대로), 쓰러진 채 쓰러지면(`endsOnDeath`) 형태가 끝나고 `Die`. [화면 미확인]
   - **I** 믹스 전환: chararts `SpineAnimator._mixSettings` — 클립 A→B 사이에 끼우는 클립.
   - **J** 스킨 키 표: chararts `SpineAnimator._animations`(키 → 클립 이름). 클라는 능력·모드의 **키**로만 튼다(`PlayAnimationInternal` → `GetAnimationData`).

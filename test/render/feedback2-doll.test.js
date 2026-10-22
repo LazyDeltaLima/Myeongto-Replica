@@ -1,8 +1,8 @@
 // test/render/feedback2-doll.test.js — GitHub issue #44 「归鲨死了没替身」 (DESIGN §22.11), client side: a 傀儡师 fighting as
 // its <替身> is in the model form 'doll' (sim professions.js: fx 'substitute' { form: 'doll', dur } … 'swap' / 'dollEnd'
-// { form: null }, UnitInfo `form`), drawn with the skeleton's *_B clips (render/units.js FORMS): 归溟幽灵鲨's Start_B fades
-// the 替身 in, Idle_B, Die_B breaks it apart over its last second, the 本体 comes back on Start_2 (the form's `leave`
-// clip); knocked out as the 替身 she collapses on Die_B_2 and stays so — facing UP too, on the Front model a knocked-out
+// { form: null }, UnitInfo `form`), drawn with the skeleton's *_B clips (render/units.js FORMS): 归溟幽灵鲨 switches on
+// Die → Start_B, then Idle_B, and the 本体 comes back on Die_B → Start_2 (the form's `leave` clips — the client's charpack
+// CommonAbilities ghost2[switch2stand] / [switch2normal]); knocked out as the 替身 she collapses on Die_B_2 and stays so — facing UP too, on the Front model a knocked-out
 // operator lies with (§22.1), and on any model built while she lies down. 0.1.1 drew the 本体 all along. Headless fake
 // PIXI (test/render/fakepixi.js) on the real manifest and asset helpers; the clip meanings are checked on the real skeleton
 // when the assets are fetched.
@@ -64,7 +64,8 @@ describe('归溟幽灵鲨\'s 替身 (FORMS doll)', () => {
   test('the clip set exists in her Front skeleton; the Back one (facing UP) only has Idle_B and Start_2', () => {
     const f = FORMS[GHOST].doll;
     const front = assets.chars[GHOST].spine.front.animations, back = assets.chars[GHOST].spine.back.animations;
-    for (const name of [f.change, f.end, f.leave, f.roles.idle, f.roles.die]) assert.ok(name in front, name);
+    for (const name of [...f.change, ...f.leave, f.roles.idle, f.roles.die]) assert.ok(name in front, name);
+    assert.deepEqual([f.change, f.leave, f.end], [['Die', 'Start_B'], ['Die_B', 'Start_2'], undefined], 'the client\'s switch sequences');
     assert.equal(f.roles.attack, null, 'the 替身 never attacks (PRTS 特性备注)');
     assert.equal(f.roles.skill, null);
     for (const name of ['Idle_B', 'Start_2']) assert.ok(name in back, `Back ${name}`);
@@ -72,22 +73,25 @@ describe('归溟幽灵鲨\'s 替身 (FORMS doll)', () => {
     assert.equal(assets.chars[GHOST].spine.front.anims.idle, 'Idle', 'the manifest keeps the 本体');
   });
 
-  test('the switch: Start_B, Idle_B (no attack clip), Die_B over its last second, the 本体 back on Start_2 with her own skill clip', async () => {
+  test('the switch: Die → Start_B, Idle_B (no attack clip), the 本体 back on Die_B → Start_2 with her own skill clip', async () => {
     const v = await op(GHOST, { skillIndex: 2 });
     assert.equal(clip(v), 'Idle');
     const dur = DOLL_SWITCH + 20;
     v.setForm('doll', { id: 1, form: 'doll', dur });
+    assert.equal(clip(v), 'Die', 'the 本体 falls');
+    secs(v, 1.05);
     assert.equal(clip(v), 'Start_B', 'the 替身 fades in');
-    secs(v, 1.1);
+    secs(v, 1.05);
     assert.equal(clip(v), 'Idle_B');
     v.onAttack(null, 2);
     assert.equal(clip(v), 'Idle_B', 'no attack clip');
-    secs(v, dur - 1 - 1.1 + 0.05);
-    assert.equal(clip(v), 'Die_B', 'it breaks apart over its last second');
-    secs(v, 0.9);
+    secs(v, dur - 2.1);
+    assert.equal(clip(v), 'Idle_B', 'the 替身 stands to the end of its time');
     v.setForm(null, { id: 1, form: null });          // the sim's 'swap' fx
+    assert.equal(clip(v), 'Die_B', 'it breaks apart');
+    secs(v, 1.05);
     assert.equal(clip(v), 'Start_2', 'the 本体 comes back');
-    secs(v, 1.1);
+    secs(v, 1.05);
     assert.equal(clip(v), 'Idle');
     v.setSkill(true);
     assert.equal(clip(v), 'Skill_3_Begin', 'her equipped skill\'s clips again (S3), not the manifest default');
@@ -132,9 +136,15 @@ describe('归溟幽灵鲨\'s 替身 (FORMS doll)', () => {
     assert.ok(STATUS_KEYS.includes('doll'));
     const v = await op(GHOST);
     v.setForm('doll', { dur: 21, late: 1.5 });
-    assert.equal(clip(v), 'Idle_B');
+    assert.equal(clip(v), 'Start_B', 'Die (1 s) would have ended: Start_B');
+    const w = await op(GHOST);
+    w.setForm('doll', { dur: 21, late: 2.5 });
+    assert.equal(clip(w), 'Idle_B', 'both would have ended');
+    w.setForm(null, { form: null, late: 1.5 });
+    assert.equal(clip(w), 'Start_2', 'Die_B would have ended: Start_2');
+    secs(v, 1.1);
     v.setForm(null, { form: null, late: 2 });
-    assert.equal(clip(v), 'Idle', 'no Start_2 when it would be over');
+    assert.equal(clip(v), 'Idle', 'no Die_B / Start_2 when they would be over');
   });
 });
 
@@ -150,7 +160,7 @@ describe('knocked out as the 替身: facing UP, models built while down, the red
     const v = new UnitView(ctx, { id: 1, side: 'ally', kind: 'op', defId: id, spine: id, tier: 5, x: 5, y: 9, maxHp: 2657, dir, skillIndex: 1 });
     await settle();
     v.setForm('doll', { id: 1, form: 'doll', dur: 21 });
-    secs(v, 2);
+    secs(v, 2.2);
     assert.equal(clip(v), 'Idle_B');
     return v;
   }
@@ -193,13 +203,15 @@ describe('knocked out as the 替身: facing UP, models built while down, the red
     assert.equal(clip(v), 'Idle', 'the 本体\'s idle, not Idle_B');
   });
 
-  test('revived in the same frame (阿戈尔: die → deploy → dollEnd): the 本体 comes back on Start_2, no model is loaded', async () => {
+  // [ASSUMED] a revive plays the switch back (Die_B → Start_2) as any end of the 替身 does
+  test('revived in the same frame (阿戈尔: die → deploy → dollEnd): the 本体 comes back on Die_B → Start_2, no model is loaded', async () => {
     for (const dir of ['UP', 'RIGHT']) {
       const v = await doll(GHOST, dir);
       const loads = v.ctx.assets.loads;
       v.die(); v.onDeploy(); v.setForm(null, { id: 1, form: null });
       frames(v, 1); await settle(); frames(v, 2);
-      assert.equal(clip(v), 'Start_2', dir);
+      if (dir === 'RIGHT') { assert.equal(clip(v), 'Die_B', dir); secs(v, 1.05); }
+      assert.equal(clip(v), 'Start_2', `${dir} (the Back skeleton has no Die_B)`);
       assert.equal(v.ctx.assets.loads, loads, `${dir}: no model load`);
     }
   });
@@ -265,10 +277,13 @@ test('sim → view: the real 归溟幽灵鲨\'s lethal hit puts UnitInfo `form` 
   h.b.dealDamage(null, g, { amount: 1e9, type: 'true' });
   apply();
   assert.equal(renderInfo(unitInfo(g)).form, 'doll');
+  assert.equal(clip(v), 'Die');
+  secs(v, 1.05);
   assert.equal(clip(v), 'Start_B');
-  secs(v, 1.1);
   h.run(DOLL_SWITCH + 20.05);
   apply();
+  assert.equal(clip(v), 'Die_B', 'the 替身 breaks apart');
+  secs(v, 1.05);
   assert.equal(clip(v), 'Start_2', 'back to the 本体');
   assert.equal(renderInfo(unitInfo(g)).form, undefined);
 });

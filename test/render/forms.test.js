@@ -564,8 +564,8 @@ test('render/app.js hands the `form` of a sim fx (shared/protocol.js fxForm) wit
   // a form fx handed out late (render/interp.js takeEvents `late`) switches the model with its closing clip shortened by
   // the lateness and without replaying its telegraph
   assert.match(src, /const x = late > 0 \? \{ \.\.\.e\[4\], late, \.\.\.\(Number\(e\[4\]\.dur\) > 0 \? \{ dur: Math\.max\(0, Number\(e\[4\]\.dur\) - late\) \} : \{\}\) \} : e\[4\];/);
-  // …and UnitView.setForm skips a change clip that would already have ended
-  assert.match(readFileSync(path.join(ROOT, 'public/js/render/units.js'), 'utf8'), /!\(late > 0 && late >= \(this\.actor\.dur\?\.\(f\.change\) \?\? Infinity\)\)/);
+  // …and UnitView.setForm skips a change clip that would already have ended (of clips in a row, those that would have)
+  assert.match(readFileSync(path.join(ROOT, 'public/js/render/units.js'), 'utf8'), /const change = f \? unlate\(f\.change\) : null;/);
   assert.match(src, /if \(!\(late > 0\)\) fx\.simFx\(/);
   assert.match(src, /interp\.takeEvents\(renderT, EVS, renderT - 1\.5, LATE\);/);
 });
