@@ -26,7 +26,7 @@
 // Texts go through t() (docs/I18N.md).
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SEATS, MAX_SPECTATORS, seatsOf } from '../../../shared/constants.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SEATS, MAX_SPECTATORS, seatsOf, modeIdFor } from '../../../shared/constants.js';
 import { SeatMark } from '../ui/faction.js'; // local patch
 import {
   html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyTag, DifficultyIcon, Tooltip, confirmDialog, doctorNo, useTicker,
@@ -45,10 +45,12 @@ import { RoomChat } from '../ui/chat.js';
 import { MatchQueueDialog, mmss } from '../ui/matchQueue.js';
 import { audio } from '../audio.js';
 import { t, tc } from '../../../shared/i18n.js';
-import { resolveRuleset } from '../../../shared/ruleset.js';
+import { resolveRuleset, officialBans } from '../../../shared/ruleset.js';
 import { RulesetSwitch, presetName, queueCountOf } from '../ui/ruleset.js';
 import { CustomRulesDialog, openCustomRules } from '../ui/customRules.js';
 import { customDraft } from '../ui/customRulesStore.js';
+import { customSummary } from '../ui/customSummary.js';
+import { getBond, getBoss, getStage, getConfig, getMode } from '../data.js';
 
 /**
  * Seats padded to the room's capacity (co-op 4 or its `size` 8, solo 1), each null or a seat record.
@@ -151,6 +153,36 @@ export function inviteLink(code) {
 }
 
 /**
+ * The copied invitation: the link with its invitation line (#103: 「{name}邀请你加入卫戍协议：盟约【{difficulty}】」), then
+ * the room's size and 规则 preset, and in a 自定义 room its differences from the official rules, one per line, as the
+ * match screens list them (ui/customSummary.js).
+ * @param {any} room room.state payload
+ * @param {string} name the inviting Doctor's name
+ * @returns {string}
+ */
+export function inviteMessage(room, name) {
+  const difficulty = DIFFICULTY_NAMES[room?.difficulty] ? t(DIFFICULTY_NAMES[room.difficulty]) : '';
+  const rs = resolveRuleset(room?.ruleset);
+  const out = [
+    `${inviteLink(room?.code ?? '')} ${t('{name}邀请你加入卫戍协议：盟约【{difficulty}】', { name: name ?? '', difficulty })}`,
+    `${t('{n} 人同盟', { n: seatsOf(room?.size) })} · ${presetName(rs)}`,
+  ];
+  if (rs.custom) {
+    const mode = DIFFICULTIES.includes(room.difficulty) ? getMode(modeIdFor('coop', room.difficulty)) : null;
+    const lookup = { bond: getBond, boss: getBoss, stage: getStage };
+    const lines = customSummary(rs.custom, {
+      bans: officialBans(getConfig(), room.difficulty, room.size),
+      rounds: Number.isInteger(mode?.lastRound) ? mode.lastRound : null,
+      name: (kind, id) => lookup[kind](id)?.name || id,
+      hidden: (id) => !!getBoss(id)?.hidden,
+    });
+    if (lines.length) out.push(t('自定义规则'), ...lines.map((l) => `- ${l.text}`));
+    else out.push(t('{who}：{list}', { who: t('自定义规则'), list: t('与官方规则相同') }));
+  }
+  return out.join('\n');
+}
+
+/**
  * Copy text to the clipboard (async API with a textarea fallback for insecure contexts). Moved to ui/clipboard.js so
  * 干员调配 can use it without importing this screen (which imports loadout.js): re-exported here for existing callers.
  * @param {string} text
@@ -232,11 +264,10 @@ function SpectatorBar({ facts, myId, busy, onRemove, onSit }) {
   </section>`;
 }
 
-function InviteBox({ code, name, difficulty }) {
+function InviteBox({ room, name }) {
+  const code = room.code;
   const copy = async (what) => {
-    // the copied link carries an invitation line (#103): 「{name}邀请你加入卫戍协议：盟约【{difficulty}】」
-    const invite = t('{name}邀请你加入卫戍协议：盟约【{difficulty}】', { name: name ?? '', difficulty: DIFFICULTY_NAMES[difficulty] ? t(DIFFICULTY_NAMES[difficulty]) : '' });
-    const ok = await copyText(what === 'code' ? code : `${inviteLink(code)} ${invite}`);
+    const ok = await copyText(what === 'code' ? code : inviteMessage(room, name));
     if (ok) toast(what === 'code' ? t('已复制同盟密钥 {code}', { code }) : t('已复制邀请链接'), 'success');
     else toast(t('复制失败，请手动复制'), 'warn');
   };
@@ -415,7 +446,7 @@ export function RoomScreen() {
         <h1 class="topbar__title">${coop ? t('同盟模拟') : t('独立模拟')}<span class="topbar__sep"></span><${DifficultyTag} difficulty=${room.difficulty} size="lg" /><span class=${`rtag rtag--${roomRules.preset}`} data-testid="room-ruleset">${presetName(roomRules)}</span>${facts.large ? html`<span class="rtag rtag--size" data-testid="room-size">${t('{n} 人同盟', { n: facts.seats.length })}</span>` : null}</h1>
       </div>
       <div class="topbar__right">
-        ${coop ? html`<${InviteBox} code=${room.code} name=${me.name} difficulty=${room.difficulty} />` : html`<div class="solo-note"><${MicroLabel}>SINGLE OPERATOR<//><span>${t('仅限 1 名博士')}</span></div>`}
+        ${coop ? html`<${InviteBox} room=${room} name=${me.name} />` : html`<div class="solo-note"><${MicroLabel}>SINGLE OPERATOR<//><span>${t('仅限 1 名博士')}</span></div>`}
       </div>
     </header>
 

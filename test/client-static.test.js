@@ -1128,6 +1128,21 @@ describe('screen helpers', () => {
     assert.match(inviteLink('ABCD'), /\?room=ABCD$/);
   });
 
+  test('room: inviteMessage carries the room size, the ruleset and a custom room\'s settings', async () => {
+    const { inviteMessage } = await mod('screens/room.js');
+    const room = { code: 'ABCD', hostId: 'h', mode: 'coop', difficulty: 'HARD', size: 8, ruleset: { preset: 'casual' } };
+    let lines = inviteMessage(room, 'Host').split('\n');
+    assert.equal(lines.length, 2);
+    assert.match(lines[0], /\?room=ABCD Host邀请你加入卫戍协议：盟约【/);
+    assert.equal(lines[1], '8 人同盟 · 休闲');
+    lines = inviteMessage({ ...room, size: undefined, ruleset: undefined }, 'Host').split('\n');
+    assert.equal(lines[1], '4 人同盟 · 经典', 'no size / ruleset: 4 seats, the default preset');
+    lines = inviteMessage({ ...room, ruleset: { preset: 'custom', custom: { enemies: { hp: 150 }, flow: { lpShared: true } } } }, 'Host').split('\n');
+    assert.deepEqual(lines.slice(1), ['8 人同盟 · 自定义', '自定义规则', '- 普通敌人：生命值 150%', '- 所有回合共享目标生命值']);
+    lines = inviteMessage({ ...room, ruleset: { preset: 'custom' } }, 'Host').split('\n');
+    assert.equal(lines[2], '自定义规则：与官方规则相同');
+  });
+
   test('room: spectator seats (community report #26) — isSpectating; roomFacts never counts a spectator as a player', async () => {
     const { roomFacts } = await mod('screens/room.js');
     const { isSpectating } = await mod('store.js');
