@@ -12,7 +12,7 @@ public/assets/local/fx/bindings.json — never tracked. Rows, in the same shape 
                        fields and the CreateEffect nodes of its serialized actions: key = the GameObject path
         'projectile'   a projectile prefab's effect fields (`_mainEffect`, `_effectsWhenReached` …): key = the projectile
         'token'        a token prefab's emitters and effect fields: key = the GameObject path
-  `char` the operator / token the row belongs to. Every string field that names an extracted effect prefab counts, so a
+  `char` the operator / token the row belongs to (a projectile only a buff template fires: that template's key). Every string field that names an extracted effect prefab counts, so a
   field this script does not know still yields a row (moment = its field path).
 Also `refs` {char: [buff / template keys its prefabs name]} — where the pool's use of a buff template starts.
 
@@ -36,6 +36,9 @@ from enemy_bindings import EVENTS  # noqa: E402
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'public/assets/local/fx/bindings.json'
 FX_INDEX = ROOT / 'public/assets/local/fx/index.json'
+# the template table (its `templates`: the pool's templates) and the public datasets it was built from (en_US first)
+FX_TEMPLATES = ROOT / 'tools/assets/fx-templates.json'
+TEMPLATE_DATA = [ROOT / '.cache/gamedata-en/battle/buff_template_data.json', ROOT / '.cache/gamedata/battle/buff_template_data.json']
 BASES = ('PersistentData/Bundles', 'StreamingAssets/AB/Windows')   # first wins (hot update)
 # Buff.LifeTimeType as the client serializes it
 LIFE = ['IMMEDIATELY', 'LIMITED', 'INFINITY', 'CUSTOM']
@@ -305,6 +308,18 @@ def main():
         left -= set(roots)
     missing['token'] = sorted(left)
 
+    # the projectiles the pool's buff templates fire (凛御银灰 S3 svash2_s_3[bird_on_self] → projectile_chr_svash2_s3_bird_self)
+    if FX_TEMPLATES.exists():
+        pool_tpls = set(json.loads(FX_TEMPLATES.read_text(encoding='utf-8')).get('templates') or {})
+        for f in TEMPLATE_DATA:
+            if not f.exists():
+                continue
+            for k, v in json.loads(f.read_text(encoding='utf-8')).items():
+                if k in pool_tpls:
+                    for x in strings(v, set()):
+                        if x.startswith('projectile_'):
+                            named.add(x)
+                            named_by.setdefault(x, k)
     # projectiles the pool names (and the ones those name): battle/prefabs/[uc]projectiles.ab (EN first)
     proj = {}
     for game, cn in games:

@@ -51,7 +51,7 @@ const FXGAME = {
   aglna2_skill_02_fly_trail_up_01: 'skchr_aglna2_2', aglna2_skill_02_fly_range_01: 'skchr_aglna2_2',
   aglna2_skill_02_fly_end_01: 'skchr_aglna2_2', aglna2_skill_02_fly_end_02: 'skchr_aglna2_2', aglna2_skill_02_fly_end_03: 'skchr_aglna2_2',
   token_aglna2_agairp_01: 'token_10071_aglna2_agairp/Others/Direction/CommonAbilities/Passive',
-  svash2_skill_03_trail_02: 'svash2_s_3[bird_on_target]',
+  svash2_skill_03_trail_02: 'projectile_chr_svash2_s3_bird_self',
   vigil_token_start: 'token_10028_vigil_wolf/Modes/Recharge/Body/Talents/1', vigil_token_ghost: 'token_10028_vigil_wolf/Modes/Recharge/Body/Talents/1',
   vigil_token_sub_start_1: 'vigil_wolf_t_1_enhance[holder]', vigil_token_sub_die_1: 'vigil_wolf_t_1[listener]',
   vigil_token_die: 'vigil_wolf_t_1[listener]', vigil_token_buff_1: 'vigil_wolf_t_1[block_cnt]',
@@ -70,15 +70,14 @@ const FXGAME = {
  * stays here until it is fixed (then the line goes) or judged (the reason says why the hand entry is right).
  */
 const KNOWN = {
-  'KIT_OFFICIAL shield.agoat2|agoat2_skill_02_range_01': ['missing', 'the prefab is skchr_agoat2_2/Shield/Aura `_effects`, not the buff agoat2_s_2[shield]\'s: lives with the Aura [추정: as long as the barrier]'],
   'KIT_OFFICIAL candle.etlchi|etlchi_skill_03_ghosting_01': ['missing', 'held by the summoned 心烛 (enemy_5601_entlec) prefab: an enemy outside the pool extract'],
-  'KIT_OFFICIAL candle.etlchi|etlchi_skill_03_line_01': ['life', 'entlec_a[line_effect_core] CreateLineEffect at ON_BUFF_START (once); drawn while both stand [추정: the line prefab loops]'],
+  'KIT_OFFICIAL candle.etlchi|etlchi_skill_03_line_01': ['life', 'entlec_a[line_effect_core] CreateLineEffect at ON_BUFF_START creates it once; the prefab is `_holdByOwner` (extract face.hold), so it stays while both stand, as drawn'],
   'KIT_OFFICIAL airstrike.angel2|angel2_skill_3_begin_start_001': ['life', 'S3FireToToken `_castEffects` hold for the cast; an empty prefab, played once'],
   'KIT_OFFICIAL talent.bpipe|bpipe_attack_02_hit': ['missing', 'bpipe_t_1 SplashDamage `_createEffect` reads the talent blackboard `effect`: no effect node in the tables'],
   'KEY_FX svash2:barrier|*': ['untabled', 'no svash2_s_1[build] in either template dataset or the client rows: the 屏障 card\'s buff key is unconfirmed'],
   'STACK_FX rmixer:t1|rmixer_buff_02': ['missing', 'swapped in by rmixer_buff_01\'s own SwitchableEffectByBuffStackCnt (a component of the prefab), not a buff row'],
   'DEPLOY_FX DEPLOY_FX|*': ['untabled', 'the client\'s default effects (DefaultEffects), not a binding row'],
-  'fxgame screen_desert_up_to_down|screen_desert_up_to_down': ['missing', 'sand_storm[camera_effect] creates screen_desert_*_empty (SwitchDirection branches): bug candidate — the _empty prefab or this one'],
+  'fxgame screen_desert_up_to_down|screen_desert_up_to_down': ['missing', 'sand_storm[camera_effect] creates screen_desert_*_empty (SwitchDirection branches), a wrapper whose `_effects` is this looping prefab (not extracted itself): the hand plays the inner one'],
   'fxgame screen_desert_down_to_up|screen_desert_down_to_up': ['missing', 'as screen_desert_up_to_down'],
   'fxgame screen_desert_right_to_left|screen_desert_right_to_left': ['missing', 'as screen_desert_up_to_down'],
   'fxgame screen_desert_left_to_right|screen_desert_left_to_right': ['missing', 'as screen_desert_up_to_down'],
@@ -103,7 +102,6 @@ const KNOWN = {
   'fxgame aglna2_skill_02_fly_end_01|aglna2_skill_02_fly_end_01': ['missing', 'as aglna2_skill_02_fly_trail_up_01'],
   'fxgame aglna2_skill_02_fly_end_02|aglna2_skill_02_fly_end_02': ['missing', 'as aglna2_skill_02_fly_trail_up_01 (also a trail\'s OnFinishEmitter child)'],
   'fxgame aglna2_skill_02_fly_end_03|aglna2_skill_02_fly_end_03': ['missing', 'as aglna2_skill_02_fly_trail_up_01'],
-  'fxgame svash2_skill_03_trail_02|svash2_skill_03_trail_02': ['missing', '凛御银灰 S3 eagle: svash2_s_3 creates svash2_eagle_* (UNPLAYED), not this trail — bug candidate'],
 };
 
 /** The template rows whose prefab nothing in render/ plays: 'key|prefab' → reason (test/helpers/fxBindings.js unplayed). */

@@ -2484,5 +2484,12 @@
   내보냄) — 추출 이펙트 목록(`index.json`)이 있을 때만 돈다. 렌더 코드의 이름, 공격 모드 바인딩, 이름 규칙, 손 표가 만드는 이름을 「튼다」로 센다.
   클라 전용 행의 목록은 관리자 노트에.
 - 갱신: `node tools/build-fx-templates.mjs`(`--offline`은 캐시로), `.venv-extract/bin/python tools/local-extract/fx_bindings.py --cn <CN Arknights_Data>`.
+- 템플릿이 쏘는 투사체(2026-10-23): `fx_bindings.py`는 풀 프리팹이 부르는 투사체에 더해 풀 템플릿(`fx-templates.json templates`)이 이름을 부르는 투사체도
+  읽는다 — 실버애쉬 더 레인프로스트 S3 `svash2_s_3[bird_on_self]` → `projectile_chr_svash2_s3_bird_self`(`_effectsAlignToProjectileDirection` = 렌더가 트는
+  `svash2_skill_03_trail_02`). 그 행의 `char`는 부른 템플릿 키.
+- K1 대조의 버그 후보 넷 판정(2026-10-23): 에이야퍄들라 더 크비트 아스카 S2 범위 — 고침(위 「버프 진행 단계」). 실버애쉬 더 레인프로스트 S3 — 렌더가 맞고 인용 키가
+  틀렸다(`[bird_on_target]`는 다른 오퍼 위 독수리의 투사체 `projectile_chr_svash2_s3_bird`) → `FXGAME` 인용만 고침; `svash2_eagle_*`(카드 위 战鹰)는 `UNPLAYED` 그대로.
+  战场#06 沙尘暴 화면 — 손이 맞음: `screen_desert_*_empty`는 이 루프 프리팹을 `_effects`로 감싼 껍데기(추출 안 됨, 위 「战场#06 沙尘暴 연출」). 엔텔레키아 S3 선 —
+  손이 맞음: CreateLineEffect는 ON_BUFF_START에 한 번 만들고 프리팹이 `_holdByOwner`(추출 `face.hold`)라 둘이 서 있는 동안 남는다. 뒤의 둘은 `KNOWN`에 판정 이유로 남음.
 - 한계 [추정]: 정적 추출이라 「이 키가 이 순간 (이 조건에서) 이 프리팹을 만들 수 있다」까지만 안다. 코드 접두사 범위에는 같은 코드의 다른 모드 템플릿이
   섞일 수 있다(`UNPLAYED`는 풀 번들의 추출 프리팹인 행만 센다).
