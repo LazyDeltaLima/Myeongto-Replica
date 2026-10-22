@@ -78,7 +78,7 @@ import { opShot } from './fx/speeds.js'; // 2026-10-21: a skill's own shot recor
 import { boomerangThrown, boomerangCaught } from './heldWheel.js'; // local patch: a 回环射手's boomerang leaves / is back in her hand
 import { PROJ } from './style.js';
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2: when her model is back home
-import { playSpeed } from './fx/face.js'; // 2026-10-11 (maintainer decision 15): `_usePlaybackSpeed` / `_limitedPlaybackSpeed`
+import { faceTurn, followDir, playSpeed } from './fx/face.js'; // 2026-10-11 (maintainer decision 15): `_usePlaybackSpeed` / `_limitedPlaybackSpeed`; 2026-10-22 FollowDirection
 import { kitOfficialPlan, kitOperator } from './fx/kitofficial.js'; // 2026-10-16: kit events the buff templates draw
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
 import { animPause, clipOf, facesBack, idlePause, pauseIfNow } from './fx/pause.js'; // 2026-10-21: the client's pause / finish behaviours
@@ -557,6 +557,26 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // per behaviour (`pzBeh`: `_useBehaviourPause`, the same pause — `Effect.get_isPaused` 0xE7D4D0), another effect's
   // PauseAnotherEffect holds it (`pzBy`: `SetPausedByOthers`); FinishEffectIf finishes it.
   const entryOwner = (l) => l.unit || (l.owner != null ? lastViews?.get(l.owner) : null) || null;
+
+  // ---- FollowDirection (2026-10-22, decompile check; docs/rules/fx.md 「이펙트 방향」) --------------------------------------
+  // A prefab with the client's FollowDirection on its root (fx_extract.py `follow`: 183 operator / 89 enemy prefabs, most
+  // of them skill buffs) is turned again as it plays and every frame after (`Update` RVA 0xE812F0; once with
+  // `_onlyFollowOnPlay`) to its owner's direction (fx/face.js followDir) through the same `ParticleEffect.FaceTo` it was
+  // played with (faceTurn) — a FLIP_TWO_SIDE buff mirrors when its operator turns to an enemy behind it, a FOUR_DIRECTION
+  // range lies along the deploy direction. The owner is the unit it is created on [추정: the client's `Behaviour.owner` is
+  // the entity CreateEffect was given], else its caster
+  function stepFollow(l) {
+    const u = (l.view?.info && (lastViews?.get(l.view.id) || l.view)) || entryOwner(l);
+    if (!u) return;
+    l.followed = true;
+    const dir = followDir(l.inst.def.follow, { side: u.visFacing ?? u.facing ?? 1, to: u.face?.to || null, deploy: u.dir || null });
+    if (!dir) return;
+    const t = faceTurn(l.inst.def.face, dir);
+    const was = l.inst.turn;
+    if (!t || (t.flip === was.flip && t.z === was.z && t.any === was.any)) return;
+    l.inst.turn = t;
+    l.inst.applyTurn(t);
+  }
   function setPaused(l) {
     const p = !!(l.pzSelf || l.pzBeh?.size || l.pzBy?.size);
     if (p === !!l.paused) return;
@@ -1032,6 +1052,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // (sign / axis of the turn: the client turns the effect in the skeleton's tilted plane, here about the board's normal
       // [추정]), to be checked on screen
       const turns = def?.mount && def.mount.keepOriginRotation === 0;
+      if (!def?.mount) return placedAt(v, def, key, spawn, at);
       return {
         get x() { return at().x; }, get y() { return at().y; }, get z() { return at().z; },
         get alive() { return v.alive; }, get remove() { return v.remove; },
@@ -1061,6 +1082,39 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return {
       get x() { return ex(v); }, get y() { return ey(v); },
       get z() { return camRef ? bodyZ(camRef, v, frac) : (v.z || 0) + (v.hover || 0) + (v._headTiles || 1.2) * frac; },
+      get alive() { return v.alive; }, get remove() { return v.remove; },
+      id: v.id, info: v.info,
+    };
+  }
+  /**
+   * (2026-10-22, decompile check; docs/rules/fx.md 「이펙트 붙는 자리」) An effect created at a model point without a
+   * FollowMountPoint: the client's `Effect._InitLocationFromEntity` (10-14 EN dump RVA 0xE7AF80) puts it once at the point
+   * (`at`, read on the first access — its creation), with the point Transform's rotation for 3 MUZZLE_POINT (the muzzle's
+   * BoneFollower turns with its bone: fxpoints.js pointTurn; the client's skeleton is flipped inside, so a model drawn
+   * mirrored here gives the mirrored angle π − θ, the effect itself not mirrored); then `Entity.HoldEffect` (0x3A1CB90) for
+   * `_holdByOwner` (face `hold`) parents it to the unit's `Effects` Transform, a child of its root — it moves with the unit
+   * from where it was made, not with the bone —, and without it the effect stays there. It used to follow the point every
+   * frame (2026-10-08) and took no turn: 엑시아's muzzle flash (spawn 3, `_rotateType` 0) kept its authored rightward
+   * direction, over her gun when she faced left.
+   */
+  function placedAt(v, def, key, spawn, at) {
+    const hold = !!def?.face?.hold;
+    let p0 = null, b0 = null, r0 = null;
+    const first = () => {
+      if (p0) return;
+      const p = at();
+      p0 = { x: p.x, y: p.y, z: p.z || 0 };
+      b0 = { x: ex(v), y: ey(v), z: (v.z || 0) + (v.hover || 0) };
+      if (spawn === 3) {
+        const t = pointTurn(ptsOf(v)?.[key], v.actor?.spine?.skeleton, !!v.entryBack);
+        r0 = t == null ? null : (v.visFacing ?? v.facing ?? 1) < 0 ? Math.PI - t : t;
+      }
+    };
+    return {
+      get x() { first(); return hold ? ex(v) + p0.x - b0.x : p0.x; },
+      get y() { first(); return hold ? ey(v) + p0.y - b0.y : p0.y; },
+      get z() { first(); return hold ? (v.z || 0) + (v.hover || 0) + p0.z - b0.z : p0.z; },
+      get rot() { first(); return r0; },
       get alive() { return v.alive; }, get remove() { return v.remove; },
       id: v.id, info: v.info,
     };
@@ -4441,6 +4495,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           const r = l.view.rot;   // local patch: its mount point's turn (lifted)
           if (r != null && l.inst.nodes?.[0]) l.inst.nodes[0].rotation.set(0, 0, r);
         }
+        if (l.inst.turn && l.inst.def?.follow && !(l.followed && l.inst.def.follow.once)) stepFollow(l); // 2026-10-22: FollowDirection
         // local patch (maintainer 2026-10-07: 蕾缪安's beams must come straight down from the sky wherever the target stands): the
         // effect's +y turned to the camera's up — a line along it projects to a screen-vertical line at any place
         if (l.skyward) {

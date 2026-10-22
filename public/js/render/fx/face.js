@@ -48,6 +48,36 @@ export function faceTurn(face, dir, body = null) {
 }
 
 /**
+ * (2026-10-22, decompile check) The direction the client's FollowDirection (`_FollowDirection` RVA 0xE81360) gives its
+ * effect through `FaceTo` as it plays and every frame after (once with `_onlyFollowOnPlay`), from the prefab's `follow`
+ * record (fx_extract.py follow_direction) and its owner's facing `o`:
+ *   'face'   faceVector — ±x by the drawn side `side` (× −1 with `left`);
+ *   'four'   faceTo — the owner's face vector `to` (an attack turns it to its target);
+ *   'owner'  SharedConsts.FOUR_WAYS[deploy direction `deploy`];
+ *   'faceTo' LEFT when faceTo.x (× −1 with `left`) < 0 — ≤ 0 with `vflip` —, else RIGHT;
+ *   'lorr'   the drawn side: LEFT / RIGHT as drawn with `left`, the other way without;
+ *   'move'   an enemy's move direction — none here (no prefab of the pool has it): null.
+ * null keeps the direction it has.
+ * @param {{ src?: string, left?: number, vflip?: number }|null|undefined} follow
+ * @param {{ side?: number, to?: { x: number, y: number }|null, deploy?: string|null }} o
+ * @returns {{ x: number, y: number }|null}
+ */
+export function followDir(follow, o) {
+  if (!follow || typeof follow !== 'object') return null;
+  const s = follow.left ? -1 : 1;
+  const left = (Number(o.side) || 1) < 0;
+  const to = o.to || { x: left ? -1 : 1, y: 0 };
+  switch (follow.src) {
+    case 'four': return { x: Number(to.x) || 0, y: Number(to.y) || 0 };
+    case 'owner': return WAY[o.deploy] || null;
+    case 'faceTo': { const x = s * (Number(to.x) || 0); return (follow.vflip ? x <= 0 : x < 0) ? WAY.LEFT : WAY.RIGHT; }
+    case 'lorr': return (follow.left ? left : !left) ? WAY.LEFT : WAY.RIGHT;
+    case 'move': return null;
+    default: return { x: left ? -s : s, y: 0 };
+  }
+}
+
+/**
  * The playback speed an effect gets (`Effect._PlayInternal` RVA 0xC8C4F0): capped at `_limitedPlaybackSpeed` ÷ the battle
  * time scale when that is ≥ 0 (default 2.0 — the effect never runs faster than ×2 on screen), and used only with
  * `_usePlaybackSpeed` (`face.speed` 0: the prefab's own speed, 1.0). Without a record: `speed` as given.

@@ -285,7 +285,7 @@
     점 이름은 모델마다 다르다(`MuzzlePoint`·`Special_0`·`Special0`) — 이름이 아니라 애니메이터 필드로 찾는다. 126명.
   - **`render/fxpoints.js`** `pointKey`(3·6 → muzzle, MP_SPECIAL_N → spN: 8~11 → 0~3, 13~16 → 4~7, 18~25 → 8~15; 12 CAMERA·17 TILE_CENTER 제외)·`pointOn`
     (그 면의 본 → 다른 면의 본 → 그 면의 고정 위치). `fxgame.js lifted()`가 표에서 점을 찾는다(`SPECIAL_BONES` 삭제 — 비르투오사는 같은 본, 테스트로 고정).
-    표에 없는 유닛(적, 근접 모델의 muzzle, 표 없음)은 예전대로 바닥. 본 회전(`followBoneRotation`, 3은 회전 포함·6은 없음)은 적용 안 함 [추정: 프리팹의 `fixed` 자식이 세워진 채].
+    표에 없는 유닛(적, 근접 모델의 muzzle, 표 없음)은 예전대로 바닥. 본 회전(`followBoneRotation`, 3은 회전 포함·6은 없음)은 적용 안 함 [추정: 프리팹의 `fixed` 자식이 세워진 채] — **2026-10-22 고침**: 3은 만들 때 점의 회전을 받는다(아래 「붙는 자리 — 한 번 놓기·`_holdByOwner`·총구 회전」).
   - **MP_SPECIAL_1~6** (f8e91ef0): `fx_extract.py spawn_location`이 0~8만 받아 9·10·11·13·14·15인 **66개**가 `spawn` 없이(=바닥) 추출돼 있었다. 값 = 열거형 순서의 근거:
     9~15를 쓰는 오퍼레이터는 정확히 그만큼 특수점을 가진다(`thorn2` sp0~4·값 13, `angel2` sp0~6·값 15, `agoat2` sp0~5·값 14까지). 66개만 `--prefab`로 재추출 — `spawn` 외 변화 없음,
     index.json 그대로.
@@ -309,6 +309,25 @@
     FollowMountPoint가 5 = SPECIAL_0 = 톱날 링 본이라 공식은 톱날을 따라간다. 원인은 바닥 자르기도 `_spawnLocation`도 아니고, 추출기·바인딩·재생기가 모르던
     FollowMountPoint 컴포넌트와 S2 모드 `GeneralAbilities` 버프 이펙트(`ghost2_skill_02_buff_02`)를 아예 안 틀던 것 — 아래 절.
 
+### 붙는 자리 — 한 번 놓기·`_holdByOwner`·총구 회전 (2026-10-22, 디컴파일 확인, 관리자 아레나 확인 「엑시아 총구 화염이 총구가 아니라 총기 위」)
+- 근거(클라 코드, EN 10-14 덤프): `Effect._InitLocationFromEntity`(RVA 0xE7AF80)는 이펙트를 만들 때 **한 번** `_spawnLocation`의 점에 놓는다.
+  3 MUZZLE_POINT는 `muzzleMountPoint` 위치에 놓고 그 Transform의 회전(`get_rotation`)도 준다. 이 점에는 BoneFollower가 붙어 있고, `rot 1`이면 본과 함께 돈다.
+  끝에서 `_holdByOwner`(루트 ParticleEffect)면 `Entity.HoldEffect`(0x3A1CB90)가 이펙트를 유닛의 `effectTransform` 아래로 옮긴다
+  (`SetParent`, 월드 자리 유지). 그 Transform은 `Unit._effectTransform`(0x1A0)이고, 엑시아 캐릭터 프리팹에서는 루트의 `Effects` 자식이다(모델·본 아래가 아님).
+  그래서 붙들린 이펙트는 만든 자리에서 유닛과 함께 움직이고, 본을 따라가지 않는다. 붙들리지 않은 이펙트는 그 자리에 남는다.
+  매 프레임 점을 따라가는 것은 FollowMountPoint뿐이다(위 「이펙트 방향」 마운트 회전).
+- 우리는 2026-10-08부터 모델 점(2·3·4·8~)에 놓인 이펙트가 마운트 없이도 매 프레임 그 점의 본을 따라갔고, 3의 회전은 받지 않았다. 그래서 엑시아
+  (`angle_attack_01_start`: 3, `_rotateType` 0) 총구 화염이 왼쪽을 볼 때도 원래 그려진 오른쪽으로 뻗어 총기 몸통 위에 겹쳤다.
+  → `fx_extract.py`가 `_holdByOwner`를 `face.hold`로 옮기고(1,409개), `fxgame.js placedAt`이 처리한다. 마운트 없는 모델 점 이펙트는 첫 읽기(만들 때)의 점에 고정한다.
+  `hold`이면 그 뒤 유닛 자리의 움직임만큼 따라간다. 3이면 그때 점의 회전(`fxpoints.js pointTurn`)을 루트에 준다.
+  우리 모델은 화면 배율로 좌우를 뒤집으니, 왼쪽으로 그려진 모델은 거울 각도 π − θ로 준다. 클라는 스켈레톤 안에서 뒤집어 본 각도 자체가 거울이고, 이펙트는 뒤집지 않는다.
+  6 MUZZLE_POINT_WITHOUT_ROTATION은 회전이 없다.
+- 범위(추출물): 마운트 없는 모델 점 이펙트 — 2 HIT 616(붙들림 82), 3 MUZZLE 40(5), 4 HEAD 25(22), 특수점 30(23). 표가 있는 오퍼레이터·토큰에만 해당한다.
+  표가 없는 유닛(적 등, `SPAWN_FRAC` 높이)과 발·바닥 이펙트는 붙들림과 상관없이 지금처럼 유닛을 따라간다 [추정 남음: 클라는 붙들리지 않으면 그 자리에 남음].
+- 확인: 단위 `test/render/fx-follow-direction.test.js`(소스 고정, 추출물 `hold`). 아레나(Windows Chrome, 수정 전·후, 3배 확대 16장씩).
+  엑시아 S1 왼쪽 배치: 전에는 화염 줄기가 총기 위였고, 뒤에는 총구 끝에서 별 모양 섬광이 왼쪽으로 뻗는다. 오른쪽 배치는 전·후 같다.
+  첸 S2처럼 숨는 동안 본이 멀리 가는 버프는 다시 만든 자리(배치 링 안)에 남는다 [화면 미확인]. 상태 이펙트(`buff_stun` 머리, 붙들림)는 머리 본의 숨쉬기를 더 따라가지 않는다 [화면 미확인].
+
 ### 캐릭터 그림의 기울기 — 유닛에 붙는 이펙트는 X축 −30° (2026-10-22, 관리자 제보 「머드락 보호막처럼 원형으로 그려지는 보호막이 타원형」)
 - 증상: 머드락 재능 보호막 `mudrok_buff_0N_start`, 적 머드락 `enemy_mdrock_*`, 엑시아 더 뉴 커버넌트 S2 `angel2_skill_2_buff_01/02`의 원판이 화면에서 타원.
   셋 다 `_spawnLocation` 1(FOOT)이고, 보호막은 노드 XY 평면의 납작한 구·원뿔 메시다(스킬 평면 위 0.57). 기울이지 않으면 판에 누워, 전투 카메라에서 높이÷폭이
@@ -327,6 +346,7 @@
   월드 공간 입자·꼬리는 기울지 않는 Unity 프레임에 남는다(Unity와 같음). 마운트 회전(`pointTurn`)은 기울기 안쪽에서 돈다.
   그래서 「이펙트 방향」 절 [추정]의 돌리는 축 차이는 없어졌다(클라 점 회전 = `Graphic` × 본). 니어·아르케토 화면 확인은 그 절대로 남는다.
 - 안 한 것: MUZZLE·MP_SPECIAL 점 자체의 고정 회전(예: 엑시아 더 뉴 커버넌트 `SpecialPoint1` z 약 167°)과 본 회전(`followBoneRotation`이 없는 점)은 여전히 안 받는다.
+  (본을 따라 도는 Muzzle 점의 회전은 2026-10-22부터 받는다 — 「붙는 자리 — 한 번 놓기·`_holdByOwner`·총구 회전」.)
   바둑돌(`playAt`)은 이 규칙 밖이다(그 프리팹 `qizi (1)`이 스스로 X −30°).
 - 확인: 단위 `test/render/fx-graphic-tilt.test.js`(분기표, 기울기 축, 전투 카메라에서 원판이 모든 줄에서 원(±1%), 추출 보호막 셋이 FOOT, `fxgame.js` 전달 자리).
   이펙트 이벤트 골든 143개 변화 없음. 아레나 전·후 캡처(Windows Chrome)에서 머드락 재능 보호막과 엑시아 더 뉴 커버넌트 S2 보호막이 타원에서 원이 됐다.
@@ -428,6 +448,17 @@
   범위: 마운트 359개 중 `keepOriginRotation` 0이 358개, 그중 점이 본 회전을 따르는 **337개(88명)**가 돈다(각도는 애니메이션마다 — 0°에 가까운 것은 안 바뀜).
 - 확인: 단위 `test/render/fx-direction.test.js`(7개: dirs 기록, U_OR_D·FOUR_DIR·L_OR_R·NONE 고르기, pointTurn, 소스 고정, 추출물 mount). **아레나**(아르케토 S3 네 방향, 수정 전 세로 기둥 → 후 활에서 적 쪽으로 가로 부채꼴, 고리가 서 있음; 스펙터 디 언체인드 S2·엑시아 더 뉴 커버넌트 S1·니어 더
   래디언트 나이트 S3 이상한 모습 없음, 니어는 수정 전 세로 기둥 → 눕힌 호/빔). 실제 판·공식 녹화 대조는 안 함(아르케토 공식 녹화 없음). 나머지 85명 [화면 미확인].
+- **FollowDirection** (2026-10-22, 디컴파일 확인): 루트에 클라 `FollowDirection`이 있는 프리팹(운영자 183·적 89, 대부분 스킬 버프 —
+  `fx_extract.py follow`)은 재생할 때(`OnPlay` RVA 0xE81060 → `UpdateDirection`, 재생 방향을 덮음)와 그 뒤 매 프레임(`Update` 0xE812F0, `_onlyFollowOnPlay`면
+  안 함) 주인(`Behaviour.owner`)의 방향으로 `Effect.Behaviour.FaceTo` → 같은 `ParticleEffect.FaceTo`(`_rotateType`)를 다시 한다. 방향 출처(`_FollowDirection`
+  0xE81360, 처음 켜진 것): `_useFourDir` = 주인 `faceTo`(`Entity.m_faceTo`, 공격이 대상 쪽으로 돌림; 우리 `face.to`), `_useOwnerDirection` =
+  `FOUR_WAYS[배치 방향]`, `_useOwnerMoveDirection` = 적 이동 방향(`_useDirectionLerp`; 쓰는 프리팹 없음 — 안 함), `_useFaceToInsteadOfFaceVector` =
+  `faceTo.x`(`_leftIsDefault`면 ×−1) < 0이면 LEFT(`_flipWhenFaceToVertical`이면 ≤ 0), 아니면 RIGHT, `_useFaceSwitcherFaceLORR` = `faceLOrR`
+  (`_leftIsDefault` 없으면 LEFT ↔ RIGHT 거꾸로 — 코드 그대로), 아무것도 없음 = `faceVector`(그려진 좌우, `_leftIsDefault`면 ×−1). 슬롯: `faceTo`는
+  Entity 가상 10, `faceLOrR` 57; `SharedConsts.LEFT` 0x10·`RIGHT` 0x18·`FOUR_WAYS` 0x50.
+  → `fx/face.js followDir` + `fxgame.js stepFollow`(프레임 루프, `applyTurn`). 주인은 이펙트가 놓인 유닛 [추정: `CreateEffect`에 준 엔티티], 없으면 시전자.
+  보이는 차이: FLIP_TWO_SIDE 버프(156개)가 오퍼레이터가 뒤의 적을 보고 돌아설 때 함께 뒤집힌다. 에이야퍄들라 더 크비트 아스카·아스카론의 FOUR_DIRECTION 범위(`owner`, 8개)는
+  ±x 대신 배치 방향을 따라 눕는다. 확인: 단위 `test/render/fx-follow-direction.test.js`, 추출 JSON 골든(`follow`). [화면 미확인] — 아레나 샌드백은 제자리라 돌아서는 장면을 못 만듦.
 
 ### 정예 기물 금빛 (2026-10-08, 관리자 요청 「정예화된 오퍼는 휴식 기간에 황금빛으로 빛나는 이펙트」)
 - 근거: zh_CN `gamedata/battle/battle_misc_table.json` `miscConfig.AUTOCHESS.act1autochess`·`act2autochess.effectConfig.goldenEffectId`
@@ -2281,7 +2312,7 @@
     `_effectsAlignToProjectileDirection`, `_trail_left/_right_01`과 함께 렌더에 바인딩 없음), `map_act1autochess_place_01`(클라 데이터·코드
     문자열 어디에도 없음), `S_desert_wall_02_start_Mesh`(장치 모델로 구워 `official.js`가 그림 — 아래 「战场#06 沙尘暴 연출」),
     `screen_desert_down_to_up`(m06의 위 방향 폭풍 장치 `#2`는 어디서도 켜지지 않음; 서명은 기록되는 `up_to_down`과 같음 107개).
-- 기준선의 큰 todo(비공개 조사 기록에 전체 목록): `FollowDirection` 183개(주인·대상 방향을 매 프레임 따라 돎) · 셰이더 `_CullMode`(플레이어는 늘
+- 기준선의 큰 todo(비공개 조사 기록에 전체 목록): ~~`FollowDirection` 183개~~(2026-10-22 읽음 — 위 「이펙트 방향」) · 셰이더 `_CullMode`(플레이어는 늘
   양면) · Disturb Origin `_SrcBlend`(대부분 SrcAlpha, 2개가 One) · `InheritVelocityModule` 78 · `FxLODSetting` 37 · Shape Mesh 36(점으로 대체) ·
   `CollisionModule` 28 · 기본 상태 밖 Animator 클립 23 · 클립이 움직이는 입자 모듈 값·트레일 길이·UV 흐름 속도(`EmptyEffect`·`OnPlayEmitter` /
   `OnFinishEmitter`·`PauseEffectIf` 등 멈춤·끝 스크립트는 2026-10-21에 읽음 — 위 「OnPlayEmitter · OnFinishEmitter」·「이펙트 멈춤·끝 조건」). 재질에 저장 안 된 셰이더 속성을 움직이는 트랙은 2026-10-21에 고침(아래

@@ -94,6 +94,8 @@ FINISH_IF_SCRIPT = -6490124024613466648
 EMPTY_EFFECT_SCRIPT = -488665936260092151
 # (2026-10-21, decompile check) the MonoScript PathID of Torappu.Battle.Effects.FunnelHitEffect (funnel_hit, `jitter`)
 FUNNEL_HIT_SCRIPT = 8922258000712749090
+# (2026-10-22, decompile check) the MonoScript PathID of Torappu.Battle.Effects.FollowDirection (follow_direction, `follow`)
+FOLLOW_DIRECTION_SCRIPT = -337322108846137150
 # Torappu.Battle.AbnormalFlag by value (10-14 EN dump; E_NUM = 44 means "no flag"). A value past the list (the CN client's
 # newer flags) stays a number.
 ABNORMAL_FLAGS = ('STUNNED', 'SP_RECOVER_STOPPED', 'TARGET_FREE', 'BLOCK_FREE', 'HIDDEN', 'INVINCIBLE', 'UNDEADABLE', 'HEAL_FREE',
@@ -118,7 +120,7 @@ MOUNT_FIELDS = {'type': '_mountPointType', 'followScaleSign': '_followScaleSign'
 ROOT_EFFECT_FIELDS = {'delayToPlay': '_delayToPlay', 'delayToFinish': '_delayToFinish', 'randomDelay': '_randomPlayDelay',
                       'useSpeed': '_usePlaybackSpeed', 'limited': '_limitedPlaybackSpeed', 'rotate': '_rotateType',
                       'spawn': '_spawnLocation', 'leftIsDefault': '_leftIsDefault', 'body': '_useBodyRotation',
-                      'mainDir': '_mainDir', 'overwrite': '_overwriteHeight', 'heightOffset': '_heightOffset'}
+                      'mainDir': '_mainDir', 'hold': '_holdByOwner', 'overwrite': '_overwriteHeight', 'heightOffset': '_heightOffset'}
 ROOT_EFFECT_FLOATS = {'delayToPlay', 'delayToFinish', 'limited', 'heightOffset'}
 
 
@@ -1052,6 +1054,9 @@ class Extractor:
         jitter = self.funnel_hit(root)
         if jitter:
             out_def['jitter'] = jitter
+        follow = self.follow_direction(root)
+        if follow:
+            out_def['follow'] = follow
         right = self.right_effect(root)
         if right:
             out_def['right'] = right
@@ -1221,6 +1226,41 @@ class Extractor:
                 self.cov.reader('FunnelHitEffect', False, 'no type tree: nothing read')
                 return None
             return [r4(t['_randomRange'].get(k) or 0) for k in ('x', 'y', 'z')]
+        return None
+
+    def follow_direction(self, root):
+        """(2026-10-22, decompile check) the client's FollowDirection on the root (every one of the pool's is there): which
+        direction `_FollowDirection` (10-14 EN dump RVA 0xE81360) turns the effect to through `Effect.Behaviour.FaceTo` —
+        when it plays (`OnPlay` 0xE81060, over the direction it was played with) and every frame after (`Update` 0xE812F0)
+        unless `_onlyFollowOnPlay` — from its owner (`Behaviour.owner`), the first set of:
+            `_useFourDir`                   'four'  the owner's `faceTo` (Entity.m_faceTo: an attack turns it to its target)
+            `_useOwnerDirection`            'owner' SharedConsts.FOUR_WAYS[the owner's `direction`] (its deploy direction)
+            `_useOwnerMoveDirection`        'move'  an enemy's move direction (`_useDirectionLerp`: eased over `_lerpDuration`)
+            `_useFaceToInsteadOfFaceVector` 'faceTo' LEFT when `faceTo`.x (× −1 with `_leftIsDefault`) < 0 (≤ 0 with
+                                                     `_flipWhenFaceToVertical`), else RIGHT
+            `_useFaceSwitcherFaceLORR`      'lorr'  the owner's `faceLOrR` (LEFT / RIGHT as drawn): without `_leftIsDefault`
+                                                     LEFT → RIGHT and RIGHT → LEFT, with it as it is
+            none                            'face'  the owner's `faceVector` (× −1 with `_leftIsDefault`)
+        { src, left?, vflip?, once?, lerp? } by its field names; None without one."""
+        for sid, _raw, t in self.monos(root):
+            if sid != FOLLOW_DIRECTION_SCRIPT:
+                continue
+            if t is None or '_useFourDir' not in t:
+                self.cov.reader('FollowDirection', False, 'no type tree: nothing read')
+                return None
+            src = next((k for f, k in (('_useFourDir', 'four'), ('_useOwnerDirection', 'owner'), ('_useOwnerMoveDirection', 'move'),
+                                       ('_useFaceToInsteadOfFaceVector', 'faceTo'), ('_useFaceSwitcherFaceLORR', 'lorr'))
+                        if t.get(f)), 'face')
+            out = {'src': src}
+            if t.get('_leftIsDefault') and src in ('face', 'faceTo', 'lorr'):
+                out['left'] = 1
+            if t.get('_flipWhenFaceToVertical') and src == 'faceTo':
+                out['vflip'] = 1
+            if t.get('_onlyFollowOnPlay'):
+                out['once'] = 1
+            if t.get('_useDirectionLerp') and src == 'move':
+                out['lerp'] = r4(t.get('_lerpDuration') or 0)
+            return out
         return None
 
     def random_emitter(self, go):
@@ -1476,7 +1516,8 @@ class Extractor:
         if not (0 <= i(s + 8 + x) <= 8 and 0 <= i(s + 9 + x) < 64 and i(s + 3) in (0, 1) and i(s + 5) in (0, 1) and i(s + 14 + x) in (0, 1)):
             return None
         return {'delayToPlay': f(s), 'delayToFinish': f(s + 1), 'randomDelay': i(s + 3), 'useSpeed': i(s + 5), 'limited': f(s + 6), 'rotate': i(s + 8 + x),
-                'spawn': i(s + 9 + x), 'leftIsDefault': i(s + 10 + x), 'body': i(s + 11 + x), 'mainDir': i(s + 12 + x), 'overwrite': i(s + 14 + x),
+                'spawn': i(s + 9 + x), 'leftIsDefault': i(s + 10 + x), 'body': i(s + 11 + x), 'mainDir': i(s + 12 + x), 'hold': i(s + 13 + x),
+                'overwrite': i(s + 14 + x),
                 'heightOffset': f(s + 15 + x),
                 # `_subFXDelayConfigs` (2026-10-11): { GameObject PPtr (m_FileID int, m_PathID int64), delayTime float } each
                 'subs': [(i(4 + 4 * k), struct.unpack_from('<q', b, 4 * (5 + 4 * k))[0], f(7 + 4 * k)) for k in range(subs)]}
@@ -1963,8 +2004,11 @@ class Extractor:
         (0xC8C4F0) uses the playback speed only with `_usePlaybackSpeed`, caps it at `_limitedPlaybackSpeed` ÷ the time scale
         (≥ 0) and waits `_delayToPlay` (random up to it with `_randomPlayDelay`); FxDelay starts the whole effect `_delayTime` ÷
         the speed later. Drawn by render/fxplayer.js FxInstance (maintainer decisions 2026-10-11, docs/rules/fx.md 「좌우 거울·재생
-        속도·루트 지연」). { rot, left?, body?, dir?, speed? (0 = ignores the playback speed), limit? (≠ 2), delay?, rnd?,
-        fxDelay? } or None."""
+        속도·루트 지연」). (2026-10-22, decompile check) `_holdByOwner` (`hold`): `Effect._InitLocationFromEntity` (10-14 EN dump
+        RVA 0xE7AF80) ends with `Entity.HoldEffect` (0x3A1CB90), which parents the effect to its entity's `effectTransform`
+        (Unit `_effectTransform`: the `Effects` child of the unit's root, not of its model) keeping its place — it moves with
+        the unit from where it was created; without it the effect stays there. { rot, left?, body?, dir?, hold?, speed? (0 =
+        ignores the playback speed), limit? (≠ 2), delay?, rnd?, fxDelay? } or None."""
         if not pe:
             return None
         o = {'rot': pe['rotate']}
@@ -1974,6 +2018,8 @@ class Extractor:
             o['body'] = 1
         if pe['rotate'] in (2, 3):
             o['dir'] = pe['mainDir']
+        if pe.get('hold'):
+            o['hold'] = 1
         if not pe['useSpeed']:
             o['speed'] = 0
         if abs(pe['limited'] - 2.0) > 1e-6:
@@ -1987,8 +2033,9 @@ class Extractor:
         return o
 
     def root_only(self, bundle, pack=None):
-        """2026-10-11: rewrite only the root effect fields — `spawn`, `height` and `face` (root_effect / root_face) — of the
-        bundle's already extracted prefabs, like back_only (the spawn recognition fix: 51 bound prefabs gain a `spawn`).
+        """2026-10-11: rewrite only the root effect fields — `spawn`, `height` and `face` (root_effect / root_face), and
+        (2026-10-22) the FollowDirection `follow` — of the bundle's already extracted prefabs, like back_only (the spawn
+        recognition fix: 51 bound prefabs gain a `spawn`).
         Returns (prefabs with an effect component, files changed)."""
         rel = pack or f'battle/prefabs/effects/{bundle}.ab'
         p = bundle_path(self.game, rel)
@@ -2014,7 +2061,7 @@ class Extractor:
             d = json.loads(f.read_text())
             want = {'spawn': pe['spawn'] if pe else None,
                     'height': r4(pe['heightOffset']) if pe and pe['overwrite'] == 1 else None,
-                    'face': self.root_face(pe)}
+                    'face': self.root_face(pe), 'follow': self.follow_direction(go)}
             if all(d.get(k) == v for k, v in want.items()):
                 continue
             for k, v in want.items():
@@ -2631,7 +2678,7 @@ def main():
     ap.add_argument('--pack', metavar='REL', help='read the prefabs from this bundle (relative to the bundle folders, e.g. '
                     'pkgrps/btl_pfb_fx_token_3.ab) and write them as --bundle (local patch: 望\'s 棋子 effects → wang_token)')
     ap.add_argument('--root-only', action='store_true', help='only rewrite the root effect fields `spawn` / `height` / `face` '
-                    'of the already extracted prefabs of the bundles (every bundle of index.json without --bundle; 2026-10-11)')
+                    '(and the FollowDirection `follow`, 2026-10-22) of the already extracted prefabs of the bundles (every bundle of index.json without --bundle; 2026-10-11)')
     ap.add_argument('--delay-only', action='store_true', help='only write the branch delays (node `delay` / `sdelay`: a child\'s '
                     'FxDelay, the root\'s _subFXDelayConfigs) into the already extracted prefabs of the bundles (every bundle of '
                     'index.json without --bundle; 2026-10-11)')

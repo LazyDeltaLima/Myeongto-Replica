@@ -15,6 +15,7 @@ import { installFakePixi, fakeViewCtx } from './fakepixi.js';
 import { presetCamera } from '../../public/js/render/projection.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const halves = ({ lr, ud, dir4 }) => ({ lr, ud, dir4 });   // the facing without its face vector `to`
 
 test('parseDir: the largest dot product, LEFT / RIGHT with the addon on top; null for no vector', () => {
   assert.equal(parseDir(1, 0), 'RIGHT');
@@ -28,28 +29,37 @@ test('parseDir: the largest dot product, LEFT / RIGHT with the addon on top; nul
 
 test('deployed RIGHT: an enemy behind it mirrors it, one clearly above takes the Back model, one beside keeps it', () => {
   const f = faceOf('RIGHT');
-  assert.deepEqual(f, { lr: 1, ud: 'DOWN', dir4: 'RIGHT' });
+  assert.deepEqual(halves(f), { lr: 1, ud: 'DOWN', dir4: 'RIGHT' });
   assert.equal(turnFace(f, -0.6, 0.1), 1, 'behind it (an enemy that walked past its block): mirrored');
-  assert.deepEqual(f, { lr: -1, ud: 'DOWN', dir4: 'LEFT' });
+  assert.deepEqual(halves(f), { lr: -1, ud: 'DOWN', dir4: 'LEFT' });
   assert.equal(turnFace(f, 0.1, 1), 2, 'right above: the Back model');
   assert.equal(f.ud, 'UP');
   assert.equal(f.lr, -1, '|x| 0.1 within the 0.2 tolerance: the mirror stays');
   assert.equal(turnFace(f, 1, 0.2), 1, 'beside it: mirrored back, the Back model kept (a LEFT / RIGHT fourDir leaves up / down)');
-  assert.deepEqual(f, { lr: 1, ud: 'UP', dir4: 'RIGHT' });
+  assert.deepEqual(halves(f), { lr: 1, ud: 'UP', dir4: 'RIGHT' });
   assert.equal(turnFace(f, 1, 0, true), 2, 'back to its deploy direction (idle): Front again');
-  assert.deepEqual(f, { lr: 1, ud: 'DOWN', dir4: 'RIGHT' });
+  assert.deepEqual(halves(f), { lr: 1, ud: 'DOWN', dir4: 'RIGHT' });
   assert.equal(turnFace(f, 1, 0), 0, 'already so: nothing changes');
+});
+
+test('the face vector `to` (Entity.m_faceTo, normalised): its deploy direction, then the last turn\'s direction', () => {
+  const f = faceOf('UP');
+  assert.deepEqual(f.to, { x: 0, y: 1 });
+  turnFace(f, -0.6, 0.8);
+  assert.ok(Math.abs(f.to.x + 0.6) < 1e-9 && Math.abs(f.to.y - 0.8) < 1e-9, 'kept as given (not the 4-way dir4 UP)');
+  turnFace(f, 3, 0);
+  assert.deepEqual(f.to, { x: 1, y: 0 });
 });
 
 test('deployed UP: the Back model; an attack on one below turns it Front, the idle turn back keeps the last mirror', () => {
   const f = faceOf('UP');
-  assert.deepEqual(f, { lr: 1, ud: 'UP', dir4: 'UP' });
+  assert.deepEqual(halves(f), { lr: 1, ud: 'UP', dir4: 'UP' });
   assert.equal(turnFace(f, -0.1, -1), 2, 'below it: Front');
   assert.equal(f.ud, 'DOWN');
   assert.equal(turnFace(f, -1, 0), 1);
   assert.equal(f.lr, -1);
   assert.equal(turnFace(f, 0, 1, true), 2, 'idle: UP again');
-  assert.deepEqual(f, { lr: -1, ud: 'UP', dir4: 'UP' }, 'x 0: the mirror it had stays (the client keeps lOrR)');
+  assert.deepEqual(halves(f), { lr: -1, ud: 'UP', dir4: 'UP' }, 'x 0: the mirror it had stays (the client keeps lOrR)');
 });
 
 test('the data: attackAnim.face where an ability does not turn to its target (莫斯提马 none, 赤刃明霄陈 S3 her deploy direction)', () => {

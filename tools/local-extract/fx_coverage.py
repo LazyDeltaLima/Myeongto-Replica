@@ -90,7 +90,8 @@ SCRIPTS = {
 SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoint', 'FxUVTweener', 'FxUVTweenerAdvance',
                 'FxUVRotation', 'SwitchableBackEffect', 'SwitchableRightEffect', 'LineEffectEmitterDynamic', 'RandomEmitter',
                 'FlyToPredefinedLocation', 'OnPlayEmitter', 'OnFinishEmitter', 'EmptyEffect', 'PauseEffectIf', 'PauseAnotherEffect',
-                'PauseEffectIfNotIdle', 'PauseEffectWithAnimation', 'PauseEffectIfSpineEvent', 'FinishEffectIf', 'FunnelHitEffect'}
+                'PauseEffectIfNotIdle', 'PauseEffectWithAnimation', 'PauseEffectIfSpineEvent', 'FinishEffectIf', 'FunnelHitEffect',
+                'FollowDirection'}
 
 # ParticleSystem modules the extract carries (fx_extract.particle_system)
 MODULES_READ = {'InitialModule', 'EmissionModule', 'ShapeModule', 'SizeModule', 'ColorModule', 'RotationModule',
@@ -141,8 +142,6 @@ KNOWN = {
     'component:BoxCollider': (_NONE, 'physics / ray casts only'),
     'component:RectTransform': (_TODO, 'a UI transform: the walk reads Transform only, so the node loses its place and children'),
     # client scripts
-    'script:FollowDirection': (_TODO, 'turns the effect with its owner / target direction every frame (only the root '
-                               'ParticleEffect `_rotateType` is read, `face`)'),
     'script:FxLODSetting': (_TODO, 'switches objects / particle details off by quality level [ASSUMED: nothing at the top level]'),
     'script:FinishEffectViaOwnerBuff': (_HAND, 'finishes when the owner\'s buff ends; only on 余 S3, drawn by render/fxgame.js (its tiles)'),
     'script:FollowTileHeight': (_TODO, 'follows the height of the tile under it'),

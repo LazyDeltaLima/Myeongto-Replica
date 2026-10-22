@@ -59,10 +59,13 @@ export function parseDir(dx, dy, addon = 0) {
 /**
  * The facing of a unit standing in its deploy direction `dir` (Character.OnBorn → FaceTo(direction)): `lr` ±1 (the
  * mirror; UP / DOWN keep the default right), `ud` 'UP' | 'DOWN' (Back model for UP), `dir4` its 4-way face direction
- * (`Entity.faceDirection` = ParseDirection(faceTo, 0): effects that turn with their owner read it).
+ * (`Entity.faceDirection` = ParseDirection(faceTo, 0): effects that turn with their owner read it), `to` the face
+ * vector itself (`Entity.m_faceTo`, normalised: a FollowDirection effect reads its x, 2026-10-22).
  */
 export function faceOf(dir) {
-  return { lr: dir === 'LEFT' ? -1 : 1, ud: dir === 'UP' ? 'UP' : 'DOWN', dir4: DIRS.includes(dir) ? dir : 'RIGHT' };
+  const d = DIRS.includes(dir) ? dir : 'RIGHT';
+  const [x, y] = dirVector(d);
+  return { lr: dir === 'LEFT' ? -1 : 1, ud: dir === 'UP' ? 'UP' : 'DOWN', dir4: d, to: { x, y } };
 }
 
 /**
@@ -83,7 +86,8 @@ export function turnFace(f, dx, dy, idle = false) {
   if (four === 'UP') ud = 'UP';
   else if (ud === 'UP' && (idle || four === 'DOWN')) ud = 'DOWN';
   const changed = ud !== f.ud ? 2 : lr !== f.lr || plain !== f.dir4 ? 1 : 0;
-  f.lr = lr; f.ud = ud; f.dir4 = plain;
+  const len = Math.hypot(dx, dy);
+  f.lr = lr; f.ud = ud; f.dir4 = plain; f.to = { x: dx / len, y: dy / len };
   return changed;
 }
 
