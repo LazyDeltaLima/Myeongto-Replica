@@ -1568,4 +1568,4 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   방 화면 채팅(`RoomChat`)은 펼침/접힘뿐이라 바뀌지 않는다.
 - 문구: `en.json`·`ja.json`·`zh-TW.json`·`ko/ui.json`(→ `ko.json`).
 - 확인: `test/local-patch.test.js` 「chat: … pinnedLines …」, `test/ui/gameLogic.test.js` 「sanitizeSettings」, `test/ui/settings-sections.test.js`
-  (스위치가 「聊天提示」 절 안). [화면 미확인]
+  (스위치가 「聊天提示」 절 안). 화면: 관리자가 로컬에서 확인(2026-10-22).
