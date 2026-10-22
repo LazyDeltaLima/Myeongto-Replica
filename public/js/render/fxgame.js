@@ -242,6 +242,20 @@ export function liveOverCap(list, now, capShort, capLasting) {
   return out;
 }
 
+/**
+ * Kit fx 'buffProgress' { id, key, r } on the live effects: those of unit `id` that read buff `key` (`animSrc`) take the
+ * remaining share `r`; at 0 the buff is spent and they end now, as their timed end does (2026-10-23: 纯烬艾雅法拉 S2 —
+ * agoat2_s_2[shield]'s ON_BUFF_TRIGGER, its `value` spent, interrupts the ability skchr_agoat2_2/Shield/Aura whose `_effects`
+ * is the range effect; it had stayed its whole `duration`).
+ */
+export function buffProgressOn(list, o, now) {
+  for (const l of list) {
+    if (!((l.owner === o.id || l.view?.id === o.id) && l.inst.def?.animSrc?.some((s) => s.buff === o.key))) continue;
+    l.inst.setBuffProgress(o.key, o.r);
+    if (!(Number(o.r) > 0) && (l.until == null || l.until > now)) l.until = now;
+  }
+}
+
 /** Forward vector [dRow, dCol] of a deploy direction (server/sim/dir.js DIR_VEC; RIGHT for anything else). */
 const DIR_FWD = Object.freeze({ UP: [1, 0], RIGHT: [0, 1], DOWN: [-1, 0], LEFT: [0, -1] });
 
@@ -1796,9 +1810,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   function buffProgress(o) {
     if (o.id == null || typeof o.key !== 'string') return;
-    for (const l of live) {
-      if ((l.owner === o.id || l.view?.id === o.id) && l.inst.def?.animSrc?.some((s) => s.buff === o.key)) l.inst.setBuffProgress(o.key, o.r);
-    }
+    buffProgressOn(live, o, clockS);
   }
   function endWolves(id, fade = true) {
     const w = wolves.get(id);

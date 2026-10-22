@@ -10,7 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fxSpec } from '../../public/js/render/fx/kinds.js';
 import { KIT_OFFICIAL, kitOfficialPlan, kitOperator } from '../../public/js/render/fx/kitofficial.js';
-import { createFxLayer } from '../../public/js/render/fxgame.js';
+import { createFxLayer, buffProgressOn } from '../../public/js/render/fxgame.js';
 import { activationEffects } from '../../public/js/render/fxmap.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -381,4 +381,20 @@ test('歌蕾蒂娅 S3: glady_s3[effect]\'s glady_skill_03_buff on the target the
   const plan = kitOfficialPlan('tornado', { id: 1, tgt: 2 }, 'glady', { skill: 2 });
   assert.deepEqual(plan.play, [{ n: 'glady_skill_03_buff', on: 'tgt', life: 'skill' }]);
   assert.match(readFileSync(path.join(KITS, 'ops/chess_char_4_12-glady.js'), 'utf8'), /battle\.fx\('tornado', \{ x: t\.x, y: t\.y, id: unit\.id, tgt: t\.id,/);
+});
+
+test('纯烬艾雅法拉 S2: the barrier\'s range effect follows what it can still absorb and ends when it is spent', () => {
+  const inst = (buff) => ({ def: { animSrc: [{ buff }] }, prog: [], setBuffProgress(k, r) { this.prog.push([k, r]); } });
+  const KEY = 'agoat2_s_2[shield]';
+  const range = { owner: 7, until: 20, inst: inst(KEY) }, other = { owner: 8, until: 20, inst: inst(KEY) };
+  const held = { owner: 7, until: null, inst: inst(KEY) }, plain = { owner: 7, until: 20, inst: inst('x') };
+  const list = [range, other, held, plain];
+  buffProgressOn(list, { id: 7, key: KEY, r: 0.4 }, 5);
+  assert.deepEqual([range.inst.prog, range.until, held.until], [[[KEY, 0.4]], 20, null], 'a level, no end');
+  buffProgressOn(list, { id: 7, key: KEY, r: 0 }, 6);
+  assert.deepEqual([range.until, held.until, other.until, plain.until], [6, 6, 20, 20], 'spent: hers end now, nothing else');
+  assert.deepEqual([other.inst.prog, plain.inst.prog], [[], []]);
+  // the kit sends r 0 as the pool runs out (its veil is then gone), and the plan cites the ability whose _effects it is
+  assert.match(readFileSync(path.join(KITS, 'ops/chess_char_6_20-agoat2.js'), 'utf8'), /const r = v\.pool0 > 0 \? Math\.ceil\(\(v\.pool \/ v\.pool0\) \* 100 - 1e-9\) \/ 100 : 0;/);
+  assert.deepEqual(KIT_OFFICIAL.shield.agoat2.src, ['skchr_agoat2_2/Shield/Aura', KEY]);
 });

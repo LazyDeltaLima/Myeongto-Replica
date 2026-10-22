@@ -54,8 +54,10 @@ export const KIT_OFFICIAL = {
   // default direction is UP, else _front — CheckCharacterDefaultDirection)
   // 纯烬艾雅法拉 S2 云霭荫佑 (2026-10-22): the barrier is the buff agoat2_s_2[shield] for its `duration` (kits/ops agoat2 'shield'
   // { duration }); its effect agoat2_skill_02_range_01 lives with it — the instant skill's activation window (~1 s) ended it.
-  // Its level follows what the barrier can still absorb (fxgame.js buffProgress)
-  shield: { agoat2: cite('agoat2_s_2[shield]', (o) => ({ play: [{ n: 'agoat2_skill_02_range_01', on: 'op', life: Math.max(0.1, Number(o.duration) || 12) }] })) },
+  // (2026-10-23) The effect is the `_effects` of the ability skchr_agoat2_2/Shield/Aura that holds the buff, and the buff's
+  // ON_BUFF_TRIGGER interrupts that ability once its `value` is spent: its level follows what the barrier can still absorb,
+  // and a spent barrier ends it early (fxgame.js buffProgress)
+  shield: { agoat2: cite(['skchr_agoat2_2/Shield/Aura', 'agoat2_s_2[shield]'], (o) => ({ play: [{ n: 'agoat2_skill_02_range_01', on: 'op', life: Math.max(0.1, Number(o.duration) || 12) }] })) },
   overload: {
     horn: cite(['horn_s_2[overload_switch_effect]', 'horn_s_3[overload_switch_effect]'], (o, c) => {
       const base = c.skill === 1 ? 'horn_skill_02_buff_03' : c.skill === 2 ? 'horn_skill_03_buff_02_03' : null;

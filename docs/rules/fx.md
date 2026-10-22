@@ -1447,6 +1447,9 @@
   `fxplayer.js srcValue`(Hermite 곡선, 무한 접선 = 계단). 하나뿐: 에이야퍄들라 더 크비트 아스카 S2 범위 — `agoat2_s_2[shield]` `value`/`dynamic` → 단계 2(≥ 0.5)·1(> 0.01)·0. 시뮬
   키트가 장벽 흡수 때마다 남은 몫(100분의 1, 올림)이 바뀌면 키트 fx `buffProgress` { id, key, r }(그림 없음, `fxgame.js buffProgress`); 알림 전엔 가득 찬 것으로 [추정].
   같이 고침: 그 범위 이펙트를 즉발 스킬의 시전 창(~1초) 루프로 틀어 곧 사라졌다 → 키트 fx `shield` { duration }(장벽 12초) 동안(`kitofficial.js shield`, `KIT_OWNED`).
+  2026-10-23(바인딩 표 대조): 그 범위 이펙트는 버프가 아니라 버프를 쥔 능력 `skchr_agoat2_2/Shield/Aura`의 `_effects`이고, `agoat2_s_2[shield]`의
+  ON_BUFF_TRIGGER가 `value`가 다 깎이면(`< 0`) 그 능력을 끊는다(`InterruptAbility` `Shield`, 공개 템플릿 데이터) → 남은 몫 0의 `buffProgress`에 범위 이펙트도 끝냄
+  (`fxgame.js buffProgressOn`; 전엔 깨진 뒤에도 `duration` 동안 남았다). 화면 확인 없음.
 - **무작위 그룹** (`rgroup`, `EmitterRandomGroup` `_PickOneEmitter` 0xE7E180): 틀 때 `_selfExcluded`가 아니면 1/(n+1) 확률로 자기, 아니면 자기를 멈추고 `_effectPickFrom` 중
   하나(`BattleController.randomTrivial`)를 주인에게 만들고 자기는 끝냄(`_finishEffectWhenSelfFinish` 0) — 로즈몬티스 S3 명중 A/B → `fxgame.js randomPick`(`play`·`spawn`).
 - **모듈 변형** (`equipFx`, `SwitchableWhenContainsEquipment` `_TrySpawnHookEffect` 0xEB4B60·`OnFinish` 0xEB46F0): 주인이 그 모듈(`UniqueEquipPair` key·level)을 달았으면 hook 이펙트를
