@@ -97,7 +97,10 @@ SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoi
 # ParticleSystem modules the extract carries (fx_extract.particle_system)
 MODULES_READ = {'InitialModule', 'EmissionModule', 'ShapeModule', 'SizeModule', 'ColorModule', 'RotationModule',
                 'VelocityModule', 'ForceModule', 'ClampVelocityModule', 'NoiseModule', 'UVModule', 'CustomDataModule',
-                'TrailModule', 'SubModule'}
+                'TrailModule', 'SubModule', 'InheritVelocityModule', 'SizeBySpeedModule', 'CollisionModule'}
+# (2026-10-22) the one way each of these is read (fx_extract.particle_system): another setting is reported (`particle`)
+MODULE_MODES = {'InheritVelocityModule': ('m_Mode', 0, 'mode 1 Current (follows the emitter all its life)'),
+                'CollisionModule': ('type', 0, 'type 1 World (collides with the scene\'s colliders)')}
 # shape types render/fxplayer.js emits from (the `switch (sh.type)` of its emitter); others fall back to a point
 SHAPES_DRAWN = {0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 15, 16, 17, 18}
 SHAPE_NAMES = {6: 'Mesh', 13: 'MeshRenderer', 14: 'SkinnedMeshRenderer', 19: 'Sprite', 20: 'SpriteRenderer'}
@@ -112,6 +115,7 @@ PLAYER_VALUES = {'_Color', '_MainColor', '_TintColor', '_UVTween', '_AddFactor',
                  '_DisturbInfluenceMainUV', '_DisturbUSpeed', '_DisturbVSpeed', '_DstBlend', '_HGCustomVertexStream',
                  '_IntensityU', '_IntensityU_02', '_IntensityV', '_IntensityV_02', '_MainColorACtrl', '_MainUSpeed',
                  '_MainVSpeed', '_Opacity', '_RimPower', '_ToggleUseDissolve', '_ToggleUseDisturb2', '_UseDissolveTex', '_ZTest',
+                 '_CullMode', '_ZWrite', '_SrcBlend',
                  '_Dissolve', '_TexSpeed', '_TexSpeed2', '_TintColorB', '_TintColorC'}
 # shaders whose behaviour render/fxplayer.js was checked against (by name: blend, tint, distortion, dissolve families)
 # (2026-10-16: every shader of the extracted effects then — a shader outside the list is new to the player)
@@ -131,6 +135,10 @@ SHADERS_CHECKED = {
     'Torappu/Particles-L2D/Ram/Disturb(CustomData)', 'Torappu/Particles-L2D/Disturb/Disturb(CustomData)',
     'Torappu/Particles-L2D/Dissolve/Dissolve(CustomData)', 'Torappu/Particles-L2D/Dissolve/Dissolve Add',
     'Torappu/Particles-L2D/AlphaBlend',   # 2026-10-21 (盟约·辅助干员's csuppo hit): properties, tags and blend state = Particles/AlphaBlend
+    # 2026-10-22: Unity's legacy particle shaders, by their pass states (SrcAlpha One / SrcAlpha OneMinusSrcAlpha — 2 × tint ×
+    # vertex × texture; Premultiply One OneMinusSrcAlpha — vertex × texture × vertex alpha, Unity's Default-Particle)
+    'Legacy Shaders/Particles/Additive', 'Legacy Shaders/Particles/Alpha Blended',
+    'Legacy Shaders/Particles/Alpha Blended Premultiply',
 }
 
 # known items: 'kind:what' -> (status, note). `todo` = known, not drawn as the client does (the 2026-10-16 baseline; the
@@ -186,20 +194,9 @@ KNOWN = {
     'script:FollowOwner': (_TODO, 'keeps the effect on its owner every frame [추정: by the name]'),
     'script:FollowOwnerRootTileHeight': (_TODO, 'follows the height of the tile under its owner [추정: by the name]'),
     # particle systems
-    'module:CollisionModule': (_TODO, 'particles bounce on / die at planes or the world'),
-    'module:InheritVelocityModule': (_TODO, 'particles inherit the moving emitter\'s velocity'),
-    'module:SizeBySpeedModule': (_TODO, 'size by particle speed'),
     'shape:6 Mesh': (_TODO, 'emits from a mesh: the player falls back to a point'),
     # materials (values: the extracted materials, 2026-10-16)
     'property:Torappu/Particles/Disturb/Disturb Anchor _Weight': (_NONE, 'the toggle behind keyword _WEIGHT_ON, which the player reads (all 198 materials agree)'),
-    'property:Torappu/Particles/Disturb/Disturb Origin _SrcBlend': (_TODO, 'the player blends SrcAlpha (5) as most materials do; 2 set One (1)'),
-    'property:Torappu/Particles/Disturb/Disturb Anchor _SrcBlend': (_NONE, 'every material sets SrcAlpha (5), which the player uses'),
-    'property:Torappu/Particles/Disturb/Disturb Origin _CullMode': (_TODO, 'the player draws both sides; Back (2) differs only seen from behind'),
-    'property:Torappu/Particles/Disturb/Disturb Anchor _CullMode': (_TODO, 'the player draws both sides; Back (2) differs only seen from behind'),
-    'property:Torappu/Particles/Disturb/Disturb(CustomData) _CullMode': (_TODO, 'the player draws both sides; Back (2) differs only seen from behind'),
-    'property:Torappu/Particles/Ram/Disturb(CustomData) _CullMode': (_TODO, 'the player draws both sides; Back (2) differs only seen from behind'),
-    'property:Torappu/Particles/AlphaBlend(ZWrite) _CullMode': (_TODO, 'the player draws both sides; Back (2) differs only seen from behind'),
-    'property:Torappu/Particles/AlphaBlend(ZWrite) _ZWrite': (_TODO, 'the player never writes depth'),
     # clips
     'clip:binding to a path outside the Animator': (_NONE, 'the clip names a node the prefab does not have (deleted in authoring): '
                                                     'Unity binds nothing either'),
@@ -220,15 +217,11 @@ KNOWN = {
     **{f'clip:{k}': (_TODO, 'a clip animating it: the player keeps the authored value') for k in (
         'MeshRenderer.m_Enabled', 'ParticleSystem.looping', 'ParticleSystem.InitialModule.gravityModifier.scalar',
         'ParticleSystem.VelocityModule.enabled')},
-    'shader:Legacy Shaders/Particles/Additive': (_TODO, 'no name rule in the player: blended by `_DstBlend`'),
     'script:EffectImportData': (_TODO, 'its import settings (`_importName`, `_resourceName`, `_sortingLayerId`, `_removeTopAnimator`) are '
                                 'not read [추정: authoring data]'),
     'script:SyncEffectScaleWithAuraRangeRadius': (_TODO, 'scales the effect with its owner\'s aura ability range (÷ `_effectOriginRadius`)'),
     'script:PauseEffectIfNotMove': (_TODO, 'pauses the effect while its owner stands still [추정: by the name; Update only]'),
     'clip:material property the shader does not declare': (_NONE, 'Unity sets a value no pass reads'),
-    "material:Unity's default particle material on an emitting system": (
-        _TODO, 'the client draws Unity\'s plain default particle; the extract reads that material as none (UNITY_DEFAULT_MATERIALS)'),
-    'shader:Legacy Shaders/Particles/Alpha Blended': (_TODO, 'no name rule in the player: blended by `_DstBlend`'),
     'shader:Unlit/Texture': (_HAND, 'only S_desert_wall_02_start_Mesh (s.ab), which the player never plays: scene_extract.py '
                                     '--devices bakes its mesh into the 土石结构 model, drawn opaque and unlit by board3d/official.js'),
     'clip:material property on a node with nothing drawn': (
@@ -411,6 +404,10 @@ class Coverage:
         for k, v in ps.items():
             if k.endswith('Module') and isinstance(v, dict) and v.get('enabled') and k not in MODULES_READ:
                 self.add('module', k)
+        for k, (field, read, what) in MODULE_MODES.items():
+            v = ps.get(k) or {}
+            if v.get('enabled') and v.get(field, read) != read:
+                self.add('module', f'{k} {what}')
         sh = ps.get('ShapeModule') or {}
         if sh.get('enabled') and sh.get('type') not in SHAPES_DRAWN:
             t = sh.get('type')

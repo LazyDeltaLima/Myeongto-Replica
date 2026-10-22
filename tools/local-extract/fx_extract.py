@@ -115,8 +115,9 @@ ABNORMAL_FLAGS = ('STUNNED', 'SP_RECOVER_STOPPED', 'TARGET_FREE', 'BLOCK_FREE', 
                   'DEFENSE_BUFF_ADD_IF_CANCELABLE_BUFF', 'PALSY', 'PALSYING', 'ATTRACTED', 'FEARED_PRIVATE', 'DOZE')
 ABNORMAL_NONE = 44
 ABNORMAL_COMBOS = ('SLEEPING', 'SHELTERING')   # Torappu.Battle.AbnormalCombo (E_NUM = 2)
-# (2026-10-16) Unity's built-in particle materials (an anonymous bundle, anon/*.bin): read as no material, as before the CAB
-# index knew that bundle — nearly all sit on empty container systems (227 of 234); fx_coverage lists the 7 that emit
+# (2026-10-16) Unity's built-in particle materials (an anonymous bundle, anon/*.bin): read as no material on a system that
+# emits nothing, as before the CAB index knew that bundle — empty containers (227 of 234); (2026-10-22) read on the ones that
+# emit (Default-Particle: Legacy Shaders/Particles/Alpha Blended Premultiply, render/fxplayer.js)
 UNITY_DEFAULT_MATERIALS = {'Default-Particle', 'Default-ParticleSystem'}
 # (2026-10-16) the `mount` keys and the FollowMountPoint fields they come from, in the field order
 MOUNT_FIELDS = {'type': '_mountPointType', 'followScaleSign': '_followScaleSign', 'followScale': '_followScale',
@@ -323,6 +324,24 @@ def particle_system(ps, psr, mat_key, mesh_key, trail_mat=None):
                          'sizeWidth': bool(tm.get('sizeAffectsWidth')), 'inherit': bool(tm.get('inheritParticleColor')),
                          'colorOL': mmgrad(tm.get('colorOverLifetime')), 'width': minmax(tm.get('widthOverTrail')),
                          'colorOT': mmgrad(tm.get('colorOverTrail')), 'ribbons': tm.get('ribbonCount', 1)}
+    # 2026-10-22: the three modules every extracted prefab sets one way (fx_coverage flags any other) — InheritVelocity in
+    # mode 0 (Initial: at birth), SizeBySpeed, Collision against planes (type 0; `planes` = their Transforms, resolved to
+    # nodes after the walk — collide_planes)
+    iv = ps.get('InheritVelocityModule') or {}
+    if iv.get('enabled'):
+        mods['inherit'] = {'mode': iv.get('m_Mode', 0), 'k': minmax(iv.get('m_Curve'))}
+    sbs = ps.get('SizeBySpeedModule') or {}
+    if sbs.get('enabled'):
+        rg = sbs.get('range') or {}
+        mods['sizeBySpeed'] = {'x': minmax(sbs['curve']), 'range': [r4(rg.get('x', 0)), r4(rg.get('y', 1))]}
+        if sbs.get('separateAxes'):
+            mods['sizeBySpeed'].update({'y': minmax(sbs['y']), 'z': minmax(sbs['z'])})
+    co = ps.get('CollisionModule') or {}
+    if co.get('enabled') and co.get('type', 0) == 0:
+        mods['collide'] = {'planes': [p for p in co.get('m_Planes') or [] if p.get('m_PathID')],
+                           'dampen': minmax(co.get('m_Dampen')), 'bounce': minmax(co.get('m_Bounce')),
+                           'lifeLoss': minmax(co.get('m_EnergyLossOnCollision')), 'minKill': r4(co.get('minKillSpeed', 0)),
+                           'maxKill': r4(co.get('maxKillSpeed', 10000)), 'radius': r4(co.get('radiusScale', 1))}
     if ps.get('SubModule', {}).get('enabled'):
         # 2026-10-14: the sub emitters — the emitter's ParticleSystem is resolved to its node after the walk (sub_emitters);
         # type 0 Birth (all 397 of the extracted prefabs), properties = the inherit bits (1 colour, 2 size, 4 rotation, 8 lifetime)
@@ -656,6 +675,19 @@ def sub_emitters(nodes, pss):
             mods.pop('sub')   # no emitter set (67 of the 145 prefabs with the module on): Unity emits nothing
 
 
+def collide_planes(nodes, tfs):
+    """(2026-10-22) Each extracted system's `mods.collide.planes` (Transform pointers) → node indices: `tfs` maps a
+    Transform path id to its node. A plane outside the prefab is dropped; with none left the module goes (Unity collides
+    with nothing — 2 of the 42 systems with the module on set no plane)."""
+    for n in nodes:
+        co = (n.get('ps') or {}).get('mods', {}).get('collide')
+        if not co:
+            continue
+        co['planes'] = [k for k in (tfs.get(p.get('m_PathID')) for p in co['planes'] if not p.get('m_FileID')) if k is not None]
+        if not co['planes']:
+            n['ps']['mods'].pop('collide')
+
+
 # ---------------------------------------------------------------- extraction
 
 class Extractor:
@@ -976,9 +1008,8 @@ class Extractor:
                     if psr_t.get('m_Materials'):
                         m = self.resolve(psr_t['m_Materials'][0], psr)
                         if m is not None and m.read_typetree()['m_Name'] in UNITY_DEFAULT_MATERIALS:
-                            if psr_t.get('m_Enabled', 1) and emits(node['_ps'].read_typetree()):
-                                self.cov.add('material', "Unity's default particle material on an emitting system")
-                            m = None
+                            if not (psr_t.get('m_Enabled', 1) and emits(node['_ps'].read_typetree())):
+                                m = None
                         if m is not None:
                             mat_key = self.material(m, out, mats)
                         if len(psr_t['m_Materials']) > 1:
@@ -1023,6 +1054,7 @@ class Extractor:
             if sk:
                 nodes[idx]['skin'] = sk
         sub_emitters(nodes, pss)
+        collide_planes(nodes, gos)
         for k, t in self.sub_delays(root, gos).items():
             nodes[k]['sdelay'] = t
         spawn = self.spawn_location(root)

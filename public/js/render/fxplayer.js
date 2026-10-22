@@ -302,7 +302,7 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
   uniform bool uHasDissolve; uniform sampler2D uDissolve; uniform vec4 uDissolveST; uniform vec2 uDissolveSpeed;
   uniform float uAmount; uniform float uBorder; uniform bool uVCMajor;
   uniform bool uHasDissolve2; uniform sampler2D uDissolve2; uniform vec4 uDissolve2ST; uniform float uAmount2; uniform float uBorder2;
-  uniform bool uRim; uniform float uRimPower; uniform float uFloor;
+  uniform bool uRim; uniform float uRimPower; uniform float uFloor; uniform bool uPremul;
   varying float vH; varying vec3 vN; varying vec3 vVP;
   uniform bool uHasRam; uniform sampler2D uRam; uniform vec4 uRamST; uniform bool uCustom; uniform float uTime; uniform bool uAdditive;
   uniform int uDisMode; uniform vec2 uDisAnchor; uniform float uACtrl;
@@ -357,6 +357,7 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
     // 2026-10-14 (client DXBC): Mask (AlphaBlend) — main + 2 · _AddFactor · _AddTex(own uv) · _MaskTex.a(main uv)
     if (uHasAdd) tex += 2.0 * uAddFactor * texture2D(uAdd, vUv * uAddST.xy + uAddST.zw) * texture2D(uMask, uv).a;
     vec4 col = tex * uTint * vColor;
+    if (uPremul) col *= vColor.a;   // 2026-10-22: Legacy Particles/Alpha Blended Premultiply (Unity's Default-Particle)
     // 2026-10-14 (client DXBC): Disturb Origin multiplies by _MainColor.a once more, Anchor by lerp(1, _MainColor.a,
     // _MainColorACtrl) (uTint carries the ×2)
     if (uACtrl != 0.0) col *= 1.0 + uACtrl * (uTint.a * 0.5 - 1.0);
@@ -412,6 +413,30 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
     gl_FragColor = col;
   }`;
 
+/**
+ * 2026-10-22 (the client's shader pass states, `[uc]shaders.ab` m_ParsedForm, every Torappu particle shader): which pass
+ * reads its culling, depth write and source blend factor from the material, and the fixed state of the others.
+ * Culling (Unity CullMode 0 Off, 1 Front, 2 Back): `_CullMode` for the Disturb family (not the GrabPass ones), the (CustomData)
+ * family, AlphaBlend(ZWrite), Common and Dissolve Double; Back for Rim, Flipbook, MatCap, Toon / Outline, Dissolve Cutout;
+ * Off for the rest (Additive, AlphaBlend, Dissolve, Mask … — their `_CullMode` is a value left from another shader).
+ * Depth write: `_ZWrite` for AlphaBlend(ZWrite) / Common / Cutout, off elsewhere (Disturb Origin / Anchor carry a `_ZWrite`
+ * 1 no pass reads). Source factor: `_SrcBlend` for Disturb Origin / Anchor / Cutout, SrcAlpha elsewhere (One for the
+ * Premultiply legacy shader).
+ */
+const CULL_READ = /^(?!.*GrabPass).*(Disturb|\(CustomData)|AlphaBlend\(ZWrite\)|\/Particles\/Common$|^Torappu\/Particles\/Dissolve\/Dissolve Double$/;
+const CULL_BACK = /\/Rim\/|Flipbook|MatCap|Poker-Reflect|\/3D\/Toon|Unlit-Outline|Dissolve Cutout/;
+const ZWRITE_READ = /AlphaBlend\(ZWrite\)|\/Particles\/(Common|Cutout)$/;
+const SRC_READ = /\/Disturb\/Disturb (Origin|Anchor)$|\/Particles\/Cutout$/;
+/** three.js side for a Unity CullMode on mesh geometry (the Unity frame's z flip turns three's winding with it). */
+const SIDE = { 0: THREE.DoubleSide, 1: THREE.BackSide, 2: THREE.FrontSide };
+export function renderState(shader, f = {}) {
+  return {
+    cull: CULL_READ.test(shader) ? f._CullMode ?? 0 : CULL_BACK.test(shader) ? 2 : 0,
+    zwrite: ZWRITE_READ.test(shader) && (f._ZWrite ?? 0) !== 0,
+    src: SRC_READ.test(shader) ? f._SrcBlend ?? 5 : /Alpha Blended Premultiply/.test(shader) ? 1 : 5,
+  };
+}
+
 const WHITE = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
 WHITE.needsUpdate = true;
 
@@ -421,16 +446,22 @@ function makeMaterial(m, lib) {
   const tex = (k) => (t[k] ? lib.texture(t[k].img) : null);
   const st = (k) => (t[k] ? new THREE.Vector4(t[k].tiling[0], t[k].tiling[1], t[k].offset[0], t[k].offset[1]) : new THREE.Vector4(1, 1, 0, 0));
   // the Torappu particle shaders' neutral colour is 0.5 (shader property defaults): colour = 2 · tint · vertex · texture
-  const tint = /CustomData|Disturb|Ram/.test(shader) ? (c._MainColor || [0.5, 0.5, 0.5, 0.5]) : (c._TintColor || c._MainColor || c._Color || [0.5, 0.5, 0.5, 0.5]);
-  const tintMul = /Rim Tint/.test(shader) ? 1 : 2; // local patch (client DXBC): Rim Tint has no ×2 (Rim Texture, Additive … do)
+  // 2026-10-22: Unity's Default-Particle (Legacy Particles/Alpha Blended Premultiply) has no tint: vertex colour × texture × vertex alpha
+  const premul = /Alpha Blended Premultiply/.test(shader);
+  const tint = premul ? [1, 1, 1, 1] : /CustomData|Disturb|Ram/.test(shader) ? (c._MainColor || [0.5, 0.5, 0.5, 0.5]) : (c._TintColor || c._MainColor || c._Color || [0.5, 0.5, 0.5, 0.5]);
+  const tintMul = /Rim Tint/.test(shader) || premul ? 1 : 2; // local patch (client DXBC): Rim Tint has no ×2 (Rim Texture, Additive … do)
   // blend: Additive / Dissolve Add = SrcAlpha One, AlphaBlend / … AB = SrcAlpha OneMinusSrcAlpha, the (CustomData) family
   // reads its `_DstBlend` enum (Add 1 / AlphaBlend 10). Materials also carry _SrcBlend/_DstBlend left over from Unity's
   // Standard shader: never read for the fixed families
+  // 2026-10-22: the legacy Alpha Blended (Premultiply) shaders blend over by name too (`_DstBlend` 0 is a value left on them);
+  // a `_DstBlend` 0 where the pass reads it (Disturb Origin, 2 of Gnosis's stones: One Zero) draws opaque
   let additive;
-  if (/AlphaBlend|\bAB\b/.test(shader)) additive = false;
+  if (/AlphaBlend|\bAB\b|Alpha Blended/.test(shader)) additive = false;
   else if (/Additive|Add\b|Add /.test(shader)) additive = true;
   else additive = (f._DstBlend ?? 1) === 1;
-  const src = 5, dst = additive ? 1 : 10;
+  const rs = renderState(shader, f);
+  const opaque = !additive && f._DstBlend === 0 && SRC_READ.test(shader);
+  const src = rs.src, dst = additive ? 1 : opaque ? 0 : 10;
   // 2026-10-14: Disturb Origin / Anchor name their noise _DisturTex (it was never read: no distortion, no flow)
   const disKey = t._DisturbTex ? '_DisturbTex' : t._NoiseTex ? '_NoiseTex' : '_DisturTex';
   const disturb = tex(disKey);
@@ -464,13 +495,13 @@ function makeMaterial(m, lib) {
   const vec = (a, i) => (Array.isArray(a) ? +a[i] || 0 : 0);
   const tintOf = (a) => (Array.isArray(a) ? new THREE.Vector4(a[0] * 2, a[1] * 2, a[2] * 2, a[3] * 2) : new THREE.Vector4(1, 1, 1, 1));
   const mat = new THREE.ShaderMaterial({
-    vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthWrite: false, depthTest: false,
+    vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthWrite: rs.zwrite, depthTest: false,
     side: THREE.DoubleSide, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
     blendSrc: BLEND[src], blendDst: BLEND[dst],
     // local patch (maintainer 2026-10-07: black squares on 비르투오사's hit, 望's link): the alpha channel of a see-through canvas
     // (render/fxgame.js, premultiplied) — additive light never covers what is under it (a texture without alpha has a black
     // background: it added to the alpha before and composited as a black square), alpha blend is the premultiplied "over"
-    blendSrcAlpha: additive ? THREE.ZeroFactor : THREE.OneFactor, blendDstAlpha: additive ? THREE.OneFactor : THREE.OneMinusSrcAlphaFactor,
+    blendSrcAlpha: additive ? THREE.ZeroFactor : THREE.OneFactor, blendDstAlpha: additive ? THREE.OneFactor : opaque ? THREE.ZeroFactor : THREE.OneMinusSrcAlphaFactor,
     uniforms: {
       uMain: { value: tex('_MainTex') || WHITE }, uMainST: { value: st('_MainTex') },
       uMainSpeed: { value: multi ? new THREE.Vector2(2 * vec(c._TexSpeed, 0), 2 * vec(c._TexSpeed, 1)) : tween ? new THREE.Vector2(uvTween[0], uvTween[1]) : new THREE.Vector2(sp(f._MainUSpeed), sp(f._MainVSpeed)) },
@@ -509,7 +540,7 @@ function makeMaterial(m, lib) {
       uHasDissolve2: { value: !!dissolve2 }, uDissolve2: { value: dissolve2 || WHITE }, uDissolve2ST: { value: st('_DissolveTex_02') },
       uAmount2: { value: f._Amount_02 || 0 }, uBorder2: { value: f._BorderWidth_02 || 0 },
       // local patch: vertex colours / Rim — turned on by the geometry's owner (useMeshAttrs); the floor (FxInstance opts.floor)
-      uVCol: { value: false }, uRim: { value: false }, uRimPower: { value: f._RimPower ?? 1 }, uFloor: { value: -1e9 },
+      uVCol: { value: false }, uRim: { value: false }, uRimPower: { value: f._RimPower ?? 1 }, uFloor: { value: -1e9 }, uPremul: { value: premul },
       uHasRam: { value: !!t._RamTex }, uRam: { value: tex('_RamTex') || WHITE }, uRamST: { value: st('_RamTex') },
       uCustom: { value: (f._HGCustomVertexStream ?? (/CustomData/.test(shader) ? 1 : 0)) !== 0 },
       uTime: { value: 0 }, uAdditive: { value: additive },
@@ -520,12 +551,21 @@ function makeMaterial(m, lib) {
   mat.userData.order = m?.queue ?? 3000;
   mat.userData.uvRot = /Disturb\(CustomData/.test(shader);   // the shaders with the _HG_UV_ROTATION variant (uvRotation)
   mat.userData.rim = /\/Rim\//.test(shader);
+  // 2026-10-22: the pass's culling — set on mesh geometry only (meshSide): a billboard, trail or line is built facing the
+  // camera, as Unity builds them, so Back culls nothing there and the player keeps both sides
+  mat.userData.cull = rs.cull;
   // local patch: whether the material tests depth (`_ZTest` 4 LessEqual …; 0 Disabled / 8 Always do not) — the floor cut
   // applies only to those: the client's map hides what they draw under the ground by depth [ASSUMED: 0 = Disabled is used]
   mat.userData.ztest = !(f._ZTest === 0 || f._ZTest === 8);
   // local patch (maintainer report 2026-10-08): … and against the map's raised tiles / crates (render/fxgame.js occluders —
   // the only depth in an effect canvas: every effect renderer writes none, as before)
   mat.depthTest = mat.userData.ztest;
+  return mat;
+}
+
+/** 2026-10-22: a material drawn on mesh geometry (a MeshRenderer / skinned mesh, a mesh particle) takes its pass's culling. */
+function meshSide(mat) {
+  mat.side = SIDE[mat.userData.cull] ?? THREE.DoubleSide;
   return mat;
 }
 
@@ -937,6 +977,8 @@ const INSTANCE_ATTRS = [['iPos', 3, IV_POS], ['iSize', 3, IV_SIZE], ['iRot', 3, 
   ['iC2', 4, IV_C2], ['iUV', 4, IV_UV], ['iVel', 3, IV_VEL]];
 const tmpC = [0, 0, 0, 0], tmpC2 = [0, 0, 0, 0];
 const D2R = Math.PI / 180;
+// (2026-10-22) a particle's size multipliers (sizeOf), the emitter velocity's frame change (emitterVelocity)
+const sizeK = [1, 1, 1], tmpM3 = new THREE.Matrix3();
 
 class ParticleSystem {
   constructor(ps, node, root, def, opts) {
@@ -953,6 +995,15 @@ class ParticleSystem {
     this.burstDone = (ps.bursts || []).map(() => 0);
     this.stopped = false;
     this.cycle = 0;
+    // 2026-10-22: InheritVelocity (mode 0 Initial — the only one extracted): a world-space system's particles take the
+    // emitter's velocity × k at birth (Unity manual: the module acts on world simulation space only); Collision planes:
+    // the nodes FxInstance hands over (`planes`, from `mods.collide.planes`)
+    const iv = ps.mods.inherit;
+    this.inherit = this.world && iv && (iv.mode ?? 0) === 0 ? iv.k : null;
+    this.emitV = new THREE.Vector3();
+    this.emitAt = null;
+    this.planes = [];
+    this.planeAt = null;
     // particle state (SoA)
     this.pos = new Float32Array(max * 3); this.vel = new Float32Array(max * 3); this.age = new Float32Array(max);
     this.life = new Float32Array(max); this.size0 = new Float32Array(max * 3); this.rot = new Float32Array(max * 3);
@@ -976,7 +1027,7 @@ class ParticleSystem {
     mat.uniforms.uVelScale.value = ps.render.velScale ?? 0;
     mat.uniforms.uAlign.value = ps.render.align ?? 0;
     if (opts.pivot && Array.isArray(ps.render.pivot)) mat.uniforms.uPivot.value.set(+ps.render.pivot[0] || 0, +ps.render.pivot[1] || 0); // local patch (FxInstance opts.pivot, default on)
-    if (geomSrc !== QUAD) useMeshAttrs(g, geomSrc, mat); // local patch
+    if (geomSrc !== QUAD) { useMeshAttrs(g, geomSrc, mat); meshSide(mat); } // local patch
     this.material = mat;
     this.mesh = new THREE.Mesh(g, mat);
     this.mesh.frustumCulled = false;
@@ -1081,7 +1132,93 @@ class ParticleSystem {
       this.pos[i * 3] = p.x; this.pos[i * 3 + 1] = p.y; this.pos[i * 3 + 2] = p.z;
       if (this.histN) this.histN[i] = 0;
       this.vel[i * 3] = d.x * sp; this.vel[i * 3 + 1] = d.y * sp; this.vel[i * 3 + 2] = d.z * sp;
+      if (this.inherit) {
+        const k = evalMM(this.inherit, t01, Math.random()), v = this.emitV;
+        this.vel[i * 3] += v.x * k; this.vel[i * 3 + 1] += v.y * k; this.vel[i * 3 + 2] += v.z * k;
+      }
     }
+  }
+
+  /**
+   * 2026-10-22 (InheritVelocity): the emitter's velocity since the last frame, in the root frame where a world-space system
+   * keeps its particles (Unity: the Transform's world velocity) — the root's own move counts (a flying projectile).
+   */
+  emitterVelocity(dt) {
+    this.node.updateWorldMatrix(true, false);
+    const p = tmpV.setFromMatrixPosition(this.node.matrixWorld);
+    if (this.emitAt && dt > 0) {
+      this.emitV.copy(p).sub(this.emitAt).divideScalar(dt);
+      this.root.updateWorldMatrix(true, false);
+      this.emitV.applyMatrix3(tmpM3.setFromMatrix4(tmpM.copy(this.root.matrixWorld).invert()));
+    } else this.emitV.set(0, 0, 0);
+    (this.emitAt ||= new THREE.Vector3()).copy(p);
+  }
+
+  /**
+   * Particle i's size multipliers (out, x / y / z) at age fraction a: SizeOverLifetime × (2026-10-22) SizeBySpeed — its curve
+   * at the speed's place in `range` (Unity: the particle velocity; here the simulated one, without VelocityOverLifetime /
+   * noise offsets [ASSUMED]).
+   */
+  sizeOf(i, a, r, out) {
+    const m = this.ps.mods;
+    out[0] = out[1] = out[2] = 1;
+    if (m.sizeOL) { out[0] = evalMM(m.sizeOL.x, a, r); out[1] = m.sizeOL.y ? evalMM(m.sizeOL.y, a, r) : out[0]; out[2] = m.sizeOL.z ? evalMM(m.sizeOL.z, a, r) : out[0]; }
+    const sb = m.sizeBySpeed;
+    if (sb) {
+      const lo = sb.range?.[0] ?? 0, hi = sb.range?.[1] ?? 1;
+      const sp = Math.hypot(this.vel[i * 3], this.vel[i * 3 + 1], this.vel[i * 3 + 2]);
+      const t = hi > lo ? Math.min(1, Math.max(0, (sp - lo) / (hi - lo))) : 0;
+      const x = evalMM(sb.x, t, r);
+      out[0] *= x; out[1] *= sb.y ? evalMM(sb.y, t, r) : x; out[2] *= sb.z ? evalMM(sb.z, t, r) : x;
+    }
+    return out;
+  }
+
+  /**
+   * 2026-10-22 (CollisionModule, type 0 Planes): each plane node's point and normal (its local +y, Unity's plane up) in the
+   * frame the particles live in, 6 floats a plane; null without planes.
+   */
+  planeFrames() {
+    if (!this.planes.length) return null;
+    const P = this.planeAt || (this.planeAt = new Float32Array(this.planes.length * 6));
+    const frame = this.world ? this.root : this.node;
+    frame.updateWorldMatrix(true, false);
+    tmpM2.copy(frame.matrixWorld).invert();
+    this.planes.forEach((o, k) => {
+      o.updateWorldMatrix(true, false);
+      tmpM.multiplyMatrices(tmpM2, o.matrixWorld);
+      tmpV.setFromMatrixPosition(tmpM);
+      tmpV2.set(0, 1, 0).applyMatrix3(tmpM3.setFromMatrix4(tmpM)).normalize();
+      P[k * 6] = tmpV.x; P[k * 6 + 1] = tmpV.y; P[k * 6 + 2] = tmpV.z; P[k * 6 + 3] = tmpV2.x; P[k * 6 + 4] = tmpV2.y; P[k * 6 + 5] = tmpV2.z;
+    });
+    return P;
+  }
+
+  /**
+   * 2026-10-22 (CollisionModule): particle i (age fraction a) against the planes P — a particle within its radius (size ×
+   * ½ × `radius`) of a plane and moving into it is put back on its surface; the normal part of its velocity turns back ×
+   * `bounce`, then the velocity loses `dampen` of itself, the particle `lifeLoss` of its lifetime, and it dies below
+   * `minKill` / above `maxKill` speed. [ASSUMED: Unity's response by its manual — the engine's own code is not readable;
+   * a particle behind a plane is pushed to its front, planes being one-sided.] Returns false when it died.
+   */
+  collide(i, a, r, P) {
+    const co = this.ps.mods.collide, pos = this.pos, vel = this.vel, o = i * 3;
+    const rad = 0.5 * (co.radius ?? 1) * Math.abs(this.size0[o] * this.sizeOf(i, a, this.rnd[i * 4 + 2], sizeK)[0]);   // the drawn size
+    for (let k = 0; k < P.length; k += 6) {
+      const nx = P[k + 3], ny = P[k + 4], nz = P[k + 5];
+      const dist = (pos[o] - P[k]) * nx + (pos[o + 1] - P[k + 1]) * ny + (pos[o + 2] - P[k + 2]) * nz;
+      if (dist >= rad) continue;
+      const vn = vel[o] * nx + vel[o + 1] * ny + vel[o + 2] * nz;
+      if (vn >= 0) continue;
+      const push = rad - dist;
+      pos[o] += nx * push; pos[o + 1] += ny * push; pos[o + 2] += nz * push;
+      const b = evalMM(co.bounce, a, r), keep = 1 - evalMM(co.dampen, a, r), back = vn * (1 + b);
+      vel[o] = (vel[o] - nx * back) * keep; vel[o + 1] = (vel[o + 1] - ny * back) * keep; vel[o + 2] = (vel[o + 2] - nz * back) * keep;
+      this.age[i] += evalMM(co.lifeLoss, a, r) * this.life[i];
+      const sp = Math.hypot(vel[o], vel[o + 1], vel[o + 2]);
+      if (sp < (co.minKill ?? 0) || sp > (co.maxKill ?? 1e4) || this.age[i] >= this.life[i]) return false;
+    }
+    return true;
   }
 
   kill(i) {
@@ -1102,6 +1239,7 @@ class ParticleSystem {
 
   update(dt, sinceStart) {
     const ps = this.ps, m = ps.mods;
+    if (this.inherit) this.emitterVelocity(dt);
     dt *= ps.speedMul || 1;
     setTime(this.material, sinceStart);
     // emission
@@ -1133,6 +1271,7 @@ class ParticleSystem {
     }
     // simulate
     const grav = evalMM(ps.gravity, 0, 0);
+    const P = m.collide ? this.planeFrames() : null;
     if (this.subs && !this.world) {   // the node → root transform for the sub emitters' points
       this.node.updateWorldMatrix(true, false); this.root.updateWorldMatrix(true, false);
       subM.copy(this.root.matrixWorld).invert().multiply(this.node.matrixWorld);
@@ -1159,6 +1298,7 @@ class ParticleSystem {
         ox += Math.sin((this.age[i] + ph) * f * 6.28) * s; oy += Math.cos((this.age[i] + ph * 1.3) * f * 6.28) * s;
       }
       this.pos[i * 3] += (vx + ox) * dt; this.pos[i * 3 + 1] += (vy + oy) * dt; this.pos[i * 3 + 2] += (vz + oz) * dt;
+      if (P && !this.collide(i, a, r, P)) { this.kill(i); continue; }
       if (m.rotOL) {
         this.rot[i * 3 + 2] += evalMM(m.rotOL.z, a, r) * dt;
         // 2026-10-22: a separate-axes module turns a mesh particle about x / y too (Unity adds angularVelocity3D to each
@@ -1174,9 +1314,8 @@ class ParticleSystem {
       const a = this.age[i] / this.life[i], r = this.rnd[i * 4 + 2], o = i * IV;
       D[o + IV_POS] = this.pos[i * 3]; D[o + IV_POS + 1] = this.pos[i * 3 + 1]; D[o + IV_POS + 2] = this.pos[i * 3 + 2];
       D[o + IV_VEL] = this.vel[i * 3]; D[o + IV_VEL + 1] = this.vel[i * 3 + 1]; D[o + IV_VEL + 2] = this.vel[i * 3 + 2];
-      let sx = 1, sy = 1, sz = 1;
-      if (m.sizeOL) { sx = evalMM(m.sizeOL.x, a, r); sy = m.sizeOL.y ? evalMM(m.sizeOL.y, a, r) : sx; sz = m.sizeOL.z ? evalMM(m.sizeOL.z, a, r) : sx; }
-      D[o + IV_SIZE] = this.size0[i * 3] * sx; D[o + IV_SIZE + 1] = this.size0[i * 3 + 1] * sy; D[o + IV_SIZE + 2] = this.size0[i * 3 + 2] * sz;
+      const sk = this.sizeOf(i, a, r, sizeK);
+      D[o + IV_SIZE] = this.size0[i * 3] * sk[0]; D[o + IV_SIZE + 1] = this.size0[i * 3 + 1] * sk[1]; D[o + IV_SIZE + 2] = this.size0[i * 3 + 2] * sk[2];
       D[o + IV_ROT] = this.rot[i * 3]; D[o + IV_ROT + 1] = this.rot[i * 3 + 1]; D[o + IV_ROT + 2] = this.rot[i * 3 + 2];
       for (let k = 0; k < 4; k++) D[o + IV_COL + k] = this.col0[i * 4 + k];
       if (m.colorOL) { evalMG(m.colorOL, a, this.rnd[i * 4 + 3], tmpC2); for (let k = 0; k < 4; k++) D[o + IV_COL + k] *= tmpC2[k]; }
@@ -1233,9 +1372,8 @@ class ParticleSystem {
         if (m.colorOL) { evalMG(m.colorOL, a, this.rnd[i * 4 + 3], tmpC2); for (let k = 0; k < 4; k++) col[k] *= tmpC2[k]; }
       }
       if (props & 2 && !size) {
-        let sx = 1, sy = 1, sz = 1;
-        if (m.sizeOL) { sx = evalMM(m.sizeOL.x, a, r); sy = m.sizeOL.y ? evalMM(m.sizeOL.y, a, r) : sx; sz = m.sizeOL.z ? evalMM(m.sizeOL.z, a, r) : sx; }
-        size = subSize; size[0] = this.size0[i * 3] * sx; size[1] = this.size0[i * 3 + 1] * sy; size[2] = this.size0[i * 3 + 2] * sz;
+        const sk = this.sizeOf(i, a, r, sizeK);
+        size = subSize; size[0] = this.size0[i * 3] * sk[0]; size[1] = this.size0[i * 3 + 1] * sk[1]; size[2] = this.size0[i * 3 + 2] * sk[2];
       }
       sys.emit(n, { at, t01, col: props & 1 ? col : null, size: props & 2 ? size : null, rot: props & 4 ? this.rot[i * 3 + 2] : null,
         lifeK: props & 8 ? Math.max(0, 1 - a) : 1 });
@@ -1558,7 +1696,7 @@ export class FxInstance {
       const mr = n.mesh || n.skin;
       const src = mr && def.geoms[mr.mesh];
       if (src && (!n.skin || src.userData.bind)) {
-        const mat = makeMaterial(def.materials[mr.mat], def.lib);
+        const mat = meshSide(makeMaterial(def.materials[mr.mat], def.lib));
         mat.uniforms.uMode.value = 4;
         const g = new THREE.InstancedBufferGeometry();
         g.index = src.index;
@@ -1621,6 +1759,8 @@ export class FxInstance {
         .map((e) => ({ e, sys: this.systems.find((x) => x.node === this.nodes[e.node]) }))
         .filter((x) => x.sys && x.sys !== s && !x.sys.subOf && (x.e.type || 0) === 0);
       if (list.length) s.setSubs(list);
+      // 2026-10-22: the CollisionModule's planes (fx_extract.py collide_planes: node indices)
+      for (const k of s.ps.mods?.collide?.planes || []) if (this.nodes[k]) s.planes.push(this.nodes[k]);
     }
     // local patch (maintainer report, maintainer's decision 2026-10-08): every clip of the prefab plays — a nested sub-prefab has
     // its own Animator (缄默德克萨斯 S2's texas2_birth_02_start: the root + 4 slashes; clips[0] alone left the slashes frozen

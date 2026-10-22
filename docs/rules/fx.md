@@ -1342,6 +1342,41 @@
 - 영향: Clamp 텍스처의 uv가 0–1을 벗어나는(타일링·오프셋, 클립 `_ST`, uv 트위너, 셰이더 흐름, 메시 uv, Tile 꼬리·선) 프리팹 712개(묶음 112개, 관리자 노트에 목록).
   테스트 `test/render/fx-texture-wrap.test.js`; 추출 JSON 골든은 `uvt.maps` 7개만 바뀜(EN 5·CN 2). [화면 미확인]
 
+### 입자 모듈·셰이더 패스 상태 — 충돌·속도 상속·속도별 크기, 컬링·깊이 쓰기·블렌드 (2026-10-22, 추출 누락 기준선의 todo)
+
+- **입자 모듈 셋**(`fx_extract.py particle_system` → `fxplayer.js ParticleSystem`). 추출된 모든 프리팹이 한 가지 설정만 쓴다(클라 전수 158 프리팹 —
+  다른 설정이 나오면 `fx_coverage`가 `module:… mode 1` / `type 1`로 알림):
+  - `InheritVelocityModule` 운영자 95·적 16 — 전부 mode 0(Initial: 태어날 때 한 번), 배율 대부분 상수(−0.2~1, 곡선 6). → `mods.inherit` { mode, k }.
+    월드 공간 계만 이미터 속도 × k를 더한다(Unity 매뉴얼: 이 모듈은 World 시뮬레이션 공간에서만 작동 — 로컬 계 33개는 아무것도 안 함). 이미터 속도 =
+    그 노드의 직전 프레임 대비 월드 이동을 루트 좌표로(날아가는 투사체의 루트 이동 포함).
+  - `SizeBySpeedModule` 민트 넷·적 둘(`xingdian` 별 입자) → `mods.sizeBySpeed` { x(, y, z), range }: 속도가 `range`에서 차지하는 자리의 곡선 값을
+    크기에 곱한다. 속도는 시뮬레이션 속도(VelocityOverLifetime·노이즈 오프셋 제외) [추정]. 민트 S1·S2 범위의 별은 시작 속도 0.2–0.5 / 범위 0–10이라
+    시작 크기의 0.08–0.15배 — 예전엔 시작 크기(최대 3) 그대로 커다란 검은 조각으로 보였다.
+  - `CollisionModule` 운영자 28·적 14 — 전부 type 0(평면), 평면은 프리팹 안 노드(대개 하나), 중력 0이 대부분. → `mods.collide` { planes(노드 번호 —
+    `collide_planes`), dampen, bounce, lifeLoss(`m_EnergyLossOnCollision`), minKill, maxKill, radius }; 평면이 없는 계 2개는 모듈을 뺌(충돌할 것 없음).
+    평면 = 그 노드 위치·로컬 +y. 입자(반지름 = 그린 크기 × ½ × `radius`)가 평면 쪽으로 움직이며 반지름 안에 들면 표면으로 되돌리고 법선 성분을
+    × `bounce`로 뒤집은 뒤 속도의 `dampen`만큼 잃고, 수명의 `lifeLoss`를 잃고, 속도가 `minKill` 미만·`maxKill` 초과면 죽는다(`maxKill` 10인 계 14개 —
+    부딪히면 사라짐). [추정: Unity 매뉴얼의 설명대로 — 엔진 코드는 못 읽음; 평면 뒤의 입자도 앞으로 밀림(한쪽 면)] 애쉬락·백파이프 탄피·첸 더
+    던스트릭 S3 동전·머드락 돌 등.
+- **셰이더 패스 상태**(클라 `[uc]shaders.ab` Shader `m_ParsedForm` — Torappu 입자 셰이더 전부의 패스별 Cull·ZWrite·ZTest·Blend와 그것이 읽는 속성;
+  `fxplayer.js renderState`):
+  - 컬링(Unity CullMode 0 끔·1 앞면·2 뒷면): `_CullMode`를 읽는 것은 Disturb 계열(GrabPass 제외)·(CustomData) 계열·AlphaBlend(ZWrite)·Common·
+    Dissolve Double뿐. Rim·Flipbook·MatCap·Toon/Outline·Dissolve Cutout은 늘 뒷면 컬링, 나머지(Additive·AlphaBlend·Dissolve·Mask …)는 늘 양면 — 이들
+    재질의 `_CullMode`는 다른 셰이더에서 남은 값. 메시(MeshRenderer·스킨 메시·메시 입자)에만 적용(`meshSide`; Unity 프레임의 z 뒤집기로 three.js
+    앞면 = Unity 앞면); 빌보드·트레일·선은 카메라를 보게 만들어지므로 양면 그대로(Unity도 뒷면 컬링에 안 걸림). 보이는 차이: 쿠오라·마터호른 S2
+    돔 등 Rim 돔이 앞 반구만(예전엔 뒤 반구까지 겹쳐 그려 육각 무늬가 두 겹), Ram/Disturb(CustomData) 앞면 컬링 메시 입자(님프·클레멘티아 …)는 안쪽 면만.
+  - 깊이 쓰기: `_ZWrite`를 읽는 것은 AlphaBlend(ZWrite)·Common·Cutout뿐 — Disturb Origin / Anchor 재질의 `_ZWrite` 1은 패스가 안 읽는다. 쓰이는 것은
+    라플란드 더 데카덴차 소환물(`whitw2_token*`) 메시 입자와 첸 더 던스트릭 S3 꼬리(값 0).
+  - 원본 블렌드: Disturb Origin / Anchor·Cutout만 `_SrcBlend`를 읽고 나머지는 SrcAlpha 고정. Disturb Origin 둘(노시스 S2·S3 버프의 돌 `shitou`)은
+    One Zero = 불투명 덮어쓰기(뒷면 컬링·ZTest와 함께).
+  - Unity 레거시 입자 셰이더: Additive(SrcAlpha One)·Alpha Blended(SrcAlpha OneMinusSrcAlpha)는 2 × `_TintColor` × 정점 × 텍스처로 이름대로 섞는다
+    (재질에 남은 `_DstBlend` 0은 안 읽음). **Unity 기본 입자 재질** `Default-Particle`(= Legacy Alpha Blended Premultiply: One OneMinusSrcAlpha, 정점 ×
+    텍스처 × 정점 알파, 색조 없음)은 이제 방출하는 계에서 읽는다(운영자 7·적 1 — 블레이즈 디 이그나이팅 스파크 S3 버프·텍사스 디 오메르토사 S1 시전·
+    스펙터 디 언체인드 등); 방출하지 않는 빈 그릇 227개는 예전처럼 재질 없음.
+- 추출: 묶음 46·적 묶음 18을 다시 뽑아 전후 대조 — 새 키 `inherit` 111·`collide` 38·`sizeBySpeed` 6 파일, 기본 재질 계 8(재질·`duration` 2); 그 밖은 이전
+  재추출에서 빠졌던 `face.hold` 7(공용 `common_ignite_attack` 사본)·`fly` 1(실버애쉬 더 레인프로스트 독수리)뿐. 추출 JSON 골든 EN 1·CN 2(`inherit`만).
+  테스트 `test/render/fx-particle-modules.test.js`. 아레나: 민트 S1 범위 별·쿠오라 S2 돔 확인, 충돌·속도 상속은 단위 시험만 [화면 미확인].
+
 ### 패신저 S3 폭풍·낙뢰 (2026-10-16, 관리자 제보 「패신저 S3 이펙트가 안 나와」)
 
 - 원인: 키트 fx `'storm'`이 `zoneFx`를 타지 않아(위 글래디아 회오리와 같은 꼴) 2D 원(`areaAway`)만 그려졌고, 낙뢰 `'lightning'`은 절차 번개선
@@ -2337,8 +2372,8 @@
     `_effectsAlignToProjectileDirection`, `_trail_left/_right_01`과 함께 렌더에 바인딩 없음), `map_act1autochess_place_01`(클라 데이터·코드
     문자열 어디에도 없음), `S_desert_wall_02_start_Mesh`(장치 모델로 구워 `official.js`가 그림 — 아래 「战场#06 沙尘暴 연출」),
     `screen_desert_down_to_up`(m06의 위 방향 폭풍 장치 `#2`는 어디서도 켜지지 않음; 서명은 기록되는 `up_to_down`과 같음 107개).
-- 기준선의 큰 todo(비공개 조사 기록에 전체 목록): ~~`FollowDirection` 183개~~(2026-10-22 읽음 — 위 「이펙트 방향」) · 셰이더 `_CullMode`(플레이어는 늘
-  양면) · Disturb Origin `_SrcBlend`(대부분 SrcAlpha, 2개가 One) · `InheritVelocityModule` 78 · `FxLODSetting` 37 · Shape Mesh 36(점으로 대체) ·
-  `CollisionModule` 28 · 기본 상태 밖 Animator 클립 23 · 클립이 움직이는 입자 모듈 값·트레일 길이·UV 흐름 속도(`EmptyEffect`·`OnPlayEmitter` /
+- 기준선의 큰 todo(비공개 조사 기록에 전체 목록): ~~`FollowDirection` 183개~~(2026-10-22 읽음 — 위 「이펙트 방향」) · ~~셰이더 `_CullMode`·`_ZWrite`·Disturb
+  Origin `_SrcBlend`·`InheritVelocityModule`·`CollisionModule`·`SizeBySpeedModule`·Unity 기본 입자 재질·레거시 셰이더~~(2026-10-22 — 위 「입자 모듈·셰이더
+  패스 상태」) · `FxLODSetting` 37 · Shape Mesh 36(점으로 대체) · 기본 상태 밖 Animator 클립 23 · 클립이 움직이는 입자 모듈 값·트레일 길이·UV 흐름 속도(`EmptyEffect`·`OnPlayEmitter` /
   `OnFinishEmitter`·`PauseEffectIf` 등 멈춤·끝 스크립트는 2026-10-21에 읽음 — 위 「OnPlayEmitter · OnFinishEmitter」·「이펙트 멈춤·끝 조건」). 재질에 저장 안 된 셰이더 속성을 움직이는 트랙은 2026-10-21에 고침(아래
   「RandomEmitter · FlyToPredefinedLocation」의 셋째 항목).
