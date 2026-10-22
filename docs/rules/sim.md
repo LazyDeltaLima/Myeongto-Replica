@@ -1785,6 +1785,24 @@ upstream `6ab24682` → master `c9d804f4`·dev `06a92237` 대조에서 받은 �
   테두리). 좌석 짝을 전제한 기존 매치 테스트는 `m.rngPairs`를 좌석 순으로 고정. golden: matches coop4-FUNNY-6·coop8-HARD-3(보스 라운드에 셋 이상
   살아 있는 판).
 
+### 联防에서 태어난 적(분열·소환)은 누수자 LP·×N에서 빠진다 (upstream PR #675, `fc9323c3` `212a796e`)
+
+- 규칙: 联防 필드가 돌 때 새로 생긴 적 — 분열 자식(磨砻의 木制瑞印, 沉沙의 断刃), 소환물, 변신 사본, 보스 환영 — 은 태어날 때 `uniteRuntime`
+  표시를 받는다(`battle/spawns.js spawnEnemy`: 필드 `kind === 'unite'`이고 스테이지 대기열(`_scheduled`)에서 나온 적이 아니면). 그 적은 누수자의
+  LP(`unite.js uniteSurvivors`)와 ×N(`spec.js uniteLeft`)에서 빠진다 — 누수자의 문을 지난 적이 아니므로. 셈 표시일 뿐이라 `counted`(처치 수·
+  `killed`·완벽 작전 판정)와 HUD 캡슐은 다른 필드와 같다. 누수자 **자기 전투에서** 분열해 그 자식이 새어 나갔다면 그 자식은 联防 웨이브에 그대로
+  들어가 예전처럼 청구된다. 실시간 ×N 상한도 「보낸 수 + 자식 상한」에서 「보낸 수」로(`fields.js uniteBillBounds` = `keySourceCounts`).
+- 클라 실행 결과 검증(`fields.js validateClientResult`): `uniteRuntime` 누수는 그 누수자가 보낸 부모의 자식 예산(`takeDerived` — 공식
+  enemy_database `DeadSpawn.enemy_key`/`.cnt`)으로만 받고, 예산이 없으면 결과를 거절(`unite runtime`)해 서버가 다시 시뮬한다(`SP_VERIFY` 꺼짐에서도).
+  표시는 그 뒤에만, 联防 사양에서만 남긴다(다른 필드의 위조 표시는 버림). `resultDigest`·`compactResult`·`shared/protocol.js isLeak`이 그 필드를 싣는다.
+- 근거: NGA 실측 글(「队友协防时打爆，爆出来的次数怪进门不扣血」, upstream PR #675 인용), 공식 표에는 반대 근거 없음 — 관리자 결정 2026-10-22,
+  **[ASSUMED]**.
+- **[ASSUMED]** 남는 틈: 예산은 출처를 증명하지 못한다 — 스케줄된 몸이면서 다른 적의 자식이기도 한 키는 자식 예산 안에서 표시될 수 있고,
+  `SP_VERIFY=all`만 닫는다.
+- 테스트(upstream 것을 우리 파일에): `test/sim/hud-capsule-resolved.test.js`(联防/자기 필드 磨砻 분열 대조), `test/match/playtest6-matchflow.test.js`
+  (×N이 분열로 오르지 않음, 상한 = 보낸 수), `test/match/clientCombat-review.test.js`(표시 왕복·자식 예산 초과 거절·위조 표시 버림·거절 뒤 서버 재시뮬).
+  golden: matches coop8-HARD-3(`rounds[7]`의 联防부터 ai_1·ai_7이 각 2 LP 덜 잃음 — 끝 팀 LP 86 → 90).
+
 ## 8인 협동 모드 (관리자 결정 2026-10-16·2026-10-19, 공식에 없는 기능)
 
 공식 방은 1–4명이고 8인용 데이터는 없다(`act2autochess`에는 난이도별 `bloodPoint*`와 단일·멀티 연합 방어 템플릿뿐). 아래 수치·규칙은 모두

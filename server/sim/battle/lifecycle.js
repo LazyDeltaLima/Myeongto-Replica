@@ -274,7 +274,8 @@ export class BattleLifecycle {
       const pp = this._perPlayer[ps.playerId];
       pp.perfect = !pp.leaked.some((l) => l.counted !== false);
       // the HUD capsule's numerator of this field (DESIGN §14): this player's own scheduled enemies resolved — knocked
-      // down or leaked (`counted` keeps the LP / 完美作战 reading, runtime splits and summons included)
+      // down or leaked (`counted` keeps the LP / 完美作战 reading, runtime splits and summons included — a 联防 field
+      // tags its runtime spawns `uniteRuntime`, spawns.js, which only its billing reads)
       pp.resolved = Math.min(pp.total, pp.killedInTotal + pp.leakedInTotal);
       // the operators and the board's summon pieces (a board uid): 联防 carries an operator's HP ratio and SP, a summon's
       // SP only (match/unite.js). `sp` is the official 技力 — stored charges included (PRTS 技能 "可充能X次…当前技力上限等于该
