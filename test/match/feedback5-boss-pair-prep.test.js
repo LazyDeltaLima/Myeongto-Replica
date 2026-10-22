@@ -5,18 +5,21 @@
 // carries `bossMate` in a boss round's prep — the partner's board on its half as the battle places it — kept current
 // when the partner moves (the partner's m.private is marked with the mover's), a scout of either player shows both
 // halves, and the team panel frames the pair (gameLogic teamFrameIds). Overlap: PR #191 (same-field frames, issue #190)
-// published the pairing as m.public bossPairing and framed the partner alone in gold — not merged; here the client reads
-// the pairing as prepCamera already does, and both avatars get the official green frame (ui/battle bg_team_border).
+// published the pairing as m.public bossPairing and framed the partner alone in gold — not merged; here both avatars get
+// the official green frame (ui/battle bg_team_border). Since the pairs are drawn for each boss wave (upstream #845) the
+// client reads them from m.public bossPairs, as prepCamera does.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PHASE } from '../../shared/constants.js';
 import { makeMatch, give, legalTileFor, chessOfTier } from './harness.js';
 import { bossFieldPlacement } from '../../server/match/finalAssault.js';
-import { teamFrameIds } from '../../public/js/ui/gameLogic.js';
+import { teamFrameIds, deployFieldOf } from '../../public/js/ui/gameLogic.js';
+import { attachAudit } from '../../server/match/audit.js';
 
-function bossPrep(humans, seed) {
+function bossPrep(humans, seed, { seatPairs = true } = {}) {
   const h = makeMatch({ mode: 'coop', difficulty: 'FUNNY', humans, seed, fake: true }).start();
   const m = h.m;
+  if (seatPairs) m.rngPairs = { shuffle: (a) => a }; // pair by seat (the drawn pairs: the last test)
   h.drive(() => m.phase === PHASE.PREP && m.round === m.gd.bossRound, { ready: true });
   for (const ps of m.players.values()) { ps.ready = false; for (const k of [...ps.board.keys()]) ps.board.delete(k); ps.recompute(); }
   m.flush(true);
@@ -117,4 +120,32 @@ test('client: teamFrameIds frames the viewer\'s pair in a boss round (prep and f
   assert.deepEqual(ids(teamFrameIds(fight, 'p_1')), ['p_0', 'p_1'], 'the fight: the boss field listing the viewer');
   assert.deepEqual(ids(teamFrameIds(fight, 'p_2')), [], 'a lone boss field');
   assert.deepEqual(ids(teamFrameIds(pub({ phase: PHASE.UNITE, round: 12 }), 'p_0')), [], '联防 is not framed (the owner asked for the boss rounds)');
+});
+
+// upstream #845: the pairs are drawn for each boss wave (finalAssault.js pairPlayers), not the seats two by two — the
+// prep's partner board, the deploy half, the client's camera and green frame and the fight's fields all follow the draw
+test('drawn pairs (seed 5101: p_0 + p_3, p_1 + p_2) reach bossMate, the deploy half, m.public bossPairs and the fight', () => {
+  const h = makeMatch({ mode: 'coop', difficulty: 'FUNNY', humans: 4, seed: 5101, fake: true });
+  const audit = attachAudit(h.m);
+  h.start();
+  const m = h.m;
+  h.drive(() => m.phase === PHASE.PREP && m.round === m.gd.bossRound, { ready: true });
+  for (const ps of m.players.values()) ps.ready = false;
+  const pairs = [['p_0', 'p_3'], ['p_1', 'p_2']];
+  assert.deepEqual(m.bossWaves.map((w) => w.players), pairs);
+  m.flush(true);
+  const pub = m.publicView();
+  assert.deepEqual(pub.bossPairs, pairs);
+  const want = { p_0: ['p_3', 'bossL'], p_3: ['p_0', 'bossR'], p_1: ['p_2', 'bossL'], p_2: ['p_1', 'bossR'] };
+  for (const [pid, [mate, field]] of Object.entries(want)) {
+    const ps = h.ps(pid);
+    assert.equal(ps.privateView().bossMate.playerId, mate, `${pid}: its partner's board`);
+    assert.equal(m.deployFieldOf(ps), field, `${pid}: its half`);
+    assert.equal(deployFieldOf(pub, pid), field, `${pid}: the client's half agrees`);
+    assert.deepEqual([...teamFrameIds(pub, pid)].sort(), [pid, mate].sort(), `${pid}: framed with its partner`);
+  }
+  h.drive(() => m.phase === PHASE.FINAL_ASSAULT, { ready: true });
+  assert.deepEqual(m.fields.map((f) => f.players), pairs, 'the fight keeps the pairs the prep showed');
+  assert.deepEqual(audit.violations, []);
+  m.dispose();
 });

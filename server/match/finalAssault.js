@@ -70,12 +70,19 @@ export function bossFieldPlacement(side, row, col, dir = 'RIGHT') {
   return side === 'R' ? { row: r, col: STAGE_COLS - 1 - col, dir: mirrorDir(d) } : { row: r, col, dir: d };
 }
 
-/** Pair alive players by seat: [[a, b], [c, d]] / [[a, b], [c]] / [[a]]. */
-export function pairPlayers(alive) {
-  const sorted = alive.slice().sort((a, b) => a.seat - b.seat);
+/**
+ * The pairs of a boss wave (最终攻势 / 隐秘核心): the alive players shuffled with `rng`, two by two, an odd one alone —
+ * drawn anew for every boss wave (upstream #845: the official video BV1VCXyBjEN1 p1 40–45 min pairs seats 1-4 · 2-3 at
+ * wave 14 and 1-2 · 3-4 at wave 15). [ASSUMED] the draw is uniform. Each pair in seat order (the lower seat on the left
+ * half), the pairs by their first seat: [[a, d], [b, c]] / [[a, c], [b]] / [[a]].
+ * @param {{ seat: number }[]} alive
+ * @param {{ shuffle: (a: any[]) => any[] }} rng the match's 'pairs' stream (no other stream is touched)
+ */
+export function pairPlayers(alive, rng) {
+  const order = rng.shuffle(alive.slice().sort((a, b) => a.seat - b.seat));
   const groups = [];
-  for (let i = 0; i < sorted.length; i += 2) groups.push(sorted.slice(i, i + 2));
-  return groups;
+  for (let i = 0; i < order.length; i += 2) groups.push(order.slice(i, i + 2).sort((a, b) => a.seat - b.seat));
+  return groups.sort((a, b) => a[0].seat - b[0].seat);
 }
 
 /** Shared boss HP for a boss id with `aliveCount` alive players (GameData.bossPoolShare / bossPoolShareOf; omitted ⇒ a full team). */

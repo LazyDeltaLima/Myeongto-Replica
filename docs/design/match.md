@@ -28,7 +28,7 @@ LOBBY(room) → INFO_CHECK (co-op 45 s — `INFO_CHECK_SECONDS`, the remake's; t
      SETTLE        (LP −min(leaks,10) per player (`gd.lpCapPerRound`; a 自定义 co-op match may lift the 10 or share one LP in every round) (unite survivors to their source); eliminations; layer gains applied; coins; broadcast;
                     every alive player's charge rides the SETTLE m.public as `roundLosses` (the battle-end banner), after a
                     联防 its outcome too as `uniteResult`, GitHub #235)
-   R14 FINAL_ASSAULT (merged team LP; pairs by seat; shared boss pool; 120 real s countdown, the battle goes on; overtime −1 team LP per
+   R14 FINAL_ASSAULT (merged team LP; pairs drawn per boss wave, m.public bossPairs; shared boss pool; 120 real s countdown, the battle goes on; overtime −1 team LP per
                     real s from the countdown's end, 120 real s (§4, m.public.overtimeAt), for bossTurnHpReduceTime 150 real s, then the server
                     ends the battle (≤ 150 LP; client code AutoChessBattleUICountdownViewModel._GetBossBattleTimeInfo) as a defeat; no layer
                     gains; team LP 0 ⇒ defeat at once (PRTS 直接失败), pool 0 ⇒ victory — the first end the server registers decides, §20.5)

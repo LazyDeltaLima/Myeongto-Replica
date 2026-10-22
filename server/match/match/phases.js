@@ -425,11 +425,11 @@ export class MatchPhases {
     for (const ps of this._viewers()) this._followScout(ps);
   }
 
-  /** The boss round's fields (seat pairs of the alive players) and their templates, generated for the prep preview. */
+  /** The boss round's fields (the alive players' pairs, drawn for this wave) and their templates, generated for the prep preview. */
   _planBossWaves() {
     const r = this.round;
     const bossId = r === this.gd.hiddenRound && r !== this.gd.bossRound ? this.hiddenBossId : this.bossId;
-    this.bossWaves = pairPlayers(this.alivePlayers()).map((g) => ({
+    this.bossWaves = pairPlayers(this.alivePlayers(), this.rngPairs).map((g) => ({
       players: g.map((p) => p.playerId),
       wave: buildBossWave(this.gd, this.rngWaves, this.factions, r, { bossId, solo: this.isSolo || g.length === 1 }),
     }));

@@ -71,8 +71,11 @@ export class MatchBoss {
       },
     });
     this.bossPool = pool;
-    const groups = pairPlayers(alive);
-    const reuse = this.bossWaves && this.bossWaves.length === groups.length && this.bossWaves.every((w, i) => w.players.join() === groups[i].map((p) => p.playerId).join());
+    // the pairs the prep showed (bossWaves, planned at the round's start and again when a player left before the fight);
+    // drawn now only when the players still in are not the planned ones
+    const planned = this.bossWaves ? this.bossWaves.flatMap((w) => w.players) : [];
+    const reuse = planned.length === alive.length && alive.every((p) => planned.includes(p.playerId));
+    const groups = reuse ? this.bossWaves.map((w) => w.players.map((id) => this.players.get(id))) : pairPlayers(alive, this.rngPairs);
     this.fields = groups.map((g, i) => {
       const solo = this.isSolo || g.length === 1;
       const wave = reuse ? this.bossWaves[i].wave : buildBossWave(this.gd, this.rngWaves, this.factions, this.round, { bossId, solo });

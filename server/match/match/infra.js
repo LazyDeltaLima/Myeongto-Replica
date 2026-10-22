@@ -89,7 +89,7 @@ export class MatchInfra {
   humans() { return this.order.filter((p) => !p.isBot && !p.left); }
 
   /**
-   * The boss-round group of a player (`bossWaves`: the seat pairs of finalAssault.js pairPlayers, planned in startRound
+   * The boss-round group of a player (`bossWaves`: the pairs of finalAssault.js pairPlayers, planned in startRound
    * before the players' round start) and its side — 'L', or 'R' for the second player of a pair (the mirrored right
    * half) — or null outside a boss round / for a player without a field.
    * @returns {{ wave: object, players: string[], side: 'L'|'R' } | null}

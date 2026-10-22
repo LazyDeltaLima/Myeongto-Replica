@@ -318,6 +318,7 @@ export class Match {
     this.rngDraft = rng('draft');
     this.rngBots = rng('bots');
     this.rngMeta = rng('meta');
+    this.rngPairs = rng('pairs'); // the boss waves' pairs (finalAssault.js pairPlayers), a stream of its own
 
     /** @type {Map<string, PlayerState>} */
     this.players = new Map();

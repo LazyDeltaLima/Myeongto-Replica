@@ -258,6 +258,7 @@ test('Final Assault: two client-run pair fields share the server pool (b.progres
   const h = makeMatch({ mode: 'coop', difficulty: 'FUNNY', humans: 4, seed: 9108, fake: true, clientCombat: true, instant: false,
     script: (b) => (b.kind === 'boss' ? { bossDps: 20000 } : { duration: 2 }) }).start();
   const m = h.m;
+  m.rngPairs = { shuffle: (a) => a }; // the boss waves pair by seat here (the drawn pairs: finalAssault.test.js)
   const poolAt = [];
   h.onBroadcast.push((msg) => { if (msg.t === 'b.pool') poolAt.push(h.sched.now()); });
   h.autoHumans();

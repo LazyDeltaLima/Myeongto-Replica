@@ -126,6 +126,8 @@ export class MatchViews {
       }),
     };
     if (this.teamLp != null) v.teamLp = Math.max(0, Math.round(this.teamLp));
+    // a boss round's pairs, drawn for this wave (pairPlayers): the client's boss-prep half and green team frame read them
+    if (this.bossWaves) v.bossPairs = this.bossWaves.map((w) => w.players.slice());
     // a custom round plan (gamedata.js srcRound): the official round this one plays — the client reads the round's
     // config entry (timer gauges) at it; and a custom co-op prep's length (its gauge total, the config holds the official)
     if (this.gd.plan) v.srcRound = this.gd.srcRound(this.round);

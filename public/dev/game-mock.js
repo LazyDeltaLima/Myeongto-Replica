@@ -202,7 +202,7 @@ function buildState() {
   }));
   players[3].connected = false;
   // boss-round prep (最终攻势 prep on the own half of the boss field): `boss` = the left half; `bossR` = seats swapped so
-  // I am the second of the first pair → the mirrored right half (server pairPlayers: alive players by seat, in pairs)
+  // I am the second of the first pair → the mirrored right half (no bossPairs here: the client pairs by seat, camera.js bossPairOf)
   if (VARIANTS.has('bossR')) { players[0].seat = 1; players[1].seat = 0; }
   if (VARIANTS.has('dead')) { players[0].alive = false; players[0].status = 'dead'; players[0].lp = 0; priv.lp = 0; }
 

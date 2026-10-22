@@ -1770,6 +1770,21 @@ upstream `6ab24682` → master `c9d804f4`·dev `06a92237` 대조에서 받은 �
 - 테스트 `test/match/catherine-cell.test.js`(upstream 파일을 우리 하네스로 — 11건, 옛 코드에서 10건 실패 확인), `feedback5-cathy-pool.test.js` 그대로.
   golden 변화 없음(凯瑟琳이 나오는 matches coop4-ABYSS-7은 突变细胞를 고르지 않음).
 
+### 4인 보스전 짝은 보스 웨이브마다 새로 뽑는다 (upstream #845, 우리 구현)
+
+- 규칙: 최종 공세·히든 코어(보스 웨이브)마다 살아 있는 플레이어를 섞어 둘씩 짝짓고, 홀수면 한 명 혼자(`finalAssault.js pairPlayers` — 매치의
+  `rng('pairs')` 흐름 하나만 써서 다른 난수 순서는 그대로). 짝 안에서는 좌석이 앞인 쪽이 왼쪽 반, 필드 번호는 짝의 첫 좌석 순. 라운드 시작에 뽑아
+  `bossWaves`에 두고(준비 미리보기·`bossMate`·배치 반쪽), 전투는 그 짝을 그대로 쓴다(`bossRounds.js` — 준비 중 누가 나가면 남은 사람끼리 다시
+  뽑음, 전과 같음). 클라 준비 화면의 반쪽 카메라·팀 패널 녹색 테두리는 `m.public bossPairs`를 읽는다(`ui/gameLogic/camera.js bossPairOf`; 보내지
+  않는 서버면 예전처럼 좌석 순). 전에는 늘 좌석 순 (1,2)·(3,4)였다.
+- 근거: 공식 영상 BV1VCXyBjEN1 p1 40–45분 — 14웨이브 1-4·2-3, 15웨이브 1-2·3-4로 짝이 바뀐다(upstream #845 본문).
+- **[ASSUMED]**: 섞는 방식(균등), 짝 안의 좌우(좌석 앞이 왼쪽), 혼자 남는 사람도 뽑기로 정함.
+- 감사(`audit.js`): 「좌석 짝」 대신 필드 = 준비 때 뽑은 짝, 살아 있는 사람마다 한 번, 둘씩(홀수면 하나만 혼자), 짝 안 좌석 순.
+- 테스트 `test/match/finalAssault.test.js`(뽑기: 같은 시드 같은 짝, 넷의 세 가지 짝이 모두 나옴, 홀수), `feedback5-boss-pair-prep.test.js`(시드 5101 —
+  p_0·p_3 / p_1·p_2가 `bossMate`·배치 반쪽·`bossPairs`·클라 반쪽·녹색 테두리·전투 필드에 같고 감사 통과), `test/ui/gameLogic.test.js`(`bossPairs`의 반쪽·
+  테두리). 좌석 짝을 전제한 기존 매치 테스트는 `m.rngPairs`를 좌석 순으로 고정. golden: matches coop4-FUNNY-6·coop8-HARD-3(보스 라운드에 셋 이상
+  살아 있는 판).
+
 ## 8인 협동 모드 (관리자 결정 2026-10-16·2026-10-19, 공식에 없는 기능)
 
 공식 방은 1–4명이고 8인용 데이터는 없다(`act2autochess`에는 난이도별 `bloodPoint*`와 단일·멀티 연합 방어 템플릿뿐). 아래 수치·규칙은 모두

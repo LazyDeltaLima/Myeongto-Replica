@@ -13,7 +13,7 @@ import {
   bondMembers, memberHeadCount, bannedPerBond, priceTone, mergeProgress, shopBlockReason, deploySets, indexPieces, placementContext, canPlace,
   boardTargets, dropIntent, normalizeDraft, normalizeSp, normalizePersonalChoice, groupEnemies, factionTypes, snapHud, bossFrac, attackInterval, fmtNum,
   rangeGridBox, shortcutFor, sanitizeSettings, showMatchToast, DEFAULT_SETTINGS, normalizeResult, cycleField, fieldLabel, homeFieldId,
-  activeBubbles, sortedPlayers, tileKey, prepCapsuleLabel, prepCamera, dropFailureReason, terrainInfo,
+  activeBubbles, sortedPlayers, tileKey, prepCapsuleLabel, prepCamera, teamFrameIds, dropFailureReason, terrainInfo,
 } from '../../public/js/ui/gameLogic.js';
 import { pairPlayers } from '../../server/match/finalAssault.js';
 import { PHASE, GEO } from '../../shared/constants.js';
@@ -786,12 +786,24 @@ describe('prepCamera (research 09 §1.2: the Final Assault prep on the own half 
     }
     // somebody left (eliminated): the pairs close up exactly like the server's (Match._quit re-plans the boss waves)
     const left = [pl('a', 0), pl('b', 1, false), pl('c', 2), pl('d', 3)];
-    const groups = pairPlayers(left.filter((p) => p.alive).map((p) => ({ ...p })));
+    const groups = pairPlayers(left.filter((p) => p.alive).map((p) => ({ ...p })), { shuffle: (a) => a });
     for (const g of groups) g.forEach((p, j) => assert.equal(prepCamera(pub(14, left), p.playerId).opts.side, j === 1 ? 'R' : 'L', p.playerId));
     assert.equal(prepCamera(pub(14, left), 'c').opts.side, 'R', 'c moves up to the right half');
     assert.equal(prepCamera(pub(14, left), 'b').kind, 'prep', 'an eliminated player has no half');
     // solo / a lone last player: the left half
     assert.deepEqual(prepCamera(pub(14, [pl('a', 0)]), 'a'), { kind: 'bossPrep', opts: { side: 'L' } });
+  });
+  test('the server\'s pairs drawn for the wave (m.public bossPairs, upstream #845) decide the half and the green frame', () => {
+    const players = [pl('a', 0), pl('b', 1), pl('c', 2), pl('d', 3)];
+    const p = { ...pub(14, players), phase: PHASE.PREP, bossPairs: [['a', 'd'], ['b', 'c']] };
+    const sides = Object.fromEntries(players.map((x) => [x.playerId, prepCamera(p, x.playerId).opts.side]));
+    assert.deepEqual(sides, { a: 'L', b: 'L', c: 'R', d: 'R' });
+    assert.deepEqual([...teamFrameIds(p, 'a')].sort(), ['a', 'd']);
+    assert.deepEqual([...teamFrameIds(p, 'c')].sort(), ['b', 'c']);
+    const odd = { ...p, bossPairs: [['a', 'c'], ['b']] };
+    assert.deepEqual(prepCamera(odd, 'b'), { kind: 'bossPrep', opts: { side: 'L' } });
+    assert.equal(teamFrameIds(odd, 'b').size, 0, 'the lone player has no frame');
+    assert.equal(prepCamera(odd, 'd').kind, 'prep', 'a player in no pair has no half');
   });
 });
 

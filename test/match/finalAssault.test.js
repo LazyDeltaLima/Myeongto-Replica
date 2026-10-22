@@ -6,15 +6,31 @@ import { pairPlayers, bossPoolHp, SharedBossPool, hiddenEligible } from '../../s
 import { GameData } from '../../server/match/gamedata.js';
 import { FakeBattle } from './fakeBattle.js';
 import { DATA, makeMatch, checkInvariants } from './harness.js';
+import { createRng } from '../../server/sim/rng.js';
 
 const bossFields = () => FakeBattle.instances.filter((b) => b.kind === 'boss' || b.kind === 'hidden');
 
-test('pairing by seat: (1,2), (3,4); an odd player alone', () => {
+test('boss wave pairs (upstream #845): drawn with the pairs stream, each pair in seat order, the pairs by first seat; an odd player alone', () => {
   const p = (seat) => ({ seat, playerId: `s${seat}` });
-  assert.deepEqual(pairPlayers([p(0)]).map((g) => g.map((x) => x.seat)), [[0]]);
-  assert.deepEqual(pairPlayers([p(2), p(0)]).map((g) => g.map((x) => x.seat)), [[0, 2]]);
-  assert.deepEqual(pairPlayers([p(3), p(1), p(0)]).map((g) => g.map((x) => x.seat)), [[0, 1], [3]]);
-  assert.deepEqual(pairPlayers([p(3), p(1), p(0), p(2)]).map((g) => g.map((x) => x.seat)), [[0, 1], [2, 3]]);
+  const seats = (groups) => groups.map((g) => g.map((x) => x.seat));
+  const fixed = { shuffle: (a) => a }; // no shuffle: seat order
+  assert.deepEqual(seats(pairPlayers([p(0)], fixed)), [[0]]);
+  assert.deepEqual(seats(pairPlayers([p(2), p(0)], fixed)), [[0, 2]]);
+  assert.deepEqual(seats(pairPlayers([p(3), p(1), p(0)], fixed)), [[0, 1], [3]]);
+  assert.deepEqual(seats(pairPlayers([p(3), p(1), p(0), p(2)], fixed)), [[0, 1], [2, 3]]);
+  const reversed = { shuffle: (a) => a.reverse() };
+  assert.deepEqual(seats(pairPlayers([p(0), p(1), p(2), p(3)], reversed)), [[0, 1], [2, 3]]);
+  assert.deepEqual(seats(pairPlayers([p(0), p(1), p(2)], reversed)), [[0], [1, 2]], 'the lone player comes from the draw');
+  const swapped = { shuffle: (a) => [a[0], a[3], a[1], a[2]] };
+  assert.deepEqual(seats(pairPlayers([p(0), p(1), p(2), p(3)], swapped)), [[0, 3], [1, 2]], 'seats 1-4 · 2-3 (the official wave 14)');
+  // every pairing of four comes out of the seeded draw, the same for the same seed
+  const seen = new Set();
+  for (let seed = 1; seed <= 40; seed++) {
+    const a = seats(pairPlayers([p(0), p(1), p(2), p(3)], createRng(seed)));
+    assert.deepEqual(seats(pairPlayers([p(0), p(1), p(2), p(3)], createRng(seed))), a, `seed ${seed}: deterministic`);
+    seen.add(JSON.stringify(a));
+  }
+  assert.deepEqual([...seen].sort(), ['[[0,1],[2,3]]', '[[0,2],[1,3]]', '[[0,3],[1,2]]']);
 });
 
 test('boss pool = bloodPoint[difficulty] × the players alive at the fight\'s start (solo × 1) × tuning; config restores the fixed pool; shared and never negative', () => {
@@ -213,6 +229,7 @@ test('Hidden Core is skipped at Σ layers ≤ threshold, on FUNNY, or with team 
 test('Final Assault: a fighting player may only watch its own boss field; eliminated players spectate any field', () => {
   const h = makeMatch({ mode: 'coop', difficulty: 'FUNNY', humans: 4, seed: 54, fake: true, instant: false, script: (b) => (b.kind === 'boss' ? { bossDps: 1 } : {}) }).start();
   const m = h.m;
+  m.rngPairs = { shuffle: (a) => a }; // the boss waves pair by seat here (the drawn pairs: finalAssault.test.js)
   h.drive(() => m.phase === PHASE.PREP && m.round === 14);
   h.ps('p_3').eliminate(13);
   h.drive(() => m.phase === PHASE.FINAL_ASSAULT);
