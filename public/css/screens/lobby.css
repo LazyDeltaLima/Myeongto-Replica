@@ -19,6 +19,8 @@
 .mode-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .2rem; margin-bottom: .34rem; }
 /* 人数 (同盟模拟 / 同盟匹配: a 4-seat or an 8-seat alliance) at the right end of the 01 label, like 规则 on the 02 label */
 .lobby-size .rpick__opt[data-size] { --d-color: var(--mint-400); }
+/* 独立模拟: hidden but kept in place, so the 01 label row keeps its height */
+.lobby-size.is-hidden { visibility: hidden; }
 .mode-card {
   --bk-c: transparent;
   --bk-l: .2rem;

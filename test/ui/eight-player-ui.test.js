@@ -30,10 +30,11 @@ test('lobby: room.create / room.queue carry size 8 only for an 8-seat alliance (
   assert.match(src, /\.\.\.sizeFields\(roomMode, size\)/);
   assert.match(src, /joinQueue\(difficulty, queueRuleset, big \? LARGE_SEATS : MAX_SEATS\)/);
   assert.match(src, /savePref\('lobby\.size', n\)/);
-  // the switch sits at the right end of the 01 label (like 规则 on the 02 label), locked on 4 for 独立模拟
+  // the switch sits at the right end of the 01 label (like 规则 on the 02 label), hidden in place for 独立模拟
   const label = src.slice(src.indexOf('<span class="section-label__idx num">01</span>'), src.indexOf('<div class="mode-cards">'));
-  assert.match(label, /<\$\{SizeSwitch\} value=\$\{size\} onPick=\$\{pickSize\} solo=\$\{roomMode === 'solo'\}/);
-  assert.match(src, /const locked = solo && n !== MAX_SEATS;/);
+  assert.match(label, /<\$\{SizeSwitch\} value=\$\{size\} onPick=\$\{pickSize\} hidden=\$\{roomMode === 'solo'\}/);
+  assert.match(src, /lobby-size\$\{hidden \? ' is-hidden' : ''\}/);
+  assert.match(read('public/css/screens/lobby.css'), /\.lobby-size\.is-hidden \{ visibility: hidden; \}/, 'hidden, not removed: the label row keeps its height');
   assert.match(src, /<\$\{CustomSummary\}[^>]*size=\$\{big \? LARGE_SEATS : MAX_SEATS\}/, 'the summary compares with the 8-player bans');
 });
 
@@ -131,7 +132,7 @@ test('in-match UI: the 8-row player list, the compact draft order, the 12-card �
 test('the 8-player texts go through t() and have English and Korean', () => {
   const ids = ['与另外 {n} 名博士组成同盟，共享干员池，联防协作抵御敌潮。', '{n} 名博士坐满后开始 · 没有 AI 队友', '仅匹配真人 · 满 {n} 人后开始', '人数',
     '八人同盟：{n} 名博士坐满后开始，没有 AI 队友；联防最多 4 名博士同时迎战', '{n} 人同盟', '创建后邀请好友坐满 {n} 个席位', '排队中的博士：{count}/{n}',
-    '凑齐 {n} 名博士后开始', '用随机匹配的博士补满空位', '{n}人', '独立模拟只有 1 名博士'];
+    '凑齐 {n} 名博士后开始', '用随机匹配的博士补满空位', '{n}人'];
   for (const zh of ids) {
     for (const [name, pack] of [['en', EN], ['ko', KO]]) {
       assert.equal(typeof pack[zh], 'string', `${name}: ${zh}`);
