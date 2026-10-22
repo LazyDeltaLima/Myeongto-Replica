@@ -203,3 +203,46 @@ describe('buff / custom-trigger hit sounds wired 2026-10-22 (刺玫, 洛洛, 协
     assert.ok(heard(a, [ticks[0]]).includes('p_imp_stmpnklchbm.mp3'));
   });
 });
+
+describe('卡涅利安: her charge stages outside the skill sound billro_s_N_reach_half / _enhance', () => {
+  test('the banks and the manifest keys', { skip: NO_DATA }, () => {
+    const out = kitHitSfx(indexAudio(JSON.parse(readFileSync(OFFICIAL, 'utf8'))), (p) => p);
+    for (const n of [1, 2, 3]) {
+      assert.equal(KIT_HIT_BANKS[`billro:s${n}:half`], `battle.ON_BUFF_START.billro_s_${n}_reach_half`);
+      assert.equal(KIT_HIT_BANKS[`billro:s${n}:full`], `battle.ON_BUFF_START.billro_s_${n}_reach_enhance`);
+      for (const k of ['half', 'full']) assert.equal(file(manifest.audio.sfx.kit[`billro:s${n}:${k}`]), file(out[`billro:s${n}:${k}`][0]));
+    }
+  });
+
+  test('a stage sounds when its buff is created, not while she holds it nor while the skill runs', () => {
+    const u = { def: 'char_426_billro', skillIndex: 0 };
+    const seq = [1, 2, -1, 0, 1, -1, 1, 2, 0, 2].map((n) => signalFxKey('charges', { id: 1, n }, () => u));
+    assert.deepEqual(seq, ['billro:s1:half', 'billro:s1:full', null, null, 'billro:s1:half', null, null, 'billro:s1:full', null, 'billro:s1:full']);
+    assert.equal(signalFxKey('charges', { id: 1, n: 1 }, () => ({ def: 'char_426_billro', skillIndex: 2 })), 'billro:s3:half');
+  });
+
+  test('real match path: her charges events sound their stages', async () => {
+    const { makeMatch, give, legalTileFor } = await import('./match/harness.js');
+    const { buildBattleSpec, createBattleFromSpec } = await import('../server/sim/spec.js');
+    const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }];
+    const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed: 11 }).start();
+    h.toPrep(4);
+    const m = h.m, ps = h.ps('p_0');
+    for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+    ps.board.clear(); ps.hand.fill(null); ps.recompute();
+    give(m, ps, 'chess_char_4_24_a', 'board', legalTileFor(m, ps, 'chess_char_4_24_a'));
+    const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'lp', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent });
+    const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+    b.start();
+    m.dispose?.();
+    const ev = [];
+    while (!b.finished && b.time < 150) { b.step(); ev.push(...b.drainEvents()); }
+    const bil = b.allyUnits.find((u) => u.def?.charId === 'char_426_billro');
+    const ch = ev.filter((x) => x[0] === 'fx' && x[1] === 'charges' && x[4]?.id === bil.id);
+    assert.ok(ch.some((x) => x[4].n >= 1), 'she stored a charge');
+    const a = manager();
+    a.setFieldUnits([{ id: bil.id, kind: 'op', side: 'ally', spine: 'char_426_billro', defId: 'chess_char_4_24_a', skillIndex: bil.skillIndex ?? 1 }]);
+    a.handleBattleEvents(ch);
+    assert.ok(a.played.some((p) => /^p_skill_goldexplobuff/.test(p.f)), a.played.map((p) => p.f).join());
+  });
+});

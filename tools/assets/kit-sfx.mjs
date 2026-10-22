@@ -110,6 +110,10 @@ export const KIT_HIT_BANKS = Object.freeze({
   'etlchi:s2': 'battle.ON_BUFF_START.etlchi_s_2[audio]',
   'tinman:s2': 'battle.ON_CUSTOM_TRIGGER.tinman_s_2[audio]',
   'lemuen:s3lock': 'battle.ON_BUFF_START.lemuen_s3_audio_triggered',
+  // 卡涅利安's charge stages outside the skill (billro_s_N[eff_cond]: [half] at 1 charge, [full] at 2 — public/js/audio.js
+  // billroChargeKey, the kit's 'charges')
+  ...Object.fromEntries([1, 2, 3].flatMap((n) => [[`billro:s${n}:half`, `battle.ON_BUFF_START.billro_s_${n}_reach_half`],
+    [`billro:s${n}:full`, `battle.ON_BUFF_START.billro_s_${n}_reach_enhance`]])),
 });
 
 /**

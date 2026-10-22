@@ -236,6 +236,7 @@ export function signalFxKey(fx, ex, unitOf) {
     if (u?.def === 'char_4040_rockr') return 'rockr:ovs';
   }
   if (fx === 'wake' && u?.side === 'enemy') return 'titi:awake';
+  if (fx === 'charges' && u?.def === 'char_426_billro' && Number.isInteger(u.skillIndex)) return billroChargeKey(u, Number(ex.n) || 0);
   // 2026-10-22: 刺玫 S2's counter on the attacker of her protégé (vendla_s_2[extra_damage]'s audioSignal, on the attacker)
   if (fx === 'counter' && u?.def === 'char_494_vendla') return 'vendla:s2';
   // 2026-10-22: 蕾缪安 S3's lock — its cast on a target puts lemuen_s3_audio_triggered there (UNIQUE, INFINITY: once per
@@ -257,6 +258,24 @@ export function signalFxKey(fx, ex, unitOf) {
     if (fx === 'pulse') return 'mlyss:pull';
   }
   return null;
+}
+/**
+ * 2026-10-22, docs/rules/audio.md 「버프·커스텀 트리거 소리」: 卡涅利安's charge stages — billro_s_N[eff_cond] (every 0.1 s) keeps
+ * derived buffs on her: outside the skill, 2 charges create [full] (audioSignal billro_s_N_reach_enhance) + [half] unless
+ * [full] is there, 1 charge creates [half] (billro_s_N_reach_half) unless [half] is there, 0 finishes them; while the skill
+ * runs it keeps [half] (and with every charge stored [full]) without a sound. `n` is the kit's 'charges' (-1 while it runs);
+ * which buffs she holds is kept on her audio record `u` [추정: a skill start counts as uncharged — the event carries no
+ * charge, so a stage reached right after a charged cast sounds].
+ */
+export function billroChargeKey(u, n) {
+  const st = (u.bstage ||= { full: false, half: false });
+  const s = `billro:s${u.skillIndex + 1}`;
+  if (n < 0) { st.half = true; st.full = false; return null; }
+  if (n === 0) { st.half = st.full = false; return null; }
+  if (n >= 2) { if (st.full) return null; st.full = st.half = true; return `${s}:full`; }
+  if (st.half) return null;
+  st.half = true; st.full = false;
+  return `${s}:half`;
 }
 /** 圣聆初雪's tile effect by snow layers (render/fx/kitofficial.js SNOW_GROUND: 1 → _01, 2–4 → _02, 5 → _03; 0 none). */
 const snowBand = (L) => (L >= 5 ? 3 : L >= 2 ? 2 : L >= 1 ? 1 : 0);

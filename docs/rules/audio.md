@@ -381,6 +381,13 @@
       (`hold`, src 그녀)마다 그 적의 첫 잠금에만 `signalFxKey` `lemuen:s3lock` `p_atk_lmwlcrstr_s`(기존 `lemuen:mark`와 함께) [추정: 버프가 스킬 끝에도
       남아 같은 적은 다시 안 남 — 오디오 유닛 기록 `lemS3`]. S2 조준 잠금(`hold` 없음)은 아님.
     - 확인: `test/audio-skill-hit-signals.test.js` 「buff / custom-trigger hit sounds wired 2026-10-22」(뱅크·매니페스트, 키, 실제 매치 경로 틴맨 틱). [화면 미확인]
+  - 카넬리안 충전 단계 (2026-10-22, 묶음 B): 장착 스킬 N의 `billro_s_N[eff_cond]`(0.1초마다)이 스킬 밖에서 충전 2회면 파생 버프 [full](audioSignal
+    `billro_s_N_reach_enhance`)+[half](소리 없음)를 [full]이 없을 때만, 1회면 [half](`billro_s_N_reach_half`)를 [half]가 없을 때만 만들고, 0회면 지운다;
+    스킬 중엔 [half](충전 시전이면 [full]도)를 소리 없이 둔다. 우리: 키트 fx `charges`(n, 스킬 중 -1) → `audio.js billroChargeKey`가 그녀 오디오 기록에
+    가진 버프를 따라 만들 때만 `billro:sN:half`/`:full`(`p_skill_goldexplobuff[1]normal`/`p_skill_goldexplobuff[1]`, S3은 `…buff1…`). [추정: 이벤트에
+    충전 시전 여부가 없어 스킬 중은 [half]만 가진 것으로 침 — 충전 시전 직후 2회에 다시 닿으면 소리가 남]. 새 sfx 4개.
+    노시스 S2 `gnosis_s_2[eff_cond]`(1회 `[audio1]`·2회 `[audio2]`)·루멘 S2 `lumen_s_2[eff_cond]`(`[audio1]`/`[audio2]`, SHOW_EFFECT 뱅크)는 같은
+    꼴인데 sim에 충전 수 이벤트가 없어 안 함(새 sim fx = golden 이동). 확인: 같은 테스트 파일 「卡涅利安」(키 순서·실제 매치 경로).
 - 안 한 것 [시점·조건을 sim에서 못 얻음]: 티티 `titi_s_3[spread_from]`(연쇄 수면 선 — sim 이벤트 없음)·재능 `titi_t_1`(잠든 적 틱), 시빌라이트 에테르나
   재능 미진 재생성 `projectile_chr_cetsyr_talent[_s1|_s2]_cooldown_ready`(재생성 순간 이벤트가 없음 — 로스터 kit라 이벤트를 넣으면 golden이 넓게 바뀜),
   위셔델 `WISDEL_S_OVERLOAD`·`WISDEL_S3_MARK`, 필라에 `philae_aoe`, 카넬리안·노시스·루멘 `[eff_cond]` 단계 버프, 뮤엘시스·비질 가짜 죽음, 실버애쉬 더 레인프로스트
