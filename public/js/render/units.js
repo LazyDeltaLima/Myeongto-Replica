@@ -73,7 +73,7 @@ import { SpineActor } from './spine.js';
 import { diamondTexture, shadowTexture, fxAtlas, tierChip, statusTexture, itemTexture, hudRings, ringArc, downLabel, HUD_DISC, ELEMENT_RING } from './textures.js';
 import { COLORS, TIER_COLORS, ENEMY_FRAME, UNIT, PROJ, statusIconKey, statusIconSuppressed } from './style.js';
 import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tiles.js';
-import { noHpBar, noSpBar, facingless, bodyless } from '../../../shared/trap-tokens.js'; // local patch; 2026-10-11 bodyless markers
+import { noHpBar, noSpBar, flashHpBar, facingless, bodyless } from '../../../shared/trap-tokens.js'; // local patch; 2026-10-11 bodyless markers
 import { UF_CAMOU, UF_LIFTOFF } from '../../../shared/local.js'; // local patch: 迷彩 icon; 起飞
 import { FacingMarker, facingTextures } from './facing.js'; // local patch: official facing marker
 import { EliteRing, eliteBadgeTexture, ELITE_BADGE } from './elite-mark.js'; // the prep elite ring (low quality) and badge (setting)
@@ -181,6 +181,8 @@ export const HELD_REDRAW_FRAMES = 240;
  *  frozen gate. */
 const ICE_TOKENS = new Set(['token_10058_sbell2_icetgt']);
 const ICE_FRAME = 0x9fe6ff;
+/** A FLASH_HP_TOKENS summon's HP bar after its HP moves: shown `hold` s, then faded out over `fade` s [ASSUMED times]. */
+const HP_FLASH = Object.freeze({ hold: 1.5, fade: 0.5 });
 /** How long a view waits for its avatar before showing the image-less placeholder diamond. */
 const PIC_WAIT_MS = 400;
 /**
@@ -726,6 +728,7 @@ export class UnitView {
     this.mirrorX = this.isEnemy && !!(def && def.mirrorX);
     this.isToken = info.kind === 'token';
     this.noSp = noSpBar(info.defId);   // 2026-10-23: 炎佑 shows its HP bar only (shared/trap-tokens.js)
+    this.hpFlash = flashHpBar(info.defId) ? 0 : -1; // ≥ 0: the HP bar shows only this many seconds more (HP_FLASH)
     this.golden = !!info.golden;
     this.tier = clamp(Number(info.tier) || 1, 1, 6);
     this.x = Number(info.x) || 0; this.y = Number(info.y) || 0; this.z = 0;
@@ -1179,6 +1182,7 @@ export class UnitView {
     const hp = clamp(s.hp, 0, this.maxHp);
     if (hp < this.hp - 0.5 && this.isBoss) this.shake = 0.25;
     if (hp < this.hp - 0.5 && this.lpBars?.hit) this.lpBars.hit(); // local patch: a giant boss's hit flash
+    if (this.hpFlash >= 0 && Math.abs(hp - this.hp) > 0.5) this.hpFlash = HP_FLASH.hold + HP_FLASH.fade;
     this.hp = hp;
     this.sp = s.sp; this.spMax = s.spMax;
     this.ammo = s.ammo || null; // local patch: official bullet bar (b.snap `ammo`)
@@ -1994,7 +1998,8 @@ export class UnitView {
     const prep = this.prep;
     const showBars = !prep && this.alive && this.info.kind !== 'item';
     const damaged = this.hp < this.maxHp - 0.5;
-    const showHp = showBars && (!this.isEnemy || damaged || this.isBoss) && !noHpBar(this.info.defId); // local patch: traps
+    if (this.hpFlash > 0) this.hpFlash = Math.max(0, this.hpFlash - dt);
+    const showHp = showBars && (!this.isEnemy || damaged || this.isBoss) && !noHpBar(this.info.defId) && this.hpFlash !== 0; // local patch: traps
     const bw = clamp(s * (this.isBoss ? UNIT.bossBarWidth : UNIT.barWidth), 24, this.isBoss ? 260 : 96);
     const bh = clamp(s * (this.isBoss ? 0.12 : 0.075), 3, this.isBoss ? 12 : 7);
     // a knocked-down operator's HUD is its redeploy ring alone, drawn at full strength over the greyed model
@@ -2024,6 +2029,7 @@ export class UnitView {
         const sp = this.spMax > 0 && !this.noSp ? clamp(this.sp / this.spMax, 0, 1) : null;
         const bar = shieldedBar(this.hp, this.maxHp, this.ghostHp, this.barrier);
         lpBottom = this.lpBars.update(this.screen.x + sx, this.screen.y, u, { hp: bar.hp, ghost: bar.ghost, split: bar.split, sp, cast: active, ammo: this.ammo }, this.ctx.assets);
+        this.lpBars.root.alpha = this.hpFlash > 0 ? Math.min(1, this.hpFlash / HP_FLASH.fade) : 1;
       }
       this.hpBg.position.set(x0 - 1, cy); this.hpBg.width = bw + 2; this.hpBg.height = bh + 2;
       this.hpGhost.position.set(x0, cy); this.hpGhost.width = bw * g; this.hpGhost.height = bh;

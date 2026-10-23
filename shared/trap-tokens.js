@@ -21,6 +21,11 @@ export const NO_HP_TOKENS = Object.freeze(new Set(['token_10064_wang_stone1', 't
  * on the enemy skill's cooldown; the official shows it with its HP bar only, by the maintainer's account 2026-10-23).
  */
 export const NO_SP_TOKENS = Object.freeze(new Set(['enemy_9012_acloon']));
+/**
+ * Summons whose HP bar shows only for a moment after their HP moves (hurt or healed), hidden otherwise: 炎佑, by the
+ * maintainer's account of the official game 2026-10-23 (render/units.js HP_FLASH; the hold and fade are [ASSUMED]).
+ */
+export const FLASH_HP_TOKENS = Object.freeze(new Set(['enemy_9012_acloon']));
 /** Summons with no body of their own: only their effect is drawn. */
 export const BODYLESS_TOKENS = Object.freeze(new Set(['token_10071_aglna2_agairp']));
 /** Summons placed without the direction step. */
@@ -28,5 +33,6 @@ export const FACINGLESS_TOKENS = Object.freeze(new Set(['token_10064_wang_stone1
 
 export const noHpBar = (id) => typeof id === 'string' && NO_HP_TOKENS.has(id);
 export const noSpBar = (id) => typeof id === 'string' && NO_SP_TOKENS.has(id);
+export const flashHpBar = (id) => typeof id === 'string' && FLASH_HP_TOKENS.has(id);
 export const facingless = (id) => typeof id === 'string' && FACINGLESS_TOKENS.has(id);
 export const bodyless = (id) => typeof id === 'string' && BODYLESS_TOKENS.has(id);
