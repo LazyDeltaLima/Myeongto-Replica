@@ -1090,6 +1090,10 @@
   `common_buff_parry_01`이나 그 값]. 이펙트 넷은 프리팹이 참조하지 않아 `enemy_bindings.py --all`에 없었다 — `fx_extract.py --index enemy-index.json
   --bundle pfx_enemy_14|pfx_enemy_8 --pack pkgrps/btl_pfb_fx_enemy_14|8.ab --prefab …`로 뽑음(git 밖, deploy.sh가 비교·복사). 확인
   `test/sim/leader-barrier-layers.test.js` 「fx parry」 둘, `test/render/kit-event-fx.test.js` 「block effects」, 이펙트 이벤트 골든 + 줄만. [화면 미확인]
+- **천리안 사망 (2026-10-23, 버프 템플릿 확인)**: 재능 `enemy_hummbd_t` ON_OWNER_KILLED — 침묵이 아니면(CheckAbnormalFlag SILENCED) CreateEffect
+  `enemy_hummbd_die_02`(BUFF_OWNER) 뒤 CreateBuffInCircleRange(시뮬 `fly.js kitExposeOnDeath`의 노출). 시뮬 fx 'explode' kind 'expose'에 `id`를
+  싣고, 렌더 `fxgame.js exposeFx`가 그 적(아직 그려지면 몸, 아니면 쓰러진 자리)에 틀어 2D 고리를 대신한다. 자기 사망 이펙트 `_01`은 그대로.
+  프리팹은 `pfx_enemy_6`에서 따로 뽑음(git 밖). 확인 `test/render/kit-event-fx.test.js`. [화면 미확인]
 - **모드 번호 = 프리팹 `_modes` 순서(확인)**: `Unit._InitUnitModes`가 `_modes[i].InitOnce(this, i)`(가상 슬롯 6)를 부르고 `InitOnce`가 `index`(0xB0)에 i를
   넣으며, `UnitMode.OnInit`의 `GenerateSignalId`가 그 `index`를 쓴다 — 렌더 표·소리 표(`local-char-audio.json modes`)의 번호와 같다. (렌더가 공격
   클립으로 모드를 가르는 한계는 위대로.)
@@ -1098,7 +1102,7 @@
   `common_enemy_die_01`(이제 자기 사망 이펙트가 없는 적은 절차 퍼프 대신 그것).
 - 안 한 것: 래트킹 마지막 층 뒤 NoShield 모드 `mousek_buff_01_end`, '리드' 추적의 `achunt_dog_silence`(`enemy_actrpa_skill_a`, IMMEDIATELY), 자로 【远古威慑】가
   오퍼레이터에게 거는 `_B_buff_02_02`, 재생 중 이펙트(RebornTalent `_effects` — 제셀톤 `enemy_jakill_reborn_01~03_start` 등, 만드는 순간 안 읽음),
-  천리안 사망 `enemy_hummbd_die_02`(ON_OWNER_KILLED, 침묵이 아닐 때), 불타는 덩굴 `SwitchableEffectByBlackboardValue`(아래 「추출 누락 보고」),
+  불타는 덩굴 `SwitchableEffectByBlackboardValue`(아래 「추출 누락 보고」),
   더블린 불꽃 전사 재생 无敌 `enemy_duskls_revive_2`. 화면 확인: 아래.
 - 확인: `test/render/enemy-buff-fx.test.js`(enemyBuffFx·wantedStatusFx·끝 이펙트), `test/sim/enemy-buff-tags.test.js`(상태 이벤트의 `fx`, 重弩突袭者 줄),
   `enemy_bindings.py` 재생성 diff(위 `aura` 바뀐 적 목록을 하나씩 클래스로 확인).

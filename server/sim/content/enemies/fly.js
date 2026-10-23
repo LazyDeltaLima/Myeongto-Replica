@@ -49,7 +49,7 @@ const BUGS_PER_CAST = 3;
 /** 远眺: knocked out ⇒ 暴露 on every ally within r — PRTS 天赋 "（可被沉默；无视其可选性）": 隐匿 / untargetable ones too. */
 function kitExposeOnDeath(ab) {
   const dur = T(ab, 'Expose.weak[limit]') ?? 0, scale = T(ab, 'Expose.damage_scale') ?? 1, r = T(ab, 'Expose.range_radius') ?? 1;
-  return [{ sil: true, death(c, b, e) { if (c.reason !== 'killed') return; b.fx('explode', { x: e.x, y: e.y, r, kind: 'expose' }); for (const u of b.alliesInRadius(e.x, e.y, r)) expose(b, u, dur, scale); } }];
+  return [{ sil: true, death(c, b, e) { if (c.reason !== 'killed') return; b.fx('explode', { x: e.x, y: e.y, r, kind: 'expose', id: e.id }); for (const u of b.alliesInRadius(e.x, e.y, r)) expose(b, u, dur, scale); } }];
 }
 
 /**

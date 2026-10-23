@@ -307,6 +307,7 @@ const files = { '/assets/local/fx/index.json': { bundles: {
   billro: ['billro_skill_01_buff_01', 'billro_skill_01_buff_02', 'billro_skill_01_buff_01_02'],
   mudrok: ['mudrok_buff_01_begin', 'mudrok_buff_01_hit'], common: ['common_buff_parry_01'], podego: ['common_heal_hit_01'],
   pfx_enemy_14: ['enemy_xi_skill_02_buff_hit', 'enemy_xi_skill_02_buff_03'], pfx_enemy_8: ['enemy_mdrock_skill_01_buff_hit', 'enemy_mdrock_skill_buff_05'],
+  pfx_enemy_6: ['enemy_hummbd_die_02'],
 } } };
 const settle = () => new Promise((r) => setTimeout(r, 5));
 
@@ -391,6 +392,12 @@ test('fxgame.js: slots on and around a unit, 泥岩\'s and “自在”\'s block
     const br2 = ['fx', 'shieldBreak', 0, 0, { x: 0, y: 0, id: 6 }];
     layer.onEvent(br2, views);
     assert.equal(layer.ownsFx(br2), false, 'once: a later break without its official effect keeps the stand-in');
+    // 远眺 killed (not silenced): enemy_hummbd_t's death effect instead of the 2D ring
+    views.set(7, { id: 7, x: 7, y: 0, alive: false, info: { id: 7, side: 'enemy', defId: 'enemy_1407_hummbd' } });
+    const ex = ['fx', 'explode', 7, 0, { x: 7, y: 0, r: 1, kind: 'expose', id: 7 }];
+    layer.onEvent(ex, views);
+    assert.deepEqual(got(), ['enemy_hummbd_die_02']);
+    assert.equal(layer.ownsFx(ex), true);
   } finally { globalThis.fetch = fetch0; }
 });
 

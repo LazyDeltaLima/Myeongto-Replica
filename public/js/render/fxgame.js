@@ -2066,6 +2066,17 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // the barrier's own 'shieldBreak' of the same hit (content/enemies/archetypes.js artsBarrier) then draws no 2D shatter
     if (e[4].broke) { const br = BREAK_FX[e[4].buff]; if (br && index?.bundles?.[br[0]]?.includes(br[1])) { at(...br); if (SHATTERS.has(e[4].buff)) brokeOwn.add(e[4].id); } }
   }
+  // 2026-10-23: 远眺's death (sim fx 'explode' kind 'expose', content/enemies/fly.js kitExposeOnDeath — killed, not silenced):
+  // its talent enemy_hummbd_t ON_OWNER_KILLED, when not SILENCED, CreateEffect enemy_hummbd_die_02 on it, then the
+  // CreateBuffInCircleRange the sim plays — instead of the 2D ring. On its body while it is still drawn, else where it fell.
+  const EXPOSE_FX = ['pfx_enemy_6', 'enemy_hummbd_die_02'];
+  function exposeFx(e, views) {
+    if (failed || !index?.bundles?.[EXPOSE_FX[0]]?.includes(EXPOSE_FX[1])) return false;
+    const v = views?.get?.(e[4].id);
+    const at = v && !v.remove ? v : { x: Number(e[4].x), y: Number(e[4].y), z: 0 };
+    spawn(EXPOSE_FX[0], EXPOSE_FX[1], at, { owner: null, buff: false, tag: 'expose', ...(v ? { on: v.id } : {}) }, { over: true, facing: v ? efacing(v) : 1 });
+    return true;
+  }
   // (2026-10-21) An element burst (sim damage.js resolveBurst → its fx burst {id, element}): the EN buff templates'
   // ep_break_<el>_char / _enemy play one CreateEffect on the BUFF_OWNER at ON_BUFF_START — fire on an enemy
   // common_firedamage_hit (none on an operator: its 灼燃 shows ep_fire_magic_res_down's buff_burn, fxstatus.js), water
@@ -4631,6 +4642,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'oblvnsNote' && e[4]) { noteFx(e, views); return; }
           if (e[1] === 'parry' && e[4]) { parryFx(e, views); return; }
           if (e[1] === 'shieldBreak' && e[4] && brokeOwn.delete(e[4].id)) { ownFx.add(e); return; } // 2026-10-23: its official break drew it (parryFx)
+          if (e[1] === 'explode' && e[4]?.kind === 'expose' && exposeFx(e, views)) { ownFx.add(e); return; }
           if (e[1] === 'burst' && e[4]?.element) { if (burstFx(e, views)) ownFx.add(e); return; }
           if (e[1] === 'whitw2Drones' && e[4]) { wolfFx(e); return; }
           if (e[1] === 'buffProgress' && e[4]) { buffProgress(e[4]); ownFx.add(e); return; }
