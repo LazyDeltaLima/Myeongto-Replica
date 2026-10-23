@@ -4,11 +4,14 @@
 
 A unit's battle prefab draws its skeleton under `Graphic` (turned X −30° to face the camera) at a child's local position —
 an operator's `DefaultSkin/FaceSwitcher` (chararts/<charId>.ab), a token's `Graphic/DefaultSkin/FaceSwitcher`,
-`Graphic/Spine` or `Graphic/Front` (pkgrps/btl_pfb_tokens_*.ab, one prefab per root name; a summon that is an enemy, in
-battle/enm_pfb_*.ab) — and its shadow sprite at `Others/Shadow/Sprite` (charpack/<charId>.ab or the token prefab; an enemy
-prefab's `Shadow/Sprite`; neither parent is turned, the sprite lies on the board).
+`Graphic/Spine` or `Graphic/Front` (pkgrps/btl_pfb_tokens_*.ab, one prefab per root name), an enemy's
+`Graphic/FaceSwitcher` (battle/enm_pfb_*.ab, by its prefab name = data/enemies.json `spine`; also a summon that is an
+enemy) — and its shadow sprite at `Others/Shadow/Sprite` (charpack/<charId>.ab or the token prefab; an enemy prefab's
+`Shadow/Sprite`; no parent is turned, the sprite lies on the board, and its parents' places and scales add up).
+An enemy prefab keeps its place and size on `Graphic` itself (its FaceSwitcher sits at 0, scale 1); one without a
+`Graphic` (刺胄之弹: a root `EmptyAnimator`) gives that node's place as `graphic`.
 Most of them carry the same values (render/fxpoints.js STANDARD_PLACE); this table holds every unit read, so the render
-keeps the standard place for a unit missing here or without the table.
+keeps the standard place for a unit missing here or without the table (an enemy: fxpoints.js ENEMY_PLACE).
 
 Writes { unitId: { face: [x, y, z], scale, graphic?: [x, y, z], shadow: { at: [x, y], sx, sy } | null } } to
 public/assets/local/fx/places.json (git-ignored beside the effects; read by render/fxpoints.js loadPlaces): `face` the
@@ -21,7 +24,7 @@ Usage (from the repo root; --client = the client's Arknights_Data folder):
   .venv-extract/bin/python -I tools/local-extract/model_place.py [--client <…/Arknights_Data>] [--id char_…|token_…]…
 The EN client lacks a few CN-only units (予愿安洁莉娜, 克莱门莎, …): run again with --client <CN Arknights_Data> --id …
 (the table keeps the other entries). Without --id: the pool's operators (data/chess.json + the 선발 picks: char_modes.py pool_char_ids), the 预备 operators and
-the tokens of data/backups.json, and the tokens of data/tokens.json. Everything is (c) Hypergryph; private fan use only.
+the tokens of data/backups.json, the tokens of data/tokens.json and the enemies of data/enemies.json (by prefab name). Everything is (c) Hypergryph; private fan use only.
 """
 import argparse
 import json
@@ -46,20 +49,29 @@ def unit_ids():
     tokens = set(json.loads((ROOT / 'data/tokens.json').read_text(encoding='utf-8'))) | set(backups.get('tokens') or {})
     # the 预备 operators (backups `units`) too, and a summon that is an operator prefab (char_605_cmedic …) is read like one
     chars = set(pool_char_ids()) | set(backups.get('units') or {}) | {t for t in tokens if t.startswith('char_')}
+    enemies = json.loads((ROOT / 'data/enemies.json').read_text(encoding='utf-8'))
+    tokens |= {e.get('spine') or k for k, e in enemies.items()}
     return sorted(chars), sorted(t for t in tokens if not t.startswith('char_'))
 
 
 def enemy_files(client, ids):
-    """{ id: its battle/enm_pfb_*.ab } for summons that are enemy prefabs (“炎佑” enemy_9012_acloon), by root name."""
+    """{ id: its battle/enm_pfb_*.ab } for enemy prefabs (and summons that are one, “炎佑” enemy_9012_acloon), by root name
+    (a prefab's child may carry another prefab's name: 巨大的丑东西's)."""
     import aklz4  # noqa: F401
     import UnityPy
     out, want = {}, set(ids)
     for d in ('PersistentData/Bundles/battle', 'StreamingAssets/AB/Windows/battle'):
         p = Path(client) / d
         for f in sorted(p.glob('enm_pfb*.ab')) if want - set(out) and p.is_dir() else []:
-            for o in UnityPy.load(str(f)).objects:
-                if o.type.name == 'GameObject' and o.read().m_Name in want - set(out):
-                    out[o.read().m_Name] = f
+            objs = {o.path_id: o for o in UnityPy.load(str(f)).objects}
+            for o in objs.values():
+                if o.type.name != 'Transform':
+                    continue
+                t = o.read_typetree()
+                go = objs.get(t['m_GameObject']['m_PathID']) if not t['m_Father']['m_PathID'] else None
+                name = go.read_typetree()['m_Name'] if go is not None else None
+                if name in want and name not in out:
+                    out[name] = f
     return out
 
 
@@ -114,11 +126,29 @@ def r(v):
     return [round(x, 4) + 0.0 for x in v]
 
 
+def shadow_of(root):
+    """The shadow sprite of a prefab root as one node: `Others/Shadow/Sprite` or `Shadow/Sprite`, its parents' places added
+    and scales multiplied (a flying enemy's `Shadow` sits 1.2 under its root — the height is not kept, the render lays the
+    shadow on the ground), active only when every node on the path is; None without one."""
+    for path in ('Others/Shadow/Sprite', 'Shadow/Sprite'):
+        nodes, n = [], root
+        for part in path.split('/'):
+            n = n and n['children'].get(part)
+            nodes.append(n)
+        if n:
+            pos, scale = [0.0, 0.0, 0.0], [1.0, 1.0, 1.0]
+            for m in reversed(nodes):
+                pos = [p * k + q for p, k, q in zip(pos, m['scale'], m['pos'])]
+                scale = [a * b for a, b in zip(scale, m['scale'])]
+            return {'pos': pos, 'scale': scale, 'sprite': n['sprite'], 'active': all(m['active'] for m in nodes), 'children': {}}
+    return None
+
+
 def place(model, graphic, shadow):
     # the node sits in Graphic's frame, so Graphic's own scale scales its place and size (an enemy prefab keeps its 0.27
-    # on Graphic itself, the skeleton node at 1)
-    k = graphic['scale'][0] if graphic else 1
-    out = {'face': r([x * k for x in model['pos']]), 'scale': round(model['scale'][0] * k, 4)}
+    # on Graphic itself, the skeleton node at 1; a mirrored one, 木制瑞印, a negative x)
+    k = graphic['scale'] if graphic else [1, 1, 1]
+    out = {'face': r([x * kk for x, kk in zip(model['pos'], k)]), 'scale': round(abs(model['scale'][0] * k[0]), 4)}
     if graphic and any(abs(x) > 1e-6 for x in graphic['pos']):
         out['graphic'] = r(graphic['pos'])
     out['shadow'] = {'at': r(shadow['pos'][:2]), 'sx': round(shadow['scale'][0], 4), 'sy': round(shadow['scale'][1], 4)} \
@@ -156,10 +186,13 @@ def main():
         for tid in ids:
             g = child(roots.get(tid), 'Graphic')
             model = next((m for m in (child(g, p) for p in TOKEN_MODEL_NODES) if m), None)
+            if not g and child(roots.get(tid), 'EmptyAnimator'):
+                # no Graphic (刺胄之弹): the root's own EmptyAnimator holds the place, on the board like a Graphic's
+                g, model = child(roots[tid], 'EmptyAnimator'), {'pos': [0, 0, 0], 'scale': [1, 1, 1]}
             if not model:
                 missing.append(tid)
                 continue
-            out[tid] = place(model, g, child(roots[tid], 'Others/Shadow/Sprite') or child(roots[tid], 'Shadow/Sprite'))
+            out[tid] = place(model, g, shadow_of(roots[tid]))
     missing += [t for t in tokens if t not in out and t not in missing]
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps({k: out[k] for k in sorted(out)}, separators=(',', ':')) + '\n', encoding='utf-8')

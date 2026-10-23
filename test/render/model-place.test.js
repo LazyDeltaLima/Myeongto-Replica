@@ -3,6 +3,7 @@
 // token draws its model at its prefab's skeleton node (the standard (0, −0.16, −0.1) in the Graphic's X −30° frame) and
 // its shadow 0.17 tile ahead at 0.608 × 0.194 tile — 望's placed 棋子 (A) and the rest (B); the per-unit table of the local
 // client (places.json) gives the units that differ; the HUD stays at the unit's point, the body anchors follow the model.
+// Enemies (2026-10-24) the same way: their prefab's Graphic place (ENEMY_PLACE: walkers (0, −0.2, −0.06), flyers 0) and shadow.
 
 import { test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,7 +12,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { installFakePixi, fakeViewCtx } from './fakepixi.js';
 import { presetCamera } from '../../public/js/render/projection.js';
-import { STANDARD_PLACE, SHADOW_SPRITE, modelPlace, modelOffset, setPlaces, liftedPoint } from '../../public/js/render/fxpoints.js';
+import { STANDARD_PLACE, ENEMY_PLACE, SHADOW_SPRITE, modelPlace, modelOffset, setPlaces, liftedPoint } from '../../public/js/render/fxpoints.js';
 import { bodyZ } from '../../public/js/render/fx/camera.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -55,8 +56,7 @@ test('modelOffset turns the node\'s place by the Graphic\'s X −30° (0.189 row
   assert.ok(Math.abs(g.dx - 0.1) < 1e-9 && Math.abs(g.dy) < 1e-9 && Math.abs(g.dz - 0.2) < 1e-9);
 });
 
-test('modelPlace: operators and tokens only; the table\'s own entry by the first key found, else the standard', () => {
-  assert.equal(modelPlace(['enemy_1007_slime'], 'enemy'), null);
+test('modelPlace: operators, tokens and enemies; the table\'s own entry by the first key found, else the standard', () => {
   assert.equal(modelPlace(['x'], 'device'), null);
   assert.ok(!modelPlace(['char_102_texas'], 'op').own);
   setPlaces({
@@ -97,11 +97,44 @@ test('an operator\'s and a token\'s model are drawn at their place, the shadow a
     assert.ok(Math.abs(v.screen.y - p.y) < 1e-6, `${id}: screen = the unit's point`);
     assert.equal(v.hudAnchor, 0, `${id}: hud_unit on the point, not HUD_ANCHOR over it (the model already stands lower)`);
   }
-  // an enemy keeps its point and the 0.95-tile shadow
+});
+
+test('enemies: the standard walker / flyer place without the table, the table\'s own entry by prefab name', () => {
+  assert.deepEqual([...ENEMY_PLACE.walk.graphic], [0, -0.2, -0.06]);
+  const walk = modelPlace(['enemy_1007_slime', 'enemy_1007_slime'], 'enemy');
+  assert.ok(!walk.own && Math.abs(walk.off.dy + 0.2) < 1e-9 && Math.abs(walk.off.dz - 0.06) < 1e-9 && walk.off.dx === 0);
+  assert.ok(Math.abs(walk.shadow.w - 0.6084) < 1e-9, 'the standard 0.12 shadow');
+  const fly = modelPlace(['enemy_1005_yokai'], 'enemy', true);
+  assert.ok(fly.off.dy === 0 && fly.off.dz === 0 && fly.shadow.at[1] === 0 && Math.abs(fly.shadow.w - 0.3042) < 1e-9);
+  setPlaces({
+    enemy_1200_msfjin: { face: [0, 0, 0], scale: 0.6, graphic: [0, -0.45, -0.06], shadow: { at: [0, -0.17], sx: 0.05, sy: 0.05 } },
+    enemy_9016_acstmr: { face: [0, 0, 0], scale: 0.27, graphic: [0, -0.2, -0.06], shadow: null },
+  });
+  const jin = modelPlace([null, 'enemy_1200_msfjin'], 'enemy');
+  assert.ok(jin.own && Math.abs(jin.off.dy + 0.45) < 1e-9 && Math.abs(jin.shadow.w - 0.2535) < 1e-9);
+  assert.equal(modelPlace(['enemy_9016_acstmr'], 'enemy').shadow, null, '刺胄之弹 draws no shadow');
+});
+
+test('an enemy\'s model and shadow stand at its prefab place; its HUD on the point, its size still enemies.json modelScale', () => {
+  const c = cam();
+  const p = c.project(10, 9, 0, P0());
+  const q = c.project(10, 9 - 0.2, 0.06, P0());
   const u = view('enemy_1007_slime', 'enemy', 'enemy');
   u.update(1 / 60, c, 0);
-  assert.ok(Math.abs(u.root.position.y - p.y) < 1e-6 && Math.abs(u.shadow.position.y - p.y) < 1e-6 && u.modelDrop === 0);
-  assert.ok(Math.abs((u.shadow.scale.x * u.shadow.texture.width) / p.s - 0.95) < 1e-6);
+  assert.ok(Math.abs(u.root.position.x - q.x) < 1e-6 && Math.abs(u.root.position.y - q.y) < 1e-6);
+  const down = (u.root.position.y - p.y) / p.s;
+  assert.ok(down > 0.08 && down < 0.2, `model ${down.toFixed(3)} tile below the point`);
+  assert.ok(Math.abs(u.modelDrop - down) < 1e-9);
+  const w = (u.shadow.scale.x * u.shadow.texture.width) / p.s;
+  assert.ok(Math.abs(w - 0.608) < 0.02 && u.shadow.position.y > p.y, `shadow ${w.toFixed(3)} tile wide, ahead of the point`);
+  assert.equal(u.hudAnchor, 0, 'hud_unit on the point (the client\'s enemy _uiMountPoint is empty too)');
+  assert.ok(Math.abs(u.screen.y - p.y) < 1e-6);
+  // the table's scale (|Graphic| 0.4) does not replace modelScale (enemies.json, mirrored 木制瑞印 has a negative x)
+  setPlaces({ enemy_1007_slime: { face: [0, 0, 0], scale: 0.4, graphic: [0.01, -0.2, -0.06], shadow: { at: [0, -0.17], sx: 0.1, sy: 0.1 } } });
+  const k = u.modelK;
+  u.update(1 / 60, c, 0);
+  assert.equal(u.modelK, k);
+  assert.ok(Math.abs((u.shadow.scale.x * u.shadow.texture.width) / p.s - 0.507) < 0.02, 'the table\'s 0.1 shadow');
 });
 
 test('a view built before the table re-reads it: its own side offset, scale and no shadow', () => {

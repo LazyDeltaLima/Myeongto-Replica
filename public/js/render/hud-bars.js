@@ -6,10 +6,10 @@
 // and 177 px apart. One unit here = min(width / 1920, height / 1080) CSS px of the view ([추정] the fit for other aspect
 // ratios: no CanvasScaler value found). Every size below is in those units, from `hud_unit`'s centre (prefab offsets).
 // The client puts that centre on the unit's own point (UIUnitHUD.Attach follows the unit's `_uiMountPoint`, empty in the
-// prefabs, so the unit's transform). An operator's or token's model stands ≈ 0.16 tile lower on screen (its prefab place,
+// prefabs, so the unit's transform). An operator's, token's or enemy's model stands ≈ 0.16 tile lower on screen (its prefab place,
 // fxpoints.js modelPlace), ≈ 26 units with the official camera, so the HP bar's centre (54.5 under hud_unit) is ≈ 28
 // units under its shoes — official captures: CN 5 / 6 / 13 27 / 29 / 33.7 units, PC 2026-10-23 (赤刃明霄陈) 29. A unit
-// whose model still stands on its point (enemies, devices) draws hud_unit HUD_ANCHOR units over it instead: the same
+// whose model still stands on its point (devices; enemies until 2026-10-24) draws hud_unit HUD_ANCHOR units over it instead: the same
 // ≈ 30 units under the shoes, fitted to those captures on 2026-10-07 before the model places were drawn.
 //
 // Allies (char_hp_slider / char_sp_slider / char_sp_cast_slider / char_bullet_bar / char_slider_background):

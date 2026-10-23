@@ -10,6 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { installFakePixi, fakeViewCtx } from './fakepixi.js';
 import { presetCamera } from '../../public/js/render/projection.js';
+import { setPlaces } from '../../public/js/render/fxpoints.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const ASSETS = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8'));
@@ -405,7 +406,7 @@ describe('flying units hover FLY_HOVER above the ground, whatever their model', 
     assert.ok(FLY_HOVER > 1.2, 'the sub-tile 0.35 left every flyer about one tile low');
   });
 
-  test('a flying UnitView lifts by FLY_HOVER — its body and HP bar ride it, its shadow stays on the ground; a ground view keeps its feet on the tile', async () => {
+  test('a flying UnitView lifts by FLY_HOVER — its body and HP bar ride it, its shadow stays on the ground; a ground view keeps its feet on the tile', async (t) => {
     const { FLY_HOVER } = await import('../../public/js/render/units.js');
     const bounds = boundsOf('enemy_1005_yokai');
     const entry = { skel: '/s/x.skel', atlas: '/s/x.atlas', textures: ['/s/x.png'], anims: { idle: 'Idle' }, animations: { Idle: 1 }, bounds };
@@ -414,6 +415,9 @@ describe('flying units hover FLY_HOVER above the ground, whatever their model', 
       spine: { acquire: async () => ({ animations: [{ name: 'Idle' }] }), release() {} },
     };
     const ctx = fakeViewCtx(fake.P, { assets, cam: cam, lookupDef: () => ({ modelScale: MODEL_K.enemy_1005_yokai }) });
+    // both views at the prefab's own place (the local table, by prefab name; without it a walker and a flyer differ)
+    setPlaces({ enemy_1005_yokai: { face: [0, 0, 0], scale: 0.2, shadow: { at: [0, 0], sx: 0.06, sy: 0.06 } } });
+    t.after(() => setPlaces(null));
     const fly = new UnitView(ctx, { id: 1, side: 'enemy', kind: 'enemy', defId: 'enemy_1005_yokai', x: 5, y: 12, maxHp: 100, motion: 'FLY' }, {});
     await tick(); await tick();
     for (let i = 0; i < 180; i++) fly.update(1 / 60, cam(), i / 60);

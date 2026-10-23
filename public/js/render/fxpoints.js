@@ -117,6 +117,17 @@ export const STANDARD_PLACE = Object.freeze({
   face: Object.freeze([0, -0.16, -0.1]), scale: 0.27,
   shadow: Object.freeze({ at: Object.freeze([0, -0.17]), sx: 0.12, sy: 0.12 }),
 });
+/**
+ * The same for an enemy (2026-10-24, the next step: every enemy prefab of the official client, battle/enm_pfb_*.ab): its
+ * prefab keeps the place on `Graphic` itself (`graphic`, on the board, not turned; FaceSwitcher at 0) and the size there
+ * too (enemies.json `modelScale` already draws it); the shadow at `Shadow/Sprite`. Most walkers stand 0.2 rows toward
+ * the camera and 0.06 up with the standard shadow; most flyers at their point with a small one at their point. A machine
+ * without the local table takes these.
+ */
+export const ENEMY_PLACE = Object.freeze({
+  walk: Object.freeze({ face: Object.freeze([0, 0, 0]), graphic: Object.freeze([0, -0.2, -0.06]), scale: 0.27, shadow: STANDARD_PLACE.shadow }),
+  fly: Object.freeze({ face: Object.freeze([0, 0, 0]), scale: 0.27, shadow: Object.freeze({ at: Object.freeze([0, 0]), sx: 0.06, sy: 0.06 }) }),
+});
 /** `sprite_shadow`'s size in Unity units: 507 × 162 px at 100 px a unit. */
 export const SHADOW_SPRITE = Object.freeze([5.07, 1.62]);
 
@@ -136,18 +147,21 @@ export const loadPlaces = () => (placesPromise ||= (typeof fetch !== 'function' 
 export function setPlaces(p) { places = p || null; placesVersion++; }
 
 /**
- * The place of the model of an operator (`kind` 'op') or token, its first unit key in `keys` found in the table, else
- * STANDARD_PLACE; null for anything else (enemies keep their own model data). Returns { own: from the table, off: the
- * model's offset on the board (modelOffset), k: its scale over the standard 0.27, shadow: { at, w, h } in tiles | null }.
+ * The place of the model of an operator (`kind` 'op'), token or enemy ('enemy'; `fly`: a flyer), its first unit key in
+ * `keys` found in the table, else STANDARD_PLACE (an enemy: ENEMY_PLACE); null for anything else. Returns { own: from the
+ * table, off: the model's offset on the board (modelOffset), k: its scale over the standard 0.27, shadow: { at, w, h } in
+ * tiles | null }.
  * @param {Array<string|null|undefined>} keys
  * @param {string|null|undefined} kind
+ * @param {boolean} [fly]
  */
-export function modelPlace(keys, kind) {
-  if (kind !== 'op' && kind !== 'token') return null;
-  const e = keys.map((k) => (k && places ? places[k] : null)).find((x) => x && Array.isArray(x.face)) || STANDARD_PLACE;
+export function modelPlace(keys, kind, fly = false) {
+  if (kind !== 'op' && kind !== 'token' && kind !== 'enemy') return null;
+  const std = kind === 'enemy' ? (fly ? ENEMY_PLACE.fly : ENEMY_PLACE.walk) : STANDARD_PLACE;
+  const e = keys.map((k) => (k && places ? places[k] : null)).find((x) => x && Array.isArray(x.face)) || std;
   const sh = e.shadow;
   return {
-    own: e !== STANDARD_PLACE,
+    own: e !== std,
     off: modelOffset(e.face, e.graphic),
     k: Number(e.scale) > 0 ? e.scale / STANDARD_PLACE.scale : 1,
     shadow: sh ? { at: sh.at, w: SHADOW_SPRITE[0] * sh.sx, h: SHADOW_SPRITE[1] * sh.sy } : null,

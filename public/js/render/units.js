@@ -1657,20 +1657,22 @@ export class UnitView {
 
   /** @param {number} dt real seconds @param {any} cam camera @param {number} t real clock */
   /**
-   * An operator's or token's place in its battle prefab (fxpoints.js modelPlace, docs/rules/render.md 「모델 위치값·그림자」):
-   * the model is drawn off its unit's point by its skeleton node's place (`faceDX`, `modelDY`, `modelDZ` — the body only;
-   * `modelDX` moves the whole unit), the shadow where and as large as the prefab's sprite (none when it has none), the
-   * model at the node's scale. Read again when the local table arrives (placesVersion).
+   * A unit's place in its battle prefab (fxpoints.js modelPlace, docs/rules/render.md 「모델 위치값·그림자」): the model is
+   * drawn off its unit's point by its skeleton node's place (`faceDX`, `modelDY`, `modelDZ` — the body only; `modelDX`
+   * moves the whole unit), the shadow where and as large as the prefab's sprite (none when it has none), an operator's or
+   * token's model at the node's scale (an enemy's is enemies.json `modelScale`). Read again when the local table arrives
+   * (placesVersion).
    */
   _applyPlace() {
     this._placeV = placesVersion;
     const info = this.info;
-    this.modelPlace = this.isEnemy ? null : modelPlace([info.diy?.charId, info.spine, info.defId], info.kind);
+    this.modelPlace = this.isEnemy ? modelPlace([info.spine, info.defId], 'enemy', info.motion === 'FLY')
+      : modelPlace([info.diy?.charId, info.spine, info.defId], info.kind);
     const off = this.modelPlace?.off;
     this.faceDX = off ? off.dx : 0;
     this.modelDY = off ? off.dy : 0;
     this.modelDZ = off ? off.dz : 0;
-    if (this.modelPlace?.own) this.modelK = this.modelPlace.k;
+    if (this.modelPlace?.own && !this.isEnemy) this.modelK = this.modelPlace.k;
     // hud_unit's centre over the unit's point (hud-bars.js header): on it, as the client, once the model stands at its
     // prefab place; HUD_ANCHOR over it while the model stands on the point
     this.hudAnchor = this.modelPlace ? 0 : HUD_ANCHOR;

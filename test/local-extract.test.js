@@ -313,6 +313,18 @@ n = lambda pos, scale=1: {'pos': pos, 'scale': [scale, scale, scale], 'sprite': 
 print(json.dumps(m.place(n([0, 0, 0]), n([0, -0.2, -0.06], 0.27), None)))`);
     assert.deepEqual(out, { face: [0, 0, 0], scale: 0.27, graphic: [0, -0.2, -0.06], shadow: null });
   });
+  test('shadow_of: Others/Shadow/Sprite or Shadow/Sprite, its parents\' places added and scales multiplied', () => {
+    const out = mp(`
+n = lambda pos, scale=1, kids=None, sprite=False, active=True: {'pos': pos, 'scale': [scale, scale, scale], 'sprite': sprite, 'active': active, 'children': kids or {}}
+fly = {'children': {'Shadow': n([0, 0, 1.2], 1, {'Sprite': n([0, 0, 0], 0.06, sprite=True)})}}
+big = {'children': {'Shadow': n([0, 0, 0], 0.14, {'Sprite': n([0, -0.17, 0], 1, sprite=True)})}}
+off = {'children': {'Others': n([0, 0, 0], 1, {'Shadow': n([0, 0, 0], 1, {'Sprite': n([0, -0.17, 0], 0.12, sprite=True)})}, active=False)}}
+print(json.dumps([m.place(n([0, 0, 0]), n([0, 0, 0], 0.2), m.shadow_of(fly))['shadow'], m.place(n([0, 0, 0]), None, m.shadow_of(big))['shadow'],
+  m.shadow_of(off)['active'], m.shadow_of({'children': {}})]))`);
+    assert.deepEqual(out[0], { at: [0, 0], sx: 0.06, sy: 0.06 }, 'a flyer\'s Shadow 1.2 under its root: the height is not kept');
+    assert.deepEqual(out[1], { at: [0, -0.0238], sx: 0.14, sy: 0.14 }, 'the parent\'s scale scales the sprite\'s place and size');
+    assert.deepEqual(out.slice(2), [false, null]);
+  });
   test('child walks a node path; a token\'s skeleton node is looked for in TOKEN_MODEL_NODES order', () => {
     const out = mp(`
 t = {'children': {'Graphic': {'children': {'Spine': {'children': {}, 'pos': [0, -0.15, -0.1]}}}}}

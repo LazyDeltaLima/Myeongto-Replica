@@ -160,7 +160,9 @@ describe('enemy bars (enemy_hp_slider / enemy_boss_hp_slider / the giant boss pa
     assert.ok(n.lpBars.root.visible);
     assert.equal(n.lpBars.hp.tint, 0xea4700);
     assert.ok(Math.abs(n.lpBars.hp.width - 105 * u * 0.4) < 1e-6);
-    assert.ok(Math.abs(n.lpBars.hp.position.y - (n.screen.y + (55.3 - HB.HUD_ANCHOR) * u)) < 1e-6);
+    // hud_unit on the unit's point: the model stands at its prefab place (render.md 「모델 위치값·그림자」, 2026-10-24)
+    assert.equal(n.hudAnchor, 0);
+    assert.ok(Math.abs(n.lpBars.hp.position.y - (n.screen.y + 55.3 * u)) < 1e-6);
     const g = enemy({ defId: 'enemy_9021_acduml', boss: true });
     g.sync(sample({ hp: 1000 }), 0); g.update(1 / 60, cam(), 0);
     assert.ok(g.lpBars.root.visible, 'bosses always');
