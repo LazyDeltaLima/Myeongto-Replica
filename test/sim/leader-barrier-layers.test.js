@@ -110,3 +110,42 @@ test('泥岩 through the real match path: three layers of the whole dynamic; 刷
   assert.deepEqual(b.errors.map((x) => x.error?.message), []);
   m.dispose?.();
 });
+
+// 2026-10-23 (docs/rules/fx.md 「적 상태의 버프 이펙트」): each layer's ON_TAKE_DAMAGE BlockDamage names its block effect
+// (`_specifyBlockEffect`) and only a hit it takes whole is cancelled with it; the last layer's graph plays a break effect
+// once its `dynamic` is 0 — fx 'parry' { id, buff, whole, broke } for those moments (render/fxgame.js parryFx)
+const parries = (events, id) => events.filter((x) => x[0] === 'fx' && x[1] === 'parry' && x[4]?.id === id).map((x) => [x[4].buff, x[4].whole, x[4].broke]);
+
+test('“自在”\'s barrier layers announce a whole-hit block and a break (fx parry)', async () => {
+  const sb = skb('enemy_1517_xi', 'ShieldBurst');
+  const { m, b, e, events } = await fieldWith('enemy_1517_xi');
+  e.profile.noAttack = true;
+  while (b.time < sb.initCooldown + 1 && !e.findBuff('ab:xiShield[a]')) b.step();
+  const dyn = sb.bb.dynamic;
+  b.dealDamage(null, e, { amount: artsFor(e, 100), type: 'arts' });
+  assert.deepEqual(parries(events, e.id), [['ab:xiShield[a]', 1, 0]], 'taken whole by the first layer');
+  events.length = 0;
+  b.dealDamage(null, e, { amount: artsFor(e, dyn), type: 'arts' });
+  assert.deepEqual(parries(events, e.id), [['ab:xiShield[a]', 0, 1], ['ab:xiShield[b]', 1, 0]], 'a drained, b takes the rest whole');
+  events.length = 0;
+  b.dealDamage(null, e, { amount: artsFor(e, 2 * dyn), type: 'arts' });
+  assert.deepEqual(parries(events, e.id), [['ab:xiShield[b]', 0, 1], ['ab:xiShield[c]', 0, 1]], 'b and the last drained, the overflow lands');
+  assert.deepEqual(b.errors.map((x) => x.error?.message), []);
+  m.dispose?.();
+});
+
+test('the enemy 泥岩\'s layers too; 鼠王\'s name no block effect and send none', async () => {
+  const { m, b, e, events } = await fieldWith('enemy_1511_mdrock');
+  const dyn = skb('enemy_1511_mdrock', 'RefreshShield').bb.dynamic;
+  b.dealDamage(null, e, { amount: artsFor(e, dyn + 10), type: 'arts' });
+  assert.deepEqual(parries(events, e.id), [['ab:rockPower[1]', 0, 1], ['ab:rockPower[2]', 1, 0]]);
+  events.length = 0;
+  b.dealDamage(null, e, { amount: artsFor(e, 2 * dyn), type: 'arts' });
+  assert.deepEqual(parries(events, e.id), [['ab:rockPower[2]', 0, 1], ['ab:rockPower[3]', 0, 1]]);
+  assert.ok(events.some((x) => x[0] === 'fx' && x[1] === 'shieldBreak' && x[4]?.id === e.id), 'its own break event follows');
+  m.dispose?.();
+  const k = await fieldWith('enemy_1509_mousek');
+  k.b.dealDamage(null, k.e, { amount: artsFor(k.e, 100), type: 'arts' });
+  assert.deepEqual(parries(k.events, k.e.id), []);
+  k.m.dispose?.();
+});

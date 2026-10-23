@@ -173,7 +173,7 @@ function kitLeaderMisc(key, ab, e) {
       // with the whole `dynamic` (CreateBuff copies the buff's blackboard) — 3 × 5500 = PRTS 「可吸收16500法术伤害的屏障」
       // (docs/rules/sim.md 「리더 방벽 층 셋」); the HP / ASPD bonus ([shield][buff]) ends with the last layer
       const bar = artsBarrier(s ? s.bb.dynamic ?? 0 : T(ab, 'shield.dynamic') ?? 0, { key: 'ab:rockPower',
-        layers: ['enemy_mdrock_s_2[shield_a]', 'enemy_mdrock_s_2[shield_b]', 'enemy_mdrock_s_2[shield_c]'],
+        layers: ['enemy_mdrock_s_2[shield_a]', 'enemy_mdrock_s_2[shield_b]', 'enemy_mdrock_s_2[shield_c]'], blockFx: true,
         whileUp: { hpPct: (s ? s.bb.max_hp : null) ?? T(ab, 'shield.max_hp') ?? 0, aspd: (s ? s.bb.attack_speed : null) ?? T(ab, 'shield.attack_speed') ?? 0 } });
       return [bar, {
         // 攻击时攻击力永久提升，最多六层: the blackboard ATK is per stack — the client buff enemy_mdrock_s_1[charge] (STACK,
@@ -501,8 +501,10 @@ function kitXi(ab) {
     // skill's blackboard with the whole `dynamic`, absorbing physical and arts damage (BlockDamage PHYSICAL_AND_MAGICAL) in
     // the order they were added — 3 × 2500 = PRTS 「可吸收7500物理/法术伤害的屏障」 (docs/rules/sim.md 「리더 방벽 층 셋」).
     // Only the last layer's break (enemy_xi_s2[shield_last] → InterruptEnemyAbility) stops the burst.
+    // Each layer's ON_TAKE_DAMAGE BlockDamage has `_specifyBlockEffect` enemy_xi_skill_02_buff_hit, and the last one's
+    // (enemy_xi_s2[shield_last]) break plays enemy_xi_skill_02_buff_03 (`blockFx`: fx 'parry', damage.js absorbShields).
     for (const l of XI_LAYERS) b.addBuff(e, { key: `ab:xiShield[${l}]`, duration: dur, shield: s.bb.dynamic ?? 0, shieldType: ['phys', 'arts'],
-      visible: true, fxTag: `buff:enemy_xi_s2[shield][${l}]`,
+      visible: true, fxTag: `buff:enemy_xi_s2[shield][${l}]`, blockFx: true,
       // expiry (not breaking: a broken layer is removed without onExpire) of the last layer = the barrier held
       onExpire: l !== 'c' ? null : ({ battle }) => {
         if (!e.alive) return;

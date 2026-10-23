@@ -305,7 +305,8 @@ const files = { '/assets/local/fx/index.json': { bundles: {
   horn: ['horn_buff_01_convert_start', 'horn_skill_02_buff_03_front'], ines: ['ines_label_01'],
   cetsyr: ['cetsyr_trail_01', 'cetsyr_trail_start', 'cetsyr_skill_02_trail_01', 'cetsyr_skill_02_trail_start'],
   billro: ['billro_skill_01_buff_01', 'billro_skill_01_buff_02', 'billro_skill_01_buff_01_02'],
-  mudrok: ['mudrok_buff_01_begin', 'mudrok_buff_01_hit'], common: ['common_buff_parry_01'],
+  mudrok: ['mudrok_buff_01_begin', 'mudrok_buff_01_hit'], common: ['common_buff_parry_01'], podego: ['common_heal_hit_01'],
+  pfx_enemy_14: ['enemy_xi_skill_02_buff_hit', 'enemy_xi_skill_02_buff_03'], pfx_enemy_8: ['enemy_mdrock_skill_01_buff_hit', 'enemy_mdrock_skill_buff_05'],
 } } };
 const settle = () => new Promise((r) => setTimeout(r, 5));
 
@@ -339,7 +340,7 @@ test('fxgame.js: a planned event is taken from its stand-in only when one of its
   } finally { globalThis.fetch = fetch0; }
 });
 
-test('fxgame.js: slots on and around a unit, 泥岩\'s block effect', async () => {
+test('fxgame.js: slots on and around a unit, 泥岩\'s and “自在”\'s block effects', async () => {
   const fetch0 = globalThis.fetch;
   globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
   try {
@@ -368,9 +369,28 @@ test('fxgame.js: slots on and around a unit, 泥岩\'s block effect', async () =
     ev('stacks', { id: 3, buff: 'mudrok:layers', n: 2, max: 3 });
     assert.deepEqual(got(), ['mudrok_buff_01_begin']);
     ev('parry', { id: 3, buff: 'mudrok:layers' });
-    assert.deepEqual(got(), ['mudrok_buff_01_hit'], "her layers' blackboard `effect`");
+    // 2026-10-23: and the layer graph's CreateEffect common_heal_hit_01 after it (from a bundle that holds it)
+    assert.deepEqual(got(), ['common_heal_hit_01', 'mudrok_buff_01_hit'], "her layers' blackboard `effect`, then the heal hit");
     ev('parry', { id: 4, buff: 'nearl2:shield' });
     assert.deepEqual(got(), ['common_buff_parry_01']);
+    // “自在”'s amount barrier: the block effect only for a hit taken whole, the last layer's break its _buff_03
+    views.set(5, { id: 5, x: 5, y: 0, alive: true, info: { id: 5, side: 'enemy', defId: 'enemy_1517_xi' } });
+    ev('parry', { id: 5, buff: 'ab:xiShield[a]', whole: 1, broke: 0 });
+    assert.deepEqual(got(), ['enemy_xi_skill_02_buff_hit']);
+    ev('parry', { id: 5, buff: 'ab:xiShield[b]', whole: 0, broke: 1 });
+    assert.deepEqual(got(), [], 'a middle layer drained by a bigger hit: no block, no break effect');
+    ev('parry', { id: 5, buff: 'ab:xiShield[c]', whole: 1, broke: 1 });
+    assert.deepEqual(got(), ['enemy_xi_skill_02_buff_03', 'enemy_xi_skill_02_buff_hit']);
+    // the enemy 泥岩: its last layer's break, and its barrier's own 'shieldBreak' then draws no 2D shatter
+    views.set(6, { id: 6, x: 6, y: 0, alive: true, info: { id: 6, side: 'enemy', defId: 'enemy_1511_mdrock' } });
+    ev('parry', { id: 6, buff: 'ab:rockPower[3]', whole: 0, broke: 1 });
+    assert.deepEqual(got(), ['enemy_mdrock_skill_buff_05']);
+    const br = ['fx', 'shieldBreak', 0, 0, { x: 0, y: 0, id: 6 }];
+    layer.onEvent(br, views);
+    assert.equal(layer.ownsFx(br), true);
+    const br2 = ['fx', 'shieldBreak', 0, 0, { x: 0, y: 0, id: 6 }];
+    layer.onEvent(br2, views);
+    assert.equal(layer.ownsFx(br2), false, 'once: a later break without its official effect keeps the stand-in');
   } finally { globalThis.fetch = fetch0; }
 });
 

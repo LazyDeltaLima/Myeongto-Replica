@@ -2036,16 +2036,35 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // 0xBB6960; 0xD949D0 in the 10-14 dump) plays the buff blackboard's `effect` (GetStringOrDefault, the node's
   // _specifyBlockEffect the default) on the holder, else common_buff_parry_01. Empty in archet_t_2, kalts2_t_2[shield],
   // nearl2_s_2[shield]; 泥岩's layers inherit mudrok_t_1's charpack blackboard `effect` mudrok_buff_01_hit (Talents/1 _buffs
-  // [recharge] / [init], whose CreateBuff makes them)
+  // [recharge] / [init], whose CreateBuff makes them).
+  // 2026-10-23 — what the layer's ON_TAKE_DAMAGE graph creates after its BlockDamage (EN buff templates): 泥岩's three
+  // mudrok_t_1[shield_a/b/c] CreateEffect common_heal_hit_01 on her at every block (AFTER_FX; a copy from any bundle that
+  // holds it — the prefab is not in hers); “自在”'s layers enemy_xi_s2[shield_normal] / [shield_last] block with
+  // _specifyBlockEffect enemy_xi_skill_02_buff_hit, an amount barrier (`dynamic`): only a hit taken whole is cancelled
+  // with it (the event's `whole`), and the last layer's break (`broke`: IsBlackboardZero → FinishBuff → CreateEffect)
+  // plays enemy_xi_skill_02_buff_03 (BREAK_FX); the enemy 泥岩's enemy_mdrock_s_2 the same with enemy_mdrock_skill_01_buff_hit
+  // and enemy_mdrock_skill_buff_05 (sim layers 'ab:rockPower[1..3]'; its artsBarrier's own 'shieldBreak' follows: SHATTERS)
   const PARRY = 'common_buff_parry_01';
-  const BLOCK_FX = { 'mudrok:layers': ['mudrok', 'mudrok_buff_01_hit'] };
+  const XI_HIT = ['pfx_enemy_14', 'enemy_xi_skill_02_buff_hit'], ROCK_HIT = ['pfx_enemy_8', 'enemy_mdrock_skill_01_buff_hit'];
+  const BLOCK_FX = { 'mudrok:layers': ['mudrok', 'mudrok_buff_01_hit'], 'ab:xiShield[a]': XI_HIT, 'ab:xiShield[b]': XI_HIT, 'ab:xiShield[c]': XI_HIT,
+    'ab:rockPower[1]': ROCK_HIT, 'ab:rockPower[2]': ROCK_HIT, 'ab:rockPower[3]': ROCK_HIT };
+  const AFTER_FX = { 'mudrok:layers': 'common_heal_hit_01' };
+  const BREAK_FX = { 'ab:xiShield[c]': ['pfx_enemy_14', 'enemy_xi_skill_02_buff_03'], 'ab:rockPower[3]': ['pfx_enemy_8', 'enemy_mdrock_skill_buff_05'] };
+  const SHATTERS = new Set(['ab:rockPower[3]']);
+  const brokeOwn = new Set();   // ids whose barrier break played its official effect this moment
+  const anyBundle = (n) => Object.keys(index?.bundles || {}).find((b) => index.bundles[b].includes(n)) || null;
   function parryFx(e, views) {
     const tgt = views?.get?.(e[4]?.id);
     if (!tgt || failed || q() === 'low') return;
-    const own = BLOCK_FX[e[4].buff];
-    const [b, n] = own && index?.bundles?.[own[0]]?.includes(own[1]) ? own : ['common', PARRY];
-    if (!index?.bundles?.[b]?.includes(n)) return;
-    spawn(b, n, tgt, { owner: null, buff: false, on: tgt.id ?? e[4].id, tag: 'parry' }, { over: true, facing: efacing(tgt) });
+    const at = (b, n) => { if (b && index?.bundles?.[b]?.includes(n)) spawn(b, n, tgt, { owner: null, buff: false, on: tgt.id ?? e[4].id, tag: 'parry' }, { over: true, facing: efacing(tgt) }); };
+    if (e[4].whole !== 0) {
+      const own = BLOCK_FX[e[4].buff];
+      at(...(own && index?.bundles?.[own[0]]?.includes(own[1]) ? own : ['common', PARRY]));
+      const after = AFTER_FX[e[4].buff];
+      if (after) at(anyBundle(after), after);
+    }
+    // the barrier's own 'shieldBreak' of the same hit (content/enemies/archetypes.js artsBarrier) then draws no 2D shatter
+    if (e[4].broke) { const br = BREAK_FX[e[4].buff]; if (br && index?.bundles?.[br[0]]?.includes(br[1])) { at(...br); if (SHATTERS.has(e[4].buff)) brokeOwn.add(e[4].id); } }
   }
   // (2026-10-21) An element burst (sim damage.js resolveBurst → its fx burst {id, element}): the EN buff templates'
   // ep_break_<el>_char / _enemy play one CreateEffect on the BUFF_OWNER at ON_BUFF_START — fire on an enemy
@@ -4611,6 +4630,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'lightning' && chainFx(e, views)) return;
           if (e[1] === 'oblvnsNote' && e[4]) { noteFx(e, views); return; }
           if (e[1] === 'parry' && e[4]) { parryFx(e, views); return; }
+          if (e[1] === 'shieldBreak' && e[4] && brokeOwn.delete(e[4].id)) { ownFx.add(e); return; } // 2026-10-23: its official break drew it (parryFx)
           if (e[1] === 'burst' && e[4]?.element) { if (burstFx(e, views)) ownFx.add(e); return; }
           if (e[1] === 'whitw2Drones' && e[4]) { wolfFx(e); return; }
           if (e[1] === 'buffProgress' && e[4]) { buffProgress(e[4]); ownFx.add(e); return; }
@@ -4775,6 +4795,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       castsDelayed.length = 0; zones.clear(); eborn.clear(); eskillSeen.clear(); elines.clear(); eshotLand.clear(); emortars.length = 0;
       deployed.clear(); startedOnce.clear(); opDead.clear(); ebuffs.clear(); // 2026-10-11
       linkAxes.clear(); linkRuns.clear(); throwLand.clear(); // 2026-10-22
+      brokeOwn.clear(); // 2026-10-23
       if (mod) showLayers();
     },
 

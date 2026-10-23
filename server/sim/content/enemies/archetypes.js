@@ -442,8 +442,11 @@ function unbalanced(onMove) {
  *  BlockDamage spends its own `dynamic` — so the barrier is `amount` × layers; they take damage in the order they were
  *  added (the buff list keeps equal event priorities in that order), the overflow of one going on to the next. Each layer
  *  is its own visible marker buff `<key>[n]` naming its client buff, removed when that layer is spent, so the render
- *  drops that layer's effect; the `whileUp` bonus then carries no effect tag and stays until the last layer breaks. */
-function artsBarrier(amount, { key = 'ab:artsBarrier', whileUp = null, fxTag = null, layers = null } = {}) {
+ *  drops that layer's effect; the `whileUp` bonus then carries no effect tag and stays until the last layer breaks.
+ *  `blockFx` (2026-10-23): its layers' BlockDamage names its block effect (`_specifyBlockEffect`), and the last one's graph a
+ *  break effect — each layer that takes a hit whole (the client cancels it with that effect) or is drained sends fx
+ *  'parry' { id, buff: `<key>[n]`, whole, broke } (render/fxgame.js parryFx; damage.js absorbShields for the buff ones). */
+function artsBarrier(amount, { key = 'ab:artsBarrier', whileUp = null, fxTag = null, layers = null, blockFx = false } = {}) {
   const n = layers ? layers.length : 1;
   const layerKey = (i) => `${key}[${i + 1}]`;
   return {
@@ -467,6 +470,8 @@ function artsBarrier(amount, { key = 'ab:artsBarrier', whileUp = null, fxTag = n
           const d = Math.min(a.layers[i], rest);
           a.layers[i] -= d;
           rest -= d;
+          const whole = rest <= 1e-6 && !!c.dmg.cancel, broke = a.layers[i] <= 1e-6;
+          if (blockFx && (whole || broke)) b.fx('parry', { x: e.x, y: e.y, id: e.id, buff: layerKey(i), whole: whole ? 1 : 0, broke: broke ? 1 : 0 });
           if (a.layers[i] <= 1e-6 && a.left > 1e-6) { a.layers[i] = 0; b.removeBuff(e, layerKey(i)); }
         }
       }

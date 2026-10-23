@@ -1077,15 +1077,26 @@
   시뮬 상태가 안 가리킴)뿐 — 아래 오퍼레이터 둘이 같은 길(`END_FX`).
 - **버프 노드의 끝 이펙트(오퍼레이터)**: `fxstatus.js END_FX` — 캐서린 장치 `catsld_t_1[shield_mark]` ON_BUFF_FINISH `CreateEffect` `token_cathy_catsld_shield_01_end`
   (방패가 깨지거나 시간이 다 돼 표식이 끝날 때), 머드락 마지막 층 `mudrok_t_1[shield_c]` — [shield_a]·[shield_b]가 없을 때 맞으면 `mudrok_buff_01_end`
-  (렌더: `LAYER_FX` 첫 층 `mudrok_buff_03_start`가 꺼질 때). 층을 다시 얻을 때의 `mudrok_buff_01_begin`, 맞을 때마다의 `common_heal_hit_01`은 안 그림.
+  (렌더: `LAYER_FX` 첫 층 `mudrok_buff_03_start`가 꺼질 때). 층을 다시 얻을 때의 `mudrok_buff_01_begin`은 키트 'stacks'(아래 「키트 이벤트의 공식
+  이펙트」), 막을 때마다 층 그래프가 BlockDamage 뒤에 만드는 `common_heal_hit_01`은 2026-10-23부터 `parryFx` `AFTER_FX`(그녀 묶음에 없어 그 프리팹을
+  가진 아무 묶음의 사본).
+- **방벽 층의 막은 이펙트·깨짐 이펙트 (2026-10-23, 버프 템플릿 확인)**: '즈자이' `enemy_xi_s2[shield][a]`·`[b]`(템플릿 `[shield_normal]`)·`[c]`
+  (`[shield_last]`)와 적 泥岩 `enemy_mdrock_s_2[shield_a]`·`[b]`·`[c]`(같은 짝)는 ON_TAKE_DAMAGE BlockDamage(`_useDynamicVar`)의
+  `_specifyBlockEffect` — `enemy_xi_skill_02_buff_hit`·`enemy_mdrock_skill_01_buff_hit` — 를 한 타를 다 막아 취소할 때만 내고(BlockDamage
+  `_AssignDynamicVar`: 남은 값 ≤ 0 → Cancel), 마지막 층은 `dynamic`이 0이 되면 IsBlackboardZero → FinishBuff → CreateEffect
+  `enemy_xi_skill_02_buff_03`·`enemy_mdrock_skill_buff_05`(TARGET = 그 적). 시뮬: '즈자이' 층 버프 `blockFx`(`damage.js absorbShields`), 적 泥岩
+  `artsBarrier` `blockFx` → fx 'parry' { id, buff, whole, broke }; 렌더 `fxgame.js parryFx` `BLOCK_FX`·`BREAK_FX`(적 泥岩은 같은 타의 'shieldBreak'
+  2D 깨짐을 대신함). 鼠王 `mousek_shield`는 `_specifyBlockEffect`가 비어 보내지 않음 [추정: 그 층 버프 블랙보드에 `effect`가 없음 — 있으면
+  `common_buff_parry_01`이나 그 값]. 이펙트 넷은 프리팹이 참조하지 않아 `enemy_bindings.py --all`에 없었다 — `fx_extract.py --index enemy-index.json
+  --bundle pfx_enemy_14|pfx_enemy_8 --pack pkgrps/btl_pfb_fx_enemy_14|8.ab --prefab …`로 뽑음(git 밖, deploy.sh가 비교·복사). 확인
+  `test/sim/leader-barrier-layers.test.js` 「fx parry」 둘, `test/render/kit-event-fx.test.js` 「block effects」, 이펙트 이벤트 골든 + 줄만. [화면 미확인]
 - **모드 번호 = 프리팹 `_modes` 순서(확인)**: `Unit._InitUnitModes`가 `_modes[i].InitOnce(this, i)`(가상 슬롯 6)를 부르고 `InitOnce`가 `index`(0xB0)에 i를
   넣으며, `UnitMode.OnInit`의 `GenerateSignalId`가 그 `index`를 쓴다 — 렌더 표·소리 표(`local-char-audio.json modes`)의 번호와 같다. (렌더가 공격
   클립으로 모드를 가르는 한계는 위대로.)
 - **전체 추출·떠난 것**: `used_enemies`가 首领 이벤트(`data/choices.json`)의 리더 14종을 빠뜨려 그들 이펙트가 안 뽑혀 있었다 — 넣음. 그리고
   `enemy_bindings.py --extract --all`로 모든 적의 이펙트(지금 797개, 전: 384)를 뽑음 — 凋零骑士·陷落雪祀·迷路的巨像 스킬 탄, 리더 전부, 가상적: 갑주 선,
   `common_enemy_die_01`(이제 자기 사망 이펙트가 없는 적은 절차 퍼프 대신 그것).
-- 안 한 것: '즈자이' 방벽의 마지막 층 `_buff_03`·맞을 때마다 `_specifyBlockEffect` `_buff_hit`(층 양·깨지는 순서는 rules/sim.md 「리더 방벽 층 셋」),
-  래트킹 마지막 층 뒤 NoShield 모드 `mousek_buff_01_end`, '리드' 추적의 `achunt_dog_silence`(`enemy_actrpa_skill_a`, IMMEDIATELY), 자로 【远古威慑】가
+- 안 한 것: 래트킹 마지막 층 뒤 NoShield 모드 `mousek_buff_01_end`, '리드' 추적의 `achunt_dog_silence`(`enemy_actrpa_skill_a`, IMMEDIATELY), 자로 【远古威慑】가
   오퍼레이터에게 거는 `_B_buff_02_02`, 재생 중 이펙트(RebornTalent `_effects` — 제셀톤 `enemy_jakill_reborn_01~03_start` 등, 만드는 순간 안 읽음),
   천리안 사망 `enemy_hummbd_die_02`(ON_OWNER_KILLED, 침묵이 아닐 때), 불타는 덩굴 `SwitchableEffectByBlackboardValue`(아래 「추출 누락 보고」),
   더블린 불꽃 전사 재생 无敌 `enemy_duskls_revive_2`. 화면 확인: 아래.

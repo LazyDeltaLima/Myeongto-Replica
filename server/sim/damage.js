@@ -250,6 +250,13 @@ export function absorbShields(battle, target, amount, type = null, info = null) 
       b.shield -= take;
       rest -= take;
       changed = true;
+      // 2026-10-23: an amount layer that is the client's BlockDamage `_useDynamicVar` (`blockFx`: “自在”'s barrier) — the hit
+      // it takes whole is cancelled with its block effect (BlockDamage `_AssignDynamicVar`: the rest ≤ 0 → Cancel), and
+      // its graph goes on to break it once `dynamic` is 0 (IsBlackboardZero → FinishBuff …): fx 'parry' with `whole` /
+      // `broke` (render/fxgame.js parryFx)
+      if (b.blockFx && (rest <= 1e-9 || b.shield <= 1e-9)) {
+        battle.fx('parry', { x: target.x, y: target.y, id: target.id, buff: b.key, whole: rest <= 1e-9 ? 1 : 0, broke: b.shield <= 1e-9 ? 1 : 0 });
+      }
       if (b.shield <= 1e-9) {
         b.shield = 0;
         if (!b.mods && !b.flags && !(b.shieldHits > 0)) { battle._removeBuffAt(target, i); i--; }
