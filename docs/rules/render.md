@@ -609,6 +609,20 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     어떤 키도 부르지 않는 begin/end를 지움 — 维什戴尔 S2 end·海霓 S2·哈洛德 S2 end·异客 S2·菲莱 S2 begin(뒤)(버프 템플릿 `PlayUnitAnimation` 13개도 Idle·Default뿐);
     引星棘刺 S3 스킬 idle(배치부터의 equip idle과 같은 클립). 키와 같아진 손 표 `SKILL_CLIP_OVERRIDES` 줄 — 宴 S2·莫斯提马·灵知 S3·焰影苇草 S3·缄默德克萨斯·银灰 S2·
     安洁莉娜·焰尾·予愿安洁莉娜 S1·塞雷娅·耀骑士临光 S2·水月 S3 — 과 `FIRST_ATTACK_BEGIN` 送葬人 줄은 지웠다(지워도 매니페스트 같음). [화면 미확인]
+    셋째 단계(2026-10-23): 나머지 손 표도 키에서(`anim-keys.mjs keyTables` → `anim-overrides.mjs`의 같은 적용 함수 `put*`, 손 줄은 그 뒤). 추출이 능력 묶음을 더
+    읽는다 — `AbilityRandomGroup`(`_abilities`·`_selectMethod`·`_diffFromLastOneIfNotFirst`), 순차 `AbilitySelectableGroup`(`_abilityConfigs`·`_selectAbilitySequentially`),
+    `UberAnimationEffectEmitter._replaceGroup`·`_loopType`(0 LOOP·1 RANDOM). 규칙: B 차례 = 공격 능력이 든 묶음(무작위 0 → `random`, 「직전과 다르게」면 `other`;
+    Loop 1 → `loop` `from: 1`; 순차 → `loop`) 또는 그 능력의 `_replaceGroup`(같은 클립이 두 번이면 한 번으로 — 山); A `combat` = 모드 `_combat` 능력의 클립이 그 모드
+    공격과 다를 때(묶음이면 자식들 — 仇白); U `up` = 공격·스킬 능력의 `_upAnimKey`; E `equip` = `_defaultModeIndex` 모드의 Born·Idle 짝과 공격(이륙 모드 `…_TakeOff`면
+    그 한 번 공격이 배치 클립 — 予愿安洁莉娜 S1); F = 스킬 모드의 Die·Stun·Born 짝(Stun→Die 짝은 안 그림 — 耀骑士临光 S2); C 공격 역할 `firstBegin` = 기본 모드
+    ThreePart의 첫 공격 begin; 자세 = 스킬 자신의 채널 옆에서도 모드 공격이 `_animKey ""`이면(薄绿 S2·小满 S2 — `MODE_STANCE`가 하던 것). 공격 역할 쪽 줄은 키의
+    공격이 이름 추측과 같은 클립일 때만 얹는다 — 다른 것은 기본 모드에 공격이 없는 阵法术师 6명(키는 공격 없음, 역할은 스킬 클립 대체)·玛恩纳 `Idle_2`(units.js
+    watch)·丰川祥子 `Combat`(그래서 `COMBAT_CLIPS` 그 줄은 남김)·灰毫 근접/원거리 짝(FORTRESS)뿐이고, 같은 곳은 begin·loop·end가 모두 같다.
+    손 표에서 지운 것: `ATTACK_ALTS` 11명·`UP_CLIPS` 3명·`EQUIP_ROLES` 6줄·`MODE_STANCE` 3명 전부, `COMBAT_CLIPS` 丰川祥子 말고 전부, `SKILL_STATE_CLIPS`의
+    die·stun·deploy(남은 것은 시뮬 키의 【移动】 `deploys` — 乌尔比安 S3·凯尔希·思衡托 S3), `FIRST_ATTACK_BEGIN` 歌蕾蒂娅 S2 말고 전부(그 S2는 `SKILL_CLIP_OVERRIDES`
+    손 줄이 키 역할을 통째로 바꾸므로). 지운 뒤 매니페스트에서 바뀐 것(클라 기준, 결정 4): 引星棘刺 S3를 들면 배치부터 공격이 `Skill_3_Loop`(모드 S3 `Body/Attack`
+    — 스킬 밖에서도), 予愿安洁莉娜 S1 스킬 역할 `deploy` `Start_2`(S1 모드 Born 짝, 배치 클립은 전부터 equip `Start_2`), 평타 대체 스킬 伊内丝 S3·蕾缪安 S2가
+    공격 역할의 `combat`·`firstBegin`을 복사로 함께 가짐(렌더는 `via: 'attack'`을 공격 역할로 그리므로 화면 같음). [화면 미확인]
   - **G** 蕾缪安 S2 조준(2026-10-23, 클라 `skchr_lemuen_2` `_playSkillBeginAnim` 0·charpack `Modes/S2/Body/M2Attack` = `Normal` ThreePart `Attack_Begin`/`Attack_Loop` +
     `Aim` 채널 `_default {Skill_2_Begin, Skill_2_Idle, Skill_2_End}`): 시전 클립 없음, 공격은 평소 클립(`'attack'`), 조준 동안만 채널 — 키트가 조준 시작·끝(사격이든 대상을
     잃었든)에 그리지 않는 fx 'lemuenAim' `{ signal: 'aim', on: 1 | 0 }`(골든 fx 개수만 움직임) → `units.js onSignal` → `spine.js holdSignal`(켜면 begin 뒤 loop 유지, 끄면

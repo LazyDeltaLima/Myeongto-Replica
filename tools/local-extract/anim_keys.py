@@ -16,7 +16,10 @@ The client plays a Spine clip by key only. Abilities, modes and skill prefabs na
             empty ones left out),
             three: { begin, oneshot, end, first } (ThreePartOneshotAnimation), chan: { begin, loop, end }
             (a ThreePart channel's `_default`), emit: [keys] (AnimationEmitBehaviour `_settings[].anim`),
-            hook: { from: to } (its `_hookSettings`), src (`_sourceAnimKey`) }
+            hook: { from: to } (its `_hookSettings`), src (`_sourceAnimKey`),
+            turns: { anims: [keys], loop } (UberAnimationEffectEmitter `_replaceGroup[].anim`, `_loopType` 0 LOOP / 1 RANDOM),
+            group: { of: [child paths], method?, diff?, seq? } (AbilityRandomGroup `_abilities` / `_selectMethod` /
+            `_diffFromLastOneIfNotFirst`, AbilitySelectableGroup `_abilityConfigs[]._ability` / `_selectAbilitySequentially`) }
 
 The output is client-only data and is never tracked (maintainer decision 2026-10-22): .cache/anim-keys.json.
 
@@ -82,18 +85,37 @@ def ability_of(d, out):
     if s(d.get('_sourceAnimKey')):
         out['src'] = d['_sourceAnimKey']
         got = True
+    rg = d.get('_replaceGroup')
+    if isinstance(rg, list) and any(isinstance(x, dict) and s(x.get('anim')) for x in rg):
+        out['turns'] = {'anims': [x['anim'] for x in rg if isinstance(x, dict) and s(x.get('anim'))], 'loop': d.get('_loopType')}
+        got = True
     return got
+
+
+def group_of(d, rel_of):
+    """The `group` record of an ability group MonoBehaviour `d` (children by path through `rel_of`: MonoBehaviour path id →
+    path), or None."""
+    if isinstance(d.get('_abilities'), list) and '_selectMethod' in d:
+        of = [rel_of.get((r or {}).get('m_PathID')) for r in d['_abilities']]
+        return {'of': of, 'method': d.get('_selectMethod'), 'diff': int(bool(d.get('_diffFromLastOneIfNotFirst')))}
+    if isinstance(d.get('_abilityConfigs'), list) and d.get('_selectAbilitySequentially'):
+        of = [rel_of.get(((c or {}).get('_ability') or {}).get('m_PathID')) for c in d['_abilityConfigs']]
+        return {'of': of, 'seq': 1}
+    return None
 
 
 def abilities_under(tree, base):
     """{path relative to `base` ('' = base itself): ability} of the GameObjects at or below `base`."""
     out = {}
-    for gp, d, _ in tree:
-        if gp != base and not gp.startswith(base + '/'):
-            continue
-        rel = gp[len(base) + 1:] if gp != base else ''
-        rec = out.setdefault(rel, {})
+    under = [(gp, d, pid) for gp, d, pid in tree if gp == base or gp.startswith(base + '/')]
+    rel = lambda gp: gp[len(base) + 1:] if gp != base else ''  # noqa: E731
+    rel_of = {pid: rel(gp) for gp, _, pid in under if pid is not None}
+    for gp, d, _ in under:
+        rec = out.setdefault(rel(gp), {})
         ability_of(d, rec)
+        g = group_of(d, rel_of)
+        if g and any(x is not None for x in g['of']):
+            rec['group'] = g
     return {k: v for k, v in sorted(out.items()) if v}
 
 
@@ -149,9 +171,9 @@ def pack_of(path):
 
 
 def skill_of(sid, comps):
-    """{ id, begin?, … abilities } of one skill prefab's [(GameObject path, MonoBehaviour)]."""
+    """{ id, begin?, … abilities } of one skill prefab's [(GameObject path, MonoBehaviour, its path id)]."""
     e = {'id': sid}
-    for gp, d in comps:
+    for gp, d, _ in comps:
         if gp != sid:
             continue
         if '_playSkillBeginAnim' in d:
@@ -163,7 +185,7 @@ def skill_of(sid, comps):
                 e['end'] = d['_endAnim']
         if isinstance(d.get('_defaultModeIndex'), int) and d['_defaultModeIndex'] >= 0:
             e['defaultMode'] = d['_defaultModeIndex']
-    e['abilities'] = abilities_under([(gp, d, None) for gp, d in comps], sid)
+    e['abilities'] = abilities_under(comps, sid)
     return e
 
 
@@ -197,10 +219,10 @@ def main():
         tree = skills_tree(game)
         switch = skill_switch_modes(tree)
         comps = {}
-        for gp, d, _ in tree:
+        for gp, d, pid in tree:
             r = gp.split('/')[0]
             if r in want:
-                comps.setdefault(r, []).append((gp, d))
+                comps.setdefault(r, []).append((gp, d, pid))
         for cid in {want[p] for p in want}:
             out = []
             for p in prefabs[cid]:

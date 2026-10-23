@@ -295,10 +295,12 @@ Roles = {
 On a skill clip, `via: 'attack'` means the skill attacks with the attack clip: the model has no skill animation, or (a
 `tools/assets/anim-overrides.mjs` clip object with `via: 'attack'`: 歌蕾蒂娅 S3) the skill has a begin, idle and end of its
 own around the plain attack.
-`alts` / `pick` (from `tools/assets/anim-overrides.mjs ATTACK_ALTS`, the client's AbilityRandomGroup /
-UberAnimationEffectEmitter `_replaceGroup` / sequential ability groups): every attack of that role plays one of `alts` — in
-turn from the first (`loop`), any (`random`), or a random first and then never the one just played (`other`)
-(`render/spine.js _nextAlt`).
+`alts` / `pick` (the client's AbilityRandomGroup / UberAnimationEffectEmitter `_replaceGroup` / sequential ability groups):
+every attack of that role plays one of `alts` — in turn from the first (`loop`, `from: 1` from the second), any (`random`),
+or a random first and then never the one just played (`other`) (`render/spine.js _nextAlt`).
+The table names in the comments above (`ATTACK_ALTS`, `COMBAT_CLIPS`, `UP_CLIPS`, `EQUIP_ROLES`, `SKILL_STATE_CLIPS`,
+`FIRST_ATTACK_BEGIN`) are the shapes of `tools/assets/anim-overrides.mjs`; where the client's clip keys are extracted their
+rows come from the keys (`tools/assets/anim-keys.mjs keyTables`) and the hand rows left there are what the keys cannot say.
 A skill clip may also come from directional-only animations when a model has no undirected ones: for example `Skill_Right_Loop` (`char_279_excu`) or `Skill_Loop_Up` (the Back model of `char_431_ashlok`).
 
 The resolver's full precedence list is in the header of `tools/assets/anim-roles.mjs`.

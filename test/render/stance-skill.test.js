@@ -54,9 +54,9 @@ test('the manifest follows the client modes: stance where the mode attack has no
   assert.equal(n.via, 'attack');
   assert.equal(n.loop, 'Attack_Loop');
   assert.equal(n.die, 'Skill_2_Die');
-  // 薄绿 S2: no Default key to compare — MODE_STANCE (maintainer 2026-10-22: no attack clip during S2)
+  // 薄绿 S2: no Default key to compare — the keys' stance (maintainer 2026-10-22: no attack clip during S2)
   assert.equal(skillOf('char_388_mint', 1).stance, true);
-  // 信仰搅拌机 S3: the counters are the mode's own `S3Attack` (`_animKey ""`) — MODE_STANCE
+  // 信仰搅拌机 S3: the counters are the mode's own `S3Attack` (`_animKey ""`) — the keys' stance
   assert.equal(skillOf('char_4194_rmixer', 2).stance, true);
   assert.equal(skillOf('char_4122_grabds', 1).stance, true);   // 小满 S2: the mode's own `S2`, `_animKey ""`
   // left out: 歌蕾蒂娅 S2 (its own attack channel), 乌尔比安 S3 (Begin / Loop / End)

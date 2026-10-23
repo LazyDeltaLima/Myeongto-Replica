@@ -3,7 +3,9 @@
 // (anim-keys.mjs keyRoles / overlayKeyRoles) and these tables apply after; the rows the keys now give (宴 S2, 莫斯提马 S2 / S3,
 // 灵知 S3, 焰影苇草 S3, 缄默德克萨斯 S2 / S3, 银灰 S2, 安洁莉娜, 焰尾, 予愿安洁莉娜 S1, 塞雷娅 S1 / S2, 耀骑士临光 S2, 水月 S3;
 // 2026-10-23) are gone. What stays is what the keys cannot say: a model form, a strike per attack, a cast the official game
-// does not show.
+// does not show. The same holds for the tables below it: the keys give the rows of ATTACK_ALTS, COMBAT_CLIPS, UP_CLIPS,
+// EQUIP_ROLES, SKILL_STATE_CLIPS, FIRST_ATTACK_BEGIN and MODE_STANCE (anim-keys.mjs keyTables, through the put* appliers
+// here; 2026-10-23), and the rows left in them are the keys' exceptions or the sim's own keys.
 //
 // A clip object replaces the skill's clips outright (one with `via: 'attack'` keeps the attack role's clip for its attacks;
 // an `end` may be an array of clips played in a row):
@@ -75,16 +77,8 @@ export const MODE_ATTACK_KEEP = Object.freeze({
   'op:char_474_glady:': Object.freeze([1]),
 });
 export const MODE_STANCE = Object.freeze({
-  // 薄绿 S2: the mode's `Attack` `_animKey ""`, and her Default mode has no attack (阵法术师: no attack unless a skill runs —
-  // `ShowRangeOnly`), so the rule has nothing to compare; maintainer 2026-10-22: her S2 plays no attack clip
-  'op:char_388_mint:': Object.freeze([1]),
-  // 信仰搅拌机 S3: her counters are the modes Sk3 / Sk3_Zero's own ability `S3Attack` / `S3Attack_Zero`, `_animKey ""` (no
-  // `Body/Attack` there, so the timing file has nothing for the rule); maintainer report 2026-10-22: each counter dropped her
-  // to Idle and back into Skill_3_Idle
-  'op:char_4194_rmixer:': Object.freeze([2]),
-  // 小满 S2: after the sleep her attacks are the mode S2's own ability `S2` (projectile_chr_grabds_s2), `_animKey ""` — the
-  // same gap; each attack dropped her out of Skill_2_Loop through Skill_2_End
-  'op:char_4122_grabds:': Object.freeze([1]),
+  // the stances the timing file cannot tell come from the keys (薄绿 S2, 信仰搅拌机 S3, 小满 S2: the mode's own `_animKey ""`
+  // attack; anim-keys.mjs overlayKeyRoles `stance`, 2026-10-23)
 });
 export const PLAIN_ATTACK = Object.freeze({
   // 焰影苇草 S2: no mode (her attacks stay the Default `Attack`); skchr_reed2_2's own ability plays Skill_2 once per skill
@@ -137,31 +131,8 @@ export function applyModeAttacks(key, anims, timing, charModes) {
  * 山's [Attack_1, Attack_2, Attack_1] (the same Attack_1 twice) alternates.
  */
 export const ATTACK_ALTS = Object.freeze({
-  // 维什戴尔: Modes/Default/Body/Attack AbilityRandomGroup Random [Attack_A, Attack_B, Attack_C], `_diffFromLastOneIfNotFirst`
-  'op:char_1035_wisdel:': { Attack_A: { alts: ['Attack_A', 'Attack_B', 'Attack_C'], pick: 'other' } },
-  // 迷迭香: Modes/Default/Body/Attack AbilityRandomGroup Random [Attack_A, Attack_B], `_diffFromLastOneIfNotFirst`
-  'op:char_391_rosmon:': { Attack_A: { alts: ['Attack_A', 'Attack_B'], pick: 'other' } },
-  // 阿斯卡纶: Modes/Default/Body/Attack AbilityRandomGroup Loop [Attack_A, Attack_B]
-  'op:char_4132_ascln:': { Attack_A: { alts: ['Attack_A', 'Attack_B'], pick: 'loop', from: 1 } },
-  // 隐德来希 S3: Modes/S3/Body/Attack AbilityRandomGroup Loop [Skill_3_Loop_A, Skill_3_Loop_B]
-  'op:char_4010_etlchi:': { Skill_3_Loop_A: { alts: ['Skill_3_Loop_A', 'Skill_3_Loop_B'], pick: 'loop', from: 1 } },
-  // 望: Modes/Default/Body/Attack UberAnimationEffectEmitter LOOP [Attack_A, Attack_B] (skin keys → Attack_1_A / _B);
-  // S3 skchr_wang_3/SpawnAnim LOOP [Skill_3_Attack_A, Skill_3_Attack_B]
-  'op:char_2027_wang:': {
-    Attack_1_A: { alts: ['Attack_1_A', 'Attack_1_B'], pick: 'loop' },
-    Skill_3_Attack_A: { alts: ['Skill_3_Attack_A', 'Skill_3_Attack_B'], pick: 'loop' },
-  },
-  // 维娜·维多利亚: Modes/Default/Body/Attack UberAnimationEffectEmitter RANDOM [Attack_1, Attack_2]
-  'op:char_1019_siege2:': { Attack_1: { alts: ['Attack_1', 'Attack_2'], pick: 'random' } },
-  // 凛御银灰: Modes/Default/Body/Attack AbilityRandomGroup Random [Attack_A, Attack_B, Attack_C]
-  'op:char_1045_svash2:': { Attack_A: { alts: ['Attack_A', 'Attack_B', 'Attack_C'], pick: 'random' } },
-  // 圣聆初雪 S3: Modes/S3/Body/Attack UberAnimationEffectEmitter LOOP [Skill_3_Attack_A, _B, _C]
-  'op:char_1046_sbell2:': { Skill_3_Attack_A: { alts: ['Skill_3_Attack_A', 'Skill_3_Attack_B', 'Skill_3_Attack_C'], pick: 'loop' } },
-  // 伺夜 S3: Modes/S3/Body/Attack ability group `_selectAbilitySequentially` [Skill3_Attack_A, _B, _C]
-  'op:char_427_vigil:': { Skill3_Attack_A: { alts: ['Skill3_Attack_A', 'Skill3_Attack_B', 'Skill3_Attack_C'], pick: 'loop' } },
-  // 山: Modes/Default/Body/Attack AbilityRandomGroup Random [Attack_1, Attack_2, Attack_1] with
-  // `_diffFromLastOneIfNotFirst` (skin keys Attack_1 / _2 → Attack_A / _B)
-  'op:char_264_f12yin:': { Attack_A: { alts: ['Attack_A', 'Attack_B'], pick: 'other' } },
+  // every row comes from the keys now (the eleven of 2026-10-14: 维什戴尔, 迷迭香, 阿斯卡纶, 隐德来希 S3, 望 and its S3, 维娜·维多利亚,
+  // 凛御银灰, 圣聆初雪 S3, 伺夜 S3, 山; 2026-10-23)
 });
 
 /**
@@ -172,24 +143,9 @@ export const ATTACK_ALTS = Object.freeze({
  * { alts, pick } (ATTACK_ALTS' turns) → the role clip's `combat` { loop, alts?, pick? } (render/spine.js _swingClip).
  */
 export const COMBAT_CLIPS = Object.freeze({
-  // 拉普兰德: Modes/Default and S2 Body/Combat `_animKey "Combat"` (S2's other attacks: Skill)
-  'op:char_140_whitew:': { attack: 'Combat', skills: { 1: 'Combat' } },
-  // 银灰 (its S2 attacks with Combat throughout: SKILL_CLIP_OVERRIDES), 断崖: Modes/Default Body/Combat "Combat"
-  'op:char_172_svrash:': { attack: 'Combat' },
-  'op:char_294_ayer:': { attack: 'Combat' },
-  // 伊内丝: Modes/Default, S2, S3 Body/Combat "Combat"; the S2 mode pairs Combat→Skill_2_Combat
-  'op:char_4087_ines:': { attack: 'Combat', skills: { 1: 'Skill_2_Combat' } },
-  // 丰川祥子: Modes/Default Body/Combat "Combat" (the S2 timbre modes' `_combat` is their Attack key)
+  // 丰川祥子: Modes/Default Body/Combat "Combat" — her keys' attack is that Combat (Body/Combat before the resolver's Attack), so
+  // the attack role stays the guess and its row stays here (the others come from the keys, 2026-10-23)
   'op:char_4182_oblvns:': { attack: 'Combat' },
-  // 仇白: Modes/Default and S2 Body/Combat = AbilityRandomGroup Random [Combat_A, Combat_B]; S3's `_combat` is its attack
-  'op:char_4082_qiubai:': {
-    attack: { alts: ['Combat_A', 'Combat_B'], pick: 'random' },
-    skills: { 1: { alts: ['Combat_A', 'Combat_B'], pick: 'random' } },
-  },
-  // 予愿安洁莉娜 (CN client): mode S3 Body/Combat Skill_3_Combat
-  'op:char_1015_aglna2:': { skills: { 2: 'Skill_3_Combat' } },
-  // 领主·Sharp (char_617_sharp2): Modes/Default and S1 Body/Combat "Combat", the melee strike while it blocks
-  'op:char_617_sharp2:': { attack: 'Combat' },
 });
 
 /**
@@ -236,15 +192,9 @@ export const SIGNAL_CLIPS = Object.freeze({
  * begin to their wind-up (server/sim/ai.js attackTiming, data `attackAnim.begin`).
  */
 export const FIRST_ATTACK_BEGIN = Object.freeze({
-  // the attack roles the resolver already framed with Attack_Begin (texas: the key Attack_Begin is the clip Attack_Start;
-  // 凯尔希·思衡托: CN client, Modes/default and s1)
-  ...Object.fromEntries(['char_102_texas', 'char_1041_angel2', 'char_1045_svash2', 'char_107_liskam', 'char_222_bpipe',
-    'char_4036_forcer', 'char_4193_lemuen', 'char_4194_rmixer', 'char_4211_snhunt', 'char_498_inside', 'char_1052_kalts2'].map((id) => [`op:${id}:`, { attack: {} }])),
-  // 斯卡蒂: Modes/Default, S2, S3 Body/Attack `_beginAnim "Attack_Begin"`, `_oneshotAnim "Attack"`, `_endAnimKey "Attack_End"`
-  'op:char_263_skadi:': { attack: { begin: 'Attack_Begin', end: 'Attack_End' } },
-  // 伺夜: Modes/Default Body/Attack the same; Modes/S3 Attack_A / _B / _C `_endAnimKey "Skill3_ABC_Idle_Into"`
-  'op:char_427_vigil:': { attack: { begin: 'Attack_Begin', end: 'Attack_End' }, skills: { 2: { attackEnd: 'Skill3_ABC_Idle_Into' } } },
-  // 歌蕾蒂娅: the S2 mode's attack is a channel `_default {Skill_2_Begin, Skill_2_Loop, Skill_2_End}`
+  // the attack roles' first-attack begins come from the keys (texas … 凯尔希·思衡托, 斯卡蒂, 伺夜 and its S3 spell end; 2026-10-23)
+  // 歌蕾蒂娅: the S2 mode's attack is a channel `_default {Skill_2_Begin, Skill_2_Loop, Skill_2_End}` (her S2 clips are a hand
+  // row of SKILL_CLIP_OVERRIDES, which replaces what the keys give)
   'op:char_474_glady:': { skills: { 1: { attackBegin: 'Skill_2_Begin', attackEnd: 'Skill_2_End' } } },
 });
 
@@ -256,12 +206,7 @@ export const FIRST_ATTACK_BEGIN = Object.freeze({
  * _loopOf, an instant skill's clip).
  */
 export const UP_CLIPS = Object.freeze({
-  // 送葬人: Modes/Default and S1 Body/Attack `_upAnimKey "Attack_Up"` (S2's ThreePartOneshotAnimation has no up bundle)
-  char_279_excu: { attack: 'Attack_Up' },
-  // 诗怀雅: Modes/Default, S1, S2 Body/Attack `_upAnimKey "Attack_Up"`
-  char_308_swire: { attack: 'Attack_Up' },
-  // 松果: skchr_pinecn_1 `_upAnimKey "Skill_1_Up"`, Modes/S2 Body/Attack `_upAnimKey "Skill_2_Up"`
-  char_440_pinecn: { skills: { 0: 'Skill_1_Up', 1: 'Skill_2_Up' } },
+  // every row comes from the keys now (送葬人, 诗怀雅, 松果; 2026-10-23)
 });
 
 /**
@@ -272,22 +217,7 @@ export const UP_CLIPS = Object.freeze({
  * attack? } } → anims.equip (render/spine.js setSkillIndex).
  */
 export const EQUIP_ROLES = Object.freeze({
-  // 引星棘刺 (char_1039_thorn2) S3: skchr_thorn2_3 `_defaultModeIndex` 1 = mode S3 (Born→Start_2, Idle→Skill_3_Idle)
-  'op:char_1039_thorn2:': { 2: { deploy: 'Start_2', idle: 'Skill_3_Idle' } },
-  // 望 (char_2027_wang) S2: skchr_wang_2 `_defaultModeIndex` 1 = mode S2 (Born→Start_2, Idle→Idle_2, Attack_A/_B→Attack_2_A/_B,
-  // the emitter's LOOP turns)
-  'op:char_2027_wang:': {
-    1: { deploy: 'Start_2', idle: 'Idle_2', attack: { begin: null, loop: 'Attack_2_A', end: null, alts: ['Attack_2_A', 'Attack_2_B'], pick: 'loop' } },
-  },
-  // 丰川祥子 (char_4182_oblvns) S2: skchr_oblvns_2 `_defaultModeIndex` 2 = mode S2_Atk, the piano (Born→Skill_2_Start,
-  // Idle→Skill_2_Idle_A, Attack→Skill_2_Loop_A; its `_combat` is that attack too)
-  'op:char_4182_oblvns:': { 1: { deploy: 'Skill_2_Start', idle: 'Skill_2_Idle_A', attack: { begin: null, loop: 'Skill_2_Loop_A', end: null } } },
-  // 安洁莉娜 (char_291_aglina) S2 / S3: `_defaultModeIndex` 1 = mode Disarmed (no normal attack; Idle→Idle2, skin key → Idle_Charge)
-  'op:char_291_aglina:': { 1: { idle: 'Idle_Charge' }, 2: { idle: 'Idle_Charge' } },
-  // 予愿安洁莉娜 (char_1015_aglna2, CN client) S1: skchr_aglna2_1 `_defaultModeIndex` 5 = S1_TakeOff — she deploys taking
-  // off (maintainer 2026-10-14 「배치부터 이륙이 맞아」): her take-off clip Start_2 (skin key Skill_1_Begin; down from above
-  // into her hover) instead of the ground Start (a swoop in from behind)
-  'op:char_1015_aglna2:': { 0: { deploy: 'Start_2' } },
+  // every row comes from the keys now (引星棘刺 S3, 望 S2, 丰川祥子 S2, 安洁莉娜 S2 / S3, 予愿安洁莉娜 S1's take-off mode; 2026-10-23)
 });
 
 /**
@@ -316,27 +246,110 @@ export const SKILL_VARIANTS = Object.freeze({
  * Battle.moveRedeploy `clip`).
  */
 export const SKILL_STATE_CLIPS = Object.freeze({
-  // 予愿安洁莉娜 (CN client): the S1 / S2 / S3 modes (with their take-off, 吟唱 and landing modes) pair Die→Skill_n_Die
-  'op:char_1015_aglna2:': { 0: { die: 'Skill_1_Die' }, 1: { die: 'Skill_2_Die' }, 2: { die: 'Skill_3_Die' } },
-  // 乌尔比安: the S2 mode (a toggle) pairs Die→Skill_2_Die; S3's 【移动】 to the anchor restarts on Skill_3_ReStart_A, on
-  // his own tile on Skill_3_ReStart_B [ASSUMED: which node plays it], its 【返回】 on Skill_3_Back
+  // the die / stun / deploy pairs come from the keys (予愿安洁莉娜, 乌尔比安 S2, 耀骑士临光 S2, 缇比, 迷迭香 S3, 缄默德克萨斯; 2026-10-23); the
+  // 【移动】 clips by the sim's key stay:
+  // 乌尔比安: S3's 【移动】 to the anchor restarts on Skill_3_ReStart_A, on his own tile on Skill_3_ReStart_B [ASSUMED: which node
+  // plays it], its 【返回】 on Skill_3_Back
   'op:char_4145_ulpia:': {
-    1: { die: 'Skill_2_Die' },
     2: { deploys: { anchor: 'Skill_3_ReStart_A', here: 'Skill_3_ReStart_B', back: 'Skill_3_Back' } },
   },
   // 凯尔希·思衡托 (CN client) S3: she lands from the transport on Skill_3_Restart_End (the 【移动】's key 'land')
   'op:char_1052_kalts2:': { 2: { deploys: { land: 'Skill_3_Restart_End' } } },
-  // 耀骑士临光: the S2 mode pairs Die→Skill_2_Die (and Stun→Die, not drawn: a stun keeps the Stun clip)
-  'op:char_1014_nearl2:': { 1: { die: 'Skill_2_Die' } },
-  // 缇比: the S1 / S2 flight modes (take-off and landing included) pair Die→Die_2
-  'op:char_4191_tippi:': { 0: { die: 'Die_2' }, 1: { die: 'Die_2' } },
-  // 迷迭香: only mode S3's animator hooker is the Graphic SimpleUnitAnimatorHooker with Stun→Stun_Skill_3
-  'op:char_391_rosmon:': { 2: { stun: 'Stun_Skill_3' } },
-  // 缄默德克萨斯: S2 / S3 are cast as she deploys (spType ON_DEPLOY; the Damage / AppearSwordRain ability plays Start_n
-  // from its first frame at the cast) and their modes S2 / S3 pair Born→Start_n — she comes in on Start_2 (diagonally,
-  // from behind and above) / Start_3, not on the plain Start drop (maintainer report 2026-10-14)
-  'op:char_1028_texas2:': { 1: { deploy: 'Start_2' }, 2: { deploy: 'Start_3' } },
 });
+
+// The appliers of the tables below SKILL_CLIP_OVERRIDES, one row each (mutate `anims`; `names` = the skeleton's clips, null =
+// keep every clip): applyAnimOverrides runs them with the hand rows, anim-keys.mjs overlayKeyRoles first with the rows the
+// client's keys give.
+const hasIn = (names) => (n) => typeof n === 'string' && (!names || names.includes(n));
+/** The role clips of skill index i: skills[i] and the `skill` role when it is that skill. */
+const skillClips = (anims, i) => [...new Set([anims.skills?.[i], anims.skill?.index === Number(i) ? anims.skill : null])].filter(Boolean);
+
+/** An ATTACK_ALTS row: every role clip whose loop is a row key gains its `alts` / `pick` (/ `from`). */
+export function putAlts(anims, map, names = null) {
+  for (const c of [anims.attack, anims.skill, ...Object.values(anims.skills || {})]) {
+    const alt = c && map[c.loop];
+    if (!alt) continue;
+    const alts = names ? alt.alts.filter((n) => names.includes(n)) : [...alt.alts];
+    if (alts.length > 1) Object.assign(c, { alts, pick: alt.pick }, alt.from ? { from: alt.from } : {});
+  }
+  return anims;
+}
+
+/** A COMBAT_CLIPS row: the role clips' `combat`. */
+export function putCombat(anims, map, names = null) {
+  const combatOf = (how) => {
+    const c = typeof how === 'string' ? { loop: how } : { loop: how.alts[0], ...how };
+    if (c.alts) c.alts = c.alts.filter((n) => !names || names.includes(n));
+    if (c.alts && c.alts.length < 2) { c.loop = c.alts[0] ?? c.loop; delete c.alts; delete c.pick; }
+    return !names || names.includes(c.loop) ? c : null;
+  };
+  const put = (clip, how) => { const c = clip && how ? combatOf(how) : null; if (c) clip.combat = c; };
+  put(anims.attack, map.attack);
+  for (const [i, how] of Object.entries(map.skills || {})) {
+    put(anims.skills?.[i], how);
+    if (anims.skill?.index === Number(i) && anims.skill !== anims.skills?.[i]) put(anims.skill, how);
+  }
+  return anims;
+}
+
+/** An EQUIP_ROLES row: anims.equip[i]. */
+export function putEquip(anims, map, names = null) {
+  const has = hasIn(names);
+  for (const [i, roles] of Object.entries(map)) {
+    const e = {};
+    if (has(roles.deploy)) e.deploy = roles.deploy;
+    if (has(roles.idle)) e.idle = roles.idle;
+    if (roles.attack && has(roles.attack.loop)) {
+      const a = { ...roles.attack };
+      if (a.alts) a.alts = a.alts.filter(has);
+      if (!(a.alts?.length > 1)) { delete a.alts; delete a.pick; }
+      e.attack = a;
+    }
+    if (Object.keys(e).length) (anims.equip ||= {})[i] = e;
+  }
+  return anims;
+}
+
+/** A UP_CLIPS row (the Back model's): the role clips' `up`. */
+export function putUp(anims, map, names = null) {
+  const has = hasIn(names);
+  if (anims.attack && has(map.attack)) anims.attack.up = map.attack;
+  for (const [i, up] of Object.entries(map.skills || {})) {
+    if (!has(up)) continue;
+    for (const clip of skillClips(anims, i)) clip.up = up;
+  }
+  return anims;
+}
+
+/** A FIRST_ATTACK_BEGIN row: the attack role's `firstBegin` (and begin / end), the skill clips' first-attack begin / spell end. */
+export function putFirst(anims, map, names = null) {
+  const has = hasIn(names);
+  const at = anims.attack;
+  if (map.attack && at) {
+    for (const f of ['begin', 'end']) if (has(map.attack[f])) at[f] = map.attack[f];
+    if (has(at.begin)) at.firstBegin = true;
+    // (a skill slot attacking with the attack clip, `via: 'attack'`, attacks through the attack role: render/spine.js)
+  }
+  for (const [i, o] of Object.entries(map.skills || {})) {
+    for (const clip of skillClips(anims, i)) {
+      for (const f of ['firstAttackBegin', 'attackBegin', 'attackEnd']) if (has(o[f])) clip[f] = o[f];
+    }
+  }
+  return anims;
+}
+
+/** A SKILL_STATE_CLIPS row: the skill clips' `die` / `stun` / `deploy` / `deploys`. */
+export function putStates(anims, map, names = null) {
+  const has = hasIn(names);
+  for (const [i, st] of Object.entries(map)) {
+    for (const clip of skillClips(anims, i)) {
+      for (const f of ['die', 'stun', 'deploy']) if (has(st[f])) clip[f] = st[f];
+      const deploys = Object.fromEntries(Object.entries(st.deploys || {}).filter(([, n]) => has(n)));
+      if (Object.keys(deploys).length) clip.deploys = deploys;
+    }
+  }
+  return anims;
+}
 
 /**
  * Apply SKILL_CLIP_OVERRIDES to resolveRoles' result for model `key` (mutates and returns `anims`). `names` (the
@@ -362,71 +375,12 @@ export function applyAnimOverrides(key, anims, names = null) {
       if (anims.skill && anims.skill.index === Number(i)) anims.skill = clip;
     }
   }
-  for (const [prefix, map] of Object.entries(ATTACK_ALTS)) {
-    if (!key.startsWith(prefix)) continue;
-    for (const c of [anims.attack, anims.skill, ...Object.values(anims.skills || {})]) {
-      const alt = c && map[c.loop];
-      if (!alt) continue;
-      const alts = names ? alt.alts.filter((n) => names.includes(n)) : [...alt.alts];
-      if (alts.length > 1) Object.assign(c, { alts, pick: alt.pick }, alt.from ? { from: alt.from } : {});
-    }
-  }
-  for (const [prefix, map] of Object.entries(COMBAT_CLIPS)) {
-    if (!key.startsWith(prefix)) continue;
-    const combatOf = (how) => {
-      const c = typeof how === 'string' ? { loop: how } : { loop: how.alts[0], ...how };
-      if (c.alts) c.alts = c.alts.filter((n) => !names || names.includes(n));
-      if (c.alts && c.alts.length < 2) { c.loop = c.alts[0] ?? c.loop; delete c.alts; delete c.pick; }
-      return !names || names.includes(c.loop) ? c : null;
-    };
-    const put = (clip, how) => { const c = clip && how ? combatOf(how) : null; if (c) clip.combat = c; };
-    put(anims.attack, map.attack);
-    for (const [i, how] of Object.entries(map.skills || {})) {
-      put(anims.skills?.[i], how);
-      if (anims.skill?.index === Number(i) && anims.skill !== anims.skills?.[i]) put(anims.skill, how);
-    }
-  }
-  for (const [prefix, map] of Object.entries(EQUIP_ROLES)) {
-    if (!key.startsWith(prefix)) continue;
-    const has = (n) => typeof n === 'string' && (!names || names.includes(n));
-    for (const [i, roles] of Object.entries(map)) {
-      const e = {};
-      if (has(roles.deploy)) e.deploy = roles.deploy;
-      if (has(roles.idle)) e.idle = roles.idle;
-      if (roles.attack && has(roles.attack.loop)) {
-        const a = { ...roles.attack };
-        if (a.alts) a.alts = a.alts.filter(has);
-        if (!(a.alts?.length > 1)) { delete a.alts; delete a.pick; }
-        e.attack = a;
-      }
-      if (Object.keys(e).length) (anims.equip ||= {})[i] = e;
-    }
-  }
-  for (const [id, map] of Object.entries(UP_CLIPS)) {
-    if (key !== `op:${id}:back`) continue;
-    const has = (n) => typeof n === 'string' && (!names || names.includes(n));
-    if (anims.attack && has(map.attack)) anims.attack.up = map.attack;
-    for (const [i, up] of Object.entries(map.skills || {})) {
-      if (!has(up)) continue;
-      for (const clip of new Set([anims.skills?.[i], anims.skill?.index === Number(i) ? anims.skill : null])) if (clip) clip.up = up;
-    }
-  }
-  for (const [prefix, map] of Object.entries(FIRST_ATTACK_BEGIN)) {
-    if (!key.startsWith(prefix)) continue;
-    const has = (n) => typeof n === 'string' && (!names || names.includes(n));
-    const at = anims.attack;
-    if (map.attack && at) {
-      for (const f of ['begin', 'end']) if (has(map.attack[f])) at[f] = map.attack[f];
-      if (has(at.begin)) at.firstBegin = true;
-      // (a skill slot attacking with the attack clip, `via: 'attack'`, attacks through the attack role: render/spine.js)
-    }
-    for (const [i, o] of Object.entries(map.skills || {})) {
-      for (const clip of new Set([anims.skills?.[i], anims.skill?.index === Number(i) ? anims.skill : null])) {
-        if (!clip) continue;
-        for (const f of ['firstAttackBegin', 'attackBegin', 'attackEnd']) if (has(o[f])) clip[f] = o[f];
-      }
-    }
-  }
+  const rows = (table) => Object.entries(table).filter(([prefix]) => key.startsWith(prefix)).map(([, map]) => map);
+  for (const map of rows(ATTACK_ALTS)) putAlts(anims, map, names);
+  for (const map of rows(COMBAT_CLIPS)) putCombat(anims, map, names);
+  for (const map of rows(EQUIP_ROLES)) putEquip(anims, map, names);
+  for (const [id, map] of Object.entries(UP_CLIPS)) if (key === `op:${id}:back`) putUp(anims, map, names);
+  for (const map of rows(FIRST_ATTACK_BEGIN)) putFirst(anims, map, names);
   for (const [prefix, map] of Object.entries(SIGNAL_CLIPS)) {
     if (!key.startsWith(prefix)) continue;
     const has = (n) => !names || names.includes(n);
@@ -454,16 +408,6 @@ export function applyAnimOverrides(key, anims, names = null) {
       }
     }
   }
-  for (const [prefix, map] of Object.entries(SKILL_STATE_CLIPS)) {
-    if (!key.startsWith(prefix)) continue;
-    for (const [i, st] of Object.entries(map)) {
-      for (const clip of new Set([anims.skills?.[i], anims.skill?.index === Number(i) ? anims.skill : null])) {
-        if (!clip) continue;
-        for (const f of ['die', 'stun', 'deploy']) if (st[f] && (!names || names.includes(st[f]))) clip[f] = st[f];
-        const deploys = Object.fromEntries(Object.entries(st.deploys || {}).filter(([, n]) => !names || names.includes(n)));
-        if (Object.keys(deploys).length) clip.deploys = deploys;
-      }
-    }
-  }
+  for (const map of rows(SKILL_STATE_CLIPS)) putStates(anims, map, names);
   return anims;
 }

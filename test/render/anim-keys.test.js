@@ -125,3 +125,49 @@ test('overlayKeyRoles: every skill from the keys but the held ones', () => {
   assert.deepEqual([a.skills[0].via, a.skills[1].loop, a.skills[2].loop], ['attack', 'Skill_2', 'Skill_3']);
   assert.equal(overlayKeyRoles(guess(), keyRoles(op, dur), 'char_426_billro').skills[1].loop, 'Skill_3', 'KEY_ROLE_HOLD keeps the guess');
 });
+
+test('table rows from the keys: turns, the blocked-enemy clip, facing up, the held mode, the skill mode\'s pairs, first begins', () => {
+  const op = {
+    skin: { keys: { Attack_1: 'Attack_A', Attack_2: 'Attack_B' }, mix: [] },
+    modes: [
+      { name: 'Default', pairs: {}, combat: 'Body/Combat', abilities: {
+        'Body/Attack': { key: '', group: { of: ['Body/Attack/a', 'Body/Attack/b', 'Body/Attack/a'], method: 0, diff: 1 } },
+        'Body/Attack/a': { key: 'Attack_1', up: 'Attack_Up' }, 'Body/Attack/b': { key: 'Attack_2' }, 'Body/Combat': { key: 'Combat' } } },
+      { name: 'S1', pairs: { Die: 'Skill_1_Die', Stun: 'Die' }, combat: 'Body/Combat', abilities: {
+        'Body/Attack': { key: '', group: { of: ['Body/Attack/x', 'Body/Attack/y'], method: 1, diff: 0 } },
+        'Body/Attack/x': { key: 'Skill_1_A' }, 'Body/Attack/y': { key: 'Skill_1_B' },
+        'Body/Combat': { key: '', group: { of: ['Body/Combat/c', 'Body/Combat/d'], method: 0, diff: 0 } },
+        'Body/Combat/c': { key: 'Combat_A' }, 'Body/Combat/d': { key: 'Combat_B' } } },
+      { name: 'S2', pairs: { Born: 'Start_2', Idle: 'Idle_2' }, abilities: { 'Body/Attack': { key: 'Attack_S2', src: 'Attack_S2', turns: { anims: ['Attack_S2', 'Attack_S3'], loop: 0 } } } },
+      { name: 'S3_TakeOff', pairs: {}, abilities: { 'Body/Attack': { key: 'Skill_3_Begin' } } },
+      { name: 'S4', pairs: { Idle: 'Skill_4_Idle' }, abilities: { 'Body/Attack': { key: '' } } },
+    ],
+    skills: [
+      { id: 's1', mode: 1, abilities: {} },
+      { id: 's2', defaultMode: 2, abilities: {} },
+      { id: 's3', defaultMode: 3, abilities: {} },
+      { id: 's4', mode: 4, abilities: { '': { chan: { begin: 'Skill_4_Begin', loop: 'Skill_4_Loop', end: 'Skill_4_End' } } } },
+    ],
+  };
+  const dur = clips('Idle', 'Die', 'Attack_A', 'Attack_B', 'Attack_Up', 'Combat', 'Skill_1_A', 'Skill_1_B', 'Combat_A', 'Combat_B', 'Skill_1_Die',
+    'Start_2', 'Idle_2', 'Attack_S2', 'Attack_S3', 'Skill_3_Begin', 'Skill_4_Begin', 'Skill_4_Loop', 'Skill_4_End', 'Skill_4_Idle');
+  const r = keyRoles(op, dur);
+  const t = r.tables;
+  assert.deepEqual(t.alts.Attack_A, { alts: ['Attack_A', 'Attack_B'], pick: 'other' }, 'a random group never twice the same clip; a child twice counts once');
+  assert.deepEqual(t.alts.Skill_1_A, { alts: ['Skill_1_A', 'Skill_1_B'], pick: 'loop', from: 1 }, 'a Loop group starts from its second child');
+  assert.equal(t.combat.attack, 'Combat');
+  assert.deepEqual(t.combat.skills[0], { alts: ['Combat_A', 'Combat_B'], pick: 'random' }, 'a combat group: its children');
+  assert.equal(t.up.attack, 'Attack_Up');
+  assert.deepEqual(t.equip[1], { deploy: 'Start_2', idle: 'Idle_2', attack: { begin: null, loop: 'Attack_S2', end: null, alts: ['Attack_S2', 'Attack_S3'], pick: 'loop' } },
+    'the held mode\'s Born / Idle and its emitter turns');
+  assert.deepEqual(t.equip[2], { deploy: 'Skill_3_Begin' }, 'a take-off default mode: its one attack is the deploy clip');
+  assert.deepEqual(t.states[0], { die: 'Skill_1_Die' }, 'a Stun→Die pair is not drawn');
+  assert.equal(r.skills[3].stance, true, 'a channel skill whose mode attacks with no clip keeps it on');
+  const a = overlayKeyRoles({ attack: { begin: null, loop: 'Attack_A', end: null }, skills: { 0: { index: 0 }, 1: { index: 1 }, 2: { index: 2 }, 3: { index: 3 } } }, r, 'char_x');
+  assert.deepEqual([a.attack.alts, a.attack.combat, a.attack.up], [['Attack_A', 'Attack_B'], { loop: 'Combat' }, 'Attack_Up']);
+  assert.deepEqual(Object.keys(a.equip), ['1', '2']);
+  const b = overlayKeyRoles({ attack: { begin: null, loop: 'Skill_1_A', end: null } }, r, 'char_x');
+  assert.equal(b.attack.combat, undefined, 'the attack role\'s rows only where the keys\' attack is the resolver\'s');
+  assert.deepEqual(overlayKeyRoles({ attack: { begin: null, loop: 'Attack_A', end: null } }, r, 'char_x').attack.combat, { loop: 'Combat' },
+    'a model without skill roles still takes the attack role\'s rows');
+});
