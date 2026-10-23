@@ -10,7 +10,8 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { KIT_OFFICIAL, tplPlays } from '../../public/js/render/fx/kitofficial.js';
-import { rowsFor, buildPlays } from '../../tools/build-fx-plays.mjs';
+import { rowsFor, buildPlays, isGuard } from '../../tools/build-fx-plays.mjs';
+import { JUDGED, whenPlays } from '../../public/js/render/fx/conds.js';
 import { KEY_FX, SOURCE_FX, LAYER_FX, STACK_FX, END_FX, STATUS_FX } from '../../public/js/render/fxstatus.js';
 import { TALENT_ALWAYS, NOTE_FX, DEPLOY_FX, noteEffects, effectsFor, isVariant, isDirectional, fxBundleOf } from '../../public/js/render/fxmap.js';
 import { PLAYS as FIXED } from './fxPlays.js';
@@ -34,7 +35,7 @@ export { rowsFor };
 
 /** The sample inputs a kit plan is called with (every branch of the plans in KIT_OFFICIAL). */
 const KIT_O = [
-  {}, { left: 0 }, { left: 1 }, { n: 0 }, { n: 1 }, { n: 2 }, { n: 3, max: 3 }, { n: -1 }, { charged: 0 }, { charged: 1 },
+  {}, { left: 0 }, { left: 1 }, { n: 0 }, { n: 1 }, { n: 2 }, { n: 1, max: 3 }, { n: 2, max: 3 }, { n: 3, max: 3 }, { n: -1 }, { charged: 0 }, { charged: 1 },
   { skill: 'swire2_3', targets: [4, 5] }, { token: 'token_10058_sbell2_icetgt' },
   { cells: [[0, 0, 1], [0, 1, 2], [0, 2, 5], [0, 3, 0]] }, { mode: 'Range' }, { mode: 'Melee' }, { signal: 'fireToToken' },
   { signal: 'bomb' }, { name: 'extradition' }, { id: 1, src: 1 }, { cap: 12, n: 12, sk: 1 }, { cap: 12, n: 12, sk: 2 },
@@ -107,6 +108,7 @@ function specPlays(v) {
     else if (Array.isArray(s) && s[1]?.tpl) {
       const k = keyPlays().keys[s[1].tpl];
       for (const n of k?.held || []) out.set(n, 'held');
+      for (const r of whenPlays(k, s[1].when)) if (r.role === 'held') out.set(r.n, 'held');
       for (const n of k?.end || []) out.set(n, 'once');
     }
   };
@@ -117,6 +119,16 @@ function specPlays(v) {
     for (const w of views) for (const f of froms) { try { take(v(w, f)); } catch { /* a sample the entry does not take */ } }
   } else take(v);
   return [...out].map(([n, life]) => ({ n, life }));
+}
+
+/** The plays of a `stacked` STACK_FX entry over sample counts (1–10, `max` 3 / 5 / 10, `mid` 2 / 5). */
+function stackedPlays(e) {
+  const k = keyPlays().keys[e.tpl];
+  const out = new Set(k?.held || []);
+  for (let n = 1; n <= 10; n++) for (const max of [3, 5, 10]) for (const mid of [2, 5]) {
+    for (const r of whenPlays(k, { stacks: { [e.counted]: n }, bb: { max_stack_cnt: max, mid_stack_cnt: mid }, buffs: [] })) if (r.role === 'held') out.add(r.n);
+  }
+  return [...out].map((n) => ({ n, life: 'held' }));
 }
 
 /**
@@ -137,7 +149,7 @@ export function handEntries() {
   }
   for (const [k, v] of Object.entries(KEY_FX)) put('KEY_FX', k, v, specPlays(v));
   for (const [k, v] of Object.entries(LAYER_FX)) put('LAYER_FX', k, v, specPlays(v));
-  for (const [k, v] of Object.entries(STACK_FX)) put('STACK_FX', k, v, v.flatMap((x) => specPlays(x[1])));
+  for (const [k, v] of Object.entries(STACK_FX)) put('STACK_FX', k, v, v.tpl ? stackedPlays(v) : v.flatMap((x) => specPlays(x[1])));
   for (const [k, v] of Object.entries(END_FX)) put('END_FX', k, v, specPlays(v).map(({ n }) => ({ n, life: 'once' })));
   for (const [k, v] of Object.entries(TALENT_ALWAYS)) put('TALENT_ALWAYS', k, v, held(keyPlays().keys[v.tpl]?.held || []));
   for (const [k, v] of Object.entries(NOTE_FX)) {
@@ -242,10 +254,6 @@ const strings = (o, out = new Set()) => {
 };
 
 const NAME_KINDS = ['attackStart', 'attackHit', 'skillStart', 'skillBuff', 'skillHit', 'skillTrail', 'birth'];
-/** A re-entry guard: the node creates its buff only while the holder lacks it (`!CheckContainsBuff(<that buff>)`). */
-const isGuard = (c, r) => c === `!CheckContainsBuff(${r.key})` || c === `!CheckContainsDerviedBuff(${r.key})` || c === '!CheckContainsDerviedBuff(null)'
-  || (r.by != null && (c === `!CheckContainsBuff(${r.by})` || c === `!CheckContainsDerviedBuff(${r.by})`));
-const K3 = /^!?(SwitchDirection|CheckCharacterDefaultDirection|CheckSkillIndex|CheckUnitCurrentMode|FilterByBuffStackCount|CheckContainsBuff|CheckContainsDerviedBuff)\b/;
 
 /**
  * The rows whose prefab is an extracted prefab of the pool's bundles and that nothing in render/ plays: not named by the
@@ -284,7 +292,7 @@ export function unplayed(tables) {
     const k = `${r.key}|${r.fx}`;
     const conds = (r.conds || []).filter((c) => !isGuard(c, r));
     const reason = emitted.has(r.fx) ? 'emitted' : isDirectional(r.fx) ? 'directional'
-      : conds.some((c) => K3.test(c)) ? 'cond' : conds.length ? 'condOther' : 'unconditional';
+      : conds.some((c) => JUDGED.test(c)) ? 'cond' : conds.length ? 'condOther' : 'unconditional';
     const prev = out.get(k);
     // a prefab with an unconditional row is unconditional; else the most judgeable reason wins
     const rank = { unconditional: 0, cond: 1, condOther: 2, directional: 3, emitted: 4 };

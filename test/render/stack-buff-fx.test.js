@@ -71,7 +71,7 @@ test("佩佩 S2's level effect by the status's fx hint; the held dodges", () => 
 });
 
 test("佩佩 S3: the hit range on the main target by her stacks before the attack; 赤刃明霄陈's dodge moment", () => {
-  const range = (n) => kitOfficialPlan('stacks', { id: 1, tgt: 5, buff: 'pepe:tremor', n, max: 4 }, 'pepe').play.map((p) => [p.n, p.on, p.life]);
+  const range = (n) => kitOfficialPlan('stacks', { id: 1, tgt: 5, buff: 'pepe:tremor', n, max: 4 }, 'pepe', { plays: PLAYS }).play.map((p) => [p.n, p.on, p.life]);
   assert.deepEqual([0, 1, 2, 3, 4].map((n) => range(n)[0][0]), [1, 1, 2, 2, 3].map((l) => `pepe_skill_03_hit_range_0${l}`));
   assert.deepEqual(range(0), [['pepe_skill_03_hit_range_01', 'tgt', 'once']]);
   assert.deepEqual(kitOfficialPlan('evadeReady', { id: 1 }, 'chen3').play.map((p) => p.n), ['chen3_buff_start_01', 'chen3_Shield_buff_02']);

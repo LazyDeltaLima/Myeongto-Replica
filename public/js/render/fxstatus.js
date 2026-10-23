@@ -34,6 +34,7 @@
 import { UF } from '../../../shared/constants.js';
 import { UF_CAMOU } from '../../../shared/local.js';
 import { cite } from './fx/cite.js';
+import { whenPlays } from './fx/conds.js';
 
 /** The client's HEAD_POINT sits a little over the drawn head (the 战栗 fist of capture 10 floats above it) [추정 share]. */
 const HEAD = 1.1;
@@ -43,6 +44,13 @@ const HEAD = 1.1;
  * `held`, public/assets/local/fx/plays.json; specsOf), and what it creates as it ends (`end`: as END_FX). None without the file.
  */
 const keyed = (key, bundle, frac, ...rest) => Object.freeze(cite(key, [bundle, Object.freeze({ tpl: key }), frac, ...rest]));
+/**
+ * 2026-10-23 (묶음 K3): a `keyed` spec whose buff stands for every condition of its key's rows (`{ all: true }`, render/fx/conds.js):
+ * the status is the buff those rows create, so their conditions (a dice roll, a damage filter, a stack count …) held — the key
+ * holds one prefab or one condition set, never a choice between prefabs (test/render/fx-bindings.test.js).
+ */
+const keyedAll = (key, bundle, frac, ...rest) => Object.freeze(cite(key, [bundle, Object.freeze({ tpl: key, when: ALL }), frac, ...rest]));
+const ALL = Object.freeze({ all: true });
 /** status → [bundle, prefab, height share (0 feet, .5 body, HEAD head), hold (s: frozen there — local patch)]; `stealth` takes the side's prefab. */
 export const STATUS_FX = Object.freeze({
   stun: ['buff', 'buff_stun', HEAD], freeze: ['buff', 'buff_autochess_frozen', 0], cold: ['buff', 'buff_cold', HEAD],
@@ -55,10 +63,10 @@ export const STATUS_FX = Object.freeze({
   // local patch (maintainer report 2026-10-07): 蕾缪安's talent 跨境追缉许可 'lemuen:wanted' — the client's char_lemuen_range_aim[effect]
   // buff (overrideEffectKey lemuen_talent_buff_01, the crosshair on the wanted enemy) [추정: at the head]
   // its systems loop in / pulse / out every 2.5 s; the maintainer (2026-10-07): once shown it stays — held at 2.0 s (the X steady)
-  wanted: cite('char_lemuen_range_aim', ['lemuen', 'lemuen_talent_buff_01', HEAD, 2.0]),
+  wanted: keyed('char_lemuen_range_aim', 'lemuen', HEAD, 2.0),
   // local patch (maintainer report 2026-10-07, video: orange X strokes on her marked enemies): 焰影苇草's 灼痕 'reed2:scorch' —
   // buff reed2_t_1 effectKey reed2_debuff_01 [추정: on the body]
-  scorch: cite('reed2_t_1', ['reed2', 'reed2_debuff_01', 0.5]),
+  scorch: keyedAll('reed2_t_1', 'reed2', 0.5),
   // 空弦's 铁弦 'talent:archet_shield' — its buff archet_t_2 carries overrideEffectKey archet_buff_01_start (EN charpack
   // char_332_archet Talents/2), a looping mesh at the feet (_spawnLocation 1) while the layer holds. Other 护盾 layers have
   // no buff effect (凯尔希·思衡托's kalts2_t_2[shield]: effectKey "", overrideEffectKey null — CN client)
@@ -86,11 +94,11 @@ export const SOURCE_FX = Object.freeze({
     billro: keyed('billro_s_2[enhance][root]', 'billro', 0),
     mizuki: keyed('mizuki_s_2[unmovable]', 'mizuki', 0),
     cetsyr: keyed('cetsyr_s_2[unmoveable]', 'cetsyr', 0),   // template, spawn 5
-    ines: cite('ines_t_1[enemy][unmove]', ['ines', 'ines_imprison_01', 0.5]),
+    ines: keyedAll('ines_t_1[enemy][unmove]', 'ines', 0.5),
     glady: keyed('skchr_glady_3/ChantAttack1', 'glady', 0),   // _activeBuffs[0]
-    mlyss: cite('mlyss_s_3[unmoveable]', ['mlyss_token', 'token_10030_mlyss_wtrman_c3_debuff_01', 0]),   // the 流形's S3 bind
+    mlyss: keyedAll('mlyss_s_3[unmoveable]', 'mlyss_token', 0),   // the 流形's S3 bind
     // qiubai_s_1[unmovable_effect]; the talent / module 落英 binds carry none
-    qiubai: Object.freeze({ s1: cite('qiubai_s_1[unmovable_effect]', ['qiubai', 'qiubai_skill_01_buff', 0.5]) }),
+    qiubai: Object.freeze({ s1: keyedAll('qiubai_s_1[unmovable_effect]', 'qiubai', 0.5) }),
   }),
   // 抵抗: gnosis_t_2[effect] on the 谢拉格 operators (charpack Talents/2/karlan); 寒檀's is KEY_FX 'sntlla:born'
   resist: Object.freeze({ gnosis: keyed('gnosis_t_2[effect]', 'common', 0) }),
@@ -108,7 +116,7 @@ const ANGEL2_OTHER = Object.freeze(['angel2', 'angel2_skill_2_buff_02', 0]);
  * the holder (`view`) and its statusSource() (`from`) or returns null for none.
  */
 export const KEY_FX = Object.freeze({
-  'papyrs:shield': cite('papyrs_t_1[shield_core]', ['papyrs', 'papyrs_talent_01', 0.5]),
+  'papyrs:shield': keyedAll('papyrs_t_1[shield_core]', 'papyrs', 0.5),
   'svash2:barrier': cite('svash2_s_1[build]', ['svash2', 'svash2_skill_01_shield_01', 0]),   // the deployed card's 屏障
   // 凯瑟琳's device: its end creates token_cathy_catsld_shield_01_end (the key's `end`) — the mark's end, its shield broken
   // (catsld_t_1[core] ON_TAKE_DAMAGE FinishBuffsById) or its timer out ([timer][interval] ON_BUFF_FINISH)
@@ -130,13 +138,13 @@ export const KEY_FX = Object.freeze({
   // 2026-10-16 (이펙트 연결 전수 묶음 3, docs/rules/fx.md 「재능 버프·시전 이펙트」): talent buffs' overrideEffectKey (EN charpacks
   // Talents/N; a key ending in `:<id>` — one buff per applier — matches without it)
   'agoat2:mist': keyed('agoat2_t_1', 'agoat2', OWN),   // (Talents/1 _additiveActiveBuffs) on the healed ally
-  'pasngr:enhance': cite('pasngr_t_1[enhance]', ['pasngr', 'pasngr_beidong_buff_01', OWN]),            // pasngr_t_1 → pasngr_t_1[enhance] on the enemy
+  'pasngr:enhance': keyedAll('pasngr_t_1[enhance]', 'pasngr', OWN),   // pasngr_t_1 → pasngr_t_1[enhance] on the enemy
   'udflow:dot': keyed('udflow_t_1', 'udflow', OWN),   // on the enemy
   'rosmon:stable': keyed('rosmon_t_2', 'rosmon', OWN),   // (Talents/2/Aura) on her and the 术师
   'inside:ammo': keyed('inside_t_1[active]', 'inside', OWN),   // (CommonAbilities/AddAmmoWrapper) on the ally
   'dusk:pending': keyed('dusk_t_2[spawn]', 'dusk', OWN),   // until 点睛's summon
   'halo2:t2': keyed('halo2_t_2[fx]', 'halo2', OWN),   // (_passiveBuffs) until the stacks are full …
-  'halo2:t2full': cite('halo2_t_2[full]', ['halo2', 'halo2_talent_02', OWN]),                      // … then halo2_t_2[full]
+  'halo2:t2full': keyedAll('halo2_t_2[full]', 'halo2', OWN),   // … then halo2_t_2[full]
   'texas2:swordplay': keyed('texas2_t_2', 'texas2', OWN),   // ended by ON_TARGET_KILLED
   // texas2_t_1[recast_effect] and [recast_effect_02]'s derived buff until the recast. (2026-10-21) The second is off while S3
   // runs and she is not stunned: skchr_texas2_3's AppearSwordRain creates texas2_s[no_effect_02] as the skill starts
@@ -154,8 +162,8 @@ export const KEY_FX = Object.freeze({
     return lv >= 1 && lv <= 3 ? ['pepe', `pepe_buff_level_0${lv}`, OWN] : null;
   }),
   // the held dodge: 赤刃明霄陈 T2 chen3_t2[evade] chen3_Shield_buff_01, 蒂比 T tippi_t[evade] tippi_buff_01 (each ended by its Evade)
-  'chen3:evade': cite('chen3_t2[evade]', ['chen3', 'chen3_Shield_buff_01', OWN]),
-  'tippi:evade': cite('tippi_t[evade]', ['tippi', 'tippi_buff_01', OWN]),
+  'chen3:evade': keyedAll('chen3_t2[evade]', 'chen3', OWN),
+  'tippi:evade': keyedAll('tippi_t[evade]', 'tippi', OWN),
   // 战场#06's 沙尘暴 on an unsheltered operator (EN template sand_storm[ally], ON_BUFF_TRIGGER): storm[attr_to_ally] — its
   // SwitchDirection on the storm's direction (the buff's `fx`, devices.js tickStorm) creates map_desert_03_<the side the
   // wind comes from> (DOWN → _up) at the HIT point — and storm[attr_to_ally_mark] buff_desert_01 over the head
@@ -185,11 +193,20 @@ export const LAYER_FX = Object.freeze({
  * `:<id>` (one buff per applier) matches without it. 卡涅利安's S3 mark: billro_s_3[mark_effect] creates [part] at 1 stack and
  * [full] at 5 (billro_s_3[charge][enhance] stacks), [part] staying. The rest (2026-10-21, EN buff templates; docs/rules/fx.md
  * 「버프 스택 수로 바뀌는 이펙트」): a STACK buff's overrideEffectKey from its first stack, and the derived buff a
- * FilterByBuffStackCount creates at its count.
+ * FilterByBuffStackCount creates at its count. 2026-10-23 (묶음 K3): an entry may instead be `stacked` — the key's rows judged
+ * at the count (卡涅利安's mark, 阿斯卡纶, 夕, 洛洛, 玛恩纳); the arrays left are the ones the rows cannot pick by the count
+ * alone (信仰搅拌机's swap is its prefab's SwitchableEffectByBuffStackCnt, 琳琅诗怀雅's [max] sits behind CheckCost, 妮芙's
+ * behind the 凋亡 burst type).
  */
 const st = (bundle, name) => Object.freeze([bundle, name, OWN]);
+/**
+ * 2026-10-23 (묶음 K3): a STACK_FX entry by the client key `key` — the prefabs its buffs hold at the count of `counted`
+ * (its FilterByBuffStackCount buff; the rows creating it hold while it has a stack), the count info's `max` / `mid` as the
+ * blackboard max_stack_cnt / mid_stack_cnt, a derived buff kept once created (render/fx/conds.js whenPlays) — at `frac`.
+ */
+const stacked = (key, counted, bundle, frac = OWN) => Object.freeze(cite(key, { tpl: key, counted, bundle, frac }));
 export const STACK_FX = Object.freeze({
-  'billro:mark': Object.freeze(cite('billro_s_3[mark_effect]', [[1, Object.freeze(['billro', 'billro_skill_03_buff_03_01', HEAD])], [5, Object.freeze(['billro', 'billro_skill_03_buff_03_02', HEAD])]])),
+  'billro:mark': stacked('billro_s_3[mark_effect]', 'billro_s_3[charge][enhance]', 'billro', HEAD),
   // 信仰搅拌机 T1 rmixer_t1[attr_stack] rmixer_buff_01, whose SwitchableEffectByBuffStackCnt (`_stackCnt` 3, GE) swaps it for
   // rmixer_buff_02 at 3 stacks (the first paused — disassembly 0xE9B9B0)
   'rmixer:t1': Object.freeze(cite('rmixer_t1', [[1, st('rmixer', 'rmixer_buff_01'), 3], [3, st('rmixer', 'rmixer_buff_02')]])),
@@ -197,19 +214,18 @@ export const STACK_FX = Object.freeze({
   'talent:swire2_buyer': Object.freeze(cite('swire2_tr', [[1, st('swire2', 'swire2_buff_01_start')], ['max', st('swire2', 'swire2_buff_01_start_02')]])),
   // 阿斯卡纶 T1 on the enemy: ascln_t_1[debuff] ascln_buff_01; at max_stack_cnt [max_eff] ascln_buff_02, ended when the
   // stacks drop below (its 1 s ON_BUFF_TRIGGER FinishDerivedBuff)
-  'ascln:judg': Object.freeze(cite('ascln_t_1', [[1, st('ascln', 'ascln_buff_01')], ['max', st('ascln', 'ascln_buff_02')]])),
+  'ascln:judg': stacked('ascln_t_1', 'ascln_t_1[debuff]', 'ascln'),
   // 夕 T1 化境: dusk_t_1[atk] dusk_buff_03_start; at max_stack_cnt (EQUALS) [effect] dusk_buff_03_start_02
-  'dusk:realm': Object.freeze(cite('dusk_t_1', [[1, st('dusk', 'dusk_buff_03_start')], ['max', st('dusk', 'dusk_buff_03_start_02')]])),
+  'dusk:realm': stacked('dusk_t_1', 'dusk_t_1[atk]', 'dusk'),
   // 塞雷娅 T1 莱茵充能护服: demkni_t_1[stack] demkni_buff_01_self
   'saria:suit': Object.freeze(cite('demkni_t_1', [[1, keyed('demkni_t_1', 'demkni', OWN)]])),
   // 妮芙 T2 窥心钥: at max_stack_cnt (the module's stack_cnt_check) nymph_t_2[atk][effect] nymph_talent_buff_02
   'nymph:key': Object.freeze(cite('nymph_t_2', [['max', st('nymph', 'nymph_talent_buff_02')]])),
   // 洛洛 T1: at max_stack_cnt (EQUALS) rockr_t_1[effect_1] rockr_buff_01
-  'rockr:rock': Object.freeze(cite('rockr_t_1', [['max', st('rockr', 'rockr_buff_01')]])),
+  'rockr:rock': stacked('rockr_t_1', 'rockr_t_1[atk]', 'rockr'),
   // 玛恩纳 解放者 trait: mlynar_tr's stack per second — [a] _L_01 from the first, [b] _L_02 from mid_stack_cnt, [c] _L_03 at
   // max_stack_cnt (set while the skill is off; mlynar_s_cast's finish ends them with the stacks)
-  'trait:libratorRamp': Object.freeze(cite('mlynar_tr', [[1, st('mlynar', 'mlynar_attack_01_buff_L_01')], ['mid', st('mlynar', 'mlynar_attack_01_buff_L_02')],
-    ['max', st('mlynar', 'mlynar_attack_01_buff_L_03')]])),
+  'trait:libratorRamp': stacked('mlynar_tr', 'mlynar_tr_atk', 'mlynar'),
 });
 /** A STACK_FX bound: a number, or the count info's `max` / `mid`. */
 const bound = (b, from) => (typeof b === 'number' ? b : Number(from?.[b]) || Infinity);
@@ -286,10 +302,30 @@ function specsOf(spec, plays) {
   let out = memo.get(spec);
   if (!out) {
     const k = plays.keys?.[t.tpl];
-    out = Object.freeze((k?.held || []).map((n) => Object.freeze([spec[0], n, ...spec.slice(2)])));
+    const held = [...new Set([...(k?.held || []), ...whenPlays(k, t.when).filter((r) => r.role === 'held').map((r) => r.n)])];
+    out = Object.freeze(held.map((n) => Object.freeze([spec[0], n, ...spec.slice(2)])));
     const ends = (k?.end || []).map((n) => Object.freeze([spec[0], n, OWN]));
     if (ends.length) for (const s of out) END_OF.set(`${s[0]}/${s[1]}`, ends);
     memo.set(spec, out);
+  }
+  return out;
+}
+
+const STACKED = new WeakMap();   // plays document → `stacked` entry|count|max|mid → its specs
+/** The specs of a `stacked` STACK_FX entry at count `n` (`from`: the count info's max / mid) — none without `plays`. */
+function stackedSpecs(e, n, from, plays) {
+  if (!plays) return NO_SPECS;
+  let memo = STACKED.get(plays);
+  if (!memo) STACKED.set(plays, (memo = new Map()));
+  const max = Number(from?.max) || null, mid = Number(from?.mid) || null;
+  const id = `${e.tpl}|${n}|${max}|${mid}`;
+  let out = memo.get(id);
+  if (!out) {
+    const k = plays.keys?.[e.tpl];
+    const bb = { ...(max ? { max_stack_cnt: max } : {}), ...(mid ? { mid_stack_cnt: mid } : {}) };
+    const on = whenPlays(k, { stacks: { [e.counted]: n }, bb, buffs: [] }).filter((r) => r.role === 'held').map((r) => r.n);
+    out = Object.freeze([...new Set([...(k?.held || []), ...on])].map((name) => Object.freeze([e.bundle, name, e.frac])));
+    memo.set(id, out);
   }
   return out;
 }
@@ -353,7 +389,8 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null) {
       const stacks = STACK_FX[k] ?? STACK_FX[k.replace(/:\d+$/, '')];
       if (stacks) {
         const n = from?.n || 1;
-        for (const [min, spec, below] of stacks) if (n >= bound(min, from) && (below == null || n < bound(below, from))) byName(out, spec);
+        if (stacks.tpl) for (const s of stackedSpecs(stacks, n, from, plays)) put(out, `${s[0]}/${s[1]}`, s);
+        else for (const [min, spec, below] of stacks) if (n >= bound(min, from) && (below == null || n < bound(below, from))) byName(out, spec);
         continue;
       }
       const s = statusFxKey(k);

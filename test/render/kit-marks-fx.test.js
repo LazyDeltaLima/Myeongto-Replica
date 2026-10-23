@@ -35,7 +35,7 @@ test('kitofficial: the plans of the frozen point, the S3_End casts, the 待投�
   assert.deepEqual(kitOfficialPlan('coin', { id: 1, skill: 'swire2_3', targets: [] }, 'swire2', { plays: PLAYS }).play.map((p) => p.n),
     ['swire2_skill_03_range', 'swire2_skill_03_start_03', 'swire2_skill_03_start_03_02'], 'coins or not');
   assert.equal(kitOfficialPlan('coin', { id: 1, n: 2 }, 'swire2'), null, 'a coin gained: nothing');
-  assert.deepEqual(kitOfficialPlan('kalts2Mark', { id: 1, ids: [5], off: [4] }, 'kalts2').play,
+  assert.deepEqual(kitOfficialPlan('kalts2Mark', { id: 1, ids: [5], off: [4] }, 'kalts2', { plays: PLAYS }).play,
     [{ slot: 'mark4', off: true }, { n: 'kalts2_skill_03_indicator_head_01', unit: 5, slot: 'mark5' }]);
 });
 

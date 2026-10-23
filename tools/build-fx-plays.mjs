@@ -15,6 +15,8 @@
 //   lim   the held buffs' LIMITED lifetime in seconds when they all share one (the plan's life when it gives none)
 //   trail / reach / hit  a projectile's `_mainEffect` (its flight), `_effectsWhenReached` (where it lands),
 //         `_effectsWhenHit` (on what it strikes) — only when it has one
+//   when  (묶음 K3) the rows behind conditions, re-entry guards aside: [{ role, n, b?: the buff it creates, if: [condition] }]
+//         — a plan or a status spec plays the ones that hold in the state it gives (render/fx/conds.js whenPlays)
 // Rows at other moments (an attack's hit, ON_TAKE_DAMAGE, a projectile's other fields …) are not a key's plays.
 //
 // Usage: node tools/build-fx-plays.mjs [--out <file>]   (after tools/build-fx-templates.mjs or fx_bindings.py; the
@@ -65,6 +67,13 @@ export function rowsFor(keys, rows) {
   return [...out];
 }
 
+/**
+ * A re-entry guard: the node creates its buff only while the holder lacks it (`!CheckContainsBuff(<that buff>)`) — no
+ * condition of the moment.
+ */
+export const isGuard = (c, r) => c === `!CheckContainsBuff(${r.key})` || c === `!CheckContainsDerviedBuff(${r.key})` || c === '!CheckContainsDerviedBuff(null)'
+  || (r.by != null && (c === `!CheckContainsBuff(${r.by})` || c === `!CheckContainsDerviedBuff(${r.by})`));
+
 /** A projectile field → its role as a key's play. */
 const PROJECTILE_ROLE = Object.freeze({ _mainEffect: 'trail', _effectsWhenReached: 'reach', _effectsWhenHit: 'hit' });
 const ROLES = Object.freeze(['held', 'once', 'end', 'trail', 'reach', 'hit']);
@@ -84,24 +93,34 @@ export function playRole(r) {
 }
 
 /**
- * The plays of one client key: { held, once, end, lim?, trail?, reach?, hit? } (prefab names sorted; the projectile roles
- * only when not empty), or null when it has none.
+ * The plays of one client key: { held, once, end, lim?, trail?, reach?, hit?, when? } (prefab names sorted; the projectile
+ * roles and `when` only when not empty), or null when it has none.
  */
 export function keyPlays(key, rows, index) {
   const known = index?.bundles ? new Set(Object.values(index.bundles).flat().map((n) => n.toLowerCase())) : null;
   const out = Object.fromEntries(ROLES.map((k) => [k, new Set()]));
   const lims = new Set();
+  const when = new Map();
   for (const r of rowsFor([key], rows)) {
-    if (!r.fx || (r.conds || []).length || (known && !known.has(r.fx.toLowerCase()))) continue;
+    if (!r.fx || (known && !known.has(r.fx.toLowerCase()))) continue;
     const role = playRole(r);
     if (!role) continue;
+    const conds = (r.conds || []).filter((c) => !isGuard(c, r));
+    if (conds.length) {
+      const w = { role, n: r.fx, ...(r.kind === 'buff' ? { b: r.key } : {}), if: conds };
+      when.set(JSON.stringify(w), w);
+      continue;
+    }
     out[role].add(r.fx);
     if (role === 'held') lims.add(/^LIMITED:([\d.]+)$/.exec(r.life || '')?.[1] ?? '-');
   }
-  if (ROLES.every((k) => !out[k].size)) return null;
+  // a conditional row of a prefab the key also plays with no condition adds nothing
+  for (const [k, w] of when) if (out[w.role].has(w.n)) when.delete(k);
+  if (ROLES.every((k) => !out[k].size) && !when.size) return null;
   const lim = lims.size === 1 && !lims.has('-') ? Number([...lims][0]) : null;
   const shot = Object.fromEntries(['trail', 'reach', 'hit'].filter((k) => out[k].size).map((k) => [k, [...out[k]].sort()]));
-  return { held: [...out.held].sort(), once: [...out.once].sort(), end: [...out.end].sort(), ...(lim > 0 ? { lim } : {}), ...shot };
+  const w = [...when.keys()].sort().map((k) => when.get(k));
+  return { held: [...out.held].sort(), once: [...out.once].sort(), end: [...out.end].sort(), ...(lim > 0 ? { lim } : {}), ...shot, ...(w.length ? { when: w } : {}) };
 }
 
 /** Every client key a hand effect table cites (the `src` of its entries: render/fx/cite.js), nested entries included. */

@@ -154,9 +154,9 @@ test('kitOfficialPlan: the moments and lifetimes of the templates', () => {
     ['horn_buff_01_convert_start_03', 'deployed'], ['horn_buff_01_start_front', 'deployed'],
   ]);
   // 号角 过载: S2 / S3, _back facing UP, until the skill ends; S1 has none
-  assert.deepEqual(names(kitOfficialPlan('overload', { id: 1 }, 'horn', { skill: 1 })), ['horn_skill_02_buff_03_front']);
-  assert.deepEqual(names(kitOfficialPlan('overload', { id: 1 }, 'horn', { skill: 2, back: true })), ['horn_skill_03_buff_02_03_back']);
-  assert.equal(kitOfficialPlan('overload', { id: 1 }, 'horn', { skill: 1 }).play[0].life, 'skill');
+  assert.deepEqual(names(kitOfficialPlan('overload', { id: 1 }, 'horn', { skill: 1, plays: FIXED })), ['horn_skill_02_buff_03_front']);
+  assert.deepEqual(names(kitOfficialPlan('overload', { id: 1 }, 'horn', { skill: 2, back: true, plays: FIXED })), ['horn_skill_03_buff_02_03_back']);
+  assert.equal(kitOfficialPlan('overload', { id: 1 }, 'horn', { skill: 1, plays: FIXED }).play[0].life, 'skill');
   assert.equal(kitOfficialPlan('overload', { id: 1 }, 'horn', { skill: 0 }), null);
   // another operator's overload has no rule (its skill draws it)
   assert.equal(kitOfficialPlan('overload', { id: 1 }, 'rmixer', { skill: 1 }), null);
@@ -178,7 +178,7 @@ test('kitOfficialPlan: the moments and lifetimes of the templates', () => {
   // 琳琅诗怀雅 S3's end: her S3_End mode's casts (2026-10-21), and a coin at each paid enemy, 0.07 s apart; her other coin
   // events have no rule
   // (2026-10-23) by their client keys: the S3_End trigger's held casts, the coin projectile's `_mainEffect` / `_effectsWhenHit`
-  const ends = ['swire2_skill_03_range', 'swire2_skill_03_start_03', 'swire2_skill_03_start_03_02'].map((n) => ({ n, cast: true, life: undefined }));
+  const ends = ['swire2_skill_03_range', 'swire2_skill_03_start_03', 'swire2_skill_03_start_03_02'].map((n) => ({ n, cast: true }));
   assert.deepEqual(kitOfficialPlan('coin', { id: 1, n: 0, skill: 'swire2_3', targets: [5, 6] }, 'swire2', { plays: FIXED }).play,
     [...ends, { n: 'swire2_skill_03_trail', fly: 8, to: 'targets', gap: 0.07, hit: ['swire2_skill_03_hit_02'] }]);
   assert.equal(kitOfficialPlan('coin', { id: 1, n: 3 }, 'swire2'), null);
@@ -189,12 +189,12 @@ test('kitOfficialPlan: the moments and lifetimes of the templates', () => {
   assert.deepEqual(gp.play[0], { n: 'glady_skill_03_line', harpoon: { out: 0.3, back: 1, moving: 'glady_skill_03_range_04' } });
   assert.deepEqual(gp.play[1], { n: 'glady_skill_03_range_05', on: 'point', life: 'once', after: 'fly' });
   // 烛煌: downed loops until she stands (and gone with her), then the end cast
-  const dn = kitOfficialPlan('downed', { id: 1 }, 'blaze2');
-  assert.ok(dn.pass && dn.play.every((x) => x.tag === 'blazeDown' && x.leave));
+  const dn = kitOfficialPlan('downed', { id: 1 }, 'blaze2', { plays: FIXED });
+  assert.ok(dn.pass && dn.play.length === 2 && dn.play.every((x) => x.tag === 'blazeDown' && x.leave));
   assert.deepEqual(kitOfficialPlan('revive', { id: 1 }, 'blaze2'), { stop: ['blazeDown'], play: [{ n: 'blaze2_revive_end_start', on: 'op', life: 'once' }], pass: false });
   // on the event's unit: 阿罗玛's landing hit, 妮芙's burst mark for `t`, 隐德来希's candle + its line to the copied enemy
   assert.deepEqual(kitOfficialPlan('splash', { id: 5, src: 1 }, 'aroma').play, [{ n: 'aroma_skill_02_hit_02', on: 'id', life: 'once' }]);
-  assert.deepEqual(kitOfficialPlan('soul', { id: 5, src: 1, t: 7 }, 'nymph').play, [{ n: 'nymph_talent_buff_01', on: 'id', life: 7 }]);
+  assert.deepEqual(kitOfficialPlan('soul', { id: 5, src: 1, t: 7 }, 'nymph', { plays: FIXED }).play, [{ n: 'nymph_talent_buff_01', on: 'id', life: 7 }]);
   assert.deepEqual(kitOfficialPlan('candle', { id: 5, of: 6, src: 1 }, 'etlchi').play[1], { n: 'etlchi_skill_03_line_01', line: ['of', 'id'] });
   assert.equal(kitOfficialPlan('candle', { id: 5 }, null), null);
   // 魔王's motes: the hit of the talent's motes on an operator, of S2's on an enemy; S1's own start is its skill's
@@ -251,9 +251,9 @@ test('kitOfficialPlan: the moments and lifetimes of the templates', () => {
   // … and her S3 attacks no longer play that cast (char_modes.py TOKEN_FIRE: S3FireToToken is not one of the mode's attacks)
   assert.ok(!MODES.char_1041_angel2.cast.flat().includes('angel2_skill_3_begin_start_001'));
   // 缪尔赛思's 流形: its switch in the token's bundle, by the copied operator's range; her id is `by`, not the copied `src`
-  assert.deepEqual(kitOfficialPlan('copy', { id: 4, src: 7, by: 1, mode: 'Range' }, 'mlyss').play,
+  assert.deepEqual(kitOfficialPlan('copy', { id: 4, src: 7, by: 1, mode: 'Range' }, 'mlyss', { plays: FIXED }).play,
     [{ n: 'token_10030_mlyss_wtrman_c1_to_c3', bundle: 'mlyss_token', on: 'id', life: 'once' }]);
-  assert.equal(kitOfficialPlan('copy', { id: 4, mode: 'Melee' }, 'mlyss').play[0].n, 'token_10030_mlyss_wtrman_c1_to_c2');
+  assert.equal(kitOfficialPlan('copy', { id: 4, mode: 'Melee' }, 'mlyss', { plays: FIXED }).play[0].n, 'token_10030_mlyss_wtrman_c1_to_c2');
   assert.equal(kitOperator({ id: 4, src: 7, by: 1 }, 'copy'), 1);
   // 焰影苇草's fireball circles its carrier for her skill; 流明's rain on the target for its life
   assert.deepEqual(kitOfficialPlan('ember', { id: 3, src: 1 }, 'reed2').play, [{ n: 'reed2_skill_02_fireball_01', on: 'id', life: 'skill', orbit: { r: 1, spd: 150 } }]);

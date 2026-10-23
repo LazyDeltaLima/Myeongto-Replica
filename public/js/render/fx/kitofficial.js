@@ -9,6 +9,7 @@
 // `{ tpl: key, on, life }` — the table's rows of that key with no condition give the prefabs (tplPlays).
 
 import { cite } from './cite.js';
+import { whenPlays } from './conds.js';
 
 /**
  * One play: `n` the prefab (of the operator's bundle, or of `bundle`), on `on` ('op' the event's operator, 'point' the event's
@@ -39,8 +40,13 @@ import { cite } from './cite.js';
  * prefab it creates once (`once`) for its own duration. A projectile's key (its `trail` / `reach` / `hit`): with `fly`, the
  * flight is its one `_mainEffect`, with its `_effectsWhenHit` as `hit` when it flies `to` units, and each of its
  * `_effectsWhenReached` plays once on the event's point as it lands (`after: 'fly'`); without `fly`, they play once on `on`.
+ * 2026-10-23 (묶음 K3): `when` (a state, render/fx/conds.js) also plays the key's rows behind conditions that hold in it —
+ * `{ back }` the deployed direction, `{ stacks, bb }` a stack count and its bounds, `{ all: true }` the event stands for
+ * every condition of the key's rows (the sim decided them; never a choice between prefabs — fx-bindings.test.js).
  */
 const once = (n, on = 'op') => ({ n, on, life: 'once' });
+/** The event stands for every condition of the key's rows. */
+const ALL = Object.freeze({ all: true });
 
 /**
  * event → operator bundle → (o, ctx) → { stop?: tag[], play: plays[], pass?: the event keeps its stand-in } | null.
@@ -57,7 +63,7 @@ export const KIT_OFFICIAL = {
     ] })),
   },
   // 号角 S2 / S3 过载 (horn_s_2 / horn_s_3[overload_switch_effect]: INFINITY derived buffs of the skill — _back when her
-  // default direction is UP, else _front — CheckCharacterDefaultDirection)
+  // default direction is UP, else _front — CheckCharacterDefaultDirection: the key's rows by `back`)
   // 纯烬艾雅法拉 S2 云霭荫佑 (2026-10-22): the barrier is the buff agoat2_s_2[shield] for its `duration` (kits/ops agoat2 'shield'
   // { duration }); its effect agoat2_skill_02_range_01 lives with it — the instant skill's activation window (~1 s) ended it.
   // (2026-10-23) The effect is the `_effects` of the ability skchr_agoat2_2/Shield/Aura that holds the buff, and the buff's
@@ -66,8 +72,8 @@ export const KIT_OFFICIAL = {
   shield: { agoat2: cite(['skchr_agoat2_2/Shield/Aura', 'agoat2_s_2[shield]'], (o) => ({ play: [{ tpl: 'skchr_agoat2_2/Shield/Aura', on: 'op', life: Math.max(0.1, Number(o.duration) || 12) }] })) },
   overload: {
     horn: cite(['horn_s_2[overload_switch_effect]', 'horn_s_3[overload_switch_effect]'], (o, c) => {
-      const base = c.skill === 1 ? 'horn_skill_02_buff_03' : c.skill === 2 ? 'horn_skill_03_buff_02_03' : null;
-      return base ? { play: [{ n: `${base}_${c.back ? 'back' : 'front'}`, on: 'op', life: 'skill' }] } : null;
+      const tpl = c.skill === 1 ? 'horn_s_2[overload_switch_effect]' : c.skill === 2 ? 'horn_s_3[overload_switch_effect]' : null;
+      return tpl ? { play: [{ tpl, on: 'op', life: 'skill', when: { back: c.back } }] } : null;
     }),
     // 洛洛 S2 过载: her drones' S2Funnel `_overloadIdleEffect` rockr_token_overload_01 for the rest of the skill, and their
     // hits take the projectile's `_overloadGroups` (`skillFlag` 'overDrones': fxgame.js droneShot, cleared at the skill's end)
@@ -81,13 +87,12 @@ export const KIT_OFFICIAL = {
   // its loop is fxstatus.js LAYER_FX, from the same event's `n`). 卡涅利安's mark stacks: fxstatus.js STACK_FX only.
   // 佩佩 S3: each attack's pepe_s_3_fx on the main target picks its range effect by her pepe_s3_range[atk] stacks before the
   // attack adds one (the ability's _activeBuffsToMainTarget: [fx] before [range][active]): ≥ max_stack_cnt _03, ≥ 2 _02, else
-  // _01 — at the target's feet (`tgt`), facing UP (_constDirection)
+  // _01 (the key's FilterByBuffStackCount rows, `max` the kit's max_stack_cnt) — at the target's feet (`tgt`), facing UP
+  // (_constDirection)
   stacks: {
     mudrok: cite(['mudrok_t_1[init]', 'mudrok_t_1[recharge]'], () => ({ play: [once('mudrok_buff_01_begin')] })),
-    pepe: cite('pepe_s_3_fx', (o) => {
-      const n = Number(o.n) || 0, lv = Number(o.max) > 0 && n >= Number(o.max) ? 3 : n >= 2 ? 2 : 1;
-      return { play: [once(`pepe_skill_03_hit_range_0${lv}`, 'tgt')] };
-    }),
+    pepe: cite('pepe_s_3_fx', (o) => ({ play: [{ tpl: 'pepe_s_3_fx', on: 'tgt',
+      when: { stacks: { 'pepe_s3_range[atk]': Number(o.n) || 0 }, bb: { max_stack_cnt: Number(o.max) || 0 } } }] })),
   },
   // 赤刃明霄陈 T2: the dodge held again (chen3_t2[timer] at stack_time: CreateEffect chen3_buff_start_01, and the heal's
   // chen3_Shield_buff_02); its loop is the 'chen3:evade' status (fxstatus.js KEY_FX)
@@ -139,17 +144,14 @@ export const KIT_OFFICIAL = {
   kalts2Mark: {
     kalts2: cite('kalts2_s_3[indicator_fx]', (o) => ({ play: [
       ...(Array.isArray(o.off) ? o.off : []).map((id) => ({ slot: `mark${id}`, off: true })),
-      ...(Array.isArray(o.ids) ? o.ids : []).map((id) => ({ n: 'kalts2_skill_03_indicator_head_01', unit: id, slot: `mark${id}` })),
+      ...(Array.isArray(o.ids) ? o.ids : []).map((id) => ({ tpl: 'kalts2_s_3[indicator_fx]', unit: id, slot: `mark${id}` })),
     ] })),
   },
-  // 烛煌 T2 绝处重燃: downed (blaze2_t_2 → buff [reborn_state], effect blaze2_revive_buff, and its [vfx1]
-  // blaze2_revive_buff_03 — [추정: kept until she stands, the sim has no shield-break event]) …
+  // 烛煌 T2 绝处重燃: downed (blaze2_t_2 → buff [reborn_state], effect blaze2_revive_buff — behind !CheckUnitCurrentMode(1),
+  // the event's —, and its [vfx1] blaze2_revive_buff_03 — [추정: kept until she stands, the sim has no shield-break event]) …
   downed: {
     // (its 'down' stand-in is no skill stand-in: it stays — `pass`)
-    blaze2: cite('blaze2_t_2', () => ({ stop: ['blazeDown'], pass: true, play: [
-      { n: 'blaze2_revive_buff', on: 'op', life: 'tag', tag: 'blazeDown', leave: true },
-      { n: 'blaze2_revive_buff_03', on: 'op', life: 'tag', tag: 'blazeDown', leave: true },
-    ] })),
+    blaze2: cite('blaze2_t_2', () => ({ stop: ['blazeDown'], pass: true, play: [{ tpl: 'blaze2_t_2', on: 'op', life: 'tag', tag: 'blazeDown', leave: true, when: ALL }] })),
   },
   // … and back up: blaze2[to_default_state]'s cast blaze2_revive_end_start
   revive: { blaze2: cite('char_1040_blaze2/Others/Direction/CommonAbilities/blaze2[to_default_state]', () => ({ stop: ['blazeDown'], play: [once('blaze2_revive_end_start')] })) },
@@ -167,13 +169,13 @@ export const KIT_OFFICIAL = {
   },
   // 阿罗玛 S2: a levitated enemy lands (aroma_s_2 → CreateEffect aroma_skill_02_hit_02 on it)
   splash: { aroma: cite('aroma_s_2', () => ({ play: [once('aroma_skill_02_hit_02', 'id')] })) },
-  // 寒芒克洛丝 S2: warmed up (kroos2_s_2[warming_counter] at its stacks → [warmed_effect_01–03] INFINITY until the skill's
-  // [warmed_finish])
+  // 寒芒克洛丝 S2: warmed up (kroos2_s_2[warming_counter] at its stacks, in mode 2 → [warmed_effect_01–03] INFINITY until the
+  // skill's [warmed_finish]; the event is that moment)
   quadShot: {
-    kroos2: cite('kroos2_s_2[warming_counter]', () => ({ play: ['kroos2_skill_02_buff_01', 'kroos2_skill_02_buff_02', 'kroos2_skill_02_buff_03'].map((n) => ({ n, on: 'op', life: 'skill' })) })),
+    kroos2: cite('kroos2_s_2[warming_counter]', () => ({ play: [{ tpl: 'kroos2_s_2[warming_counter]', on: 'op', life: 'skill', when: ALL }] })),
   },
   // 妮芙 T1: an enemy in 凋亡 burst (nymph_t_1[listener] → buff [ep_damage], effect nymph_talent_buff_01, until its burst ends: `t`)
-  soul: { nymph: cite('nymph_t_1[listener]', (o) => ({ play: [{ n: 'nymph_talent_buff_01', on: 'id', life: Math.max(0.1, Number(o.t) || 0) }] })) },
+  soul: { nymph: cite('nymph_t_1[listener]', (o) => ({ play: [{ tpl: 'nymph_t_1[listener]', on: 'id', life: Math.max(0.1, Number(o.t) || 0), when: ALL }] })) },
   // 隐德来希 S3: a summoned 心烛 (etlchi_s3[to_enemy] SummonEnemiesOnAttackRange: buff entlec_effect, effect
   // etlchi_skill_03_ghosting_01 on it, whose CreateLineEffect etlchi_skill_03_line_01 joins it to the enemy it copies, `of`
   // [추정: drawn from that enemy to the candle]) — both while it stands
@@ -272,7 +274,7 @@ export const KIT_OFFICIAL = {
   // 缪尔赛思: her 流形 copies an operator (mlyss_wtrman_switch_melee_trigger / _range_trigger: CreateEffect
   // token_10030_mlyss_wtrman_c1_to_c2 / _c1_to_c3 on the token, `id`) — the token's own bundle
   copy: {
-    mlyss: cite(['mlyss_wtrman_switch_melee_trigger', 'mlyss_wtrman_switch_range_trigger'], (o) => ({ play: [{ n: o.mode === 'Range' ? 'token_10030_mlyss_wtrman_c1_to_c3' : 'token_10030_mlyss_wtrman_c1_to_c2', bundle: 'mlyss_token', on: 'id', life: 'once' }] })),
+    mlyss: cite(['mlyss_wtrman_switch_melee_trigger', 'mlyss_wtrman_switch_range_trigger'], (o) => ({ play: [{ tpl: o.mode === 'Range' ? 'mlyss_wtrman_switch_range_trigger' : 'mlyss_wtrman_switch_melee_trigger', bundle: 'mlyss_token', on: 'id' }] })),
   },
   // 焰影苇草 S2: each carrier's fireball (projectile_chr_reed2_fire: `_mainEffect` reed2_skill_02_fireball_01 circling it at
   // `_projectileAroundRadius` 1, `_aroundSpeed` 150 °/s) until her skill ends [추정: the sense of the turn; its cooldown look
@@ -368,14 +370,17 @@ export function kitOfficialPlan(name, o, bundle, ctx = {}) {
 export function tplPlays(p, plays) {
   const k = plays?.keys?.[p.tpl];
   if (!k) return [];
-  const { tpl, ...rest } = p;
+  const { tpl, when, ...rest } = p;
   const reach = (on, after) => (k.reach || []).map((n) => ({ n, on, life: 'once', ...after }));
   if (rest.fly != null) {
     if (k.trail?.length !== 1) return [];
     return [{ ...rest, n: k.trail[0], ...(rest.to && k.hit?.length ? { hit: [...k.hit] } : {}) }, ...reach('point', { after: 'fly' })];
   }
+  const on = whenPlays(k, when);
+  const of = (role) => [...new Set([...(k[role] || []), ...on.filter((r) => r.role === role).map((r) => r.n)])];
   const life = rest.life ?? k.lim;
-  const end = life === 'unit' && k.end?.length ? { end: k.end[0] } : {};
-  return [...(k.held || []).map((n) => ({ ...rest, n, life, ...end })), ...(k.once || []).map((n) => ({ ...rest, n, life: 'once' })),
+  const endOf = of('end');
+  const end = life === 'unit' && endOf.length ? { end: endOf[0] } : {};
+  return [...of('held').map((n) => ({ ...rest, n, ...(life != null ? { life } : {}), ...end })), ...of('once').map((n) => ({ ...rest, n, life: 'once' })),
     ...reach(rest.on ?? 'op', {})];
 }

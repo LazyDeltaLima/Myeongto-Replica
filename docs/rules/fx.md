@@ -2474,7 +2474,9 @@
     그것, 없으면 zh_CN — 행에 `cn: true`)에서 만든다 → `tools/assets/fx-templates.json`(추적; 클라 없이 테스트가 돈다). build-data와 따로 둔 까닭: 게임이 읽는
     데이터가 아니라 검사용이고 원본이 둘 합쳐 약 45 MB. 범위는 풀 오퍼·토큰 코드로 시작하는 템플릿, 스킬·재능·모듈 블랙보드가 가리키는 템플릿, 모드 공통
     (원소 폭발·战场#06 沙尘暴·알리스테어 장비), 그리고 그것들이 부르는 템플릿·소환하는 적의 템플릿. 행 `{ key, src, moment, kind, fx, target, life, conds }` —
-    `conds`는 조건 노드 이름만(방향·스킬 번호·모드·스택 수·버프 키는 괄호에 하나), 노드 트리는 옮기지 않는다.
+    `conds`는 조건 노드 이름만(방향·스킬 번호·모드·스택 수·버프 키는 괄호에 하나), 노드 트리는 옮기지 않는다. 조건 노드는 같은 목록에서 **뒤의** 노드만
+    막는다(2026-10-23 고침: 추출기가 앞 노드의 행에도 뒤 조건을 붙여 15행이 틀렸다 — 夕 T1 `dusk_t_1[atk]`·琳琅诗怀雅 T1 `swire2_t_1[atk]`·信仰搅拌机 T1
+    `[attr_stack]`·焰尾 T1 섬광은 조건 없는 행, 泥岩·耀骑士临光 S2 층의 조건 수, 圣聆初雪 T1 적 타격의 `CheckSkillIndex`).
   - 클라 전용 행(`abilityBuff` 능력이 쥔 버프 · `ability` 이미터와 이펙트 필드 · `projectile` · `token`): `tools/local-extract/fx_bindings.py`가 로컬 클라
     (EN, EN에 없는 것은 `--cn`)에서 `public/assets/local/fx/bindings.json`으로 — git이 무시하고 공개하지 않는다.
 - 검사(`test/render/fx-bindings.test.js`, 판단은 `test/helpers/fxBindings.js`): 인용한 키의 행(그 키가 만드는 버프, 그 버프의 템플릿까지 따라감)에 항목의
@@ -2504,9 +2506,23 @@
     루멘 S1 치유 비, 르무엔 T2, 글래디아 S3 대상. 둘째 조각: 상태 스펙 22(`SOURCE_FX` 束缚 5·抵抗·禁疗, `KEY_FX` 13 — 凯瑟琳 장치 표지는 끝 이펙트까지 키에서라
     `END_FX` 줄이 빠짐 —, `STACK_FX` 사리아 T1, `STATUS_FX` 空弦 铁弦), 상시 재능 4(`TALENT_ALWAYS`), 음표 7(`NOTE_FX`: 투사체 키별 궤적·명중, S1은 부채꼴
     번호의 투사체), 계획 3(琳琅诗怀雅 S3 끝 시전·동전, 新约能天使 S3 공습, 寒檀 S2 고드름). 이벤트 골든 그대로(전체 코퍼스).
-  - 손 이름으로 남는 것(K3·이유): 키 하나가 두 프리팹을 갖고 잡는 쪽으로 고르는 新约能天使 S2 방벽, 조건 뒤 행(텍사스 디 오메르토사 재시전 둘째 이펙트, 佩佩 S2
-    단계, 沙尘暴), 충전·모드·층·칸으로 고르는 계획(卡涅利安 T1, 缪尔赛思 복사, 圣聆初雪 T1 눈, 烛煌 S2 칸), `_mainEffect`가 둘인 伊内丝 S3 회수(선과 궤적),
-    끝 이펙트를 `once`로 트는 圣聆初雪 T2, 조건 없는 행이 없는 키.
+  - 조건 뒤 행(묶음 K3, 2026-10-23): `plays.json`의 키마다 조건이 재진입 막기(`!CheckContainsBuff(<그 버프>)`)뿐인 행은 조건 없는 행으로 치고, 나머지는
+    `when` `[{ role, n, b?: 만드는 버프, if: [조건] }]`으로 둔다. 계획의 재생·상태 스펙이 아는 상태를 주면 `render/fx/conds.js`가 행의 조건을 모두 따져 참인
+    것만 튼다 — 상태가 모르는 조건(블랙보드 값·주사위·피해 필터 …)이 하나라도 있으면 그 행은 안 튼다. 렌더가 따지는 조건: 배치 방향
+    `CheckCharacterDefaultDirection(UP)`(`back`), `SwitchDirection`(`dir`), `CheckSkillIndex`(`skill`, [추정: 0부터]), `CheckUnitCurrentMode`(`mode`),
+    `FilterByBuffStackCount`(`stacks`, 경계 `@키`는 `bb`), `CheckContainsBuff`/`CheckContainsDerviedBuff`(`buffs` — 이름이 없는 버프는 없는 것). 지속 행(만든
+    버프가 남는 것)은 「지금까지의 어느 스택 수에서 참이었나」로 보고, 그 행이 만든 버프는 다음 행의 `CheckContainsBuff`에 든다(玛恩纳 [b]는 [a] 다음);
+    센 버프 자신을 만드는 행은 스택이 1 이상인 동안 참(그 행의 조건이 스택을 만든 것). `{ all: true }`는 「이 이벤트·상태가 그 키 행의 조건 전부를 뜻한다」(시뮬이
+    이미 따짐) — 키의 조건 행이 조건 묶음 하나이거나 프리팹 하나일 때만(프리팹 사이를 고르지 않음, `fx-conds.test.js`).
+    - 옮긴 것: 계획 — 号角 S2/S3 과부하(방향), 佩佩 S3 범위(스택·`max`), 寒芒克洛丝 S2·烛煌 T2 쓰러짐·妮芙 T1(`all`), 凯尔希·思衡托 S3 머리 표시(재진입 막기뿐),
+      缪尔赛思 복사(이벤트의 `mode`로 키를 고름); 스택 스펙 `stacked` — 卡涅利安 S3 표지·阿斯卡纶·夕·洛洛·玛恩纳(스택 수와 `max`/`mid`를 블랙보드
+      `max_stack_cnt`/`mid_stack_cnt`로); 상태 스펙 `keyedAll` — 束缚 伊内丝·缪尔赛思·仇白 S1, 莎草 보호막, 异客 T1, 溯光星源 T2 가득, 赤刃明霄陈·蒂比 회피,
+      焰影苇草 灼痕; `keyed` — 蕾缪安 수배(재진입 막기뿐). 이벤트 골든 그대로(전체 코퍼스).
+    - 손 이름으로 남는 것(이유): 키 하나가 두 프리팹을 갖고 잡는 쪽으로 고르는 新约能天使 S2 방벽, 렌더가 모르는 조건이 프리팹을 고르는 행(텍사스 디
+      오메르토사 재시전 둘째 — `CheckAbnormalFlag`에 어느 플래그인지가 없음, 佩佩 S2 단계 — 블랙보드 값, 沙尘暴 — 바람막이 `HasCertainCharacterInFrontOfMe`,
+      琳琅诗怀雅 T1 [max] — `CheckCost`, 妮芙 T2 — 凋亡 종류, 泥岩 층 — 블랙보드 값, 卡涅利安 S1–S3 `[eff_cond]` — 충전 수 비교에 수가 없음), 信仰搅拌机 T1(바뀜은
+      프리팹의 `SwitchableEffectByBuffStackCnt`), 충전·층·칸으로 고르는 계획(卡涅利安 T1, 圣聆初雪 T1 눈, 烛煌 S2 칸), `_mainEffect`가 둘인 伊内丝 S3 회수(선과
+      궤적), 끝 이펙트를 `once`로 트는 圣聆初雪 T2, 赤刃明霄陈 T2 회피 준비(ON_BUFF_TRIGGER의 한 번 이펙트 — 역할 밖), 조건 없는 행이 없는 키.
   검사: 인용한 키만 `tpl`로, 그 키에 재생이 있음(상태 스펙·상시 재능·음표도), `plays.json`이 최신(클라 전용 행이 있을 때) — `fx-bindings.test.js`. 렌더 테스트는
   클라 전용 행 없이도 돌도록 고정 사본 `test/helpers/fxPlays.js`(손 표가 전에 직접 적던 키·프리팹 짝만)를 쓰고, 클라 전용 행이 있으면 같은 테스트가 사본을 표와 맞춘다.
   `bindings.json`은 검사용이라 사전 내려받기 목록(`build-browser-resources.mjs`)·배포에서 뺀다.

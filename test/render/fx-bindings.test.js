@@ -255,6 +255,7 @@ test('a keyed status spec, an always-on talent and a note name a key they cite, 
   const keys = [];
   const walk = (v, src, at) => {
     if (Array.isArray(v) && v[1] && typeof v[1] === 'object' && v[1].tpl) keys.push([at, v[1].tpl, src]);
+    else if (v && typeof v === 'object' && !Array.isArray(v) && typeof v.tpl === 'string') keys.push([at, v.tpl, v.src || src]);   // a `stacked` entry
     else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) walk(x, x?.src || src, `${at}.${k}`);
   };
   for (const [name, t] of Object.entries({ STATUS_FX, SOURCE_FX, KEY_FX, STACK_FX })) walk(t, null, name);

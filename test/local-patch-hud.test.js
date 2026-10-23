@@ -391,9 +391,9 @@ describe('⑤ official status effects (fxstatus.js → fxgame.js statusOn / stat
     assert.equal(F.statusFxKey('skill:haini_slow'), 'slow');
     // local patch (maintainer report 2026-10-07): talent marks — 蕾缪안 通缉 crosshair, 焰影苇草 灼痕 X
     assert.equal(F.statusFxKey('lemuen:wanted'), 'wanted');
-    assert.deepEqual(F.STATUS_FX.wanted.slice(0, 2), ['lemuen', 'lemuen_talent_buff_01']);
+    assert.deepEqual(F.STATUS_FX.wanted, ['lemuen', { tpl: 'char_lemuen_range_aim' }, 1.1, 2.0], 'by its client key (fxstatus.js keyed)');
     assert.equal(F.statusFxKey('reed2:scorch'), 'scorch');
-    assert.deepEqual(F.STATUS_FX.scorch.slice(0, 2), ['reed2', 'reed2_debuff_01']);
+    assert.deepEqual(F.STATUS_FX.scorch, ['reed2', { tpl: 'reed2_t_1', when: { all: true } }, 0.5], 'by its client key, the buff standing for its conditions');
     // 空弦's 铁弦 护盾 layer: its buff's overrideEffectKey (EN charpack); 凯尔希·思衡托's layer has none
     assert.equal(F.statusFxKey('talent:archet_shield'), 'archet_shield');
     assert.deepEqual(F.STATUS_FX.archet_shield, ['archet', { tpl: 'archet_t_2' }, 0], 'by its client key (fxstatus.js keyed)');
@@ -401,6 +401,8 @@ describe('⑤ official status effects (fxstatus.js → fxgame.js statusOn / stat
     const archet = { isEnemy: false, alive: true, flags: 0, statuses: new Set(['talent:archet_shield']) };
     assert.deepEqual([...F.wantedStatusFx(archet, new Map(), null, PLAYS)], [['archet_shield', ['archet', 'archet_buff_01_start', 0]]]);
     assert.deepEqual([...F.wantedStatusFx(archet, new Map())], [], 'without the plays: none');
+    const marked = { isEnemy: true, alive: true, flags: 0, statuses: new Set(['lemuen:wanted', 'reed2:scorch']) };
+    assert.deepEqual([...F.wantedStatusFx(marked, new Map(), null, PLAYS).values()].map((x) => x[1]).sort(), ['lemuen_talent_buff_01', 'reed2_debuff_01']);
     assert.equal(F.statusFxKey('talent:kalts2:shield'), null);
     assert.equal(F.statusFxKey('ines:aspdGain'), null, 'an ASPD gain is no 攻速下降');
     assert.equal(F.statusFxKey('bind'), null, 'no common prefab: the applier\'s buff effect (SOURCE_FX)');
