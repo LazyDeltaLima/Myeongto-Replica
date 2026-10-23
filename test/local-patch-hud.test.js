@@ -52,6 +52,21 @@ describe('ally bars (char_hp_slider / char_sp_slider / char_bullet_bar)', () => 
     assert.ok(!near.hpFill.visible && !near.spFill.visible && !near.spGlow.visible);
   });
 
+  // its model stands ≈ 0.16 tile lower (its prefab place, test/render/model-place.test.js): the bars stay ≈ 28 units under
+  // the shoes, as the official captures (2026-10-23 PC: 29 units)
+  test('an operator or token: hud_unit on its point, the HP centre 54.5 under it', () => {
+    const u = HB.hudUnit(VP);
+    for (const kind of ['op', 'token']) {
+      const v = view({ kind });
+      v.sync(sample({ hp: 600, sp: 3, spMax: 10 }), 0); v.update(1 / 60, cam(), 0);
+      assert.equal(v.hudAnchor, 0, `${kind}: the client's hud_unit follows the unit's own transform`);
+      assert.ok(Math.abs(v.lpBars.hp.position.y - (v.screen.y + 54.5 * u)) < 1e-6, `${kind}: HP centre 54.5 units under the point`);
+    }
+    const plain = view({});
+    plain.sync(sample({}), 0); plain.update(1 / 60, cam(), 0);
+    assert.equal(plain.hudAnchor, HB.HUD_ANCHOR, 'a model on its point keeps hud_unit 24.5 over it');
+  });
+
   test('a running skill turns the SP bar #ffa800; a full SP bar has no glow', () => {
     const v = view({});
     v.sync(sample({ sp: 10, spMax: 10 }), 0); v.update(1 / 60, cam(), 0);
@@ -305,6 +320,10 @@ describe('④ official damage / heal numbers (num-official.js, local-hud.js dama
     assert.equal(d.text.position.x, x0, 'stays where it spawned (UIPopup.InitPosition sets it once) — the unit walking on does not move it');
     nums.update(0.34);
     assert.equal(nums.live.length, 0, 'gone after 0.5 s');
+    // an operator's hud_unit is on its point (units.js hudAnchor 0): the heal number rises from 150 over the point
+    nums.heal({ screen: { x: 500, y: 600 }, hudAnchor: 0 }, 5);
+    const h0 = nums.live[0];
+    assert.ok(Math.abs(h0.text.position.y - (600 - 150 - h0.dy)) < 1e-9, 'popup 150 over the point');
   });
   test('official numbers scale with the screen like the bars (a phone is not drawn at the 1080p size)', async () => {
     const N = await import('../public/js/render/num-official.js');

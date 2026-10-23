@@ -95,6 +95,7 @@ test('an operator\'s and a token\'s model are drawn at their place, the shadow a
     assert.ok(h / w > 0.2 && h / w < 0.32, `${id}: shadow height / width ${(h / w).toFixed(3)} (the board's rows foreshortened)`);
     // the HUD stays at the unit's point (the client's hud_unit follows the unit's own transform: its _uiMountPoint is empty)
     assert.ok(Math.abs(v.screen.y - p.y) < 1e-6, `${id}: screen = the unit's point`);
+    assert.equal(v.hudAnchor, 0, `${id}: hud_unit on the point, not HUD_ANCHOR over it (the model already stands lower)`);
   }
   // an enemy keeps its point and the 0.95-tile shadow
   const u = view('enemy_1007_slime', 'enemy', 'enemy');

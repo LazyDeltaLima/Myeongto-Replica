@@ -5,11 +5,12 @@
 // operator rows are 128–129 px wide for the prefab's 125 (≈ 2000 / 1920 px per unit), though the rows' tiles are 168
 // and 177 px apart. One unit here = min(width / 1920, height / 1080) CSS px of the view ([추정] the fit for other aspect
 // ratios: no CanvasScaler value found). Every size below is in those units, from `hud_unit`'s centre (prefab offsets).
-// That centre lies HUD_ANCHOR units above the unit's feet [캡처]: the HP bar's centre is ≈ 30 units under the deploy ring's
-// centre — where the shoes stand, in the captures and in ours alike — (CN captures 5 / 6 / 13: 27 / 29 / 33.7 units) where
-// the prefab puts it 54.5 under hud_unit (maintainer check 2026-10-07: 54.5 under the feet drew the bars too low); the prep chip
-// of capture 4 also stood ≈ 16 units over the prefab's place. Presumably the unit's root over the model's (prefab
-// `Graphic` −0.2 tile).
+// The client puts that centre on the unit's own point (UIUnitHUD.Attach follows the unit's `_uiMountPoint`, empty in the
+// prefabs, so the unit's transform). An operator's or token's model stands ≈ 0.16 tile lower on screen (its prefab place,
+// fxpoints.js modelPlace), ≈ 26 units with the official camera, so the HP bar's centre (54.5 under hud_unit) is ≈ 28
+// units under its shoes — official captures: CN 5 / 6 / 13 27 / 29 / 33.7 units, PC 2026-10-23 (赤刃明霄陈) 29. A unit
+// whose model still stands on its point (enemies, devices) draws hud_unit HUD_ANCHOR units over it instead: the same
+// ≈ 30 units under the shoes, fitted to those captures on 2026-10-07 before the model places were drawn.
 //
 // Allies (char_hp_slider / char_sp_slider / char_sp_cast_slider / char_bullet_bar / char_slider_background):
 //   HP 125×7 #49b2e3 α.7 over its delayed loss (white α.7, `slider_back`), SP 125×7 right under it — charging #caec46
@@ -66,10 +67,10 @@ export function hudUnit(vp) {
   return Math.min(w / HUD_REF.w, h / HUD_REF.h);
 }
 
-/** Units from the feet up to `hud_unit`'s centre (see header). */
+/** Units from the unit's point up to `hud_unit`'s centre for a model that stands on its point (see header). */
 export const HUD_ANCHOR = 24.5;
-/** Screen y (px) of `hud_unit`'s centre for feet at `feetY` with `u` px per unit. */
-export const hudAnchorY = (feetY, u) => feetY - HUD_ANCHOR * u;
+/** Screen y (px) of `hud_unit`'s centre for the unit's point at `y`, `anchor` units under it, with `u` px per unit. */
+export const hudAnchorY = (y, u, anchor = HUD_ANCHOR) => y - anchor * u;
 
 /** Ally bars (see header), in HUD units (y: below hud_unit's centre). */
 export const ALLY_BAR = Object.freeze({
@@ -194,6 +195,7 @@ class Plate {
 export class AllyBars {
   constructor(P, parent) {
     this.P = P;
+    this.anchor = HUD_ANCHOR; // hud_unit's centre over the unit's point (units.js: 0 for a model at its prefab place)
     const B = ALLY_BAR;
     this.root = new P.Container();
     parent.addChild(this.root);
@@ -220,7 +222,7 @@ export class AllyBars {
     const B = ALLY_BAR;
     this.root.visible = true;
     const w = B.w * u, h = B.h * u, x0 = x - w / 2;
-    const hy = hudAnchorY(y, u) + B.y * u;
+    const hy = hudAnchorY(y, u, this.anchor) + B.y * u;
     const rows = sp == null && !ammo ? 1 : 2;
     this.plate.update(assets, x, hy - h / 2 + (rows * h) / 2, B.w, rows * B.h, B.grow, u);
     this.ghost.position.set(x0, hy); this.ghost.width = w * clamp(ghost, 0, 1); this.ghost.height = h;
@@ -272,6 +274,7 @@ function drawBullets(o, ammo, x0, y, w, h, u) {
 export class EnemyBars {
   constructor(P, parent, kind, giant = null) {
     this.P = P; this.kind = kind; this.giant = giant;
+    this.anchor = HUD_ANCHOR;
     const B = this.B = kind === 'giant' ? GIANT_BAR : kind === 'boss' ? BOSS_BAR : ENEMY_BAR;
     this.root = new P.Container();
     parent.addChild(this.root);
@@ -313,7 +316,7 @@ export class EnemyBars {
     const w = B.w * sx * u, h = B.h * u;
     let cx = x, cy;
     if (this.giant) { cx += this.giant.off[0] * s; cy = y - this.giant.off[1] * s + B.y * u; }
-    else cy = hudAnchorY(y, u) + B.y * u;
+    else cy = hudAnchorY(y, u, this.anchor) + B.y * u;
     const x0 = cx - w / 2;
     const tex = (n) => texOf(this.P, localUrl(assets, 'ui/battlecommon', n));
     if (this.emblem) {
@@ -409,6 +412,7 @@ export function equipTextures(P, assets) {
 /** The prep equipment bar of one piece (see header), drawn into `parent`. */
 export class EquipBar {
   constructor(P, parent) {
+    this.anchor = HUD_ANCHOR;
     this.root = new P.Container();
     this.bg = new P.Sprite(P.Texture.EMPTY); this.bg.anchor.set(0.5);
     this.slots = [0, 1].map(() => { const s = new P.Sprite(P.Texture.EMPTY); s.anchor.set(0.5); return s; });
@@ -423,7 +427,7 @@ export class EquipBar {
   update(x, y, u, gold, t) {
     const E = PREP_EQUIP;
     this.root.visible = true;
-    const cx = x + E.x * u, cy = hudAnchorY(y, u) - E.y * u;
+    const cx = x + E.x * u, cy = hudAnchorY(y, u, this.anchor) - E.y * u;
     this.bg.texture = t.bg; this.bg.position.set(cx, cy); this.bg.width = E.w * u; this.bg.height = E.h * u;
     for (let i = 0; i < this.slots.length; i++) {
       const s = this.slots[i];
@@ -473,6 +477,7 @@ export function headPointY(v, points = markPoints) {
 export class SkillMark {
   constructor(P, parent) {
     this.P = P;
+    this.anchor = HUD_ANCHOR;
     this.root = new P.Container();
     this.disc = new P.Sprite(P.Texture.EMPTY); this.disc.anchor.set(0.5);
     this.ring = new P.Sprite(P.Texture.EMPTY); this.ring.anchor.set(0.5);
@@ -525,7 +530,7 @@ export class SkillMark {
     if (!this.root.visible) this.t0 = now;
     this.root.visible = true;
     const head = headPointY(view);
-    const cx = x, cy = head != null ? head - M.headUp * u : hudAnchorY(y, u) - M.y * u;
+    const cx = x, cy = head != null ? head - M.headUp * u : hudAnchorY(y, u, this.anchor) - M.y * u;
     const disc = texOf(this.P, localUrl(assets, 'ui/battlecommon', 'sprite_circle'));
     const ring = texOf(this.P, localUrl(assets, 'ui/battlecommon', 'sprite_auto'));
     // without the client's sprites a plain dark disc stands for both (the number alone would float)
@@ -623,6 +628,7 @@ export const epRingReady = (P, assets, side) => !!P.SimpleMesh && !!epTextures(P
 export class ElementRing {
   constructor(P, parent, side) {
     this.P = P; this.side = side;
+    this.anchor = HUD_ANCHOR;
     this.root = new P.Container();
     parent.addChild(this.root);
     const spr = () => { const s = new P.Sprite(P.Texture.EMPTY); s.anchor.set(0.5); this.root.addChild(s); return s; };
@@ -651,7 +657,7 @@ export class ElementRing {
     const E = EP[this.side], t = epTextures(this.P, assets, this.side);
     if (!t) { this.hide(); return false; }
     this.root.visible = true;
-    this.root.position.set(x, hudAnchorY(y, u) + E.y * u);
+    this.root.position.set(x, hudAnchorY(y, u, this.anchor) + E.y * u);
     this.root.scale.set(E.scale * u);
     const col = E.color[el] ?? E.color.burn;
     if (k < this.last - 1e-4 && !cooling) this.pulse = EP_PULSE;            // a hit: the spread pulses

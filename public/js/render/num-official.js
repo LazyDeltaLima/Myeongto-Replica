@@ -18,7 +18,7 @@
 // (The damage motion matches the maintainer video of 2026-10-07 — first frame at 0.87 of the peak, shrink and drop in the last
 // ~0.13 s — measured then against the peak size.) Sizes in HUD units (hud-bars.js hudUnit: screen-fixed).
 
-import { hudUnit, hudAnchorY } from './hud-bars.js';
+import { hudUnit, hudAnchorY, HUD_ANCHOR } from './hud-bars.js';
 
 export const OFFICIAL_NUM = Object.freeze({
   // prefab values: life `_lifeTime`, spread `_randomRange`, up / down `_upOffset` / `_downOffset` (y), pop `_fontSizeScale`;
@@ -93,7 +93,7 @@ export class OfficialNumbers {
     t.view = view; t.kind = kind; t.crit = crit; t.age = 0;
     t.dx = (Math.random() * 2 - 1) * OFFICIAL_NUM.spread[0];
     t.dy = (Math.random() * 2 - 1) * OFFICIAL_NUM.spread[1];
-    t.x = view.screen.x; t.y = view.screen.y;
+    t.x = view.screen.x; t.y = view.screen.y; t.anchor = view.hudAnchor ?? HUD_ANCHOR; // hud_unit over the point (units.js)
     if (this.live.length >= MAX) this._free(this.live.shift());
     this.live.push(t);
     this._place(t);
@@ -111,13 +111,13 @@ export class OfficialNumbers {
       if (t.age < half) { const k = outExpo(t.age / half); y = O.up * k; grow = 1 + (O.pop - 1) * k; }
       else { const k = inExpo(Math.min(1, (t.age - half) / half)); y = O.up - (O.up + O.down) * k; grow = O.pop * (1 - k); }
       t.text.scale.set((O.size * u * grow * (t.crit ? O.crit : 1)) / GLYPH);
-      t.text.position.set(t.x + t.dx * u, hudAnchorY(t.y, u) - (O.popup + t.dy + y) * u);
+      t.text.position.set(t.x + t.dx * u, hudAnchorY(t.y, u, t.anchor) - (O.popup + t.dy + y) * u);
       t.text.alpha = 1;
       return;
     }
     const k = Math.min(1, t.age / O.life); // UIHealText.SetTweens: float up, fade out
     t.text.scale.set((O.size * u) / GLYPH);
-    t.text.position.set(t.x + t.dx * u, hudAnchorY(t.y, u) - (O.popup + t.dy + o.rise * outCubic(k)) * u);
+    t.text.position.set(t.x + t.dx * u, hudAnchorY(t.y, u, t.anchor) - (O.popup + t.dy + o.rise * outCubic(k)) * u);
     t.text.alpha = 1 - inExpo(k);
   }
 

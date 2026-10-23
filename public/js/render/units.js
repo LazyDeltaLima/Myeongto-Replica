@@ -81,7 +81,7 @@ import { faceOf, turnFace, turnWidth, dirVector, NEAR_SQ, SWITCH_TIME } from './
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2's glide: when her model is back
 import { syncHeldWeapon } from './heldWheel.js'; // local patch: a 回环射手's boomerang in her hand (Spine skin 'Bullet')
 import { loadPlaces, modelPlace, placesVersion } from './fxpoints.js'; // a model's place and shadow in its battle prefab
-import { ElementRing, epRingReady, AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, prepChip, PREP_CHIP, EquipBar, equipTextures, shieldedBar, SkillMark } from './hud-bars.js'; // local patch: official battle HUD
+import { ElementRing, epRingReady, AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, HUD_ANCHOR, prepChip, PREP_CHIP, EquipBar, equipTextures, shieldedBar, SkillMark } from './hud-bars.js'; // local patch: official battle HUD
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 loadPlaces(); // the per-unit model places (fxpoints.js); views built before it arrives re-read it
@@ -1049,6 +1049,8 @@ export class UnitView {
     const giant = this.isEnemy ? giantBossOf(this.info) : null;
     this.lpBars = !this.isEnemy ? new AllyBars(P, h) : new EnemyBars(P, h, giant ? 'giant' : this.isBoss ? 'boss' : 'normal', giant);
     this.lpMark = !this.isEnemy ? new SkillMark(P, h) : null; // the official stored-charge mark (b.snap `charge`)
+    this.lpBars.anchor = this.hudAnchor;
+    if (this.lpMark) this.lpMark.anchor = this.hudAnchor;
     this.ammo = null;
     this.charge = 0;
     this.barrier = 0;
@@ -1669,6 +1671,9 @@ export class UnitView {
     this.modelDY = off ? off.dy : 0;
     this.modelDZ = off ? off.dz : 0;
     if (this.modelPlace?.own) this.modelK = this.modelPlace.k;
+    // hud_unit's centre over the unit's point (hud-bars.js header): on it, as the client, once the model stands at its
+    // prefab place; HUD_ANCHOR over it while the model stands on the point
+    this.hudAnchor = this.modelPlace ? 0 : HUD_ANCHOR;
   }
 
   update(dt, cam, t) {
@@ -2075,7 +2080,7 @@ export class UnitView {
         if (this.chip.texture !== off.tex) this.chip.texture = off.tex;
         this.chip.scale.set(off.k * u);
         this.chip.visible = this.alive;
-        this.chip.position.set(this.screen.x + PREP_CHIP.x * u, hudAnchorY(this.screen.y, u) - PREP_CHIP.y * u);
+        this.chip.position.set(this.screen.x + PREP_CHIP.x * u, hudAnchorY(this.screen.y, u, this.hudAnchor) - PREP_CHIP.y * u);
       } else {
       if (this.chip.texture !== this._chipTex) this.chip.texture = this._chipTex;
       const cs = clamp(s * (prep ? 0.24 : 0.19), 11, 28) / 44;
@@ -2105,11 +2110,11 @@ export class UnitView {
     if (lp) { // local patch: the official element ring at the feet (hud-bars.js ElementRing); without its art the row under the bars
       const u = hudU(this.ctx), w = (this.isEnemy ? 105 : 125) * u, side = this.isEnemy ? 'enemy' : 'ally';
       const want = showBars && !!this.el;
-      if (want && !this._elRing && epRingReady(this.P, this.ctx.assets, side)) this._elRing = new ElementRing(this.P, this.hud, side);
+      if (want && !this._elRing && epRingReady(this.P, this.ctx.assets, side)) { this._elRing = new ElementRing(this.P, this.hud, side); this._elRing.anchor = this.hudAnchor; }
       const ring = want && !!this._elRing && this._elRing.update(this.ctx.assets, this.el, this.elementLeft(), this.elementCooling(), this.screen.x, this.screen.y, u, dt);
       if (!ring && this._elRing) this._elRing.hide();
       this._updateElementBar(want && !ring, lpBottom ? this.lpBars.box.x0 : this.screen.x - w / 2, lpBottom ? this.lpBars.box.w : w,
-        lpBottom || hudAnchorY(this.screen.y, u) + 59 * u, 7 * u, s, t);
+        lpBottom || hudAnchorY(this.screen.y, u, this.hudAnchor) + 59 * u, 7 * u, s, t);
     }
     else this._updateElementBar(showBars && !!this.el, x0, bw, cy + bh / 2 + (showSp ? spH + 1.5 : 0) + 1, spH, s, t);
     this._updateDownRing(!prep && !!this.down && !this.alive, x, this.screen.y - DOWN_LOOK.height * s, s, t);
@@ -2129,7 +2134,8 @@ export class UnitView {
     }
     // local patch (LOCAL-PATCH.md 「전투 화면 UI」): in prep the official equip bar stands for the item pips when installed
     const eqTex = prep && this._equip?.length && this.alive ? equipTextures(this.P, this.ctx.assets) : null;
-    if (eqTex) (this._equipBar || (this._equipBar = new EquipBar(this.P, this.hud))).update(this.screen.x, this.screen.y, hudU(this.ctx), this._equip, eqTex);
+    if (eqTex && !this._equipBar) { this._equipBar = new EquipBar(this.P, this.hud); this._equipBar.anchor = this.hudAnchor; }
+    if (eqTex) this._equipBar.update(this.screen.x, this.screen.y, hudU(this.ctx), this._equip, eqTex);
     else if (this._equipBar) this._equipBar.hide();
     for (let i = 0; i < this.itemPips.length; i++) {
       const pip = this.itemPips[i];
