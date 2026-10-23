@@ -119,6 +119,7 @@ test('status specs whose buff stands for its key\'s conditions', { skip: !has('c
   assert.deepEqual(shown('halo2:t2full'), ['halo2/halo2_talent_02']);
   assert.deepEqual(shown('bind', { src: 'ines' }, { isEnemy: true }), ['ines/ines_imprison_01']);
   assert.deepEqual(shown('bind', { src: 'mlyss' }, { isEnemy: true }), ['mlyss_token/token_10030_mlyss_wtrman_c3_debuff_01']);
+  assert.deepEqual(shown('bind', { src: 'qiubai', fx: 's1' }, { isEnemy: true }), ['qiubai/qiubai_skill_01_buff']);
   assert.deepEqual(shown('reed2:scorch', { src: 'reed2' }), ['reed2/reed2_debuff_01']);
   assert.deepEqual(shown('lemuen:wanted'), ['lemuen/lemuen_talent_buff_01']);
   const [w] = wantedStatusFx({ statuses: ['lemuen:wanted'] }, new Map(), null, P).values();

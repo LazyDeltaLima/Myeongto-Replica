@@ -2514,6 +2514,13 @@
     버프가 남는 것)은 「지금까지의 어느 스택 수에서 참이었나」로 보고, 그 행이 만든 버프는 다음 행의 `CheckContainsBuff`에 든다(玛恩纳 [b]는 [a] 다음);
     센 버프 자신을 만드는 행은 스택이 1 이상인 동안 참(그 행의 조건이 스택을 만든 것). `{ all: true }`는 「이 이벤트·상태가 그 키 행의 조건 전부를 뜻한다」(시뮬이
     이미 따짐) — 키의 조건 행이 조건 묶음 하나이거나 프리팹 하나일 때만(프리팹 사이를 고르지 않음, `fx-conds.test.js`).
+    - `all` 해석은 관리자 결정 2026-10-23: 그대로 두되, 실제 플레이에서 이펙트가 시뮬 판단과 어긋나 보이면(나와야 할 때 안 나옴·안 나와야 할 때 나옴) 그
+      항목만 손 이름으로 되돌린다. 되돌리기는 한 줄 — 상태 스펙 `keyedAll(key, bundle, frac)` → `cite(key, [bundle, '<프리팹>', frac])`, 계획의
+      `{ tpl, when: ALL, …나머지 }` → 프리팹마다 `{ n: '<프리팹>', …나머지 }`(키 인용 `cite`는 그대로). 손 이름(지금 표가 주는 것, `fx-conds.test.js`가 항목마다
+      고정): 계획 — 寒芒克洛丝 S2 `quadShot` `kroos2_skill_02_buff_01`·`_02`·`_03`, 烛煌 T2 `downed` `blaze2_revive_buff`·`blaze2_revive_buff_03`, 妮芙 T1 `soul`
+      `nymph_talent_buff_01`; 상태 — 焰影苇草 `scorch` `reed2_debuff_01`, 束缚 伊内丝 `ines_imprison_01`·缪尔赛思 `token_10030_mlyss_wtrman_c3_debuff_01`·仇白 S1
+      `qiubai_skill_01_buff`, 莎草 `papyrs_talent_01`, 异客 `pasngr_beidong_buff_01`, 溯光星源 가득 `halo2_talent_02`, 赤刃明霄陈 회피 `chen3_Shield_buff_01`, 蒂比
+      회피 `tippi_buff_01`(12항목). 되돌린 항목은 여기서 지우고 「손 이름으로 남는 것」에 이유와 함께 적는다.
     - 옮긴 것: 계획 — 号角 S2/S3 과부하(방향), 佩佩 S3 범위(스택·`max`), 寒芒克洛丝 S2·烛煌 T2 쓰러짐·妮芙 T1(`all`), 凯尔希·思衡托 S3 머리 표시(재진입 막기뿐),
       缪尔赛思 복사(이벤트의 `mode`로 키를 고름); 스택 스펙 `stacked` — 卡涅利安 S3 표지·阿斯卡纶·夕·洛洛·玛恩纳(스택 수와 `max`/`mid`를 블랙보드
       `max_stack_cnt`/`mid_stack_cnt`로); 상태 스펙 `keyedAll` — 束缚 伊内丝·缪尔赛思·仇白 S1, 莎草 보호막, 异客 T1, 溯光星源 T2 가득, 赤刃明霄陈·蒂比 회피,
