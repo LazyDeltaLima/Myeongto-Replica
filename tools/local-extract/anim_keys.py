@@ -9,13 +9,15 @@ The client plays a Spine clip by key only. Abilities, modes and skill prefabs na
   skin    { keys: { animKey: animName } (the pairs whose name differs), mix: [[source, target, mix]] }
   modes   [ { name, pairs: { from: to } (`_replaceAnimPairs` of the mode's animator hooker), exclude: [keys],
               combat: <ability path> (UnitMode `_combat`), abilities: { <path under the mode>: ability } } ]
-  skills  [ { id, begin?, beginDown?, end? (the skill's `_beginAnim` when `_playSkillBeginAnim`, `_endAnim`),
+  skills  [ { id, begin?, beginDown?, end? (the skill's `_beginAnim` when `_playSkillBeginAnim`, `_beginAnimDown`, `_endAnim`),
               defaultMode? (`_defaultModeIndex` ≥ 0), mode? (the switch_mode its buff names),
+              downMode?, downBy? (the mode its buff template switches to when the owner faces down: down_modes),
               abilities: { <path under the prefab, '' = its root>: ability } } ]
   ability { key ('' = no clip), end, down, downEnd, up, upEnd, charge (AbstractAnimatedAbility `_animKey` …, the other
-            empty ones left out),
-            three: { begin, oneshot, end, first } (ThreePartOneshotAnimation), chan: { begin, loop, end }
-            (a ThreePart channel's `_default`), emit: [keys] (AnimationEmitBehaviour `_settings[].anim`),
+            empty ones left out), dby (when down / downEnd play: down_by),
+            three: { begin, oneshot, end, first, down? { begin, oneshot, end, by } } (ThreePartOneshotAnimation, its
+            `_down` bundle under `_overrideDownAnimation`), chan: { begin, loop, end, down? }
+            (a ThreePart channel's `_default`, its `_down` likewise), emit: [keys] (AnimationEmitBehaviour `_settings[].anim`),
             hook: { from: to } (its `_hookSettings`), src (`_sourceAnimKey`),
             turns: { anims: [keys], loop } (UberAnimationEffectEmitter `_replaceGroup[].anim`, `_loopType` 0 LOOP / 1 RANDOM),
             group: { of: [child paths], method?, diff?, seq? } (AbilityRandomGroup `_abilities` / `_selectMethod` /
@@ -40,6 +42,8 @@ from char_modes import load_tree, char_skill_prefabs, skills_tree, skill_switch_
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / '.cache/anim-keys.json'
+# the buff templates (public datasets, en_US first: tools/build-data.mjs), for the modes a skill switches to by facing
+TEMPLATE_DATA = [ROOT / '.cache/gamedata-en/battle/buff_template_data.json', ROOT / '.cache/gamedata/battle/buff_template_data.json']
 BASES = ('PersistentData/Bundles', 'StreamingAssets/AB/Windows')   # first wins (hot update)
 # AbstractAnimatedAbility field → output key
 KEYS = {'_animKey': 'key', '_endAnimKey': 'end', '_downAnimKey': 'down', '_downEndAnimKey': 'downEnd', '_upAnimKey': 'up',
@@ -58,6 +62,64 @@ def s(v):
     return v if isinstance(v, str) and v else None
 
 
+def down_by(d):
+    """When an ability plays its `_downAnimKey` / `_downEndAnimKey` (AbstractAnimatedAbility.CheckDownAttack): 'face' = its
+    owner faces down as it casts (`_faceToTarget`), 'deploy' = the owner was deployed facing down; '+face' = also when
+    it faces its first cast target downward (`_faceToFirstCastTarget` with `_checkFaceToFirstCastTargetDownAttack`)."""
+    by = 'face' if d.get('_faceToTarget') else 'deploy'
+    if by == 'deploy' and d.get('_faceToFirstCastTarget') and d.get('_checkFaceToFirstCastTargetDownAttack'):
+        by += '+face'
+    return by
+
+
+def down_modes(tpl):
+    """(mode index, 'deploy' | 'face') that buff template `tpl` switches to when its owner was deployed facing down
+    (CheckCharacterDefaultDirection) or faces down (CheckFaceDirection) — an IfElse on DOWN whose branch is a SwitchMode
+    (跃跃 S2 `caper_s_2` → `S2[Down]`) — or None."""
+    found = []
+
+    def kind(o):
+        return str(o.get('$type', '')).split(',')[0].split('+')[-1]
+
+    def walk(o):
+        if isinstance(o, dict):
+            c = o.get('_conditionNode')
+            if kind(o) == 'IfElse' and isinstance(c, dict) and c.get('_direction') == 'DOWN' and not c.get('_useBB'):
+                by = {'CheckCharacterDefaultDirection': 'deploy', 'CheckFaceDirection': 'face'}.get(kind(c))
+                sw = [n for n in o.get('_succeedNodes') or [] if isinstance(n, dict) and kind(n) == 'SwitchMode'
+                      and not n.get('_loadModeFromBlackboard') and isinstance(n.get('_modeIndex'), int)]
+                if by and sw:
+                    found.append((sw[0]['_modeIndex'], by))
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+
+    walk(tpl)
+    return found[0] if found else None
+
+
+def skill_templates(comps):
+    """The buff template keys a skill prefab's [(GameObject path, MonoBehaviour, path id)] name, in order."""
+    out = []
+
+    def walk(o):
+        if isinstance(o, dict):
+            tk = o.get('templateKey')
+            if isinstance(tk, str) and tk and tk not in out:
+                out.append(tk)
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+
+    for _, d, _ in comps:
+        walk(d)
+    return out
+
+
 def ability_of(d, out):
     """Fold the clip fields of one MonoBehaviour `d` into `out` (the record of its GameObject); True when it had any."""
     got = False
@@ -66,14 +128,26 @@ def ability_of(d, out):
         for k, o in KEYS.items():
             if s(d.get(k)):
                 out[o] = d[k]
+        if s(d.get('_downAnimKey')) or s(d.get('_downEndAnimKey')):
+            out['dby'] = down_by(d)
         got = True
     if s(d.get('_oneshotAnim')):
         out['three'] = {'begin': s(d.get('_beginAnim')), 'oneshot': d['_oneshotAnim'], 'end': s(d.get('_endAnim')),
                         'first': int(bool(d.get('_onlyPlayBeginAnimWhenFirstAttack')))}
+        dn = d.get('_down') if isinstance(d.get('_down'), dict) else {}
+        if d.get('_overrideDownAnimation') and s(dn.get('oneshotAnim')):
+            # ThreePartOneshotAnimation._GetAnimBundle: its `_down` bundle when its owner faces down (`_faceToTarget`) or
+            # was deployed facing down
+            out['three']['down'] = {'begin': s(dn.get('beginAnim')), 'oneshot': dn['oneshotAnim'], 'end': s(dn.get('endAnim')),
+                                    'by': 'face' if d.get('_faceToTarget') else 'deploy'}
         got = True
     df = d.get('_default')
     if isinstance(df, dict) and any(s(df.get(k)) for k in ('beginAnim', 'loopAnim', 'endAnim')):
         out['chan'] = {'begin': s(df.get('beginAnim')), 'loop': s(df.get('loopAnim')), 'end': s(df.get('endAnim'))}
+        dn = d.get('_down') if isinstance(d.get('_down'), dict) else {}
+        if d.get('_overrideDownAnimation') and any(s(dn.get(k)) for k in ('beginAnim', 'loopAnim', 'endAnim')):
+            # ThreePartChannelingAnimation._GetAnimBundle: its `_down` bundle when its owner was deployed facing down
+            out['chan']['down'] = {'begin': s(dn.get('beginAnim')), 'loop': s(dn.get('loopAnim')), 'end': s(dn.get('endAnim')), 'by': 'deploy'}
         got = True
     if isinstance(d.get('_settings'), list) and any(isinstance(x, dict) and 'anim' in x for x in d['_settings']):
         out['emit'] = [x['anim'] for x in d['_settings'] if isinstance(x, dict) and s(x.get('anim'))]
@@ -212,6 +286,10 @@ def main():
             break
         else:
             missing.append(cid)
+    templates = {}
+    for f in reversed(TEMPLATE_DATA):   # en_US last: it wins
+        if f.exists():
+            templates.update(json.loads(f.read_text(encoding='utf-8')))
     for game, cn in games:
         want = {p: cid for cid, ps in prefabs.items() if cid in ops and bool(ops[cid].get('cn')) == cn for p in ps if p}
         if not want:
@@ -229,6 +307,9 @@ def main():
                 e = skill_of(p, comps.get(p, [])) if p else {'id': None, 'abilities': {}}
                 if p in switch:
                     e['mode'] = switch[p]
+                dm = next(filter(None, (down_modes(templates.get(k)) for k in skill_templates(comps.get(p, [])))), None)
+                if dm:
+                    e['downMode'], e['downBy'] = dm
                 out.append(e)
             ops[cid]['skills'] = out
     doc = {'$comment': 'Clip keys of the operators (abilities, modes, skill prefabs, the skin key table), written by '
