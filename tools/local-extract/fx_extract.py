@@ -75,13 +75,13 @@ BUILTIN_MESHES = {10209: 'Plane', 10210: 'Quad'}
 # local patch: the MonoScript PathID of the effects' FollowMountPoint component (mount_point); 1205
 # default-skin prefabs of the EN client carry one (maintainer's notes 2026-10-08)
 MOUNT_SCRIPT = 0x7b5c342088cfcad4
-# 2026-10-10, decompile check: the MonoScript PathID of SwitchableBackEffect (switch_back) — 62 default-skin
+# 2026-10-10, official client: the MonoScript PathID of SwitchableBackEffect (switch_back) — 62 default-skin
 # prefabs of the extracted bundles carry one (비르투오사 S3 cello_skill_03_buff_front_02 → _back_02, 로즈몬티스, 휴머스 …)
 BACK_SCRIPT = 7599136815520768295
-# 2026-10-11, decompile check round 2: the MonoScript PathID of Torappu.Fx.FxDelay (root_effect `fxDelay`; 38 of the roots of
+# 2026-10-11, official client: the MonoScript PathID of Torappu.Fx.FxDelay (root_effect `fxDelay`; 38 of the roots of
 # texas2 / dusk / siege2, a component of one float `_delayTime`)
 FXDELAY_SCRIPT = 4526430437831129839
-# 2026-10-11, decompile check: the MonoScript PathID of Torappu.Battle.Effects.ProjectileEffect (projectile_effect; the root
+# 2026-10-11, official client: the MonoScript PathID of Torappu.Battle.Effects.ProjectileEffect (projectile_effect; the root
 # of a projectile's `_mainEffect`: 202 of the extracted prefabs of the EN client, the same id in the CN client)
 PROJECTILE_EFFECT_SCRIPT = 4524653206994915020
 # 2026-10-16: the MonoScript PathID of Torappu.Fx.ParticleEffect (root_effect, which recognises it by its shape; fx_coverage
@@ -89,13 +89,13 @@ PROJECTILE_EFFECT_SCRIPT = 4524653206994915020
 PARTICLE_EFFECT_SCRIPT = 6196809664641094801
 # (2026-10-20) the MonoScript PathID of SwitchableRightEffect (right_effect; fx_coverage checks its raw fallback)
 RIGHT_SCRIPT = 7347111497538980357
-# (2026-10-21, decompile check) the MonoScript PathID of Torappu.Battle.Effects.RandomEmitter (random_emitter, node `emit`)
+# (2026-10-21, official client) the MonoScript PathID of Torappu.Battle.Effects.RandomEmitter (random_emitter, node `emit`)
 RANDOM_EMITTER_SCRIPT = -1593825680945881793
-# (2026-10-21, decompile check) the MonoScript PathIDs of Torappu.Battle.Effects.OnPlayEmitter and OnFinishEmitter
+# (2026-10-21, official client) the MonoScript PathIDs of Torappu.Battle.Effects.OnPlayEmitter and OnFinishEmitter
 # (on_emitters, node `onPlay` / `onFinish`)
 ON_PLAY_EMITTER_SCRIPT = -5498265793651067281
 ON_FINISH_EMITTER_SCRIPT = 2565987927806955259
-# (2026-10-21, decompile check) the MonoScript PathIDs of the client's effect behaviours that pause or finish their effect
+# (2026-10-21, official client) the MonoScript PathIDs of the client's effect behaviours that pause or finish their effect
 # (pause_scripts, node `pauseIf` / `pauseOther` / `pauseAnim` / `pauseIdle` / `pauseSpine` / `finishIf`) and of EmptyEffect
 # (an Effect root without particles: delay_to_finish); the same ids in the CN client
 PAUSE_IF_SCRIPT = -5974768320951421776
@@ -105,18 +105,18 @@ PAUSE_IDLE_SCRIPT = 2267209715737721819
 PAUSE_SPINE_SCRIPT = -654372255496816943
 FINISH_IF_SCRIPT = -6490124024613466648
 EMPTY_EFFECT_SCRIPT = -488665936260092151
-# (2026-10-21, decompile check) the MonoScript PathID of Torappu.Battle.Effects.FunnelHitEffect (funnel_hit, `jitter`)
+# (2026-10-21, official client) the MonoScript PathID of Torappu.Battle.Effects.FunnelHitEffect (funnel_hit, `jitter`)
 FUNNEL_HIT_SCRIPT = 8922258000712749090
-# (2026-10-22, decompile check) the MonoScript PathID of Torappu.Battle.Effects.FollowDirection (follow_direction, `follow`)
+# (2026-10-22, official client) the MonoScript PathID of Torappu.Battle.Effects.FollowDirection (follow_direction, `follow`)
 FOLLOW_DIRECTION_SCRIPT = -337322108846137150
-# (2026-10-22, decompile check) the MonoScript PathIDs of Torappu.Battle.Effects.SwitchableEffectByFaceDirection
+# (2026-10-22, official client) the MonoScript PathIDs of Torappu.Battle.Effects.SwitchableEffectByFaceDirection
 # (switch_face, `swFace`), SwitchableThreeFaceEffect (three_face, `three`), RandomDirection (random_direction, `rdir`) and
 # FollowTileHeight (tile_height, `tileH`)
 SWITCH_FACE_SCRIPT = -4364771506185570144
 THREE_FACE_SCRIPT = 5365557655193992920
 RANDOM_DIRECTION_SCRIPT = 1115230818793786687
 FOLLOW_TILE_HEIGHT_SCRIPT = 2994498389723426252
-# (2026-10-22, decompile check) the MonoScript PathIDs of the scripts that drive an Animator at the effect's finish / play
+# (2026-10-22, official client) the MonoScript PathIDs of the scripts that drive an Animator at the effect's finish / play
 # (anim_scripts, `animFin` / `animSrc`), and of EmitterRandomGroup (random_group, `rgroup`) and SwitchableWhenContainsEquipment
 # (equip_effects, `equipFx`)
 TRIGGER_WHEN_FINISH_SCRIPT = 4957269727245382446
@@ -134,7 +134,7 @@ EQUIP_SWITCH_SCRIPT = 1228563541688412297
 PARAM_TYPES = {1: 'float', 3: 'int', 4: 'bool', 9: 'trigger'}
 PARAM_VALUES = {1: 'm_FloatValues', 3: 'm_IntValues', 4: 'm_BoolValues', 9: 'm_BoolValues'}
 COND_MODES = {1: 'if', 2: 'ifnot', 3: 'gt', 4: 'lt', 6: 'eq', 7: 'ne'}
-# Torappu.Battle.AbnormalFlag by value (10-14 EN dump; E_NUM = 44 means "no flag"). A value past the list (the CN client's
+# Torappu.Battle.AbnormalFlag by value (the 2026-10-14 EN client; E_NUM = 44 means "no flag"). A value past the list (the CN client's
 # newer flags) stays a number.
 ABNORMAL_FLAGS = ('STUNNED', 'SP_RECOVER_STOPPED', 'TARGET_FREE', 'BLOCK_FREE', 'HIDDEN', 'INVINCIBLE', 'UNDEADABLE', 'HEAL_FREE',
                   'UNBALANCE_IMMUNE', 'INVISIBLE', 'UNUSED_PLACEHOLDER_1', 'DISARMED', 'SILENCED', 'UNMOVABLE',
@@ -742,8 +742,11 @@ class Extractor:
         self.wraps = {}      # 2026-10-22: texture file name -> (wrap u, wrap v) of each texture met (merge_wraps)
         self.meshes = {}
         self.builtin = None  # the client's unity default resources, loaded on first use (mesh_ref)
-        # 2026-10-16: what the run meets and the pipeline leaves out (fx_coverage.py; the dump names unknown scripts)
-        self.cov = Coverage(dump=ROOT / '.cache' / 'il2cpp' / 'dump.cs')
+        # 2026-10-16: what the run meets and the pipeline leaves out (fx_coverage.py). .cache/class-fields.json, a class →
+        # field-name table of the client's scripts kept outside the repository, names the unknown scripts; without it
+        # they are listed by PathID
+        cf = ROOT / '.cache' / 'class-fields.json'
+        self.cov = Coverage(class_fields=cf if cf.exists() else None)
         self.shader_props = {}   # shader path id -> [(name, type, defaults)] (Coverage.material)
         self.keep = None         # 2026-10-20: a dict to collect each walked prefab's JSON in ('bundle/name' -> data; fx_golden.py)
         self.dry = False         # --coverage: no texture / mesh file written
@@ -1227,11 +1230,11 @@ class Extractor:
                 self.cov.reader(name, not off, f"raw fallback ≠ type tree: {', '.join(off)}" if off else None)
 
     def line_dynamic(self, root):
-        """2026-10-10, decompile check — client `LineEffectEmitterDynamic` (`Update` RVA 0xCA0600 → `_UpdateMountPoint`
-        0xCA26C0, `_TryUpdateEffects` 0xCA1830): every frame each LineRenderer of the effect gets position 0 = its start
+        """2026-10-10, official client — `LineEffectEmitterDynamic` (`Update` → `_UpdateMountPoint`,
+        `_TryUpdateEffects`): every frame each LineRenderer of the effect gets position 0 = its start
         owner's `_startMountPointType` point + `_startPosOffset` and position 1 = its end owner's `_endMountPointType` point +
         `_endPosOffset` (`_tweenEndPosition`: lerped from the start over `_tweenDuration`), and `_startEffect` / `_endEffect`
-        follow those two ends; the owners come from the node that made it (`Nodes.CreateLineEffect.Execute` 0xB91190: start =
+        follow those two ends; the owners come from the node that made it (`Nodes.CreateLineEffect.Execute`: start =
         its source, end = its target). Read by the root component's type tree: { sMount, eMount, start?, end?, mid?, sOff?,
         eOff?, tween?, finishBuff? } (Entity.MountPointType numbers), None without one."""
         try:
@@ -1287,7 +1290,7 @@ class Extractor:
         return None
 
     def switch_back(self, root):
-        """2026-10-10, decompile check — client `SwitchableBackEffect._UpdateFace`: the root's
+        """2026-10-10, official client — `SwitchableBackEffect._UpdateFace`: the root's
         SwitchableBackEffect — while the owner faces back (its back model) the client pauses this effect and plays
         `_backEffect` instead, and the other way round when it turns to the front (render/fxgame.js backSwap). Read by its
         type tree (the bundle carries it): { effect: _backEffect ('common_empty' = nothing while back), predict:
@@ -1324,8 +1327,8 @@ class Extractor:
         return None
 
     def fly_location(self, root):
-        """(2026-10-21, decompile check) the client's FlyToPredefinedLocation on the root: { loc, dur, ease, real } — `OnPlay`
-        (RVA 0xE7FBC0) moves the effect from where it was made to the HUD place `_location` (PredefinedLocation: 0 COST = the
+        """(2026-10-21, official client) the client's FlyToPredefinedLocation on the root: { loc, dur, ease, real } — `OnPlay`
+ moves the effect from where it was made to the HUD place `_location` (PredefinedLocation: 0 COST = the
         DP counter, 1 CARD, 4 MAX_COST, 8 AUTOCHESS_BOUND_BAR …; BattleController.GetPredefinedLocationPosition: the UI
         element's screen point taken down to the map height) in `_duration` s with DOTween ease `_easeType`, unscaled time
         when `_isIndependentUpdate`, then finishes it (FinishMe); `_inversStartEnd` (fly the other way) is kept as `inv`
@@ -1343,10 +1346,10 @@ class Extractor:
         return None
 
     def funnel_hit(self, root):
-        """(2026-10-21, decompile check) the client's FunnelHitEffect on the root: its `_randomRange` [x, y, z] — `OnPlay` (10-14
-        EN dump RVA 0xE83830) turns the effect to `RandomUtil.RandomDirectionV2()` (a random unit vector of the map plane, x / y
-        each `Random.value` × 2 − 1, normalised: 0x5A81160) through `Effect.Behaviour.FaceTo`, then moves the effect's transform
-        by `RandomUtil.RandomVector3(_randomRange)` (`Random.Range(−r, r)` per axis: 0x5A814D0) in world space — a drone hit at a
+        """(2026-10-21, official client) the client's FunnelHitEffect on the root: its `_randomRange` [x, y, z] — `OnPlay` (the
+        2026-10-14 EN client) turns the effect to `RandomUtil.RandomDirectionV2()` (a random unit vector of the map plane, x / y
+        each `Random.value` × 2 − 1, normalised) through `Effect.Behaviour.FaceTo`, then moves the effect's transform
+        by `RandomUtil.RandomVector3(_randomRange)` (`Random.Range(−r, r)` per axis) in world space — a drone hit at a
         random point around its target (耶拉 S2 kjera_token_skill_02_hit_*; 流明 S2 lumen_skill_02_hit has a zero range — only
         the random facing). By its field names; None without one."""
         for sid, _raw, t in self.monos(root):
@@ -1359,9 +1362,9 @@ class Extractor:
         return None
 
     def follow_direction(self, root):
-        """(2026-10-22, decompile check) the client's FollowDirection on the root (every one of the pool's is there): which
-        direction `_FollowDirection` (10-14 EN dump RVA 0xE81360) turns the effect to through `Effect.Behaviour.FaceTo` —
-        when it plays (`OnPlay` 0xE81060, over the direction it was played with) and every frame after (`Update` 0xE812F0)
+        """(2026-10-22, official client) the client's FollowDirection on the root (every one of the pool's is there): which
+        direction `_FollowDirection` (the 2026-10-14 EN client) turns the effect to through `Effect.Behaviour.FaceTo` —
+        when it plays (`OnPlay`, over the direction it was played with) and every frame after (`Update`)
         unless `_onlyFollowOnPlay` — from its owner (`Behaviour.owner`), the first set of:
             `_useFourDir`                   'four'  the owner's `faceTo` (Entity.m_faceTo: an attack turns it to its target)
             `_useOwnerDirection`            'owner' SharedConsts.FOUR_WAYS[the owner's `direction`] (its deploy direction)
@@ -1406,11 +1409,11 @@ class Extractor:
         return None
 
     def switch_face(self, root):
-        """(2026-10-22, decompile check) the client's SwitchableEffectByFaceDirection on the root: { up?, down?, left?, oneShot?,
-        beh? } — `_UpdateFace` (10-14 EN dump RVA 0xE9C2E0, from `OnPlay` 0xE9C030 only) reads its owner's `faceDirection`
+        """(2026-10-22, official client) the client's SwitchableEffectByFaceDirection on the root: { up?, down?, left?, oneShot?,
+        beh? } — `_UpdateFace` (the 2026-10-14 EN client, from `OnPlay` only) reads its owner's `faceDirection`
         (MapUtil.ParseDirection of `faceTo`) as it plays: DOWN with `_downEffect`, UP with `_upEffect`, LEFT with `_leftEffect`
         pauses this effect and creates that one on the owner, played with its faceVector; `_oneShot` then finishes this one
-        (the copy lives on by itself), else `OnFinish` (0xE9BE70) finishes the copy with it; `_useBehaviourPause` pauses per
+        (the copy lives on by itself), else `OnFinish` finishes the copy with it; `_useBehaviourPause` pauses per
         behaviour. 新约能天使's attack / skill starts (`_down` copies only). By its field names; None without a copy."""
         t = self.root_script(root, SWITCH_FACE_SCRIPT, 'SwitchableEffectByFaceDirection', '_downEffect')
         if t is None:
@@ -1425,9 +1428,9 @@ class Extractor:
         return out
 
     def three_face(self, root):
-        """(2026-10-22, decompile check) the client's SwitchableThreeFaceEffect on the root: { up?, down?, check?, start? } —
-        `OnPlay` (0xEB33C0) creates both copies on the owner paused when `_createEffectOnStart` (`_CreateEffectOnStart`
-        0xEB34C0), then `_UpdateFace` (0xEB3800, again every frame from `Update` 0xEB3440 until it finishes) shows the up
+        """(2026-10-22, official client) the client's SwitchableThreeFaceEffect on the root: { up?, down?, check?, start? } —
+        `OnPlay` creates both copies on the owner paused when `_createEffectOnStart` (`_CreateEffectOnStart`),
+        then `_UpdateFace` (again every frame from `Update` until it finishes) shows the up
         copy while the owner's `faceToBack` (its Back model), the down copy while its `faceToDown` (a ThreeFaceAnimator's
         `_down` face: CharacterAnimator.activeFace), else this one — the others paused; `_forceCheckInUpdate` re-applies
         it every frame even when nothing changed. 维什戴尔 S3 wisdel_skill_03_start. By its field names."""
@@ -1444,9 +1447,9 @@ class Extractor:
         return out
 
     def random_direction(self, root):
-        """(2026-10-22, decompile check) the client's RandomDirection on the root: [from x, y, z, to x, y, z] — `OnPlay`
-        (0xE95760), when its owner is valid, turns the effect through `Effect.Behaviour.FaceTo` to
-        `RandomUtil.RandomVector3(_randomRotationFrom, _randomRotationTo)` (0x5A81410: `Random.Range(from, to)` per axis — not
+        """(2026-10-22, official client) the client's RandomDirection on the root: [from x, y, z, to x, y, z] — `OnPlay`,
+        when its owner is valid, turns the effect through `Effect.Behaviour.FaceTo` to
+        `RandomUtil.RandomVector3(_randomRotationFrom, _randomRotationTo)` (`Random.Range(from, to)` per axis — not
         normalised). 锏 S2 blkkgt_skill_02_hit_2 (−1, −1, 0 → 1, 1, 0). By its field names."""
         t = self.root_script(root, RANDOM_DIRECTION_SCRIPT, 'RandomDirection', '_randomRotationFrom')
         if t is None:
@@ -1455,8 +1458,8 @@ class Extractor:
         return v3(t.get('_randomRotationFrom')) + v3(t.get('_randomRotationTo'))
 
     def tile_height(self, root):
-        """(2026-10-22, decompile check) the client's FollowTileHeight on the root: its `_followTileHeightSpeed` — `_UpdateHeight`
-        (0xE834B0; from `OnPlay` 0xE833B0 at once, from `Update` 0xE83450 every frame after) moves the effect's world height
+        """(2026-10-22, official client) the client's FollowTileHeight on the root: its `_followTileHeightSpeed` — `_UpdateHeight`
+        (from `OnPlay` at once, from `Update` every frame after) moves the effect's world height
         toward the height of the tile under it (MapUtil.GetTileHightByMapPosition of its own position), by at most speed ×
         deltaTime a frame (at once as it plays). 伊内丝's sentry, 圣聆初雪's snow, 凛御银灰 S3's range. None without."""
         t = self.root_script(root, FOLLOW_TILE_HEIGHT_SCRIPT, 'FollowTileHeight', '_followTileHeightSpeed')
@@ -1465,8 +1468,8 @@ class Extractor:
         return r4(t.get('_followTileHeightSpeed') or 0)
 
     def random_emitter(self, go):
-        """(2026-10-21, decompile check) the client's RandomEmitter on this GameObject: { effect, count, pre, per, from, to } —
-        `_DoEmit` (RVA 0xE9EDF0) waits `_preDelay` s, then plays `_count` copies of the prefab `_effect`, each at a random
+        """(2026-10-21, official client) the client's RandomEmitter on this GameObject: { effect, count, pre, per, from, to } —
+        `_DoEmit` waits `_preDelay` s, then plays `_count` copies of the prefab `_effect`, each at a random
         point of the box `_randomRangeFrom`–`_randomRangeTo` in this GameObject's space (TransformPoint), `_delayPerEffect`
         s apart (common_charge_cost_start_01 → 3 × common_charge_cost_01). By its field names only; None without one."""
         for sid, _raw, t in self.monos(go):
@@ -1484,13 +1487,13 @@ class Extractor:
         return None
 
     def on_emitters(self, go):
-        """(2026-10-21, decompile check) the client's OnPlayEmitter / OnFinishEmitter on this GameObject, by their field
+        """(2026-10-21, official client) the client's OnPlayEmitter / OnFinishEmitter on this GameObject, by their field
         names: { onPlay: { effects, pre, face, clear, srcPos }, onFinish: { effects, face, effPos } } (either may be missing).
-        OnPlayEmitter `_OnPlayInternal` (RVA 0xE90F50): `_instant` → `_DoEmit` now, else (the GameObject active) after
-        `_preDelay` s (`<_DoEmitWithPreDelay>d__16` 0xE9F160) — `pre` is 0 when instant; `_DoEmit` (0xE90B10) creates each
+        OnPlayEmitter `_OnPlayInternal`: `_instant` → `_DoEmit` now, else (the GameObject active) after
+        `_preDelay` s (`<_DoEmitWithPreDelay>d__16`) — `pre` is 0 when instant; `_DoEmit` creates each
         of `_effects` through BattleController.CreateEffect: `_useSourceEffectPos` at this transform's position, else with no
         owner on this transform's parent, else on the owner (with its faceVector when `_useFaceVector`); `_clearWhenFinish`
-        keeps them and OnFinish (0xE90810) finishes them. OnFinishEmitter `OnFinish` (0xE8FA40) creates `_effects` on the
+        keeps them and OnFinish finishes them. OnFinishEmitter `OnFinish` creates `_effects` on the
         owner (faceVector when `_useFaceVector`), or at the effect's map position when `_useEffectPosition`, or with no
         owner on this transform's parent."""
         out = {}
@@ -1514,38 +1517,38 @@ class Extractor:
         return out
 
     def pause_scripts(self, go):
-        """(2026-10-21, decompile check) the client's effect behaviours on this GameObject that pause or finish the whole effect
+        """(2026-10-21, official client) the client's effect behaviours on this GameObject that pause or finish the whole effect
         they belong to, by their field names (none of them has a raw fallback: without a type tree nothing is read). A pause
-        (`Effect.Behaviour.set_isPaused` → `Effect.set_isPaused` RVA 0xE7DBC0 → `ParticleEffect.OnPausedUpdated` 0xEACFD0)
+        (`Effect.Behaviour.set_isPaused` → `Effect.set_isPaused` → `ParticleEffect.OnPausedUpdated`)
         switches the effect's particle system GameObject off and pauses it; the unpause switches it on and plays on.
-        - `pauseIf` (PauseEffectIf; `GetCheckResult` 0xE93330 each frame from `Update` 0xE93DE0, and at play with `_checkOnPlay`
-          — `OnPlay` 0xE93D70; `_CheckPause` 0xE940E0 sets the pause only when some term was checked): { when: [term …],
-          all (`_requireAllConditions`: the terms are AND-ed, else OR-ed — `_CombinePauseFlag` 0xE942C0), onPlay, meshOff
+        - `pauseIf` (PauseEffectIf; `GetCheckResult` each frame from `Update`, and at play with `_checkOnPlay`
+          — `OnPlay`; `_CheckPause` sets the pause only when some term was checked): { when: [term …],
+          all (`_requireAllConditions`: the terms are AND-ed, else OR-ed — `_CombinePauseFlag`), onPlay, meshOff
           (`_disableMeshRendererWhenPause`: the MeshRenderers of the effect off while paused) }. The terms, of the effect's
           owner, in the client's order: { flag } its abnormal flag (`_checkAbnormalFlag`: `_pauseWhenAbnormalFlag` and each
           of `_pauseWhenAbnormalFlags`); { immune } immune to that flag (`_checkAbnormalImmune`); { combo, not } the
-          abnormal combo (SLEEPING / SHELTERING; `_checkAbnormalCombo` CHECK_YES / CHECK_NO — `_CheckPauseIfFlag` 0xE94030);
+          abnormal combo (SLEEPING / SHELTERING; `_checkAbnormalCombo` CHECK_YES / CHECK_NO — `_CheckPauseIfFlag`);
           { mode: [index], not } its unit mode index in the list; { gone } disappeared (`_checkDisappear`); { buff: [key],
           not } holds the buff (`_pauseWhenContainBuffKey`, or any of `_pauseWhenContainBuffKeyList`); { flag, not: 1 }
           lacks the flag (`_checkNotInAbnormalFlag`); { back, not } faces back; { right, not } faces right; { state, not }
           its state id; { bb: [key], not } any of these shared-blackboard bools. Flags by name (ABNORMAL_FLAGS), E_NUM: none.
-        - `pauseOther` (PauseAnotherEffect, a list — one per component): [{ effect, pre, update }] — at play (`OnPlay` 0xE911B0; after `_preDelay` s:
-          `Update` 0xE91270) the owner's buff effect named `effect` (`Entity.GetBuffEffect`) is paused by this one
-          (`_OnPause` 0xE91370: `Effect.SetPausedByOthers`) until this one finishes (`OnFinish` 0xE91140 → `_OnUnpause`);
+        - `pauseOther` (PauseAnotherEffect, a list — one per component): [{ effect, pre, update }] — at play (`OnPlay`; after `_preDelay` s:
+          `Update`) the owner's buff effect named `effect` (`Entity.GetBuffEffect`) is paused by this one
+          (`_OnPause`: `Effect.SetPausedByOthers`) until this one finishes (`OnFinish` → `_OnUnpause`);
           with `_checkUpdate` each frame again (a later one too), and given back while this one is paused itself.
-        - `pauseAnim` (PauseEffectWithAnimation; `_CheckPause` 0xE94A70 each frame): the owner's current animation pauses
+        - `pauseAnim` (PauseEffectWithAnimation; `_CheckPause` each frame): the owner's current animation pauses
           it when `valid` (`_validAnimation`) is given and lacks it, or `invalid` (`_invalidAnimation`) holds it — after
-          `pre` (`_delayToPause` > 0) s ÷ the playback speed (`_DoPause` 0xE94CE0), and `finish` (`_finishIfPause`) finishes
+          `pre` (`_delayToPause` > 0) s ÷ the playback speed (`_DoPause`), and `finish` (`_finishIfPause`) finishes
           the effect then; otherwise `restore` (`_noPauseWhenValid`) unpauses it (after `_delayToRestore` > 0 s: `back`).
-        - `pauseIdle` (PauseEffectIfNotIdle; `Update` 0xE91DA0): paused while the owner is not in its idle state
+        - `pauseIdle` (PauseEffectIfNotIdle; `Update`): paused while the owner is not in its idle state
           (`Character.isInIdletState`), and with `_needCheckFaceSwitch` while it faces back (`back`) / front (`front`).
-        - `pauseSpine` (PauseEffectIfSpineEvent): { start, invert, anims } — paused at play with `_pauseAtStart` (`OnPlay`
-          0xE92C20); the owner's Spine events OnDeactivateEffect / OnActivateEffect (`Entity.Event` 38 / 37 → `_OnPauseEffect`
-          0xE93110 / `_OnPlayEffect` 0xE93190) pause / unpause it (`_invertSpineEventMapping` swaps them), and while its
-          current animation is none of `anims` (`onlyCheckedAnimations`) it is unpaused (`Update` 0xE92FA0).
-        - `finishIf` (FinishEffectIf; `Update` 0xE7F2E0): { ownerGone, notDummy, animEnd } — finishes the effect when its
+        - `pauseSpine` (PauseEffectIfSpineEvent): { start, invert, anims } — paused at play with `_pauseAtStart` (`OnPlay`);
+          the owner's Spine events OnDeactivateEffect / OnActivateEffect (`Entity.Event` 38 / 37 → `_OnPauseEffect`
+          / `_OnPlayEffect`) pause / unpause it (`_invertSpineEventMapping` swaps them), and while its
+          current animation is none of `anims` (`onlyCheckedAnimations`) it is unpaused (`Update`).
+        - `finishIf` (FinishEffectIf; `Update`): { ownerGone, notDummy, animEnd } — finishes the effect when its
           owner is gone (`_finishIfOwnerInvalid`), when its owner is not a dummy (`_finishIfNotDummy`), or when this
-          GameObject's Animator (`Awake` 0xE7F250) has played its current state's clip once (not a loop, normalized time ≥ 1:
+          GameObject's Animator (`Awake`) has played its current state's clip once (not a loop, normalized time ≥ 1:
           `_finishIfCurrentAnimFinish`)."""
         out = {}
         for sid, _raw, t in self.monos(go):
@@ -1652,8 +1655,8 @@ class Extractor:
         (`_subFXDelayConfigs`), fxDelay }. (2026-10-20) Read by its field names (root_effect_tree) when its type tree reads —
         the EN client's has, since the 2026-10-16 extraction; the raw words (root_effect_raw) are the fallback for a
         component whose type tree does not read, and check_readers says when it was used. FxDelay (`Torappu.Fx.FxDelay`, one
-        float `_delayTime`: the GameObject starts `_delayTime` ÷ the playback speed later — `FxDelay.OnEnable`, RVA
-        0x34C1650) by its MonoScript (FXDELAY_SCRIPT)."""
+        float `_delayTime`: the GameObject starts `_delayTime` ÷ the playback speed later — `FxDelay.OnEnable`)
+        by its MonoScript (FXDELAY_SCRIPT)."""
         pe, delay = None, None
         for sid, raw, t in self.monos(root):
             if sid == FXDELAY_SCRIPT:
@@ -1682,10 +1685,10 @@ class Extractor:
     def root_effect_raw(raw):
         """root_effect's raw fallback (the ParticleEffect's script type tree was not in the bundles until the 2026-10-14 client
         update). After the MonoBehaviour header and name: ints #0–#2, #3 = the length n of `_subFXDelayConfigs` (4 ints an
-        entry), then from s = 4 + 4n the fields in the order of the client's dump — s `_delayToPlay`, s+1 `_delayToFinish`,
+        entry), then from s = 4 + 4n the fields in the order the client declares them — s `_delayToPlay`, s+1 `_delayToFinish`,
         s+2 `_maxLifetime`, s+3 `_randomPlayDelay`, s+4 `_autoReuse`, s+5 `_usePlaybackSpeed`, s+6 `_limitedPlaybackSpeed`,
         s+8 `_rotateType`, s+9 `_spawnLocation`, s+10 `_leftIsDefault`, s+11 `_useBodyRotation`, s+12 `_mainDir`, s+13
-        `_holdByOwner`, s+14 `_overwriteHeight`, s+15 `_heightOffset`. (2026-10-11, decompile check round 2: the component
+        `_holdByOwner`, s+14 `_overwriteHeight`, s+15 `_heightOffset`. (2026-10-11, official client: the component
         used to be recognised by `_limitedPlaybackSpeed` == 2.0 — 51 bound prefabs with another limit (−1, 4, 0: 텍사스 디
         오메르토사 S2 texas2_skill_02_start) lost their `spawn`, and a non-empty `_subFXDelayConfigs` shifted every field.)
         Recognised by its shape: n ≤ 64, `_maxLifetime` −1 or in (0, 100), the bools 0 / 1, `_rotateType` ≤ 8,
@@ -1724,10 +1727,10 @@ class Extractor:
                 'subs': [(i(4 + 4 * k), struct.unpack_from('<q', b, 4 * (5 + 4 * k))[0], f(7 + 4 * k)) for k in range(subs)]}
 
     def fx_delay(self, go):
-        """(2026-10-11, maintainer decision 16) the `_delayTime` of a FxDelay component on this GameObject (MonoScript
-        FXDELAY_SCRIPT; `FxDelay.OnEnable` RVA 0x34C1650 hides the GameObject and shows it `_delayTime` ÷ its playback speed
-        later — a child's own FxDelay keeps the default speed 1.0 [추정: only the root's is set by `Effect.UpdatePlaybackSpeed`
-        0xC8AE50]), rounded; None without one or ≤ 0. 텍사스 디 오메르토사 S2 texas2_birth_02_start: its four slashes 0 / 0.1 / 0.15 / 0.3.
+        """(maintainer decision 2026-10-11) the `_delayTime` of a FxDelay component on this GameObject (MonoScript
+        FXDELAY_SCRIPT; `FxDelay.OnEnable` hides the GameObject and shows it `_delayTime` ÷ its playback speed
+        later — a child's own FxDelay keeps the default speed 1.0 [추정: only the root's is set by `Effect.UpdatePlaybackSpeed`]),
+        rounded; None without one or ≤ 0. 텍사스 디 오메르토사 S2 texas2_birth_02_start: its four slashes 0 / 0.1 / 0.15 / 0.3.
         (2026-10-20) By its field name, the raw word without a type tree."""
         for sid, raw, t in self.monos(go):
             if sid != FXDELAY_SCRIPT:
@@ -1754,7 +1757,7 @@ class Extractor:
     def sub_delays(self, root, gos):
         """(2026-10-11) the root effect's `_subFXDelayConfigs` as { node index: delayTime } (`gos`: GameObject / Transform
         PathID → node index): `Effect._DelayToActiveGameObject` hides that GameObject and shows it `delayTime` ÷ the playback
-        speed later (`Effect.UpdatePlaybackSpeed` RVA 0xC8AE50 sets `delayRuntime`). 티티 S3 titi_skill_03_hit_02, 왕 wang_birth_01 / _02."""
+        speed later (`Effect.UpdatePlaybackSpeed` sets `delayRuntime`). 티티 S3 titi_skill_03_hit_02, 왕 wang_birth_01 / _02."""
         pe = self.root_effect(root)
         out = {}
         for _fid, pid, t in (pe or {}).get('subs') or []:
@@ -1829,8 +1832,8 @@ class Extractor:
         return found, changed
 
     def uv_tween(self, go):
-        """2026-10-14, decompile check — the GameObject's Torappu.Fx.FxUVTweener / FxUVTweenerAdvance (`Update` RVA
-        0x34C5F90 / 0x34C5780): every frame its renderer's material moves the offset of `_MainTex` (xspeed, yspeed), of
+        """2026-10-14, official client — the GameObject's Torappu.Fx.FxUVTweener / FxUVTweenerAdvance (`Update`):
+        every frame its renderer's material moves the offset of `_MainTex` (xspeed, yspeed), of
         `secondMapName` (secondXSpeed, secondYSpeed; `useSecondMap`) and, for Advance, of each enabled `extraMapSettings`
         texture (XSpeed, YSpeed) by 2 × speed × dt (SPEED_SCALE 2; a texture with both speeds 0 is not touched); `OnEnable`
         starts the offsets from the material's own with `keepInitOffset`, else from 0; an Advance without `tweenRepeat` stops
@@ -1851,9 +1854,9 @@ class Extractor:
                 continue
             if 'xspeed' not in t or 'secondMapName' not in t:
                 continue
-            # (2026-10-22, decompile check) the offset each frame keeps only its fraction (x − floorf(x)): FxUVTweener's
-            # `_MainTex` with `protectMainUV`, its second map with `protectSecondUV` (`Update` RVA 0x38DB890), every map of
-            # an Advance with `tweenRepeat` (0x38DB0A0) — the same on a repeating texture, not on a Clamp one (tex/wrap.json):
+            # (2026-10-22, official client) the offset each frame keeps only its fraction (x − floorf(x)): FxUVTweener's
+            # `_MainTex` with `protectMainUV`, its second map with `protectSecondUV` (`Update`), every map of
+            # an Advance with `tweenRepeat` — the same on a repeating texture, not on a Clamp one (tex/wrap.json):
             # the map's 4th field 1
             adv = 'tweenRepeat' in t
             rep = 1 if adv and t.get('tweenRepeat') else 0
@@ -1875,9 +1878,9 @@ class Extractor:
         return None
 
     def uv_rotation(self, go):
-        """(2026-10-14, decompile check) the GameObject's Torappu.Fx.FxUVRotation: `_Initialize` (RVA 0x34C4C70) enables the
+        """(2026-10-14, official client) the GameObject's Torappu.Fx.FxUVRotation: `_Initialize` enables the
         material keyword _HG_UV_ROTATION and sets `<_propertyName>0..3` to the identity (1, 0, 0, 1) (the class's static,
-        `.cctor` 0x34C4EE0); `Update` (0x34C4870) sets each enabled one (`_rotateTex1..4`) to `_CalculateMatrix` (0x34C4B80)
+        `.cctor`); `Update` sets each enabled one (`_rotateTex1..4`) to `_CalculateMatrix`
         of its angle (`angle1`, `_angle2..4`, degrees × 0.0174533): (f₂, −f₁, f₁, f₂) of two unnamed CRT calls — (cos, −sin, sin,
         cos) [ASSUMED: identity at angle 0]. → `uvr` [4 angles, degrees; 0 for a disabled one], None without one or with all
         disabled. Every component (154 in 62 prefabs) names `_Rotation`. Drawn by render/fxplayer.js (uRot0..3)."""
@@ -2189,7 +2192,7 @@ class Extractor:
         return pe['spawn'] if pe else None
 
     def overwrite_height(self, root):
-        """(2026-10-10, decompile check — client `Effect._InitLocationFromEntity`, RVA 0xC8B0xx: with
+        """(2026-10-10, official client — `Effect._InitLocationFromEntity`: with
         `_overwriteHeight` the effect's height becomes the entity's height + `_heightOffset`): the root effect component's
         `_overwriteHeight` / `_heightOffset` (root_effect). The offset when it is on (쏜즈 더 로드스타 S1
         thorn2_skill_01_range: 0.0), else None."""
@@ -2198,15 +2201,15 @@ class Extractor:
 
     @staticmethod
     def root_face(pe):
-        """(2026-10-11, decompile check round 2) the root effect's playback fields: `ParticleEffect.FaceTo` (RVA 0xCB1DC0) turns by
+        """(2026-10-11, official client) the root effect's playback fields: `ParticleEffect.FaceTo` turns by
         `_rotateType` (0 NONE: never mirrored, 1 FLIP_TWO_SIDE: 'rotation_y' / 'rotation_z' 180° when facing left — right with
-        `_leftIsDefault`, 2 FOUR_DIRECTION from `_mainDir`, 3 FIXED_DIRECTION, 4 ANY_DIR); `Effect.Play` (0xC8A5D0) turns it to
+        `_leftIsDefault`, 2 FOUR_DIRECTION from `_mainDir`, 3 FIXED_DIRECTION, 4 ANY_DIR); `Effect.Play` turns it to
         its entity's own four-way direction instead of the given one with `_useBodyRotation` (`body`); `Effect._PlayInternal`
-        (0xC8C4F0) uses the playback speed only with `_usePlaybackSpeed`, caps it at `_limitedPlaybackSpeed` ÷ the time scale
+        uses the playback speed only with `_usePlaybackSpeed`, caps it at `_limitedPlaybackSpeed` ÷ the time scale
         (≥ 0) and waits `_delayToPlay` (random up to it with `_randomPlayDelay`); FxDelay starts the whole effect `_delayTime` ÷
         the speed later. Drawn by render/fxplayer.js FxInstance (maintainer decisions 2026-10-11, docs/rules/fx.md 「좌우 거울·재생
-        속도·루트 지연」). (2026-10-22, decompile check) `_holdByOwner` (`hold`): `Effect._InitLocationFromEntity` (10-14 EN dump
-        RVA 0xE7AF80) ends with `Entity.HoldEffect` (0x3A1CB90), which parents the effect to its entity's `effectTransform`
+        속도·루트 지연」). (2026-10-22, official client) `_holdByOwner` (`hold`): `Effect._InitLocationFromEntity` (the 2026-10-14 EN
+        client) ends with `Entity.HoldEffect`, which parents the effect to its entity's `effectTransform`
         (Unit `_effectTransform`: the `Effects` child of the unit's root, not of its model) keeping its place — it moves with
         the unit from where it was created; without it the effect stays there. { rot, left?, body?, dir?, hold?, speed? (0 =
         ignores the playback speed), limit? (≠ 2), delay?, rnd?, fxDelay? } or None."""
@@ -2278,12 +2281,12 @@ class Extractor:
         return found, changed
 
     def delay_to_finish(self, root):
-        """(2026-10-11, decompile check — client `Effect.FinishMe` RVA 0xC88FE0: an effect being finished (a buff ending,
-        `Entity.RemoveBuffEffect` RVA 0x36001C0) stops its parts and is recycled `delayToRecycle` s later, which a
-        ParticleEffect returns as its `_delayToFinish` — `ParticleEffect.get_delayToRecycle` RVA 0xCB3470): the root effect
+        """(2026-10-11, official client — `Effect.FinishMe`: an effect being finished (a buff ending,
+        `Entity.RemoveBuffEffect`) stops its parts and is recycled `delayToRecycle` s later, which a
+        ParticleEffect returns as its `_delayToFinish` — `ParticleEffect.get_delayToRecycle`): the root effect
         component's `_delayToFinish` (root_effect). buff_stun 0, buff_slowdown 0.5, buff_cold 0.06. None when the
         component is not found. (2026-10-11) A projectile's `_mainEffect` has a ProjectileEffect root instead
-        (projectile_effect): its `_delayToFinish` too — `ProjectileEffect.get_delayToRecycle` RVA 0xCB4E40."""
+        (projectile_effect): its `_delayToFinish` too — `ProjectileEffect.get_delayToRecycle`."""
         pe = self.root_effect(root)
         v = pe['delayToFinish'] if pe else None
         if pe is None:
@@ -2291,18 +2294,18 @@ class Extractor:
             v = pj['delayToFinish'] if pj else None
         if pe is None and v is None:
             # (2026-10-21) an EmptyEffect root (no particles of its own: lines, emitters, wrappers): its `_delayToFinish` too
-            # — `EmptyEffect.get_delayToRecycle` RVA 0xEA47C0
+            # — `EmptyEffect.get_delayToRecycle`
             for sid, _raw, t in self.monos(root):
                 if sid == EMPTY_EFFECT_SCRIPT and t is not None and t.get('_delayToFinish') is not None:
                     v = float(t['_delayToFinish'])
         return r4(v) if v is not None and math.isfinite(v) and 0 <= v <= 60 else None
 
     def projectile_effect(self, root):
-        """(2026-10-11, decompile check — the user report 「투사체가 늦게 사라짐」) the root's ProjectileEffect component
+        """(2026-10-11, official client — the maintainer report 「투사체가 늦게 사라짐」) the root's ProjectileEffect component
         (PROJECTILE_EFFECT_SCRIPT; `Torappu.Battle.Effects.ProjectileEffect`, the root of a projectile's `_mainEffect`) as
         { delayToFinish, off: [Transform PathID …] }, or None. The client finishes that effect when its projectile stops
-        (`Projectile.OnProjectileStop` RVA 0x5FC1A0 → `ClearMainEffectIfNot` 0x5F9550 → `Effect.FinishMe` 0xC88FE0):
-        `ProjectileEffect.OnFinish` (0xCB42B0) stops its first particle system with its children (`Awake` 0xCB3A00:
+        (`Projectile.OnProjectileStop` → `ClearMainEffectIfNot` → `Effect.FinishMe`):
+        `ProjectileEffect.OnFinish` stops its first particle system with its children (`Awake`:
         GetComponentInChildren<ParticleSystem>, `Stop(true)`) and switches off every `_inactiveOnFinish` Transform, and the
         pool takes the whole effect back `_delayToFinish` s later (at once when 0). (2026-10-20) Read by its field names
         (projectile_tree), the raw words (projectile_raw) without a type tree."""
@@ -2324,7 +2327,7 @@ class Extractor:
 
     @staticmethod
     def projectile_raw(raw):
-        """projectile_effect's raw fallback. The fields after the MonoBehaviour name (dump order): the Effect base
+        """projectile_effect's raw fallback. The fields after the MonoBehaviour name (serialized order): the Effect base
         `_bodyTransofrm` (PPtr, 3 words) and `_subFXDelayConfigs` (count n + 4 words each), then from s = 4 + 4n: s
         `_resetMainDir`, s+1 `_mainDir`, s+2 `_rotate180Y`, s+3 `_randomAngle`, s+4 `_delayToFinish`, s+5 `_allowAutoReuse`,
         s+6 `_preloadCnt`, s+7 `_flipIfLeft`, s+8 `_inactiveOnFinish` (count + 3 words each), then `_inactiveOnHit` (count +
@@ -2351,9 +2354,9 @@ class Extractor:
 
     def off_on_finish(self, root, gos):
         """(2026-10-11) the node indices of the ProjectileEffect's `_inactiveOnFinish` (projectile_effect; `gos`: GameObject /
-        Transform PathID → node index), sorted, or None: switched off the moment its projectile stops. (2026-10-21, decompile
-        check) A ParticleEffect root's own `_inactiveOnFinish` (0xF0) the same: `ParticleEffect.OnFinish` (10-14 EN dump RVA
-        0xEACD20) stops its first system and `SetActiveIfNecessary(false)` on each — by its field names only (the EN and CN
+        Transform PathID → node index), sorted, or None: switched off the moment its projectile stops. (2026-10-21, official
+        client) A ParticleEffect root's own `_inactiveOnFinish` the same: `ParticleEffect.OnFinish` (the 2026-10-14 EN
+        client) stops its first system and `SetActiveIfNecessary(false)` on each — by its field names only (the EN and CN
         clients' type trees read since 2026-10-16)."""
         pj = self.projectile_effect(root)
         ids = (pj or {}).get('off') or []
@@ -2366,14 +2369,14 @@ class Extractor:
         return off or None
 
     def main_ps(self, root, parents, actives, ps_nodes, drawn):
-        """(2026-10-21, decompile check) the node index of the particle system the client stops when it finishes this effect,
+        """(2026-10-21, official client) the node index of the particle system the client stops when it finishes this effect,
         when it is not the one render/fxplayer.js FxInstance.finishMain takes by itself (the first extracted system of an
         active node) — else None. `parents` / `actives`: the nodes' parent index and m_IsActive, `ps_nodes`: the nodes with a
         ParticleSystem component (also those the walk drops: no material, a disabled renderer), `drawn`: the extracted ones
         (a list, or False). The client takes it in Awake with GetComponentInChildren<ParticleSystem> (depth first = the walk
-        order): `ProjectileEffect.Awake` (10-14 EN dump RVA 0xEADE10) the overload without `includeInactive` (active nodes
-        only), `ParticleEffect.Awake` (0xEABEB0) with `includeInactive` true; both OnFinish (0xEAE6C0 / 0xEACD20) call
-        `ParticleSystem.Stop(true)` (0x5F1B440: with its children, emission only). So a system without a material can be the
+        order): `ProjectileEffect.Awake` (the 2026-10-14 EN client) the overload without `includeInactive` (active nodes
+        only), `ParticleEffect.Awake` with `includeInactive` true; both OnFinish call
+        `ParticleSystem.Stop(true)` (with its children, emission only). So a system without a material can be the
         one stopped (and nothing visible stops), or one under an inactive node (a ParticleEffect's)."""
         if not ps_nodes:
             return None
@@ -2528,8 +2531,8 @@ class Extractor:
 
     @staticmethod
     def mount_raw(raw):
-        """mount_point's raw fallback: after the header and the empty name, 7 ints in the field order of global-metadata's
-        field table (MOUNT_FIELDS, bools as ints). The CN client's (newer) component has 9 words: a float (1.0) and an int
+        """mount_point's raw fallback: after the header and the empty name, 7 ints in the client's field order
+        (MOUNT_FIELDS, bools as ints). The CN client's (newer) component has 9 words: a float (1.0) and an int
         (0) after `_followScale` (checked on the same prefabs of both clients — swire, texas2, horn, svash2, etlchi —, the
         four bools in the same order after them); without it a CN prefab read the float's bits as
         `_pauseWhenMountPointInvalid`. The EN client's 2026-10-14 update added `_pauseWhenFollowScaleNearlyZero` after
@@ -2683,27 +2686,27 @@ class Extractor:
         return clips_out
 
     def anim_scripts(self, root, nodes, sms):
-        """(2026-10-22, effect bundle J; decompile check, 10-14 EN dump) the root's scripts that drive one of the prefab's
+        """(2026-10-22, effect bundle J; the 2026-10-14 EN client) the root's scripts that drive one of the prefab's
         state machines (`sms`) — at the effect's finish (Effect.FinishMe → each behaviour's OnFinish) `animFin`: [{ sm, p, v,
         rec? }] sets parameter `p` to `v` (a trigger: true), or [{ sm, play }] plays state `play` at once (Animator.Play) — `rec`:
         only when the effect waits before it is recycled (`delayToRecycle` > 0, the root's `finish`):
-        - TriggerAnimatorWhenFinish (`OnFinish` 0xEB6980, `Awake` 0xEB68C0: GetComponent<Animator>): the trigger `_customKey`,
-          or 'OnFinish' (the static `s_finishTrigger`, `.cctor` 0xEB6B10), `rec`;
-        - OnFinishAnime (`Init` 0xE8F700: GetComponentInChildren<Animator> — the first under the root, active; `OnFinish`
-          0xE8F7F0): `_isTrigger` → SetTrigger(`_triggerName`), else `_isInt` → SetInteger(name, `_triggerValue` ? 1 : 0),
+        - TriggerAnimatorWhenFinish (`OnFinish`, `Awake`: GetComponent<Animator>): the trigger `_customKey`,
+          or 'OnFinish' (the static `s_finishTrigger`, `.cctor`), `rec`;
+        - OnFinishAnime (`Init`: GetComponentInChildren<Animator> — the first under the root, active; `OnFinish`):
+          `_isTrigger` → SetTrigger(`_triggerName`), else `_isInt` → SetInteger(name, `_triggerValue` ? 1 : 0),
           else SetBool(name, `_triggerValue`);
-        - SwitchAnimatorStateWhenFinish (`OnFinish` 0xEB2760, `Awake` 0xEB26E0: GetComponent<Animator>): Play(`_stateName`), `rec`;
-        - SetAnimatorTriggerOnEvent (`OnFinish` 0xE97C90; `OnPlay` 0xE97D10 only Rebinds): `_event` ON_FINISH (0) →
+        - SwitchAnimatorStateWhenFinish (`OnFinish`, `Awake`: GetComponent<Animator>): Play(`_stateName`), `rec`;
+        - SetAnimatorTriggerOnEvent (`OnFinish`; `OnPlay` only Rebinds): `_event` ON_FINISH (0) →
           SetTrigger(`_animatorTriggerName`);
-        - SetAnimatorTriggerByCondition (`_UpdateAnimator` 0xE8AF70: SetTrigger(its source's value) when it changes and is not
-          empty) with an AuraProjectileSetAnimatorTrigger source (`GetValue` 0xE75200: `_triggerKey` once `SetTriggerValue`
-          0xE75270, else `_defaultKey`): `aura` — set when the aura projectile stops (ScalableAuraHitBehaviour.OnProjectileStop
-          0xA84170: ThrowEffect — only re-parented, 0x3985560 — then SetTriggerValue instead of FinishMe), the moment
+        - SetAnimatorTriggerByCondition (`_UpdateAnimator`: SetTrigger(its source's value) when it changes and is not
+          empty) with an AuraProjectileSetAnimatorTrigger source (`GetValue`: `_triggerKey` once `SetTriggerValue`,
+          else `_defaultKey`): `aura` — set when the aura projectile stops (ScalableAuraHitBehaviour.OnProjectileStop:
+          ThrowEffect — only re-parented — then SetTriggerValue instead of FinishMe), the moment
           render/fxgame.js zoneFx ends the aura (引星棘刺 S2).
-        And `animSrc`: [{ sm, p, int, buff, max, prog, def, fin, curve }] — SetAnimatorFloatByCondition (`OnPlay` 0xE8A600:
-        the source's GetValueOnPlay; `Update` 0xE8A740: GetValue, set when it changed; SetInteger of the truncated value with
-        `_isInt`, else SetFloat) with a BuffProgressFloatSource (`GetValueOnPlay` 0xE768B0 = `_defaultVal`; `GetValue` 0xE76910:
-        `_finishedVal` once finished, else `_curve`(GetBlackboardProgress 0xE76660: the owner's first buff `_buffKey`, its
+        And `animSrc`: [{ sm, p, int, buff, max, prog, def, fin, curve }] — SetAnimatorFloatByCondition (`OnPlay`:
+        the source's GetValueOnPlay; `Update`: GetValue, set when it changed; SetInteger of the truncated value with
+        `_isInt`, else SetFloat) with a BuffProgressFloatSource (`GetValueOnPlay` = `_defaultVal`; `GetValue`:
+        `_finishedVal` once finished, else `_curve`(GetBlackboardProgress: the owner's first buff `_buffKey`, its
         blackboard `_progressKey` ÷ `_maxKey` clamped to [0, 1]); curve keys [time, value, inSlope, outSlope]).
         A script on another node than the root, or on an Animator with one state (nothing to switch), is left out."""
         by_node = {sm['node']: k for k, sm in enumerate(sms)}
@@ -2762,12 +2765,12 @@ class Extractor:
         return out
 
     def random_group(self, root):
-        """(2026-10-22, effect bundle J; decompile check, 10-14 EN dump) the root's EmitterRandomGroup `rgroup`: { pick, self?,
-        noOwner?, keep?, mainPos? } — at play (`OnPlay` 0xE7E0A0 → `_PickOneEmitter` 0xE7E180): without an owner and neither
+        """(2026-10-22, effect bundle J; the 2026-10-14 EN client) the root's EmitterRandomGroup `rgroup`: { pick, self?,
+        noOwner?, keep?, mainPos? } — at play (`OnPlay` → `_PickOneEmitter`): without an owner and neither
         `_dontCheckOwner` (`noOwner`) nor `_useMainEffectPos` (`mainPos`), nothing; else, unless `_selfExcluded`, with probability
         1 / (n + 1) (BattleController.randomTrivial) the effect stays itself (`self`); otherwise it pauses itself, creates
         Uniform(`_effectPickFrom`) (`pick`) on its owner (at its own position without one, with `mainPos`) and — unless
-        `_finishEffectWhenSelfFinish` (`keep`: `OnFinish` 0xE7DE60 then finishes the created ones) — finishes itself."""
+        `_finishEffectWhenSelfFinish` (`keep`: `OnFinish` then finishes the created ones) — finishes itself."""
         for sid, _raw, t in self.monos(root):
             if sid != RANDOM_GROUP_SCRIPT or t is None or t.get('m_Enabled') == 0:
                 continue
@@ -2784,11 +2787,11 @@ class Extractor:
         return None
 
     def equip_effects(self, root):
-        """(2026-10-22, effect bundle J; decompile check, 10-14 EN dump) the root's SwitchableWhenContainsEquipment `equipFx`:
-        { hooks: [[uniEquipId, level, effect]], pause? } — at play (`OnPlay` 0xEB4820 → `_TrySpawnHookEffect` 0xEB4B60): when
+        """(2026-10-22, effect bundle J; the 2026-10-14 EN client) the root's SwitchableWhenContainsEquipment `equipFx`:
+        { hooks: [[uniEquipId, level, effect]], pause? } — at play (`OnPlay` → `_TrySpawnHookEffect`): when
         the owner (a Character) has the module `uniEquipId` at `level` (CharacterData's current UniqueEquipPair), the hook's
         effect is created on it (BattleController.CreateEffect, its faceVector) and, with `_pauseWhenSwitch` (`pause`), this
-        one pauses; `OnFinish` (0xEB46F0) finishes the created one. Without hooks (the variants themselves): None."""
+        one pauses; `OnFinish` finishes the created one. Without hooks (the variants themselves): None."""
         for sid, _raw, t in self.monos(root):
             if sid != EQUIP_SWITCH_SCRIPT or t is None or t.get('m_Enabled') == 0:
                 continue

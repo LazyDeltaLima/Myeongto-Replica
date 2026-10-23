@@ -4,7 +4,7 @@ carry or render/fxplayer.js does not draw, listed instead of dropped without a w
 Every run of fx_extract.py collects, per extracted prefab, what it met that the pipeline does not take:
 
     component   a Unity component type the walk does not read (SpriteRenderer, RectTransform …)
-    script      a client MonoBehaviour (by its MonoScript PathID; named by the il2cpp dump when one is there)
+    script      a client MonoBehaviour (by its MonoScript PathID; named by the class → field-name table when one is there)
     dependency  a dependency bundle the CAB index names a missing file for, or does not know (a client update moved
                 it): its textures are missing from the extract
     reader      a component the extract reads by its field names with a raw-word fallback (fx_extract check_readers):
@@ -36,7 +36,6 @@ and the prefabs that would cover them, `… verify <bundle/name> … --by arena|
 import argparse
 import datetime
 import json
-import re
 import sys
 from pathlib import Path
 
@@ -44,7 +43,7 @@ from pathlib import Path
 COMPONENTS_READ = {'Transform', 'ParticleSystem', 'ParticleSystemRenderer', 'MeshRenderer', 'MeshFilter', 'Animator',
                    'Animation', 'SkinnedMeshRenderer', 'TrailRenderer', 'LineRenderer', 'MonoBehaviour'}
 
-# client MonoScript PathID -> class name (EN client; the same ids in the CN client where compared; names from the il2cpp dump
+# client MonoScript PathID -> class name (EN client; the same ids in the CN client where compared; names from the client's classes
 # by their serialized fields, 2026-10-16). The read ones are what fx_extract.py takes; the others are named so the report
 # says what they are — their status is in KNOWN. A script with no serialized field keeps its id (#…)
 SCRIPTS = {
@@ -166,7 +165,7 @@ KNOWN = {
     'script:YuS3EffectBehaviour': (_HAND, 'render/fxgame.js (余 S3 tiles)'),
     'script:YuS3EffectWithEdgeBehaviour': (_HAND, 'render/fxgame.js (余 S3 tiles)'),
     # (2026-10-21) first met when --coverage walked the CN 선발 bundles, the route cursors and the enemies' packs
-    # (2026-10-22) no class in the EN dump (the CN client's code is not read): judged by their field names
+    # (2026-10-22) no such class in the EN client (the CN client's scripts are not read): judged by their field names
     'script:#3354437260492772109 _ignoreOwnerValid,_rotateIfFaceLeft,_rotation': (
         _NONE, 'CN client only: turns 予愿安洁莉娜\'s S2 flight trails by `_rotation` when facing left — (0, 0, 0) on both '
                'prefabs, nothing to turn [ASSUMED]'),
@@ -175,13 +174,13 @@ KNOWN = {
                                                    'render/fxgame.js gives it (pickFx \'anchor\') [ASSUMED]'),
     'script:PreviewCursor': (_HAND, 'the route preview cursor\'s mover (`_moveSpeed`, `_height`): render/fxroute.js'),
     'script:SimpleEffect': (_HAND, 'only S_desert_wall_02_start_Mesh (s.ab), which the player never plays (see shader:Unlit/Texture)'),
-    # (2026-10-21, decompile check) EffectData_Projectile (Effects.Data, a SourceData) is two Transform lists and a .ctor: no
-    # runtime code reads it (no TypeInfo reference in the 10-14 EN dump) — ProjectileEffect's own `_inactiveOnFinish` is
+    # (2026-10-21, official client) EffectData_Projectile (Effects.Data, a SourceData) is two Transform lists and a .ctor: no
+    # runtime code of the 2026-10-14 EN client reads it — ProjectileEffect's own `_inactiveOnFinish` is
     # what the client switches off
     'script:EffectData_Projectile': (_NONE, 'data only: no runtime code reads it (ProjectileEffect\'s own `_inactiveOnFinish` is read)'),
     'script:SwitchableEffectByBlackboardValue': (_TODO, 'plays `_effects[v − 1]` for v = the int `_blackboardKey` of the owner\'s buff '
                                                  '`_buffKey` (1..count, none otherwise; checked every `_updateInterval` — '
-                                                 '_UpdateEffect RVA 0xE9A690): 灼藤\'s ramp, which the sim does not report'),
+                                                 '_UpdateEffect): 灼藤\'s ramp, which the sim does not report'),
     # (2026-10-21) the three without a serialized field, named from the client's MonoScripts — what they do: by their names only
     'script:PauseEffectIfDisappeared': (_TODO, 'pauses the effect while its owner has disappeared [추정: by the name]'),
     'script:FollowOwner': (_TODO, 'keeps the effect on its owner every frame [추정: by the name]'),
@@ -336,12 +335,12 @@ def _num(v):
 class Coverage:
     """The report of one extraction run. `begin(key)` names the prefab the following calls are about."""
 
-    def __init__(self, dump=None, verified=VERIFIED):
+    def __init__(self, class_fields=None, verified=VERIFIED):
         self.items = {}        # (kind, what) -> {'kind', 'what', 'detail', 'prefabs': set}
         self.key = None
         self.sigs = {}         # prefab key -> signature() (unverified)
         self.verified = verified   # the verified list's path (load_verified)
-        self.dump = dump       # il2cpp dump.cs path: names the unknown scripts (lazy)
+        self.class_fields = class_fields   # the class → field-name table's path: names the unknown scripts (lazy)
         self._classes = None
 
     def begin(self, key):
@@ -445,15 +444,15 @@ class Coverage:
                 out.setdefault(f, set()).add(k)
         return out
 
-    # ------------------------------------------------------------ naming by the il2cpp dump
+    # ------------------------------------------------------------ naming by the class → field-name table
 
     def class_of(self, fields):
         """The client class whose serialized fields hold the most of `fields` (the smallest such class on a tie), from the
-        il2cpp dump; None without a dump or fields."""
-        if not fields or not self.dump:
+        class → field-name table; None without a table or fields."""
+        if not fields or not self.class_fields:
             return None
         if self._classes is None:
-            self._classes = load_dump_fields(self.dump)
+            self._classes = load_class_fields(self.class_fields)
         fs = set(fields)
         best = None
         for cls, (own, base) in self._classes.items():
@@ -510,27 +509,15 @@ class Coverage:
         return lines
 
 
-_CLASS_RE = re.compile(r'^(?:public |internal |private |protected )*(?:sealed |abstract |static )*class (\S+)(?: : ([\w.]+))?')
-_FIELD_RE = re.compile(r'^\s+(?:public|private|protected|internal)\s+(?!static|const)[\w.<>\[\], ]+?\s(_?\w+); // 0x')
-
-
-def load_dump_fields(path):
-    """{class name: (set of its instance field names, base class or None)} from an Il2CppDumper dump.cs."""
-    classes, cur = {}, None
+def load_class_fields(path):
+    """{class name: (set of its instance field names, base class or None)} from a class → field-name table of the client's
+    scripts: a JSON object { "<class name>": { "fields": [instance field names], "base": "<base class or null>" } }, kept
+    outside the repository. A missing file is an empty table (the unknown scripts are then listed by PathID)."""
     p = Path(path)
     if not p.exists():
-        return classes
-    with p.open(encoding='utf-8', errors='replace') as f:
-        for line in f:
-            m = _CLASS_RE.match(line)
-            if m:
-                cur = classes.setdefault(m.group(1), (set(), m.group(2)))[0]
-                continue
-            if cur is not None:
-                m = _FIELD_RE.match(line)
-                if m:
-                    cur.add(m.group(1))
-    return classes
+        return {}
+    doc = json.loads(p.read_text(encoding='utf-8'))
+    return {cls: (set(v.get('fields') or ()), v.get('base')) for cls, v in doc.items()}
 
 
 # ------------------------------------------------------------ on its own: the verified list against the files on disk

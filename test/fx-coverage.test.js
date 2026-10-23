@@ -31,7 +31,7 @@ for t in ('Transform', 'SpriteRenderer', 'MeshCollider', 'MonoBehaviour'):
     cov.component(t)
 cov.script(6196809664641094801, ['_delayToPlay'])     # ParticleEffect: read
 cov.script(1149374055237060560, ['_lodLevel'])  # FxLODSetting: known todo
-cov.script(123, ['_someField'])                       # unknown, no dump: its id and fields
+cov.script(123, ['_someField'])                       # unknown, no class table: its id and fields
 cov.reader('ParticleEffect', True)
 cov.reader('FollowMountPoint', False)
 cov.particle({'EmissionModule': {'enabled': 1}, 'CollisionModule': {'enabled': 1}, 'LightsModule': {'enabled': 1},
@@ -69,23 +69,16 @@ print(json.dumps(cov.summary()))`);
     assert.match(lines[2], /known gaps: 0 todo, 0 drawn by hand-written code, 1 draw nothing/);
   });
 
-  test('the il2cpp dump names an unknown script by its fields, an Effect behaviour before a battle node', () => {
+  test('the class → field-name table names an unknown script by its fields, an Effect behaviour before a battle node', () => {
     const name = py(`
 import tempfile, os
 d = tempfile.mkdtemp()
-p = os.path.join(d, 'dump.cs')
-open(p, 'w').write('''public class Nodes.CheckModifierContainsKey : ActionNode // TypeDefIndex: 1
-{
-\\tprivate string _customKey; // 0x10
-}
-public class TriggerAnimatorWhenFinish : Effect.Behaviour // TypeDefIndex: 2
-{
-\\t[SerializeField]
-\\tprivate string _customKey; // 0x20
-\\tprivate static DelegateBridge __Hotfix0_OnPlay; // 0x0
-}
-''')
-cov = c.Coverage(dump=p)
+p = os.path.join(d, 'class-fields.json')
+open(p, 'w').write(json.dumps({
+    'Nodes.CheckModifierContainsKey': {'fields': ['_customKey'], 'base': 'ActionNode'},
+    'TriggerAnimatorWhenFinish': {'fields': ['_customKey'], 'base': 'Effect.Behaviour'},
+}))
+cov = c.Coverage(class_fields=p)
 cov.script(4242, ['_customKey'])
 print(json.dumps([r['what'] for r in cov.report()]))`);
     assert.deepEqual(name, ['TriggerAnimatorWhenFinish']);
