@@ -3127,7 +3127,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // 2026-10-23: 灵知 / 流明 S2's charge stages and 灵知's cast range (kitofficial.js 'charges' — the `_buff` / `_range` name
     // rules looped all of them through the instant cast)
     'gnosis_skill_02_buff_01', 'gnosis_skill_02_buff_02', 'gnosis_skill_02_range_01', 'gnosis_skill_02_range_02',
-    'lumen_skill_02_buff', 'lumen_skill_02_buff_02']);
+    'lumen_skill_02_buff', 'lumen_skill_02_buff_02',
+    // 2026-10-23: 寒芒克洛丝 S2's warmed state (kitofficial.js 'quadShot': at 40 hits) — the S2 mode's attach list and the `_buff`
+    // name rule drew buff_01 / _02 from the skill's start, and the event added all three over them
+    'kroos2_skill_02_buff_01', 'kroos2_skill_02_buff_02', 'kroos2_skill_02_buff_03']);
   /** What a skill activation plays on the caster (fxmap.js activationEffects: { start, loops }). */
   const activation = (v) => {
     const b = bundleOf(v), em = emittedIn(b.bundle);

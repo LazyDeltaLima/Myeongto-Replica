@@ -425,7 +425,7 @@ export function activationEffects(bind, prefabs, skillIndex, kitOwned = new Set(
   // a prefab the skill casts (`_castEffects`, ending with its cast) is not a loop for the whole skill even if named _buff / _range
   const cast = new Set([...(sk?.cast || []), ...(sk?.castLoop || [])]);
   const loops = [...new Set([...effectsFor(pre, 'skillBuff', skillIndex).filter((x) => keep(x) && !cast.has(x)), ...has(sk?.buff),
-    ...boundEffects(bind, pre, n, 'attach').filter((x) => !foe.has(x))])];
+    ...boundEffects(bind, pre, n, 'attach').filter((x) => !foe.has(x) && !kitOwned.has(x))])];
   const modeCast = boundEffects(bind, pre, n, 'cast');
   const start = [...new Set([...(modeCast.length ? [] : effectsFor(pre, 'skillStart', skillIndex)), ...has(sk?.cast), ...has(sk?.castLoop)])]
     .filter((x) => keep(x) && !loops.includes(x));

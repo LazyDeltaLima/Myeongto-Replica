@@ -1681,7 +1681,10 @@
   - 烛煌 T2 绝处重燃: 'downed'에 `blaze2_revive_buff`·`_03`(`[reborn_state]`·`[vfx1]`) — 일어남('revive')이나 퇴장까지 [추정: `_03`은 클라에서 그
     상태의 护盾이 다하면 꺼지는데 시뮬이 알리지 않음], 'revive'에 `blaze2_revive_end_start`.
   - 圣聆初雪 T2(`sbell2_t2[heal]`) `sbell2_revive`; 阿罗玛 S2 띄운 적 착지(`aroma_s_2`) 그 적에 `aroma_skill_02_hit_02`; 寒芒克洛丝 S2 예열 끝
-    (`[warming_counter]` → `[warmed_effect_01~03]`) `kroos2_skill_02_buff_01~03` 스킬 끝까지; 妮芙 T1 凋亡 폭발 중인 적(`[ep_damage]`)에
+    (`[warming_counter]` → `[warmed_effect_01~03]`) `kroos2_skill_02_buff_01~03` 스킬 끝까지 — 2026-10-23(관리자 아레나 확인 「S2 발동 뒤
+    얼마 지나면 이펙트가 오퍼레이터를 뒤덮음」)까지는 S2 모드의 attach 목록과 `_buff` 이름 규칙이 `_01`·`_02`를 스킬 시작부터 틀고 예열 끝에 셋을
+    또 얹었다. 클라 바인딩은 셋 다 `FilterByBuffStackCount(GE @max_stack_count [warming_counter])`·`CheckUnitCurrentMode(2)` 뒤라 `KIT_OWNED`에
+    넣고, 활성의 attach 목록도 `KIT_OWNED`를 뺀다(`fxmap.js activationEffects`). 뒤 아레나: 시작엔 없음, 40타에 셋, 스킬 끝에 꺼짐; 妮芙 T1 凋亡 폭발 중인 적(`[ep_damage]`)에
     `nymph_talent_buff_01` 폭발 끝(`t`)까지; 隐德来希 S3 心烛(`etlchi_s3[to_enemy]` → `entlec_effect`) 그 적에 `ghosting_01`, 베낀 적과 잇는 선
     `etlchi_skill_03_line_01` [추정: 선의 방향] — 心烛이 서 있는 동안. 키트 'splash'·'soul'·'candle'에 오퍼 `src`(妮芙는 `t`도)를 실음.
   - 2026-10-16 미판정 쌍 정리(클라 버프 템플릿·charpack·`[uc]skills`·`[uc]projectiles` 대조):

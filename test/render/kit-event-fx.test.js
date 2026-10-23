@@ -236,6 +236,13 @@ test('kitOfficialPlan: the moments and lifetimes of the templates', () => {
   for (const [b, pre] of [['gnosis', ['gnosis_skill_02_buff_01', 'gnosis_skill_02_buff_02', 'gnosis_skill_02_range_01', 'gnosis_skill_02_range_02']], ['lumen', ['lumen_skill_02_buff', 'lumen_skill_02_buff_02']]]) {
     assert.match(readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8'), new RegExp(pre.map((n) => `'${n}'`).join(',\\s*')), b);
   }
+  // 寒芒克洛丝 S2: the warmed buffs come with 'quadShot' only — neither its mode's attach list nor the `_buff` name rule starts
+  // them with the skill (2026-10-23: buff_01 / _02 from the start, then all three again over them)
+  const kroos = ['kroos2_skill_02_buff_01', 'kroos2_skill_02_buff_02', 'kroos2_skill_02_buff_03'];
+  assert.match(readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8'), new RegExp(kroos.map((n) => `'${n}'`).join(',\\s*')));
+  const kb = { modes: ['Default', 'S1', 'S2'], skillMode: [1, 2], attach: [[], [], [kroos[0]]], skills: [{}, {}] };
+  assert.deepEqual(activationEffects(kb, kroos, 1).loops, kroos.slice(0, 2), 'without the kit-owned set: the name rule loops two');
+  assert.deepEqual(activationEffects(kb, kroos, 1, new Set(kroos)).loops, []);
   // 魔王's motes always on: one orbiting projectile effect per mote there, spread over the cap; the cool-down ready
   // effect where one comes back; S2 / S3 their own projectiles
   const mo = (o) => kitOfficialPlan('motes', { id: 1, ...o }, 'cetsyr').play.filter((x) => !x.off);
