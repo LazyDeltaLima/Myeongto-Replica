@@ -172,18 +172,21 @@ test('Whitw2 S1 on: the toggle keeps one body hit and both unreleased additions'
   }
 });
 
-test('Whitw2 S2 stays drone-only: no full-ATK body beside the ramp', () => {
+test('Whitw2 S2: one full-ATK body shot per attack beside the ramped drones (client M2FunnelRemoteAttack)', () => {
   for (const id of ['chess_char_6_18_a', 'chess_char_6_18_b']) {
     const { h, u } = field({ chessId: id, skillIndex: 1 });
     u.skill.gainSp(999);
     assert.ok(h.runUntil(() => u.skill.active, 8));
     const t0 = h.b.time;
-    h.run(2);
-    const full = u.s.atk * u.s.atkScaleMul;
+    h.run(3);
+    const full = u.s.atk * u.s.atkScaleMul, n = 1 + u.def.skill.bb['attack@cnt'];
     const active = mine(h, u).filter((c) => c.t + 1e-9 >= t0 - h.b.dt && c.dmg.isSkill);
     assert.ok(active.length > 0, `${id}: skill hits`);
-    assert.ok(active.every((c) => c.dmg.isAttack && !(c.dmg.tags || []).includes('funnel')), `${id}: ramp stays on the attack`);
-    assert.equal(active.filter((c) => Math.abs(c.amount - full) < 1e-4).length, 0, `${id}: no 100% body`);
+    assert.ok(active.every((c) => c.dmg.isAttack && !(c.dmg.tags || []).includes('funnel')), `${id}: no attached addition`);
+    // (whole volleys only: the last one may still be in flight)
+    const whole = volleys(h, u).filter((v) => v.every((c) => active.includes(c)) && v.length === 1 + n);
+    assert.ok(whole.length >= 1, `${id}: a whole volley`);
+    for (const v of whole) assert.equal(v.filter((c) => Math.abs(c.amount - full) < 1e-4).length, 1, `${id}: one 100% body per attack`);
     done(h);
   }
 });

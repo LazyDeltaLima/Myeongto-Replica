@@ -2619,6 +2619,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const LOCK_BY_FX = new Set(['kjera', 'rockr']);
   const lockByFx = (v) => LOCK_BY_FX.has(fxBundleOf(v?.info?.spine || v?.info?.defId));
   /**
+   * 2026-10-23: 荒芜拉普兰德 S2 (client `M2FunnelRemoteAttack`: her own shot, then the drones on their own selectors) — the
+   * sim lists an attack's body target first, then one per drone lock (kits chess_char_6_18-whitw2): the first 'atk' of the
+   * moment draws her shot only, the others their lock drone only. 'body' | 'drone' | null (every other attack: both).
+   */
+  const BODY_FIRST = new Map([['whitw2', 'S2']]);
+  function atkPart(v, mode) {
+    const m = BODY_FIRST.get(fxBundleOf(v?.info?.spine || v?.info?.defId));
+    if (!m || bindOf(v)?.modes?.[mode] !== m) return null;
+    const at = v._fxAtkAt?.t === clockS ? v._fxAtkAt : (v._fxAtkAt = { t: clockS, n: 0 });
+    return at.n++ === 0 ? 'body' : 'drone';
+  }
+  /**
    * An attack of `src` on `tgt` in `mode`: its drones' hide / shot / hit / show. `only`: 'lock' — the lock drones (a kit's
    * 'drone' event), 'free' — the others (her attack, when lockByFx).
    */
@@ -4509,7 +4521,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (tgt && tgt.info?.side !== 'enemy') healAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode, kind: e[3], shot }); // healHit
           if (tgt) aimed.set(`${src.id ?? src.info?.id}:${tgt.id ?? tgt.info?.id}`, { t: clockS, mode }); // the chain it may start (chainHop)
           if (aimed.size > 256) for (const [k, x] of aimed) if (clockS - x.t > 2.5) aimed.delete(k);
-          if (!noteAtks.has(e)) trailShot(e, src, tgt, mode, shot); // local patch: its projectile's official trail
+          const part = atkPart(src, mode);
+          if (!noteAtks.has(e) && part !== 'drone') trailShot(e, src, tgt, mode, shot); // local patch: its projectile's official trail
           if (src._fxSkillOn) foeFx(src, tgt, mode); // 2026-10-10: a mode buff held by the enemy
           // local patch: the mode's own cast effects (a skill's on each of its attacks) — since 2026-10-10 on the attack's own
           // clock: those of ON_CAST_START already started at its 'swing', the strike's (ON_SPELL_ON) now (strikeFx); the
@@ -4517,7 +4530,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           strikeFx(src, mode, e[3], tgt, sig);
           svashBird(src, tgt);   // 2026-10-21: 凛御银灰 S3's eagle
           chargeRelease(src);    // 2026-10-21: a 秘术师's stored energies leave with it
-          droneShot(src, tgt, mode, lockByFx(src) ? 'free' : null);   // 2026-10-16: its drones (2026-10-21: the locks by 'drone')
+          if (part !== 'body') droneShot(src, tgt, mode, lockByFx(src) ? 'free' : null);   // 2026-10-16: its drones (2026-10-21: the locks by 'drone')
           if (tgt && (src._fxSkillOn || level() < 3)) shotStartFx(src, tgt, mode, shot);
           return;
         }

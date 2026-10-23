@@ -1554,7 +1554,7 @@ upstream v0.2.4 뒤 버그 수정 커밋 중 우리에게도 같은 버그가 �
 - 동작(upstream 그대로, 손 이식):
   - `ai.js resolveHit`: 프로필 `funnelMul`(부유 램프, `professions.js funnel`)이 있으면 본체 1.0배 `isAttack` 한 방 + 부유 유닛 추가 피해(`addition`·`funnel` 태그,
     `isAttack` 아님, 같은 `attackId`). `dmgMul`(至简 재능 등)은 둘 다에. 부유 유닛이 늘어도(`hits`) 본체는 하나, `funnelBodyHits` > 0이면 그만큼(至简 S2 두 방),
-    0이면 부유만(荒芜拉普兰德 S2). **[ASSUMED]** 본체가 먼저, 같은 착탄 순간(부유 유닛의 따로 나는 탄·시간은 모델링 안 함), 한 일제 사격에 램프 한 칸.
+    0이면 부유만(荒芜拉普兰德 S2 — 본체는 그 공격의 첫 대상으로 따로, 아래 「荒芜拉普兰德 S2·S3 중에도 본체 평타」). **[ASSUMED]** 본체가 먼저, 같은 착탄 순간(부유 유닛의 따로 나는 탄·시간은 모델링 안 함), 한 일제 사격에 램프 한 칸.
   - `installFunnel`: 일반 배치(재배치·부활 포함)마다 대상·램프·대상별 맵 초기화, 자유 이동(`deploy`의 `move: true`)은 유지. 날아가는 탄은 착탄 때 램프를 계산.
   - 耶拉(두 형태) S2: 본체 평타는 사거리 안에서 그대로, 그동안 부유 추가 피해는 끔, `1 + attack@cnt`개의 풀린 부유 유닛이 적이 죽거나 스킬이 끝날 때까지
     고정해 스킬 피해(`kjera:drone`). 기본형은 대상별 램프를 이어 쓰고 되돌려 줌, 숨은 형태는 init부터·되돌리지 않음. **[ASSUMED]**(upstream): 풀린 부유 유닛도
@@ -1813,7 +1813,7 @@ upstream `6ab24682` → master `c9d804f4`·dev `06a92237` 대조에서 받은 �
   (×N이 분열로 오르지 않음, 상한 = 보낸 수), `test/match/clientCombat-review.test.js`(표시 왕복·자식 예산 초과 거절·위조 표시 버림·거절 뒤 서버 재시뮬).
   golden: matches coop8-HARD-3(`rounds[7]`의 联防부터 ai_1·ai_7이 각 2 LP 덜 잃음 — 끝 팀 LP 86 → 90).
 
-## 荒芜拉普兰德 S3 중에도 본체 평타 (2026-10-23, 버그 제보)
+## 荒芜拉普兰德 S2·S3 중에도 본체 평타 (2026-10-23, 버그 제보·관리자 결정 2026-10-23 「공식 클라대로」)
 
 제보: 라플란드 더 데카덴차(荒芜拉普兰德, `chess_char_6_18`)가 S3 终幕·浩劫 동안 일반 공격을 하지 않는다.
 - **공식**(EN 클라 캐릭터 프리팹 `char_1038_whitw2`, 공식 클라에서 확인): S3 모드에는 본체 공격 `Modes/S3/Body/Attack`이 따로 있다 — 클립 `Skill_3_Loop`,
@@ -1829,6 +1829,17 @@ upstream `6ab24682` → master `c9d804f4`·dev `06a92237` 대조에서 받은 �
   `test/sim/feedback5-cb3-pins.test.js`(item 46: S3 중 공격 ≥ 20, 끝난 뒤 추가 피해 돌아옴), `test/content/kits_t6.test.js`(头狼 3단계 추가 피해는 스킬 밖 공격으로 봄).
   golden: roster-017·019, boss-boss_5-pair·boss_7-pair·hidden-boss_9-pair, solo-HARD-2, coop2-NORMAL-1-coverage-standins·unowned-roster,
   custom-solo-ABYSS-12-battle-boosted(그녀가 S3를 쓰는 판); fx golden 같은 판에 S3 본체 시전 `whitw2_skill_03_start_01`.
+- **S2 逐猎狂飙도 같음**(같은 날, 관리자 결정 「공식 클라대로」): 스킬 문구는 부유 유닛만 말하지만(S1 문구도 같고 S1은 이미 본체 + 부유), 클라 S2 모드 공격
+  `Modes/S2/Body/M2FunnelRemoteAttack`이 본체 탄 `projectile_chr_whitw2_s2`(`_atkScale` 1.0, 법술, 일반 공격)를 쏘고 그다음 부유 유닛을 푼다. 본체 대상은 자기
+  선택기(`_maxNum` 1, `_postFilter` 4 — 기본·S1·S3 공격과 같은 정렬), 부유 유닛은 자기 선택기(`_alwaysUseFunnelSelector` 1, 각 `S2Funnel*/Selector`
+  `_postFilter` 14). 본체 탄 프리팹의 타격 설정(타격 1회·추적 대상에 반드시 맞음·명중 `whitw2_hit_01`)은 기본·S1·S3 본체 탄과 같고 꼬리만 다르다.
+  **[ASSUMED]** 실제 판 피해 숫자로는 안 봄.
+  - 변경: S2 공격의 대상 = [본체 대상(엔진의 평소 선택, 없으면 스킬 범위에서 그녀의 우선순위 첫 적), 잠금 1 + `attack@cnt`(+头狼 3단계)개]. 첫 대상은
+    1.0배(램프·공포 굴림 없음), 나머지는 예전 그대로(대상별 램프, `attack@prob` 공포, `isAttack`·`isSkill`). 엔진: 프로필 `funnelMul`이 4번째 인자로 그 타격의
+    `info`(`index` 포함), `onEachHit` 컨텍스트에 `index`(`ai.js resolveHit`, 이전 키트는 안 읽음). 렌더 `fxgame.js atkPart`: 그녀의 S2 모드에서 한 순간의 첫 'atk'은
+    본체 꼬리만, 나머지는 잠금 드론만(전에는 'atk'마다 본체 꼬리 + 드론).
+  - 테스트 `test/sim/funnel-body.test.js`(S2: 한 일제 사격에 100% 본체 하나, 부착 추가 피해 없음), `test/content/kits_alt_t6.test.js`(대상 = 본체 + 4, 본체
+    ATK×1.0, 잠금은 init부터). golden: roster-047(그녀가 S2).
 
 ## 8인 협동 모드 (관리자 결정 2026-10-16·2026-10-19, 공식에 없는 기능)
 

@@ -1111,7 +1111,7 @@ test('6_18 荒芜拉普兰德 S1 慵怠者悲鸣: passive 浮游单元+1 (one bo
   }
 });
 
-test('6_18 荒芜拉普兰德 S2 逐猎狂飙: 1 + attack@cnt drones lock random enemies of the skill range, ATK +, each drone ramps on its own target', () => {
+test('6_18 荒芜拉普兰德 S2 逐猎狂飙: her own shot + 1 + attack@cnt drones locking random enemies of the skill range, ATK +, each drone ramps on its own target', () => {
   for (const id of both('chess_char_6_18')) {
     const sid = 'skchr_whitw2_2', bb = bbOf(id, sid);
     const h = run({ defs: { enemies: { e: dummy('e') } }, units: [U(id, sid, 10, 4, { carryState: READY })], enemies: [{ key: 'e', pos: [10, 6] }, { key: 'e', pos: [10, 7] }] });
@@ -1123,11 +1123,14 @@ test('6_18 荒芜拉普兰德 S2 逐猎狂飙: 1 + attack@cnt drones lock random
     h.run(4);
     const atks = h.hooksOf('attack').filter((c) => c.attacker === u && c.isSkill && c.t >= t0 - 1e-9);
     assert.ok(atks.length >= 2);
-    for (const a of atks) assert.equal(a.targets.length, 1 + bb['attack@cnt'], '4 drones');
-    const f = u.profile.funnel;
-    const first = dealt(h, u, (c) => c.dmg.isAttack && c.dmg.isSkill)[0];
-    approx(first.amount / (u.s.atk * u.s.dmgDealtMul), f.init, 'a fresh lock starts at the initial scale', 1e-3);
-    const all = dealt(h, u, (c) => c.dmg.isAttack && c.dmg.isSkill);
+    // her own shot first (the client's S2 attack: her projectile, then the drones), then the 4 drone locks
+    for (const a of atks) assert.equal(a.targets.length, 1 + 1 + bb['attack@cnt'], 'her shot + 4 drones');
+    const f = u.profile.funnel, unit = u.s.atk * u.s.dmgDealtMul;
+    const body = (c) => Math.abs(c.amount - unit) < 1e-6;
+    assert.ok(dealt(h, u, (c) => c.dmg.isAttack && c.dmg.isSkill && body(c)).length >= atks.length - 1, 'one ATK × 1.0 body hit per attack');
+    const first = dealt(h, u, (c) => c.dmg.isAttack && c.dmg.isSkill && !body(c))[0];
+    approx(first.amount / unit, f.init, 'a fresh lock starts at the initial scale', 1e-3);
+    const all = dealt(h, u, (c) => c.dmg.isAttack && c.dmg.isSkill && !body(c));
     assert.ok(all.some((c) => c.amount > first.amount * 1.01), 'ramps up');
     assert.ok(all.every((c) => c.amount <= u.s.atk * u.s.dmgDealtMul * f.max * 1.0001), 'capped');
     done(h);

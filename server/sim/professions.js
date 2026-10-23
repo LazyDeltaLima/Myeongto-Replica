@@ -22,7 +22,8 @@
 //   watchForm string (解放者: the model form while a target stands in range outside the skill — ai.js watchForm)
 //   noHeal bool (cannot be healed by others)   blockFly bool   onHitStatus {key, duration, value}
 //   dmgMul(battle, unit, target) → number      afterHit(battle, unit, target, {dealt,x,y})
-//   funnelMul(battle, unit, target) → number (drone ramp, separate from the caster's attack multiplier)
+//   funnelMul(battle, unit, target, info) → number (drone ramp, separate from the caster's attack multiplier; info: the
+//                     hit's { isSkill, index, attackId } as hitsFn — `index` = the target's place in the attack)
 //   funnelBodyHits n (body hits kept beside that ramp. Omit it for one. 0: drone-only, ramp folded into the hits,
 //                     no body — 荒芜拉普兰德 S2. >0: that many body hits — 至简 S2. Not keyed off the skill flag)
 //   canAttack(battle, unit) → bool             afterAttack(battle, unit, targets)

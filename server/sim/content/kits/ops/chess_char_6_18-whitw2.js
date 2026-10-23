@@ -135,16 +135,21 @@ function whitw2(bb, chess, def) {
       onStart({ unit }) { unit.mem.lazyLock = null; },
     },
     // S2 逐猎狂飙: 浮游单元+attack@cnt, skill range, ATK +atk: every drone locks a random enemy of the range until it falls
-    // (install); each drone hit ramps on its own target (trait init → max) and fears it attack@fear s with attack@prob
+    // (install); each drone hit ramps on its own target (trait init → max) and fears it attack@fear s with attack@prob.
+    // Her own shot goes on beside them: the client's S2 mode attack (`M2FunnelRemoteAttack`) fires her projectile
+    // (projectile_chr_whitw2_s2, ATK × 1.0 arts, one enemy by her own selector — the same sort as her normal attack) and
+    // then releases the drones, which pick with their own selectors (`_alwaysUseFunnelSelector`). The attack's first
+    // target is that body shot (install): × 1 (no ramp, no fear roll), the others the drone locks (bug report 2026-10-23)
     skchr_whitw2_2: {
       kind: 'duration',
       mods: { atkPct: num(bb.atk) },
       ...(skillGridW ? { targeting: { rangeGrid: skillGridW } } : {}),
       attack: {
         hits: 1,
-        // The skill names the released drones, not a second hit from her. 0 keeps the ramp inside these hits.
+        // 0: no attached body — the body is the attack's own first target (above); the ramp stays inside the drone hits
         funnelBodyHits: 0,
-        funnelMul(battle, unit, target) {
+        funnelMul(battle, unit, target, info) {
+          if (info?.index === 0) return 1;
           const f = unit.profile?.funnel || { init: 0.2, delta: 0.15, max: 1.1 };
           const m = unit.mem.hunt;
           if (!m) return f.init;
@@ -152,8 +157,8 @@ function whitw2(bb, chess, def) {
           m.ramp.set(target.id, v);
           return v;
         },
-        onEachHit({ battle, unit, target, kind }) {
-          if (kind !== 'main' || !target || !target.alive || !(num(bb['attack@fear']) > 0)) return;
+        onEachHit({ battle, unit, target, kind, index }) {
+          if (kind !== 'main' || index === 0 || !target || !target.alive || !(num(bb['attack@fear']) > 0)) return;
           if (battle.rng() < num(bb['attack@prob'])) battle.applyStatus(target, 'fear', { duration: num(bb['attack@fear']), source: unit });
         },
       },
@@ -190,13 +195,16 @@ function whitw2(bb, chess, def) {
           const c = battle.enemiesInKeys(unit.rangeKeys, unit, ctx.profile);
           for (const e of battle.blockedTargets(unit, ctx.profile)) if (!c.includes(e)) c.push(e);
           if (!c.length) { ctx.targets = []; return; }
+          // her own shot: the engine's normal pick of this attack, else the first of the range by her priority
+          let body = ctx.targets.find((e) => c.includes(e));
+          if (!body) { const s = c.slice(); sortEnemyTargets(battle, unit, s, ctx.profile?.priority ?? null); body = s[0]; }
           const n = 1 + Math.floor(num(bb['attack@cnt'])) + ((unit.mem.wolfStage || 0) >= 3 ? 1 : 0);
           m.locks = m.locks.filter((e) => e.alive && c.includes(e)).slice(0, n);
           while (m.locks.length < n) {
             const free = c.filter((e) => !m.locks.includes(e));
             m.locks.push(battle.rng.pick(free.length ? free : c));
           }
-          ctx.targets = m.locks.slice();
+          ctx.targets = [body, ...m.locks];
         }, { owner: unit });
       }
     },

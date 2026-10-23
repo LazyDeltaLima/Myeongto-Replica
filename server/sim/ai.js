@@ -604,7 +604,7 @@ export function resolveHit(b, u, prof, target, info, x, y) {
   // per-victim callbacks (main target, every splash / chain victim): profile `onEachHit(b, u, victim, hctx)` and
   // SkillSpec `attack.onEachHit(ctx)` — `attack.onHit` stays once per attack with the main target
   const each = prof.onEachHit || prof.skillOnEachHit ? (victim, dealt, kind) => {
-    const hc = { dealt, kind, isSplash: kind === 'splash', isChain: kind === 'chain', main: target, attackId, isSkill: info.isSkill };
+    const hc = { dealt, kind, isSplash: kind === 'splash', isChain: kind === 'chain', main: target, attackId, isSkill: info.isSkill, index: info.index };
     if (prof.onEachHit) b._safe(() => prof.onEachHit(b, u, victim, hc), 'profile.onEachHit', u);
     if (prof.skillOnEachHit && u.skill) {
       const fn = prof.skillOnEachHit;
@@ -614,7 +614,7 @@ export function resolveHit(b, u, prof, target, info, x, y) {
   if (target && target.alive) {
     let mulT = skillMul;
     if (prof.dmgMul) { const m = typeof prof.dmgMul === 'function' ? prof.dmgMul(b, u, target) : prof.dmgMul; if (Number.isFinite(m)) mulT *= m; }
-    const funnelMul = prof.funnelMul ? prof.funnelMul(b, u, target) : 1;
+    const funnelMul = prof.funnelMul ? prof.funnelMul(b, u, target, info) : 1;
     // Unreleased drones are additional damage on the caster's attack (PRTS 分支特性信息 驭械术师 「额外伤害」), including a
     // skill that only buffs or retargets that attack — `info.isSkill` is set for every attack or targeting override, so it
     // does not decide this. `funnelBodyHits === 0` is the drone-only opt-out (the ramp stays inside the hits, no body).
