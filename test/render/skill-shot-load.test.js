@@ -33,3 +33,12 @@ test("an operator's skill shot list is loaded at its deploy (warmShot)", () => {
 test("a harpoon's moving effect ends as its projectile stops (歌蕾蒂娅 S3's range_04: FinishMe, not just the emission)", () => {
   assert.match(body('planHarpoon'), /\.then\(\(l\) => \{ if \(l\) zoneEnd\(l, l\.until, true\); \}\)/);
 });
+
+test('a flying shot is moved by its trail record, not pinned to where it left, and stays while it flies', () => {
+  // 2026-10-24 (maintainer report: 流星 S2's arrow sat at her muzzle, then the hit showed on the enemy): the live loop follows
+  // an entry's `view` every frame, and an arrow of a mesh and 0.15 s trails (no clip, no particle system) was done mid-flight
+  assert.match(body('spawn'), /view: drop \? null : at, \.\.\.entry, .*\.\.\.\(drop \? \{ flight: drop \} : null\)/);
+  assert.match(body('launchTrail'), /flight: rec \}/);
+  assert.match(SRC, /&& !\(l\.flight && trails\.includes\(l\.flight\)\)\) \{ dropLive\(l\); live\.splice\(i, 1\); \}/);
+  assert.doesNotMatch(SRC, /\bfly: (rec|drop)\b/, '`fly` is FlyToPredefinedLocation (stepFly)');
+});

@@ -1723,7 +1723,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const inst = new mod.fxp.FxInstance(def, { quality: q() });
       rec.inst = inst;
       placeTrail(rec);
-      addLive(inst, { view: null, owner: null, buff: false, until: clockS + rec.dur + (rec.back || 0) + (def.duration || 2) + 0.5 }, layers.over);
+      addLive(inst, { view: null, owner: null, buff: false, until: clockS + rec.dur + (rec.back || 0) + (def.duration || 2) + 0.5, flight: rec }, layers.over);
       trimLive();
     }, () => {});
   }
@@ -2041,7 +2041,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!drop) at = lifted(at, def, !!entry.buff); // local patch: its _spawnLocation
     if (!drop && Number.isFinite(def.height)) at = overHeight(at, def.height); // 2026-10-10: `_overwriteHeight`
     inst.object.position.set(at.x, at.y, at.z || 0);
-    const e = { view: at, ...entry, speed: sp, backSw: backSwitch(def, unit, bundle) };
+    // 2026-10-24: a flying shot (`drop`) is moved by stepTrails, not pinned to the point it left (the live loop follows `view`
+    // every frame — 流星 S2's arrow sat at her muzzle for the whole flight, maintainer report)
+    const e = { view: drop ? null : at, ...entry, speed: sp, backSw: backSwitch(def, unit, bundle), ...(drop ? { flight: drop } : null) };
     if (e.until === undefined) e.until = clockS + (def.duration || 3) + 0.5 + inst.lead / sp;
     if (drop) { drop.inst = inst; placeTrail(drop); }
     const l = addLive(inst, e, over ? layers.over : split ? layers.split : layers.under);
@@ -4955,7 +4957,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (l.inst.onEmit?.length) stepOnEmit(l); // 2026-10-21: OnPlayEmitter / OnFinishEmitter
         if (l.inst.done && l.status && l.again && l.unit?._fxStatusOn?.has(l.status) && l.unit.alive !== false) { const a = l.again; l.again = null; a(); } // local patch: a status loops
         // a kept effect (playAt `keep`: 望's stone activation) stays until its owner's 'die' stops it
-        if (l.inst.done && !(l.keep && !l.inst.stopping)) { dropLive(l); live.splice(i, 1); }
+        // 2026-10-24: a projectile's main effect stays while it flies (`flight`: its trail record) — the client finishes it when
+        // the projectile stops (finishShot). One without a clip or particle system (流星 S2's arrow: a mesh and two 0.15 s
+        // trails, `duration` 0) was done 0.15 s after it left and vanished mid-flight
+        if (l.inst.done && !(l.keep && !l.inst.stopping) && !(l.flight && trails.includes(l.flight))) { dropLive(l); live.splice(i, 1); }
       }
       showLayers();
       const t1 = performance.now();
