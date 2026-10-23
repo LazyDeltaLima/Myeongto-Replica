@@ -9,7 +9,9 @@
 //   item 16.4 「归鲨被吃的时候不是变替身而是进了再部署」 — an 阿戈尔 devour mark on 归溟幽灵鲨 switches her to her 替身 (normal, 联防,
 //     boss fields); never a knock-out (a sweep of 400 random chains on this tree and v0.1.2–v0.1.4: 0).
 //   item 46 「荒芜拉普兰德开技能之后好像没有普攻了…叙拉古恐惧概率不高」 — during her default S3 every drone is out chasing (PRTS
-//     技能流程), so she makes no attack of her own; her attacks come back when it ends. 叙拉古 6's proc is PRTS's pseudo-random
+//     技能流程), and she keeps attacking: one ATK × 1.0 body hit per attack without drone additions (the client's S3 mode
+//     `Body/Attack`; this pin said "no attack of her own" until the bug report of 2026-10-23); the additions come back when
+//     it ends. 叙拉古 6's proc is PRTS's pseudo-random
 //     rule: 0.139 % per 普通伤害 attempt, +0.139 % per miss, shared by the player's members (3 % on average).
 // Run: node --test test/sim/feedback5-cb3-pins.test.js
 
@@ -83,7 +85,7 @@ test('item 16.4 — 归溟幽灵鲨 devoured by an 阿戈尔 (normal, 联防, bo
   }
 });
 
-test('item 46 — 荒芜拉普兰德 S3: no attack of her own while her drones are out (they hit), attacks again after; 叙拉古 6 = PRTS\'s 0.139 % pseudo-random', () => {
+test('item 46 — 荒芜拉普兰德 S3: she attacks while her drones are out (they hit too) — body hits only, the drone additions back after; 叙拉古 6 = PRTS\'s 0.139 % pseudo-random', () => {
   const h = makeBattle({
     seed: 3, autoFinish: false, timeLimit: 120, captureNoisy: true, hooks: ['attack', 'damaged', 'skillStart', 'skillEnd'],
     defs: { enemies: { enemy_pin: dummy('enemy_pin', { atk: 50 }) } }, units: [{ chessId: 'chess_char_6_18_a', row: 10, col: 4 }],
@@ -96,11 +98,15 @@ test('item 46 — 荒芜拉普兰德 S3: no attack of her own while her drones a
   assert.ok(h.runUntil(() => !u().skill.active, 45), 'S3 over');
   const t1 = h.hooksOf('skillEnd').filter((c) => c.unit === u()).at(-1).t;
   const n0 = attacks();
-  // (the tick that ends the skill already attacks again: strictly inside the window)
-  assert.equal(h.hooksOf('attack').filter((c) => c.attacker === u() && c.t > t0 + 1e-9 && c.t < t1 - 1e-9).length, 0, 'no attack of her own during S3');
+  const inS3 = (c) => c.source === u() && c.t > t0 + 1e-9 && c.t < t1 - 1e-9;
+  const funnel = (c) => (c.dmg.tags || []).includes('funnel');
+  assert.ok(h.hooksOf('attack').filter((c) => c.attacker === u() && c.t > t0 + 1e-9 && c.t < t1 - 1e-9).length >= 20, 'she attacks during S3');
+  assert.ok(h.hooksOf('damaged').some((c) => inS3(c) && c.dmg.isAttack), 'her body hits land');
+  assert.equal(h.hooksOf('damaged').filter((c) => inS3(c) && funnel(c)).length, 0, 'no drone additions while the drones are out');
   assert.ok(h.hooksOf('damaged').some((c) => c.source === u() && c.t > t0 && (c.dmg.tags || []).includes('droneAttack')), 'her drones hit');
   h.run(5);
-  assert.ok(attacks() > n0, 'her attacks resume after the skill');
+  assert.ok(attacks() > n0, 'her attacks go on after the skill');
+  assert.ok(h.hooksOf('damaged').some((c) => c.source === u() && c.t > t1 + 1 && funnel(c)), 'with the drone additions again');
   checkInvariants(h.b);
   const c = prdConstant(0.03);
   assert.ok(Math.abs(c - 0.00139) < 0.00001, `叙拉古 6 PRD constant ${c} ≈ PRTS 0.139 %`);

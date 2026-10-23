@@ -1561,7 +1561,7 @@ upstream v0.2.4 뒤 버그 수정 커밋 중 우리에게도 같은 버그가 �
     특성 램프, 비행 시간 없음, 선택 불가가 된 고정 대상은 놓고 다시 고름, 기절·무장 해제가 멈추지 않음.
   - 洛洛 S2: 풀린 부유 유닛 하나가 자기 틱으로(`rockr:drone`, 스킬 피해) 고정 대상을 침 — 살아 있고 선택 가능하면 본체 사거리 밖이어도 유지, 처치·스킬 끝에 돌아옴.
     램프는 유닛 자신이 들고 있어 스킬 전 탄이 바꾸지 못함. 스킬이 끝나면 램프를 특성에 돌려줌.
-  - 荒芜拉普兰德 S1(토글)은 본체 + 두 부유 추가 피해, S3는 자기 경로 그대로. 澄闪 부분은 우리 풀에 없음.
+  - 荒芜拉普兰德 S1(토글)은 본체 + 두 부유 추가 피해, S3 드론은 자기 경로 그대로(S3 중 본체 평타는 아래 「荒芜拉普兰德 S3 중에도 본체 평타」). 澄闪 부분은 우리 풀에 없음.
 - 테스트 `test/sim/funnel-body.test.js`(upstream에서: 일반·정예 5명, 洛洛 저항·횟수 체력·보호막, 至简 S2, 耶拉 S2, 荒芜拉普兰德 S1·S2, 장비·시라쿠사 굴림,
   처치; 澄闪 줄은 뺌, 우리 투사체 비행 시간에 맞춰 관찰 시간을 늘림; 새로 실제 경로 BattleSpec + 실제 웨이브에서 洛洛 일제 사격 = 본체 하나 + 추가 피해 하나),
   `test/sim/funnel-redeploy.test.js`, `test/content/rockrock-s2-lock.test.js`(첫 탄 대기를 우리 공격 타이밍에 맞춤), 키트 테스트 `kits_t1t2`·`kits_t3`·`kits_t4`·
@@ -1812,6 +1812,23 @@ upstream `6ab24682` → master `c9d804f4`·dev `06a92237` 대조에서 받은 �
 - 테스트(upstream 것을 우리 파일에): `test/sim/hud-capsule-resolved.test.js`(联防/자기 필드 磨砻 분열 대조), `test/match/playtest6-matchflow.test.js`
   (×N이 분열로 오르지 않음, 상한 = 보낸 수), `test/match/clientCombat-review.test.js`(표시 왕복·자식 예산 초과 거절·위조 표시 버림·거절 뒤 서버 재시뮬).
   golden: matches coop8-HARD-3(`rounds[7]`의 联防부터 ai_1·ai_7이 각 2 LP 덜 잃음 — 끝 팀 LP 86 → 90).
+
+## 荒芜拉普兰德 S3 중에도 본체 평타 (2026-10-23, 버그 제보)
+
+제보: 라플란드 더 데카덴차(荒芜拉普兰德, `chess_char_6_18`)가 S3 终幕·浩劫 동안 일반 공격을 하지 않는다.
+- **공식**(EN 클라 캐릭터 프리팹 `char_1038_whitw2`, 공식 클라에서 확인): S3 모드에는 본체 공격 `Modes/S3/Body/Attack`이 따로 있다 — 클립 `Skill_3_Loop`,
+  탄 `projectile_chr_whitw2_s3`, `_atkScale` 1.0, `_damageType` 2(법술), `_attackType` 1(일반), 선택기 `_maxNum` 1(자기 사거리), **`_funnelActions` 없음**.
+  드론은 따로 있는 일반 능력 `GeneralAbilities/WolvesDispersed`(S3Funnel1–4)다. 기본 모드 `M0FunnelsNormalAttack`·S1/S2 모드 공격은 본체 탄 + `_funnelActions`.
+  스킬 문구에도 공격을 멈춘다는 말이 없다.
+- **원인**: S3 스펙이 `attack: { noAttack: true }`로 스킬 내내 본체 공격을 껐다(0.1.2 「드론이 전부 나가 있으니 본체 공격 없음」 추론, 0.2.0 item 46에서
+  「버그 아님」으로 고정).
+- **변경**(`server/sim/content/kits/ops/chess_char_6_18-whitw2.js` S3): `attack: { funnelMul: null, hits: 1 }` — S3 동안 본체 1.0배 법술 `isAttack` 한 방만,
+  부유 유닛 추가 피해 없음(头狼 3단계의 `hits` +1도 이 공격엔 없음). 사거리·타이밍은 S3 모드 데이터 그대로(`attackAnim.skills[2]` `Skill_3_Loop`, `shot.skills[2]`).
+  드론 비행·공격·장판은 그대로. 공격 덮어쓰기라 그 피해는 `isSkill`(S2와 같은 꼴; 이 키트에 `isSkill`을 읽는 곳 없음).
+- 테스트 `test/sim/feedback2-whitw2-yu.test.js`(S3 ③: 본체 ATK×1.0 법술 한 방/공격, `funnel` 추가 피해 없음, 缴械면 멈춤; 드론 재등장 검사는 본체를 缴械로 묶음),
+  `test/sim/feedback5-cb3-pins.test.js`(item 46: S3 중 공격 ≥ 20, 끝난 뒤 추가 피해 돌아옴), `test/content/kits_t6.test.js`(头狼 3단계 추가 피해는 스킬 밖 공격으로 봄).
+  golden: roster-017·019, boss-boss_5-pair·boss_7-pair·hidden-boss_9-pair, solo-HARD-2, coop2-NORMAL-1-coverage-standins·unowned-roster,
+  custom-solo-ABYSS-12-battle-boosted(그녀가 S3를 쓰는 판); fx golden 같은 판에 S3 본체 시전 `whitw2_skill_03_start_01`.
 
 ## 8인 협동 모드 (관리자 결정 2026-10-16·2026-10-19, 공식에 없는 기능)
 

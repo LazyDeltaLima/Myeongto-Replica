@@ -200,8 +200,12 @@ function whitw2(bb, chess, def) {
         }, { owner: unit });
       }
     },
-    // S3 终幕·浩劫: ATK +atk; 1 + attack@cnt drones (+1 from 头狼 stage 3) fly the PRTS 技能流程 (WHITW2_* above). Every
-    // drone is out, so she makes no normal attack of her own (`noAttack`); a drone on its target attacks it every attack
+    // S3 终幕·浩劫: ATK +atk; 1 + attack@cnt drones (+1 from 头狼 stage 3) fly the PRTS 技能流程 (WHITW2_* above). Her own
+    // attack goes on without drones: the client's S3 mode attack (`Body/Attack`, clip Skill_3_Loop, projectile
+    // projectile_chr_whitw2_s3) is a plain ranged attack, ATK × 1.0 arts on one enemy of her range, with no
+    // `_funnelActions` — the drones are a separate ability (`WolvesDispersed`, S3Funnel1–4) — so the attack keeps one
+    // `isAttack` body hit and drops the unreleased-drone addition (`funnelMul` off, `hits` 1 whatever 头狼 stage 3 adds;
+    // bug report 2026-10-23). A drone on its target attacks it every attack
     // interval of hers (her live ASPD; [ASSUMED] the first hit as it arrives) for ATK × its OWN funnel ramp — the trait's
     // init, +delta per hit on the same target, the cap (头狼 stage 1 raises it), back to init on a new target (PRTS 分支特性
     // 信息 驭械术师 "浮游单元攻击不同目标…时，上述的伤害立刻恢复至初始值"). That damage is arts and neither a normal attack
@@ -218,7 +222,7 @@ function whitw2(bb, chess, def) {
     skill: {
       kind: 'duration',
       mods: { atkPct: num(bb.atk) },
-      attack: { noAttack: true },
+      attack: { funnelMul: null, hits: 1 },
       onStart({ battle, unit }) {
         unit.mem.drones = [];
         unit.mem.droneAcc = 0;

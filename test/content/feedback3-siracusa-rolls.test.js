@@ -66,7 +66,7 @@ test('叙拉古 6: 荒芜拉普兰德 S3 — every drone attack rolls, the per-s
   const procs = mine.filter(isProc).length;
   assert.ok(drones >= 5, `drone attacks ${drones}`);
   assert.ok(pulses.length >= 5 && pulses.every((c) => hasTag(c, 'dot')), `pulses ${pulses.length}, 持续伤害`);
-  assert.equal(mine.filter((c) => c.dmg?.isAttack).length, 0, 'no attack of her own during S3');
+  assert.equal(mine.filter((c) => c.dmg?.isAttack).length, 0, 'no attack of her own (the enemy is outside her range)');
   assert.equal(procs, drones, `one roll per drone attack, none per pulse (t ${t0.toFixed(1)}–${h.b.time.toFixed(1)})`);
   checkInvariants(h.b);
 });

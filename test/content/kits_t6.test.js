@@ -1082,9 +1082,11 @@ test('荒芜拉普兰德: 叙拉古的荣幸 +5 initial SP on every deployment; 
   assert.equal(u.profile.hits, 2, '数量+1');
   const ts = h.b.time;
   const e = enemyAt(h, 'enemy_dummy');
-  // (S3 may be running — its drones do not normal-attack): wait for a normal attack after stage 3
-  assert.ok(h.runUntil(() => h.dmg.some((d) => d.src === u.id && d.attack && d.tgt === e.id && d.t > ts), 60));
-  const last = h.dmg.filter((d) => d.src === u.id && d.attack && d.tgt === e.id).at(-1);
+  // (S3 may be running — its drones are out, so her attack there has no additions): wait for an attack after stage 3
+  // outside the skill
+  const plain = (d) => d.src === u.id && d.attack && !d.skill && d.tgt === e.id && d.t > ts;
+  assert.ok(h.runUntil(() => h.dmg.some(plain), 60));
+  const last = h.dmg.filter(plain).at(-1);
   const same = h.dmg.filter((d) => d.src === u.id && d.t === last.t);
   assert.equal(same.filter((d) => d.attack).length, 1, 'one body hit per attack');
   assert.equal(same.filter((d) => d.tags.includes('funnel')).length, 2, 'two drone additions per attack');

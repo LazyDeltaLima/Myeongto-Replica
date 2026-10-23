@@ -5,8 +5,8 @@
 //   ③ on the target it attacks like a normal drone ("此状态下的攻击行为同正常浮游单元"), a target lost → it reappears in
 //   the 1.5-side square around it and picks again; nothing selectable → it circles (radius 0.9, 1.0 tiles/s, counter-
 //   clockwise). The drones' damage is neither a normal attack nor skill damage ("该技能释放的浮游单元造成的伤害不属于普通
-//   攻击/技能直接伤害"); every drone is out, so she makes no attack of her own. Before 0.1.2 the skill only dealt its
-//   once-per-second aura.
+//   攻击/技能直接伤害"). Before 0.1.2 the skill only dealt its once-per-second aura. Her own attack goes on as one ATK × 1.0
+//   body hit without drone additions (the client's S3 mode `Body/Attack`; bug report 2026-10-23).
 // - Item 1 「余二技能有伤害和特效，但不能拉怪」: 余 S2 厚礼上宾 teleports the ground-reachable enemies of x-1 onto his tile —
 //   leaders too unless 自缚 (PRTS 卢西恩 / 假想敌：铳 "传送抗性=无"; it skipped every leader), and its 'pull' fx plays only
 //   when someone was teleported (it played with nobody pulled).
@@ -88,7 +88,7 @@ test('荒芜拉普兰德 S3 ① ②: the drones spread attack@times s (evenly, o
   }
 });
 
-test('荒芜拉普兰德 S3 ③: a drone on its target attacks every attack interval of hers for ATK × its own funnel ramp; she makes no attack; neither attack nor skill damage; 缴械 does not stop it', () => {
+test('荒芜拉普兰德 S3 ③: a drone on its target attacks every attack interval of hers for ATK × its own funnel ramp; her own attack is one body hit; neither attack nor skill damage; 缴械 does not stop it', () => {
   for (const id of BOTH) {
     const h = wolf(id, [{ key: 'e', pos: [10, 6] }]);
     const u = h.unit(id), bb = u.def.skill.bb;
@@ -102,7 +102,18 @@ test('荒芜拉普兰德 S3 ③: a drone on its target attacks every attack inte
     h.run(8);
     assert.ok(u.skill.active);
     const f = u.profile.funnel, e = h.enemies()[0];
-    assert.equal(h.hooksOf('attack').filter((c) => c.attacker === u && c.t >= t0).length, 0, 'no normal attack of hers during S3');
+    // her own attack goes on (the client's S3 mode `Body/Attack`): one ATK × 1.0 arts body hit per attack, no drone
+    // additions; 缴械 stops it
+    const own = h.hooksOf('damaged').filter((c) => c.source === u && c.t >= t0 && c.dmg?.isAttack);
+    assert.ok(own.length >= 5, `${own.length} attacks of hers during S3`);
+    for (const c of own) {
+      assert.equal(c.type, 'arts');
+      assert.equal(c.target, e);
+      approx(c.amount, u.s.atk * u.s.dmgDealtMul, 'body hit = ATK × 1.0', 1e-9);
+    }
+    assert.equal(new Set(own.map((c) => c.dmg.attackId)).size, own.length, 'one body hit per attack');
+    assert.equal(h.hooksOf('damaged').filter((c) => c.source === u && c.t >= t0 && (c.dmg?.tags || []).includes('funnel')).length, 0, 'no unreleased-drone addition');
+    assert.equal(own.filter((c) => c.t > td + 0.5 && c.t < td + 3).length, 0, '缴械 stops her own attack');
     const hits = droneHits(h, u);
     assert.ok(hits.length >= 3 * 8, `${hits.length} drone hits in 14 s`);
     for (const c of hits) {
@@ -140,6 +151,8 @@ test('荒芜拉普兰德 S3: every drone picks the enemy nearest to itself; a de
     let deadAt = null, deadPos = null;
     h.b.on('death', (c) => { if (c.unit.defId === 'enemy_weak' || c.unit.defId === 'weak') { deadAt = h.b.time; deadPos = { x: c.unit.x, y: c.unit.y }; } });
     assert.ok(h.runUntil(() => u.skill.active, 5));
+    // her own attack disarmed for the rest (it would fell the weak one before the drones lock it): the drones alone
+    h.b.applyStatus(u, 'disarm', { duration: 999, source: null });
     const D = u.mem.drones;
     const weak = h.enemies().find((x) => /weak/.test(x.defId)), far = h.enemies().find((x) => !/weak/.test(x.defId));
     h.step(Math.round(u.def.skill.bb['attack@times'] / TICK));
