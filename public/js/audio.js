@@ -53,6 +53,7 @@
 // which follows the store).
 
 import { PHASE, PREBUILT_INTERVAL } from '../../shared/constants.js';
+import { enemyRecordMode } from '../../shared/skill-modes.js'; // 2026-10-23: an ally from an enemy record (炎佑)
 import { mediaUrl } from './media.js';
 import { officialGain, groupGain, battleGain, modeEntry, BATTLE_GROUP, VOICE_GAIN, startSkillLoop, stopSkillLoop, stopSkillLoops, skillLoopOf, loopGain, stopUnitLoops, skillExtrasOf, dollSwitchSfx, bankPlayOf, playPitch, skillEndOf, modeOn, roleGroup, cueSetOf, cueAbility, pickVariant, cuesAt, cueFile } from './audioOfficial.js'; // local patch: official mix + skill-mode sounds + skill loops / extras + bank play values
 import { holdSnapshot, sfxOut, snapshotHookOf } from './audioSnapshot.js'; // local patch: mixer snapshots (归溟幽灵鲨's 替身 switch)
@@ -1427,6 +1428,26 @@ export class AudioManager {
   }
 
   /**
+   * 2026-10-23, docs/rules/audio.md 「적 소리」: the skill of an ally built from an enemy record (`su.erec`, shared/skill-modes.js —
+   * 炎佑's 祛恶之焰 = its Skill_2) sounds that enemy ability's banks (sfx.units[id].sk): START as it starts, the looping ON
+   * (`loop`) held while it runs and cut as it ends — its ON_ABILITY_END bank is only a ctrlStop of that loop (0.2 s fade).
+   */
+  _enemyRecordSkill(id, su, ue, on, now) {
+    const key = `${id}:esk`;
+    if (!on) { stopSkillLoop(this, key); su.eskill = null; return; }
+    const name = su.erec.skill.toLowerCase();
+    const cues = ue?.sk?.[name];
+    if (!Array.isArray(cues)) return;
+    for (const c of cues) {
+      if (c.at === 'd') continue;
+      if (!c.loop) { this._playCue(su.def, c, true); continue; }
+      const f = cueFile(c, this.random);
+      if (f) startSkillLoop(this, key, f.url, groupGain(c.g) * (f.vol > 0 ? f.vol : 1), { fade: 0.2 });
+    }
+    su.eskill = { name, at: now };
+  }
+
+  /**
    * docs/rules/audio.md 「적 소리」: the renderer saw enemy `unitId` (model `defId`) switch to prefab mode `modeIndex` (the
    * `_modes` order of its prefab, from `prevModeIndex`; render/fxgame.js — IMPL contract 「적 모드 전환」). Its attacks sound
    * that mode's signals from now on (`sfx.units[def].em[mode]`, mode 0 = its Default cues). The client's switch
@@ -1604,8 +1625,11 @@ export class AudioManager {
     // UnitInfo.spine is the model id (charId / tokenId / enemyId) — the key of sfx.units; kind/defId pick the
     // official class sounds (operator vs summon vs device)
     const prev = this.units.get(u.id);
+    // 2026-10-23: an ally from an enemy record attacks in its one prefab mode (炎佑: mode 2, the only attack with banks)
+    const rec = u.side !== 'enemy' ? enemyRecordMode(u.defId) : null;
     this.units.set(u.id, { def: u.spine || u.defId, defId: u.defId ?? null, kind: u.kind ?? null, side: u.side, boss: !!u.boss,
       skillIndex: Number.isInteger(u.skillIndex) ? u.skillIndex : null, ownerId: u.ownerId ?? null, // ownerId (the battle start's own pieces)
+      emode: rec ? rec.mode : undefined, erec: rec,
       spineLive: !!prev?.spineLive && prev.def === (u.spine || u.defId) }); // its model still reports its clip events (spineEvent)
     if (u.side === 'enemy') this._enemyIn(u.id); // 2026-10-10: the time without an enemy (noEnemyMs)
   }
@@ -1717,6 +1741,7 @@ export class AudioManager {
             if (su.over && su.def === 'char_4040_rockr') this._kitSound('rockr:ovf');
             su.over = false;
             const ue = this.getManifest()?.audio?.sfx?.units?.[su.def];
+            if (su.erec) this._enemyRecordSkill(e[1], su, ue, !!e[2], now);
             const loop = skillLoopOf(ue, su.skillIndex); // its looping bank (music, field)
             if (loop && e[2]) startSkillLoop(this, e[1], loop.url, loopGain(loop));
             else if (!e[2]) stopSkillLoop(this, e[1]);

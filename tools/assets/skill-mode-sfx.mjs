@@ -712,7 +712,8 @@ export function enemySkillCues(audio, owner, entry, soundLeaf) {
     const cues = [];
     for (const [ev, at] of Object.entries(EV_AT)) {
       const names = [`battle.${ev}.${owner}.${name}`, ...(typeof audio.namesWithPrefix === 'function' ? audio.namesWithPrefix(`battle.${ev}.${owner}.${name}.`) : [])];
-      for (const nm of names) { const c = bankCue(audio, nm, at, soundLeaf); if (c) cues.push(c); }
+      // `loop`: a looping bank (炎佑 Skill_2's ON), held while the skill runs (public/js/audio.js enemyRecordSkill)
+      for (const nm of names) { const c = bankCue(audio, nm, at, soundLeaf, typeof audio.isLoop === 'function' && audio.isLoop(nm) ? { loop: 1 } : {}); if (c) cues.push(c); }
     }
     for (const key of proj || []) for (const [ev, at] of Object.entries(PROJ_AT)) {
       const c = bankCue(audio, `battle.${ev}.${key}`, at, soundLeaf);

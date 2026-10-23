@@ -16,11 +16,17 @@
 
 /** Summons drawn without an HP bar (untargetable, invulnerable traps; 香槟炸弹; the bodiless markers below). */
 export const NO_HP_TOKENS = Object.freeze(new Set(['token_10064_wang_stone1', 'token_10031_swire2_gdtrap', 'token_10071_aglna2_agairp']));
+/**
+ * Summons drawn with an HP bar but no SP row: 炎佑 (enemy_9012_acloon, an ally built from an enemy record — its 祛恶之焰 runs
+ * on the enemy skill's cooldown; the official shows it with its HP bar only, by the maintainer's account 2026-10-23).
+ */
+export const NO_SP_TOKENS = Object.freeze(new Set(['enemy_9012_acloon']));
 /** Summons with no body of their own: only their effect is drawn. */
 export const BODYLESS_TOKENS = Object.freeze(new Set(['token_10071_aglna2_agairp']));
 /** Summons placed without the direction step. */
 export const FACINGLESS_TOKENS = Object.freeze(new Set(['token_10064_wang_stone1', 'token_10000_silent_healrb']));
 
 export const noHpBar = (id) => typeof id === 'string' && NO_HP_TOKENS.has(id);
+export const noSpBar = (id) => typeof id === 'string' && NO_SP_TOKENS.has(id);
 export const facingless = (id) => typeof id === 'string' && FACINGLESS_TOKENS.has(id);
 export const bodyless = (id) => typeof id === 'string' && BODYLESS_TOKENS.has(id);

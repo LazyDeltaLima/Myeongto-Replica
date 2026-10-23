@@ -4,6 +4,17 @@
 // (tools/assets/skill-mode-sfx.mjs: sounds) and the effect layer (public/js/render/fxgame.js). Pure ESM.
 
 /**
+ * Allies built from an enemy record (PRTS 敌人类我方单位) fight in one mode of their enemy prefab, drawn and heard with that
+ * enemy's own bindings (render/fxgame.js enemy-modes.json, audio.js sfx.units[id].em / sk): `mode` = its `_modes` index,
+ * `skill` = the ability its kit runs. 炎佑: the 炎 bond summons 模式乙 (PRTS "由核心盟约-炎召唤时为模式乙", the sim's
+ * content/tokens.js yanyouKit) — its prefab holds Skill_2 under Modes/2, whose Body/Attack is the only attack with sound
+ * banks (`attack.2`).
+ */
+export const ENEMY_RECORD_MODES = Object.freeze({ enemy_9012_acloon: Object.freeze({ mode: 2, skill: 'Skill_2' }) });
+/** @param {unknown} id @returns {{ mode: number, skill: string }|null} */
+export const enemyRecordMode = (id) => (typeof id === 'string' && Object.hasOwn(ENEMY_RECORD_MODES, id) ? ENEMY_RECORD_MODES[id] : null);
+
+/**
  * The mode index of skill `i` (0-based) in a `_modes` name list, or -1: the mode named exactly `S<k>` / `Sk<k>` (any case) first,
  * then a range `S<a>-<b>` holding k, then the first `S<k>…` variant (S2_Overload, S2Respawn, S3(D) …).
  * `skillMode` (char_modes.py: per skill, the mode its own prefab's switch_mode buff selects, or null) overrides names

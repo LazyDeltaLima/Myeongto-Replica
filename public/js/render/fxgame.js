@@ -82,6 +82,7 @@ import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2: when her
 import { faceSwitchCopy, faceTurn, followDir, playSpeed } from './fx/face.js'; // 2026-10-11 (maintainer decision 15): `_usePlaybackSpeed` / `_limitedPlaybackSpeed`; 2026-10-22 FollowDirection, SwitchableEffectByFaceDirection
 import { kitOfficialPlan, kitOperator } from './fx/kitofficial.js'; // 2026-10-16: kit events the buff templates draw
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
+import { enemyRecordMode } from '../../../shared/skill-modes.js'; // 2026-10-23: an ally from an enemy record (炎佑)
 import { animPause, clipOf, facesBack, idlePause, pauseIfNow } from './fx/pause.js'; // 2026-10-21: the client's pause / finish behaviours
 
 /**
@@ -1124,7 +1125,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   let points = null;
   // 2026-10-10: an enemy's points are its enemy-modes.json entry's (enemy_bindings.py, the Graphic animator's
   // _muzzleTransform / _hitTransform / _headTransform / _specialPointN of its battle prefab)
-  const ptsOf = (v) => (!v?.info ? null : v.info.side === 'enemy' ? ebindOf(v)?.points || null : (points && points[v.info.spine || v.info.defId]) || null);
+  const ptsOf = (v) => (!v?.info ? null : efoe(v) ? ebindOf(v)?.points || null : (points && points[v.info.spine || v.info.defId]) || null);
   loadPoints().then((p) => { points = p; });
   const boneAt = { x: 0, y: 0 };
   const SP_P = { x: 0, y: 0, s: 0, depth: 0 };
@@ -3599,7 +3600,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // named by the sim ('dmg' 6th field) or the last attack on it —, 'spawn' → its start effect + auras, 'die' → its dead
   // effect, 'skill' / 'fx' naming an ability (`prefabKey`, or the clip of a bound skill the model plays) → that ability's
   // effects. Cast effects play at the ability's speed, hits at 1.0 (as the operators').
-  const ebindOf = (v) => (v?.info?.side === 'enemy' && emodes ? emodes[v.info.defId] || emodes[v.info.spine] || null : null);
+  // 2026-10-23: an ally built from an enemy record (炎佑, shared/skill-modes.js ENEMY_RECORD_MODES) attacks with its enemy
+  // prefab's bindings in its one mode — the attacker's paths below take it as an enemy, a target keeps its real side
+  const erec = (v) => !!(v?.info && v.info.side !== 'enemy' && enemyRecordMode(v.info.defId));
+  const efoe = (v) => v?.info?.side === 'enemy' || erec(v);
+  const ebindOf = (v) => (efoe(v) && emodes ? emodes[v.info.defId] || emodes[v.info.spine] || null : null);
   /** [bundle, prefab] of effect `name` when it is extracted (enemy-modes.json `$fx`, without case), or null. */
   function efx(name) {
     const r = typeof name === 'string' && name ? emodes?.$fx?.[name.toLowerCase()] : null;
@@ -3613,6 +3618,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function emodeOf(v) {
     const b = ebindOf(v);
     if (!b || !Array.isArray(b.modes) || !b.modes.length) return null;
+    const rm = erec(v) ? enemyRecordMode(v.info.defId).mode : -1;
+    if (rm >= 0) return rm < b.modes.length ? rm : 0;
     const fm = typeof v.form === 'string' ? (FORM_MODES[v.info.defId] || FORM_MODES[v.info.spine])?.[v.form] : null;
     if (fm && b.modes.length > 1) {
       const i = b.modes.findIndex((m) => m?.name === fm);
@@ -3710,7 +3717,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     try { shot = enemyShot(enemyDef(src.info?.defId), src.info?.form); } catch { shot = undefined; }
     if (shot === null || (shot && (shot.link || shot.instant || shot.move === 'ATTACH'))) return false; // no flight (the sim: instant)
     const pr = (shot?.key && eprojByKey(src, shot.key)) || (part && part.proj);
-    if (!pr || !tgt || e[3] !== 'enemy' || pr.link || level() >= 3 || failed) return false;
+    if (!pr || !tgt || (e[3] !== 'enemy' && !erec(src)) || pr.link || level() >= 3 || failed) return false;
     const r = efx(Array.isArray(pr.trail) ? pr.trail[0] : null);
     if (!r) return false;
     const key = `${r[0]}/${r[1]}`;
@@ -3723,7 +3730,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const dist = Math.hypot(tgt.x - src.x, tgt.y - src.y);
     const from = eshotFrom(src, pr.mount);
     launchTrail({ inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, tx: mx(tgt), ty: tgt.y, tz: shotTo(tgt), k: 0,
-      dur: Math.max(0.04, dist / eshotSpeed(src)), arc: Number(shot?.height ?? pr.raise) > 0 && (shot?.move ?? 'PARACURVE') === 'PARACURVE' ? Number(shot?.height ?? pr.raise) : 0 }, r[0], r[1]);
+      // (an enemy-record ally flies the sim's shot of its kind: the sim gives it an ally's speed)
+      dur: Math.max(0.04, dist / (erec(src) ? projSpeed(e[3]) : eshotSpeed(src))), arc: Number(shot?.height ?? pr.raise) > 0 && (shot?.move ?? 'PARACURVE') === 'PARACURVE' ? Number(shot?.height ?? pr.raise) : 0 }, r[0], r[1]);
     return true;
   }
   /** The enemy's bound projectile `key` (enemy-modes.json: a mode's attack or a skill), or null. */
@@ -4383,7 +4391,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // pillar + hex was drawn on it. The client shows the stone's own birth / activation prefabs (stoneFx), no burst.
       if (isStone(v)) return stonesOn();
       // 2026-10-10: an enemy whose skills are bound (enemy-modes.json) — the client draws no gold pillar for it
-      if (v?.info?.side === 'enemy') return !!(eOn(v) && ebindOf(v).skills);
+      if (efoe(v)) return !!(eOn(v) && ebindOf(v).skills);
       return !!(index && isOp(v) && bundleOf(v) && q() !== 'low' && !failed);
     },
     /** local patch (⑤): whether the shared status prefab `bundle`/`name` can play (index loaded, not 'low', listed). */
@@ -4599,7 +4607,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (CHAIN_KINDS.has(e[3])) { chainHop(e, views); return; } // 2026-10-16: a bounce is no attack of its "source"
           const src = views.get(e[1]);
           // 2026-10-10: an enemy's attack — its strike's cast effects, its shot's official trail, its hit to come
-          if (src?.info?.side === 'enemy') {
+          if (efoe(src)) {
             if (!eOn(src)) return;
             const tgt = views.get(e[2]);
             const p = estrikeFx(src, e[3]);
@@ -4639,7 +4647,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         // ON_CAST_START cast effects (swingFx). Every state event reaches onEvent, so render/app.js needs no call of its own.
         case 'swing': {
           const src = views.get(e[1]);
-          if (src?.info?.side === 'enemy') { if (eOn(src)) eswingFx(src, Number(e[2]) || 0, e[3]); return; }
+          if (efoe(src)) { if (eOn(src)) eswingFx(src, Number(e[2]) || 0, e[3]); return; }
           if (src) src._fxCombat = Number(e[6]) === 1;   // 2026-10-21: at an enemy it blocks (combatEffects, altGroup)
           // (2026-10-21) the 9th field: a talent ability cast in place of the attack; the 6th: its target, when it turns to it
           if (src) swingFx(src, Number(e[2]) || 0, views, e[3], typeof e[8] === 'string' && e[8] ? e[8] : null, typeof e[5] === 'number' ? e[5] : null);

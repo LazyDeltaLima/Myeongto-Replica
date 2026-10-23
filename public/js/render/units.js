@@ -73,7 +73,7 @@ import { SpineActor } from './spine.js';
 import { diamondTexture, shadowTexture, fxAtlas, tierChip, statusTexture, itemTexture, hudRings, ringArc, downLabel, HUD_DISC, ELEMENT_RING } from './textures.js';
 import { COLORS, TIER_COLORS, ENEMY_FRAME, UNIT, PROJ, statusIconKey, statusIconSuppressed } from './style.js';
 import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tiles.js';
-import { noHpBar, facingless, bodyless } from '../../../shared/trap-tokens.js'; // local patch; 2026-10-11 bodyless markers
+import { noHpBar, noSpBar, facingless, bodyless } from '../../../shared/trap-tokens.js'; // local patch; 2026-10-11 bodyless markers
 import { UF_CAMOU, UF_LIFTOFF } from '../../../shared/local.js'; // local patch: 迷彩 icon; 起飞
 import { FacingMarker, facingTextures } from './facing.js'; // local patch: official facing marker
 import { EliteRing, eliteBadgeTexture, ELITE_BADGE } from './elite-mark.js'; // the prep elite ring (low quality) and badge (setting)
@@ -725,6 +725,7 @@ export class UnitView {
     this._applyPlace();
     this.mirrorX = this.isEnemy && !!(def && def.mirrorX);
     this.isToken = info.kind === 'token';
+    this.noSp = noSpBar(info.defId);   // 2026-10-23: 炎佑 shows its HP bar only (shared/trap-tokens.js)
     this.golden = !!info.golden;
     this.tier = clamp(Number(info.tier) || 1, 1, 6);
     this.x = Number(info.x) || 0; this.y = Number(info.y) || 0; this.z = 0;
@@ -2020,7 +2021,7 @@ export class UnitView {
         // the bullet bar whenever the sim lists it (b.snap `ammo`, sim local-hud.js bulletView): a running ammo skill, or a
         // bullet-mode skill while it is affecting — a passive one (琳琅诗怀雅's coins) carries no UF.SKILL
         const u = hudU(this.ctx), active = !!(this.flags & UF.SKILL);
-        const sp = this.spMax > 0 ? clamp(this.sp / this.spMax, 0, 1) : null;
+        const sp = this.spMax > 0 && !this.noSp ? clamp(this.sp / this.spMax, 0, 1) : null;
         const bar = shieldedBar(this.hp, this.maxHp, this.ghostHp, this.barrier);
         lpBottom = this.lpBars.update(this.screen.x + sx, this.screen.y, u, { hp: bar.hp, ghost: bar.ghost, split: bar.split, sp, cast: active, ammo: this.ammo }, this.ctx.assets);
       }
@@ -2040,7 +2041,7 @@ export class UnitView {
     // the official stored-charge mark over the unit (hud-bars.js SkillMark): an AUTO skill of several charges, while one is stored
     if (this.lpMark) { if (showBars && this.charge > 0) this.lpMark.update(this.screen.x + sx, this.screen.y, hudU(this.ctx), this.charge, this.ctx.assets, this); else this.lpMark.hide(); }
     // SP
-    const showSp = showBars && this.spMax > 0; // local patch: an enemy sends SP only for 圣堂剑士's bullets (sim/content/local-patch.js)
+    const showSp = showBars && this.spMax > 0 && !this.noSp; // local patch: an enemy sends SP only for 圣堂剑士's bullets (sim/content/local-patch.js)
     this.spBg.visible = this.spFill.visible = showSp && !lp; // local patch: allies' SP is in their official bars
     const spH = Math.max(2, bh * 0.6);
     let ready = false;

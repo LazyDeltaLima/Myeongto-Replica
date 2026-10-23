@@ -410,7 +410,17 @@
 - 평타: 적 프리팹 모드 0의 신호(`battle/enm_pfb_*.ab`, `_2` 변형은 기본 id 프리팹) — 예전 `pickUnitSfx`가 다른 모드·능력 뱅크를 먼저 집던 3종이
   공식대로: 무덤지기 석상 `e_imp_rockhit`(모드 0 Walk의 combat), 최첨단 살카즈 부패의 전차 근접 `e_atk_shotgun_n`(원거리는 `e_atk_cannonrot`),
   보스 제셀톤 윌리엄스 `e_atk_magic_ice`. 원거리 적은 자기 투사체의 HIT가 착탄음 — 착탄음이 새로 생긴 적 44종(가상적: 총·갑주, 알리스테어,
-  '염의 가호' 등). '염의 가호'의 모드 0은 START 뱅크가 없어 휘두름이 무음이다(공식).
+  '염의 가호' 등). '염의 가호'의 모드 0에는 START 뱅크가 없지만 그 소환물은 모드 0으로 싸우지 않는다 — 아래 「적 기록으로 만든 아군」.
+- 적 기록으로 만든 아군 (2026-10-23, 관리자 제보 「'염의 가호' 공격할 때 소리가 안 남(착탄음은 남)」): 炎佑(`enemy_9012_acloon`, 炎 맹약
+  소환물)는 아군이라 `enemyMode`(적만 받음)가 오지 않아 늘 모드 0 큐(착탄 'd'뿐)를 냈다. 공식 소리 표에서 평타 뱅크는 모드 2의 것뿐이고
+  (`ON_ABILITY_START/ON.enemy_9012_acloon.attack.2` = `e_atk_frlgblck` → `e_atk_frlgblckfr`), 프리팹에서 模式乙 `Skill_2`가 `Modes/2/Body/Skills`에
+  있다(`local-enemy-bindings.json`; PRTS "由核心盟约-炎召唤时为模式乙", sim `tokens.js yanyouKit`도 `Skill_2`). 이제 `shared/skill-modes.js
+  ENEMY_RECORD_MODES`(炎佑 → 모드 2, `Skill_2`)를 `audio.js _track`이 읽어 처음부터 `emode` 2(`em['2']` 큐: 휘두름 START·발사 ON·착탄).
+  祛恶之焰: `char_audio.py`가 모드 안의 스킬(`Modes/<n>/Body/Skills/<이름>`)도 기록 → `sk.skill_2` = START `e_atk_frlgblckh`, 반복 ON
+  `e_atk_frlgblcklp`(`loop: 1`, `enemySkillCues`가 반복 뱅크에 표시), 착탄 `e_imp_mortar_n`. sim이 스킬을 켜면(`'skill' on`) START 한 번 + 반복음을
+  키 `<id>:esk`로 붙잡고, 끄면 0.2초 페이드로 끊음(`_enemyRecordSkill`; 공식 `ON_ABILITY_END…Skill_2`는 그 반복의 ctrlStop 0.2초뿐). 분사 1초
+  틱마다 착탄음은 안 냄 [추정: 링크 투사체 HIT는 연결될 때 한 번]. 확인: `test/local-patch-attack-signals.test.js` 「炎佑」.
+  [브라우저 미확인 — 실제 판에서 휘두름·발사음, 분사 시작·반복·끝을 들어 볼 것]
 - 스킬: `sfx.units[id].sk[능력 이름 소문자]` = 그 능력(`Skills/<이름>`) 뱅크 + 투사체 소리. sim이 적 스킬 시전에 `fx 'enemySkill' { id, ability }`를 내면
   START·ON·BORN을 내고, 3초 안의 그 적의 공격 없는 피해에 HIT·REACH(`_skillImpact`).
 - 모드 전환 (2026-10-10 저녁): 공식 `Unit.SwitchMode`(RVA 0x76E1D0)는 이전 모드 `InactiveMode`·새 모드 `ActivateMode`(능력 Detach/Attach)뿐 자기 소리가

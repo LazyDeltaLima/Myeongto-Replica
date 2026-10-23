@@ -310,6 +310,32 @@ describe('enemy modes (audio.enemyMode — the renderer reports the official pre
   });
 });
 
+describe('炎佑 (an ally built from an enemy record: its enemy prefab\'s mode 2)', () => {
+  const ACL = 'enemy_9012_acloon';
+  test('the prefab facts and the table: mode 2 attack banks, Skill_2 under Modes/2 with its looping ON', () => {
+    assert.deepEqual(loadCharAudio(ROOT)[ACL].skills, { Skill: ['projectile_enemy_acloon_line'], Skill_2: ['projectile_enemy_acloon_line'] });
+    assert.deepEqual(files(UNITS[ACL].cues), ['d:e_imp_mortar_n.mp3'], 'mode 0: no attack bank');
+    assert.deepEqual(files(UNITS[ACL].em['2'].cues), ['s:e_atk_frlgblck.mp3', 'a:e_atk_frlgblckfr.mp3', 'd:e_imp_mortar_n.mp3']);
+    const sk = UNITS[ACL].sk.skill_2;
+    assert.deepEqual(files(sk), ['s:e_atk_frlgblckh.mp3', 'a:e_atk_frlgblcklp.mp3', 'd:e_imp_mortar_n.mp3']);
+    assert.equal(sk.find((c) => c.at === 'a').loop, 1);
+  });
+
+  test('its attack sounds START / ON of mode 2, its impact; its skill START, the loop held until it ends', () => {
+    const a = manager();
+    a.setFieldUnits([{ id: 5, kind: 'token', side: 'ally', spine: ACL, defId: ACL }, { id: 2, kind: 'enemy', side: 'enemy', spine: 'enemy_1006_shield' }]);
+    a.handleBattleEvents([['swing', 5, 0.3, 'bolt'], ['atk', 5, 2, 'bolt'], ['dmg', 2, 10, 'arts', 0, 5]]);
+    assert.deepEqual(a.played.map((p) => p.f), ['e_atk_frlgblck.mp3', 'e_atk_frlgblckfr.mp3', 'e_imp_mortar_n.mp3']);
+    a.played.length = 0;
+    a._buffer = () => new Promise(() => {});   // the loop's file never loads here: its record is what is checked
+    a.handleBattleEvents([['skill', 5, true]]);
+    assert.deepEqual(a.played.map((p) => p.f), ['e_atk_frlgblckh.mp3']);
+    assert.match(a._skillLoops.get('5:esk')?.url ?? '', /e_atk_frlgblcklp\.mp3$/);
+    a.handleBattleEvents([['skill', 5, false]]);
+    assert.ok(!a._skillLoops.has('5:esk'), 'cut as the skill ends');
+  });
+});
+
 describe('buff and custom-trigger sounds (EN client buff templates → sfx.kit)', () => {
   test('the table: banks of the templates\' audio signals, each with a sound in the manifest', () => {
     assert.equal(KIT_HIT_BANKS['horn:2:overload:melee'], 'battle.ON_BUFF_START.horn_s_2[overload][melee].attack');

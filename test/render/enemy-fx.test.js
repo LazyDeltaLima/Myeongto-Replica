@@ -42,7 +42,8 @@ test('an enemy\'s mount points: HIT / HEAD / MUZZLE / SPECIAL_0 resolve to its t
 });
 
 test('fxgame: enemy events take their own branch (swing / atk / dmg attacker / skill / fx ability / spawn / die / leak)', () => {
-  assert.match(SRC, /if \(src\?\.info\?\.side === 'enemy'\) \{ if \(eOn\(src\)\) eswingFx\(src, Number\(e\[2\]\) \|\| 0, e\[3\]\); return; \}/);
+  // (efoe: an enemy, or an ally built from an enemy record — 炎佑, 2026-10-23)
+  assert.match(SRC, /if \(efoe\(src\)\) \{ if \(eOn\(src\)\) eswingFx\(src, Number\(e\[2\]\) \|\| 0, e\[3\]\); return; \}/);
   assert.match(SRC, /const p = estrikeFx\(src, e\[3\]\);/);
   assert.match(SRC, /etrailShot\(e, src, tgt, p\.part\);/);
   // contract 1: the attacker is the 6th field of 'dmg'
@@ -58,7 +59,7 @@ test('fxgame: enemy events take their own branch (swing / atk / dmg attacker / s
   assert.match(SRC, /case 'leak': stopOwned\(e\[1\]\); return;/);
   // the shot leaves its _mountPointType point; its flight takes the official speed
   assert.match(SRC, /const from = eshotFrom\(src, pr\.mount\);/);
-  assert.match(SRC, /dur: Math\.max\(0\.04, dist \/ eshotSpeed\(src\)\)/);
+  assert.match(SRC, /dur: Math\.max\(0\.04, dist \/ \(erec\(src\) \? projSpeed\(e\[3\]\) : eshotSpeed\(src\)\)\)/);
   // effect names without case
   assert.match(SRC, /emodes\?\.\$fx\?\.\[name\.toLowerCase\(\)\]/);
 });

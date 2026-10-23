@@ -8,7 +8,8 @@ import { createFxLayer } from '../../public/js/render/fxgame.js';
 
 const SHOT = 'projectile_enemy_acfort_skill';
 const EMODES = {
-  $fx: { t_trail: ['b', 't_trail'], t_hit: ['b', 't_hit'], my_die: ['b', 'my_die'], rb_a: ['b', 'rb_a'], rb_b: ['b', 'rb_b'] },
+  $fx: { t_trail: ['b', 't_trail'], t_hit: ['b', 't_hit'], my_die: ['b', 'my_die'], rb_a: ['b', 'rb_a'], rb_b: ['b', 'rb_b'],
+    ...Object.fromEntries([0, 1, 2].flatMap((i) => [`acl_start_${i}`, `acl_hit_${i}`]).map((n) => [n, ['b', n]])) },
   enemy_x: {
     modes: [{ name: 'Default', anim: ['Attack'] }, { name: 'Fly', anim: ['Fly_Attack'] }],
     skills: { fireweapon: { cast: [], opt: {}, hit: [], proj: { key: SHOT, mount: 2, trail: ['t_trail'], hit: ['t_hit'], speed: 10 } } },
@@ -30,11 +31,15 @@ const EMODES = {
   // RebornToDefault)
   enemy_1516_jakill: { modes: [{ name: 'Default', anim: ['Attack'] }, { name: 'R', anim: ['Attack'] }], reborn: [{ fx: ['rb_a'], clear: 0, to: 1 }] },
   enemy_1288_duskls: { modes: [{ name: 'Default', anim: ['Attack'] }, { name: 'Prop', anim: [] }], reborn: [{ fx: ['rb_b'], clear: 0, to: 0, mode: 1 }] },
+  // 2026-10-23: 炎佑 — an ally from an enemy record attacking in its mode 2 (the Default / 1 parts carry other names here)
+  enemy_9012_acloon: { modes: ['Default', '1', '2'].map((name, i) => ({ name, anim: ['Attack'], ranged: { cast: [`acl_start_${i}`],
+    opt: { [`acl_start_${i}`]: { s: 2, e: 3, o: 1 } }, hit: [`acl_hit_${i}`], proj: { key: 'projectile_enemy_acloon', mount: 2, trail: [], hit: [], speed: 10 } } })),
+  skills: { skill_2: { cast: [], opt: {}, hit: [] } } },
   enemy_snip: { modes: [{ name: 'Default', anim: ['Attack'] }],
     skills: { crossattack: { cast: [], opt: {}, hit: [], proj: { key: 'p_bolt', mount: 2, trail: ['t_trail'], hit: ['t_hit'], move: 'FIXED_DIRECTION', speed: 5 } } } },
 };
 const files = {
-  '/assets/local/fx/index.json': { bundles: { b: ['t_trail', 't_hit', 'my_die', 'rb_a', 'rb_b'] } },
+  '/assets/local/fx/index.json': { bundles: { b: ['t_trail', 't_hit', 'my_die', 'rb_a', 'rb_b', ...[0, 1, 2].flatMap((i) => [`acl_start_${i}`, `acl_hit_${i}`])] } },
   '/assets/local/fx/enemy-modes.json': EMODES,
 };
 globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
@@ -171,4 +176,24 @@ test('enemy layer: a rebirth\'s RebornTalent effects as it starts — the 重生
   assert.deepEqual(spawned(), ['1:rb_a'], 'the knock-out into the ember: no RebornTalent of its Default mode');
   d.actor.current = 'Revive'; step();
   assert.deepEqual(spawned(), ['1:rb_a', '2:rb_b'], 'mode Prop\'s RebornToDefault as the stand-up clip starts');
+});
+
+test('enemy layer: 炎佑, an ally from an enemy record, attacks with its enemy prefab\'s mode 2; its skill draws no gold pillar', async () => {
+  const plays = [];
+  const layer = createFxLayer({ host: null, above: null, quality: () => 'high', dry: true, trace: (p) => plays.push(p) });
+  await settle();
+  const acl = { id: 5, x: 0, y: 0, alive: true, info: { id: 5, side: 'ally', kind: 'token', defId: 'enemy_9012_acloon' } };
+  const foe = enemy(2, 'enemy_y');
+  foe.x = 2;
+  const views = new Map([[5, acl], [2, foe]]);
+  layer.onEvent(['tick'], views);
+  layer.onEvent(['swing', 5, 0.3, 'bolt', 0, 2], views);
+  layer.onEvent(['atk', 5, 2, 'bolt'], views);
+  layer.onEvent(['dmg', 2, 10, 'arts', 0, 5], views);
+  const names = plays.filter((p) => p.kind === 'spawn').map((p) => p.names[0]);
+  assert.ok(names.includes('acl_start_2'), `its mode 2 cast effect: ${names}`);
+  assert.ok(names.includes('acl_hit_2'), `its mode 2 hit effect: ${names}`);
+  assert.ok(!names.some((n) => /_[01]$/.test(n)), `no other mode's: ${names}`);
+  assert.equal(layer.ownsSkill(acl), true, 'its skill activation: no procedural burst');
+  assert.equal(layer.ownsSkill({ ...acl, info: { ...acl.info, defId: 'token_x' } }), false, 'another summon keeps it');
 });

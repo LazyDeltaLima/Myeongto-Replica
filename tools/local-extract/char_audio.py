@@ -165,6 +165,9 @@ def unit_audio(tree, prefab_root=''):
         rel = gp[len(mode_paths[i]) + 1:].split('/')
         if len(rel) == 2 and rel[0] == 'Body':
             body[i].setdefault(rel[1], {}).update(ability_info(tree, by_pid, gp, d))
+        # a mode's own enemy skill (炎佑 Modes/2/Body/Skills/Skill_2): signalled by its name like a root one
+        if len(rel) >= 3 and rel[0] == 'Body' and rel[1] == 'Skills':
+            proj_keys(d, out.setdefault('skills', {}).setdefault(rel[2], []))
         proj_keys(d, out['proj'][i])
     # the attack abilities: Body/Attack → `attack`, Body/Combat → `combat` (their signal suffix); a mode with neither signals
     # its one Body ability as `attack` (荒芜拉普兰德's M0FunnelsNormalAttack → attack.0)

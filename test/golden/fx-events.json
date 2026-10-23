@@ -2437,6 +2437,7 @@
   ],
   "bond-yanShip-high": [
    "- spawn common_enemy_hit_01 → ally",
+   "- spawn enemy_acloon_attack_hit → enemy",
    "- spawn enemy_winbab_attack_01_hit → ally",
    "- spawn:dead common_char_die_01",
    "- spawn:dead common_enemy_die_01 → enemy",
@@ -2484,6 +2485,7 @@
    "char_4196_reckpr spawn:born common_char_birth_01 → self",
    "enemy_1389_winbab_2 spawn:castLoop enemy_winbab_attack_01_start → self",
    "enemy_9012_acloon spawn:born common_call_start_01 → self",
+   "enemy_9012_acloon spawn:cast enemy_acloon_attack_start → self",
    "token_10015_dusk_drgn spawn:born common_call_start_01 → self",
    "token_10031_swire2_gdtrap spawn:born common_call_start_01 → self"
   ],

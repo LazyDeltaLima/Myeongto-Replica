@@ -970,6 +970,13 @@
   능력 hit 이펙트 + 투사체 `_effectsWhenHit`/`_effectsWhenReached`(≤ 2, `_useOwnerToTargetDirection`은 공격자 → 대상)와 대상에 거는 버프의 자기 이펙트(2026-10-11: 버프 동안 유지·이름당 하나 — 아래 「입력 대상·루프 타격·클립별 이펙트·배치 이펙트」 ⑥), 'spawn' → 시작 이펙트(루트 `_startEffect`만 — 아래 「모드 전환」) + 평생 붙는 자기 버프의 이펙트(`aura` — 2026-10-21부터 클라 능력 클래스로 고름, 아래 「적 상태의 버프 이펙트」; 가상적: 갑주 `enemy_acstmk_buff_1` 등)
   루프(2026-10-11 디컴파일 2라운드로 확정: `AttachEffectOptions.OnEvent`(RVA 0xB14330) — ON_ATTACHED(태어날 때·모드 전환으로 능력이 붙을 때)부터 ON_DETACHED까지, 재생 속도 1.0), 'die' → 사망 이펙트(그 자리; 아래 「사망 이펙트」), 'leak' → 루프 끝. 시전 이펙트는 능력 재생 속도, 타격은 1.0(위). 모드가 바뀌면 이전 모드의 루프 시전
   이펙트를 끈다(ON_DETACHED).
+- 적 기록으로 만든 아군 (2026-10-23, 관리자 제보 「'염의 가호' 공격 이펙트가 연결 안 된 것 같다」): 炎佑(`enemy_9012_acloon`)의 이펙트 7개는 추출·표에
+  있었지만 `ebindOf`가 적만 받아 아군인 炎佑는 절차 대체만 그렸다. 이제 `shared/skill-modes.js ENEMY_RECORD_MODES`(炎佑 → 모드 2: 프리팹에서 模式乙
+  `Skill_2`가 `Modes/2`에 있음, PRTS "由核心盟约-炎召唤时为模式乙")에 든 아군은 공격자 쪽 경로(`efoe`: 'swing'·'atk'·타격, 모델 점, 스킬 발동의 금기둥
+  끄기 `ownsSkill`)에서 적처럼 그 모드의 바인딩을 쓴다 — 휘두름 `enemy_acloon_attack_start`, 꼬리 `enemy_acloon_attack_trail`(비행 시간은 sim의 아군
+  'bolt' 속도 — sim이 그 속도로 날림), 타격 `enemy_acloon_attack_hit`. 대상 쪽 판정은 실제 진영 그대로. 사망 이펙트는 아군 경로 그대로. 祛恶之焰은
+  여전히 절차 분사(`fx/beams.js`) — 링크 투사체 꼬리(`LineEffectEmitter`, 아래 「적 이펙트 전체 재추출」)와 버프 `acloon_s_2`의
+  `enemy_acloon_skill_hit_range`는 안 그림. 확인: `test/render/enemy-fx-layer.test.js` 「炎佑」. [화면 미확인]
 - 'dmg'의 공격자: sim의 'dmg' 튜플 6번째 = 공격자 unit id(无来源이면 null, docs/SIM.md)를 읽는다 — 공격자가 있으면 마지막 공격의 주인이 다를 때 그 공격의 타격으로 치지 않고, 그 적의 능력이
   3초 안에 쓰였으면 그 능력의 hit 이펙트를 그린다. 없으면(예전 sim) 예전처럼 대상에 대한 마지막 공격.
 - 적 스킬·특수 행동: sim fx `enemySkill` { id, ability, n }(콘텐츠 스킬 시전 때 먼저)과 그 시전의 fx마다 실린 `ability`·`caster`(docs/SIM.md; `prefabKey`, 문자열 `skill`, 'skill' [id, on, prefabKey]도 받음) → 그 이름의 능력(`skills[소문자 이름]`: `Skills/<이름>`·
