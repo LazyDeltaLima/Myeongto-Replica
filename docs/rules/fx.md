@@ -479,7 +479,7 @@
     애니메이터(EN 전부·CN 전용 둘)는 모두 `_front`/`_back` 둘만 있다 — 그래서 `three.down`은 잇지 않고 앞 이펙트가 그대로 돈다. 앞모델의 `*_Down*` 클립은 세 번째
     면이 아니라 능력·스킬 키로 트는 것(render.md 「Spine 클립 커버리지」 아래 방향).
   - `RandomDirection`(`rdir`, 데겐블레허 S2 `blkkgt_skill_02_hit_2`): `OnPlay`(0xE95760)가 주인이 유효하면 `RandomUtil.RandomVector3(from, to)`(0x5A81410: 축마다
-    `Random.Range`, 정규화 없음)로 `FaceTo`. → `FxInstance`가 그 범위의 무작위 벡터로 `faceTurn`(FLIP_TWO_SIDE: 반반 뒤집힘). 이 프리팹은 지금 어떤 바인딩에도 없어 안 나옴(§11).
+    `Random.Range`, 정규화 없음)로 `FaceTo`. → `FxInstance`가 그 범위의 무작위 벡터로 `faceTurn`(FLIP_TWO_SIDE: 반반 뒤집힘). 이 프리팹은 S2 대상 버프 `blkkgt_s_2[blocked]`·`[not_blocked]`가 트는데 `_delayToFinish` 0이라 클라에서 거의 바로 끝나 그리지 않는다 [추정](「키트 이벤트의 공식 이펙트」 锏 S2).
   - `FollowTileHeight`(`tileH`, 이네스 표식·범위 3, 프라마닉스 더 프레리타 눈 3(속도 1000), 실버애쉬 더 레인프로스트 S3 범위 1): `_UpdateHeight`(0xE834B0)가 이펙트의 월드
     높이를 제 자리 타일 높이(`MapUtil.GetTileHightByMapPosition`)로 프레임마다 최대 `_followTileHeightSpeed` × 시간만큼 옮긴다. 재생 때(`OnPlay` 0xE833B0, force)는
     차이를 한 번에 더하는데 그 갈래는 부호를 곱하지 않는다(|차이|) — 만든 높이가 타일 높이면 0이라, 우리는 바로 타일 높이에 둔다 [추정: 공식도 타일 높이에서 만듦]. → `fxgame.js stepTileHeight`.
