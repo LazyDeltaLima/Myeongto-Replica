@@ -369,8 +369,7 @@ const TICKER_NUM_ARG = { CHAR_DAMAGE: 2 };
  * The text of an m.ticker frame in the current language. A config.broadcasts line (`id` + `args`, server ≥ 0.2.0) is
  * rebuilt from the localized broadcast template — `{0}` is the player's name (never translated), other args are
  * game-data names or numbers; any other line goes through translateWire (msgid + params, or its text as a msgid).
- * A CHAR_DAMAGE line's amount (`{2}`) is shown through fmtNum in every language, without a trailing '.0' (the amounts
- * are round milestones): 200000 → '200K' / '20万', 1000000 → '1M' / '100万'.
+ * A CHAR_DAMAGE line's amount (`{2}`) is shown through fmtNum in every language: 200000 → '20万' / '200K', 1000000 → '100万' / '1M'.
  * @param {{ text?: string, id?: string|null, type?: string|null, args?: unknown[], msgid?: string, params?: any }} msg
  * @returns {string}
  */
@@ -380,7 +379,7 @@ export function tickerText(msg) {
     const list = data.get('config')?.broadcasts;
     const b = Array.isArray(list) ? list.find((x) => x && x.id === msg.id) : null;
     if (b && typeof b.text === 'string') {
-      const args = msg.args.map((a, i) => (i === 0 ? String(a ?? '') : i === numAt && a !== '' && Number.isFinite(Number(a)) ? fmtNum(a).replace(/\.0(?=\D*$)/, '') : tName(String(a ?? ''))));
+      const args = msg.args.map((a, i) => (i === 0 ? String(a ?? '') : i === numAt && a !== '' && Number.isFinite(Number(a)) ? fmtNum(a) : tName(String(a ?? ''))));
       return format(b.text, args);
     }
   }

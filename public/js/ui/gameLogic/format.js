@@ -89,11 +89,15 @@ export function numberUnitMode(lang) {
   return langInfo(lang)?.numberUnits ? 'myriad' : 'thousand';
 }
 
+/** A shortened amount: whole when `whole`, else one decimal without a trailing '.0' (98.0万 → 98万, 40.2万 stays). */
+const short = (x, whole) => (whole ? x.toFixed(0) : x.toFixed(1).replace(/\.0$/, ''));
+
 /**
  * Compact number: 12345 → '12,345'; 1.5e6 → '150万' in Chinese, whose units count in 10⁴ / 10⁸ steps (万 / 亿; a language
  * pack names its own pair in `_meta.numberUnits`, shared/i18nPacks.js — no template can move the decimal point); a
  * language without them uses the thousands-based units: 1.5e6 → '1.5M', 2.5e5 → '250K', 3e9 → '3B' (English). The
- * player's 「数字单位」 setting overrides the language's style (numberUnitMode).
+ * player's 「数字单位」 setting overrides the language's style (numberUnitMode). A decimal '.0' is dropped: 2e5 → '20万' / '200K',
+ * 1e6 → '1M' (maintainer decision 2026-10-24).
  */
 export function fmtNum(v) {
   const n = Number(v);
@@ -102,13 +106,13 @@ export function fmtNum(v) {
   if (mode === 'full') return Math.round(n).toLocaleString('en-US');
   const units = mode === 'myriad' ? langInfo()?.numberUnits : null;
   if (!units) {
-    if (Math.abs(n) >= 1e9) return `${(n / 1e9).toFixed(Math.abs(n) >= 1e10 ? 0 : 1)}B`;
-    if (Math.abs(n) >= 1e6) return `${(n / 1e6).toFixed(Math.abs(n) >= 1e7 ? 0 : 1)}M`;
+    if (Math.abs(n) >= 1e9) return `${short(n / 1e9, Math.abs(n) >= 1e10)}B`;
+    if (Math.abs(n) >= 1e6) return `${short(n / 1e6, Math.abs(n) >= 1e7)}M`;
     if (Math.abs(n) >= 1e5) return `${Math.round(n / 1e3)}K`;
     return Math.round(n).toLocaleString('en-US');
   }
-  if (Math.abs(n) >= 1e8) return `${(n / 1e8).toFixed(n >= 1e9 ? 0 : 1)}${units[1]}`;
-  if (Math.abs(n) >= 1e5) return `${(n / 1e4).toFixed(n >= 1e6 ? 0 : 1)}${units[0]}`;
+  if (Math.abs(n) >= 1e8) return `${short(n / 1e8, n >= 1e9)}${units[1]}`;
+  if (Math.abs(n) >= 1e5) return `${short(n / 1e4, n >= 1e6)}${units[0]}`;
   return Math.round(n).toLocaleString('en-US');
 }
 

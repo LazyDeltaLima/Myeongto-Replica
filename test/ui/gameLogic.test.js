@@ -711,7 +711,9 @@ describe('enemies, HUD, stats', () => {
     assert.equal(attackInterval(1, 0), 1, 'bad aspd falls back to 100');
     assert.equal(fmtNum(12345), '12,345');
     assert.equal(fmtNum(2_310_000), '231万');
-    assert.equal(fmtNum(150_000), '15.0万');
+    assert.equal(fmtNum(150_000), '15万');
+    assert.equal(fmtNum(980_000), '98万', 'no trailing .0');
+    assert.equal(fmtNum(402_000), '40.2万');
     assert.equal(fmtNum('x'), '—');
     // settings → 数字单位 overrides the language's style; 'myriad' needs the language's own units
     try {
@@ -720,7 +722,7 @@ describe('enemies, HUD, stats', () => {
       setNumberUnitMode('full');
       assert.deepEqual([fmtNum(200_000), fmtNum(2_310_000)], ['200,000', '2,310,000']);
       setNumberUnitMode('myriad');
-      assert.equal(fmtNum(200_000), '20.0万');
+      assert.equal(fmtNum(200_000), '20万');
       assert.equal(numberUnitMode('qzz-none'), 'thousand', 'a language without units of its own');
       setNumberUnitMode('bogus');
       assert.equal(numberUnitMode(), 'myriad', 'an unknown mode: the language\'s own');

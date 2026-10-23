@@ -379,11 +379,11 @@ test('client: the index registers the language packs; the menu lists them (butto
   setLang('qab');
   assert.deepEqual([t('开始'), t('设置')], ['Qab-Start', 'Settings']);
   const { fmtNum } = await import('../public/js/ui/gameLogic.js');
-  assert.deepEqual([fmtNum(150_000), fmtNum(2.5e8)], ['15.0W', '2.5Y'], 'the pack\'s own number units');
+  assert.deepEqual([fmtNum(150_000), fmtNum(2.5e8)], ['15W', '2.5Y'], 'the pack\'s own number units');
   setLang('en');
   assert.deepEqual([fmtNum(150_000), fmtNum(2.5e8)], ['150K', '250M'], 'English: K / M / B as before');
   setLang('zh');
-  assert.deepEqual([fmtNum(150_000), fmtNum(2.5e8)], ['15.0万', '2.5亿'], 'Chinese as before');
+  assert.deepEqual([fmtNum(150_000), fmtNum(2.5e8)], ['15万', '2.5亿'], 'Chinese as before');
   assert.deepEqual(lang.initialLang('?lang=QAB', () => null), { lang: 'qab', fromUrl: true });
   assert.deepEqual(lang.initialLang('', () => 'qzz'), { lang: 'zh', fromUrl: false }, 'a stored pack that is gone: Chinese');
   assert.deepEqual(lang.initialLang('', () => 'qzz', { tentative: true }), { lang: 'qzz', fromUrl: false }, 'without an index: tried by its code');
