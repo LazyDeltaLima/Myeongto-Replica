@@ -892,11 +892,15 @@ test('卡涅利安 S2: faster AoE with 0.3 s sluggish; charged cast: ATK +10 %, 
   approx(u.s.interval, u.base.bat + bb.base_attack_time, 1e-9);
   const selfHeal = noisy(h, 'heal').filter((c) => c.source === u && c.target === u).pop();
   approx(selfHeal.amount, u.s.maxHp * t0['billro_t_1[enhance].heal_scale'], 1e-6, 'charged heal ×2');
+  // its clips: the charged mode S2_Enhance (the 'skill' event's variant, render anims skill `variants.charged`)
+  const casts = () => h.eventsOf('skill').filter((e) => e[1] === u.id && e[2] === 1).map((e) => e.slice(3));
+  assert.deepEqual(casts(), [['charged']]);
   h.run(3);
   assert.ok(noisy(h, 'statusApplied').some((c) => c.source === u && c.status === 'bind' && c.duration === bb['attack@root']));
   h.runUntil(() => !u.skill.active, 30);
   // an uncharged cast: sluggish
   h.runUntil(() => u.skill.active, 40);
+  assert.deepEqual(casts(), [['charged'], []], 'an uncharged cast names no variant (mode S2)');
   h.run(3);
   assert.ok(noisy(h, 'statusApplied').some((c) => c.source === u && c.status === 'sluggish' && c.duration === bb['attack@sluggish']));
   checkInvariants(h.b);

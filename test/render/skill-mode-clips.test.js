@@ -166,7 +166,7 @@ test('a skill\'s sub-mode form (endsWithSkill): 维什戴尔 overload, 寒芒克
   }
 });
 
-test('a cast\'s clip variant (the sim\'s skill event 4th field): 灵知 charged S2 Skill_3, 缄默德克萨斯 S3 recast Start_3_2', () => {
+test('a cast\'s clip variant (the sim\'s skill event 4th field): 灵知 charged S2 Skill_3, 缄默德克萨斯 S3 recast Start_3_2, 卡涅利安 charged', () => {
   const g = actor('char_206_gnosis', 1);
   g.setSkill(true);
   assert.equal(g.current, 'Skill_2');
@@ -186,6 +186,16 @@ test('a cast\'s clip variant (the sim\'s skill event 4th field): 灵知 charged 
   run(t, 2);
   t.setSkill(true, 'recast');
   assert.equal(t.current, 'Start_3_2');
+  // 卡涅利安: mode SN (Skill_Idle / Skill_Loop), charged mode SN_Enhance (Skill_2_*), no opening clip either way
+  for (const i of [0, 1, 2]) {
+    const b = actor('char_426_billro', i);
+    b.setSkill(true);
+    assert.equal(b.current, 'Skill_Idle', `S${i + 1}`);
+    b.setSkill(false);
+    run(b, 2);
+    b.setSkill(true, 'charged');
+    assert.equal(b.current, 'Skill_2_Idle', `S${i + 1} charged`);
+  }
 });
 
 test('丰川祥子 S2: the piano from the deployment (Skill_2_Start, _Idle_A, _Loop_A); a cast plays Trans_A to the organ (_Idle_B, _Loop_B), Trans_B back', async () => {

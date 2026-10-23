@@ -25,6 +25,8 @@ const NOT_ATTACK = /(^|\/)(GeneralAbilities|Talents|Trigger|Skills|CommonAbiliti
 // an ability that opens or closes the others (折桠 S2 mode `FirstAttack`, 锏 S3 `EndAttack`, 乌尔比安 S3 `RespawnEnd`)
 const FIRST = /(^|\/)First\w*$/;
 const END = /(^|\/)\w*End\w*$/;
+// a restart of the operator, not the skill's cast (予愿安洁莉娜 S3 `RestoreAbility`: the flight home, a signal clip)
+const RESTORE = /(^|\/)Restore\w*$/;
 
 const clipKeyOf = (ab) => ab?.three?.oneshot || ab?.chan?.loop || (typeof ab?.key === 'string' ? ab.key : null);
 
@@ -117,19 +119,24 @@ export function keyRoles(op, durations) {
     const abs = s?.abilities || {};
     // the skill's own ability: its root, else the shallowest with a clip (隐德来希 S2 `Self` beside a clip-less `Ally`);
     // an ability that closes the others (`EndAttack`) is the skill's end
-    const withClip = (p) => !!clipKeyOf(abs[p]) || !!abs[p]?.emit?.length;
+    const withClip = (p) => (!!clipKeyOf(abs[p]) || !!abs[p]?.emit?.length) && !RESTORE.test(p);
     const endPath = Object.keys(abs).find((p) => p && END.test(p) && typeof abs[p]?.key === 'string' && abs[p].key);
     const castPath = Object.hasOwn(abs, '') && withClip('') ? ''
       : Object.keys(abs).filter((p) => withClip(p) && p !== endPath).sort((x, y) => x.split('/').length - y.split('/').length || (x < y ? -1 : 1))[0];
     const cast = castPath != null ? abClip(abs[castPath], m > 0 ? m : 0) : null;
-    const ma = m > 0 && !held ? abClip(attackAbility(modes[m]?.abilities), m) : null;
+    // a respawn mode beside the skill's own (乌尔比安 S3 `S3_Respawn_A`, which the skill's 【移动】 puts him in; no skill names
+    // it): the skill attacks and rests in it
+    const respawn = m > 0 ? names.findIndex((n) => n.startsWith(`${names[m]}_Respawn`)) : -1;
+    const work = respawn > 0 ? respawn : held ? -1 : m;
+    const ma = work > 0 ? abClip(attackAbility(modes[work]?.abilities), work) : null;
     // the mode's first-attack ability beside its attack (折桠 S2 `FirstAttack`)
     const firstPath = m > 0 && !held ? Object.keys(modes[m]?.abilities || {}).find((p) => FIRST.test(p) && modes[m].abilities[p]?.key) : null;
-    const sIdle = m > 0 && !held && pairs(m).Idle ? J('Idle', m) : null;
+    const sIdle = work > 0 && pairs(work).Idle ? J('Idle', work) : null;
     const c = { begin: J(s?.begin), loop: null, end: endPath ? J(abs[endPath].key, m > 0 ? m : 0) : null, idle: sIdle !== idle ? sIdle : null, index: i };
     let why = [];
     let loopAb = null;
     if (endPath) why.push(`end ${endPath}`);
+    if (respawn > 0) why.push(`respawn ${names[respawn]}`);
     if (held) why.push(`held ${names[m]}`);
     // another ability of the skill with a clip of its own (望 S3 `SpawnAnim` beside its channel)
     const other = Object.keys(abs).find((p) => p !== castPath && p !== endPath && clipKeyOf(abs[p]) && !abs[p].chan);
@@ -145,16 +152,16 @@ export function keyRoles(op, durations) {
       if (cast.begin) c.begin ??= cast.begin;
       if (cast.end) c.end ??= cast.end;
       // a one-shot cast before a mode that attacks with a clip of its own (余 S3 `CastAnimation`): the cast is the begin
-      if (!cast.begin && !cast.end && !c.begin && sIdle && J(abs[castPath].end, m) === sIdle && ma?.loop && !ma.stance && ma.loop !== out.attack?.loop && ma.loop !== cast.loop) {
+      if (!cast.begin && !cast.end && !c.begin && sIdle && (J(abs[castPath].end, m) === sIdle || respawn > 0) && ma?.loop && !ma.stance && ma.loop !== out.attack?.loop && ma.loop !== cast.loop) {
         c.begin = cast.loop; c.loop = null; loopAb = null; why.push('cast = begin');
       }
     }
     // the mode attacks with no clip: the skill's clip stays on as the stance (薄绿 S2 / 小满 S2 beside their own channel)
-    if (ma?.stance && c.loop) { c.stance = true; why.push(`mode ${names[m]} stance`); }
+    if (ma?.stance && c.loop) { c.stance = true; why.push(`mode ${names[work]} stance`); }
     if (!c.loop && ma) {
-      if (ma.stance) { c.stance = true; why.push(`mode ${names[m]} stance`); }
+      if (ma.stance) { c.stance = true; why.push(`mode ${names[work]} stance`); }
       else if (ma.loop && ma.loop !== out.attack?.loop) {
-        c.loop = ma.loop; loopAb = attackAbility(modes[m]?.abilities); why.push(`mode ${names[m]} attack`);
+        c.loop = ma.loop; loopAb = attackAbility(modes[work]?.abilities); why.push(`mode ${names[work]} attack`);
         // an attack channel of the mode beside the skill's own begin (歌蕾蒂娅 S2): its begin / end frame each spell of attacks
         if (ma.chan && c.begin && ma.begin) { c.attackBegin = ma.begin; if (ma.end) c.attackEnd = ma.end; }
         // a ThreePart attack's begin opens its first attack only (送葬人 S2), else the skill
@@ -164,7 +171,7 @@ export function keyRoles(op, durations) {
         // `Skill3_ABC_Idle_Into`), else the clip the renderer closes the attacks with (`end`, 送葬人 S2 `Skill_Right_End`)
         if (ma.end && ma.end !== c.loop) { if (c.idle) c.attackEnd = ma.end; else c.end ??= ma.end; }
         if (ma.after && ma.after !== idle && !c.idle) c.idle = ma.after;
-      } else if (ma.loop) { c.plain = true; why.push(`mode ${names[m]} plain`); }
+      } else if (ma.loop) { c.plain = true; why.push(`mode ${names[work]} plain`); }
     }
     // a clip an ability emits as the skill starts (AnimationEmitBehaviour, 缄默德克萨斯 S2 / S3 `Start_n`) opens it
     const emitted = Object.values(abs).flatMap((a) => a?.emit || []).find((k) => k !== 'Idle' && J(k, m > 0 ? m : 0));
@@ -317,15 +324,8 @@ function keyTables(op, out, meta, { J, pairs, abClip }) {
  * 0-based skill indices.
  */
 export const KEY_ROLE_HOLD = Object.freeze({
-  // 乌尔比安 S3: the cast `AOEAttack` (Skill_3_Begin), then the respawn modes S3_Respawn_A (Attack→Skill_3_Loop, Idle→Skill_3_Idle)
-  // / S3_Restore, which no skill names; RespawnEnd closes it (anim-overrides.mjs SKILL_STATE_CLIPS deploys)
-  char_4145_ulpia: [2],
-  // 予愿安洁莉娜 S3 (CN client): `RestoreAbility` (Skill_3_Restart_Begin) is her restart after a knock-out, not the cast; the
-  // take-off / 吟唱 / landing modes around S3 carry the clips
-  char_1015_aglna2: [2],
-  // 卡涅利安: every skill has a mode and an `_Enhance` mode (Skill_Loop / Skill_2_Loop and their Idle pairs) that the charge
-  // stages switch between; which one the sim's stage is waits for the charge rule
-  char_426_billro: [0, 1, 2],
+  // none left: 乌尔比安 S3 (its respawn mode), 予愿安洁莉娜 S3 (`RestoreAbility`) and 卡涅利安 (the charged cast's `_Enhance` mode:
+  // anim-overrides.mjs SKILL_VARIANTS) come from the keys since 2026-10-23
 });
 
 /**

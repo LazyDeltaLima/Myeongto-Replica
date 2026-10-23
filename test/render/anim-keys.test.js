@@ -123,7 +123,6 @@ test('overlayKeyRoles: every skill from the keys but the held ones', () => {
   const guess = () => ({ attack: { begin: null, loop: 'Attack', end: null }, skills: { 0: { loop: 'Skill_1', index: 0 }, 1: { loop: 'Skill_3', index: 1 }, 2: { loop: 'Skill_2', index: 2 } } });
   const a = overlayKeyRoles(guess(), keyRoles(op, dur), 'char_x');
   assert.deepEqual([a.skills[0].via, a.skills[1].loop, a.skills[2].loop], ['attack', 'Skill_2', 'Skill_3']);
-  assert.equal(overlayKeyRoles(guess(), keyRoles(op, dur), 'char_426_billro').skills[1].loop, 'Skill_3', 'KEY_ROLE_HOLD keeps the guess');
 });
 
 test('table rows from the keys: turns, the blocked-enemy clip, facing up, the held mode, the skill mode\'s pairs, first begins', () => {

@@ -233,6 +233,10 @@ export const SKILL_VARIANTS = Object.freeze({
   'op:char_1028_texas2:': { 2: { recast: { begin: 'Start_3_2' } } },
   // 丰川祥子 S2 cast from the organ (mode S2_AttackSpeed: no Trans pair) plays the key's own clip Skill_2_Trans_B
   'op:char_4182_oblvns:': { 1: { fromOrgan: { loop: 'Skill_2_Trans_B' } } },
+  // 卡涅利安 S1 / S2 / S3 cast with every charge stored: the skill buff billro_s_N switches to mode SN_Enhance (Idle→Skill_2_Idle,
+  // Attack Skill_2_Loop; the skin mix Skill_2_Loop / _Idle → Idle is Skill_2_End) when she carries billro_talent_enhance_mark
+  // (billro_talent_enhance_judge: ≥ 2 charges available), else to SN (Skill_Idle / Skill_Loop / Skill_End — the keys)
+  'op:char_426_billro:': Object.fromEntries([0, 1, 2].map((i) => [i, { charged: { loop: 'Skill_2_Loop', idle: 'Skill_2_Idle', end: 'Skill_2_End' } }])),
 });
 
 /**

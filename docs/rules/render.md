@@ -623,6 +623,13 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     손 줄이 키 역할을 통째로 바꾸므로). 지운 뒤 매니페스트에서 바뀐 것(클라 기준, 결정 4): 引星棘刺 S3를 들면 배치부터 공격이 `Skill_3_Loop`(모드 S3 `Body/Attack`
     — 스킬 밖에서도), 予愿安洁莉娜 S1 스킬 역할 `deploy` `Start_2`(S1 모드 Born 짝, 배치 클립은 전부터 equip `Start_2`), 평타 대체 스킬 伊内丝 S3·蕾缪安 S2가
     공격 역할의 `combat`·`firstBegin`을 복사로 함께 가짐(렌더는 `via: 'attack'`을 공격 역할로 그리므로 화면 같음). [화면 미확인]
+    `KEY_ROLE_HOLD`도 비웠다(같은 날): 이름이 `Restore…`인 능력은 시전이 아니다(予愿安洁莉娜 S3 `RestoreAbility` = 복귀 비행, G의 신호 클립) — 모드 S3 공격과 이륙·착지
+    모드로 지금 클립 그대로; 스킬 모드 옆 `<모드>_Respawn…` 모드(乌尔比安 S3 `S3_Respawn_A`, 스킬의 【移动】이 넣는 모드 — 어느 스킬도 이름으로 부르지 않음)가 그 스킬의
+    공격·Idle 모드이고 그 앞의 한 번 시전(`AOEAttack`)이 begin — 역시 지금 클립 그대로. 卡涅利安: 스킬 버프 `billro_s_N`이 `billro_talent_enhance_mark`가 있으면
+    모드 `SN_Enhance`, 없으면 `SN`으로 바꾸고, 그 표식은 `billro_talent_enhance_judge`가 쓸 수 있는 충전 ≥ 2(`maxChargeTime` 2 — 다 모음)일 때 준다 = 시뮬의 「충전
+    다 모아 시전」(키트 `isCharged`). 키트가 그 시전에 `castVariant` `'charged'`를 내고(이벤트 칸만 — 골든 그대로), 역할은 키의 `SN`(`Skill_Idle`·`Skill_Loop`·
+    `Skill_End`) + `anim-overrides.mjs SKILL_VARIANTS` `charged`(`Skill_2_Idle`·`_Loop`·`_End`). 그동안은 S1·S3 = `Skill_*`, S2 = `Skill_2_*`로 충전과 상관없었고,
+    `Skill_Begin`·`Skill_2_Begin`(어떤 키도 안 부름, 믹스는 Idle로 가는 것뿐)을 시전에 틀었다 — 이제 목록 `none`. [화면 미확인]
   - **G** 蕾缪安 S2 조준(2026-10-23, 클라 `skchr_lemuen_2` `_playSkillBeginAnim` 0·charpack `Modes/S2/Body/M2Attack` = `Normal` ThreePart `Attack_Begin`/`Attack_Loop` +
     `Aim` 채널 `_default {Skill_2_Begin, Skill_2_Idle, Skill_2_End}`): 시전 클립 없음, 공격은 평소 클립(`'attack'`), 조준 동안만 채널 — 키트가 조준 시작·끝(사격이든 대상을
     잃었든)에 그리지 않는 fx 'lemuenAim' `{ signal: 'aim', on: 1 | 0 }`(골든 fx 개수만 움직임) → `units.js onSignal` → `spine.js holdSignal`(켜면 begin 뒤 loop 유지, 끄면

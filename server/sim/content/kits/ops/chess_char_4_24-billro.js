@@ -31,12 +31,16 @@ export default withDefaults({
     const S1 = isSel(def, 'skchr_billro_1'), S2 = isSel(def, 'skchr_billro_2'), S3 = isSel(def, 'skchr_billro_3');
     const g = grid(def.skill?.rangeGrid);
     const isCharged = (skill) => skill.maxCharges > 1 && skill.charges + 1 >= skill.maxCharges; // cast with every charge stored
+    // the charged cast's clips: the skill buff (billro_s_N) switches to mode SN_Enhance when billro_talent_enhance_judge saw
+    // ≥ 2 charges available (maxChargeTime 2 — every charge stored), else to SN (render: anims skill `variants.charged`)
+    const castVariant = ({ skill }) => (isCharged(skill) ? 'charged' : null);
     return {
       // charged S1: the skill-off trait's 不攻击 stays in force while the skill lasts (PRTS S1 备注) — no attack at all
       trait: S1 ? { canAttack: (battle, u) => !(skillActive(u) && u.mem.billroCharged) } : null,
       skills: alt(def, {
         skchr_billro_1: () => ({
           kind: 'duration',
+          castVariant,
           mods: { atkPct: num(bb.atk), defPct: num(bb.def) },
           onStart({ battle, unit, skill }) {
             unit.mem.billroCharged = isCharged(skill);
@@ -49,6 +53,7 @@ export default withDefaults({
         }),
         skchr_billro_3: () => ({
           kind: 'duration',
+          castVariant,
           targeting: g ? { rangeGrid: g } : undefined,
           onStart({ battle, unit, skill }) {
             unit.mem.billroCharged = isCharged(skill);
@@ -77,6 +82,7 @@ export default withDefaults({
       }),
       skill: {
         kind: 'duration',
+        castVariant,
         mods: { batPct: batFlat(def, bb.base_attack_time) },
         onStart({ battle, unit, skill }) {
           const charged = isCharged(skill);

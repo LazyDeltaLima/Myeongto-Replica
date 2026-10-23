@@ -74,6 +74,10 @@ export const UNPLAYED = {
   char_4148_philae: {
     Skill_2_Start: 'none: back-only clip; no client key names it (abilities, mode pairs, skin key table, mix), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; S2 is its channel',
   },
+  char_426_billro: {
+    Skill_2_Begin: 'none: no client key names it (abilities, mode pairs, skin key table, mix — the mixes go to Idle only), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; a skill switches to its mode SN / SN_Enhance (Skill_Idle / Skill_2_Idle) without an opening clip',
+    Skill_Begin: 'none: no client key names it (abilities, mode pairs, skin key table, mix — the mixes go to Idle only), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; a skill switches to its mode SN / SN_Enhance (Skill_Idle / Skill_2_Idle) without an opening clip',
+  },
   char_472_pasngr: {
     Skill2_Begin: 'none: no client key names it (abilities, mode pairs, skin key table, mix), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; S2 attacks with its mode',
     Skill2_End: 'none: no client key names it (abilities, mode pairs, skin key table, mix), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; S2 attacks with its mode',
