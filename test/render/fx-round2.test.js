@@ -1,4 +1,4 @@
-// test/render/fx-round2.test.js — decompile check round 2 (2026-10-11, docs/rules/fx.md 「입력 대상·루프 타격·클립별 이펙트·배치
+// test/render/fx-round2.test.js — official client, round 2 (2026-10-11, docs/rules/fx.md 「입력 대상·루프 타격·클립별 이펙트·배치
 // 이펙트」): InputTargetEffectOptions on the main target at their own event, looping hits ended with their cast, all of a
 // cast's effects cut by 麻痹, the clip groups of an UberAnimationEffectEmitter, the operators' deploy / dead effects, an
 // enemy's debuff mark held for its buff's life, and the extractor's root effect component read by its shape.

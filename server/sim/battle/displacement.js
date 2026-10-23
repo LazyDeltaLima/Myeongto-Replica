@@ -63,8 +63,8 @@ export class BattleDisplacement {
    * 反方向（指向薄绿方向）的推开"), never nearer than PULL_STOP_RADIUS to its centre [ASSUMED: "至面前"]. `effect` = a 特效
    * push (PRTS 推与拉: one frame less of travel than a 弹道 push — constants.js PUSH_TILES_EFFECT / PUSH_EFFECT_SKILLS).
    * The pushed enemy turns to face the pusher — against its travel — and slides so (the displace fx `face: 'push'`):
-   * client code `Enemy.KnockBack(direction, force, changeFaceByDirection)` (RVA 0x7248B0) calls `FaceTo(-direction)`, and
-   * the push nodes pass true (`Nodes.Knockback` 0xC1E850, `KnockBackWithDirection`; `KnockBackWithCharacterDirection`
+   * the client's `Enemy.KnockBack(direction, force, changeFaceByDirection)` calls `FaceTo(-direction)`, and
+   * the push nodes pass true (`Nodes.Knockback`, `KnockBackWithDirection`; `KnockBackWithCharacterDirection`
    * passes `!_dontChangeFaceByDirection`, false by default). [ASSUMED] 薄绿's inward push uses the same node (PRTS calls it
    * a push), so it faces away from her. Returns the tiles moved.
    */
@@ -88,8 +88,8 @@ export class BattleDisplacement {
     let dist = pushTiles(level, effect);
     if (inward && !(dl > 0)) { ux = -ux; uy = -uy; dist = Math.min(dist, Math.max(0, d - PULL_STOP_RADIUS)); }
     // 失衡 for the row's 位移时间 (also when the 特效 column shortens the slide). A wall that stops the slide ends it there:
-    // the client's UnbalanceState is physics, not a timer (`Enemy.States.UnbalanceState.OnTick` RVA 0x752380 →
-    // `_UpdateFriction` 0x752C60: friction slows the body every frame and the state ends once its speed is ≤ 0.1), so a
+    // the client's UnbalanceState is physics, not a timer (`Enemy.States.UnbalanceState.OnTick` →
+    // `_UpdateFriction`: friction slows the body every frame and the state ends once its speed is ≤ 0.1), so a
     // blocked body leaves 失衡 when it hits the wall — the time to slide `moved` of `dist` under a uniform deceleration
     // that would stop it after the row's time [ASSUMED: uniform], never below the 0.1 s floor (also a slide blocked at
     // the first step)
@@ -105,7 +105,7 @@ export class BattleDisplacement {
    * is within `stop` tiles of `center` (急停; `center` defaults to `to`, `stop` to PULL_STOP_RADIUS) or reaches `to`;
    * −1 — PULL_WEAK_SHARE of its starting distance to `to`; −2 — PULL_CRAWL tiles; ≤ −3 — nothing. `pullToFront` aims at
    * the official 拉力起点 in front of an operator. The pulled enemy keeps its facing through the slide (displace fx
-   * `face: 'keep'`): client code `Nodes.DragTowardSource.Execute` (0xC16CE0) passes changeFaceByDirection false, and the
+   * `face: 'keep'`): the client's `Nodes.DragTowardSource.Execute` passes changeFaceByDirection false, and the
    * hook pull (`Enemy.BeginPull` / `StillPull` / `EndPull`) never turns it. Returns the tiles moved.
    */
   pull(e, force, { to, center = null, stop = PULL_STOP_RADIUS } = {}) {

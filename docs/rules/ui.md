@@ -118,9 +118,9 @@
   번들은 경로 또는 클라이언트 `PersistentData/Bundles` 아래 경로(예: `ui/autochess/[uc]autochessbattle.ab`).
 - **PC UI 배율 + 해상도 반응형(2026-10-06 2차, 관리자 요청 「해상도 기준 반응형」)**: 단위는 한 곳 — `css/hud-art.css` `:root --ui-u`
   = `clamp(.0135rem, .0105rem + .3px, .015rem)`. hud-art `--u`, shop-art `--u`(기존 폭 상한 `min(…)` 유지), phase-art `--pu`(세로 상한 유지)가 모두 이것을 쓴다.
-  - 데이터 확인: EN(PC) 클라이언트 `global-metadata.dat` — `StandaloneCanvasScaleHelper`(`NotifySettingChange`, `_SetAllCanvasScale`)의 상수
-    `MIN_SCALE_FACTOR` 0.9 · `MAX_SCALE_FACTOR` 1.0 · `DEFAULT_SCALE_FACTOR` 1.0(필드 기본값 표에서 직접 읽음), 설정 키 `UI_SCALER`(SettingManager, SLIDER).
-    즉 PC판은 1280×720 캔버스 단위에 **플레이어가 설정하는 UI 배율 0.9~1.0(기본 1.0)**을 곱한다. 적용 방식(2026-10-11 클라 코드): `StandaloneCanvasScaleHelper._SetAllCanvasScale`(RVA 0xDEC3B0)이 설정값을 `UICanvasScalerHandlerSingleton.SetCanvasScaler`(RVA 0x552B5C0)로 넘기고, 캔버스마다 `UICanvasScalerAspects.CalcFactorFloat`(RVA 0x553F260)가 기본 배율 × 그 값 — **모든 캔버스에 같은 배율을 곱한다**(예전 [추정]과 같음). 예외: `OverrideStandaloneCanvasScalerInfo`가 붙은 캔버스는 자기 기준값에 곱한다(어느 캔버스인지는 프리팹, 미확인). `Reset`(RVA 0xDEC330)은 1.0.
+  - 데이터 확인: EN(PC) 클라이언트 — `StandaloneCanvasScaleHelper`(`NotifySettingChange`, `_SetAllCanvasScale`)의 상수
+    `MIN_SCALE_FACTOR` 0.9 · `MAX_SCALE_FACTOR` 1.0 · `DEFAULT_SCALE_FACTOR` 1.0(클라 필드 기본값), 설정 키 `UI_SCALER`(SettingManager, SLIDER).
+    즉 PC판은 1280×720 캔버스 단위에 **플레이어가 설정하는 UI 배율 0.9~1.0(기본 1.0)**을 곱한다. 적용 방식(2026-10-11 공식 클라): `StandaloneCanvasScaleHelper._SetAllCanvasScale`이 설정값을 `UICanvasScalerHandlerSingleton.SetCanvasScaler`로 넘기고, 캔버스마다 `UICanvasScalerAspects.CalcFactorFloat`가 기본 배율 × 그 값 — **모든 캔버스에 같은 배율을 곱한다**(예전 [추정]과 같음). 예외: `OverrideStandaloneCanvasScalerInfo`가 붙은 캔버스는 자기 기준값에 곱한다(어느 캔버스인지는 프리팹, 미확인). `Reset`은 1.0.
   - KR 캡처(3838×2158, PC)는 🔍 버튼 간격 1649px = 610단위 × 2.70px = 0.9 × 3838/1280 → 그 플레이어는 최소 0.9로 둔 것. 해상도별 공식 표는 못 찾았다.
   - 곡선 [추정]: 1280×720 프레임(rem 66.7px) 이하는 1.0(=지금 크기 — 폰·작은 창은 그대로, 줄이지 않음), 1920×1080(rem 100px)에서 0.9, 그 사이 직선,
     그 위는 0.9. 1단위 = 1280 이하 `.015rem`, 1920×1080 1.35px, 2560×1440 1.8px, 3840×2160 2.7px.
@@ -168,9 +168,9 @@
     아이콘 36, 중심 왼쪽 위에서 43.4 / 49.2), 이름(24, x 80부터), 인원 알약(중심 61.9 아래, x 81.3: 비활성 = `bond_inactive_bg` 빨강 + `title_char_icon`
     #b6b6b6 + 「n/m」 Novecento 18 + 「비활성화」 #fd6969 16, 활성 = `bond_active_bg` + 아이콘 #00f0b4 + `active_icon` ✓),
     오른쪽 위 「중첩 수 n」(25 왼쪽, 34.5 아래, #d0d0d0 / 흰색).
-  - 「n/m」(2026-10-10 클라 코드로 확인): n = 그 맹약 인원(`GarrisonBond.charCnt`), m = **맹약마다 하나뿐인 발동 인원** `activeCount`
-    (`AutoChessBondItemModel.LoadData` RVA 0x1FEE850: requireCount = `ActAutoChessBondInfo.activeCount`) — 단계가 여럿인 맹약도 같다(炎 4명 = 「4/3」,
-    예전 우리 「4/6」). `AutoChessBattleUIBondDetailView._RenderTitleInfo`(0x1FE32B0)가 활성이면 `AUTO_CHESS_BATTLE_BOND_ACTIVE_CHAR_COUNT_FORMAT`, 아니면
+  - 「n/m」(2026-10-10 공식 클라로 확인): n = 그 맹약 인원(`GarrisonBond.charCnt`), m = **맹약마다 하나뿐인 발동 인원** `activeCount`
+    (`AutoChessBondItemModel.LoadData`: requireCount = `ActAutoChessBondInfo.activeCount`) — 단계가 여럿인 맹약도 같다(炎 4명 = 「4/3」,
+    예전 우리 「4/6」). `AutoChessBattleUIBondDetailView._RenderTitleInfo`가 활성이면 `AUTO_CHESS_BATTLE_BOND_ACTIVE_CHAR_COUNT_FORMAT`, 아니면
     `…INACTIVE_…`을 `String.Format(fmt, n, m)`로 채움; 문자열(CN `main_text`): 활성 `<color=#25FFCD>{0}</color><color=#B0B0B0>/{1}</color>`, 비활성
     `<color=#F0F0F0>{0}</color><color=#A3A3A3>/{1}</color>` — 두 경우 모두 m을 찍는다(색은 hud-art.css `.bpop__needn`/`.bpop__needm`). 공식 HUD 맹약 줄
     (`AutoChessBattleUIBondItemView`)에는 인원 숫자가 없다(중첩 수·이름만 — 공식 모양에서 `.bslot__count`를 숨기는 것과 같음). 같은 m을 upstream 모양의
@@ -179,19 +179,19 @@
     ba.acrem #727272, autochess.gray #777777, autochess.dgreen #40B196 — Kengxxiao zh_CN `gamedata_const`)와 구성원 격자
     (`autochess_hud_bond_char_item`: 칸 88, 한 줄 5, 간격 25.5 × 38, 아바타 76 + `avatar_border` 83, 켜진 구성원은 `avatar_active_border` 92×90,
     나머지는 #3b3b3b 50 % 어둡게 — 회색 처리 없음, 등급 배지 30×30 왼쪽 아래 — 스프라이트 rect = 텍스처 45라 상자 그대로, 이름 16 아래). 얇은 스크롤바.
-  - 구성원이 켜지는 조건(2026-10-22 클라 코드로 확인, 관리자 제보: 투자자 팝업에서 정비 구역의 실버애쉬 더 레인프로스트가 어둡게): 맹약의
-    `activeType`을 따른다 — `AutoChessBattleUIBondCharItemView.Render`(RVA 0x2357850)가 `AutoChessBondCharModel.isActive`로 `_activeBorderObj`를 켜고
-    `_inactiveMaskObj`를 끄며, isActive = `AutoChessBattleUtil.CheckIfCharBondActive`(0x8A78E0): 그 플레이어의 ChessInst 중 일반 id가 같은 것이
+  - 구성원이 켜지는 조건(2026-10-22 공식 클라로 확인, 관리자 제보: 투자자 팝업에서 정비 구역의 실버애쉬 더 레인프로스트가 어둡게): 맹약의
+    `activeType`을 따른다 — `AutoChessBattleUIBondCharItemView.Render`가 `AutoChessBondCharModel.isActive`로 `_activeBorderObj`를 켜고
+    `_inactiveMaskObj`를 끄며, isActive = `AutoChessBattleUtil.CheckIfCharBondActive`: 그 플레이어의 ChessInst 중 일반 id가 같은 것이
     ALL(투자자·예견·기적)이면 어디에 있든, BATTLE·MANI면 전투 중(필드)일 때. 정예(`_b`)도 일반 id로 맞춘다. 그래서 투자자·예견·기적은 정비 구역
     구성원도 켜진다(전에는 모든 맹약에서 필드 구성원만 켬). 임시 칸 5개도 소유로 켠다 [추정]: 클라는 ChessInst를 전부 도는데 임시 칸이 ChessInst인지는
     안 읽음. 코드 `gameLogic memberLit`.
-  - 결석(본판 금지) 구성원은 **목록에서 뺀다**(2026-10-13 관리자 결정, 공식 화면 기억 [추정] — 목록을 만드는 클라 코드는 안 읽음): 공식
+  - 결석(본판 금지) 구성원은 **목록에서 뺀다**(2026-10-13 관리자 결정, 공식 화면 기억 [추정] — 목록을 만드는 클라 동작은 확인 안 함): 공식
     `autochess_hud_bond_char_item`·`AutoChessBondCharModel`에 결석 상태가 없다. 맹약이 전부 꺼진 선발 pick(`m.private.diyBanned`)도 같이 빠진다
     (`gameLogic bondMembers`; 예전 빨간 원 ✕ 표시는 없앰). 「成员 x/y」의 y도 그만큼 줄고, 머리의 「n/m」(`activeCount`)은 그대로.
   - 변형 구조체 + 맹약 장비를 낀 선발 오퍼레이터(2026-10-13, 관리자 제보: 그 맹약 목록에 빈 칸 「선」): `bondMembers`의 변형 구조체 행도 선발 행처럼
     오퍼레이터의 합성 기록(일반형)·동료의 pick을 단다 → 그 오퍼레이터 그림·이름, 누르면 그 오퍼레이터 카드.
-  - 설명은 **현재 효과만**(2026-10-13, 사용자 KR 캡처 「기민」 + 클라 코드): `_RenderContent`(0x1FE3120)가 `_descText` 하나에
-    `AutoChessBattleUtil.GetBondDesc(bondId, stack)`(0x7F1B20: 맹약 효과 문구의 자리표시를 기본값 + 층당 값 × 중첩 수로 채움 = 우리 `formatBondEffect`,
+  - 설명은 **현재 효과만**(2026-10-13, 사용자 KR 캡처 「기민」 + 공식 클라): `_RenderContent`가 `_descText` 하나에
+    `AutoChessBattleUtil.GetBondDesc(bondId, stack)`(맹약 효과 문구의 자리표시를 기본값 + 층당 값 × 중첩 수로 채움 = 우리 `formatBondEffect`,
     원본의 当前效果)를 쓴다. 원본의 단계 칸·当前效果 제목·맹약 전체 문구는 공식 모양에서 숨김(本局禁用 맹약은 当前效果가 없어 전체 문구를 남김). 글자색은
     스크립트 `_activeDescColor` 흰색 .9 / `_inactiveDescColor` 흰색 .8, `test_desc` 줄 간격 .9.
   - 패널 밖 < > (`btn_prev`/`btn_next` 100×100, `arrow` 87×86, 중심에서 −344 / +339): 맹약 줄 순서의 이전 / 다음 맹약(`hudArt.js BondNav`, game.js 1줄).
@@ -263,17 +263,17 @@
 - 갱신 애니메이션(2026-10-09, 관리자 요청 「갱신하면 카드가 아래에서 위로」): 같은 번들의 클립. 카드 프리팹 `autochess_shop_card_item`의 Animation
   `card_item_refresh` = root y −135 → −25.92(4/60초) → 0(14/60초), 접선 0 → 444.3 → 0, `root_layout`의 `card_whole_refresh_normal` =
   `group_slots`(카드 줄, 승급 상자 제외) alpha 0 → 1(0.1초). 60fps Hermite(가중치 1/3)를 구간마다 cubic-bezier로 옮겨 그대로 씀(game-shop.css
-  `shop-card-rise`). 공식 계기(클라 코드 `AutoChessBattleShopMainView._RenderUnfoldView`, RVA 0x201B500, 2026-10-10 확인): 서버가 보낸
-  `refreshSeq`가 바뀌면 카드마다 `card_item_refresh`를 **동시에**(`AutoChessBattleShopCardView.PlayRefreshAnim` 0x2018760, 지연 없음) 틀고, 줄은
+  `shop-card-rise`). 공식 계기(공식 클라 `AutoChessBattleShopMainView._RenderUnfoldView`, 2026-10-10 확인): 서버가 보낸
+  `refreshSeq`가 바뀌면 카드마다 `card_item_refresh`를 **동시에**(`AutoChessBattleShopCardView.PlayRefreshAnim`, 지연 없음) 틀고, 줄은
   상품이 특수(`isSpecialRecruit` = 서버 `isSpecialGoods` ≠ NORMAL — `AutoChessBattleShopGoodsType` COMB 1 / BUFF 2)면 `card_whole_refresh_special`,
-  아니면 `_normal`. 같은 플래그가 켜져 있으면 刷新·冻结은 「请选择奖励」로 거절된다(`AutoChessBattleUIController._OnShopRefresh` 0x1FD0930) —
+  아니면 `_normal`. 같은 플래그가 켜져 있으면 刷新·冻结은 「请选择奖励」로 거절된다(`AutoChessBattleUIController._OnShopRefresh`) —
   즉 특수 상품 = 골라야 하는 보상 상품. 우리: 수동 갱신(`m.private.shop.refreshes` = `stats.refreshes`, 버튼·R 키 모두 — 전략의 「特殊刷新」
   갱신도 상품은 보통이라 normal) → normal, 보상 제안(`shop.rewardOffer`: 晋升奖励 = COMB, 전략·아이템·특질이 여는 제안 = BUFF)이 새로 상점 줄을
   차지하면 → special(서버 `server/local-patch.js`가 제안마다 번호를 매겨 `shop.rewardOffer.seq`로 보냄; 「稍后」 뒤 다시 펼 때는 같은 번호라 재생
   안 함 — 공식도 접힌 동안 바뀐 것만 펼칠 때 재생). 라운드 시작의 다시 뽑기·상점이 처음 그려질 때는 재생하지 않음: 공식에서 그때 `refreshSeq`가
   바뀌는지는 서버 로직이라 클라에 없다(클라만 보면 첫 펼침에 seq ≠ 0이면 재생하는 쪽) — 우리 동작 유지. 보상 제안 중의 刷新·冻结 거절은 아직 안
   옮김(우리는 「稍后」로 미뤄 두고 상점을 쓸 수 있다).
-  - 특수 상품 클립(2026-10-09 관리자 제보로 처음 넣음 — 그때는 전략 「特殊刷新」 수동 갱신에 걸었으나 2026-10-10 위 클라 코드대로 보상 제안으로 옮김):
+  - 특수 상품 클립(2026-10-09 관리자 제보로 처음 넣음 — 그때는 전략 「特殊刷新」 수동 갱신에 걸었으나 2026-10-10 위 공식 클라대로 보상 제안으로 옮김):
     클립 = normal + `root_fx`(카드 줄 영역, RectMask2D, 카드처럼 −135 → 0)의 ① `grad`:
     `img_uifx_sweep_03`(arts/ui/[uc]fxcommon.ab)을 180° 돌려 982 × 721.83, × #ffb500, 가산(`m_colordodge2` One One), 2/60 → 34/60초에 켜지고
     y −473 → −143.61(0.1초) → 76.67(0.2초) → 457.5(0.567초) — 그림 세로 단면을 CSS 그라데이션으로 옮겨 그림이 필요 없음(game-shop.css
@@ -320,11 +320,11 @@
   「战斗结束」/「完美作战！」 #2ce3b8), 셈하는 누수가 있으면 → panel_miss(어두운 판, 해골 큐브 `miss_emoji_head` + 몸 + 내린 검 #1aad88,
   「目标生命值减少」 #f24549 + `blood_icon` + 잃을 LP #ff3b3b — `Match.settle`처럼 `counted !== false`인 누수 수를 라운드 상한(`lpCapPerRound` 10)으로 자른 값, 联防이 다시 배분하기 전 값;
   2026-10-09 관리자 제보 전까지 상한 없이 누수 수를 그대로 띄워 실제 LP −10인데 배너만 17로 보였다),
-  잃은 LP 없이 완벽 아님 → panel_miss 제목만 — 클라 코드 `AutoChessBattleUIRoundResultDialog.OnRender`(RVA 0x1FECE70, 2026-10-10 확인):
+  잃은 LP 없이 완벽 아님 → panel_miss 제목만 — 공식 클라 `AutoChessBattleUIRoundResultDialog.OnRender`(2026-10-10 확인):
   `_panelPerfect` = `isAllPrefect`, `_panelMiss` = 그 반대, 잃은 HP 글자는 `lostHp > 0`일 때만; 애니·소리는 완벽 → `_allPrefectAnim` + NOREDUCE,
   완벽 아님·`lostHp ≤ 0` → `_perfectAnim`(panel_miss) + NORMAL, 그 밖 → `_missAnim` + REDUCE(우리 소리 짝 `audioOfficial.js`와 같음). 갈림은 누수
-  「셈」이 아니라 잃은 HP — **관리자 결정 2026-10-11: 클라대로 「이번 결과에 든 플레이어별 LP 손실」**(클라 코드
-  `AutoChessBattleUIViewModel.GetBattleResultStatus` RVA 0x1FD2350: `isAllPrefect` = 모든 플레이어 `hpCost ≤ 0`, `lostHp` = 보고 있는 플레이어의 것).
+  「셈」이 아니라 잃은 HP — **관리자 결정 2026-10-11: 클라대로 「이번 결과에 든 플레이어별 LP 손실」**(공식 클라
+  `AutoChessBattleUIViewModel.GetBattleResultStatus`: `isAllPrefect` = 모든 플레이어 `hpCost ≤ 0`, `lostHp` = 보고 있는 플레이어의 것).
   그래서 panel_perfect는 모두 0일 때만, 셈하지 않는 누수만 있는 솔로 판은 손실 0이라 panel_perfect, **협동에서 나는 0인데 팀원이 잃으면 panel_miss
   제목만 + NORMAL**(옛 동작은 완벽한 작전). 협동 값은 SETTLE의 `m.public.roundLosses`(살아 있는 모든 플레이어의 이번 라운드 차감 [추정: 「결과에 든」
   범위]) — `audio.md` 「작전 종료 효과음」(되돌리기 포함). 공식 결과 창 최대 표시 `MAX_SHOW_TIME` 4초(우리 배너 1.8초 — 애니
@@ -354,7 +354,7 @@
     우리 차례 줄(공식에 없음)도 181.3부터. 카드(`group_card_small`)는 화면 가운데에서 27 오른쪽.
   - 말풍선이 초상에서 약 50단위 떨어져 떴다(행 폭 — 숨긴 이름·LP·태그 — 의 오른쪽 기준). 공식: `autochess_emoji_pop_item`(112×100, 피벗
     (0.08, 0.52) = 꼬리 끝)을 `player_status_item`의 `emoji_ref_rect`(초상 가운데 87×87)에 — 꼬리 끝을 초상 오른쪽 3.5 바깥, 초상 높이 가운데에
-    ([추정] 기준 사각형의 오른쪽 가운데에 피벗을 둔다고 읽음 — 위치를 정하는 코드는 덤프에서 못 찾음). 말풍선 크기는 그대로(1.08rem, 공식 112단위보다 작음).
+    ([추정] 기준 사각형의 오른쪽 가운데에 피벗을 둔다고 읽음 — 위치를 정하는 곳은 공식 클라에서 못 찾음). 말풍선 크기는 그대로(1.08rem, 공식 112단위보다 작음).
 
 ## 배치 UI (2026-10-06)
 관리자 요청: 보드에 기물을 배치할 때(드래그·방향 선택)를 실제 게임과 같게. 근거는 관리자가 준 KR 클라이언트 플레이 영상 캡처 2장(2000×1125,
@@ -419,10 +419,10 @@
 - 탄환형 스킬(관리자 제보): `char_bullet_bar` 받침 `#e56d00` α.31 위에 남은 탄환마다 칸. 칸은 코드(UIBulletBar)가 만들어
   프리팹에 색이 없다 — [추정] 캡처 측정: 색 ≈ `#ffa800`(G 168 일치), 간격 2단위(7발: 16~17px 칸 2px 간격, 19발: 약 4.5px 칸 같은 간격). 칸이 1px보다 좁아지면 남은 비율 한 줄.
   탄환 수는 시뮬레이션이 `b.snap.ammo = [[id, 남은, 최대]]`로 넘긴다(`server/sim/local-hud.js`; 시뮬레이션은 브라우저에서 돈다 — `battle/runner.js`).
-  - **언제 탄환 칸인가 = 스킬 프리팹의 `_showSpAsBulletMode`** (upstream 0.2.4 이식 2차, 관리자 결정 2026-10-11 「공식대로」): 클라 코드
-    `Character.get_hudPluginMask`(RVA 0x7068B0)가 HUD 줄을 고른다 — 스킬이 효과 중(`BasicSkill.isAffecting`, 가상 슬롯 25)이면 플래그
-    (`BasicSkill._showSpAsBulletMode` 0x20, `get_showSpAsBulletMode` 가상 슬롯 15)가 켜졌을 때 `BULLET`(16, `char_bullet_bar`), 아니면 `SP_CAST`(8,
-    남은 시간·탄환 비율 막대), 효과 중이 아니면 `SP`(4)·영창 `CHANT`(32). 탄환 칸(`UIHudCharBulletBar.UpdatePlugin` 0xD5AD60)은 스킬이 탄환형
+  - **언제 탄환 칸인가 = 스킬 프리팹의 `_showSpAsBulletMode`** (upstream 0.2.4 이식 2차, 관리자 결정 2026-10-11 「공식대로」): 공식 클라
+    `Character.get_hudPluginMask`가 HUD 줄을 고른다 — 스킬이 효과 중(`BasicSkill.isAffecting`)이면 플래그
+    (`BasicSkill._showSpAsBulletMode`, `get_showSpAsBulletMode`)가 켜졌을 때 `BULLET`(16, `char_bullet_bar`), 아니면 `SP_CAST`(8,
+    남은 시간·탄환 비율 막대), 효과 중이 아니면 `SP`(4)·영창 `CHANT`(32). 탄환 칸(`UIHudCharBulletBar.UpdatePlugin`)은 스킬이 탄환형
     (`CastSkillWithLimitTimes`)이면 남은 탄환 / 전체, **아니면 유닛의 SP / 최대 SP**(`UIBulletBar.ShowBulletCount(maxSp, sp)`)를 한 칸씩.
     플래그는 클라에서 뽑아 추적 파일로: `tools/local-extract/skill_hud.py`(EN 클라 먼저, EN에 없는 선발 오퍼레이터는 CN 클라 `--client` 두 번) →
     `tools/assets/local-skill-hud.json`(풀 스킬 305개 전부 읽힘, 켜진 것 21개) → `tools/build-data.mjs`가 스킬 기록에 `bulletMode` 0/1 →
@@ -434,14 +434,14 @@
     숫자 줄(`CoinPurse`, `[ASSUMED]`)은 걷어냄(`docs/rules/render.md` 「upstream 0.2.4 이식 — 렌더」).
   - 탄환형인데 플래그가 꺼진 스킬은 탄환 칸이 아니라 남은 비율 막대(`#ffa800`, 스냅숏 SP 그대로): 新约能天使(엑시아 더 뉴 커버넌트) S2 开火成瘾症·S3
     使命必达！, 予愿安洁莉娜(안젤리나 더 멜로우 위시) S3. 전에는 칸으로 그렸다. 플래그를 못 읽은 스킬(`bulletMode` 없음)은 예전처럼 탄환형이면 칸.
-  - 칸 그리기(`UIBulletBar.ShowBulletCount` 0xD6E800): 40발부터(`IGNORE_GAP_COUNT`) 간격 없음 → 남은 비율 한 줄(`hud-bars.js BULLET_NO_GAP`; 우리 풀에서는
+  - 칸 그리기(`UIBulletBar.ShowBulletCount`): 40발부터(`IGNORE_GAP_COUNT`) 간격 없음 → 남은 비율 한 줄(`hud-bars.js BULLET_NO_GAP`; 우리 풀에서는
     信仰搅拌机(산크타 믹사파라토) S2 八臂电锯侠 42·45발 — 30발인 S3는 칸). 간격 값은 `(최대/5 + 1) × _gapFactor`를 셰이더에 넘기는 방식이라 우리 2단위 [추정]은 그대로, 10~39발의
     「부드러운 칸」(`USE_SMOOTH_COUNT`, 셰이더) 차이도 안 옮김.
   - 테스트 `test/render/sp-bullets.test.js`. 스와이어 디 엘리건트 위트의 금화 칸(2/2)·S3 충전 중 SP 막대 → 켜진 뒤 10칸은 Windows Chrome 실제 화면으로 확인(2026-10-11).
     **[화면 미확인]** 엑시아 더 뉴 커버넌트 S2·S3 비율 막대(코드 근거만 — 공식 화면을 볼 기회가 있을 때).
-- 배리어(屏障·护盾, 관리자 요청 2026-10-10 「배리어도 HP 바처럼」): 클라 코드 `UIHudCharHpSlider.UpdatePlugin`이 유닛의 `shieldUIController.shieldToShow`(s)를
+- 배리어(屏障·护盾, 관리자 요청 2026-10-10 「배리어도 HP 바처럼」): 공식 클라 `UIHudCharHpSlider.UpdatePlugin`이 유닛의 `shieldUIController.shieldToShow`(s)를
   읽어 HP 바를 (HP + s) / (최대 HP + s)로 채우고, 채운 부분 중 끝쪽 s / (HP + s)(`UIHpFillImage.splitValue`)를 바 머티리얼 `ui_battle_ally_hp_bar`(셰이더
-  `Torappu/UI/Hp`, DXBC: uv.x > 1.003 − split이면 `_Color2`)의 `#bcdbdf` 불투명으로 그린다 — 따로 막대가 있는 게 아니라 HP 바가 배리어만큼 늘어난다. 아군만
+  `Torappu/UI/Hp`, 클라 셰이더: uv.x > 1.003 − split이면 `_Color2`)의 `#bcdbdf` 불투명으로 그린다 — 따로 막대가 있는 게 아니라 HP 바가 배리어만큼 늘어난다. 아군만
   (적 HP 바에는 이 호출·머티리얼이 없다). 시뮬레이션이 `b.snap.shield = [[id, 남은 배리어]]`(버프 `shield` 합, `local-hud.js`)를 넘기고
   `hud-bars.js shieldedBar`가 같은 계산. 예: 烛煌(블레이즈 디 이그나이팅 스파크, 프라이멀 캐스터) 绝处重燃 쓰러짐 중 배리어 6000. 횟수형 배리어(`shieldHits`)는
   양이 없어 안 그린다. 예전 「배리어 있음」 띠(HP 바 위 가는 줄)는 이제 아군 공식 바에서는 빼고(횟수형도 — 아래 「횟수형 护盾」), 적·공식 그림 없는 바에만 남김.
@@ -520,20 +520,20 @@
   허용 키 = `local-hud.js BLOCK_SHOWN`(`ab:xiShield`, `ab:sandDef` 鼠王, `ab:rockPower` 泥岩). 렌더: `num-official.js` 파란 숫자 `#3a35d9`(block_text),
   노란 「BLOCK」 `#ff9000`([추정 모양] 클라 그림 못 찾음 — PRTS 색), 공식 숫자 방식에서만. 보호막을 뚫은 타격은 그대로 빨간 숫자(흡수 뒤 HP 감소량).
   「卫戍协议：盟约」 전 동시 10개 제한은 안 함(그 뒤 버전은 제한 없음). 회복 `+n`은 데이터에 끄는 플래그가 없어 늘 표시 [추정;
-  PRTS·나무위키 언급 없음]. 전투 공식 정리는 비공개 조사 기록(`research/battle-mechanics-reference.md`).
+  PRTS·나무위키 언급 없음]. 전투 공식 정리는 관리자 노트.
 - 시뮬레이션: `server/sim/local-hud.js damageNumberFlag(dmg, ss, 예상, 실제)` → `damage.js`(피해 배율까지 계산한 뒤)가 'dmg' 이벤트 5번째 칸(0 / 1 치명타 / 2 강제).
   지속 피해('dot')·무来源은 치명타 아님.
 - 렌더: `render/num-official.js` — 피해는 플래그 있을 때만, 회복은 늘. 30단위(화면 고정 hudUnit), 치명타 글자 ×1.1, 흩어짐 ±(10, 5), 0.5초.
-  움직임은 클라 코드(DOTween, 2026-10-10 확인): 피해(`UIDamageText.SetTweens` RVA 0xD6F6C0) = 앞 절반(0.25초) OutExpo로 위로 `_upOffset` 30·크기
+  움직임은 공식 클라(DOTween, 2026-10-10 확인): 피해(`UIDamageText.SetTweens`) = 앞 절반(0.25초) OutExpo로 위로 `_upOffset` 30·크기
   1 → `_fontSizeScale` 1.5, 뒤 절반 InExpo로 시작점보다 `_downOffset` 30 아래(두 목표 모두 시작 위치 기준)·크기 1.5 → 0, 투명도 트윈 없음(파란 숫자·
-  BLOCK도 같은 움직임). 회복(`UIHealText.SetTweens` 0xD73E20) = 0.5초 OutCubic로 위로 `_floatOffset` 40, 글자 알파 1 → 0 InExpo, 크기 트윈 없음
+  BLOCK도 같은 움직임). 회복(`UIHealText.SetTweens`) = 0.5초 OutCubic로 위로 `_floatOffset` 40, 글자 알파 1 → 0 InExpo, 크기 트윈 없음
   (예전 1.5배 팝은 없음). 피해 쪽은 2026-10-07 사용자 영상 측정(처음 0.87배, 마지막 0.13초에 줄며 떨어짐 — `fx.md` 「데미지 숫자」)과 같은 모양이고
   그때 「최종 크기」로 잰 것이 최고 크기(30 × 1.5)다 — 크기가 예전보다 1.5배. 핫픽스(DefinedFix.lua) 없음. Bitmap 글꼴(Novecento Wide, 이미
   `public/fonts`에 있음).
-- 뜨는 높이(관리자 「좀 높아 보임」, 2026-10-10 클라 코드로 확인 — 바꾸지 않음): `UIUnitHUD.Attach`(RVA 0xD7AF90)가 `hud_unit`을 `UIFollower.Follow(unit.uiPoint,
+- 뜨는 높이(관리자 「좀 높아 보임」, 2026-10-10 공식 클라로 확인 — 바꾸지 않음): `UIUnitHUD.Attach`가 `hud_unit`을 `UIFollower.Follow(unit.uiPoint,
   unit.hudOffset)`로 붙이고, `uiPoint` = 유닛 `_uiMountPoint`(프리팹에서 비어 있으면 `Unit.OnAwake`가 유닛 자신의 transform으로 채움 — 아미야·적 예시 모두 비어
   있음), `hudOffset` 기본 0, 위치는 전투 카메라 뷰포트 → UI 카메라(`UIFollower._GetTargetPosition`). 숫자는 `_ShowDamageText` → `UIController.ShowModifierText` →
-  `ShowNumericText`(0xD41E90)가 UI 글자 층에 붙이고 `UIPopup.InitPosition`(0xD7A140)이 `popup`(`hud_unit` 중심 위 150, 크기·배율 1)의 위치 + 흩어짐으로 **한 번** 놓는다.
+  `ShowNumericText`가 UI 글자 층에 붙이고 `UIPopup.InitPosition`이 `popup`(`hud_unit` 중심 위 150, 크기·배율 1)의 위치 + 흩어짐으로 **한 번** 놓는다.
   → HP 바(중심 아래 54.5)와 숫자(위 150)의 거리 204.5단위는 우리와 같다. 우리 쪽 추정은 `hud_unit` 중심 = 발 위 24.5(`HUD_ANCHOR`, 바 캡처로 맞춤)뿐이다.
   달랐던 것 하나: 우리 숫자는 유닛을 따라 움직였다 — 공식은 생긴 자리에 남는다(2026-10-10 고침).
 - 설정 「伤害数字样式 / 대미지 숫자 방식」: 공식(기본) / 전부 표시(예전 숫자 — 유형별 색·합산·줄 배치), `sp.pref.dmgNumberStyle`(`render/number-style.js`);
@@ -564,9 +564,9 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   인스턴스의 `again`(다시 시작)을 남겨 두어, 파티클이 다 죽은 뒤 상태가 다시 켜져 있으면(다음 기절) 새 인스턴스 옆에 복사본을 하나 더
   틀었다 — 다시 걸릴 때마다 하나씩 늘었다(아레나 1 2 3 4…, 실제 솔로 판 최대 8). 또 방출만 멈춰서 `buff_stun`의 표시(수명 10초 파티클 1개)가
   상태가 끝난 뒤 최대 10초 머리 위에 남았다. → `statusOff`가 `again`을 지우고, `fxstatus.js`는 `now`로 끝낸다(정비 금빛은 예전처럼 서서히).
-  **끝내는 시점**(2026-10-11 클라 코드): `Entity.OnBuffFinish`(RVA 0x35FCC10) → `RemoveBuffEffect`(RVA 0x36001C0) → `Effect.FinishMe`(RVA 0xC88FE0) —
+  **끝내는 시점**(2026-10-11 공식 클라): `Entity.OnBuffFinish` → `RemoveBuffEffect` → `Effect.FinishMe` —
   구성 요소마다 `OnFinish`(방출 정지) 뒤 `delayToRecycle`이 0보다 크고 즉시 끝내기가 아니면 그만큼 뒤에 회수, 아니면 바로 회수. 파티클 이펙트의
-  `delayToRecycle`은 프리팹 `_delayToFinish`(`ParticleEffect.get_delayToRecycle` RVA 0xCB3470). 그래서 `now`는 「방출을 멈추고 프리팹 `_delayToFinish` 뒤
+  `delayToRecycle`은 프리팹 `_delayToFinish`(`ParticleEffect.get_delayToRecycle`). 그래서 `now`는 「방출을 멈추고 프리팹 `_delayToFinish` 뒤
   제거」(`fxgame.js statusOff`, 프레임마다 `finishAt`; 2026-10-23부터 멈추는 것은 첫 시스템과 `_inactiveOnFinish`만 — docs/rules/fx.md 「투사체 꼬리
   끝내기」 버프 이펙트의 끝)이고, 값이 0이거나 없으면 예전처럼 바로 제거. 값은 `fx_extract.py delay_to_finish`가 프리팹 JSON의
   `finish`로 뽑는다(루트 이펙트 구성 요소의 raw float #5): buff_stun·buff_autochess_frozen·buff_sleep·buff_silence·buff_sluggish·common_buff_fear·
@@ -581,7 +581,7 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   → `fxstatus.js syncStatusFx`가 매 프레임 `view._statusIcons`). 층이 켜져 있으면 이펙트가 없는 상태(嘲讽, 无敌, 일반 护盾, 麻痹, 折射, 替身 …)도 아이콘 없이
   아무것도 안 그린다(공식과 같음). 冻结·寒冷 파란 틴트는 그 이펙트가 켜진 동안만 쉰다(예전 그대로). 예전(2026-10-07~10-14)에는 이펙트로 그린 상태만 아이콘이 빠졌다.
 - **버프 이펙트**(관리자 결정 2026-10-14 「공식 프리팹 연결 시작」): 클라에는 상태별 공용 이펙트 표가 없다 — 버프마다 데이터의 `overrideEffectKey`(템플릿
-  `effectKey`)로 자기 이펙트를 정하고(`Entity.AddBuffEffect`, 이름당 하나), 없으면 아무것도 안 그린다. 클라 코드 문자열에 상태 이름 → 프리팹 표는 없고 접두어
+  `effectKey`)로 자기 이펙트를 정하고(`Entity.AddBuffEffect`, 이름당 하나), 없으면 아무것도 안 그린다. 공식 클라 문자열에 상태 이름 → 프리팹 표는 없고 접두어
   `common_`만 있다. EN 버프 템플릿 전수: INVINCIBLE 버프 46개 중 21개, UNMOVABLE 22개 중 12개, 키에 shield가 든 110개 중 42개, taunt 10개 중 9개가 이펙트 없음;
   공용처럼 보이는 `common_invincible_01~03`·`common_unmovable_01`·`common_shield_01`은 특정 적·장비 하나·케언 S2만 쓴다. 그래서 같은 상태라도 건 쪽에 따라 다르다:
   - 건 쪽별(`fxstatus.js SOURCE_FX`, sim 'status' 켬 이벤트에 건 유닛 id·버프 힌트 `fxTag`·방패 층 `n` — `battle/status.js statusOnEvent`, 골든 다이제스트는 이벤트를 종류별로만 셈):
@@ -603,7 +603,7 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   - 아이콘 시절 `statusFxKey`가 'invulnerable'을 `/vulner/`로 脆弱 이펙트에 잇던 것도 막음(그 상태를 거는 곳은 없었음).
   - 추출(git 밖): `fx_extract.py --bundle qiubai --prefab qiubai_skill_01_buff`, `--bundle mlyss_token`·`--bundle cathy_token --pack pkgrps/btl_pfb_fx_token_0.ab
     --match '^token_10030_mlyss_wtrman_c3_debuff_01$'`/`'^token_cathy_catsld_shield_01'`, `--bundle common --prefab 'common_ resistance_01' --prefab common_darkdamage_debuff`,
-    `--bundle buff --prefab buff_burn`. 나머지는 이미 뽑혀 있었다(오퍼레이터 번들). 근거 덤프: EN `config/buff_template_holder.ab`(관리자 노트의 2026-10-10 덤프),
+    `--bundle buff --prefab buff_burn`. 나머지는 이미 뽑혀 있었다(오퍼레이터 번들). 근거 추출: EN `config/buff_template_holder.ab`(관리자 노트의 2026-10-10 추출),
     charpack MonoBehaviour, `[uc]skills.ab`, CN 공개 `battle/buff_template_data.json`.
   - 확인: 단위 `test/render/status-buff-fx.test.js`, `test/local-patch-hud.test.js` ⑤. [화면 미확인]
 - 디버그 아레나 확인: 寒冷+战栗(눈꽃 위·주먹 아래, 캡처 10과 같음), 冻结+寒冷(캡처 9의 얼음), 沉默 ✕, 脆弱, 沉睡, 迷彩. 아레나에서 WebGL 경고
@@ -861,15 +861,15 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 - 전에는 적이 파란 문에 들어가면 위 HP 숫자가 바로 `lp − 대기 손실`(빨간 글자)로 내려가고 옆에 「−N」이 붙었다(user playtest #3 item 2).
   공식 클라는 숫자를 깎지 않는다 → 숫자는 정산된 LP 그대로, 「−N」만 늘어나고, 정산된 `m.private`가 오면 새 LP(`ui/hud.js liveLp` `shown` = lp,
   `LpTower`는 `value`를 그대로, 빨간 숫자 CSS 삭제). 팀 칸(`teamPanel.js`)도 같은 `LpTower`라 같이 바뀐다.
-- 근거(EN 클라 역어셈, `research/2026-10-11-upstream-023/decompile-render-ui.md` 「#479」 + 이번 확인):
-  `AutoChessHUDStageInfoModel.UpdateData`(0x2024B50)는 큰 숫자에 `ScenePlayerData.hp`(보스전은 `bossRoundModel.playerTotalHp`)를,
-  「−x」에 `AutoChessBattleStatusDataModel.lostHpDisplay`(0x84AB10 = 지금 라운드 상태의 값)를 넣고, 보스전이 아니면 `actData.<+0xF0>.<+0x2C>`
-  (라운드 상한으로 봄 [추정])로 자른다. `_RenderStatus`에 `hp − lost` 계산이 없다. `_loseHpGrp`는 `lostHpDisplay > 0`일 때만 보인다.
+- 근거(EN 공식 클라, 관리자 노트 「#479」 + 이번 확인):
+  `AutoChessHUDStageInfoModel.UpdateData`는 큰 숫자에 `ScenePlayerData.hp`(보스전은 `bossRoundModel.playerTotalHp`)를,
+  「−x」에 `AutoChessBattleStatusDataModel.lostHpDisplay`(= 지금 라운드 상태의 값)를 넣고, 보스전이 아니면 `actData`의 한 값
+  (라운드 상한으로 봄 [추정])으로 자른다. `_RenderStatus`에 `hp − lost` 계산이 없다. `_loseHpGrp`는 `lostHpDisplay > 0`일 때만 보인다.
 - 보스전(최종 공세·은밀한 핵심): 큰 숫자는 그 보스 단계를 처음 본 때의 합산 LP로 고정, 「−N」 = 그 뒤로 줄어든 팀 LP(누수·초과 시간 감소 모두,
-  상한 없음 — 클라 `BossBattleRoundStatus.lostHpDisplay`(0x850590) = `playerTotalHp − battleTeamHp`, 보스전은 상한 분기를 건너뜀). `ui/hud.js bossLp`.
+  상한 없음 — 클라 `BossBattleRoundStatus.lostHpDisplay` = `playerTotalHp − battleTeamHp`, 보스전은 상한 분기를 건너뜀). `ui/hud.js bossLp`.
   전투 중 재접속하면 그때 본 값부터 [ASSUMED]. 툴팁 「全队目标生命值 {lp}：本场战斗已损失 {pending} 点，战斗结束后扣除」.
-- **공식과 다르게 남긴 것(관리자 결정 2026-10-11, 「공식대로」 삭제를 되돌림)**: 자기 전투(일반 라운드 COMBAT) 중 「−N」. 클라 `SelfBattleRoundStatus.lostHpDisplay`(0x8576B0)는
-  늘 0이라 공식은 자기 전투 동안 「−x」를 아예 띄우지 않고, 联防(`HelpBattleRoundStatus.lostHpDisplay`(0x856860) =
+- **공식과 다르게 남긴 것(관리자 결정 2026-10-11, 「공식대로」 삭제를 되돌림)**: 자기 전투(일반 라운드 COMBAT) 중 「−N」. 클라 `SelfBattleRoundStatus.lostHpDisplay`는
+  늘 0이라 공식은 자기 전투 동안 「−x」를 아예 띄우지 않고, 联防(`HelpBattleRoundStatus.lostHpDisplay` =
   `selfEnemyEscapedCntInHelpBattleState`, 상한 적용)과 보스전에서만 띄운다. 우리 「−N」은 user playtest #3 item 2 요청이라 그대로 둠(한때 공식대로 지웠다가 관리자 요청으로 복원).
 - 확인: `test/ui/playtest3.test.js`(liveLp·LpTower·bossLp), `test/ui/playtest6-unite.test.js` [화면 미확인].
 - **팀 칸의 ×N·−N 자리(관리자 결정 2026-10-16, 시안 비교 후 「안 1」)**: 공식 플레이어 칸(`AutoChessBattlePlayerStatusItemView`)의 HP 묶음은
@@ -980,11 +980,10 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 
 ## 공식 위수협약 UI (2026-10-10, 관리자 요청 「제안대로 진행」)
 공식 클라 위수협약 UI 중 빠져 있던 것을 공식 프리팹대로 넣는다. 근거: EN 클라 `ui/autochess/[uc]autochessbattle.ab` 프리팹(`tools/local-extract/ui_inspect.py`,
-커스텀 Text의 `m_InputText` = 중국어 원문, `m_TextId` = 번역 키), 프리팹 애니메이션 클립의 마지막 키프레임(표시 길이), 클라 코드(il2cpp 덤프의 메서드 이름 —
-아래 「클라 코드」). 한국어는 관리자가 본 공식 KR 문구, 나머지는 관리자 「적절하게 번역」 지시로 우리가 정함(KR 번역 표는 클라에 없음).
+커스텀 Text의 `m_InputText` = 중국어 원문, `m_TextId` = 번역 키), 프리팹 애니메이션 클립의 마지막 키프레임(표시 길이), 공식 클라의 메서드 이름. 한국어는 관리자가 본 공식 KR 문구, 나머지는 관리자 「적절하게 번역」 지시로 우리가 정함(KR 번역 표는 클라에 없음).
 그림은 로컬 추출(`data/local-assets.json` ui/battle)에 있어야 뜨고, 없으면 upstream 배너가 그대로 남는다(`ui/battleArt.js battleArt`).
 코드: `public/js/ui/battleArt.js`, `public/css/battle-art.css`, 연결은 `screens/game.js`. 동작 곡선(크기·투명도 변화)은 클립을 키 단위로 옮기지 않은 [추정].
-- 로딩 화면(BATTLE_CHECK, 3D 화면 로딩 중 — 엔진이 필드 첫 프레임을 그릴 때까지, render.md 「필드 첫 프레임 미리 올리기」): 공식 일반 전투 로딩 `UIBattleLoading` + `UIStageInfo`(클라 코드 `UIStageInfo.SetData`: 「Operation」 + 코드 + 이름).
+- 로딩 화면(BATTLE_CHECK, 3D 화면 로딩 중 — 엔진이 필드 첫 프레임을 그릴 때까지, render.md 「필드 첫 프레임 미리 올리기」): 공식 일반 전투 로딩 `UIBattleLoading` + `UIStageInfo`(공식 클라 `UIStageInfo.SetData`: 「Operation」 + 코드 + 이름).
   그림 = 모드의 `loadingPicId`(`data/config.json modes[].loadingPic`, 웹 소재 `loading/loading_ac_*` — AC-1 노랑 … AC-4 빨강, 1024² 그림을 공식처럼 16:9로 늘려 그림 — 관리자 확인 2026-10-12),
   글자 배치는 `act2autochess_battle_ui_plugin`의 `panel_battlestart`(Operation 30 · 코드 90 · 이름 60, Novecento wide / Noto), 아래 팁 = 공식 `gameTipsList`
   무작위 하나, 오른쪽 아래 「Loading」 + 점. 이름은 모드 이름 그대로 — 「AC-4 초월 시뮬레이션」(관리자 결정 2026-10-11: 「시뮬레이션」을 붙임. 2026-10-10에는 KR 캡처
@@ -992,13 +991,13 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 - 시작 배너(`game_start_dialog`, 3.42초, 소리 `target` = ON_ACT1AUTOCHESS_TARGET): BATTLE_CHECK에서 1라운드 ROUND_START로 넘어갈 때 한 번(재접속은 다시 안 띄움),
   라운드 시작 배너는 그 뒤에. 「全局作战目标」(27, #1bf0b1) / 「通过14回合，消灭领袖」(35, 흰색) — KR 「전역 작전 목표」 / 「리더 적 섬멸!」(관리자 KR 캡처).
   라운드 1 배너가 ROUND_START(2초) 뒤에 뜨므로 그 라운드의 「획득」 값을 라운드 단위로 기억해 넘긴다(`roundGoldRef`).
-- 아래 안내 띠(`panel_bottom_tips`, 클라 코드 `AutoChessBattleUIBottomTipsViewModel.UpdateData`): 정비 중(남의 판을 보는 중이 아님) — 내가 준비함 →
+- 아래 안내 띠(`panel_bottom_tips`, 공식 클라 `AutoChessBattleUIBottomTipsViewModel.UpdateData`): 정비 중(남의 판을 보는 중이 아님) — 내가 준비함 →
   PREP_READY(#18a486, `icon_ready`, 「준비 완료, 시뮬레이션 대기 중」), 아니면 임시 정비 구역에 단위 → HAND_OVERFLOW(#d22e2e, `icon_red`, 「정비 구역 초과,
   넘친 자원은 다음 라운드에 파기됩니다」 — 우리 번역), 아니면 정비 구역 가득 → HAND_FULL(#ff9000, `icon_yellow`, 「정비 구역이 가득 차 구매할 수 없습니다」);
   그 밖(전투·联防·관전)에는 내 전투가 끝났고 탈락 전이면 → WAIT_FINISH(#171717, `icon_waiting`, 「전투 종료, 팀원의 전투 대기 중」 — 이때 upstream의
   「作战结束，等待队友完成作战」 글은 숨기고 진행 목록만 둔다). 54 높이 알약(`img_bg` 색 입힘, 안쪽 여백 30, 아이콘 32 + 글 18, 폭 410~690), 화면 아래에서 47.7,
   상점이 펼쳐져 있으면 172 위(`battle_bottom_tips_shop_show`). KR 문구는 관리자 KR 캡처(넘침만 우리 번역).
-- 대기 창(`battle_waiting_dialog`, 클라 코드 `AutoChessBattleUIViewModel.IsWaitingPanelShow` = 정비·전투 상태의 END 단계, 즉 내 몫은 끝났는데 단계가 안 넘어감):
+- 대기 창(`battle_waiting_dialog`, 공식 클라 `AutoChessBattleUIViewModel.IsWaitingPanelShow` = 정비·전투 상태의 END 단계, 즉 내 몫은 끝났는데 단계가 안 넘어감):
   우리는 정비·机变·라운드 시작·SETTLE의 마감이 0.8초 넘게 지났는데 단계가 그대로일 때(서버·팀원 대기, 재접속 직후). 부드러운 판 `banner_back`(9분할 169/170),
   모래시계 얼굴(`face_main` + `shallow_main`, 모래가 3초 주기로 위 → 아래, `battle_waiting_loop_anim` 키 값대로), 「시뮬레이션이 곧 계속됩니다」(33, #e4e5e8) /
   「현재 단계가 끝나기를 기다리는 중……」(19, #71ccb7) — 둘 다 우리 번역.
@@ -1007,7 +1006,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 - 연합 방어 배너(`help_battle_dialog`, 3.0초): UNITE에 upstream 띠 대신. `round_result_dialog` 틀의 주황판 — `round_bg` + 등고선 #6c5e48, 왼쪽 괄호·모서리 #ffa421 안에
   픽셀 둘 `assist_emoji_01/02`, 오른쪽으로 가는 화살표 `arrow` 4개(알파 .4/1/.4/.2), 점 #ffb134 · SIGNAL #ffb135, 「联防阶段」(40, #ffaa24) — KR 「연합 방어」(관리자 KR
   캡처; 같은 msgid라 단계 이름 「联防阶段」도 「연합 방어」로 바뀜).
-- 보는 판 표시(`panel_ob_info`, 클라 코드 `AutoChessBattleObInfoPanel`): 联防·보스 판의 ‹ › 전환기(클라 전투 모드 `ClientHud`)와 팀원 관전 표시를 공식 모양으로 — 화면
+- 보는 판 표시(`panel_ob_info`, 공식 클라 `AutoChessBattleObInfoPanel`): 联防·보스 판의 ‹ › 전환기(클라 전투 모드 `ClientHud`)와 팀원 관전 표시를 공식 모양으로 — 화면
   아래 가운데 84 위 318×40, `bg_ob_self` + `icon_ob_self` + 「你自己」(KR 「자신」, 관리자 KR 캡처 — 팀원 목록 내 칸 툴팁도 같은 msgid) / `bg_ob_other` +
   `icon_ob_other` + 이름(클라의 `#번호`는 우리에게 없음) / 「无人在家」(#cfcfcf 70 %) / 「全景」(공식 「全屏」 자리, 우리 단어 유지), 좌우 `left_arrow_active`(48×68, ±207).
   보는 반쪽의 플레이어가 나갔으면(`status` 'left') `ob_player_lost` 판(589×356) + 「当前玩家已离开」/「可自行切换查看其他玩家」(우리 번역). 「返回战场」은 upstream 버튼을 오른쪽에 둔다.
@@ -1023,10 +1022,10 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   [추정]), 「前往查看」 / 「返回战场」은 초상 위 공식 사각 버튼(`btn_ob_other` / `btn_return_self` 98×98). 점 셋은 전투(联防 포함)가 아직 진행 중인 플레이어에게만
   (`status` combat / helping), 휴식·机变 중 아직 준비 안 한 플레이어(결정·행동 중)는 아무것도 없음, 점에는 테두리·받침 없음 — 관리자 제보 2026-10-10(공식 카드의
   `ActionState`도 IDLE/MOVING/COMPLETE 셋뿐). 처음 넣을 때(29f65de4)는 결정·행동 중에도 점을 띄우고 upstream 상태 칸의 테두리가 남았다.
-- 방송(`broadcast_panel`, 클라 코드 `AutoChessBattleBroadcastPanel`): 로컬 그림이 있으면 upstream 띠 대신 화면 위에서 165 아래, 9분할 `broadcast_bkg`(l/r 20, t 14, b 11)
+- 방송(`broadcast_panel`, 공식 클라 `AutoChessBattleBroadcastPanel`): 로컬 그림이 있으면 upstream 띠 대신 화면 위에서 165 아래, 9분할 `broadcast_bkg`(l/r 20, t 14, b 11)
   + `broadcast_icon` + 18 흰 글, `auto_chess_broadcast`대로 34 아래에서 떠오르고 2.0초부터 사라져 한 줄 2.33초(upstream 5.2초). 문구·우선순위·대기열은 그대로(`ui/ticker.js`).
 - 보스 라운드 시작 창(혼자 `single_boss_prepare_dialog` / 협동 `multi_boss_prepare_dialog` / 숨은 라운드 `hidden_boss_prepare_dialog`): 보스 라운드(숨은 라운드)의
-  **ROUND_START**, 즉 그 라운드의 휴식 전에(관리자 제보 2026-10-10 「보스 라운드의 휴식시간에 들어가기 전」; 클라 코드 `AutoChessGameStateType.BOSS_PREPARE_WAITING`(101)
+  **ROUND_START**, 즉 그 라운드의 휴식 전에(관리자 제보 2026-10-10 「보스 라운드의 휴식시간에 들어가기 전」; 공식 클라 `AutoChessGameStateType.BOSS_PREPARE_WAITING`(101)
   상태의 `AutoChessBattleUIController.PendingBossPrepareWaitingTask.CalcTabId`가 `tab_single/multi/hide_boss_prepare`를 고름 — 보스 전투가 아니라 그 앞의 대기),
   BOSSROUND 소리와 함께, 라운드 시작 배너(「라운드 14 / 획득 +N」)는 창이 끝난 뒤(시작 배너와 같은 순서 — 공식도 보스 카드 다음에 라운드 시작 배너: maintainer confirmation 2026-10-10 (official play memory)). 보스 전투
   (FINAL_ASSAULT·HIDDEN_CORE)가 시작될 때는 띠·창 없이 라운드 띠 전환만(`ui/battleArt.js bossOpening`). 처음 넣을 때(8527a6d7)는 보스 전투 시작에 띄웠다.
@@ -1036,22 +1035,22 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   LP)과 가운데 원(합산 LP), 선이 깜빡이며 들어옴 → `in_02`(1.17초) 팀이 왼쪽(−96)으로, 오른쪽에 리더, 「决战回合」 / 「合力迎击领袖！」(#22e8bd) — KR 「최종 공세 /
   힘을 합쳐 리더 적 섬멸!」. 플레이어 2·3명일 때 줄 자리는 4명 자리에서 [추정]. 숨은 라운드: 경고 표시, `boss_sp_icon`, 「隐藏回合已解锁」(34 #09d7e3) / 「挑战失败不影响
   胜利结算」(19 #a0b2b3) — KR 「히든 코어 개방 / 실패해도 정산에 지장 없음」. 고리(ext 스프라이트)와 선 모양은 [추정].
-- 판 끝 연출(`settle_ending_dialog`, 클라 코드 `AutoChessSettleDataModel.EndingStatus` + `_PlayAudio`): `m.result`가 진행 중인 판에 도착하면 결과 화면 전에(필드는 그대로
+- 판 끝 연출(`settle_ending_dialog`, 공식 클라 `AutoChessSettleDataModel.EndingStatus` + `_PlayAudio`): `m.result`가 진행 중인 판에 도착하면 결과 화면 전에(필드는 그대로
   두고; 서버는 RESULT 단계의 m.public을 m.result보다 먼저 보내므로 그 사이에도 필드를 둔다 — 전에는 결과 없는 결과 화면이 「模拟失败」를 잠깐 띄우고(숨은 라운드까지 깨도),
   연출 때문에 필드가 다시 마운트되며 로딩 화면(`AC-n`)이 떴다: 관리자 제보 2026-10-10, `screens/game.js GameScreen` `onField`) — 승리·숨은 라운드 없음 = NORM_BOSS_WIN(`panel_win_first_boss`, 소리 `killBossNormal`), 승리·숨은 라운드 실패 = HIDE_BOSS_FAIL(`panel_lose_break_one_boss`,
   `killBoss`), 둘 다 = HIDE_BOSS_WIN(`panel_win_all_boss`, `killBossAll`), 패배·전멸 = GAME_OVER(`panel_lose_all_out`, `disconnect`); 중도 포기·오류는 없음. 글:
   「已击败首个领袖！」 KR 「위수 성공!」(관리자 KR 캡처; 숨은 라운드 실패도 클라 CN 원문이 같아 같은 문구 [추정]), 모두 처치는 클라에선 그림 글자 `img_text_win_all`(EN
   「All Leader Enemies Defeated!」) — 번역하려고 글자로 그림, 우리 CN 「已击败全部领袖！」, KR 「모든 리더 적 처치 완료!」(관리자 KR 캡처), 중단 「模拟中断」 KR 「시뮬레이션
   중단」(우리 번역). 길이는 클립(1.97 / 1.97 / 3.0 / 2.1초) + 머무름 [추정], 공식 최대 4초.
-- 탈락 창(`self_dead_dialog`, 클라 코드 `AutoChessBattleUISelfDeadDialog`): 판 도중 내 자리가 탈락하는 순간 한 번(관전석·재접속 제외) — 검정 80 %, 붉은 띠(`bg_type_01`을
+- 탈락 창(`self_dead_dialog`, 공식 클라 `AutoChessBattleUISelfDeadDialog`): 판 도중 내 자리가 탈락하는 순간 한 번(관전석·재접속 제외) — 검정 80 %, 붉은 띠(`bg_type_01`을
   RectMask로 자름), 깨지는 픽셀 얼굴(`icon_01`…`04`), 「防线已被突破」 KR 「방어선이 뚫렸습니다」(기존 번역 재사용), 「继续观战」 「계속 관전」(창 닫기) / 「退出模拟」
   「시뮬레이션 나가기」(나가기 확인 창) — 클라 문구표가 없어 우리 번역.
-- 라운드 시작 배너의 보스 예고 줄(`round_countdown`, 클라 코드 `CheckIfNeedRoundRemainTip`): 보스 라운드 − 현재 라운드가 1~`constants.bossTrailerStartRound`(3)일 때
+- 라운드 시작 배너의 보스 예고 줄(`round_countdown`, 공식 클라 `CheckIfNeedRoundRemainTip`): 보스 라운드 − 현재 라운드가 1~`constants.bossTrailerStartRound`(3)일 때
   배너 위 91.6에 「剩余 N 回合」(20 #a6a6a6, 숫자 #ff682d) — KR 「남은 라운드 N」(우리 번역). 예전에 일부러 뺐던 것(위 「휴식 진입…」 절)을 2026-10-10 관리자 요청으로 넣음.
 - 로딩 화면은 판 시작(BATTLE_CHECK, 3D 화면 처음 로딩)에만 — RESULT 단계에는 띄우지 않는다(위 판 끝 연출의 제보).
 - 전투 시작 띠 없음: COMBAT의 upstream 「作战开始 / 各自行动阶段」 띠를 뺐다(관리자 제보 2026-10-10 「공식은 전투 시작 시 배너가 없음」) — 전투 시작은 라운드 띠의
   `trans_battle`(「전투 시작」)과 소리뿐. 휴식(PREP) 띠를 뺀 2026-10-08 결정과 같은 꼴.
-- 남은 자금으로 준비할 때 묻는 창(관리자 제보 2026-10-10 「공식 UI로」): 클라 코드 `AutoChessBattleUIController._GetPreReadyTipGoldDialogTabInput` = 공식 확인 창
+- 남은 자금으로 준비할 때 묻는 창(관리자 제보 2026-10-10 「공식 UI로」): 공식 클라 `AutoChessBattleUIController._GetPreReadyTipGoldDialogTabInput` = 공식 확인 창
   `AutoChessConfirmDialogInPage`(`[uc]autochesscommon.ab` `auto_chess_confirm_with_cancel_view`) — 뒤 화면 흐림, 화면 너비 어두운 띠 `img_confirm_dialog_bg`(9분할
   40/40/42/42, 257 높이, y +39), 글 26 흰색, 그 아래 체크 줄(`img_confirm_dialog_check_box` / `_check_small` 21 + 22 #dcdcdc 「本局不再提示」), 띠 아래(y −140) 화면 반씩
   두 버튼(103 높이): 취소 = 회색 `img_confirm_dialog_btn_gray_bg`(9분할 20/20) + `img_confirm_dialog_cancel`, 확인 = 초록 `img_confirm_dialog_btn_green_bg`(22/322) +
@@ -1059,7 +1058,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   `noMoneyTipsBand` 밖). 체크하고 확인하면 이번 판에는 다시 묻지 않는다(클라 `AutoChessLocalCache.DataInScene.isPrevReadyGoldTipDisable` — 장면(판) 단위). 공식 문구
   (`AUTO_CHESS_BATTLE_PREP_READY_TIP_2` / `…_NOMORE`)는 클라 문구표가 없어 본문은 예전 우리 문장 [추정], 체크 글 「本局不再提示」 KR 「이번 판에는 다시 묻지 않기」는 우리 번역.
   흐림 세기·어둡게 하는 정도 [추정]. 그림(`ui/common`)이 없으면 예전 확인 창.
-- 임시 정비 구역이 넘친 채 준비(관리자 결정 2026-10-10 「공식 창을 같은 모양으로, 문구는 우리 번역」): 클라 코드
+- 임시 정비 구역이 넘친 채 준비(관리자 결정 2026-10-10 「공식 창을 같은 모양으로, 문구는 우리 번역」): 공식 클라
   `AutoChessBattleUIController._EventOnPrepReadyBtnClick`은 준비를 누르면 `isHandOverflow`면 `tab_pre_ready_tip_hand_overflow`
   (`_GetPreReadyTipHandOverflowDialogTabInput`: 같은 확인 창, `AUTO_CHESS_BATTLE_PREP_READY_TIP_1`, 체크 없음 — 글은 띠 가운데 1080×200) →
   확인하면(`_HandleTabPrepReadyTipHandOverflow`) 이어서 남은 자금 창 조건을 보고 → `ReqPrepareReady`. 즉 공식은 **넘친 채로 준비할 수 있다**
@@ -1071,17 +1070,17 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   휴식 기간이 끝나면 파기됩니다. 준비 완료하시겠습니까?」(우리 번역). 준비 버튼 아래 「임시 정비 구역 N개 대기」는 알림으로 남기되 버튼은 막지 않고, 판 위 줄
   설명(`underframe.js tempRowRule`)도 새 규칙대로. 감사(`server/match/audit.js`)의 「비지 않은 임시 칸으로 준비」 검사는 뺐다. AI는 예전처럼 스스로 비운 뒤 준비.
   임시 칸 뒤 숨은 대기열(2026-10-17, `sim.md` 「임시 정비 구역 뒤 숨은 대기열」)도 준비를 막지 않는다 — upstream `92b97ecb`의 대기열 준비 거절은 안 받음.
-- 재접속 대기 마스크(관리자 요청 2026-10-12, 클라 코드 `AutoChessBattleUIController._reconnectWaitContainer` + common `auto_chess_reconnect_mask`): 판 안에서
+- 재접속 대기 마스크(관리자 요청 2026-10-12, 공식 클라 `AutoChessBattleUIController._reconnectWaitContainer` + common `auto_chess_reconnect_mask`): 판 안에서
   소켓이 다시 붙는 중(`reconnecting`)이면 연결 띠 대신(`ui/connBanner.js`) 화면 전체를 막는 판(`bg_block`) + 아래 `bg_lower_tile`(218) + 바닥에서 80 위 60 높이 띠 —
   양옆 주황 `banner_orange_tile`, 가운데 540 폭 `banner_black_tile`, 옆 선 `banner_frame`(9분할 8|18, 오른쪽 뒤집음, ±197.5), `banner_dec`, 가운데 `icon_waiting`(35,
   #ef7c39) + 「等待重连中......」(22 #ef7c39, 프리팹 원문) — KR 「재연결 대기 중......」(우리 번역). 공식처럼 「立即重连」 버튼이 없다(포커스·온라인 때 즉시 재시도는
   그대로). 아이콘 깜빡임 [추정]. 서버 재시작 카운트다운 뒤의 「재시작하는 중」 띠는 그대로.
-- 서버 끊김 창(클라 코드 `_HandleServerLost` → `tab_server_lost_dialog`, `_GetServerLostDialogTabInput`: `AutoChessConfirmDialogInPage` 확인 버튼 하나,
+- 서버 끊김 창(공식 클라 `_HandleServerLost` → `tab_server_lost_dialog`, `_GetServerLostDialogTabInput`: `AutoChessConfirmDialogInPage` 확인 버튼 하나,
   `AUTO_CHESS_BATTLE_SERVER_LOST_TIP` 또는 비활동 종료 `…_TIP_NEGATIVE_PLAY`, 확인 → `QuitGame`): 진행 중인 판(RESULT 전)에서 `room.closed`가 오거나 새 세션(서버
   재시작)이 되면 바로 로비로 보내지 않고 판 화면 위에 확인 하나짜리 창(`auto_chess_only_confirm_view`: 띠·글은 확인 창과 같고 버튼이 화면 너비 하나, 초록 판
   [추정 — 빨간 판도 있음])에 이유 글(닫힘 이유 문구, 모르면 「与服务器的连接已断开」 KR 「서버와 연결이 끊겼습니다」 — 우리 번역)을 띄우고, 확인해야 로비로
   (`main.js serverLost`). 그림이 없으면 예전처럼 로비 + 토스트.
-- 혼자 판 이어하기 창(클라 코드 `EventOnShowSingleResumeDialog` → `tab_single_resume_dialog`, `_GetSingleResumeDialogTabInput`: 확인 버튼 하나,
+- 혼자 판 이어하기 창(공식 클라 `EventOnShowSingleResumeDialog` → `tab_single_resume_dialog`, `_GetSingleResumeDialogTabInput`: 확인 버튼 하나,
   `AUTO_CHESS_BATTLE_SINGLE_RESUME_DIALOG`, 확인 → `ReqResumeSingleMode`): 판 화면이 이미 진행 중인 혼자 판으로 열릴 때(새로고침·새 탭; INFO_CHECK·BAND_DRAFT·
   BATTLE_CHECK·RESULT 제외, `battleArt.js soloResumeDue`) 같은 창에 「存在进行中的模拟，是否继续？」 KR 「진행 중인 시뮬레이션이 있습니다. 이어서
   진행하시겠습니까?」(우리 번역). 전투 중이면 창이 떠 있는 동안 일시정지(`g.pause`, 일시정지 화면은 창 뒤에 안 띄움)하고 확인하면 이어 감. 서버 규칙은 그대로
@@ -1089,12 +1088,12 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 - 핑 판(`panel_ping`, `AutoChessBattleUIPingPanel`): 위 왼쪽 나가기 버튼 옆 `img_delay_bkg` 76×24, 글 흰색(best fit 1–16 → 12.5 [추정]) — constData
   `pingConds` 원문 「当前延迟<@ping.low>{0}</>ms」, KR 클라 「PING {0}ms」, EN 「Current ping: {0}ms」, 숫자 색 `gamedata_const` richTextStyles
   `ping.low/medium/high` #7fa826 / #ec7a00 / #ff3d3d(1 / 60 / 200 ms 기준). 그림이 없으면 upstream 알약.
-- 위수협약 토스트(`auto_chess_notify_taost`, 클라 코드 `AutoChessUtil.ShowTextToast` — 전투·상점·방·결산의 토스트가 모두 이것): 판 화면이 열려 있고 그림이 있으면
+- 위수협약 토스트(`auto_chess_notify_taost`, 공식 클라 `AutoChessUtil.ShowTextToast` — 전투·상점·방·결산의 토스트가 모두 이것): 판 화면이 열려 있고 그림이 있으면
   모든 토스트를 346×114 판(`img_toast_bg`, 「i」 표시 포함, 텍스처는 rect 379×181 안 18/19) + 글 230×80(+40, 20 흰색)으로, 화면 가운데에(위치 [추정] — 클라
   일반 토스트 층). `html.sp-ac-toast`(`screens/game.js`).
 - 결산 「战斗中...」(`auto_chess_settle_game_player_item` `panel_battle`, 19 #e4e4e4 on `round_battle_bg`): 공식은 탈락해 먼저 결산으로 나간 사람에게 아직 싸우는
   팀원을 보여 주지만, 우리 서버는 판이 끝날 때 모두에게 한 번 결과를 보내 이 상태가 생기지 않는다 — 넣지 않음(먼저 나간 사람의 중간 결산이 서버 기능으로 생기면 그때).
-  결산 좋아요는 서버 기능이 필요해 관리자 결정 2026-10-12로 빼 둠 — `research/2026-10-10-autochess-ui-gap/README.md`.
+  결산 좋아요는 서버 기능이 필요해 관리자 결정 2026-10-12로 빼 둠(관리자 노트).
 
 ## 본판 정보의 맹약·결장 오퍼레이터를 공식 정보 화면 모양으로 (2026-10-11, 관리자 요청)
 
@@ -1112,7 +1111,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   결장 오퍼레이터(130 칸, 7 간격). 오퍼레이터 그림(`matchInfo.js ChessIcon`, 전략 선택의 선발 프리셋 칸과 판 안 「시뮬레이션 정보」 탭도 같은 것)은 공식 `auto_chess_outer_common_chess`(이 항목이 불러오는
   `AutoChessCommonChessView`)와 `chess_banned_item` 값대로: 그림 90, 그 뒤 흰 카드 `img_chess_bkg`(색 변경 없음, 109 × 107 = 카드 96 × 95 + 오른쪽·아래 옅은 그림자, 그림 왼쪽 위에서 2.5 밖),
   단계 그림 35가 그림 왼쪽 아래 모서리에서 9.1씩 밖으로, 결석이면 30 % 회색 `img_chess_banned_mask`(94 × 95)가 그림과 카드를 덮고 `img_chess_banned`(73, 그림 가운데에서 (33, 32))의
-  빨간 삼각형(34)이 카드 오른쪽 위 모서리에 닿는다(관리자 요청 2026-10-13, 공식 화면 대조). 클라 코드 근거: `AutoChessStageInfoGroupViewModel._LoadBondDataFromIdRange`가
+  빨간 삼각형(34)이 카드 오른쪽 위 모서리에 닿는다(관리자 요청 2026-10-13, 공식 화면 대조). 공식 클라 근거: `AutoChessStageInfoGroupViewModel._LoadBondDataFromIdRange`가
   `bannedBondList`의 맹약마다 `AutoChessStageInfoChessGroupModel`을 만들고, `LoadData`가 그 맹약 멤버 중 `CalculateBannedChessIdList`에 든 것을 넣는다 →
   두 맹약이 다 꺼진 오퍼레이터는 두 묶음에 다 나온다. `_RefreshChess`는 멤버 수가 0이어도 묶음을 넣고, 6명마다 줄을 나눈다(두 번째 줄부터 맹약 칸 없음 — 우리는
   가로 폭에 맞춰 감싼다). 묶음 순서는 핵심 줄 → 부가 줄 순(클라 `CompareTo`의 정확한 키는 안 읽음 [추정]).
@@ -1218,7 +1217,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 - 결정 2: **장치 카드는 오퍼레이터 카드와 같은 공식 모양**(`ui/detailArt.js DeviceDetailArt`, `detailPanel.js`가 공식 모양 HUD일 때 `dpanel--chess`
   클래스를 같이 붙임): 상자 없이 화면 왼쪽 전체 높이, 이름·태그·능력치 줄·공격 범위 칸(포탑)·HP 막대·탭 「技能」(장치 자신의 공식 스킬 글)·「装置机制」(우리
   설명 줄 + 이 칸). 누름 통과도 오퍼레이터 카드와 같다(머리·능력치 칸·짧은 탭 내용은 보드로 넘김, 탭·버튼만 받음; 「관리자 제보 수정(2026-10-06 3차)」).
-  - 공식 근거(EN 클라 코드): 장치는 `Trap : Token : Character`다. 칸을 누르면 `AutoChessHighlightState._OnTileClicked`가 `AutoChessDummyManager.GetCharacter`
+  - 공식 근거(EN 공식 클라): 장치는 `Trap : Token : Character`다. 칸을 누르면 `AutoChessHighlightState._OnTileClicked`가 `AutoChessDummyManager.GetCharacter`
     → `Tile.GetCharacter`로 그 칸의 캐릭터를 찾고(`_disableClickCharacterInfo`면 끝), 보는 쪽이 맞으면 `AutoChessUIPlugin.ReqShowCharacterMenu` →
     `UICharacterInfoPanel.ShowCharacter`. 이 패널의 하위 패널(`UICharacterInfoStatusSubPanelInAutochess`·`…TabGroupSubPanelInAutochess`)은 플러그인이
     캐릭터 종류와 상관없이 건다(`_hookedCharacterInfoSubPanels`, `HookedCharacterInfoType` STATUS/TAB_GROUP/ADDITION) → 오퍼레이터와 같은 틀. 관리자 기억과도 맞음.
@@ -1227,7 +1226,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 - 결정 4(관리자 결정 2026-10-14): **특수 지형은 카드가 아니라 화면 위쪽 토스트**(`ui/tileToast.js TileToast`, `screens/game.js` `tileClick` → `tileTip`).
   지형 카드(`TerrainDetail`, `{ kind: 'terrain' }`)는 없앴다. 토스트 = 지형 이름·태그(이름과 같으면 생략)·설명 줄(그 판 수치)·「这一格」 사실, 위쪽 가운데
   — 라운드 캡슐 아래, 공식 모양 HUD에서는 그 아래 맹약 줄 밑(`.ttoast`, `css/screens/game-panels.css`), **누름을 받지 않음**(`pointer-events: none` — 밑의 보드를 그대로 누를 수 있음).
-  - 공식 근거(EN 클라 코드): 캐릭터 없는 칸은 `_OnTileClicked`가 거짓이고, 일반 경로 `UIController.OnBottomMaskDown` → `TileInfoController._SelectTile`이
+  - 공식 근거(EN 공식 클라): 캐릭터 없는 칸은 `_OnTileClicked`가 거짓이고, 일반 경로 `UIController.OnBottomMaskDown` → `TileInfoController._SelectTile`이
     `Tile.isFunctional`이면 `IGameMode.TryShowTileInfoToast`(위수협약 모드는 덮어쓰지 않아 기본 = 거짓) 뒤 `UIToastController.Show(Options{ name: tileName,
     description: tileDescription, lastTime 0 }, needHide: false)`. 같은 칸을 다시 누르면 아무것도 안 함(그대로), 다른 곳을 누르면 `_ClearSelectedTile` →
     `UIToastController.Hide(popupId)`. 그래서 우리도 **다음 보드 누름에 사라지고**(같은 칸이면 놓을 때 다시 — 등장 애니메이션 없이, `again`), 시간으로는
@@ -1268,7 +1267,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   - Esc는 그대로(맹약 멤버 카드는 팝업보다 먼저 닫힘 — 카드가 위). 터치 기기(Esc 없음)는 위 누름으로 닫는다.
   - 공식 모양 카드는 누를 것이 없는 곳을 통과시키므로 그곳을 누르면 밑(보드·서랍)이 받고, 그 누름이 위 규칙대로 카드를 닫는다.
 - 예전 상자(공식 모양 HUD가 아닐 때의 `.dpanel`)도 같은 규칙으로 단추를 없앴다: 위의 닫는 길이 모두 같게 동작하고, 상자 위를 누르면 그대로 남는다(밖을 누르면 닫힘).
-- 공식 근거(EN 클라): `UICharacterInfoPanel`(dump.cs 519168) 필드는 `m_tweenTime`·`_illustHandler`·`_statusSubPanel`·`_tabGroupSubPanel`·캔버스 그룹·
+- 공식 근거(EN 클라): `UICharacterInfoPanel` 필드는 `m_tweenTime`·`_illustHandler`·`_statusSubPanel`·`_tabGroupSubPanel`·캔버스 그룹·
   하위 패널 사전뿐 — `Button` 필드도 닫기 메서드도 없다(`ShowCard`·`ShowCharacter`·`Hide(Deck.Card)`). 하위 패널 `UICharacterInfoStatusSubPanel(InAutochess)`·
   `UICharacterInfoTabGroupSubPanel(InAutochess)`에도 `Button` 필드가 없고, 프리팹 `act2autochess_character_info_subpanel_status`·`…_tabgroup`
   (`ui/autochess/[uc]autochessbattle.ab`, `tools/local-extract/ui_inspect.py prefab`)의 오브젝트는 직업 아이콘·공격 범위·HP/SP 막대·이름·능력치·맹약 칸과
@@ -1364,7 +1363,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   보스 판의 혼자 판(솔로 모드·최종 공세의 남는 한 명)은 예전부터 반쪽으로 시작(아래 진입 코드).
 - upstream PR은 `layerCamera`만 바꿨는데, 전장에 들어갈 때(`screens/game.js` 전장 진입)는 층을 全景으로 되돌리고 카메라를 직접 정해서, 층이 이미 全景이면
   `[layer]` 효과가 돌지 않아 첫 카메라가 그대로 전체였다. 그래서 진입 때 联防 판의 카메라도 `layerCamera(field, 'ALL', side)`로 정한다.
-- 근거: 관리자 결정 2026-10-15(관리자 기억, 공식 녹화 없음). 클라 코드·녹화로는 확인하지 않음 `[ASSUMED]`.
+- 근거: 관리자 결정 2026-10-15(관리자 기억, 공식 녹화 없음). 공식 클라·녹화로는 확인하지 않음 `[ASSUMED]`.
 - 확인: `test/match/observe.test.js`(박사 한 명·둘, `sides` 없는 메타, 보스 판, 진입 코드 고정). [화면 미확인] 박사 한 명 연합 방어 첫 카메라.
 
 ## 규칙 모드 — 클래식·캐주얼 (2026-10-15, 관리자 결정)
@@ -1373,13 +1372,13 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 
 | 옵션 | 클래식(공식) | 캐주얼 | 어디서 | 근거 |
 |---|---|---|---|---|
-| `battlefieldInfo` 브리핑 전장 카드(이름·전장 수·미리보기 그림) | 「미확인 전장」 카드 | 보임 | `public/js/screens/briefing.js` | 공식 정보 화면 입력 `AutoChessStageInfoGroupViewModel.Input`에 전장 값이 없다(actId·bossId·enemyTypes·bannedBondList·trainingBondList·modeId — 클라 코드) |
+| `battlefieldInfo` 브리핑 전장 카드(이름·전장 수·미리보기 그림) | 「미확인 전장」 카드 | 보임 | `public/js/screens/briefing.js` | 공식 정보 화면 입력 `AutoChessStageInfoGroupViewModel.Input`에 전장 값이 없다(actId·bossId·enemyTypes·bannedBondList·trainingBondList·modeId — 공식 클라) |
 | `infoReroll` 브리핑 「다시 뽑기」 투표 | 없음(서버가 거부, 버튼 없음) | 있음 | `server/match/match/phases.js voteReroll` | 공식 브리핑에는 准备就绪뿐(이 파일 「본판 정보 다시 뽑기」) |
 | `bossRoutePreview` 보스 경로 미리보기 | 없음(서버가 경로를 보내지 않음) | 있음 | `server/match/match/views.js nextEnemiesFor` | 공식에 없는 편의 기능(`render.md` 「보스 경로 미리보기」) |
 | `bossHitClamp` 리더 피해 상한 완화(限伤放宽) | 없음(30만 이상 한 방은 통째로 무효) | 있음(30만 이상 한 방은 300,000으로 들어감) | `server/sim/damage.js leaderHitLimit` ← 전투 spec `flags.bossHitClamp` | 공식 限伤(`sim.md` 「캐주얼 규칙 모드의 리더 피해 상한 완화」, `docs/research/11-limits-official.md` §2); 절삭은 공식에 없음 |
 
 - 관리자 결정(2026-10-15): 이름은 클래식 / 캐주얼, 보스 경로 미리보기도 캐주얼 쪽, 처음 기본값은 클래식이고 그 뒤로는 로비에서 마지막에 고른 값을 기억, 공개 매칭은 규칙 모드별로 나눔, 통계는 규칙 모드별로 나누고 이 기능 전의 판 기록은 캐주얼로 셈.
-- 브리핑 전장 카드(관리자 결정 2026-10-15, 시안 비교 뒤): 카드를 빼면 왼쪽 열이 비어 보여서, 같은 자리에 **「미확인 전장」** 카드를 둔다 — 제목 줄은 전장 이름 대신 「미확인 전장」(전장 수 문구 없음), 그림 자리에는 줄무늬 어두운 상자와 보스 칸의 「?」와 같은 주황 「?」, 그 아래 「전투가 시작되면 공개됩니다」. 두 모드의 화면 틀이 같다. 비교한 다른 안(결장 오퍼레이터 묶음을 왼쪽 열로 옮겨 공식 순서 적 → 결장 → 핵심 → 부가를 따르기)은 결장이 많은 판에서 왼쪽만 길어지고 오른쪽 아래가 비어 고르지 않았다. 처음 요청한 「공식의 미클리어 스테이지 맵 미리보기」는 없다: 공식 스테이지 정보 패널(`StagePreviewInfoBasicPanel` `_LoadStagePreviewMap`)은 클리어 여부와 상관없이 같은 미리보기를 불러온다(클라 코드).
+- 브리핑 전장 카드(관리자 결정 2026-10-15, 시안 비교 뒤): 카드를 빼면 왼쪽 열이 비어 보여서, 같은 자리에 **「미확인 전장」** 카드를 둔다 — 제목 줄은 전장 이름 대신 「미확인 전장」(전장 수 문구 없음), 그림 자리에는 줄무늬 어두운 상자와 보스 칸의 「?」와 같은 주황 「?」, 그 아래 「전투가 시작되면 공개됩니다」. 두 모드의 화면 틀이 같다. 비교한 다른 안(결장 오퍼레이터 묶음을 왼쪽 열로 옮겨 공식 순서 적 → 결장 → 핵심 → 부가를 따르기)은 결장이 많은 판에서 왼쪽만 길어지고 오른쪽 아래가 비어 고르지 않았다. 처음 요청한 「공식의 미클리어 스테이지 맵 미리보기」는 없다: 공식 스테이지 정보 패널(`StagePreviewInfoBasicPanel` `_LoadStagePreviewMap`)은 클리어 여부와 상관없이 같은 미리보기를 불러온다.
 - 방(`server/lobby.js`): `room.create { ruleset? }`(없으면 클래식), 방장이 판 전에 `room.setRuleset { preset }`로 바꾼다(매칭 중이면 `ERR.MATCHING`, 바꾸면 다른 박사의 준비가 풀림 — 난이도와 같음). `room.state.ruleset = { preset, options }`, 판은 `opts.ruleset`로 받아 `m.public.ruleset`에 싣는다. 다시 뽑기로 새로 시작한 판도 방의 규칙 모드를 그대로 쓴다.
 - 리더 피해 상한 완화: 캐주얼이면 보스전 spec의 `flags`에 `bossHitClamp`이 붙고(`shared/ruleset.js simRuleFlags`, 공식 값과 다를 때만), 브라우저 전투와 서버 검증이 같은 spec을 읽는다. 클래식 보스전의 spec은 예전과 같아 골든이 움직이지 않는다.
 - 통계(관리자 결정 2026-10-15, `public/js/ui/stats.js`·`screens/stats.js`): 기록마다 `ruleset`(그 판의 `m.public.ruleset` 프리셋)을 남기고(봉투 v2, 저장 예산 85만 자로 — 실제 크기 협동 판 1000개에서 900개 넘게 남게), 통계 페이지 왼쪽 위 「규칙」 스위치(열 때 로비의 현재 값)로 모든 탭이 그 규칙 모드의 기록만 센다. 이 기능 전의 기록(v1 또는 필드 없음)은 캐주얼(`LEGACY_RULESET`: 그때 다시 뽑기와 전장 미리보기가 있었음). 내보내기·가져오기·비우기는 여전히 모든 기록. `test/ui/stats.test.js`. Windows Chrome 확인 2026-10-15(v1 기록이 캐주얼 탭에).
@@ -1481,8 +1480,8 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
 
 - 제보: 블레미샤인·사리아 S1처럼 여러 번 충전되는 스킬(「可充能N次」)이 충전돼도 오퍼레이터 위에 아무 표시가 없어, 쌓였는지 사라졌는지 알 수 없다.
   SP 바는 한 번 충전될 때마다 0부터 다시 차므로 쌓인 충전이 화면에 전혀 안 보였다.
-- 클라 코드 `UIHudCharSkillMarkPanel.UpdatePlugin`(0xF2E530): 스킬이 AUTO(`SkillData.skillType` 2)이고 `spData.maxChargeTime` > 1이며 스킬
-  프리팹의 `_hideHudSkillStackCount`(BasicSkill 0x5C)가 꺼져 있으면 `_skillCntLabel` = `BasicSkill.availableCnt`(쌓인 충전 수), `_autoSkillMark`는
+- 공식 클라 `UIHudCharSkillMarkPanel.UpdatePlugin`: 스킬이 AUTO(`SkillData.skillType` 2)이고 `spData.maxChargeTime` > 1이며 스킬
+  프리팹의 `_hideHudSkillStackCount`(BasicSkill)가 꺼져 있으면 `_skillCntLabel` = `BasicSkill.availableCnt`(쌓인 충전 수), `_autoSkillMark`는
   그 수가 0보다 클 때만 켠다. 풀 스킬 중 이 플래그를 켠 것은 없다(EN `[uc]skills.ab` 확인 2026-10-17; `_showProgressToNext`·`_hideSkillStackCount`가
   켜진 것은 전부 MANUAL). MANUAL 스킬의 준비 표식은 `UIController.HasFunction(UNIT_HUD_SKILL_CAST_MASK 0x1000)`을 거치는데 卫戍协议는
   `AutoChessUIPlugin.OnGameInit`이 `DisableFunction(0xF07B)`로 끈다 — 그래서 卫戍协议에서 수가 보이는 것은 AUTO 충전 스킬뿐(锡人 S2·锏 S2 같은
@@ -1490,14 +1489,14 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
 - 모양(`arts/ui/[uc]battlecommon.ab` `char_skill_mark_panel` → `auto_skill_ready`): `sprite_circle` 36×36 `#404040` α.39 위에 화살표 고리
   `sprite_auto` 50×50 `#ffd900`, 가운데 `text_skill_cnt`(크기 26, 3단위 위, `#ffd900`, 글꼴 `Novecentowide-Normal`, Shadow 검정 α.5 (1, −1)).
   고리는 정지 그림이 아니다(2026-10-17 관리자 제보 「공식은 숫자를 둘러싼 화살표가 돈다」): `mark_skill_ready`에 `TweenRotate`(from 0 → to z 360,
-  10초, Ease 1 Linear, loop −1 Restart, `_ignoreTimeScale` 켬)가 붙어 있고 `ConstructTweener`(0x1E6DF20)는 `DORotate(…, RotateMode 3 LocalAxisAdd)`
+  10초, Ease 1 Linear, loop −1 Restart, `_ignoreTimeScale` 켬)가 붙어 있고 `ConstructTweener`는 `DORotate(…, RotateMode 3 LocalAxisAdd)`
   — 10초(실시간, 배속·일시정지와 무관)에 한 바퀴, 화면에서 반시계 방향. 표식이 나타날 때 0°부터 돈다 [추정: 트윈 위상].
   숫자 높이(2026-10-17 관리자 제보 「숫자가 원 가운데에 있지 않다」): 클라 글꼴 자산 `Novecentowide-Normal`(sharedassets1, 크기 16에 `m_Ascent` 16.8·
   `m_LineSpacing` 19.2 = 1.05·1.2 em, 우리 OTF hhea와 같음)으로 Unity가 한 줄을 놓으면 1.2 em 줄 상자가 글 상자 가운데, 기준선은 그 위에서 1.05 em
   아래 — 크기 26이면 글 상자 가운데보다 11.7 아래이고 프리팹의 3 위를 더해 **고리 중심 아래 8.7**, 숫자(대문자 높이 0.7 em)는 거의 정중앙
   [추정: Unity 레거시 Text의 줄 배치를 이 모델로 봄 — 디자이너의 3 위 보정과 맞아떨어짐]. Pixi는 글리프로 잰 ascent와 그림자 크기를 더한 상자를
-  가운데 맞춰 숫자가 약 3.7단위 위에 떴다 → `SkillMark._placeLabel`이 기준선(8.7 아래)과 전진 폭 가운데로 놓는다. 자리는 `_FollowPosition`(0xF2E9B0): 유닛 머리 지점의 UI
-  위치 + (0, 0.3, 0)(생성자의 `m_defaultSkillMarkLocalPositionOffset`, `.rdata` 0.3). 우리는 `fxpoints.js`의 `head`(char_points.py `_headTransform`,
+  가운데 맞춰 숫자가 약 3.7단위 위에 떴다 → `SkillMark._placeLabel`이 기준선(8.7 아래)과 전진 폭 가운데로 놓는다. 자리는 `_FollowPosition`: 유닛 머리 지점의 UI
+  위치 + (0, 0.3, 0)(생성자의 `m_defaultSkillMarkLocalPositionOffset` 0.3). 우리는 `fxpoints.js`의 `head`(char_points.py `_headTransform`,
   130명 중 128명이 뼈대 400단위 위)를 그려진 모델에 올리고 30단위 위 [추정: UI 카메라 0.3 = 캔버스 30단위]; 머리 지점·모델이 없으면 프리팹 자리
   (hud_unit 위 154.7).
 - 구현: 시뮬 `local-hud.js chargeMark` → `b.snap.charge = [[id, n]]` → `interp.js`가 표본의 `.charge`로 → `units.js` → `hud-bars.js SkillMark`.
@@ -1522,7 +1521,7 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   - Esc: 카드·팝업 같은 것을 닫을 때 선택도 함께 풀고, 닫을 것이 없으면 선택만 푼다.
   - 필드 밖을 누름: 채팅, 플레이어 목록, 위쪽 줄 등. 선택이 남는 곳은 그 기물의 언더프레임(撤退 / 出售 / 销毁 단추), 그 기물의 카드(맹약 칸 등),
     대화 상자(销毁 확인)뿐(`.uframe, .dpanel, .modal`).
-- 공식: 卫戍协议 클라 코드에서 키보드 단축키 처리를 찾지 못함(조작은 언더프레임 단추), 그래서 이 규칙은 우리 단축키의 규칙이다.
+- 공식: 卫戍协议 공식 클라에서 키보드 단축키 처리를 찾지 못함(조작은 언더프레임 단추), 그래서 이 규칙은 우리 단축키의 규칙이다.
 - 확인: `test/ui/select-letgo.e2e.test.js`(목업 판, DOM 필드: Esc 뒤·채팅을 누른 뒤 X는 아무것도 팔지 않음, 카드의 맹약 칸을 눌러도 선택이 남아 X가
   그 기물만 팖, 언더프레임 出售; 수정 전 코드에서는 실패). Windows Chrome 목업 판 3D 필드에서도 같은 결과(선택 → X 판매, 채팅을 누름·Esc 뒤 X 무반응).
   [화면 미확인: 실제 서버 판]

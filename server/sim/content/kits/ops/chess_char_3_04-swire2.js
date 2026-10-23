@@ -95,7 +95,7 @@ export default {
     /**
      * 仗义疏财 — official text 「消耗一枚金币，下一次攻击会为周围八格内血量不足70%的一名友方单位恢复相当于攻击力40%的生命」. The client
      * (char_1033_swire2, mode S1): her attack is the AbilitySelectableGroup Body/Trigger, which as an attack turn starts casts
-     * the first of its configs that can cast (client code `_DoCastInternal` RVA 0xC49C50) — [0] HealAlly, triggered by the
+     * the first of its configs that can cast (the client's `_DoCastInternal`) — [0] HealAlly, triggered by the
      * coin buff swire2_can_use_gold AND an ally of its selector, `_animKey "Skill_1"`, the heal on its OnAttack event
      * (`_waitForAttackEvent`); [1] Attack. So with a coin and an injured ally the whole turn is the heal and no enemy is
      * hit (until 2026-10-22 the heal rode on the attack's strike and the attack still hit — maintainer decision

@@ -120,7 +120,7 @@ describe('丰川祥子 through the real match path (seats[].diy → Match board 
 });
 
 describe('丰川祥子 S1 through the real match path: note 1 leaves counter-clockwise of her facing', () => {
-  // client code LitePhysicsUtil.Rotate (0x6ABC70) about (0,0,−1): the first, 1.0× note (a = −13.125°) turns to the left of
+  // the client's LitePhysicsUtil.Rotate about (0,0,−1): the first, 1.0× note (a = −13.125°) turns to the left of
   // her facing (maintainer decision 2026-10-11, [추정: battle world y = screen up]; until then the fan was mirrored)
   test('m04, facing RIGHT: the S1 notes 1…8 go from +13.125° (up, her left) to −13.125° in 3.75° steps', async () => {
     const T6 = 'chess_char_6_diy1_a';

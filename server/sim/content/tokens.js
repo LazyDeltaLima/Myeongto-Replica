@@ -1403,7 +1403,7 @@ function airTile(battle, playerId, taken) {
 /**
  * The official spawn point of the 炎佑 (docs/rules/sim.md 「炎佑 등장 위치」): the client's 炎 bond buff (`bondeffect_yan`,
  * ON_AUTO_CHESS_MODE_CHANGED) calls `SummonEnemiesFollowBranchRoute` with `_defaultBranchId` "dragon" — the wave level's
- * `branches.dragon` spawn, on its `extraRoutes[routeIndex]` (client code `Scheduler.SpawnSummonedEnemyWithBranchRoute` →
+ * `branches.dragon` spawn, on its `extraRoutes[routeIndex]` (the client's `Scheduler.SpawnSummonedEnemyWithBranchRoute` →
  * `TryGetEnemyRouteFromBranch`): the start of that route — (11, 7) on the normal and lone-helper 联防 levels, (11, 16)
  * ±0.5 (`spawnRandom`) on the two-helper 联防 one, (4, 10) on the boss levels ((4, 9) / (4, 8) on two solo ones). Both
  * sides of a field take the same point (the buff only keeps one summon per side, `side_a_dragon` / `side_b_dragon`); the

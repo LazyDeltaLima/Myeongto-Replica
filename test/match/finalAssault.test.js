@@ -141,7 +141,7 @@ test('overtime: −1 team LP per REAL second from the end of the 120 real s coun
   m.dispose();
 });
 
-test('overtime window: the server ends the boss battle bossTurnHpReduceTime (150) real s after the countdown — at most 150 LP drained, a defeat with LP left (client code _GetBossBattleTimeInfo)', () => {
+test('overtime window: the server ends the boss battle bossTurnHpReduceTime (150) real s after the countdown — at most 150 LP drained, a defeat with LP left (official client _GetBossBattleTimeInfo)', () => {
   const h = makeMatch({ mode: 'coop', difficulty: 'FUNNY', humans: 2, seed: 50, fake: true, script: (b) => (b.kind === 'boss' ? { bossDps: 1 } : {}) }).start();
   const m = h.m;
   assert.equal(m.gd.bossOvertimeWindowReal(14), 150);

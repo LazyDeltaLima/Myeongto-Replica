@@ -39,7 +39,7 @@ function loadSkeleton(f, anim = 'Idle') {
 }
 
 test('pointKey: _spawnLocation 2 / 4 → hit / head, 3 / 6 → muzzle, MP_SPECIAL_0–15 → sp0–sp15 by the enum order, the rest keep their own heights', () => {
-  // 2026-10-10 (decompile check: client Effect._InitLocationFromEntity puts HIT_POINT / HEAD_POINT at the hit / head mount points)
+  // 2026-10-10 (official client: Effect._InitLocationFromEntity puts HIT_POINT / HEAD_POINT at the hit / head mount points)
   assert.equal(pointKey(2), 'hit');
   assert.equal(pointKey(4), 'head');
   assert.equal(pointKey(3), 'muzzle');

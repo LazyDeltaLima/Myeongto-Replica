@@ -160,8 +160,7 @@ export function startColdWind(battle, { playerId = null, interval, duration, fir
 /**
  * 谢拉格 6-member wind from the bond effect blackboard (effects.json bondeffect_kjerag `env_gbuff_new` bb):
  * interval `bond_eff_kjerag[storm].interval`, duration `base_time + time_per_stack × layers` — the live 谢拉格 layers
- * of the field's player with the most (client `AutoChessAssignBondStackCntToBB` `_assignAllPlayerIndex`, RVA
- * 0xB49C80); one wind per field (bonds/core.js installKjerag). `playerId` tags the fx.
+ * of the field's player with the most (client `AutoChessAssignBondStackCntToBB` `_assignAllPlayerIndex`); one wind per field (bonds/core.js installKjerag). `playerId` tags the fx.
  */
 export function kjeragColdWind(battle, playerId, bb = {}, { bondId = 'kjeragShip' } = {}) {
   const interval = num(bb['bond_eff_kjerag[storm].interval'], 0);
@@ -598,7 +597,7 @@ export function stormView(battle) {
 
 /**
  * Sheltered from a storm blowing `dir`: a 土石结构 stands on a tile in the line from (r, c) against the wind, up to
- * the map edge (client node `HasCertainCharacterInFrontOfMe` RVA 0xE0A970: `MapUtil.GetGridPositionsAlongTheDirection`
+ * the map edge (client node `HasCertainCharacterInFrontOfMe`: `MapUtil.GetGridPositionsAlongTheDirection`
  * from the unit's tile in `InverseDirection(storm.direction)`, own tile excluded, no distance limit — any character
  * `trap_032_mound` on one of them).
  */

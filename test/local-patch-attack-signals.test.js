@@ -510,7 +510,7 @@ describe('damage-over-time ticks (the \'dmg\' 7th field)', () => {
   });
 });
 
-// 2026-10-16, decompile check (docs/rules/audio.md 「연쇄 공격 소리」): a chain shot's HIT sounds at every unit it strikes
+// 2026-10-16, official client (docs/rules/audio.md 「연쇄 공격 소리」): a chain shot's HIT sounds at every unit it strikes
 // (Projectile.OnHitTarget), its REACH once at the first (cue `r`), its chain sound (ON_PROJECTILE_BEHAVIOUR_TRIGGER, cue
 // 'c') once per chain of two units or more (ChainLightningHitBehaviour.PlayChainAudio)
 describe('a chain shot\'s sounds', () => {

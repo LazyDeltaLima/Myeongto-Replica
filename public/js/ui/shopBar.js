@@ -294,7 +294,7 @@ const SPECIAL_ROLL_MS = 1400; // card_whole_refresh_special's particle_ctrl stay
  * The bar.
  * @param {{ priv:any, editable:boolean, collapsed:boolean, onCollapse:(c:boolean)=>void,
  *   onBuy:(i:number)=>void, onLevel:Function, onRefresh:Function, onFreeze:Function, onDetail:(id:string, kind?:string, hint?:string|null)=>void,
- *   onDetailClose?: () => void, onRefuse?: (reason: string) => void, barRef:any,
+ *   onDetailClose?: => void, onRefuse?: (reason: string) => void, barRef:any,
  *   reward?: any, onReward?: (idx:number)=>void, onRewardLater?: Function, offBonds?: Set<string>|null }} props — offBonds:
  *   the bonds this mode never activates (gameLogic modeOffBonds), struck through on the operator cards
  */
@@ -353,7 +353,7 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
   const armedSig = armedSlot ? `${armedSlot.kind}:${armedSlot.id}` : '';
   useEffect(() => { onArm?.(armedSlot ? { kind: armedSlot.kind === 'item' ? 'item' : 'chess', id: armedSlot.id } : null); }, [armedSig]);
   useEffect(() => () => onArm?.(null), []);
-  // The shop row's refresh clips (client code AutoChessBattleShopMainView._RenderUnfoldView, RVA 0x201B500: when the
+  // The shop row's refresh clips (the client's AutoChessBattleShopMainView._RenderUnfoldView: when the
   // server's refreshSeq changes, every card plays card_item_refresh at once and the row plays card_whole_refresh_special
   // if the goods are special — isSpecialGoods COMB / BUFF —, else _normal). 刷新 (button and R key alike, the server's
   // refresh count; a strategy's 「特殊刷新」 too — its goods are normal ones): every card rises from below and the row fades

@@ -1,7 +1,7 @@
 // test/render/strike-shots-fx.test.js — a shot's effects on its target as it leaves, and the projectiles of an attack's later
-// strikes (2026-10-16, decompile check, docs/rules/fx.md 「타격별 투사체·쏠 때 대상 이펙트」).
+// strikes (2026-10-16, official client, docs/rules/fx.md 「타격별 투사체·쏠 때 대상 이펙트」).
 // The client plays a projectile's `_effectsToTargetWhenStart` on its target as it is shot (char_modes.py read them for skills
-// only); a MultiRangedAttack shoots strike n's own projectile (`GetProjectileKey` RVA 0xBF5730: `_additionalProjectile(s)`,
+// only); a MultiRangedAttack shoots strike n's own projectile (`GetProjectileKey`: `_additionalProjectile(s)`,
 // 伺夜 S3's three arrows, 迷迭香's aftershock) and its hits — char_modes.py kept only the first projectile.
 
 import { test } from 'node:test';

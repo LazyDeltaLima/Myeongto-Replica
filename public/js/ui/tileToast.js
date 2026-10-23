@@ -2,7 +2,7 @@
 // screen with the tile's name and what it does, as the client shows it — not a card (GitHub #3, maintainer decision
 // 2026-10-14; docs/rules/ui.md 「보드에서 연 카드가 벤치를 가림」).
 //
-// Official path (EN client code): a press on a tile without a character goes UIController.OnBottomMaskDown →
+// Official path (EN client): a press on a tile without a character goes UIController.OnBottomMaskDown →
 // TileInfoController._SelectTile, which for a functional tile (`Tile.isFunctional`) shows
 // UIToastController.Show({ name: tileName, description: tileDescription, lastTime: 0 }, needHide: false) — a toast that
 // stays while that tile is the selected one: a press on the same tile keeps it, a press anywhere else

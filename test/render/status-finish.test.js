@@ -1,6 +1,6 @@
 // test/render/status-finish.test.js — 2026-10-11, docs/rules/ui.md ⑤ 「끝내는 시점」: an ended status effect goes as the client
-// finishes a buff's effect — Entity.OnBuffFinish → RemoveBuffEffect (RVA 0x36001C0) → Effect.FinishMe (RVA 0xC88FE0): its
-// parts stop and it is recycled `delayToRecycle` s later, a ParticleEffect's `_delayToFinish` (get_delayToRecycle RVA 0xCB3470)
+// finishes a buff's effect — Entity.OnBuffFinish → RemoveBuffEffect → Effect.FinishMe: its
+// parts stop and it is recycled `delayToRecycle` s later, a ParticleEffect's `_delayToFinish` (get_delayToRecycle)
 // — at once when that is 0 (buff_stun). The value comes from the extracted prefab (`finish`, tools/local-extract/fx_extract.py
 // delay_to_finish: the root effect component's raw float #5). No three.js here: the live loop is checked in its source.
 import test from 'node:test';

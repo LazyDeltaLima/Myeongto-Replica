@@ -31,13 +31,13 @@
 // - Stones are hand pieces placed in the prep (any deployable tile, ground or high ground — owner's decision 2026-10-05,
 //   tools/build-diy.mjs makes the token position ALL). They stay exactly where they were placed. Every birth of a placed
 //   stone brings 铸子's 跟子 — the battle-start deployment too (maintainer decision 2026-10-11: the client's automatic
-//   deployment spawns with `spawnManually: true`, client code AutoChessBattleTrigger._AutoDeploy (RVA 0x7D5A60), and
+//   deployment spawns with `spawnManually: true`, the client's AutoChessBattleTrigger._AutoDeploy, and
 //   wang_stone1_t_1[trigger] ON_OWNER_BORN has no manual-only filter; 2026-10-07 – 2026-10-11 there was none at the battle
 //   start — docs/rules/diy.md 「되돌리기」). A 跟子 counts under no deploy limit, so it withdraws no placed stone.
 // - 跟子 (铸子, E1+): PRTS "通过天赋'额外部署的棋子'实为望自身发射的弹道 由此其不具有单位相关的性质（例如占据空位等）" — not a unit: it never counts under the stone deploy limit
 //   (maxDeployCount) and occupies no tile; ≤ attack@max_spawn_cnt of them. Tile: one of the 4 neighbours in the client's
 //   WangTileSelector order (followerOrder, 2026-10-10): ground first, then an enemy on it, then undeployable, then
-//   up > right > down > left in field coordinates (client code WangTileSelector._GetDirectionPriority, RVA 0x7199D0 — on a
+//   up > right > down > left in field coordinates (the client's WangTileSelector._GetDirectionPriority — on a
 //   mirrored field too: maintainer decision 2026-10-11, the W8 swap of 2026-10-07 reverted; until 2026-10-10 enemy tiles
 //   came first, as PRTS words it) — never undeployable
 //   high ground; only where no character unit stands and no knocked-out operator lies (downOn, as upstream; user
@@ -53,7 +53,7 @@
 //   the maintainer 2026-10-07, W12); it ends when stopped, out of ammo or out of stones, the ammo left returns as stones.
 // - The stock is only what the used-up placed stones come back from: no stone of the hand is ever put on a new tile
 //   (maintainer decision 2026-10-11 — the client's only in-battle deployment, AutoChessBattleTrigger.
-//   _TryDeployAvailableCharacter (RVA 0x7D6C90), deploys the pieces placed in the prep on their prep tiles). The
+//   _TryDeployAvailableCharacter, deploys the pieces placed in the prep on their prep tiles). The
 //   [ASSUMED] stand-in of 2026-10-06 – 2026-10-11 (S1 / S2 put new stones next to hers, S3 one a second on an enemy tile
 //   of her range or an empty one) is gone — docs/rules/diy.md 「되돌리기」.
 // - 取势: 停顿 + atk_scale × 望's ATK arts per second for `sluggish` s (independent per trigger, from 望).
@@ -84,8 +84,8 @@ const STONE_ID = 'token_10064_wang_stone1';
 export const STONE = STONE_ID;
 const ORTHO = [[1, 0], [0, 1], [-1, 0], [0, -1]]; // up > right > down > left (row 0 = bottom), field coordinates
 /**
- * Her used stones come back one per AUTO_TRIGGER_INTERVAL (client code AutoChessBattleTrigger.AutoTrigger, the
- * AUTO_TRIGGER_INTERVAL 0.2 s loop → _TryDeployAvailableCharacter (RVA 0x7D6C90): one successful deployment per pass;
+ * Her used stones come back one per AUTO_TRIGGER_INTERVAL (the client's AutoChessBattleTrigger.AutoTrigger, the
+ * AUTO_TRIGGER_INTERVAL 0.2 s loop → _TryDeployAvailableCharacter: one successful deployment per pass;
  * 2026-10-11 — until then all those due in a 0.25 s pass at once).
  */
 const AUTO_TRIGGER_INTERVAL = 0.2;
@@ -116,7 +116,7 @@ const WANG_S3_EXTRA = 3; // "第一天赋额外至多部署3枚棋子"
  * 'Fixed Timestep' 0.0333333 (EN client 2026-08; GlobalConsts.TIME_ROUGH_LOGIC_RATE 30) — one sim tick (constants.js TICK).
  * env_043_stone_trigger (WangStoneTriggerManager): a stone / 跟子 linked at frame F arms (its onStoneTriggered →
  * wang_stone_triggered, the trigger condition) once `fixedFrameCnt > F + _tokenStoneExplodeDelay` (`_projectileStoneExplodeDelay`
- * for a 跟子; both 30) — client code WangStoneTriggerManager._TryTriggerStones / OnTick → _DoStoneExplode; the link shows
+ * for a 跟子; both 30) — the client's WangStoneTriggerManager._TryTriggerStones / OnTick → _DoStoneExplode; the link shows
  * at once. Queued 跟子 are built one per `_stoneBuildDelay` 4 frames (WangStoneTriggerManager.OnTick buildStoneRequests).
  */
 const STONE_ARM_FRAMES = 30, STONE_BUILD_FRAMES = 4;
@@ -297,8 +297,8 @@ function wang(bb, chess, def) {
    * the 4 neighbours a 跟子 may take (followerClass), the best by followerOrder when there is more than one. Ties are
    * impossible (the direction key differs). The direction is the field's up / col+ / down / col− on a mirrored field too
    * (maintainer decision 2026-10-11): the client mirrors only the positions of the right player's pieces on a boss map
-   * (client code AutoChessMapAreaManager.ConvertChessPositionInfoToRightMap, RVA 0x832BC0: col' = 2·boundary − col), not
-   * the map, and _GetDirectionPriority (RVA 0x7199D0) compares grid offsets. 2026-10-07 – 2026-10-11 (W8) a mirrored
+   * (the client's AutoChessMapAreaManager.ConvertChessPositionInfoToRightMap: col' = 2·boundary − col), not
+   * the map, and _GetDirectionPriority compares grid offsets. 2026-10-07 – 2026-10-11 (W8) a mirrored
    * field swapped col+ and col− (ORTHO_MIRRORED) — docs/rules/diy.md 「되돌리기」.
    */
   const buildOne = (battle, unit, r0, c0) => {
@@ -375,7 +375,7 @@ function wang(bb, chess, def) {
           // of the real game, 2026-10-06 — no deployment ever spends ammo or stones)
           if (!s.prepPlaced) return;
           // client: ChargeToken (min(max − remaining, cnt) cards), then InstantSpawn of the rest as 跟子, ≤ max_spawn_cnt
-          // alive, on tiles of her range, no adjacency. Tile order (2026-10-10, client code WangTileSelector
+          // alive, on tiles of her range, no adjacency. Tile order (2026-10-10, the client's WangTileSelector
           // SKILL_3_INSTANT `_DoFilter`): the candidates (_FilterWangNormal ≈ followerClass) shuffled with the battle rng,
           // then — only when there are more than it places — sorted by followerOrder without the direction key: ground
           // first, then enemy tiles, then undeployable ones; equal tiles stay in the shuffled order, i.e. at random.
@@ -401,7 +401,7 @@ function wang(bb, chess, def) {
           };
           const cast = () => { if (instant()) battle.after(S3_SPAWN_COOLDOWN, cast, { owner: unit }); };
           battle.after(FOLLOWER_PRE_DELAY, cast, { owner: unit });
-          // no stone of the hand goes on a new tile (maintainer decision 2026-10-11, client code AutoChessBattleTrigger.
+          // no stone of the hand goes on a new tile (maintainer decision 2026-10-11, the client's AutoChessBattleTrigger.
           // _TryDeployAvailableCharacter: the prep pieces only): her deployments during S3 are the used stones coming back
           // (redeployUsed — on an enemy tile of her range too, with the S3 跟子 for ammo). It ends when stopped, out of
           // ammo, or out of stones with no 跟子 build pending (followAround — the client's WangS3CastSkillWithLimitTimes).
@@ -448,7 +448,7 @@ function wang(bb, chess, def) {
         }, { owner: unit, priority: -20 });
         // PRTS 铸子 备注 「跟子所在格进行部署（或进行类似部署的行为）时，该跟子会随之消失」: any ally deploying on the tile of a
         // 跟子 of hers — a placed stone coming back, a later piece of the battle-start deployment, an operator's redeploy or
-        // move — removes it (maintainer decision 2026-10-09, upstream 5a045731 (b); client code StoneTriggerMap.UpdateStoneMap
+        // move — removes it (maintainer decision 2026-10-09, upstream 5a045731 (b); the client's StoneTriggerMap.UpdateStoneMap
         // on every born unit)
         battle.on('deploy', (ctx) => {
           const a = ctx.unit;
@@ -458,7 +458,7 @@ function wang(bb, chess, def) {
           }
           // the battle-start deployment of a placed stone is a birth like any other: its 跟子 (maintainer decision
           // 2026-10-11 — the client's automatic deployment spawns with `spawnManually: true`, AutoChessBattleTrigger.
-          // _AutoDeploy RVA 0x7D5A60; until then [decision 2026-10-07] none at the battle start). The returns build
+          // _AutoDeploy; until then [decision 2026-10-07] none at the battle start). The returns build
           // theirs in redeployUsed.
           if (ctx.initial && a.kind === 'token' && a.defId === STONE_ID && a.ownerUnit === unit) followAround(battle, unit, a, 1);
         }, { owner: unit, priority: 50 });

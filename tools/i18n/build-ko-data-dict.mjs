@@ -8,7 +8,7 @@
 //   1. CN 공식 테이블(.cache/gamedata, build-data가 받는 Kengxxiao zh_CN)과
 //      KR 공식 테이블(.cache/gamedata-kr, ArknightsAssets kr/ — 같은 상대 경로)을 같은 JSON 경로로 맞춘다.
 //      CN 구조는 그대로 두고, 중국어 문자열 자리에 같은 경로의 한국어 문자열만 넣은 "혼합 테이블"을
-//      .cache/gamedata-hybrid-ko에 쓴다. (KR 덤프는 빈 배열을 {}로 저장하는 등 형식이 달라 그대로는
+//      .cache/gamedata-hybrid-ko에 쓴다. (KR 테이블은 빈 배열을 {}로 저장하는 등 형식이 달라 그대로는
 //      build-data가 읽지 못한다.)
 //   2. 혼합 테이블로 build-data를 돌려 .cache/data-ko를 만든다.
 //   3. data/*.json(중국어)과 .cache/data-ko/*.json을 경로별로 맞춰 문자열 쌍을 모은다.

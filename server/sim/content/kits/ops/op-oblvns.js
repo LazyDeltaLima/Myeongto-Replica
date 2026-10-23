@@ -215,8 +215,8 @@ function sakiko(bb, chess, def) {
           // damage (ATK cached at the cast) when it arrives. Their free flight fans around her facing (2026-10-10, client
           // code BasicMovement._InitDirectionByStart with `_useSourceDirectionArcAngleWithRatio`): angle × (2·ratio − 1),
           // ratio = `_sourceDirectionArcAngleRatio` (2i+1)/16, angle = the skill blackboard `angle` (15) → ±13.125° in
-          // 3.75° steps (until then (2i+1)/16 of a full turn [ASSUMED]). The side: client code LitePhysicsUtil.Rotate
-          // (RVA 0x6ABC70) = Quaternion.AngleAxis(a, up) · dir with up (0,0,−1), so a negative a turns counter-clockwise —
+          // 3.75° steps (until then (2i+1)/16 of a full turn [ASSUMED]). The side: the client's LitePhysicsUtil.Rotate
+          // = Quaternion.AngleAxis(a, up) · dir with up (0,0,−1), so a negative a turns counter-clockwise —
           // note 1 (a = −13.125°, the 1.0× one) leaves to the LEFT of her facing, note 8 to the right (maintainer decision
           // 2026-10-11: the official sign; until then the mirror image). [ASSUMED: battle world x = column, y = row (screen
           // up), height −z — the premise of that sign, not checked on screen.] Here + = counter-clockwise (spawnNote).

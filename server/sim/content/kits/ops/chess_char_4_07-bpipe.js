@@ -36,7 +36,7 @@ export default withDefaults({
       talents: [
         { install(battle, unit) { // 精密填弹
           // client bpipe_t_1 (2026-10-16 check): on each damage she calculates (ON_CALCULATE_DAMAGE — every hit of an attack,
-          // S2's two and S3's three each roll) `prob` → that hit ×atk_scale (AtkScaleUp) and SplashDamage (RVA 0xDA29F0): her
+          // S2's two and S3's three each roll) `prob` → that hit ×atk_scale (AtkScaleUp) and SplashDamage: her
           // attack's own selector finds one more enemy (the hit target excluded) and takes a physical NORMAL-attack hit of her
           // attack's scale ×atk_scale, its blackboard `effect` bpipe_attack_02_hit created on it (render/fx/kitofficial.js
           // 'talent' splash). Not an attack target: no 'atk' to it, no normal hit effect (`avoid_dup_trigger_lock`: the splash

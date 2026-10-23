@@ -1,6 +1,6 @@
 // test/content/swire2-heal-turn.test.js — 琳琅诗怀雅 S1 仗义疏财: with a coin and an injured ally in the 3×3 her attack's turn
 // is the heal (maintainer decision 2026-10-22 「공식대로」): the client's S1 attack is the AbilitySelectableGroup Body/Trigger,
-// which casts the first config that can cast as a turn starts (`_DoCastInternal` RVA 0xC49C50) — HealAlly (coin buff +
+// which casts the first config that can cast as a turn starts (`_DoCastInternal`) — HealAlly (coin buff +
 // an ally ≤ 70 % HP of x-4, `_animKey "Skill_1"`, the heal on its OnAttack event) before Attack. No enemy is hit by that
 // turn; with no enemy at all she still heals (owner's decision 2026-10-04). kits/ops/chess_char_3_04-swire2.js installS1.
 // Run: node --test test/content/swire2-heal-turn.test.js

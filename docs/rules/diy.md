@@ -31,12 +31,12 @@
       테스트: 대각선으로만 길에 닿는 돌(10,1)이 S3에서 발동(십자로는 실패하는 것 확인).
     - 발동하면 돌은 **소모**된다(陷阱师 함정 공통 「踩上去的第一个敌人会触发其效果」, 토큰에 ON_UNIT_DEAD 소리가 있음; 2026-10-10 클라 프리팹으로
       확인: `sktok_wang_1`·`_2`(ExplodeRow/Col/Cross)·`_3` 모두 `_runActionOnEvent` 5 = ON_SPELL_END에 `Withdraw {_withdrawSource: true,
-      _switchToDeadState: false}` — 폭발이 끝나면 돌이 스스로 철수). 철수(손 철수·발동 소모 모두)에 DP 반환은 없다 — 클라 코드
-      `Token.get_allowWithdrawGainCost`(RVA 0x762E20)가 늘 false라 `Character.Withdraw`(0x6FF3F0)의 반환 분기를 타지 않는다(돌 프리팹
+      _switchToDeadState: false}` — 폭발이 끝나면 돌이 스스로 철수). 철수(손 철수·발동 소모 모두)에 DP 반환은 없다 — 공식 클라
+      `Token.get_allowWithdrawGainCost`가 늘 false라 `Character.Withdraw`의 반환 분기를 타지 않는다(돌 프리팹
       `token_10064_wang_stone1`의 `_withdrawCostRecoverRatio` 0.5는 Token이라 쓰이지 않는 값; 2026-10-10 확인). 놓았던 돌은 모드의 재배치와 같은 방식(`Battle.redeploy`, `tokens.js enableRespawn`)으로 돌아온다:
       재배치 시간(E2 2초) 뒤, 자기 칸에, DP(토큰 cost 3, VI 정예는 모듈로 2)만 내고, 그 칸에 적이 없을 때. 망이 필드에 없으면 기다린다
-      (구조상 맞음 — 클라 코드 `AutoChessBattleUtil.DestroyEntityToDummy`(RVA 0x7F1460)가 퇴장한 말을 정비 위치의 더미로 남기고,
-      `AutoChessBattleTrigger._TryDeployAvailableCharacter`(0x7D6C90)가 0.2초 루프마다 다시 놓아 본다; 호스트 검사 내부는 안 읽음 [추론]).
+      (구조상 맞음 — 공식 클라 `AutoChessBattleUtil.DestroyEntityToDummy`가 퇴장한 말을 정비 위치의 더미로 남기고,
+      `AutoChessBattleTrigger._TryDeployAvailableCharacter`가 0.2초 루프마다 다시 놓아 본다; 호스트 검사 내부는 안 읽음 [추론]).
       **한 번에 하나씩, 0.2초 간격** (2026-10-11): 같은 루프는 한 번 돌 때 하나만 놓고 그 회차를 끝낸다(`AUTO_TRIGGER_INTERVAL` 0.2초) — 그래서
       같은 때 돌아올 돌이 여럿이면 0.2초에 하나씩 차례로 돌아온다(`op-wang.js AUTO_TRIGGER_INTERVAL`, `redeployUsed`가 한 번에 하나). 그 전엔
       0.25초마다 돌아올 수 있는 돌을 한꺼번에 돌려보냈다. [남은 차이: 클라 루프는 그 플레이어의 오퍼레이터 재배치와 같은 루프라 둘이 한 회차를
@@ -69,7 +69,7 @@
     - 은신(隐匿) 적: 선택할 수 없는 적(隐匿 미노출, untargetable)은 돌을 발동시키지도 않고 폭발에도 맞지 않는다(PRTS 작전 메커니즘
       「AOE的判定是对攻击范围内的每个可以被选中的敌人进行判定」, 엔진의 `Battle.foesInRadius`와 같은 규칙).
     - 정비 단계에 놓은 자리 그대로 전투를 시작한다. **전투 시작 자동 배치에도 돌마다 跟子 1개** (관리자 결정 2026-10-11 「공식대로」): 클라
-      전투 자동 배치는 「수동 배치」로 태어난다 — 클라 코드 `AutoChessBattleTrigger._AutoDeploy`(RVA 0x7D5A60)가 `deck.SpawnCharacterOrToken(…,
+      전투 자동 배치는 「수동 배치」로 태어난다 — 공식 클라 `AutoChessBattleTrigger._AutoDeploy`가 `deck.SpawnCharacterOrToken(…,
       spawnManually: true, freely: false, …)`로 놓고, 재능 `wang_stone1_t_1[trigger]`(ON_OWNER_BORN)에는 수동 한정 필터가 없다. 그래서 모든 돌
       등장(전투 시작 배치, 소모된 돌의 재배치)에 跟子 1개가 붙는다: 돌이 태어나고 0.25초 뒤(아래 「跟子 던지기 지연」), 돌 하나 주변 4칸 중 1칸.
       跟子는 배치 한도에 들지 않아 정비 돌을 퇴각시키지 않는다(그 문제는 跟子를 투사체로 바꾸기 전 일). 전투 시작 배치는 0.2초에 한 말씩
@@ -90,16 +90,16 @@
       (`_checkTargetRootTile`). S1 지속 피해: 첫 틱은 걸리는 즉시, 1초 간격, 6.5초 → 7회(`waitFirstTriggerInterval: false`); 돌 토큰의
       지속 피해만 무출처, 跟子의 것은 망이 출처.
     - 跟子(E1+)는 망이 쏜 투사체(PRTS): 배치 한도에 안 들고 칸을 차지하지 않는다, 최대 `attack@max_spawn_cnt`개. 위치 우선순위(2026-10-10,
-      클라 코드 `WangTileSelector` — 관리자 결정 「공식이랑 동일하게」): 후보(`_FilterWangNormal`: 캐릭터가 선 칸·배치 불가 고지대 제외)를 전투 난수로
+      공식 클라 `WangTileSelector` — 관리자 결정 「공식이랑 동일하게」): 후보(`_FilterWangNormal`: 캐릭터가 선 칸·배치 불가 고지대 제외)를 전투 난수로
       섞은 뒤, 놓을 수보다 많을 때만 정렬 — 비교자 `<_SortCandidates>b__14_0` 오름차순 키 ① 지상 먼저(`!isLowland`) ② 적이 있는 칸 먼저(유효한
       적 아무나, `_CheckContainsEnemies`) ③ 배치 불가 먼저(`buildableType != NONE`이 뒤) ④ 재능 跟子(TALENT)만 방향 `_GetDirectionPriority`
       (row+ 0, col+ 1, row− 2, col− 3 = 위 > 오른쪽 > 아래 > 왼쪽; 결정적), S3 시작(SKILL_3_INSTANT)은 ④ 없음 = 같은 칸끼리 무작위. 재능 跟子는
       돌 하나 주변 4칸 중 1칸(`_maxNum` 1)이라 늘 ④까지 정렬된다. 코드 `op-wang.js followerOrder`. 이전(2026-10-07 ~ 10-10, PRTS 비고 순서):
       적이 있는 칸 > 배치 불가 지상 > 배치 가능 지상 > 배치 가능 고지대 — 적이 있는 고지대 칸(비행 적)이 적 없는 지상보다 앞이었다.
       **좌우 반전된 필드(보스·히든 필드의 오른쪽 플레이어)에서도 필드 좌표 그대로** 위 > col+ > 아래 > col− (관리자 결정 2026-10-11 「공식대로」):
-      클라는 맵을 뒤집지 않고 오른쪽 플레이어의 말 위치만 거울로 옮긴다 — 클라 코드 `AutoChessMapAreaManager.ConvertChessPositionInfoToRightMap`
-      (RVA 0x832BC0): 왼쪽 일반 맵이면 평행 이동, 보스 맵이면 `dir = OppositeLR(dir)`, `col' = 2·m_mapLRBoundaryCol − col` — 그리고
-      `WangTileSelector._GetDirectionPriority`(0x7199D0)는 실제 격자의 오프셋(`tile.pos − m_targetPos`)으로 순서를 매긴다. 시뮬레이션도 같은 모델이다:
+      클라는 맵을 뒤집지 않고 오른쪽 플레이어의 말 위치만 거울로 옮긴다 — 공식 클라 `AutoChessMapAreaManager.ConvertChessPositionInfoToRightMap`
+: 왼쪽 일반 맵이면 평행 이동, 보스 맵이면 `dir = OppositeLR(dir)`, `col' = 2·m_mapLRBoundaryCol − col` — 그리고
+      `WangTileSelector._GetDirectionPriority`는 실제 격자의 오프셋(`tile.pos − m_targetPos`)으로 순서를 매긴다. 시뮬레이션도 같은 모델이다:
       반전 플레이어의 유닛은 필드 좌표(20 − c)에 서고, `buildOne`이 받는 칸은 이미 필드 좌표, 필드 col+ = 화면 오른쪽. 그래서 2순위는 늘 화면
       오른쪽(필드 col+)이다. 테스트 `test/local-patch-diy-wang.test.js` 「on a mirrored field (boss right side) the 跟子 order stays the field's up >
       col+ > down > col−」.
@@ -111,7 +111,7 @@
         `{ r: low.homeR, c: low.homeC - 1 }`(옛 이름 「W8: on a mirrored field (boss right side, drawn col → 20 − col) right and left swap」)로.
       쓰러진 오퍼레이터가 누운 칸(`Battle.downOn`)에도 안 놓인다(upstream과 같게,
       2026-10-07 관리자 결정). 연결에 참여하고 피해 출처는 망. 여러 개를 이어 지을 때(S3 배치의 재능 1 + 추가 ≤ 3)는 **4프레임마다 하나씩**
-      (`env_043_stone_trigger` `_stoneBuildDelay` 4, 클라 코드 `WangStoneTriggerManager.OnTick`의 buildStoneRequests — 2026-10-10, 그 전엔 한꺼번에):
+      (`env_043_stone_trigger` `_stoneBuildDelay` 4, 공식 클라 `WangStoneTriggerManager.OnTick`의 buildStoneRequests — 2026-10-10, 그 전엔 한꺼번에):
       첫 개(재능, 무료)부터 추가분까지 각각 요청 0.25초 뒤에 내려앉고(아래 「跟子 던지기 지연」), 추가분은 지어질 때마다 탄약 1발, 놓을 칸이 없는
       차례는 건너뛴다(클라도 요청 수를 줄임). S3 시작 InstantSpawn 跟子도 한 번에 1칸씩(아래).
     - **跟子 던지기 지연** (2026-10-10 저녁, 관리자 결정 「클라 타이밍」 — 「S3 발동 뒤 돌이 놓이기까지가 너무 짧다」 제보): 跟子는 놓는 게 아니라
@@ -129,7 +129,7 @@
       `tile_start`·`tile_start_cooperate`·`tile_enemygoal`(적 침입 지점), `tile_hole`(타일 키 → 마스크는 `BattleMiscDB.GetTileTypesMask`; 2026-10-10
       battle_misc_table `tileTypeDict`와 대조: END = tile_end·tile_end_cooperate·tile_allygoal, START = tile_start·tile_start_cooperate·tile_enemygoal,
       HOLE = tile_hole — `op-wang.js FOLLOWER_EXCEPT_TILES` 7키와 같다). 필드 밖 칸은 grid가 거른다 — 클라 `WangTileSelector._CheckMapTileValid`
-      (0x7193C0)도 위수협약 전투 중에는 지금 전투 맵 영역(`AutoChessGameMode.FetchValidMapGrids` → `AutoChessMapAreaManager.FetchBattleValidMapGrids`)
+도 위수협약 전투 중에는 지금 전투 맵 영역(`AutoChessGameMode.FetchValidMapGrids` → `AutoChessMapAreaManager.FetchBattleValidMapGrids`)
       안만 허용한다(联防·보스 필드에서 그 영역이 자기 절반인지 필드 전체인지는 미확인 — 우리는 필드 전체). 배치 불가 고지대도 불가(재능·재배치·S3 시작 초과분·S3 배치 모두 같은 `followerClass`). 비행 적 출현
       칸(`tile_flystart`)은 이 목록에 없다. **깊은 심해(`tile_deepsea`)도 불가** (관리자 제보·결정 2026-10-08 — 공식 마스크 14에는 없음):
       `grid.js DEPLOY_REFUSED_TILES`가 깊은 심해를 「배치 불가 지면」(`build 'NONE'`)으로 만드는데, PRTS 비고의 순서가 그 지면을 跟子 1순위로 두어
@@ -145,19 +145,19 @@
       적이 선 칸을 방어 지점까지 남은 경로가 짧은 적 순으로 먼저 `goalFirst`, 2026-10-06 관리자 결정 [추정]이었으나 클라에 그런 순서가 없어 사용자
       결정으로 뺌), 기존 돌과 붙을 필요 없음. 탄약 20발: S3 중 돌 1개가
       배치되면(= 소모된 돌의 복귀, 아래) **재능 跟子 1개(무료) + S3 跟子 최대 3개(1개당 1발)** — 배치 1번에 최대 3발(PRTS 「第一天赋额外至多部署3枚棋子并消耗等量弹药」,
-      나무위키 「최대 3개의 바둑돌은 배치될 때 탄약을 1발씩 소모」; 2026-10-07 관리자 결정, 같은 날 인게임에서 확인; 2026-10-10 클라 코드로 확인 —
-      `WangStoneTriggerManager.AddBuildStoneSequence`(0x561A80)가 요청을 `isFreeBuild` true로 만들고 `OnTick`(0x5625A0)이 첫 BuildStone 뒤 false로
-      내린다, `WangVisualStoneCtrlAbility.BuildStone`(0xAD61F0)은 무료면 탄약 카운터에 `NotCountTimes`(세지 않음, 여분 탄 소리도 없음) — 첫 개만
+      나무위키 「최대 3개의 바둑돌은 배치될 때 탄약을 1발씩 소모」; 2026-10-07 관리자 결정, 같은 날 인게임에서 확인; 2026-10-10 공식 클라로 확인 —
+      `WangStoneTriggerManager.AddBuildStoneSequence`가 요청을 `isFreeBuild` true로 만들고 `OnTick`이 첫 BuildStone 뒤 false로
+      내린다, `WangVisualStoneCtrlAbility.BuildStone`은 무료면 탄약 카운터에 `NotCountTimes`(세지 않음, 여분 탄 소리도 없음) — 첫 개만
       무료, 추가분은 1발씩). 이전(2026-10-06):
       跟子 최대 4개 전부 1발씩(클라이언트 SpawnTokenS3InSkill BuildStone 카운터 `_countEvent 4, _expendPerTrigger 1`).
-      끝나는 조건은 재고 소진·탄약 소진·수동 종료뿐이고(클라 코드 `WangS3CastSkillWithLimitTimes.OnTick`: 손패 0 + 지을 跟子 없음
+      끝나는 조건은 재고 소진·탄약 소진·수동 종료뿐이고(공식 클라 `WangS3CastSkillWithLimitTimes.OnTick`: 손패 0 + 지을 跟子 없음
       `!hasRemainingBuildCnt` — 손패가 0이어도 이어 짓는 跟子가 남았으면 그것까지 기다린다, 2026-10-10 `followAround`), 남은 탄약은 돌로 돌아온다(엔진 `end()`가 onEnd 전에 `ammoLeft`를 0으로 만들어 이전엔
       반환이 늘 0이었음 → 킷이 따로 기억, 손패 7장까지). **정비 단계에 돌을 하나도 놓지 않았으면** 아무것도 충전·배치하지 않고 끝나지 않는다
       (관리자의 실제 게임 관찰 2026-10-06; 자료에는 직접 문장 없음). 손패가 새 칸에 나가지 않으니 손패는 S3 중 줄지 않고(복귀는 재고를 안 씀, 위),
       S3는 사실상 탄약 소진(복귀한 돌의 S3 跟子)·수동 종료로 끝난다 — 2026-10-11 전보다 훨씬 오래 간다(실제 경기 경로 m04에서 수십 초).
     - **손패 돌은 새 칸에 놓지 않는다** (관리자 결정 2026-10-11 「공식대로(빼기)」): 클라의 전투 중 배치 경로는
-      `AutoChessBattleTrigger._TryDeployAvailableCharacter`(RVA 0x7D6C90) 하나뿐이고, 이것은 `battleChessInsts`(정비 때 필드에 놓인 말)를
-      **정비 위치에만** 놓는다(`_AutoDeploy` 0x7D5A60: 대기 더미 칸 또는 `chessInst.pos`). 손패에만 있는 돌(정비 때 안 놓은 것, S1/S2 「즉시 2개
+      `AutoChessBattleTrigger._TryDeployAvailableCharacter` 하나뿐이고, 이것은 `battleChessInsts`(정비 때 필드에 놓인 말)를
+      **정비 위치에만** 놓는다(`_AutoDeploy`: 대기 더미 칸 또는 `chessInst.pos`). 손패에만 있는 돌(정비 때 안 놓은 것, S1/S2 「즉시 2개
       획득」, S3 ChargeToken)을 새 칸에 놓는 코드는 없다(`AutoChessBattleTrigger` 메서드 전수 — 스킬 발동 판정과 이 둘뿐; 손 드래그 핸들러는 정비·보스
       화면 조작용 [추론]). 그래서 손패는 소모된 돌이 돌아올 재료일 뿐이다: S1/S2는 카드 2장만 받고(가득 차면 阻回), S3의 배치는 소모된 돌이 정비
       위치로 돌아오는 것뿐 — 그녀의 사거리 안이면 적이 선 칸에도 돌아오고(W10) 그때 재능 跟子 1개(무료) + S3 跟子 ≤ 3개(1발씩). S3 시작
@@ -166,7 +166,7 @@
       않는다(예전의 자체 종료는 근거 없어 삭제 — 일찍 끝나던 원인). 2026-10-08 영상의 「S3 중 0.5–1초 간격 초록 폭발」은 돌아온 돌·그 跟子·InstantSpawn 跟子로 설명된다(모순 없음).
       **남은 가능성** (관리자 요청 2026-10-11로 기록): 위 결론은 「클라에 그런 배치 코드가 없다」는 데서 나온 추론이다. 위수협약 전투는
       서버 스텝(`AutoChessStepModeManager`: 적 등장·퇴장·보스 HP 동기화)과 함께 도는데, 서버가 손패 돌을 새 칸에 놓으라는 배치 명령을 보내고
-      클라가 그대로 따르는 경로가 있다면 공식도 손패 돌을 새 칸에 놓을 수 있다. 덤프에서 그런 명령(서버→클라 배치 패킷과 그 처리기)은 찾지
+      클라가 그대로 따르는 경로가 있다면 공식도 손패 돌을 새 칸에 놓을 수 있다. 공식 클라에서 그런 명령(서버→클라 배치 패킷과 그 처리기)은 찾지
       못했지만, 서버 코드는 볼 수 없으므로 배제하지 않는다. 판별법: 공식 영상에서 S1/S2를 켠 순간 정비 때 없던 칸에 돌이 생기는지, S3 중
       소모된 돌의 정비 위치가 아닌 칸에 돌이 놓이는지. 생기면 아래 「되돌리기」로 옛 자동 배치를 되살린다(배치 칸 규칙은 옛 [추정] 그대로).
       `op-wang.js`: `gain`이 카드만 더함, S3 `onStart`에 대체 배치 없음. 테스트 `test/local-patch-diy-wang.test.js` 「no stone of the hand goes on
@@ -186,11 +186,11 @@
         `stock > 0`·S2 `one` 사례. 새 「no stone of the hand goes on a new tile」 테스트는 지운다.
     - 취세: 정지 + 망 공격력 × atk_scale 마법/초(발동마다 독립). 연성: 연결 방향(상하 → 세로, 좌우 → 가로, 한번 켜지면 유지) 양쪽 3칸 적에게
       마법 피해 + 감속. 料敌机先: 직선 위 돌 수만큼 피해 +%, 마법 저항 고정 수치 무시(최대 3). 중첩은 돌마다 본 최장 직선으로 고정
-      (3개 중 1개가 사라져도 남은 돌은 3중첩). 값은 데이터: 일반·V단계 정예 10%/9, VI단계 정예(모듈 3) 13%/12. 클라 코드로 확인(2026-10-10):
+      (3개 중 1개가 사라져도 남은 돌은 3중첩). 값은 데이터: 일반·V단계 정예 10%/9, VI단계 정예(모듈 3) 13%/12. 공식 클라로 확인(2026-10-10):
       `StoneTriggerMap.UpdateStoneTriggerCnt` — 칸별 중첩·방향(행/열 수)을 최댓값으로 고정, 돌이 떠나면 `ClearExplodedStones`로 초기화;
       `WangStoneTriggerManager.OnTrigger`가 S1/S3에는 중첩을 bb `cnt`로(프리팹이 `max_trigger_cnt`로 자름), S2에는 `is_row`·`is_col`(가로·세로·십자 폭발).
     - **무장 지연** (2026-10-10, 관리자 결정 「공식이랑 동일하게」): 돌·跟子가 이어지면 연결선은 바로 나오지만 실제로 발동할 수 있게 되는 것(무장)은
-      **30프레임 뒤**다 — `env_043_stone_trigger`(`WangStoneTriggerManager`) `_tokenStoneExplodeDelay` 30·`_projectileStoneExplodeDelay` 30, 클라 코드
+      **30프레임 뒤**다 — `env_043_stone_trigger`(`WangStoneTriggerManager`) `_tokenStoneExplodeDelay` 30·`_projectileStoneExplodeDelay` 30, 공식 클라
       `_TryTriggerStones`가 `finishFrame = fixedFrameCnt + 30`, `OnTick`이 `fixedFrameCnt > finishFrame`인 다음 프레임에 `_DoStoneExplode`
       (onStoneTriggered → `wang_stone_triggered` 버프 → 토큰 `SkillTrigger` `_checkContainBuffs`). 그 사이 적이 지나가도 발동하지 않는다. 프레임: 클라
       고정 스텝 1/30 s(`globalgamemanagers` TimeManager `Fixed Timestep` 0.0333333, `GlobalConsts.TIME_ROUGH_LOGIC_RATE` 30) = 시뮬레이션 1틱 →
@@ -210,7 +210,7 @@
       않음). 전투 시작 자동 배치에도 跟子가 붙으므로(위, 관리자 결정 2026-10-11 — 그 전엔 2026-10-09에 upstream `5a045731`의 전투 시작 跟子 부분을
       안 받아 없었다) 0.2초 간격의 다음 말이 앞 돌의 跟子 칸에 나오면 그 跟子가 사라진다.
       이전 규칙(2026-10-08 – 2026-10-09, [추정] 공식 근거 없음): 제자리에 跟子가 있으면 돌이 기다리고 跟子가 사라진 뒤 돌아왔다. 잠정 —
-      관리자 메모(2026-10-09): 테스트 뒤 되돌릴 수 있음. 클라 코드로 확인(2026-10-10, 되돌릴 근거 없음): `StoneTriggerMap.UpdateStoneMap`을
+      관리자 메모(2026-10-09): 테스트 뒤 되돌릴 수 있음. 공식 클라로 확인(2026-10-10, 되돌릴 근거 없음): `StoneTriggerMap.UpdateStoneMap`을
       `_OnUnitBorn`이 태어난 모든 캐릭터에 부르고, 그 칸에 살아 있는 돌이 아닌 표시(跟子)가 있으면 `RemoveStoneMark(pos, isOverlapped: true)`로 지운다 —
       PRTS 문구와 같다. 이동 재배치(`moveRedeploy`)가 공식에서 born을 내는지는 미확인. 회귀 테스트: `test/local-patch-diy-wang.test.js` 「a deployment on a 跟子's tile removes it」(돌 복귀·
       오퍼레이터 이동, 옛 규칙에서 실패 확인), 「望 stones never share a tile」(실제 매치 경로, 매 틱 겹침 0 + 배치가 跟子를 지운 횟수 > 0 —
@@ -220,19 +220,19 @@
     S3 검기 회전(2026-10-06, EN 클라이언트 `[uc]projectiles.ab`의 `projectile_chr_chen3_s3` → `ChangeStateWithHighlandBehaviour`):
     앞 칸이 고지대·侵入点(빨간 문)·保护目标(파란 문)·필드 밖이고 그 칸 가장자리까지 0.25 이하(+0.02)이면 시계 방향 90°
     (`_hitDistance` 0.25, `_checkHitHighland`·`_checkTileStart`·`_checkTileEnd`·`_checkHitMapEdge`). 꺾이면 맞은 적 목록을 비운다.
-    벽 판정은 클라 코드 `_CheckHitConditions`(0x96C610)와 같다(2026-10-10): 맵 밖, `heightType` 1(고지대), `TileTypesMask` START 8·END 4 —
+    벽 판정은 공식 클라 `_CheckHitConditions`와 같다(2026-10-10): 맵 밖, `heightType` 1(고지대), `TileTypesMask` START 8·END 4 —
     저지대 통행 불가·장애물 칸에서는 꺾지 않는다(START/END 마스크의 `tile_start_cooperate`·`tile_enemygoal`·`tile_end_cooperate`·`tile_allygoal`은
-    우리 맵 데이터에 없다). **한 틱에 한 번만 꺾는다** (2026-10-11, 클라 코드 `ChangeStateWithHighlandBehaviour.OnTick` 0x96C200: 틱마다
+    우리 맵 데이터에 없다). **한 틱에 한 번만 꺾는다** (2026-10-11, 공식 클라 `ChangeStateWithHighlandBehaviour.OnTick`: 틱마다
     `_CheckHit` → `_ChangeDirection` 한 번) — 앞과 그 오른쪽이 모두 막힌 막다른 곳에서는 틱마다 90°씩 돈다. 그 전엔 한 틱에 최대 4번 꺾은 뒤
     움직여 한 틱에 180°도 돌았다. 테스트 `test/local-patch-diy-chen3.test.js` 「S3: the 剑气 turns at most once per tick」.
-    시계 방향은 클라 코드 상수다(2026-10-10 정정 — 예전 「방향 값은 클라이언트에 없다」는 틀림): `ChangeStateWithHighlandBehaviour._ChangeDirection`이
+    시계 방향은 공식 클라의 상수다(2026-10-10 정정 — 예전 「방향 값은 클라이언트에 없다」는 틀림): `ChangeStateWithHighlandBehaviour._ChangeDirection`이
     이동 방향을 상수와 비교해 위 → 오른쪽 → 아래 → 왼쪽 → 위로 바꾼다(PRTS 「顺时针旋转90°」과 같음). 꺾는 조건은 클라 `_CheckHit`
     `_hitDistance >= d && d > _hitEps`(0.02 < d ≤ 0.25 — `_hitEps`는 여유가 아니라 하한; 우리는 ≤ 0.27로 둠, 벽 앞 0.25에 멈추므로 실제 궤적 차이는
     거의 없음 [추론]). 이전 코드와 다른 점: 0.75 앞을 봐서 0.5칸 일찍 꺾었고,
     저지대 통행 불가 칸·장애물이 놓인 칸에서도 꺾었고, 侵入点에서는 꺾지 않았다. 판정 간격 0.03초(이전 0.1초 → 이제 매 틱),
     수명은 스킬 끝까지(`_lifeTimeType` 2 = 클라 enum `LifeType` INFINITY — 2026-10-10 확인, 스킬 종료 버프 `chen3_s3[finish_projectile]`가 지운다).
     **검기가 나가는 때·S3 모드** (공식대로 — 2026-10-11 밤 두 번 다시 확인해 고침): 시작 애니 `Skill_3_Begin`(13프레임 0.433 s, OnAttack 없음 —
-    `skchr_chen3_3` `_playSkillBeginAnim` 1, 클라 코드 `BasicSkill.PlayBeginAnimation`이 그 길이만큼 기다린 뒤 `DoStartSkill` → `SkillState` →
+    `skchr_chen3_3` `_playSkillBeginAnim` 1, 공식 클라 `BasicSkill.PlayBeginAnimation`이 그 길이만큼 기다린 뒤 `DoStartSkill` → `SkillState` →
     `BasicSkill.Cast`) 동안은 공격하지 않고, 끝나는 순간 **공격과 상관없이** 검기가 그때 그녀가 보는 방향으로 나간다(사거리에 적이 없어도). 그 3틱 뒤
     (시전부터 약 0.533 s) S3 모드가 켜져 **첫 공격부터** S3 공격(atk_scale 1.8·3타·Skill_3_Loop·사거리 3-12)이다. 근거: `skchr_chen3_3`은
     `AbilitySequenceGroup`(`_alwaysNext` 1 — `CastToTarget`이 첫 하위 능력을 곧바로, `_OnSubAbilityFinished`가 하나가 끝나는 즉시 다음 것을 시전,
@@ -248,7 +248,7 @@
     `IdleState.OnTick`이 대상을 찾아 ATTACK → `AttackState.OnEnter`가 바로 휘두름. 스킬 끝(버프 끝)에도 같은 재시작 — 진행 중 S3 휘두름은 끊기고 Default
     공격 능력이 새로 붙어 바로 준비. 공식 설명 「技能开启时向前释放一道可转向的剑气」과 맞다. 핫픽스 목록에 관련 메서드 없음.
     구현: `op-chen3.js s3Spec` — 단계 `begin`(공격 없음 `S3_HOLD`) → `S3_BEGIN`에 `releaseQi` → `S3_BEGIN + 3틱`에 `mode`(S3 범위, 아직 공격 없음,
-    `restart`: 휘두름 없앰·`atkCd` 0) → `S3_BEGIN + 4틱`에 `attack`(S3 프로필); 스킬이 끝나면(`onEnd`, S3 모드였으면) `restart` 뒤 스펙을 되돌림. 틱 수(클라 코드로 확인): 자동 시전 `AutoChessBattleTrigger`는 코루틴이라 `BattleController.OnTick`에서 유닛 갱신 뒤
+    `restart`: 휘두름 없앰·`atkCd` 0) → `S3_BEGIN + 4틱`에 `attack`(S3 프로필); 스킬이 끝나면(`onEnd`, S3 모드였으면) `restart` 뒤 스펙을 되돌림. 틱 수(공식 클라로 확인): 자동 시전 `AutoChessBattleTrigger`는 코루틴이라 `BattleController.OnTick`에서 유닛 갱신 뒤
     `CoroutineSimulator.SimulateTick` 때 시전한다 → `CastSkill.UseSkill` → `Character.SwitchToSkillState` → `SkillState.OnEnter` →
     `BasicSkill.OnBeforeSkillStart`가 `PlayBeginAnimation`을 띄움(`StartBattleCoroutine`은 첫 단계를 바로 돌리지만 `SimulateTick` 중에 띄운 코루틴은
     다음 틱부터 재개) → `AsyncUtil.WaitForFixedSeconds`가 round(0.433×30)=13번 양보 → 13번째 틱에 `DoStartSkill`이 `m_startSkill`
@@ -269,8 +269,8 @@
     한때 3-12 안의 적(비행 포함)으로 켜지는 `SKILL_RANGE` 예외였으나 관리자 결정(2026-10-06)으로 공식 규칙으로 되돌렸다. 예외가 다시 필요하면
     `tools/build-data.mjs TRIGGER_DEVIATIONS`(관리자 결정으로만).
   - 위셔델: 여진·잔영 폭발(재능1), 혼령의 그림자 소환과 근처 위장(재능2), S2 과부하(지속시간 후반부), S3 그림자 2개 추가(최대 3).
-    S2 과부하 근거(2026-10-10, 그 전엔 [추정]): 스킬 프리팹 `skchr_wisdel_2`가 `_isOverloadSkill` 1이고, 클라 코드 `BasicSkill.get_overloadRatio`
-    (0x63DAC0)가 그런 스킬에 0.5 → `OverloadIfNecessary`(0x63ADC0)가 진행도가 0.5를 넘으면 과부하(ON_OVERLOAD → 버프 `wisdel_s_2[overload_start]`,
+    S2 과부하 근거(2026-10-10, 그 전엔 [추정]): 스킬 프리팹 `skchr_wisdel_2`가 `_isOverloadSkill` 1이고, 공식 클라 `BasicSkill.get_overloadRatio`
+가 그런 스킬에 0.5 → `OverloadIfNecessary`가 진행도가 0.5를 넘으면 과부하(ON_OVERLOAD → 버프 `wisdel_s_2[overload_start]`,
     `mode 2`) — 25초 중 12.5초부터 끝까지(`op-wisdel.js overload`) [추론: 진행도 = 경과 비율, 보조 함수 하나는 해석 안 함].
     S2 수정(2026-10-06): 과부하 본탄의 `attack@atk_scale_ol`(0.7)이 적용되지 않았다(사키코 S2와 같은 원인: `beforeAttack`의 `ctx.profile`
     교체를 엔진이 다시 읽지 않음). 과부하 동안 위셔델 자신의 `unit.profile` 복사본에 `atkScale`을 넣고 끝나면 되돌린다.
@@ -299,17 +299,17 @@
     | `_s2_slow`·`_s2_slow_t` | S2 오르간 | 사인 0.7(0.15) | 0.4 | 1.0 · 2.5 | 0.4 · 1.0 |
     | `_s3_phy`·`_s3_mag` | S3 피아노·오르간 | 사인 0.8(0.5) | 0.8 | 1.3 · 7.5 | 0.4 · 1.0 |
     (지속 공격 = charpack `RangedAlways`: 스킬 없음 `_talent`, S2 `_s2_t`·`_s2_slow_t`, S3 `_s3_phy`·`_s3_mag`. 탐색 반경은 PRTS 跟踪范围半径,
-    회전은 PRTS 「转向速度7/30每帧」 = 30fps에서 7/초. 추적 속도는 고정이다: 클라 코드 `AdvancedMovement.OnTick`(0x97DDC0)은 `_useDynamicSpeed`일
+    회전은 PRTS 「转向速度7/30每帧」 = 30fps에서 7/초. 추적 속도는 고정이다: 공식 클라 `AdvancedMovement.OnTick`은 `_useDynamicSpeed`일
     때만 `_deltaSpeedPerSec`·`_finalSpeed`로 가속하는데 음표의 추적 이동(`ToTraceTarget`)은 모두 `_useDynamicSpeed` 0 — 프리팹의 0.4·4.0은 쓰이지
     않는 값, 2026-10-10 확인.)
-    규칙: 자유 비행 방향은 사키코 방향 ±20°(PRTS 「自身朝向左20°至右20°范围内，随机一个角度」; 2026-10-10 클라 코드로 확인 —
+    규칙: 자유 비행 방향은 사키코 방향 ±20°(PRTS 「自身朝向左20°至右20°范围内，随机一个角度」; 2026-10-10 공식 클라로 확인 —
     `BasicMovement._InitDirectionByStart`, `_useSourceDirection` + `_useSourceDirectionRandomArcAngleStart`: 전투 난수 `Range(−angle, +angle)`,
     angle = 블랙보드 `angle` = 재능1 `attack@angle` 20. 일반·재능 음표는 확인, S2·S3 음표는 같은 플래그이고 스킬 블랙보드에 `angle`이 없어 재능 값을
     쓴다 — 공격 능력이 쏜 투사체의 블랙보드에 `attack@` 키가 접두사 없이 들어간다: 피아노 음표의 `MovementSwitchControllerOblvns.Init`이
     `projectile.blackboard`에서 `"passby_delay"`(S2 `attack@passby_delay` 0.5)를 읽는다, 2026-10-10 [추론: 합치는 함수 자체는 안 읽음]). **S1 부채꼴** (2026-10-10, 관리자 결정 「공식이랑 동일하게」): 같은 메서드의
     `_useSourceDirectionArcAngleWithRatio` — a = angle × (2·ratio − 1), ratio = `_sourceDirectionArcAngleRatio` (2i+1)/16, angle = S1 블랙보드
     `angle` 15 → 정면 ±13.125°(3.75° 간격, 30° 부채꼴) 8개. 그 전엔 비율을 360°에 곱해 한 바퀴로 뿌렸다 [추정이었음]. **1번 음표(가장 센 1.0배)는
-    보는 방향의 왼쪽(반시계)** (관리자 결정 2026-10-11 「공식 부호」): 클라 코드 `LitePhysicsUtil.Rotate`(RVA 0x6ABC70) = `Quaternion.AngleAxis(a, up)
+    보는 방향의 왼쪽(반시계)** (관리자 결정 2026-10-11 「공식 부호」): 공식 클라 `LitePhysicsUtil.Rotate` = `Quaternion.AngleAxis(a, up)
     · dir`, 축 `up` (0,0,−1) — 축이 −z면 +a가 시계 방향이라 1번(a = −13.125°)은 반시계, 8번(+13.125°)이 시계 쪽. 오른쪽을 보면 1번이 화면 위쪽,
     0.06초마다 아래로. 그 전(2026-10-10 ~ 10-11)엔 거울상(1번이 시계 쪽). **[추정]**: 이 부호는 전투 월드 좌표가 x = 열, y = 행(화면 위), 높이 = −z라는
     전제에서만 맞다 — 그 전제는 화면으로 확인 안 함(관리자는 S1을 거의 안 쓰고 이 가정을 받아들임, 2026-10-11). ±20° 무작위는 대칭이라 영향 없음.
@@ -445,12 +445,12 @@
   `_faceToMoveDirection`)가 있으면 시전자의 **몸이 투사체에 실려 간다**. `_restoreOnEnd` 1 = 끝나면 원래 자리로(S2 활공), 0 = 도착한 자리에 남음(S3 비행).
   속도·도달 거리(`_speed`, `_distanceMax` Q32)·수명(`_lifeTimeType`)도 함께 읽는다.
 - **버프 템플릿**(`config/buff_template_holder.ab`의 `_templates[]`, `SerializedState`가 `$type` JSON — `tools/local-extract/enemy_bindings.py
-  read_buff_templates`가 읽는 방식; EN 전체 덤프는 관리자 노트): 그 오퍼레이터 버프(`<code>_s_<n>[…]`, `<code>_t_<n>`)의 ModifyGraphicHolderHeight(그림
+  read_buff_templates`가 읽는 방식; EN 전체 추출은 관리자 노트): 그 오퍼레이터 버프(`<code>_s_<n>[…]`, `<code>_t_<n>`)의 ModifyGraphicHolderHeight(그림
   높이·시간), SwitchMode(모드 → 클립), CreateEffect(이펙트 키) 노드. 노드가 거는 블랙보드 값(`height_duration` 등)은 skill_table에서 찾는다.
 - **PRTS 备注의 연출 문구**: 「模型」「不改变所在地块」「中心坐标」 같은 말은 모델만 움직이고 판정은 그대로라는 뜻이다. 판정(칸·좌표·사거리)은 시뮬, 모델 위치·높이·
   클립은 렌더로 나눈다(시뮬이 칸을 옮기면 공식과 달라진다). 숨은 주석도 본다(S2 활공의 끝점 규칙이 거기 있었다).
-- **어느 클라로 확인했는지**: EN에 있는 클래스는 디컴파일로 「언제 트는지」(어느 메서드가 그 필드를 읽는지)까지 확인한다. CN 전용 클래스(CN
-  `GameAssembly.dll`은 덤프 불가)는 필드만 읽고 해석을 [추정]으로 표시한다(이 문서의 근거 줄에 「CN 전용, 필드만」이라고 쓴다).
+- **어느 클라로 확인했는지**: EN 클라에 있는 클래스는 「언제 트는지」(어느 메서드가 그 필드를 읽는지)까지 확인한다. CN 전용 클래스(CN
+  클라에서는 메서드를 볼 수 없음)는 필드만 읽고 해석을 [추정]으로 표시한다(이 문서의 근거 줄에 「CN 전용, 필드만」이라고 쓴다).
 - **렌더 테스트**: 실제 매니페스트(`data/assets.json`)의 그 항목으로 `SpineActor`를 만들고 클립 순서(`setAnimation`/`addAnimation` 기록), 공격 클립 대기,
   스킬 끝 처리, 뷰 위치·높이를 고정한다(`test/render/aglna2-s2-glide.test.js` 형식, 가짜 PIXI `test/render/fakepixi.js`). 화면 확인(Windows Chrome 디버그
   아레나)은 관리자 노트의 열린 항목 목록에 한 줄로 남긴다.
@@ -498,7 +498,7 @@
 ## 안젤리나 더 멜로우 위시 S3 이동 · 「이따 봐!」 표식 (2026-10-11, 관리자 제보)
 - 제보 2건: ① S3로 공중 적에게 갈 때 처음 칸에 남는 「이따 봐!」(“一会儿见！”)가 대체 마름모로 보임, ② 공식은 공중 적에게 **직접 날아가는데** 우리는 그 칸에
   **배치**(낙하)됨.
-- 근거(CN 클라 데이터, 2026-10-11 설치본 — 이 클래스들은 EN 디컴파일에 없어 데이터 필드만 읽음):
+- 근거(CN 클라 데이터, 2026-10-11 설치본 — 이 클래스들은 EN 클라에 없어 데이터 필드만 읽음):
   - 표식 프리팹(`pkgrps/btl_pfb_tokens_5.ab` `token_10071_aglna2_agairp`): 그림이 `EmptyAnimator`(Spine 없음), 그림자 없음, `_alwaysHideHp`·`_alwaysHideSp` 1.
     보이는 것은 이펙트 `token_aglna2_agairp_01`(오렌지 스프라이트 + 바닥 메시, 이미 추출·연결됨)뿐 → **뽑을 모델이 없다**. 대신 마름모·그림자·HP 바·방향 표시를
     그리지 않는다(`shared/trap-tokens.js BODYLESS_TOKENS`, `render/units.js`).
@@ -519,7 +519,7 @@
   `_excludeInCombat`), 이동 쿨타임은 없다. 비행 중에는 공식도 무장해제(`[move_mode]` FORCE_DISARMED)라 그동안 공격이 없는 것은 의도. 다만 이동 스킬
   컴포넌트(그녀만 가진 CN 전용 클래스)의 `_availableValidator` 바로 뒤에 `_attackCooldownProgress` 0.85가 있다 → 「공격 쿨다운이 85% 이상 찼을 때만
   이동 시작」으로 읽고 넣었다(`MOVE_ATTACK_PROGRESS`; 그 전엔 0.1초마다 바로 떠서 시작된 공격 동작을 끊고 쿨다운도 처음부터 다시 기다렸다).
-  [추정] 이 필드의 뜻(CN `GameAssembly.dll`은 보호돼 Il2CppDumper가 메타데이터 등록부를 못 찾음 — 디컴파일 못 함; 「착지 뒤 공격 쿨다운을 85%로 둠」일
+  [추정] 이 필드의 뜻(CN 전용 클래스라 메서드를 볼 수 없음; 「착지 뒤 공격 쿨다운을 85%로 둠」일
   가능성도 있음).
   렌더 fx `aglnaFlight`(켜기/끄기)가 공식 꼬리·좌우 이펙트를 붙이고, `KIT_OWNED`에 S3 세 이펙트를 넣어 `_buff_` 이름 규칙이 좌우 이펙트를 스킬 내내 틀던 것을 막음.
 - [추정] 속도 곡선·옆/높이 호 미구현(직선·일정 속도), 착지 직전에 그 칸이 막히면 다음 공중 적 칸, 없으면 제자리로 되돌아감, 좌우 이펙트는 이륙 때 방향 한 번,
@@ -555,7 +555,7 @@
   1초였고(끝점에서 약 0.8초 머묾) 복귀도 2.5초였다 → 위처럼 도착 즉시·도착 + 1초로. 높이: 그녀의 특성 블랙보드 `height_offset` 0.8(character_table, `[chant_end]`가
   `aglna2_tr`에서 가져와 그 높이로 올림; S3 `[mode]`는 고지대 칸이면 0.4)을 칸 단위로 써서, 비행 적 높이 `FLY_HOVER` 1.3 대신 0.8(S3 고지대 0.4)로 그린다 —
   `render/units.js LIFTOFF_HEIGHT`, S1·S3 이륙에도 적용(`render.md` 「이륙 높이」). 아레나에서 S3 범위 원이 여전히 그녀 칸에 있음을 확인.
-- [추정] 복귀 = 끝 클립이 끝날 때(`_interruptProjectileOnEndAnim` + `_afterEndAnim`; CN 클래스 디컴파일 불가 — 도착 0.67 + 1 + `Skill_2_Begin` 1 ≈ 吟唱 2.5초와 맞음),
+- [추정] 복귀 = 끝 클립이 끝날 때(`_interruptProjectileOnEndAnim` + `_afterEndAnim`; CN 전용 클래스라 메서드를 볼 수 없음 — 도착 0.67 + 1 + `Skill_2_Begin` 1 ≈ 吟唱 2.5초와 맞음),
   `height_offset`이 칸(월드) 단위(비행 적의 0.35는 0.27 캐릭터 공간), 속도 일정(이동 컴포넌트의 속도 곡선 ≈0.95–1.13·`_speed` 4.8은 안 씀, PRTS 6.0), 복귀는 순간 이동(`_restoreOnEnd`), 활공 중 바닥 높이는 그녀 칸 기준,
   `Skill_2_Begin`(1초) 동안 시뮬은 이미 공격할 수 있음(첫 공격이 그 클립을 끊을 수 있음).
 - 테스트: `test/content/op_aglna2.test.js`(맵 끝에서 2칸·열린 곳 4칸, 위치 불변), `test/render/aglna2-s2-glide.test.js`(클립 순서·공격 대기·스킬 끝 처리,
@@ -670,5 +670,5 @@
 
 ## 아스카론 死亡拘审 틱 간격 (2026-10-11 확인)
 - 키트 `op-ascln.js`의 `interval: 1`(1초마다)은 공식과 같다. 클라 버프 템플릿 `ascln_t_1[debuff]`의 `triggerInterval` 2.0은 기본값일 뿐이다:
-  클라 코드 `Buff.Reset`이 틱 타이머 주기를 버프 블랙보드의 `interval`로 읽고(없을 때만 템플릿 값), 재능 블랙보드에 `interval` 1.0이 있다
+  공식 클라 `Buff.Reset`이 틱 타이머 주기를 버프 블랙보드의 `interval`로 읽고(없을 때만 템플릿 값), 재능 블랙보드에 `interval` 1.0이 있다
   (설명 「每秒受到…」과 같음). 이 메서드는 en_US·zh_CN Lua 핫픽스 목록 밖. 다른 키트에서 템플릿 `triggerInterval`을 볼 때도 블랙보드 `interval`을 먼저 확인할 것.

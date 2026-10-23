@@ -71,11 +71,9 @@ fires when the finish state ends — so the cap only ever made the remake's deat
 The client's fly offset is one constant (`Vector3(0, 0.35f, 0)` in `Torappu.Battle.CharacterAnimator`, applied by
 `_SetFlyMountPointOffset` / `_SetFlyHitOffset` while a unit flies and negated when it lands; the remake draws 0.35 in
 character space ≈ **1.3 tiles** as `FLY_HOVER` — the flying-visuals write-up has the full derivation). Its only direct
-caller is `OnFinish` (#62924, call site
-0x1805feb87), disassembled as `xor edx, edx; mov rcx, rbx; call _SetFlyMountPointOffset` — **arg 0**, the negation
-branch — followed by clearing `[this+0x128]` and a tail call to another cleanup. `OnFinish` has no direct `call` site of
-its own: it is a virtual lifecycle method (there is a `<>xLuaBaseProxy_OnFinish`), so the battle framework calls it
-through the vtable when the character's **finish** state ends.
+caller is `OnFinish`, which calls `_SetFlyMountPointOffset` with **arg 0**, the negation branch, then clears one more
+field and runs another cleanup. `OnFinish` is a lifecycle method that nothing calls directly (there is a
+`<>xLuaBaseProxy_OnFinish`): the battle framework calls it when the character's **finish** state ends.
 
 Since the Die clips carry no vertical motion (§2):
 

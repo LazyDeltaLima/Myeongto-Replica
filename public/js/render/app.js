@@ -165,8 +165,8 @@ export { releaseGl } from './app/host.js';
 /**
  * Whether looking at another player's prep board (a scouted board's pieces) and coming back to the own one sound the
  * pieces' deploy (pieceDeploy → audio.prepDeploy). Off — maintainer decision 2026-10-11 「코드대로」: the client plays the
- * placement sound only in SetCharacter (a piece made or moved), never for a camera switch between boards (client code
- * AutoChessDummyManager._PlayAudioWhenCharacterPlaced, RVA 0x829E40; docs/rules/audio.md 「배치 효과음」 되돌리기). The
+ * placement sound only in SetCharacter (a piece made or moved), never for a camera switch between boards (the client's
+ * AutoChessDummyManager._PlayAudioWhenCharacterPlaced; docs/rules/audio.md 「배치 효과음」 되돌리기). The
  * drop-ins stay. true restores the maintainer decision of 2026-10-08 「남의 보드도 소리 남」.
  */
 export const SCOUT_DEPLOY_SFX = false;

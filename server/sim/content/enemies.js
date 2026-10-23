@@ -303,7 +303,7 @@ function slotSkill(e, ab, a) {
 
 /**
  * The length of a skill's cast (its `skillCast` clip): played at the speed of an attack ability — the clip × clamp(attack
- * interval / clip, 0.1, `max`), `max` −1 = no bound (client code `AbstractAnimatedAbility.UpdatePlaybackSpeed`, as
+ * interval / clip, 0.1, `max`), `max` −1 = no bound (the client's `AbstractAnimatedAbility.UpdatePlaybackSpeed`, as
  * ai.js attackTiming) [ASSUMED: the skill's ability reads the enemy's attack interval as its attack time]; 0 for a skill
  * whose ability plays no clip.
  */
@@ -317,7 +317,7 @@ function castLength(e, cast) {
 
 /**
  * An attack slot of enemy `e` (the `enemySkillSlot` hook, ai.js enemyAttack; docs/rules/sim.md 「적 스킬 = 일반 공격 차례」):
- * client code `Enemy.AttackWrapper.SearchTarget` — with the main attack ready, the enemy's skills of the attack family
+ * the client's `Enemy.AttackWrapper.SearchTarget` — with the main attack ready, the enemy's skills of the attack family
  * that are available (`EnemySkill.CheckAvailable`: cooldown over, not silenced unless `_ignoreSilence` (our `sil`),
  * not stunned) and find their targets (our `cond`) are gathered, the highest `priority` wins and ties are drawn
  * (`IBattleRandom.Uniform`) — then `Cast` casts it in place of the normal attack and restarts the main attack's cooldown

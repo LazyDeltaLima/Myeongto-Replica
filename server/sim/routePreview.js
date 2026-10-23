@@ -4,19 +4,19 @@
 // fields) and never changes it, so the sim and the golden digests stay as they are; the browser runner builds the plan
 // once per battle (public/js/battle/runner.js → m.field `routeCursors` → render/fxroute.js createBattleCursors).
 //
-// Client code (EN client, il2cpp dump):
-//   * `Scheduler._DealAction` (RVA 0x629EE0): a SPAWN action with `autoPreviewRoute` adds a PREVIEW_CURSOR action on the
-//     same route (`routeIndex`, `useExtraRoute`) at `t − 3` s (the constant 3.0 at .rdata 0x185D65030 =
+// Official client (EN):
+//   * `Scheduler._DealAction`: a SPAWN action with `autoPreviewRoute` adds a PREVIEW_CURSOR action on the
+//     same route (`routeIndex`, `useExtraRoute`) at `t − 3` s (the constant 3.0 =
 //     PREVIEW_CURSOR_PRE_DELAY), where t = the SPAWN time minus the enemy's `delayToBorn` (≥ 0); a PREVIEW_CURSOR action
 //     is `count` 2 × `interval` 0.3 s (PREVIEW_CURSOR_COUNT / _INTERVAL) — one cursor per item.
-//   * The fragment's action queue is sorted by time (`_DealFragment`, RVA 0x630740, LegacySort) and run by
-//     `DefaultWaveHandler.ExecuteActionQueue` (MoveNext RVA 0x62E0A0): an item at or before the elapsed time runs at
+//   * The fragment's action queue is sorted by time (`_DealFragment`, LegacySort) and run by
+//     `DefaultWaveHandler.ExecuteActionQueue` (MoveNext): an item at or before the elapsed time runs at
 //     once — so a cursor time below 0 runs at the battle's start.
-//   * Each item: `Scheduler._DoPreviewCursor` (MoveNext RVA 0x632000) → `BattleController.CreatePreviewCursor`
-//     (RVA 0x3544C60): the route's cursor (`BattleFactory.CreatePreviewCursor(motionMode)`: WalkPreviewCursor /
+//   * Each item: `Scheduler._DoPreviewCursor` (MoveNext) → `BattleController.CreatePreviewCursor`
+//: the route's cursor (`BattleFactory.CreatePreviewCursor(motionMode)`: WalkPreviewCursor /
 //     FlyPreviewCursor), `PreviewCursor.Spawn`, event ON_PREVIEW_CURSOR_SPAWND (24) — VoicePlayer's 行动开始.
 //   * 卫戍协议 builds each battle's actions from the server's enemy list (`AutoChessLevelEnemyManager`
-//     `_GenerateActionFromEnemyInfo` RVA 0x8313F0, 联防 `GenerateHelpBattleEnemyData` RVA 0x82EFC0): one action per unit,
+//     `_GenerateActionFromEnemyInfo`, 联防 `GenerateHelpBattleEnemyData`): one action per unit,
 //     and only the FIRST unit generated for a level action copies its `autoPreviewRoute` — one preview per marked
 //     action, before its first unit. data/waves.json carries the mark as `spawns[i].previewRoute`; a spawn spec names its
 //     level action by `actionIndex` (server/match/waves.js).

@@ -603,13 +603,13 @@ export class GameData {
    * REAL second of boss round `r` at which the overtime drain starts: the boss level's countdown (levelMaxPlayTime, 120)
    * — local patch (LOCAL-PATCH.md 「보스전 초과 시간」, maintainer decision 2026-10-09 from official footage: the countdown runs
    * from 120 and the team LP drops as soon as it ends, no grace; PRTS 「计时结束后…每超时1秒扣除1目标生命值」). The data's
-   * bossTurnHpReduceTime (150) is the overtime's length (bossOvertimeWindowReal, client code); as a start it is used only
+   * bossTurnHpReduceTime (150) is the overtime's length (bossOvertimeWindowReal, official client); as a start it is used only
    * for a round without a level time.
    */
   bossOvertimeStartReal(r) { return this.bossLevelTime(r) ?? this.bossOvertimeAfterReal; }
   /**
    * Length in REAL seconds of boss round `r`'s overtime: the round's bossTurnHpReduceTime (config rounds[r].bossOvertimeAfter,
-   * 150; else bossOvertimeAfterReal). Client code AutoChessBattleUICountdownViewModel._GetBossBattleTimeInfo (RVA 0x1FE75C0):
+   * 150; else bossOvertimeAfterReal). The client's AutoChessBattleUICountdownViewModel._GetBossBattleTimeInfo:
    * the countdown ends at the server's forced end of the boss state − bossTurnHpReduceTime — so the server ends the boss
    * battle that long after the countdown runs out, and the drain takes at most this many seconds' worth.
    */

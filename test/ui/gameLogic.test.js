@@ -117,7 +117,7 @@ describe('phases', () => {
     assert.equal(settleBattleEnd(undefined, { p_0: 0 }, 'p_0'), null);
     assert.equal(settleBattleEnd({ cap: 10 }), null);
   });
-  // maintainer decision 2026-10-11 (client code AutoChessBattleUIViewModel.GetBattleResultStatus, RVA 0x1FD2350): co-op
+  // maintainer decision 2026-10-11 (the client's AutoChessBattleUIViewModel.GetBattleResultStatus): co-op
   // reads every player's charge — a teammate's loss alone turns the viewer's 完美作战 into the plain NORMAL end
   test('settleBattleEnd co-op: all 0 → perfect, only a teammate charged → done (NORMAL), the viewer charged → miss', () => {
     const cost = { round: 3, leaks: 0, cap: 10 };

@@ -112,10 +112,10 @@ const DOTS = [[-40, 4, 0], [-30, -20, 0.15], [36, 14, 0.3], [44, -8, 0.1], [-6, 
  * player or a spectator seat — the round pays it nothing (server startRound pays the seats still in), so the [获得] box
  * gives way to 「观战中」 in the [回合] box's look (upstream 7d97b80b / GitHub #236's word; [추정] look: no capture of a
  * watcher's dialog).
- * `remain`: rounds left before the boss round, shown in the last few (the prefab's round_countdown — client code
+ * `remain`: rounds left before the boss round, shown in the last few (the prefab's round_countdown — the client's
  * AutoChessBattleUIViewModel.CheckIfNeedRoundRemainTip: boss round − this round, when ≤ constants.bossTrailerStartRound
  * (3) and above 0): 剩余 N 回合 (20 #a6a6a6, the number #ff682d; KR 「남은 라운드 N」, ours) on round_countdown_bg 91.6 above.
- * @param {{ round: number, gold?: number|null, watching?: boolean, remain?: number|null, duration?: number, onDone?: () => void }} props
+ * @param {{ round: number, gold?: number|null, watching?: boolean, remain?: number|null, duration?: number, onDone?: => void }} props
  */
 export function RoundStartBanner({ round, gold = null, watching = false, remain = null, duration = 1800, onDone }) {
   const [leaving, setLeaving] = useState(false);
@@ -195,14 +195,14 @@ export function roundsToBoss(round, bossRound, trailer = 3) {
  * The own battle's end (round_result_dialog, the KR captures 「완벽한 작전!」 / 「목표 HP 감소 ♜2」). Its script has three
  * animations on two panels: _allPrefectAnim (panel_perfect) and _perfectAnim / _missAnim (both panel_miss, "done" and
  * "miss"). The state is audioOfficial.js battleOverOf's, from every player's LP loss in the result (maintainer decision
- * 2026-10-11 — client code AutoChessBattleUIViewModel.GetBattleResultStatus, RVA 0x1FD2350): nobody lost LP → `perfect`,
+ * 2026-10-11 — the client's AutoChessBattleUIViewModel.GetBattleResultStatus): nobody lost LP → `perfect`,
  * panel_perfect (战斗结束 / 完美作战！); the viewer lost LP → panel_miss with 目标生命值减少 and `lost` (the LP settlement
  * charges: min(cap, counted leaks) unless a 联防 reassigns them); the viewer lost none but another player did (co-op) →
- * panel_miss "done", the title alone — client code
- * AutoChessBattleUIRoundResultDialog.OnRender (RVA 0x1FECE70): panel_perfect = isAllPrefect, panel_miss = !isAllPrefect,
+ * panel_miss "done", the title alone — the client's
+ * AutoChessBattleUIRoundResultDialog.OnRender: panel_perfect = isAllPrefect, panel_miss = !isAllPrefect,
  * the LP text set only when lostHp > 0; the anim / sound by isAllPrefect → _allPrefectAnim + BATTLEOVER_NOREDUCE,
  * lostHp ≤ 0 → _perfectAnim + _NORMAL, else _missAnim + _REDUCE (audioOfficial.js battleOverOf).
- * @param {{ perfect: boolean, lost?: number, duration?: number, onDone?: () => void }} props
+ * @param {{ perfect: boolean, lost?: number, duration?: number, onDone?: => void }} props
  */
 export function BattleEndBanner({ perfect, lost = 0, duration = 1800, onDone }) {
   const [leaving, setLeaving] = useState(false);

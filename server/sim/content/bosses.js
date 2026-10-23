@@ -965,7 +965,7 @@ function kitSpring(ab, e) {
         } else if (kind === 'element') {                 // 元素护盾: phys/arts heavily reduced
           if (ty === 'phys' || ty === 'arts') c.dmg.mul *= scale;
         } else { // 频次护盾: negates N hits of ANY damage — actrpc_t_1's BlockDamage has `_filterDamageType` false, so its
-          // PHYSICAL_AND_MAGICAL mask is never read (BlockDamage.Execute 0xD949D0: any isDamage modifier): 元素伤害 too (until
+          // PHYSICAL_AND_MAGICAL mask is never read (BlockDamage.Execute: any isDamage modifier): 元素伤害 too (until
           // 2026-10-17 it passed). [ASSUMED] an element gauge hit (元素损伤) is no damage modifier — it never reaches 'hit'
           c.dmg.cancel = true;
           if (--P.hits <= 0) drop(b);

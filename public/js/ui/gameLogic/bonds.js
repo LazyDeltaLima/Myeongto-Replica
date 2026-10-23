@@ -51,9 +51,9 @@ export function nextThreshold(count, thresholds) {
 }
 
 /**
- * The m of a bond's 「n/m」: the member count it needs to activate — one value per bond, whatever its tiers (client code
- * AutoChessBondItemModel.LoadData, RVA 0x1FEE850: requireCount = ActAutoChessBondInfo.activeCount; the detail dialog's
- * AutoChessBattleUIBondDetailView._RenderTitleInfo, 0x1FE32B0, prints String.Format(fmt, charCnt, requireCount) active or
+ * The m of a bond's 「n/m」: the member count it needs to activate — one value per bond, whatever its tiers (the client's
+ * AutoChessBondItemModel.LoadData: requireCount = ActAutoChessBondInfo.activeCount; the detail dialog's
+ * AutoChessBattleUIBondDetailView._RenderTitleInfo prints String.Format(fmt, charCnt, requireCount) active or
  * not — 炎 with 4 operators reads 4/3, not 4/6). bonds.json `activeCount`, else the first threshold (the same number).
  * @param {any} rec the bonds.json record
  * @param {number[]} [thresholds]
@@ -288,7 +288,7 @@ export function memberHeadCount(rows, countsHand = false) {
 
 /**
  * Whether a bond popup's member row is lit (the active border, no grey mask): the client's
- * `AutoChessBattleUtil.CheckIfCharBondActive` (RVA 0x8A78E0, through `AutoChessBondCharModel.UpdateData` → `isActive`,
+ * `AutoChessBattleUtil.CheckIfCharBondActive` (through `AutoChessBondCharModel.UpdateData` → `isActive`,
  * which `AutoChessBattleUIBondCharItemView.Render` turns into `_activeBorderObj` / `_inactiveMaskObj`) — a copy the player
  * owns with that normal id: anywhere for a bond of `activeType` ALL (投资人 远见 奇迹), in battle (on the board) for BATTLE
  * and MANI. The 5 temporary slots count as owned [ASSUMED]: the client walks every ChessInst of the player.

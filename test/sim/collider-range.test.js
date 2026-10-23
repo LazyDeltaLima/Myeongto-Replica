@@ -1,6 +1,6 @@
 // The enemy collider in operator ranges (maintainer decision 2026-10-17). The official client gives the enemy prefabs a
 // CircleCollider2D of radius 0.1, and an operator's normal-attack search is a 2D physics overlap of its range's tile
-// boxes with that circle (PRTS 作战机制 "索敌抬手等均使用碰撞箱"; client disassembly, maintainer's notes): an attack range,
+// boxes with that circle (PRTS 作战机制 "索敌抬手等均使用碰撞箱"; official client, maintainer's notes): an attack range,
 // and a skill's attack range, take an enemy within 0.1 of one of their tiles. A MANUAL skill's automatic cast on its
 // rangeId tiles (`LitePhysicsUtil._CheckContainsPosition`) checks the tile of the enemy's position only, and so do the tile
 // rules; blocking keeps the centre distance. Upstream 5bf337a5 (its tests adapted: its skill trigger took the collider).

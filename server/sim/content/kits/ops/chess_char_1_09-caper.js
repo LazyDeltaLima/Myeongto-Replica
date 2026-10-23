@@ -36,7 +36,7 @@ export default {
   // caught, professions.js loopshooter / ai.js throwBoomerang). 乐趣加倍: ATK +atk, each attack throws `cnt` boomerangs
   // ("每次攻击额外发射1个回旋投射物"): EN client charpack char_4100_caper Modes/S2/Body/Attack — projectile_chr_caper_s2 at
   // the attack, then `_additionalTimes` 1 more, projectile_chr_caper_s2_1 (`_inverseParacurve`: the opposite arc),
-  // `_triggerDelta` 0.1 s later at the same target (`_selectTargetTiming` 0; not thrown once it is dead — client code
+  // `_triggerDelta` 0.1 s later at the same target (`_selectTargetTiming` 0; not thrown once it is dead — the client's
   // AbilityStandard.DoCastOnTargets casts on living targets only); each hits once (`_maxHitNum` 1) and comes back on
   // its own; she attacks again once all are back ("必须回收全部回旋投掷物才可以进行下一次攻击"). Until 2026-10-10 one
   // boomerang carried cnt hits. The later throws fire fx 'caperBoomerang2' { id, tgt, n } (no 'atk' event: no new

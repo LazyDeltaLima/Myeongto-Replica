@@ -124,10 +124,10 @@ export function applyModeAttacks(key, anims, timing, charModes) {
  * chooses one per swing. `pick`: 'loop' = in turn (an UberAnimationEffectEmitter `_replaceGroup` with `_loopType` LOOP, an
  * AbilitySelectableGroup `_selectAbilitySequentially` — from the first; AbilityRandomGroup `_selectMethod` 1 — `from: 1`,
  * see below); 'random' = any (`_selectMethod` 0, `_loopType` RANDOM); 'other' = a random first, then never the clip just
- * played (`_diffFromLastOneIfNotFirst`). Client code (2026-10-21, docs/rules/render.md 「Spine 클립 커버리지」 B):
- * `AbilityRandomGroup._GetAbilityInternal` (RVA 0xC19A50) casts one child per attack; Loop adds 1 to `m_loopIndex` before
- * reading it and `Reset` (0xC197A0, every attach — a mode switch) sets it to 0, so its first attack after an attach is the
- * second child (`from: 1`); `_SelectAbilityDifferentFromLastOne` (0xC19C30) leaves out the child just cast — by object, so
+ * played (`_diffFromLastOneIfNotFirst`). Official client (2026-10-21, docs/rules/render.md 「Spine 클립 커버리지」 B):
+ * `AbilityRandomGroup._GetAbilityInternal` casts one child per attack; Loop adds 1 to `m_loopIndex` before
+ * reading it and `Reset` (every attach — a mode switch) sets it to 0, so its first attack after an attach is the
+ * second child (`from: 1`); `_SelectAbilityDifferentFromLastOne` leaves out the child just cast — by object, so
  * 山's [Attack_1, Attack_2, Attack_1] (the same Attack_1 twice) alternates.
  */
 export const ATTACK_ALTS = Object.freeze({

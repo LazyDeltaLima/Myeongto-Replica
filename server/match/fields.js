@@ -282,7 +282,7 @@ export function timelineSample(b) {
  * A server-run battle stepped to its end, in one go or in wall-clock-bounded slices (a low-power host must not stall
  * its event loop for the ~0.1–1 s a whole battle takes, several times at once when bots fight): `run(budgetMs)` steps
  * until the battle ends (→ true) or the budget is used (→ false; checked every 16 ticks). `timeline` grows while it
- * runs (timelineSample: [gt, killed, total, resolved(, left)] every TIMELINE_EVERY game seconds, then the final state);
+ * runs (timelineSample: [gt, killed, total, resolved(left)] every TIMELINE_EVERY game seconds, then the final state);
  * `output()` once done gives `{ battle, result, timeline, crashed }`. A throwing battle is force-ended, then replaced by
  * a DeadBattle; the run is bounded by HARD_CAP_SECONDS.
  */
@@ -351,7 +351,7 @@ export function runHeadless(battle, opts = {}) {
   return job.output();
 }
 
-/** Timeline sample at game time `gt`: [gt, killed, total, resolved(, left)] of the last sample ≤ gt. */
+/** Timeline sample at game time `gt`: [gt, killed, total, resolved(left)] of the last sample ≤ gt. */
 export function timelineAt(timeline, gt) {
   if (!Array.isArray(timeline) || !timeline.length) return [0, 0, 0, null];
   let lo = 0, hi = timeline.length - 1;

@@ -31,7 +31,7 @@ import { createStore, useStore, loadPref, savePref } from '../store.js';
 import { t } from '../../../shared/i18n.js';
 
 // ---- UI 크기 (the PC client's UI_SCALER setting: StandaloneCanvasScaleHelper MIN_SCALE_FACTOR .9 / MAX 1 / DEFAULT 1,
-// global-metadata.dat; docs/LOCAL-PATCH.md 「크기 단위」) ----
+// client constants; docs/LOCAL-PATCH.md 「크기 단위」) ----
 // The slider sets `--ui-k` on <html>; css/hud-art.css `--ui-u` = the 1280×720 canvas unit × a factor that is 1 up to a
 // 1280×720 frame and reaches `--ui-k` at 1920×1080 (straight line between), so phones / small windows never shrink and
 // moving the slider redraws every official-look panel live. Default .9 (the KR PC capture; = the resolution curve).

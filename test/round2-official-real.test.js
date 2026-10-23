@@ -1,7 +1,7 @@
 // Round-2 client-code fixes through the real match path (test/match/harness.js → buildBattleSpec → createBattleFromSpec):
 // docs/rules/sim.md 「盟约·특질·장비·생성기 2라운드」.
 //   - 拉特兰: an ammo skill gains RoundToInt(original count × (0.05 + 0.015·L)) bullets (client _UpdateMaxAdditionCount);
-//   - 灵巧: the aura is judged once, when the receiver deploys, from the member pieces around it (client 0xB4E810).
+//   - 灵巧: the aura is judged once, when the receiver deploys, from the member pieces around it (client).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

@@ -91,7 +91,7 @@ const MOVE_SPEED = 2.4, RETURN_SPEED = 2;
 const MOVE_CHECK = 0.1;
 /** The move starts only once her attack cooldown is this far along (skchr_aglna2_3's respawn cast skill
  *  `_attackCooldownProgress` 0.85, next to its `_availableValidator`) [ASSUMED: a gate on `Ability.cooldownProgress` — the
- *  class is CN-only and not decompiled]: a swing is never cut by a take-off. */
+ *  class is CN-only and unchecked]: a swing is never cut by a take-off. */
 const MOVE_ATTACK_PROGRESS = 0.85;
 /** In flight (aglna2_s_3[move_mode] FORCE_DISARMED + the S3Move mode's aglna2_s_3[fly_passive]): 无敌, disarmed, 禁疗,
  *  blocking nothing, airborne (also on the way home after the skill), drawn on her Move clip (snapshot animOf). */

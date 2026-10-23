@@ -19,9 +19,7 @@ has no per-model term at all, and the screenshot agrees with a plain constant.
 
 **Tags** (as in research 11)
 - **[DATA]**: read from the official client. Local Windows client 2.7.71 (Unity 2021.3.39f1, files dated 2026-08-20):
-  `Arknights_Data/il2cpp_data/Metadata/global-metadata.dat` (il2cpp v29: class, field and method names, the type/method
-  tables) and `GameAssembly.dll` (x86-64 machine code, disassembled with `objdump`; method addresses mapped to names
-  through the `Assembly-CSharp.dll` code-gen module's method-pointer table and the metadata method tokens).
+  the client's class, field and method names and what those methods do (the maintainer's notes hold the details).
 - **[MEASURED]**: pixel-measured from the player's official screenshot (2026-10-05) — the tile pitch, the drone's rotor
   span and the body-to-shadow distance, converted with the projection of §3.
 - **[ASSUMED]**: the character-space → tile conversion (0.27) and each model's own art hang.
@@ -36,7 +34,7 @@ has no per-model term at all, and the screenshot agrees with a plain constant.
 | 1 | Is there a fly-height constant? | **Yes: 0.35, only the Y component.** `CharacterAnimator`'s constructor sets its fly offset field to
   `Vector3(0, 0.35f, 0)`; `_SetFlyMountPointOffset` / `_SetFlyHitOffset` add it to the mount / hit transforms while the
   unit flies and add its **negation** when it lands (`m_flyMountPointOffsetApplied` tracks the state). | DATA |
-| 2 | Is it per model? | **No.** No store to that field exists anywhere in the binary except the constructor, and the offset is applied
+| 2 | Is it per model? | **No.** Nothing in the client writes that field except the constructor, and the offset is applied
   to the model's own root transform — every flying unit gets the same lift, and each model keeps whatever art hang its
   artist gave it. | DATA |
 | 3 | How much is that in tiles? | **≈ 1.3 tiles (`0.35 / 0.27`).** `0.35` is in the client's character space, where the unit is the standard
@@ -47,79 +45,39 @@ has no per-model term at all, and the screenshot agrees with a plain constant.
 
 ---
 
-## 1. How the addresses were found (reproducibility)
+## 1. Source
 
-No disassembler, no Il2CppDumper — the method table was read directly from the binary and metadata.
-
-1. **Metadata, self-calibrated** (`global-metadata.dat`, il2cpp v29). The struct sizes were calibrated empirically rather
-   than assumed: `Il2CppTypeDefinition` = **88 bytes** (type token at +84, hi-byte 0x02, 100% of types; `method_count`
-   at +64 and `field_count` at +68 — the u16 sums equal the method/field table sizes), `Il2CppMethodDefinition` = **32
-   bytes** (name index at +0, `declaringType` at +4, method token at +20; the first token is `0x06000001`). Sanity-checked
-   on `Torappu.Battle.AutoChessBattleConst` (field names match research 11's list; floats read correctly, e.g.
-   `BATTLE_WAIT_UI_TIME = 1.5`, `RATIO_PARAM = 100`). (Integer constant values are compressed in v29 and not needed here.)
-2. **Code-gen module** (`GameAssembly.dll`). The `Il2CppCodeGenModule` for `Assembly-CSharp.dll` was located through the
-   string: find `"Assembly-CSharp.dll"`, convert its file offset to an RVA, then find a pointer to that RVA — that is the
-   struct's `moduleName` field. For this build: `moduleName` VMA 0x186e69af0 (file+0x6e67ef0), **`methodPointerCount`
-   = 217790**, **`methodPointers` = 0x188216460** (file+0x8214860, in `.data`).
-3. **Method index → address**. The metadata method token's RID − 1 is the index into `methodPointers`. So
-   `_SetFlyMountPointOffset` (token 0x600F5DA, RID 62938) → index **62937** → pointer **0x180600050**;
-   `_SetFlyHitOffset` → **0x1805fff30**; `_OffsetHitTransform` → **0x1805ffdf0**; `..ctor` → **0x180600530**.
-4. **Disassembly** with `objdump -d -j il2cpp --start-address=… --stop-address=… GameAssembly.dll`. The `il2cpp`
-   section (VMA 0x18053c000, 0x653a05c bytes) holds the real x86-64 code. (The binary has Tencent's `UnityPlayer.dll.tvmp`
-   and odd `.Sgxm0/.Sgxm1` sections, so the export table is unhelpful; the module-name route above avoids it.)
+The client's own class `Torappu.Battle.CharacterAnimator`: its constructor and the methods `_SetFlyMountPointOffset`,
+`_SetFlyHitOffset` and `_OffsetHitTransform` (2.7.71 build). Sanity-checked on `Torappu.Battle.AutoChessBattleConst`
+(field names match research 11's list; float constants read correctly, e.g. `BATTLE_WAIT_UI_TIME = 1.5`, `RATIO_PARAM = 100`).
 
 ---
 
 ## 2. The fly offset: one constant, 0.35 (Y only) [DATA]
 
-### 2.1 `CharacterAnimator..ctor` sets it (VMA 0x180600530)
+### 2.1 `CharacterAnimator..ctor` sets it
 
-```
-movss  xmm1, [0x186a78a50]        ; 0.35f  (0x3EB33333)
-xorps  xmm0, xmm0
-unpcklps xmm0, xmm1               ; xmm0 = { x=0.0, y=0.35 }
-xorps  xmm2, xmm2                 ; z = 0.0
-movsd  [rbx+0x114], xmm0          ; field @ +0x114 = Vector3(0, 0.35, 0)   (x,y)
-movss  [rbx+0x11c], xmm2          ;                                   (z)
-```
-
-So the instance field at **+0x114** is a `Vector3(0, 0.35, 0)` for every `CharacterAnimator`.
-The constant sits in `.rdata` at **0x186a78a50 = 0x3EB33333** (= 0.3499999940395355), and the next float is an unrelated
-1.8f.
+The constructor stores `Vector3(0, 0.35f, 0)` (the float 0.35f = 0.3499999940395355) in the animator's fly offset field,
+for every `CharacterAnimator`.
 
 ### 2.2 `_SetFlyMountPointOffset` / `_SetFlyHitOffset` apply it
 
-Both are structurally identical twins; `_SetFlyMountPointOffset` (VMA 0x180600050) shown:
+Both are structurally identical twins. `_SetFlyMountPointOffset(arg)` returns at once when `m_flyMountPointOffsetApplied`
+already equals `arg`; otherwise it takes the fly offset (flying) or its negation (landing / not flying), calls
+`_OffsetHitTransform(transform, &offset, false)` on two of the animator's transforms, and stores `arg` in
+`m_flyMountPointOffsetApplied`.
 
-```
-cmp   [rbx+0x121], dl            ; m_flyMountPointOffsetApplied == (arg) ?  → return
-je    ret
-test  dl, dl
-je    .notFlying
-  movsd xmm6, [rbx+0x114]        ; the Vector3(0, 0.35, 0)
-  mov   esi,  [rbx+0x11c]
-  jmp   .apply
-.notFlying:
-  ... movss xmm1, [0x186a77e00]   ; −0.0 sign mask (0x80000000)
-  ... xorps xmm1 (x/y/z)          ; negate all three components
-.apply:
-  call  _OffsetHitTransform([rbx+0xf8], &offset, 0)
-  call  _OffsetHitTransform([rbx+0x100], &offset, 0)   ; a second transform
-  mov   [rbx+0x121], dl          ; m_flyMountPointOffsetApplied = arg
-```
-
-- Flying (`arg != 0`): add the offset. Landing / not flying: add the **negation** (sign flipped through the `−0.0` mask
-  at **0x186a77e00 = 0x80000000**), i.e. remove it.
-- It touches **two** child transforms (`+0xf8`, `+0x100` — the mount point and the hit transform, both via
+- Flying (`arg != 0`): add the offset. Landing / not flying: add the **negation** (all three components sign-flipped),
+  i.e. remove it.
+- It touches **two** child transforms (the mount point and the hit transform, both via
   `_OffsetHitTransform(transform, &offset, false)`). `_SetFlyHitOffset` is the same, guarded by a different static flag
-  and a different member (`[r8+0x160]` vs `[r8+0x158]`).
-- The only direct caller of `_SetFlyMountPointOffset` is `OnFinish` (#62924, call site 0x1805feb87) — the "land" path.
+  and a different member.
+- The only direct caller of `_SetFlyMountPointOffset` is `OnFinish` — the "land" path.
 
 ### 2.3 Reading
 
-- **One constant, all flyers, no per-model term.** A section-wide scan for **any** store to
-  `[reg+0x110/0x114/0x118/0x11c]` (SSE + GPR opcodes, with the ModRM `[reg+disp32]` form, in every executable section)
-  found **no writer except the constructor** — nothing scales or rewrites the offset per model.
+- **One constant, all flyers, no per-model term.** Nothing in the client writes the fly offset field except the
+  constructor — nothing scales or rewrites the offset per model.
 - **The offset is a plain local position at the model's root.** `_OffsetHitTransform` gets the vector by pointer and is
   called with two of the animator's own transforms, so the whole model moves up by one constant; where each model's art
   sits inside that space is the artist's business (妖怪's art hangs 0.38 tiles below its origin, 帝国炮火先兆者's art sits
@@ -194,9 +152,8 @@ worth keeping in mind:
 Follow-up (2026-10-05, after the question "具体模型偏移位置到底受什么决定" and an official screenshot of 盐风主教昆图斯):
 
 - The client's other per-model vertical value is **`CharacterAnimator.UpdateBaseline` → `host.get_graphicHeight()` →
-  `ApplyBaselineEffect(0, −1, graphicHeight, 0)` → `SetFloatParam(<param>, −graphicHeight)`** (method pointers 0x1805ff880,
-  #63458 `get_host`, #76677 `get_graphicHeight` — a *virtual* getter, so the value comes from the concrete entity's data —
-  #63382 `ApplyBaselineEffect`, #63369 `SetFloatParam`; the height is negated through the same `−0.0` mask at 0x186a77e00).
+  `ApplyBaselineEffect(0, −1, graphicHeight, 0)` → `SetFloatParam(<param>, −graphicHeight)`** (`get_graphicHeight` is overridden per entity type, so the value comes from
+  the concrete entity's data; the height is negated before it is handed on).
   It reaches a **render/effect float parameter**, not a body transform: the model's height above its baseline is handed to
   the shader/effect layer (bars, effects, ground-fade), while the drawn body stays where the unit's transform puts it. Our
   data has no `graphicHeight` field; the renderer derives the equivalents itself (`bounds.y` for the art hang, `bounds.height`
@@ -321,10 +278,10 @@ explains every other per-model difference (§3.1): **the code never repositions 
 
 - `public/js/render/units.js`: `FLY_HOVER` 0.32 → **1.3**, a flat lift used directly at the draw site
   (`const hoverTo = this.flying && this.alive ? FLY_HOVER : 0`). The doc-comment above the constant carries the full
-  client citation (class, methods, VMA 0x180600555, constant 0x186a78a50 = 0x3EB33333, the −0.0 mask 0x186a77e00), the
+  client citation (class, methods, the constant 0.35f), the
   0.35/0.27 derivation and the screenshot measurement.
 - **Withdrawn in the same session**: an earlier version of this fix exported a `flyLift(entry, modelK)` that added the
-  model's own art hang (`max(0, −bounds.y / 320 × modelScale)`) on top of `FLY_HOVER = 0.35`. The disassembly (no
+  model's own art hang (`max(0, −bounds.y / 320 × modelScale)`) on top of `FLY_HOVER = 0.35`. The client (no
   per-model term) and the screenshot (a constant ≈1.3) both say the lift is model-independent, so it was removed rather
   than kept as a second, undocumented variable.
 - `test/render/unitview.test.js`: `describe('flying units hover FLY_HOVER above the ground, whatever their model')` —

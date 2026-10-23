@@ -164,7 +164,7 @@ test('the real match path: 引星棘刺 S2 (a Skill-state cast) holds her attack
   m.dispose?.();
 });
 
-// docs/rules/render.md 「공격 방향」: a skill ability turns its unit by its own flags as it is cast (client code
+// docs/rules/render.md 「공격 방향」: a skill ability turns its unit by its own flags as it is cast (the client's
 // `AbstractAnimatedAbility.OnCastStart` → `DealWithFaceDirection`; data `cast.face`, ai.js castFace) — a 'replace' cast as
 // its attack starts, not at its strike; a CastSkill as it casts; a buff-only cast (no ability) not at all
 test('a skill ability turns its unit as it is cast: [face, unit, turn] at a replace swing\'s start and at a CastSkill\'s cast', () => {

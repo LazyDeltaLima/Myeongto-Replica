@@ -117,7 +117,7 @@ the preview being read by a human in 90 s, and losing LP early (fewer rounds to 
 |---|---|---|
 | Enemy multipliers (`config.modes[m].enemyScale`, `k` exponents) | A3 table (PRTS 下半, user-sourced) — 01-core-rules.md A3 / `_criticAddendum.enemyStatMultipliers` | **match exactly** (every mode, every round incl. ABYSS HP k and ×1.08); kept as the base |
 | Wave templates / counts | level data (`maxPlayTime`, spawns, routes) — DATA | match the official levels; kept |
-| Faction replacement | was: each template enemy × `k` [ASSUMED] | **replaced by the official per-action rule** (research 08 §2.3, client code) |
+| Faction replacement | was: each template enemy × `k` [ASSUMED] | **replaced by the official per-action rule** (research 08 §2.3, official client) |
 | Fly placeholders without a FLY faction | was: kept (寒霜 / 暴鸰 / 妖怪, the #1 leak source) [ASSUMED] | **official: the other movement class is not spawned** (research 08 §2.3 + the PRTS screenshots) |
 | Faction mixing | was: every round a ground entry + a FLY entry | **official: one entry per round from a 15-slot type schedule** |
 | `MOVE_SCALE` 0.5 | every level's `moveMultiplier` 0.5 (05 §2.2) | kept |

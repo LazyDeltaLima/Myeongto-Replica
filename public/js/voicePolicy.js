@@ -10,22 +10,22 @@
 //   SKILL_PASSIVE_NOR      50      no                    10 s an AUTO skill below it
 //   PLACE_CHAR             20      yes                    0
 //   FOCUS_CHAR             10      yes                    0
-// The client code (2026-10-10 decompile, 클라 코드 `Torappu.Battle.UI.VoicePlayer` / `AutoChessGameModeVoicePlugin`):
-//   * VoicePlayer._PlayVoice (RVA 0xD808F0): a type still in its cooldown is refused; a line plays when it outranks the
+// The official client (2026-10-10, `Torappu.Battle.UI.VoicePlayer` / `AutoChessGameModeVoicePlugin`):
+//   * VoicePlayer._PlayVoice: a type still in its cooldown is refused; a line plays when it outranks the
 //     last line, or at the same priority when its type overlaps (it then takes the channel); otherwise it is dropped.
 //     The cooldown is per TYPE for every operator (m_nextPlayableTime: one slot per type) and runs from the END of the
 //     line: next[type] = now + the line's length + cooldown; when a new line plays, the last line's type gets
 //     max(next, now + its cooldown) again. (VOICE_TYPES_TO_SHARE_CD_WITH_ALL_OTHERS = [NORMAL_ATTACK], a type we never play.)
-//   * 卫戍协议's round battle start (AutoChessGameModeVoicePlugin._OnBattleStarted RVA 0xD67B80, event ON_BATTLE_STARTED
+//   * 卫戍协议's round battle start (AutoChessGameModeVoicePlugin._OnBattleStarted, event ON_BATTLE_STARTED
 //     1211): one random piece of the battle (battleChessInsts) says its 部署 (PLACE_CHAR) line. The event comes after the
-//     opening deployment: MainGameInBattle._StartBattle (MoveNext RVA 0x872B60) first runs _Prebuilt (MoveNext RVA
-//     0x8726E0 — each battle piece spawned in turn, WaitForFixedSeconds(0.2) after each), then emits 1211 and starts the
+//     opening deployment: MainGameInBattle._StartBattle (MoveNext) first runs _Prebuilt (MoveNext:
+//     each battle piece spawned in turn, WaitForFixedSeconds(0.2) after each), then emits 1211 and starts the
 //     wave scheduler (Scheduler.Init / DoSchedule) — audio.js says the line when its opening drop-in is over.
-//   * 行动出发 (BATTLE_START, VoicePlayer.OnGameStart RVA 0xD7EEC0) and 行动开始 (ENCOUNTER_ENEMY,
-//     VoicePlayer._OnPreviewCursorSpawn RVA 0xD7FA40 — on an enemy route preview cursor) are both gated on
-//     UIController.HasFunction(CARD_LIST): OnGameStart skips the line when _CheckDisableBattleStartVoice (RVA 0xD7F1F0)
-//     finds the card list disabled, the cursor handler returns at once. 卫戍协议's AutoChessUIPlugin.OnGameInit (RVA
-//     0xD51480) calls DisableFunction(0xF07B) — CARD_LIST (1) among them — and the plugin never enables it again (its
+//   * 行动出发 (BATTLE_START, VoicePlayer.OnGameStart) and 行动开始 (ENCOUNTER_ENEMY,
+//     VoicePlayer._OnPreviewCursorSpawn — on an enemy route preview cursor) are both gated on
+//     UIController.HasFunction(CARD_LIST): OnGameStart skips the line when _CheckDisableBattleStartVoice
+//     finds the card list disabled, the cursor handler returns at once. 卫戍协议's AutoChessUIPlugin.OnGameInit
+//     calls DisableFunction(0xF07B) — CARD_LIST (1) among them — and the plugin never enables it again (its
 //     EnableFunction calls are 0x80 / 0x4000 / 0x8000; no active Lua hotfix touches these): 卫戍协议 says neither line
 //     (`CARD_LIST_ON` false). Until 2026-10-10 we said 行动出发 at the match's first battle and 行动开始 on each cursor.
 //   * 作战中: a random line of the operator's 作战中1-4 (SKILL_CHARWORD_TYPES), not the equipped skill's number.
@@ -121,7 +121,7 @@ export class OfficialVoiceGate {
 /**
  * The battle-level rules (audio.js handleBattleEvents hooks, voice.js voiceForRoutePreview).
  * @param {{ skillOf?: (u: any) => any, slotsOf?: (charId: string) => string[], own?: (u: any) => boolean,
- *   random?: () => number, cardList?: boolean }} deps
+ *   random?: => number, cardList?: boolean }} deps
  *   skillOf: the unit's equipped skill record ({ skillType, spCost }); slotsOf: the 作战中 slots an operator has;
  *   own: whether a tracked battle unit is the player's own piece (default: every allied one);
  *   cardList: UIController.HasFunction(CARD_LIST) (default CARD_LIST_ON — off in 卫戍协议: no 行动出发 / 行动开始).

@@ -90,7 +90,7 @@ export function attackCountdown(cd, dt) {
 }
 
 /**
- * One tick of an operator's / summon's normal attack — the official attack ability (client code `AbilityStandard` /
+ * One tick of an operator's / summon's normal attack — the official attack ability (the client's `AbilityStandard` /
  * `EasyToStartAbility`, docs/rules/sim.md 「일반 공격 타이밍」): when its cooldown is over and its last swing has ended, a
  * unit with a target starts a swing (startSwing: the targets are taken now, the cooldown restarts from the full interval
  * now — `AbilityStandard.CastToTarget` → `m_cooldownTimer.Reset(true)`); the strike lands `attackTiming().strike` later
@@ -107,7 +107,7 @@ export function updateAlly(b, u, dt) {
     if (u.castLeft > 0) u.castLeft = attackCountdown(u.castLeft, dt);
   }
   if (u.blocking.length) enforceBlockCapacity(b, u);
-  // (a stun / freeze / sleep also ends a Skill state — client code `SkillState.OnTick`: no `canUseAbility` → IDLE)
+  // (a stun / freeze / sleep also ends a Skill state — the client's `SkillState.OnTick`: no `canUseAbility` → IDLE)
   if (!u.canAct || !u.profile) { cutSwing(u); u.skillStateUntil = 0; u.atkSpell = 0; return; }
   // a rangeExtend change (buff added / expired) rebuilds the range — also for units that never attack (auras)
   if (b.rangeChanged(u)) b._refreshRange(u);
@@ -190,7 +190,7 @@ export function updateAlly(b, u, dt) {
 }
 
 /**
- * The attack a 'replace' cast took over (client code `Character.get_attack` → the registered replacement's ability;
+ * The attack a 'replace' cast took over (the client's `Character.get_attack` → the registered replacement's ability;
  * skills.js): its swing starts like an attack's — the attack cooldown restarts from the full interval now — and plays the
  * skill ability's clip (SkillRuntime.castTiming); its strike is the skill's effect (allyStrike → fireReplacement). A
  * swing cut before the strike (stun, 缴械 …) leaves the cast waiting for the next attack.
@@ -209,7 +209,7 @@ function startReplacement(b, u, sk) {
 }
 
 /**
- * Where a swing turns its unit as it starts (client code `AbstractAnimatedAbility.OnCastStart` → `DealWithFaceDirection`,
+ * Where a swing turns its unit as it starts (the client's `AbstractAnimatedAbility.OnCastStart` → `DealWithFaceDirection`,
  * the attack ability's flags — data `attackAnim.face`, tools/local-extract/attack_timing.py): its main target's id
  * (`_faceToTarget`, `_faceToFirstCastTarget`; also when the ability was not read [추정]), 'D' its deploy direction
  * (`_faceToDefault`), 'F' its front (`_faceToFront`), null none (an attack on everything in range: 莫斯提马, 白面鸮). The
@@ -228,7 +228,7 @@ const faceOf = (f, t) => (f === 1 || f === 4 ? t?.id ?? null : f === 2 ? 'D' : f
 /**
  * A skill ability is cast (a 'replace' cast's attack starts — startReplacement —, a CastSkill casts its ability —
  * skills.js activate): the unit turns by the ability's flags (`cast.face`, tools/local-extract/skill_cast.py; absent = 1)
- * as it starts (client code `AbstractAnimatedAbility.OnCastStart` → `DealWithFaceDirection`), event ['face', unit, turn]
+ * as it starts (the client's `AbstractAnimatedAbility.OnCastStart` → `DealWithFaceDirection`), event ['face', unit, turn]
  * with turn as a swing's (swingFace). Its main target is the one its attack would take now [추정: the kit picks the
  * skill's own targets at its effect; the client's skill ability searches them as it is cast]; none → no turn.
  */
@@ -245,7 +245,7 @@ export function castFace(b, u, face) {
 }
 
 /**
- * The target a swing turned its unit to, checked while the unit waits for its next attack (client code
+ * The target a swing turned its unit to, checked while the unit waits for its next attack (the client's
  * `Character.States.CombatState`: it stays in combat — and faced that way — while it has a target): gone (dead, off the
  * field, out of its range and not blocked by it) → another target in range takes its place, none → faceIdle.
  */
@@ -258,7 +258,7 @@ function holdFaceTarget(b, u, prof) {
 }
 
 /**
- * No target left: the unit turns back to its deploy direction (event ['face', unit], no turn field) — client code
+ * No target left: the unit turns back to its deploy direction (event ['face', unit], no turn field) — the client's
  * `Character.States.IdleState.OnEnter` → `TryFaceToIdleDirection`: only when it blocks no enemy (and has an Idle clip),
  * `FaceToDirection(idle)`.
  */
@@ -279,7 +279,7 @@ function cutSwing(u) {
 const roundMs = (t) => Math.round(t * 1000) / 1000;
 
 /**
- * Whether a target taken at the swing start can still be struck (client code `AbilityStandard.DoCastOnTargets`: only the
+ * Whether a target taken at the swing start can still be struck (the client's `AbilityStandard.DoCastOnTargets`: only the
  * cast targets that are `ValidAndAlive`): alive and on the field — an enemy in a portal, an operator withdrawn are not.
  */
 const strikable = (t) => !!t && t.alive && !t.hidden && (t.side !== 'ally' || t.deployed);
@@ -326,7 +326,7 @@ function attackClipOf(u) {
 }
 
 /**
- * The timing of a unit's next normal attack (client code `AbstractAnimatedAbility.UpdatePlaybackSpeed`, docs/rules/
+ * The timing of a unit's next normal attack (the client's `AbstractAnimatedAbility.UpdatePlaybackSpeed`, docs/rules/
  * sim.md 「일반 공격 타이밍」): the attack clip (simdata.js normAttackAnim — data/chess.json / enemies.json `attackAnim`) is
  * scaled to the attack interval, scale = clamp(interval ÷ clip, MIN_ANIM_SCALE 0.1, the ability's `_maxAnimScale`) — −1 =
  * no upper bound; 1, the common value, never stretches the clip: a slow attacker swings at the clip's own speed and idles
@@ -334,7 +334,7 @@ function attackClipOf(u) {
  * clip's OnAttack frame × scale (`_waitForAttackEvent` 1; a clip with no OnAttack event: at the end of the swing —
  * `EasyToStartAbility.WaitForNextEvent` waits up to the whole swing), else `_preDelay` × scale (at most the swing).
  * No clip known (a summon, a device, a model the manifest lacks): strike and action 0 — the strike as the swing starts.
- * A ThreePart attack (`begin`: client code `ThreePartOneshotAnimation`) plays its begin clip before the attack clip on a
+ * A ThreePart attack (`begin`: the client's `ThreePartOneshotAnimation`) plays its begin clip before the attack clip on a
  * first attack only (`first`: the first swing since the unit entered its attack / combat state — `AttackState.OnEnter`
  * and `CombatState.OnEnter` cast with firstAttack, the following swings without) and scales the two together
  * (`InitAnimation`: scale = attack time ÷ (begin + clip), bounded by its own `_maxAnimScale`), so that swing's strike
@@ -366,7 +366,7 @@ export function attackTiming(u, out = { strike: 0, action: 0, sel: 0, begun: fal
 
 /**
  * The attack check of a ready unit found no target: the unit leaves its attack / combat state once the last swing has
- * played out and the attack ability's `_escapeTime` has passed (client code `AttackState._NextAttackOrExit` /
+ * played out and the attack ability's `_escapeTime` has passed (the client's `AttackState._NextAttackOrExit` /
  * `CombatState._NextCombatOrExit`: IDLE when fixedPlayTime ≥ the exit time the swing's finish set) — its next swing is a
  * first attack again (attackTiming `first`).
  */
@@ -886,7 +886,7 @@ export function updateEnemy(b, e, dt) {
   // 「触发浮空时清除受到的推/拉力…无法陷入失衡」); while it lasts the enemy neither walks nor starts a normal attack
   if (e.s.flags.levitate && e.unbalanceUntil > b.time) e.unbalanceUntil = -Infinity;
   const unbalanced = b.time < e.unbalanceUntil - 1e-9;   // (the 1e-9: a float-summed end such as 35/30 s keeps its frame)
-  // the cooldown runs from the swing start, through a stun / freeze / sleep too (client code `Entity.OnTick` →
+  // the cooldown runs from the swing start, through a stun / freeze / sleep too (the client's `Entity.OnTick` →
   // `Ability.OnTick`; docs/rules/sim.md 「일반 공격 타이밍」) — not while the enemy is off the field (a DISAPPEAR leg)
   if (!e.hidden) {
     if (e.atkCd > 0) e.atkCd = attackCountdown(e.atkCd, dt);
@@ -1238,7 +1238,7 @@ export function enemyHasAttack(e) {
 }
 
 /**
- * An attack slot of enemy `e` offered to its skills (client code `Enemy.AttackWrapper.SearchTarget` → `Cast`, from the
+ * An attack slot of enemy `e` offered to its skills (the client's `Enemy.AttackWrapper.SearchTarget` → `Cast`, from the
  * MOVE state's `_SearchAttackTarget`; docs/rules/sim.md 「적 스킬 = 일반 공격 차례」): the `enemySkillSlot` hook
  * { enemy, cast } — content casts the skill it picks and sets `cast` { dur, atkCd }: the enemy plays the cast for `dur`
  * s (it stands, no normal attack meanwhile: `castLeft`) and its main attack's cooldown is `atkCd` (the full interval
@@ -1286,7 +1286,7 @@ export function enemyShot(e) {
 /**
  * The flight speed (tiles per game second) of a shot (docs/rules/sim.md 「적 투사체」): TRACE_TARGET_WITH_SPEED (AdvancedMovement)
  * homes on its target at `_speed`; a PARACURVE (ParacurveMovement) arc covers the horizontal distance to the target's
- * current position at `_speed` (client code ParacurveMovement.OnInit: flight time = horizontal distance / speed; the
+ * current position at `_speed` (the client's ParacurveMovement.OnInit: flight time = horizontal distance / speed; the
  * height only draws the arc); a HARPOON line (HarpoonMovement) extends to it at `_speed`; FIXED_DIRECTION is flown at
  * its speed towards the target it was aimed at [추정: no enemy normal attack in the mode flies one but 萨米的意志's, which
  * its kit resolves]. 0 = it does not fly: ATTACH (AttachToTarget — on the target, after `_delayToStart`) and NONE.
@@ -1335,7 +1335,7 @@ function enemyStrike(b, e, radius, reach, own) {
     b.emit('enemyAttackStart', { enemy: e, targets });
     if (!e.alive || e.s.flags.stun) { cutSwing(e); return; }
   }
-  // 麻痹 (ba.palsy): each stack interrupts one normal attack at its strike (client code `Enemy.CanDoAbilitySpellOn` →
+  // 麻痹 (ba.palsy): each stack interrupts one normal attack at its strike (the client's `Enemy.CanDoAbilitySpellOn` →
   // `FinishIfNot(PALSY)`: the cooldown runs on from the swing start). The `palsyTrigger` hook { enemy, buff, keep } fires
   // as it does (PRTS 真言 备注: "触发麻痹时" = the attack interrupted by 麻痹, not a stack gained): a handler may set `keep` —
   // the stack is not consumed (真言 噤声限域 "触发麻痹时有N%概率不消耗麻痹层数") — or deal damage (the enemy may die there)
@@ -1348,7 +1348,7 @@ function enemyStrike(b, e, radius, reach, own) {
     }
     if (!keep) { if (--palsy.stacks <= 0) b.removeBuff(e, palsy); else e.markDirty(); }
     e.castLeft = 0;
-    // 麻痹震颤 (client code `Enemy.OnTriggerPalsy` → `Enemy.States.PalsyState`; maintainer decision 2026-10-11): every
+    // 麻痹震颤 (the client's `Enemy.OnTriggerPalsy` → `Enemy.States.PalsyState`; maintainer decision 2026-10-11): every
     // enemy so interrupted — blocked or not, melee or ranged, a 「不停止移动」 one too — stands PALSY_STOP s and starts no
     // attack (until 2026-10-11 only an unblocked ranged enemy stood, ATTACK_PAUSE); `atkStandUntil` holds the walking
     e.palsyUntil = b.time + PALSY_STOP;

@@ -175,7 +175,7 @@ export function fortressEffects(bind, prefabs, n, role, kind) {
 }
 
 /**
- * (2026-10-10, decompile check): the effects of mode `n`'s own buffs that sit on enemies (modes.json `attachFoe`:
+ * (2026-10-10, official client): the effects of mode `n`'s own buffs that sit on enemies (modes.json `attachFoe`:
  * the buff's ability targets enemies — `_targetOptions.targetSide` 2 or a `_selector` whose range selectors pick side 2), in
  * order, extracted only. A buff effect's owner is the unit holding the buff (client `Effect.Behaviour.owner`).
  * @param {any} bind modes.json entry
@@ -188,10 +188,10 @@ export function foeEffects(bind, prefabs, n) {
   return Array.isArray(list) ? list.filter((x) => prefabs.includes(x)) : [];
 }
 
-// ---- cast effect timing (2026-10-10, decompile check) ----------------------------------------------------------
+// ---- cast effect timing (2026-10-10, official client) ----------------------------------------------------------
 // The client starts an attack's cast effect on its `_startEvent` and ends a loop one (`_oneshot` 0) on its `_endEvent`
-// (`CastEffectOptions.OnEvent`, RVA 0xB17C80), on the ability's detach, or at the cast's finish (`OnCastFinish` 0xB17BD0).
-// AbilityStandard.Event: 0 ON_ATTACHED, 1 ON_DETACHED, 2 ON_CAST_START — raised in `_DoCast` (0x3505E70) before the pre-delay
+// (`CastEffectOptions.OnEvent`), on the ability's detach, or at the cast's finish (`OnCastFinish`).
+// AbilityStandard.Event: 0 ON_ATTACHED, 1 ON_DETACHED, 2 ON_CAST_START — raised in `_DoCast` before the pre-delay
 // wait, i.e. as the swing starts —, 3 ON_CAST_END, 4 ON_SPELL_ON (the strike), 5 ON_SPELL_END, 6 ON_ATTACK_FINISH, 7
 // ON_ATTACK_CHECK_POINT, 8 ON_OVERLOAD. modes.json `castOpt[mode][name]` = { s: start, e: end, o: oneshot, d?: delay of the
 // first attack (s, ÷ the ability's playback speed), once?: once per cast }.
@@ -217,18 +217,18 @@ export function castTiming(bind, n, name) {
  */
 export const castPhase = (opt) => (opt && opt.s === CAST_EVENT.CAST_START ? 'swing' : 'strike');
 
-// ---- input targets, looping hits, clip variants, deploy effects (2026-10-11, decompile check round 2) ------------------
+// ---- input targets, looping hits, clip variants, deploy effects (2026-10-11, official client, round 2) ------------------
 // modes.json (char_modes.py): `input[mode]` — InputTargetEffectOptions, a CastEffectOptions created on the ability's main
-// target (`InputTargetEffectOptions.CreateEffect`, RVA 0xB1B5F0), timed by castOpt (t: 1; p: 1 = `_useInputPos`, on the
+// target (`InputTargetEffectOptions.CreateEffect`), timed by castOpt (t: 1; p: 1 = `_useInputPos`, on the
 // target's last place once it died); `hitLoop` { name: _endEvent } — the `_oneshot` 0 hits (HitEffectOptions.OnEvent /
-// OnCastFinish, 0xAE5C60 / 0xAE5490: ended at that event or the cast's finish); `castTgt` — CastTargetEffectOptions hits,
-// played at the ability's speed (`PlayEffect`, 0xB18810); `clipFx[mode]` { src, loop, groups: [{ anim, cast, hit }] } — an
-// UberAnimationEffectEmitter's `_replaceGroup` (`OnCastStart`, 0xAED700: the group of the cast's clip adds its options);
-// `start` / `startOnce` / `modeStart` / `dead` — the deploy and dead effects (`Character.get_startEffect`, 0x7085E0).
+// OnCastFinish: ended at that event or the cast's finish); `castTgt` — CastTargetEffectOptions hits,
+// played at the ability's speed (`PlayEffect`); `clipFx[mode]` { src, loop, groups: [{ anim, cast, hit }] } — an
+// UberAnimationEffectEmitter's `_replaceGroup` (`OnCastStart`: the group of the cast's clip adds its options);
+// `start` / `startOnce` / `modeStart` / `dead` — the deploy and dead effects (`Character.get_startEffect`).
 
 /**
  * The clip group of one cast (modes.json clipFx[mode]): the group whose `anim` is the clip the model plays (the
- * remake's attack clip), else by the emitter's `_loopType` (`_CalculatePlayIndex`, RVA 0xAEDDB0) — 0 LOOP the next group
+ * remake's attack clip), else by the emitter's `_loopType` (`_CalculatePlayIndex`) — 0 LOOP the next group
  * after `last`, 1 RANDOM one at random (`rnd` in [0, 1)). null without groups.
  * @param {{ loop?: number, groups?: Array<{ anim: string, cast?: string[], hit?: string[] }> }|null|undefined} cf
  * @param {string|null|undefined} clip
@@ -245,8 +245,8 @@ export function clipGroup(cf, clip, last = -1, rnd = 0) {
 }
 
 /**
- * 2026-10-21, decompile check (이펙트 연결 전수 ②): the child of a mode's ability group one attack casts (modes.json
- * altFx[mode], char_modes.py ability_groups — client AbilityRandomGroup, `_GetAbilityInternal` RVA 0xC19A50): the group whose
+ * 2026-10-21, official client (이펙트 연결 전수 ②): the child of a mode's ability group one attack casts (modes.json
+ * altFx[mode], char_modes.py ability_groups — client AbilityRandomGroup, `_GetAbilityInternal`): the group whose
  * `anim` is the clip the model swings (render/spine.js _nextAlt chose it by the same rule), else by `pick` — 'loop' the next
  * after `last` (from `from` when none: the client reads `m_loopIndex` + 1), 'other' any but `last`, 'random' any (`rnd` in
  * [0, 1)). A COMBAT state group (`combat`: Body/Combat) only on a swing at an enemy the unit blocks (`combatNow`, the sim's
@@ -323,7 +323,7 @@ export const hitLoopEnd = (bind, name) => (Number.isInteger(bind?.hitLoop?.[name
 export const DEPLOY_FX = Object.freeze(cite(['DefaultEffects.CHARACTER_BORN', 'DefaultEffects.TOKEN_BORN', 'DefaultEffects.CHARACTER_DEAD'], { op: 'common_char_birth_01', token: 'common_call_start_01', dead: 'common_char_die_01' }));
 /**
  * The deploy effect of an operator / token: the `_overrideStartEffect` of its mode now, the prefab root's `_startEffect`, else
- * the default for its kind (`Character.get_startEffect` / `GetStartEffect`, RVA 0x7085E0 / 0x6F74B0). With a skill mode on, a
+ * the default for its kind (`Character.get_startEffect` / `GetStartEffect`). With a skill mode on, a
  * `<mode>_…` mode with an override counts as that mode's (乌尔比安 S3 → S3_Respawn_A ulpia_skill_03_bith_01: the client
  * switches to it as she redeploys) [추정: by the name]. `{ name, override }`.
  * @param {any} bind modes.json entry (null for a token or an unlisted operator)
@@ -356,7 +356,7 @@ export const TALENT_ALWAYS = Object.freeze({
 });
 
 /**
- * 2026-10-16, decompile check (client `Unit.AttachCommonAbilities`): the always-on effects of an operator — the buffs its
+ * 2026-10-16, official client `Unit.AttachCommonAbilities`: the always-on effects of an operator — the buffs its
  * prefab root's common abilities put on it for good (modes.json `common`, char_modes.py: 新约能天使's wings and halo,
  * 引星棘刺's weapon glow) and its always-on talents (TALENT_ALWAYS, by `charId`, from `plays`) — that are extracted, minus
  * `kitOwned` (prefabs a kit event draws instead).

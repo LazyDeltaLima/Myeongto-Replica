@@ -95,8 +95,8 @@ export const SKILL_SUMMON_START_DEPLOY = true;
 
 /**
  * The battle-start deployment, one piece at a time (docs/rules/sim.md 「작전 시작 차례 배치」, maintainer decision 2026-10-10):
- * client code `MainGameInBattle._StartBattle` runs `_Prebuilt` first — each board piece `Deck.SpawnCharacterOrToken`, then
- * `WaitForFixedSeconds(0.2)` (.rdata constant) — and only after the last wait fires ON_BATTLE_STARTED and starts the wave
+ * the client's `MainGameInBattle._StartBattle` runs `_Prebuilt` first — each board piece `Deck.SpawnCharacterOrToken`, then
+ * `WaitForFixedSeconds(0.2)` (a constant) — and only after the last wait fires ON_BATTLE_STARTED and starts the wave
  * scheduler (`Scheduler.Init` / `DoSchedule`). Game seconds between two deployments (battle flag `prebuiltInterval`; the
  * test harness passes 0: all at once, the rule before 2026-10-10). Re-exported by server/sim/constants.js; the browser's
  * audio.js times the battle start's 部署 line by it.

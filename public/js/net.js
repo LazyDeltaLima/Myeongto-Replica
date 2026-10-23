@@ -731,8 +731,8 @@ function defaultChannel() {
  * Create the identity helper (nickname, "entered" flag and reconnect-token selection; see above).
  * @param {{ local?: Storage|null, session?: Storage|null, tabId?: string,
  *           channel?: { postMessage: Function, addEventListener?: Function, onmessage?: any } | null,
- *           setTimeout?: (fn: Function, ms: number) => any, queryMs?: number, now?: () => number,
- *           onYield?: () => void }} [deps]
+ *           setTimeout?: (fn: Function, ms: number) => any, queryMs?: number, now?: => number,
+ *           onYield?: => void }} [deps]
  */
 export function createIdentity(deps = {}) {
   const local = deps.local !== undefined ? deps.local : safeStorage('localStorage');

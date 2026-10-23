@@ -292,7 +292,7 @@ test('charges accumulate up to maxCharges and are spent one per cast, 11 passes 
   const t1 = h.b.time;
   assert.equal(u.skill.charges, 2);
   assert.ok(u.skill.sp <= 1 / 30 + 1e-9, 'SP bar restarts after using a full stack (one tick of regen since the pass)');
-  // client code AutoChessBattleTrigger._TryTriggerAvailableSkills: the caster sits out BLOCK_SKILL_TICK (10) passes of
+  // the client's AutoChessBattleTrigger._TryTriggerAvailableSkills: the caster sits out BLOCK_SKILL_TICK (10) passes of
   // 0.2 s, its next automatic cast on the 11th
   h.run(2.1);
   assert.equal(u.skill.activations, 1, 'not within 10 passes although she attacks every second');

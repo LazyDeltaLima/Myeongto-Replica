@@ -17,8 +17,8 @@ export function parseDir(d) {
 }
 
 /**
- * The client's `ParticleEffect.FaceTo` (RVA 0xCB1DC0) for a root `face` record and the direction the effect is played
- * with (`Effect.Play` RVA 0xC8A5D0: the caster's faceVector — left / right as it is drawn, ±x even facing up / down — or a
+ * The client's `ParticleEffect.FaceTo` for a root `face` record and the direction the effect is played
+ * with (`Effect.Play`: the caster's faceVector — left / right as it is drawn, ±x even facing up / down — or a
  * four-way facing with `_useFourDirectionalFace`, or target − caster with `_useOwnerToTargetDirection`; with
  * `_useBodyRotation` (`face.body`) the four-way direction of the entity it is created on, `body`). By `_rotateType`:
  *   1 FLIP_TWO_SIDE  — flipped when the direction points left (`_leftIsDefault`: right): its child 'rotation_y' turns 180°
@@ -48,7 +48,7 @@ export function faceTurn(face, dir, body = null) {
 }
 
 /**
- * (2026-10-22, decompile check) The direction the client's FollowDirection (`_FollowDirection` RVA 0xE81360) gives its
+ * (2026-10-22, official client) The direction the client's FollowDirection (`_FollowDirection`) gives its
  * effect through `FaceTo` as it plays and every frame after (once with `_onlyFollowOnPlay`), from the prefab's `follow`
  * record (fx_extract.py follow_direction) and its owner's facing `o`:
  *   'face'   faceVector — ±x by the drawn side `side` (× −1 with `left`);
@@ -78,8 +78,8 @@ export function followDir(follow, o) {
 }
 
 /**
- * (2026-10-22, decompile check) The copy the client's SwitchableEffectByFaceDirection plays instead (`_UpdateFace` RVA
- * 0xE9C2E0, as the effect plays): its owner's `faceDirection` (`dir4`, MapUtil.ParseDirection of faceTo) DOWN / UP / LEFT
+ * (2026-10-22, official client) The copy the client's SwitchableEffectByFaceDirection plays instead (`_UpdateFace`,
+ * as the effect plays): its owner's `faceDirection` (`dir4`, MapUtil.ParseDirection of faceTo) DOWN / UP / LEFT
  * with that copy named (`swFace` down / up / left: fx_extract.py switch_face), else null — this effect plays.
  * @param {{ up?: string, down?: string, left?: string }|null|undefined} sw
  * @param {string|null|undefined} dir4 'UP' | 'RIGHT' | 'DOWN' | 'LEFT'
@@ -92,7 +92,7 @@ export function faceSwitchCopy(sw, dir4) {
 }
 
 /**
- * The playback speed an effect gets (`Effect._PlayInternal` RVA 0xC8C4F0): capped at `_limitedPlaybackSpeed` ÷ the battle
+ * The playback speed an effect gets (`Effect._PlayInternal`): capped at `_limitedPlaybackSpeed` ÷ the battle
  * time scale when that is ≥ 0 (default 2.0 — the effect never runs faster than ×2 on screen), and used only with
  * `_usePlaybackSpeed` (`face.speed` 0: the prefab's own speed, 1.0). Without a record: `speed` as given.
  */
@@ -107,8 +107,8 @@ export function playSpeed(face, speed = 1, timeScale = 1) {
 
 /**
  * How long (game seconds) before anything of the effect shows when it plays at `speed` (playSpeed): the root FxDelay
- * (`FxDelay.OnEnable` RVA 0x34C1650: `_delayTime` ÷ the playback speed, set only with `_usePlaybackSpeed` —
- * `Effect.UpdatePlaybackSpeed` RVA 0xC8AE50) plus `_delayToPlay` (`rnd`: up to it — its longest here).
+ * (`FxDelay.OnEnable`: `_delayTime` ÷ the playback speed, set only with `_usePlaybackSpeed` —
+ * `Effect.UpdatePlaybackSpeed`) plus `_delayToPlay` (`rnd`: up to it — its longest here).
  */
 export function startLead(face, speed = 1) {
   if (!face || typeof face !== 'object') return 0;

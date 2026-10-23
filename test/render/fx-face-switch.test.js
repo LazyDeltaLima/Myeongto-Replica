@@ -1,4 +1,4 @@
-// test/render/fx-face-switch.test.js — the rest of the client's direction / place behaviours (decompile check 2026-10-22,
+// test/render/fx-face-switch.test.js — the rest of the client's direction / place behaviours (official client 2026-10-22,
 // docs/rules/fx.md 「이펙트 방향」·「붙는 자리」): SwitchableEffectByFaceDirection (`swFace`: 新约能天使's down copies),
 // SwitchableThreeFaceEffect (`three`: 维什戴尔 S3's up copy through the back switch), RandomDirection (`rdir`: 锏 S2),
 // FollowTileHeight (`tileH`), and a buff's effect held by its unit while other unheld effects stay where they were made.

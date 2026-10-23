@@ -234,7 +234,7 @@ function onRoomState(msg) {
 }
 
 /**
- * Server lost (client code AutoChessBattleUIController._HandleServerLost → tab_server_lost_dialog; docs/rules/ui.md
+ * Server lost (the client's AutoChessBattleUIController._HandleServerLost → tab_server_lost_dialog; docs/rules/ui.md
  * 「공식 위수협약 UI」): a running match the server ended for this player (room.closed, or a brand-new session after the
  * server restarted) stays on screen under the official one-button dialog (screens/game.js) with the reason, and only its
  * 确认 leads to the lobby (the client's QuitGame) — without the local art: straight to the lobby with a toast, as before.

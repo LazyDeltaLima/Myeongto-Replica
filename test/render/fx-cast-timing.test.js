@@ -1,4 +1,4 @@
-// test/render/fx-cast-timing.test.js — decompile check 2026-10-10 (docs/rules/fx.md 「시전 이펙트 시점·붙는 대상」): the
+// test/render/fx-cast-timing.test.js — official client 2026-10-10 (docs/rules/fx.md 「시전 이펙트 시점·붙는 대상」): the
 // client starts most of an attack's cast effects as its swing starts (ON_CAST_START), ends the loop ones with their cast,
 // puts 아스트젠 더 라이트체이서 S3's link effect on one enemy, ends 쏜즈 더 로드스타's token / range with their projectile,
 // swaps a SwitchableBackEffect while its owner faces back, shoots from the attack's own mount point, and picks

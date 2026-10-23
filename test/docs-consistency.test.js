@@ -87,7 +87,7 @@ test('combat limits and the boss overtime are REAL seconds (code) and the docs s
   assert.equal(gd.bossOvertimeDue(240, start), 0, 'nothing at 120 real s = 240 game s');
   assert.equal(gd.bossOvertimeDue(242, start), 1, 'the first point at 121 real s');
   assert.equal(gd.bossOvertimeDue(260, start), 10, '1 LP per real second');
-  // client code AutoChessBattleUICountdownViewModel._GetBossBattleTimeInfo: the countdown ends 150 s before the forced end
+  // the client's AutoChessBattleUICountdownViewModel._GetBossBattleTimeInfo: the countdown ends 150 s before the forced end
   assert.equal(gd.bossOvertimeWindowReal(14), 150);
   assert.equal(gd.bossForcedEndReal(14), 270);
   assert.equal(gd.bossOvertimeDue(2 * 400, start, 150), 150, 'at most the window');

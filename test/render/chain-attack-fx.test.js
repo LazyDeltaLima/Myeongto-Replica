@@ -1,10 +1,10 @@
-// test/render/chain-attack-fx.test.js — a chain shot's effects (2026-10-16, decompile check, docs/rules/fx.md 「연쇄 공격」).
+// test/render/chain-attack-fx.test.js — a chain shot's effects (2026-10-16, official client, docs/rules/fx.md 「연쇄 공격」).
 // The client's chain casters (惊蛰, 异客) shoot a projectile whose `_mainEffect` flies to the first unit; its chain graphic
 // (ChainLightningEffectBehaviour) draws its own `_mainEffect` as the line through the struck units. char_modes.py used to
 // list both as the mode's trail, so 异客's attacks and 惊蛰 S2's flew the line. The sim's bounce ('atk' prev → next,
 // 'chain' / 'chainHeal') is no attack of its previous unit: before, the renderer ran the enemy's (estrikeFx) or the healed
-// ally's (strikeFx) own attack cast for it. The line is one LineRenderer through the struck units (PlayLineEffect RVA
-// 0xA68660), at their hit points or their feet by the graphic's `_playEffectOnHitPoint` (modes `chainHit`).
+// ally's (strikeFx) own attack cast for it. The line is one LineRenderer through the struck units (PlayLineEffect),
+// at their hit points or their feet by the graphic's `_playEffectOnHitPoint` (modes `chainHit`).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

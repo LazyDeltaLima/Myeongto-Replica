@@ -44,7 +44,7 @@ const runWhenHit = (v) => ({ taken(c, b, e, a) { if (a.on || !(v > 0)) return; a
  * these units like any enemy (攻坚装备 / II / III leave out only 炎佑), but not 补给线 / 补给线II, whose `enemy_exclude` lists
  * exactly these 14 keys (activity_table aceffect_enemy_2 / 2_2, data/effects.json): that share (`mods.supplyHpMul`, co-op
  * 终极 R5–R15) comes out again — a 频次 enemy's death spawn inherits the parent's mods, so it travels with them. Whole hits:
- * setHits takes the ceiling (client code PropLikeEnemy.DoApplyModifier: 1 HP per instance off an unrounded max HP —
+ * setHits takes the ceiling (the client's PropLikeEnemy.DoApplyModifier: 1 HP per instance off an unrounded max HP —
  * 2.16 HP takes 3 hits; the 0.2.1 port rounded). Until 0.2.1 the count was the data's whatever the difficulty (PR #272).
  */
 const times = (artsOnly = false) => ({
@@ -535,7 +535,7 @@ function husk({ hits, delay, stealthy = true, unblock = false, onHusk = null, ke
       a.noAtk = e.profile.noAttack;
       a.max = a.max ?? e.base.maxHp;
       rebirthCleanse(b, e);
-      // the warrior's block ends before the ember gains its 隐匿 (upstream PR #465). Client code: `Enemy.DoFakeDeath` calls
+      // the warrior's block ends before the ember gains its 隐匿 (upstream PR #465). The client: `Enemy.DoFakeDeath` calls
       // `ReleaseFromBlocker` first; the ember's mode — with its `Invisible` talent (`AdvancedCompoundToggleChecker`: on at
       // attach, off while blocked, back `_restoreDelay` 3 s after a block) — comes later, at `Unit.DoReborn` → `SwitchMode`.
       // So a fresh ember is 隐匿 unless something blocks it again; only its own block opens the 3 s window.

@@ -12,9 +12,9 @@
 // The hook banks themselves sit on `Independent` (under ~FX_VolumeControl, outside BattleGameSound): they stay clear while
 // everything else sinks. Here: the sfx / voice / bgm channels meet on `mgr.bus`; sounds outside the bus (sfx.snap.outside,
 // and UI one-shots — SFX_UI is outside it too) play on `mgr.sfxOutside`, straight to the master.
-// Timing (client code, docs/rules/audio.md 「믹서 스냅샷」): `SnapshotBank.Play` (RVA 0x34B1240) transitions to the snapshot
-// over the bank's `duration` after its `delay`; `SnapshotAudioAtom.Update` (RVA 0x34B1090) reverses it once every sound of the
-// hook bank has ended, and `ReverseSnapshot` (RVA 0x34B1650) goes to the last still-active bank's snapshot, else to Default,
+// Timing (official client, docs/rules/audio.md 「믹서 스냅샷」): `SnapshotBank.Play` transitions to the snapshot
+// over the bank's `duration` after its `delay`; `SnapshotAudioAtom.Update` reverses it once every sound of the
+// hook bank has ended, and `ReverseSnapshot` goes to the last still-active bank's snapshot, else to Default,
 // over the ending bank's `duration` with no delay. Here: `delay` then `dur` s into the snapshot as the hook starts, held while
 // any hook sounds (every hook of the data is AllLowpass_Reverb), the releasing hook's `dur` back to Default when the last ends.
 

@@ -51,7 +51,7 @@ FX_OUT = FX_DIR / 'enemy-modes.json'
 ENEMY_INDEX = 'enemy-index.json'
 BASES = ('StreamingAssets/AB/Windows', 'PersistentData/Bundles')   # later wins = PersistentData (hot updates)
 EMIT_KEYS = ('_castEffects', '_hitEffects', '_attachEffects', '_inputTargetEffects', '_castTargetEffects')
-# AbilityStandard.Event / UberEffectEmitter DirectionType / Entity.MountPointType / AdvancedMovement.MoveType (dump.cs values)
+# AbilityStandard.Event / UberEffectEmitter DirectionType / Entity.MountPointType / AdvancedMovement.MoveType (the client's enum values)
 EVENTS = ['ON_ATTACHED', 'ON_DETACHED', 'ON_CAST_START', 'ON_CAST_END', 'ON_SPELL_ON', 'ON_SPELL_END', 'ON_ATTACK_FINISH',
           'ON_ATTACK_CHECK_POINT', 'ON_OVERLOAD']
 MOUNTS = ['FOOT', 'HIT', 'MUZZLE', 'HEAD', 'UI', 'SPECIAL_0', 'SPECIAL_1', 'GROUND'] + [f'SPECIAL_{i}' for i in range(2, 16)]
@@ -63,8 +63,8 @@ PROJ_FX = (('_mainEffect', 'trail'), ('_effectsWhenStart', 'start'), ('_effectsW
            ('_effectsToTargetWhenStart', 'targetStart'), ('_effectsToTileWhenStart', 'tileStart'), ('_effectsWhenStop', 'stop'),
            ('_effectOnTrigger', 'trigger'))
 # (2026-10-21) the ability classes that hold buffs, by MonoScript PathID (EN client, the same ids as fx_extract.py's script
-# constants are read): where a buff goes and when. PassiveBuffAbility's `_buffs` are its passive buffs (`GetPassiveBuffs`, dump
-# RVA 0xC3FEF0) — on its owner from its Attach to its Detach: a talent / common ability's for the whole life, a mode's while
+# constants are read): where a buff goes and when. PassiveBuffAbility's `_buffs` are its passive buffs (`GetPassiveBuffs`)
+# — on its owner from its Attach to its Detach: a talent / common ability's for the whole life, a mode's while
 # that mode is on (Unit.ActivateMode attaches the mode's abilities). The others add theirs at a moment (RebornTalent at the
 # rebirth, a Toggleable… when its condition turns on, BuffAfterAffecting after the ability) or on other units (AuraAbility,
 # GlobalAuraAbility): never an aura of the enemy itself.
@@ -366,7 +366,7 @@ def buff(b, by=None):
     elif b.get('lifeTimeType') == 1:
         r['limited'] = 1   # LIMITED with its time from the blackboard (`durationKey` / the ability's): it ends, no aura
     # (2026-10-21) the abnormal flags it sets that the render keys an enemy's buff effect by: INVINCIBLE 5, INVISIBLE 9
-    # (Torappu.Battle.AbnormalFlag, 10-14 EN dump)
+    # (Torappu.Battle.AbnormalFlag, the 2026-10-14 EN client)
     fl = [x for x in ((b.get('attributes') or {}).get('abnormalFlags') or []) if x in (5, 9)]
     if fl:
         r['flags'] = ['INVINCIBLE' if x == 5 else 'INVISIBLE' for x in fl]
@@ -434,7 +434,7 @@ def enemy_record(root, tree, fx_index, proj_keys, skills=None):
             cls = BUFF_CLASSES.get((d.get('m_Script') or {}).get('m_PathID'))
             by = cls if k == '_buffs' else None
             # an AuraAbility's `_buffs` go on the units in its range — its owner too when `_selfOption` is INCLUDE (1; DoAttach
-            # RVA 0xC21750 puts the owner in its target map), its `_passiveBuffs` on its owner (GetPassiveBuffs)
+            # puts the owner in its target map), its `_passiveBuffs` on its owner (GetPassiveBuffs)
             if cls in ('aura', 'globalAura') and k == '_buffs' and d.get('_selfOption') == 1:
                 by = 'auraSelf'
             if cls in ('aura', 'globalAura') and k == '_passiveBuffs':
@@ -443,7 +443,7 @@ def enemy_record(root, tree, fx_index, proj_keys, skills=None):
             if lst:
                 a.setdefault(k.strip('_'), []).extend(lst)
         # (2026-10-21) an AuraAbility's own `_effects`: created on its owner as it attaches, finished as it detaches (DoAttach
-        # RVA 0xC21750 → BattleController.CreateEffect; `_createEffectOnDummy` aside) — its range drawn round the enemy
+        # → BattleController.CreateEffect; `_createEffectOnDummy` aside) — its range drawn round the enemy
         if BUFF_CLASSES.get((d.get('m_Script') or {}).get('m_PathID')) == 'aura' and strs(d.get('_effects')):
             a['auraFx'] = list(dict.fromkeys(a.get('auraFx', []) + strs(d.get('_effects'))))
         # (2026-10-23) a RebornTalent's `_effects`: the enemy's rebirth state creates them as it starts
@@ -491,8 +491,8 @@ def template_info(key, BT, FX, proj_keys, depth=0, seen=None):
     """A buff template's effects: `fx` (its effectKey + the CreateEffect-like nodes of ON_BUFF_START), `line`
     (CreateLineEffect of ON_BUFF_START: from the buff's source to its owner — not drawn here), `onEvent` { Buff.Event
     number: [effects] } (the nodes of the other events — ON_BUFF_FINISH 1, ON_BUFF_TRIGGER 2, ON_OWNER_KILLED 3,
-    ON_TAKE_DAMAGE 10 …: played once when that event runs, `Nodes.CreateEffect.Execute` RVA 0xB90880 — not the buff's own
-    effect; decompile check round 2, 2026-10-11: they used to be mixed into `fx`, 머드락's shield heal common_heal_hit_01
+    ON_TAKE_DAMAGE 10 …: played once when that event runs, `Nodes.CreateEffect.Execute` — not the buff's own
+    effect; official client, 2026-10-11: they used to be mixed into `fx`, 머드락's shield heal common_heal_hit_01
     (ON_TAKE_DAMAGE) and 티티's sleeping hit titi_attack_hit_01 (ON_BUFF_TRIGGER) among them), projectiles; nested templates
     followed to depth 3 (a nested template's start effects count for the event that adds it)."""
     seen = seen if seen is not None else set()
@@ -687,8 +687,7 @@ def emit_part(abilities, projs):
         for b in a.get('activeBuffs') or []:
             names = [n for n in strs(b.get('fx')) or ((b.get('template') or {}).get('key') or []) if n not in STATUS_HIT_DRAWN]
             hit_buff += names
-            # 2026-10-11, decompile check round 2 — client `Entity.AddBuffEffect` / `RemoveBuffEffect` (RVA 0x35F3CA0 /
-            # 0x36001C0): the buff's effect stays on its owner while the buff lasts, one per name (`BuffEffectHolder.refCounter`):
+            # 2026-10-11, official client — `Entity.AddBuffEffect` / `RemoveBuffEffect`: the buff's effect stays on its owner while the buff lasts, one per name (`BuffEffectHolder.refCounter`):
             # `hitBuffLife` { name: the buff's life } (LIMITED `lifeTime` s, IMMEDIATELY 0; none = no limit)
             for n in names:
                 if 'life' in b:
@@ -802,10 +801,10 @@ def render_entry(r, projs):
     for k in ('startEffect', 'deadEffect'):
         if r.get(k):
             out['start' if k == 'startEffect' else 'dead'] = r[k]
-    # 2026-10-10, decompile check — client `Enemy.get_deadEffect` (RVA 0x730300, played by `DeadState._PlayAnimation`): the
+    # 2026-10-10, official client — `Enemy.get_deadEffect` (played by `DeadState._PlayAnimation`): the
     # current mode's `_overrideDeadEffect`, else the root's `_deadEffect`, else common_enemy_die_01; an enemy-side token is a
-    # Character — `Character.get_deadEffect`'s default common_char_die_01 — unless it is a `Trap` (`Trap.get_deadEffect`, RVA
-    # 0x84C240 in the 2026-10-14 client, returns the field as it is: '' = no dead effect; 子代) (docs/rules/fx.md 「보스 토큰·장비 이펙트」)
+    # Character — `Character.get_deadEffect`'s default common_char_die_01 — unless it is a `Trap` (`Trap.get_deadEffect`
+    # in the 2026-10-14 client returns the field as it is: '' = no dead effect; 子代) (docs/rules/fx.md 「보스 토큰·장비 이펙트」)
     out.setdefault('dead', '' if r.get('trap') else 'common_char_die_01' if r.get('token') else 'common_enemy_die_01')
     skills = {}
     groups = defaultdict(list)
@@ -829,7 +828,7 @@ def render_entry(r, projs):
     # passive buffs of a PassiveBuffAbility that last (INFINITY, no node of their own that finishes them) — outside the modes
     # for its whole life (`aura`; a talent / common ability, the root's `_commonAbilities` wherever they sit: 黄金回响's
     # Others/Direction/commonAbility trap_vtlntw_buff_01 and _02, two buffs of one key — BuffData.OverrideType DEFAULT keeps
-    # both: `Buff.OverrideGroup._DoAddInternal` RVA 0x39DF310 queues every one, 2026-10-14 client), inside a mode while that
+    # both: `Buff.OverrideGroup._DoAddInternal` queues every one, 2026-10-14 client), inside a mode while that
     # mode is on (`modes[i].aura`). Until 2026-10-21 any talent / common ability's buff of template 'empty' was taken: a
     # rebirth's 无敌 (common_invincible_01), a half-HP rage (skulsr_buff_01_start), the buffs an aura puts on operators showed
     # from the birth. The statuses render/fxstatus.js draws are left to it.

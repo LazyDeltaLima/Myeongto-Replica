@@ -552,7 +552,7 @@ const STANDIN_TRIGGER_DEVIATIONS = Object.freeze({
  *   its skill is off, so the basic strategy could never cast it; "不受技能范围影响" of the 重装 row speaks of their skills
  *   with a 技能范围, which only S2/S3 have). They apply to MANUAL skills only: the strategies automate the manual 开启,
  *   an AUTO skill fires by its own rule (PRTS 古米 S1 备注: "此技能在存在生命值不满的可治疗角色时可触发");
- * - else DEFAULT, the basic strategy — client code `AutoChessBattleTrigger._DefaultTriggerSkill` (maintainer decision
+ * - else DEFAULT, the basic strategy — the client's `AutoChessBattleTrigger._DefaultTriggerSkill` (maintainer decision
  *   2026-10-11, docs/rules/sim.md 「스킬 범위 발동」): a MANUAL skill with a rangeId (an attack-range change included —
  *   the skill table holds the new range as its rangeId) checks those cells, `customRangeGrid` = the rangeId grid (a
  *   selectable enemy, ground or air, there: `LitePhysicsUtil.FindTargetsInBox` with the trigger's ALL-motion options, no
@@ -2384,7 +2384,7 @@ function abilityTiming(t) {
 }
 
 /**
- * Where an operator's attack ability turns the unit as its swing starts (local-attack-timing.json `face`, client code
+ * Where an operator's attack ability turns the unit as its swing starts (local-attack-timing.json `face`, the client's
  * `AbstractAnimatedAbility.DealWithFaceDirection`) as `attackAnim` carries it: `face` only when it is not 1 (its main
  * target, the common case) — 0 keeps its facing (an attack on all in range: 莫斯提马, 白面鸮's heal), 2 turns it to its
  * deploy direction, 3 to its front, 4 to its first cast target — server/sim/ai.js 'swing', docs/rules/render.md 「공격 방향」.
@@ -2441,7 +2441,7 @@ function withSkillProjectiles(skills, P) {
 /**
  * How an enemy's skills are cast (tools/assets/local-attack-timing.json `enemies[…].skills`, tools/local-extract/
  * attack_timing.py) → enemies.json `skillCast` {skill name in lower case: { family, dur?, clip?, max?, resetMain?, waitFirst? }}.
- * The client casts an enemy skill in place of a normal attack — at an attack slot, the skills first (client code
+ * The client casts an enemy skill in place of a normal attack — at an attack slot, the skills first (the client's
  * `Enemy.AttackWrapper.SearchTarget` / `Cast`; `family` = its `_familyMask`, every skill of the mode has ATTACK and / or
  * COMBAT) — and restarts its cooldown as the cast ends (`EnemySkill._OnCastFinish`): `dur` = the clip of its animated
  * ability (data/assets.json, the same model as the attack; absent when it plays none), `max` its `_maxAnimScale`;
@@ -2596,7 +2596,7 @@ function skillCast(ctx, charId, s) {
 /**
  * The client's `_showSpAsBulletMode` of a skill (tools/assets/local-skill-hud.json, tools/local-extract/skill_hud.py) → the
  * skill record's `bulletMode`: 1 = while the skill is affecting (a passive one always) the unit's HUD shows the bullet bar
- * in place of the SP cast slider — an ammo skill's bullets left, any other skill's SP as blocks (client code
+ * in place of the SP cast slider — an ammo skill's bullets left, any other skill's SP as blocks (the client's
  * `Character.get_hudPluginMask`, UIHudCharBulletBar; docs/rules/ui.md 「탄환형 스킬」); 0 = never. null when not read
  * (server/sim/local-hud.js then shows an ammo skill's bullets, as before the flag was read).
  */
@@ -2607,7 +2607,7 @@ function skillBulletMode(ctx, s) {
 
 /**
  * Whether a skill is cast without the operator's 作战中 line: its prefab's `_playCharWordVoice` is off (`word` 0 in
- * tools/assets/local-skill-cast.json; client code VoicePlayer._OnSkillCasted) → the skill record's `charWord: false`
+ * tools/assets/local-skill-cast.json; the client's VoicePlayer._OnSkillCasted) → the skill record's `charWord: false`
  * (public/js/voicePolicy.js; docs/rules/audio.md 「더빙 효과음」). 浊心斯卡蒂's S1–S3: their start sound carries the line.
  */
 function skillSilent(ctx, s) {

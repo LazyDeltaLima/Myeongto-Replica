@@ -8,9 +8,7 @@ while implementing.
 
 **Tags** (as in research 09)
 - **[DATA]**: read from the official client. Here that is the local Windows client 2.7.71 (Unity 2021.3.39f1, files dated
-  2026-08-20): `global-metadata.dat` (il2cpp v29: class, field and method names, constant values) and `GameAssembly.dll`
-  (x86-64 machine code, disassembled with `llvm-objdump`; method addresses mapped to names through the
-  `Assembly-CSharp.dll` code-gen module's method-pointer table and the metadata method tokens).
+  2026-08-20): its class, field and method names, constant values, and what those methods do.
 - **[COMM]**: community posts (Bahamut, NGA, bilibili).
 - **[ASSUMED]**: our inference or proposal.
 
@@ -31,7 +29,7 @@ while implementing.
 
 ### 1.1 Constant
 
-`Torappu.Battle.AutoChessBattleConst` (metadata field default values; ints are compressed in v29):
+`Torappu.Battle.AutoChessBattleConst` (the class's constant fields):
 
 | Field | Value |
 |---|---|
@@ -46,14 +44,13 @@ while implementing.
 
 ### 1.2 Where it is used
 
-C# constants are inlined, so the use sites were found by scanning the il2cpp code section for the immediate. In every
-`AutoChess` method, 999 appears as a clamp only in
+In every `AutoChess` method of the client, 999 appears as a clamp only in
 `Torappu.Battle.AutoChess.AutoChessPlayerDataModel/ScenePlayerData::AddBondCount(bondId, n)`:
 
 ```
-TryGetValue(bondId, out bond); if (!bond.valid) return false;   // [rcx+0x20]
-bond.stack += n;                                                 // add  edx, edi ; [rcx+0x18]
-bond.stack = bond.stack < 999 ? bond.stack : 999;                // mov eax,0x3e7 ; cmp ; cmovl
+TryGetValue(bondId, out bond); if (!bond.valid) return false;
+bond.stack += n;
+bond.stack = bond.stack < 999 ? bond.stack : 999;
 return true;
 ```
 
@@ -72,12 +69,12 @@ code is not in the client; the client clamp, the constant's home (`AutoChessBatt
 
 ## 2. The 300000 boss-hit limit
 
-### 2.1 The code
+### 2.1 What the client does
 
 `Torappu.Battle.AutoChess.AutoChessGameManager.StartBattle`:
 
 ```
-if (gameStatus.inBossBattleState && !isTrainingMode) {   // [this+0x18] = get_isTrainingMode
+if (gameStatus.inBossBattleState && !isTrainingMode) {
     inStepMode = true;
     BattleController.ReqChangeDeltaTimeFPInStepMode();
     stepModeManager.Start();
@@ -92,16 +89,16 @@ which forwards to `_OnBossEnemyTakeDamage` when the entity is a registered boss.
 `AutoChessStepModeManager._OnBossEnemyTakeDamage(enemy, modifier)`:
 
 ```
-int d = (int)Math.Ceiling(modifier.value.AsFloat());   // roundsd …, 0xA (toward +∞)
+int d = (int)Math.Ceiling(modifier.value.AsFloat());   // rounded toward +∞
 if (enemy == null || modifier.isCancelled || !modifier.isDamage) return;
 if (d <= 0) return;
-if (d >= 300000) { modifier.Cancel(); return; }        // cmp ebp, 0x493e0 ; jge → Modifier::Cancel(0)
+if (d >= 300000) { modifier.Cancel(); return; }        // Modifier.Cancel(0)
 bossDamage[localPlayer] += d;                           // TryGetValue / set
 actions.Add(new StepAction { type = 3, d, killedInfo… }); // the step relayed to the server / partner
 ```
 
-There is no other use of 300000 (or 299999, or the float 300000.0) in the autochess code; the other three hits of the
-immediate in the binary are `HttpWebRequest` / `FtpWebRequest` timeouts.
+There is no other use of 300000 (or 299999, or the float 300000.0) in the autochess code; the other three uses of the
+number in the client are `HttpWebRequest` / `FtpWebRequest` timeouts.
 
 ### 2.2 Reading
 
@@ -129,13 +126,10 @@ immediate in the binary are `HttpWebRequest` / `FtpWebRequest` timeouts.
 
 ### 2.3 Who is a leader: `AutoChessBattleUtil.IsBossEnemy(enemyId)` [DATA]
 
-Read while implementing (metadata token 0x6013192, method pointer 0x180b058e0 in the same build; `Il2CppCodeGenModule`
-method-pointer table of research 08 Appendix B):
-
 ```
 foreach (var kv in <activity data>.autoChessData.bossInfoDict)   // Dictionary<string, AutoChessBossInfoData>
-    if (string.Equals(kv.Value.enemyId, enemyId)) return true;   // [value+0x18]; the class's fields: bossId 0x10,
-return false;                                                    //   enemyId 0x18, handbookEnemyId 0x20
+    if (string.Equals(kv.Value.enemyId, enemyId)) return true;   // AutoChessBossInfoData: bossId, enemyId, handbookEnemyId
+return false;
 ```
 
 So a leader is an enemy whose id is a `bossInfoDict[*].enemyId` — the 10 keys of data/bosses.json `enemyKey`

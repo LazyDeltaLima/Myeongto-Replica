@@ -1,5 +1,5 @@
-// public/js/render/fx/pause.js — the client's effect behaviours that pause or finish their effect (2026-10-21, decompile
-// check; docs/rules/fx.md 「이펙트 멈춤·끝 조건」): what each asks of the effect's owner, decided from a unit view as
+// public/js/render/fx/pause.js — the client's effect behaviours that pause or finish their effect (2026-10-21, official
+// client; docs/rules/fx.md 「이펙트 멈춤·끝 조건」): what each asks of the effect's owner, decided from a unit view as
 // render/units.js keeps it (its flags, statuses, facing, sim animation and Spine clip). The extract carries them per node
 // (tools/local-extract/fx_extract.py pause_scripts: `pauseIf`, `pauseAnim`, `pauseIdle`, `pauseSpine`, `finishIf`;
 // `pauseOther` is played by render/fxgame.js stepPauses, which applies all of them).
@@ -48,8 +48,7 @@ export function pauseTerm(t, v) {
 }
 
 /**
- * PauseEffectIf (`GetCheckResult` RVA 0xE93330): the terms combined in order — OR, AND with `all` (`_CombinePauseFlag`
- * 0xE942C0); null when no term was answered (the client then leaves the pause as it is: `_CheckPause` 0xE940E0).
+ * PauseEffectIf (`GetCheckResult`): the terms combined in order — OR, AND with `all` (`_CombinePauseFlag`); null when no term was answered (the client then leaves the pause as it is: `_CheckPause`).
  * @param {{ when: object[], all?: boolean }} rec node `pauseIf`
  * @returns {boolean|null}
  */
@@ -69,7 +68,7 @@ export function clipOf(v) {
 }
 
 /**
- * PauseEffectWithAnimation (`_CheckPause` RVA 0xE94A70): the owner's clip `clip` asks for the pause when `valid` is given and
+ * PauseEffectWithAnimation (`_CheckPause`): the owner's clip `clip` asks for the pause when `valid` is given and
  * lacks it or `invalid` holds it (true), for the restore with `restore` (`_noPauseWhenValid`) otherwise (false), else
  * nothing (null); no clip: nothing.
  */
@@ -80,7 +79,7 @@ export function animPause(rec, clip) {
 }
 
 /**
- * PauseEffectIfNotIdle (`Update` RVA 0xE91DA0): paused while the owner is not idle (`Character.isInIdletState` — here the
+ * PauseEffectIfNotIdle (`Update`): paused while the owner is not idle (`Character.isInIdletState` — here the
  * sim's animation state, ANIM.IDLE [ASSUMED]), or with the face checks while it faces back / front.
  */
 export function idlePause(rec, v) {

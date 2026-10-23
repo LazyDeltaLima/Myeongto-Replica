@@ -30,7 +30,7 @@ LOBBY(room) → INFO_CHECK (co-op 45 s — `INFO_CHECK_SECONDS`, the remake's; t
                     联防 its outcome too as `uniteResult`, GitHub #235)
    R14 FINAL_ASSAULT (merged team LP; pairs drawn per boss wave, m.public bossPairs; shared boss pool; 120 real s countdown, the battle goes on; overtime −1 team LP per
                     real s from the countdown's end, 120 real s (§4, m.public.overtimeAt), for bossTurnHpReduceTime 150 real s, then the server
-                    ends the battle (≤ 150 LP; client code AutoChessBattleUICountdownViewModel._GetBossBattleTimeInfo) as a defeat; no layer
+                    ends the battle (≤ 150 LP; official client AutoChessBattleUICountdownViewModel._GetBossBattleTimeInfo) as a defeat; no layer
                     gains; team LP 0 ⇒ defeat at once (PRTS 直接失败), pool 0 ⇒ victory — the first end the server registers decides, §20.5)
    R15 HIDDEN_CORE  (if difficulty ≥ NORMAL and Σ activated layers > 350 solo / 1200 co-op and team LP > 1)
 → RESULT (per-player stats, titles, rounds passed, victory/defeat)

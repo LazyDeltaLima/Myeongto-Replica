@@ -11,7 +11,7 @@
 
 /* The one official-look unit (`--ui-u`, docs/LOCAL-PATCH.md 「크기 단위」): 1 unit of the client's 1280×720 canvas
    (CanvasScaler ScaleWithScreenSize, match width) × the PC client's UI scale — StandaloneCanvasScaleHelper
-   MIN_SCALE_FACTOR .9 / MAX_SCALE_FACTOR 1 (global-metadata.dat constants; setting key UI_SCALER). Responsive [추정]:
+   MIN_SCALE_FACTOR .9 / MAX_SCALE_FACTOR 1 (client constants; setting key UI_SCALER). Responsive [추정]:
    1 (the prefab's 1.5 px at 1920 → 1 px at 1280) up to a 1280×720 frame (rem 66.7 px) — phones / small windows keep
    today's size — then a straight line down to .9 at 1920×1080 (rem 100 px) and .9 above (the KR 3838-wide PC capture:
    🔍 buttons 1649 px apart = 610 units × 2.70 px = .9 × 3838 / 1280). u = .0105 rem + .3 px meets both ends.

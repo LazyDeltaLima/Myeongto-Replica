@@ -202,7 +202,7 @@ export function wallTiles(x, y, axis, rect) {
  * upward with Skill_2_Takeoff_End (1 s) as soon as it reaches the end of the sweep (`travel` game s), and is back on her
  * tile as that clip ends — the skill's `_interruptProjectileOnEndAnim` puts it home (projectile follower `_restoreOnEnd`)
  * and its `_afterEndAnim` Skill_2_Begin plays there with aglna2_s_2[chant_end] (maintainer report 2026-10-12 「끝점에 닿자마자
- * 이륙」). Never past the 2.5 s 吟唱. [ASSUMED: the return as the end clip ends — the CN-only class is not decompiled.]
+ * 이륙」). Never past the 2.5 s 吟唱. [ASSUMED: the return as the end clip ends — the class is CN-only and unchecked.]
  */
 export const AGL_S2_TAKEOFF_END = 1;
 /** When (game s after the cast) her model is back home: see AGL_S2_TAKEOFF_END. */

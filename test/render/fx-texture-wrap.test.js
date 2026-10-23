@@ -69,7 +69,7 @@ test('uv tween: a map the client keeps to its fraction (protect*UV / an Advance\
   inst.dispose();
 });
 
-test('shader: the scroll terms take their fraction and the UVTween family its whole scrolled uv (client DXBC)', async () => {
+test('shader: the scroll terms take their fraction and the UVTween family its whole scrolled uv (client shader)', async () => {
   const src = readFileSync(path.join(ROOT, 'public/js/render/fxplayer.js'), 'utf8');
   assert.match(src, /uv \+= fract\(uMainSpeed \* uTime\)/);
   assert.match(src, /if \(uFracUV\) uv = fract\(uv\)/);

@@ -8,7 +8,7 @@
 //     board / bench — again on a tap of the one already selected — and a battle unit. Not when a drag to place starts,
 //     and no 部署 `place` line when an operator is bought / rewarded (only its deploy SFX) — the owner's 卫戍协议 videos,
 //     2026-10-08. The 部署 line when the player places one from the bench on the board (voiceForPlace, 2-5 2026-10-08). They go through the same gate as the battle lines (a 选中 line never cuts a skill line: priority).
-//   * The official scheduling (voicePolicy.js, owner 2026-10-06; client code 2026-10-10): no global gap, priority /
+//   * The official scheduling (voicePolicy.js, owner 2026-10-06; official client 2026-10-10): no global gap, priority /
 //     same-priority overlap / cooldown per official voice type (shared by every operator, from the line's end), a random
 //     作战中; at each battle start (after the opening drop-in) a random own piece's 部署. 行动出发 / 行动开始 never: 卫戍协议
 //     disables the client's card list, which both need (voicePolicy.js CARD_LIST_ON; voiceForRoutePreview stays the hook).
@@ -156,7 +156,7 @@ export function voiceForUnit(info, unitId = null) {
 /**
  * An official route preview cursor of the battle's start appeared on a field of the player's own (render/fxroute.js
  * createBattleCursors onSpawn → render/app.js 'routePreview' → screens/game.js): 行动开始 — the client's
- * VoicePlayer._OnPreviewCursorSpawn (RVA 0xD7FA40), once per cursor spawn: the first time at once, later only after 3 s
+ * VoicePlayer._OnPreviewCursorSpawn, once per cursor spawn: the first time at once, later only after 3 s
  * without an enemy on the field (audio.noEnemyMs), said by a random card but the last one who said it; when that line
  * cannot play, once more by a random card (its retry without a voice query). The handler first checks
  * UIController.HasFunction(CARD_LIST), which 卫戍协议 turns off (AutoChessUIPlugin.OnGameInit) — so it says nothing here

@@ -86,7 +86,7 @@ function kitTank(ab, e) {
       const t = c.targets[0];
       if (!t) return;
       // the zone comes where the skill's shell lands: its official projectile (data/enemies.json skills PollutedRangedAtk.proj
-      // — projectile_enemy_nhtank_polluted, a PARACURVE at 4 tiles/s: flight = distance / speed, client code
+      // — projectile_enemy_nhtank_polluted, a PARACURVE at 4 tiles/s: flight = distance / speed, the client's
       // ParacurveMovement.OnInit) to the target's spot at the attack [추정: a target moving meanwhile]; until 2026-10-10 at
       // the attack itself
       const x = t.x, y = t.y;

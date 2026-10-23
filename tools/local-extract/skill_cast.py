@@ -3,13 +3,13 @@
 
 A skill prefab's root MonoBehaviour is its skill class (docs/rules/sim.md 「즉발 스킬의 시전」):
   * `ReplacementSkill` (it has `_cancelIfSearchTargetFailed`) — the cast replaces the unit's next attack: that attack goes
-    out as the skill ability (client code `ReplacementSkill.ApplyModification` / `Character.get_attack`);
+    out as the skill ability (the client's `ReplacementSkill.ApplyModification` / `Character.get_attack`);
   * `CastSkill` (it has `_switchToState`) — the skill ability is cast at once; `_switchToState` 1 puts the unit in its
     Skill state until that ability ends (`Character.States.SkillState._StartSkill`), 0 casts it without a state change;
     `_resetAbilityCooldownWhenCastEnd` 1 makes the ability ready again as it ends (`CastSkill.OnCastFinish`).
 The skill ability is the animated ability on the root (`AbstractAnimatedAbility`: `_animKey`, `_timeMode`, `_cooldown`,
 `_maxAnimScale`, `_preDelay`, `_waitForAttackEvent`), else the first one below it (a group: 引星棘刺 S2 Mark / Token, 锡人 S2
-HitEnemy / HitTile play one clip). Its time (client code `AbstractAnimatedAbility.get_cooldown` / `DoAttach` /
+HitEnemy / HitTile play one clip). Its time (the client's `AbstractAnimatedAbility.get_cooldown` / `DoAttach` /
 `UpdatePlaybackSpeed`): `_timeMode` 0 FROM_ATTACK_SPEED = the unit's attack interval, 1 FROM_ANIMATION = its clip length,
 2 SPECIFIED = `_cooldown`, 3 LOAD_FROM_BLACKBOARD = the blackboard value `_cooldownKey`; the clip is scaled to that time
 within [0.1, `_maxAnimScale`] as an attack's; its facing flags (`face`, as tools/local-extract/attack_timing.py: 1 its
@@ -74,7 +74,7 @@ def skill_entry(sid, comps):
     sk = next((d for d in root if '_maxTriggerTime' in d), None)
     if sk is None:
         return None
-    # BasicSkill `_playCharWordVoice` 0: the skill casts without the operator's 作战中 line (client code
+    # BasicSkill `_playCharWordVoice` 0: the skill casts without the operator's 作战中 line (the client's
     # VoicePlayer._OnSkillCasted; 浊心斯卡蒂's skills — their start sound is a dubbed bank instead, soundFxVoiceLang)
     word = {} if sk.get('_playCharWordVoice', 1) else {'word': 0}
     if '_cancelIfSearchTargetFailed' in sk:

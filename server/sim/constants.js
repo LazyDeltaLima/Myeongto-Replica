@@ -42,7 +42,7 @@ export const ALLY_COLLIDER_RADIUS = 0.25;
  * Collider radius of an enemy (a regular one: a huge enemy's hit rectangle is its collider, body.js). The official
  * client gives the enemy prefabs' root a trigger CircleCollider2D of radius 0.1 on the ENEMY layer, and an operator's
  * normal-attack search (`RangeSelector` → `PhysicsRange` → `Physics2D.OverlapAreaNonAlloc` with the range's tile boxes)
- * returns every enemy whose circle overlaps a box (PRTS 作战机制, above: "索敌抬手等均使用碰撞箱"; client disassembly,
+ * returns every enemy whose circle overlaps a box (PRTS 作战机制, above: "索敌抬手等均使用碰撞箱"; official client,
  * maintainer's notes): an attack range and a skill's attack range take an enemy within 0.1 of one of their tiles
  * (body.js colliderKeys / bodyInRange, Battle.enemiesInKeys; maintainer decision 2026-10-17). A skill's AUTO-TRIGGER
  * check of its range tiles (`LitePhysicsUtil._CheckContainsPosition`: the position's tile) and the tile rules the
@@ -132,7 +132,7 @@ export const ELEMENT_ORDER = Object.freeze(['neural', 'erosion', 'burn', 'apopto
 export const PALSY_MAX = 3;
 /**
  * 麻痹震颤: an enemy whose attack 麻痹 interrupted neither moves nor starts an attack for this long — melee, ranged, blocked
- * or not (client code `Enemy.States.PalsyState.OnTick`: it stays while its `palsying` buff holds; a stun / freeze / 浮空
+ * or not (the client's `Enemy.States.PalsyState.OnTick`: it stays while its `palsying` buff holds; a stun / freeze / 浮空
  * takes over). [ASSUMED] the length: `palsying` is a buff of the client's buff table, which the client files we read do
  * not hold — PRTS 术语释义 麻痹 「进入0.5秒的麻痹震颤状态」.
  */
@@ -197,7 +197,7 @@ export const FREEZE_RES_DOWN = 15;
 /** Default DP rules (DESIGN §5.5), overridable by Battle opts.flags. */
 export const DP_DEFAULTS = Object.freeze({ dpInit: 10, dpPerSec: 1, dpMax: 99 });
 /**
- * The automatic skill operations (client code `AutoChessBattleTrigger`, maintainer decision 2026-10-11 — docs/rules/sim.md
+ * The automatic skill operations (the client's `AutoChessBattleTrigger`, maintainer decision 2026-10-11 — docs/rules/sim.md
  * 「스킬 범위 발동」): every AUTO_TRIGGER_INTERVAL s of battle time (`AutoTrigger`: `WaitForFixedSeconds(0.2)`) one pass
  * over the characters (`_TryTriggerAvailableSkills`): one whose block is running counts it down one and is skipped; the
  * first whose MANUAL skill casts gets BLOCK_SKILL_TICK passes of block and ends the pass — one automatic cast per pass in
@@ -208,7 +208,7 @@ export const AUTO_TRIGGER_INTERVAL = 0.2;
 export const BLOCK_SKILL_TICK = 10;
 /**
  * The block of the battle-start deployment, in seconds (`battle.flags.startOpCooldown`; PRTS 卫戍协议/帮助 "…作战开始时部署
- * 的单位将进入冷却") — BLOCK_SKILL_TICK passes [ASSUMED: no start block found in the client — `_OnUnitBorn` (0x7D6B30) only gives a TAKE_DAMAGE
+ * 的单位将进入冷却") — BLOCK_SKILL_TICK passes [ASSUMED: no start block found in the client — `_OnUnitBorn` only gives a TAKE_DAMAGE
  * character its on-hit buff;
  * until 2026-10-11 every automatic cast waited 3 s, PRTS 「自动操作具有3s冷却」].
  */

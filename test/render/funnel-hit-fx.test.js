@@ -1,4 +1,4 @@
-// test/render/funnel-hit-fx.test.js — the client's FunnelHitEffect (2026-10-21, decompile check; docs/rules/fx.md 「驭械术师 드론」):
+// test/render/funnel-hit-fx.test.js — the client's FunnelHitEffect (2026-10-21, official client; docs/rules/fx.md 「驭械术师 드론」):
 // OnPlay turns the effect to a random direction of the map plane and moves it by Random.Range(−r, r) per axis of its
 // `_randomRange` — fx_extract.py `jitter`, FxInstance applies both (耶拉 S2's drone hits; 流明 S2's hit: a zero range).
 

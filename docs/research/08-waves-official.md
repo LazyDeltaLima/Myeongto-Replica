@@ -6,9 +6,9 @@ Written 2026-09-28 in response to the user's test report. The user asked for ene
 
 ## Tags
 
-- **[DATA]**: official game data or official client code.
+- **[DATA]**: official game data or the official client.
   - Game data: Kengxxiao zh_CN `activity_table`, `levels/*`, `enemy_database`.
-  - Client code means the user's local Windows client. The method names come from `global-metadata.dat` (IL2CPP v29, not encrypted). The method bodies come from disassembling `GameAssembly.dll`. The IL2CPP method RVAs are listed in Appendix B.
+  - Client means the user's local Windows client: its class, field and method names and what those methods do. The methods are listed in Appendix B.
 - **[WIKI]**: PRTS or BWIKI text.
 - **[VIDEO]**: in-game screenshots. These are the PRTS `战场一览` map images, taken at round-1 prep.
 - **[ASSUMED]**: not proven.
@@ -45,7 +45,7 @@ Written 2026-09-28 in response to the user's test report. The user asked for ene
   - `autoChessData.constData`: `min/maxReplacedEnemyCount` 1/5, `templateEnemy*`, `maxLevelCnt` 15, `specialEnemyNum` 3, `enemyTypeIdentifierToFillRandom` 1, and the BE factors 1/5/3/3.
   - `act2autochess.specialEnemyInfoDict` (67 entries) and `specialEnemyRandomTypeDict` (count 3 / weight 3 per random type; SPECIAL −1).
   - `modeDataDict[*].inactiveEnemyKey`, the round templates `level_act1autochess_01…h06` and `h07_*`/`h08_*`/`escaped_*`, the stage files `level_act{1,2}autochess_m0X`, and `enemy_database`.
-- **Client code [DATA].** Class and field names come from `global-metadata.dat`. The x64 bodies were disassembled with capstone and annotated with IL2CPP method names.
+- **Client [DATA].** Class, field and method names and what the methods do, from the official client.
   - `RandomEnemyGenerater` (sic): `_GenerateSpecialEnemyTypesLocal`, `_GenerateRandomEnemyData`, `_DoReplaceLevelDataClient`, `_DoReplaceActionDataClient`, `_CalculateActionBattleEffectiveness`, `_CalculateEnemyCountByBattleEffectiveness`, `_GetEnemyAttrPower`, `_InitData`, `ShouldActionUpToServer`, `_GenerateRoundEnemyData`.
   - `Torappu.Battle.SPFA`: `_GenerateNextMapImpl`, `_PostprocessAndMakeNextMapSmoothly`, `_RaycastSegmentLine`, `_RaycastBresenhamLine`.
   - Also `Torappu.Battle.Tile.get_moveCost`, the `GridPosition` static constructor, `AutoChessEnemyPreviewManager`, and `AutoChessLevelEnemyManager`.
@@ -57,7 +57,6 @@ Written 2026-09-28 in response to the user's test report. The user asked for ene
   - `simofficial.py`: the distribution.
   - `akpath.py` / `akpath2.py`: the official pathing.
   - `pathtest.mjs` / `ourcounts.mjs`: our current behaviour.
-  - `akdis.py`: the disassembler.
 
 ---
 
@@ -587,11 +586,11 @@ Everything in `docs/BALANCE.md` §4 (the tuned tables) and the `tools/balance.mj
 | 4 | Exact 联防 predelay formula (`_CalculateActionPredelayConsiderUid`) | 0.5 s per owner [ASSUMED] |
 | 5 | DEF reduction in the 70 % / 80 % bases | HP/ATK only (下半 text) |
 
-Everything else in §2–§4 is decoded from official data or client code.
+Everything else in §2–§4 is read from official data or the official client.
 
 ---
 
-## Appendix A. Official client/server split for battles (relevant to user item 5) [DATA, metadata names]
+## Appendix A. Official client/server split for battles (relevant to user item 5) [DATA, client class names]
 
 - The protocol types show that **each client simulates its own battle locally** and reports events to the server:
   - `AutoChessBattleSceneSelfBattleKillEnemyUp {enemyInstId, attackerInstId, damageSrc}`
@@ -609,29 +608,28 @@ Everything else in §2–§4 is decoded from official data or client code.
 - **The helper client receives the partner's deployment and end-of-battle status and replays 联防 locally.**
 - Round enemy data is generated client-side with a shared seed (`RandomEnemyGenerater`). Actions go to the server only if `ShouldActionUpToServer`.
 
-## Appendix B. Client method RVAs (Windows build in the user's CrossOver bottle, metadata v29) for re-verification
+## Appendix B. Client methods read (Windows build) for re-verification
 
-| method | RVA |
+| method | note |
 |---|---|
-| `RandomEnemyGenerater._DoReplaceActionDataClient` | 0x180b640f0 |
-| `_CalculateEnemyCountByBattleEffectiveness` | 0x180b63e70 |
-| `_CalculateActionBattleEffectiveness` | 0x180b63d50 |
-| `_GetEnemyAttrPower` | 0x180b65e10 |
-| `_GenerateSpecialEnemyTypesLocal` | 0x180b655c0 |
-| `_GenerateRandomEnemyData` | 0x180b64870 |
-| `_DoReplaceLevelDataClient` | 0x180b64580 |
-| `_InitData` | 0x180b663f0 |
-| `SPFA._GenerateNextMapImpl` | 0x180893720 |
-| `SPFA._PostprocessAndMakeNextMapSmoothly` | 0x1808940c0 |
-| `SPFA._RaycastSegmentLine` | 0x180894c80 |
-| `Tile.get_moveCost` | 0x18089cdc0 (obstacle-like ? 1000 : 1) |
-| `GridPosition..cctor` | 0x18210a800 (FOUR_WAYS = UP, RIGHT, DOWN, LEFT) |
-| `AutoChessEnemyPreviewManager._GeneratePreviewData` | 0x180b3cad0 |
-| `AutoChessEnemyPreviewManager._GetBetterGridToSpawn` | 0x180b3d180 |
-| `AutoChessEnemyPreviewManager._InitIfNot` | 0x180b3d710 |
-| `AutoChessEnemyPreviewManager..ctor` | 0x180b3e190 (row offsets 6 / 13) |
-| `<_SpawnPreviewEnemies>d__16.MoveNext` | 0x180b4fc40 (cap 50) |
-| `AutoChessLevelEnemyManager._CalculateActionPredelay` | 0x180b453c0 (ratio 0.05) |
-| `AutoChessLevelEnemyManager._GetSpEnemyActionData` | 0x180b466f0 |
+| `RandomEnemyGenerater._DoReplaceActionDataClient` |  |
+| `_CalculateEnemyCountByBattleEffectiveness` |  |
+| `_CalculateActionBattleEffectiveness` |  |
+| `_GetEnemyAttrPower` |  |
+| `_GenerateSpecialEnemyTypesLocal` |  |
+| `_GenerateRandomEnemyData` |  |
+| `_DoReplaceLevelDataClient` |  |
+| `_InitData` |  |
+| `SPFA._GenerateNextMapImpl` |  |
+| `SPFA._PostprocessAndMakeNextMapSmoothly` |  |
+| `SPFA._RaycastSegmentLine` |  |
+| `Tile.get_moveCost` | obstacle-like ? 1000 : 1 |
+| `GridPosition..cctor` | FOUR_WAYS = UP, RIGHT, DOWN, LEFT |
+| `AutoChessEnemyPreviewManager._GeneratePreviewData` |  |
+| `AutoChessEnemyPreviewManager._GetBetterGridToSpawn` |  |
+| `AutoChessEnemyPreviewManager._InitIfNot` |  |
+| `AutoChessEnemyPreviewManager..ctor` | row offsets 6 / 13 |
+| `<_SpawnPreviewEnemies>d__16.MoveNext` | cap 50 |
+| `AutoChessLevelEnemyManager._CalculateActionPredelay` | ratio 0.05 |
+| `AutoChessLevelEnemyManager._GetSpEnemyActionData` |  |
 
-`Il2CppCodeGenModule` for Assembly-CSharp is at VA 0x186e69af0 (217 790 method pointers at 0x188216460).

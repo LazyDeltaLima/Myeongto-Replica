@@ -50,7 +50,7 @@ export class MatchSettle {
     const alive = this.alivePlayers();
     // every alive player's LP charge of this round (m.public.roundLosses at SETTLE, views.js): the client's battle-end
     // banner and sound read the whole round from it, as the client's AutoChessBattleUIViewModel.GetBattleResultStatus
-    // (RVA 0x1FD2350) reads the server's per-player hpCost list — all 0 = 完美作战, the viewer 0 but another player
+    // reads the server's per-player hpCost list — all 0 = 完美作战, the viewer 0 but another player
     // charged = NORMAL, the viewer charged = REDUCE (docs/rules/ui.md 「전투 종료 배너」)
     this.roundLossesView = {};
     for (const ps of alive) {

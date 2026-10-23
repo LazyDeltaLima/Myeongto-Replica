@@ -2,7 +2,7 @@
 """Which pool skills draw their unit's HUD as bullets, from the local client's skill prefabs (battle/prefabs/[uc]skills.ab).
 
 A skill prefab's root MonoBehaviour (the skill class, BasicSkill and its subclasses) carries `_showSpAsBulletMode`. The
-client picks the unit's HUD row from it (client code `Character.get_hudPluginMask`): while the skill is affecting (a
+client picks the unit's HUD row from it (`Character.get_hudPluginMask`): while the skill is affecting (a
 passive skill always, any other while it runs) the flag puts the bullet bar (`char_bullet_bar`, UIHudCharBulletBar)
 in place of the SP cast slider. The bullet bar shows an ammo skill's (CastSkillWithLimitTimes) bullets left out of its
 total, and for any other skill the unit's SP out of its max SP, one block per point (UIHudCharBulletBar.UpdatePlugin →

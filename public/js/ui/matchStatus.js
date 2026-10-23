@@ -5,7 +5,7 @@
 //     and m.public.overtimeAt is when the overtime drain starts — the same moment (server gamedata.js
 //     bossOvertimeStartReal): from then on the merged team LP loses config.bossOvertimeDrainPerSec (1) per whole real
 //     second (server gamedata.js bossOvertimeDue: the first point at overtimeAt + 1 s) for the data's
-//     bossTurnHpReduceTime (150 real s, bossOvertimeWindowReal), when the server ends the boss battle (client code
+//     bossTurnHpReduceTime (150 real s, bossOvertimeWindowReal), when the server ends the boss battle (the client's
 //     AutoChessBattleUICountdownViewModel._GetBossBattleTimeInfo). `overtimeState` says what the red DOT warning shows.
 //   * Solo pause (official 独立模拟 battles): C2S g.pause {on}; the server says so in m.public.paused (optionally
 //     m.public.pausedAt, ms epoch). Only solo battles offer it (`pauseAvailable`); while paused every HUD clock is

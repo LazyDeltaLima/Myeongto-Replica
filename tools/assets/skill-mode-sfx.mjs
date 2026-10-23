@@ -54,9 +54,9 @@ const firstNonEmpty = (lists) => lists.find((p) => Array.isArray(p) && p.length)
 
 /**
  * (2026-10-10, docs/rules/audio.md 「START·ON·HIT」): the ON bank of an ability that also has a START bank —
- * the client emits START, ON (클라 코드 AbilityStandard.DoEmitAudioSignalForSpellOn RVA 0x34EEDC0) and HIT
- * (DoEmitAudioSignalForHit RVA 0x34EEC20) each on its own and the middleware (TorappuAudioMiddleware.PlayEvent RVA
- * 0x34B4D10) plays every bank of the name: both sound, whatever the ON bank's mixer group (耀骑士临光 S3 attack.3
+ * the client emits START, ON (AbilityStandard.DoEmitAudioSignalForSpellOn) and HIT
+ * (DoEmitAudioSignalForHit) each on its own and the middleware (TorappuAudioMiddleware.PlayEvent)
+ * plays every bank of the name: both sound, whatever the ON bank's mixer group (耀骑士临光 S3 attack.3
  * p_atk_goldspear_s + p_imp_goldspear_s). Replaces the 2026-10-08 rule that played an impact-group ON bank as the impact.
  * @param {Map<string, string[]>|undefined} banks a unit's bank table
  * @param {string} ability e.g. 'attack.3' or 'attack'
@@ -171,7 +171,7 @@ const SKILL_MODE = /^Sk?\d/i;
  * a unit bank table without the attack banks of its skill modes (`ON_ABILITY_*.attack|combat.<n>…`, modes[n] a skill's
  * mode). `.attack.0…` (Default with `_includeIndexZero`) and talent modes stay. Unchanged without mode info. A Default
  * mode with no attack bank and no projectile bank sounds nothing — 玛恩纳 / 蜜蜡 / 薄绿 / 卡涅利安 / sbell2 (2026-10-10:
- * the client builds the signal id from the mode index, 클라 코드 UnitMode.GenerateSignalId RVA 0x787E80, and the middleware
+ * the client builds the signal id from the mode index, UnitMode.GenerateSignalId, and the middleware
  * has no fallback — their old pick, a skill mode's `_n` file, is gone).
  * @param {Map<string, string[]>|undefined} banks audio.unitBanks.get(charId)
  * @param {{ modes?: string[] }|undefined} info local-char-modes.json entry
@@ -306,7 +306,7 @@ const dubBanks = new WeakMap(); // a dub entry → its bank name (snapshotSfx: t
 /**
  * docs/rules/audio.md 「더빙 효과음」: sfx.units[charId].dub = { [lang]: { born?: e, skills?: { [index]: e } } },
  * e = { url, grp? } — the bank the client plays in place of the character's deploy (ON_UNIT_BORN) / skill start
- * (ON_SKILL_START) sound when its voice is in that dub (audio_data soundFxVoiceLang; 클라 코드
+ * (ON_SKILL_START) sound when its voice is in that dub (audio_data soundFxVoiceLang; the client's
  * BattleController.PlayAudioAtPos → VoiceLangManager.TryHookAudioByFxLang replaces the signal, one bank plays). 浊心斯卡蒂:
  * the tide / deploy sound with her 作战中 / 部署 line mixed in (Voice_KR/char_1012_skadi2/FX_025_3 …), Independent group.
  * @param {{ dubsOf?: (bank: string, charId: string) => Record<string, string>|null, bank: (n: string) => string[],
@@ -398,10 +398,10 @@ export function snapshotSfx(audio, soundLeaf, sfx) {
 
 /**
  * (2026-10-10, docs/rules/audio.md 「스킬 종료음」) sfx.units[charId].ends: per skill index, the bank the client
- * plays as the skill ends — `battle.ON_SKILL_FINISH.<skillId>` (클라 코드 BasicSkill.OnSkillEnd RVA 0x63A110 →
+ * plays as the skill ends — `battle.ON_SKILL_FINISH.<skillId>` (the client's BasicSkill.OnSkillEnd →
  * BattleController.PlayAudioAtPos('ON_SKILL_FINISH', _GenerateSignalId = the skillId unless the skill data names its own
  * signal id) at the owner; also OnOwnerFinish / _OnReceiveAttackFinishEvent / ToggleSkill.DoCast) and the skill ability's
- * own `battle.ON_ABILITY_END.<skillId>` (AbilityStandard.OnCastEnd RVA 0x34EFE40) unless that is a looping bank (烛煌 S3's
+ * own `battle.ON_ABILITY_END.<skillId>` (AbilityStandard.OnCastEnd) unless that is a looping bank (烛煌 S3's
  * field: skillLoops). { url, grp?, vol? }. 银灰 S2 b_char_tactboost, 玛恩纳 S2 / 荒芜拉普兰德 S1 b_char_boostclose, …
  * @param {{ bank: (n: string) => string[], groupOf?: Function, mixOf?: Function, isLoop?: Function }} audio
  * @param {{ index: number, skillId?: string }[]} skills
@@ -427,8 +427,8 @@ export function skillEnds(audio, skills, soundLeaf) {
 
 /**
  * (2026-10-10, docs/rules/audio.md 「효과음 재생: 피치·동시 재생 상한」) sfx.bank: url → [minPitch, maxPitch,
- * maxSoundAllowed, popOldest] of the bank each played sound file comes from (audio.mjs bankPlay; 클라 코드
- * SoundFXBank.Play RVA 0x34B22A0, SoundFXBank.SoundFX._SetAudioChannel RVA 0x34B3500). Every sfx leaf of the built tree
+ * maxSoundAllowed, popOldest] of the bank each played sound file comes from (audio.mjs bankPlay; the client's
+ * SoundFXBank.Play, SoundFXBank.SoundFX._SetAudioChannel). Every sfx leaf of the built tree
  * whose paths `leafPaths` knows (plan.mjs soundLeaf) — the bank's own list, else the bank that sounds its first path.
  * A file two banks share keeps the first bank's values.
  * @param {{ playOf?: (paths: string[]) => [number, number, number, number]|null }} audio
@@ -454,13 +454,13 @@ export function bankPlayTable(audio, leafPaths, sfx) {
 
 // ---- attack sound signals (2026-10-10, docs/rules/audio.md 「공격 소리 신호」) -----------------------------------
 //
-// The client sounds an attack through its ability's signal id (클라 코드 UnitMode.GenerateSignalId RVA 0x787E80): the mode's
+// The client sounds an attack through its ability's signal id (UnitMode.GenerateSignalId): the mode's
 // `attack` / `combat` + `.<mode index>` when the mode sets `_addIndexToSignalId` (index 0 only with `_includeIndexZero`;
 // 텍사스 디 오메르토사 S1 / S3 use the Default's `.attack`); a child of a random / loop / conditional group adds `.<i + 1>`
-// (AbilityRandomGroup.DoSetData RVA 0xA68600 — Random picks one per attack, Loop in turn); a multi-hit attack adds its spell
-// count to ON / HIT (MultiMeleeAttack.DoEmitAudioSignalForSpellOn / ForHit RVA 0xA26DF0 / 0xA26BE0). START sounds as the swing
-// starts (AbilityStandard.OnCastStart RVA 0x34F0A90), ON at the strike, HIT on each target hit, a projectile's BORN as it is fired
-// and HIT / REACH as it lands; the middleware plays every bank of the name (TorappuAudioMiddleware.PlayEvent RVA 0x34B4D10).
+// (AbilityRandomGroup.DoSetData — Random picks one per attack, Loop in turn); a multi-hit attack adds its spell
+// count to ON / HIT (MultiMeleeAttack.DoEmitAudioSignalForSpellOn / ForHit). START sounds as the swing
+// starts (AbilityStandard.OnCastStart), ON at the strike, HIT on each target hit, a projectile's BORN as it is fired
+// and HIT / REACH as it lands; the middleware plays every bank of the name (TorappuAudioMiddleware.PlayEvent).
 // tools/local-extract/char_audio.py → tools/assets/local-char-audio.json has the prefab facts (flags, groups, projectiles).
 //
 //   set = { cues: [{ at: 's' | 'a' | 'd', u, g?, v?, p?, dl?, or?, ab?, k?, sp? }], sel?: { attack?|combat?: { n, how, … } } }
@@ -556,10 +556,10 @@ export function soundSet(audio, owner, entry, n, soundLeaf) {
   if (!kinds.length) kinds.push('attack', 'combat');
   const per = {};
   const sel = {};
-  // 2026-10-16, decompile check (docs/rules/audio.md 「연쇄 공격 소리」): a chain shot hits every unit of its chain
-  // (Projectile.OnHitTarget RVA 0x67A360: ON_PROJECTILE_HIT at each), but ON_PROJECTILE_REACH sounds once, as the shot
+  // 2026-10-16, official client (docs/rules/audio.md 「연쇄 공격 소리」): a chain shot hits every unit of its chain
+  // (Projectile.OnHitTarget: ON_PROJECTILE_HIT at each), but ON_PROJECTILE_REACH sounds once, as the shot
   // reaches its first unit (`r`); with two units or more its chain plays ON_PROJECTILE_BEHAVIOUR_TRIGGER once at the last
-  // one (ChainLightningHitBehaviour.PlayChainAudio 0xA69CB0 → Projectile.PlayBehaviourAudio 0x67B110): cue `at` 'c'
+  // one (ChainLightningHitBehaviour.PlayChainAudio → Projectile.PlayBehaviourAudio): cue `at` 'c'
   const projCues = (keys, extra) => {
     const out = [];
     for (const key of keys || []) {
@@ -749,7 +749,7 @@ export function tokenModeSets(audio, owner, entry, soundLeaf, base = null) {
 /**
  * An enemy's attack sound sets of its prefab modes after mode 0 (`_modes` order, local-char-audio.json `modes`): { [n]: { cues,
  * sel? } } for the modes whose set differs from mode 0's (`cues: []` = that mode attacks in silence — its signal has no bank,
- * as for an operator's skill mode), null when none differs. The client switches modes in `Unit.SwitchMode` (RVA 0x76E1D0:
+ * as for an operator's skill mode), null when none differs. The client switches modes in `Unit.SwitchMode` (:
  * InactiveMode → ActivateMode, no sound of its own); the mode's abilities then signal `<ability>.<n>` (UnitMode.GenerateSignalId).
  */
 export function enemyModeSets(audio, owner, entry, soundLeaf, base = null) {

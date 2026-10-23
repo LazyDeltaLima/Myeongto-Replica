@@ -1,5 +1,5 @@
 // test/render/fx-graphic-tilt.test.js — an effect created on a unit takes its model's `Graphic` rotation, X −30°
-// (docs/rules/fx.md 「캐릭터 그림의 기울기」, 2026-10-22). The client's Effect._InitLocationFromEntity (RVA 0xE7AF80) sets the
+// (docs/rules/fx.md 「캐릭터 그림의 기울기」, 2026-10-22). The client's Effect._InitLocationFromEntity sets the
 // rotation of a FOOT / HIT / HEAD / MUZZLE / MP_SPECIAL effect to the unit's Graphic (or point) rotation; the prefabs are
 // authored in that plane, facing the 30° camera. Untilted, 泥岩's and 新约能天使 S2's shield discs lay on the board and were
 // drawn as ellipses.

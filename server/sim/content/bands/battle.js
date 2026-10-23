@@ -17,7 +17,7 @@
 //                                               (bond_add_type by_charlevel) — only while <bond_id> is active, and a 调和
 //                                               member counts (client buff template act1autochess_band13_buff ON_OWNER_KILLED:
 //                                               AutoChessFilterCharacterBondIds _considerManiShip → AutoChessTriggerGarrisonAbility
-//                                               → client code ScenePlayerData.AddBondCount, RVA 0x856930: no layers for an
+//                                               → the client's ScenePlayerData.AddBondCount: no layers for an
 //                                               inactive bond; until 2026-10-11 requireActive false and own bonds only)
 //   act1autochess_band16_buff 大帝 加急调派     "每次部署后再部署时间减少50%": every deployment of an operator stacks one
 //                                               redeploy ×(1 + respawn_time) for the rest of the battle, with no cap (PRTS

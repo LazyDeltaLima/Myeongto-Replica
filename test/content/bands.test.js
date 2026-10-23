@@ -561,7 +561,7 @@ test('埃芒加德 命结之秘: the first 3 knock-downs of the battle revive at
 
 test('克莱门莎 崇高牺牲: a <阿戈尔> operator knocked down ⇒ +its tier <阿戈尔> layers, only while <阿戈尔> is active; a 调和 member counts (none in 联防/boss)', () => {
   // client buff template act1autochess_band13_buff ON_OWNER_KILLED: AutoChessFilterCharacterBondIds egirShip
-  // _considerManiShip → AutoChessTriggerGarrisonAbility → client code ScenePlayerData.AddBondCount (RVA 0x856930): an
+  // _considerManiShip → AutoChessTriggerGarrisonAbility → the client's ScenePlayerData.AddBondCount: an
   // inactive bond gets no layers (until 2026-10-11: requireActive false, own bonds only)
   const ops = { t_eg: op('t_eg', { bonds: ['egirShip'], tier: 3 }), t_x: op('t_x', { bonds: ['yanShip'], tier: 5 }), t_m: op('t_m', { bonds: ['maniShip'], tier: 4 }) };
   const units = [{ chessId: 't_eg', row: 10, col: 4 }, { chessId: 't_x', row: 11, col: 4 }, { chessId: 't_m', row: 12, col: 4 }];

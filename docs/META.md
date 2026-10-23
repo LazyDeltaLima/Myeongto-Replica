@@ -723,7 +723,7 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   (1 LP per REAL second from the end of the boss level's 120 s maxPlayTime countdown — the battle goes on — = 240 game s
   on the 2× field clock; `gd.bossOvertimeStartReal` / `gd.bossOvertimeDue`; local patch, maintainer decision 2026-10-09 from
   official footage) for the data's `bossTurnHpReduceTime` (150 real s, `gd.bossOvertimeWindowReal`): then the server
-  force-ends the boss fields like at team LP 0 — a defeat — so the drain takes at most 150 LP (client code
+  force-ends the boss fields like at team LP 0 — a defeat — so the drain takes at most 150 LP (official client
   `AutoChessBattleUICountdownViewModel._GetBossBattleTimeInfo`: the countdown ends at the server's forced end − 150)
   and leader "扣除目标生命" effects (the sim's `lpLoss` hook: boss_7 Doom, 斥退 …); after every change it is written back
   to the alive players as shares of the LP each brought in (`lpAtFinal`, largest remainder), so `lp` in m.public /

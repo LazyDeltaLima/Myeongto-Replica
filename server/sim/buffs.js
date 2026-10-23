@@ -133,7 +133,7 @@ export const STATUS = Object.freeze({
 
 /**
  * The statuses 抵抗 shortens: 晕眩 冻结 寒冷 恐惧 诱导 (maintainer decision 2026-10-11, docs/rules/sim.md 「저항 대상」). The
- * client decides it per buff, not per status (client code `Buff._InitIsStatusResistable`): `statusResistable` NO / YES,
+ * client decides it per buff, not per status (the client's `Buff._InitIsStatusResistable`): `statusResistable` NO / YES,
  * or AUTOMATIC (every buff of the pool's skill prefabs) = resisted when its abnormal flags hold STUNNED, FROZEN, DOZE or
  * ATTRACTED. 寒冷 and 恐惧 come from the client's buff table, which the client files we read do not hold: they rest on
  * PRTS 可抵抗状态 (寒冷 both sides, 恐惧), as does leaving out 沉睡 (sleep — not DOZE), 停顿 (sluggish) and 战栗 (tremble);

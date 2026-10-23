@@ -17,7 +17,7 @@ export default withDefaults({
   //       for the skill duration ATK up and attacks become arts double hits). Talent 德克萨斯传统 applies to every passive.
   //       The S3 rain hits air units (PRTS 备注 "效果可对空"); so does the S2 deploy burst [ASSUMED: no note].
   //       S3 timing (EN client prefab skchr_texas2_3, an AbilitySequenceGroup 1Frame → AppearSwordRain → ModeWithSwordRain,
-  //       each sub-ability starting when the one before finished — client code AbilitySequenceGroup._OnSubAbilityFinished):
+  //       each sub-ability starting when the one before finished — the client's AbilitySequenceGroup._OnSubAbilityFinished):
   //       the deploy burst AppearSwordRain hits after `_preDelay` 0.6 s, twice 0.2 s apart (`_additionalTimes` 1,
   //       `_triggerDelta` 0.2), re-selecting its targets each time (`_selectTargetTiming` 1) and stunning with each hit;
   //       then ModeWithSwordRain attaches the rain buff texas2_s_3[sword] (`firstTriggerInterval` 0.4, `triggerInterval`

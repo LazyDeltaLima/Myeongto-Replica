@@ -606,7 +606,7 @@ const BY_ITEM = {
   },
   // 拉特兰桥夹 (client buff graph act1autochess_equip_acarm057): the first attack of a skill cast that leaves ≤ 1 bullet
   // rolls prob ONCE for that cast (the graph marks `triggered` before the Dice; ON_SKILL_START clears it) ⇒
-  // +CeilToInt(maxCount × ammo_percent) bullets (node AmmoSkillCountModifier.Execute, RVA 0xC29580: float32 product,
+  // +CeilToInt(maxCount × ammo_percent) bullets (node AmmoSkillCountModifier.Execute: float32 product,
   // MathUtil.CeilToInt; maxCount = the cast's full count, 拉特兰 bullets included), ≤ max_trigger_cnt per deployment
   chess_item_4_08_e(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm057_global_buff');

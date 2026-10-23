@@ -28,7 +28,7 @@
 //   (noAttack profiles) evaluate DEFAULT every tick instead. DEFAULT with `trigger.allies` (+ `hpAtMost`): the basic
 //   rule AND such an ally on the trigger grid — the cast replaces the attack about to be made (塞雷娅 S1 "触发时会替换当
 //   次攻击"); should that ally condition fail before the attack, the cast is withdrawn and its charge returned.
-// MANUAL skills (def.skillType) are cast by the battle's automatic operations (client code `AutoChessBattleTrigger`;
+// MANUAL skills (def.skillType) are cast by the battle's automatic operations (the client's `AutoChessBattleTrigger`;
 //   maintainer decision 2026-10-11): every 0.2 s one pass (Battle._autoTriggerPass → autoTrigger below) checks the rules
 //   above and casts at once — the first cast ends the pass (one per pass in the whole battle) and blocks its unit for
 //   BLOCK_SKILL_TICK passes (`blockTicks`; a charged skill spends its charges ≈ 2.2 s apart); the battle-start deployment
@@ -396,7 +396,7 @@ export class SkillRuntime {
   _opCooling() { return this.manual && this.blockTicks > 0; }
 
   /**
-   * One automatic-operation check of this unit's MANUAL skill (Battle._autoTriggerPass; client code
+   * One automatic-operation check of this unit's MANUAL skill (Battle._autoTriggerPass; the client's
    * `AutoChessBattleTrigger._TryTriggerSkill` → `_DoDefaultCheck` → the rule): ready, able, not held by its skill ability
    * (nextCastAt) and its rule met → cast at once (`UseSkill`: a 'state' cast cuts the swing, a 'replace' one arms the next
    * attack). Returns true when it cast.
@@ -422,7 +422,7 @@ export class SkillRuntime {
   }
 
   /**
-   * DEFAULT of a MANUAL skill (client code `AutoChessBattleTrigger._DefaultTriggerSkill`): a trigger grid (the skill's
+   * DEFAULT of a MANUAL skill (the client's `AutoChessBattleTrigger._DefaultTriggerSkill`): a trigger grid (the skill's
    * rangeId, data customRangeGrid) — a selectable enemy, ground or air, on those cells as the unit faces
    * (`LitePhysicsUtil.FindTargetsInBox`, the trigger's ALL-motion options; no 攻击距离 added); none — the unit attacking
    * (`Character.isInAttackState || isInCombatState`): a target of its attack in its initial range — a heal skill an
@@ -538,7 +538,7 @@ export class SkillRuntime {
     if (this.noSkill) return;
     if (this.spType === 'hurt' && !(this.active && this.isTimed)) this.gainSp(1, 'hurt');
     if (this.rule !== 'TAKE_DAMAGE') return;
-    // the hit casts at once, outside the 0.2 s passes: client code `AutoChessBattleTrigger._OnUnitBorn` (0x7D6B30) gives a
+    // the hit casts at once, outside the 0.2 s passes: the client's `AutoChessBattleTrigger._OnUnitBorn` gives a
     // TAKE_DAMAGE (12) character the buff `autochess_trigger_skill[on_take_damage]`, whose ON_TAKE_DAMAGE node triggers the
     // skill (`_checkBeforeTrigger`); a hit the cast could not use is still seen by the next pass (_hurt)
     if (this.autoOp) this._hurt = true;
@@ -583,7 +583,7 @@ export class SkillRuntime {
       this.pending = !!this.spec.attack;
       // (a targeting-only instant skill must still switch to its skill range for the pending attack)
       if (this.spec.mods || this.spec.flags || this.spec.targeting) this._applyMods();
-      // a ReplacementSkill (client code `ReplacementSkill.ApplyModification` → `Character.RegisterReplacement`): the SP
+      // a ReplacementSkill (the client's `ReplacementSkill.ApplyModification` → `Character.RegisterReplacement`): the SP
       // is spent now, the skill goes out as the unit's next attack — ai.js startReplacement, fireReplacement below
       if (!this.pending && this._replacesAttack()) {
         this.pending = true;
@@ -619,7 +619,7 @@ export class SkillRuntime {
   get replacing() { return this.pending && !!this._replace; }
 
   /**
-   * The time of the skill ability for this unit now (client code `AbstractAnimatedAbility.get_cooldown` / `DoAttach` /
+   * The time of the skill ability for this unit now (the client's `AbstractAnimatedAbility.get_cooldown` / `DoAttach` /
    * `UpdatePlaybackSpeed`): its time `t` — `time` 0 FROM_ATTACK_SPEED the unit's attack interval, 1 FROM_ANIMATION its
    * clip (`DoAttach` writes `Entity.GetAnimationTime(_animKey)` into `_cooldown`; [ASSUMED] the attack interval when the
    * skeleton has no such clip), 2 / 3 `cd` — is its cooldown; its clip plays scaled to `t` within [MIN_ANIM_SCALE,

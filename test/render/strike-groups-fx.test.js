@@ -1,5 +1,5 @@
-// test/render/strike-groups-fx.test.js — an attack's per-strike hits (2026-10-16, decompile check, docs/rules/fx.md 「타격별 명중」).
-// The client's MultiHitUberEffectEmitter (`OnCastOnTarget` RVA 0xCBB0B0) plays `_hitGroups[n]` on the target of the cast's
+// test/render/strike-groups-fx.test.js — an attack's per-strike hits (2026-10-16, official client, docs/rules/fx.md 「타격별 명중」).
+// The client's MultiHitUberEffectEmitter (`OnCastOnTarget`) plays `_hitGroups[n]` on the target of the cast's
 // n-th strike (`spellCnt`, 0 at the cast start), the last group past the end, `_useLoopHitEffect` n modulo the groups.
 // char_modes.py did not read the field: 锏's attack, 赤刃明霄陈 S1 / S3, 德克萨斯 S2 and 阿斯卡纶 S1 had no hit binding at all
 // (a name-mapped hit), and only the first strike of the attack played one.

@@ -7,7 +7,7 @@
 //   'render: <file> <how>' — the renderer plays it by name outside the roles (<file> under public/js/, which must
 //                        name the clip);
 //   'none: <evidence>' — the official client does not play it in this mode, or it needs no drawing here (cite the
-//                        prefab field / decompiled method / recording that shows it);
+//                        prefab field / client method / recording that shows it);
 //   'todo: <groups> — <where>' — the client plays it and the renderer does not yet. Every entry of the first listing
 //                        (2026-10-12) was checked against the client on 2026-10-14 (maintainer's notes); the letter names
 //                        the client mechanism that plays the clip, one renderer change per letter (docs/rules/render.md

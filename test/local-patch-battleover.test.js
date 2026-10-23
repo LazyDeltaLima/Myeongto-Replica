@@ -7,7 +7,7 @@ import { battleOverOf, battleLossOf } from '../public/js/audioOfficial.js';
 const manifest = JSON.parse(readFileSync(new URL('../data/assets.json', import.meta.url), 'utf8'));
 
 describe('battle-over sound (round_result_dialog)', () => {
-  // maintainer decision 2026-10-11 (client code AutoChessBattleUIViewModel.GetBattleResultStatus, RVA 0x1FD2350): the
+  // maintainer decision 2026-10-11 (the client's AutoChessBattleUIViewModel.GetBattleResultStatus): the
   // state reads every player's LP loss in the result — leak counts and `perfect` play no part
   test('the three states from the result\'s per-player LP loss: all 0 ⇒ NOREDUCE, the viewer 0 / another lost ⇒ NORMAL, the viewer lost ⇒ REDUCE', () => {
     assert.deepEqual(battleOverOf({ p_0: 0, p_1: 0, p_2: 0 }, 'p_0'), { kind: 'perfect', lost: 0, sfx: 'battleOverNoReduce' });

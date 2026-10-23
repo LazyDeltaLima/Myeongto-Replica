@@ -2,7 +2,7 @@
 """Operator model attach points from the local client (local patch, docs/LOCAL-PATCH.md 「이펙트 붙는 자리」).
 
 An effect prefab's root `_spawnLocation` (fx_extract.py `spawn`) names the point of the unit it is created at — the client's
-`SpawnLocation` enum (global-metadata.dat): 0 NONE, 1 FOOT_POINT, 2 HIT_POINT, 3 MUZZLE_POINT, 4 HEAD_POINT, 5 GROUND_CENTER,
+`SpawnLocation` enum values: 0 NONE, 1 FOOT_POINT, 2 HIT_POINT, 3 MUZZLE_POINT, 4 HEAD_POINT, 5 GROUND_CENTER,
 6 MUZZLE_POINT_WITHOUT_ROTATION, 7 GROUND_CENTER_WITH_ZERO_HEIGHT, 8 MP_SPECIAL_0 … 11 MP_SPECIAL_3, 12 CAMERA, 13… MP_SPECIAL_4….
 The points are Transforms of the battle model (chararts/<charId>.ab `DefaultSkin`, the animator's `_muzzleTransform`,
 `_hitTransform`, `_headTransform`, `_specialPoint0~15`): `FaceSwitcher/Front|Back/Muzzle`, `HitPoint`, `SpecialPointN`,

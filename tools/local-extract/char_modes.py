@@ -144,9 +144,9 @@ DIRECTIONAL = re.compile(r'_(up|down|left|back)(_|$)', re.I)
 # sibling attack abilities the Selector picks one of per attack (wisdel Attack_A/B/C, siege2 Attack_1/2): the first stands for all
 ALTERNATIVE = re.compile(r'^(attack|combat)_?([a-z]|\d+)$', re.I)
 HIT_KEYS = ('_hitEffects', '_inputTargetEffects', '_castTargetEffects')
-# 2026-10-11, decompile check round 2: an attack mode's hits on its targets — `_inputTargetEffects` (InputTargetEffectOptions,
-# a CastEffectOptions: on the ability's main target at its `_startEvent`, client `InputTargetEffectOptions.CreateEffect`, RVA
-# 0xB1B5F0) are the mode's `input`, not hits
+# 2026-10-11, official client: an attack mode's hits on its targets — `_inputTargetEffects` (InputTargetEffectOptions,
+# a CastEffectOptions: on the ability's main target at its `_startEvent`, client `InputTargetEffectOptions.CreateEffect`)
+# are the mode's `input`, not hits
 MODE_HIT_KEYS = ('_hitEffects', '_castTargetEffects')
 # a 要塞's attack abilities (charpack `Modes/<mode>/Body/Attack/`): the melee ones while it blocks, the ranged ones otherwise
 MELEE_ABILITY = re.compile(r'^(Blocked)?MeleeAttack$')
@@ -236,9 +236,9 @@ def buff_effects(o, out=None):
     return out
 
 
-# 2026-10-21 (maintainer decision 2026-10-21, decompile check): buffs an ability hands to others, not ones its owner holds — an
+# 2026-10-21 (maintainer decision 2026-10-21, official client): buffs an ability hands to others, not ones its owner holds — an
 # attack's `_activeBuffs` (on its targets) and a PassiveAttachmentAbility's `_additiveActiveBuffs` (field tooltip: "added to
-# the target ability as active buffs"; its DoAttach, RVA 0xC3F8D0, gives them to its AbilityAttachment): 마운틴's talent
+# the target ability as active buffs"; its DoAttach, gives them to its AbilityAttachment): 마운틴's talent
 # f12yin_t_1[reduceAtk] → buff_weak sits on the enemy her attack hits (the sim's 'weaken' status draws it), never on her
 TARGET_BUFF_KEYS = ('_activeBuffs', '_additiveActiveBuffs')
 
@@ -283,7 +283,7 @@ class Projectiles:
         if key in done:
             return out
         done.add(key)
-        # the chain graphic the hit plays: ChainLightningHitBehaviour.get_effect (RVA 0xA6A130) = GetComponent — the first
+        # the chain graphic the hit plays: ChainLightningHitBehaviour.get_effect = GetComponent — the first
         # ChainLightningEffectBehaviour of the root's components (溯光星源 S1's projectile has two, the first on the hit points)
         graphics = [d for d in self.roots.get(key, []) if '_playSpecialEffectOnFirstOne' in d]
         graphic = min((d for d in graphics if d.get('$onRoot')), key=lambda d: d.get('$comp', 1 << 30), default=None) \
@@ -296,7 +296,7 @@ class Projectiles:
                 add(out['trail'], effect_names(d.get('_mainEffect')))
             # on the target as the projectile starts (德克萨斯 S2's falling swords: projectile_sword_rain)
             add(out['start'], effect_names(d.get('_effectsToTargetWhenStart')))
-            # 2026-10-10, decompile check: 쏜즈 더 로드스타's token / range lasted the whole battle: the reach
+            # 2026-10-10, official client: 쏜즈 더 로드스타's token / range lasted the whole battle: the reach
             # effects that end with the projectile, and its scalable aura
             # 2026-10-16: `_effectsWhenStop` play where the projectile stops (client `EffectBehaviour.OnProjectileStop`):
             # a shot stops at its hit (维什戴尔's blasts wisdel_attack_01_hit_02 …). A lasting one's are left out: it stops
@@ -310,10 +310,10 @@ class Projectiles:
                 add(out['aura'], [d['_effectKey']])
             # a chain's graphic (ChainLightningEffectBehaviour: 异客 S3 projectile_chr_pasngr_s3, and the chain casters' attack
             # shots projectile_leizi / projectile_chr_pasngr …): `_mainEffect` is one line through the struck units in order
-            # (`PlayLineEffect`, RVA 0xA68660 — the shooter is not on it), `_specialHitEffect` plays on the first one of each
+            # (`PlayLineEffect` — the shooter is not on it), `_specialHitEffect` plays on the first one of each
             # chain when `_playSpecialEffectOnFirstOne` is set. 2026-10-16: it was also the trail before, and 异客's attacks /
             # 惊蛰 S2's flew the line as their shot
-            # 2026-10-16: only the graphic the hit plays; `lineHit` = its `_playEffectOnHitPoint` (PlayLineEffect 0xA68660: 1 =
+            # 2026-10-16: only the graphic the hit plays; `lineHit` = its `_playEffectOnHitPoint` (PlayLineEffect: 1 =
             # each unit's hit point, 0 = its transform's position — the feet)
             if d is graphic:
                 add(out['line'], effect_names(d.get('_mainEffect')))
@@ -335,8 +335,8 @@ class Projectiles:
 
 
 def hit_groups(d):
-    """2026-10-16, decompile check — a MultiHitUberEffectEmitter's per-strike hits, or None: `MultiHitUberEffectEmitter
-    .OnCastOnTarget` (RVA 0xCBB0B0) plays `_hitGroups[n].effects` on the target of the cast's n-th strike (the ability's
+    """2026-10-16, official client — a MultiHitUberEffectEmitter's per-strike hits, or None: `MultiHitUberEffectEmitter
+    .OnCastOnTarget` plays `_hitGroups[n].effects` on the target of the cast's n-th strike (the ability's
     `spellCnt`: 0 at the cast start, +1 after each strike — AbilityStandard `_DoCast`), the last group past the end;
     `_useLoopHitEffect` n modulo the groups, `_useRandomHitEffect` a random group; the emitter's own `_hitEffects` too only
     with `_keepBaseHitEffect`. { g: [[names] per group], loop?, rand?, keep? }"""
@@ -358,8 +358,8 @@ def hit_groups(d):
 
 
 def strike_projectiles(d):
-    """2026-10-16, decompile check — the projectile of each strike of a MultiRangedAttack, or None when every strike shoots
-    its `_projectileKey`: `MultiRangedAttack.GetProjectileKey` (RVA 0xBF5730) for strike n (`spellCnt`) of `_additionalTimes`
+    """2026-10-16, official client — the projectile of each strike of a MultiRangedAttack, or None when every strike shoots
+    its `_projectileKey`: `MultiRangedAttack.GetProjectileKey` for strike n (`spellCnt`) of `_additionalTimes`
     + 1 is `_hookTheLastProjectile` on the last one (when set), else `_additionalProjectiles[n − 1]` (clamped) with
     `_useMultiAdditionalProjectiles`, else `_additionalProjectile` for n > 0, else `_projectileKey` (伺夜 S3's three arrows
     projectile_chr_vigil_s3_1 / _2 / _3, 至简 S2's projectile_chr_malist_s1s2 then _s2_2)."""
@@ -426,7 +426,7 @@ def dir_groups(o, out=None):
     """local patch (maintainer report, maintainer's decision 2026-10-08 「13명 전체」): an effect emitter entry's `_effects` is a
     slot list — 0 UP, 1 RIGHT, 2 DOWN, 3 LEFT (스펙터 디 언체인드 S3 `_up` / `_down`, 백파이프 S3 `_right` / `_left`) — and its
     `_directionType` (UberEffectEmitter.EffectOptions.DirectionType: 0 NONE, 1 L_OR_R, 2 U_OR_D, 3 FOUR_DIR, 4 UD_OR_LR,
-    5 FOUR_DIR_FIXED — the enum's values, decompile check 2026-10-10; 6 L_OR_R_NOT_UD is another enum's) says which slot
+    5 FOUR_DIR_FIXED — the enum's values in the official client, 2026-10-10; 6 L_OR_R_NOT_UD is another enum's) says which slot
     plays for the owner's facing (render/fxgame.js dirPick). `add()` drops `_up` / `_down` / `_left` / `_back` names and keeps the others side by
     side, so both copies of 아르케토 S3 `start_02` (UP) / `start_02_B` played at once. The entries naming more than one
     effect: [{ t: directionType, s: [up, right, down, left] }]."""
@@ -545,10 +545,10 @@ def skill_effects(tree, projectiles=None):
 
 
 def ability_groups(tree, mode_paths, by_pid, projectiles=None):
-    """2026-10-21, decompile check (이펙트 연결 전수 ②): the ability groups of each mode that cast one child per attack —
-    client `AbilityRandomGroup` (`_selectMethod`, `_abilities`; `_GetAbilityInternal` RVA 0xC19A50): Random (0) any child,
-    `_diffFromLastOneIfNotFirst` any but the one just cast (0xC19C30, by object), Loop (1) in turn with `m_loopIndex` + 1 read
-    first (the first attack after an attach is child 1: `Reset` 0xC197A0). Returns (groups, own) — groups[mode] = { pick:
+    """2026-10-21, official client (이펙트 연결 전수 ②): the ability groups of each mode that cast one child per attack —
+    client `AbilityRandomGroup` (`_selectMethod`, `_abilities`; `_GetAbilityInternal`): Random (0) any child,
+    `_diffFromLastOneIfNotFirst` any but the one just cast (by object), Loop (1) in turn with `m_loopIndex` + 1 read
+    first (the first attack after an attach is child 1: `Reset`). Returns (groups, own) — groups[mode] = { pick:
     'random' | 'other' | 'loop', from?: 1, combat?: 1 (a Body/Combat group: the COMBAT state's), groups: [{ anim, cast, hit,
     start }] } with each child's own effects (those not every child has: its `_castEffects`, its hits — `_hitEffects`,
     `_castTargetEffects`, its projectile's hit —, its projectile's `_effectsToTargetWhenStart`), anim = the child's clip key
@@ -724,7 +724,7 @@ def modes_of(path, projectiles=None):
     mb = {pid: d for _, d, pid in tree}
 
     def selects_foes(d):
-        """2026-10-10, decompile check: 아스트젠 더 라이트체이서 S3: whether an ability's `_selector`
+        """2026-10-10, official client: 아스트젠 더 라이트체이서 S3: whether an ability's `_selector`
         (`Ability._selector`) picks enemies — every range selector of its `_rangeSelectorsList` (or the selector itself)
         with a `_targetSide` says 2. halo2's S3 LinkEnemy: HasBuff / NewBuff, `_targetSide 2`, `_maxNum 1` — its buff's
         effect `halo2_skill_03_buff_02` sits on that one enemy (a buff effect's owner is the unit holding the buff)."""
@@ -750,26 +750,26 @@ def modes_of(path, projectiles=None):
             if sel:
                 for x in own:
                     foe_max.setdefault(x, sel)
-    # 2026-10-11, decompile check round 2 (docs/rules/fx.md 「입력 대상·루프 타격·클립별 이펙트·배치 이펙트」):
+    # 2026-10-11, official client (docs/rules/fx.md 「입력 대상·루프 타격·클립별 이펙트·배치 이펙트」):
     #  input   — per mode, the `_inputTargetEffects` (their timing in castOpt with t: 1, p: 1 for `_useInputPos`: on the
     #            target's last place when it died);
-    #  hitLoop — { name: _endEvent } of the hit entries with `_oneshot` 0 (HitEffectOptions.OnEvent / OnCastFinish, RVA
-    #            0xAE5C60 / 0xAE5490: ended at that event or the cast's finish — 엑시아 angle_attack_01_hit, end 6);
-    #  castTgt — the `_castTargetEffects` names (CastTargetEffectOptions.PlayEffect, 0xB18810: at the ability's playback speed);
-    #  clipFx  — per mode, an UberAnimationEffectEmitter's `_replaceGroup` (OnCastStart 0xAED700: the group of the attack's
+    #  hitLoop — { name: _endEvent } of the hit entries with `_oneshot` 0 (HitEffectOptions.OnEvent / OnCastFinish:
+    #            ended at that event or the cast's finish — 엑시아 angle_attack_01_hit, end 6);
+    #  castTgt — the `_castTargetEffects` names (CastTargetEffectOptions.PlayEffect: at the ability's playback speed);
+    #  clipFx  — per mode, an UberAnimationEffectEmitter's `_replaceGroup` (OnCastStart: the group of the attack's
     #            clip adds its cast / hit options to that cast — 비나 빅토리아 Attack_1 / Attack_2): { src, loop, groups:
     #            [{ anim, cast, hit }] }
     inputs = [[] for _ in range(n)]
     hit_loop, cast_tgt = {}, []
     clip_fx = [None] * n
     foe_max = {}   # effect → the selector's target limit (attachFoeMax; without one: every enemy the ability hits)
-    # 2026-10-10, decompile check — client `CastEffectOptions.OnEvent` / `OnCastStart` / `OnCastFinish`: when
+    # 2026-10-10, official client — `CastEffectOptions.OnEvent` / `OnCastStart` / `OnCastFinish`: when
     # each cast effect starts and ends: { name: { s: _startEvent, e: _endEvent, o: _oneshot, d?: _delayIfFirstAttack, once?:
     # _onlyOnce } } per mode (every slot name of the entry, so a directional copy finds its timing). AbilityStandard.Event:
     # 0 ON_ATTACHED, 1 ON_DETACHED, 2 ON_CAST_START (the swing start), 3 ON_CAST_END, 4 ON_SPELL_ON (the strike), 5
     # ON_SPELL_END, 6 ON_ATTACK_FINISH, 7 ON_ATTACK_CHECK_POINT, 8 ON_OVERLOAD (render/fxgame.js onSwing)
     cast_opt = [{} for _ in range(n)]
-    # 2026-10-10, decompile check — client `RangedAttack._GetMountPoint`: the shooter's point a mode's shot
+    # 2026-10-10, official client — `RangedAttack._GetMountPoint`: the shooter's point a mode's shot
     # leaves from, its `_mountPointType` (MountPointType; MUZZLE 2 is the default and left out)
     shot_mp = {}
     hit_aim = []
@@ -902,7 +902,7 @@ def modes_of(path, projectiles=None):
             # a MultiHitUberEffectEmitter's own `_hitEffects` play only with `_keepBaseHitEffect` (hit_groups)
             if k != '_hitEffects' or not hg or hg.get('keep'):
                 add(hit[i], effect_names(d.get(k) or []))
-            # 2026-10-10, decompile check — client `HitEffectOptions.OnCastOnTarget`, RVA 0xAE54D0: a hit effect
+            # 2026-10-10, official client — `HitEffectOptions.OnCastOnTarget`: a hit effect
             # whose entry has `_useOwnerToTargetDirection` is turned along the attacker → target line (언더플로우 S2
             # udflow_skill_02_hit_01), the others take the attacker's facing (render/fxgame.js `hitAim`)
             for c in d.get(k) or []:
@@ -1007,9 +1007,9 @@ def modes_of(path, projectiles=None):
                     if p['attack'].get('seen') and p['combat'].get('seen') else None for p in cpart]
     if any(combat_split):
         res['combatSplit'] = combat_split
-    # 2026-10-11, decompile check round 2 — client `Character.get_startEffect` (RVA 0x7085E0): the deploy effect is the
+    # 2026-10-11, official client — `Character.get_startEffect`: the deploy effect is the
     # prefab root's `_startEffect`, else common_char_birth_01 (a token: common_call_start_01); a mode's
-    # `_overrideStartEffect` comes first (`Character.GetStartEffect`, 0x6F74B0). The dead effect: `_deadEffect`, else
+    # `_overrideStartEffect` comes first (`Character.GetStartEffect`). The dead effect: `_deadEffect`, else
     # common_char_die_01. `startOnce` = `_onlyPlayStartEffectOnce`.
     if isinstance(root.get('_startEffect'), str) and root['_startEffect']:
         res['start'] = root['_startEffect']
@@ -1017,7 +1017,7 @@ def modes_of(path, projectiles=None):
         res['startOnce'] = 1
     if isinstance(root.get('_deadEffect'), str) and root['_deadEffect']:
         res['dead'] = root['_deadEffect']
-    # 2026-10-16, decompile check — client `Unit.AttachCommonAbilities` (RVA 0x84DF50): every ability of the prefab root's
+    # 2026-10-16, official client — `Unit.AttachCommonAbilities`: every ability of the prefab root's
     # `_commonAbilities` is attached with the unit, outside its modes. `common` = the effects of the buffs those abilities
     # put on the unit itself for good (`lifeTimeType` 2 INFINITY): 新约能天使's wings and halo, 引星棘刺's weapon
     # glow. An ability that plays a clip, casts effects or picks targets (凯尔希·思衡托's RespawnBorn) is not such a passive.
@@ -1068,12 +1068,12 @@ def modes_of(path, projectiles=None):
 
 
 def charge_effects(tree, by_pid):
-    """2026-10-21, decompile check (이펙트 묶음 D) — a 秘术师's stored attack energies: the charpack's ChargableAttackGroup
+    """2026-10-21, official client (이펙트 묶음 D) — a 秘术师's stored attack energies: the charpack's ChargableAttackGroup
     (`_maxChargeTimes`, `_abilities` = its charge abilities) carries a MultiChargeUberEffectEmitter on its GameObject.
-    `OnEvent` (RVA 0xCBA450) sets the charge index to `GetChargeTimes()` (0xCB9DD0) and, in a charge action (a store),
-    `CreateChargeEffects` (0xCB84B0) runs `_chargeEffectGroups[index]`'s entries — ChargeEffectOptions keep what they create
-    (`CreateEffect` 0xCB25F0) until `ClearChargeEffects` (0xCB2490): at the next cast on a target that is no store
-    (`OnCastOnTarget` 0xCBA1D0, the release) or ON_DETACHED. 深靛: [0] indigo_attack_charge_02 (SPECIAL_1 = mount 6), [1] _03
+    `OnEvent` sets the charge index to `GetChargeTimes()` and, in a charge action (a store),
+    `CreateChargeEffects` runs `_chargeEffectGroups[index]`'s entries — ChargeEffectOptions keep what they create
+    (`CreateEffect`) until `ClearChargeEffects`: at the next cast on a target that is no store
+    (`OnCastOnTarget`, the release) or ON_DETACHED. 深靛: [0] indigo_attack_charge_02 (SPECIAL_1 = mount 6), [1] _03
     (8), [2] _04 (9), [3] _05 (5) — the points the stored projectiles leave from (`_mountPointForProjectiles` [6, 8, 9, 5]).
     Each charge ability's own emitter casts its group's entries with the store (all indigo_attack_charge_01_start).
     Returns { hold: [[names] per index], cast: [names] } or None."""
@@ -1103,20 +1103,20 @@ def charge_effects(tree, by_pid):
 
 
 def funnel_entries(abilities, emitters, idle, projectiles):
-    """2026-10-16, decompile check — client `FunnelEffectEmitter.OnEvent` (RVA 0xCB4EB0): ON_ATTACHED plays its `_idleEffect`
-    (and `_idleBackEffect`, shown instead while the owner faces back: `_UpdateIdleEffect` 0xCB6180), ON_CAST_START plays its
+    """2026-10-16, official client — `FunnelEffectEmitter.OnEvent`: ON_ATTACHED plays its `_idleEffect`
+    (and `_idleBackEffect`, shown instead while the owner faces back: `_UpdateIdleEffect`), ON_CAST_START plays its
     `_disappearEffect` and pauses the idle ones (`_setActiveFalseWhenPause`: hidden too), ON_ATTACK_FINISH plays its
-    `_appearEffect` and resumes them, ON_DETACHED finishes them; `_PlayEffect` (0xCB5EF0) creates each on the owner, facing
+    `_appearEffect` and resumes them, ON_DETACHED finishes them; `_PlayEffect` creates each on the owner, facing
     its way. A mode's drones: [{ idle, back, hide, show, over, off, proj, from, speed, trail, hit, seq, overSeq, wait, attach,
     delay, lock }…] by GameObject name, or { idle } first for a mode whose drone is a buff's look (`idle`: its `Effect`
     GameObjects — the 驭械术师 Default modes: 耶拉 kjera_token_default, 洛洛 rockr_token_01, 至简 malist_drone); [] for a mode
     without drones.
-    The projectile (2026-10-16 decompile check): `attach` = its movement is AttachToTarget (dump.cs class at line 451030 — set
-    on the target each tick, no flight); `delay` = that movement's `_delayTime` with `_delayAfterReached` (OnTick 0xA98890:
+    The projectile (2026-10-16, official client): `attach` = its movement is AttachToTarget (set on the target
+    each tick, no flight); `delay` = that movement's `_delayTime` with `_delayAfterReached` (OnTick:
     reached, then `EnsureLifeTime(_delayTime)` — it ends that long after its hit); `lock` = its SimpleProjectile
     `_hitNumType` INFINITY (2): it stays on its target and hits on every attack until the target is gone or the skill ends;
     `seq` / `overSeq` = its SequenceEffectBehaviour `_effectGroups` / `_overloadGroups` when there is more than one: each hit
-    plays the next group (OnHitTarget 0xA88320 steps `m_currentEffectGroupIndex`, back to 0 past the last)."""
+    plays the next group (OnHitTarget steps `m_currentEffectGroupIndex`, back to 0 past the last)."""
     if not abilities and not emitters:
         return []
     out = []

@@ -20,8 +20,8 @@
 // SHADOW itself (BT token_wisdel_skill_end ModifySp _targetType BUFF_OWNER, forced) — not to her.
 // S1 定点清算: the next attack — splash 1.1, 2 more aftershocks at append_atk_scale, every enemy it hits (main, splash,
 // aftershocks) stunned stun_duration s (表 「使所有目标晕眩」).
-// S2 过载 = the second half of the 25 s: skill prefab skchr_wisdel_2 has `_isOverloadSkill` 1, and client code
-// BasicSkill.get_overloadRatio (RVA 0x63DAC0) is 0.5 for such a skill — OverloadIfNecessary (0x63ADC0) overloads once the
+// S2 过载 = the second half of the 25 s: skill prefab skchr_wisdel_2 has `_isOverloadSkill` 1, and the client's
+// BasicSkill.get_overloadRatio is 0.5 for such a skill — OverloadIfNecessary overloads once the
 // progress passes it (ON_OVERLOAD → buff wisdel_s_2[overload_start], mode 2); 2026-10-10, until then [ASSUMED]. Every
 // attack becomes 4 shots of atk_scale_ol × ATK at random targets of her range (each a full blast with its aftershocks).
 // S3 爆裂黎明: splash 2.5 (PF projectile_chr_wisdel_s3 CircleCollider2D m_Radius 2.5; PRTS 「攻击溅射半径2.5」); she targets

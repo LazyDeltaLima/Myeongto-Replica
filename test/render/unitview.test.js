@@ -562,7 +562,7 @@ describe('a push / pull slide (推拉: the official impulse under friction)', ()
   });
 
   test('a pushed enemy faces the pusher (against its travel) through the slide; a pulled one keeps its facing', async () => {
-    // client code Enemy.KnockBack → FaceTo(-direction) for the push nodes; DragTowardSource / hook pulls never turn it
+    // the client's Enemy.KnockBack → FaceTo(-direction) for the push nodes; DragTowardSource / hook pulls never turn it
     const v = await view(14);
     v.sync({ x: 5, y: 12, hp: 100, maxHp: 100, sp: 0, spMax: 0, flags: 0, anim: 1, vx: 1 });
     assert.equal(v.visFacing, 1, 'walking right before the push');

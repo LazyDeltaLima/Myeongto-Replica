@@ -32,9 +32,9 @@
 //   turning (ChangeStateWithHighlandBehaviour): _hitDistance 0.25, _hitEps 0.02, checks _checkHitHighland, _checkHitMapEdge,
 //     _checkTileStart (侵入点), _checkTileEnd (保护目标) on the NEXT tile ahead (_CheckNextTile*, _GetDistanceToNextTile) →
 //     _ChangeDirection, _clearTargetsAlreadyHitListWhenHit. Nothing else is an obstacle: lowland impassable tiles and
-//     things standing on a tile (roadblocks) are not (client code _CheckHitConditions, RVA 0x96C610, 2026-10-10: outside
+//     things standing on a tile (roadblocks) are not (the client's _CheckHitConditions, 2026-10-10: outside
 //     the map, heightType 1 (highland), TileTypesMask START 8 / END 4; every flag set in the prefab). It has no direction
-//     field; clockwise is a client code constant (ChangeStateWithHighlandBehaviour._ChangeDirection: up → right → down → left, 2026-10-10;
+//     field; clockwise is a constant of the official client (ChangeStateWithHighlandBehaviour._ChangeDirection: up → right → down → left, 2026-10-10;
 //     PRTS "顺时针"). The distance is to the next tile's near edge ([inferred] from "_GetDistanceToNextTile" and PRTS), so it turns
 //     0.25 past the centre of the last free tile — before 2026-10-06 we looked 0.75 ahead and turned 0.5 too early, counted
 //     lowland impassable / blocked tiles and ignored 侵入点.
@@ -61,7 +61,7 @@ const dist = (a, b) => hypot(a.x - b.x, a.y - b.y);
 const QI_SPEED = 1.5, QI_RADIUS = 1.3, QI_LOOK = 0.25, QI_EPS = 0.02, S2_INTERVAL = 0.4, S2_PASS_RADIUS = 1.7;
 /**
  * S3: the begin clip (s after the cast). EN client skchr_chen3_3: `_playSkillBeginAnim` 1, `_beginAnim` Skill_3_Begin;
- * its abilities start only once the begin clip has played (client code BasicSkill.PlayBeginAnimation:
+ * its abilities start only once the begin clip has played (the client's BasicSkill.PlayBeginAnimation:
  * WaitForFixedSeconds(clip) → DoStartSkill). Her skeleton's Skill_3_Begin is 13 frames (0.433 s), no OnAttack event.
  * She does not attack meanwhile (S3_HOLD).
  */
@@ -72,8 +72,8 @@ const S3_HOLD = Object.freeze({ noAttack: true });
 /**
  * One tick of the S3 剑气 (exported for tests). `st` = { x, y, d } (x = col, y = row, d ∈ UP/RIGHT/DOWN/LEFT) is updated in
  * place: turn 90° clockwise if the next tile ahead is an obstacle within QI_LOOK (+ QI_EPS), then move `dist`, stopping
- * on the QI_LOOK mark in front of an obstacle. At most one turn per tick: client code ChangeStateWithHighlandBehaviour.OnTick
- * (RVA 0x96C200) runs `_CheckHit` → `_ChangeDirection` once per tick, so a dead end (the tile ahead and the one to its
+ * on the QI_LOOK mark in front of an obstacle. At most one turn per tick: the client's ChangeStateWithHighlandBehaviour.OnTick
+ * runs `_CheckHit` → `_ChangeDirection` once per tick, so a dead end (the tile ahead and the one to its
  * right both blocked) takes one 90° turn per tick. Returns the number of turns (0 or 1). `grid` needs inRect(r, c) and
  * tile(r, c).
  */
@@ -218,7 +218,7 @@ function chen3(bb, chess, def) {
    * swing one tick after that, an S3 one (atk_scale 1.8, 3 hits, Skill_3_Loop, range 3-12). At the skill's end the same
    * template switches back with another restart: a swing in progress is cut and the Default attack is ready at once.
    * Official text 「技能开启时向前释放一道可转向的剑气」.
-   * Ticks from the cast (client code): AutoChessBattleTrigger casts from its own coroutine, which the CoroutineSimulator
+   * Ticks from the cast : AutoChessBattleTrigger casts from its own coroutine, which the CoroutineSimulator
    * runs after the entities in BattleController.OnTick (SimulateTick); UseSkill → Character.SwitchToSkillState → SkillState.
    * OnEnter → BasicSkill.OnBeforeSkillStart starts PlayBeginAnimation (StartBattleCoroutine runs its first step at once,
    * but a coroutine started during SimulateTick is first resumed on the next tick); AsyncUtil.WaitForFixedSeconds yields

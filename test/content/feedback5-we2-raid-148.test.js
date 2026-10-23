@@ -4,7 +4,7 @@
 // (tile_fence_bound: LOW, buildable ALL — deployable, it attacks from there and blocks no ground enemy, DESIGN §21.23), which
 // the board draws as a raised concrete area inside an orange railing: what the screenshot most likely shows.
 // 0.2.0 WV #3 (the owner's decision of 2026-10-06) preferred a tile where its block applies; replaced 2026-10-10 by the
-// client code (AutoChessRebuildCharacterOnTile): the first standable tile of the box "1-1" turned against the member's
+// official client (AutoChessRebuildCharacterOnTile): the first standable tile of the box "1-1" turned against the member's
 // direction — the enemy's own tile, else the one behind it — with no block preference.
 // Run: node --test test/content/feedback5-we2-raid-148.test.js
 

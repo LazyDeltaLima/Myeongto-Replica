@@ -191,7 +191,7 @@ export class BattleStatus {
       else if (Number.isFinite(d) && d <= 0) return false;
       value = c.value;
     }
-    // (the client shortens the buff as it runs — client code `Buff._PreprocessDeltaTime`: dt ÷ max(0.001, 1 − 抵抗) —,
+    // (the client shortens the buff as it runs — the client's `Buff._PreprocessDeltaTime`: dt ÷ max(0.001, 1 − 抵抗) —,
     // the same length as this × (1 − 抵抗) while the 抵抗 stays as it was at the application)
     if (RESIST_STATUSES.has(key) && !opts.resistApplied) {
       const rv = this.resistOf(target);

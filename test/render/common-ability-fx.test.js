@@ -1,4 +1,4 @@
-// test/render/common-ability-fx.test.js — an operator's always-on effects (2026-10-16, decompile check): client
+// test/render/common-ability-fx.test.js — an operator's always-on effects (2026-10-16, official client): client
 // `Unit.AttachCommonAbilities` attaches the prefab root's `_commonAbilities` with the unit, outside its modes; the buffs
 // those abilities put on it for good (`lifeTimeType` 2) show their effects for its whole deployment — 新约能天使's wings and
 // halo, 引星棘刺's weapon glow. char_modes.py writes them as `common`; fxgame.js plays them on each 'deploy' (alwaysOn) and

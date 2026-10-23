@@ -155,7 +155,7 @@ export class BattleLifecycle {
   }
 
   /**
-   * One pass of the automatic skill operations (client code `AutoChessBattleTrigger._TryTriggerAvailableSkills`, every
+   * One pass of the automatic skill operations (the client's `AutoChessBattleTrigger._TryTriggerAvailableSkills`, every
    * 0.2 s: `AutoTrigger` → `WaitForFixedSeconds(AUTO_TRIGGER_INTERVAL)`; maintainer decision 2026-10-11): over the
    * characters in deployment order, one whose block runs counts it down and is skipped; the first whose MANUAL skill
    * casts (SkillRuntime.autoTrigger) is blocked BLOCK_SKILL_TICK passes and the pass ends there — one automatic cast per

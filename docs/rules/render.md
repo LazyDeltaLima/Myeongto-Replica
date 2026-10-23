@@ -72,7 +72,7 @@
 - 고친 것(아군 + Spine 모델이 있는 유닛만, `UnitView.onDeploy`가 true를 돌려줌 → `bornOfficial`): 페이드 없음, 기둥 없음, 로드 전 배치는 로드되면 그만큼
   지난 시점부터 `Start` 재생(크로스페이드 없이), 클리핑 없는 모델은 낙하 중 impostor를 쓰지 않음(클리핑 모델은 위로 7배 넓힌 슬롯), 첫 0.1초 RGB×0.6
   [추정: 캡처 첫 프레임이 어둡다(≤66ms) — 근거는 캡처뿐. 예전에 든 클라 `_disableBornTweenColor`는 적(`Enemy`)·적 소환 노드에만 있는 필드라 오퍼 근거가 못 된다
-  (디컴파일 2026-10-10: `Character`에는 born 색 트윈 필드가 없고 `_showDeadTweenColor`·`_useRealBornTimeFromAnim`만; `Consts.CHARACTER_BORN_TIME` = 1초)]. 정비 단계: 보드 배치·벤치 도착(구매·반환)·보드→벤치 복귀 모두 낙하, 목표 칸으로
+  (공식 클라 2026-10-10: `Character`에는 born 색 트윈 필드가 없고 `_showDeadTweenColor`·`_useRealBornTimeFromAnim`만; `Consts.CHARACTER_BORN_TIME` = 1초)]. 정비 단계: 보드 배치·벤치 도착(구매·반환)·보드→벤치 복귀 모두 낙하, 목표 칸으로
   미끄러지지 않고 그 자리에서. 보드→보드 이동은 예전처럼 미끄러짐(캡처에서 높은 낙하는 안 보였다 — 카메라 이동 중이라 불확실). 적·모델 없는 마름모는 원본 그대로.
 - 확인: Chrome 디버그 아레나(재시작 직후 연속 캡처) — 텍사스가 타일 위에서 떨어짐, 품질 high·low 모두. 원본은 같은 자리에 민트 기둥 + 이미 선 모델. 단위 테스트 `test/render/local-deploy-drop.test.js`.
 - 라운드 시작 (2026-10-07 후속): 실제 솔로 판 1라운드를 재 보니(autoplay, CDP 스크린캐스트,
@@ -102,9 +102,9 @@
   `test/local-patch-audio.test.js` 「opening deployment sounds one by one」.
   **2026-10-10 저녁: 화면 차례는 뺐다** — 시뮬레이션이 공식대로 0.2게임초마다 한 개씩 배치한다(`sim.md` 「작전 시작 차례 배치」, 관리자 결정
   2026-10-10). 그대로 두면 지연이 두 번 걸리므로 `openingDrops`·`OPENING_DROP_GT`·`BORN_STAGGER_S`·`_bornHold`를 지우고, 'deploy' 이벤트마다 그 말이
-  바로 떨어진다(`units.js onDeploy()`). 녹화의 약 0.12초(실시간) 간격은 클라 코드의 0.2게임초와 맞는다 — 전투 배속 `GAME_SPEED` 2라 0.2게임초 = 0.1실시간초(오디오 담당 확인). 배치
+  바로 떨어진다(`units.js onDeploy()`). 녹화의 약 0.12초(실시간) 간격은 공식 클라의 0.2게임초와 맞는다 — 전투 배속 `GAME_SPEED` 2라 0.2게임초 = 0.1실시간초(오디오 담당 확인). 배치
   효과음·部署 대사의 시점은 `audio.md`(오디오 담당).
-  착지 이펙트(2026-10-11, 디컴파일 2라운드): 'deploy'마다 공식 배치 이펙트(프리팹 `_startEffect`, 없으면 `common_char_birth_01`·토큰 `common_call_start_01`)를
+  착지 이펙트(2026-10-11, 공식 클라 확인): 'deploy'마다 공식 배치 이펙트(프리팹 `_startEffect`, 없으면 `common_char_birth_01`·토큰 `common_call_start_01`)를
   그 말 위에 튼다 — `fx.md` 「입력 대상·루프 타격·클립별 이펙트·배치 이펙트」 ⑤. 낙하 중이면 말을 따라간다 [추정: 공식은 착지 자리].
 - 알려진 차이: 착지 전에 시뮬레이션이 이미 공격하는 것(텍사스가 공중에서 첫 공격 — 공식은 `CHARACTER_BORN_TIME` 동안 못 하는 듯 [추정], 시뮬레이션
   변경이라 따로 — 위 차례 배치도 시뮬레이션에서 하면 같이), 배치 효과음 시점(캡처에 소리 없음).
@@ -196,17 +196,17 @@
   风雪之眼 66 → 1.9 %·战术锚点 90 → 2.7 %, 香槟炸弹 2.8 % 그대로. [화면 미확인: 风雪之眼·战术锚点 가장자리가 회색 테 없이 원래 색, 원석충은 그대로]
 
 ## 적 경로 미리보기 (2026-10-10, 관리자 결정 「공식 卫戍协议에서는 라운드 작전이 시작될 때 적 경로가 실제로 표시됐다」 → 공식대로)
-- 공식(클라 코드, EN 클라 il2cpp — 레벨 데이터 액션이 아니라 SPAWN 액션의 플래그):
-  - `Scheduler._DealAction`(RVA 0x629EE0): SPAWN 액션에 `autoPreviewRoute`(ActionData +0x35)가 있으면 PREVIEW_CURSOR(ActionType 1) 액션을 새로 만들어
+- 공식(EN 공식 클라 — 레벨 데이터 액션이 아니라 SPAWN 액션의 플래그):
+  - `Scheduler._DealAction`: SPAWN 액션에 `autoPreviewRoute`(ActionData)가 있으면 PREVIEW_CURSOR(ActionType 1) 액션을 새로 만들어
     같은 경로(`routeIndex`, `useExtraRoute` = 분기에서 왔는지)에 건다 — 시각 = SPAWN 시각(조각 preDelay + 액션 preDelay − 적 `delayToBorn`, 0 미만이면 0)
-    − 3초(.rdata 0x185D65030 = 3.0, `PREVIEW_CURSOR_PRE_DELAY`), `count` 2 · `interval` 0.3초(`PREVIEW_CURSOR_COUNT`·`_INTERVAL`) → 아이템 하나 = 커서 하나.
-  - 조각의 액션 큐는 시각순 정렬(`_DealFragment` MoveNext RVA 0x630740, `LegacySort`)되고 `DefaultWaveHandler.ExecuteActionQueue`(MoveNext RVA 0x62E0A0)가
+    − 3초(`PREVIEW_CURSOR_PRE_DELAY`), `count` 2 · `interval` 0.3초(`PREVIEW_CURSOR_COUNT`·`_INTERVAL`) → 아이템 하나 = 커서 하나.
+  - 조각의 액션 큐는 시각순 정렬(`_DealFragment` MoveNext, `LegacySort`)되고 `DefaultWaveHandler.ExecuteActionQueue`(MoveNext)가
     「지금까지 지난 시각보다 늦으면 그만큼 기다렸다가」 실행 → 0 이하인 커서는 전투 시작에 바로(두 커서가 겹침).
-  - 실행: `Scheduler._DoPreviewCursor`(MoveNext RVA 0x632000, 커서를 만들고 바로 끝남 — 큐를 막지 않음) → `BattleController.CreatePreviewCursor`(RVA 0x3544C60):
+  - 실행: `Scheduler._DoPreviewCursor`(MoveNext, 커서를 만들고 바로 끝남 — 큐를 막지 않음) → `BattleController.CreatePreviewCursor`:
     경로의 이동 방식으로 `BattleFactory.CreatePreviewCursor`(WalkPreviewCursor/FlyPreviewCursor 프리팹) → `PreviewCursor.Spawn` → 이벤트 `ON_PREVIEW_CURSOR_SPAWND`(24).
     커서는 한 번 달리고 끝(프리팹 `_times` 1) — 반복 없음.
-  - 卫戍协议: 라운드 액션은 서버가 보낸 적 목록으로 클라가 만든다(`AutoChessLevelEnemyManager.GenerateSelfBattleEnemyData` RVA 0x82F740,
-    `_GenerateActionFromEnemyInfo` RVA 0x8313F0, 보스전 `GenerateBossBattleEnemyData` RVA 0x82EAC0, 联防 `GenerateHelpBattleEnemyData` RVA 0x82EFC0):
+  - 卫戍协议: 라운드 액션은 서버가 보낸 적 목록으로 클라가 만든다(`AutoChessLevelEnemyManager.GenerateSelfBattleEnemyData`,
+    `_GenerateActionFromEnemyInfo`, 보스전 `GenerateBossBattleEnemyData`, 联防 `GenerateHelpBattleEnemyData`):
     적 한 마리 = 액션 하나(count 1), 레벨 액션(같은 actionIndex)마다 **처음 만든 액션만** 원래 액션의 `autoPreviewRoute`를 복사 → 표시된 레벨 액션마다
     미리보기 한 번, 그 액션의 첫 유닛 3초 전. 플래그가 있는 레벨: 일반 라운드 `act1autochess_01·03–07·h01–h06`(액션 1–4개), `tr01`, 联防 2인 `escaped_multi`(7개);
     `02`, 1인 `escaped_single`, 보스·숨겨진 핵심 템플릿(h07·h08, act2)은 없음 → 그 전투에는 커서가 없다. 웨이브 액션 종류는 51개 레벨 모두 SPAWN뿐이라
@@ -222,7 +222,7 @@
 - 커서가 생길 때마다 `onSpawn` → `'routePreview'` → `screens/game.js`(자기가 낀 필드일 때만) → `voice.js voiceForRoutePreview`. 클라는 이때 행동개시를 말하지만
   카드 목록(CARD_LIST)이 켜져 있을 때만이고 위수협약은 그것을 끄므로 나오지 않는다(2026-10-10 `6f88741e`) — `audio.md` 「오퍼레이터 음성」.
 - [추정] 남김: ① 플레이스홀더가 다른 이동 방식이라 유닛이 하나도 안 나오는 표시된 액션은 미리보기도 없음(클라가 그 액션을 안 만듦 — 클라 쪽 미리보기 계산
-  `_DoReplaceLevelDataClient` RVA 0x839FC0가 같은 LevelData의 isValid를 끄는 경우까지는 안 봄). ② 적 `delayToBorn`(프리팹 `_delayToBorn`, 0이 아닌 적 5종)은
+  `_DoReplaceLevelDataClient`가 같은 LevelData의 isValid를 끄는 경우까지는 안 봄). ② 적 `delayToBorn`(프리팹 `_delayToBorn`, 0이 아닌 적 5종)은
   우리 스폰 시각에 없으므로 커서도 SPAWN 시각 기준. ③ DISAPPEAR/APPEAR가 있는 경로에서 커서가 어떻게 가는지(보스 경로뿐이라 卫戍协议 일반 라운드엔 없음) —
   선을 거기서 끊는다. ④ 전투의 0초 = 공식 웨이브·조각 시작(둘 다 preDelay 0).
 - 확인: `test/match/route-preview.test.js` — 데이터 표시, 커서 시각, 실제 매치 경로(4라운드 `act1autochess_04`: 액션 3 → 0·0.3초, 액션 0 → 9·9.3초)에서 적의 매 틱
@@ -247,7 +247,7 @@
   컨트롤러 값 `_moveSpeed` 8칸/초, `_height` 0.3(지상)/1.2(공중), `_times` 1, `_delayToRecycle` 0.5초. 모양은 빨간 리본 트레일(0.25초, 폭 0.4, AlphaBlend 틴트 α 0.178)
   + 가는 가산 트레일(0.5초, 폭 0.1) + 불티(`lizi`); `weiyi` 노드의 파티클은 방출·렌더러가 꺼진 운반 노드(데이터). 보스 구역 준비 카메라에서 지도자가 보일 때만
   경로마다 커서를 달리고, 끝나면 0.5초 + `ROUTE_GAP_S` 1.5초 뒤 다시 — **공식에 없는 관리자 편의 기능**(관리자 말 2026-10-10: 보스 준비 화면의 경로 표시는
-  공식이 아니라 관리자가 원한 기능)이라 간격은 우리 값이고 맞출 공식 값이 없다(디컴파일 2026-10-10: `ROUTE_SHOWN_INTERVAL` 1.2는 다른 게임 모드
+  공식이 아니라 관리자가 원한 기능)이라 간격은 우리 값이고 맞출 공식 값이 없다(공식 클라 2026-10-10: `ROUTE_SHOWN_INTERVAL` 1.2는 다른 게임 모드
   `GameCityModeConsts`의 C# 상수, 공식 전투 시작 커서는 위 「적 경로 미리보기」 — 보스 템플릿에는 표시된 액션이 없다). 커서 프리팹·속도·높이만 공식 것.
   행동개시 대사는 붙이지 않는다(관리자 결정 (2026-10-10): 「보스 경로 미리보기에는 행동개시 음성을 넣지 마」 — 공식 대사는 전투 시작 커서에만). 공식 이펙트를 못 쓰면(품질 낮음·미추출·WebP 없음)
   `render/fx.js`의 빨간 입자 꼬리로 같은 길을 달린다. `fxgame.js playFree` = 호출자가 움직이는 점에 붙는 자유 인스턴스(`alive()`로 clear·개수 상한 탈락 확인).
@@ -294,7 +294,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
 - 위 항목들은 [화면 미확인]. 브라우저 테스트 `RENDER_E2E=1 test/render/initialization.browser.test.js`·`SP_E2E=1 test/e2e/coop.e2e.mjs`(联防 필드가 경기 맵을 그림)로 확인한다.
 
 ## 공격 모션 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
-근거: 클라 코드 `AbstractAnimatedAbility.UpdatePlaybackSpeed`(재생 속도 = 1 / 클립 배율, 배율 ∈ [0.1, `_maxAnimScale`]) — 규칙과 sim 쪽은 `sim.md` 「일반 공격 타이밍」.
+근거: 공식 클라 `AbstractAnimatedAbility.UpdatePlaybackSpeed`(재생 속도 = 1 / 클립 배율, 배율 ∈ [0.1, `_maxAnimScale`]) — 규칙과 sim 쪽은 `sim.md` 「일반 공격 타이밍」.
 - sim이 휘두름을 시작하는 틱에 `['swing', id, windup, kind]`를 낸다. `render/app.js`가 받으면 `units.js onSwing` → `spine.js swing(windup)`: 공격 클립을
   **첫 프레임부터 한 번** 재생하고, 속도 = 클립의 OnAttack 프레임 ÷ windup(`swingSpeed`, OnAttack이 없는 클립은 클립 끝 ÷ windup) — 곧 공식 1/배율이라 타격
   프레임이 'atk' 이벤트와 같은 때 온다. 그 타격의 'atk'(대상이 여럿이면 여러 개)와 휘두름 중의 다른 공격은 클립을 건드리지 않는다(`_swinging`). 클립이 끝나면 0.1
@@ -476,8 +476,8 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   예비 메딕을 읽기 전용으로 그린다(`m.private.prepMapChars` — `server/match/match/views.js prepMapChars`, `_prepBoardUnits`; 끌기·판매 불가인 `m:<uid>` 뷰,
   `render/app.js`는 그 목록을 보스전 짝 말과 함께 `syncMates`로 넘기기만 함 — app.js 변경 최소, DOM 대체 화면은 `ui/fallbackField.js`). Touch로 바뀌는 것은 전투
   시작 때뿐. 클라 근거: `aceffect_band_61` = `auto_chess_change_map` 두 개(정예 ≤1 → `char_605_cmedic#*` 켬, ≥2 → `char_613_acmedc#*`)가 스테이지의 미리 놓인
-  캐릭터(predefine)를 켜고 끄고, `AutoChessBattleDataModel.PrepareForPrepareState`(0x843AC0)가 말 목록을 비운 뒤 효과를 적용하므로 준비 화면은 늘 예비 메딕,
-  `_PrepareForBattleState`(0x847B30)가 실제 출전 말로 다시 센다(비공개 디컴파일 기록). 어그로 순서는 `sim.md` 「upstream 0.2.3 이식」. 테스트
+  캐릭터(predefine)를 켜고 끄고, `AutoChessBattleDataModel.PrepareForPrepareState`가 말 목록을 비운 뒤 효과를 적용하므로 준비 화면은 늘 예비 메딕,
+  `_PrepareForBattleState`가 실제 출전 말로 다시 센다(관리자 노트). 어그로 순서는 `sim.md` 「upstream 0.2.3 이식」. 테스트
   `test/match/touch-prep.test.js`(PR). **[화면 미확인]** 준비·보스전 준비(오른쪽 플레이어 거울)·정찰·대체 화면에서 예비 메딕 위치·방향.
 - **멈춘 자세는 다시 계산·다시 그리지 않음 + 재배치 링 글자 공유** (upstream PR #434 by @Cloudnyco, `2fdc565c` cherry-pick, 브라우저 테스트 후속 `584cedc1`·
   `6036e6a4`; 관리자 결정 2026-10-11 전부 이식): `SpineActor.poseHeld()`(render/spine.js)는 얼어붙은 모델(`frozen`)이나 죽은 모델의 track 0 하나가 반복·믹스
@@ -515,7 +515,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
 - **琳琅诗怀雅(오퍼레이터) 스킬 금화 = 공식 탄환 칸** (upstream PR #450 by @IceCodeNew, `6bfc0827`의 금화 표시를 공식대로 바꿈; 관리자 결정 2026-10-11 「공식대로」):
   1차 이식의 금색 숫자 줄(`CoinPurse`, `[ASSUMED]` 모양)은 걷어냈다. 금화는 그녀의 SP이고 클라는 그 SP를 HP 바 아래 탄환 칸(`char_bullet_bar`)으로 그린다
   (스킬 프리팹 `_showSpAsBulletMode`) — 규칙·근거·칸 수는 `docs/rules/ui.md` 「탄환형 스킬」. upstream의 숫자 줄은 두지 않는다(클라에 그런 표시 없음).
-- **샴페인 폭탄(香槟炸弹, 琳琅诗怀雅의 소환물) 원래 스킨 모델** (upstream `6bfc0827`; 관리자 결정 2026-10-11 「받음」): 웹 덤프에는 스킨
+- **샴페인 폭탄(香槟炸弹, 琳琅诗怀雅의 소환물) 원래 스킨 모델** (upstream `6bfc0827`; 관리자 결정 2026-10-11 「받음」): 웹 자료에는 스킨
   `ambienceSynesthesia_4`뿐이라 그동안 그 스킨으로 그렸다. 로컬 클라의 전투 소환물 팩(`pkgrps/btl_pfb_tokens_0.ab`, Front 렌더러)에서 원래 모델을 뽑아
   `tools/local-extract/extract.py TOKEN_SPINES`에 더하고(`--only spine/token/token_10031_swire2_gdtrap`, EN 클라), `fetch-assets --local-spines`로
   `tools/assets/local-token-spines.json`·`data/assets.json tokens[id].spineLocal`에 실음(메타데이터는 upstream 것과 같음). 웹 스킨은 그대로 두어
@@ -531,7 +531,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   + `anim-overrides.mjs`, 대체 `Idle`·`Die`) + `render/units.js`의 `FORMS[charId]`(형태 전환·替身)·`FORTRESS_CLIPS[charId]`(要塞 근접/원거리 짝).
   나머지는 `test/render/clip-coverage-list.js UNPLAYED`에 상태와 함께 있어야 통과하고, 목록에 있는데 이제 틀거나 없어진 클립도 실패한다(지울 것).
   - 상태: `render: <public/js 아래 파일> <방법>`(역할 밖에서 이름으로 틂 — 그 파일에 클립 이름이 있어야 함, 예: 안젤리나 S2 `UnitView.glide`),
-    `none: <근거>`(공식이 이 모드에서 안 틂 / 그릴 필요 없음 — 프리팹 필드·디컴파일 메서드·녹화를 적음), `todo: <묶음> — <자리>`(공식은 트는데 렌더가 아직 안 틂, 아래 묶음 글자).
+    `none: <근거>`(공식이 이 모드에서 안 틂 / 그릴 필요 없음 — 프리팹 필드·클라 메서드·녹화를 적음), `todo: <묶음> — <자리>`(공식은 트는데 렌더가 아직 안 틂, 아래 묶음 글자).
   - 새 모델·새 키트·매니페스트 재생성(`fetch-assets`)으로 새 클립이 생기면 실패한다 → 공식에서 언제 트는지 찾아 연결하거나(역할·`anim-overrides.mjs`·
     `FORMS`·키트 연출), 근거와 함께 `none`으로 적는다. 찾는 곳과 필드는 `diy.md` 「새 선발 오퍼레이터 키트 체크리스트」 **연출 대조**(선발이 아니어도 같음).
   - **아래 방향** 클립(이름에 `Down`: `Attack_Down`, `Skill_Down_2_Loop`, `Skill_1_Loop_Down` …, 앞모델 41명 129개, 2026-10-23): 전엔 렌더가 하나도 안 그려
@@ -553,9 +553,9 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     클라 데이터가 그대로라 그대로 따른 것: 엑시아 더 뉴 커버넌트 S2 아래 모드의 끝은 스킨 믹스가 `Skill_Down_3_End`(`Skill_Down_2_End`는 안 틂), 클레멘티아 S3 아래
     모드의 끝은 `Skill_3_End`. 아무 키도 안 부르는 12개는 목록 `none`(스킨 키 표에 이름만 있거나 그마저 없음). 뒷모델(위를 볼 때)엔 아래 클립이 없어 그대로. [화면 미확인]
 - 첫 목록(2026-10-12): 46명·105개 `todo`. 힌트는 10-07 EN 클라 추출(스킬 프리팹 anim 컴포넌트·`_animKey`, charpack 모드별 클립 — 관리자 노트)로 붙였다:
-  `official <스킬 id | 모드>` 58개(공식이 그 클립을 가리킴 — 누락 가능성 높음, 먼저 볼 것), `no official reference` 38개(버프 템플릿·디컴파일로 찾을 것),
+  `official <스킬 id | 모드>` 58개(공식이 그 클립을 가리킴 — 누락 가능성 높음, 먼저 볼 것), `no official reference` 38개(버프 템플릿·공식 클라로 찾을 것),
   `CN only` 9개(EN에 없는 오퍼레이터 — CN 필드만, [추정]). 처음부터 `none`으로 확정한 것은 없다.
-- 판정(2026-10-14, 관리자 노트 — EN·CN 클라 프리팹·버프 템플릿·디컴파일): 105개 = 연결 94·`none` 11. `none`은 근거와 함께 목록에 적었고, 역할이 다른
+- 판정(2026-10-14, 관리자 노트 — EN·CN 클라 프리팹·버프 템플릿·클라 메서드): 105개 = 연결 94·`none` 11. `none`은 근거와 함께 목록에 적었고, 역할이 다른
   스킬의 클립을 틀던 다섯 명은 `anim-overrides.mjs`로 고쳤다 — 灵知 S3 `Skill_4_*`(그동안 S2 충전 모드의 `Skill_3`), 歌蕾蒂娅 S2 시작 `Skill_2_Startup`
   (`Skill_2_Begin`은 S2 모드 공격 채널의 시작), 伊内丝 S3 시작 `Start_Skill`(→ 공식은 배치 뒤 안 나와 목록 `todo` 보류, 아래 E), 缄默德克萨斯 S2·S3 시작 `Start_2`·`Start_3`(배치 일격, 모드 Born 짝), 银灰 S2 공격
   `Combat`(그동안 S3의 `Skill`). [화면 미확인] 남은 `todo`는 클립을 트는 클라 구조로 묶었다(묶음 하나 = 렌더 고칠 자리 하나):
@@ -567,13 +567,13 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     `anim-overrides.mjs ATTACK_ALTS` → 역할 클립 `alts`·`pick`(차례 `loop`·무작위 `random`·「직전과 다르게」 `other` = `_diffFromLastOneIfNotFirst`), `spine.js _nextAlt`가
     휘두름마다 고르고 모델이 바뀌어도(앞/뒤) 그 휘두름의 클립을 잇는다. 11명(维什戴尔·迷迭香·阿斯卡纶·隐德来希 S3·望 기본·S3·维娜·维多利亚·凛御银灰·
     圣聆初雪 S3·伺夜 S3·山). 'swing' 이벤트는 뷰가 이펙트보다 먼저 받는다(`app.js processEvents`, 이펙트 묶음이 고른 클립을 따름). [화면 미확인]
-    2026-10-21 고르는 법 디컴파일(fx.md 「능력 묶음의 자식·COMBAT 상태 공격」): 维什戴尔·迷迭香은 `_diffFromLastOneIfNotFirst`라 `other`(전엔 `random`),
+    2026-10-21 고르는 법 공식 클라 확인(fx.md 「능력 묶음의 자식·COMBAT 상태 공격」): 维什戴尔·迷迭香은 `_diffFromLastOneIfNotFirst`라 `other`(전엔 `random`),
     AbilityRandomGroup Loop(阿斯卡纶·隐德来希 S3)는 `m_loopIndex`를 먼저 +1 해 읽고 붙을 때마다 0으로 돌아가므로 두 번째 클립부터(`from: 1`), 스킬이
     켜지거나 꺼질 때(모드 전환) 차례를 처음부터 [추정: 모드를 안 바꾸는 스킬도 처음부터]. 伺夜 S3(AbilitySelectableGroup 순차)는 첫 클립부터 그대로;
-    望·圣聆初雪 S3(UberAnimationEffectEmitter LOOP)는 2026-10-21 디컴파일: `_CalculatePlayIndex`(10-14 덤프 RVA 0xCD3970)가 `m_currentIndex`(0x78)를
-    먼저 +1 하고 묶음 수에 닿으면 0, 생성자·`SetData`(0xCD37F0)가 −1로 두므로 첫 시전은 첫 묶음 — 지금 `loop`(`from` 없음) 그대로 맞음. `SetData`가
+    望·圣聆初雪 S3(UberAnimationEffectEmitter LOOP)는 2026-10-21 공식 클라: `_CalculatePlayIndex`가 `m_currentIndex`를
+    먼저 +1 하고 묶음 수에 닿으면 0, 생성자·`SetData`가 −1로 두므로 첫 시전은 첫 묶음 — 지금 `loop`(`from` 없음) 그대로 맞음. `SetData`가
     언제 다시 불리는지(스킬마다?)는 안 봄 [추정: 렌더처럼 역할 클립이 바뀔 때 처음부터].
-  - **C** 첫 공격 begin·공격 end: `ThreePartOneshotAnimation`(`_onlyPlayBeginAnimWhenFirstAttack`, `_endAnimKey`). 클라 코드(2026-10-14, 관리자 노트):
+  - **C** 첫 공격 begin·공격 end: `ThreePartOneshotAnimation`(`_onlyPlayBeginAnimWhenFirstAttack`, `_endAnimKey`). 공식 클라(2026-10-14, 관리자 노트):
     `InitAnimation`이 배율 = 공격 시간 ÷ (begin(첫 공격일 때만) + oneshot + end)로 셋을 함께 늘이고(`UpdatePlaybackSpeed`가 그 재생 속도를 능력에 줌), 코루틴
     `DoPlayAnimation`이 begin → oneshot 순으로 틀며, 타격은 oneshot 클립의 OnAttack 이벤트를 기다린다 → **첫 공격의 타격은 begin만큼 늦다**. 로스터의 ThreePart
     공격 12명은 모두 첫 공격만 begin(EN charpack 전수, 관리자 노트 `three_part.py`). 구현(같은 날, 렌더만): `anim-overrides.mjs FIRST_ATTACK_BEGIN` → 공격 역할 `firstBegin`
@@ -711,7 +711,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
 ## 공격 방향 (2026-10-12, 관리자 요청 「공격·스킬 범위 안의 적을 향해 돌아서 공격, 최대 저지 수를 넘겨 뒤에 걸린 적은 뒤를 보며 공격 — 공식 로직대로」)
 - 이전: 오퍼레이터는 배치 방향만 봤다(`units.js onAttack` 「operators keep their deploy direction」, research 09 §1.2의 배치 모습을 전투 내내 적용).
   뒤에 걸려 저지된 적도 등을 진 채 쳤고, 이펙트도 배치 방향으로 나갔다.
-- 공식(EN 클라 디컴파일, 관리자 노트의 디컴파일 기록):
+- 공식(EN 공식 클라, 관리자 노트):
   - 공격 능력이 시전을 시작할 때 `AbstractAnimatedAbility.OnCastStart` → `DealWithFaceDirection`: 능력 프리팹의 플래그를 이 순서로 본다 —
     `_faceToTarget` 주 대상(`Entity.FaceToTarget` → `FaceTo(대상 − 자기 위치)`, 0.2칸 안이면 안 돎), `_faceToDefault` 배치 방향(`FaceToDirection`),
     `_faceToFront` 앞(배치 방향×0.5 + 아래), `_faceToFirstCastTarget` 첫 시전 대상. 넷 다 0이면 돌지 않는다. `Entity.FaceTo`는 기절·빙결·부유 중엔 안 돎.
@@ -748,7 +748,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     도는 모습: `units.js turnTo` → `turnS`, `update`가 전투 시간(`animRate`)으로 진행하며 반전 배율에 `face-turn.js turnWidth`(각도의 cos)를 곱하고 절반에서
     `_showFace`(반전·`faceUd` → `_wantsBack`). 논리 방향 `face`(이펙트의 `dir4`)는 공식 `Entity.faceDirection`처럼 돌기 시작할 때 바뀐다. 모델이 아직 안 그려졌으면 즉시.
 - [추정] 남은 차이: 부유·이상 플래그 13/22 검사 없음, 반전 방향 이펙트 `U_OR_D`는 `faceToBack`이 아니라 4방향으로 고름(뒤 모델로 옆을 칠 때만 다름),
-  도는 모습은 세로축 회전을 2D에서 너비(cos)로만 그림(원근 차이 없음), 공식 옵션(`BattleOptions` +0xAB)과 2배속 이상에서 트윈을 건너뛰는 분기는 안 따름,
+  도는 모습은 세로축 회전을 2D에서 너비(cos)로만 그림(원근 차이 없음), 공식 옵션(`BattleOptions`)과 2배속 이상에서 트윈을 건너뛰는 분기는 안 따름,
   키트가 따로 내는 공격(재능·스킬 효과의 추가 타격)은 그 능력 플래그를 안 읽고 타격 때 대상으로 돎.
 - 연결된 일: 아래 방향 클립 — `_faceToTarget`인 능력은 돈 방향(`view.face.dir4`), 아니면 배치 방향으로 고른다(「Spine 클립 커버리지」 아래 방향, 2026-10-23).
 - 테스트: `test/render/face-turn.test.js`(도는 너비·절반에서 바뀜·도는 중 새로 돌기), `test/sim/attack-timing.test.js`(대상 id·뒤에 저지된 적·`face` 이벤트·'D'/없음·
@@ -772,7 +772,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   실제 판 화면(사막 스테이지, 화면 왼쪽): 청록 불꽃이 얼굴 → 지팡이 머리, 이륙 자세도 상자 안. 디버그 아레나 왼쪽 보기도 지팡이 쪽.
 
 ## 아군 기절 모션 (2026-10-14, 관리자 제보 「아군 오퍼레이터가 기절하면 기절 이펙트만 뜨고 모션이 멈춘다」)
-근거: 클라 코드 `Character.States.StunState.OnEnter` — 모델에 `"Stun"` 클립이 있으면(`Unit.ContainsAnimation`) 그것을, 없으면 `"Die"`를
+근거: 공식 클라 `Character.States.StunState.OnEnter` — 모델에 `"Stun"` 클립이 있으면(`Unit.ContainsAnimation`) 그것을, 없으면 `"Die"`를
 `Unit.PlayAnimation`(속도 1, 처음부터 강제 아님)으로 튼다. `OnExit`은 클립을 안 틀고 다음 상태(대기 등)가 제 클립을 튼다 — 일어나는 클립은 따로 없다.
 적(`Enemy.States.StunState.OnEnter`)은 `"Stun"`만 보고 `"Die"`로 대신 틀지 않는다. 빙결·수면은 다른 상태(`FreezeState`·`DozeState`)다.
 - 이전: 기절 클립이 없으면 지금 클립을 멈췄다(`frozen`). 오퍼레이터 모델 앞모습 145개 중 `Stun` 클립이 있는 것은 7개(浊心斯卡蒂·维什戴尔·引星棘刺·
@@ -799,7 +799,7 @@ ON_BUFF_FINISH에 대상이 살아 있을 때만(`IfTarget _checkTargetAlive`) +
   타일 재질은 `render/app.js` ctx `terrainAt`.
 - [추정] 내려가고 올라오는 속도(발 높이 보간과 같게 — 클라 값은 네이티브라 안 읽음), HP 바와 몸에 붙는 이펙트도 함께 내려감(비행 `hover`와 같은 처리).
 - 물빛 칠(2026-10-14, 관리자 요청 「물빛 칠까지 넣어」): 심해 씬의 모든 Spine은 `Torappu/Spine/Skeleton-AlphaSplit-Water (Z-Distorted)`로 그려진다
-  (씬 `HGSceneWaterEffect`, 프로필 `WE_Static_WEProfiles` — act2 m04·act1 m05 같음). 픽셀 셰이더(DXBC): 픽셀의 월드 깊이 z를 모델 기준선 쪽으로
+  (씬 `HGSceneWaterEffect`, 프로필 `WE_Static_WEProfiles` — act2 m04·act1 m05 같음). 픽셀 셰이더(클라 셰이더): 픽셀의 월드 깊이 z를 모델 기준선 쪽으로
   `spineHeightTeak` 0.8배 눌러(z' = 기준 + (z − 기준) × 0.8) 수면(`_waterSurfaceTransform` z 0.1409 − `spineHeightOffset` 0)보다 깊으면 색을
   mix(색, 물빛 × α, 물빛.a) — 물빛 (0, 0.543, 0.772, a 0.547) — 로, 그중 수면 바로 아래 0.03 × 0.8 띠는 수면선의 (0.7, 0.8, 0.9) × α에서 물빛으로 흐려진다.
   알파는 그대로. 우리: `units.js _updateWater`가 잠긴 몸(`body`)에 화면 공간 필터(`WATER_FRAG`)를 걸고, 수면선은 발에서

@@ -165,7 +165,7 @@ test(`${nm('enemy_1404_msnip')}: 直击 — 1.4 s after the cast a unit in line 
   assert.equal(h2.unit('t_wall').stats.taken, 0, 'a stun during the charge cancels the shot');
 });
 
-// client code (docs/rules/sim.md 「FIXED_DIRECTION 투사체」): projectile_enemy_msnip flies straight along the axis towards the
+// official client (docs/rules/sim.md 「FIXED_DIRECTION 투사체」): projectile_enemy_msnip flies straight along the axis towards the
 // aimed unit (FarthestPointMovement `_useDirToTarget` → four ways) and stops on the first ally its 0.3 circle touches
 // (SelectorHitBehaviour `_hitPasserby`, `_maxHitNum` 1, `_stopAfterMaxHit`) — no homing
 test(`${nm('enemy_1404_msnip')}: 直击's bolt flies straight — the aimed unit gone, it hits the one behind; the fx carries its axis`, () => {
@@ -4242,7 +4242,7 @@ test('“萨米的意志”: 冰凌 hits a whole column; 自然涌动 stun + art
   assert.equal(h.hooksOf('lpLoss')[0].amount, Math.abs(skb('enemy_9033_acdeer', 'Doom').bb.value));
 });
 
-// client code (docs/rules/sim.md 「萨米的意志 冰凌」): SmdeerTileSelector puts the 冰凌 on the stage's top tile of the column,
+// official client (docs/rules/sim.md 「萨米的意志 冰凌」): SmdeerTileSelector puts the 冰凌 on the stage's top tile of the column,
 // projectile_enemy_smdeer runs DOWN at 5 tiles/s leaving a projectile_enemy_smdeer_2 on every tile, which hits the one
 // ally there 1 s later (`_lifeTime` 1, `_onlyCheckHitWhenStop`); the swing strikes on its clip's OnAttack frame
 test('“萨米的意志”: 冰凌 runs down the column from the top row — each tile hit 1 s after the ice reaches it', () => {

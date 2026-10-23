@@ -93,7 +93,7 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 | `prepTime` | `65` | multi/training prep timer (real seconds); **`null` for solo** (untimed in 下半) |
 | `prepTimeData` | `300` | official `normalPhaseTime` (optional "timed solo") |
 | `isSpPrepare`, `isBoss`, `isHidden` | | 机变 before prep / leader round / 隐秘核心 |
-| `bossOvertimeAfter` | `150` | boss rounds: official `bossTurnHpReduceTime` — the overtime's length in **real** seconds: team LP −1 per real second from the end of the `levelMaxPlayTime` countdown for this long, then the server ends the battle (`gamedata.js bossOvertimeWindowReal`; client code `AutoChessBattleUICountdownViewModel._GetBossBattleTimeInfo`); the drain's start only without a level time |
+| `bossOvertimeAfter` | `150` | boss rounds: official `bossTurnHpReduceTime` — the overtime's length in **real** seconds: team LP −1 per real second from the end of the `levelMaxPlayTime` countdown for this long, then the server ends the battle (`gamedata.js bossOvertimeWindowReal`; official client `AutoChessBattleUICountdownViewModel._GetBossBattleTimeInfo`); the drain's start only without a level time |
 
 ### 1.2 `economy`
 
@@ -594,7 +594,7 @@ Glyph legend (`rows`):
 21. **Token counts**: a skill `cnt` is only used as a token count when that skill overrides the token (夕's S1 `cnt` 2
     is a charge count ⇒ “小自在” `count` null).
 22. **联防 spawn timing** (client `GenerateHelpBattleEnemyData` → `_GetSpEnemyActionData` →
-    `_CalculateActionPredelayConsiderUid`, decoded from GameAssembly.dll; `server/match/waves.js buildUniteWave`): every
+    `_CalculateActionPredelayConsiderUid`; `server/match/waves.js buildUniteWave`): every
     leaked enemy is a 1-unit action on the route of the escaped template's first `lrsldr` (walker) / `yokai` (flyer) /
     `gopro_2` / `lazerd` (token) action, else action 0. Per host action, with W = count·interval of that action and
     M = the largest per-owner group, step = min(max(W/M, 0.05·W), 5 s); the k-th owner (first-leak order) starts

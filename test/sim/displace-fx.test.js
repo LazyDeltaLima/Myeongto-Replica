@@ -32,7 +32,7 @@ test('a displacement puts a `displace` fx into the event stream the client recei
 });
 
 test('a push marks its displace fx face: push (radial or directional), a pull face: keep, a raw move nothing', () => {
-  // client code: the push nodes call Enemy.KnockBack with changeFaceByDirection (FaceTo(-direction)); DragTowardSource
+  // the client: the push nodes call Enemy.KnockBack with changeFaceByDirection (FaceTo(-direction)); DragTowardSource
   // passes false (battle/displacement.js push / pull)
   for (const directional of [false, true]) {
     const h = makeBattle({

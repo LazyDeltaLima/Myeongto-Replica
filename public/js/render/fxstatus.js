@@ -214,7 +214,7 @@ const stacked = (key, counted, bundle, frac = OWN) => Object.freeze(cite(key, { 
 export const STACK_FX = Object.freeze({
   'billro:mark': stacked('billro_s_3[mark_effect]', 'billro_s_3[charge][enhance]', 'billro', HEAD),
   // 信仰搅拌机 T1 rmixer_t1[attr_stack] rmixer_buff_01, whose SwitchableEffectByBuffStackCnt (`_stackCnt` 3, GE) swaps it for
-  // rmixer_buff_02 at 3 stacks (the first paused — disassembly 0xE9B9B0)
+  // rmixer_buff_02 at 3 stacks (the first paused — official client)
   'rmixer:t1': Object.freeze(cite('rmixer_t1', [[1, st('rmixer', 'rmixer_buff_01'), 3], [3, st('rmixer', 'rmixer_buff_02')]])),
   // 琳琅诗怀雅 T1 大买家: swire2_tr's swire2_t_1[atk] swire2_buff_01_start, at max_stack_cnt also [max] _01_start_02
   'talent:swire2_buyer': Object.freeze(cite('swire2_tr', [[1, st('swire2', 'swire2_buff_01_start')], ['max', st('swire2', 'swire2_buff_01_start_02')]])),
@@ -282,7 +282,7 @@ export function statusFxKey(key) {
 const WANT = new Map();
 /**
  * 2026-10-21 (docs/rules/fx.md 「적 상태의 버프 이펙트」): what a buff's end creates (its template's ON_BUFF_FINISH CreateEffect,
- * once — Nodes.CreateEffect.Execute RVA 0xB90880), by the effect key of the buff's own effect: played as that effect ends
+ * once — Nodes.CreateEffect.Execute), by the effect key of the buff's own effect: played as that effect ends
  * on a living unit (syncStatusFx), not as the unit dies or leaves.
  */
 export const END_FX = Object.freeze({

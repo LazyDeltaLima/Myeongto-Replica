@@ -2,10 +2,10 @@
 """Operator / summon sound signals from the local client (docs/rules/audio.md 「공격 소리 신호」, 2026-10-10).
 
 The client names an ability's sound banks after its signal id: `battle.<EVENT>.<unitId>.<ability>[.<n>][.<k>]`
-(클라 코드 UnitMode.GenerateSignalId RVA 0x787E80: `'{base}{suffix}.{index}'` only when the mode sets
-`_addIndexToSignalId` and the index is > 0 or `_includeIndexZero`; AbilityRandomGroup.DoSetData RVA 0xA68600: a child
+(the client's UnitMode.GenerateSignalId: `'{base}{suffix}.{index}'` only when the mode sets
+`_addIndexToSignalId` and the index is > 0 or `_includeIndexZero`; AbilityRandomGroup.DoSetData: a child
 ability of a random / loop group gets `'{parent}.{i + 1}'`; MultiMeleeAttack.DoEmitAudioSignalForSpellOn / ForHit
-RVA 0xA26DF0 / 0xA26BE0: `'{signal}.{spellCnt}'` with `_addSpellCntToAllSignalId` / `_addSpellCntToLastSignalId` /
+: `'{signal}.{spellCnt}'` with `_addSpellCntToAllSignalId` / `_addSpellCntToLastSignalId` /
 `_addSpellCntToAllHitSignalId`). audio_data.json has the banks but not the prefab facts that say which of them sound
 when, so tools/assets/plan.mjs reads them from tools/assets/local-char-audio.json, which this script writes:
 

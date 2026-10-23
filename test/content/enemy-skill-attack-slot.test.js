@@ -1,4 +1,4 @@
-// An enemy's skill is cast at an attack slot, in place of the normal attack (client code Enemy.AttackWrapper.SearchTarget /
+// An enemy's skill is cast at an attack slot, in place of the normal attack (the client's Enemy.AttackWrapper.SearchTarget /
 // Cast, EnemySkill.OnTick / _OnCastFinish; docs/rules/sim.md 「적 스킬 = 일반 공격 차례」): the main attack ready, the ready
 // skill of the highest priority is cast instead of the attack, the attack's cooldown restarts, and the skill's own
 // cooldown runs again from the end of its cast. Until 2026-10-21 a skill fired the moment its cooldown was over, beside
@@ -148,7 +148,7 @@ test('real boss_4 field, third form: one action per 3.5 s slot — 大潮 waits 
   }
 });
 
-// The block picks the wrapper (client code Enemy.States.MoveState.OnTick: a blocker ⇒ the COMBAT state, before
+// The block picks the wrapper (the client's Enemy.States.MoveState.OnTick: a blocker ⇒ the COMBAT state, before
 // _SearchAttackTarget; CombatWrapper._PickAbility takes the COMBAT family, AttackWrapper.SearchTarget the ATTACK one):
 // a skill whose `_familyMask` lacks the state's family is never begun there. Until 2026-10-22 the family was ignored —
 // 重弩突袭者 stunned its own blocker with 直击 (ATTACK only), “帝国的甲胄” charged its ranged attacks (MultiCombat, COMBAT only).

@@ -441,7 +441,7 @@ Avoid redistributing Georgia and Times New Roman (Microsoft fonts) from that rep
   - Show a credits screen: "Arknights © Hypergryph / Yostar. This is an unofficial fan project; all game assets belong to their owners."
   - Keep it private or small-group, and remove on request.
   - Do not redistribute bulk asset archives; fetch at deploy time.
-  - Also credit the asset dumpers and tooling: yuanyan3060, fexli/ArkResourceAutoUpdateBot, isHarryh/ArkUnpacker, ArknightsAssets/ArknightsStudio, Kengxxiao/ArknightsGameData, pixi-spine (MIT) and the Spine Runtimes License.
+  - Also credit the asset extractors and tooling: yuanyan3060, fexli/ArkResourceAutoUpdateBot, isHarryh/ArkUnpacker, ArknightsAssets/ArknightsStudio, Kengxxiao/ArknightsGameData, pixi-spine (MIT) and the Spine Runtimes License.
 - Fonts: Noto (SIL OFL); Bender (free by author); Novecento Sans (free licence by Synthview).
 
 ## 11. Open questions and [ASSUMED] items

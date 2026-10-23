@@ -71,7 +71,7 @@ test('pointTurn: the bone\'s world rotation (radians, y up) when the point turns
 
 test('a mounted effect with _keepOriginRotation 0 turns its root about the board normal every frame', () => {
   assert.match(SRC, /const turns = def\?\.mount && def\.mount\.keepOriginRotation === 0;/);
-  // every frame (2026-10-10, decompile check: client FollowMountPoint._FollowMountPoint each LateUpdate) — no first-frame copy
+  // every frame (2026-10-10, official client: FollowMountPoint._FollowMountPoint each LateUpdate) — no first-frame copy
   assert.match(SRC, /get rot\(\) \{ return turns \? pointTurn\(ptsOf\(v\)\?\.\[key\]/);
   assert.doesNotMatch(SRC, /turn0 \?\?=/);
   assert.match(SRC, /if \(r != null && l\.inst\.nodes\?\.\[0\]\) l\.inst\.nodes\[0\]\.rotation\.set\(0, 0, r\);/);

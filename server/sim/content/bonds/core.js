@@ -307,8 +307,8 @@ function installKjerag(battle, pid, bb, members) {
   };
   for (const u of members) onUnitHit(battle, u, onHit);
   // the wind is the field's: one [storm] on the map controller whoever reaches 6 (AutoChessAssignBondCharCntToBB
-  // _filterAllSides = the most members over the players, client code RVA 0xB49840), its duration from the most
-  // 谢拉格 layers over the players (AutoChessAssignBondStackCntToBB _assignAllPlayerIndex, RVA 0xB49C80)
+  // _filterAllSides = the most members over the players, official client), its duration from the most
+  // 谢拉格 layers over the players (AutoChessAssignBondStackCntToBB _assignAllPlayerIndex)
   const wind = S.battleStore(battle, 'bond:kjerag:wind', () => ({ handle: null }));
   if (!wind.handle && reached(battle, pid, 'kjeragShip', bb.power_bond_char_cnt)) wind.handle = kjeragColdWind(battle, pid, bb);
 }
@@ -318,8 +318,8 @@ function installKjerag(battle, pid, bb, members) {
 
 /**
  * Bullets 拉特兰 adds to an ammo skill whose original count is `orig`: RoundToInt(orig × ratio) on top of the maximum
- * (client code `CastSkillWithLimitTimes._UpdateMaxAdditionCount`, RVA 0x644190: float32 product → FP →
- * `MathUtil.RoundToInt` → `FP.Round`, RVA 0x54E1D20, which rounds a half to even).
+ * (the client's `CastSkillWithLimitTimes._UpdateMaxAdditionCount`: float32 product → FP →
+ * `MathUtil.RoundToInt` → `FP.Round`, which rounds a half to even).
  */
 export function lateranoAmmo(orig, ratio) {
   const x = Math.fround(Math.fround(num(orig, 0)) * Math.fround(num(ratio, 0)));

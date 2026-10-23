@@ -323,8 +323,8 @@ export function stepToward(u, tx, ty, dist) {
 }
 
 /**
- * Set a 频次 unit's hits (maxHp := hits, full): the whole number of hits a max HP of `n` takes, at least 1 — client code
- * `PropLikeEnemy.DoApplyModifier` (RVA 0x75C4B0) takes exactly 1 HP per damage instance and the max HP stays a
+ * Set a 频次 unit's hits (maxHp := hits, full): the whole number of hits a max HP of `n` takes, at least 1 — the client's
+ * `PropLikeEnemy.DoApplyModifier` takes exactly 1 HP per damage instance and the max HP stays a
  * fixed-point fraction (`Attributes._CalculateAttributeValue`, no rounding), so 2 × 1.08 = 2.16 HP falls on the 3rd hit:
  * ceil(n). (The bar shows whole hits here, the client 1/2.16 steps — display only.)
  */
@@ -381,7 +381,7 @@ export function shoot(b, from, t, shot, onHit, opts = {}) {
  * Fire an official FIXED_DIRECTION projectile (`shot`: data/enemies.json `skills[i].proj`, move FIXED_DIRECTION — 重弩突袭者
  * 直击's projectile_enemy_msnip) from `from` the way of `aim` (a unit or point): it flies straight along the nearest of the
  * four map axes and ends on the first ally it touches — `onHit(target)` then — or, touching none, after `shot.life` s
- * (`onExpire()`). Client code (EN, docs/rules/sim.md 「FIXED_DIRECTION 투사체」): FarthestPointMovement._SetTargetPosAndDirection
+ * (`onExpire()`). Official client (EN, docs/rules/sim.md 「FIXED_DIRECTION 투사체」): FarthestPointMovement._SetTargetPosAndDirection
  * (`_useDirToTarget` → MapUtil.NormalizeDirectionToFourWays) and AdvancedMovement.OnInit (no reach point for FIXED_DIRECTION:
  * it never "arrives"); its SelectorHitBehaviour (`_hitPasserby`, every `_interval` 0.03 s) takes the allies whose collider
  * meets the projectile's circle (`opts.radius`, prefab CircleCollider2D 0.3), at most one, and SimpleProjectile (LIMITED

@@ -102,7 +102,7 @@ export function dirCopies(groups, names, d, left) {
   for (const g of groups) {
     const s = Array.isArray(g?.s) ? g.s : [];
     if (!out.some((n) => s.includes(n))) continue;
-    // (2026-10-10, decompile check: client UberEffectEmitter.EffectOptions.TryGetEffect, RVA 0xAE1FE0) 4 UD_OR_LR = slot 0
+    // (2026-10-10, official client: UberEffectEmitter.EffectOptions.TryGetEffect) 4 UD_OR_LR = slot 0
     // facing back (up), else slot 2, and the left / right slot when that one is empty; a type outside the enum plays nothing
     const lr = left ? 3 : 1;
     const slot = g.t === 0 ? 0 : g.t === 1 ? lr : g.t === 2 ? (d === 0 ? 0 : 2)
@@ -131,7 +131,7 @@ export function stoneBlastFx(skill, follower = false) {
 
 /**
  * 望's link line (fxgame stone effects): the unbroken run of stones through tile (x, y) along axis 'h' (x) or 'v' (y) —
- * client WangStoneTriggerManager._FilterContinuousCharacters (RVA 0x5D2210) — as its two end tiles' keys `x,y` (first =
+ * client WangStoneTriggerManager._FilterContinuousCharacters — as its two end tiles' keys `x,y` (first =
  * the lower), or null for a stone alone on it. `tiles` has a key per stone tile (Set or Map).
  */
 export function linkRun(tiles, x, y, axis) {
@@ -225,7 +225,7 @@ const FORM_MODES = Object.freeze({
 });
 
 /**
- * @param {{ host: HTMLElement, above: HTMLCanvasElement, quality: () => string, load?: () => number, under?: () => boolean, fieldRect?: () => any, enemyDef?: (id: string) => any, unitDef?: (info: any) => any }} o
+ * @param {{ host: HTMLElement, above: HTMLCanvasElement, quality: => string, load?: => number, under?: => boolean, fieldRect?: => any, enemyDef?: (id: string) => any, unitDef?: (info: any) => any }} o
  *   load: the view's adaptive load level 0–3 (render/app.js); under: whatever lies below the units canvas shows through
  *   it (the 3D board is on — the 2D board paints an opaque backdrop on the units canvas itself); fieldRect: the battle
  *   field's tile rect (local patch: 余 S3's wall runs across it, fx.js wallTiles); enemyDef: an enemy's data/enemies.json
@@ -332,13 +332,13 @@ export function stormMarks(storm, mounds) {
 export const YU_WALL_OFFSET = 0.4;
 /**
  * 余 S3 灶里乾坤's fire wall as the client assembles it (2026-10-10, maintainer report: the flames stand on his tile's
- * front edge — facing right, on its right edge; decompile): his skill's buff effect yu_skill3_range_01_source
- * (YuS3EffectBehaviour `_effectEachGrid`, OnPlay RVA 0xCC2100) creates yu_skill3_range_01_root at the centre of every
- * tile of his line across the map; each root (YuS3EffectWithEdgeBehaviour._InitPlayersIfNot, 0xCC2F70) plays its pieces at
+ * front edge — facing right, on its right edge; official client): his skill's buff effect yu_skill3_range_01_source
+ * (YuS3EffectBehaviour `_effectEachGrid`, OnPlay) creates yu_skill3_range_01_root at the centre of every
+ * tile of his line across the map; each root (YuS3EffectWithEdgeBehaviour._InitPlayersIfNot) plays its pieces at
  * the tile centre + SharedConsts.FOUR_WAYS[his direction] × `_offset` 0.4 — on the tile's front edge: facing UP / DOWN
- * its row piece `_effectWhenHorizontal` yu_skill3_range_01 (HorizontalEffectPlayer.EffectNeedPlay 0xCB0BC0: direction 0 /
+ * its row piece `_effectWhenHorizontal` yu_skill3_range_01 (HorizontalEffectPlayer.EffectNeedPlay: direction 0 /
  * 2); facing LEFT / RIGHT the column piece of its screen side, `_effectVerticalWhenAtWorldRight` _r or `…Left` _l
- * (VerticalEffectPlayer.IsWorldRight 0xCC1910: its x right of the camera's); and at an end of the line (the next tile
+ * (VerticalEffectPlayer.IsWorldRight: its x right of the camera's); and at an end of the line (the next tile
  * invalid) the end piece as well — _L_end / _R_end along a row, _l / _r + _U_end / _D_end along a column.
  * @param {string} dir his direction (UP | RIGHT | DOWN | LEFT)
  * @param {Array<[number, number]>} tiles the line's tiles [[row, col]] in order (render/fx.js wallTiles)
@@ -506,11 +506,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
 
   // `until` (2026-10-10): a one-shot's end on the battle clock instead of its prefab's duration (a cast effect
   // ended by its cast — castFx); one whose end has passed while its file loaded is not started
-  // `speed` (2026-10-10, decompile check): the playback speed — a cast effect plays at its ability's (the attack's
-  // anim scale), a hit effect at 1.0 (client `HitEffectOptions.OnCastOnTarget`, RVA 0xAE54D0: CreateEffect(…, 1.0));
+  // `speed` (2026-10-10, official client): the playback speed — a cast effect plays at its ability's (the attack's
+  // anim scale), a hit effect at 1.0 (client `HitEffectOptions.OnCastOnTarget`: CreateEffect(…, 1.0));
   // `aim`: the hit's attacker (an entry with `_useOwnerToTargetDirection`, modes.json `hitAim`); `cast` (2026-10-11): the
   // cast record it belongs to (beginCast — cutCast ends them)
-  // Facing (2026-10-11, maintainer decision 「공식대로」 — client `Effect.Play` RVA 0xC8A5D0 / `ParticleEffect.FaceTo` 0xCB1DC0):
+  // Facing (2026-10-11, maintainer decision 「공식대로」 — client `Effect.Play` / `ParticleEffect.FaceTo`):
   // the effect is played with a direction — the caster's drawn side (faceVector, ±x), its four-way facing for an entry with
   // `_useFourDirectionalFace` (modes.json `turn`), attacker → target for `_useOwnerToTargetDirection` (`hitAim`) — and the
   // prefab's `_rotateType` decides what that does (fxplayer.js FxInstance / fx/face.js faceTurn: only FLIP_TWO_SIDE flips,
@@ -614,27 +614,27 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return d ? { def: d, pause: !!e.pause } : null;
   }
 
-  // ---- SwitchableEffectByFaceDirection (2026-10-22, decompile check; docs/rules/fx.md 「이펙트 방향」) ------------------
+  // ---- SwitchableEffectByFaceDirection (2026-10-22, official client; docs/rules/fx.md 「이펙트 방향」) ------------------
   // A prefab with it on its root (fx_extract.py `swFace`: 新约能天使's attack / skill starts, `_down` copies) is swapped as it
-  // plays (`_UpdateFace` RVA 0xE9C2E0, from `OnPlay` only): for the owner's `faceDirection` (ParseDirection of faceTo — an
+  // plays (`_UpdateFace`, from `OnPlay` only): for the owner's `faceDirection` (ParseDirection of faceTo — an
   // attack turns it to its target: face-turn.js `dir4`) DOWN / UP / LEFT with a copy named, the client pauses this effect and
   // creates the copy on the owner with its faceVector; `_oneShot` finishes this one at once (the copy runs its own course),
-  // else `OnFinish` (0xE9BE70) finishes the copy with it. Here the copy plays in its place — the paused one draws nothing.
+  // else `OnFinish` finishes the copy with it. Here the copy plays in its place — the paused one draws nothing.
   /** The copy `def`'s face switch plays on `unit` facing as it does now, or null (this one plays). */
   function faceCopy(def, unit, bundle) {
     const name = unit ? faceSwitchCopy(def?.swFace, facingDir(unit)) : null;
     return name && index?.bundles?.[bundle]?.includes(name) ? name : null;
   }
 
-  // ---- SwitchableBackEffect (2026-10-10, decompile check) -----------------------------------------------------
+  // ---- SwitchableBackEffect (2026-10-10, official client) -----------------------------------------------------
   // A prefab whose root carries the client's SwitchableBackEffect (fx_extract.py `back`: 비르투오사 S3 cello_skill_03_buff_front_02
   // → cello_skill_03_buff_back_02, and 61 more of 26 operators — 로즈몬티스 `_B` copies, 비질, 휴머스 …) is swapped while its owner faces back:
-  // `SwitchableBackEffect._UpdateFace` (RVA 0xCB7E70) pauses it and creates `_backEffect` on the owner when the owner's
+  // `SwitchableBackEffect._UpdateFace` pauses it and creates `_backEffect` on the owner when the owner's
   // `faceToBack` turns true, and the other way round when it turns back to the front ('common_empty' = nothing while back).
   // Here the owner faces back while its Back model is drawn (UnitView.entryBack; before the model loads, a deploy facing UP);
   // the paused front is not drawn [추정: the pause hides it — a frozen copy beside the back one is not seen in captures].
-  // SwitchableThreeFaceEffect (2026-10-22, decompile check; fx_extract.py `three`: 维什戴尔 S3 wisdel_skill_03_start) is the same
-  // swap by `faceToBack` for its up copy — `_UpdateFace` (RVA 0xEB3800, every frame) shows `_upEffect` while the owner faces
+  // SwitchableThreeFaceEffect (2026-10-22, official client; fx_extract.py `three`: 维什戴尔 S3 wisdel_skill_03_start) is the same
+  // swap by `faceToBack` for its up copy — `_UpdateFace` (every frame) shows `_upEffect` while the owner faces
   // back, `_downEffect` while its owner's animator is a ThreeFaceAnimator showing its `_down` face, else itself. No operator
   // model has a third face (their chararts animators have `_front` / `_back` only) and `UnitAnimator.faceToDown` is false, so
   // the down copy never shows: the front copy stays while the unit faces down (docs/rules/fx.md 「이펙트 방향」).
@@ -672,18 +672,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
   }
 
-  // ---- pause / finish behaviours (2026-10-21, decompile check; docs/rules/fx.md 「이펙트 멈춤·끝 조건」) ----------------
+  // ---- pause / finish behaviours (2026-10-21, official client; docs/rules/fx.md 「이펙트 멈춤·끝 조건」) ----------------
   // An effect pauses as its behaviours ask (FxInstance.pausers, fx_extract.py pause_scripts, render/fx/pause.js): the
-  // client's `Effect.set_isPaused` → `ParticleEffect.OnPausedUpdated` (RVA 0xEACFD0) switches its particle system off and
+  // client's `Effect.set_isPaused` → `ParticleEffect.OnPausedUpdated` switches its particle system off and
   // pauses it, and the unpause plays it on — here it is not drawn and not stepped while `paused`. PauseEffectIf and
   // PauseEffectIfNotIdle write the effect's own flag (`pzSelf`), PauseEffectWithAnimation / PauseEffectIfSpineEvent pause it
-  // per behaviour (`pzBeh`: `_useBehaviourPause`, the same pause — `Effect.get_isPaused` 0xE7D4D0), another effect's
+  // per behaviour (`pzBeh`: `_useBehaviourPause`, the same pause — `Effect.get_isPaused`), another effect's
   // PauseAnotherEffect holds it (`pzBy`: `SetPausedByOthers`); FinishEffectIf finishes it.
   const entryOwner = (l) => l.unit || (l.owner != null ? lastViews?.get(l.owner) : null) || null;
 
-  // ---- FollowDirection (2026-10-22, decompile check; docs/rules/fx.md 「이펙트 방향」) --------------------------------------
+  // ---- FollowDirection (2026-10-22, official client; docs/rules/fx.md 「이펙트 방향」) --------------------------------------
   // A prefab with the client's FollowDirection on its root (fx_extract.py `follow`: 183 operator / 89 enemy prefabs, most
-  // of them skill buffs) is turned again as it plays and every frame after (`Update` RVA 0xE812F0; once with
+  // of them skill buffs) is turned again as it plays and every frame after (`Update`; once with
   // `_onlyFollowOnPlay`) to its owner's direction (fx/face.js followDir) through the same `ParticleEffect.FaceTo` it was
   // played with (faceTurn) — a FLIP_TWO_SIDE buff mirrors when its operator turns to an enemy behind it, a FOUR_DIRECTION
   // range lies along the deploy direction. The owner is the unit it is created on [추정: the client's `Behaviour.owner` is
@@ -700,11 +700,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     l.inst.turn = t;
     l.inst.applyTurn(t);
   }
-  // ---- FollowTileHeight (2026-10-22, decompile check; docs/rules/fx.md 「이펙트 방향」) --------------------------------------
+  // ---- FollowTileHeight (2026-10-22, official client; docs/rules/fx.md 「이펙트 방향」) --------------------------------------
   // A prefab with the client's FollowTileHeight on its root (fx_extract.py `tileH`: 伊内丝's sentry label / range, 圣聆初雪's
-  // snow, 凛御银灰 S3's range) keeps its height at the tile under it: `_UpdateHeight` (RVA 0xE834B0) moves its world height
+  // snow, 凛御银灰 S3's range) keeps its height at the tile under it: `_UpdateHeight` moves its world height
   // toward that tile's (MapUtil.GetTileHightByMapPosition of its own position) by at most `_followTileHeightSpeed` × the
-  // frame's time — at once as it plays (`OnPlay` 0xE833B0), then every frame (`Update` 0xE83450)
+  // frame's time — at once as it plays (`OnPlay`), then every frame (`Update`)
   function stepTileHeight(l, g) {
     const p = l.inst.object.position, h = tileTop(p.x, p.y);
     if (l.tileZ == null) l.tileZ = h;
@@ -738,7 +738,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const x = idlePause(r, v);
         if (x != null) l.pzSelf = x;
       } else if (pz.k === 'pauseAnim') {
-        // `_DoPause` (RVA 0xE94CE0): after `pre` s ÷ the playback speed, then `finish`; the restore (`_noPauseWhenValid`) after `back`
+        // `_DoPause`: after `pre` s ÷ the playback speed, then `finish`; the restore (`_noPauseWhenValid`) after `back`
         const want = animPause(r, clipOf(v));
         if (want === true) {
           pz.back = null;
@@ -751,13 +751,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (pz.back != null && clockS >= pz.back) { pz.back = null; pz.on = false; }
         behPause(l, pz, pz.on);
       } else if (pz.k === 'pauseSpine') {
-        // `_pauseAtStart`; the Spine events come through spineEvent(); outside `anims` it plays (`Update` RVA 0xE92FA0)
+        // `_pauseAtStart`; the Spine events come through spineEvent(); outside `anims` it plays (`Update`)
         if (pz.on == null) pz.on = !!r.start;
         const clip = r.anims?.length ? clipOf(v) : null;
         if (clip && !r.anims.includes(clip)) pz.on = false;
         behPause(l, pz, pz.on);
       } else if (pz.k === 'pauseOther') {
-        // `OnPlay` (RVA 0xE911B0) / `Update` (0xE91270): the owner's effect named `effect`, after `pre` s; with `update`
+        // `OnPlay` / `Update`: the owner's effect named `effect`, after `pre` s; with `update`
         // again each frame, and given back while this one is paused
         pz.held ||= new Set();
         pz.at ??= clockS + (r.pre > 0 ? r.pre : 0);
@@ -780,9 +780,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     setPaused(l);
   }
 
-  // ---- RandomEmitter (2026-10-21, decompile check) -------------------------------------------------------------
+  // ---- RandomEmitter (2026-10-21, official client) -------------------------------------------------------------
   // A node with the client's RandomEmitter (fx_extract.py node `emit`: common_charge_cost_start_01 → 3 × common_charge_cost_01,
-  // 德克萨斯 S1 and four more) plays `count` copies of another prefab: `_DoEmit` (RVA 0xE9EDF0) waits `_preDelay`, then for
+  // 德克萨斯 S1 and four more) plays `count` copies of another prefab: `_DoEmit` waits `_preDelay`, then for
   // each copy takes a random point of the box `from`–`to` through the node's transform (Transform.TransformPoint) and
   // creates the prefab there (BattleController.CreateEffectAtWorldPos: it stays where it was made), `_delayPerEffect` apart.
   // The copies come from the bundle of the prefab that emits them. [ASSUMED: RandomUtil.RandomVector3 is uniform per axis]
@@ -804,12 +804,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (e && def.fly) startFly(e);
     trimLive();
   }
-  // ---- FlyToPredefinedLocation (2026-10-21, decompile check) ---------------------------------------------------
+  // ---- FlyToPredefinedLocation (2026-10-21, official client) ---------------------------------------------------
   // A prefab with the client's FlyToPredefinedLocation (fx_extract.py `fly`: common_charge_cost_01, the RandomEmitter copies
-  // above) moves from where it was made to a HUD place and then finishes: `OnPlay` (RVA 0xE7FBC0) DOMove(place, `_duration`)
+  // above) moves from where it was made to a HUD place and then finishes: `OnPlay` DOMove(place, `_duration`)
   // with ease `_easeType`, unscaled time when `_isIndependentUpdate`, OnComplete → FinishMe. The place
   // (BattleController.GetPredefinedLocationPosition → UIController.GetPredefinedLocationByUI) is the UI element's screen
-  // point taken down to the map height; 卫戍协议's HUD plugin (AutoChessUIPlugin.HookPredefinedUILocation 0xF20300) answers
+  // point taken down to the map height; 卫戍协议's HUD plugin (AutoChessUIPlugin.HookPredefinedUILocation) answers
   // only AUTOCHESS_BOUND_BAR, so COST is the base battle UI's cost counter = our DP counter (`.dpbox`, ui/combatHud.js).
   // [ASSUMED: its centre; the board the viewer looks at is the viewer's side — the client keeps another side's copy where it is]
   const FLY_PLACE = { 0: '.dpbox' }; // PredefinedLocation COST; others are not drawn by this HUD
@@ -855,14 +855,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
   }
 
-  // ---- OnPlayEmitter / OnFinishEmitter (2026-10-21, decompile check) ---------------------------------------------
+  // ---- OnPlayEmitter / OnFinishEmitter (2026-10-21, official client) ---------------------------------------------
   // A node with the client's OnPlayEmitter (fx_extract.py node `onPlay`; 33 operator and enemy prefabs, all on the root: buffs
   // that add their ground copy — fartth_skill_03_buff_02 → _XZ, skadi2_skill_03_buff_03 → _XZ — or their other parts) creates other
-  // prefabs when its effect plays (`_OnPlayInternal` RVA 0xE90F50: now when `_instant`, else `_preDelay` s later): `_DoEmit`
-  // (0xE90B10) through BattleController.CreateEffect on the effect's owner — the unit it was created on — each at its own
+  // prefabs when its effect plays (`_OnPlayInternal`: now when `_instant`, else `_preDelay` s later): `_DoEmit`
+  // through BattleController.CreateEffect on the effect's owner — the unit it was created on — each at its own
   // _spawnLocation, or at this node with `_useSourceEffectPos`; `_clearWhenFinish` finishes them when this one finishes
-  // (OnFinish 0xE90810). OnFinishEmitter (`onFinish`; 22 prefabs: the `_end` copies of range rings and buffs) creates its prefabs when the
-  // effect finishes (OnFinish 0xE8FA40), on the owner or at the effect's map position (`_useEffectPosition`). Without an owner
+  // (OnFinish). OnFinishEmitter (`onFinish`; 22 prefabs: the `_end` copies of range rings and buffs) creates its prefabs when the
+  // effect finishes (OnFinish), on the owner or at the effect's map position (`_useEffectPosition`). Without an owner
   // (an effect on a point) both play at the effect's place. They come from the bundle of the prefab that emits them, played
   // with the owner's facing (the overload without a direction asks the target for one too [추정: its faceVector]).
   const onEmitNow = (l, em) => (em.play.pre > 0 ? l.inst.time - (em.o.userData.t0 || 0) >= Number(em.play.pre) * (l.speed > 0 ? l.speed : 1) : true);
@@ -1041,8 +1041,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // and sktok_wang_N/TriggeredEffect token_wang_01_buff [추정: TriggeredEffect = 激活, the link]
   // (maintainer re-report 2026-10-08 「바둑알 이펙트 루프가 아직 안 됨」): the activation effect (STONE_ON) is a
   // buff's `overrideEffectKey` (sktok_wang_N/TriggeredEffect `_buffs[0]`) and both it and the 跟子's `_triggeredEffect` are
-  // held by their owner (root ParticleEffect raw int #17 = `_holdByOwner` 1, as every status buff; the blasts 0 — decompile
-  // check 2026-10-10: the field order of ParticleEffect, and `Effect._InitLocationFromEntity` ends with entity.HoldEffect;
+  // held by their owner (root ParticleEffect raw int #17 = `_holdByOwner` 1, as every status buff; the blasts 0 — official
+  // client 2026-10-10: the field order of ParticleEffect, and `Effect._InitLocationFromEntity` ends with entity.HoldEffect;
   // not `_isLoop` as first guessed): their dark / gold wisps (the `line` meshes, dissolved in over 0.6 s by the clip) stay on the stone while it stands —
   // the official capture's upper stone. We dropped them after the clip (~1 s), so they flashed once; and the stones
   // placed linked in the prep never showed them (their 'wangLink' came before the view entered the field — the early
@@ -1170,10 +1170,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // local patch (maintainer report): a prefab with a FollowMountPoint (fx_extract.py `mount`) is placed
   // at and follows its mount point instead of its _spawnLocation; with `pauseWhenInvalid` it stands still (`paused`, the
   // frame loop skips its update) while the unit's current skeleton has none of the point's bones.
-  // 2026-10-22 (decompile check; docs/rules/fx.md 「붙는 자리」): any other effect on a unit is put once where its
-  // `_spawnLocation` is (`Effect._InitLocationFromEntity` RVA 0xE7AF80: every location ends at the same tail) and then moves
-  // with the unit only when held — `_holdByOwner` (face `hold`: `Entity.HoldEffect` 0x3A1CB90), or `buff`: a buff's effect
-  // (`Entity.AddBuffEffect` 0x3A16C10 holds every one it creates, the same parenting inlined); a cast or a hit without
+  // 2026-10-22 (official client; docs/rules/fx.md 「붙는 자리」): any other effect on a unit is put once where its
+  // `_spawnLocation` is (`Effect._InitLocationFromEntity`: every location ends at the same tail) and then moves
+  // with the unit only when held — `_holdByOwner` (face `hold`: `Entity.HoldEffect`), or `buff`: a buff's effect
+  // (`Entity.AddBuffEffect` holds every one it creates, the same parenting inlined); a cast or a hit without
   // `_holdByOwner` stays where it was made (held)
   function lifted(v, def, buff = false) {
     const at = followed(v, def, buff);
@@ -1201,8 +1201,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // frame loop turns the prefab root about the Unity frame's z (the board's normal: +x = column, +y = row, as aimMover)
       // by it, inside the facing mirror: 아르케토's fan (authored pointing +y up the board, its ring round its axis) lies along
       // her shot, opening behind her with its spike toward the enemy (the maintainer's account of the client, 2026-10-08). Every
-      // frame (2026-10-10, decompile check, maintainer decision (2026-10-10)): the client's `FollowMountPoint._FollowMountPoint`
-      // (RVA 0xC9E2E0, each LateUpdate) takes the point's rotation every frame when `_keepOriginRotation` is 0. From 2026-10-08
+      // frame (2026-10-10, official client, maintainer decision (2026-10-10)): the client's `FollowMountPoint._FollowMountPoint`
+      // (each LateUpdate) takes the point's rotation every frame when `_keepOriginRotation` is 0. From 2026-10-08
       // it was taken once, at the start: 니어 더 래디언트 나이트 S3's light lance (nearl2_skill_03_start `qiang`, on F_Weapon)
       // thrusts forward at 0° while her lance swings back to ~160° in the next 0.5 s, and following it turned the thrust
       // backward (maintainer 2026-10-08 「빛으로 된 창으로 찌르는 이펙트가 허전해」) — the cause is then in that point's angle here
@@ -1244,11 +1244,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     };
   }
   /**
-   * (2026-10-22, decompile check; docs/rules/fx.md 「이펙트 붙는 자리」) An effect created at a model point without a
-   * FollowMountPoint: the client's `Effect._InitLocationFromEntity` (10-14 EN dump RVA 0xE7AF80) puts it once at the point
+   * (2026-10-22, official client; docs/rules/fx.md 「이펙트 붙는 자리」) An effect created at a model point without a
+   * FollowMountPoint: the client's `Effect._InitLocationFromEntity` puts it once at the point
    * (`at`, read on the first access — its creation), with the point Transform's rotation for 3 MUZZLE_POINT (the muzzle's
    * BoneFollower turns with its bone: fxpoints.js pointTurn; the client's skeleton is flipped inside, so a model drawn
-   * mirrored here gives the mirrored angle π − θ, the effect itself not mirrored); then `Entity.HoldEffect` (0x3A1CB90) for
+   * mirrored here gives the mirrored angle π − θ, the effect itself not mirrored); then `Entity.HoldEffect` for
    * `_holdByOwner` (face `hold`) parents it to the unit's `Effects` Transform, a child of its root — it moves with the unit
    * from where it was made, not with the bone —, and without it the effect stays there. It used to follow the point every
    * frame (2026-10-08) and took no turn: 엑시아's muzzle flash (spawn 3, `_rotateType` 0) kept its authored rightward
@@ -1278,7 +1278,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   const ownerOf = (v) => v.id ?? v.info?.id;
   /**
-   * (2026-10-10, decompile check — client `Effect._InitLocationFromEntity`: with `_overwriteHeight` the effect's
+   * (2026-10-10, official client — `Effect._InitLocationFromEntity`: with `_overwriteHeight` the effect's
    * height is set to the entity's height + `_heightOffset`; fx_extract.py `height`, only 쏜즈 더 로드스타 S1
    * thorn2_skill_01_range in the pool, offset 0, after its _spawnLocation 7 put it at height 0): `at` at the ground height of
    * its unit / of the tile under it plus `off` [추정: the entity — her S1 projectile where it landed — stands on that tile].
@@ -1344,9 +1344,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
 
   // (2026-10-22) The link line, token_wang_passive_01_line (three world-space LineRenderers, one 1 s clip): the client's
-  // WangStoneTriggerManager._TryTriggerStones (RVA 0x5D3080) runs on a stone's birth — _CollectTmpTiles sorts the stones
-  // of its row and of its column and keeps the unbroken run through it (_FilterContinuousCharacters 0x5D2210) — and
-  // _PlayTriggeredLineEffect (0x5D29F0) makes the line once per run of two or more, on the born stone, with every
+  // WangStoneTriggerManager._TryTriggerStones runs on a stone's birth — _CollectTmpTiles sorts the stones
+  // of its row and of its column and keeps the unbroken run through it (_FilterContinuousCharacters) — and
+  // _PlayTriggeredLineEffect makes the line once per run of two or more, on the born stone, with every
   // LineRenderer's point 0 / 1 = the run's first / last stone's `worldPosition` (set once). The sim says 'wangLink' for
   // each stone that gains a link direction, the born one and its neighbours alike: a line per direction new to that
   // stone, the same run drawn once in a moment. The ends: a 跟子 on its tile point, a placed 棋子 on its ball (the
@@ -1422,7 +1422,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       linkLines(o, views);
       if (o.first) {
         // (2026-10-17) a 跟子 is its effects' stone (units.js drawnByFx): its ball, `qizi (1)`, is on the tile point and the
-        // client makes its activation on the projectile there (WangStoneHitBehaviour.PlayStoneTriggeredEffect RVA 0xA935C0)
+        // client makes its activation on the projectile there (WangStoneHitBehaviour.PlayStoneTriggeredEffect)
         // — the prefabs' own heights (wisps `line` 0.13–0.2) wrap it; STONE_BALL lifts only to a placed 棋子's model ball
         const flat = !!o.follower && stonesOn();
         // local patch: the activation effect of its own kind (STONE_ON), on the ball, kept while the stone stands
@@ -1450,7 +1450,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return false;
   }
   // The throw of a 跟子: charpack SpawnToken/BuildStone and skchr_wang_3 InstantSpawn `_startEffect` wang_passive_01_start —
-  // a CastOnTileAbility's, created on each cast TILE, not on her (`CastOnTileAbility.OnCastStart` RVA 0xC06B40:
+  // a CastOnTileAbility's, created on each cast TILE, not on her (`CastOnTileAbility.OnCastStart`:
   // CreateEffect(_startEffect, m_castTiles[i], owner); its clip drops the stone from the sky onto that point), and finished
   // as the stone lands there (`_finishStartEffectsOnCastOnTile`: after the 0.25 s `_preDelay`) — emission stops, the effect
   // goes its `finish` later (Effect.FinishMe, statusOff). [추정: the sim's 'summon' is the landing; it starts there]
@@ -1648,7 +1648,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * with `_throwEffect`: projectile_chr_glady_s1 glady_skill_01_line, projectile_slchan_s1 / _s2 slchan_skill_0N_line;
    * 溯光星源 S2's link projectile_chr_halo2_s2_link halo2_skill_02_line_01) — from the shooter's muzzle to the flying head of
    * trail record `rec`, then to where it struck for the projectile's `_linkDuration` (1 s) [추정: the component's class is not
-   * decompiled — its fields read as a rope after the head; 溯光星源's link flies at 1000 tiles / s, drawn here with her shot].
+   * checked — its fields read as a rope after the head; 溯光星源's link flies at 1000 tiles / s, drawn here with her shot].
    */
   function ropeLine(bundle, name, src, rec, link = 1) {
     if (!camRef) return;
@@ -1726,10 +1726,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return true;
   }
   // local patch (was TRAIL_Z 0.35 tile at both ends — 空弦's arrows flew at her feet): a trail leaves
-  // the shooter's point where it is at the shot and flies to the target's hit point. Client (decompile check 2026-10-10):
-  // `RangedAttack._GetMountPoint` (RVA 0xA4B4E0) = the shooter's GetMountPoint(`_mountPointType`) — MUZZLE for 210 attacks,
+  // the shooter's point where it is at the shot and flies to the target's hit point. Client (official client 2026-10-10):
+  // `RangedAttack._GetMountPoint` = the shooter's GetMountPoint(`_mountPointType`) — MUZZLE for 210 attacks,
   // a special point or GROUND for 19 (modes.json `shotFrom` per mode: 로즈몬티스 S2 GROUND, 포덴코 S2 SPECIAL_0, 토가와 사키코
-  // SPECIAL_3 …) — and `GetTargetLocatable` (0xA4A190) the target's hitMountPoint. Ours: that point of the model (fxpoints.js;
+  // SPECIAL_3 …) — and `GetTargetLocatable` the target's hitMountPoint. Ours: that point of the model (fxpoints.js;
   // GROUND = its feet on the ground), the Muzzle when it has not that one; the target's hit point (points.json `hit`, the
   // operators) or half its drawn height (enemies: no table). A shooter without a point starts at fx.js's shot height.
   const shotAt = { x: 0, y: 0, z: 0 }, hitAt = { x: 0, y: 0, z: 0 };
@@ -1762,7 +1762,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   /**
    * 2026-10-11 (user report: 언더플로우's and 애쉬락's projectiles disappear late): a projectile's `_mainEffect` ends as its
-   * projectile stops, the client's way (`Effect.FinishMe` RVA 0xC88FE0 on a ProjectileEffect): its first particle system
+   * projectile stops, the client's way (`Effect.FinishMe` on a ProjectileEffect): its first particle system
    * stops and its `_inactiveOnFinish` nodes go off at once (FxInstance.finishMain), and the whole effect is gone `_delayToFinish`
    * s later (`delayToRecycle`, the prefab's `finish`; none = at once) — it used to stop emitting and stay until its last
    * particle died: 언더플로우's bullet (a 5 s particle) sat on the target for up to 5 s, 애쉬락's shell for 1.5 s.
@@ -1839,8 +1839,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (m.inst.time > 6) m.inst.time = 1;   // the prefab lasts 7 s: keep the wolf for the whole skill
     }
   }
-  // 2026-10-22 (effect bundle J, decompile check): her skill's end detaches the funnels — Whitw2Skill3FunnelRangedAttack.
-  // OnDetached (10-14 dump RVA 0xBFFC90) sets each funnel projectile's `_mainEffect` Animator int 'OnEnd' = 1 (the trail's
+  // 2026-10-22 (effect bundle J, official client): her skill's end detaches the funnels — Whitw2Skill3FunnelRangedAttack.
+  // OnDetached sets each funnel projectile's `_mainEffect` Animator int 'OnEnd' = 1 (the trail's
   // s3_idle → s3_end01) and the projectiles stop (FinishMe: gone its `_delayToFinish` 0.35 s later); `fade` false (she
   // left the field): they are already gone with her
   /**
@@ -2019,7 +2019,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   // ---- 卫戍协议 template effects (2026-10-11, maintainer decision 17 「넣음」) --------------------------------------------
   // The mode's bond / equipment / band buff templates create effects from their graph nodes (`Nodes.CreateEffect`
-  // RVA 0xB90880 on a unit, `CreateEffectAtScreenPos` on the screen) once when the node runs — 라테라노 클립 bond_laterano_reload_01,
+  // on a unit, `CreateEffectAtScreenPos` on the screen) once when the node runs — 라테라노 클립 bond_laterano_reload_01,
   // 신속 맹약·사막 나침반 bond_charge_battle_01, 에기르 맹약 bond_aegir_eat_01, 증원 map_act1autochess_reinforce_02, 쉐라그 맹약 map_snow_left_2_right
   // (docs/rules/fx.md 「위수 협의 템플릿 이펙트」). The sim names each in the status event ['tplfx', target | null, key,
   // source | null] (docs/SIM.md); a missing prefab or target plays nothing.
@@ -2065,8 +2065,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // node's direction options are not in the event]
     spawn(r[0], r[1], tgt, { owner: null, buff: false, on: tgt.id ?? e[1], tag: 'tplfx' }, { over: true, facing: efacing(tgt) });
   }
-  // A 护盾 layer blocking a hit (sim damage.js absorbShields → fx 'parry' {id, buff}): the client's BlockDamage.Execute (RVA
-  // 0xBB6960; 0xD949D0 in the 10-14 dump) plays the buff blackboard's `effect` (GetStringOrDefault, the node's
+  // A 护盾 layer blocking a hit (sim damage.js absorbShields → fx 'parry' {id, buff}): the client's BlockDamage.Execute
+  // plays the buff blackboard's `effect` (GetStringOrDefault, the node's
   // _specifyBlockEffect the default) on the holder, else common_buff_parry_01. Empty in archet_t_2, kalts2_t_2[shield],
   // nearl2_s_2[shield]; 泥岩's layers inherit mudrok_t_1's charpack blackboard `effect` mudrok_buff_01_hit (Talents/1 _buffs
   // [recharge] / [init], whose CreateBuff makes them).
@@ -2523,19 +2523,19 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return out;
   }
   /**
-   * 2026-10-21, decompile check (이펙트 묶음 D): 凛御银灰 S3's eagle. Each attack of his S3 mode triggers BirdAttack
+   * 2026-10-21, official client (이펙트 묶음 D): 凛御银灰 S3's eagle. Each attack of his S3 mode triggers BirdAttack
    * (svash2_s_3[trigger_self]), whose buff svash2_s_3[bird_on_self] fires projectile_chr_svash2_s3_bird_self through
-   * `Nodes.Svash2EmitProjectileFixedDirection.Execute` (RVA 0xE2B070): from him (`_startPositionType` BUFF_OWNER) towards the
-   * first enemy of his range_id box (`_GetTargetMountPoint`, 0xE2B7C0 [추정: the attack's target]) for `emit_count` tiles
-   * (none in the blackboard: 3.0) — 10 tiles / s, `_lifeTime` 0.3 s. Its Svash2ProjectileEffectBehaviour (`Init` 0xA8DFF0,
-   * `_CreateAlignToProjectileEffect` 0xA8E900, `OnProjectileStop` 0xA8E300) creates `_effectsAlignToProjectileDirection`
+   * `Nodes.Svash2EmitProjectileFixedDirection.Execute`: from him (`_startPositionType` BUFF_OWNER) towards the
+   * first enemy of his range_id box (`_GetTargetMountPoint` [추정: the attack's target]) for `emit_count` tiles
+   * (none in the blackboard: 3.0) — 10 tiles / s, `_lifeTime` 0.3 s. Its Svash2ProjectileEffectBehaviour (`Init`,
+   * `_CreateAlignToProjectileEffect`, `OnProjectileStop`) creates `_effectsAlignToProjectileDirection`
    * svash2_skill_03_trail_02 at the start's foot point, turned along start → target, and finishes it when the projectile
    * stops. (The bird on another operator — BirdAttack_Ally, projectile_chr_svash2_s3_bird: `…WhenDirRight` _trail_right_01
    * when that direction's x > 0, else _trail_left_01 — needs the 战鹰 on a card, which the sim has not.) [추정: at the
    * sim's strike]
    */
   /**
-   * 2026-10-21, decompile check (이펙트 묶음 D; upstream #633): a 秘术师's stored attack energies on its body. modes.json
+   * 2026-10-21, official client (이펙트 묶음 D; upstream #633): a 秘术师's stored attack energies on its body. modes.json
    * `charge` (char_modes.py charge_effects: the ChargableAttackGroup's MultiChargeUberEffectEmitter) — each store (sim fx
    * 'mysticStore', `n` stored now) casts `cast` and keeps `hold[n − 1]` on the unit (深靛: a star at SpecialPoint 1 / 3 / 4,
    * where that energy's projectile leaves from); the next attack cast on a target (the release, `OnCastOnTarget`) finishes
@@ -2609,14 +2609,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     };
   }
   // ---- 驭械术师 drones (2026-10-16, 이펙트 연결 전수 묶음 3, docs/rules/fx.md 「驭械术师 드론」) -------------------------------------
-  // modes.json `funnels[mode]` (char_modes.py funnel_entries): client FunnelEffectEmitter.OnEvent (RVA 0xCB4EB0) — the idle
+  // modes.json `funnels[mode]` (char_modes.py funnel_entries): client FunnelEffectEmitter.OnEvent — the idle
   // loops while the mode is attached (its `back` copy while she faces back: the SwitchableBackEffect swap, stepBackSwitches),
   // paused from the attack's cast start with its `hide` effect (`off`: hidden too) and resumed with its `show` effect at the
   // attack's finish (`wait`: when the drone's projectile ends); a Default mode without emitters keeps its drone buff's look
   // (`idle` alone). Each attack also flies a drone's projectile (`trail` from its mount point `from`, `hit` on arrival) —
-  // the sim's one 'atk' of a 驭械术师 stands for her shot and the drone's. The hide at the 'atk' (2026-10-21, decompile check):
+  // the sim's one 'atk' of a 驭械术师 stands for her shot and the drone's. The hide at the 'atk' (2026-10-21, official client):
   // the drone's ON_CAST_START is its own ability's, which her attack casts from its DoCastOnTargets — after her shot, at
-  // her strike (MultiFunnelsNormalAttack RVA 0xBF2CC0 / MultiFunnelRemoteAttack 0xBF2080: RangedAttack.DoCastOnTargets,
+  // her strike (MultiFunnelsNormalAttack / MultiFunnelRemoteAttack: RangedAttack.DoCastOnTargets,
   // then CastToTarget of each active `_funnelActions`). [추정: the show 0.2 s after the shot unless `wait` (no drone with a
   // hide lacks it today); a projectile without `speed` at 10 tiles / s]
   // An `attach` projectile does not fly (AttachToTarget): it hits at once and ends `delay` s later (荒芜拉普兰德's normal
@@ -2629,7 +2629,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /** Whether `list` are 荒芜拉普兰德's normal-attack drones (her Default / S1 modes: idle ones; S2's lock their targets one each). */
   const wolfPair = (v, list) => fxBundleOf(v.info?.spine || v.info?.defId) === 'whitw2' && list.some((x) => x.idle?.length);
   /** How many of a mode's drones act: 荒芜拉普兰德's 1 + S1's passive 浮游单元+1 + 头狼 stage 3 (the sim's profile.hits); every one
-   * otherwise. (2026-10-21, decompile check) the client's MultiFunnelsNormalAttack.UpdateActiveCntIfAdded (RVA 0xBF3290): min(the
+   * otherwise. (2026-10-21, official client) the client's MultiFunnelsNormalAttack.UpdateActiveCntIfAdded: min(the
    * `_funnelActions` count, 1 + blackboard `cnt` (M0_1 / S1 attack@cnt 0) + MultiFunnelExtraActiveCntAbility's count by ability
    * name) — AddFunnelAbilityActiveCnt +1 from whitw2_s1[passive] (M0 / M1) and whitw2_t[extra_ability]'s third trigger (M0–M2,
    * WolvesDispersed). */
@@ -2659,7 +2659,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   /**
    * Pause (`on`) or resume drone `j`'s idle loops (and their back copies). Paused is hidden too (2026-10-21, user report 「쉐라 S2
-   * 드론이 그녀에게 그림처럼 고정」): the client's pause (`ParticleEffect.OnPausedUpdated` RVA 0xEACFD0) switches off the
+   * 드론이 그녀에게 그림처럼 고정」): the client's pause (`ParticleEffect.OnPausedUpdated`) switches off the
    * GameObject of the effect's main particle system, and every drone idle prefab (耶拉 F / B / default, 洛洛, 至简, 荒芜拉普兰德)
    * draws all it has under that node (`mainPs` 2 `fixed` / 4 `wolf (1)`) — as `_setActiveFalseWhenPause` (`off`) does
    * with the whole effect; ours froze 耶拉's on her (`off` unset) while the lock's hit effect flew her drone at the target.
@@ -3047,8 +3047,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const skillBind = (v) => bindOf(v)?.skills?.[skillIdx(v)] || null;
   const extracted = (v, list) => (Array.isArray(list) ? list.filter((n) => bundleOf(v)?.prefabs.includes(n)) : []);
   const turns = (v) => new Set(bindOf(v)?.turn || []);
-  // ---- a hit turned along its attacker → target line (2026-10-10, decompile check) ----------------------------
-  // Client `HitEffectOptions.OnCastOnTarget` (RVA 0xAE54D0): dir = `_useOwnerToTargetDirection` ? target.mapPos − owner.mapPos
+  // ---- a hit turned along its attacker → target line (2026-10-10, official client) ----------------------------
+  // Client `HitEffectOptions.OnCastOnTarget`: dir = `_useOwnerToTargetDirection` ? target.mapPos − owner.mapPos
   // : the owner's facing; modes.json `hitAim` (char_modes.py) names those effects (언더플로우 S2 udflow_skill_02_hit_01). A
   // prefab with the 'rotation_z' heading pivot turns it to that line (as aimMover, any angle); one without is mirrored to the
   // line's left / right side [추정: how Effect turns to `dir` is not read].
@@ -3066,7 +3066,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /**
    * local patch (maintainer report — 아르케토 S3's `start_02` / `start_02_B` both played; maintainer's decision 2026-10-08 「13명
    * 전체」): an emitter entry's `_effects` is a slot list 0 UP, 1 RIGHT, 2 DOWN, 3 LEFT and its `_directionType` picks the slot
-   * for the owner's facing (char_modes.py `dirs` [{ t, s }]) — client `TryGetEffect` (decompile check 2026-10-10): 0 NONE slot
+   * for the owner's facing (char_modes.py `dirs` [{ t, s }]) — client `TryGetEffect` (official client 2026-10-10): 0 NONE slot
    * 0; 1 L_OR_R left or right (up / down by the side it is drawn facing); 2 U_OR_D slot 0 facing back (up), any other facing
    * slot 2 (the sides show the front model: `faceToBack` false); 3 FOUR_DIR / 5 FOUR_DIR_FIXED the facing's own slot;
    * 4 UD_OR_LR slot 0 / 2 like U_OR_D, the left / right slot when that one is empty. An empty slot plays nothing. Every name of the entry in
@@ -3105,7 +3105,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const PENDING_REACH = 4.5;   // tiles: farther targets are not this skill's (its ranges reach ≤ 4)
   function expect(src, names, buff = false) { if (names.length) pending.push({ src, names, buff, t: clockS }); }
 
-  // ---- cast effects on the attack's own clock (2026-10-10, decompile check; fxmap.js castTiming) ---------------
+  // ---- cast effects on the attack's own clock (2026-10-10, official client; fxmap.js castTiming) ---------------
   // The client starts 87 % of the attacks' `_castEffects` (399 of 466) on ON_CAST_START, raised in AbilityStandard._DoCast
   // before it waits out the pre-delay — as the swing starts, the OnAttack frame × the ability's anim scale before the strike
   // — and the rest on ON_SPELL_ON (the strike). The sim announces each swing (state event ['swing', unit, windup, kind]:
@@ -3167,16 +3167,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       c.fired.add(n);
       const loop = opt && opt.o === 0;
       const end = !loop ? null : opt.e === CAST_EVENT.SPELL_ON || opt.e === CAST_EVENT.SPELL_END ? Math.max(c.hitAt, clockS) : c.end;
-      // (2026-10-10, decompile check) at the ability's playback speed — only the cast effects (CastEffectOptions), the hits at 1.0
+      // (2026-10-10, official client) at the ability's playback speed — only the cast effects (CastEffectOptions), the hits at 1.0
       const go = () => { if (v._fxCast === c && v.alive !== false) play(v, 'attackStart', 0, { names: [n], tag: loop ? 'castLoop' : 'cast', until: end, speed: c.speed, cast: c }); };
       const delay = c.first && opt?.d > 0 ? opt.d / c.speed : 0;
       if (delay > 0) castsDelayed.push({ t: clockS + delay, run: go }); else go();
     }
   }
 
-  // ---- input targets, clip variants, looping hits, 麻痹 (2026-10-11, decompile check round 2) -------------------
+  // ---- input targets, clip variants, looping hits, 麻痹 (2026-10-11, official client, round 2) -------------------
   // InputTargetEffectOptions (modes.json `input`, char_modes.py) is a CastEffectOptions created on the ability's main target
-  // instead of the caster (client `InputTargetEffectOptions.CreateEffect`, RVA 0xB1B5F0): at its `_startEvent` (4 the
+  // instead of the caster (client `InputTargetEffectOptions.CreateEffect`): at its `_startEvent` (4 the
   // strike, 2 the swing start — 시's dusk_attack_01_hit_02 loops on the target from the swing to the strike), at the
   // ability's playback speed, and — `_useInputPos` (castOpt p) — at the target's last place once it died. The main target is
   // the strike's first 'atk' target; a swing names none, so a swing-start one goes on its last attack's target while that
@@ -3267,7 +3267,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   /**
    * 麻痹 interrupted `v`'s cast (sim fx 'palsy' { id } — client `Enemy.CanDoAbilitySpellOn` → `FinishIfNot(PALSY)`):
-   * `EffectOptions.OnCastFinish` (RVA 0xAE1ED0) with reason PALSY ends every effect that cast's options made, the one-shots
+   * `EffectOptions.OnCastFinish` with reason PALSY ends every effect that cast's options made, the one-shots
    * too (`_ClearAllEffects`), and the delayed ones never start.
    */
   function cutCast(v) {
@@ -3353,7 +3353,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (names.length) play(src, 'attackHit', 0, { at: tgt, names, aim: src });
   }
 
-  // ---- a mode buff on enemies (2026-10-10, decompile check: 아스트젠 더 라이트체이서 S3) -----------------------
+  // ---- a mode buff on enemies (2026-10-10, official client: 아스트젠 더 라이트체이서 S3) -----------------------
   // modes.json `attachFoe` of the running skill's mode — the buff's ability selects enemies (halo2 S3 LinkEnemy: its
   // `_selector`'s range selectors `_targetSide 2`, `_maxNum 1`, the enemy already holding `halo2_s_3_link` first) — sits on
   // that enemy: here the enemy her attacks hit, kept on it while it lives and the skill lasts, then the next one she hits;
@@ -3375,12 +3375,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (put) f.on.add(tid);
   }
 
-  // ---- a skill projectile's lasting reach effects (2026-10-10, decompile check: 쏜즈 더 로드스타) -------------
-  // modes.json skills[i].zone (char_modes.py): the client's `EffectBehaviour.OnProjectileReached` (RVA 0x970110) creates
+  // ---- a skill projectile's lasting reach effects (2026-10-10, official client: 쏜즈 더 로드스타) -------------
+  // modes.json skills[i].zone (char_modes.py): the client's `EffectBehaviour.OnProjectileReached` creates
   // the projectile's `_effectsWhenReached` where it lands — parented to its body with `_setReachEffectOnProjectile` (S2's
   // drifting alchemy unit), fixed there otherwise (S1, S3) — and, with `_clearReachedEffectWhenStop`, ends them at
-  // `OnProjectileStop` (0x970650); `ScalableAuraHitBehaviour` (0x982390) makes its `_effectKey` under the projectile's body
-  // scaled to its range and ends it at the stop (0x982620). The sim's area of that projectile is its 'zone' fx event (x, y,
+  // `OnProjectileStop`; `ScalableAuraHitBehaviour` makes its `_effectKey` under the projectile's body
+  // scaled to its range and ends it at the stop. The sim's area of that projectile is its 'zone' fx event (x, y,
   // r / radius, duration / dur; a `key`-ed one re-sent each second as it drifts and grows): the effects play there and stop
   // when its time is up. The aura's scale follows the radius from the first event's [추정: the prefab is drawn for the
   // thrown radius]. 引星棘刺, 锡人, 号角 S1, 波登可 S2 have such projectiles.
@@ -3431,7 +3431,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   /**
    * A zone effect's end at `until`. A reach effect (`fx`) is finished as the client's `EffectBehaviour.OnProjectileStop`
-   * does (10-14 dump RVA 0xA6EDB0 → `Effect.FinishMe`): gone its prefab's `_delayToFinish` later (def.finish; none: at
+   * does (→ `Effect.FinishMe`): gone its prefab's `_delayToFinish` later (def.finish; none: at
    * once) — 2026-10-17 (maintainer report 「패신저 S3 이펙트가 스킬이 끝났는데도 안 사라짐」): stopped, pasngr_skill_03_range's
    * cloud (a 50 s particle) kept the whole field on the board for 46 s more. The aura stops emitting at `until`, as before.
    */
@@ -3464,14 +3464,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (line && camRef) chainLine(`storm:${o.src}:${strikes.get(o.src) || 0}`, bundleOf(src).bundle, line, from, tgt, c.hit === 1);
     return true;
   }
-  // ---- a chain shot's line (2026-10-16, decompile check, docs/rules/fx.md 「연쇄 공격」) ------------------------------
-  // Client ChainLightningHitBehaviour (DoSelectTargetToHit RVA 0xA690F0, OnProjectileReached 0xA69C10): the shot reaching
+  // ---- a chain shot's line (2026-10-16, official client, docs/rules/fx.md 「연쇄 공격」) ------------------------------
+  // Client ChainLightningHitBehaviour (DoSelectTargetToHit, OnProjectileReached): the shot reaching
   // its first unit hits every unit of the chain at once — each gets the projectile's `_effectsWhenHit` — and its chain
-  // graphic, the projectile's first ChainLightningEffectBehaviour (`get_effect` 0xA6A130: GetComponent), draws its
-  // `_mainEffect` once (PlayLineEffect 0xA68660): made at the projectile, every LineRenderer of it gets one point per struck
+  // graphic, the projectile's first ChainLightningEffectBehaviour (`get_effect`: GetComponent), draws its
+  // `_mainEffect` once (PlayLineEffect): made at the projectile, every LineRenderer of it gets one point per struck
   // unit in order — the shooter is not on it —, set once (they do not follow the units): the unit's hit point
   // (`Entity.hitPoint`) with `_playEffectOnHitPoint`, else its transform's position (modes.json `chainHit[mode]` /
-  // skills[i].chain.hit, char_modes.py); the projectile's stop finishes it (OnProjectileStop 0xA68470). The sim sends each
+  // skills[i].chain.hit, char_modes.py); the projectile's stop finishes it (OnProjectileStop). The sim sends each
   // bounce as 'atk' [previous unit, next unit, 'chain' | 'chainHeal', null, shooter, the chain's first unit] (ai.js, 溯光星源
   // S1's kit), every bounce of a chain in one moment: they make one line; the next unit's 'dmg' plays the mode's hit
   // effects (lastAtk). Before, a bounce went down the attack path of its previous unit — an enemy's own attack cast effects
@@ -3550,9 +3550,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     play(a.src, a.src._fxSkillOn ? 'skillHit' : 'attackHit', skillIdx(a.src), { at: tgt });
   }
   /**
-   * 2026-10-16, decompile check: the per-strike hits of an attack in `mode` (modes.json `hitGroups[mode]`; a skill that
+   * 2026-10-16, official client: the per-strike hits of an attack in `mode` (modes.json `hitGroups[mode]`; a skill that
    * switches no mode, −1: its own skills[i].hitGroups — 阿斯卡纶 S1), or null. The client's MultiHitUberEffectEmitter
-   * (`OnCastOnTarget` RVA 0xCBB0B0) plays group n on the target of the cast's n-th strike (`spellCnt`, 0 at the cast
+   * (`OnCastOnTarget`) plays group n on the target of the cast's n-th strike (`spellCnt`, 0 at the cast
    * start), the last group past the end; `loop` n modulo the groups, `rand` a random one (char_modes.py hit_groups). The
    * sim sends an attack's strikes as one 'atk' and its 'dmg's of the same tick (赤刃明霄陈 S1 / S3, 德克萨斯 S2, 锏 …), each
    * numbered by its 8th field `strike` (damage.js; without it, an older sim: the i-th of them). Before, only the first
@@ -3946,9 +3946,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (aimed.length) eplay(src, aimed, { at: tgt, aim: src });
     if (Array.isArray(part.hitBuff) && part.hitBuff.length) eholdBuff(src, part, tgt);
   }
-  // 2026-10-11, decompile check round 2 — a buff an enemy's attack puts on its target shows its own effect on that target
-  // while the buff lasts, one per name per unit: client `Entity.AddBuffEffect` (RVA 0x35F3CA0) keeps it with a ref count
-  // (`BuffEffectHolder.refCounter`) and `RemoveBuffEffect` (0x36001C0) finishes it as the last buff of that name ends.
+  // 2026-10-11, official client, round 2 — a buff an enemy's attack puts on its target shows its own effect on that target
+  // while the buff lasts, one per name per unit: client `Entity.AddBuffEffect` keeps it with a ref count
+  // (`BuffEffectHolder.refCounter`) and `RemoveBuffEffect` finishes it as the last buff of that name ends.
   // enemy-modes.json `hitBuffLife` { name: life } (enemy_bindings.py): a LIMITED buff — held `life` s, a hit while it stands
   // renews it [추정: maxStackCnt 1, the life restarts]; IMMEDIATELY (0) — the prefab's own run; a buff whose end the tables
   // do not give (INFINITY / CUSTOM: a stun's, a status's — its end is the sim's) — the prefab's own run as before, but one at
@@ -3978,8 +3978,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       });
     }
   }
-  // 2026-10-10: a buff's line effect (its template's `Nodes.CreateLineEffect` on ON_BUFF_START — client `Execute`, RVA
-  // 0xB91190: the effect is made on the buff's owner and its LineEffectEmitterDynamic gets start owner = the buff's source,
+  // 2026-10-10: a buff's line effect (its template's `Nodes.CreateLineEffect` on ON_BUFF_START — client `Execute`:
+  // the effect is made on the buff's owner and its LineEffectEmitterDynamic gets start owner = the buff's source,
   // end owner = the owner; fx_extract.py `lineDyn` has the prefab's mount points and start / end effects). 假想敌：胄's attacks
   // (Combat and Attack) put acstmk_line_effect (lifeTime 5) on their target: enemy_acstmk_attack_line runs from its
   // SPECIAL_0 point to the target's HIT point with its `_startEffect` on the start, and ends with the buff
@@ -4202,9 +4202,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     Object.defineProperty(b, '_animSkill', { value: map, enumerable: false });
     return map;
   }
-  // ---- deploy / dead effects of operators and tokens (2026-10-11, decompile check round 2) ------------------------
-  // Client `Character.get_startEffect` (RVA 0x7085E0): a character's deploy plays its prefab root's `_startEffect` (a mode's
-  // `_overrideStartEffect` first — `GetStartEffect`, 0x6F74B0), else common_char_birth_01 — a token common_call_start_01
+  // ---- deploy / dead effects of operators and tokens (2026-10-11, official client, round 2) ------------------------
+  // Client `Character.get_startEffect`: a character's deploy plays its prefab root's `_startEffect` (a mode's
+  // `_overrideStartEffect` first — `GetStartEffect`), else common_char_birth_01 — a token common_call_start_01
   // (`DefaultEffects.CHARACTER_BORN` / `TOKEN_BORN`); `_onlyPlayStartEffectOnce` keeps it to the first deploy. Its death
   // plays `_deadEffect`, else common_char_die_01. Here on each 'deploy' (a 【移动】 too — the client redeploys) of an
   // operator / token whose prefab is extracted (its own bundle, else the shared `common` one), and on its 'die' when knocked
@@ -4284,8 +4284,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
   }
   /**
-   * 2026-10-16, decompile check: the always-on effects (fxmap.js commonEffects) — client `Unit.AttachCommonAbilities` (RVA
-   * 0x84DF50) attaches the root's common abilities with the unit, so their INFINITY buffs' effects stay through every mode and
+   * 2026-10-16, official client: the always-on effects (fxmap.js commonEffects) — client `Unit.AttachCommonAbilities`
+   * attaches the root's common abilities with the unit, so their INFINITY buffs' effects stay through every mode and
    * skill. Started on each deploy (a 【移动】 re-attaches them: the old ones end first), ended by its 'die' (stopOwned).
    * Not `buff` entries: stopBuffs ends those with every skill.
    */
@@ -4297,9 +4297,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     for (const n of names) spawn(b.bundle, n, v, { owner: id, buff: false, onCaster: true, until: null, tag: 'common', pinned: true }, { over: false, facing: efacing(v) });
   }
   /**
-   * 2026-10-21 (maintainer decision 2026-10-21, decompile check): the Default mode's own effects (fxmap.js defaultModeEffects).
+   * 2026-10-21 (maintainer decision 2026-10-21, official client): the Default mode's own effects (fxmap.js defaultModeEffects).
    * The client attaches a mode's abilities with the mode and detaches them when another mode takes over (Unit.SwitchMode →
-   * ActivateMode); a detach ends their effects — an aura's own (AuraAbility.DoDetach RVA 0xC21E20 → _ClearEffects 0xC23390:
+   * ActivateMode); a detach ends their effects — an aura's own (AuraAbility.DoDetach → _ClearEffects:
    * Effect.FinishMe(false), it fades) and a buff's (Entity.RemoveBuffEffect). So they show while the operator is deployed and
    * no running skill switched her mode (a skill that switches none, attackMode −1, keeps the Default mode) — through a stun
    * too —, end at a mode-switching skill's start, come back at its end and end with her retreat / death (stopOwned).
@@ -4330,9 +4330,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const eborn = new Map();   // enemy id → battle clock of its 'spawn' (its view is built right after the event)
   /**
    * The enemies spawned since the last frame: their start effect and auras. The start effect is the prefab root's
-   * `_startEffect` only — client code `Enemy.States.BornState._PlayAnimation` (RVA 0x73C6F0) plays `Enemy.get_startEffect`
-   * (0x733ED0), which returns the root field and never a UnitMode's `_overrideStartEffect` (only `Character.GetStartEffect`,
-   * 0x6F74B0 — operators and tokens — reads that).
+   * `_startEffect` only — the client's `Enemy.States.BornState._PlayAnimation` plays `Enemy.get_startEffect`
+   *, which returns the root field and never a UnitMode's `_overrideStartEffect` (only `Character.GetStartEffect`
+   * — operators and tokens — reads that).
    */
   function flushEnemyBirths(views) {
     if (!eborn.size || !views) return;
@@ -4355,9 +4355,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /**
    * Each frame: an enemy whose mode changed (its clip set's attack) ends the old mode's loop casts (ON_DETACHED) and tells
    * the sound (contract 1 of the 2026-10-10 split: audio.enemyMode(unitId, defId, mode, previous mode)); a bound skill's clip
-   * starting plays it. A mode switch plays no effect of its own: client code `Unit.SwitchMode` (RVA 0x76E1D0) runs
-   * `InactiveMode` → `ActivateMode` (0x766E20: the new mode's GameObject on, its abilities attached) → `OnSwitchMode`
-   * (`Enemy.OnSwitchMode` 0x727200: its skills detached / attached, `Unit.OnSwitchMode` 0x76C810: the state machine restarted,
+   * starting plays it. A mode switch plays no effect of its own: the client's `Unit.SwitchMode` runs
+   * `InactiveMode` → `ActivateMode` (the new mode's GameObject on, its abilities attached) → `OnSwitchMode`
+   * (`Enemy.OnSwitchMode`: its skills detached / attached, `Unit.OnSwitchMode`: the state machine restarted,
    * `BuffContainer.OnUnitSwitchMode`) — none creates an effect, and the mode's `_overrideStartEffect` is not read for an enemy.
    * The mode is tracked whenever the bindings are loaded (the sound needs it at quality 'low' too).
    */
@@ -4394,7 +4394,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   /**
    * 2026-10-23 (docs/rules/fx.md 「적 상태의 버프 이펙트」): the effects of the rebirth enemy `v` starts in mode `mode` —
-   * enemy-modes.json `reborn` (its RebornTalents' `_effects`, the talent outside the modes or in that mode). Client code
+   * enemy-modes.json `reborn` (its RebornTalents' `_effects`, the talent outside the modes or in that mode). The client's
    * `Enemy.OnReborn` → `DoFakeDeath` (buffs cleared) → `Enemy.States.RebornState.OnEnter`: created as the rebirth starts, on
    * their own (`BattleController.CreateEffects`) — finished as it ends only with `_clearEffectsAfterReborn`, which none of
    * ours sets (`clear` 0) [추정: such a one would play its own length here too].
@@ -4408,7 +4408,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   /**
    * An enemy's death: its dead effect where it falls — its mode's `_overrideDeadEffect`, else the root's `_deadEffect`, else
-   * common_enemy_die_01 (client code `Enemy.get_deadEffect`, RVA 0x730300). enemy-modes.json `dead` carries the default
+   * common_enemy_die_01 (the client's `Enemy.get_deadEffect`). enemy-modes.json `dead` carries the default
    * already (enemy_bindings.py); '' = none (a `Trap` token without its own: 子代), the fallback only for an entry without it.
    */
   const edeadOf = (v) => {
@@ -4503,7 +4503,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     /**
      * 2026-10-21: a battle unit's Spine clip event (render/app.js ctx.spineEvent): OnDeactivateEffect / OnActivateEffect
      * pause / unpause its effects' PauseEffectIfSpineEvent (`Entity.Event` ON_DEACTIVATE_EFFECT_EVENT 38 / ON_ACTIVATE 37 →
-     * `_OnPauseEffect` RVA 0xE93110 / `_OnPlayEffect` 0xE93190; `invert` swaps them).
+     * `_OnPauseEffect` / `_OnPlayEffect`; `invert` swaps them).
      */
     spineEvent(id, name) {
       const off = name === 'OnDeactivateEffect';
@@ -4529,8 +4529,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     },
     /**
      * local patch (⑤): end the status effect `key` on `view`; `now` (render/fxstatus.js): as the client finishes a buff's
-     * effect (Entity.OnBuffFinish → RemoveBuffEffect RVA 0x36001C0 → Effect.FinishMe RVA 0xC88FE0) — emission stops and the
-     * effect is removed its prefab's `_delayToFinish` later (ParticleEffect.get_delayToRecycle RVA 0xCB3470; def.finish),
+     * effect (Entity.OnBuffFinish → RemoveBuffEffect → Effect.FinishMe) — emission stops and the
+     * effect is removed its prefab's `_delayToFinish` later (ParticleEffect.get_delayToRecycle; def.finish),
      * at once when that is 0 (buff_stun) — instead of its particles living out their lifetimes.
      * local patch (maintainer report 2026-10-08: the stun marks stacked over a re-stunned enemy): an ended effect never
      * restarts (`again` was still set — the stopped one, done, saw the status on again and started a copy beside the new
@@ -4700,7 +4700,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (tgt && (src._fxSkillOn || level() < 3)) shotStartFx(src, tgt, mode, shot);
           return;
         }
-        // (2026-10-10, decompile check): the sim's swing start ['swing', unit, windup, kind] — an attack's
+        // (2026-10-10, official client): the sim's swing start ['swing', unit, windup, kind] — an attack's
         // ON_CAST_START cast effects (swingFx). Every state event reaches onEvent, so render/app.js needs no call of its own.
         case 'swing': {
           const src = views.get(e[1]);

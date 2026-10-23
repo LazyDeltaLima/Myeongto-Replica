@@ -117,7 +117,7 @@ test('战术家 援军 (伺夜): the tactical point is the tile in FRONT along t
 });
 
 test('突袭 (raidShip): the landing box turns with the member direction (the enemy tile, then the one behind it)', () => {
-  // client code AutoChessRebuildCharacterOnTile: LitePhysicsUtil.FindTilesInBox("1-1", enemy tile, the opposite of the
+  // the client's AutoChessRebuildCharacterOnTile: LitePhysicsUtil.FindTilesInBox("1-1", enemy tile, the opposite of the
   // member's direction) in the range's grid order — the enemy's own tile first, then the tile behind it as seen from the
   // member (local (0, −1)); no attack-range condition. The enemy stands inside the player's own board (rows 9–12,
   // cols 2–10, Battle.onFieldBoard on a one-player field).

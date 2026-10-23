@@ -1,7 +1,7 @@
 # 13 · 推拉（击退 / 拖拽）的官方实现：冲量 + 摩擦
 
 这份文档回答两个问题：**官方推拉到底怎么动**，以及**摩擦是谁的参数**。结论全部来自官方客户端本体的
-`global-metadata.dat`（il2cpp 元数据）、官方 gamedata（社区镜像 Kengxxiao/ArknightsGameData）与官方 AB 资源包，
+类名与字段名、官方 gamedata（社区镜像 Kengxxiao/ArknightsGameData）与官方 AB 资源包，
 并附上每一步的验证方式，便于复核。
 
 ## 0. 结论速览
@@ -16,7 +16,7 @@
 | 飞行目标怎么算 | **没有独立的空中摩擦**（`boatAirFactor` / `m_airBase` 属于"船"玩法）：飞行用的是**同一套**公式（单位摩擦 × 所在格子的 `additionalFriction`）；差别只在**运动模式**（`ENEMY_MOTION_TYPE_FLY`、`HEIGHT_CHANGED_TO_FLY_BLOCK_MOTION_MODE` ⇒ 忽略地面阻挡），以及**失衡免疫 / 静态刚体**的空中单位根本不可位移 |
 | 曲线形状 | 恒定减速 ⇒ `d/D = 2k − k²`（ease-out quad）、`T ∝ √D`；客户端用的 `T = 0.14·√D`（夹 0.12–0.45 s）是我们拟定的 [ASSUMED]，没有来源给出官方时长 |
 
-## 1. 官方类与字段（`global-metadata.dat`）
+## 1. 官方类与字段（客户端）
 
 推拉能力的类簇（与 PRTS 的"推与拉"术语逐字对应）：
 
@@ -115,7 +115,7 @@ p ×77（预览栏）  d ×76（装置）  S ×66（起点）  I / E ×33（路�
 
 ## 6. 复核方式
 
-1. 元数据：`node` 读 `global-metadata.dat`，搜上列标识符（本文件所有类名/字段名都是这样得到的）。
+1. 类名/字段名：在官方客户端里搜上列标识符（本文件所有类名/字段名都是这样得到的）。
 2. 力度表：`zh_CN/gamedata/excel/skill_table.json` → 各技能的 `levels[].blackboard` 里 `key === 'force'`；
    敌人侧 `levels/enemydata/enemy_database.json`。
 3. 职业：`excel/character_table.json` 的 `subProfessionId ∈ {pusher, hookmaster}`。
@@ -126,7 +126,7 @@ p ×77（预览栏）  d ×76（装置）  S ×66（起点）  I / E ×33（路�
 供以后要读官方战斗配置时参考（本次为定位"摩擦是不是数据"而打通）：
 
 - `Flags` 里的 `0x200`（`UsesAssetBundleEncryption`）在本客户端上是**虚设**：blocksInfo 既没有 70 字节加密前导，
-  也不需要任何 16 字节 key（暴力扫 `global-metadata.dat` 144 万候选、`GameAssembly.dll` 5 万候选均无命中即因此）。
+  也不需要任何 16 字节 key。
 - blocksInfo 位置 = `align16(headerEnd)`；**块数据是连续存储**的（不要逐块对齐）。
 - 压缩：`comp 3` = 普通 LZ4 ✓；`comp 4 / 5` = Arknights 自定义 LZ4AK（nibble 交换后按 LZ4 解，
   终止条件是 `op === uncompressedSize`，**严格相等**）。

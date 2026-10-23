@@ -343,7 +343,7 @@ describe('④ official damage / heal numbers (num-official.js, local-hud.js dama
     nums.blocked(v, 1234, true); nums.blocked(v, 1234, false);
     assert.deepEqual(nums.live.map((t) => [t.kind, t.text.text]), [['blue', '1234'], ['block', 'BLOCK']]);
   });
-  test('numbers move as the client code tweens them (UIDamageText / UIHealText.SetTweens)', async () => {
+  test('numbers move as the client tweens them (UIDamageText / UIHealText.SetTweens)', async () => {
     const N = await import('../public/js/render/num-official.js');
     const nums = new N.OfficialNumbers(fakeViewCtx(fake.P, { viewport: () => ({ width: 1920, height: 1080 }) }));
     const v = { screen: { x: 0, y: 600 } };

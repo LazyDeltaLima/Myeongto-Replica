@@ -62,7 +62,7 @@ export function bankMix(sounds, path) {
 
 /**
  * 2026-10-10, docs/rules/audio.md 「효과음 재생: 피치·동시 재생 상한」: how the client plays a bank's sound
- * (클라 코드 `SoundFXBank.Play` RVA 0x34B22A0, `SoundFXBank.SoundFX._SetAudioChannel` RVA 0x34B3500): every play picks a
+ * (`SoundFXBank.Play`, `SoundFXBank.SoundFX._SetAudioChannel`): every play picks a
  * pitch in [minPitch, maxPitch] of the sound (most battle sounds 0.8–1.2), and a bank at `maxSoundAllowed` (> 0) stops its
  * oldest sounds for the new one when `popOldest`, else drops the new one.
  * @param {{ sounds?: any[], maxSoundAllowed?: number, popOldest?: boolean }} b the bank
@@ -187,7 +187,7 @@ export function indexAudio(audioData) {
   }
   const snapshotOf = (name) => snapByHook.get(name) || null;
   // docs/rules/audio.md 「더빙 효과음」: soundFxVoiceLang — bank → character → dub (JP / KR / EN / CN_MANDARIN) → the bank
-  // the client plays instead for that character in that dub (클라 코드 BattleController.PlayAudioAtPos →
+  // the client plays instead for that character in that dub (BattleController.PlayAudioAtPos →
   // VoiceLangManager.TryHookAudioByFxLang: 浊心斯卡蒂's deploy and skill starts with her line mixed in)
   const fxLang = audioData?.soundFxVoiceLang && typeof audioData.soundFxVoiceLang === 'object' ? audioData.soundFxVoiceLang : {};
   const dubsOf = (name, charId) => { const m = fxLang[name]?.[charId]; return m && typeof m === 'object' ? m : null; };
@@ -257,8 +257,8 @@ export function pickUnitSfx(banks, opts = {}) {
   const exact = (event) => ['attack', 'combat'].map((ab) => banks.get(`${event}.${ab}`)).find((p) => p?.length && ok(p)) ?? null;
   const own = (p) => (p?.length && ok(p) ? p : null);
   // 2026-10-10, docs/rules/audio.md 「START·ON·HIT」: the ON bank of the ability whose START bank sounds the
-  // attack — the client emits START, ON (클라 코드 AbilityStandard.DoEmitAudioSignalForSpellOn RVA 0x34EEDC0) and HIT
-  // (DoEmitAudioSignalForHit RVA 0x34EEC20) each on its own, and the middleware plays every bank of the name, so an
+  // attack — the client emits START, ON (AbilityStandard.DoEmitAudioSignalForSpellOn) and HIT
+  // (DoEmitAudioSignalForHit) each on its own, and the middleware plays every bank of the name, so an
   // ability with both START and ON banks sounds both (`on`, played with the attack); ON is no stand-in for a missing START
   const onBeside = (start) => {
     if (!start) return null;
@@ -399,10 +399,10 @@ export function resolveSpec(spec, bank) {
 //
 // Every playable operator has official battle lines (行动出发 / 行动开始 / 选中干员 / 部署 / 作战中 / 编入队伍 /
 // 任命队长 / 结算 / 干员报到) in `voice_cn/<charId>/cn_<n>.mp3` — JP: `voice/`, EN: `voice_en/`, KR: `voice_kr/`,
-// the same file names in every dump, only the folder differs. charword_table.json's `placeType` says when the game
-// plays each line; its `voiceAsset` is the path under the dump.
+// the same file names in every language, only the folder differs. charword_table.json's `placeType` says when the game
+// plays each line; its `voiceAsset` is the path under that folder.
 
-/** Voice dump folder per language (under sound_beta_2). */
+/** Voice folder per language (under sound_beta_2). */
 export const VOICE_DIRS = Object.freeze({ cn: 'voice_cn', jp: 'voice', en: 'voice_en', kr: 'voice_kr' });
 
 /** Official `placeType` → the manifest's voice slot (public/js/audio.js VOICE_PRIORITY / VOICE_COOLDOWN_MS). */
@@ -445,7 +445,7 @@ export const VOICE_PREP_SLOTS = Object.freeze(['gacha', 'squad', 'squadFirst']);
 
 /**
  * Index charword_table.json into per-character voice slots, in voiceIndex order (one slot may have several lines).
- * Only the base word key (`wordKey === charId`) is used: the dump has no folder for a skin variant's word key
+ * Only the base word key (`wordKey === charId`) is used: the voice assets have no folder for a skin variant's word key
  * (`char_x_ita`, `char_x_epoque#28`, …) — those files simply do not exist upstream.
  * @param {any} charword parsed excel/charword_table.json
  * @param {string} [lang] voiceId prefix — the zh_CN table carries the `CN_*` lines; the other dubs share the numbering

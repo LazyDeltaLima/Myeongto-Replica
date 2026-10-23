@@ -1,6 +1,6 @@
-// test/render/fx-follow-direction.test.js — the client's FollowDirection (decompile check 2026-10-22, docs/rules/fx.md
+// test/render/fx-follow-direction.test.js — the client's FollowDirection (official client 2026-10-22, docs/rules/fx.md
 // 「이펙트 방향」): an effect with it on its root is turned again as it plays and every frame after to its owner's direction
-// (`_FollowDirection` RVA 0xE81360 → `Effect.Behaviour.FaceTo`) — fx_extract.py `follow`, fx/face.js followDir, the frame
+// (`_FollowDirection` → `Effect.Behaviour.FaceTo`) — fx_extract.py `follow`, fx/face.js followDir, the frame
 // loop's stepFollow in render/fxgame.js.
 
 import { test } from 'node:test';
@@ -61,7 +61,7 @@ test('the extracts carry `follow` (skipped without public/assets)', { skip: !exi
   assert.equal(load('agoat2/agoat2_skill_02_range_01').face.rot, 2);
 });
 
-// 「이펙트 붙는 자리」 (decompile check 2026-10-22): a model-point effect without a FollowMountPoint is placed once — with the
+// 「이펙트 붙는 자리」 (official client 2026-10-22): a model-point effect without a FollowMountPoint is placed once — with the
 // muzzle's turn for MUZZLE_POINT 3, mirrored as π − θ for a model drawn facing left — and moves with its unit only when held
 test('a model-point effect without a mount is placed once; held ones ride with the unit, MUZZLE_POINT takes its turn', () => {
   assert.match(SRC, /if \(!def\?\.mount\) return placedAt\(v, def, key, spawn, at, buff\);/);

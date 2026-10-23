@@ -216,8 +216,8 @@ export function signalAttackKey(su, at, melee) {
   if (su.def === 'char_4039_horn' && at === 'a' && (su.skillIndex === 1 || su.skillIndex === 2)) {
     return `horn:${su.skillIndex + 1}:${su.over ? 'overload' : 'normal'}:${melee ? 'melee' : 'ranged'}`;
   }
-  // (2026-10-21, decompile check) the start at her strike: rockr_s_2[attack_start_audio] is the S2 Attack's
-  // BuffToOwnerDuringAbility (OnEvent RVA 0xCADE60) with _startEvent ON_SPELL_ON (4); the hit is its `_activeBuffs` on the target
+  // (2026-10-21, official client) the start at her strike: rockr_s_2[attack_start_audio] is the S2 Attack's
+  // BuffToOwnerDuringAbility (OnEvent) with _startEvent ON_SPELL_ON (4); the hit is its `_activeBuffs` on the target
   if (su.def === 'char_4040_rockr' && su.skillIndex === 1 && (at === 'a' || at === 'd')) return `rockr:${at === 'a' ? 'atk' : 'hit'}${su.over ? 'o' : ''}`;
   // 2026-10-11: 실버애쉬 더 레인프로스트 S3 — every strike fires projectile_chr_svash2_s3 (skill prefab projectile): its BORN
   if (su.def === 'char_1045_svash2' && su.skillIndex === 2 && at === 'a') return 'svash2:s3born';
@@ -605,7 +605,7 @@ const UNLOCK_EVENTS = ['pointerdown', 'touchend', 'click', 'keydown'];
 
 /**
  * Concurrency of battle SFX. 2026-10-10, docs/rules/audio.md 「효과음 재생: 피치·동시 재생 상한」: the official
- * SoundFXBank.Play (클라 코드 RVA 0x34B22A0) — a bank (`key`) at its maxSoundAllowed (> 0) stops its oldest sounds for the new
+ * SoundFXBank.Play — a bank (`key`) at its maxSoundAllowed (> 0) stops its oldest sounds for the new
  * one when popOldest, else refuses the new one; 0 = no cap. Beside it one cap for all battle sounds (MAX_VOICES). No per-unit
  * or per-URL gap (the client has none). Pure bookkeeping: `acquire` hands out a slot whose `cut` the caller sets (popOldest
  * calls it), `release(slot)` when the sound ends.
@@ -734,7 +734,7 @@ function isAudioResponse(res) {
 }
 export class AudioManager {
   /**
-   * @param {{ getManifest?: () => any, win?: any }} [opts]
+   * @param {{ getManifest?: => any, win?: any }} [opts]
    */
   constructor(opts = {}) {
     this.getManifest = typeof opts.getManifest === 'function' ? opts.getManifest : () => null;
@@ -1103,7 +1103,7 @@ export class AudioManager {
     if (!this.ctx || !url || this.volumes.muted || this.volumes.sfx <= 0) return;
     const info = bankPlayOf(this.getManifest(), url) ?? (pop && Number.isInteger(pop.max) ? [1, 1, pop.max, pop.pop ? 1 : 0] : DEFAULT_BANK);
     const pitch = Number.isFinite(rate) && rate > 0 ? rate : playPitch(info, Math.random);
-    // 2026-10-10, docs/rules/audio.md 「공격 소리 신호」: the sound's own delay — SoundFXBank.Play (RVA 0x34B22A0)
+    // 2026-10-10, docs/rules/audio.md 「공격 소리 신호」: the sound's own delay — SoundFXBank.Play
     // waits `delay / Time.timeScale` (a battle sound: the game speed; a UI one plays at time scale 1)
     const d0 = Number.isFinite(ownDelay) ? ownDelay : info.length > 4 ? info[4] : 0; // a cue's own bank delay first (_playCue)
     const delay = d0 > 0 ? d0 / (limited ? this.gameSpeed() : 1) : 0;
@@ -1451,7 +1451,7 @@ export class AudioManager {
    * docs/rules/audio.md 「적 소리」: the renderer saw enemy `unitId` (model `defId`) switch to prefab mode `modeIndex` (the
    * `_modes` order of its prefab, from `prevModeIndex`; render/fxgame.js — IMPL contract 「적 모드 전환」). Its attacks sound
    * that mode's signals from now on (`sfx.units[def].em[mode]`, mode 0 = its Default cues). The client's switch
-   * (`Unit.SwitchMode` RVA 0x76E1D0 → InactiveMode / ActivateMode) sounds nothing of its own: the change clip's spine events
+   * (`Unit.SwitchMode` → InactiveMode / ActivateMode) sounds nothing of its own: the change clip's spine events
    * (spineEvent) and the mode's abilities do. Returns whether the unit's attack sounds changed.
    */
   enemyMode(unitId, defId, modeIndex, prevModeIndex) {
@@ -1764,7 +1764,7 @@ export class AudioManager {
         }
         if (kind === 'swing') {
           // 2026-10-10, docs/rules/audio.md 「공격 소리 신호」: a normal attack's swing starts — its START banks now
-          // (AbilityStandard.OnCastStart RVA 0x34F0A90), its group child chosen for the whole attack (sim ai.js 'swing')
+          // (AbilityStandard.OnCastStart), its group child chosen for the whole attack (sim ai.js 'swing')
           const su = this.units.get(e[1]);
           if (!su) continue;
           su.sw = this._swingOf(su, e[3], now, e[2]);
@@ -2015,7 +2015,7 @@ export const audio = new AudioManager({ getManifest: () => manifestGetter() });
 
 /**
  * Wire the singleton to the app (called once by main.js): manifest source, settings and store-driven BGM.
- * @param {{ getManifest: () => any, subscribe: (fn: (s:any, prev:any) => void) => () => void, getState: () => any,
+ * @param {{ getManifest: => any, subscribe: (fn: (s:any, prev:any) => void) => => void, getState: => any,
  *   selectRoute: (s:any) => string, settings?: { bgm:number, sfx:number, voice:number, muted:boolean } }} deps
  */
 export function installAudio(deps) {

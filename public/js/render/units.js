@@ -207,17 +207,16 @@ const RAISED_Z = 0.12;
  * block under it is no step (GitHub #277) —, an operator or summon above its tile.
  *
  * The official client's fly offset is a **single constant, `Vector3(0, 0.35f, 0)`**: `Torappu.Battle.CharacterAnimator`'s
- * constructor stores it in the instance field at +0x114 (`GameAssembly.dll` 0x180600555 reads the constant at 0x186a78a50 =
- * 0x3EB33333; x and z are 0), and `_SetFlyMountPointOffset` / `_SetFlyHitOffset` add it to the mount / hit transforms
- * while the unit flies and add its negation when it lands (the sign flips through the −0.0 mask at 0x186a77e00). It is
- * model-independent: no store to that field exists anywhere in the binary except the constructor.
+ * constructor sets it (0.35 up; x and z are 0), and `_SetFlyMountPointOffset` / `_SetFlyHitOffset` add it to the
+ * mount / hit transforms while the unit flies and add its negation when it lands. It is model-independent: nothing but
+ * the constructor sets that field.
  *
  * `0.35` is that constant in the client's own (character) space, whose unit is the standard battle-prefab scale **0.27**
  * (our `enemies.json modelScale` is a multiple of it — units.js `enemyModelScale`), so the lift is **0.35 / 0.27 ≈ 1.3
  * tiles** [ASSUMED: the hierarchy that yields the 1 / 0.27 factor]. An official screenshot (帝国炮火先兆者 over a tile)
  * measures the same: the drone's art bottom sits 1.2–1.4 tiles above the ground it crosses.
  *
- * **No per-model term** — (a) the binary never rewrites the offset; (b) the battle prefabs carry no per-model vertical
+ * **No per-model term** — (a) the client never rewrites the offset; (b) the battle prefabs carry no per-model vertical
  * correction for flyers (their `Graphic` node sits at local (0,0,0), or at the (0,−0.2,−0.06) their ground-unit prefab
  * family shares — unrelated to how far each model's art hangs below its pivot). So a model whose art hangs below its
  * origin keeps that hang in the official too: 妖怪 flies with its rotors ≈ 0.9 tiles up, 帝国炮火先兆者 with its art
@@ -687,7 +686,7 @@ function bar(P, parent, color, alpha = 1) {
 /**
  * Shared context handed to every view by app.js.
  * @typedef {{ P: any, layers: { shadow: any, units: any, bars: any, groundFx: any },
- *   assets: any, cam: () => any, heightAt: (r:number,c:number)=>number, fx: any, time: () => number,
+ *   assets: any, cam: => any, heightAt: (r:number,c:number)=>number, fx: any, time: => number,
  *   settings: { damageNumbers: boolean, quality: string, eliteBadge?: boolean } }} ViewCtx
  */
 
@@ -1351,7 +1350,7 @@ export class UnitView {
 
   /**
    * An attack turns this operator / summon toward world point (x, y) as its swing starts (sim 'swing' with its main
-   * target, render/app.js; client code `Entity.FaceToTarget`: nothing within 0.2 tiles; `Entity.FaceTo`: not while
+   * target, render/app.js; the client's `Entity.FaceToTarget`: nothing within 0.2 tiles; `Entity.FaceTo`: not while
    * stunned, frozen or asleep). Mirrors it toward a target behind it, takes the Back model for one above it
    * (render/face-turn.js). docs/rules/render.md 「공격 방향」.
    */
@@ -1363,7 +1362,7 @@ export class UnitView {
 
   /**
    * Turn toward the vector (dx, dy) (`idle`: the way back to the deploy direction, FaceToDirection(idle)). The change
-   * shows half way through a SWITCH_TIME turn (client code `FaceSwitcher._DoSwitchFaceInternal`, update → turnWidth); a
+   * shows half way through a SWITCH_TIME turn (the client's `FaceSwitcher._DoSwitchFaceInternal`, update → turnWidth); a
    * turn under way completes first (`_KillLastTween` → Kill(true)); a unit with no model drawn turns at once.
    */
   turnTo(dx, dy, idle = false) {
@@ -1383,7 +1382,7 @@ export class UnitView {
   }
 
   /**
-   * Face the deploy direction again (sim 'face': no target left, blocking nobody — client code `TryFaceToIdleDirection`
+   * Face the deploy direction again (sim 'face': no target left, blocking nobody — the client's `TryFaceToIdleDirection`
    * → `FaceToDirection(idle)`; `idle` false: an attack whose ability faces its default direction, `_faceToDefault`).
    */
   faceDeploy(idle = true) {

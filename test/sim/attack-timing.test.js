@@ -1,5 +1,5 @@
 // test/sim/attack-timing.test.js — the official normal-attack timing for operators (and the shared rules with enemies:
-// test/sim/feedback5-enemy-swing.test.js): client code `AbstractAnimatedAbility.UpdatePlaybackSpeed` (the clip scale =
+// test/sim/feedback5-enemy-swing.test.js): the client's `AbstractAnimatedAbility.UpdatePlaybackSpeed` (the clip scale =
 // interval ÷ clip within [0.1, `_maxAnimScale`], the swing = scale × clip, the strike at the OnAttack frame × scale),
 // `AbilityStandard.CastToTarget` (the cooldown restarts as the swing starts), `Ability.InterruptIfNot` (a stun cuts the
 // swing and leaves the cooldown), `Entity.OnTick` (the cooldown runs through a stun), `DoCastOnTargets` (a target dead at the
@@ -131,7 +131,7 @@ test('_maxAnimScale: a bound of 1 leaves a slow attacker\'s swing at the clip le
   }
 });
 
-// docs/rules/render.md 「공격 방향」: the swing names the target its unit turns to (client code `DealWithFaceDirection`);
+// docs/rules/render.md 「공격 방향」: the swing names the target its unit turns to (the client's `DealWithFaceDirection`);
 // with no target left and blocking nobody, ['face', unit] turns it back (`IdleState.OnEnter` → `TryFaceToIdleDirection`)
 test('the swing names its main target — an enemy it blocks behind it too; no target left → a face event back to its deploy direction', () => {
   const op = { ...chessRec({ id: 't_op', stats: { atk: 100, bat: BAT }, skill: null, rangeGrid: [[0, 0], [0, 1], [0, 2]] }),

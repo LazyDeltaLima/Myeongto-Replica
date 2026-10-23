@@ -5,13 +5,13 @@ An enemy ability that shoots names its projectile prefab (`_projectileKey`, fire
 `_mountPointType`, Entity.MountPointType) on the ability MonoBehaviour of its prefab (battle/enm_pfb_*.ab:
 `<id>/Modes/<mode>/Body/Attack|Combat` for the normal attack, `Skills/<name>` or `Modes/<mode>/…/Skills/<name>` for a
 skill, `Talents/<name>` for a talent — a talent's buff may name it in its blackboard). The projectile prefab
-(battle/prefabs/[uc]projectiles.ab) moves by one movement behaviour, recognised here by its serialized fields (dump.cs
+(battle/prefabs/[uc]projectiles.ab) moves by one movement behaviour, recognised here by its serialized fields (the client's
 classes, namespace Torappu.Battle.Projectiles):
 
   AdvancedMovement   `_moveType` (AdvancedMovement.MoveType: TRACE_TARGET_WITH_SPEED, FIXED_DIRECTION …), `_speed`,
                      `_delayToStart` (delay), `_delayAfterReached` (stay), `_constDirection` with `_useConstDirection`
   ParacurveMovement  `_raiseHeight` → move PARACURVE: the horizontal speed is `_speed` towards the target's current
-                     position (client code ParacurveMovement.OnInit / _CalculateNextPosition: flight time = horizontal
+                     position (the client's ParacurveMovement.OnInit / _CalculateNextPosition: flight time = horizontal
                      distance / speed; the height only shapes the arc); `_delayTime` with `_delayAfterReached` (stay: it
                      lies where it landed that long — the blackboard `projectile_delay_time` overrides it)
   HarpoonMovement    `_extendLenth` → move HARPOON (a line that extends at `_speed` (+ `_acceleration`) to its target)
@@ -50,11 +50,11 @@ from attack_timing import mode_paths, num  # noqa: E402
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'tools/assets/local-enemy-projectiles.json'
 
-# dump.cs enums
+# the client's enums
 MOVES = ['NONE', 'TRACE_TARGET_WITH_SPEED', 'TRACE_TARGET_WITHIN_TIME', 'TWO_POINTS', 'FIXED_DIRECTION', 'FIXED_DISTANCE',
          'FUNC_ANGLE_AND_TIME']   # AdvancedMovement.MoveType
 MOUNTS = ['FOOT', 'HIT', 'MUZZLE', 'HEAD', 'UI', 'SPECIAL_0', 'SPECIAL_1', 'GROUND'] + [f'SPECIAL_{i}' for i in range(2, 16)]
-DIRS = ['UP', 'RIGHT', 'DOWN', 'LEFT']   # SharedConsts.Direction (dump.cs)
+DIRS = ['UP', 'RIGHT', 'DOWN', 'LEFT']   # SharedConsts.Direction (the client's enum)
 
 
 def enum(names, v):

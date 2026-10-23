@@ -105,7 +105,7 @@ export const skillEndOf = (entry, skillIndex) => (Number.isInteger(skillIndex) &
 /**
  * 2026-10-10, docs/rules/audio.md 「효과음 재생: 피치·동시 재생 상한」: the play values of a sound file —
  * manifest `sfx.bank[url]` = [minPitch, maxPitch, maxSoundAllowed (0 = no cap), popOldest] (tools/assets/skill-mode-sfx.mjs
- * bankPlayTable; 클라 코드 SoundFXBank.Play RVA 0x34B22A0, SoundFXBank.SoundFX._SetAudioChannel RVA 0x34B3500) or null.
+ * bankPlayTable; 공식 클라 SoundFXBank.Play, SoundFXBank.SoundFX._SetAudioChannel) or null.
  * @param {any} manifest data/assets.json @param {string} url
  * @returns {[number, number, number, number]|null}
  */
@@ -240,11 +240,11 @@ export function battleLossOf(pp, cap = 10) {
 /**
  * The own battle's end (round_result_dialog, ui/phaseArt.js BattleEndBanner) as its official state + sound
  * (`ui.ON_ACT1AUTOCHESS_BATTLEOVER_*`, act1autochess custom SE — already in the manifest as sfx.ui.battleOver*), from
- * every player's LP loss in this result — the client's AutoChessBattleUIViewModel.GetBattleResultStatus (RVA 0x1FD2350)
+ * every player's LP loss in this result — the client's AutoChessBattleUIViewModel.GetBattleResultStatus
  * over the server's per-player hpCost list (maintainer decision 2026-10-11: match the client): every player lost 0 ⇒
  * 'perfect' / BATTLEOVER_NOREDUCE (panel_perfect); the viewer lost 0 but another player lost LP ⇒ 'done' /
  * BATTLEOVER_NORMAL (panel_miss, no number); the viewer lost LP ⇒ 'miss' / BATTLEOVER_REDUCE. The pairs are the
- * client's AutoChessBattleUIRoundResultDialog.OnRender (RVA 0x1FECE70). Leak counts and `perfect` play no part: a solo
+ * client's AutoChessBattleUIRoundResultDialog.OnRender. Leak counts and `perfect` play no part: a solo
  * battle with uncounted leaks only costs 0 ⇒ 'perfect'.
  * Who is in the result: the viewer alone when its own battle ends in a solo match (`{ [me]: battleLossOf(pp) }`), every
  * alive player's settlement charge at SETTLE (m.public.roundLosses) [추정: the client reads the dict from the server
@@ -288,7 +288,7 @@ export function cueAbility(set, melee) {
  * The group child an attack sounds (1-based) — the client's AbilityRandomGroup (Random: uniform, `diff` never the last one
  * twice, `once` each before any repeats; Loop: in turn) or a conditional group (`cond`: the melee / ranged child, `first` on
  * the mode's first attack); null without a group.
- * @param {any} sel the set's sel (by ability) @param {string|null} ab @param {{ melee: boolean, mem: any, random: () => number }} o
+ * @param {any} sel the set's sel (by ability) @param {string|null} ab @param {{ melee: boolean, mem: any, random: => number }} o
  *   `mem` = this unit's memory for the set ({ last, bag, loop, first })
  */
 export function pickVariant(sel, ab, o) {

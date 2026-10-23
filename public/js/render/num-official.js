@@ -8,12 +8,12 @@
 // When: a damage number only for a critical hit (PRTS 「伤害红字（暴击）」: ≥ 1.5 × the hit's expected damage — Modifier.
 // isCritical, BattleConsts.MODIFIER_CRIT_THRESHOLD 1.5) or one forced (强制红字: 蕾缪安 S3) — the sim marks them
 // (server/sim/local-hud.js damageNumberFlag, 'dmg' 5th field); heals always (no flag in the data; PRTS / 나무위키 silent).
-// The motion is the client code's (DOTween, 2026-10-10; docs/rules/ui.md 「전투 화면 UI」 ④), from a random start within
+// The motion is the official client's (DOTween, 2026-10-10; docs/rules/ui.md 「전투 화면 UI」 ④), from a random start within
 // ±`_randomRange` (UIPopup.Init), over `_lifeTime`:
-//   damage (UIDamageText.SetTweens, RVA 0xD6F6C0): half = life × 0.5; position p → p + `_upOffset` (OutExpo, half) then
+//   damage (UIDamageText.SetTweens): half = life × 0.5; position p → p + `_upOffset` (OutExpo, half) then
 //     → p − `_downOffset` (InExpo, half; both targets from the start p); scale 1 → `_fontSizeScale` (OutExpo, half) then
 //     → 0 (InExpo, half); no alpha tween. A crit's font is × 1.1. The blue / BLOCK texts move the same.
-//   heal (UIHealText.SetTweens, 0xD73E20): position p → p + `_floatOffset` (OutCubic, life); text alpha 1 → 0 (InExpo,
+//   heal (UIHealText.SetTweens): position p → p + `_floatOffset` (OutCubic, life); text alpha 1 → 0 (InExpo,
 //     life); no scale tween.
 // (The damage motion matches the maintainer video of 2026-10-07 — first frame at 0.87 of the peak, shrink and drop in the last
 // ~0.13 s — measured then against the peak size.) Sizes in HUD units (hud-bars.js hudUnit: screen-fixed).
@@ -103,7 +103,7 @@ export class OfficialNumbers {
     const O = OFFICIAL_NUM, o = O[t.kind];
     const u = hudUnit(this.ctx.viewport?.());
     // stays where it spawned: the client parents the text to the battle UI's text layer and sets its position once from the
-    // unit HUD's `popup` (UIController.ShowNumericText RVA 0xD41E90 → UIPopup.InitPosition 0xD7A140), so it does not follow
+    // unit HUD's `popup` (UIController.ShowNumericText → UIPopup.InitPosition), so it does not follow
     // a moving unit (2026-10-10; it used to)
     if (t.kind !== 'heal') { // UIDamageText.SetTweens: up and grow, then down below the start and shrink to nothing
       const half = O.life / 2;

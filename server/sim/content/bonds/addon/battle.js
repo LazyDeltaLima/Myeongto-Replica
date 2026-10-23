@@ -83,7 +83,7 @@ const RAID_TRIG_KEY = 'bond:raidShip:trig'; // u.mem: the running AUTO-skill [tr
 
 /**
  * PRD base chances C for a nominal chance p = i / 100 (battle_misc_table miscConfig.prdBaseProbs, 101 entries): client
- * code `Nodes.DicePRD.Execute` (RVA 0xC163B0) takes C = prdBaseProbs[RoundToInt(p × 100)] (past the end: the last), and
+ * code `Nodes.DicePRD.Execute` takes C = prdBaseProbs[RoundToInt(p × 100)] (past the end: the last), and
  * the N-th roll since the last success hits with N × C (`RandomExtensions.Dice`); the count N lives on the battle's global
  * blackboard under "prd#" + the node's key, so every unit rolling that key shares it.
  */
@@ -243,7 +243,7 @@ function suntSpCost(u, bb) {
 
 // =====================================================================================================================
 // 灵巧 aura — client buff graph act1autochess_bond_eff_skillful. ON_BUFF_START (the receiver's deployment) judges ONCE:
-// AutoChessFilterCharacterBondIds `_checkTargetInRangeId "x-4"` (client code RVA 0xB4E810: LitePhysicsUtil.FindTilesInBox
+// AutoChessFilterCharacterBondIds `_checkTargetInRangeId "x-4"` (the client: LitePhysicsUtil.FindTilesInBox
 // around the receiver's tile, then the board piece on each tile, AutoChessBattleUtil.GetChessInstByPos, and its bonds) —
 // no member piece on the 3×3 → the buff ends; else "x-5" (the cross, own tile included) sets in_normal_range.
 // ON_BUFF_TRIGGER (live layers): ASPD when L ≥ power_bond_stack_cnt, else only when in_normal_range. The judgment is
@@ -284,7 +284,7 @@ function applyAura(battle, st, u) {
 
 // =====================================================================================================================
 // 突袭 relocation — the official buff graph act1autochess_bond_eff_raid (+ [attack] / [trig] / [skill] / [all]) and its
-// node AutoChessRebuildCharacterOnTile (client code `Nodes.AutoChessRebuildCharacterOnTile.Execute`, RVA 0xB4FF20).
+// node AutoChessRebuildCharacterOnTile (the client's `Nodes.AutoChessRebuildCharacterOnTile.Execute`).
 //
 // Four ways to jump, all the same landing (raidJump):
 //   PASSIVE skill  — while the member carries no [spawn] mark (any jump sets it; a durable buff, so it survives the jump
@@ -294,7 +294,7 @@ function applyAura(battle, st, u) {
 //                    (缄默德克萨斯's ON_DEPLOY skills are PASSIVE in the client tables).
 //   ready skill    — MANUAL or AUTO: the skill is ready (CheckCharSkillAvailable), not running (CheckCharSkillAffecting)
 //                    and no enemy stands on the member's own tile or the tile in front of it (CheckHasEnemyInRange, range
-//                    "1-1", _useAttackRange false: client code `Nodes.CheckHasEnemyInRange.Execute` RVA 0xB8C7F0 reads the
+//                    "1-1", _useAttackRange false: the client's `Nodes.CheckHasEnemyInRange.Execute` reads the
 //                    blackboard / node range id, not the attack range, and counts every valid enemy whose body overlaps
 //                    it). No [spawn] check: it jumps again whenever the enemy leaves that box. The AUTO skills too, by an
 //                    official recording (maintainer decision 2026-10-19; until then MANUAL only): 瑕光 with S1 (AUTO,
@@ -309,8 +309,8 @@ function applyAura(battle, st, u) {
 //                    and when the buff is enabled) — no range or skill condition; the SP ratio is kept
 //                    (AssignCurSpToBB → modify_sp[ratio]). The idle time starts again at the landing [ASSUMED: the
 //                    [attacked] mark is re-made by the re-enable after the move].
-// The three skill ways land with full SP ([spawn] = modify_sp[ratio] sp 1.0: client code `Nodes.ModifySp.Execute`
-// RVA 0xB80BC0 sets RoundToInt(maxSp × ratio)); a passive skill has none.
+// The three skill ways land with full SP ([spawn] = modify_sp[ratio] sp 1.0: the client's `Nodes.ModifySp.Execute`
+// sets RoundToInt(maxSp × ratio)); a passive skill has none.
 
 /** [trig] trigger interval (s) of the AUTO-skill jump. */
 const RAID_TRIG = 0.3;
@@ -329,8 +329,8 @@ function raidSkillType(sk) {
 }
 
 /**
- * A jump candidate: TargetOptions { ENEMY, WALK_ONLY, category NONE|DEFAULT, advanced options off } — client code
- * `TargetOptions.VerifyTarget` (RVA 0x6DEC00) returns from `_VerifyAdvanced` at once when `enableAdvancedOptions` is
+ * A jump candidate: TargetOptions { ENEMY, WALK_ONLY, category NONE|DEFAULT, advanced options off } — the client's
+ * `TargetOptions.VerifyTarget` returns from `_VerifyAdvanced` at once when `enableAdvancedOptions` is
  * false, so a 隐匿, asleep, untargetable or stunned ground enemy is one too (the template's STUNNED / SLEEPING flags
  * are never read); only the motion mask leaves flying enemies out. On the map: alive, deployed and shown.
  */
@@ -339,8 +339,8 @@ function raidCandidate(e) {
 }
 
 /**
- * The candidates in FilterUtil HATRED_DES order, at most RAID_MAX_TARGETS: client code `Enemy.get_hatred` (RVA
- * 0x731300) = tauntLevel × a large constant − the remaining route — so the highest 嘲讽 level first, then the most
+ * The candidates in FilterUtil HATRED_DES order, at most RAID_MAX_TARGETS: the client's `Enemy.get_hatred`
+ * = tauntLevel × a large constant − the remaining route — so the highest 嘲讽 level first, then the most
  * advanced (least remaining distance); the spawn order breaks ties [ASSUMED: FilterUtil's order among equal hatred].
  * Every enemy of the battle — a pair field's other half included —, no own-field preference.
  */
@@ -356,7 +356,7 @@ function raidTargets(battle) {
 /**
  * Whether (r, c) is a battlefield tile of this battle (AutoChessBattleUtil.IsBattleField: the tile indexer's BATTLE_FIELD
  * set = every map tile but tile_achand, narrowed by the extra validator `AutoChessMapAreaManager.ResetTileIndexer`
- * (RVA 0x8334E0) sets per game state: BATTLE → the left (own) normal area; HELP_BATTLE → both normal halves when
+ * sets per game state: BATTLE → the left (own) normal area; HELP_BATTLE → both normal halves when
  * several players help (isMultiPlayerHelp), else the own one; BOSS_BATTLE → the whole boss map). So: a boss / hidden-core
  * field opens both halves of rows 2–5 even for a lone player (never its hand / 临时整备区 rows 0–1, tile_achand); a 联防
  * field both halves with two helpers and the own half for one (Battle.onFieldBoard); a normal field its own board.
@@ -367,7 +367,7 @@ function raidBattlefield(battle, r, c) {
 }
 
 /**
- * Landing tile [row, col] of member `u` next to enemy `e`, or null — client code AutoChessRebuildCharacterOnTile: for
+ * Landing tile [row, col] of member `u` next to enemy `e`, or null — the client's AutoChessRebuildCharacterOnTile: for
  * each tile of the enemy (its root tile; a huge enemy's body tiles), LitePhysicsUtil.FindTilesInBox("1-1", tile,
  * opposite of the member's direction) in the range's grid order — the enemy's own tile first, then the tile behind
  * it as seen from the member, so the enemy ends up on the member's own or front tile — and the first that passes

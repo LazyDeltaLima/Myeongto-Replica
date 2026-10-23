@@ -375,9 +375,9 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
   uniform int uMulti; uniform sampler2D uDisB; uniform vec4 uDisBST; uniform vec2 uSpeedB; uniform vec4 uTintB;
   uniform sampler2D uDisC; uniform vec4 uDisCST; uniform vec2 uSpeedC; uniform vec4 uTintC; uniform vec3 uAmountV; uniform vec3 uBorderV;
   varying vec2 vUv; varying vec4 vColor; varying vec4 vC1; varying vec4 vC2;
-  // 2026-10-18 (client DXBC): a dissolve cut — saturate((d − amount + border · (1 − roundEven(amount + .5))) / border)
+  // 2026-10-18 (client shader): a dissolve cut — saturate((d − amount + border · (1 − roundEven(amount + .5))) / border)
   float cut(float d, float amt, float bw) { bw = max(bw, 1e-3); return clamp((d - amt + bw * (1.0 - roundEven(amt + 0.5))) / bw, 0.0, 1.0); }
-  // 2026-10-14 (client DXBC, _HG_UV_ROTATION): FxUVRotation turns a texture's tiled uv about its centre, before the scroll
+  // 2026-10-14 (client shader, _HG_UV_ROTATION): FxUVRotation turns a texture's tiled uv about its centre, before the scroll
   vec2 rotUV(vec2 t, vec4 r) { vec2 c = t - 0.5; return vec2(r.x * c.x + r.z * c.y, r.y * c.x + r.w * c.y) + 0.5; }
   void main() {
     if (vH < uFloor) discard;   // local patch: under the floor (FxInstance opts.floor)
@@ -389,21 +389,21 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       // custom1.zw = extra distortion, custom2.x = dissolve amount — [ASSUMED] from the curves, tuned by eye
       if (uCustom) uv += vC1.xy;
       if (uUVRot) uv = rotUV(uv, uRot[0]);
-      // 2026-10-22 (client DXBC): every family scrolls by the fraction of speed × time (frc) — the same on a repeating
+      // 2026-10-22 (client shader): every family scrolls by the fraction of speed × time (frc) — the same on a repeating
       // texture, not on a Clamp one (tex/wrap.json); Dissolve AB / Add UVTween wraps the whole scrolled uv (uFracUV)
       uv += fract(uMainSpeed * uTime);
       if (uHasDisturb) {
         vec2 duv = vUv * uDisturbST.xy + uDisturbST.zw;
         if (uUVRot) duv = rotUV(duv, uRot[3]);
         duv += fract(uDisturbSpeed * uTime);
-        // local patch (client DXBC): the noise's red channel times the strength, not centred
+        // local patch (client shader): the noise's red channel times the strength, not centred
         vec2 n = vec2(texture2D(uDisturb, duv).r);
         dis = n * (uDisturbStr + (uCustom ? vC1.zw : vec2(0.0)));
         uv += dis * uDisturbMain;
       }
       if (uFracUV) uv = fract(uv);
     } else {
-      // 2026-10-14 (client DXBC): Disturb Origin (1) / Disturb Anchor (2) — the noise (.r − _Anchor, × the _WEIGHT_ON weight
+      // 2026-10-14 (client shader): Disturb Origin (1) / Disturb Anchor (2) — the noise (.r − _Anchor, × the _WEIGHT_ON weight
       // texture's rg; Anchor's second noise when _ToggleUseDisturb2) × _Intensity moves the renderer's own uv before the
       // main texture's tiling / offset; Anchor scrolls the main uv by _UVTween.xy and the noise uv by .zw (uMainSpeed /
       // uDisturbSpeed)
@@ -416,15 +416,15 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       uv = (vUv + dis) * uMainST.xy + uMainST.zw + fract(uMainSpeed * uTime);
     }
     vec4 tex = texture2D(uMain, uv);
-    // 2026-10-14 (client DXBC): Mask (AlphaBlend) — main + 2 · _AddFactor · _AddTex(own uv) · _MaskTex.a(main uv)
+    // 2026-10-14 (client shader): Mask (AlphaBlend) — main + 2 · _AddFactor · _AddTex(own uv) · _MaskTex.a(main uv)
     if (uHasAdd) tex += 2.0 * uAddFactor * texture2D(uAdd, vUv * uAddST.xy + uAddST.zw) * texture2D(uMask, uv).a;
     vec4 col = tex * uTint * vColor;
     if (uPremul) col *= vColor.a;   // 2026-10-22: Legacy Particles/Alpha Blended Premultiply (Unity's Default-Particle)
-    // 2026-10-14 (client DXBC): Disturb Origin multiplies by _MainColor.a once more, Anchor by lerp(1, _MainColor.a,
+    // 2026-10-14 (client shader): Disturb Origin multiplies by _MainColor.a once more, Anchor by lerp(1, _MainColor.a,
     // _MainColorACtrl) (uTint carries the ×2)
     if (uACtrl != 0.0) col *= 1.0 + uACtrl * (uTint.a * 0.5 - 1.0);
     // local patch (maintainer report 2026-10-07, 赤刃明霄陈 S3's range too bright): the Ram family multiplies by _RamTex sampled at
-    // the renderer's own uv through its tiling / offset — all of rgba (the client's DXBC: Ram/Disturb(CustomData),
+    // the renderer's own uv through its tiling / offset — all of rgba (the client's shader: Ram/Disturb(CustomData),
     // Ram/Add, Ram/AlphaBlend) — not a ramp looked up by the dissolve edge as assumed before
     if (uHasRam) { vec2 ruv = vUv * uRamST.xy + uRamST.zw; if (uUVRot) ruv = rotUV(ruv, uRot[2]); col *= texture2D(uRam, ruv); }
     // dissolve: the shaders declare no edge colour, so _BorderWidth is the softness of the cut [ASSUMED]
@@ -433,10 +433,10 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       vec2 suv = vUv * uDissolveST.xy + uDissolveST.zw;
       if (uUVRot) suv = rotUV(suv, uRot[1]);
       suv = uDisMode == 0 ? suv + fract(uDissolveSpeed * uTime) + dis * uDisturbDissolve
-        : (vUv + dis) * uDissolveST.xy + uDissolveST.zw;   // Anchor: the moved uv through _DissolveTex_ST (client DXBC)
+        : (vUv + dis) * uDissolveST.xy + uDissolveST.zw;   // Anchor: the moved uv through _DissolveTex_ST (client shader)
       if (uFracUV) suv = fract(suv);
       float d = texture2D(uDissolve, suv).r;
-      // local patch (client DXBC): saturate((d − amount + border · (1 − roundEven(amount + .5))) / border) — at amount 0
+      // local patch (client shader): saturate((d − amount + border · (1 − roundEven(amount + .5))) / border) — at amount 0
       // the border is added, so nothing is cut (the dark texels were holes before)
       float amt = uAmount + (uCustom ? vC2.x : 0.0);
       float bw = max(uBorder, 1e-3);
@@ -448,11 +448,11 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       // local patch: the … Double family cuts by a second texture with its own amount / border too [ASSUMED: alpha × both]
       if (uHasDissolve2) {
         float d2 = texture2D(uDissolve2, vUv * uDissolve2ST.xy + uDissolve2ST.zw + fract(uDissolveSpeed * uTime) + dis * uDisturbDissolve).r;
-        // 2026-10-14 (client DXBC): the second cut adds its border like the first
+        // 2026-10-14 (client shader): the second cut adds its border like the first
         float bw2 = max(uBorder2, 1e-3);
         col.a *= clamp((d2 - uAmount2 + bw2 * (1.0 - roundEven(uAmount2 + 0.5))) / bw2, 0.0, 1.0);
       }
-      // 2026-10-18 (client DXBC, Optimize/Dissolve AB MultiTex _DISSOLVE_TWO / _THREE): the main colour (2 · texture · vertex)
+      // 2026-10-18 (client shader, Optimize/Dissolve AB MultiTex _DISSOLVE_TWO / _THREE): the main colour (2 · texture · vertex)
       // tinted again by _TintColorB (C), each cut by its own dissolve texture (_DissolveTexB / C, _Amount / _BorderWidth .y / .z,
       // scrolled by _TexSpeed2 .xy / .zw), layered: lerp(first, B, B's alpha), then + C × C's alpha (all four channels)
       if (uMulti >= 2) {
@@ -468,7 +468,7 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       }
     }
     // local patch: Torappu/Particles/Rim — opaque at the silhouette, clear facing the camera [ASSUMED: alpha × (1 − |N·V|)^power]
-    // (client DXBC, 2026-10-07: the rim term scales the colour as well as the alpha)
+    // (client shader, 2026-10-07: the rim term scales the colour as well as the alpha)
     if (uRim) { float rim = pow(clamp(1.0 - abs(dot(normalize(vN), normalize(-vVP))), 0.0, 1.0), uRimPower); col *= rim; }
     col.a *= uOpacity;
     if (col.a < 0.002) discard;
@@ -511,7 +511,7 @@ function makeMaterial(m, lib) {
   // 2026-10-22: Unity's Default-Particle (Legacy Particles/Alpha Blended Premultiply) has no tint: vertex colour × texture × vertex alpha
   const premul = /Alpha Blended Premultiply/.test(shader);
   const tint = premul ? [1, 1, 1, 1] : /CustomData|Disturb|Ram/.test(shader) ? (c._MainColor || [0.5, 0.5, 0.5, 0.5]) : (c._TintColor || c._MainColor || c._Color || [0.5, 0.5, 0.5, 0.5]);
-  const tintMul = /Rim Tint/.test(shader) || premul ? 1 : 2; // local patch (client DXBC): Rim Tint has no ×2 (Rim Texture, Additive … do)
+  const tintMul = /Rim Tint/.test(shader) || premul ? 1 : 2; // local patch (client shader): Rim Tint has no ×2 (Rim Texture, Additive … do)
   // blend: Additive / Dissolve Add = SrcAlpha One, AlphaBlend / … AB = SrcAlpha OneMinusSrcAlpha, the (CustomData) family
   // reads its `_DstBlend` enum (Add 1 / AlphaBlend 10). Materials also carry _SrcBlend/_DstBlend left over from Unity's
   // Standard shader: never read for the fixed families
@@ -528,12 +528,12 @@ function makeMaterial(m, lib) {
   const disKey = t._DisturbTex ? '_DisturbTex' : t._NoiseTex ? '_NoiseTex' : '_DisturTex';
   const disturb = tex(disKey);
   const disMode = /Disturb Origin/.test(shader) ? 1 : /Disturb Anchor/.test(shader) ? 2 : 0;
-  // 2026-10-14 (client DXBC): Disturb Anchor and Dissolve AB / Add UVTween scroll by _UVTween × _Time.y — main uv by .xy, the
+  // 2026-10-14 (client shader): Disturb Anchor and Dissolve AB / Add UVTween scroll by _UVTween × _Time.y — main uv by .xy, the
   // noise (Anchor) or dissolve (UVTween) uv by .zw. No other particle shader declares it (nor _Speed / _FlowStrength, which
   // only Flipbook / GrabPass shaders read and no extracted material uses): there they are values left from another shader
   const tween = disMode === 2 || /UVTween/.test(shader);
   const uvTween = tween && Array.isArray(c._UVTween) ? c._UVTween : [0, 0, 0, 0];
-  // 2026-10-14 (client DXBC): Mask (AlphaBlend) adds _AddTex (its own uv through _AddTex_ST, which its clips scroll) × the
+  // 2026-10-14 (client shader): Mask (AlphaBlend) adds _AddTex (its own uv through _AddTex_ST, which its clips scroll) × the
   // _MaskTex alpha × _AddFactor × 2 to the main texture [ASSUMED: which sampler is which — the second uv's _ST is the one the
   // clips move]
   const add = /\/Mask\//.test(shader) ? tex('_AddTex') : null;
@@ -548,7 +548,7 @@ function makeMaterial(m, lib) {
   const dissolve = double ? tex('_DissolveTex_01') : tex('_DissolveTex');
   const dissolve2 = double ? tex('_DissolveTex_02') : null;
   const toggles = /Disturb Anchor/.test(shader), useTex = /Dissolve\(CustomData\)/.test(shader); // local patch
-  // 2026-10-18 (client shader + DXBC): Optimize/Dissolve AB MultiTex (战场#06's screen_desert_*) — `_Dissolve` picks the
+  // 2026-10-18 (client shader): Optimize/Dissolve AB MultiTex (战场#06's screen_desert_*) — `_Dissolve` picks the
   // _DISSOLVE_ONE / _TWO / _THREE variant (its KeywordEnum order [ASSUMED]: the materials carry no keyword); `_Amount` /
   // `_BorderWidth` are vectors (x, y, z per dissolve texture); `_TexSpeed` scrolls the main uv (.xy) and the first dissolve
   // (.zw), `_TexSpeed2` the second (.xy) and third (.zw), by 2 · _Time.y (the constant slots by name: the variants'
@@ -567,14 +567,14 @@ function makeMaterial(m, lib) {
     uniforms: {
       uMain: { value: tex('_MainTex') || WHITE }, uMainST: { value: st('_MainTex') },
       uMainSpeed: { value: multi ? new THREE.Vector2(2 * vec(c._TexSpeed, 0), 2 * vec(c._TexSpeed, 1)) : tween ? new THREE.Vector2(uvTween[0], uvTween[1]) : new THREE.Vector2(sp(f._MainUSpeed), sp(f._MainVSpeed)) },
-      uFracUV: { value: disMode === 0 && tween }, // 2026-10-22 (client DXBC): Dissolve AB / Add UVTween — frac(uv + _UVTween × t)
+      uFracUV: { value: disMode === 0 && tween }, // 2026-10-22 (client shader): Dissolve AB / Add UVTween — frac(uv + _UVTween × t)
       uHasAdd: { value: !!add }, uAdd: { value: add || WHITE }, uAddST: { value: st('_AddTex') },
       uMask: { value: tex('_MaskTex') || WHITE }, uAddFactor: { value: f._AddFactor ?? 1 },
       uTint: { value: new THREE.Vector4(tint[0] * tintMul, tint[1] * tintMul, tint[2] * tintMul, tint[3] * tintMul) },
       uOpacity: { value: f._Opacity ?? 1 },
-      // local patch (client DXBC, 2026-10-07): only Disturb Anchor declares the _ToggleUse* switches (and Dissolve(CustomData)
+      // local patch (client shader, 2026-10-07): only Disturb Anchor declares the _ToggleUse* switches (and Dissolve(CustomData)
       // _UseDissolveTex) — elsewhere they are values left over from another shader, and dissolve / disturb always run
-      // 2026-10-14 (client DXBC): Anchor's first noise always runs; _ToggleUseDisturb2 switches its second one (uHasDisturb2)
+      // 2026-10-14 (client shader): Anchor's first noise always runs; _ToggleUseDisturb2 switches its second one (uHasDisturb2)
       uHasDisturb: { value: !!disturb }, uDisturb: { value: disturb || WHITE },
       uDisturbST: { value: st(disKey) },
       uDisturbSpeed: { value: disMode === 2 ? new THREE.Vector2(uvTween[2], uvTween[3]) : new THREE.Vector2(sp(f._DisturbUSpeed), sp(f._DisturbVSpeed)) },
@@ -589,7 +589,7 @@ function makeMaterial(m, lib) {
       uHasDissolve: { value: !!dissolve && (toggles ? (f._ToggleUseDissolve ?? 1) !== 0 : useTex ? (f._UseDissolveTex ?? 1) !== 0 : true) }, uDissolve: { value: dissolve || WHITE },
       uDissolveST: { value: st(double ? '_DissolveTex_01' : '_DissolveTex') },
       uDissolveSpeed: { value: multi ? new THREE.Vector2(2 * vec(c._TexSpeed, 2), 2 * vec(c._TexSpeed, 3)) : disMode === 0 && tween ? new THREE.Vector2(uvTween[2], uvTween[3]) : new THREE.Vector2(sp(f._DissolveUSpeed), sp(f._DissolveVSpeed)) },
-      // local patch (client DXBC): Dissolve(CustomData)'s amount is _DissolveIntensity (no _Amount), … (VertexColor Major) has none:
+      // local patch (client shader): Dissolve(CustomData)'s amount is _DissolveIntensity (no _Amount), … (VertexColor Major) has none:
       // its vertex alpha is the amount (uVCMajor)
       uAmount: { value: multi ? vec(c._Amount, 0) : (double ? f._Amount_01 : useTex ? f._DissolveIntensity : f._Amount) || 0 }, uVCMajor: { value: /VertexColor Major/.test(shader) },
       uBorder: { value: multi ? vec(c._BorderWidth, 0) : (double ? f._BorderWidth_01 : f._BorderWidth) || 0 },
@@ -636,7 +636,7 @@ const TEX_ST = { _MainTex: 'uMainST', _AddTex: 'uAddST', _DisturbTex: 'uDisturbS
   _DissolveTex: 'uDissolveST', _DissolveTex_01: 'uDissolveST', _DissolveTex_02: 'uDissolve2ST', _RamTex: 'uRamST', _WeightTex: 'uWeightST' };
 
 /**
- * 2026-10-14 (client Torappu.Fx.FxUVTweener / FxUVTweenerAdvance, `Update` RVA 0x34C5F90 / 0x34C5780): a renderer's
+ * 2026-10-14 (client Torappu.Fx.FxUVTweener / FxUVTweenerAdvance, `Update`): a renderer's
  * script that moves its material's texture offsets — each named texture's offset grows by 2 × speed per second (SPEED_SCALE
  * 2), from the material's own offset with `keepInitOffset`, else from 0 (`OnEnable`), until `tweenAnmTime` for an Advance
  * without `tweenRepeat` (fx_extract.py `uvt`). The fractional wrap of `protect*UV` / `tweenRepeat` (the map's 4th field,
@@ -656,7 +656,7 @@ function uvTween(mat, uvt, m) {
 }
 
 /**
- * (2026-10-14, client code + DXBC) a node's FxUVRotation (fx_extract.py `uvr`: 4 angles in degrees, 0 = off): it switches the
+ * (2026-10-14, official client and its shader) a node's FxUVRotation (fx_extract.py `uvr`: 4 angles in degrees, 0 = off): it switches the
  * material to its _HG_UV_ROTATION variant — only the Disturb(CustomData) family has one (Disturb / Ram/Disturb / ZDistort …;
  * every rotated material of the extracted prefabs) — and sets _Rotation0..3 to (cos, −sin, sin, cos) of each angle
  * [ASSUMED: cos / sin — the client calls two unnamed CRT functions; the identity at angle 0 settles it]. The shader turns
@@ -1781,14 +1781,14 @@ export class FxInstance {
    *   tilt (2026-10-22): a Unity quaternion the whole prefab is turned by inside the Unity frame — the `Graphic` rotation of
    *   the unit it is created on (render/fxpoints.js GRAPHIC_TILT / takesGraphicTurn); world-space particles are not turned
    *   facing / dir / body (maintainer decision 2026-10-11 「공식대로」): the effect turns as the client's `ParticleEffect.FaceTo`
-   *   (RVA 0xCB1DC0) does by its root `face` record (render/fx/face.js faceTurn) — `dir` = the direction it is played with
+   * does by its root `face` record (render/fx/face.js faceTurn) — `dir` = the direction it is played with
    *   (default ±x by `facing`, the owner's drawn side), `body` = the four-way facing of the unit it is created on (for
    *   `_useBodyRotation`); it is mirrored only by a FollowMountPoint with `_followScaleSign` (the Spine flip, `facing`). A
    *   prefab without the record (no ParticleEffect root: trails, lines) keeps the old mirror by `facing`.
    *   speed / delays (maintainer decision 2026-10-11): nothing is drawn until the root FxDelay `_delayTime` (effect time)
    *   plus `_delayToPlay` (game time × `speed`, the playback speed it runs at) have passed, and a branch with its own FxDelay
    *   (node `delay`, game time) or a `_subFXDelayConfigs` entry (node `sdelay`, effect time) starts that much later
-   *   (`FxDelay.OnEnable` RVA 0x34C1650 / `Effect._DelayToActiveGameObject`); `delays: false` plays everything at once.
+   *   (`FxDelay.OnEnable` / `Effect._DelayToActiveGameObject`); `delays: false` plays everything at once.
    *   local patch: floor = the board height of the ground under it (default 0): what lies more than 0.05 below is not drawn
    *   (null: no cut); split = each renderer on layer FX_FRONT or FX_BACK by its Unity sorting (sortingOrder > 0, or 0 with a
    *   negative sorting fudge = in front of the units, whose Spine renderers are Default / order 0 and write no depth) —
@@ -1807,12 +1807,12 @@ export class FxInstance {
     this.object = new THREE.Group();            // placed in board coordinates by the caller
     const unity = new THREE.Group();            // Unity battle frame: mirror z (z = −height)
     const facing = opts.facing || 1;
-    // (2026-10-21, decompile check) the client's FunnelHitEffect (fx_extract.py `jitter`): OnPlay (RVA 0xE83830) turns the
+    // (2026-10-21, official client) the client's FunnelHitEffect (fx_extract.py `jitter`): OnPlay turns the
     // effect to a random direction of the map plane (RandomUtil.RandomDirectionV2) and moves it by Random.Range(−r, r) per
     // axis of `_randomRange` in world space — a drone hit at a random point (Unity's display random: Math.random here)
     const jit = Array.isArray(def?.jitter) && def.jitter.length === 3 ? def.jitter.map((v) => Number(v) || 0) : null;
-    // (2026-10-22, decompile check) the client's RandomDirection (fx_extract.py `rdir` [from x, y, z, to x, y, z]): `OnPlay`
-    // (RVA 0xE95760) turns the effect to RandomUtil.RandomVector3(from, to) — Random.Range per axis, not normalised (锏 S2)
+    // (2026-10-22, official client) the client's RandomDirection (fx_extract.py `rdir` [from x, y, z, to x, y, z]): `OnPlay`
+    // turns the effect to RandomUtil.RandomVector3(from, to) — Random.Range per axis, not normalised (锏 S2)
     const rr = Array.isArray(def?.rdir) && def.rdir.length === 6 ? def.rdir.map((v) => Number(v) || 0) : null;
     const span = (a, b) => a + Math.random() * (b - a);
     const rdir = jit ? { x: Math.random() * 2 - 1, y: Math.random() * 2 - 1 } : rr ? { x: span(rr[0], rr[3]), y: span(rr[1], rr[4]) } : null;
@@ -1829,7 +1829,7 @@ export class FxInstance {
     }
     this.object.add(unity);
     this.unity = unity;
-    // 2026-10-22 (decompile check, docs/rules/fx.md 「캐릭터 그림의 기울기」): an effect created on a unit takes its model's
+    // 2026-10-22 (official client, docs/rules/fx.md 「캐릭터 그림의 기울기」): an effect created on a unit takes its model's
     // `Graphic` rotation, X −30° (opts.tilt: render/fxpoints.js takesGraphicTurn) — the prefab is authored in that plane,
     // facing the camera; untilted, a shield disc lay on the board and was drawn as an ellipse. Its world-space particles
     // and trails stay in the untilted Unity frame (they are kept in `unity`'s space)
@@ -1865,9 +1865,9 @@ export class FxInstance {
       // a spawn point drops its root's own position (Unity Instantiate(prefab, position, …) overwrites it) — the elite glow's
       // root z −0.25 lifted the whole glow a quarter tile; 104 prefabs have one, mostly projectile trails, which flew 0.4–0.65
       // tile off their shot's line (空弦 archet, 丰川祥子 oblvns).
-      // [ASSUMED] (the client code is native): the recording's band height matches with it dropped, not with it kept. The child
+      // [ASSUMED] (Unity does this natively): the recording's band height matches with it dropped, not with it kept. The child
       // static_offset stays — the client's ParticleEffect names it (CHILD_NAME_STATIC_OFFSET). `_overwriteHeight` /
-      // `_heightOffset` are C# (decompile check 2026-10-10: Effect._InitLocationFromEntity sets localPosition.z =
+      // `_heightOffset` are C# (official client 2026-10-10: Effect._InitLocationFromEntity sets localPosition.z =
       // −(entity height + offset) only when the flag is on — of the pool's prefabs only thorn2_skill_01_range has it)
       if (n.pos && !(opts.atSpawn !== false && n.parent < 0)) o.position.set(n.pos[0], n.pos[1], n.pos[2]);
       if (n.rot) o.quaternion.set(n.rot[0], n.rot[1], n.rot[2], n.rot[3]);
@@ -2126,7 +2126,7 @@ export class FxInstance {
 
   /**
    * 2026-10-16: every LineRenderer of the effect runs through `pts` ({x, y, z} in the coordinates the effect's object sits
-   * in, in order; at most 16) from now on — client ChainLightningEffectBehaviour.PlayLineEffect (RVA 0xA68660):
+   * in, in order; at most 16) from now on — client ChainLightningEffectBehaviour.PlayLineEffect:
    * positionCount = the units, SetPosition(i, unit i). Fewer than two points or null: its authored points.
    */
   setPath(pts) {
@@ -2161,15 +2161,15 @@ export class FxInstance {
 
   /**
    * 2026-10-11 (user report: projectiles that vanish late — 언더플로우, 애쉬락): a projectile's `_mainEffect` as its projectile
-   * stops (`Projectile.OnProjectileStop` RVA 0x5FC1A0 → `ClearMainEffectIfNot` 0x5F9550 → `Effect.FinishMe` 0xC88FE0):
-   * `ProjectileEffect.OnFinish` (0xCB42B0) stops the effect's first particle system with its children (`Awake` 0xCB3A00:
+   * stops (`Projectile.OnProjectileStop` → `ClearMainEffectIfNot` → `Effect.FinishMe`):
+   * `ProjectileEffect.OnFinish` stops the effect's first particle system with its children (`Awake`:
    * GetComponentInChildren<ParticleSystem> — the active ones, depth first: the extract's node order) and switches off its
    * `_inactiveOnFinish` nodes (fx_extract.py `offFinish`: the bullet, shell, arrow head …), whose particles go with them. The
    * rest keeps running until the caller ends it `finish` s later (the pool's recycle).
-   * (2026-10-21, decompile check) The first system counts every ParticleSystem — also one the extract dropped (no material,
+   * (2026-10-21, official client) The first system counts every ParticleSystem — also one the extract dropped (no material,
    * a disabled renderer: often the empty container over the others), and for a ParticleEffect root (`ParticleEffect.Awake`
-   * 10-14 EN dump RVA 0xEABEB0: includeInactive) an inactive node's too: the extract writes that node as `mainPs` when it is
-   * not the first extracted system of an active node (fx_extract.py main_ps); `Stop(true)` (0x5F1B440) takes its children.
+   * with includeInactive) an inactive node's too: the extract writes that node as `mainPs` when it is
+   * not the first extracted system of an active node (fx_extract.py main_ps); `Stop(true)` takes its children.
    * A ParticleEffect root's own `_inactiveOnFinish` is `offFinish` as well.
    */
   finishMain() {
@@ -2413,7 +2413,7 @@ export class FxInstance {
     }
   }
 
-  /** Set an Animator parameter of the effect's state machines (client code: Animator.SetInteger / SetTrigger …). */
+  /** Set an Animator parameter of the effect's state machines (the client: Animator.SetInteger / SetTrigger …). */
   setParam(name, v) {
     for (const m of this.sms) if (m.d.params && name in m.d.params) m.p[name] = v;
   }

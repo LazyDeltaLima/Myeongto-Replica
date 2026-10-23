@@ -349,7 +349,7 @@ Each item is a mistake this project already made once. Tick every one for every 
     buffs;
   - **PRTS 备注 wording** such as 「模型」 / 「不改变所在地块」: the model moves, the rules do not — the tile, position and
     range stay in the sim, the model's position, height and clips go to the renderer;
-  - **the client the reading came from**: a class the EN client has is checked in the decompiled code (which method
+  - **the client the reading came from**: a class the EN client has is checked down to its methods (which method
     reads the field, so when the clip plays); a CN-only class is read field by field and its reading is `[ASSUMED]`;
   - **a render test** that pins the clip order on the real manifest entry (`test/render/aglna2-s2-glide.test.js`, headless
     `test/render/fakepixi.js`), with the screen check left as an open item for the maintainer.

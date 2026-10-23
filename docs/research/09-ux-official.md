@@ -3,7 +3,7 @@
 Written 2026-09-28. This is research only; no code was changed. It answers the user's test feedback on items 2, 5, 6 and 7, and the part of item 9 about UX ("按照官方原版来").
 
 **Tags**
-- **[DATA]**: read from the official client or its game data. This covers `activity_table`, the level JSON, `display_meta_table`, the local Windows client's UI bundles and its il2cpp `global-metadata.dat` (class names, field names and constants, parsed with a v29 metadata reader).
+- **[DATA]**: read from the official client or its game data. This covers `activity_table`, the level JSON, `display_meta_table`, the local Windows client's UI bundles and its class names, field names and constants.
 - **[WIKI]**: BWIKI 盟约, the official 玩法介绍 long image, and the in-game guidebook pages.
 - **[VIDEO]**: frames from bilibili gameplay videos, or screenshots.
 - **[COMM]**: community posts on NGA or Bahamut.
@@ -169,7 +169,7 @@ Evidence was extracted to the scratchpad `research2/`: guide pages, video frames
 | Final Assault | Your pair's field only. The pill offers ‹ LEFT / 全景 / RIGHT ›. The other pair cannot be observed (NOT_AVAIL). Team LP and the shared boss HP bar are in the capsule. After 150 s the team LP drains 1/s. | DATA + VIDEO |
 | Eliminated or quit | Choose keep-watching or quit. Keep-watching auto-observes the first available field and can switch freely. A quit target shows "当前玩家已离开". | DATA |
 
-### 3.2 Official combat computation model [DATA: client il2cpp class and field names]
+### 3.2 Official combat computation model [DATA: client class and field names]
 
 The scene server is separate. `ActAutoChessSyncInfoBattleInfo { sceneId, address, token, modeId, endTime, curRound }` gives a dedicated address and token.
 
@@ -442,7 +442,7 @@ Mirror the official split. This lets a low-power Windows mini-PC host the game.
 - `…/AB/Windows/ui/autochess/[uc]autochessbattle.ab`: GameObjects, Text ids, sprites, onClick bindings.
 - `…/ui/emoticon/theme/*.ab`
 - `…/arts/guidebookpages/[pack]autochess.ab`: 19 in-game help pages, including 休整期 (orange facing wedge) and 策略与轮选 (队友已选).
-- `…/Arknights_Data/il2cpp_data/Metadata/global-metadata.dat` (v29): class and field names and the `MAX_PREVIEW_CNT` constant.
+- The client's class and field names and the `MAX_PREVIEW_CNT` constant.
 
 **Game data.**
 - `.cache/gamedata/excel/activity_table.json` `autoChessData` (gameTipsList, constData chatCD/chatTime, enabledEmoticonThemeIdList)

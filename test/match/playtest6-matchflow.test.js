@@ -549,7 +549,7 @@ test('#235 no 联防 this round: the SETTLE view carries no uniteResult (the cli
   m.dispose();
 });
 
-// maintainer decision 2026-10-11 (client code AutoChessBattleUIViewModel.GetBattleResultStatus): the battle end reads the
+// maintainer decision 2026-10-11 (the client's AutoChessBattleUIViewModel.GetBattleResultStatus): the battle end reads the
 // settled charges; in solo the result holds the viewer alone
 test('solo round: SETTLE carries the viewer\'s own charge in roundLosses (counted leaks → REDUCE)', () => {
   const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seed: 6062, fake: true, script: () => ({ duration: 3, leaks: { p_0: 2 } }) }).start();

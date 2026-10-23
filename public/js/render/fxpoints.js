@@ -1,5 +1,5 @@
 // public/js/render/fxpoints.js — local patch (docs/LOCAL-PATCH.md 「이펙트 붙는 자리」): the model points an effect is
-// created at. An effect prefab's root `_spawnLocation` (fx_extract.py `spawn`) is the client's SpawnLocation (global-metadata
+// created at. An effect prefab's root `_spawnLocation` (fx_extract.py `spawn`) is the client's SpawnLocation (its
 // enum order: 0 NONE, 1 FOOT_POINT, 2 HIT_POINT, 3 MUZZLE_POINT, 4 HEAD_POINT, 5 GROUND_CENTER, 6 MUZZLE_POINT_WITHOUT_ROTATION,
 // 7 GROUND_CENTER_WITH_ZERO_HEIGHT, 8 MP_SPECIAL_0 … 11 MP_SPECIAL_3, 12 CAMERA, …); the muzzle and special points are
 // Transforms of the operator's battle model (chararts DefaultSkin), most of them following a Spine bone. The table of
@@ -14,7 +14,7 @@ export const loadPoints = () => (pointsPromise ||= typeof fetch !== 'function' ?
 
 /**
  * The model point a `_spawnLocation` names, or null (feet and ground keep render/fxgame.js's own heights).
- * 2 HIT_POINT / 4 HEAD_POINT are the hit / head points (2026-10-10, decompile check: client
+ * 2 HIT_POINT / 4 HEAD_POINT are the hit / head points (2026-10-10, official client:
  * `Effect._InitLocationFromEntity` places them at the entity's hit / head mount point — they were 0.5 / 1.1 of the drawn
  * height, which render/fxgame.js keeps for a unit without a points table); 3 and 6 are the muzzle (the bone's turn that 3
  * also takes is not applied: the prefabs keep their 'fixed' children upright [ASSUMED]); SpecialPointN: 8–11 MP_SPECIAL_0–3,
@@ -35,7 +35,7 @@ export function pointKey(spawn) {
 
 /**
  * The `_spawnLocation` value of the point an effect's FollowMountPoint names (fx_extract.py `mount.type`), or null (the
- * effect keeps its `_spawnLocation`). MountPointType's constants (global-metadata field default values): 0 FOOT, 1 HIT,
+ * effect keeps its `_spawnLocation`). MountPointType's constants (the client's field default values): 0 FOOT, 1 HIT,
  * 2 MUZZLE, 3 HEAD, 4 UI, 5 SPECIAL_0, 6 SPECIAL_1, 7 GROUND, 8–21 SPECIAL_2–15 — the extracted prefabs that carry both
  * agree (spawn 8 ↔ mount 5, 10 ↔ 8, 3 ↔ 2). The effect follows that point every frame (local patch, maintainer report,
  * : 스펙터 디 언체인드 S2's red ring, mount 5 = SPECIAL_0 = her saw's ring bone). UI / GROUND: null.
@@ -82,7 +82,7 @@ export function pointOn(entry, sk, back, out = { x: 0, y: 0 }) {
  * −90° in Skill_3 facing every way, i.e. +90°: her S3 fan opens behind her, its spike toward the enemy (maintainer 2026-10-08: facing
  * down with the enemy on the right, the fan opens to the left; the first take, the angle as reported, had it the other way).
  * @param {{F?: {bone?: string, rot?: number}, B?: {bone?: string, rot?: number}}|null|undefined} entry
- * @param {{findBone: (name: string) => ({getWorldRotationX: () => number}|null)}|null|undefined} sk
+ * @param {{findBone: (name: string) => ({getWorldRotationX: => number}|null)}|null|undefined} sk
  * @param {boolean} back
  * @returns {number|null}
  */
@@ -168,8 +168,8 @@ export function modelOffset(face, graphic = null) {
 }
 
 /**
- * Whether an effect created on a unit takes its `Graphic`'s rotation (GRAPHIC_TILT). 2026-10-22, decompile check:
- * `Effect._InitLocationFromEntity` (RVA 0xE7AF80; its switch is indexed by `_spawnLocation` − 1) sets the effect's
+ * Whether an effect created on a unit takes its `Graphic`'s rotation (GRAPHIC_TILT). 2026-10-22, official client:
+ * `Effect._InitLocationFromEntity` (; its switch is indexed by `_spawnLocation` − 1) sets the effect's
  * rotation to the rotation of `graphicFootTransform` for 1 FOOT_POINT, of `graphicTransform` for 2 HIT_POINT / 4
  * HEAD_POINT (on a Spine unit both are its `Graphic`: `Unit.get_graphicFootTransform` → `UnitAnimator.get_graphicFootTransform`
  * → `graphicTransform`), of the mount point's own Transform for 3 MUZZLE_POINT and the MP_SPECIAL points

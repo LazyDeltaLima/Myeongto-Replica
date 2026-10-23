@@ -1,5 +1,5 @@
 // test/render/yu-wall.test.js — 余 S3 灶里乾坤's fire wall as the client assembles it (render/fxgame.js yuWallPieces;
-// maintainer report 2026-10-10: the flames stand on his tile's front edge — facing right, on its right edge). Decompile:
+// maintainer report 2026-10-10: the flames stand on his tile's front edge — facing right, on its right edge). The client:
 // yu_skill3_range_01_source puts yu_skill3_range_01_root on every tile of his line; each root plays its piece at the tile
 // centre + FOUR_WAYS[direction] × `_offset` 0.4 — the row piece facing up / down, the column piece of its screen side
 // (_r / _l) facing left / right — and the end pieces at the line's ends.

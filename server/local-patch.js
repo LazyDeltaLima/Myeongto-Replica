@@ -257,9 +257,9 @@ function buffBoosts(ps, b) {
 }
 
 // 특수 상품 연출: the client plays card_whole_refresh_special instead of _normal when the shop's goods it is showing are
-// special — a pick-one reward offer (client code AutoChessBattleShopMainView._RenderUnfoldView, RVA 0x201B500: on a
+// special — a pick-one reward offer (the client's AutoChessBattleShopMainView._RenderUnfoldView: on a
 // refreshSeq change, isSpecialRecruit = the server's isSpecialGoods != NORMAL — COMB / BUFF; the same flag refuses 刷新 /
-// 冻结 with 「请选择奖励」, AutoChessBattleUIController._OnShopRefresh 0x1FD0930). Our offers (晋升奖励 = COMB, a strategy's /
+// 冻结 with 「请选择奖励」, AutoChessBattleUIController._OnShopRefresh). Our offers (晋升奖励 = COMB, a strategy's /
 // item's / 特质's offer = BUFF) take the shop row in the same way, so each queued offer gets a number the view sends as
 // shop.rewardOffer.seq: a new one plays the special clip once (ui/shopBar.js, docs/rules/ui.md 「상점 화면」). A strategy's
 // 「特殊刷新」 refresh (杜遥夜 / 梓兰 / 佩佩) leaves normal goods and plays the normal clip.

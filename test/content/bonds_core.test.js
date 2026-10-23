@@ -270,7 +270,7 @@ test('谢拉格: ×1.25, vs cold / frozen ×(1.35+0.01L); 6: a cold wind every 2
 
 test('谢拉格 6 on a shared field: one wind for the field (not one per player), duration from the higher layers', () => {
   // client: one [storm] on the map controller; AutoChessAssignBondCharCntToBB _filterAllSides = the most members over the
-  // players (0xB49840), AutoChessAssignBondStackCntToBB _assignAllPlayerIndex = the most layers (0xB49C80)
+  // players, AutoChessAssignBondStackCntToBB _assignAllPlayerIndex = the most layers
   const list = [];
   for (let i = 0; i < 6; i++) list.push([`k${i}_a`, ['kjeragShip']], [`q${i}_a`, ['kjeragShip']]);
   const side = (pid, prefix, n, layers, seat) => ({

@@ -146,7 +146,7 @@ test('迅捷 / 不屈 proc chances: p = min(1, base + per·L) at each layer coun
 });
 
 // 灵巧 — client buff graph act1autochess_bond_eff_skillful: judged once on the receiver's deployment from the member PIECES
-// on the 3×3 (x-4) / cross (x-5) around it (AutoChessFilterCharacterBondIds 0xB4E810, GetChessInstByPos); ASPD from the
+// on the 3×3 (x-4) / cross (x-5) around it (AutoChessFilterCharacterBondIds, GetChessInstByPos); ASPD from the
 // live layers, at ≥ 40 for the whole 3×3, else only for the cross; kept while the receiver stays.
 test('灵巧: judged on deployment (cross, 3×3 at ≥40 layers, live value) and kept when the member moves or leaves', () => {
   const defs = { chess: { k_1: op('k_1', ['skillfulShip']), k_2: op('k_2', ['skillfulShip']), k_n: op('k_n', []), k_d: op('k_d', []), k_f: op('k_f', []) } };
@@ -981,7 +981,7 @@ test('调和 (match side): +1 to core bonds that already have a real member', ()
   m.dispose();
 });
 
-test('不屈 rolls DicePRD (client code Nodes.DicePRD): C = prdBaseProbs[round(p·100)], the N-th roll since a hit succeeds with N·C', () => {
+test('不屈 rolls DicePRD (official client Nodes.DicePRD): C = prdBaseProbs[round(p·100)], the N-th roll since a hit succeeds with N·C', () => {
   assert.equal(prdBase(0.2), 0.0557, 'the Dota-style PRD constant for 20 %');
   assert.equal(prdBase(0.18), 0.04562);
   assert.equal(prdBase(0.184), 0.04562, 'p·100 rounded to the table index');

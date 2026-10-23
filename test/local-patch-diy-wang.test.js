@@ -257,8 +257,8 @@ describe('望 kit — maintainer decisions 2026-10-07 (op-wang.js)', () => {
   });
 
   test('on a mirrored field (boss right side) the 跟子 order stays the field\'s up > col+ > down > col− (W8 swap reverted 2026-10-11)', () => {
-    // client code WangTileSelector._GetDirectionPriority (0x7199D0) on grid offsets; the right player's pieces are only
-    // placed at mirrored positions (AutoChessMapAreaManager.ConvertChessPositionInfoToRightMap, 0x832BC0) — the map is not
+    // the client's WangTileSelector._GetDirectionPriority on grid offsets; the right player's pieces are only
+    // placed at mirrored positions (AutoChessMapAreaManager.ConvertChessPositionInfoToRightMap) — the map is not
     // flipped. 2026-10-07 – 2026-10-11 (W8, ORTHO_MIRRORED) this test wanted field col − 1.
     const slots = BACKUPS.diy.slots;
     const base = Object.keys(slots).find((id) => slots[id].tier === 6);

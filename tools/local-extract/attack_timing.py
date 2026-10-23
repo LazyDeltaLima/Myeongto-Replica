@@ -4,7 +4,7 @@
 The client times a normal attack from its attack ability (`AbstractAnimatedAbility` → `EasyToStartAbility`, the
 MonoBehaviour on `<id>/Modes/<mode>/Body/Attack` or `…/Combat`): its clip `_animKey` is played at the speed that fits the
 attack time — scale = clamp(attack time / clip length, 0.1, `_maxAnimScale`) (−1 = no upper bound), speed = 1 / scale,
-the swing lasts scale × clip (client code `AbstractAnimatedAbility.UpdatePlaybackSpeed`) —, the damage lands on the
+the swing lasts scale × clip (the client's `AbstractAnimatedAbility.UpdatePlaybackSpeed`) —, the damage lands on the
 clip's OnAttack event when `_waitForAttackEvent` is 1 (else `_preDelay` × scale after the swing starts), and
 `_selectTargetTiming` says whether the targets are taken again at the strike (docs/rules/sim.md 「일반 공격 타이밍」),
 and the ability's facing flags say where the unit turns as the swing starts (`AbstractAnimatedAbility.DealWithFaceDirection`,
@@ -196,7 +196,7 @@ def enemy_skills(sub, modes):
     """{skill GameObject name: fields} of an enemy prefab's EnemySkill components (the MonoBehaviour with `_familyMask`,
     `<root>/Modes/<mode>/Skills/<name>`): its family mask and main-attack reset flags, and the clip of the animated ability
     on the same GameObject (`anim`, `max`, `wait`, `pre` as for the attack; none when the ability plays no clip). The
-    client casts such a skill in place of a normal attack (client code `Enemy.AttackWrapper.SearchTarget` / `Cast`) and
+    client casts such a skill in place of a normal attack (the client's `Enemy.AttackWrapper.SearchTarget` / `Cast`) and
     restarts its cooldown when the cast ends (`EnemySkill._OnCastFinish`). A name in several modes: the first mode's
     (the prefab's `_modes` order), the others only when they differ (`alt`)."""
     order = {p: i for i, p in enumerate(modes or []) if p}

@@ -276,7 +276,7 @@ export const TIPS = Object.freeze({
 });
 
 /**
- * Which band shows (client code AutoChessBattleUIBottomTipsViewModel.UpdateData, 2026-10-10): in the prep (not watching
+ * Which band shows (the client's AutoChessBattleUIBottomTipsViewModel.UpdateData, 2026-10-10): in the prep (not watching
  * another board) the own ready → PREP_READY, else the temp overflow row holding pieces → HAND_OVERFLOW, else a full hand
  * → HAND_FULL; anywhere else (battle, 联防, watching) the own battle over while alive → WAIT_FINISH; else none.
  * @param {{ prep: boolean, watching: boolean, ready: boolean, overflow: boolean, full: boolean, ownDone: boolean, alive: boolean }} s
@@ -319,7 +319,7 @@ export function BottomTips({ type, shopOpen = false }) {
 
 /**
  * Whether the waiting dialog shows: a timed stage whose deadline is over by more than `graceMs` and has not moved on
- * (client code AutoChessBattleUIViewModel.IsWaitingPanelShow: a prep or battle state at its END sub-state — the own part
+ * (the client's AutoChessBattleUIViewModel.IsWaitingPanelShow: a prep or battle state at its END sub-state — the own part
  * done, the stage not yet over).
  * @param {{ phase: string|null|undefined, deadline: number|null|undefined, now: number, graceMs?: number }} s
  */
@@ -537,7 +537,7 @@ export const BOSS_PREP_MS = Object.freeze({ single: 3500, hidden: 3500, multi: 3
 
 /**
  * Which boss opening a phase change starts, or null. The client opens these dialogs from the BOSS_PREPARE_WAITING state
- * (AutoChessGameStateType 101: client code AutoChessBattleUIController.PendingBossPrepareWaitingTask.CalcTabId picks
+ * (AutoChessGameStateType 101: the client's AutoChessBattleUIController.PendingBossPrepareWaitingTask.CalcTabId picks
  * tab_single / tab_multi / tab_hide_boss_prepare from the boss-round model) — the wait between the round before and the
  * boss round's own prep, not the boss battle (maintainer report 2026-10-10: 「보스 라운드의 휴식시간에 들어가기 전」).
  * Here that is the boss round's ROUND_START (m.public bossRound / hiddenRound): 'hidden' for the hidden round, else
@@ -654,7 +654,7 @@ export function BossPrepare({ kind, portrait = null, team = [], onDone }) {
 // ---- the match's end (settle_ending_dialog) ------------------------------------------------------------------------
 
 /**
- * The ending of a match from m.result (client code AutoChessSettleDataModel.EndingStatus): 'NORM_BOSS_WIN' (the leader
+ * The ending of a match from m.result (the client's AutoChessSettleDataModel.EndingStatus): 'NORM_BOSS_WIN' (the leader
  * beaten, no hidden round), 'HIDE_BOSS_FAIL' (the leader beaten, the hidden core not), 'HIDE_BOSS_WIN' (both),
  * 'GAME_OVER' (defeat / elimination); null for an aborted match (abandoned, error) or no result.
  * @param {any} r m.result
@@ -729,7 +729,7 @@ export function SettleEnding({ status, portrait = null, onDone }) {
 // ---- the viewer is out (self_dead_dialog) --------------------------------------------------------------------------
 
 /**
- * The elimination dialog (self_dead_dialog, client code AutoChessBattleUISelfDeadDialog: EventOnBtnWatchOther /
+ * The elimination dialog (self_dead_dialog, the client's AutoChessBattleUISelfDeadDialog: EventOnBtnWatchOther /
  * EventOnBtnExit; battle_lose_you_out_show 1.85 s): the screen 80 % black, the red plate bg_type_01 with its side lines
  * and read-outs (#a61f1f), the cross img_dec_cross (#8e280c · 70 %), the broken pixel face (icon_01…04) and its caption
  * on the left, the line (46 #e82727) on the right, 「继续观战」 (btn_continue) and 「退出模拟」 (btn_end). The client's
@@ -774,7 +774,7 @@ export function SelfDead({ onWatch, onExit }) {
 // ---- 准备 with funds left (AutoChessConfirmDialogInPage) ---------------------------------------------------------
 
 /**
- * The 准备 question with funds left, in the client's own confirm dialog (client code
+ * The 准备 question with funds left, in the client's own confirm dialog (the client's
  * AutoChessBattleUIController._GetPreReadyTipGoldDialogTabInput: AutoChessConfirmDialogInPage with the text
  * AUTO_CHESS_BATTLE_PREP_READY_TIP_2, the check box AUTO_CHESS_BATTLE_PREP_READY_TIP_NOMORE, 取消 / 确认; shown when
  * AutoChessBattleUIViewModel.IsNeedToShowPreReadyTipGold — funds > 0 and the strategy not in noMoneyTipsBand; the box
@@ -856,7 +856,7 @@ export function ReconnectMask() {
 
 /**
  * The one-button confirm dialog (auto_chess_only_confirm_view) of the server-lost / solo-resume tabs: `text`, 确认 →
- * onOk. Server lost (client code _HandleServerLost → tab_server_lost_dialog, _GetServerLostDialogTabInput:
+ * onOk. Server lost (the client's _HandleServerLost → tab_server_lost_dialog, _GetServerLostDialogTabInput:
  * AUTO_CHESS_BATTLE_SERVER_LOST_TIP, or …_TIP_NEGATIVE_PLAY when the server ended the game for inactivity; 确认 →
  * AutoChessGameManager.QuitGame). Solo resume (EventOnShowSingleResumeDialog → tab_single_resume_dialog,
  * _GetSingleResumeDialogTabInput: AUTO_CHESS_BATTLE_SINGLE_RESUME_DIALOG; 确认 → ReqResumeSingleMode). The client's texts

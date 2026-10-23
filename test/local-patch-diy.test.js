@@ -296,7 +296,7 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     const [dr, dc] = dirVec(u.dir);   // she does not turn (a 领主 on the ground)
     const base = (Math.atan2(dr, dc) * 180) / Math.PI;
     const wrap = (d) => ((d + 540) % 360) - 180;
-    // client code LitePhysicsUtil.Rotate (0x6ABC70) about (0,0,−1): the client's a = angle·(2·ratio − 1) turns clockwise
+    // the client's LitePhysicsUtil.Rotate about (0,0,−1): the client's a = angle·(2·ratio − 1) turns clockwise
     // when positive, so note 1 (a −13.125°, the 1.0× note) goes counter-clockwise = + in the sim's x = col, y = row
     // (maintainer decision 2026-10-11 [추정: world y = screen up]; until then note 1 went clockwise)
     for (const e of born) {

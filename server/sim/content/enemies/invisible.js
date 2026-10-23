@@ -30,9 +30,9 @@ const CROSS_MUZZLE = { side: { f: 0.574, up: 0.188 }, DOWN: { f: 0.409, up: -0.1
 
 function kitCrossbow(ab) {
   const s = ab.sk.CrossAttack;
-  // 2026-10-21 (client code AdvancedSelectorWithTrapSheltr.OnPostFilter RVA 0x77BD70, `_checkOnTheSameLine`; the prefab's
+  // 2026-10-21 (the client's AdvancedSelectorWithTrapSheltr.OnPostFilter, `_checkOnTheSameLine`; the prefab's
   // Skills/CrossAttack/Selector at its root: _offsetMinX/MaxX −0.5/0.5, _offsetMinY/MaxY −0.5/0.1): a candidate stays when its
-  // own position minus the target's is within the X offsets OR within the Y offsets — MathUtil.Between (0x5A40000) is
+  // own position minus the target's is within the X offsets OR within the Y offsets — MathUtil.Between is
   // min − ε < v < max + ε. The rows are uneven: a unit up to 0.5 above it, 0.1 below (until 2026-10-21 ±0.5 both ways)
   const between = (v, lo, hi) => v > lo - 1e-9 && v < hi + 1e-9;
   const aligned = (b, e) => b.allies().filter((u) => canTargetAlly(e, u, true) && (between(e.x - u.x, -0.5, 0.5) || between(e.y - u.y, -0.5, 0.1)) && hypot(u.x - e.x, u.y - e.y) <= CROSS_REACH);

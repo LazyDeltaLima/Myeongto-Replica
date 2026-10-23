@@ -190,7 +190,7 @@ export function readyFundsPrompt(priv, { ready = true, keptBands = null, autopla
 }
 
 /**
- * The 准备 confirmation with units left in the temp row (client code AutoChessBattleUIController._EventOnPrepReadyBtnClick:
+ * The 准备 confirmation with units left in the temp row (the client's AutoChessBattleUIController._EventOnPrepReadyBtnClick:
  * `isHandOverflow` → tab_pre_ready_tip_hand_overflow, AUTO_CHESS_BATTLE_PREP_READY_TIP_1, 取消 / 确认, no check box —
  * asked before the funds one, which follows on confirm). What is due at this prep is resolved at its end (the server's
  * endPrep → resolveTemp). The client's text is not in our tables: the wording is ours [ASSUMED]. Null when the temp row

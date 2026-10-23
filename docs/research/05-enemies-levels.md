@@ -178,7 +178,7 @@ Official ingredients:
 - `modeDataDict.inactiveEnemyKey` bans 18 strong keys in FUNNY/NORMAL.
 - wiki.gg: "Starting from Alliance there can be up to 3 enemy factions per Protocol, along with a boss chosen from a separate pool… enemies do not get strategies and only get generic stat buffs as rounds escalate."
 
-> **Superseded by 08-waves-official.md §2** (client code decoded 2026-10-10): one type and one entry per round; the
+> **Superseded by 08-waves-official.md §2** (official client, read 2026-10-10): one type and one entry per round; the
 > count is per ACTION, `clamp(roundHalfEven(n·P/f ÷ P'/f'), 1, 5)`; placeholders of the other movement class are not
 > spawned; no 1.5× cap. Step 7 (stat scaling) is not part of the client generator (current code: PRTS
 > `config.modes[*].enemyScale`); step 8's bounty insertion = 08 §2 / `_InsertSpActionToNormal`. Kept below as history.
@@ -423,7 +423,7 @@ Both come from `level_autochess_enemy_data`.
 | 1010_demon_2 | 萨卡兹大剑组长 | E | 15000 | 750 | 250 | 50 | 0.85 | 2 | 0 | 1 | W | PHYS |  |
 
 ## 7. Open questions / assumptions to confirm
-1. **Replacement algorithm.** Answered by 08 §2 (client code): one entry per round, counts per action. Is there one special entry per round or one per spawn action? Is the k-copies formula right? It is inferred from `min/maxReplacedEnemyCount` and the BE factors, and is not documented anywhere.
+1. **Replacement algorithm.** Answered by 08 §2 (official client): one entry per round, counts per action. Is there one special entry per round or one per spawn action? Is the k-copies formula right? It is inferred from `min/maxReplacedEnemyCount` and the BE factors, and is not documented anywhere.
 2. **Enemy stat scaling.** Not part of the client generator (server / buff data; current code: PRTS `config.modes[*].enemyScale`). It is unknown how `aceffect_enemy_*` map to modes and rounds. `difficultyFactorInfo` (1.0/1.6/1.7/1.7) and `modeFactorInfo` (1.25) look like **reward** coefficients: PRTS notes "获取卫戍认证系数提升至×1.25".
 3. **Boss HP in single mode.** It may be the same bloodPoint or a scaled one. The multi pool is shared by 4 players across 2 battlefields.
 4. **Leak weighting.** The rule is by count; whether `lpr` ever matters outside boss rounds is unknown.

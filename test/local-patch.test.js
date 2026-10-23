@@ -1453,7 +1453,7 @@ describe('kit skill hit sounds (tools/assets/kit-sfx.mjs → sfx.kit, public/js/
   });
 });
 
-describe('operator voice: the official scheduling (public/js/voicePolicy.js over audio.js VoiceGate, owner 2026-10-06; client code 2026-10-10)', () => {
+describe('operator voice: the official scheduling (public/js/voicePolicy.js over audio.js VoiceGate, owner 2026-10-06; official client 2026-10-10)', () => {
   test('gate: no global gap, same priority overlaps by type, AUTO skills 10 s / MANUAL 0 s, 60 / 50 by SP cost', async () => {
     const { OfficialVoiceGate, skillVoiceType } = await import('../public/js/voicePolicy.js');
     const g = new OfficialVoiceGate();

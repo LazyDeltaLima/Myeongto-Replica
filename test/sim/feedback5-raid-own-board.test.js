@@ -8,7 +8,7 @@
 // 0.2.0 let raidTile take only tiles of the member's own board (Battle.onOwnBoard: the board region, rows 9–12 / cols
 // 2–10, mapped onto the field). The owner's decision of 2026-10-07 (0.2.1) opens a teammate's half when both halves are
 // taken — the two-helper 联防 field and a Final Assault / Hidden Core pair field: raidTile takes the tiles of
-// Battle.onFieldBoard (the board of any player of the field). 2026-10-10 (client code): the landing is the enemy's tile
+// Battle.onFieldBoard (the board of any player of the field). 2026-10-10 (official client): the landing is the enemy's tile
 // or the one behind it (AutoChessRebuildCharacterOnTile, range "1-1"), on a BATTLE_FIELD tile — every map tile but
 // tile_achand, narrowed per game state by AutoChessMapAreaManager.ResetTileIndexer: the whole boss map in a boss battle
 // (a solo boss field's other half included), both 联防 halves only with several helpers. The lone helper's empty half

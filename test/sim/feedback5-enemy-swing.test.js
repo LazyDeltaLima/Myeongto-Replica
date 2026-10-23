@@ -3,7 +3,7 @@
 // ATTACK / COMBAT "每帧检查异常状态，若有则切换到异常状态的状态", PRTS 异常效果 STUNNED / DISARMED "正在进行的普通攻击将被中断") —
 // server/sim/ai.js updateEnemy / enemyAttack / attackWindup. The damage frame is data/enemies.json `attackAnim.hit` (the
 // clip's strike frame) × the clip scale (attackTiming: interval ÷ clip within [0.1, `_maxAnimScale`]); no clip known ⇒ no
-// wind-up. Since 2026-10-10 (client code, docs/rules/sim.md 「일반 공격 타이밍」) the cooldown restarts as the swing starts
+// wind-up. Since 2026-10-10 (official client, docs/rules/sim.md 「일반 공격 타이밍」) the cooldown restarts as the swing starts
 // and runs through a stun, so a cut swing is followed by the next one a whole interval after its start; a target that
 // dies during the swing is a whiff (no damage, no cooldown back).
 // Run: node --test test/sim/feedback5-enemy-swing.test.js

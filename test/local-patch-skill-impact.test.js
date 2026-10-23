@@ -1,6 +1,6 @@
 // test/local-patch-skill-impact.test.js — maintainer report 2026-10-08 「이격 니어 S3 발동 후 적을 타격할 때마다 전용 효과음… 여러 종류
 // 효과음이 같이 재생」 (docs/rules/audio.md 「START·ON·HIT」): an ability with a START bank (the swing) and an ON bank sounds
-// both — 耀骑士临光 S3 attack.3 p_atk_goldspear_s + p_imp_goldspear_s. 2026-10-10 (client code: START / ON / HIT are separate
+// both — 耀骑士临光 S3 attack.3 p_atk_goldspear_s + p_imp_goldspear_s. 2026-10-10 (the client: START / ON / HIT are separate
 // signals and the middleware plays every bank of the name): the ON bank is its own role `on`, played with the attack ('atk',
 // AbilityStandard.DoEmitAudioSignalForSpellOn) whatever its mixer group — no longer as the impact (tools/assets/skill-mode-sfx.mjs
 // onBeside, audio.mjs pickUnitSfx).

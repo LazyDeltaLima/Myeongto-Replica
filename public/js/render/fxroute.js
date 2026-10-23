@@ -116,7 +116,7 @@ const JOIN_SLACK_S = 0.25;
 /**
  * The official route preview of a battle's start (docs/rules/render.md 「적 경로 미리보기」, 관리자 결정 (2026-10-10)): the
  * cursors the client's wave scheduler runs along an enemy route 3 s before the first unit of a marked level action
- * (Scheduler._DealAction, RVA 0x629EE0: 2 cursors 0.3 s apart, at once when that falls before the battle's start). The
+ * (Scheduler._DealAction: 2 cursors 0.3 s apart, at once when that falls before the battle's start). The
  * plan — `[{ t, motion, pts }]`, t in game seconds, pts the line the sim's enemy walks — is the runner's m.field
  * `routeCursors` (/sim/routePreview.js). Each cursor runs ONCE at `_moveSpeed` in game time (the battle speed scales it
  * like the client's), then its trail fades (`_delayToRecycle`). A cursor whose run is already over when the plan

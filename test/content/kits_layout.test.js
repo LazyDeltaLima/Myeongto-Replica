@@ -99,7 +99,7 @@ test('kit files stay browser-safe and deterministic: no Node-only or server-only
     const specifiers = [...src.matchAll(/^(?:import|export)\s[^;]*?\sfrom\s+['"]([^'"]+)['"]/gm), ...src.matchAll(/\bimport\(\s*['"`]([^'"`]+)['"`]/g)];
     for (const [, p] of specifiers) {
       assert.ok(p.startsWith('.'), `${f}: bare import ${p}`);
-      // never server / client code, never an index module (content/index.js, kits/index.js: an import cycle)
+      // never server / browser modules, never an index module (content/index.js, kits/index.js: an import cycle)
       assert.ok(!/(^|\/)(match|net|public)\/|(^|\/)index\.js$/.test(p), `${f}: imports ${p}`);
     }
     assert.ok(!/Math\.random|Date\.now|performance\.now|setTimeout|setInterval/.test(src), `${f}: clock / Math.random (use battle.rng, battle.after / every)`);

@@ -6,7 +6,7 @@
 원본 #73(`54cdad2`, DESIGN §21.30 「干员战斗语音」)이 전투 음성을 넣어서, 재생 규칙은 원본을 따르고 로컬 패치는 두 가지만 남겼다(관리자 결정 2026-10-06).
 - 원본이 하는 것: 전투 중에만 공식 슬롯 12개 — 행동 출발(처음 배치된 오퍼레이터)·배치(나머지)·행동 개시(첫 타격, 엔진 `engage` 이벤트)·
   전투 중 선택(상세 패널)·작전 중 1~4(스킬 번호)·결산 4종. 한 번에 하나, 간격 1.2초, 유닛·슬롯별 쿨다운, 공식 우선순위(VoiceGate).
-  (언제 무엇을 말하는지는 아래 로컬 3이 클라 코드대로 바꾼다.)
+  (언제 무엇을 말하는지는 아래 로컬 3이 공식 클라대로 바꾼다.)
   음성 음량은 설정의 「干员语音」 슬라이더. 언어는 빌드 때 하나(`fetch-assets --voice-lang`, 원본 기본 cn).
 - 로컬 1 — 언어 선택: 빌드 기본을 한국어(`--voice-lang=kr`, `audio.voice`)로 하고, 같은 슬롯의 일본어를 `audio.voiceJp`로 같이 받는다
   (`tools/assets/voice.mjs voiceTwin`, 파일은 `audio/voice/{kr|jp}/{charId}/cn_NNN.mp3`, 원천 `sound_beta_2/voice_kr/`·`voice/`).
@@ -20,12 +20,12 @@
   **벤치의 오퍼레이터를 보드에 놓으면 배치 대사**(`place` = PLACE_CHAR; 관리자 제보 2026-10-08, 관리자 결정 2026-10-08: 벤치→보드만):
   방향 휠 확정(`screens/game.js commitFacing`)이 보드 밖에서 온 오퍼레이터를 기억했다가 그 말이 보드에
   떨어질 때(`pieceDeploy`, 3초 안) `voice.js voiceForPlace` — 배치 효과음과 같은 순간. 보드 안 이동·벤치 복귀·전투 뒤 정비 복귀·자동 배치·소환물은
-  대사 없음. 근거(2026-10-10 클라 코드): `AutoChessGameModeVoicePlugin._OnCharacterPlacedAtBattle`(RVA 0xD67F70, 이벤트 `ON_PLACE_AT_BATTLE_FIELD`
+  대사 없음. 근거(2026-10-10 공식 클라): `AutoChessGameModeVoicePlugin._OnCharacterPlacedAtBattle`(이벤트 `ON_PLACE_AT_BATTLE_FIELD`
   1206) — 정비 본 단계(`AutoChessGameStatus.inMainPrepareState`)에서 전장 칸에 놓인 말이 `PLACE_CHAR`(部署); 벤치로 놓는 1207에는 대사 구독이 없다.
-  1206/1207을 쏘는 곳은 `AutoChessDummyManager._OnCharacterPlaced`(RVA 0x829900)뿐이다(2026-10-11 클라 코드) — 말을 칸·슬롯에 두는
-  `SetCharacter`(RVA 0x828390) 끝에서 불리고(호출자: 만들기 대기열 `OnTick`·`_DoCreateOnTile`·`CreateDeadLikeDummy`), 전투 상태면 방향만 맞추고 끝
+  1206/1207을 쏘는 곳은 `AutoChessDummyManager._OnCharacterPlaced`뿐이다(2026-10-11 공식 클라) — 말을 칸·슬롯에 두는
+  `SetCharacter` 끝에서 불리고(호출자: 만들기 대기열 `OnTick`·`_DoCreateOnTile`·`CreateDeadLikeDummy`), 전투 상태면 방향만 맞추고 끝
   (대사·배치음 없음), 정비 중이면 전장 칸 1206·손(벤치) 1207. 클라는 「구매」를 따로 가르지 않는다: 상점 구매는 말이 벤치로 가서 1207 → 대사 없음
-  (배치음은 남) — 관리자 영상과 같다. 구매한 말이 곧바로 전장 칸에 생기는 경로(우리: 3장 합성으로 정예가 보드의 원래 칸에 서는 경우)는 클라 코드상
+  (배치음은 남) — 관리자 영상과 같다. 구매한 말이 곧바로 전장 칸에 생기는 경로(우리: 3장 합성으로 정예가 보드의 원래 칸에 서는 경우)는 공식 클라상
   1206 → 部署인데, 우리는 그때도 대사가 없다 [미확인: 공식 화면에서 합성 순간 部署가 나는지].
   확인: 실제 솔로 판(Chrome, 실제 마우스 끌기 + 방향 확정) — 배치음 b_char_set + 배치 대사, 자동 배치·정비 복귀는 대사 없음; 상점 카드 클릭 구매 → 배치음만,
   탭 3번 → 선택 대사 3번, 드래그 → 없음. 단위 `test/local-patch.test.js` 「部署 line」.
@@ -36,29 +36,29 @@
   (`data/backups.json`, 스킬 번호)으로 — 望 S1/S2·阿斯卡纶 S1은 SKILL_PASSIVE_IMP, 维什戴尔 S1은 _NOR. `voiceForPlace`는 렌더 정보의 `spine`을 써서 원래 맞음.
   확인: 실제 솔로 판(전부 补位 + 디버그 패널 선발 3명, 마우스 탭, 4라운드), 단위 `test/local-patch.test.js` 「自选 / 补位」.
 - 이전 로컬 패치에서 뺀 것: 작전 개시(무작위 한 명)·스킬 대사·자체 겹침 규칙·자체 음량 — 원본 것으로 대체.
-- 로컬 3 — 공식 재생 규칙(2026-10-06 관리자 결정, 2026-10-10 클라 코드로 다시 맞춤 — 관리자 결정 「동작 변경 모두 공식이랑 동일하게」;
+- 로컬 3 — 공식 재생 규칙(2026-10-06 관리자 결정, 2026-10-10 공식 클라로 다시 맞춤 — 관리자 결정 「동작 변경 모두 공식이랑 동일하게」;
   `public/js/voicePolicy.js`를 `voice.js`가 설치, `audio.js`에는 훅 몇 줄). 대사 로직은 관리 코드 `Torappu.Battle.UI.VoicePlayer`·
   `AutoChessGameModeVoicePlugin`이다(예전에 「네이티브」로 본 것은 틀림).
-  - 게이트 `VoicePlayer._PlayVoice`(RVA 0xD808F0): 클라이언트 `audio_data.json battleVoice` 값 — 전체 간격 없음, 우선순위(행동출발 100·행동개시 90·
+  - 게이트 `VoicePlayer._PlayVoice`: 클라이언트 `audio_data.json battleVoice` 값 — 전체 간격 없음, 우선순위(행동출발 100·행동개시 90·
     수동 스킬 70·자동 스킬 60/50(SP 10 이상/미만)·배치 20·선택 10), 마지막 대사보다 높으면 재생(앞 대사를 0.1초 크로스페이드로 끊음), 같은 우선순위는
-    유형이 겹침 허용(행동출발·수동 스킬·배치·선택)이면 끊고 아니면 버림 — 「낮은 우선순위는 높은 것을 못 끊는다」는 이제 코드로 확인. 겹침 불가 요청(`PlayRandomVoice` overlapFlag false)은 `VoiceManager.PlayVoice`(RVA 0x31342A0)가 음성 채널이 울리는 동안만 버린다 — 우리 게이트의 「재생 중 대사와 비교, 대사가 끝나면 비움」(`release`)과 같은 결과.
+    유형이 겹침 허용(행동출발·수동 스킬·배치·선택)이면 끊고 아니면 버림 — 「낮은 우선순위는 높은 것을 못 끊는다」는 이제 코드로 확인. 겹침 불가 요청(`PlayRandomVoice` overlapFlag false)은 `VoiceManager.PlayVoice`가 음성 채널이 울리는 동안만 버린다 — 우리 게이트의 「재생 중 대사와 비교, 대사가 끝나면 비움」(`release`)과 같은 결과.
     **쿨다운은 유형별 전역**(`m_nextPlayableTime`은 유형 8칸 배열 — 모든 오퍼레이터가 공유)이고 **대사가 끝난 뒤부터**: 다음 = 지금 + 대사 길이 + 쿨다운
     (자동 스킬 10초만; `audio.js _playVoice`가 디코드한 길이를 `voiceGate.lineLength`로 넘긴다). 새 대사가 나면 마지막 대사 유형의 쿨다운을
-    max(그대로, 지금 + 쿨다운)으로 다시 건다. `VOICE_TYPES_TO_SHARE_CD_WITH_ALL_OTHERS`(.cctor RVA 0xD81410) = [NORMAL_ATTACK]뿐 — 우리는 평타 대사가 없어 무관.
+    max(그대로, 지금 + 쿨다운)으로 다시 건다. `VOICE_TYPES_TO_SHARE_CD_WITH_ALL_OTHERS`(.cctor) = [NORMAL_ATTACK]뿐 — 우리는 평타 대사가 없어 무관.
     예전(2026-10-06): 쿨다운이 오퍼레이터별·시작부터였다. 원본 #73의 1.2초 간격·「+10 이상이어야 끊음」·모든 스킬 10초/70도 공식과 다르다.
   - 선택 대사 쿨타임(관리자 질문 2026-10-08): 공식에도 없다 — FOCUS_CHAR `cooldown 0`·`overlapIfSamePriority true`(데이터),
-    `AutoChessGameModeVoicePlugin._OnCharacterHighlighted`(RVA 0xD67DA0, 이벤트 1208)가 조건 없이 FOCUS_CHAR → 다시 선택하면 재생 중 선택 대사를 끊고 새 대사.
+    `AutoChessGameModeVoicePlugin._OnCharacterHighlighted`(이벤트 1208)가 조건 없이 FOCUS_CHAR → 다시 선택하면 재생 중 선택 대사를 끊고 새 대사.
     이벤트가 「같은 말 재선택」에도 오는지는 발생 쪽(드래그 상태) 코드를 안 봐서 [추정: 집을 때마다]. 스킬 대사(70) 재생 중 선택(10)은 버림(관리자 제보
     2026-10-08, 실제 게임과 같음). 테스트 `test/local-patch.test.js` 「official scheduling」.
-  - **전투 시작**(라운드마다): `AutoChessGameModeVoicePlugin._OnBattleStarted`(RVA 0xD67B80, 이벤트 `ON_BATTLE_STARTED` 1211) — 전투에 든 자기 말
+  - **전투 시작**(라운드마다): `AutoChessGameModeVoicePlugin._OnBattleStarted`(이벤트 `ON_BATTLE_STARTED` 1211) — 전투에 든 자기 말
     (`battleChessInsts`) 중 **무작위 하나의 部署**(PLACE_CHAR). 나머지 첫 배치는 조용 — 근거는 관리자 영상(2026-10-10 「라운드 시작에 部署 한 줄」)이고
-    클라 코드에서는 이유를 못 찾았다(2026-10-11). 훅 `HookPlayVoice`(RVA 0xD67830)는 `PLACE_CHAR`를 MAIN 하위 상태 밖에서만 막는데(`get_inMainSubState`
-    RVA 0x8183C0 = 하위 상태 3), 차례 배치는 BATTLE 상태 MAIN 하위 상태의 할 일 `MainGameInBattle` 안이다(`AutoChessGameMode._RegisterBattleTasks` RVA 0x85B350,
-    하위 상태 전환 `AutoChessTaskManager.OnTick` RVA 0x8210C0) — 훅은 이 구간을 통과시키고, 막는 것은 정비 시작(PREPARE의 START·BEGIN, 보드 복원)과 각 상태의
-    END뿐이다. 코드만 따라가면 `VoicePlayer._OnUnitBorn`(RVA 0xD80590, 비-predefined 말)이 차례 배치 말마다 部署를 요청해야 한다; 남은 후보는 `_PlayVoice`의
+    공식 클라에서는 이유를 못 찾았다(2026-10-11). 훅 `HookPlayVoice`는 `PLACE_CHAR`를 MAIN 하위 상태 밖에서만 막는데(`get_inMainSubState`
+ = 하위 상태 3), 차례 배치는 BATTLE 상태 MAIN 하위 상태의 할 일 `MainGameInBattle` 안이다(`AutoChessGameMode._RegisterBattleTasks`,
+    하위 상태 전환 `AutoChessTaskManager.OnTick`) — 훅은 이 구간을 통과시키고, 막는 것은 정비 시작(PREPARE의 START·BEGIN, 보드 복원)과 각 상태의
+    END뿐이다. 코드만 따라가면 `VoicePlayer._OnUnitBorn`(비-predefined 말)이 차례 배치 말마다 部署를 요청해야 한다; 남은 후보는 `_PlayVoice`의
     카메라 층 검사와 `Deck.SpawnCharacterOrToken`(freely) 경로가 `ON_UNIT_BORN`을 내지 않을 가능성(예전 문서의 「훅이 라운드 시작 배치 폭주를 막음」은 틀림).
-    **시점**(2026-10-10 클라 코드): `MainGameInBattle._StartBattle`(MoveNext RVA 0x872B60)이 먼저 `_Prebuilt`(MoveNext
-    RVA 0x8726E0 — 말을 하나씩 `Deck.SpawnCharacterOrToken`, 하나마다 `WaitForFixedSeconds(0.2)`, 상수 .rdata 0x185D65004)를 끝까지 돌린 **뒤에**
+    **시점**(2026-10-10 공식 클라): `MainGameInBattle._StartBattle`(MoveNext)이 먼저 `_Prebuilt`(MoveNext
+ — 말을 하나씩 `Deck.SpawnCharacterOrToken`, 하나마다 `WaitForFixedSeconds(0.2)`)를 끝까지 돌린 **뒤에**
     1211을 쏘고 곧바로 웨이브 스케줄러(`Scheduler.Init`·`DoSchedule`)를 시작한다 — 部署 대사는 첫 배치가 다 떨어진 뒤(관리자가 공식 영상으로 확인
     2026-10-10: 라운드 시작에 部署 한 줄, 말은 하나씩). 2026-10-10 저녁부터 시뮬레이션이 그대로 한다(`sim.md` 「작전 시작 차례 배치」: 0.2게임초마다
     한 묶음, 마지막 뒤 한 간격에 웨이브 시계·`battleStart` 훅 — 클라이언트로 오는 전용 이벤트는 없음). 우리: 필드의 첫 배치 묶음(`audio.js` opening —
@@ -67,10 +67,10 @@
     남의 말 제외) 중 하나를 골라 部署 — 공식 1211보다 최대 80 ms 늦음(전달 흔들림 여유). 새 필드가 오면 취소, 그 대사 전까지와 그 뒤 2초 안의 배치는
     조용, 그 뒤 재배치는 部署(`_OnUnitBorn`의 비-predefined 경로). 예전: 첫 배치 순간(2026-10-10 오전), 렌더 차례 낙하 120 ms × 낙하 수 뒤
     (`OPENING_DEPLOY_STAGGER_MS`, 2026-10-10 낮 — 시뮬레이션 차례 배치와 겹쳐 지연이 두 번이 되므로 뺌).
-  - **행동출발**(BATTLE_START)·**행동개시**(ENCOUNTER_ENEMY)는 **卫戍协议에서 나지 않는다**(2026-10-10 클라 코드, 사용자 제보 「작전 시작과 적 조우 대사가 겹침」):
-    행동출발은 `VoicePlayer.OnGameStart`(RVA 0xD7EEC0)만 내는데 `_CheckDisableBattleStartVoice`(RVA 0xD7F1F0)가 `UIController.HasFunction(CARD_LIST)`
-    거짓이면 끄고, 행동개시 `VoicePlayer._OnPreviewCursorSpawn`(RVA 0xD7FA40)은 맨 앞에서 같은 `HasFunction(CARD_LIST)`가 거짓이면 바로 돌아간다.
-    卫戍协议의 `AutoChessUIPlugin.OnGameInit`(RVA 0xD51480)이 `DisableFunction(0xF07B)` — CARD_LIST(1)·CHARACTER_MENU·SYSTEM_MENU·PAUSE_BUTTON·
+  - **행동출발**(BATTLE_START)·**행동개시**(ENCOUNTER_ENEMY)는 **卫戍协议에서 나지 않는다**(2026-10-10 공식 클라, 사용자 제보 「작전 시작과 적 조우 대사가 겹침」):
+    행동출발은 `VoicePlayer.OnGameStart`만 내는데 `_CheckDisableBattleStartVoice`가 `UIController.HasFunction(CARD_LIST)`
+    거짓이면 끄고, 행동개시 `VoicePlayer._OnPreviewCursorSpawn`은 맨 앞에서 같은 `HasFunction(CARD_LIST)`가 거짓이면 바로 돌아간다.
+    卫戍协议의 `AutoChessUIPlugin.OnGameInit`이 `DisableFunction(0xF07B)` — CARD_LIST(1)·CHARACTER_MENU·SYSTEM_MENU·PAUSE_BUTTON·
     SPEED_SWITCHER·BATTLE_STATUS 등 — 를 부르고(`UIController.OnGameInit`이 첫 마스크 뒤 플러그인 초기화를 부름), 이 플러그인의 `EnableFunction`은 0x80·
     0x4000·0x8000뿐이라 CARD_LIST는 다시 켜지지 않는다. 마스크를 쓰는 곳은 `_UpdateDisableMask`뿐(Enable/Disable/OnGameInit에서). 켜진 Lua 핫픽스
     (`DefinedFix.lua` zh_CN·en_US)에 관련 항목 없음. 우리: `voicePolicy.js CARD_LIST_ON = false` — `battleStart`는 部署만, `encounter`는 늘 null
@@ -78,7 +78,7 @@
     예전(2026-10-10 오전, 관리자 결정 (2026-10-10)): 매치 첫 전투 시작에 행동출발, 경로 미리보기 커서마다 행동개시 — 이 검사를 놓쳤던 것. 2026-10-06 규칙(전투마다
     행동출발, 첫 교전에 행동개시)도 같은 이유로 공식과 다름. 경로 미리보기 커서 자체(`render.md` 「적 경로 미리보기」)는 그대로.
     확인 필요: 공식 녹화에서 라운드 시작에 部署 한 줄만 나는지(MAIN 하위 상태 훅이 그것마저 막는지는 미확정).
-  - 작전중 대사는 1~4 중 무작위(`SKILL_CHARWORD_TYPES`, `_PlayVoice` 점프표). 스킬 대사 유형: `VoicePlayer._OnSkillCasted`(RVA 0xD7FF30) — 스킬 플래그
+  - 작전중 대사는 1~4 중 무작위(`SKILL_CHARWORD_TYPES`, `_PlayVoice` 점프표). 스킬 대사 유형: `VoicePlayer._OnSkillCasted` — 스킬 플래그
     `playCharWordWithPassiveType`이면 SP ≥ 10 → IMP, 아니면 NOR, 그 밖은 ACTIVE(우리 `skillVoiceType`는 skillType AUTO로 가름 — 보통 같음).
     `playCharWordVoice`가 거짓인 스킬은 무음(스킬 프리팹 `BasicSkill._playCharWordVoice` — 아래 「더빙 효과음」). 데이터의 `NORMAL_ATTACK`(5, 쿨다운 36000초, `_OnCharacterAtkOrCbt`)은 卫戍协议 연결이
     미확인이라 우리는 평타 대사가 없다. 원본 테스트는 원본 `VoiceGate` 그대로라 깨지지 않는다.
@@ -118,9 +118,9 @@
     오퍼레이터 공격 0.348·타격 0.336, 스킬 공격 0.428·타격 0.348, 적 공격 0.163·타격 0.205, 보스 0.343·0.327, 스킬 시작 0.67, 배치·사망·이탈 0.614,
     대사 채널 0.978, sfx 채널의 ×0.9 제거(그룹이 SFX 버스를 포함). 그룹 없는 뱅크(치유)는 SFX_Battle 0.696 [추정]. 이전(오퍼레이터·적 모두 0.55,
     1 초과 잘림)보다 적 소리가 약 9 dB 작다. UI 효과음·BGM은 그대로.
-  - **효과음 재생: 피치·동시 재생 상한** (2026-10-10, 클라 코드; 관리자 결정 「공식이랑 동일하게」 — 피치는 관리자가 들어 보고 그대로 두기로 함 2026-10-10):
-    - 공식: `SoundFXBank.Play`(RVA 0x34B22A0) — 뱅크의 소리 수가 `maxSoundAllowed`(> 0)에 차면 `popOldest`일 때 가장 오래된 것을 즉시 끊고 새 소리,
-      아니면 새 소리를 버린다(0 = 상한 없음). 상한은 **뱅크 단위**(파일 단위 아님). 재생마다 `SoundFXBank.SoundFX._SetAudioChannel`(RVA 0x34B3500)이
+  - **효과음 재생: 피치·동시 재생 상한** (2026-10-10, 공식 클라; 관리자 결정 「공식이랑 동일하게」 — 피치는 관리자가 들어 보고 그대로 두기로 함 2026-10-10):
+    - 공식: `SoundFXBank.Play` — 뱅크의 소리 수가 `maxSoundAllowed`(> 0)에 차면 `popOldest`일 때 가장 오래된 것을 즉시 끊고 새 소리,
+      아니면 새 소리를 버린다(0 = 상한 없음). 상한은 **뱅크 단위**(파일 단위 아님). 재생마다 `SoundFXBank.SoundFX._SetAudioChannel`이
       `pitch = RandomUtil.Range(minPitch, maxPitch)` — 소리별 데이터 범위에서 무작위(zh_CN `audio_data.json` `battle.*` 소리 12,543개 중 0.8–1.2가 8,875개,
       1.0 고정 3,024개, 0.9–1.1 452개). 유닛별·URL별 시간 간격 같은 것은 없다. 데이터의 뱅크 (popOldest, max): (true, 2) 9,950 · (false, 0) 1,977 · (true, 1) 732 …
     - 생성: `tools/assets/audio.mjs bankPlay`·`indexAudio playOf` → `skill-mode-sfx.mjs bankPlayTable` → 매니페스트 `sfx.bank[url] = [minPitch, maxPitch,
@@ -134,9 +134,9 @@
       `delay / Time.timeScale`(전투 소리 = 배속, UI = 1)만큼 늦게 시작(아래 「공격 소리 신호」).
     - 확인: `test/local-patch-audio.test.js` 「every bank plays like the official SoundFXBank.Play」(3명이 한 뱅크 → 셋째가 가장 오래된 것을 끊음, popOldest
       false는 버림, 피치 범위·무작위), `test/ui/audio.test.js` 「SfxLimiter」. [피치: 관리자 청취 확인 2026-10-10]
-  - **스킬 종료음** (2026-10-10, 클라 코드): `BasicSkill.OnSkillEnd`(RVA 0x63A110)가 `PlayAudioAtPos('ON_SKILL_FINISH', _GenerateSignalId)` — 신호 id는
+  - **스킬 종료음** (2026-10-10, 공식 클라): `BasicSkill.OnSkillEnd`가 `PlayAudioAtPos('ON_SKILL_FINISH', _GenerateSignalId)` — 신호 id는
     스킬 id(스킬 데이터가 자체 신호 id를 주면 그것). 그 밖에 `OnOwnerFinish`·`_OnReceiveAttackFinishEvent`·`ToggleSkill.DoCast`도 같은 신호를 낸다;
-    `ON_ABILITY_END`는 `AbilityStandard.OnCastEnd`(RVA 0x34EFE40). 데이터의 두 이름 뱅크 100개 중 우리 로스터 스킬은: 银灰 S2 b_char_tactboost,
+    `ON_ABILITY_END`는 `AbilityStandard.OnCastEnd`. 데이터의 두 이름 뱅크 100개 중 우리 로스터 스킬은: 银灰 S2 b_char_tactboost,
     山(f12yin) S2 b_char_atkboost, 玛恩纳 S2·荒芜拉普兰德 S1 b_char_boostclose, 仇白 S2 p_imp_swordcutexplode(烛煌 S3의 `ON_ABILITY_END`는 루프라
     `loops`가 이미 낸다). `skill-mode-sfx.mjs skillEnds` → `sfx.units[id].ends[스킬번호] = { url, grp?, vol? }`, `audio.js`가 'skill' 꺼짐에 낸다.
     안 한 것: 丰川祥子 `ON_SKILL_FINISH.skchr_oblvns_2.1/.2`(신호 id에 번호가 붙는 경로 미확인), 공격 능력의 `ON_ABILITY_END.<id>.attack`(공격마다 끝 —
@@ -159,8 +159,8 @@
     圣约送葬人 S3_End, 雷蛇 S2가 평타마다 나던 누수). `.0…`(Default `_includeIndexZero`)은 파일 접미사와 상관없이 Default 것(`audio.mjs pickUnitSfx opts.defaultZero`
     — 丰川祥子 `p_atk_mjckyrdnt_h`). Default 투사체(charpack `_projectileKey`, 银灰 `projectile_svrash`)의 BORN/HIT/REACH를 이름 추측보다 먼저(prove·slchan·
     skgoat·vodfox·leizi·rosmon에 타격음이 생김). Default에 공격 뱅크도 투사체 뱅크도 없는 玛恩纳·蜜蜡·薄绿·卡涅利安·圣聆初雪(sbell2)의 평타는 **무음**
-    (2026-10-10, 클라 코드: 신호 id = `UnitMode.GenerateSignalId`(RVA 0x787E80) — Default는 `.attack`/`.attack.0`, 미들웨어 `TorappuAudioMiddleware.PlayEvent`
-    (RVA 0x34B4D10)는 이름이 맞는 뱅크만 내고 접미사를 떼어 다시 찾지 않음; 다섯 명 모두 그 뱅크·`bankAlias`·Default 투사체가 없음). 예전에 남기던 스킬 모드
+    (2026-10-10, 공식 클라: 신호 id = `UnitMode.GenerateSignalId` — Default는 `.attack`/`.attack.0`, 미들웨어 `TorappuAudioMiddleware.PlayEvent`
+는 이름이 맞는 뱅크만 내고 접미사를 떼어 다시 찾지 않음; 다섯 명 모두 그 뱅크·`bankAlias`·Default 투사체가 없음). 예전에 남기던 스킬 모드
     `_n` 파일 예외는 뺐다(`defaultModeBanks`).
   - **르무엔 S3 효과음** (관리자 제보 2026-10-07): `kit-sfx.mjs KIT_HIT_BANKS` `lemuen:mark` = `ON_BUFF_SHOW_EFFECT.char_lemuen_range_aim`(S3 'lock'마다), `lemuen:s3end` =
     `ON_ABILITY_START.char_4193_lemuen.attack.4`(S3_End 모드, 첫 'bombardShell' i 0), `lemuen:shell` = `ON_PROJECTILE_REACH.projectile_chr_lemuen_s3_attack`('bombard'마다),
@@ -198,16 +198,16 @@
       - 재생: `public/js/audioSnapshot.js`. `audio.js unlock`이 세 채널을 `bus`(BattleGameSound)로 모아 master에 잇고, `sfxOutside`는 bus를 건너뛴다
         (`sfx.snap.outside`와 UI 한 번 소리 — SFX_UI도 bus 밖). 첫 훅에서 bus → lowpass → dry → master, lowpass → convolver(5.7 초 감쇠 잡음, 46 ms 지연) → wet → master를 만든다.
         리버브는 꼬리가 끝나면 입력을 끊는다(convolver 비용).
-      - 시점 규칙(2026-10-11 클라 코드 `Torappu.Audio.Middleware.Data.SnapshotBank`, 필드 delay·duration): `SnapshotBank.Play`(RVA 0x34B1240)가 활성 목록
+      - 시점 규칙(2026-10-11 공식 클라 `Torappu.Audio.Middleware.Data.SnapshotBank`, 필드 delay·duration): `SnapshotBank.Play`가 활성 목록
         `s_activeSnapshotBank`의 맨 뒤에 넣고(이미 있으면 빼서 다시) `AudioManager.TransitionToSnapshot(targetSnapshot, duration, delay)` — `duration`은
-        **전환 시간**(유지 시간 아님), `delay`는 켤 때만. `SnapshotAudioAtom.Update`(RVA 0x34B1090)는 훅 뱅크의 소리가 하나라도 난 뒤 그 뱅크의 소리가
-        **모두** 끝나면 `ReverseSnapshot`(RVA 0x34B1650): 목록에서 빼고 남은 뱅크가 있으면 마지막 것의 스냅샷으로, 없으면 `Default`로, **끝나는 뱅크의
+        **전환 시간**(유지 시간 아님), `delay`는 켤 때만. `SnapshotAudioAtom.Update`는 훅 뱅크의 소리가 하나라도 난 뒤 그 뱅크의 소리가
+        **모두** 끝나면 `ReverseSnapshot`: 목록에서 빼고 남은 뱅크가 있으면 마지막 것의 스냅샷으로, 없으면 `Default`로, **끝나는 뱅크의
         duration**·지연 0. 우리(`audioSnapshot.js holdSnapshot`): 훅이 시작되면 `delay` 뒤 `dur` 초 전환, 훅 소리가 하나라도 남아 있으면 유지(데이터의 훅은
         모두 `AllLowpass_Reverb`라 「남은 뱅크의 스냅샷으로」 = 유지), 마지막 훅이 끝나면 그 훅의 `dur`로 Default(지연 없음 — 켜는 지연이 아직 안 지났으면
         그 시각부터). 예전 [추정]과 같은 결과. 리버브는 초기 반사 없는 평탄한 잡음 꼬리. 안 한 것: Music 자체 5000 Hz(556 Hz 안쪽이라 차이 없음), 스냅샷의 그룹 볼륨 차이(몇 dB, 옛 레벨이 남은 것으로 보임).
-      - **START·ON·HIT** (관리자 제보 2026-10-08 「휘두름 + 타격」, 2026-10-10 클라 코드로 바꿈): 신호는 시점마다 따로 나간다 — START(능력 시작),
-        ON(`AbilityStandard.DoEmitAudioSignalForSpellOn` RVA 0x34EEDC0, 공격 판정 순간), HIT(`DoEmitAudioSignalForHit` RVA 0x34EEC20, 대상에) — 그리고
-        미들웨어(`TorappuAudioMiddleware.PlayEvent` RVA 0x34B4D10)는 이름이 맞는 뱅크를 모두 낸다. 뱅크끼리 서로 막는 코드가 없으므로 START와 ON 뱅크가 둘 다
+      - **START·ON·HIT** (관리자 제보 2026-10-08 「휘두름 + 타격」, 2026-10-10 공식 클라로 바꿈): 신호는 시점마다 따로 나간다 — START(능력 시작),
+        ON(`AbilityStandard.DoEmitAudioSignalForSpellOn`, 공격 판정 순간), HIT(`DoEmitAudioSignalForHit`, 대상에) — 그리고
+        미들웨어(`TorappuAudioMiddleware.PlayEvent`)는 이름이 맞는 뱅크를 모두 낸다. 뱅크끼리 서로 막는 코드가 없으므로 START와 ON 뱅크가 둘 다
         있으면 **둘 다** 난다(ON의 믹서 그룹과 무관). 예외 `onlyTrigAudioSignalForFirstSpell/FirstHit`(기본 거짓)은 안 다룸.
         생성: `audio.mjs pickUnitSfx`(평타)·`skill-mode-sfx.mjs modeSounds`/`abilitySounds`(스킬 모드)가 START 뱅크 옆의 ON 뱅크를 새 역할 `on`으로(`onBeside`),
         재생: `audio.js`가 'atk'에서 `attack`과 함께 `on`(실행 중 모드에 자체 공격음이 있으면 그 모드의 `on`만 — `audioOfficial.js modeOn`). ON은 START가 없을 때만
@@ -233,13 +233,13 @@
 
 - 증상: S3 「潮涌，潮枯」 시작에 바다 효과음(`p_skill_tidesurging`, 12.8 초, Independent 그룹)이 또렷하고, 같은 때의 작전중 대사가 먹먹하게 묻혔다.
   그 시작음이 `AllLowpass_Reverb` 스냅샷을 켜고(위 「믹서 스냅샷」, 2026-10-08부터), 대사 채널은 BattleGameSound 아래라 556 Hz 로우패스·리버브를 받았다.
-- 공식 [클라 코드 + 데이터, 2026-10-16]:
+- 공식 [공식 클라 + 데이터, 2026-10-16]:
   - 믹서 트리(EN `sharedassets1.assets` MainMixer): Master → BattleGameSound → ~Voice_VolumeControl → Voice / UI_Vox — 대사 채널은 공식도
     스냅샷 아래이고, `AllLowpass_Reverb`에서 Voice 그룹은 −0.33 → −5.72 dB로 더 작아진다. 「대사만 필터 밖으로」는 공식이 아니다.
   - 스킬 대사가 없다: S1–S3 스킬 프리팹(`battle/prefabs/[uc]skills.ab`)의 `BasicSkill._playCharWordVoice`가 0 → `VoicePlayer._OnSkillCasted`가
     작전중 대사를 내지 않는다. 풀 285개 스킬 중 이 셋뿐.
-  - 대신 소리 뱅크를 더빙판으로 바꾼다: `BattleController.PlayAudioAtPos`(RVA 0x354F780)가 `VoiceLangManager.TryHookAudioByFxLang`이 참이면
-    신호를 그 결과로 바꿔 **그것 하나만** `PlayEvent`(역어셈 0x354FB6C–0x354FBA6). 표는 `audio_data.json soundFxVoiceLang`:
+  - 대신 소리 뱅크를 더빙판으로 바꾼다: `BattleController.PlayAudioAtPos`가 `VoiceLangManager.TryHookAudioByFxLang`이 참이면
+    신호를 그 결과로 바꿔 **그것 하나만** `PlayEvent`. 표는 `audio_data.json soundFxVoiceLang`:
     뱅크 → 캐릭터 → 더빙(JP·KR·EN·CN_MANDARIN) → 뱅크. 浊心斯卡蒂 `ON_SKILL_START.skchr_skadi2_N` → `…@KR` = `Voice_KR/char_1012_skadi2/FX_025_N`…`FX_028_N`
     (가중치 25씩 넷), `ON_UNIT_BORN.char_1012_skadi2` → `FX_023`/`FX_024`. 파일은 시작음·배치음과 길이가 같고 내용이 다르다 — 효과음에 그 대사(작전중1–4,
     部署1–2)를 섞은 것. 그룹 Independent(스냅샷 밖), 그 자신이 스냅샷 훅(snapshotBanks에 `@` 사본 전부). 정비 배치도 같은 길(`PlayAudioSignal` → `PlayAudioAtPos`).
@@ -255,21 +255,21 @@
 - 확인: `test/audio-dub.test.js` 7개(공식 audio_data 생성 규칙, 매니페스트, unitDub, 대사 규칙, 실제 매치 경로 S3: 더빙판 한 줄이 bus 밖 + 스냅샷 + 대사 채널 무음,
   음성 끄기면 바다 효과음, 배치). [브라우저 미확인: Chrome에서 들어 보기]
 
-## 공격 소리 신호 (2026-10-10, 클라 코드 + 프리팹 값; 관리자 결정 (2026-10-10) 「공식이랑 동일하게」)
+## 공격 소리 신호 (2026-10-10, 공식 클라 + 프리팹 값; 관리자 결정 (2026-10-10) 「공식이랑 동일하게」)
 - 공식: 공격 소리는 그 능력의 **신호 id** 이름의 뱅크다 — `battle.ON_ABILITY_START|ON|HIT.<유닛 id>.<신호>`. 신호 = 모드의 `attack`(Body/Attack, 다른
   이름의 Body 능력 하나뿐이면 그것)·`combat`(Body/Combat) + 모드가 `_addIndexToSignalId`면 `.<모드 순번>`(0번은 `_includeIndexZero`일 때만;
-  클라 코드 `UnitMode.GenerateSignalId` RVA 0x787E80). 그래서 텍사스 디 오메르토사 S1·S3, 마운틴 S3 등은 Default와 같은 `.attack` 뱅크를 쓴다.
-  - 묶음 능력의 자식은 `.<i+1>`(`AbilityRandomGroup.DoSetData` RVA 0xA68600): **Random**(`_selectMethod` 0)은 공격마다 하나를 고르고
+  공식 클라 `UnitMode.GenerateSignalId`). 그래서 텍사스 디 오메르토사 S1·S3, 마운틴 S3 등은 Default와 같은 `.attack` 뱅크를 쓴다.
+  - 묶음 능력의 자식은 `.<i+1>`(`AbilityRandomGroup.DoSetData`): **Random**(`_selectMethod` 0)은 공격마다 하나를 고르고
     (`_diffFromLastOneIfNotFirst` = 직전과 다르게, `_selectAllAtLeastOnce` = 한 바퀴 다 돈 뒤 반복), **Loop**(1)는 차례로, 조건 묶음(`_abilityConfigs`)은 조건이
     맞는 첫 자식(우리: 이름으로 — 근접 타격이면 `Melee…`, 원거리면 `Common`/`Ranged…`, 모드 첫 공격이면 `First…` [추정: 조건 자체는 안 읽음]),
     `_mainAbility` 묶음은 자식 모두. 실버애쉬 더 레인프로스트·위셔델 평타 `attack.0.1–0.3`, 아스카론 `.0.1/.0.2`, 혼·애쉬락 근접/원거리 자식,
     마운틴 평타 `attack.1–3`(자식 1은 뱅크 없음 → 그 공격은 무음), 플레임테일 `attack.2/3`(조사 때 「모드 번호와 안 맞는 뱅크」였던 것) 등.
-  - 연타 공격(`MultiMeleeAttack`)은 ON/HIT 신호 끝에 회차(`_addSpellCntToAllSignalId`/`…LastSignalId`/`…AllHitSignalId`, RVA 0xA26DF0·0xA26BE0, 0부터):
+  - 연타 공격(`MultiMeleeAttack`)은 ON/HIT 신호 끝에 회차(`_addSpellCntToAllSignalId`/`…LastSignalId`/`…AllHitSignalId`, 0부터):
     첸 더 던스트릭 S1 HIT `attack.1.0`/`.1.1`.
-  - 시점: START = 휘두름 시작(`AbilityStandard.OnCastStart` RVA 0x34F0A90), ON = 공격 판정 순간(주문마다 한 번, 대상마다가 아님), HIT = 대상마다,
+  - 시점: START = 휘두름 시작(`AbilityStandard.OnCastStart`), ON = 공격 판정 순간(주문마다 한 번, 대상마다가 아님), HIT = 대상마다,
     투사체는 BORN = 발사(판정 순간), HIT·REACH = 착탄. 미들웨어는 이름이 맞는 뱅크를 모두 낸다(위 「START·ON·HIT」). 뱅크에 파일이 여럿이면
     가중 무작위 하나(`SoundFXBank._GenerateWeightedRandomSound` — 빈 에셋 몫은 무음), 소리마다 `delay / Time.timeScale` 뒤에 시작(`SoundFXBank.Play`
-    RVA 0x34B22A0).
+).
 - 추출: `tools/local-extract/char_audio.py` → `tools/assets/local-char-audio.json`(커밋, 오퍼레이터·소환물·적 396종: 모드별 `sig`, 공격 능력 묶음 `ab`,
   능력·자식별 투사체, 스킬 프리팹 투사체 `skillProj`, 적 `Skills/<이름>`의 투사체). 클라 업데이트 때 다시 실행(약 20초, PersistentData 먼저).
 - 생성: `tools/assets/skill-mode-sfx.mjs soundSet` → 매니페스트 `sfx.units[id].cues`/`sel`(Default)과 `modes[스킬].cues`/`sel`:
@@ -291,9 +291,9 @@
     위셔델·토가와 사키코·라플란드 더 데카덴차·르무엔·스펙터 디 언체인드)은 빼고, 공격자마다 0.12초에 한 번 [추정: 지속 피해 틱은 공식 착탄 신호가 아님].
     공격자가 없는 `'dmg'`(옛 sim)는 예전처럼 「2.5초 안에 그 대상을 겨눈 'atk'」.
   - 지연 ÷ 배속: `audio.setGameSpeed(x)`가 있으면 그 값, 없으면 휘두름 → 첫 타격의 실제 간격으로 잰 값, 그것도 없으면 2 [추정].
-  - 스파인 이벤트 (2026-10-10 저녁, 2026-10-22 고침): 공식은 `SpineAnimator._OnEvent`(이 덤프 RVA 0x3967040)가 이벤트 **이름**이 오디오 이벤트
-    (`AnimationConsts` `OnPlayAudio`·`OnPlayAudio_1~3`)일 때만 그 이벤트의 **문자열 값**(Spine `Event.String`, 필드 0x28)을 `_PlayBattleAudio`
-    (0x39675B0, 빈 문자열이면 없음)에 넘기고, 이것이 신호 `<엔티티 id>.<문자열>`로 `ON_SPINE_EVENT_TRIGGER`를 낸다(뱅크가 있는 것만 소리).
+  - 스파인 이벤트 (2026-10-10 저녁, 2026-10-22 고침): 공식은 `SpineAnimator._OnEvent`가 이벤트 **이름**이 오디오 이벤트
+    (`AnimationConsts` `OnPlayAudio`·`OnPlayAudio_1~3`)일 때만 그 이벤트의 **문자열 값**(Spine `Event.String`)을 `_PlayBattleAudio`
+    (빈 문자열이면 없음)에 넘기고, 이것이 신호 `<엔티티 id>.<문자열>`로 `ON_SPINE_EVENT_TRIGGER`를 낸다(뱅크가 있는 것만 소리).
     매니페스트 `spine` 키(마운틴 `Skill_2_1`…`Skill_3_2`, 필라에 `philae_shield`, 파투스 `Attact_1`·`Skill_1`, 적 13종)는 모두 모델의 `OnPlayAudio`
     문자열 값이다(`test/audio-skill-hit-signals.test.js`가 모델 파일로 고정). 2026-10-22 전에는 이벤트 이름(`OnPlayAudio`)을 넘겨 모델이 그려진
     유닛에서는 이 소리가 하나도 나지 않았다(관리자 제보 「마운틴 S3 타격음 없음」; 모델 없는 유닛의 대체음만 났음). 우리: `render/spine.js`의
@@ -303,7 +303,7 @@
     [추정: 대체음 시점 = 타격]. 적도 `spine`(신호 `battle.ON_SPINE_EVENT_TRIGGER.<적 id>.<이벤트>`, 변형 `_2`는 자기 id 먼저 — 14종).
 - 혼 S2 `Full Burst`(`attack.1.Burst.1–3`)는 **수동으로 끌 때** 남은 탄을 모두 쏘는 능력이다(skill_table skchr_horn_2: 「主动关闭时发射剩余全部弹药」) —
   卫戍协议 자동 전투에는 수동 종료가 없어(`ON_SKILL_SPECIAL_POINT`와 같은 이유) 안 낸다.
-- 안 한 것: 재능 투사체(재능 능력·스킬 투사체 BORN·소환물 모드는 아래 「재능·소환물 능력 소리」, 2026-10-11), 스노우헌터 장전(`Reload` 자식 — sim에 탄수 없음), 아래 「버프·커스텀 트리거 소리」의 「안 한 것」. `ON_SKILL_SPECIAL_POINT`는 수동으로 스킬을 끊을 때(`CastSkillWithLimitTimes.DiscardRemainingCountInternal` RVA 0x642560 —
+- 안 한 것: 재능 투사체(재능 능력·스킬 투사체 BORN·소환물 모드는 아래 「재능·소환물 능력 소리」, 2026-10-11), 스노우헌터 장전(`Reload` 자식 — sim에 탄수 없음), 아래 「버프·커스텀 트리거 소리」의 「안 한 것」. `ON_SKILL_SPECIAL_POINT`는 수동으로 스킬을 끊을 때(`CastSkillWithLimitTimes.DiscardRemainingCountInternal` —
   `_canDiscardRemainingCount`, 그 밖에 `CastSkillWithSuspendable.TriggerSpecialAudioSignal`·`ToggleSkillWithEndAnimation.PlayBeginEffectAndAudio`)라
   卫戍协议에는 그 순간이 없다 — 안 낸다. 우리 sim의 영주(치우바이·라플란드 등)는 항상 원거리로 쏴서 근접 `combat` 소리는 실제로는 거의 안 난다(sim 쪽).
 - 확인: `test/local-patch-attack-signals.test.js` 13개(추출값, 공식 audio_data 위 `soundSet`, 매니페스트, 재생: 휘두름/타격/착탄·지연·근접·원거리·무음 모드·
@@ -311,7 +311,7 @@
   적 모드, 버프·커스텀 트리거). [브라우저 미확인 — 마운틴 S2·S3 주먹, 파투스 평타 장전음이 실제 클립 이벤트에서 나는지 들어 볼 것]
 
 ## 재능·소환물 능력 소리 (2026-10-11, 클라 신호 규칙 + EN 클라 버프 템플릿; 관리자 결정 「공식이랑 동일하게」)
-- 공식: 재능도 자기 능력이다 — 신호 `<charId>.T.<n>`(`UnitMode.GenerateSignalId`), START = 능력 시작(`AbilityStandard.OnCastStart` RVA 0x34F0A90),
+- 공식: 재능도 자기 능력이다 — 신호 `<charId>.T.<n>`(`UnitMode.GenerateSignalId`), START = 능력 시작(`AbilityStandard.OnCastStart`),
   ON = 판정 순간. 스킬 프리팹의 투사체는 발사 순간 `ON_PROJECTILE_BORN.<키>`. 소환물도 자기 프리팹 `_modes`의 신호(위 「공격 소리 신호」). 뱅크는 zh_CN
   `audio_data.json`. 소리는 `sfx.kit` 키(`tools/assets/kit-sfx.mjs`), 소환물 모드는 매니페스트 `sfx.units[토큰].tm[모드 이름]`(`skill-mode-sfx.mjs tokenModeSets`).
   - 크루스 더 킨 글린트 재능 「中的」(T.1, 따로 고르는 공격 능력): START p_atk_krossbow_d·ON p_imp_krossbow_d. sim은 확률을 착탄 때 굴리므로(`chess_char_4_06-kroos2.js`)
@@ -340,9 +340,9 @@
 - 확인: `test/local-patch-talent-sounds.test.js`(공식 데이터 위 키·모드 표, 순간별 키, AudioManager 재생, 실제 매치 경로: 크루스 `crit.by`·이그제큐터 'atk' T.1·
   노시스 kitHit 한 번·뮤엘시스 `copy.mode`). [브라우저 미확인]
 
-## 버프·커스텀 트리거 소리 (2026-10-10 저녁, 클라 코드 + EN 클라 버프 템플릿)
-- 공식: 버프가 붙을 때 `Entity.OnBuffStart`(RVA 0x35FCED0)가 그 버프의 `audioSignal`(빈 값이면 없음)로 `ON_BUFF_START`를 낸다(`OnBuffTrigger`·
-  `OnBuffShowEffect`/`AddBuffEffect`·`ON_BUFF_FINISH`도 같은 방식). `ON_CUSTOM_TRIGGER`는 버프 그래프의 `Action.Nodes.PlayAudio.Execute`(RVA 0xC500A0)와
+## 버프·커스텀 트리거 소리 (2026-10-10 저녁, 공식 클라 + EN 클라 버프 템플릿)
+- 공식: 버프가 붙을 때 `Entity.OnBuffStart`가 그 버프의 `audioSignal`(빈 값이면 없음)로 `ON_BUFF_START`를 낸다(`OnBuffTrigger`·
+  `OnBuffShowEffect`/`AddBuffEffect`·`ON_BUFF_FINISH`도 같은 방식). `ON_CUSTOM_TRIGGER`는 버프 그래프의 `Action.Nodes.PlayAudio.Execute`와
   투사체 동작(`CoolDownAfterHitBehaviour.OnTick` 등)이 낸다. 그래서 「언제」는 버프 템플릿(EN 클라 `buff_template_holder.ab`, 연구 메모
   「공식 버프 템플릿 추출」)의 이벤트가 정한다. 소리는 `sfx.kit` 키(`tools/assets/kit-sfx.mjs`), 재생은 `public/js/audio.js signalAttackKey`/`signalFxKey`.
   - 혼 S2·S3: `horn_s_<n>[signal_melee|signal_ranged]`의 `ON_ABILITY_SPELL_ON`(= 공격 판정 순간)마다 `[overload_mark]`가 있으면
@@ -350,7 +350,7 @@
     `horn_s_<n>[overload_start]`은 sim fx `overload`(S3 = 지속시간 절반, S2 = 탄 절반 [ASSUMED, kit]); 과부하는 스킬 끝에 풀림.
   - 락락 S2: 과부하 시작 `rockr_overload_start`(fx `overload`), 끝 `rockr_overload_finish`(`rockr_s_2[overload]`의 ON_BUFF_FINISH → 과부하 중 스킬이 끝날 때),
     자기 공격 `rockr_s2_common_attack_start`/`_hit`(+`_overload`) → 'atk'/자기 대상 착탄 (2026-10-21 클라 확인: start는 S2 Attack의
-    BuffToOwnerDuringAbility(OnEvent RVA 0xCADE60) `_startEvent` ON_SPELL_ON(4)이 그녀에게 거는 `rockr_s_2[start_audio_trigger]` = 타격 순간 — 그 전엔
+    BuffToOwnerDuringAbility(OnEvent) `_startEvent` ON_SPELL_ON(4)이 그녀에게 거는 `rockr_s_2[start_audio_trigger]` = 타격 순간 — 그 전엔
     'swing'에 냈다; hit는 그 Attack의 `_activeBuffs` `rockr_s_2[hit_audio_trigger]` = 대상에 닿을 때).
   - 티티 S3: `titi_s_3[dmg_ticker]`가 깨어난 적에 PlayAudio `titi_s_3[awake]` → sim fx `wake`(적 id; 글래디아 등 아군이 자기 id로 내는 `wake`는 아님).
   - 페페 S3 (2026-10-22, 관리자 제보 「S3 타격음 없음」): 공격마다 주 대상에 붙는 `pepe_s_3_fx`의 `ON_BUFF_START`가 그녀의 `pepe_s3_range[atk]` 스택
@@ -359,7 +359,7 @@
     'stacks' { buff 'pepe:tremor', n, max }(이펙트와 같은 이벤트) → `signalFxKey` → `pepe:s3:1~3`. 새 sfx 3개. [화면 미확인]
   - 아스카론 S2: `ascln_s_2[enemy]`의 `ON_OWNER_KILLED`(그 효과를 단 적이 처치됨) → PlayAudio `ASCLN_S_2_BOMB`(그녀 위치) → **새 sim 이벤트**
     `['fx', 'kitHit', x, y, { id: 아스카론, k: 'ascln:s2bomb' }]`(`op-ascln.js`, 처치된 적이 그녀 범위 안일 때 — 기존 확산 조건과 같음; `docs/SIM.md`).
-  - 프라마닉스 더 프레리타 T1 눈 타일(2026-10-16): `AttachListenerToTileAbility._HoldCastedEffectOnTile`(RVA 0xBEE550)이 칸 이펙트를 **새로 만든
+  - 프라마닉스 더 프레리타 T1 눈 타일(2026-10-16): `AttachListenerToTileAbility._HoldCastedEffectOnTile`이 칸 이펙트를 **새로 만든
     뒤에만** `_playAudioWhenEffectChanged` 1이면 `_audioSignal` `sbell2_snow_refresh_audio`를 그녀 자리에서 `ON_CUSTOM_TRIGGER`로 낸다(같은 프리팹
     유지·0층으로 비움은 무음; 뱅크 `p_imp_swcvr`, maxSoundAllowed 1·popOldest 없음, Battle_P_SImp). sim fx `snow`의 `cells`를 오디오 유닛 기록의 칸별
     구간(1·2~4·5층)과 비교해 구간이 새로 생기거나 바뀐 칸이 있으면 한 번(`audio.js snowRefreshed`, 키 `sbell2:snow`); 기록은 배치마다 새로 —
@@ -423,11 +423,11 @@
   [브라우저 미확인 — 실제 판에서 휘두름·발사음, 분사 시작·반복·끝을 들어 볼 것]
 - 스킬: `sfx.units[id].sk[능력 이름 소문자]` = 그 능력(`Skills/<이름>`) 뱅크 + 투사체 소리. sim이 적 스킬 시전에 `fx 'enemySkill' { id, ability }`를 내면
   START·ON·BORN을 내고, 3초 안의 그 적의 공격 없는 피해에 HIT·REACH(`_skillImpact`).
-- 모드 전환 (2026-10-10 저녁): 공식 `Unit.SwitchMode`(RVA 0x76E1D0)는 이전 모드 `InactiveMode`·새 모드 `ActivateMode`(능력 Detach/Attach)뿐 자기 소리가
+- 모드 전환 (2026-10-10 저녁): 공식 `Unit.SwitchMode`는 이전 모드 `InactiveMode`·새 모드 `ActivateMode`(능력 Detach/Attach)뿐 자기 소리가
   없다(적 뱅크에 모드 전환 이벤트도 없음). 바뀌는 것은 그 모드 능력의 신호(`<능력>.<모드 번호>`, `UnitMode.GenerateSignalId`)와 전환 클립의 스파인 이벤트다.
   → plan이 적의 모드 1 이후 공격 신호를 `sfx.units[id].em[n] = { cues, sel? }`로(모드 0과 같으면 생략, 뱅크 없으면 `cues: []` = 그 모드 공격은 무음 — 37종),
   렌더가 공식 모드가 바뀐 것을 보면 `audio.enemyMode(unitId, defId, 모드 번호, 이전 번호)`(fx 담당 계약) → 그 뒤 공격은 그 모드의 큐. 모드 번호 = 프리팹
-  `_modes` 순서(local-char-audio.json `modes`) — 2026-10-21 클라 코드로 확인(`Unit._InitUnitModes`가 `_modes[i]`에 i를 `UnitMode.index`로 주고 신호 id가
+  `_modes` 순서(local-char-audio.json `modes`) — 2026-10-21 공식 클라로 확인(`Unit._InitUnitModes`가 `_modes[i]`에 i를 `UnitMode.index`로 주고 신호 id가
   그 index를 씀, docs/rules/fx.md 「적 상태의 버프 이펙트」); 렌더 표 `enemy-modes.json`의 모드도 같은 순서라 번호가 같다. 렌더가 모드를 공격 클립으로
   가르므로 두 모드가 같은 클립(`Attack`)이면 바뀐 것을 못 본다(그 적은 모드 0 큐 그대로). 확인: `test/local-patch-attack-signals.test.js` 「enemy modes」(직접 호출).
 - 제국 아틸러리 타게티어·코어 타게티어 포탄 (2026-10-22, 관리자 요청): 포탄 피해는 3초 뒤 무출처라 유닛 큐(공격 HIT `e_atk_energyshotcast`·투사체 HIT
@@ -446,8 +446,8 @@
   위 「공격 소리 신호」의 「스킬 자체 피해」로 처리됐다 — S2 중이면 `_skillImpact`가 S2 모드 착탄음 p_imp_smksndrt_h(= 그녀의 S2 공격 착탄)를 틱마다 냈다.
   그 [추정](「지속 피해 틱은 공식 착탄 신호가 아님」)은 0.12초 간격 제한으로만 구현돼 있었다. 또 그 틱이 그녀가 막 공격한 대상에 오면 그 공격의 착탄 자리를
   가져갈 수 있었다(`lastAttacker`).
-- 공식(EN 클라 버프 템플릿 + 디컴파일): 틱은 버프 `ascln_t_1[debuff]`의 ON_BUFF_TRIGGER `Nodes.DamageViaAttr`(attackType BUFF) — 그 템플릿에 PlayAudio 노드도
-  `audioSignal`도 없고, `DamageViaAttr.Execute`(RVA 0xBBE9B0)는 피해 계산·`ApplyModifier`뿐 소리를 내지 않는다. 능력의 HIT 신호도 아니다 → **틱은 무음**.
+- 공식(EN 클라 버프 템플릿 + 공식 클라): 틱은 버프 `ascln_t_1[debuff]`의 ON_BUFF_TRIGGER `Nodes.DamageViaAttr`(attackType BUFF) — 그 템플릿에 PlayAudio 노드도
+  `audioSignal`도 없고, `DamageViaAttr.Execute`는 피해 계산·`ApplyModifier`뿐 소리를 내지 않는다. 능력의 HIT 신호도 아니다 → **틱은 무음**.
   같은 꼴(버프 트리거 피해 노드, 소리 없음): 인디고 S2 `indigo_s_2[damage]`(DamageViaAttr), 이네스 S1 출혈 `ines_s_1[damage]`, 텍사스 디 오메르토사 S1
   `texas2_s_1[dot]`(FixedValueDamage), 언더플로우 재능 `udflow_t_1`, 엔텔레키아 재능 `etlchi_t_1[magic_dot]`.
 - 고친 것: sim 'dmg' 이벤트에 7번째 필드 = 지속 피해 틱 1(태그 `'dot'` — 우리 sim에서 持续伤害 = attackType BUFF, `professions.js`), 아니면 0
@@ -472,8 +472,8 @@
   결과가 안 온 라운드는 SETTLE에(`settleBattleEnd`), 라운드마다 한 번 — upstream SETTLE 효과음(`battleOverSfx`)은 지움(`upstream.md` 「0.2.0 병합」).
 - 어느 소리인지(`audioOfficial.js battleOverOf(losses, 나)`) — **관리자 결정 2026-10-11: 클라대로**. 입력은 「이번 결과에 든 플레이어별 LP 손실」:
   모두 0 → NOREDUCE(완벽한 작전), 나는 0인데 다른 플레이어가 잃음 → NORMAL, 내가 잃음 → REDUCE. 누수 수·`perfect`는 보지 않는다.
-  근거: 클라 코드 `AutoChessBattleUIViewModel.GetBattleResultStatus`(RVA 0x1FD2350) — 서버 패킷의 플레이어별 `hpCost` 목록(`lastBattleResult`)을 돌며
-  `isAllPrefect` = 모두 `hpCost ≤ 0`, `lostHp` = 보고 있는 플레이어의 `hpCost`; 짝은 `AutoChessBattleUIRoundResultDialog.OnRender`(RVA 0x1FECE70) —
+  근거: 공식 클라 `AutoChessBattleUIViewModel.GetBattleResultStatus` — 서버 패킷의 플레이어별 `hpCost` 목록(`lastBattleResult`)을 돌며
+  `isAllPrefect` = 모두 `hpCost ≤ 0`, `lostHp` = 보고 있는 플레이어의 `hpCost`; 짝은 `AutoChessBattleUIRoundResultDialog.OnRender` —
   `isAllPrefect`면 allPerfect 애니 + BATTLEOVER_NOREDUCE, 아니고 `lostHp ≤ 0`이면 perfect 애니 + NORMAL, `lostHp > 0`이면 miss 애니 + REDUCE(결과 창 최대 4초).
   - 솔로: 결과에 나만 — 내 손실 = `battleLossOf(내 perPlayer)` = min(라운드 상한, 셈하는 누수). 셈하지 않는 누수만이면 손실 0 → NOREDUCE(옛 규칙은 NORMAL
     [추정]이었지만 sim이 `perfect`를 「셈하는 누수 없음」으로 다시 계산해 실제로는 이미 NOREDUCE였다).
@@ -494,7 +494,7 @@
 - 공식 자료(EN `audio_data.json`): 유닛 탄생 `battle.ON_UNIT_BORN.<id>`(전용) → `.char` b_char_set / `.token` b_char_tokenset, 그룹 Battle_UI_Important.
   우리 로스터의 전용 배치음은 매니페스트에 이미 다 있다(`sfx.units[id].born`): 오퍼레이터 15명(望 b_char_stwctpbn, 余 p_skill_frbytrtn_bn, 斯卡蒂2 등),
   소환물 11종(望 棋子 p_imp_stwctptkin, 维什戴尔 wward, 诅咒娃娃 등). 卫戍协议에는 「말 놓기」 전용 뱅크가 없다(`act1vautochess` SHOP_DROP=b_char_set은 다른 모드)
-  → 정비 단계도 유닛 탄생 소리를 쓴다 — 클라 코드로 확인(2026-10-10): `AutoChessDummyManager._PlayAudioWhenCharacterPlaced`(RVA 0x829E40)가 말 종류
+  → 정비 단계도 유닛 탄생 소리를 쓴다 — 공식 클라로 확인(2026-10-10): `AutoChessDummyManager._PlayAudioWhenCharacterPlaced`가 말 종류
   (`AutoChessBattleUtil.GetChessType`)가 MAGIC이 아니면 `PlayAudioSignal("ON_UNIT_BORN", unit)`, MAGIC이면 손으로 `ON_ACT1AUTOCHESS_MAGIC_PLACE_HAND` /
   전장으로 `…_MAGIC_PLACE_BATTLE`. 우리 「장비」가 EQUIP(→ ON_UNIT_BORN)인지 MAGIC인지는 데이터 대조 전 [미확인].
 - 고친 것: 소리는 정비 화면의 **낙하 연출과 같은 곳**에서 난다 — `render/app.js` setPrep이 내 보드·벤치 상태를 이전과 비교해 낙하(onDeploy)를 틀 때
@@ -505,7 +505,7 @@
   - 소리 없음: 보드→벤치 복귀(낙하는 함 — 관리자 제보 2026-10-08), 판매, 페이지 로드·재접속
     첫 동기화, 전투 뒤 벤치 복원, 3장 합성 엘리트(합성 연출·`merge` 소리), 장비, **협동 정비에서 남의 보드를 보러 갈 때 그 보드의 말과 내 보드로 돌아올 때**
     (낙하는 함) — **관리자 결정 2026-10-11 「코드대로」(확인 항목)**: 클라는 배치음을 `SetCharacter`(말이 만들어지거나 옮겨질 때)에서만 낸다
-    (클라 코드 `AutoChessDummyManager._PlayAudioWhenCharacterPlaced` RVA 0x829E40, 호출자는 만들기 대기열·`_DoCreateOnTile`·`CreateDeadLikeDummy`뿐) —
+    (공식 클라 `AutoChessDummyManager._PlayAudioWhenCharacterPlaced`, 호출자는 만들기 대기열·`_DoCreateOnTile`·`CreateDeadLikeDummy`뿐) —
     카메라가 보드를 바꾸는 쪽은 `SetCharacter`를 부르지 않는다. 관리자가 공식 협동 영상(보드 전환 순간에 배치음이 나는지)으로 나중에 확정한다.
     구현: `render/app.js SCOUT_DEPLOY_SFX = false` — 정탐 보드 말의 `pieceDeploy`를 내지 않고, 정탐 뒤 내 정비로 돌아올 때는 `battleSincePrep`
     (그 사이 실제 전투에 들어갔는지)가 거짓이면 낙하만.
@@ -552,7 +552,7 @@
   (아레나는 샌드백이 범위 밖이라 S3가 저절로 안 켜져서 `skill.activate`로 켬). 테스트 `test/local-patch-audio.test.js`.
 
 ## 랜덤 매칭·방 알림음 (관리자 결정 2026-10-14)
-- 공식(EN 클라 코드): 매칭 화면 `AutoChessMatchingView.Render`가 결과(`AutoChessMultiMatchResult` NONE·CANCEL·SUCCESS·TIMEOUT)로 연출을 켜고,
+- 공식(EN 공식 클라): 매칭 화면 `AutoChessMatchingView.Render`가 결과(`AutoChessMultiMatchResult` NONE·CANCEL·SUCCESS·TIMEOUT)로 연출을 켜고,
   성공 연출 `_OnSucAnimChanged`가 `ON_ACT1AUTOCHESS_MATCH_SUCCEED`(act1autochess_g_ui_match_succeed, 2.0초), 시간 초과(`matchTimeMax` 120초) 연출
   `_OnFailAnimChanged`가 `ON_ACT1AUTOCHESS_MATCH_FAIL`을 낸다. 취소(CANCEL)는 소리 없음 — `MATCH_CANCEL` 뱅크는 데이터에 있지만 C# 코드에 재생하는 곳이 없다.
   방은 `AutoChessRoomState._HandlePlayersDeltaResult`가 새로 들어온 플레이어가 있으면 `ON_ACT1AUTOCHESS_PLAYER_JOINROOM`을 한 번(입장 토스트는 사람마다).
@@ -568,7 +568,7 @@
 - 확인: 단위 `test/ui/match-sounds.test.js`. 실제 판 확인 2026-10-14(관리자, 로컬 여러 탭): 다른 탭에서 성사음·제목 깜빡임, 실패음·취소음, 방 입장음(기존 인원만 들음).
 
 ## 카운트다운 경고음 (관리자 결정 2026-10-14)
-- 공식(EN 클라 코드 `AutoChessCountDownView.SetCountDownNum`): 남은 초가 바뀔 때 `남은 초 ≤ 경고 시간`이면 위급 상태(막대·숫자 주황)이고, 위급이 아니다가
+- 공식(EN 공식 클라 `AutoChessCountDownView.SetCountDownNum`): 남은 초가 바뀔 때 `남은 초 ≤ 경고 시간`이면 위급 상태(막대·숫자 주황)이고, 위급이 아니다가
   위급이 된 순간 **한 번** `ON_ACT1AUTOCHESS_COUNTDOWN`(act1autochess_g_ui_countdown, 0.62초)을 낸다(처음 그릴 때 이미 위급이어도 한 번). 준비 여부는 보지 않는다
   — 정비·전투 막대(`AutoChessBattleUICountdownPanel.OnTick`)와 입장 단계 막대(`AutoChessOuterTopMenu`) 모두 같은 함수.
   경고 시간: 입장 단계는 `autoChessData.enterStepList` `hintTime`(INFO_CHECK 5·BAND_CHECK 15·BATTLE_CHECK 0, `config.timers`), 그 밖은
@@ -607,17 +607,17 @@
   回合开始의 `m.layer`가 그 국면의 `m.public`보다 먼저 올 수 있어서 정비 쪽 소리는 남긴다(`installAudio`, `screens/game.js`).
 - 옮긴 방식: upstream은 `_playBondCue`가 노드·토큰을 따로 들고 있었는데, 우리 오디오는 `8a279320`부터 공식 `SoundFXBank` 구조(`_play` + `SfxLimiter`)라 뱅크 채널
   하나로 옮겼다(`_play`의 `channel`, `SfxLimiter.cut`). upstream의 브라우저 e2e(`test/ui/bond-audio.e2e.test.js`)는 옮기지 않았다.
-- [ASSUMED] 공식이 이 소리를 내는 순간: EN 클라 코드에 이벤트 이름 상수(`AudioSignals.ON_ACT1AUTOCHESS_ADD_BOND`)만 있고 그 문자열을 쓰는 C# 코드를 찾지 못했다
-  (2026-10-15 xref). 어느 단계에서 나는지, 전투 중 같은 필드의 다른 박사(联防·보스전) 층에도 나는지는 upstream 판단을 따랐다 — 전투에서는 화면 필드의 모든
+- [ASSUMED] 공식이 이 소리를 내는 순간: EN 공식 클라에 이벤트 이름 상수(`AudioSignals.ON_ACT1AUTOCHESS_ADD_BOND`)만 있고 그 문자열을 쓰는 곳을 찾지 못했다
+  (2026-10-15). 어느 단계에서 나는지, 전투 중 같은 필드의 다른 박사(联防·보스전) 층에도 나는지는 upstream 판단을 따랐다 — 전투에서는 화면 필드의 모든
   `layer`에 난다(렌더의 층 팝업과 같음).
 - 확인: `test/ui/bond-audio.test.js`(채널·끊기·디코딩 경합·되채움 없음·한 갱신 한 번), `test/match/bond-audio.test.js`(실제 `Match`로 `m.layer`: 단계별·상한·AI 없음).
   [화면 미확인] 回合开始·机变·정비 구매(예: 마터호른 두 장 — 쉐라그·고수 층)·전투 중 층 얻음에 소리, 재접속 때 안 남.
 
 ### 연쇄 공격 소리 (2026-10-16, 관리자 요청 「레이즈 효과음이 기억과 달라」)
 
-- 클라(디컴파일 10-14 덤프, `audio_data.json`): 연쇄 투사체는 맞힌 대상마다 `Projectile.OnHitTarget`(RVA 0x67A360)이
+- 공식 클라(`audio_data.json`): 연쇄 투사체는 맞힌 대상마다 `Projectile.OnHitTarget`이
   `ON_PROJECTILE_HIT.<투사체 키>`를 그 대상 자리에서, `ON_PROJECTILE_REACH`는 첫 대상 도착 때 한 번, 대상이 2명 이상이면
-  `ChainLightningHitBehaviour.PlayChainAudio`(0xA69CB0 → `Projectile.PlayBehaviourAudio` 0x67B110)가 마지막 대상 자리에서
+  `ChainLightningHitBehaviour.PlayChainAudio`(→ `Projectile.PlayBehaviourAudio`)가 마지막 대상 자리에서
   `ON_PROJECTILE_BEHAVIOUR_TRIGGER.<키>`를 한 번 낸다(`_overrideAudioSignal`이 없으면 키 = 투사체 이름).
   - 레이즈: 타격 `ON_PROJECTILE_REACH.projectile_leizi` `p_imp_elecmag_n`(S2 `_s2` → `_s`) 한 번 + 연쇄음 `p_imp_elecmag_n_combine`(S2
     `_s_combine`, 뱅크 동시 1, 지연 0.1 s). S2 모드는 `_addIndexToSignalId`라 공격 신호가 `char_306_leizi.attack.1` — 뱅크 없음, 시전음 없음.

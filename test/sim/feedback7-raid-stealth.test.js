@@ -1,7 +1,7 @@
 // test/sim/feedback7-raid-stealth.test.js — 突袭 and 隐匿 ground enemies: the owner's decision of 2026-10-08 (GitHub #316
 // "Raid operator doesn't deploy to invisible enemy units, it does in official", confirmed by the owner's own play): a 突袭
 // member jumps next to a 隐匿 (unrevealed) ground enemy, and one already in its range counts for 「若范围内没有敌人」 (no
-// hop). 2026-10-10, client code: the candidates are TargetOptions { ENEMY, WALK_ONLY } with the advanced options off
+// hop). 2026-10-10, the client: the candidates are TargetOptions { ENEMY, WALK_ONLY } with the advanced options off
 // (`TargetOptions._VerifyAdvanced` returns at once), so asleep, untargetable and stunned ground enemies are destinations
 // too; only flying ones stay out. 「范围内没有敌人」 is the own tile + the one in front (CheckHasEnemyInRange "1-1"), any
 // enemy on the map.
