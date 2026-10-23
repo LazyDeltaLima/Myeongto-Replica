@@ -974,9 +974,14 @@
   있었지만 `ebindOf`가 적만 받아 아군인 炎佑는 절차 대체만 그렸다. 이제 `shared/skill-modes.js ENEMY_RECORD_MODES`(炎佑 → 모드 2: 프리팹에서 模式乙
   `Skill_2`가 `Modes/2`에 있음, PRTS "由核心盟约-炎召唤时为模式乙")에 든 아군은 공격자 쪽 경로(`efoe`: 'swing'·'atk'·타격, 모델 점, 스킬 발동의 금기둥
   끄기 `ownsSkill`)에서 적처럼 그 모드의 바인딩을 쓴다 — 휘두름 `enemy_acloon_attack_start`, 꼬리 `enemy_acloon_attack_trail`(비행 시간은 sim의 아군
-  'bolt' 속도 — sim이 그 속도로 날림), 타격 `enemy_acloon_attack_hit`. 대상 쪽 판정은 실제 진영 그대로. 사망 이펙트는 아군 경로 그대로. 祛恶之焰은
-  여전히 절차 분사(`fx/beams.js`) — 링크 투사체 꼬리(`LineEffectEmitter`, 아래 「적 이펙트 전체 재추출」)와 버프 `acloon_s_2`의
-  `enemy_acloon_skill_hit_range`는 안 그림. 확인: `test/render/enemy-fx-layer.test.js` 「炎佑」. [화면 미확인]
+  'bolt' 속도 — sim이 그 속도로 날림), 타격 `enemy_acloon_attack_hit`. 대상 쪽 판정은 실제 진영 그대로. 사망 이펙트는 아군 경로 그대로.
+  祛恶之焰 (2026-10-23, 관리자 제보 「브레스 이펙트가 몸통 한가운데서 나오고 인게임과 다름」): 절차 분사(`fx/beams.js`, 몸 중심에서)를 걷고
+  `Skill_2` 바인딩으로 — 링크 투사체 `projectile_enemy_acloon_line`의 `_mainEffect` `enemy_acloon_skill_loop_2_line`(LineRenderer 두 점,
+  `LineEffectEmitter`: `_startEffect` `enemy_acloon_line_start`만, 두 끝은 만든 쪽이 정함 → `fx_extract.py line_emitter` = 프리팹 JSON `lineEm`)을
+  炎佑의 MUZZLE(`proj.mount` 2, 뼈 `C_Muzzle`)에서 잠근 대상의 HIT 점까지 매 프레임(`startLine`, 시작 이펙트는 선 시작에), 대상에 버프 `acloon_s_2`의
+  `enemy_acloon_skill_hit_range`. sim 틱(fx 'yanyouFlame', 매 게임초·시작 즉시)마다 1.2 s 더 유지, 스킬 꺼짐('skill' off)·대상 교체·사라짐에 끝
+  (`ebreathFx`). [추정: 투사체 `_linkDuration` 7 s는 안 씀 — 선은 sim 잠금이 이어지는 동안] 확인: `test/render/enemy-fx-layer.test.js` 「炎佑」 둘.
+  [화면 미확인]
 - 'dmg'의 공격자: sim의 'dmg' 튜플 6번째 = 공격자 unit id(无来源이면 null, docs/SIM.md)를 읽는다 — 공격자가 있으면 마지막 공격의 주인이 다를 때 그 공격의 타격으로 치지 않고, 그 적의 능력이
   3초 안에 쓰였으면 그 능력의 hit 이펙트를 그린다. 없으면(예전 sim) 예전처럼 대상에 대한 마지막 공격.
 - 적 스킬·특수 행동: sim fx `enemySkill` { id, ability, n }(콘텐츠 스킬 시전 때 먼저)과 그 시전의 fx마다 실린 `ability`·`caster`(docs/SIM.md; `prefabKey`, 문자열 `skill`, 'skill' [id, on, prefabKey]도 받음) → 그 이름의 능력(`skills[소문자 이름]`: `Skills/<이름>`·
@@ -2463,7 +2468,7 @@
     종류 9개를 `KNOWN`에 todo로(클립 `MeshRenderer.m_Enabled`·`ParticleSystem.looping`·`gravityModifier`·`VelocityModule.enabled`·`startColor.a`, 셰이더
     `Legacy Shaders/Particles/Additive`, 스크립트 `EffectImportData`·`SyncEffectScaleWithAuraRangeRadius`·`PauseEffectIfNotMove`) → `NOT HANDLED` 0, 적 todo 33 ·
     hand 2 · none 7. `EffectData_Projectile`은 none(Effects.Data의 SourceData — 필드 둘과 생성자뿐, 런타임 코드가 그 TypeInfo를 안 씀, 10-14 EN 덤프),
-    `LineEffectEmitter`(炎佑 `projectile_enemy_acloon_line` 꼬리 — 링크 투사체라 지금은 절차 대체)·`SwitchableEffectByBlackboardValue`(`_UpdateEffect` RVA
+    `LineEffectEmitter`(炎佑 `projectile_enemy_acloon_line` 꼬리 — 2026-10-23 `line_emitter`로 읽음, 위 「적 이펙트 바인딩」)·`SwitchableEffectByBlackboardValue`(`_UpdateEffect` RVA
     0xE9A690: 주인 버프 `_buffKey`의 블랙보드 정수 v로 `_effects[v − 1]`, 1 ≤ v ≤ 개수 — 불타는 덩굴 첫 공격 전 공격력 단계 `effect_level`, 시뮬이 그
     단계를 안 알림)는 todo 그대로. 직렬화 필드가 없어 이름을 몰랐던 운영자 쪽 스크립트 셋도 클라 MonoScript 번들(모든 `m_Script`가 가리키는 CAB의
     `m_Namespace`·`m_ClassName`)로 이름을 찾음 — `PauseEffectIfDisappeared`·`FollowOwner`·`FollowOwnerRootTileHeight`(todo, 하는 일은 이름으로만 [추정]).

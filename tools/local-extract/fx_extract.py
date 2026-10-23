@@ -1169,6 +1169,10 @@ class Extractor:
         line = self.line_dynamic(root)
         if line:
             out_def['lineDyn'] = line
+        else:
+            em = self.line_emitter(root)
+            if em:
+                out_def['lineEm'] = em
         fly = self.fly_location(root)
         if fly:
             out_def['fly'] = fly
@@ -1257,6 +1261,29 @@ class Extractor:
             if t.get('_finishIfBuffNotExists') and isinstance(t.get('_buffKeyForFinish'), str) and t['_buffKeyForFinish']:
                 out['finishBuff'] = t['_buffKeyForFinish']
             return out
+        return None
+
+    def line_emitter(self, root):
+        """2026-10-23 — client `LineEffectEmitter` (no mount points of its own: a link projectile's `_mainEffect` whose two
+        ends the projectile sets — 炎佑 Skill_2 `projectile_enemy_acloon_line` → `enemy_acloon_skill_loop_2_line`): its
+        `_startEffect` / `_midEffect` / `_endEffect` names as { start?, mid?, end? }, None without the component or names."""
+        try:
+            d = root.read_typetree()
+        except Exception:
+            return None
+        for c in d['m_Component']:
+            comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], root)
+            if comp is None or comp.type.name != 'MonoBehaviour':
+                continue
+            try:
+                t = comp.read_typetree()
+            except Exception:
+                continue
+            if '_startEffect' not in t or '_midEffect' not in t or '_startMountPointType' in t:
+                continue
+            out = {name: t[k] for k, name in (('_startEffect', 'start'), ('_midEffect', 'mid'), ('_endEffect', 'end'))
+                   if isinstance(t.get(k), str) and t[k]}
+            return out or None
         return None
 
     def switch_back(self, root):

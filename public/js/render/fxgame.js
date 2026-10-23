@@ -2901,6 +2901,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!o || typeof o !== 'object') return false;
     if (pickFx(e, views)) return true;
     if (officialKitFx(e, views)) return true;
+    if (e[1] === 'yanyouFlame' && ebreathFx(e, views)) return true;   // 2026-10-23: 炎佑's 祛恶之焰 (ebreathFx)
     const x = Number(e[2]), y = Number(e[3]);
     // 余 S3 灶里乾坤: the client builds the wall from per-tile pieces along the skill's infinite line (skchr_yu_3/TileRange
     // _isHorizontalInfinite), each on the tile's front edge (yuWallPieces — 2026-10-10, maintainer report: it stood on the
@@ -4021,7 +4022,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (!l) { elines.delete(key); return; }
       if (nrec.ended) { l.inst.stop(); return; }
       nrec.l = l;
-      nrec.dyn = l.inst.def?.lineDyn || dyn0;
+      // (a LineEffectEmitter — fx_extract.py `lineEm` — names its start / end effects but leaves the ends to its maker)
+      nrec.dyn = l.inst.def?.lineDyn || (l.inst.def?.lineEm ? { ...dyn0, ...l.inst.def.lineEm } : dyn0);
       if (life < 0) nrec.until = clockS + (l.inst.def?.duration || 1);
       stepLine(nrec);
       const st = typeof nrec.dyn.start === 'string' ? nrec.dyn.start : null;
@@ -4037,6 +4039,50 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const a = elinePoint(rec.src, rec.dyn.sMount, lineA, rec.dyn.sOff), b = elinePoint(rec.tgt, rec.dyn.eMount, lineB, rec.dyn.eOff);
     rec.l.inst.setLine?.(a, b);
     if (rec.sp) { rec.sp.x = a.x; rec.sp.y = a.y; rec.sp.z = a.z; }
+  }
+  /**
+   * 2026-10-23 (docs/rules/fx.md 「적 이펙트 바인딩」 적 기록으로 만든 아군): 炎佑's 祛恶之焰 tick (content/tokens.js yanyouKit: fx
+   * 'yanyouFlame' { id, target } every game second, the first as the channel starts) drawn with its skill's binding
+   * (ENEMY_RECORD_MODES `skill`, enemy-modes.json skills.skill_2) instead of render/fx/beams.js's jet: its link projectile's
+   * line (`proj.trail` enemy_acloon_skill_loop_2_line, a LineEffectEmitter whose `_startEffect` enemy_acloon_line_start sits
+   * on its start) from the dragon's `proj.mount` point (MUZZLE) to the locked target's HIT point, and the skill buff's effect
+   * (`hitBuff` enemy_acloon_skill_hit_range, buff acloon_s_2) on the target. Each tick holds both EBREATH_HOLD s more; the
+   * skill's end ('skill' off), the target's or the dragon's ends them. [추정: the projectile's `_linkDuration` 7 s is not
+   * used — the line lasts the channel, as the sim's lock does] true = drawn here.
+   */
+  const EBREATH_HOLD = 1.2;
+  const ebreath = new Map();   // dragon id → { tgt, l: its target effect (live entry) | null, until, done }
+  function ebreathFx(e, views) {
+    const o = e[4], src = views.get(o.id), tgt = views.get(o.target);
+    if (!src || !tgt || !erec(src) || !eOn(src) || level() >= 3) return false;
+    const part = eskillPart(src, enemyRecordMode(src.info.defId).skill);
+    const line = efx(Array.isArray(part?.proj?.trail) ? part.proj.trail[0] : null);
+    if (!line) return false;
+    ownFx.add(e);
+    for (const l of elines.values()) if (l.src === src && l.tgt !== tgt) l.until = Math.min(l.until, clockS);   // a new lock
+    startLine(line[0], line[1], src, tgt, EBREATH_HOLD, { sMount: Number.isInteger(part.proj.mount) ? part.proj.mount : 2, eMount: 1 });
+    const id = ownerOf(src);
+    let rec = ebreath.get(id);
+    if (rec && (rec.tgt !== tgt || rec.done || clockS > rec.until)) { endBreathOn(rec); rec = null; }
+    if (!rec) {
+      const r = { tgt, l: null, until: 0, done: false };
+      rec = r;
+      ebreath.set(id, r);
+      for (const n of part.hitBuff || []) {
+        const fx = efx(n);
+        if (fx) spawn(fx[0], fx[1], tgt, { owner: null, buff: true, on: ownerOf(tgt), until: clockS + EBREATH_HOLD }).then((l) => { if (!l) return; if (r.done) l.inst.stop(); else r.l = l; });
+      }
+    }
+    rec.until = clockS + EBREATH_HOLD;
+    if (rec.l) rec.l.until = rec.until;
+    return true;
+  }
+  function endBreathOn(rec) { rec.done = true; if (rec.l) rec.l.until = clockS; }
+  /** 祛恶之焰 ended ('skill' off): its line fades now (`_delayToFinish`, stepLines), its target effect stops. */
+  function endBreath(v) {
+    const id = ownerOf(v), rec = ebreath.get(id);
+    if (rec) { endBreathOn(rec); ebreath.delete(id); }
+    for (const l of elines.values()) if (l.src === v) l.until = Math.min(l.until, clockS);
   }
   /**
    * Each frame: the lines follow their two units. One whose buff ended keeps drawing `_delayToFinish` (0.5 s) and then stops
@@ -4586,6 +4632,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           const v = views.get(e[1]);
           // 2026-10-10: an enemy's skill naming its ability (['skill', id, on, prefabKey] — the sim sends fx 'enemySkill' today)
           if (v?.info?.side === 'enemy') { const k = typeof e[3] === 'string' ? e[3] : e[4]?.prefabKey; if (k) eskillFx(v, k, { on: !!e[2], loop: true }); return; }
+          if (erec(v)) { if (!e[2]) endBreath(v); return; }   // 2026-10-23: 炎佑's channel ends (ebreathFx)
           if (!isOp(v) || !bundleOf(v)) return;
           if (e[2] && e[3] !== 'flag') v._fxSkillByEvent = true; // local patch: skillByFlag leaves it alone
           if (!e[2] && e[3] !== 'flag') v._fxSkillOffT = clockS;
@@ -4891,7 +4938,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       lastAtk.clear(); healAtk.clear(); aimed.clear(); chainLines.clear(); strikes.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear(); packs.clear(); lemMarks.clear();
       for (const r of trails) if (r.back) boomerangCaught(r.src); // local patch: back in hand for the next battle
       trails.length = 0; pending.length = 0; // local patch
-      castsDelayed.length = 0; zones.clear(); eborn.clear(); eskillSeen.clear(); elines.clear(); eshotLand.clear(); emortars.length = 0;
+      castsDelayed.length = 0; zones.clear(); eborn.clear(); eskillSeen.clear(); elines.clear(); ebreath.clear(); eshotLand.clear(); emortars.length = 0;
       deployed.clear(); startedOnce.clear(); opDead.clear(); ebuffs.clear(); // 2026-10-11
       linkAxes.clear(); linkRuns.clear(); throwLand.clear(); // 2026-10-22
       brokeOwn.clear(); // 2026-10-23

@@ -2438,6 +2438,8 @@
   "bond-yanShip-high": [
    "- spawn common_enemy_hit_01 → ally",
    "- spawn enemy_acloon_attack_hit → enemy",
+   "- spawn enemy_acloon_skill_hit_range → enemy",
+   "- spawn enemy_acloon_skill_loop_2_line → enemy",
    "- spawn enemy_winbab_attack_01_hit → ally",
    "- spawn:dead common_char_die_01",
    "- spawn:dead common_enemy_die_01 → enemy",

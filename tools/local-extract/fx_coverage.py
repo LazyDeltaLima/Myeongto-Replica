@@ -89,6 +89,7 @@ SCRIPTS = {
 # what the extract reads of the scripts above (reader() checks the raw fallbacks)
 SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoint', 'FxUVTweener', 'FxUVTweenerAdvance',
                 'FxUVRotation', 'SwitchableBackEffect', 'SwitchableRightEffect', 'LineEffectEmitterDynamic', 'RandomEmitter',
+                'LineEffectEmitter',   # (2026-10-23) line_emitter (`lineEm`: its start / mid / end effects; its maker sets the ends)
                 'FlyToPredefinedLocation', 'OnPlayEmitter', 'OnFinishEmitter', 'EmptyEffect', 'PauseEffectIf', 'PauseAnotherEffect',
                 'PauseEffectIfNotIdle', 'PauseEffectWithAnimation', 'PauseEffectIfSpineEvent', 'FinishEffectIf', 'FunnelHitEffect',
                 'FollowDirection', 'SwitchableEffectByFaceDirection', 'SwitchableThreeFaceEffect', 'RandomDirection',
@@ -178,8 +179,6 @@ KNOWN = {
     # runtime code reads it (no TypeInfo reference in the 10-14 EN dump) — ProjectileEffect's own `_inactiveOnFinish` is
     # what the client switches off
     'script:EffectData_Projectile': (_NONE, 'data only: no runtime code reads it (ProjectileEffect\'s own `_inactiveOnFinish` is read)'),
-    'script:LineEffectEmitter': (_TODO, 'plays `_startEffect` / `_midEffect` / `_endEffect` along its LineRenderer (炎佑\'s '
-                                 'projectile_enemy_acloon_line trail: a link projectile, drawn by the procedural stand-in)'),
     'script:SwitchableEffectByBlackboardValue': (_TODO, 'plays `_effects[v − 1]` for v = the int `_blackboardKey` of the owner\'s buff '
                                                  '`_buffKey` (1..count, none otherwise; checked every `_updateInterval` — '
                                                  '_UpdateEffect RVA 0xE9A690): 灼藤\'s ramp, which the sim does not report'),
