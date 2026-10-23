@@ -596,8 +596,19 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     (관리자 결정: 차이가 나면 클라 데이터 기준). 그 밖의 스킬은 이름 추측 + 손 표 그대로이고, 손 표가 그 뒤에 적용된다. 판정하며 고친 하나: 水月은 모드가
     [Default, T1, S1, S2]라 S2 = 모드 `S1`의 공격 `Skill_1`(공격마다, `strike`), S3 = 모드 `S2`(`Skill_2_Start`·`_Loop`·`_Idle`·`_End`) — 그동안 S2가 `Skill_2_*`, S3가
     클립 없음이었다(`anim-overrides.mjs`). 키 표가 없는 곳(클라 없는 클라우드·기여자)에서는 `fetch-assets`가 오퍼레이터 역할을 커밋된 `data/assets.json`에서 그대로
-    가져와 같은 바이트를 만든다(관리자 결정 2026-10-23) — 그래서 손 표·키 규칙의 변경은 키 표가 있는 곳에서 다시 만들어야 매니페스트에 들어간다. 남은 스킬
-    (판단이 필요한 차이)은 다음 단계. [화면 미확인]
+    가져와 같은 바이트를 만든다(관리자 결정 2026-10-23) — 그래서 손 표·키 규칙의 변경은 키 표가 있는 곳에서 다시 만들어야 매니페스트에 들어간다. [화면 미확인]
+    둘째 단계(2026-10-23): 모든 스킬을 키로 얹는다(`KEY_ROLE_HOLD`만 이름 추측 + 손 표: 乌尔比安 S3 부활 모드, 予愿安洁莉娜 S3 `RestoreAbility`, 卡涅利安 충전 단계별
+    `_Enhance` 모드). 키 규칙에 더한 것: 모드 ThreePart의 begin은 첫 공격에만(`firstAttackBegin`), 그 `_endAnimKey`는 스킬 idle이 있으면 공격 묶음 끝(`attackEnd`)·
+    없으면 `end`; 스킬 자신의 ThreePart begin이 시전 begin(信仰搅拌机 S1·雪猎 S2); 이름이 `…End…`인 능력이 스킬 끝(锏 S3 `EndAttack`); 모드 Idle 짝으로 끝나는 한 번
+    시전 뒤 자기 클립으로 공격하는 모드면 시전이 begin(余 S3 `CastAnimation`); 모드 Idle 짝을 붙드는 채널 + 클립 있는 다른 능력이면 채널이 자세·그 능력이 공격(望 S3
+    `SpawnAnim`); `_defaultModeIndex`가 자기 모드인 스킬은 그 모드가 배치부터의 상태(E `equip`)라 스킬 클립이 아님(望 S2·琳琅诗怀雅 S1/S2·引星棘刺 S3);
+    `AnimationEmitBehaviour`가 시작에 트는 클립이 begin(缄默德克萨斯 `Start_n`); 방향별 모드(灰毫 `S2(U)/(D)/(LR)`)는 이 뼈대에 공격 클립이 있는 것 — 앞 `(LR)`·뒤 `(U)`;
+    모드의 `FirstAttack`(折桠 S2, 통째로 다른 첫 공격 — 시뮬에 없음)은 시전 begin으로 [추정]; `_animKey ""`인 공격 능력이 모드에 그것뿐이면 자세(信仰搅拌机 Sk3).
+    이걸로 바뀐 것(앞·뒤 각 9~10모델, 클라 기준 — 관리자 결정): 风笛 S2 = `Skill` 한 번·S3 = 모드 공격 `Skill_2_Loop`(그동안 뒤바뀜, `Skill_2_Begin/End`는 어떤 키도
+    부르지 않음); 琳琅诗怀雅 S1·S2 시전 클립 없음(치유·소환 때 `Skill_1`·`Skill_2`는 공격 신호 그대로); 送葬人 S2 시전 begin 없음(첫 공격만 `Skill_Right_Begin`);
+    어떤 키도 부르지 않는 begin/end를 지움 — 维什戴尔 S2 end·海霓 S2·哈洛德 S2 end·异客 S2·菲莱 S2 begin(뒤)(버프 템플릿 `PlayUnitAnimation` 13개도 Idle·Default뿐);
+    引星棘刺 S3 스킬 idle(배치부터의 equip idle과 같은 클립). 키와 같아진 손 표 `SKILL_CLIP_OVERRIDES` 줄 — 宴 S2·莫斯提马·灵知 S3·焰影苇草 S3·缄默德克萨斯·银灰 S2·
+    安洁莉娜·焰尾·予愿安洁莉娜 S1·塞雷娅·耀骑士临光 S2·水月 S3 — 과 `FIRST_ATTACK_BEGIN` 送葬人 줄은 지웠다(지워도 매니페스트 같음). [화면 미확인]
   - **G** 蕾缪安 S2 조준(2026-10-23, 클라 `skchr_lemuen_2` `_playSkillBeginAnim` 0·charpack `Modes/S2/Body/M2Attack` = `Normal` ThreePart `Attack_Begin`/`Attack_Loop` +
     `Aim` 채널 `_default {Skill_2_Begin, Skill_2_Idle, Skill_2_End}`): 시전 클립 없음, 공격은 평소 클립(`'attack'`), 조준 동안만 채널 — 키트가 조준 시작·끝(사격이든 대상을
     잃었든)에 그리지 않는 fx 'lemuenAim' `{ signal: 'aim', on: 1 | 0 }`(골든 fx 개수만 움직임) → `units.js onSignal` → `spine.js holdSignal`(켜면 begin 뒤 loop 유지, 끄면

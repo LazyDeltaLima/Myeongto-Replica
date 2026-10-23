@@ -102,22 +102,21 @@ test('unchanged: a Begin clip still runs into its queued next clip, a skill with
   assert.deepEqual(u.log, [['set', 'Skill_Start', false], ['queue', 'Skill_Loop', true]]);
 });
 
-test('the deploy-time passives the sim now opens a window for play their clip (琳琅诗怀雅 S1/S2: kind passive, no duration)', () => {
-  // server/sim/skills.js `_startPassive` fires ['skill', id, 1] at the deployment and 0 after SKILL_ANIM_WINDOW (0.5 s),
-  // which is shorter than her 1 s clips: the actor holds the clip to its own end and then idles.
+test('the deploy-time passives play no clip of their own (琳琅诗怀雅 S1/S2: kind passive, no duration)', () => {
+  // server/sim/skills.js `_startPassive` fires ['skill', id, 1] at the deployment and 0 after SKILL_ANIM_WINDOW (0.5 s). Her
+  // skill prefabs have no animated ability; their modes (`_defaultModeIndex`, held from the deployment) play Skill_1 /
+  // Skill_2 only as their heal / summon triggers fire — the attack role's signals (docs/rules/render.md 「Spine 클립 커버리지」 J,
+  // client keys 2026-10-23; until then the window played the clip the name guess gave the skill).
   for (const [idx, clip] of [[0, 'Skill_1'], [1, 'Skill_2']]) {
     const a = actor('char_1033_swire2', idx);
-    assert.deepEqual([a.roles.skill.begin, a.roles.skill.loop, a.roles.skill.idle], [null, clip, null]);
-    assert.equal(a.dur(clip), 1);
+    assert.equal(a.roles.skill.via, 'attack');
+    assert.ok(Object.values(a.roles.attack.signals || {}).includes(clip), `${clip} stays a trigger clip`);
     a.setSkill(true);
-    assert.equal(a.current, clip, `S${idx + 1} plays ${clip} at the deployment`);
+    assert.equal(a.current, 'Idle', `S${idx + 1} plays nothing at the deployment`);
     run(a, 0.5);
-    a.setSkill(false);                      // the sim closes the window at 0.5 s …
-    run(a, 0.4);
-    assert.equal(a.current, clip, '… the clip is still running (it is 1 s long)');
-    run(a, 0.2);
-    assert.equal(a.mode, 'base');
-    assert.equal(a.current, 'Idle', 'and then back to the idle');
+    a.setSkill(false);
+    run(a, 0.6);
+    assert.equal(a.current, 'Idle');
   }
 });
 

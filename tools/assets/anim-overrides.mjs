@@ -1,56 +1,29 @@
-// Per-model skill clip overrides (local patch, docs/LOCAL-PATCH.md "우타게 S2 애니메이션"): anim-roles.mjs gives every
-// skill index of a model without numbered Skill_n clips the unnumbered Skill_* family. For a skill whose official
-// ability attacks with the plain Attack clip that is wrong — the renderer then plays another skill's stance while it
-// is active.
-//
-// 宴 (char_337_utage): her only skill clips Skill_Start/Skill_Loop/Skill_End are S1 分神 (停止攻击, the phone stance).
-// EN client battle/prefabs/[uc]skills.ab: skchr_utage_1 carries the anim component `_default { beginAnim "Skill_Start",
-// loopAnim "Skill_Loop", endAnim "Skill_End" }` (+ switch_mode 1); skchr_utage_2 has no anim component at all (only
-// switch_mode 2, utage_s_2[self_damage], utage_s_2[respawn]).
-// EN client charpack char_337_utage.ab: the operator has 3 modes; the S2 落地斩·破门 mode (_addIndexToSignalId 1)
-// attacks with `_animKey "Attack"`, `_damageType 2` (arts) and the utage_skill_02_start/_hit effects, while the S1
-// mode carries an animator hooker (`_excludeAnimKeys ["Idle","Attack","Born"]`) that swaps her clips to the Skill_*
-// family. So S2 = the normal Attack clip (skill clip `via: 'attack'`, like resolveSkill's own fallback).
+// Per-model skill clip overrides (local patch, docs/LOCAL-PATCH.md "우타게 S2 애니메이션"; docs/rules/render.md 「Spine 클립
+// 커버리지」 J). Where the client's clip keys are extracted (.cache/anim-keys.json) the skill roles come from them
+// (anim-keys.mjs keyRoles / overlayKeyRoles) and these tables apply after; the rows the keys now give (宴 S2, 莫斯提马 S2 / S3,
+// 灵知 S3, 焰影苇草 S3, 缄默德克萨斯 S2 / S3, 银灰 S2, 安洁莉娜, 焰尾, 予愿安洁莉娜 S1, 塞雷娅 S1 / S2, 耀骑士临光 S2, 水月 S3;
+// 2026-10-23) are gone. What stays is what the keys cannot say: a model form, a strike per attack, a cast the official game
+// does not show.
 //
 // A clip object replaces the skill's clips outright (one with `via: 'attack'` keeps the attack role's clip for its attacks;
-// an `end` may be an array of clips played in a row) — models whose clip numbers are not their skill numbers (the S1 is a
-// common buff without clips of its own, so the numbers shift; maintainer report 2026-10-07, maintainer's notes 2026-10-07):
+// an `end` may be an array of clips played in a row):
 // 泥岩 (char_311_mudrok): S2 岩崩锤 strikes with `Skill_1` ([uc]skills.ab skchr_mudrok_2 attack ability `_animKey
 // "Skill_1"`, 1.6 s) — `strike: true`: the clip is that empowered attack's, played by the attack, not at the cast
 // (render/spine.js). `Skill_2_*` is S3 秽壤的血脉's (SleepAura `_default {Skill_2_Begin, Skill_2_Sleep, Skill_2_Awake}`,
 // then charpack mode S3 `_replaceAnimPairs` Idle→Skill_2_Idle, Attack→Skill_2_Attack). The 10 s sleep (Skill_2_Begin →
 // Skill_2_Sleep, Skill_2_Awake as she wakes) is a model form of its own: render/units.js FORMS (kit fx 'stone' / 'rockfall').
-// 莫斯提马 (char_213_mostma): S2 荒时之锁 = skchr_mostma_2's anim component `_default {Skill_Begin, Skill_Loop, Skill_End}`;
-// S3 序时之匙 switches to charpack mode 1 (switch_mode_restart_fsm blackboard `mode 1`), whose attack is `_animKey
-// "Skill_2_Loop"` / `_endAnimKey "Skill_2_Idle"` (Graphic Idle→Skill_2_Idle) — resolveSkill had the two swapped, so her
-// S3 stood in S2's channel pose without an attack motion.
 import { skillModeIndex } from '../../shared/skill-modes.js';
 
 const clips = (o) => Object.freeze({ begin: null, loop: null, end: null, idle: null, ...o });
 
 /** model key (tools/assets/plan.mjs `op:<charId>:<dir>`) prefix → { [0-based skill index]: 'attack' | clip object } */
 export const SKILL_CLIP_OVERRIDES = Object.freeze({
-  'op:char_337_utage:': Object.freeze({ 1: 'attack' }),
   'op:char_311_mudrok:': Object.freeze({
     1: clips({ loop: 'Skill_1', strike: true }),
     2: clips({ begin: 'Skill_2_Begin', loop: 'Skill_2_Attack', end: 'Skill_2_End', idle: 'Skill_2_Idle' }),
   }),
-  // 焰影苇草 (char_1020_reed2): S3's charpack mode pairs Attack→Skill_3_Attack, Idle→Skill_3_Loop (EN client) — resolveSkill
-  // used the Loop stance as her attack, so she stood through S3 with no attack motion (maintainer report 2026-10-07)
-  'op:char_1020_reed2:': Object.freeze({
-    2: clips({ begin: 'Skill_3_Begin', loop: 'Skill_3_Attack', end: 'Skill_3_End', idle: 'Skill_3_Loop' }),
-  }),
-  'op:char_213_mostma:': Object.freeze({
-    1: clips({ begin: 'Skill_Begin', loop: 'Skill_Loop', end: 'Skill_End' }),
-    2: clips({ begin: 'Skill_2_Begin', loop: 'Skill_2_Loop', end: 'Skill_2_End', idle: 'Skill_2_Idle' }),
-  }),
   // The skill prefabs and charpack modes of the EN client (docs/rules/render.md 「Spine 클립 커버리지」, maintainer's notes
   // 2026-10-14), where the resolver's guess by name plays another skill's clips:
-  // 灵知 (char_206_gnosis): S3 失温症 = skchr_gnosis_3 ThreePartChannelingAnimation `_default {Skill_4_Begin, Skill_4_Loop,
-  // Skill_4_End}`; Skill_3 is the charged S2's (charpack mode S2+ pairs Skill_2→Skill_3).
-  'op:char_206_gnosis:': Object.freeze({
-    2: clips({ begin: 'Skill_4_Begin', loop: 'Skill_4_Loop', end: 'Skill_4_End' }),
-  }),
   // 歌蕾蒂娅 (char_474_glady): S2's cast clip is skchr_glady_2 `_beginAnim "Skill_2_Startup"` (`_playSkillBeginAnim 1`);
   // Skill_2_Begin / _Loop / _End are the S2 mode's attack channel.
   // S3 = an ability sequence: Chant `_animKey "Skill_3_Startup"` for the duration, the S3 mode (Idle→Skill_3_Chant, her
@@ -65,66 +38,22 @@ export const SKILL_CLIP_OVERRIDES = Object.freeze({
   // game shows no Start_Skill after the deployment (maintainer 2026-10-14) — only her Start drop: the skill has no clip of
   // its own (Start_Skill: test/render/clip-coverage-list.js, on hold), so a cast during the drop never cuts it.
   'op:char_4087_ines:': Object.freeze({ 2: 'attack' }),
-  // 缄默德克萨斯 (char_1028_texas2): the S2 / S3 deploy burst (skchr_texas2_{2,3} AnimationEmitBehaviour ON_CAST_START
-  // anim `Start_n`; charpack modes S2 / S3 pair Born→Start_n, Idle→Skill_n_Idle) opens the skill.
-  'op:char_1028_texas2:': Object.freeze({
-    1: clips({ begin: 'Start_2', loop: 'Skill_2_Loop', end: 'Skill_2_End', idle: 'Skill_2_Idle' }),
-    2: clips({ begin: 'Start_3', loop: 'Skill_3_Loop', end: 'Skill_3_End', idle: 'Skill_3_Idle' }),
-  }),
   // 赤刃明霄陈 (char_1050_chen3): S2 attacks with her plain clips; its Skill_2_Begin → Skill_2_Disappear (she vanishes while
   // she slashes) and Start_2 (back, mode S2Respawn) are a model form (render/units.js FORMS)
   'op:char_1050_chen3:': Object.freeze({ 1: 'attack' }),
-  // 银灰 (char_172_svrash): every attack of the S2 mode is `Modes/S2/Body/Attack _animKey "Combat"`; `Skill` is S3's.
-  'op:char_172_svrash:': Object.freeze({
-    1: clips({ loop: 'Combat' }),
-  }),
-  // The client plays clips by key only: the skill prefabs and modes name keys, and the skin's key table (chararts
-  // DefaultSkin SpineAnimator._animations) turns each into a clip name. Where the clip numbers are not the skill numbers:
-  // 安洁莉娜 (char_291_aglina): S1 is a mode with the plain Attack and no clip of its own; S2's `_default` keys
-  // Skill_1_Begin / _Loop / _End are the clips Skill1_*; S3's Skill_2_Begin / _Loop / _End are Skill1_Begin, Skill2_Loop,
-  // Skill2_End (no key names Skill2_Begin).
-  'op:char_291_aglina:': Object.freeze({
-    0: 'attack',
-    1: clips({ begin: 'Skill1_Begin', loop: 'Skill1_Loop', end: 'Skill1_End' }),
-    2: clips({ begin: 'Skill1_Begin', loop: 'Skill2_Loop', end: 'Skill2_End' }),
-  }),
-  // 焰尾 (char_420_flamtl): S1 is a buff without a clip; S2 skchr_flamtl_2 `_animKey "Skill_2"` is the clip Skill_1; S3's
-  // keys Skill_3_* (its begin and the S3 mode's Idle / Attack pairs) are the clips Skill_2_*.
-  'op:char_420_flamtl:': Object.freeze({
-    0: 'attack',
-    1: clips({ loop: 'Skill_1' }),
-    2: clips({ begin: 'Skill_2_Begin', loop: 'Skill_2_Loop', end: 'Skill_2_End', idle: 'Skill_2_Idle' }),
-  }),
-  // 予愿安洁莉娜 (char_1015_aglna2, CN client): S1's take-off key Skill_1_Begin is the clip Start_2 (CN chararts DefaultSkin
-  // SpineAnimator._animations; skchr_aglna2_1 `_defaultModeIndex` 5 = S1_TakeOff, whose attack `_animKey` is that key).
-  'op:char_1015_aglna2:': Object.freeze({
-    0: clips({ begin: 'Start_2', loop: 'Skill_1_Loop', end: 'Skill_1_End', idle: 'Skill_1_Idle' }),
-  }),
   // 丰川祥子 (char_4182_oblvns): S2 满月的舞会's cast clip is skchr_oblvns_2 `_beginAnim "Skill_2_Trans_B"` (`_playSkillBeginAnim
   // 1), which the piano mode pairs Trans_B→Trans_A (SKILL_VARIANTS: from the organ, Trans_B); Skill_2_Start / _Idle_A / _Loop_A
   // are the piano mode's (EQUIP_ROLES), _Idle_B / _Loop_B the organ's (render/units.js FORMS).
   'op:char_4182_oblvns:': Object.freeze({
     1: clips({ loop: 'Skill_2_Trans_A' }),
   }),
-  // 塞雷娅 (char_202_demkni): S1 skchr_demkni_1 attacks with `_animKey "Attack"`; S2's heal key `Heal` is the clip
-  // Attack_2; Skill_Begin / _Loop / _End are S3 钙质化's.
-  'op:char_202_demkni:': Object.freeze({
-    0: 'attack',
-    1: clips({ loop: 'Attack_2' }),
-  }),
-  // 耀骑士临光 (char_1014_nearl2): S2's mode attacks with the plain `Attack_Loop` and pairs Die→Skill_2_Die (SKILL_STATE_CLIPS);
-  // the skill casts no clip (skchr_nearl2_2 has no animated ability) — the name guess took Skill_2_Die for its clip.
-  'op:char_1014_nearl2:': Object.freeze({ 1: 'attack' }),
   // 蕾缪安 (char_4193_lemuen): skchr_lemuen_2 casts no clip (`_playSkillBeginAnim` 0); its mode S2 attacks with `Normal`, the
   // plain Attack_Begin / Attack_Loop, and aims with `Aim`, a channel `_default {Skill_2_Begin, Skill_2_Idle, Skill_2_End}` —
   // the aim is the S2 skill clip's `aim` signal (SIGNAL_CLIPS)
   'op:char_4193_lemuen:': Object.freeze({ 1: 'attack' }),
-  // 水月 (char_437_mizuki): his modes are [Default, T1, S1, S2] — S2 switches to mode 2 `S1`, whose attack is `Skill_1`;
-  // played by each attack (`strike`, as 泥岩 S2); S3 (`_beginAnim "Skill_2_Start"`) to mode 3 `S2`: attack `Skill_2_Loop`, Idle→`Skill_2_Idle`, mix to Idle `Skill_2_End`
-  // (client keys, 2026-10-23); the guess by name gave S2 the Skill_2 set and S3 nothing
+  // 水月 (char_437_mizuki): S2 switches to his mode 2 `S1`, whose attack `Skill_1` is played by each attack (`strike`, as 泥岩 S2)
   'op:char_437_mizuki:': Object.freeze({
     1: clips({ loop: 'Skill_1', strike: true }),
-    2: clips({ begin: 'Skill_2_Start', loop: 'Skill_2_Loop', end: 'Skill_2_End', idle: 'Skill_2_Idle' }),
   }),
 });
 
@@ -311,8 +240,6 @@ export const FIRST_ATTACK_BEGIN = Object.freeze({
   // 凯尔希·思衡托: CN client, Modes/default and s1)
   ...Object.fromEntries(['char_102_texas', 'char_1041_angel2', 'char_1045_svash2', 'char_107_liskam', 'char_222_bpipe',
     'char_4036_forcer', 'char_4193_lemuen', 'char_4194_rmixer', 'char_4211_snhunt', 'char_498_inside', 'char_1052_kalts2'].map((id) => [`op:${id}:`, { attack: {} }])),
-  // 送葬人: Modes/S2 Body/Attack `_beginAnim "Skill_Right_Begin"`, `_oneshotAnim "Skill_Right_Loop"`
-  'op:char_279_excu:': { skills: { 1: { firstAttackBegin: 'Skill_Right_Begin' } } },
   // 斯卡蒂: Modes/Default, S2, S3 Body/Attack `_beginAnim "Attack_Begin"`, `_oneshotAnim "Attack"`, `_endAnimKey "Attack_End"`
   'op:char_263_skadi:': { attack: { begin: 'Attack_Begin', end: 'Attack_End' } },
   // 伺夜: Modes/Default Body/Attack the same; Modes/S3 Attack_A / _B / _C `_endAnimKey "Skill3_ABC_Idle_Into"`

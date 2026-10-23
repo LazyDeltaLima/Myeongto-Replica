@@ -4,12 +4,13 @@
 
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { makeMatch, give } from './match/harness.js';
 import { buildBattleSpec, createBattleFromSpec } from '../server/sim/spec.js';
 import { makeBattle } from './helpers/battleHarness.js';
 import { resolveRoles } from '../tools/assets/anim-roles.mjs';
 import { applyAnimOverrides } from '../tools/assets/anim-overrides.mjs';
+import { keyRoles, overlayKeyRoles } from '../tools/assets/anim-keys.mjs';
 
 const ASSETS = JSON.parse(readFileSync(new URL('../data/assets.json', import.meta.url), 'utf8'));
 
@@ -85,13 +86,17 @@ describe('宴 S2 落地斩·破门 is not drawn as S1 分神 (tools/assets/anim-
       assert.equal(an.skill.index, 1);
       assert.equal(an.skill.via, 'attack', `${dir}: the primary (default S2) clip too`);
     }
-    // the pipeline makes the same entry (tools/assets/spine.mjs → applyAnimOverrides)
+    // where the client's clip keys are extracted, the pipeline makes the same entry from them (tools/assets/spine.mjs →
+    // overlayKeyRoles → applyAnimOverrides: her S2 mode attacks with the plain key); elsewhere the committed roles stand
+    const keysFile = new URL('../.cache/anim-keys.json', import.meta.url);
+    if (!existsSync(keysFile)) return;
+    const keys = JSON.parse(readFileSync(keysFile, 'utf8')).ops.char_337_utage;
     const names = Object.keys(op.spine.front.animations);
-    const roles = applyAnimOverrides('op:char_337_utage:front', resolveRoles(names, { skillIndices: [1, 0], durations: op.spine.front.animations }));
+    const roles = resolveRoles(names, { skillIndices: [1, 0], durations: op.spine.front.animations });
+    overlayKeyRoles(roles, keyRoles(keys, op.spine.front.animations), 'char_337_utage');
+    applyAnimOverrides('op:char_337_utage:front', roles);
     assert.deepEqual(roles.skills['1'], op.spine.front.anims.skills['1']);
     assert.deepEqual(roles.skills['0'], op.spine.front.anims.skills['0']);
-    // another model is untouched
-    assert.notEqual(applyAnimOverrides('op:char_102_texas:front', resolveRoles(names, { skillIndices: [1, 0] })).skills['1'].via, 'attack');
   });
 
   test('an override clip one side lacks is dropped: 泥岩 Back has no Skill_2_Begin (S3 starts in Skill_2_Attack / _Idle)', () => {

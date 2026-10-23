@@ -31,6 +31,9 @@ export const UNPLAYED = {
     Default_2: 'none: setup pose (0 s); no ability, mode pair or mix names it',
     Default_3: 'none: setup pose (0 s); no ability, mode pair or mix names it',
   },
+  char_1035_wisdel: {
+    Skill_2_End: 'none: no client key names it (abilities, mode pairs, skin key table, mix), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; S2 attacks with its mode',
+  },
   char_1041_angel2: {
     Skill_1_Close: 'none: the S1 burst after a stop by hand (Modes/S1_Burst_Mode); this mode has no manual stop — no client message stops a skill and server/sim/skills.js stop() has no caller',
   },
@@ -39,6 +42,10 @@ export const UNPLAYED = {
   },
   char_2027_wang: {
     Default_2: 'none: setup pose of mode S2 (replaces Default, 0 s; charpack Modes/S2 _replaceAnimPairs)',
+  },
+  char_222_bpipe: {
+    Skill_2_Begin: 'none: no client key names it (abilities, mode pairs, skin key table, mix), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; S3 attacks with the Skill_2_Loop of its mode (S2 is the one-shot Skill)',
+    Skill_2_End: 'none: no client key names it (abilities, mode pairs, skin key table, mix), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; S3 attacks with the Skill_2_Loop of its mode (S2 is the one-shot Skill)',
   },
   char_279_excu: {
     Skill_Up_Begin: 'none: S2 ThreePartOneshotAnimation has no up bundle (_GetAnimBundle: _down or Skill_Right_*); only the template of another unit (nasti_nstchr) names it',
@@ -51,11 +58,25 @@ export const UNPLAYED = {
   char_4016_kazema: {
     Default_B: 'none: setup pose of the stand-in form (0 s); only the buff template of another unit (parrot_m1_t) names it',
   },
+  char_4079_haini: {
+    Skill_2_Begin: 'none: no client key names it (abilities, mode pairs, skin key table, mix), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; S2 attacks with its mode',
+    Skill_2_End: 'none: no client key names it (abilities, mode pairs, skin key table, mix), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; S2 attacks with its mode',
+  },
   char_4087_ines: {
     Start_Skill: 'todo: G — on hold (maintainer 2026-10-14: the client logic is not certain): skchr_ines_3/First _animKey; S3 is cast only as she deploys (ON_DEPLOY) and the official game shows no Start_Skill after the deployment, so the renderer does not play it — when the client plays it, if ever, is open',
   },
+  char_4114_harold: {
+    Skill_2_End: 'none: no client key names it (abilities, mode pairs, skin key table, mix), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; S2 attacks with its mode',
+  },
   char_4116_blkkgt: {
     Skill_2_B: 'none: no ability, mode pair, buff, mix or code string names it (EN/CN); S2 plays Skill_2',
+  },
+  char_4148_philae: {
+    Skill_2_Start: 'none: back-only clip; no client key names it (abilities, mode pairs, skin key table, mix), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; S2 is its channel',
+  },
+  char_472_pasngr: {
+    Skill2_Begin: 'none: no client key names it (abilities, mode pairs, skin key table, mix), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; S2 attacks with its mode',
+    Skill2_End: 'none: no client key names it (abilities, mode pairs, skin key table, mix), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; S2 attacks with its mode',
   },
   char_498_inside: {
     Attack_Idle: 'none: no ability, mode pair, buff, mix or code string names it (EN/CN); attack is Attack_Begin/Loop/End',

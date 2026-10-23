@@ -366,7 +366,7 @@ export async function processModels(models, { root, dl, cachePath, download = tr
       const fixed = applyRoleFix(resolveRoles(sk.animations, { skillIndices: m.skillIndices, durations: sk.durations }), id ? PREFAB_SPINE_ROLES[id] : undefined, sk.durations);
       if (fixed.missing.length) problems.push(`${m.key}: role fix not applied (clip missing) for ${fixed.missing.join(', ')}`);
       anims = fixed.roles;
-      if (op && animKeys?.[op]) overlayKeyRoles(anims, keyRoles(animKeys[op], sk.durations));
+      if (op && animKeys?.[op]) overlayKeyRoles(anims, keyRoles(animKeys[op], sk.durations), op);
       applyAnimOverrides(m.key, anims, sk.animations); // local patch: skill clip fixes (tools/assets/anim-overrides.mjs); clips the skeleton lacks are dropped
       applyModeAttacks(m.key, anims, timing, charModes); // how each skill's mode attacks (stance / plain attack clip)
     }
