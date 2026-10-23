@@ -168,6 +168,13 @@ test('stepPauses: PauseEffectWithAnimation pauses after its delay and finishes w
   assert.equal(sw.paused, true);
   h.spineEvent(1, 'OnActivateEffect');
   assert.equal(sw.paused, false);
+  // (2026-10-23) the front model's Skill_3_Combat sends OnActivateEffect and OnDeactivateEffect both at 0.233 s, in that
+  // order, then OnActivateEffect at 0.533 s: the last of one frame's events wins — hidden over the strike (0.5 s)
+  h.spineEvent(1, 'OnActivateEffect');
+  h.spineEvent(1, 'OnDeactivateEffect');
+  assert.equal(sw.paused, true);
+  h.spineEvent(1, 'OnActivateEffect');
+  assert.equal(sw.paused, false);
   h.spineEvent(1, 'OnDeactivateEffect');
   clip = 'Idle';
   h.stepPauses(sw);
