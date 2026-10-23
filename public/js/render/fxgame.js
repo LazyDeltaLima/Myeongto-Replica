@@ -1658,6 +1658,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     castsDelayed.push({ t: clockS + dur, run: () => land?.() });
     return dur;
   }
+  /**
+   * 2026-10-23: load the shot list of `v`'s skill (modes.json skills[i].shot) at its deploy, as the client has its effects
+   * pooled before a skill fires. Loaded at the first throw, it was ready only after the flight (流星 S2's arrows, 0.3 s; the
+   * first load of a prefab and its textures takes longer), and a shot that landed meanwhile is not drawn (spawn `drop`).
+   */
+  function warmShot(v) {
+    const b = bundleOf(v), names = extracted(v, skillBind(v)?.shot);
+    if (b && names.length) ensure().then((ok) => (ok ? Promise.all(names.map((n) => lib.load(b.bundle, n))) : null)).catch(() => {});
+  }
   const LINE_FX = /_line(_|$)/i;   // char_modes.py LINE_FX: a rope / link of the list, not a projectile
   /** The `_line` of `src`'s running skill's shot list beside its trail `name` (extracted), or null. */
   const shotLine = (src, name) => (skillBind(src)?.shot || []).find((x) => x !== name && LINE_FX.test(x) && bundleOf(src)?.prefabs.includes(x)) ?? null;
@@ -2015,6 +2024,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (pick) def = pick.def;
     if (!mod || !def) return null;
     if (entry.until != null && entry.until <= clockS) return null; // 2026-10-10: its end passed while it loaded
+    // 2026-10-23: a shot that landed while it loaded is not drawn (launchTrail's rule) — placed at its end, nothing finished
+    // it and it sat on the target for 5 s (流星 S2's first volley: the arrows showed up on the sandbag with their hits)
+    if (drop && !trails.includes(drop)) return null;
     if (entry.owner != null && gone.has(entry.owner) && (entry.buff || entry.onCaster)) return null;
     const unit = at && at.info ? at : null;
     const split = !over && splitOn();   // an effect on the ground / a unit splits by sorting at 'high'
@@ -4298,6 +4310,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       tokenAura(v, true);   // 2026-10-22: a summon's skill aura
       defaultModeFx(v, true);   // 2026-10-21: the Default mode's own effects
       droneIdle(v, true);   // 2026-10-16: the Default mode's drones
+      warmShot(v);   // 2026-10-23: its skill's own shot, ready for the skill's first throw
       if (isPack(v)) packDeploy(v, id, t);   // 2026-10-16: 伺夜's wolf pack
       const fx = deployEffect(bind, v.info.kind === 'token', v._fxSkillOn ? modeNow(v) ?? 0 : 0);
       // `_onlyPlayStartEffectOnce`: the root's effect on the first deploy only [추정: a mode's override still plays]
