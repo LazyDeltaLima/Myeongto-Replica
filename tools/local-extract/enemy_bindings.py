@@ -874,6 +874,11 @@ def render_entry(r, projs):
         out['aura'] = aura
     if aura_end:
         out['auraEnd'] = aura_end
+    # (2026-10-23) an AuraAbility's own `_effects` under another ability (扎罗's CommonAbilities/FearAura/Aura: its range,
+    # on while 【远古威慑】 runs): held by the sim's status that stands for that ability (render/fxstatus.js KEY_FX)
+    nested = uniq(x for a in r['abilities'] if not direct(a) for x in a.get('auraFx', []) if x not in STATUS_DRAWN)
+    if nested:
+        out['auraNested'] = nested
     # (2026-10-21) every other buff of its own with an effect, by the client's buff key: the sim's status that stands for that
     # buff names it (`fxTag`, render/fxstatus.js enemy buffs) — a rebirth's 无敌, a shield's layers, a toggled rage
     held_names = set(aura)
@@ -915,6 +920,12 @@ def render_entry(r, projs):
                     lst += [x for x in fin if x not in lst]
     if buff_fx:
         out['buffFx'] = buff_fx
+    # (2026-10-23) the IMMEDIATELY ones (life 0): the buff ends as it starts, so its effect is finished at once and goes its
+    # `_delayToFinish` later — “碎铳之簧”'s achunt_dog_silence as its MoveToHunter mode comes on (`buffOnce`: their buffFx keys)
+    once = [k for a in r['abilities'] for kk in ('buffs', 'activeBuffs', 'passiveBuffs') for b in a.get(kk) or []
+            if b.get('life') == 0 for k in (b.get('key'), f"{b.get('key')}#{a.get('mode')}") if k in buff_fx]
+    if once:
+        out['buffOnce'] = uniq(once)
     if buff_end:
         out['buffEnd'] = buff_end
     if inv:
@@ -941,7 +952,7 @@ def render_entry(r, projs):
 
 
 def entry_names(e):
-    out = [e.get('start'), e.get('dead')] + list(e.get('aura', [])) + list(e.get('handed', []))
+    out = [e.get('start'), e.get('dead')] + list(e.get('aura', [])) + list(e.get('handed', [])) + list(e.get('auraNested', []))
     out += [x for rb in e.get('reborn') or [] for x in rb['fx']]
     for k in ('buffFx', 'buffEnd'):
         for lst in (e.get(k) or {}).values():

@@ -1082,6 +1082,19 @@
   그리는 기존 길로 Prop BornAnim `enemy_duskls_invincible` → `enemy_duskls_revive_2`(불꽃 가디언은 이펙트 없음). 전투 golden은 status 수만 움직임.
 - **자로 【远古威慑】 오퍼레이터 쪽 (2026-10-23)**: `CommonAbilities/FearAura/Aura`가 범위 안 오퍼레이터에게 거는 `enemy_wlfmster_fear`의
   overrideEffectKey `enemy_wlfmster_B_buff_02_02` — 시뮬 `ab:ancientAwe`(보임) → `fxstatus.js KEY_FX`.
+- **자로 【远古威慑】 자기 범위 (2026-10-23, 공식 클라에서 확인)**: 같은 AuraAbility의 `_effects` `enemy_wlfmster_B_buff_02`(땅의 고리,
+  `_spawnLocation` 5)는 오라가 붙을 때 주인에게 만들어지고 떨어질 때 끝난다. 그 오라는 `ActiveAbilityWrapper` 아래라 평생 `aura`가 아니고, 렌더 표
+  `auraNested`(`enemy_bindings.py`: 다른 능력 밑 AuraAbility의 `_effects` — 지금 자로 하나)로 뽑힌다. 시뮬 `kitWolfLord`는 【远古威慑】를 쓰러진
+  순간(重生 `during`)부터 둘째 형태 내내 돌리므로, 그 `onKo`에서 자로에게 `ab:aweAura`(보임, persist)를 붙이고 `fxstatus.js KEY_FX`가 이 고리를
+  그린다 [추정: 클라는 M1 Reborn 재능의 `enemy_wlfmster_trigger_fear`가 재생 시작에 켬 — 이름과 자리로만, 그 노드는 안 읽음]. 전투 golden은
+  roster-013 status 수 +1. [화면 미확인]
+- **'리드' 추적의 번쩍임 — IMMEDIATELY 버프 (2026-10-23, 공식 클라에서 확인)**: “碎铳之簧”('총을 부수는 리드')의
+  MoveToHunter 모드 `Body/GeneralAbilities/Ability0`가 붙이는 `achunt_dog_silence`(템플릿 `empty`, `lifeTimeType` IMMEDIATELY)는 붙자마자
+  끝나므로 그 이펙트 `enemy_actrpa_skill_a`(法术护盾 쪽만 — b·c의 같은 버프엔 이펙트 없음)는 곧바로 `Effect.FinishMe` → `_delayToFinish`
+  0.5초 뒤 사라지는 번쩍임이다. 렌더 표 `buffOnce`(`enemy_bindings.py`: `buffFx` 키 중 수명 0인 버프 — 지금 '리드' 법술 `achunt_dog_silence`·
+  `actrpa_s_1[damage]`, `enemy_crhro[reborn]`, `lslime_t_damage[target]`; 시뮬 상태가 가리키는 것은 첫째뿐) → `enemyBuffFx`의 `once` →
+  `fxstatus.js ONCE_OF` → `statusOn(…, once)`: 상태가 켜질 때 한 번 틀고 그 프레임에 끝내며(`until`·`finishAt`, 다시 틀지 않음 — `again` 없음),
+  상태가 서 있는 동안 다시 시작하지 않는다. 시뮬: 【末日布道】의 `boss:dash`(5초)가 `fxTag` `buff:achunt_dog_silence`를 싣는다. [화면 미확인]
 - **시뮬 상태 → 그 적의 클라 버프(`buffFx`)**: 렌더 표 `buffFx` { 클라 버프 키: [이펙트] }(적이 가진 모든 자기 이펙트 버프 + 템플릿 `CreateBuff`가
   만드는 파생 버프, 한 키가 여러 모드에 있으면 `<키>#<모드 번호>`), `buffEnd`(그 버프 템플릿의 ON_BUFF_FINISH `CreateEffect`). 시뮬 적 버프의 `fxTag`
   `'buff:<클라 버프 키>|…'`(docs/SIM.md)를 상태 켬 이벤트가 `fx`로 싣고, `fxstatus.js wantedStatusFx`가 `fxgame.js enemyBuffFx`로 그 적의 이펙트를
@@ -1131,10 +1144,8 @@
 - **전체 추출·떠난 것**: `used_enemies`가 首领 이벤트(`data/choices.json`)의 리더 14종을 빠뜨려 그들 이펙트가 안 뽑혀 있었다 — 넣음. 그리고
   `enemy_bindings.py --extract --all`로 모든 적의 이펙트(지금 797개, 전: 384)를 뽑음 — 凋零骑士·陷落雪祀·迷路的巨像 스킬 탄, 리더 전부, 가상적: 갑주 선,
   `common_enemy_die_01`(이제 자기 사망 이펙트가 없는 적은 절차 퍼프 대신 그것).
-- 안 한 것: '리드' 추적(MoveToHunter 모드)의 `achunt_dog_silence`(`enemy_actrpa_skill_a`, IMMEDIATELY — 붙자마자 끝나 `_delayToFinish` 0.5초 뒤
-  사라지는 번쩍임이라 상태로 5초 붙이면 다름: 렌더 표에 버프 수명이 없음), 자로 자신의 FearAura 범위 `_B_buff_02`(AuraAbility `_effects`, 안 뽑힘),
-  불타는 덩굴 `SwitchableEffectByBlackboardValue`(아래 「추출 누락 보고」). 화면 확인: 아래.
-- 확인: `test/render/enemy-buff-fx.test.js`(enemyBuffFx·wantedStatusFx·끝 이펙트), `test/sim/enemy-buff-tags.test.js`(상태 이벤트의 `fx`, 重弩突袭者 줄),
+- 안 한 것: 불타는 덩굴 `SwitchableEffectByBlackboardValue`(아래 「추출 누락 보고」). 화면 확인: 아래.
+- 확인: `test/render/enemy-buff-fx.test.js`(enemyBuffFx·wantedStatusFx·끝 이펙트·`once`·`ab:aweAura`), `test/sim/enemy-buff-tags.test.js`(상태 이벤트의 `fx`, 重弩突袭者 줄, '리드' 추적·자로 범위 상태),
   `enemy_bindings.py` 재생성 diff(위 `aura` 바뀐 적 목록을 하나씩 클래스로 확인).
 
 ### 보스 토큰·장비 이펙트 — 子代·黄金回响·알리스테어 장비 (2026-10-15)

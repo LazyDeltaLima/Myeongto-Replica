@@ -47,6 +47,26 @@ test('a half-HP rage names its client toggle buff', () => {
   assert.equal(tagOf(h, e.id, 'ab:lowhp'), 'buff:skulsr_t_1');
 });
 
+// 2026-10-23: “碎铳之簧”'s chase (the client's MoveToHunter mode) names that mode's Ability0 buff achunt_dog_silence — an
+// IMMEDIATELY buff the render flashes once; 扎罗's 【远古威慑】 holds a status for its range effect from the knock-out on
+test('“碎铳之簧” 追逐模式 names achunt_dog_silence; 扎罗 holds `ab:aweAura` from its knock-out, through the 重生', () => {
+  const h = arena();
+  h.step();
+  put(h, 'enemy_9017_achunt_2', [5, 8]);
+  const spring = put(h, 'enemy_9018_actrpa', [8, 8]);
+  const wolf = put(h, 'enemy_1535_wlfmster', [8, 3]);
+  h.run(0.2);
+  assert.ok(!wolf.findBuff('ab:aweAura'), 'first form: none');
+  h.b.kill(wolf, null);
+  h.run(0.1);
+  assert.ok(wolf.alive && wolf.form === 'reborn' && wolf.findBuff('ab:aweAura'), 'the 重生: on');
+  h.run(25);
+  assert.equal(tagOf(h, spring.id, 'boss:dash'), 'buff:achunt_dog_silence');
+  h.run(20);   // Reborn.duration 40 s
+  assert.ok(wolf.form === 'form2' && wolf.findBuff('ab:aweAura'), 'second form: still on');
+  assert.equal(h.eventsOf('status').filter((x) => x[1] === wolf.id && x[2] === 'ab:aweAura' && x[3] === 1).length, 1);
+});
+
 test('the 逐火 ember\'s 1 s 重生 无敌 is a visible `…:inv` status (the render draws the enemy\'s INVINCIBLE buff effect)', () => {
   const h = arena();
   h.step();

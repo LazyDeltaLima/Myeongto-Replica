@@ -1299,7 +1299,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     };
   }
   const statusFailed = new Set();   // `${bundle}/${name}` that did not load: their units keep the icon (statusReady false)
-  async function playStatus(view, bundle, name, key, frac, hold = null, under = false) {
+  async function playStatus(view, bundle, name, key, frac, hold = null, under = false, once = false) {
     if (!(await ensure())) return;
     const def = await lib.load(bundle, name);
     if (mod && !def) { statusFailed.add(`${bundle}/${name}`); view._fxStatusOn?.delete(key); return; }
@@ -1324,7 +1324,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const split = !splitOn() ? false : under ? true : mod.fxp.hasBackOrder(def) ? 'backOnly' : false;
     const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: view.z || 0, hold, tilt: tiltOn(view, def) });
     inst.object.position.set(anchor.x, anchor.y, anchor.z);
-    addLive(inst, { view: anchor, owner: ownerOf(view), buff: true, status: key, again: () => playStatus(view, bundle, name, key, frac, hold, under), unit: view }, split ? layers.split : under ? layers.under : layers.over);
+    // (`once`: finished the frame it lands — FxInstance.finish, then gone def.finish s later — and never started again)
+    const fin = once ? Math.max(0, Number(def.finish) || 0) : 0;
+    addLive(inst, { view: anchor, owner: ownerOf(view), buff: true, status: key, again: once ? null : () => playStatus(view, bundle, name, key, frac, hold, under), unit: view,
+      ...(once ? { until: clockS, finishAt: clockS + fin } : null) }, split ? layers.split : under ? layers.under : layers.over);
     trimLive();
   }
 
@@ -4408,8 +4411,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
      * and a bare tag takes any of them), 'inv': its rebirth 无敌, 'stealth': its 隐匿, 'mode' (2026-10-23): the passive buffs
      * of the mode it is in (`modes[i].aura` of an enemy with several modes — attached with the mode by Unit.ActivateMode,
      * gone with it; none during a 重生: Unit.DoFakeDeath clears its buffs, the new mode comes at the rebirth's end).
-     * { on, ends } — the [bundle, prefab, 'own'] specs of the extracted ones and, by `bundle/prefab` of one, what its buff's
-     * ON_BUFF_FINISH creates (once) — or null.
+     * { on, ends, once } — the [bundle, prefab, 'own'] specs of the extracted ones and, by `bundle/prefab` of one, what its
+     * buff's ON_BUFF_FINISH creates (once) and whether its buff is IMMEDIATELY (`buffOnce`, 2026-10-23: “碎铳之簧”'s
+     * achunt_dog_silence as its MoveToHunter mode comes on — flashed, see statusOn) — or null.
      */
     enemyBuffFx(v, kind, tag = '') {
       const b = ebindOf(v);
@@ -4424,20 +4428,22 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const specs = (names) => [...new Set(names)].map(efx).filter(Boolean).map((r) => [r[0], r[1], 'own']);
       let on = [];
       const ends = new Map();   // `bundle/prefab` of a buff's effect → that buff's end specs
+      const once = new Set();   // 2026-10-23: `bundle/prefab` of an IMMEDIATELY buff's effect (`buffOnce`): flashed, not held
       if (kind === 'inv' || kind === 'stealth') on = Array.isArray(b[kind]) ? b[kind] : [];
       else if (kind === 'mode') on = Array.isArray(b.modes[Number(tag)]?.aura) ? b.modes[Number(tag)].aura : [];
       else if (kind === 'key' && tag) {
-        const fx = b.buffFx || {}, fin = b.buffEnd || {};
+        const fx = b.buffFx || {}, fin = b.buffEnd || {}, imm = Array.isArray(b.buffOnce) ? b.buffOnce : [];
         for (const t of String(tag).split('|')) {
           for (const k of Object.keys(fx)) {
             if (k !== t && !k.startsWith(`${t}#`)) continue;
             const mine = specs(fx[k] || []), end = specs(fin[k] || []);
             on = on.concat(fx[k] || []);
             if (end.length) for (const sp of mine) ends.set(`${sp[0]}/${sp[1]}`, end);
+            if (imm.includes(k)) for (const sp of mine) once.add(`${sp[0]}/${sp[1]}`);
           }
         }
       }
-      const r = { on: specs(on), ends };
+      const r = { on: specs(on), ends, once };
       memo.set(mk, r.on.length ? r : null);
       return memo.get(mk);
     },
@@ -4462,14 +4468,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         setPaused(l);
       }
     },
-    /** local patch (⑤): loop `bundle`/`name` on `view` as its status `key` (once per key) at `frac` of its height. */
-    statusOn(view, bundle, name, key, frac = 0, hold = null, under = false) {
+    /**
+     * local patch (⑤): loop `bundle`/`name` on `view` as its status `key` (once per key) at `frac` of its height.
+     * 2026-10-23: `once` — an IMMEDIATELY buff's effect (fxstatus.js ONCE_OF): the client's buff ends as it starts and
+     * finishes the effect (Effect.FinishMe), so it is finished at once and gone its `_delayToFinish` later, never looped.
+     */
+    statusOn(view, bundle, name, key, frac = 0, hold = null, under = false, once = false) {
       const on = view._fxStatusOn || (view._fxStatusOn = new Set());
       if (on.has(key)) return;
       on.add(key);
-      if (trace) trace({ kind: 'status', names: [name], by: ownerOf(view) ?? null, at: null }); // tests: the status prefab on `view`
+      if (trace) trace({ kind: 'status', names: [name], by: ownerOf(view) ?? null, at: null, ...(once ? { once: true } : null) }); // tests: the status prefab on `view`
       if (dry) dryFollow(bundle, name, ownerOf(view) ?? null, frac === 'own' ? ownerOf(view) ?? null : null);
-      playStatus(view, bundle, name, key, frac, hold, under);
+      playStatus(view, bundle, name, key, frac, hold, under, once);
     },
     /**
      * local patch (⑤): end the status effect `key` on `view`; `now` (render/fxstatus.js): as the client finishes a buff's

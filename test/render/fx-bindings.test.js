@@ -79,6 +79,7 @@ const KNOWN = {
   'KEY_FX svash2:barrier|*': ['untabled', 'no svash2_s_1[build] in either template dataset or the client rows: the 屏障 card\'s buff key is unconfirmed'],
   'STACK_FX rmixer:t1|rmixer_buff_02': ['missing', 'swapped in by rmixer_buff_01\'s own SwitchableEffectByBuffStackCnt (a component of the prefab), not a buff row'],
   'KEY_FX ab:ancientAwe|*': ['untabled', '扎罗\'s AuraAbility buff enemy_wlfmster_fear (its prefab, enemy-modes.json) goes onto the operators: the binding table holds the charpacks\' rows only'],
+  'KEY_FX ab:aweAura|*': ['untabled', '扎罗\'s FearAura AuraAbility `_effects` (its prefab, enemy-modes.json `auraNested`): the binding table holds the charpacks\' rows only'],
   'DEPLOY_FX DEPLOY_FX|*': ['untabled', 'the client\'s default effects (DefaultEffects), not a binding row'],
   'fxgame screen_desert_up_to_down|screen_desert_up_to_down': ['missing', 'sand_storm[camera_effect] creates screen_desert_*_empty (SwitchDirection branches), a wrapper whose `_effects` is this looping prefab (not extracted itself): the hand plays the inner one'],
   'fxgame screen_desert_down_to_up|screen_desert_down_to_up': ['missing', 'as screen_desert_up_to_down'],

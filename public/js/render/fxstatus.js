@@ -138,6 +138,9 @@ export const KEY_FX = Object.freeze({
   // 2026-10-23: 扎罗's 【远古威慑】 (leaders.js kitWolfLord awe) — its CommonAbilities/FearAura/Aura buff enemy_wlfmster_fear's
   // overrideEffectKey on every operator in range
   'ab:ancientAwe': cite('enemy_wlfmster_fear', ['pfx_enemy_14', 'enemy_wlfmster_B_buff_02_02', OWN]),
+  // and on 扎罗 while it runs (leaders.js kitWolfLord onKo): that AuraAbility's own `_effects`, its range on the ground
+  // (enemy-modes.json `auraNested`; DoAttach creates it on the owner, Detach finishes it)
+  'ab:aweAura': cite('enemy_1535_wlfmster/CommonAbilities/FearAura/Aura', ['pfx_enemy_14', 'enemy_wlfmster_B_buff_02', OWN]),
   // 2026-10-16 (이펙트 연결 전수 묶음 3, docs/rules/fx.md 「재능 버프·시전 이펙트」): talent buffs' overrideEffectKey (EN charpacks
   // Talents/N; a key ending in `:<id>` — one buff per applier — matches without it)
   'agoat2:mist': keyed('agoat2_t_1', 'agoat2', OWN),   // (Talents/1 _additiveActiveBuffs) on the healed ally
@@ -288,6 +291,7 @@ export const END_FX = Object.freeze({
   'mudrok/mudrok_buff_03_start': Object.freeze(cite('mudrok_t_1[shield_c]', [Object.freeze(['mudrok', 'mudrok_buff_01_end', 'own'])])),
 });
 const END_OF = new Map();   // effect key → its end specs: an enemy buff's (wantedStatusFx, from fxgame.js enemyBuffFx), a keyed spec's (specsOf)
+const ONCE_OF = new Set();  // 2026-10-23: effect keys of an enemy's IMMEDIATELY buffs (enemyBuffFx `once`): flashed once as the status comes on
 /** Every effect key syncStatusFx turns on (and so may turn off): not the prep 'golden' glow of fxgolden.js. */
 const MINE = new Set(Object.keys(STATUS_FX));
 
@@ -352,7 +356,14 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null) {
   const f = v.flags | 0;
   // 2026-10-21: an enemy's own buff effects (fxgame.js enemyBuffFx — its prefab's buffs; ebuff(view, kind, tag) → { on, ends })
   const own = v.isEnemy && typeof ebuff === 'function' ? (kind, tag) => ebuff(v, kind, tag) : null;
-  const byOwn = (r) => { for (const s of r.on) { byName(out, s); const e = r.ends?.get(`${s[0]}/${s[1]}`); if (e) END_OF.set(`${s[0]}/${s[1]}`, e); } };
+  const byOwn = (r) => {
+    for (const s of r.on) {
+      byName(out, s);
+      const k = `${s[0]}/${s[1]}`, e = r.ends?.get(k);
+      if (e) END_OF.set(k, e);
+      if (r.once?.has(k)) ONCE_OF.add(k);
+    }
+  };
   // 2026-10-23: the passive buffs of the mode an enemy with several modes is in (prisoners' 【解放】, 守墓石像's statue, the
   // 逐火 ember …) — held while the mode is on; one a status names too is the same `bundle/prefab` key, drawn once
   if (own) { const r = own('mode'); if (r) byOwn(r); }
@@ -429,7 +440,8 @@ export function syncStatusFx(views, fxGame, battle) {
     for (const [k, spec] of want) {
       if (on && on.has(k)) continue;
       const [bundle, name, frac, hold] = spec;
-      if (fxGame.statusReady(bundle, name)) { MINE.add(k); fxGame.statusOn(v, bundle, name, k, frac, hold); }
+      // (an IMMEDIATELY buff's effect, ONCE_OF: finished as it starts — kept in `on` till the status ends, so not again)
+      if (fxGame.statusReady(bundle, name)) { MINE.add(k); fxGame.statusOn(v, bundle, name, k, frac, hold, false, ONCE_OF.has(k)); }
     }
     // local patch: not the prep 'golden' glow (fxgolden.js); local patch (maintainer report 2026-10-08): `now` — an ended
     // status takes its effect's particles with it (buff_stun's mark lives 10 s: it hung on beside the next stun's), after

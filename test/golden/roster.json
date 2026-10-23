@@ -930,7 +930,7 @@
         "enemy_5601_entlec": [6,6,0,0,90952]
       },
       "hooks": [1,124,5700,618,618,1804,2879,20065,110,113,25,23,18,28054,812,27,110,2,1,162,29,2,0],
-      "events": {"atk":1071,"bounty":5,"deploy":14,"die":111,"dmg":2248,"engage":8,"face":43,"fx":372,"heal":30,"layer":29,"leak":2,"skill":48,"spawn":122,"status":674,"swing":651},
+      "events": {"atk":1071,"bounty":5,"deploy":14,"die":111,"dmg":2248,"engage":8,"face":43,"fx":372,"heal":30,"layer":29,"leak":2,"skill":48,"spawn":122,"status":675,"swing":651},
       "fx": {"anchor":3,"aoe":2,"burst":2,"candle":6,"charges":10,"downed":1,"ember":1,"explode":1,"garrison":29,"garrisonGrant":1,"jungleSoul":2,"mote":96,"motes":68,"overload":2,"redistribute":43,"revive":1,"reweave":3,"sandChains":3,"sandChainsCharged":1,"spGift":44,"splash":18,"summon":1,"talent":4,"telegraph":1,"wake":29},
       "snaps": "bff4850f 61bbac76 54cd4c3a cd26b169 11ab3681 5551fac6 5b14125c 3b0e4aac fbe9a028 bc99e090 2e5a066a fab9ccbe 5f645a40 afd36de7 0e3add4d 19c540df 718a7dc1 47d5b43a 792e321b"
     },

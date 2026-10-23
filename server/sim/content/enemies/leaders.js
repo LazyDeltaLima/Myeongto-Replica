@@ -660,6 +660,8 @@ function kitWolfLord(ab) {
       cure(b);
       b.removeBuff(e, 'ab:wolfGuard');
       if (e.mem.ab.immune) e.mem.ab.immune.delete('stun');
+      // 【远古威慑】 runs from here on (during, then tick): its CommonAbilities/FearAura/Aura holds its range effect on 扎罗
+      b.addBuff(e, { key: 'ab:aweAura', persist: true, visible: true });
     },
     during(b, e, a, t) {                                         // 重生期间【远古威慑】生效; its HP refills slowly
       const dur = T(ab, 'Reborn.duration') ?? 1;

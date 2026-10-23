@@ -44,7 +44,8 @@ test('extracted status prefabs carry the client\'s _delayToFinish', { skip: !ext
 test('fxgame.js stopBuffs: a skill ending leaves the statuses its unit wears playing (they end with statusOff)', () => {
   const s = src('../../public/js/render/fxgame.js');
   // a status entry is `buff` (isLasting) with `again`; stopped by the skill's end, `again` restarted it from its start
-  assert.match(s, /buff: true, status: key, again: \(\) => playStatus\(/);
+  // (2026-10-23: an IMMEDIATELY buff's flash — `once` — has none)
+  assert.match(s, /buff: true, status: key, again: once \? null : \(\) => playStatus\(/);
   const fn = s.slice(s.indexOf('function stopBuffs('), s.indexOf('function stopOwned('));
   assert.match(fn, /if \(l\.buff && !l\.status && l\.owner === ownerId\) l\.inst\.stop\(now\);/);
 });

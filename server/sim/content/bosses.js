@@ -848,7 +848,9 @@ function kitGun(ab, e, b) {
         for (const sp of b2.enemies) {
           if (!sp.alive || !isSpring(sp) || !sp.mem.ab) continue;
           sp.mem.ab.dash = { until: b2.time + (s2.bb.dog_duration ?? 0), mul: 1 + (s2.bb.move_speed ?? 0), gun: e2, hit: new Set() };
-          b2.addBuff(sp, { key: 'boss:dash', duration: s2.bb.dog_duration ?? 0, visible: true, flags: { invulnerable: true, noMove: true, unblockable: true, disarm: true } });
+          // the client's MoveToHunter mode: its Ability0 buff achunt_dog_silence (IMMEDIATELY — the render flashes its effect once)
+          b2.addBuff(sp, { key: 'boss:dash', duration: s2.bb.dog_duration ?? 0, visible: true, flags: { invulnerable: true, noMove: true, unblockable: true, disarm: true },
+            fxTag: 'buff:achunt_dog_silence' });
           b2.fx('dash', { x: sp.x, y: sp.y, id: sp.id, tx: e2.x, ty: e2.y });
         }
       },

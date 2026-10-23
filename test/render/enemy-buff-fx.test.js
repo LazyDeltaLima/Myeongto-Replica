@@ -13,7 +13,7 @@ import { PLAYS } from '../helpers/fxPlays.js';
 const EMODES = {
   $fx: { warden: ['b', 'warden'], killer: ['b', 'killer'], killer2: ['b', 'killer2'], inv: ['b', 'inv'], hide: ['b', 'hide'],
     shield_a: ['b', 'shield_a'], shield_b: ['b', 'shield_b'], shield_end: ['b', 'shield_end'], not_here: ['b', 'not_here'],
-    lib: ['b', 'lib'], wall: ['b', 'wall'] },
+    lib: ['b', 'lib'], wall: ['b', 'wall'], flash: ['b', 'flash'] },
   enemy_w: {
     modes: [{ name: 'Default', anim: ['Attack'] }, { name: 'R', anim: ['Attack'] }],
     buffFx: { 'enhance#0': ['warden'], 'enhance#1': ['killer'], 'enhance[eff1]': ['killer2'], 'sh[a]': ['shield_a'], 'sh[b]': ['shield_b', 'not_here'] },
@@ -24,9 +24,10 @@ const EMODES = {
   enemy_1116_liprr: { modes: [{ name: 'Default', anim: ['Attack'] }, { name: 'R', anim: ['Attack'] }, { name: 'L', anim: ['Attack'], aura: ['lib'] }] },
   enemy_1516_jakill: { modes: [{ name: 'Default', anim: ['Attack'], aura: ['warden'] }, { name: 'R', anim: ['Attack'], aura: ['killer'] }] },
   enemy_one: { modes: [{ name: 'Default', anim: ['Attack'], aura: ['wall'] }] },
+  enemy_s: { modes: [{ name: 'Default', anim: ['Attack'] }], buffFx: { dog: ['flash'], t_1: ['wall'] }, buffOnce: ['dog'] },
 };
 const files = {
-  '/assets/local/fx/index.json': { bundles: { b: ['warden', 'killer', 'killer2', 'inv', 'hide', 'shield_a', 'shield_b', 'shield_end', 'lib', 'wall'] } },
+  '/assets/local/fx/index.json': { bundles: { b: ['warden', 'killer', 'killer2', 'inv', 'hide', 'shield_a', 'shield_b', 'shield_end', 'lib', 'wall', 'flash'] } },
   '/assets/local/fx/enemy-modes.json': EMODES,
 };
 globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
@@ -151,4 +152,35 @@ test('fxstatus: the mode\'s passive buffs join the enemy\'s wanted effects; one 
   const v = enemy(['ab:warden'], [['ab:warden', { src: null, fx: 'buff:enhance#0', n: 0 }]]);
   assert.deepEqual([...F.wantedStatusFx(v, new Map(), eb).keys()], ['b/warden']);
   assert.deepEqual([...F.wantedStatusFx(enemy([], []), new Map(), eb).keys()], ['b/warden'], 'the mode alone');
+});
+
+// 2026-10-23: an IMMEDIATELY buff (enemy-modes.json `buffOnce` — “碎铳之簧”'s achunt_dog_silence as its MoveToHunter mode
+// comes on): the client's buff ends as it starts and finishes its effect, so the render flashes it once for the whole status
+test('fxgame enemyBuffFx: an IMMEDIATELY buff\'s effect is `once`; syncStatusFx starts it once and never again while the status stands', async () => {
+  const layer = createFxLayer({ host: null, above: null, quality: () => 'high' });
+  await settle();
+  const s = { id: 1, info: { id: 1, side: 'enemy', defId: 'enemy_s' } };
+  assert.deepEqual([...layer.enemyBuffFx(s, 'key', 'dog').once], ['b/flash']);
+  assert.deepEqual([...layer.enemyBuffFx(s, 'key', 't_1').once], [], 'a lasting buff: held');
+  const calls = [];
+  const fxGame = {
+    statusLayer: () => true, statusReady: () => true, enemyBuffFx: (v, kind, tag) => layer.enemyBuffFx({ ...v, id: 1, info: { id: 1, side: 'enemy', defId: 'enemy_s' } }, kind, tag),
+    statusOn: (v, b, n, k, frac, hold, under, once) => { (v._fxStatusOn ||= new Set()).add(k); calls.push(['on', n, once]); },
+    statusOff: (v, k) => { v._fxStatusOn.delete(k); calls.push(['off', k]); },
+  };
+  const e = { info: { defId: 'enemy_s' }, isEnemy: true, alive: true, flags: 0, statuses: new Set(['boss:dash', 'boss:shield']),
+    statusFrom: new Map([['boss:dash', { fx: 'buff:dog' }], ['boss:shield', { fx: 'buff:t_1' }]]) };
+  const views = new Map([[1, e]]);
+  F.syncStatusFx(views, fxGame, {});
+  F.syncStatusFx(views, fxGame, {});
+  assert.deepEqual(calls.filter((c) => c[0] === 'on').sort(), [['on', 'flash', true], ['on', 'wall', false]], 'one start each');
+  e.statuses.delete('boss:dash');
+  F.syncStatusFx(views, fxGame, {});
+  assert.deepEqual(calls.filter((c) => c[0] === 'off'), [['off', 'b/flash']]);
+});
+
+test('KEY_FX: 扎罗\'s 【远古威慑】 range on itself (`ab:aweAura`) — its FearAura AuraAbility `_effects` at the prefab\'s own spawn point', () => {
+  assert.deepEqual(F.KEY_FX['ab:aweAura'], ['pfx_enemy_14', 'enemy_wlfmster_B_buff_02', 'own']);
+  const v = { info: { defId: 'enemy_1535_wlfmster' }, isEnemy: true, alive: true, flags: 0, statuses: new Set(['ab:aweAura']), statusFrom: new Map() };
+  assert.deepEqual([...F.wantedStatusFx(v, new Map(), () => null).keys()], ['pfx_enemy_14/enemy_wlfmster_B_buff_02']);
 });
