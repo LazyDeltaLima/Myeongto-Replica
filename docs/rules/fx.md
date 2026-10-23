@@ -2405,6 +2405,15 @@
 - 고친 것: 오퍼레이터의 `beam`은 그 모드의 shot이 날지 않으면(`shotSpeedOf` 0) 선을 그리지 않음 — 다른 무투사체 공격과 같은 규칙. 자료가 없는
   오퍼레이터와 적의 `beam`은 그대로. 테스트 `test/render/fxproj.test.js`. [화면 미확인]
 
+### 오퍼레이터 포물선 투사체 — PARACURVE 높이 (2026-10-23, 아레나 확인 문제 9번 「애쉬락 포탄이 곧게 날아감」, 공식 클라에서 확인)
+
+- 원인: 오퍼레이터 일반 공격의 공식 꼬리(`fxgame.js trailShot`)가 호를 공격 종류의 대체 모양(`style.js PROJ` `bomb`·`lob`의 `arc`)에서만 가져와,
+  공식 투사체가 ParacurveMovement(`_raiseHeight`, data/chess.json `shot` `move` PARACURVE·`height`)여도 종류가 화살·구슬이면 곧게 날았다.
+  적 쪽(`eshotFx`)과 스킬 투사체(`skillShotOut`)는 이미 `height`를 썼다.
+- 고친 것: `fx/projectiles.js shotArcOf` — 그 순간의 shot(스킬 중이면 스킬 것)이 PARACURVE면 `height`를 호 꼭대기로, 아니면 예전 대체 호.
+  풀의 PARACURVE 오퍼레이터: 灰毫 1, 锡人 0.3(S1·S2 0.5), 波登可 S1 0.3, 流星 S2 0.3, 跃跃(부메랑은 그대로), 古米 S2·哈洛德·流明·赫默 등.
+  확인: 렌더 테스트 전부. [화면 미확인: 아레나에서 애쉬락 포탄 호, 대체 `lob` 호(1.4 × 거리 비율)에서 공식 높이로 낮아진 다른 오퍼레이터]
+
 ### 적 포탄 — 帝国炮火先兆者 (2026-10-22, 관리자 요청 「공식 포탄으로 수정」)
 
 - 시뮬: 제국 아틸러리 타게티어·코어 타게티어(`enemy_1112_emppnt`/`_2`, `content/enemies/fly.js kitShell`)는 쏠 때 대상 자리에 fx 'bombardShell'

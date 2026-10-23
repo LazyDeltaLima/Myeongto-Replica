@@ -74,7 +74,7 @@ import { boneMissing, liftedPoint, loadPoints, mountSpawn, pointKey, pointOn, po
 import { GRAPHIC_TILT, takesGraphicTurn } from './fxpoints.js'; // 2026-10-22: an effect on a unit takes its Graphic's X −30°
 import { STANDARD_PLACE, modelOffset } from './fxpoints.js'; // 2026-10-22: 望's 棋子 model stands at its prefab's place (the ball)
 import { enemyProjSpeed, enemyShot } from './fx/speeds.js'; // 2026-10-10: an enemy shot's record / flight time (data/enemies.json `proj`)
-import { shotSpeedOf } from './fx/projectiles.js'; // 2026-10-16: an operator shot's flight time (data/chess.json `shot`)
+import { shotSpeedOf, shotArcOf } from './fx/projectiles.js'; // 2026-10-16: an operator shot's flight time (data/chess.json `shot`)
 import { opShot } from './fx/speeds.js'; // 2026-10-21: a skill's own shot record (skillShotOut)
 import { boomerangThrown, boomerangCaught } from './heldWheel.js'; // local patch: a 回环射手's boomerang leaves / is back in her hand
 import { PROJ } from './style.js';
@@ -1597,8 +1597,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (v === 0) return false;
     trailAtks.add(e);
     const from = shotFrom(src, mode);
+    // (2026-10-23) a PARACURVE shot rises its official height (灰毫's shell), as an enemy's does
+    const lob = e[3] === 'boomerang' ? null : shotArcOf({ lookupDef: unitDef }, src);
     const rec = { inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, tx: mx(tgt), ty: tgt.y, tz: shotTo(tgt), k: 0,
-      dur: Math.max(0.04, dist / (v || projSpeed(e[3]))), arc: spec.arc ? spec.arc * Math.min(1.8, Math.max(0.6, 0.45 + dist * 0.18)) : 0 };
+      dur: Math.max(0.04, dist / (v || projSpeed(e[3]))), arc: lob ?? (spec.arc ? spec.arc * Math.min(1.8, Math.max(0.6, 0.45 + dist * 0.18)) : 0) };
     // local patch (maintainer report 2026-10-08: one boomerang that comes back): a 回环射手's trail is the projectile itself
     // both ways — projectile_chr_caper `_comeBack` 1 at `_comeBackSpeedScale` .25 (the sim's BOOMERANG_RETURN_SPEED), its
     // `_mainEffect` kept (`_clearMainEffectWhenReached` 0): it turns at the hit and flies back to her (stepTrails), and the

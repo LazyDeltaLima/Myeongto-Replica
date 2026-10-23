@@ -4,7 +4,7 @@
 import { PROJ } from '../style.js';
 import { SHOT_HEIGHT, bodyZ, feetZ } from './camera.js';
 import { clamp } from './limits.js';
-import { projSpeed, enemyProjSpeed, opProjSpeed } from './speeds.js';
+import { projSpeed, enemyProjSpeed, opProjSpeed, opShot } from './speeds.js';
 import { UF } from '../../../../shared/constants.js';
 import { boomerangThrown, boomerangCaught } from '../heldWheel.js'; // local patch: the 回环射手's held boomerang
 
@@ -34,6 +34,18 @@ export function shotSpeedOf(ctx, src, tgt, dist) {
   try { def = ctx?.lookupDef?.(src.info) ?? null; } catch { def = null; }
   const blockedNear = !!(tgt && tgt.isEnemy && (tgt.flags & UF.BLOCKED) && dist <= 1.2);
   return opProjSpeed(def, { skillOn: !!src._fxSkillOn, skillIndex: src.info?.skillIndex, blockedNear });
+}
+
+/**
+ * 2026-10-23 (official client): the raise height of an operator's shot that flies a parabola (opShot `move` PARACURVE,
+ * ParacurveMovement `_raiseHeight` — 灰毫's shell 1), or null (a straight / unread one: the kind's stand-in arc).
+ */
+export function shotArcOf(ctx, src) {
+  let def;
+  try { def = ctx?.lookupDef?.(src.info) ?? null; } catch { def = null; }
+  const p = opShot(def, !!src._fxSkillOn, Number.isInteger(src.info?.skillIndex) ? src.info.skillIndex : 0);
+  const h = p && p.move === 'PARACURVE' ? Number(p.height) : NaN;
+  return h > 0 ? h : null;
 }
 
 export class FxProjectiles {
