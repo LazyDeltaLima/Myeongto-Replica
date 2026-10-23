@@ -321,6 +321,21 @@ test('the kits send what the rules read', () => {
   assert.match(src('chess_char_6_14-lumen.js'), /battle\.fx\('healField', \{ x: target\.x, y: target\.y, id: unit\.id, tgt: target\.id, t: life \}\)/);
   assert.match(src('chess_char_6_11-mlyss.js'), /battle\.fx\('copy', \{[^}]*mode: [^}]*by: unit\.id \}\)/);
   assert.match(src('chess_char_5_02-titi.js'), /battle\.fx\('sleepGuard', \{ x: a\.x, y: a\.y, id: a\.id, src: unit\.id \}\)/);
+  assert.match(src('chess_char_4_01-rmixer.js'), /battle\.fx\('reload', \{ x: cand\[0\]\.x, y: cand\[0\]\.y, id: cand\[0\]\.id, n, src: unit\.id \}\)/);
+  assert.match(src('chess_char_4_19-flamtl.js'), /battle\.fx\('riposte', \{ x: unit\.x, y: unit\.y, id: unit\.id, /);
+});
+
+test('焰尾 T1 and 信仰搅拌机 S1 (2026-10-24, 묶음 S1): a dodge flashes and holds the evade buff until the riposte, a reload tips its ally', () => {
+  const d = kitOfficialPlan('dodge', { id: 1 }, 'flamtl', { plays: PLAYS });
+  assert.equal(d.pass, true, 'the dodge keeps its text');
+  assert.deepEqual(d.play.map((p) => [p.n, p.on, p.life ?? null, p.slot ?? null]), [
+    ['flamtl_flash_01', 'op', 'once', null], ['flamtl_buff_01', 'op', null, 'flamtlEvade'],
+  ]);
+  assert.deepEqual(kitOfficialPlan('riposte', { id: 1 }, 'flamtl').play, [{ slot: 'flamtlEvade', off: true }]);
+  assert.equal(kitOfficialPlan('dodge', { id: 1 }, 'chen3'), null, "another operator's dodge has no rule");
+  // the event's operator is the 信仰搅拌机 (`src`), the tip goes on the reloaded ally (`id`)
+  assert.equal(kitOperator({ id: 7, src: 3, n: 1 }, 'reload'), 3);
+  assert.deepEqual(kitOfficialPlan('reload', { id: 7, src: 3, n: 1 }, 'rmixer', { plays: PLAYS }).play, [{ on: 'id', n: 'rmixer_skill_01_tip_01', life: 'once' }]);
 });
 
 // (one index for the file: the layer module loads it once)

@@ -97,6 +97,16 @@ export const KIT_OFFICIAL = {
   // 赤刃明霄陈 T2: the dodge held again (chen3_t2[timer] at stack_time: CreateEffect chen3_buff_start_01, and the heal's
   // chen3_Shield_buff_02); its loop is the 'chen3:evade' status (fxstatus.js KEY_FX)
   evadeReady: { chen3: cite('chen3_t2[timer]', () => ({ play: [once('chen3_buff_start_01'), once('chen3_Shield_buff_02')] })) },
+  // 焰尾 T1 前锋剑术 (2026-10-24, 묶음 S1): each dodge — flamtl_t_1 ON_EVADE_DAMAGE: CreateEffect flamtl_flash_01, and the buff
+  // flamtl_t_1[evade] (flamtl_buff_01 INFINITY, not again while she holds it) until her next attack strikes twice (the sim's
+  // 'riposte' — ends it). The dodge keeps its text (`pass`).
+  dodge: {
+    flamtl: cite(['flamtl_t_1', 'flamtl_t_1[evade]'], () => ({ pass: true, play: [once('flamtl_flash_01'), { tpl: 'flamtl_t_1[evade]', on: 'op', slot: 'flamtlEvade' }] })),
+  },
+  riposte: { flamtl: cite('flamtl_t_1[evade]', () => ({ play: [{ slot: 'flamtlEvade', off: true }] })) },
+  // 信仰搅拌机 S1 铳骑主考官 (2026-10-24, 묶음 S1): the bullets reloaded into a 拉特兰 operator (its `src` him) — the buff
+  // rmixer_sk1[ammo-recover] ON_BUFF_START: CreateEffect rmixer_skill_01_tip_01 on it
+  reload: { rmixer: cite('rmixer_sk1[ammo-recover]', () => ({ play: [{ tpl: 'rmixer_sk1[ammo-recover]', on: 'id' }] })) },
   // 伊内丝 T2 影哨: projectile_chr_ines_guard `_effectsWhenReached` label_start_01 + label_01 + range_01 where it lands;
   // they last while the sentry stands (a new one replaces it, S3's recall — her 'beam' — ends it)
   sentry: {

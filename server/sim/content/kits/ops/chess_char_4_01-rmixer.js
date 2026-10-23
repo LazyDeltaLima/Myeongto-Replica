@@ -44,7 +44,7 @@ export default withDefaults({
                 .sort((a, b) => b.deploySeq - a.deploySeq || a.id - b.id);
               if (!cand[0] || !(n > 0)) return;
               cand[0].skill.addAmmo(n);
-              battle.fx('reload', { x: cand[0].x, y: cand[0].y, id: cand[0].id, n });
+              battle.fx('reload', { x: cand[0].x, y: cand[0].y, id: cand[0].id, n, src: unit.id }); // src: the client's tip is his (render)
             },
           },
         }),
