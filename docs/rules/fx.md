@@ -1583,8 +1583,11 @@
   모드 `aglina_skill_02_gather`(렌더가 그 모드를 안 고름 — 변화 없음). `fxmap.js defaultModeEffects` = `attach[0]` − 드론(`funnels[0]` idle/back) −
   상시(`common`) − `attachFoe[0]` − 키트 몫; `fxgame.js defaultModeFx`: 'deploy'마다 다시 켜고(【移动】 포함), 'skill' 켜짐/꺼짐마다 지금 모드가 기본(0)
   이거나 모드 없는 스킬(−1)이면 켬, 아니면 서서히 끔, 'die'에 끝(stopOwned). `buff` 항목이 아니라(stopBuffs가 안 끔) `pinned`; `stats().mode0`.
-- [추정] 모드 전환 때 옛 이펙트가 끝나고 새 것이 처음부터(卡涅利安 기본 → `S1_Enhance` → 기본) — `ActivateMode`의 떼고 붙이는 순서는 안 읽음. 薄绿 모드
-  재능이 붙는 조건(`BasicTalent.get_isValid`)은 안 읽음 — 시뮬이 재능을 늘 깔아 늘 켬.
+- 모드 전환 순서 (2026-10-23, 디컴파일 확인 — 10-14 EN 덤프): `Unit.SwitchMode`가 옛 모드에 `Unit.InactiveMode`(능력마다 `Ability.Detach` → 모드
+  `OnInactivate` → GameObject 끔)를 먼저, 그다음 새 모드에 `Unit.ActivateMode`(GameObject 켬 → 능력 `Attach` → 모드 `OnActivate`)를 부른다. 모드마다
+  능력이 따로라(卡涅利安 기본·`S1_Enhance`의 `Trait_Eff`는 다른 인스턴스) 옛 버프가 먼저 지워져 그 이펙트가 끝나고(이름당 하나 — 마지막 버프가 지워지면
+  `FinishMe`) 새 버프가 이펙트를 처음부터 만든다 → 지금 렌더(옛 것 서서히 끔, 새 것 처음부터)와 같다. 薄绿 모드 재능이 붙는 조건 `BasicTalent.get_isValid`는
+  재능 데이터가 들어 있는지(`data` ≠ null)뿐이고, 그녀 재능 地质学者는 정예 1에 열리는데 이 모드의 薄绿 조각은 모두 정예 2라 늘 유효 → 「늘 켬」도 공식.
 - 확인: 단위 `test/render/default-mode-fx.test.js`(추출값, `defaultModeEffects`, 卡涅利安 충전 S1 계획, dry 레이어로 배치·스킬 켜짐/꺼짐·모드 없는 스킬·재배치).
   전투 골든 그대로, 이벤트 기록 골든 + 줄만(薄绿·卡涅利安·浊心斯卡蒂·魔王 `mode0`, 瑕光 S2 루프, 卡涅利安 충전 S1 한 번). Windows Chrome 디버그 아레나(정예,
   오류 0, `stats().mode0`): 薄绿·卡涅利安·蜜蜡·浊心斯卡蒂·魔王 배치 약 1.3초 뒤 켜짐 → 스킬 시작에 꺼짐 → 끝에 다시(薄绿 19.7초·蜜蜡 19.9초·浊心斯卡蒂 32.7초),

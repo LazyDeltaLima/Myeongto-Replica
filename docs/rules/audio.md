@@ -444,7 +444,11 @@
   (`server/sim/damage.js dotFlag`, `docs/rules/sim.md`·`docs/SIM.md`; 이벤트 수·전투 결과 그대로라 golden 무변화). `public/js/audio.js`는 그 틱을 착탄으로 치지 않는다
   (공격 착탄·스플래시·스킬 착탄 모두 아님, `lastAttacker`도 안 건드림).
 - 같은 경로로 함께 무음이 된 것(예전에는 그 스킬 중 틱마다 스킬 착탄음): 위 다섯 + 포덴코 S2 포자 구역·틴맨 구역(`'dot', 'zone'`)·클레멘티아 S2 소용돌이.
-  [추정] 포덴코·클레멘티아는 버프 템플릿이 아니라 확인 못 함. 틴맨 `tinman_s_2[buff]`는 ON_BUFF_TRIGGER에 자기 PlayAudio가 있어(구역 맥동음) 공식은 틱마다
+  포덴코·클레멘티아(2026-10-23, 클라 프리팹·`audio_data` 확인): 포덴코 S2 피해는 버프 틱이 아니라 투사체 `projectile_chr_podego_s2`가 장판 안 적을
+  1초마다 다시 치는 것(`_keepAlreadyHitTime` 1.0, `_hitAfterReached`; 스킬 능력 `skchr_podego_2`의 버프는 침묵·停顿뿐) — 그 능력의 소리 뱅크는
+  `battle.ON_ABILITY_START.skchr_podego_2`·`ON_SKILL_START`뿐이고 `ON_ABILITY_HIT.skchr_podego_2`·`ON_PROJECTILE_HIT.projectile_chr_podego_s2`가
+  없어(착지 `ON_PROJECTILE_REACH` 하나뿐) 타격마다 소리가 없다. 클레멘티아 S2 소용돌이도 `ON_PROJECTILE_BORN.projectile_chr_clemnt_s2_*`·
+  `ON_SKILL_START.skchr_clemnt_2`뿐, HIT 뱅크 없음 → 둘 다 틱 무음이 공식(지금 그대로). 틴맨 `tinman_s_2[buff]`는 ON_BUFF_TRIGGER에 자기 PlayAudio가 있어(구역 맥동음) 공식은 틱마다
   그 소리를 낸다 → 2026-10-22부터 그 틱만 `dotTickKey`로 `tinman:s2`(위 「버프·커스텀 트리거 소리」). 라플란드 더 데카덴차 드론·望 바둑돌은 원래 `sfx.kit`로
   따로 내서 변화 없음. 无来源 틱(深水区·원소 등)은 원래 착탄음 없음.
 - 확인: `test/local-patch-attack-signals.test.js` 「damage-over-time ticks」(틱 무음·같은 피해 플래그 없으면 착탄음, 틱이 공격 착탄을 가져가지 않음, 실제 매치 경로
