@@ -242,11 +242,11 @@ export const loadLocalEnemySpines = loadLocalSpines;
  *   animations: Record<string, number>, events: string[], hits: Record<string, number[]>, bounds: any }} SpineEntry
  */
 
-/** Every clip name a role tree names (strings anywhere in it but its `via` / `pick` words). */
-function namesAll(o, out = []) {
+/** Every clip name a role tree names (strings anywhere in it but its `via` / `pick` words and a facing clip's `by`). */
+export function namesAll(o, out = []) {
   if (typeof o === 'string') out.push(o);
   else if (Array.isArray(o)) for (const v of o) namesAll(v, out);
-  else if (o && typeof o === 'object') for (const [k, v] of Object.entries(o)) if (k !== 'via' && k !== 'pick') namesAll(v, out);
+  else if (o && typeof o === 'object') for (const [k, v] of Object.entries(o)) if (k !== 'via' && k !== 'pick' && k !== 'by') namesAll(v, out);
   return out;
 }
 

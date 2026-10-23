@@ -5,9 +5,26 @@
 // attacks with the plain clip.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { keyRoles, attackAbility, overlayKeyRoles } from '../../tools/assets/anim-keys.mjs';
+import { namesAll } from '../../tools/assets/spine.mjs';
 
 const clips = (...n) => Object.fromEntries(n.map((x) => [x, 1]));
+
+test('without the key table every committed operator role is kept: each name it holds is a clip of its model', () => {
+  // fetch-assets on a machine without .cache/anim-keys.json keeps a model's committed roles only when namesAll finds
+  // every name among its clips; a word that is no clip (a facing clip's `by`) would send it back to the name guess.
+  const { chars } = JSON.parse(readFileSync(new URL('../../data/assets.json', import.meta.url), 'utf8'));
+  const lost = [];
+  for (const [id, c] of Object.entries(chars)) {
+    for (const [side, s] of Object.entries(c.spine || {})) {
+      if (!s.anims) continue;
+      const miss = namesAll(s.anims).filter((n) => !Object.hasOwn(s.animations || {}, n));
+      if (miss.length) lost.push(`${id} ${side}: ${[...new Set(miss)].join(', ')}`);
+    }
+  }
+  assert.deepEqual(lost, []);
+});
 
 test('Idle / Born / Die and the attack through the skin key table; mix clips open and close the attack', () => {
   const op = {
