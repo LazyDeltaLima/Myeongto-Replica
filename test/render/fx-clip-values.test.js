@@ -91,6 +91,30 @@ test('a clip moving an FxUVTweener speed: the offset sums speed × time frame by
   assert.ok(Math.abs(z - 1) < 0.05, `offset ≈ t² at t = 1 (${z.toFixed(3)})`);
 });
 
+test('(2026-10-23) a clip switching a VelocityModule on: the particles keep still until it does (velOL `on` 0)', async () => {
+  const velOL = { x: mm(2), y: mm(0), z: mm(0), world: false, radial: mm(0), orbZ: mm(0), speedMul: mm(1), on: 0 };
+  const { inst } = await make([node('p', 0, { ps: sys({ bursts: [{ t: 0, n: mm(5), cycles: 1, interval: 0, p: 1 }], mods: { velOL } }) })],
+    [{ node: 1, prop: 'ps:VelocityModule.enabled', type: 198, curves: [step(1)] }]);
+  const xs = () => [...Array(inst.systems[0].n)].map((_, i) => inst.systems[0].pos[i * 3]);
+  inst.update(1 / 30);
+  const x0 = xs();
+  for (let i = 0; i < 24; i++) inst.update(1 / 30);
+  assert.ok(xs().every((x, i) => Math.abs(x - x0[i]) < 1e-6), 'off: no velocity over lifetime');
+  for (let i = 0; i < 30; i++) inst.update(1 / 30);
+  assert.ok(xs().every((x, i) => x - x0[i] > 0.5), 'on: they move along x');
+});
+
+test('fx_extract.py clip_modules: only a system a clip switches the module on for keeps its switched-off VelocityModule', () => {
+  const out = execFileSync('python3', ['-c', `
+import json, sys
+sys.path.insert(0, 'tools/local-extract')
+import fx_extract as fe
+nodes = [{'ps': {'mods': {}}, '_velOff': {'x': 1}}, {'ps': {'mods': {}}, '_velOff': {'x': 2}}]
+fe.clip_modules(nodes, [{'tracks': [{'node': 1, 'prop': 'ps:VelocityModule.enabled'}]}])
+print(json.dumps(nodes))`], { cwd: ROOT, encoding: 'utf8' });
+  assert.deepEqual(JSON.parse(out), [{ ps: { mods: {} } }, { ps: { mods: { velOL: { x: 2, on: 0 } } } }]);
+});
+
 test('fx_extract.py names the clip bindings of those values (ANIMATED_VALUES: Mecanim crc32 and legacy paths)', () => {
   const out = execFileSync('python3', ['-c', `
 import json, sys
@@ -103,6 +127,7 @@ clip = {'m_Name': 'l', 'm_WrapMode': 0, 'm_FloatCurves': [{'path': '', 'attribut
         'curve': {'m_Curve': [{'time': 0, 'value': 1, 'inSlope': 0, 'outSlope': 0}, {'time': 1, 'value': 2, 'inSlope': 0, 'outSlope': 0}]}}]}
 print(json.dumps(fe.legacy_clip(clip, {fe.crc32(''): 0, '': 0})['tracks'][0]['prop'] if fe.legacy_clip(clip, {'': 0}) else None))`], { cwd: ROOT, encoding: 'utf8' });
   const [named, legacy] = out.trim().split('\n').map((l) => JSON.parse(l));
-  assert.deepEqual(named, ['ps:EmissionModule.rateOverTime.scalar', 'trail:time', 'uvt:secondYSpeed', 'mr:enabled', null]);
+  assert.deepEqual(named, ['ps:EmissionModule.rateOverTime.scalar', 'trail:time', 'uvt:secondYSpeed', 'mr:enabled',
+    'ps:VelocityModule.enabled']);
   assert.equal(legacy, 'ps:ShapeModule.radius.value');
 });

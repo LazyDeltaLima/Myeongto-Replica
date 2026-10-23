@@ -30,7 +30,7 @@ cov.begin('wang/wang_passive_01_start')
 for t in ('Transform', 'SpriteRenderer', 'MeshCollider', 'MonoBehaviour'):
     cov.component(t)
 cov.script(6196809664641094801, ['_delayToPlay'])     # ParticleEffect: read
-cov.script(1149374055237060560, ['_lodLevel'])  # FxLODSetting: known todo
+cov.script(4106883806711907659, ['_flyDuration'])  # Svash2FlyToPredefinedTokenCard: known todo
 cov.script(123, ['_someField'])                       # unknown, no class table: its id and fields
 cov.reader('ParticleEffect', True)
 cov.reader('FollowMountPoint', False)
@@ -46,7 +46,7 @@ cov.material('Torappu/Particles/NewShader', [], set(), {})
 print(json.dumps({r['kind'] + ':' + r['what']: r['status'] for r in cov.report()}))`);
     assert.deepEqual(rep, {
       'component:SpriteRenderer': 'new', 'component:MeshCollider': 'none',
-      'script:FxLODSetting': 'todo', 'script:#123 _someField': 'new',
+      'script:Svash2FlyToPredefinedTokenCard': 'todo', 'script:#123 _someField': 'new',
       'reader:FollowMountPoint: layout not recognised, nothing read': 'new',
       'module:LightsModule': 'new', "module:CollisionModule type 1 World (collides with the scene's colliders)": 'new',
       'shape:20 SpriteRenderer': 'new', 'shape:6 Mesh m_MeshSpawn mode 1 (vertices / edges in order, not at random)': 'new',

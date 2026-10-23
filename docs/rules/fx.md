@@ -376,7 +376,9 @@
   빠진 것은 `rotOL`의 x(초당 30–90°)였다. 재생기가 z만 더해, 선으로 보이던 띠가 수명 동안 열리지 않았다.
   지금은 `fxplayer.js`가 x·y도 오일러에 더하고(Unity `angularVelocity3D` → `rotation3D`) 띠가 휘어진 호로 열린다. 기울기는 그대로다.
   영향: 축별 `rotOL` x·y가 있는 메시 입자(렌더 모드 4) 프리팹 116개. 모드 0·1(빌보드·늘인 빌보드)은 셰이더가 z만 써서 그대로다.
-  남은 차이 [화면 미확인]: 같은 순간에 보이는 호가 공식(1–2개)보다 많다(2–4개). 원인은 안 봄.
+  남은 차이 [화면 미확인]: 같은 순간에 보이는 호가 공식(1–2개)보다 많다(2–4개). 방출 수·수명은 원인이 아니다(2026-10-23): 띠 둘은 초당 5·7개(서포터 5·4개),
+  수명 0.25–0.65초라 같은 순간 평균 2.25·3.15개이고, 재생기에서 10초 재생해 센 평균도 2.22·3.10개다. 색 기울기 알파(처음 53%는 1, 그 뒤 0으로)를 읽고 계산하는 방법도
+  Unity와 같다(`gradient`·`evalGradient`). 남은 후보는 띠 하나가 화면에서 보이는 정도다 — 시선과 나란한 호, 텍스처 `trail_02`/`trail_01`이 호를 따라 덮는 부분, 띠의 힘 모듈.
   확인: `fx-graphic-tilt.test.js`의 수명 중 회전 경우(수정 빼면 실패). 아레나 확대 캡처로 기울기 전·지금·고친 뒤를 녹화와 비교했다.
 
 ### 이펙트 마운트 지점 FollowMountPoint — 스펙터 디 언체인드 S2 붉은 원형 (2026-10-08, 관리자 제보)
@@ -1480,7 +1482,8 @@
   에이야퍄들라 더 크비트 아스카 S2 범위의 단계 클립이 처음 나옴), TrailRenderer `m_Time`,
   MeshRenderer `m_Enabled`, FxUVTweener `xspeed`/`yspeed`/`secondXSpeed`/`secondYSpeed`를 움직이면 트랙 `ps:<경로>`·`trail:time`·`mr:enabled`·`uvt:<필드>`.
   플레이어는 그 시스템·트레일만의 사본에 매 프레임 쓰고(정의는 인스턴스끼리 공유), 움직이는 UV 속도는 프레임마다 속도 × 시간을 더한다(클라 `Update`).
-  남은 것: 꺼진 VelocityModule을 켜는 클립 하나(적 `mcmstr_buff_04_start` — 꺼진 모듈은 추출에 없음). 기본 상태 밖 Animator 클립은 아래 「애니메이터 상태」.
+  꺼진 VelocityModule을 켜는 클립(적 `mcmstr_buff_04_start` 하나, 2026-10-23): 그 시스템만 꺼진 모듈을 `mods.velOL`에 `on: 0`으로 싣고
+  (`fx_extract.py clip_modules` — 클립이 켜지 않는 꺼진 모듈은 예전처럼 안 실음), 트랙 `ps:VelocityModule.enabled`가 `on`을 켠다. 기본 상태 밖 Animator 클립은 아래 「애니메이터 상태」.
 - 추출: 운영자 32·적 10 묶음(+ 보고가 꼽은 `ghost2`)을 다시 뽑아 전후 대조 — 3,060 파일 중 73개, 새 키 `shape.mesh`·`place`·`meshCol` 40 파일과
   트랙 이름(`attr:` → `ps:`·`trail:`·`mr:`·`uvt:`) 36 파일뿐. 추출 JSON 골든 EN 2·CN 1 갱신. 보고 todo 운영자 26 → 17·적 21 → 8.
   테스트 `test/render/wang-stone-fx.test.js`(연결선·stateFx·상자 표면)·`fx-mesh-shape.test.js`·`fx-clip-values.test.js`. 아레나(Windows Chrome, 전후):
@@ -2529,9 +2532,25 @@
     `screen_desert_down_to_up`(m06의 위 방향 폭풍 장치 `#2`는 어디서도 켜지지 않음; 서명은 기록되는 `up_to_down`과 같음 107개).
 - 기준선의 큰 todo(비공개 조사 기록에 전체 목록): ~~`FollowDirection` 183개~~(2026-10-22 읽음 — 위 「이펙트 방향」) · ~~셰이더 `_CullMode`·`_ZWrite`·Disturb
   Origin `_SrcBlend`·`InheritVelocityModule`·`CollisionModule`·`SizeBySpeedModule`·Unity 기본 입자 재질·레거시 셰이더~~(2026-10-22 — 위 「입자 모듈·셰이더
-  패스 상태」) · `FxLODSetting` 37 · Shape Mesh 36(점으로 대체) · 기본 상태 밖 Animator 클립 23 · 클립이 움직이는 입자 모듈 값·트레일 길이·UV 흐름 속도(`EmptyEffect`·`OnPlayEmitter` /
+  패스 상태」) · ~~`FxLODSetting` 37~~(2026-10-23 — 아래 「저사양 이펙트 — FxLODSetting」) · Shape Mesh 36(점으로 대체) · 기본 상태 밖 Animator 클립 23 · 클립이 움직이는 입자 모듈 값·트레일 길이·UV 흐름 속도(`EmptyEffect`·`OnPlayEmitter` /
   `OnFinishEmitter`·`PauseEffectIf` 등 멈춤·끝 스크립트는 2026-10-21에 읽음 — 위 「OnPlayEmitter · OnFinishEmitter」·「이펙트 멈춤·끝 조건」). 재질에 저장 안 된 셰이더 속성을 움직이는 트랙은 2026-10-21에 고침(아래
   「RandomEmitter · FlyToPredefinedLocation」의 셋째 항목).
+
+### 저사양 이펙트 — FxLODSetting (2026-10-23, 추출 누락 기준선의 todo, 공식 클라에서 확인)
+- 무엇: 이펙트 루트의 `FxLODSetting`(추출 프리팹 운영자 42·적 49, 모두 루트) — `_disableObjects`(끌 노드)와 `_particleDetailsHookers`(시스템 + `_detailPercentage`,
+  0.3–0.8). 클라는 `Effect.Awake`에서 루트의 것만 잡는다(`GetComponent`).
+- 언제: `Effect.OnAllocate`가 기기 등급 `GradingController` 설정 `HIGH_LEVEL_EFFECT`가 꺼졌을 때(저사양 기기) `FxLODSetting.ApplyLowDetail`을 부른다.
+  또 `ParticleEffectManager.RegisterParticleEffect`가 활동별 설정 `ParticleEffectManagerConfig.forceUseLowDetailFx`(battle_misc_table
+  `particleEffectManagerConfigs`)가 켜졌을 때 부르는데, 표에는 `act1vhalfidle` 하나뿐이고 위수 협의(act2autochess)는 없다(기본값 거짓). 고사양에서는 아무것도 안 바뀐다.
+- 저사양에서 하는 것: `_disableObjects`마다 `SetActive(false)`와 그 Renderer `enabled` 거짓. 시스템마다(`ParticleDetailsHooker.ApplyLowDetailPS`) 방출의
+  rateOverTime(상수·두 상수·곡선 배수)과 모든 burst 개수 곡선에 `_detailPercentage`를 곱한다.
+- 구현: `fx_extract.py lod_setting` → 프리팹 `lod` { off: [노드], ps: [[노드, 비율]] }(`--finish-only`도 씀). `fxplayer.js FxInstance`가 품질 'medium'일 때만
+  `off` 노드를 끄고(가지 지연으로 다시 켜지지 않음), 걸린 시스템은 방출 배율로 품질 'medium'의 일괄 0.6 대신 그 비율을 rate와 모든 burst(0초 burst 포함)에 쓴다
+  (`ParticleSystem.rateK`·`burstK`). 걸리지 않은 시스템과 'high'는 그대로 [추정: 우리 품질 '중' = 클라의 HIGH_LEVEL_EFFECT 꺼짐 — 품질 '중'은 원래 우리 성능 설정].
+  렌더 부하 단계 2 이상이 'high'를 'medium'으로 트는 것도 같은 길이다.
+- 추출: 운영자 15·적 13 묶음을 기록된 출처대로 다시 뽑아 전후 대조 — 바뀐 파일 93개, `lod` 92개(새 키)와 `mcmstr_buff_04_start`의 `velOL`·트랙 이름 하나뿐.
+  추출 JSON 골든 EN 2·CN 1(`lod`만). 확인 `test/render/fx-lod.test.js`(플레이어 'medium'/'high'·추출기 필드 읽기), `test/render/fx-clip-values.test.js`(VelocityModule 켜는 클립).
+  [화면 미확인] 품질 '중'에서 스즈란·엑시아 등 해당 프리팹의 모습.
 
 ### 바인딩 표 — 손 표를 클라 키로 대조 (2026-10-22, 관리자 결정 2026-10-22)
 

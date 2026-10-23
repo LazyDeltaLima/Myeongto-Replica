@@ -93,6 +93,7 @@ SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoi
                 'PauseEffectIfNotIdle', 'PauseEffectWithAnimation', 'PauseEffectIfSpineEvent', 'FinishEffectIf', 'FunnelHitEffect',
                 'FollowDirection', 'SwitchableEffectByFaceDirection', 'SwitchableThreeFaceEffect', 'RandomDirection',
                 'FollowTileHeight',
+                'FxLODSetting',   # (2026-10-23) lod_setting (`lod`: the low-detail switches, applied at quality 'medium')
                 # (2026-10-22, effect bundle J) the Animator drivers, the random group and the module variants
                 'OnFinishAnime', 'TriggerAnimatorWhenFinish', 'SwitchAnimatorStateWhenFinish', 'SetAnimatorTriggerOnEvent',
                 'SetAnimatorFloatByCondition', 'BuffProgressFloatSource', 'SetAnimatorTriggerByCondition',
@@ -155,7 +156,6 @@ KNOWN = {
     'component:BoxCollider': (_NONE, 'physics / ray casts only'),
     'component:RectTransform': (_TODO, 'a UI transform: the walk reads Transform only, so the node loses its place and children'),
     # client scripts
-    'script:FxLODSetting': (_TODO, 'switches objects / particle details off by quality level [ASSUMED: nothing at the top level]'),
     'script:FinishEffectViaOwnerBuff': (_HAND, 'finishes when the owner\'s buff ends; only on 余 S3, drawn by render/fxgame.js (its tiles)'),
     'script:SwitchableEffectByBuffStackCnt': (_HAND, 'a variant by buff stack count; only 信仰搅拌机\'s rmixer_buff_01 (`_stackCnt` 3, GE): '
                                               'render/fxstatus.js STACK_FX \'rmixer:t1\''),
@@ -192,9 +192,8 @@ KNOWN = {
     'clip:binding to a path outside the Animator': (_NONE, 'the clip names a node the prefab does not have (deleted in authoring): '
                                                     'Unity binds nothing either'),
     # (2026-10-22) a clip's particle module values, trail length, MeshRenderer switch and FxUVTweener speeds are tracks now
-    # (fx_extract.py ANIMATED_VALUES → render/fxplayer.js PS_ANIM / UVT_ANIM); one met on a system without that module
-    # (the enemies' mcmstr_buff_04_start switching its VelocityModule on) keeps the authored state
-    'clip:ParticleSystem.VelocityModule.enabled': (_TODO, 'a clip switching the module on: the extract has no module to switch'),
+    # (fx_extract.py ANIMATED_VALUES → render/fxplayer.js PS_ANIM / UVT_ANIM); (2026-10-23) also the VelocityModule switch
+    # (fx_extract.py clip_modules: the enemies' mcmstr_buff_04_start)
     'script:EffectImportData': (_TODO, 'its import settings (`_importName`, `_resourceName`, `_sortingLayerId`, `_removeTopAnimator`) are '
                                 'not read [추정: authoring data]'),
     'script:SyncEffectScaleWithAuraRangeRadius': (_TODO, 'scales the effect with its owner\'s aura ability range (÷ `_effectOriginRadius`)'),

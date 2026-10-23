@@ -1056,6 +1056,7 @@ class ParticleSystem {
     this.node = node;           // THREE.Object3D of its node
     this.root = root;           // effect root (Unity frame)
     this.q = opts.q;
+    this.lod = opts.lod ?? null;   // (2026-10-23) its FxLODSetting percentage at quality 'medium' (rateK / burstK)
     this.world = ps.space === 1;
     this.meshShape = ps.shape?.type === 6 ? meshShape(ps.shape, def.geoms?.[ps.shape.mesh]) : null;   // 2026-10-22
     const max = Math.max(1, Math.min(ps.max || 1000, opts.cap || 400));
@@ -1212,6 +1213,14 @@ class ParticleSystem {
   }
 
   /**
+   * (2026-10-23, official client) the emission factors: the prefab's FxLODSetting percentage of this system at quality
+   * 'medium' (`ApplyLowDetailPS`: the rate and every burst count × `_detailPercentage`), else the quality's — a burst at
+   * 0 s whole.
+   */
+  rateK() { return this.lod ?? this.q.emission; }
+  burstK(t) { return this.lod ?? Math.max(this.q.emission, t === 0 ? 1 : 0); }
+
+  /**
    * 2026-10-22: where a clip writes the value at `keys` (PS_ANIM) — [object, key], each object on the way this system's own
    * copy (the extracted definition is shared by every instance); null when the system has no such module.
    */
@@ -1343,7 +1352,7 @@ class ParticleSystem {
       }
       if (t <= ps.dur || ps.loop) {
         const t01 = ps.dur > 0 ? Math.min(1, t / ps.dur) : 0;
-        const rate = evalMM(ps.rate, t01, Math.random()) * this.q.emission;
+        const rate = evalMM(ps.rate, t01, Math.random()) * this.rateK();
         this.emitAcc += rate * dt;
         const whole = Math.floor(this.emitAcc);
         if (whole > 0) { this.emitAcc -= whole; this.emit(whole); }
@@ -1353,7 +1362,7 @@ class ParticleSystem {
             const b = bursts[k], cycles = b.cycles || 1;
             while (this.burstDone[k] < cycles && t >= b.t + this.burstDone[k] * (b.interval || 0)) {
               this.burstDone[k]++;
-              if (Math.random() <= (b.p ?? 1)) this.emit(Math.max(0, Math.round(evalMM(b.n, 0, Math.random()) * Math.max(this.q.emission, b.t === 0 ? 1 : 0))));
+              if (Math.random() <= (b.p ?? 1)) this.emit(Math.max(0, Math.round(evalMM(b.n, 0, Math.random()) * this.burstK(b.t))));
             }
           }
         }
@@ -1382,7 +1391,7 @@ class ParticleSystem {
       }
       this.vel[i * 3] = vx; this.vel[i * 3 + 1] = vy; this.vel[i * 3 + 2] = vz;
       let ox = 0, oy = 0, oz = 0;
-      if (m.velOL) { ox = evalMM(m.velOL.x, a, r); oy = evalMM(m.velOL.y, a, r); oz = evalMM(m.velOL.z, a, r); }
+      if (m.velOL && m.velOL.on !== 0 && m.velOL.on !== false) { ox = evalMM(m.velOL.x, a, r); oy = evalMM(m.velOL.y, a, r); oz = evalMM(m.velOL.z, a, r); }
       if (m.noise) {
         const s = evalMM(m.noise.str, a, r), f = m.noise.freq || 0.5, ph = this.rnd[i * 4 + 1] * 50;
         ox += Math.sin((this.age[i] + ph) * f * 6.28) * s; oy += Math.cos((this.age[i] + ph * 1.3) * f * 6.28) * s;
@@ -1437,7 +1446,7 @@ class ParticleSystem {
       if (!tp.loop && a0 > dur) continue;
       let n = 0;
       const t1 = tp.loop ? a1 % dur : Math.min(a1, dur), t01 = t1 / dur;
-      this.subAcc[i * J + j] += evalMM(tp.rate, t01, Math.random()) * this.q.emission * dt;
+      this.subAcc[i * J + j] += evalMM(tp.rate, t01, Math.random()) * sys.rateK() * dt;
       const whole = Math.floor(this.subAcc[i * J + j]);
       if (whole > 0) { this.subAcc[i * J + j] -= whole; n += whole; }
       for (const b of tp.bursts || []) {   // each burst time (and its cycles) in [a0, a1) of the particle's age, per lap when looping
@@ -1447,7 +1456,7 @@ class ParticleSystem {
           const lap0 = tp.loop ? Math.floor(a0 / dur) : 0, lap1 = tp.loop ? Math.floor(a1 / dur) : 0;
           for (let L = lap0; L <= lap1; L++) {
             const at0 = L * dur + tb;
-            if (at0 >= a0 && (at0 < a1 || (a0 === 0 && at0 === 0)) && Math.random() <= (b.p ?? 1)) n += Math.max(0, Math.round(evalMM(b.n, 0, Math.random()) * Math.max(this.q.emission, tb === 0 ? 1 : 0)));
+            if (at0 >= a0 && (at0 < a1 || (a0 === 0 && at0 === 0)) && Math.random() <= (b.p ?? 1)) n += Math.max(0, Math.round(evalMM(b.n, 0, Math.random()) * sys.burstK(tb)));
           }
         }
       }
@@ -1759,6 +1768,7 @@ const PS_ANIM = {
   'EmissionModule.rateOverTime.scalar': ['rate', 's'], 'EmissionModule.rateOverTime.minScalar': ['rate', 'n'],
   'ShapeModule.radius.value': ['shape', 'radius'], 'SizeModule.curve.scalar': ['mods', 'sizeOL', 'x', 's'],
   'InitialModule.gravityModifier.scalar': ['gravity', 's'], looping: ['loop'], simulationSpeed: ['speedMul'],
+  'VelocityModule.enabled': ['mods', 'velOL', 'on'],   // (2026-10-23) a switched-off module a clip turns on (fx_extract.py clip_modules)
   ...Object.fromEntries([...'rgba'].flatMap((c, k) => [[`InitialModule.startColor.maxColor.${c}`, ['color', 'a', k]],
     [`TrailModule.colorOverLifetime.maxColor.${c}`, ['mods', 'trail', 'colorOL', 'a', k]]])),
 };
@@ -1856,6 +1866,11 @@ export class FxInstance {
     if (this.wait > 0) unity.visible = false;
     const t0 = [];   // each node's start (effect seconds after the root shows): its own and its parents' branch delays
     const skins = [];
+    // (2026-10-23, official client) the root's FxLODSetting (fx_extract.py `lod`): the client's low-detail effects, applied on
+    // a device with HIGH_LEVEL_EFFECT graded off (`Effect.OnAllocate` → `ApplyLowDetail`) — here at quality 'medium' [ASSUMED:
+    // our 'medium' = that grading]: its `_disableObjects` off, its hooked systems' emission × their percentage
+    const lod = this.q === QUALITY.medium ? def.lod : null;
+    const lodOff = new Set(lod?.off || []), lodPs = new Map(lod?.ps || []);
     this.skeletons = [];
     this.branches = [];
     def.nodes.forEach((n, i) => {
@@ -1872,7 +1887,7 @@ export class FxInstance {
       if (n.pos && !(opts.atSpawn !== false && n.parent < 0)) o.position.set(n.pos[0], n.pos[1], n.pos[2]);
       if (n.rot) o.quaternion.set(n.rot[0], n.rot[1], n.rot[2], n.rot[3]);
       if (n.scale) o.scale.set(n.scale[0], n.scale[1], n.scale[2]);
-      o.visible = n.active !== false;
+      o.visible = n.active !== false && !lodOff.has(i);
       (n.parent >= 0 ? this.nodes[n.parent] : tilt).add(o);
       this.nodes[i] = o;
       if (n.emit?.effect && n.emit.count > 0) this.emitters.push({ o, rec: n.emit, next: 0 });
@@ -1926,7 +1941,7 @@ export class FxInstance {
       if (n.lineR && def.materials[n.lineR.mat]) this.lines.push(new LineRenderer(n.lineR, this.nodes[i], unity, def)); // local patch
       if (n.ps && (n.ps.render?.mat || n.ps.render?.trailMat)) {
         // per-system cap: the extract's max, shared out of the quality budget
-        this.systems.push(new ParticleSystem(n.ps, this.nodes[i], unity, def, { q: this.q, cap: Math.ceil(this.q.budget / 8), pivot: opts.pivot !== false }));
+        this.systems.push(new ParticleSystem(n.ps, this.nodes[i], unity, def, { q: this.q, cap: Math.ceil(this.q.budget / 8), pivot: opts.pivot !== false, lod: lodPs.get(i) }));
       }
       // 2026-10-14: the node's FxUVTweener moves its renderer's material (Unity GetComponent<Renderer>: a node has one)
       if (n.uvt) {
@@ -2080,7 +2095,7 @@ export class FxInstance {
     // 2026-10-22: a clip moving a particle module's value, a trail's length, a mesh renderer's switch, a UV tweener's speed
     if (tr.prop.startsWith('ps:')) {
       const at = this.systems.find((x) => x.node === o)?.animPath(PS_ANIM[tr.prop.slice(3)]);
-      return at ? { tr, o, kind: 'set', at: at[0], key: at[1], bool: tr.prop === 'ps:looping', len } : null;
+      return at ? { tr, o, kind: 'set', at: at[0], key: at[1], bool: tr.prop === 'ps:looping' || tr.prop === 'ps:VelocityModule.enabled', len } : null;
     }
     if (tr.prop === 'trail:time') {
       const t = this.trails.find((x) => x.node === o);

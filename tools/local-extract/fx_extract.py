@@ -56,6 +56,7 @@ ANIMATED_VALUES = {
         'EmissionModule.rateOverTime.scalar', 'EmissionModule.rateOverTime.minScalar', 'ShapeModule.radius.value',
         'SizeModule.curve.scalar', 'InitialModule.gravityModifier.scalar', 'looping',
         'simulationSpeed',   # (2026-10-22, effect bundle J) 纯烬艾雅法拉 S2 range's level clips
+        'VelocityModule.enabled',   # (2026-10-23) a clip switching the module on (vel_ol `on`)
         *(f'InitialModule.startColor.maxColor.{c}' for c in 'rgba'), *(f'TrailModule.colorOverLifetime.maxColor.{c}' for c in 'rgba'))},
     96: {'m_Time': 'trail:time'},   # TrailRenderer
     23: {'m_Enabled': 'mr:enabled'},   # MeshRenderer
@@ -109,6 +110,8 @@ EMPTY_EFFECT_SCRIPT = -488665936260092151
 FUNNEL_HIT_SCRIPT = 8922258000712749090
 # (2026-10-22, official client) the MonoScript PathID of Torappu.Battle.Effects.FollowDirection (follow_direction, `follow`)
 FOLLOW_DIRECTION_SCRIPT = -337322108846137150
+# (2026-10-23, official client) the MonoScript PathID of Torappu.Fx.FxLODSetting (lod_setting, `lod`)
+LOD_SCRIPT = 1149374055237060560
 # (2026-10-22, official client) the MonoScript PathIDs of Torappu.Battle.Effects.SwitchableEffectByFaceDirection
 # (switch_face, `swFace`), SwitchableThreeFaceEffect (three_face, `three`), RandomDirection (random_direction, `rdir`) and
 # FollowTileHeight (tile_height, `tileH`)
@@ -275,6 +278,26 @@ def vec3(v):
 
 # ---------------------------------------------------------------- particle system
 
+def vel_ol(v):
+    """A VelocityModule (velocity over lifetime) as the extract's `mods.velOL`."""
+    return {'x': minmax(v['x']), 'y': minmax(v['y']), 'z': minmax(v['z']), 'world': bool(v.get('inWorldSpace')),
+            'radial': minmax(v.get('radial')), 'orbZ': minmax(v.get('orbitalZ')), 'speedMul': minmax(v.get('speedModifier'))}
+
+
+def clip_modules(nodes, clips):
+    """(2026-10-23) A system whose VelocityModule is off but a clip of the prefab switches it on (track
+    `ps:VelocityModule.enabled`; the enemies' mcmstr_buff_04_start) carries the module as `velOL` with `on` 0 — the clip
+    sets `on` (render/fxplayer.js PS_ANIM). The walk keeps each system's switched-off module as `_velOff` until here."""
+    for c in clips:
+        for tr in c.get('tracks') or []:
+            n = nodes[tr['node']] if tr.get('prop') == 'ps:VelocityModule.enabled' else None
+            mods = (n.get('ps') or {}).get('mods') if n else None
+            if mods is not None and 'velOL' not in mods and n.get('_velOff'):
+                mods['velOL'] = {**n['_velOff'], 'on': 0}
+    for n in nodes:
+        n.pop('_velOff', None)
+
+
 def particle_system(ps, psr, mat_key, mesh_key, trail_mat=None, shape_mesh=None):
     im = ps['InitialModule']
     o = {
@@ -322,9 +345,7 @@ def particle_system(ps, psr, mat_key, mesh_key, trail_mat=None, shape_mesh=None)
         if r.get('separateAxes'):
             mods['rotOL'].update({'x': minmax(r['x']), 'y': minmax(r['y'])})
     if ps['VelocityModule']['enabled']:
-        v = ps['VelocityModule']
-        mods['velOL'] = {'x': minmax(v['x']), 'y': minmax(v['y']), 'z': minmax(v['z']), 'world': bool(v.get('inWorldSpace')),
-                         'radial': minmax(v.get('radial')), 'orbZ': minmax(v.get('orbitalZ')), 'speedMul': minmax(v.get('speedModifier'))}
+        mods['velOL'] = vel_ol(ps['VelocityModule'])
     if ps['ForceModule']['enabled']:
         f = ps['ForceModule']
         mods['force'] = {'x': minmax(f['x']), 'y': minmax(f['y']), 'z': minmax(f['z']), 'world': bool(f.get('inWorldSpace'))}
@@ -1076,6 +1097,8 @@ class Extractor:
                     if (mat_key or has_trail) and psr_t.get('m_Enabled', 1):
                         node['ps'] = particle_system(ps_t, psr_t, mat_key, mesh_key, trail_mat, shape_mesh)
                         self.cov.particle(ps_t)
+                        if not ps_t['VelocityModule']['enabled']:
+                            node['_velOff'] = vel_ol(ps_t['VelocityModule'])   # clip_modules
             node.pop('_psr', None)
             if '_mr' in node and '_mf' in node:
                 mr = node.pop('_mr').read_typetree()
@@ -1110,6 +1133,7 @@ class Extractor:
         clips, sms = [], []
         for aidx, anim in animators:
             clips.extend(self.animator_clips(anim, aidx, nodes, paths, mats, len(clips), sms))
+        clip_modules(nodes, clips)
         dur = 0
         for n in nodes:
             ps = n.get('ps')
@@ -1155,6 +1179,9 @@ class Extractor:
         jitter = self.funnel_hit(root)
         if jitter:
             out_def['jitter'] = jitter
+        lod = self.lod_setting(root, gos)
+        if lod:
+            out_def['lod'] = lod
         follow = self.follow_direction(root)
         if follow:
             out_def['follow'] = follow
@@ -1359,6 +1386,38 @@ class Extractor:
                 self.cov.reader('FunnelHitEffect', False, 'no type tree: nothing read')
                 return None
             return [r4(t['_randomRange'].get(k) or 0) for k in ('x', 'y', 'z')]
+        return None
+
+    def lod_setting(self, root, gos):
+        """(2026-10-23, official client) the root's FxLODSetting (`Effect.Awake`: GetComponent on the effect's own object; every
+        one of the extracted prefabs is there) as { off: [node], ps: [[node, percentage]] }, or None. The client applies it
+        only on a device whose grading has HIGH_LEVEL_EFFECT off (`Effect.OnAllocate` → `ApplyLowDetail`), or when the
+        activity's ParticleEffectManagerConfig `forceUseLowDetailFx` (battle_misc_table: act1vhalfidle only, not
+        act2autochess) — `_disableObjects` are switched off (SetActive false, their Renderer disabled) and each
+        `_particleDetailsHookers` system's emission rate (constant / curve multiplier) and burst counts are multiplied by
+        `_detailPercentage` (ParticleDetailsHooker.ApplyLowDetailPS). render/fxplayer.js applies it at quality 'medium'.
+        By its field names only (`gos`: GameObject / Transform PathID → node index; a ParticleSystem by its GameObject)."""
+        for sid, _raw, t in self.monos(root):
+            if sid != LOD_SCRIPT:
+                continue
+            if t is None or '_disableObjects' not in t:
+                self.cov.reader('FxLODSetting', False, 'no type tree: nothing read')
+                return None
+            off = sorted({gos[x['m_PathID']] for x in t.get('_disableObjects') or []
+                          if isinstance(x, dict) and not x.get('m_FileID') and x.get('m_PathID') in gos})
+            ps = []
+            for h in t.get('_particleDetailsHookers') or []:
+                ptr = (h or {}).get('_particle') or {}
+                comp = self.resolve(ptr, root) if ptr.get('m_PathID') and not ptr.get('m_FileID') else None
+                k = gos.get(comp.read_typetree()['m_GameObject']['m_PathID']) if comp is not None else None
+                if k is not None:
+                    ps.append([k, r4(h.get('_detailPercentage', 1))])
+            out = {}
+            if off:
+                out['off'] = off
+            if ps:
+                out['ps'] = ps
+            return out or None
         return None
 
     def follow_direction(self, root):
@@ -2452,10 +2511,13 @@ class Extractor:
             d = json.loads(f.read_text())
             found += v is not None
             want = {'finish': v, 'jitter': self.funnel_hit(go)}
+            names, gos = self.tree_ids(go)
+            nodes = d.get('nodes') or []
+            same = len(nodes) == len(names) and all(n.get('name') == names[k] for k, n in enumerate(nodes))
+            if same:
+                want['lod'] = self.lod_setting(go, gos)   # (2026-10-23)
             if self.projectile_effect(go) is not None or self.root_effect(go) is not None:
-                names, gos = self.tree_ids(go)
-                nodes = d.get('nodes') or []
-                if len(nodes) == len(names) and all(n.get('name') == names[k] for k, n in enumerate(nodes)):
+                if same:
                     want['offFinish'] = self.off_on_finish(go, gos)
                     tm = self.tree_more
                     want['mainPs'] = self.main_ps(go, tm['parents'], tm['actives'], tm['ps'], [k for k, n in enumerate(nodes) if n.get('ps')])
@@ -3098,7 +3160,8 @@ def main():
     ap.add_argument('--height-only', action='store_true', help='only write the `_overwriteHeight` `height` into the already '
                     'extracted prefabs of the bundles (every bundle of index.json without --bundle; 2026-10-10)')
     ap.add_argument('--finish-only', action='store_true', help='only write the `_delayToFinish` `finish` (and a projectile '
-                    'or particle effect\'s `_inactiveOnFinish` `offFinish` and the system it stops `mainPs`, 2026-10-21) into the '
+                    'or particle effect\'s `_inactiveOnFinish` `offFinish` and the system it stops `mainPs`, 2026-10-21, and the '
+                    'root\'s FxLODSetting `lod`, 2026-10-23) into the '
                     'already extracted prefabs of the bundles (every bundle of --index without --bundle; 2026-10-11)')
     ap.add_argument('--coverage', metavar='OUT', help='write no effect file or index: walk the already extracted prefabs of the bundles (every '
                     'bundle of --index without --bundle) and write the full list of what the pipeline leaves out to OUT '
