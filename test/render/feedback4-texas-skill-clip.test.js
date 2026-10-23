@@ -56,13 +56,22 @@ test('德克萨斯 S2 剑雨: an instant skill with no Begin clip plays its Skil
   assert.deepEqual(names(a), ['Skill', 'Idle'], 'no end clip, no base flash before it');
 });
 
-test('the other instant skills with the same clip shape play their clip too (char_140_whitew S1 日晷, char_206_gnosis S2 零度爆发, 德克萨斯 S1)', () => {
-  for (const [charId, idx, clip] of [['char_140_whitew', 0, 'Skill'], ['char_206_gnosis', 1, 'Skill_2'], ['char_102_texas', 0, 'Skill']]) {
+test('another instant skill with the same clip shape plays its clip too (char_206_gnosis S2 零度爆发)', () => {
+  for (const [charId, idx, clip] of [['char_206_gnosis', 1, 'Skill_2']]) {
     const a = actor(charId, idx);
     assert.equal(a.roles.skill.begin, null, `${charId} S${idx + 1}: no Begin clip`);
     assert.equal(a.roles.skill.idle, null, `${charId} S${idx + 1}: no own Idle`);
     a.setSkill(true);
     assert.equal(a.current, clip, `${charId} S${idx + 1} plays ${clip}`);
+  }
+});
+
+test('skills with no clip of their own play none (2026-10-23, client keys: char_140_whitew S1 日晷, 德克萨斯 S1 冲锋号令 — their Skill is S2\'s)', () => {
+  for (const [charId, idx] of [['char_140_whitew', 0], ['char_102_texas', 0]]) {
+    const a = actor(charId, idx);
+    assert.equal(a.roles.skill.via, 'attack', `${charId} S${idx + 1}`);
+    a.setSkill(true);
+    assert.ok(!['Skill', 'Attack_Start', 'Attack_Begin'].includes(a.current), `${charId} S${idx + 1} plays ${a.current}`);
   }
 });
 

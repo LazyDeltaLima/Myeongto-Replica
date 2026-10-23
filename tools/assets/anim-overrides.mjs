@@ -119,6 +119,13 @@ export const SKILL_CLIP_OVERRIDES = Object.freeze({
   // plain Attack_Begin / Attack_Loop, and aims with `Aim`, a channel `_default {Skill_2_Begin, Skill_2_Idle, Skill_2_End}` —
   // the aim is the S2 skill clip's `aim` signal (SIGNAL_CLIPS)
   'op:char_4193_lemuen:': Object.freeze({ 1: 'attack' }),
+  // 水月 (char_437_mizuki): his modes are [Default, T1, S1, S2] — S2 switches to mode 2 `S1`, whose attack is `Skill_1`;
+  // played by each attack (`strike`, as 泥岩 S2); S3 (`_beginAnim "Skill_2_Start"`) to mode 3 `S2`: attack `Skill_2_Loop`, Idle→`Skill_2_Idle`, mix to Idle `Skill_2_End`
+  // (client keys, 2026-10-23); the guess by name gave S2 the Skill_2 set and S3 nothing
+  'op:char_437_mizuki:': Object.freeze({
+    1: clips({ loop: 'Skill_1', strike: true }),
+    2: clips({ begin: 'Skill_2_Start', loop: 'Skill_2_Loop', end: 'Skill_2_End', idle: 'Skill_2_Idle' }),
+  }),
 });
 
 /**

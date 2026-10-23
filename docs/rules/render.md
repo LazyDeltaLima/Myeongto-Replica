@@ -586,10 +586,18 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     근본 해결은 역할을 클라의 키(스킬 `_default`·`_animKey`·모드 짝)에서 읽고 이 표로 클립 이름을 얻는 추출이다(관리자 노트 2026-10-14).
     추출(2026-10-23, 진행 중): `tools/local-extract/anim_keys.py`가 오퍼레이터마다 스킨 키 표·믹스, 모드의 짝·`_combat`·능력 키(`_animKey`·`_endAnimKey`·위/아래,
     ThreePart begin/oneshot/end, 채널 `_default`, `AnimationEmitBehaviour`), 스킬 프리팹의 `_beginAnim`·`_defaultModeIndex`·switch_mode를 읽어
-    `.cache/anim-keys.json`에 쓴다 — 클라 전용 표라 추적하지 않는다(관리자 결정 2026-10-22). `tools/assets/anim-keys.mjs keyRoles`가 그 키로 역할을 만든다(아직 매니페스트에
-    안 씀; 규칙은 파일 머리, 테스트 `test/render/anim-keys.test.js`). 지금 역할과 대조(146명 289모델): 대기·배치·쓰러짐·공격은 거의 같고, 차이는 스킬에 몰린다 — 가장 큰
+    `.cache/anim-keys.json`에 쓴다 — 클라 전용 표라 추적하지 않는다(관리자 결정 2026-10-22). `tools/assets/anim-keys.mjs keyRoles`가 그 키로 역할을 만든다(규칙은
+    파일 머리, 테스트 `test/render/anim-keys.test.js`). 지금 역할과 대조(146명 289모델): 대기·배치·쓰러짐·공격은 거의 같고, 차이는 스킬에 몰린다 — 가장 큰
     무리는 클라 프리팹에 클립을 트는 능력이 없는 공용·버프 스킬(白面鸮 S1 `skcom_heal_up`·德克萨斯 S1 `skcom_charge_cost`·星熊 S1/S2·蛇屠箱 S1 `skcom_def_up` 등)에
-    이름 추측이 다른 스킬의 클립을 준 것이다. 매니페스트 교체·차이 판정은 다음 단계(관리자 결정: 차이가 나면 클라 데이터 기준, 차이 목록을 보이고 골든 갱신).
+    이름 추측이 다른 스킬의 클립을 준 것이다.
+    매니페스트 첫 단계(2026-10-23): `spine.mjs`가 오퍼레이터 모델에 `overlayKeyRoles`를 얹는다 — 대기·배치·쓰러짐, 그리고 **클립이 확실히 없는 스킬**(시작 클립·클립 있는
+    자기 능력이 없고, 모드가 없거나 평타 키로 공격하며 Idle 짝이 없음)을 평타 역할(`via: 'attack'`)로. 22명이 바뀜: 德克萨斯·雷蛇·白面鸮·星熊(S1·S2)·拉普兰德·蛇屠箱·
+    银灰·地灵·莫斯提马·风笛·送葬人·泥岩·寒檀·莱恩哈特·泡泡·耶拉·洛洛·跃跃·录武官·灰毫·水月·刺玫의 S1 — 모두 지금까지 다른 스킬(대개 S2·S3)의 클립을 틀었다
+    (관리자 결정: 차이가 나면 클라 데이터 기준). 그 밖의 스킬은 이름 추측 + 손 표 그대로이고, 손 표가 그 뒤에 적용된다. 판정하며 고친 하나: 水月은 모드가
+    [Default, T1, S1, S2]라 S2 = 모드 `S1`의 공격 `Skill_1`(공격마다, `strike`), S3 = 모드 `S2`(`Skill_2_Start`·`_Loop`·`_Idle`·`_End`) — 그동안 S2가 `Skill_2_*`, S3가
+    클립 없음이었다(`anim-overrides.mjs`). 키 표가 없는 곳(클라 없는 클라우드·기여자)에서는 `fetch-assets`가 오퍼레이터 역할을 커밋된 `data/assets.json`에서 그대로
+    가져와 같은 바이트를 만든다(관리자 결정 2026-10-23) — 그래서 손 표·키 규칙의 변경은 키 표가 있는 곳에서 다시 만들어야 매니페스트에 들어간다. 남은 스킬
+    (판단이 필요한 차이)은 다음 단계. [화면 미확인]
   - **G** 蕾缪安 S2 조준(2026-10-23, 클라 `skchr_lemuen_2` `_playSkillBeginAnim` 0·charpack `Modes/S2/Body/M2Attack` = `Normal` ThreePart `Attack_Begin`/`Attack_Loop` +
     `Aim` 채널 `_default {Skill_2_Begin, Skill_2_Idle, Skill_2_End}`): 시전 클립 없음, 공격은 평소 클립(`'attack'`), 조준 동안만 채널 — 키트가 조준 시작·끝(사격이든 대상을
     잃었든)에 그리지 않는 fx 'lemuenAim' `{ signal: 'aim', on: 1 | 0 }`(골든 fx 개수만 움직임) → `units.js onSignal` → `spine.js holdSignal`(켜면 begin 뒤 loop 유지, 끄면

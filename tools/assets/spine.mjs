@@ -20,6 +20,7 @@ import { atlasInfo, normalizeAtlas } from './atlas.mjs';
 import { parseSkel } from './skel.mjs';
 import { resolveRoles } from './anim-roles.mjs';
 import { applyAnimOverrides, applyModeAttacks } from './anim-overrides.mjs'; // local patch
+import { keyRoles, overlayKeyRoles } from './anim-keys.mjs';
 import { loadCharModes } from './skill-mode-sfx.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -27,6 +28,18 @@ import { fileURLToPath } from 'node:url';
 /** tools/assets/local-attack-timing.json ({} when absent or unreadable): the client's attack abilities per operator mode. */
 function loadAttackTiming(repo) {
   try { return JSON.parse(readFileSync(join(repo, 'tools/assets/local-attack-timing.json'), 'utf8')); } catch { return {}; }
+}
+
+/**
+ * The operators' clip keys (.cache/anim-keys.json, tools/local-extract/anim_keys.py — client-only, never tracked), or null
+ * when this machine has not extracted them.
+ */
+function loadAnimKeys(repo) {
+  try { return JSON.parse(readFileSync(join(repo, '.cache/anim-keys.json'), 'utf8')).ops || null; } catch { return null; }
+}
+/** The operators of the committed data/assets.json (charId → its entry), {} when unreadable. */
+function loadCommittedChars(repo) {
+  try { return JSON.parse(readFileSync(join(repo, 'data/assets.json'), 'utf8')).chars || {}; } catch { return {}; }
 }
 
 async function fileStat(p) { try { const s = await stat(p); return s.isFile() ? s : null; } catch { return null; } }
@@ -229,6 +242,14 @@ export const loadLocalEnemySpines = loadLocalSpines;
  *   animations: Record<string, number>, events: string[], hits: Record<string, number[]>, bounds: any }} SpineEntry
  */
 
+/** Every clip name a role tree names (strings anywhere in it but its `via` / `pick` words). */
+function namesAll(o, out = []) {
+  if (typeof o === 'string') out.push(o);
+  else if (Array.isArray(o)) for (const v of o) namesAll(v, out);
+  else if (o && typeof o === 'object') for (const [k, v] of Object.entries(o)) if (k !== 'via' && k !== 'pick') namesAll(v, out);
+  return out;
+}
+
 /**
  * Run the whole Spine pipeline for every planned model.
  * @param {Map<string, any>} models plan.models
@@ -247,6 +268,13 @@ export async function processModels(models, { root, dl, cachePath, download = tr
   const list = [...models.values()];
   const repo = fileURLToPath(new URL('../..', import.meta.url));
   const timing = loadAttackTiming(repo), charModes = loadCharModes(repo);
+  // operator roles come from the client's clip keys; without them (no local client: a cloud session, a contributor) the
+  // roles of the committed manifest stay as they are, so the rebuilt data/assets.json is the same bytes (maintainer
+  // decision 2026-10-23, docs/rules/render.md 「Spine 클립 커버리지」 J)
+  const animKeys = loadAnimKeys(repo);
+  const committed = animKeys ? {} : loadCommittedChars(repo);
+  let kept = 0;
+  if (!animKeys) log('[spine] no .cache/anim-keys.json: operator roles kept from the committed data/assets.json');
   if (download) {
     const jobs = [];
     for (const m of list) jobs.push(m.skel, m.atlas, ...m.pngs);
@@ -328,11 +356,20 @@ export async function processModels(models, { root, dl, cachePath, download = tr
     if (!sk.animations.length) { problems.push(`${m.key}: skeleton has no animations`); continue; }
     const key = String(m.key);
     const id = key.startsWith('enemy:') ? key.slice('enemy:'.length) : key.startsWith('op:') ? key.split(':')[1] : null; // op:<char>:front|back
-    const fixed = applyRoleFix(resolveRoles(sk.animations, { skillIndices: m.skillIndices, durations: sk.durations }), id ? PREFAB_SPINE_ROLES[id] : undefined, sk.durations);
-    if (fixed.missing.length) problems.push(`${m.key}: role fix not applied (clip missing) for ${fixed.missing.join(', ')}`);
-    const anims = fixed.roles;
-    applyAnimOverrides(m.key, anims, sk.animations); // local patch: skill clip fixes (tools/assets/anim-overrides.mjs); clips the skeleton lacks are dropped
-    applyModeAttacks(m.key, anims, timing, charModes); // how each skill's mode attacks (stance / plain attack clip)
+    const op = key.startsWith('op:') ? id : null;
+    const prev = op && !animKeys ? committed[op]?.spine?.[key.split(':')[2]]?.anims : null;
+    let anims;
+    if (prev && namesAll(prev).every((n) => Object.hasOwn(sk.durations || {}, n))) {
+      anims = structuredClone(prev);
+      kept++;
+    } else {
+      const fixed = applyRoleFix(resolveRoles(sk.animations, { skillIndices: m.skillIndices, durations: sk.durations }), id ? PREFAB_SPINE_ROLES[id] : undefined, sk.durations);
+      if (fixed.missing.length) problems.push(`${m.key}: role fix not applied (clip missing) for ${fixed.missing.join(', ')}`);
+      anims = fixed.roles;
+      if (op && animKeys?.[op]) overlayKeyRoles(anims, keyRoles(animKeys[op], sk.durations));
+      applyAnimOverrides(m.key, anims, sk.animations); // local patch: skill clip fixes (tools/assets/anim-overrides.mjs); clips the skeleton lacks are dropped
+      applyModeAttacks(m.key, anims, timing, charModes); // how each skill's mode attacks (stance / plain attack clip)
+    }
     entries.set(m.key, {
       skel: assetUrl(m.skel.rel),
       atlas: assetUrl(m.atlas.rel),
@@ -349,6 +386,6 @@ export async function processModels(models, { root, dl, cachePath, download = tr
   await mkdir(dirname(cachePath), { recursive: true });
   await writeFile(cachePath, JSON.stringify(nextCache));
   if (ledgerDirty && dl?.saveLedger) { try { await dl.saveLedger(); } catch { /* next run re-validates */ } }
-  log(`[spine] models ok=${entries.size}/${list.length} (parsed ${parsed}, cached ${cached})`);
+  log(`[spine] models ok=${entries.size}/${list.length} (parsed ${parsed}, cached ${cached})${kept ? `, ${kept} operator roles kept` : ''}`);
   return { entries, problems };
 }

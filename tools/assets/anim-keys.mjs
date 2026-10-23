@@ -84,7 +84,10 @@ export function keyRoles(op, durations) {
   (op?.skills || []).forEach((s, i) => {
     const m = names.length ? skillModeIndex(names, i, skillMode) : -1;
     const abs = s?.abilities || {};
-    const castPath = Object.hasOwn(abs, '') ? '' : Object.keys(abs).sort((x, y) => x.split('/').length - y.split('/').length || (x < y ? -1 : 1))[0];
+    // the skill's own ability: its root, else the shallowest with a clip (隐德来希 S2 `Self` beside a clip-less `Ally`)
+    const withClip = (p) => !!clipKeyOf(abs[p]) || !!abs[p]?.emit?.length;
+    const castPath = Object.hasOwn(abs, '') && withClip('') ? ''
+      : Object.keys(abs).filter(withClip).sort((x, y) => x.split('/').length - y.split('/').length || (x < y ? -1 : 1))[0];
     const cast = castPath != null ? abClip(abs[castPath], m > 0 ? m : 0) : null;
     const ma = m > 0 ? abClip(attackAbility(modes[m]?.abilities), m) : null;
     const sIdle = m > 0 && pairs(m).Idle ? J('Idle', m) : null;
@@ -123,8 +126,36 @@ export function keyRoles(op, durations) {
     if (!c.end) c.end = mix(c.loop, idle) ?? (c.idle ? mix(c.idle, idle) : null);
     if (!c.begin && (c.idle || c.loop)) c.begin = mix(idle, c.idle ?? c.loop) ?? (c.idle && c.loop ? mix(idle, c.loop) : null);
     if (!c.loop && !c.begin && !c.idle) { why.push('attack'); c.via = 'attack'; }
+    // no clip of its own for sure: no begin, no ability of its own with a clip but the plain attack's, and no mode or a mode
+    // that attacks with the plain key and keeps Idle (白面鸮 S1 skcom_heal_up, 送葬人 S1, 跃跃 S1 — its ability is `Attack`)
+    const castPlain = !cast || cast.loop === out.attack?.loop || (!cast.loop && !cast.begin);
+    const modePlain = m <= 0 || (ma && !ma.stance && ma.loop === out.attack?.loop && !pairs(m).Idle && !sb && !se);
+    if (!s?.begin && castPlain && modePlain && !Object.values(abs).some((a) => a?.emit?.length)) c.clipless = true;
     out.skills[i] = c;
     out.why[i] = why.join(', ') || '-';
   });
   return out;
+}
+
+/**
+ * Lay the roles from the keys (keyRoles) over the resolver's guess by name (`anims`, mutated). First step (2026-10-23):
+ * idle / deploy / die where the keys give a clip (they agree with the guess on every operator; the attack's exceptions —
+ * 玛恩纳's non-damaging Idle_2, 丰川祥子's Combat first, 灰毫's melee / ranged pair — stay with the guess and units.js), and
+ * every skill that surely has no clip of its own (`clipless`) attacks with the attack role (`via: 'attack'`) instead of the
+ * guess's clips of another skill. The other skills keep the guess; the hand tables (anim-overrides.mjs) and the mode-attack
+ * rule come after.
+ * @param {any} anims resolveRoles output
+ * @param {ReturnType<typeof keyRoles>} kr
+ */
+export function overlayKeyRoles(anims, kr) {
+  if (!anims || !kr) return anims;
+  for (const f of ['idle', 'deploy', 'die']) if (kr[f]) anims[f] = kr[f];
+  if (!anims.attack || !anims.skills) return anims;
+  for (const [i, k] of Object.entries(kr.skills || {})) {
+    if (!k?.clipless || !Object.hasOwn(anims.skills, i)) continue;
+    const c = { ...anims.attack, via: 'attack', index: Number(i), idle: null };
+    anims.skills[i] = c;
+    if (anims.skill && anims.skill.index === Number(i)) anims.skill = c;
+  }
+  return anims;
 }
