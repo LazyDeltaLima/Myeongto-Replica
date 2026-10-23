@@ -173,7 +173,8 @@ function walkNodes(list, conds, ctx, rows, refs) {
       continue;
     }
     if (COND.test(t)) { cur.push(condName(o)); continue; }
-    node(o, t, cur, ctx, rows, refs);
+    // a copy: the conditions after this node in its list do not gate it
+    node(o, t, [...cur], ctx, rows, refs);
   }
 }
 
