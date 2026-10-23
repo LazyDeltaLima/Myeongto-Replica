@@ -341,6 +341,8 @@ function packMeta(baseMeta, count, total) {
   // no English fallback: the pack and its game texts cover every string (a gap shows the Chinese), and a Korean player
   // then never downloads the English UI pack and game texts (≈ 300 KB gzip)
   meta.fallback = [];
+  // Korean counts large numbers in 10⁴ steps: 200000 → 20만 (fmtNum; settings → 画面 「数字单位」 can pick K / M instead)
+  meta.numberUnits = ['만', '억'];
   return meta;
 }
 

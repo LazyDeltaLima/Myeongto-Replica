@@ -38,7 +38,7 @@ export { deploySets, stageOverrides, deployMap, effectiveStage, indexPieces, pla
 export { terrainInfo, deviceInfo, deviceTipAt, noteDeviceUnits, deviceUnitsForEntry } from './gameLogic/terrain.js';
 export { normalizeDraft, normalizeSp, normalizePersonalChoice } from './gameLogic/draft.js';
 export { groupEnemies, PEN, penZoneTiles, penPlacement, previewEnemyKey, factionTypes } from './gameLogic/enemies.js';
-export { snapHud, bossFrac, bossPctText, hasFlag, UF, attackInterval, fmtNum, rangeGridBox } from './gameLogic/format.js';
+export { snapHud, bossFrac, bossPctText, hasFlag, UF, attackInterval, fmtNum, rangeGridBox, NUMBER_UNIT_MODES, setNumberUnitMode, numberUnitMode } from './gameLogic/format.js';
 export { shortcutFor, closesOnFieldPress, openedFromWindow, WINDOW_CARD_KEEP, closesOnOutsidePress, windowCardGone, shortcutBlocked, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, isBindableCode, hotkeyLabel, sanitizeHotkeys, rebindHotkey, isDefaultHotkeys, hotkeyOf, actionForKey, captureHotkey, facingSwallows, facingEnter } from './gameLogic/shortcuts.js';
 export { DEFAULT_SETTINGS, CHAT_COOLDOWN, sanitizeSettings, showMatchToast } from './gameLogic/settings.js';
 export { normalizeResult } from './gameLogic/result.js';

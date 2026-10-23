@@ -2,6 +2,7 @@
 
 import { clamp, isObj } from './shared.js';
 import { DEFAULT_HOTKEYS, sanitizeHotkeys } from './shortcuts.js';
+import { NUMBER_UNIT_MODES } from './format.js';
 
 
 // ---- settings ------------------------------------------------------------------------------------------------------
@@ -14,11 +15,12 @@ export const CHAT_COOLDOWN = Object.freeze({ def: 2, min: 1, max: 5 });
  * chatCooldown / chatFactionAlerts: the notification of the others' chat lines (audio.js chatNotification, ui/chat.js).
  * chatPinRecent: the match chat keeps the latest 3 lines shown while it is closed (ui/chat.js pinnedLines).
  * eliteBadge: the 精二 badge beside an elite piece's prep tier chip (render/elite-mark.js). matchNotices: the match's
- * notification toasts (showMatchToast below).
+ * notification toasts (showMatchToast below). numberUnits: how large numbers are shortened (fmtNum, ui/gameLogic/format.js
+ * NUMBER_UNIT_MODES; null = the language's own style).
  */
 export const DEFAULT_SETTINGS = Object.freeze({ bgm: 0.6, sfx: 0.8, voice: 0.8, muted: false, damageNumbers: true, quality: 'high', keys: DEFAULT_HOTKEYS,
   chatSound: true, chatVolume: 0.5, chatCooldown: CHAT_COOLDOWN.def, chatFactionAlerts: false, chatPinRecent: false,
-  eliteBadge: false, matchNotices: true });
+  eliteBadge: false, matchNotices: true, numberUnits: null });
 const QUALITIES = ['high', 'medium', 'low'];
 
 /**
@@ -26,7 +28,8 @@ const QUALITIES = ['high', 'medium', 'low'];
  * @param {any} raw
  * @returns {{ bgm: number, sfx: number, voice: number, muted: boolean, damageNumbers: boolean, quality: 'high'|'medium'|'low',
  *   keys: Record<'refresh'|'freeze'|'levelUp'|'retreat'|'sell'|'ready', string>, chatSound: boolean, chatVolume: number,
- *   chatCooldown: number, chatFactionAlerts: boolean, chatPinRecent: boolean, eliteBadge: boolean, matchNotices: boolean }}
+ *   chatCooldown: number, chatFactionAlerts: boolean, chatPinRecent: boolean, eliteBadge: boolean, matchNotices: boolean,
+ *   numberUnits: 'myriad'|'thousand'|'full'|null }}
  */
 export function sanitizeSettings(raw) {
   const r = isObj(raw) ? raw : {};
@@ -46,6 +49,7 @@ export function sanitizeSettings(raw) {
     chatPinRecent: typeof r.chatPinRecent === 'boolean' ? r.chatPinRecent : DEFAULT_SETTINGS.chatPinRecent,
     eliteBadge: typeof r.eliteBadge === 'boolean' ? r.eliteBadge : DEFAULT_SETTINGS.eliteBadge,
     matchNotices: typeof r.matchNotices === 'boolean' ? r.matchNotices : DEFAULT_SETTINGS.matchNotices,
+    numberUnits: NUMBER_UNIT_MODES.includes(r.numberUnits) ? r.numberUnits : DEFAULT_SETTINGS.numberUnits,
   };
 }
 

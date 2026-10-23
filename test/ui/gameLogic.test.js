@@ -11,7 +11,7 @@ import {
   phaseMode, phaseBanner, isCombatPhase, isBossPhase, countdownState, phaseTotalSeconds, sortBonds, bondTier, nextThreshold, bondRequireCount,
   holdsBattleEnd, settleBattleEnd, ownRoundLoss, roundResultBox, RESULT_BOX_MS,
   bondMembers, memberHeadCount, memberLit, bannedPerBond, priceTone, mergeProgress, shopBlockReason, deploySets, indexPieces, placementContext, canPlace,
-  boardTargets, dropIntent, normalizeDraft, normalizeSp, normalizePersonalChoice, groupEnemies, factionTypes, snapHud, bossFrac, attackInterval, fmtNum,
+  boardTargets, dropIntent, normalizeDraft, normalizeSp, normalizePersonalChoice, groupEnemies, factionTypes, snapHud, bossFrac, attackInterval, fmtNum, setNumberUnitMode, numberUnitMode,
   rangeGridBox, shortcutFor, sanitizeSettings, showMatchToast, DEFAULT_SETTINGS, normalizeResult, cycleField, fieldLabel, homeFieldId,
   activeBubbles, sortedPlayers, tileKey, prepCapsuleLabel, prepCamera, teamFrameIds, dropFailureReason, terrainInfo,
 } from '../../public/js/ui/gameLogic.js';
@@ -713,6 +713,20 @@ describe('enemies, HUD, stats', () => {
     assert.equal(fmtNum(2_310_000), '231万');
     assert.equal(fmtNum(150_000), '15.0万');
     assert.equal(fmtNum('x'), '—');
+    // settings → 数字单位 overrides the language's style; 'myriad' needs the language's own units
+    try {
+      setNumberUnitMode('thousand');
+      assert.deepEqual([fmtNum(12345), fmtNum(200_000), fmtNum(2_310_000)], ['12,345', '200K', '2.3M']);
+      setNumberUnitMode('full');
+      assert.deepEqual([fmtNum(200_000), fmtNum(2_310_000)], ['200,000', '2,310,000']);
+      setNumberUnitMode('myriad');
+      assert.equal(fmtNum(200_000), '20.0万');
+      assert.equal(numberUnitMode('qzz-none'), 'thousand', 'a language without units of its own');
+      setNumberUnitMode('bogus');
+      assert.equal(numberUnitMode(), 'myriad', 'an unknown mode: the language\'s own');
+    } finally {
+      setNumberUnitMode(null);
+    }
     const box = rangeGridBox([[1, 0], [0, 1], [-1, 2]]);
     assert.equal(box.rows, 3); assert.equal(box.cols, 3); assert.ok(box.cells.has('0,1'));
     const mir = rangeGridBox([[0, 2]], true);
@@ -754,9 +768,10 @@ describe('keyboard & settings', () => {
   });
   test('sanitizeSettings', () => {
     assert.deepEqual(sanitizeSettings(null), { ...DEFAULT_SETTINGS });
+    assert.deepEqual([sanitizeSettings({ numberUnits: 'full' }).numberUnits, sanitizeSettings({ numberUnits: 'K' }).numberUnits], ['full', null]);
     assert.deepEqual(sanitizeSettings({ bgm: 3, sfx: -1, voice: 2, muted: 'yes', damageNumbers: false, quality: 'ultra' }),
       { bgm: 1, sfx: 0, voice: 1, muted: false, damageNumbers: false, quality: 'high', keys: { ...DEFAULT_SETTINGS.keys },
-        chatSound: true, chatVolume: 0.5, chatCooldown: 2, chatFactionAlerts: false, chatPinRecent: false, eliteBadge: false, matchNotices: true },
+        chatSound: true, chatVolume: 0.5, chatCooldown: 2, chatFactionAlerts: false, chatPinRecent: false, eliteBadge: false, matchNotices: true, numberUnits: null },
       'a saved profile without `keys` (before 0.2.0) gets the default key map (test/ui/feedback5-hotkeys.test.js)');
     assert.equal(sanitizeSettings({ bgm: 0.5 }).voice, DEFAULT_SETTINGS.voice, 'a saved profile without `voice` gets the default');
     assert.equal(sanitizeSettings({ bgm: 0.333 }).bgm, 0.33);

@@ -1187,6 +1187,8 @@
   "官方": "Official",
   "全部显示": "Show all",
   "伤害数字样式": "Damage number style",
+  "数字单位": "Number units",
+  "伤害播报、结算、生命值等较大数字的显示方式。": "How large numbers are shown: damage broadcasts, results, HP and the like.",
   "回合 {r} · 获得 {g}": "Round {r} · gained {g}",
   "回合 {r}": "Round {r}",
   "获得": "Gained",

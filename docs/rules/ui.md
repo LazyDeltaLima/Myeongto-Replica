@@ -1030,9 +1030,11 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   `ActionState`도 IDLE/MOVING/COMPLETE 셋뿐). 처음 넣을 때(29f65de4)는 결정·행동 중에도 점을 띄우고 upstream 상태 칸의 테두리가 남았다.
 - 방송(`broadcast_panel`, 공식 클라 `AutoChessBattleBroadcastPanel`): 로컬 그림이 있으면 upstream 띠 대신 화면 위에서 165 아래, 9분할 `broadcast_bkg`(l/r 20, t 14, b 11)
   + `broadcast_icon` + 18 흰 글, `auto_chess_broadcast`대로 34 아래에서 떠오르고 2.0초부터 사라져 한 줄 2.33초(upstream 5.2초). 문구·우선순위·대기열은 그대로(`ui/ticker.js`).
-  - 오퍼레이터 대미지 방송(CHAR_DAMAGE 「…造成的伤害量达到{2}」)의 대미지량은 표 숫자(200000 / 500000 / 1000000) 그대로가 아니라 `fmtNum`으로 줄여 보인다:
-    10만 미만은 자릿수 쉼표, 그 위는 K / M(중국어·일본어 팩은 万 / 亿), 끝의 「.0」은 뺀다 — KR 「200K」「500K」「1M」(관리자 결정 2026-10-24; `ui/lang.js tickerText`).
-    서버가 보내는 `text`·`args`는 그대로 숫자.
+  - 오퍼레이터 대미지 방송(CHAR_DAMAGE 「…造成的伤害量达到{2}」)의 대미지량은 표 숫자(200000 / 500000 / 1000000) 그대로가 아니라 `fmtNum`으로 줄여 보이고,
+    끝의 「.0」은 뺀다 — KR 「20만」「50만」「100만」(관리자 결정 2026-10-24; `ui/lang.js tickerText`). 서버가 보내는 `text`·`args`는 그대로 숫자.
+  - 큰 숫자의 단위(`fmtNum`: 이 방송, 결산의 입힌 대미지·리더 적 대미지·대미지 탭, 상세 창의 HP, 기록 화면): 한국어 팩은 중국어·일본어처럼
+    만 / 억(`_meta.numberUnits`, `tools/i18n/build-ko-pack.mjs`), 10만 미만은 자릿수 쉼표. 설정 → 화면 「숫자 단위」(`numberUnits`)로 만·억 / K·M / 전체 숫자
+    (`200,000`)를 고른다 — 고르기 전에는 언어의 방식, 단위가 없는 언어(영어)에서는 만·억 칸이 없다(관리자 결정 2026-10-24).
 - 보스 라운드 시작 창(혼자 `single_boss_prepare_dialog` / 협동 `multi_boss_prepare_dialog` / 숨은 라운드 `hidden_boss_prepare_dialog`): 보스 라운드(숨은 라운드)의
   **ROUND_START**, 즉 그 라운드의 휴식 전에(관리자 제보 2026-10-10 「보스 라운드의 휴식시간에 들어가기 전」; 공식 클라 `AutoChessGameStateType.BOSS_PREPARE_WAITING`(101)
   상태의 `AutoChessBattleUIController.PendingBossPrepareWaitingTask.CalcTabId`가 `tab_single/multi/hide_boss_prepare`를 고름 — 보스 전투가 아니라 그 앞의 대기),

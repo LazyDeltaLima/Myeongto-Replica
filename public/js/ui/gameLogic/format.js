@@ -73,15 +73,34 @@ export function attackInterval(bat, aspd = 100) {
   return b * 100 / a;
 }
 
+/** fmtNum's styles: 'myriad' (10⁴ steps, 万 / 亿), 'thousand' (K / M / B), 'full' (every digit, '1,500,000'). */
+export const NUMBER_UNIT_MODES = Object.freeze(['myriad', 'thousand', 'full']);
+let unitMode = null;
+/** Settings → 画面 「数字单位」 (ui/settings.js): one of NUMBER_UNIT_MODES, or null for the language's own style. */
+export function setNumberUnitMode(mode) { unitMode = NUMBER_UNIT_MODES.includes(mode) ? mode : null; }
+/**
+ * The style fmtNum uses in `lang` (the current language by default): the setting's, except 'myriad' in a language without
+ * units of its own; with no setting, 'myriad' where the language has them and 'thousand' elsewhere.
+ * @param {string} [lang]
+ * @returns {'myriad'|'thousand'|'full'}
+ */
+export function numberUnitMode(lang) {
+  if (unitMode === 'thousand' || unitMode === 'full') return unitMode;
+  return langInfo(lang)?.numberUnits ? 'myriad' : 'thousand';
+}
+
 /**
  * Compact number: 12345 → '12,345'; 1.5e6 → '150万' in Chinese, whose units count in 10⁴ / 10⁸ steps (万 / 亿; a language
  * pack names its own pair in `_meta.numberUnits`, shared/i18nPacks.js — no template can move the decimal point); a
- * language without them uses the thousands-based units: 1.5e6 → '1.5M', 2.5e5 → '250K', 3e9 → '3B' (English).
+ * language without them uses the thousands-based units: 1.5e6 → '1.5M', 2.5e5 → '250K', 3e9 → '3B' (English). The
+ * player's 「数字单位」 setting overrides the language's style (numberUnitMode).
  */
 export function fmtNum(v) {
   const n = Number(v);
   if (!Number.isFinite(n)) return '—';
-  const units = langInfo()?.numberUnits;
+  const mode = numberUnitMode();
+  if (mode === 'full') return Math.round(n).toLocaleString('en-US');
+  const units = mode === 'myriad' ? langInfo()?.numberUnits : null;
   if (!units) {
     if (Math.abs(n) >= 1e9) return `${(n / 1e9).toFixed(Math.abs(n) >= 1e10 ? 0 : 1)}B`;
     if (Math.abs(n) >= 1e6) return `${(n / 1e6).toFixed(Math.abs(n) >= 1e7 ? 0 : 1)}M`;

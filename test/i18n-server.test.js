@@ -8,7 +8,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MatchMessaging } from '../server/match/match/messaging.js';
-import { addMessages, setLang, setMessages, translateWire, msg, dn } from '../shared/i18n.js';
+import { addMessages, setLang, setMessages, translateWire, msg, dn, registerLangs } from '../shared/i18n.js';
+import { langMetaOf } from '../shared/packs.js';
 import { makeMatch, give, DATA } from './match/harness.js';
 import { createRegistry } from '../server/match/effectsMeta.js';
 
@@ -97,7 +98,7 @@ test('client: the same frames in English — msgid + params, broadcast template 
   }
 });
 
-test('client: a CHAR_DAMAGE line shows its amount compactly (fmtNum) — 万 in Chinese, K / M in English', async () => {
+test('client: a CHAR_DAMAGE line shows its amount compactly (fmtNum) — 万 in Chinese, 만 in Korean, K / M in English', async () => {
   const lines = () => {
     const m = stubMatch();
     for (const hit of ['200000', '1000000']) MatchMessaging.prototype.tickerFor.call(m, 'CHAR_DAMAGE', ['阿米娅', '琳琅诗怀雅', hit], { playerId: 'p1', param: hit });
@@ -111,6 +112,12 @@ test('client: a CHAR_DAMAGE line shows its amount compactly (fmtNum) — 万 in 
     const [en2, en10] = lines();
     assert.ok(/\b200K\b/.test(en2) && /\b1M\b/.test(en10), `${en2} / ${en10}`);
     assert.ok(!en2.includes('200000') && !en10.includes('1000000'));
+    const KO = JSON.parse(readFileSync(path.join(ROOT, 'public/i18n/ko.json'), 'utf8'));
+    registerLangs([langMetaOf({ ...KO._meta, lang: 'ko' })]);
+    setLang('ko');
+    await data.setLocale('ko');
+    const [ko2, ko10] = lines();
+    assert.ok(ko2.includes('대미지 20만') && ko10.includes('대미지 100만'), `${ko2} / ${ko10}`);
   } finally {
     setLang('zh');
     await data.setLocale('zh');

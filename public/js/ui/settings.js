@@ -13,7 +13,7 @@ import { useLayoutEffect, useRef, useState } from '../../vendor/hooks.module.js'
 import { html, Modal, Button, Icon, MicroLabel } from './components.js';
 import { GIcon } from './gameComponents.js';
 import { createStore, useStore, loadPref, savePref, store } from '../store.js';
-import { sanitizeSettings, CHAT_COOLDOWN, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, hotkeyLabel, rebindHotkey, isDefaultHotkeys, captureHotkey } from './gameLogic.js';
+import { sanitizeSettings, setNumberUnitMode, numberUnitMode, CHAT_COOLDOWN, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, hotkeyLabel, rebindHotkey, isDefaultHotkeys, captureHotkey } from './gameLogic.js';
 import { audio } from '../audio.js';
 import { openGuide } from './guide.js';
 import { detectFeatures } from './device.js';
@@ -22,7 +22,7 @@ import { VoiceSetting } from '../voice.js'; // local patch
 import { UiScaleSetting } from './hudArt.js'; // local patch: 界面大小 (the PC client's UI_SCALER)
 import { NumberStyleSetting } from './numberStyleSetting.js'; // local patch
 import { LangToggle, machineTranslationNote } from './lang.js';
-import { t, tc, N_ } from '../../../shared/i18n.js';
+import { t, tc, N_, langInfo } from '../../../shared/i18n.js';
 import { errorCount, currentBattle, diagnosticsText } from '../diag.js';
 import { copyText } from './clipboard.js';
 import { GpuNote } from './gpuNotice.js';
@@ -35,8 +35,10 @@ export const settingsStore = createStore(sanitizeSettings(loadPref('settings', n
 settingsStore.subscribe((s) => {
   savePref('settings', sanitizeSettings(s));
   audio.setVolumes(s);
+  setNumberUnitMode(s.numberUnits);
 });
 audio.setVolumes(settingsStore.get());
+setNumberUnitMode(settingsStore.get().numberUnits);
 
 /** @param {Partial<ReturnType<typeof sanitizeSettings>>} patch */
 export function updateSettings(patch) {
@@ -101,6 +103,25 @@ function ChatSoundSection({ s }) {
 }
 
 const QUALITY = [['high', N_('高')], ['medium', N_('中')], ['low', N_('低')]];
+
+/**
+ * 数字单位: how large numbers are shortened (fmtNum: the damage broadcast, the result screen, HP, the stats) — each choice
+ * shows 200000 in its style; 万 / 亿 only in a language that names its own units (the Korean 만 / 억, maintainer decision
+ * 2026-10-24). The highlighted choice is the one in effect, the language's own while nothing was picked.
+ */
+function NumberUnitsSetting() {
+  const units = langInfo()?.numberUnits;
+  const cur = numberUnitMode();
+  const opts = [units ? ['myriad', `20${units[0]}`] : null, ['thousand', '200K'], ['full', '200,000']].filter(Boolean);
+  return html`<div class="set-row" data-number-units=${cur}>
+    <span class="set-row__label">${t('数字单位')}<${MicroLabel}>NUMBER UNITS<//></span>
+    <div class="set-seg" role="radiogroup">
+      ${opts.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${cur === id ? 'true' : 'false'}
+        class=${cur === id ? 'is-on' : ''} onClick=${() => updateSettings({ numberUnits: id })}>${label}</button>`)}
+    </div>
+  </div>
+  <p class="set-hint">${t('伤害播报、结算、生命值等较大数字的显示方式。')}</p>`;
+}
 /** The rebindable shortcuts' names (msgids), by action. */
 const HOTKEY_NAMES = { refresh: N_('刷新商店'), freeze: N_('冻结 / 解冻商店'), levelUp: N_('升级调度中心'), retreat: N_('撤退选中干员'),
   sell: N_('出售选中干员'), ready: N_('准备就绪 / 暂停（独立模拟）') };
@@ -294,6 +315,7 @@ export function SettingsModal({ open, onClose }) {
               class=${s.quality === id ? 'is-on' : ''} onClick=${() => updateSettings({ quality: id })}>${t(label)}</button>`)}
           </div>
         </div>
+        <${NumberUnitsSetting} />
         <${Toggle} label=${t('精锐干员标记')} micro="ELITE BADGE" value=${s.eliteBadge} onChange=${(v) => updateSettings({ eliteBadge: v })} />
         <${Toggle} label=${t('对局通知')} micro="MATCH NOTICES" value=${s.matchNotices} onChange=${(v) => updateSettings({ matchNotices: v })} />
         <p class="set-hint">${t('关闭后对局中不再弹出任何通知：获得干员、盟约资金等提示，干员退回整备区、淘汰等警告，以及操作无法执行的原因。')}</p>
