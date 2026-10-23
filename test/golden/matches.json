@@ -1371,7 +1371,7 @@
           "title": {"id":"comment_5","name":"万事俱备","picId":"comment_icon_5","text":"装备配发数量最多"},
           "trophies": 5,
           "reward": 425,
-          "stats": {"activatedLayers":245,"bossDamage":1693641,"dmgDealt":5319556,"gold":146,"itemsEquipped":19,"kills":408,"leaks":7,"lpLost":1,"merges":5,"perfectRounds":11,"refreshes":23},
+          "stats": {"activatedLayers":245,"bossDamage":1693641,"dmgDealt":5316673,"gold":146,"itemsEquipped":19,"kills":408,"leaks":7,"lpLost":1,"merges":5,"perfectRounds":11,"refreshes":23},
           "lineup": ["1_17_b@11,7[1_01_e_b]","5_12_a@11,8[3_08_e_b+1_05_e_b]","5_23_a@10,3","4_17_b@10,4[3_02_e_a]","4_10_b@10,5[1_02_e_a+3_11_e_a]","4_04_a@10,8[4_05_e_a]","1_18_b@9,4","6_08_a@9,9"],
           "bonds": ["arcaneShip 2/80","miraShip 0/3","preciShip 1/28","raidShip 1/32","suntShip 1/0","visiShip 1/35","yanShip 1/70"]
         },
@@ -1385,7 +1385,7 @@
           "title": {"id":"comment_4","name":"精英云集","picId":"comment_icon_4","text":"晋升精锐次数最多"},
           "trophies": 5,
           "reward": 425,
-          "stats": {"activatedLayers":260,"bossDamage":2502509,"dmgDealt":6708243,"gold":144,"itemsEquipped":18,"kills":423,"leaks":8,"lpLost":2,"merges":6,"perfectRounds":10,"refreshes":23},
+          "stats": {"activatedLayers":260,"bossDamage":2502509,"dmgDealt":6715949,"gold":144,"itemsEquipped":18,"kills":423,"leaks":8,"lpLost":2,"merges":6,"perfectRounds":10,"refreshes":23},
           "lineup": ["4_20_a@11,7[4_08_e_a+3_02_e_a]","4_14_b@11,8[3_03_e_a+1_01_e_b]","6_17_a@9,4[4_11_e_a]","4_01_a@9,5[4_02_e_a+2_01_e_a]","2_18_a@9,6[4_07_e_a+3_11_e_a]","5_02_a@9,7","6_05_a@9,8[1_05_e_a+3_07_e_a]","1_19_b@9,9[3_08_e_a+4_12_e_a]"],
           "bonds": ["deputShip 0/2","emptyShip 0/2","kazimierzShip 1/58","kjeragShip 0/8","preciShip 2/104","soloShip 0/2","steadShip 1/12","suntShip 1/2","swiftShip 1/84"]
         },
@@ -1399,7 +1399,7 @@
           "title": {"id":"comment_3","name":"坚若磐石","picId":"comment_icon_3","text":"目标生命值损失最少"},
           "trophies": 5,
           "reward": 425,
-          "stats": {"activatedLayers":228,"bossDamage":2420893,"dmgDealt":6690145,"gold":141,"itemsEquipped":15,"kills":407,"leaks":4,"lpLost":0,"merges":4,"perfectRounds":10,"refreshes":17},
+          "stats": {"activatedLayers":228,"bossDamage":2420893,"dmgDealt":6689754,"gold":141,"itemsEquipped":15,"kills":407,"leaks":4,"lpLost":0,"merges":4,"perfectRounds":10,"refreshes":17},
           "lineup": ["1_17_b@11,7[4_03_e_a]","4_14_a@11,8","6_04_a@10,3","4_09_a@10,5[1_05_e_a+3_11_e_b]","1_04_b@10,7","5_07_a@10,8[4_04_e_b+5_02_e_a]","3_05_a@9,4[4_10_e_a+3_07_e_a]","3_09_a@9,8[5_01_e_b+3_06_e_a]"],
           "bonds": ["arcaneShip 2/29","egirShip 2/70","kazimierzShip 0/4","kjeragShip 0/2","preciShip 1/53","raidShip 1/76","sargonShip 0/8","soloShip 1/0","steadShip 0/29","suntShip 1/0","swiftShip 0/4","visiShip 0/10"]
         },

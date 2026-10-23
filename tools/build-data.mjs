@@ -1702,6 +1702,8 @@ function buildTokens(ctx, chess, tokenOwners, enemies) {
       stats: enemyAsTokenStats(loon), rangeGrid: null, dmgType: loon.stats.dmgType, attackKind: 'ranged',
       projectile: 'bolt', canHitFly: true, skill: loon.skills?.[0] ? { skillId: loon.skills[0].prefabKey, bb: loon.skills[0].bb } : null,
       skills: loon.skills, talents: loon.talents, deployLimit: 2, count: 1,
+      // its enemy prefab's attack clip and ability timing (enemies.json `attackAnim`): the strike waits for its OnAttack frame
+      attackAnim: loon.attackAnim ?? null,
       abnormal: [...TOKEN_ABNORMAL.enemy_9012_acloon], variants: {},
       assets: { avatar: loon.iconId, spine: loon.spine, isEnemyModel: true },
     };

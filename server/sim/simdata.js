@@ -444,6 +444,9 @@ export function normalizeToken(id, t0, ownerChessId = null, variantOverride = nu
     trait: desc,
     traitBb: t.trait && typeof t.trait === 'object' ? { ...(t.trait.bb || {}) } : {},
     skill,
+    // its attack clip { dur, hit } (ai.js attackTiming): only the enemy-shaped 炎佑 carries one; null = none known (the
+    // strike lands as the swing starts)
+    attackAnim: normAttackAnim(t.attackAnim),
     // chess/token records carry a talent array; enemy-shaped records (炎佑 enemy_9012_acloon) one `{ bb, bbStr }` object
     talents: (Array.isArray(t.talents) ? t.talents : t.talents && typeof t.talents === 'object' ? [t.talents] : [])
       .filter((x) => x && typeof x === 'object')

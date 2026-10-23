@@ -828,6 +828,10 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
 - **타격 시점**: 휘두름 시작 뒤 OnAttack 프레임 × 배율. 클립에 OnAttack이 없으면 휘두름이 끝날 때(`EasyToStartAbility.<WaitForNextEvent>` 0xA7A580: 이벤트 또는
   휘두름 전체 `m_cachedDuration`까지 기다림 — 이전에는 클립 절반). `_waitForAttackEvent` 0이면 `_preDelay` × 배율(휘두름 길이 이하; `UpdatePlaybackSpeed`의
   `m_preDelay`) — 오퍼 15개 능력(어스스피릿 0.5 등). 클립을 모르면(소환물, 매니페스트에 없는 모델) 휘두름 시작에 바로 타격(이전 규칙).
+  예외 '염의 가호'(炎佑, 2026-10-23, 관리자 제보 「모션 시작과 끝이 너무 빠름」): 적 기록이라 적 `attackAnim`(`Attack` 1.5 s, OnAttack 0.633 s, 상한 1)이
+  있는데 토큰 기록에 안 넘어가 휘두름 시작에 타격했고, 렌더는 그 짧은 틈에 맞추느라 클립을 빨리 돌렸다 → `build-data.mjs`가 토큰 기록에 넘기고
+  `simdata.js normalizeToken`이 읽음: 간격 2.5 s라 배율 1, 타격 0.633 s 뒤(대상이 그새 죽으면 아래 헛휘두름). 다른 소환물 22개는 클라 소환물 프리팹의
+  타이밍을 아직 안 뽑아 그대로(관리자 메모의 열린 일). 확인: `test/content/playtest4_summons.test.js` 「OnAttack frame」.
 - **쿨다운은 휘두름 시작에서 다시 건다**: `AbilityStandard.CastToTarget`(0x34EE170) → `m_cooldownTimer.Reset(true)`. 다음 휘두름은 쿨다운이 끝나고 지난 휘두름(후딜
   포함, `castLeft`)도 끝났을 때(`Character.States.AttackState.OnTick` 0x71AAD0: 공격 능력이 `isReady`일 때만). HALF_FRAME(`_CheckNeedResetCooldown` 0xA72BC0, 프리팹
   전부 1): 휘두름 길이 = 간격이면 끝에서 남은 쿨다운 반 프레임을 0으로 — 우리 틱 카운트다운은 두 값이 같은 틱에 시작해 같은 틱에 0이 되므로(1e-9 허용,

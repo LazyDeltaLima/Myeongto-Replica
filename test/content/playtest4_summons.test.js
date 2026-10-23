@@ -209,3 +209,25 @@ test('#12 炎佑: 元素脆弱 aura within 1.5 of itself, immune to element dama
   assert.ok(Math.abs(near.elem.burn - before - y.s.atk * tal['2.ep_damage_ratio']) < 1e-6, `burn per hit ${near.elem.burn - before}`);
   checkInvariants(h.b);
 });
+
+test('炎佑 swings on its enemy prefab\'s Attack clip: the strike lands at its OnAttack frame (0.633 s), not as the swing starts', REAL, () => {
+  const h = makeBattle({ defs: { enemies: { enemy_dummy: dummy() } }, units: [], enemies: [{ key: 'enemy_dummy', pos: [10, 6] }], autoFinish: false, timeLimit: 60, recordEvents: true });
+  h.step();
+  const [y] = spawnYanyou(h.b, 'p1', { atk: 400, hp: 5000 });
+  h.b.addBuff(y, { key: 'test:pin', persist: true, flags: { noMove: true } });
+  y.x = 4.8; y.y = 10;
+  const anim = h.b.data.rawToken(TOKEN_IDS.yanyou).attackAnim;
+  assert.deepEqual([anim.clip, anim.dur, anim.hit], ['Attack', 1.5, 0.633], 'data/tokens.json: its enemy record\'s attackAnim');
+  h.b.drainEvents();
+  let swingAt = null, swing = null, atkAt = null;
+  assert.ok(h.runUntil(() => {
+    for (const e of h.b.drainEvents()) {
+      if (e[0] === 'swing' && e[1] === y.id && swingAt == null) { swingAt = h.b.time; swing = e; }
+      if (e[0] === 'atk' && e[1] === y.id && swingAt != null) atkAt = h.b.time;
+    }
+    return atkAt != null;
+  }, 10), 'it attacks');
+  assert.ok(Math.abs(swing[2] - 0.633) < 1e-9, `wind-up ${swing[2]}`);
+  assert.ok(Math.abs(atkAt - swingAt - 0.633) < 0.05, `strike ${atkAt - swingAt} s after the swing`);
+  checkInvariants(h.b);
+});
