@@ -146,9 +146,9 @@ test(`${nm('enemy_1404_msnip')}: 直击 — 1.4 s after the cast a unit in line 
   assert.ok(e.findBuff('ab:revealed') && e.s.flags.noMove, 'cast: revealed, standing');
   h.run(1.2);                                               // 1.3 s into the skill: still charging
   assert.equal(w.stats.taken, 0, 'no bolt before the 1.4 s charge');
-  h.run(0.7);                                               // 2.0 s in: the bolt (4 tiles at the official 5/s, 0.8 s) still flies
-  assert.equal(w.stats.taken, 0, 'projectile_enemy_msnip: 5 tiles/s');
-  h.run(0.3);                                               // 2.3 s in: it has landed
+  h.run(0.6);                                               // 1.9 s in: the bolt (from its muzzle 0.574 ahead: 2.88 tiles to the
+  assert.equal(w.stats.taken, 0, 'projectile_enemy_msnip: 5 tiles/s');   // wall's collider at the official 5/s, 0.58 s) still flies
+  h.run(0.4);                                               // 2.3 s in: it has landed
   assert.equal(statuses(h, w.id, 'stun').length, 1);
   approx(statuses(h, w.id, 'stun')[0].duration, s.bb.stun);
   approx(w.stats.taken, e.s.atk * s.bb.atk_scale * (1 - 0 / 100));
@@ -187,7 +187,11 @@ test(`${nm('enemy_1404_msnip')}: 直击's bolt flies straight — the aimed unit
   assert.equal(fx.move, 'FIXED_DIRECTION');
   assert.deepEqual(fx.dir, [-1, 0], 'left along the row');
   assert.equal(fx.tgt, back.id, 'the predicted first touch: the unit behind');
-  const reach = 0.3 + 0.25, d = (back.x < e.x ? e.x - back.x : back.x - e.x) - reach;
+  // it leaves from its MUZZLE as it shoots (Skill_End's Muzzle bone: 0.574 ahead, 0.188 up a row — content/enemies/invisible.js)
+  const shot = h.eventsOf('fx').find((f) => f[1] === 'enemyShot' && f[4].key === 'projectile_enemy_msnip');
+  approx(shot[2], e.x - 0.574, 0.006, 'facing left: the muzzle ahead of it');
+  approx(shot[3], e.y + 0.188, 0.006);
+  const reach = 0.3 + 0.25, d = (e.x - 0.574 - back.x) - Math.sqrt(reach * reach - 0.188 * 0.188);
   approx(fx.range, d, 1e-3);
   approx(fx.t, d / s.proj.speed, 1e-3);
   approx(hitAt - shotAt, d / s.proj.speed, 0.05, 'straight flight to the first touch');
@@ -202,6 +206,27 @@ test(`${nm('enemy_1404_msnip')}: 直击's bolt flies straight — the aimed unit
   h2.run(12);
   assert.equal(h2.unit('t_wall2').stats.taken, 0, 'one row off: the 0.3 circle and the 0.25 collider do not meet');
   assert.ok(e2.alive);
+});
+
+// 2026-10-23: the clip it shoots in is chosen by its direction (ThreePartChannelingAnimation `_down` / `_up`), and so is
+// its muzzle — Skill_End_Down's Muzzle bone 0.409 ahead and 0.153 down a row, Skill_End_Up's 0.415 ahead and 0.547 up
+test(`${nm('enemy_1404_msnip')}: 直击 down / up a column leaves from that clip's muzzle`, () => {
+  for (const [row, at] of [[12, 9], [9, 12]]) {
+    const h = arena({ units: [{ chessId: 't_wall', row, col: 8 }] });
+    h.step();
+    const e = put(h, 'enemy_1404_msnip', [at, 8]);
+    const s = skb('enemy_1404_msnip', 'CrossAttack');
+    const w = h.unit('t_wall');
+    h.run(s.initCooldown + 1.6);
+    const shot = h.eventsOf('fx').find((f) => f[1] === 'enemyShot' && f[4].key === 'projectile_enemy_msnip');
+    assert.ok(shot, `row ${row}: shot`);
+    const down = w.y < e.y;
+    assert.deepEqual(shot[4].dir, [0, down ? -1 : 1]);
+    approx(shot[2], e.x + (down ? 0.409 : 0.415), 0.006, 'straight below / above: it faces right [추정]');
+    approx(shot[3], e.y + (down ? -0.153 : 0.547), 0.006);
+    h.run(2);
+    assert.ok(w.stats.taken > 0, `row ${row}: hit along its column`);
+  }
 });
 
 test(`${nm('enemy_10034_cnvsax')}: never attacks while stealthed; once blocked it counter-attacks and burns its locked target`, () => {

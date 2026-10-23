@@ -389,10 +389,12 @@ export function shoot(b, from, t, shot, onHit, opts = {}) {
  * (default areaSelectable — a projectile's collision ignores 迷彩). An fx 'enemyShot' { id, tgt, key, move, speed, t, dir,
  * range } announces it with the hit the field as it stands predicts: `tgt` that ally (null: none), `t` the flight to it,
  * `dir` [dx, dy] the axis (stage grid: +x = right, +y = up a row), `range` the tiles it covers (to that hit, else speed ×
- * life). Returns the projectile.
+ * life). `opts.at` ({ x, y }): where it leaves — its mount point, from which the axis is taken too (the client's start
+ * position; default `from`). Returns the projectile.
  */
-export function lineShot(b, from, aim, shot, onHit, opts = {}) {
-  const src = opts.source ?? (from && from.id != null ? from : null);
+export function lineShot(b, unit, aim, shot, onHit, opts = {}) {
+  const src = opts.source ?? (unit && unit.id != null ? unit : null);
+  const from = opts.at ?? unit;
   const ax = aim.x - from.x, ay = aim.y - from.y;
   const dir = Math.abs(ax) >= Math.abs(ay) ? [Math.sign(ax) || 1, 0] : [0, Math.sign(ay)];
   const speed = shot && shot.speed > 0 ? shot.speed : 5;
@@ -422,7 +424,7 @@ export function lineShot(b, from, aim, shot, onHit, opts = {}) {
     b.fx('enemyShot', { x: from.x, y: from.y, id: src ? src.id : null, tgt: first ? first.id : null, key: shot.key, move: shot.move, speed,
       t: Math.round((at / speed) * 1000) / 1000, dir, range: Math.round(at * 1000) / 1000 });
   }
-  return b.addProjectile({ from, dir: { x: dir[0], y: dir[1] }, speed, maxAge: life, visual: opts.visual ?? 'enemy', source: src,
+  return b.addProjectile({ from: { x: from.x, y: from.y }, dir: { x: dir[0], y: dir[1] }, speed, maxAge: life, visual: opts.visual ?? 'enemy', source: src,
     sweep: (p) => touching(p.x, p.y), onHit: (c) => onHit(c.target), onExpire: () => opts.onExpire?.() });
 }
 

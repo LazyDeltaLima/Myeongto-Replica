@@ -994,9 +994,15 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
     쪽 축으로 5 타일/초 직진, `SelectorHitBehaviour`(`_hitPasserby` 1, `_interval` 0.03 — 우리는 매 틱) 원 반경 0.3(Selector0/1의 CircleCollider2D)에
     충돌체(ALLY_COLLIDER_RADIUS 0.25)가 닿는 첫 아군 1명(`_maxHitNum` 1, `_stopAfterMaxHit` 1)에 법술 피해·기절 후 멈춤. 겨눈 대상이 사라지면 그 뒤의
     아군에, 축 위에 아무도 없으면 10 s(50타일) 날다 사라짐. 충돌 선택은 `areaSelectable`(투사체 충돌은 迷彩 무시 — Selector1 `_forceIgnoreCamouflage`).
-    [추정] 충전 중 겨눈 대상이 죽어도 쏨(스킬 `_allowNoTarget` 1), 출발점은 몸 중심(MUZZLE 높이 무시 — 2026-10-21: 클라 Graphic은 x축 −30° 기울고
-    0.27배라 MUZZLE의 높이가 맵 y로도 옮겨진다; 셋업 포즈로는 앞 +0.57·위 +0.19칸이지만 쏘는 프레임의 뼈 위치를 안 읽어 그대로), 축 고르기의 동률(대각선
-    정확히 45°)은 가로. 사거리 CROSS_REACH 6 [ASSUMED]은 그대로.
+    출발점 (2026-10-23, 클라 Spine·프리팹 확인): 투사체의 `_mountPointType` MUZZLE = Spine 뼈 `Muzzle`을 쏘는 순간에 — 직격은
+    ThreePartChannelingAnimation이 방향(`Entity.get_direction`: 겨눈 칸 쪽 FOUR_WAYS 내적 최댓값, 같으면 UP·RIGHT·DOWN·LEFT 순)으로 `Skill_End`·
+    `Skill_End_Down`·`_Up`을 고르고, 그 OnAttack(0.067 s)에서 뼈는 (212.74, 165.83)·(151.49, 19.99)·(153.57, 319.45)(스켈레톤 단위). × 0.01 ×
+    Graphic 0.27을 Graphic의 X −30° 기울기로 판에 내리고 Graphic 자리 (0, −0.2, −0.06)를 더하면 옆 쏘기 앞 +0.574·위 +0.188칸, 아래 쏘기 앞 +0.409·
+    아래 0.153칸, 위 쏘기 앞 +0.415·위 0.547칸(`CROSS_MUZZLE`; 이전: 몸 중심). 축도 그 점에서 겨눈 칸으로 잰다(`lineShot` `at`). 그래서 같은 줄 아군에게
+    0.11 s 일찍 닿고, 위아래로 쏠 때 선이 0.41칸 옆으로 지난다. 위 「같은 줄」이 위로 0.5·아래로 0.1인 것과 같은 쪽(총구가 줄 위). [추정] 바로 위·아래를
+    겨누면 모델이 오른쪽을 봄, 충전 중 겨눈 대상이 죽어도 쏨(스킬 `_allowNoTarget` 1), 끝 클립으로 섞이는 동안의 뼈는 안 봄, 투사체 축 고르기의
+    동률(대각선 정확히 45°)은 가로. 사거리 CROSS_REACH 6 [ASSUMED]은 그대로. golden: roster 017·022·033, matches coop2-HARD-4·coop8-HARD-3·
+    coop2-NORMAL-14-standins, 이펙트 이벤트 roster-017·033. 확인 `test/content/enemies_bosses.test.js` 「重弩突袭者」 셋.
   - 스킬 대상 고르기 (2026-10-21, 클라 코드 `AdvancedSelectorWithTrapSheltr.OnPostFilter` RVA 0x77BD70, 프리팹 `Skills/CrossAttack/Selector` — 루트 자리):
     `_checkOnTheSameLine`이면 「자기 위치 − 후보 위치」의 x가 −0.5…0.5(`_offsetMinX/MaxX`)이거나 y가 −0.5…0.1(`_offsetMinY/MaxY`)인 후보만 남는다
     (`MathUtil.Between` = min − ε < v < max + ε). 그래서 같은 줄은 위로 0.5·아래로 0.1까지(이전: 위아래 ±0.5 미만). `enemies/invisible.js kitCrossbow`.

@@ -18,6 +18,12 @@ const ACBUNN_TARGETS = 3;
  *  向目标方向发射1支弩箭…※技能持续2.5s"). */
 const CROSS_REACH = 6, CROSS_SKILL = 2.5, CROSS_CHARGE = 1.4;
 const CROSS_BOLT_SPEED = 5;   // projectile_enemy_msnip `_speed` (the data's skills CrossAttack.proj when present)
+/** 重弩突袭者 直击's MUZZLE (map tiles from its position: forward along its facing, up a row) as the bolt leaves — the
+ *  `Muzzle` bone at the OnAttack event (0.067 s) of the clip its ThreePartChannelingAnimation ends on, by its direction:
+ *  Skill_End (212.74, 165.83), Skill_End_Down (151.49, 19.99), Skill_End_Up (153.57, 319.45) in skeleton units (EN client
+ *  enemy_1404_msnip.skel); × 0.01 × its Graphic's 0.27, turned with the Graphic (X −30°: a row = cos 30° of the model's
+ *  height) and moved by its local (0, −0.2, −0.06). */
+const CROSS_MUZZLE = { side: { f: 0.574, up: 0.188 }, DOWN: { f: 0.409, up: -0.153 }, UP: { f: 0.415, up: 0.547 } };
 
 // ---------------------------------------------------------------------------------------------------------------
 // kits
@@ -50,11 +56,17 @@ function kitCrossbow(ab) {
       // at 5 tiles/s; until 2026-10-10 12) flies straight along the axis towards the aimed spot and stops on the first ally
       // it touches — the aimed unit or one in front of it, or one behind when the aimed unit is gone; nobody: it flies on
       // for its 10 s life (helpers.js lineShot; until 2026-10-10 it homed on the nearest unit still in line)
+      // 2026-10-23: from its MUZZLE (the projectile's `_mountPointType`) at the frame it shoots, not its centre; the
+      // clip by its direction to the aimed spot — Entity.get_direction, the FOUR_WAYS axis nearest (UP, RIGHT, DOWN,
+      // LEFT: a tie takes the first); its model faces the spot's side [추정: straight above / below it faces right]
+      const dx = aim.x - e.x, dy = aim.y - e.y;
+      const ways = [dy, dx, -dy, -dx];
+      const m = CROSS_MUZZLE[['UP', 'side', 'DOWN', 'side'][ways.indexOf(Math.max(...ways))]], face = dx < 0 ? -1 : 1;
       lineShot(b, e, aim, s.proj || { key: 'projectile_enemy_msnip', move: 'FIXED_DIRECTION', speed: CROSS_BOLT_SPEED, life: 10 }, (u) => {
         if (!u || !u.alive) return;
         hurt(b, e, u, e.s.atk * (bb.atk_scale ?? 1), 'arts');
         if (bb.stun > 0 && u.alive) b.applyStatus(u, 'stun', { duration: bb.stun, source: e });
-      }, { source: e });
+      }, { source: e, at: { x: e.x + face * m.f, y: e.y + m.up } });
     }, { owner: e });
   }, { sil: true, cond: (b, e) => aligned(b, e).length > 0 })];
 }
