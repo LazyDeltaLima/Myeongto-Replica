@@ -1616,7 +1616,7 @@ upstream v0.2.4 뒤 버그 수정 커밋 중 우리에게도 같은 버그가 �
   버프 `sand_storm[ally]`·`[enemy]`·`[trap]`을 블랙보드 `duration` 1500 s 동안 건다. 버프 템플릿(EN `buff_template_holder`, 참고 추출 「공식 버프 템플릿 추출」)은
   `ON_BUFF_TRIGGER`마다 `HasCertainCharacterInFrontOfMe(trap_032_mound)`로 가려졌는지 본다. 틱 간격 = 블랙보드 `interval` 2 s(`Buff.Reset`이 bb `interval`을
   `triggerInterval`보다 먼저 씀, 공식 클라로 확인), 아군·적은 붙자마자 첫 틱(`waitFirstTriggerInterval` false).
-- **가려짐(코드로 확인)**: `HasCertainCharacterInFrontOfMe.Execute` — 유닛 칸에서 `InverseDirection(폭풍 방향)`으로 `GetGridPositionsAlongTheDirection`
+- **가려짐(공식 클라에서 확인)**: `HasCertainCharacterInFrontOfMe.Execute` — 유닛 칸에서 `InverseDirection(폭풍 방향)`으로 `GetGridPositionsAlongTheDirection`
   (자기 칸 빼고 맵 끝까지, 거리 제한 없음)의 칸 중 하나에 `trap_032_mound`가 서 있으면 가려짐. m06 폭풍 `#1`은 `DOWN` → 위쪽(행이 큰 쪽)에 토석 구조물이 있으면 가려진다.
   일반 판 윗줄은 (12,3)–(12,6) 4개((12,7)·(12,8)은 봉인 바닥 `trap_1107_acblock`이라 7·8열은 안 가려짐), 보스 필드 윗줄은 왼쪽 (5,3)–(5,8)·오른쪽 (5,12)–(5,17) 6개.
 - **효과**: 안 가려진 오퍼레이터·소환물 → 틱마다 순수 100(`NoSourceDamage` PURE, 환경 피해, SP 안 참) 뒤 공격력 FINAL_SCALER ×(1 + `atk` −0.5) — 다음 틱에

@@ -41,7 +41,7 @@
   `AutoChessGameModeVoicePlugin`이다(예전에 「네이티브」로 본 것은 틀림).
   - 게이트 `VoicePlayer._PlayVoice`: 클라이언트 `audio_data.json battleVoice` 값 — 전체 간격 없음, 우선순위(행동출발 100·행동개시 90·
     수동 스킬 70·자동 스킬 60/50(SP 10 이상/미만)·배치 20·선택 10), 마지막 대사보다 높으면 재생(앞 대사를 0.1초 크로스페이드로 끊음), 같은 우선순위는
-    유형이 겹침 허용(행동출발·수동 스킬·배치·선택)이면 끊고 아니면 버림 — 「낮은 우선순위는 높은 것을 못 끊는다」는 이제 코드로 확인. 겹침 불가 요청(`PlayRandomVoice` overlapFlag false)은 `VoiceManager.PlayVoice`가 음성 채널이 울리는 동안만 버린다 — 우리 게이트의 「재생 중 대사와 비교, 대사가 끝나면 비움」(`release`)과 같은 결과.
+    유형이 겹침 허용(행동출발·수동 스킬·배치·선택)이면 끊고 아니면 버림 — 「낮은 우선순위는 높은 것을 못 끊는다」는 이제 공식 클라에서 확인. 겹침 불가 요청(`PlayRandomVoice` overlapFlag false)은 `VoiceManager.PlayVoice`가 음성 채널이 울리는 동안만 버린다 — 우리 게이트의 「재생 중 대사와 비교, 대사가 끝나면 비움」(`release`)과 같은 결과.
     **쿨다운은 유형별 전역**(`m_nextPlayableTime`은 유형 8칸 배열 — 모든 오퍼레이터가 공유)이고 **대사가 끝난 뒤부터**: 다음 = 지금 + 대사 길이 + 쿨다운
     (자동 스킬 10초만; `audio.js _playVoice`가 디코드한 길이를 `voiceGate.lineLength`로 넘긴다). 새 대사가 나면 마지막 대사 유형의 쿨다운을
     max(그대로, 지금 + 쿨다운)으로 다시 건다. `VOICE_TYPES_TO_SHARE_CD_WITH_ALL_OTHERS`(.cctor) = [NORMAL_ATTACK]뿐 — 우리는 평타 대사가 없어 무관.
