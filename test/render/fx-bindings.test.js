@@ -130,7 +130,6 @@ const UNPLAYED = {
   'flamtl_t_1|flamtl_flash_01': 'unconditional',
   'flamtl_t_1+|flamtl_flash_01': 'unconditional',
   'ghost2_s_3[attack]|ghost2_skill_03_hit_02': 'condOther',
-  'gnosis_s_2_enhance_judge|gnosis_skill_02_range_02': 'condOther',
   'gvial2_s_3[final_bleed]|gvial2_skill_3_bleed': 'unconditional',
   'haini_s_2[full_effect2]|haini_skill_02_weapon_01': 'condOther',
   'humus_t_1[effect_holder]|humus_buff_03': 'condOther',

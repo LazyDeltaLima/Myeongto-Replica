@@ -72,12 +72,14 @@ export default withDefaults({
         if (isSel(def, 'skchr_gnosis_2')) {
           // S2's charge stages: gnosis_s_2[eff_cond] checks the charges stored every 0.1 s (1 → [effect1], 2 → [effect2],
           // each with its sound — public/js/audio.js chargeStageKey) and every cast clears both (gnosis_s_2_enhance_judge):
-          // 'charges' { n } when the count changes, n -1 at a cast
+          // 'charges' { n } when the count changes, n -1 at a cast (`charged` 1 cast with every charge stored: the judge's
+          // range effect — a display field)
           battle.on('deploy', (c) => { if (c.unit === unit) unit.mem.gnosisShown = 0; }, { owner: unit });
           battle.on('skillStart', (c) => {
             if (c.unit !== unit) return;
             unit.mem.gnosisShown = -1;
-            battle.fx('charges', { x: unit.x, y: unit.y, id: unit.id, n: -1 });
+            const sk = unit.skill, charged = sk && sk.maxCharges > 1 && sk.charges + 1 >= sk.maxCharges ? 1 : 0;
+            battle.fx('charges', { x: unit.x, y: unit.y, id: unit.id, n: -1, charged });
           }, { owner: unit });
           whileDeployed(battle, unit, 0.1, () => {
             const n = Math.min(2, unit.skill?.charges ?? 0);

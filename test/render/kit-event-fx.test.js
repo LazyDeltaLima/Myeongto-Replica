@@ -220,6 +220,22 @@ test('kitOfficialPlan: the moments and lifetimes of the templates', () => {
   assert.deepEqual(chg(1, 2), ['chargeA billro_skill_03_buff_01_01', 'chargeB off']);
   assert.deepEqual(chg(-1, 0), ['chargeA off', 'chargeB off']);
   assert.ok(kitOfficialPlan('charges', { id: 1, n: 2 }, 'billro').play.every((x) => x.off || x.on === 'op'));
+  // 灵知 / 流明 S2: one stage at a time by the charges stored ([effect1] / [effect2] through the table), a cast ends it — 灵知's
+  // with the judge's range (_02 cast with every charge stored); outside S2's install the sim sends none
+  const stage = (b, o) => kitOfficialPlan('charges', { id: 1, ...o }, b, { skill: 1, plays: PLAYS }).play.flatMap((q) => (q.tpl ? tplPlays(q, PLAYS) : [q]))
+    .map((x) => (x.off ? `${x.slot} off` : `${x.slot ?? x.life} ${x.n}`));
+  assert.deepEqual(stage('gnosis', { n: 1 }), ['charge gnosis_skill_02_buff_01']);
+  assert.deepEqual(stage('gnosis', { n: 2 }), ['charge gnosis_skill_02_buff_02']);
+  assert.deepEqual(stage('gnosis', { n: -1, charged: 1 }), ['charge off', 'once gnosis_skill_02_range_02']);
+  assert.deepEqual(stage('gnosis', { n: -1, charged: 0 }), ['charge off', 'once gnosis_skill_02_range_01']);
+  assert.deepEqual(stage('lumen', { n: 1 }), ['charge lumen_skill_02_buff']);
+  assert.deepEqual(stage('lumen', { n: 2 }), ['charge lumen_skill_02_buff_02']);
+  assert.deepEqual(stage('lumen', { n: 0 }), ['charge off']);
+  assert.deepEqual(stage('lumen', { n: -1 }), ['charge off']);
+  // (the name rules no longer loop them through the instant cast: fxgame.js KIT_OWNED)
+  for (const [b, pre] of [['gnosis', ['gnosis_skill_02_buff_01', 'gnosis_skill_02_buff_02', 'gnosis_skill_02_range_01', 'gnosis_skill_02_range_02']], ['lumen', ['lumen_skill_02_buff', 'lumen_skill_02_buff_02']]]) {
+    assert.match(readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8'), new RegExp(pre.map((n) => `'${n}'`).join(',\\s*')), b);
+  }
   // 魔王's motes always on: one orbiting projectile effect per mote there, spread over the cap; the cool-down ready
   // effect where one comes back; S2 / S3 their own projectiles
   const mo = (o) => kitOfficialPlan('motes', { id: 1, ...o }, 'cetsyr').play.filter((x) => !x.off);

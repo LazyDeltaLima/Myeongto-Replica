@@ -3109,7 +3109,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     'billro_skill_02_buff_01_02', 'billro_skill_02_buff_02', 'billro_skill_03_buff_01_01', 'billro_skill_03_buff_01_01_02',
     'billro_skill_03_buff_01_02', 'billro_skill_03_buff_02_01', 'billro_skill_03_buff_02_02', 'mudrok_skill_03_awake',
     'mudrok_skill_03_awake_02', 'mudrok_skill_03_sleep', 'mudrok_skill_03_range', 'mudrok_skill_03_buff', 'mudrok_skill_03_buff_02',
-    'angel2_skill_3_begin_range_01', 'agoat2_skill_02_range_01']);
+    'angel2_skill_3_begin_range_01', 'agoat2_skill_02_range_01',
+    // 2026-10-23: 灵知 / 流明 S2's charge stages and 灵知's cast range (kitofficial.js 'charges' — the `_buff` / `_range` name
+    // rules looped all of them through the instant cast)
+    'gnosis_skill_02_buff_01', 'gnosis_skill_02_buff_02', 'gnosis_skill_02_range_01', 'gnosis_skill_02_range_02',
+    'lumen_skill_02_buff', 'lumen_skill_02_buff_02']);
   /** What a skill activation plays on the caster (fxmap.js activationEffects: { start, loops }). */
   const activation = (v) => {
     const b = bundleOf(v), em = emittedIn(b.bundle);

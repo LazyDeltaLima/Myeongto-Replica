@@ -1746,6 +1746,10 @@
   - `'charges'` {id, n}: 卡涅利安 스킬 밖 충전(`billro_s_N[eff_cond]`의 스킬 밖 가지, 0.1초마다 `CompareCharSkillAvailableCnt`): 2 → `[full]`
     `billro_skill_0N_buff_02` + `[half]` `_buff_01_02`(S3 `_03_buff_01_02` + `_03_buff_01_01_02`), 1 → `[half]` `_buff_01`(S3 `_03_buff_01_01`), 0 → 없음;
     스킬 중엔 `n` −1(스킬 가지는 위 'shell'·'devour'). 키트의 재능 2 루프(0.1초)가 수가 바뀔 때 냄, 렌더는 그녀 몸의 `slot` 둘(`chargeA`·`chargeB`).
+    노시스·루멘 S2(2026-10-23): `gnosis_s_2[eff_cond]`/`lumen_s_2[eff_cond]`은 한 번에 하나 — 1 → `[effect1]`/`[effect_1]` `gnosis_skill_02_buff_01`/`lumen_skill_02_buff`,
+    2 → 그것을 끝내고 `[effect2]`/`[effect_2]` `_buff_02`(키마다 프리팹 하나라 `{ tpl, when: ALL }`, 렌더 `slot` `charge` 하나); 시전(`n` −1)은 둘 다 끝내고
+    노시스는 `gnosis_s_2_enhance_judge`가 충전을 다 써서 쓰면 `gnosis_skill_02_range_02`, 아니면 `_range_01`을 한 번(시뮬 `charged`, 표시 필드).
+    전에는 `_buff`·`_range` 이름 규칙이 넷(루멘 둘)을 순간 시전 동안 고리로 틀었음 → `fxgame.js KIT_OWNED`.
   - `'motes'` {id, n, cap, sk, r, spd}: 魔王 微尘 상시 — 클라에서 微尘은 그녀 둘레를 도는 투사체(`projectile_chr_cetsyr_talent` `_mainEffect`
     `cetsyr_trail_01`, S1 `_talent_s1` 같음, S2 `_talent_s2` `cetsyr_skill_02_trail_01`, S3 `_talent_s3` `cetsyr_skill_03_trail_01`), 돌아올 때
     `_coolDownReadyEffectOnProjectilePos` `cetsyr_trail_start`(S2 `cetsyr_skill_02_trail_start`). 키트(4·5티어 둘 다)가 남은 수 `n`·상한 `cap`·스킬 모양

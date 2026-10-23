@@ -390,8 +390,8 @@
   - 노시스·루멘 S2 충전 단계 (2026-10-22): `gnosis_s_2[eff_cond]`/`lumen_s_2[eff_cond]`(0.1초마다)이 충전 1회면 [effect1](audioSignal `[audio1]`)을,
     2회면 그것을 지우고 [effect2](`[audio2]`)를 그 버프가 없을 때만 만들고, 시전마다 `*_enhance_judge`가 둘 다 지운다(루멘은 0회에도). **새 sim fx**
     `charges` { n }(두 키트, S2를 골랐을 때만: 0.1초마다 수가 바뀌면, 시전 때 n −1 — 카넬리안과 같은 이벤트) → `audio.js chargeStageKey` →
-    `gnosis:s2:1/2` `p_skill_iceprickbuff2/1`, `lumen:s2:1/2` `p_skill_fishhealbuff1/2`(루멘은 SHOW_EFFECT 뱅크). 렌더는 이 이벤트에 아직 아무것도 안 그림
-    (`fx/kinds.js` `charges` = 'none'; 공식 이펙트 `gnosis_skill_02_buff_01/02`·`lumen_skill_02_buff[_02]`는 fx 담당 몫).
+    `gnosis:s2:1/2` `p_skill_iceprickbuff2/1`, `lumen:s2:1/2` `p_skill_fishhealbuff1/2`(루멘은 SHOW_EFFECT 뱅크). 이펙트는 rules/fx.md
+    「키트 이벤트의 공식 이펙트」 `'charges'`(2026-10-23).
   - 프라마닉스 더 프레리타 눈 피해 (2026-10-22): 재능 진입 피해(`sbell2_t1[enemy_enter]`/`[enemy_character]` — 피해 뒤 그 적에 PlayAudio
     `sbell2_snow_tile_enter_damage_audio`, 뱅크 파일은 그녀 평타 착탄음 `p_imp_swlprdbl_n`)와 S2 눈 틱(`sbell2_t1[s2_dot]` — 초마다 적마다 PlayAudio
     `sbell2_skill2_dot_audio` `p_imp_swcvr_h`)이 **새 sim fx** `kitHit` { k `sbell2:enter` }(맞은 적마다)·{ k `sbell2:s2dot`, n 맞은 적 수 }(틱마다 하나)

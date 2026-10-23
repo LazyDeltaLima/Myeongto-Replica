@@ -240,6 +240,13 @@ export const KIT_OFFICIAL = {
       const a = k >= 2 ? full : k === 1 ? one : null, b = k >= 2 ? half : null;
       return { play: [a ? { n: a, on: 'op', slot: 'chargeA' } : { slot: 'chargeA', off: true }, b ? { n: b, on: 'op', slot: 'chargeB' } : { slot: 'chargeB', off: true }] };
     }),
+    // 灵知 / 流明 S2: [eff_cond] (every 0.1 s) keeps one derived INFINITY buff by the charges stored — 1 → [effect1] / [effect_1],
+    // 2 → the other one finished and [effect2] / [effect_2] (each one prefab: `all`, the sim counts the charges); every cast
+    // finishes both (_enhance_judge), 灵知's also creating gnosis_skill_02_range_02 cast with every charge stored, else
+    // gnosis_skill_02_range_01. fxgame.js KIT_OWNED keeps the name rules from looping these through the skill.
+    gnosis: cite(['gnosis_s_2[eff_cond]', 'gnosis_s_2[effect1]', 'gnosis_s_2[effect2]', 'gnosis_s_2_enhance_judge'], (o) => chargeStage(o, 'gnosis_s_2[effect1]', 'gnosis_s_2[effect2]',
+      Number(o.n) < 0 ? [once(Number(o.charged) ? 'gnosis_skill_02_range_02' : 'gnosis_skill_02_range_01')] : [])),
+    lumen: cite(['lumen_s_2[eff_cond]', 'lumen_s_2[effect_1]', 'lumen_s_2[effect_2]', 'lumen_s_2_enhance_judge'], (o) => chargeStage(o, 'lumen_s_2[effect_1]', 'lumen_s_2[effect_2]', [])),
   },
   sandChains: { billro: cite('billro_s_2[eff_cond]', () => ({ ...billro(1, false), pass: true })) },
   sandChainsCharged: { billro: cite('billro_s_2[eff_cond]', () => ({ ...billro(1, true), pass: true })) },
@@ -341,6 +348,12 @@ function billro(i, charged) {
       half: ['billro_skill_03_buff_02_01', 'billro_skill_03_buff_01_01_02'] },
   ][i];
   return { play: set[charged ? 'full' : 'half'].map((n) => ({ n, on: 'op', life: 'skill' })) };
+}
+
+/** 灵知 / 流明 S2's charge stage: `n` 1 → key `one`, 2 → `two` (held in one slot until the count changes), else none; `more` too. */
+function chargeStage(o, one, two, more) {
+  const k = Number(o.n) || 0, key = k >= 2 ? two : k === 1 ? one : null;
+  return { play: [key ? { tpl: key, on: 'op', slot: 'charge', when: ALL } : { slot: 'charge', off: true }, ...more] };
 }
 
 // events whose `src` is no operator of the moment: 缪尔赛思's 'copy' (`src` the operator her 流形 copies, `by` her)
