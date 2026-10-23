@@ -561,7 +561,8 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   **끝내는 시점**(2026-10-11 클라 코드): `Entity.OnBuffFinish`(RVA 0x35FCC10) → `RemoveBuffEffect`(RVA 0x36001C0) → `Effect.FinishMe`(RVA 0xC88FE0) —
   구성 요소마다 `OnFinish`(방출 정지) 뒤 `delayToRecycle`이 0보다 크고 즉시 끝내기가 아니면 그만큼 뒤에 회수, 아니면 바로 회수. 파티클 이펙트의
   `delayToRecycle`은 프리팹 `_delayToFinish`(`ParticleEffect.get_delayToRecycle` RVA 0xCB3470). 그래서 `now`는 「방출을 멈추고 프리팹 `_delayToFinish` 뒤
-  제거」(`fxgame.js statusOff`, 프레임마다 `finishAt`)이고, 값이 0이거나 없으면 예전처럼 바로 제거. 값은 `fx_extract.py delay_to_finish`가 프리팹 JSON의
+  제거」(`fxgame.js statusOff`, 프레임마다 `finishAt`; 2026-10-23부터 멈추는 것은 첫 시스템과 `_inactiveOnFinish`만 — docs/rules/fx.md 「투사체 꼬리
+  끝내기」 버프 이펙트의 끝)이고, 값이 0이거나 없으면 예전처럼 바로 제거. 값은 `fx_extract.py delay_to_finish`가 프리팹 JSON의
   `finish`로 뽑는다(루트 이펙트 구성 요소의 raw float #5): buff_stun·buff_autochess_frozen·buff_sleep·buff_silence·buff_sluggish·common_buff_fear·
   common_buff_thrill·common_disarm_icon·common_levitate_01 0, buff_cold 0.06, buff_attack_speed_reduction_01 0.3, buff_slowdown·buff_weak·buff_defdown·
   buff_magic_resistance_down·buff_ fragile_01·common_invisible·common_buff_micai_01·lemuen_talent_buff_01 0.5 — 기절 표시는 공식도 바로 사라진다.

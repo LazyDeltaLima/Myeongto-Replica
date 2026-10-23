@@ -1829,7 +1829,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       m.inst.setParam('OnEnd', 1);
       l.buff = false;   // not ended at once with her loops (stopBuffs)
       const fin = Number(m.inst.def?.finish);
-      m.inst.stop(false);
+      m.inst.finish();
       l.finishAt = clockS + (fin > 0 ? fin : 0);
     }
   }
@@ -4379,10 +4379,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       for (const l of live) {
         if (l.status !== key || l.owner !== id) continue;
         l.again = null;
-        // 2026-10-11 (docs/rules/ui.md ⑤): `now` = the client's Effect.FinishMe — emission stops, the effect goes its prefab's
-        // `_delayToFinish` later (def.finish, fx_extract.py); none / 0: at once
+        // 2026-10-11 (docs/rules/ui.md ⑤): `now` = the client's Effect.FinishMe — its first system stops (2026-10-23:
+        // FxInstance.finish, not every system), the effect goes its prefab's `_delayToFinish` later (def.finish,
+        // fx_extract.py); none / 0: at once
         const fin = now ? Number(l.inst.def?.finish) : 0;
-        if (fin > 0) { l.inst.stop(false); l.finishAt = clockS + fin; } else l.inst.stop(now);
+        if (fin > 0) { l.inst.finish(); l.finishAt = clockS + fin; } else l.inst.stop(now);
       }
     },
     /**
@@ -4735,7 +4736,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           l.inst.object.quaternion.setFromUnitVectors(SKY_Y, skyUp.setFromMatrixColumn(camera.matrixWorld, 1).normalize());
         }
         if (l.fly) stepFly(l, dt, dt * rate2); // 2026-10-21: FlyToPredefinedLocation
-        if (l.until != null && clockS > l.until && !l.stopped) { l.stopped = true; l.inst.stop(); }
+        // 2026-10-23: an end with a recycle (`finishAt`) is the client's FinishMe — its first system only (FxInstance.finish)
+        if (l.until != null && clockS > l.until && !l.stopped) { l.stopped = true; if (l.finishAt != null) l.inst.finish(); else l.inst.stop(); }
         if (l.shotEnd != null && clockS >= l.shotEnd) { l.shotEnd = null; finishShot(l.inst, l); } // 2026-10-11: a flown main effect arrives
         if (l.finishAt != null && clockS >= l.finishAt) { l.finishAt = null; l.inst.stop(true); } // 2026-10-11: statusOff's delay
         if (l.backOf && (l.backOf.inst.stopping || !live.includes(l.backOf)) && !l.inst.stopping) l.inst.stop(); // 2026-10-10: a back copy ends with its front

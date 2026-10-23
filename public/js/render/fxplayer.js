@@ -2147,6 +2147,19 @@ export class FxInstance {
   }
 
   /**
+   * 2026-10-23: the client's `Effect.FinishMe` on an effect the pool takes back later (a buff's: `Entity.RemoveBuffEffect`,
+   * a finished zone, a timed end): its behaviours finish (finishAnim), its root ParticleEffect / ProjectileEffect stops its
+   * first system with its children and switches off its `_inactiveOnFinish` nodes (finishMain) — the other systems keep
+   * emitting until the caller ends it `finish` s later (`delayToRecycle`). stop() stops every system instead.
+   */
+  finish() {
+    if (!this.stopping) this.finishAnim();
+    this.stopping = true;
+    if (this.kids) for (const c of this.kids) c.finish();
+    this.finishMain();
+  }
+
+  /**
    * 2026-10-11 (user report: projectiles that vanish late — 언더플로우, 애쉬락): a projectile's `_mainEffect` as its projectile
    * stops (`Projectile.OnProjectileStop` RVA 0x5FC1A0 → `ClearMainEffectIfNot` 0x5F9550 → `Effect.FinishMe` 0xC88FE0):
    * `ProjectileEffect.OnFinish` (0xCB42B0) stops the effect's first particle system with its children (`Awake` 0xCB3A00:

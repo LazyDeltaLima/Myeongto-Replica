@@ -109,3 +109,33 @@ test('FxInstance.finishMain (skipped without public/assets): 언더플로우\'s 
   assert.ok(bullet.every((s) => s.stopped), 'GetComponentInChildren<ParticleSystem>().Stop(true): the bullet and bullet (2)');
   assert.equal(inst.done, false, 'its 5 s particle still lives — finishShot ends it 0.1 s later');
 });
+
+// 2026-10-23: a buff's effect ends the same way (Entity.RemoveBuffEffect → Effect.FinishMe → ParticleEffect.OnFinish): the
+// first system only, the other branches emit until the recycle — FxInstance.finish for statusOff and the timed ends with a
+// recycle (`until` + `finishAt`), which used to stop every system
+test('statusOff and the ends with a recycle finish the client\'s way (FxInstance.finish), not stop() on every system', () => {
+  const off = SRC.slice(SRC.indexOf('statusOff(view, key, now = false) {'), SRC.indexOf('async playFree('));
+  assert.match(off, /if \(fin > 0\) \{ l\.inst\.finish\(\); l\.finishAt = clockS \+ fin; \} else l\.inst\.stop\(now\);/);
+  assert.match(SRC, /l\.stopped = true; if \(l\.finishAt != null\) l\.inst\.finish\(\); else l\.inst\.stop\(\);/);
+  assert.match(body(SRC, 'function endWolves('), /m\.inst\.finish\(\);/);
+  const fin = body(PLAYER, '  finish() {');
+  assert.match(fin, /this\.finishAnim\(\)/);
+  assert.match(fin, /this\.stopping = true/);
+  assert.match(fin, /this\.finishMain\(\)/);
+});
+
+const TEXAS2 = path.join(FX, 'texas2/texas2_skill_03_start.json');
+test('FxInstance.finish (skipped without public/assets): 텍사스 디 오메르토사 S3 start — the first system is the empty `fixed`, the others emit on', { skip: !existsSync(TEXAS2) && 'no extracted fx' }, async () => {
+  const fxp = await import('../../public/js/render/fxplayer.js');
+  const def = await loadDef(TEXAS2);
+  const inst = new fxp.FxInstance(def, { quality: 'high', delays: false });
+  inst.update(0.2);
+  inst.finish();
+  assert.equal(inst.stopping, true, 'finished: its behaviours finished, no OnPlay emitter starts any more');
+  const drawn = inst.systems.filter((s) => s.node.name !== 'fixed');
+  assert.ok(drawn.length > 0);
+  assert.ok(drawn.every((s) => !s.stopped), 'the branches beside the first system keep emitting until the recycle');
+  inst.stop(true);
+  inst.update(0.016);
+  assert.equal(inst.done, true, 'gone with the recycle');
+});

@@ -9,11 +9,11 @@ import { readFileSync, existsSync } from 'node:fs';
 
 const src = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 
-test('fxgame.js statusOff: `now` stops the emission and removes the effect its prefab `finish` later (0 / none: at once)', () => {
+test('fxgame.js statusOff: `now` finishes the effect (its first system, FxInstance.finish) and removes it its prefab `finish` later (0 / none: at once)', () => {
   const s = src('../../public/js/render/fxgame.js');
   const off = s.slice(s.indexOf('statusOff(view, key, now = false) {'), s.indexOf('ownsFx(e)'));
   assert.match(off, /const fin = now \? Number\(l\.inst\.def\?\.finish\) : 0;/, 'the delay is the prefab\'s, only for an ended status (`now`)');
-  assert.match(off, /if \(fin > 0\) \{ l\.inst\.stop\(false\); l\.finishAt = clockS \+ fin; \} else l\.inst\.stop\(now\);/);
+  assert.match(off, /if \(fin > 0\) \{ l\.inst\.finish\(\); l\.finishAt = clockS \+ fin; \} else l\.inst\.stop\(now\);/);
   // the frame loop removes it on the battle clock once the delay has passed
   assert.match(s, /if \(l\.finishAt != null && clockS >= l\.finishAt\) \{ l\.finishAt = null; l\.inst\.stop\(true\); \}/);
   // fxstatus.js still ends every drawn status with `now` (test/local-patch-status-boomerang.test.js)

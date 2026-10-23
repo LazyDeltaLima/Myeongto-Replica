@@ -1197,8 +1197,15 @@
   계속 뿜었다. 고친 것: `fx_extract.py main_ps` → 프리팹 `mainPs`(클라가 멈추는 노드, 플레이어의 기본 선택과 다를 때만), ParticleEffect의
   `_inactiveOnFinish`도 `offFinish`로; `FxInstance.finishMain`이 `mainPs`를 쓴다(ParticleEffect 루트 꼬리 — 그레인버즈 등 — 도 같은 길). 2026-10-21
   `--finish-only` 전체 재추출(운영자 EN·CN, 적): 2,583개 파일에 `mainPs`만 더해짐, ParticleEffect `_inactiveOnFinish`가 있는 추출 프리팹은 없음.
-  확인 `test/render/projectile-finish.test.js`(애쉬락: 그릇 `fixed` → 연기·불꽃 모두 방출 멈춤), 추출 JSON 골든 47개(`mainPs`만). 버프 이펙트의 끝
-  (`statusOff` — 모든 시스템 방출 멈춤)은 그대로 [추정: 클라는 같은 첫 시스템 규칙 — 차이는 `_delayToFinish` 동안 다른 가지가 뿜는 것뿐].
+  확인 `test/render/projectile-finish.test.js`(애쉬락: 그릇 `fixed` → 연기·불꽃 모두 방출 멈춤), 추출 JSON 골든 47개(`mainPs`만).
+- 버프 이펙트의 끝도 같은 길 (2026-10-23, 디컴파일 확인): 버프가 끝나면 `Entity.RemoveBuffEffect` → `Effect.FinishMe` → 루트의 `OnFinish`(위 첫 시스템
+  `Stop(true)` + `_inactiveOnFinish`) — 나머지 가지는 회수(`_delayToFinish`)까지 뿜는다. 그런데 `statusOff`와 회수 시각을 둔 끝(`until` + `finishAt`:
+  望 跟子 던짐·凛御银灰 독수리·장판 `zoneEnd`)·伺夜 늑대 무리(`endWolves`)는 모든 시스템을 멈췄다. 고친 것: `FxInstance.finish()`(행동의 끝
+  `finishAnim` + `stopping` + `finishMain`) — 그 자리들이 이것을 부르고 회수 때 `stop(true)`. 바뀌는 프리팹(첫 시스템이 다른 가지를 안 덮는 것, `finish` > 0):
+  추출 2,096개 중 12개 — 텍사스 디 오메르토사 S3 `texas2_skill_03_start`(첫 시스템이 빈 `fixed`), 언더플로우 꼬리 둘, 티티 꼬리, 판 눈바람 `map_snow_*` 8개.
+  스킬 끝의 `stopBuffs`(모든 시스템 방출 멈춤, 남은 입자는 수명대로)는 그대로 [추정: 클라는 버프가 끝날 때 같은 FinishMe·회수 — 바꾸면 스킬 버프 전체의
+  끝 모습이 바뀌어 따로 본다]. 확인 `test/render/projectile-finish.test.js` 「statusOff and the ends with a recycle」·「FxInstance.finish」(텍사스 디 오메르토사:
+  `fixed` 옆 가지는 계속 뿜음), `test/render/status-finish.test.js`. [화면 미확인]
 - 재추출: `fx_extract.py --game <EN> --finish-only`(index.json 번들, CN 번들 aglna2·kalts2·clemnt는 `--game <CN>`), 적 번들은 `--index enemy-index.json
   --bundle <b>`(`pfx_enemy_N`은 `--pack pkgrps/btl_pfb_fx_enemy_N.ab`). 2026-10-11 실행: 204개 파일, `finish`·`offFinish` 말고 바뀐 것 없음(JSON 비교).
   적 번들은 처음 돌려 ParticleEffect `finish`도 새로 들어갔다(상태 이펙트 끝 `statusOff`에만 쓰임).
