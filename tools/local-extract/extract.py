@@ -126,7 +126,9 @@ JOBS = [
      # TOKEN and TRAP share it, and it is the prefab's default `image_profession` sprite) — the class box of the device,
      # item and summon cards (ui/detailArt.js, maintainer decision 2026-10-14)
      r'|icon_profession_token_lighten)$'),
-    ('battle/[pack]common.ab', 'battle/common', {'Texture2D'}, r'^sprite_attack_range$'),
+    # the arrow sprite of the client's generic arrow projectile (projectile_arrow's Body SpriteRenderer draws the
+    # projectile_arrow_new sprite): 流星's normal attack (render/fx.js 'spriteArrow')
+    ('battle/[pack]common.ab', 'battle/common', {'Texture2D'}, r'^(sprite_attack_range|projectile_arrow_new)$'),
 ]
 
 # Enemy battle Spine models that no community dump carries (isHarryh/Ark-Models lists them with an empty assetList, so

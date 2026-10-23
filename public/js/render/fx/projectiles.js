@@ -26,6 +26,17 @@ const SHELL_RISE = 0.34, SHELL_UP = 5.5;
 const BOMBARD_SHELL = Object.freeze({ look: 'mortar', tint: 0xfff2d8, glow: 0xff9c33, trail: 0xffb35c, smoke: 0x3a3430, len: 1.3, width: 0.3, head: 0.56 });
 
 /**
+ * 2026-10-24 (maintainer report: 流星's normal attack flew a glowing light, not an arrow): the client's generic arrow
+ * projectile_arrow (data/chess.json `shot` key) plays no effect (`_mainEffect` empty); its Body's SpriteRenderer draws the
+ * sprite projectile_arrow_new (battle/[pack]common, 100 px per unit, point to the right) at scale 0.4 — a thin dark arrow
+ * without glow, trail or muzzle flash, turned to its flight on its parabola (ParacurveMovement). Drawn as that sprite from
+ * the local extract (data/local-assets.json battle/common); without it the tracer stays.
+ */
+const ARROW_KEY = 'projectile_arrow';
+const ARROW_SPEC = Object.freeze({ ...PROJ.arrow, look: 'sprite', muzzle: 0 });
+const ARROW_TILES_PER_PX = 0.4 / 100;
+
+/**
  * 2026-10-16: the speed of operator view `src`'s shot at `tgt` the sim flies (render/fx/speeds.js opProjSpeed: its
  * data/chess.json `shot` of the mode it attacks in, render/fxgame.js keeping `_fxSkillOn`), 0 = no flight, null = not read.
  */
@@ -46,6 +57,14 @@ export function shotArcOf(ctx, src) {
   const p = opShot(def, !!src._fxSkillOn, Number.isInteger(src.info?.skillIndex) ? src.info.skillIndex : 0);
   const h = p && p.move === 'PARACURVE' ? Number(p.height) : NaN;
   return h > 0 ? h : null;
+}
+
+/** 2026-10-24: the key of the projectile an operator's shot flies now (opShot `key`), or null. */
+export function shotKeyOf(ctx, src) {
+  let def;
+  try { def = ctx?.lookupDef?.(src.info) ?? null; } catch { def = null; }
+  const p = opShot(def, !!src._fxSkillOn, Number.isInteger(src.info?.skillIndex) ? src.info.skillIndex : 0);
+  return p && typeof p.key === 'string' ? p.key : null;
 }
 
 export class FxProjectiles {
@@ -89,7 +108,7 @@ export class FxProjectiles {
       if (tgt && tgt !== src && (src.isEnemy || shotSpeedOf(this.ctx, src, tgt, Math.hypot(tgt.x - src.x, tgt.y - src.y)) !== 0)) this._beam(src, tgt, src.isEnemy ? 0xff7a5a : 0xffe6a8, 0.18, 0.15);
       return;
     }
-    const spec = PROJ[kind];
+    let spec = PROJ[kind];
     if (!spec || !tgt) {
       if (kind === 'none' || !kind) this._slashAt = src.id;
       return;
@@ -104,6 +123,7 @@ export class FxProjectiles {
       const v = shotSpeedOf(this.ctx, src, tgt, dist);
       if (v === 0) return;
       if (v) speed = v;
+      if (shotKeyOf(this.ctx, src) === ARROW_KEY && this._arrowTex()) spec = ARROW_SPEC;
     }
     const pr = this._takeProj();
     const cam = this.ctx.cam();
@@ -115,7 +135,7 @@ export class FxProjectiles {
     pr.tx = tgt.x; pr.ty = tgt.y; pr.tz = look === 'shell' ? feetZ(tgt) : bodyZ(cam, tgt, SHOT_HEIGHT.aim);
     pr.t = 0; pr.fade = 0; pr.hit = false; pr.emit = Math.random(); pr.ang = Math.atan2(-uy, ux);   // ≈ on screen (rows run up)
     pr.dur = clamp(dist / speed / this._ts(), 0.04, 1.5);
-    pr.arc = spec.arc ? spec.arc * clamp(0.45 + dist * 0.18, 0.6, 1.8) : 0;
+    pr.arc = look === 'sprite' ? shotArcOf(this.ctx, src) ?? 0 : spec.arc ? spec.arc * clamp(0.45 + dist * 0.18, 0.6, 1.8) : 0;
     pr.glow = spec.glow;
     pr.trailTint = spec.trail ?? spec.glow;
     // boomerang legs: kinematic, from (bx, by, bz) at constant speed towards the target, then back to the thrower
@@ -149,32 +169,51 @@ export class FxProjectiles {
       shadow.tint = 0x000000;
       shadow.visible = false;
       this.shadowLayer.addChild(shadow);
-      pr = { trail, halo, core, shadow };
+      const body = new P.Sprite(P.Texture.EMPTY);   // a sprite projectile (ARROW_SPEC), normal blend
+      body.anchor.set(0.5);
+      body.visible = false;
+      this.projLayer.addChild(body);
+      pr = { trail, halo, core, shadow, body };
     }
     return pr;
+  }
+
+  /** The official arrow sprite (ARROW_SPEC) once loaded, else null (a manifest not read yet is asked again later). */
+  _arrowTex() {
+    if (!this._arrowT) {
+      let url = null;
+      try { url = this.ctx.assets?.localUrl?.('battle/common', 'projectile_arrow_new') ?? null; } catch { url = null; }
+      if (!url) return null;
+      try { this._arrowT = this.P.Texture.from(url); } catch { return null; }
+    }
+    const t = this._arrowT;
+    return t && t.baseTexture && t.baseTexture.valid ? t : null;
   }
 
   /** Textures / tints of a projectile's sprites for its look (shown from its first update). */
   _dressProj(pr) {
     const spec = pr.spec, look = spec.look;
     const thin = look === 'tracer' || look === 'dart';
-    const { trail, halo, core, shadow } = pr;
+    const { trail, halo, core, shadow, body } = pr;
+    const sprite = look === 'sprite';
     trail.texture = this.tex[thin ? 'tracer' : 'streak'];
     trail.tint = thin ? spec.tint : pr.trailTint;
-    trail.visible = look !== 'boomerang';
+    trail.visible = look !== 'boomerang' && !sprite;
     halo.texture = this.tex.glow;
     halo.tint = pr.glow;
-    halo.visible = true;
+    halo.visible = !sprite;
     core.texture = this.tex[look === 'boomerang' ? 'boomerang' : thin ? 'dot' : 'orb'];
     core.tint = spec.tint;
     core.rotation = 0;
-    core.visible = true;
+    core.visible = !sprite;
     shadow.visible = look === 'shell' || look === 'boomerang';
-    trail.alpha = halo.alpha = core.alpha = shadow.alpha = 0;
+    body.visible = sprite;
+    if (sprite) body.texture = this._arrowTex() || this.P.Texture.EMPTY;
+    trail.alpha = halo.alpha = core.alpha = shadow.alpha = body.alpha = 0;
   }
 
   _releaseProj(pr) {
-    pr.trail.visible = pr.halo.visible = pr.core.visible = pr.shadow.visible = false;
+    pr.trail.visible = pr.halo.visible = pr.core.visible = pr.shadow.visible = pr.body.visible = false;
     if (pr.held) { boomerangCaught(pr.held); pr.held = null; } // local patch: back in her hand
     pr.src = pr.tgt = null;
     this.projFree.push(pr);
@@ -241,6 +280,14 @@ export class FxProjectiles {
     else if (look === 'shell') { core.rotation = pr.ang; core.scale.set((hs * 0.85) / 64, (hs * 0.55) / 64); }   // a shell along its flight
     else core.scale.set((hs * 0.62) / 64);
     core.alpha = 1 - fk;
+    if (look === 'sprite') {
+      // the arrow is gone as it reaches (no linger in the target)
+      const b = pr.body;
+      b.position.set(px, py);
+      b.rotation = pr.ang;
+      b.scale.set(s * ARROW_TILES_PER_PX);
+      b.alpha = pr.hit ? 0 : 1;
+    }
     if (look === 'shell') {
       // its shadow on the ground under it: bigger and darker the lower it flies
       const gx = pr.x0 + (pr.tx - pr.x0) * k, gy = pr.y0 + (pr.ty - pr.y0) * k;
@@ -252,7 +299,7 @@ export class FxProjectiles {
       sh.scale.set((r * 2) / 128, (r * 0.9) / 128);
       sh.alpha = (0.32 + 0.3 * near) * (1 - fk);
     }
-    if (rich && !pr.hit && !thin) {
+    if (rich && !pr.hit && !thin && look !== 'sprite') {
       pr.emit += dt * TRAIL_HZ;
       for (let n = 0; pr.emit >= 1 && n < 2; n++) {
         pr.emit -= 1;

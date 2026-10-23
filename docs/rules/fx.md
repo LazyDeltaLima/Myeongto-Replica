@@ -2441,6 +2441,19 @@
   풀의 PARACURVE 오퍼레이터: 灰毫 1, 锡人 0.3(S1·S2 0.5), 波登可 S1 0.3, 流星 S2 0.3, 跃跃(부메랑은 그대로), 古米 S2·哈洛德·流明·赫默 등.
   확인: 렌더 테스트 전부. [화면 미확인: 아레나에서 애쉬락 포탄 호, 대체 `lob` 호(1.4 × 거리 비율)에서 공식 높이로 낮아진 다른 오퍼레이터]
 
+### 그림으로 나는 공용 화살 — 流星 일반 공격 (2026-10-24, 관리자 제보 「메테오 평타가 화살이 아니라 알 수 없는 광원」, 공식 클라에서 확인)
+
+- 원인: 流星의 Default 공격 투사체는 공용 화살 `projectile_arrow`(data/chess.json `shot.base.key`, PARACURVE 높이 0.3·속도 6)인데, 이 투사체는
+  이펙트를 하나도 틀지 않는다(`_mainEffect` 빈 값) — 그래서 modes.json `trail`이 비고, 렌더는 저격 종류의 절차형 대체(`style.js PROJ.arrow`: 노란 빛
+  머리·빛줄기)를 그렸다. 연결 오류가 아니라 그림이 없었던 것.
+- 공식: 그 투사체의 `Body` 자식의 SpriteRenderer가 스프라이트 `projectile_arrow_new`(battle/[pack]common, 100 px = 1칸, 촉이 오른쪽)를 크기 0.4로
+  그린다 — 빛·꼬리·총구 섬광 없는 가는 검은 화살. 명중은 `_effectsWhenHit` `common_hit_01`(이미 연결됨).
+- 고친 것: 로컬 추출(`tools/local-extract/extract.py` battle/common 묶음에 `projectile_arrow_new`)이 있으면 `fx/projectiles.js attack`이 shot 키가
+  `projectile_arrow`인 오퍼레이터 공격을 그 스프라이트로 그림(`ARROW_SPEC`): 텍스처 1 px당 0.004칸, 포물선은 `shotArcOf`, 비행 방향으로 돌림, 닿으면
+  사라짐. 그림이 없으면(로컬 추출 없는 사람, 첫 로딩 전) 예전 대체 화살. 선발 풀에서 이펙트 없이 그림 몸체로만 나는 투사체는 이것 하나.
+  [추정: 몸체의 Z 90° 회전과 `_rotateToTarget`이 화면에서 촉을 비행 방향으로 둔다고 봄]
+- 확인: 테스트 `test/render/fx-arrow-sprite.test.js`. 아레나(샌드백 3칸, 속도 0.2배, 4배 캡처)에서 가는 검은 화살이 낮은 호로 날아가 명중과 함께 사라짐.
+
 ### 적 포탄 — 帝国炮火先兆者 (2026-10-22, 관리자 요청 「공식 포탄으로 수정」)
 
 - 시뮬: 제국 아틸러리 타게티어·코어 타게티어(`enemy_1112_emppnt`/`_2`, `content/enemies/fly.js kitShell`)는 쏠 때 대상 자리에 fx 'bombardShell'

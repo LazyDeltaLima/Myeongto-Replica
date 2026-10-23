@@ -151,7 +151,7 @@ describe('particles', () => {
     assert.ok(peakProj >= 3 && peakAdd > 20, `busy enough (${peakProj} shots, ${peakAdd} particles at once)`);
     assert.equal(fx.addPc.children.length, peakAdd, 'additive particle sprites = the peak alive at once');
     assert.equal(fx.normPc.children.length, peakNorm, 'normal-blend particle sprites = the peak alive at once');
-    assert.equal(fx.projLayer.children.length, 3 * peakProj, 'three sprites per projectile record');
+    assert.equal(fx.projLayer.children.length, 4 * peakProj, 'four sprites per projectile record (trail, halo, core, sprite body)');
     assert.equal(fx.shadowLayer.children.length, peakProj);
     assert.ok(fx.parts.length <= fx.maxParticles);
   });
