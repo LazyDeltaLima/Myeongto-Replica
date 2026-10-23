@@ -168,6 +168,15 @@ export const KEY_FX = Object.freeze({
     return lv >= 1 && lv <= 3 ? ['pepe', `pepe_buff_level_0${lv}`, OWN] : null;
   }),
   // the held dodge: 赤刃明霄陈 T2 chen3_t2[evade] chen3_Shield_buff_01, 蒂比 T tippi_t[evade] tippi_buff_01 (each ended by its Evade)
+  // 2026-10-24 (묶음 S2): 塑心 S3 自由的探戈 — the operators of her range with the highest max HP / ATK / DEF (the sim's
+  // 'cello:tango:*', 0.75 s and renewed): cello_s_3[max_hp] / [atk] / [def] make [effect_hp] / [effect_atk] / [effect_def] on
+  // them (cello_skill_03_buff_04 / _03 / _05), held while that buff is (cello_s[effect_holder])
+  'cello:tango:hp': keyed('cello_s_3[effect_hp]', 'cello', OWN),
+  'cello:tango:atk': keyed('cello_s_3[effect_atk]', 'cello', OWN),
+  'cello:tango:def': keyed('cello_s_3[effect_def]', 'cello', OWN),
+  // 2026-10-24 (묶음 S2): 百炼嘉维尔 S3's end — gvial2_s_3's ON_BUFF_FINISH creates gvial2_s_3[final_bleed] (LIMITED final_duration,
+  // gvial2_skill_3_bleed) on her: the kit's self bleed after the skill
+  'gvial:bleed': keyed('gvial2_s_3[final_bleed]', 'gvial2', OWN),
   'chen3:evade': keyedAll('chen3_t2[evade]', 'chen3', OWN),
   'tippi:evade': keyedAll('tippi_t[evade]', 'tippi', OWN),
   // 战场#06's 沙尘暴 on an unsheltered operator (EN template sand_storm[ally], ON_BUFF_TRIGGER): storm[attr_to_ally] — its

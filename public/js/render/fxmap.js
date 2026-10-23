@@ -353,7 +353,29 @@ export const TALENT_ALWAYS = Object.freeze({
   char_245_cello: talentKey('cello_t_1'),           // Others/Direction/Talents/1 (无词哀歌)
   char_181_flower: talentKey('flower_t_1[eff]'),   // Talents/1 `_passiveBuffs` (熏衣草)
   char_1019_siege2: talentKey('char_1019_siege2/Others/Direction/Talents/1'),   // AuraAbility `_effects` (诸王的叹息)
+  char_4051_akkord: talentKey('akkord_t_1'),   // Others/Direction/Talents/1: akkord_t_1[atk] (ATK, INFINITY) on her (2026-10-24, 묶음 S2)
 });
+
+/**
+ * 2026-10-24 (묶음 S2): buffs a client template puts on the operator itself for the run of a skill — created as it starts,
+ * finished with it — that no skill binding names. charId → skill index 0–2 (or '*': every skill) → client key; the key's
+ * `held` prefabs (plays.json) join the activation's loops (skillHeld, fxgame.js activation).
+ */
+export const SKILL_HELD = Object.freeze({
+  // 圣约送葬人 Talents/1 excu2_passive[effect]: ON_SKILL_START creates [effect][skill] (excu2_cherub_buff_01), ON_SKILL_FINISH ends it
+  char_1032_excu2: Object.freeze({ '*': talentKey('excu2_passive[effect]') }),
+  // 凯尔希·思衡托 S3 kalts2_s_3_fx[ctrl]: kalts2_s3_fx_2's weapon glow beside its buff_01 / buff_02 (the `_buff` name rule plays those)
+  char_1052_kalts2: Object.freeze({ 2: talentKey('kalts2_s3_fx_2') }),
+  // 赤刃明霄陈 S2 chen3_s2[respawn_buff] (ON_OWNER_LOCATE): [respawn_effect_2] F_buff_02 beside [respawn_effect]'s buff_01 (the skill's buff)
+  char_1050_chen3: Object.freeze({ 1: talentKey('chen3_s2[respawn_effect_2]') }),
+});
+
+/** The SKILL_HELD prefabs of `charId`'s skill `skillIndex` that are extracted (`prefabs`), from `plays`. */
+export function skillHeld(charId, skillIndex, prefabs, plays) {
+  const by = charId ? SKILL_HELD[charId] : null;
+  const k = by ? by[skillIndex] ?? by['*'] : null;
+  return ((k && plays?.keys?.[k.tpl]?.held) || []).filter((n) => !prefabs || prefabs.includes(n));
+}
 
 /**
  * 2026-10-16, official client `Unit.AttachCommonAbilities`: the always-on effects of an operator — the buffs its

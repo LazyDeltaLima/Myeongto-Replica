@@ -323,6 +323,32 @@ test('the kits send what the rules read', () => {
   assert.match(src('chess_char_5_02-titi.js'), /battle\.fx\('sleepGuard', \{ x: a\.x, y: a\.y, id: a\.id, src: unit\.id \}\)/);
   assert.match(src('chess_char_4_01-rmixer.js'), /battle\.fx\('reload', \{ x: cand\[0\]\.x, y: cand\[0\]\.y, id: cand\[0\]\.id, n, src: unit\.id \}\)/);
   assert.match(src('chess_char_4_19-flamtl.js'), /battle\.fx\('riposte', \{ x: unit\.x, y: unit\.y, id: unit\.id, /);
+  assert.match(src('chess_char_2_06-papyrs.js'), /battle\.fx\('buff', \{ x: lock\.x, y: lock\.y, id: lock\.id, kind: 'lock', src: unit\.id \}\)/);
+  assert.match(src('chess_char_6_14-lumen.js'), /battle\.fx\('emergency', \{ x: t\.x, y: t\.y, id: t\.id, src: unit\.id \}\)/);
+  assert.match(src('chess_char_6_01-lemuen.js'), /battle\.fx\('lock', \{ x: A\.e\.x, y: A\.e\.y, id: A\.e\.id, src: unit\.id \}\)/);
+  assert.match(src('chess_char_6_01-lemuen.js'), /battle\.fx\('lemuenAim', \{ x: unit\.x, y: unit\.y, id: unit\.id, signal: 'aim', on: 0 \}\)/);
+});
+
+test('蕾缪安 S2 (2026-10-24, 묶음 S2): the aim\'s crosshair on its target and the line from her until the aim ends; S3 locks are fxgame.js\'s', () => {
+  const a = kitOfficialPlan('lock', { id: 7, src: 3 }, 'lemuen', { skill: 1 });
+  assert.deepEqual(a.stop, ['lemuenAim']);
+  assert.deepEqual(a.play, [
+    { n: 'lemuen_skill_02_crosshair_02', on: 'id', life: 'tag', tag: 'lemuenAim' },
+    { n: 'lemuen_skill_02_trail_01', line: ['src', 'id'], tag: 'lemuenAim' },
+  ]);
+  assert.equal(kitOperator({ id: 7, src: 3 }, 'lock'), 3);
+  assert.equal(kitOfficialPlan('lock', { id: 7, src: 3 }, 'lemuen', { skill: 2 }), null);
+  assert.equal(kitOfficialPlan('lemuenAim', { id: 3, on: 1 }, 'lemuen'), null);
+  assert.deepEqual(kitOfficialPlan('lemuenAim', { id: 3, on: 0 }, 'lemuen').stop, ['lemuenAim']);
+  // 莎草 S2: the locked ally's mark for the skill; 流明 T2: the emergency heal's flash on her, the mark kept
+  assert.deepEqual(kitOfficialPlan('buff', { id: 7, src: 3, kind: 'lock' }, 'papyrs', { plays: PLAYS }).play, [{ on: 'id', life: 'skill', n: 'papyrs_skill2_mark_01' }]);
+  assert.equal(kitOperator({ id: 7, src: 3, kind: 'lock' }, 'buff'), 3);
+  const em = kitOfficialPlan('emergency', { id: 7, src: 3 }, 'lumen');
+  assert.equal(em.pass, true);
+  assert.deepEqual(em.play, [{ n: 'lumen_buff_01_hit', on: 'op', life: 'once' }]);
+  // a plan's `stop` also ends its tagged lines (fxgame.js officialKitFx → startLine meta)
+  assert.match(GAME, /for \(const l of elines\.values\(\)\) if \(l\.tag === tag && l\.owner === opId\) l\.until = Math\.min\(l\.until, clockS\);/);
+  assert.match(GAME, /p\.tag \? \{ tag: p\.tag, owner: opId \} : null\); n\+\+; \}/);
 });
 
 test('焰尾 T1 and 信仰搅拌机 S1 (2026-10-24, 묶음 S1): a dodge flashes and holds the evade buff until the riposte, a reload tips its ally', () => {

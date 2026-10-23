@@ -1799,6 +1799,21 @@
     `'reload'`에 표시 필드 `src`(그 本人)를 더함(시뮬 골든 그대로; 프리팹은 그의 번들).
   - 확인: 단위 `kit-event-fx`(「焰尾 T1 and 信仰搅拌机 S1」·「the kits send what the rules read」), `fx-bindings` `UNPLAYED`에서 여섯 줄 지움. 이펙트 이벤트
     골든 — 焰尾가 나오는 11 시나리오에 두 줄씩 더함(信仰搅拌机 S1 보충은 코퍼스에 없음). [화면 미확인: 焰尾 회피 섬광·버프 자리, 信仰搅拌机 보충 표시]
+- 연결 전수 나머지 둘째 묶음(2026-10-24, 지속 버프 — 템플릿이 만드는 버프의 이펙트를 시뮬이 이미 아는 버프·순간에):
+  - 스킬 동안 자기 몸(`fxmap.js SKILL_HELD`, 클라 키 → `plays.json held`, `fxgame.js` activation의 loops에 더함): 圣约送葬人 Talents/1
+    `excu2_passive[effect]`(ON_SKILL_START → `excu2_cherub_buff_01`, ON_SKILL_FINISH가 끝냄 — 모든 스킬), 凯尔希·思衡托 S3 `kalts2_s3_fx_2`
+    `_buff_weapon_01`(`kalts2_s_3_fx[ctrl]`이 `_buff_01`·`_02`와 함께 만듦), 赤刃明霄陈 S2 `chen3_s2[respawn_effect_2]` `_F_buff_02`(`[respawn_effect]`의
+    `_buff_01` 옆). 协律 T1 `akkord_t_1[atk]` `akkord_buff_01`은 상시 재능(`TALENT_ALWAYS`).
+  - 상태 스펙(`KEY_FX`): 塑心 S3 — 시뮬 `cello:tango:hp/atk/def`(범위 안 최대 체력·공격·방어 동료) → `cello_s_3[effect_hp/atk/def]`
+    `cello_skill_03_buff_04/_03/_05`가 그 동료에게. `_buff_03`은 `_buff` 이름 규칙이 그녀에게 틀던 것 → `KIT_OWNED`. 百炼嘉维尔 S3 끝 — 시뮬
+    `gvial:bleed` → `gvial2_s_3[final_bleed]` `gvial2_skill_3_bleed`. `build-fx-plays.mjs`: 자기 키로 인용한 버프는 만든 쪽 순간(여기선 ON_BUFF_FINISH)과
+    상관없이 `held`.
+  - 키트 이벤트 계획: 莎草 S2 잠근 동료(`'buff'` kind 'lock', 시뮬에 표시 필드 `src`) → `papyrs_s_2[target]` `papyrs_skill2_mark_01` 스킬 동안. 蕾缪安
+    S2 조준(`'lock'`, S2일 때만 — S3 표식은 그대로) → 대상에 `lemuen_skill_02_crosshair_02`, 그녀 → 대상 선 `lemuen_skill_02_trail_01`(`_holdByOwner`), 둘 다
+    조준 끝(`'lemuenAim'` on 0)까지 — 계획의 선도 `tag`로 끝남(`officialKitFx` `stop`). 流明 T2 应急处理(`'emergency'`) → 그녀에게 `lumen_buff_01_hit` 한 번
+    (표시는 그대로, `pass`); 준비 빛 `[enable]`은 재사용 대기 타이머가 없어 안 그림.
+  - 확인: 단위 `common-ability-fx`·`kit-event-fx`·`status-buff-fx`, `fx-bindings` `UNPLAYED`에서 10줄 지움(`KNOWN`에 蕾缪安 선 수명 하나). 이펙트 이벤트
+    골든 +24 −11(위 오퍼레이터들의 줄만), 시뮬 골든 그대로. [화면 미확인: 위 전부 — 자리·모양 공식 녹화 대조]
 
 ### 연쇄 공격 — 체인 캐스터·체인 메딕의 튕김 선과 타격 (2026-10-16, 관리자 요청 「일반 공격 연쇄를 공식 클라 데이터와 대조」)
 

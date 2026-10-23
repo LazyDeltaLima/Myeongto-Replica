@@ -9,6 +9,7 @@ import * as F from '../../public/js/render/fxstatus.js';
 import { statusIconKey } from '../../public/js/render/style.js';
 import { UF } from '../../shared/constants.js';
 import { PLAYS } from '../helpers/fxPlays.js';
+import { keyPlays } from '../helpers/fxBindings.js';
 
 const DUMMY = enemyRec({ key: 'enemy_dummy', hp: 1e9, speed: 0, atk: 0 });
 const MEDIC = 'chess_char_2_02_a';   // 赫默
@@ -49,6 +50,14 @@ describe('client: status → the official buff effect', () => {
     assert.deepEqual(F.statusSource(views, ['status', 1, 'bind', 1, 9, { fx: 's1' }]), { src: null, fx: 's1', n: 0 });
     assert.deepEqual(F.statusSource(views, ['status', 1, 'x', 1, null, { n: 4 }]), { src: null, fx: null, n: 4 });
     assert.equal(F.statusSource(views, ['status', 1, 'stun', 1]), null);
+  });
+
+  test('塑心 S3\'s lifted allies and 百炼嘉维尔\'s bleed after S3 by client key (2026-10-24, 묶음 S2)', () => {
+    const tpl = (v) => [...F.wantedStatusFx(v, undefined, null, keyPlays()).values()].map((s) => s[1]).sort();   // template rows
+    for (const [k, n] of [['hp', 'cello_skill_03_buff_04'], ['atk', 'cello_skill_03_buff_03'], ['def', 'cello_skill_03_buff_05']]) {
+      assert.deepEqual(tpl(unit('char_1028_texas2', { statuses: new Set([`cello:tango:${k}`]) })), [n]);
+    }
+    assert.deepEqual(tpl(unit('char_1026_gvial2', { statuses: new Set(['gvial:bleed']) })), ['gvial2_skill_3_bleed']);
   });
 
   test('束缚: the applier\'s buff effect; an applier without one (or none) draws nothing — no common badge', () => {

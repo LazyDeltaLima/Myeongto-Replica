@@ -24,7 +24,8 @@ import { whenPlays } from './conds.js';
  * 2026-10-21: a `cast` play is the operator's own cast effect, played as its attacks' casts are (fxgame.js play: its
  * mode's `turn` — `_useFourDirectionalFace` — applies), for its prefab's duration.
  * or a line `line: [from, to]` (the event's fields naming two units; `to` may name a list) while both stand, or for the
- * line prefab's own duration with `life: 'once'`; or a flight `fly` (tiles / s) from the operator to the event's point —
+ * line prefab's own duration with `life: 'once'` (2026-10-24: a line with `tag` also ends when a later plan's `stop` names
+ * it); or a flight `fly` (tiles / s) from the operator to the event's point —
  * a play with `after: 'fly'` starts when it lands. A 'point' play may name its own ground point `at: [x, y]`.
  * 2026-10-21: a flight with `to` (the event's field naming units) is a projectile at each unit from the operator's muzzle,
  * `gap` s apart, followed, playing `hit` [names] on it as it lands; one with `from: 'point'` flies from the event's point
@@ -107,6 +108,24 @@ export const KIT_OFFICIAL = {
   // 信仰搅拌机 S1 铳骑主考官 (2026-10-24, 묶음 S1): the bullets reloaded into a 拉特兰 operator (its `src` him) — the buff
   // rmixer_sk1[ammo-recover] ON_BUFF_START: CreateEffect rmixer_skill_01_tip_01 on it
   reload: { rmixer: cite('rmixer_sk1[ammo-recover]', () => ({ play: [{ tpl: 'rmixer_sk1[ammo-recover]', on: 'id' }] })) },
+  // 蕾缪安 S2 归乡邀约 (2026-10-24, 묶음 S2): the aim (her 'lock' while S2 runs: `src` her, `id` the target) — the buff
+  // lemuen_s2_aim_attack on the target creates [effect]: its crosshair_02 there and CreateLineEffect lemuen_skill_02_trail_01 from
+  // her (the prefab `_holdByOwner`), both until the aim ends — the snipe or a lost target ('lemuenAim' on 0). Hand names: the key's
+  // line row is no `tpl` play. Her S3 locks are fxgame.js's ('lock' with S3).
+  lock: {
+    lemuen: cite('lemuen_s2_aim_attack[effect]', (o, c) => (c.skill === 1 ? { stop: ['lemuenAim'], play: [
+      { n: 'lemuen_skill_02_crosshair_02', on: 'id', life: 'tag', tag: 'lemuenAim' },
+      { n: 'lemuen_skill_02_trail_01', line: ['src', 'id'], tag: 'lemuenAim' },
+    ] } : null)),
+  },
+  // 莎草 S2 临考发挥 (2026-10-24, 묶음 S2): the ally she locks as it starts ('buff' kind 'lock': `src` her, `id` the ally) —
+  // papyrs_s_2[switch_mode]'s CreateBuffUseAbilitySelector puts papyrs_s_2[target] (papyrs_skill2_mark_01, ended with the skill) on it
+  buff: { papyrs: cite('papyrs_s_2[target]', () => ({ play: [{ tpl: 'papyrs_s_2[target]', on: 'id', life: 'skill' }] })) },
+  // 流明 T2 应急处理 (2026-10-24, 묶음 S2): the emergency heal ('emergency': `src` her, `id` the ally) — her lumen_t_2[listener]
+  // ON_OTHER_RESISTABLE_BUFF_START creates lumen_buff_01_hit on her (its HP-ratio and cooldown conditions are the sim's). The
+  // mark stays (`pass`). Her ready glow ([enable] after [cooldown]) is not drawn.
+  emergency: { lumen: cite('lumen_t_2[listener]', () => ({ pass: true, play: [once('lumen_buff_01_hit')] })) },
+  lemuenAim: { lemuen: cite('lemuen_s2_aim_attack[effect]', (o) => (Number(o.on) ? null : { stop: ['lemuenAim'], play: [] })) },
   // 伊内丝 T2 影哨: projectile_chr_ines_guard `_effectsWhenReached` label_start_01 + label_01 + range_01 where it lands;
   // they last while the sentry stands (a new one replaces it, S3's recall — her 'beam' — ends it)
   sentry: {

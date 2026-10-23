@@ -14,7 +14,7 @@ import { buildPlays, PLAYS_FILE } from '../../tools/build-fx-plays.mjs';
 import { KIT_OFFICIAL } from '../../public/js/render/fx/kitofficial.js';
 import { KEY_FX, SOURCE_FX, LAYER_FX, STACK_FX, END_FX, STATUS_FX } from '../../public/js/render/fxstatus.js';
 import { PLAYS as FIXED } from '../helpers/fxPlays.js';
-import { TALENT_ALWAYS, NOTE_FX } from '../../public/js/render/fxmap.js';
+import { TALENT_ALWAYS, SKILL_HELD, NOTE_FX } from '../../public/js/render/fxmap.js';
 
 const T = loadTables();
 const LOCAL = !!T.local;
@@ -74,6 +74,7 @@ const FXGAME = {
 const KNOWN = {
   'KIT_OFFICIAL candle.etlchi|etlchi_skill_03_ghosting_01': ['missing', 'held by the summoned 心烛 (enemy_5601_entlec) prefab: an enemy outside the pool extract'],
   'KIT_OFFICIAL candle.etlchi|etlchi_skill_03_line_01': ['life', 'entlec_a[line_effect_core] CreateLineEffect at ON_BUFF_START creates it once; the prefab is `_holdByOwner` (extract face.hold), so it stays while both stand, as drawn'],
+  'KIT_OFFICIAL lock.lemuen|lemuen_skill_02_trail_01': ['life', 'lemuen_s2_aim_attack[effect] CreateLineEffect at ON_BUFF_START creates it once; the prefab is `_holdByOwner` (extract face.hold), so it stays while the aim buff does — until the aim ends (\'lemuenAim\' on 0)'],
   'KIT_OFFICIAL airstrike.angel2|angel2_skill_3_begin_start_001': ['life', 'S3FireToToken `_castEffects` hold for the cast; an empty prefab, played once'],
   'KIT_OFFICIAL talent.bpipe|bpipe_attack_02_hit': ['missing', 'bpipe_t_1 SplashDamage `_createEffect` reads the talent blackboard `effect`: no effect node in the tables'],
   'KEY_FX svash2:barrier|*': ['untabled', 'no svash2_s_1[build] in either template dataset or the client rows: the 屏障 card\'s buff key is unconfirmed'],
@@ -111,36 +112,26 @@ const KNOWN = {
 /** The template rows whose prefab nothing in render/ plays: 'key|prefab' → reason (test/helpers/fxBindings.js unplayed). */
 const UNPLAYED = {
   'aglna2_s_2[enemy][levitate]|aglna2_levitate_01_emit': 'condOther',
-  'akkord_t_1[atk]|akkord_buff_01': 'unconditional',
   'angel_t_2[atk]|angel2_buff_02': 'condOther',
   'ascln_s_2[enemy]|ascln_skill_02_death_01': 'condOther',
   'blkkgt_s_2[blocked]|blkkgt_skill_02_hit_2': 'condOther',
   'blkkgt_s_2[not_blocked]|blkkgt_skill_02_hit_2': 'condOther',
   'branch_t_1|branch_talent_01': 'unconditional',
   'bubble_t_1[atk_down]|bubble_talent_buff': 'unconditional',
-  'cello_s_3[effect_hp]|cello_skill_03_buff_04': 'unconditional',
-  'cello_s_3[effect_def]|cello_skill_03_buff_05': 'unconditional',
-  'chen3_s2[respawn_effect_2]|chen3_skill_02_F_buff_02': 'unconditional',
   'clemnt_t1[dice_damage]|clemnt_talent_hit_01': 'condOther',
-  'excu2_passive[effect][skill]|excu2_cherub_buff_01': 'unconditional',
   'excu2_s_3[mark]|excu2_skill_03_aim_01': 'unconditional',
   'excu2_s_3[effect][b]|excu2_skill_03_buff_01_back': 'directional',
   'ghost2_s_3[attack]|ghost2_skill_03_hit_02': 'condOther',
-  'gvial2_s_3[final_bleed]|gvial2_skill_3_bleed': 'unconditional',
   'haini_s_2[full_effect2]|haini_skill_02_weapon_01': 'condOther',
   'humus_t_1[effect_holder]|humus_buff_03': 'condOther',
   'humus_trait[heal][effect]|humus_recover_01': 'unconditional',
   'indigo_s_2[damage]|indigo_skill_02_buff_03': 'unconditional',
   'ines_t_2[effect2]|ines_range_02': 'cond',
   'kalts2_s3_fx_1|kalts2_skill_03_buff_02_left_01': 'directional',
-  'kalts2_s3_fx_2|kalts2_skill_03_buff_weapon_01': 'unconditional',
-  'lemuen_s2_aim_attack[effect]|lemuen_skill_02_crosshair_02': 'unconditional',
-  'lumen_t_2[listener]|lumen_buff_01_hit': 'cond',
   'lumen_t_2[enable]|lumen_buff_01_start': 'unconditional',
   'malist_t_1|malist_hit_extra': 'condOther',
   'mizuki_t_2[atk]|mizuki_buff_01': 'condOther',
   'nearl2_s_3[combo_effect]|nearl2_buff_01_start': 'condOther',
-  'papyrs_s_2[target]|papyrs_skill2_mark_01': 'unconditional',
   'pasngr_t_2[atk_up]|pasngr_beidong_buff_02': 'condOther',
   'pepe_e_003_t[aoe]|pepe_skill_01_hit_01_optimize': 'unconditional',
   'pepe_e_003_t[aoe][finish]|pepe_skill_01_hit_01_optimize': 'unconditional',
@@ -201,6 +192,7 @@ test('every hand-table entry cites the client key it stands for', () => {
   for (const [name, t] of Object.entries({ KEY_FX, LAYER_FX, STACK_FX, END_FX, TALENT_ALWAYS, NOTE_FX })) {
     for (const [k, v] of Object.entries(t)) if (!v.src) none.push(`${name} ${k}`);
   }
+  for (const [k, by] of Object.entries(SKILL_HELD)) for (const [i, v] of Object.entries(by)) if (!v.src) none.push(`SKILL_HELD ${k}.${i}`);
   for (const [k, per] of Object.entries(SOURCE_FX)) {
     for (const [b, v] of Object.entries(per)) if (!v.src && !Object.values(v).every((x) => x.src)) none.push(`SOURCE_FX ${k}.${b}`);
   }
@@ -255,6 +247,7 @@ test('a keyed status spec, an always-on talent and a note name a key they cite, 
   };
   for (const [name, t] of Object.entries({ STATUS_FX, SOURCE_FX, KEY_FX, STACK_FX })) walk(t, null, name);
   for (const [id, t] of Object.entries(TALENT_ALWAYS)) keys.push([`TALENT_ALWAYS.${id}`, t.tpl, t.src]);
+  for (const [id, by] of Object.entries(SKILL_HELD)) for (const [i, t] of Object.entries(by)) keys.push([`SKILL_HELD.${id}.${i}`, t.tpl, t.src]);
   for (const [m, n] of Object.entries(NOTE_FX)) for (const k of n.shots) keys.push([`NOTE_FX.${m}`, k, n.src]);
   assert.ok(keys.length >= 30);
   for (const [at, k, src] of keys) {

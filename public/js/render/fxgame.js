@@ -61,7 +61,7 @@ import { attackMode, boundEffects, fortressEffects, modelessTrail } from './fxma
 import { activationEffects } from './fxmap.js'; // local patch: a skill activation's effects
 import { foeEffects, castTiming, castPhase, CAST_EVENT } from './fxmap.js'; // 2026-10-10: enemy-held mode buffs, cast timings
 import { clipGroup, hitLoopEnd, deployEffect, deadEffect } from './fxmap.js'; // 2026-10-11: clip variants, looping hits, deploy / dead effects
-import { commonEffects } from './fxmap.js'; // 2026-10-16: the always-on effects of the common abilities
+import { commonEffects, skillHeld } from './fxmap.js'; // 2026-10-16: the always-on effects of the common abilities (2026-10-24: a skill's own held buffs)
 import { altGroup, combatEffects } from './fxmap.js'; // 2026-10-21: ability group children, the COMBAT state's effects
 import { modePart } from './fxmap.js'; // 2026-10-21: a mode talent's attack, a per-side child of the attack
 import { defaultModeEffects } from './fxmap.js'; // 2026-10-21: the Default mode's own effects
@@ -2413,7 +2413,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const plan = b && isOp(op) ? kitOfficialPlan(e[1], o, b.bundle, { skill: skillIdx(op), back: faceBack(op), foe, plays }) : null;
     if (!plan) return false;
     if (plan.skillFlag) (op._fxSkillFlags ||= new Set()).add(plan.skillFlag);   // until the skill ends (洛洛's overDrones)
-    for (const tag of plan.stop) for (const l of live) if (l.tag === tag && l.owner === opId) l.inst.stop();
+    for (const tag of plan.stop) {
+      for (const l of live) if (l.tag === tag && l.owner === opId) l.inst.stop();
+      for (const l of elines.values()) if (l.tag === tag && l.owner === opId) l.until = Math.min(l.until, clockS);   // 2026-10-24: its tagged lines
+    }
     const x = Number(e[2]), y = Number(e[3]);
     let n = 0, flight = 0;
     const casts = [];
@@ -2451,7 +2454,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const from = views.get(o[p.line[0]]);
         for (const id of [o[p.line[1]]].flat()) {
           const to = views.get(id);
-          if (from && to) { startLine(pb.bundle, name, from, to, p.life === 'once' ? -1 : 1e6, { sMount: 1, eMount: 1 }); n++; }
+          if (from && to) { startLine(pb.bundle, name, from, to, p.life === 'once' ? -1 : 1e6, { sMount: 1, eMount: 1 }, p.tag ? { tag: p.tag, owner: opId } : null); n++; }
         }
         continue;
       }
@@ -3135,11 +3138,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     'lumen_skill_02_buff', 'lumen_skill_02_buff_02',
     // 2026-10-23: 寒芒克洛丝 S2's warmed state (kitofficial.js 'quadShot': at 40 hits) — the S2 mode's attach list and the `_buff`
     // name rule drew buff_01 / _02 from the skill's start, and the event added all three over them
-    'kroos2_skill_02_buff_01', 'kroos2_skill_02_buff_02', 'kroos2_skill_02_buff_03']);
+    'kroos2_skill_02_buff_01', 'kroos2_skill_02_buff_02', 'kroos2_skill_02_buff_03',
+    // 2026-10-24 (묶음 S2): 塑心 S3's ATK effect is on the ally it lifts (fxstatus.js 'cello:tango:atk'), not hers (the `_buff` rule)
+    'cello_skill_03_buff_03']);
   /** What a skill activation plays on the caster (fxmap.js activationEffects: { start, loops }). */
   const activation = (v) => {
     const b = bundleOf(v), em = emittedIn(b.bundle);
-    return activationEffects(bindOf(v), b.prefabs, skillIdx(v), em.size ? new Set([...KIT_OWNED, ...em]) : KIT_OWNED);
+    const a = activationEffects(bindOf(v), b.prefabs, skillIdx(v), em.size ? new Set([...KIT_OWNED, ...em]) : KIT_OWNED);
+    // 2026-10-24 (묶음 S2): the skill's own template buffs on the operator (fxmap.js SKILL_HELD)
+    const held = skillHeld(v?.info?.spine || v?.info?.defId, skillIdx(v), b.prefabs, plays).filter((n) => !a.loops.includes(n));
+    return held.length ? { start: a.start, loops: [...a.loops, ...held] } : a;
   };
   // effects waiting for the damage of this tick: a skill that hits without an attack event (德克萨斯 S2's sword rain on
   // activation, 戴菲恩 S3's slashes / finisher) — the next 'dmg' events of the same moment are its targets
@@ -4055,11 +4063,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * Line prefab `bundle`/`name` from unit `src` to `tgt` for `life` s (0: it flashes and fades, < 0: the prefab's duration);
    * `dyn0` = its mount points when the prefab has no `lineDyn`. A line already standing between them is refreshed.
    */
-  function startLine(bundle, name, src, tgt, life, dyn0) {
+  function startLine(bundle, name, src, tgt, life, dyn0, meta = null) {
     const key = `${ownerOf(src)}:${ownerOf(tgt)}:${name}`;
     const rec = elines.get(key);
     if (rec && rec.fade == null) { rec.until = Math.max(rec.until, clockS + Math.max(0, life)); return; }   // the buff refreshed
-    const nrec = { src, tgt, until: clockS + Math.max(0, life), l: null, sp: null, dyn: null, ended: false };
+    const nrec = { src, tgt, until: clockS + Math.max(0, life), l: null, sp: null, dyn: null, ended: false, tag: meta?.tag ?? null, owner: meta?.owner ?? null };
     elines.set(key, nrec);
     spawn(bundle, name, tgt, { owner: null, buff: true, until: null, on: ownerOf(tgt) }).then((l) => {
       if (!l) { elines.delete(key); return; }

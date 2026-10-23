@@ -9,8 +9,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { commonEffects, TALENT_ALWAYS } from '../../public/js/render/fxmap.js';
+import { commonEffects, TALENT_ALWAYS, skillHeld } from '../../public/js/render/fxmap.js';
 import { PLAYS } from '../helpers/fxPlays.js';
+import { keyPlays } from '../helpers/fxBindings.js';
 import { liveOverCap } from '../../public/js/render/fxgame.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -46,6 +47,20 @@ test('commonEffects: the always-on talents by charId (TALENT_ALWAYS), after the 
   assert.deepEqual(commonEffects(null, null, null, 'char_245_cello'), [], 'without the plays: none');
   // by the talent's client key (2026-10-23): its held prefabs are the operator's own
   for (const [id, t] of Object.entries(TALENT_ALWAYS)) for (const n of PLAYS.keys[t.tpl]?.held || []) assert.ok(n.startsWith(`${id.replace(/^char_\d+_/, '')}_`), n);
+});
+
+test('协律 T1 and the skills\' own template buffs (SKILL_HELD) by client key (2026-10-24, 묶음 S2)', () => {
+  const plays = keyPlays();   // template rows: no client-only file needed
+  assert.deepEqual(commonEffects(null, null, null, 'char_4051_akkord', plays), ['akkord_buff_01']);
+  // 圣约送葬人's every skill, 凯尔希·思衡托 S3, 赤刃明霄陈 S2
+  for (const i of [0, 1, 2]) assert.deepEqual(skillHeld('char_1032_excu2', i, null, plays), ['excu2_cherub_buff_01']);
+  assert.deepEqual(skillHeld('char_1052_kalts2', 2, null, plays), ['kalts2_skill_03_buff_weapon_01']);
+  assert.deepEqual(skillHeld('char_1052_kalts2', 1, null, plays), []);
+  assert.deepEqual(skillHeld('char_1050_chen3', 1, null, plays), ['chen3_skill_02_F_buff_02']);
+  assert.deepEqual(skillHeld('char_1050_chen3', 1, ['chen3_skill_02_buff_01'], plays), [], 'not extracted');
+  assert.deepEqual(skillHeld('char_1050_chen3', 1, null, null), [], 'without the plays: none');
+  // the activation's loops take them (fxgame.js activation)
+  assert.match(SRC, /skillHeld\(v\?\.info\?\.spine \|\| v\?\.info\?\.defId, skillIdx\(v\), b\.prefabs, plays\)/);
 });
 
 test('liveOverCap never ends a pinned entry and does not count it', () => {

@@ -46,7 +46,7 @@ export default {
               const L = unit.mem.papyrsLock;
               if (L && up(L) && bodyInRange(L, unit.rangeKeySet)) ctx.targets = [L];
             }, { owner: unit, priority: 10 });
-            battle.fx('buff', { x: lock.x, y: lock.y, id: lock.id, kind: 'lock' });
+            battle.fx('buff', { x: lock.x, y: lock.y, id: lock.id, kind: 'lock', src: unit.id }); // src: the client's mark is hers (render)
           },
           onTick({ unit, skill }) {
             if (unit.mem.papyrsAbort) {
