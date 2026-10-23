@@ -128,7 +128,13 @@ function lemuen(bb, chess, def) {
     main: num(bb['attack@main_atk_scale'], 1), ex: num(bb['attack@ex_atk_scale']), fin: num(bb['attack@fin_atk_scale'], 1),
     iv: Math.max(0.05, num(bb['attack@interval'], 0.25)), steps: Math.floor(num(bb['attack@trig_cnt'], 10)), dur: num(bb['attack@aim_duration'], 2.5),
   };
-  const endAim = (battle, unit) => { unit.mem.lemAim = null; battle.removeBuff(unit, 'lemuen:aim'); };
+  // the aim is the S2 mode's Aim ability, a channel of its own clips (Skill_2_Begin → Skill_2_Idle → Skill_2_End) beside its
+  // Normal attack (the plain Attack clips): fx 'lemuenAim' { signal: 'aim', on } holds the channel on her model while she aims
+  const endAim = (battle, unit) => {
+    if (unit.mem.lemAim) battle.fx('lemuenAim', { x: unit.x, y: unit.y, id: unit.id, signal: 'aim', on: 0 });
+    unit.mem.lemAim = null;
+    battle.removeBuff(unit, 'lemuen:aim');
+  };
   const skills = {
     // S1 重逢问候: ammo 5, attacks at attack@atk_scale × ATK on one extra target
     skchr_lemuen_1: {
@@ -156,6 +162,7 @@ function lemuen(bb, chess, def) {
           skill.ammoLeft--;                                                      // "消耗子弹对其瞄准"
           battle.emit('ammoUsed', { unit, left: skill.ammoLeft, skill });
           battle.fx('lock', { x: A.e.x, y: A.e.y, id: A.e.id, src: unit.id });
+          battle.fx('lemuenAim', { x: unit.x, y: unit.y, id: unit.id, signal: 'aim', on: 1 });
         }
         A.t += dt;
         const scale = Math.min(aimS.fin, aimS.main + aimS.ex * Math.min(aimS.steps, Math.floor((A.t + 1e-9) / aimS.iv)));

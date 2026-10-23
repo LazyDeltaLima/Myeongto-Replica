@@ -1420,10 +1420,12 @@ export class UnitView {
   /** An attack was made (b.ev 'atk'). `target` = view or null. */
   /**
    * An fx `signal` of this unit (秘术师 'store', 凯尔希·思衡托 S3 'takeoff'): the role's clip for it over `t` game s (the fx's),
-   * else over its attack interval (SpineActor.signalSwing); `strike` (焰尾 'riposte'): from its strike frame.
+   * else over its attack interval (SpineActor.signalSwing); `strike` (焰尾 'riposte'): from its strike frame; `on` (1 / 0:
+   * 蕾缪安 S2 'aim'): a channel held from on to off (SpineActor.holdSignal).
    */
-  onSignal(signal, t = null, strike = false) {
+  onSignal(signal, t = null, strike = false, on = null) {
     if (!this.alive || !this.actor || typeof signal !== 'string') return;
+    if (on != null) { this.actor.holdSignal(signal, !!Number(on)); return; }
     // `strike`: the attack struck now — the clip from its strike frame (as an 'atk' event's signal: SpineActor._signalStrike)
     if (strike) this.actor.attack(this.atkInterval, false, signal);
     else this.actor.signalSwing(signal, t > 0 ? t : this.atkInterval);

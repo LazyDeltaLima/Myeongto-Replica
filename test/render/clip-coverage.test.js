@@ -52,7 +52,8 @@ function rolePlayed(anims) {
     if (c.combat) for (const a of [c.combat.loop, ...(c.combat.alts || [])]) out.add(a);   // on a blocked enemy (_swingClip)
     for (const v of Object.values(c.variants || {})) for (const n of Object.values(v)) out.add(n);   // a cast's variant (setSkill)
     for (const n of Object.values(c.deploys || {})) out.add(n);   // a 【移动】 by the skill (deploy)
-    for (const n of Object.values(c.signals || {})) out.add(n);   // an attack the sim marks as another ability (_signalStrike)
+    // an attack the sim marks as another ability (_signalStrike), or a channel held from on to off (holdSignal)
+    for (const n of Object.values(c.signals || {})) for (const v of typeof n === 'string' ? [n] : Object.values(n || {})) out.add(v);
   }
   return out;
 }

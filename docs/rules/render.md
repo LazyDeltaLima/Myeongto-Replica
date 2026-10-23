@@ -584,6 +584,19 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     클립)는 `anim-overrides.mjs`로 고쳤다 [화면 미확인]. 전 오퍼레이터 EN 표에서 `Born`→`Start` 말고 이름이 바뀌는 모델은 18명인데, 이름 추측을 키 이름에 돌리고 표로 바꾸는
     방식은 焰尾만 맞고 德克萨斯·雷蛇·艾丝黛尔·幽灵鲨·望 등을 틀리게 해(키 자체가 스킬 번호와 어긋난 모델도 있음 — 안젤리나 S2 키 `Skill_1_*`) 버렸다.
     근본 해결은 역할을 클라의 키(스킬 `_default`·`_animKey`·모드 짝)에서 읽고 이 표로 클립 이름을 얻는 추출이다(관리자 노트 2026-10-14).
+    추출(2026-10-23, 진행 중): `tools/local-extract/anim_keys.py`가 오퍼레이터마다 스킨 키 표·믹스, 모드의 짝·`_combat`·능력 키(`_animKey`·`_endAnimKey`·위/아래,
+    ThreePart begin/oneshot/end, 채널 `_default`, `AnimationEmitBehaviour`), 스킬 프리팹의 `_beginAnim`·`_defaultModeIndex`·switch_mode를 읽어
+    `.cache/anim-keys.json`에 쓴다 — 클라 전용 표라 추적하지 않는다(관리자 결정 2026-10-22). `tools/assets/anim-keys.mjs keyRoles`가 그 키로 역할을 만든다(아직 매니페스트에
+    안 씀; 규칙은 파일 머리, 테스트 `test/render/anim-keys.test.js`). 지금 역할과 대조(146명 289모델): 대기·배치·쓰러짐·공격은 거의 같고, 차이는 스킬에 몰린다 — 가장 큰
+    무리는 클라 프리팹에 클립을 트는 능력이 없는 공용·버프 스킬(白面鸮 S1 `skcom_heal_up`·德克萨斯 S1 `skcom_charge_cost`·星熊 S1/S2·蛇屠箱 S1 `skcom_def_up` 등)에
+    이름 추측이 다른 스킬의 클립을 준 것이다. 매니페스트 교체·차이 판정은 다음 단계(관리자 결정: 차이가 나면 클라 데이터 기준, 차이 목록을 보이고 골든 갱신).
+  - **G** 蕾缪安 S2 조준(2026-10-23, 클라 `skchr_lemuen_2` `_playSkillBeginAnim` 0·charpack `Modes/S2/Body/M2Attack` = `Normal` ThreePart `Attack_Begin`/`Attack_Loop` +
+    `Aim` 채널 `_default {Skill_2_Begin, Skill_2_Idle, Skill_2_End}`): 시전 클립 없음, 공격은 평소 클립(`'attack'`), 조준 동안만 채널 — 키트가 조준 시작·끝(사격이든 대상을
+    잃었든)에 그리지 않는 fx 'lemuenAim' `{ signal: 'aim', on: 1 | 0 }`(골든 fx 개수만 움직임) → `units.js onSignal` → `spine.js holdSignal`(켜면 begin 뒤 loop 유지, 끄면
+    end를 스킬 End처럼 끝까지). 역할은 `anim-overrides.mjs SIGNAL_CLIPS`의 값이 `{ begin, loop, end }`인 신호. 그동안은 시전에 `Skill_2_Begin`, 공격마다 `Skill_2_Idle`이었다. [화면 미확인]
+  - 평타로 싸우는 스킬(`via: 'attack'`)은 시전·끝 클립이 없다(2026-10-23): 역할이 평타 역할에서 물려받은 begin/end(`Attack_Begin`·`Attack_End`)를 `spine.js _castOf`가
+    시전·끝 클립으로 치지 않는다 — 耀骑士临光 S2·远牙 S1/S2·凯尔希·思衡托 S1·蕾缪安 S2가 시전 순간 `Attack_Begin`, 끝에 `Attack_End`를 틀었다(넷 다 스킬 프리팹에
+    클립을 트는 능력·`_beginAnim`이 없음). 자기 begin이 따로 있는 `via: 'attack'`(歌蕾蒂娅 S3 `Skill_3_Startup`)은 그대로. [화면 미확인]
   - **U** 위 방향 `*_Up`: `AbstractAnimatedAbility.GetAnimKey` — 아래·위·기본 순(`_faceToTarget`이면 바라보는 방향, 아니면 배치 방향). 아래 방향 공백과 같은 계열.
     구현(2026-10-14): `*_Up`은 뒷모델에만 있고 렌더는 위를 볼 때만 뒷모델을 쓰므로, `anim-overrides.mjs UP_CLIPS`가 뒷모델 역할에 `up`을 달고 `spine.js _loopOf`
     (즉발 스킬 클립도)가 그것을 튼다 — 送葬人·诗怀雅 `Attack_Up`, 松果 S1 `Skill_1_Up`·S2 `Skill_2_Up`. 아래 방향(`*_Down`, 앞모델)은 여전히 전역 공백(`DOWN_FAMILY`). [화면 미확인]

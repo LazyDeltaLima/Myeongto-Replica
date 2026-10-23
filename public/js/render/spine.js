@@ -266,7 +266,7 @@ export class SpineActor {
       this.spine.state.addListener({ event: (_entry, ev) => { const n = ev?.data?.name; if (n && this.onEvent) this.onEvent(n, ev.stringValue || null); } });
     } catch { /* a runtime without listeners: no clip events */ }
     this.base = 'idle';
-    this.mode = 'base';           // base | attack | skillBegin | skillEnd | chant | deploy | die | stun | change | held
+    this.mode = 'base';           // base | attack | skillBegin | skillEnd | chant | deploy | die | stun | change | held | aim
     this.endClip = null;          // setForm's closing clip, played as a change clip once the clock reaches endAt,
     this.endAt = 0;               // landing in endRoles (the next form's) when given
     this.endRoles = null;
@@ -583,7 +583,7 @@ export class SpineActor {
    * false when it is still too early (call again next frame) or there is nothing to wind up.
    */
   windUp(interval, lead, once = false) {
-    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'held' || this.mode === 'chant' || !(lead >= 0)) return false;
+    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'held' || this.mode === 'chant' || this.mode === 'aim' || !(lead >= 0)) return false;
     if (this._endPlaying()) return false; // local patch
     if (this._swinging()) return false;   // a swing (b.ev 'swing') drives the clip
     const clip = this._attackClip();
@@ -620,7 +620,7 @@ export class SpineActor {
    * strike as before).
    */
   swing(windup, alt = null, first = false) {
-    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'held' || this.mode === 'chant' || !(windup > 0)) return false;
+    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'held' || this.mode === 'chant' || this.mode === 'aim' || !(windup > 0)) return false;
     if (this._endPlaying()) return false; // local patch
     const clip = this._attackClip();
     if (!clip) return false;
@@ -690,7 +690,7 @@ export class SpineActor {
    * cast (no rhythm): the clip plays once at its own speed from its strike frame, then the resting state.
    */
   attack(interval, once = false, signal = null) {
-    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'held' || this.mode === 'chant') return;   // a form change / 吟唱 plays out
+    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'held' || this.mode === 'chant' || this.mode === 'aim') return;   // a form change / 吟唱 plays out
     if (this._endPlaying()) return; // local patch
     if (!once) this.interval = clampN(Number.isFinite(interval) && interval > 0 ? interval : this.interval, 0.08, 8);
     const sig = signal ? this._attackClip()?.signals?.[signal] : null;
@@ -783,6 +783,32 @@ export class SpineActor {
     this.swingAt = null;
     this.signalAt = this.clock;
     this._play(name, false, { timeScale: ts, mix: 0.06 });
+    return true;
+  }
+
+  /**
+   * A channel the sim holds on (an fx `signal` with `on`: 蕾缪安 S2's aim, the S2 mode's Aim ability beside its Normal attack —
+   * tools/assets/anim-overrides.mjs SIGNAL_CLIPS { begin, loop, end }): on = its begin once, then its loop until off; off =
+   * its end, played out as a skill's End is (mode skillEnd), then the resting state. The running skill's clip names it, else
+   * the attack role. False when no role names a channel for `signal`.
+   */
+  holdSignal(signal, on) {
+    const sk = this.skillOn ? this.roles.skill?.signals?.[signal] : null;
+    const ch = sk && typeof sk === 'object' ? sk : this.roles.attack?.signals?.[signal];
+    if (!ch || typeof ch !== 'object' || !this.has(ch.loop)) return false;
+    if (!on) {
+      if (this.mode !== 'aim') return true;
+      this.mode = 'base';
+      if (!this._skillEnd({ end: ch.end })) this._play(this._baseName(), true, { mix: 0.08 });
+      return true;
+    }
+    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'held' || this.mode === 'chant') return false;
+    if (this.mode === 'aim') return true;
+    this.mode = 'aim';
+    this.windUntil = null;
+    this.wound = false;
+    this.swingUntil = null;
+    if (this.has(ch.begin)) { this._play(ch.begin, false, { mix: 0.08 }); this._queue(ch.loop, true); } else this._play(ch.loop, true, { mix: 0.08 });
     return true;
   }
 
@@ -911,7 +937,7 @@ export class SpineActor {
         // local patch: the skill's clip is its empowered attack's (泥岩 S2 Skill_1, tools/assets/anim-overrides.mjs) —
         // that attack plays it (windUp / attack), nothing at the cast
         if (this.mode === 'base') this._play(this._baseName(), true);
-      } else if (this.has(sk.begin)) {
+      } else if (this.has(this._castOf(sk, 'begin'))) {
         this.mode = 'skillBegin';
         this._play(sk.begin, false, { mix: 0.08 });
         this.skillBeginUntil = this.clock + this.dur(sk.begin);
@@ -947,11 +973,21 @@ export class SpineActor {
   }
 
   /**
+   * A skill clip's own begin / end (`f`), or null: a skill that attacks with the plain attack clip (`via: 'attack'`) casts
+   * none of its own — the begin / end it carries from the attack role are that role's spell of attacks (the client plays
+   * no clip as 耀骑士临光 S2, 蕾缪安 S2 or 凯尔希·思衡托 S1 starts or ends: their skill prefabs have no animated ability).
+   */
+  _castOf(sk, f) {
+    const v = sk?.[f];
+    return sk?.via === 'attack' && v != null && v === this.roles.attack?.[f] ? null : v;
+  }
+
+  /**
    * Close the skill on its End clip — or its clips one after another (an array: 歌蕾蒂娅 S3's closing FinalAttack
    * Skill_3_Begin → _Loop → _End) — in mode skillEnd; false when it has none.
    */
   _skillEnd(sk) {
-    const clips = this._changeClips(sk?.end);
+    const clips = this._changeClips(this._castOf(sk, 'end'));
     if (!clips.length) return false;
     this.mode = 'skillEnd';
     this._play(clips[0], false, { mix: 0.08 });

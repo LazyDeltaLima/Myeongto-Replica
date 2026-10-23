@@ -115,6 +115,10 @@ export const SKILL_CLIP_OVERRIDES = Object.freeze({
   // 耀骑士临光 (char_1014_nearl2): S2's mode attacks with the plain `Attack_Loop` and pairs Die→Skill_2_Die (SKILL_STATE_CLIPS);
   // the skill casts no clip (skchr_nearl2_2 has no animated ability) — the name guess took Skill_2_Die for its clip.
   'op:char_1014_nearl2:': Object.freeze({ 1: 'attack' }),
+  // 蕾缪安 (char_4193_lemuen): skchr_lemuen_2 casts no clip (`_playSkillBeginAnim` 0); its mode S2 attacks with `Normal`, the
+  // plain Attack_Begin / Attack_Loop, and aims with `Aim`, a channel `_default {Skill_2_Begin, Skill_2_Idle, Skill_2_End}` —
+  // the aim is the S2 skill clip's `aim` signal (SIGNAL_CLIPS)
+  'op:char_4193_lemuen:': Object.freeze({ 1: 'attack' }),
 });
 
 /**
@@ -256,7 +260,8 @@ export const COMBAT_CLIPS = Object.freeze({
  * Clips of an attack the sim marks as another ability of the client (docs/rules/render.md 「Spine 클립 커버리지」 D·H,
  * maintainer's notes 2026-10-14): the 'atk' event's signal (Battle.forceAttack `signal`: a talent's own attack 'T.1') →
  * that attack plays its clip (render/spine.js _signalStrike); an fx's `signal` (an attack behaviour that strikes nothing:
- * 秘术师 'store') → the clip as a whole swing (render/spine.js signalSwing). Model key prefix → { attack?: { [signal]: clip }, skills?:
+ * 秘术师 'store') → the clip as a whole swing (render/spine.js signalSwing); a channel { begin, loop, end } for an fx `signal` held
+ * from `on` 1 to 0 (render/spine.js holdSignal: 蕾缪安 S2's Aim). Model key prefix → { attack?: { [signal]: clip }, skills?:
  * { [0-based skill index]: { [signal]: clip } } } → the role clip's `signals`.
  */
 export const SIGNAL_CLIPS = Object.freeze({
@@ -281,6 +286,7 @@ export const SIGNAL_CLIPS = Object.freeze({
   // Body/Trigger groups pick HealAlly `_animKey "Skill_1"` (a coin's heal, the whole attack turn — the kit's 'swire2Heal'
   // fx { signal: 'healAlly', t }) or SpawnToken `_animKey "Skill_2"` (the champagne throw — 'swire2Throw') over Attack
   'op:char_1033_swire2:': { attack: { healAlly: 'Skill_1', spawnToken: 'Skill_2' } },
+  'op:char_4193_lemuen:': { skills: { 1: { aim: { begin: 'Skill_2_Begin', loop: 'Skill_2_Idle', end: 'Skill_2_End' } } } },
 });
 
 /**
@@ -489,8 +495,12 @@ export function applyAnimOverrides(key, anims, names = null) {
   }
   for (const [prefix, map] of Object.entries(SIGNAL_CLIPS)) {
     if (!key.startsWith(prefix)) continue;
+    const has = (n) => !names || names.includes(n);
+    // a channel keeps the clips the skeleton has, and needs its loop
+    const keep = (v) => (typeof v === 'string' ? (has(v) ? v : null)
+      : v && has(v.loop) ? Object.fromEntries(Object.entries(v).filter(([, n]) => has(n))) : null);
     const put = (clip, sigs) => {
-      const o = Object.fromEntries(Object.entries(sigs || {}).filter(([, n]) => !names || names.includes(n)));
+      const o = Object.fromEntries(Object.entries(sigs || {}).map(([k, v]) => [k, keep(v)]).filter(([, v]) => v));
       if (clip && Object.keys(o).length) clip.signals = o;
     };
     put(anims.attack, map.attack);

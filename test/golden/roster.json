@@ -2903,8 +2903,8 @@
         "enemy_2001_duckmi_2": [1,1,0,0,9331]
       },
       "hooks": [1,90,5566,340,325,707,1139,9301,68,74,13,11,41,25075,556,19,68,0,1,68,10,51,0],
-      "events": {"atk":354,"bounty":4,"deploy":19,"die":74,"dmg":954,"engage":5,"face":57,"fx":201,"layer":10,"skill":24,"spawn":90,"status":1208,"swing":373},
-      "fx": {"airstrike":10,"burst":51,"crit":34,"dp":3,"expose":5,"garrison":6,"link":1,"lock":34,"snow":5,"summon":3,"summonStun":3,"talent":1,"wanted":45},
+      "events": {"atk":354,"bounty":4,"deploy":19,"die":74,"dmg":954,"engage":5,"face":57,"fx":269,"layer":10,"skill":24,"spawn":90,"status":1208,"swing":373},
+      "fx": {"airstrike":10,"burst":51,"crit":34,"dp":3,"expose":5,"garrison":6,"lemuenAim":68,"link":1,"lock":34,"snow":5,"summon":3,"summonStun":3,"talent":1,"wanted":45},
       "snaps": "6f4de7b8 b95ae05d 87a91fbe 85718b77 cb367478 974b1433 784225c5 628cde31 b7c74e7b 3fcb1117 6d2312d3 77528bb2 b05ebe60 310df069 a3ee6c96 51b49b55 5f08ec0c 5d7ba622 fe2f706b"
     },
     "roster-046": {
