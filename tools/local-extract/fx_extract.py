@@ -1163,7 +1163,7 @@ class Extractor:
         height = self.overwrite_height(root)
         if height is not None:
             out_def['height'] = height
-        face = self.root_face(self.root_effect(root))
+        face = self.root_face(self.root_effect(root), gos)
         if face:
             out_def['face'] = face
         finish = self.delay_to_finish(root)
@@ -1738,6 +1738,8 @@ class Extractor:
         pe = {k: float(t[f] or 0) if k in ROOT_EFFECT_FLOATS else int(t[f] or 0) for k, f in ROOT_EFFECT_FIELDS.items()}
         pe['subs'] = [(int(e['transform'].get('m_FileID') or 0), int(e['transform'].get('m_PathID') or 0), float(e.get('delayTime') or 0))
                       for e in t.get('_subFXDelayConfigs') or []]
+        bt = t.get('_bodyTransofrm') or {}
+        pe['bodyT'] = 0 if bt.get('m_FileID') else int(bt.get('m_PathID') or 0)
         return pe
 
     @staticmethod
@@ -1782,6 +1784,8 @@ class Extractor:
                 'spawn': i(s + 9 + x), 'leftIsDefault': i(s + 10 + x), 'body': i(s + 11 + x), 'mainDir': i(s + 12 + x), 'hold': i(s + 13 + x),
                 'overwrite': i(s + 14 + x),
                 'heightOffset': f(s + 15 + x),
+                # (2026-10-23) the Effect base's `_bodyTransofrm` (PPtr: m_FileID int, m_PathID int64) — words #0–#2
+                'bodyT': 0 if i(0) else struct.unpack_from('<q', b, 4)[0],
                 # `_subFXDelayConfigs` (2026-10-11): { GameObject PPtr (m_FileID int, m_PathID int64), delayTime float } each
                 'subs': [(i(4 + 4 * k), struct.unpack_from('<q', b, 4 * (5 + 4 * k))[0], f(7 + 4 * k)) for k in range(subs)]}
 
@@ -2259,7 +2263,7 @@ class Extractor:
         return r4(pe['heightOffset']) if pe and pe['overwrite'] == 1 else None
 
     @staticmethod
-    def root_face(pe):
+    def root_face(pe, gos=None):
         """(2026-10-11, official client) the root effect's playback fields: `ParticleEffect.FaceTo` turns by
         `_rotateType` (0 NONE: never mirrored, 1 FLIP_TWO_SIDE: 'rotation_y' / 'rotation_z' 180° when facing left — right with
         `_leftIsDefault`, 2 FOUR_DIRECTION from `_mainDir`, 3 FIXED_DIRECTION, 4 ANY_DIR); `Effect.Play` turns it to
@@ -2270,8 +2274,10 @@ class Extractor:
         속도·루트 지연」). (2026-10-22, official client) `_holdByOwner` (`hold`): `Effect._InitLocationFromEntity` (the 2026-10-14 EN
         client) ends with `Entity.HoldEffect`, which parents the effect to its entity's `effectTransform`
         (Unit `_effectTransform`: the `Effects` child of the unit's root, not of its model) keeping its place — it moves with
-        the unit from where it was created; without it the effect stays there. { rot, left?, body?, dir?, hold?, speed? (0 =
-        ignores the playback speed), limit? (≠ 2), delay?, rnd?, fxDelay? } or None."""
+        the unit from where it was created; without it the effect stays there. (2026-10-23, official client) ANY_DIR turns
+        the Effect base's `_bodyTransofrm` (`Effect.get_bodyTransform`; MapUtil.FaceTo2d), a Transform the prefab names —
+        `bodyNode`, its node index (`gos`: PathID → node index). { rot, left?, body?, dir?, hold?, speed? (0 = ignores the
+        playback speed), limit? (≠ 2), delay?, rnd?, fxDelay?, bodyNode? } or None."""
         if not pe:
             return None
         o = {'rot': pe['rotate']}
@@ -2281,6 +2287,8 @@ class Extractor:
             o['body'] = 1
         if pe['rotate'] in (2, 3):
             o['dir'] = pe['mainDir']
+        if pe['rotate'] == 4 and gos and pe.get('bodyT') in gos:
+            o['bodyNode'] = gos[pe['bodyT']]
         if pe.get('hold'):
             o['hold'] = 1
         if not pe['useSpeed']:
@@ -2325,7 +2333,8 @@ class Extractor:
             d = json.loads(f.read_text())
             want = {'spawn': pe['spawn'] if pe else None,
                     'height': r4(pe['heightOffset']) if pe and pe['overwrite'] == 1 else None,
-                    'face': self.root_face(pe), 'follow': self.follow_direction(go), 'swFace': self.switch_face(go),
+                    'face': self.root_face(pe, self.tree_ids(go)[1] if pe and pe['rotate'] == 4 else None),
+                    'follow': self.follow_direction(go), 'swFace': self.switch_face(go),
                     'three': self.three_face(go), 'rdir': self.random_direction(go), 'tileH': self.tile_height(go) or None}
             if all(d.get(k) == v for k, v in want.items()):
                 continue

@@ -2065,8 +2065,9 @@ export class FxInstance {
 
   /**
    * ParticleEffect.FaceTo on the prefab's named children (faceTurn): 'rotation_y' / 'rotation_z' 180° (FLIP_TWO_SIDE; unflipped:
-   * identity, as the client sets it), 'rotation_z' by `z` degrees (FOUR_DIRECTION / FIXED_DIRECTION), 'body' by `any`
-   * degrees about z (ANY_DIR). The first node of the name anywhere in the tree (the prefabs keep them under static_offset).
+   * identity, as the client sets it), 'rotation_z' by `z` degrees (FOUR_DIRECTION / FIXED_DIRECTION), the prefab's body
+   * transform (`face.bodyNode`, else a node named 'body') by `any` degrees about z (ANY_DIR). The first node of the name
+   * anywhere in the tree (the prefabs keep them under static_offset).
    */
   applyTurn(turn) {
     const named = (name) => this.nodes.find((o) => o && o.name === name);
@@ -2076,7 +2077,10 @@ export class FxInstance {
       if (rz) rz.rotation.set(0, 0, turn.flip ? Math.PI : 0);
     }
     if (turn.z != null && rz) rz.rotation.set(0, 0, (turn.z * Math.PI) / 180);
-    if (turn.any != null) { const b = named('body'); if (b) b.rotation.set(0, 0, (turn.any * Math.PI) / 180); }
+    if (turn.any != null) {
+      const bn = this.def?.face?.bodyNode, b = Number.isInteger(bn) ? this.nodes[bn] : named('body');
+      if (b) b.rotation.set(0, 0, (turn.any * Math.PI) / 180);
+    }
   }
 
   /** What a clip track drives, resolved once (applyClip runs every frame). */

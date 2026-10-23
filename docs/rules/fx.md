@@ -810,7 +810,9 @@
   항목(`modes.json turn`) = 네 방향, `_useOwnerToTargetDirection`(`hitAim`) = 대상 − 공격자, 프리팹의 `_useBodyRotation`(`face.body`) = 그 이펙트가 붙는 유닛의 네 방향.
   그다음 프리팹 루트의 `_rotateType`(`face.rot`)이 정한다: **1 FLIP_TWO_SIDE** 방향이 왼쪽(`_leftIsDefault`면 오른쪽)이면 자식 `rotation_y`를 y축 180°·`rotation_z`를
   z축 180°(아니면 둘 다 0), **2 FOUR_DIRECTION** `rotation_z`를 `_mainDir`에서 그 방향까지 90° 단위, **3 FIXED_DIRECTION** RIGHT에서 `_mainDir`까지, **4 ANY_DIR**
-  `body` 자식을 그 방향으로, **0 NONE**(그 밖의 값) 뒤집지도 돌리지도 않음. 거울(스케일 −1)은 FollowMountPoint `_followScaleSign`(스파인 좌우 반전의 부호)일 때만.
+  `Effect._bodyTransofrm`(`face.bodyNode` — 풀의 세 프리팹 모두 루트)의 localRotation z를 atan2(방향) − 90°로(`MapUtil.FaceTo2d`: +y가 그 방향을
+  봄 — 2026-10-23 공식 클라에서 확인, 그 전엔 이름 `body` 자식을 atan2로 돌려 이름이 없는 세 프리팹은 늘 판 위쪽으로 — 아레나 확인 문제 8번 실버애쉬 더
+  레인프로스트 S3 칼날이 머리 위로), **0 NONE**(그 밖의 값) 뒤집지도 돌리지도 않음. 거울(스케일 −1)은 FollowMountPoint `_followScaleSign`(스파인 좌우 반전의 부호)일 때만.
   → `render/fx/face.js faceTurn`·`fxplayer.js FxInstance`(`dir`·`body` 옵션, `applyTurn`), `fxgame.js play()`/`spawn()`이 방향을 넘긴다. 예전 예외(방향 칸 좌우 사본
   `unflip`, `right` 짝, `turn` 항목의 `aimMover`, `hitAim`의 `aimAlong`)는 이 규칙으로 흡수 — 좌우 사본 3쌍·`right` 짝 5개는 모두 rotate 0, `turn` 항목 20개 중 18개는
   rotate 2(`_mainDir` RIGHT = 예전 `aimMover`와 같은 각), 언더플로우 S2 `udflow_skill_02_hit_01`은 rotate 1(대상 쪽 x 부호로 뒤집기만). `rotation_y` 축은 추출 JSON의
@@ -2202,7 +2204,8 @@
   (`…WhenDirRight`가 있고 그 방향 x > 0이면 그 목록), 투사체가 멈출 때 `FinishMe`. → `fxgame.js svashBird`: S3(스킬 3번) 중 그의 'atk'마다
   `svash2_skill_03_trail_02`를 그에게 대상 쪽으로 0.3 s, 그 뒤 프리팹 `finish`. [추정: 첫 적 = 공격 대상, 시뮬 타격 순간에]. 다른 오퍼레이터 위
   독수리(`BirdAttack_Ally` → `projectile_chr_svash2_s3_bird`, 오른쪽 `_trail_right_01`·그 밖 `_trail_left_01`)는 독수리가 카드(오퍼레이터)에 앉는 공식
-  기능이 시뮬에 없어 안 나온다.
+  기능이 시뮬에 없어 안 나온다. 칼날(`tip` 노드가 루트 +y로 미끄러짐)이 대상 쪽으로 가는 것은 루트를 돌리는 ANY_DIR(위 「방향」, 2026-10-23) —
+  그 전엔 늘 판 위쪽으로 날았다. [화면 미확인: 아레나·실제 판에서 칼날이 적 쪽으로]
 - **琳琅诗怀雅 S3 끝 `S3_End` 모드**: 스킬 끝(`swire2_skill_3` ON_BUFF_FINISH SwitchMode)의 `Modes/S3_End/Body/Trigger`(`Skill_3_End`)가 ON_CAST_START에
   `swire2_skill_03_start_03`·`_start_03_02`·`swire2_skill_03_range`(`_useFourDirectionalFace`)를 시전 — 동전이 없어도. → `kitofficial.js coin.swire2`가
   'coin' { skill 'swire2_3' }에 새 문법 `cast`(`fxgame.js play` — 그 오퍼레이터의 시전처럼, `turn` 적용)로 셋을 튼다 [추정: 프리팹 길이만큼 —

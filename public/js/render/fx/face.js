@@ -25,7 +25,9 @@ export function parseDir(d) {
  *                      about y and 'rotation_z' 180° about z (`flip`);
  *   2 FOUR_DIRECTION — 'rotation_z' turned by the 90° steps from `_mainDir` to the direction (`z`, degrees);
  *   3 FIXED_DIRECTION — 'rotation_z' turned by the steps from RIGHT to `_mainDir`, whatever the direction (`z`);
- *   4 ANY_DIR        — MapUtil.FaceTo2d: the 'body' child turned to the direction (`any`, degrees);
+ *   4 ANY_DIR        — MapUtil.FaceTo2d: the Effect's `_bodyTransofrm` (`face.bodyNode`, the root in every prefab of the
+ *                      pool) gets localRotation z = atan2(direction) − 90° — its +y points along the direction (`any`,
+ *                      degrees; 2026-10-23, official client);
  *   0 NONE (and any other value) — neither flipped nor turned.
  * Returns { flip?, z?, any? } (an empty object for NONE) or null without a record (no ParticleEffect on the root: the
  * caller keeps the old mirror).
@@ -42,7 +44,7 @@ export function faceTurn(face, dir, body = null) {
     case 1: return { flip: face.left ? (Number(d.x) || 0) > 0 : (Number(d.x) || 0) < 0 };
     case 2: return { z: (DEG[parseDir(d)] - DEG[main] + 360) % 360 };
     case 3: return { z: DEG[main] };
-    case 4: return { any: (Math.atan2(Number(d.y) || 0, Number(d.x) || 0) * 180) / Math.PI };
+    case 4: return { any: (Math.atan2(Number(d.y) || 0, Number(d.x) || 0) * 180) / Math.PI - 90 };
     default: return {};
   }
 }

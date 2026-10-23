@@ -38,7 +38,10 @@ test('faceTurn: FOUR_DIRECTION turns rotation_z by the 90° steps from _mainDir,
   // _useBodyRotation: the four-way facing of the unit it is created on, not the given ±x
   assert.equal(faceTurn({ rot: 2, dir: 1, body: 1 }, R, 'UP').z, 90);
   assert.equal(faceTurn({ rot: 2, dir: 1 }, R, 'UP').z, 0, 'without the flag the body facing is not used');
-  assert.equal(Math.round(faceTurn({ rot: 4 }, { x: 0, y: -2 }).any), -90);
+  // ANY_DIR (MapUtil.FaceTo2d): atan2 − 90°, the body's +y along the direction
+  assert.equal(Math.round(faceTurn({ rot: 4 }, { x: 0, y: -2 }).any), -180);
+  assert.equal(Math.round(faceTurn({ rot: 4 }, { x: 1, y: 0 }).any), -90);
+  assert.equal(Math.round(faceTurn({ rot: 4 }, { x: 0, y: 1 }).any), 0);
   assert.equal(parseDir({ x: -0.2, y: 0.9 }), 'UP');
   assert.equal(parseDir(null), 'RIGHT');
 });
@@ -191,4 +194,27 @@ test('enemy_bindings.py keeps a template\'s node effects of other events apart (
   assert.match(EB, /for ev, acts in \(t\.get\('eventToActions'\) or \{\}\)\.items\(\):\n\s+walk\(acts, str\(ev\)\)/);
   // the render plays a buff's own effect (its template `key` / overrideEffectKey), never the template's node effects
   assert.doesNotMatch(SRC, /template\)?\??\.fx\b|\.onEvent\?\.|onEvent\[/);
+});
+
+test("ANY_DIR turns the prefab's body transform (`face.bodyNode`): 凛御银灰 S3's slash runs toward its target", async () => {
+  const { FxInstance } = await import('../../public/js/render/fxplayer.js');
+  const node = (name, parent, rot = [0, 0, 0, 1]) => ({ name, parent, active: true, pos: [0, 0, 0], rot, scale: [1, 1, 1] });
+  // svash2_skill_03_trail_02's shape: the root is `_bodyTransofrm`; static_offset turns 90° about z, so `tip`'s local +x
+  // (its clip slides it from −0.36 to 4.18) is the root's +y
+  const def = { name: 't', duration: 1, geoms: {}, lib: { texture: () => null }, clips: [], materials: {}, face: { rot: 4, bodyNode: 0, hold: 1 },
+    nodes: [node('root', -1), node('static_offset', 0, [0, 0, Math.SQRT1_2, Math.SQRT1_2]), node('tip', 1)] };
+  for (const [dir, want] of [[{ x: 1, y: 0 }, -90], [{ x: 0, y: 1 }, 0], [{ x: -1, y: 0 }, 90]]) {
+    const inst = new FxInstance(def, { dir });
+    assert.equal(Math.round((inst.nodes[0].rotation.z * 180) / Math.PI), want, JSON.stringify(dir));
+    inst.nodes[0].updateMatrixWorld(true);
+    const THREE = await import('three');
+    const v = new THREE.Vector3(1, 0, 0).applyQuaternion(inst.nodes[1].quaternion).applyQuaternion(inst.nodes[0].quaternion);
+    assert.ok(Math.abs(v.x - dir.x) < 1e-6 && Math.abs(v.y - dir.y) < 1e-6, `tip's +x along ${JSON.stringify(dir)}`);
+  }
+  // the same file's svash2 prefabs, when extracted, all name the root
+  const dir = path.join(ROOT, 'public/assets/local/fx/svash2');
+  for (const n of ['svash2_skill_03_trail_02', 'svash2_skill_03_trail_left_01', 'svash2_skill_03_trail_right_01']) {
+    const f = path.join(dir, `${n}.json`);
+    if (existsSync(f)) assert.equal(JSON.parse(readFileSync(f, 'utf8')).face?.bodyNode, 0, n);
+  }
 });
