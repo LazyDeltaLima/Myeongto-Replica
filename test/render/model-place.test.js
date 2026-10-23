@@ -143,3 +143,15 @@ test('the stone effects\' ball (fxgame ballAt) is STONE_BALL above the moved mod
     assert.ok(Math.abs(up) < 0.05 && Math.abs(s.x - r.x) / at.s < 0.01, `(${x}, ${y}): the ball ${up.toFixed(3)} tile above the point`);
   }
 });
+
+test('a foot effect (_spawnLocation 1) stands with the model: the client\'s footTransform is the skeleton node; 0 / 5 stay', () => {
+  // (余 S3's buff `yu_skill3_buff_01`, FOOT, hung above her lowered feet — maintainer report 2026-10-23, official recording)
+  assert.match(FXGAME, /const foot = spawn === 1 && v && \(v\.faceDX \|\| v\.modelDY \|\| v\.modelDZ\) \? v : null;/);
+  assert.match(FXGAME, /get x\(\) \{ return ex\(v\) \+ fdx\(\); \}, get y\(\) \{ return ey\(v\) \+ fdy\(\); \}, get z\(\) \{ return foot \? \(v\.z \|\| 0\) \+ fdz\(\) : v\.z; \}/);
+  assert.match(FXGAME, /if \(!v \|\| !\(v\.modelDX \|\| 'glideS' in v \|\| foot\)\) return v;/);
+  // the offsets are the model's own (units.js draws the body at x + faceDX, y + modelDY, z + modelDZ)
+  const u = view('char_102_texas', 'op');
+  u.update(1 / 60, cam(), 0);
+  const o = modelOffset(STANDARD_PLACE.face);
+  assert.ok(Math.abs(u.modelDY - o.dy) < 1e-9 && Math.abs(u.modelDZ - o.dz) < 1e-9, 'the foot offset = the body offset');
+});

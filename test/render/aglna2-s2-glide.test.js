@@ -167,7 +167,8 @@ test('an effect on her without a FollowMountPoint (aglna2_skill_02_buff_01 at he
   assert.deepEqual([ex(v), ey(v)], [5.5, 9]);
   // every unit view (UnitView has `glideS`) gets the anchor, the ground / body / airborne branches all use it
   const lifted = SRC.slice(SRC.indexOf('function followed(v, def, buff) {'), SRC.indexOf('const ownerOf = (v) =>'));
-  assert.match(lifted, /if \(!v \|\| !\(v\.modelDX \|\| 'glideS' in v\)\) return v;/);
-  assert.equal((lifted.match(/get x\(\) \{ return ex\(v\); \}, get y\(\) \{ return ey\(v\); \}/g) || []).length, 3);
+  assert.match(lifted, /if \(!v \|\| !\(v\.modelDX \|\| 'glideS' in v \|\| foot\)\) return v;/);
+  // (a foot effect adds the model's node offset, fdx / fdy: the client's footTransform — model-place.test.js)
+  assert.equal((lifted.match(/get x\(\) \{ return ex\(v\)( \+ fdx\(\))?; \}, get y\(\) \{ return ey\(v\)( \+ fdy\(\))?; \}/g) || []).length, 3);
   assert.doesNotMatch(lifted.slice(lifted.indexOf('const frac = SPAWN_FRAC')), /return mx\(v\)/);
 });

@@ -1228,19 +1228,28 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
     const frac = SPAWN_FRAC[spawn];
     if (!frac || !v || !(v.info || v.screen)) {
+      // 2026-10-23 (official client; docs/rules/render.md 「모델 위치값·그림자」): 1 FOOT_POINT is the unit's foot mount
+      // point, its animator's `footTransform` — the active face's skeleton node (CharacterAnimator, MultiSpineAnimator;
+      // SingleSpineAnimator's skeleton, EmptyAnimator's own node) — so a foot effect stands with the model its prefab
+      // places off the unit's point (render/units.js faceDX / modelDY / modelDZ): 余 S3's buff hung 0.16 tile above her
+      // feet (maintainer report 2026-10-23, official recording). 0 NONE and the ground centres stay on the point
+      const foot = spawn === 1 && v && (v.faceDX || v.modelDY || v.modelDZ) ? v : null;
+      const fdx = () => (foot ? Number(foot.faceDX) || 0 : 0), fdy = () => (foot ? Number(foot.modelDY) || 0 : 0);
+      const fdz = () => (foot ? Number(foot.modelDZ) || 0 : 0);
       // 2026-10-11: an airborne (起飞) operator's feet are at the flyers' height (render/units.js `liftoff`; the client's
       // _spawnLocation FOOT / NONE is the entity's place, its fly height included) — 予愿安洁莉娜 S3's range ring is authored to
       // come down from there onto her tile (docs/rules/render.md 「이륙 높이」). (2026-10-21) A flying enemy's too (render/units.js
       // `flying`: UnitInfo motion FLY or the snapshot's UF.FLYING, drawn `hover` up): its feet effects stayed on the road under it
       if (v && (v.liftoff || v.flying)) {
         return {
-          get x() { return ex(v); }, get y() { return ey(v); }, get z() { return (v.z || 0) + (v.hover || 0); },
+          get x() { return ex(v) + fdx(); }, get y() { return ey(v) + fdy(); }, get z() { return (v.z || 0) + (v.hover || 0) + fdz(); },
           get alive() { return v.alive; }, get remove() { return v.remove; }, id: v.id, info: v.info,
         };
       }
-      if (!v || !(v.modelDX || 'glideS' in v)) return v;
+      if (!v || !(v.modelDX || 'glideS' in v || foot)) return v;
       return {   // its feet under the drawn model (MODEL_SHIFT), on its tile while the model glides
-        get x() { return ex(v); }, get y() { return ey(v); }, get z() { return v.z; }, get hover() { return v.hover; },
+        get x() { return ex(v) + fdx(); }, get y() { return ey(v) + fdy(); }, get z() { return foot ? (v.z || 0) + fdz() : v.z; },
+        get hover() { return v.hover; },
         get alive() { return v.alive; }, get remove() { return v.remove; }, id: v.id, info: v.info,
       };
     }

@@ -14,5 +14,5 @@ const SRC = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
 test('lifted(): the feet point of a liftoff operator or a flying unit is its hover height', () => {
   const at = SRC.indexOf('function followed(v, def, buff)');
   const body = SRC.slice(at, SRC.indexOf('\n  }\n', at));
-  assert.match(body, /if \(v && \(v\.liftoff \|\| v\.flying\)\) \{\n\s+return \{\n\s+get x\(\) \{ return ex\(v\); \}, get y\(\) \{ return ey\(v\); \}, get z\(\) \{ return \(v\.z \|\| 0\) \+ \(v\.hover \|\| 0\); \}/);
+  assert.match(body, /if \(v && \(v\.liftoff \|\| v\.flying\)\) \{\n\s+return \{\n\s+get x\(\) \{ return ex\(v\) \+ fdx\(\); \}, get y\(\) \{ return ey\(v\) \+ fdy\(\); \}, get z\(\) \{ return \(v\.z \|\| 0\) \+ \(v\.hover \|\| 0\) \+ fdz\(\); \}/);
 });

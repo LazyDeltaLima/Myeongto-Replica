@@ -344,6 +344,8 @@
   1 FOOT = `graphicFootTransform`의 회전, 2 HIT·4 HEAD = `graphicTransform`의 회전, 3 MUZZLE = 마운트 점 Transform의 회전, MP_SPECIAL = `_SetPosAndRotToMountPoint`.
   0 NONE·6 MUZZLE_POINT_WITHOUT_ROTATION은 단위 회전이고, 5·7 GROUND_CENTER·17 TILE_CENTER는 엔티티·타일 자체 회전이다.
   Spine 유닛에서는 `Unit.get_graphicFootTransform` → `UnitAnimator.get_graphicFootTransform`이 `graphicTransform`, 곧 `Graphic`을 돌려준다.
+  FOOT의 **위치**는 따로 `footMountPoint`(애니메이터 `footTransform` = 모델 스켈레톤 노드)라 프리팹 위치값으로 내려간 모델을 따라간다(2026-10-23,
+  render.md 「모델 위치값·그림자 — 오퍼레이터·토큰 전부」 발 이펙트).
 - 클라 데이터: `Graphic`의 회전은 X축 −30°다(쿼터니언 (−0.2588, 0, 0, 0.9659)). 확인한 것은 오퍼레이터 `charpack/char_311_mudrok.ab`·`char_1041_angel2.ab`,
   적 `enm_pfb_18.ab` `enemy_1511_mdrock`, 토큰·왕(render 연구 2026-10-17). 프리팹 쪽 근거로, FOOT 33개·HIT 48개는 루트 가까이에 X +30° 노드가 있다.
   바닥에 눕거나 똑바로 서야 하는 부분을 되돌린 것이다. GROUND_CENTER 20개는 X −30° 노드로 스스로 기운다.

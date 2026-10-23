@@ -41,7 +41,7 @@ test('fxgame places effects, shots and line ends of a shifted model at its drawn
   assert.match(FX, /const mx = \(v\) => Number\(v\.x\) \+ \(Number\(v\.modelDX\) \|\| 0\);/);
   // its column through ex (the entity's place: mx, or its tile while the model glides — aglna2-s2-glide.test.js)
   assert.match(FX, /const ex = \(v\) => \(v\.glideS \? Number\(v\.glideS\.lx\) \+ \(Number\(v\.modelDX\) \|\| 0\) : mx\(v\)\);/);
-  assert.match(FX, /if \(!v \|\| !\(v\.modelDX \|\| 'glideS' in v\)\) return v;/);
+  assert.match(FX, /if \(!v \|\| !\(v\.modelDX \|\| 'glideS' in v \|\| foot\)\) return v;/);
   assert.equal((FX.match(/tx: mx\(t(gt|arget)\)/g) || []).length, 6, 'every trail aims at the drawn model');
   assert.match(FX, /rec\.tx = mx\(t\);/);
   assert.match(FX, /if \(mount === 7\) return \{ x: mx\(src\),/);

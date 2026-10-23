@@ -170,8 +170,16 @@
   - 충전 표시는 모델을 따라감: 공식 `_FollowPosition`이 `FaceSwitcher/HeadPoint`를 따르고, 우리 `headPointY`가 `root`(옮긴 몸)에서 잰다.
     좌우 위치(±0.06)는 표식 x에 안 넣었다(머리 점의 x도 안 씀).
   - 모델 점 이펙트(총구·피격·머리·특수 점, `points.json`)는 `root`에서 재므로 따라감. 점 표가 없는 유닛의 몸·머리 높이(`fx/camera.js bodyZ`: 투사체 출발·조준,
-    `SPAWN_FRAC`)는 `modelDrop`(모델 발이 유닛 점보다 화면에서 내려간 칸)만큼 내려 모델을 따라감. 발·바닥 이펙트(FOOT·GROUND_CENTER = `Graphic`·엔티티
-    점)는 유닛 점 그대로.
+    `SPAWN_FRAC`)는 `modelDrop`(모델 발이 유닛 점보다 화면에서 내려간 칸)만큼 내려 모델을 따라감. 0 NONE·바닥(GROUND_CENTER 5·7 = 엔티티 점)
+    이펙트는 유닛 점 그대로.
+  - **발 이펙트(1 FOOT_POINT)도 모델을 따라감** (2026-10-23, 공식 클라에서 확인 + 공식 녹화): 위치는 `Entity.footMountPoint` = `Unit.get_footPoint`
+    → 애니메이터의 `footTransform`이고, 이것이 `CharacterAnimator`·`MultiSpineAnimator`는 활성 얼굴의 `skeleton` 노드, `SingleSpineAnimator`는
+    `_skeleton` 노드, `EmptyAnimator`는 자기 노드 — 곧 프리팹 위치값으로 옮겨진 모델 자체다(회전만 `graphicFootTransform` = `Graphic`, fx.md
+    「캐릭터 그림의 기울기」). 처음(77c99b5a)엔 FOOT를 `Graphic` 점으로 보아 유닛 점에 두었고, 그래서 '위'(余) S3 버프 `yu_skill3_buff_01`(FOOT,
+    붙들림)이 내려간 발보다 약 0.16칸 위에 떠 보였다(관리자 제보 2026-10-23). 공식 녹화(관리자 제공 2026-10-23)는 그 구체가 몸 전체를 감싸고 아래 불꽃
+    고리가 신발 높이다. → `fxgame.js followed`의 발 갈래가 몸과 같은 오프셋(`faceDX`·`modelDY`·`modelDZ`)을 더함(이륙·비행 갈래 포함; 적은 오프셋이
+    0이라 그대로 — 적 모델 위치값을 그릴 때 이 갈래로 같이 따라감). 확인: `test/render/model-place.test.js`, Windows Chrome 디버그 아레나 '위' S3 「지금 발동」
+    전·후(전: 구체 밑으로 발이 나옴, 후: 발까지 감쌈).
   - 그대로 둔 것: 툴팁 사각형(`bounds`), 바둑돌 이펙트의 공 올림(`STONE_BALL` — 땅 점으로 둘지는 화면 비교 뒤), 적.
 - 확인: `test/render/model-place.test.js`(표준값·−30° 변환·`Graphic` 올림, 표 항목·키 순서·그림자 없음, 오퍼레이터·토큰 몸·그림자 자리, HUD는 유닛 점,
   표가 늦게 와도 다시 읽음, `bodyZ`가 모델을 따라감), `feedback3-shot-height`·`model-shift`. Windows Chrome 디버그 아레나: 薄绿(char_388_mint) 몸 0.068칸 왼쪽·
