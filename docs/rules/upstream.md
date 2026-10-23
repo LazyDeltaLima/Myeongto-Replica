@@ -202,6 +202,9 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
   `also`가 아니라 `plus`, 효과를 물려받는 전략 `effectRef`는 우리에 없어 그 부분과 시험 콘솔 재생 테스트는 안 받음), upstream #845(upstream 미수정, 우리
   구현 — 4인 보스전 짝을 보스 웨이브마다 무작위), `fc9323c3` `212a796e`(PR #675, 손 — 联防에서 태어난 적은 누수자 LP·×N에서 빠짐, 클라 결과 검증은
   우리 `validateClientResult`에)는 `sim.md` 「upstream 0.3.1·0.3.2 대조 이식 — 매치」.
+- **upstream PR #668 — 로컬 추출 Spine 페이지 알파** (upstream `78024751` `46b96de7` `1ae6ca3b` `b28c4a9b`, 부분 수용 2026-10-23): 증상(반투명 가장자리가 칙칙함)은 우리 `_USEBLEED_ON`
+  페이지 8모델에서도 맞아 판정만 손으로 고침(`extract.py material_straight`); PR의 수정(모든 페이지 straight·`pma` 없앰)은 `[alpha]` 분리 페이지를
+  두 번 곱해 받지 않음 — `render.md` 「로컬 추출 Spine 페이지의 알파」.
 
 ## upstream에서 이식할 때 비교할 우리 패치
 upstream이 같은 곳을 고치면 비교해서 정리한다.

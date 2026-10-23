@@ -144,6 +144,26 @@
   `model-shift.test.js`. Windows Chrome 디버그 아레나(望 S1, 자동 棋子, 전·후 서버 나란히): 전 — 놓은 棋子 몸·그림자 0·폭 0.95, 공이 같은 줄 跟子보다 약
   0.18칸 위; 후 — 몸 0.155–0.168칸·그림자 0.138–0.154칸 아래, 그림자 0.61 × 0.16–0.18칸, 같은 줄 두 돌의 공이 같은 높이. [화면 미확인: 실제 판]
 
+## 로컬 추출 Spine 페이지의 알파 — bleed 페이지 (2026-10-23, upstream PR #668의 증상)
+- 계기: upstream PR #668(「추출 페이지를 straight alpha로, atlas에 `pma` 안 씀」)이 반투명 가장자리가 칙칙하다고 보고. 우리 추출(`extract.py`)도
+  8모델에서 같은 증상이었으나 원인과 고칠 곳이 PR과 다르다.
+- 근거(EN 클라): 추출하는 토큰·적 모델 머티리얼은 모두 셰이더 `Torappu/Spine/Skeleton-AlphaSplit (Z-Distorted)`(블렌드 One, OneMinusSrcAlpha → 출력은
+  premultiplied). 이 셰이더는 키워드 `_USEBLEED_ON`(머티리얼 `_UseBleed 1`)일 때만 RGB에 A를 곱하고, 없으면 텍스처 RGB를 그대로 낸다. 즉
+  `_USEBLEED_ON` 페이지 = straight(투명 텍셀에 색이 번져 있음), 나머지(`[alpha]` 분리 페이지) = 이미 premultiplied. 예전 판정에 쓰던
+  `_StraightAlphaInput`은 이 셰이더의 속성이 아니라(남은 직렬화 값, 늘 0이거나 없음) 아무것도 가르지 못했다.
+- 증상: straight 페이지도 분리 페이지처럼 `min(RGB, A)`로 잘라, 어두운 채널은 그대로 두고 밝은 채널만 A로 잘린 반투명 가장자리가 밝고 회색이었다
+  (风雪之眼 파란 가장자리가 회색·약 4배 밝음, 战术锚点 반투명 평균 오차 54).
+- 적용: `extract.py material_straight` — `_USEBLEED_ON`(유효 키워드 목록·문자열) 또는 `_UseBleed 1`이면 straight → 페이지 RGB × A. 모든 페이지가
+  premultiplied + `pma: true`로 남아 atlas·메타데이터 형식은 그대로다. 다시 뽑은 것: 그 8모델 — 魂灵之影 `token_10035_wisdel_wward`·防护单元
+  `token_10041_cathy_catsld`·风雪之眼 3종 `token_10057_svash2_eagle1–3`·棋子 `token_10064_wang_stone1`·战术锚点 `token_10068_kalts2_mtship`·
+  `trap_185_vtlntw`(페이지만 바뀌고 skel·atlas·manifest는 같음). 분리 페이지 둘(香槟炸弹·`trap_039_dstnta`)과 적 원석충은 바이트까지 같다.
+- PR #668을 그대로 받지 않은 까닭: 분리 페이지는 이미 premultiplied라 `pma`를 빼면 업로드 때 한 번 더 곱해져 가장자리가 어두워진다(원석충·香槟炸弹이
+  틀어짐). PR의 「알파를 두 번 곱한다」는 설명도 우리 코드(`pma: true` 페이지는 다시 안 곱함)에는 맞지 않는다.
+- 그대로 둔 것: 분리 페이지의 `min` 클램프(클라는 RGB > A를 그대로 더해 발광처럼 보임; 원석충 0.6 % 픽셀, 최대 63 차이) — 압축 번짐인지 의도된
+  발광인지 모름 [ASSUMED].
+- 확인: `test/local-extract.test.js`(`material_straight`, `merge_alpha` straight 곱하기), 다시 뽑은 페이지의 반투명 픽셀 중 RGB = A(잘린 흔적)
+  风雪之眼 66 → 1.9 %·战术锚点 90 → 2.7 %, 香槟炸弹 2.8 % 그대로. [화면 미확인: 风雪之眼·战术锚点 가장자리가 회색 테 없이 원래 색, 원석충은 그대로]
+
 ## 적 경로 미리보기 (2026-10-10, 관리자 결정 「공식 卫戍协议에서는 라운드 작전이 시작될 때 적 경로가 실제로 표시됐다」 → 공식대로)
 - 공식(클라 코드, EN 클라 il2cpp — 레벨 데이터 액션이 아니라 SPAWN 액션의 플래그):
   - `Scheduler._DealAction`(RVA 0x629EE0): SPAWN 액션에 `autoPreviewRoute`(ActionData +0x35)가 있으면 PREVIEW_CURSOR(ActionType 1) 액션을 새로 만들어

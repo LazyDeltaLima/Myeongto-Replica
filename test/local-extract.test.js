@@ -128,7 +128,7 @@ print(json.dumps({'nodes': [[n, a, r['m_PathID']] for n, a, r in nodes], 'pick':
     assert.equal(out.pick, 41, 'the Front skeleton (the fetched tokens use Front / Spine too)');
   });
 
-  test('merge_alpha: the [alpha] texture as A, else the page\'s own alpha; RGB clamped to A (premultiplied input), multiplied for straight input', { skip: spawnSync(PY, ['-c', 'import PIL']).status !== 0 && 'no Pillow' }, () => {
+  test('merge_alpha: the [alpha] texture as A, else the page\'s own alpha; RGB clamped to A (premultiplied input), multiplied for straight input (_USEBLEED_ON)', { skip: spawnSync(PY, ['-c', 'import PIL']).status !== 0 && 'no Pillow' }, () => {
     const out = py(`
 from PIL import Image
 rgb = Image.new('RGB', (2, 1)); rgb.putdata([(200, 100, 50), (90, 90, 90)])
@@ -139,7 +139,16 @@ print(json.dumps({'split': list(e.merge_alpha(rgb, alpha).getdata()), 'own': lis
     assert.deepEqual(out.split, [[128, 100, 50, 128], [90, 90, 90, 255]], 'A from the [alpha] texture, RGB ≤ A');
     assert.deepEqual(out.own, [[60, 100, 10, 100], [0, 0, 0, 0]], 'an RGBA page keeps its alpha (the newer tokens: _UseAlphaTex 0)');
     assert.deepEqual(out.opaque, [[200, 100, 50, 255], [90, 90, 90, 255]], 'no alpha anywhere: opaque');
-    assert.deepEqual(out.straight, [[23, 78, 3, 100], [0, 0, 0, 0]], '_StraightAlphaInput 1: RGB × A / 255 (Pillow truncates)');
+    assert.deepEqual(out.straight, [[23, 78, 3, 100], [0, 0, 0, 0]], '_USEBLEED_ON: RGB × A / 255 (Pillow truncates)');
+  });
+
+  test('material_straight: _USEBLEED_ON (keyword list or string, or _UseBleed 1) is straight; _StraightAlphaInput decides nothing', () => {
+    const out = py(`
+m = lambda kws=None, sk=None, fl=(): {'m_ValidKeywords': kws, 'm_ShaderKeywords': sk, 'm_SavedProperties': {'m_Floats': list(fl)}}
+print(json.dumps([e.material_straight(x) for x in (
+  m(['_USEALPHATEX_OFF', '_USEBLEED_ON']), m(sk='_USEBLEED_ON'), m(fl=[('_UseBleed', 1.0)]),
+  m(['_USEALPHATEX_OFF'], fl=[('_UseBleed', 0.0), ('_StraightAlphaInput', 1.0)]), m())]))`);
+    assert.deepEqual(out, [true, true, true, false, false]);
   });
 
   test('material_info: textures by name with tiling, floats, colours, sorted keywords; unresolvable refs → null', () => {

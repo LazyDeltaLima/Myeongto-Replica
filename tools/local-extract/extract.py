@@ -12,9 +12,9 @@ aklz4.py registers a decoder for it. This script pulls the art the web sources l
   client uses these local copies first — GitHub issue #42)
   - the enemy battle Spine models no community dump carries (ENEMY_SPINES: 灼热源石虫 / 炽焰源石虫), from the enemy art
     bundles (refs/arts/enm_art_*.ab) → spine/enemy/<enemyId>/<stem>.skel|.atlas + page PNGs with the [alpha] texture
-    merged in (premultiplied RGB + A, the Ark-Models format; the atlas gets `size:` / `pma: true` like the fetched
-    enemies); the client draws them instead of the web alias once this manifest lists them (data/assets.json
-    enemies[id].spineLocal, docs/ASSETS.md "Enemy aliases")
+    merged in (premultiplied RGB + A, the Ark-Models format: a straight page of a _USEBLEED_ON material is multiplied;
+    the atlas gets `size:` / `pma: true` like the fetched enemies); the client draws them instead of the web alias once
+    this manifest lists them (data/assets.json enemies[id].spineLocal, docs/ASSETS.md "Enemy aliases")
   - the token (summon) battle Spine models no community dump carries (TOKEN_SPINES: our 自选 picks' summons — 望's 棋子,
     维什戴尔's 魂灵之影, 凯尔希·思衡托's 战术锚点 —, 凯瑟琳's 爬行号·防护单元, 凛御银灰's 风雪之眼), from the battle token prefabs (pkgrps/btl_pfb_tokens_*.ab: the skeleton
     the prefab's Front / only Spine renderer draws) → spine/token/<tokenId>/<stem>.skel|.atlas + merged page PNGs, the
@@ -621,9 +621,11 @@ def _text_bytes(text_asset):
 
 def merge_alpha(rgb, alpha, straight=False):
     """Premultiplied RGBA page of a Spine atlas texture: RGB of the main texture and A from its [alpha] texture (the
-    split pages: _UseAlphaTex 1), else the main texture's own alpha (the newer RGBA pages: _UseAlphaTex 0); RGB is
-    clamped to A (block-compression bleed) — the client's Spine material reads premultiplied input
-    (_StraightAlphaInput 0) — or, for a material with _StraightAlphaInput 1 (`straight`), multiplied by A."""
+    split pages: _UseAlphaTex 1), else the main texture's own alpha (the newer RGBA pages: _UseAlphaTex 0). The client's
+    Spine shader (Torappu/Spine/Skeleton-AlphaSplit) outputs premultiplied colour: a page of a material without
+    _USEBLEED_ON is premultiplied already, and its RGB is only clamped to A (block-compression bleed); a page of a
+    material with _USEBLEED_ON (`straight`: the RGBA pages of most tokens, colour bled into the clear texels) is
+    straight, and the shader multiplies RGB by A, so does this."""
     from PIL import Image, ImageChops
     r, g, b = rgb.convert('RGB').split()
     if alpha is not None:
@@ -634,6 +636,18 @@ def merge_alpha(rgb, alpha, straight=False):
         a = Image.new('L', rgb.size, 255)
     op = ImageChops.multiply if straight else ImageChops.darker
     return Image.merge('RGBA', tuple(op(ch, a) for ch in (r, g, b)) + (a,))
+
+
+def material_straight(material):
+    """Whether a Spine material's page textures are straight alpha: the shader keyword _USEBLEED_ON (the shader
+    multiplies RGB by A then; the material's _UseBleed 1). _StraightAlphaInput is not a property of the client's Spine
+    shader (a leftover serialized value), so it decides nothing."""
+    kws = material.get('m_ValidKeywords') or []
+    if isinstance(kws, str):
+        kws = kws.split()
+    kws = list(kws) + str(material.get('m_ShaderKeywords') or '').split()
+    floats = dict(material.get('m_SavedProperties', {}).get('m_Floats') or [])
+    return '_USEBLEED_ON' in kws or floats.get('_UseBleed') == 1
 
 
 def _is_page_line(lines, i):
@@ -712,7 +726,7 @@ def write_spine(objects, sda, sub, name, out_root, manifest, log):
                 continue
             props = mo.read_typetree()['m_SavedProperties']
             texs = dict(props['m_TexEnvs'])
-            straight = dict(props.get('m_Floats') or []).get('_StraightAlphaInput') == 1
+            straight = material_straight(mo.read_typetree())
             main, alpha = get(texs.get('_MainTex', {}).get('m_Texture')), get(texs.get('_AlphaTex', {}).get('m_Texture'))
             if main is None:
                 continue
