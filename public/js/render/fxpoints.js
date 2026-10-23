@@ -104,29 +104,67 @@ export function pointTurn(entry, sk, back) {
 export const GRAPHIC_TILT = Object.freeze([-0.25881905, 0, 0, 0.96592583]);
 
 /**
- * Where a unit's model and shadow sit in its battle prefab, by unit key (maintainer decision 2026-10-17: 望's placed 棋子
- * first, the other operators' and tokens' later — their prefabs carry the same values). `face`: the localPosition of
- * `Graphic/DefaultSkin/FaceSwitcher` (Unity units = tiles) in the Graphic's frame, turned by GRAPHIC_TILT; `shadow`:
- * `Others/Shadow/Sprite` (`Others` is not turned) — its localPosition on the board (`at`: columns, rows) and its size there
- * in tiles (`sprite_shadow`, 507 × 162 px at 100 px a unit, × its scale). token_10064_wang_stone1: EN client
- * pkgrps/btl_pfb_tokens_4.ab — FaceSwitcher (0, −0.16, −0.1) at scale 0.27, the shadow (0, −0.17, 0) at scale 0.12.
+ * Where an operator's or token's model and shadow sit in its battle prefab (maintainer decision 2026-10-17: 望's placed
+ * 棋子 first, then every operator and token). `face`: the localPosition of the skeleton's node under `Graphic` (an
+ * operator's `DefaultSkin/FaceSwitcher`, a token's FaceSwitcher or `Spine`; Unity units = tiles) in the Graphic's frame,
+ * turned by GRAPHIC_TILT, and `scale` its scale; `shadow`: `Others/Shadow/Sprite` (`Others` is not turned) — its
+ * localPosition on the board (`at`: columns, rows) and scale (`sx`, `sy`) of `sprite_shadow` (SHADOW_SPRITE). Most
+ * operators' and tokens' prefabs carry these values (official client; a few stand off to one side, at scale 0.26, or with
+ * another shadow); a unit's own values come from the local table (loadPlaces), and a unit missing there or a machine
+ * without the table takes these.
  */
-export const MODEL_PLACE = Object.freeze({
-  token_10064_wang_stone1: Object.freeze({
-    face: Object.freeze([0, -0.16, -0.1]),
-    shadow: Object.freeze({ at: Object.freeze([0, -0.17]), w: 5.07 * 0.12, h: 1.62 * 0.12 }),
-  }),
+export const STANDARD_PLACE = Object.freeze({
+  face: Object.freeze([0, -0.16, -0.1]), scale: 0.27,
+  shadow: Object.freeze({ at: Object.freeze([0, -0.17]), sx: 0.12, sy: 0.12 }),
 });
+/** `sprite_shadow`'s size in Unity units: 507 × 162 px at 100 px a unit. */
+export const SHADOW_SPRITE = Object.freeze([5.07, 1.62]);
 
 /**
- * A FaceSwitcher position `face` (MODEL_PLACE) on the board: { dx: columns, dy: rows, dz: height }. The Graphic's X −30°
- * turns Unity (y, z) into (y cos 30° + z sin 30°, z cos 30° − y sin 30°), and Unity's z points into the board (the height
- * is its negative): (0, −0.16, −0.1) → 0.189 rows toward the camera and 0.007 up, about 0.16 tile lower on screen.
+ * The per-unit table (tools/local-extract/model_place.py → public/assets/local/fx/places.json):
+ *   { unitId: { face: [x, y, z], scale, graphic?: [x, y, z], shadow: { at: [x, y], sx, sy } | null } }
+ * (`graphic`: the Graphic's own localPosition when it is not 0 — 医疗探机 / 诅咒娃娃 float 0.2 up; `shadow` null: the
+ * prefab draws none — 凛御银灰's 风雪之眼). `placesVersion` counts the loads, so a view built before it came re-reads.
  */
-export function modelOffset(face) {
+export const PLACES_URL = '/assets/local/fx/places.json';
+let places = null, placesPromise = null;
+export let placesVersion = 0;
+export const loadPlaces = () => (placesPromise ||= (typeof fetch !== 'function' ? Promise.resolve(null)
+  : fetch(PLACES_URL).then((r) => (r.ok ? r.json() : null)).then((p) => (p && typeof p === 'object' ? p : null), () => null))
+  .then((p) => { if (p) setPlaces(p); return p; }));
+/** Installs the per-unit table (loadPlaces; tests). */
+export function setPlaces(p) { places = p || null; placesVersion++; }
+
+/**
+ * The place of the model of an operator (`kind` 'op') or token, its first unit key in `keys` found in the table, else
+ * STANDARD_PLACE; null for anything else (enemies keep their own model data). Returns { own: from the table, off: the
+ * model's offset on the board (modelOffset), k: its scale over the standard 0.27, shadow: { at, w, h } in tiles | null }.
+ * @param {Array<string|null|undefined>} keys
+ * @param {string|null|undefined} kind
+ */
+export function modelPlace(keys, kind) {
+  if (kind !== 'op' && kind !== 'token') return null;
+  const e = keys.map((k) => (k && places ? places[k] : null)).find((x) => x && Array.isArray(x.face)) || STANDARD_PLACE;
+  const sh = e.shadow;
+  return {
+    own: e !== STANDARD_PLACE,
+    off: modelOffset(e.face, e.graphic),
+    k: Number(e.scale) > 0 ? e.scale / STANDARD_PLACE.scale : 1,
+    shadow: sh ? { at: sh.at, w: SHADOW_SPRITE[0] * sh.sx, h: SHADOW_SPRITE[1] * sh.sy } : null,
+  };
+}
+
+/**
+ * A skeleton node's position `face` (STANDARD_PLACE) on the board, plus the Graphic's own `graphic` position (not turned):
+ * { dx: columns, dy: rows, dz: height }. The Graphic's X −30° turns Unity (y, z) into (y cos 30° + z sin 30°,
+ * z cos 30° − y sin 30°), and Unity's z points into the board (the height is its negative): (0, −0.16, −0.1) → 0.189 rows
+ * toward the camera and 0.007 up, about 0.16 tile lower on screen.
+ */
+export function modelOffset(face, graphic = null) {
   const c = Math.cos(Math.PI / 6), s = Math.sin(Math.PI / 6);
   const [x, y, z] = face;
-  return { dx: x, dy: y * c + z * s, dz: y * s - z * c };
+  const [gx, gy, gz] = graphic || [0, 0, 0];
+  return { dx: x + gx, dy: y * c + z * s + gy, dz: y * s - z * c - gz };
 }
 
 /**

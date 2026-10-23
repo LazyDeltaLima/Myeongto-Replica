@@ -286,3 +286,31 @@ describe('enemy_scales.py (official enemy model sizes → build-data MODEL_SCALE
     assert.ok(bd.includes(lines[0].trim()), 'build-data MODEL_SCALES: 威龙 0.16');
   });
 });
+
+describe('model_place.py (no UnityPy needed)', { skip: !PY && 'no python3' }, () => {
+  /** Run python code with `model_place` imported as `m`; returns the parsed JSON it prints. */
+  const mp = (code) => {
+    const src = `import sys, json\nsys.path.insert(0, ${JSON.stringify(TOOL)})\nimport model_place as m\n${code}`;
+    const r = spawnSync(PY, ['-c', src], { encoding: 'utf8', env: ENV });
+    assert.equal(r.status, 0, r.stderr);
+    return JSON.parse(r.stdout);
+  };
+  test('place: the node\'s position and scale, the Graphic\'s own place when not 0, the shadow only when a sprite draws it', () => {
+    const out = mp(`
+n = lambda pos, scale=1, sprite=False, active=True: {'pos': pos, 'scale': [scale, scale, scale], 'sprite': sprite, 'active': active, 'children': {}}
+face, g0, g2 = n([0, -0.16, -0.1], 0.27), n([0, 0, 0]), n([0, 0, -0.2])
+sh = {'pos': [0, -0.17, 0], 'scale': [0.12, 0.06, 1], 'sprite': True, 'active': True, 'children': {}}
+print(json.dumps([m.place(face, g0, sh), m.place(face, g2, None), m.place(face, g0, n([0, -0.17, 0], 0.12)),
+  m.place(face, g0, n([0, -0.17, 0], 0.12, True, False))]))`);
+    assert.deepEqual(out[0], { face: [0, -0.16, -0.1], scale: 0.27, shadow: { at: [0, -0.17], sx: 0.12, sy: 0.06 } });
+    assert.deepEqual(out[1], { face: [0, -0.16, -0.1], scale: 0.27, graphic: [0, 0, -0.2], shadow: null });
+    assert.equal(out[2].shadow, null, 'a Shadow/Sprite without a SpriteRenderer (风雪之眼)');
+    assert.equal(out[3].shadow, null, 'an inactive one');
+  });
+  test('child walks a node path; a token\'s skeleton node is looked for in TOKEN_MODEL_NODES order', () => {
+    const out = mp(`
+t = {'children': {'Graphic': {'children': {'Spine': {'children': {}, 'pos': [0, -0.15, -0.1]}}}}}
+print(json.dumps([m.child(t, 'Graphic/Spine')['pos'], m.child(t, 'Graphic/FaceSwitcher'), list(m.TOKEN_MODEL_NODES)]))`);
+    assert.deepEqual(out, [[0, -0.15, -0.1], null, ['DefaultSkin/FaceSwitcher', 'FaceSwitcher', 'Spine', 'Front', 'EmptyAnimator']]);
+  });
+});

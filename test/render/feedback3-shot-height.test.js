@@ -8,6 +8,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { installFakePixi, fakeViewCtx } from './fakepixi.js';
 import { presetCamera } from '../../public/js/render/projection.js';
+import { STANDARD_PLACE, modelOffset } from '../../public/js/render/fxpoints.js';
 
 let fake, FX, UnitView;
 before(async () => {
@@ -69,13 +70,14 @@ test('the attack jolt only moves the avatar diamond: a shown Spine model keeps i
     spine: { acquire: () => (ready ? Promise.resolve({ animations: [{ name: 'Idle' }, { name: 'Attack' }] }) : new Promise(() => {})), release() {} } };
   const make = () => new UnitView(fakeViewCtx(fake.P, { assets, cam: () => cam }), { id: 1, side: 'ally', kind: 'op', defId: 'c', spine: 'c', tier: 3, x: 4, y: 10, maxHp: 1000, dir: 'RIGHT' });
   const target = { x: 8, y: 12 };
-  const feet = cam.project(4, 10, 0);
+  // where its model stands: its prefab's place (docs/rules/render.md 「모델 위치값·그림자」)
+  const o = modelOffset(STANDARD_PLACE.face), stand = cam.project(4 + o.dx, 10 + o.dy, o.dz);
   // no model (still loading): the diamond jolts toward the target
   const d = make();
   d.update(1 / 60, cam, 0);
   d.onAttack(target, 1, 'arrow');
   d.update(0.1, cam, 0.1); d.update(0.01, cam, 0.11);   // (the jolt peaks a tenth of a second in)
-  assert.ok(Math.hypot(d.root.position.x - feet.x, d.root.position.y - feet.y) > 1, 'the avatar diamond lunges');
+  assert.ok(Math.hypot(d.root.position.x - stand.x, d.root.position.y - stand.y) > 1, 'the avatar diamond lunges');
   // a Spine model shown: no jolt
   ready = true;
   const v = make();
@@ -85,7 +87,7 @@ test('the attack jolt only moves the avatar diamond: a shown Spine model keeps i
   v.onAttack(target, 1, 'arrow');
   for (let i = 0; i < 4; i++) {
     v.update(0.05, cam, 0.05 * i);
-    close(v.root.position.x, feet.x, 1e-6, 'x'); close(v.root.position.y, feet.y, 1e-6, 'y');
+    close(v.root.position.x, stand.x, 1e-6, 'x'); close(v.root.position.y, stand.y, 1e-6, 'y');
   }
   assert.equal(v.actor.current, 'Attack', 'the model shows the attack with its own clip');
 });

@@ -80,10 +80,11 @@ import { EliteRing, eliteBadgeTexture, ELITE_BADGE } from './elite-mark.js'; // 
 import { faceOf, turnFace, turnWidth, dirVector, NEAR_SQ, SWITCH_TIME } from './face-turn.js'; // an operator turns to its target (「공격 방향」)
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2's glide: when her model is back
 import { syncHeldWeapon } from './heldWheel.js'; // local patch: a 回环射手's boomerang in her hand (Spine skin 'Bullet')
-import { MODEL_PLACE, modelOffset } from './fxpoints.js'; // 2026-10-22: a model's place and shadow in its battle prefab
+import { loadPlaces, modelPlace, placesVersion } from './fxpoints.js'; // a model's place and shadow in its battle prefab
 import { ElementRing, epRingReady, AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, prepChip, PREP_CHIP, EquipBar, equipTextures, shieldedBar, SkillMark } from './hud-bars.js'; // local patch: official battle HUD
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+loadPlaces(); // the per-unit model places (fxpoints.js); views built before it arrives re-read it
 const DIRS = ['UP', 'RIGHT', 'DOWN', 'LEFT'];
 /** Deploy direction of an ally from a UnitInfo / piece: `dir` (any case), else the legacy `facing` sign. */
 export function unitDir(info) {
@@ -710,7 +711,7 @@ export class UnitView {
     this.isBoss = !!info.boss;
     // enemies: the official prefab's size factor (1 for operators, summons and enemies at the standard size)
     const def = this.isEnemy && ctx.lookupDef ? ctx.lookupDef(info) : null;
-    this.modelK = this.isEnemy ? enemyModelScale(def) : TOKEN_MODEL_K[info.defId] || 1; // local patch: summon prefab sizes
+    this.modelK = this.isEnemy ? enemyModelScale(def) : TOKEN_MODEL_K[info.defId] || 1; // summon prefab sizes; _applyPlace
     // a fast enemy walks on its model's own Run cycle when it has one (PR #275 by @xcdoge: 猎狗pro, moveSpeed 1.9, Run_Loop
     // 0.53 s next to Move_Loop 0.80 s; also 深池侦察犬 1.7). [ASSUMED] the threshold: faster than the standard 1
     this.moveFast = this.isEnemy && Number(def?.stats?.moveSpeed) > 1;
@@ -719,12 +720,9 @@ export class UnitView {
     // (the Graphic's sx is negative, so the official draws the authored model flipped: 木制瑞印)
     this.modelKY = this.isEnemy ? enemyModelScaleY(def) : 1;
     this.modelDX = this.isEnemy ? MODEL_SHIFT[info.defId] || 0 : 0; // MODEL_SHIFT [ASSUMED]
-    // its battle prefab's FaceSwitcher place and shadow (fxpoints.js MODEL_PLACE: 望's 棋子 so far): the model is drawn that
-    // far from its unit's point, the shadow where the prefab puts it, at its size
-    this.modelPlace = MODEL_PLACE[info.defId] || null;
-    const off = this.modelPlace ? modelOffset(this.modelPlace.face) : null;
-    this.modelDY = off ? off.dy : 0;
-    this.modelDZ = off ? off.dz : 0;
+    this.modelDrop = 0;           // the model's feet below the unit's point on screen, in tiles (update)
+    this._placeV = -1;
+    this._applyPlace();
     this.mirrorX = this.isEnemy && !!(def && def.mirrorX);
     this.isToken = info.kind === 'token';
     this.golden = !!info.golden;
@@ -1652,8 +1650,26 @@ export class UnitView {
   // ---- per frame -------------------------------------------------------------------------------------------
 
   /** @param {number} dt real seconds @param {any} cam camera @param {number} t real clock */
+  /**
+   * An operator's or token's place in its battle prefab (fxpoints.js modelPlace, docs/rules/render.md 「모델 위치값·그림자」):
+   * the model is drawn off its unit's point by its skeleton node's place (`faceDX`, `modelDY`, `modelDZ` — the body only;
+   * `modelDX` moves the whole unit), the shadow where and as large as the prefab's sprite (none when it has none), the
+   * model at the node's scale. Read again when the local table arrives (placesVersion).
+   */
+  _applyPlace() {
+    this._placeV = placesVersion;
+    const info = this.info;
+    this.modelPlace = this.isEnemy ? null : modelPlace([info.diy?.charId, info.spine, info.defId], info.kind);
+    const off = this.modelPlace?.off;
+    this.faceDX = off ? off.dx : 0;
+    this.modelDY = off ? off.dy : 0;
+    this.modelDZ = off ? off.dz : 0;
+    if (this.modelPlace?.own) this.modelK = this.modelPlace.k;
+  }
+
   update(dt, cam, t) {
     if (this.destroyed) return;
+    if (this._placeV !== placesVersion) this._applyPlace();
     // a displacement's slide (slideTo): held where it stood until the snapshot with the destination is shown, then
     // eased into the sampled position (sync keeps `lx, ly` current) under a constant deceleration
     if (this.slide) {
@@ -1768,7 +1784,10 @@ export class UnitView {
     this.lunge = Math.max(0, this.lunge - dt * 5);
     const lx = this.lungeDir.x * lungeK, ly = this.lungeDir.y * lungeK;
     let bx = p.x, by = p.y;
-    if (lungeK || this.modelDX || this.modelDY || this.modelDZ) { const q = cam.project(this.x + this.modelDX + lx, this.y + this.modelDY + ly, this.z + this.modelDZ + this.hover + this.lift, LG_P); bx = q.x; by = q.y; }
+    if (lungeK || this.modelDX || this.faceDX || this.modelDY || this.modelDZ) { const q = cam.project(this.x + this.modelDX + this.faceDX + lx, this.y + this.modelDY + ly, this.z + this.modelDZ + this.hover + this.lift, LG_P); bx = q.x; by = q.y; }
+    // how far the model's feet are drawn below the unit's point, in tiles on screen (fx/camera.js bodyZ: the body and head
+    // anchors without a model point follow the model)
+    if (!lungeK) this.modelDrop = this.modelPlace && s > 0 ? (by - p.y) / s : 0;
     this.root.position.set(bx, by);
     this.root.alpha = alpha;
     this.root.zIndex = unitDepthKey(cam, this.x, this.y, this.lift);
@@ -1782,6 +1801,7 @@ export class UnitView {
     const shz = this.shadowZ ?? this.z;
     placeOnGround(this.ctx, this.shadow, this.ctx.layers.shadow, this.y, shz);
     const ps = this.modelPlace?.shadow;
+    const shadowless = !!this.modelPlace && !ps;   // the prefab draws none (凛御银灰's 风雪之眼)
     const sh = cam.project(this.x + this.modelDX + (ps ? ps.at[0] : 0), this.y + (ps ? ps.at[1] : 0), shz, SH_P);
     this.shadow.position.set(sh.x, sh.y);
     if (ps) {
@@ -1794,7 +1814,7 @@ export class UnitView {
     }
     // 深水区: hidden under the water (DEEP_SHADOW_FADE)
     const dry = this.isEnemy && this.z < 0 ? Math.max(0, 1 + this.z / DEEP_SHADOW_FADE) : 1;
-    this.shadow.alpha = this.bodyless ? 0 : 0.5 * alpha * (this.lift > 0 ? 0.6 : 1) * dry;
+    this.shadow.alpha = this.bodyless || shadowless ? 0 : 0.5 * alpha * (this.lift > 0 ? 0.6 : 1) * dry;
 
     // model / fallback
     const spineShown = this.actor && this.spineReady;
