@@ -2550,7 +2550,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const head = { id: `rope:${++ropeSeq}`, alive: true, get x() { return at()[0]; }, get y() { return at()[1]; }, get z() { return at()[2]; } };
     startLine(pb.bundle, name, op, head, out + backT, { sMount: 2, eMount: 7 });
     const mv = h.moving ? pickName(pb, h.moving) : null;
-    if (mv) castsDelayed.push({ t: clockS + out, run: () => spawn(pb.bundle, mv, head, { owner: null, buff: false, until: clockS + backT }, { over: false }) });
+    // 2026-10-23 (maintainer arena check 「歌蕾蒂娅 S3 끝에 작살로 끌어온 회오리가 조금 오래 남음」): ended as the projectile stops, the
+    // client's FinishMe (zoneEnd: gone `_delayToFinish` later) — a plain `until` only stopped emitting, and range_04's 10 s
+    // particles stayed about 2 s after the head was back
+    if (mv) castsDelayed.push({ t: clockS + out, run: () => spawn(pb.bundle, mv, head, { owner: null, buff: false, until: clockS + backT }, { over: false }).then((l) => { if (l) zoneEnd(l, l.until, true); }) });
     return out;
   }
   /**

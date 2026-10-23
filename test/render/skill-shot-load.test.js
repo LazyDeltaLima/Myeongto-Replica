@@ -29,3 +29,7 @@ test("an operator's skill shot list is loaded at its deploy (warmShot)", () => {
   assert.match(body('warmShot'), /lib\.load\(b\.bundle, n\)/);
   assert.match(body('flushDeploys'), /warmShot\(v\);/);
 });
+
+test("a harpoon's moving effect ends as its projectile stops (歌蕾蒂娅 S3's range_04: FinishMe, not just the emission)", () => {
+  assert.match(body('planHarpoon'), /\.then\(\(l\) => \{ if \(l\) zoneEnd\(l, l\.until, true\); \}\)/);
+});

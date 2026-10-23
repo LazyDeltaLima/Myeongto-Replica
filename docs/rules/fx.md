@@ -2118,6 +2118,9 @@
     그녀에게 `ines_skill_03_getLabel_01`·`getLabel_range_01`.
   - 歌蕾蒂娅 S3 끝: `projectile_chr_glady_s3_3`(`_attachToMountPoint`, `_hookedStartPointType` 2 = Muzzle) — `_harpoonEffect` `glady_skill_03_line`,
     `_firstPartTime` 0.3 s 나가고 `_secondPartTime` 1 s 당겨 옴, `_effectsWhenReached` `glady_skill_03_range_05`, `_movingEffectsWhenReached` `_range_04`.
+    `_range_04`는 머리가 돌아와 투사체가 멈출 때 `Effect.FinishMe`처럼 끝낸다(`zoneEnd`: 첫 시스템 멈춤, `_delayToFinish` 0.5초 뒤 사라짐) —
+    2026-10-23(관리자 아레나 확인 「歌蕾蒂娅 S3 끝에 작살로 끌어온 회오리가 조금 오래 남음」)까지는 방출만 멈춰 10초 입자가 머리가 돌아온 뒤
+    2초쯤 남았다. 뒤 아레나: 작살 시작 1.7초 뒤 입자 700 → 150(전엔 2.2초에도 450).
   - 밧줄: 歌蕾蒂娅 S1 `projectile_chr_glady_s1`·崖心 `projectile_slchan_s1`/`_s2`의 둘째 선 컴포넌트(`_mainEffect` `_line`, `_throwEffect`)와
     `_linkDuration` 1 s, 溯光星源 S2는 따로 나가는 `projectile_chr_halo2_s2_link`(1000칸/s, `_onlyUpdateEnd`) [추정: 컴포넌트 클래스의 동작은 확인 안 함 —
     필드로 보아 쏜 이에서 날아가는 머리까지 이어지는 선].
