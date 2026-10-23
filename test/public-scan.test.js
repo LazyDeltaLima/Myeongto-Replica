@@ -33,6 +33,28 @@ test('upstream wording, dates and game texts pass', () => {
   ].join('\n')), []);
 });
 
+test('client evidence that says how the client was read is refused', () => {
+  const read = (text, opts) => scanText(text, [], opts).map((h) => h.line);
+  assert.deepEqual(read([
+    '(2026-10-23, 디컴파일 확인 — 10-14 EN 덤프)',               // 1
+    '2026-10-16, decompile check — client `FunnelEffectEmitter`', // 2
+    '클라 코드 `AbilityStandard.CastToTarget` → …',               // 3
+    '`Enemy.States.MoveState.OnTick`(RVA 0x82E340)',             // 4
+    'the field at dump.cs line 451030; Il2CppDumper',            // 5
+    'movss xmm0, [rax+0x20]',                                     // 6
+    '  // `_DoCastInternal` 0xC49C50 casts the first config',     // 7
+    'const GOLDEN = 0x9E3779B9;',                                 // 8: a constant in code
+    'tint: 0xFF6A4A, alpha 0.5',                                  // 9: a colour in code
+    'shop slot 9 on the bench',                                   // 10
+    '공식 클라에서 확인: `Unit.SwitchMode`가 옛 모드를 먼저 끈다', // 11
+    '픽셀 셰이더(DXBC): uv.x > 1.003이면 `_Color2`',               // 12
+    'names from global-metadata.dat, bodies from GameAssembly.dll', // 13
+    'bundles read with UnityPy (docs/ASSETS.md)',                  // 14
+  ].join('\n')), [1, 2, 3, 4, 5, 6, 7, 12, 13]);
+  assert.deepEqual(read('`ScenePlayerData.AddBondCount`(0x856930)는', { prose: true }), [1]);
+  assert.deepEqual(read('`ScenePlayerData.AddBondCount`(0x856930)는'), []);
+});
+
 test('SP_PUBLIC_SCAN_WORDS: literal entries case-insensitive, re: entries as written', () => {
   const words = scanWords({ SP_PUBLIC_SCAN_WORDS: 'Secret-Branch, re:dev\\.sh\\b ,, ' });
   assert.equal(words.length, 2);

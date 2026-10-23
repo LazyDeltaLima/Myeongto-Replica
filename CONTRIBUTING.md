@@ -82,8 +82,8 @@ This is a remake of the official mode; the official game decides.
   pages), then community wikis, then the maintainer's memory of the game. Numbers come from the blackboards, never from
   memory. Screenshots or recordings of the official game are valuable: attach them to the issue or pull request.
 - **Client evidence** is cited by what the official client does — the table or prefab field, the class and method
-  name — never by how it was read: no code addresses, no excerpts of the client's code, no wording about the tools
-  that read it (maintainer decision 2026-10-22). Older text still has some; drop them when you rewrite that text.
+  name — never by how it was read: no code addresses, no code excerpts, no wording about the tools
+  that read it (maintainer decision 2026-10-22). `test/public-repo.test.js` refuses that wording and code addresses.
 - **What no source settles** is implemented the simplest way closest to the official game and marked `[ASSUMED]` in the
   code and the pull request. A decision the maintainer takes is cited as "maintainer decision YYYY-MM-DD". A decision
   the maintainer calls provisional stays marked so in `docs/rules/` and is never presented as settled.
@@ -115,7 +115,7 @@ This is a remake of the official mode; the official game decides.
   group: the merged pull requests with their authors, and the fixed reports with their reporters — a report the feedback
   relay filed is credited by its receipt number, not a name.
 - **The repository is public**: no tracked file may name a home directory, a private folder or a machine account
-  (`test/public-repo.test.js`). Notes that are not in the repository are referred to as the maintainer's notes. The same test refuses work-process wording — a decision is cited as "maintainer decision YYYY-MM-DD", never a "user" decision; no session names or internal decision numbers — and, through `SP_PUBLIC_SCAN_WORDS`, the maintainer's private names (`tools/public-scan.mjs`; the list stays outside the repository).
+  (`test/public-repo.test.js`). Notes that are not in the repository are referred to as the maintainer's notes. The same test refuses work-process wording — a decision is cited as "maintainer decision YYYY-MM-DD", never a "user" decision; no session names or internal decision numbers; client evidence without code addresses or wording about how the client was read (section 3) — and, through `SP_PUBLIC_SCAN_WORDS`, the maintainer's private names (`tools/public-scan.mjs`; the list stays outside the repository).
 - **`// local patch` comments** mark the fork's older changes and point at the `docs/rules/` section that justifies them.
   Do not add new ones; keep the existing ones, and drop a marker when the line it marks is rewritten (keep the reasoning).
 - **Server-side hubs** of the fork's changes: `server/local-patch.js`, `shared/local.js`, `shared/local-diy.js`.

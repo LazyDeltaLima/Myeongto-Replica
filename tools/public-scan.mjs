@@ -3,7 +3,9 @@
 //
 // It looks for text that records the work process instead of the rule (docs/rules/README.md 「쓰는 법」): a decision
 // attributed to a "user" instead of the maintainer (CONTRIBUTING.md §3: "maintainer decision YYYY-MM-DD"), a work
-// session's name, an internal decision number — and, through SP_PUBLIC_SCAN_WORDS, the maintainer's own private names
+// session's name, an internal decision number; client evidence that says how the client was read instead of what it does
+// (CONTRIBUTING.md §3 "Client evidence": code addresses, decompiling / dump wording, disassembly) — and, through
+// SP_PUBLIC_SCAN_WORDS, the maintainer's own private names
 // (a branch, a script, a host): comma-separated, a `re:` prefix makes an entry a regular expression, the list itself
 // lives outside the repository. Hits name the file and line (or the commit), never the matched text.
 //
@@ -18,13 +20,22 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { trackedFiles } from './package.mjs';
 
+const CLIENT_READ = 'say what the official client does, not how it was read (CONTRIBUTING.md §3 "Client evidence")';
+
 /** Phrases a public file may not carry, with the fix. Case matters: "User decision" is ours, "user's" is upstream's. */
 export const WORDING = [
   [/[Uu]ser decisions?\b/, 'write "maintainer decision YYYY-MM-DD" (CONTRIBUTING.md §3)'],
   [/사용자 (결정|요청|승인)/, '「관리자 결정」 / 「관리자 요청」으로 (docs/rules/README.md 「쓰는 법」)'],
   [/메인 세션|\bstronghold-[0-9a-f]{2}\b|세션 [0-9a-f]{6}\b/, 'a work session is not named in the repository'],
   [/(결정|decision) [A-Z]\d{1,2}\b|decision \d{4}-\d{2}-\d{2} #\d/, 'no internal decision numbers: the date alone'],
+  [/디컴파일|역컴파일|디스어셈|역어셈|덤프|클라 코드|decompil|disassembl|il2cpp|dumper|dump\.cs|client code|metadata token|method pointer|gameassembly|global-metadata|objdump|code-gen module/i, CLIENT_READ],
+  [/\b(?:RVA|VMA|DXBC)\b|\b[xy]mm\d+\b|\bmovss\b|cvtt?ss2sd|TypeDefIndex|\bcapstone\b/, CLIENT_READ],
+  // an address in a comment (a constant in code, 0x9E3779B9, is not one)
+  [/(?:^\s*(?:\/\/|\*|#)|\s\/\/\s).*\b0x(?=[0-9A-F]*[A-F])[0-9A-F]{5,9}\b/, CLIENT_READ],
 ];
+
+/** Hex of five digits or more in a document or a commit message reads as a code address. */
+const PROSE = [[/\b0x[0-9A-Fa-f]{5,}\b/, CLIENT_READ]];
 
 // This file quotes the patterns; the fixture test feeds the scanner sample text on purpose.
 const SELF = new Set(['tools/public-scan.mjs', 'test/public-scan.test.js']);
@@ -42,12 +53,14 @@ export function scanWords(env = process.env) {
   return out;
 }
 
-/** "what" labels of the lines of `text` that match; `words` are the private names. */
-export function scanText(text, words = []) {
+/** "what" labels of the lines of `text` that match; `words` are the private names; `prose` (a .md file, a commit
+ * message) adds the address check of PROSE. */
+export function scanText(text, words = [], { prose = false } = {}) {
   const hits = [];
   const lines = text.split('\n');
+  const rules = prose ? [...WORDING, ...PROSE] : WORDING;
   lines.forEach((line, i) => {
-    for (const [re, fix] of WORDING) if (re.test(line)) hits.push({ line: i + 1, what: fix });
+    for (const [re, fix] of rules) if (re.test(line)) { hits.push({ line: i + 1, what: fix }); if (fix === CLIENT_READ) break; }
     for (const re of words) if (re.test(line)) { hits.push({ line: i + 1, what: 'private name (SP_PUBLIC_SCAN_WORDS)' }); break; }
   });
   return hits;
@@ -61,7 +74,7 @@ export function scanWording(root, files, words = []) {
     let text;
     try { text = fs.readFileSync(path.join(root, rel), 'utf8'); } catch { continue; }
     if (text.includes('\0')) continue;
-    for (const h of scanText(text, words)) hits.push(`${rel}:${h.line} (${h.what})`);
+    for (const h of scanText(text, words, { prose: rel.endsWith('.md') })) hits.push(`${rel}:${h.line} (${h.what})`);
   }
   return hits;
 }
@@ -79,7 +92,7 @@ export function scanMessages(root, range, words = []) {
   for (const rec of out.split('\x01')) {
     const [sha, body] = rec.split('\x00');
     if (!sha?.trim() || body === undefined) continue;
-    for (const h of scanText(body, words)) hits.push(`commit ${sha.trim()} (${h.what})`);
+    for (const h of scanText(body, words, { prose: true })) hits.push(`commit ${sha.trim()} (${h.what})`);
   }
   return hits;
 }
