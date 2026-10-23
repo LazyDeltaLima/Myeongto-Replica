@@ -995,9 +995,17 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /**
    * A skill ended: its loops end. Not the statuses the unit wears (`status`, fxstatus.js): the sim ends those (statusOff);
    * stopped here, their `again` restarted them from the start the next frame (2026-10-16).
+   * (2026-10-23, official client) `now` = the client's end of a buff's effect: `BuffContainer._FinishAndRemoveBuff` →
+   * `Entity.OnBuffFinish` → `RemoveBuffEffect` → `Effect.FinishMe` (not immediately; a cast's looping effects the same,
+   * `CastEffectOptions._ClearEffects`) — its first system stops and its `_inactiveOnFinish` nodes go off (FxInstance.finish),
+   * the effect goes its prefab's `_delayToFinish` later (def.finish); none / 0: at once. It stopped every system before.
    */
   function stopBuffs(ownerId, now = false) {
-    for (const l of live) if (l.buff && !l.status && l.owner === ownerId) l.inst.stop(now);
+    for (const l of live) {
+      if (!l.buff || l.status || l.owner !== ownerId) continue;
+      const fin = now ? Number(l.inst.def?.finish) : 0;
+      if (fin > 0) { l.inst.finish(); if (!(l.finishAt <= clockS + fin)) l.finishAt = clockS + fin; } else l.inst.stop(now);
+    }
   }
   /**
    * The unit left the field (knocked out / withdrawn): its buffs and the one-shots on it end; hits it made on targets play

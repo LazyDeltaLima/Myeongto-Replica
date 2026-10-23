@@ -47,5 +47,14 @@ test('fxgame.js stopBuffs: a skill ending leaves the statuses its unit wears pla
   // (2026-10-23: an IMMEDIATELY buff's flash — `once` — has none)
   assert.match(s, /buff: true, status: key, again: once \? null : \(\) => playStatus\(/);
   const fn = s.slice(s.indexOf('function stopBuffs('), s.indexOf('function stopOwned('));
-  assert.match(fn, /if \(l\.buff && !l\.status && l\.owner === ownerId\) l\.inst\.stop\(now\);/);
+  assert.match(fn, /if \(!l\.buff \|\| l\.status \|\| l\.owner !== ownerId\) continue;/);
+});
+
+test('fxgame.js stopBuffs (2026-10-23): a skill\'s loops end as the client finishes a buff\'s effect — FinishMe, recycled `finish` s later', () => {
+  const s = src('../../public/js/render/fxgame.js');
+  const fn = s.slice(s.indexOf('function stopBuffs('), s.indexOf('function stopOwned('));
+  assert.match(fn, /const fin = now \? Number\(l\.inst\.def\?\.finish\) : 0;/);
+  assert.match(fn, /if \(fin > 0\) \{ l\.inst\.finish\(\); if \(!\(l\.finishAt <= clockS \+ fin\)\) l\.finishAt = clockS \+ fin; \} else l\.inst\.stop\(now\);/);
+  // the skill's end calls it with `now` (the client's end, not emission only)
+  assert.match(s, /stopBuffs\(v\.id \?\? v\.info\.id, true\)/);
 });

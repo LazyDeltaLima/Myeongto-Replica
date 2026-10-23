@@ -1264,8 +1264,12 @@
   望 跟子 던짐·凛御银灰 독수리·장판 `zoneEnd`)·伺夜 늑대 무리(`endWolves`)는 모든 시스템을 멈췄다. 고친 것: `FxInstance.finish()`(행동의 끝
   `finishAnim` + `stopping` + `finishMain`) — 그 자리들이 이것을 부르고 회수 때 `stop(true)`. 바뀌는 프리팹(첫 시스템이 다른 가지를 안 덮는 것, `finish` > 0):
   추출 2,096개 중 12개 — 텍사스 디 오메르토사 S3 `texas2_skill_03_start`(첫 시스템이 빈 `fixed`), 언더플로우 꼬리 둘, 티티 꼬리, 판 눈바람 `map_snow_*` 8개.
-  스킬 끝의 `stopBuffs`(모든 시스템 방출 멈춤, 남은 입자는 수명대로)는 그대로 [추정: 클라는 버프가 끝날 때 같은 FinishMe·회수 — 바꾸면 스킬 버프 전체의
-  끝 모습이 바뀌어 따로 본다]. 확인 `test/render/projectile-finish.test.js` 「statusOff and the ends with a recycle」·「FxInstance.finish」(텍사스 디 오메르토사:
+  스킬 끝의 `stopBuffs`도 같은 길(2026-10-23, 공식 클라에서 확인): 버프의 보통 끝 `BuffContainer._FinishAndRemoveBuff`는 `_FinishBuff`에 즉시 끝냄 거짓을 넘기고
+  `Buff.OnFinish` → `Entity.OnBuffFinish` → `RemoveBuffEffect` → `Effect.FinishMe(false)` — `OnFinish` 뒤 `delayToRecycle` > 0이면 그만큼 뒤 회수, 0이면 바로.
+  시전 루프 이펙트(`UberEffectEmitter.CastEffectOptions._ClearEffects`)도 `FinishMe(false)`. 그래서 `stopBuffs`는 이제 `FxInstance.finish()` 뒤 `finish`초에
+  `stop(true)`, `finish` 0·없음은 바로(예전에는 스킬 끝에 모든 시스템을 바로 지웠다). 바뀌는 끝 모습: 이펙트 이벤트 골든의 스킬 버프 프리팹 332개 중 `finish` > 0인
+  155개가 0.3–0.5초(대부분 0.5) 남았다 사라진다 — 긴 것은 余 S3 `yu_skill2_range_01` 3초, 凛御银灰 S3 `svash2_skill_03_range_01` 1.2초·`_buff_01` 1초.
+  177개는 그대로 바로. 확인 `test/render/status-finish.test.js` 「stopBuffs (2026-10-23)」. [화면 미확인] 확인 `test/render/projectile-finish.test.js` 「statusOff and the ends with a recycle」·「FxInstance.finish」(텍사스 디 오메르토사:
   `fixed` 옆 가지는 계속 뿜음), `test/render/status-finish.test.js`. [화면 미확인]
 - 재추출: `fx_extract.py --game <EN> --finish-only`(index.json 번들, CN 번들 aglna2·kalts2·clemnt는 `--game <CN>`), 적 번들은 `--index enemy-index.json
   --bundle <b>`(`pfx_enemy_N`은 `--pack pkgrps/btl_pfb_fx_enemy_N.ab`). 2026-10-11 실행: 204개 파일, `finish`·`offFinish` 말고 바뀐 것 없음(JSON 비교).
