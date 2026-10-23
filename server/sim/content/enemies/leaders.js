@@ -140,7 +140,7 @@ function kitLeaderMisc(key, ab, e) {
       // its client shield: three layers mousek_shield[a] / [b] / [c] (Talents/shield PassiveBuffAbility), each holding the
       // whole shield.dynamic — 3 × 4667 = PRTS 「可吸收14001法术伤害的屏障」 (docs/rules/sim.md 「리더 방벽 층 셋」)
       const bar = artsBarrier(T(ab, 'shield.dynamic') ?? 0, { key: 'ab:sandDef', whileUp: { defFlat: T(ab, 'defup.def') ?? 0 },
-        layers: ['mousek_shield[a]', 'mousek_shield[b]', 'mousek_shield[c]'] });
+        layers: ['mousek_shield[a]', 'mousek_shield[b]', 'mousek_shield[c]'], brokeForm: 'noShield' });
       const ds = ab.sk.DriftSand, ss = ab.sk.SandStorm;
       return [bar, lowHpBuff(T(ab, 'enrage.hp_ratio') ?? 0.5, { dmgDealtMul: T(ab, 'enrage.damage_scale') ?? 1 }, 'ab:lowhp', 'buff:mousek_t'),
         // 【唱沙】 the highest-max-HP unit on the field and everything in its cross: physical `damage`

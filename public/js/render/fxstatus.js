@@ -135,6 +135,9 @@ export const KEY_FX = Object.freeze({
   'boss:heldSword': cite('enemy_vtmstr_equip_A[char]', ['pfx_enemy_13', 'enemy_vtswd_buff_01', 0.5]),
   'boss:heldVest': cite('enemy_vtmstr_equip_C[char]', ['pfx_enemy_13', 'enemy_vtshld_buff_01', 0.5]),
   'boss:heldWand': cite('enemy_vtmstr_equip_B[char]', ['pfx_enemy_13', 'enemy_vtwand_buff_01', 0.5]),
+  // 2026-10-23: 扎罗's 【远古威慑】 (leaders.js kitWolfLord awe) — its CommonAbilities/FearAura/Aura buff enemy_wlfmster_fear's
+  // overrideEffectKey on every operator in range
+  'ab:ancientAwe': cite('enemy_wlfmster_fear', ['pfx_enemy_14', 'enemy_wlfmster_B_buff_02_02', OWN]),
   // 2026-10-16 (이펙트 연결 전수 묶음 3, docs/rules/fx.md 「재능 버프·시전 이펙트」): talent buffs' overrideEffectKey (EN charpacks
   // Talents/N; a key ending in `:<id>` — one buff per applier — matches without it)
   'agoat2:mist': keyed('agoat2_t_1', 'agoat2', OWN),   // (Talents/1 _additiveActiveBuffs) on the healed ally
@@ -350,6 +353,9 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null) {
   // 2026-10-21: an enemy's own buff effects (fxgame.js enemyBuffFx — its prefab's buffs; ebuff(view, kind, tag) → { on, ends })
   const own = v.isEnemy && typeof ebuff === 'function' ? (kind, tag) => ebuff(v, kind, tag) : null;
   const byOwn = (r) => { for (const s of r.on) { byName(out, s); const e = r.ends?.get(`${s[0]}/${s[1]}`); if (e) END_OF.set(`${s[0]}/${s[1]}`, e); } };
+  // 2026-10-23: the passive buffs of the mode an enemy with several modes is in (prisoners' 【解放】, 守墓石像's statue, the
+  // 逐火 ember …) — held while the mode is on; one a status names too is the same `bundle/prefab` key, drawn once
+  if (own) { const r = own('mode'); if (r) byOwn(r); }
   if (f & UF.STUNNED) put(out, 'stun', STATUS_FX.stun);
   if (f & UF.FROZEN) put(out, 'freeze', STATUS_FX.freeze);
   if (f & UF.COLD) put(out, 'cold', STATUS_FX.cold);

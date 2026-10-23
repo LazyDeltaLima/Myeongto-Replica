@@ -73,6 +73,8 @@ BUFF_CLASSES = {
     5578302910068743633: 'toggle',             # Torappu.Battle.Abilities.ToggleablePassiveBuffAbility
     -4310938555973424352: 'toggleOnce',        # Torappu.Battle.Abilities.ToggleableOnlyOncePassiveBuffAbility
     -4458530021321694031: 'reborn',            # Torappu.Battle.RebornTalent
+    -9067469794004961147: 'reborn',            # (2026-10-23) ManualTriggerRebornTalent — the only RebornTalent subclass, no field of
+    #                                            its own (the 逐火 ember's RebornToDefault: RebornTalent's fields exactly) [추정: the id]
     9073738633337710967: 'aura',               # Torappu.Battle.Abilities.AuraAbility (onto the units in its range)
     -5793748974791823428: 'globalAura',        # Torappu.Battle.Abilities.GlobalAuraAbility
     7085803614365642631: 'afterAffecting',     # Torappu.Battle.Abilities.BuffAfterAffecting
@@ -444,6 +446,12 @@ def enemy_record(root, tree, fx_index, proj_keys, skills=None):
         # RVA 0xC21750 → BattleController.CreateEffect; `_createEffectOnDummy` aside) — its range drawn round the enemy
         if BUFF_CLASSES.get((d.get('m_Script') or {}).get('m_PathID')) == 'aura' and strs(d.get('_effects')):
             a['auraFx'] = list(dict.fromkeys(a.get('auraFx', []) + strs(d.get('_effects'))))
+        # (2026-10-23) a RebornTalent's `_effects`: the enemy's rebirth state creates them as it starts
+        # (Enemy.States.RebornState.OnEnter) and finishes them as it ends when `_clearEffectsAfterReborn`, else they run their
+        # own length; the rebirth's end (DoReborn → Unit.SwitchMode) switches to `_modeIndex`
+        if BUFF_CLASSES.get((d.get('m_Script') or {}).get('m_PathID')) == 'reborn' and strs(d.get('_effects')):
+            a['rebornFx'] = {'fx': strs(d.get('_effects')), 'clear': 1 if d.get('_clearEffectsAfterReborn') else 0,
+                             'mode': d.get('_modeIndex') or 0}
         if d.get('_projectileKey'):
             p = {'key': d['_projectileKey'], 'mount': enum(MOUNTS, d.get('_mountPointType'))}
             ex = strs([x.get('_projectileKey') if isinstance(x, dict) else x for x in d.get('_extraProjectileKeys') or []])
@@ -465,6 +473,7 @@ def enemy_record(root, tree, fx_index, proj_keys, skills=None):
             for e in d.get(k) or []:
                 if isinstance(e, dict):
                     handled.update(strs(e.get('_effects')))
+        handled.update((a.get('rebornFx') or {}).get('fx', []))
         for k, v in found:
             if v in handled or k.endswith('overrideEffectKey') or k in ('_projectileKey', '_duoProjectileKey'):
                 continue
@@ -919,6 +928,13 @@ def render_entry(r, projs):
                   for x in (b.get('template') or {}).get('fx') or [])
     if handed:
         out['handed'] = handed
+    # (2026-10-23) its rebirths' effects (RebornTalent `_effects`, enemy_record `rebornFx`): [{ mode: the mode holding the
+    # talent (absent: outside the modes), fx, clear: finished as the rebirth ends, to: the mode it reborns into }]
+    reborn = [dict({'fx': a['rebornFx']['fx'], 'clear': a['rebornFx']['clear'], 'to': a['rebornFx']['mode']},
+                   **({'mode': a['mode']} if a.get('mode') is not None else {}))
+              for a in r['abilities'] if a.get('rebornFx')]
+    if reborn:
+        out['reborn'] = reborn
     if r.get('points'):
         out['points'] = r['points']
     return out
@@ -926,6 +942,7 @@ def render_entry(r, projs):
 
 def entry_names(e):
     out = [e.get('start'), e.get('dead')] + list(e.get('aura', [])) + list(e.get('handed', []))
+    out += [x for rb in e.get('reborn') or [] for x in rb['fx']]
     for k in ('buffFx', 'buffEnd'):
         for lst in (e.get(k) or {}).values():
             out += lst

@@ -12,7 +12,8 @@ import { PLAYS } from '../helpers/fxPlays.js';
 
 const EMODES = {
   $fx: { warden: ['b', 'warden'], killer: ['b', 'killer'], killer2: ['b', 'killer2'], inv: ['b', 'inv'], hide: ['b', 'hide'],
-    shield_a: ['b', 'shield_a'], shield_b: ['b', 'shield_b'], shield_end: ['b', 'shield_end'], not_here: ['b', 'not_here'] },
+    shield_a: ['b', 'shield_a'], shield_b: ['b', 'shield_b'], shield_end: ['b', 'shield_end'], not_here: ['b', 'not_here'],
+    lib: ['b', 'lib'], wall: ['b', 'wall'] },
   enemy_w: {
     modes: [{ name: 'Default', anim: ['Attack'] }, { name: 'R', anim: ['Attack'] }],
     buffFx: { 'enhance#0': ['warden'], 'enhance#1': ['killer'], 'enhance[eff1]': ['killer2'], 'sh[a]': ['shield_a'], 'sh[b]': ['shield_b', 'not_here'] },
@@ -20,9 +21,12 @@ const EMODES = {
     inv: ['inv'], stealth: ['hide'],
   },
   enemy_none: { modes: [{ name: 'Default', anim: ['Attack'] }] },
+  enemy_1116_liprr: { modes: [{ name: 'Default', anim: ['Attack'] }, { name: 'R', anim: ['Attack'] }, { name: 'L', anim: ['Attack'], aura: ['lib'] }] },
+  enemy_1516_jakill: { modes: [{ name: 'Default', anim: ['Attack'], aura: ['warden'] }, { name: 'R', anim: ['Attack'], aura: ['killer'] }] },
+  enemy_one: { modes: [{ name: 'Default', anim: ['Attack'], aura: ['wall'] }] },
 };
 const files = {
-  '/assets/local/fx/index.json': { bundles: { b: ['warden', 'killer', 'killer2', 'inv', 'hide', 'shield_a', 'shield_b', 'shield_end'] } },
+  '/assets/local/fx/index.json': { bundles: { b: ['warden', 'killer', 'killer2', 'inv', 'hide', 'shield_a', 'shield_b', 'shield_end', 'lib', 'wall'] } },
   '/assets/local/fx/enemy-modes.json': EMODES,
 };
 globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
@@ -125,4 +129,26 @@ test('END_FX: 凯瑟琳\'s device shield mark (its key\'s `end`) and 泥岩\'s l
   dev.statuses.delete('cathy:shield');
   F.syncStatusFx(views, fxGame, {});
   assert.deepEqual(calls, ['token_cathy_catsld_shield_01_end']);
+});
+
+// 2026-10-23: a multi-mode enemy's mode passive buffs, the mode chosen by its sim form (fxgame.js FORM_MODES)
+test('fxgame enemyBuffFx \'mode\': the passive buffs of the mode its sim form stands for — none during a 重生', async () => {
+  const layer = createFxLayer({ host: null, above: null, quality: () => 'high' });
+  await settle();
+  const p = (form) => ({ id: 1, form, info: { id: 1, side: 'enemy', defId: 'enemy_1116_liprr' } });
+  assert.equal(layer.enemyBuffFx(p(null), 'mode'), null, 'confined: mode Default holds none');
+  assert.equal(layer.enemyBuffFx(p('warning'), 'mode'), null, 'mode R');
+  assert.deepEqual(names(layer.enemyBuffFx(p('liberty'), 'mode')), ['lib'], '【解放】 = mode L');
+  const j = (form) => ({ id: 2, form, info: { id: 2, side: 'enemy', defId: 'enemy_1516_jakill' } });
+  assert.deepEqual(names(layer.enemyBuffFx(j(null), 'mode')), ['warden']);
+  assert.equal(layer.enemyBuffFx(j('reborn'), 'mode'), null, 'the 重生: its buffs cleared (Unit.DoFakeDeath), the new mode not yet');
+  assert.deepEqual(names(layer.enemyBuffFx(j('form2'), 'mode')), ['killer'], 'the rebirth\'s end: mode R');
+  assert.equal(layer.enemyBuffFx({ id: 3, info: { id: 3, side: 'enemy', defId: 'enemy_one' } }, 'mode'), null, 'one mode: its aura is the life-long one');
+});
+
+test('fxstatus: the mode\'s passive buffs join the enemy\'s wanted effects; one a status names too is one key', () => {
+  const eb = (v, kind, tag) => (kind === 'mode' ? { on: [SPEC('warden')], ends: new Map() } : ebuff(v, kind, tag));
+  const v = enemy(['ab:warden'], [['ab:warden', { src: null, fx: 'buff:enhance#0', n: 0 }]]);
+  assert.deepEqual([...F.wantedStatusFx(v, new Map(), eb).keys()], ['b/warden']);
+  assert.deepEqual([...F.wantedStatusFx(enemy([], []), new Map(), eb).keys()], ['b/warden'], 'the mode alone');
 });

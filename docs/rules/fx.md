@@ -1048,9 +1048,33 @@
   ToggleablePassiveBuffAbility(조건부: 체력 절반·隐匿)·RebornTalent·BuffAfterAffecting·AuraAbility가 남에게 거는 것은 빠진다. 모드가 하나뿐인 적의 모드
   안 버프도 평생. 바뀐 적(쓰는 것): 새로 그림 — 디펜더-4·프로스트·후회하는 영혼의 성배 범위 표시, 가상적: 총 방패 `enemy_achunt_shield`, 패밀리
   멸살자 눈 `enemy_sgkill_eye_01`, 센구안·배리어 등 20여 종(불타는 덩굴 `enemy_ftsjc_buff`는 첫 공격이 끝내 빠짐); 뺌 — 위 无敌·분노, 첸사 공격 단계(`enemy_sfji_atkup[effect1..4]` — 공격
-  수로 바뀜, 넷을 한꺼번에 그리던 것), 패밀리 멸살자·가상적: 골극 隐匿(아래). 여러 모드인 적의 모드 안 버프(`modes[i].aura`)는 공격 클립으로 모드를
-  가를 수 없어(거의 다 `Attack`) 그리지 않고, 시뮬 상태가 가리키면 아래 `buffFx`로 그린다(가리키는 상태가 없는 평범한 죄수 계열 해방 모드,
-  무덤지기 석상 모드별, '거대하고 못생긴 것' 기계 모드 등은 안 그림).
+  수로 바뀜, 넷을 한꺼번에 그리던 것), 패밀리 멸살자·가상적: 골극 隐匿(아래). 여러 모드인 적의 모드 안 버프(`modes[i].aura`)는 아래 「모드 안 버프」.
+- **모드 안 버프·시뮬 form → 클라 모드 (2026-10-23)**: 여러 모드인 적은 거의 다 같은 `Attack` 클립으로 쳐서 공격 클립으로는 모드를 가를 수 없다.
+  렌더 `fxgame.js FORM_MODES`가 시뮬 form(UnitInfo `form`, render/units.js FORMS가 그리는 그것) → 그 적 프리팹 `_modes`의 이름을 적별로 적고, `emodeOf`가
+  그것부터(없으면 예전대로 공격 클립) 고른다 — 평범한 죄수 계열 'warning'/'liberty' → R/L, 무덤지기 석상 'stone'/'fly' → Stone/Fly, 더블린 불꽃 전사
+  계열·가상적: 재생 'husk' → Prop, 부유의 표류체 'crawl' → Normal, 래트킹 'noShield' → NoShield(아래), 재생하는 리더 'form2' → 새 모드(제셀톤 R, 자로
+  M2, '거대하고 못생긴 것' Bird, '즈자이'·데겐블레허·리벤져 Reborn), 가상적 넷(淤困 Parasitic·镜膜 NoRef·铳 S1·暴鸰 S1)·转译基底 B/C/D. 모드 공격 이펙트
+  (`epart`)·사망 이펙트·소리(`audio.enemyMode`)도 이 모드를 따른다. 그 모드의 패시브 버프 이펙트는 상태 레이어가 그린다(`fxstatus.js wantedStatusFx` →
+  `enemyBuffFx(v, 'mode')`): 모드가 켜져 있는 동안(`Unit.ActivateMode`가 붙이고 `InactiveMode`가 뗌), 키가 `bundle/prefab`이라 시뮬 상태가 같은 버프를
+  가리키는 적(제셀톤·자로·'갑주를 베는 검')도 하나만. 클라 재생(`Enemy.OnReborn` → `Unit.DoFakeDeath`: `BuffContainer.ClearWithWhiteList`·
+  `ClearHoldEffects` → `Enemy.States.RebornState` → 시간이 다 되면 `DoReborn` → `Unit.SwitchMode`(RebornTalent `_modeIndex`))대로 重生 동안('reborn')은
+  모드 버프가 없고 새 모드는 재생 끝에. 새로 그려지는 것: 해방 `common_V015_ liberation_01/02_start`·건장한 죄수 `enemy_vofsd_attack_01_buff`·중범죄수
+  `enemy_vofsd_def_down_01`, 석상 굴절 `enemy_dushdo_2_buff_01`·석상 모드 `enemy_dugago _2_buff_01`, 불씨 `enemy_duskls/duskld_idle_2`, '거대하고 못생긴 것'
+  기계 모드 넷(`mcmstr_buff_01/02/03_start`·`_02_start_02`), 표류체 `enemy_syufo_C1/C2_buff_01`, 동글이·액젓 추천자·양배추 씨앗·변종 맹글러비스트 α 등.
+  [추정: 불씨의 Prop은 클라에선 1초 重生 뒤 `SwitchMode`로 오지만 시뮬 form 'husk'가 쓰러질 때 바뀌어 그때부터]
+- **래트킹 NoShield (2026-10-23)**: 마지막 층 `mousek_shield[c]`(템플릿 `mousek_shield_end`)가 끝나면 모드 NoShield로 바뀌고 그 모드의
+  `mousek_t[effect]` → `mousek_buff_01_end`가 붙는다. 시뮬 `artsBarrier` `brokeForm`: 방벽이 다 깨질 때 form 'noShield'를 'shieldBreak' fx에 실음
+  (새 이벤트 없음) → 위 모드 버프. (이 이펙트는 `pfx_enemy_*`가 아니라 래트킹 전용 묶음 `mousek`에 있다.)
+- **재생 이펙트(RebornTalent `_effects`, 2026-10-23, 공식 클라에서 확인)**: `Enemy.States.RebornState.OnEnter`가 재생이 시작될 때 만든다 —
+  `_clearEffectsAfterReborn`이면 목록에 두었다가 `OnExit`에서 `Effect.FinishMe`, 아니면 `BattleController.CreateEffects`로 제 길이대로. 우리 적은
+  모두 0. `enemy_bindings.py`가 RebornTalent(와 `_effects`·`_modeIndex`가 같은 하위 클래스 `ManualTriggerRebornTalent` — 필드가 RebornTalent 그대로라
+  [추정: MonoScript id])의 것을 렌더 표 `reborn` [{ mode?, fx, clear, to }]로 쓰고 뽑는다. 렌더 `fxgame.js erebornFx`: 시뮬 form이 'reborn'이 되는
+  순간(리더 reborn()) — 제셀톤 `enemy_jakill_reborn_01~03_start`; 또는 form의 닫는 클립(units.js FORMS `end`)이 시작될 때 — 불씨가 일어서는
+  `Revive`에 Prop 모드의 RebornToDefault `enemy_duskls_revive_3`·`_4`, 불꽃 가디언 `enemy_duskld_revive_1`·`_2`(시뮬은 그 클립이 끝날 때 일어섬).
+- **불씨의 1초 무적 (2026-10-23)**: 시뮬 `husk`의 1초 무적 버프를 `ab:ember:inv`(보임)로 — 상태가 `…:inv`면 그 적의 INVINCIBLE 버프 이펙트(`inv`)를
+  그리는 기존 길로 Prop BornAnim `enemy_duskls_invincible` → `enemy_duskls_revive_2`(불꽃 가디언은 이펙트 없음). 전투 golden은 status 수만 움직임.
+- **자로 【远古威慑】 오퍼레이터 쪽 (2026-10-23)**: `CommonAbilities/FearAura/Aura`가 범위 안 오퍼레이터에게 거는 `enemy_wlfmster_fear`의
+  overrideEffectKey `enemy_wlfmster_B_buff_02_02` — 시뮬 `ab:ancientAwe`(보임) → `fxstatus.js KEY_FX`.
 - **시뮬 상태 → 그 적의 클라 버프(`buffFx`)**: 렌더 표 `buffFx` { 클라 버프 키: [이펙트] }(적이 가진 모든 자기 이펙트 버프 + 템플릿 `CreateBuff`가
   만드는 파생 버프, 한 키가 여러 모드에 있으면 `<키>#<모드 번호>`), `buffEnd`(그 버프 템플릿의 ON_BUFF_FINISH `CreateEffect`). 시뮬 적 버프의 `fxTag`
   `'buff:<클라 버프 키>|…'`(docs/SIM.md)를 상태 켬 이벤트가 `fx`로 싣고, `fxstatus.js wantedStatusFx`가 `fxgame.js enemyBuffFx`로 그 적의 이펙트를
@@ -1100,10 +1124,9 @@
 - **전체 추출·떠난 것**: `used_enemies`가 首领 이벤트(`data/choices.json`)의 리더 14종을 빠뜨려 그들 이펙트가 안 뽑혀 있었다 — 넣음. 그리고
   `enemy_bindings.py --extract --all`로 모든 적의 이펙트(지금 797개, 전: 384)를 뽑음 — 凋零骑士·陷落雪祀·迷路的巨像 스킬 탄, 리더 전부, 가상적: 갑주 선,
   `common_enemy_die_01`(이제 자기 사망 이펙트가 없는 적은 절차 퍼프 대신 그것).
-- 안 한 것: 래트킹 마지막 층 뒤 NoShield 모드 `mousek_buff_01_end`, '리드' 추적의 `achunt_dog_silence`(`enemy_actrpa_skill_a`, IMMEDIATELY), 자로 【远古威慑】가
-  오퍼레이터에게 거는 `_B_buff_02_02`, 재생 중 이펙트(RebornTalent `_effects` — 제셀톤 `enemy_jakill_reborn_01~03_start` 등, 만드는 순간 안 읽음),
-  불타는 덩굴 `SwitchableEffectByBlackboardValue`(아래 「추출 누락 보고」),
-  더블린 불꽃 전사 재생 无敌 `enemy_duskls_revive_2`. 화면 확인: 아래.
+- 안 한 것: '리드' 추적(MoveToHunter 모드)의 `achunt_dog_silence`(`enemy_actrpa_skill_a`, IMMEDIATELY — 붙자마자 끝나 `_delayToFinish` 0.5초 뒤
+  사라지는 번쩍임이라 상태로 5초 붙이면 다름: 렌더 표에 버프 수명이 없음), 자로 자신의 FearAura 범위 `_B_buff_02`(AuraAbility `_effects`, 안 뽑힘),
+  불타는 덩굴 `SwitchableEffectByBlackboardValue`(아래 「추출 누락 보고」). 화면 확인: 아래.
 - 확인: `test/render/enemy-buff-fx.test.js`(enemyBuffFx·wantedStatusFx·끝 이펙트), `test/sim/enemy-buff-tags.test.js`(상태 이벤트의 `fx`, 重弩突袭者 줄),
   `enemy_bindings.py` 재생성 diff(위 `aura` 바뀐 적 목록을 하나씩 클래스로 확인).
 

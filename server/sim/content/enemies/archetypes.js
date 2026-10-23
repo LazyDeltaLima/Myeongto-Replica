@@ -445,8 +445,11 @@ function unbalanced(onMove) {
  *  drops that layer's effect; the `whileUp` bonus then carries no effect tag and stays until the last layer breaks.
  *  `blockFx` (2026-10-23): its layers' BlockDamage names its block effect (`_specifyBlockEffect`), and the last one's graph a
  *  break effect — each layer that takes a hit whole (the client cancels it with that effect) or is drained sends fx
- *  'parry' { id, buff: `<key>[n]`, whole, broke } (render/fxgame.js parryFx; damage.js absorbShields for the buff ones). */
-function artsBarrier(amount, { key = 'ab:artsBarrier', whileUp = null, fxTag = null, layers = null, blockFx = false } = {}) {
+ *  'parry' { id, buff: `<key>[n]`, whole, broke } (render/fxgame.js parryFx; damage.js absorbShields for the buff ones).
+ *  `brokeForm` (2026-10-23): the form its whole break puts the enemy in, carried by the 'shieldBreak' fx — 鼠王's last layer
+ *  mousek_shield[c] (template mousek_shield_end) switches it to its prefab mode NoShield as it ends (render/fxgame.js
+ *  FORM_MODES: that mode's buff effects). */
+function artsBarrier(amount, { key = 'ab:artsBarrier', whileUp = null, fxTag = null, layers = null, blockFx = false, brokeForm = null } = {}) {
   const n = layers ? layers.length : 1;
   const layerKey = (i) => `${key}[${i + 1}]`;
   return {
@@ -479,7 +482,8 @@ function artsBarrier(amount, { key = 'ab:artsBarrier', whileUp = null, fxTag = n
       if (a.left > 1e-6) return;
       a.left = 0;
       if (a.layers) a.layers.forEach((x, i) => { a.layers[i] = 0; b.removeBuff(e, layerKey(i)); });
-      b.fx('shieldBreak', { x: e.x, y: e.y, id: e.id });
+      if (brokeForm) e.form = brokeForm;
+      b.fx('shieldBreak', { x: e.x, y: e.y, id: e.id, ...(brokeForm ? { form: brokeForm } : {}) });
       // the bonus it grants ends once the overflow of the breaking hit has landed (never before: an HP bonus removed
       // first would rescale HP and make the overflow count twice)
       if (c.dmg.cancel) b.removeBuff(e, key); else a.breaking = true;
@@ -515,7 +519,7 @@ function husk({ hits, delay, stealthy = true, unblock = false, onHusk = null, ke
     e.hp = e.s.maxHp;
     e.profile.noAttack = a.noAtk;
     b.removeBuff(e, key);
-    b.removeBuff(e, `${key}:reborn`);
+    b.removeBuff(e, `${key}:inv`);
     if (e.route) e.route.pts = null;
     e.atkCd = 0;
     setForm(b, e, 'revived', 'revive');
@@ -541,7 +545,9 @@ function husk({ hits, delay, stealthy = true, unblock = false, onHusk = null, ke
       setHits(e, hits);
       hitCount(b, e, true);
       b.addBuff(e, { key, visible: true, persist: true, flags: { disarm: true, ...(stealthy ? { stealth: true } : {}), ...(unblock ? { unblockable: true } : {}) } });
-      b.addBuff(e, { key: `${key}:reborn`, duration: HUSK_REBIRTH, flags: { invulnerable: true, untargetable: true, unblockable: true, noMove: true, noDisplace: true } });
+      // its 无敌 is the status of the ember's own INVINCIBLE buff (the client's Prop-mode BornAnim enemy_duskls_invincible →
+      // enemy_duskls_revive_2; render/fxstatus.js draws a `…:inv` status by the enemy's `inv` effects, 2026-10-23)
+      b.addBuff(e, { key: `${key}:inv`, visible: true, duration: HUSK_REBIRTH, flags: { invulnerable: true, untargetable: true, unblockable: true, noMove: true, noDisplace: true } });
       if (e.route) e.route.pts = null;
       setForm(b, e, 'husk', 'ember', { hits, dur: HUSK_REBIRTH + delay });
       b.after(HUSK_REBIRTH, () => { if (e.alive && a.state === 'husk') { rebirthCooldowns(e); if (onHusk) onHusk(b, e); } }, { owner: e });

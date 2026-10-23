@@ -802,7 +802,7 @@
       ],
       "enemies": {"enemy_1288_duskls":[11,11,0,0,63415],"enemy_1288_duskls_2":[7,7,0,0,48419],"enemy_1292_duskld":[5,5,0,432,57650]},
       "hooks": [1,38,2530,262,297,485,485,107,23,25,18,15,0,11570,198,26,23,0,1,50,0,0,0],
-      "events": {"atk":314,"deploy":12,"die":25,"dmg":485,"engage":12,"face":68,"fx":257,"skill":33,"spawn":38,"status":382,"swing":289},
+      "events": {"atk":314,"deploy":12,"die":25,"dmg":485,"engage":12,"face":68,"fx":257,"skill":33,"spawn":38,"status":428,"swing":289},
       "fx": {"aoe":2,"copy":1,"crit":5,"dp":2,"ember":23,"iceSpike":64,"palsy":2,"sleep":2,"split":3,"stacks":49,"watch":2,"weightless":2,"zone":100},
       "snaps": "99ca0a24 e4f72ca3 595187ce 50210154 1cc4988d 0e39c872 8170cb44 e2cd2ad8 56919872"
     },

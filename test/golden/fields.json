@@ -1362,7 +1362,7 @@
         "enemy_9023_acdums": [12,10,0,73443,712]
       },
       "hooks": [1,70,6000,1081,1144,4033,4638,10358,42,49,97,93,3,27557,1019,22,18,0,1,45,0,32,1],
-      "events": {"atk":1194,"deploy":50,"die":49,"dmg":4152,"engage":16,"face":106,"fx":2014,"heal":199,"skill":190,"spawn":42,"status":883,"swing":1121,"tplfx":4},
+      "events": {"atk":1194,"deploy":50,"die":49,"dmg":4152,"engage":16,"face":106,"fx":2014,"heal":199,"skill":190,"spawn":42,"status":889,"swing":1121,"tplfx":4},
       "fx": {
         "aoe": 15,
         "appear": 9,
@@ -1455,7 +1455,7 @@
         "enemy_9023_acdums": [10,9,0,76911,351]
       },
       "hooks": [1,35,6000,624,624,2121,2781,3052,22,23,38,37,0,9404,197,20,15,1,1,35,0,16,1],
-      "events": {"atk":877,"deploy":20,"die":22,"dmg":2766,"engage":7,"face":26,"fx":905,"heal":178,"leak":1,"skill":78,"spawn":25,"status":283,"swing":631,"tplfx":1},
+      "events": {"atk":877,"deploy":20,"die":22,"dmg":2766,"engage":7,"face":26,"fx":905,"heal":178,"leak":1,"skill":78,"spawn":25,"status":289,"swing":631,"tplfx":1},
       "fx": {
         "appear": 2,
         "bandage": 11,

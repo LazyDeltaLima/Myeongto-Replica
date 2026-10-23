@@ -193,6 +193,35 @@ let playsPromise = null;
 const loadPlays = () => (playsPromise ||= getJson(PLAYS_URL));
 let enemyModesPromise = null;
 const loadEnemyModes = () => (enemyModesPromise ||= getJson(ENEMY_MODES_URL));
+/**
+ * 2026-10-23 (docs/rules/fx.md 「적 상태의 버프 이펙트」): the client mode a sim form stands for, per enemy id — sim form
+ * (UnitInfo `form`, the forms render/units.js FORMS draws) → its battle prefab's `_modes` name. Most of these modes attack
+ * on the same clip, so the attack clip cannot tell them apart (fxgame.js emodeOf falls back to it for unlisted forms). A
+ * rebirth switches at its end (Enemy.States.RebornState → DoReborn → Unit.SwitchMode to the RebornTalent's `_modeIndex`):
+ * the second form ('form2'), not the 重生 ('reborn') itself.
+ */
+const PRISONER_MODES = Object.freeze({ warning: 'R', liberty: 'L' });
+const EMBER_MODES = Object.freeze({ husk: 'Prop' });
+const STATUE_MODES = Object.freeze({ stone: 'Stone', fly: 'Fly' });
+const FORM_MODES = Object.freeze({
+  enemy_1116_liprr: PRISONER_MODES, enemy_1116_liprr_2: PRISONER_MODES, enemy_1118_lidbox_2: PRISONER_MODES,
+  enemy_1119_vofsd: PRISONER_MODES, enemy_1121_lifbos: PRISONER_MODES, enemy_1121_lifbos_2: PRISONER_MODES,
+  enemy_1172_dugago: STATUE_MODES, enemy_1172_dugago_2: STATUE_MODES,
+  enemy_1288_duskls: EMBER_MODES, enemy_1288_duskls_2: EMBER_MODES, enemy_1292_duskld: EMBER_MODES, enemy_9010_acpupp: EMBER_MODES,
+  enemy_2025_syufo: Object.freeze({ crawl: 'Normal' }),
+  enemy_1509_mousek: Object.freeze({ noShield: 'NoShield' }),   // its last barrier layer's end (archetypes.js artsBarrier brokeForm)
+  enemy_1516_jakill: Object.freeze({ form2: 'R' }),
+  enemy_1535_wlfmster: Object.freeze({ form2: 'M2' }),
+  enemy_1512_mcmstr: Object.freeze({ form2: 'Bird' }),
+  enemy_1517_xi: Object.freeze({ form2: 'Reborn' }),
+  enemy_1525_blkswb: Object.freeze({ form2: 'Reborn' }),
+  enemy_1539_reid: Object.freeze({ form2: 'Reborn' }),
+  enemy_9007_acelem: Object.freeze({ parasitic: 'Parasitic' }),
+  enemy_9011_acrefr: Object.freeze({ stopped: 'NoRef' }),
+  enemy_9017_achunt: Object.freeze({ charge: 'S1' }),
+  enemy_1040_bombd: Object.freeze({ bombed: 'S1' }),
+  enemy_10081_mpplai: Object.freeze({ translator_fuchou: 'ModeB', translator_youling: 'MoveC', translator_shushi: 'ModeD' }),
+});
 
 /**
  * @param {{ host: HTMLElement, above: HTMLCanvasElement, quality: () => string, load?: () => number, under?: () => boolean, fieldRect?: () => any, enemyDef?: (id: string) => any, unitDef?: (info: any) => any }} o
@@ -3577,10 +3606,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return Array.isArray(r) && index?.bundles?.[r[0]]?.includes(r[1]) ? r : null;
   }
   const eOn = (v) => !!(index && emodes && !failed && q() !== 'low' && ebindOf(v));
-  /** The enemy's mode now: the one whose attack clip is its clip set's attack (a form switch changes it), else 0. */
+  /**
+   * The enemy's mode now: the one its sim form stands for (FORM_MODES, 2026-10-23), else the one whose attack clip is its
+   * clip set's attack (a form switch changes it), else 0.
+   */
   function emodeOf(v) {
     const b = ebindOf(v);
     if (!b || !Array.isArray(b.modes) || !b.modes.length) return null;
+    const fm = typeof v.form === 'string' ? (FORM_MODES[v.info.defId] || FORM_MODES[v.info.spine])?.[v.form] : null;
+    if (fm && b.modes.length > 1) {
+      const i = b.modes.findIndex((m) => m?.name === fm);
+      if (i >= 0) return i;
+    }
     const clip = v.actor?.roles?.attack?.loop;
     if (typeof clip === 'string' && b.modes.length > 1) {
       const c = clip.toLowerCase();
@@ -4271,7 +4308,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!emodes || !views) return;
     for (const v of views.values()) {
       if (v?.info?.side !== 'enemy' || v.alive === false || !ebindOf(v)) continue;
-      if (v._fxEMode === undefined) { v._fxEMode = emodeOf(v); v._fxEClip = v.actor?.current; continue; } // on the field before this layer
+      if (v._fxEMode === undefined) { v._fxEMode = emodeOf(v); v._fxEClip = v.actor?.current; v._fxEForm = v.form ?? null; continue; } // on the field before this layer
+      // 2026-10-23: a rebirth starting — the 重生 form coming on (a leader's reborn()) — plays its RebornTalent `_effects`
+      const form = v.form ?? null;
+      if (form !== v._fxEForm) {
+        v._fxEForm = form;
+        if (form === 'reborn' && eOn(v)) erebornFx(v, v._fxEMode);
+      }
       const mi = emodeOf(v);
       if (mi !== v._fxEMode) {
         const prev = v._fxEMode;
@@ -4285,7 +4328,25 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         v._fxEClip = clip;
         const k = typeof clip === 'string' ? animSkill(ebindOf(v)).get(clip.toLowerCase()) : null;
         if (k) eskillFx(v, k);
+        // … or a form's closing clip starting (render/units.js FORMS `end`: the 逐火 ember standing up on Revive — the sim's
+        // stand-up comes as that clip ends, the client's rebirth plays its clip and effects from its start)
+        const fd = typeof v._formSpec === 'function' ? v._formSpec() : null;
+        if (fd?.end && clip === fd.end && form !== 'reborn') erebornFx(v, v._fxEMode);   // (a 重生's own closing clip: started above)
       }
+    }
+  }
+  /**
+   * 2026-10-23 (docs/rules/fx.md 「적 상태의 버프 이펙트」): the effects of the rebirth enemy `v` starts in mode `mode` —
+   * enemy-modes.json `reborn` (its RebornTalents' `_effects`, the talent outside the modes or in that mode). Client code
+   * `Enemy.OnReborn` → `DoFakeDeath` (buffs cleared) → `Enemy.States.RebornState.OnEnter`: created as the rebirth starts, on
+   * their own (`BattleController.CreateEffects`) — finished as it ends only with `_clearEffectsAfterReborn`, which none of
+   * ours sets (`clear` 0) [추정: such a one would play its own length here too].
+   */
+  function erebornFx(v, mode) {
+    const b = ebindOf(v);
+    for (const rb of Array.isArray(b?.reborn) ? b.reborn : []) {
+      if (rb.mode != null && rb.mode !== mode) continue;
+      eplay(v, rb.fx, { tag: 'reborn' });
     }
   }
   /**
@@ -4336,12 +4397,19 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
      * render/fxstatus.js — the client draws a status by its buff's effect (Entity.AddBuffEffect), and an enemy's buffs are
      * its prefab's (enemy-modes.json `buffFx` / `buffEnd` / `inv` / `stealth`, enemy_bindings.py). `kind` 'key': the buffs
      * the sim's status names (`fxTag` = the client buff keys, 'a|b'; a key one enemy uses in several modes is `<key>#<mode>`
-     * and a bare tag takes any of them), 'inv': its rebirth 无敌, 'stealth': its 隐匿. { on, ends } — the [bundle, prefab, 'own']
-     * specs of the extracted ones and, by `bundle/prefab` of one, what its buff's ON_BUFF_FINISH creates (once) — or null.
+     * and a bare tag takes any of them), 'inv': its rebirth 无敌, 'stealth': its 隐匿, 'mode' (2026-10-23): the passive buffs
+     * of the mode it is in (`modes[i].aura` of an enemy with several modes — attached with the mode by Unit.ActivateMode,
+     * gone with it; none during a 重生: Unit.DoFakeDeath clears its buffs, the new mode comes at the rebirth's end).
+     * { on, ends } — the [bundle, prefab, 'own'] specs of the extracted ones and, by `bundle/prefab` of one, what its buff's
+     * ON_BUFF_FINISH creates (once) — or null.
      */
     enemyBuffFx(v, kind, tag = '') {
       const b = ebindOf(v);
       if (!b) return null;
+      if (kind === 'mode') {
+        if (!Array.isArray(b.modes) || b.modes.length < 2 || v.form === 'reborn') return null;
+        tag = String(v._fxEMode ?? emodeOf(v) ?? 0);
+      }
       const memo = b._buffMemo || Object.defineProperty(b, '_buffMemo', { value: new Map(), enumerable: false })._buffMemo;
       const mk = `${kind}:${tag}`;
       if (memo.has(mk)) return memo.get(mk);
@@ -4349,6 +4417,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       let on = [];
       const ends = new Map();   // `bundle/prefab` of a buff's effect → that buff's end specs
       if (kind === 'inv' || kind === 'stealth') on = Array.isArray(b[kind]) ? b[kind] : [];
+      else if (kind === 'mode') on = Array.isArray(b.modes[Number(tag)]?.aura) ? b.modes[Number(tag)].aura : [];
       else if (kind === 'key' && tag) {
         const fx = b.buffFx || {}, fin = b.buffEnd || {};
         for (const t of String(tag).split('|')) {

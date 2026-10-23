@@ -8,7 +8,7 @@ import { createFxLayer } from '../../public/js/render/fxgame.js';
 
 const SHOT = 'projectile_enemy_acfort_skill';
 const EMODES = {
-  $fx: { t_trail: ['b', 't_trail'], t_hit: ['b', 't_hit'], my_die: ['b', 'my_die'] },
+  $fx: { t_trail: ['b', 't_trail'], t_hit: ['b', 't_hit'], my_die: ['b', 'my_die'], rb_a: ['b', 'rb_a'], rb_b: ['b', 'rb_b'] },
   enemy_x: {
     modes: [{ name: 'Default', anim: ['Attack'] }, { name: 'Fly', anim: ['Fly_Attack'] }],
     skills: { fireweapon: { cast: [], opt: {}, hit: [], proj: { key: SHOT, mount: 2, trail: ['t_trail'], hit: ['t_hit'], speed: 10 } } },
@@ -26,11 +26,15 @@ const EMODES = {
   // 子代-like: a held skill (its loop cast to ON_CAST_END, an `_onlyOnce` hit held to the end)
   enemy_brood: { modes: [{ name: 'Default', anim: [] }],
     skills: { sktok_dstnta: { cast: ['t_trail'], opt: { t_trail: { s: 2, e: 3, o: 0 } }, hit: ['t_hit'], hopt: { t_hit: { e: 3, once: 1 } } } } },
+  // 2026-10-23: rebirth effects (RebornTalent `_effects`) — one outside the modes (杰斯顿-like), one in mode 1 (the 逐火 ember's
+  // RebornToDefault)
+  enemy_1516_jakill: { modes: [{ name: 'Default', anim: ['Attack'] }, { name: 'R', anim: ['Attack'] }], reborn: [{ fx: ['rb_a'], clear: 0, to: 1 }] },
+  enemy_1288_duskls: { modes: [{ name: 'Default', anim: ['Attack'] }, { name: 'Prop', anim: [] }], reborn: [{ fx: ['rb_b'], clear: 0, to: 0, mode: 1 }] },
   enemy_snip: { modes: [{ name: 'Default', anim: ['Attack'] }],
     skills: { crossattack: { cast: [], opt: {}, hit: [], proj: { key: 'p_bolt', mount: 2, trail: ['t_trail'], hit: ['t_hit'], move: 'FIXED_DIRECTION', speed: 5 } } } },
 };
 const files = {
-  '/assets/local/fx/index.json': { bundles: { b: ['t_trail', 't_hit', 'my_die'] } },
+  '/assets/local/fx/index.json': { bundles: { b: ['t_trail', 't_hit', 'my_die', 'rb_a', 'rb_b'] } },
   '/assets/local/fx/enemy-modes.json': EMODES,
 };
 globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
@@ -145,4 +149,26 @@ test('enemy layer: a held skill (fx enemySkill `hold`) lasts until its enemySkil
   // a plain cast (no `hold`) is not held
   layer.onEvent(['fx', 'enemySkill', 0, 0, { x: 0, y: 0, id: 11, ability: 'sktok_dstnta', n: 2 }], views);
   assert.equal(b._fxESkill.hold, false);
+});
+
+test('enemy layer: a rebirth\'s RebornTalent effects as it starts — the 重生 form coming on, or the ember\'s stand-up clip', async () => {
+  const plays = [];
+  const layer = createFxLayer({ host: null, above: null, quality: () => 'high', trace: (p) => plays.push(p) });
+  await settle();
+  const cam = { liftFor: () => 0, scaleAt: () => 64, dist: 10 };
+  const step = () => layer.update(0.016, cam, { width: 10, height: 10 });
+  const j = enemy(1, 'enemy_1516_jakill');
+  const d = { ...enemy(2, 'enemy_1288_duskls'), _formSpec() { return this.form === 'husk' ? { end: 'Revive' } : null; } };
+  const views = new Map([[1, j], [2, d]]);
+  layer.onEvent(['tick'], views);
+  step();
+  const spawned = () => plays.filter((p) => p.kind === 'spawn' && p.tag === 'reborn').map((p) => `${p.by}:${p.names[0]}`);
+  j.form = 'reborn'; step();
+  assert.deepEqual(spawned(), ['1:rb_a'], 'the 重生 begins');
+  j.form = 'form2'; step(); step();
+  assert.deepEqual(spawned(), ['1:rb_a'], 'not again as it ends');
+  d.form = 'husk'; step();
+  assert.deepEqual(spawned(), ['1:rb_a'], 'the knock-out into the ember: no RebornTalent of its Default mode');
+  d.actor.current = 'Revive'; step();
+  assert.deepEqual(spawned(), ['1:rb_a', '2:rb_b'], 'mode Prop\'s RebornToDefault as the stand-up clip starts');
 });

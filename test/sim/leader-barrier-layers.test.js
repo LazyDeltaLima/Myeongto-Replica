@@ -59,6 +59,11 @@ test('鼠王 through the real match path: three layers of the whole shield.dynam
   assert.ok(Math.abs(dealt - 50) < 1e-6, `overflow past the last layer ${dealt}`);
   assert.ok(e.hp < hp && !e.findBuff('ab:sandDef[2]') && !e.findBuff('ab:sandDef[3]'), 'all layers spent');
   assert.ok(e.s.def < def, 'DEF bonus gone with the last layer');
+  // 2026-10-23: the last layer's end (template mousek_shield_end) switches it to its prefab mode NoShield: the break carries
+  // the form (render/fxgame.js FORM_MODES — that mode's mousek_t[effect])
+  const brk = events.find((x) => x[0] === 'fx' && x[1] === 'shieldBreak' && x[4]?.id === e.id);
+  assert.equal(brk?.[4]?.form, 'noShield');
+  assert.equal(e.form, 'noShield');
   assert.deepEqual(b.errors.map((x) => x.error?.message), []);
   m.dispose?.();
 });

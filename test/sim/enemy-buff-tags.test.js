@@ -47,6 +47,19 @@ test('a half-HP rage names its client toggle buff', () => {
   assert.equal(tagOf(h, e.id, 'ab:lowhp'), 'buff:skulsr_t_1');
 });
 
+test('the 逐火 ember\'s 1 s 重生 无敌 is a visible `…:inv` status (the render draws the enemy\'s INVINCIBLE buff effect)', () => {
+  const h = arena();
+  h.step();
+  const e = put(h, 'enemy_1288_duskls', [5, 8]);
+  h.run(0.1);
+  h.b.dealDamage(null, e, { amount: e.s.maxHp * 2, type: 'true' });
+  h.run(0.1);
+  assert.ok(e.alive && e.form === 'husk');
+  assert.ok(h.eventsOf('status').some((x) => x[1] === e.id && x[2] === 'ab:ember:inv' && x[3] === 1));
+  h.run(1.2);
+  assert.ok(!e.findBuff('ab:ember:inv'), 'over after the 重生');
+});
+
 test('重弩突袭者 直击: a unit up to 0.5 above it is in line, one 0.4 below is not (client Y offsets −0.5…0.1)', () => {
   const s = E.enemy_1404_msnip.skills.find((x) => x.prefabKey === 'CrossAttack');
   const shotAt = (dy) => {
