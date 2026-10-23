@@ -23,6 +23,7 @@ import { PACKS_URL, PACK_INDEX_FILE, readPackIndex, langMetaOf } from '../../../
 import { DEV_BUILD } from '../../../shared/constants.js';
 import { loadPref, savePref } from '../store.js';
 import { data } from '../data.js';
+import { fmtNum } from './gameLogic/format.js';
 import { html } from './components.js';
 
 /** The switch's own label, in both languages (whoever opens it may not read the current one). */
@@ -361,19 +362,25 @@ export function sentText(sent, raw, local) {
   return typeof raw === 'string' && raw === sent && typeof local === 'string' && local ? local : sent;
 }
 
+/** config.broadcasts types whose arg at this index is an amount, shown compactly (tickerText) */
+const TICKER_NUM_ARG = { CHAR_DAMAGE: 2 };
+
 /**
  * The text of an m.ticker frame in the current language. A config.broadcasts line (`id` + `args`, server ≥ 0.2.0) is
  * rebuilt from the localized broadcast template — `{0}` is the player's name (never translated), other args are
  * game-data names or numbers; any other line goes through translateWire (msgid + params, or its text as a msgid).
- * @param {{ text?: string, id?: string|null, args?: unknown[], msgid?: string, params?: any }} msg
+ * A CHAR_DAMAGE line's amount (`{2}`) is shown through fmtNum in every language, without a trailing '.0' (the amounts
+ * are round milestones): 200000 → '200K' / '20万', 1000000 → '1M' / '100万'.
+ * @param {{ text?: string, id?: string|null, type?: string|null, args?: unknown[], msgid?: string, params?: any }} msg
  * @returns {string}
  */
 export function tickerText(msg) {
-  if (getLang() !== DEFAULT_LANG && typeof msg?.id === 'string' && Array.isArray(msg.args)) {
+  const numAt = TICKER_NUM_ARG[msg?.type] ?? -1;
+  if ((getLang() !== DEFAULT_LANG || numAt >= 0) && typeof msg?.id === 'string' && Array.isArray(msg.args)) {
     const list = data.get('config')?.broadcasts;
     const b = Array.isArray(list) ? list.find((x) => x && x.id === msg.id) : null;
     if (b && typeof b.text === 'string') {
-      const args = msg.args.map((a, i) => (i === 0 ? String(a ?? '') : tName(String(a ?? ''))));
+      const args = msg.args.map((a, i) => (i === 0 ? String(a ?? '') : i === numAt && a !== '' && Number.isFinite(Number(a)) ? fmtNum(a).replace(/\.0(?=\D*$)/, '') : tName(String(a ?? ''))));
       return format(b.text, args);
     }
   }

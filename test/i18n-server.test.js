@@ -97,6 +97,26 @@ test('client: the same frames in English — msgid + params, broadcast template 
   }
 });
 
+test('client: a CHAR_DAMAGE line shows its amount compactly (fmtNum) — 万 in Chinese, K / M in English', async () => {
+  const lines = () => {
+    const m = stubMatch();
+    for (const hit of ['200000', '1000000']) MatchMessaging.prototype.tickerFor.call(m, 'CHAR_DAMAGE', ['阿米娅', '琳琅诗怀雅', hit], { playerId: 'p1', param: hit });
+    return m.bc.map((f) => lang.tickerText(f));
+  };
+  const [zh2, zh10] = lines();
+  assert.ok(zh2.endsWith('20万') && zh10.endsWith('100万'), `${zh2} / ${zh10}`);
+  setLang('en');
+  await data.setLocale('en');
+  try {
+    const [en2, en10] = lines();
+    assert.ok(/\b200K\b/.test(en2) && /\b1M\b/.test(en10), `${en2} / ${en10}`);
+    assert.ok(!en2.includes('200000') && !en10.includes('1000000'));
+  } finally {
+    setLang('zh');
+    await data.setLocale('zh');
+  }
+});
+
 test('a real match: 歌蕾蒂娅 grants a chess → 「歌蕾蒂娅：获得X」 in Chinese, "Gladiia: obtained …" in English', async () => {
   const h = makeMatch({ mode: 'solo', seed: 11, registry: createRegistry({ log: { warn() {}, error() {}, info() {} } }), fake: true }).start();
   h.toPrep(1);
