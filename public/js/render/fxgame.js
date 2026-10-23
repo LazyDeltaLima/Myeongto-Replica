@@ -605,8 +605,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // the paused front is not drawn [추정: the pause hides it — a frozen copy beside the back one is not seen in captures].
   // SwitchableThreeFaceEffect (2026-10-22, decompile check; fx_extract.py `three`: 维什戴尔 S3 wisdel_skill_03_start) is the same
   // swap by `faceToBack` for its up copy — `_UpdateFace` (RVA 0xEB3800, every frame) shows `_upEffect` while the owner faces
-  // back, `_downEffect` while its ThreeFaceAnimator shows its `_down` face (the `*_Down*` clips, which this renderer does
-  // not draw — docs/rules/render.md 「Spine 클립 커버리지」 DOWN_FAMILY: the front copy stays), else itself.
+  // back, `_downEffect` while its owner's animator is a ThreeFaceAnimator showing its `_down` face, else itself. No operator
+  // model has a third face (their chararts animators have `_front` / `_back` only) and `UnitAnimator.faceToDown` is false, so
+  // the down copy never shows: the front copy stays while the unit faces down (docs/rules/fx.md 「이펙트 방향」).
   const faceBack = facesBack;
   /** The back switch of `def` on its unit `unit` (an operator / enemy view), or null. */
   function backSwitch(def, unit, bundle) {

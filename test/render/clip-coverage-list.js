@@ -15,8 +15,8 @@
 //                        attack end, D skill sub-mode clip pairs, E equipped skill default mode, F skill mode Die pair,
 //                        G skill prefab clip, H talent / trait state, I mix clip, J skin key table, U up-facing clip.
 //                        [ASSUMED] where the client fields leave the timing open.
-// Clips whose name contains `Down` (the facing-down variants) are one gap of their own (DOWN_FAMILY in the test), not
-// listed here.
+// The facing-down clips (`*Down*`) play through the roles' `down` / `beginDown` / `downMode` since 2026-10-23; the ones no
+// client key calls are listed like any other.
 
 export const UNPLAYED = {
   char_1015_aglna2: {
@@ -26,6 +26,7 @@ export const UNPLAYED = {
   },
   char_1023_ghost2: {
     Attack2: 'none: back-only clip, not a key of the skin SpineAnimator._animations (the client plays clips by key only)',
+    Attack_Down: 'none: only an entry of the skin key table (SpineAnimator._animations: animKey = its name); no ability (`_downAnimKey`, a ThreePart / channel `_down` bundle), mode pair, skill `_beginAnimDown` or mix calls it; client keys 2026-10-23; facing down, S3 attacks with Skill_3_Attack_Down',
   },
   char_1028_texas2: {
     Default_2: 'none: setup pose (0 s); no ability, mode pair or mix names it',
@@ -36,9 +37,15 @@ export const UNPLAYED = {
   },
   char_1041_angel2: {
     Skill_1_Close: 'none: the S1 burst after a stop by hand (Modes/S1_Burst_Mode); this mode has no manual stop — no client message stops a skill and server/sim/skills.js stop() has no caller',
+    Skill_Down_1_Loop: 'none: only an entry of the skin key table (SpineAnimator._animations: animKey = its name); no ability (`_downAnimKey`, a ThreePart / channel `_down` bundle), mode pair, skill `_beginAnimDown` or mix calls it; client keys 2026-10-23; the S1 mode attack has no facing-down key',
+    Skill_Down_2_End: 'none: only an entry of the skin key table (SpineAnimator._animations: animKey = its name); no ability (`_downAnimKey`, a ThreePart / channel `_down` bundle), mode pair, skill `_beginAnimDown` or mix calls it; client keys 2026-10-23; the skin mixes Skill_Down_2_Idle (mode S2_Down) into Idle with Skill_Down_3_End',
+    Skill_Down_3_Skill: 'none: only an entry of the skin key table (SpineAnimator._animations: animKey = its name); no ability (`_downAnimKey`, a ThreePart / channel `_down` bundle), mode pair, skill `_beginAnimDown` or mix calls it; client keys 2026-10-23; S3FireToToken of mode S3_Down plays Skill_3_Skill',
   },
   char_1045_svash2: {
     Skill_3_Deploy: 'none: only when the 风雪之眼 card is used by hand during S3 (skchr_svash2_3 BirdAura AnimationEmitBehaviour via svash2_s_3[*_bird_onuse]); no hand deployment in this mode [ASSUMED]',
+  },
+  char_143_ghost: {
+    Attack_Down: 'none: not a key of the skin SpineAnimator._animations (the client plays clips by key only); no ability names it; client keys 2026-10-23',
   },
   char_2027_wang: {
     Default_2: 'none: setup pose of mode S2 (replaces Default, 0 s; charpack Modes/S2 _replaceAnimPairs)',
@@ -48,6 +55,9 @@ export const UNPLAYED = {
     Skill_2_End: 'none: no client key names it (abilities, mode pairs, skin key table, mix), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; S3 attacks with the Skill_2_Loop of its mode (S2 is the one-shot Skill)',
   },
   char_279_excu: {
+    Skill_Down_Begin: 'none: not a key of the skin SpineAnimator._animations (the client plays clips by key only); the S2 ThreePartOneshotAnimation has no facing-down bundle (`_overrideDownAnimation` off); client keys 2026-10-23',
+    Skill_Down_End: 'none: not a key of the skin SpineAnimator._animations (the client plays clips by key only); the S2 ThreePartOneshotAnimation has no facing-down bundle (`_overrideDownAnimation` off); client keys 2026-10-23',
+    Skill_Down_Loop: 'none: not a key of the skin SpineAnimator._animations (the client plays clips by key only); the S2 ThreePartOneshotAnimation has no facing-down bundle (`_overrideDownAnimation` off); client keys 2026-10-23',
     Skill_Up_Begin: 'none: S2 ThreePartOneshotAnimation has no up bundle (_GetAnimBundle: _down or Skill_Right_*); only the template of another unit (nasti_nstchr) names it',
     Skill_Up_End: 'none: S2 ThreePartOneshotAnimation has no up bundle (_GetAnimBundle: _down or Skill_Right_*); only the template of another unit (nasti_nstchr) names it',
     Skill_Up_Loop: 'none: S2 ThreePartOneshotAnimation has no up bundle (_GetAnimBundle: _down or Skill_Right_*); only the template of another unit (nasti_nstchr) names it',
@@ -57,6 +67,9 @@ export const UNPLAYED = {
   },
   char_4016_kazema: {
     Default_B: 'none: setup pose of the stand-in form (0 s); only the buff template of another unit (parrot_m1_t) names it',
+  },
+  char_4039_horn: {
+    Skill_Down_2_B_Loop: 'none: only an entry of the skin key table (SpineAnimator._animations: animKey = its name); no ability (`_downAnimKey`, a ThreePart / channel `_down` bundle), mode pair, skill `_beginAnimDown` or mix calls it; client keys 2026-10-23; S2 switches to no facing-down mode (only S3 does: S3(D))',
   },
   char_4079_haini: {
     Skill_2_Begin: 'none: no client key names it (abilities, mode pairs, skin key table, mix), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; S2 attacks with its mode',
@@ -70,9 +83,14 @@ export const UNPLAYED = {
   },
   char_4116_blkkgt: {
     Skill_2_B: 'none: no ability, mode pair, buff, mix or code string names it (EN/CN); S2 plays Skill_2',
+    Skill_Down_2_B: 'none: only an entry of the skin key table (SpineAnimator._animations: animKey = its name); no ability (`_downAnimKey`, a ThreePart / channel `_down` bundle), mode pair, skill `_beginAnimDown` or mix calls it; client keys 2026-10-23; facing down, S2 plays Skill_Down_2',
   },
   char_4148_philae: {
     Skill_2_Start: 'none: back-only clip; no client key names it (abilities, mode pairs, skin key table, mix), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; S2 is its channel',
+  },
+  char_4231_clemnt: {
+    Attack_Down: 'none: only an entry of the skin key table (SpineAnimator._animations: animKey = its name); no ability (`_downAnimKey`, a ThreePart / channel `_down` bundle), mode pair, skill `_beginAnimDown` or mix calls it; client keys 2026-10-23; the Default attack has no facing-down key',
+    Skill_Down_3_End: 'none: only an entry of the skin key table (SpineAnimator._animations: animKey = its name); no ability (`_downAnimKey`, a ThreePart / channel `_down` bundle), mode pair, skill `_beginAnimDown` or mix calls it; client keys 2026-10-23; the skin mixes mode S3[Down] into Idle with Skill_3_End',
   },
   char_426_billro: {
     Skill_2_Begin: 'none: no client key names it (abilities, mode pairs, skin key table, mix — the mixes go to Idle only), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; a skill switches to its mode SN / SN_Enhance (Skill_Idle / Skill_2_Idle) without an opening clip',

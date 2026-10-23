@@ -265,7 +265,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
 - 테스트: `test/render/attack-swing.test.js`(가짜 PIXI). [화면 미확인]
 - **요새 근접·원거리 클립** (관리자 제보 2026-10-10: 号角이 원거리 공격에도 저지 시 모션을 씀): 클라 프리팹 `<id>/Modes/<mode>/Body/Attack/`의
   MeleeAttack·BlockedMeleeAttack·BlockedRangedAttack과 RangedAttack은 다른 클립 — 号角 Default `Attack_A`/`Attack_B`, S2 `Skill_2_A_Loop`/`Skill_2_B_Loop`,
-  S3 `Skill_3_A_Loop`/`Skill_3_B_Loop`(S3 아래 방향 원거리 `Skill_Down_3_Loop`은 우리가 아래 방향 클립을 안 써서 제외), 灰毫 Default `Attack02`/`Attack01`
+  S3 `Skill_3_A_Loop`/`Skill_3_B_Loop`(아래로 배치하면 S3(D) 모드의 원거리 `Skill_Down_3_Loop` — 아래 「아래 방향」), 灰毫 Default `Attack02`/`Attack01`
   (반대로 저지 중에도 원거리 Attack01이었음). 역할 추출(`anim-roles.mjs`)은 첫 클립 하나만 고르므로 `units.js FORTRESS_CLIPS`([근접, 원거리] 쌍)를
   두고, 'swing'·'atk'의 kind(sim `ai.js`: 저지 중이면 'none')로 `spine.js _loopOf`가 고른다. 号角 `Skill_1_A`/`_B`는 쓰는 능력이 프리팹에 없음 [추정: 같은 나눔].
   테스트 `test/render/fortress-clips.test.js`. [화면 미확인]
@@ -483,9 +483,24 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     `none: <근거>`(공식이 이 모드에서 안 틂 / 그릴 필요 없음 — 프리팹 필드·디컴파일 메서드·녹화를 적음), `todo: <묶음> — <자리>`(공식은 트는데 렌더가 아직 안 틂, 아래 묶음 글자).
   - 새 모델·새 키트·매니페스트 재생성(`fetch-assets`)으로 새 클립이 생기면 실패한다 → 공식에서 언제 트는지 찾아 연결하거나(역할·`anim-overrides.mjs`·
     `FORMS`·키트 연출), 근거와 함께 `none`으로 적는다. 찾는 곳과 필드는 `diy.md` 「새 선발 오퍼레이터 키트 체크리스트」 **연출 대조**(선발이 아니어도 같음).
-  - 아래 방향 클립(이름에 `Down`: `Attack_Down`, `Skill_Down_2_Loop`, `Skill_1_Loop_Down` …, 129개)은 렌더가 하나도 안 그리는 **전역 공백** 하나로 묶어
-    목록에서 뺐다(`DOWN_FAMILY`). 공식은 쓴다(혼 charpack 모드 `S3(D)` = `Skill_Down_3_*`, 울피아누스 `skchr_ulpia_1` `Skill_1_Down_*`; 위 「요새 근접·원거리 클립」 줄의
-    「아래 방향 클립을 안 써서 제외」). 언제 트는지(배치 방향 아래일 때로 보임 — [추정]) 확인하고 구현하면 `DOWN_FAMILY`를 지우고 남는 클립을 목록에 올린다.
+  - **아래 방향** 클립(이름에 `Down`: `Attack_Down`, `Skill_Down_2_Loop`, `Skill_1_Loop_Down` …, 앞모델 41명 129개, 2026-10-23): 전엔 렌더가 하나도 안 그려
+    목록에서 통째로 뺐다(`DOWN_FAMILY`, 이제 없음). 공식 클라가 고르는 곳 넷(공식 클라에서 확인):
+    - 능력의 `_downAnimKey`·`_downEndAnimKey`: `AbstractAnimatedAbility.GetAnimKey`가 아래·위·기본 키 순으로, 끝은 `OnCastEnd`가 같은 순으로(`_endAnimKey`가 있을 때).
+      아래 판정 `CheckDownAttack` = `_faceToTarget`이면 지금 바라보는 4방향(`Entity.faceDirection`)이 아래, 아니면 배치 방향(`Entity.direction`)이 아래; 그 밖에
+      `_faceToFirstCastTarget`+`_checkFaceToFirstCastTargetDownAttack`이면 바라보는 방향도(켈시 에스페란타 S3).
+    - ThreePart 공격(`ThreePartOneshotAnimation._GetAnimBundle`): `_overrideDownAnimation`이면 `_down` 묶음(begin·oneshot·end), 판정은 그 컴포넌트의 `_faceToTarget`으로 위와 같음.
+      ThreePart 채널(`ThreePartChannelingAnimation._GetAnimBundle`): `_overrideDownAnimation`이고 배치 방향이 아래면 `_down`(울피아누스 S1·호시구마 S3).
+    - 스킬 시작 클립: `BasicSkill.get_beginAnim` — `_beginAnimDown`이 있고 배치 방향이 아래면 그것.
+    - 스킬 버프가 아래 모드로 바꿈: 버프 템플릿의 IfElse(`CheckCharacterDefaultDirection` = 배치 방향, `CheckFaceDirection` = 버프 시작 때 바라보는 방향, `_direction` DOWN)
+      → `SwitchMode` — 엑시아 더 뉴 커버넌트 S2(배치)·S3(바라봄), 혼 S3 `S3(D)`, 케이퍼 S2·언더플로우 S2·클레멘티아 S2/S3(배치), 불피스폴리아 S3(바라봄), 애쉬락 S2 `S2(D)`.
+      그 모드의 공격·Idle 짝·믹스가 스킬 클립이 된다.
+    - 세 번째 면(`ThreeFaceAnimator._down`)은 아님: 이 서버의 오퍼레이터 chararts 애니메이터는 모두 `_front`/`_back` 둘뿐이다(EN 전부, CN 전용 둘 포함).
+    구현: 추출(`anim_keys.py`)이 능력 `dby`('face'/'deploy'/'deploy+face')·`three.down`·`chan.down`·스킬 `downMode`/`downBy`(공개 버프 템플릿에서)를 읽고, `anim-keys.mjs`가
+    역할에 `down: { by, map: { 클립: 아래 클립 } }`(그 모드·스킬 능력 전부, 아래 루프의 Idle 믹스까지)·스킬 `beginDown`·`downMode`(아래 모드로 다시 계산한 역할 필드 +
+    능력 경로별 `swap` — 혼 S3(D) 원거리처럼 역할이 이름 안 부르는 要塞 짝)를 단다. `spine.js _dn`이 클립을 틀 때(휘두름·첫 begin·끝·스킬 idle·시전·끝) 그 유닛의
+    `downs()`(`units.js`: 배치 방향 `dir`, 지금 `face.dir4` — 휘두름 전에 돈 방향)로 바꾸고, `setSkill`이 시전 순간 `downMode` 조건을 보고 역할에 겹친다(다음 시전까지).
+    클라 데이터가 그대로라 그대로 따른 것: 엑시아 더 뉴 커버넌트 S2 아래 모드의 끝은 스킨 믹스가 `Skill_Down_3_End`(`Skill_Down_2_End`는 안 틂), 클레멘티아 S3 아래
+    모드의 끝은 `Skill_3_End`. 아무 키도 안 부르는 12개는 목록 `none`(스킨 키 표에 이름만 있거나 그마저 없음). 뒷모델(위를 볼 때)엔 아래 클립이 없어 그대로. [화면 미확인]
 - 첫 목록(2026-10-12): 46명·105개 `todo`. 힌트는 10-07 EN 클라 추출(스킬 프리팹 anim 컴포넌트·`_animKey`, charpack 모드별 클립 — 관리자 노트)로 붙였다:
   `official <스킬 id | 모드>` 58개(공식이 그 클립을 가리킴 — 누락 가능성 높음, 먼저 볼 것), `no official reference` 38개(버프 템플릿·디컴파일로 찾을 것),
   `CN only` 9개(EN에 없는 오퍼레이터 — CN 필드만, [추정]). 처음부터 `none`으로 확정한 것은 없다.
@@ -639,8 +654,8 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     클립을 트는 능력·`_beginAnim`이 없음). 자기 begin이 따로 있는 `via: 'attack'`(歌蕾蒂娅 S3 `Skill_3_Startup`)은 그대로. [화면 미확인]
   - **U** 위 방향 `*_Up`: `AbstractAnimatedAbility.GetAnimKey` — 아래·위·기본 순(`_faceToTarget`이면 바라보는 방향, 아니면 배치 방향). 아래 방향 공백과 같은 계열.
     구현(2026-10-14): `*_Up`은 뒷모델에만 있고 렌더는 위를 볼 때만 뒷모델을 쓰므로, `anim-overrides.mjs UP_CLIPS`가 뒷모델 역할에 `up`을 달고 `spine.js _loopOf`
-    (즉발 스킬 클립도)가 그것을 튼다 — 送葬人·诗怀雅 `Attack_Up`, 松果 S1 `Skill_1_Up`·S2 `Skill_2_Up`. 아래 방향(`*_Down`, 앞모델)은 여전히 전역 공백(`DOWN_FAMILY`). [화면 미확인]
-  - 첫 목록의 `todo`는 2026-10-14에 모두 정리됐다(연결 또는 근거 있는 `none`). 남은 것: 아래 방향 공백. C의 시뮬 첫 타격 지연은 같은 날 들어감.
+    (즉발 스킬 클립도)가 그것을 튼다 — 送葬人·诗怀雅 `Attack_Up`, 松果 S1 `Skill_1_Up`·S2 `Skill_2_Up`. 아래 방향(`*_Down`, 앞모델)은 위 「아래 방향」(2026-10-23). [화면 미확인]
+  - 첫 목록의 `todo`는 2026-10-14에 모두 정리됐다(연결 또는 근거 있는 `none`). 아래 방향 공백도 2026-10-23에 닫음. C의 시뮬 첫 타격 지연은 같은 날 들어감.
 
 ## 공격 방향 (2026-10-12, 관리자 요청 「공격·스킬 범위 안의 적을 향해 돌아서 공격, 최대 저지 수를 넘겨 뒤에 걸린 적은 뒤를 보며 공격 — 공식 로직대로」)
 - 이전: 오퍼레이터는 배치 방향만 봤다(`units.js onAttack` 「operators keep their deploy direction」, research 09 §1.2의 배치 모습을 전투 내내 적용).
@@ -684,8 +699,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
 - [추정] 남은 차이: 부유·이상 플래그 13/22 검사 없음, 반전 방향 이펙트 `U_OR_D`는 `faceToBack`이 아니라 4방향으로 고름(뒤 모델로 옆을 칠 때만 다름),
   도는 모습은 세로축 회전을 2D에서 너비(cos)로만 그림(원근 차이 없음), 공식 옵션(`BattleOptions` +0xAB)과 2배속 이상에서 트윈을 건너뛰는 분기는 안 따름,
   키트가 따로 내는 공격(재능·스킬 효과의 추가 타격)은 그 능력 플래그를 안 읽고 타격 때 대상으로 돎.
-- 연결된 일: 아래 방향 클립(`DOWN_FAMILY`) — 공격 능력에 `_downAnimKey`·`_upAnimKey`가 있어 공식은 **돈 방향**으로 아래/위 클립을 고르는 것으로 보인다
-  [추정]. 이제 `view.face`가 있으니 그 판정을 디컴파일로 확인하면 붙일 수 있다.
+- 연결된 일: 아래 방향 클립 — `_faceToTarget`인 능력은 돈 방향(`view.face.dir4`), 아니면 배치 방향으로 고른다(「Spine 클립 커버리지」 아래 방향, 2026-10-23).
 - 테스트: `test/render/face-turn.test.js`(도는 너비·절반에서 바뀜·도는 중 새로 돌기), `test/sim/attack-timing.test.js`(대상 id·뒤에 저지된 적·`face` 이벤트·'D'/없음·
   스킬 능력 시전의 `face`). **[화면 미확인]**
 

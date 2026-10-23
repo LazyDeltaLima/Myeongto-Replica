@@ -170,3 +170,39 @@ test('table rows from the keys: turns, the blocked-enemy clip, facing up, the he
   assert.deepEqual(overlayKeyRoles({ attack: { begin: null, loop: 'Attack_A', end: null } }, r, 'char_x').attack.combat, { loop: 'Combat' },
     'a model without skill roles still takes the attack role\'s rows');
 });
+
+test('facing down: ability down keys and ThreePart / channel `_down` bundles by their `by`, a skill\'s down begin and down mode', () => {
+  const op = {
+    skin: { keys: {}, mix: [['Attack_Down', 'Idle', 'Attack_Down_End'], ['Attack', 'Idle', 'Attack_End'], ['Skill_2_Down_Idle', 'Idle', 'Skill_2_Down_End']] },
+    modes: [
+      { name: 'Default', pairs: {}, abilities: {
+        'Body/Attack': { key: 'Attack', end: 'Idle', down: 'Attack_Down', dby: 'face' },
+        'Body/Combat': { key: '', three: { begin: 'Combat_Begin', oneshot: 'Combat', end: null, first: 0,
+          down: { begin: 'Combat_Down_Begin', oneshot: 'Combat_Down', end: null, by: 'face' } } },
+      } },
+      { name: 'S2', pairs: { Idle: 'Skill_2_Idle' }, abilities: { 'Body/Attack': { key: 'Skill_2_Loop' }, 'Body/Attack/Far': { key: 'Skill_2_Far' } } },
+      { name: 'S2[Down]', pairs: { Idle: 'Skill_2_Down_Idle' }, abilities: { 'Body/Attack': { key: 'Skill_2_Down_Loop' }, 'Body/Attack/Far': { key: 'Skill_2_Down_Far' } } },
+    ],
+    skills: [
+      { id: 's1', abilities: { '': { key: '', chan: { begin: 'Skill_1_Begin', loop: 'Skill_1_Loop', end: 'Skill_1_End',
+        down: { begin: 'Skill_1_Down_Begin', loop: 'Skill_1_Down_Loop', end: 'Skill_1_Down_End', by: 'deploy' } } } } },
+      { id: 's2', begin: 'Skill_2_Begin', beginDown: 'Skill_2_Down_Begin', downMode: 2, downBy: 'deploy', abilities: {} },
+    ],
+  };
+  const dur = clips('Idle', 'Attack', 'Attack_End', 'Attack_Down', 'Attack_Down_End', 'Combat_Begin', 'Combat', 'Combat_Down_Begin', 'Combat_Down',
+    'Skill_1_Begin', 'Skill_1_Loop', 'Skill_1_End', 'Skill_1_Down_Begin', 'Skill_1_Down_Loop', 'Skill_1_Down_End',
+    'Skill_2_Begin', 'Skill_2_Loop', 'Skill_2_Idle', 'Skill_2_Far', 'Skill_2_Down_Begin', 'Skill_2_Down_Loop', 'Skill_2_Down_Idle', 'Skill_2_Down_End', 'Skill_2_Down_Far');
+  const r = keyRoles(op, dur);
+  assert.deepEqual(r.attackDown, { by: 'face', map: { Attack: 'Attack_Down', Attack_End: 'Attack_Down_End', Combat_Begin: 'Combat_Down_Begin', Combat: 'Combat_Down' } },
+    'the mode\'s abilities, with the skin\'s mix out of the down loop; an end key Idle maps nothing');
+  assert.deepEqual(r.skills[0].down, { by: 'deploy', map: { Skill_1_Begin: 'Skill_1_Down_Begin', Skill_1_Loop: 'Skill_1_Down_Loop', Skill_1_End: 'Skill_1_Down_End' } });
+  const s2 = r.skills[1];
+  assert.equal(s2.begin, 'Skill_2_Begin');
+  assert.equal(s2.beginDown, 'Skill_2_Down_Begin');
+  assert.deepEqual(s2.downMode, { by: 'deploy', loop: 'Skill_2_Down_Loop', idle: 'Skill_2_Down_Idle', end: 'Skill_2_Down_End',
+    swap: { Skill_2_Loop: 'Skill_2_Down_Loop', Skill_2_Far: 'Skill_2_Down_Far' } }, 'the down mode keeps the prefab\'s begin; its abilities swap path by path');
+  const a = overlayKeyRoles({ attack: { begin: null, loop: 'Attack', end: null }, skills: { 0: { index: 0 }, 1: { index: 1 } } }, r, 'char_x');
+  assert.deepEqual(a.attack.down, r.attackDown);
+  assert.deepEqual([a.skills[1].beginDown, a.skills[1].downMode], [s2.beginDown, s2.downMode]);
+  assert.deepEqual(a.skills[0].down, r.skills[0].down);
+});

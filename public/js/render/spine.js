@@ -2,7 +2,9 @@
 //
 // SpineActor owns one PIXI.spine.Spine built from cached skeleton data (assets.spine LRU; the instance never
 // owns the atlas, so destroying it never frees shared textures). Animation roles come from the manifest
-// (`anims`: idle, deploy, attack{begin,loop,end}, attackDown, skill{begin,loop,end,idle}, die, move, stun).
+// (`anims`: idle, deploy, attack{begin,loop,end}, skill{begin,loop,end,idle}, die, move, stun; a role's `down` / a skill's
+// `beginDown` / `downMode` hold the facing-down clips, which _dn / setSkill take as the unit faces down — the legacy
+// `attackDown` is always null).
 //
 // Driving (units.js calls these; the sim is authoritative, the actor only visualises):
 //   setBase('idle'|'move'|'stun')        the resting state from the snapshot anim code
@@ -272,6 +274,13 @@ export class SpineActor {
     this.endRoles = null;
     this.skillIndex = null;       // the skill slot whose clip `skill` plays (setSkillIndex), null = the manifest's primary
     this.skillVariant = null;     // the latest cast's clip variant (setSkill: anims skill `variants`)
+    this.skillDown = false;       // the latest cast switched to the skill's facing-down mode (setSkill: anims skill `downMode`)
+    /**
+     * The unit's facing for the facing-down clips (render/units.js): () => { deploy, face } — deployed facing down, facing
+     * down now. null: never down.
+     * @type {(() => { deploy: boolean, face: boolean })|null}
+     */
+    this.downs = null;
     this.pendingSignal = null;    // a signalSwing waiting for the skill's opening clip to end
     this.runMode = false;         // move on the model's own Run cycle (setRunMode)
     this.formRoles = null;        // the clip set of the form in force (setForm), over the unit's own roles
@@ -352,7 +361,9 @@ export class SpineActor {
     const equip = Number.isInteger(this.skillIndex) && anims.equip ? anims.equip[String(this.skillIndex)] : null;
     const run = this.runMode && anims.run ? anims.run : null;
     const sk = clip || anims.skill;
-    const variant = this.skillVariant && sk?.variants?.[this.skillVariant] ? { ...sk, ...sk.variants[this.skillVariant] } : null;
+    let variant = this.skillVariant && sk?.variants?.[this.skillVariant] ? { ...sk, ...sk.variants[this.skillVariant] } : null;
+    // the mode the skill's buff switched to as the unit faced down (setSkill: anims skill `downMode`)
+    if (this.skillDown && sk?.downMode) variant = { ...(variant || sk), ...sk.downMode };
     const base = clip || run || equip || variant ? { ...anims, ...equip } : anims;
     if (clip) base.skill = clip;
     if (variant) base.skill = variant;   // this cast's clip variant (setSkill)
@@ -486,8 +497,8 @@ export class SpineActor {
 
   _idleName() {
     const sk = this.roles.skill;
-    if (this._stance()) return this.has(sk.idle) ? sk.idle : sk.loop;
-    if (this.skillOn && sk && this.has(sk.idle)) return sk.idle;
+    if (this._stance()) return this._dn(sk, this.has(sk.idle) ? sk.idle : sk.loop);
+    if (this.skillOn && sk && this.has(sk.idle)) return this._dn(sk, sk.idle);
     // a form's idle may list clips: the first this skeleton has (render/units.js FORMS: 泥岩 asleep)
     const idle = [this.roles.idle].flat().find((n) => this.has(n));
     return idle || (this.has('Idle') ? 'Idle' : [...this.names][0]);
@@ -661,7 +672,7 @@ export class SpineActor {
     if (this._swingClip(clip) !== clip) return null;
     const fresh = this.mode !== 'attack' && !(this.lastAttackEnd != null && this.clock - this.lastAttackEnd <= FIRST_ATTACK_GAP);
     const b = first ? clip.firstAttackBegin || (clip.firstBegin ? clip.begin : null) || clip.attackBegin : fresh ? clip.attackBegin : null;
-    return this.has(b) ? b : null;
+    return this.has(b) ? this._dn(clip, b) : null;
   }
 
   /**
@@ -831,15 +842,42 @@ export class SpineActor {
    * latest attack's kind (atkRanged) — the client's MeleeAttack / BlockedMeleeAttack / BlockedRangedAttack vs RangedAttack.
    */
   _loopOf(clip) {
+    const role = clip;
     clip = this._swingClip(clip);
     // a Back skeleton's role names the facing-up clip (`up`: the client's `_upAnimKey`, GetAnimKey — the Back model is
     // drawn facing up only)
     const loop = this.has(clip.up) ? clip.up : clip.loop;
     const name = clip.alts && this.alt?.clip === clip && this.has(this.alt.name) ? this.alt.name : loop;
-    if (this.atkRanged == null || !this.fortressClips) return name;
+    if (this.atkRanged == null || !this.fortressClips) return this._dn(role, name);
     const pair = this.fortressClips.find((p) => p[0] === name || p[1] === name);
     const want = pair ? pair[this.atkRanged ? 1 : 0] : name;
-    return this.has(want) ? want : name;
+    return this._dn(role, this.has(want) ? want : name);
+  }
+
+  /**
+   * Whether the unit counts as facing down for clips that play by `by` (tools/assets/anim-keys.mjs): 'face' it faces down
+   * now, 'deploy' it was deployed facing down, 'deploy+face' either — the client's AbstractAnimatedAbility.CheckDownAttack
+   * (`_faceToTarget` → `Entity.faceDirection`, else `Entity.direction`; `_faceToFirstCastTarget` with
+   * `_checkFaceToFirstCastTargetDownAttack` also the facing), ThreePartOneshotAnimation._GetAnimBundle, BasicSkill.get_beginAnim
+   * (deploy) and the skill buffs' CheckCharacterDefaultDirection / CheckFaceDirection.
+   */
+  _facesDown(by) {
+    const f = by && this.downs ? this.downs() : null;
+    if (!f) return false;
+    return by === 'face' ? !!f.face : by === 'deploy' ? !!f.deploy : !!(f.deploy || f.face);
+  }
+
+  /**
+   * Clip `name` of role `role` as the unit faces now: the role's `swap` (a facing-down mode's clip for the mode's, path by
+   * path), then its facing-down clip (`down` { by, map }: the client's `_downAnimKey` / `_downEndAnimKey`, a ThreePart's `_down`
+   * bundle) when the unit faces down by `by` (docs/rules/render.md 「Spine 클립 커버리지」 아래 방향).
+   */
+  _dn(role, name) {
+    if (!name || !role) return name;
+    const sw = role.swap?.[name];
+    if (sw && this.has(sw)) name = sw;
+    const to = role.down?.map?.[name];
+    return to && this.has(to) && this._facesDown(role.down.by) ? to : name;
   }
 
   /**
@@ -891,7 +929,7 @@ export class SpineActor {
   _skillIdle() {
     const sk = this.roles.skill;
     if (!this.skillOn || !sk || sk.idle === sk.loop || !this.has(sk.idle)) return null;
-    return this._attackClip() === sk ? sk.idle : null;
+    return this._attackClip() === sk ? this._dn(sk, sk.idle) : null;
   }
 
   _hitTime(anim, dur) {
@@ -915,7 +953,13 @@ export class SpineActor {
       this.skillOn = false;   // the cast's opening clip anew, in the variant
     }
     if (on === this.skillOn || this.dead) return;
-    if (on && (variant || null) !== this.skillVariant) { this.skillVariant = variant || null; this._applyRoles(); }
+    // the cast's mode: the skill's facing-down mode when the unit faces down by its `by` (anims skill `downMode`)
+    const down = on ? this._skillDownNow() : this.skillDown;
+    if (on && ((variant || null) !== this.skillVariant || down !== this.skillDown)) {
+      this.skillVariant = variant || null;
+      this.skillDown = down;
+      this._applyRoles();
+    }
     this.skillOn = on;
     // 2026-10-21: a mode switch attaches the mode's abilities anew, and an attached in-turn group starts over
     // (AbilityRandomGroup.Reset, AbilitySelectableGroup.DoAttach) [추정: a skill that switches no mode resets it too]
@@ -937,10 +981,11 @@ export class SpineActor {
         // local patch: the skill's clip is its empowered attack's (泥岩 S2 Skill_1, tools/assets/anim-overrides.mjs) —
         // that attack plays it (windUp / attack), nothing at the cast
         if (this.mode === 'base') this._play(this._baseName(), true);
-      } else if (this.has(this._castOf(sk, 'begin'))) {
+      } else if (this.has(this._skillBegin(sk))) {
+        const begin = this._skillBegin(sk);
         this.mode = 'skillBegin';
-        this._play(sk.begin, false, { mix: 0.08 });
-        this.skillBeginUntil = this.clock + this.dur(sk.begin);
+        this._play(begin, false, { mix: 0.08 });
+        this.skillBeginUntil = this.clock + this.dur(begin);
         // then the skill's own idle until an attack plays its loop (community report #23); without one, the loop
         const next = this._afterBegin(sk);
         if (next) this._queue(next, true);
@@ -952,8 +997,9 @@ export class SpineActor {
         // through to the base clip and show no skill animation at all (player report).
         this.mode = 'skillBegin';
         this.skillClipOnce = true;
-        this._play(this.has(sk.up) ? sk.up : sk.loop, false, { mix: 0.08 });
-        this.skillBeginUntil = this.clock + Math.max(SKILL_CLIP_MIN, this.dur(sk.loop));
+        const clip = this._dn(sk, this.has(sk.up) ? sk.up : sk.loop);
+        this._play(clip, false, { mix: 0.08 });
+        this.skillBeginUntil = this.clock + Math.max(SKILL_CLIP_MIN, this.dur(clip));
       } else if (this.mode === 'base') this._play(this._baseName(), true);
     } else if (!on && sk) {
       // local patch: a strike clip plays out — the 'skill' off comes in the same batch as its attack
@@ -983,11 +1029,27 @@ export class SpineActor {
   }
 
   /**
+   * The skill's opening clip as the unit faces now: the skill prefab's `beginDown` when it was deployed facing down
+   * (BasicSkill.get_beginAnim: `_beginAnimDown`), else its begin (_castOf) through its facing-down clips (_dn).
+   */
+  _skillBegin(sk) {
+    if (sk?.beginDown && this.has(sk.beginDown) && this._facesDown('deploy')) return sk.beginDown;
+    return this._dn(sk, this._castOf(sk, 'begin'));
+  }
+
+  /** Whether a cast now switches the equipped skill to its facing-down mode (anims skill `downMode` { by, … }). */
+  _skillDownNow() {
+    const anims = this.entry?.anims || {};
+    const sk = (Number.isInteger(this.skillIndex) && anims.skills ? anims.skills[String(this.skillIndex)] : null) || anims.skill;
+    return !!(sk?.downMode && this._facesDown(sk.downMode.by));
+  }
+
+  /**
    * Close the skill on its End clip — or its clips one after another (an array: 歌蕾蒂娅 S3's closing FinalAttack
    * Skill_3_Begin → _Loop → _End) — in mode skillEnd; false when it has none.
    */
   _skillEnd(sk) {
-    const clips = this._changeClips(this._castOf(sk, 'end'));
+    const clips = this._changeClips([this._castOf(sk, 'end')].flat().map((n) => this._dn(sk, n)));
     if (!clips.length) return false;
     this.mode = 'skillEnd';
     this._play(clips[0], false, { mix: 0.08 });
@@ -1003,8 +1065,8 @@ export class SpineActor {
    * Skill_3_Chant), else its loop.
    */
   _afterBegin(sk) {
-    const idle = this._skillIdle() || (sk?.via === 'attack' && this.has(sk.idle) ? sk.idle : null);
-    return idle || (this.has(sk?.loop) ? sk.loop : null);
+    const idle = this._skillIdle() || (sk?.via === 'attack' && this.has(sk.idle) ? this._dn(sk, sk.idle) : null);
+    return idle || (this.has(sk?.loop) ? this._dn(sk, sk.loop) : null);
   }
 
   /**
@@ -1162,7 +1224,7 @@ export class SpineActor {
           // a skill with its own idle: back to that idle (its end clip is for the end of the skill, setSkill(false)) —
           // through the skill's own end of a spell of attacks when it has one (`attackEnd`: 伺夜 S3 Skill3_ABC_Idle_Into)
           const toSkillIdle = clip === this.roles.skill && !!this._skillIdle();
-          const end = toSkillIdle ? clip.attackEnd : clip?.end;
+          const end = this._dn(clip, toSkillIdle ? clip.attackEnd : clip?.end);
           if (clip && this.has(end)) { this._play(end, false); this._queue(this._baseName(), true); }
           else this._play(this._baseName(), true, { mix: 0.15 });
         }

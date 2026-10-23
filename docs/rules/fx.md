@@ -474,8 +474,10 @@
     사본도 끝낸다. → `fx/face.js faceSwitchCopy` + `fxgame.js play()`(사본이 그 자리에서 재생, 시전 연결 `cast`는 `_oneShot`이면 끊음).
   - `SwitchableThreeFaceEffect`(`three`, 위셔델 S3 `wisdel_skill_03_start`): `_UpdateFace`(0xEB3800, `Update` 0xEB3440로 매 프레임)가 주인 `faceToBack`(Entity 가상 44,
     뒷모델)이면 `_upEffect`, `faceToDown`(가상 45 — `ThreeFaceAnimator`의 `_down` 면, `CharacterAnimator.activeFace`)이면 `_downEffect`, 아니면 자기를 보이고 나머지는 멈춘다.
-    `_createEffectOnStart`는 처음에 둘 다 멈춘 채 만든다. → 위 사본은 `SwitchableBackEffect`와 같은 뒷면 전환(`backSwitch`)으로. 아래 면은 Spine 앞모델의 `*_Down*` 클립
-    묶음인데 우리 렌더가 아래 방향 클립을 안 그리므로(render.md 「Spine 클립 커버리지」의 `DOWN_FAMILY` 전역 공백) 앞 이펙트가 그대로 돈다 — 그 클립을 그리게 되면 `three.down`을 같이 이을 것.
+    `_createEffectOnStart`는 처음에 둘 다 멈춘 채 만든다. → 위 사본은 `SwitchableBackEffect`와 같은 뒷면 전환(`backSwitch`)으로. 아래 면은 공식에서도 안 나온다
+    (2026-10-23): 기반 `UnitAnimator.get_faceToDown`은 늘 거짓이고 참을 돌려주는 것은 세 번째 면 모델이 있는 `ThreeFaceAnimator`뿐인데, 이 서버의 오퍼레이터 chararts
+    애니메이터(EN 전부·CN 전용 둘)는 모두 `_front`/`_back` 둘만 있다 — 그래서 `three.down`은 잇지 않고 앞 이펙트가 그대로 돈다. 앞모델의 `*_Down*` 클립은 세 번째
+    면이 아니라 능력·스킬 키로 트는 것(render.md 「Spine 클립 커버리지」 아래 방향).
   - `RandomDirection`(`rdir`, 데겐블레허 S2 `blkkgt_skill_02_hit_2`): `OnPlay`(0xE95760)가 주인이 유효하면 `RandomUtil.RandomVector3(from, to)`(0x5A81410: 축마다
     `Random.Range`, 정규화 없음)로 `FaceTo`. → `FxInstance`가 그 범위의 무작위 벡터로 `faceTurn`(FLIP_TWO_SIDE: 반반 뒤집힘). 이 프리팹은 지금 어떤 바인딩에도 없어 안 나옴(§11).
   - `FollowTileHeight`(`tileH`, 이네스 표식·범위 3, 프라마닉스 더 프레리타 눈 3(속도 1000), 실버애쉬 더 레인프로스트 S3 범위 1): `_UpdateHeight`(0xE834B0)가 이펙트의 월드

@@ -28,6 +28,9 @@ const END = /(^|\/)\w*End\w*$/;
 // a restart of the operator, not the skill's cast (予愿安洁莉娜 S3 `RestoreAbility`: the flight home, a signal clip)
 const RESTORE = /(^|\/)Restore\w*$/;
 
+// the fields of a skill's roles that its facing-down mode replaces (keyRoles `downMode`)
+const DOWN_MODE_FIELDS = ['begin', 'loop', 'end', 'idle', 'firstAttackBegin', 'attackBegin', 'attackEnd', 'stance', 'down'];
+
 const clipKeyOf = (ab) => ab?.three?.oneshot || ab?.chan?.loop || (typeof ab?.key === 'string' ? ab.key : null);
 
 /**
@@ -99,15 +102,47 @@ export function keyRoles(op, durations) {
     out.attack = { begin: a0.begin ?? mix(idle, a0.loop), loop: a0.loop, end: a0.end ?? mix(a0.loop, idle) };
     if (a0.first) out.attack.firstBegin = true;
   }
+  // the facing-down clips of abilities ([abilities, mode] pairs): AbstractAnimatedAbility `_downAnimKey` / `_downEndAnimKey`
+  // (GetAnimKey / OnCastEnd: down, then up, then the plain key), a ThreePart attack's or channel's `_down` bundle
+  // (`_overrideDownAnimation`: ThreePartOneshotAnimation / ThreePartChannelingAnimation._GetAnimBundle) —
+  // as { by, map: { clip: its facing-down clip } }, with the skin's mix clips from / to Idle of each pair. The renderer swaps
+  // a clip for its entry as the ability casts when the unit faces down (`by` 'face': `_faceToTarget`) or was deployed facing
+  // down ('deploy'; 'deploy+face' either — render/spine.js _dn)
+  const downOf = (...sources) => {
+    const map = {};
+    let by = null;
+    const put = (from, to, b) => { if (from && to && from !== to && from !== idle && !map[from]) { map[from] = to; by ??= b; } };
+    for (const [abs, m] of sources) {
+      for (const ab of Object.values(abs || {})) {
+        for (const [part, loop] of [['three', 'oneshot'], ['chan', 'loop']]) {
+          const td = ab?.[part]?.down;
+          if (!td) continue;
+          for (const f of ['begin', loop, 'end']) put(J(ab[part][f], m), J(td[f], m), td.by);
+          const L = J(ab[part][loop], m), D = J(td[loop], m);
+          if (L && D) { put(mix(idle, L), mix(idle, D), td.by); put(mix(L, idle), mix(D, idle), td.by); }
+        }
+        if (!ab?.dby) continue;
+        const L = ab.key ? J(ab.key, m) : null;
+        const D = J(ab.down, m);
+        put(L, D, ab.dby);
+        put(J(ab.end, m), J(ab.downEnd, m), ab.dby);
+        if (L && D) { put(mix(idle, L), mix(idle, D), ab.dby); put(mix(L, idle), mix(D, idle), ab.dby); }
+      }
+    }
+    return Object.keys(map).length ? { by, map } : null;
+  };
+  out.attackDown = downOf([modes[0]?.abilities, 0]);
   const names = modes.map((m) => m.name);
   // per skill: its mode, whether that mode is the one it holds from the deployment, the ability whose clip is its loop
   const meta = {};
   const skillMode = (op?.skills || []).map((s) => (Number.isInteger(s?.mode) ? s.mode : null));
-  (op?.skills || []).forEach((s, i) => {
-    let m = names.length ? skillModeIndex(names, i, skillMode) : -1;
+  // the roles of skill s (index i) in its mode, or in mode `force` (the mode its buff switches to when the unit faces down:
+  // then without the skill prefab's own begin, which does not depend on the mode)
+  const skillRole = (s, i, force = null) => {
+    let m = force ?? (names.length ? skillModeIndex(names, i, skillMode) : -1);
     // a mode per facing (灰毫 S2(U) / S2(D) / S2(LR)): the first whose attack this skeleton has — the side one on the front
     // skeleton, the up one on the back
-    const dir = m > 0 ? /^(.*)\((U|D|LR)\)$/.exec(names[m]) : null;
+    const dir = force == null && m > 0 ? /^(.*)\((U|D|LR)\)$/.exec(names[m]) : null;
     if (dir) {
       const n = ['LR', 'U', 'D'].map((d) => names.indexOf(`${dir[1]}(${d})`))
         .find((n) => n > 0 && abClip(attackAbility(modes[n]?.abilities), n)?.loop);
@@ -132,7 +167,7 @@ export function keyRoles(op, durations) {
     // the mode's first-attack ability beside its attack (折桠 S2 `FirstAttack`)
     const firstPath = m > 0 && !held ? Object.keys(modes[m]?.abilities || {}).find((p) => FIRST.test(p) && modes[m].abilities[p]?.key) : null;
     const sIdle = work > 0 && pairs(work).Idle ? J('Idle', work) : null;
-    const c = { begin: J(s?.begin), loop: null, end: endPath ? J(abs[endPath].key, m > 0 ? m : 0) : null, idle: sIdle !== idle ? sIdle : null, index: i };
+    const c = { begin: force == null ? J(s?.begin) : null, loop: null, end: endPath ? J(abs[endPath].key, m > 0 ? m : 0) : null, idle: sIdle !== idle ? sIdle : null, index: i };
     let why = [];
     let loopAb = null;
     if (endPath) why.push(`end ${endPath}`);
@@ -208,9 +243,41 @@ export function keyRoles(op, durations) {
     const castPlain = !cast || cast.loop === out.attack?.loop || (!cast.loop && !cast.begin);
     const modePlain = m <= 0 || (ma && !ma.stance && ma.loop === out.attack?.loop && !pairs(m).Idle && !sb && !se);
     if (!s?.begin && !endPath && castPlain && modePlain && !Object.values(abs).some((a) => a?.emit?.length)) c.clipless = true;
+    const dn = downOf([abs, m > 0 ? m : 0], ...(work > 0 ? [[modes[work]?.abilities, work]] : []));
+    if (dn) c.down = dn;
+    return { c, why: why.join(', ') || '-', m, held, loopAb: c.loop ? loopAb : null };
+  };
+  (op?.skills || []).forEach((s, i) => {
+    const r = skillRole(s, i);
+    const { c, m, held, loopAb } = r;
+    let why = r.why;
+    // the skill prefab's begin when the unit was deployed facing down (BasicSkill.get_beginAnim: `_beginAnimDown`)
+    const bd = J(s?.beginDown);
+    if (bd && bd !== c.begin) c.beginDown = bd;
+    // the mode its buff switches to when the unit faces down (anim_keys.py down_modes: an IfElse on
+    // CheckCharacterDefaultDirection / CheckFaceDirection DOWN before SwitchMode): that mode's roles, by `by`
+    if (Number.isInteger(s?.downMode) && s.downMode > 0 && s.downMode !== m && modes[s.downMode]) {
+      const d = skillRole(s, i, s.downMode).c;
+      const dm = { by: s.downBy || 'deploy' };
+      // (the skill prefab's begin does not depend on the mode: a down mode without a begin of its own keeps it)
+      if (!d.begin) delete d.begin;
+      for (const f of DOWN_MODE_FIELDS) if (Object.hasOwn(d, f) && JSON.stringify(d[f] ?? null) !== JSON.stringify(c[f] ?? null)) dm[f] = d[f] ?? null;
+      // the down mode's abilities replace the mode's path by path: a clip the role does not name (号角 S3(D)'s ranged
+      // `Skill_Down_3_Loop` for S3's `Skill_3_B_Loop`, a 要塞 pair: render/units.js FORTRESS_CLIPS) swaps by name
+      const swap = {};
+      const from = m > 0 ? modes[m]?.abilities || {} : {};
+      for (const [p, ab] of Object.entries(modes[s.downMode].abilities || {})) {
+        const a = J(clipKeyOf(from[p]), m);
+        const b = J(clipKeyOf(ab), s.downMode);
+        if (a && b && a !== b) swap[a] = b;
+      }
+      if (Object.keys(swap).length) dm.swap = swap;
+      // (a skeleton without the down mode's clips — the Back one, drawn facing up — keeps the skill's own)
+      if (Object.entries(dm).some(([f, v]) => f !== 'by' && v != null)) { c.downMode = dm; why += `, down ${names[s.downMode]}`; }
+    }
     out.skills[i] = c;
-    out.why[i] = why.join(', ') || '-';
-    meta[i] = { m, held, loopAb: c.loop ? loopAb : null };
+    out.why[i] = why;
+    meta[i] = { m, held, loopAb };
   });
   out.tables = keyTables(op, out, meta, { J, pairs, abClip });
   return out;
@@ -343,6 +410,9 @@ export function overlayKeyRoles(anims, kr, charId = '') {
   if (!anims || !kr) return anims;
   for (const f of ['idle', 'deploy', 'die']) if (kr[f]) anims[f] = kr[f];
   if (!anims.attack) return anims;
+  // the facing-down clips of the Default mode's abilities, on the attack role (a role keyed by clip name: harmless where the
+  // attack role stays the guess)
+  if (kr.attackDown) anims.attack.down = kr.attackDown;
   const hold = KEY_ROLE_HOLD[charId] || [];
   for (const [i, k] of Object.entries(anims.skills ? kr.skills || {} : {})) {
     if (!k || hold.includes(Number(i)) || !Object.hasOwn(anims.skills, i)) continue;
@@ -351,13 +421,16 @@ export function overlayKeyRoles(anims, kr, charId = '') {
       c = { ...anims.attack, via: 'attack', index: Number(i), idle: null };
       if (k.begin) c.begin = k.begin;
       if (k.end && !k.clipless) c.end = k.end;
+      if (k.down) c.down = { by: c.down?.by ?? k.down.by, map: { ...k.down.map, ...c.down?.map } };
     } else {
       c = { begin: k.begin, loop: k.loop, end: k.end, idle: k.idle, index: Number(i) };
-      for (const f of ['firstAttackBegin', 'attackBegin', 'attackEnd']) if (k[f]) c[f] = k[f];
+      for (const f of ['firstAttackBegin', 'attackBegin', 'attackEnd', 'down']) if (k[f]) c[f] = k[f];
       // the mode attacks with no clip (anim-overrides.mjs applyModeAttacks reads the same from the attack timing file, which
       // has nothing where the mode's attack is not `Body/Attack`: 信仰搅拌机 Sk3, 小满 S2, 薄绿 S2)
       if (k.stance) c.stance = true;
     }
+    // facing down: the skill prefab's begin, the mode its buff switches to (keyRoles)
+    for (const f of ['beginDown', 'downMode']) if (k[f]) c[f] = k[f];
     anims.skills[i] = c;
     if (anims.skill && anims.skill.index === Number(i)) anims.skill = c;
   }

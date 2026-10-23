@@ -17,9 +17,6 @@ import { UNPLAYED } from './clip-coverage-list.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const assets = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8'));
 
-/** The facing-down variants (Attack_Down, Skill_Down_2_Loop, Skill_1_Loop_Down …): the renderer draws none of them —
- *  one gap for every model, tracked as a whole (docs/rules/render.md 「Spine 클립 커버리지」), not clip by clip. */
-const DOWN_FAMILY = /down/i;
 /** Spine's setup pose, never played as a clip. */
 const SETUP = 'Default';
 const STATUS = /^(render|none|todo): \S/;
@@ -52,6 +49,14 @@ function rolePlayed(anims) {
     if (c.combat) for (const a of [c.combat.loop, ...(c.combat.alts || [])]) out.add(a);   // on a blocked enemy (_swingClip)
     for (const v of Object.values(c.variants || {})) for (const n of Object.values(v)) out.add(n);   // a cast's variant (setSkill)
     for (const n of Object.values(c.deploys || {})) out.add(n);   // a 【移动】 by the skill (deploy)
+    // facing down (spine.js _dn / setSkill): a role's facing-down clips, a skill's down begin and its facing-down mode
+    const downs = (r) => { for (const n of Object.values(r?.down?.map || {})) out.add(n); for (const n of Object.values(r?.swap || {})) out.add(n); };
+    downs(c);
+    if (typeof c.beginDown === 'string') out.add(c.beginDown);
+    if (c.downMode) {
+      downs(c.downMode);
+      for (const k of ['begin', 'loop', 'end', 'idle', 'firstAttackBegin', 'attackBegin', 'attackEnd']) if (typeof c.downMode[k] === 'string') out.add(c.downMode[k]);
+    }
     // an attack the sim marks as another ability (_signalStrike), or a channel held from on to off (holdSignal)
     for (const n of Object.values(c.signals || {})) for (const v of typeof n === 'string' ? [n] : Object.values(n || {})) out.add(v);
   }
@@ -68,7 +73,7 @@ function unplayed() {
       if (!entry) continue;
       const played = rolePlayed(entry.anims);
       for (const clip of Object.keys(entry.animations || {})) {
-        if (clip === SETUP || DOWN_FAMILY.test(clip) || played.has(clip) || named.has(clip)) continue;
+        if (clip === SETUP || played.has(clip) || named.has(clip)) continue;
         if (!res.has(charId)) res.set(charId, new Map());
         const m = res.get(charId);
         m.set(clip, (m.get(clip) || '') + tag);
@@ -114,11 +119,8 @@ test("a 'render:' entry names a file under public/js/ that names the clip", () =
 });
 
 test('the open entries, for the record', (t) => {
-  let todo = 0, down = 0;
+  let todo = 0;
   for (const clips of Object.values(UNPLAYED)) for (const s of Object.values(clips)) if (s.startsWith('todo:')) todo++;
-  for (const rec of Object.values(assets.chars)) {
-    for (const side of ['front', 'back']) for (const clip of Object.keys(rec.spine?.[side]?.animations || {})) if (DOWN_FAMILY.test(clip)) down++;
-  }
-  t.diagnostic(`clip coverage: ${todo} listed clips still 'todo', ${down} facing-down clips not drawn (DOWN_FAMILY)`);
-  assert.ok(todo >= 0 && down >= 0);
+  t.diagnostic(`clip coverage: ${todo} listed clips still 'todo'`);
+  assert.ok(todo >= 0);
 });

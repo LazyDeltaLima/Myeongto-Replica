@@ -920,6 +920,9 @@ export class UnitView {
         // enemies play their attack clip once per attack, then walk on (GitHub #58: the sim stands them for that clip)
         actor.clipPerAttack = this.isEnemy;
         actor.fortressClips = FORTRESS_CLIPS[id] || null;
+        // the facing its facing-down clips go by (render/spine.js _facesDown): the deploy direction, the facing now (`face`
+        // turns as an attack starts, before the swing picks its clip — render/app.js faceEvent)
+        if (!this.isEnemy) actor.downs = () => ({ deploy: this.dir === 'DOWN', face: this.face?.dir4 === 'DOWN' });
         // its clip events go to the audio (render/app.js ctx.spineEvent); `null` first = this unit now has a model that
         // reports them (the audio drops its stand-in for it)
         if (this.ctx.spineEvent) {
