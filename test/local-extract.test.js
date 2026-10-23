@@ -307,6 +307,12 @@ print(json.dumps([m.place(face, g0, sh), m.place(face, g2, None), m.place(face, 
     assert.equal(out[2].shadow, null, 'a Shadow/Sprite without a SpriteRenderer (风雪之眼)');
     assert.equal(out[3].shadow, null, 'an inactive one');
   });
+  test('place: an enemy prefab\'s Graphic carries the place and the 0.27 (炎佑): its scale scales the node', () => {
+    const out = mp(`
+n = lambda pos, scale=1: {'pos': pos, 'scale': [scale, scale, scale], 'sprite': False, 'active': True, 'children': {}}
+print(json.dumps(m.place(n([0, 0, 0]), n([0, -0.2, -0.06], 0.27), None)))`);
+    assert.deepEqual(out, { face: [0, 0, 0], scale: 0.27, graphic: [0, -0.2, -0.06], shadow: null });
+  });
   test('child walks a node path; a token\'s skeleton node is looked for in TOKEN_MODEL_NODES order', () => {
     const out = mp(`
 t = {'children': {'Graphic': {'children': {'Spine': {'children': {}, 'pos': [0, -0.15, -0.1]}}}}}

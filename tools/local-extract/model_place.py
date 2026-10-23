@@ -4,8 +4,9 @@
 
 A unit's battle prefab draws its skeleton under `Graphic` (turned X −30° to face the camera) at a child's local position —
 an operator's `DefaultSkin/FaceSwitcher` (chararts/<charId>.ab), a token's `Graphic/DefaultSkin/FaceSwitcher`,
-`Graphic/Spine` or `Graphic/Front` (pkgrps/btl_pfb_tokens_*.ab, one prefab per root name) — and its shadow sprite at
-`Others/Shadow/Sprite` (charpack/<charId>.ab or the token prefab; `Others` is not turned, the sprite lies on the board).
+`Graphic/Spine` or `Graphic/Front` (pkgrps/btl_pfb_tokens_*.ab, one prefab per root name; a summon that is an enemy, in
+battle/enm_pfb_*.ab) — and its shadow sprite at `Others/Shadow/Sprite` (charpack/<charId>.ab or the token prefab; an enemy
+prefab's `Shadow/Sprite`; neither parent is turned, the sprite lies on the board).
 Most of them carry the same values (render/fxpoints.js STANDARD_PLACE); this table holds every unit read, so the render
 keeps the standard place for a unit missing here or without the table.
 
@@ -18,7 +19,8 @@ or inactive: 凛御银灰's 风雪之眼).
 
 Usage (from the repo root; --client = the client's Arknights_Data folder):
   .venv-extract/bin/python -I tools/local-extract/model_place.py [--client <…/Arknights_Data>] [--id char_…|token_…]…
-Without --id: the pool's operators (data/chess.json + the 선발 picks: char_modes.py pool_char_ids), the 预备 operators and
+The EN client lacks a few CN-only units (予愿安洁莉娜, 克莱门莎, …): run again with --client <CN Arknights_Data> --id …
+(the table keeps the other entries). Without --id: the pool's operators (data/chess.json + the 선발 picks: char_modes.py pool_char_ids), the 预备 operators and
 the tokens of data/backups.json, and the tokens of data/tokens.json. Everything is (c) Hypergryph; private fan use only.
 """
 import argparse
@@ -45,6 +47,20 @@ def unit_ids():
     # the 预备 operators (backups `units`) too, and a summon that is an operator prefab (char_605_cmedic …) is read like one
     chars = set(pool_char_ids()) | set(backups.get('units') or {}) | {t for t in tokens if t.startswith('char_')}
     return sorted(chars), sorted(t for t in tokens if not t.startswith('char_'))
+
+
+def enemy_files(client, ids):
+    """{ id: its battle/enm_pfb_*.ab } for summons that are enemy prefabs (“炎佑” enemy_9012_acloon), by root name."""
+    import aklz4  # noqa: F401
+    import UnityPy
+    out, want = {}, set(ids)
+    for d in ('PersistentData/Bundles/battle', 'StreamingAssets/AB/Windows/battle'):
+        p = Path(client) / d
+        for f in sorted(p.glob('enm_pfb*.ab')) if want - set(out) and p.is_dir() else []:
+            for o in UnityPy.load(str(f)).objects:
+                if o.type.name == 'GameObject' and o.read().m_Name in want - set(out):
+                    out[o.read().m_Name] = f
+    return out
 
 
 def bundle_file(client, sub, uid):
@@ -99,7 +115,10 @@ def r(v):
 
 
 def place(model, graphic, shadow):
-    out = {'face': r(model['pos']), 'scale': round(model['scale'][0], 4)}
+    # the node sits in Graphic's frame, so Graphic's own scale scales its place and size (an enemy prefab keeps its 0.27
+    # on Graphic itself, the skeleton node at 1)
+    k = graphic['scale'][0] if graphic else 1
+    out = {'face': r([x * k for x in model['pos']]), 'scale': round(model['scale'][0] * k, 4)}
     if graphic and any(abs(x) > 1e-6 for x in graphic['pos']):
         out['graphic'] = r(graphic['pos'])
     out['shadow'] = {'at': r(shadow['pos'][:2]), 'sx': round(shadow['scale'][0], 4), 'sy': round(shadow['scale'][1], 4)} \
@@ -128,7 +147,9 @@ def main():
             continue
         out[cid] = place(model, child(root, 'Graphic'), child(root, 'Others/Shadow/Sprite'))
     by_file = {}
-    for tid, f in token_files(a.client, tokens).items():
+    found = token_files(a.client, [t for t in tokens if not t.startswith('enemy_')])
+    found.update(enemy_files(a.client, [t for t in tokens if t.startswith('enemy_')]))
+    for tid, f in found.items():
         by_file.setdefault(f, []).append(tid)
     for f, ids in by_file.items():
         roots = trees(f)
@@ -138,7 +159,7 @@ def main():
             if not model:
                 missing.append(tid)
                 continue
-            out[tid] = place(model, g, child(roots[tid], 'Others/Shadow/Sprite'))
+            out[tid] = place(model, g, child(roots[tid], 'Others/Shadow/Sprite') or child(roots[tid], 'Shadow/Sprite'))
     missing += [t for t in tokens if t not in out and t not in missing]
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps({k: out[k] for k in sorted(out)}, separators=(',', ':')) + '\n', encoding='utf-8')
