@@ -23,7 +23,7 @@ export const NO_HP_TOKENS = Object.freeze(new Set(['token_10064_wang_stone1', 't
 export const NO_SP_TOKENS = Object.freeze(new Set(['enemy_9012_acloon']));
 /**
  * Summons whose HP bar shows only for a moment after their HP moves (hurt or healed), hidden otherwise: 炎佑, by the
- * maintainer's account of the official game 2026-10-23 (render/units.js HP_FLASH; the hold and fade are [ASSUMED]).
+ * maintainer's account of the official game 2026-10-23 (render/units.js HP_FLASH: then gone at once, no fade; the time is [ASSUMED]).
  */
 export const FLASH_HP_TOKENS = Object.freeze(new Set(['enemy_9012_acloon']));
 /** Summons with no body of their own: only their effect is drawn. */

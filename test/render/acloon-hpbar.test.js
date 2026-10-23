@@ -21,18 +21,17 @@ const run = (v, s) => { for (let i = 0; i < Math.round(s * 60); i++) v.update(1 
 const at = (v, hp, tick) => v.sync({ x: 11, y: 10, hp, maxHp: 1000, sp: 0, spMax: 0, flags: 0, anim: 0 }, tick);
 const shown = (v) => v.lpBars.root.visible;
 
-test('炎佑: no HP bar at rest; hurt or healed, it shows, fades and hides again', () => {
+test('炎佑: no HP bar at rest; hurt or healed, it shows, then hides at once', () => {
   const loon = view('enemy_9012_acloon', 1);
   run(loon, 0.1);
   assert.equal(shown(loon), false, 'full HP, untouched');
   at(loon, 800, 1);
   run(loon, 0.5);
   assert.equal(shown(loon), true, 'just hurt');
-  assert.equal(loon.lpBars.root.alpha, 1, 'held at full strength');
-  run(loon, 1.25);
-  assert.equal(shown(loon), true, 'fading');
-  assert.ok(loon.lpBars.root.alpha > 0 && loon.lpBars.root.alpha < 1, 'fading');
-  run(loon, 0.5);
+  run(loon, 1.4);
+  assert.equal(shown(loon), true, 'still shown');
+  assert.equal(loon.lpBars.root.alpha, 1, 'no fade before it goes');
+  run(loon, 0.2);
   assert.equal(shown(loon), false, 'hidden again though still hurt');
   at(loon, 900, 2);
   run(loon, 0.1);

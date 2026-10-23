@@ -181,8 +181,8 @@ export const HELD_REDRAW_FRAMES = 240;
  *  frozen gate. */
 const ICE_TOKENS = new Set(['token_10058_sbell2_icetgt']);
 const ICE_FRAME = 0x9fe6ff;
-/** A FLASH_HP_TOKENS summon's HP bar after its HP moves: shown `hold` s, then faded out over `fade` s [ASSUMED times]. */
-const HP_FLASH = Object.freeze({ hold: 1.5, fade: 0.5 });
+/** A FLASH_HP_TOKENS summon's HP bar after its HP moves: shown this many seconds, then gone at once, no fade [ASSUMED time]. */
+const HP_FLASH = 2;
 /** How long a view waits for its avatar before showing the image-less placeholder diamond. */
 const PIC_WAIT_MS = 400;
 /**
@@ -1182,7 +1182,7 @@ export class UnitView {
     const hp = clamp(s.hp, 0, this.maxHp);
     if (hp < this.hp - 0.5 && this.isBoss) this.shake = 0.25;
     if (hp < this.hp - 0.5 && this.lpBars?.hit) this.lpBars.hit(); // local patch: a giant boss's hit flash
-    if (this.hpFlash >= 0 && Math.abs(hp - this.hp) > 0.5) this.hpFlash = HP_FLASH.hold + HP_FLASH.fade;
+    if (this.hpFlash >= 0 && Math.abs(hp - this.hp) > 0.5) this.hpFlash = HP_FLASH;
     this.hp = hp;
     this.sp = s.sp; this.spMax = s.spMax;
     this.ammo = s.ammo || null; // local patch: official bullet bar (b.snap `ammo`)
@@ -2028,9 +2028,7 @@ export class UnitView {
         const u = hudU(this.ctx), active = !!(this.flags & UF.SKILL);
         const sp = this.spMax > 0 && !this.noSp ? clamp(this.sp / this.spMax, 0, 1) : null;
         const bar = shieldedBar(this.hp, this.maxHp, this.ghostHp, this.barrier);
-        lpBottom = this.lpBars.update(this.screen.x + sx, this.screen.y, u, { hp: bar.hp, ghost: bar.ghost, split: bar.split, sp, cast: active, ammo: this.ammo }, this.ctx.assets);
-        this.lpBars.root.alpha = this.hpFlash > 0 ? Math.min(1, this.hpFlash / HP_FLASH.fade) : 1;
-      }
+        lpBottom = this.lpBars.update(this.screen.x + sx, this.screen.y, u, { hp: bar.hp, ghost: bar.ghost, split: bar.split, sp, cast: active, ammo: this.ammo }, this.ctx.assets);      }
       this.hpBg.position.set(x0 - 1, cy); this.hpBg.width = bw + 2; this.hpBg.height = bh + 2;
       this.hpGhost.position.set(x0, cy); this.hpGhost.width = bw * g; this.hpGhost.height = bh;
       this.hpFill.position.set(x0, cy); this.hpFill.width = bw * k; this.hpFill.height = bh;
