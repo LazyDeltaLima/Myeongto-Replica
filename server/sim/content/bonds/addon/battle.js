@@ -668,6 +668,8 @@ export function install(battle) {
             const d = battle.makeDamage({ amount: share / on.length, type: 'true', canDodge: false, tags: ['bond:stead:share'] });
             d.steadShare = true;
             battle.dealDamage(null, m, d);
+            // AutoChessDamageSplit creates its `_hitEffectKey` on each member it moves a share to (official client)
+            tplFx(battle, m, 'bond_shield_buff_hit', t);
           }
           return;
         }

@@ -659,6 +659,8 @@ function installKazimierz(battle, pid, bb, members) {
           if (!e.alive) continue;
           battle.dealDamage(m, e, { amount, type: 'true', canDodge: false, isSplash: true, tags: ['bond:kazimierz'] });
           if (e.alive && stun > 0) battle.applyStatus(e, 'stun', { duration: stun, source: m });
+          // the AOEDamage `_buffs` [ex_damage_effect] (0.5 s, overrideEffectKey common_071_bond_kazimierz_hit_01_new) on each enemy
+          if (e.alive) S.tplFx(battle, e, 'common_071_bond_kazimierz_hit_01_new', m);
         }
         S.fxOn(battle, 'aoe', m, 'bond:kazimierzShip', 'pulse', { radius, dmgType: 'true', n: hits.length });
       }

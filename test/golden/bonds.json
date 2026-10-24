@@ -559,7 +559,7 @@
       ],
       "enemies": {"enemy_10124_uashld_2":[2,2,0,2277,124416],"enemy_1043_zomsbr":[23,23,0,20,145057],"enemy_1061_zomshd":[5,5,0,3260,132009]},
       "hooks": [1,40,2461,216,216,442,557,2456,31,31,10,10,0,4598,1039,9,30,0,1,42,0,0,5],
-      "events": {"atk":216,"deploy":8,"die":31,"dmg":437,"engage":6,"face":41,"fx":41,"skill":20,"spawn":40,"status":125,"swing":237},
+      "events": {"atk":216,"deploy":8,"die":31,"dmg":437,"engage":6,"face":41,"fx":41,"skill":20,"spawn":40,"status":125,"swing":237,"tplfx":29},
       "fx": {"aoe":24,"displace":6,"dodge":5,"overload":2,"shield":1,"volley":3},
       "snaps": "d0da894d c4d79248 e76ef725 1a778ae2 f1cc9e83 685f5d5e a66dcd30 b07a6231 d656a2be"
     },
@@ -802,7 +802,7 @@
       ],
       "enemies": {"enemy_1288_duskls":[11,11,0,0,63415],"enemy_1288_duskls_2":[7,7,0,0,48419],"enemy_1292_duskld":[5,5,0,432,57650]},
       "hooks": [1,38,2530,262,297,485,485,107,23,25,18,15,0,11570,198,26,23,0,1,50,0,0,0],
-      "events": {"atk":314,"deploy":12,"die":25,"dmg":485,"engage":12,"face":68,"fx":258,"skill":33,"spawn":38,"status":429,"swing":289},
+      "events": {"atk":314,"deploy":12,"die":25,"dmg":485,"engage":12,"face":68,"fx":258,"skill":33,"spawn":38,"status":430,"swing":289},
       "fx": {"aoe":2,"copy":1,"crit":5,"dp":2,"ember":23,"iceSpike":64,"palsy":2,"roadTiles":1,"sleep":2,"split":3,"stacks":49,"watch":2,"weightless":2,"zone":100},
       "snaps": "99ca0a24 e4f72ca3 595187ce 50210154 1cc4988d 0e39c872 8170cb44 e2cd2ad8 56919872"
     },
@@ -1428,7 +1428,7 @@
       ],
       "enemies": {"enemy_1251_lysyta_2":[19,19,0,22,70042],"enemy_1252_lysytb_2":[7,7,0,1827,72576],"enemy_1329_cbshld_2":[4,4,0,2287,59904]},
       "hooks": [1,40,3092,206,221,325,337,41,30,30,49,46,0,13542,53,4,30,0,1,30,0,1,0],
-      "events": {"atk":236,"deploy":8,"die":30,"dmg":337,"engage":3,"face":54,"fx":141,"heal":41,"skill":95,"spawn":40,"status":110,"swing":212},
+      "events": {"atk":236,"deploy":8,"die":30,"dmg":337,"engage":3,"face":54,"fx":141,"heal":41,"skill":95,"spawn":40,"status":110,"swing":212,"tplfx":75},
       "fx": {"aoe":9,"burst":1,"counter":5,"displace":26,"heal":27,"iceSpike":36,"ripple":13,"shadowWeave":19,"soul":1,"stealth":4},
       "snaps": "ee1c67bc 07161a4d 26330515 9ca2bc89 17add434 f2170f9e f5b56539 466f34e7 8ddb221f 87a96506 dce15a2a"
     },

@@ -947,6 +947,9 @@ test('卡西米尔 6: blocking members pulse 120 % ATK true damage + 0.1 s stun 
   assert.ok(pulses.length >= 1 && pulses.length <= 3, `pulses ${pulses.length}`);
   close(pulses[0].amount, 1.2 * z0.s.atk, 1e-6);
   assert.ok(h.hooksOf('statusApplied').some((c) => c.status === 'stun' && c.source === z0 && Math.abs(c.duration - 0.1) < 1e-9));
+  // (묶음 S12) the pulse's [ex_damage_effect] common_071_bond_kazimierz_hit_01_new on each enemy it hits
+  const hitFx = h.eventsOf('tplfx').filter((x) => x[2] === 'common_071_bond_kazimierz_hit_01_new' && x[3] === z0.id);
+  assert.ok(hitFx.length >= pulses.length, `one per enemy hit (${hitFx.length})`);
   const onHitExtra = tagged(h, 'bond:kazimierz').filter((c) => c.source === z0 && !c.dmg.isSplash && c.t >= t0);
   assert.equal(onHitExtra.length, 0, 'no on-hit true damage while blocking');
   // z1 does not block: its attacks add 30 % ATK true damage

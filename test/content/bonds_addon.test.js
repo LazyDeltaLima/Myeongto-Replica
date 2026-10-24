@@ -295,6 +295,9 @@ test('坚守: all operators HP ×(1.25+0.012·L); tier 2 redirect 40% to members
   close(d1.s.maxHp - d1.hp, 200, 'member share');
   close(d2.s.maxHp - d2.hp, 200, 'member share');
   close(e.hp, e0, 'redirected damage never thorns');
+  // (묶음 S12) AutoChessDamageSplit's `_hitEffectKey` on each member it moved a share to
+  h.step();
+  assert.deepEqual(h.eventsOf('tplfx').filter((x) => x[2] === 'bond_shield_buff_hit').map((x) => [x[1], x[3]]), [[d1.id, dn.id], [d2.id, dn.id]]);
   const thorn = bb.base_damage_value + bb.damage_value_per_stack * 10;
   h.b.dealDamage(e, d1, { amount: 100, type: 'true' });
   close(e0 - e.hp, thorn * bb.damage_scale, 'thorns, after the 脆弱 they bring (stead[ex]: weak[limit] before FixedValueDamage)');

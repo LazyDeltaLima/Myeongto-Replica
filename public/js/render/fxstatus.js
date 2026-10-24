@@ -223,6 +223,11 @@ export const KEY_FX = Object.freeze({
   'trait:bard': cite('cetsyr_heal', (v, from) => (from?.src === 'cetsyr' ? CETSYR_HEAL : null)),
   'chen3:evade': keyedAll('chen3_t2[evade]', 'chen3', OWN),
   'tippi:evade': keyedAll('tippi_t[evade]', 'tippi', OWN),
+  // 2026-10-24 (묶음 S12): equipment buffs whose effect stays on the carrier — 双模机械臂's global buff gives
+  // act1autochess_acarm067_buff (INFINITY, map_act1autochess_chaosbuff_01), 天师古鼎's act1autochess_acarm077_buff creates [attr]
+  // on a 炎 carrier (INFINITY, trap_acarm40_buff) — the sim's 'item:dualArm' / 'item:cauldron'
+  'item:dualArm': cite('act1autochess_acarm067_buff', ['map', 'map_act1autochess_chaosbuff_01', OWN]),
+  'item:cauldron': cite('act1autochess_acarm077_buff[attr]', ['trap', 'trap_acarm40_buff', OWN]),
   // 战场#06's 沙尘暴 on an unsheltered operator (EN template sand_storm[ally], ON_BUFF_TRIGGER): storm[attr_to_ally] — its
   // SwitchDirection on the storm's direction (the buff's `fx`, devices.js tickStorm) creates map_desert_03_<the side the
   // wind comes from> (DOWN → _up) at the HIT point — and storm[attr_to_ally_mark] buff_desert_01 over the head

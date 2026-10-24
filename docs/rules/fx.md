@@ -858,6 +858,19 @@
   `tools/assets/local-enemy-bindings.json`의 템플릿 72개만 바뀜). `char_modes.py`는 템플릿을 읽지 않는다(오퍼레이터 쪽은 `overrideEffectKey`만). 버프 끝·피격 같은 다른 이벤트를
   렌더에 알리는 sim 이벤트는 없어 `onEvent`는 아직 쓰지 않는다.
 - 확인: `test/render/fx-face-delay.test.js`(`tplfx` 처리·번들 순서·`onEvent` 분리 소스 고정). [화면 미확인] — 쉐라그 눈바람 위치·크기, 에기르 맹약 삼킴.
+- 2026-10-24 전수(연결 전수 나머지 열둘째 묶음): 모드 템플릿(EN 추출본, 참고 추출 「공식 버프 템플릿 추출」)의 이펙트 노드 30행과 `[uc]globalbuffs`의 `overrideEffectKey`를
+  sim과 대조 — 위 목록은 다 나오고, 빠졌던 넷을 더함:
+  - 고수 맹약 2단계 피해 나눔: `act1autochess_bond_eff_stead[other]`의 `AutoChessDamageSplit`이 나눈 몫을 받는 **구성원마다** `ApplyModifier` 뒤 `_hitEffectKey`
+    `bond_shield_buff_hit`을 그 구성원에(방향 = 보호받은 유닛 → 구성원; 공식 클라에서 확인) → `tplfx` (구성원, 보호받은 유닛).
+  - 카시미어 맹약 [ex] 저지 중 파동: `act2autochess_bond_eff_kazimierz[ex][damage]` AOEDamage의 `_buffs` `[ex_damage_effect]`(0.5 s, `common_071_bond_kazimierz_hit_01_new`)를
+    맞은 적마다 → `tplfx`(프리팹 길이만큼 한 번 [추정: 버프 0.5 s와 거의 같음]).
+  - 소지 중 장비 이펙트(한 번이 아니라 버프 동안 — `fxstatus.js KEY_FX`, sim의 수정치 없는 표시 버프): 듀얼 모드 기계팔(장비) 전역 버프의
+    `act1autochess_acarm067_buff`(INFINITY, `map_act1autochess_chaosbuff_01`, `'item:dualArm'`), 천사의 고정(장비) `act1autochess_acarm077_buff`가 炎 소지자에게 만드는
+    `[attr]`(INFINITY, `trap_acarm40_buff`, `'item:cauldron'`; 얻은 수가 0이어도 [추정: CreateBuff는 수와 상관없이 돎]). 모드 템플릿은 바인딩 표 밖이라 `fx-bindings`
+    KNOWN `untabled`.
+  - 추출: `--bundle trap --prefab trap_acarm40_buff`, `--bundle common --prefab common_071_bond_kazimierz_hit_01_new`.
+  - 안 한 것: 시간 초과 전역 버프 `act1autochess_time_out_global_buff`의 `_timeOutCameraEffect` `screen_com_poison_04`(언제 트는지 그 클래스를 읽어야 함).
+  - 확인: `items`·`bonds_addon`·`bonds_core`·`status-buff-fx` 시험. 시뮬 골든: 상태·`tplfx` 이벤트 수만. 이펙트 이벤트 골든: 고수·카시미어 줄만. [화면 미확인: 위 넷]
 
 ### 战场#06 沙尘暴 연출 (2026-10-18, 상반기 전장 m06 — 규칙은 `sim.md` 「战场#06(上半) 沙尘暴 · 土石结构」)
 - 공식(EN 버프 템플릿 `sand_storm[ally]`·`[trap]`·`[camera_effect]`, 노드 `SwitchDirection`이 폭풍 방향으로 고름 — 참고 추출 「공식 버프 템플릿 추출」):

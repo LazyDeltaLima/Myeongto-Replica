@@ -85,6 +85,9 @@ describe('client: status → the official buff effect', () => {
     assert.deepEqual(camou('token_10035_wisdel_wward'), ['wisdel_camouflage_buff_01'], 'token_wisdel_host[Camouflage]');
     assert.deepEqual(camou('vulpis'), [], 'her own 迷彩 draws nothing: vulpis:camouShown does');
     assert.deepEqual(camou('kroos2'), ['common_buff_micai_01'], 'another applier keeps the common one');
+    // 묶음 S12: the equipment buffs held on their carrier
+    assert.deepEqual(names(unit('char_1026_gvial2', { statuses: new Set(['item:dualArm']) })), ['map_act1autochess_chaosbuff_01']);
+    assert.deepEqual(names(unit('char_1026_gvial2', { statuses: new Set(['item:cauldron']) })), ['trap_acarm40_buff']);
   });
 
   test('束缚: the applier\'s buff effect; an applier without one (or none) draws nothing — no common badge', () => {

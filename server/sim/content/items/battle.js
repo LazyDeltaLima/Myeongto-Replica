@@ -675,9 +675,12 @@ const BY_ITEM = {
     const pr = num(p.prob), d = num(p.cold);
     if (pr > 0 && d > 0) onDamageEnemies(S, u, (t) => { if (chance(battle, pr)) battle.applyStatus(t, 'cold', { duration: d, source: u }); });
   },
-  // 双模机械臂: physical/arts damage becomes 弱点伤害 (whichever type the target resists less)
+  // 双模机械臂: physical/arts damage becomes 弱点伤害 (whichever type the target resists less). Its global buff gives the
+  // carrier act1autochess_acarm067_buff (INFINITY, overrideEffectKey map_act1autochess_chaosbuff_01): 'item:dualArm', a buff
+  // without mods for the client's effect (render/fxstatus.js KEY_FX)
   chess_item_5_03_e(battle, u, rec, S) {
     S.on('hit', (c) => { if (c.source === u) weaknessRetype(c.dmg, u, c.target); }, 5);
+    if (passiveBuff(battle, u, 'item:dualArm', null, { visible: true })) S.track(u, 'item:dualArm');
   },
   // 天马之盔: with 天马之枪 ⇒ regen hp_recovery_per_sec_by_max_hp_ratio × max HP per second
   chess_item_5_09_e(battle, u, rec, S) {
@@ -721,6 +724,9 @@ const BY_ITEM = {
     if (!p || !memberOf(battle, u, 'yanShip')) return;
     const k = Math.min(Math.floor(num(p.max_cnt, 3)), Math.max(0, Math.floor(num(contentInfo(battle, u.ownerId).roundStats?.gainedChess))));
     if (k > 0) S.stat('yan', { aspd: num(p.attack_speed) * k });
+    // act1autochess_acarm077_buff's CreateBuff [attr] (INFINITY, overrideEffectKey trap_acarm40_buff) runs for a 炎 carrier
+    // whatever the count [추정: a count of 0 makes it with +0]: 'item:cauldron' (render/fxstatus.js KEY_FX)
+    if (passiveBuff(battle, u, 'item:cauldron', null, { visible: true })) S.track(u, 'item:cauldron');
   },
   // 海沟实验体 (阿戈尔): hit taken ⇒ atk_scale × ATK arts to the source (lock_duration CD); + 阿戈尔重刃 ⇒ one more hit
   chess_item_6_04_e(battle, u, rec, S) {

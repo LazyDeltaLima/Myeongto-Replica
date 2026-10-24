@@ -450,6 +450,9 @@ test('双模机械臂: physical / arts damage is dealt as whichever the target r
     const eDef = h.b.enemies.find((e) => e.x === 8), eRes = h.b.enemies.find((e) => e.x === 9);
     close(h.b.dealDamage(u, eDef, { amount: 1000, type: 'phys', canDodge: false }), 1000, `${id} phys → arts vs DEF`);
     close(h.b.dealDamage(u, eRes, { amount: 1000, type: 'arts', canDodge: false }), 1000, `${id} arts → phys vs RES`);
+    // (묶음 S12) act1autochess_acarm067_buff's map_act1autochess_chaosbuff_01 on the carrier: a status without mods
+    assert.ok(u.findBuff('item:dualArm') && !u.findBuff('item:dualArm').mods, `${id} item:dualArm`);
+    assert.ok(h.eventsOf('status').some((e) => e[1] === u.id && e[2] === 'item:dualArm' && e[3] === 1));
   }
   const plain = fight({ units: [{ chessId: 't_op', row: 10, col: 3 }], foes: [[10, 8, 'e_def']], enemies: { e_def: DUMMY('e_def', { def: 900 }) } });
   plain.step(1);
@@ -515,6 +518,8 @@ test('天师古鼎 (炎): battle start ASPD +25 per operator gained this round (
     const h = fight({ ops: { t_op: op('t_op', { bonds }) }, players });
     h.step(1);
     assert.equal(h.unit('t_op').s.aspd, aspd, `${bonds} gained ${gained}`);
+    // (묶음 S12) [attr]'s trap_acarm40_buff on a 炎 carrier, whatever the count
+    assert.equal(!!h.unit('t_op').findBuff('item:cauldron'), bonds.includes('yanShip'), `${bonds}: item:cauldron`);
   }
   cover(A('6_03'), B('6_03'));
 });

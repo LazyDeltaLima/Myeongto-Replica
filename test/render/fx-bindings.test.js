@@ -81,6 +81,8 @@ const KNOWN = {
   'KIT_OFFICIAL airstrike.angel2|angel2_skill_3_begin_start_001': ['life', 'S3FireToToken `_castEffects` hold for the cast; an empty prefab, played once'],
   'STACK_FX rmixer:t1|rmixer_buff_02': ['missing', 'swapped in by rmixer_buff_01\'s own SwitchableEffectByBuffStackCnt (a component of the prefab), not a buff row'],
   'KEY_FX ab:ancientAwe|*': ['untabled', '扎罗\'s AuraAbility buff enemy_wlfmster_fear (its prefab, enemy-modes.json) goes onto the operators: the binding table holds the charpacks\' rows only'],
+  'KEY_FX item:dualArm|*': ['untabled', '双模机械臂\'s global buff (the client\'s [uc]globalbuffs prefab) and the mode\'s buff templates: the binding table holds the pool operators\' rows only (묶음 S12)'],
+  'KEY_FX item:cauldron|*': ['untabled', 'as item:dualArm — 天师古鼎\'s act1autochess_acarm077_buff [attr]'],
   'KEY_FX ab:aweAura|*': ['untabled', '扎罗\'s FearAura AuraAbility `_effects` (its prefab, enemy-modes.json `auraNested`): the binding table holds the charpacks\' rows only'],
   'DEPLOY_FX DEPLOY_FX|*': ['untabled', 'the client\'s default effects (DefaultEffects), not a binding row'],
   'fxgame screen_desert_up_to_down|screen_desert_up_to_down': ['missing', 'sand_storm[camera_effect] creates screen_desert_*_empty (SwitchDirection branches), a wrapper whose `_effects` is this looping prefab (not extracted itself): the hand plays the inner one'],
