@@ -44,7 +44,7 @@ export default {
             onEachHit({ battle, unit, target, kind }) {
               if (kind !== 'main' || !target || target.side !== 'enemy') return;
               if (unit.mem.ghostHeavy?.get(target)) {
-                if (target.alive) battle.dealDamage(unit, target, { amount: unit.s.atk * num(bb['attack@atk_scale_ex']), type: 'phys', isSkill: true, tags: ['skill', 'ghost2Weight'] });
+                if (target.alive) battle.dealDamage(unit, target, { amount: unit.s.atk * num(bb['attack@atk_scale_ex']), type: 'phys', isSkill: true, tags: ['skill', 'ghost2Weight'], moment: 'ghost2_s_3[attack]' });
               } else if (unit.alive) battle.loseHp(unit, unit.s.maxHp * num(bb['attack@hp_ratio']), { source: unit });
             },
           },

@@ -2509,15 +2509,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   /**
    * (2026-10-24, 묶음 S3) the official effect moments a 'dmg' (9th field) / 'heal' (5th) names — [[key, owner, life?], …]
-   * (server/sim/damage.js fxField): each is the kit event 'hit' { k, src: owner, id: the unit hit / healed, by, life } of
-   * render/fx/kitofficial.js, executed as its other plans are.
+   * (server/sim/damage.js fxField): each is the kit event 'hit' { k, src: owner, id: the unit hit / healed, by, life, fly: 1
+   * when that unit flies (묶음 S6) } of render/fx/kitofficial.js, executed as its other plans are.
    */
   function hitMoments(list, tid, by, views) {
     const t = views.get(tid);
     if (!t) return;
     for (const m of list) {
       if (!Array.isArray(m) || typeof m[0] !== 'string') continue;
-      officialKitFx(['fx', 'hit', t.x, t.y, { k: m[0], src: m[1], id: tid, by, life: m[2] }], views);
+      officialKitFx(['fx', 'hit', t.x, t.y, { k: m[0], src: m[1], id: tid, by, life: m[2], fly: t.flying ? 1 : 0 }], views);
     }
   }
   /**
@@ -4387,7 +4387,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   function alwaysOn(v, id) {
     const b = bundleOf(v);
-    const names = b ? commonEffects(bindOf(v), b.prefabs, KIT_OWNED, v?.info?.spine || v?.info?.defId, plays) : [];
+    const names = b ? commonEffects(bindOf(v), b.prefabs, KIT_OWNED, v?.info?.spine || v?.info?.defId, plays, skillIdx(v)) : [];
     if (!names.length) return;
     for (const l of live) if (l.tag === 'common' && l.owner === id) l.inst.stop(true);
     for (const n of names) spawn(b.bundle, n, v, { owner: id, buff: false, onCaster: true, until: null, tag: 'common', pinned: true }, { over: false, facing: efacing(v) });

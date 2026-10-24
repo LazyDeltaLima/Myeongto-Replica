@@ -47,7 +47,7 @@ export default {
           // S2 aims its special bullets itself (mem.snTarget); another skill is cast on the enemy about to be shot
           const t = sel === S2 || sel == null ? unit.mem.snTarget : (enemiesOn(battle, unit, unit.rangeKeys, 1, unit.profile)[0] ?? null);
           if (!t || !t.alive) return;
-          battle.dealDamage(unit, t, { amount: unit.s.atk * num(t0.atk_scale, 1), type: 'phys', isSkill: true, tags: ['talent', 'cloudbeast'] });
+          battle.dealDamage(unit, t, { amount: unit.s.atk * num(t0.atk_scale, 1), type: 'phys', isSkill: true, tags: ['talent', 'cloudbeast'], moment: 'snhunt_t[effect]' });
           if (t.alive) battle.applyStatus(t, 'cold', { duration: num(t0.cold, 3), source: unit });
           fx(battle, 'strike', t, { src: unit.id, talent: 'snhunt_beast' });
         }, { owner: unit });

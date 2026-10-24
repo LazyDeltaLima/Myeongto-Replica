@@ -104,7 +104,16 @@ export const SOURCE_FX = Object.freeze({
   resist: Object.freeze({ gnosis: keyed('gnosis_t_2[effect]', 'common', 0) }),
   // 禁疗: 史尔特尔's 余烬 surtr_t_2[withdraw] (charpack Talents/2; the sim buff has no source: the holder's code)
   healFree: Object.freeze({ surtr: keyed('surtr_t_2[withdraw]', 'surtr', 0) }),
+  // (2026-10-24, 묶음 S6) 浮空 from 予愿安洁莉娜 S2: aglna2_s_2[enemy] gives a ground enemy (!CheckMotionMode FLY — the sim levitates
+  // only those) aglna2_s_2[enemy][levitate], whose overrideEffectKey aglna2_levitate_01_emit stands for the common one. Another
+  // applier keeps STATUS_FX's (STATUS_FALLBACK).
+  levitate: Object.freeze({ aglna2: keyedAll('aglna2_s_2[enemy][levitate]', 'aglna2', 0) }),
+  // 诱导 from 圣聆初雪 S3: sbell2_s3[attract_core] creates sbell2_s3[attract_effect] (sbell2_skill_03_hint) on the enemy once its
+  // pull to her (AddAttractToTargetNearestTileUseAbilitySelector) is set — the sim's 'attract' status, given only then
+  attract: Object.freeze({ sbell2: keyedAll('sbell2_s3[attract_effect]', 'sbell2', 0) }),
 });
+/** SOURCE_FX statuses whose other appliers draw STATUS_FX's common effect (the client's buff without an override). */
+const STATUS_FALLBACK = new Set(['levitate']);
 
 const BURN_BURST = keyed('ep_fire_magic_res_down', 'buff', 0.5);
 const EROSION_DOWN = keyed('ep_water_def_down', 'buff', HEAD);
@@ -117,6 +126,9 @@ const ANGEL2_OTHER = Object.freeze(['angel2', 'angel2_skill_2_buff_02', 0]);
  */
 export const KEY_FX = Object.freeze({
   'papyrs:shield': keyedAll('papyrs_t_1[shield_core]', 'papyrs', 0.5),
+  // 休谟斯 再回收 (2026-10-24, 묶음 S6): humus_t_1[effect] holds humus_t_1[effect_holder] (humus_buff_03) while her barrier's
+  // `dynamic` is above 0 — the sim's barrier buff, gone when spent
+  'humus:recycle': keyedAll('humus_t_1[effect_holder]', 'humus', 0),
   'svash2:barrier': cite('svash2_s_1[build]', ['svash2', 'svash2_skill_01_shield_01', 0]),   // the deployed card's 屏障
   // 凯瑟琳's device: its end creates token_cathy_catsld_shield_01_end (the key's `end`) — the mark's end, its shield broken
   // (catsld_t_1[core] ON_TAKE_DAMAGE FinishBuffsById) or its timer out ([timer][interval] ON_BUFF_FINISH)
@@ -399,8 +411,8 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null) {
         continue;
       }
       const per = SOURCE_FX[k];
-      if (per) {
-        const e = per[from?.src || fxCode(v)];
+      const e = per ? per[from?.src || fxCode(v)] : null;
+      if (per && (e || !STATUS_FALLBACK.has(k))) {
         byName(out, Array.isArray(e) ? e : e && from?.fx != null ? e[from.fx] : null);
         continue;
       }

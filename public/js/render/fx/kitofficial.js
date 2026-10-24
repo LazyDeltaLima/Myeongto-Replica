@@ -170,6 +170,35 @@ export const KIT_OFFICIAL = {
     // 圣约送葬人 S3: excu2_s_3[mark][effect] ON_OUTPUT_DAMAGE puts excu2_s_3[mark] (INFINITY, excu2_skill_03_aim_01) on each enemy
     // it hits — the ones its end damages; the sim sends the first hit on each, the mark goes as the skill ends
     excu2: cite('excu2_s_3[mark]', (o) => (o.k === 'excu2_s_3[mark]' ? { play: [{ n: 'excu2_skill_03_aim_01', on: 'id', life: 'skill' }] } : null)),
+    // (2026-10-24, 묶음 S6) rows behind a condition the sim decides as it deals the hit — the moment is sent only when it held:
+    // 克莱门莎 T1 生死定夺: clemnt_t1[dice_damage] ON_AFTER_OUTPUT_DAMAGE after a won roll (Dice) — clemnt_talent_hit_01 on the target
+    clemnt: cite('clemnt_t1[dice_damage]', (o) => (o.k === 'clemnt_t1[dice_damage]' ? { play: [once('clemnt_talent_hit_01', 'id')] } : null)),
+    // 归溟幽灵鲨 S3: ghost2_s_3[attack] on a target whose HP ratio is ≥ hers (FilterByTargetHpRatio) — the extra damage and hit_02
+    ghost2: cite('ghost2_s_3[attack]', (o) => (o.k === 'ghost2_s_3[attack]' ? { play: [once('ghost2_skill_03_hit_02', 'id')] } : null)),
+    // 锏 S2: blkkgt_s_2[check_block] gives the enemy [blocked] or [not_blocked] by CheckBlocked — both blkkgt_skill_02_hit_2, with the
+    // first of its slashes
+    blkkgt: cite(['blkkgt_s_2[blocked]', 'blkkgt_s_2[not_blocked]'], (o) => (o.k === 'blkkgt_s_2[blocked]' || o.k === 'blkkgt_s_2[not_blocked]'
+      ? { play: [once('blkkgt_skill_02_hit_2', 'id')] } : null)),
+    // 圣聆初雪 T1: a ground enemy stepping onto snow (sbell2_t1[enemy_enter]: CheckMotionMode WALK, !CheckAbnormalFlags) takes the
+    // talent damage and sbell2_buff_01_hit_01; S2's tick on the enemies in snow (sbell2_t1[s2_dot]) _hit_02
+    sbell2: cite(['sbell2_t1[enemy_enter]', 'sbell2_t1[s2_dot]'], (o) => (o.k === 'sbell2_t1[enemy_enter]' ? { play: [once('sbell2_buff_01_hit_01', 'id')] }
+      : o.k === 'sbell2_t1[s2_dot]' ? { play: [once('sbell2_buff_01_hit_02', 'id')] } : null)),
+    // 忍冬 T1 追凶: each arts addition (vulpis_t_1 ON_OUTPUT_MODIFIER, the enemy without [mark]) renews vulpis_t_1[vfx]
+    // (vulpis_buff_01, LIMITED `interval` s) on it — one slot per enemy
+    vulpis: cite('vulpis_t_1[vfx]', (o) => (o.k === 'vulpis_t_1[vfx]'
+      ? { play: [{ n: 'vulpis_buff_01', on: 'id', life: Number(o.life) > 0 ? Number(o.life) : 10, slot: `hunt:${o.id}` }] } : null)),
+    // 阿斯卡纶 S2: a ground enemy of her range knocked out (ascln_s_2[enemy] ON_OWNER_KILLED, CheckMotionMode WALK) —
+    // ascln_skill_02_death_01 where it falls (the blow that felled it carries the moment)
+    ascln: cite('ascln_s_2[enemy]', (o) => (o.k === 'ascln_s_2[enemy]' ? { play: [once('ascln_skill_02_death_01', 'id')] } : null)),
+    // 妮芙 S3: her S3 attack on a target in an apoptosis burst (the ability's FilterEPBreakRecoveryType action) — nymph_skill_03_hit_02
+    nymph: cite('char_4146_nymph/Modes/S3/Body/Attack', (o) => (o.k === 'char_4146_nymph/Modes/S3/Body/Attack' ? { play: [once('nymph_skill_03_hit_02', 'id')] } : null)),
+    // 雪猎 T1 裂云兽: its strike (snhunt_t[effect]; the EN client's Talents/1 ability) — _hit_02 on a flying target (IfTarget
+    // FLY_ONLY / CheckMotionMode), else _hit: `fly` the hit unit flies (hitMoments)
+    snhunt: cite(['snhunt_t[effect]', 'char_4211_snhunt/Others/Direction/Talents/1'], (o) => (o.k === 'snhunt_t[effect]'
+      ? { play: [once(Number(o.fly) ? 'snhunt_talent_01_hit_02' : 'snhunt_talent_01_hit', 'id')] } : null)),
+    // 刺玫's 咒愈师 trait heal (sim fx 'trait'): vendla_tr[heal] — FixedValueHeal unless the ally is HEAL_FREE (the sim heals none
+    // then) and vendla_tr[effect] (vendla_attack_hit_02, 1 s) on it
+    vendla: cite('vendla_tr[heal]', (o) => (o.k === 'trait' ? { play: [{ n: 'vendla_attack_hit_02', on: 'id', life: 1 }] } : null)),
     // 号角 S2 过载 (sim fx 'horn:s2:overload'): the arts splash of each overloaded shot — its S2 attack abilities'
     // `_conditionalActions` create horn_skill_02_hit_02_02 on each enemy it hits
     horn: cite(['char_4039_horn/Modes/S2/Body/Attack/RangedAttack', 'char_4039_horn/Modes/S2/Body/Attack/BlockedRangedAttack',
@@ -235,7 +264,13 @@ export const KIT_OFFICIAL = {
     blaze2: cite('blaze2_t_2', () => ({ stop: ['blazeDown'], pass: true, play: [{ tpl: 'blaze2_t_2', on: 'op', life: 'tag', tag: 'blazeDown', leave: true, when: ALL }] })),
   },
   // … and back up: blaze2[to_default_state]'s cast blaze2_revive_end_start
-  revive: { blaze2: cite('char_1040_blaze2/Others/Direction/CommonAbilities/blaze2[to_default_state]', () => ({ stop: ['blazeDown'], play: [once('blaze2_revive_end_start')] })) },
+  revive: {
+    blaze2: cite('char_1040_blaze2/Others/Direction/CommonAbilities/blaze2[to_default_state]', () => ({ stop: ['blazeDown'], play: [once('blaze2_revive_end_start')] })),
+    // 琳琅诗怀雅 破财消灾 (2026-10-24, 묶음 S6): the DP-paid save — swire2_e_003[talent] ON_BEFORE_TRY_SET_HP_ZERO, when she holds
+    // no swire2_t_2[heal] and the DP cover its cost (the sim's), creates swire2_t_2[heal] (swire2_buff_02_start) on her — for
+    // the prefab's own duration [추정: the 0.01 s buff (its finish heals her) does not cut it]
+    swire2: cite('swire2_t_2[heal]', () => ({ play: [once('swire2_buff_02_start')] })),
+  },
   // 圣聆初雪 T2: the lethal hit escaped (sbell2_t2[heal] → CreateEffect sbell2_revive on her)
   blessing: { sbell2: cite('sbell2_t2[heal]', () => ({ play: [once('sbell2_revive')] })) },
   // 圣聆初雪 T1 无垠的雪景: each tile's snow (charpack Talents/1/SnowAccumulation, an AttachListenerToTileAbility: one effect
@@ -386,6 +421,9 @@ export const KIT_OFFICIAL = {
     // bpipe_attack_02_hit on the extra enemy the boosted attack hits (`id`)
     bpipe: cite('bpipe_t_1', () => ({ play: [once('bpipe_attack_02_hit', 'id')] })),
   },
+  // 圣聆初雪 S3 (2026-10-24, 묶음 S6): the lure at its start ('lure') — sbell2_s3[switch_mode] ON_BUFF_START creates sbell2_skill_03_flow
+  // on her while she stands (CheckUnitAlive); the pulled enemies' sbell2_skill_03_hint is the 'attract' status's (fxstatus.js SOURCE_FX)
+  lure: { sbell2: cite('sbell2_s3[switch_mode]', () => ({ play: [once('sbell2_skill_03_flow')] })) },
   // 灵知 T2 殊途同归 (his only 'kitHit', 10 s after the deploy): charpack Talents/2's wrapper ability gnosis_t_2_buff casts
   // gnosis_beidong_buff from ON_CAST_START to ON_CAST_END, and the wrapper is `_isInfinity` (ActiveAbilityWrapper._GetLifeTime
   // returns no end): its cast never ends, so the effect, a burst with a looping glow, stays while he is deployed

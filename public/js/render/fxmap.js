@@ -8,6 +8,7 @@
 
 import { skillModeIndex } from '../../../shared/skill-modes.js';
 import { cite } from './fx/cite.js';
+import { whenPlays } from './fx/conds.js';
 
 /** Effect bundle of an operator (charId without its numeric prefix). */
 export const fxBundleOf = (charId) => String(charId || '').replace(/^char_\d+_/, '');
@@ -347,9 +348,12 @@ export const deadEffect = (bind) => bind?.dead || DEPLOY_FX.dead;
  * as long as it is deployed, unconditionally — an INFINITY buff on itself or an aura's `_effects` (EN charpacks). By the
  * client key (2026-10-23, 묶음 K2): the prefabs its rows hold with no condition (plays.json `held`). `born` (2026-10-24, 묶음 S5):
  * prefabs the key creates once as the operator is deployed (a template's ON_OWNER_BORN CreateEffect) that loop and stay
- * with it — their prefab's own life (`_maxLifetime` −1, `_holdByOwner`), not a held row, so they are named.
+ * with it — their prefab's own life (`_maxLifetime` −1, `_holdByOwner`), not a held row, so they are named. `bySkill`
+ * (2026-10-24, 묶음 S6): the key's held rows behind CheckSkillIndex join them by the operator's skill (conds.js `skill`).
  */
-const talentKey = (key, born) => Object.freeze(cite(key, born ? { tpl: key, born: Object.freeze(born) } : { tpl: key }));
+const talentKey = (key, born, bySkill = false) => Object.freeze(cite(key, {
+  tpl: key, ...(born ? { born: Object.freeze(born) } : {}), ...(bySkill ? { bySkill: true } : {}),
+}));
 export const TALENT_ALWAYS = Object.freeze({
   char_423_blemsh: talentKey('blemsh_t_2'),   // Talents/2 (仁慈)
   char_245_cello: talentKey('cello_t_1'),           // Others/Direction/Talents/1 (无词哀歌)
@@ -359,6 +363,9 @@ export const TALENT_ALWAYS = Object.freeze({
   // 凛御银灰 Others/Direction/Talents/1 svash2_t_1: ON_OWNER_BORN creates the 战鹰 on his arm unless he is a dummy (no battle unit
   // is); its PauseEffectIf hides it while he holds svash2_s_3[bird_eff] (fx/pause.js SKILL_BUFFS) (2026-10-24, 묶음 S5)
   char_1045_svash2: talentKey('svash2_t_1', ['svash2_eagle_sit_birth_01']),
+  // 望 wang_born_effect ON_OWNER_BORN: with S2 (CheckSkillIndex(1)) the derived INFINITY buff wang_born_effect_s2 (wang_birth_02),
+  // else wang_born_effect_default (wang_birth_01) (2026-10-24, 묶음 S6)
+  char_2027_wang: talentKey('wang_born_effect', null, true),
 });
 
 /**
@@ -411,11 +418,12 @@ export function skillEdge(charId, skillIndex, edge, prefabs, plays) {
  * 2026-10-16, official client `Unit.AttachCommonAbilities`: the always-on effects of an operator — the buffs its
  * prefab root's common abilities put on it for good (modes.json `common`, char_modes.py: 新约能天使's wings and halo,
  * 引星棘刺's weapon glow) and its always-on talents (TALENT_ALWAYS, by `charId`, from `plays`; its `born` prefabs too) —
- * that are extracted, minus `kitOwned` (prefabs a kit event draws instead).
+ * that are extracted, minus `kitOwned` (prefabs a kit event draws instead). `skill`: its skill index 0–2 (a `bySkill` talent).
  */
-export function commonEffects(bind, prefabs, kitOwned = null, charId = null, plays = null) {
+export function commonEffects(bind, prefabs, kitOwned = null, charId = null, plays = null, skill = 0) {
   const talent = charId && TALENT_ALWAYS[charId];
-  const list = [...(Array.isArray(bind?.common) ? bind.common : []), ...((talent && plays?.keys?.[talent.tpl]?.held) || []), ...(talent?.born || [])];
+  const bySkill = talent?.bySkill ? whenPlays(plays?.keys?.[talent.tpl], { skill }).filter((r) => r.role === 'held').map((r) => r.n) : [];
+  const list = [...(Array.isArray(bind?.common) ? bind.common : []), ...((talent && plays?.keys?.[talent.tpl]?.held) || []), ...(talent?.born || []), ...bySkill];
   return list.filter((n) => typeof n === 'string' && (!prefabs || prefabs.includes(n)) && !kitOwned?.has(n));
 }
 

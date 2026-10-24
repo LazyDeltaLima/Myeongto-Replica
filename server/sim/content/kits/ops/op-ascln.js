@@ -150,6 +150,8 @@ function ascalon(bb, chess, def) {
           if (!inR.has(Math.round(e.y) * COLS + Math.round(e.x))) return;
           // its sound (docs/rules/audio.md 「버프·커스텀 트리거 소리」: the template's PlayAudio ASCLN_S_2_BOMB at her)
           battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, k: 'ascln:s2bomb' });
+          // … and its CreateEffect ascln_skill_02_death_01 on the dead enemy: a moment of the blow that felled it (render: the 'dmg' 9th field)
+          battle.hitFx(e, 'ascln_s_2[enemy]', unit);
           for (const v of battle.foesInRadius(e.x, e.y, num(bb.range_radius, 1.3), true)) {
             if (v !== e && !v.isFlying && canTargetEnemy(unit, v, ANY)) judge(battle, unit, v);
           }

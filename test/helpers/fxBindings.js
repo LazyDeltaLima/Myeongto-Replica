@@ -35,7 +35,10 @@ export { rowsFor };
 
 /** The keys the sim's 'dmg' / 'heal' moments send (KIT_OFFICIAL 'hit', server/sim/damage.js fxField). */
 export const HIT_KEYS = Object.freeze(['bubble_t_1[atk_down]', 'skadi2_s_1[protect]', 'ulpia_t_2', 'thorn2_s2_damage', 'thorn2_s3_enemy_buff', 'trait',
-  'reed2_t_2', 'mizuki_s_3[damage]', 'branch_t_1', 'excu2_s_3[mark]', 'horn:s2:overload']);
+  'reed2_t_2', 'mizuki_s_3[damage]', 'branch_t_1', 'excu2_s_3[mark]', 'horn:s2:overload',
+  // 묶음 S6 (2026-10-24)
+  'clemnt_t1[dice_damage]', 'ghost2_s_3[attack]', 'blkkgt_s_2[blocked]', 'blkkgt_s_2[not_blocked]', 'sbell2_t1[enemy_enter]',
+  'sbell2_t1[s2_dot]', 'vulpis_t_1[vfx]', 'ascln_s_2[enemy]', 'char_4146_nymph/Modes/S3/Body/Attack', 'snhunt_t[effect]']);
 
 /** The sample inputs a kit plan is called with (every branch of the plans in KIT_OFFICIAL). */
 const KIT_O = [
@@ -45,6 +48,7 @@ const KIT_O = [
   { signal: 'bomb' }, { name: 'extradition' }, { id: 1, src: 1 }, { cap: 12, n: 12, sk: 1 }, { cap: 12, n: 12, sk: 2 },
   { cap: 12, n: 12, sk: 3 }, { duration: 5 }, { t: 3 }, { ids: [6], off: [7] },
   ...HIT_KEYS.map((k) => ({ k, by: 4, life: 5 })),   // 'hit': a 'dmg' / 'heal' event's effect moments
+  { k: 'snhunt_t[effect]', by: 4, fly: 1 },   // … on a flying unit
 ];
 const KIT_C = [0, 1, 2].flatMap((skill) => [false, true].flatMap((back) => [false, true].map((foe) => ({ skill, back, foe }))));
 
@@ -157,7 +161,9 @@ export function handEntries() {
   for (const [k, v] of Object.entries(STACK_FX)) put('STACK_FX', k, v, v.tpl ? stackedPlays(v) : v.flatMap((x) => specPlays(x[1])));
   for (const [k, v] of Object.entries(END_FX)) put('END_FX', k, v, specPlays(v).map(({ n }) => ({ n, life: 'once' })));
   // a talent's `born` prefabs are created once (ON_OWNER_BORN) and kept by their prefab
-  for (const [k, v] of Object.entries(TALENT_ALWAYS)) put('TALENT_ALWAYS', k, v, [...held(keyPlays().keys[v.tpl]?.held || []), ...(v.born || []).map((n) => ({ n, life: 'once' }))]);
+  // a `bySkill` talent: its held rows behind CheckSkillIndex too (one skill each)
+  const bySkill = (v) => (v.bySkill ? (keyPlays().keys[v.tpl]?.when || []).filter((r) => r.role === 'held').map((r) => r.n) : []);
+  for (const [k, v] of Object.entries(TALENT_ALWAYS)) put('TALENT_ALWAYS', k, v, [...held([...(keyPlays().keys[v.tpl]?.held || []), ...bySkill(v)]), ...(v.born || []).map((n) => ({ n, life: 'once' }))]);
   for (const [k, by] of Object.entries(SKILL_HELD)) for (const [i, v] of Object.entries(by)) put('SKILL_HELD', `${k}.${i}`, v, held([v.tpl].flat().flatMap((t) => keyPlays().keys[t]?.held || [])));
   for (const [k, by] of Object.entries(SKILL_EDGE)) {
     for (const [i, v] of Object.entries(by)) {

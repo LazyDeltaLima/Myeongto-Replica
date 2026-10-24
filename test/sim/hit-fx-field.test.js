@@ -72,3 +72,27 @@ test('the kits send their moments: 引星棘刺 S2 ticks, 水月 S3 loss, 休谟
   const spike = h.eventsOf('dmg').filter((e) => e[1] === bubble.id).flatMap((e) => moments(e, 8));
   assert.ok(spike.length && spike.every((m) => m[0] === 'bubble_t_1[atk_down]' && m[1] === bubble.id && m[2] > 0), JSON.stringify(spike));
 });
+
+test('묶음 S6 (2026-10-24): moments the kit sends only when the client\'s condition held — 锏 S2, 忍冬 T1, 雪猎 T1', () => {
+  const fight = (units, cast, seconds = 8) => {
+    const h = makeBattle({ seed: 3, autoFinish: false, timeLimit: 60, defs: { enemies: { enemy_walker: walker({ atk: 300 }) } },
+      enemies: [{ key: 'enemy_walker', pos: [10, 5] }], units });
+    h.step();
+    for (const id of cast) { const u = h.unit(id); u.skill.gainSp(999, 'test'); if (!u.skill.active) u.skill.activate('test'); }
+    h.run(seconds);
+    checkInvariants(h.b);
+    return h;
+  };
+  const dmgKeys = (h) => h.eventsOf('dmg').flatMap((e) => moments(e, 8));
+  // 锏 S2: the first slash on an enemy names its [blocked] / [not_blocked] buff
+  let h = fight([{ chessId: 'chess_char_6_19_a', row: 10, col: 4, skillIndex: 1 }], ['chess_char_6_19_a']);
+  const k = dmgKeys(h).filter((m) => m[0].startsWith('blkkgt_s_2['));
+  assert.ok(k.length && k.every((m) => m[0] === 'blkkgt_s_2[blocked]' || m[0] === 'blkkgt_s_2[not_blocked]'), JSON.stringify(dmgKeys(h)));
+  // 忍冬 T1 追凶: each arts addition names vulpis_t_1[vfx] for `interval` s
+  h = fight([{ chessId: 'chess_char_3_18_a', row: 10, col: 4 }], []);
+  const vfx = dmgKeys(h).filter((m) => m[0] === 'vulpis_t_1[vfx]');
+  assert.ok(vfx.length && vfx.every((m) => m[1] === h.unit('chess_char_3_18_a').id && m[2] > 0), JSON.stringify(dmgKeys(h)));
+  // 雪猎 T1 裂云兽: the strike sent at a skill's start
+  h = fight([{ chessId: 'chess_char_3_11_a', row: 10, col: 3 }], ['chess_char_3_11_a']);
+  assert.ok(has(dmgKeys(h), 'snhunt_t[effect]', h.unit('chess_char_3_11_a').id), JSON.stringify(dmgKeys(h)));
+});

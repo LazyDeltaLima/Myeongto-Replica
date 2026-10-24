@@ -98,6 +98,8 @@ export default {
             c.dmg.element = 'apoptosis';
             c.dmg.canDodge = false;
             (c.dmg.tags ||= []).push('nymphBreak');
+            // its S3 attack's FilterEPBreakRecoveryType action: nymph_skill_03_hit_02 on the target (render: the 'dmg' 9th field)
+            c.dmg.moment ||= 'char_4146_nymph/Modes/S3/Body/Attack';
           }, { owner: unit, priority: -10 });
         }
       },

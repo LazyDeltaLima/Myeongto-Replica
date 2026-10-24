@@ -121,7 +121,7 @@ function sbell2(bb, chess, def) {
             const hadSnow = prev !== undefined && !e.isFlying && snow.has(prev);
             if (hadSnow) { snow.delete(prev); touch(unit, prev); } // first enemy leaving clears it
             if (!e.isFlying && snow.has(k) && scale > 0) {
-              battle.dealDamage(unit, e, { amount: unit.s.atk * scale, type: 'arts', tags: ['talent', 'snow'] });
+              battle.dealDamage(unit, e, { amount: unit.s.atk * scale, type: 'arts', tags: ['talent', 'snow'], moment: 'sbell2_t1[enemy_enter]' });
               // sbell2_t1[enemy_enter]: PlayAudio sbell2_snow_tile_enter_damage_audio on it after the damage (audio.js kitHitKey)
               battle.fx('kitHit', { x: e.x, y: e.y, id: unit.id, k: 'sbell2:enter' });
             }
@@ -138,7 +138,7 @@ function sbell2(bb, chess, def) {
         let hit = 0;
         for (const e of battle.enemies) {
           if (!e.alive || e.hidden || e.isFlying || !bodyInKeys(e, snow)) continue;
-          battle.dealDamage(unit, e, { amount: unit.s.atk * S2.dot, type: 'arts', isSkill: true, tags: ['skill', 'snow'] });
+          battle.dealDamage(unit, e, { amount: unit.s.atk * S2.dot, type: 'arts', isSkill: true, tags: ['skill', 'snow'], moment: 'sbell2_t1[s2_dot]' });
           hit++;
         }
         // sbell2_t1[s2_dot]: PlayAudio sbell2_skill2_dot_audio on each enemy it damages — one event per tick, `n` enemies

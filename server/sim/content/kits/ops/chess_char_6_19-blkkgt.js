@@ -56,7 +56,9 @@ function blkkgt(bb, chess, def) {
         if (v.length) battle.fx('slash', { x: unit.x, y: unit.y, id: unit.id, n: v.length });
         for (const e of v) {
           const n = e.blockedBy ? nBlocked : nFree;
-          for (let i = 0; i < n && e.alive; i++) battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.dot_scale, 1), type: 'phys', isSkill: true, tags: ['skill', 'slash'] });
+          // blkkgt_s_2[blocked] / [not_blocked]: its effect on the enemy with the first slash (render: the 'dmg' 9th field)
+          const moment = e.blockedBy ? 'blkkgt_s_2[blocked]' : 'blkkgt_s_2[not_blocked]';
+          for (let i = 0; i < n && e.alive; i++) battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.dot_scale, 1), type: 'phys', isSkill: true, tags: ['skill', 'slash'], ...(i ? {} : { moment }) });
         }
       },
     },

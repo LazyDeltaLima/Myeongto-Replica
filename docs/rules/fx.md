@@ -1880,6 +1880,36 @@
     折桠·休谟斯). 水月의 `common_magic_hit_01`(같은 노드의 공용 이펙트)은 안 틂.
   - 확인: 단위 `test/sim/hit-fx-field.test.js`(새 — 칸·hitFx·실제 키트), `kit-event-fx`(재생·칸 연장·流明), `fx-bindings` `UNPLAYED` 11줄 지움. 이펙트
     이벤트 골든 38 시나리오 +50(위 프리팹만, 지운 줄 없음), 시뮬 골든 그대로. [화면 미확인: 위 전부 — 자리·모양 공식 녹화 대조]
+- 연결 전수 나머지 여섯째 묶음(2026-10-24, 조건 행 — 시뮬이 그 조건을 이미 따진 순간에만 보냄):
+  - 길: 조건 뒤 행(IfElse·Dice·CheckBlocked …)마다 「시뮬이 그 조건을 따지는 자리」를 찾아, 성립할 때만 다섯째 묶음의 칸(`moment`·`hitFx`)을 싣거나 이미
+    보이는 시뮬 상태·이벤트에 상태 스펙·계획을 붙였다(`all` — 조건은 시뮬이 정함). 시뮬 이벤트가 없는 조건은 판정만(`UNPLAYED` 주석).
+  - 칸(공식 클라에서 확인, 버프 템플릿 노드): 克莱门莎 T1 `clemnt_t1[dice_damage]`(Dice 성공한 물리 피해 뒤 대상에 `clemnt_talent_hit_01`). 归溟幽灵鲨 S3
+    `ghost2_s_3[attack]`(대상 생명 비율 ≥ 그녀 — 추가 피해와 `_hit_02`). 锏 S2 `[check_block]`의 `[blocked]`/`[not_blocked]`(CheckBlocked — 둘 다
+    `blkkgt_skill_02_hit_2`, 첫 베기에; 그 버프는 `[dot]`가 trig_cnt 베기 뒤 끝냄 — 한 번 재생 [추정]). 圣聆初雪 T1 `[enemy_enter]`(지상 적이 눈 타일에
+    들어설 때 피해와 `_hit_01`)·S2 `[s2_dot]`(눈 위 적 초당 피해와 `_hit_02`). 忍冬 T1 追凶 `vulpis_t_1`(법술 추가 피해마다 `[vfx]` `vulpis_buff_01`,
+    LIMITED `interval` s — 적마다 한 칸). 阿斯卡纶 S2 `ascln_s_2[enemy]` ON_OWNER_KILLED(그녀 범위의 지상 적 처치 — 쓰러뜨린 타격의 칸에
+    `ascln_skill_02_death_01`). 妮芙 S3 공격 능력의 FilterEPBreakRecoveryType 행(凋亡 폭발 중인 대상 — `nymph_skill_03_hit_02`). 雪猎 T1 裂云兽
+    `snhunt_t[effect]`(EN 클라는 Talents/1 능력): 나는 대상이면 `_hit_02`, 아니면 `_hit` — 렌더 `hitMoments`가 맞은 유닛의 `fly`를 실음. 刺玫 咒愈师 특성
+    치유(`'trait'`, 키트 자체 경로): `vendla_tr[heal]` — HEAL_FREE가 아닐 때 치유와 `[effect]` `vendla_attack_hit_02`(1 s).
+  - 상태·이벤트: 休谟斯 再回收 보호막 `'humus:recycle'`(보이는 버프, 다 닳으면 지워짐) → `humus_t_1[effect_holder]` `humus_buff_03`(`dynamic` > 0 동안).
+    予愿安洁莉娜 S2 浮空 → `SOURCE_FX.levitate.aglna2` `aglna2_s_2[enemy][levitate]` `aglna2_levitate_01_emit`(공용 `common_levitate_01` 대신 —
+    overrideEffectKey; 다른 적용자는 공용 그대로, `STATUS_FALLBACK`). 圣聆初雪 S3 诱导: 시뮬 `'attract'` 상태(끌 지점이 정해진 적에만) →
+    `SOURCE_FX.attract.sbell2` `sbell2_s3[attract_effect]` `sbell2_skill_03_hint`, `'lure'` 계획 → 그녀에 `sbell2_s3[switch_mode]`의
+    `sbell2_skill_03_flow`(CheckUnitAlive). 琳琅诗怀雅 破财消灾 `'revive'` → `swire2_t_2[heal]` `swire2_buff_02_start`(그 버프는 0.01 s — 프리팹 길이만큼
+    [추정]). 望 `wang_born_effect` ON_OWNER_BORN: S2(CheckSkillIndex(1))면 `wang_birth_02`, 아니면 `wang_birth_01`(둘 다 INFINITY 파생 버프) →
+    `TALENT_ALWAYS` `bySkill`(conds.js `skill`). 전엔 둘 다 안 틀었다 — K1 표가 이름 규칙 `birth`로 `_01`을 튼 것으로 셌을 뿐(배치 이펙트는
+    `common_char_birth_01`).
+  - 판정(`UNPLAYED` 주석): 시뮬이 조건을 정하지만 렌더가 볼 이벤트가 없음 — 보이지 않는 버프(新约能天使 T2 `'angel2:covenant'`, 水月 T2 `'mizuki:t2'`,
+    异客 T2 孤卒 `'pasngr:lone'`, 浊心斯卡蒂 T2·모듈 `'skadi2:predator'`, 锡人 S2 동료 재생 — 보이게 하면 상태 이벤트가 늘어 시뮬 골든이 움직임), 상태는
+    있으나 바뀌는 순간의 이벤트가 없음(海霓 S2 재능 최대, 引星棘刺 T1 心相 최대 연장, 洛洛 S2 과부하 뒤 끝의 기절, 至简 T1 忽有所悟 — 굴림이 공격의
+    dmgMul 안), 菲莱 S2 폭발 `_hit_02`(`'skill:philae_rage'` 동안 — `_hit_01`이 스킬 이름 규칙이라 폭발 순간부터 필요), 시뮬 이벤트로 모르는 조건(忍冬
+    迷彩 — 저지 중 꺼짐 !CheckBlocked, 耀骑士临光 S3 CheckContainsCardBuff, 伊内丝 T2 모드별 범위 [추정: S2 모드의 재능이 다시 만듦]), 렌더가 고르는 방향
+    (圣约送葬人 S3 `_back`, 凯尔希·思衡托 S3 `_left_01` — 앞 사본이 스킬 버프 이름 규칙으로 틂).
+  - [추정 차이] 圣聆初雪 T1 `[enemy_character]`(눈이 깔릴 때 이미 그 타일에 선 적의 피해·`_hit_01`)는 시뮬에 없다 — 시뮬은 타일에 들어설 때만 친다.
+    `UNPLAYED`는 이름으로 세서 `[enemy_enter]`와 같이 빠짐.
+  - 확인: `test/sim/hit-fx-field.test.js`(锏 S2·忍冬 T1·雪猎 T1), `kit-event-fx`(새 시험: 나는 대상·적마다 한 칸·刺玫·阿斯卡纶), `fx-bindings` `UNPLAYED`
+    18줄 지움(미연결 69 → 48: 템플릿 42 → 24·클라 전용 27 → 24)·남은 줄 판정 주석, `KNOWN` 锏 수명 한 줄. 이펙트 이벤트 골든 46 시나리오 +, 지운 줄은 予愿安洁莉娜 浮空 공용 둘(전용으로 바뀜)뿐, 시뮬
+    골든 그대로(`GOLDEN_FULL` 9). [화면 미확인: 위 전부]
 
 ### 연쇄 공격 — 체인 캐스터·체인 메딕의 튕김 선과 타격 (2026-10-16, 관리자 요청 「일반 공격 연쇄를 공식 클라 데이터와 대조」)
 

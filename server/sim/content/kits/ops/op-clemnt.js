@@ -202,7 +202,11 @@ export default {
           battle.on('hit', ({ source, target, dmg }) => {
             if (source !== unit || dmg.type !== 'phys' || !target || target.side !== 'enemy') return;
             const chance = target.s.def < target.base.def ? num(t0.prob_special) : num(t0.prob_normal);
-            if (battle.rng() < chance) dmg.amount *= num(t0.t1_atk_scale, 1);
+            if (battle.rng() < chance) {
+              dmg.amount *= num(t0.t1_atk_scale, 1);
+              // clemnt_t1[dice_damage] ON_AFTER_OUTPUT_DAMAGE: its effect on the target (render: the 'dmg' 9th field)
+              dmg.moment ||= 'clemnt_t1[dice_damage]';
+            }
           }, { owner: unit });
         } },
         { install(battle, unit) { // 习得性防御: source tile in forward half-plane, plus every enemy she blocks.

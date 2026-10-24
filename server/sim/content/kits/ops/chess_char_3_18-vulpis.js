@@ -102,6 +102,8 @@ export default {
               busy = true;
               // PRTS 备注 "伤害类型为法术附加伤害": tag addition (no 叙拉古 6 roll)
               try { battle.dealDamage(unit, e, { amount: unit.s.atk * num(t0.atk_scale), type: 'arts', canDodge: false, tags: ['talent', 'vulpisHunt', 'addition'] }); } finally { busy = false; }
+              // vulpis_t_1[vfx] (LIMITED `interval` s) on it with each addition (render: the 'dmg' 9th field)
+              battle.hitFx(e, 'vulpis_t_1[vfx]', unit, num(t0.interval, 10));
             }
           }, { owner: unit });
           battle.on('kill', (ctx) => { if (ctx.killer === unit && unit.skill?.active) unit.mem.vulpisKill = true; }, { owner: unit });

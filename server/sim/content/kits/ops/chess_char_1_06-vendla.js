@@ -34,7 +34,8 @@ export default {
             if (c.source !== u || !u.alive || !t || t.side !== 'enemy' || !(c.amount > 0)) return;
             if (c.type === 'element' || c.type === 'elemental') return;
             const ally = (c.dmg && c.dmg.traitAlly) || battle.lowestHpAllyInRange(u);
-            if (ally) battle.heal(u, ally, c.amount * (u.profile.healRatio ?? 0.5), { tags: ['incantation'] });
+            // moment 'trait': vendla_tr[heal]'s effect on the ally it heals (render/fx/kitofficial.js `hit`)
+            if (ally) battle.heal(u, ally, c.amount * (u.profile.healRatio ?? 0.5), { tags: ['incantation'], moment: 'trait' });
           }, { owner: u });
         },
       },

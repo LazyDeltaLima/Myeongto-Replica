@@ -394,6 +394,9 @@ const files = { '/assets/local/fx/index.json': { bundles: {
   // 묶음 S3: the 'dmg' / 'heal' moments' prefabs
   bubble: ['bubble_talent_buff'], skadi2: ['skadi2_skill_01_hit', 'skadi2_skill_01_hit_02'], reed2: ['reed2_treat_01'],
   excu2: ['excu2_skill_03_aim_01'], thorn2: ['thorn2_skill_hit'], lumen: ['lumen_buff_01_hit'],
+  // 묶음 S6
+  snhunt: ['snhunt_talent_01_hit', 'snhunt_talent_01_hit_02'], vulpis: ['vulpis_buff_01'], vendla: ['vendla_attack_hit_02'],
+  ascln: ['ascln_skill_02_death_01'],
 } } };
 const settle = () => new Promise((r) => setTimeout(r, 5));
 
@@ -517,6 +520,34 @@ test('fxgame.js (2026-10-24, 묶음 S3): the moments a \'dmg\' / \'heal\' names 
     // 流明 T2: the emergency flash on the ally she heals (lumen_t_2[listener]'s BUFF_OWNER)
     layer.onEvent(['fx', 'emergency', 6, 0, { x: 6, y: 0, id: 6, src: 5 }], views);
     assert.deepEqual(got(), ['lumen_buff_01_hit@6']);
+  } finally { globalThis.fetch = fetch0; }
+});
+
+test('fxgame.js (2026-10-24, 묶음 S6): moments behind a condition the sim decided — the target\'s flight, a slot per enemy', async () => {
+  const fetch0 = globalThis.fetch;
+  globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
+  try {
+    const plays = [];
+    const layer = createFxLayer({ host: null, above: null, quality: () => 'high', trace: (p) => plays.push(p) });
+    await settle();
+    const unit = (id, defId, side = 'ally', flying = false) => ({ id, x: id, y: 0, alive: true, flying, info: { id, side, defId, skillIndex: 0 } });
+    const views = new Map([[1, unit(1, 'char_4211_snhunt')], [2, unit(2, 'char_4026_vulpis')], [3, unit(3, 'char_494_vendla')],
+      [4, unit(4, 'char_4132_ascln')], [6, unit(6, 'char_285_medic2')], [8, unit(8, 'enemy_1106_byd_flyb', 'enemy', true)],
+      [9, unit(9, 'enemy_1007_slime', 'enemy')]]);
+    const got = () => plays.splice(0).filter((p) => p.kind === 'spawn').map((p) => `${p.names[0]}@${p.on}`).sort();
+    // 雪猎 T1 裂云兽: _hit_02 on a flying target, _hit on a ground one
+    layer.onEvent(['dmg', 8, 200, 'phys', 0, 1, 0, null, [['snhunt_t[effect]', 1]]], views);
+    layer.onEvent(['dmg', 9, 200, 'phys', 0, 1, 0, null, [['snhunt_t[effect]', 1]]], views);
+    assert.deepEqual(got(), ['snhunt_talent_01_hit@9', 'snhunt_talent_01_hit_02@8']);
+    // 忍冬 T1 追凶: vulpis_buff_01 renewed on each addition — one slot per enemy
+    layer.onEvent(['dmg', 9, 30, 'arts', 0, 2, 0, null, [['vulpis_t_1[vfx]', 2, 10]]], views);
+    layer.onEvent(['dmg', 9, 30, 'arts', 0, 2, 0, null, [['vulpis_t_1[vfx]', 2, 10]]], views);
+    layer.onEvent(['dmg', 8, 30, 'arts', 0, 2, 0, null, [['vulpis_t_1[vfx]', 2, 10]]], views);
+    assert.deepEqual(got(), ['vulpis_buff_01@8', 'vulpis_buff_01@9']);
+    // 刺玫's trait heal on the ally; 阿斯卡纶 S2 on the enemy its blow felled
+    layer.onEvent(['heal', 6, 40, 3, [['trait', 3]]], views);
+    layer.onEvent(['dmg', 9, 500, 'phys', 0, 6, 0, null, [['ascln_s_2[enemy]', 4]]], views);
+    assert.deepEqual(got(), ['ascln_skill_02_death_01@9', 'vendla_attack_hit_02@6']);
   } finally { globalThis.fetch = fetch0; }
 });
 

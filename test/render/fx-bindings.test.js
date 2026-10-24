@@ -75,6 +75,7 @@ const KNOWN = {
   'KIT_OFFICIAL candle.etlchi|etlchi_skill_03_ghosting_01': ['missing', 'held by the summoned 心烛 (enemy_5601_entlec) prefab: an enemy outside the pool extract'],
   'KIT_OFFICIAL candle.etlchi|etlchi_skill_03_line_01': ['life', 'entlec_a[line_effect_core] CreateLineEffect at ON_BUFF_START creates it once; the prefab is `_holdByOwner` (extract face.hold), so it stays while both stand, as drawn'],
   'KIT_OFFICIAL lock.lemuen|lemuen_skill_02_trail_01': ['life', 'lemuen_s2_aim_attack[effect] CreateLineEffect at ON_BUFF_START creates it once; the prefab is `_holdByOwner` (extract face.hold), so it stays while the aim buff does — until the aim ends (\'lemuenAim\' on 0)'],
+  'KIT_OFFICIAL hit.blkkgt|blkkgt_skill_02_hit_2': ['life', 'blkkgt_s_2[blocked] / [not_blocked] are INFINITY in name only: their template blkkgt_s_2[dot] finishes them after its trig_cnt slashes (CheckTriggerable), and the sim deals those at once — played once, for the prefab\'s own duration [추정]'],
   'KIT_OFFICIAL airstrike.angel2|angel2_skill_3_begin_start_001': ['life', 'S3FireToToken `_castEffects` hold for the cast; an empty prefab, played once'],
   'KIT_OFFICIAL talent.bpipe|bpipe_attack_02_hit': ['missing', 'bpipe_t_1 SplashDamage `_createEffect` reads the talent blackboard `effect`: no effect node in the tables'],
   'KEY_FX svash2:barrier|*': ['untabled', 'no svash2_s_1[build] in either template dataset or the client rows: the 屏障 card\'s buff key is unconfirmed'],
@@ -111,51 +112,41 @@ const KNOWN = {
 
 /** The template rows whose prefab nothing in render/ plays: 'key|prefab' → reason (test/helpers/fxBindings.js unplayed). */
 const UNPLAYED = {
-  'aglna2_s_2[enemy][levitate]|aglna2_levitate_01_emit': 'condOther',
-  'angel_t_2[atk]|angel2_buff_02': 'condOther',
-  'ascln_s_2[enemy]|ascln_skill_02_death_01': 'condOther',
-  'blkkgt_s_2[blocked]|blkkgt_skill_02_hit_2': 'condOther',
-  'blkkgt_s_2[not_blocked]|blkkgt_skill_02_hit_2': 'condOther',
-  'clemnt_t1[dice_damage]|clemnt_talent_hit_01': 'condOther',
+  // 묶음 S6 (2026-10-24) — condition rows left, by why: the sim decides the condition but sends nothing the renderer sees (its
+  // buff is not `visible`: showing it adds status events and moves the sim golden)
+  'angel_t_2[atk]|angel2_buff_02': 'condOther',   // 新约能天使 T2 on the AMMO-skill allies: sim 'angel2:covenant'
+  'mizuki_t_2[atk]|mizuki_buff_01': 'condOther',   // 水月 T2 (an enemy in range ≤ hp_ratio): sim 'mizuki:t2'
+  'pasngr_t_2[atk_up]|pasngr_beidong_buff_02': 'condOther',   // 异客 T2 孤卒 (no enemy around): sim 'pasngr:lone'
+  'skadi2_e_003_t_2[atk][1]|skadi2_buff_01_eye': 'condOther',   // 浊心斯卡蒂 T2 (abyssal allies): sim 'skadi2:predator'
+  'skadi2_e_003_t_2[atk][2]|skadi2_buff_01_eye': 'condOther',
+  'skadi2_t_2[atk][2]|skadi2_buff_01_eye': 'condOther',
+  'tinman_s_2[buff][ally]|tinman_skill_02_heal_01': 'condOther',   // 锡人 S2 on the allies of its zone: sim 'tinman:zone:*' regen
+  // … the sim keeps the state but no event marks its change
+  'haini_s_2[full_effect2]|haini_skill_02_weapon_01': 'condOther',   // 海霓 S2 talent raised to max_talent_up (unit.mem.hainiMul)
+  'thorn2_t_1[effect]|thorn2_weapon_buff_05': 'condOther',   // 引星棘刺 T1 心相 at its full extension
+  'rockr_s_2[overload]|rockr_stun_01': 'condOther',   // 洛洛 S2 ending after its overload (her stun): the skill's end + 'overload'
+  'rockr_s_2[overload]|rockr_stun_02': 'condOther',
+  'malist_t_1|malist_hit_extra': 'condOther',   // 至简 T1 忽有所悟's roll: inside the attack's dmgMul, no hit of its own
+  // 菲莱 S2: the blast's hit_02 while she holds philae_s_2[atk] (sim 'skill:philae_rage', visible) — the blast's _hit_01 is the
+  // skill's name rule on every S2 hit, so the pick needs the blast moment first
+  'philae_s_2[ep]|philae_skill_02_hit_02': 'cond',
+  // … a condition no sim event tells
+  'vulpis_e_003_t_2[camouflage]|vulpis_buff_02': 'condOther',   // 忍冬's 迷彩 off while she blocks (!CheckBlocked; the sim's
+  'vulpis_s_3[cam][interval]|vulpis_buff_02': 'condOther',      // 'camou' stays) — the common 迷彩 effect stands in
+  'nearl2_s_3[combo_effect]|nearl2_buff_01_start': 'condOther',   // 耀骑士临光 S3: CheckContainsCardBuff (a card's buff nearl2_t_1)
+  'ines_t_2[effect2]|ines_range_02': 'cond',   // 伊内丝 T2 by her mode as the talent buff starts (S2's mode 1) [추정: its S2 talent re-creates it]
+  // … directional rows the renderer picks: the front copy plays by the skill-buff name rule
   'excu2_s_3[effect][b]|excu2_skill_03_buff_01_back': 'directional',
-  'ghost2_s_3[attack]|ghost2_skill_03_hit_02': 'condOther',
-  'haini_s_2[full_effect2]|haini_skill_02_weapon_01': 'condOther',
-  'humus_t_1[effect_holder]|humus_buff_03': 'condOther',
-  'indigo_s_2[damage]|indigo_skill_02_buff_03': 'unconditional',
-  'ines_t_2[effect2]|ines_range_02': 'cond',
   'kalts2_s3_fx_1|kalts2_skill_03_buff_02_left_01': 'directional',
+  // not reached or left by earlier bundles (S3 / S4 documents)
+  'indigo_s_2[damage]|indigo_skill_02_buff_03': 'unconditional',
   'lumen_t_2[enable]|lumen_buff_01_start': 'unconditional',
-  'malist_t_1|malist_hit_extra': 'condOther',
-  'mizuki_t_2[atk]|mizuki_buff_01': 'condOther',
-  'nearl2_s_3[combo_effect]|nearl2_buff_01_start': 'condOther',
-  'pasngr_t_2[atk_up]|pasngr_beidong_buff_02': 'condOther',
   // 佩佩's third module (CN client): its pepe_e_003_t[trigger] works on 生息演算 cards and treasure tiles
   // (BuffAoeTargetForPepeEquipSandbox, TresureTileSelector) — never reached in this mode
   'pepe_e_003_t[aoe]|pepe_skill_01_hit_01_optimize': 'unconditional',
   'pepe_e_003_t[aoe][finish]|pepe_skill_01_hit_01_optimize': 'unconditional',
-  'philae_s_2[ep]|philae_skill_02_hit_02': 'cond',
-  'rockr_s_2[overload]|rockr_stun_01': 'condOther',
-  'rockr_s_2[overload]|rockr_stun_02': 'condOther',
-  'sbell2_t1[enemy_character]|sbell2_buff_01_hit_01': 'condOther',
-  'sbell2_t1[enemy_enter]|sbell2_buff_01_hit_01': 'condOther',
-  'sbell2_t1[s2_dot]|sbell2_buff_01_hit_02': 'cond',
-  'sbell2_s3[switch_mode]|sbell2_skill_03_flow': 'condOther',
-  'sbell2_s3[attract_effect]|sbell2_skill_03_hint': 'condOther',
-  'skadi2_e_003_t_2[atk][1]|skadi2_buff_01_eye': 'condOther',
-  'skadi2_e_003_t_2[atk][2]|skadi2_buff_01_eye': 'condOther',
-  'skadi2_t_2[atk][2]|skadi2_buff_01_eye': 'condOther',
-  'snhunt_t[effect]|snhunt_talent_01_hit_02': 'condOther',
-  'snhunt_t[effect]|snhunt_talent_01_hit': 'condOther',
   // not reached (2026-10-24, 묶음 S5): the 战鹰 on another operator — 风雪之眼 deployed onto its card, which no one does in the auto battle
   'svash2_s_3[target_bird_onuse]|svash2_eagle_fly_01': 'unconditional',
-  'swire2_t_2[heal]|swire2_buff_02_start': 'condOther',
-  'thorn2_t_1[effect]|thorn2_weapon_buff_05': 'condOther',
-  'tinman_s_2[buff][ally]|tinman_skill_02_heal_01': 'condOther',
-  'vendla_tr[effect]|vendla_attack_hit_02': 'condOther',
-  'vulpis_t_1[vfx]|vulpis_buff_01': 'cond',
-  'vulpis_e_003_t_2[camouflage]|vulpis_buff_02': 'condOther',
-  'vulpis_s_3[cam][interval]|vulpis_buff_02': 'condOther',
-  'wang_born_effect_s2|wang_birth_02': 'cond',
 };
 
 const entries = () => [
