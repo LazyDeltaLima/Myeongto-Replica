@@ -13,7 +13,7 @@ import { KIT_OFFICIAL, tplPlays } from '../../public/js/render/fx/kitofficial.js
 import { rowsFor, buildPlays, isGuard } from '../../tools/build-fx-plays.mjs';
 import { JUDGED, whenPlays } from '../../public/js/render/fx/conds.js';
 import { KEY_FX, SOURCE_FX, LAYER_FX, STACK_FX, END_FX, STATUS_FX } from '../../public/js/render/fxstatus.js';
-import { TALENT_ALWAYS, SKILL_HELD, SKILL_EDGE, NOTE_FX, DEPLOY_FX, noteEffects, effectsFor, isVariant, isDirectional, fxBundleOf } from '../../public/js/render/fxmap.js';
+import { TALENT_ALWAYS, SKILL_HELD, SKILL_EDGE, CAST_END, NOTE_FX, DEPLOY_FX, noteEffects, effectsFor, isVariant, isDirectional, fxBundleOf } from '../../public/js/render/fxmap.js';
 import { PLAYS as FIXED } from './fxPlays.js';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -142,7 +142,7 @@ function stackedPlays(e) {
 
 /**
  * Every `cite`d entry: { table, entry, src: [keys], plays: [{ n, life, side? }] } — KIT_OFFICIAL plans, fxstatus.js
- * (STATUS_FX, SOURCE_FX, KEY_FX, LAYER_FX, STACK_FX, END_FX) and fxmap.js (TALENT_ALWAYS, SKILL_HELD, SKILL_EDGE, NOTE_FX, DEPLOY_FX).
+ * (STATUS_FX, SOURCE_FX, KEY_FX, LAYER_FX, STACK_FX, END_FX) and fxmap.js (TALENT_ALWAYS, SKILL_HELD, SKILL_EDGE, CAST_END, NOTE_FX, DEPLOY_FX).
  */
 export function handEntries() {
   const out = [];
@@ -164,7 +164,10 @@ export function handEntries() {
   // a `bySkill` talent: its held rows behind CheckSkillIndex too (one skill each)
   const bySkill = (v) => (v.bySkill ? (keyPlays().keys[v.tpl]?.when || []).filter((r) => r.role === 'held').map((r) => r.n) : []);
   for (const [k, v] of Object.entries(TALENT_ALWAYS)) put('TALENT_ALWAYS', k, v, [...held([...(keyPlays().keys[v.tpl]?.held || []), ...bySkill(v)]), ...(v.born || []).map((n) => ({ n, life: 'once' }))]);
-  for (const [k, by] of Object.entries(SKILL_HELD)) for (const [i, v] of Object.entries(by)) put('SKILL_HELD', `${k}.${i}`, v, held([v.tpl].flat().flatMap((t) => keyPlays().keys[t]?.held || [])));
+  // a `face` key: its held rows behind CheckCharacterDefaultDirection too (one per facing)
+  const faced = (v, t) => (v.face ? (keyPlays().keys[t]?.when || []).filter((r) => r.role === 'held').map((r) => r.n) : []);
+  for (const [k, by] of Object.entries(SKILL_HELD)) for (const [i, v] of Object.entries(by)) put('SKILL_HELD', `${k}.${i}`, v, held([v.tpl].flat().flatMap((t) => [...(keyPlays().keys[t]?.held || []), ...faced(v, t)])));
+  for (const [k, by] of Object.entries(CAST_END)) for (const [m, v] of Object.entries(by)) put('CAST_END', `${k}.${m}`, v, v.map((n) => ({ n, life: 'once' })));
   for (const [k, by] of Object.entries(SKILL_EDGE)) {
     for (const [i, v] of Object.entries(by)) {
       put('SKILL_EDGE', `${k}.${i}`, v, [...(keyPlays().keys[v.start]?.once || []), ...(keyPlays().keys[v.end]?.end || [])].map((n) => ({ n, life: 'once' })));
@@ -302,7 +305,14 @@ export function unplayed(tables) {
   for (const by of Object.values(KIT_OFFICIAL)) for (const fn of Object.values(by)) {
     for (const k of planTpls(fn)) for (const n of Object.values(keyPlays().keys[k] || {}).flat()) if (typeof n === 'string') names.add(n);
   }
-  const plays = (n) => names.has(n) || bound.has(n) || named.has(n) || patterns.some((r) => r.test(n));
+  const direct = (n) => names.has(n) || bound.has(n) || named.has(n) || patterns.some((r) => r.test(n));
+  // the left copy of a left / right pair whose right copy plays (fxgame.js play: the left one plays for it and swaps)
+  const twinOf = (n) => {
+    const r = n.replace(/_left(?=_|$)/, '_right');
+    const f = path.join(ROOT, 'public/assets/local/fx', owner.get(n) || '', `${n}.json`);
+    return r !== n && direct(r) && existsSync(f) && readJson(f).right === r;
+  };
+  const plays = (n) => direct(n) || twinOf(n);
   const rows = tables.local ? [...tables.template, ...tables.local] : tables.template;
   const out = new Map();
   for (const r of rows) {

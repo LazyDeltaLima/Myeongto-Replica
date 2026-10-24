@@ -61,7 +61,7 @@ import { attackMode, boundEffects, fortressEffects, modelessTrail } from './fxma
 import { activationEffects } from './fxmap.js'; // local patch: a skill activation's effects
 import { foeEffects, castTiming, castPhase, CAST_EVENT } from './fxmap.js'; // 2026-10-10: enemy-held mode buffs, cast timings
 import { clipGroup, hitLoopEnd, deployEffect, deadEffect } from './fxmap.js'; // 2026-10-11: clip variants, looping hits, deploy / dead effects
-import { commonEffects, skillEdge, skillHeld } from './fxmap.js'; // 2026-10-16: the always-on effects of the common abilities (2026-10-24: a skill's own held buffs, its start / end effects)
+import { castEnd, commonEffects, skillEdge, skillHeld } from './fxmap.js'; // 2026-10-16: the always-on effects of the common abilities (2026-10-24: a skill's own held buffs, its start / end effects)
 import { altGroup, combatEffects } from './fxmap.js'; // 2026-10-21: ability group children, the COMBAT state's effects
 import { modePart } from './fxmap.js'; // 2026-10-21: a mode talent's attack, a per-side child of the attack
 import { defaultModeEffects } from './fxmap.js'; // 2026-10-21: the Default mode's own effects
@@ -521,7 +521,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const b = bundleOf(view);
     if (!b) return;
     // local patch (maintainer report): a directional emitter entry plays the copy for the facing (dirPick)
-    const { names, unflip } = dirPick(view, given || effectsFor(b.prefabs, kind, skillIndex).filter((n) => !emittedIn(b.bundle).has(n) && !packedIn(b.bundle).has(n)));
+    const { names: picked, unflip } = dirPick(view, given || effectsFor(b.prefabs, kind, skillIndex).filter((n) => !emittedIn(b.bundle).has(n) && !packedIn(b.bundle).has(n)));
+    const names = [...picked];
     if (names.length && trace) trace({ kind, names, by: ownerOf(view), at: at ? ownerOf(at) ?? null : null }); // tests: what it plays
     if (dry) for (const n of names) dryFollow(b.bundle, n, ownerOf(view) ?? null, (at || view).info ? ownerOf(at || view) ?? null : null);
     if (!names.length || !(await ensure())) return;
@@ -529,6 +530,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // `right`: the client plays the left copy and swaps in its `_rightEffect` while the owner faces right) is one effect —
     // the copy for the facing (all five pairs are `_rotateType` 0: never mirrored); the right copy that the name lookup
     // listed besides is skipped
+    // 2026-10-24 (묶음 S7): a right copy listed without its left one (`_left` is a directional name effectsFor skips: 凯尔希·思衡托
+    // S3 kalts2_skill_03_buff_02_right_01, 寒檀 S2 sntlla_skill_02_buff_02_right) is that pair — its left copy plays and swaps
+    for (let i = 0; i < names.length; i++) {
+      const l = names[i].replace(/_right(?=_|$)/, '_left');
+      if (l === names[i] || names.includes(l) || !index?.bundles?.[b.bundle]?.includes(l)) continue;
+      if ((await lib.load(b.bundle, l))?.right === names[i]) names[i] = l;
+    }
     const defs = await Promise.all(names.map((n) => lib.load(b.bundle, n)));
     const twins = new Set(defs.map((d) => d?.right).filter(Boolean));
     for (let i = 0; i < names.length; i++) {
@@ -3167,13 +3175,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // name rule drew buff_01 / _02 from the skill's start, and the event added all three over them
     'kroos2_skill_02_buff_01', 'kroos2_skill_02_buff_02', 'kroos2_skill_02_buff_03',
     // 2026-10-24 (묶음 S2): 塑心 S3's ATK effect is on the ally it lifts (fxstatus.js 'cello:tango:atk'), not hers (the `_buff` rule)
-    'cello_skill_03_buff_03']);
+    'cello_skill_03_buff_03',
+    // 2026-10-24 (묶음 S7): 圣约送葬人 S3's front buff is SKILL_HELD's, by the deploy facing (its `_back` copy otherwise)
+    'excu2_skill_03_buff_01']);
   /** What a skill activation plays on the caster (fxmap.js activationEffects: { start, loops }). */
   const activation = (v) => {
     const b = bundleOf(v), em = emittedIn(b.bundle);
     const a = activationEffects(bindOf(v), b.prefabs, skillIdx(v), em.size ? new Set([...KIT_OWNED, ...em]) : KIT_OWNED);
     // 2026-10-24 (묶음 S2): the skill's own template buffs on the operator (fxmap.js SKILL_HELD)
-    const held = skillHeld(v?.info?.spine || v?.info?.defId, skillIdx(v), b.prefabs, plays).filter((n) => !a.loops.includes(n));
+    const held = skillHeld(v?.info?.spine || v?.info?.defId, skillIdx(v), b.prefabs, plays, faceBack(v)).filter((n) => !a.loops.includes(n));
     // 2026-10-24 (묶음 S5): what its template creates once as it starts (fxmap.js SKILL_EDGE `start`)
     const once = skillEdge(v?.info?.spine || v?.info?.defId, skillIdx(v), 'start', b.prefabs, plays).filter((n) => !a.start.includes(n));
     return held.length || once.length ? { start: [...a.start, ...once], loops: [...a.loops, ...held] } : a;
@@ -3208,6 +3218,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // `_delayIfFirstAttack` delays the first attack's effect by that ÷ the ability's playback speed (1 / anim scale) and
   // `_onlyOnce` keeps it to once per cast (`OnCastStart` resets m_casted). Without a 'swing' before an attack (an older
   // server, an attack the sim did not announce) its swing effects start at the 'atk', as before.
+  const FIXED_FRAME_S = 1 / 30;   // the client's fixed step (AsyncUtil.InvokeNextFixedFrame)
   const SWING_SLACK = 0.35;   // an 'atk' this late after its swing's strike time still belongs to that swing
   const castsDelayed = [];    // { t, run } — first-attack delays (battle clock)
   /** The cast's length and playback speed from the unit's attack clip: windup = anim scale × its OnAttack frame. */
@@ -3246,6 +3257,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!skip) lastAttackFx.set(sid, clockS);
     const c = { t: clockS, hitAt: clockS + w, end: span ? clockS + span.len : null, speed: span?.speed || 1, mode, fired: new Set(), struckAt: null, skip, first: firstAttack(v, mode) };
     v._fxCast = c;
+    // 2026-10-24 (묶음 S7): its EndAnimEffectEmitter's effects (fxmap.js CAST_END) a fixed frame after the cast's end, unless
+    // a new cast began (the client's `isCasting`) or the cast was cut
+    const ends = c.end != null && !skip ? castEnd(v?.info?.spine || v?.info?.defId, bindOf(v), mode, bundleOf(v)?.prefabs) : [];
+    if (ends.length) castsDelayed.push({ t: c.end + FIXED_FRAME_S, run: () => { if (v._fxCast === c && !c.cut && v.alive !== false) play(v, 'attackStart', 0, { names: ends, tag: 'cast' }); } });
     return c;
   }
   /** Play the cast effects `names` of cast `c` (its mode's timings: loop end, first-attack delay, once per cast). */

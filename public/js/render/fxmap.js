@@ -371,13 +371,18 @@ export const TALENT_ALWAYS = Object.freeze({
 /**
  * 2026-10-24 (묶음 S2): buffs a client template puts on the operator itself for the run of a skill — created as it starts,
  * finished with it — that no skill binding names. charId → skill index 0–2 (or '*': every skill) → client key (or keys);
- * their `held` prefabs (plays.json) join the activation's loops (skillHeld, fxgame.js activation).
+ * their `held` prefabs (plays.json) join the activation's loops (skillHeld, fxgame.js activation). `face` (2026-10-24, 묶음 S7):
+ * the keys' held rows behind CheckCharacterDefaultDirection join them by the operator's deployed facing (conds.js `back`) —
+ * the skill-buff name rule's copy of them is the kit's then (fxgame.js KIT_OWNED).
  */
 const heldKeys = (keys) => Object.freeze(cite(keys, { tpl: Object.freeze(keys) }));
 const ROCKR_HELD = heldKeys(['rockr_s_effetct_1', 'rockr_s_effetct_2']);
+const faceKeys = (keys) => Object.freeze(cite(keys, { tpl: Object.freeze(keys), face: true }));
 export const SKILL_HELD = Object.freeze({
   // 圣约送葬人 Talents/1 excu2_passive[effect]: ON_SKILL_START creates [effect][skill] (excu2_cherub_buff_01), ON_SKILL_FINISH ends it
-  char_1032_excu2: Object.freeze({ '*': talentKey('excu2_passive[effect]') }),
+  char_1032_excu2: Object.freeze({ '*': talentKey('excu2_passive[effect]'),
+    // S3 excu2_s_3[trait]: [effect][f] buff_01, or [effect][b] buff_01_back when deployed facing UP (2026-10-24, 묶음 S7)
+    2: faceKeys(['excu2_passive[effect]', 'excu2_s_3[trait]']) }),
   // 凯尔希·思衡托 S3 kalts2_s_3_fx[ctrl]: kalts2_s3_fx_2's weapon glow beside its buff_01 / buff_02 (the `_buff` name rule plays those)
   char_1052_kalts2: Object.freeze({ 2: talentKey('kalts2_s3_fx_2') }),
   // 赤刃明霄陈 S2 chen3_s2[respawn_buff] (ON_OWNER_LOCATE): [respawn_effect_2] F_buff_02 beside [respawn_effect]'s buff_01 (the skill's buff)
@@ -387,11 +392,12 @@ export const SKILL_HELD = Object.freeze({
   char_4040_rockr: Object.freeze({ 0: ROCKR_HELD, 1: ROCKR_HELD }),
 });
 
-/** The SKILL_HELD prefabs of `charId`'s skill `skillIndex` that are extracted (`prefabs`), from `plays`. */
-export function skillHeld(charId, skillIndex, prefabs, plays) {
+/** The SKILL_HELD prefabs of `charId`'s skill `skillIndex` that are extracted (`prefabs`), from `plays`; `back`: deployed facing UP. */
+export function skillHeld(charId, skillIndex, prefabs, plays, back = false) {
   const by = charId ? SKILL_HELD[charId] : null;
   const k = by ? by[skillIndex] ?? by['*'] : null;
-  const held = k ? [k.tpl].flat().flatMap((t) => plays?.keys?.[t]?.held || []) : [];
+  const held = k ? [k.tpl].flat().flatMap((t) => [...(plays?.keys?.[t]?.held || []),
+    ...(k.face ? whenPlays(plays?.keys?.[t], { back: !!back }).filter((r) => r.role === 'held').map((r) => r.n) : [])]) : [];
   return [...new Set(held)].filter((n) => !prefabs || prefabs.includes(n));
 }
 
@@ -407,6 +413,20 @@ export const SKILL_EDGE = Object.freeze({
   // eagle_sit_showAndHide_01 flash); svash2_s_3's finish sets it back on his arm (eagle_sit_01, a loop held by him)
   char_1045_svash2: Object.freeze({ 2: edgeKeys('svash2_s_3[bird_eff]', 'svash2_s_3') }),
 });
+
+/**
+ * 2026-10-24 (묶음 S7, official client EndAnimEffectEmitter on an attack ability): effects created on the operator one fixed
+ * frame after its cast ends (ON_CAST_END), unless it is casting again by then — 伺夜 S3's vigil_skill_03_ABC_idle_into, the
+ * only one in the client data. charId → mode name (modes.json `modes`) → prefabs.
+ */
+export const CAST_END = Object.freeze({
+  char_427_vigil: Object.freeze({ S3: Object.freeze(cite('char_427_vigil/Modes/S3/Body/Attack', ['vigil_skill_03_ABC_idle_into'])) }),
+});
+/** The CAST_END prefabs of `charId`'s mode `mode` (an index into `bind.modes`) that are extracted (`prefabs`). */
+export function castEnd(charId, bind, mode, prefabs) {
+  const names = (charId && CAST_END[charId]?.[bind?.modes?.[mode]]) || [];
+  return names.filter((n) => !prefabs || prefabs.includes(n));
+}
 
 /** The SKILL_EDGE prefabs of `charId`'s skill `skillIndex` at its `edge` ('start' | 'end') that are extracted, from `plays`. */
 export function skillEdge(charId, skillIndex, edge, prefabs, plays) {

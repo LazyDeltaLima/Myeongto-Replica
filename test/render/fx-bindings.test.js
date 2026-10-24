@@ -135,9 +135,6 @@ const UNPLAYED = {
   'vulpis_s_3[cam][interval]|vulpis_buff_02': 'condOther',      // 'camou' stays) — the common 迷彩 effect stands in
   'nearl2_s_3[combo_effect]|nearl2_buff_01_start': 'condOther',   // 耀骑士临光 S3: CheckContainsCardBuff (a card's buff nearl2_t_1)
   'ines_t_2[effect2]|ines_range_02': 'cond',   // 伊内丝 T2 by her mode as the talent buff starts (S2's mode 1) [추정: its S2 talent re-creates it]
-  // … directional rows the renderer picks: the front copy plays by the skill-buff name rule
-  'excu2_s_3[effect][b]|excu2_skill_03_buff_01_back': 'directional',
-  'kalts2_s3_fx_1|kalts2_skill_03_buff_02_left_01': 'directional',
   // not reached or left by earlier bundles (S3 / S4 documents)
   'indigo_s_2[damage]|indigo_skill_02_buff_03': 'unconditional',
   'lumen_t_2[enable]|lumen_buff_01_start': 'unconditional',

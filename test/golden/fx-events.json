@@ -10569,7 +10569,7 @@
    "char_1032_excu2 attackStart excu2_attack_01_start_01",
    "char_1032_excu2 attackStart excu2_skill_03_range_01",
    "char_1032_excu2 attackStart excu2_skill_03_start_01",
-   "char_1032_excu2 skillBuff excu2_skill_03_buff_01+excu2_common_fx01+excu2_cherub_buff_01",
+   "char_1032_excu2 skillBuff excu2_common_fx01+excu2_cherub_buff_01+excu2_skill_03_buff_01",
    "char_1032_excu2 spawn excu2_skill_03_aim_01 → foe",
    "char_1032_excu2 spawn:born common_char_birth_01 → self",
    "char_136_hsguma spawn:born common_char_birth_01 → self",

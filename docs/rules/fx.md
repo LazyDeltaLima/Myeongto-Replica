@@ -1910,6 +1910,19 @@
   - 확인: `test/sim/hit-fx-field.test.js`(锏 S2·忍冬 T1·雪猎 T1), `kit-event-fx`(새 시험: 나는 대상·적마다 한 칸·刺玫·阿斯卡纶), `fx-bindings` `UNPLAYED`
     18줄 지움(미연결 69 → 48: 템플릿 42 → 24·클라 전용 27 → 24)·남은 줄 판정 주석, `KNOWN` 锏 수명 한 줄. 이펙트 이벤트 골든 46 시나리오 +, 지운 줄은 予愿安洁莉娜 浮空 공용 둘(전용으로 바뀜)뿐, 시뮬
     골든 그대로(`GOLDEN_FULL` 9). [화면 미확인: 위 전부]
+- 연결 전수 나머지 일곱째 묶음(2026-10-24, 렌더만 — 이름 규칙이 거르던 방향 사본과 공격 끝 동작):
+  - 圣约送葬人 S3 `excu2_s_3[trait]`: `[effect][f]` `excu2_skill_03_buff_01`(!CheckCharacterDefaultDirection(UP)) / `[effect][b]` `_buff_01_back`(UP으로 배치)
+    — 둘 다 INFINITY 파생 버프(공식 클라에서 확인, 버프 템플릿). 전엔 스킬 버프 이름 규칙이 앞 사본만 늘 틀었다. 이제 `fxmap.js SKILL_HELD`의 `face` 키가
+    배치 방향(conds.js `back` — 뒤 모델로 그리는지)으로 하나를 고르고, 이름 규칙의 앞 사본은 `KIT_OWNED`로 뺌.
+  - 왼쪽·오른쪽 한 쌍(추출 `right`: 클라는 왼쪽 사본을 틀고 오른쪽을 볼 때 `_rightEffect`로 바꿈)의 오른쪽만 이름 규칙에 걸린 경우 — `effectsFor`는
+    `_left` 이름을 방향 사본으로 거름: 凯尔希·思衡托 S3 `kalts2_s3_fx_1`(템플릿은 `kalts2_skill_03_buff_02_left_01`만 만듦)·寒檀 S2
+    `sntlla_s_2[base_attack_time]`(`sntlla_skill_02_buff_02_left`). 전엔 어느 쪽을 보든 오른쪽 사본이었다. `fxgame.js play`가 그 이름의 왼쪽 사본이
+    `right`로 이 이름을 가리키면 왼쪽을 넣어, 쌍 규칙이 방향대로 고르게 함.
+  - 伺夜 S3 공격 능력의 `EndAnimEffectEmitter`(클라 데이터 전체에 하나): ON_CAST_END 다음 고정 프레임에, 주인이 살아 있고 다시 시전 중이 아니면
+    `_effectKeys`(`vigil_skill_03_ABC_idle_into`)를 그녀에게 만듦(공식 클라에서 확인). `fxmap.js CAST_END` → `beginCast`가 시전 끝(공격 클립 길이로 잰
+    `end`) + 1/30 s에 — 그 사이 새 시전이 시작됐거나 끊겼으면 안 틂. 클립 길이를 모르면(모델 전) 안 틂.
+  - 확인: `common-ability-fx` 새 시험, `fx-bindings` `UNPLAYED` 2줄 지움, 미연결 48 → 44(템플릿 22·클라 전용 22). 이펙트 이벤트 골든은 圣约送葬人 S3
+    목록 순서 한 줄뿐(골든은 클립 길이가 없어 伺夜 끝 동작이 안 나오고, 凯尔希 시나리오는 오른쪽을 봄). 시뮬 안 고침. [화면 미확인: 위 전부]
 
 ### 연쇄 공격 — 체인 캐스터·체인 메딕의 튕김 선과 타격 (2026-10-16, 관리자 요청 「일반 공격 연쇄를 공식 클라 데이터와 대조」)
 
