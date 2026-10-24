@@ -6,7 +6,7 @@
 // The prefabs come from the binding table — the template rows (tools/assets/fx-templates.json, tracked) and the client-only
 // rows (public/assets/local/fx/bindings.json, git-ignored) — through this file's output, beside the extracted effects:
 // public/assets/local/fx/plays.json (git-ignored like them; render/fxgame.js loads it with modes.json). Per key cited by
-// a hand effect table (a KIT_OFFICIAL plan, an fxstatus.js spec, fxmap.js TALENT_ALWAYS / SKILL_HELD / NOTE_FX), its rows with no
+// a hand effect table (a KIT_OFFICIAL plan, an fxstatus.js spec, fxmap.js TALENT_ALWAYS / SKILL_HELD / SKILL_EDGE / NOTE_FX), its rows with no
 // condition whose prefab is extracted, by role:
 //   held  shown as long as the buff / the ability (a created buff's effect, an ability's `_effects`, a cast held to its end,
 //         a template effect held by its source) — the plan's `life` says how long, a status spec shows it with its buff
@@ -27,7 +27,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { KIT_OFFICIAL } from '../public/js/render/fx/kitofficial.js';
 import { STATUS_FX, SOURCE_FX, KEY_FX, LAYER_FX, STACK_FX, END_FX } from '../public/js/render/fxstatus.js';
-import { TALENT_ALWAYS, SKILL_HELD, NOTE_FX } from '../public/js/render/fxmap.js';
+import { TALENT_ALWAYS, SKILL_HELD, SKILL_EDGE, NOTE_FX } from '../public/js/render/fxmap.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const LOCAL = join(ROOT, 'public/assets/local/fx');
@@ -133,7 +133,7 @@ export function citedKeys() {
     for (const k of v.src || []) keys.add(k);
     if (typeof v === 'object') for (const x of Object.values(v)) walk(x, depth + 1);
   };
-  for (const t of [KIT_OFFICIAL, STATUS_FX, SOURCE_FX, KEY_FX, LAYER_FX, STACK_FX, END_FX, TALENT_ALWAYS, SKILL_HELD, NOTE_FX]) walk(t);
+  for (const t of [KIT_OFFICIAL, STATUS_FX, SOURCE_FX, KEY_FX, LAYER_FX, STACK_FX, END_FX, TALENT_ALWAYS, SKILL_HELD, SKILL_EDGE, NOTE_FX]) walk(t);
   return [...keys].sort();
 }
 

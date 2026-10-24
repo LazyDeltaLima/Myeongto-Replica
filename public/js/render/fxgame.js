@@ -61,7 +61,7 @@ import { attackMode, boundEffects, fortressEffects, modelessTrail } from './fxma
 import { activationEffects } from './fxmap.js'; // local patch: a skill activation's effects
 import { foeEffects, castTiming, castPhase, CAST_EVENT } from './fxmap.js'; // 2026-10-10: enemy-held mode buffs, cast timings
 import { clipGroup, hitLoopEnd, deployEffect, deadEffect } from './fxmap.js'; // 2026-10-11: clip variants, looping hits, deploy / dead effects
-import { commonEffects, skillHeld } from './fxmap.js'; // 2026-10-16: the always-on effects of the common abilities (2026-10-24: a skill's own held buffs)
+import { commonEffects, skillEdge, skillHeld } from './fxmap.js'; // 2026-10-16: the always-on effects of the common abilities (2026-10-24: a skill's own held buffs, its start / end effects)
 import { altGroup, combatEffects } from './fxmap.js'; // 2026-10-21: ability group children, the COMBAT state's effects
 import { modePart } from './fxmap.js'; // 2026-10-21: a mode talent's attack, a per-side child of the attack
 import { defaultModeEffects } from './fxmap.js'; // 2026-10-21: the Default mode's own effects
@@ -830,14 +830,17 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function startFly(l) {
     const f = l.inst.def.fly;
     const from = l.inst.object.position.clone();
-    const to = flyTarget(f.loc) || from; // no such place on this screen (the debug arena): it stays, and still finishes then
+    // no such place on this screen (the debug arena; 凛御银灰's 战鹰 eagle_flyToHand_01, whose Svash2FlyToPredefinedTokenCard
+    // flies to his eye's deploy card — a card this HUD has not): it stays, and still finishes then
+    const to = flyTarget(f.loc);
+    if (to) l.view = null;   // a spawn on a unit: the flight moves it, not the unit
     l.fly = { from: f.inv ? to : from, to: f.inv ? from : to, dur: Math.max(1e-3, Number(f.dur) || 0), real: !!f.real, t: 0, ease: EASE[f.ease] || EASE[5] };
   }
   /** One frame of a flying effect: `dt` real seconds, `dtGame` battle seconds; at the end it finishes. */
   function stepFly(l, dt, dtGame) {
     const f = l.fly;
     f.t = Math.min(f.dur, f.t + (f.real ? dt : dtGame));
-    l.inst.object.position.lerpVectors(f.from, f.to, f.ease(f.t / f.dur));
+    if (f.from && f.to) l.inst.object.position.lerpVectors(f.from, f.to, f.ease(f.t / f.dur));
     if (f.t >= f.dur) { l.fly = null; if (!l.inst.stopping) l.inst.stop(); }
   }
 
@@ -2047,6 +2050,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (e.until === undefined) e.until = clockS + (def.duration || 3) + 0.5 + inst.lead / sp;
     if (drop) { drop.inst = inst; placeTrail(drop); }
     const l = addLive(inst, e, over ? layers.over : split ? layers.split : layers.under);
+    if (l && def.fly) startFly(l);   // 2026-10-24 (묶음 S5): a FlyToPredefinedLocation prefab played on its own flies too
     trimLive();
     return l;
   }
@@ -3147,8 +3151,22 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const a = activationEffects(bindOf(v), b.prefabs, skillIdx(v), em.size ? new Set([...KIT_OWNED, ...em]) : KIT_OWNED);
     // 2026-10-24 (묶음 S2): the skill's own template buffs on the operator (fxmap.js SKILL_HELD)
     const held = skillHeld(v?.info?.spine || v?.info?.defId, skillIdx(v), b.prefabs, plays).filter((n) => !a.loops.includes(n));
-    return held.length ? { start: a.start, loops: [...a.loops, ...held] } : a;
+    // 2026-10-24 (묶음 S5): what its template creates once as it starts (fxmap.js SKILL_EDGE `start`)
+    const once = skillEdge(v?.info?.spine || v?.info?.defId, skillIdx(v), 'start', b.prefabs, plays).filter((n) => !a.start.includes(n));
+    return held.length || once.length ? { start: [...a.start, ...once], loops: [...a.loops, ...held] } : a;
   };
+  /**
+   * 2026-10-24 (묶음 S5): what a skill's template creates on the operator as it ends (fxmap.js SKILL_EDGE `end`) — 凛御银灰's
+   * 战鹰 back on his arm. Created once and kept by its prefab: a loop stays with the operator like its always-on effects
+   * (tag 'common': a redeploy's alwaysOn ends it, 'die' too).
+   */
+  function skillEnd(v) {
+    const b = bundleOf(v), id = ownerOf(v);
+    if (!b || id == null || v.alive === false || failed || q() === 'low') return;
+    for (const n of skillEdge(v?.info?.spine || v?.info?.defId, skillIdx(v), 'end', b.prefabs, plays)) {
+      spawn(b.bundle, n, v, { owner: id, buff: false, onCaster: true, until: null, tag: 'common', pinned: true }, { over: false, facing: efacing(v) });
+    }
+  }
   // effects waiting for the damage of this tick: a skill that hits without an attack event (德克萨斯 S2's sword rain on
   // activation, 戴菲恩 S3's slashes / finisher) — the next 'dmg' events of the same moment are its targets
   const pending = [];   // { src view, names, buff, t }
@@ -4707,7 +4725,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           }
           // local patch (maintainer 2026-10-07: the buffs / range stayed ~1 s after the skill): its loops end with it, at once
           // (and the marks it left on its targets: 戴菲恩 S3's hit_1)
-          else { v._fxSkillOn = false; v._fxSkillFlags?.clear(); endWolves(v.id ?? v.info.id); stopBuffs(v.id ?? v.info.id, true); }
+          else { v._fxSkillOn = false; v._fxSkillFlags?.clear(); endWolves(v.id ?? v.info.id); stopBuffs(v.id ?? v.info.id, true); skillEnd(v); }
           droneIdle(v);   // 2026-10-16: the drones of the mode now
           defaultModeFx(v);   // 2026-10-21: the Default mode's own effects, off while a skill switched her mode
           return;

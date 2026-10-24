@@ -64,6 +64,14 @@ test('pauseIfNow: the answered terms OR-ed (AND with `all`), the flags from the 
   assert.equal(pauseIfNow({ when: [{ back: 1 }] }, view(0, { entryBack: false, dir: 'UP' })), false);
 });
 
+test('pauseIfNow: a skill\'s own buff (SKILL_BUFFS) is held while that skill runs — 凛御银灰\'s 战鹰 off his arm through S3 (2026-10-24, 묶음 S5)', () => {
+  const eagle = { when: [{ flag: 'FEARED_PRIVATE' }, { buff: ['svash2_s_3[bird_eff]'] }] };   // svash2_eagle_sit_birth_01 / _sit_01
+  assert.equal(pauseIfNow(eagle, view(0, { info: { skillIndex: 2 }, _fxSkillOn: true })), true);
+  assert.equal(pauseIfNow(eagle, view(0, { info: { skillIndex: 2 }, _fxSkillOn: false })), false, 'the skill ended: back on his arm');
+  assert.equal(pauseIfNow(eagle, view(0, { info: { skillIndex: 1 }, _fxSkillOn: true })), false, 'another skill gives no such buff');
+  assert.equal(pauseIfNow({ when: [{ buff: ['svash2_s_3[other]'] }] }, view(0, { info: { skillIndex: 2 }, _fxSkillOn: true })), null, 'other buffs stay unanswered');
+});
+
 test('animPause / idlePause / clipOf', () => {
   const rec = { invalid: ['Skill_2_Takeoff_End'], restore: true };
   assert.equal(animPause(rec, 'Skill_2_Takeoff_End'), true);

@@ -345,15 +345,20 @@ export const deadEffect = (bind) => bind?.dead || DEPLOY_FX.dead;
 /**
  * 2026-10-16 (이펙트 연결 전수 묶음 3, docs/rules/fx.md 「재능 버프·시전 이펙트」): talents whose effect is on the operator for
  * as long as it is deployed, unconditionally — an INFINITY buff on itself or an aura's `_effects` (EN charpacks). By the
- * client key (2026-10-23, 묶음 K2): the prefabs its rows hold with no condition (plays.json `held`).
+ * client key (2026-10-23, 묶음 K2): the prefabs its rows hold with no condition (plays.json `held`). `born` (2026-10-24, 묶음 S5):
+ * prefabs the key creates once as the operator is deployed (a template's ON_OWNER_BORN CreateEffect) that loop and stay
+ * with it — their prefab's own life (`_maxLifetime` −1, `_holdByOwner`), not a held row, so they are named.
  */
-const talentKey = (key) => Object.freeze(cite(key, { tpl: key }));
+const talentKey = (key, born) => Object.freeze(cite(key, born ? { tpl: key, born: Object.freeze(born) } : { tpl: key }));
 export const TALENT_ALWAYS = Object.freeze({
   char_423_blemsh: talentKey('blemsh_t_2'),   // Talents/2 (仁慈)
   char_245_cello: talentKey('cello_t_1'),           // Others/Direction/Talents/1 (无词哀歌)
   char_181_flower: talentKey('flower_t_1[eff]'),   // Talents/1 `_passiveBuffs` (熏衣草)
   char_1019_siege2: talentKey('char_1019_siege2/Others/Direction/Talents/1'),   // AuraAbility `_effects` (诸王的叹息)
   char_4051_akkord: talentKey('akkord_t_1'),   // Others/Direction/Talents/1: akkord_t_1[atk] (ATK, INFINITY) on her (2026-10-24, 묶음 S2)
+  // 凛御银灰 Others/Direction/Talents/1 svash2_t_1: ON_OWNER_BORN creates the 战鹰 on his arm unless he is a dummy (no battle unit
+  // is); its PauseEffectIf hides it while he holds svash2_s_3[bird_eff] (fx/pause.js SKILL_BUFFS) (2026-10-24, 묶음 S5)
+  char_1045_svash2: talentKey('svash2_t_1', ['svash2_eagle_sit_birth_01']),
 });
 
 /**
@@ -378,14 +383,33 @@ export function skillHeld(charId, skillIndex, prefabs, plays) {
 }
 
 /**
+ * 2026-10-24 (묶음 S5): effects a client template creates on the operator once as a skill starts (`start`: the key's `once`
+ * plays — an ON_BUFF_START CreateEffect of a buff the skill gives) or ends (`end`: the key's `end` plays — ON_BUFF_FINISH of
+ * the skill's buff) that no skill binding names. charId → skill index 0–2 → { start?, end? } client keys. Each lives by its
+ * prefab (fxgame.js skillEdge: a looping one stays with the operator).
+ */
+const edgeKeys = (start, end) => Object.freeze(cite([start, end].filter(Boolean), { start, end }));
+export const SKILL_EDGE = Object.freeze({
+  // 凛御银灰 S3: skchr_svash2_3 gives svash2_s_3[bird_eff], whose start sends the 战鹰 off his arm (eagle_flyToHand_01 + the
+  // eagle_sit_showAndHide_01 flash); svash2_s_3's finish sets it back on his arm (eagle_sit_01, a loop held by him)
+  char_1045_svash2: Object.freeze({ 2: edgeKeys('svash2_s_3[bird_eff]', 'svash2_s_3') }),
+});
+
+/** The SKILL_EDGE prefabs of `charId`'s skill `skillIndex` at its `edge` ('start' | 'end') that are extracted, from `plays`. */
+export function skillEdge(charId, skillIndex, edge, prefabs, plays) {
+  const k = charId ? SKILL_EDGE[charId]?.[skillIndex]?.[edge] : null;
+  return ((k && plays?.keys?.[k]?.[edge === 'start' ? 'once' : 'end']) || []).filter((n) => !prefabs || prefabs.includes(n));
+}
+
+/**
  * 2026-10-16, official client `Unit.AttachCommonAbilities`: the always-on effects of an operator — the buffs its
  * prefab root's common abilities put on it for good (modes.json `common`, char_modes.py: 新约能天使's wings and halo,
- * 引星棘刺's weapon glow) and its always-on talents (TALENT_ALWAYS, by `charId`, from `plays`) — that are extracted, minus
- * `kitOwned` (prefabs a kit event draws instead).
+ * 引星棘刺's weapon glow) and its always-on talents (TALENT_ALWAYS, by `charId`, from `plays`; its `born` prefabs too) —
+ * that are extracted, minus `kitOwned` (prefabs a kit event draws instead).
  */
 export function commonEffects(bind, prefabs, kitOwned = null, charId = null, plays = null) {
   const talent = charId && TALENT_ALWAYS[charId];
-  const list = [...(Array.isArray(bind?.common) ? bind.common : []), ...((talent && plays?.keys?.[talent.tpl]?.held) || [])];
+  const list = [...(Array.isArray(bind?.common) ? bind.common : []), ...((talent && plays?.keys?.[talent.tpl]?.held) || []), ...(talent?.born || [])];
   return list.filter((n) => typeof n === 'string' && (!prefabs || prefabs.includes(n)) && !kitOwned?.has(n));
 }
 

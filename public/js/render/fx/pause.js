@@ -3,8 +3,9 @@
 // render/units.js keeps it (its flags, statuses, facing, sim animation and Spine clip). The extract carries them per node
 // (tools/local-extract/fx_extract.py pause_scripts: `pauseIf`, `pauseAnim`, `pauseIdle`, `pauseSpine`, `finishIf`;
 // `pauseOther` is played by render/fxgame.js stepPauses, which applies all of them).
-// A term the view cannot answer (an immunity, a buff of the client's templates, a mode index, a blackboard key) is left
-// out as the client leaves out an unchecked one [ASSUMED: the conditions the remake cannot see are not met].
+// A term the view cannot answer (an immunity, a buff of the client's templates outside SKILL_BUFFS, a mode index, a
+// blackboard key) is left out as the client leaves out an unchecked one [ASSUMED: the conditions the remake cannot see are
+// not met].
 
 import { UF, ANIM } from '../../../../shared/constants.js';
 import { UF_CAMOU } from '../../../../shared/local.js';
@@ -37,12 +38,27 @@ const COMBOS = Object.freeze({ SLEEPING: (v) => !!((v.flags | 0) & UF.SLEEP) });
 /** The owner faces back: its Back model is drawn (UnitView.entryBack; before the model loads, a deploy facing UP). */
 export const facesBack = (v) => !!(v && (v.entryBack ?? v.dir === 'UP'));
 
+/**
+ * 2026-10-24 (묶음 S5): client buffs a skill gives its operator for its run, which a `buff` term names: key → skill index
+ * (0–2). The view holds one while that skill runs (render/fxgame.js `_fxSkillOn`, its selected skill `info.skillIndex`).
+ * 凛御银灰's 战鹰 on his arm (svash2_eagle_sit_*) hides through his S3: skchr_svash2_3's `_buffs` svash2_s_3[bird_eff]
+ * [추정: INFINITY, it ends with the skill — the eagle_sit_01 the skill's end creates would stay hidden otherwise].
+ */
+const SKILL_BUFFS = Object.freeze({ 'svash2_s_3[bird_eff]': 2 });
+const holdsSkillBuff = (v, keys) => {
+  const ks = keys.filter((k) => k in SKILL_BUFFS);
+  if (!ks.length) return null;
+  const i = Number.isInteger(v.info?.skillIndex) ? v.info.skillIndex : 0;
+  return !!v._fxSkillOn && ks.some((k) => SKILL_BUFFS[k] === i);
+};
+
 /** One `pauseIf` term on `v`: true / false, or null when the view cannot tell. */
 export function pauseTerm(t, v) {
   let on = null;
   if (t.flag != null) on = FLAGS[t.flag]?.(v) ?? null;
   else if (t.combo != null) on = COMBOS[t.combo]?.(v) ?? null;
   else if (t.back) on = facesBack(v);
+  else if (Array.isArray(t.buff)) on = holdsSkillBuff(v, t.buff);
   if (on == null) return null;
   return t.not ? !on : on;
 }

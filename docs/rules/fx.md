@@ -1814,6 +1814,21 @@
     (표시는 그대로, `pass`); 준비 빛 `[enable]`은 재사용 대기 타이머가 없어 안 그림.
   - 확인: 단위 `common-ability-fx`·`kit-event-fx`·`status-buff-fx`, `fx-bindings` `UNPLAYED`에서 10줄 지움(`KNOWN`에 蕾缪安 선 수명 하나). 이펙트 이벤트
     골든 +24 −11(위 오퍼레이터들의 줄만), 시뮬 골든 그대로. [화면 미확인: 위 전부 — 자리·모양 공식 녹화 대조]
+- 연결 전수 나머지 셋째 묶음(2026-10-24, 凛御银灰 S3의 战鹰 — 렌더가 아는 순간: 배치·스킬 시작·스킬 끝):
+  - 배치: T1 `svash2_t_1` ON_OWNER_BORN이 그의 팔 위 战鹰 `svash2_eagle_sit_birth_01`을 만든다(`!FilterIsDummy` — 전투 유닛은 더미가 아님). 프리팹은
+    `_maxLifetime` −1·`_holdByOwner`·루프라 그가 떠날 때까지 남는다 → `TALENT_ALWAYS`의 `born`(행 역할이 아니라 이름으로; `fxgame.js` alwaysOn).
+    끝날 때 OnFinishEmitter `svash2_eagle_fly_showAndHide_01`.
+  - S3 동안 숨음: 이 프리팹의 PauseEffectIf가 그가 `svash2_s_3[bird_eff]`(skchr_svash2_3의 `_buffs`)를 가진 동안 멈춘다 → `fx/pause.js SKILL_BUFFS`가
+    이 버프 항을 「그 스킬(S3)이 도는 동안」으로 답한다. [추정: INFINITY인 이 버프가 스킬과 함께 끝남 — 아니면 스킬 끝의 `eagle_sit_01`도 숨은 채]
+  - S3 시작: `[bird_eff]` ON_BUFF_START `svash2_eagle_flyToHand_01` + `svash2_eagle_sit_showAndHide_01`(번쩍임) → 새 표 `fxmap.js SKILL_EDGE`
+    `start`(키의 `once` → activation의 start). `flyToHand_01`의 Svash2FlyToPredefinedTokenCard는 风雪之眼 배치 카드로 날아가는데 이 HUD엔 그 카드가
+    없어 제자리에서 0.5 s 뒤 끝난다(`fxgame.js` startFly — 이제 `spawn`이 `fly`가 있는 프리팹을 모두 날림, 전엔 RandomEmitter 사본만).
+  - S3 끝: `svash2_s_3` ON_BUFF_FINISH `svash2_eagle_sit_01`(다시 팔 위, 같은 루프·같은 PauseEffectIf, OnPlayEmitter 번쩍임) → `SKILL_EDGE` `end`
+    (`fxgame.js` skillEnd: 상시 이펙트처럼 `common` pinned — 재배치·`die`가 끝냄). 배치 때의 것과 둘 다 남는 것도 공식대로(같은 그림이 같은 자리).
+  - 도달 안 함: 다른 오퍼 위 战鹰(`svash2_s_3[target_bird_onuse]` `svash2_eagle_fly_01`, BirdAttack_Ally `projectile_chr_svash2_s3_bird` 좌우 꼬리) —
+    风雪之眼를 동료 카드에 배치할 때만인데 자동 전투에선 아무도 배치하지 않는다(시뮬 키트 「not modelled」). `UNPLAYED`에 이유 주석으로 남김.
+  - 확인: 단위 `common-ability-fx`·`fx-pause`, `fx-bindings` `UNPLAYED` 4줄 지움. 이펙트 이벤트 골든 凛御银灰 16 시나리오만, 시뮬 골든 그대로(시뮬 안 고침).
+    [화면 미확인: 팔 위 자리·S3 동안 숨음·끝의 번쩍임 — 공식 녹화 대조]
 
 ### 연쇄 공격 — 체인 캐스터·체인 메딕의 튕김 선과 타격 (2026-10-16, 관리자 요청 「일반 공격 연쇄를 공식 클라 데이터와 대조」)
 

@@ -14,7 +14,7 @@ import { buildPlays, PLAYS_FILE } from '../../tools/build-fx-plays.mjs';
 import { KIT_OFFICIAL } from '../../public/js/render/fx/kitofficial.js';
 import { KEY_FX, SOURCE_FX, LAYER_FX, STACK_FX, END_FX, STATUS_FX } from '../../public/js/render/fxstatus.js';
 import { PLAYS as FIXED } from '../helpers/fxPlays.js';
-import { TALENT_ALWAYS, SKILL_HELD, NOTE_FX } from '../../public/js/render/fxmap.js';
+import { TALENT_ALWAYS, SKILL_HELD, SKILL_EDGE, NOTE_FX } from '../../public/js/render/fxmap.js';
 
 const T = loadTables();
 const LOCAL = !!T.local;
@@ -154,11 +154,8 @@ const UNPLAYED = {
   'skadi2_s_1[protect]|skadi2_skill_01_hit_02': 'unconditional',
   'snhunt_t[effect]|snhunt_talent_01_hit_02': 'condOther',
   'snhunt_t[effect]|snhunt_talent_01_hit': 'condOther',
+  // not reached (2026-10-24, 묶음 S5): the 战鹰 on another operator — 风雪之眼 deployed onto its card, which no one does in the auto battle
   'svash2_s_3[target_bird_onuse]|svash2_eagle_fly_01': 'unconditional',
-  'svash2_s_3[bird_eff]|svash2_eagle_flyToHand_01': 'unconditional',
-  'svash2_s_3|svash2_eagle_sit_01': 'unconditional',
-  'svash2_t_1|svash2_eagle_sit_birth_01': 'condOther',
-  'svash2_s_3[bird_eff]|svash2_eagle_sit_showAndHide_01': 'emitted',
   'swire2_t_2[heal]|swire2_buff_02_start': 'condOther',
   'thorn2_s2_damage|thorn2_skill_hit': 'unconditional',
   'thorn2_s3_enemy_buff|thorn2_skill_hit': 'unconditional',
@@ -192,7 +189,7 @@ test('every hand-table entry cites the client key it stands for', () => {
   for (const [name, t] of Object.entries({ KEY_FX, LAYER_FX, STACK_FX, END_FX, TALENT_ALWAYS, NOTE_FX })) {
     for (const [k, v] of Object.entries(t)) if (!v.src) none.push(`${name} ${k}`);
   }
-  for (const [k, by] of Object.entries(SKILL_HELD)) for (const [i, v] of Object.entries(by)) if (!v.src) none.push(`SKILL_HELD ${k}.${i}`);
+  for (const [name, t] of Object.entries({ SKILL_HELD, SKILL_EDGE })) for (const [k, by] of Object.entries(t)) for (const [i, v] of Object.entries(by)) if (!v.src) none.push(`${name} ${k}.${i}`);
   for (const [k, per] of Object.entries(SOURCE_FX)) {
     for (const [b, v] of Object.entries(per)) if (!v.src && !Object.values(v).every((x) => x.src)) none.push(`SOURCE_FX ${k}.${b}`);
   }
@@ -246,8 +243,11 @@ test('a keyed status spec, an always-on talent and a note name a key they cite, 
     else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) walk(x, x?.src || src, `${at}.${k}`);
   };
   for (const [name, t] of Object.entries({ STATUS_FX, SOURCE_FX, KEY_FX, STACK_FX })) walk(t, null, name);
-  for (const [id, t] of Object.entries(TALENT_ALWAYS)) keys.push([`TALENT_ALWAYS.${id}`, t.tpl, t.src]);
+  // (a talent with `born` prefabs only — 凛御银灰's ON_OWNER_BORN 战鹰 — has no plays of its key: the born row is no role)
+  for (const [id, t] of Object.entries(TALENT_ALWAYS)) if (!t.born) keys.push([`TALENT_ALWAYS.${id}`, t.tpl, t.src]);
+  for (const [id, t] of Object.entries(TALENT_ALWAYS)) if (t.born) assert.ok(t.src?.includes(t.tpl), `TALENT_ALWAYS.${id}: ${t.tpl} is not one of its cited keys`);
   for (const [id, by] of Object.entries(SKILL_HELD)) for (const [i, t] of Object.entries(by)) keys.push([`SKILL_HELD.${id}.${i}`, t.tpl, t.src]);
+  for (const [id, by] of Object.entries(SKILL_EDGE)) for (const [i, t] of Object.entries(by)) for (const k of [t.start, t.end].filter(Boolean)) keys.push([`SKILL_EDGE.${id}.${i}`, k, t.src]);
   for (const [m, n] of Object.entries(NOTE_FX)) for (const k of n.shots) keys.push([`NOTE_FX.${m}`, k, n.src]);
   assert.ok(keys.length >= 30);
   for (const [at, k, src] of keys) {

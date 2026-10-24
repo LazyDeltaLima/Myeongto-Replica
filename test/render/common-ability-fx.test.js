@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { commonEffects, TALENT_ALWAYS, skillHeld } from '../../public/js/render/fxmap.js';
+import { commonEffects, TALENT_ALWAYS, skillHeld, skillEdge } from '../../public/js/render/fxmap.js';
 import { PLAYS } from '../helpers/fxPlays.js';
 import { keyPlays } from '../helpers/fxBindings.js';
 import { liveOverCap } from '../../public/js/render/fxgame.js';
@@ -61,6 +61,22 @@ test('协律 T1 and the skills\' own template buffs (SKILL_HELD) by client key (
   assert.deepEqual(skillHeld('char_1050_chen3', 1, null, null), [], 'without the plays: none');
   // the activation's loops take them (fxgame.js activation)
   assert.match(SRC, /skillHeld\(v\?\.info\?\.spine \|\| v\?\.info\?\.defId, skillIdx\(v\), b\.prefabs, plays\)/);
+});
+
+test('凛御银灰\'s 战鹰: on his arm from deploy (TALENT_ALWAYS `born`), off it at S3\'s start, back at its end (SKILL_EDGE) (2026-10-24, 묶음 S5)', () => {
+  const plays = keyPlays();   // template rows
+  assert.deepEqual(commonEffects(null, null, null, 'char_1045_svash2', plays), ['svash2_eagle_sit_birth_01']);
+  assert.deepEqual(commonEffects(null, ['svash2_birth_01'], null, 'char_1045_svash2', plays), [], 'not extracted');
+  assert.deepEqual(skillEdge('char_1045_svash2', 2, 'start', null, plays), ['svash2_eagle_flyToHand_01', 'svash2_eagle_sit_showAndHide_01']);
+  assert.deepEqual(skillEdge('char_1045_svash2', 2, 'end', null, plays), ['svash2_eagle_sit_01']);
+  assert.deepEqual(skillEdge('char_1045_svash2', 1, 'start', null, plays), []);
+  assert.deepEqual(skillEdge('char_1045_svash2', 2, 'end', null, null), [], 'without the plays: none');
+  // the activation's start takes the start ones; the skill's end plays the end ones as pinned non-buff entries (stopBuffs
+  // leaves them, a redeploy's alwaysOn and the 'die' end them); a FlyToPredefinedLocation prefab flies from spawn too
+  assert.match(SRC, /skillEdge\(v\?\.info\?\.spine \|\| v\?\.info\?\.defId, skillIdx\(v\), 'start', b\.prefabs, plays\)/);
+  assert.match(SRC, /stopBuffs\(v\.id \?\? v\.info\.id, true\); skillEnd\(v\);/);
+  assert.match(SRC, /function skillEnd\(v\)[\s\S]{0,600}tag: 'common', pinned: true/);
+  assert.match(SRC, /if \(l && def\.fly\) startFly\(l\);/);
 });
 
 test('liveOverCap never ends a pinned entry and does not count it', () => {
