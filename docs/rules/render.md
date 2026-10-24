@@ -180,6 +180,9 @@
     고리가 신발 높이다. → `fxgame.js followed`의 발 갈래가 몸과 같은 오프셋(`faceDX`·`modelDY`·`modelDZ`)을 더함(이륙·비행 갈래 포함; 적도
     2026-10-24부터 같은 오프셋이라 이 갈래로 따라감 — 다음 절). 확인: `test/render/model-place.test.js`, Windows Chrome 디버그 아레나 '위' S3 「지금 발동」
     전·후(전: 구체 밑으로 발이 나옴, 후: 발까지 감쌈).
+    상태 이펙트(`fxstatus.js`)의 높이 0 항목도 프리팹이 FOOT(1)이면 같은 갈래를 탄다(2026-10-24, 관리자 제보): `playStatus`가 0을 유닛 점에 두어
+    머드락(泥岩) 재능 층 `mudrok_buff_0N_start`가 '위'와 똑같이 떠 보였다. 같은 경로였던 것: 니어 더 래디언트 나이트 S2 층, 엑시아 더 뉴 커버넌트·
+    실버애쉬 더 레인프로스트 배리어, 아군 은신, 둔화·냉동 같은 공용 상태(오퍼레이터에 걸릴 때). 바닥 프리팹(5, `common_levitate_01`)은 유닛 점 그대로.
   - 그대로 둔 것: 툴팁 사각형(`bounds`), 바둑돌 이펙트의 공 올림(`STONE_BALL` — 땅 점으로 둘지는 화면 비교 뒤).
 - 확인: `test/render/model-place.test.js`(표준값·−30° 변환·`Graphic` 올림, 표 항목·키 순서·그림자 없음, 오퍼레이터·토큰 몸·그림자 자리, HUD는 유닛 점,
   표가 늦게 와도 다시 읽음, `bodyZ`가 모델을 따라감), `feedback3-shot-height`·`model-shift`. Windows Chrome 디버그 아레나: 薄绿(char_388_mint) 몸 0.068칸 왼쪽·

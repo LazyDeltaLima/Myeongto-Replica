@@ -70,7 +70,7 @@ test('FollowTileHeight: the frame loop moves the effect\'s height toward its til
 test('placement: a buff\'s effect is held by its unit; an unheld cast / hit is put once where it was made', () => {
   assert.match(SRC, /return !v \|\| !v\.info \|\| !at \|\| at\.placed \|\| def\?\.mount \|\| buff \|\| def\?\.face\?\.hold \? at : placedOnce\(v, at\);/);
   assert.match(SRC, /const anchor = lifted\(ground, def, buff\);/);
-  assert.match(SRC, /const anchor = frac === 'own' \? lifted\(view, def, true\) :/);
+  assert.match(SRC, /const anchor = frac === 'own' \|\| \(frac === 0 && def\.spawn === 1\) \? lifted\(view, def, true\) :/);
   assert.match(SRC, /if \(!drop\) at = lifted\(at, def, !!entry\.buff\);/);
 });
 

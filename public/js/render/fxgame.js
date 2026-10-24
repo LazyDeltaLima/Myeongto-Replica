@@ -1335,8 +1335,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // local patch (maintainer report 2026-10-08: the stun marks stacked over a re-stunned enemy): one effect per unit and
     // status — a status turned off and on again while its file loaded started a second load; the first one lands here too
     if (live.some((l) => l.status === key && l.unit === view && !l.inst.stopping && !l.inst.done)) return;
-    // 2026-10-16: `frac` 'own' (fxstatus.js OWN) — at the prefab's own `_spawnLocation`, special points included, as a kit's play
-    const anchor = frac === 'own' ? lifted(view, def, true) : {
+    // 2026-10-16: `frac` 'own' (fxstatus.js OWN) — at the prefab's own `_spawnLocation`, special points included, as a kit's play.
+    // 2026-10-24: a feet spec (0) of a FOOT prefab (_spawnLocation 1) too — the client's footTransform, the model its prefab
+    // lowers (followed): 泥岩's T1 layers, mudrok_buff_0N_start, hung above her feet as 余 S3's buff had (maintainer report)
+    const anchor = frac === 'own' || (frac === 0 && def.spawn === 1) ? lifted(view, def, true) : {
       get x() { return view.x; }, get y() { return view.y; },
       get z() { return frac > 0 && camRef ? bodyZ(camRef, view, frac) : (view.z || 0) + (view.hover || 0); },
       get alive() { return view.alive; }, get remove() { return view.remove; },

@@ -188,3 +188,8 @@ test('a foot effect (_spawnLocation 1) stands with the model: the client\'s foot
   const o = modelOffset(STANDARD_PLACE.face);
   assert.ok(Math.abs(u.modelDY - o.dy) < 1e-9 && Math.abs(u.modelDZ - o.dz) < 1e-9, 'the foot offset = the body offset');
 });
+
+test('a status effect\'s feet spec (0) of a FOOT prefab takes the same foot point (泥岩 T1 layers, maintainer report 2026-10-24)', () => {
+  // playStatus's own anchor (the unit's point) is for the body / head shares and the ground prefabs (common_levitate_01, spawn 5)
+  assert.match(FXGAME, /const anchor = frac === 'own' \|\| \(frac === 0 && def\.spawn === 1\) \? lifted\(view, def, true\) :/);
+});
