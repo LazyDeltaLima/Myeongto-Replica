@@ -31,7 +31,7 @@ test('the settings rows sit in tabs by function, in this order, the panel of the
   assert.match(js, /function SetPanel\(\{ id, children \}\) \{/);
   assert.match(js, /let lastTab = 'general';/, 'the modal reopens on the tab left last');
   const css = read('public/css/screens/game.css');
-  assert.match(css, /\.set-sec \{ display: flex; flex-direction: column; gap: \.16rem; min-height: min\(5\.2rem, 50vh\); \}/);
+  assert.match(css, /\.set-sec \{ display: flex; flex-direction: column; gap: \.16rem; \}/, 'no floor height: the dialog follows the panel shown');
 });
 
 test('the tab titles are translated in every pack that carries the settings', () => {

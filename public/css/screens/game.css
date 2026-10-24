@@ -526,12 +526,11 @@
 .settings-btn .btn__icon { color: var(--mint-500); }
 .set-list { display: flex; flex-direction: column; gap: .16rem; padding-top: .06rem; }
 /* the tabs of the modal (ui/settings.js SETTINGS_TABS: 通用 / 声音 / 聊天提示 / 画面 / 快捷键 / 问题反馈), one panel shown under
-   them; a panel keeps the floor height of the longest one (画面) so the dialog does not jump between tabs, capped on a short
-   screen where the body scrolls anyway; a long language wraps the row of tabs (no sideways scroll: it would clip the
-   focus ring the dialog puts on the first tab) */
+   them; the dialog takes the height of the panel shown (maintainer request 2026-10-24); a long language wraps the row of
+   tabs (no sideways scroll: it would clip the focus ring the dialog puts on the first tab) */
 .set-tabs { flex: none; flex-wrap: wrap; }
 .set-tabs .tabs__tab { white-space: nowrap; }
-.set-sec { display: flex; flex-direction: column; gap: .16rem; min-height: min(5.2rem, 50vh); }
+.set-sec { display: flex; flex-direction: column; gap: .16rem; }
 .set-sec > .set-keys, .set-sec > .set-diag { padding-top: 0; border-top: 0; }
 .set-row { display: grid; grid-template-columns: 3.3rem 1fr auto; align-items: center; gap: .18rem; min-height: .44rem; }
 .set-row__label { display: flex; align-items: center; gap: .1rem; font-size: .18rem; color: var(--text-hi); white-space: nowrap; }
