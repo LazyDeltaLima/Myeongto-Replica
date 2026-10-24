@@ -184,20 +184,20 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     assert.ok(s.funds < funds0, 'bought');
     assert.equal(s.hand.filter((x) => !x).length, empty0 - 1);
     const f1 = s.funds;
-    await page.keyboard.press('KeyR');
+    await page.keyboard.press('KeyD');
     await sleep(300);
     s = await mockState(page);
-    assert.equal(s.funds, f1 - 1, 'R refreshes');
-    await page.keyboard.press('KeyF');
+    assert.equal(s.funds, f1 - 1, 'D refreshes');
+    await page.keyboard.press('KeyS');
     await sleep(300);
-    assert.equal((await mockState(page)).shop.frozen, true, 'F freezes');
+    assert.equal((await mockState(page)).shop.frozen, true, 'S freezes');
     await page.evaluate(() => globalThis.__MOCK__.mutate((S) => { S.priv.funds = 40; }));
     await sleep(100);
     const lv = (await mockState(page)).shop.level;
-    await page.keyboard.press('KeyD');
+    await page.keyboard.press('KeyG');
     await sleep(300);
-    assert.equal((await mockState(page)).shop.level, lv + 1, 'D levels up');
-    await page.keyboard.press('Space');
+    assert.equal((await mockState(page)).shop.level, lv + 1, 'G levels up');
+    await page.keyboard.press('KeyC');
     await sleep(300);
     // funds are left, so 准备 asks first (剩余资金). Confirm, then the seat is ready.
     if (await page.$('.modal__title')) {
@@ -205,12 +205,12 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
       if (title.includes('剩余资金')) await page.click('.modal__actions .btn--primary');
       await sleep(300);
     }
-    assert.equal((await mockState(page)).ready, true, 'Space readies');
+    assert.equal((await mockState(page)).ready, true, 'C readies');
     assert.ok(await page.$('.readybtn.is-on'));
-    await page.keyboard.press('KeyR');
+    await page.keyboard.press('KeyD');
     await sleep(200);
     assert.equal((await mockState(page)).shop.frozen, true, 'no actions while ready');
-    await page.keyboard.press('Space');
+    await page.keyboard.press('KeyC');
     await sleep(300);
     assert.equal((await mockState(page)).ready, false);
     // detail + Esc: the first tap on a card opens its detail (there is no ⓘ corner — user playtest #6 item 10)
@@ -232,7 +232,7 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
       await page.click('.shopbar .lvcard');
       await page.waitForFunction(() => document.querySelector('.lvcard').getAttribute('aria-pressed') === 'true');
       assert.equal((await mockState(page)).funds, before.funds, 'selecting does not charge');
-      await page.keyboard.press('KeyD');
+      await page.keyboard.press('KeyG');
       await page.waitForFunction((lv) => globalThis.__MOCK__.S().priv.shop.level === lv + 1, {}, before.shop.level);
       const upgraded = await mockState(page);
       assert.equal(upgraded.funds, before.funds - before.shop.upgradePrice);
@@ -244,9 +244,9 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
       assert.equal((await mockState(page)).funds, upgraded.funds, 'the next click does not charge');
       await page.keyboard.press('Escape');
       await page.waitForFunction(() => document.querySelector('.lvcard').getAttribute('aria-pressed') === 'false');
-      await page.keyboard.press('KeyD');
+      await page.keyboard.press('KeyG');
       await page.waitForFunction((lv) => globalThis.__MOCK__.S().priv.shop.level === lv + 1, {}, upgraded.shop.level);
-      assert.equal((await mockState(page)).funds, upgraded.funds - upgraded.shop.upgradePrice, 'D still upgrades directly');
+      assert.equal((await mockState(page)).funds, upgraded.funds - upgraded.shop.upgradePrice, 'G still upgrades directly');
       // Optional art / audio may be absent; this state regression needs no asset pack.
       assert.deepEqual(problems.filter((p) => p.startsWith('pageerror:')), []);
     } finally { await page.close(); }
@@ -259,7 +259,7 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
       const before = await mockState(page);
       await page.click('.shopbar .lvcard');
       await page.waitForFunction(() => document.querySelector('.lvcard').getAttribute('aria-pressed') === 'true');
-      await page.keyboard.press('KeyF');
+      await page.keyboard.press('KeyS');
       await page.waitForFunction(() => globalThis.__MOCK__.S().priv.shop.frozen);
       assert.equal(await page.$eval('.lvcard', (el) => el.getAttribute('aria-pressed')), 'true', 'an unrelated shop update keeps the selection');
       await page.click('.shopbar .lvcard');
@@ -284,7 +284,7 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
       await page.click('.shopbar__cards .scard:not(.scard--sold)');
       await page.waitForSelector('.shopbar__cards .scard.is-armed');
       const selected = await page.$eval('.shopbar__cards .scard.is-armed', (el) => el.getAttribute('aria-label'));
-      await page.keyboard.press('KeyD');
+      await page.keyboard.press('KeyG');
       await page.waitForFunction((lv) => globalThis.__MOCK__.S().priv.shop.level === lv + 1, {}, before.shop.level);
       assert.equal(await page.$eval('.shopbar__cards .scard.is-armed', (el) => el.getAttribute('aria-label')), selected);
       assert.equal(await page.$eval('.lvcard', (el) => el.getAttribute('aria-pressed')), 'false');
@@ -972,13 +972,13 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     const before = await mockState(page);
     await page.click('.gtop__iconbtn[aria-label="本局信息"]');
     await page.waitForSelector('.edrawer');
-    for (const k of ['KeyR', 'KeyF', 'KeyD', 'Space']) { await page.keyboard.press(k); await sleep(150); }
+    for (const k of ['KeyD', 'KeyS', 'KeyG', 'KeyC']) { await page.keyboard.press(k); await sleep(150); }
     const s = await mockState(page);
     assert.deepEqual([s.funds, s.shop.frozen, s.shop.level, s.ready], [before.funds, before.shop.frozen, before.shop.level, before.ready], 'nothing acted behind the drawer');
     await page.keyboard.press('Escape');
     await sleep(200);
     assert.equal(await page.$('.edrawer'), null, 'Esc closes the drawer');
-    await page.keyboard.press('KeyF');
+    await page.keyboard.press('KeyS');
     await sleep(300);
     assert.equal((await mockState(page)).shop.frozen, !before.shop.frozen, 'the shortcuts work again');
     assert.deepEqual(problems, []);

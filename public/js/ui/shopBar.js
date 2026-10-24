@@ -391,7 +391,7 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
   if (collapsed) {
     return html`<div class="shopbar-tab" ref=${barRef}>
       <div class="shopbar-tab__funds"><${CoinGlyph} /><b class="num">${funds}</b></div>
-      <button type="button" class="shopbar-tab__btn" onClick=${() => onCollapse(false)}><${Icon} name="chevronLeft" />${t('展开商店')}</button>
+      <button type="button" class="shopbar-tab__btn" title=${`${t('展开商店')} · ${hotkeyLabelOf('shop')}`} aria-keyshortcuts=${hotkeyLabelOf('shop')} onClick=${() => onCollapse(false)}><${Icon} name="chevronLeft" />${t('展开商店')}</button>
     </div>`;
   }
 
@@ -439,7 +439,7 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
           <b class="funds__num num">${funds}</b>
         </div>
         <span class="funds__label">${t('目前资金')}</span>
-        <button type="button" class="funds__collapse" onClick=${() => onCollapse(true)}><${Icon} name="close" />${t('收起')}</button>
+        <button type="button" class="funds__collapse" title=${`${t('收起')} · ${hotkeyLabelOf('shop')}`} aria-keyshortcuts=${hotkeyLabelOf('shop')} onClick=${() => onCollapse(true)}><${Icon} name="close" />${t('收起')}</button>
       </div>
     </div>
   </section>`;

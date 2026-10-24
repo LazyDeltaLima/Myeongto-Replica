@@ -333,7 +333,7 @@ function PauseGlyph() {
  */
 export function PauseButton({ paused, busy = false, onToggle }) {
   const label = paused ? t('继续作战') : t('暂停');
-  const key = hotkeyLabelOf('ready'); // the ready key pauses a solo battle (Space unless rebound: 设置 → 快捷键)
+  const key = hotkeyLabelOf('pause'); // the pause key (Space unless rebound: 设置 → 快捷键)
   return html`<${Tooltip} text=${paused ? t('继续作战（{key}）', { key }) : t('暂停作战（{key}）', { key })} placement="bottom">
     <button type="button" class=${cx('pausebtn', 'tapx', paused && 'is-on', busy && 'is-busy')} aria-pressed=${paused ? 'true' : 'false'}
         aria-label=${label} disabled=${busy} data-testid="pause" onClick=${() => onToggle?.()}>

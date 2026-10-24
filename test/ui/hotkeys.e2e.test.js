@@ -49,8 +49,8 @@ describe('rebindable shortcuts (设置 → 快捷键)', { skip: !ENABLED && 'set
       await page.waitForSelector('.modal .set-tabs');
       await page.$eval('.set-tabs [data-tab="keys"]', (el) => el.click()); // 快捷键 is a tab of its own
       await page.waitForSelector('.modal .set-keys');
-      assert.deepEqual(await page.$$eval('.set-key[data-action]', (els) => els.map((el) => el.textContent.trim())), ['R', 'F', 'D', 'Q', 'X', 'Space', 'W'],
-        'the defaults are the keys of 0.1.4 and the official W of 查看敌人');
+      assert.deepEqual(await page.$$eval('.set-key[data-action]', (els) => els.map((el) => el.textContent.trim())), ['D', 'S', 'G', 'A', 'C', 'X', 'W', 'Q', 'Space'],
+        'the defaults are the official ones');
 
       // a swap: 撤退 onto X (出售's key) — 出售 takes the old Q, and the line under the list says so
       await page.click('.set-key[data-action="retreat"]');
@@ -136,7 +136,7 @@ describe('rebindable shortcuts (设置 → 快捷键)', { skip: !ENABLED && 'set
         return { scroll: body.scrollWidth, client: body.clientWidth, left: b.left, right: b.right, rows: rows.map((r) => [r.left, r.right, r.width]) };
       });
       assert.ok(box.scroll <= box.client, `no horizontal scroll in the dialog (${box.scroll} > ${box.client})`);
-      assert.equal(box.rows.length, 8, 'seven shortcuts and the fixed Esc');
+      assert.equal(box.rows.length, 10, 'nine shortcuts and the fixed Esc');
       for (const [l, r, w] of box.rows) assert.ok(l >= box.left - 0.5 && r <= box.right + 0.5 && w > 0, `a row inside the dialog: ${l}–${r}`);
       assert.equal(new Set(box.rows.map(([l]) => Math.round(l))).size, 1, 'one column at phone width');
       await page.$eval('.set-keys__more', (el) => el.scrollIntoView({ block: 'start' }));

@@ -739,9 +739,12 @@ describe('enemies, HUD, stats', () => {
 
 describe('keyboard & settings', () => {
   test('shortcutFor', () => {
-    assert.equal(shortcutFor({ key: 'r', code: 'KeyR' }), 'refresh');
-    assert.equal(shortcutFor({ key: 'F', code: 'KeyF' }), 'freeze');
-    assert.equal(shortcutFor({ key: 'd' }), 'levelUp');
+    assert.equal(shortcutFor({ key: 'd', code: 'KeyD' }), 'refresh');
+    assert.equal(shortcutFor({ key: 'S', code: 'KeyS' }), 'freeze');
+    assert.equal(shortcutFor({ key: 'g' }), 'levelUp');
+    assert.equal(shortcutFor({ key: 'a', code: 'KeyA' }), 'shop');
+    assert.equal(shortcutFor({ key: 'c', code: 'KeyC' }), 'ready');
+    assert.equal(shortcutFor({ key: 'w', code: 'KeyW' }), 'viewEnemy');
     assert.equal(shortcutFor({ key: 'q', code: 'KeyQ' }), 'retreat');
     assert.equal(shortcutFor({ key: 'Q' }), 'retreat');
     assert.equal(shortcutFor({ code: 'KeyX' }), 'sell');
@@ -756,16 +759,17 @@ describe('keyboard & settings', () => {
       }
       assert.equal(shortcutFor({ key, target: { isContentEditable: true } }), null);
     }
-    assert.equal(shortcutFor({ key: ' ', code: 'Space' }), 'ready');
+    assert.equal(shortcutFor({ key: ' ', code: 'Space' }), 'pause');
     assert.equal(shortcutFor({ key: 'Escape' }), 'escape');
-    assert.equal(shortcutFor({ key: 'r', ctrlKey: true }), null);
-    assert.equal(shortcutFor({ key: 'r', repeat: true }), null);
+    assert.equal(shortcutFor({ key: 'd', ctrlKey: true }), null);
+    assert.equal(shortcutFor({ key: 'd', repeat: true }), null);
     assert.equal(shortcutFor({ key: 'Escape', repeat: true }), 'escape');
-    assert.equal(shortcutFor({ key: 'r', target: { tagName: 'input' } }), null);
-    assert.equal(shortcutFor({ key: ' ', code: 'Space', target: { tagName: 'BUTTON' } }), 'ready', 'space readies even with a HUD button focused');
+    assert.equal(shortcutFor({ key: 'd', target: { tagName: 'input' } }), null);
+    assert.equal(shortcutFor({ key: ' ', code: 'Space', target: { tagName: 'BUTTON' } }), 'pause', 'space pauses even with a HUD button focused');
     assert.equal(shortcutFor({ key: ' ', code: 'Space', target: { tagName: 'TEXTAREA' } }), null);
     assert.equal(shortcutFor({ key: 'd', target: { tagName: 'DIV', isContentEditable: true } }), null);
     assert.equal(shortcutFor({ key: 'z' }), null);
+    assert.equal(shortcutFor({ key: 'r' }), null, 'R: no shortcut since the official defaults');
     assert.equal(shortcutFor(null), null);
   });
   test('sanitizeSettings', () => {

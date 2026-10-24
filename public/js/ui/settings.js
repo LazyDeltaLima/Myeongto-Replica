@@ -51,7 +51,7 @@ export const useSettings = () => useStore((s) => s, Object.is, settingsStore);
 /**
  * The label of the key a rebindable shortcut has right now ('R', 'Space' …) — the HUD's key hints (shop bar, ready /
  * pause, underframe). Read at render: the game screen re-renders when the settings dialog closes.
- * @param {'refresh'|'freeze'|'levelUp'|'retreat'|'sell'|'ready'|'viewEnemy'} action
+ * @param {'refresh'|'freeze'|'levelUp'|'shop'|'ready'|'sell'|'viewEnemy'|'retreat'|'pause'} action
  */
 export const hotkeyLabelOf = (action) => hotkeyLabel(settingsStore.get().keys?.[action]);
 
@@ -124,7 +124,7 @@ function NumberUnitsSetting() {
 }
 /** The rebindable shortcuts' names (msgids), by action. */
 const HOTKEY_NAMES = { refresh: N_('刷新商店'), freeze: N_('冻结 / 解冻商店'), levelUp: N_('升级调度中心'), retreat: N_('撤退选中干员'),
-  sell: N_('出售选中干员'), ready: N_('准备就绪 / 暂停（独立模拟）'), viewEnemy: N_('查看敌人') };
+  sell: N_('出售选中干员'), ready: N_('准备就绪'), viewEnemy: N_('查看敌人'), shop: N_('展开 / 收起商店'), pause: N_('暂停（独立模拟）') };
 
 /**
  * 快捷键: each shortcut with its key. Click its key (or Enter / Space on it) and press the new one: Esc cancels (the

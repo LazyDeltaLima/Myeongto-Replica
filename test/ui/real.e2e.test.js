@@ -372,7 +372,7 @@ class Client {
     const shop = () => this.page.evaluate(() => { const sh = globalThis.__SP__.store.get().match.private.shop; return { ids: JSON.stringify(sh.slots.map((x) => x && x.id)), free: sh.freeRefreshes }; });
     const before = await shop();
     await this.page.mouse.click(this.w / 2, this.h * 0.3); // focus the page (not a HUD button)
-    await this.page.keyboard.press('KeyR');
+    await this.page.keyboard.press('KeyD'); // 刷新
     const t0 = Date.now();
     let after = null; let now = null;
     while (Date.now() - t0 < 6000) {
@@ -556,7 +556,7 @@ describe('real server + real browsers', { skip: !ENABLED && 'set SP_REAL_E2E=1 (
             await c.deployFromHand(2);
             const s2 = await c.st();
             if (s2.temp > 0) c.note(`temp not empty (${s2.temp}) — ready blocked`);
-            if (c === guest) { await c.page.keyboard.press('Space'); await c.confirmFundsLeft(); await c.waitFor((x) => x.ready || x.phase !== 'PREP', 'ready (Space)', 8000); } else await c.ready();
+            if (c === guest) { await c.page.keyboard.press('KeyC'); await c.confirmFundsLeft(); await c.waitFor((x) => x.ready || x.phase !== 'PREP', 'ready (C)', 8000); } else await c.ready();
           }
         } else if (hs.phase === 'SP_DRAFT') {
           for (const c of both) {

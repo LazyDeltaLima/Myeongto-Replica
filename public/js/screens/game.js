@@ -18,7 +18,8 @@
 // long-press opens the detail card only. There is no drag-to-sell. The own board is drawn and checked with the
 // player's stage overrides (terrain 机变 cards: gameLogic stageOverrides / effectiveStage); in a boss round's prep the
 // legality reads the player's half of the boss field (gameLogic deployFieldOf, user playtest #5 item 7).
-// Shortcuts: R refresh, F freeze, D level-up, Space ready, Esc closes the topmost popup.
+// Shortcuts (设置 → 快捷键; the official defaults D refresh, S freeze, G level-up, A shop, C ready, X sell, W enemy pen,
+// Q retreat, Space pause), Esc closes the topmost popup.
 // The UI never mutates match state locally; it re-renders from m.public / m.private / m.field pushes.
 // Client-side combat (DESIGN §14, m.public.combatMode 'client'): battles are simulated in this browser by
 // battle/runner.js, which publishes the battle's field meta into store.match.field and feeds the view the same b.snap /
@@ -38,7 +39,7 @@
 // Equipment dropped on an operator whose two slots are used opens the equip-replace dialog (ui/equipReplace.js): the
 // player picks the equipped item to destroy → g.equip {itemUid, targetUid, replaceUid}; 取消 sends nothing. 销毁 is only
 // offered for loose items (equipped ones are locked, ui/facing.js itemDestroyable).
-// Solo battles (ui/matchStatus.js pauseAvailable): the top bar's pause button / Space send g.pause {on}; m.public.paused
+// Solo battles (ui/matchStatus.js pauseAvailable): the top bar's pause button / the pause key send g.pause {on}; m.public.paused
 // shows the paused overlay (继续作战 / 放弃模拟) and freezes the HUD clocks. Boss rounds: the top bar shows the level's
 // 120 s countdown and the red DOT overtime warning (m.public.overtimeAt).
 // User playtest #3: the own LP's −N tick grows while the own battle's enemies enter the blue gate (item 2: the runner's
@@ -420,6 +421,7 @@ function MatchScreen() {
   // 休整期 only; never while a piece is being placed (the wheel sits on a tile of the board camera)
   const penAvail = phase === PHASE.PREP && !!view && viewKind !== 'loading';
   live.current.penAvail = penAvail;
+  live.current.showShop = showShop;
   /** Pan to the enemy preview pen (on) or back to the camera in use before (off). */
   const togglePen = useCallback((on) => {
     const P = penRef.current;
@@ -1516,9 +1518,10 @@ function MatchScreen() {
         e.preventDefault();
         return;
       }
-      // the ready key (Space unless rebound) pauses / resumes a solo battle (Space: the official battle key)
-      if (act === 'ready' && (L.canPause || L.paused)) {
-        e.preventDefault();
+      // the pause key (Space unless rebound: the official pauseBattle) pauses / resumes a solo battle; nothing else
+      if (act === 'pause') {
+        e.preventDefault(); // a focused HUD button must not activate either (see shortcutFor)
+        if (!L.canPause && !L.paused) return;
         if (e.target instanceof HTMLElement && e.target.closest('button, [role="button"]')) e.target.blur();
         togglePauseRef.current(!L.paused);
         return;
@@ -1529,6 +1532,14 @@ function MatchScreen() {
         else if (L.penAvail) togglePenRef.current(true);
         else return;
         e.preventDefault();
+        return;
+      }
+      // 调度中心 (the official autochessShop): folds / unfolds the shop bar, as its 收起 / 展开商店 buttons (the pen keeps
+      // the bar folded for itself)
+      if (act === 'shop') {
+        if (!L.showShop || L.pen) return;
+        e.preventDefault();
+        setCollapsed((c) => !c);
         return;
       }
       if (L.pub?.phase !== PHASE.PREP || !L.priv) return;

@@ -1,7 +1,8 @@
 // 0.2.0 rebindable shortcuts (设置 → 快捷键; the community request 「快捷键可不可以自己设置」, the owner's decision of
 // 2026-10-07): the key map in the settings (ui/gameLogic/shortcuts.js, ui/gameLogic/settings.js sanitizeSettings) —
-// defaults = the keys of 0.1.4, sanitising and its fallback to the defaults, conflicts swapped, the one lookup every
-// handler uses, the capture of a new key — the handlers with a rebound key, and the HUD's key hints read from the map.
+// defaults = the official ones (pcKeyData, maintainer decision 2026-10-24; the old defaults never rebound move to them),
+// sanitising and its fallback to the defaults, conflicts swapped, the one lookup every handler uses, the capture of a new
+// key — the handlers with a rebound key, and the HUD's key hints read from the map.
 // Browser counterpart: test/ui/hotkeys.e2e.test.js (SP_E2E=1).
 
 import { test, describe, after } from 'node:test';
@@ -27,16 +28,19 @@ const RESERVED = ['Escape', 'Tab', 'Enter', 'NumpadEnter', 'ArrowUp', 'ArrowDown
   'ShiftLeft', 'ControlLeft', 'AltLeft', 'MetaLeft', 'CapsLock', 'Backspace', 'ContextMenu', 'IntlBackslash', '', 'keyq', 'constructor', '__proto__'];
 
 const rebound = { ...DEFAULT_HOTKEYS, retreat: 'KeyT' };
+const OFFICIAL = { refresh: 'KeyD', freeze: 'KeyS', levelUp: 'KeyG', shop: 'KeyA', ready: 'KeyC', sell: 'KeyX', viewEnemy: 'KeyW', retreat: 'KeyQ', pause: 'Space' };
+// the defaults of 0.1.4 to 1.5.3
+const OLD = { refresh: 'KeyR', freeze: 'KeyF', levelUp: 'KeyD', retreat: 'KeyQ', sell: 'KeyX', ready: 'Space' };
 
 describe('the key map: defaults and labels', () => {
-  test('the defaults are the keys of 0.1.4 (R / F / D / Q / X / Space) and the official W of 查看敌人, in the settings order', () => {
-    assert.deepEqual([...HOTKEY_ACTIONS], ['refresh', 'freeze', 'levelUp', 'retreat', 'sell', 'ready', 'viewEnemy']);
-    assert.deepEqual({ ...DEFAULT_HOTKEYS }, { refresh: 'KeyR', freeze: 'KeyF', levelUp: 'KeyD', retreat: 'KeyQ', sell: 'KeyX', ready: 'Space', viewEnemy: 'KeyW' });
-    assert.deepEqual(HOTKEY_ACTIONS.map((a) => hotkeyLabel(DEFAULT_HOTKEYS[a])), ['R', 'F', 'D', 'Q', 'X', 'Space', 'W']);
+  test('the defaults are the official ones (D / S / G / A / C / X / W, then Q / Space), in the official order', () => {
+    assert.deepEqual([...HOTKEY_ACTIONS], ['refresh', 'freeze', 'levelUp', 'shop', 'ready', 'sell', 'viewEnemy', 'retreat', 'pause']);
+    assert.deepEqual({ ...DEFAULT_HOTKEYS }, OFFICIAL);
+    assert.deepEqual(HOTKEY_ACTIONS.map((a) => hotkeyLabel(DEFAULT_HOTKEYS[a])), ['D', 'S', 'G', 'A', 'C', 'X', 'W', 'Q', 'Space']);
     assert.ok(Object.isFrozen(DEFAULT_HOTKEYS) && Object.isFrozen(HOTKEY_ACTIONS));
     assert.equal(DEFAULT_SETTINGS.keys, DEFAULT_HOTKEYS, 'the settings default is the same map');
     assert.deepEqual(sanitizeSettings(null).keys, { ...DEFAULT_HOTKEYS });
-    assert.deepEqual(sanitizeSettings({ bgm: 0.4 }).keys, { ...DEFAULT_HOTKEYS }, 'a profile saved before 0.2.0 (no keys) keeps the old keys');
+    assert.deepEqual(sanitizeSettings({ bgm: 0.4 }).keys, { ...DEFAULT_HOTKEYS }, 'a profile saved before 0.2.0 (no keys) gets the defaults');
     assert.equal(isDefaultHotkeys(DEFAULT_HOTKEYS), true);
     assert.equal(isDefaultHotkeys(rebound), false);
   });
@@ -59,7 +63,7 @@ describe('the key map: defaults and labels', () => {
 
 describe('the key map: sanitising (the settings store, localStorage sp.pref.settings)', () => {
   test('a valid map is kept as saved; it survives the JSON round trip of the store', () => {
-    const mine = { refresh: 'KeyG', freeze: 'Digit2', levelUp: 'Comma', retreat: 'KeyT', sell: 'Delete', ready: 'KeyE', viewEnemy: 'KeyV' };
+    const mine = { refresh: 'KeyG', freeze: 'Digit2', levelUp: 'Comma', shop: 'KeyB', ready: 'KeyE', sell: 'Delete', viewEnemy: 'KeyV', retreat: 'KeyT', pause: 'KeyP' };
     assert.deepEqual(sanitizeHotkeys(mine), mine);
     const saved = JSON.parse(JSON.stringify(sanitizeSettings({ bgm: 0.3, keys: mine })));
     assert.deepEqual(sanitizeSettings(saved).keys, mine);
@@ -79,19 +83,25 @@ describe('the key map: sanitising (the settings store, localStorage sp.pref.sett
     for (const raw of [null, undefined, 'KeyQ', 7, true, [], ['KeyW'], () => 'KeyQ']) assert.deepEqual(sanitizeHotkeys(raw), { ...DEFAULT_HOTKEYS }, String(raw));
     assert.deepEqual(sanitizeHotkeys({ ...DEFAULT_HOTKEYS, sell: 'KeyQ' }), { ...DEFAULT_HOTKEYS }, 'retreat and sell on Q');
     // an invalid entry whose default another action now holds is a conflict too
-    assert.deepEqual(sanitizeHotkeys({ refresh: 'KeyF', freeze: 'nonsense' }), { ...DEFAULT_HOTKEYS });
-    assert.deepEqual(sanitizeSettings({ quality: 'low', keys: { ready: 'KeyR' } }).keys, { ...DEFAULT_HOTKEYS });
-    assert.equal(sanitizeSettings({ quality: 'low', keys: { ready: 'KeyR' } }).quality, 'low', 'the other settings are kept');
+    assert.deepEqual(sanitizeHotkeys({ refresh: 'KeyS', freeze: 'nonsense' }), { ...DEFAULT_HOTKEYS });
+    assert.deepEqual(sanitizeSettings({ quality: 'low', keys: { ready: 'KeyD' } }).keys, { ...DEFAULT_HOTKEYS });
+    assert.equal(sanitizeSettings({ quality: 'low', keys: { ready: 'KeyD' } }).quality, 'low', 'the other settings are kept');
   });
 });
 
-describe('the key map: an action added later (查看敌人)', () => {
-  test('a map saved before it gets W, or the first free key when the player gave W to another action', () => {
-    const old = { refresh: 'KeyR', freeze: 'KeyF', levelUp: 'KeyD', retreat: 'KeyQ', sell: 'KeyX', ready: 'Space' };
-    assert.deepEqual(sanitizeHotkeys(old), { ...DEFAULT_HOTKEYS });
-    assert.deepEqual(sanitizeHotkeys({ ...old, retreat: 'KeyW' }), { ...old, retreat: 'KeyW', viewEnemy: 'KeyA' }, 'the player\'s map is kept');
-    assert.deepEqual(sanitizeHotkeys({ ...old, retreat: 'KeyW', sell: 'KeyA' }), { ...old, retreat: 'KeyW', sell: 'KeyA', viewEnemy: 'KeyB' });
-    assert.deepEqual(sanitizeHotkeys({ retreat: 'KeyW' }), { ...DEFAULT_HOTKEYS, retreat: 'KeyW', viewEnemy: 'KeyA' });
+describe('the key map: saved before the official defaults, and the actions added later (查看敌人, 调度中心, 暂停)', () => {
+  test('the old defaults, never rebound, become the official ones (also with the W of 查看敌人 saved)', () => {
+    assert.deepEqual(sanitizeHotkeys(OLD), OFFICIAL);
+    assert.deepEqual(sanitizeHotkeys({ ...OLD, viewEnemy: 'KeyW' }), OFFICIAL);
+    assert.deepEqual(sanitizeSettings({ bgm: 0.5, keys: OLD }).keys, OFFICIAL);
+  });
+
+  test('a rebound map is kept; each added action takes its default, or the first free key when the player holds it', () => {
+    assert.deepEqual(sanitizeHotkeys({ ...OLD, retreat: 'KeyT' }), { ...OLD, retreat: 'KeyT', viewEnemy: 'KeyW', shop: 'KeyA', pause: 'KeyB' },
+      'Space is the player\'s ready key: 暂停 takes B');
+    assert.deepEqual(sanitizeHotkeys({ ...OLD, retreat: 'KeyW' }), { ...OLD, retreat: 'KeyW', viewEnemy: 'KeyB', shop: 'KeyA', pause: 'KeyC' });
+    assert.deepEqual(sanitizeHotkeys({ ...OLD, ready: 'KeyE', viewEnemy: 'KeyV' }), { ...OLD, ready: 'KeyE', viewEnemy: 'KeyV', shop: 'KeyA', pause: 'Space' });
+    assert.deepEqual(sanitizeHotkeys({ retreat: 'KeyW' }), { ...DEFAULT_HOTKEYS, retreat: 'KeyW', viewEnemy: 'KeyB' });
   });
 
   test('a saved key of its own is kept; a saved key another action holds is bad data as before', () => {
@@ -107,13 +117,23 @@ describe('the key map: an action added later (查看敌人)', () => {
     assert.ok(src.indexOf("act === 'viewEnemy'") < src.indexOf("if (L.pub?.phase !== PHASE.PREP || !L.priv) return;"), 'before the prep-only shop keys');
     assert.match(read('public/js/ui/hud.js'), /text=\$\{`\$\{btn\.right\.tip\} · \$\{hotkeyLabelOf\('viewEnemy'\)\}`\}/);
   });
+
+  test('game.js: 调度中心 folds / unfolds the shop bar; the pause key alone pauses a solo battle (the ready key no more)', () => {
+    const src = read('public/js/screens/game.js');
+    assert.match(src, /live\.current\.showShop = showShop;/);
+    assert.match(src, /if \(act === 'shop'\) \{\n\s+if \(!L\.showShop \|\| L\.pen\) return;\n\s+e\.preventDefault\(\);\n\s+setCollapsed\(\(c\) => !c\);/);
+    assert.match(src, /if \(act === 'pause'\) \{[\s\S]{0,400}togglePauseRef\.current\(!L\.paused\);/);
+    assert.doesNotMatch(src, /act === 'ready' && \(L\.canPause/);
+    assert.match(read('public/js/ui/hud.js'), /const key = hotkeyLabelOf\('pause'\);/);
+    assert.equal((read('public/js/ui/shopBar.js').match(/aria-keyshortcuts=\$\{hotkeyLabelOf\('shop'\)\}/g) || []).length, 2, '收起 and 展开商店 name the key');
+  });
 });
 
 describe('the key map: rebinding and conflicts', () => {
   test('a free key just moves the action', () => {
     const r = rebindHotkey(DEFAULT_HOTKEYS, 'retreat', 'KeyT');
     assert.deepEqual(r, { keys: rebound, changed: true, swapped: null });
-    assert.deepEqual({ ...DEFAULT_HOTKEYS }, { refresh: 'KeyR', freeze: 'KeyF', levelUp: 'KeyD', retreat: 'KeyQ', sell: 'KeyX', ready: 'Space', viewEnemy: 'KeyW' }, 'the defaults are untouched');
+    assert.deepEqual({ ...DEFAULT_HOTKEYS }, OFFICIAL, 'the defaults are untouched');
   });
 
   test('a key another action holds is swapped: that action takes the old key', () => {
@@ -122,7 +142,7 @@ describe('the key map: rebinding and conflicts', () => {
     assert.equal(r.swapped, 'sell');
     assert.deepEqual(r.keys, { ...DEFAULT_HOTKEYS, retreat: 'KeyX', sell: 'KeyQ' });
     const back = rebindHotkey(r.keys, 'ready', 'KeyQ');
-    assert.deepEqual(back.keys, { ...DEFAULT_HOTKEYS, retreat: 'KeyX', sell: 'Space', ready: 'KeyQ' });
+    assert.deepEqual(back.keys, { ...DEFAULT_HOTKEYS, retreat: 'KeyX', sell: 'KeyC', ready: 'KeyQ' });
     assert.equal(back.swapped, 'sell');
   });
 
@@ -145,34 +165,21 @@ describe('the key map: rebinding and conflicts', () => {
   });
 });
 
-// the matcher of 0.1.4 (ui/gameLogic/shortcuts.js before 0.2.0): `code === 'KeyR' || key === 'r'`, in this order
-function oldShortcut(e) {
-  const code = e.code || '';
-  const key = typeof e.key === 'string' ? e.key.toLowerCase() : '';
-  if (code === 'KeyR' || key === 'r') return 'refresh';
-  if (code === 'KeyF' || key === 'f') return 'freeze';
-  if (code === 'KeyD' || key === 'd') return 'levelUp';
-  if (code === 'KeyQ' || key === 'q') return 'retreat';
-  if (code === 'KeyX' || key === 'x') return 'sell';
-  if (code === 'Space' || key === ' ') return 'ready';
-  if (code === 'KeyW' || key === 'w') return 'viewEnemy'; // added with 查看敌人 (its official default)
-  return null;
-}
-
 describe('the one lookup (actionForKey) and shortcutFor', () => {
-  test('with the defaults nothing changes: the 0.1.4 matcher (plus W) on QWERTY, AZERTY, Dvorak and Russian presses', () => {
-    const qwerty = [...LETTERS.map((c) => ({ code: c, key: c.slice(3).toLowerCase() })), ...DIGITS.map((c) => ({ code: c, key: c.slice(5) })), { code: 'Space', key: ' ' }];
-    // AZERTY: A↔Q, Z↔W, M on the ; key; Dvorak: the US positions typing Dvorak letters; Russian: Cyrillic letters by position
-    const azerty = { KeyQ: 'a', KeyA: 'q', KeyW: 'z', KeyZ: 'w', Semicolon: 'm', KeyM: ',' };
-    const dvorak = { KeyQ: "'", KeyW: ',', KeyE: '.', KeyR: 'p', KeyT: 'y', KeyY: 'f', KeyU: 'g', KeyI: 'c', KeyO: 'r', KeyP: 'l', KeyS: 'o', KeyD: 'e', KeyF: 'u', KeyG: 'i', KeyH: 'd', KeyJ: 'h', KeyK: 't', KeyL: 'n', KeyZ: ';', KeyX: 'q', KeyC: 'j', KeyV: 'k', KeyB: 'x', KeyN: 'b', KeyM: 'm' };
-    const russian = { KeyQ: 'й', KeyW: 'ц', KeyE: 'у', KeyR: 'к', KeyF: 'а', KeyD: 'в', KeyX: 'ч', KeyA: 'ф' };
-    const layout = (m) => Object.entries(m).map(([code, key]) => ({ code, key }));
-    const presses = [...qwerty, ...layout(azerty), ...layout(dvorak), ...layout(russian), { code: 'KeyR', key: 'Process' }, { code: 'KeyQ', key: 'Unidentified' },
-      { key: 'r' }, { key: 'X' }, { code: 'KeyD' }, { key: ' ' }, { code: 'Digit1', key: '!' }, { code: 'ArrowUp', key: 'ArrowUp' }, { code: 'Enter', key: 'Enter' }, {}];
-    for (const e of [...presses, ...presses.map((p) => ({ ...p, key: typeof p.key === 'string' ? p.key.toUpperCase() : p.key, shiftKey: true }))]) {
-      assert.equal(actionForKey(e), oldShortcut(e), JSON.stringify(e));
-      assert.equal(actionForKey(e, DEFAULT_HOTKEYS), oldShortcut(e));
-      assert.equal(actionForKey(e, { ...DEFAULT_HOTKEYS }), oldShortcut(e), 'a saved copy of the defaults');
+  test('the defaults on QWERTY, AZERTY, Russian and IME presses: the character typed, else the position', () => {
+    const cases = [
+      [{ code: 'KeyD', key: 'd' }, 'refresh'], [{ code: 'KeyS', key: 'S', shiftKey: true }, 'freeze'], [{ code: 'KeyG', key: 'g' }, 'levelUp'],
+      [{ code: 'KeyA', key: 'a' }, 'shop'], [{ code: 'KeyC', key: 'c' }, 'ready'], [{ code: 'KeyX', key: 'x' }, 'sell'],
+      [{ code: 'KeyW', key: 'w' }, 'viewEnemy'], [{ code: 'KeyQ', key: 'q' }, 'retreat'], [{ code: 'Space', key: ' ' }, 'pause'],
+      [{ code: 'KeyR', key: 'r' }, null], [{ code: 'KeyF', key: 'f' }, null], [{ code: 'KeyZ', key: 'z' }, null],
+      // AZERTY: A↔Q, Z↔W — the keycap wins; a keycap that is no shortcut falls back to the position
+      [{ code: 'KeyQ', key: 'a' }, 'shop'], [{ code: 'KeyA', key: 'q' }, 'retreat'], [{ code: 'KeyW', key: 'z' }, 'viewEnemy'], [{ code: 'KeyZ', key: 'w' }, 'viewEnemy'],
+      [{ code: 'KeyD', key: 'в' }, 'refresh'], [{ code: 'KeyS', key: 'Process' }, 'freeze'], [{ key: 'g' }, 'levelUp'], [{ code: 'KeyC' }, 'ready'],
+      [{ code: 'Digit1', key: '!' }, null], [{ code: 'ArrowUp', key: 'ArrowUp' }, null], [{ code: 'Enter', key: 'Enter' }, null], [{}, null],
+    ];
+    for (const [e, want] of cases) {
+      assert.equal(actionForKey(e), want, JSON.stringify(e));
+      assert.equal(actionForKey(e, { ...DEFAULT_HOTKEYS }), want, 'a saved copy of the defaults');
     }
   });
 
@@ -181,17 +188,17 @@ describe('the one lookup (actionForKey) and shortcutFor', () => {
     assert.equal(actionForKey({ key: 'q', code: 'KeyQ' }, rebound), null);
     assert.equal(actionForKey({ key: 'е', code: 'KeyT' }, rebound), 'retreat', 'a Russian layout: by position');
     assert.equal(actionForKey({ key: 'Process', code: 'KeyT' }, rebound), 'retreat', 'an IME: by position');
-    // AZERTY: the player bound retreat to their A key (code KeyQ) and sell to their Q key (code KeyA)
-    const azerty = { ...DEFAULT_HOTKEYS, retreat: 'KeyA', sell: 'KeyQ' };
+    // AZERTY: the player bound retreat to their A key (code KeyQ) and 调度中心 to their Q key (code KeyA)
+    const azerty = { ...DEFAULT_HOTKEYS, retreat: 'KeyA', shop: 'KeyQ' };
     assert.equal(actionForKey({ key: 'a', code: 'KeyQ' }, azerty), 'retreat');
-    assert.equal(actionForKey({ key: 'q', code: 'KeyA' }, azerty), 'sell');
-    const swapped = rebindHotkey(DEFAULT_HOTKEYS, 'refresh', 'KeyF').keys;
-    assert.equal(actionForKey({ key: 'f', code: 'KeyF' }, swapped), 'refresh');
-    assert.equal(actionForKey({ key: 'r', code: 'KeyR' }, swapped), 'freeze');
-    const named = { ...DEFAULT_HOTKEYS, sell: 'Delete', ready: 'KeyE', levelUp: 'Digit3', freeze: 'Comma' };
+    assert.equal(actionForKey({ key: 'q', code: 'KeyA' }, azerty), 'shop');
+    const swapped = rebindHotkey(DEFAULT_HOTKEYS, 'refresh', 'KeyS').keys;
+    assert.equal(actionForKey({ key: 's', code: 'KeyS' }, swapped), 'refresh');
+    assert.equal(actionForKey({ key: 'd', code: 'KeyD' }, swapped), 'freeze');
+    const named = { ...DEFAULT_HOTKEYS, sell: 'Delete', pause: 'KeyE', levelUp: 'Digit3', freeze: 'Comma' };
     assert.equal(actionForKey({ key: 'Delete', code: 'Delete' }, named), 'sell');
-    assert.equal(actionForKey({ key: 'e', code: 'KeyE' }, named), 'ready');
-    assert.equal(actionForKey({ key: ' ', code: 'Space' }, named), null, 'Space is free once ready moved');
+    assert.equal(actionForKey({ key: 'e', code: 'KeyE' }, named), 'pause');
+    assert.equal(actionForKey({ key: ' ', code: 'Space' }, named), null, 'Space is free once pause moved');
     assert.equal(actionForKey({ key: '#', code: 'Digit3', shiftKey: true }, named), 'levelUp', 'Shift + 3: by position');
     assert.equal(actionForKey({ key: ',', code: 'KeyM' }, named), 'freeze', 'AZERTY comma: by the character');
     assert.equal(actionForKey({ key: 't', code: 'KeyT' }, { retreat: 'KeyT', sell: 'KeyT' }), null, 'a corrupt map acts as the defaults');
@@ -209,8 +216,8 @@ describe('the one lookup (actionForKey) and shortcutFor', () => {
     assert.equal(shortcutFor({ ...w, repeat: true }, rebound), null);
     assert.equal(shortcutFor({ ...w, target: { tagName: 'BUTTON' } }, rebound), 'retreat', 'a focused HUD button does not stop it');
     assert.equal(shortcutFor({ key: 'Escape' }, rebound), 'escape');
-    assert.equal(shortcutFor({ key: 'Escape', repeat: true }, { ...DEFAULT_HOTKEYS, ready: 'KeyE' }), 'escape');
-    assert.equal(shortcutFor({ key: 'e', code: 'KeyE' }, { ...DEFAULT_HOTKEYS, ready: 'KeyE' }), 'ready', 'the ready key also pauses a solo battle (game.js)');
+    assert.equal(shortcutFor({ key: 'Escape', repeat: true }, { ...DEFAULT_HOTKEYS, pause: 'KeyE' }), 'escape');
+    assert.equal(shortcutFor({ key: 'e', code: 'KeyE' }, { ...DEFAULT_HOTKEYS, pause: 'KeyE' }), 'pause', 'the pause key pauses a solo battle (game.js)');
     // behind overlays the rebound actions are blocked like the defaults
     assert.equal(shortcutBlocked(shortcutFor(w, rebound), { drawer: true }), true);
     assert.equal(shortcutBlocked(shortcutFor(w, rebound), { modal: true }), true);
@@ -218,13 +225,13 @@ describe('the one lookup (actionForKey) and shortcutFor', () => {
   });
 
   test('the facing wheel swallows Space and every key of the map — the rebound one, not the old one', () => {
-    for (const [key, code] of [[' ', 'Space'], ['r', 'KeyR'], ['f', 'KeyF'], ['d', 'KeyD'], ['q', 'KeyQ'], ['x', 'KeyX'], ['w', 'KeyW']]) {
+    for (const [key, code] of [[' ', 'Space'], ['d', 'KeyD'], ['s', 'KeyS'], ['g', 'KeyG'], ['a', 'KeyA'], ['c', 'KeyC'], ['x', 'KeyX'], ['w', 'KeyW'], ['q', 'KeyQ']]) {
       assert.equal(facingSwallows({ key, code }), true, code);
     }
-    const g = { ...DEFAULT_HOTKEYS, refresh: 'KeyG' };
-    assert.equal(facingSwallows({ key: 'g', code: 'KeyG' }, g), true);
-    assert.equal(facingSwallows({ key: 'r', code: 'KeyR' }, g), false, 'R is free once refresh moved');
-    assert.equal(facingSwallows({ key: ' ', code: 'Space' }, { ...DEFAULT_HOTKEYS, ready: 'KeyE' }), true, 'Space always: a focused button must not activate');
+    const g = { ...DEFAULT_HOTKEYS, refresh: 'KeyH' };
+    assert.equal(facingSwallows({ key: 'h', code: 'KeyH' }, g), true);
+    assert.equal(facingSwallows({ key: 'd', code: 'KeyD' }, g), false, 'D is free once refresh moved');
+    assert.equal(facingSwallows({ key: ' ', code: 'Space' }, { ...DEFAULT_HOTKEYS, pause: 'KeyE' }), true, 'Space always: a focused button must not activate');
     assert.equal(facingSwallows({ key: 'z', code: 'KeyZ' }), false);
   });
 
@@ -355,8 +362,8 @@ describe('every handler and key hint reads the map', () => {
       return null;
     };
     const priv = { ready: false, alive: true, temp: [], funds: 0 };
-    assert.deepEqual(HOTKEY_ACTIONS.map(hotkeyLabelOf), ['R', 'F', 'D', 'Q', 'X', 'Space', 'W']);
-    assert.equal(kbdOf(ReadyToggle({ priv, onToggle() {} })), 'Space');
+    assert.deepEqual(HOTKEY_ACTIONS.map(hotkeyLabelOf), ['D', 'S', 'G', 'A', 'C', 'X', 'W', 'Q', 'Space']);
+    assert.equal(kbdOf(ReadyToggle({ priv, onToggle() {} })), 'C');
     updateSettings({ keys: rebindHotkey(settingsStore.get().keys, 'ready', 'KeyE').keys });
     updateSettings({ keys: rebindHotkey(settingsStore.get().keys, 'retreat', 'KeyT').keys });
     assert.deepEqual(settingsStore.get().keys, { ...DEFAULT_HOTKEYS, ready: 'KeyE', retreat: 'KeyT' });
@@ -365,6 +372,6 @@ describe('every handler and key hint reads the map', () => {
     updateSettings({ keys: { retreat: 'Escape' } });
     assert.equal(hotkeyLabelOf('retreat'), 'Q', 'a bad patch falls back to the defaults');
     updateSettings({ keys: DEFAULT_HOTKEYS });
-    assert.equal(kbdOf(ReadyToggle({ priv, onToggle() {} })), 'Space');
+    assert.equal(kbdOf(ReadyToggle({ priv, onToggle() {} })), 'C');
   });
 });

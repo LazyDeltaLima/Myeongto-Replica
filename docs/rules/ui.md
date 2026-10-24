@@ -260,7 +260,7 @@
   들어 올림은 남김. 동시에 왼쪽 기물 정보 카드가 그 오퍼레이터(立绘 포함)로 열린다(원본 동작 그대로). 그림 변수는 `hudArt.js`(`--ha-dc1/2`), CSS는
   hud-art.css. ko 「确认购买」 → 「구매 확인」(ui.json이 official.json의 「구매한다」를 덮음).
 - 단축키는 원본 그대로(D 승급 · F 동결 · R 갱신): 스크린샷의 G/S/D/A는 그 플레이어가 바꾼 설정일 수 있다(관리자 판단 2026-10-06).
-  → 2026-10-24 확인: G/S/D/A는 공식 기본값이다(아래 「적 미리보기 단축키」 절의 공식 표).
+  → 2026-10-24 확인: G/S/D/A는 공식 기본값이었다 — 기본값을 공식대로 바꿈(관리자 결정 2026-10-24, 「적 미리보기 단축키」 절).
 - 갱신 애니메이션(2026-10-09, 관리자 요청 「갱신하면 카드가 아래에서 위로」): 같은 번들의 클립. 카드 프리팹 `autochess_shop_card_item`의 Animation
   `card_item_refresh` = root y −135 → −25.92(4/60초) → 0(14/60초), 접선 0 → 444.3 → 0, `root_layout`의 `card_whole_refresh_normal` =
   `group_slots`(카드 줄, 승급 상자 제외) alpha 0 → 1(0.1초). 60fps Hermite(가중치 1/3)를 구간마다 cubic-bezier로 옮겨 그대로 씀(game-shop.css
@@ -1572,24 +1572,31 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   🔍 툴팁 끝에 지금 키(「다가오는 적 보기 · W」).
 - 저장된 키 배치(0.2.0부터 `sp.pref.settings.keys`)에는 `viewEnemy`가 없다: 기본 W가 비어 있으면 W, 플레이어가 W를 다른 동작에 줬으면 비어 있는 첫
   키(A부터)를 준다(`LATER_ACTIONS`) — 두 동작이 한 키를 나누면 전체를 기본값으로 되돌리는 기존 규칙 때문에 플레이어의 배치가 지워지지 않게.
-- 공식 기본값과 우리 기본값(2026-10-24 비교, `pcKeyData`):
+- 공식 기본값(`pcKeyData`)과 우리 기본값 — 관리자 결정 2026-10-24 「공식대로 수정, 없는 것도 추가」로 같게 맞춤:
 
-  | 동작 | 공식 funcId · 이름 | 공식 기본 | 우리 기본 |
+  | 동작 | 공식 funcId · 이름 | 공식 기본 | 우리 기본(전 → 지금) |
   |---|---|---|---|
-  | 갱신 | `autochessRefresh` 刷新 | D | R |
-  | 동결 | `autochessFreeze` 冻结 | S | F |
-  | 승급 | `autochessLevelUp` 升级 | G | D |
-  | 상점 열기/접기 | `autochessShop` 调度中心 | A | (없음) |
-  | 준비 완료 | `autochessReady` 准备就绪 | C | Space |
+  | 갱신 | `autochessRefresh` 刷新 | D | R → D |
+  | 동결 | `autochessFreeze` 冻结 | S | F → S |
+  | 승급 | `autochessLevelUp` 升级 | G | D → G |
+  | 상점 펼치기/접기 | `autochessShop` 调度中心 | A | (없음) → A |
+  | 준비 완료 | `autochessReady` 准备就绪 | C | Space → C |
   | 판매 | `autochessSale` 出售 | X | X |
   | 적 미리보기 | `autochessViewEnemy` 查看敌人 | W | W |
   | 퇴각 | 일반 전투 묶음 `retreatChar` 撤退干员 | Q | Q |
-  | 일시정지 | 일반 전투 묶음 `pauseBattle` 暂停 | Space | 준비 키(Space) |
+  | 일시정지(단독) | 일반 전투 묶음 `pauseBattle` 暂停 | Space | 준비 키 겸용 → 따로 Space |
 
-  퇴각·일시정지는 卫戍协议 묶음이 아니라 일반 전투 묶음(`normalBattle`)에 있어 卫戍协议 안에서도 먹히는지는 모른다.
-  상점 키는 프리팹에서 상점 접기(`btn_close`)·펼치기(`btn_open`) 두 버튼에 붙어 있다. 기본값은 0.1.4 키 그대로 둠(관리자 결정 대기).
+  설정 줄 순서도 공식 순서(卫戍协议 묶음 7개 → 퇴각 → 일시정지, `HOTKEY_ACTIONS`). 퇴각·일시정지는 卫戍协议 묶음이 아니라 일반 전투
+  묶음(`normalBattle`)에 있어 공식 卫戍协议 안에서도 먹히는지는 모른다 — 우리는 전부터 있던 두 키를 그 기본값으로 둠 [ASSUMED].
+- 상점 키(`shop`): 프리팹에서 상점 접기(`btn_close`)·펼치기(`btn_open`) 두 버튼에 붙어 있다 → 우리 상점 줄의 收起 / 展开商店과 같은 상태(`collapsed`)를
+  뒤집는다. 상점 줄이 보일 때만(`showShop`), 적 미리보기 중에는 안 함(미리보기가 상점을 따로 접어 둠). 두 단추 툴팁·`aria-keyshortcuts`에 지금 키.
+- 일시정지 키(`pause`): 예전에는 준비 키가 단독 전투 일시정지를 겸했다. 이제 따로 — 일시정지 단추 툴팁도 이 키. 휴식 기간에 누르면 아무 일도 없다.
+- 옛 저장 배치: 예전 기본값(R·F·D·Q·X·Space, 적 미리보기 W는 있어도 됨)을 그대로 저장한 배치는 한 번도 안 바꾼 것으로 보고 공식 기본값으로 바꾼다
+  (`OLD_DEFAULTS`). 직접 바꾼 배치는 그대로 두고, 새 동작(적 미리보기·상점·일시정지)만 기본 키가 비어 있으면 그 키, 아니면 A부터 빈 첫 키
+  (예: 준비를 Space로 둔 옛 배치 → 일시정지는 빈 키).
 - 확인: `test/ui/feedback5-hotkeys.test.js`(기본값·저장된 옛 배치·game.js 연결), `SP_E2E` `test/ui/hotkeys.e2e.test.js` 2/2(Windows Chrome,
-  설정 줄 8개). 실제 단독 판(Windows Chrome 1920×1080, 한국어, 3D 보드): 휴식 기간 W → 미리보기(`.gtop.is-pen`, 오른쪽 버튼 회색) → W → 보드,
+  설정 줄 10개). 공식 기본값으로 바꾼 뒤 실제 단독 판: A → 상점 접힘 → A → 펼침, 휴식 기간 Space 무반응, C → 남은 자금 확인 → 준비·전투,
+  전투 중 Space → 일시정지 → Space → 재개. 실제 단독 판(Windows Chrome 1920×1080, 한국어, 3D 보드): 휴식 기간 W → 미리보기(`.gtop.is-pen`, 오른쪽 버튼 회색) → W → 보드,
   툴팁 「다가오는 적 보기 · W」, 설정 단축키 탭에 「적 미리보기 W」.
 
 ## 8인 협동 모드 화면 (관리자 결정 2026-10-16·2026-10-19, 공식에 없는 기능)
