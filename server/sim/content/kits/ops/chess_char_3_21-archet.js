@@ -72,6 +72,8 @@ export default {
               const first = enemiesOn(battle, unit, unit.rangeKeys, 1, unit.profile)[0];
               if (!first) return;
               const seen = new Set();
+              // 'volley' { targets, from? }: the arrow's flight for the client — from her, then on every bounce from the enemy
+              // it left (`from`; projectile_chr_archet_s2 `_mainEffectToReplace` archet_skill_02_trail_02 after the first reach)
               const fire = (from, target, n) => {
                 seen.add(target);
                 battle.addProjectile({
@@ -80,12 +82,14 @@ export default {
                     if (t && t.alive) for (let i = 0; i < n && t.alive; i++) physHit(battle, unit, t, sc, 'archetPursuit');
                     if (n <= 1) return;
                     const next = enemiesAround(battle, unit, x, y, AROUND_R, seen)[0];
-                    if (next) fire({ x, y }, next, n - 1);
+                    if (!next) return;
+                    fire({ x, y }, next, n - 1);
+                    fx(battle, 'volley', unit, { targets: [next.id], from: target.id, skill: 'archet_2' });
                   },
                 });
               };
               fire(unit, first, times);
-              fx(battle, 'volley', unit, { target: first.id, skill: 'archet_2' });
+              fx(battle, 'volley', unit, { targets: [first.id], skill: 'archet_2' });
             },
           };
         },

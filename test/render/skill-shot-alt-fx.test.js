@@ -2,7 +2,7 @@
 // 「타격별 투사체·쏠 때 대상 이펙트」):
 //  - a skill whose window has no attack shoots its skill's projectile from its kit event (fxgame.js skillShotOut): 流星 S2's
 //    arrows ('volley'), 崖心 S2's harpoon ('pull'), 锡人's alchemy unit ('zone' — its reach effects as it lands); the hits
-//    wait for the landing;
+//    wait for the landing; 空弦 S2's bounces ('volley' `from`, 2026-10-24 묶음 S9);
 //  - an ability group casts one child per attack (client AbilityRandomGroup, char_modes.py ability_groups → altFx): the child
 //    of the clip the model swings plays its own cast / hits / shot-start effects (迷迭香, 凛御银灰, 仇白);
 //  - a mode with a COMBAT state ability (Body/Combat) casts and hits with its effects on a swing at an enemy it blocks
@@ -62,12 +62,13 @@ test('altGroup: the clip the model swings, else by the group\'s pick; a COMBAT g
 
 const pick = (id, keys) => Object.fromEntries(keys.filter((k) => k in MODES[id]).map((k) => [k, MODES[id][k]]));
 const BIND = (id) => pick(id, ['modes', 'skillMode', 'cast', 'castOpt', 'hit', 'hitGroups', 'tgtStart', 'trail', 'skills', 'altFx', 'combatSplit']);
-const OPS = ['char_126_shotst', 'char_173_slchan', 'char_4151_tinman', 'char_391_rosmon', 'char_4082_qiubai'];
+const OPS = ['char_126_shotst', 'char_173_slchan', 'char_4151_tinman', 'char_391_rosmon', 'char_4082_qiubai', 'char_332_archet'];
 const files = {
   '/assets/local/fx/index.json': { bundles: {
     shotst: ['shotst_skill_02_trail', 'shotst_skill_01_hit'],
     slchan: ['slchan_skill_01_trail', 'slchan_skill_02_line', 'slchan_skill_02_hit', 'slchan_skill_01_buff'],
     tinman: ['tinman_skill_02_trail_02', 'tinman_skill_02_range_01', 'tinman_skill_02_start_01'],
+    archet: ['archet_skill_02_trail_01', 'archet_skill_02_trail_02', 'archet_skill_02_hit'],
     rosmon: ['rosmon_attack_A_start', 'rosmon_attack_B_start', 'rosmon_attack_A_start_02', 'rosmon_attack_A_hit_01', 'rosmon_attack_B_hit_01', 'rosmon_attack_A_hit_02'],
     qiubai: ['qiubai_attack_start_01', 'qiubai_attack_hit_01', 'qiubai_attack_combat_A_start_01', 'qiubai_attack_combat_A_hit_01', 'qiubai_attack_combat_B_start_01', 'qiubai_attack_combat_B_hit_01'],
   } },
@@ -102,6 +103,21 @@ test('流星 S2 \'volley\': an arrow at each target, its hit as it lands (not at
   assert.deepEqual(take(), ['spawn:shotst_skill_02_trail', 'spawn:shotst_skill_02_trail'], 'the trails; no hit yet');
   layer.update(0.6);   // 3 tiles at projectile_shotst_s2's 6 tiles / s
   assert.deepEqual(take('attackHit').sort(), ['attackHit:shotst_skill_01_hit@8', 'attackHit:shotst_skill_01_hit@9']);
+}));
+
+test('空弦 S2 \'volley\' `from`: each bounce flies trail_02 from the enemy the drawn arrow reached, once it got there', () => withLayer(async ({ layer, op, foe, take }) => {
+  const views = new Map([[4, op(4, 'char_332_archet', 1)], [8, foe(8, 2)], [9, foe(9, 3)]]);
+  layer.onEvent(['skill', 4, 1], views);
+  take();
+  layer.onEvent(['fx', 'volley', 0, 0, { id: 4, targets: [8], skill: 'archet_2' }], views);
+  assert.deepEqual(take('spawn'), ['spawn:archet_skill_02_trail_01'], 'her shot (projectile_chr_archet_s2 `_mainEffect`)');
+  layer.onEvent(['skill', 4, 0], views);   // an instant skill: the bounces come after its window
+  layer.onEvent(['fx', 'volley', 0, 0, { id: 4, targets: [9], from: 8, skill: 'archet_2' }], views);
+  assert.deepEqual(take('spawn'), [], 'the drawn arrow has not reached 8 yet');
+  layer.update(0.25);   // 2 tiles at 10 tiles / s
+  assert.deepEqual(take().filter((s) => /trail|hit/.test(s)).sort(), ['attackHit:archet_skill_02_hit@8', 'spawn:archet_skill_02_trail_02']);
+  layer.update(0.2);   // 1 tile at its `_speedAfterFirstReach` 6
+  assert.deepEqual(take('attackHit'), ['attackHit:archet_skill_02_hit@9']);
 }));
 
 test('崖心 S2 \'pull\': the harpoon at the enemy it drags (the event names her: `src`)', () => withLayer(async ({ layer, op, foe, take }) => {

@@ -107,10 +107,11 @@ function pasngr(bb, chess, def) {
       } },
       { install(battle, unit) { // 孤卒: no enemy on the 4 surrounding tiles
         const atk = num(t1.atk), spr = num(t1.sp_recovery_per_sec);
+        // `visible`: pasngr_t_2[atk_up] carries overrideEffectKey pasngr_beidong_buff_02 (render/fxstatus.js KEY_FX)
         aura(battle, unit, 0.25, () => {
           const near = new Set(absoluteRangeKeys(N4, unit.tileR, unit.tileC, 1, 0));
           if (battle.enemies.some((e) => e.alive && !e.hidden && bodyInRange(e, near))) return;
-          battle.addBuff(unit, { key: 'pasngr:lone', mods: { atkPct: atk, spRecoveryFlat: spr }, duration: 0.4, refresh: 'replace' });
+          battle.addBuff(unit, { key: 'pasngr:lone', mods: { atkPct: atk, spRecoveryFlat: spr }, duration: 0.4, refresh: 'replace', visible: true });
         });
       } },
     ],

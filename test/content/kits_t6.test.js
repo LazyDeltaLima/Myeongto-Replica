@@ -675,7 +675,7 @@ test('新约能天使: S2 steals 70 ASPD from an ally in range, shields both, 35
   checkInvariants(h.b);
 });
 
-test('流明: S3 bullets are spent only on abnormal allies (cleansed, 135 % heal); 应急处理 heals on status', () => {
+test('流明: S3 bullets are spent only on abnormal allies (cleansed, 135 % heal)', () => {
   const h = battle({
     units: [{ chessId: 'chess_char_6_14_a', row: 10, col: 3, carryState: { sp: 60 } }, { chessId: 'test_guard_a', row: 10, col: 5 }],
     hooks: ['ammoUsed', 'heal'], captureNoisy: true,
@@ -685,16 +685,14 @@ test('流明: S3 bullets are spent only on abnormal allies (cleansed, 135 % heal
   h.step();
   g.hp = g.s.maxHp * 0.2;
   h.b.applyStatus(g, 'stun', { duration: 30 });
-  const emergency = h.hooksOf('heal').filter((c) => c.source === u && c.target === g);
-  assert.ok(emergency.length >= 1, '应急处理');
-  assert.ok(near(emergency[0].amount, u.s.atk * u.def.talents[1].bb.heal_scale, 1e-3));
-  assert.ok(g.findBuff('resist'), '凡人之愿: 抵抗 (engine resist status) on the healed ally');
+  assert.equal(h.hooksOf('heal').filter((c) => c.source === u).length, 0, '应急处理 waits out its first cooldown');
   assert.ok(h.runUntil(() => u.skill.active, 5));
   assert.ok(h.runUntil(() => !g.findBuff('stun'), 5), 'stun cleansed');
   const used = h.hooksOf('ammoUsed').filter((c) => c.unit === u);
   assert.equal(used.length, 1, 'one bullet for the abnormal heal');
   const big = h.hooksOf('heal').filter((c) => c.source === u && c.target === g).at(-1);
   assert.ok(near(big.amount, u.s.atk * bb.heal_scale, 1e-3), '135 % heal');
+  assert.ok(g.findBuff('resist'), '凡人之愿: 抵抗 (engine resist status) on the healed ally');
   h.run(3);
   assert.equal(h.hooksOf('ammoUsed').filter((c) => c.unit === u).length, 1, 'normal heals are free');
   assert.ok(u.skill.active);
@@ -920,12 +918,15 @@ test('tier-6 talent auras: 铳弹协约, 诸王的叹息, 感知稳定, 孤卒, 
   const tAng = angel.def.talents[1].bb;
   assert.ok(near(lem.findBuff('angel2:covenant').mods.atkPct, tAng.atk * tAng.mult), '拉特兰 ammo op: ×2');
   assert.ok(near(lumen.findBuff('angel2:covenant').mods.atkPct, tAng.atk), 'other ammo op: +9 %');
+  const shown = (v, k) => h.eventsOf('status').some((e) => e[1] === v.id && e[2] === k && e[3] === 1);
+  assert.ok(shown(lem, 'angel2:covenant') && shown(lumen, 'angel2:covenant'), 'shown (angel_t_2[atk]\'s effect)');
   const vina = u('chess_char_6_07_a'), g = u('test_guard_a');
   assert.ok(near(g.s.physTakenMul, 1 - vina.def.talents[0].bb.damage_resistance), '诸王的叹息 phys reduction');
   assert.ok(near(vina.findBuff('siege2:kings').mods.atkPct, vina.def.talents[0].bb.atk * 1), '+5 % per ally around');
   const ros = u('chess_char_6_12_a'), pas = u('chess_char_6_05_a');
   assert.ok(ros.findBuff('rosmon:stable') && pas.findBuff('rosmon:stable'), '感知稳定 on 迷迭香 and the caster');
   assert.ok(near(pas.findBuff('pasngr:lone').mods.atkPct, pas.def.talents[1].bb.atk), '孤卒');
+  assert.ok(shown(pas, 'pasngr:lone'));
   assert.ok(g.findBuff('pepe:lotus') === null, 'no 佩佩 on the field');
   const mly = u('chess_char_6_11_a'), silent = u('chess_char_2_02_a');
   const cut = mly.def.talents[1].bb;
@@ -1154,6 +1155,40 @@ test('焰影苇草 / 溯光星源: 灼痕 and 能源解析 use the 法术脆弱 
   assert.ok(near(e.s.artsTakenMul, reed.def.talents[0].bb.damage_scale), 'a weaker 法术脆弱 does not stack');
   assert.ok(e.findBuff('fragile'), '能源解析 = 脆弱 status');
   assert.ok(near(e.s.dmgTakenMul, h.unit('chess_char_6_16_a').def.talents[1].bb['halo2_t_1[weak].damage_scale']));
+  checkInvariants(h.b);
+});
+
+test('流明 应急处理: the first heal `duration` s after the deploy (lumen_t_2[cooldown]), then ready (\'lumen:ready\') until a heal', () => {
+  const h = battle({
+    units: [{ chessId: 'chess_char_6_14_a', row: 10, col: 3 }, { chessId: 'test_guard_a', row: 10, col: 5 }, { chessId: 'test_guard_a', row: 9, col: 4 }],
+    hooks: ['heal'], captureNoisy: true,
+  });
+  const u = h.unit('chess_char_6_14_a'), cd = u.def.talents[1].bb.duration;
+  const emergency = () => h.eventsOf('fx').filter((e) => e[1] === 'emergency');
+  const readyEv = () => h.eventsOf('status').filter((e) => e[1] === u.id && e[2] === 'lumen:ready').map((e) => e[3]);
+  h.step();
+  const [g, full] = h.allies().filter((a) => a !== u);
+  g.hp = g.s.maxHp * 0.2;
+  h.b.applyStatus(g, 'stun', { duration: 0.5 });
+  assert.equal(emergency().length, 0, 'not at once: the deploy starts the cooldown');
+  assert.ok(h.runUntil(() => u.findBuff('lumen:ready'), cd + 1));
+  assert.ok(Math.abs(h.b.time - (u.deployedAt + cd)) < 0.1, `ready ${cd} s after the deploy (${h.b.time})`);
+  assert.deepEqual(readyEv(), [1], 'its status on');
+  full.hp = full.s.maxHp;
+  h.b.applyStatus(full, 'stun', { duration: 0.5 });
+  assert.equal(emergency().length, 0, 'an ally at full HP is not healed (lumen_t_2[listener] hp_ratio 1.0)');
+  assert.ok(u.findBuff('lumen:ready'));
+  g.hp = g.s.maxHp * 0.2;
+  const n0 = h.hooksOf('heal').length;
+  h.b.applyStatus(g, 'stun', { duration: 0.5 });
+  const heal = h.hooksOf('heal').slice(n0).find((c) => c.source === u && c.target === g);
+  assert.ok(heal && near(heal.amount, u.s.atk * u.def.talents[1].bb.heal_scale, 1e-3), '应急处理');
+  assert.equal(emergency().length, 1);
+  assert.ok(!u.findBuff('lumen:ready'));
+  assert.deepEqual(readyEv(), [1, 0], 'off with the heal');
+  const t0 = h.b.time;
+  assert.ok(h.runUntil(() => u.findBuff('lumen:ready'), cd + 1));
+  assert.ok(Math.abs(h.b.time - (t0 + cd)) < 0.1, 'ready again after the cooldown');
   checkInvariants(h.b);
 });
 

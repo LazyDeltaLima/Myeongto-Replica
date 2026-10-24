@@ -101,13 +101,24 @@ function lumen(bb, chess, def) {
         }, { owner: unit, priority: -10 });
       } },
       { install(battle, unit) { // 应急处理
+        // Official cycle (charpack Talents/2, buff templates): every deployment attaches the ability's _passiveBuffs
+        // lumen_t_2[cooldown] (LIMITED `duration`), so the first heal waits `duration` s after the deploy; its end creates
+        // lumen_t_2[enable] (overrideEffectKey lumen_buff_01_start — the sim's visible 'lumen:ready'), and the listener
+        // (lumen_t_2[listener], only without [cooldown]) heals an ally under its hp_ratio 1.0 (not at full HP) and finishes
+        // [enable], whose end starts [cooldown] again
         const sc = num(t1.heal_scale), cd = num(t1.duration, 12);
-        let ready = -Infinity;
+        let timer = null;
+        const arm = () => {
+          timer?.cancel();
+          battle.removeBuff(unit, 'lumen:ready');
+          timer = battle.after(cd, () => { timer = null; if (live(unit)) battle.addBuff(unit, { key: 'lumen:ready', visible: true }); }, { owner: unit });
+        };
+        battle.on('deploy', ({ unit: u }) => { if (u === unit) arm(); }, { owner: unit });
         battle.on('statusApplied', (ctx) => {
           const t = ctx.target;
-          if (!live(unit) || !t || t.side !== 'ally' || !ABNORMAL.has(ctx.status) || battle.time < ready || !(sc > 0)) return;
-          if (!unit.rangeKeySet?.has(t.tileR * COLS + t.tileC)) return;
-          ready = battle.time + cd;
+          if (!live(unit) || !t || t.side !== 'ally' || !ABNORMAL.has(ctx.status) || !unit.findBuff('lumen:ready') || !(sc > 0)) return;
+          if (!unit.rangeKeySet?.has(t.tileR * COLS + t.tileC) || !(t.hpRatio < 1)) return;
+          arm();
           battle.heal(unit, t, unit.s.atk * sc);
           battle.fx('emergency', { x: t.x, y: t.y, id: t.id, src: unit.id });
         }, { owner: unit });

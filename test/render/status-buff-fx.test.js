@@ -60,6 +60,19 @@ describe('client: status → the official buff effect', () => {
     assert.deepEqual(tpl(unit('char_1026_gvial2', { statuses: new Set(['gvial:bleed']) })), ['gvial2_skill_3_bleed']);
   });
 
+  test('talent / skill buffs the sim shows since 묶음 S9 (2026-10-24), by client key; a bard\'s regen by its applier', () => {
+    const tpl = (v) => [...F.wantedStatusFx(v, undefined, null, keyPlays()).values()].map((s) => s[1]).sort();
+    for (const [k, n] of [['angel2:covenant', 'angel2_buff_02'], ['mizuki:t2', 'mizuki_buff_01'], ['pasngr:lone', 'pasngr_beidong_buff_02'],
+      ['tinman:zoneAlly', 'tinman_skill_02_heal_01'], ['thorn2:full', 'thorn2_weapon_buff_05'], ['lumen:ready', 'lumen_buff_01_start'],
+      ['skadi2:eye', 'skadi2_buff_01_eye']]) {
+      assert.deepEqual(tpl(unit('char_4042_lumen', { statuses: new Set([k]) })), [n], k);
+    }
+    const bard = (src) => unit('char_1028_texas2', { statuses: new Set(['trait:bard:12']), statusFrom: new Map([['trait:bard:12', { src, fx: null, n: 0 }]]) });
+    assert.deepEqual(tpl(bard('cetsyr')), ['cetsyr_buff_02'], '魔王\'s cetsyr_heal');
+    assert.deepEqual(tpl(bard('skadi2')), [], '浊心斯卡蒂\'s skadi2_heal has none');
+    assert.equal(statusIconKey('trait:bard:12'), null, 'no icon either');
+  });
+
   test('束缚: the applier\'s buff effect; an applier without one (or none) draws nothing — no common badge', () => {
     assert.deepEqual(names(enemy(['bind'], [['bind', { src: 'indigo' }]])), ['indigo_buff_01_start']);
     assert.deepEqual(names(enemy(['bind'], [['bind', { src: 'ines' }]])), ['ines_imprison_01']);

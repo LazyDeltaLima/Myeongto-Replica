@@ -50,6 +50,8 @@ test('隐德来希 (收割者) and 折桠 (不屈者) regenerate under 魔王 / 
     for (const x of [r, z]) {
       const b = x.findBuff(key);
       assert.ok(b && b.mods.hpRegen > 0, `${label}: ${x.defId} carries the 生命回复速度 buff`);
+      // a bard's is shown: its AuraHeal buff's effect (魔王's cetsyr_buff_02, render/fxstatus.js KEY_FX 'trait:bard')
+      if (key.startsWith('trait:bard:')) assert.ok(h.eventsOf('status').some((e) => e[1] === x.id && e[2] === key && e[3] === 1 && e[4] === p.id), `${label}: shown`);
       const { gained, expected } = regenOver(h, x, 2);
       assert.ok(gained > 0 && Math.abs(gained - expected) <= 1.5, `${label}: ${x.defId} +${gained.toFixed(2)} ≈ ${expected.toFixed(2)}`);
       assert.equal(h.b.heal(p, x, 100), 0, `${label}: a direct heal on ${x.defId} is still refused (无法被友方角色治疗)`);

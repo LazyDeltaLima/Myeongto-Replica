@@ -367,6 +367,7 @@ test('水月: 创伤性癔症 50 % arts to the lowest-HP target; S2 +1 target & 
   h.b.dealDamage(null, e, { amount: e.hp * 0.6, type: 'true' });
   h.run(0.2);
   assert.equal(u.findBuff('mizuki:t2')?.mods.atkPct, t1.atk);
+  assert.ok(h.eventsOf('status').some((x) => x[1] === u.id && x[2] === 'mizuki:t2' && x[3] === 1), 'shown (mizuki_t_2[atk]\'s effect)');
   // elite module slow
   const g = makeBattle({ defs: { enemies: { enemy_dummy: dummy() } }, units: [{ chessId: 'chess_char_4_09_b', row: 10, col: 4 }], enemies: [{ key: 'enemy_dummy', pos: [10, 5] }], timeLimit: 10, hooks: [] });
   g.run(0.5);

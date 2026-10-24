@@ -68,11 +68,11 @@ function targetsInGrid(battle, unit, g) {
 const whileDeployed = (battle, unit, iv, fn) => battle.every(iv, () => { if (unit.alive && unit.deployed) fn(); }, { owner: unit });
 /** Short-lived aura buff. */
 const pulse = (battle, target, key, mods, extra = {}) => battle.addBuff(target, { key, mods, duration: AURA_DUR, ...extra });
-/** Keep (or remove) a permanent self buff. */
-function toggleBuff(battle, unit, key, on, mods) {
+/** Keep (or remove) a permanent self buff (`extra`: more buff fields, e.g. `visible`). */
+function toggleBuff(battle, unit, key, on, mods, extra = {}) {
   const cur = unit.findBuff(key);
   if (on) {
-    if (!cur || JSON.stringify(cur.mods) !== JSON.stringify(mods)) battle.addBuff(unit, { key, mods });
+    if (!cur || JSON.stringify(cur.mods) !== JSON.stringify(mods)) battle.addBuff(unit, { key, mods, ...extra });
   } else if (cur) battle.removeBuff(unit, key);
 }
 /** "技力光环（同类效果取最高）": shared key, highest value wins. */

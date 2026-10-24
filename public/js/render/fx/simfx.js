@@ -284,7 +284,7 @@ export class FxSim {
       case 'strike': case 'pillar': this.strike(at.x, at.y, at.z, col, spec.a === 'pillar'); break;
       case 'volley': {
         const list = Array.isArray(ex.targets) ? ex.targets.slice(0, 12) : [];
-        const src = this._viewOf(ex.src ?? ex.id);
+        const src = this._viewOf(ex.from ?? ex.src ?? ex.id);   // `from`: a bounce from the enemy it left (空弦 S2)
         for (const id of list) {
           const t = this._viewOf(id);
           if (!t) continue;

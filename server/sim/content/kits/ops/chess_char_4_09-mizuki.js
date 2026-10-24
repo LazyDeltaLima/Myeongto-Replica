@@ -47,9 +47,10 @@ export default withDefaults({
           }, { owner: unit });
         } },
         { install(battle, unit) { // 反移情: ATK +10 % while an enemy in range is below 50 % HP
+          // `visible`: mizuki_t_2's mizuki_t_2[atk] carries overrideEffectKey mizuki_buff_01 (render/fxstatus.js KEY_FX)
           whileDeployed(battle, unit, 0.1, () => {
             const on = enemiesOnRange(battle, unit).some((e) => e.hpRatio < num(t1.hp_ratio, 0.5));
-            toggleBuff(battle, unit, 'mizuki:t2', on, { atkPct: num(t1.atk, 0.1) });
+            toggleBuff(battle, unit, 'mizuki:t2', on, { atkPct: num(t1.atk, 0.1) }, { visible: true });
           });
         } },
       ],

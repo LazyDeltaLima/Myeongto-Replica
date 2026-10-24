@@ -172,6 +172,7 @@ function skadi2(bb, chess, def) {
         }, { owner: unit });
       } },
       { install(battle, unit) { // 捕食习性 (module 新生代: ATK 9 / 20 %, DEF +8 %, +3 SP per op deployed in range) + module (≥2 other ops in range: ATK +8 %)
+        const modAtk = t1['skadi2_e_003_t_2[atk][1].atk'] != null;
         const a1 = num(t1['skadi2_e_003_t_2[atk][1].atk'], bv(t1, 'skadi2_t_2[atk][1].atk', 0));
         const a2 = num(t1['skadi2_e_003_t_2[atk][2].atk'], bv(t1, 'skadi2_t_2[atk][2].atk', a1));
         const d1 = num(t1['skadi2_e_003_t_2[def].def']), sp = num(t1.sp);
@@ -184,6 +185,11 @@ function skadi2(bb, chess, def) {
           const total = val + (own >= mCnt ? mAtk : 0);
           const dPct = ops.length ? d1 : 0;
           if (total > 0 || dPct > 0) battle.addBuff(unit, { key: 'skadi2:predator', mods: { atkPct: total, defPct: dPct }, duration: 0.75, refresh: 'replace' });
+          // the eye over her (overrideEffectKey skadi2_buff_01_eye): skadi2_t_2 gives it to its [atk][2] only (an abyssal operator
+          // covered), the module's skadi2_e_003_t_2 to both of its [atk] buffs — a buff without mods, for the client's effect
+          // (render/fxstatus.js KEY_FX)
+          const eye = ops.length > 0 && (modAtk || ops.some((a) => ABYSSAL.has(a.def?.charId)));
+          if (eye) battle.addBuff(unit, { key: 'skadi2:eye', duration: 0.75, refresh: 'replace', visible: true });
         });
         // "我方干员部署于自身或海嗣范围内后，自身立刻获得3点技力"
         if (sp > 0) battle.on('deploy', ({ unit: u }) => {

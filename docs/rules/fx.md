@@ -1948,6 +1948,24 @@
   - 확인: `test/sim/hit-fx-field.test.js` 새 시험(菲莱·至简·深靛·海霓·焰影苇草·荒芜拉普兰德), `kit-event-fx` 새 시험, `common-ability-fx` 洛洛, `fx-bindings`
     `UNPLAYED` 6줄 지움·`KNOWN` 荒芜拉普兰德 쪽 두 줄(행의 OWNER가 늑대 투사체), 미연결 44 → 35. 이펙트 이벤트 골든 26 시나리오(위 프리팹 줄과 海霓
     `skillBuff` 줄만), 시뮬 골든 그대로(`GOLDEN_FULL` 9). [화면 미확인: 위 전부]
+- 연결 전수 나머지 아홉째 묶음(2026-10-24, 보이는 시뮬 버프 — 상태 이벤트가 늘어 시뮬 골든을 다시 만듦, 관리자 결정 2026-10-24): 시뮬이 이미 정하던
+  조건의 버프를 `visible`로 보내고 `fxstatus.js KEY_FX`가 그 공식 버프 키의 행으로 그림(조건 행은 `keyedAll`).
+  - 新约能天使 T2 `angel2_t_2` → AMMO 스킬 동료의 `angel_t_2[atk]` `angel2_buff_02`(`'angel2:covenant'`), 水月 T2 `mizuki_t_2[atk]` `mizuki_buff_01`
+    (`'mizuki:t2'`), 异客 T2 孤卒 `pasngr_t_2[atk_up]` `pasngr_beidong_buff_02`(`'pasngr:lone'`).
+  - 浊心斯卡蒂 T2의 눈 `skadi2_buff_01_eye`: 기본 재능은 `[atk][2]`(심해 오퍼레이터가 범위에)만, 모듈 `skadi2_e_003_t_2`는 `[atk][1]`·`[2]` 둘 다 — 수정치 없는
+    `'skadi2:eye'`.
+  - 锡人 S2 구역 안 동료 `tinman_s_2[buff][ally]` `tinman_skill_02_heal_01`: 구역마다 키가 다른 재생 버프 옆에 수정치 없는 `'tinman:zoneAlly'`.
+  - 引星棘刺 T1 `thorn2_t_1[effect]` `thorn2_weapon_buff_05`: `projectile_extend_cur`가 `projectile_extend_max`에 닿는 동안(지금 값 4 = 4라 범위 안 다른 오퍼가
+    있는 동안) — `'thorn2:full'`.
+  - 吟游者 특성의 생명 회복 속도(`'trait:bard:<id>'`)를 보이게: 魔王의 AuraHeal `cetsyr_heal` `cetsyr_buff_02`만 그림(적용자 코드로 고름 — 浊心斯卡蒂의
+    `skadi2_heal`엔 없음).
+  - 流明 T2 준비 빛 `lumen_t_2[enable]` `lumen_buff_01_start`(`'lumen:ready'`) — 시뮬 규칙 고침과 같이(rules/sim.md 「流明 应急处理는 배치마다 대기부터」).
+  - 空弦 S2 `projectile_chr_archet_s2`: 첫 화살 `'volley'`가 `target` 대신 `targets`를 실어 `skillShotFx`가 `_mainEffect` `trail_01`을 날림(전엔 아무것도
+    안 날았음), 튕길 때마다 `'volley'` { targets: [다음], from: 앞 대상 }(새 이벤트) → `_replaceMainEffectWhenReach`의 `_mainEffectToReplace` `trail_02`를
+    `_speedAfterFirstReach` 6칸/s로, 그린 화살이 앞 대상에 닿은 뒤(`shotLand` — 시뮬 화살은 16칸/s로 더 빠름) 앞 대상에서 날림. 2D 대체 그림도 `from`에서.
+  - 확인: `status-buff-fx` 새 시험(키 7·吟游者 적용자별), `skill-shot-alt-fx` 空弦 튕김, 키트 시험 넷(상태 이벤트·눈·`volley` 순서)·流明 새 시험, `fx-bindings`
+    `UNPLAYED` 9줄 지움, `FXGAME` `archet_skill_02_trail_02`, 미연결 35 → 24. 시뮬 골든: 상태 이벤트 수·`volley` 수·`roster-017` 应急处理 9 → 8만, 결과 칸 그대로.
+    이펙트 이벤트 골든: 위 프리팹 줄만 더해짐. [화면 미확인: 위 전부]
 
 ### 연쇄 공격 — 체인 캐스터·체인 메딕의 튕김 선과 타격 (2026-10-16, 관리자 요청 「일반 공격 연쇄를 공식 클라 데이터와 대조」)
 

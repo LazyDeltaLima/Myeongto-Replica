@@ -743,6 +743,8 @@ test('引星棘刺 S2: alchemy unit (+3 s with an op in range) — 120 % ATK art
   u.skill.gainSp(1000);
   assert.ok(h.runUntil(() => (u.mem.zones || []).length > 0, 5));
   assert.equal(u.mem.zones[0].dur, bb.projectile_delay_time + t0.projectile_extend);
+  assert.equal(t0.projectile_extend, t0.projectile_extend_max, 'one operator in range reaches the cap');
+  assert.ok(u.findBuff('thorn2:full'), 'thorn2_t_1[effect] at the full extension');
   h.run(1.3);
   approx(e.s.healingTakenMul, bb.heal_scale);
   const ticks = tagged(h, 'alchemy', e);

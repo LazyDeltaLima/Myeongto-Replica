@@ -120,6 +120,7 @@ const EROSION_DOWN = keyed('ep_water_def_down', 'buff', HEAD);
 // (each of the two keys' rows holds both prefabs: the holder picks — not by key)
 const ANGEL2_SELF = Object.freeze(['angel2', 'angel2_skill_2_buff_01', 0]);
 const ANGEL2_OTHER = Object.freeze(['angel2', 'angel2_skill_2_buff_02', 0]);
+const CETSYR_HEAL = Object.freeze(['cetsyr', 'cetsyr_buff_02', OWN]);
 /**
  * A kit buff → the official buff's effect: by its key; a list of specs when the buff stands for several; a function picks by
  * the holder (`view`) and its statusSource() (`from`) or returns null for none.
@@ -189,6 +190,21 @@ export const KEY_FX = Object.freeze({
   // 2026-10-24 (묶음 S2): 百炼嘉维尔 S3's end — gvial2_s_3's ON_BUFF_FINISH creates gvial2_s_3[final_bleed] (LIMITED final_duration,
   // gvial2_skill_3_bleed) on her: the kit's self bleed after the skill
   'gvial:bleed': keyed('gvial2_s_3[final_bleed]', 'gvial2', OWN),
+  // 2026-10-24 (묶음 S9): talent / skill buffs the sim now sends as statuses — each the official buff that carries the effect:
+  // 新约能天使 T2 on an AMMO-skill ally (angel2_t_2 → angel_t_2[atk]), 水月 T2 while an enemy in range is low (mizuki_t_2 →
+  // [atk]), 异客 T2 孤卒 (pasngr_t_2 → [atk_up]), 锡人 S2 on an ally in its zone (tinman_s_2[buff] → [buff][ally]), 引星棘刺 T1 at
+  // its full extension (thorn2_t_1 → [effect]), 流明 T2 ready again (lumen_t_2[cooldown]'s end → [enable], ended by her heal)
+  'angel2:covenant': keyedAll('angel_t_2[atk]', 'angel2', OWN),
+  'mizuki:t2': keyedAll('mizuki_t_2[atk]', 'mizuki', OWN),
+  'pasngr:lone': keyedAll('pasngr_t_2[atk_up]', 'pasngr', OWN),
+  'tinman:zoneAlly': keyedAll('tinman_s_2[buff][ally]', 'tinman', OWN),
+  'thorn2:full': keyedAll('thorn2_t_1[effect]', 'thorn2', OWN),
+  'lumen:ready': keyed('lumen_t_2[enable]', 'lumen', OWN),
+  // 浊心斯卡蒂 T2's eye: skadi2_t_2[atk][2] (an abyssal operator covered), and with her module both of skadi2_e_003_t_2's [atk]
+  'skadi2:eye': cite(['skadi2_t_2[atk][2]', 'skadi2_e_003_t_2[atk][1]', 'skadi2_e_003_t_2[atk][2]'], ['skadi2', 'skadi2_buff_01_eye', OWN]),
+  // a 吟游者's 生命回复速度 on an ally (sim 'trait:bard:<id>'): its AuraHeal ability's buff — 魔王's cetsyr_heal carries
+  // cetsyr_buff_02; 浊心斯卡蒂's skadi2_heal none (her range effect is skadi2_heal[effect]'s)
+  'trait:bard': cite('cetsyr_heal', (v, from) => (from?.src === 'cetsyr' ? CETSYR_HEAL : null)),
   'chen3:evade': keyedAll('chen3_t2[evade]', 'chen3', OWN),
   'tippi:evade': keyedAll('tippi_t[evade]', 'tippi', OWN),
   // 战场#06's 沙尘暴 on an unsheltered operator (EN template sand_storm[ally], ON_BUFF_TRIGGER): storm[attr_to_ally] — its

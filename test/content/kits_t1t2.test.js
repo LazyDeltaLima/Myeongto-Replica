@@ -559,11 +559,15 @@ for (const [idA, idB] of [['chess_char_1_16_a', 'chess_char_1_16_b'], ['chess_ch
     assert.ok(h3.runUntil(() => !!zone(), 2), 'the unit is down');
     const v = u3.s.atk * bb.hp_recovery_per_sec_ratio;
     approx(zone().mods.hpRegen, v, 'ATK × ratio');
+    assert.ok(yak3.findBuff('tinman:zoneAlly') && h3.eventsOf('status').some((e) => e[1] === yak3.id && e[2] === 'tinman:zoneAlly' && e[3] === 1),
+      'shown (tinman_s_2[buff][ally]\'s effect)');
     yak3.hp = yak3.s.maxHp * 0.3;
     const hp0 = yak3.hp, t1 = h3.b.time;
     h3.run(5);
     assert.ok(Math.abs(yak3.hp - hp0 - v * (h3.b.time - t1)) <= 1.5, `regenerated ${yak3.hp - hp0} ≈ ${v * 5}`);
     assert.ok(h3.runUntil(() => !zone(), bb.projectile_delay_time + 1), 'gone with the unit');
+    h3.step(); h3.step();
+    assert.ok(!yak3.findBuff('tinman:zoneAlly'), 'its effect too');
     done(h3);
 
     const bbB = bbOf(idB), w = tal(idB, 1)['skill@damage_scale'], mb = hid(idB);

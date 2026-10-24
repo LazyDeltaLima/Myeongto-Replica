@@ -39,10 +39,14 @@ export function tinmanKit(bb, chess, def) {
               if (wither > 1) b.addBuff(e, { key: witherKey, duration: 1.05, data: { mul: wither }, source: unit });
               b.dealDamage(unit, e, { amount: atk * dmgScale, type: 'arts', isSkill: true, canDodge: false, tags: ['dot', 'zone'] });
             }
-            // pulses every second: the buff bridges to the next pulse (two ticks over), the last one ends with the unit
+            // pulses every second: the buff bridges to the next pulse (two ticks over), the last one ends with the unit.
+            // 'tinman:zoneAlly' (no mods, one for every zone): tinman_s_2[buff] gives an ally in it tinman_s_2[buff][ally], whose
+            // overrideEffectKey tinman_skill_02_heal_01 the client draws (render/fxstatus.js KEY_FX)
             if (healRatio > 0) {
               for (const a of b.alliesInRadius(x, y, radius, null)) {
-                if (b.allySelectable(a, unit)) b.addBuff(a, { key: regenKey, duration: 1 + 2 * b.dt, source: unit, mods: { hpRegen: atk * healRatio } });
+                if (!b.allySelectable(a, unit)) continue;
+                b.addBuff(a, { key: regenKey, duration: 1 + 2 * b.dt, source: unit, mods: { hpRegen: atk * healRatio } });
+                b.addBuff(a, { key: 'tinman:zoneAlly', duration: 1 + 2 * b.dt, refresh: 'extend', visible: true });
               }
             }
           },

@@ -1307,7 +1307,7 @@ test('default-skill-only hooks do not run under an alternate skill (余 / 维娜
     const u = h.unit(id), a1 = h.unit('a1'), a2 = h.unit('a2');
     h.step();
     a1.hp = a1.s.maxHp * 0.5;
-    h.b.applyStatus(a2, 'stun', { duration: 30, force: true }); // (应急处理 heals it once right now — the talent)
+    h.b.applyStatus(a2, 'stun', { duration: 30, force: true }); // (应急处理 waits out its first cooldown; a2 is at full HP anyway)
     const ts = h.b.time;
     h.run(4);
     const hh = heals(h, u, (c) => !c.opts?.hot && !c.opts?.aura && c.t > ts + 0.05);
@@ -1366,6 +1366,9 @@ test('module 浊心斯卡蒂 新生代: 捕食习性 ATK +9 % / DEF +8 %, +3 SP 
   const pb = uy.findBuff('skadi2:predator');
   approx(pb.mods.atkPct, tal(id, MOD(M), 1)['skadi2_e_003_t_2[atk][1].atk']);
   approx(pb.mods.defPct, tal(id, MOD(M), 1)['skadi2_e_003_t_2[def].def']);
+  // her eye: the module's [atk][1] carries it, the base talent's only [atk][2] (an abyssal operator covered)
+  x.run(1);
+  assert.ok(uy.findBuff('skadi2:eye') && !ux.findBuff('skadi2:eye'), 'skadi2_buff_01_eye: module yes, base no (no abyssal operator)');
   done(y); done(x);
 
   for (const moduleId of [M, null]) {

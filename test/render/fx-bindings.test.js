@@ -53,7 +53,7 @@ const FXGAME = {
   aglna2_skill_02_fly_trail_up_01: 'skchr_aglna2_2', aglna2_skill_02_fly_range_01: 'skchr_aglna2_2',
   aglna2_skill_02_fly_end_01: 'skchr_aglna2_2', aglna2_skill_02_fly_end_02: 'skchr_aglna2_2', aglna2_skill_02_fly_end_03: 'skchr_aglna2_2',
   token_aglna2_agairp_01: 'token_10071_aglna2_agairp/Others/Direction/CommonAbilities/Passive',
-  svash2_skill_03_trail_02: 'projectile_chr_svash2_s3_bird_self',
+  svash2_skill_03_trail_02: 'projectile_chr_svash2_s3_bird_self', archet_skill_02_trail_02: 'projectile_chr_archet_s2',
   vigil_token_start: 'token_10028_vigil_wolf/Modes/Recharge/Body/Talents/1', vigil_token_ghost: 'token_10028_vigil_wolf/Modes/Recharge/Body/Talents/1',
   vigil_token_sub_start_1: 'vigil_wolf_t_1_enhance[holder]', vigil_token_sub_die_1: 'vigil_wolf_t_1[listener]',
   vigil_token_die: 'vigil_wolf_t_1[listener]', vigil_token_buff_1: 'vigil_wolf_t_1[block_cnt]',
@@ -114,24 +114,11 @@ const KNOWN = {
 
 /** The template rows whose prefab nothing in render/ plays: 'key|prefab' → reason (test/helpers/fxBindings.js unplayed). */
 const UNPLAYED = {
-  // 묶음 S6 (2026-10-24) — condition rows left, by why: the sim decides the condition but sends nothing the renderer sees (its
-  // buff is not `visible`: showing it adds status events and moves the sim golden)
-  'angel_t_2[atk]|angel2_buff_02': 'condOther',   // 新约能天使 T2 on the AMMO-skill allies: sim 'angel2:covenant'
-  'mizuki_t_2[atk]|mizuki_buff_01': 'condOther',   // 水月 T2 (an enemy in range ≤ hp_ratio): sim 'mizuki:t2'
-  'pasngr_t_2[atk_up]|pasngr_beidong_buff_02': 'condOther',   // 异客 T2 孤卒 (no enemy around): sim 'pasngr:lone'
-  'skadi2_e_003_t_2[atk][1]|skadi2_buff_01_eye': 'condOther',   // 浊心斯卡蒂 T2 (abyssal allies): sim 'skadi2:predator'
-  'skadi2_e_003_t_2[atk][2]|skadi2_buff_01_eye': 'condOther',
-  'skadi2_t_2[atk][2]|skadi2_buff_01_eye': 'condOther',
-  'tinman_s_2[buff][ally]|tinman_skill_02_heal_01': 'condOther',   // 锡人 S2 on the allies of its zone: sim 'tinman:zone:*' regen
-  // … the sim keeps the state but no event marks its change
-  'thorn2_t_1[effect]|thorn2_weapon_buff_05': 'condOther',   // 引星棘刺 T1 心相 at its full extension
-  // … a condition no sim event tells
+  // 묶음 S6 (2026-10-24) — condition rows left: a condition no sim event tells
   'vulpis_e_003_t_2[camouflage]|vulpis_buff_02': 'condOther',   // 忍冬's 迷彩 off while she blocks (!CheckBlocked; the sim's
   'vulpis_s_3[cam][interval]|vulpis_buff_02': 'condOther',      // 'camou' stays) — the common 迷彩 effect stands in
   'nearl2_s_3[combo_effect]|nearl2_buff_01_start': 'condOther',   // 耀骑士临光 S3: CheckContainsCardBuff (a card's buff nearl2_t_1)
   'ines_t_2[effect2]|ines_range_02': 'cond',   // 伊内丝 T2 by her mode as the talent buff starts (S2's mode 1) [추정: its S2 talent re-creates it]
-  // not reached or left by earlier bundles (S3 / S4 documents)
-  'lumen_t_2[enable]|lumen_buff_01_start': 'unconditional',
   // 佩佩's third module (CN client): its pepe_e_003_t[trigger] works on 生息演算 cards and treasure tiles
   // (BuffAoeTargetForPepeEquipSandbox, TresureTileSelector) — never reached in this mode
   'pepe_e_003_t[aoe]|pepe_skill_01_hit_01_optimize': 'unconditional',

@@ -159,10 +159,11 @@ function angel2(bb, chess, def) {
       } },
       { install(battle, unit) { // 铳弹协约
         const atk = num(t1.atk), mult = num(t1.mult, 1);
+        // `visible`: angel2_t_2's angel_t_2[atk] on the ally carries overrideEffectKey angel2_buff_02 (render/fxstatus.js KEY_FX)
         if (atk) aura(battle, unit, 0.5, () => {
           for (const a of battle.allyUnits) {
             if (!live(a) || a.kind !== 'op' || !a.skill || a.skill.kind !== 'ammo') continue;
-            battle.addBuff(a, { key: 'angel2:covenant', mods: { atkPct: atk * (hasBond(a, 'lateranoShip') ? mult : 1) }, duration: 0.75, refresh: 'replace' });
+            battle.addBuff(a, { key: 'angel2:covenant', mods: { atkPct: atk * (hasBond(a, 'lateranoShip') ? mult : 1) }, duration: 0.75, refresh: 'replace', visible: true });
           }
         });
       } },

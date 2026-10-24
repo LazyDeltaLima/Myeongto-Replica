@@ -1164,6 +1164,11 @@ test('3_21 空弦 S2 箭矢·追猎 (charges): times hits on the target, then bo
     const counts = ['enemy_e1', 'enemy_e2', 'enemy_e3'].map(per).sort((x, y) => y - x);
     assert.deepEqual(counts, [b.times, b.times - 1, b.times - 2], '5, 4, 3');
     for (const c of hits) approx(c.amount, u.s.atk * b.atk_scale);
+    // the arrow's flights for the client: from her, then from each enemy it left ('volley' `from`)
+    const ids = (k) => h.enemies().find((e) => e.defId === k)?.id ?? hits.find((c) => c.target.defId === k).target.id;
+    const order = [...new Set(hits.map((c) => c.target.defId))].map(ids);
+    const vol = h.eventsOf('fx').filter((e) => e[1] === 'volley' && e[4]?.id === u.id).map((e) => [e[4].from ?? null, ...e[4].targets]);
+    assert.deepEqual(vol, [[null, order[0]], [order[0], order[1]], [order[1], order[2]]]);
     done(h);
   }
   // a lone target takes all the hits of the first volley only (no one to bounce to)

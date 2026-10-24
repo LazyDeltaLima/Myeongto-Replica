@@ -155,7 +155,16 @@ export default {
         },
       },
       talents: [
-        { install(battle, unit) { permBuff(battle, unit, 'thorn2:mind', { atkPct: num(t0.atk) }); } },
+        { install(battle, unit) {
+          permBuff(battle, unit, 'thorn2:mind', { atkPct: num(t0.atk) });
+          // thorn2_t_1 gives thorn2_t_1[effect] (overrideEffectKey thorn2_weapon_buff_05) while projectile_extend_cur reaches
+          // projectile_extend_max, and finishes it below: the extension her zones get now, at its cap — a buff without mods
+          // for the client's effect (render/fxstatus.js KEY_FX)
+          const max = num(t0.projectile_extend_max, Infinity);
+          if (Number.isFinite(max) && max > 0) whileOn(battle, unit, AURA_IV, () => {
+            if (extend(battle, unit) >= max - 1e-9) battle.addBuff(unit, { key: 'thorn2:full', duration: AURA_DUR, refresh: 'replace', visible: true });
+          });
+        } },
         { install(battle, unit) { // 视界
           const cnt = num(t1.cnt, 6);
           const ally = num(t1.attack_speed_ally), allyX = num(t1.attack_speed_ally_extra), foe = num(t1.attack_speed_enemy), foeX = num(t1.attack_speed_enemy_extra);

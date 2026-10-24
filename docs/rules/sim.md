@@ -926,6 +926,12 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   배율 ×`atk_scale`, `effect` `bpipe_attack_02_hit`; `avoid_dup_trigger_lock`으로 그 피해는 다시 안 굴림). 그 전엔 공격마다 한 번 굴려 둘째 적을 **공격 대상**에
   넣어 'atk'·일반 명중 이펙트까지 그 적에 나왔다 → `chess_char_4_07-bpipe.js`('hit' 우선순위 1: 모듈 115 %보다 먼저 원래 피해를 읽음, 추가 피해는 SP 없음).
   테스트 `kits_t4.test.js` 「风笛 S2」.
+- **流明 应急处理는 배치마다 대기부터** (2026-10-24, 관리자 결정 「공식처럼」; charpack `char_4042_lumen` Talents/2, 버프 템플릿 `lumen_t_2[…]`): 능력의
+  `_passiveBuffs` `lumen_t_2[cooldown]`(LIMITED, `durationKey` `duration`)이 배치 때 붙어 첫 치유는 배치 `duration` s(잠재·모듈에 따라 8~12) 뒤다.
+  `[cooldown]`이 끝나면 `[enable]`(overrideEffectKey `lumen_buff_01_start` — 준비 빛)이 생기고, 범위 안 동료의 `lumen_t_2[listener]`는 그녀에게
+  `[cooldown]`이 없을 때만 그 동료의 체력 비율이 `hp_ratio` 1.0 미만이면(가득 찬 동료는 안 침) 치유·`lumen_buff_01_hit`·`[enable]` 끝 → `[enable]`의 끝이
+  `[cooldown]`을 다시 건다. 시뮬: 보이는 버프 `'lumen:ready'`(재배치·이동 배치마다 다시 대기). 그 전엔 배치 직후부터 치유했고 가득 찬 동료에게도 쿨다운을
+  썼다 → `chess_char_6_14-lumen.js`. 골든 `roster-017`의 应急处理 9 → 8. 테스트 `kits_t6.test.js` 「流明 应急处理」.
 
 ## 적 스킬 = 일반 공격 차례 (2026-10-21, 관리자 제보 「퀸투스가 HP가 낮아지면 기억보다 너무 셈」, 관리자 결정 2026-10-21 「엔진 전체로」)
 적 스킬(enemy_database `skills`)을 EN 공식 클라대로 일반 공격 **자리에서** 쓴다. 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 클래스 없음.

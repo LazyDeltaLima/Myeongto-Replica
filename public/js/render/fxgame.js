@@ -1642,34 +1642,41 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     });
     return true;
   }
+  // 2026-10-24 (묶음 S9): a bouncing skill shot's later flights — 空弦 S2's projectile_chr_archet_s2 `_replaceMainEffectWhenReach`
+  // with `_mainEffectToReplace` archet_skill_02_trail_02, at its `_speedAfterFirstReach` 6 tiles / s (EN [uc]projectiles.ab)
+  const BOUNCE_SHOT = Object.freeze({ archet: Object.freeze({ name: 'archet_skill_02_trail_02', speed: 6 }) });
+  const shotLand = new WeakMap();   // view → when the last skill shot drawn at it lands (clockS)
   /**
    * 2026-10-21 (이펙트 연결 전수 ①): a skill's own projectile (modes.json skills[i].shot, char_modes.py — the `_mainEffect`
    * of the projectile its skill prefab's ability shoots) from `src` to `to` (a unit, followed, or a ground point), for the kit
    * events of skills whose window has no attack to carry it (takeShot): 流星 S2 'volley', 崖心 S2 'pull', 波登可 S2 / 锡人 /
    * 引星棘刺 'zone'. At the sim's speed of that skill's shot (data/chess.json shot.skills[i]: speeds.js opShot; none read:
    * 10 tiles / s [추정]) on its PARACURVE `height` arc, from her muzzle; a `_line` of the list (崖心's rope) runs from her to
-   * the flying head (ropeLine). `land` runs as it lands. The flight time (s), or -1 with nothing to fly.
+   * the flying head (ropeLine). `land` runs as it lands. `via` { from, name, speed }: a bounce of that shot (BOUNCE_SHOT) from
+   * the unit `from` it reached. The flight time (s), or -1 with nothing to fly.
    */
-  function skillShotOut(src, to, land = null) {
+  function skillShotOut(src, to, land = null, via = null) {
     if (!isOp(src) || !bundleOf(src) || failed || level() >= 3 || !to) return -1;
     const b = bundleOf(src), i = skillIdx(src);
-    const { name, shot } = modelessTrail(bindOf(src), b.prefabs, i, true);
-    if (!shot || !name) return -1;
+    const { name: own, shot } = modelessTrail(bindOf(src), b.prefabs, i, true);
+    const name = via ? via.name : own;
+    if (!shot || !name || (via && !b.prefabs.includes(name))) return -1;
     let def;
     try { def = unitDef(src.info) ?? null; } catch { def = null; }
     const s = opShot(def, true, i);
     if (s && Number(s.speed) === 0 && s.move !== 'OTHER') return -1;   // no flight: the skill's shot lands at once
     const unit = to.info ? to : null;
-    const from = shotFrom(src, null);
+    const from = via ? { x: mx(via.from), y: via.from.y, z: shotTo(via.from) } : shotFrom(src, null);
     const tx = unit ? mx(unit) : Number(to.x), ty = Number(to.y), tz = unit ? shotTo(unit) : Number(to.z) || 0;
     // the sim's flight: unit to unit (or point), as trailShot
-    const dur = Math.max(0.04, Math.hypot(tx - src.x, ty - src.y) / (Number(s?.speed) > 0 ? Number(s.speed) : 10));
+    const ox = via ? from.x : src.x, oy = via ? from.y : src.y;
+    const dur = Math.max(0.04, Math.hypot(tx - ox, ty - oy) / (via ? via.speed : Number(s?.speed) > 0 ? Number(s.speed) : 10));
     const arc = s?.move === 'PARACURVE' && Number(s.height) > 0 ? Number(s.height) : 0;
     const rec = { inst: null, tgt: unit, x0: from.x, y0: from.y, z0: from.z, tx, ty, tz, k: 0, dur, arc };
     trails.push(rec);
     spawn(b.bundle, name, { x: from.x, y: from.y, z: from.z }, { owner: null, buff: false, until: clockS + dur + 5 }, { drop: rec })
       .then((l) => { if (!l) { const k = trails.indexOf(rec); if (k >= 0) trails.splice(k, 1); } });
-    const line = unit ? shotLine(src, name) : null;
+    const line = unit && !via ? shotLine(src, name) : null;
     if (line) ropeLine(b.bundle, line, src, rec);
     castsDelayed.push({ t: clockS + dur, run: () => land?.() });
     return dur;
@@ -1716,14 +1723,26 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!o || typeof o !== 'object' || (e[1] !== 'volley' && e[1] !== 'pull')) return false;
     const src = views.get(e[1] === 'pull' ? o.src : o.id);
     const ids = e[1] === 'pull' ? [o.id] : Array.isArray(o.targets) ? o.targets : [];
-    if (!src?._fxSkillOn || !ids.length) return false;
+    // (2026-10-24, 묶음 S9) a bounce ('volley' `from`: the enemy the arrow left — 空弦 S2) flies after the skill's window, once
+    // the drawn arrow has reached `from` (shotLand: the sim's arrow is faster than the client's)
+    const bounce = o.from != null ? BOUNCE_SHOT[bundleOf(src)?.bundle] : null, at = bounce ? views.get(o.from) : null;
+    if ((!src?._fxSkillOn && !at) || !ids.length || (o.from != null && !at)) return false;
     const sk = skillBind(src), hits = extracted(src, sk?.shotHit?.length ? sk.shotHit : sk?.target);
     let n = 0;
     for (const id of ids) {
       const tgt = views.get(id);
       if (!tgt) continue;
-      const dur = skillShotOut(src, tgt, () => { if (hits.length && tgt.alive !== false && !tgt.remove) play(src, 'attackHit', 0, { at: tgt, names: hits, aim: src }); });
+      const land = () => { if (hits.length && tgt.alive !== false && !tgt.remove) play(src, 'attackHit', 0, { at: tgt, names: hits, aim: src }); };
+      if (at) {
+        const fly = () => { const d = skillShotOut(src, tgt, land, { ...bounce, from: at }); if (d >= 0) shotLand.set(tgt, clockS + d); };
+        const t = shotLand.get(at) ?? 0;
+        if (t > clockS) castsDelayed.push({ t, run: fly }); else fly();
+        n++;
+        continue;
+      }
+      const dur = skillShotOut(src, tgt, land);
       if (dur < 0) continue;
+      shotLand.set(tgt, clockS + dur);
       n++;
       for (const p of pending) if (p.src === src) (p.done ||= new Set()).add(id);   // its hit waits for the landing
     }

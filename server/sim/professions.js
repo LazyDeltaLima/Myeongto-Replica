@@ -462,7 +462,9 @@ export function bardRegen(battle, bard, ally, value, duration = BARD_REGEN_DUR) 
   if (!bard || !ally || !ally.alive || !(value > 0)) return;
   let v = value;
   if (battle.hasHook('bardRegen')) v = num(battle.emit('bardRegen', { unit: bard, target: ally, value: v }).value, 0);
-  if (v > 0) battle.addBuff(ally, { key: `trait:bard:${bard.id}`, duration, source: bard, mods: { hpRegen: v } });
+  // `visible`: the bard's AuraHeal buff on the ally may carry an effect (魔王's cetsyr_heal: cetsyr_buff_02; render/fxstatus.js
+  // KEY_FX picks by the applier)
+  if (v > 0) battle.addBuff(ally, { key: `trait:bard:${bard.id}`, duration, source: bard, mods: { hpRegen: v }, visible: true });
 }
 
 const installBard = (battle, unit) => {
