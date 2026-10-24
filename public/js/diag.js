@@ -10,7 +10,8 @@
 //
 //   recordError(source, err, detail?)  source: 'error' (uncaught) | 'rejection' (unhandled promise) | 'sim' (a content
 //                                      error the battle isolated) | 'runner' (the local battle runner) | 'request'
-//                                      (a failed request or error push the player was shown)
+//                                      (a failed request or error push the player was shown) | 'ui' (a screen that
+//                                      crashed while rendering, the 「界面发生错误」 page)
 //   errorLog() / errorCount() / clearErrorLog()
 //   setBattleSource(fn)                the battle runner registers how to read the battle on screen
 //   rememberBattle(entry)              the runner's own battles of this match (b.start fields), kept past the match's

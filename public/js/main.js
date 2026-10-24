@@ -371,7 +371,7 @@ function ScreenCrashed({ error, reset }) {
 function App() {
   const route = useStore(selectRoute);
   useLang(); // a language switch re-renders the whole tree in place
-  const [error, resetError] = useErrorBoundary((err) => console.error('[ui] screen crashed', err));
+  const [error, resetError] = useErrorBoundary((err) => { console.error('[ui] screen crashed', err); recordError('ui', err, 'screen crashed'); });
   const Screen = SCREENS[route] || LobbyScreen;
   return html`<div class="app-root">
     <div class="app-bg" aria-hidden="true"></div>
