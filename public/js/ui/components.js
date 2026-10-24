@@ -738,7 +738,7 @@ export function Tabs({ items = [], value, onChange, size = 'md', class: cls }) {
   };
   return html`<div class=${cx('tabs', `tabs--${size}`, cls)} role="tablist" onKeyDown=${onKey}>
     ${items.map((it) => html`<button key=${it.id} type="button" role="tab" aria-selected=${it.id === value ? 'true' : 'false'}
-        tabIndex=${it.id === value ? 0 : -1} disabled=${it.disabled}
+        tabIndex=${it.id === value ? 0 : -1} disabled=${it.disabled} data-tab=${it.id}
         class=${cx('tabs__tab', it.id === value && 'is-active')} onClick=${() => !it.disabled && onChange?.(it.id)}>
       <span>${it.label}</span>
       ${it.badge != null ? html`<span class="tabs__badge">${it.badge}</span>` : null}

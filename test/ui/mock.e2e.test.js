@@ -492,7 +492,9 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
 
   test('教鞭: PREP cards confirm twice, use its timer, reset on a new ID; old replies cannot clear a new busy pick', async () => {
     const { page, problems } = await open('phase=PREP', { render: 'fallback' });
-    await page.click('.gm__gear');
+    await page.$eval('.gm__tools > .gm__gear:first-child', (el) => el.click()); // 设置 (behind ⋯ on a phone; .gm__gear alone is ⋯)
+    await page.waitForSelector('.modal .set-tabs');
+    await page.$eval('.set-tabs [data-tab="keys"]', (el) => el.click()); // 快捷键 is a tab of its own
     await page.waitForSelector('.modal .set-keys');
     await page.click('.set-key[data-action="ready"]');
     await page.waitForSelector('.set-key.is-waiting[data-action="ready"]');

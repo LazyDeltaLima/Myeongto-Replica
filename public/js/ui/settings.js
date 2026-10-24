@@ -1,16 +1,16 @@
 // Player settings (BGM/SFX/voice volume, mute, the chat notification, damage numbers, render quality, the match notices, the shortcut keys): a tiny observable
 // store persisted in localStorage (`sp.pref.settings`), applied to the audio manager on every change, plus
-// the settings modal, in sections by function (SetSection: 通用 / 声音 / 聊天提示 / 画面, maintainer decision 2026-10-14) — 通用
-// holds the language switch (ui/lang.js; kept apart in `sp.pref.lang`; under it a note
+// the settings modal, in tabs by function (SETTINGS_TABS: 通用 / 声音 / 聊天提示 / 画面 / 快捷键 / 问题反馈; the sections of
+// maintainer decision 2026-10-14, one tab each since 2026-10-24 as the list had grown long) — 通用 holds the language switch (ui/lang.js; kept apart in `sp.pref.lang`; under it a note
 // while the current language's pack is a machine translation, `_meta.machineTranslated`) and the resource download; after
-// them come the 快捷键 section that rebinds the in-match shortcuts (the key map: ui/gameLogic/shortcuts.js; the community request
+// them come the 快捷键 tab that rebinds the in-match shortcuts (the key map: ui/gameLogic/shortcuts.js; the community request
 // 「快捷键可不可以自己设置」, the owner's decision of 2026-10-07) and 问题反馈, which copies the diagnostics of this page
 // for a bug report (diag.js: the error log, this browser, optionally the battle on screen; nothing is uploaded). The lobby
 // and the room open it from a 设置 button next to 玩法说明 (SettingsButton, GitHub #238); the title screen and the match
 // have their own gear.
 
 import { useLayoutEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { html, Modal, Button, Icon, MicroLabel } from './components.js';
+import { html, Modal, Button, Icon, MicroLabel, Tabs } from './components.js';
 import { GIcon } from './gameComponents.js';
 import { createStore, useStore, loadPref, savePref, store } from '../store.js';
 import { sanitizeSettings, setNumberUnitMode, numberUnitMode, CHAT_COOLDOWN, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, hotkeyLabel, rebindHotkey, isDefaultHotkeys, captureHotkey } from './gameLogic.js';
@@ -217,7 +217,7 @@ export const ISSUES_URL = 'https://github.com/LazyDeltaLima/Myeongto-Replica/iss
  * 问题反馈: copy the diagnostics of this page (diag.js) for a GitHub issue — the errors recorded since the page opened,
  * this browser and device, where the player is, and, switched on by default while a battle is on screen, that battle's
  * spec (the dev tools replay it). Player names, the room code and the token are replaced; nothing is uploaded. Laid out
- * like 快捷键 above it (a head with its button, a hint, the result line); the battle switch is the settings' Toggle, and
+ * like 快捷键 (a head with its button, a hint, the result line); the battle switch is the settings' Toggle, and
  * when the clipboard refuses (some in-app browsers), the report is shown selected in a box styled like 干员调配's 导出.
  */
 /** The result line of 复制诊断信息, by outcome (msgids: translated when shown, so a language switch reaches it). */
@@ -259,16 +259,20 @@ function DiagSection() {
   </section>`;
 }
 
+/** The tabs of the settings modal, by what their rows set (msgids: translated when shown). */
+const SETTINGS_TABS = [['general', N_('通用')], ['sound', N_('声音')], ['chat', N_('聊天提示')], ['display', N_('画面')],
+  ['keys', N_('快捷键')], ['diag', N_('问题反馈')]];
+/** The tab the modal opened on last (this page only): the modal reopens where the player left it. */
+let lastTab = 'general';
+
 /**
- * One section of the settings modal, headed like 快捷键 / 问题反馈 (a title with its micro label over a rule): the rows
- * grouped by what they set — 通用 (language, the resource download), 声音, 聊天提示, 画面 (maintainer decision 2026-10-14).
- * @param {{ id: string, title: string, micro: string, children?: any }} props
+ * One tab's rows: 通用 (language, the resource download), 声音, 聊天提示, 画面 (maintainer decision 2026-10-14), 快捷键,
+ * 问题反馈 — the last two keep their own heads (each with its button).
+ * @param {{ id: string, children?: any }} props
  */
-function SetSection({ id, title, micro, children }) {
-  return html`<section class=${`set-sec set-sec--${id}`} aria-labelledby=${`set-sec-${id}`} data-testid=${`set-sec-${id}`}>
-    <div class="set-sec__head"><span class="set-row__label" id=${`set-sec-${id}`}>${title}<${MicroLabel}>${micro}<//></span></div>
-    ${children}
-  </section>`;
+function SetPanel({ id, children }) {
+  return html`<section class=${`set-sec set-sec--${id}`} role="tabpanel" aria-label=${t(SETTINGS_TABS.find(([k]) => k === id)[1])}
+    data-testid=${`set-sec-${id}`}>${children}</section>`;
 }
 
 /**
@@ -280,32 +284,35 @@ export function SettingsModal({ open, onClose }) {
   const [tested, setTested] = useState(false);
   const [touchUi] = useState(() => detectFeatures().coarse && !detectFeatures().fine);
   const mtNote = machineTranslationNote(); // a pack marked as machine translation says so under the switch
+  const [tab, setTabState] = useState(lastTab);
+  const setTab = (id) => { lastTab = id; setTabState(id); };
   return html`<${Modal} open=${open} onClose=${onClose} title=${t('设置')} micro="SETTINGS" width="7.4rem"
     actions=${html`<${Button} variant="secondary" icon="book" class="set-guide" onClick=${() => openGuide(0)}>${t('玩法说明')}<//>
       <${Button} variant="primary" icon="check" onClick=${onClose}>${t('完成')}<//>`}>
     <div class="set-list">
-      <${SetSection} id="general" title=${t('通用')} micro="GENERAL">
+      <${Tabs} class="set-tabs" size="sm" value=${tab} onChange=${setTab} items=${SETTINGS_TABS.map(([id, label]) => ({ id, label: t(label) }))} />
+      ${tab === 'general' ? html`<${SetPanel} id="general">
         <div class="set-row">
           <span class="set-row__label">${t('语言')}<${MicroLabel}>LANGUAGE<//></span>
           <${LangToggle} class="set-lang" />
         </div>
         ${mtNote ? html`<p class="set-hint set-lang-note" data-testid="lang-mt-note">${mtNote}</p>` : null}
         <${ResourceSetting} />${/* local patch */ ''}
-      <//>
-      <${SetSection} id="sound" title=${t('声音')} micro="SOUND">
+      <//>` : null}
+      ${tab === 'sound' ? html`<${SetPanel} id="sound">
         <${Slider} label=${t('背景音乐')} micro="BGM" icon="play" value=${s.bgm} onInput=${(v) => updateSettings({ bgm: v })} />
         <${Slider} label=${t('干员语音')} micro="VOICE" icon="mic" value=${s.voice} onInput=${(v) => updateSettings({ voice: v })} />
         <${Slider} label=${t('音效')} micro="SFX" icon="signal" value=${s.sfx}
           onInput=${(v) => { updateSettings({ sfx: v }); if (!tested) { setTested(true); setTimeout(() => setTested(false), 400); audio.sfx('click'); } }} />
         <${VoiceSetting} />${/* local patch */ ''}
         <${Toggle} label=${t('静音')} micro="MUTE" value=${s.muted} onChange=${(v) => updateSettings({ muted: v })} />
-      <//>
-      <${SetSection} id="chat" title=${t('聊天提示')} micro="CHAT ALERTS">
+      <//>` : null}
+      ${tab === 'chat' ? html`<${SetPanel} id="chat">
         <${ChatSoundSection} s=${s} />
         <${Toggle} label=${t('常驻最近 3 条消息')} micro="PIN RECENT" value=${s.chatPinRecent} onChange=${(v) => updateSettings({ chatPinRecent: v })} />
         <p class="set-hint">${t('开启后对局中聊天收起时，最近 3 条聊天消息一直显示在聊天按钮上方，不再几秒后消失。')}</p>
-      <//>
-      <${SetSection} id="display" title=${t('画面')} micro="DISPLAY">
+      <//>` : null}
+      ${tab === 'display' ? html`<${SetPanel} id="display">
         <${Toggle} label=${t('显示伤害数字')} micro="DAMAGE NUMBERS" value=${s.damageNumbers} onChange=${(v) => updateSettings({ damageNumbers: v })} />
         ${s.damageNumbers ? html`<${NumberStyleSetting} />` : ''}${/* local patch: 官方 / 全部 numbers */ ''}
         <div class="set-row">
@@ -321,10 +328,12 @@ export function SettingsModal({ open, onClose }) {
         <p class="set-hint">${t('关闭后对局中不再弹出任何通知：获得干员、盟约资金等提示，干员退回整备区、淘汰等警告，以及操作无法执行的原因。')}</p>
         <${UiScaleSetting} />${/* local patch */ ''}
         <${GpuNote} />
-      <//>
-      <${HotkeySection} keys=${s.keys} touchUi=${touchUi} />
-      <${DiagSection} />
-      <p class="set-hint">${touchUi ? t('触屏操作：点击单位选中（撤退 / 出售）· 长按单位或卡牌查看详情 · 拖动部署后滑动选择朝向') : t('右键查看详情')}</p>
+      <//>` : null}
+      ${tab === 'keys' ? html`<${SetPanel} id="keys">
+        <${HotkeySection} keys=${s.keys} touchUi=${touchUi} />
+        <p class="set-hint">${touchUi ? t('触屏操作：点击单位选中（撤退 / 出售）· 长按单位或卡牌查看详情 · 拖动部署后滑动选择朝向') : t('右键查看详情')}</p>
+      <//>` : null}
+      ${tab === 'diag' ? html`<${SetPanel} id="diag"><${DiagSection} /><//>` : null}
     </div>
   <//>`;
 }

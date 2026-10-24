@@ -35,7 +35,8 @@ describe('rebindable shortcuts (设置 → 快捷键)', { skip: !ENABLED && 'set
     page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
     page.on('console', (m) => { if (m.type() === 'error') problems.push(`console: ${m.text()}`); });
     await page.setViewport({ width, height, isMobile: touch, hasTouch: touch });
-    await page.goto(`${srv.url}/dev/game-mock.html?shot=1&render=fallback&phase=PREP`, { waitUntil: 'domcontentloaded' });
+    // `lang=zh`: the texts below are the source language's (a first visit opens in Korean)
+    await page.goto(`${srv.url}/dev/game-mock.html?shot=1&render=fallback&phase=PREP&lang=zh`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.ff-piece');
     return problems;
   }
@@ -44,7 +45,9 @@ describe('rebindable shortcuts (设置 → 快捷键)', { skip: !ENABLED && 'set
     const page = await browser.newPage();
     try {
       const problems = await open(page);
-      await page.click('.gm__gear');
+      await page.$eval('.gm__tools > .gm__gear:first-child', (el) => el.click()); // 设置 (behind ⋯ on a phone; .gm__gear alone is ⋯)
+      await page.waitForSelector('.modal .set-tabs');
+      await page.$eval('.set-tabs [data-tab="keys"]', (el) => el.click()); // 快捷键 is a tab of its own
       await page.waitForSelector('.modal .set-keys');
       assert.deepEqual(await page.$$eval('.set-key[data-action]', (els) => els.map((el) => el.textContent.trim())), ['R', 'F', 'D', 'Q', 'X', 'Space'],
         'the defaults are the keys of 0.1.4');
@@ -102,7 +105,9 @@ describe('rebindable shortcuts (设置 → 快捷键)', { skip: !ENABLED && 'set
       // the choice survives a reload; 恢复默认 brings Q back
       await page.reload({ waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.ff-piece');
-      await page.click('.gm__gear');
+      await page.$eval('.gm__tools > .gm__gear:first-child', (el) => el.click()); // 设置 (behind ⋯ on a phone; .gm__gear alone is ⋯)
+      await page.waitForSelector('.modal .set-tabs');
+      await page.$eval('.set-tabs [data-tab="keys"]', (el) => el.click()); // 快捷键 is a tab of its own
       await page.waitForSelector('.modal .set-keys');
       assert.equal(await keyOf(page, 'retreat'), 'W');
       await page.click('.set-keys__reset');
@@ -115,7 +120,9 @@ describe('rebindable shortcuts (设置 → 快捷键)', { skip: !ENABLED && 'set
     const page = await browser.newPage();
     try {
       const problems = await open(page, { width: 640, height: 360, touch: true });
-      await page.tap('.gm__gear');
+      await page.$eval('.gm__tools > .gm__gear:first-child', (el) => el.click()); // 设置 (behind ⋯ on a phone; .gm__gear alone is ⋯)
+      await page.waitForSelector('.modal .set-tabs');
+      await page.$eval('.set-tabs [data-tab="keys"]', (el) => el.click()); // 快捷键 is a tab of its own
       await page.waitForSelector('.modal .set-keys');
       assert.match(await page.$eval('.set-keys .set-hint', (el) => el.textContent), /快捷键需要实体键盘/);
       assert.equal(await page.$eval('.set-keys__more', (el) => el.open), false, 'the list is folded on a touch-only device');
