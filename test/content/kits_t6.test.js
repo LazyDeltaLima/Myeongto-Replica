@@ -320,6 +320,12 @@ test('余: blocked enemies take 40 % ATK arts + 12 % burn per second, 庇护 whi
   assert.ok(h.runUntil(() => u.skill.active, 20), 'CUSTOM_RANGE trigger');
   assert.ok(near(u.s.maxHp, base * (1 + bb.max_hp)));
   assert.ok(near(dot[0].amount, u.base.atk * t0['yu_t_1[enemy].atk_scale'], 1e-3), 'DoT = 40 % ATK (before the skill)');
+  // (묶음 S11) the client's effects: yu_t_1[enemy]'s yu_skill3_annex_02 on each tick's arts hit (the 'dmg' event's 9th field),
+  // yu_t_1[damage_resistance] (yu_talent_01) while he blocks — 'yu:guard', a status without mods
+  const ticks = h.eventsOf('dmg').filter((e) => e[5] === u.id && Array.isArray(e[8]) && e[8].some((m) => m[0] === 'yu_t_1[enemy]' && m[1] === u.id));
+  assert.ok(ticks.length >= 2 && ticks.every((e) => e[3] === 'arts'), 'one moment per tick, on its arts hit');
+  assert.ok(u.findBuff('yu:guard') && !u.findBuff('yu:guard').mods, '\'yu:guard\' while blocking');
+  assert.deepEqual(h.eventsOf('status').filter((e) => e[1] === u.id && e[2] === 'yu:guard').map((e) => e[3]), [1]);
   checkInvariants(h.b);
 });
 
@@ -341,6 +347,9 @@ test('余: S3 fire wall adds burn to allied arts damage crossing it and clears c
   assert.ok(near(wall[0].amount, u.s.atk * u.def.skill.bb.ep_damage_ratio, 1e-3));
   const blocked = h.eventsOf('fx').filter((e) => e[1] === 'firewallBlock');
   assert.ok(blocked.length > 0, 'some enemy bullets cleared');
+  // (묶음 S11) yu_s_3[ally]: yu_skill3_annex_02 on the enemy, with each burn of the wall (the 'dmg' event's 9th field)
+  const marks = h.eventsOf('dmg').filter((e) => e[3] === 'burn' && Array.isArray(e[8]) && e[8].some((m) => m[0] === 'yu_s_3[ally]' && m[1] === u.id));
+  assert.ok(marks.length > 0 && marks.length <= wall.length, `the wall's moments (${marks.length} / ${wall.length} burns)`);
 });
 
 test('浊心斯卡蒂: heals as a bard, S3 = true damage in her + 海嗣 ranges, 鼓舞 +65 % of her ATK, no death from drain', () => {

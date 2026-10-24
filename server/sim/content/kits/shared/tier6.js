@@ -258,9 +258,12 @@ function onElementHit(battle, unit, fn) {
   }, { owner: unit });
 }
 
-/** Deal `amount` of element `el` (元素损伤) — nothing on a target at 0 HP (a lethal hit's `damaged` hook, see hasHp). */
-const elementDmg = (battle, src, tgt, el, amount, tags = ['skill']) =>
-  (amount > 0 && hasHp(tgt) ? battle.dealDamage(src, tgt, { type: 'element', element: el, amount, tags }) : 0);
+/**
+ * Deal `amount` of element `el` (元素损伤) — nothing on a target at 0 HP (a lethal hit's `damaged` hook, see hasHp).
+ * `moment`: the official effect moment of this hit (the 'dmg' event's field, render/fx/kitofficial.js 'hit').
+ */
+const elementDmg = (battle, src, tgt, el, amount, tags = ['skill'], moment = null) =>
+  (amount > 0 && hasHp(tgt) ? battle.dealDamage(src, tgt, { type: 'element', element: el, amount, tags, moment }) : 0);
 
 /**
  * Pull `e` with 力度 `force` towards the point / unit `unit` ("向自己中心…拖拽", "拉向目标所在位置"), stopping `stop` tiles

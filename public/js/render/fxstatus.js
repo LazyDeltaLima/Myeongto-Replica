@@ -111,9 +111,13 @@ export const SOURCE_FX = Object.freeze({
   // 诱导 from 圣聆初雪 S3: sbell2_s3[attract_core] creates sbell2_s3[attract_effect] (sbell2_skill_03_hint) on the enemy once its
   // pull to her (AddAttractToTargetNearestTileUseAbilitySelector) is set — the sim's 'attract' status, given only then
   attract: Object.freeze({ sbell2: keyedAll('sbell2_s3[attract_effect]', 'sbell2', 0) }),
+  // (2026-10-24, 묶음 S11) 迷彩 by its buff: 维什戴尔's 魂灵之影 gives her token_wisdel_host[Camouflage] (token_wisdel_passive[to_host]
+  // CreateBuffInRange, overrideEffectKey wisdel_camouflage_buff_01); 忍冬's S3 迷彩 vulpis_s_3[cam] carries none — its effect is
+  // KEY_FX 'vulpis:camouShown', only while she blocks no one. Another applier keeps STATUS_FX's (STATUS_FALLBACK)
+  camou: Object.freeze({ token_10035_wisdel_wward: keyed('token_wisdel_host[Camouflage]', 'wisdel', OWN), vulpis: Object.freeze(cite('vulpis_s_3[cam]', {})) }),
 });
 /** SOURCE_FX statuses whose other appliers draw STATUS_FX's common effect (the client's buff without an override). */
-const STATUS_FALLBACK = new Set(['levitate']);
+const STATUS_FALLBACK = new Set(['levitate', 'camou']);
 
 const BURN_BURST = keyed('ep_fire_magic_res_down', 'buff', 0.5);
 const EROSION_DOWN = keyed('ep_water_def_down', 'buff', HEAD);
@@ -121,6 +125,7 @@ const EROSION_DOWN = keyed('ep_water_def_down', 'buff', HEAD);
 const ANGEL2_SELF = Object.freeze(['angel2', 'angel2_skill_2_buff_01', 0]);
 const ANGEL2_OTHER = Object.freeze(['angel2', 'angel2_skill_2_buff_02', 0]);
 const CETSYR_HEAL = Object.freeze(['cetsyr', 'cetsyr_buff_02', OWN]);
+const HUMUS_PEAK = Object.freeze([Object.freeze(['humus', 'humus_buff_01', OWN]), Object.freeze(['humus', 'humus_buff_02', OWN])]);
 /**
  * A kit buff → the official buff's effect: by its key; a list of specs when the buff stands for several; a function picks by
  * the holder (`view`) and its statusSource() (`from`) or returns null for none.
@@ -130,6 +135,17 @@ export const KEY_FX = Object.freeze({
   // 休谟斯 再回收 (2026-10-24, 묶음 S6): humus_t_1[effect] holds humus_t_1[effect_holder] (humus_buff_03) while her barrier's
   // `dynamic` is above 0 — the sim's barrier buff, gone when spent
   'humus:recycle': keyedAll('humus_t_1[effect_holder]', 'humus', 0),
+  // 休谟斯 S2 精力充沛 (2026-10-24, 묶음 S11): humus_s_2[peak_1] / [peak_2] each run peak_performance with their blackboard
+  // `peak_performance.effect` humus_buff_01 / _02 (CreateBuffWithOverrideEffect peak_performance[effect]) above their HP ratio;
+  // the sim's buff is the highest peak (`fxTag` 1 / 2) — above peak_2 both hold [추정: disableOverride keeps both derived buffs]
+  'humus:peak': cite(['humus_s_2[peak_1]', 'humus_s_2[peak_2]'], (v, from) => (Number(from?.fx) === 2 ? [HUMUS_PEAK[0], HUMUS_PEAK[1]]
+    : Number(from?.fx) === 1 ? HUMUS_PEAK[0] : null)),
+  // 余 T1 礼尚往来 while he blocks: yu_t_1[self] holds yu_t_1[damage_resistance] (yu_talent_01) — CheckBlocked on
+  // ON_OWNER_BLOCKEE_CHANGED (the sim's 'yu:guard')
+  'yu:guard': keyedAll('yu_t_1[damage_resistance]', 'yu', OWN),
+  // 忍冬 S3 迷彩 while she blocks no one: vulpis_s_3[cam] holds vulpis_s_3[cam][interval] (vulpis_buff_02), !CheckBlocked on
+  // each trigger (the sim's 'vulpis:camouShown'; the 迷彩 status draws nothing of its own — SOURCE_FX camou)
+  'vulpis:camouShown': keyedAll('vulpis_s_3[cam][interval]', 'vulpis', OWN),
   'svash2:barrier': cite('svash2_s_1[build]', ['svash2', 'svash2_skill_01_shield_01', 0]),   // the deployed card's 屏障
   // 凯瑟琳's device: its end creates token_cathy_catsld_shield_01_end (the key's `end`) — the mark's end, its shield broken
   // (catsld_t_1[core] ON_TAKE_DAMAGE FinishBuffsById) or its timer out ([timer][interval] ON_BUFF_FINISH)
@@ -410,10 +426,12 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null) {
   if (f & UF.SLEEP) put(out, 'sleep', STATUS_FX.sleep);
   if (f & UF.STEALTH) {
     const k = f & UF_CAMOU ? 'camou' : v.isEnemy ? 'stealth' : 'stealthAlly';
+    // a 迷彩 whose applier SOURCE_FX names draws its buff's own effect (the statuses below), not the common one
+    const camouBy = k === 'camou' ? v.statusFrom?.get?.('camou')?.src : undefined;
     // an enemy's 隐匿 is its own invisible buff's effect: common_invisible for most, 假想敌：骨刺's enemy_acbunn_buff, 家族灭迹人's
     // enemy_sgkill_buff, 锏's second form enemy_blkswb_buff_03 (enemy-modes.json `stealth`: its buffs with the INVISIBLE flag)
     const r = k === 'stealth' && own ? own('stealth') : null;
-    if (r) byOwn(r); else put(out, k, STATUS_FX[k]);
+    if (r) byOwn(r); else if (camouBy == null || !(camouBy in SOURCE_FX.camou)) put(out, k, STATUS_FX[k]);
   }
   if (v.statuses) {
     for (const k of v.statuses) {

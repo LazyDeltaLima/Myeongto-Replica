@@ -603,6 +603,19 @@ test('kitOfficialPlan: talent casts and 烛煌 S2\'s burning tiles (2026-10-16, 
   ]);
 });
 
+test('kitOfficialPlan (묶음 S11, 2026-10-24): 余\'s teleport and burns, 百炼嘉维尔 S1\'s heal, 引星棘刺 T2\'s road tiles', () => {
+  assert.deepEqual(kitOfficialPlan('teleport', { id: 5, src: 1 }, 'yu').play, [{ n: 'yu_skill2_teleport_02', on: 'id', life: 'once' }]);
+  for (const k of ['yu_s_1[inverse_damage]', 'yu_t_1[enemy]', 'yu_s_3[ally]']) {
+    assert.deepEqual(kitOfficialPlan('hit', { k, src: 1, id: 5 }, 'yu').play, [{ n: 'yu_skill3_annex_02', on: 'id', life: 'once' }], k);
+  }
+  assert.equal(kitOfficialPlan('hit', { k: 'other', src: 1, id: 5 }, 'yu'), null);
+  assert.deepEqual(kitOfficialPlan('hit', { k: 'gvial2_s_1', src: 1, id: 1 }, 'gvial2').play, [{ n: 'gvial2_skill_1_heal', on: 'id', life: 'once' }]);
+  // one slot per tile, held until she leaves
+  assert.deepEqual(kitOfficialPlan('roadTiles', { id: 1, cells: [[3, 10], [4, 10]] }, 'thorn2').play, [
+    { n: 'thorn2_buff', on: 'point', at: [3, 10], slot: 'road3,10' }, { n: 'thorn2_buff', on: 'point', at: [4, 10], slot: 'road4,10' },
+  ]);
+});
+
 test('歌蕾蒂娅 S3: glady_s3[effect]\'s glady_skill_03_buff on the target the kit binds (`tgt`), for the skill', { skip: !LOCAL_ROWS && 'the key\'s row is a client-only row' }, () => {
   const plan = kitOfficialPlan('tornado', { id: 1, tgt: 2 }, 'glady', { skill: 2, plays: PLAYS });
   assert.deepEqual(plan.play, [{ n: 'glady_skill_03_buff', on: 'tgt', life: 'skill' }]);

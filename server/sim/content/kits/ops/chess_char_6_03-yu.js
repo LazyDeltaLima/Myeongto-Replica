@@ -71,9 +71,10 @@ function yu(bb, chess, def) {
       battle.addBuff(unit, { key: 'yu:host', mods: { taunt: num(bb.taunt_level, 1) }, persist: true, allowDead: true });
       battle.on('damaged', (ctx) => {
         const s = ctx.source;
-        // "每次受到攻击" = the official yu_s_1[inverse_damage]: every enemy damage instance (tier1 byEnemyAttack)
+        // "每次受到攻击" = the official yu_s_1[inverse_damage]: every enemy damage instance (tier1 byEnemyAttack) — its
+        // ApplyElementDamage, then yu_skill3_annex_02 on the attacker (the moment)
         if (ctx.target !== unit || !unit.skill?.active || !byEnemyAttack(ctx) || !s.alive) return;
-        elementDmg(battle, unit, s, 'burn', unit.s.atk * num(bb.ep_damage_ratio), ['skill']);
+        elementDmg(battle, unit, s, 'burn', unit.s.atk * num(bb.ep_damage_ratio), ['skill'], 'yu_s_1[inverse_damage]');
       }, { owner: unit });
     },
     skill: {
@@ -93,14 +94,21 @@ function yu(bb, chess, def) {
         const dr = num(t0.damage_resistance), sc = bv(t0, 'atk_scale'), er = bv(t0, 'ep_damage_ratio'), iv = Math.max(0.1, bv(t0, 'interval', 1));
         // 庇护 (ba.protect): 受到的物理和法术伤害降低相应比例（同名效果取最高）— true / element damage is not reduced; the shared
         // 庇护 (holdProtect: the strongest of every source holds)
+        // the official yu_t_1[self] holds yu_t_1[damage_resistance] (yu_talent_01) while he blocks (CheckBlocked on
+        // ON_OWNER_BLOCKEE_CHANGED): 'yu:guard', a buff without mods for the client's effect (render/fxstatus.js KEY_FX)
         aura(battle, unit, 0.1, () => {
           if (dr > 0 && unit.blocking.length) holdProtect(battle, unit, dr, 0.2, unit);
+          const on = dr > 0 && unit.blocking.length > 0;
+          if (on && !unit.findBuff('yu:guard')) battle.addBuff(unit, { key: 'yu:guard', duration: Infinity, visible: true, tags: ['talent'] });
+          else if (!on && unit.findBuff('yu:guard')) battle.removeBuff(unit, 'yu:guard');
         });
+        // yu_t_1[enemy] on each blocked enemy: its element and arts damage, then yu_skill3_annex_02 on it (the moment)
+        const moment = 'yu_t_1[enemy]';
         aura(battle, unit, iv, () => {
           for (const e of unit.blocking.slice()) {
             if (!e.alive) continue;
-            if (sc > 0) battle.dealDamage(unit, e, { amount: unit.s.atk * sc, type: 'arts', tags: ['talent'] });
-            if (er > 0) elementDmg(battle, unit, e, 'burn', unit.s.atk * er, ['talent']);
+            if (sc > 0) battle.dealDamage(unit, e, { amount: unit.s.atk * sc, type: 'arts', tags: ['talent'], moment });
+            if (er > 0) elementDmg(battle, unit, e, 'burn', unit.s.atk * er, ['talent'], sc > 0 ? null : moment);
           }
         });
       } },
@@ -125,7 +133,8 @@ function yu(bb, chess, def) {
           const s = ctx.source, t = ctx.target;
           if (!(wallBurn > 0) || unit.mem.yuWall == null || !live(unit) || ctx.type !== 'arts' || !(ctx.amount > 0)) return;
           if (!s || s === unit || s.side !== 'ally' || !t || t.side !== 'enemy' || !t.alive || !crosses(s, t)) return;
-          elementDmg(battle, unit, t, 'burn', unit.s.atk * wallBurn, ['skill', 'firewall']);
+          // yu_s_3[ally]: the 灼燃损伤 and yu_skill3_annex_02 on the enemy (the moment)
+          elementDmg(battle, unit, t, 'burn', unit.s.atk * wallBurn, ['skill', 'firewall'], 'yu_s_3[ally]');
         }, { owner: unit });
         battle.on('hit', (ctx) => {
           const s = ctx.source, t = ctx.target;

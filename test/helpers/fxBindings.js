@@ -40,7 +40,9 @@ export const HIT_KEYS = Object.freeze(['bubble_t_1[atk_down]', 'skadi2_s_1[prote
   'clemnt_t1[dice_damage]', 'ghost2_s_3[attack]', 'blkkgt_s_2[blocked]', 'blkkgt_s_2[not_blocked]', 'sbell2_t1[enemy_enter]',
   'sbell2_t1[s2_dot]', 'vulpis_t_1[vfx]', 'ascln_s_2[enemy]', 'char_4146_nymph/Modes/S3/Body/Attack', 'snhunt_t[effect]',
   // 묶음 S8 (2026-10-24)
-  'philae:blast', 'philae:blast:rage', 'malist_t_1', 'indigo_s_2[damage]', 'haini:up', 'haini:full']);
+  'philae:blast', 'philae:blast:rage', 'malist_t_1', 'indigo_s_2[damage]', 'haini:up', 'haini:full',
+  // 묶음 S11 (2026-10-24)
+  'yu_s_1[inverse_damage]', 'yu_t_1[enemy]', 'yu_s_3[ally]', 'gvial2_s_1']);
 
 /** The sample inputs a kit plan is called with (every branch of the plans in KIT_OFFICIAL). */
 const KIT_O = [

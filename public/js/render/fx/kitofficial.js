@@ -47,6 +47,8 @@ import { whenPlays } from './conds.js';
  * every condition of the key's rows (the sim decided them; never a choice between prefabs — fx-bindings.test.js).
  */
 const once = (n, on = 'op') => ({ n, on, life: 'once' });
+/** 余's 灼燃损伤 moments (the sim's 'dmg' 9th field). */
+const YU_HIT = Object.freeze(['yu_s_1[inverse_damage]', 'yu_t_1[enemy]', 'yu_s_3[ally]']);
 /** The event stands for every condition of the key's rows. */
 const ALL = Object.freeze({ all: true });
 
@@ -165,6 +167,12 @@ export const KIT_OFFICIAL = {
     // 水月 S3 镜花水月: an attack hitting fewer than 3 enemies gives her mizuki_s_3[damage] (its DamageViaMaxHpRatio on her —
     // the sim's HP loss), whose effect mizuki_skill_03_hit_02 plays on her
     mizuki: cite('mizuki_s_3[damage]', (o) => (o.k === 'mizuki_s_3[damage]' ? { play: [once('mizuki_skill_03_hit_02')] } : null)),
+    // (2026-10-24, 묶음 S11) 余: yu_skill3_annex_02 where his 灼燃损伤 lands — S1 yu_s_1[inverse_damage] on the attacker, T1
+    // yu_t_1[enemy] on each enemy he blocks, S3 yu_s_3[ally] on the enemy an ally's arts hit across the wall
+    yu: cite(YU_HIT, (o) => (YU_HIT.includes(o.k) ? { play: [once('yu_skill3_annex_02', 'id')] } : null)),
+    // 百炼嘉维尔 S1: gvial2_s_1 (template heal_via_damage, ON_AFTER_OUTPUT_DAMAGE) heals her by the damage and creates its
+    // blackboard `effect` gvial2_skill_1_heal on her
+    gvial2: cite('gvial2_s_1', (o) => (o.k === 'gvial2_s_1' ? { play: [once('gvial2_skill_1_heal', 'id')] } : null)),
     // 折桠 T1 简易包扎: branch_t_1 ON_SKILL_FINISH heals her (HealViaMaxHpRatio) and creates branch_talent_01 on her
     branch: cite('branch_t_1', (o) => (o.k === 'branch_t_1' ? { play: [once('branch_talent_01')] } : null)),
     // 圣约送葬人 S3: excu2_s_3[mark][effect] ON_OUTPUT_DAMAGE puts excu2_s_3[mark] (INFINITY, excu2_skill_03_aim_01) on each enemy
@@ -483,6 +491,16 @@ export const KIT_OFFICIAL = {
   // `_harpoonEffect` glady_skill_03_line out to the tornado's point in `_firstPartTime` 0.3 s and pulled back in
   // `_secondPartTime` 1 s; `_effectsWhenReached` glady_skill_03_range_05 where it lands, `_movingEffectsWhenReached`
   // glady_skill_03_range_04 on the head coming back [추정: the moving effect rides the head]
+  // (2026-10-24, 묶음 S11) 余 S2 厚礼上宾: yu_s_2[try_tp] puts each reachable ground enemy on his tile (ForceSetToTilePosition)
+  // and creates yu_skill2_teleport_02 on it
+  teleport: { yu: cite('yu_s_2[try_tp]', () => ({ play: [once('yu_skill2_teleport_02', 'id')] })) },
+  // 引星棘刺 T2 视界: Talent/2 tiles_ally (CharacterSharedTileAuraAbility `_showEffectWhenAttach`, `_tileEffectKey` thorn2_buff)
+  // on each tile her card chose, until she leaves — `cells` [[x, y]…] (sim kit chess_char_5_15-thorn2.js). The client lays them
+  // `_effectInterval` 0.06 s apart; here all at once
+  roadTiles: {
+    thorn2: cite('char_1039_thorn2/Others/Talent/2/tiles_ally', (o) => ({ play: (Array.isArray(o.cells) ? o.cells : [])
+      .map(([x, y]) => ({ n: 'thorn2_buff', on: 'point', at: [x, y], slot: `road${x},${y}` })) })),
+  },
   pull: {
     glady: cite('projectile_chr_glady_s3_3', () => ({ play: [
       { n: 'glady_skill_03_line', harpoon: { out: 0.3, back: 1, moving: 'glady_skill_03_range_04' } },

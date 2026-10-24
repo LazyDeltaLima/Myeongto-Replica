@@ -1966,6 +1966,31 @@
   - 확인: `status-buff-fx` 새 시험(키 7·吟游者 적용자별), `skill-shot-alt-fx` 空弦 튕김, 키트 시험 넷(상태 이벤트·눈·`volley` 순서)·流明 새 시험, `fx-bindings`
     `UNPLAYED` 9줄 지움, `FXGAME` `archet_skill_02_trail_02`, 미연결 35 → 24. 시뮬 골든: 상태 이벤트 수·`volley` 수·`roster-017` 应急处理 9 → 8만, 결과 칸 그대로.
     이펙트 이벤트 골든: 위 프리팹 줄만 더해짐. [화면 미확인: 위 전부]
+- 연결 전수 나머지 열한째 묶음(2026-10-24, 바인딩 표가 놓친 길 셋 + 그 행 연결 — 상태·이벤트가 늘어 시뮬 골든을 다시 만듦, 관리자 결정 2026-10-24):
+  - 표 넓히기: ① 코드 2글자 오퍼레이터(余 `char_2026_yu` → `yu_…` 템플릿 13행 — 토큰 이름의 끝 조각은 3글자 이상 그대로), ② `token_<code>_…` 키
+    (`token_wisdel_passive[to_host]`), ③ 키가 빈칸인 노드(`CreateEffect`·`CreateBuffWithOverrideEffect`의 `_effectKey` ""·피해 노드의 `_createEffect`)는
+    그 템플릿을 돌리는 버프의 블랙보드 `effect`(또는 `<템플릿>.effect`)를 만든다 — 템플릿 표엔 `@effect`, 그 값은 클라 버프에만 있어
+    `fx_bindings.py`가 버프 블랙보드로 풀어 행을 냄(행의 `bb` = 읽는 템플릿). ④ 덱 카드 노드의 `_deckBuff.buff`(凛御银灰 S1 屏障 `svash2_s_1[build]`)도
+    버프 행으로.
+  - 余: S2 `yu_s_2[try_tp]` 순간이동한 적에 `yu_skill2_teleport_02`(시뮬 `'teleport'`), S1 `yu_s_1[inverse_damage]`·T1 `yu_t_1[enemy]`·S3 `yu_s_3[ally]`의
+    灼燃损伤 뒤 `yu_skill3_annex_02`(그 피해 대상 — `'dmg'` 9번째 칸; 원소 피해 `applyElement`의 `'dmg'`도 이제 칸을 실음), T1 `yu_t_1[self]`가 저지하는
+    동안 `yu_t_1[damage_resistance]` `yu_talent_01`(수정치 없는 `'yu:guard'` — 庇护는 공용 안 보이는 버프).
+  - 休谟斯 S2 精力充沛: `humus_s_2[peak_1]`·`[peak_2]`가 각자 `peak_performance`를 블랙보드 `peak_performance.effect` `humus_buff_01`·`_02`로 돌림 —
+    시뮬 `'humus:peak'`의 `fxTag` 1·2(단계가 바뀌면 껐다 켬), 80 % 위에선 둘 다 [추정: `peak_performance[effect]`가 `disableOverride`라 두 파생 버프가 같이
+    남음 — 공격력은 `[atk]`로 높은 쪽만].
+  - 百炼嘉维尔 S1 `gvial2_s_1`(템플릿 `heal_via_damage`): 치유마다 블랙보드 `effect` `gvial2_skill_1_heal`을 그녀에게(`'heal'` 5번째 칸).
+  - 风笛 T1 精密填弹의 `bpipe_attack_02_hit`은 `bpipe_t_1` SplashDamage `_createEffect`의 블랙보드 `effect`로 표에 잡힘(그림은 그대로).
+  - 迷彩: 이 상태엔 공용 이펙트가 없고 버프가 자기 이펙트를 단다 — 维什戴尔은 魂灵之影의 `token_wisdel_host[Camouflage]` `wisdel_camouflage_buff_01`,
+    忍冬 S3 `vulpis_s_3[cam]`은 없고 그 `[cam][interval]` `vulpis_buff_02`가 **저지하지 않는 동안만**(`!CheckBlocked`, 시뮬 `'vulpis:camouShown'`). 다른
+    적용자(寒芒克洛丝 S1 등)는 전처럼 공용 `common_buff_micai_01`(`SOURCE_FX.camou`·`STATUS_FALLBACK`).
+  - 引星棘刺 T2 视界: Talent/2 `tiles_ally`(CharacterSharedTileAuraAbility, `_showEffectWhenAttach`)가 배치 카드가 고른 칸(`ChoseTileDatas` 가로·세로 줄)마다
+    `thorn2_buff`를 그녀가 떠날 때까지 — 시뮬 `'roadTiles'` { cells }(배치 때 한 번; 6칸 이상 직선 도로 칸 [추정: 카드가 고른 줄 = 이 칸들]). 클라는
+    `_effectInterval` 0.06 s 간격으로 깔지만 여기선 한꺼번에.
+  - 凛御银灰 S1 屏障 카드 `svash2_s_1[build]`: 템플릿 `shield`(BlockDamage `_useDynamicVar`)를 덱 블랙보드 `effect` `svash2_skill_01_shieldHit_01`로 —
+    통째로 막는 타격마다 그 이펙트(시뮬 `blockFx`, `fxgame.js BLOCK_FX`).
+  - 확인: 키트 시험 여섯(余·休谟斯·忍冬·引星棘刺·凛御银灰·百炼嘉维尔), `status-buff-fx`·`kit-event-fx` 새 시험, `fx-bindings` KNOWN 둘·`UNPLAYED` 둘 지움,
+    미연결 33 → 20(남은 20은 모두 도달 안 함 판정). 시뮬 골든: 상태·`fx` 이벤트 수(`roadTiles`)만, 결과 칸 그대로. 이펙트 이벤트 골든: 위 프리팹 줄 + 忍冬의
+    공용 迷彩 한 줄 지움. [화면 미확인: 위 전부]
 
 ### 연쇄 공격 — 체인 캐스터·체인 메딕의 튕김 선과 타격 (2026-10-16, 관리자 요청 「일반 공격 연쇄를 공식 클라 데이터와 대조」)
 

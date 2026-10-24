@@ -12,6 +12,8 @@ public/assets/local/fx/bindings.json — never tracked. Rows, in the same shape 
                        fields and the CreateEffect nodes of its serialized actions: key = the GameObject path
         'projectile'   a projectile prefab's effect fields (`_mainEffect`, `_effectsWhenReached` …): key = the projectile
         'token'        a token prefab's emitters and effect fields: key = the GameObject path
+  `bb` (on 'abilityBuff' rows) the template whose empty-key node creates fx: the buff's blackboard `effect` /
+  `<template>.effect` names it (humus_s_2[peak_1] → peak_performance; the template table writes such nodes as '@effect').
   `char` the operator / token the row belongs to (a projectile only a buff template fires: that template's key). Every string field that names an extracted effect prefab counts, so a
   field this script does not know still yields a row (moment = its field path).
 Also `refs` {char: [buff / template keys its prefabs name]} — where the pool's use of a buff template starts.
@@ -48,6 +50,7 @@ TARGET_FIELDS = {'_activeBuffs', '_additiveActiveBuffs', '_activeBuffsToMainTarg
                  '_buffsToBlockee', '_buffsToTarget'}
 SKIP = {'m_GameObject', 'm_Script', 'm_Enabled', 'm_Name', 'm_EditorHideFlags', 'm_EditorClassIdentifier'}
 COND = re.compile(r'^(If(?!Else$|Conditions$|Not$)|Check|Filter|Compare|Is|Dice)')
+BB_EFFECT = re.compile(r'^(?:(.+)\.)?effect$')
 
 
 def bundle(game, rel):
@@ -118,9 +121,19 @@ def life_of(b):
 class Rows:
     def __init__(self, known):
         self.rows, self.refs, self.known = [], {}, known
+        self.bb = []   # (buff key, template, prefab, char, at, cn) of the buffs whose blackboard names their template's `effect`
 
     def add(self, **r):
         self.rows.append({k: v for k, v in r.items() if v is not None and v != ''})
+
+    def bb_effects(self, b, char, at, cn):
+        """A buff's blackboard `effect` / `<template>.effect` strings: the effect of its template's (or that derived
+        template's) nodes whose own key is empty (humus_s_2[peak_1] `peak_performance.effect` humus_buff_01)."""
+        tpl = b.get('templateKey') if b.get('templateKey') not in (None, '', 'empty') else None
+        for e in b.get('blackboard') or []:
+            m = BB_EFFECT.match(str(e.get('key') or '')) if isinstance(e, dict) else None
+            if m and isinstance(e.get('valueStr'), str) and e['valueStr'] and (m.group(1) or tpl):
+                self.bb.append((b.get('buffKey') or tpl, m.group(1) or tpl, e['valueStr'], char, at, cn))
 
     def ref(self, char, key):
         if key:
@@ -147,23 +160,34 @@ class Rows:
             if COND.match(t):
                 cur.append(cond_name(o))
                 continue
+            # an empty key reads the blackboard `effect` (ctx 'effect': the prefab a buff's blackboard gives, see bb_effects)
+            bb = ctx.get('effect')
             if t.startswith('Create') and 'Effect' in t and not t.startswith(('CreateBuff', 'CreateCard')):
                 kind = 'line' if 'Line' in t else 'tile' if 'Tile' in t else 'effect'
                 fxs = o.get('_effectKeys') if isinstance(o.get('_effectKeys'), list) else [o.get('_effectKey') or (
-                    '@' + o['_blackboardKey'] if o.get('_blackboardKey') else None)]
+                    '@' + o['_blackboardKey'] if o.get('_blackboardKey') else bb if o.get('_effectKey') == '' else None)]
                 for fx in fxs:
-                    if fx:
+                    if fx and (not bb or fx == bb):
                         self.add(key=ctx['key'], src=ctx['src'], moment=ctx['moment'], kind=kind, fx=fx, target=o.get('_targetType'),
                                  life='hold' if o.get('_createEffectHoldBySource') or o.get('_holdIt') else 'once', conds=list(cur),
-                                 char=ctx['char'], cn=ctx['cn'] or None)
+                                 char=ctx['char'], cn=ctx['cn'] or None, bb=ctx.get('bbTpl'))
+            if bb and o.get('_createEffect') is True:   # a damage node's effect on what it strikes (bpipe_t_1 SplashDamage)
+                self.add(key=ctx['key'], src=ctx['src'], moment=ctx['moment'], kind='effect', fx=bb, target='TARGET', life='once',
+                         conds=list(cur), char=ctx['char'], cn=ctx['cn'] or None, bb=ctx.get('bbTpl'))
             if t.startswith('CreateBuff') and isinstance(o.get('_buff'), dict):
                 b = o['_buff']
                 self.ref(ctx['char'], b.get('buffKey'))
                 self.ref(ctx['char'], b.get('templateKey') if b.get('templateKey') != 'empty' else None)
                 fx = (o.get('_effectKey') if t == 'CreateBuffWithOverrideEffect' else None) or b.get('overrideEffectKey')
-                self.add(key=b.get('buffKey'), src='abilityBuff', moment=ctx['moment'], kind='buff', fx=fx, target=o.get('_buffOwner'),
-                         life=life_of(b), conds=list(cur), char=ctx['char'], at=ctx['key'],
-                         tpl=b.get('templateKey') if b.get('templateKey') not in (None, '', 'empty') else None, cn=ctx['cn'] or None)
+                if bb is not None:
+                    fx = bb if t == 'CreateBuffWithOverrideEffect' and o.get('_effectKey') == '' and not b.get('overrideEffectKey') else None
+                else:
+                    self.bb_effects(b, ctx['char'], ctx['key'], ctx['cn'])
+                if fx or bb is None:
+                    self.add(key=b.get('buffKey'), src='abilityBuff', moment=ctx['moment'], kind='buff', fx=fx, target=o.get('_buffOwner'),
+                             life=life_of(b), conds=list(cur), char=ctx['char'], at=ctx['key'], by=ctx.get('by'),
+                             tpl=b.get('templateKey') if b.get('templateKey') not in (None, '', 'empty') else None, cn=ctx['cn'] or None,
+                             bb=ctx.get('bbTpl'))
             for k, v in o.items():
                 if k in ('$type', '_buff'):
                     continue
@@ -191,6 +215,7 @@ class Rows:
             self.add(key=key, src='abilityBuff', moment=field, kind='buff', fx=b.get('overrideEffectKey') or None,
                      target='TARGET' if field in TARGET_FIELDS else 'OWNER', life=life_of(b), conds=[], char=char, at=gp, tpl=tpl,
                      cn=cn or None)
+            self.bb_effects(b, char, gp, cn)
 
         def walk(o, path, top):
             if isinstance(o, dict):
@@ -341,6 +366,21 @@ def main():
                     named_by.setdefault(s, named_by.get(k))
                     queue.append(s)
     missing['projectile'] = sorted(k for k in named if k.startswith('projectile_') and k not in proj)
+
+    # the blackboard `effect` of a buff → the rows of its template's empty-key nodes (the public template data has the
+    # nodes, the client the blackboard): key = the buff, `bb` = the template that reads it
+    tdata = [json.loads(f.read_text(encoding='utf-8')) for f in TEMPLATE_DATA if f.exists()]
+    for key, tk, fx, char, at, cn in R.bb:
+        t = next((d[tk] for d in tdata if tk in d), None)
+        if not t:
+            continue
+        sub = Rows(R.known)
+        for ev, lst in (t.get('eventToActions') or {}).items():
+            sub.nodes(lst or [], [], {'key': key, 'src': 'abilityBuff', 'moment': ev, 'char': char, 'cn': cn, 'effect': fx, 'bbTpl': tk, 'by': key})
+        for r in sub.rows:
+            if r.get('bb'):
+                r['at'] = at
+                R.rows.append(r)
     rows, seen = [], set()
     for r in R.rows:
         k = json.dumps(r, sort_keys=True, ensure_ascii=False)

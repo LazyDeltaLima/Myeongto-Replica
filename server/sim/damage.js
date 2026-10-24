@@ -492,7 +492,10 @@ export function applyElement(battle, source, target, dmg) {
   let amt = dmg.amount * dmg.mul * elementIntake(target);
   if (!(amt > 0) || !Number.isFinite(amt)) return 0;
   target.elem[el] = Math.min(max, target.elem[el] + amt);
-  battle._ev(['dmg', target.id, Math.round(amt), el, 0, attackerId(source, dmg), dotFlag(dmg), null]);
+  const ev = ['dmg', target.id, Math.round(amt), el, 0, attackerId(source, dmg), dotFlag(dmg), null];
+  const fx = fxField(dmg.moment, source);   // (2026-10-24) a kit's effect moment for this element hit (余's 灼燃损伤)
+  if (fx) ev.push(fx);
+  battle._ev(ev);
   if (source) source.stats.elem = (source.stats.elem ?? 0) + amt;
   if (battle._hooks.damaged) battle.emit('damaged', { source, target, amount: amt, type: 'element', dmg });
   if (target.elem[el] >= max && target.alive) elementBurst(battle, source, target, el);

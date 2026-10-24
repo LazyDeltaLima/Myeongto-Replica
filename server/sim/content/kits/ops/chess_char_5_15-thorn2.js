@@ -168,6 +168,15 @@ export default {
         { install(battle, unit) { // 视界
           const cnt = num(t1.cnt, 6);
           const ally = num(t1.attack_speed_ally), allyX = num(t1.attack_speed_ally_extra), foe = num(t1.attack_speed_enemy), foeX = num(t1.attack_speed_enemy_extra);
+          // the official Talent/2 tiles_ally (CharacterSharedTileAuraAbility, `_showEffectWhenAttach`) shows thorn2_buff on the
+          // tiles her card chose as she deploys, until she leaves — `cells` [[x, y]…]: the tiles of a straight road ≥ cnt [추정:
+          // the card's chosen rows / columns are these] (render/fx/kitofficial.js 'roadTiles')
+          battle.on('deploy', (c) => {
+            if (c.unit !== unit || c.move) return;
+            const R = battle.rect, cells = [];
+            for (let r = R.r0; r <= R.r1; r++) for (let cc = R.c0; cc <= R.c1; cc++) if (straightRun(battle, r, cc) >= cnt) cells.push([cc, r]);
+            if (cells.length) battle.fx('roadTiles', { x: unit.x, y: unit.y, id: unit.id, cells });
+          }, { owner: unit });
           whileOn(battle, unit, AURA_IV, () => {
             for (const a of battle.alliesFor(unit)) {
               const v = ally + (straightRun(battle, a.tileR, a.tileC) >= cnt ? allyX : 0);

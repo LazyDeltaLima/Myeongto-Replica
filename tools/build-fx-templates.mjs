@@ -15,6 +15,8 @@
 //     moment  the template event the node runs on (ON_BUFF_START …); 'BUFF' for the template's own effectKey
 //     kind    'effect' (CreateEffect: plays once), 'line' (CreateLineEffect), 'tile' (CreateTileEffect …), 'buff' (the
 //             created buff's overrideEffectKey or its template's effectKey: held as long as that buff)
+//     fx      the prefab; '@effect' when the node's key is empty (or a damage node's `_createEffect`): the node reads the
+//             blackboard `effect` of the buff that runs the template, which only the client holds (fx_bindings.py)
 //     target  the node's `_targetType` / the buff's `_buffOwner` (BUFF_OWNER, TARGET, BUFF_SOURCE …)
 //     life    'once' | 'hold' (an effect held by its source) | 'INFINITY' | 'LIMITED:<s>' | 'LIMITED:@<blackboard key>' |
 //             'IMMEDIATELY' (the buff's own lifeTimeType)
@@ -87,7 +89,11 @@ async function fetchCached({ url, cache }, opts) {
 const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
 const typeOf = (o) => String(o?.$type || '').split(',')[0].split('+').pop();
 
-/** The codes of the server's operators and tokens: 'char_4039_horn' → 'horn', 'token_10030_mlyss_wtrman' → 'mlyss_wtrman', 'wtrman'. */
+/**
+ * The codes of the server's operators and tokens: 'char_4039_horn' → 'horn', 'token_10030_mlyss_wtrman' → 'mlyss_wtrman',
+ * 'wtrman'. An operator's code may be two letters (char_2026_yu → 'yu'); a token's last part needs three, so a short
+ * tail does not seed another operator's templates.
+ */
 function poolCodes() {
   const chars = new Set();
   const chess = readJson(join(ROOT, 'data/chess.json'));
@@ -101,9 +107,10 @@ function poolCodes() {
     const m = /^token_\d+_(.+)$/.exec(id);
     if (!m) continue;
     codes.add(m[1]);
-    codes.add(m[1].split('_').pop());
+    const tail = m[1].split('_').pop();
+    if (tail.length >= 3) codes.add(tail);
   }
-  return { chars: [...chars].sort(), codes: [...codes].filter((c) => c.length >= 3).sort() };
+  return { chars: [...chars].sort(), codes: [...codes].filter((c) => c.length >= 2).sort() };
 }
 
 /** Template keys named in the blackboards (`valueStr`) of the operators' skills, talents, traits and modules. */
@@ -180,25 +187,32 @@ function walkNodes(list, conds, ctx, rows, refs) {
 
 function node(o, t, conds, ctx, rows, refs) {
   const base = { key: ctx.key, src: 'template', moment: ctx.moment };
-  const fxOf = (v, bb) => (typeof v === 'string' && v ? v : bb ? `@${bb}` : null);
+  // an empty `_effectKey` is only the default of the blackboard `effect` the buff running the template carries
+  // (heal_via_damage ← gvial2_s_1's `effect`; tools/local-extract/fx_bindings.py resolves it from the client's buffs)
+  const fxOf = (v, bb) => (typeof v === 'string' && v ? v : bb ? `@${bb}` : v === '' ? '@effect' : null);
   if (t.startsWith('Create') && t.includes('Effect') && !t.startsWith('CreateBuff') && !t.startsWith('CreateCard')) {
     const kind = t.includes('Line') ? 'line' : t.includes('Tile') ? 'tile' : 'effect';
     const fxs = Array.isArray(o._effectKeys) ? o._effectKeys : [fxOf(o._effectKey, o._blackboardKey)];
     const life = o._createEffectHoldBySource || o._holdIt ? 'hold' : 'once';
     for (const fx of fxs) if (fx) rows.push({ ...base, kind, fx, target: o._targetType || o._ownerType || null, life, conds, node: t });
   }
+  // a damage node that creates the blackboard `effect` on what it strikes (风笛 bpipe_t_1 SplashDamage `_createEffect`)
+  if (o._createEffect === true) rows.push({ ...base, kind: 'effect', fx: '@effect', target: 'TARGET', life: 'once', conds, node: t });
   if (t.startsWith('CreateBuff') && o._buff && typeof o._buff === 'object') {
     const b = o._buff;
     if (b.templateKey && b.templateKey !== 'empty') refs.add(b.templateKey);
-    const fx = (t === 'CreateBuffWithOverrideEffect' && o._effectKey) || b.overrideEffectKey || null;
+    const fx = (t === 'CreateBuffWithOverrideEffect' && fxOf(o._effectKey)) || b.overrideEffectKey || null;
     const row = { key: b.buffKey || ctx.key, src: 'template', moment: ctx.moment, kind: 'buff', fx, target: o._buffOwner || null,
       life: buffLife(b), conds, by: ctx.key, tpl: b.templateKey && b.templateKey !== 'empty' ? b.templateKey : null, node: t };
     rows.push(row);
   }
   for (const [k, v] of Object.entries(o)) {
     if (k === '$type' || k === '_buff') continue;
-    // buffs a node hands out other than by CreateBuff (SummonEnemiesOnAttackRange `_buffs` on what it summons …)
-    for (const b of (Array.isArray(v) ? v : [v])) {
+    // buffs a node hands out other than by CreateBuff (SummonEnemiesOnAttackRange `_buffs` on what it summons, a deck
+    // card's `_deckBuff.buff` — 凛御银灰 S1's 屏障 svash2_s_1[build] …)
+    const held = Array.isArray(v) ? [...v] : [v];
+    for (const x of held) if (x && typeof x === 'object' && !x.$type && x.buff && typeof x.buff === 'object') held.push(x.buff);
+    for (const b of held) {
       if (!b || typeof b !== 'object' || b.$type || typeof b.buffKey !== 'string' || !('lifeTimeType' in b)) continue;
       if (b.templateKey && b.templateKey !== 'empty') refs.add(b.templateKey);
       rows.push({ key: b.buffKey, src: 'template', moment: ctx.moment, kind: 'buff', fx: b.overrideEffectKey || null, target: o._target || o._targetType || null,
@@ -231,7 +245,8 @@ async function main() {
   const all = [...new Set([...Object.keys(en), ...Object.keys(cn)])];
   const startsWithCode = (k) => {
     const lk = k.toLowerCase();
-    return codes.some((c) => lk === c || lk.startsWith(`${c}_`) || lk.startsWith(`${c}[`) || lk.startsWith(`char_${c}_`) || lk.startsWith(`skchr_${c}_`));
+    return codes.some((c) => lk === c || lk.startsWith(`${c}_`) || lk.startsWith(`${c}[`) || lk.startsWith(`char_${c}_`) || lk.startsWith(`skchr_${c}_`)
+      || lk.startsWith(`token_${c}_`));
   };
   const seeds = new Set(all.filter((k) => startsWithCode(k) || MODE_PREFIXES.some((p) => k.startsWith(p))));
   for (const k of blackboardRefs(chars, isKey)) seeds.add(k);

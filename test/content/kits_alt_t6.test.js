@@ -279,6 +279,9 @@ test('6_03 余 S1 今日做东: taunt +1 while carried; TAKE_DAMAGE cast, HP/DEF
     const taken = h.hooksOf('damaged').filter((c) => c.target === u && c.dmg?.isAttack && c.t > t0 && c.t <= end);
     assert.ok(burns.length >= 1 && burns.length === taken.length, `one burn per attack taken (${burns.length}/${taken.length})`);
     approx(burns[0].dmg.amount, u.s.atk * bb.ep_damage_ratio, 'ep_damage_ratio × ATK');
+    // (묶음 S11) yu_s_1[inverse_damage]'s yu_skill3_annex_02 on the attacker: the burn's 'dmg' event names the moment
+    const moments = h.eventsOf('dmg').filter((e) => e[3] === 'burn' && e[5] === u.id && Array.isArray(e[8]) && e[8].some((m) => m[0] === 'yu_s_1[inverse_damage]' && m[1] === u.id));
+    assert.ok(moments.length >= 1, 'the burn carries its moment');
     done(h);
   }
   // the default skill carries no taunt

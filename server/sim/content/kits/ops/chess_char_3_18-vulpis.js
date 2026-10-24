@@ -122,6 +122,17 @@ export default {
             else if (!on && has) battle.removeBuff(unit, 'talent:vulpis_regen');
           }, { owner: unit });
         } },
+        { install(battle, unit) { // S3 迷彩's effect
+          // the official vulpis_s_3[cam] holds vulpis_s_3[cam][interval] (vulpis_buff_02) only while she blocks no one
+          // (!CheckBlocked, every trigger): 'vulpis:camouShown', a buff without mods for the client's effect
+          // (render/fxstatus.js KEY_FX; the 迷彩 itself stays CAMOU_KEY, maintainer decision 2026-10-24)
+          battle.on('tick', () => {
+            const on = alive(unit) && !!unit.findBuff(CAMOU_KEY) && unit.blocking.length === 0;
+            const has = !!unit.findBuff('vulpis:camouShown');
+            if (on && !has) battle.addBuff(unit, { key: 'vulpis:camouShown', duration: Infinity, visible: true, tags: ['skill'] });
+            else if (!on && has) battle.removeBuff(unit, 'vulpis:camouShown');
+          }, { owner: unit });
+        } },
       ],
     };
     if (skillGrid) kit.skill.targeting = { rangeGrid: skillGrid };

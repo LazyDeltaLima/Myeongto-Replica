@@ -8,6 +8,7 @@ import { makeBattle, enemyRec } from '../helpers/battleHarness.js';
 import * as F from '../../public/js/render/fxstatus.js';
 import { statusIconKey } from '../../public/js/render/style.js';
 import { UF } from '../../shared/constants.js';
+import { UF_CAMOU } from '../../shared/local.js';
 import { PLAYS } from '../helpers/fxPlays.js';
 import { keyPlays } from '../helpers/fxBindings.js';
 
@@ -71,6 +72,19 @@ describe('client: status → the official buff effect', () => {
     assert.deepEqual(tpl(bard('cetsyr')), ['cetsyr_buff_02'], '魔王\'s cetsyr_heal');
     assert.deepEqual(tpl(bard('skadi2')), [], '浊心斯卡蒂\'s skadi2_heal has none');
     assert.equal(statusIconKey('trait:bard:12'), null, 'no icon either');
+  });
+
+  test('묶음 S11 (2026-10-24): 余 blocking, 休谟斯\'s peaks, 迷彩 by its buff (维什戴尔\'s shade, 忍冬 only while not blocking)', () => {
+    const tpl = (v) => [...F.wantedStatusFx(v, undefined, null, keyPlays()).values()].map((s) => s[1]).sort();
+    assert.deepEqual(tpl(unit('char_2026_yu', { statuses: new Set(['yu:guard']) })), ['yu_talent_01']);
+    assert.deepEqual(tpl(unit('char_4026_vulpis', { statuses: new Set(['vulpis:camouShown']) })), ['vulpis_buff_02']);
+    const peak = (fx) => names(unit('char_491_humus', { statuses: new Set(['humus:peak']), statusFrom: new Map([['humus:peak', { src: null, fx, n: 0 }]]) }));
+    assert.deepEqual(peak(1), ['humus_buff_01']);
+    assert.deepEqual(peak(2), ['humus_buff_01', 'humus_buff_02'], 'above peak_2 both derived buffs hold');
+    const camou = (src) => tpl(unit('char_1035_wisdel', { flags: UF.STEALTH | UF_CAMOU, statuses: new Set(['camou']), statusFrom: new Map([['camou', { src, fx: null, n: 0 }]]) }));
+    assert.deepEqual(camou('token_10035_wisdel_wward'), ['wisdel_camouflage_buff_01'], 'token_wisdel_host[Camouflage]');
+    assert.deepEqual(camou('vulpis'), [], 'her own 迷彩 draws nothing: vulpis:camouShown does');
+    assert.deepEqual(camou('kroos2'), ['common_buff_micai_01'], 'another applier keeps the common one');
   });
 
   test('束缚: the applier\'s buff effect; an applier without one (or none) draws nothing — no common badge', () => {

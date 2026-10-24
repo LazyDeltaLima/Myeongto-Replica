@@ -179,7 +179,7 @@ export default {
           if (!isOp(a) || a.ownerId !== unit.ownerId) return;
           if (a.mem.svashCostBase != null) { a.base.cost = a.mem.svashCostBase; a.mem.svashCostBase = null; }
           if (num(a.mem.svashShield) > 0 && !c.initial) { // S1: 部署后获得…屏障
-            battle.addBuff(a, { key: 'svash2:barrier', shield: a.mem.svashShield, visible: true });
+            battle.addBuff(a, { key: 'svash2:barrier', shield: a.mem.svashShield, visible: true, blockFx: true });
             a.mem.svashShield = 0;
           }
           const casts = num(a.mem.svashCasts);

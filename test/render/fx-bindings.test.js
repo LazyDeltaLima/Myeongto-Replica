@@ -79,8 +79,6 @@ const KNOWN = {
   'KIT_OFFICIAL whitw2Drones.whitw2|whitw2_skill_03_mark_01': ['target', 'the row\'s OWNER is the wolf projectile whose MovementController holds it: `_traceTargetBuff` goes onto the enemy it chases (2026-10-24, 묶음 S8)'],
   'KIT_OFFICIAL whitw2Drones.whitw2|whitw2_skill_03_mark_02': ['target', 'the attached wolf projectile\'s buff whitw2_s3_p[aura_effect] (its OWNER) sits on the enemy it holds'],
   'KIT_OFFICIAL airstrike.angel2|angel2_skill_3_begin_start_001': ['life', 'S3FireToToken `_castEffects` hold for the cast; an empty prefab, played once'],
-  'KIT_OFFICIAL talent.bpipe|bpipe_attack_02_hit': ['missing', 'bpipe_t_1 SplashDamage `_createEffect` reads the talent blackboard `effect`: no effect node in the tables'],
-  'KEY_FX svash2:barrier|*': ['untabled', 'no svash2_s_1[build] in either template dataset or the client rows: the 屏障 card\'s buff key is unconfirmed'],
   'STACK_FX rmixer:t1|rmixer_buff_02': ['missing', 'swapped in by rmixer_buff_01\'s own SwitchableEffectByBuffStackCnt (a component of the prefab), not a buff row'],
   'KEY_FX ab:ancientAwe|*': ['untabled', '扎罗\'s AuraAbility buff enemy_wlfmster_fear (its prefab, enemy-modes.json) goes onto the operators: the binding table holds the charpacks\' rows only'],
   'KEY_FX ab:aweAura|*': ['untabled', '扎罗\'s FearAura AuraAbility `_effects` (its prefab, enemy-modes.json `auraNested`): the binding table holds the charpacks\' rows only'],
@@ -115,8 +113,6 @@ const KNOWN = {
 /** The template rows whose prefab nothing in render/ plays: 'key|prefab' → reason (test/helpers/fxBindings.js unplayed). */
 const UNPLAYED = {
   // 묶음 S6 (2026-10-24) — condition rows left: a condition no sim event tells
-  'vulpis_e_003_t_2[camouflage]|vulpis_buff_02': 'condOther',   // 忍冬's 迷彩 off while she blocks (!CheckBlocked; the sim's
-  'vulpis_s_3[cam][interval]|vulpis_buff_02': 'condOther',      // 'camou' stays) — the common 迷彩 effect stands in
   'nearl2_s_3[combo_effect]|nearl2_buff_01_start': 'condOther',   // 耀骑士临光 S3: CheckContainsCardBuff (a card's buff nearl2_t_1)
   'ines_t_2[effect2]|ines_range_02': 'cond',   // 伊内丝 T2 by her mode as the talent buff starts (S2's mode 1) [추정: its S2 talent re-creates it]
   // 佩佩's third module (CN client): its pepe_e_003_t[trigger] works on 生息演算 cards and treasure tiles

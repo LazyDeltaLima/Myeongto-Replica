@@ -646,6 +646,16 @@ test('3_18 忍冬: 隐狐之艺 DP, decaying ASPD, all blocked + stun, camouflag
   assert.ok(c.runUntil(() => z.skill.active, 5));
   c.runUntil(() => !z.skill.active, 20);
   assert.ok(z.s.flags.camou && !z.s.flags.stealth, 'camouflage (迷彩, not 隐匿) after a kill during the skill');
+  // (묶음 S11) vulpis_s_3[cam][interval]'s effect only while she blocks no one: 'vulpis:camouShown'
+  c.step();
+  assert.ok(z.findBuff('vulpis:camouShown') && z.blocking.length === 0);
+  const w = c.spawn('enemy_f', { pos: [10, 4] });
+  w.hp = w.s.maxHp = 1e9;
+  assert.ok(c.runUntil(() => z.blocking.length > 0, 3));
+  c.step();
+  assert.ok(!z.findBuff('vulpis:camouShown') && z.s.flags.camou, 'off while blocking, the 迷彩 stays');
+  c.b.dealDamage(null, w, { amount: 1e12, type: 'true' });
+  assert.ok(c.runUntil(() => !!z.findBuff('vulpis:camouShown'), 2), 'on again');
   fill(z);
   c.spawn('enemy_f', { pos: [10, 5] });
   assert.ok(c.runUntil(() => z.skill.activations === 2, 5));

@@ -2145,11 +2145,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // _specifyBlockEffect enemy_xi_skill_02_buff_hit, an amount barrier (`dynamic`): only a hit taken whole is cancelled
   // with it (the event's `whole`), and the last layer's break (`broke`: IsBlackboardZero → FinishBuff → CreateEffect)
   // plays enemy_xi_skill_02_buff_03 (BREAK_FX); the enemy 泥岩's enemy_mdrock_s_2 the same with enemy_mdrock_skill_01_buff_hit
-  // and enemy_mdrock_skill_buff_05 (sim layers 'ab:rockPower[1..3]'; its artsBarrier's own 'shieldBreak' follows: SHATTERS)
+  // and enemy_mdrock_skill_buff_05 (sim layers 'ab:rockPower[1..3]'; its artsBarrier's own 'shieldBreak' follows: SHATTERS).
+  // 2026-10-24 (묶음 S11): 凛御银灰 S1's 屏障 card svash2_s_1[build] runs the template `shield` (BlockDamage `_useDynamicVar`) with
+  // the deck's blackboard `effect` svash2_skill_01_shieldHit_01 (svash2_s_1[deck] EnsureBlackboardDefaultValue)
   const PARRY = 'common_buff_parry_01';
   const XI_HIT = ['pfx_enemy_14', 'enemy_xi_skill_02_buff_hit'], ROCK_HIT = ['pfx_enemy_8', 'enemy_mdrock_skill_01_buff_hit'];
   const BLOCK_FX = { 'mudrok:layers': ['mudrok', 'mudrok_buff_01_hit'], 'ab:xiShield[a]': XI_HIT, 'ab:xiShield[b]': XI_HIT, 'ab:xiShield[c]': XI_HIT,
-    'ab:rockPower[1]': ROCK_HIT, 'ab:rockPower[2]': ROCK_HIT, 'ab:rockPower[3]': ROCK_HIT };
+    'ab:rockPower[1]': ROCK_HIT, 'ab:rockPower[2]': ROCK_HIT, 'ab:rockPower[3]': ROCK_HIT, 'svash2:barrier': ['svash2', 'svash2_skill_01_shieldHit_01'] };
   const AFTER_FX = { 'mudrok:layers': 'common_heal_hit_01' };
   const BREAK_FX = { 'ab:xiShield[c]': ['pfx_enemy_14', 'enemy_xi_skill_02_buff_03'], 'ab:rockPower[3]': ['pfx_enemy_8', 'enemy_mdrock_skill_buff_05'] };
   const SHATTERS = new Set(['ab:rockPower[3]']);

@@ -21,11 +21,16 @@ export default {
     }
     peaks.sort((a, b) => b.hp - a.hp);
     const key = 'humus:peak';
+    // the buff's `fxTag` is the peak it stands for (1 / 2: peak_1 / peak_2): each runs peak_performance with its own blackboard
+    // `peak_performance.effect` (humus_buff_01 / _02 — render/fxstatus.js KEY_FX)
     const peak = ({ battle, unit }) => {
-      const lvl = peaks.find((p) => unit.hpRatio > p.hp)?.atk ?? 0;
+      const p = peaks.find((x) => unit.hpRatio > x.hp), lvl = p?.atk ?? 0;
       const cur = unit.findBuff(key);
       if ((cur?.data?.v ?? 0) === lvl) return;
-      if (lvl > 0) battle.addBuff(unit, { key, mods: { atkPct: lvl }, data: { v: lvl }, visible: true, tags: ['skill'] });
+      // another peak: off first, so the client hears the new `fxTag` (a replaced buff sends no 'status')
+      const tag = p ? Number(p.id.slice(5)) || null : null;
+      if (cur && lvl > 0 && cur.fxTag !== tag) battle.removeBuff(unit, key);
+      if (lvl > 0) battle.addBuff(unit, { key, mods: { atkPct: lvl }, data: { v: lvl }, visible: true, tags: ['skill'], fxTag: tag });
       else battle.removeBuff(unit, key);
     };
     return {

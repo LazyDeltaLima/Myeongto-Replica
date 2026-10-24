@@ -66,6 +66,7 @@ export const FX_KINDS = Object.freeze({
   whitw2Drones: { a: 'none', c: 0x8fe6ff }, // local patch: 荒芜拉普兰德 S3 drone positions (the wolves, render/fxgame.js; nothing in the fallback)
   buffProgress: { a: 'none', c: 0xdfe8ff }, // 2026-10-22: a buff's remaining share for its official effect (render/fxgame.js buffProgress)
   burnTiles: { a: 'none', c: 0xff7a33 }, // 烛煌 S2's burning tiles (render/fx/kitofficial.js; nothing in the fallback)
+  roadTiles: { a: 'none', c: 0x9fd8ff }, // 引星棘刺 T2's straight-road tiles (render/fx/kitofficial.js; nothing in the fallback)
   // 予愿安洁莉娜 S3's flight on / off (sim kit op-aglna2.js): her body flies there itself — render/fxgame.js plays the official
   // trail, nothing in the fallback
   aglnaFlight: { a: 'none', c: 0xffe6f0 },

@@ -21,7 +21,8 @@ export default withDefaults({
         skchr_gvial2_1: () => ({
           kind: 'duration',
           mods: { atkPct: num(bb.atk) },
-          onHit({ battle, unit, dealt }) { if (dealt > 0 && unit.alive) battle.heal(unit, unit, dealt * num(bb.heal_scale, 0.3), { self: true }); },
+          // gvial2_s_1 (heal_via_damage): HealViaDamage, then the blackboard `effect` gvial2_skill_1_heal on her (the moment)
+          onHit({ battle, unit, dealt }) { if (dealt > 0 && unit.alive) battle.heal(unit, unit, dealt * num(bb.heal_scale, 0.3), { self: true, moment: 'gvial2_s_1' }); },
         }),
         skchr_gvial2_2: () => ({
           kind: 'duration',

@@ -954,6 +954,11 @@ test('凛御银灰 S1 周旋的谋略: +10 DP; the waiting op nearest to the eye
     const bar = g.findBuff('svash2:barrier');
     assert.ok(bar, 'barrier');
     approx(g.s.shield ?? bar.shield, u.s.maxHp * bb['svash2_s_1[deck].shield']);
+    // (묶음 S11) the 屏障 card runs the template `shield` (BlockDamage `_useDynamicVar`): a hit it takes whole is blocked with
+    // the deck's `effect` — fx 'parry' `whole`
+    h.b.dealDamage(null, g, { amount: 1, type: 'phys' });
+    h.step();
+    assert.ok(h.eventsOf('fx').some((e) => e[1] === 'parry' && e[4].id === g.id && e[4].buff === 'svash2:barrier' && e[4].whole === 1), 'its block effect');
     assert.equal(g.base.cost, 20, 'the cut applied to that redeploy');
     done(h);
   }

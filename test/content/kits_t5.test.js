@@ -738,6 +738,12 @@ test('引星棘刺 S2: alchemy unit (+3 s with an op in range) — 120 % ATK art
   approx(u.s.atk, u.base.atk * (1 + t0.atk));
   assert.equal(h.unit('t_near').s.aspd, 100 + t1.attack_speed_ally + t1.attack_speed_ally_extra, 'flat stage rows are ≥6-tile straight roads');
   assert.equal(e.s.aspd, 100 + t1.attack_speed_enemy + t1.attack_speed_enemy_extra);
+  // (묶음 S11) Talent/2 tiles_ally's thorn2_buff on the straight-road tiles as she deploys: one 'roadTiles' with them
+  const roads = h.eventsOf('fx').filter((x) => x[1] === 'roadTiles');
+  assert.equal(roads.length, 1);
+  assert.equal(roads[0][4].id, u.id);
+  const has = (r, c) => roads[0][4].cells.some(([x, y]) => x === c && y === r);
+  assert.ok(has(11, 5) && has(10, 3) && has(10, 5), 'the tiles of the ≥ cnt straight roads (hers, her ally\'s, the enemy\'s)');
   const near = h.unit('t_near');
   near.hp = 5000;
   u.skill.gainSp(1000);

@@ -1116,6 +1116,8 @@ test('百炼嘉维尔 S1 精准痛击: ATK up, heals herself heal_scale of the d
     const dealt = dmgBy(h, u, (c) => c.dmg.isAttack && c.t >= t0).reduce((a, c) => a + c.amount, 0);
     assert.ok(dealt > 0);
     approx(u.hp - hp0, dealt * bb.heal_scale * t1.heal_scale_2, 1e-6, `${id}: self heal`);
+    // (묶음 S11) gvial2_s_1's blackboard `effect` gvial2_skill_1_heal on her with each heal (the 'heal' event's 5th field)
+    assert.ok(h.eventsOf('heal').some((e) => e[1] === u.id && Array.isArray(e[4]) && e[4].some((m) => m[0] === 'gvial2_s_1' && m[1] === u.id)), 'the heal names its moment');
     const hit = h.spawn('enemy_hitter', { pos: [10, 4] });
     h.run(2);
     assert.equal(u.mem.gvialDebt ?? 0, 0, 'no S3 deferral');

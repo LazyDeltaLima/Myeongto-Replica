@@ -933,6 +933,9 @@ test('2_09 休谟斯: 高效处理 block +1 and 精力充沛 by HP thresholds; �
   u.hp = u.s.maxHp * 0.3;
   h.step();
   approx(u.s.atk, u.base.atk, '≤50 %');
+  // (묶음 S11) the peak the buff stands for goes with its status (`fx` 2 / 1: humus_buff_02 / _01), sent anew as it changes
+  const peaks = h.eventsOf('status').filter((e) => e[1] === u.id && e[2] === 'humus:peak').map((e) => (e[3] ? e[5]?.fx : 0));
+  assert.deepEqual(peaks, [2, 0, 1, 0], 'peak_2, then peak_1, then none');
   // 再回收
   u.hp = u.s.maxHp;
   const sh0 = u.findBuff('humus:recycle')?.shield ?? 0;
