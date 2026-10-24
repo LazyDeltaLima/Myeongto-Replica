@@ -173,8 +173,10 @@ test('kitOfficialPlan: the moments and lifetimes of the templates', () => {
   const rc = kitOfficialPlan('beam', { id: 1, hits: [5] }, 'ines');
   assert.deepEqual(rc.stop, ['inesSentry']);
   assert.equal(rc.pass, false);
-  assert.deepEqual(rc.play[0], { n: 'ines_skill_03_label_trail_01', fly: 10, from: 'point', rope: 'ines_skill_03_pullLabel_line_01', pass: { n: 'ines_skill_03_label_hit_01', on: 'hits' } });
-  assert.deepEqual(rc.play.slice(1).map((x) => [x.n, x.on, x.after]), [['ines_skill_03_getLabel_01', 'op', 'fly'], ['ines_skill_03_getLabel_range_01', 'op', 'fly']]);
+  // (2026-10-24, 묶음 S4) the standing sentry's stop effect first
+  assert.deepEqual(rc.play[0], { n: 'ines_skill_03_pullLabel_01', on: 'point', life: 'once' });
+  assert.deepEqual(rc.play[1], { n: 'ines_skill_03_label_trail_01', fly: 10, from: 'point', rope: 'ines_skill_03_pullLabel_line_01', pass: { n: 'ines_skill_03_label_hit_01', on: 'hits' } });
+  assert.deepEqual(rc.play.slice(2).map((x) => [x.n, x.on, x.after]), [['ines_skill_03_getLabel_01', 'op', 'fly'], ['ines_skill_03_getLabel_range_01', 'op', 'fly']]);
   // 琳琅诗怀雅 S3's end: her S3_End mode's casts (2026-10-21), and a coin at each paid enemy, 0.07 s apart; her other coin
   // events have no rule
   // (2026-10-23) by their client keys: the S3_End trigger's held casts, the coin projectile's `_mainEffect` / `_effectsWhenHit`
@@ -327,6 +329,8 @@ test('the kits send what the rules read', () => {
   assert.match(src('chess_char_6_14-lumen.js'), /battle\.fx\('emergency', \{ x: t\.x, y: t\.y, id: t\.id, src: unit\.id \}\)/);
   assert.match(src('chess_char_6_01-lemuen.js'), /battle\.fx\('lock', \{ x: A\.e\.x, y: A\.e\.y, id: A\.e\.id, src: unit\.id \}\)/);
   assert.match(src('chess_char_6_01-lemuen.js'), /battle\.fx\('lemuenAim', \{ x: unit\.x, y: unit\.y, id: unit\.id, signal: 'aim', on: 0 \}\)/);
+  assert.match(src('chess_char_6_16-halo2.js'), /battle\.fx\('link', \{ x: ctx\.targets\[0\]\.x, y: ctx\.targets\[0\]\.y, id: unit\.id, ids: ctx\.targets\.map\(\(e\) => e\.id\) \}\)/);
+  assert.match(src('chess_char_4_04-ines.js'), /const ax = from\.x, ay = from\.y[\s\S]*battle\.fx\('beam', \{ x: ax, y: ay, /);
 });
 
 test('蕾缪安 S2 (2026-10-24, 묶음 S2): the aim\'s crosshair on its target and the line from her until the aim ends; S3 locks are fxgame.js\'s', () => {
@@ -348,7 +352,19 @@ test('蕾缪安 S2 (2026-10-24, 묶음 S2): the aim\'s crosshair on its target a
   assert.deepEqual(em.play, [{ n: 'lumen_buff_01_hit', on: 'op', life: 'once' }]);
   // a plan's `stop` also ends its tagged lines (fxgame.js officialKitFx → startLine meta)
   assert.match(GAME, /for \(const l of elines\.values\(\)\) if \(l\.tag === tag && l\.owner === opId\) l\.until = Math\.min\(l\.until, clockS\);/);
-  assert.match(GAME, /p\.tag \? \{ tag: p\.tag, owner: opId \} : null\); n\+\+; \}/);
+  assert.match(GAME, /const meta = p\.tag \|\| p\.life === 'skill' \? \{ tag: p\.tag \?\? null, owner: opId, skill: p\.life === 'skill' \} : null;/);
+});
+
+test('溯光星源 S3 and 伊内丝 S3 (2026-10-24, 묶음 S4): one line through the locks for the skill; the recalled sentry stops where it stood', () => {
+  const l = kitOfficialPlan('link', { id: 3, ids: [7, 8] }, 'halo2', { skill: 2 });
+  assert.deepEqual(l.stop, ['halo2Link']);
+  assert.deepEqual(l.play, [{ n: 'halo2_skill_03_line_01', line: ['ids'], tag: 'halo2Link', life: 'skill' }]);
+  assert.equal(kitOperator({ id: 3, ids: [7, 8] }, 'link'), 3);
+  assert.equal(kitOfficialPlan('link', { id: 3, ids: [7, 8] }, 'halo2', { skill: 1 }), null, 'her S2 pull keeps its stand-in');
+  assert.deepEqual(kitOfficialPlan('beam', { id: 3, x: 1, y: 2, tx: 4, ty: 2, hits: [] }, 'ines').play[0], { n: 'ines_skill_03_pullLabel_01', on: 'point', life: 'once' });
+  // a one-field line runs through its list in order; a `life: 'skill'` line ends with the operator's skill
+  assert.match(GAME, /p\.line\.length === 1 \? \[o\[p\.line\[0\]\]\]\.flat\(\)\.map\(\(id, i, a\) => \[id, a\[i \+ 1\]\]\)\.slice\(0, -1\)/);
+  assert.match(GAME, /if \(l\.skill && l\.owner === \(v\.id \?\? v\.info\.id\)\) l\.until = Math\.min\(l\.until, clockS\);/);
 });
 
 test('焰尾 T1 and 信仰搅拌机 S1 (2026-10-24, 묶음 S1): a dodge flashes and holds the evade buff until the riposte, a reload tips its ally', () => {

@@ -363,9 +363,11 @@ export const TALENT_ALWAYS = Object.freeze({
 
 /**
  * 2026-10-24 (묶음 S2): buffs a client template puts on the operator itself for the run of a skill — created as it starts,
- * finished with it — that no skill binding names. charId → skill index 0–2 (or '*': every skill) → client key; the key's
- * `held` prefabs (plays.json) join the activation's loops (skillHeld, fxgame.js activation).
+ * finished with it — that no skill binding names. charId → skill index 0–2 (or '*': every skill) → client key (or keys);
+ * their `held` prefabs (plays.json) join the activation's loops (skillHeld, fxgame.js activation).
  */
+const heldKeys = (keys) => Object.freeze(cite(keys, { tpl: Object.freeze(keys) }));
+const ROCKR_HELD = heldKeys(['rockr_s_effetct_1', 'rockr_s_effetct_2']);
 export const SKILL_HELD = Object.freeze({
   // 圣约送葬人 Talents/1 excu2_passive[effect]: ON_SKILL_START creates [effect][skill] (excu2_cherub_buff_01), ON_SKILL_FINISH ends it
   char_1032_excu2: Object.freeze({ '*': talentKey('excu2_passive[effect]') }),
@@ -373,13 +375,17 @@ export const SKILL_HELD = Object.freeze({
   char_1052_kalts2: Object.freeze({ 2: talentKey('kalts2_s3_fx_2') }),
   // 赤刃明霄陈 S2 chen3_s2[respawn_buff] (ON_OWNER_LOCATE): [respawn_effect_2] F_buff_02 beside [respawn_effect]'s buff_01 (the skill's buff)
   char_1050_chen3: Object.freeze({ 1: talentKey('chen3_s2[respawn_effect_2]') }),
+  // 洛洛 S1 / S2 (2026-10-24, 묶음 S4): the skill prefab's `_passiveBuffs` rockr_s_effect, whose ON_BUFF_START creates the derived
+  // INFINITY buffs rockr_s_effetct_1 / _2 (rockr_skill_buff_01 / _02) on her [추정: they end with the skill's rockr_s_effect]
+  char_4040_rockr: Object.freeze({ 0: ROCKR_HELD, 1: ROCKR_HELD }),
 });
 
 /** The SKILL_HELD prefabs of `charId`'s skill `skillIndex` that are extracted (`prefabs`), from `plays`. */
 export function skillHeld(charId, skillIndex, prefabs, plays) {
   const by = charId ? SKILL_HELD[charId] : null;
   const k = by ? by[skillIndex] ?? by['*'] : null;
-  return ((k && plays?.keys?.[k.tpl]?.held) || []).filter((n) => !prefabs || prefabs.includes(n));
+  const held = k ? [k.tpl].flat().flatMap((t) => plays?.keys?.[t]?.held || []) : [];
+  return [...new Set(held)].filter((n) => !prefabs || prefabs.includes(n));
 }
 
 /**
@@ -470,7 +476,8 @@ export function activationEffects(bind, prefabs, skillIndex, kitOwned = new Set(
   const keep = (x) => !modeOwn.has(x) && !notCaster.has(x) && !kitOwned.has(x) && !foe.has(x);
   // a prefab the skill casts (`_castEffects`, ending with its cast) is not a loop for the whole skill even if named _buff / _range
   const cast = new Set([...(sk?.cast || []), ...(sk?.castLoop || [])]);
-  const loops = [...new Set([...effectsFor(pre, 'skillBuff', skillIndex).filter((x) => keep(x) && !cast.has(x)), ...has(sk?.buff),
+  // (2026-10-24, 묶음 S4: its `buff` holds its aura abilities' `_effects` too — 纯烬艾雅法拉 S2's barrier is the kit's)
+  const loops = [...new Set([...effectsFor(pre, 'skillBuff', skillIndex).filter((x) => keep(x) && !cast.has(x)), ...has(sk?.buff).filter((x) => !kitOwned.has(x)),
     ...boundEffects(bind, pre, n, 'attach').filter((x) => !foe.has(x) && !kitOwned.has(x))])];
   const modeCast = boundEffects(bind, pre, n, 'cast');
   const start = [...new Set([...(modeCast.length ? [] : effectsFor(pre, 'skillStart', skillIndex)), ...has(sk?.cast), ...has(sk?.castLoop)])]

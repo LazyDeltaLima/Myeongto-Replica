@@ -49,7 +49,10 @@
    {
     "cast": [],
     "castLoop": [],
-    "buff": [],
+    "buff": [
+     "skadi2_skill_01_buff",
+     "skadi2_skill_01_buff_02"
+    ],
     "target": [],
     "targetBuff": []
    },
@@ -58,7 +61,10 @@
     "castLoop": [
      "skadi2_skill_02_begin_start"
     ],
-    "buff": [],
+    "buff": [
+     "skadi2_skill_02_buff",
+     "skadi2_skill_02_buff_02"
+    ],
     "target": [],
     "targetBuff": []
    },
@@ -67,7 +73,11 @@
     "castLoop": [
      "skadi2_skill_03_begin_start"
     ],
-    "buff": [],
+    "buff": [
+     "skadi2_skill_03_buff",
+     "skadi2_skill_03_buff_02",
+     "skadi2_skill_03_buff_03"
+    ],
     "target": [],
     "targetBuff": []
    }
@@ -576,6 +586,7 @@
     "cast": [],
     "castLoop": [],
     "buff": [
+     "agoat2_skill_01_range_01",
      "agoat2_skill_01_buff_01"
     ],
     "target": [],
@@ -589,7 +600,9 @@
     "castLoop": [
      "agoat2_skill_02_start_01"
     ],
-    "buff": [],
+    "buff": [
+     "agoat2_skill_02_range_01"
+    ],
     "target": [
      "agoat2_skill_02_hit_01"
     ],
@@ -1140,6 +1153,10 @@
   "dollBorn": [
    "ghost2_birth_01_start",
    "ghost2_birth_empty_02"
+  ],
+  "dollBack": [
+   "ghost2_birth_01_start",
+   "ghost2_birth_empty_03"
   ],
   "skillMode": [
    null,
@@ -5161,7 +5178,8 @@
     "cast": [],
     "castLoop": [],
     "buff": [
-     "buff_weak"
+     "buff_weak",
+     "slbell_skill_01_range"
     ],
     "target": [],
     "targetBuff": []
@@ -5169,7 +5187,9 @@
    {
     "cast": [],
     "castLoop": [],
-    "buff": [],
+    "buff": [
+     "slbell_skill_02_range"
+    ],
     "target": [],
     "targetBuff": []
    }
@@ -5864,7 +5884,9 @@
     "cast": [],
     "castLoop": [],
     "buff": [
-     "demkni_skill_03_buff"
+     "demkni_skill_03_buff",
+     "demkni_skill_03_range",
+     "demkni_skill_03_self"
     ],
     "target": [],
     "targetBuff": []
@@ -7746,7 +7768,8 @@
     ],
     "buff": [
      "mudrok_skill_03_buff",
-     "buff_sluggish"
+     "buff_sluggish",
+     "mudrok_skill_03_range"
     ],
     "target": [],
     "targetBuff": []
@@ -11652,7 +11675,9 @@
    {
     "cast": [],
     "castLoop": [],
-    "buff": [],
+    "buff": [
+     "ascln_skill_02_range_01"
+    ],
     "target": [],
     "targetBuff": []
    },
@@ -15398,7 +15423,9 @@
    {
     "cast": [],
     "castLoop": [],
-    "buff": [],
+    "buff": [
+     "indigo_skill_02_buff_04"
+    ],
     "target": [],
     "targetBuff": []
    }

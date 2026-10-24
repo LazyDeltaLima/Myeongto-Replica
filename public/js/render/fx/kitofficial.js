@@ -25,7 +25,8 @@ import { whenPlays } from './conds.js';
  * mode's `turn` — `_useFourDirectionalFace` — applies), for its prefab's duration.
  * or a line `line: [from, to]` (the event's fields naming two units; `to` may name a list) while both stand, or for the
  * line prefab's own duration with `life: 'once'` (2026-10-24: a line with `tag` also ends when a later plan's `stop` names
- * it); or a flight `fly` (tiles / s) from the operator to the event's point —
+ * it, one with `life: 'skill'` as the operator's skill ends; `line: [field]` with one field naming a list runs through its
+ * units in order); or a flight `fly` (tiles / s) from the operator to the event's point —
  * a play with `after: 'fly'` starts when it lands. A 'point' play may name its own ground point `at: [x, y]`.
  * 2026-10-21: a flight with `to` (the event's field naming units) is a projectile at each unit from the operator's muzzle,
  * `gap` s apart, followed, playing `hit` [names] on it as it lands; one with `from: 'point'` flies from the event's point
@@ -118,6 +119,15 @@ export const KIT_OFFICIAL = {
       { n: 'lemuen_skill_02_trail_01', line: ['src', 'id'], tag: 'lemuenAim' },
     ] } : null)),
   },
+  // 溯光星源 S3 并流连锁 (2026-10-24, 묶음 S4): her S3 mode's LinkEnemy (a LockTargetAbility) holds the locked enemies and one
+  // `_lineEffect` halo2_skill_03_line_01 through them — 「被锁定的敌人会互相链接」; the sim's 'link' { ids } as the locks change,
+  // until the skill ends [추정: the line runs through the locks in order — the ability keeps one effect whose LineRenderers
+  // take their places]. Her S2 'link' (the pulled pair) keeps its stand-in.
+  link: {
+    halo2: cite('char_1047_halo2/Modes/S3/Body/GeneralAbilities/LinkEnemy', (o, c) => (c.skill === 2 ? { stop: ['halo2Link'], play: [
+      { n: 'halo2_skill_03_line_01', line: ['ids'], tag: 'halo2Link', life: 'skill' },
+    ] } : null)),
+  },
   // 莎草 S2 临考发挥 (2026-10-24, 묶음 S2): the ally she locks as it starts ('buff' kind 'lock': `src` her, `id` the ally) —
   // papyrs_s_2[switch_mode]'s CreateBuffUseAbilitySelector puts papyrs_s_2[target] (papyrs_skill2_mark_01, ended with the skill) on it
   buff: { papyrs: cite('papyrs_s_2[target]', () => ({ play: [{ tpl: 'papyrs_s_2[target]', on: 'id', life: 'skill' }] })) },
@@ -138,9 +148,11 @@ export const KIT_OFFICIAL = {
   // 伊内丝 S3 独影归途 (2026-10-21): the sentry recalled — projectile_chr_ines_guard_back (10 tiles / s) from where it stood back
   // to her: `_mainEffect` label_trail_01, its line pullLabel_line_01 from her to it (`_useEndPointAsStartPos`), label_hit_01
   // on each enemy it strikes on its way (`_effectsWhenHit`, the kit's `hits`), getLabel_01 + getLabel_range_01 where it
-  // reaches her (`_effectsWhenReached`, `_useTraceTargetWhenReach`)
+  // reaches her (`_effectsWhenReached`, `_useTraceTargetWhenReach`). 2026-10-24 (묶음 S4): the standing sentry stops there —
+  // projectile_chr_ines_guard's `_effectsWhenStop` pullLabel_01 where it stood
   beam: {
-    ines: cite('projectile_chr_ines_guard_back', () => ({ stop: ['inesSentry'], play: [
+    ines: cite(['projectile_chr_ines_guard_back', 'projectile_chr_ines_guard'], () => ({ stop: ['inesSentry'], play: [
+      { n: 'ines_skill_03_pullLabel_01', on: 'point', life: 'once' },
       { n: 'ines_skill_03_label_trail_01', fly: 10, from: 'point', rope: 'ines_skill_03_pullLabel_line_01', pass: { n: 'ines_skill_03_label_hit_01', on: 'hits' } },
       { n: 'ines_skill_03_getLabel_01', on: 'op', life: 'once', after: 'fly' },
       { n: 'ines_skill_03_getLabel_range_01', on: 'op', life: 'once', after: 'fly' },

@@ -496,6 +496,11 @@ def skill_effects(tree, projectiles=None):
                 add(own, effect_names(d.get(k) or []))
             e['hitGroups'] = shot_groups(projectiles, sp, own, d)   # its strikes' shots (至简 S2)
         add(e['buff'], own_buff_effects(d, '_buffs'))
+        # 2026-10-24 (묶음 S4): an aura ability's own `_effects` (AuraAbility, the list token_auras reads for a summon's skill)
+        # sit on the caster while the skill holds the ability — 浊心斯卡蒂 S3 skadi2_skill_03_buff_03, 塞雷娅 S3
+        # demkni_skill_03_self, 深靛 S2 indigo_skill_02_buff_04, which the `_buff` / `_range` name rule left out
+        if isinstance(d.get('_effects'), list) and ('_buffs' in d or '_passiveBuffs' in d):
+            add(e['buff'], [x for x in d['_effects'] if isinstance(x, str) and x])
         add(e['targetBuff'], own_buff_effects(d, '_activeBuffs'))
         if projectiles and isinstance(d.get('_projectileKey'), str) and d['_projectileKey']:
             p = projectiles.effects(d['_projectileKey'])
@@ -781,7 +786,7 @@ def modes_of(path, projectiles=None):
     # on an enemy it blocks, Character._FetchCombatTarget) beside its Body/Attack casts and hits with that one's effects on
     # such a swing (the sim's 'swing' 7th field), the attack's (+ its projectile's hit) otherwise: `combatSplit[mode]`
     cpart = [{'attack': {'cast': [], 'hit': []}, 'combat': {'cast': [], 'hit': []}} for _ in range(n)]
-    doll_born = []
+    doll_born, doll_back = [], []
     # 2026-10-16 (이펙트 연결 전수 묶음 3): a 驭械术师's drones — per mode, its `Funnel*` abilities (their projectile and mount
     # point) and their FunnelEffectEmitter (same GameObject), and the drone's idle look of a mode without an emitter: the buffs
     # of the mode's `Effect` GameObjects (funnel_entries below)
@@ -789,6 +794,9 @@ def modes_of(path, projectiles=None):
     for gp, d, _ in tree:
         if '[switch2stand]/StandBorn' in gp:
             add(doll_born, effect_names(d.get('_castEffects') or []))
+        # 2026-10-24 (묶음 S4): and the switch back to the 本体 ([switch2normal]/StandBorn: ghost2_birth_empty_03)
+        if '[switch2normal]/StandBorn' in gp:
+            add(doll_back, effect_names(d.get('_castEffects') or []))
     # 2026-10-21: a mode talent / a per-side child of the attack (mode_parts) keeps its effects to itself
     talent, side, part_go, part_proj, part_timing = mode_parts(tree, mode_paths, projectiles)
     # alternatives: the first sibling (by name) of each parent stands for all
@@ -1052,6 +1060,8 @@ def modes_of(path, projectiles=None):
         res['attachFoeMax'] = foe_max
     if doll_born:
         res['dollBorn'] = doll_born
+    if doll_back:
+        res['dollBack'] = doll_back
     if hit_aim:
         res['hitAim'] = hit_aim
     fortress = [{k: {'cast': s[k]['cast'], 'hit': s[k]['hit']} for k in ('melee', 'ranged')}
@@ -1170,10 +1180,18 @@ def token_auras(tree, client):
     vodfox_skill_02_buff, sktok_skadi2_<n>/Aura token_skadi2_skill_0<n>_buff) — and its prefab root's `_startEffect`
     (pkgrps/btl_pfb_tokens_*.ab). A summon's skill follows its owner's skill choice: data/tokens.json `variants[…].skill` /
     `bySkill[i].skill` (its `index` = the owner's skill index, which the unit's snapshot `skillIndex` carries). → { token id:
-    { owner, aura: { owner skill index: [prefab, …] }, start? } } for the tokens with an aura."""
+    { owner, aura?: { owner skill index: [prefab, …] }, start? } } for the tokens with an aura or a start effect.
+    2026-10-24 (묶음 S4): every summon's `_startEffect`, not only an aura holder's — 凯尔希·思衡托's 战术锚点
+    kalts2_skill_03_indicator_ground_01 (a 自选 summon: data/backups.json tokens, its pack in the CN client only)."""
     assets = json.loads((ROOT / 'data/assets.json').read_text(encoding='utf-8')).get('tokens') or {}
     toks = json.loads((ROOT / 'data/tokens.json').read_text(encoding='utf-8'))
     toks = toks.get('tokens', toks)
+    owners = {tid: a['owner'] for tid, a in assets.items() if isinstance(a, dict) and a.get('owner')}
+    backups = json.loads((ROOT / 'data/backups.json').read_text(encoding='utf-8')).get('tokens') or {}
+    for tid, rec in backups.items():
+        o = (rec.get('owners') or [None])[0] if isinstance(rec, dict) else None
+        if isinstance(o, str) and o:
+            owners.setdefault(tid, o.split('@')[0])
     eff = {}
     for gp, d, *_ in tree:
         if isinstance(d.get('_effects'), list) and ('_buffs' in d or '_passiveBuffs' in d):
@@ -1191,13 +1209,12 @@ def token_auras(tree, client):
                     per.setdefault(str(i), list(dict.fromkeys(eff[pid])))
         if per:
             out[tid] = {'owner': a['owner'], 'aura': dict(sorted(per.items()))}
-    if out:
-        from char_points import token_files
-        for tid, f in token_files(client, list(out)).items():
-            for gp, d, *_ in load_tree(str(f))[0]:
-                if gp == tid and isinstance(d.get('_startEffect'), str) and d['_startEffect']:
-                    out[tid]['start'] = d['_startEffect']
-    return out
+    from char_points import token_files
+    for tid, f in token_files(client, sorted(owners)).items():
+        for gp, d, *_ in load_tree(str(f))[0]:
+            if gp == tid and isinstance(d.get('_startEffect'), str) and d['_startEffect']:
+                out.setdefault(tid, {'owner': owners[tid]})['start'] = d['_startEffect']
+    return {k: out[k] for k in sorted(out)}
 
 
 def main():
@@ -1253,9 +1270,13 @@ def main():
     doc.update({k: out[k] for k in sorted(out)})
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if FX_OUT.parent.exists():
-        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'input', 'hit', 'hitGroups', 'tgtStart', 'hitLoop', 'castTgt', 'clipFx', 'altFx', 'talentAtk', 'sideFx', 'combatSplit', 'trail', 'chain', 'chainHit', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'hitAim', 'fortress', 'funnels', 'charge', 'skills', 'turn', 'dirs', 'start', 'startOnce', 'modeStart', 'dead', 'common') if f in v} for k, v in sorted(out.items())}
-        fx.update(token_auras(stree, a.client))   # the summons' skill auras, keyed by token id (render/fxgame.js tokenAura)
-        FX_OUT.write_text(json.dumps(fx, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
+        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'input', 'hit', 'hitGroups', 'tgtStart', 'hitLoop', 'castTgt', 'clipFx', 'altFx', 'talentAtk', 'sideFx', 'combatSplit', 'trail', 'chain', 'chainHit', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'dollBack', 'hitAim', 'fortress', 'funnels', 'charge', 'skills', 'turn', 'dirs', 'start', 'startOnce', 'modeStart', 'dead', 'common') if f in v} for k, v in sorted(out.items())}
+        # the summons' skill auras and start effects, keyed by token id (render/fxgame.js tokenAura, flushDeploys); a summon
+        # whose pack this client lacks keeps the entry an earlier run wrote (凯尔希·思衡托's, from the CN client)
+        old = json.loads(FX_OUT.read_text(encoding='utf-8')) if FX_OUT.exists() else {}
+        fx.update({k: v for k, v in old.items() if k.startswith('token_')})
+        fx.update(token_auras(stree, a.client))
+        FX_OUT.write_text(json.dumps(dict(sorted(fx.items())), ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     print(f'{len(out)} operator(s) → {OUT.relative_to(ROOT)}' + (f' + {FX_OUT.relative_to(ROOT)}' if FX_OUT.parent.exists() else '')
           + f'; no charpack: {", ".join(missing) or "none"}')
 

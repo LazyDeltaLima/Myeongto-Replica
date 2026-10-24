@@ -1531,10 +1531,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // and its appearance (`dollBorn`, [switch2stand]/StandBorn: ghost2_birth_01_start, the blue swirl) plays once. The
   // enemy-targeted buff's effect (beidong_buff_02, on the enemies 拥抱自我 hits) is not on her (maintainer 2026-10-08 with the
   // official video: 「파란 소용돌이가 잠깐 나왔다가 사라지고, 3x3칸짜리 원형 이펙트도 따로 있어」). Started with the switch
-  // [추정]; the prefabs' own end effects (beidong_buff_01_end) are not played.
+  // [추정]; the prefabs' own end effects (beidong_buff_01_end) are not played. 2026-10-24 (묶음 S4): the switch back
+  // ('swap') plays `dollBack` once ([switch2normal]/StandBorn `_castEffects`: the swirl and ghost2_birth_empty_03).
   function dollFx(e, views) {
     const id = e[4].id, v = views.get(id);
     for (const l of live) if (l.tag === 'doll' && l.owner === id) l.inst.stop(e[1] === 'dollEnd');
+    if (e[1] === 'swap' && v && q() !== 'low') {
+      const back = (bindOf(v)?.dollBack || []).filter((x) => bundleOf(v)?.prefabs.includes(x));
+      if (back.length) play(v, 'skillStart', 0, { names: back });
+    }
     if (e[1] !== 'substitute' || !v || q() === 'low') return;
     const b = bindOf(v), pre = bundleOf(v)?.prefabs || [];
     const born = (b?.dollBorn || []).filter((x) => pre.includes(x));
@@ -2455,10 +2460,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         continue;
       }
       if (p.line) {
-        const from = views.get(o[p.line[0]]);
-        for (const id of [o[p.line[1]]].flat()) {
-          const to = views.get(id);
-          if (from && to) { startLine(pb.bundle, name, from, to, p.life === 'once' ? -1 : 1e6, { sMount: 1, eMount: 1 }, p.tag ? { tag: p.tag, owner: opId } : null); n++; }
+        // (2026-10-24, 묶음 S4) one field naming a list: a line through its units in order (溯光星源 S3's locks)
+        const ends = p.line.length === 1 ? [o[p.line[0]]].flat().map((id, i, a) => [id, a[i + 1]]).slice(0, -1)
+          : [o[p.line[1]]].flat().map((id) => [o[p.line[0]], id]);
+        const meta = p.tag || p.life === 'skill' ? { tag: p.tag ?? null, owner: opId, skill: p.life === 'skill' } : null;
+        for (const [a, z] of ends) {
+          const from = views.get(a), to = views.get(z);
+          if (from && to) { startLine(pb.bundle, name, from, to, p.life === 'once' ? -1 : 1e6, { sMount: 1, eMount: 1 }, meta); n++; }
         }
         continue;
       }
@@ -4085,7 +4093,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const key = `${ownerOf(src)}:${ownerOf(tgt)}:${name}`;
     const rec = elines.get(key);
     if (rec && rec.fade == null) { rec.until = Math.max(rec.until, clockS + Math.max(0, life)); return; }   // the buff refreshed
-    const nrec = { src, tgt, until: clockS + Math.max(0, life), l: null, sp: null, dyn: null, ended: false, tag: meta?.tag ?? null, owner: meta?.owner ?? null };
+    const nrec = { src, tgt, until: clockS + Math.max(0, life), l: null, sp: null, dyn: null, ended: false, tag: meta?.tag ?? null, owner: meta?.owner ?? null, skill: !!meta?.skill };
     elines.set(key, nrec);
     spawn(bundle, name, tgt, { owner: null, buff: true, until: null, on: ownerOf(tgt) }).then((l) => {
       if (!l) { elines.delete(key); return; }
@@ -4349,7 +4357,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const fx = deployEffect(bind, v.info.kind === 'token', v._fxSkillOn ? modeNow(v) ?? 0 : 0);
       // `_onlyPlayStartEffectOnce`: the root's effect on the first deploy only [추정: a mode's override still plays]
       if (bind?.startOnce && !fx.override) { if (startedOnce.has(id)) continue; startedOnce.add(id); }
-      const r = allyFx(v, fx.name);
+      // 2026-10-24 (묶음 S4): a summon's own start effect (modes.json `start`: 凯尔希·思衡托's 战术锚点) — 'common_empty' is
+      // nothing (乌尔比安's block); one not extracted (蜜蜡's obelisk, 夕's dragon …) keeps the token's common one, as before
+      const r = fx.name === 'common_empty' ? null
+        : allyFx(v, fx.name) ?? (v.info.kind === 'token' && !fx.override ? allyFx(v, deployEffect(null, true).name) : null);
       if (r) spawn(r[0], r[1], v, { owner: id, buff: false, onCaster: true, tag: 'born' }, { over: false, facing: efacing(v) });
     }
   }
@@ -4725,7 +4736,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           }
           // local patch (maintainer 2026-10-07: the buffs / range stayed ~1 s after the skill): its loops end with it, at once
           // (and the marks it left on its targets: 戴菲恩 S3's hit_1)
-          else { v._fxSkillOn = false; v._fxSkillFlags?.clear(); endWolves(v.id ?? v.info.id); stopBuffs(v.id ?? v.info.id, true); skillEnd(v); }
+          else {
+            v._fxSkillOn = false; v._fxSkillFlags?.clear(); endWolves(v.id ?? v.info.id); stopBuffs(v.id ?? v.info.id, true); skillEnd(v);
+            for (const l of elines.values()) if (l.skill && l.owner === (v.id ?? v.info.id)) l.until = Math.min(l.until, clockS);   // a plan's `life: 'skill'` lines
+          }
           droneIdle(v);   // 2026-10-16: the drones of the mode now
           defaultModeFx(v);   // 2026-10-21: the Default mode's own effects, off while a skill switched her mode
           return;

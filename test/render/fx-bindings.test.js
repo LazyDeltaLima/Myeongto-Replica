@@ -139,8 +139,6 @@ const UNPLAYED = {
   'reed2_e_002_t|reed2_treat_01': 'condOther',
   'reed2_t_2|reed2_treat_01': 'condOther',
   'reed2_tr_heal[effect]|reed2_treat_01': 'unconditional',
-  'rockr_s_effetct_1|rockr_skill_buff_01': 'unconditional',
-  'rockr_s_effetct_2|rockr_skill_buff_02': 'unconditional',
   'rockr_s_2[overload]|rockr_stun_01': 'condOther',
   'rockr_s_2[overload]|rockr_stun_02': 'condOther',
   'sbell2_t1[enemy_character]|sbell2_buff_01_hit_01': 'condOther',
@@ -246,7 +244,7 @@ test('a keyed status spec, an always-on talent and a note name a key they cite, 
   // (a talent with `born` prefabs only — 凛御银灰's ON_OWNER_BORN 战鹰 — has no plays of its key: the born row is no role)
   for (const [id, t] of Object.entries(TALENT_ALWAYS)) if (!t.born) keys.push([`TALENT_ALWAYS.${id}`, t.tpl, t.src]);
   for (const [id, t] of Object.entries(TALENT_ALWAYS)) if (t.born) assert.ok(t.src?.includes(t.tpl), `TALENT_ALWAYS.${id}: ${t.tpl} is not one of its cited keys`);
-  for (const [id, by] of Object.entries(SKILL_HELD)) for (const [i, t] of Object.entries(by)) keys.push([`SKILL_HELD.${id}.${i}`, t.tpl, t.src]);
+  for (const [id, by] of Object.entries(SKILL_HELD)) for (const [i, t] of Object.entries(by)) for (const k of [t.tpl].flat()) keys.push([`SKILL_HELD.${id}.${i}`, k, t.src]);
   for (const [id, by] of Object.entries(SKILL_EDGE)) for (const [i, t] of Object.entries(by)) for (const k of [t.start, t.end].filter(Boolean)) keys.push([`SKILL_EDGE.${id}.${i}`, k, t.src]);
   for (const [m, n] of Object.entries(NOTE_FX)) for (const k of n.shots) keys.push([`NOTE_FX.${m}`, k, n.src]);
   assert.ok(keys.length >= 30);

@@ -1829,6 +1829,31 @@
     风雪之眼를 동료 카드에 배치할 때만인데 자동 전투에선 아무도 배치하지 않는다(시뮬 키트 「not modelled」). `UNPLAYED`에 이유 주석으로 남김.
   - 확인: 단위 `common-ability-fx`·`fx-pause`, `fx-bindings` `UNPLAYED` 4줄 지움. 이펙트 이벤트 골든 凛御银灰 16 시나리오만, 시뮬 골든 그대로(시뮬 안 고침).
     [화면 미확인: 팔 위 자리·S3 동안 숨음·끝의 번쩍임 — 공식 녹화 대조]
+- 연결 전수 나머지 넷째 묶음(2026-10-24, 클라 전용 능력 행 — 추출기가 안 읽던 필드와 이미 있는 키트 이벤트):
+  - 스킬 오라의 `_effects`: 스킬 프리팹(`[uc]skills.ab`) 오라 능력(`_buffs`/`_passiveBuffs`가 있는 능력)의 `_effects`는 스킬이 그 능력을 붙인 동안
+    시전자 몸에 있다(소환물 스킬 오라 `token_auras`가 읽던 그 목록). `char_modes.py skill_effects`가 이제 `skills[i].buff`에 넣어 activation이 돌린다 —
+    浊心斯卡蒂 S3 `skadi2_skill_03_buff_03`(`_buff` 이름 규칙은 셋 중 둘만), 塞雷娅 S3 `demkni_skill_03_self`, 深靛 S2 `indigo_skill_02_buff_04`. 이름 규칙이
+    이미 틀던 범위(`_range`)들도 같은 목록에 들어갔다(그림 그대로). 이 목록도 이제 키트가 그리는 프리팹(`KIT_OWNED`)을 거른다 — 泥岩 S3의 각성 버프
+    `mudrok_skill_03_buff`는 키트 계획(깨어날 때부터)만 틀고, 잠든 동안엔 안 보인다(전엔 스킬 시작부터 둘이 겹쳤음).
+  - 洛洛 S1·S2: 스킬 프리팹의 `_passiveBuffs` `rockr_s_effect`가 ON_BUFF_START에 파생 버프 `rockr_s_effetct_1`·`_2`(`rockr_skill_buff_01`·`_02`, INFINITY)를
+    그녀에게 만든다 → `SKILL_HELD`(키 목록). [추정: 파생 버프가 스킬의 `rockr_s_effect`와 함께 끝남 — 템플릿의 `_finishDerivedBuffIfParentFinish`는 0]
+  - 归溟幽灵鲨 본체 복귀: `[switch2normal]/StandBorn` `_castEffects`(`ghost2_birth_01_start` + `ghost2_birth_empty_03`)를 `dollBack`으로 읽어 시뮬 `'swap'`에
+    한 번(`[switch2stand]`의 `dollBorn`과 짝).
+  - 소환물 배치 이펙트: `Character.get_startEffect`(프리팹 뿌리 `_startEffect`, 없으면 `common_call_start_01`)를 오라 없는 소환물과 自选 오퍼의 소환물
+    (`data/backups.json`)까지 읽는다 — 凯尔希·思衡托의 战术锚点 `kalts2_skill_03_indicator_ground_01`(끝에 `_end_01`). 이 클라에 팩이 없는 소환물은 앞서 쓴
+    항목을 지킨다. `common_empty`(乌尔比安의 방벽)는 아무것도 없음, 추출 안 된 것(蜜蜡·迷迭香·夕·耀骑士临光·琳琅诗怀雅·维什戴尔·维娜·维多利亚의 소환물
+    시작 이펙트 7개 — 그 소환물 번들이 추출물에 없음)은 전처럼 공용 것.
+  - 溯光星源 S3: S3 모드의 LinkEnemy(`LockTargetAbility`)가 잠근 적들과 `_lineEffect` `halo2_skill_03_line_01` 하나를 든다(「被锁定的敌人会互相链接」) →
+    키트 `'link'` { ids } 계획: 목록을 차례로 잇는 선(`line: ['ids']`), 잠금이 바뀌면 새로, 스킬 끝까지(`life: 'skill'`). [추정: 선이 잠근 적을 차례로
+    지남 — 능력이 이펙트 하나를 들고 그 LineRenderer에 대상 자리를 넣음] S2의 끌어당김 `'link'`는 대체 그림 그대로.
+  - 伊内丝 S3 회수: 서 있던 影哨(`projectile_chr_ines_guard`)가 멈추며 `_effectsWhenStop` `ines_skill_03_pullLabel_01`을 그 자리에 → `'beam'` 계획 첫 줄.
+  - 다른 길로 옮긴 것: 空弦 S2 튕김 화살(`_replaceMainEffectWhenReach` `archet_skill_02_trail_02` — 튕기는 순간을 시뮬이 안 알림)·魔王 동료 위 치유
+    오라(`cetsyr_heal` — 吟游者 재생 버프가 보이지 않는 버프) → 맞는·치유 순간 묶음. 남김: 焰影苇草 S2 불덩이 쿨다운 모습(`_coolDownEffect` — `'strike'`의
+    `src`가 운반 동료라 계획이 그녀 묶음을 못 찾음), 荒芜拉普兰德 S3 표식 둘(추적 시작 `'droneLock'`만 있고 붙음·놓침 순간이 없음), 伺夜 S3
+    `EndAnimEffectEmitter`(시전 시계에 「끝 동작」 단계가 없음). 판정: 引星棘刺 T2 타일 `_tileEffectKey`(공식이 고르는 타일 규칙 미확인),
+    予愿安洁莉娜 S3 `_edgeLineRendererEffectKey`(범위 가장자리 선 — 렌더에 그런 길이 없음).
+  - 확인: 단위 `skill-aura-fx`(새)·`kit-event-fx`, `fx-bindings` `UNPLAYED` 2줄 지움, 미연결 102 → 93행. 이펙트 이벤트 골든 +53 −35(위 것만), 시뮬
+    골든 그대로(시뮬 안 고침). [화면 미확인: 스카디 S3·사리아 S3·인디고 S2 몸 이펙트, 락락 S1·S2, 스펙터 복귀, 켈시 앵커 배치, 아스트젠 S3 선, 이네스 회수]
 
 ### 연쇄 공격 — 체인 캐스터·체인 메딕의 튕김 선과 타격 (2026-10-16, 관리자 요청 「일반 공격 연쇄를 공식 클라 데이터와 대조」)
 

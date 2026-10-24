@@ -153,7 +153,7 @@ export function handEntries() {
   for (const [k, v] of Object.entries(END_FX)) put('END_FX', k, v, specPlays(v).map(({ n }) => ({ n, life: 'once' })));
   // a talent's `born` prefabs are created once (ON_OWNER_BORN) and kept by their prefab
   for (const [k, v] of Object.entries(TALENT_ALWAYS)) put('TALENT_ALWAYS', k, v, [...held(keyPlays().keys[v.tpl]?.held || []), ...(v.born || []).map((n) => ({ n, life: 'once' }))]);
-  for (const [k, by] of Object.entries(SKILL_HELD)) for (const [i, v] of Object.entries(by)) put('SKILL_HELD', `${k}.${i}`, v, held(keyPlays().keys[v.tpl]?.held || []));
+  for (const [k, by] of Object.entries(SKILL_HELD)) for (const [i, v] of Object.entries(by)) put('SKILL_HELD', `${k}.${i}`, v, held([v.tpl].flat().flatMap((t) => keyPlays().keys[t]?.held || [])));
   for (const [k, by] of Object.entries(SKILL_EDGE)) {
     for (const [i, v] of Object.entries(by)) {
       put('SKILL_EDGE', `${k}.${i}`, v, [...(keyPlays().keys[v.start]?.once || []), ...(keyPlays().keys[v.end]?.end || [])].map((n) => ({ n, life: 'once' })));
