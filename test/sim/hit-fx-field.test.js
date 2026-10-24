@@ -96,3 +96,57 @@ test('묶음 S6 (2026-10-24): moments the kit sends only when the client\'s cond
   h = fight([{ chessId: 'chess_char_3_11_a', row: 10, col: 3 }], ['chess_char_3_11_a']);
   assert.ok(has(dmgKeys(h), 'snhunt_t[effect]', h.unit('chess_char_3_11_a').id), JSON.stringify(dmgKeys(h)));
 });
+
+test('묶음 S8 (2026-10-24): 菲莱 S2 by her rage, 至简 T1 roll, 深靛 S2 tick, 海霓 S2 raises; 焰影苇草 / 荒芜拉普兰德 event fields', () => {
+  const fight = (units, cast, seconds = 8, enemies = [{ key: 'enemy_walker', pos: [10, 5] }], defs = walker({ atk: 300 })) => {
+    const h = makeBattle({ seed: 3, autoFinish: false, timeLimit: 60, defs: { enemies: { enemy_walker: defs } }, enemies, units });
+    h.step();
+    for (const id of cast) { const u = h.unit(id); u.skill.gainSp(999, 'test'); if (!u.skill.active) u.skill.activate('test'); }
+    h.run(seconds);
+    checkInvariants(h.b);
+    return h;
+  };
+  const dmgKeys = (h) => h.eventsOf('dmg').flatMap((e) => moments(e, 8));
+  const fxOf = (h, name) => h.eventsOf('fx').filter((e) => e[1] === name).map((e) => e[4]);
+  // 菲莱 S2: the blast's hits name philae:blast, philae:blast:rage while she holds her rage
+  let h = fight([{ chessId: 'chess_char_3_06_a', row: 10, col: 4 }], ['chess_char_3_06_a'], 0.1);
+  const philae = h.unit('chess_char_3_06_a'), foe = h.enemy('enemy_walker');
+  h.b.dealDamage(foe, philae, { amount: 10, type: 'phys' });   // "受到攻击时"
+  assert.ok(has(dmgKeys(h), 'philae:blast', philae.id) && !has(dmgKeys(h), 'philae:blast:rage'), JSON.stringify(dmgKeys(h)));
+  h.b.addBuff(philae, { key: 'skill:philae_rage', visible: true });
+  h.run(2);
+  h.b.dealDamage(foe, philae, { amount: 10, type: 'phys' });
+  assert.ok(has(dmgKeys(h), 'philae:blast:rage', philae.id), JSON.stringify(dmgKeys(h)));
+  // 至简 T1 忽有所悟: a won roll names malist_t_1 on that hit — some of her hits, not all
+  h = fight([{ chessId: 'chess_char_3_13_a', row: 10, col: 3 }], [], 30);
+  const mal = h.unit('chess_char_3_13_a');
+  const mine = h.eventsOf('dmg').filter((e) => e[5] === mal.id);
+  const won = mine.filter((e) => has(moments(e, 8), 'malist_t_1', mal.id));
+  assert.ok(won.length > 0 && won.length < mine.length, `${won.length} of ${mine.length}`);
+  // 深靛 S2: each tick on a bound enemy names indigo_s_2[damage] for a little over the interval
+  h = fight([{ chessId: 'chess_char_1_17_a', row: 10, col: 3 }], ['chess_char_1_17_a'], 0.1);
+  const indigo = h.unit('chess_char_1_17_a');
+  h.b.applyStatus(h.enemy('enemy_walker'), 'bind', { duration: 10, source: indigo });
+  h.run(2);
+  const dot = dmgKeys(h).filter((m) => m[0] === 'indigo_s_2[damage]');
+  assert.ok(dot.length >= 2 && dot.every((m) => m[1] === indigo.id && m[2] > 0.5 && m[2] < 1), JSON.stringify(dmgKeys(h)));
+  // 海霓 S2: the kills that raise her talent — haini:up once below its max, haini:full once at it
+  const weak = walker({ hp: 10 });
+  h = fight([{ chessId: 'chess_char_3_09_a', row: 10, col: 3 }], ['chess_char_3_09_a'], 12,
+    [0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({ key: 'enemy_walker', pos: [10, 4], delay: i })), weak);
+  const haini = h.unit('chess_char_3_09_a');
+  const stages = dmgKeys(h).filter((m) => m[0].startsWith('haini:')).map((m) => m[0]);
+  assert.ok(stages.length >= 1 && stages.length <= 2 && new Set(stages).size === stages.length, JSON.stringify(stages));
+  if (haini.mem.hainiMul >= 1 + 1e-9) assert.ok(stages.includes(haini.mem.hainiStage === 2 ? 'haini:full' : 'haini:up'));
+  // 焰影苇草 S2: each fireball strike names her (`by`) and its cooldown (`cd`); `src` stays the carrier
+  h = fight([{ chessId: 'chess_char_6_08_a', row: 10, col: 3, skillIndex: 1 }, { chessId: 'chess_char_2_08_a', row: 10, col: 4 }], ['chess_char_6_08_a'], 6);
+  const reed = h.unit('chess_char_6_08_a');
+  const strikes = fxOf(h, 'strike');
+  assert.ok(strikes.length && strikes.every((o) => o.by === reed.id && o.cd > 0 && o.src != null), JSON.stringify(strikes));
+  // 荒芜拉普兰德 S3: each drone's target in its positions' event — [id, 0 chasing / 1 held] or null
+  h = fight([{ chessId: 'chess_char_6_18_a', row: 10, col: 3 }], ['chess_char_6_18_a'], 6);
+  const wolves = fxOf(h, 'whitw2Drones');
+  assert.ok(wolves.length && wolves.every((o) => Array.isArray(o.t) && o.t.length * 2 === o.d.length), JSON.stringify(wolves[0]));
+  const marks = wolves.flatMap((o) => o.t).filter(Boolean);
+  assert.ok(marks.some((m) => m[1] === 1), JSON.stringify(marks.slice(0, 4)));
+});

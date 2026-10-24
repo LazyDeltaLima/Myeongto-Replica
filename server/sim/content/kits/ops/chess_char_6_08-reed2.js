@@ -56,7 +56,8 @@ function reed2(bb, chess, def) {
           // "每1.5秒对一名敌人造成…法术伤害并仅对该干员触发焰影苇草特性": the trait heal (professions.js
           // installIncantation) runs for this damage and names the carrier instead of the lowest-HP ally in range
           battle.dealDamage(unit, c[0], { amount: unit.s.atk * num(bb.atk_scale, 1), type: 'arts', isSkill: true, tags: ['skill', 'fireball'], traitAlly: F.a });
-          battle.fx('strike', { x: c[0].x, y: c[0].y, id: c[0].id, src: F.a.id });
+          // `by` her, `cd` the carrier's fireball's cooldown (render/fx/kitofficial.js: its `_coolDownEffect` until the next one)
+          battle.fx('strike', { x: c[0].x, y: c[0].y, id: c[0].id, src: F.a.id, by: unit.id, cd });
         }
       },
       onEnd({ battle, unit }) {

@@ -68,7 +68,7 @@ test('圣约送葬人 S3\'s buff by the deploy facing, 伺夜 S3\'s attack-end e
   // excu2_s_3[trait]: [effect][f] buff_01 unless deployed facing UP, [effect][b] buff_01_back then — the name rule's front copy is the kit's
   assert.deepEqual(skillHeld('char_1032_excu2', 2, null, plays), ['excu2_cherub_buff_01', 'excu2_skill_03_buff_01']);
   assert.deepEqual(skillHeld('char_1032_excu2', 2, null, plays, true), ['excu2_cherub_buff_01', 'excu2_skill_03_buff_01_back']);
-  assert.match(SRC, /KIT_OWNED = new Set\([^;]*'excu2_skill_03_buff_01'\]\)/s);
+  assert.match(SRC, /KIT_OWNED = new Set\([^;]*'excu2_skill_03_buff_01'[,\]]/s);
   // EndAnimEffectEmitter: its S3 mode only, extracted only
   const bind = { modes: ['Default', 'S3'] };
   assert.deepEqual(castEnd('char_427_vigil', bind, 1, null), ['vigil_skill_03_ABC_idle_into']);
@@ -92,8 +92,8 @@ test('凛御银灰\'s 战鹰: on his arm from deploy (TALENT_ALWAYS `born`), off
   // the activation's start takes the start ones; the skill's end plays the end ones as pinned non-buff entries (stopBuffs
   // leaves them, a redeploy's alwaysOn and the 'die' end them); a FlyToPredefinedLocation prefab flies from spawn too
   assert.match(SRC, /skillEdge\(v\?\.info\?\.spine \|\| v\?\.info\?\.defId, skillIdx\(v\), 'start', b\.prefabs, plays\)/);
-  assert.match(SRC, /stopBuffs\(v\.id \?\? v\.info\.id, true\); skillEnd\(v\);/);
-  assert.match(SRC, /function skillEnd\(v\)[\s\S]{0,600}tag: 'common', pinned: true/);
+  assert.match(SRC, /stopBuffs\(v\.id \?\? v\.info\.id, true\); skillEnd\(v, flags\);/);
+  assert.match(SRC, /function skillEnd\(v, flags = null\)[\s\S]{0,600}tag: 'common', pinned: true/);
   assert.match(SRC, /if \(l && def\.fly\) startFly\(l\);/);
 });
 
@@ -115,4 +115,14 @@ test('fxgame.js starts them on deploy as pinned, non-buff entries ended by the u
   assert.match(SRC, /\{ owner: id, buff: false, onCaster: true, until: null, tag: 'common', pinned: true \}/);
   // a redeploy ends the old ones first
   assert.match(SRC, /l\.tag === 'common' && l\.owner === id\) l\.inst\.stop\(true\)/);
+});
+
+test('洛洛 S2\'s end after an overload: rockr_stun_01 / _02 on her — only when the skill overloaded (SKILL_EDGE `if`, 2026-10-24, 묶음 S8)', () => {
+  const plays = keyPlays();   // template rows
+  assert.deepEqual(skillEdge('char_4040_rockr', 1, 'end', null, plays), [], 'no overload: none');
+  assert.deepEqual(skillEdge('char_4040_rockr', 1, 'end', null, plays, new Set(['overDrones'])), ['rockr_stun_01', 'rockr_stun_02']);
+  assert.deepEqual(skillEdge('char_4040_rockr', 0, 'end', null, plays, new Set(['overDrones'])), [], 'S1 has none');
+  assert.deepEqual(skillEdge('char_4040_rockr', 1, 'end', ['rockr_stun_02'], plays, new Set(['overDrones'])), ['rockr_stun_02'], 'extracted only');
+  // the flags are read before the skill's end clears them
+  assert.match(SRC, /const flags = v\._fxSkillFlags\?\.size \? new Set\(v\._fxSkillFlags\) : null;/);
 });

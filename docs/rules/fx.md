@@ -1923,6 +1923,31 @@
     `end`) + 1/30 s에 — 그 사이 새 시전이 시작됐거나 끊겼으면 안 틂. 클립 길이를 모르면(모델 전) 안 틂.
   - 확인: `common-ability-fx` 새 시험, `fx-bindings` `UNPLAYED` 2줄 지움, 미연결 48 → 44(템플릿 22·클라 전용 22). 이펙트 이벤트 골든은 圣约送葬人 S3
     목록 순서 한 줄뿐(골든은 클립 길이가 없어 伺夜 끝 동작이 안 나오고, 凯尔希 시나리오는 오른쪽을 봄). 시뮬 안 고침. [화면 미확인: 위 전부]
+- 연결 전수 나머지 여덟째 묶음(2026-10-24, 있는 시뮬 이벤트에 칸·필드 — 이벤트 수 그대로라 시뮬 골든 안 움직임):
+  - 焰影苇草 S2 `projectile_chr_reed2_fire`: 불덩이가 칠 때마다(`'strike'` — `src` 운반 동료, 새 필드 `by` 그녀·`cd` 쿨다운 초) `_hitEffectOnProjectilePos`
+    `reed2_skill_02_fireball_hit`을 불덩이 자리에, `_coolDownEffect` `reed2_skill_02_fireball_02`를 다시 칠 수 있을 때까지 그 불덩이에(동료마다 한 칸).
+    둘 다 `_setAsHitEffectParent`·`_setBodyTransformAsCoolDownEffectParent`로 투사체에 붙음 → 불덩이와 같은 궤도(`orbit` `phase` — 운반 동료 하나의 시계)를 탐.
+    `kitOperator`는 `'strike'`에서 `by`를 먼저 봄(다른 키트의 strike엔 `by`가 없음). [추정: 쿨다운 모습은 본 불덩이 옆에 같이; 쿨다운 길이는 블랙보드 `cooldown`]
+  - 荒芜拉普兰德 S3: 늑대마다 대상 — 0.15 s마다의 `'whitw2Drones'`에 새 필드 `t`([id, 0 쫓는 중 / 1 붙음] 또는 null). 쫓는 대상엔 늑대 투사체
+    MovementController의 `_traceTargetBuff` `whitw2_s3_a[trace_target_mark]`(`mark_01`), 붙은 대상엔 붙은 투사체의 `whitw2_s3_p[aura_effect]`(`mark_02`) — 적마다
+    한 칸(붙음이 쫓음보다 먼저), 0.4 s 수명을 다음 표본이 이어 붙여 늑대가 떠나면 곧 꺼짐. `fxgame.js`가 `wolfFx` 뒤에 계획도 돌림.
+  - 맞는 순간의 칸(묶음 S3 길, `dmg` 9번째): 菲莱 S2 폭발(`philae_s_2[ep]` — 그녀가 `philae_s_2[atk]`를 가지면 `_hit_02`, 아니면 `_hit_01`; 시뮬 키
+    `philae:blast:rage` / `philae:blast`, `'skill:philae_rage'`로 가름 — 전엔 이 순간을 아무것도 안 그렸음), 至简 T1 忽有所悟(이긴 굴림 — 키트 `dmgMul`이
+    대상을 적어 두고 그 대상의 첫 피해 `'damaged'`에서 `hitFx`, 난수 호출 수 그대로), 深靛 S2(`indigo_s_2[aura]`가 묶인 적에게 유지하는 `[damage]`
+    `indigo_skill_02_buff_03` — 피해 틱마다 간격 + 0.15 s 수명으로 적마다 한 칸 [추정: 묶인 뒤 첫 틱(≤ 0.5 s)부터 보임]).
+  - 海霓 S2 `haini_s_2[modify_talent]`(재능이 오를 때마다): max_talent_up 밑이면 `[not_full_effect]` `buff_02`를 한 번, 닿으면 그것을 끝내고 `[full_effect]`
+    `buff_01` + `[full_effect2]` `weapon_01` — 셋 다 스킬과 끝나는 파생 INFINITY 버프. 시뮬이 첫 상승·최대에 한 번씩 처치 타격에 `haini:up` / `haini:full`.
+    전엔 스킬 버프 이름 규칙이 `buff_01`·`buff_02`를 스킬 시작부터 같이 틀었다 → `KIT_OWNED`. `life: 'skill'` 재생도 `tag`를 받아 뒤 계획의 `stop`이 끔.
+  - 洛洛 S2: `rockr_s_2[overload]` ON_BUFF_FINISH가 그녀를 과부하 시간만큼 기절시키며 `rockr_stun_01`·`_02`를 만듦(스킬 설명 「技能结束后晕眩」 — 행의
+    IfTarget은 시뮬이 정함). `fxmap.js SKILL_EDGE`의 새 `if`: 계획의 스킬 깃발(`'overload'`의 `overDrones`)이 선 스킬의 끝에만, 그 키의 조건 뒤 행까지.
+    깃발은 `skill` off가 지우기 전에 읽음.
+  - S9로 넘김: 流明 T2 준비 빛 `[enable]`(배치 순간·대기 끝 순간 둘 다 이벤트가 없음; 게다가 공식 charpack Talents/2의 `_passiveBuffs`가 배치 때
+    `lumen_t_2[cooldown]`부터 붙여 첫 应急处理는 `duration` s 뒤 — 시뮬은 배치 직후부터 [추정 차이]), 引星棘刺 T1 心相 최대 연장(`projectile_extend` 4 =
+    `_max` 4라 범위 안 다른 오퍼가 있는 동안 늘 — 주기 이벤트가 없어 보이는 버프로), 空弦 S2 튕김 꼬리(시뮬 투사체는 렌더에 안 보이고 튕길 때마다 비행
+    이벤트가 필요).
+  - 확인: `test/sim/hit-fx-field.test.js` 새 시험(菲莱·至简·深靛·海霓·焰影苇草·荒芜拉普兰德), `kit-event-fx` 새 시험, `common-ability-fx` 洛洛, `fx-bindings`
+    `UNPLAYED` 6줄 지움·`KNOWN` 荒芜拉普兰德 쪽 두 줄(행의 OWNER가 늑대 투사체), 미연결 44 → 35. 이펙트 이벤트 골든 26 시나리오(위 프리팹 줄과 海霓
+    `skillBuff` 줄만), 시뮬 골든 그대로(`GOLDEN_FULL` 9). [화면 미확인: 위 전부]
 
 ### 연쇄 공격 — 체인 캐스터·체인 메딕의 튕김 선과 타격 (2026-10-16, 관리자 요청 「일반 공격 연쇄를 공식 클라 데이터와 대조」)
 

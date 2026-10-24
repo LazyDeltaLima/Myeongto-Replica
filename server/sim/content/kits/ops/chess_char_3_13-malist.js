@@ -10,7 +10,14 @@ export default {
     const t0 = talentBb(d, 0);
     const charges = Math.max(1, Math.floor(num(d.skill?.maxCharges, num(bb.ct, 1))));
     const hits = textNum(d.skill?.description, /连续攻击(\d+|[一二两三四五])次/, 2);
-    const insight = (battle) => (battle.rng.chance(num(t0.prob, 0)) ? num(t0.atk_scale, 1) : 1);
+    // a won roll marks its target: malist_t_1's CreateEffect malist_hit_extra on it, the moment of the attack's first damage
+    // there ('damaged' below — render/fx/kitofficial.js 'hit')
+    const insight = (battle, unit, target) => {
+      if (unit) unit.mem.malistWon = null;
+      if (!battle.rng.chance(num(t0.prob, 0))) return 1;
+      if (unit && target) unit.mem.malistWon = target;
+      return num(t0.atk_scale, 1);
+    };
     return {
       trait: { funnelMul: funnelMap, dmgMul: insight },
       skill: {
@@ -19,7 +26,14 @@ export default {
       },
       // S1 迅捷打击·γ型: ATK / ASPD + (the drones' ramp and 忽有所悟 stay on every attack through the trait)
       skills: altSkills(chess, d, bb, { 'skcom_quickattack[3]': statSkill }),
-      install: installFunnelPrune,
+      install(battle, unit) {
+        installFunnelPrune(battle, unit);
+        battle.on('damaged', (ctx) => {
+          if (ctx.source !== unit || !unit.mem.malistWon || ctx.target !== unit.mem.malistWon) return;
+          unit.mem.malistWon = null;
+          battle.hitFx(ctx.target, 'malist_t_1', unit);
+        }, { owner: unit });
+      },
     };
   },
 };

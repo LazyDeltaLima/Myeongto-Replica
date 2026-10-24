@@ -38,7 +38,9 @@ export const HIT_KEYS = Object.freeze(['bubble_t_1[atk_down]', 'skadi2_s_1[prote
   'reed2_t_2', 'mizuki_s_3[damage]', 'branch_t_1', 'excu2_s_3[mark]', 'horn:s2:overload',
   // 묶음 S6 (2026-10-24)
   'clemnt_t1[dice_damage]', 'ghost2_s_3[attack]', 'blkkgt_s_2[blocked]', 'blkkgt_s_2[not_blocked]', 'sbell2_t1[enemy_enter]',
-  'sbell2_t1[s2_dot]', 'vulpis_t_1[vfx]', 'ascln_s_2[enemy]', 'char_4146_nymph/Modes/S3/Body/Attack', 'snhunt_t[effect]']);
+  'sbell2_t1[s2_dot]', 'vulpis_t_1[vfx]', 'ascln_s_2[enemy]', 'char_4146_nymph/Modes/S3/Body/Attack', 'snhunt_t[effect]',
+  // 묶음 S8 (2026-10-24)
+  'philae:blast', 'philae:blast:rage', 'malist_t_1', 'indigo_s_2[damage]', 'haini:up', 'haini:full']);
 
 /** The sample inputs a kit plan is called with (every branch of the plans in KIT_OFFICIAL). */
 const KIT_O = [
@@ -46,7 +48,7 @@ const KIT_O = [
   { skill: 'swire2_3', targets: [4, 5] }, { token: 'token_10058_sbell2_icetgt' },
   { cells: [[0, 0, 1], [0, 1, 2], [0, 2, 5], [0, 3, 0]] }, { mode: 'Range' }, { mode: 'Melee' }, { signal: 'fireToToken' },
   { signal: 'bomb' }, { name: 'extradition' }, { id: 1, src: 1 }, { cap: 12, n: 12, sk: 1 }, { cap: 12, n: 12, sk: 2 },
-  { cap: 12, n: 12, sk: 3 }, { duration: 5 }, { t: 3 }, { ids: [6], off: [7] },
+  { cap: 12, n: 12, sk: 3 }, { duration: 5 }, { t: 3 }, { ids: [6], off: [7] }, { t: [[6, 0], [7, 1], null] }, { src: 6, cd: 1.5 },
   ...HIT_KEYS.map((k) => ({ k, by: 4, life: 5 })),   // 'hit': a 'dmg' / 'heal' event's effect moments
   { k: 'snhunt_t[effect]', by: 4, fly: 1 },   // … on a flying unit
 ];
@@ -170,7 +172,10 @@ export function handEntries() {
   for (const [k, by] of Object.entries(CAST_END)) for (const [m, v] of Object.entries(by)) put('CAST_END', `${k}.${m}`, v, v.map((n) => ({ n, life: 'once' })));
   for (const [k, by] of Object.entries(SKILL_EDGE)) {
     for (const [i, v] of Object.entries(by)) {
-      put('SKILL_EDGE', `${k}.${i}`, v, [...(keyPlays().keys[v.start]?.once || []), ...(keyPlays().keys[v.end]?.end || [])].map((n) => ({ n, life: 'once' })));
+      // an `if` entry: its key's rows behind conditions too (the flag stands for them — fxmap.js skillEdge)
+      const when = (t, role) => (v.if ? (keyPlays().keys[t]?.when || []).filter((r) => r.role === role).map((r) => r.n) : []);
+      put('SKILL_EDGE', `${k}.${i}`, v, [...(keyPlays().keys[v.start]?.once || []), ...when(v.start, 'once'), ...(keyPlays().keys[v.end]?.end || []), ...when(v.end, 'end')]
+        .map((n) => ({ n, life: 'once' })));
     }
   }
   for (const [k, v] of Object.entries(NOTE_FX)) {

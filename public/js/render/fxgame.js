@@ -2497,7 +2497,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (p.on !== 'point' && !v) continue;
         const at = v && p.orbit ? orbiter(v, p.orbit) : v || (Array.isArray(p.at) ? { x: Number(p.at[0]), y: Number(p.at[1]), z: 0 } : { x, y, z: 0 });
         const on = v ? ownerOf(v) : undefined;
-        const entry = p.life === 'skill' ? { owner: opId, buff: true, until: null, on }
+        // (2026-10-24, 묶음 S8) a skill-long play may carry a `tag` a later plan's `stop` ends (海霓 S2's stages)
+        const entry = p.life === 'skill' ? { owner: opId, buff: true, until: null, on, ...(p.tag ? { tag: p.tag } : {}) }
           : p.life === 'deployed' ? { owner: opId, buff: false, onCaster: true, until: null, on }
             : p.life === 'tag' ? { owner: opId, buff: false, onCaster: !!p.leave, until: null, tag: p.tag, on }
               : p.life === 'unit' ? { owner: null, buff: false, until: null, on }
@@ -3177,7 +3178,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // 2026-10-24 (묶음 S2): 塑心 S3's ATK effect is on the ally it lifts (fxstatus.js 'cello:tango:atk'), not hers (the `_buff` rule)
     'cello_skill_03_buff_03',
     // 2026-10-24 (묶음 S7): 圣约送葬人 S3's front buff is SKILL_HELD's, by the deploy facing (its `_back` copy otherwise)
-    'excu2_skill_03_buff_01']);
+    'excu2_skill_03_buff_01',
+    // 2026-10-24 (묶음 S8): 海霓 S2's stage buffs come with her talent's raises (kitofficial.js 'hit'), not at the skill's start
+    'haini_skill_02_buff_01', 'haini_skill_02_buff_02']);
   /** What a skill activation plays on the caster (fxmap.js activationEffects: { start, loops }). */
   const activation = (v) => {
     const b = bundleOf(v), em = emittedIn(b.bundle);
@@ -3193,10 +3196,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * 战鹰 back on his arm. Created once and kept by its prefab: a loop stays with the operator like its always-on effects
    * (tag 'common': a redeploy's alwaysOn ends it, 'die' too).
    */
-  function skillEnd(v) {
+  function skillEnd(v, flags = null) {
     const b = bundleOf(v), id = ownerOf(v);
     if (!b || id == null || v.alive === false || failed || q() === 'low') return;
-    for (const n of skillEdge(v?.info?.spine || v?.info?.defId, skillIdx(v), 'end', b.prefabs, plays)) {
+    for (const n of skillEdge(v?.info?.spine || v?.info?.defId, skillIdx(v), 'end', b.prefabs, plays, flags)) {
       spawn(b.bundle, n, v, { owner: id, buff: false, onCaster: true, until: null, tag: 'common', pinned: true }, { over: false, facing: efacing(v) });
     }
   }
@@ -4767,7 +4770,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // local patch (maintainer 2026-10-07: the buffs / range stayed ~1 s after the skill): its loops end with it, at once
           // (and the marks it left on its targets: 戴菲恩 S3's hit_1)
           else {
-            v._fxSkillOn = false; v._fxSkillFlags?.clear(); endWolves(v.id ?? v.info.id); stopBuffs(v.id ?? v.info.id, true); skillEnd(v);
+            const flags = v._fxSkillFlags?.size ? new Set(v._fxSkillFlags) : null;   // (묶음 S8: SKILL_EDGE `if`)
+            v._fxSkillOn = false; v._fxSkillFlags?.clear(); endWolves(v.id ?? v.info.id); stopBuffs(v.id ?? v.info.id, true); skillEnd(v, flags);
             for (const l of elines.values()) if (l.skill && l.owner === (v.id ?? v.info.id)) l.until = Math.min(l.until, clockS);   // a plan's `life: 'skill'` lines
           }
           droneIdle(v);   // 2026-10-16: the drones of the mode now
@@ -4894,7 +4898,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'shieldBreak' && e[4] && brokeOwn.delete(e[4].id)) { ownFx.add(e); return; } // 2026-10-23: its official break drew it (parryFx)
           if (e[1] === 'explode' && e[4]?.kind === 'expose' && exposeFx(e, views)) { ownFx.add(e); return; }
           if (e[1] === 'burst' && e[4]?.element) { if (burstFx(e, views)) ownFx.add(e); return; }
-          if (e[1] === 'whitw2Drones' && e[4]) { wolfFx(e); return; }
+          // (2026-10-24, 묶음 S8) and the marks on their targets (render/fx/kitofficial.js)
+          if (e[1] === 'whitw2Drones' && e[4]) { wolfFx(e); officialKitFx(e, views); return; }
           if (e[1] === 'buffProgress' && e[4]) { buffProgress(e[4]); ownFx.add(e); return; }
           // 2026-10-16: 伺夜's wolf pack (its count, its gift)
           if (['summon', 'revive', 'wolfShadow', 'wolfShadowLost', 'wolfCount', 'wolfTacEnd', 'buff'].includes(e[1]) && packEvent(e, views)) ownFx.add(e);

@@ -48,6 +48,9 @@ function whitw2(bb, chess, def) {
   };
   // speed v → v + acc·dt (capped); the distance covered at the mean of the two (exact under constant acceleration)
   const accelerate = (d, lim, dt) => { const v1 = Math.min(lim.max, d.v + lim.acc * dt), s = ((d.v + v1) / 2) * dt; d.v = v1; return s; };
+  // (2026-10-24) a drone's target for its marks (render/fx/kitofficial.js 'whitw2Drones'): [id, 0] while it chases it (the
+  // ability's `_traceTargetBuff`), [id, 1] once it holds it (the projectile's attached buff), else null
+  const markOf = (d) => (d.t && (d.phase === 'chase' || d.phase === 'lock') ? [d.t.id, d.phase === 'lock' ? 1 : 0] : null);
   // ② the selectable enemy nearest to the drone, ties broken by the one nearest to her. [ASSUMED] distances are measured
   // to every enemy's position (a huge enemy's centre, its 判定中心) — the owner's decision of 2026-10-04: the centre, so
   // leader rounds stay close to 0.1.1; the sim's general convention for operator-side distance picks, the hit rectangle
@@ -250,7 +253,7 @@ function whitw2(bb, chess, def) {
           flyDrone(battle, unit, d, dt, ok);
         }
         if (gone()) return;
-        if ((unit.mem.dronesFxT = (unit.mem.dronesFxT || 0) + dt) >= 0.15) { unit.mem.dronesFxT = 0; battle.fx('whitw2Drones', { x: unit.x, y: unit.y, id: unit.id, d: D.flatMap((q) => [Math.round(q.x * 100) / 100, Math.round(q.y * 100) / 100]) }); } // local patch: the drones' positions for the official drone effect (fxgame.js)
+        if ((unit.mem.dronesFxT = (unit.mem.dronesFxT || 0) + dt) >= 0.15) { unit.mem.dronesFxT = 0; battle.fx('whitw2Drones', { x: unit.x, y: unit.y, id: unit.id, d: D.flatMap((q) => [Math.round(q.x * 100) / 100, Math.round(q.y * 100) / 100]), t: D.map(markOf) }); } // local patch: the drones' positions for the official drone effect (fxgame.js); `t` each one's target (markOf)
         const near = new Set();
         for (const d of D) for (const e of battle.foesInRadius(d.x, d.y, R)) if (ok(e)) near.add(e);
         if (slow) for (const e of near) battle.addBuff(e, { key: 'whitw2:slow', duration: 0.2, refresh: 'replace', mods: { moveMul: Math.max(0, 1 + slow) }, source: unit });

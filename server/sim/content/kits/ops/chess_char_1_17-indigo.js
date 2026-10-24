@@ -51,7 +51,11 @@ export default {
           while (unit.mem.indigoAcc >= dIv - 1e-9) {
             unit.mem.indigoAcc -= dIv;
             for (const e of battle.enemiesInKeys(unit.rangeKeys, unit, { canHitFly: true })) {
-              if (bound(e)) battle.dealDamage(unit, e, { amount: unit.s.atk * dScale, type: 'arts', isSkill: true, canDodge: false, tags: ['dot'] });
+              if (!bound(e)) continue;
+              battle.dealDamage(unit, e, { amount: unit.s.atk * dScale, type: 'arts', isSkill: true, canDodge: false, tags: ['dot'] });
+              // indigo_s_2[aura] holds indigo_s_2[damage] (indigo_skill_02_buff_03) on the bound one: each tick renews it for
+              // a little over the interval (render/fx/kitofficial.js 'hit')
+              battle.hitFx(e, 'indigo_s_2[damage]', unit, dIv + 0.15);
             }
           }
         },

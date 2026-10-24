@@ -94,10 +94,12 @@ export default {
           if (!isS2 || !sk || !sk.active || !d || isHpLoss(d) || (d.tags || []).some((t) => t === 'counter' || t === 'reflect')) return;
           if (battle.time < (unit.mem.philaeCd ?? -Infinity)) return;
           unit.mem.philaeCd = battle.time + cd;
-          // "周围的地面敌人" = range x-4, the 3×3 tiles around her (PRTS 备注)
+          // "周围的地面敌人" = range x-4, the 3×3 tiles around her (PRTS 备注). Each enemy's philae_s_2[ep] picks its effect by her
+          // philae_s_2[atk] (the rage, 'skill:philae_rage') as it triggers: the hit's moment (render/fx/kitofficial.js 'hit')
+          const moment = unit.findBuff('skill:philae_rage') ? 'philae:blast:rage' : 'philae:blast';
           for (const e of battle.unitsInGrid(unit, NINE, { side: 'enemy' })) {
             if (e.isFlying) continue;
-            battle.dealDamage(unit, e, { amount: unit.s.atk * scale, type: 'arts', canDodge: false, isSkill: true, tags: ['skill', 'counter'] });
+            battle.dealDamage(unit, e, { amount: unit.s.atk * scale, type: 'arts', canDodge: false, isSkill: true, tags: ['skill', 'counter'], moment });
             if (ep > 0 && e.alive) battle.dealDamage(unit, e, { type: 'element', element: 'apoptosis', amount: unit.s.atk * ep, tags: ['skill'] });
           }
           fx(battle, 'aoe', unit, { radius: 1.5, tiles: 'box', dmgType: 'arts', skill: 'philae_2' }); // box: the 3×3 tiles

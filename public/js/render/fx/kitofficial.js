@@ -203,6 +203,34 @@ export const KIT_OFFICIAL = {
     // `_conditionalActions` create horn_skill_02_hit_02_02 on each enemy it hits
     horn: cite(['char_4039_horn/Modes/S2/Body/Attack/RangedAttack', 'char_4039_horn/Modes/S2/Body/Attack/BlockedRangedAttack',
       'char_4039_horn/Modes/S2/Body/Attack/SelfRangedAttack'], (o) => (o.k === 'horn:s2:overload' ? { play: [once('horn_skill_02_hit_02_02', 'id')] } : null)),
+    // (2026-10-24, 묶음 S8) 菲莱 S2: each enemy of the blast holds philae_s_2[ep], whose trigger creates _hit_02 on it while she holds
+    // philae_s_2[atk] (her rage — the sim's 'skill:philae_rage'), else _hit_01: the sim's two keys
+    philae: cite('philae_s_2[ep]', (o) => (o.k === 'philae:blast:rage' ? { play: [once('philae_skill_02_hit_02', 'id')] }
+      : o.k === 'philae:blast' ? { play: [once('philae_skill_02_hit_01', 'id')] } : null)),
+    // 至简 T1 忽有所悟: a won roll (Dice) — malist_hit_extra on the target of that damage
+    malist: cite('malist_t_1', (o) => (o.k === 'malist_t_1' ? { play: [once('malist_hit_extra', 'id')] } : null)),
+    // 深靛 S2: indigo_s_2[aura] holds indigo_s_2[damage] (indigo_skill_02_buff_03) on each bound enemy of her range — renewed by
+    // each damage tick for `life` s, one slot per enemy
+    indigo: cite('indigo_s_2[damage]', (o) => (o.k === 'indigo_s_2[damage]'
+      ? { play: [{ n: 'indigo_skill_02_buff_03', on: 'id', life: Number(o.life) > 0 ? Number(o.life) : 0.65, slot: `dot:${o.id}` }] } : null)),
+    // 海霓 S2: haini_s_2[modify_talent] on a raise of her talent (the killing blow carries it) — below max_talent_up [not_full_effect]
+    // (buff_02) once; at it, [not_full_effect] finished and [full_effect] (buff_01) + [full_effect2] (weapon_01) — derived
+    // INFINITY buffs ended with the skill (fxgame.js KIT_OWNED keeps the `_buff` name rule from looping both from its start)
+    haini: cite(['haini_s_2[not_full_effect]', 'haini_s_2[full_effect]', 'haini_s_2[full_effect2]'], (o) => (o.k === 'haini:up'
+      ? { stop: ['hainiStage'], play: [{ n: 'haini_skill_02_buff_02', on: 'op', life: 'skill', tag: 'hainiStage' }] }
+      : o.k === 'haini:full' ? { stop: ['hainiStage'], play: ['haini_skill_02_buff_01', 'haini_skill_02_weapon_01'].map((n) => ({ n, on: 'op', life: 'skill', tag: 'hainiStage' })) }
+        : null)),
+  },
+  // 荒芜拉普兰德 S3 (2026-10-24, 묶음 S8): each wolf's target ('whitw2Drones' `t`: [id, 0 chasing / 1 held] per drone, every
+  // 0.15 s) — the funnel's `_traceTargetBuff` whitw2_s3_a[trace_target_mark] (mark_01) on the one it chases, its attached
+  // projectile's whitw2_s3_p[aura_effect] (mark_02) on the one it holds; one slot per enemy, kept by the next sample (a held
+  // one over a chased one), gone a moment after the wolves leave it
+  whitw2Drones: {
+    whitw2: cite(['whitw2_s3_a[trace_target_mark]', 'whitw2_s3_p[aura_effect]'], (o) => {
+      const by = new Map();
+      for (const m of Array.isArray(o.t) ? o.t : []) if (Array.isArray(m) && m[0] != null) by.set(m[0], Math.max(by.get(m[0]) ?? 0, Number(m[1]) ? 1 : 0));
+      return { play: [...by].map(([id, held]) => ({ n: held ? 'whitw2_skill_03_mark_02' : 'whitw2_skill_03_mark_01', unit: id, life: 0.4, slot: `wolfMark:${id}` })) };
+    }),
   },
   lemuenAim: { lemuen: cite('lemuen_s2_aim_attack[effect]', (o) => (Number(o.on) ? null : { stop: ['lemuenAim'], play: [] })) },
   // 伊内丝 T2 影哨: projectile_chr_ines_guard `_effectsWhenReached` label_start_01 + label_01 + range_01 where it lands;
@@ -400,9 +428,17 @@ export const KIT_OFFICIAL = {
     mlyss: cite(['mlyss_wtrman_switch_melee_trigger', 'mlyss_wtrman_switch_range_trigger'], (o) => ({ play: [{ tpl: o.mode === 'Range' ? 'mlyss_wtrman_switch_range_trigger' : 'mlyss_wtrman_switch_melee_trigger', bundle: 'mlyss_token', on: 'id' }] })),
   },
   // 焰影苇草 S2: each carrier's fireball (projectile_chr_reed2_fire: `_mainEffect` reed2_skill_02_fireball_01 circling it at
-  // `_projectileAroundRadius` 1, `_aroundSpeed` 150 °/s) until her skill ends [추정: the sense of the turn; its cooldown look
-  // _02 and the effects of each strike are not drawn]
-  ember: { reed2: cite('projectile_chr_reed2_fire', () => ({ play: [{ n: 'reed2_skill_02_fireball_01', on: 'id', life: 'skill', orbit: { r: 1, spd: 150 } }] })) },
+  // `_projectileAroundRadius` 1, `_aroundSpeed` 150 °/s) until her skill ends [추정: the sense of the turn]
+  ember: { reed2: cite('projectile_chr_reed2_fire', () => ({ play: [{ n: 'reed2_skill_02_fireball_01', on: 'id', life: 'skill', orbit: REED2_ORBIT }] })) },
+  // … (2026-10-24, 묶음 S8) and each strike of one ('strike': `src` the carrier, `by` her, `cd` its cooldown): its
+  // `_hitEffectOnProjectilePos` fireball_hit where the fireball is, and its `_coolDownEffect` fireball_02 on it until it may
+  // strike again [추정: beside the main effect, which the client keeps]; the hit on the enemy is the skill's
+  strike: {
+    reed2: cite('projectile_chr_reed2_fire', (o) => ({ play: [
+      { n: 'reed2_skill_02_fireball_hit', on: 'src', life: 'once', orbit: REED2_ORBIT },
+      { n: 'reed2_skill_02_fireball_02', on: 'src', life: Number(o.cd) > 0 ? Number(o.cd) : 1.5, orbit: REED2_ORBIT, slot: `fireCd:${o.src}` },
+    ] })),
+  },
   // 隐德来希 T2 重盈: the talent's toggle (charpack Talents/2 `_unmanagedBuffsWhenToggleOn` etlchi_t_2[heal], lifeTime 3 s)
   reborn: { etlchi: cite('etlchi_t_2[heal]', () => ({ play: [{ tpl: 'etlchi_t_2[heal]', on: 'op', life: 3 }] })) },
   // 流明 S1: the shot's heal rain (lumen_s_1[effect] on the target, LIMITED: projectile_life_time `t`; projectile_chr_lumen_s1's
@@ -455,6 +491,9 @@ export const KIT_OFFICIAL = {
   },
 };
 
+/** 焰影苇草 S2's fireball orbit: one phase on the carrier (fxgame.js orbiter), so its strike effects ride the fireball drawn. */
+const REED2_ORBIT = Object.freeze({ r: 1, spd: 150, phase: 0 });
+
 /** 圣聆初雪's tile effect by snow layers (SnowAccumulation `_effectSettings`: thresholds 1 → _01, 2 / 3 / 4 → _02, 5 → _03). */
 const SNOW_GROUND = [null, 'sbell2_ground_01', 'sbell2_ground_02', 'sbell2_ground_02', 'sbell2_ground_02', 'sbell2_ground_03'];
 
@@ -475,8 +514,9 @@ function chargeStage(o, one, two, more) {
   return { play: [key ? { tpl: key, on: 'op', slot: 'charge', when: ALL } : { slot: 'charge', off: true }, ...more] };
 }
 
-// events whose `src` is no operator of the moment: 缪尔赛思's 'copy' (`src` the operator her 流形 copies, `by` her)
-const OPERATOR_FIELD = { copy: 'by' };
+// events whose `src` is no operator of the moment: 缪尔赛思's 'copy' (`src` the operator her 流形 copies, `by` her) —
+// and 焰影苇草 S2's 'strike' (`src` the ally that carries her fireball, `by` her; the other kits' strikes have no `by`)
+const OPERATOR_FIELD = { copy: 'by', strike: 'by' };
 /** The operator id of kit event `name` (fxgame.js standInOff's too): `src`, else `by`, else `id`. */
 export const kitOperator = (o, name) => (o ? (OPERATOR_FIELD[name] ? o[OPERATOR_FIELD[name]] : null) ?? o.src ?? o.by ?? o.id : null);
 

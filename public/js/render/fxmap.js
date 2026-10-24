@@ -407,11 +407,15 @@ export function skillHeld(charId, skillIndex, prefabs, plays, back = false) {
  * the skill's buff) that no skill binding names. charId → skill index 0–2 → { start?, end? } client keys. Each lives by its
  * prefab (fxgame.js skillEdge: a looping one stays with the operator).
  */
-const edgeKeys = (start, end) => Object.freeze(cite([start, end].filter(Boolean), { start, end }));
+const edgeKeys = (start, end, opt = {}) => Object.freeze(cite([start, end].filter(Boolean), { start, end, ...opt }));
 export const SKILL_EDGE = Object.freeze({
   // 凛御银灰 S3: skchr_svash2_3 gives svash2_s_3[bird_eff], whose start sends the 战鹰 off his arm (eagle_flyToHand_01 + the
   // eagle_sit_showAndHide_01 flash); svash2_s_3's finish sets it back on his arm (eagle_sit_01, a loop held by him)
   char_1045_svash2: Object.freeze({ 2: edgeKeys('svash2_s_3[bird_eff]', 'svash2_s_3') }),
+  // 洛洛 S2 (2026-10-24, 묶음 S8): skchr_rockr_2's rockr_s_2[overload] on her (from the skill's half: the sim's 'overload') —
+  // its finish stuns her as long as it lasted and creates rockr_stun_01 / _02 on her. `if`: only a skill that overloaded (the
+  // plan's skill flag, kitofficial.js 'overload'); its rows' IfTarget the sim decided (`all`)
+  char_4040_rockr: Object.freeze({ 1: edgeKeys(null, 'rockr_s_2[overload]', { if: 'overDrones' }) }),
 });
 
 /**
@@ -428,10 +432,16 @@ export function castEnd(charId, bind, mode, prefabs) {
   return names.filter((n) => !prefabs || prefabs.includes(n));
 }
 
-/** The SKILL_EDGE prefabs of `charId`'s skill `skillIndex` at its `edge` ('start' | 'end') that are extracted, from `plays`. */
-export function skillEdge(charId, skillIndex, edge, prefabs, plays) {
-  const k = charId ? SKILL_EDGE[charId]?.[skillIndex]?.[edge] : null;
-  return ((k && plays?.keys?.[k]?.[edge === 'start' ? 'once' : 'end']) || []).filter((n) => !prefabs || prefabs.includes(n));
+/**
+ * The SKILL_EDGE prefabs of `charId`'s skill `skillIndex` at its `edge` ('start' | 'end') that are extracted, from `plays`. An
+ * entry with `if` (a kit plan's skill flag) plays only when `flags` holds it — then its key's rows behind conditions too.
+ */
+export function skillEdge(charId, skillIndex, edge, prefabs, plays, flags = null) {
+  const e = charId ? SKILL_EDGE[charId]?.[skillIndex] : null, k = e?.[edge];
+  if (!k || (e.if && !flags?.has(e.if))) return [];
+  const role = edge === 'start' ? 'once' : 'end', key = plays?.keys?.[k];
+  const names = [...(key?.[role] || []), ...(e.if ? whenPlays(key, { all: true }).filter((r) => r.role === role).map((r) => r.n) : [])];
+  return [...new Set(names)].filter((n) => !prefabs || prefabs.includes(n));
 }
 
 /**

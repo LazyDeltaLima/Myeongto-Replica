@@ -76,6 +76,8 @@ const KNOWN = {
   'KIT_OFFICIAL candle.etlchi|etlchi_skill_03_line_01': ['life', 'entlec_a[line_effect_core] CreateLineEffect at ON_BUFF_START creates it once; the prefab is `_holdByOwner` (extract face.hold), so it stays while both stand, as drawn'],
   'KIT_OFFICIAL lock.lemuen|lemuen_skill_02_trail_01': ['life', 'lemuen_s2_aim_attack[effect] CreateLineEffect at ON_BUFF_START creates it once; the prefab is `_holdByOwner` (extract face.hold), so it stays while the aim buff does — until the aim ends (\'lemuenAim\' on 0)'],
   'KIT_OFFICIAL hit.blkkgt|blkkgt_skill_02_hit_2': ['life', 'blkkgt_s_2[blocked] / [not_blocked] are INFINITY in name only: their template blkkgt_s_2[dot] finishes them after its trig_cnt slashes (CheckTriggerable), and the sim deals those at once — played once, for the prefab\'s own duration [추정]'],
+  'KIT_OFFICIAL whitw2Drones.whitw2|whitw2_skill_03_mark_01': ['target', 'the row\'s OWNER is the wolf projectile whose MovementController holds it: `_traceTargetBuff` goes onto the enemy it chases (2026-10-24, 묶음 S8)'],
+  'KIT_OFFICIAL whitw2Drones.whitw2|whitw2_skill_03_mark_02': ['target', 'the attached wolf projectile\'s buff whitw2_s3_p[aura_effect] (its OWNER) sits on the enemy it holds'],
   'KIT_OFFICIAL airstrike.angel2|angel2_skill_3_begin_start_001': ['life', 'S3FireToToken `_castEffects` hold for the cast; an empty prefab, played once'],
   'KIT_OFFICIAL talent.bpipe|bpipe_attack_02_hit': ['missing', 'bpipe_t_1 SplashDamage `_createEffect` reads the talent blackboard `effect`: no effect node in the tables'],
   'KEY_FX svash2:barrier|*': ['untabled', 'no svash2_s_1[build] in either template dataset or the client rows: the 屏障 card\'s buff key is unconfirmed'],
@@ -122,21 +124,13 @@ const UNPLAYED = {
   'skadi2_t_2[atk][2]|skadi2_buff_01_eye': 'condOther',
   'tinman_s_2[buff][ally]|tinman_skill_02_heal_01': 'condOther',   // 锡人 S2 on the allies of its zone: sim 'tinman:zone:*' regen
   // … the sim keeps the state but no event marks its change
-  'haini_s_2[full_effect2]|haini_skill_02_weapon_01': 'condOther',   // 海霓 S2 talent raised to max_talent_up (unit.mem.hainiMul)
   'thorn2_t_1[effect]|thorn2_weapon_buff_05': 'condOther',   // 引星棘刺 T1 心相 at its full extension
-  'rockr_s_2[overload]|rockr_stun_01': 'condOther',   // 洛洛 S2 ending after its overload (her stun): the skill's end + 'overload'
-  'rockr_s_2[overload]|rockr_stun_02': 'condOther',
-  'malist_t_1|malist_hit_extra': 'condOther',   // 至简 T1 忽有所悟's roll: inside the attack's dmgMul, no hit of its own
-  // 菲莱 S2: the blast's hit_02 while she holds philae_s_2[atk] (sim 'skill:philae_rage', visible) — the blast's _hit_01 is the
-  // skill's name rule on every S2 hit, so the pick needs the blast moment first
-  'philae_s_2[ep]|philae_skill_02_hit_02': 'cond',
   // … a condition no sim event tells
   'vulpis_e_003_t_2[camouflage]|vulpis_buff_02': 'condOther',   // 忍冬's 迷彩 off while she blocks (!CheckBlocked; the sim's
   'vulpis_s_3[cam][interval]|vulpis_buff_02': 'condOther',      // 'camou' stays) — the common 迷彩 effect stands in
   'nearl2_s_3[combo_effect]|nearl2_buff_01_start': 'condOther',   // 耀骑士临光 S3: CheckContainsCardBuff (a card's buff nearl2_t_1)
   'ines_t_2[effect2]|ines_range_02': 'cond',   // 伊内丝 T2 by her mode as the talent buff starts (S2's mode 1) [추정: its S2 talent re-creates it]
   // not reached or left by earlier bundles (S3 / S4 documents)
-  'indigo_s_2[damage]|indigo_skill_02_buff_03': 'unconditional',
   'lumen_t_2[enable]|lumen_buff_01_start': 'unconditional',
   // 佩佩's third module (CN client): its pepe_e_003_t[trigger] works on 生息演算 cards and treasure tiles
   // (BuffAoeTargetForPepeEquipSandbox, TresureTileSelector) — never reached in this mode

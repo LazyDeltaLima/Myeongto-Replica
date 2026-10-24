@@ -21,6 +21,7 @@ export default {
         mods: { atkPct: num(bb.atk) },
         onStart({ battle, unit }) {
           unit.mem.hainiMul = 1;
+          unit.mem.hainiStage = 0;
           if (!unit.mem.hainiSlow) {
             unit.mem.hainiSlow = aura(battle, unit, { key: 'skill:haini_slow', side: 'enemy', interval: 0, tiles: () => unit.rangeKeySet, filter: isNormalEnemy, mods: { moveMul: Math.max(0, 1 + slow) } });
           }
@@ -47,7 +48,15 @@ export default {
           const v = ctx.victim;
           if (!unit.skill?.active || !alive(unit) || v.side !== 'enemy' || !isNormalEnemy(v)) return;
           if (!unit.rangeKeySet || !onTiles(v, unit.rangeKeySet)) return;
-          unit.mem.hainiMul = Math.min(upMax, (unit.mem.hainiMul ?? 1) + up);
+          const was = unit.mem.hainiMul ?? 1;
+          unit.mem.hainiMul = Math.min(upMax, was + up);
+          // haini_s_2[modify_talent] on each raise: at max_talent_up it finishes [not_full_effect] and creates [full_effect] +
+          // [full_effect2], below it [not_full_effect] once — the moments on the killing blow (render/fx/kitofficial.js 'hit')
+          if (!(unit.mem.hainiMul > was)) return;
+          const full = unit.mem.hainiMul >= upMax - 1e-9;
+          if (full ? unit.mem.hainiStage === 2 : unit.mem.hainiStage) return;
+          unit.mem.hainiStage = full ? 2 : 1;
+          battle.hitFx(v, full ? 'haini:full' : 'haini:up', unit);
         }, { owner: unit });
       } }],
     };

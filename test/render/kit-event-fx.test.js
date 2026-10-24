@@ -132,7 +132,8 @@ test('the rules name prefabs the client binds for that operator', () => {
   for (const [n, by] of Object.entries(KIT_OFFICIAL)) {
     for (const [b, rule] of Object.entries(by)) {
       assert.equal(typeof rule, 'function');
-      const o = { left: 0, t: 2, id: 1, of: 2, n: 2, cap: 3, name: 'extradition', cells: [[1, 1, 1], [2, 1, 3], [3, 1, 5], [4, 1, 0]], skill: 'swire2_3', targets: [2], token: 'token_10058_sbell2_icetgt', ids: [2], off: [3], picks: [2] };
+      const o = { left: 0, t: 2, id: 1, of: 2, n: 2, cap: 3, name: 'extradition', cells: [[1, 1, 1], [2, 1, 3], [3, 1, 5], [4, 1, 0]], skill: 'swire2_3', targets: [2], token: 'token_10058_sbell2_icetgt', ids: [2], off: [3], picks: [2], src: 2, cd: 1.5 };
+      if (n === 'whitw2Drones') o.t = [[2, 0], [3, 1]];
       // ('hit' rules answer their own moment keys)
       const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((c) => ({ ...c, plays: PLAYS }))
         .flatMap((ctx) => (n === 'hit' ? HIT_KEYS : [undefined]).map((k) => kitOfficialPlan(n, { ...o, k }, b, ctx))).filter(Boolean);
@@ -284,7 +285,7 @@ test('kitOfficialPlan: the moments and lifetimes of the templates', () => {
   assert.equal(kitOfficialPlan('copy', { id: 4, mode: 'Melee' }, 'mlyss', { plays: FIXED }).play[0].n, 'token_10030_mlyss_wtrman_c1_to_c2');
   assert.equal(kitOperator({ id: 4, src: 7, by: 1 }, 'copy'), 1);
   // 焰影苇草's fireball circles its carrier for her skill; 流明's rain on the target for its life
-  assert.deepEqual(kitOfficialPlan('ember', { id: 3, src: 1 }, 'reed2').play, [{ n: 'reed2_skill_02_fireball_01', on: 'id', life: 'skill', orbit: { r: 1, spd: 150 } }]);
+  assert.deepEqual(kitOfficialPlan('ember', { id: 3, src: 1 }, 'reed2').play, [{ n: 'reed2_skill_02_fireball_01', on: 'id', life: 'skill', orbit: { r: 1, spd: 150, phase: 0 } }]);
   // 圣聆初雪's snow: one effect per changed tile by its layers (1 → _01, 2–4 → _02, 5 → _03), ended at 0; its stand-in
   // zone only for the talent's own layers
   assert.deepEqual(kitOfficialPlan('snow', { id: 1, cells: [[3, 2, 1], [4, 2, 4], [5, 2, 5], [6, 2, 0]] }, 'sbell2').play, [
@@ -397,7 +398,11 @@ const files = { '/assets/local/fx/index.json': { bundles: {
   // 묶음 S6
   snhunt: ['snhunt_talent_01_hit', 'snhunt_talent_01_hit_02'], vulpis: ['vulpis_buff_01'], vendla: ['vendla_attack_hit_02'],
   ascln: ['ascln_skill_02_death_01'],
+  // 묶음 S8
+  philae: ['philae_skill_02_hit_01', 'philae_skill_02_hit_02'], malist: ['malist_hit_extra'], indigo: ['indigo_skill_02_buff_03'],
+  haini: ['haini_skill_02_buff_01', 'haini_skill_02_buff_02', 'haini_skill_02_weapon_01'], whitw2: ['whitw2_skill_03_mark_01', 'whitw2_skill_03_mark_02'],
 } } };
+files['/assets/local/fx/index.json'].bundles.reed2.push('reed2_skill_02_fireball_01', 'reed2_skill_02_fireball_02', 'reed2_skill_02_fireball_hit');
 const settle = () => new Promise((r) => setTimeout(r, 5));
 
 test('fxgame.js: a planned event is taken from its stand-in only when one of its prefabs is extracted', async () => {
@@ -548,6 +553,39 @@ test('fxgame.js (2026-10-24, 묶음 S6): moments behind a condition the sim deci
     layer.onEvent(['heal', 6, 40, 3, [['trait', 3]]], views);
     layer.onEvent(['dmg', 9, 500, 'phys', 0, 6, 0, null, [['ascln_s_2[enemy]', 4]]], views);
     assert.deepEqual(got(), ['ascln_skill_02_death_01@9', 'vendla_attack_hit_02@6']);
+  } finally { globalThis.fetch = fetch0; }
+});
+
+test('fxgame.js (2026-10-24, 묶음 S8): 菲莱 S2 by her rage, 至简 T1, 深靛 S2 per enemy, 海霓 S2 stages, 焰影苇草 S2 strikes, 荒芜拉普兰德 S3 marks', async () => {
+  const fetch0 = globalThis.fetch;
+  globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
+  try {
+    const plays = [];
+    const layer = createFxLayer({ host: null, above: null, quality: () => 'high', trace: (p) => plays.push(p) });
+    await settle();
+    const unit = (id, defId, side = 'ally') => ({ id, x: id, y: 0, alive: true, info: { id, side, defId, skillIndex: 1 } });
+    const views = new Map([[1, unit(1, 'char_4148_philae')], [2, unit(2, 'char_4054_malist')], [3, unit(3, 'char_469_indigo')],
+      [4, unit(4, 'char_4079_haini')], [5, unit(5, 'char_1020_reed2')], [6, unit(6, 'char_285_medic2')], [7, unit(7, 'char_1038_whitw2')],
+      [8, unit(8, 'enemy_1007_slime', 'enemy')], [9, unit(9, 'enemy_1007_slime', 'enemy')]]);
+    const got = () => plays.splice(0).filter((p) => p.kind === 'spawn').map((p) => `${p.names[0]}@${p.on}`).sort();
+    layer.onEvent(['dmg', 8, 200, 'arts', 0, 1, 0, null, [['philae:blast', 1]]], views);
+    layer.onEvent(['dmg', 9, 200, 'arts', 0, 1, 0, null, [['philae:blast:rage', 1]]], views);
+    layer.onEvent(['dmg', 9, 200, 'phys', 0, 2, 0, null, [['malist_t_1', 2]]], views);
+    assert.deepEqual(got(), ['malist_hit_extra@9', 'philae_skill_02_hit_01@8', 'philae_skill_02_hit_02@9']);
+    // 深靛 S2: renewed by each tick — one slot per enemy
+    for (const t of [8, 8, 9]) layer.onEvent(['dmg', t, 30, 'arts', 0, 3, 1, null, [['indigo_s_2[damage]', 3, 0.65]]], views);
+    assert.deepEqual(got(), ['indigo_skill_02_buff_03@8', 'indigo_skill_02_buff_03@9']);
+    // 海霓 S2: the first raise, then the max
+    layer.onEvent(['dmg', 8, 999, 'phys', 0, 4, 0, null, [['haini:up', 4]]], views);
+    assert.deepEqual(got(), ['haini_skill_02_buff_02@4']);
+    layer.onEvent(['dmg', 9, 999, 'phys', 0, 4, 0, null, [['haini:full', 4]]], views);
+    assert.deepEqual(got(), ['haini_skill_02_buff_01@4', 'haini_skill_02_weapon_01@4']);
+    // 焰影苇草 S2: a strike from the fireball around her ally 6 — its hit flash and cooldown look ride it
+    layer.onEvent(['fx', 'strike', 9, 0, { x: 9, y: 0, id: 9, src: 6, by: 5, cd: 1.5 }], views);
+    assert.deepEqual(got(), ['reed2_skill_02_fireball_02@null', 'reed2_skill_02_fireball_hit@null'], 'on its orbit (a moving point, no unit)');
+    // 荒芜拉普兰德 S3: a held target's mark over a chased one's; each enemy once
+    layer.onEvent(['fx', 'whitw2Drones', 7, 0, { x: 7, y: 0, id: 7, d: [8, 0, 9, 0, 9, 0], t: [[8, 0], [9, 0], [9, 1]] }], views);
+    assert.deepEqual(got(), ['whitw2_skill_03_mark_01@8', 'whitw2_skill_03_mark_02@9']);
   } finally { globalThis.fetch = fetch0; }
 });
 
