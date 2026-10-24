@@ -2066,7 +2066,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (drop && !trails.includes(drop)) return null;
     if (entry.owner != null && gone.has(entry.owner) && (entry.buff || entry.onCaster)) return null;
     const unit = at && at.info ? at : null;
-    const split = !over && splitOn();   // an effect on the ground / a unit splits by sorting at 'high'
+    // an effect on the ground splits by sorting at 'high'; (2026-10-24) one on a unit only when a renderer has sortingOrder < 0,
+    // and then as a status effect does (playStatus 'backOnly': that renderer behind the model, the rest in front) — 灵知 S2's
+    // charge 1 gnosis_skill_02_buff_01 put its dark backdrop `andi` (order −1) over him, a blue veil (maintainer report)
+    const split = !over ? splitOn() : unit && splitOn() && mod.fxp.hasBackOrder(def) ? 'backOnly' : false;
     // 2026-10-10: turned along its attacker → target line; 2026-10-11 (maintainer decision 「공식대로」): played with that
     // direction (else `dir`, else ±x by `facing`) and turned as its prefab's `_rotateType` says (play())
     const official = !!def.face;
@@ -2083,7 +2086,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const e = { view: drop ? null : at, ...entry, speed: sp, backSw: backSwitch(def, unit, bundle), ...(drop ? { flight: drop } : null) };
     if (e.until === undefined) e.until = clockS + (def.duration || 3) + 0.5 + inst.lead / sp;
     if (drop) { drop.inst = inst; placeTrail(drop); }
-    const l = addLive(inst, e, over ? layers.over : split ? layers.split : layers.under);
+    const l = addLive(inst, e, split ? layers.split : over ? layers.over : layers.under);
     if (l && def.fly) startFly(l);   // 2026-10-24 (묶음 S5): a FlyToPredefinedLocation prefab played on its own flies too
     trimLive();
     return l;

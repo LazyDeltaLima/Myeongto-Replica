@@ -566,6 +566,10 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   고리·소용돌이 뒤쪽(`ring_back` 시빌라이트 에테르나, `qixuan_back` 수르트, `ice_back` 실버애쉬 더 레인프로스트), 글로우·바탕판(치우바이 `darkglow`, 뮤엘시스
   `bg_01`, 浮空·迷彩·隐匿·抵抗·감속 꼬리 등) — 이름대로 뒤쪽 것들. 'medium'은 나누기가 없어 예전대로 전부 위. 디버그 아레나 전후 비교(Windows Chrome)로
   이네스·카넬리안 덮개가 사라지고 줄·줄기만 남는 것, 冻结 얼음이 앞에 남는 것 확인. 테스트 `test/render/status-buff-fx.test.js` 「sortingOrder < 0 behind」.
+  **키트 이벤트가 유닛에 트는 프리팹도 같다**(2026-10-24, 관리자 아레나 확인 「노시스 S2 충전 1의 푸른 막」): `fxgame.js spawn`(`render/fx/kitofficial.js` 계획)은
+  유닛 위 재생을 통째로 위 캔버스에 그려, 노시스 S2 충전 1 `gnosis_skill_02_buff_01`의 어두운 바탕 `andi`(Plane 1.34×1.39칸, AlphaBlend, order −1)가 몸
+  전체를 푸르게 덮었다 → 'high'에서 음수 순서 렌더러가 있으면 `split: 'backOnly'`(나머지는 예전처럼 앞), 없으면 그대로 위. 아레나(Windows Chrome) 전후:
+  모델이 또렷해지고 바탕은 몸 뒤, 흰 바람 줄기는 앞 — 공식 녹화와 같은 모양. 테스트 같은 파일 「a kit's play on a unit splits the same way」.
 - 일부 프리팹은 파티클이 한 번만 돌아(`buff_silence` 1초) 상태가 남아 있으면 다시 시작한다. 파일을 못 읽으면 그 상태는 예전 아이콘.
 - **중첩 수정**(관리자 제보 2026-10-08, 26108991): `statusOff`가 멈춘
   인스턴스의 `again`(다시 시작)을 남겨 두어, 파티클이 다 죽은 뒤 상태가 다시 켜져 있으면(다음 기절) 새 인스턴스 옆에 복사본을 하나 더

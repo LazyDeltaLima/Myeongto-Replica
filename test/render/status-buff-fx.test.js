@@ -238,4 +238,16 @@ describe('status effects: sortingOrder < 0 behind the unit', () => {
     assert.equal(fxp.hasBackOrder(load('buff/buff_sleep') || { nodes: [] }), false, 'no back renderer: not split');
     assert.ok(fxp.hasBackOrder(load('mizuki/mizuki_skill_02_buff_02') || { nodes: [{ mesh: { order: -1 } }] }), 'its built-in Quads an / bg (order -1)');
   });
+
+  test("a kit's play on a unit splits the same way: 灵知 S2 charge 1's dark backdrop `andi` behind him", async (t) => {
+    const fs = await import('node:fs');
+    const src = fs.readFileSync(new URL('../../public/js/render/fxgame.js', import.meta.url), 'utf8');
+    const body = src.slice(src.indexOf('async function spawn('), src.indexOf('// ---- 卫戍协议 template effects'));
+    assert.match(body, /const split = !over \? splitOn\(\) : unit && splitOn\(\) && mod\.fxp\.hasBackOrder\(def\) \? 'backOnly' : false;/);
+    assert.match(body, /addLive\(inst, e, split \? layers\.split : over \? layers\.over : layers\.under\)/);
+    const f = new URL('../../public/assets/local/fx/gnosis/gnosis_skill_02_buff_01.json', import.meta.url);
+    if (!fs.existsSync(f)) return t.skip('effects not extracted');
+    const d = JSON.parse(fs.readFileSync(f, 'utf8'));
+    assert.deepEqual(d.nodes.filter((n) => (n.mesh?.order || 0) < 0).map((n) => n.name), ['andi']);
+  });
 });
