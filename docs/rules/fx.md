@@ -1444,7 +1444,7 @@
     월드 공간 계만 이미터 속도 × k를 더한다(Unity 매뉴얼: 이 모듈은 World 시뮬레이션 공간에서만 작동 — 로컬 계 33개는 아무것도 안 함). 이미터 속도 =
     그 노드의 직전 프레임 대비 월드 이동을 루트 좌표로(날아가는 투사체의 루트 이동 포함).
   - `SizeBySpeedModule` 민트 넷·적 둘(`xingdian` 별 입자) → `mods.sizeBySpeed` { x(y, z), range }: 속도가 `range`에서 차지하는 자리의 곡선 값을
-    크기에 곱한다. 속도는 시뮬레이션 속도(VelocityOverLifetime·노이즈 오프셋 제외) [추정]. 민트 S1·S2 범위의 별은 시작 속도 0.2–0.5 / 범위 0–10이라
+    크기에 곱한다. 속도는 시뮬레이션 속도(VelocityOverLifetime·노이즈 오프셋 제외 — 속도 제한이 있는 계는 VelocityOverLifetime 포함, 아래 `ClampVelocityModule`) [추정]. 민트 S1·S2 범위의 별은 시작 속도 0.2–0.5 / 범위 0–10이라
     시작 크기의 0.08–0.15배 — 예전엔 시작 크기(최대 3) 그대로 커다란 검은 조각으로 보였다.
   - `CollisionModule` 운영자 28·적 14 — 전부 type 0(평면), 평면은 프리팹 안 노드(대개 하나), 중력 0이 대부분. → `mods.collide` { planes(노드 번호 —
     `collide_planes`), dampen, bounce, lifeLoss(`m_EnergyLossOnCollision`), minKill, maxKill, radius }; 평면이 없는 계 2개는 모듈을 뺌(충돌할 것 없음).
@@ -1452,6 +1452,14 @@
     × `bounce`로 뒤집은 뒤 속도의 `dampen`만큼 잃고, 수명의 `lifeLoss`를 잃고, 속도가 `minKill` 미만·`maxKill` 초과면 죽는다(`maxKill` 10인 계 14개 —
     부딪히면 사라짐). [추정: Unity 매뉴얼의 설명대로 — 엔진 코드는 못 읽음; 평면 뒤의 입자도 앞으로 밀림(한쪽 면)] 애쉬락·백파이프 탄피·첸 더
     던스트릭 S3 동전·머드락 돌 등.
+  - `ClampVelocityModule`(`mods.limit` { mag, dampen, drag }) — 2026-10-24부터 **VelocityOverLifetime까지 합친 속도 전체**를 제한한다(관리자 제보
+    「패신저가 가만히 대기할 때 무기 이펙트가 너무 과해서 하늘로 솟구친다」). 예전엔 시작 속도·중력·힘으로 쌓인 속도(`vel`)에만 걸려, 두 모듈을 같이 쓰는
+    계 1031개(584 프리팹) 중 시작 속도 0·힘 없음인 289개는 제한이 아무것도 안 했다. 패신저 2재능 孤卒(주변 4칸에 적이 없을 때) 버프
+    `pasngr_beidong_buff_02`의 번개 `shandian_da`(무기 점 `F_Weapon_A_cb`에 붙어 뼈와 함께 돎)는 시작 속도 0, 수명 동안 5 / s, 제한 0.7 → 0(수명 0.5부터
+    0.94까지 줄어듦)·dampen 0.2라 공식은 무기 둘레에 머무는데, 우리는 수명(0.3–0.6 s)마다 1.5–3칸을 뻗어 나갔다(헤드리스 측정: 태어난 점에서 최대
+    2.84 → 0.93칸, 남은 것은 노이즈). 구현: `vel`이 제한된 전체 속도를 갖고, 매 프레임 직전 나이의 VelocityOverLifetime을 뺀 뒤 이번 것을 더해 제한
+    → 그린 속도(늘인 빌보드 방향·속도별 크기)도 전체 속도. [추정: Unity 매뉴얼은 두 모듈의 관계를 안 적음 — 근거는 위 289개 계의 짜임(제한이 VelocityOverLifetime에
+    안 걸리면 쓸모없는 모듈)] 노이즈는 제한 밖 그대로. 시험 `test/render/fx-particle-modules.test.js` 「limit velocity」.
 - **셰이더 패스 상태**(클라 `[uc]shaders.ab` Shader `m_ParsedForm` — Torappu 입자 셰이더 전부의 패스별 Cull·ZWrite·ZTest·Blend와 그것이 읽는 속성;
   `fxplayer.js renderState`):
   - 컬링(Unity CullMode 0 끔·1 앞면·2 뒷면): `_CullMode`를 읽는 것은 Disturb 계열(GrabPass 제외)·(CustomData) 계열·AlphaBlend(ZWrite)·Common·

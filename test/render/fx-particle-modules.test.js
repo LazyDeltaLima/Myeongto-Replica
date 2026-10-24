@@ -126,6 +126,23 @@ test('inherit velocity: a world-space system\'s particles take the moving emitte
   inst.dispose();
 });
 
+test('limit velocity: the limit clamps VelocityOverLifetime too (패신저 T2\'s lightning); without a limit it runs free', async () => {
+  // start speed 0, 5 / s along x over the life, limit 0.5 with dampen 1: the clamped ones stop at 0.5 / s
+  const velOL = { x: K(5), y: K(0), z: K(0), world: false, radial: K(0), orbZ: K(0), speedMul: K(1) };
+  const limit = { mag: K(0.5), dampen: 1, drag: K(0) };
+  const { inst } = await make([node('t', -1), node('l', 0, { ps: ps({ velOL, limit }, { speed: 0 }) }),
+    node('f', 0, { ps: ps({ velOL }, { speed: 0 }) })]);
+  for (let k = 0; k < 20; k++) inst.update(0.05);   // 1 s
+  const [l, f] = inst.systems;
+  assert.equal(l.n, 4);
+  for (let i = 0; i < l.n; i++) {
+    assert.ok(Math.abs(l.pos[i * 3] - 0.5) < 1e-3, `0.5 / s for 1 s: ${l.pos[i * 3]}`);
+    assert.ok(Math.abs(l.vel[i * 3] - 0.5) < 1e-4, `the drawn velocity is the clamped total: ${l.vel[i * 3]}`);
+    assert.ok(Math.abs(f.pos[i * 3] - 5) < 1e-3, `5 / s for 1 s: ${f.pos[i * 3]}`);
+  }
+  inst.dispose();
+});
+
 test('size by speed: the curve at the speed\'s place in its range scales the drawn size', async () => {
   const sbs = { x: { m: 1, s: 1, c: [[0, 0, 1, 1], [1, 1, 1, 1]] }, range: [0, 10] };
   const { inst } = await make([node('t', -1), node('p', 0, { ps: ps({ sizeBySpeed: sbs }, { speed: 5, size: 0.4 }) })]);

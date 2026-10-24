@@ -1256,7 +1256,7 @@ class ParticleSystem {
   /**
    * Particle i's size multipliers (out, x / y / z) at age fraction a: SizeOverLifetime × (2026-10-22) SizeBySpeed — its curve
    * at the speed's place in `range` (Unity: the particle velocity; here the simulated one, without VelocityOverLifetime /
-   * noise offsets [ASSUMED]).
+   * noise offsets [ASSUMED] — a system with a velocity limit keeps VelocityOverLifetime in it, see simulate).
    */
   sizeOf(i, a, r, out) {
     const m = this.ps.mods;
@@ -1370,6 +1370,7 @@ class ParticleSystem {
     }
     // simulate
     const grav = evalMM(ps.gravity, 0, 0);
+    const velOn = !!m.velOL && m.velOL.on !== 0 && m.velOL.on !== false, clampAll = velOn && !!m.limit;
     const P = m.collide ? this.planeFrames() : null;
     if (this.subs && !this.world) {   // the node → root transform for the sub emitters' points
       this.node.updateWorldMatrix(true, false); this.root.updateWorldMatrix(true, false);
@@ -1381,8 +1382,15 @@ class ParticleSystem {
       if (this.age[i] >= this.life[i]) { this.kill(i); continue; }
       const a = this.age[i] / this.life[i], r = this.rnd[i * 4];
       let vx = this.vel[i * 3], vy = this.vel[i * 3 + 1], vz = this.vel[i * 3 + 2];
+      let ox = 0, oy = 0, oz = 0;
+      if (velOn) { ox = evalMM(m.velOL.x, a, r); oy = evalMM(m.velOL.y, a, r); oz = evalMM(m.velOL.z, a, r); }
+      // 2026-10-24: the limit clamps the whole velocity, VelocityOverLifetime's included (Unity) — `vel` keeps the clamped
+      // total, so last frame's VelocityOverLifetime comes off before this frame's goes on. 패신저 T2's lightning (start
+      // speed 0, 5 u/s over its life, limit 0.7 → 0) flew 1.5–3 tiles off her weapon while the limit only met `vel`
+      if (clampAll && age0 > 0) { const a0 = age0 / this.life[i]; vx -= evalMM(m.velOL.x, a0, r); vy -= evalMM(m.velOL.y, a0, r); vz -= evalMM(m.velOL.z, a0, r); }
       if (grav) { vx += GRAVITY.x * grav * dt; vy += GRAVITY.y * grav * dt; vz += GRAVITY.z * grav * dt; }
       if (m.force) { vx += evalMM(m.force.x, a, r) * dt; vy += evalMM(m.force.y, a, r) * dt; vz += evalMM(m.force.z, a, r) * dt; }
+      if (clampAll) { vx += ox; vy += oy; vz += oz; ox = oy = oz = 0; }
       if (m.limit) {
         const lim = evalMM(m.limit.mag, a, r), sp = Math.hypot(vx, vy, vz);
         if (sp > lim && sp > 0) { const k = 1 - (m.limit.dampen || 0) * (1 - lim / sp); vx *= k; vy *= k; vz *= k; }
@@ -1390,8 +1398,6 @@ class ParticleSystem {
         if (drag) { const k = Math.max(0, 1 - drag * dt); vx *= k; vy *= k; vz *= k; }
       }
       this.vel[i * 3] = vx; this.vel[i * 3 + 1] = vy; this.vel[i * 3 + 2] = vz;
-      let ox = 0, oy = 0, oz = 0;
-      if (m.velOL && m.velOL.on !== 0 && m.velOL.on !== false) { ox = evalMM(m.velOL.x, a, r); oy = evalMM(m.velOL.y, a, r); oz = evalMM(m.velOL.z, a, r); }
       if (m.noise) {
         const s = evalMM(m.noise.str, a, r), f = m.noise.freq || 0.5, ph = this.rnd[i * 4 + 1] * 50;
         ox += Math.sin((this.age[i] + ph) * f * 6.28) * s; oy += Math.cos((this.age[i] + ph * 1.3) * f * 6.28) * s;
