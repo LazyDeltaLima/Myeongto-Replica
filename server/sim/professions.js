@@ -104,7 +104,8 @@ const installMushaHeal = (battle, unit) => {
  * 天赋/技能产生的作用于自身的治疗效果会无视自身的禁疗").
  */
 const installReaperHeal = (battle, unit) => {
-  const heal = (n) => { if (n > 0 && unit.alive) battle.heal(unit, unit, (unit.profile.selfHeal ?? 50) * n, { self: true, ignoreHealFree: true }); };
+  // moment 'trait': the trait heal's effect moment (render/fx/kitofficial.js `hit`: 休谟斯's humus_trait[heal][effect])
+  const heal = (n) => { if (n > 0 && unit.alive) battle.heal(unit, unit, (unit.profile.selfHeal ?? 50) * n, { self: true, ignoreHealFree: true, moment: 'trait' }); };
   battle.on('attack', (ctx) => {
     if (ctx.attacker !== unit || !unit.alive) return;
     heal(Math.min(ctx.targets.length, Math.max(1, unit.s.blockCnt)));
@@ -145,7 +146,8 @@ const installIncantation = (battle, unit) => {
     // a gauge fill (元素损伤) removes no HP and is not "伤害" for the heal; a 流失 is not damage dealt either
     if (c.type === 'element' || c.type === 'elemental') return;
     const ally = (c.dmg && c.dmg.traitAlly) || battle.lowestHpAllyInRange(unit);
-    if (ally) battle.heal(unit, ally, c.amount * (unit.profile.healRatio ?? 0.5), { tags: ['incantation'] });
+    // moment 'trait': the trait heal's effect moment (render/fx/kitofficial.js `hit`: 焰影苇草's reed2_tr_heal[effect])
+    if (ally) battle.heal(unit, ally, c.amount * (unit.profile.healRatio ?? 0.5), { tags: ['incantation'], moment: 'trait' });
   }, { owner: unit });
 };
 

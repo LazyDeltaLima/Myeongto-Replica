@@ -2,7 +2,7 @@
 // pipeline), projectiles and forced attacks (ai.js performAttack).
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
-import { dealDamage as pipeDamage, heal as pipeHeal, applyHpLoss, makeDamageInfo, reduceElement, leaderHitLimit } from '../damage.js';
+import { dealDamage as pipeDamage, heal as pipeHeal, applyHpLoss, makeDamageInfo, reduceElement, leaderHitLimit, hitFx } from '../damage.js';
 import { effectiveProfile, performAttack, acquireTargets } from '../ai.js';
 
 export class BattleCombat {
@@ -24,8 +24,9 @@ export class BattleCombat {
    * On a leader in a boss / hidden battle a loss of ≥ BOSS_HIT_LIMIT is cancelled like a hit (damage.js leaderHitLimit; 休闲:
    * it lands as BOSS_HIT_LIMIT)
    * — except with `noHitLimit: true`: a share of the leader's pool that is no hit (胄's 死亡集群 drone link, content/bosses.js).
+   * `moment`: a kit's official effect moment for the loss (the 'dmg' event's 9th field, damage.js fxField).
    */
-  loseHp(target, amount, { source = null, silent = false, tags = null, from = null, sourceless = false, noHitLimit = false } = {}) {
+  loseHp(target, amount, { source = null, silent = false, tags = null, from = null, sourceless = false, noHitLimit = false, moment = null } = {}) {
     if (!target || !target.alive || !(amount > 0)) return 0;
     // 限伤 (shared/constants.js BOSS_HIT_LIMIT): a loss passed on to a leader (the parts' 传递) is one hit too
     if (!noHitLimit) {
@@ -34,8 +35,11 @@ export class BattleCombat {
     }
     const t = ['hpLoss'];
     for (const list of [from && from.tags, tags]) if (Array.isArray(list)) for (const x of list) if (!t.includes(x)) t.push(x);
-    return applyHpLoss(this, source, target, amount, { type: 'true', tags: t, noSp: true, silent, origin: from ?? null, sourceless: !!sourceless || !!(from && from.sourceless) });
+    return applyHpLoss(this, source, target, amount, { type: 'true', tags: t, noSp: true, silent, origin: from ?? null, sourceless: !!sourceless || !!(from && from.sourceless), moment });
   }
+
+  /** The effect moment `key` of `owner` on the 'dmg' event `target` took this tick (damage.js hitFx). */
+  hitFx(target, key, owner, life) { hitFx(this, target, key, owner, life); }
 
   reduceElement(target, amount, element = null) { return reduceElement(target, amount, element); }
 

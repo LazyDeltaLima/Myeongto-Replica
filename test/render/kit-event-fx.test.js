@@ -10,7 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fxSpec } from '../../public/js/render/fx/kinds.js';
 import { KIT_OFFICIAL, kitOfficialPlan, kitOperator, tplPlays } from '../../public/js/render/fx/kitofficial.js';
-import { keyPlays } from '../helpers/fxBindings.js';
+import { keyPlays, HIT_KEYS } from '../helpers/fxBindings.js';
 import { createFxLayer, buffProgressOn } from '../../public/js/render/fxgame.js';
 import { activationEffects } from '../../public/js/render/fxmap.js';
 // the fixed plays of the client keys the cases assert (they run without the client-only rows)
@@ -132,7 +132,10 @@ test('the rules name prefabs the client binds for that operator', () => {
   for (const [n, by] of Object.entries(KIT_OFFICIAL)) {
     for (const [b, rule] of Object.entries(by)) {
       assert.equal(typeof rule, 'function');
-      const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((c) => ({ ...c, plays: PLAYS })).map((ctx) => kitOfficialPlan(n, { left: 0, t: 2, id: 1, of: 2, n: 2, cap: 3, name: 'extradition', cells: [[1, 1, 1], [2, 1, 3], [3, 1, 5], [4, 1, 0]], skill: 'swire2_3', targets: [2], token: 'token_10058_sbell2_icetgt', ids: [2], off: [3], picks: [2] }, b, ctx)).filter(Boolean);
+      const o = { left: 0, t: 2, id: 1, of: 2, n: 2, cap: 3, name: 'extradition', cells: [[1, 1, 1], [2, 1, 3], [3, 1, 5], [4, 1, 0]], skill: 'swire2_3', targets: [2], token: 'token_10058_sbell2_icetgt', ids: [2], off: [3], picks: [2] };
+      // ('hit' rules answer their own moment keys)
+      const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((c) => ({ ...c, plays: PLAYS }))
+        .flatMap((ctx) => (n === 'hit' ? HIT_KEYS : [undefined]).map((k) => kitOfficialPlan(n, { ...o, k }, b, ctx))).filter(Boolean);
       assert.ok(plans.length, `${n} (${b}) plans nothing`);
       for (const plan of plans) {
         for (const p of plan.play) {
@@ -349,7 +352,7 @@ test('蕾缪安 S2 (2026-10-24, 묶음 S2): the aim\'s crosshair on its target a
   assert.equal(kitOperator({ id: 7, src: 3, kind: 'lock' }, 'buff'), 3);
   const em = kitOfficialPlan('emergency', { id: 7, src: 3 }, 'lumen');
   assert.equal(em.pass, true);
-  assert.deepEqual(em.play, [{ n: 'lumen_buff_01_hit', on: 'op', life: 'once' }]);
+  assert.deepEqual(em.play, [{ n: 'lumen_buff_01_hit', on: 'id', life: 'once' }], 'on the ally it heals (묶음 S3)');
   // a plan's `stop` also ends its tagged lines (fxgame.js officialKitFx → startLine meta)
   assert.match(GAME, /for \(const l of elines\.values\(\)\) if \(l\.tag === tag && l\.owner === opId\) l\.until = Math\.min\(l\.until, clockS\);/);
   assert.match(GAME, /const meta = p\.tag \|\| p\.life === 'skill' \? \{ tag: p\.tag \?\? null, owner: opId, skill: p\.life === 'skill' \} : null;/);
@@ -388,6 +391,9 @@ const files = { '/assets/local/fx/index.json': { bundles: {
   mudrok: ['mudrok_buff_01_begin', 'mudrok_buff_01_hit'], common: ['common_buff_parry_01'], podego: ['common_heal_hit_01'],
   pfx_enemy_14: ['enemy_xi_skill_02_buff_hit', 'enemy_xi_skill_02_buff_03'], pfx_enemy_8: ['enemy_mdrock_skill_01_buff_hit', 'enemy_mdrock_skill_buff_05'],
   pfx_enemy_6: ['enemy_hummbd_die_02'],
+  // 묶음 S3: the 'dmg' / 'heal' moments' prefabs
+  bubble: ['bubble_talent_buff'], skadi2: ['skadi2_skill_01_hit', 'skadi2_skill_01_hit_02'], reed2: ['reed2_treat_01'],
+  excu2: ['excu2_skill_03_aim_01'], thorn2: ['thorn2_skill_hit'], lumen: ['lumen_buff_01_hit'],
 } } };
 const settle = () => new Promise((r) => setTimeout(r, 5));
 
@@ -478,6 +484,39 @@ test('fxgame.js: slots on and around a unit, 泥岩\'s and “自在”\'s block
     layer.onEvent(ex, views);
     assert.deepEqual(got(), ['enemy_hummbd_die_02']);
     assert.equal(layer.ownsFx(ex), true);
+  } finally { globalThis.fetch = fetch0; }
+});
+
+test('fxgame.js (2026-10-24, 묶음 S3): the moments a \'dmg\' / \'heal\' names play on their owner\'s target, a timed slot per attacker', async () => {
+  const fetch0 = globalThis.fetch;
+  globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
+  try {
+    const plays = [];
+    const layer = createFxLayer({ host: null, above: null, quality: () => 'high', trace: (p) => plays.push(p) });
+    await settle();
+    const unit = (id, defId, side = 'ally') => ({ id, x: id, y: 0, alive: true, info: { id, side, defId, skillIndex: 0 } });
+    const views = new Map([[1, unit(1, 'char_381_bubble')], [2, unit(2, 'char_1012_skadi2')], [3, unit(3, 'char_1020_reed2')],
+      [4, unit(4, 'char_1032_excu2')], [5, unit(5, 'char_4042_lumen')], [6, unit(6, 'char_285_medic2')], [9, unit(9, 'enemy_1007_slime', 'enemy')]]);
+    const got = () => plays.splice(0).filter((p) => p.kind === 'spawn').map((p) => `${p.names[0]}@${p.on}`).sort();
+    // 泡泡 T1: the hit she takes from 9 → the debuff on 9, one slot per attacker (a second hit keeps it)
+    layer.onEvent(['dmg', 1, 50, 'phys', 0, 9, 0, null, [['bubble_t_1[atk_down]', 1, 5]]], views);
+    assert.deepEqual(got(), ['bubble_talent_buff@9']);
+    layer.onEvent(['dmg', 1, 50, 'phys', 0, 9, 0, null, [['bubble_t_1[atk_down]', 1, 5]]], views);
+    assert.deepEqual(got(), [], 'kept (its life runs from the latest hit)');
+    // 浊心斯卡蒂 S1: the protected ally's hit → _hit on her, _hit_02 on the ally
+    layer.onEvent(['dmg', 6, 80, 'phys', 0, 9, 0, null, [['skadi2_s_1[protect]', 2]]], views);
+    assert.deepEqual(got(), ['skadi2_skill_01_hit@2', 'skadi2_skill_01_hit_02@6']);
+    // 焰影苇草: the trait heal on the ally, 映耀's share on her
+    layer.onEvent(['heal', 6, 40, 3, [['trait', 3]]], views);
+    layer.onEvent(['heal', 3, 10, 3, [['reed2_t_2', 3]]], views);
+    assert.deepEqual(got(), ['reed2_treat_01@3', 'reed2_treat_01@6']);
+    // 圣约送葬人 S3's mark on the enemy; another operator's key of the same name plays nothing of hers
+    layer.onEvent(['dmg', 9, 300, 'phys', 0, 4, 0, 0, [['excu2_s_3[mark]', 4]]], views);
+    layer.onEvent(['dmg', 9, 300, 'phys', 0, 1, 0, 0, [['excu2_s_3[mark]', 1]]], views);
+    assert.deepEqual(got(), ['excu2_skill_03_aim_01@9']);
+    // 流明 T2: the emergency flash on the ally she heals (lumen_t_2[listener]'s BUFF_OWNER)
+    layer.onEvent(['fx', 'emergency', 6, 0, { x: 6, y: 0, id: 6, src: 5 }], views);
+    assert.deepEqual(got(), ['lumen_buff_01_hit@6']);
   } finally { globalThis.fetch = fetch0; }
 });
 

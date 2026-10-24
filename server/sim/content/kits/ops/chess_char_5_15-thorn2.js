@@ -195,7 +195,7 @@ export default {
             for (const e of foes) battle.addBuff(e, { key: 'thorn2:rot', duration: AURA_DUR, mods: { healingTakenMul: healMul } });
             if (z.acc >= 1 - 1e-9) {
               z.acc -= 1;
-              for (const e of foes) battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale), type: 'arts', isSkill: true, tags: ['skill', 'alchemy'] });
+              for (const e of foes) battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale), type: 'arts', isSkill: true, tags: ['skill', 'alchemy'], moment: 'thorn2_s2_damage' });
               const regen = unit.s.atk * num(bb.hp_recovery_per_sec_ratio_chr);   // 生命回复速度 (see the header)
               if (regen > 0) {
                 for (const a of battle.alliesInRadius(z.x, z.y, r, null)) {
@@ -215,7 +215,7 @@ export default {
           }
           for (const z of zones) {
             if (!z.burn) continue;
-            for (const e of z.burn.foes) if (e.alive) battle.dealDamage(unit, e, { amount: unit.s.atk * z.burn.scale, type: 'arts', isSkill: true, tags: ['skill', 'mySea'] });
+            for (const e of z.burn.foes) if (e.alive) battle.dealDamage(unit, e, { amount: unit.s.atk * z.burn.scale, type: 'arts', isSkill: true, tags: ['skill', 'mySea'], moment: 'thorn2_s3_enemy_buff' });
             z.burn = null;
           }
           unit.mem.zones = zones.filter((z) => z.t < z.dur - 1e-9);

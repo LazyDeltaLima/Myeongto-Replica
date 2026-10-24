@@ -1854,6 +1854,32 @@
     予愿安洁莉娜 S3 `_edgeLineRendererEffectKey`(범위 가장자리 선 — 렌더에 그런 길이 없음).
   - 확인: 단위 `skill-aura-fx`(새)·`kit-event-fx`, `fx-bindings` `UNPLAYED` 2줄 지움, 미연결 102 → 93행. 이펙트 이벤트 골든 +53 −35(위 것만), 시뮬
     골든 그대로(시뮬 안 고침). [화면 미확인: 스카디 S3·사리아 S3·인디고 S2 몸 이펙트, 락락 S1·S2, 스펙터 복귀, 켈시 앵커 배치, 아스트젠 S3 선, 이네스 회수]
+- 연결 전수 나머지 다섯째 묶음(2026-10-24, 맞는·치유 순간 — 새 이벤트 대신 이벤트 칸으로, 관리자 결정 2026-10-24):
+  - 길: 시뮬 `'dmg'` 9번째 칸·`'heal'` 5번째 칸 `[[키, 주인 id, 수명?], …]`(`damage.js fxField`). 키트가 피해·치유·생명 유실 옵션 `moment`로 넣고(주인 =
+    출처), 맞는 쪽 그래프(ON_TAKE_DAMAGE 등)는 이벤트가 나간 뒤 `battle.hitFx(대상, 키, 주인, 수명)`로 그 틱의 그 대상 이벤트에 더한다. 새 이벤트가
+    아니라 칸이라 시뮬 골든(이벤트 수만 셈)은 그대로. 렌더 `fxgame.js hitMoments`가 칸마다 키트 이벤트 `'hit'` { k, src: 주인, id: 맞은·치유받은
+    유닛, by: 공격자·치유자, life }를 `kitofficial.js` `hit` 계획으로 돌린다(계획은 자기 키에만 답함). `slot`에 초 수명을 주면 마지막 재생부터 그만큼
+    남는다(같은 칸이면 새로 안 만듦).
+  - 행(공식 클라에서 확인, 버프 템플릿 노드): 泡泡 T1 `bubble_t_1` ON_TAKE_DAMAGE → 공격자에게 `[atk_down]` `bubble_talent_buff`(블랙보드 지속, 공격자마다
+    한 칸·맞을 때마다 연장). 浊心斯卡蒂 S1 `[protect]` ON_TAKE_DAMAGE(DamageSplit) → 그녀(BUFF_SOURCE)에 `_hit`, 보호받은 동료(BUFF_OWNER)에 `_hit_02`.
+    乌尔比安 本性的坚守 `ulpia_t_2` → 치유와 그 몸에 `ulpia_recover_01`. 引星棘刺 S2 연금 유닛 틱 `thorn2_s2_damage`·S3 바다 `thorn2_s3_enemy_buff` → 맞은
+    적에 `thorn2_skill_hit`. 休谟斯 收割者 특성 치유(시뮬 키 `'trait'`) → `humus_trait[heal][effect]` `humus_recover_01`(0.1 s). 焰影苇草 咒愈师 특성 치유
+    (`'trait'`) → 치유받는 동료에 `reed2_tr_heal[effect]` `reed2_treat_01`, 映耀의 자기 몫(`reed2_t_2`·모듈 `reed2_e_002_t`, IsHeal·!IfTargetEqual) → 그녀에.
+    水月 S3 镜花水月 적 3 미만 공격의 생명 유실(`mizuki_s_3[damage]`의 DamageViaMaxHpRatio — 그녀 자신) → `mizuki_skill_03_hit_02`. 折桠 T1 简易包扎
+    `branch_t_1` ON_SKILL_FINISH → 치유와 `branch_talent_01`. 圣约送葬人 S3 `[mark][effect]` ON_OUTPUT_DAMAGE → 맞은 적마다 `[mark]`(INFINITY)
+    `excu2_skill_03_aim_01` — 시뮬은 적마다 첫 타격에 보내고, 표식은 스킬 끝(끝 피해가 그 적들을 침)까지. 号角 S2 过载 법술 스플래시(`'horn:s2:overload'`)
+    → S2 공격 능력 셋의 `_conditionalActions` `horn_skill_02_hit_02_02`(맞은 적마다).
+  - 고친 것: 流明 T2 `lumen_t_2[listener]`의 `lumen_buff_01_hit`는 BUFF_OWNER — 치료받는 동료 — 위다(listener가 동료에게 붙고 AdvancedApplyHeal의 대상도
+    BUFF_OWNER). 둘째 묶음은 그녀 몸에 틀었다.
+  - 판정: 佩佩 셋째 모듈 `pepe_e_003_t[aoe]`(CN 클라)는 生息演算 카드·보물 타일 위에서만(BuffAoeTargetForPepeEquipSandbox, TresureTileSelector) — 이
+    모드에선 도달 안 함(`UNPLAYED` 주석).
+  - 남김: 空弦 S2 튕김 화살 꼬리(시뮬이 튕김을 한 순간에 다 치고, 이 칸은 「어디서 날아왔나」를 안 실음), 魔王 `cetsyr_heal` 동료 위 `cetsyr_buff_02`(범위
+    안에서 재생을 받는 동안 머무는 버프 — 맞는 순간이 아님, 吟游者 재생 버프는 보이지 않는 버프), 流明 T2 준비 빛 `[enable]`(재사용 대기가 끝나는
+    순간 — 대기 시간과 지연 재생이 필요, 배치 때부터 있는지도 미확인).
+  - [추정] 치유가 0.5 미만(체력이 가득)이면 `'heal'` 이벤트가 없어 그 순간 이펙트도 없다 — 공식은 FixedValueHeal 뒤 CreateEffect를 늘 만든다(乌尔比安·
+    折桠·休谟斯). 水月의 `common_magic_hit_01`(같은 노드의 공용 이펙트)은 안 틂.
+  - 확인: 단위 `test/sim/hit-fx-field.test.js`(새 — 칸·hitFx·실제 키트), `kit-event-fx`(재생·칸 연장·流明), `fx-bindings` `UNPLAYED` 11줄 지움. 이펙트
+    이벤트 골든 38 시나리오 +50(위 프리팹만, 지운 줄 없음), 시뮬 골든 그대로. [화면 미확인: 위 전부 — 자리·모양 공식 녹화 대조]
 
 ### 연쇄 공격 — 체인 캐스터·체인 메딕의 튕김 선과 타격 (2026-10-16, 관리자 요청 「일반 공격 연쇄를 공식 클라 데이터와 대조」)
 

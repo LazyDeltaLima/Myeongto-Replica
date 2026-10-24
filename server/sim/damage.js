@@ -85,6 +85,27 @@ function attackerId(source, dmg) {
  */
 const dotFlag = (dmg) => (Array.isArray(dmg?.tags) && dmg.tags.includes('dot') ? 1 : 0);
 
+/**
+ * The 9th field of the 'dmg' event and the 5th of the 'heal' event (2026-10-24): the official effect moments this hit / heal
+ * is, `[[key, ownerId, life?], …]` — a kit's `moment` key on the DamageInfo / heal options (owned by the source: the moment of
+ * 引星棘刺 S2's ticks, 休谟斯's trait heal …) and the ones `battle.hitFx` adds afterwards for the target's side of it (an
+ * ON_TAKE_DAMAGE graph: 泡泡 T1's 尖刺盾 on its attacker). Absent without one. A field only: events are counted, never
+ * hashed, so no golden digest moves (render/fx/kitofficial.js `hit` draws them; docs/SIM.md).
+ */
+const fxField = (key, owner) => (typeof key === 'string' && key ? [[key, owner ? owner.id ?? null : null]] : null);
+
+/**
+ * Add the effect moment `key` (owned by `owner`, `life` s when the sim knows it) to the 'dmg' event `target` took this tick
+ * — for a target-side handler (`damaged`, an attack's `onEachHit`) that runs after the event was sent. Nothing without one.
+ */
+export function hitFx(battle, target, key, owner, life) {
+  const ev = target && target.lastHitAt === battle.time ? target._dmgEv : null;
+  if (!ev || ev[1] !== target.id || typeof key !== 'string' || !key) return;
+  const one = [key, owner ? owner.id ?? null : null];
+  if (Number.isFinite(life) && life > 0) one.push(life);
+  ev[8] = [...(Array.isArray(ev[8]) ? ev[8] : []), one];
+}
+
 /** Normalise a DamageInfo descriptor. */
 export function makeDamageInfo(d = {}) {
   const type = d.type ?? 'phys';
@@ -123,6 +144,8 @@ export function makeDamageInfo(d = {}) {
     // carries that ally, and the trait hook (professions.js installIncantation) heals it instead of the lowest-HP ally
     // in range. null = the ordinary target of the trait.
     traitAlly: d.traitAlly ?? null,
+    // a kit's official effect moment for this hit: the 'dmg' event's 9th field (fxField)
+    moment: typeof d.moment === 'string' && d.moment ? d.moment : null,
   };
 }
 
@@ -382,8 +405,12 @@ export function applyHpLoss(battle, source, target, amount, dmg) {
   target.lastHitAt = battle.time;
   if (dmg && !dmg.silent && amount >= 0.5) {
     const shown = dmg.type === 'element' ? dmg.element : dmg.type === 'elemental' ? (dmg.element || 'true') : dmg.type;
-    battle._ev(['dmg', target.id, Math.round(amount), shown, dmg.lpNum || 0, attackerId(source, dmg), dotFlag(dmg), dmg.strike]); // local patch: 5th = number flag (local-hud.js)
-  }
+    const ev = ['dmg', target.id, Math.round(amount), shown, dmg.lpNum || 0, attackerId(source, dmg), dotFlag(dmg), dmg.strike]; // local patch: 5th = number flag (local-hud.js)
+    const fx = fxField(dmg.moment, source);
+    if (fx) ev.push(fx);
+    battle._ev(ev);
+    target._dmgEv = ev; // hitFx
+  } else if (target._dmgEv) target._dmgEv = null;
   if (battle._hooks.damaged) battle.emit('damaged', { source: hs, target, amount, type: dmg ? dmg.type : 'true', dmg, credit: source });
   if (target.side === 'ally' && target.skill && dmg && !dmg.noSp && dmg.type !== 'element') battle._skills.onDamaged(target);
   const dead = target.bossPool ? target.bossPool.hp <= 0 : target.hp <= 0;
@@ -616,6 +643,10 @@ export function heal(battle, source, target, amount, opts = {}) {
     if (source.side === 'ally' && source.ownerId != null) { const pp = battle._pp(source.ownerId); if (pp) pp.healingDone += actual; }
   }
   // + the healer (null without one): the renderer plays a heal shot's hit effects on its ally by it
-  if (actual >= 0.5 && !opts.silent) battle._ev(['heal', target.id, Math.round(actual), source ? source.id : null]);
+  // (2026-10-24) + its effect moments (fxField: a kit's `moment` key, owned by the healer)
+  if (actual >= 0.5 && !opts.silent) {
+    const fx = fxField(opts.moment, source);
+    battle._ev(fx ? ['heal', target.id, Math.round(actual), source ? source.id : null, fx] : ['heal', target.id, Math.round(actual), source ? source.id : null]);
+  }
   return actual;
 }

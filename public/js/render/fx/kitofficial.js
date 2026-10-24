@@ -131,10 +131,50 @@ export const KIT_OFFICIAL = {
   // 莎草 S2 临考发挥 (2026-10-24, 묶음 S2): the ally she locks as it starts ('buff' kind 'lock': `src` her, `id` the ally) —
   // papyrs_s_2[switch_mode]'s CreateBuffUseAbilitySelector puts papyrs_s_2[target] (papyrs_skill2_mark_01, ended with the skill) on it
   buff: { papyrs: cite('papyrs_s_2[target]', () => ({ play: [{ tpl: 'papyrs_s_2[target]', on: 'id', life: 'skill' }] })) },
-  // 流明 T2 应急处理 (2026-10-24, 묶음 S2): the emergency heal ('emergency': `src` her, `id` the ally) — her lumen_t_2[listener]
-  // ON_OTHER_RESISTABLE_BUFF_START creates lumen_buff_01_hit on her (its HP-ratio and cooldown conditions are the sim's). The
-  // mark stays (`pass`). Her ready glow ([enable] after [cooldown]) is not drawn.
-  emergency: { lumen: cite('lumen_t_2[listener]', () => ({ pass: true, play: [once('lumen_buff_01_hit')] })) },
+  // 流明 T2 应急处理 (2026-10-24, 묶음 S2): the emergency heal ('emergency': `src` her, `id` the ally) — lumen_t_2[listener]
+  // ON_OTHER_RESISTABLE_BUFF_START creates lumen_buff_01_hit on its BUFF_OWNER, the ally it heals (묶음 S3: S2 had it on her;
+  // its HP-ratio and cooldown conditions are the sim's). The mark stays (`pass`). Her ready glow ([enable] after [cooldown])
+  // is not drawn.
+  emergency: { lumen: cite('lumen_t_2[listener]', () => ({ pass: true, play: [once('lumen_buff_01_hit', 'id')] })) },
+  // (2026-10-24, 묶음 S3) the official effect moments of a hit / heal: the sim's 'dmg' 9th / 'heal' 5th field (damage.js
+  // fxField) — `k` the moment's key, `src` its owner (the operator), `id` the unit hit / healed, `by` the attacker / healer,
+  // `life` the sim's seconds. Each rule answers only its own keys.
+  hit: {
+    // 泡泡 T1 尖刺盾: bubble_t_1 ON_TAKE_DAMAGE puts bubble_t_1[atk_down] (overrideEffectKey bubble_talent_buff, its blackboard
+    // duration) on the attacker; a later hit extends the one buff (maxStackCnt 1) — one slot per attacker
+    bubble: cite('bubble_t_1[atk_down]', (o) => (o.k === 'bubble_t_1[atk_down]'
+      ? { play: [{ n: 'bubble_talent_buff', on: 'by', life: Number(o.life) > 0 ? Number(o.life) : 5, slot: `spike:${o.by}` }] } : null)),
+    // 浊心斯卡蒂 S1: skadi2_s_1[protect] ON_TAKE_DAMAGE of the ally (its DamageSplit) creates _hit on her (BUFF_SOURCE) and _hit_02
+    // on the ally (BUFF_OWNER)
+    skadi2: cite('skadi2_s_1[protect]', (o) => (o.k === 'skadi2_s_1[protect]'
+      ? { play: [once('skadi2_skill_01_hit'), once('skadi2_skill_01_hit_02', 'id')] } : null)),
+    // 乌尔比安 本性的坚守: ulpia_t_2 ON_TAKE_DAMAGE heals him (FixedValueHeal) and creates ulpia_recover_01 on him
+    ulpia: cite('ulpia_t_2', (o) => (o.k === 'ulpia_t_2' ? { play: [once('ulpia_recover_01')] } : null)),
+    // 引星棘刺 S2's alchemy unit (thorn2_s2_damage ON_BUFF_TRIGGER) and S3's sea (thorn2_s3_enemy_buff ON_BUFF_START): their
+    // NoSourceDamage and thorn2_skill_hit on the enemy it damages
+    thorn2: cite(['thorn2_s2_damage', 'thorn2_s3_enemy_buff'], (o) => (o.k === 'thorn2_s2_damage' || o.k === 'thorn2_s3_enemy_buff'
+      ? { play: [once('thorn2_skill_hit', 'id')] } : null)),
+    // 休谟斯's 收割者 trait heal (sim fx 'trait'): humus_trait[heal] heals her and creates humus_trait[heal][effect]
+    // (overrideEffectKey humus_recover_01, 0.1 s)
+    humus: cite('humus_trait[heal][effect]', (o) => (o.k === 'trait' ? { play: [{ tpl: 'humus_trait[heal][effect]', on: 'op' }] } : null)),
+    // 焰影苇草: her 咒愈师 trait heal (sim fx 'trait': reed2_tr's buff reed2_tr_heal[effect] — FixedValueHeal and reed2_treat_01
+    // on the ally it heals) and 映耀's share of a heal on another (reed2_t_2 / module reed2_e_002_t ON_OUTPUT_MODIFIER IsHeal,
+    // !IfTargetEqual: FixedValueHeal and reed2_treat_01 on her)
+    reed2: cite(['reed2_tr_heal[effect]', 'reed2_t_2', 'reed2_e_002_t'], (o) => (o.k === 'trait' ? { play: [once('reed2_treat_01', 'id')] }
+      : o.k === 'reed2_t_2' ? { play: [once('reed2_treat_01')] } : null)),
+    // 水月 S3 镜花水月: an attack hitting fewer than 3 enemies gives her mizuki_s_3[damage] (its DamageViaMaxHpRatio on her —
+    // the sim's HP loss), whose effect mizuki_skill_03_hit_02 plays on her
+    mizuki: cite('mizuki_s_3[damage]', (o) => (o.k === 'mizuki_s_3[damage]' ? { play: [once('mizuki_skill_03_hit_02')] } : null)),
+    // 折桠 T1 简易包扎: branch_t_1 ON_SKILL_FINISH heals her (HealViaMaxHpRatio) and creates branch_talent_01 on her
+    branch: cite('branch_t_1', (o) => (o.k === 'branch_t_1' ? { play: [once('branch_talent_01')] } : null)),
+    // 圣约送葬人 S3: excu2_s_3[mark][effect] ON_OUTPUT_DAMAGE puts excu2_s_3[mark] (INFINITY, excu2_skill_03_aim_01) on each enemy
+    // it hits — the ones its end damages; the sim sends the first hit on each, the mark goes as the skill ends
+    excu2: cite('excu2_s_3[mark]', (o) => (o.k === 'excu2_s_3[mark]' ? { play: [{ n: 'excu2_skill_03_aim_01', on: 'id', life: 'skill' }] } : null)),
+    // 号角 S2 过载 (sim fx 'horn:s2:overload'): the arts splash of each overloaded shot — its S2 attack abilities'
+    // `_conditionalActions` create horn_skill_02_hit_02_02 on each enemy it hits
+    horn: cite(['char_4039_horn/Modes/S2/Body/Attack/RangedAttack', 'char_4039_horn/Modes/S2/Body/Attack/BlockedRangedAttack',
+      'char_4039_horn/Modes/S2/Body/Attack/SelfRangedAttack'], (o) => (o.k === 'horn:s2:overload' ? { play: [once('horn_skill_02_hit_02_02', 'id')] } : null)),
+  },
   lemuenAim: { lemuen: cite('lemuen_s2_aim_attack[effect]', (o) => (Number(o.on) ? null : { stop: ['lemuenAim'], play: [] })) },
   // 伊内丝 T2 影哨: projectile_chr_ines_guard `_effectsWhenReached` label_start_01 + label_01 + range_01 where it lands;
   // they last while the sentry stands (a new one replaces it, S3's recall — her 'beam' — ends it)

@@ -2438,7 +2438,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (p.cast) { casts.push(name); n++; continue; } // (2026-10-21) the operator's own cast effects, below
       if (slot) {
         const s = slots.get(slot);
-        if (s && s.name === name && (s.l ? !s.l.inst.stopping && live.includes(s.l) : !s.done)) { n++; continue; } // kept
+        // (2026-10-24, 묶음 S3) a slot play with seconds as `life` lasts that long from its latest play
+        const until = typeof p.life === 'number' ? clockS + p.life : null;
+        if (s && s.name === name && (s.l ? !s.l.inst.stopping && live.includes(s.l) : !s.done)) { if (s.l && until != null) s.l.until = until; n++; continue; } // kept
         endSlot(slot);
         const onUnit = p.unit != null || (p.on && p.on !== 'point');
         const sv = p.unit != null ? views.get(p.unit) : onUnit ? (p.on === 'op' ? op : views.get(o[p.on])) : null;
@@ -2448,7 +2450,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const pt = sv ? (p.orbit ? orbiter(sv, p.orbit) : sv)
           : Array.isArray(p.at) ? { x: Number(p.at[0]), y: Number(p.at[1]), z: 0 } : { x, y, z: 0 };
         const on = sv ? ownerOf(sv) : undefined;
-        spawn(pb.bundle, name, pt, { owner: opId, buff: false, onCaster: true, until: null, tag: 'slot', on }, { over: !!sv }).then((l) => {
+        spawn(pb.bundle, name, pt, { owner: opId, buff: false, onCaster: true, until, tag: 'slot', on }, { over: !!sv }).then((l) => {
           rec.done = true;
           if (!l) return;
           if (slots.get(slot) === rec) rec.l = l; else l.inst.stop();
@@ -2504,6 +2506,19 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!n || plan.pass) return false;
     ownFx.add(e);
     return true;
+  }
+  /**
+   * (2026-10-24, 묶음 S3) the official effect moments a 'dmg' (9th field) / 'heal' (5th) names — [[key, owner, life?], …]
+   * (server/sim/damage.js fxField): each is the kit event 'hit' { k, src: owner, id: the unit hit / healed, by, life } of
+   * render/fx/kitofficial.js, executed as its other plans are.
+   */
+  function hitMoments(list, tid, by, views) {
+    const t = views.get(tid);
+    if (!t) return;
+    for (const m of list) {
+      if (!Array.isArray(m) || typeof m[0] !== 'string') continue;
+      officialKitFx(['fx', 'hit', t.x, t.y, { k: m[0], src: m[1], id: tid, by, life: m[2] }], views);
+    }
   }
   /**
    * 2026-10-21 (이펙트 연결 전수 ①): a plan's projectile flights (render/fx/kitofficial.js `fly` with `to` / `from`) on trail
@@ -4798,6 +4813,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           const tid = e[1];
           // 2026-10-10: the attacker, the 6th field of the sim's damage event (null: 无来源 damage / an older sim)
           const by = e.length >= 6 && e[5] != null ? e[5] : null;
+          if (Array.isArray(e[8])) hitMoments(e[8], tid, by, views);   // 2026-10-24 (묶음 S3): its kit effect moments
           if (stoneHit(tid, views)) return; // a 望 stone blast's hit effect
           if (pendingHit(tid, views, by)) return; // local patch: a skill's damage without an attack
           let a = lastAtk.get(tid);
@@ -4825,8 +4841,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           attackHit(a, tgt, tid, lastAtk, strike);
           return;
         }
-        // 2026-10-16: a heal shot reaching its ally — the healer's mode hit effects on it (healHit)
-        case 'heal': healHit(e, views); return;
+        // 2026-10-16: a heal shot reaching its ally — the healer's mode hit effects on it (healHit); 2026-10-24 (묶음 S3): its
+        // kit effect moments (5th field)
+        case 'heal': healHit(e, views); if (Array.isArray(e[4])) hitMoments(e[4], e[1], e[3] ?? null, views); return;
         case 'fx': { // a kit's moving effect: 赤刃明霄陈 S3 剑气 (kits/ops/op-chen3.js) carries her official trail along its path
           if (e[1] === 'palsy' && e[4]?.id != null) { const v = views.get(e[4].id); if (v) cutCast(v); } // 2026-10-11: 麻痹 cut its cast
           if (stoneFx(e, views)) return;

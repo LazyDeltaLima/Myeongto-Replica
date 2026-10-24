@@ -85,6 +85,7 @@ export class Unit {
     this.faced = false;         // a swing turned it from its deploy direction; 'face' turns it back (ai.js faceIdle)
     this.lastAttackAt = -Infinity;
     this.lastHitAt = -Infinity;
+    this._dmgEv = null;         // its last 'dmg' event (damage.js hitFx)
     this.deployedAt = -Infinity;
     this.deathAt = -Infinity;
     this.respawnAt = Infinity;

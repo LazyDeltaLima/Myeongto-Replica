@@ -141,7 +141,7 @@ export default {
           battle.on('damaged', (c) => {
             if (c.target !== unit || !on(unit) || unit.hp <= 0 || !(c.amount > 0) || c.type === 'element' || isHpLoss(c.dmg)) return; // (not a 流失)
             const v = (unit.hpRatio < num(t0.hp_ratio, 0.5) ? num(t0.value2) : num(t0.value1)) * (unit.skill?.active ? t0Scale : 1);
-            if (v > 0) battle.heal(unit, unit, v, { self: true });
+            if (v > 0) battle.heal(unit, unit, v, { self: true, moment: 'ulpia_t_2' });
           }, { owner: unit });
         } },
         { install(battle, unit) { // 血脉的哺养

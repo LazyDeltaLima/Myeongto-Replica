@@ -120,7 +120,7 @@ function reed2(bb, chess, def) {
         battle.on('heal', (ctx) => {
           if (ctx.source !== unit || ctx.target === unit || ctx.opts?.reflect) return;
           if (boost !== 1) ctx.amount *= boost;
-          if (share > 0 && ctx.amount > 0) battle.heal(unit, unit, ctx.amount * share, { self: true, reflect: true });
+          if (share > 0 && ctx.amount > 0) battle.heal(unit, unit, ctx.amount * share, { self: true, reflect: true, moment: 'reed2_t_2' });
         }, { owner: unit });
       } },
     ],

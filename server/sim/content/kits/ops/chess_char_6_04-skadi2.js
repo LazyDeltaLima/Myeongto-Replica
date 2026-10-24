@@ -132,6 +132,7 @@ function skadi2(bb, chess, def) {
         battle.on('damaged', (ctx) => {
           const x = ctx.dmg?.skadiShare;
           if (!x || x.tag !== TAG || !(ctx.amount > 0) || !live(unit)) return;
+          battle.hitFx(ctx.target, 'skadi2_s_1[protect]', unit); // its ON_TAKE_DAMAGE effects on the ally and on her
           battle.dealDamage(ctx.source, unit, { amount: ctx.amount * x.share / Math.max(1e-6, 1 - x.share), type: 'true', canDodge: false, tags: ['transfer'] });
         }, { owner: unit });
       }

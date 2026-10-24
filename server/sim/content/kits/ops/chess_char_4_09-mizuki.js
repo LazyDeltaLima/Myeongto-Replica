@@ -24,7 +24,7 @@ export default withDefaults({
           onStart({ battle, unit }) { battle.fx('ripple', { x: unit.x, y: unit.y, id: unit.id }); },
           onAttack({ battle, unit, targets }) {
             if ((targets || []).filter((e) => e.side === 'enemy').length >= 3) return;
-            battle.loseHp(unit, unit.s.maxHp * num(bb['attack@hp_ratio'], 0.15), { tags: ['skill', 'selfLoss'] }); // (no source: not damage dealt)
+            battle.loseHp(unit, unit.s.maxHp * num(bb['attack@hp_ratio'], 0.15), { tags: ['skill', 'selfLoss'], moment: 'mizuki_s_3[damage]' }); // (no source: not damage dealt)
           },
         }),
       }),

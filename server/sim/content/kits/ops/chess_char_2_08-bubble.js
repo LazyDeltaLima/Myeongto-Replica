@@ -25,7 +25,10 @@ export default {
             battle.dealDamage(unit, src, { amount: unit.s.def * num(bb.atk_scale), type: 'phys', isSkill: true, canDodge: false, tags: ['counter'] });
             battle.fx('counter', { x: src.x, y: src.y, id: unit.id });
           }
-          if (num(t.atk) < 0 && src.alive) battle.addBuff(src, { key: 'bubble:spike', duration: num(t.duration, 5), mods: { atkPct: num(t.atk) }, refresh: 'extend', source: unit });
+          if (num(t.atk) < 0 && src.alive) {
+            battle.addBuff(src, { key: 'bubble:spike', duration: num(t.duration, 5), mods: { atkPct: num(t.atk) }, refresh: 'extend', source: unit });
+            battle.hitFx(unit, 'bubble_t_1[atk_down]', unit, num(t.duration, 5)); // its effect on the attacker (render: the 'dmg' 9th field)
+          }
         });
         if (num(tb.def)) toggleBuff(battle, unit, 'bubble:guard', () => unit.blocking.length > 0, { defPct: num(tb.def) });
       } }],

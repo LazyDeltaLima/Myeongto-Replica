@@ -36,7 +36,7 @@ export default {
         const hr = num(t.hp_ratio);
         if (hr > 0) {
           battle.on('skillEnd', ({ unit: u, reason }) => {
-            if (u === unit && reason !== 'death' && unit.alive) battle.heal(unit, unit, unit.s.maxHp * hr, { self: true, tags: ['talent'] });
+            if (u === unit && reason !== 'death' && unit.alive) battle.heal(unit, unit, unit.s.maxHp * hr, { self: true, tags: ['talent'], moment: 'branch_t_1' });
           }, { owner: unit });
         }
         if (tb.damage_scale != null) onHitOn(battle, unit, ({ source, dmg }) => { if (source && source.blockedBy === unit) dmg.mul *= num(tb.damage_scale, 1); });

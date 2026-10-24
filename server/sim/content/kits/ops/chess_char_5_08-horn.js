@@ -133,7 +133,7 @@ export default {
             const prev = c.profile.onEachHit;
             c.profile.onEachHit = (b, u, victim, hc) => {
               if (prev) prev(b, u, victim, hc);
-              if (victim && victim.alive && victim.side === 'enemy') b.dealDamage(unit, victim, { amount: unit.s.atk * magic, type: 'arts', isSkill: true, isSplash: true, tags: ['skill', 'hornOverload'] });
+              if (victim && victim.alive && victim.side === 'enemy') b.dealDamage(unit, victim, { amount: unit.s.atk * magic, type: 'arts', isSkill: true, isSplash: true, tags: ['skill', 'hornOverload'], moment: 'horn:s2:overload' });
             };
           }, { owner: unit, priority: -100 });
         }

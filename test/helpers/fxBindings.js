@@ -33,6 +33,10 @@ export { rowsFor };
 
 // ---- the hand tables' entries ------------------------------------------------------------------------------------------
 
+/** The keys the sim's 'dmg' / 'heal' moments send (KIT_OFFICIAL 'hit', server/sim/damage.js fxField). */
+export const HIT_KEYS = Object.freeze(['bubble_t_1[atk_down]', 'skadi2_s_1[protect]', 'ulpia_t_2', 'thorn2_s2_damage', 'thorn2_s3_enemy_buff', 'trait',
+  'reed2_t_2', 'mizuki_s_3[damage]', 'branch_t_1', 'excu2_s_3[mark]', 'horn:s2:overload']);
+
 /** The sample inputs a kit plan is called with (every branch of the plans in KIT_OFFICIAL). */
 const KIT_O = [
   {}, { left: 0 }, { left: 1 }, { n: 0 }, { n: 1 }, { n: 2 }, { n: 1, max: 3 }, { n: 2, max: 3 }, { n: 3, max: 3 }, { n: -1 }, { charged: 0 }, { charged: 1 },
@@ -40,6 +44,7 @@ const KIT_O = [
   { cells: [[0, 0, 1], [0, 1, 2], [0, 2, 5], [0, 3, 0]] }, { mode: 'Range' }, { mode: 'Melee' }, { signal: 'fireToToken' },
   { signal: 'bomb' }, { name: 'extradition' }, { id: 1, src: 1 }, { cap: 12, n: 12, sk: 1 }, { cap: 12, n: 12, sk: 2 },
   { cap: 12, n: 12, sk: 3 }, { duration: 5 }, { t: 3 }, { ids: [6], off: [7] },
+  ...HIT_KEYS.map((k) => ({ k, by: 4, life: 5 })),   // 'hit': a 'dmg' / 'heal' event's effect moments
 ];
 const KIT_C = [0, 1, 2].flatMap((skill) => [false, true].flatMap((back) => [false, true].map((foe) => ({ skill, back, foe }))));
 

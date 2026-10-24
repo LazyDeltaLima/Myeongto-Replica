@@ -37,7 +37,12 @@ export default {
           kind: 'ammo', ammo: num(bb['attack@trigger_time'], 16),
           mods: mods({ atkPct: num(bb.atk), batPct: batPct(bb.base_attack_time, chess) }),
           targeting: skillRange(chess, def),
-          attack: { onEachHit({ unit, target }) { if (target && target.side === 'enemy') unit.mem.verdict?.add(target); } },
+          attack: { onEachHit({ battle, unit, target }) {
+            const hit = unit.mem.verdict;
+            if (!hit || !target || target.side !== 'enemy' || hit.has(target)) return;
+            hit.add(target);
+            battle.hitFx(target, 'excu2_s_3[mark]', unit); // the mark on it until the skill ends (render: the 'dmg' 9th field)
+          } },
           onStart({ unit }) {
             unit.mem.verdict = new Set();
             // 特性的回复生命效果提高至2倍 (the reaper profile reads profile.selfHeal on every attack)
