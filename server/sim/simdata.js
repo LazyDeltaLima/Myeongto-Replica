@@ -639,10 +639,13 @@ export function freezeDef(d) {
 
 /**
  * A DataSource resolves ids to normalised defs. `raw` is `{ chess, enemies, tokens, stages, waves, backups? }`
- * (`backups` = data/backups.json `{ units, diy }`, the 补位 stand-ins: getChess(id, { standIn: true })).
+ * (`backups` = data/backups.json `{ units, diy }`, the 补位 stand-ins: getChess(id, { standIn: true })). `all` is the
+ * whole data object it was built from (a season's data, shared/seasons.js): the content modules read bonds, items,
+ * garrisons, bands … of a battle from it (content/support/index.js dataFile).
  */
 export class DataSource {
   constructor(raw = {}, fallback = null) {
+    this.all = raw && typeof raw === 'object' ? raw : {};
     this.raw = {
       chess: asMap(unwrap(raw.chess, 'chess'), 'chessId') ?? {},
       enemies: asMap(unwrap(raw.enemies, 'enemies'), 'key') ?? {},

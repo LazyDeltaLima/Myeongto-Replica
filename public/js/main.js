@@ -278,6 +278,9 @@ function wireNet() {
   net.on('replaced', () => toast(t('该身份已在其他页面登录，本页已断开'), 'warn', { ttl: 6000 }));
   net.on('unhandledError', (err) => toastError(err));
   net.on('room.state', onRoomState);
+  // the page reads the data of its room's 卫戍协议 season (room.state `season`, absent = the default; out of a room the
+  // default): shared/seasons.js, data.js setSeason — the battle runner then loads the sim again with it
+  store.subscribe((s, prev) => { if (s.room?.season !== prev.room?.season) data.setSeason(s.room?.season); });
   net.on('room.closed', (msg) => {
     // a waiting room the draining server closed: it stays on screen under the move dialog, which says whether it comes
     // back on the new server, while the page reloads onto it (ui/generation.js, ui/updateNotice.js) — no toast

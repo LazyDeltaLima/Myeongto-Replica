@@ -242,10 +242,10 @@ const BY_KEY = {
 // ---------------------------------------------------------------------------------------------------------------
 // Touch 外勤医疗 (auto_chess_change_map, every player's field)
 
-/** Map-character variants of band_amedic: [{ cond, cnt, chars: [tokenId…] }]. */
-export function amedicVariants() {
+/** Map-character variants of band_amedic: [{ cond, cnt, chars: [tokenId…] }] (the scope's data, support dataFile). */
+export function amedicVariants(scope = null) {
   const out = [];
-  for (const b of buffsOf(bandRecord(AMEDIC_BAND))) {
+  for (const b of buffsOf(bandRecord(AMEDIC_BAND, scope))) {
     if (b.key !== 'auto_chess_change_map') continue;
     const chars = new Set();
     for (const [k, v] of Object.entries(b.p)) if (k.includes('#') && num(v) > 0) chars.add(k.split('#')[0]);
@@ -264,7 +264,7 @@ export function amedicCharsFor(elites, variants = amedicVariants()) {
 }
 
 function installMapChars(battle) {
-  const variants = amedicVariants();
+  const variants = amedicVariants(battle);
   if (!variants.length) return;
   const holders = battle.players.filter((ps) => matchBands(battle, ps.playerId).includes(AMEDIC_BAND));
   if (!holders.length) return;
@@ -287,14 +287,14 @@ function installMapChars(battle) {
 /** Band buff keys with a battle part (tests / tooling). */
 export const BATTLE_BUFF_KEYS = Object.freeze([...Object.keys(BY_KEY), 'auto_chess_change_map']);
 
-/** Does this band have a battle part? */
-export function hasBattlePart(bandId) {
-  return buffsOf(bandRecord(bandId)).some((b) => (b.bbKey && BY_KEY[b.bbKey]) || b.key === 'auto_chess_change_map');
+/** Does this band have a battle part? (the scope's data, support dataFile) */
+export function hasBattlePart(bandId, scope = null) {
+  return buffsOf(bandRecord(bandId, scope)).some((b) => (b.bbKey && BY_KEY[b.bbKey]) || b.key === 'auto_chess_change_map');
 }
 
 export function install(battle) {
   for (const ps of battle.players) {
-    const band = ps.bandId ? bandRecord(ps.bandId) : null;
+    const band = ps.bandId ? bandRecord(ps.bandId, battle) : null;
     if (!band) continue;
     for (const b of buffsOf(band)) {
       const f = b.bbKey ? BY_KEY[b.bbKey] : null;

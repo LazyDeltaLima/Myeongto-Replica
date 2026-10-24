@@ -22,6 +22,6 @@ export function install(battle) {
   if (typeof battlePart.install === 'function') battlePart.install(battle);
 }
 
-export function registerMeta(registry) {
-  if (typeof metaPart.registerMeta === 'function') metaPart.registerMeta(registry);
+export function registerMeta(registry, data) {
+  if (typeof metaPart.registerMeta === 'function') metaPart.registerMeta(registry, data);
 }

@@ -35,22 +35,46 @@ const own = (o, k) => (o && typeof o === 'object' && typeof k === 'string' && Ob
 const QUIET = Object.freeze({ warn() {}, error() {}, info() {} });
 
 let DATA = null;
-/** Frozen data/*.json (process singleton of server/data.js). Never mutate. */
+/** Frozen data/*.json of the default season (process singleton of server/data.js). Never mutate. */
 export function gameData() {
   if (!DATA) {
     try { DATA = getData({ log: QUIET }) || {}; } catch { DATA = {}; }
   }
   return DATA;
 }
-/** Tests only: swap the data object (null → reload the singleton). Also drops derived caches. */
-export function setGameData(d) { DATA = d ?? null; CORE = null; }
+/** Tests only: swap the data object (null → reload the singleton). */
+export function setGameData(d) { DATA = d ?? null; }
 
-export const bondRecord = (id) => own(gameData().bonds, id);
-export const itemRecord = (id) => own(gameData().items, id);
-export const garrisonRecord = (id) => own(gameData().garrisons, id);
-export const bandRecord = (id) => own(gameData().bands, id);
-export const effectRecord = (id) => own(gameData().effects, id);
-export const chessRecord = (id) => own(gameData().chess, id);
+/**
+ * The data object of a scope (shared/seasons.js: a match or battle of another season runs on that season's data): a
+ * battle (its DataSource carries the whole data as `all`, sim/simdata.js), a prep ctx (`ctx.data`, the match's data)
+ * or a data object itself; null without one.
+ */
+function scopeData(scope) {
+  if (!scope || typeof scope !== 'object') return null;
+  if (!Object.hasOwn(scope, 'data')) return scope;
+  const d = scope.data;
+  if (!d || typeof d !== 'object') return null;
+  return d.all && typeof d.all === 'object' ? d.all : d;
+}
+/**
+ * Data file `name` (bonds, items, …) of a scope (scopeData) when its data has that file, else the default season's
+ * (a test battle built from part of the data).
+ * @param {object | null | undefined} scope
+ * @param {string} name
+ */
+export function dataFile(scope, name) {
+  const d = scopeData(scope);
+  return d && Object.hasOwn(d, name) ? d[name] : gameData()[name];
+}
+
+/** Records by id of the scope's data (dataFile; no scope: the default season's). */
+export const bondRecord = (id, scope) => own(dataFile(scope, 'bonds'), id);
+export const itemRecord = (id, scope) => own(dataFile(scope, 'items'), id);
+export const garrisonRecord = (id, scope) => own(dataFile(scope, 'garrisons'), id);
+export const bandRecord = (id, scope) => own(dataFile(scope, 'bands'), id);
+export const effectRecord = (id, scope) => own(dataFile(scope, 'effects'), id);
+export const chessRecord = (id, scope) => own(dataFile(scope, 'chess'), id);
 /** Registry key of an item: id without the `_a` / `_b` suffix (Arts have none). */
 export const itemKeyOf = (id) => String(id ?? '').replace(/_[ab]$/, '');
 /** True for golden (进阶) items / elite chess ids. */
@@ -78,16 +102,20 @@ export function buffParams(rec, key) {
   return null;
 }
 
-let CORE = null;
-/** Core (核心, isPower) bond ids. */
-export function coreBondIds() {
-  if (!CORE) {
-    CORE = new Set();
-    for (const [id, b] of Object.entries(gameData().bonds || {})) if (b && b.isCore) CORE.add(id);
+/** @type {WeakMap<object, Set<string>>} core bond ids by bonds file */
+const CORE = new WeakMap();
+/** Core (核心, isPower) bond ids of the scope's data (dataFile). */
+export function coreBondIds(scope) {
+  const bonds = dataFile(scope, 'bonds') || {};
+  let set = CORE.get(bonds);
+  if (!set) {
+    set = new Set();
+    for (const [id, b] of Object.entries(bonds)) if (b && b.isCore) set.add(id);
+    CORE.set(bonds, set);
   }
-  return CORE;
+  return set;
 }
-export const isCoreBond = (id) => coreBondIds().has(id);
+export const isCoreBond = (id, scope) => coreBondIds(scope).has(id);
 
 // =====================================================================================================================
 // battle: players & bonds (live: in-battle layer gains update `battle.getPlayer(pid).bonds[id].layers`)
@@ -116,7 +144,7 @@ export function activeBondIds(battle, pid) {
 /** Active bond with the most layers (ties → data order); null when none is active. */
 export function topActiveBond(battle, pid) {
   let best = null, bl = -1;
-  for (const id of Object.keys(gameData().bonds || {})) {
+  for (const id of Object.keys(dataFile(battle, 'bonds') || {})) {
     if (!bondActive(battle, pid, id)) continue;
     const l = bondLayers(battle, pid, id);
     if (l > bl) { bl = l; best = id; }
@@ -171,8 +199,9 @@ const BONDS = new WeakMap();
 /**
  * A unit's own bonds: the chess's data bonds + bonds granted by 变形同构体 (an item with `canGiveBond` worn together
  * with an item that has a `giveBondId`; same rule as server/match/bondsMeta.js pieceBonds). Tokens / enemies: [].
+ * `scope`: the unit's battle (the item and bond records of its season's data, dataFile).
  */
-export function unitBonds(u) {
+export function unitBonds(u, scope = null) {
   if (!isOp(u)) return EMPTY;
   const cached = BONDS.get(u);
   const items = itemsOf(u);
@@ -180,11 +209,11 @@ export function unitBonds(u) {
   if (cached && cached.key === key) return cached.bonds;
   const out = [...(Array.isArray(u.def?.bonds) ? u.def.bonds : Array.isArray(u.def?.raw?.bonds) ? u.def.raw.bonds : [])];
   if (items.length >= 2) {
-    const recs = items.map((id) => itemRecord(id)).filter(Boolean);
+    const recs = items.map((id) => itemRecord(id, scope)).filter(Boolean);
     if (recs.some((r) => r.canGiveBond)) {
       for (const r of recs) {
         if (r.canGiveBond) continue;
-        if (typeof r.giveBondId === 'string' && bondRecord(r.giveBondId) && !out.includes(r.giveBondId)) out.push(r.giveBondId);
+        if (typeof r.giveBondId === 'string' && bondRecord(r.giveBondId, scope) && !out.includes(r.giveBondId)) out.push(r.giveBondId);
       }
     }
   }
@@ -199,9 +228,9 @@ export function unitBonds(u) {
  * active themselves).
  */
 export function isMember(battle, u, bondId) {
-  const own = unitBonds(u);
+  const own = unitBonds(u, battle);
   if (own.includes(bondId)) return true;
-  return isCoreBond(bondId) && own.includes('maniShip') && bondActive(battle, u.ownerId, 'maniShip');
+  return isCoreBond(bondId, battle) && own.includes('maniShip') && bondActive(battle, u.ownerId, 'maniShip');
 }
 
 /**

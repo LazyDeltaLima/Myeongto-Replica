@@ -120,14 +120,17 @@ export class MetaRegistry {
 
 let defaultRegistry = null;
 
-/** Build a registry: engine built-ins first, then every content module's registerMeta (content wins). */
-export function createRegistry({ builtins = true, content = true, log = console } = {}) {
+/**
+ * Build a registry: engine built-ins first, then every content module's registerMeta (content wins). `data`: the
+ * season's data some handlers are built from (shared/seasons.js; absent: the default season's).
+ */
+export function createRegistry({ builtins = true, content = true, log = console, data = null } = {}) {
   const reg = new MetaRegistry();
   if (builtins) {
-    try { registerBuiltins(reg); } catch (e) { log.error?.('[meta] registerBuiltins failed', e); }
+    try { registerBuiltins(reg, data); } catch (e) { log.error?.('[meta] registerBuiltins failed', e); }
   }
   if (content) {
-    try { registerAllMeta(reg); } catch (e) { log.error?.('[meta] registerAllMeta failed', e); }
+    try { registerAllMeta(reg, data ?? undefined); } catch (e) { log.error?.('[meta] registerAllMeta failed', e); }
   }
   if (reg.warnings.length) log.warn?.(`[meta] ${reg.warnings.length} handler method(s) are not hooks and will never run, e.g. ${reg.warnings.slice(0, 3).join('; ')}`);
   return reg;
@@ -137,6 +140,19 @@ export function createRegistry({ builtins = true, content = true, log = console 
 export function getDefaultRegistry() {
   if (!defaultRegistry) defaultRegistry = createRegistry();
   return defaultRegistry;
+}
+
+/** @type {WeakMap<object, MetaRegistry>} the registries of other seasons' data (shared/seasons.js), by data object */
+const seasonRegistries = new WeakMap();
+
+/** The registry built from a season's data (another season's match: Match.js), once per data object. */
+export function registryFor(data) {
+  let reg = seasonRegistries.get(data);
+  if (!reg) {
+    reg = createRegistry({ data });
+    seasonRegistries.set(data, reg);
+  }
+  return reg;
 }
 
 /** Tests: drop the singleton. */

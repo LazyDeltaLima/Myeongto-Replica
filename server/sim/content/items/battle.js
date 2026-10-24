@@ -43,7 +43,7 @@
 // undying duration ×m, ASPD ×m, tremble chance ×m. Granted hammers without an own copy use 蒸汽之心's blackboard.
 
 import {
-  num, itemRecord, itemKeyOf, buffsOf, isOp, onField, unitBonds, isMember, bondActive, isGroundOp, frontTile,
+  num, itemRecord, dataFile, itemKeyOf, buffsOf, isOp, onField, unitBonds, isMember, bondActive, isGroundOp, frontTile,
   alliesAround, passiveBuff, fxOn, tplFx, battleStore, contentInfo, itemsOf, directMods,
 } from '../support/index.js';
 import { mitigate, hasHp, periodicDamage, isHpLoss } from '../../damage.js';
@@ -111,22 +111,26 @@ function hammerTypeOf(p) {
   if (p.attack_speed != null) return 'aspd';
   return null;
 }
-/** hammer item key → { type, bbKey } */
-const HAMMERS = new Map();
-function hammerInfo(key) {
-  if (!HAMMERS.size) {
-    const steam = itemRecord(`${STEAM_KEY}_a`);
+/** @type {WeakMap<object, Map<string, { type: string, bbKey: string } | null>>} items file → hammer item key → { type, bbKey } */
+const HAMMERS = new WeakMap();
+/** The hammer of an item key in the scope's data (support dataFile; default: the default season's), or null. */
+function hammerInfo(key, scope = null) {
+  const items = dataFile(scope, 'items') || {};
+  let map = HAMMERS.get(items);
+  if (!map) {
+    map = new Map();
+    const steam = itemRecord(`${STEAM_KEY}_a`, scope);
     const sp = steam ? bp(steam, STEAM_BUFF) : null;
     const keys = sp ? Object.keys(sp).filter((k) => /^hammer_\d+$/.test(k)).map((k) => itemKeyOf(sp[k])) : [];
     for (const k of keys) {
-      const rec = itemRecord(`${k}_a`);
+      const rec = itemRecord(`${k}_a`, scope);
       const b = rec ? buffsOf(rec).find((x) => x.p.big_hammer != null) : null;
       const type = b ? hammerTypeOf(b.p) : null;
-      if (type) HAMMERS.set(k, { type, bbKey: b.bbKey });
+      if (type) map.set(k, { type, bbKey: b.bbKey });
     }
-    if (!HAMMERS.size) HAMMERS.set('__none__', null);
+    HAMMERS.set(items, map);
   }
-  return HAMMERS.get(key) ?? null;
+  return map.get(key) ?? null;
 }
 
 // =====================================================================================================================
@@ -135,7 +139,7 @@ function hammerInfo(key) {
 /** "若携带者为【X】盟约干员": own bonds (incl. 变形同构体 grants), or 调和 while the core bond X is active. */
 export function memberOf(battle, u, bondId) {
   if (!isOp(u) || !bondId) return false;
-  if (unitBonds(u).includes(bondId)) return true;
+  if (unitBonds(u, battle).includes(bondId)) return true;
   return isMember(battle, u, bondId) && bondActive(battle, u.ownerId, bondId);
 }
 
@@ -223,7 +227,7 @@ function fieldHammers(battle, rt, pid) {
     c.set.clear();
     for (const a of battle.allyUnits) {
       if (a.kind !== 'op' || a.ownerId !== pid || !onField(a)) continue;
-      for (const id of itemsOf(a)) { const h = hammerInfo(itemKeyOf(id)); if (h) c.set.add(h.type); }
+      for (const id of itemsOf(a)) { const h = hammerInfo(itemKeyOf(id), battle); if (h) c.set.add(h.type); }
     }
   }
   return c.set;
@@ -500,13 +504,13 @@ const BY_ITEM = {
     if (!(each > 0)) return;
     S.on('deploy', (c) => {
       if (c.unit !== u || !u.skill) return;
-      const mine = unitBonds(u);
+      const mine = unitBonds(u, battle);
       let n = 0;
       if (mine.length) {
         for (const a of battle.allyUnits) {
           if (a === u || a.kind !== 'op' || a.ownerId !== u.ownerId || a.removed) continue;
           if (!(c.initial ? !a.removed : onField(a))) continue;
-          if (unitBonds(a).some((b) => mine.includes(b))) n++;
+          if (unitBonds(a, battle).some((b) => mine.includes(b))) n++;
         }
       }
       u.skill.gainSp(each * (1 + n), 'item');
@@ -754,7 +758,7 @@ const BY_ITEM = {
     S.onDispose(() => { hs.steam = Math.max(0, hs.steam - 1); hammerRelease(battle, rt, u, hs); });
     // client buff template act1autochess_acarm079_buff ON_BUFF_START: AutoChessFilterCharacterBondIds victoriaShip (own
     // bonds, no _considerManiShip) → CreateEffect, at every deployment of a 维多利亚 carrier (display only)
-    const show = () => { if (unitBonds(u).includes('victoriaShip')) tplFx(battle, u, 'map_act1autochess_reinforce_02', u); };
+    const show = () => { if (unitBonds(u, battle).includes('victoriaShip')) tplFx(battle, u, 'map_act1autochess_reinforce_02', u); };
     S.on('deploy', (c) => { if (c.unit === u) show(); });
     if (onField(u)) show();
   },
@@ -910,11 +914,14 @@ export function addShieldLayer(battle, target, key, cap = 1) {
   return true;
 }
 
-/** Does this record have a battle part? (stat buffs, known buff behaviours, hammer specials, item behaviours) */
-export function hasBattleEffect(rec) {
+/**
+ * Does this record have a battle part? (stat buffs, known buff behaviours, hammer specials, item behaviours; the hammers
+ * of the scope's data)
+ */
+export function hasBattleEffect(rec, scope = null) {
   if (!rec || rec.itemType !== 'EQUIP') return false;
   const key = itemKeyOf(rec.id);
-  if (BY_ITEM[key] || hammerInfo(key)) return true;
+  if (BY_ITEM[key] || hammerInfo(key, scope)) return true;
   return buffsOf(rec).some((b) => STAT_BUFFS.has(b.bbKey) || BY_BUFF[b.bbKey]);
 }
 
@@ -926,8 +933,8 @@ export function hasBattleEffect(rec) {
  * Returns the grant `{ id, key, lent, dispose() }` or null when the item has no battle part.
  */
 export function installItem(battle, u, itemId, { lent = false } = {}) {
-  const rec = itemRecord(itemId);
-  if (!isOp(u) || !hasBattleEffect(rec)) return null;
+  const rec = itemRecord(itemId, battle);
+  if (!isOp(u) || !hasBattleEffect(rec, battle)) return null;
   const rt = runtime(battle);
   const gm = grantsOf(rt, u);
   const gid = lent ? `lend:${itemId}` : `own:${itemId}:${gm.size}`;
@@ -948,7 +955,7 @@ export function installItem(battle, u, itemId, { lent = false } = {}) {
         if (mods) S.stat(`stat:${b.bbKey}`, mods);
       } else if (BY_BUFF[b.bbKey]) BY_BUFF[b.bbKey](battle, u, b.p, S);
     }
-    const h = hammerInfo(key);
+    const h = hammerInfo(key, battle);
     if (h) {
       const hs = hammerAcquire(battle, rt, u);
       hs.own[h.type]++;
@@ -988,8 +995,8 @@ export function lendItemEffects(battle, fromUnit, toUnit, { maxTier = 5, duratio
   const gm = grantsOf(rt, toUnit);
   let n = 0;
   for (const id of itemsOf(fromUnit)) {
-    const rec = itemRecord(id);
-    if (!rec || num(rec.tier, 99) > maxTier || !hasBattleEffect(rec)) continue;
+    const rec = itemRecord(id, battle);
+    if (!rec || num(rec.tier, 99) > maxTier || !hasBattleEffect(rec, battle)) continue;
     let g = gm.get(`lend:${id}`);
     if (!g) g = installItem(battle, toUnit, id, { lent: true });
     if (!g) continue;

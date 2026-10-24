@@ -79,13 +79,18 @@ const isOtherBody = (def) => isStandInDef(def) || isDiyDef(def);
  * The kit builder of an operator def in `reg` ({ [key]: (bb, chess, def) => Kit }), or undefined. A stand-in's and a
  * 自选 piece's kit is keyed by its charId (`char_609_acguad`, `char_2027_wang`) and by nothing else: the chess id it keeps
  * names the replaced operator's kit (a DIY slot has none). Any other def: baseId (`…_a`, data/SIM.md), the exact id, or
- * the suffix-less id of DESIGN §5.6's example.
+ * the suffix-less id of DESIGN §5.6's example; failing those, the same operator's chess kit (another season's chess
+ * ids, shared/seasons.js: kits/index.js chessKitOfChar).
  */
 export function kitOf(def, reg) {
   if (!def || !reg) return undefined;
   if (isOtherBody(def)) return Object.prototype.hasOwnProperty.call(reg, def.charId) ? reg[def.charId] : undefined;
   const bare = String(def.baseId ?? def.id ?? '').replace(/_[ab]$/, '');
-  return reg[def.baseId] ?? reg[def.id] ?? reg[bare];
+  const own = reg[def.baseId] ?? reg[def.id] ?? reg[bare];
+  if (own !== undefined) return own;
+  // another season's chess id without a kit file: the same operator's kit (kits/index.js chessKitOfChar)
+  const key = typeof KIT_REGISTRY.chessKitOfChar === 'function' ? KIT_REGISTRY.chessKitOfChar(def.charId, def.tier) : null;
+  return key ? reg[key] : undefined;
 }
 
 /** The generic kit of an operator def; a stand-in's / 自选 piece's also carries the talents generic.js can apply exactly. */
@@ -268,10 +273,13 @@ export function installContent(battle, { mode = 'full', extra = null } = {}) {
   }
 }
 
-/** Prep-side registration of every domain module (server boot). */
-export function registerAllMeta(registry) {
+/**
+ * Prep-side registration of every domain module (server boot). `data`: the season's data whose records some handlers
+ * are built from (shared/seasons.js; absent: the default season's).
+ */
+export function registerAllMeta(registry, data) {
   for (const [name, mod] of MODULES) {
     if (typeof mod.registerMeta !== 'function') continue;
-    try { mod.registerMeta(registry); } catch (e) { console.error(`[content] ${name}.registerMeta failed:`, e); }
+    try { mod.registerMeta(registry, data); } catch (e) { console.error(`[content] ${name}.registerMeta failed:`, e); }
   }
 }

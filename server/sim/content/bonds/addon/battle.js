@@ -115,9 +115,9 @@ export function dicePRD(battle, state, p) {
 /** 奥术 vulnerability mods for a multiplier (battle.applyStrongest). */
 const arcaneMods = (v) => ({ artsTakenMul: v });
 
-/** `env_gbuff_new` blackboard of a bond (numbers only). */
-export function bondBb(bondId) {
-  return buffParams(bondRecord(bondId), 'env_gbuff_new') ?? {};
+/** `env_gbuff_new` blackboard of a bond (numbers only) of the scope's data (support dataFile; default: the default season's). */
+export function bondBb(bondId, scope) {
+  return buffParams(bondRecord(bondId, scope), 'env_gbuff_new') ?? {};
 }
 /** 迅捷 / 不屈 proc chance p = min(1, base_prob + prob_per_stack·L). */
 export const procChance = (bb, L) => Math.max(0, Math.min(1, num(bb.base_prob) + num(bb.prob_per_stack) * L));
@@ -134,7 +134,7 @@ function makeState(battle, p) {
     const t = bondTier(battle, pid, id);
     if (t <= 0) continue;
     st.tiers[id] = t;
-    st.bb[id] = bondBb(id);
+    st.bb[id] = bondBb(id, battle);
     st.members[id] = new Set(ops.filter((u) => isMember(battle, u, id)));
   }
   return st;

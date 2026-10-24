@@ -138,7 +138,8 @@
 //
 // Engine-only extra options (tests / tools; the lobby never passes them):
 //   opts.scheduler     RealScheduler (default, uses opts.now) | VirtualScheduler (./scheduler.js)
-//   opts.registry      MetaRegistry (default: built-ins + content, ./effectsMeta.js getDefaultRegistry())
+//   opts.registry      MetaRegistry (default: built-ins + content, ./effectsMeta.js getDefaultRegistry(); another season's
+//                      match: registryFor(its data), shared/seasons.js)
 //   opts.BattleClass   Battle implementation (default server/sim/Battle.js; tests inject test/match/fakeBattle.js)
 //   opts.battleContent 'full' | 'generic' | 'none' (sim content mode, default 'full')
 //   opts.timerScale    multiplier on every real-time phase timer (default 1)
@@ -199,7 +200,7 @@ import { GameData } from './gamedata.js';
 import { RealScheduler } from './scheduler.js';
 import { SharedPool, SharedItemPool, drawDisabledBonds } from './pool.js';
 import { PlayerState } from './PlayerState.js';
-import { EffectDispatcher, getDefaultRegistry } from './effectsMeta.js';
+import { EffectDispatcher, getDefaultRegistry, registryFor } from './effectsMeta.js';
 import { setupMatchWaves } from './waves.js';
 import { GAME_SPEED, HEADLESS_SLICE_MS } from './fields.js';
 import { MatchPlatform } from './match/platform.js';
@@ -219,7 +220,7 @@ import { MatchUnite } from './match/unitePhase.js';
 import { MatchBoss } from './match/bossRounds.js';
 import { MatchSettle } from './match/settle.js';
 import { resolveRuleset } from '../../shared/ruleset.js';
-import { seasonOf } from '../../shared/seasons.js';
+import { DEFAULT_SEASON, seasonOf } from '../../shared/seasons.js';
 
 export { FLOW_TICKER_PRIORITY, DELAYS, BAND_TURN_SECONDS } from './match/common.js';
 
@@ -277,7 +278,7 @@ export class Match {
     this.aiPicksLast = !this.isSolo && opts.aiPicksLast === true;
     this.ownsScheduler = !opts.scheduler;
     this.sched = opts.scheduler || new RealScheduler({ now: opts.now || Date.now, onError: (e) => this.reportError('timer', e) });
-    this.registry = opts.registry || getDefaultRegistry();
+    this.registry = opts.registry || (this.season === DEFAULT_SEASON ? getDefaultRegistry() : registryFor(this.data));
     this.dispatcher = new EffectDispatcher(this, this.registry);
     this.BattleClass = typeof opts.BattleClass === 'function' ? opts.BattleClass : Battle;
     this.battleContent = opts.battleContent || 'full';

@@ -403,8 +403,8 @@ const DUCK_KINDS = new Set(['normal', 'boss', 'hidden']);
 /** Boss-field column between the left ('L') and the right ('R') player's half (the goals are at cols 2–3 / 17). */
 const BOSS_MID_COL = (GEO.BOSS_RECT.c0 + GEO.BOSS_RECT.c1) / 2;
 
-function duckParams() {
-  for (const b of buffsOf(bandRecord(DUCK_BAND))) if (b.key === 'round_start_all_player_change_enemy_2') return b.p;
+function duckParams(ctx) {
+  for (const b of buffsOf(bandRecord(DUCK_BAND, ctx))) if (b.key === 'round_start_all_player_change_enemy_2') return b.p;
   return null;
 }
 
@@ -481,7 +481,7 @@ export function duckReplace(ctx, spawns, p, ownerPlayerId, { routes = null, side
 const duckGlobal = {
   onBattleStart(ctx, ev) {
     if (!ev || !DUCK_KINDS.has(ev.kind) || !Array.isArray(ev.spawns)) return;
-    const p = duckParams();
+    const p = duckParams(ctx);
     if (!p || ctx.round < int(p.round, 1)) return;
     const held = ctx.bandId() === DUCK_BAND || ctx.teammates().some((t) => t.bandId() === DUCK_BAND);
     if (!held) return;
@@ -504,10 +504,10 @@ function merge(parts) {
   return out;
 }
 
-/** Hooks of one band (null when it has no prep effect). */
-export function bandMetaHandler(bandId) {
+/** Hooks of one band (null when it has no prep effect), from its record in `data` (default: the default season's). */
+export function bandMetaHandler(bandId, data = null) {
   const groups = new Map();
-  for (const b of buffsOf(bandRecord(bandId))) {
+  for (const b of buffsOf(bandRecord(bandId, data))) {
     if (!b.key || !K[b.key]) continue;
     if (!groups.has(b.key)) groups.set(b.key, []);
     groups.get(b.key).push(b.p);
@@ -516,9 +516,10 @@ export function bandMetaHandler(bandId) {
   return merge([...groups].map(([k, ps]) => K[k](ps, bandId)));
 }
 
-export function registerMeta(registry) {
-  for (const id of Object.keys(gameData().bands || {})) {
-    const h = bandMetaHandler(id);
+/** @param {object} registry @param {object} [data] the season's data the handlers are for (shared/seasons.js) */
+export function registerMeta(registry, data = gameData()) {
+  for (const id of Object.keys((data && data.bands) || {})) {
+    const h = bandMetaHandler(id, data);
     if (h) registry.band(id, h);
   }
   registry.global('bands_ducklord', duckGlobal);

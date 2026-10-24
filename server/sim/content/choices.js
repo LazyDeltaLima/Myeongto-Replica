@@ -295,8 +295,9 @@ const TACTIC = {
   },
 };
 
-export function registerMeta(registry) {
-  const ids = choiceCardIds();
+/** @param {object} registry @param {object} [data] the season's data the handlers are for (shared/seasons.js) */
+export function registerMeta(registry, data = gameData()) {
+  const ids = choiceCardIds(data);
   for (const id of ids.bounty) registry.choice(id, BOUNTY);
   for (const id of ids.tactic) registry.choice(id, TACTIC);
   for (const id of ids.items) registry.choice(id, ITEM);
@@ -353,12 +354,13 @@ function enemyModsOf(p, isMul) {
 /**
  * Battle plan of one card EffectRef: { effectId, key, gate, heal, flawless, opMods, enemy: [{ rank, mods }] } or null.
  * @param {object} ref playerEffects entry
+ * @param {object} [scope] the battle (its season's effects, support dataFile; default: the default season's)
  */
-export function battlePlanOf(ref) {
+export function battlePlanOf(ref, scope = null) {
   const effectId = ref && ref.data && typeof ref.data.effectId === 'string' ? ref.data.effectId
     : ref && typeof ref.key === 'string' && ref.key.startsWith('choice:') ? ref.key.slice(7) : null;
   if (!effectId) return null;
-  const eff = effectRecord(effectId);
+  const eff = effectRecord(effectId, scope);
   if (!eff || !Array.isArray(eff.buffs)) return null;
   // buff key: the ref id (`choice:<effectId>#<n>`, unique per pick) — one buff per picked card, so re-picks stack
   const key = typeof ref.id === 'string' && ref.id.startsWith(`choice:${effectId}#`) ? ref.id : `choice:${effectId}#${ref.id ?? ''}`;
@@ -416,7 +418,7 @@ export function install(battle) {
   for (const ps of battle.players || []) {
     for (const ref of ps.playerEffects || []) {
       if (!ref || typeof ref.key !== 'string' || !ref.key.startsWith('choice:')) continue;
-      const plan = battlePlanOf(ref);
+      const plan = battlePlanOf(ref, battle);
       if (!plan || !prepGateOn(battle, ps, ref, plan.gate)) continue;
       cards.push({ pid: ps.playerId, ref, plan });
     }

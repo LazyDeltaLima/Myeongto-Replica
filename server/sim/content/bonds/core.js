@@ -66,9 +66,12 @@ const SARGON_SHARE_KEY = 'act2autochess_bond_eff_sargon[share]';
 const VICTORIA_REWARD_KEY = 'bond_layer_added_reward_equip';
 const VICTORIA_COUNTER = 'bond:victoria:hammers';
 
-/** Bond effect blackboard `{ ...bb, ...bbStr }` of a core bond (null when the data record is missing). */
-export function bondBb(bondId, key = BUFF_KEYS[bondId]) {
-  return S.buffParams(S.bondRecord(bondId), key);
+/**
+ * Bond effect blackboard `{ ...bb, ...bbStr }` of a core bond (null when the data record is missing), from the scope's
+ * data (support dataFile; default: the default season's).
+ */
+export function bondBb(bondId, key = BUFF_KEYS[bondId], scope = null) {
+  return S.buffParams(S.bondRecord(bondId, scope), key);
 }
 
 /** Has player `pid` reached the tier of `bondId` that needs `cnt` members? (active + count / tier index) */
@@ -78,14 +81,15 @@ export function reached(battle, pid, bondId, cnt) {
   const need = num(cnt, 0);
   if (!(need > 0)) return true;
   if (num(st.count, 0) >= need) return true;
-  const th = S.bondRecord(bondId)?.thresholds;
+  const th = S.bondRecord(bondId, battle)?.thresholds;
   const idx = Array.isArray(th) ? th.indexOf(need) : -1;
   return idx >= 0 && S.bondTier(battle, pid, bondId) >= idx + 1;
 }
 
-/** "总和的30%" → 0.3 (炎佑 stat share, text only). */
-export function yanyouShare() {
-  const text = String(S.bondRecord('yanShip')?.effectDesc ?? S.bondRecord('yanShip')?.desc ?? '');
+/** "总和的30%" → 0.3 (炎佑 stat share, text only; the scope's data, support dataFile). */
+export function yanyouShare(scope = null) {
+  const rec = S.bondRecord('yanShip', scope);
+  const text = String(rec?.effectDesc ?? rec?.desc ?? '');
   const m = /总和的\s*(\d+(?:\.\d+)?)\s*%/.exec(text);
   const v = m ? +m[1] / 100 : NaN;
   return v > 0 && v <= 10 ? v : 0.3;
@@ -195,12 +199,12 @@ function installYan(battle, pid, bb, members) {
     // PRTS: the sums count real 炎 operators only (调和 operators' stats are not collected unless they are 炎 too)
     let atk = 0, hp = 0;
     for (const u of S.playerOps(battle, pid, { fieldOnly: true })) {
-      if (!S.unitBonds(u).includes('yanShip')) continue;
+      if (!S.unitBonds(u, battle).includes('yanShip')) continue;
       atk += num(u.s.atk, 0);
       hp += num(u.s.maxHp, 0);
     }
     if (!(hp > 0)) return;
-    const share = yanyouShare();
+    const share = yanyouShare(battle);
     const out = spawnYanyou(battle, pid, {
       atk: atk * share, hp: hp * share, count: ex ? 2 : 1,
       atkMul: ex ? num(bb.atk, 1) : 1,
@@ -216,7 +220,7 @@ function installYan(battle, pid, bb, members) {
 function installSargon(battle, pid, bb, members) {
   const memberSet = new Set(members);
   const ps = S.player(battle, pid);
-  const share = S.buffParams(S.bondRecord('sargonShip'), SARGON_SHARE_KEY);
+  const share = S.buffParams(S.bondRecord('sargonShip', battle), SARGON_SHARE_KEY);
   const band = ps?.bandId ?? null;
   const narant = !!(share && band && share.valid_in_band === band);
   const main = narant ? share : bb;
@@ -698,7 +702,7 @@ export function install(battle) {
     if (!p.bonds || typeof p.bonds !== 'object') continue;
     for (const [bondId, fn] of Object.entries(INSTALLERS)) {
       if (!S.bondActive(battle, pid, bondId)) continue;
-      const bb = bondBb(bondId);
+      const bb = bondBb(bondId, undefined, battle);
       if (!bb) continue;
       const members = S.bondMembers(battle, pid, bondId);
       if (!members.length) continue;
@@ -718,7 +722,7 @@ export function install(battle) {
  */
 export function payHammers(ctx) {
   if (!ctx.bondActive('victoriaShip')) return 0;
-  const p = S.buffParams(ctx.data?.bonds?.victoriaShip ?? S.bondRecord('victoriaShip'), VICTORIA_REWARD_KEY);
+  const p = S.buffParams(S.bondRecord('victoriaShip', ctx), VICTORIA_REWARD_KEY);
   const step = Math.floor(num(p?.layer, 0));
   if (!p || !(step > 0)) return 0;
   const due = Math.floor(ctx.layers('victoriaShip') / step);

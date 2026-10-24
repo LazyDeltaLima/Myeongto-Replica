@@ -79,7 +79,7 @@ export function install(battle) {
   for (const u of battle.allyUnits) {
     if (!S.isOp(u)) continue;
     for (const gid of garrisonIdsOf(u)) {
-      const g = S.garrisonRecord(gid);
+      const g = S.garrisonRecord(gid, battle);
       if (g && g.eventType === 'IN_BATTLE') add(u, g);
     }
   }
@@ -88,7 +88,7 @@ export function install(battle) {
   const grants = [];
   for (const it of all.slice()) {
     if (it.key !== 'ADD_BOND') continue;
-    const g2 = S.garrisonRecord(it.bbStr.give_garrison_id);
+    const g2 = S.garrisonRecord(it.bbStr.give_garrison_id, battle);
     if (!g2 || g2.eventType !== 'IN_BATTLE') continue;
     for (const t of grantTargets(battle, it)) {
       const got = add(t, g2, it);
@@ -159,7 +159,7 @@ function grantTargets(battle, it) {
 function targetBonds(battle, it) {
   const u = it.unit;
   switch (it.bbStr.bond_type) {
-    case 'bond_self': return S.unitBonds(u).filter((b) => S.bondActive(battle, u.ownerId, b));
+    case 'bond_self': return S.unitBonds(u, battle).filter((b) => S.bondActive(battle, u.ownerId, b));
     case 'bond_actived_maxstack': { const b = S.topActiveBond(battle, u.ownerId); return b ? [b] : EMPTY; }
     default: return ids(it.bbStr.bond_id);
   }

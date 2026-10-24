@@ -126,6 +126,35 @@ export const OPERATOR_KITS = Object.freeze(Object.assign({}, ...OPERATOR_MODULES
  */
 export const KITS = Object.freeze(Object.assign({}, ...TIER_KITS, STANDIN_KITS, OPERATOR_KITS));
 
+/** Character codename (a chess kit file `<chessId>-<codename>.js`) → its chess kit keys with their tiers. */
+const CHESS_KITS_OF_CODE = (() => {
+  const out = new Map();
+  for (const f of KIT_FILES.flat()) {
+    const [key, code] = f.replace(/\.js$/, '').split('-');
+    const tier = Number(/^chess_char_(\d+)_/.exec(key)?.[1]);
+    if (!out.has(code)) out.set(code, []);
+    out.get(code).push({ key, tier });
+  }
+  return out;
+})();
+
+/**
+ * The chess kit key of a character for a chess id that has no kit file — another season's chess (shared/seasons.js)
+ * of an operator this season fields too: its one chess kit, or the one of the same tier when it has several (a tier
+ * form each); null when none or still ambiguous [ASSUMED: the same operator plays the same kit across seasons]. No
+ * chess of the current season reaches it (every one either has its file or no operator kit at all).
+ * @param {string | null | undefined} charId
+ * @param {number} [tier]
+ * @returns {string | null}
+ */
+export function chessKitOfChar(charId, tier) {
+  const list = typeof charId === 'string' ? CHESS_KITS_OF_CODE.get(charId.replace(/^char_\d+_/, '')) : null;
+  if (!list) return null;
+  if (list.length === 1) return list[0].key;
+  const same = list.filter((k) => k.tier === tier);
+  return same.length === 1 ? same[0].key : null;
+}
+
 /**
  * Every character a 自选 pick may field with a faithful kit: the 预备干员 (GENERIC_KIT_CHARS), the stand-ins with a kit
  * file and the operators of OPERATOR_KIT_FILES whose file loaded. The `kitted` option of shared/diy.js diyPool /

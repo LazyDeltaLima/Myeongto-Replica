@@ -48,7 +48,7 @@ function buffP(ctx, itemId, key) {
 function pieceIsMember(ctx, piece, bondId) {
   const bonds = metaBonds(ctx, piece);
   if (bonds.includes(bondId)) return true;
-  return bonds.includes('maniShip') && isCoreBond(bondId) && ctx.bondActive('maniShip') && ctx.bondActive(bondId);
+  return bonds.includes('maniShip') && isCoreBond(bondId, ctx) && ctx.bondActive('maniShip') && ctx.bondActive(bondId);
 }
 
 /** Cards drawn before “神秘顾客” takes one at random. */

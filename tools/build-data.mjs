@@ -402,6 +402,8 @@ async function loadContext() {
 
   return {
     act, ac, charTable, skillTable, rangeTable, uniequip, battleEquip, handbook, enemyDb,
+    // the season's name in the activity table (another season's config seasonName, buildConfig)
+    seasonTitle: activity?.basicInfo?.[SEASON]?.name ?? null,
     levels, templateIds: [...templateIds].sort(naturalCmp), stageIds, enemyDataLevelId, research,
     manifest: await loadManifest(),
     attackTiming: await loadLocalJson('tools/assets/local-attack-timing.json', 'attack timings (tools/local-extract/attack_timing.py): no `_maxAnimScale` …'),
@@ -3953,7 +3955,8 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
   const step = (t) => steps.find((x) => x.stepType === t);
   return {
     season: SEASON,
-    seasonName: '卫戍协议：盟约',
+    // the current season keeps its name as written; another one takes the activity table's (shared/seasons.js)
+    seasonName: SEASON === DEFAULT_SEASON ? '卫戍协议：盟约' : ctx.seasonTitle ?? SEASON,
     modes,
     economy: {
       income: Array.from({ length: 16 }, (_, r) => (r === 0 ? 0 : Math.min(3 + r, incomeCap))),

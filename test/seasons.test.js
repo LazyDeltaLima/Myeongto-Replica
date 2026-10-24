@@ -2,7 +2,9 @@
 // per room, offered to players only once complete): the registry and its defaults, a season's data as the default's
 // files with its own in their place (server/data.js seasonData, the /data/s/<id>/ URLs of http/static.js, the browser's
 // data store), room.create `season` (refused unless the server offers it; room.state and the match get it), and the
-// browser runner loading the sim again for another season. With one season nothing changes: room.state has no `season`.
+// browser runner loading the sim again for another season, the content modules reading a battle's / prep ctx's own data,
+// another season's prep registry, and the kit of another season's chess id. With one season nothing changes:
+// room.state has no `season`.
 import { test, describe, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -12,7 +14,7 @@ import http from 'node:http';
 import { fileURLToPath } from 'node:url';
 
 import { DEFAULT_SEASON, SEASONS, defineSeason, isSeasonId, seasonOf, seasonDataDir, seasonFeature, offeredSeasons } from '../shared/seasons.js';
-import { seasonData, loadData } from '../server/data.js';
+import { seasonData, loadData, getData } from '../server/data.js';
 import { createStaticHandler, startServer } from '../server/index.js';
 import { StubMatch } from '../server/match/StubMatch.js';
 import { validateC2S } from '../shared/protocol.js';
@@ -21,6 +23,12 @@ import { createDataStore } from '../public/js/data.js';
 import { createBattleRunner } from '../public/js/battle/runner.js';
 import { createStore, initialState } from '../public/js/store.js';
 import { TestClient } from './helpers/wsClient.js';
+import { DataSource } from '../server/sim/simdata.js';
+import { bondRecord, dataFile, isCoreBond, unitBonds } from '../server/sim/content/support/index.js';
+import { bondBb } from '../server/sim/content/bonds/addon/battle.js';
+import { bandMetaHandler } from '../server/sim/content/bands/meta.js';
+import { getDefaultRegistry, registryFor } from '../server/match/effectsMeta.js';
+import { makeMatch } from './match/harness.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const NEXT = 'act9autochess';
@@ -214,4 +222,74 @@ test('a season the server does not offer is refused', async () => {
     assert.equal(r.t, 'error');
     assert.equal(r.code, ERR.BAD_MSG);
   } finally { await c.terminate().catch(() => {}); await srv.close(); undo(); }
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// the content modules read a battle's / match's own season data (support dataFile), and another season's match builds
+// its prep-side registry from its data (effectsMeta.js registryFor)
+
+const BASE = getData({ log: quiet });
+/** The default data with 精准 (preciShip) at other numbers, no longer core-less 炎 (yanShip), and one band more. */
+function nextData() {
+  const preci = BASE.bonds.preciShip;
+  const bonds = {
+    ...BASE.bonds,
+    preciShip: { ...preci, buffs: preci.buffs.map((b) => (b.key === 'env_gbuff_new' ? { ...b, bb: { ...b.bb, base_atk: 0.5 } } : b)) },
+    yanShip: { ...BASE.bonds.yanShip, isCore: false },
+  };
+  const metaBand = Object.keys(BASE.bands).find((id) => bandMetaHandler(id));
+  const bands = { ...BASE.bands, band_next: { ...BASE.bands[metaBand], bandId: 'band_next' } };
+  return Object.freeze({ ...BASE, bonds, bands });
+}
+
+test('content data: a battle, a prep ctx or a data object reads its own season\'s files; nothing given → the default', () => {
+  const next = nextData();
+  const battle = { data: new DataSource(next, null) };
+  const ctx = { data: next };
+  assert.equal(bondBb('preciShip').base_atk, 0.1);
+  for (const scope of [battle, ctx, next]) {
+    assert.equal(bondBb('preciShip', scope).base_atk, 0.5);
+    assert.ok(bondRecord('preciShip', scope) === next.bonds.preciShip);
+    assert.equal(isCoreBond('yanShip', scope), false);
+  }
+  assert.equal(isCoreBond('yanShip'), true, 'the default season keeps its own core bonds');
+  // a battle built from part of the data (tests): the files it lacks are the default's
+  const partial = { data: new DataSource({ chess: BASE.chess }, null) };
+  assert.ok(dataFile(partial, 'bonds') === BASE.bonds);
+  // a unit's 变形同构体 grants read the items of its battle's data (no items there: none granted)
+  const unit = { kind: 'op', def: { bonds: ['yanShip'] }, items: [] };
+  assert.deepEqual([...unitBonds(unit, battle)], ['yanShip']);
+});
+
+test('prep registry: another season\'s match builds its own from its data; the default season keeps the process one', () => {
+  const next = nextData();
+  const reg = registryFor(next);
+  assert.ok(reg === registryFor(next), 'built once per data object');
+  assert.ok(reg !== getDefaultRegistry());
+  assert.ok(reg.get('band:band_next'), 'a band only the season has gets its handler');
+  assert.equal(getDefaultRegistry().get('band:band_next'), null);
+  const undo = defineSeason(NEXT);
+  try {
+    const def = makeMatch({ mode: 'solo' }).m;
+    assert.ok(def.registry === getDefaultRegistry() && def.season === DEFAULT_SEASON);
+    const m = makeMatch({ mode: 'solo', data: next, season: NEXT }).m;
+    assert.equal(m.season, NEXT);
+    assert.ok(m.registry === reg);
+  } finally { undo(); }
+});
+
+test('kits: another season\'s chess id finds the same operator\'s kit; none of this season\'s chess is affected', async () => {
+  const { chessKitOfChar, KITS: REG } = await import('../server/sim/content/kits/index.js');
+  const { kitOf } = await import('../server/sim/content/index.js');
+  // one kit: found whatever the new chess id; several (a tier form each): the one of the same tier, else none
+  const one = Object.values(BASE.chess).find((c) => !c.isGolden && c.charId && REG[c.baseChessId ?? c.chessId.replace(/_b$/, '_a')] === undefined && chessKitOfChar(c.charId, c.tier));
+  assert.equal(one, undefined, 'no chess of this season falls back');
+  const inside = BASE.chess.chess_char_1_01_a.charId;
+  assert.equal(chessKitOfChar(inside, 5), 'chess_char_1_01', 'a one-kit operator, whatever the tier');
+  const tin = BASE.chess.chess_char_1_16_a.charId; // two kits: tier 1 and tier 2
+  assert.equal(chessKitOfChar(tin, 2), 'chess_char_2_19');
+  assert.equal(chessKitOfChar(tin, 6), null, 'ambiguous across tiers');
+  assert.equal(chessKitOfChar(null, 1), null);
+  const def = { id: 'chess_char_9_99_a', baseId: 'chess_char_9_99_a', charId: tin, tier: 1 };
+  assert.ok(kitOf(def, REG) === REG.chess_char_1_16);
 });
