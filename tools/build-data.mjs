@@ -30,8 +30,8 @@
 // chess · backups · tokens · bonds · garrisons · items · bands · effects · choices · enemies · factions ·
 // waves · stages · bosses · config · validation · main.
 
-import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { mkdir, readFile, writeFile, rename, rm } from 'node:fs/promises';
+import { existsSync, readFileSync } from 'node:fs';
 import { realpathSync } from 'node:fs'; // local patch (script guard)
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -43,25 +43,25 @@ import { statusKey, composeUnitRecord, standInRecord, unitForm } from '../shared
 import { LOCAL_DIY_PICKS } from '../shared/local-diy.js';
 import { FULL_RANK, atRank, stripPotential } from '../shared/potential.js';
 import { skillModeIndex } from '../shared/skill-modes.js';
+import { DEFAULT_SEASON, SEASONS, isSeasonId, seasonDataDir } from '../shared/seasons.js';
 
 // ===== CLI & IO ==================================================================================
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const RESEARCH_DIR = join(ROOT, 'docs', 'research');
 const GAMEDATA_URL = 'https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/';
-const SEASON = 'act2autochess';
-const USAGE = 'usage: node tools/build-data.mjs [--refresh | --offline] [--out <dir>] [--cache <dir>] [--report <file>] [--quiet] [--no-research] [--force]';
+const USAGE = 'usage: node tools/build-data.mjs [--refresh | --offline] [--season <id>] [--out <dir>] [--cache <dir>] [--report <file>] [--quiet] [--no-research] [--force]';
 
 /**
  * Parse the command line strictly (unknown options and missing values are errors, so a typo can
  * never silently write data somewhere unexpected).
  * @param {string[]} argv
- * @returns {{refresh:boolean, offline:boolean, quiet:boolean, noResearch:boolean, force:boolean, out:string, cache:string, report:string}}
+ * @returns {{refresh:boolean, offline:boolean, quiet:boolean, noResearch:boolean, force:boolean, season:string, out:string, cache:string, report:string}}
  */
 function parseArgs(argv) {
   const opts = {
-    refresh: false, offline: false, quiet: false, noResearch: false, force: false,
-    out: join(ROOT, 'data'), cache: join(ROOT, '.cache', 'gamedata'), report: join(ROOT, '.cache', 'build-data-report.json'),
+    refresh: false, offline: false, quiet: false, noResearch: false, force: false, season: DEFAULT_SEASON,
+    out: null, cache: join(ROOT, '.cache', 'gamedata'), report: join(ROOT, '.cache', 'build-data-report.json'),
   };
   const flags = { '--refresh': 'refresh', '--offline': 'offline', '--quiet': 'quiet', '--no-research': 'noResearch', '--force': 'force' };
   const dirs = { '--out': 'out', '--cache': 'cache', '--report': 'report' };
@@ -69,6 +69,12 @@ function parseArgs(argv) {
     const [name, inline] = argv[i].includes('=') ? [argv[i].slice(0, argv[i].indexOf('=')), argv[i].slice(argv[i].indexOf('=') + 1)] : [argv[i], null];
     if (name === '--help' || name === '-h') { console.log(USAGE); process.exit(0); }
     if (flags[name] && inline === null) { opts[flags[name]] = true; continue; }
+    if (name === '--season') {
+      const v = inline ?? argv[++i];
+      if (!isSeasonId(v)) throw new Error(`--season needs a season of shared/seasons.js (${Object.keys(SEASONS).join(', ')})\n${USAGE}`);
+      opts.season = v;
+      continue;
+    }
     if (dirs[name]) {
       const v = inline ?? argv[++i];
       if (!v || v.startsWith('--')) throw new Error(`${name} needs a path argument\n${USAGE}`);
@@ -78,6 +84,8 @@ function parseArgs(argv) {
     throw new Error(`unknown option ${argv[i]}\n${USAGE}`);
   }
   if (opts.refresh && opts.offline) throw new Error(`--refresh and --offline are mutually exclusive\n${USAGE}`);
+  // another season writes into data/seasons/<id>/ and keeps only the files that differ from data/ (shared/seasons.js)
+  opts.out ??= join(ROOT, 'data', seasonDataDir(opts.season));
   return opts;
 }
 
@@ -89,6 +97,8 @@ try {
   process.exit(2);
 }
 const CACHE_DIR = OPTS.cache;
+/** The activity id built (shared/seasons.js; default the current season). */
+const SEASON = OPTS.season;
 
 const log = (...a) => { if (!OPTS.quiet) console.log(...a); };
 const warnings = [];
@@ -356,7 +366,7 @@ async function loadContext() {
   ]);
   const act = activity?.activity?.AUTOCHESS_SEASON?.[SEASON];
   const ac = activity?.autoChessData;
-  if (!act || !ac) throw new Error('activity_table has no act2autochess / autoChessData section');
+  if (!act || !ac) throw new Error(`activity_table has no ${SEASON} / autoChessData section`);
 
   // Note: summons/traps live in character_table (token_table.json only lists 4 unrelated traps).
 
@@ -4365,6 +4375,11 @@ function validateAll(f) {
 
 // ===== main =====================================================================================
 
+/** The default season's data/<name>.json holds exactly `text` (another season then keeps no copy of it). */
+function sameAsDefault(name, text) {
+  try { return readFileSync(join(ROOT, 'data', `${name}.json`), 'utf8') === text; } catch { return false; }
+}
+
 async function main() {
   const t0 = Date.now();
   const ctx = await loadContext();
@@ -4416,6 +4431,8 @@ async function main() {
     for (const [name, text] of Object.entries(texts)) {
       // Atomic per file: a crash mid-write never leaves a truncated JSON behind.
       const dest = join(OPTS.out, `${name}.json`);
+      // another season keeps only its own files: one equal to the default season's is the default's (shared/seasons.js)
+      if (SEASON !== DEFAULT_SEASON && sameAsDefault(name, text)) { await rm(dest, { force: true }); continue; }
       const tmp = `${dest}.tmp-${process.pid}`;
       await writeFile(tmp, text);
       await rename(tmp, dest);

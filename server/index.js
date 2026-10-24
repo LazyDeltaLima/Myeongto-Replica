@@ -21,7 +21,7 @@
 // The server only auto-listens when this file is the process entry point.
 
 import http from 'node:http';
-import { getData, loadData } from './data.js';
+import { getData, loadData, seasonData } from './data.js';
 import { ROOT, listenAddress, serveDirs, makeLogger, parseTrustProxy } from './http/config.js';
 import { WS_MAX_PAYLOAD, createSessionStack, attachWebSocket } from './http/websocket.js';
 import { DATA_SHIM_JS, createStaticHandler } from './http/static.js';
@@ -62,9 +62,10 @@ export async function startServer(opts = {}) {
   const log = opts.log || makeLogger(!!opts.quiet);
   const { publicDir, dataDir, sharedDir, packsDir } = serveDirs(opts);
 
-  // The process-wide singleton serves the default data dir; a custom dir (tests) gets its own copy.
-  const data = opts.dataDir ? loadData(dataDir, { log }) : getData({ dir: dataDir, log });
-  const { registry, lobby, network } = createSessionStack(opts, { data, log });
+  // The process-wide singleton serves the default data dir; a custom dir (tests) gets its own copy. `dataOf({ season })`:
+  // a season's data (shared/seasons.js) — the default's files with that season's own in their place.
+  const dataOf = opts.dataDir ? seasonData(loadData(dataDir, { log }), dataDir, { log }) : (o) => getData({ dir: dataDir, log, ...o });
+  const { registry, lobby, network } = createSessionStack(opts, { dataOf, log });
   const restart = new RestartNotice({ network, log }); // the deploy's restart countdown: SIGUSR2 (http/boot.js) → server.restart to everyone
   lobby.restartNotice = restart;
   // the deploy's generation (SP_GEN): a draining server keeps its running matches and refuses the rest

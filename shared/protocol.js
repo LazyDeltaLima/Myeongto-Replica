@@ -6,6 +6,7 @@ import { isDroppableChess } from './standIn.js';
 import { diySlotIds, validateDiyPicks } from './diy.js';
 import { extendProtocol } from './local.js'; // local patch: room chat, chat factions, emote sets
 import { isRulePreset, isQueuePreset, CUSTOM_MAX_JSON } from './ruleset.js';
+import { isSeasonId } from './seasons.js';
 import { cultivatedStats, isPotential, isCultivate, POTENTIAL_DEFAULT, CULTIVATE_DEFAULT } from './potential.js';
 
 // ---- tiny validators -------------------------------------------------------
@@ -411,9 +412,10 @@ export const C2S = {
   ping: { c: (v) => typeof v === 'number' && Number.isFinite(v) },
   // `ruleset`: the room's 규칙 모드 preset (shared/ruleset.js; absent = the default, classic); `custom`: the settings of
   // the custom preset (sanitizeCustom; ignored by the other presets); `size`: a co-op room's seat count (ROOM_SIZES; absent
-  // = 4, 8 = the 8-player mode — server/lobby.js)
+  // = 4, 8 = the 8-player mode — server/lobby.js); `season`: the 卫戍协议 season (shared/seasons.js; absent = the default;
+  // the server refuses one it does not offer)
   'room.create': { mode: (v) => v === 'solo' || v === 'coop', difficulty: (v) => DIFFICULTIES.includes(v), ruleset: isRulePreset,
-    custom: isCustomWire, size: isRoomSize, $optional: ['ruleset', 'custom', 'size'] },
+    custom: isCustomWire, size: isRoomSize, season: isSeasonId, $optional: ['ruleset', 'custom', 'size', 'season'] },
   'room.join': { code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v) },
   'room.leave': {},
   'room.ready': { ready: isBool },

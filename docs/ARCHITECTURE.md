@@ -95,7 +95,7 @@ so old imports keep working: `public/js/ui/gameLogic.js` (`public/js/ui/gameLogi
 | `server/sim/content/garrisons/`, `items/`, `bands/` | 特质, equipment and strategies: `battle.js` is the battle side, `meta.js` the prep side (`registerMeta`, META §2) |
 | `server/sim/content/bonds/` | the 23 bonds: `core.js` the 8 core bonds (both sides), `server/sim/content/bonds/addon/` the 15 add-on bonds (`battle.js`, `meta.js`) |
 | `server/sim/content/` (the rest) | `tokens.js` (summons), `devices.js` (terrain and stage devices), `generic.js` (the kit built from a skill's data when a chess has none), `choices.js` (机变 cards in battle) |
-| `shared/` | imported by the server and the browser: `protocol.js`, `constants.js`, `i18n.js`, `i18nData.js` and `i18nPacks.js` (languages), `packs.js` (the content-pack format), `standIn.js` (补位), `diy.js` (自选编队), `highGround.js`, `loadoutRecord.js`, `wideField.js` (the 8-player mode's wide 联防 columns) |
+| `shared/` | imported by the server and the browser: `protocol.js`, `constants.js`, `i18n.js`, `i18nData.js` and `i18nPacks.js` (languages), `packs.js` (the content-pack format), `standIn.js` (补位), `diy.js` (自选编队), `highGround.js`, `loadoutRecord.js`, `wideField.js` (the 8-player mode's wide 联防 columns), `seasons.js` (the 卫戍协议 seasons a room can run, their data folders and rule switches) |
 
 ### Client (`public/`)
 
@@ -140,6 +140,10 @@ public/assets/ ─────────▶ public/js/render/, public/js/audio
   there with `--offline`), joins them with the research JSON and writes `data/*.json` deterministically; DATA.md
   documents every field. A data fix goes into the builder: rebuild with `node tools/build-data.mjs --offline` and
   compare the JSON to see that only the intended data changed.
+- **Seasons.** `data/*.json` is the default 卫戍协议 season; another season (`shared/seasons.js`) is the same files
+  with those of `data/seasons/<id>/` in their place. A room names its season (`room.create` `season`), the match runs
+  on that season's data (`server/data.js` `seasonData`) and the page reads it from `/data/s/<id>/` (`public/js/data.js`
+  `setSeason`); the default season changes nothing (DATA.md "Seasons").
 - **On the server**, `server/data.js` loads the files once; the match reads them through `server/match/gamedata.js`,
   the sim through `server/sim/simdata.js`, which turns every record into a frozen engine def.
 - **In the browser**, `public/js/data.js` fetches the same files once per page for the UI, and the battle runner takes

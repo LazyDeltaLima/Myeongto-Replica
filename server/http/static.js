@@ -2,7 +2,8 @@
 // (i18n-ignore-file: the error pages are bilingual by design, 中文 · English — docs/I18N.md)
 //
 //     /        → public/      (index.html for directories)
-//     /data/   → data/        (generated game data)
+//     /data/   → data/        (generated game data; /data/s/<season>/<file> → the season's own file of
+//                              data/seasons/<season>/, else data/<file> — shared/seasons.js)
 //     /shared/ → shared/      (ESM shared with the browser)
 //     /sim/    → server/sim/  (the battle simulation, read-only, `.js` only — client-side
 //                              combat, DESIGN §14; the Node-only loader nodeData.js is not served)
@@ -28,6 +29,10 @@ import { ROOT, noopLog } from './config.js';
 import { sendError, sendJson } from './common.js';
 import { debugPageHidden } from '../local-patch.js'; // local patch: SP_DEBUG_PAGE
 import { MIME, GzipCache, IMMUTABLE_CACHE, isNotModified, serveFile } from './files.js';
+import { isSeasonId, seasonDataDir } from '../../shared/seasons.js';
+
+/** /data/s/<season>/<file>: a season's data file (header). */
+const SEASON_URL_DIR = 's';
 import { buildTag, splitBuildPath, versionedUrls } from './buildTag.js';
 import { serveMedia } from './media.js';
 import { createPackRegistry } from '../packs.js';
@@ -120,6 +125,13 @@ export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = pa
       || (mount.deny && mount.deny.has(segments[segments.length - 1].toLowerCase())))) {
       sendError(req, res, 404, '页面不存在 · Not found');
       return;
+    }
+    // A season's file (shared/seasons.js): /data/s/<id>/<file> is data/seasons/<id>/<file> when the season has its own,
+    // else data/<file> (the default season's)
+    if (mount.name === 'data' && segments.length === 3 && segments[0] === SEASON_URL_DIR && isSeasonId(segments[1])) {
+      const sub = seasonDataDir(segments[1]);
+      const own = sub ? await fsp.stat(path.join(mount.dir, sub, segments[2])).catch(() => null) : null;
+      segments.splice(0, 3, ...(own && own.isFile() ? [...sub.split('/'), segments[2]] : [segments[2]]));
     }
     let absPath = path.join(mount.dir, ...segments);
     if (absPath !== mount.dir && !absPath.startsWith(mount.dir + path.sep)) { sendError(req, res, 403, '禁止访问 · Forbidden'); return; }

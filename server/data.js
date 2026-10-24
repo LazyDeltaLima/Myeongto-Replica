@@ -3,6 +3,8 @@
 // Every `*.json` file in the data directory becomes a top-level key named after its basename
 // (config, chess, bonds, garrisons, items, bands, effects, choices, enemies, factions, waves, stages,
 // bosses, tokens, assets, backups, …). The result is deep-frozen so no module can mutate shared data by accident.
+// Another season's data (shared/seasons.js) is the same object with the files of `data/seasons/<id>/` in place of the
+// default's: getData({ season }), seasonData.
 // Missing or unparsable files are tolerated with a warning (data is generated in parallel with the
 // server); consumers must cope with an absent key.
 //
@@ -16,6 +18,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { seasonDataDir } from '../shared/seasons.js';
 
 /** Repository root (…/Stronghold-Protocol). */
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -80,20 +83,44 @@ export function loadData(dir = DATA_DIR, { log = console, expected = DATA_FILES 
   return deepFreeze(out);
 }
 
-/** @type {Readonly<Record<string, any>> | null} */
+/**
+ * The data of every season over one default data set (shared/seasons.js): `({ season })` → the default data, or for
+ * another season the same object with the files of `<dir>/seasons/<id>/` in place of the default's (loaded once).
+ * @param {Readonly<Record<string, any>>} base the default season's data (loadData(dir))
+ * @param {string} dir the directory `base` came from
+ * @param {{ log?: object }} [opts]
+ * @returns {(opts?: { season?: string }) => Readonly<Record<string, any>>}
+ */
+export function seasonData(base, dir, { log = console } = {}) {
+  /** @type {Map<string, Readonly<Record<string, any>>>} */
+  const cache = new Map();
+  return ({ season } = {}) => {
+    const sub = seasonDataDir(season);
+    if (!sub) return base;
+    let d = cache.get(sub);
+    if (!d) {
+      d = Object.freeze({ ...base, ...loadData(path.join(dir, sub), { log, expected: [] }) });
+      cache.set(sub, d);
+    }
+    return d;
+  };
+}
+
+/** @type {((opts?: { season?: string }) => Readonly<Record<string, any>>) | null} */
 let singleton = null;
 
 /**
- * Process-wide data singleton; loads on first call (later calls ignore the options).
- * @param {{ dir?: string, log?: object }} [opts]
+ * Process-wide data singleton; loads on first call (later calls ignore `dir` and `log`). `season` (shared/seasons.js)
+ * other than the default: seasonData.
+ * @param {{ dir?: string, log?: object, season?: string }} [opts]
  * @returns {Readonly<Record<string, any>>}
  */
-export function getData({ dir = DATA_DIR, log = console } = {}) {
-  if (!singleton) singleton = loadData(dir, { log });
-  return singleton;
+export function getData({ dir = DATA_DIR, log = console, season } = {}) {
+  if (!singleton) singleton = seasonData(loadData(dir, { log }), dir, { log });
+  return singleton({ season });
 }
 
-/** Drop the singleton so the next getData() reloads (tests / hot reload). */
+/** Drop the singleton (and every season's data) so the next getData() reloads (tests / hot reload). */
 export function resetData() { singleton = null; }
 
 // ---------------------------------------------------------------------------------------------------

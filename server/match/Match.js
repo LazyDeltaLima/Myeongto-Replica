@@ -46,6 +46,8 @@
 //   opts.matchNo     integer ≥ 1 (optional)     the room's match number (lobby: room.matchCount + 1); with the seed it
 //                                              makes this match's battleIds unique within the room (DESIGN §14)
 //   opts.data        frozen game data (server/data.js getData()); may lack keys while data is generated
+//   opts.season      string (optional)          the 卫戍协议 season (shared/seasons.js; default the current one): `data` is
+//                                              that season's data (server/data.js getData({ season }))
 //   opts.log         { info, warn, error, debug }
 //   opts.now         () => ms epoch             injectable clock (Date.now in production)
 //   opts.send(playerId, msg) → boolean          unicast; never throws; silently drops for bots, disconnected
@@ -217,6 +219,7 @@ import { MatchUnite } from './match/unitePhase.js';
 import { MatchBoss } from './match/bossRounds.js';
 import { MatchSettle } from './match/settle.js';
 import { resolveRuleset } from '../../shared/ruleset.js';
+import { seasonOf } from '../../shared/seasons.js';
 
 export { FLOW_TICKER_PRIORITY, DELAYS, BAND_TURN_SECONDS } from './match/common.js';
 
@@ -259,6 +262,8 @@ export class Match {
     this.broadcastFn = opts.broadcast;
     this.onEndFn = opts.onEnd;
     this.data = opts.data && typeof opts.data === 'object' ? opts.data : {};
+    /** the 卫戍协议 season (opts.season, shared/seasons.js): `data` is its data; its rule switches (seasonFeature) */
+    this.season = seasonOf(opts.season);
     /** 규칙 모드 (opts.ruleset, shared/ruleset.js): { preset, options, custom? }, fixed for the match */
     this.ruleset = resolveRuleset(opts.ruleset);
     /** the co-op room size (opts.size): 4, or 8 for the 8-player mode; 1 in solo */

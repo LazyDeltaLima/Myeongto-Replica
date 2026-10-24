@@ -30,6 +30,7 @@
 import { useEffect, useReducer } from '../vendor/hooks.module.js';
 import { applyFileOverlay } from '../../shared/i18nData.js';
 import { canonicalLang } from '../../shared/i18nPacks.js';
+import { DEFAULT_SEASON, seasonOf } from '../../shared/seasons.js';
 
 /** Known data files (name → URL basename). Unknown names are allowed too (`/data/<name>.json`). */
 export const DATA_FILES = Object.freeze({
@@ -147,6 +148,8 @@ export function createDataStore(opts = {}) {
   const overlays = new Map();
   /** name → { lang, value, index } localized copy of a ready file (dropped on every switch / reload of the file) */
   const localized = new Map();
+  /** The 卫戍协议 season whose files are read (shared/seasons.js; setSeason): the default's are /data/<file>. */
+  let season = DEFAULT_SEASON;
 
   const notify = (name) => {
     for (const fn of [...listeners]) {
@@ -154,7 +157,9 @@ export function createDataStore(opts = {}) {
     }
   };
 
-  const urlFor = (name) => base + (DATA_FILES[name] || `${name}.json`);
+  // another season's files: /data/s/<season>/<file> (the server answers the season's own file, else the default's);
+  // the art manifests are the same for every season
+  const urlFor = (name) => base + (season !== DEFAULT_SEASON && !ART_MANIFESTS.has(name) ? `s/${season}/` : '') + (DATA_FILES[name] || `${name}.json`);
 
   /**
    * One attempt at a file. Art manifests reject with a transient `{ timeout: true }` when the clock fires; a response
@@ -305,6 +310,16 @@ export function createDataStore(opts = {}) {
     return p;
   }
 
+  function invalidate(name) {
+    if (!entries.has(name)) return Promise.resolve(null);
+    entries.delete(name);
+    localized.delete(name);
+    warned.delete(name);
+    const p = load(name);
+    notify(name); // status is 'loading' again, never a stuck 'idle'
+    return p;
+  }
+
   return {
     /** Fetch (once) and return a file's JSON, or null when missing. */
     load,
@@ -335,14 +350,20 @@ export function createDataStore(opts = {}) {
     /** All records of a loaded file as an array (empty when not loaded). */
     list: (name) => [...(index(name)?.values() ?? [])],
     /** Drop a cached file and refetch it now (subscribers are notified when it settles). */
-    invalidate(name) {
-      if (!entries.has(name)) return Promise.resolve(null);
-      entries.delete(name);
-      localized.delete(name);
-      warned.delete(name);
-      const p = load(name);
-      notify(name); // status is 'loading' again, never a stuck 'idle'
-      return p;
+    invalidate,
+    /** The 卫戍协议 season whose files are read (shared/seasons.js). */
+    season: () => season,
+    /**
+     * Read another season's files (a room of that season, room.state `season`; absent = the default): every loaded
+     * file but the art manifests is fetched again from that season (subscribers are notified as for invalidate).
+     * Resolves when they have settled.
+     * @param {unknown} id
+     */
+    setSeason(id) {
+      const next = seasonOf(id);
+      if (next === season) return Promise.resolve();
+      season = next;
+      return Promise.all([...entries.keys()].filter((n) => !ART_MANIFESTS.has(n)).map(invalidate)).then(() => {});
     },
     /** Called with the file name whenever a file finishes loading (or is invalidated, or the locale changes). */
     subscribe(fn) {

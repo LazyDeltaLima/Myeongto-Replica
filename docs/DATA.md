@@ -16,6 +16,7 @@ node tools/build-data.mjs --refresh    # re-download every official file; fail i
 node tools/build-data.mjs --no-research --out /tmp/x   # research-free build (fallback defaults), other dir
 node tools/build-data.mjs --cache <dir> --report <file> # other cache dir / report file (tests, CI)
 node tools/build-data.mjs --force      # write data/ even when integrity checks fail (debugging only)
+node tools/build-data.mjs --season <id> # another season of shared/seasons.js → data/seasons/<id>/ (see Seasons below)
 node --test test/data.test.js          # integrity tests (+ raw-data cross-check and rebuild check when .cache/gamedata exists)
 ```
 Unknown options or a missing option value are errors (exit code 2); `--refresh` and `--offline` are exclusive.
@@ -32,6 +33,11 @@ Unknown options or a missing option value are errors (exit code 2); `--refresh` 
   warnings never do. Each output file is written atomically (temp file + rename).
 - **Determinism.** Same inputs ⇒ byte-identical outputs (stable key order, no timestamps, no randomness).
 - **Size.** ≈3.7 MB total (limit 6 MB; `chess.json` ≈1.69 MB with the loadout choices, `backups.json` ≈0.17 MB), compact JSON (no indentation).
+- **Seasons.** `data/*.json` is the default season (`shared/seasons.js` `DEFAULT_SEASON`, the activity `act2autochess`).
+  Another season (an id of the registry, maintainer decision 2026-10-24: it runs beside the current one, chosen per
+  room) keeps only the files that differ in `data/seasons/<id>/`: `--season <id>` writes there and drops every file
+  byte-identical to the default's. The server reads a season as the default's files with the season's own in their
+  place (`server/data.js` `seasonData`), the browser through `/data/s/<id>/<file>.json` (`server/http/static.js`).
 - **Derived paths.** `stages.json groundPaths*` come from the sim's own `server/sim/grid.js` pathing: a change there
   needs a rebuild (the offline-rebuild test catches a stale `data/`).
 

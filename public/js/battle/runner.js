@@ -200,6 +200,10 @@ export function createBattleRunner(deps) {
   const clearIv = deps.clearInterval || ((h) => globalThis.clearInterval(h));
   const doc = deps.doc !== undefined ? deps.doc : (typeof document !== 'undefined' ? document : null);
   const loadSim = deps.loadSim || (() => loadBrowserSim());
+  /** The season of the data the next sim loads (shared/seasons.js; appData.setSeason). */
+  const seasonNow = deps.season || (() => appData.season());
+  /** The season the loaded sim (simP) was built from. */
+  let simSeason = null;
   const logger = deps.logger || SIM_LOGGER;
 
   const listeners = new Map();
@@ -236,7 +240,11 @@ export function createBattleRunner(deps) {
   const bossLike = (e) => e.kind === 'boss' || e.kind === 'hidden';
 
   function ensureSim() {
+    // a room of another season (data.js setSeason) loads the sim again with that season's data
+    const season = seasonNow();
+    if (simP && simSeason !== season) simP = null;
     if (!simP) {
+      simSeason = season;
       simP = loadSim().catch((err) => { simP = null; throw err; });
     }
     return simP;

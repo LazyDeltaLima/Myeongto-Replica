@@ -137,6 +137,7 @@ import { isLocalDiyPick } from '../shared/local-diy.js'; // local patch: the 自
 import { KITTED_CHARS } from './sim/content/kits/index.js';
 import { Matchmaker } from './matchmaking.js';
 import { resolveRuleset, sameRuleset, rulesetWire } from '../shared/ruleset.js';
+import { DEFAULT_SEASON, offeredSeasons, seasonOf } from '../shared/seasons.js';
 
 /** Room code alphabet: uppercase letters without I and O (and no digits, so no 0/1). */
 export const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -220,6 +221,8 @@ export class Room {
     this.aiPicksLast = false;
     /** 규칙 모드 (shared/ruleset.js): { preset, options }, the default preset until room.create / room.setRuleset picks one */
     this.ruleset = resolveRuleset(null);
+    /** the 卫戍协议 season (shared/seasons.js) whose data the room's matches run on; set by room.create */
+    this.season = DEFAULT_SEASON;
     /** 랜덤 매칭: the room's humans wait in the queue for its empty seats (server/matchmaking.js queueRoom) */
     this.matching = false;
     /** @type {string | null} */
@@ -274,6 +277,8 @@ export class Room {
       difficulty: this.difficulty,
       ruleset: this.ruleset,
       aiPicksLast: this.aiPicksLast,
+      // the season, only when it is not the default (shared/seasons.js): the page loads that season's data
+      ...(this.season !== DEFAULT_SEASON ? { season: this.season } : {}),
       matching: this.matching,
       inMatch: !!this.match,
       // the room's match number (DESIGN §14): a briefing reroll replaces the match while inMatch stays true
@@ -295,7 +300,7 @@ export class Lobby {
    *   registry: import('./net.js').SessionRegistry,
    *   log?: { info: Function, warn: Function, error: Function, debug?: Function },
    *   MatchClass?: new (opts: object) => any,
-   *   getData?: () => object,
+   *   getData?: (opts?: { season?: string }) => object,
    *   now?: () => number,
    *   seedFn?: () => number,
    *   options?: Partial<typeof LOBBY_DEFAULTS>,
@@ -309,6 +314,8 @@ export class Lobby {
     this.now = now;
     this.seedFn = seedFn || (() => randomInt(2 ** 32));
     this.opts = { ...LOBBY_DEFAULTS, ...options };
+    /** the seasons a room may name (shared/seasons.js): the public ones and SP_SEASONS, or options.seasons */
+    this.seasons = new Set(Array.isArray(this.opts.seasons) ? this.opts.seasons : offeredSeasons(process.env.SP_SEASONS));
     /** @type {Map<string, Room>} */
     this.rooms = new Map();
     /** @type {Map<string, NodeJS.Timeout>} lobby grace timers by playerId */
@@ -469,8 +476,9 @@ export class Lobby {
   // room.* handlers
   // ---------------------------------------------------------------------------------------------------
 
-  create(session, { mode, difficulty, ruleset, custom, size }) {
+  create(session, { mode, difficulty, ruleset, custom, size, season = DEFAULT_SEASON }) {
     if (size === LARGE_SEATS && mode !== 'coop') return fail(ERR.BAD_MSG, 'only a co-op room has 8 seats');
+    if (!this.seasons.has(season)) return fail(ERR.BAD_MSG, 'season not offered');
     const cur = this.roomOf(session);
     if (cur && cur.match) return fail(ERR.ROOM_STARTED, 'leave your running match first');
     if (this.rooms.size >= this.opts.maxRooms) return fail(ERR.INTERNAL, 'too many rooms');
@@ -488,6 +496,7 @@ export class Lobby {
     if (cur) this.removeMember(cur, session.playerId);
     const room = new Room(code, mode, difficulty, this.now(), size);
     room.ruleset = resolveRuleset({ preset: ruleset, custom });
+    room.season = season;
     room.ownerKey = key;
     room.seats[0] = this.humanSeat(0, session);
     room.hostId = session.playerId;
@@ -865,7 +874,9 @@ export class Lobby {
         seed,
         // the room's match number: with the seed it keeps battleIds unique across the room's matches (DESIGN §14)
         matchNo: room.matchCount + 1,
-        data: this.safeData(),
+        data: this.safeData(room.season),
+        // the 卫戍协议 season (shared/seasons.js): its data above, its rule switches
+        season: room.season,
         log: this.log,
         now: this.now,
         send: (playerId, msg) => (ctx.live ? this.matchSend(room, ctx, playerId, msg) : false),
@@ -1101,8 +1112,9 @@ export class Lobby {
     try { ctx.match?.dispose?.(); } catch (e) { this.log.error('[lobby] match.dispose threw', e); }
   }
 
-  safeData() {
-    try { return this.getData(); } catch (e) { this.log.error('[lobby] getData failed', e); return Object.freeze({}); }
+  /** The game data (of a season other than the default: that season's, shared/seasons.js), never throwing. */
+  safeData(season = DEFAULT_SEASON) {
+    try { return season === DEFAULT_SEASON ? this.getData() : this.getData({ season }); } catch (e) { this.log.error('[lobby] getData failed', e); return Object.freeze({}); }
   }
 
   /** How long a dropped solo run stays resumable (ms): the option, else data singleReconnectTime, else 24 h. */
@@ -1272,6 +1284,7 @@ export class Lobby {
     };
     return {
       code: room.code, mode: room.mode, size: room.size, difficulty: room.difficulty, ruleset: rulesetWire(room.ruleset), aiPicksLast: room.aiPicksLast,
+      ...(room.season !== DEFAULT_SEASON ? { season: room.season } : {}),
       hostId: room.hostId,
       seats: room.seats.map((s) => {
         if (!s || s.left) return null;
@@ -1299,6 +1312,8 @@ export class Lobby {
     const room = new Room(code, mode, snap.difficulty, now, snap.size);
     room.ruleset = resolveRuleset(snap.ruleset);
     room.aiPicksLast = mode === 'coop' && snap.aiPicksLast === true;
+    // a season this server does not offer: the room goes on in the default one
+    room.season = this.seasons.has(seasonOf(snap.season)) ? seasonOf(snap.season) : DEFAULT_SEASON;
     const ids = new Map(); // the previous server's playerId → this one's
     const take = (p) => {
       const session = this.registry.adopt(p);
