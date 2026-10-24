@@ -1,6 +1,6 @@
 // 0.2.0 rebindable shortcuts (设置 → 快捷键) in the mock match, headless Chrome, the DOM field (no art / WebGL needed):
-// 撤退 rebound from Q to W with the keyboard only — Enter on the key waits, Esc ends the wait (the dialog stays), a refused
-// key keeps it — a swap and 恢复默认 with their messages, Q then does nothing and W retreats, the underframe shows W, the
+// 撤退 rebound from Q to T with the keyboard only — Enter on the key waits, Esc ends the wait (the dialog stays), a refused
+// key keeps it — a swap and 恢复默认 with their messages, Q then does nothing and T retreats, the underframe shows T, the
 // choice survives a reload; at phone width (640×360, touch) the section fits and says the keys need a keyboard.
 // Unit side: test/ui/feedback5-hotkeys.test.js.
 // SP_E2E=1 CHROME_PATH=/path/to/chrome node --test test/ui/hotkeys.e2e.test.js
@@ -41,7 +41,7 @@ describe('rebindable shortcuts (设置 → 快捷键)', { skip: !ENABLED && 'set
     return problems;
   }
 
-  test('撤退 rebound to W in a mock match: keyboard only, swap, Esc, refusal, the HUD hint, a reload', async () => {
+  test('撤退 rebound to T in a mock match: keyboard only, swap, Esc, refusal, the HUD hint, a reload', async () => {
     const page = await browser.newPage();
     try {
       const problems = await open(page);
@@ -49,8 +49,8 @@ describe('rebindable shortcuts (设置 → 快捷键)', { skip: !ENABLED && 'set
       await page.waitForSelector('.modal .set-tabs');
       await page.$eval('.set-tabs [data-tab="keys"]', (el) => el.click()); // 快捷键 is a tab of its own
       await page.waitForSelector('.modal .set-keys');
-      assert.deepEqual(await page.$$eval('.set-key[data-action]', (els) => els.map((el) => el.textContent.trim())), ['R', 'F', 'D', 'Q', 'X', 'Space'],
-        'the defaults are the keys of 0.1.4');
+      assert.deepEqual(await page.$$eval('.set-key[data-action]', (els) => els.map((el) => el.textContent.trim())), ['R', 'F', 'D', 'Q', 'X', 'Space', 'W'],
+        'the defaults are the keys of 0.1.4 and the official W of 查看敌人');
 
       // a swap: 撤退 onto X (出售's key) — 出售 takes the old Q, and the line under the list says so
       await page.click('.set-key[data-action="retreat"]');
@@ -74,33 +74,33 @@ describe('rebindable shortcuts (设置 → 快捷键)', { skip: !ENABLED && 'set
       await page.waitForSelector('.set-key.is-waiting', { hidden: true });
       assert.ok(await page.$('.modal .set-keys'), 'Esc ends the wait, not the dialog');
       assert.match(await note(page), /已取消，「撤退选中干员」仍是 Q/);
-      // the focus stayed on the key: Enter waits again; Enter itself is refused and the wait goes on; W is taken
+      // the focus stayed on the key: Enter waits again; Enter itself is refused and the wait goes on; T is taken
       await page.keyboard.press('Enter');
       await page.waitForSelector('.set-key.is-waiting[data-action="retreat"]');
       await page.keyboard.press('Enter');
       await sleep(100);
       assert.match(await note(page), /Enter 不能设为快捷键/);
       assert.ok(await page.$('.set-key.is-waiting[data-action="retreat"]'), 'a refused key keeps the wait');
-      await page.keyboard.press('KeyW');
-      await keyIs(page, 'retreat', 'W');
-      assert.match(await note(page), /「撤退选中干员」已改为 W/);
-      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.settings')).keys.retreat), 'KeyW', 'saved with the settings');
+      await page.keyboard.press('KeyT');
+      await keyIs(page, 'retreat', 'T');
+      assert.match(await note(page), /「撤退选中干员」已改为 T/);
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.settings')).keys.retreat), 'KeyT', 'saved with the settings');
       await page.keyboard.press('Escape'); // no wait: Esc closes the dialog as before
       await page.waitForSelector('.modal', { hidden: true });
 
-      // the match: the underframe shows W, Q no longer retreats, W does
+      // the match: the underframe shows T, Q no longer retreats, T does
       const initial = await mockState(page);
       const unit = initial.board.find((p) => p.kind === 'chess' && !p.golden);
       await page.click(`.ff-piece[data-uid="${unit.uid}"]`);
       await page.waitForSelector('.uframe__btn--retreat');
-      assert.match(await page.$eval('.uframe__btn--retreat', (el) => el.textContent), /\[W\]/);
-      assert.equal(await page.$eval('.uframe__btn--retreat', (el) => el.getAttribute('aria-keyshortcuts')), 'W');
+      assert.match(await page.$eval('.uframe__btn--retreat', (el) => el.textContent), /\[T\]/);
+      assert.equal(await page.$eval('.uframe__btn--retreat', (el) => el.getAttribute('aria-keyshortcuts')), 'T');
       await page.keyboard.press('KeyQ');
       await sleep(300);
       assert.deepEqual(await mockState(page), initial, 'Q no longer retreats');
-      await page.keyboard.press('KeyW');
+      await page.keyboard.press('KeyT');
       await page.waitForFunction((uid) => globalThis.__MOCK__.S().priv.hand.some((p) => p?.uid === uid), {}, unit.uid);
-      assert.equal((await mockState(page)).funds, initial.funds, 'W retreats (it does not sell)');
+      assert.equal((await mockState(page)).funds, initial.funds, 'T retreats (it does not sell)');
 
       // the choice survives a reload; 恢复默认 brings Q back
       await page.reload({ waitUntil: 'domcontentloaded' });
@@ -109,7 +109,7 @@ describe('rebindable shortcuts (设置 → 快捷键)', { skip: !ENABLED && 'set
       await page.waitForSelector('.modal .set-tabs');
       await page.$eval('.set-tabs [data-tab="keys"]', (el) => el.click()); // 快捷键 is a tab of its own
       await page.waitForSelector('.modal .set-keys');
-      assert.equal(await keyOf(page, 'retreat'), 'W');
+      assert.equal(await keyOf(page, 'retreat'), 'T');
       await page.click('.set-keys__reset');
       await keyIs(page, 'retreat', 'Q');
       assert.deepEqual(problems, []);
@@ -136,7 +136,7 @@ describe('rebindable shortcuts (设置 → 快捷键)', { skip: !ENABLED && 'set
         return { scroll: body.scrollWidth, client: body.clientWidth, left: b.left, right: b.right, rows: rows.map((r) => [r.left, r.right, r.width]) };
       });
       assert.ok(box.scroll <= box.client, `no horizontal scroll in the dialog (${box.scroll} > ${box.client})`);
-      assert.equal(box.rows.length, 7, 'six shortcuts and the fixed Esc');
+      assert.equal(box.rows.length, 8, 'seven shortcuts and the fixed Esc');
       for (const [l, r, w] of box.rows) assert.ok(l >= box.left - 0.5 && r <= box.right + 0.5 && w > 0, `a row inside the dialog: ${l}–${r}`);
       assert.equal(new Set(box.rows.map(([l]) => Math.round(l))).size, 1, 'one column at phone width');
       await page.$eval('.set-keys__more', (el) => el.scrollIntoView({ block: 'start' }));

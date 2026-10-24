@@ -419,6 +419,7 @@ function MatchScreen() {
   }, [view]);
   // 休整期 only; never while a piece is being placed (the wheel sits on a tile of the board camera)
   const penAvail = phase === PHASE.PREP && !!view && viewKind !== 'loading';
+  live.current.penAvail = penAvail;
   /** Pan to the enemy preview pen (on) or back to the camera in use before (off). */
   const togglePen = useCallback((on) => {
     const P = penRef.current;
@@ -1520,6 +1521,14 @@ function MatchScreen() {
         e.preventDefault();
         if (e.target instanceof HTMLElement && e.target.closest('button, [role="button"]')) e.target.blur();
         togglePauseRef.current(!L.paused);
+        return;
+      }
+      // the right 🔍 (查看敌人): to the enemy preview pen and back, as its button does
+      if (act === 'viewEnemy') {
+        if (L.pen) togglePenRef.current(false);
+        else if (L.penAvail) togglePenRef.current(true);
+        else return;
+        e.preventDefault();
         return;
       }
       if (L.pub?.phase !== PHASE.PREP || !L.priv) return;

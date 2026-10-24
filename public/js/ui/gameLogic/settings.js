@@ -27,7 +27,7 @@ const QUALITIES = ['high', 'medium', 'low'];
  * Sanitize persisted settings.
  * @param {any} raw
  * @returns {{ bgm: number, sfx: number, voice: number, muted: boolean, damageNumbers: boolean, quality: 'high'|'medium'|'low',
- *   keys: Record<'refresh'|'freeze'|'levelUp'|'retreat'|'sell'|'ready', string>, chatSound: boolean, chatVolume: number,
+ *   keys: Record<'refresh'|'freeze'|'levelUp'|'retreat'|'sell'|'ready'|'viewEnemy', string>, chatSound: boolean, chatVolume: number,
  *   chatCooldown: number, chatFactionAlerts: boolean, chatPinRecent: boolean, eliteBadge: boolean, matchNotices: boolean,
  *   numberUnits: 'myriad'|'thousand'|'full'|null }}
  */

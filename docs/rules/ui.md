@@ -260,6 +260,7 @@
   들어 올림은 남김. 동시에 왼쪽 기물 정보 카드가 그 오퍼레이터(立绘 포함)로 열린다(원본 동작 그대로). 그림 변수는 `hudArt.js`(`--ha-dc1/2`), CSS는
   hud-art.css. ko 「确认购买」 → 「구매 확인」(ui.json이 official.json의 「구매한다」를 덮음).
 - 단축키는 원본 그대로(D 승급 · F 동결 · R 갱신): 스크린샷의 G/S/D/A는 그 플레이어가 바꾼 설정일 수 있다(관리자 판단 2026-10-06).
+  → 2026-10-24 확인: G/S/D/A는 공식 기본값이다(아래 「적 미리보기 단축키」 절의 공식 표).
 - 갱신 애니메이션(2026-10-09, 관리자 요청 「갱신하면 카드가 아래에서 위로」): 같은 번들의 클립. 카드 프리팹 `autochess_shop_card_item`의 Animation
   `card_item_refresh` = root y −135 → −25.92(4/60초) → 0(14/60초), 접선 0 → 444.3 → 0, `root_layout`의 `card_whole_refresh_normal` =
   `group_slots`(카드 줄, 승급 상자 제외) alpha 0 → 1(0.1초). 60fps Hermite(가중치 1/3)를 구간마다 cubic-bezier로 옮겨 그대로 씀(game-shop.css
@@ -1551,10 +1552,45 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   - Esc: 카드·팝업 같은 것을 닫을 때 선택도 함께 풀고, 닫을 것이 없으면 선택만 푼다.
   - 필드 밖을 누름: 채팅, 플레이어 목록, 위쪽 줄 등. 선택이 남는 곳은 그 기물의 언더프레임(撤退 / 出售 / 销毁 단추), 그 기물의 카드(맹약 칸 등),
     대화 상자(销毁 확인)뿐(`.uframe, .dpanel, .modal`).
-- 공식: 卫戍协议 공식 클라에서 키보드 단축키 처리를 찾지 못함(조작은 언더프레임 단추), 그래서 이 규칙은 우리 단축키의 규칙이다.
+- 공식: 이 규칙(선택을 놓으면 단축키도 놓음)은 우리 단축키의 규칙이다. 공식 PC 클라에도 卫戍协议 단축키가 있지만(아래 「적 미리보기 단축키」), 出售(X)가
+  선택 해제와 어떻게 맞물리는지는 확인하지 않았다.
 - 확인: `test/ui/select-letgo.e2e.test.js`(목업 판, DOM 필드: Esc 뒤·채팅을 누른 뒤 X는 아무것도 팔지 않음, 카드의 맹약 칸을 눌러도 선택이 남아 X가
   그 기물만 팖, 언더프레임 出售; 수정 전 코드에서는 실패). Windows Chrome 목업 판 3D 필드에서도 같은 결과(선택 → X 판매, 채팅을 누름·Esc 뒤 X 무반응).
   [화면 미확인: 실제 서버 판]
+
+## 적 미리보기 단축키 (2026-10-24, 관리자 요청)
+
+- 요청: 「적 미리보기 단축키를 넣고, 설정창에서도 편집 가능하게」. 적 미리보기 = 위쪽 줄 오른쪽 🔍▶▶(휴식 기간에 카메라를 적 미리보기 구역으로
+  옮기고, 거기서 다시 누르면 돌아옴, `ui/hud.js checkButtons`).
+- 공식: 공식 표 `display_meta_table.pcKeyData`의 `keySettingData.autoChess`(이름 「卫戍协议」, `gameModeTag` autochess)에 단축키 7개가 있고,
+  그중 `autochessViewEnemy` 「查看敌人」 기본 W(`alphaW`, 다시 지정 가능). 공식 클라에서 확인: HUD 프리팹
+  `autochess_hud_panel/player_info_view/btn_check_enemy`의 가상 버튼 설정(`KeyBoardVirtualButtonConfig` groupId `autoChess` · funcId
+  `autochessViewEnemy`)이 이 키를 그 버튼 누름으로 바꾼다 — 우리 오른쪽 🔍와 같은 버튼이다.
+- 구현: 다시 지정 가능한 동작 `viewEnemy`(`gameLogic/shortcuts.js HOTKEY_ACTIONS` 맨 끝, 기본 `KeyW`), 설정 → 단축키 탭에 「查看敌人」(ko 적 미리보기)
+  한 줄. `screens/game.js` keydown: 미리보기 중이면 돌아오고, 아니면 버튼을 누를 수 있을 때(`penAvail`: 휴식 기간, 보드 화면이 있음)만 옮긴다 —
+  버튼과 같은 동작이고, 회색일 때(전투 중 등) 키는 아무것도 안 한다. 대화 상자·本局信息 서랍 뒤에서는 다른 단축키처럼 막힌다(`shortcutBlocked`).
+  🔍 툴팁 끝에 지금 키(「다가오는 적 보기 · W」).
+- 저장된 키 배치(0.2.0부터 `sp.pref.settings.keys`)에는 `viewEnemy`가 없다: 기본 W가 비어 있으면 W, 플레이어가 W를 다른 동작에 줬으면 비어 있는 첫
+  키(A부터)를 준다(`LATER_ACTIONS`) — 두 동작이 한 키를 나누면 전체를 기본값으로 되돌리는 기존 규칙 때문에 플레이어의 배치가 지워지지 않게.
+- 공식 기본값과 우리 기본값(2026-10-24 비교, `pcKeyData`):
+
+  | 동작 | 공식 funcId · 이름 | 공식 기본 | 우리 기본 |
+  |---|---|---|---|
+  | 갱신 | `autochessRefresh` 刷新 | D | R |
+  | 동결 | `autochessFreeze` 冻结 | S | F |
+  | 승급 | `autochessLevelUp` 升级 | G | D |
+  | 상점 열기/접기 | `autochessShop` 调度中心 | A | (없음) |
+  | 준비 완료 | `autochessReady` 准备就绪 | C | Space |
+  | 판매 | `autochessSale` 出售 | X | X |
+  | 적 미리보기 | `autochessViewEnemy` 查看敌人 | W | W |
+  | 퇴각 | 일반 전투 묶음 `retreatChar` 撤退干员 | Q | Q |
+  | 일시정지 | 일반 전투 묶음 `pauseBattle` 暂停 | Space | 준비 키(Space) |
+
+  퇴각·일시정지는 卫戍协议 묶음이 아니라 일반 전투 묶음(`normalBattle`)에 있어 卫戍协议 안에서도 먹히는지는 모른다.
+  상점 키는 프리팹에서 상점 접기(`btn_close`)·펼치기(`btn_open`) 두 버튼에 붙어 있다. 기본값은 0.1.4 키 그대로 둠(관리자 결정 대기).
+- 확인: `test/ui/feedback5-hotkeys.test.js`(기본값·저장된 옛 배치·game.js 연결), `SP_E2E` `test/ui/hotkeys.e2e.test.js` 2/2(Windows Chrome,
+  설정 줄 8개). 실제 단독 판(Windows Chrome 1920×1080, 한국어, 3D 보드): 휴식 기간 W → 미리보기(`.gtop.is-pen`, 오른쪽 버튼 회색) → W → 보드,
+  툴팁 「다가오는 적 보기 · W」, 설정 단축키 탭에 「적 미리보기 W」.
 
 ## 8인 협동 모드 화면 (관리자 결정 2026-10-16·2026-10-19, 공식에 없는 기능)
 
