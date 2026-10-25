@@ -145,6 +145,7 @@ export class MatchPlatform {
       if (!ps.spectator) {
         ps._lastPriv = null;
         this._sendPrivate(ps, true);
+        if (ps.roundDmg) this.sendTo(playerId, ps.roundDmg); // the last round's damage panel (settle.js _sendRoundDamage)
       }
       if (this.clientCombat) this._resendBattle(ps);
       else if (!this.fields.length && this._follows(ps)) this._followScout(ps, { keep: true });

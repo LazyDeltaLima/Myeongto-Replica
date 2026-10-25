@@ -20,6 +20,7 @@ import { awayStore } from '/js/ui/matchChrome.js';
 import { GAME_FILES } from '/js/ui/gameComponents.js';
 import { initLang } from '/js/ui/lang.js';
 import { PHASE, GEO } from '/shared/constants.js';
+import { battleRunner } from '/js/battle/runner.js';
 
 const params = new URLSearchParams(location.search);
 const SHOT = params.get('shot') === '1';
@@ -846,6 +847,22 @@ function renderBar() { render(html`<${Switcher} />`, bar); }
 window.addEventListener('keydown', (e) => { if (e.key === '`') bar.classList.toggle('hidden'); });
 if (SHOT) bar.classList.add('hidden');
 
+// ---- round damage panel (ui/roundDamage.js) ----------------------------------------------------------------------------------
+// the previous round's m.roundDmg for the board's operators, and — the mock streams frames instead of running the browser
+// sim — a stand-in for the runner's live reading of the own battle that grows over 40 s of a combat phase
+const MOCK_DMG = [182400, 121300, 96800, 64200, 41900, 18300, 9600, 5200, 2100, 800];
+function mockRoundDamage() {
+  const ops = () => (S.priv?.board || []).filter((p) => p && p.kind === 'chess');
+  const units = ops().map((p, i) => [p.uid, MOCK_DMG[i % MOCK_DMG.length]]).sort((a, b) => b[1] - a[1]);
+  net._emit('m.roundDmg', { t: 'm.roundDmg', round: Math.max(1, (S.pub?.round || 2) - 1), units });
+  if (!battleRunner) return;
+  const t0 = performance.now();
+  battleRunner.ownDamage = () => {
+    const k = Math.min(1, (performance.now() - t0) / 40000);
+    return { battleId: 'mock', kind: 'normal', done: k >= 1, units: ops().map((p, i) => ({ uid: p.uid, ownerUid: null, dmg: MOCK_DMG[(i + 2) % MOCK_DMG.length] * (0.45 + 0.55 * k) * (1 - (i % 3) * 0.07) })) };
+  };
+}
+
 // ---- boot ---------------------------------------------------------------------------------------------------------------------
 async function boot() {
   net.request = mockRequest;
@@ -866,6 +883,7 @@ async function boot() {
   render(html`<div class="app-root"><div class="app-bg" aria-hidden="true"></div><${GameScreen} /><${ConnectionBanner} /><${ToastHost} /><${UiHosts} /><${GuideHost} /></div>`, document.getElementById('app'));
   renderBar();
   store.subscribe(() => renderBar());
+  mockRoundDamage();
   globalThis.__MOCK__ = { store, S: () => S, setPhase, mutate: (fn) => { fn(S); refreshPrivate(); }, pushPublic: () => pushPublic(),
     hurtDevice: (i, dmg) => S?.battle?.hurtDevice?.(i, dmg) ?? false };
 }

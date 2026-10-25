@@ -63,6 +63,8 @@
 //                           0.1.0). Read-only: it takes the stats the sim computed last (`unit._s`) and the range grid it
 //                           keeps, and never makes the unit recompute them, so looking never changes the battle's floats.
 //   battleRunner.unitIdOf(uid, ownerId, fieldId?) → the id of an own board piece's unit in that battle | null
+//   battleRunner.ownDamage(ownerId) → { battleId, kind, done, units } the latest own non-联防 battle's damage per unit
+//                           (the round damage panel, ui/roundDamage.js) | null
 //   battleRunner.ownerOps(ownerId, fieldId?) → [{ kind: 'op', ownerId, defId, items?, standInFor?, diy? }] that player's
 //                           operators in the battle on screen with their equipment (a teammate's bond popup: the members in
 //                           play, DESIGN §20.15, 变形同构体 wearers included; a 补位 stand-in names the replaced charId,
@@ -74,6 +76,7 @@
 import { net as appNet } from '../net.js';
 import { store as appStore } from '../store.js';
 import { unitStatsEntry, stateFx, RESULT_LIMITS } from '../../../shared/protocol.js';
+import { liveUnitDamage } from '../../../shared/roundDamage.js';
 import { spectateEffects, halfSide } from './observe.js';
 import { recordError, setBattleSource, rememberBattle } from '../diag.js';
 import { data as appData } from '../data.js';
@@ -920,6 +923,20 @@ export function createBattleRunner(deps) {
           const diy = u.def?.diyFor ? u.def.loadout?.diy : null;
           return { ...o, ...(si ? { standInFor: si } : {}), ...(diy ? { diy: { ...diy } } : {}) };
         });
+    },
+    /**
+     * The round damage panel's live reading (ui/roundDamage.js): the latest own battle built here that is not a 联防
+     * one — on screen or stepping off screen, running or done — and `ownerId`'s units in it in the unitStats shape
+     * (shared/roundDamage.js liveUnitDamage; the panel folds them onto the board). Read-only. null without one.
+     * @param {string} ownerId
+     * @returns {{ battleId: string, kind: string, done: boolean, units: Array<{ uid: number|null, ownerUid: number|null, dmg: number }> }|null}
+     */
+    ownDamage(ownerId) {
+      let m = null;
+      for (const e of entries.values()) if (e.own && e.kind !== 'unite' && e.battle && (!m || e.seq > m.seq)) m = e;
+      const ps = m && Array.isArray(m.battle.players) ? m.battle.players.find((p) => p && p.playerId === ownerId) : null;
+      if (!ps) return null;
+      return { battleId: m.battleId, kind: m.kind, done: !!m.done, units: liveUnitDamage(ps.units) };
     },
     /** Re-show the current battle (the game screen remounted). */
     reshow() { if (cur) show(cur); },

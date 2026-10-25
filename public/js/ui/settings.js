@@ -103,6 +103,8 @@ function ChatSoundSection({ s }) {
 }
 
 const QUALITY = [['high', N_('高')], ['medium', N_('中')], ['low', N_('低')]];
+/** settings → 画面 「伤害统计样式」 (ui/roundDamage.js; ROUND_DAMAGE_STYLES) */
+const ROUND_DAMAGE_LOOKS = [['auto', N_('自动')], ['full', N_('详细')], ['compact', N_('简洁')]];
 
 /**
  * 数字单位: how large numbers are shortened (fmtNum: the damage broadcast, the result screen, HP, the stats) — each choice
@@ -324,6 +326,15 @@ export function SettingsModal({ open, onClose }) {
         </div>
         <${NumberUnitsSetting} />
         <${Toggle} label=${t('精锐干员标记')} micro="ELITE BADGE" value=${s.eliteBadge} onChange=${(v) => updateSettings({ eliteBadge: v })} />
+        <${Toggle} label=${t('回合伤害统计')} micro="ROUND DAMAGE" value=${s.roundDamage} onChange=${(v) => updateSettings({ roundDamage: v })} />
+        ${s.roundDamage ? html`<div class="set-row">
+          <span class="set-row__label">${t('伤害统计样式')}<${MicroLabel}>DAMAGE STYLE<//></span>
+          <div class="set-seg" role="radiogroup">
+            ${ROUND_DAMAGE_LOOKS.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${s.roundDamageStyle === id ? 'true' : 'false'}
+              class=${s.roundDamageStyle === id ? 'is-on' : ''} onClick=${() => updateSettings({ roundDamageStyle: id })}>${t(label)}</button>`)}
+          </div>
+        </div>` : null}
+        <p class="set-hint">${t('对局中显示每名干员在自己的作战中造成的伤害（作战中实时，整备时为上一场作战），召唤物计入召唤者，不含联防。自动：电脑为详细，手机为简洁。')}</p>
         <${Toggle} label=${t('对局通知')} micro="MATCH NOTICES" value=${s.matchNotices} onChange=${(v) => updateSettings({ matchNotices: v })} />
         <p class="set-hint">${t('关闭后对局中不再弹出任何通知：获得干员、盟约资金等提示，干员退回整备区、淘汰等警告，以及操作无法执行的原因。')}</p>
         <${UiScaleSetting} />${/* local patch */ ''}

@@ -554,6 +554,7 @@ export class MatchBoss {
           // the settlement's per-operator numbers: leader damage capped at what this round's pool credited the player
           // (unitTally.js — a browser-run field counts against its local copy of the pool)
           tallyBattle(this.gd, ps, pp.unitStats, { boss: hidden ? 'hidden' : 'final', bossCap: this.bossPool ? this.bossPool.byPlayer.get(pid) || 0 : null });
+          this._sendRoundDamage(ps, pp);
         }
         if (pp && ps) {
           // the own battle counts as perfect when the team won, the result is a real one (not the stand-in of a field that

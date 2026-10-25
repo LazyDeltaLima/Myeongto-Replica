@@ -109,11 +109,12 @@ export function rowLpTip(lp, cap = 10) {
 /**
  * @param {{ pub:any, myId:string, watching:string|null, bubbles: Map<string,{id:string,seq:number}>, onWatch:(p:any)=>void,
  *   compact?: boolean, teamLp?: number|null, self?: { lp?: number|null, pending: number, unite: boolean, left?: number|null } | null,
- *   cap?: number, uniteLocal?: Record<string, number> | null,
+ *   cap?: number, uniteLocal?: Record<string, number> | null, after?: any,
  *   observe?: null | { canObserve: (p:any) => { fieldId?: string, reason?: string|null, back?: boolean }, observing: boolean, onBack: () => void } }} props
  *   uniteLocal: the local 联防 replica's per-leaker counts while it is on screen (battle runner state().uniteLeft), else null
+ *   after: drawn at the end of the list, positioned against it (the phone's round damage chip, ui/roundDamage.js)
  */
-export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = false, observe = null, self: selfLive = null, cap = 10, uniteLocal = null }) {
+export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = false, observe = null, self: selfLive = null, cap = 10, uniteLocal = null, after = null }) {
   const [openPid, setOpenPid] = useState(null);
   const phaseKey = `${pub?.phase}:${pub?.round}`;
   useEffect(() => { setOpenPid(null); }, [phaseKey, watching, observe?.observing]);
@@ -178,5 +179,6 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
         ${bubble ? html`<${EmoteBubble} key=${bubble.seq} id=${bubble.id} set=${bubble.set} class="team__bubble" />` : null}
       </div>`;
     })}
+    ${after}
   </aside>`;
 }

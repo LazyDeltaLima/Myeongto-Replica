@@ -3,7 +3,8 @@
 //   RESULT / m.result → Result (screens/result.js), everything else → MatchScreen below.
 //
 // MatchScreen = full-screen field view (render engine per DESIGN §9, DOM fallback when it can't load)
-// with the DOM HUD layered on top: top bar, bond strip + popup, team panel (click = g.watch), effects,
+// with the DOM HUD layered on top: top bar, bond strip + popup, team panel (click = g.watch), effects, the round damage
+// chip and panel (ui/roundDamage.js: under the effects on a desktop, under the team panel on a phone),
 // shop bar (prep), merge-reward and 机变 overlays, detail panel, enemy / match-info drawer, combat HUD
 // (DP, "作战结束，等待队友完成作战" + teammates' progress, observing pill, 联防 / 最终攻势 ‹ › camera halves),
 // phase banners, the own battle's end (the official round_result_dialog banner and its BATTLEOVER sound once per round:
@@ -88,6 +89,7 @@ import { EmoteWheel } from '../ui/emotes.js';
 import { GameChat } from '../ui/chat.js';
 import { DebugPanel } from '../ui/debugPanel.js'; // local patch: local debug mode only (m.private.debug)
 import { EffectsList } from '../ui/effectsList.js';
+import { RoundDamage } from '../ui/roundDamage.js';
 import { CombatHud } from '../ui/combatHud.js';
 import { SettingsModal, settingsStore } from '../ui/settings.js';
 import { ExitModal, AwayOverlay, awayStore } from '../ui/matchChrome.js';
@@ -1753,7 +1755,8 @@ function MatchScreen() {
     <div class="gm__side">
       <${TeamPanel} pub=${pub} myId=${myId} watching=${watchingNow} bubbles=${bubbles} onWatch=${watchPlayer} cap=${lpCap} uniteLocal=${uniteLocal}
         self=${Number.isFinite(priv?.lp) ? { lp: priv.lp, pending: liveLpNow.pending, unite: liveLpNow.unite, left: liveLpNow.left } : null}
-        observe=${cc ? { canObserve: (p) => observeTarget(p, pub, myId, { observing: watchingOther }), observing: watchingOther, onBack: backHome } : null} />
+        observe=${cc ? { canObserve: (p) => observeTarget(p, pub, myId, { observing: watchingOther }), observing: watchingOther, onBack: backHome } : null}
+        after=${html`<${RoundDamage} pub=${pub} priv=${priv} myId=${myId} place="phone" spectator=${spectator} />`} />
     </div>
 
     <div class="gm__hud" ref=${hudElRef}>
@@ -1782,7 +1785,8 @@ function MatchScreen() {
         </div>
       </div>
 
-      <div class="gm__effects"><${EffectsList} effects=${watchingOther && field ? (field.effects ?? null) : priv?.effects} /></div>
+      <div class="gm__effects"><${EffectsList} effects=${watchingOther && field ? (field.effects ?? null) : priv?.effects} />
+        <${RoundDamage} pub=${pub} priv=${priv} myId=${myId} place="desktop" spectator=${spectator} /></div>
       ${priv?.debug && !spectator ? html`<${DebugPanel} debug=${priv.debug} prep=${phase === PHASE.PREP} diy=${priv.diy} />` : null /* local patch: local debug mode */}
 
       ${watchingOther && !combat ? html`<div class="gm__watching" role="status">

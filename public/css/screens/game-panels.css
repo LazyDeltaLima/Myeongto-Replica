@@ -731,3 +731,65 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .eqr__hint { margin: .04rem 0 0; text-align: center; font-size: .15rem; color: var(--text-lo); min-height: .24rem; }
 .eqr__hint b { color: var(--text-hi); }
 .eqr__ok-icon { width: .2rem; height: .2rem; margin-right: .06rem; vertical-align: -.03rem; filter: brightness(0) invert(1); }
+
+/* ---- round damage panel (ui/roundDamage.js; docs/rules/ui.md 「라운드 대미지 패널」) -----------------------------
+   A 「伤害」 chip and the panel it opens. `--q` is one px of the 1600 × 900 design (1rem ≈ 83 px there); a phone's is a
+   little larger, as the rest of its HUD. Desktop: the chip left of the effects column's first icon (.gm__effects is its
+   containing block: a fixed spot however many effects pile up — under the column it slid onto 冻结 / 刷新 late in a match),
+   the panel left of the chip, top-aligned with it. Phone: the chip under the player list (.team), the panel right of it. */
+.rdmg { --q: calc(1rem / 83); pointer-events: auto; }
+.rdmg.is-phone { --q: calc(1rem / 66); }
+.rdmg.is-desktop { position: absolute; right: calc(100% + var(--q) * 10); top: calc(var(--q) * 18); }
+.rdmg.is-phone .rdmg__chip { position: absolute; left: 0; top: calc(100% + var(--q) * 12); }
+.rdmg__chip {
+  position: relative; display: inline-flex; align-items: center; gap: calc(var(--q) * 6); height: calc(var(--q) * 30); padding: 0 calc(var(--q) * 10);
+  color: var(--text-hi, #e8f1ee); font: inherit; font-size: calc(var(--q) * 13); font-weight: 700; white-space: nowrap; cursor: pointer;
+  background: rgba(10, 15, 13, .88); border: 1px solid rgba(78, 216, 175, .4);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--q) * 7), calc(100% - var(--q) * 7) 100%, 0 100%);
+}
+.rdmg__chip:hover { border-color: var(--mint-500); }
+.rdmg__chip.is-open { border-color: var(--mint-500); background: rgba(24, 58, 48, .92); }
+.rdmg__ic { width: calc(var(--q) * 14); height: calc(var(--q) * 14); color: var(--mint-500); flex: none; }
+.rdmg__dot { width: calc(var(--q) * 7); height: calc(var(--q) * 7); border-radius: 50%; background: #ff5a4a; box-shadow: 0 0 calc(var(--q) * 6) #ff5a4a; }
+.rdmg__panel {
+  position: absolute; z-index: 2; top: 0; color: var(--text-hi, #e8f1ee);
+  background: linear-gradient(180deg, rgba(14, 20, 18, .9), rgba(9, 13, 12, .86)); border: 1px solid rgba(78, 216, 175, .28);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .5), 0 calc(var(--q) * 6) calc(var(--q) * 18) rgba(0, 0, 0, .45);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--q) * 10), calc(100% - var(--q) * 10) 100%, 0 100%);
+}
+.rdmg.is-desktop .rdmg__panel { right: calc(100% + var(--q) * 8); }
+.rdmg.is-phone .rdmg__panel { left: calc(100% + var(--q) * 14); }
+.rdmg__panel.is-full { width: calc(var(--q) * 270); }
+.rdmg__panel.is-compact { width: calc(var(--q) * 196); }
+.rdmg__hd {
+  display: flex; align-items: center; gap: calc(var(--q) * 7); height: calc(var(--q) * 30); padding: 0 calc(var(--q) * 6) 0 calc(var(--q) * 10);
+  border-bottom: 1px solid rgba(78, 216, 175, .22); background: rgba(78, 216, 175, .07); font-size: calc(var(--q) * 14);
+}
+.rdmg__tag { font-size: calc(var(--q) * 11); font-weight: 600; color: #9fb3ad; padding: calc(var(--q) * 1) calc(var(--q) * 6); border: 1px solid rgba(159, 179, 173, .35); border-radius: 2px; white-space: nowrap; }
+.rdmg__tag.is-live { display: inline-flex; align-items: center; gap: calc(var(--q) * 4); border: 0; padding: 0; color: #ff6b5e; font-weight: 700; }
+.rdmg__tag.is-live::before { content: ''; width: calc(var(--q) * 7); height: calc(var(--q) * 7); border-radius: 50%; background: #ff5a4a; box-shadow: 0 0 calc(var(--q) * 6) #ff5a4a; }
+.rdmg__sp { flex: 1; }
+.rdmg__x { width: calc(var(--q) * 24); height: calc(var(--q) * 24); padding: 0; display: grid; place-items: center; color: #9fb3ad; font: inherit; font-size: calc(var(--q) * 16); line-height: 1; background: none; border: 0; cursor: pointer; }
+.rdmg__x:hover { color: var(--mint-500); }
+.rdmg__rows { list-style: none; margin: 0; padding: calc(var(--q) * 4) 0; }
+.rdmg__row { display: grid; align-items: center; gap: calc(var(--q) * 7); height: calc(var(--q) * 31); padding: 0 calc(var(--q) * 9) 0 calc(var(--q) * 6); }
+.is-full .rdmg__row { grid-template-columns: calc(var(--q) * 24) minmax(0, 1fr) auto; grid-template-rows: auto calc(var(--q) * 5); row-gap: calc(var(--q) * 2); }
+.is-compact .rdmg__row { grid-template-columns: calc(var(--q) * 26) minmax(0, 1fr) calc(var(--q) * 48); height: calc(var(--q) * 29); }
+.rdmg__av { width: calc(var(--q) * 24); height: calc(var(--q) * 24); display: grid; place-items: center; overflow: hidden; background: #1b2422; border: 1px solid rgba(255, 255, 255, .14); font-size: calc(var(--q) * 12); }
+.rdmg__av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.is-full .rdmg__av { grid-row: 1 / span 2; }
+.is-compact .rdmg__av { width: calc(var(--q) * 26); height: calc(var(--q) * 26); }
+.rdmg__nm { font-size: calc(var(--q) * 12.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #dbe7e3; }
+.rdmg__val { font-size: calc(var(--q) * 13); font-weight: 700; text-align: right; white-space: nowrap; }
+.rdmg__val small { font-size: calc(var(--q) * 10.5); font-weight: 500; color: #8ea39d; margin-left: calc(var(--q) * 4); }
+.rdmg__track { position: relative; height: calc(var(--q) * 5); background: rgba(255, 255, 255, .06); }
+.is-full .rdmg__track { grid-column: 2 / span 2; }
+.is-compact .rdmg__track { height: calc(var(--q) * 9); }
+.rdmg__track i { position: absolute; inset: 0 auto 0 0; min-width: 1px; background: linear-gradient(90deg, #2c9c7c, var(--mint-500)); border-radius: 0 2px 2px 0; transition: width .3s var(--ease-out, ease-out); }
+.rdmg__row.is-top .rdmg__track i { background: linear-gradient(90deg, #b8892c, #f3c55a); }
+.rdmg__row.is-top .rdmg__val { color: #f3c55a; }
+.rdmg__ft {
+  display: flex; justify-content: space-between; align-items: center; padding: calc(var(--q) * 5) calc(var(--q) * 10) calc(var(--q) * 7);
+  border-top: 1px solid rgba(255, 255, 255, .07); font-size: calc(var(--q) * 11.5); color: #8ea39d;
+}
+.rdmg__ft b { color: var(--text-hi, #e8f1ee); font-weight: 700; }

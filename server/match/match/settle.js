@@ -7,6 +7,7 @@ import { PHASE, layerGainRoom } from '../../../shared/constants.js';
 import { uniteSurvivors } from '../unite.js';
 import { buildResult } from '../results.js';
 import { tallyBattle } from '../unitTally.js';
+import { foldRoundDamage } from '../../../shared/roundDamage.js';
 import { FLOW_TICKER_PRIORITY, DELAYS } from './common.js';
 import { msg } from '../../../shared/i18n.js';
 import { nameParam } from '../../../shared/botNames.js';
@@ -79,6 +80,7 @@ export class MatchSettle {
       // the settlement's per-operator numbers (unitTally.js): the own battle, then the 联防 one
       tallyBattle(this.gd, ps, r.unitStats);
       if (up) tallyBattle(this.gd, ps, up.unitStats);
+      this._sendRoundDamage(ps, r);
       // perfect-payout bounties (战术特训): own phase perfect
       for (const b of ps.bounties) if (b.card.payout === 'perfect' && counted === 0 && r.perfect !== false) coins += b.card.coin;
       if (coins > 0) { ps.pendingFunds += coins; ps.stats.fundsGained += coins; }
@@ -147,6 +149,17 @@ export class MatchSettle {
       const hit = steps.find((s) => (u.dmg || 0) >= s);
       if (hit) this.tickerFor('CHAR_DAMAGE', [ps.name, u.name || u.defId, String(hit)], { playerId: ps.playerId, param: String(hit) });
     }
+  }
+
+  /**
+   * m.roundDmg { round, units: [[uid, dmg], …] } (the round damage panel, shared/roundDamage.js): what each board
+   * operator dealt in the player's own battle of this round, summons in their summoner — never the 联防 battle. Kept on
+   * the player (`roundDmg`) and sent again on a resync (platform.js), so a reload in the next prep still shows it.
+   */
+  _sendRoundDamage(ps, r) {
+    if (!ps || ps.isBot || !r) return;
+    ps.roundDmg = { t: 'm.roundDmg', round: this.round, units: foldRoundDamage(ps.board.values(), r.unitStats) };
+    this.sendTo(ps.playerId, ps.roundDmg);
   }
 
   afterSettle() {

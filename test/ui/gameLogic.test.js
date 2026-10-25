@@ -777,7 +777,8 @@ describe('keyboard & settings', () => {
     assert.deepEqual([sanitizeSettings({ numberUnits: 'full' }).numberUnits, sanitizeSettings({ numberUnits: 'K' }).numberUnits], ['full', null]);
     assert.deepEqual(sanitizeSettings({ bgm: 3, sfx: -1, voice: 2, muted: 'yes', damageNumbers: false, quality: 'ultra' }),
       { bgm: 1, sfx: 0, voice: 1, muted: false, damageNumbers: false, quality: 'high', keys: { ...DEFAULT_SETTINGS.keys },
-        chatSound: true, chatVolume: 0.5, chatCooldown: 2, chatFactionAlerts: false, chatPinRecent: false, eliteBadge: false, matchNotices: true, numberUnits: null },
+        chatSound: true, chatVolume: 0.5, chatCooldown: 2, chatFactionAlerts: false, chatPinRecent: false, eliteBadge: false, matchNotices: true, numberUnits: null,
+        roundDamage: true, roundDamageStyle: 'auto' },
       'a saved profile without `keys` (before 0.2.0) gets the default key map (test/ui/feedback5-hotkeys.test.js)');
     assert.equal(sanitizeSettings({ bgm: 0.5 }).voice, DEFAULT_SETTINGS.voice, 'a saved profile without `voice` gets the default');
     assert.equal(sanitizeSettings({ bgm: 0.333 }).bgm, 0.33);
