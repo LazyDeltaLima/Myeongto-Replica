@@ -110,12 +110,14 @@ describe('the key map: saved before the official defaults, and the actions added
     assert.deepEqual(sanitizeHotkeys({ ...DEFAULT_HOTKEYS, retreat: 'KeyW' }), { ...DEFAULT_HOTKEYS }, 'retreat and viewEnemy on W');
   });
 
-  test('game.js: the key pans to the enemy preview pen and back, as the right 🔍 does; the 🔍 tip names the key', () => {
+  test('game.js: the key pans to the enemy preview pen and back, as the right 🔍 does; the 🔍 shows the key, its tip does not', () => {
     const src = read('public/js/screens/game.js');
     assert.match(src, /live\.current\.penAvail = penAvail;/);
     assert.match(src, /if \(act === 'viewEnemy'\) \{\n\s+if \(L\.pen\) togglePenRef\.current\(false\);\n\s+else if \(L\.penAvail\) togglePenRef\.current\(true\);/);
     assert.ok(src.indexOf("act === 'viewEnemy'") < src.indexOf("if (L.pub?.phase !== PHASE.PREP || !L.priv) return;"), 'before the prep-only shop keys');
-    assert.match(read('public/js/ui/hud.js'), /text=\$\{`\$\{btn\.right\.tip\} · \$\{hotkeyLabelOf\('viewEnemy'\)\}`\}/);
+    const hud = read('public/js/ui/hud.js');
+    assert.match(hud, /<\$\{Tooltip\} text=\$\{btn\.right\.tip\} placement="bottom">/);
+    assert.match(hud, /testid="check-enemy"\s+hotkey=\$\{hotkeyLabelOf\('viewEnemy'\)\}/);
   });
 
   test('game.js: 调度中心 folds / unfolds the shop bar; the pause key alone pauses a solo battle (the ready key no more)', () => {
