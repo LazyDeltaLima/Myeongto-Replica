@@ -21,6 +21,9 @@
   flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: .08rem .12rem; list-style: none;
   display: flex; flex-direction: column; gap: .04rem;
   scrollbar-width: thin; scrollbar-color: var(--line-2) transparent;
+  /* no scroll anchoring: once KEEP lines are kept, the oldest one leaving the top made the browser shift scrollTop and
+     that scroll event read as the reader scrolling up, so new lines stopped following (ChatLog's stick) */
+  overflow-anchor: none;
 }
 .chat__line { line-height: 1.35; word-break: break-word; overflow-wrap: anywhere; }
 .chat__name { color: var(--text-lo); font-weight: 700; margin-right: .08rem; }
