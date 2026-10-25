@@ -83,6 +83,8 @@ const KNOWN = {
   'KEY_FX ab:ancientAwe|*': ['untabled', '扎罗\'s AuraAbility buff enemy_wlfmster_fear (its prefab, enemy-modes.json) goes onto the operators: the binding table holds the charpacks\' rows only'],
   'KEY_FX item:dualArm|*': ['untabled', '双模机械臂\'s global buff (the client\'s [uc]globalbuffs prefab) and the mode\'s buff templates: the binding table holds the pool operators\' rows only (묶음 S12)'],
   'KEY_FX item:cauldron|*': ['untabled', 'as item:dualArm — 天师古鼎\'s act1autochess_acarm077_buff [attr]'],
+  'KEY_FX item:yanDagger|*': ['untabled', 'as item:dualArm — 炎国短刀\'s act1vautochess_acarm024_buff (this season\'s eff_acarm040, 묶음 U)'],
+  'KEY_FX item:accel|*': ['untabled', 'as item:dualArm — 有限加速器\'s act1vautochess_acarm037_buff (this season\'s eff_acarm052, 묶음 U)'],
   'KEY_FX ab:aweAura|*': ['untabled', '扎罗\'s FearAura AuraAbility `_effects` (its prefab, enemy-modes.json `auraNested`): the binding table holds the charpacks\' rows only'],
   'DEPLOY_FX DEPLOY_FX|*': ['untabled', 'the client\'s default effects (DefaultEffects), not a binding row'],
   'fxgame screen_desert_up_to_down|screen_desert_up_to_down': ['missing', 'sand_storm[camera_effect] creates screen_desert_*_empty (SwitchDirection branches), a wrapper whose `_effects` is this looping prefab (not extracted itself): the hand plays the inner one'],

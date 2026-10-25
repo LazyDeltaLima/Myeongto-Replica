@@ -88,6 +88,11 @@ describe('client: status → the official buff effect', () => {
     // 묶음 S12: the equipment buffs held on their carrier
     assert.deepEqual(names(unit('char_1026_gvial2', { statuses: new Set(['item:dualArm']) })), ['map_act1autochess_chaosbuff_01']);
     assert.deepEqual(names(unit('char_1026_gvial2', { statuses: new Set(['item:cauldron']) })), ['trap_acarm40_buff']);
+    // 묶음 U (2026-10-25): 炎国短刀's stacks; 有限加速器's buff made again with each stack — a new count, a new effect key
+    assert.deepEqual(names(unit('char_1026_gvial2', { statuses: new Set(['item:yanDagger']) })), ['trap_acarm40_buff']);
+    const accel = (n) => [...F.wantedStatusFx(unit('char_1026_gvial2', { statuses: new Set(['item:accel']), statusFrom: new Map([['item:accel', { src: null, fx: null, n }]]) })).entries()];
+    assert.deepEqual(accel(3).map(([, s]) => s[1]), ['trap_acgarm_buff_03']);
+    assert.notEqual(accel(3)[0][0], accel(4)[0][0], 'the next stack ends the effect and starts it again');
   });
 
   test('束缚: the applier\'s buff effect; an applier without one (or none) draws nothing — no common badge', () => {

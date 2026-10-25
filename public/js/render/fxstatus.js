@@ -228,6 +228,11 @@ export const KEY_FX = Object.freeze({
   // on a 炎 carrier (INFINITY, trap_acarm40_buff) — the sim's 'item:dualArm' / 'item:cauldron'
   'item:dualArm': cite('act1autochess_acarm067_buff', ['map', 'map_act1autochess_chaosbuff_01', OWN]),
   'item:cauldron': cite('act1autochess_acarm077_buff[attr]', ['trap', 'trap_acarm40_buff', OWN]),
+  // 2026-10-25 (묶음 U): two this-season equipment buffs under the other mode's template names — 炎国短刀's acarm_024_buff[atk]
+  // (act1vautochess_acarm024_buff, INFINITY, trap_acarm40_buff) while it has stacks, 有限加速器's
+  // autochess_acarm037_buff[attack_speed] (act1vautochess_acarm037_buff, trap_acgarm_buff_03) made again with each stack (RENEWED)
+  'item:yanDagger': cite('act1vautochess_acarm024_buff', ['trap', 'trap_acarm40_buff', OWN]),
+  'item:accel': cite('act1vautochess_acarm037_buff', ['trap', 'trap_acgarm_buff_03', OWN]),
   // 战场#06's 沙尘暴 on an unsheltered operator (EN template sand_storm[ally], ON_BUFF_TRIGGER): storm[attr_to_ally] — its
   // SwitchDirection on the storm's direction (the buff's `fx`, devices.js tickStorm) creates map_desert_03_<the side the
   // wind comes from> (DOWN → _up) at the HIT point — and storm[attr_to_ally_mark] buff_desert_01 over the head
@@ -235,6 +240,12 @@ export const KEY_FX = Object.freeze({
   // … and on an enemy: sand_storm[enemy] creates sand_storm[slow_down], which names no effect (not the 'slow' fallback)
   'terrain:sandstormSlow': cite('sand_storm[enemy]', () => null),
 });
+/**
+ * 2026-10-25 (묶음 U): KEY_FX buffs the client finishes and makes again on each stack (FinishDerivedBuff + CreateBuff): the
+ * effect starts over each time — keyed by the count of the sim's fx 'stacks' (UnitView.onStatusCount), so a new count ends
+ * the old effect (statusOff, as Effect.FinishMe) and starts a new one.
+ */
+const RENEWED = new Set(['item:accel']);
 /** A storm direction → the suffix of its map_desert_03 operator effect (sand_storm[ally]: RIGHT → _left …). */
 const STORM_FROM = Object.freeze({ DOWN: 'up', UP: 'down', LEFT: 'right', RIGHT: 'left' });
 
@@ -456,6 +467,7 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null) {
         continue;
       }
       const kf = KEY_FX[k] ?? KEY_FX[k.replace(/:\d+$/, '')];
+      if (kf && RENEWED.has(k)) { if (kf[0]) put(out, `${kf[0]}/${kf[1]}#${from?.n || 0}`, kf); continue; }
       if (kf) {
         const spec = typeof kf === 'function' ? kf(v, from) : kf;
         if (spec && Array.isArray(spec[0])) for (const s of spec) byName(out, s); else byName(out, spec);

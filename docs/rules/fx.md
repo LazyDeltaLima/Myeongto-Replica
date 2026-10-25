@@ -869,6 +869,13 @@
     `[attr]`(INFINITY, `trap_acarm40_buff`, `'item:cauldron'`; 얻은 수가 0이어도 [추정: CreateBuff는 수와 상관없이 돎]). 모드 템플릿은 바인딩 표 밖이라 `fx-bindings`
     KNOWN `untabled`.
   - 추출: `--bundle trap --prefab trap_acarm40_buff`, `--bundle common --prefab common_071_bond_kazimierz_hit_01_new`.
+  - 2026-10-25 (묶음 U — 위 전수가 다른 모드 이름(`act1vautochess_*`) 줄을 모두 「이 모드에 없음」으로 뺐는데, 그중 둘은 이 시즌 활동 표 `eff_acarm040`·
+    `eff_acarm052`가 붙이는 이 시즌 장비였다; 규칙 rules/sim.md 「炎国短刀·有限加速器」): 炎国短刀(장비)의 `acarm_024_buff[atk]`(INFINITY, `trap_acarm40_buff`)
+    → `'item:yanDagger'`(첫 겹부터 그 배치 동안), 有限加速器(장비)의 `autochess_acarm037_buff[attack_speed]`(`trap_acgarm_buff_03`) → `'item:accel'`. 有限加速器의
+    버프는 겹마다 `FinishDerivedBuff` 뒤 새로 만들어지므로 이펙트도 겹마다 끝나고(Effect.FinishMe) 다시 시작한다 — sim fx `stacks`(`buff 'item:accel'`, n = 만든
+    횟수)로 이펙트 키를 바꿔(`fxstatus.js RENEWED`) 옛 것을 끄고 새로 켠다. 60겹 뒤엔 다시 만들지 않으므로 그대로. [추정] 炎国短刀의 겹(최대 10, 같은 이펙트)은
+    이펙트 하나 — 겹마다 다시 시작하지 않음. 추출 `--bundle trap --prefab trap_acgarm_buff_03`(텍스처 10·메시 4). 확인 `status-buff-fx`·`fx-bindings`(KNOWN
+    `untabled`)·`items`. [화면 미확인: 두 장비 이펙트 위치·크기, 有限加速器 다시 시작]
   - 넣지 않음(2026-10-25, 관리자 기억 「시간 초과로 팀 생명이 깎일 때도 연기는 못 봄」과 맞음): 시간 초과 전역 버프 `act1autochess_time_out_global_buff`
     (`_timeOutCameraEffect` `screen_com_poison_04` = 초록 독 연기 화면, `_audioSignalWhenReached` `ON_ACT1AUTOCHESS_ENTER_DANGER`)는 클라 번들에만
     있고 이 모드 전투에 붙이는 곳이 없다 — 이 모드 전역 버프는 활동 표의 `env_gbuff_new` 효과(`key` = 프리팹 이름, 맹약·장비·특질)로 붙는데 그 이름은
