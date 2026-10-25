@@ -171,7 +171,7 @@ test('fxgame: lifted() takes the point of pointKey(spawn) from the table; body /
   // target's hit point when the table has it
   assert.match(src, /const p = \(key && specialPoint\(src, shotAt, key\)\) \|\| specialPoint\(src, shotAt, 'muzzle'\);/);
   assert.match(src, /if \(mp === 7\) return \{ x: mx\(src\), y: src\.y, z: \(src\.z \|\| 0\) \+ \(src\.hover \|\| 0\) \};/);   // mx: MODEL_SHIFT
-  assert.match(src, /const shotTo = \(t\) => specialPoint\(t, hitAt, 'hit'\)\?\.z \?\? bodyZ\(camRef, t, SPAWN_FRAC\[2\]\);/);
+  assert.match(src, /const p = specialPoint\(t, hitAt, 'hit'\) \|\| bodyPoint\(camRef, t, SPAWN_FRAC\[2\], mx\(t\), hitAt\);/);   // shotTo
   assert.match(src, /const z = rec\.z0 \+ \(rec\.tz - rec\.z0\) \* k/);
 });
 

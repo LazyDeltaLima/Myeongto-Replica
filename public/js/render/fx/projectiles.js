@@ -2,7 +2,7 @@
 // Installed on FxSystem.prototype by ./system.js (a method container: never instantiated; `this` is the effect system).
 
 import { PROJ } from '../style.js';
-import { SHOT_HEIGHT, bodyZ, feetZ } from './camera.js';
+import { SHOT_HEIGHT, bodyZ, feetZ, liftX } from './camera.js';
 import { clamp } from './limits.js';
 import { projSpeed, enemyProjSpeed, opProjSpeed, opShot } from './speeds.js';
 import { UF } from '../../../../shared/constants.js';
@@ -66,6 +66,13 @@ export function shotKeyOf(ctx, src) {
   const p = opShot(def, !!src._fxSkillOn, Number.isInteger(src.info?.skillIndex) ? src.info.skillIndex : 0);
   return p && typeof p.key === 'string' ? p.key : null;
 }
+
+/**
+ * World columns to add when drawing a point at height `z` over unit `v`'s point (x, y): a shot leaves and meets a model at
+ * a drawn height, and a raised point drifts off the upright model toward the board's edges (camera.js liftX). Its flight
+ * (time, homing, the boomerang's legs) stays on the units' columns; only the drawing moves.
+ */
+const liftDX = (cam, v, x, y, z) => liftX(cam, x, y, (v.z || 0) + (v.hover || 0), z) - x;
 
 export class FxProjectiles {
   // ---- helpers ------------------------------------------------------------------------------------------
@@ -133,6 +140,7 @@ export class FxProjectiles {
     pr.kind = kind; pr.spec = spec; pr.src = src; pr.tgt = tgt; pr.rise = 0;
     pr.x0 = src.x + ux * hand; pr.y0 = src.y + uy * hand; pr.z0 = bodyZ(cam, src, SHOT_HEIGHT.launch);
     pr.tx = tgt.x; pr.ty = tgt.y; pr.tz = look === 'shell' ? feetZ(tgt) : bodyZ(cam, tgt, SHOT_HEIGHT.aim);
+    pr.ox0 = liftDX(cam, src, pr.x0, pr.y0, pr.z0); pr.otx = look === 'shell' ? 0 : liftDX(cam, tgt, pr.tx, pr.ty, pr.tz);
     pr.t = 0; pr.fade = 0; pr.hit = false; pr.emit = Math.random(); pr.ang = Math.atan2(-uy, ux);   // ≈ on screen (rows run up)
     pr.dur = clamp(dist / speed / this._ts(), 0.04, 1.5);
     pr.arc = look === 'sprite' ? shotArcOf(this.ctx, src) ?? 0 : spec.arc ? spec.arc * clamp(0.45 + dist * 0.18, 0.6, 1.8) : 0;
@@ -239,7 +247,7 @@ export class FxProjectiles {
   _shotPoint(pr, k, cam, out) {
     const x = pr.x0 + (pr.tx - pr.x0) * k, y = pr.y0 + (pr.ty - pr.y0) * k;
     const z = pr.z0 + (pr.tz - pr.z0) * k + (pr.arc ? pr.arc * 4 * k * (1 - k) : 0);
-    return cam.project(x, y, z, out);
+    return cam.project(x + pr.ox0 + (pr.otx - pr.ox0) * k, y, z, out);   // its ends drawn on the models (liftDX)
   }
 
   /**
@@ -250,7 +258,10 @@ export class FxProjectiles {
     const spec = pr.spec, look = spec.look;
     pr.t += dt;
     const tg = pr.tgt;
-    if (tg && !tg.destroyed && tg.alive !== false) { pr.tx = tg.x; pr.ty = tg.y; pr.tz = look === 'shell' ? feetZ(tg) : bodyZ(cam, tg, SHOT_HEIGHT.aim); }
+    if (tg && !tg.destroyed && tg.alive !== false) {
+      pr.tx = tg.x; pr.ty = tg.y; pr.tz = look === 'shell' ? feetZ(tg) : bodyZ(cam, tg, SHOT_HEIGHT.aim);
+      if (look !== 'shell') pr.otx = liftDX(cam, tg, pr.tx, pr.ty, pr.tz);
+    }
     const k = Math.min(1, pr.t / pr.dur);
     if (k >= 1 && !pr.hit) { pr.hit = true; pr.fade = 0; this._impact(pr, cam); }
     let fk = 0;
@@ -397,8 +408,8 @@ export class FxProjectiles {
     if (k < pr.rise) {
       const u = k / pr.rise, ub = Math.max(0, u - 0.25);
       const sv = pr.src;
-      if (sv && !sv.destroyed) { pr.x0 = sv.x; pr.y0 = sv.y; }
-      x = pr.x0; y = pr.y0;
+      if (sv && !sv.destroyed) { pr.x0 = sv.x; pr.y0 = sv.y; pr.ox0 = liftDX(cam, sv, pr.x0, pr.y0, pr.z0); }
+      x = pr.x0 + pr.ox0; y = pr.y0;
       z = pr.z0 + SHELL_UP * (1 - (1 - u) * (1 - u));          // out of the barrel fast, slowing as it climbs
       zq = pr.z0 + SHELL_UP * (1 - (1 - ub) * (1 - ub));
     } else {
@@ -448,10 +459,10 @@ export class FxProjectiles {
     const spec = pr.spec, look = spec.look;
     if (!spec.muzzle) return;
     const cam = this.ctx.cam();
-    const p = cam.project(pr.x0, pr.y0, pr.z0, this._g);
+    const p = cam.project(pr.x0 + pr.ox0, pr.y0, pr.z0, this._g);
     const px = p.x, py = p.y, s = p.s;
     if (look === 'tracer') {
-      const q = cam.project(pr.tx, pr.ty, pr.tz, this._q);
+      const q = cam.project(pr.tx + pr.otx, pr.ty, pr.tz, this._q);
       this.particle('muzzle', px, py, { tint: spec.muzzle, life: 0.09, s0: (s / 64) * 0.55, s1: (s / 64) * 0.72, a0: 1, a1: 0, rot: Math.atan2(q.y - py, q.x - px), anchorX: 0.19 });
       this.particle('glow', px, py, { tint: spec.muzzle, life: 0.1, s0: (s / 128) * 0.45, s1: (s / 128) * 0.7, a0: 0.9, a1: 0 });
     } else {
@@ -463,7 +474,7 @@ export class FxProjectiles {
   /** Arrival burst of a shot (PROJ `hit`): at the target, or the ground under it for shells. */
   _impact(pr, cam) {
     const spec = pr.spec;
-    const p = cam.project(pr.tx, pr.ty, pr.tz, this._g);
+    const p = cam.project(pr.tx + pr.otx, pr.ty, pr.tz, this._g);
     const x = p.x, y = p.y, s = p.s;
     const rich = this.rich;
     switch (spec.hit) {
@@ -515,6 +526,7 @@ export class FxProjectiles {
     pr.kind = 'bombardShell'; pr.spec = BOMBARD_SHELL; pr.src = src; pr.tgt = null;
     pr.x0 = src ? src.x : x; pr.y0 = src ? src.y : y; pr.z0 = src ? bodyZ(this.ctx.cam(), src, SHOT_HEIGHT.launch) : gz + 0.5;
     pr.tx = x; pr.ty = y; pr.tz = gz;
+    pr.ox0 = src ? liftDX(this.ctx.cam(), src, pr.x0, pr.y0, pr.z0) : 0; pr.otx = 0;
     pr.t = 0; pr.dur = clamp(flight, 0.1, 4); pr.fade = 0; pr.hit = false; pr.emit = 0; pr.arc = 0; pr.ang = Math.PI / 2;
     pr.rise = pr.dur >= 0.45 ? SHELL_RISE : 0;
     pr.glow = BOMBARD_SHELL.glow; pr.trailTint = BOMBARD_SHELL.trail;

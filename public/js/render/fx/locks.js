@@ -1,7 +1,7 @@
 // public/js/render/fx/locks.js — FxSystem lock reticles.
 // Installed on FxSystem.prototype by ./system.js (a method container: never instantiated; `this` is the effect system).
 
-import { SHOT_HEIGHT, bodyZ } from './camera.js';
+import { SHOT_HEIGHT, bodyZ, liftX } from './camera.js';
 import { FX_KINDS } from './kinds.js';
 import { easeOut } from './limits.js';
 import { UF } from '../../../../shared/constants.js';
@@ -36,7 +36,7 @@ export class FxLocks {
       this.projLayer.addChild(ring, core);
       L = { ring, core };
     }
-    L.view = view; L.id = view ? view.id : null; L.src = src ?? null; L.x = x; L.y = y; L.z = z;
+    L.view = view; L.id = view ? view.id : null; L.src = src ?? null; L.x = x; L.y = y; L.z = z; L.dx = 0;
     L.t = 0; L.idle = 0; L.max = LOCK_T / this._ts(); L.out = -1; L.shell = false; L.sx = x; L.sy = y; L.hold = !!hold;
     L.ring.tint = L.core.tint = FX_KINDS.lock.c;
     L.ring.alpha = L.core.alpha = 0;
@@ -89,8 +89,11 @@ export class FxLocks {
       }
       if (L.out >= 0) { L.out += dt; if (L.out >= LOCK_FADE) { this._freeLock(L); continue; } }
       const v = L.view;
-      if (v && !v.destroyed && v.alive !== false) { L.x = v.x; L.y = v.y; L.z = bodyZ(cam, v, SHOT_HEIGHT.aim); }
-      const p = cam.project(L.x, L.y, L.z, this._p);
+      if (v && !v.destroyed && v.alive !== false) {
+        L.x = v.x; L.y = v.y; L.z = bodyZ(cam, v, SHOT_HEIGHT.aim);
+        L.dx = liftX(cam, L.x, L.y, (v.z || 0) + (v.hover || 0), L.z) - L.x;   // drawn on the model (camera.js liftX)
+      }
+      const p = cam.project(L.x + L.dx, L.y, L.z, this._p);
       const s = p.s;
       const out = L.out >= 0 ? L.out / LOCK_FADE : 0;
       const pop = L.t < 0.16 ? 1.7 - 0.7 * easeOut(L.t / 0.16) : 1 + 0.05 * Math.sin(L.t * 9);

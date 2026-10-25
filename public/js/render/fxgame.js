@@ -66,7 +66,7 @@ import { altGroup, combatEffects } from './fxmap.js'; // 2026-10-21: ability gro
 import { modePart } from './fxmap.js'; // 2026-10-21: a mode talent's attack, a per-side child of the attack
 import { defaultModeEffects } from './fxmap.js'; // 2026-10-21: the Default mode's own effects
 import { projSpeed } from './fx.js'; // local patch: the trails' flight time (the sim's projectile speeds)
-import { bodyZ } from './fx.js'; // local patch: status effects at a unit's head / body (fxstatus.js)
+import { bodyZ, bodyPoint, liftX } from './fx.js'; // local patch: status effects at a unit's head / body (fxstatus.js)
 import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
 import { fxSpec } from './fx.js'; // local patch: the stand-in archetype of a kit fx event (standInOff)
 import { SHOT_HEIGHT } from './fx.js'; // local patch: a trail's start without a muzzle point
@@ -1148,6 +1148,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   loadPoints().then((p) => { points = p; });
   const boneAt = { x: 0, y: 0 };
   const SP_P = { x: 0, y: 0, s: 0, depth: 0 };
+  const statusAt = { x: 0, y: 0, z: 0 };   // a status effect's lifted point (bodyPoint), read at once
   /**
    * The column a unit's model stands on: its x + its view's `modelDX` (render/units.js MODEL_SHIFT — 2026-10-10, [ASSUMED]:
    * 假想敌：管's hidden-core copy is drawn one column right of its tile). Effects placed on a model, shots from / to it and
@@ -1213,7 +1214,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const key = pointKey(spawn);
     if (key && v && ptsOf(v)?.[key]) {
       const p = { x: 0, y: 0, z: 0 };
-      const at = () => specialPoint(v, p, key) || (camRef ? { x: mx(v), y: v.y, z: bodyZ(camRef, v, 0.5) } : v);
+      const at = () => specialPoint(v, p, key) || (camRef ? bodyPoint(camRef, v, 0.5, mx(v)) : v);
       const pause = !!def?.mount?.pauseWhenInvalid;
       // local patch (maintainer report — 아르케토 S3's cast fan stood upright; maintainer's decision 2026-10-08 「전체 적용」): a
       // FollowMountPoint with `_keepOriginRotation` 0 gives the effect its point's turn too (fxpoints.js pointTurn) — the
@@ -1264,9 +1265,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         get alive() { return v.alive; }, get remove() { return v.remove; }, id: v.id, info: v.info,
       };
     }
+    // 2026-10-25: drawn straight above its column on screen (fx/camera.js liftX) — the column kept in world drifted off the
+    // model toward the board's edges, as 望's stone balls had (maintainer report 2026-10-16)
+    const z = () => (camRef ? bodyZ(camRef, v, frac) : (v.z || 0) + (v.hover || 0) + (v._headTiles || 1.2) * frac);
     return {
-      get x() { return ex(v); }, get y() { return ey(v); },
-      get z() { return camRef ? bodyZ(camRef, v, frac) : (v.z || 0) + (v.hover || 0) + (v._headTiles || 1.2) * frac; },
+      get x() { return liftX(camRef, ex(v), ey(v), (v.z || 0) + (v.hover || 0), z()); }, get y() { return ey(v); },
+      get z() { return z(); },
       get alive() { return v.alive; }, get remove() { return v.remove; },
       id: v.id, info: v.info,
     };
@@ -1339,7 +1343,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // 2026-10-24: a feet spec (0) of a FOOT prefab (_spawnLocation 1) too — the client's footTransform, the model its prefab
     // lowers (followed): 泥岩's T1 layers, mudrok_buff_0N_start, hung above her feet as 余 S3's buff had (maintainer report)
     const anchor = frac === 'own' || (frac === 0 && def.spawn === 1) ? lifted(view, def, true) : {
-      get x() { return view.x; }, get y() { return view.y; },
+      get x() { return frac > 0 && camRef ? bodyPoint(camRef, view, frac, view.x, statusAt).x : view.x; }, get y() { return view.y; },
       get z() { return frac > 0 && camRef ? bodyZ(camRef, view, frac) : (view.z || 0) + (view.hover || 0); },
       get alive() { return view.alive; }, get remove() { return view.remove; },
     };
@@ -1617,7 +1621,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const from = shotFrom(src, mode);
     // (2026-10-23) a PARACURVE shot rises its official height (灰毫's shell), as an enemy's does
     const lob = e[3] === 'boomerang' ? null : shotArcOf({ lookupDef: unitDef }, src);
-    const rec = { inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, tx: mx(tgt), ty: tgt.y, tz: shotTo(tgt), k: 0,
+    const rec = { inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, ...aimOf(tgt), k: 0,
       dur: Math.max(0.04, dist / (v || projSpeed(e[3]))), arc: lob ?? (spec.arc ? spec.arc * Math.min(1.8, Math.max(0.6, 0.45 + dist * 0.18)) : 0) };
     // local patch (maintainer report 2026-10-08: one boomerang that comes back): a 回环射手's trail is the projectile itself
     // both ways — projectile_chr_caper `_comeBack` 1 at `_comeBackSpeedScale` .25 (the sim's BOOMERANG_RETURN_SPEED), its
@@ -1639,7 +1643,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const n = Array.isArray(s) ? s.find((x) => b.prefabs.includes(x)) : null;
       if (!n) return;
       if (!trailReady.has(`${b.bundle}/${n}`)) { ensure().then((ok) => (ok ? lib.load(b.bundle, n) : null)).then((def) => { if (def) trailReady.add(`${b.bundle}/${n}`); }, () => {}); return; }
-      const go = () => { if (trails.length < MAX_TRAILS && !gone.has(ownerOf(tgt))) launchTrail({ ...rec, inst: null, k: 0, tx: mx(tgt), ty: tgt.y, tz: shotTo(tgt) }, b.bundle, n); };
+      const go = () => { if (trails.length < MAX_TRAILS && !gone.has(ownerOf(tgt))) launchTrail({ ...rec, inst: null, k: 0, ...aimOf(tgt) }, b.bundle, n); };
       if (sg.dt > 0) castsDelayed.push({ t: clockS + sg.dt * (k + 1), run: go }); else go();
     });
     return true;
@@ -1668,8 +1672,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const s = opShot(def, true, i);
     if (s && Number(s.speed) === 0 && s.move !== 'OTHER') return -1;   // no flight: the skill's shot lands at once
     const unit = to.info ? to : null;
-    const from = via ? { x: mx(via.from), y: via.from.y, z: shotTo(via.from) } : shotFrom(src, null);
-    const tx = unit ? mx(unit) : Number(to.x), ty = Number(to.y), tz = unit ? shotTo(unit) : Number(to.z) || 0;
+    const from = via ? shotTo(via.from) : shotFrom(src, null);
+    const end = unit ? shotTo(unit) : null;
+    const tx = end ? end.x : Number(to.x), ty = Number(to.y), tz = end ? end.z : Number(to.z) || 0;
     // the sim's flight: unit to unit (or point), as trailShot
     const ox = via ? from.x : src.x, oy = via ? from.y : src.y;
     const dur = Math.max(0.04, Math.hypot(tx - ox, ty - oy) / (via ? via.speed : Number(s?.speed) > 0 ? Number(s.speed) : 10));
@@ -1707,7 +1712,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!camRef) return;
     const at = () => {
       const t = rec.tgt;
-      if (rec.k >= 1 && t && t.alive !== false && !t.remove) return [mx(t), t.y, shotTo(t)];
+      if (rec.k >= 1 && t && t.alive !== false && !t.remove) { const p = shotTo(t); return [p.x, p.y, p.z]; }
       const k = Math.min(1, rec.k);
       return [rec.x0 + (rec.tx - rec.x0) * k, rec.y0 + (rec.ty - rec.y0) * k, rec.z0 + (rec.tz - rec.z0) * k + (rec.arc ? rec.arc * 4 * k * (1 - k) : 0)];
     };
@@ -1783,7 +1788,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!name || !trailReady.has(`${b.bundle}/${name}`)) return false;
     const dist = Math.hypot(tgt.x - src.x, tgt.y - src.y);
     const from = shotFrom(src, mode);
-    const rec = { inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, tx: mx(tgt), ty: tgt.y, tz: shotTo(tgt), k: 0,
+    const rec = { inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, ...aimOf(tgt), k: 0,
       dur: Math.max(0.04, dist / projSpeed('boomerang')), arc: caperArc(dist, true), src, back: Math.max(0.04, dist / projSpeed('boomerangReturn')) };
     boomerangThrown(src);
     launchTrail(rec, b.bundle, name);
@@ -1803,13 +1808,22 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (mp === 7) return { x: mx(src), y: src.y, z: (src.z || 0) + (src.hover || 0) };   // MountPointType GROUND
     const key = Number.isInteger(mp) ? pointKey(mountSpawn({ type: mp })) : null;
     const p = (key && specialPoint(src, shotAt, key)) || specialPoint(src, shotAt, 'muzzle');
-    return p ? { x: p.x, y: p.y, z: p.z } : { x: mx(src), y: src.y, z: bodyZ(camRef, src, SHOT_HEIGHT.launch) };
+    return p ? { x: p.x, y: p.y, z: p.z } : bodyPoint(camRef, src, SHOT_HEIGHT.launch, mx(src));
   }
-  const shotTo = (t) => specialPoint(t, hitAt, 'hit')?.z ?? bodyZ(camRef, t, SPAWN_FRAC[2]);
+  /**
+   * Where a shot meets unit `t`: its model's hit point, else half its drawn height, both drawn on the model (the column
+   * too: a raised point drifts off the model toward the board's edges — fx/camera.js liftX). A new point each call.
+   */
+  const shotTo = (t) => {
+    const p = specialPoint(t, hitAt, 'hit') || bodyPoint(camRef, t, SPAWN_FRAC[2], mx(t), hitAt);
+    return { x: p.x, y: p.y, z: p.z };
+  };
+  /** A trail record's end on unit `t` (shotTo). */
+  const aimOf = (t) => { const p = shotTo(t); return { tx: p.x, ty: p.y, tz: p.z }; };
   /** A trail at flight fraction k: on the line to the target's current spot (a lob on its arc), turned along it. */
   function placeTrail(rec) {
     const t = rec.tgt;
-    if (t && t.alive !== false && !t.remove && Number.isFinite(t.x)) { rec.tx = mx(t); rec.ty = t.y; rec.tz = shotTo(t); }
+    if (t && t.alive !== false && !t.remove && Number.isFinite(t.x)) Object.assign(rec, aimOf(t));
     const k = Math.min(1, rec.k);
     // 2026-10-22 (maintainer report: 蕾缪안's S3 shells came in at 45°): a stationary projectile (projectile_chr_lemuen_s3_attack
     // has no mover, `_lifeTime 0.25`) stays on its landing point, unturned — the fall is its _mainEffect's own clip (trail_02
@@ -2374,7 +2388,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const z = src && camRef ? bodyZ(camRef, src, SPAWN_FRAC[2]) - (src.z || 0) : 0.5;
         // turned along its flight, as every projectile's `_mainEffect` (placeTrail)
         if (trail) {
-          spawn(b.bundle, trail, glider(x, y, tx, ty, dur, (src?.z || 0) + z), { owner: null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur })
+          const z0 = src?.z || 0;   // both ends drawn over their points (fx/camera.js liftX)
+          spawn(b.bundle, trail, glider(liftX(camRef, x, y, z0, z0 + z), y, liftX(camRef, tx, ty, z0, z0 + z), ty, dur, z0 + z), { owner: null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur })
             .then((l) => { if (l) l.inst.object.rotation.set(0, 0, Math.atan2(ty - y, tx - x)); });
         }
         return true;
@@ -2511,7 +2526,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (p.fly) { // a projectile's `_mainEffect` from the operator to the event's point at `fly` tiles / s, along its flight
         const dur = Math.hypot(x - op.x, y - op.y) / p.fly, z = camRef ? bodyZ(camRef, op, SPAWN_FRAC[2]) - (op.z || 0) : 0.5;
         flight = Math.max(flight, dur);
-        spawn(pb.bundle, name, glider(op.x, op.y, x, y, dur, (op.z || 0) + z), { owner: null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur })
+        const z0 = op.z || 0;   // both ends drawn over their points (fx/camera.js liftX)
+        spawn(pb.bundle, name, glider(liftX(camRef, op.x, op.y, z0, z0 + z), op.y, liftX(camRef, x, y, z0, z0 + z), y, dur, z0 + z), { owner: null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur })
           .then((l) => { if (l) l.inst.object.rotation.set(0, 0, Math.atan2(y - op.y, x - op.x)); });
         n++;
         continue;
@@ -2573,9 +2589,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     tos.forEach((u, k) => {
       const go = () => {
         if (level() >= 3 || trails.length >= MAX_TRAILS || (!back && (u.alive === false || u.remove))) return;
-        const from = back ? { x, y, z: shotTo(op) } : shotFrom(op, null);
+        const from = back ? { x, y, z: shotTo(op).z } : shotFrom(op, null);
         const tx = mx(u), ty = u.y, dur = Math.max(0.04, Math.hypot(tx - (back ? x : op.x), ty - (back ? y : op.y)) / speed);
-        const rec = { inst: null, tgt: u, x0: from.x, y0: from.y, z0: from.z, tx, ty, tz: shotTo(u), k: 0, dur, arc: 0 };
+        const rec = { inst: null, tgt: u, x0: from.x, y0: from.y, z0: from.z, ...aimOf(u), k: 0, dur, arc: 0 };
         trails.push(rec);
         spawn(pb.bundle, name, { x: from.x, y: from.y, z: from.z }, { owner: null, buff: false, until: clockS + dur + 5 }, { drop: rec })
           .then((l) => { if (!l) { const i = trails.indexOf(rec); if (i >= 0) trails.splice(i, 1); } });
@@ -2696,6 +2712,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     slots.delete(key);
     if (s.l) s.l.inst.stop();
   }
+  const orbitAt = { x: 0, y: 0, z: 0 };   // an orbiter's centre (bodyPoint), read at once
   /**
    * A point circling unit `v` (a projectile's `_projectileAroundRadius` `r` tiles at `_aroundSpeed` `spd` °/s) at its body
    * height, alive while it is. With `phase` (°) the circle is the unit's own, shared by its orbiters: one of several
@@ -2705,7 +2722,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const t0 = phase != null ? (v._fxOrbitT0 ??= clockS) : clockS, w = (spd * Math.PI) / 180, p0 = ((Number(phase) || 0) * Math.PI) / 180;
     const ang = () => w * (clockS - t0) + p0;
     return {
-      get x() { return v.x + r * Math.cos(ang()); }, get y() { return v.y + r * Math.sin(ang()); },
+      // round its middle drawn on the model (fx/camera.js liftX)
+      get x() { return (camRef ? bodyPoint(camRef, v, SPAWN_FRAC[2], v.x, orbitAt).x : v.x) + r * Math.cos(ang()); },
+      get y() { return v.y + r * Math.sin(ang()); },
       get z() { return camRef ? bodyZ(camRef, v, SPAWN_FRAC[2]) : (v.z || 0) + 0.5; }, get alive() { return v.alive !== false && !v.remove; },
     };
   }
@@ -2821,7 +2840,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (pick) [x, j] = pick;
       }
       at.used.add(j);
-      const from = droneFrom(src, x.from), to = { x: mx(tgt), y: tgt.y, z: shotTo(tgt) };
+      const from = droneFrom(src, x.from), to = shotTo(tgt);
       const dur = x.attach ? 0 : Math.hypot(to.x - from.x, to.y - from.y) / (x.speed > 0 ? x.speed : 10);
       const idleNow = rec && j < rec.k && x.idle?.length;   // a drone of the mode now, shown idle
       const held = x.lock && rec?.locks.get(j)?.tid === tid;
@@ -2892,7 +2911,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function droneFrom(src, mp) {
     const key = Number.isInteger(mp) ? pointKey(mountSpawn({ type: mp })) : null;
     const p = (key && specialPoint(src, shotAt, key)) || specialPoint(src, shotAt, 'muzzle');
-    return p ? { x: p.x, y: p.y, z: p.z } : { x: mx(src), y: src.y, z: bodyZ(camRef, src, SHOT_HEIGHT.launch) };
+    return p ? { x: p.x, y: p.y, z: p.z } : bodyPoint(camRef, src, SHOT_HEIGHT.launch, mx(src));
   }
 
   // ---- 伺夜's wolf pack (2026-10-16, 이펙트 연결 전수 묶음 3, docs/rules/fx.md 「伺夜 늑대 무리」) ---------------------------------
@@ -3840,7 +3859,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (mount === 7) return { x: mx(src), y: src.y, z: (src.z || 0) + (src.hover || 0) };
     const key = Number.isInteger(mount) ? pointKey(mountSpawn({ type: mount })) : null;
     const p = (key && specialPoint(src, shotAt, key)) || specialPoint(src, shotAt, 'muzzle');
-    return p ? { x: p.x, y: p.y, z: p.z } : { x: mx(src), y: src.y, z: bodyZ(camRef, src, SHOT_HEIGHT.launch) };
+    return p ? { x: p.x, y: p.y, z: p.z } : bodyPoint(camRef, src, SHOT_HEIGHT.launch, mx(src));
   }
   /** Tiles per game second of `src`'s shot: data/enemies.json `proj` (what the sim flies it at), else the sim's enemy speed. */
   function eshotSpeed(src) {
@@ -3869,7 +3888,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     trailAtks.add(e);
     const dist = Math.hypot(tgt.x - src.x, tgt.y - src.y);
     const from = eshotFrom(src, pr.mount);
-    launchTrail({ inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, tx: mx(tgt), ty: tgt.y, tz: shotTo(tgt), k: 0,
+    launchTrail({ inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, ...aimOf(tgt), k: 0,
       // (an enemy-record ally flies the sim's shot of its kind: the sim gives it an ally's speed)
       dur: Math.max(0.04, dist / (erec(src) ? projSpeed(e[3]) : eshotSpeed(src))), arc: Number(shot?.height ?? pr.raise) > 0 && (shot?.move ?? 'PARACURVE') === 'PARACURVE' ? Number(shot?.height ?? pr.raise) : 0 }, r[0], r[1]);
     return true;
@@ -3985,8 +4004,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (tgt && Array.isArray(pr.targetStart) && pr.targetStart.length) eplay(owner, pr.targetStart, { at: tgt });
     const r = efx(Array.isArray(pr.trail) ? pr.trail[0] : null);
     if (r && camRef && t > 0 && t <= (dir ? 12 : 6) && !pr.link && level() < 3 && trails.length < MAX_TRAILS) {
-      const p0 = from === shooter ? eshotFrom(from, pr.mount)
-        : { x: mx(from), y: from.y, z: specialPoint(from, shotAt, 'hit')?.z ?? bodyZ(camRef, from, SPAWN_FRAC[2]) };
+      const p0 = from === shooter ? eshotFrom(from, pr.mount) : shotTo(from);
       let rec;
       if (dir) {
         // straight along `dir` (board axes: +x the next column, +y the next row up) to the predicted first hit, `range` tiles
@@ -3995,7 +4013,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         rec = { inst: null, tgt: null, x0: p0.x, y0: p0.y, z0: p0.z, tx: p0.x + dir[0] * range, ty: p0.y + dir[1] * range, tz: p0.z, k: 0, dur: Math.max(0.04, t), arc: 0 };
       } else {
         const arc = (o.move ?? pr.move) === 'PARACURVE' || (o.move == null && Number(pr.raise) > 0) ? Math.max(0, Number(pr.raise) || 0) : 0;
-        rec = { inst: null, tgt, x0: p0.x, y0: p0.y, z0: p0.z, tx: mx(tgt), ty: tgt.y, tz: shotTo(tgt), k: 0, dur: Math.max(0.04, t), arc };
+        rec = { inst: null, tgt, x0: p0.x, y0: p0.y, z0: p0.z, ...aimOf(tgt), k: 0, dur: Math.max(0.04, t), arc };
       }
       ensure().then((ok) => { if (ok && lib) launchTrail(rec, r[0], r[1]); }, () => {});
     }
@@ -4128,7 +4146,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function elinePoint(v, type, out, off) {
     const key = type === 7 ? null : pointKey(mountSpawn({ type }));
     const p = key ? specialPoint(v, out, key) : null;
-    if (!p) { out.x = mx(v); out.y = v.y; out.z = type === 7 ? (v.z || 0) : bodyZ(camRef, v, SPAWN_FRAC[2]); }
+    if (!p && type === 7) { out.x = mx(v); out.y = v.y; out.z = v.z || 0; } else if (!p) bodyPoint(camRef, v, SPAWN_FRAC[2], mx(v), out);
     if (Array.isArray(off)) { out.x += Number(off[0]) || 0; out.z += Number(off[1]) || 0; }   // Unity +y = up [추정]
     return out;
   }
@@ -4293,7 +4311,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const dist = Math.hypot(target.x - v.x, target.y - v.y);
         if (dist / speed <= 6) {
           const from = eshotFrom(v, pr.mount);
-          launchTrail({ inst: null, tgt: target, x0: from.x, y0: from.y, z0: from.z, tx: mx(target), ty: target.y, tz: shotTo(target), k: 0,
+          launchTrail({ inst: null, tgt: target, x0: from.x, y0: from.y, z0: from.z, ...aimOf(target), k: 0,
             dur: Math.max(0.04, dist / speed), arc: Number(pr.raise) > 0 ? Number(pr.raise) : 0 }, r[0], r[1]);
         }
       }

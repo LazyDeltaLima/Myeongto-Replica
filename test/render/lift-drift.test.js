@@ -1,0 +1,115 @@
+// test/render/lift-drift.test.js — effects, shots and lock reticles at a unit's body / head height are drawn ON its model
+// anywhere on the board (render/fx/camera.js liftX / bodyPoint). A model is an upright screen billboard drawn straight up
+// from its root, while a point raised in world z drifts away from the screen centre under the perspective camera: the old
+// anchors (the column kept, only z raised) slid off the models toward the board's edges, as 望's stone balls had
+// (maintainer report 2026-10-16, wang-stone-fx.test.js).
+
+import { test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { presetCamera } from '../../public/js/render/projection.js';
+import { bodyZ, bodyPoint, liftX } from '../../public/js/render/fx/camera.js';
+import { installFakePixi, fakeViewCtx } from './fakepixi.js';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const FXGAME = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
+const W = 1280, H = 720;
+const cam = presetCamera('normal', { width: W, height: H });
+
+/** The tiles whose root is on screen (liftFor is only exact there — wang-stone-fx.test.js). */
+function onScreen() {
+  const out = [];
+  for (let x = 0; x <= 20; x++) for (let y = 0; y <= 18; y++) {
+    const r = cam.project(x, y, 0);
+    if (r.x >= 0 && r.x <= W && r.y >= 0 && r.y <= H) out.push([x, y]);
+  }
+  return out;
+}
+
+test('bodyPoint: the body / head point projects straight above the model\'s root, at its drawn height', () => {
+  const tiles = onScreen();
+  assert.ok(tiles.length > 30);
+  let worst = 0;
+  for (const [x, y] of tiles) for (const frac of [0.45, 0.5, 1.1]) for (const v of [
+    { x, y, z: 0, _headTiles: 1.2 },
+    { x, y, z: 0.42, hover: 0, _headTiles: 1.6, modelDrop: 0.1 },   // high ground, a model its prefab lowers
+    { x, y, z: 0, hover: 0.6, _headTiles: 1 },                     // a flyer
+  ]) {
+    const base = (v.z || 0) + (v.hover || 0);
+    const r = cam.project(x, y, base);
+    const p = bodyPoint(cam, v, frac);
+    const q = cam.project(p.x, p.y, p.z);
+    assert.ok(Math.abs(q.x - r.x) < 0.01, `(${x}, ${y}) frac ${frac}: ${q.x} vs root ${r.x}`);
+    assert.equal(p.z, bodyZ(cam, v, frac), 'the height is bodyZ\'s');
+    assert.ok(Math.abs(r.y - q.y - ((v._headTiles * frac) - (v.modelDrop || 0)) * r.s) < 0.01, 'drawn frac of the model up');
+    // the old anchor: the column kept
+    worst = Math.max(worst, Math.abs(cam.project(x, y, p.z).x - r.x) / r.s);
+  }
+  assert.ok(worst > 0.3, `the drift this fixes (${worst.toFixed(2)} tile at the edges)`);
+  // a column of its own (MODEL_SHIFT) and the screen centre
+  const v = { x: 3, y: 10, z: 0, modelDX: 1, _headTiles: 1.2 };
+  const p = bodyPoint(cam, v, 0.5, 4);
+  assert.ok(Math.abs(cam.project(p.x, p.y, p.z).x - cam.project(4, 10, 0).x) < 0.01);
+  assert.ok(Math.abs(liftX(cam, cam.tx, 10, 0, 2) - cam.tx) < 1e-9, 'none on the screen centre');
+  assert.equal(liftX(null, 3, 10, 0, 2), 3, 'no camera: the column');
+});
+
+test('fxgame: body / head effects, status effects, shot ends, orbits and line ends go through the lift', () => {
+  // _spawnLocation 2 / 4 (followed)
+  assert.match(FXGAME, /get x\(\) \{ return liftX\(camRef, ex\(v\), ey\(v\), \(v\.z \|\| 0\) \+ \(v\.hover \|\| 0\), z\(\)\); \}/);
+  // a model point's fallback, the status effects (fxstatus.js frac), the orbiters
+  assert.match(FXGAME, /specialPoint\(v, p, key\) \|\| \(camRef \? bodyPoint\(camRef, v, 0\.5, mx\(v\)\) : v\)/);
+  assert.match(FXGAME, /get x\(\) \{ return frac > 0 && camRef \? bodyPoint\(camRef, view, frac, view\.x, statusAt\)\.x : view\.x; \}/);
+  assert.match(FXGAME, /get x\(\) \{ return \(camRef \? bodyPoint\(camRef, v, SPAWN_FRAC\[2\], v\.x, orbitAt\)\.x : v\.x\) \+ r \* Math\.cos\(ang\(\)\); \}/);
+  // shots: from the drawn model (no muzzle point), to its hit point or its middle — the whole point, not its z only
+  assert.equal((FXGAME.match(/: bodyPoint\(camRef, src, SHOT_HEIGHT\.launch, mx\(src\)\);/g) || []).length, 3);
+  assert.match(FXGAME, /const p = specialPoint\(t, hitAt, 'hit'\) \|\| bodyPoint\(camRef, t, SPAWN_FRAC\[2\], mx\(t\), hitAt\);\n    return \{ x: p\.x, y: p\.y, z: p\.z \};/);
+  assert.doesNotMatch(FXGAME, /tz: shotTo\(|z: shotTo\([\w.]+\) \}/, 'no shot end on the target\'s z only');
+  assert.doesNotMatch(FXGAME, /bodyZ\(camRef, (src|t|from|v), (SHOT_HEIGHT|SPAWN_FRAC)[^)]*\) \}/, 'no z-only body point left');
+  // gliders at a body height: both ends lifted
+  assert.equal((FXGAME.match(/glider\(liftX\(camRef, [^;]+, liftX\(camRef, /g) || []).length, 2);
+  // a line end without its point
+  assert.match(FXGAME, /else if \(!p\) bodyPoint\(camRef, v, SPAWN_FRAC\[2\], mx\(v\), out\);/);
+});
+
+let fake, FX;
+before(async () => {
+  fake = installFakePixi();
+  FX = await import('../../public/js/render/fx.js');
+});
+after(() => { FX?.setSimProjectileSpeeds(null); fake.restore(); });
+
+const unit = (id, x, y, o = {}) => ({ id, x, y, z: 0, hover: 0, _headTiles: 1.2, alive: true, destroyed: false, isEnemy: false, maxHp: 3000, info: { defId: 'char_x' }, onHit() {}, ...o });
+function makeFx(views) {
+  const P = fake.P, ctx = fakeViewCtx(P), map = new Map(views.map((v) => [v.id, v]));
+  return new FX.FxSystem({
+    P, layers: ctx.layers, cam: () => cam, heightAt: () => 0, settings: { quality: 'high', damageNumbers: true },
+    timeScale: () => 1, loadLevel: () => 0, subProfOf: () => null, view: (id) => map.get(id) || null,
+    screenSize: () => ({ width: W, height: H }), fieldTop: () => 120,
+  });
+}
+
+test('procedural shots leave and meet the drawn models at the board\'s edges; their flight stays on the units\' columns', () => {
+  FX.setSimProjectileSpeeds(null);
+  const a = unit(1, 1, 10), b = unit(2, 9, 10, { isEnemy: true });
+  const fx = makeFx([a, b]);
+  fx.attack(a, b, 'arrow');
+  const pr = fx.projs[0];
+  assert.equal(pr.tx, b.x, 'homing / timing on the target\'s column');
+  const s0 = fx._shotPoint(pr, 0, cam, { x: 0, y: 0, s: 0, depth: 0 }), s1 = fx._shotPoint(pr, 1, cam, { x: 0, y: 0, s: 0, depth: 0 });
+  assert.ok(Math.abs(s0.x - cam.project(pr.x0, pr.y0, 0).x) < 0.01, 'drawn over the shooter (its hands)');
+  assert.ok(Math.abs(s1.x - cam.project(b.x, b.y, 0).x) < 0.01, 'drawn on the target');
+  assert.ok(Math.abs(cam.project(pr.x0, pr.y0, pr.z0).x - s0.x) / s0.s > 0.3, 'the old start drifted off her');
+});
+
+test('a lock reticle sits on the locked enemy\'s drawn body at the edges', () => {
+  const a = unit(1, 6, 9), e = unit(21, 11, 10, { isEnemy: true });
+  const fx = makeFx([a, e]);
+  fx.simFx('lock', e.x, e.y, { id: 21, src: 1 });
+  fx.update(1 / 60);
+  const L = fx.locks[0];
+  assert.equal(L.x, e.x, 'matched on its column (bombard / crit)');
+  assert.ok(Math.abs(L.ring.position.x - cam.project(e.x, e.y, 0).x) < 0.01);
+});

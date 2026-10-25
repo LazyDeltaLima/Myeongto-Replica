@@ -169,6 +169,8 @@ test('an effect on her without a FollowMountPoint (aglna2_skill_02_buff_01 at he
   const lifted = SRC.slice(SRC.indexOf('function followed(v, def, buff) {'), SRC.indexOf('const ownerOf = (v) =>'));
   assert.match(lifted, /if \(!v \|\| !\(v\.modelDX \|\| 'glideS' in v \|\| foot\)\) return v;/);
   // (a foot effect adds the model's node offset, fdx / fdy: the client's footTransform — model-place.test.js)
-  assert.equal((lifted.match(/get x\(\) \{ return ex\(v\)( \+ fdx\(\))?; \}, get y\(\) \{ return ey\(v\)( \+ fdy\(\))?; \}/g) || []).length, 3);
+  assert.equal((lifted.match(/get x\(\) \{ return ex\(v\)( \+ fdx\(\))?; \}, get y\(\) \{ return ey\(v\)( \+ fdy\(\))?; \}/g) || []).length, 2);
+  // the body / head one drawn straight above it (2026-10-25: fx/camera.js liftX — lift-drift.test.js)
+  assert.match(lifted, /get x\(\) \{ return liftX\(camRef, ex\(v\), ey\(v\), \(v\.z \|\| 0\) \+ \(v\.hover \|\| 0\), z\(\)\); \}, get y\(\) \{ return ey\(v\); \}/);
   assert.doesNotMatch(lifted.slice(lifted.indexOf('const frac = SPAWN_FRAC')), /return mx\(v\)/);
 });

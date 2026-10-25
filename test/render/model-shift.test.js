@@ -42,8 +42,12 @@ test('fxgame places effects, shots and line ends of a shifted model at its drawn
   // its column through ex (the entity's place: mx, or its tile while the model glides — aglna2-s2-glide.test.js)
   assert.match(FX, /const ex = \(v\) => \(v\.glideS \? Number\(v\.glideS\.lx\) \+ \(Number\(v\.modelDX\) \|\| 0\) : mx\(v\)\);/);
   assert.match(FX, /if \(!v \|\| !\(v\.modelDX \|\| 'glideS' in v \|\| foot\)\) return v;/);
-  assert.equal((FX.match(/tx: mx\(t(gt|arget)\)/g) || []).length, 6, 'every trail aims at the drawn model');
-  assert.match(FX, /rec\.tx = mx\(t\);/);
+  // every trail aims at the drawn model: shotTo's column is mx (lifted onto the model, lift-drift.test.js)
+  assert.match(FX, /bodyPoint\(camRef, t, SPAWN_FRAC\[2\], mx\(t\), hitAt\)/);
+  assert.equal((FX.match(/\.\.\.aimOf\(t(gt|arget|)\)|\.\.\.aimOf\(u\)/g) || []).length, 7, 'every trail record aims through aimOf');
+  assert.doesNotMatch(FX, /tx: mx\(t(gt|arget)\)/);
+  assert.match(FX, /Object\.assign\(rec, aimOf\(t\)\);/);
   assert.match(FX, /if \(mount === 7\) return \{ x: mx\(src\),/);
-  assert.match(FX, /if \(!p\) \{ out\.x = mx\(v\);/);
+  assert.match(FX, /if \(!p && type === 7\) \{ out\.x = mx\(v\);[^\n]*else if \(!p\) bodyPoint\(camRef, v, SPAWN_FRAC\[2\], mx\(v\), out\);/);
+  assert.equal((FX.match(/: bodyPoint\(camRef, src, SHOT_HEIGHT\.launch, mx\(src\)\);/g) || []).length, 3, 'shots leave the drawn model');
 });

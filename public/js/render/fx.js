@@ -40,7 +40,7 @@
 // import('/sim/constants.js') is the module's one init side effect, as it was at the top of this file.
 
 export { setSimProjectileSpeeds, projSpeed } from './fx/speeds.js';
-export { SHOT_HEIGHT, bodyZ } from './fx/camera.js';
+export { SHOT_HEIGHT, bodyZ, bodyPoint, liftX } from './fx/camera.js';
 export { ensureDamageFonts } from './fx/fonts.js';
 export { FX_KINDS, fxSpec, tilesAround, wallTiles } from './fx/kinds.js';
 export { FxSystem } from './fx/system.js';
