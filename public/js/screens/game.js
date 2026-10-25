@@ -875,23 +875,6 @@ function MatchScreen() {
   // shop's refresh sound instead of the promotion cue
   const offerCue = priv?.shop?.rewardOffer ? (priv.shop.rewardOffer.source === 'special' ? 'refresh' : 'merge') : null;
   useEffect(() => { if (offerCue) audio.sfx(offerCue); }, [offerCue]);
-  // 2026-10-25 (rules/fx.md 「시간 초과 화면 효과」): a boss round past its 120 s countdown (m.public.overtimeAt, the official
-  // battle's normal end time) — the time-out global buff's camera effect on the battle (view.setTimeOut) and its sound
-  // the moment it comes (ON_ACT1AUTOCHESS_ENTER_DANGER; not when this screen joins a round already past it). The buff ends
-  // with its battle: off once the shown battle is over (client-side combat: the runner's shown battle; server-run: its
-  // m.public fields[] entry), the ending played over the field included
-  const shownOver = cc ? !!battleState?.done : (Array.isArray(pub?.fields) ? pub.fields : []).some((f) => f?.fieldId === field?.fieldId && f.live === false);
-  const timeOutAt = isBossPhase(phase) && !shownOver && Number(pub?.overtimeAt) > 0 ? Number(pub.overtimeAt) : 0;
-  useEffect(() => {
-    if (!view?.setTimeOut) return undefined;
-    if (!timeOutAt) { view.setTimeOut(false); return undefined; }
-    if (paused) return undefined; // the clock stands (overtimeAt moves on resume)
-    const turnOn = (cue) => { if (view.setTimeOut(true) && cue) audio.sfx('danger'); };
-    const wait = timeOutAt - serverNow();
-    if (wait <= 0) { turnOn(false); return undefined; }
-    const id = setTimeout(() => turnOn(true), wait);
-    return () => clearTimeout(id);
-  }, [view, timeOutAt, paused]);
   // local patch (maintainer report 2026-10-07): an own operator dropped in on the prep board / bench — bought, a reward the
   // server gave, moved to the board or back to the bench — plays its deploy sound (render/app.js prepDeployed)
   // LOCAL-PATCH.md 「오퍼레이터 음성」 (2-5, owner 2026-10-08): one the player placed from the bench (commitFacing → placedRef) says its 部署 line

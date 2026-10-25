@@ -28,7 +28,6 @@
 //                                               user playtest #5 item 2) goes straight to the held pose, no burst; an
 //                                               fx with a `form` (shared/protocol.js fxForm) switches the enemy's
 //                                               model to that clip set (render/units.js FORMS)
-//   view.setTimeOut(on)                         the battle's time-out camera effect (boss rounds past the countdown)
 //   view.setLocalFeed({ on, speed })            frames come from the local sim every frame (client-side combat):
 //                                               ~2-frame buffer at the battle's game speed
 //   view.debugFx(key, unitId) → Promise<bool>   local patch (/debug.html): one official effect prefab on a battle unit
@@ -330,7 +329,6 @@ export async function createFieldView(host, options = {}) {
   let battleSincePrep = false;
   const promotions = [];      // the last merges cued by setPrep (fx.promote): { uid, id, area, row, col, idx, copies } — dev / tests
   let battleMeta = null;
-  let timeOut = false;        // 2026-10-25: the battle's time-out is on (setTimeOut)
   let sceneHold = null;       // release function of the Spine cache hold of battle mode (holdScene)
   const infos = new Map();    // battle unit id → UnitInfo
   // battle ids whose view finished its death / leak fade: a snapshot may still list them for a moment (the sim keeps
@@ -1634,7 +1632,6 @@ export async function createFieldView(host, options = {}) {
         .map((d) => ({ r: d.pos[0], c: d.pos[1], z: tiles.grid[d.pos[0]]?.[d.pos[1]]?.h || 0 }));
       fxGame.setStorm(meta.storm, mounds);
     }
-    if (timeOut && !battleMeta.prep) fxGame.setTimeOut(true); // 2026-10-25: a battle shown after the time-out (setTimeOut)
     return true;
   }
 
@@ -2383,16 +2380,6 @@ export async function createFieldView(host, options = {}) {
     isReady: () => !gate.open,
     /** Enemy preview pen: a list in m.private.nextEnemies shape, or null to empty it (setPrep does this itself). */
     setPen(list) { if (destroyed) return false; setPenList(Array.isArray(list) ? list : null); return true; },
-    /**
-     * 2026-10-25: the battle's time-out (rules/fx.md 「시간 초과 화면 효과」): while on, a battle on screen wears the official
-     * camera effect (fxgame.js setTimeOut) — now, and every battle entered later (another field watched) until off.
-     */
-    setTimeOut(on) {
-      if (destroyed || timeOut === !!on) return false;
-      timeOut = !!on;
-      if (mode === 'battle' && !battleMeta?.prep) fxGame.setTimeOut(timeOut);
-      return true;
-    },
     enterBattle,
     pushSnapshot,
     pushEvents,

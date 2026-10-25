@@ -869,27 +869,13 @@
     `[attr]`(INFINITY, `trap_acarm40_buff`, `'item:cauldron'`; 얻은 수가 0이어도 [추정: CreateBuff는 수와 상관없이 돎]). 모드 템플릿은 바인딩 표 밖이라 `fx-bindings`
     KNOWN `untabled`.
   - 추출: `--bundle trap --prefab trap_acarm40_buff`, `--bundle common --prefab common_071_bond_kazimierz_hit_01_new`.
-  - 시간 초과 전역 버프 `act1autochess_time_out_global_buff`의 `_timeOutCameraEffect` `screen_com_poison_04`는 2026-10-25에 넣음 → 아래 「시간 초과 화면 효과」.
+  - 넣지 않음(2026-10-25, 관리자 기억 「시간 초과로 팀 생명이 깎일 때도 연기는 못 봄」과 맞음): 시간 초과 전역 버프 `act1autochess_time_out_global_buff`
+    (`_timeOutCameraEffect` `screen_com_poison_04` = 초록 독 연기 화면, `_audioSignalWhenReached` `ON_ACT1AUTOCHESS_ENTER_DANGER`)는 클라 번들에만
+    있고 이 모드 전투에 붙이는 곳이 없다 — 이 모드 전역 버프는 활동 표의 `env_gbuff_new` 효과(`key` = 프리팹 이름, 맹약·장비·특질)로 붙는데 그 이름은
+    활동 표·레벨 파일 `globalBuffs`·클라 문자열 어디에도 없다. 출혈 템플릿도 다른 모드(`act1vautochess_time_out_bleeding`)의 것이고, 시간 초과 전역
+    버프를 레벨에 붙이는 것은 그 모드(`act1vautochess_*` 레벨의 `act1vautochess_time_out_global_buff`)뿐. 다른 시즌을 만들 때 그 시즌 데이터에
+    이 이름이 나오면 다시 볼 것.
   - 확인: `items`·`bonds_addon`·`bonds_core`·`status-buff-fx` 시험. 시뮬 골든: 상태·`tplfx` 이벤트 수만. 이펙트 이벤트 골든: 고수·카시미어 줄만. [화면 미확인: 위 넷]
-
-### 시간 초과 화면 효과 (2026-10-25, 보스전 카운트다운이 끝난 뒤)
-- 공식(공식 클라에서 확인): 전투 전역 버프 `act1autochess_time_out_global_buff`(`AutoChessTimeOutGlobalBuff`, EN `[uc]globalbuffs`)는 전투의 「정상 종료
-  시각」(`AutoChessBattleStatusDataModel.battleNormalEndTime`, `_useStateEndTime` 0)이 지나는 순간 `isTimeReached`를 세우고, 그때부터 전투가 끝날 때까지
-  `_timeOutCameraEffect` `screen_com_poison_04`를 `BattleController.CreateCameraEffect`로 켜 둔다(`CameraEffect`: `_spawnOffset` 0, `_maxLifeTime` −1 =
-  꺼질 때까지). 그 순간 `_audioSignalWhenReached` `ON_ACT1AUTOCHESS_ENTER_DANGER`(act1autochess_b_ui_harmful)를 한 번 낸다. 정상 종료 시각은 서버가 준
-  강제 종료 시각이고, 보스전에서만 거기서 `bossTurnHpReduceTime`(150초)을 뺀다(`OnBattleStart`) → 일반 전투는 끝나는 순간과 같아 화면에 안 남고,
-  **보스전(최종 공세·隐秘核心)의 120초 카운트다운이 끝난 때부터 초과 시간 동안** 보인다(sim.md 「보스전 초과 시간」의 감소 시작과 같은 순간).
-- 같은 버프가 모든 유닛에 거는 `autochess_time_out_global_buff`(템플릿 `act1vautochess_time_out_bleeding`)는 이 모드 블랙보드에 `hp_ratio`가 없어
-  초당 피해가 0이고, 적을 없애는 `past_time_final` ≥ 210초는 초과 시간 150초 안에 오지 않는다 → 시뮬 변화 없음.
-- 로컬: `public/js/screens/game.js`가 보스 단계에서 `m.public.overtimeAt`(= 카운트다운 끝)에 `view.setTimeOut(true)`(일시정지 중엔 기다림)와 소리
-  `sfx.ui.danger`(이미 지난 판에 들어온 화면은 소리 없음) → `render/app.js setTimeOut`(켜진 동안 들어가는 전투마다 다시 — 다른 필드 관전) →
-  `render/fxgame.js setTimeOut`: 沙尘暴의 모래 판처럼 카메라에 붙여 따라감(`camera`, 시야각 맞춤 [ASSUMED: 같은 카메라 부착]).
-- 끄기: 공식은 버프가 전투와 함께 끝나므로 **화면의 전투가 끝나는 순간** 끈다 — 클라이언트 전투는 실행기의 화면 전투 `done`, 서버 전투는
-  `m.public.fields[]`의 그 필드 `live` false(끝난 전장 위의 결말 연출 동안에도 꺼져 있음). 보스 필드는 공유 보스 체력 0·팀 생명 0·초과 시간 끝에서만
-  모두 함께 끝나므로(SIM.md, `_checkEnd`) 한 필드만 먼저 끝나는 경우는 없다. 카운트다운 전에 끝난 전투는 켜지지도, 소리도 없다(공식도 시각이 안 옴).
-- 추출: `fx_extract.py --bundle screen --prefab screen_com_poison_04`(EN 클라) → `node tools/build-browser-resources.mjs`. 프리팹 루트의 `CameraEffect`는
-  추출기가 읽지 않는 스크립트(값은 위 둘뿐).
-- 확인: `test/render/timeout-fx.test.js`. [화면 미확인: 보스전 카운트다운 끝의 독 연기 판 위치·크기·진하기]
 
 ### 战场#06 沙尘暴 연출 (2026-10-18, 상반기 전장 m06 — 규칙은 `sim.md` 「战场#06(上半) 沙尘暴 · 土石结构」)
 - 공식(EN 버프 템플릿 `sand_storm[ally]`·`[trap]`·`[camera_effect]`, 노드 `SwitchDirection`이 폭풍 방향으로 고름 — 참고 추출 「공식 버프 템플릿 추출」):

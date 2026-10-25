@@ -306,8 +306,6 @@ const BATTLE_COLS = 37;
 const TAN_CLIENT_HALF_FOV = Math.tan((OFFICIAL.fovY * Math.PI) / 360);
 /** 战场#06's 沙尘暴: its direction → the camera effect (EN template sand_storm[camera_effect]: DOWN → up_to_down …). */
 export const STORM_SCREEN = Object.freeze({ DOWN: 'screen_desert_up_to_down', UP: 'screen_desert_down_to_up', LEFT: 'screen_desert_right_to_left', RIGHT: 'screen_desert_left_to_right' });
-/** The battle's time-out camera effect (act1autochess_time_out_global_buff `_timeOutCameraEffect`; setTimeOut). */
-export const TIME_OUT_SCREEN = 'screen_com_poison_04';
 /**
  * The sand marks of a 沙尘暴 on the 土石结构 (EN template sand_storm[trap]): every mound `{ r, c, z }` in a span `{ c0, c1,
  * dir }` of `storm` (m.field `storm`, sim content/devices.js stormView) with no other mound against the wind up to the map
@@ -402,7 +400,6 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const notes = new Map();           // 丰川祥子's notes: sim note id → { pos, dx, dy, mode, state, … } (noteFx)
   let clockS = 0;
   let stormGen = 0;                  // 2026-10-18: setStorm's battle (clear() ends it; a load finishing after drops its effect)
-  let outGen = 0;                    // 2026-10-25: setTimeOut's call (an off or clear() drops a load still finishing)
   let lastViews = null;               // the views map of the last event (the notes trace their targets' views)
   const perf = { updateMs: 0, renderMs: 0, calls: 0 };
   const recent = []; // local patch: the last prefabs started ({ n: name, t: battle clock, seq }) — stats().recent, /debug.html's log
@@ -4737,25 +4734,6 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       await Promise.all(jobs);
     },
     /**
-     * 2026-10-25: the battle's time-out (render/app.js setTimeOut, rules/fx.md 「시간 초과 화면 효과」). The official global
-     * buff act1autochess_time_out_global_buff (AutoChessTimeOutGlobalBuff) turns its `_timeOutCameraEffect`
-     * screen_com_poison_04 on once the battle's normal end time has passed and keeps it until the battle ends: a
-     * CameraEffect (`_spawnOffset` 0, `_maxLifeTime` −1) on the camera, followed like setStorm's sand. Off on `on` false
-     * or the next clear().
-     */
-    async setTimeOut(on) {
-      const gen = ++outGen;
-      for (const l of live) if (l.tag === 'timeOut') l.inst.stop(true);
-      if (!on || q() === 'low' || failed || !(dry || await ensure()) || gen !== outGen) return;
-      if (!index?.bundles?.screen?.includes(TIME_OUT_SCREEN)) return;
-      if (trace) trace({ kind: 'timeOut', names: [TIME_OUT_SCREEN], by: null, at: null }); // tests: the board's effects (no owner)
-      if (dry) { dryFollow('screen', TIME_OUT_SCREEN, null, null); return; }
-      const def = await lib.load('screen', TIME_OUT_SCREEN);
-      if (!mod || !def || gen !== outGen) return;
-      const inst = new mod.fxp.FxInstance(def, { quality: q() });
-      addLive(inst, { view: null, owner: null, buff: true, keep: true, pinned: true, tag: 'timeOut', camera: true }, layers.over);   // pinned: never ended by the caps
-    },
-    /**
      * 2026-10-10: whether an enemy's death is drawn here with its official dead effect (edeathFx) — render/app.js then skips
      * render/fx.js's procedural death puff (the client plays only the dead effect: `DeadState._PlayAnimation`).
      */
@@ -5104,7 +5082,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     },
 
     clear() {
-      stormGen++; outGen++;
+      stormGen++;
       for (const l of live) dropLive(l);
       live.length = 0;
       lastAtk.clear(); healAtk.clear(); aimed.clear(); chainLines.clear(); strikes.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear(); packs.clear(); lemMarks.clear();
