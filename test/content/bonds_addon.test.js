@@ -651,6 +651,32 @@ test('突袭: a ready AUTO skill jumps again whenever its enemy leaves the membe
   checkInvariants(h.b);
 });
 
+test('突袭: 瑕光 S1 cast on an attack whose target dies in the wind-up is spent (no skill left on) — she jumps by the ready skill to the next enemy, not after the idle time', () => {
+  const idle = bondBb('raidShip').no_attack_duration;
+  const h = makeBattle({
+    defs: { enemies: { ...DUMMY, enemy_raid_far: enemyRec({ key: 'enemy_raid_far', hp: 1e6, speed: 0 }) } },
+    bonds: { raidShip: bond(1, 10) }, enemies: [{ key: 'enemy_addon_dummy', pos: [9, 8] }],
+    units: [{ chessId: BLEMSH, row: 12, col: 3, skillIndex: 0 }], hooks: ['deploy', 'death', 'skillStart', 'skillEnd'], autoFinish: false, timeLimit: 60,
+  });
+  h.step();
+  const u = h.unit(BLEMSH);
+  assert.ok(h.runUntil(() => raidJumps(h).length > 0, 20), 'jumped onto the dummy');
+  assert.ok(h.runUntil(() => u.skill.pending && u.swing, 5), 'S1 cast as her attack starts');
+  const charges = u.skill.charges;
+  h.b.dealDamage(null, u.swing.targets[0], { amount: 1e9, type: 'true' }); // a teammate's kill before her strike
+  assert.ok(h.runUntil(() => !u.swing, 2), 'the swing played out');
+  assert.ok(!u.skill.active && !u.skill.pending, 'the whiff spent the cast: S1 is off (no orange bar left behind)');
+  assert.equal(u.skill.charges, charges, 'no charge back for a whiff');
+  assert.equal(h.hooksOf('skillEnd').filter((c) => c.unit === u).at(-1)?.reason, 'cancel');
+  const n = raidJumps(h).length;
+  h.run(1);
+  const t0 = h.b.time;
+  h.spawn('enemy_raid_far', { pos: [5, 6] });
+  assert.ok(h.runUntil(() => raidJumps(h).length > n, 1), 'jumped to the new enemy at the next poll');
+  assert.ok(h.b.time - t0 < idle - 3, `by the ready skill (${(h.b.time - t0).toFixed(2)} s after it appeared)`);
+  checkInvariants(h.b);
+});
+
 test('不屈: knocked-out 地面干员 (melee position) redeploys (p=1 at high L); tier 2 every operator +5 SP; inactive / ranged → no', () => {
   const bb = bondBb('indomShip');
   const sk = { spCost: 50, initSp: 0 };

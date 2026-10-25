@@ -1160,7 +1160,7 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
     공식 클라 `ReplacementSkill.ApplyModification` → `Character.RegisterReplacement`, `Character.get_attack`,
     `Character._SearchAttackTarget` → `TryHookSearchTarget`, 공격 뒤 `ReplacementSkill.CancelAfterAttack` →
     `Character.ClearReplacement`(스킬 능력 쿨다운을 공격 능력으로). 구현: `skills.js activate`(`replacing`)·`fireReplacement`, `ai.js startReplacement`.
-    휘두름이 끊기면(기절·缴械) 시전은 다음 공격을 기다린다. 华法琳 S1 두 키트는 키트가 「막 나갈 치료」를 스킬 치료로 바꾸는 방식이라(대체되는 공격을 키트가
+    휘두름이 끊기면(기절·缴械) 시전은 그 휘두름과 함께 소모된다(2026-10-25 정정 — 아래 「「다음 공격」 스킬은 그 휘두름이 끝나면 꺼짐」). 华法琳 S1 두 키트는 키트가 「막 나갈 치료」를 스킬 치료로 바꾸는 방식이라(대체되는 공격을 키트가
     직접 모델) SkillSpec `inAttack: true`로 엔진 대기를 끈다.
   - `state` = `CastSkill` `_switchToState` 1(풀 149개; 공격 없는 즉발 약 20개): 곧바로 시전하고 Skill 상태 — 진행 중 휘두름은 끊기고(쿨다운 유지,
     계속 흐름) 스킬 능력이 끝날 때까지(`unit.skillStateUntil`) 공격하지 않는다. 기절·빙결·수면은 상태를 끝낸다.
@@ -1872,6 +1872,32 @@ upstream `6ab24682` → master `c9d804f4`·dev `06a92237` 대조에서 받은 �
     본체 꼬리만, 나머지는 잠금 드론만(전에는 'atk'마다 본체 꼬리 + 드론).
   - 테스트 `test/sim/funnel-body.test.js`(S2: 한 일제 사격에 100% 본체 하나, 부착 추가 피해 없음), `test/content/kits_alt_t6.test.js`(대상 = 본체 + 4, 본체
     ATK×1.0, 잠금은 init부터). golden: roster-047(그녀가 S2).
+
+## 「다음 공격」 스킬은 그 휘두름이 끝나면 꺼짐 (2026-10-25, 제보·관리자 결정 2026-10-25 「공식 클라 확인 후 수정」)
+
+제보: 기습(突袭) 맹약의 瑕光(블레미샤인) S1 — SP줄이 스킬이 켜진 것처럼 주황으로 10초쯤 있다가, 공격하지 않아서 점프한다.
+- **원인**: 「다음 공격」 스킬(`spec.attack`이 있는 즉발·충전 스킬, `replace` 시전)은 공격 직전에 켜지고(`pending`) 그 공격이 실제로 나가야 꺼졌다.
+  휘두르는 도중 대상이 죽거나(아군 막타 — 기습 멤버가 한 적에게 몰리면 흔함) 휘두름이 끊기면 스킬은 켜진 채 다음 공격을 기다렸고, 주위에 적이 없으면
+  그대로 남았다(주황 SP줄). 기습의 「스킬 준비됨」 점프는 「스킬이 안 켜짐」을 요구하고, 스킬 시작 점프는 시작할 때 적을 막고 있으면 없으므로, 10초 무공격
+  점프(`no_attack_duration`)로만 움직였고 그 시전 몫 충전 1회도 잃었다.
+- **공식**(EN 클라 스킬 프리팹·스킬 클래스, 공식 클라에서 확인): 瑕光 S1 `skchr_blemsh_1`은 `ReplacementSkill`(`_cancelIfSearchTargetFailed` 1,
+  `_recoverSpIfTargetDead` 1), 그 공격 능력 `_selectTargetTiming` 0·`_interuptIfTargetDead` 0 — 대상이 죽어도 휘두름은 끝까지(헛스윙, 위 「일반 공격 타이밍」).
+  공격 능력의 종료 콜백(`Character.States.AttackState`)은 **종료 이유와 상관없이**(정상·끊김·대상 사망) `Character.OnAfterAttack` → 스킬
+  `NextAttackOrCombatSkill.OnAfterAttack` → `CancelAfterAttack`을 부르고, 끝난 능력이 그 스킬의 능력이면 등록을 지운다(`ReplacementSkill`:
+  `Character.UnregisterReplacement`, `NextAtkAdditionSkill`: `Ability.Detach`) — 이유 검사 없음. SP 반환은 `ReplacementSkill.OnCastFinish` 하나:
+  `_recoverSpIfTargetDead`이고 종료 이유가 `TARGET_DEAD`이고 아직 타격 전(`CheckAtPreCastPhase`)이며 그 스킬이 지금 등록된 대체일 때 `spCost` SP.
+  풀의 `ReplacementSkill` 49개 중 48개가 `_recoverSpIfTargetDead` 1(0은 维娜·维多利亚 S1 `skchr_siege2_1`).
+- **변경**(`server/sim/ai.js dropNextAttack`): 「다음 공격」 시전이 실린 휘두름(스킬 프로필로 시작한 휘두름, `replace` 휘두름)이 그 공격 없이 끝나면 —
+  끊김(`cutAllySwing`: 기절·빙결·수면·缴械 등), 헛스윙(타격 때 대상이 모두 사라짐), 타격 때 다시 골라 아무도 없음 — 스킬을 끝낸다(`end('cancel')`).
+  SP는 마지막 경우(`TARGET_DEAD`, 타격 전)만 충전 1회 돌려준다 **[ASSUMED: `_recoverSpIfTargetDead`를 데이터로 옮기지 않아 모두 1로 봄; 지금 데이터에서
+  `replace` 시전 스킬은 모두 `_selectTargetTiming` 0이라 이 경우는 안 생김]**. 시전 전에 시작한 일반 휘두름(그 도중 TAKE_DAMAGE 시전)은 그 스킬의 것이
+  아니라 시전은 다음 공격을 기다린다(`CancelAfterAttack`의 능력 비교). 위 「즉발 스킬의 시전」의 「휘두름이 끊기면 다음 공격을 기다린다」(2026-10-11 구현 가정)를 고침.
+  이제 헛스윙 직후 瑕光은 S1이 꺼지고, 다른 적이 생기면 다음 폴링에 「스킬 준비됨」 점프로 간다.
+- 테스트 `test/content/bonds_addon.test.js` 「突袭: 瑕光 S1 cast on an attack whose target dies in the wind-up is spent …」,
+  `test/sim/instant-cast.test.js` 「'replace': a swing of the cast cut before its strike (stun) spends it …」.
+  golden: 「다음 공격」 스킬이 헛스윙·끊김을 겪는 판 전부 — bonds 7(deputShip-low·kjeragShip-high·maniShip-low·miraShip-high·soloShip-high·steadShip-low·
+  yanShip-high), diy-002·005, fields 6(boss_1-solo·boss_2/3/4-pair·hidden-boss_9-pair/solo), matches 11, roster 20.
+- **[화면 미확인]** 실제 판·브라우저에서 기습 瑕光의 주황 SP줄이 헛스윙 뒤 바로 돌아오는지.
 
 ## 8인 협동 모드 (관리자 결정 2026-10-16·2026-10-19, 공식에 없는 기능)
 

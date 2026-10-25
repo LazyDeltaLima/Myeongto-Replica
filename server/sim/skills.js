@@ -39,7 +39,8 @@
 //   branch, `_TrySearchTarget`: the unit's attack trigger finds a target).
 //   AUTO skills fire by their own rule (tick, onAboutToAttack, onDamaged — not operations). A kit with its own automatic
 //   cast checks `opCooling`; a cast made by activate() directly is not held back (it still starts the block). While a cast
-//   "next attack" waits for its attack, no further charge is cast.
+//   "next attack" waits for its attack, no further charge is cast; a swing of it that ends without its attack (cut, a
+//   whiff) spends it (ai.js dropNextAttack).
 // Kinds: duration (mods for `duration` s), ammo (mods until `ammo` attacks were made; optional duration cap),
 //   instant (onStart + optional one-shot attack override for the next attack), charges (= instant with charges),
 //   passive (always on from deployment, no SP), toggle (stays on until death once activated).

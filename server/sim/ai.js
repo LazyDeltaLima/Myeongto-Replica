@@ -108,13 +108,13 @@ export function updateAlly(b, u, dt) {
   }
   if (u.blocking.length) enforceBlockCapacity(b, u);
   // (a stun / freeze / sleep also ends a Skill state — the client's `SkillState.OnTick`: no `canUseAbility` → IDLE)
-  if (!u.canAct || !u.profile) { cutSwing(u); u.skillStateUntil = 0; u.atkSpell = 0; return; }
+  if (!u.canAct || !u.profile) { cutAllySwing(u); u.skillStateUntil = 0; u.atkSpell = 0; return; }
   // a rangeExtend change (buff added / expired) rebuilds the range — also for units that never attack (auras)
   if (b.rangeChanged(u)) b._refreshRange(u);
   const sk = u.skill;
   let prof = effectiveProfile(u);
   if (prof.noAttack || (prof.noAttackUnlessSkill && !(sk && sk.active)) || u.s.flags.disarm) {
-    cutSwing(u);
+    cutAllySwing(u);
     u.atkSpell = 0;
     if (prof.watchForm) watchForm(b, u, prof);
     return;
@@ -193,7 +193,7 @@ export function updateAlly(b, u, dt) {
  * The attack a 'replace' cast took over (the client's `Character.get_attack` → the registered replacement's ability;
  * skills.js): its swing starts like an attack's — the attack cooldown restarts from the full interval now — and plays the
  * skill ability's clip (SkillRuntime.castTiming); its strike is the skill's effect (allyStrike → fireReplacement). A
- * swing cut before the strike (stun, 缴械 …) leaves the cast waiting for the next attack.
+ * swing cut before the strike (stun, 缴械 …) spends the cast (dropNextAttack: the client ends it as that attack finishes).
  */
 function startReplacement(b, u, sk) {
   const t = sk.castTiming();
@@ -275,6 +275,31 @@ function cutSwing(u) {
   u.castLeft = 0;
 }
 
+/** An operator's / summon's swing is cut (cutSwing): a cast "next attack" it carried is spent with it (dropNextAttack). */
+function cutAllySwing(u) {
+  const sw = u.swing;
+  cutSwing(u);
+  if (sw) dropNextAttack(u, sw, false);
+}
+
+/**
+ * Swing `sw` — the attack a cast "next attack" (an instant / charge skill with an attack override, or a 'replace' cast)
+ * went out as — ended without that attack: cut, a whiff (its targets gone at the strike) or no target found at a
+ * strike that selects again. The cast is spent: the attack's finish callback (`AttackState`'s, whatever the finish
+ * reason) calls the skill's `NextAttackOrCombatSkill.OnAfterAttack` → `CancelAfterAttack` (ReplacementSkill:
+ * `UnregisterReplacement`; NextAtkAdditionSkill: `Detach`), so the skill is no longer on — nothing waits for the next
+ * attack. `refund` (no target at the strike = `FinishIfNot(TARGET_DEAD)` before the first spell): the charge comes back
+ * (`ReplacementSkill.OnCastFinish`, `_recoverSpIfTargetDead`: 48 of the pool's 49 ReplacementSkill prefabs
+ * [ASSUMED: all here]); a cut or a whiff refunds nothing. A swing taken before the cast (a TAKE_DAMAGE cast during a
+ * normal swing) is not the skill's: the cast stays for the next attack.
+ */
+function dropNextAttack(u, sw, refund) {
+  const sk = u.skill;
+  if (!sk || !sk.active || sk.isTimed || !sk.pending || !(sw.replace || sw.isSkill)) return;
+  sk.end('cancel');
+  if (refund) sk.addCharge(1);
+}
+
 /** Game seconds rounded to the millisecond (event payloads). */
 const roundMs = (t) => Math.round(t * 1000) / 1000;
 
@@ -293,6 +318,7 @@ const strikable = (t) => !!t && t.alive && !t.hidden && (t.side !== 'ally' || t.
  * first spell → `m_cooldownTimer.Reset(false)`): it may swing again at once. A skill started or ended during the swing
  * (its attack profile is not the one the targets were taken with) takes them again too [추정: the client switches the
  * operator's mode, whose own attack ability picks its targets].
+ * A cast "next attack" whose swing ends either way without its attack is spent (dropNextAttack).
  */
 function allyStrike(b, u, prof) {
   const sw = u.swing;
@@ -301,10 +327,10 @@ function allyStrike(b, u, prof) {
   let targets = sw.targets;
   if (sw.sel === 1 || sw.sel === 3 || (sw.sel === 2 && !strikable(targets[0])) || sw.isSkill !== !!prof.isSkill) {
     targets = acquireTargets(b, u, prof);
-    if (!targets.length) { u.atkCd = 0; u.castLeft = 0; return; }
+    if (!targets.length) { u.atkCd = 0; u.castLeft = 0; dropNextAttack(u, sw, true); return; }
   } else {
     targets = targets.filter(strikable);
-    if (!targets.length) return;
+    if (!targets.length) { dropNextAttack(u, sw, false); return; }
   }
   performAttack(b, u, prof, targets, sw.signal ? { signal: sw.signal } : null);
 }

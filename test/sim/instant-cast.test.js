@@ -128,6 +128,20 @@ test("'replace' (ReplacementSkill): the SP is spent at the cast, the skill goes 
   }
 });
 
+test("'replace': a swing of the cast cut before its strike (stun) spends it — no effect, no SP back, nothing waits for the next attack", () => {
+  const { h, u } = field({ mode: 'replace', time: 0, clip: 'Skill', dur: 1, hit: 0.4, max: 1 });
+  h.run(0.6);
+  u.skill.gainSp(5, 'test');
+  assert.ok(h.runUntil(() => u.swing?.replace, 2), 'the cast went out as her swing');
+  assert.ok(h.b.applyStatus(u, 'stun', { duration: 0.5 }), 'stunned in the wind-up');
+  h.step();
+  assert.ok(!u.skill.active && !u.skill.replacing, 'the cast is spent with the cut swing (the client\'s CancelAfterAttack)');
+  assert.ok(u.skill.sp < 1, `no SP back (only its time SP since the cast): ${u.skill.sp}`);
+  h.run(2);
+  assert.equal(u.mem.casts, undefined, 'its effect never went out');
+  checkInvariants(h.b);
+});
+
 test('the real match path: 引星棘刺 S2 (a Skill-state cast) holds her attacks while its skill ability plays', async () => {
   const { makeMatch } = await import('../match/harness.js');
   const { buildBattleSpec, createBattleFromSpec } = await import('../../server/sim/spec.js');
