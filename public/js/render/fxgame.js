@@ -4435,7 +4435,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // `_onlyPlayStartEffectOnce`: the root's effect on the first deploy only [추정: a mode's override still plays]
       if (bind?.startOnce && !fx.override) { if (startedOnce.has(id)) continue; startedOnce.add(id); }
       // 2026-10-24 (묶음 S4): a summon's own start effect (modes.json `start`: 凯尔希·思衡托's 战术锚点) — 'common_empty' is
-      // nothing (乌尔比安's block); one not extracted (蜜蜡's obelisk, 夕's dragon …) keeps the token's common one, as before
+      // nothing (乌尔比安's block); one not extracted keeps the token's common one, as before
       const r = fx.name === 'common_empty' ? null
         : allyFx(v, fx.name) ?? (v.info.kind === 'token' && !fx.override ? allyFx(v, deployEffect(null, true).name) : null);
       if (r) spawn(r[0], r[1], v, { owner: id, buff: false, onCaster: true, tag: 'born' }, { over: false, facing: efacing(v) });

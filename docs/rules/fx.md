@@ -1880,8 +1880,12 @@
     한 번(`[switch2stand]`의 `dollBorn`과 짝).
   - 소환물 배치 이펙트: `Character.get_startEffect`(프리팹 뿌리 `_startEffect`, 없으면 `common_call_start_01`)를 오라 없는 소환물과 自选 오퍼의 소환물
     (`data/backups.json`)까지 읽는다 — 凯尔希·思衡托의 战术锚点 `kalts2_skill_03_indicator_ground_01`(끝에 `_end_01`). 이 클라에 팩이 없는 소환물은 앞서 쓴
-    항목을 지킨다. `common_empty`(乌尔比安의 방벽)는 아무것도 없음, 추출 안 된 것(蜜蜡·迷迭香·夕·耀骑士临光·琳琅诗怀雅·维什戴尔·维娜·维多利亚의 소환물
-    시작 이펙트 7개 — 그 소환물 번들이 추출물에 없음)은 전처럼 공용 것.
+    항목을 지킨다. `common_empty`(乌尔比安의 방벽)는 아무것도 없음, 추출 안 된 것은 전처럼 공용 것.
+    (2026-10-25) 그때 빠졌던 蜜蜡·迷迭香·夕·耀骑士临光·琳琅诗怀雅·维什戴尔·维娜·维多利亚의 소환물 시작 이펙트 7개를 EN 클라 공용 소환물 팩
+    `pkgrps/btl_pfb_fx_token_0~3.ab`에서 `<주인>_token` 번들로 뽑음(`token_beewax_skill_02_start`·`token_dusk_birth_01_start` = 0,
+    `token_nearl2_birth_01_start` = 1, `token_rosmon_skill_03_start`·`token_siege2_vlion_birth_01`·`token_swire2_birth_01_start` = 2,
+    `token_wisdel_birth_01_start` = 3) — 코드 변경 없이 `tokenBundle`이 찾는다. 이펙트 골든은 그 소환물들의 `born` 줄만 움직임.
+    [화면 미확인]: 실제 판에서 그 소환물 배치 때 공식 시작 이펙트.
   - 溯光星源 S3: S3 모드의 LinkEnemy(`LockTargetAbility`)가 잠근 적들과 `_lineEffect` `halo2_skill_03_line_01` 하나를 든다(「被锁定的敌人会互相链接」) →
     키트 `'link'` { ids } 계획: 목록을 차례로 잇는 선(`line: ['ids']`), 잠금이 바뀌면 새로, 스킬 끝까지(`life: 'skill'`). [추정: 선이 잠근 적을 차례로
     지남 — 능력이 이펙트 하나를 들고 그 LineRenderer에 대상 자리를 넣음] S2의 끌어당김 `'link'`는 대체 그림 그대로.
