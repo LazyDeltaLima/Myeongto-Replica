@@ -49,7 +49,9 @@ test('the view keeps the time-out across the battles it shows; the game screen t
   assert.match(app, /if \(timeOut && !battleMeta\.prep\) fxGame\.setTimeOut\(true\);/, 'enterBattle wears it again (fxGame.clear ended it)');
   assert.match(app, /setTimeOut\(on\) \{\n\s+if \(destroyed \|\| timeOut === !!on\) return false;/);
   const game = read('public/js/screens/game.js');
-  assert.match(game, /const timeOutAt = isBossPhase\(phase\) && Number\(pub\?\.overtimeAt\) > 0/);
+  assert.match(game, /const timeOutAt = isBossPhase\(phase\) && !shownOver && Number\(pub\?\.overtimeAt\) > 0/);
+  // off with the shown battle's end, as the official buff ends with its battle
+  assert.match(game, /const shownOver = cc \? !!battleState\?\.done : .*f\.live === false\);/);
   assert.match(game, /audio\.sfx\('danger'\)/, 'ON_ACT1AUTOCHESS_ENTER_DANGER (tools/assets/audio.mjs UI_SFX danger)');
   assert.match(read('tools/assets/audio.mjs'), /danger: \{ bank: 'battle\.ON_ACT1AUTOCHESS_ENTER_DANGER' \}/);
 });

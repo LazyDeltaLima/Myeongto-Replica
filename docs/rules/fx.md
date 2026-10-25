@@ -881,10 +881,12 @@
   **보스전(최종 공세·隐秘核心)의 120초 카운트다운이 끝난 때부터 초과 시간 동안** 보인다(sim.md 「보스전 초과 시간」의 감소 시작과 같은 순간).
 - 같은 버프가 모든 유닛에 거는 `autochess_time_out_global_buff`(템플릿 `act1vautochess_time_out_bleeding`)는 이 모드 블랙보드에 `hp_ratio`가 없어
   초당 피해가 0이고, 적을 없애는 `past_time_final` ≥ 210초는 초과 시간 150초 안에 오지 않는다 → 시뮬 변화 없음.
-- 로컬: `public/js/screens/game.js`가 보스 단계에서 `m.public.overtimeAt`(= 카운트다운 끝)에 `view.setTimeOut(true)`(일시정지 중엔 기다림, 단계가
-  끝나면 끔)와 소리 `sfx.ui.danger`(이미 지난 판에 들어온 화면은 소리 없음) → `render/app.js setTimeOut`(켜진 동안 들어가는 전투마다 다시 — 다른
-  필드 관전) → `render/fxgame.js setTimeOut`: 沙尘暴의 모래 판처럼 카메라에 붙여 따라감(`camera`, 시야각 맞춤 [ASSUMED: 같은 카메라 부착]), 다음
-  `clear()`까지. 전투가 끝났는데 같은 보스 단계가 이어지는 동안(다른 필드가 아직 싸움)에도 그 화면에 남는다 [추정: 공식은 전투가 끝나면 버프가 사라짐].
+- 로컬: `public/js/screens/game.js`가 보스 단계에서 `m.public.overtimeAt`(= 카운트다운 끝)에 `view.setTimeOut(true)`(일시정지 중엔 기다림)와 소리
+  `sfx.ui.danger`(이미 지난 판에 들어온 화면은 소리 없음) → `render/app.js setTimeOut`(켜진 동안 들어가는 전투마다 다시 — 다른 필드 관전) →
+  `render/fxgame.js setTimeOut`: 沙尘暴의 모래 판처럼 카메라에 붙여 따라감(`camera`, 시야각 맞춤 [ASSUMED: 같은 카메라 부착]).
+- 끄기: 공식은 버프가 전투와 함께 끝나므로 **화면의 전투가 끝나는 순간** 끈다 — 클라이언트 전투는 실행기의 화면 전투 `done`, 서버 전투는
+  `m.public.fields[]`의 그 필드 `live` false(끝난 전장 위의 결말 연출 동안에도 꺼져 있음). 보스 필드는 공유 보스 체력 0·팀 생명 0·초과 시간 끝에서만
+  모두 함께 끝나므로(SIM.md, `_checkEnd`) 한 필드만 먼저 끝나는 경우는 없다. 카운트다운 전에 끝난 전투는 켜지지도, 소리도 없다(공식도 시각이 안 옴).
 - 추출: `fx_extract.py --bundle screen --prefab screen_com_poison_04`(EN 클라) → `node tools/build-browser-resources.mjs`. 프리팹 루트의 `CameraEffect`는
   추출기가 읽지 않는 스크립트(값은 위 둘뿐).
 - 확인: `test/render/timeout-fx.test.js`. [화면 미확인: 보스전 카운트다운 끝의 독 연기 판 위치·크기·진하기]

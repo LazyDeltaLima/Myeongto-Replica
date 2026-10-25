@@ -877,8 +877,11 @@ function MatchScreen() {
   useEffect(() => { if (offerCue) audio.sfx(offerCue); }, [offerCue]);
   // 2026-10-25 (rules/fx.md 「시간 초과 화면 효과」): a boss round past its 120 s countdown (m.public.overtimeAt, the official
   // battle's normal end time) — the time-out global buff's camera effect on the battle (view.setTimeOut) and its sound
-  // the moment it comes (ON_ACT1AUTOCHESS_ENTER_DANGER; not when this screen joins a round already past it)
-  const timeOutAt = isBossPhase(phase) && Number(pub?.overtimeAt) > 0 ? Number(pub.overtimeAt) : 0;
+  // the moment it comes (ON_ACT1AUTOCHESS_ENTER_DANGER; not when this screen joins a round already past it). The buff ends
+  // with its battle: off once the shown battle is over (client-side combat: the runner's shown battle; server-run: its
+  // m.public fields[] entry), the ending played over the field included
+  const shownOver = cc ? !!battleState?.done : (Array.isArray(pub?.fields) ? pub.fields : []).some((f) => f?.fieldId === field?.fieldId && f.live === false);
+  const timeOutAt = isBossPhase(phase) && !shownOver && Number(pub?.overtimeAt) > 0 ? Number(pub.overtimeAt) : 0;
   useEffect(() => {
     if (!view?.setTimeOut) return undefined;
     if (!timeOutAt) { view.setTimeOut(false); return undefined; }
