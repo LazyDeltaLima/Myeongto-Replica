@@ -90,6 +90,8 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
 /* the top bar's 本局信息 / 敌方信息 sit on the screen's top edge with the bond chips 4 px under them: upwards, and
    down only into that gap */
 .gtop__iconbtn, .enemybtn { --tap-top: 100%; --tap-ty: calc(-100% + 5px); }
+/* the 设置 tabs: 8 px over the 语言 select on a phone, with only the dialog's title above them — the same */
+.set-tabs { --tap-top: 100%; --tap-ty: calc(-100% + 5px); }
 /* stacked pairs: the upper one grows up, the lower one down — 难度 over 规则 and 干员调配 over 匹配补位 (room bar), 复制密钥
    over 复制链接 (the room's invite box), the 自选 preset slots over 编辑; the strategy draft's 查看禁用 / 技能与模组
    (full-width, between the order list's avatars and the tip) stay as drawn */
