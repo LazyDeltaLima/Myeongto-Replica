@@ -71,6 +71,12 @@ returns to the previous identity and nickname. Players are never identified by n
 shared recovery is refused. Leaving a match (g.leave / back to the lobby) or a server-issued replacement token clears
 the metadata, so a seat given up on purpose is never offered; a server restart or an expired reconnect window makes
 the attempt end in the server's new session.
+A seat this page lost to another live window of the same browser (the most recent token taken at initialization, or
+a hello still refused with `SESSION_IN_USE` after the client's retries) opens the same dialog by itself on that seat:
+「在此页面继续」 takes it over (`identity.takeOver` → `hello.takeover`, the other window is disconnected with 4001 and
+broadcast `taken`, after which it drops its welcome stamp so a reload of it no longer outranks the new holder; its own
+「在此页面继续」 can take the seat back). Without the confirmation nothing is taken (a remake addition, maintainer
+decision 2026-10-25).
 
 ## 13. Local-client art (optional, host-side)
 

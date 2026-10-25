@@ -272,10 +272,18 @@ function wireNet() {
   net.on('pong', (m) => { if (Number.isInteger(m.n) && m.n !== store.get().connection.online) store.patch('connection', { online: m.n }); });
   net.on('welcome', onWelcome);
   net.on('helloError', (err) => {
-    if (err.code === 'SESSION_IN_USE') identity.rejectToken();
+    if (err.code === 'SESSION_IN_USE') {
+      // another window still holds the seat after the retries (net.js IN_USE_RETRY_MS): this page goes on as a new
+      // session, and the recovery dialog offers to continue the seat here instead (ui/resumeMatch.js)
+      identity.rejectToken();
+      if (identity.contested().length) { store.patch('ui', { seatElsewhere: true }); return; }
+    }
     toastError(err);
   });
-  net.on('replaced', () => toast(t('该身份已在其他页面登录，本页已断开'), 'warn', { ttl: 6000 }));
+  net.on('replaced', () => {
+    identity.replaced();
+    toast(t('该身份已在其他页面登录，本页已断开'), 'warn', { ttl: 6000 });
+  });
   net.on('unhandledError', (err) => toastError(err));
   net.on('room.state', onRoomState);
   // the page reads the data of its room's 卫戍协议 season (room.state `season`, absent = the default; out of a room the
@@ -465,6 +473,8 @@ async function boot() {
   data.load('local').catch(() => {});
 
   const connectWhenReady = identityReady.then(() => {
+    // the seat this page would have resumed is held by another live window of this browser: offer it here
+    if (identity.contested().length) store.patch('ui', { seatElsewhere: true });
     if (entered) net.setName(savedName);
     else net.connect();
   });

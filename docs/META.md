@@ -179,7 +179,9 @@ A `choice:<effectId>` registry handler overrides the default application (§2.4)
   token, and `hello.claimAt` for a previously welcomed token. Before binding a different socket, the server rejects a
   connected seat when no replacement was allowed or the request has a later stamp than the attached holder
   (`SESSION_IN_USE`). Equal stamps still allow normal reload/reconnect. These hints do not authenticate players and do
-  not change the bearer token or the reconnect windows below (10 min; a solo match's 24 h).
+  not change the bearer token or the reconnect windows below (10 min; a solo match's 24 h). A held socket that does not
+  answer the ping of a refusal is replaced by the client's retry, and `hello.takeover` (the player confirmed
+  「在此页面继续」) replaces a held socket outright (design/network.md).
 * Disconnected human: the seat keeps playing its last lineup; drafts auto-resolve at their deadlines, prep auto-readies at
   the deadline (an open 教鞭 choice is picked at random first, §2.5; then the temp pieces due at that prep are sold/destroyed). Nothing is bought for them. A battle the human was authority of goes to the server
   (normal / 联防: re-simulated from t = 0) or, on a boss field, to the partner's replica (DESIGN §14). The session stays

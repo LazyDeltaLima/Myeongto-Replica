@@ -408,7 +408,8 @@ const target = (v) => {
 export const C2S = {
   // session & lobby
   hello: { name: (v) => isStr(v, NAME_MAX_LEN) && v.trim().length > 0, token: (v) => v == null || isStr(v, 64), version: (v) => v == null || isInt(v, 0, 1e6),
-    noReplace: isBool, claimAt: (v) => isNum(v, 0, Number.MAX_SAFE_INTEGER), $optional: ['token', 'version', 'noReplace', 'claimAt'] },
+    noReplace: isBool, claimAt: (v) => isNum(v, 0, Number.MAX_SAFE_INTEGER), takeover: isBool,
+    $optional: ['token', 'version', 'noReplace', 'claimAt', 'takeover'] },
   ping: { c: (v) => typeof v === 'number' && Number.isFinite(v) },
   // `ruleset`: the room's 규칙 모드 preset (shared/ruleset.js; absent = the default, classic); `custom`: the settings of
   // the custom preset (sanitizeCustom; ignored by the other presets); `size`: a co-op room's seat count (ROOM_SIZES; absent

@@ -14,6 +14,9 @@
 //   Extra events: 'status', 'ping', 'clock', 'helloError', 'unhandledError', 'replaced'.
 // - Server close code 4001 ("session replaced": the same token connected from another tab) stops
 //   auto-reconnect (status 'closed', lastError REPLACED) so two tabs never fight over one session.
+// - A hello refused with SESSION_IN_USE (another socket holds the seat) is resent on the same socket after each
+//   IN_USE_RETRY_MS wait — the server replaces a held socket that stopped answering — and only then reported
+//   ('helloError'); `getTokenClaim().takeover` (the player chose to continue here) sends `hello.takeover`.
 // - Before a name is known (title screen) the socket only pings; the server closes such sockets
 //   with 4002 (hello timeout). That close is answered with a quiet swap: a fresh socket is opened
 //   while the status stays 'connected', so the title's server indicator doesn't flicker.
@@ -38,6 +41,8 @@ export const HELLO_TIMEOUT_MS = 8000;
 export const PING_INTERVAL_MS = 4000;
 export const DEAD_AFTER_MS = 15000;
 export const BACKOFF = Object.freeze({ base: 500, factor: 2, max: 10000, jitter: 0.2 });
+/** Waits before resending a hello refused with SESSION_IN_USE: the held socket may be dying (server/net.js probe). */
+export const IN_USE_RETRY_MS = Object.freeze([2000, 4000, 8000]);
 
 /** Client-side error codes (in addition to shared ERR codes). */
 export const CLIENT_ERR_TEXT = Object.freeze({
@@ -114,7 +119,7 @@ export class Net {
    * @param {string} [opts.url] socket URL (default: derived from location at connect time)
    * @param {any} [opts.WebSocket] WebSocket constructor (default: globalThis.WebSocket)
    * @param {() => (string|null)} [opts.getToken] reconnect-token provider for `hello`
-   * @param {() => ({ noReplace: boolean, claimAt?: number })} [opts.getTokenClaim] local ownership for this hello
+   * @param {() => ({ noReplace: boolean, claimAt?: number, takeover?: boolean })} [opts.getTokenClaim] local ownership for this hello
    * @param {() => number} [opts.now]
    * @param {() => number} [opts.random]
    * @param {{setTimeout: Function, clearTimeout: Function, setInterval: Function, clearInterval: Function}} [opts.timers]
@@ -160,6 +165,7 @@ export class Net {
     this._helloRid = null;
     this._helloSentName = null;
     this._helloToken = null;
+    this._inUseRetries = 0;    // SESSION_IN_USE hellos resent since the last welcome (IN_USE_RETRY_MS)
     this._lastRx = 0;
     this._unansweredSince = null; // time of the oldest ping sent since the last inbound frame
     this._clockSamples = [];   // [{ offset, rtt }]
@@ -246,6 +252,7 @@ export class Net {
     this._teardownSocket();
     try { ws?.close(1000, 'client close'); } catch { /* ignore */ }
     this._failPending('CLOSED', true);
+    this._inUseRetries = 0;
     this._setStatus('closed');
   }
 
@@ -265,6 +272,7 @@ export class Net {
     try { ws?.close(4000, 'reconnect'); } catch { /* ignore */ }
     this._failPending('DISCONNECTED', false);
     this.attempt = 0;
+    this._inUseRetries = 0;
     this.connect();
   }
 
@@ -374,6 +382,7 @@ export class Net {
       const claim = this.getTokenClaim();
       if (claim?.noReplace) msg.noReplace = true;
       if (Number.isFinite(claim?.claimAt)) msg.claimAt = claim.claimAt;
+      if (claim?.takeover) msg.takeover = true;
     }
     this._helloToken = token;
     this._helloRid = rid;
@@ -401,6 +410,7 @@ export class Net {
     this.serverName = typeof msg.name === 'string' && msg.name ? msg.name : this._helloSentName;
     this.playerId = msg.playerId ?? null;
     this.attempt = 0;
+    this._inUseRetries = 0;
     this.lastError = null;
     if (Number.isFinite(msg.serverNow)) this._addClockSample(msg.serverNow + (this.ping ?? 0) / 2 - this.now(), Infinity);
     this._setStatus('online');
@@ -411,6 +421,16 @@ export class Net {
   _onHelloError(msg) {
     this._clearTimer('_helloTimer', 'clearTimeout');
     this._helloRid = null;
+    if (msg.code === 'SESSION_IN_USE' && this._inUseRetries < IN_USE_RETRY_MS.length) {
+      // still 'handshaking': queued requests wait (bound by their own timeouts), no error shown yet
+      const ws = this.ws;
+      this._helloTimer = this.timers.setTimeout(() => {
+        this._helloTimer = null;
+        if (ws === this.ws && ws.readyState === WS_OPEN && this.status === 'handshaking') this._sendHello();
+      }, IN_USE_RETRY_MS[this._inUseRetries++]);
+      return;
+    }
+    this._inUseRetries = 0;
     this.lastError = new NetError(msg.code, msg.msg, msg.detail);
     this._setStatus('connected');
     // Queued requests can't be sent without a session.
@@ -672,6 +692,10 @@ export class Net {
 // welcome outranks a later claimant, then a live holder wins over its duplicate, then tab id.
 // Without BroadcastChannel a tab only ever uses
 // its own token (never another tab's), so it can't steal a live session either.
+// A seat this page lost to another window (the most recent token taken at init, a yield, a hello refused with
+// SESSION_IN_USE) is offered back by `contested()`: `takeOver(id)` uses it with `hello.takeover` after the player
+// chose to continue here, and tells the other tabs ('taken'); the window that lost it drops its welcome stamp
+// (`stepAside`, also on a 4001 replacement) so it no longer outranks the new holder.
 
 const K_NAME = 'sp.name';
 const K_TOKEN = 'sp.token';      // sessionStorage: this tab's token
@@ -746,6 +770,8 @@ export function createIdentity(deps = {}) {
   let initPromise = null;
   let initialized = false;
   let resumeBusy = false;
+  let takeover = null;   // token this page is taking over (hello.takeover until its welcome)
+  const contestedIds = new Set(); // hashes of seats this page lost to another window
   let current = null;    // token this tab uses (null = let the server create a session)
   let resolving = null;  // { hashes: Set<hash>, taken: Set<hash> } while init() waits for claims
   let owned = sget(session, K_TOKEN);
@@ -811,6 +837,8 @@ export function createIdentity(deps = {}) {
     // The original page can reappear after resume's query but before its hello. Keep our old
     // session in storage and give back the tentative selection immediately in that interval.
     if (current && tokenHash(current) === hash) {
+      contestedIds.add(hash);
+      if (takeover === current) takeover = null;
       if (current === owned) {
         owned = null; welcomeAt = null; welcomed = false;
         sdel(session, K_WELCOME);
@@ -822,10 +850,20 @@ export function createIdentity(deps = {}) {
     }
   };
 
+  // Another window took this seat over: keep the token (its 「在此页面继续」 can take it back) but no longer
+  // outrank the new holder in claims, here or after a reload.
+  const stepAside = (hash) => {
+    if (!owned || tokenHash(owned) !== hash) return;
+    welcomeAt = null; welcomed = false;
+    sdel(session, K_WELCOME);
+  };
+
   function onChannelMessage(ev) {
     const m = ev && ev.data;
     if (!m || typeof m !== 'object' || m.from === tabId || typeof m.from !== 'string') return;
-    if (m.type === 'who' && Array.isArray(m.hashes)) {
+    if (m.type === 'taken' && typeof m.hash === 'string') {
+      stepAside(m.hash);
+    } else if (m.type === 'who' && Array.isArray(m.hashes)) {
       for (const h of m.hashes) {
         if (typeof h !== 'string') continue;
         const ours = claimFor(h);
@@ -848,7 +886,7 @@ export function createIdentity(deps = {}) {
     // Without a channel we cannot tell whether a shared token is in use: never adopt one.
     const candidates = owned ? [owned] : channel ? [...new Set(readRecent())] : [];
     if (!channel || candidates.length === 0) return owned;
-    return queryCandidates(candidates);
+    return initialPick(candidates);
   }
 
   async function queryCandidates(candidates) {
@@ -859,6 +897,13 @@ export function createIdentity(deps = {}) {
     const { taken } = resolving;
     resolving = null;
     return candidates.find((t) => !taken.has(tokenHash(t))) || null;
+  }
+
+  async function initialPick(candidates) {
+    const pick = await queryCandidates(candidates);
+    // the seat this page would have resumed is held by another live window
+    if (pick !== candidates[0]) contestedIds.add(tokenHash(candidates[0]));
+    return pick;
   }
 
   return {
@@ -911,6 +956,30 @@ export function createIdentity(deps = {}) {
       } catch { return false; }
       finally { resumeBusy = false; }
     },
+    /** Recoverable seats this page lost to another window of this browser (see the section header). */
+    contested() {
+      return this.recoverable().filter((m) => contestedIds.has(m.id));
+    },
+    /**
+     * Continue a recoverable seat in this page even though another window holds it (the player confirmed): the
+     * next hello carries `takeover`, the other window is replaced (4001) and steps aside.
+     * @param {string} id token hash from recoverable()
+     */
+    takeOver(id) {
+      const token = readRecent().find((t) => tokenHash(t) === id);
+      if (!token || !initialized) return false;
+      current = token; owned = token; takeover = token;
+      welcomeAt = null; welcomed = false;
+      sset(session, K_TOKEN, token);
+      sdel(session, K_WELCOME);
+      contestedIds.delete(id);
+      post({ type: 'taken', hash: id });
+      return true;
+    },
+    /** This page's socket was replaced by another window (close 4001). */
+    replaced() {
+      if (owned) stepAside(tokenHash(owned));
+    },
     /** @returns {string} remembered player name ('' if none) */
     loadName: () => (sget(local, K_NAME) || '').slice(0, 64),
     /** @param {string} name */
@@ -924,6 +993,7 @@ export function createIdentity(deps = {}) {
     },
     /** A shared candidate must never replace a connected session, including a hello already in flight. */
     getTokenClaim() {
+      if (takeover && current === takeover) return { noReplace: false, takeover: true };
       return current === owned && owned
         ? { noReplace: false, ...(welcomeAt != null ? { claimAt: welcomeAt } : {}) }
         : { noReplace: true };
@@ -937,6 +1007,8 @@ export function createIdentity(deps = {}) {
       if (!isToken(token)) return;
       if (current !== token) rememberMatch(null);
       if (owned !== token || welcomeAt == null) welcomeAt = now();
+      if (takeover === token) takeover = null;
+      contestedIds.delete(tokenHash(token));
       owned = token;
       welcomed = true;
       current = token;

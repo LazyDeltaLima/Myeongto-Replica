@@ -84,7 +84,7 @@ export const initialState = Object.freeze({
   emotes: [],
   chat: { code: null, lines: [], seen: 0 }, // room chat (local patch, ui/chat.js)
   clock: { offset: 0, rtt: null, synced: false },
-  ui: { pendingJoin: null, restoring: false, buildStale: false, restartAt: null /* ui/restartNotice.js */, genMove: null /* ui/generation.js */, updated: null /* { from, room }: the page reloaded onto a new version, ui/updateNotice.js */, queue: null /* ui/matchQueue.js */, queueCounts: null /* lobby.queueCounts, ui/matchQueue.js */, queueCounts8: null /* its counts8: the 8-player queues */,
+  ui: { pendingJoin: null, restoring: false, seatElsewhere: false /* another window holds this page's seat: ui/resumeMatch.js */, buildStale: false, restartAt: null /* ui/restartNotice.js */, genMove: null /* ui/generation.js */, updated: null /* { from, room }: the page reloaded onto a new version, ui/updateNotice.js */, queue: null /* ui/matchQueue.js */, queueCounts: null /* lobby.queueCounts, ui/matchQueue.js */, queueCounts8: null /* its counts8: the 8-player queues */,
     serverLost: null /* { text }: the official server-lost dialog over a match the server ended (main.js) */ },
 });
 

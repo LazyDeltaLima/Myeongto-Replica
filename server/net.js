@@ -17,9 +17,14 @@
 //     in server/lobby.js. Local / LAN peers without a forwarding header (dev machine, tests, LAN party)
 //     have no key and are never limited per address.
 //   * Heartbeat (ws ping/pong every `heartbeatMs`, dead sockets terminated), hello timeout.
+//   * Contested hello (a session another socket still holds, design/network.md): `takeover` (the player chose to
+//     continue in this window) replaces the held socket; `noReplace` / a later `claimAt` is refused with SESSION_IN_USE
+//     and the held socket is pinged — when it has not answered by the client's retry (PROBE_MIN_MS or later) it is
+//     dead (a phone that slept) and the retry replaces it.
 //   * Hello log (the lobby's seat log, server/lobby.js header): one info line when a hello is refused with
-//     SESSION_IN_USE (and how long ago the held socket last answered) and when a hello's token is not known (expired,
-//     or another server's) so the player starts over as a new session.
+//     SESSION_IN_USE (and how long ago the held socket last answered), when one takes a held session over or
+//     replaces a held socket that did not answer the probe, and when a hello's token is not known (expired, or
+//     another server's) so the player starts over as a new session.
 //   * Send helpers that never throw, with a backpressure guard: non-critical `b.snap` frames are skipped
 //     while the socket has more than 1 MB queued; a socket with more than 16 MB queued is terminated
 //     (the client reconnects and receives a full state resync).
@@ -66,6 +71,9 @@ export const NET_DEFAULTS = Object.freeze({
   trustProxy: 'auto',           // forwarding headers: 'auto' = from loopback/private peers only, true = always, false = never
 });
 
+/** A held socket that has not answered the probe of a refused hello this long after it is replaced by the next hello. */
+export const PROBE_MIN_MS = 1500;
+
 /**
  * Intents that also draw from the per-connection heavy bucket: g.watch (its reply is a large state resend, m.field),
  * room.loadout (a ≤ 160-entry map and ≤ 256 operator settings validated against the game data; the client debounces its
@@ -106,6 +114,8 @@ export class Session {
     this.claimAt = null;
     /** @type {number} ms epoch of the last inbound frame / pong */
     this.lastSeen = now;
+    /** @type {number | null} ms epoch of the ping sent to the bound socket when a contested hello was refused */
+    this.probeAt = null;
     /** @type {number | null} ms epoch when the socket was lost (null while connected) */
     this.disconnectedAt = now;
     /** @type {string | null} room code — owned and maintained by server/lobby.js */
@@ -680,13 +690,22 @@ export class Network {
     if (!session) {
       session = msg.token ? this.registry.byToken(msg.token) || this.adoptSession(msg.token) : null;
       if (session) {
-        if (session.connected && session.ws && session.ws !== conn.ws
-          && (msg.noReplace || (Number.isFinite(msg.claimAt) && session.claimAt != null && msg.claimAt > session.claimAt))) {
-          const seen = Number.isFinite(session.lastSeen) ? `, its socket last answered ${Math.round((now - session.lastSeen) / 1000)} s ago` : '';
+        const held = session.connected && session.ws && session.ws !== conn.ws;
+        const seen = held && Number.isFinite(session.lastSeen) ? `, its socket last answered ${Math.round((now - session.lastSeen) / 1000)} s ago` : '';
+        // a refused hello pinged the held socket; no answer by the client's retry means it is dead (a phone that slept)
+        const silent = held && session.probeAt != null && now - session.probeAt >= PROBE_MIN_MS && !(session.lastSeen >= session.probeAt);
+        if (held && msg.takeover) {
+          this.log.info?.(`[net] ${name}: hello for ${session.playerId} took the session over from its other socket${seen}`);
+        } else if (held && silent) {
+          this.log.info?.(`[net] ${name}: hello for ${session.playerId} replaced a socket that did not answer a probe${seen}`);
+        } else if (held && (msg.noReplace || (Number.isFinite(msg.claimAt) && session.claimAt != null && msg.claimAt > session.claimAt))) {
           this.log.info?.(`[net] ${name}: hello for ${session.playerId} refused, session in use (${msg.noReplace ? 'no-replace' : 'newer claim'}${seen})`);
+          if (session.probeAt == null || session.lastSeen >= session.probeAt) session.probeAt = now;
+          try { if (typeof session.ws.ping === 'function') session.ws.ping(); } catch { /* closing */ }
           this.reply(conn, errorMsg(ERR.SESSION_IN_USE, rid));
           return;
         }
+        session.probeAt = null;
         resumed = true;
         if (session.ws && session.ws !== conn.ws) this.detachReplaced(session.ws);
       } else {

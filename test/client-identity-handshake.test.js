@@ -145,3 +145,84 @@ test('hello ownership fields reject malformed inputs but remain optional', () =>
   for (const fields of [{}, { noReplace: true }, { noReplace: false, claimAt: 100 }]) assert.equal(validateC2S({ ...hello, ...fields }), null);
   for (const fields of [{ noReplace: 'yes' }, { claimAt: -1 }, { claimAt: Infinity }, { claimAt: '100' }]) assert.equal(typeof validateC2S({ ...hello, ...fields }), 'string');
 });
+
+test('a hello refused with SESSION_IN_USE is resent after each IN_USE_RETRY_MS wait before the error is reported', async () => {
+  const { IN_USE_RETRY_MS } = await import('../public/js/net.js');
+  const timers = [];
+  const fake = { setTimeout: (fn, ms) => { timers.push({ fn, ms }); return timers.length; }, clearTimeout() {}, setInterval: () => 0, clearInterval() {} };
+  const sockets = [];
+  class Socket {
+    constructor() { this.readyState = 0; this.sent = []; sockets.push(this); }
+    send(raw) { this.sent.push(JSON.parse(raw)); }
+    close(code) { this.readyState = 3; this.onclose?.({ code }); }
+  }
+  const net = new Net({ WebSocket: Socket, timers: fake, getToken: () => 'seat', getTokenClaim: () => ({ noReplace: false, claimAt: 5 }) });
+  const errors = [];
+  net.on('helloError', (e) => errors.push(e.code));
+  net.setName('Owner');
+  const ws = sockets[0]; ws.readyState = 1; ws.onopen();
+  const refuse = () => { const h = ws.sent.filter((m) => m.t === 'hello').at(-1); ws.onmessage({ data: JSON.stringify({ t: 'error', code: 'SESSION_IN_USE', rid: h.rid }) }); };
+  for (const wait of IN_USE_RETRY_MS) {
+    refuse();
+    assert.deepEqual(errors, []);
+    assert.equal(net.status, 'handshaking');
+    const retry = timers.filter((x) => x.ms === wait).at(-1);
+    assert.ok(retry, `a retry after ${wait} ms`);
+    const before = ws.sent.filter((m) => m.t === 'hello').length;
+    retry.fn();
+    assert.equal(ws.sent.filter((m) => m.t === 'hello').length, before + 1);
+  }
+  refuse();
+  assert.deepEqual(errors, ['SESSION_IN_USE']);
+  assert.equal(sockets.length, 1, 'every retry uses the same socket');
+  net.close();
+});
+
+test('a fresh window that loses the most recent seat to a live window may take it over; the other window steps aside', async (t) => {
+  const local = storage(), channels = hub();
+  const registry = new SessionRegistry(), server = new Network({ registry, handler: { onMessage() {} } });
+  t.after(() => { clearInterval(server.heartbeatTimer); clearInterval(server.sweepTimer); });
+  const seat = registry.create('Owner');
+  const ownerSession = storage();
+  const owner = createIdentity({ local, session: ownerSession, channel: channels.create(), tabId: 'z-owner', queryMs: 1, now: () => 100 });
+  await owner.init(); owner.saveToken(seat.token); owner.rememberMatch({ name: 'Owner', code: 'MLKH' });
+  // the owner window is connected: its socket holds the seat
+  const closes = [];
+  const held = { readyState: 1, bufferedAmount: 0, send() {}, close(code) { closes.push(code); this.readyState = 3; } };
+  server.onHelloMsg({ session: null, ip: '?', key: null, ws: held }, { t: 'hello', name: 'Owner', token: seat.token, claimAt: 100 }, Date.now());
+  assert.ok(seat.ws === held);
+
+  const fresh = createIdentity({ local, session: storage(), channel: channels.create(), tabId: 'a-fresh', queryMs: 1, now: () => 300 });
+  assert.equal(await fresh.init(), null, 'the live owner keeps its seat');
+  const [lost] = fresh.contested();
+  assert.equal(lost?.code, 'MLKH');
+  assert.equal(fresh.getTokenClaim().takeover, undefined);
+
+  assert.equal(fresh.takeOver(lost.id), true);
+  assert.equal(fresh.getToken(), seat.token);
+  assert.deepEqual(fresh.getTokenClaim(), { noReplace: false, takeover: true });
+  const hello = { t: 'hello', name: 'Owner', token: fresh.getToken(), ...fresh.getTokenClaim() };
+  assert.equal(validateC2S(hello), null);
+  const frames = [];
+  const conn = { session: null, ip: '?', key: null, ws: { readyState: 1, bufferedAmount: 0, send(raw) { frames.push(JSON.parse(raw)); }, close() {} } };
+  server.onHelloMsg(conn, hello, Date.now());
+  assert.equal(frames.at(-1).t, 'welcome');
+  assert.equal(frames.at(-1).resumed, true);
+  assert.deepEqual(closes, [4001], 'the other window is replaced');
+  fresh.saveToken(seat.token);
+  assert.equal(fresh.getTokenClaim().takeover, undefined, 'takeover only until the welcome');
+  assert.deepEqual(fresh.contested(), []);
+
+  // the 'taken' notice reached the owner window: it no longer outranks the new holder, even after a reload
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(owner.getTokenClaim().claimAt, undefined);
+  const reloaded = createIdentity({ local, session: ownerSession, channel: channels.create(), tabId: '0-reloaded', queryMs: 1, now: () => 400 });
+  assert.equal(await reloaded.init(), null, 'the reloaded owner window no longer takes the seat back from the new holder');
+  assert.equal(fresh.getToken(), seat.token);
+});
+
+test('takeover is optional and boolean in hello', () => {
+  const hello = { t: 'hello', name: 'Owner', token: 'seat' };
+  assert.equal(validateC2S({ ...hello, takeover: true }), null);
+  assert.equal(typeof validateC2S({ ...hello, takeover: 'yes' }), 'string');
+});

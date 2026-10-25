@@ -103,6 +103,39 @@ describe('connection log', () => {
       since(n).join('\n'));
   });
 
+  test('a takeover hello replaces the socket that holds the session, and says so', async () => {
+    const a = await player('Twin');
+    const n = lines.length;
+    const b = await connect();
+    const w = await b.hello('Twin', a.token, { noReplace: true, takeover: true });
+    assert.equal(w.resumed, true);
+    assert.equal(w.playerId, a.id);
+    assert.equal((await a.closed).code, 4001);
+    assert.ok(has(since(n), new RegExp(`^\\[net\\] Twin: hello for ${a.id} took the session over from its other socket, its socket last answered \\d+ s ago$`)),
+      since(n).join('\n'));
+  });
+
+  test('a refused hello probes the held socket: silent, the retry replaces it; answering, the retry is refused again', async () => {
+    // a phone that slept: its socket is open but answers nothing, not even the protocol ping
+    const asleep = await connect({ autoPong: false });
+    const a = Object.assign(asleep, { id: (await asleep.hello('Sleeper')).playerId });
+    const token = (await a.hello('Sleeper')).token;
+    const awake = await player('Awake');
+    const n = lines.length;
+    const b = await connect(), c = await connect();
+    const hello = (cl, name, tok) => cl.request({ t: 'hello', name, version: 1, token: tok, noReplace: true });
+    assert.equal((await hello(b, 'Sleeper', token)).code, ERR.SESSION_IN_USE);
+    assert.equal((await hello(c, 'Awake', awake.token)).code, ERR.SESSION_IN_USE);
+    await delay(1700);
+    const back = await hello(b, 'Sleeper', token);
+    assert.equal(back.t, 'welcome');
+    assert.equal(back.playerId, a.id);
+    assert.equal((await a.closed).code, 4001);
+    assert.equal((await hello(c, 'Awake', awake.token)).code, ERR.SESSION_IN_USE);
+    assert.ok(has(since(n), new RegExp(`^\\[net\\] Sleeper: hello for ${a.id} replaced a socket that did not answer a probe, its socket last answered \\d+ s ago$`)),
+      since(n).join('\n'));
+  });
+
   test('an expired seat: the expiry, then the old token starting over as a new session', async () => {
     const host = await player('Host');
     const guest = await player('Guest');
