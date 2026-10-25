@@ -1669,12 +1669,16 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   보고하고(`battle/runner.js`: 권한 전투는 `cur`가 아니어도 매 프레임 진행 — 숨은 탭과 같은 길), 보는 전투는 받은 b.start로 따라잡아 그린다.
   비용은 시뮬 하나 더(틱당 0.01–0.058 ms 측정, 2026-10-15)와 보기 시작할 때의 따라잡기(프레임당 ≤ 240틱), 그리는 양은 그대로.
 - 자기 전투가 화면 밖에서 끝나도 화면이 알도록 실행기 `state().mine`(가장 최근 자기 전투 `{ battleId, fieldId, kind, done }`)을 내보내고,
-  `game.js localDone`이 그것을 읽는다(대기 띠 WAIT_FINISH·일시정지·`myDone`). 보는 동안 관전 줄 아래 「你自己」 진행 칸(처치/총수, 끝나면 ✓,
-  `battle/observe.js ownProgress` → `ui/combatHud.js`); 위 LP 표시의 −N은 원래 자기 필드 기준이라 그대로 보인다.
+  `game.js localDone`이 그것을 읽는다(대기 띠 WAIT_FINISH·일시정지·`myDone`). 보는 동안 자기 전투 진행(처치/총수, 끝나면 ✓,
+  `battle/observe.js ownProgress` → `ui/combatHud.js`): 공식 그림이 있으면 관전 캡션(초록 ob_other) 오른쪽 10 간격에 공식 ob_self 모양 칩
+  (`bg_ob_self` + `icon_ob_self` + 「你自己」, 숫자는 금색 숫자 글꼴, `ui/battleArt.js ObInfo own`, 관리자 요청 2026-10-25 「공식 UI와 더 비슷하게」)
+  — 공식 지금 시즌엔 없는 칩이라 자리·모양은 [추정]; 그림이 없으면 관전 줄 아래 진행 칸. 위 LP 표시의 −N은 원래 자기 필드 기준이라 그대로 보인다.
+- 「返回战场」은 팀 패널 자기 행의 공식 버튼(`btn_return_self`)만 — 하단(관전 캡션 옆·联防 ‹ › 줄)의 「返回战场」 버튼은 없앴다(관리자 결정
+  2026-10-25). 관전 중이면 자기 행에 늘 있다(`ui/teamPanel.js` `observe.observing`).
 - 서버 `server/match/match/watch.js _watchClient`의 「own battle running」 거절과 클라 `observeTarget`의 「作战中无法查看队友」 거절을
   없앴다(그 문구는 언어 파일에 남김 — 한국어 팩은 지운 항목을 upstream 기계 번역으로 채운다). 보는 중 새로고침·끊김은 원래대로 끊길 때
   서버가 그 필드를 넘겨받는다(takeover) — 다시 들어오면 그 필드는 표시 사본.
 - 시험: `test/match/runner.test.js` 「watching a teammate while the own battle runs」(화면 밖 진행·결과가 서버 계산과 같음·`mine`·돌아오기),
   `test/match/observe.test.js`, `test/match/clientCombat.test.js` 「observing」, `test/match/watch-bonds.test.js`. 화면: Windows Chrome
   1920×1080·844×390(2026-10-25, 협동+AI 팀원 2라운드) — 전투 중 「前往查看」, 「你自己」 칸, 화면 밖 자기 전투 끝 → WAIT_FINISH 띠·팀 행 ✓,
-  「返回战场」으로 끝난 자기 전장.
+  「返回战场」으로 끝난 자기 전장; ob_self 칩·하단 버튼 없앰도 같은 두 크기(진행 중 「자신 0/6」, 끝 「자신 ✓」).

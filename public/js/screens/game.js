@@ -61,7 +61,7 @@
 // "👁 name"); 联防 / 最终攻势 → the player on the ‹ › half (全景: yours when you fight there, else the teammate picked
 // with 前往查看 — `watchWho` — or the field's first player, never the viewer's own); in battle with the live layers of
 // the battle on screen (battle/runner.js state().bondLayers). Picking a teammate on such a field (a 联防 leaker, an
-// eliminated spectator) frames their half and keeps the ‹ › pill (with 返回战场); an open bond popup closes when the
+// eliminated spectator) frames their half and keeps the ‹ › pill (返回战场 on the own team row); an open bond popup closes when the
 // strip changes hands.
 // Spectator seats (community report #26, a remake feature): a spectator has no m.private and plays like an ELIMINATED
 // player — no shop, no ready, no emotes (▸ [ASSUMED] off), the server auto-observes the first field of every battle, a
@@ -1820,7 +1820,7 @@ function MatchScreen() {
 
       ${combat || mode === 'settle' ? html`<${CombatHud} pub=${pub} myId=${myId} watching=${watchingNow} hud=${hud} myDone=${!!myDone && alive} waitBand=${tipType === 'WAIT_FINISH'}
         spectating=${!alive} spectator=${spectator} onWatch=${watchField}
-        client=${cc ? { progress, observing: observingName ? { name: observingName } : null, onBack: alive ? backHome : null, layers, layer, onLayer: setLayer,
+        client=${cc ? { progress, observing: observingName ? { name: observingName } : null, layers, layer, onLayer: setLayer,
           own: watchingOther && alive ? ownProgress(pub, myId, { localDone }) : null } : null} />` : null}
 
       ${showDeadPill(alive, phase) ? (spectator

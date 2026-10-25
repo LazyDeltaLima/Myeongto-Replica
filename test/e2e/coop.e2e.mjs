@@ -740,7 +740,7 @@ async function observeAfterFinish(c) {
   await sleep(800);
   await c.shot('combat-observe');
   if ((await c.st()).phase === 'COMBAT') {
-    await c.click('.team__back, .chud__back', '返回战场', { optional: true, timeout: 3000 });
+    await c.click('.team__back', '返回战场', { optional: true, timeout: 3000 });
     await c.page.waitForFunction(() => { const s = globalThis.__SP_RUNNER__?.state(); return !s || (s.own && !s.watch); }, { timeout: 10000 }).catch(() => {});
     // user playtest #2 item 6: back on the own battlefield the enemy pen stays hidden (figures, 2D rows, 3D area)
     await sleep(1300);

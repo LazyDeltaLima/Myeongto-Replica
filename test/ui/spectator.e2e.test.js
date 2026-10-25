@@ -126,7 +126,7 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
       await spec.page.waitForSelector('.chud__observe', { timeout: 10000 });
       const hud = await spec.page.evaluate(() => ({
         text: document.querySelector('.chud')?.textContent || '',
-        back: !!document.querySelector('.chud__back'),
+        back: !!document.querySelector('.team__back'),
         emote: !!document.querySelector('.ewheel'),
       }));
       assert.match(hud.text, /凯尔希/);

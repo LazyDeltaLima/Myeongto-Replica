@@ -274,7 +274,7 @@ describe('user playtest #2 item 6 — 前往查看 → 返回战场 in combat (r
         assertNoPen(w, 'observing the teammate');
         await c.shot('observe-teammate');
         if ((await c.st()).phase !== 'COMBAT') { c.note(`R${s0.round}: combat ended before 返回战场`); continue; }
-        await c.click('.team__back, .chud__back', '返回战场', { timeout: 4000 });
+        await c.click('.team__back', '返回战场', { timeout: 4000 });
         await c.page.waitForFunction(() => { const r = globalThis.__SP_RUNNER__?.state?.(); return !r || (r.own && !r.watch); }, { timeout: 10000 });
         await sleep(1300); // the camera flight
         const b = await battleViewState(c);

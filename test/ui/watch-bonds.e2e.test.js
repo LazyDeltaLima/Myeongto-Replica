@@ -54,7 +54,7 @@ const stripOf = (c) => c.page.evaluate(() => {
     tag: tag ? tag.textContent.trim() : null,
     tagFont: tag ? parseFloat(getComputedStyle(tag.querySelector('.micro')).fontSize) : null,
     pill: document.querySelector('.chud__layers .vswitch__label')?.textContent?.trim() ?? null,
-    pillBack: !!document.querySelector('.chud__layers .chud__back'),
+    pillBack: !!document.querySelector('.team__back'),
     observe: document.querySelector('.chud__observe .vswitch__label')?.textContent?.trim() ?? null,
     tagRect: tr ? { left: tr.left, top: tr.top, right: tr.right, bottom: tr.bottom } : null,
     rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom },
@@ -448,13 +448,13 @@ describe('DESIGN §20.15 — the bond strip shows the watched teammate\'s bonds 
         await guest.page.waitForFunction((name) => (document.querySelector('.chud__layers .vswitch__label')?.textContent || '').includes(name), { timeout: 6000 }, name);
         st = await stripOf(guest);
         assert.deepEqual([st.owner, st.bonds, st.observe], [name, mv.bonds[name], null], `picked ${name}: their bonds, no separate observing pill`);
-        assert.ok(st.pill.includes(name) && st.pillBack, `the ‹ › pill names ${name} and carries 返回战场 (${st.pill})`);
+        assert.ok(st.pill.includes(name) && st.pillBack, `the ‹ › pill names ${name}, the own team row carries 返回战场 (${st.pill})`);
         assert.ok(st.tagRect && st.tagRect.left >= 0 && st.tagRect.right <= st.vw && st.tagFont >= 9, `phone: the tag on screen, legible (${JSON.stringify(st.tagRect)} ${st.tagFont}px)`);
         await sleep(900); // the camera flies to the half (750 ms)
         await guest.shot(`picked-${name === mv.names[u.players[0]] ? 'helper1' : 'helper2'}`);
       }
       // 返回战场: no refused g.watch (no own field in 联防), the 联防 view stays with a helper's bonds
-      await guest.click('.chud__layers .chud__back', '返回战场');
+      await guest.click('.team__back', '返回战场');
       await sleep(1200);
       st = await stripOf(guest);
       assert.ok(st.owner === h1 || st.owner === h2, `back: still a helper's bonds (${st.owner})`);
@@ -509,7 +509,7 @@ describe('DESIGN §20.15 — the bond strip shows the watched teammate\'s bonds 
         // every bond the teammate's view lists is on the strip (live in-battle gains may add more)
         for (const id of await pubBonds()) assert.ok(st.bonds.includes(id), `${name}'s ${id} on the strip (${JSON.stringify(st.bonds)})`);
         assert.ok((st.observe || '').includes(name), `the observing pill names ${name} (${st.observe})`);
-        assert.ok(await host.page.$('.chud__observe .chud__back'), '返回战场 in the observing pill');
+        assert.ok(await host.page.$('.team__back'), '返回战场 on the own team row');
         // the replica on screen (the strip follows the watch at once; the field arrives with its b.start)
         const onScreen = await host.page.waitForFunction((fid) => {
           const s = globalThis.__SP__.store.get();
@@ -533,14 +533,14 @@ describe('DESIGN §20.15 — the bond strip shows the watched teammate\'s bonds 
         if (resumed.gone) { console.log(`round ${round}: the battles ended during the reload, next round`); continue; }
         await ownerIs(host, name);
         await host.page.waitForFunction((name) => (document.querySelector('.chud__observe .vswitch__label')?.textContent || '').includes(name), { timeout: 8000 }, name);
-        assert.ok(await host.page.$('.chud__observe .chud__back'), 'after the reload: 返回战场 again');
+        assert.ok(await host.page.$('.team__back'), 'after the reload: 返回战场 again');
         assert.equal(await host.page.$('.chud__wait'), null, 'after the reload: no "等待队友" message in place of the observing pill');
         st = await stripOf(host);
         for (const id of await pubBonds()) assert.ok(st.bonds.includes(id), `after the reload: ${name}'s ${id} on the strip (${JSON.stringify(st.bonds)})`);
         await sleep(1500); // the phase banner of the fresh screen
         await host.shot('reloaded');
         // 返回战场 → the own bonds, untagged
-        await host.click('.chud__observe .chud__back', '返回战场');
+        await host.click('.team__back', '返回战场');
         await host.page.waitForFunction(() => !document.querySelector('.gm__bonds .bstrip')?.getAttribute('data-owner'), { timeout: 8000 });
         st = await stripOf(host);
         assert.deepEqual([st.owner, st.observe], [null, null], 'back: own bonds, no observing pill');

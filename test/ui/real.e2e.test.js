@@ -616,7 +616,7 @@ describe('real server + real browsers', { skip: !ENABLED && 'set SP_REAL_E2E=1 (
               const other2 = await c.viewStats();
               assert.ok(other2 && other2.units > 0, 'the observed field renders units');
               await c.shot(`combat-observe-r${hs.round}`);
-              await c.click('.team__back, .chud__back', '返回战场', { optional: true, timeout: 3000 });
+              await c.click('.team__back', '返回战场', { optional: true, timeout: 3000 });
               did.watched = true;
               c.note(`前往查看 ${other.fieldId} (${other2.units} views) and 返回战场`);
             }

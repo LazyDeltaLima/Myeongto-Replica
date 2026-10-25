@@ -513,7 +513,6 @@
 .chud__observe .vswitch__label, .chud__layers .vswitch__label { display: inline-flex; align-items: center; justify-content: center; gap: .08rem; }
 .chud__observe .vswitch__label .icon { width: .24rem; height: .24rem; color: var(--amber); }
 .chud__layers .vswitch__label .icon { width: .22rem; height: .22rem; color: var(--amber); }
-.chud__back { flex: none; }
 .chud__layers { border-color: var(--mint-700); }
 /* a 联防 / 最终攻势 field watched with 前往查看: the ‹ › pill carries 返回战场 (DESIGN §20.15) */
 .chud__layers.is-observing { gap: .1rem; padding-right: .08rem; border-color: rgba(246, 163, 41, .55); }

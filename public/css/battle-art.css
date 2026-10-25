@@ -205,7 +205,14 @@
 .obinfo__arrow.is-r { left: calc(50% + var(--pu) * (207 - 24)); transform: scaleX(-1); }
 .obinfo__arrow:disabled { opacity: .3; cursor: default; }
 .obinfo__arrow:hover:not(:disabled) { filter: brightness(1.2); }
-.obinfo__bar .chud__back { position: absolute; left: calc(50% + var(--pu) * 270); top: 50%; transform: translateY(-50%); white-space: nowrap; }
+/* the own battle going on off screen while a teammate is watched (ObInfo `own`, maintainer decision 2026-10-25): an ob_self chip
+   right of the caption, 10 apart [ASSUMED layout] */
+.obinfo__self { position: fixed; left: calc(50% + var(--pu) * (159 + 10)); bottom: calc(var(--pu) * 84 + var(--sa-b, 0px)); height: calc(var(--pu) * 40);
+  z-index: 4; display: flex; align-items: center; gap: calc(var(--pu) * 10); padding: 0 calc(var(--pu) * 18) 0 calc(var(--pu) * 12); pointer-events: auto; }
+.obinfo__self::before { content: ''; position: absolute; inset: 0; background: var(--ob-self) center / 100% 100% no-repeat; z-index: -1; }
+.obinfo__self .obinfo__icon { position: static; flex: none; margin: 0; background-image: var(--ob-icon-self); }
+.obinfo__num { font-family: var(--font-num); font-weight: 700; font-size: calc(var(--pu) * 20); line-height: 1; color: var(--gold); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.obinfo__self.is-done .obinfo__num { color: var(--mint-500); }
 .obinfo__lost { position: fixed; left: 50%; top: 50%; width: calc(var(--pu) * 589); height: calc(var(--pu) * 356); transform: translate(-50%, calc(-50% - var(--pu) * 13));
   z-index: 4; background: var(--ob-lost) center / 100% 100% no-repeat; animation: bart-in .3s ease-out both; }
 .obinfo__lost i, .obinfo__lost b, .obinfo__lost span { position: absolute; display: block; }

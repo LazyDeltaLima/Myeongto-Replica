@@ -497,11 +497,15 @@ export function CapsuleTrans({ kind }) {
  * `#number`, which this remake has not), ob_empty (无人在家, #cfcfcf · 70 %), ob_overview (全屏 — ours reads 全景), and the
  * arrows left_arrow_active (48 × 68, 207 either side; the right one mirrored) that step through the halves. `lost`: the
  * player of the half on screen left the match — ob_player_lost (bg_ob_player_quit 589 × 356 + icon_ob_player_quit,
- * 当前玩家已离开 32 / 可自行切换查看其他玩家 18; our translations) over the middle of the screen.
- * @param {{ cur: { kind?: string, label: string } | null, arrows?: boolean, prev?: (() => void) | null, next?: (() => void) | null, lost?: boolean, children?: any }} props
+ * 当前玩家已离开 32 / 可自行切换查看其他玩家 18; our translations) over the middle of the screen. `own`: the own battle still
+ * going on off screen while a teammate is watched (maintainer decision 2026-10-25) — a chip in the ob_self look (bg_ob_self +
+ * icon_ob_self + 你自己) right of the caption with its kills / total, ✓ once over [ASSUMED: the official current season has no
+ * such chip; the new season's layout is not known yet].
+ * @param {{ cur: { kind?: string, label: string } | null, arrows?: boolean, prev?: (() => void) | null, next?: (() => void) | null, lost?: boolean,
+ *   own?: { resolved?: number|null, killed?: number|null, total?: number|null, done?: boolean } | null, children?: any }} props
  *   `arrows`: the halves of a 联防 / boss field (`prev` / `next` null at either end)
  */
-export function ObInfo({ cur, arrows = false, prev = null, next = null, lost = false, children = null }) {
+export function ObInfo({ cur, arrows = false, prev = null, next = null, lost = false, own = null, children = null }) {
   const art = battleArt('ob');
   if (!art.cls || !cur) return null;
   const kind = cur.kind || 'other';
@@ -513,6 +517,12 @@ export function ObInfo({ cur, arrows = false, prev = null, next = null, lost = f
         <button type="button" class="obinfo__arrow is-r" disabled=${!next} aria-label=${t('右侧战场')} onClick=${() => next?.()}></button>` : null}
       ${children}
     </div>
+    ${own ? html`<div class=${own.done ? 'obinfo__self is-done' : 'obinfo__self'} role="status">
+      <i class="obinfo__icon" aria-hidden="true"></i>
+      <span class="obinfo__text">${t('你自己')}</span>
+      <span class="obinfo__num">${own.done ? html`<span aria-label=${t('作战结束')}>✓</span>`
+        : (own.resolved ?? own.killed) != null && own.total != null ? `${own.resolved ?? own.killed}/${own.total}` : '•••'}</span>
+    </div>` : null}
     ${lost ? html`<div class="obinfo__lost" role="status">
       <i class="obinfo__lost-icon" aria-hidden="true"></i>
       <b class="obinfo__lost-1">${t('当前玩家已离开')}</b>

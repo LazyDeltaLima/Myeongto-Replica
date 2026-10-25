@@ -233,21 +233,26 @@ describe('§20.15 screenStrip: the game screen\'s state → whose bonds (every w
 
 describe('§20.15 the ‹ › pill of a shared field watched with 前往查看 (ui/combatHud.js)', () => {
   const layers = [{ key: 'L', label: '华法琳', self: false, watch: true }, { key: 'ALL', label: '全景', self: false, watch: false }, { key: 'R', label: '阿米娅', self: false, watch: true }];
-  test('observing + halves: the ‹ › pill (the picked player\'s half) with 返回战场 — no separate observing pill', () => {
-    const v = CombatHud({ pub: {}, myId: ME, watching: 'u', hud: null, myDone: false, client: { observing: { name: '阿米娅' }, onBack() {}, layers, layer: 'R', onLayer() {} } });
+  test('observing + halves: the ‹ › pill (the picked player\'s half) — no separate observing pill, no 返回战场 (the own team row has it)', () => {
+    const v = CombatHud({ pub: {}, myId: ME, watching: 'u', hud: null, myDone: false, client: { observing: { name: '阿米娅' }, layers, layer: 'R', onLayer() {} } });
     const pill = [...walk(v)].find((x) => hasClass(x, 'chud__layers'));
     assert.ok(pill && hasClass(pill, 'is-observing'));
     assert.match(textOf(pill), /阿米娅/);
-    assert.match(textOf(pill), /返回战场/);
+    assert.doesNotMatch(textOf(v), /返回战场/);
     assert.ok(![...walk(v)].some((x) => hasClass(x, 'chud__observe')));
   });
-  test('observing a normal field: the "👁 name" pill + 返回战场; a helper\'s own pill has no 返回战场', () => {
-    const v = CombatHud({ pub: {}, myId: ME, watching: 'n:p2', hud: null, myDone: true, client: { observing: { name: '阿米娅' }, onBack() {}, layers: [], layer: 'ALL' } });
+  test('observing a normal field: the "👁 name" pill and the own progress row, no 返回战场 at the bottom (maintainer decision 2026-10-25)', () => {
+    const own = { playerId: ME, name: '你自己', killed: 2, resolved: 3, total: 8, done: false };
+    const v = CombatHud({ pub: {}, myId: ME, watching: 'n:p2', hud: null, myDone: false, client: { observing: { name: '阿米娅' }, layers: [], layer: 'ALL', own } });
     const pill = [...walk(v)].find((x) => hasClass(x, 'chud__observe'));
-    assert.ok(pill && /阿米娅/.test(textOf(pill)) && /返回战场/.test(textOf(pill)));
-    const own = CombatHud({ pub: {}, myId: ME, watching: null, hud: null, myDone: false, client: { observing: null, onBack() {}, layers, layer: 'ALL', onLayer() {} } });
-    const p2 = [...walk(own)].find((x) => hasClass(x, 'chud__layers'));
-    assert.ok(p2 && !hasClass(p2, 'is-observing') && !/返回战场/.test(textOf(p2)));
+    assert.ok(pill && /阿米娅/.test(textOf(pill)));
+    assert.doesNotMatch(textOf(v), /返回战场/);
+    const row = [...walk(v)].find((x) => x?.props?.list?.[0] === own);
+    assert.ok(row && row.props.label === '你自己', 'without the official art: the progress row (ProgressList) of the own battle');
+    const mine = CombatHud({ pub: {}, myId: ME, watching: null, hud: null, myDone: false, client: { observing: null, layers, layer: 'ALL', onLayer() {}, own } });
+    const p2 = [...walk(mine)].find((x) => hasClass(x, 'chud__layers'));
+    assert.ok(p2 && !hasClass(p2, 'is-observing'));
+    assert.ok(![...walk(mine)].some((x) => x?.props?.list?.[0] === own), 'not observing: no own row');
   });
 });
 

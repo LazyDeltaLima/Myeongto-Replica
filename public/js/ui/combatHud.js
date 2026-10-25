@@ -2,11 +2,14 @@
 // pills.
 //   Client-side combat (`client` prop, DESIGN §14 — the official behaviour):
 //     * own normal battle over: "⌛ 作战结束，等待队友完成作战" with each teammate's live progress (kills / total, ✓);
-//     * observing a teammate (team row → 前往查看): "👁 name" + 返回战场, and in 各自行动 the own battle's progress row
-//       "你自己" under it — it goes on off screen while a teammate is watched (maintainer decision 2026-10-25);
+//     * observing a teammate (team row → 前往查看): "👁 name", and in 各自行动 the own battle's progress — it goes on off
+//       screen while a teammate is watched (maintainer decision 2026-10-25): with the official art a 你自己 chip in the
+//       ob_self look right of the caption (ui/battleArt.js ObInfo), else a progress row under the pill;
 //     * 联防 / 最终攻势: the ‹ › pill switches the camera LEFT half / 全景 / RIGHT half ("你自己" / name / "全景"); it
 //       replaces the observing pill on such a field watched with 前往查看 (a 联防 leaker, an eliminated spectator — the
-//       official non-helper pill "‹ 👁 helper# ›"), with 返回战场 beside the arrows (DESIGN §20.15);
+//       official non-helper pill "‹ 👁 helper# ›", DESIGN §20.15);
+//     * 返回战场 is the own team row's (ui/teamPanel.js), as in the official game: the bottom has no back button
+//       (maintainer decision 2026-10-25);
 //     * there is NO ‹ › view switcher during normal combat (the team rows pick the field).
 //   Server-run combat (legacy streaming mode): the ‹ 自己 › switcher cycling the live fields of m.public.fields.
 
@@ -49,7 +52,7 @@ function ProgressList({ list, label = t('队友作战进度') }) {
 
 /**
  * @param {{ pub:any, myId:string, watching:string|null, hud:any, myDone:boolean, onWatch:(fieldId:string)=>void, spectating?: boolean,
- *   client?: null | { progress?: any[]|null, observing?: { name: string }|null, onBack?: () => void,
+ *   client?: null | { progress?: any[]|null, observing?: { name: string }|null,
  *                     layers?: Array<{ key: string, label: string, self: boolean, watch: boolean }>, layer?: string, onLayer?: (k: string) => void,
  *                     own?: any|null },
  *   waitBand?: boolean }} props `waitBand`: the official bottom band (ui/battleArt.js BottomTips) says the wait instead
@@ -91,8 +94,7 @@ function ClientHud({ pub = null, hud, myDone, spectating, spectator = false, cli
   const halves = layers.length > 0;
   // the official caption (panel_ob_info, ui/battleArt.js ObInfo) in place of the ‹ › pill when its art is there
   const ob = battleArt('ob').cls;
-  const back = observing && client.onBack ? html`<button type="button" class="btn btn--secondary btn--sm chud__back" onClick=${() => client.onBack()}>
-    <span class="btn__label">${t('返回战场')}</span></button>` : null;
+  const own = observing && !halves ? client.own || null : null;
   const curPlayer = cur && cur.pid && Array.isArray(pub?.players) ? pub.players.find((p) => p && p.playerId === cur.pid) : null;
   return html`<div class="chud">
     <${DpCounter} dp=${hud?.dp} />
@@ -102,21 +104,17 @@ function ClientHud({ pub = null, hud, myDone, spectating, spectator = false, cli
       ${spectating && !observing ? (spectator ? html`<div class="chud__msg" role="status"><${GIcon} name="eye" /><span>${t('观战中，可点击左侧成员头像前往查看')}</span></div>`
         : html`<div class="chud__msg chud__msg--dead" role="status"><${Icon} name="close" /><span>${t('你已被淘汰，可点击队友头像前往查看')}</span></div>`) : null}
       ${ob && halves ? html`<${ObInfo} cur=${cur} arrows=${true} prev=${idx > 0 ? () => step(-1) : null} next=${idx < layers.length - 1 ? () => step(1) : null}
-        lost=${curPlayer?.status === 'left'}>${back}<//>` : null}
-      ${ob && observing && !halves ? html`<${ObInfo} cur=${{ kind: 'other', label: observing.name }}>${back}<//>` : null}
+        lost=${curPlayer?.status === 'left'} />` : null}
+      ${ob && observing && !halves ? html`<${ObInfo} cur=${{ kind: 'other', label: observing.name }} own=${own} />` : null}
       ${!ob && observing && !halves ? html`<div class="vswitch chud__observe is-single" role="status">
         <span class="vswitch__label"><${GIcon} name="eye" /><span>${observing.name}</span></span>
-        ${client.onBack ? html`<button type="button" class="btn btn--secondary btn--sm chud__back" onClick=${() => client.onBack()}>
-          <span class="btn__label">${t('返回战场')}</span></button>` : null}
       </div>` : null}
-      ${observing && !halves && client.own ? html`<${ProgressList} list=${[client.own]} label=${t('你自己')} />` : null}
+      ${!ob && own ? html`<${ProgressList} list=${[own]} label=${t('你自己')} />` : null}
       ${!ob && halves ? html`<div class=${cx('vswitch', 'chud__layers', observing && 'is-observing')}>
         <button type="button" class="vswitch__arrow" disabled=${idx <= 0} aria-label=${t('左侧战场')} onClick=${() => step(-1)}><${Icon} name="chevronLeft" /></button>
         <span class="vswitch__label">
           ${cur && cur.watch ? html`<${GIcon} name="eye" />` : null}<span>${cur ? cur.label : t('全景')}</span></span>
         <button type="button" class="vswitch__arrow" disabled=${idx >= layers.length - 1} aria-label=${t('右侧战场')} onClick=${() => step(1)}><${Icon} name="chevronRight" /></button>
-        ${observing && client.onBack ? html`<button type="button" class="btn btn--secondary btn--sm chud__back" onClick=${() => client.onBack()}>
-          <span class="btn__label">${t('返回战场')}</span></button>` : null}
       </div>` : null}
     </div>
   </div>`;
