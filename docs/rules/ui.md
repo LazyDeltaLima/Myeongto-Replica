@@ -1675,4 +1675,6 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   없앴다(그 문구는 언어 파일에 남김 — 한국어 팩은 지운 항목을 upstream 기계 번역으로 채운다). 보는 중 새로고침·끊김은 원래대로 끊길 때
   서버가 그 필드를 넘겨받는다(takeover) — 다시 들어오면 그 필드는 표시 사본.
 - 시험: `test/match/runner.test.js` 「watching a teammate while the own battle runs」(화면 밖 진행·결과가 서버 계산과 같음·`mine`·돌아오기),
-  `test/match/observe.test.js`, `test/match/clientCombat.test.js` 「observing」, `test/match/watch-bonds.test.js`. [화면 미확인]
+  `test/match/observe.test.js`, `test/match/clientCombat.test.js` 「observing」, `test/match/watch-bonds.test.js`. 화면: Windows Chrome
+  1920×1080·844×390(2026-10-25, 협동+AI 팀원 2라운드) — 전투 중 「前往查看」, 「你自己」 칸, 화면 밖 자기 전투 끝 → WAIT_FINISH 띠·팀 행 ✓,
+  「返回战场」으로 끝난 자기 전장.
