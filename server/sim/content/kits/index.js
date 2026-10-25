@@ -16,7 +16,7 @@
 // tier group: the chess keys keep their order, and `char_…` keys never meet `chess_char_…` ones.
 //
 // 自选 operator kits (DATA.md §18, README.md "How to add an operator (自选)"): OPERATOR_KIT_FILES lists
-// `ops/op-<codename>.js`, one per owned-6★ pick of data/backups.json `diy.ownedPool` — our eight (shared/local-diy.js;
+// `ops/op-<codename>.js`, one per owned-6★ pick of data/backups.json `diy.ownedPool` — our nine (shared/local-diy.js;
 // upstream's others are gone with the hard fork from 0.2.0) — (codename = its charId without `char_<n>_`: `op-wang.js`
 // = 望, char_2027_wang), each registering exactly that charId and writing every skill under `skills`. A 自选 piece keeps
 // its DIY slot's ids, so kitOf finds its kit by `def.charId` (a prototype pick — none on this server — would run its
@@ -88,6 +88,7 @@ export const OPERATOR_KIT_FILES = Object.freeze([
   'op-kalts2.js',
   'op-clemnt.js',
   'op-aglna2.js',
+  'op-phatm2.js',
 ]);
 
 /**

@@ -2305,6 +2305,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (n && until > clockS) cabinMarks.set(id, spawn(b.bundle, n, v, { owner: id, buff: true, until, tag: 'cabinMark' }));
   }
   const aglFlights = new Map(); // 予愿安洁莉娜 id → her S3 flight's effects { off, lives } (ended by the 'aglnaFlight' off)
+  /** Summons without a model drawn by one held effect (pickFx 'summon'): token id → [bundle, prefab]. */
+  const SUMMON_LOOK = Object.freeze({
+    token_10071_aglna2_agairp: Object.freeze(['aglna2_token', 'token_aglna2_agairp_01']),
+    token_10055_phatm2_mndclv: Object.freeze(['phatm2', 'phatm2_skill_03_prison_01']),
+  });
   function pickFx(e, views) {
     const o = e[4];
     if (!o || typeof o !== 'object') return false;
@@ -2383,6 +2388,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // `_effectsToTargetWhenStart` play there: indicator_damage_01 + range_heal_01_delay / indicator_heal_01 +
       // range_damage_01_delay [추정: the sim lands both halves at once, the client the second at the sub projectile's stop]
       case 'aoe': case 'healAoe': {
+        // 酒神 S2's 本能的召唤 leaving (its `id`): token_phatm2_encdool_kill's ON_BUFF_FINISH CreateEffect
+        // token_encdool_skill_02_range_02 where it stood (pkgrps/btl_pfb_fx_token_0.ab → bundle phatm2_token)
+        if (e[1] === 'aoe' && o.skill === 'phatm2:call') {
+          if (failed || !index?.bundles?.phatm2_token?.includes('token_encdool_skill_02_range_02')) return false;
+          ownFx.add(e);
+          spawn('phatm2_token', 'token_encdool_skill_02_range_02', { x, y, z: 0 }, { owner: null, buff: false }, { over: false });
+          return true;
+        }
         const b = pickOf(views.get(o.id), 'kalts2');
         if (!b || (e[1] === 'aoe' && o.skill !== 'kalts2:s2')) return false;
         const heal = !!o.ally || e[1] === 'healAoe';
@@ -2469,12 +2482,25 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         return true;
       }
       // 予愿安洁莉娜 S3's “一会儿见！” (on her deployment tile while she is away): its own effect (pkgrps/btl_pfb_fx_token_3.ab
-      // token_aglna2_agairp_01 → bundle aglna2_token) on it while it stands
+      // token_aglna2_agairp_01 → bundle aglna2_token) on it while it stands; (2026-10-26) 酒神 S3's 迷狂牢笼 likewise, no model
+      // either: its passive buff token_phatm2_mndclv[passive] shows phatm2_skill_03_prison_01 (her own bundle)
       case 'summon': {
-        if (o.token !== 'token_10071_aglna2_agairp' || failed || !index?.bundles?.aglna2_token?.includes('token_aglna2_agairp_01')) return false;
+        const own = SUMMON_LOOK[o.token];
+        if (!own || failed || !index?.bundles?.[own[0]]?.includes(own[1])) return false;
         const v = views.get(o.id);
         ownFx.add(e);
-        spawn('aglna2_token', 'token_aglna2_agairp_01', v || { x, y, z: 0 }, { owner: o.id, buff: true, until: null }, { over: false });
+        spawn(own[0], own[1], v || { x, y, z: 0 }, { owner: o.id, buff: true, until: null }, { over: false });
+        return true;
+      }
+      // 酒神 S2's 本能的召唤 (`src`) 诱导s an enemy: token_phatm2_encdool_target (its `_activeBuffs`, LIMITED for the lure's
+      // duration `t`) shows token_encdool_skill_02_debuff_01 on it — ended with the summon (the sim ends the lure then)
+      case 'lure': {
+        if (views.get(o.src)?.info?.defId !== 'token_10054_phatm2_encdool' || failed
+          || !index?.bundles?.phatm2_token?.includes('token_encdool_skill_02_debuff_01')) return false;
+        const v = views.get(o.id);
+        if (!v) return false;
+        ownFx.add(e);
+        spawn('phatm2_token', 'token_encdool_skill_02_debuff_01', v, { owner: o.src, buff: true, until: clockS + Math.max(0.05, Number(o.t) || 0) }, { over: false });
         return true;
       }
       default: return false;
@@ -3225,6 +3251,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     'aglna2_skill_02_fly_trail_up_01', 'aglna2_skill_02_fly_trail_down_01', 'aglna2_skill_02_fly_range_01', 'aglna2_skill_02_fly_end_01',
     'aglna2_skill_02_fly_end_02', 'aglna2_skill_02_fly_end_03', 'aglna2_skill_03_fly_trail_01', 'aglna2_skill_03_buff_right_01',
     'aglna2_skill_03_buff_left_01',
+    // 2026-10-26: 酒神's — the 迷狂牢笼's look (pickFx 'summon') and the tick of 本能的召唤's exit (kitofficial.js 'hit'), which the
+    // skillHit name rule took for S2's hits
+    'phatm2_skill_03_prison_01', 'phatm2_skill_02_debuff_hit_01',
     // 2026-10-16 (render/fx/kitofficial.js): 卡涅利安's eff_cond buffs by charge, 泥岩 S3's sleep / wake (mudrok_skill_03_buff_02:
     // 2026-10-21, mudrok_skill_03_buff's OnPlayEmitter creates it — stepOnEmit), 新约能天使 S3's shell landing (the `_range`
     // name rule looped it on her)

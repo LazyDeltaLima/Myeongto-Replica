@@ -32,10 +32,10 @@ const FEXLI = 'https://raw.githubusercontent.com/fexli/ArknightsResource/main/';
 test('dataExtras: every backups.json unit (skills by index, once), the 自选 summons, the type icon of every module of chess.json and backups.json', () => {
   const x = dataExtras(BACKUPS, CHESS);
   assert.deepEqual(Object.keys(x.extraOperators), PLANNED, 'the stand-ins and the offered picks');
-  assert.deepEqual(PLANNED.filter((id) => !BACKUPS.units[id].standsIn.length), [...LOCAL_DIY_PICKS], 'the picks: our eight');
+  assert.deepEqual(PLANNED.filter((id) => !BACKUPS.units[id].standsIn.length), [...LOCAL_DIY_PICKS], 'the picks: our nine');
   assert.equal(x.extraOperators.char_112_siege, undefined, '推进之王 is not offered here');
   assert.deepEqual(x.extraOperators.char_2027_wang.skills.map((s) => s.skillId), ['skchr_wang_1', 'skchr_wang_2', 'skchr_wang_3']);
-  assert.deepEqual(x.tokenIds, ['token_10035_wisdel_wward', 'token_10064_wang_stone1', 'token_10068_kalts2_mtship', 'token_10071_aglna2_agairp'], 'the summons of our picks');
+  assert.deepEqual(x.tokenIds, ['token_10035_wisdel_wward', 'token_10054_phatm2_encdool', 'token_10055_phatm2_mndclv', 'token_10064_wang_stone1', 'token_10068_kalts2_mtship', 'token_10071_aglna2_agairp'], 'the summons of our picks');
   const types = new Set();
   for (const c of Object.values(CHESS)) for (const m of c.modules || []) types.add(m.typeIcon);
   for (const id of PLANNED) for (const f of Object.values(BACKUPS.units[id].forms)) for (const m of f.modules || []) types.add(m.typeIcon);

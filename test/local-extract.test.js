@@ -53,7 +53,7 @@ describe('extract.py helpers (no UnityPy needed)', { skip: !PY && 'no python3' }
     // (data/assets.json tokens[id].spine), sorted, unique — except 香槟炸弹, whose web model is only a skin variant
     // (upstream 6bfc0827, 0.2.4): its original model is the overlay
     const ids = tokenSpines.ids;
-    assert.equal(ids.length, 10);
+    assert.equal(ids.length, 11);
     assert.deepEqual([...ids].sort(), ids);
     assert.equal(new Set(ids).size, ids.length);
     const tokens = JSON.parse(readFileSync(path.join(ROOT, 'data/tokens.json'), 'utf8'));

@@ -97,6 +97,7 @@ export const SOURCE_FX = Object.freeze({
     ines: keyedAll('ines_t_1[enemy][unmove]', 'ines', 0.5),
     glady: keyed('skchr_glady_3/ChantAttack1', 'glady', 0),   // _activeBuffs[0]
     mlyss: keyedAll('mlyss_s_3[unmoveable]', 'mlyss_token', 0),   // the 流形's S3 bind
+    phatm2: keyed('phatm2_s_1[unmove]', 'phatm2', 0),   // 酒神 S1 (2026-10-26): skchr_phatm2_1 `_activeBuffs`, spawn 5
     // qiubai_s_1[unmovable_effect]; the talent / module 落英 binds carry none
     qiubai: Object.freeze({ s1: keyedAll('qiubai_s_1[unmovable_effect]', 'qiubai', 0.5) }),
   }),

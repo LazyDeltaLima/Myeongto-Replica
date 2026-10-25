@@ -139,8 +139,8 @@ every active backup skill is cast).
 
 The 自选 (self-select) slots — two at tier 5, two at tier 6 — field a 6★ the player owns that is not in the chess pool
 (DATA.md §18, `shared/diy.js`; upstream also offers prototypes, this server none). This server offers the owner's picks
-(`shared/local-diy.js LOCAL_DIY_PICKS`: 望, 赤刃明霄陈, 维什戴尔, 丰川祥子, 阿斯卡纶, and since 2026-10-11 凯尔希·思衡托, 克莱门莎,
-予愿安洁莉娜 — upstream's kits brought back, `docs/rules/diy.md`); upstream's other owned-6★ picks and their kits are gone
+(`shared/local-diy.js LOCAL_DIY_PICKS`: 望, 赤刃明霄陈, 维什戴尔, 丰川祥子, 阿斯卡纶, since 2026-10-11 凯尔希·思衡托, 克莱门莎,
+予愿安洁莉娜 and since 2026-10-26 酒神 — upstream's kits brought back, `docs/rules/diy.md`); upstream's other owned-6★ picks and their kits are gone
 with the hard fork from 0.2.0 (2026-10-07). Another operator needs the owner's decision, then:
 `LOCAL_DIY_PICKS` (`tools/build-data.mjs` builds `diy.ownedPool` from it), the data rebuild and a kit of its own — one
 file per operator, the same rules as every kit above.

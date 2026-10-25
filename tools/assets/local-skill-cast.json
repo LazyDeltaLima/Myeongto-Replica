@@ -1570,6 +1570,40 @@
    "reset": 0,
    "state": 1
   },
+  "skchr_phatm2_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_phatm2_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_phatm2_3": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": -1,
+    "pre": 0,
+    "time": 2,
+    "wait": 0
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
   "skchr_philae_1": {
    "ability": {
     "anim": "Skill_1",

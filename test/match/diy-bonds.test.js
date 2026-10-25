@@ -44,7 +44,7 @@ function deploy(h, ps, id) {
   return p;
 }
 
-test('the derived bonds of the data: each pick its core bonds or 协防 — 望 / 赤刃明霄陈 炎, 克莱门莎 阿戈尔, 予愿安洁莉娜 叙拉古, the others 协防; no prototype', REAL, () => {
+test('the derived bonds of the data: each pick its core bonds or 协防 — 望 / 赤刃明霄陈 炎, 克莱门莎 阿戈尔, 予愿安洁莉娜 叙拉古, 酒神 维多利亚, the others 协防; no prototype', REAL, () => {
   const core = new Set(Object.entries(DATA.bonds).filter(([, b]) => b && b.isCore).map(([id]) => id));
   for (const id of DATA.backups.diy.ownedPool) {
     const b = OPS[id].bonds;
@@ -54,6 +54,7 @@ test('the derived bonds of the data: each pick its core bonds or 协防 — 望 
   assert.deepEqual(Object.fromEntries(Object.entries(OPS).map(([id, o]) => [id, o.bonds])), {
     [WANG]: ['yanShip'], [CHEN]: ['yanShip'], [WISDEL]: ['emptyShip'], [OBLVNS]: ['emptyShip'], [ASCLN]: ['emptyShip'],
     char_1052_kalts2: ['emptyShip'], char_4231_clemnt: ['egirShip'], char_1015_aglna2: ['siracusaShip'],   // 凯尔希·思衡托 协防, 克莱门莎 阿戈尔, 予愿安洁莉娜 叙拉古
+    char_1042_phatm2: ['victoriaShip'],   // 酒神 维多利亚
   });
   assert.deepEqual(DATA.backups.diy.prototypes, { 5: [], 6: [] });
 });

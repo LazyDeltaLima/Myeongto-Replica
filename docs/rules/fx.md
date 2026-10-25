@@ -1265,6 +1265,36 @@
   `buff_weapon_01/02`, `fly_end_01–03`)는 모델 위 점을 따른다. 실제 판(Windows Chrome)에서 위치 기록으로 확인: 모델 (7,9)일 때 `fly_range_01`·`buff_01`은 (3,9).
   참고: 빈 캐시에선 꼬리·`fly_range_01`이 활공 0.67 s 안에 다 받아지지 않아 안 보일 때가 있다(미리 받기 없음, 그대로).
 
+### 선발 추가 酒神 — EN 클라이언트, 지금 절차 그대로 (2026-10-26)
+- 새 시즌에 오퍼레이터가 늘 때를 대비해, 선발 하나(트라고디아 `char_1042_phatm2`, `diy.md` 「선발 추가 酒神」)를 지금 절차대로 넣으며 이펙트 손작업이 얼마나
+  드는지 본 기록. EN 클라이언트에 모델·그림·이펙트 번들이 모두 있어 CN 클라이언트는 쓰지 않았다.
+- 추출(위 「선발 추가 3명」과 같은 도구, 다른 오퍼레이터 항목은 그대로 — 전부 JSON 비교):
+  - 이펙트: `fx_extract.py --bundle phatm2`(33개). 소환물 이펙트는 공용 팩 `pkgrps/btl_pfb_fx_token_0.ab`에서 `--bundle phatm2_token --match '^token_encdool_'`
+    (5개) — 프리팹 이름에 오퍼레이터 코드가 없다(`token_encdool_*`). 迷狂牢笼의 모습 `phatm2_skill_03_prison_01`은 그녀 번들에 있다.
+  - `char_modes`·`char_points`·`char_audio`는 `--id`, `attack_timing`·`op_projectiles`·`skill_cast`·`skill_hud`는 `--out` 임시 파일에서 그녀 것만 합침
+    (EN 값은 기존 144명·293개 스킬과 전부 같았다). `fx_bindings`·`anim_keys`는 `--cn`을 함께 줘야 CN 전용 선발 둘이 빠지지 않는다.
+  - 本能的召唤 모델: `extract.py TOKEN_SPINES`, `--game`은 번들 뿌리(`…/StreamingAssets/AB/Windows` 또는 `…/PersistentData/Bundles`; `Arknights_Data`를 주면
+    「not found」). 迷狂牢笼는 프리팹에 Spine이 없다(「이따 봐!」 표식과 같음).
+  - 버프 템플릿 표(`build-fx-templates.mjs --offline`)가 그녀의 두 줄을 얻음, `build-fx-plays.mjs`.
+- **저절로 붙은 것**(`modes.json`·바인딩 표 그대로): 평타·S1~S3 시전과 타격, S1 두 타격 묶음, S2·S3 버프·S3 범위, 등장, 堕梦 범위 표시(`phatm2_range_01`,
+  기본 모드 `attach`), 소환물 등장(`token_encdool_birth_01`).
+- **손으로 연결한 것**(근거 = 바인딩 표의 키, 렌더 코드 약 60줄):
+  - 迷狂牢笼 모습: `token_phatm2_mndclv[passive]`의 `phatm2_skill_03_prison_01`을 牢笼이 서 있는 동안(`fxgame.js pickFx 'summon'` — 「이따 봐!」 표식과 한 표 `SUMMON_LOOK`).
+  - 本能的召唤 범위: 소환물 프리팹의 재능 능력(`Others/Direction/Talents/1`, 诱导)이 `_attachEffects`로 `token_encdool_skill_02_range_01`을 쥔다.
+    `char_modes.py token_auras`가 이것을 소환물 `aura`로 읽게 고쳤다 — 있는 렌더(`tokenAura`)가 전투 시작 배치 때부터 붙인다. 이런 소환물은 지금 그녀 것뿐.
+    [추정: 그 능력의 시전은 소환물이 서 있는 내내]
+  - 유인 표시: `token_phatm2_encdool_target`의 `token_encdool_skill_02_debuff_01`을 유인 시간(`t`) 동안 적에게(`pickFx 'lure'`).
+  - 퇴장: `token_phatm2_encdool_kill`(ON_BUFF_FINISH)의 `token_encdool_skill_02_range_02`를 선 자리에(`pickFx 'aoe'`, `phatm2:call`).
+  - 퇴장 틱: `phatm2_s_2[damage]`(ON_BUFF_TRIGGER)의 `phatm2_skill_02_debuff_hit_01`을 맞은 적에게(`kitofficial.js hit`). 이름 규칙이 이것을 S2 타격으로도
+    잡아 `KIT_OWNED`에 넣었다(牢笼 모습도).
+  - S1 속박 표시: `phatm2_s_1[unmove]`의 `phatm2_skill_01_debuff_01`(`fxstatus.js SOURCE_FX.bind`, 땅 위 — `spawn` 5). 처음엔 `modes.json`의 `targetBuff`로
+    붙을 줄 알았으나 안 나왔다: 속박 표시는 상태 표가 그린다.
+- **남은 것**(렌더 공통, 그녀만의 일이 아님 → 관리자 노트의 열린 항목): ① 공격 능력의 `_castTargetEffects`(`phatm2_*_hit_aim_01` 4종, 시전 시작에 대상 위)가
+  안 나온다 — `modes.json`이 이것을 모드 `hit` 목록 세 번째에 넣는데 렌더가 쓰지 않는다(세 번째 hit가 있는 오퍼레이터는 그녀와 플레임테일뿐). ② 셰이더
+  `Torappu/Particles/ZDistort/Disturb(CustomData)` 미지원(타격 프리팹 10개의 왜곡 층, 추출 보고 `NOT HANDLED`).
+- 확인: Windows Chrome 디버그 아레나(정예·RIT-X, 스킬마다 약 50초, 재생된 프리팹 이름 기록) — S1 속박 표시 10회, S2 소환물 등장·범위·유인·퇴장 2회·틱 24회,
+  S3 범위·버프·牢笼 1회, 페이지 오류 0. 실제 판(전투 화면의 위치·크기·방향)은 아직.
+
 ### 투사체 꼬리 끝내기 — 착탄 뒤 늦게 사라짐 (2026-10-11, 사용자 제보 「언더플로우·애쉬락 투사체가 적에 닿은 뒤 늦게 사라짐」)
 - 원인: 날아가는 공식 꼬리(투사체의 `_mainEffect`, 위 「투사체 꼬리」)가 도착하면 `fxgame.js stepTrails`가 `stop()`(방출만 멈춤)만 하고, 인스턴스는 남은 입자가
   다 죽을 때까지 그 자리에 남았다. 언더플로우 평타 `udflow_attack_01_trail_01`의 탄 `bullet`은 수명 5초·반복·1개짜리 입자라 대상 위에 최대 5초,

@@ -42,7 +42,9 @@ export const HIT_KEYS = Object.freeze(['bubble_t_1[atk_down]', 'skadi2_s_1[prote
   // 묶음 S8 (2026-10-24)
   'philae:blast', 'philae:blast:rage', 'malist_t_1', 'indigo_s_2[damage]', 'haini:up', 'haini:full',
   // 묶음 S11 (2026-10-24)
-  'yu_s_1[inverse_damage]', 'yu_t_1[enemy]', 'yu_s_3[ally]', 'gvial2_s_1']);
+  'yu_s_1[inverse_damage]', 'yu_t_1[enemy]', 'yu_s_3[ally]', 'gvial2_s_1',
+  // 酒神 (2026-10-26)
+  'phatm2_s_2[damage]']);
 
 /** The sample inputs a kit plan is called with (every branch of the plans in KIT_OFFICIAL). */
 const KIT_O = [

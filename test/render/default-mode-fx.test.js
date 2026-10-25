@@ -22,6 +22,7 @@ test('extracted: the Default mode attach of every operator that has one', () => 
   const got = Object.fromEntries(Object.entries(MODES).filter(([k, v]) => k !== '$comment' && v.attach?.[0]?.length).map(([k, v]) => [k, v.attach[0]]));
   assert.deepEqual(got, {
     char_1012_skadi2: ['skadi2_buff_01_range'],     // Default/Body/HealAura `_passiveBuffs` skadi2_heal[effect]
+    char_1042_phatm2: ['phatm2_range_01'],          // Default/Body/Talents/2 `_passiveBuffs` phatm2_t_2[effect] (堕梦's range)
     char_344_beewax: ['beewax_buff_01_start'],      // Modes/Default itself: beewax_c_disarmed
     char_388_mint: ['mint_buff_01_range'],          // Default/Talent/1 AuraAbility `_effects`
     char_4013_kjera: ['kjera_token_default'],       // a drone's look (droneIdle)

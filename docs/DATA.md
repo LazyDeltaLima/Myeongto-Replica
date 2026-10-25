@@ -614,7 +614,7 @@ Glyph legend (`rows`):
 
 `chess 266 (112 visible; 283 selectable skills over the visible chess, 184 module choices over 129 goldens; 74 PRESET / 55 NORMAL / 4 DIY base chess)`, `bonds 23`, `garrisons 249 (43 effect keys)`, `items 115`, `bands 40`, `effects 361`,
 `enemies 249`, `factions 67 entries`, `waves 38`, `stages 11 (8 active)`, `bosses 10`, `tokens 22`, `choice events 109`,
-`bounty cards 129`, `tactic cards 43`, `backups: 25 units (17 stand-ins, 8 owned-6★ picks; 67 forms), 4 自选 summons, 4 DIY slots, no prototype picks, 8 owned-6★ picks` (this server's eight — shared/local-diy.js; upstream 0.2.0 built 71 picks and 15 / 9 prototype picks), potential (§2.3): `256 chess records, 27 forms / variants with potDown; 442 + 47 + 19 chained talent entries (chess, backups, tokens)`.
+`bounty cards 129`, `tactic cards 43`, `backups: 26 units (17 stand-ins, 9 owned-6★ picks; 70 forms), 6 自选 summons, 4 DIY slots, no prototype picks, 9 owned-6★ picks` (this server's nine — shared/local-diy.js; upstream 0.2.0 built 71 picks and 15 / 9 prototype picks), potential (§2.3): `256 chess records, 27 forms / variants with potDown; 442 + 47 + 19 chained talent entries (chess, backups, tokens)`.
 
 ## 17. Integrity guarantees (checked by the builder and `test/data.test.js`)
 

@@ -143,6 +143,48 @@
         "height": 335.376
       }
     },
+    "token_10054_phatm2_encdool": {
+      "skel": "token_10054_phatm2_encdool.skel",
+      "atlas": "token_10054_phatm2_encdool.atlas",
+      "textures": [
+        "token_10054_phatm2_encdool.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Start",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0,
+        "End": 1.5,
+        "Loop": 5,
+        "Start": 1
+      },
+      "events": [
+        "On_Attack",
+        "On_Start"
+      ],
+      "hits": {},
+      "bounds": null
+    },
     "token_10057_svash2_eagle1": {
       "skel": "token_10057_svash2_eagle.skel",
       "atlas": "token_10057_svash2_eagle.atlas",

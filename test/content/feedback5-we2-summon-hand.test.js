@@ -45,7 +45,7 @@ test('every 自选 summoner: the hand count of each placeable summon in every fo
       owners.get(cid).add(tid);
     }
   }
-  assert.deepEqual([...owners.keys()].sort(), ['char_1052_kalts2', 'char_2027_wang']);
+  assert.deepEqual([...owners.keys()].sort(), ['char_1042_phatm2', 'char_1052_kalts2', 'char_2027_wang']);
   let checked = 0;
   for (const [charId] of owners) {
     if (!BACKUPS.diy.ownedPool.includes(charId)) continue;
@@ -69,7 +69,7 @@ test('every 自选 summoner: the hand count of each placeable summon in every fo
       }
     }
   }
-  assert.equal(checked, 22, "望: 2 tiers × (3 normal + 3 skills × (no module, TRP-X) elite); 凯尔希·思衡托: 2 tiers × S3 (normal, elite)");
+  assert.equal(checked, 28, "望: 2 tiers × (3 normal + 3 skills × (no module, TRP-X) elite); 凯尔希·思衡托: 2 tiers × S3 (normal, elite); 酒神: 2 tiers × S2 (normal + elite × (no module, RIT-X))");
 });
 
 test('the data: deploy limit / holding = the attribute frame + the token talents\' max_deploy_count / max_deck_stack_cnt (a module token part of the same talent replaces it)', () => {

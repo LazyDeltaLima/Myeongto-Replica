@@ -53,6 +53,8 @@ const FXGAME = {
   aglna2_skill_02_fly_trail_up_01: 'skchr_aglna2_2', aglna2_skill_02_fly_range_01: 'skchr_aglna2_2',
   aglna2_skill_02_fly_end_01: 'skchr_aglna2_2', aglna2_skill_02_fly_end_02: 'skchr_aglna2_2', aglna2_skill_02_fly_end_03: 'skchr_aglna2_2',
   token_aglna2_agairp_01: 'token_10071_aglna2_agairp/Others/Direction/CommonAbilities/Passive',
+  phatm2_skill_03_prison_01: 'token_phatm2_mndclv[passive]', token_encdool_skill_02_range_02: 'token_phatm2_encdool_kill',
+  token_encdool_skill_02_debuff_01: 'token_phatm2_encdool_target',
   svash2_skill_03_trail_02: 'projectile_chr_svash2_s3_bird_self', archet_skill_02_trail_02: 'projectile_chr_archet_s2',
   vigil_token_start: 'token_10028_vigil_wolf/Modes/Recharge/Body/Talents/1', vigil_token_ghost: 'token_10028_vigil_wolf/Modes/Recharge/Body/Talents/1',
   vigil_token_sub_start_1: 'vigil_wolf_t_1_enhance[holder]', vigil_token_sub_die_1: 'vigil_wolf_t_1[listener]',

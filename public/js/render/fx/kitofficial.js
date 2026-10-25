@@ -173,6 +173,9 @@ export const KIT_OFFICIAL = {
     // 百炼嘉维尔 S1: gvial2_s_1 (template heal_via_damage, ON_AFTER_OUTPUT_DAMAGE) heals her by the damage and creates its
     // blackboard `effect` gvial2_skill_1_heal on her
     gvial2: cite('gvial2_s_1', (o) => (o.k === 'gvial2_s_1' ? { play: [once('gvial2_skill_1_heal', 'id')] } : null)),
+    // (2026-10-26) 酒神 S2: each tick of 本能的召唤's exit (phatm2_s_2[damage], ON_BUFF_TRIGGER) creates
+    // phatm2_skill_02_debuff_hit_01 on the enemy it damages
+    phatm2: cite('phatm2_s_2[damage]', (o) => (o.k === 'phatm2_s_2[damage]' ? { play: [once('phatm2_skill_02_debuff_hit_01', 'id')] } : null)),
     // 折桠 T1 简易包扎: branch_t_1 ON_SKILL_FINISH heals her (HealViaMaxHpRatio) and creates branch_talent_01 on her
     branch: cite('branch_t_1', (o) => (o.k === 'branch_t_1' ? { play: [once('branch_talent_01')] } : null)),
     // 圣约送葬人 S3: excu2_s_3[mark][effect] ON_OUTPUT_DAMAGE puts excu2_s_3[mark] (INFINITY, excu2_skill_03_aim_01) on each enemy

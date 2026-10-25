@@ -1211,9 +1211,27 @@ def token_auras(tree, client):
             out[tid] = {'owner': a['owner'], 'aura': dict(sorted(per.items()))}
     from char_points import token_files
     for tid, f in token_files(client, sorted(owners)).items():
+        held = []
         for gp, d, *_ in load_tree(str(f))[0]:
             if gp == tid and isinstance(d.get('_startEffect'), str) and d['_startEffect']:
                 out.setdefault(tid, {'owner': owners[tid]})['start'] = d['_startEffect']
+            # 2026-10-26: a talent ability of the token prefab that holds `_attachEffects` while it casts — 酒神's 本能的召唤
+            # (Others/Direction/Talents/1, its 诱导: token_encdool_skill_02_range_01) casts for as long as it stands
+            # [추정: the cast lasts its life]; held like a skill aura, under every owner skill that makes the token
+            if gp.startswith(f'{tid}/') and '/Talents/' in gp and isinstance(d.get('_attachEffects'), list):
+                for a in d['_attachEffects']:   # { _directionType, _effects: [prefab, …], _onlyAttachOnDummy }
+                    held.extend(x for x in (a.get('_effects') or [] if isinstance(a, dict) else []) if isinstance(x, str) and x)
+        rec = toks.get(tid) or backups.get(tid)
+        if held and isinstance(rec, dict):
+            idx = set()
+            for v in (rec.get('variants') or {}).values():
+                if isinstance((v.get('skill') or {}).get('index'), int):
+                    idx.add(v['skill']['index'])
+                idx.update(int(k) for k in (v.get('bySkill') or {}))
+            aura = out.setdefault(tid, {'owner': owners[tid]}).setdefault('aura', {})
+            for i in sorted(idx):
+                aura[str(i)] = list(dict.fromkeys((aura.get(str(i)) or []) + held))
+            out[tid]['aura'] = dict(sorted(aura.items()))
     return {k: out[k] for k in sorted(out)}
 
 

@@ -3423,6 +3423,209 @@
    }
   ]
  },
+ "char_1042_phatm2": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ],
+  "cast": [
+   [],
+   [],
+   [
+    "phatm2_skill_03_start_01",
+    "phatm2_skill_03_start_02"
+   ]
+  ],
+  "hit": [
+   [
+    "phatm2_attack_hit_01",
+    "phatm2_attack_hit_range_01",
+    "phatm2_attack_hit_aim_01"
+   ],
+   [
+    "phatm2_skill_02_hit_01",
+    "phatm2_skill_02_hit_range_01",
+    "phatm2_skill_02_hit_aim_01"
+   ],
+   [
+    "phatm2_skill_03_hit_01",
+    "phatm2_skill_03_hit_range_01",
+    "phatm2_skill_03_hit_aim_01"
+   ]
+  ],
+  "trail": [
+   [],
+   [],
+   []
+  ],
+  "attach": [
+   [
+    "phatm2_range_01"
+   ],
+   [
+    "phatm2_range_01"
+   ],
+   [
+    "phatm2_skill_03_range_01",
+    "phatm2_skill_03_buff_01",
+    "phatm2_skill_03_buff_02"
+   ]
+  ],
+  "castOpt": [
+   {
+    "phatm2_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "phatm2_attack_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "phatm2_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "phatm2_skill_02_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "phatm2_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "phatm2_skill_03_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "hitLoop": {
+   "phatm2_skill_03_hit_aim_01": 3
+  },
+  "castTgt": [
+   "phatm2_attack_hit_aim_01",
+   "phatm2_skill_02_hit_aim_01",
+   "phatm2_skill_03_hit_aim_01"
+  ],
+  "clipFx": [
+   {
+    "src": "Attack_1",
+    "loop": 1,
+    "groups": [
+     {
+      "anim": "Attack_1",
+      "cast": [
+       "phatm2_attack_start_01"
+      ],
+      "hit": []
+     },
+     {
+      "anim": "Attack_2",
+      "cast": [
+       "phatm2_attack_start_02"
+      ],
+      "hit": []
+     }
+    ]
+   },
+   {
+    "src": "Skill_2_Loop_1",
+    "loop": 1,
+    "groups": [
+     {
+      "anim": "Skill_2_Loop_1",
+      "cast": [
+       "phatm2_skill_02_start_01"
+      ],
+      "hit": []
+     },
+     {
+      "anim": "Skill_2_Loop_2",
+      "cast": [
+       "phatm2_skill_02_start_02"
+      ],
+      "hit": []
+     }
+    ]
+   },
+   null
+  ],
+  "start": "phatm2_birth_01",
+  "attachFoe": [
+   [
+    "phatm2_range_01"
+   ],
+   [
+    "phatm2_range_01"
+   ],
+   []
+  ],
+  "skillMode": [
+   null,
+   null,
+   2
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [
+     "phatm2_skill_01_start_01"
+    ],
+    "buff": [],
+    "target": [
+     "phatm2_skill_01_hit_aim_01",
+     "phatm2_skill_01_hit_02_aim_01"
+    ],
+    "targetBuff": [
+     "phatm2_skill_01_debuff_01"
+    ],
+    "hitGroups": {
+     "g": [
+      [
+       "phatm2_skill_01_hit_01",
+       "phatm2_skill_01_hit_range_01"
+      ],
+      [
+       "phatm2_skill_01_hit_02",
+       "phatm2_skill_01_hit_range_02"
+      ]
+     ]
+    }
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "phatm2_skill_02_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_1045_svash2": {
   "modes": [
    "Default",

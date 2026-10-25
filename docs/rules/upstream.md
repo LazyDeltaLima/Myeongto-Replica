@@ -31,7 +31,7 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
 
 **선발 오퍼레이터 → upstream 「自选」 틀 (관리자 결정: 후보는 우리가 고른 오퍼레이터만 — 처음 5명, 2026-10-11부터 8명 — 시제품 없음)**
 - 슬롯·재고·상점·로드아웃·로비 `room.diy`는 upstream(`shared/diy.js`, `server/match/player/diy.js`, 클라이언트 자선 편성 탭).
-- 후보 제한: `shared/local-diy.js LOCAL_DIY_PICKS`(望·赤刃明霄陈·维什戴尔·丰川祥子·阿斯卡纶, 2026-10-11부터 凯尔希·思衡托·克莱门莎·予愿安洁莉娜). `server/lobby.js` 2줄 — `room.diy` 검사와
+- 후보 제한: `shared/local-diy.js LOCAL_DIY_PICKS`(望·赤刃明霄陈·维什戴尔·丰川祥子·阿斯卡纶, 2026-10-11부터 凯尔希·思衡托·克莱门莎·予愿安洁莉娜, 2026-10-26부터 酒神). `server/lobby.js` 2줄 — `room.diy` 검사와
   welcome의 `diyKitted`(클라이언트 고르기 화면이 이것만 보여 준다)를 이 목록으로 거른다. 하드 포크 뒤(1fc07616, 2026-10-07) 데이터도 이 목록뿐이다 —
   `tools/build-data.mjs`가 `data/backups.json diy.ownedPool`을 이 목록으로 만들고 `diy.prototypes`는 비어 있으며, 나머지 67명의 키트(`kits/ops/op-<code>.js`·
   `OPERATOR_KIT_FILES` 항목·`kits/shared/summoner.js`)와 그 테스트(`test/content/op_<code>.test.js`)는 지웠다. 로비 검사는 데이터 위에 한 겹 더 거르는 것이다.

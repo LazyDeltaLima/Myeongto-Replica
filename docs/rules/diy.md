@@ -9,10 +9,11 @@
   정규 맹약이다 — `activity_table` `autoChessData.bondInfoDict`의 `isPower` 맹약 8개의 `powerIdList`에 叙拉古 [siracusa, chiave]·卡西米尔
   [kazimierz, pinus]가 있다(2026-10-10 대조, 그 전엔 「확장은 [추정]」; `tools/build-data.mjs buildBackups`가 이 표로 정함).
 - 지금 구현(0.2.0부터): upstream 「自选」 틀이 선발 칸·재고·상점·보상·밴을 맡는다(`server/match/player/diy.js initDiyStock`, `shared/diy.js`, 데이터
-  `data/backups.json` `diy`). 맹약이 전부 꺼진 픽은 그 판 재고가 없다(`m.private.diyBanned`). 이 포크는 후보를 구현·대조한 8명으로 줄인다:
+  `data/backups.json` `diy`). 맹약이 전부 꺼진 픽은 그 판 재고가 없다(`m.private.diyBanned`). 이 포크는 후보를 구현·대조한 9명으로 줄인다:
   `shared/local-diy.js LOCAL_DIY_PICKS`(望·赤刃明霄陈·维什戴尔·丰川祥子·阿斯卡纶, 2026-10-11부터 凯尔希·思衡托·克莱门莎·予愿安洁莉娜 — 아래
-  「선발 추가 3명 (2026-10-11)」) — `tools/build-data.mjs`가 이것으로 `diy.ownedPool`을 만들고, `server/lobby.js`가 다른 픽을 거부한다.
-  키트는 `server/sim/content/kits/ops/op-{wang,chen3,wisdel,oblvns,ascln,kalts2,clemnt,aglna2}.js`(등록 `kits/index.js OPERATOR_KIT_FILES`).
+  「선발 추가 3명 (2026-10-11)」, 2026-10-26부터 酒神 — 아래 「선발 추가 酒神 (2026-10-26)」) — `tools/build-data.mjs`가 이것으로 `diy.ownedPool`을 만들고,
+  `server/lobby.js`가 다른 픽을 거부한다.
+  키트는 `server/sim/content/kits/ops/op-{wang,chen3,wisdel,oblvns,ascln,kalts2,clemnt,aglna2,phatm2}.js`(등록 `kits/index.js OPERATOR_KIT_FILES`).
   틀의 자세한 규칙은 `server/sim/content/kits/README.md`, 병합 경위는 `upstream.md` 「0.2.0 병합」.
 - 0.2.0 전(2026-10-05 ~ 10-07)에는 전용 데이터·풀·UI를 직접 만들었다. 그 구현은 지웠고, 그때 정한 키트 동작과 관리자 결정은 `op-*.js`로 옮겨져 아래에 남는다.
 - 키트:
@@ -494,6 +495,25 @@
   OnAttack — 비행 투사체가 나가는 순간) 동안 제자리에서 이륙 클립, 그 뒤 숨고 비행(그 전엔 즉시 숨음). 그동안 공격 없음은 [추정] → `render.md` 「Spine 클립 커버리지」 G.
 - 테스트: `test/content/op_{kalts2,clemnt,aglna2}.test.js`(체크리스트의 은신 적 범위 피해 3개 포함), `test/content/heal-triggers-023.test.js`(S2 발동),
   `test/match/feedback5-we2-placement.test.js`(#26 战术锚点), `test/content/feedback5-we2-summon-hand.test.js`(#24 표식), golden `diy-009`…`diy-011`(새 시나리오, 다른 가족 변화 없음).
+
+## 선발 추가 酒神 (2026-10-26, 관리자 결정)
+- 관리자 결정 2026-10-26: 선발에 酒神(`char_1042_phatm2`, 6성 서포터 巫役)을 넣는다(`LOCAL_DIY_PICKS` 끝). 새 시즌에 오퍼레이터가 늘 때 지금 절차로
+  넣으면 이펙트 손작업이 얼마나 드는지 보려는 시험이기도 하다(이펙트 쪽 결과 → `fx.md` 「선발 추가 酒神 — EN 클라이언트」). 한국 서버에 있어 이름·문구는
+  KR 공식 표 그대로다(트라고디아, 의식술사, 밤의 메아리 · 본능의 부름 · 빈 극장, 소환물 광란의 감옥; `tools/i18n/build-ko-diy.mjs`).
+- 데이터: CN 표 그대로. 모듈 RIT-X 酒神之心. 맹약 빅토리아(`victoriaShip`). 소환물 本能的召唤(S2를 고르면 손패 1개, 근접 칸), 迷狂牢笼(S3가 만드는 것, 손패 아님,
+  Spine 모델 없음 — 이펙트로만 보임).
+- 키트·테스트: upstream `master`(`f07b8965`)의 `op-phatm2.js`·`test/content/op_phatm2.test.js`. 0.2.0 때 우리 트리에도 있던 것을 하드 포크 정리
+  (`1fc07616`)에서 지웠다. 바꾼 것:
+  - import `attack.js` → `damage.js`(upstream 0.3.2가 정산 모듈을 옮김). 범위 판정은 upstream도 적 0.1 충돌 원(`bodyInRange`)이라 우리 규칙
+    (`sim.md` 「적 충돌 반경 0.1」 — 공격·스킬이 치는 범위)과 같다.
+  - S3 자동 발동은 `sim.md` 「스킬 범위 발동」: upstream 테스트의 `ACTIVE_RANGE` 단언을 `DEFAULT` + y-8 상자(`triggerGrid`)로 고침. 동작은 같다.
+  - 화면용 필드만 더함: 유인 `lure`의 `t`(남은 유인 시간), S2 퇴장 틱 피해의 `moment: 'phatm2_s_2[damage]'`. golden 숫자 영향 없음.
+- PRTS 대조(2026-10-26, 酒神·本能的召唤·迷狂牢笼 문서): 溅射半径1.3（中点判定）·S2 1.5, 堕梦 「于敌人成功普通攻击前之前触发」, 召唤 0.4 도착·10초 퇴장·「缓存攻击力」,
+  牢笼 「受到3次来自阻挡目标的攻击后消失」「酒神技能结束后额外持续30秒」 — 키트 주석과 같다. S1 「提升至1.5倍」의 대상은 PRTS도 적지 않는다(키트: 속박 동안 받는
+  神经损伤).
+- [추정] 키트 머리 주석의 `[ASSUMED]` 그대로: T1 손상은 타격 판정 뒤 회피돼도 남음, S1 두 타격 각각 T1, 속박은 두 타격 뒤, 유인 대상 동률은 정예·리더 → 가까운 순.
+- 테스트: `test/content/op_phatm2.test.js`(19), 선발 수를 세는 테스트 8 → 9명, golden `diy-012`·`diy-013`(새 시나리오, 다른 가족 변화 없음).
+  화면: Windows Chrome 디버그 아레나에서 세 스킬의 이펙트 재생 기록(`fx.md` 같은 절). 실제 판은 아직 → 관리자 노트의 열린 항목.
 
 ## 안젤리나 더 멜로우 위시 S3 이동 · 「이따 봐!」 표식 (2026-10-11, 관리자 제보)
 - 제보 2건: ① S3로 공중 적에게 갈 때 처음 칸에 남는 「이따 봐!」(“一会儿见！”)가 대체 마름모로 보임, ② 공식은 공중 적에게 **직접 날아가는데** 우리는 그 칸에
