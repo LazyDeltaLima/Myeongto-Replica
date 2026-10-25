@@ -895,7 +895,8 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
       await page.close();
 
       ({ page, problems } = await open('phase=COMBAT', { w, h }));
-      await page.evaluate(() => globalThis.__MOCK__.store.set({ connection: { status: 'reconnecting', ping: 0, attempt: 2, retryAt: Date.now() + 5000, lastError: null, everOnline: true } }));
+      // 'closed', not 'reconnecting': with the local art a reconnecting match shows the official mask in place of the banner
+      await page.evaluate(() => globalThis.__MOCK__.store.set({ connection: { status: 'closed', ping: 0, attempt: 0, retryAt: 0, lastError: null, everOnline: true } }));
       await page.waitForSelector('.conn-banner');
       await sleep(900);
       const banner = await rectOf(page, '.conn-banner');
