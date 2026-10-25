@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1491 of 1709 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1493 of 1711 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false,
@@ -1076,6 +1076,8 @@
   "非官方同人复刻 · 与上海鹰角网络 / Yostar 无关 · 仅限非商业用途 · 游戏素材版权归原权利人所有": "비공식 팬 복각 · Hypergryph / Yostar와 무관 · 비상업 용도 한정 · 게임 소재 저작권은 원 권리자에게 있습니다",
   "精锐干员标记": "정예 오퍼레이터 표시",
   "对局通知": "시뮬레이션 알림",
+  "每回合开始时额外获得 {n} 资金": "라운드가 시작될 때마다 자금 +{n}",
+  "已使用 {n} 个": "{n}개 사용",
   "回合伤害统计": "라운드 대미지 통계",
   "伤害统计样式": "대미지 통계 모양",
   "自动": "자동",

@@ -1,6 +1,7 @@
 // Active effects list (m.private.effects: band / 机变 / team / item / garrison effects with counters):
 // compact icon column at the right edge, rich-text tooltip per effect. `counterText` (a 悬赏's "还剩 N 场作战", user
-// playtest #6 item 4) replaces the bare counter in the tooltip's kind line.
+// playtest #6 item 4) replaces the bare counter in the tooltip's kind line. 精打细算玩偶 is one entry however many were used
+// (`roundFunds` / `stack`, server/match/player/views.js): its tooltip says the funds they add per round together.
 
 import { html, Tooltip, MicroLabel } from './components.js';
 import { Img, RichText, GIcon } from './gameComponents.js';
@@ -65,7 +66,8 @@ export function EffectsList({ effects }) {
     <${MicroLabel}>EFFECTS</${MicroLabel}>
     ${list.slice(0, 10).map((e, i) => html`<${Tooltip} key=${e.id ?? i} placement="bottom" text=${html`<div class="efftip">
         <b>${tName(e.name) || t('效果')}</b><span class="efftip__kind">${t(KIND[e.iconKind] || '')}${e.counterText ? ` · ${bountyCounterText(e)}` : e.counter != null ? ` · ${e.counter}` : ''}</span>
-        <${RichText} as="p" text=${effectDesc(e)} />
+        ${Number.isFinite(e.roundFunds) ? html`<p>${t('每回合开始时额外获得 {n} 资金', { n: e.roundFunds })}</p>
+          ${e.stack > 1 ? html`<span class="efftip__kind">${t('已使用 {n} 个', { n: e.stack })}</span>` : null}` : html`<${RichText} as="p" text=${effectDesc(e)} />`}
       </div>`}>
       <span class=${`effect effect--${e.iconKind || 'x'}`}>
         <${Img} src=${effectIconUrl(m, e)} fallback=${html`<${GIcon} name="bolt" />`} />

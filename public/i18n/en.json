@@ -165,6 +165,8 @@
   "显示伤害数字": "Damage Numbers",
   "精锐干员标记": "Elite Operator Badge",
   "对局通知": "Match Notifications",
+  "每回合开始时额外获得 {n} 资金": "+{n} Funds at the start of every round",
+  "已使用 {n} 个": "{n} used",
   "回合伤害统计": "Round Damage",
   "伤害统计样式": "Damage Panel Style",
   "自动": "Auto",

@@ -29,8 +29,19 @@ export class PlayerViews {
     const out = [];
     const band = this.bandId ? this.gd.band(this.bandId) : null;
     if (band) out.push({ id: band.effectId || band.bandId, name: band.effectName || band.name, desc: band.desc || '', iconKind: 'band', iconId: band.iconId || band.bandId });
+    // 精打细算玩偶 (builtinMeta.js gain_coin_when_round_start: one effect per doll used): one entry at the first doll's place,
+    // `roundFunds` = the funds they add at every round start together, `stack` = how many (maintainer decision 2026-10-25:
+    // one icon, the tooltip names the real per-round gain — ui/effectsList.js)
+    let dolls = null;
     for (const e of this.effects) {
       if (e.hidden) continue;
+      if (e.key === 'effect:builtin_round_coin') {
+        const n = Math.max(0, Math.trunc(Number(e.params && e.params.count) || 0));
+        if (dolls) { dolls.roundFunds += n; dolls.stack++; continue; }
+        dolls = { id: e.id, name: e.name || e.id, desc: e.desc || '', iconKind: e.iconKind || 'item', iconId: e.iconId || e.id, roundFunds: n, stack: 1 };
+        out.push(dolls);
+        continue;
+      }
       const v = { id: e.id, name: e.name || e.id, desc: e.desc || '', iconKind: e.iconKind || 'choice', iconId: e.iconId || e.id };
       if (e.counter != null) v.counter = e.counter;
       out.push(v);

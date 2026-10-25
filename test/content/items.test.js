@@ -948,6 +948,19 @@ test('精打细算玩偶 +1 / +2 funds at every later round start; 见钱眼开�
   }
 });
 
+test('精打细算玩偶 used three times: one effects entry whose roundFunds is the real per-round gain (maintainer decision 2026-10-25)', () => {
+  const { h, m, ps, equip } = setup();
+  const t = give(m, ps, plain((c) => c.tier === 1)[0], 'hand');
+  const first = giveItem(m, ps, A('2_05'));
+  for (const doll of [first, giveItem(m, ps, A('2_05')), giveItem(m, ps, B('2_05'))]) assert.deepEqual(equip(doll, t), OK);
+  assert.equal(ps.effects.filter((e) => e.key === 'effect:builtin_round_coin').length, 3, 'three effects behind it');
+  const entries = ps.effectsView().filter((e) => e.iconKind === 'item' && e.roundFunds != null);
+  assert.equal(entries.length, 1, 'one icon');
+  assert.deepEqual([entries[0].id, entries[0].roundFunds, entries[0].stack], [`doll:${first.uid}`, 1 + 1 + 2, 3]);
+  h.toPrep(2);
+  assert.equal(ps.funds - m.gd.income(2), entries[0].roundFunds, 'the tooltip number is what the round start paid');
+});
+
 test('简易通讯机: 1 / 2 random operators sharing a bond with the target, tier ≤ shop level', () => {
   for (const [id, n] of [[A('2_06'), 1], [B('2_06'), 2]]) {
     for (let k = 0; k < 4; k++) {
