@@ -119,6 +119,11 @@ SWITCH_FACE_SCRIPT = -4364771506185570144
 THREE_FACE_SCRIPT = 5365557655193992920
 RANDOM_DIRECTION_SCRIPT = 1115230818793786687
 FOLLOW_TILE_HEIGHT_SCRIPT = 2994498389723426252
+# (2026-10-25, official client) the MonoScript PathIDs of Torappu.Battle.Effects.FollowOwner and FollowOwnerRootTileHeight
+# (owner_follow: `followOwner`, `rootTile`) and PauseEffectIfNotMove (pause_scripts: `pauseMove`) — field-less scripts
+FOLLOW_OWNER_SCRIPT = -2862109401119915025
+ROOT_TILE_SCRIPT = -1576532863054725745
+PAUSE_MOVE_SCRIPT = -1569843327534094582
 # (2026-10-22, official client) the MonoScript PathIDs of the scripts that drive an Animator at the effect's finish / play
 # (anim_scripts, `animFin` / `animSrc`), and of EmitterRandomGroup (random_group, `rgroup`) and SwitchableWhenContainsEquipment
 # (equip_effects, `equipFx`)
@@ -1019,7 +1024,9 @@ class Extractor:
                 if comp is None:
                     continue
                 t = comp.type.name
-                if t == 'Transform':
+                # (2026-10-25) a RectTransform (a UI transform: 溯光星源's halo2_skill_01_buff_01) outside a Canvas is placed by
+                # its local position, rotation and scale as a Transform is — its anchors only act under a RectTransform parent
+                if t in ('Transform', 'RectTransform'):
                     tr = comp.read_typetree()
                     gos[comp.path_id] = idx
                     node['pos'] = vec3(tr['m_LocalPosition'])
@@ -1185,6 +1192,7 @@ class Extractor:
         follow = self.follow_direction(root)
         if follow:
             out_def['follow'] = follow
+        out_def.update(self.owner_follow(root))
         for key, read in (('swFace', self.switch_face), ('three', self.three_face), ('rdir', self.random_direction),
                           ('tileH', self.tile_height)):
             v = read(root)
@@ -1455,6 +1463,24 @@ class Extractor:
             return out
         return None
 
+    def owner_follow(self, root):
+        """(2026-10-25, official client) the field-less FollowOwner / FollowOwnerRootTileHeight on the root:
+            `followOwner`  FollowOwner (`Update` → `_FollowEntity`, while its owner is valid) puts the effect at its owner's
+                           point for its `_spawnLocation` every frame: 1 foot, 2 hit, 3 muzzle with the muzzle's rotation,
+                           4 head, 5 the owner's place with its rotation, 6 muzzle; any other value: left where it is
+            `rootTile`     FollowOwnerRootTileHeight (`OnPlay`, `LateUpdate` → `_FollowRootTileHeight`) sets its local height so
+                           that it stays at its owner's map-position height (the tile it stands on) however the owner is raised
+        { followOwner?: 1, rootTile?: 1 }."""
+        out = {}
+        for sid, _raw, t in self.monos(root):
+            if isinstance(t, dict) and t.get('m_Enabled') == 0:
+                continue
+            if sid == FOLLOW_OWNER_SCRIPT:
+                out['followOwner'] = 1
+            elif sid == ROOT_TILE_SCRIPT:
+                out['rootTile'] = 1
+        return out
+
     def root_script(self, root, script, name, field):
         """The type tree of the root's MonoBehaviour of MonoScript `script` (None without one, or without its type tree — the
         report then says so for `name`; `field` is a field it must have)."""
@@ -1599,6 +1625,8 @@ class Extractor:
           it when `valid` (`_validAnimation`) is given and lacks it, or `invalid` (`_invalidAnimation`) holds it — after
           `pre` (`_delayToPause` > 0) s ÷ the playback speed (`_DoPause`), and `finish` (`_finishIfPause`) finishes
           the effect then; otherwise `restore` (`_noPauseWhenValid`) unpauses it (after `_delayToRestore` > 0 s: `back`).
+        - `pauseMove` (PauseEffectIfNotMove; `Update`, 2026-10-25): paused while its owner, an Enemy, is not moving by itself
+          (`Enemy.isMovingBySelf` false); an owner that is not an Enemy leaves it as it is.
         - `pauseIdle` (PauseEffectIfNotIdle; `Update`): paused while the owner is not in its idle state
           (`Character.isInIdletState`), and with `_needCheckFaceSwitch` while it faces back (`back`) / front (`front`).
         - `pauseSpine` (PauseEffectIfSpineEvent): { start, invert, anims } — paused at play with `_pauseAtStart` (`OnPlay`);
@@ -1611,6 +1639,10 @@ class Extractor:
           `_finishIfCurrentAnimFinish`)."""
         out = {}
         for sid, _raw, t in self.monos(go):
+            if sid == PAUSE_MOVE_SCRIPT:   # field-less
+                if not (isinstance(t, dict) and t.get('m_Enabled') == 0):
+                    out['pauseMove'] = 1
+                continue
             what = {PAUSE_IF_SCRIPT: 'PauseEffectIf', PAUSE_OTHER_SCRIPT: 'PauseAnotherEffect', PAUSE_ANIM_SCRIPT: 'PauseEffectWithAnimation',
                     PAUSE_IDLE_SCRIPT: 'PauseEffectIfNotIdle', PAUSE_SPINE_SCRIPT: 'PauseEffectIfSpineEvent',
                     FINISH_IF_SCRIPT: 'FinishEffectIf'}.get(sid)

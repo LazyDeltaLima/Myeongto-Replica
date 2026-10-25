@@ -37,7 +37,7 @@ export const QUALITY = Object.freeze({
 /** Short effects (hits, casts, trails) alive at once — render/fxgame.js trimLive ends the oldest past it. */
 export const MAX_INSTANCES = 24;
 /** (2026-10-21) the node keys of the client's pause / finish behaviours (fx_extract.py pause_scripts; render/fx/pause.js). */
-export const PAUSE_KEYS = Object.freeze(['pauseIf', 'pauseOther', 'pauseAnim', 'pauseIdle', 'pauseSpine', 'finishIf']);
+export const PAUSE_KEYS = Object.freeze(['pauseIf', 'pauseOther', 'pauseAnim', 'pauseIdle', 'pauseMove', 'pauseSpine', 'finishIf']);
 /** Lasting effects (buff loops, skill walls / zones: render/fxgame.js isLasting) alive at once besides them (2026-10-10:
  * 余 S3's wall alone is 2 per tile + 2 ends — 44 across the boss field). */
 export const MAX_LASTING = 48;

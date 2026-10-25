@@ -2775,6 +2775,20 @@
     주인 버프 `_buffKey`의 블랙보드 정수 v로 `_effects[v − 1]`, 1 ≤ v ≤ 개수 — 불타는 덩굴 첫 공격 전 공격력 단계 `effect_level`, 시뮬이 그
     단계를 안 알림)는 todo 그대로. 직렬화 필드가 없어 이름을 몰랐던 운영자 쪽 스크립트 셋도 클라 MonoScript 번들(모든 `m_Script`가 가리키는 CAB의
     `m_Namespace`·`m_ClassName`)로 이름을 찾음 — `PauseEffectIfDisappeared`·`FollowOwner`·`FollowOwnerRootTileHeight`(todo, 하는 일은 이름으로만 [추정]).
+  - **필드 없는 스크립트·남은 todo 정리 (2026-10-25, 공식 클라에서 확인)**: 이름으로 짐작하던 것을 클라의 `Update`로 확인하고 읽거나 판정함.
+    - 읽음: `FollowOwner`(`followOwner`, 루트) — 주인이 유효한 동안 매 프레임 `_spawnLocation`의 점에 다시 놓는다(1 발·2 피격·3 총구 + 총구의 회전·
+      4 머리·5 주인 자리 + 회전·6 총구, 그 밖은 그대로). `fxgame.js lifted`가 한 번 놓기(`placedOnce`)를 안 하고, 점 이펙트는 `placedAt`이 점·회전을
+      매 프레임 다시 읽음. 퍼퓨머(调香师) `flower_attack_01_start`·호시구마(星熊) `hsguma_attack_01_start`(둘 다 3). `FollowOwnerRootTileHeight`(`rootTile`, 루트) —
+      `OnPlay`·`LateUpdate`가 높이를 주인 맵 위치의 높이(선 칸)로 맞춘다: 浮空 `common_levitate_01` → 상태 이펙트 자리·`lifted`가 `v.z`(띄움 없이). 우리
+      렌더는 浮空 적을 띄우지 않아(시뮬은 땅 적만 띄움) 지금 보이는 자리는 같음. `PauseEffectIfNotMove`(`pauseMove`, 노드) — 주인이 `Enemy`이고
+      `isMovingBySelf`가 거짓인 동안 멈춤, 적이 아니면 아무것도 안 함 → `fx/pause.js movePause`: 시뮬 애니 상태 MOVE가 아니면 멈춤 [추정: 걷기 = 스스로 움직임].
+      '거대하고 못생긴 것' `mcmstr_buff_03_start`. `RectTransform` 노드(溯光星源 `halo2_skill_01_buff_01`)는 Transform처럼 읽음(캔버스 밖이면 앵커가 안 듦).
+    - 판정: `EffectImportData`(검은 뿔의 루울 `enemy_xdelk_skill_start_01`) none — 클라 실행 코드가 그 클래스를 전혀 참조하지 않음(가져오기 설정).
+      `Svash2FlyToPredefinedTokenCard` hand — 위 凛御银灰 S3 `startFly`(이 HUD엔 风雪之眼 카드가 없음).
+    - todo로 남김: `PauseEffectIfDisappeared` — 주인이 `Enemy`이고 `isDisappeared`(DISAPPEAR 구간·驮兽 승객)인 동안 멈춤. 우리 뷰는 그런 적이 판에서
+      빠져(`app.js`, 누수와 같은 길) 구별할 표시가 없음 — 엔텔레키아 타격 5개. `SyncEffectScaleWithAuraRangeRadius` — 이 모드 스테이지에 안 나오는 적의
+      `enemy_lrmm_range_01`뿐. `SwitchableEffectByBlackboardValue`(불타는 덩굴) — 위대로 시뮬이 단계를 안 알림.
+    [화면 미확인]: 실제 판에서 퍼퓨머·호시구마의 공격 시작 이펙트가 총구를 따라가는지, '거대하고 못생긴 것'의 버프가 멈춰 설 때 멈추는지.
 - **필드 이름 먼저, 원시 칸은 대비책 (2026-10-20)**: `root_effect`(ParticleEffect·루트의 FxDelay)·`projectile_effect`·`right_effect`·`fx_delay`
   (가지의 FxDelay)·`mount_point`는 컴포넌트의 타입 트리가 읽히면 필드 이름으로 읽고, 원시 칸은 타입 트리가 안 읽힐 때만 쓴다(EN·CN 클라 모두 지금은
   다 읽힘). `check_readers`가 매 추출마다 같은 컴포넌트에서 대비책도 돌려 비교하고, 타입 트리가 안 읽혀 대비책을 대조 없이 쓴 때(`no type tree: read

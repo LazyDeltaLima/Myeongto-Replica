@@ -83,7 +83,7 @@ import { faceSwitchCopy, faceTurn, followDir, playSpeed } from './fx/face.js'; /
 import { kitOfficialPlan, kitOperator } from './fx/kitofficial.js'; // 2026-10-16: kit events the buff templates draw
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
 import { enemyRecordMode } from '../../../shared/skill-modes.js'; // 2026-10-23: an ally from an enemy record (炎佑)
-import { animPause, clipOf, facesBack, idlePause, pauseIfNow } from './fx/pause.js'; // 2026-10-21: the client's pause / finish behaviours
+import { animPause, clipOf, facesBack, idlePause, movePause, pauseIfNow } from './fx/pause.js'; // 2026-10-21: the client's pause / finish behaviours
 
 /**
  * local patch (maintainer report): `names` with each directional emitter entry of `groups` (char_modes.py `dirs` [{ t, s }])
@@ -745,6 +745,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       } else if (pz.k === 'pauseIdle') {
         const x = idlePause(r, v);
         if (x != null) l.pzSelf = x;
+      } else if (pz.k === 'pauseMove') {
+        const x = movePause(v);
+        if (x != null) l.pzSelf = x;
       } else if (pz.k === 'pauseAnim') {
         // `_DoPause`: after `pre` s ÷ the playback speed, then `finish`; the restore (`_noPauseWhenValid`) after `back`
         const want = animPause(r, clipOf(v));
@@ -1195,9 +1198,20 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // with the unit only when held — `_holdByOwner` (face `hold`: `Entity.HoldEffect`), or `buff`: a buff's effect
   // (`Entity.AddBuffEffect` holds every one it creates, the same parenting inlined); a cast or a hit without
   // `_holdByOwner` stays where it was made (held)
+  // 2026-10-25 (official client): FollowOwner (fx_extract.py `followOwner`) puts the effect at its point every frame, held
+  // or not; FollowOwnerRootTileHeight (`rootTile`) keeps it at the height its owner stands on (onRootTile)
   function lifted(v, def, buff = false) {
     const at = followed(v, def, buff);
-    return !v || !v.info || !at || at.placed || def?.mount || buff || def?.face?.hold ? at : placedOnce(v, at);
+    const r = !v || !v.info || !at || at.placed || def?.mount || buff || def?.face?.hold || def?.followOwner ? at : placedOnce(v, at);
+    return def?.rootTile && v && r ? onRootTile(v, r) : r;
+  }
+  /** `at` at the height unit `v` stands on (its tile's top: the client's map-position height), however it is raised. */
+  function onRootTile(v, at) {
+    return {
+      get x() { return at.x; }, get y() { return at.y; }, get z() { return v.z || 0; }, get rot() { return at.rot; },
+      get paused() { return at.paused; }, get alive() { return v.alive; }, get remove() { return v.remove; },
+      id: v.id, info: v.info, placed: at.placed,
+    };
   }
   /** `f` read once, on the first access (its creation), for unit `v` — what a placed, unheld effect keeps. */
   function placedOnce(v, f) {
@@ -1288,9 +1302,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   function placedAt(v, def, key, spawn, at, buff = false) {
     const hold = !!def?.face?.hold || buff;   // 2026-10-22: a buff's effect is always held (lifted)
+    const follow = !!def?.followOwner;   // 2026-10-25: FollowOwner — its point (and a muzzle's turn) again every frame
     let p0 = null, b0 = null, r0 = null;
     const first = () => {
-      if (p0) return;
+      if (p0 && !follow) return;
       const p = at();
       p0 = { x: p.x, y: p.y, z: p.z || 0 };
       b0 = { x: ex(v), y: ey(v), z: (v.z || 0) + (v.hover || 0) };
@@ -1344,7 +1359,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // lowers (followed): 泥岩's T1 layers, mudrok_buff_0N_start, hung above her feet as 余 S3's buff had (maintainer report)
     const anchor = frac === 'own' || (frac === 0 && def.spawn === 1) ? lifted(view, def, true) : {
       get x() { return frac > 0 && camRef ? bodyPoint(camRef, view, frac, view.x, statusAt).x : view.x; }, get y() { return view.y; },
-      get z() { return frac > 0 && camRef ? bodyZ(camRef, view, frac) : (view.z || 0) + (view.hover || 0); },
+      // (2026-10-25) FollowOwnerRootTileHeight (`rootTile`: 浮空's common_levitate_01) — at the height it stands on
+      get z() { return frac > 0 && camRef ? bodyZ(camRef, view, frac) : (view.z || 0) + (def.rootTile ? 0 : view.hover || 0); },
       get alive() { return view.alive; }, get remove() { return view.remove; },
     };
     // local patch: status prefabs are not split like a caster's effect — their renderers are sortingOrder 0 / fudge 0

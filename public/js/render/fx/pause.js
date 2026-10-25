@@ -95,6 +95,15 @@ export function animPause(rec, clip) {
 }
 
 /**
+ * PauseEffectIfNotMove (`Update`, 2026-10-25): paused while its owner, an Enemy, is not moving by itself
+ * (`Enemy.isMovingBySelf` false — here the sim's animation state, ANIM.MOVE [ASSUMED]); any other owner: nothing (null).
+ */
+export function movePause(v) {
+  if (!v || v.info?.side !== 'enemy' || typeof v.anim !== 'number') return null;
+  return v.anim !== ANIM.MOVE;
+}
+
+/**
  * PauseEffectIfNotIdle (`Update`): paused while the owner is not idle (`Character.isInIdletState` — here the
  * sim's animation state, ANIM.IDLE [ASSUMED]), or with the face checks while it faces back / front.
  */

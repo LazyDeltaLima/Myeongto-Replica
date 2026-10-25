@@ -40,7 +40,7 @@ import sys
 from pathlib import Path
 
 # Unity component types the extract reads (Extractor.prefab walk); MonoBehaviour goes by its script (SCRIPTS)
-COMPONENTS_READ = {'Transform', 'ParticleSystem', 'ParticleSystemRenderer', 'MeshRenderer', 'MeshFilter', 'Animator',
+COMPONENTS_READ = {'Transform', 'RectTransform', 'ParticleSystem', 'ParticleSystemRenderer', 'MeshRenderer', 'MeshFilter', 'Animator',
                    'Animation', 'SkinnedMeshRenderer', 'TrailRenderer', 'LineRenderer', 'MonoBehaviour'}
 
 # client MonoScript PathID -> class name (EN client; the same ids in the CN client where compared; names from the client's classes
@@ -97,7 +97,9 @@ SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoi
                 # (2026-10-22, effect bundle J) the Animator drivers, the random group and the module variants
                 'OnFinishAnime', 'TriggerAnimatorWhenFinish', 'SwitchAnimatorStateWhenFinish', 'SetAnimatorTriggerOnEvent',
                 'SetAnimatorFloatByCondition', 'BuffProgressFloatSource', 'SetAnimatorTriggerByCondition',
-                'AuraProjectileSetAnimatorTrigger', 'EmitterRandomGroup', 'SwitchableWhenContainsEquipment'}
+                'AuraProjectileSetAnimatorTrigger', 'EmitterRandomGroup', 'SwitchableWhenContainsEquipment',
+                # (2026-10-25) owner_follow (`followOwner`, `rootTile`) and pause_scripts (`pauseMove`): field-less
+                'FollowOwner', 'FollowOwnerRootTileHeight', 'PauseEffectIfNotMove'}
 
 # ParticleSystem modules the extract carries (fx_extract.particle_system)
 MODULES_READ = {'InitialModule', 'EmissionModule', 'ShapeModule', 'SizeModule', 'ColorModule', 'RotationModule',
@@ -154,13 +156,13 @@ KNOWN = {
     # components
     'component:MeshCollider': (_NONE, 'physics / ray casts only'),
     'component:BoxCollider': (_NONE, 'physics / ray casts only'),
-    'component:RectTransform': (_TODO, 'a UI transform: the walk reads Transform only, so the node loses its place and children'),
     # client scripts
     'script:FinishEffectViaOwnerBuff': (_HAND, 'finishes when the owner\'s buff ends; only on 余 S3, drawn by render/fxgame.js (its tiles)'),
     'script:SwitchableEffectByBuffStackCnt': (_HAND, 'a variant by buff stack count; only 信仰搅拌机\'s rmixer_buff_01 (`_stackCnt` 3, GE): '
                                               'render/fxstatus.js STACK_FX \'rmixer:t1\''),
     'script:OnPlayAudioPlayer': (_NONE, 'a sound, not drawn (audio is separate)'),
-    'script:Svash2FlyToPredefinedTokenCard': (_TODO, 'moves the eagle to a card position (one kit)'),
+    'script:Svash2FlyToPredefinedTokenCard': (_HAND, 'flies 凛御银灰\'s eagle to his 风雪之眼 deploy card, which this HUD does not have: '
+                                                      'render/fxgame.js startFly ends it in place after 0.5 s (docs/rules/fx.md 凛御银灰 S3)'),
     'script:ColorModifier': (_HAND, 'tints the owner model: render/units.js (stealth greying)'),
     'script:YuS3EffectBehaviour': (_HAND, 'render/fxgame.js (余 S3 tiles)'),
     'script:YuS3EffectWithEdgeBehaviour': (_HAND, 'render/fxgame.js (余 S3 tiles)'),
@@ -181,10 +183,11 @@ KNOWN = {
     'script:SwitchableEffectByBlackboardValue': (_TODO, 'plays `_effects[v − 1]` for v = the int `_blackboardKey` of the owner\'s buff '
                                                  '`_buffKey` (1..count, none otherwise; checked every `_updateInterval` — '
                                                  '_UpdateEffect): 灼藤\'s ramp, which the sim does not report'),
-    # (2026-10-21) the three without a serialized field, named from the client's MonoScripts — what they do: by their names only
-    'script:PauseEffectIfDisappeared': (_TODO, 'pauses the effect while its owner has disappeared [추정: by the name]'),
-    'script:FollowOwner': (_TODO, 'keeps the effect on its owner every frame [추정: by the name]'),
-    'script:FollowOwnerRootTileHeight': (_TODO, 'follows the height of the tile under its owner [추정: by the name]'),
+    # (2026-10-21) without a serialized field, named from the client's MonoScripts; (2026-10-25) its Update read in the client:
+    # FollowOwner, FollowOwnerRootTileHeight and PauseEffectIfNotMove are read now (SCRIPTS_READ)
+    'script:PauseEffectIfDisappeared': (_TODO, 'pauses the effect while its owner is an Enemy whose `isDisappeared` is set (a DISAPPEAR '
+                                        'leg, a 驮兽 passenger); the view of such an enemy leaves the board (render/app.js) and '
+                                        'cannot tell it from a leak: 5 hit effects of 隐德来希 [todo: a view flag for it]'),
     # particle systems
     # materials (values: the extracted materials, 2026-10-16)
     'property:Torappu/Particles/Disturb/Disturb Anchor _Weight': (_NONE, 'the toggle behind keyword _WEIGHT_ON, which the player reads (all 198 materials agree)'),
@@ -194,10 +197,10 @@ KNOWN = {
     # (2026-10-22) a clip's particle module values, trail length, MeshRenderer switch and FxUVTweener speeds are tracks now
     # (fx_extract.py ANIMATED_VALUES → render/fxplayer.js PS_ANIM / UVT_ANIM); (2026-10-23) also the VelocityModule switch
     # (fx_extract.py clip_modules: the enemies' mcmstr_buff_04_start)
-    'script:EffectImportData': (_TODO, 'its import settings (`_importName`, `_resourceName`, `_sortingLayerId`, `_removeTopAnimator`) are '
-                                'not read [추정: authoring data]'),
-    'script:SyncEffectScaleWithAuraRangeRadius': (_TODO, 'scales the effect with its owner\'s aura ability range (÷ `_effectOriginRadius`)'),
-    'script:PauseEffectIfNotMove': (_TODO, 'pauses the effect while its owner stands still [추정: by the name; Update only]'),
+    'script:EffectImportData': (_NONE, 'import settings (`_importName`, `_resourceName`, `_sortingLayerId`, `_removeTopAnimator` …): '
+                                'no runtime code of the 2026-10-14 EN client refers to the class (2026-10-25)'),
+    'script:SyncEffectScaleWithAuraRangeRadius': (_TODO, 'scales the effect with its owner\'s aura ability range (÷ `_effectOriginRadius`): '
+                                                  'only enemy_lrmm_range_01, of an enemy no stage of this mode fields (2026-10-25)'),
     'clip:material property the shader does not declare': (_NONE, 'Unity sets a value no pass reads'),
     'shader:Unlit/Texture': (_HAND, 'only S_desert_wall_02_start_Mesh (s.ab), which the player never plays: scene_extract.py '
                                     '--devices bakes its mesh into the 土石结构 model, drawn opaque and unlit by board3d/official.js'),
