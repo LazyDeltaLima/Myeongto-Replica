@@ -222,15 +222,21 @@ test('takeover: a connected client that never reports is taken over at time limi
   m.dispose();
 });
 
-test('observing: no watching while the own battle runs; after it ends a teammate\'s spec + clock; eliminated players watch anything', () => {
+test('observing: a teammate while the own battle runs (it stays the authority), after it ends a teammate\'s spec + clock; eliminated players watch anything', () => {
   const h = makeMatch({ mode: 'coop', humans: 3, seed: 9107, fake: true, clientCombat: true, instant: false, pace: 'paced',
     script: (b) => ({ duration: b.players.includes('p_0') ? 2 : 30 }) }).start();
   const m = h.m;
   h.toPrep(1);
   for (const pid of ['p_0', 'p_1', 'p_2']) m.handle(pid, { t: 'g.ready', ready: true });
   h.run(() => m.phase === PHASE.COMBAT);
-  // p_1 still fights: it may not look elsewhere
-  assert.deepEqual(m.handle('p_1', { t: 'g.watch', fieldId: 'n:p_2' }), { error: 'WRONG_PHASE', detail: 'own battle running' });
+  // p_1 still fights and looks at p_2 (maintainer decision 2026-10-25): a display replica, its own field stays its to report
+  assert.deepEqual(m.handle('p_1', { t: 'g.watch', fieldId: 'n:p_2' }), { ok: true });
+  const look = h.lastTo('p_1', 'b.start');
+  assert.deepEqual([look.fieldId, look.watch, look.authoritative], ['n:p_2', true, false]);
+  const p1Field = fields(h).find((f) => f.fieldId === 'n:p_1');
+  assert.deepEqual([p1Field.mode, p1Field.authority], ['client', 'p_1']);
+  assert.deepEqual(m.handle('p_1', { t: 'g.watch', fieldId: 'n:p_1' }), { ok: true });
+  assert.deepEqual([h.lastTo('p_1', 'b.start').fieldId, h.lastTo('p_1', 'b.start').authoritative], ['n:p_1', true], 'back home: still the authority');
   h.run(() => fields(h).find((f) => f.fieldId === 'n:p_0').done);
   const target = fields(h).find((f) => f.fieldId === 'n:p_2');
   assert.equal(target.live, true);

@@ -1,11 +1,12 @@
 // Observing rules of the client (public/js/battle/observe.js, research 09 §3.1 / §6.3) — the mirror of the server's
-// Match._watchClient: prep boards, no observing while the own normal battle runs, a teammate's field once it is over,
+// Match._watchClient: prep boards, a teammate's field while the own normal battle runs (maintainer decision 2026-10-25)
+// or once it is over, the own progress row under the observing pill,
 // the other pair's boss field hidden, eliminated players free; the 联防 / 最终攻势 camera halves and their captions;
 // a reloaded screen that watched a teammate's battle takes the watch back (resumedWatch).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { observeTarget, teammateProgress, cameraLayers, layerCamera, isClientCombat, resumedWatch } from '../../public/js/battle/observe.js';
+import { observeTarget, teammateProgress, ownProgress, cameraLayers, layerCamera, isClientCombat, resumedWatch } from '../../public/js/battle/observe.js';
 
 const P = (id, seat, extra = {}) => ({ playerId: id, seat, name: id.toUpperCase(), alive: true, ...extra });
 const pubOf = (phase, fields, players) => ({ phase, combatMode: 'client', fields, players });
@@ -19,9 +20,15 @@ test('observeTarget: prep, own battle running / over, boss pairs, eliminated pla
     { fieldId: 'n:a', kind: 'normal', players: ['a'], live: liveA },
     { fieldId: 'n:b', kind: 'normal', players: ['b'], live: true, progress: { killed: 3, total: 8, done: false } },
   ], players);
-  assert.match(observeTarget(players[1], combat(true), 'a').reason, /作战中无法查看/);
-  assert.deepEqual(observeTarget(players[1], combat(true), 'a', { ownDone: true }), { fieldId: 'n:b' }, 'the local battle already ended');
+  assert.deepEqual(observeTarget(players[1], combat(true), 'a'), { fieldId: 'n:b' }, 'the own battle still runs: it goes on off screen');
   assert.deepEqual(observeTarget(players[1], combat(false), 'a'), { fieldId: 'n:b' });
+  assert.deepEqual(observeTarget(players[0], combat(true), 'a', { observing: true }), { back: true });
+  // the own row under the observing pill: the server-relayed progress of the own field, done once the local battle ended
+  const own = pubOf('COMBAT', [{ fieldId: 'n:a', kind: 'normal', players: ['a'], live: true, progress: { killed: 2, resolved: 4, total: 9, done: false } }], players);
+  assert.deepEqual(ownProgress(own, 'a'), { playerId: 'a', name: '你自己', isBot: false, killed: 2, resolved: 4, total: 9, done: false });
+  assert.equal(ownProgress(own, 'a', { localDone: true }).done, true, 'the local simulation already ended');
+  assert.equal(ownProgress({ ...own, phase: 'UNITE' }, 'a'), null, 'only in 各自行动');
+  assert.equal(ownProgress(own, 'b'), null, 'no own normal field');
   assert.deepEqual(observeTarget(players[0], combat(false), 'a', { observing: true }), { back: true });
   // the teammate's capsule reads `resolved` (the field's own enemies knocked out or leaked); a report without one falls
   // back to `killed` (public/js/battle/observe.js teammateProgress)

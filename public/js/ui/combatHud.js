@@ -2,11 +2,12 @@
 // pills.
 //   Client-side combat (`client` prop, DESIGN §14 — the official behaviour):
 //     * own normal battle over: "⌛ 作战结束，等待队友完成作战" with each teammate's live progress (kills / total, ✓);
-//     * observing a teammate (team row → 前往查看): "👁 name" + 返回战场;
+//     * observing a teammate (team row → 前往查看): "👁 name" + 返回战场, and in 各自行动 the own battle's progress row
+//       "你自己" under it — it goes on off screen while a teammate is watched (maintainer decision 2026-10-25);
 //     * 联防 / 最终攻势: the ‹ › pill switches the camera LEFT half / 全景 / RIGHT half ("你自己" / name / "全景"); it
 //       replaces the observing pill on such a field watched with 前往查看 (a 联防 leaker, an eliminated spectator — the
 //       official non-helper pill "‹ 👁 helper# ›"), with 返回战场 beside the arrows (DESIGN §20.15);
-//     * there is NO view switcher during normal combat.
+//     * there is NO ‹ › view switcher during normal combat (the team rows pick the field).
 //   Server-run combat (legacy streaming mode): the ‹ 自己 › switcher cycling the live fields of m.public.fields.
 
 import { html, Icon } from './components.js';
@@ -32,10 +33,10 @@ export function progressRows(list) {
 }
 
 /** Teammates' progress under the waiting pill (css/screens/game.css .chud__progress / .chud__prog). */
-function ProgressList({ list }) {
+function ProgressList({ list, label = t('队友作战进度') }) {
   if (!Array.isArray(list) || !list.length) return null;
   const { rows, done, total } = progressRows(list);
-  return html`<div class="chud__progress" role="list" aria-label=${t('队友作战进度')}>
+  return html`<div class="chud__progress" role="list" aria-label=${label}>
     ${done ? html`<span key="done" role="listitem" class="chud__prog is-done"><b>${t('作战结束')}</b><span class="num chud__prog__ok">${done}/${total}</span></span>` : null}
     ${rows.map((p) => html`<span key=${p.playerId} role="listitem" class=${cx('chud__prog', p.done && 'is-done')}>
       <b>${p.name}</b>
@@ -49,7 +50,8 @@ function ProgressList({ list }) {
 /**
  * @param {{ pub:any, myId:string, watching:string|null, hud:any, myDone:boolean, onWatch:(fieldId:string)=>void, spectating?: boolean,
  *   client?: null | { progress?: any[]|null, observing?: { name: string }|null, onBack?: () => void,
- *                     layers?: Array<{ key: string, label: string, self: boolean, watch: boolean }>, layer?: string, onLayer?: (k: string) => void },
+ *                     layers?: Array<{ key: string, label: string, self: boolean, watch: boolean }>, layer?: string, onLayer?: (k: string) => void,
+ *                     own?: any|null },
  *   waitBand?: boolean }} props `waitBand`: the official bottom band (ui/battleArt.js BottomTips) says the wait instead
  */
 export function CombatHud({ pub, myId, watching, hud, myDone, onWatch, spectating = false, spectator = false, client = null, waitBand = false }) {
@@ -107,6 +109,7 @@ function ClientHud({ pub = null, hud, myDone, spectating, spectator = false, cli
         ${client.onBack ? html`<button type="button" class="btn btn--secondary btn--sm chud__back" onClick=${() => client.onBack()}>
           <span class="btn__label">${t('返回战场')}</span></button>` : null}
       </div>` : null}
+      ${observing && !halves && client.own ? html`<${ProgressList} list=${[client.own]} label=${t('你自己')} />` : null}
       ${!ob && halves ? html`<div class=${cx('vswitch', 'chud__layers', observing && 'is-observing')}>
         <button type="button" class="vswitch__arrow" disabled=${idx <= 0} aria-label=${t('左侧战场')} onClick=${() => step(-1)}><${Icon} name="chevronLeft" /></button>
         <span class="vswitch__label">

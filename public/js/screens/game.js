@@ -23,9 +23,11 @@
 // The UI never mutates match state locally; it re-renders from m.public / m.private / m.field pushes.
 // Client-side combat (DESIGN §14, m.public.combatMode 'client'): battles are simulated in this browser by
 // battle/runner.js, which publishes the battle's field meta into store.match.field and feeds the view the same b.snap /
-// b.ev frames the server used to stream. Observing follows research 09 §3.1 (battle/observe.js): no looking elsewhere
-// while the own normal battle runs; afterwards a teammate row → 前往查看 → a local replica, 返回战场 goes back; in
-// 联防 / 最终攻势 the ‹ › pill switches the camera between the field's halves and 全景.
+// b.ev frames the server used to stream. Observing follows research 09 §3.1 (battle/observe.js): a teammate row →
+// 前往查看 → a local replica, 返回战场 goes back — also while the own normal battle runs (maintainer decision 2026-10-25,
+// the next season's convenience; the official current season refused it): the own battle goes on off screen (the
+// runner's state().mine says when it ends), its progress row "你自己" sits under the observing pill; in 联防 / 最终攻势
+// the ‹ › pill switches the camera between the field's halves and 全景.
 // Enemy preview pen (research 09 §2 / §6.2 item 3): in 休整期 the right HUD 🔍▶▶ pans the camera to the pen
 // (view.setCamera('pen')); the left button turns into 🔍◀◀ and returns to the camera in use before (the grey right
 // button, Esc or any camera change of the game flow return too). The shop bar folds away while the pen is shown and
@@ -116,7 +118,7 @@ import { ResultScreen } from './result.js';
 import { net } from '../net.js';
 import { store, useStore, shallowEqual, serverNow, isSpectating } from '../store.js';
 import { battleRunner } from '../battle/runner.js';
-import { isClientCombat, observeTarget, teammateProgress, cameraLayers, layerCamera, sidesOf, resumedWatch, followedScout } from '../battle/observe.js';
+import { isClientCombat, observeTarget, teammateProgress, ownProgress, cameraLayers, layerCamera, sidesOf, resumedWatch, followedScout } from '../battle/observe.js';
 import { screenStrip, playerBonds, playerLayer, detailBondOwner, toggleBond, popupView } from '../ui/watchBonds.js';
 import { data, localAsset, getMode } from '../data.js';
 import { voiceForPiece, voiceForPlace, voiceForUnit, holdResultVoice, voiceForRoutePreview } from '../voice.js'; // local patch: 选中 lines on a tap, 部署 on a bench → board placement, 结算 line kept, 行动开始 on a battle-start route preview cursor
@@ -383,7 +385,7 @@ function MatchScreen() {
     ...placementRecords(data, priv), // the Chinese rule records whatever the language: the 高台 trait check (upstream #676)
     getToken: gd.token, getItem: gd.item, getEffect: gd.effect,
   }), [priv, pub?.stageId, editable, gd.ready, deployField]);
-  live.current = { pub, priv, field, editable, hasPersonalChoice, placeCtx, watching, watchWho, home, myId, alive, spectator, detail, drawer, bondOpen, emoteOpen, settingsOpen, exitOpen, drag, facing, sel, selBusy, pen, tileTip, collapsedNow: collapsed, localDone: false, canPause: false, paused, cap: lpCap };
+  live.current = { pub, priv, field, editable, hasPersonalChoice, placeCtx, watching, watchWho, home, myId, alive, spectator, detail, drawer, bondOpen, emoteOpen, settingsOpen, exitOpen, drag, facing, sel, selBusy, pen, tileTip, collapsedNow: collapsed, canPause: false, paused, cap: lpCap };
 
   // ---- camera: every request goes through setCam, which remembers it for the pen's way back -----------------------
   // the own prep board: the normal board, or — in the prep of a boss round — the player's half of the boss field
@@ -1027,7 +1029,7 @@ function MatchScreen() {
     const L = live.current;
     if (isClientCombat(L.pub)) {
       const observing = !!L.watching && L.watching !== L.home && L.watching !== ownFieldId(L.myId);
-      const t = observeTarget(p, L.pub, L.myId, { observing, ownDone: L.localDone });
+      const t = observeTarget(p, L.pub, L.myId, { observing });
       if (t.back) { backHome(); return; }
       if (t.reason) { matchToast(t.reason, 'warn'); audio.sfx('error', { volume: 0.5 }); return; }
       if (t.fieldId) requestWatch(t.fieldId, p.playerId);
@@ -1577,10 +1579,11 @@ function MatchScreen() {
   const readyCount = players.filter((p) => p.ready || p.status === 'ready').length;
   const aliveCount = players.filter((p) => p.alive !== false && p.status !== 'left').length;
   // the own battle is over: the server says so (status done) or — client-side combat — the local simulation just ended
-  const localDone = cc && !!battleState && battleState.own && !battleState.watch && battleState.done && battleState.fieldId === ownFieldId(myId);
+  // (on screen or off it: a teammate watched meanwhile — the runner's state().mine)
+  const mineB = cc && battleState ? battleState.mine : null;
+  const localDone = !!mineB && mineB.done && mineB.fieldId === ownFieldId(myId);
   // (client-side combat: only in 各自行动 — 联防 observers just watch the 联防 field, research 09 §3.1)
   const myDone = combat && (cc ? phase === PHASE.COMBAT && (meP?.status === 'done' || localDone) : meP?.status === 'done');
-  live.current.localDone = localDone;
   // the solo pause button: only while the own battle still runs (the server refuses it afterwards)
   const canPause = pauseAvailable(pub, { solo, alive, done: meP?.status === 'done' || localDone });
   live.current.canPause = canPause;
@@ -1749,7 +1752,7 @@ function MatchScreen() {
     <div class="gm__side">
       <${TeamPanel} pub=${pub} myId=${myId} watching=${watchingNow} bubbles=${bubbles} onWatch=${watchPlayer} cap=${lpCap} uniteLocal=${uniteLocal}
         self=${Number.isFinite(priv?.lp) ? { lp: priv.lp, pending: liveLpNow.pending, unite: liveLpNow.unite, left: liveLpNow.left } : null}
-        observe=${cc ? { canObserve: (p) => observeTarget(p, pub, myId, { observing: watchingOther, ownDone: localDone }), observing: watchingOther, onBack: backHome } : null} />
+        observe=${cc ? { canObserve: (p) => observeTarget(p, pub, myId, { observing: watchingOther }), observing: watchingOther, onBack: backHome } : null} />
     </div>
 
     <div class="gm__hud" ref=${hudElRef}>
@@ -1800,7 +1803,8 @@ function MatchScreen() {
 
       ${combat || mode === 'settle' ? html`<${CombatHud} pub=${pub} myId=${myId} watching=${watchingNow} hud=${hud} myDone=${!!myDone && alive} waitBand=${tipType === 'WAIT_FINISH'}
         spectating=${!alive} spectator=${spectator} onWatch=${watchField}
-        client=${cc ? { progress, observing: observingName ? { name: observingName } : null, onBack: alive ? backHome : null, layers, layer, onLayer: setLayer } : null} />` : null}
+        client=${cc ? { progress, observing: observingName ? { name: observingName } : null, onBack: alive ? backHome : null, layers, layer, onLayer: setLayer,
+          own: watchingOther && alive ? ownProgress(pub, myId, { localDone }) : null } : null} />` : null}
 
       ${showDeadPill(alive, phase) ? (spectator
         ? html`<div class="gm__dead gm__dead--spectator" role="status"><${GIcon} name="eye" />${t('观战中 · 点击左侧成员头像切换查看')}</div>`

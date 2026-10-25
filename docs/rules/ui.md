@@ -1658,3 +1658,21 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
 - 문구: `en.json`·`ja.json`·`zh-TW.json`·`ko/ui.json`(→ `ko.json`).
 - 확인: `test/local-patch.test.js` 「chat: … pinnedLines …」, `test/ui/gameLogic.test.js` 「sanitizeSettings」, `test/ui/settings-sections.test.js`
   (스위치가 「聊天提示」 절 안). 화면: 관리자가 로컬에서 확인(2026-10-22).
+
+## 전투 중 팀원 전장 보기 (2026-10-25, 관리자 결정 「편의 기능으로 지금 시즌에도 적용」)
+
+- 공식 지금 시즌은 자기 일반 전투(各自行动)가 도는 동안 팀원을 못 본다(「当前无法查看」, `docs/research/09-ux-official.md` §6.3). 새 시즌
+  위수협의(CN 업데이트 방송에서 소개)는 자기 전투 중에도 다른 전장을 본다 — 공식 지금 시즌과 다르지만 편의 기능으로 모든 시즌에 먼저 켠다.
+  팀원 행 → 「前往查看」 → 그 전장의 표시 사본, 「返回战场」/자기 행으로 돌아온다. 联防·最终攻势의 규칙(다른 조 보스 필드는 못 봄, ‹ › 절반 전환)은
+  그대로.
+- 계산은 브라우저만 한다(관리자 결정 2026-10-24: 보는 전투를 서버가 계산해 보내는 안은 버림). 자기 전투는 화면 밖에서 그리지 않고 계속 돌아
+  보고하고(`battle/runner.js`: 권한 전투는 `cur`가 아니어도 매 프레임 진행 — 숨은 탭과 같은 길), 보는 전투는 받은 b.start로 따라잡아 그린다.
+  비용은 시뮬 하나 더(틱당 0.01–0.058 ms 측정, 2026-10-15)와 보기 시작할 때의 따라잡기(프레임당 ≤ 240틱), 그리는 양은 그대로.
+- 자기 전투가 화면 밖에서 끝나도 화면이 알도록 실행기 `state().mine`(가장 최근 자기 전투 `{ battleId, fieldId, kind, done }`)을 내보내고,
+  `game.js localDone`이 그것을 읽는다(대기 띠 WAIT_FINISH·일시정지·`myDone`). 보는 동안 관전 줄 아래 「你自己」 진행 칸(처치/총수, 끝나면 ✓,
+  `battle/observe.js ownProgress` → `ui/combatHud.js`); 위 LP 표시의 −N은 원래 자기 필드 기준이라 그대로 보인다.
+- 서버 `server/match/match/watch.js _watchClient`의 「own battle running」 거절과 클라 `observeTarget`의 「作战中无法查看队友」 거절을
+  없앴다(그 문구는 언어 파일에 남김 — 한국어 팩은 지운 항목을 upstream 기계 번역으로 채운다). 보는 중 새로고침·끊김은 원래대로 끊길 때
+  서버가 그 필드를 넘겨받는다(takeover) — 다시 들어오면 그 필드는 표시 사본.
+- 시험: `test/match/runner.test.js` 「watching a teammate while the own battle runs」(화면 밖 진행·결과가 서버 계산과 같음·`mine`·돌아오기),
+  `test/match/observe.test.js`, `test/match/clientCombat.test.js` 「observing」, `test/match/watch-bonds.test.js`. [화면 미확인]

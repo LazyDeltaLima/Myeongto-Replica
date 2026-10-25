@@ -51,7 +51,9 @@
 //   import { battleRunner } from './battle/runner.js'     (browser singleton wired to net.js + store.js; null in Node)
 //   battleRunner.on('snap' | 'ev' | 'field' | 'state', fn) → off
 //   battleRunner.state()  → { battleId, fieldId, kind, authoritative, watch, done, own, members, loading, paused, leaks,
-//                              uniteLeft, bondLayers } | null
+//                              uniteLeft, bondLayers, mine } | null — `mine` { battleId, fieldId, kind, done }: the
+//                              latest own battle (not watched), on screen or not — a teammate watched while the own
+//                              battle runs (maintainer decision 2026-10-25) leaves it stepping off screen | null
 //   battleRunner.stats()  → { ticks, stepMs, avgTickMs, maxFrameMs, catchups, errors, battles }
 //   battleRunner.unitStats(unitId, fieldId?) → the live stats of a unit of the battle on screen (shared/protocol.js
 //                           unitStatsEntry: current HP, effective max HP / ATK / DEF / RES / interval / block / move
@@ -279,13 +281,20 @@ export function createBattleRunner(deps) {
     return !loading && e && e.kind === 'unite' && e.left ? { ...e.left } : null;
   }
 
+  /** The latest own battle built here (b.start without `watch`), on screen or stepping off screen: its summary | null. */
+  function mineOf() {
+    let m = null;
+    for (const e of entries.values()) if (e.own && (!m || e.seq > m.seq)) m = e;
+    return m ? { battleId: m.battleId, fieldId: m.fieldId, kind: m.kind, done: m.done } : null;
+  }
+
   function state() {
     const e = cur;
-    if (!e) return loading ? { loading: true, battleId: loading.battleId, fieldId: loading.fieldId, kind: loading.kind, leaks: leakMap(), uniteLeft: uniteLeftMap(), bondLayers: layerMap() } : null;
+    if (!e) return loading ? { loading: true, battleId: loading.battleId, fieldId: loading.fieldId, kind: loading.kind, leaks: leakMap(), uniteLeft: uniteLeftMap(), bondLayers: layerMap(), mine: mineOf() } : null;
     return {
       battleId: e.battleId, fieldId: e.fieldId, kind: e.kind, authoritative: e.authoritative, watch: e.watch,
       done: e.done, own: e.own, members: e.members.slice(), loading: !!loading, speed: e.speed, paused: pausedAt != null,
-      leaks: leakMap(), uniteLeft: uniteLeftMap(), bondLayers: layerMap(),
+      leaks: leakMap(), uniteLeft: uniteLeftMap(), bondLayers: layerMap(), mine: mineOf(),
     };
   }
 
@@ -503,7 +512,8 @@ export function createBattleRunner(deps) {
         deliver(e);
       }
     }
-    if (e === cur) publishState();
+    // (an own battle that ended off screen — a teammate watched meanwhile — changes state().mine)
+    if (e === cur || e.own) publishState();
     else flushLeaks();
   }
 

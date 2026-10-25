@@ -130,17 +130,16 @@ export class MatchWatch {
 
   /**
    * g.watch under client-side combat: the watcher gets the field's spec (b.start, display only) and runs a local
-   * replica fast-forwarded to the field's clock. No watching while the own normal battle runs; the other pair's boss
-   * field is never shown to a fighting player; eliminated players may watch anything.
+   * replica fast-forwarded to the field's clock. A teammate's normal battle may be watched while the own one still runs
+   * (the browser keeps simulating it off screen and reports it — a convenience of the next season's mode, taken for every
+   * season: maintainer decision 2026-10-25; the official current season refused it, 「当前无法查看」); the other pair's
+   * boss field is never shown to a fighting player; eliminated players may watch anything.
    */
   _watchClient(ps, fieldId, playerId = null) {
     const f = this.fields.find((x) => x.fieldId === fieldId) || null;
     if (!f) return fail(ERR.BAD_TARGET, 'no such field');
     const own = this.fields.find((x) => x.players.includes(ps.playerId)) || null;
-    if (ps.alive) {
-      if ((f.kind === 'boss' || f.kind === 'hidden') && own && own !== f) return fail(ERR.BAD_TARGET, 'other group hidden');
-      if (f.kind === 'normal' && own && own !== f && own.live) return fail(ERR.WRONG_PHASE, 'own battle running');
-    }
+    if (ps.alive && (f.kind === 'boss' || f.kind === 'hidden') && own && own !== f) return fail(ERR.BAD_TARGET, 'other group hidden');
     this.watchers.set(ps.playerId, f.fieldId);
     this._watchPrefSet(ps, f, playerId);
     this.sendTo(ps.playerId, this._startMsg(f, ps.playerId, { watch: !f.players.includes(ps.playerId) }));

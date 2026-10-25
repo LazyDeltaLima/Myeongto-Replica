@@ -2,7 +2,8 @@
 // animation frames: pacing (60 ticks per real second at 2×, ≤ 8 per frame), the b.snap / b.ev feed and the field meta,
 // b.progress / b.result when authoritative (valid protocol frames, the same result as the server's simulation),
 // fast-forward to `elapsed`, b.end (forced / takeover), the hidden-tab pump, the boss pool sync, phase clearing, the live
-// leak count of normal fields (state().leaks, user playtest #3 item 2).
+// leak count of normal fields (state().leaks, user playtest #3 item 2), the own battle stepping off screen while a
+// teammate's is shown (state().mine).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createBattleRunner, ticksPerFrameCap } from '../../public/js/battle/runner.js';
@@ -165,6 +166,45 @@ test('fast-forward to `elapsed` before showing; display replicas never report; b
   assert.ok(e3.battle.tickCount >= 110, `pumped while hidden (${e3.battle.tickCount})`);
   assert.equal(r3.feed.snaps.length, snaps, 'nothing rendered while hidden');
   r3.runner.dispose();
+});
+
+test('watching a teammate while the own battle runs (maintainer decision 2026-10-25): the own battle steps off screen, reports its server-identical result, state().mine says it ended; back home shows it', async () => {
+  const start = realStart(7303);
+  const r = rig();
+  r.net.emit('b.start', start);
+  await r.settle();
+  const own = r.runner._entries.get(start.battleId);
+  r.advance(1500);
+  assert.deepEqual(r.store.get().match.battle.mine, { battleId: start.battleId, fieldId: start.fieldId, kind: start.kind, done: false });
+  // 前往查看: the teammate's field (the same spec under another battle, 1.5 game s in)
+  const watched = { ...start, battleId: `${start.battleId}w`, fieldId: 'n:mate', authoritative: false, watch: true, elapsed: 1.5 };
+  r.net.emit('b.start', watched);
+  await r.settle();
+  assert.equal(r.store.get().match.field.fieldId, 'n:mate', 'the teammate\'s field on screen');
+  const snaps = r.feed.snaps.length;
+  const ticks = own.battle.tickCount;
+  r.advance(2000);
+  assert.ok(own.battle.tickCount - ticks >= 110, `the own battle keeps its clock off screen (${own.battle.tickCount - ticks} ticks in 2 s)`);
+  assert.ok(r.feed.snaps.slice(snaps).every((x) => x.fieldId === 'n:mate'), 'only the field on screen is rendered');
+  for (let i = 0; i < 400 && !own.done; i++) r.advance(1000, 50);
+  assert.ok(own.done, 'the own battle finished off screen');
+  await r.settle();
+  const st = r.store.get().match.battle;
+  assert.deepEqual([st.fieldId, st.watch, st.mine.fieldId, st.mine.done], ['n:mate', true, start.fieldId, true], 'state().mine: the own battle ended while the teammate is shown');
+  const res = r.net.sent.filter((x) => x.t === 'b.result');
+  assert.deepEqual(res.map((x) => x.battleId), [start.battleId], 'only the own battle reports');
+  const server = runHeadless(specMod.createBattleFromSpec(start.spec, DS, { recordEvents: false }), { players: start.spec.players.map((p) => p.playerId) }).result;
+  const a = validateClientResult(start.spec, res[0].result, {});
+  const b = validateClientResult(start.spec, specMod.compactResult(server), {});
+  assert.ok(a.ok && b.ok);
+  assert.equal(specMod.resultDigest(a.result).hash, specMod.resultDigest(b.result).hash, 'stepped off screen, the result equals the server simulation');
+  // 返回战场: the server sends the own field again — the same battle is shown, finished
+  r.net.emit('b.start', { ...start, authoritative: false, done: true });
+  await r.settle();
+  assert.equal(r.store.get().match.field.fieldId, start.fieldId);
+  assert.equal(r.runner._entries.get(start.battleId), own, 'no rebuild');
+  assert.equal(r.net.sent.filter((x) => x.t === 'b.result').length, 1);
+  r.runner.dispose();
 });
 
 test('b.end forced ends the local battle and reports at once; a new prep clears every battle', async () => {

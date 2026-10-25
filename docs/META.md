@@ -206,8 +206,9 @@ fields' `startAt` / `lastProgressAt` and the boss start by the paused time and r
 
 ### 1.4 Watching fields
 Client-side combat (the default, DESIGN §14 Spectating; `Match._watchClient`): `g.watch` answers with the field's
-`b.start` (a display replica fast-forwarded to the field clock); an alive player may not watch another normal field
-while its own normal battle runs (`WRONG_PHASE 'own battle running'`) nor the other pair's boss field (`BAD_TARGET 'other
+`b.start` (a display replica fast-forwarded to the field clock); an alive player may watch a teammate's normal field
+while its own normal battle runs — the browser keeps the own battle stepping off screen and reports it (maintainer
+decision 2026-10-25; the official current season refused it) — but never the other pair's boss field (`BAD_TARGET 'other
 group hidden'`); eliminated players watch anything. Whatever is watched, the viewer's bond strip shows the bonds of the
 player on screen from that player's `m.public players[].bonds` (§5) plus the replica's live layers (DESIGN §20.15) — no
 extra message. On a shared field (联防 / a pair's boss field) the client remembers the teammate picked with 前往查看

@@ -1,9 +1,10 @@
 // Observing rules and labels of client-side combat (research 09 §3.1 / §6.3, DESIGN §14 "Spectating") — pure helpers
 // for the game screen, the team panel and the combat HUD (mirror of server/match/match/watch.js _watchClient):
 //   * prep (休整期): tap a teammate → 前往查看 → their board (read-only);
-//   * own normal battle running: no observing ("当前无法查看");
-//   * own battle over: "⌛ 作战结束，等待队友完成作战" + the teammates' progress; tap a teammate → 前往查看 → a local
-//     replica of their battle; 返回战场 goes back;
+//   * 各自行动: tap a teammate → 前往查看 → a local replica of their battle, while the own battle still runs too (it goes
+//     on off screen and reports; the official current season refused it, 「当前无法查看」 — the next season's mode allows
+//     it, taken for every season as a convenience: maintainer decision 2026-10-25); 返回战场 goes back; once the own
+//     battle is over: "⌛ 作战结束，等待队友完成作战" + the teammates' progress;
 //   * 联防 / 最终攻势: the ‹ › pill switches the camera LEFT half / 全景 / RIGHT half of the own field; the other pair's
 //     boss field is never shown to a fighting player;
 //   * eliminated: anything — each phase reset starts on the player it follows (the server's prep scout / b.start,
@@ -38,10 +39,9 @@ export function nameOf(pub, playerId) {
  * @param {any} p m.public player row
  * @param {any} pub
  * @param {string} myId
- * @param {{ observing?: boolean, ownDone?: boolean }} [o] ownDone: the local simulation of the own battle already ended
- *   (its result is on the way to the server)
+ * @param {{ observing?: boolean }} [o]
  */
-export function observeTarget(p, pub, myId, { observing = false, ownDone = false } = {}) {
+export function observeTarget(p, pub, myId, { observing = false } = {}) {
   if (!isObj(p)) return { reason: t('无效的目标') };
   if (p.playerId === myId) return observing ? { back: true } : { reason: null };
   if (p.alive === false || p.status === 'left') return { reason: t('该队友已被淘汰，无法查看') };
@@ -55,7 +55,6 @@ export function observeTarget(p, pub, myId, { observing = false, ownDone = false
   if (!meAlive || !own) return { fieldId: target.fieldId };
   if (own.fieldId === target.fieldId) return { reason: t('队友与你在同一战场，使用 ‹ › 切换视角') };
   if (target.kind === 'boss' || target.kind === 'hidden') return { reason: t('无法查看另一组队友的战场') };
-  if (own.kind === 'normal' && own.live !== false && !ownDone) return { reason: t('作战中无法查看队友，作战结束后可前往查看') };
   return { fieldId: target.fieldId };
 }
 
@@ -101,24 +100,44 @@ export function followedScout({ field = null, watching = null, alive = true, spe
   return fid;
 }
 
+/** A normal field's progress row: { playerId, name, killed, resolved, total, done, isBot }. */
+function progressRow(pub, f, name = null) {
+  const pid = f.players[0];
+  const p = players(pub).find((x) => x.playerId === pid);
+  const pr = isObj(f.progress) ? f.progress : null;
+  return {
+    playerId: pid, name: name || p?.name || t('队友'), isBot: !!p?.isBot,
+    killed: Number.isFinite(pr?.killed) ? pr.killed : null,
+    resolved: Number.isFinite(pr?.resolved) ? pr.resolved : (Number.isFinite(pr?.killed) ? pr.killed : null),
+    total: Number.isFinite(pr?.total) ? pr.total : null,
+    done: f.live === false || !!pr?.done,
+  };
+}
+
 /** Teammates' progress for the waiting pill: [{ playerId, name, killed, resolved, total, done, isBot }]. */
 export function teammateProgress(pub, myId) {
   const out = [];
   for (const f of fields(pub)) {
     if (f.kind !== 'normal' || !Array.isArray(f.players)) continue;
-    const pid = f.players[0];
-    if (pid === myId) continue;
-    const p = players(pub).find((x) => x.playerId === pid);
-    const pr = isObj(f.progress) ? f.progress : null;
-    out.push({
-      playerId: pid, name: p?.name || t('队友'), isBot: !!p?.isBot,
-      killed: Number.isFinite(pr?.killed) ? pr.killed : null,
-      resolved: Number.isFinite(pr?.resolved) ? pr.resolved : (Number.isFinite(pr?.killed) ? pr.killed : null),
-      total: Number.isFinite(pr?.total) ? pr.total : null,
-      done: f.live === false || !!pr?.done,
-    });
+    if (f.players[0] === myId) continue;
+    out.push(progressRow(pub, f));
   }
   return out;
+}
+
+/**
+ * The own normal battle's progress row ("你自己"), shown under the observing pill while a teammate is watched in 各自行动
+ * (maintainer decision 2026-10-25: the own battle goes on off screen); `done` also when the local simulation already
+ * ended (`localDone`: its report may not be back yet). Null outside 各自行动 or without an own normal field.
+ * @param {any} pub @param {string} myId @param {{ localDone?: boolean }} [o]
+ */
+export function ownProgress(pub, myId, { localDone = false } = {}) {
+  if (!isObj(pub) || pub.phase !== PHASE.COMBAT) return null;
+  const f = fieldOf(pub, myId);
+  if (!f || f.kind !== 'normal') return null;
+  const row = progressRow(pub, f, t('你自己'));
+  if (localDone) row.done = true;
+  return row;
 }
 
 /**
