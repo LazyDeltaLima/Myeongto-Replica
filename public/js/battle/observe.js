@@ -32,7 +32,7 @@ export function fieldOf(pub, playerId) {
 
 /** Display name of a player id ('队友' when unknown). */
 export function nameOf(pub, playerId) {
-  return players(pub).find((p) => p.playerId === playerId)?.name || t('队友');
+  return playerName(players(pub).find((p) => p.playerId === playerId)?.name) || t('队友');
 }
 
 /**

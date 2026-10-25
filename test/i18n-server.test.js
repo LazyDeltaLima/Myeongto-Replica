@@ -150,6 +150,10 @@ test('a real match: 精打细算玩偶\'s effect entry (named by its trap icon) 
     assert.equal(playerName('阿米娅'), '阿米娅', 'a name a Doctor typed stays as typed');
     assert.equal(nameParam('阿米娅'), '阿米娅');
     assert.ok(translateWire(ticker).includes('AI·Warfarin'), translateWire(ticker));
+    const { switcherLabel } = await import('../public/js/ui/gameLogic/watch.js');
+    const pub = { players: [{ playerId: 'p_0', seat: 0, name: 'P0' }, { playerId: 'ai_0', seat: 1, name: BOT_NAMES[0], isBot: true }], fields: [{ fieldId: 'n:ai_0', kind: 'normal', players: ['ai_0'] }] };
+    assert.equal(switcherLabel(pub, 'n:ai_0', 'p_0'), 'AI·Warfarin', 'the 观战 caption of a watched AI teammate');
+    assert.equal(switcherLabel({ ...pub, fields: [] }, 'n:ai_0', 'p_0'), 'AI·Warfarin', 'its field gone');
   } finally {
     setLang('zh');
     await data.setLocale('zh');

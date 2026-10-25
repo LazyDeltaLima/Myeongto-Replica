@@ -135,6 +135,7 @@ import { keepEarly } from './game/early.js';
 import { MatchEnded, PausedOverlay } from './game/overlays.js';
 import { inspectRange } from './game/range.js';
 import { t, tParts } from '../../../shared/i18n.js';
+import { playerName } from '../../../shared/botNames.js';
 
 /** LOCAL-PATCH.md 「오퍼레이터 음성」 (2-5): a committed bench → board placement still says its 部署 line when its drop-in comes this late (ms). */
 const PLACE_VOICE_MS = 3000;
@@ -304,7 +305,7 @@ function MatchScreen() {
   // watching a teammate's prep board: the 本局信息 drawer shows THEIR 策略 in place of one's own (user playtest #2 item 2)
   const scoutPid = watchingOther && field?.prep && typeof field.fieldId === 'string' && field.fieldId.startsWith('n:') ? field.fieldId.slice(2) : null;
   const scoutBandId = scoutPid ? ownerBandId(pub, scoutPid) : null;
-  const scoutBandOwner = scoutPid ? (players.find((p) => p.playerId === scoutPid)?.name || null) : null;
+  const scoutBandOwner = scoutPid ? (playerName(players.find((p) => p.playerId === scoutPid)?.name) || null) : null;
   const personalChoice = !spectator && alive ? normalizePersonalChoice(pub, priv, myId) : null;
   const hasPersonalChoice = !!personalChoice;
   const editable = phase === PHASE.PREP && !!priv && alive && !priv.ready && !watchingOther && !hasPersonalChoice;

@@ -193,7 +193,7 @@ export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = nu
   const players = new Map(sortedPlayers(pub).map((p) => [p.playerId, p]));
   const myTurn = solo || sp.turnPid === myId;
   const mine = sp.pickOf.get(myId);
-  const turnName = players.get(sp.turnPid)?.name || t('队友');
+  const turnName = playerName(players.get(sp.turnPid)?.name) || t('队友');
   const special = /_s$/.test(String(sp.family || ''));
   const order = personal || solo ? [] : sp.order;
   const timed = personal ? pub?.deadline > 0 : !solo && !sp.untimed;
@@ -248,7 +248,7 @@ export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = nu
           const can = cardPickable(sp, card, { myId, solo, busyIdx });
           const busy = pickBusy(busyIdx, card, mine);
           const isArmed = can && armed === card.idx;
-          const takerName = taker ? (card.takenBy === myId ? t('你') : taker.name) : null;
+          const takerName = taker ? (card.takenBy === myId ? t('你') : playerName(taker.name)) : null;
           return html`<button key=${card.idx} type="button" class=${cx('spcard', `spcard--${r.kind}`, (card.takenBy || card.soldOut) && 'is-taken', card.takenBy === myId && 'is-mine', can && 'is-pickable', isArmed && 'is-armed', busy && 'is-busy')}
               aria-busy=${busy ? 'true' : undefined} aria-pressed=${can ? String(isArmed) : undefined} disabled=${!can} onClick=${() => can && onTap(card.idx)}
               aria-label=${isArmed ? t('{name}，已选中，再次点击确认', { name: r.name }) : takerName ? t('{name}，{takerName}已选择', { name: r.name, takerName }) : r.name} title=${`${r.name}\n${richTextPlain(r.desc)}`}>
@@ -268,7 +268,7 @@ export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = nu
             </${CardScroll}>
             ${card.soldOut && !taker ? html`<span class="spcard__busy spcard__busy--soldout" role="status">${t('库存不足')}</span>` : null}
             ${r.tier ? html`<${TierChip} tier=${r.tier} size="md" class="spcard__tier" />` : null}
-            ${taker ? html`<span class="spcard__taker" title=${t('{name} 已选择', { name: taker.name })}><${PlayerAvatar} player=${taker} size="sm" /></span>` : null}
+            ${taker ? html`<span class="spcard__taker" title=${t('{name} 已选择', { name: playerName(taker.name) })}><${PlayerAvatar} player=${taker} size="sm" /></span>` : null}
             ${isArmed ? html`<span class="spcard__confirm" role="status"><b>${t('确认选择')}</b><small>${t('再次点击')}</small></span>` : null}
             ${busy ? html`<span class="spcard__busy" role="status">${t('选择中')}</span>` : null}
           </button>`;

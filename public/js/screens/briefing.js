@@ -163,7 +163,7 @@ export function BriefingScreen() {
       ${proposer ? html`<div class="brief-rr" role="status" data-testid="reroll-proposer">
         <${Icon} name="refresh" />
         <div class="brief-rr__text">
-          <b>${proposer.playerId === myId ? t('你提议重新抽取') : t('{name} 提议重新抽取', { name: proposer.name || t('博士') })}</b>
+          <b>${proposer.playerId === myId ? t('你提议重新抽取') : t('{name} 提议重新抽取', { name: playerName(proposer.name) || t('博士') })}</b>
           <span>${t('重新抽取 {rr}/{n}：全员同意时重新抽取', { rr: rerollN, n: voters.length })}</span>
         </div>
       </div>` : null}

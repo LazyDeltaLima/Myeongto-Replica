@@ -78,7 +78,7 @@ export function switcherLabel(pub, watching, myId, spectating = false) {
   const cur = fields.find((f) => f.fieldId === watching);
   if (cur) return fieldLabel(cur, pub, myId);
   if (typeof watching === 'string' && watching.startsWith('n:') && watching !== ownFieldId(myId)) {
-    return sortedPlayers(pub).find((p) => p.playerId === watching.slice(2))?.name || t('队友');
+    return playerName(sortedPlayers(pub).find((p) => p.playerId === watching.slice(2))?.name) || t('队友');
   }
   return spectating ? t('观战') : t('自己');
 }

@@ -538,7 +538,7 @@ export function BandDraftScreen() {
     if (await actions.bandSkip()) setSkipped(true);
     setBusy(null);
   };
-  const turnName = players.find((p) => p.playerId === draft.turnPid)?.name;
+  const turnName = playerName(players.find((p) => p.playerId === draft.turnPid)?.name);
   useTicker(clock ? 250 : 0);
   // the picker's row shows the step header's number (both read the one turn deadline)
   const turnSecs = clock ? secondsLeft(clock.deadline) : null;
