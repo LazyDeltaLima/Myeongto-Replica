@@ -757,8 +757,11 @@
 
 /* the 8-player mode: eight rows at .6 of the unit (portraits 48, 10 apart) fit between the top bar and the shop bar [추정] */
 .gm.has-hud-art.has-hud-team .team.is-8 { --u: calc(var(--ui-u, .015rem) * .6); }
-/* the official list is not shown in a solo game (the KR solo captures, prep and battle: no list) [추정: solo only] */
-.gm.has-hud-art .team.is-solo { display: none; }
+/* the official list is not shown in a solo game (the KR solo captures, prep and battle: no list) [추정: solo only]: its
+   row and plate go, the empty list stays at the top as the anchor of the phone's round damage chip (ui/roundDamage.js,
+   css/screens/game-panels.css — with the whole list hidden the chip was gone too) */
+.gm.has-hud-art .team.is-solo { top: max(1.3rem, 52px); transform: none; padding: 0; }
+.gm.has-hud-art .team.is-solo::before, .gm.has-hud-art .team.is-solo > .team__row { display: none; }
 /* (bond popup members) the tier badge at the client's 30 units; members not on the field are only darkened (img_inactive_mask), not grey */
 .gm.has-hud-art .bpop__member .uthumb__tier { --tier-h: calc(var(--u) * 30); transform: none; } /* common_chess_level 30×30 (img_chess_level_N: rect = texture 45, no margin) */
 .gm.has-hud-art .bpop__member .uthumb.is-dim .uthumb__art, .gm.has-hud-art .bpop__member .uthumb.is-dim .uthumb__art img { filter: none; opacity: 1; }

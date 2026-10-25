@@ -759,6 +759,9 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 }
 .rdmg.is-desktop .rdmg__panel { right: calc(100% + var(--q) * 8); }
 .rdmg.is-phone .rdmg__panel { left: calc(100% + var(--q) * 14); }
+/* a solo game with the official HUD: the list is empty (css/hud-art.css), the chip takes its top and the panel opens under it */
+.gm.has-hud-art .team.is-solo > .rdmg.is-phone .rdmg__chip { top: 0; }
+.gm.has-hud-art .team.is-solo > .rdmg.is-phone .rdmg__panel { left: 0; top: calc(var(--q) * 40); }
 .rdmg__panel.is-full { width: calc(var(--q) * 270); }
 .rdmg__panel.is-compact { width: calc(var(--q) * 196); }
 .rdmg__hd {
