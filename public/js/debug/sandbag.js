@@ -127,6 +127,7 @@ export function createSandbagBattle(sim, baseDs, cfg) {
   if (Number.isInteger(cfg.skillIndex)) unit.skillIndex = cfg.skillIndex;
   if (typeof cfg.moduleId === 'string' && cfg.moduleId) unit.moduleId = cfg.moduleId;
   if (cfg.diy && typeof cfg.diy === 'object') unit.diy = cfg.diy; // a 自选 pick on its slot id (simdata getDiy)
+  if (Array.isArray(cfg.items) && cfg.items.length) unit.items = [...cfg.items]; // equipment (items.json ids)
   // the operator's hand-placed pieces (tokens.json `placeable`): board token pieces owned by it (PlayerState battleInput)
   const busy = (r, c) => (r === op.row && c === op.col);
   const tokens = (cfg.tokens || []).filter((t) => t && typeof t.tokenId === 'string' && inArena(t.row, t.col) && !busy(t.row, t.col))

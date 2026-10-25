@@ -89,6 +89,8 @@ const st = {
   // tokens: the operator's hand-placed pieces on the island ({ tokenId, row, col }); autoTokens = still the default placement
   tokens: [], autoTokens: true,
   spAuto: true, hurt: false, keepOp: true, place: 'op',
+  // ?items=<item id>,…: the operator's equipment (items.json ids, e.g. chess_item_4_03_e_a) — URL only
+  items: (params.get('items') || '').split(',').map((x) => x.trim()).filter((x) => /^chess_item_\w+$/.test(x)),
 };
 let pendingFx = params.get('fx');
 
@@ -121,7 +123,7 @@ function battleConfig() {
   return {
     chessId, skillIndex: Number.isInteger(skill) ? skill : null, moduleId: module, diy,
     dir: st.dir, op: st.opTile, bags: st.bags, enemyKey: st.enemyKey, bag: { ...st.bag, hp: SANDBAG_HP }, terrain: st.terrain,
-    tokens: st.tokens, spAuto: () => st.spAuto, hurt: () => st.hurt, keepOp: () => st.bag.attack && st.keepOp,
+    tokens: st.tokens, spAuto: () => st.spAuto, hurt: () => st.hurt, keepOp: () => st.bag.attack && st.keepOp, items: st.items,
   };
 }
 function syncUrl() {
@@ -133,6 +135,7 @@ function syncUrl() {
   if (st.dir !== 'RIGHT') q.set('dir', st.dir);
   if (st.enemyKey !== SANDBAG_DEFAULT) q.set('enemy', st.enemyKey);
   if (st.terrain !== 'flat') q.set('terrain', st.terrain);
+  if (st.items.length) q.set('items', st.items.join(','));
   if (st.bag.attack) q.set('attack', '1');
   history.replaceState(null, '', `?${q}`);
 }
