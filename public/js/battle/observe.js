@@ -13,6 +13,7 @@
 import { PHASE } from '../../../shared/constants.js';
 import { data } from '../data.js';
 import { t } from '../../../shared/i18n.js';
+import { playerName } from '../../../shared/botNames.js';
 import { wideHalves } from '../../../shared/wideField.js';
 
 const isObj = (v) => !!v && typeof v === 'object';
@@ -106,7 +107,7 @@ function progressRow(pub, f, name = null) {
   const p = players(pub).find((x) => x.playerId === pid);
   const pr = isObj(f.progress) ? f.progress : null;
   return {
-    playerId: pid, name: name || p?.name || t('队友'), isBot: !!p?.isBot,
+    playerId: pid, name: playerName(name || p?.name) || t('队友'), isBot: !!p?.isBot,
     killed: Number.isFinite(pr?.killed) ? pr.killed : null,
     resolved: Number.isFinite(pr?.resolved) ? pr.resolved : (Number.isFinite(pr?.killed) ? pr.killed : null),
     total: Number.isFinite(pr?.total) ? pr.total : null,

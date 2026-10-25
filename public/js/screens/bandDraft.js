@@ -59,6 +59,7 @@ import { data, localAsset } from '../data.js';
 import { audio } from '../audio.js';
 import { modeOffBonds, bandOffBonds, bandOffLine } from '../ui/gameLogic.js';
 import { t, tParts, tName } from '../../../shared/i18n.js';
+import { playerName } from '../../../shared/botNames.js';
 import { applyPresetChoice } from '../ui/factionPick.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -562,7 +563,7 @@ export function BandDraftScreen() {
             ${!solo ? html`<span class="dorder__idx num">${i + 1}</span>` : null}
             <${PlayerAvatar} player=${p} self=${p.playerId === myId} />
             <div class="dorder__text">
-              <b class="dorder__name">${p.name || t('博士')}${p.isBot ? html`<span class="dorder__ai">AI</span>` : null}</b>
+              <b class="dorder__name">${playerName(p.name) || t('博士')}${p.isBot ? html`<span class="dorder__ai">AI</span>` : null}</b>
               <span class="dorder__state">${picked ? html`<span class="t-mint">${pband?.name || t('已选择')}</span>${confirmOn && p.confirmReady ? html`<span class="dorder__ready">${t('已准备')}</span>` : null}`
                 : cur ? html`<span class="t-gold"><${Icon} name="hourglass" />${t('决策中')}${turnSecs != null ? html`<b class="num dorder__secs">${turnSecs}s</b>` : null}</span>`
                 : html`<span class="t-dim"><${Icon} name="dots" />${t('等待中')}</span>`}</span>

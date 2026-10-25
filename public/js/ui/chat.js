@@ -31,6 +31,7 @@ import { store, useStore, loadPref, savePref } from '../store.js';
 import { audio } from '../audio.js';
 import { settingsStore } from './settings.js';
 import { t } from '../../../shared/i18n.js';
+import { playerName } from '../../../shared/botNames.js';
 import { FactionIcon, factionIconUrl } from './faction.js';
 import { chooseFaction, PresetNotice } from './factionPick.js';
 
@@ -150,11 +151,11 @@ function Line({ l, myId, cls = '', style = '' }) {
   if (l.kind === 'faction') {
     const f = chatFaction(l.faction);
     return html`<li class=${cx('chat__line chat__line--sys', cls)} style=${style} data-i18n-skip="">
-      <b class="chat__name">${l.name}</b><span class="chat__text">${t('选择了阵营')} <b style=${f ? `color:${f.color}` : ''}>${f ? t(f.name) : '?'}</b></span>
+      <b class="chat__name">${playerName(l.name)}</b><span class="chat__text">${t('选择了阵营')} <b style=${f ? `color:${f.color}` : ''}>${f ? t(f.name) : '?'}</b></span>
     </li>`;
   }
   return html`<li class=${cx('chat__line', l.playerId === myId && 'is-me', cls)} style=${style} data-i18n-skip="">
-    <b class="chat__name">${l.name}${l.spectator ? html`<span class="chat__spec">(${t('观战')})</span>` : null}<${FactionTag} id=${l.faction} /></b><span class="chat__text">${l.text}</span>
+    <b class="chat__name">${playerName(l.name)}${l.spectator ? html`<span class="chat__spec">(${t('观战')})</span>` : null}<${FactionTag} id=${l.faction} /></b><span class="chat__text">${l.text}</span>
   </li>`;
 }
 

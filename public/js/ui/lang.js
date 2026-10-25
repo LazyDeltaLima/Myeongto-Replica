@@ -21,6 +21,7 @@ import {
 import { canonicalLang, computeChain, scriptOf } from '../../../shared/i18nPacks.js';
 import { PACKS_URL, PACK_INDEX_FILE, readPackIndex, langMetaOf } from '../../../shared/packs.js';
 import { DEV_BUILD } from '../../../shared/constants.js';
+import { isBotName, playerName } from '../../../shared/botNames.js';
 import { loadPref, savePref } from '../store.js';
 import { data } from '../data.js';
 import { fmtNum } from './gameLogic/format.js';
@@ -179,8 +180,9 @@ function applyDocument(lang) {
   set('.rotate-hint__sub', t('卫戍协议：盟约 需要横屏显示以获得完整体验'));
 }
 
-// `{ dn }` params and tName(): Chinese game-data names → the current language (data/i18n/<lang>.json names)
-setNameResolver((name) => data.localeName(name));
+// `{ dn }` params and tName(): Chinese game-data names → the current language (data/i18n/<lang>.json names); an AI
+// teammate's name (shared/botNames.js) through its msgid
+setNameResolver((name) => (isBotName(name) ? t(name) : data.localeName(name)));
 
 /** A development page (a dev build, or served from this machine): report translations t() skips (shared/i18n.js). */
 function isDevPage() {
@@ -367,7 +369,7 @@ const TICKER_NUM_ARG = { CHAR_DAMAGE: 2 };
 
 /**
  * The text of an m.ticker frame in the current language. A config.broadcasts line (`id` + `args`, server ≥ 0.2.0) is
- * rebuilt from the localized broadcast template — `{0}` is the player's name (never translated), other args are
+ * rebuilt from the localized broadcast template — `{0}` is the player's name (playerName: only an AI teammate's is translated), other args are
  * game-data names or numbers; any other line goes through translateWire (msgid + params, or its text as a msgid).
  * A CHAR_DAMAGE line's amount (`{2}`) is shown through fmtNum in every language: 200000 → '20万' / '200K', 1000000 → '100万' / '1M'.
  * @param {{ text?: string, id?: string|null, type?: string|null, args?: unknown[], msgid?: string, params?: any }} msg
@@ -379,7 +381,7 @@ export function tickerText(msg) {
     const list = data.get('config')?.broadcasts;
     const b = Array.isArray(list) ? list.find((x) => x && x.id === msg.id) : null;
     if (b && typeof b.text === 'string') {
-      const args = msg.args.map((a, i) => (i === 0 ? String(a ?? '') : i === numAt && a !== '' && Number.isFinite(Number(a)) ? fmtNum(a) : tName(String(a ?? ''))));
+      const args = msg.args.map((a, i) => (i === 0 ? String(playerName(String(a ?? ''))) : i === numAt && a !== '' && Number.isFinite(Number(a)) ? fmtNum(a) : tName(String(a ?? ''))));
       return format(b.text, args);
     }
   }

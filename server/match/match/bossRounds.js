@@ -14,6 +14,7 @@ import { FLOW_TICKER_PRIORITY, BOSS_CLOCK_MS, DELAYS } from './common.js';
 import { tallyBattle } from '../unitTally.js';
 import { simRuleFlags } from '../../../shared/ruleset.js';
 import { msg } from '../../../shared/i18n.js';
+import { nameParam } from '../../../shared/botNames.js';
 
 /** b.pool broadcasts at most this often (ms). */
 const POOL_MIN_GAP_MS = 250;
@@ -65,7 +66,7 @@ export class MatchBoss {
         steps.forEach((s, i) => { if (share >= s) reached = Math.max(reached, i + 1); });
         if (reached > done) {
           hitSteps.set(pid, reached);
-          const own = scaled ? msg('{name}博士对敌方领袖造成的伤害超过{pct}%!', { name: ps.name, pct: Math.round(steps[reached - 1] * 100) }) : null;
+          const own = scaled ? msg('{name}博士对敌方领袖造成的伤害超过{pct}%!', { name: nameParam(ps.name), pct: Math.round(steps[reached - 1] * 100) }) : null;
           this.tickerFor('BOSS_HIT', [ps.name], { playerId: pid, param: String(BOSS_HIT_STEPS[reached - 1]), own });
         }
       },

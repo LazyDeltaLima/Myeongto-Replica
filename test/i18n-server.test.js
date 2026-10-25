@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { MatchMessaging } from '../server/match/match/messaging.js';
 import { addMessages, setLang, setMessages, translateWire, msg, dn, registerLangs } from '../shared/i18n.js';
 import { langMetaOf } from '../shared/packs.js';
-import { makeMatch, give, DATA } from './match/harness.js';
+import { makeMatch, give, giveItem, DATA } from './match/harness.js';
 import { createRegistry } from '../server/match/effectsMeta.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -118,6 +118,38 @@ test('client: a CHAR_DAMAGE line shows its amount compactly (fmtNum) — 万 in 
     await data.setLocale('ko');
     const [ko2, ko10] = lines();
     assert.ok(ko2.includes('대미지 20만') && ko10.includes('대미지 100만'), `${ko2} / ${ko10}`);
+  } finally {
+    setLang('zh');
+    await data.setLocale('zh');
+  }
+});
+
+test('a real match: 精打细算玩偶\'s effect entry (named by its trap icon) shows the item\'s text in English; the AI teammates\' names follow the language, a Doctor\'s does not', async () => {
+  await data.loadAll('items', 'effects', 'bands', 'garrisons');
+  const { effectDesc } = await import('../public/js/ui/effectsList.js');
+  const { BOT_NAMES, playerName, nameParam } = await import('../shared/botNames.js');
+  const { wireMessage } = await import('../shared/i18n.js');
+  const h = makeMatch({ mode: 'solo', seed: 5, registry: createRegistry({ log: { warn() {}, error() {}, info() {} } }), fake: true }).start();
+  h.toPrep(1);
+  const m = h.m;
+  const ps = h.ps('p_0');
+  const a = give(m, ps, Object.values(DATA.chess).find((c) => c.visible && !c.isGolden && m.pool.has(c.chessId)).chessId);
+  const doll = giveItem(m, ps, 'chess_item_2_05_e_a');
+  assert.deepEqual(m.handle('p_0', { t: 'g.equip', itemUid: doll.uid, targetUid: a.uid }), { ok: true });
+  const entry = JSON.parse(JSON.stringify(ps.effectsView().find((e) => e.id === `doll:${doll.uid}`)));
+  m.dispose();
+  assert.equal(effectDesc(entry), DATA.items.chess_item_2_05_e_a.desc, 'Chinese: as sent');
+  const ticker = JSON.parse(JSON.stringify(wireMessage(msg('{name}博士中途退出了模拟', { name: nameParam(BOT_NAMES[0]) }))));
+  setLang('en');
+  await data.setLocale('en');
+  try {
+    assert.equal(effectDesc(entry), data.lookup('items', 'chess_item_2_05_e_a').desc);
+    assert.ok(!/[一-鿿]/.test(effectDesc(entry)), effectDesc(entry));
+    assert.deepEqual(BOT_NAMES.map(playerName), BOT_NAMES.map((n) => EN_UI[n]));
+    assert.ok(BOT_NAMES.every((n) => EN_UI[n] && !/[一-鿿]/.test(EN_UI[n])));
+    assert.equal(playerName('阿米娅'), '阿米娅', 'a name a Doctor typed stays as typed');
+    assert.equal(nameParam('阿米娅'), '阿米娅');
+    assert.ok(translateWire(ticker).includes('AI·Warfarin'), translateWire(ticker));
   } finally {
     setLang('zh');
     await data.setLocale('zh');

@@ -3,6 +3,7 @@
 import { isObj, sortedPlayers } from './shared.js';
 import { isCombatPhase } from './phases.js';
 import { t } from '../../../../shared/i18n.js';
+import { playerName } from '../../../../shared/botNames.js';
 
 
 /** Own normal field id (DESIGN §8.3). */
@@ -90,7 +91,7 @@ export function switcherLabel(pub, watching, myId, spectating = false) {
  */
 export function fieldLabel(field, pub, myId) {
   if (!isObj(field)) return '—';
-  const names = new Map(sortedPlayers(pub).map((p) => [p.playerId, p.name || t('博士')]));
+  const names = new Map(sortedPlayers(pub).map((p) => [p.playerId, playerName(p.name) || t('博士')]));
   const ps = Array.isArray(field.players) ? field.players : [];
   if (field.kind === 'unite') return ps.includes(myId) ? t('联防（自己）') : t('联防阵地');
   if (field.kind === 'boss' || field.kind === 'hidden') {

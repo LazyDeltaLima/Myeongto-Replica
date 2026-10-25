@@ -6,6 +6,7 @@ import { bossLevelSeconds } from '../matchStatus.js';
 import { clamp, int, isObj, sortedPlayers } from './shared.js';
 import { normalizeSp } from './draft.js';
 import { t } from '../../../../shared/i18n.js';
+import { playerName } from '../../../../shared/botNames.js';
 import { battleOverOf } from '../../audioOfficial.js';
 
 
@@ -65,7 +66,7 @@ export function phaseBanner(phase, pub, { alive = true, spectator = false } = {}
     // report 2026-10-10 「공식은 전투 시작 시 배너가 없음」 (docs/rules/ui.md 「공식 위수협약 UI」)
     case PHASE.COMBAT: return null;
     case PHASE.UNITE: {
-      const names = new Map(sortedPlayers(pub).map((p) => [p.playerId, p.name || t('博士')]));
+      const names = new Map(sortedPlayers(pub).map((p) => [p.playerId, playerName(p.name) || t('博士')]));
       const helpers = Array.isArray(pub?.unite?.helpers) ? pub.unite.helpers.map((id) => names.get(id)).filter(Boolean) : [];
       return { title: t('联防阶段'), micro: 'JOINT DEFENSE', tone: 'orange', sub: helpers.length ? t('联防：{names}', { names: helpers }) : t('完美作战的博士迎战突破防线的敌人') };
     }

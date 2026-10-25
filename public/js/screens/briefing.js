@@ -29,6 +29,7 @@ import { enemyIconUrl, factionIconUrl } from '../ui/assetUrls.js';
 import { useStore } from '../store.js';
 import { data, localAsset } from '../data.js';
 import { t, tParts } from '../../../shared/i18n.js';
+import { playerName } from '../../../shared/botNames.js';
 import { resolveRuleset, keepUnbanned, customStagePool } from '../../../shared/ruleset.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -170,7 +171,7 @@ export function BriefingScreen() {
       <div class="brief-ready">
         <span class="brief-ready__txt">${t('已就绪')} <b class="num">${readyN}</b><span class="num">/${players.length}</span></span>
         ${!alone && rerollN ? html`<span class="brief-ready__txt brief-ready__txt--rr" data-testid="reroll-count">${t('重新抽取')} <b class="num">${rerollN}</b><span class="num">/${voters.length}</span></span>` : null}
-        <span class="brief-ready__pips">${players.map((p) => html`<i key=${p.playerId} class=${cx(p.ready && 'on', p.reroll && 'rr', p.playerId === myId && 'me')} title=${p.name}><${Icon} name=${p.reroll ? 'refresh' : 'user'} /></i>`)}</span>
+        <span class="brief-ready__pips">${players.map((p) => html`<i key=${p.playerId} class=${cx(p.ready && 'on', p.reroll && 'rr', p.playerId === myId && 'me')} title=${playerName(p.name)}><${Icon} name=${p.reroll ? 'refresh' : 'user'} /></i>`)}</span>
       </div>
       ${me && rules.infoReroll ? html`<${Button} variant="secondary" size="xl" icon="refresh" class="brief-reroll" data-testid="info-reroll" title=${rerollTip}
         active=${!!me.reroll} loading=${busy === 'reroll' || pub.infoOutcome === 'reroll'} disabled=${(me.reroll && alone) || closing || !armed}

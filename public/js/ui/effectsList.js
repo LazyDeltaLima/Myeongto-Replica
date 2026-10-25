@@ -29,16 +29,29 @@ const SOURCES = ['effects', 'bands', 'items', 'garrisons'];
 export function effectDesc(e) {
   const desc = e.desc || '';
   if (!desc) return desc;
+  const from = (file, id) => {
+    const raw = typeof id === 'string' && id ? data.lookupRaw(file, id) : null;
+    if (!raw) return desc;
+    const loc = data.lookup(file, id) || raw;
+    for (const k of ['descRaw', 'desc']) {
+      const v = sentText(desc, raw[k], loc[k]);
+      if (v !== desc) return v;
+    }
+    return desc;
+  };
   for (const file of SOURCES) {
     for (const id of [e.id, e.iconId]) {
-      const raw = typeof id === 'string' && id ? data.lookupRaw(file, id) : null;
-      if (!raw) continue;
-      const loc = data.lookup(file, id) || raw;
-      for (const k of ['descRaw', 'desc']) {
-        const v = sentText(desc, raw[k], loc[k]);
-        if (v !== desc) return v;
-      }
+      const v = from(file, id);
+      if (v !== desc) return v;
     }
+  }
+  // an item effect named by its trap icon (精打细算玩偶's round funds, server/match/builtinMeta.js): the item records
+  // that show that icon
+  const items = e.iconKind === 'item' && typeof e.iconId === 'string' ? data.getRaw('items') : null;
+  for (const rec of items && typeof items === 'object' ? Object.values(items) : []) {
+    if (rec?.iconId !== e.iconId) continue;
+    const v = from('items', rec.id);
+    if (v !== desc) return v;
   }
   return desc;
 }

@@ -138,6 +138,7 @@ import { KITTED_CHARS } from './sim/content/kits/index.js';
 import { Matchmaker } from './matchmaking.js';
 import { resolveRuleset, sameRuleset, rulesetWire } from '../shared/ruleset.js';
 import { DEFAULT_SEASON, offeredSeasons, seasonOf } from '../shared/seasons.js';
+import { BOT_NAMES } from '../shared/botNames.js';
 
 /** Room code alphabet: uppercase letters without I and O (and no digits, so no 0/1). */
 export const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -155,8 +156,8 @@ export const LOBBY_DEFAULTS = Object.freeze({
 /** Official `singleReconnectTime` (s) when the data lacks it (constData, research 01 §1). */
 export const SOLO_RECONNECT_FALLBACK_SEC = 86_400;
 
-/** Display names for AI teammates (the tutorial NPCs first, then a few familiar faces). */
-export const BOT_NAMES = Object.freeze(['AI·华法琳', 'AI·阿米娅', 'AI·惊蛰', 'AI·杜宾', 'AI·凯尔希', 'AI·可露希尔']); // i18n-ignore: player names (docs/I18N.md)
+/** Display names for AI teammates (shared/botNames.js: the client shows them in its language). */
+export { BOT_NAMES };
 
 const OK = Object.freeze({ ok: true });
 const fail = (code, detail) => (detail ? { error: code, detail } : { error: code });

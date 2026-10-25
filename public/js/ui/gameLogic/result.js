@@ -2,6 +2,7 @@
 
 import { int, isObj, sortedPlayers } from './shared.js';
 import { t } from '../../../../shared/i18n.js';
+import { playerName } from '../../../../shared/botNames.js';
 
 
 // ---- result -----------------------------------------------------------------------------------------------------------
@@ -29,7 +30,7 @@ export function normalizeResult(res, pub) {
     return {
       playerId: p.playerId,
       seat: int(p.seat, int(pp.seat, 0)),
-      name: p.name || pp.name || t('博士'),
+      name: playerName(p.name || pp.name) || t('博士'),
       isBot: !!(p.isBot ?? pp.isBot),
       alive,
       lp: teamLp != null ? (alive === false ? 0 : Math.max(0, teamLp)) : ownLp,

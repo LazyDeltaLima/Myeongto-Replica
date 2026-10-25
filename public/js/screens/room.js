@@ -45,6 +45,7 @@ import { RoomChat } from '../ui/chat.js';
 import { MatchQueueDialog, mmss } from '../ui/matchQueue.js';
 import { audio } from '../audio.js';
 import { t, tc } from '../../../shared/i18n.js';
+import { playerName } from '../../../shared/botNames.js';
 import { resolveRuleset, officialBans } from '../../../shared/ruleset.js';
 import { RulesetSwitch, presetName, queueCountOf } from '../ui/ruleset.js';
 import { CustomRulesDialog, openCustomRules } from '../ui/customRules.js';
@@ -229,7 +230,7 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
       ${seat.isBot ? html`<span class="seat__bot-label"><${Icon} name="robot" />${t('AI 队友')}</span>` : null}
     </div>
     <div class="seat__who">
-      <span class="seat__name">${seat.name || t('博士')}</span>
+      <span class="seat__name">${playerName(seat.name) || t('博士')}</span>
       ${isMe ? html`<span class="seat__you">${t('你')}</span>` : null}
     </div>
     <${MicroLabel}>${seat.isBot ? 'AUTONOMOUS UNIT' : `DOCTOR #${doctorNo(seat.playerId)}`}<//>
@@ -244,7 +245,7 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
         <${Button} variant="ghost" size="sm" square=${true} icon="close" loading=${busy === `rm${index}`} onClick=${() => onRemoveBot(index)} aria-label=${t('移除 AI 队友')} />
       <//>` : null}
       ${!seat.isBot && !isMe && facts.isHost ? html`<${Tooltip} text=${t('将该博士移出同盟')}>
-        <${Button} variant="ghost" size="sm" square=${true} icon="close" loading=${busy === `kick${index}`} onClick=${() => onKick(index, seat.name, seat.playerId)} aria-label=${t('移出该博士')} />
+        <${Button} variant="ghost" size="sm" square=${true} icon="close" loading=${busy === `kick${index}`} onClick=${() => onKick(index, playerName(seat.name), seat.playerId)} aria-label=${t('移出该博士')} />
       <//>` : null}
     </footer>
   </article>`;
