@@ -288,13 +288,14 @@ export function checkButtons({ pen, penAvail, infoOpen }) {
   return { left, right };
 }
 
-/** One official 🔍 button: the sprite when installed, a CSS look-alike (icon + chevrons) otherwise. */
-function CheckBtn({ sprite, cls, label, chev, on, disabled, onClick, testid }) {
+/** One official 🔍 button: the sprite when installed, a CSS look-alike (icon + chevrons) otherwise; `hotkey` = the key label under it. */
+function CheckBtn({ sprite, cls, label, chev, on, disabled, onClick, testid, hotkey = null }) {
   const url = localAsset('ui/battle', sprite);
   return html`<button type="button" class=${cx(cls, 'tapx', url && 'has-sprite', chev && 'is-wide', on && 'is-on')}
       style=${url ? `--chk-sprite:url("${url}")` : ''} aria-label=${label} aria-disabled=${disabled ? 'true' : 'false'}
       data-sprite=${sprite} data-testid=${testid} onClick=${onClick}>
     ${url ? null : html`<${Icon} name="search" />${chev ? html`<span class="enemybtn__chev">${chev}</span>` : null}`}
+    ${hotkey ? html`<kbd class="enemybtn__key" aria-hidden="true">${hotkey}</kbd>` : null}
   </button>`;
 }
 
@@ -410,7 +411,8 @@ export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, 
         note=${pending > 0 && !boss && live?.unite ? t('联防中') : null} tip=${pendingTip(lp, pending, { unite: !boss && !!live?.unite, cap, left: live?.left ?? null, boss })} />
       <${Tooltip} text=${`${btn.right.tip} · ${hotkeyLabelOf('viewEnemy')}`} placement="bottom">
         <${CheckBtn} sprite=${btn.right.sprite} cls=${cx('enemybtn', btn.right.grey && 'is-grey')} label=${btn.right.label}
-          chev=${btn.right.grey ? null : '▶▶'} disabled=${btn.right.grey && !pen} onClick=${onRight} testid="check-enemy" />
+          chev=${btn.right.grey ? null : '▶▶'} disabled=${btn.right.grey && !pen} onClick=${onRight} testid="check-enemy"
+          hotkey=${hotkeyLabelOf('viewEnemy')} />
       <//>
     </div>
 
