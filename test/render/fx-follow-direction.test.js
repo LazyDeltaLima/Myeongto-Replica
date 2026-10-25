@@ -68,7 +68,8 @@ test('a model-point effect without a mount is placed once; held ones ride with t
   const body = SRC.slice(SRC.indexOf('function placedAt('), SRC.indexOf('const ownerOf = '));
   assert.match(body, /const hold = !!def\?\.face\?\.hold \|\| buff;/);
   assert.match(body, /if \(spawn === 3\) \{[\s\S]*?pointTurn\([\s\S]*?< 0 \? Math\.PI - t : t;/);
-  assert.match(body, /get x\(\) \{ first\(\); return hold \? ex\(v\) \+ p0\.x - b0\.x : p0\.x; \}/);
+  // held: its screen offset from the unit (fxpoints.js heldAt — lift-drift.test.js), the world offset without a camera
+  assert.match(body, /get x\(\) \{ first\(\); return off \? held\(\)\.x : hold \? ex\(v\) \+ p0\.x - b0\.x : p0\.x; \}/);
 });
 
 test('the extracts carry `_holdByOwner` as face `hold` (skipped without public/assets)', { skip: !existsSync(path.join(FX, 'angel')) && 'no extracted fx' }, () => {

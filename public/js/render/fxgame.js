@@ -70,7 +70,7 @@ import { bodyZ, bodyPoint, liftX } from './fx.js'; // local patch: status effect
 import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
 import { fxSpec } from './fx.js'; // local patch: the stand-in archetype of a kit fx event (standInOff)
 import { SHOT_HEIGHT } from './fx.js'; // local patch: a trail's start without a muzzle point
-import { boneMissing, liftedPoint, loadPoints, mountSpawn, pointKey, pointOn, pointTurn } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
+import { boneMissing, heldAt, liftedPoint, loadPoints, mountSpawn, pointKey, pointOn, pointTurn, screenOffset } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
 import { GRAPHIC_TILT, takesGraphicTurn } from './fxpoints.js'; // 2026-10-22: an effect on a unit takes its Graphic's X −30°
 import { STANDARD_PLACE, modelOffset } from './fxpoints.js'; // 2026-10-22: 望's 棋子 model stands at its prefab's place (the ball)
 import { enemyProjSpeed, enemyShot } from './fx/speeds.js'; // 2026-10-10: an enemy shot's record / flight time (data/enemies.json `proj`)
@@ -1303,21 +1303,25 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function placedAt(v, def, key, spawn, at, buff = false) {
     const hold = !!def?.face?.hold || buff;   // 2026-10-22: a buff's effect is always held (lifted)
     const follow = !!def?.followOwner;   // 2026-10-25: FollowOwner — its point (and a muzzle's turn) again every frame
-    let p0 = null, b0 = null, r0 = null;
+    let p0 = null, b0 = null, r0 = null, off = null;
+    const h = { x: 0, y: 0, z: 0 };
     const first = () => {
       if (p0 && !follow) return;
       const p = at();
       p0 = { x: p.x, y: p.y, z: p.z || 0 };
       b0 = { x: ex(v), y: ey(v), z: (v.z || 0) + (v.hover || 0) };
+      // 2026-10-25: held, it keeps its screen offset from the unit (fxpoints.js heldAt), not its world offset
+      off = hold && !follow && camRef ? screenOffset(camRef, b0, p0) : null;
       if (spawn === 3) {
         const t = pointTurn(ptsOf(v)?.[key], v.actor?.spine?.skeleton, !!v.entryBack);
         r0 = t == null ? null : (v.visFacing ?? v.facing ?? 1) < 0 ? Math.PI - t : t;
       }
     };
+    const held = () => heldAt(camRef, { x: ex(v), y: ey(v), z: (v.z || 0) + (v.hover || 0) }, off, h);
     return {
-      get x() { first(); return hold ? ex(v) + p0.x - b0.x : p0.x; },
-      get y() { first(); return hold ? ey(v) + p0.y - b0.y : p0.y; },
-      get z() { first(); return hold ? (v.z || 0) + (v.hover || 0) + p0.z - b0.z : p0.z; },
+      get x() { first(); return off ? held().x : hold ? ex(v) + p0.x - b0.x : p0.x; },
+      get y() { first(); return off ? held().y : hold ? ey(v) + p0.y - b0.y : p0.y; },
+      get z() { first(); return off ? held().z : hold ? (v.z || 0) + (v.hover || 0) + p0.z - b0.z : p0.z; },
       get rot() { first(); return r0; },
       get alive() { return v.alive; }, get remove() { return v.remove; },
       id: v.id, info: v.info, placed: true,

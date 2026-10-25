@@ -33,7 +33,7 @@ test('PauseEffectIfNotMove: an enemy owner that is not walking pauses it; any ot
 test('FollowOwner and FollowOwnerRootTileHeight: placed again every frame / at the height the owner stands on', () => {
   // a FollowOwner effect is never put once (placedOnce); at a model point its point and turn are read every frame
   assert.match(SRC, /def\?\.face\?\.hold \|\| def\?\.followOwner \? at : placedOnce\(v, at\);\n    return def\?\.rootTile && v && r \? onRootTile\(v, r\) : r;/);
-  assert.match(SRC, /const follow = !!def\?\.followOwner;[^\n]*\n    let p0 = null, b0 = null, r0 = null;\n    const first = \(\) => \{\n      if \(p0 && !follow\) return;/);
+  assert.match(SRC, /const follow = !!def\?\.followOwner;[^\n]*\n    let p0 = null, b0 = null, r0 = null, off = null;\n[^\n]*\n    const first = \(\) => \{\n      if \(p0 && !follow\) return;/);
   assert.match(SRC, /function onRootTile\(v, at\) \{\n    return \{\n      get x\(\) \{ return at\.x; \}, get y\(\) \{ return at\.y; \}, get z\(\) \{ return v\.z \|\| 0; \}/);
   // 浮空's effect goes through the status anchor
   assert.match(SRC, /\(view\.z \|\| 0\) \+ \(def\.rootTile \? 0 : view\.hover \|\| 0\)/);

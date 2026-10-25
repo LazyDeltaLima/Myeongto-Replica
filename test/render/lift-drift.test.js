@@ -113,3 +113,24 @@ test('a lock reticle sits on the locked enemy\'s drawn body at the edges', () =>
   assert.equal(L.x, e.x, 'matched on its column (bombard / crit)');
   assert.ok(Math.abs(L.ring.position.x - cam.project(e.x, e.y, 0).x) < 0.01);
 });
+
+test('a held effect at a model point keeps its screen offset from the unit as it walks (fxpoints.js heldAt)', async () => {
+  // 더블린 적의 굴절 (enemy_dushdo_2_buff_01, _spawnLocation 2, a buff's effect: held), made at the hit point on the right
+  // edge, then the enemy walks to the left edge
+  const { heldAt, liftedPoint, screenOffset } = await import('../../public/js/render/fxpoints.js');
+  const tiles = onScreen(), [x0, row] = tiles.reduce((a, t) => (t[0] > a[0] ? t : a)), z = 0, b0 = { x: x0, y: row, z }, r0 = cam.project(b0.x, b0.y, z);
+  const p0 = liftedPoint(cam, b0.x, row, z, r0.y, r0.x - 0.1 * r0.s, r0.y - 0.6 * r0.s, { x: 0, y: 0, z: 0 });
+  const off = screenOffset(cam, b0, p0);
+  assert.ok(Math.abs(off.du + 0.1) < 1e-6 && Math.abs(off.dv + 0.6) < 1e-6, 'the hit point\'s offset in tiles');
+  let oldWorst = 0;
+  for (const [x, y] of tiles) {
+    const b = { x, y, z }, r = cam.project(x, y, z);
+    const q = cam.project(...Object.values(heldAt(cam, b, off, { x: 0, y: 0, z: 0 })));
+    assert.ok(Math.abs(q.x - (r.x - 0.1 * r.s)) < 0.01 && Math.abs(q.y - (r.y - 0.6 * r.s)) < 0.01, `(${x}, ${y}) on the model`);
+    const w = cam.project(x + p0.x - b0.x, y + p0.y - b0.y, z + p0.z - b0.z);   // the old held world offset
+    oldWorst = Math.max(oldWorst, Math.hypot(w.x - (r.x - 0.1 * r.s), w.y - (r.y - 0.6 * r.s)) / r.s);
+  }
+  assert.ok(oldWorst > 0.2, `the drift this fixes (${oldWorst.toFixed(2)} tile)`);
+  assert.match(FXGAME, /off = hold && !follow && camRef \? screenOffset\(camRef, b0, p0\) : null;/);
+  assert.match(FXGAME, /get x\(\) \{ first\(\); return off \? held\(\)\.x : /);
+});

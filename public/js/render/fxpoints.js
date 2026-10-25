@@ -229,3 +229,28 @@ export function liftedPoint(cam, x, y, z, rootY, gx, gy, out, tmp = { x: 0, y: 0
   out.x = x + (gx - at.x) / at.s;
   return out;
 }
+
+/**
+ * The screen offset of world point `p` from a unit's base `b` (its entity point, height included), in tiles of the base's
+ * own scale: { du, dv }. A held effect keeps it (heldAt).
+ * @param {{project: Function}} cam
+ */
+export function screenOffset(cam, b, p, tmp = { x: 0, y: 0, s: 0, depth: 0 }) {
+  const r = cam.project(b.x, b.y, b.z, tmp), rx = r.x, ry = r.y, rs = r.s;
+  const q = cam.project(p.x, p.y, p.z, tmp);
+  return rs > 0 ? { du: (q.x - rx) / rs, dv: (q.y - ry) / rs } : null;
+}
+
+/**
+ * The world point drawn at screen offset `off` (screenOffset) from base `b`, lifted as a model point (liftedPoint), into
+ * `out`. 2026-10-25 (maintainer report: 더블린 적의 굴절, HIT_POINT, sat up and left of the model the further left it walked):
+ * a held effect (`Entity.HoldEffect` / a buff's) moves with its unit from where it was made, and the client's world offset
+ * stays on its model. Here the model is drawn straight up on screen from its root, so the world offset taken at the
+ * creation (its column and height lifted through the camera there) drifted off the model as the unit walked across the
+ * board; the screen offset, scaled with the base's depth, stays on it.
+ * @param {{liftFor: Function, project: Function}} cam
+ */
+export function heldAt(cam, b, off, out, tmp = { x: 0, y: 0, s: 0, depth: 0 }) {
+  const r = cam.project(b.x, b.y, b.z, tmp);
+  return liftedPoint(cam, b.x, b.y, b.z, r.y, r.x + off.du * r.s, r.y + off.dv * r.s, out, tmp);
+}
