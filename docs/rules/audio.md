@@ -398,6 +398,11 @@
     → `kitHitKey`; n이면 적마다 한 번씩 뱅크 상한(2, popOldest)까지. S2 중 그녀의 공격 없는 피해는 `_skillImpact`가 따로 소리 내지 않는다(`skillDamageKey` ''
     — 예전엔 S2 모드 착탄음이 났음). 확인: 같은 테스트 파일 「灵知 / 流明 … 圣聆初雪」(키·단계 순서·실제 매치 경로 노시스 `charges`·프라마닉스 진입).
     sim 결과는 그대로, golden은 fx 이벤트 수만 26개 시나리오 이동(`charges`·`kitHit`).
+  - 소리 없음 (2026-10-25, 묶음 U): 有限加速器(장비) 템플릿 `act1vautochess_acarm037_buff`의 PlayAudio `trap_acgarm_buff_03`, 炎国短刀(장비)
+    `act1vautochess_acarm024_buff`의 `trap_acgarm_buff_02`(그 갈래는 이 시즌에 돌지도 않음 — rules/sim.md), 迅捷 맹약 `act1autochess_bond_eff_swift`의
+    `bond_charge_battle_01`·`bond_charge_battle_01[all]` — 공식 audio_data에 `battle.ON_CUSTOM_TRIGGER.<신호>` 뱅크가 없어 공식에서도 소리가 나지
+    않는다(신호 이름만 있음). 같은 점검에서 叙拉古 맹약 [ex]의 `siracusa_ex_attack`(`act2autochess_bond_eff_siracusa[ex][buff]`, 뱅크 `a_bat_xscthrtcl`)은
+    뱅크가 있는데 우리가 내지 않는다 — 할 일로 남김.
 - 안 한 것 [시점·조건을 sim에서 못 얻음]: 티티 `titi_s_3[spread_from]`(연쇄 수면 선 — sim 이벤트 없음)·재능 `titi_t_1`(잠든 적 틱), 시빌라이트 에테르나
   재능 미진 재생성 `projectile_chr_cetsyr_talent[_s1|_s2]_cooldown_ready`(재생성 순간 이벤트가 없음 — 로스터 kit라 이벤트를 넣으면 golden이 넓게 바뀜),
   위셔델 `WISDEL_S_OVERLOAD`·`WISDEL_S3_MARK`, 필라에 `philae_aoe`, 카넬리안·노시스·루멘 `[eff_cond]` 단계 버프, 뮤엘시스·비질 가짜 죽음, 실버애쉬 더 레인프로스트

@@ -809,11 +809,28 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
 - **黄沙罗盘 「첫 스킬 끝」 = 배치마다**: 클라 버프 템플릿 `act1autochess_acarm103_buff` ON_BUFF_START가 `has_used_skill`을 0으로, ON_SKILL_FINISH는 그 값이 0일 때만
   萨尔贡 운반자에게 `sp`(그다음 1) → 재배치하면 다시 받는다(이전: 전투당 한 번). `items/battle.js` `doneSeq`(배치 번호). [추정] 기습 착지·【移动】도 새 배치로 봄.
   테스트 `test/content/items.test.js` 「黄沙罗盘」.
+- **炎国短刀·有限加速器 = 이 시즌 장비, 쌓임은 배치마다** (2026-10-25, 묶음 U): 이 시즌 활동 표 `eff_acarm040`·`eff_acarm052`(`env_gbuff_new_with_verify`)가 다른 모드
+  이름의 전역 버프 `act1vautochess_equip_acarm024_global_buff`·`…acarm037_global_buff`를 붙인다(이름만 다른 모드). 두 전역 버프의 셈(`buff_cnt` 0)은 버프 자신의
+  것이고 배치마다 새로 붙으므로(黄沙罗盘과 같음) 쌓임은 그 배치 동안만 간다(이전: 전투 내내).
+  - 炎国短刀: 템플릿 `act1vautochess_acarm024_buff` ON_SKILL_START — `Dice(prob)` 뒤 `buff_cnt < atk_buff_cnt`면 `acarm_024_buff[atk]`(INFINITY, 최대 10겹,
+    `trap_acarm40_buff`)와 `buff_cnt` +1. 마지막 갈래(`buff_cnt == get_gold_cnt` → `trap_acgarm_buff_02`·소리)는 이 시즌 어느 블랙보드에도 `get_gold_cnt`가 없어
+    돌지 않는다.
+  - 有限加速器: 템플릿 `act1vautochess_acarm037_buff` ON_OUTPUT_MODIFIER — `acarm037_cd == 0`일 때, 소지자가 내는 **피해 중 공격 종류가 ADDITION(附加伤害)이
+    아닌 것** 또는 **치료**마다, 60겹 미만이면 파생 버프 `autochess_acarm037_buff[attack_speed]`를 끝내고 새 합으로 다시 만든 뒤 `buff_cnt` +1, `acarm037_cd` = 1.
+    전역 버프(`triggerLifeType` INFINITY, `triggerInterval` 0.2, `waitFirstTriggerInterval`)의 ON_BUFF_TRIGGER가 0.2초마다 `acarm037_cd`를 0으로 →
+    **배치 시각부터 0.2초 칸마다 한 번까지**. 이전: 일반 공격 동작마다, 쿨다운 없이(스킬 피해·치료는 안 셈, 0.2초 안 연타는 더 셈).
+    우리: `hit` 이벤트(회피 판정 전 = 피해가 나가는 순간)와 `heal`(재생 틱 제외). ADDITION = 태그 `addition`(모듈·재능 추가 피해, 드론 추가 피해, 그리고
+    이번에 단 叙拉古 6 진실 피해·卡西米尔 [ex] 진실 피해 — 두 템플릿 피해 노드가 `_attackType` ADDITION; 다른 규칙은 이 태그를 보는 곳이 일반 공격뿐이라
+    결과가 같다)와 장비 발동 피해(이 포크 규칙: 발동은 장비 발동을 다시 부르지 않음). 지속 피해(BUFF)는 셈. 원소 손상은 피해 출력이 아님.
+    [추정] 무적·수면으로 막힌 대상에 낸 피해와 금지된 치료(禁疗 대상)는 셈하지 않음(우리 `hit`/`heal`이 그 전에 끊김). 템플릿의 `atk`는 이 시즌 0.
+  - 코드 `items/battle.js` `chess_item_3_04_e`·`chess_item_4_03_e`(`isAddition`, `ACCEL_STEP`), `bonds/core.js`(태그 둘). 이펙트는 rules/fx.md, 소리는
+    rules/audio.md 「버프·커스텀 트리거 소리」. 테스트 `test/content/items.test.js` 「炎国短刀」·「有限加速器」. golden: 두 장비를 든 전투(로스터 14·맹약 4·필드 12·
+    매치 9·스탠드인 2).
 - **맹약·장비·전략 템플릿 이펙트 — 관리자 결정 2026-10-11 「넣음」**: 템플릿 그래프의 `CreateEffect`·`CreateEffectAtScreenPos` 노드가 도는 순간 상태 이벤트
   `['tplfx', 대상 id | null, effectKey, 출처 id | null]` 한 번(목록·조건은 `docs/SIM.md` 이벤트 표, 코드 `content/support tplFx`). 표시만 — 상태·rng를 바꾸지 않는다.
   EN 템플릿(卫戍协议 201개)의 노드 이펙트 16개 중 우리 sim이 모델하는 것 전부: 拉特兰桥夹(채울 때만), 黄沙罗盘, 迅捷(줄마다), 阿戈尔 표식·5 부활, 埃芒加德·M3茧甲 부활,
-  歌利亚头盔(앞 칸이 비었을 때), 蒸汽之心(维多利亚 운반자), 叙拉古 6 발동, 谢拉格 바람(화면 가운데). 뺀 것: `act1vautochess_acarm024`·`trap_acspell004`(다른 모드, 우리 데이터에
-  없음); 버프 자체 이펙트(`overrideEffectKey`: 은신 `common_invisible` 등)는 노드가 아니라 버프가 붙어 있는 동안의 것이라 이 이벤트가 아님. 테스트 `test/content/tplfx.test.js`.
+  歌利亚头盔(앞 칸이 비었을 때), 蒸汽之心(维多利亚 운반자), 叙拉古 6 발동, 谢拉格 바람(화면 가운데). 뺀 것: `act1vautochess_acarm024`의 `trap_acgarm_buff_02`(이 시즌 장비 炎国短刀의
+  것이지만 그 갈래가 돌지 않음 — 위 「炎国短刀·有限加速器」), `trap_acspell004`(다른 모드, 우리 데이터에 없음); 버프 자체 이펙트(`overrideEffectKey`: 은신 `common_invisible` 등)는 노드가 아니라 버프가 붙어 있는 동안의 것이라 이 이벤트가 아님. 테스트 `test/content/tplfx.test.js`.
 
 ## 일반 공격 타이밍 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 오퍼레이터·적의 일반 공격을 EN 공식 클라(관리자 노트)대로 맞췄다. 코드 `server/sim/ai.js` `attackTiming`·`updateAlly`·`enemyAttack`,

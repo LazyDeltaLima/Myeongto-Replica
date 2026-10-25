@@ -180,11 +180,11 @@ Param names below are the keys of `items[].normal.params` / `items[].golden.para
   params: `atk=0.2/0.35, prob=0.1, disarmed_duration=2.0`; buff keys: `env_gbuff_new_with_verify, env_gbuff_new_with_verify`
 - **精准狙击镜** (`chess_item_3_02_e_a`, TIII, 2) - If distance(carrier tile, target) >= radius (3 tiles, Chebyshev/Euclid on tile grid [ASSUMED Euclidean]), outgoing damage *= damage_scale.  
   params: `radius=3.0, damage_scale=1.3/1.5`; buff keys: `env_gbuff_new_with_verify`
-- **炎国短刀** (`chess_item_3_04_e_a`, TIII, 2) - Each time the carrier activates a skill: stacks = min(stacks+1, atk_buff_cnt); ATK% += atk * stacks. Stacks reset each battle.  
+- **炎国短刀** (`chess_item_3_04_e_a`, TIII, 2) - Each time the carrier activates a skill: stacks = min(stacks+1, atk_buff_cnt); ATK% += atk * stacks. Stacks reset each deployment (docs/rules/sim.md 「炎国短刀·有限加速器」).  
   params: `prob=1.0, atk=0.05/0.08, atk_buff_cnt=10.0`; buff keys: `env_gbuff_new_with_verify`
 - **突袭手雷** (`chess_item_3_11_e_a`, TIII, 1) - For `duration` s after EACH deploy, every attack stuns the target for `stun` s.  
   params: `stun=2.0, duration=10.0/15.0`; buff keys: `env_gbuff_new_with_verify`
-- **有限加速器** (`chess_item_4_03_e_a`, TIV, 2) - After each attack or heal: stacks = min(stacks+1, max_buff_cnt); ASPD += attack_speed * stacks. Resets each battle.  
+- **有限加速器** (`chess_item_4_03_e_a`, TIV, 2) - After each attack or heal: stacks = min(stacks+1, max_buff_cnt); ASPD += attack_speed * stacks. Counts damage outputs that are not 附加伤害 and heals, at most once per 0.2 s; resets each deployment (docs/rules/sim.md 「炎国短刀·有限加速器」).  
   params: `attack_speed=1.0/2.0, max_buff_cnt=60.0, atk=0.0`; buff keys: `env_gbuff_new_with_verify`
 - **卡西米尔竞技旗** (`chess_item_4_07_e_a`, TIV, 2) - After each deploy: outgoing damage *= damage_scale for `interval` (15) s; afterwards every ex_interval (0.5) s the multiplier changes by damage_scale_minus until it reaches 1.0.  
   params: `damage_scale=1.35/1.6, interval=15.0, ex_interval=0.5, damage_scale_minus=-0.04/-0.07`; buff keys: `env_gbuff_new_with_verify`

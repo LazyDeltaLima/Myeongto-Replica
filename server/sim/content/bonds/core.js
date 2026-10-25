@@ -624,7 +624,8 @@ function installSiracusa(battle, pid, bb, members) {
     st.n = 0;
     const amount = num(bb.base_damage, 0) + num(bb.damage_per_stack, 0) * S.bondLayers(battle, pid, 'siracusaShip');
     S.fxOn(battle, 'bondProc', t, 'bond:siracusaShip', 'assassin', { from: u.id, amount });
-    if (amount > 0) battle.dealDamage(u, t, { amount, type: 'true', canDodge: false, tags: ['bond:siracusa'] });
+    // 'addition': act2autochess_bond_eff_siracusa[ex][buff]'s damage is attackType ADDITION (有限加速器, items/battle.js)
+    if (amount > 0) battle.dealDamage(u, t, { amount, type: 'true', canDodge: false, tags: ['bond:siracusa', 'addition'] });
     if (t.alive && num(bb.fear, 0) > 0) battle.applyStatus(t, 'fear', { duration: num(bb.fear, 0), source: u });
     // client buff template act2autochess_bond_eff_siracusa[ex][buff] ON_OUTPUT_DAMAGE: CreateEffect on the target after
     // the damage and the fear (display only)
@@ -676,7 +677,8 @@ function installKazimierz(battle, pid, bb, members) {
     const u = ctx.source, t = ctx.target, dmg = ctx.dmg;
     if (!dmg || !dmg.isAttack || !isEnemyTarget(t) || ownTag(dmg, 'bond:kazimierz')) return;
     if (u.blocking && u.blocking.length) return;
-    battle.dealDamage(u, t, { amount: pure * u.s.atk, type: 'true', canDodge: false, tags: ['bond:kazimierz'] });
+    // 'addition': the template's DamageViaAttr is attackType ADDITION (有限加速器 counts no 附加伤害, items/battle.js)
+    battle.dealDamage(u, t, { amount: pure * u.s.atk, type: 'true', canDodge: false, tags: ['bond:kazimierz', 'addition'] });
   };
   for (const u of members) onUnitDamaged(battle, u, onDmg);
 }

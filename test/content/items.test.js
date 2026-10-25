@@ -151,21 +151,30 @@ test('激光发射器: attacks ignore 25 % / 45 % of the target RES', () => {
   }
 });
 
-test('炎国短刀: each skill activation ATK +5 % / +8 % (one multiplier), at most 10 stacks per battle', () => {
+test('炎国短刀: each skill activation ATK +5 % / +8 % (one multiplier), at most 10 stacks per deployment, with its effect', () => {
   for (const [id, per] of [[A('3_04'), 0.05], [B('3_04'), 0.08]]) {
     const h = fight({ units: [{ chessId: 't_op', row: 10, col: 3, items: [id] }] });
     h.step(1);
     const u = h.unit('t_op');
     const cast = (n) => { for (let i = 0; i < n; i++) { u.skill.activate('test', { free: true }); u.skill.end('test'); } };
+    assert.equal(u.findBuff('item:yanDagger'), null, 'no effect before the first stack');
     cast(3);
     close(u.s.atk, 500 * (1 + per * 3), `${id} ×3`);
+    assert.ok(u.findBuff('item:yanDagger'), 'acarm_024_buff[atk] (trap_acarm40_buff) held');
     cast(9);
     close(u.s.atk, 500 * (1 + per * 10), `${id} capped`);
+    // every deployment attaches the global buff anew (buff_cnt 0)
+    h.b.retreat(u);
+    assert.ok(h.b.redeploy(u, { free: true }));
+    close(u.s.atk, 500, `${id}: a redeployment starts over`);
+    assert.equal(u.findBuff('item:yanDagger'), null, 'and drops the effect');
+    cast(1);
+    close(u.s.atk, 500 * (1 + per), `${id} ×1 again`);
     cover(id);
   }
 });
 
-test('炎国短刀: timed deployment skill adds one stack per deployment, including carry.skillActive', () => {
+test('炎国短刀: timed deployment skill adds one stack at each deployment, including carry.skillActive', () => {
   const id = 'chess_char_1_19_a';
   for (const [item, per] of [[A('3_04'), 0.05], [B('3_04'), 0.08]]) {
     const h = makeBattle({ units: [{ chessId: id, row: 10, col: 4, skillIndex: 0, items: [item], carryState: { skillActive: true } }] });
@@ -178,7 +187,7 @@ test('炎国短刀: timed deployment skill adds one stack per deployment, includ
     h.b.retreat(u);
     assert.ok(h.b.redeploy(u, { free: true }));
     assert.equal(u.skill.activations, 2);
-    close(u.s.atk, u.base.atk * (1 + per * 2), 'one more on redeployment');
+    close(u.s.atk, u.base.atk * (1 + per), 'the redeployment\'s own stack (the stacks last one deployment)');
     checkInvariants(h.b);
   }
 });
@@ -265,7 +274,7 @@ test('突袭手雷 / 催泪瓦斯 / 战栗维式重锤 / 谢拉格不融冰: eve
   }
 });
 
-test('有限加速器: every attack ASPD +1 / +2 for the battle, at most 60 stacks', () => {
+test('有限加速器: every attack ASPD +1 / +2 for the deployment, at most 60 stacks', () => {
   for (const [id, per] of [[A('4_03'), 1], [B('4_03'), 2]]) {
     const h = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [id] }], foes: [[10, 5]] });
     h.run(5);
@@ -274,6 +283,43 @@ test('有限加速器: every attack ASPD +1 / +2 for the battle, at most 60 stac
     assert.equal(h.unit('t_op').s.aspd, 100 + per * n, `${id} after ${n}`);
     h.run(60);
     assert.equal(h.unit('t_op').s.aspd, 100 + per * 60, `${id} capped`);
+    cover(id);
+  }
+});
+
+test('有限加速器: a damage output (not 附加伤害) or a heal, at most once per 0.2 s step from the deployment; each stack makes its effect anew', () => {
+  for (const [id, per] of [[A('4_03'), 1], [B('4_03'), 2]]) {
+    const h = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [id] }, { chessId: 't_a', row: 11, col: 4 }], ops: { t_op: op('t_op'), t_a: op('t_a') }, foes: [[12, 9]] });
+    h.step(1);
+    const u = h.unit('t_op'), ally = h.unit('t_a'), e = foe(h);
+    assert.equal(h.hooksOf('attack').filter((c) => c.attacker === u).length, 0, 'no normal attack');
+    const aspd = () => u.s.aspd;
+    // the next step starts: a skill hit stacks; a second damage in the same step does not (acarm037_cd)
+    h.run(Math.ceil(h.b.time / 0.2 + 1e-6) * 0.2 - h.b.time + 0.01);
+    h.b.dealDamage(u, e, { amount: 10, type: 'phys', canDodge: false, tags: ['skill'] });
+    assert.equal(aspd(), 100 + per, `${id}: skill damage stacks`);
+    assert.ok(u.findBuff('item:accel'), 'autochess_acarm037_buff[attack_speed] (trap_acgarm_buff_03) held');
+    h.b.dealDamage(u, e, { amount: 10, type: 'phys', canDodge: false, tags: ['skill'] });
+    assert.equal(aspd(), 100 + per, 'once per 0.2 s step');
+    h.run(0.2);
+    h.b.dealDamage(u, e, { amount: 10, type: 'arts', canDodge: false, tags: ['module', 'addition'] });
+    h.b.dealDamage(u, e, { amount: 10, type: 'true', canDodge: false, tags: ['item', 'item:x'] });
+    assert.equal(aspd(), 100 + per, '附加伤害 and item procs do not count');
+    h.b.dealDamage(u, e, { amount: 10, type: 'element', element: 'burn' });
+    assert.equal(aspd(), 100 + per, '元素损伤 is no damage output');
+    hitTrue(h, e, ally, 100);
+    h.b.heal(u, ally, 50);
+    assert.equal(aspd(), 100 + per * 2, 'a heal stacks');
+    h.run(0.2);
+    h.b.dealDamage(u, e, { amount: 10, type: 'phys', canDodge: false, tags: ['dot'] });
+    assert.equal(aspd(), 100 + per * 3, 'a damage over time is no ADDITION');
+    const made = h.eventsOf('fx').filter((x) => x[1] === 'stacks' && x[4]?.buff === 'item:accel' && x[4].id === u.id).map((x) => x[4].n);
+    assert.deepEqual(made, [1, 2, 3], 'one fx stacks per stack (the effect starts over)');
+    // every deployment attaches the global buff anew (buff_cnt 0)
+    h.b.retreat(u);
+    assert.ok(h.b.redeploy(u, { free: true }));
+    assert.equal(aspd(), 100, `${id}: a redeployment starts over`);
+    assert.equal(u.findBuff('item:accel'), null, 'and drops the effect');
     cover(id);
   }
 });

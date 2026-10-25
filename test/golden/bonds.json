@@ -316,7 +316,7 @@
       ],
       "enemies": {"enemy_1045_hammer_2":[2,2,0,3621,46080],"enemy_1061_zomshd":[11,11,0,540,173974]},
       "hooks": [1,23,3928,288,288,522,514,8044,13,13,15,14,0,7520,9,23,13,0,1,19,0,0,0],
-      "events": {"atk":347,"deploy":8,"die":13,"dmg":504,"engage":5,"face":27,"fx":115,"heal":16,"skill":31,"spawn":23,"status":28,"swing":295},
+      "events": {"atk":347,"deploy":8,"die":13,"dmg":504,"engage":5,"face":27,"fx":115,"heal":16,"skill":31,"spawn":23,"status":29,"swing":295},
       "fx": {"block":8,"garrisonGrant":1,"healField":1,"parry":10,"rockslide":6,"shieldBreak":10,"slash":40,"stacks":11,"thorns":26,"truesilver":2},
       "snaps": "0580cdd6 30cc2eba e04b1928 275c4bc2 3204fc49 fba4fea7 3dc23f11 0024b30a 2bbe14b9 e58fbbb5 6de8a194 66893148 6df5cb8e"
     },
@@ -559,9 +559,9 @@
       ],
       "enemies": {"enemy_10124_uashld_2":[2,2,0,2277,124416],"enemy_1043_zomsbr":[23,23,0,20,145057],"enemy_1061_zomshd":[5,5,0,3260,132009]},
       "hooks": [1,40,2461,216,216,442,557,2456,31,31,10,10,0,4598,1039,9,30,0,1,42,0,0,5],
-      "events": {"atk":216,"deploy":8,"die":31,"dmg":437,"engage":6,"face":41,"fx":41,"skill":20,"spawn":40,"status":125,"swing":237,"tplfx":29},
-      "fx": {"aoe":24,"displace":6,"dodge":5,"overload":2,"shield":1,"volley":3},
-      "snaps": "d0da894d c4d79248 e76ef725 1a778ae2 f1cc9e83 685f5d5e a66dcd30 b07a6231 d656a2be"
+      "events": {"atk":216,"deploy":8,"die":31,"dmg":437,"engage":6,"face":41,"fx":55,"skill":20,"spawn":40,"status":126,"swing":237,"tplfx":29},
+      "fx": {"aoe":24,"displace":6,"dodge":5,"overload":2,"shield":1,"stacks":14,"volley":3},
+      "snaps": "d0da894d c4d79248 e76ef725 1a778ae2 f1cc9e83 685f5d5e a66dcd30 2e0655bc 5ff2464b"
     },
     "bond-kjeragShip-low": {
       "about": "谢拉格 low: tier 1 layers 1; chess_char_1_02_a chess_char_3_02_a chess_char_3_03_a chess_char_3_04_a chess_char_2_05_a chess_char_3_11_a chess_char_4_26_a chess_char_3_01_a",
@@ -1428,7 +1428,7 @@
       ],
       "enemies": {"enemy_1251_lysyta_2":[19,19,0,22,70042],"enemy_1252_lysytb_2":[7,7,0,1827,72576],"enemy_1329_cbshld_2":[4,4,0,2287,59904]},
       "hooks": [1,40,3092,206,221,325,337,41,30,30,49,46,0,13542,53,4,30,0,1,30,0,1,0],
-      "events": {"atk":236,"deploy":8,"die":30,"dmg":337,"engage":3,"face":54,"fx":141,"heal":41,"skill":95,"spawn":40,"status":110,"swing":212,"tplfx":75},
+      "events": {"atk":236,"deploy":8,"die":30,"dmg":337,"engage":3,"face":54,"fx":141,"heal":41,"skill":95,"spawn":40,"status":111,"swing":212,"tplfx":75},
       "fx": {"aoe":9,"burst":1,"counter":5,"displace":26,"heal":27,"iceSpike":36,"ripple":13,"shadowWeave":19,"soul":1,"stealth":4},
       "snaps": "ee1c67bc 07161a4d 26330515 9ca2bc89 17add434 f2170f9e f5b56539 466f34e7 8ddb221f 87a96506 dce15a2a"
     },
@@ -1639,8 +1639,8 @@
       "round": 10,
       "seed": 11223320,
       "waveId": "act1autochess_h03",
-      "time": 50.8,
-      "ticks": 1524,
+      "time": 49.87,
+      "ticks": 1496,
       "reason": "cleared",
       "killed": 12,
       "total": 12,
@@ -1665,10 +1665,10 @@
         ["-","~3","device","trap_1105_accrate",null,null,100,1,3,0,0,0,0,0,null]
       ],
       "enemies": {"enemy_1005_yokai_2":[4,4,0,1068,15428],"enemy_1041_lazerd_2":[3,3,0,2609,44790],"enemy_1042_frostd":[5,5,0,0,80870]},
-      "hooks": [1,25,1524,44,44,62,62,8,12,12,6,5,0,3288,202,0,12,0,1,12,0,0,0],
-      "events": {"atk":44,"deploy":10,"die":12,"dmg":62,"engage":2,"face":18,"fx":35,"heal":8,"skill":11,"spawn":25,"status":20,"swing":46},
-      "fx": {"charges":2,"drone":24,"explosion":4,"kitHit":1,"overload":1,"stacks":3},
-      "snaps": "44f1ed27 ca7d4bc3 d2798d66 3c909cfe 47968cc8"
+      "hooks": [1,25,1496,44,44,62,62,8,12,12,6,5,0,3232,198,0,12,0,1,12,0,0,0],
+      "events": {"atk":44,"deploy":10,"die":12,"dmg":62,"engage":2,"face":19,"fx":80,"heal":8,"skill":11,"spawn":25,"status":22,"swing":45},
+      "fx": {"charges":2,"drone":24,"explosion":4,"kitHit":1,"overload":1,"stacks":48},
+      "snaps": "44f1ed27 60233bba bf860f8b a847e14a 04ad1020"
     },
     "bond-visiShip-low": {
       "about": "远见 low: tier 1 layers 1; chess_char_3_12_a chess_char_3_03_a chess_char_2_02_a chess_char_3_08_a chess_char_3_09_a chess_char_3_10_a chess_char_3_11_a chess_char_3_13_a token_10000_silent_healrb",
