@@ -409,7 +409,7 @@ export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, 
       <${PhaseCapsule} pub=${pub} hud=${hud} miss=${!boss && Number.isFinite(live?.left) ? live.left : null} />
       <${LpTower} value=${lp} size="lg" tone=${lowLp ? 'danger' : boss || shared ? 'team' : null} pending=${pending}
         note=${pending > 0 && !boss && live?.unite ? t('联防中') : null} tip=${pendingTip(lp, pending, { unite: !boss && !!live?.unite, cap, left: live?.left ?? null, boss })} />
-      <${Tooltip} text=${`${btn.right.tip} · ${hotkeyLabelOf('viewEnemy')}`} placement="bottom">
+      <${Tooltip} text=${btn.right.tip} placement="bottom">
         <${CheckBtn} sprite=${btn.right.sprite} cls=${cx('enemybtn', btn.right.grey && 'is-grey')} label=${btn.right.label}
           chev=${btn.right.grey ? null : '▶▶'} disabled=${btn.right.grey && !pen} onClick=${onRight} testid="check-enemy"
           hotkey=${hotkeyLabelOf('viewEnemy')} />
