@@ -80,7 +80,7 @@ const isOtherBody = (def) => isStandInDef(def) || isDiyDef(def);
  * 自选 piece's kit is keyed by its charId (`char_609_acguad`, `char_2027_wang`) and by nothing else: the chess id it keeps
  * names the replaced operator's kit (a DIY slot has none). Any other def: baseId (`…_a`, data/SIM.md), the exact id, or
  * the suffix-less id of DESIGN §5.6's example; failing those, the same operator's chess kit (another season's chess
- * ids, shared/seasons.js: kits/index.js chessKitOfChar).
+ * ids, shared/seasons.js: kits/index.js kitKeyOfChar), else its 自选 kit.
  */
 export function kitOf(def, reg) {
   if (!def || !reg) return undefined;
@@ -88,8 +88,8 @@ export function kitOf(def, reg) {
   const bare = String(def.baseId ?? def.id ?? '').replace(/_[ab]$/, '');
   const own = reg[def.baseId] ?? reg[def.id] ?? reg[bare];
   if (own !== undefined) return own;
-  // another season's chess id without a kit file: the same operator's kit (kits/index.js chessKitOfChar)
-  const key = typeof KIT_REGISTRY.chessKitOfChar === 'function' ? KIT_REGISTRY.chessKitOfChar(def.charId, def.tier) : null;
+  // another season's chess id without a kit file: the same operator's chess or 自选 kit (kits/index.js kitKeyOfChar)
+  const key = typeof KIT_REGISTRY.kitKeyOfChar === 'function' ? KIT_REGISTRY.kitKeyOfChar(def.charId, def.tier) : null;
   return key ? reg[key] : undefined;
 }
 

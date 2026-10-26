@@ -279,17 +279,77 @@ test('prep registry: another season\'s match builds its own from its data; the d
 });
 
 test('kits: another season\'s chess id finds the same operator\'s kit; none of this season\'s chess is affected', async () => {
-  const { chessKitOfChar, KITS: REG } = await import('../server/sim/content/kits/index.js');
+  const { kitKeyOfChar, KITS: REG } = await import('../server/sim/content/kits/index.js');
   const { kitOf } = await import('../server/sim/content/index.js');
   // one kit: found whatever the new chess id; several (a tier form each): the one of the same tier, else none
-  const one = Object.values(BASE.chess).find((c) => !c.isGolden && c.charId && REG[c.baseChessId ?? c.chessId.replace(/_b$/, '_a')] === undefined && chessKitOfChar(c.charId, c.tier));
+  const one = Object.values(BASE.chess).find((c) => !c.isGolden && c.charId && REG[c.baseChessId ?? c.chessId.replace(/_b$/, '_a')] === undefined && kitKeyOfChar(c.charId, c.tier));
   assert.equal(one, undefined, 'no chess of this season falls back');
   const inside = BASE.chess.chess_char_1_01_a.charId;
-  assert.equal(chessKitOfChar(inside, 5), 'chess_char_1_01', 'a one-kit operator, whatever the tier');
+  assert.equal(kitKeyOfChar(inside, 5), 'chess_char_1_01', 'a one-kit operator, whatever the tier');
   const tin = BASE.chess.chess_char_1_16_a.charId; // two kits: tier 1 and tier 2
-  assert.equal(chessKitOfChar(tin, 2), 'chess_char_2_19');
-  assert.equal(chessKitOfChar(tin, 6), null, 'ambiguous across tiers');
-  assert.equal(chessKitOfChar(null, 1), null);
+  assert.equal(kitKeyOfChar(tin, 2), 'chess_char_2_19');
+  assert.equal(kitKeyOfChar(tin, 6), null, 'ambiguous across tiers');
+  assert.equal(kitKeyOfChar(null, 1), null);
+  assert.equal(kitKeyOfChar('char_1042_phatm2', 3), 'char_1042_phatm2', 'no chess kit: the 自选 kit');
+  assert.equal(kitKeyOfChar('char_9999_nobody', 3), null);
   const def = { id: 'chess_char_9_99_a', baseId: 'chess_char_9_99_a', charId: tin, tier: 1 };
   assert.ok(kitOf(def, REG) === REG.chess_char_1_16);
+});
+
+test('kits: an operator with only a 自选 kit, fielded as another season\'s chess, plays exactly as the 自选 piece', async () => {
+  const { OPERATOR_KITS } = await import('../server/sim/content/kits/index.js');
+  const { skillSpecSource } = await import('../server/sim/content/index.js');
+  const { diyRecord, diyTokenOwner } = await import('../shared/diy.js');
+  const { makeBattle } = await import('./helpers/battleHarness.js');
+  const slots = BASE.backups.diy.slots;
+  const slot = Object.keys(slots).find((id) => slots[id].tier === 6);
+  const ID = 'chess_char_9_90_b';
+  const enemies = [{ key: 'enemy_1422_lrsldr', time: 0, route: 0, count: 8, interval: 1.2 }, { key: 'enemy_1422_lrsldr', time: 1, route: 1, count: 6, interval: 1.6 }];
+  const POS = { char_2027_wang: [11, 3] };
+  // 望 acts through his placed stones (test/local-patch-diy.test.js)
+  const stone = (row, col, uid) => ({ kind: 'token', tokenId: 'token_10064_wang_stone1', ownerUid: 1, row, col, uid });
+  const PLACED = { char_2027_wang: [stone(10, 6, 50), stone(10, 7, 51)] };
+  /** Fight 25 s with SP full: the casts, the damage the enemies took and the healing (the unit's and its summons'). */
+  const run = (charId, unit, defs) => {
+    const [row, col] = POS[charId] ?? [10, 4];
+    const units = [{ ...unit, row, col, uid: 1, carryState: { sp: 999 } }, ...(PLACED[charId] ?? [])];
+    const h = makeBattle({ seed: 5, timeLimit: 60, captureNoisy: true, defs, units, enemies });
+    h.run(25);
+    const sum = (list) => list.reduce((a, d) => a + (d.amount ?? 0), 0);
+    const play = {
+      casts: h.hooksOf('skillStart').length,
+      dealt: sum(h.hooksOf('damaged').filter((d) => d.target?.side === 'enemy')),
+      healed: sum(h.hooksOf('heal')),
+      events: h.events.length,
+    };
+    return { h, play, errors: h.battle.errors };
+  };
+  for (const charId of Object.keys(OPERATOR_KITS)) {
+    const unit = BASE.backups.units[charId];
+    const xModule = Object.keys(unit.moduleNames ?? {}).find((id) => id.startsWith('uniequip_002_')) ?? null;
+    let cast = false;
+    for (let skillIndex = 0; skillIndex < 3; skillIndex++) {
+      const label = `${charId} S${skillIndex + 1}`;
+      const pick = { charId, skillIndex, uniEquipId: xModule };
+      const rec = diyRecord(slot, pick, { elite: true, data: BASE });
+      assert.ok(rec, label);
+      // the 自选 record as a chess record of its own, and its summons with a variant of that chess id at the chess's own
+      // skill and module (data/tokens.json shape): what another season's build-data writes for that operator
+      const { diyFor, ...piece } = rec;
+      const chess = { ...piece, chessId: ID, baseId: ID, goldenId: ID, isGolden: true, isDiy: false, chessType: 'NORMAL', tier: 6 };
+      const owner = diyTokenOwner(charId, rec.status);
+      const own = (v) => ({ ...v, ...v.bySkill?.[skillIndex], ...(xModule ? v.byModule?.[xModule] : null) });
+      const tokens = Object.fromEntries(Object.values(BASE.backups.tokens).filter((t) => t.variants?.[owner])
+        .map((t) => [t.tokenId, { ...t, owners: [ID], variants: { [ID]: own(t.variants[owner]) } }]));
+      const as = run(charId, { chessId: ID }, { chess: { [ID]: chess }, tokens });
+      const def = as.h.unit(1).def;
+      assert.ok(def.charId === charId && !def.diyFor, label);
+      assert.equal(skillSpecSource(def), 'skills', `${label}: its 自选 kit's own skill spec`);
+      assert.deepEqual(as.errors, [], `${label}: no handler error`);
+      const diy = run(charId, { diy: { slot, ...pick }, elite: true });
+      assert.deepEqual(as.play, diy.play, `${label}: the same battle as the 自选 piece`);
+      cast ||= as.play.casts > 0;
+    }
+    assert.ok(cast, `${charId}: a skill of hers / his starts (the comparison is not empty)`);
+  }
 });

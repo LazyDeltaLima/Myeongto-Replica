@@ -140,20 +140,22 @@ const CHESS_KITS_OF_CODE = (() => {
 })();
 
 /**
- * The chess kit key of a character for a chess id that has no kit file — another season's chess (shared/seasons.js)
- * of an operator this season fields too: its one chess kit, or the one of the same tier when it has several (a tier
- * form each); null when none or still ambiguous [ASSUMED: the same operator plays the same kit across seasons]. No
- * chess of the current season reaches it (every one either has its file or no operator kit at all).
+ * The kit key of a character for a chess id that has no kit file — another season's chess (shared/seasons.js) of an
+ * operator this season fields too: its one chess kit, or the one of the same tier when it has several (a tier form
+ * each); failing that, its 自选 kit (OPERATOR_KITS: written for every skill under `skills` and reading only the chess
+ * record, so it plays a chess as it plays a 自选 piece); null when none [ASSUMED: the same operator plays the same kit
+ * across seasons]. No chess of the current season reaches it (every one either has its file or no operator kit at all).
  * @param {string | null | undefined} charId
  * @param {number} [tier]
  * @returns {string | null}
  */
-export function chessKitOfChar(charId, tier) {
-  const list = typeof charId === 'string' ? CHESS_KITS_OF_CODE.get(charId.replace(/^char_\d+_/, '')) : null;
-  if (!list) return null;
+export function kitKeyOfChar(charId, tier) {
+  if (typeof charId !== 'string') return null;
+  const list = CHESS_KITS_OF_CODE.get(charId.replace(/^char_\d+_/, '')) ?? [];
   if (list.length === 1) return list[0].key;
   const same = list.filter((k) => k.tier === tier);
-  return same.length === 1 ? same[0].key : null;
+  if (same.length === 1) return same[0].key;
+  return Object.prototype.hasOwnProperty.call(OPERATOR_KITS, charId) ? charId : null;
 }
 
 /**
