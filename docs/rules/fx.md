@@ -2908,7 +2908,7 @@
   - 이제 `fx_coverage.PS_FIELDS`가 그리는 ParticleSystem(읽는 모듈 중 켜진 것)·ParticleSystemRenderer의 **필드마다** 처리를 적는다: 옮겨 재생함(`_K`
     추출 키) · 일부 값만 재생(`_V`, 다른 값 보고) · 가정값(`_A`, 다르면 보고 — 옮기지 않거나 옮기고 안 읽는 것) · 차이 없음(`_N`, 까닭). 필드마다 의미가
     있을 때만(`when`: 원뿔의 호, 축별 값 등) 본다. 표에 없는 필드(클라 갱신·새로 읽는 모듈)는 `field … (not classified)`로 `new`. CustomData를 켰는데 렌더러의
-    사용자 정점 스트림이 꺼진 계(Unity는 셰이더에 커스텀 값을 안 넘김)·플레이어가 모르는 스트림 순서·도넛의 호도 같은 종류로 보고.
+    사용자 정점 스트림이 꺼진 계(Unity는 셰이더에 커스텀 값을 안 넘김)·플레이어가 모르는 스트림 순서도 같은 종류로 보고(도넛의 호는 2026-10-26 묶음 U부터 재생).
   - `test/fx-coverage.test.js` 「PS_FIELDS」: `_K`·`_V` 필드는 `fx_extract.particle_system`(+ `vel_ol`, 렌더러를 넘기는 걷기)이 읽고 그 키의 끝 이름을
     `fxplayer.js`가 읽어야 통과 — 추출만 하고 재생하지 않는 키는 `_A`로 옮겨야 하고, 그러면 그 값이 보고에 나온다(`prewarm`을 `_K`로 바꾸면 실패함을 확인).
   - 서명에 값 조합: `ps:scaling=<v>`(크기 있는 부모 밑이면 `@scaledParent`), `ps:align=<v>`, `ps:uv.anim=<v>`, `ps:trail.mode=<v>`.
@@ -3093,3 +3093,35 @@
   隐德来希 S3 잔상(×3.3), 赤刃明霄陈 S2 타격(x −0.85: 좌우 반전도 무시) 등. GPU 픽셀 비교로 몇 개를 봄(관리자 노트).
 - 확인: `test/render/fx-particle-modules.test.js` 「scaling mode」. 관리자 아레나 확인(2026-10-26): 酒神 S2 타격 물결, 耀骑士临光·风笛 S3 시작 호가
   공식에 더 가까워짐. [화면 미확인: 隐德来希 S3 잔상·赤刃明霄陈 S2 타격]
+
+### 방출·입자 운동 — 거리당 방출·미리 데우기·궤도·노이즈 (2026-10-26, 입자 필드 전수의 todo 「emission and motion」)
+
+입자 필드 전수(위 「추출 누락 보고」 입자 필드)가 남긴 방출·운동 항목. 근거는 Unity 매뉴얼·스크립트 참조(엔진 네이티브 코드라 식은 못 읽음 — 정해지지 않는
+것은 [추정]). 구현은 `fx_extract.py particle_system`·`vel_ol`(새 키는 기본값이 아닐 때만 씀)·`fxplayer.js ParticleSystem`(`advance`·`prewarm`·
+`orbitStep`·`noiseAt`·`dragOf`, `shapeSample`·`arcPick`).
+- **이동 거리당 방출**(`EmissionModule.rateOverDistance` → `dist`): 이미터가 움직인 거리(이펙트 루트 틀 = Unity 단위, `emitterVelocity`와 같은 측정)
+  × 값만큼 낸다. 월드 공간 계는 그 프레임의 이동 선을 따라 고르게 뒤로 놓는다 [추정: Unity가 경로를 보간하는 자리]. 클라의 FxLODSetting은 시간당 방출과
+  버스트만 줄여(`ApplyLowDetailPS`) 품질 배율만 곱한다. 예전엔 이것만 쓰는 계(클라 418개 — 투사체·돌진 꼬리의 별·잎·불꽃)가 아예 안 나왔다.
+- **미리 데우기**(`prewarm`, 반복 계만 — 추출본 2045개 모두 시작 지연 0): 첫 프레임 전에 한 주기를 1/30초 이하 걸음(최대 60)으로 돌려 둔다.
+  예전엔 반복 범위·버프·오라가 빈 채 시작해 한 주기 동안 차올랐다. 입자 꼬리는 그 자리에서 새로 시작.
+- **속도 모듈**: 궤도(`orbitalX/Y/Z` → `orbX`·`orbY`·`orbZ`)는 계의 축으로 중심(계 원점 + `orbitalOffset` → `orbOff`) 둘레로 위치를 돌린다(속도는
+  그대로) [추정: 초당 라디안 — 클라 값이 1–5; 회전 방향은 Quaternion.AngleAxis 같은 수]. 방사(`radial`)는 중심에서 밖으로 더하는 속도. 속도 배율
+  (`speedModifier` → `speedMul`)은 입자 속도 전체에 곱한다 [추정: 궤도에도] — 예전엔 추출만 하고 안 읽었는데 커버리지 시험은 계의 `speedMul`
+  (시뮬레이션 속도)과 이름이 같아 통과했다(−1인 계 6개는 거꾸로 날아야 함).
+- **모양**: 호·모서리의 방출 순서(`arc.mode`·`radius.mode` 1 Loop·2 PingPong·3 BurstSpread → `arcMode`·`radMode`)·간격(`spread` → `arcSpread`·
+  `radSpread`)·속도(`speed`, Loop·PingPong만): BurstSpread는 한 번에 내는 입자를 호에 고르게, Loop는 계 시간 × 속도 바퀴 [추정: 속도 1 = 초당 한 바퀴],
+  간격은 그 단위로 내림 [추정]. 원뿔 부피(8·9)는 `length`까지 높이 고르게 [추정], 도넛은 호와 관 반지름(`donutRadius` → `donut`, 두께 반영 — 관
+  중심선에서 밖으로 [추정: 방향]). 방향 구형화(`sphericalDirectionAmount` → `sphDir`)는 중심에서 밖을 향하는 방향으로 섞고, 위치 무작위(`randomPositionAmount`
+  → `randPos`)는 축마다 ±값 [추정: 정육면체].
+- **노이즈**: 입자 자리 × 주파수에서 뽑는 3D 기울기 노이즈 마당(축마다 따로)으로 더하는 속도(남지 않음) — 스크롤(`scrollSpeed`)은 마당을 z로 옮기고,
+  옥타브(`octaves` → `oct`, `octaveMultiplier`·`octaveScale`), 축별 세기(`separateAxes` → `strY`·`strZ`), 감쇠(`damping`: 세기 ÷ 주파수 — 스크립트 참조
+  「높은 주파수 노이즈는 그만큼 세기를 줄인다」), 위치·회전(도/초)·크기 배율(`positionAmount`·`rotationAmount`·`sizeAmount` → `posAmt`·`rotAmt`·`sizeAmt`)
+  [추정: Unity 노이즈 함수 자체·1D/2D 품질은 못 읽어 모든 품질에 같은 3D 마당; 크기는 × (1 + 노이즈 × 세기 × 배율)]. 예전엔 입자마다 나이의 사인으로
+  흔들어 주파수·감쇠·스크롤과 무관했다 — 같은 자리 입자가 같은 방향으로 흐르는 Unity 모습이 아니었다.
+- **끌림**(`ClampVelocityModule.drag`): Unity의 `multiplyDragByParticleSize`·`…Velocity`(끌림이 있는 추출 계는 모두 켜짐)대로 그린 크기의 가장 큰 축 ×
+  속력을 곱한다 [추정: 곱하는 식]. 꺼진 계는 커버리지가 보고한다.
+- 남은 것: `alignToDirection`(圣约送葬人 범위 4개, `KNOWN` todo).
+- 확인: `test/render/fx-emission-motion.test.js`. 운영자·적 전체 재추출 전후 JSON은 새 키만 늘었다(776 / 4022 파일). 픽셀 비교(앞 판 플레이어 대 새 것, 같은
+  새 추출물): 기본 스킨 2308개 중 1283개가 다르고, 다른 것은 모두 위 기능 중 하나를 쓴다(노이즈 835·미리 데우기 495·호 248·원뿔 길이 215·거리당 방출 131 …).
+  이펙트 이벤트 골든 145 일치, `--coverage` 처리 안 됨 0(todo 운영자 73 → 49, 적 45 → 27). [화면 미확인: 공식 녹화 대조 — 거리당 방출 꼬리, 미리 데운 범위,
+  노이즈 흐름]

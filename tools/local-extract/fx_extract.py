@@ -283,10 +283,23 @@ def vec3(v):
 
 # ---------------------------------------------------------------- particle system
 
+def mm_nz(mm):
+    """(2026-10-26, effect bundle U) a minmax() result that is not zero everywhere (its scalar multiplies a curve)."""
+    return bool(mm) and bool(mm.get('s') or mm.get('n'))
+
+
 def vel_ol(v):
-    """A VelocityModule (velocity over lifetime) as the extract's `mods.velOL`."""
-    return {'x': minmax(v['x']), 'y': minmax(v['y']), 'z': minmax(v['z']), 'world': bool(v.get('inWorldSpace')),
-            'radial': minmax(v.get('radial')), 'orbZ': minmax(v.get('orbitalZ')), 'speedMul': minmax(v.get('speedModifier'))}
+    """A VelocityModule (velocity over lifetime) as the extract's `mods.velOL`. (2026-10-26, effect bundle U) the orbital
+    velocity about x / y (`orbX`, `orbY`) and the orbit's centre (`orbOff` [x, y, z]) only where they are not zero."""
+    o = {'x': minmax(v['x']), 'y': minmax(v['y']), 'z': minmax(v['z']), 'world': bool(v.get('inWorldSpace')),
+         'radial': minmax(v.get('radial')), 'orbZ': minmax(v.get('orbitalZ')), 'speedMul': minmax(v.get('speedModifier'))}
+    for k, f in (('orbX', 'orbitalX'), ('orbY', 'orbitalY')):
+        if mm_nz(minmax(v.get(f))):
+            o[k] = minmax(v.get(f))
+    off = [minmax(v.get(f)) for f in ('orbitalOffsetX', 'orbitalOffsetY', 'orbitalOffsetZ')]
+    if any(mm_nz(x) for x in off):
+        o['orbOff'] = off
+    return o
 
 
 def clip_modules(nodes, clips):
@@ -320,6 +333,8 @@ def particle_system(ps, psr, mat_key, mesh_key, trail_mat=None, shape_mesh=None)
     em = ps['EmissionModule']
     if em['enabled']:
         o['rate'] = minmax(em['rateOverTime'])
+        if mm_nz(minmax(em.get('rateOverDistance'))):   # (2026-10-26, effect bundle U) particles per unit the emitter moves
+            o['dist'] = minmax(em['rateOverDistance'])
         o['bursts'] = [{'t': r4(b['time']), 'n': minmax(b['countCurve']), 'cycles': b['cycleCount'],
                         'interval': r4(b['repeatInterval']), 'p': r4(b.get('probability', 1))}
                        for b in em.get('m_Bursts', [])[:em.get('m_BurstCount', 0)]]
@@ -332,6 +347,19 @@ def particle_system(ps, psr, mat_key, mesh_key, trail_mat=None, shape_mesh=None)
                       'box': vec3(sh.get('boxThickness', {'x': 0, 'y': 0, 'z': 0})),
                       'align': sh.get('alignToDirection', 0), 'randDir': r4(sh.get('randomDirectionAmount', 0)),
                       'sphDir': r4(sh.get('sphericalDirectionAmount', 0))}
+        # (2026-10-26, effect bundle U) the arc's and the edge's emission order (mode 0 Random, 1 Loop, 2 PingPong, 3 BurstSpread),
+        # their discrete steps (spread) and the Loop / PingPong speed; the donut's tube radius; the random start offset
+        for k, f in (('arc', 'arc'), ('rad', 'radius')):
+            a = sh.get(f) if isinstance(sh.get(f), dict) else {}
+            if a.get('mode', 0) or a.get('spread', 0):
+                o['shape'][f'{k}Mode'] = a.get('mode', 0)
+                o['shape'][f'{k}Spread'] = r4(a.get('spread', 0))
+                if a.get('mode', 0) in (1, 2):
+                    o['shape'][f'{k}Speed'] = minmax(a.get('speed'))
+        if sh['type'] == 17:
+            o['shape']['donut'] = r4(sh.get('donutRadius', 0.2))
+        if sh.get('randomPositionAmount', 0):
+            o['shape']['randPos'] = r4(sh['randomPositionAmount'])
         if sh['type'] == 6 and shape_mesh:
             # 2026-10-22: a Mesh shape — its mesh file, placementMode (0 vertex, 1 edge, 2 triangle) and m_UseMeshColors
             # (the client's 79 systems: m_MeshSpawn mode 0 Random, no normal offset; fx_coverage reports another)
@@ -361,6 +389,17 @@ def particle_system(ps, psr, mat_key, mesh_key, trail_mat=None, shape_mesh=None)
         n = ps['NoiseModule']
         mods['noise'] = {'str': minmax(n['strength']), 'freq': r4(n['frequency']), 'scroll': minmax(n.get('scrollSpeed')),
                          'damping': bool(n.get('damping'))}
+        # (2026-10-26, effect bundle U) a strength per axis, the octaves, the amounts on position / rotation / size
+        if n.get('separateAxes'):
+            mods['noise'].update({'strY': minmax(n['strengthY']), 'strZ': minmax(n['strengthZ'])})
+        if n.get('octaves', 1) > 1:
+            mods['noise'].update({'oct': n['octaves'], 'octMul': r4(n.get('octaveMultiplier', 0.5)), 'octScale': r4(n.get('octaveScale', 2))})
+        pa = minmax(n.get('positionAmount'))
+        if pa and not (pa['m'] == 0 and pa['s'] == 1):
+            mods['noise']['posAmt'] = pa
+        for k, f in (('rotAmt', 'rotationAmount'), ('sizeAmt', 'sizeAmount')):
+            if mm_nz(minmax(n.get(f))):
+                mods['noise'][k] = minmax(n[f])
     if ps['UVModule']['enabled']:
         u = ps['UVModule']
         mods['uv'] = {'tx': u['tilesX'], 'ty': u['tilesY'], 'frame': minmax(u['frameOverTime']), 'start': minmax(u['startFrame']),

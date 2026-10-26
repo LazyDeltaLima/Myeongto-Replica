@@ -1073,6 +1073,43 @@ const emitM = new THREE.Matrix4();   // ParticleSystem.emit: node → root for a
 const frameQ = new THREE.Quaternion();   // ParticleSystem.syncFrame
 // ParticleSystem sub emitters (2026-10-14): the parent's node → root, a particle's point, the shape offset, inherited values
 const subM = new THREE.Matrix4(), subAt = new THREE.Vector3(), subOff = new THREE.Vector3(), subCol = [0, 0, 0, 0], subSize = [1, 1, 1];
+// (2026-10-26, effect bundle U) the orbit's frames (orbitFrame: orbitLocal = a local-space system's own), its temporaries,
+// the noise's output, one emission's place in its call for the shape's ordered modes (shapeSample `ctx`)
+const orbitLocal = new THREE.Matrix4(), orbitM = new THREE.Matrix4(), orbC = new THREE.Vector3(), orbW = new THREE.Vector3();
+const orbP = new THREE.Vector3(), orbQ = new THREE.Quaternion(), noiseV = new THREE.Vector4();
+const shapeCtx = { k: 0, count: 1, time: 0, t01: 0 };
+/** A MinMaxCurve that is not zero everywhere (its scalar multiplies a curve). */
+const mmOn = (mm) => !!mm && !!(mm.s || mm.n);
+
+// (2026-10-26, effect bundle U) gradient noise for the noise module (ParticleSystem.noiseAt): Perlin's improved noise on a
+// fixed permutation, about −1…1; `axis` picks one of three fields (one per axis of the velocity it adds)
+const PERM = (() => {
+  const p = Array.from({ length: 256 }, (_, i) => i);
+  let x = 0x9e3779b9;
+  for (let i = 255; i > 0; i--) { x = (Math.imul(x ^ (x >>> 15), 0x2c1b3c6d) + 0x297a2d39) >>> 0; const j = x % (i + 1); [p[i], p[j]] = [p[j], p[i]]; }
+  return Uint8Array.from([...p, ...p]);
+})();
+const fade = (t) => t * t * t * (t * (t * 6 - 15) + 10);
+function grad(h, x, y, z) {
+  const u = h < 8 ? x : y, v = h < 4 ? y : h === 12 || h === 14 ? x : z;
+  return ((h & 1) ? -u : u) + ((h & 2) ? -v : v);
+}
+function noise3(x, y, z) {
+  const X = Math.floor(x), Y = Math.floor(y), Z = Math.floor(z);
+  x -= X; y -= Y; z -= Z;
+  const xi = X & 255, yi = Y & 255, zi = Z & 255, u = fade(x), v = fade(y), w = fade(z), P = PERM;
+  const A = P[xi] + yi, AA = P[A] + zi, AB = P[A + 1] + zi, B = P[xi + 1] + yi, BA = P[B] + zi, BB = P[B + 1] + zi;
+  const L = (t, a, b) => a + t * (b - a);
+  return L(w, L(v, L(u, grad(P[AA] & 15, x, y, z), grad(P[BA] & 15, x - 1, y, z)), L(u, grad(P[AB] & 15, x, y - 1, z), grad(P[BB] & 15, x - 1, y - 1, z))),
+    L(v, L(u, grad(P[AA + 1] & 15, x, y, z - 1), grad(P[BA + 1] & 15, x - 1, y, z - 1)), L(u, grad(P[AB + 1] & 15, x, y - 1, z - 1), grad(P[BB + 1] & 15, x - 1, y - 1, z - 1))));
+}
+const AXIS_OFF = [0, 37.17, 91.43];
+function fbm3(x, y, z, axis, oct, mul, scale) {
+  const d = AXIS_OFF[axis];
+  let sum = 0, amp = 1, fr = 1;
+  for (let k = 0; k < oct; k++) { sum += amp * noise3(x * fr + d, y * fr - d, z * fr + d * 0.5); amp *= mul; fr *= scale; }
+  return sum;
+}
 // one particle's instance data = 28 floats in one buffer (one upload per system and frame, was eight):
 // iPos 3, iSize 3, iRot 3, iColor 4, iC1 4, iC2 4, iUV 4, iVel 3
 const IV = 28, IV_POS = 0, IV_SIZE = 3, IV_ROT = 6, IV_COL = 9, IV_C1 = 13, IV_C2 = 17, IV_UV = 21, IV_VEL = 25;
@@ -1109,12 +1146,22 @@ class ParticleSystem {
     this.inherit = this.world && iv && (iv.mode ?? 0) === 0 ? iv.k : null;
     this.emitV = new THREE.Vector3();
     this.emitAt = null;
+    // (2026-10-26, effect bundle U) emission by distance (`dist`): the emitter's move this frame, in the root frame (moved);
+    // prewarm: a looping system runs one whole cycle before its first frame (prewarm); the velocity module's orbit / radial /
+    // speed modifier (orbit); the noise module's field (noise, nz = each particle's last noise value for its size)
+    this.moved = ps.dist ? new THREE.Vector3() : null;
+    this.distAcc = 0;
+    this.warm = !!(ps.prewarm && ps.loop && ps.dur > 0);
+    const vo = ps.mods.velOL;
+    this.orbit = !!vo && (!!vo.orbX || !!vo.orbY || mmOn(vo.orbZ) || mmOn(vo.radial) || !!vo.orbOff);
+    this.speedK = !!vo && !(vo.speedMul?.m === 0 && vo.speedMul.s === 1) && !!vo.speedMul;
     this.planes = [];
     this.planeAt = null;
     // particle state (SoA)
     this.pos = new Float32Array(max * 3); this.vel = new Float32Array(max * 3); this.age = new Float32Array(max);
     this.life = new Float32Array(max); this.size0 = new Float32Array(max * 3); this.rot = new Float32Array(max * 3);
     this.rotVel = new Float32Array(max); this.col0 = new Float32Array(max * 4); this.rnd = new Float32Array(max * 4);
+    this.nz = ps.mods.noise?.sizeAmt ? new Float32Array(max) : null;
     const geomSrc = ps.render.mode === 4 && def.geoms[ps.render.mesh] ? def.geoms[ps.render.mesh] : QUAD;
     const g = new THREE.InstancedBufferGeometry();
     g.index = geomSrc.index;
@@ -1186,15 +1233,19 @@ class ParticleSystem {
   setActive(on) {
     if (on) {
       this.time = -(evalMM(this.ps.delay, 0, Math.random()) || 0);
-      this.emitAcc = 0; this.burstDone.fill(0); this.stopped = false; this.cycle = 0;
+      this.emitAcc = 0; this.distAcc = 0; this.burstDone.fill(0); this.stopped = false; this.cycle = 0;
+      this.warm = !!(this.ps.prewarm && this.ps.loop && this.ps.dur > 0);
     } else { this.stopped = true; while (this.n) this.kill(this.n - 1); }
   }
 
   /**
    * `count` particles from the shape. `sub` (2026-10-14, a sub emitter's call — setSubs): { at (the parent particle, root
    * frame), t01, col?, size?, rot?, lifeK? } — from that point instead of the node's origin, with the inherited values.
+   * `along` (2026-10-26, effect bundle U: emission by distance) the emitter's move this frame in the root frame — a world-space
+   * system spreads the particles evenly back along it, from where the emitter was to where it is [ASSUMED: Unity places
+   * them on the path it interpolates; its native code is not readable]; a local-space system's move with the emitter.
    */
-  emit(count, sub = null) {
+  emit(count, sub = null, along = null) {
     const ps = this.ps;
     const room = Math.min(count, this.max - this.n, this.q.budget - liveParticles);
     if (room <= 0) return;
@@ -1233,10 +1284,12 @@ class ParticleSystem {
       if (sub?.rot != null) this.rot[i * 3 + 2] += sub.rot;
       // position + direction from the shape (local space of the node)
       const p = tmpV.set(0, 0, 0), d = tmpV2.set(0, 0, 1);
-      shapeSample(ps.shape, p, d, this.meshShape);
+      shapeCtx.k = k; shapeCtx.count = room; shapeCtx.time = Math.max(0, this.time); shapeCtx.t01 = t01;
+      shapeSample(ps.shape, p, d, this.meshShape, shapeCtx);
       if (this.meshShape?.C) for (let j = 0; j < 4; j++) this.col0[i * 4 + j] *= this.meshShape.c[j];
       if (this.world) { p.applyMatrix4(emitM); d.transformDirection(emitM); }
       if (sub) p.add(subOff);
+      if (along && this.world) p.addScaledVector(along, -(room - 1 - k) / room);
       this.pos[i * 3] = p.x; this.pos[i * 3 + 1] = p.y; this.pos[i * 3 + 2] = p.z;
       if (this.histN) this.histN[i] = 0;
       this.vel[i * 3] = d.x * sp; this.vel[i * 3 + 1] = d.y * sp; this.vel[i * 3 + 2] = d.z * sp;
@@ -1285,6 +1338,7 @@ class ParticleSystem {
       this.root.updateWorldMatrix(true, false);
       this.emitV.applyMatrix3(tmpM3.setFromMatrix4(tmpM.copy(this.root.matrixWorld).invert()));
     } else this.emitV.set(0, 0, 0);
+    if (this.moved) this.moved.copy(this.emitV).multiplyScalar(dt);   // (2026-10-26) this frame's move, for `dist`
     (this.emitAt ||= new THREE.Vector3()).copy(p);
   }
 
@@ -1305,6 +1359,91 @@ class ParticleSystem {
       const x = evalMM(sb.x, t, r);
       out[0] *= x; out[1] *= sb.y ? evalMM(sb.y, t, r) : x; out[2] *= sb.z ? evalMM(sb.z, t, r) : x;
     }
+    if (this.nz) {   // (2026-10-26) the noise module's size amount [ASSUMED: × (1 + noise × strength × amount)]
+      const k = Math.max(0, 1 + this.nz[i] * evalMM(m.noise.sizeAmt, a, r));
+      out[0] *= k; out[1] *= k; out[2] *= k;
+    }
+    return out;
+  }
+
+  /**
+   * (2026-10-26, effect bundle U) the limit module's drag for particle i: Unity multiplies it by the particle's size and by
+   * its speed when `multiplyDragByParticleSize` / `…Velocity` are on — on in every extracted system with a drag (the
+   * coverage report names one that is off) [ASSUMED: × the drawn size's largest axis and × the speed, a damping of
+   * `drag` per second].
+   */
+  dragOf(i, a, r, drag, speed) {
+    const sk = this.sizeOf(i, a, this.rnd[i * 4 + 2], sizeK), o = i * 3;
+    const size = Math.max(Math.abs(this.size0[o] * sk[0]), Math.abs(this.size0[o + 1] * sk[1]), Math.abs(this.size0[o + 2] * sk[2]));
+    return drag * size * speed;
+  }
+
+  /**
+   * (2026-10-26, effect bundle U) the velocity module's orbit (`orbX` / `orbY` / `orbZ`, about the system's own axes) and
+   * radial speed (`radial`, away from the centre) round the centre `orbOff` (the system's origin + its offset): the frame
+   * they act in this step — null for a local-space system (its particles live in the node's frame), else the node → root
+   * matrix of a world-space one.
+   */
+  orbitFrame() {
+    if (!this.world) return orbitLocal;
+    if (this.top) this.syncFrame(); else this.node.updateWorldMatrix(true, false);
+    this.root.updateWorldMatrix(true, false);
+    orbitM.copy(this.root.matrixWorld).invert().multiply(this.frame.matrixWorld);
+    return orbitM;
+  }
+
+  /** The orbit's centre (particle frame) for a particle at age fraction a. */
+  orbitC(a, r, M) {
+    const off = this.ps.mods.velOL.orbOff;
+    orbC.set(off ? evalMM(off[0], a, r) : 0, off ? evalMM(off[1], a, r) : 0, off ? evalMM(off[2], a, r) : 0);
+    if (M !== orbitLocal) orbC.applyMatrix4(M);
+    return orbC;
+  }
+
+  /**
+   * Particle i turned about the orbit's centre by the orbital velocity × h [ASSUMED: radians per second — the client's
+   * values are 1–5; the turn as Unity's Quaternion.AngleAxis of the same numbers]. The position turns, its velocity does not.
+   */
+  orbitStep(i, a, r, M, h) {
+    const vo = this.ps.mods.velOL;
+    orbW.set(vo.orbX ? evalMM(vo.orbX, a, r) : 0, vo.orbY ? evalMM(vo.orbY, a, r) : 0, evalMM(vo.orbZ, a, r) || 0);
+    const w = orbW.length();
+    if (w < 1e-9) return;
+    if (M !== orbitLocal) orbW.transformDirection(M); else orbW.divideScalar(w);
+    const c = this.orbitC(a, r, M), o = i * 3;
+    orbQ.setFromAxisAngle(orbW, w * h);
+    orbP.set(this.pos[o] - c.x, this.pos[o + 1] - c.y, this.pos[o + 2] - c.z).applyQuaternion(orbQ);
+    this.pos[o] = c.x + orbP.x; this.pos[o + 1] = c.y + orbP.y; this.pos[o + 2] = c.z + orbP.z;
+  }
+
+  /** (2026-10-26) the noise field's scroll this step: Unity moves the field by `scroll` per second of the system's time. */
+  noiseFrame(dt) {
+    const nm = this.ps.mods.noise, dur = this.ps.dur;
+    const t01 = dur > 0 ? ((Math.max(0, this.time) % dur) / dur) : 0;
+    this.nScroll = (this.nScroll || 0) + (evalMM(nm.scroll, t01, 0.5) || 0) * dt;
+    return true;
+  }
+
+  /**
+   * (2026-10-26, effect bundle U) Unity's noise module for particle i at age fraction a: a gradient noise field (each axis
+   * its own) sampled at the particle's place × `freq`, the field moved by its scroll along z; `oct` octaves, each `octScale`
+   * × the frequency and `octMul` × the amplitude; × the strength (`strY` / `strZ` per axis when separate), which damping
+   * divides by the frequency (Unity: "higher frequency noise reduces the strength by a proportional amount"); × the
+   * position amount `posAmt`. Out: xyz the velocity it adds (units / s, not kept), w the x noise × strength (rotation).
+   * [ASSUMED: Unity's own noise function and its 1D / 2D qualities are not readable — the same 3D field here; before this
+   * the player swayed each particle on a sine of its age, the same for every frequency]
+   */
+  noiseAt(i, a, r, out) {
+    const nm = this.ps.mods.noise, f = nm.freq || 0.5, o = i * 3;
+    let s = evalMM(nm.str, a, r);
+    let sy = nm.strY ? evalMM(nm.strY, a, r) : s, sz = nm.strZ ? evalMM(nm.strZ, a, r) : s;
+    if (nm.damping) { s /= f; sy /= f; sz /= f; }
+    const pa = nm.posAmt ? evalMM(nm.posAmt, a, r) : 1;
+    const x = this.pos[o] * f, y = this.pos[o + 1] * f, z = this.pos[o + 2] * f + (this.nScroll || 0);
+    const oct = nm.oct || 1, om = nm.octMul ?? 0.5, os = nm.octScale ?? 2;
+    const nx = fbm3(x, y, z, 0, oct, om, os), ny = fbm3(x, y, z, 1, oct, om, os), nz = fbm3(x, y, z, 2, oct, om, os);
+    out.set(nx * s * pa, ny * sy * pa, nz * sz * pa, nx * s);
+    if (this.nz) this.nz[i] = nx * s;
     return out;
   }
 
@@ -1363,6 +1502,7 @@ class ParticleSystem {
     this.size0.copyWithin(i * 3, last * 3, last * 3 + 3); this.rot.copyWithin(i * 3, last * 3, last * 3 + 3);
     this.col0.copyWithin(i * 4, last * 4, last * 4 + 4); this.rnd.copyWithin(i * 4, last * 4, last * 4 + 4);
     this.age[i] = this.age[last]; this.life[i] = this.life[last]; this.rotVel[i] = this.rotVel[last];
+    if (this.nz) this.nz[i] = this.nz[last];
     if (this.subAcc) { const J = this.subs.length; this.subAcc.copyWithin(i * J, last * J, last * J + J); }
     if (this.hist) {
       const K = this.histK * 4;
@@ -1403,11 +1543,36 @@ class ParticleSystem {
   }
 
   update(dt, sinceStart) {
-    const ps = this.ps, m = ps.mods;
+    const ps = this.ps;
     if (this.top) this.syncFrame();
-    if (this.inherit) this.emitterVelocity(dt);
+    if (this.inherit || this.moved) this.emitterVelocity(dt);
     dt *= ps.speedMul || 1;
     setTime(this.material, sinceStart);
+    if (this.warm && !this.stopped && !this.subOf && this.time + dt >= 0) this.prewarm();
+    this.advance(dt, this.moved);
+    this.draw(sinceStart);
+  }
+
+  /**
+   * (2026-10-26, effect bundle U) Unity's prewarm (`prewarm`, looping systems only — all 2045 extracted have no start delay):
+   * the system starts as if it had already run one whole cycle — here that cycle in steps of at most 1/30 s (60 at most)
+   * before its first frame. A range, buff or aura was empty at first and filled up over one cycle; the official one is full
+   * from the start. Trails (TrailModule) start from the particles' places then.
+   */
+  prewarm() {
+    this.warm = false;
+    const dur = this.ps.dur, steps = Math.min(60, Math.max(1, Math.ceil(dur * 30))), h = dur / steps;
+    this.time = 0;
+    for (let k = 0; k < steps; k++) this.advance(h, null);
+    this.time -= h;   // advance() of this frame adds its own step: the cycle ends where this frame begins
+  }
+
+  /**
+   * One step `dt` (system seconds) of emission and motion. `moved` (emission by distance): the emitter's move this frame
+   * in the root frame (emitterVelocity), null in prewarm.
+   */
+  advance(dt, moved) {
+    const ps = this.ps, m = ps.mods;
     // emission
     const prev = this.time;
     this.time += dt;
@@ -1423,6 +1588,15 @@ class ParticleSystem {
         this.emitAcc += rate * dt;
         const whole = Math.floor(this.emitAcc);
         if (whole > 0) { this.emitAcc -= whole; this.emit(whole); }
+        // (2026-10-26, effect bundle U) Unity's rate over distance: particles per unit the emitter moved (root frame = Unity
+        // units) — the client's FxLODSetting scales the rate over time and the bursts only (ApplyLowDetailPS), so only the
+        // quality's factor here. A system emitting only so (418 of the client's systems: the stars and leaves behind
+        // projectiles and dashes) drew nothing before
+        if (moved && ps.dist) {
+          this.distAcc += evalMM(ps.dist, t01, Math.random()) * moved.length() * this.q.emission;
+          const n = Math.floor(this.distAcc);
+          if (n > 0) { this.distAcc -= n; this.emit(n, null, moved); }
+        }
         const bursts = ps.bursts;
         if (bursts) {
           for (let k = 0; k < bursts.length; k++) {
@@ -1438,6 +1612,8 @@ class ParticleSystem {
     // simulate
     const grav = evalMM(ps.gravity, 0, 0);
     const velOn = !!m.velOL && m.velOL.on !== 0 && m.velOL.on !== false, clampAll = velOn && !!m.limit;
+    const orbit = velOn && this.orbit ? this.orbitFrame() : null, vo = m.velOL;
+    const nzOn = !!m.noise && this.noiseFrame(dt);
     const P = m.collide ? this.planeFrames() : null;
     if (this.subs && !this.world) {   // the node → root transform for the sub emitters' points
       this.frame.updateWorldMatrix(true, false); this.root.updateWorldMatrix(true, false);
@@ -1462,14 +1638,26 @@ class ParticleSystem {
         const lim = evalMM(m.limit.mag, a, r), sp = Math.hypot(vx, vy, vz);
         if (sp > lim && sp > 0) { const k = 1 - (m.limit.dampen || 0) * (1 - lim / sp); vx *= k; vy *= k; vz *= k; }
         const drag = evalMM(m.limit.drag, a, r);
-        if (drag) { const k = Math.max(0, 1 - drag * dt); vx *= k; vy *= k; vz *= k; }
+        if (drag) { const k = Math.max(0, 1 - this.dragOf(i, a, r, drag, Math.hypot(vx, vy, vz)) * dt); vx *= k; vy *= k; vz *= k; }
       }
       this.vel[i * 3] = vx; this.vel[i * 3 + 1] = vy; this.vel[i * 3 + 2] = vz;
-      if (m.noise) {
-        const s = evalMM(m.noise.str, a, r), f = m.noise.freq || 0.5, ph = this.rnd[i * 4 + 1] * 50;
-        ox += Math.sin((this.age[i] + ph) * f * 6.28) * s; oy += Math.cos((this.age[i] + ph * 1.3) * f * 6.28) * s;
+      // (2026-10-26, effect bundle U) the velocity module's speed modifier multiplies the particle's whole velocity this
+      // step (Unity: "a multiplier to the speed of particles") [ASSUMED: the orbit too]
+      const sm = this.speedK ? evalMM(vo.speedMul, a, r) : 1;
+      if (orbit) {   // radial: away from the orbit's centre, added like VelocityOverLifetime
+        const o = i * 3, c = this.orbitC(a, r, orbit);
+        const rad = mmOn(vo.radial) ? evalMM(vo.radial, a, r) : 0;
+        if (rad) {
+          const dx = this.pos[o] - c.x, dy = this.pos[o + 1] - c.y, dz = this.pos[o + 2] - c.z, l = Math.hypot(dx, dy, dz);
+          if (l > 1e-6) { ox += dx / l * rad; oy += dy / l * rad; oz += dz / l * rad; }
+        }
       }
-      this.pos[i * 3] += (vx + ox) * dt; this.pos[i * 3 + 1] += (vy + oy) * dt; this.pos[i * 3 + 2] += (vz + oz) * dt;
+      if (nzOn) {
+        const nv = this.noiseAt(i, a, r, noiseV);
+        ox += nv.x; oy += nv.y; oz += nv.z;
+      }
+      this.pos[i * 3] += (vx + ox) * sm * dt; this.pos[i * 3 + 1] += (vy + oy) * sm * dt; this.pos[i * 3 + 2] += (vz + oz) * sm * dt;
+      if (orbit) this.orbitStep(i, a, r, orbit, sm * dt);
       if (P && !this.collide(i, a, r, P)) { this.kill(i); continue; }
       if (m.rotOL) {
         this.rot[i * 3 + 2] += evalMM(m.rotOL.z, a, r) * dt;
@@ -1478,8 +1666,14 @@ class ParticleSystem {
         if (m.rotOL.x) this.rot[i * 3] += evalMM(m.rotOL.x, a, r) * dt;
         if (m.rotOL.y) this.rot[i * 3 + 1] += evalMM(m.rotOL.y, a, r) * dt;
       }
+      if (nzOn && m.noise.rotAmt) this.rot[i * 3 + 2] += noiseV.w * evalMM(m.noise.rotAmt, a, r) * D2R * dt;
       if (this.subs) this.emitSubs(i, age0, this.age[i], dt);
     }
+  }
+
+  /** The particles' instance data and trails for this frame (sinceStart: the branch's time, for the trails' ages). */
+  draw(sinceStart) {
+    const m = this.ps.mods;
     // instance data, uploaded by the used range in one call
     const n = this.n, D = this.ib.array;
     for (let i = 0; i < n; i++) {
@@ -1716,9 +1910,27 @@ function meshSample(ms, p, d) {
   if (C) for (let j = 0; j < 4; j++) ms.c[j] = mix(C, 4, j);
 }
 
-function shapeSample(sh, p, d, ms = null) {
+/**
+ * (2026-10-26, effect bundle U) where on the arc (`arc*`) or the edge (`rad*`) one emission falls, 0…1: mode 0 Random, 1 Loop
+ * and 2 PingPong (the system's time × the speed, laps of the whole arc), 3 BurstSpread (evenly over the particles of one
+ * emission — ctx.k of ctx.count); a spread snaps it down to its steps. [ASSUMED: one lap per second at speed 1, from the
+ * system's start; the step taken downward — Unity's manual: "0.1 only spawns particles at 10% intervals"]
+ */
+function arcPick(mode, spread, speed, ctx) {
+  let u;
+  if (mode === 3 && ctx) u = ctx.k / Math.max(1, ctx.count);
+  else if ((mode === 1 || mode === 2) && ctx) {
+    const v = ctx.time * (evalMM(speed, ctx.t01, Math.random()) || 0);
+    u = mode === 1 ? v - Math.floor(v) : 1 - Math.abs((v % 2 + 2) % 2 - 1);
+  } else u = Math.random();
+  if (spread > 0) u = Math.min(1, Math.floor(u / spread + 1e-6) * spread);
+  return u;
+}
+
+function shapeSample(sh, p, d, ms = null, ctx = null) {
   if (!sh) return;
   const rand = Math.random;
+  const arcU = () => (sh.arcMode || sh.arcSpread ? arcPick(sh.arcMode || 0, sh.arcSpread || 0, sh.arcSpeed, ctx) : rand());
   const r = (sh.radius || 0) * (1 - (sh.thick ?? 1) * rand());
   switch (sh.type) {
     case 0: case 1: { // sphere
@@ -1732,11 +1944,14 @@ function shapeSample(sh, p, d, ms = null) {
       break;
     }
     case 4: case 7: case 8: case 9: { // cone along +z
-      const th = rand() * (sh.arc ?? 360) * D2R, rr = r;
+      const th = arcU() * (sh.arc ?? 360) * D2R, rr = r;
       const bx = Math.cos(th), by = Math.sin(th);
       p.set(bx * rr, by * rr, 0);
       const ang = (sh.angle || 0) * D2R, k = (sh.radius ? rr / sh.radius : rand());
       d.set(bx * Math.sin(ang * k), by * Math.sin(ang * k), Math.cos(ang * k)).normalize();
+      // (2026-10-26, effect bundle U) a cone volume (8, 9) emits anywhere up its `length`, along each particle's direction
+      // [ASSUMED: evenly in height] — the player emitted from its base only (214 prefabs)
+      if ((sh.type === 8 || sh.type === 9) && sh.length) p.addScaledVector(d, (rand() * sh.length) / Math.max(d.z, 1e-3));
       break;
     }
     case 5: case 15: case 16: { // box: +z
@@ -1747,16 +1962,21 @@ function shapeSample(sh, p, d, ms = null) {
       break;
     }
     case 10: case 11: { // circle in XY, outward
-      const th = rand() * (sh.arc ?? 360) * D2R;
+      const th = arcU() * (sh.arc ?? 360) * D2R;
       d.set(Math.cos(th), Math.sin(th), 0); p.copy(d).multiplyScalar(sh.type === 11 ? sh.radius : r);
       break;
     }
-    case 12: // edge along x, +y
-      p.set((rand() * 2 - 1) * (sh.radius || 0), 0, 0); d.set(0, 1, 0);
+    case 12: { // edge along x, +y (2026-10-26: in order by `radMode` / `radSpread`)
+      const u = sh.radMode || sh.radSpread ? arcPick(sh.radMode || 0, sh.radSpread || 0, sh.radSpeed, ctx) : rand();
+      p.set((u * 2 - 1) * (sh.radius || 0), 0, 0); d.set(0, 1, 0);
       break;
-    case 17: { // donut
-      const th = rand() * Math.PI * 2;
-      p.set(Math.cos(th) * sh.radius, Math.sin(th) * sh.radius, 0); d.set(Math.cos(th), Math.sin(th), 0);
+    }
+    case 17: { // donut: (2026-10-26, effect bundle U) its arc and its tube (`donut`, the tube radius, thinned by the
+      // thickness) — out from the tube's centre line [ASSUMED: the direction]; before, every particle sat on the centre ring
+      const th = arcU() * (sh.arc ?? 360) * D2R, ph = rand() * Math.PI * 2;
+      const tr = (sh.donut ?? 0) * (1 - (sh.thick ?? 1) * rand()), cx = Math.cos(th), cy = Math.sin(th);
+      d.set(cx * Math.cos(ph), cy * Math.cos(ph), Math.sin(ph));
+      p.set(cx * sh.radius, cy * sh.radius, 0).addScaledVector(d, tr);
       break;
     }
     case 6: // mesh (2026-10-22: meshSample; a mesh that did not load stays a point)
@@ -1776,7 +1996,11 @@ function shapeSample(sh, p, d, ms = null) {
     p.applyQuaternion(tmpQ); d.applyQuaternion(tmpQ);
   }
   if (sh.pos) { p.x += sh.pos[0] ?? 0; p.y += sh.pos[1] ?? 0; p.z += sh.pos[2] ?? 0; }
+  // (2026-10-26, effect bundle U) Spherize Direction: the direction blended toward outward from the system's centre;
+  // Randomize Position: each axis moved up to ±`randPos` [ASSUMED: a cube; the blends' order]
+  if (sh.sphDir && p.lengthSq() > 1e-12) d.lerp(shapeV.copy(p).normalize(), sh.sphDir).normalize();
   if (sh.randDir) d.lerp(shapeV.set(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1).normalize(), sh.randDir).normalize();
+  if (sh.randPos) { p.x += (rand() * 2 - 1) * sh.randPos; p.y += (rand() * 2 - 1) * sh.randPos; p.z += (rand() * 2 - 1) * sh.randPos; }
 }
 
 // ---------------------------------------------------------------- effect instance

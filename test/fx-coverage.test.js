@@ -64,19 +64,18 @@ mm = lambda s, st=0: {'minMaxState': st, 'scalar': s, 'minScalar': s}
 ps = {'lengthInSec': 1.0, 'looping': True, 'prewarm': 1, 'scalingMode': 2, 'm_NewField': 3,
       'EmissionModule': {'enabled': 1, 'rateOverTime': mm(0), 'rateOverDistance': mm(4.0)},
       'NoiseModule': {'enabled': 0, 'scrollSpeed': mm(1.0)},                       # off: not looked at
-      'ShapeModule': {'enabled': 1, 'type': 4, 'length': 5.0, 'arc': {'value': 360.0, 'mode': 0, 'spread': 0.0}},  # length: cone volume only
+      'ShapeModule': {'enabled': 1, 'type': 4, 'length': 5.0, 'alignToDirection': 1, 'arc': {'value': 360.0, 'mode': 0, 'spread': 0.0}},
       'UVModule': {'enabled': 1, 'animationType': 0, 'rowMode': 1, 'tilesY': 4}}   # rowMode: single-row sheets only
 psr = {'m_RenderMode': 0, 'm_RenderAlignment': 4, 'm_SortingOrder': 3, 'm_CastShadows': 1}
 cov.particle(ps, psr)
 cov.particle({'looping': False, 'prewarm': 1, 'ShapeModule': {'enabled': 1, 'type': 8, 'length': 0.5},
               'CustomDataModule': {'enabled': 1, 'mode0': 1}}, {'m_UseCustomVertexStreams': 0})
 print(json.dumps(sorted(r['what'] + ' ' + r['status'] for r in cov.report() if r['kind'] == 'field')))`);
+    // (2026-10-26, effect bundle U) rate over distance, prewarm and a cone volume's length are played now: not reported
     assert.deepEqual(rep, [
       'CustomDataModule on, renderer.m_UseCustomVertexStreams off todo',
-      'EmissionModule.rateOverDistance ≠ 0 todo',
-      'ShapeModule.length ≠ 0 todo',
+      'ShapeModule.alignToDirection ≠ False todo',
       'm_NewField (not classified) new',
-      'prewarm ≠ False todo',
       'renderer.m_RenderAlignment = 4 todo',
       'scalingMode = 2 todo',
     ]);
