@@ -1103,7 +1103,7 @@ class Extractor:
                     has_trail = ps_t.get('TrailModule', {}).get('enabled') and trail_mat
                     if (mat_key or has_trail) and psr_t.get('m_Enabled', 1):
                         node['ps'] = particle_system(ps_t, psr_t, mat_key, mesh_key, trail_mat, shape_mesh)
-                        self.cov.particle(ps_t)
+                        self.cov.particle(ps_t, psr_t)
                         if not ps_t['VelocityModule']['enabled']:
                             node['_velOff'] = vel_ol(ps_t['VelocityModule'])   # clip_modules
             node.pop('_psr', None)

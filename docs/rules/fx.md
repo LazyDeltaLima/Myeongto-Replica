@@ -2899,6 +2899,20 @@
     `_effectsAlignToProjectileDirection`, `_trail_left/_right_01`과 함께 렌더에 바인딩 없음), `map_act1autochess_place_01`(클라 데이터·코드
     문자열 어디에도 없음), `S_desert_wall_02_start_Mesh`(장치 모델로 구워 `official.js`가 그림 — 아래 「战场#06 沙尘暴 연출」),
     `screen_desert_down_to_up`(m06의 위 방향 폭풍 장치 `#2`는 어디서도 켜지지 않음; 서명은 기록되는 `up_to_down`과 같음 107개).
+- **입자 필드 — 모듈 안까지 (2026-10-26, 관리자 요청 「새 오퍼레이터마다 일일이 대조하지 않게」)**: 酒神 S2 타격 물결이 2.7배 높았던 것(위 「입자 크기
+  방식 Local — 부모 크기 무시」)은 추출기가 `scalingMode`를 `scaling`으로 옮겼는데 플레이어가 한 번도 안 읽은 탓이다. 보고는 모듈을 통째로만 봐서(읽는
+  모듈이면 그 안의 어느 필드든 통과) 못 잡았고, 미검증 서명도 키가 있느냐만 봐서(모든 계에 있는 `key:…scaling`은 첫 검증 프리팹으로 「검증됨」) 못 잡았다.
+  - 이제 `fx_coverage.PS_FIELDS`가 그리는 ParticleSystem(읽는 모듈 중 켜진 것)·ParticleSystemRenderer의 **필드마다** 처리를 적는다: 옮겨 재생함(`_K`
+    추출 키) · 일부 값만 재생(`_V`, 다른 값 보고) · 가정값(`_A`, 다르면 보고 — 옮기지 않거나 옮기고 안 읽는 것) · 차이 없음(`_N`, 까닭). 필드마다 의미가
+    있을 때만(`when`: 원뿔의 호, 축별 값 등) 본다. 표에 없는 필드(클라 갱신·새로 읽는 모듈)는 `field … (not classified)`로 `new`. CustomData를 켰는데 렌더러의
+    사용자 정점 스트림이 꺼진 계(Unity는 셰이더에 커스텀 값을 안 넘김)·플레이어가 모르는 스트림 순서·도넛의 호도 같은 종류로 보고.
+  - `test/fx-coverage.test.js` 「PS_FIELDS」: `_K`·`_V` 필드는 `fx_extract.particle_system`(+ `vel_ol`, 렌더러를 넘기는 걷기)이 읽고 그 키의 끝 이름을
+    `fxplayer.js`가 읽어야 통과 — 추출만 하고 재생하지 않는 키는 `_A`로 옮겨야 하고, 그러면 그 값이 보고에 나온다(`prewarm`을 `_K`로 바꾸면 실패함을 확인).
+  - 서명에 값 조합: `ps:scaling=<v>`(크기 있는 부모 밑이면 `@scaledParent`), `ps:align=<v>`, `ps:uv.anim=<v>`, `ps:trail.mode=<v>`.
+  - 첫 전수(EN 클라, 운영자 묶음 2,158 프리팹 · 그리는 입자 계 12,662): 표에 없는 필드 0. 재생하지 않는 것 42항목(`--coverage`가 CN 클라 묶음까지 걸어 하나 더 — 켈시 에스페란타 S3 순간이동의 모서리 방출 간격)을 `KNOWN` todo로 둠 — 방출·운동
+    (이동 거리당 방출 198 프리팹 — 그것만 쓰는 계는 아무것도 안 나옴, 반복 계 `prewarm` 510, 노이즈 흐름 `scrollSpeed` 634, 원뿔 부피 길이 214, 호 방식
+    141·간격 102, 궤도 속도 46 등)과 그리기(텍스처 시트 무작위 줄 172, 속도 방향 빌보드 82, `m_SortMode` 72, 정렬 레이어 16, 입자 꼬리 텍스처 방식 50 등).
+    수는 프리팹 수. 고치는 순서는 관리자 노트.
 - 기준선의 큰 todo(비공개 조사 기록에 전체 목록): ~~`FollowDirection` 183개~~(2026-10-22 읽음 — 위 「이펙트 방향」) · ~~셰이더 `_CullMode`·`_ZWrite`·Disturb
   Origin `_SrcBlend`·`InheritVelocityModule`·`CollisionModule`·`SizeBySpeedModule`·Unity 기본 입자 재질·레거시 셰이더~~(2026-10-22 — 위 「입자 모듈·셰이더
   패스 상태」) · ~~`FxLODSetting` 37~~(2026-10-23 — 아래 「저사양 이펙트 — FxLODSetting」) · Shape Mesh 36(점으로 대체) · 기본 상태 밖 Animator 클립 23 · 클립이 움직이는 입자 모듈 값·트레일 길이·UV 흐름 속도(`EmptyEffect`·`OnPlayEmitter` /

@@ -56,6 +56,32 @@ print(json.dumps({r['kind'] + ':' + r['what']: r['status'] for r in cov.report()
     });
   });
 
+  test('particle fields: an assumed value that differs, a value the player does not handle, a field nobody classified', () => {
+    const rep = py(`
+cov = c.Coverage()
+cov.begin('phatm2/phatm2_skill_02_hit_range_01')
+mm = lambda s, st=0: {'minMaxState': st, 'scalar': s, 'minScalar': s}
+ps = {'lengthInSec': 1.0, 'looping': True, 'prewarm': 1, 'scalingMode': 2, 'm_NewField': 3,
+      'EmissionModule': {'enabled': 1, 'rateOverTime': mm(0), 'rateOverDistance': mm(4.0)},
+      'NoiseModule': {'enabled': 0, 'scrollSpeed': mm(1.0)},                       # off: not looked at
+      'ShapeModule': {'enabled': 1, 'type': 4, 'length': 5.0, 'arc': {'value': 360.0, 'mode': 0, 'spread': 0.0}},  # length: cone volume only
+      'UVModule': {'enabled': 1, 'animationType': 0, 'rowMode': 1, 'tilesY': 4}}   # rowMode: single-row sheets only
+psr = {'m_RenderMode': 0, 'm_RenderAlignment': 4, 'm_SortingOrder': 3, 'm_CastShadows': 1}
+cov.particle(ps, psr)
+cov.particle({'looping': False, 'prewarm': 1, 'ShapeModule': {'enabled': 1, 'type': 8, 'length': 0.5},
+              'CustomDataModule': {'enabled': 1, 'mode0': 1}}, {'m_UseCustomVertexStreams': 0})
+print(json.dumps(sorted(r['what'] + ' ' + r['status'] for r in cov.report() if r['kind'] == 'field')))`);
+    assert.deepEqual(rep, [
+      'CustomDataModule on, renderer.m_UseCustomVertexStreams off todo',
+      'EmissionModule.rateOverDistance ≠ 0 todo',
+      'ShapeModule.length ≠ 0 todo',
+      'm_NewField (not classified) new',
+      'prewarm ≠ False todo',
+      'renderer.m_RenderAlignment = 4 todo',
+      'scalingMode = 2 todo',
+    ]);
+  });
+
   test('summary: one NOT HANDLED line per new item with its prefabs, one line for the known ones', () => {
     const lines = py(`
 cov = c.Coverage()
@@ -204,6 +230,20 @@ print(json.dumps(sorted(c.signature(d))))`);
       'track:mat:_TintColor', 'track:active', 'track:pos', 'key:nodes[].ps.mods.velOL.x', 'key:clips[].tracks[].curves',
       'key:face.limit', 'key:spawn']) assert.ok(sig.includes(f), f);
     assert.ok(!sig.some((f) => f.includes('attr:') || f.startsWith('key:materials') || f.includes('_Metallic') || f.includes('velOL.x.m')), sig.join(' '));
+  });
+
+  test('signature: the values of fields every system has — Local scaling under a scaled parent, alignment, sheet and trail modes', () => {
+    // (2026-10-26) `key:nodes[].ps.scaling` is on every system, so the first verified prefab "verified" it whatever its value
+    const sig = py(`
+ps = lambda **k: {'render': {'mode': 0, 'align': k.pop('align', 0)}, 'space': 0, 'mods': k.pop('mods', {}), **k}
+d = {'name': 'x', 'materials': {}, 'clips': [],
+     'nodes': [{'name': 'root', 'parent': -1, 'scale': [1, 1, 1]}, {'name': 'ground', 'parent': 0, 'scale': [1, 1, 2.73]},
+               {'name': 'wave', 'parent': 1, 'scale': [1, 1, 1], 'ps': ps(scaling=1, align=2, mods={'uv': {'anim': 1}})},
+               {'name': 'spark', 'parent': 0, 'scale': [1, 1, 1], 'ps': ps(scaling=0, mods={'trail': {'mode': 1}})}]}
+print(json.dumps(sorted(f for f in c.signature(d) if f.startswith('ps:'))))`);
+    for (const f of ['ps:scaling=1@scaledParent', 'ps:scaling=0', 'ps:align=2', 'ps:align=0', 'ps:uv.anim=1', 'ps:trail.mode=1']) {
+      assert.ok(sig.includes(f), `${f} in ${sig.join(' ')}`);
+    }
   });
 
   test('unverified: the features of the run\'s prefabs that no verified prefab had when it was checked', () => {
@@ -415,6 +455,28 @@ describe('fx_coverage.py lists match the code they describe', { skip: !PY && 'no
     const fn = ex.slice(ex.indexOf('def particle_system('), ex.indexOf('# ------', ex.indexOf('def particle_system(')));
     const mods = new Set([...fn.matchAll(/ps(?:\.get\(|\[)'(\w+Module)'/g)].map((m) => m[1]));
     assert.deepEqual(lists.modules, [...mods].sort());
+  });
+
+  test('PS_FIELDS: a played field is read by fx_extract.particle_system, and its key by render/fxplayer.js', () => {
+    // (2026-10-26, effect bundle T) 酒神 S2's hit wave: scalingMode was carried as `scaling` and the player never read it.
+    // A field the player does not play goes in PS_FIELDS as assumed (_A) — its other values are then reported
+    const rows = py(`print(json.dumps([[p, r[0], r[1]] for p, r in c.PS_FIELDS.items() if r[0] in ('key', 'values')]))`);
+    const ex = readFileSync(path.join(TOOL, 'fx_extract.py'), 'utf8');
+    // particle_system, vel_ol (VelocityModule) and the walk that hands them the renderer's material and mesh
+    const fn = ex.slice(ex.indexOf('def particle_system('), ex.indexOf('# ------', ex.indexOf('def particle_system(')))
+      + ex.slice(ex.indexOf('def vel_ol('), ex.indexOf('def clip_modules('))
+      + ex.slice(ex.indexOf("for comp_key in ('_ps',):"), ex.indexOf('self.cov.particle('));
+    const readsField = (seg) => fn.includes(`'${seg}'`) || (/\d$/.test(seg) && fn.includes(`f'${seg.replace(/\d+(_\d+)?$/, '')}{`));
+    const readsKey = (k) => new RegExp(`(\\.|\\?\\.)${k}\\b|'${k}'|[{,]\\s*${k}\\s*[,}=]`).test(player);
+    const bad = [];
+    for (const [p, how, key] of rows) {
+      const segs = p.split('.').filter((s) => s !== 'renderer' && !/Module$/.test(s)).map((s) => s.replace('[]', ''))
+        .filter((s, i) => i === 0 || (!/^[xyzw]$/.test(s) && s !== 'value'));
+      if (!segs.some(readsField)) bad.push(`${p}: no field ${segs.join('/')} in particle_system`);
+      const last = key.split('.').pop().replace('[]', '');
+      if (!readsKey(last)) bad.push(`${p} (${how}): fxplayer.js never reads \`${key}\``);
+    }
+    assert.deepEqual(bad, []);
   });
 
   test('every known script is a named script; every read script is in SCRIPTS', () => {

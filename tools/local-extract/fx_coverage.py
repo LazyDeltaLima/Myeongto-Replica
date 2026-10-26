@@ -12,6 +12,7 @@ Every run of fx_extract.py collects, per extracted prefab, what it met that the 
                 layout / disagrees with the type tree (a client update shifted the words)
     module      an enabled ParticleSystem module the extract does not carry
     shape       a ParticleSystem shape type the player has no emitter for
+    field       a ParticleSystem / renderer field whose value the pipeline does not play, or one PS_FIELDS does not classify
     texture     a texture the shader declares and the material sets, which the player never samples
     property    a shader property the material sets off its default, which the player never reads
     shader      a shader name the player has never been checked against (its special cases go by name)
@@ -84,6 +85,7 @@ SCRIPTS = {
     -342699933188949169: 'EffectImportData', 6704954098737650565: 'SyncEffectScaleWithAuraRangeRadius',
     -1569843327534094582: 'PauseEffectIfNotMove', 8401462487392191767: 'PauseEffectIfDisappeared', -2862109401119915025: 'FollowOwner',
     -1576532863054725745: 'FollowOwnerRootTileHeight',
+    -6714358757634045276: 'CameraEffect',   # (2026-10-26) by its fields; screen_com_poison_04 (the time-out screen)
 }
 # what the extract reads of the scripts above (reader() checks the raw fallbacks)
 SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoint', 'FxUVTweener', 'FxUVTweenerAdvance',
@@ -108,6 +110,296 @@ MODULES_READ = {'InitialModule', 'EmissionModule', 'ShapeModule', 'SizeModule', 
 # (2026-10-22) the one way each of these is read (fx_extract.particle_system): another setting is reported (`particle`)
 MODULE_MODES = {'InheritVelocityModule': ('m_Mode', 0, 'mode 1 Current (follows the emitter all its life)'),
                 'CollisionModule': ('type', 0, 'type 1 World (collides with the scene\'s colliders)')}
+# (2026-10-26, effect bundle T) every serialized field of a drawn ParticleSystem (modules of MODULES_READ, when enabled) and
+# of its ParticleSystemRenderer (`renderer.`), by its dotted type-tree path ([] = each list item), and what the pipeline
+# does with it — so a field nobody carries is listed by its value instead of dropped without a word (酒神 S2's hit wave:
+# scalingMode was carried as `scaling` and never played, and the module-level check above could not see it):
+#   _K(key)            carried by fx_extract.particle_system under that key of the extract's `ps` and played by
+#                      render/fxplayer.js — test/fx-coverage.test.js pins the field name to particle_system and the
+#                      key's last name to fxplayer.js
+#   _V(key, values)    carried, but the player handles only these values: another one is reported
+#   _A(value, why)     not carried or not played: the pipeline draws as if it were `value`; another one is reported
+#   _N(why)            makes no difference here (or another check reports it)
+# A field outside the table (a client update, a module first read) is reported as not classified. `when` (any entry):
+# (ps, renderer) -> the field matters at all (a cone's arc, a separate axis).
+def _K(key, when=None):
+    return ('key', key, None, when)
+
+
+def _V(key, values, when=None):
+    return ('values', key, frozenset(values), when)
+
+
+def _A(value, why, when=None):
+    return ('assume', value, why, when)
+
+
+def _N(why, when=None):
+    return ('none', None, why, when)
+
+
+def _mod(ps, m):
+    return ps.get(m) or {}
+
+
+def _shape_in(*types):
+    return lambda ps, r: _mod(ps, 'ShapeModule').get('type') in types
+
+
+def _flag(m, f):
+    return lambda ps, r: bool(_mod(ps, m).get(f))
+
+
+_ARC = (4, 7, 8, 9, 10, 11, 17)   # the shapes with an arc (cones, circles, the donut)
+_LIGHTING = 'lighting, shadows, probes, batching: the effects are unlit and cast nothing'
+_SHAPE_KIND = 'the `shape` kind reports it (particle())'
+PS_FIELDS = {
+    'lengthInSec': _K('dur'), 'looping': _K('loop'), 'startDelay': _K('delay'), 'simulationSpeed': _K('speedMul'),
+    'moveWithTransform': _V('space', (0, 1)),
+    'moveWithCustomTransform': _N('only with moveWithTransform 2 (Custom), reported there'),
+    'scalingMode': _V('scaling', (0, 1)),
+    'prewarm': _A(False, 'a looping system starts as if it had run one cycle (`prewarm` is carried, not played)',
+                  when=lambda ps, r: bool(ps.get('looping'))),
+    'playOnAwake': _A(True, 'a system that waits for a script to play it'),
+    'autoRandomSeed': _N('the random sequence only'), 'randomSeed': _N('the random sequence only'),
+    'cullingMode': _N('what Unity does off screen'),
+    'emitterVelocityMode': _N('[ASSUMED] without a Rigidbody on the effect Unity takes the Transform\'s motion either way'),
+    'ringBufferMode': _A(0, 'particles kept alive in a ring buffer'),
+    'ringBufferLoopRange.x': _N('only with ringBufferMode'), 'ringBufferLoopRange.y': _N('only with ringBufferMode'),
+    'stopAction': _N('what happens to the GameObject when the system stops'),
+    'useUnscaledTime': _A(False, 'runs on unscaled time'),
+    'm_GameObject': _N('the owner'),
+    # InitialModule
+    'InitialModule.enabled': _N('always on'),
+    'InitialModule.startLifetime': _K('life'), 'InitialModule.startSpeed': _K('speed'), 'InitialModule.startColor': _K('color'),
+    'InitialModule.startSize': _K('size'), 'InitialModule.size3D': _K('sizeY'),
+    'InitialModule.startSizeY': _K('sizeY', _flag('InitialModule', 'size3D')),
+    'InitialModule.startSizeZ': _K('sizeZ', _flag('InitialModule', 'size3D')),
+    'InitialModule.startRotation': _K('rot'), 'InitialModule.rotation3D': _K('rotX'),
+    'InitialModule.startRotationX': _K('rotX', _flag('InitialModule', 'rotation3D')),
+    'InitialModule.startRotationY': _K('rotY', _flag('InitialModule', 'rotation3D')),
+    'InitialModule.maxNumParticles': _K('max'), 'InitialModule.gravityModifier': _K('gravity'),
+    'InitialModule.randomizeRotationDirection': _K('flipRot'),
+    'InitialModule.customEmitterVelocity.x': _N('only with emitterVelocityMode 2 (Custom)'),
+    'InitialModule.customEmitterVelocity.y': _N('only with emitterVelocityMode 2 (Custom)'),
+    'InitialModule.customEmitterVelocity.z': _N('only with emitterVelocityMode 2 (Custom)'),
+    # EmissionModule
+    'EmissionModule.enabled': _N('the module switch'), 'EmissionModule.rateOverTime': _K('rate'),
+    'EmissionModule.rateOverDistance': _A(0, 'particles per unit the emitter moves (trails of projectiles and dashes)'),
+    'EmissionModule.m_BurstCount': _K('bursts'), 'EmissionModule.m_Bursts': _N('an empty burst list'),
+    'EmissionModule.m_Bursts[].time': _K('bursts[].t'), 'EmissionModule.m_Bursts[].countCurve': _K('bursts[].n'),
+    'EmissionModule.m_Bursts[].cycleCount': _K('bursts[].cycles'), 'EmissionModule.m_Bursts[].repeatInterval': _K('bursts[].interval'),
+    'EmissionModule.m_Bursts[].probability': _K('bursts[].p'),
+    # ShapeModule
+    'ShapeModule.enabled': _N('the module switch'), 'ShapeModule.type': _K('shape.type'),
+    'ShapeModule.radius.value': _K('shape.radius'),
+    'ShapeModule.radius.mode': _A(0, 'an edge emits in order (Loop / PingPong / BurstSpread), not at random', _shape_in(12)),
+    'ShapeModule.radius.spread': _A(0, 'an edge emits at discrete steps', _shape_in(12)),
+    'ShapeModule.radius.speed': _N('only with radius.mode Loop / PingPong, reported there'),
+    'ShapeModule.angle': _K('shape.angle'),
+    'ShapeModule.length': _A(0, 'a cone volume emits through its length (the player emits from its base)', _shape_in(8, 9)),
+    'ShapeModule.arc.value': _K('shape.arc'),
+    'ShapeModule.arc.mode': _A(0, 'the arc is swept in order (Loop / PingPong / BurstSpread), not at random', _shape_in(*_ARC)),
+    'ShapeModule.arc.spread': _A(0, 'the arc emits at discrete steps', _shape_in(*_ARC)),
+    'ShapeModule.arc.speed': _N('only with arc.mode Loop / PingPong, reported there'),
+    'ShapeModule.radiusThickness': _K('shape.thick'), 'ShapeModule.boxThickness.x': _K('shape.box'),
+    'ShapeModule.boxThickness.y': _K('shape.box'), 'ShapeModule.boxThickness.z': _K('shape.box'),
+    'ShapeModule.donutRadius': _A(0, 'the donut\'s tube radius (the player emits on its centre ring)', _shape_in(17)),
+    'ShapeModule.m_Position.x': _K('shape.pos'), 'ShapeModule.m_Position.y': _K('shape.pos'), 'ShapeModule.m_Position.z': _K('shape.pos'),
+    'ShapeModule.m_Rotation.x': _K('shape.rotE'), 'ShapeModule.m_Rotation.y': _K('shape.rotE'), 'ShapeModule.m_Rotation.z': _K('shape.rotE'),
+    'ShapeModule.m_Scale.x': _K('shape.scale'), 'ShapeModule.m_Scale.y': _K('shape.scale'), 'ShapeModule.m_Scale.z': _K('shape.scale'),
+    'ShapeModule.alignToDirection': _A(False, 'particles turned to their start direction (`shape.align` is carried, not played)'),
+    'ShapeModule.randomDirectionAmount': _K('shape.randDir'),
+    'ShapeModule.sphericalDirectionAmount': _A(0, 'start directions blended toward the centre\'s outward (`shape.sphDir` is carried, not played)'),
+    'ShapeModule.randomPositionAmount': _A(0, 'start positions moved at random'),
+    'ShapeModule.placementMode': _K('shape.place', _shape_in(6)), 'ShapeModule.m_UseMeshColors': _K('shape.meshCol', _shape_in(6)),
+    'ShapeModule.m_Mesh': _K('shape.mesh', _shape_in(6)),
+    'ShapeModule.m_MeshMaterialIndex': _N('only with m_UseMeshMaterialIndex'),
+    'ShapeModule.m_UseMeshMaterialIndex': _A(False, 'emits from one sub-mesh', _shape_in(6)),
+    'ShapeModule.m_MeshSpawn.mode': _N(_SHAPE_KIND), 'ShapeModule.m_MeshSpawn.speed': _N(_SHAPE_KIND),
+    'ShapeModule.m_MeshSpawn.spread': _N(_SHAPE_KIND), 'ShapeModule.m_MeshNormalOffset': _N(_SHAPE_KIND),
+    'ShapeModule.m_MeshRenderer': _N(_SHAPE_KIND), 'ShapeModule.m_SkinnedMeshRenderer': _N(_SHAPE_KIND),
+    'ShapeModule.m_Sprite': _N(_SHAPE_KIND), 'ShapeModule.m_SpriteRenderer': _N(_SHAPE_KIND),
+    'ShapeModule.m_Texture': _A(None, 'a texture masks / colours the start positions'),
+    **{f'ShapeModule.{f}': _N('only with m_Texture') for f in (
+        'm_TextureAlphaAffectsParticles', 'm_TextureBilinearFiltering', 'm_TextureClipChannel', 'm_TextureClipThreshold',
+        'm_TextureColorAffectsParticles', 'm_TextureUVChannel')},
+    # over-lifetime modules
+    'SizeModule.enabled': _N('the module switch'), 'SizeModule.curve': _K('mods.sizeOL.x'), 'SizeModule.separateAxes': _K('mods.sizeOL.y'),
+    'SizeModule.y': _K('mods.sizeOL.y', _flag('SizeModule', 'separateAxes')),
+    'SizeModule.z': _K('mods.sizeOL.z', _flag('SizeModule', 'separateAxes')),
+    'ColorModule.enabled': _N('the module switch'), 'ColorModule.gradient': _K('mods.colorOL'),
+    'RotationModule.enabled': _N('the module switch'), 'RotationModule.curve': _K('mods.rotOL.z'),
+    'RotationModule.separateAxes': _K('mods.rotOL.x'),
+    'RotationModule.x': _K('mods.rotOL.x', _flag('RotationModule', 'separateAxes')),
+    'RotationModule.y': _K('mods.rotOL.y', _flag('RotationModule', 'separateAxes')),
+    'VelocityModule.enabled': _N('the module switch (a clip that switches it on is a track: clip_modules)'),
+    'VelocityModule.x': _K('mods.velOL.x'), 'VelocityModule.y': _K('mods.velOL.y'), 'VelocityModule.z': _K('mods.velOL.z'),
+    'VelocityModule.inWorldSpace': _K('mods.velOL.world'), 'VelocityModule.speedModifier': _K('mods.velOL.speedMul'),
+    'VelocityModule.radial': _A(0, 'speed away from the centre (`velOL.radial` is carried, not played)'),
+    'VelocityModule.orbitalX': _A(0, 'particles circle the centre'), 'VelocityModule.orbitalY': _A(0, 'particles circle the centre'),
+    'VelocityModule.orbitalZ': _A(0, 'particles circle the centre (`velOL.orbZ` is carried, not played)'),
+    'VelocityModule.orbitalOffsetX': _N('only with an orbital velocity'), 'VelocityModule.orbitalOffsetY': _N('only with an orbital velocity'),
+    'VelocityModule.orbitalOffsetZ': _N('only with an orbital velocity'),
+    'ForceModule.enabled': _N('the module switch'), 'ForceModule.x': _K('mods.force.x'), 'ForceModule.y': _K('mods.force.y'),
+    'ForceModule.z': _K('mods.force.z'), 'ForceModule.inWorldSpace': _K('mods.force.world'),
+    'ForceModule.randomizePerFrame': _A(False, 'a random force picked anew each frame'),
+    'ClampVelocityModule.enabled': _N('the module switch'), 'ClampVelocityModule.magnitude': _K('mods.limit.mag'),
+    'ClampVelocityModule.dampen': _K('mods.limit.dampen'), 'ClampVelocityModule.drag': _K('mods.limit.drag'),
+    'ClampVelocityModule.separateAxis': _A(False, 'a limit per axis'),
+    'ClampVelocityModule.x': _N('only with separateAxis'), 'ClampVelocityModule.y': _N('only with separateAxis'),
+    'ClampVelocityModule.z': _N('only with separateAxis'), 'ClampVelocityModule.inWorldSpace': _N('only with separateAxis'),
+    'ClampVelocityModule.multiplyDragByParticleSize': _A(False, 'drag grows with the particle\'s size (the player\'s drag is plain)',
+                                                         lambda ps, r: _val(_mod(ps, 'ClampVelocityModule').get('drag')) != 0),
+    'ClampVelocityModule.multiplyDragByParticleVelocity': _A(False, 'drag grows with the particle\'s speed (the player\'s drag is plain)',
+                                                             lambda ps, r: _val(_mod(ps, 'ClampVelocityModule').get('drag')) != 0),
+    'NoiseModule.enabled': _N('the module switch'), 'NoiseModule.strength': _K('mods.noise.str'), 'NoiseModule.frequency': _K('mods.noise.freq'),
+    'NoiseModule.scrollSpeed': _A(0, 'the noise field scrolls (`noise.scroll` is carried, not played)'),
+    'NoiseModule.damping': _A(True, 'without damping the strength does not scale with the frequency (`noise.damping` is carried, not played)'),
+    'NoiseModule.separateAxes': _A(False, 'a noise strength per axis'),
+    'NoiseModule.strengthY': _N('only with separateAxes'), 'NoiseModule.strengthZ': _N('only with separateAxes'),
+    'NoiseModule.octaves': _A(1, 'layered noise'), 'NoiseModule.octaveMultiplier': _N('only with octaves > 1'),
+    'NoiseModule.octaveScale': _N('only with octaves > 1'),
+    'NoiseModule.quality': _N('[ASSUMED] Unity\'s noise dimensions — the player\'s noise is its own approximation'),
+    'NoiseModule.remapEnabled': _A(False, 'the noise value remapped by a curve'),
+    'NoiseModule.remap': _N('only with remapEnabled'), 'NoiseModule.remapY': _N('only with remapEnabled'),
+    'NoiseModule.remapZ': _N('only with remapEnabled'),
+    'NoiseModule.positionAmount': _A(1, 'how much the noise moves the particles'),
+    'NoiseModule.rotationAmount': _A(0, 'the noise turns the particles'), 'NoiseModule.sizeAmount': _A(0, 'the noise scales the particles'),
+    'UVModule.enabled': _N('the module switch'), 'UVModule.tilesX': _K('mods.uv.tx'), 'UVModule.tilesY': _K('mods.uv.ty'),
+    'UVModule.animationType': _V('mods.uv.anim', (0, 1)), 'UVModule.rowIndex': _K('mods.uv.row'),
+    'UVModule.rowMode': _A(0, 'a single-row sheet takes a random row per particle (`uv.rowMode` is carried, not played)',
+                           lambda ps, r: _mod(ps, 'UVModule').get('animationType') == 1 and _mod(ps, 'UVModule').get('tilesY', 1) > 1),
+    'UVModule.frameOverTime': _K('mods.uv.frame'), 'UVModule.startFrame': _K('mods.uv.start'), 'UVModule.cycles': _K('mods.uv.cycles'),
+    'UVModule.mode': _A(0, 'frames from a sprite list instead of a grid'), 'UVModule.sprites[].sprite': _N('only with mode 1 (Sprites)'),
+    'UVModule.flipU': _A(0, 'a share of the particles mirrored'), 'UVModule.flipV': _A(0, 'a share of the particles mirrored'),
+    'UVModule.timeMode': _A(0, 'frames by speed or fps instead of lifetime'), 'UVModule.fps': _N('only with timeMode FPS'),
+    'UVModule.speedRange.x': _N('only with timeMode Speed'), 'UVModule.speedRange.y': _N('only with timeMode Speed'),
+    'UVModule.uvChannelMask': _N('which mesh UV channels the frames apply to (the quads have one)'),
+    'CustomDataModule.enabled': _N('the module switch'),
+    **{f'CustomDataModule.{f}{i}': _K('mods.custom') for f in ('mode', 'color', 'vectorComponentCount') for i in (0, 1)},
+    **{f'CustomDataModule.vector{i}_{k}': _K('mods.custom') for i in (0, 1) for k in range(4)},
+    'TrailModule.enabled': _N('the module switch'), 'TrailModule.mode': _V('mods.trail.mode', (0, 1)),
+    'TrailModule.ratio': _K('mods.trail.ratio'), 'TrailModule.lifetime': _K('mods.trail.life'),
+    'TrailModule.minVertexDistance': _K('mods.trail.minDist'), 'TrailModule.worldSpace': _K('mods.trail.world'),
+    'TrailModule.textureMode': _A(0, 'the texture tiles along the trail instead of stretching (`trail.texMode` is carried, not played)'),
+    'TrailModule.dieWithParticles': _A(True, 'the trail outlives its particle (`trail.die` is carried, not played)'),
+    'TrailModule.sizeAffectsWidth': _K('mods.trail.sizeWidth'), 'TrailModule.sizeAffectsLifetime': _A(False, 'the trail\'s life follows the size'),
+    'TrailModule.inheritParticleColor': _K('mods.trail.inherit'), 'TrailModule.colorOverLifetime': _K('mods.trail.colorOL'),
+    'TrailModule.widthOverTrail': _K('mods.trail.width'), 'TrailModule.colorOverTrail': _K('mods.trail.colorOT'),
+    'TrailModule.ribbonCount': _A(1, 'several ribbons (`trail.ribbons` is carried, not played)'),
+    'TrailModule.splitSubEmitterRibbons': _A(False, 'a sub-emitter\'s ribbons split per parent particle'),
+    'TrailModule.attachRibbonsToTransform': _A(False, 'ribbons joined to the system\'s position'),
+    'TrailModule.generateLightingData': _N(_LIGHTING), 'TrailModule.shadowBias': _N(_LIGHTING),
+    'InheritVelocityModule.enabled': _N('the module switch'), 'InheritVelocityModule.m_Mode': _N('MODULE_MODES reports another mode'),
+    'InheritVelocityModule.m_Curve': _K('mods.inherit.k'),
+    'SizeBySpeedModule.enabled': _N('the module switch'), 'SizeBySpeedModule.curve': _K('mods.sizeBySpeed.x'),
+    'SizeBySpeedModule.range.x': _K('mods.sizeBySpeed.range'), 'SizeBySpeedModule.range.y': _K('mods.sizeBySpeed.range'),
+    'SizeBySpeedModule.separateAxes': _K('mods.sizeBySpeed.y'),
+    'SizeBySpeedModule.y': _K('mods.sizeBySpeed.y', _flag('SizeBySpeedModule', 'separateAxes')),
+    'SizeBySpeedModule.z': _K('mods.sizeBySpeed.z', _flag('SizeBySpeedModule', 'separateAxes')),
+    'CollisionModule.enabled': _N('the module switch'), 'CollisionModule.type': _N('MODULE_MODES reports type 1 World'),
+    'CollisionModule.m_Planes': _K('mods.collide.planes'), 'CollisionModule.m_Dampen': _K('mods.collide.dampen'),
+    'CollisionModule.m_Bounce': _K('mods.collide.bounce'), 'CollisionModule.m_EnergyLossOnCollision': _K('mods.collide.lifeLoss'),
+    'CollisionModule.minKillSpeed': _K('mods.collide.minKill'), 'CollisionModule.maxKillSpeed': _K('mods.collide.maxKill'),
+    'CollisionModule.radiusScale': _A(1, 'the collision radius scaled (`collide.radius` is carried, not played)'),
+    'CollisionModule.collisionMode': _A(0, '2D collisions'),
+    **{f'CollisionModule.{f}': _N('only with type 1 World (collides with the scene\'s colliders)') for f in (
+        'quality', 'voxelSize', 'maxCollisionShapes', 'collidesWith.m_Bits', 'collidesWithDynamic', 'interiorCollisions',
+        'colliderForce', 'multiplyColliderForceByCollisionAngle', 'multiplyColliderForceByParticleSize',
+        'multiplyColliderForceByParticleSpeed')},
+    'CollisionModule.collisionMessages': _N('script messages'),
+    'SubModule.enabled': _N('the module switch'), 'SubModule.subEmitters[].emitter': _K('mods.sub[].node'),
+    'SubModule.subEmitters[].type': _V('mods.sub[].type', (0,)), 'SubModule.subEmitters[].properties': _K('mods.sub[].props'),
+    'SubModule.subEmitters[].emitProbability': _A(1, 'a sub-emitter fires only sometimes (`sub[].p` is carried, not played)'),
+    # the ParticleSystemRenderer
+    'renderer.m_RenderMode': _V('render.mode', (0, 1, 2, 4, 5)),
+    'renderer.m_RenderAlignment': _V('render.align', (0, 1, 2)),
+    'renderer.m_LengthScale': _K('render.lengthScale'), 'renderer.m_VelocityScale': _K('render.velScale'),
+    'renderer.m_CameraVelocityScale': _A(0, 'a stretch by the camera\'s motion'),
+    'renderer.m_FreeformStretching': _A(False, 'stretched quads not turned to the camera', lambda ps, r: r.get('m_RenderMode') == 1),
+    'renderer.m_RotateWithStretchDirection': _N('only with m_FreeformStretching'),
+    'renderer.m_AllowRoll': _N('billboards that do not roll with the camera: the board\'s camera does not roll'),
+    'renderer.m_NormalDirection': _N('billboard normals for lit materials: the effects are unlit'),
+    'renderer.m_Pivot.x': _K('render.pivot'), 'renderer.m_Pivot.y': _K('render.pivot'), 'renderer.m_Pivot.z': _K('render.pivot'),
+    'renderer.m_Flip.x': _A(0, 'a share of the particles mirrored'), 'renderer.m_Flip.y': _A(0, 'a share of the particles mirrored'),
+    'renderer.m_Flip.z': _A(0, 'a share of the particles mirrored'),
+    'renderer.m_SortingOrder': _K('render.order'), 'renderer.m_SortingFudge': _K('render.fudge'),
+    'renderer.m_SortingLayer': _A(0, 'a sorting layer before or after the default one: draws behind or over everything there'),
+    'renderer.m_SortingLayerID': _N('the layer\'s place is m_SortingLayer'),
+    'renderer.m_SortMode': _A(0, 'particles drawn by distance / age instead of in emission order'),
+    'renderer.m_MaxParticleSize': _N('[ASSUMED] a cap on a billboard\'s share of the screen: the board\'s camera keeps them under it'),
+    'renderer.m_MinParticleSize': _A(0, 'a floor on a billboard\'s share of the screen'),
+    'renderer.m_Mesh': _K('render.mesh', lambda ps, r: r.get('m_RenderMode') == 4),
+    **{f'renderer.m_Mesh{i}': _A(None, 'mesh particles pick one of several meshes', lambda ps, r: r.get('m_RenderMode') == 4) for i in (1, 2, 3)},
+    'renderer.m_MeshDistribution': _N('only with several meshes'),
+    **{f'renderer.m_MeshWeighting{s}': _N('only with several meshes') for s in ('', '1', '2', '3')},
+    'renderer.m_Materials': _K('render.mat'),
+    'renderer.m_UseCustomVertexStreams': _N('checked with the CustomDataModule (particle())'),
+    'renderer.m_VertexStreams': _N('checked with the CustomDataModule (particle())'),
+    'renderer.m_ApplyActiveColorSpace': _N('[ASSUMED] vertex colours converted in a linear-space project'),
+    'renderer.m_Enabled': _N('a disabled renderer is not extracted'),
+    'renderer.m_MaskInteraction': _A(0, 'drawn inside / outside a sprite mask'),
+    'renderer.m_EnableGPUInstancing': _N('how Unity batches mesh particles'), 'renderer.m_MotionVectors': _N('motion vectors'),
+    'renderer.m_GameObject': _N('the owner'), 'renderer.m_DynamicOccludee': _N('occlusion culling'),
+    'renderer.m_RendererPriority': _N('render pipeline ordering'), 'renderer.m_RenderingLayerMask': _N('render pipeline layers'),
+    **{f'renderer.{f}': _N(_LIGHTING) for f in (
+        'm_CastShadows', 'm_ReceiveShadows', 'm_ShadowBias', 'm_StaticShadowCaster', 'm_LightProbeUsage',
+        'm_LightProbeVolumeOverride', 'm_ReflectionProbeUsage', 'm_ProbeAnchor', 'm_LightmapIndex', 'm_LightmapIndexDynamic',
+        'm_LightmapTilingOffset.x', 'm_LightmapTilingOffset.y', 'm_LightmapTilingOffset.z', 'm_LightmapTilingOffset.w',
+        'm_LightmapTilingOffsetDynamic.x', 'm_LightmapTilingOffsetDynamic.y', 'm_LightmapTilingOffsetDynamic.z',
+        'm_LightmapTilingOffsetDynamic.w', 'm_StaticBatchInfo.firstSubMesh', 'm_StaticBatchInfo.subMeshCount',
+        'm_StaticBatchRoot', 'm_RayTraceProcedural', 'm_RayTracingMode')},
+}
+# the vertex streams a Torappu (CustomData) shader reads the player's way (fxplayer.js: custom1 then custom2): Position,
+# Normal, Color, UV, then Custom1XYZW (34) and optionally a Custom2 (35–38)
+CUSTOM_STREAMS = {(0, 1, 3, 4, 34), *((0, 1, 3, 4, 34, k) for k in (35, 36, 37, 38))}
+
+
+def _whole(v):
+    """A type-tree value that is one field (a curve, a gradient, an object reference), not a struct of fields."""
+    return isinstance(v, dict) and any(k in v for k in ('minMaxState', 'm_PathID', 'm_PreInfinity'))
+
+
+def _fields(v, path, out):
+    """{dotted path: [values]} of a type tree, list items under `[]` (one value per item)."""
+    if isinstance(v, dict) and not _whole(v):
+        for k, x in v.items():
+            if k != 'serializedVersion':
+                _fields(x, f'{path}.{k}' if path else k, out)
+    elif isinstance(v, list) and v and isinstance(v[0], dict) and not _whole(v[0]):
+        for x in v:
+            _fields(x, path + '[]', out)
+    else:
+        out.setdefault(path, []).append(v)
+
+
+def _val(v):
+    """A type-tree value to compare with an assumed one: a curve that is one constant → that number (a curve × 0 → 0),
+    another curve → 'curve'; a gradient → 'gradient'; an object reference → 'ref' / None; a list → a tuple."""
+    if isinstance(v, dict) and 'minMaxState' in v:
+        if 'scalar' not in v:
+            return 'gradient'
+        st, s = v.get('minMaxState', 0), v.get('scalar', 0)
+        if st == 0 or s == 0 or (st == 3 and abs(v.get('minScalar', s) - s) < 1e-6):
+            return s
+        return 'curve'
+    if isinstance(v, dict) and 'm_PathID' in v:
+        return 'ref' if v['m_PathID'] else None
+    if isinstance(v, (bytes, list, tuple)):
+        return tuple(_val(x) for x in v)
+    return v
+
+
+def _same(a, b):
+    if isinstance(a, bool) or isinstance(b, bool) or a is None or b is None or isinstance(a, str) or isinstance(b, str):
+        return a == b if not (isinstance(a, (bool, int)) and isinstance(b, (bool, int))) else int(a) == int(b)
+    try:
+        return abs(float(a) - float(b)) < 1e-4
+    except (TypeError, ValueError):
+        return a == b
+
+
 # shape types render/fxplayer.js emits from (the `switch (sh.type)` of its emitter); others fall back to a point
 SHAPES_DRAWN = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 16, 17, 18}
 SHAPE_NAMES = {6: 'Mesh', 13: 'MeshRenderer', 14: 'SkinnedMeshRenderer', 19: 'Sprite', 20: 'SpriteRenderer'}
@@ -196,6 +488,39 @@ KNOWN = {
                                         'leg, a 驮兽 passenger); the view of such an enemy leaves the board (render/app.js) and '
                                         'cannot tell it from a leak: 5 hit effects of 隐德来希 [todo: a view flag for it]'),
     # particle systems
+    # (2026-10-26, effect bundle T) the fields the pipeline does not play, from the first field-level run over the EN client
+    # (2158 prefabs); the note says which open bundle takes them (docs/rules/fx.md 「추출 누락 보고」 「입자 필드」)
+    **{f'field:{w}': (_TODO, f'emission and motion (open): {n}') for w, n in (
+        ('EmissionModule.rateOverDistance ≠ 0', 'particles per unit moved — a system emitting only so draws nothing'),
+        ('prewarm ≠ False', 'a looping system starts empty instead of one cycle in'),
+        ('VelocityModule.orbitalX ≠ 0', 'particles circle the centre'), ('VelocityModule.orbitalY ≠ 0', 'particles circle the centre'),
+        ('VelocityModule.orbitalZ ≠ 0', 'particles circle the centre'), ('VelocityModule.radial ≠ 0', 'speed away from the centre'),
+        ('ShapeModule.arc.mode ≠ 0', 'the arc swept in order'), ('ShapeModule.arc.spread ≠ 0', 'the arc at discrete steps'),
+        ('ShapeModule.arc.value < 360 on a Donut', 'a part of the donut'), ('ShapeModule.donutRadius ≠ 0', 'the donut\'s tube'),
+        ('ShapeModule.length ≠ 0', 'a cone volume emits through its length'), ('ShapeModule.radius.mode ≠ 0', 'an edge in order'),
+        ('ShapeModule.radius.spread ≠ 0', 'an edge at discrete steps'),
+        ('ShapeModule.randomPositionAmount ≠ 0', 'start positions moved at random'),
+        ('ShapeModule.sphericalDirectionAmount ≠ 0', 'start directions outward'),
+        ('ShapeModule.alignToDirection ≠ False', 'particles turned to their start direction'),
+        ('NoiseModule.scrollSpeed ≠ 0', 'the noise field scrolls'), ('NoiseModule.separateAxes ≠ False', 'a strength per axis'),
+        ('NoiseModule.octaves ≠ 1', 'layered noise'), ('NoiseModule.positionAmount ≠ 1', 'how far the noise moves them'),
+        ('NoiseModule.rotationAmount ≠ 0', 'the noise turns them'), ('NoiseModule.sizeAmount ≠ 0', 'the noise scales them'),
+        ('NoiseModule.damping ≠ True', 'the strength not scaled with the frequency'),
+        ('ClampVelocityModule.multiplyDragByParticleSize ≠ False', 'drag by size'),
+        ('ClampVelocityModule.multiplyDragByParticleVelocity ≠ False', 'drag by speed'))},
+    **{f'field:{w}': (_TODO, f'drawing (open): {n}') for w, n in (
+        ('UVModule.rowMode ≠ 0', 'a single-row sheet takes a random row per particle — the player draws row 0'),
+        ('renderer.m_SortMode ≠ 0', 'particles by distance / age'), ('renderer.m_SortingLayer ≠ 0', 'another sorting layer'),
+        ('renderer.m_RenderAlignment = 3', 'Facing billboards'), ('renderer.m_RenderAlignment = 4', 'billboards along the velocity'),
+        ('CustomDataModule on, renderer.m_UseCustomVertexStreams off', 'the shader gets no custom data in Unity'),
+        ('renderer.m_VertexStreams = [0, 1, 3, 4, 37, 38]', 'custom2 in the first custom slot'),
+        ('renderer.m_VertexStreams = [0, 1, 3, 4]', 'custom streams on with no custom stream'),
+        ('renderer.m_Mesh1 ≠ None', 'one of several meshes'), ('renderer.m_Mesh2 ≠ None', 'one of several meshes'),
+        ('renderer.m_Mesh3 ≠ None', 'one of several meshes'), ('renderer.m_FreeformStretching ≠ False', 'stretched quads not facing the camera'),
+        ('renderer.m_Flip.x ≠ 0', 'a share mirrored'), ('TrailModule.textureMode ≠ 0', 'the texture tiles along the trail'),
+        ('TrailModule.dieWithParticles ≠ True', 'the trail outlives its particle'),
+        ('TrailModule.splitSubEmitterRibbons ≠ False', 'a ribbon per parent particle'),
+        ('scalingMode = 2', 'Shape scaling: the parent scale reaches the shape only'))},
     # materials (values: the extracted materials, 2026-10-16)
     'property:Torappu/Particles/Disturb/Disturb Anchor _Weight': (_NONE, 'the toggle behind keyword _WEIGHT_ON, which the player reads (all 198 materials agree)'),
     # clips
@@ -204,6 +529,8 @@ KNOWN = {
     # (2026-10-22) a clip's particle module values, trail length, MeshRenderer switch and FxUVTweener speeds are tracks now
     # (fx_extract.py ANIMATED_VALUES → render/fxplayer.js PS_ANIM / UVT_ANIM); (2026-10-23) also the VelocityModule switch
     # (fx_extract.py clip_modules: the enemies' mcmstr_buff_04_start)
+    'script:CameraEffect': (_NONE, 'only screen_com_poison_04 (the time-out poison screen), which the player never plays: this mode never '
+                           'attaches the buff that shows it (docs/rules/fx.md, 2026-10-25)'),
     'script:EffectImportData': (_NONE, 'import settings (`_importName`, `_resourceName`, `_sortingLayerId`, `_removeTopAnimator` …): '
                                 'no runtime code of the 2026-10-14 EN client refers to the class (2026-10-25)'),
     'script:SyncEffectScaleWithAuraRangeRadius': (_TODO, 'scales the effect with its owner\'s aura ability range (÷ `_effectOriginRadius`): '
@@ -276,7 +603,18 @@ def signature(d):
     if 'face' in d:
         s.add(f"face:rot={d['face']['rot']}")
         s.update(f'face:{k}' for k in d['face'] if k != 'rot')
-    for nd in d['nodes']:
+    nodes = d['nodes']
+
+    def scaled_parent(nd):
+        """(2026-10-26) a node under a scaled parent (where Local scaling drops the parents' scale)."""
+        p = nd.get('parent', -1)
+        while 0 <= p < len(nodes):
+            if any(abs(x - 1) > 1e-3 for x in nodes[p].get('scale') or (1, 1, 1)):
+                return True
+            p = nodes[p].get('parent', -1)
+        return False
+
+    for nd in nodes:
         s.update(f'node:{k}' for k in ('mesh', 'trailR', 'lineR', 'skin', 'uvt', 'uvr', 'delay', 'sdelay') if k in nd)
         if not nd.get('active', True):
             s.add('node:inactive')
@@ -284,6 +622,14 @@ def signature(d):
         if ps:
             s.add(f"ps:render={ps['render']['mode']}")
             s.add(f"ps:space={ps['space']}")
+            # (2026-10-26, effect bundle T) values that change how a field always present is played: a key: feature is on
+            # every system, so it was "verified" by the first checked prefab whatever its value (酒神 S2's Local scaling)
+            s.add(f"ps:scaling={ps.get('scaling', 1)}" + ('@scaledParent' if scaled_parent(nd) else ''))
+            s.add(f"ps:align={ps['render'].get('align', 0)}")
+            if 'uv' in ps['mods']:
+                s.add(f"ps:uv.anim={ps['mods']['uv'].get('anim', 0)}")
+            if 'trail' in ps['mods']:
+                s.add(f"ps:trail.mode={ps['mods']['trail'].get('mode', 0)}")
             if ps.get('shape'):
                 s.add(f"ps:shape={ps['shape']['type']}")
             s.update(f'ps:mod:{m}' for m in ps['mods'])
@@ -386,8 +732,9 @@ class Coverage:
         if not ok:
             self.add('reader', f'{script}: {why or "layout not recognised, nothing read"}')
 
-    def particle(self, ps):
-        """A ParticleSystem type tree."""
+    def particle(self, ps, psr=None):
+        """A ParticleSystem type tree (and its renderer's, when given): the modules, the shape and every field (PS_FIELDS)."""
+        self.particle_fields(ps, psr or {})
         for k, v in ps.items():
             if k.endswith('Module') and isinstance(v, dict) and v.get('enabled') and k not in MODULES_READ:
                 self.add('module', k)
@@ -405,6 +752,44 @@ class Coverage:
                 self.add('shape', f'6 Mesh m_MeshSpawn mode {ms.get("mode")} (vertices / edges in order, not at random)')
             if sh.get('m_MeshNormalOffset', 0) or sh.get('alignToDirection'):
                 self.add('shape', '6 Mesh normal offset / align to direction')
+
+    def particle_fields(self, ps, psr):
+        """(2026-10-26, effect bundle T) the `field` kind: each field of PS_FIELDS whose value the pipeline does not play
+        (an assumed one differs, a value outside the played ones), and each field the table does not classify."""
+        fs = {}
+        for k, v in ps.items():
+            if k.endswith('Module') and isinstance(v, dict):
+                if not v.get('enabled') or k not in MODULES_READ:
+                    continue   # off, or reported whole (the `module` kind)
+                _fields(v, k, fs)
+            elif not k.startswith('_'):
+                _fields(v, k, fs)
+        if psr:
+            _fields(psr, 'renderer', fs)
+        for path, vals in fs.items():
+            rule = PS_FIELDS.get(path)
+            if rule is None:
+                self.add('field', f'{path} (not classified)', f'a field fx_coverage.PS_FIELDS does not know: {_val(vals[0])!r}')
+                continue
+            how, a, b, when = rule
+            if how in ('key', 'none') or (when and not when(ps, psr)):
+                continue
+            for v in map(_val, vals):
+                if how == 'assume' and not _same(v, a):
+                    self.add('field', f'{path} ≠ {a!r}', b)
+                elif how == 'values' and not any(_same(v, x) for x in b):
+                    self.add('field', f'{path} = {v!r}', f'the player handles {sorted(b)} ({a})')
+        cd = ps.get('CustomDataModule') or {}
+        if psr and cd.get('enabled') and 'CustomDataModule' in MODULES_READ:
+            if not psr.get('m_UseCustomVertexStreams'):
+                self.add('field', 'CustomDataModule on, renderer.m_UseCustomVertexStreams off',
+                         'Unity hands the shader no custom data; the player feeds it (mods.custom)')
+            elif _val(psr.get('m_VertexStreams') or ()) not in CUSTOM_STREAMS:
+                self.add('field', f"renderer.m_VertexStreams = {list(_val(psr.get('m_VertexStreams') or ()))}",
+                         f'the player feeds custom1 then custom2: {sorted(map(list, CUSTOM_STREAMS))}')
+        sh = ps.get('ShapeModule') or {}
+        if sh.get('enabled') and sh.get('type') == 17 and not _same(_val((sh.get('arc') or {}).get('value', 360)), 360):
+            self.add('field', 'ShapeModule.arc.value < 360 on a Donut', 'the player\'s donut emits all round')
 
     def material(self, shader, props, tex, values):
         """A material: its shader name, the shader's declared properties [(name, type, defaults)], the textures it sets
