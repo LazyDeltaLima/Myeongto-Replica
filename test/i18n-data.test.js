@@ -110,6 +110,23 @@ test('data/i18n/en.json: shape, the 盟约 season of the EN build, coverage and 
   for (const [zh, en] of Object.entries(OVERLAY.names)) assert.ok(HAN.test(zh) && !HAN.test(en), `${zh} → ${en}`);
 });
 
+test('data/i18n/ko.json is built with our dictionaries (tools/i18n/build-ko-pack.mjs, not build-i18n --lang ko alone): every stage and every 自选 operator has its Korean name', () => {
+  // the KR tables have no stage names of this mode and no CN-only operator (凯尔希·思衡托, 予愿安洁莉娜): only our
+  // dictionaries (public/i18n/ko/manual.json, diy.json) give them; a pack built without them shows these in Chinese
+  const KO = readJson('data/i18n/ko.json');
+  const stages = readJson('data/stages.json');
+  const diyOps = readJson('data/backups.json').diy.operators;
+  assert.ok(Object.keys(stages).length > 0 && Object.keys(diyOps).length > 0);
+  for (const [id, r] of Object.entries(stages)) {
+    const ko = KO.files.stages?.[id]?.name;
+    assert.ok(ko && !HAN.test(ko), `stage ${id} ${r.name}: ${ko}`);
+  }
+  for (const [charId, r] of Object.entries(diyOps)) {
+    const ko = KO.files.backups?.diy?.operators?.[charId]?.name;
+    assert.ok(ko && !HAN.test(ko), `自选 ${charId} ${r.name}: ${ko}`);
+  }
+});
+
 test('data/i18n/en.json matches the current data/*.json: every leaf replaces a Chinese string that still hashes the same', () => {
   // A failure here means data/*.json was rebuilt after the overlay: run `node tools/build-i18n.mjs` (docs/I18N.md).
   for (const [file, fov] of Object.entries(OVERLAY.files)) {
