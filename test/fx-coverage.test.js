@@ -82,8 +82,9 @@ print(json.dumps(sorted(r['what'] + ' ' + r['status'] for r in cov.report() if r
     ]);
   });
 
-  test('component, script and material fields: a switched-off mesh, a random projectile turn, a keyword, the turned nodes', () => {
+  test('component, script and material fields: a random projectile turn, a keyword, the turned nodes', () => {
     // (2026-10-26, effect bundle W1) what the particle check could not see: the other components, the scripts, the materials
+    // (effect bundle W2a: a switched-off MeshRenderer / script and a second material are read now, not reported)
     const rep = py(`
 cov = c.Coverage()
 cov.begin('chen3/chen3_skill_01_start_01')
@@ -107,10 +108,7 @@ cov.turned_nodes(0, {}, ['root', 'rotation_y'])                                 
 print(json.dumps(sorted(r['kind'] + ':' + r['what'] for r in cov.report())))`);
     assert.deepEqual(rep, [
       'component:MeshCollider',
-      'field:FxUVTweener.m_Enabled ≠ 1',
       'field:Material keyword _GLOW_ON',
-      'field:MeshRenderer.m_Enabled ≠ 1',
-      "field:MeshRenderer.m_Materials = ('ref', 'ref')",
       'field:MeshRenderer.m_NewSwitch (not classified)',
       'field:ParticleEffect._rotationY unset, a node named rotation_y',
       'field:ParticleEffect._rotationZ on another node than the first named rotation_z',
@@ -119,6 +117,22 @@ print(json.dumps(sorted(r['kind'] + ':' + r['what'] for r in cov.report())))`);
       'field:TrailRenderer.m_Parameters.alignment = 1',
       'script:#123 _someField',
     ]);
+  });
+
+  test('(2026-10-26, effect bundle W2a) a MeshRenderer without its material is reported only on a node that shows', () => {
+    const rep = py(`
+ex = fe.Extractor.__new__(fe.Extractor)
+nodes = [{'parent': -1}, {'parent': 0, 'active': False}, {'parent': 1}, {'parent': 0, 'active': False}, {'parent': 0}]
+on = {'node': 3, 'prop': f'attr:{fe.crc32("m_IsActive")}', 'type': 1}
+out = {}
+for name, idxs in (('hidden', [1, 2]), ('switched on', [3]), ('active', [4])):
+    ex.cov = c.Coverage()
+    ex.cov.begin('x/' + name)
+    ex.no_material(idxs, nodes, [{'tracks': [on]}])
+    out[name] = [r['what'] for r in ex.cov.report()]
+print(json.dumps(out))`);
+    const what = ['MeshRenderer.m_Materials empty on a node that shows'];
+    assert.deepEqual(rep, { hidden: [], 'switched on': what, active: what });
   });
 
   test('summary: one NOT HANDLED line per new item with its prefabs, one line for the known ones', () => {
@@ -185,9 +199,9 @@ print(json.dumps({k: v and [v['type'], v['pauseWhenInvalid'], v['onlyPauseWhenIn
 import struct
 from types import SimpleNamespace as NS
 class Comp:
-    def __init__(self, sid, body, tree=None):
+    def __init__(self, sid, body, tree=None, on=1):   # the MonoBehaviour header: m_GameObject, m_Enabled (byte 12), m_Script
         self.type = NS(name='MonoBehaviour')
-        self.raw = b'\\0' * 20 + struct.pack('<q', sid) + struct.pack('<i', 0) + body
+        self.raw = b'\\0' * 12 + struct.pack('<i', on) + b'\\0' * 4 + struct.pack('<q', sid) + struct.pack('<i', 0) + body
         self.tree = tree
     def get_raw_data(self): return self.raw
     def read_typetree(self):
@@ -218,6 +232,10 @@ read = {
   'peRaw': ex.root_effect(root(Comp(PE, pe_raw(5, [(9, 0.25)]))))['subs'],
   'fxDelay': ex.root_effect(root(Comp(PE, pe_raw(2, []), pe_tree), Comp(FXD, struct.pack('<f', 0.1), {'_delayTime': 0.15})))['fxDelay'],
   'childDelay': ex.fx_delay(root(Comp(FXD, struct.pack('<f', 0.1)))),
+  'offDelay': [ex.fx_delay(root(Comp(FXD, struct.pack('<f', 0.1), on=0))),   # (2026-10-26) a child's switched off: no OnEnable
+               ex.fx_delay(root(Comp(FXD, b'', {'m_Enabled': 0, '_delayTime': 0.15}))),
+               # the root's: the effect switches it on as it plays
+               ex.root_effect(root(Comp(PE, pe_raw(2, []), pe_tree), Comp(FXD, struct.pack('<f', 0.1), {'m_Enabled': 0, '_delayTime': 0.15})))['fxDelay']],
   'pjTree': ex.projectile_effect(root(Comp(PJ, pj_raw([11]), pj_tree)))['off'],
   'right': ex.right_effect(root(Comp(RIGHT, right_raw('x_buff_R')))),
 }
@@ -235,7 +253,7 @@ for name, go, is_root in (
     ex.check_readers(go, is_root)
     reports[name] = [r['what'] for r in ex.cov.report()]
 print(json.dumps({'read': read, 'reports': reports}))`);
-    assert.deepEqual(r.read, { peTree: 2, peRaw: [[0, 9, 0.25]], fxDelay: 0.15, childDelay: 0.1, pjTree: [11, 12], right: 'x_buff_R' });
+    assert.deepEqual(r.read, { peTree: 2, peRaw: [[0, 9, 0.25]], fxDelay: 0.15, childDelay: 0.1, offDelay: [null, null, 0.15], pjTree: [11, 12], right: 'x_buff_R' });
     assert.deepEqual(r.reports, {
       agree: [],
       noTree: ['ParticleEffect: no type tree: read by raw words, unchecked'],

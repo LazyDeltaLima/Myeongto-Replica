@@ -45,8 +45,9 @@ test('fx_extract.py reads the three scripts and a RectTransform node; the covera
   assert.match(EXTRACT, /out_def\.update\(self\.owner_follow\(root\)\)/);
   assert.match(COVERAGE, /'FollowOwner', 'FollowOwnerRootTileHeight', 'PauseEffectIfNotMove'\}/);
   assert.match(COVERAGE, /COMPONENTS_READ = \{'Transform', 'RectTransform',/);
-  for (const k of ['component:RectTransform', 'script:FollowOwner\'', 'script:FollowOwnerRootTileHeight', 'script:PauseEffectIfNotMove']) {
-    assert.ok(!COVERAGE.includes(`'${k}`), `${k} is read, not a known gap`);
+  // a known gap is a KNOWN entry `'<kind>:<name>': (_TODO …` — the field tables (COMP_FIELDS, COMP_READERS) name the read scripts too
+  for (const k of ['component:RectTransform', 'script:FollowOwner', 'script:FollowOwnerRootTileHeight', 'script:PauseEffectIfNotMove']) {
+    assert.ok(!COVERAGE.includes(`'${k}': (_`), `${k} is read, not a known gap`);
   }
 });
 

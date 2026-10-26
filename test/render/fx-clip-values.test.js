@@ -82,6 +82,33 @@ test('a clip switches a MeshRenderer off and on (m_Enabled)', async () => {
   assert.equal(inst.meshObjs[1].visible, true);
 });
 
+test('(2026-10-26, effect bundle W2a) a switched-off MeshRenderer stays hidden until a clip switches it on; its further materials draw with it', async () => {
+  const THREE = await import('../../public/vendor/three.module.js');
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0], 3));
+  g.setIndex([0, 1, 2, 1, 3, 2]);
+  g.userData.sub = [[0, 3], [3, 3]];   // two sub-meshes, one triangle each
+  const mesh = { mesh: 'g', mat: 'm', order: 0, more: ['m', 'm', 'gone'], off: 1 };
+  const { def, inst } = await make([node('m', 0, { mesh }), node('n', 0, { mesh: { ...mesh, off: undefined }, uvr: [90, 0, 0, 0] })], [
+    { node: 1, prop: 'mr:enabled', type: 23, curves: [step(1)] },
+    { node: 2, prop: 'mat:_Opacity', type: 23, curves: [step(0.25)] },
+  ], { geoms: { g }, materials: { m: { shader: 'Torappu/Particles/Disturb/Disturb(CustomData)', tex: { _MainTex: { img: 't', tiling: [1, 1], offset: [0, 0] } }, floats: {}, colors: {} } } });
+  inst.update(1 / 30);
+  const [m1, m2] = [inst.meshObjs[1], inst.meshObjs[2]];
+  assert.equal(m1.visible, false, 'switched off at the start');
+  assert.equal(m2.visible, true);
+  // material j draws sub-mesh min(j, 1): the first [0, 3], the second [3, 3], the third the last one again; a missing one none
+  assert.deepEqual([m2, ...m2.children].map((c) => [c.geometry.drawRange.start, c.geometry.drawRange.count]), [[0, 3], [3, 3], [3, 3]]);
+  assert.equal(inst.meshMore[2].length, 2);
+  for (let i = 0; i < 40; i++) inst.update(1 / 30);
+  assert.equal(m1.visible, true, 'the clip switches it on');
+  assert.deepEqual([m2, ...m2.children].map((c) => c.material.uniforms.uOpacity.value), [0.25, 0.25, 0.25], 'the clip value reaches every material');
+  assert.ok(inst.meshMatList.length === 6, 'every material is timed, cut at the floor and disposed');
+  // FxUVRotation writes the renderer's property block: every material turns (a shader with the rotation variant)
+  assert.deepEqual([m2, ...m2.children].map((c) => c.material.uniforms.uUVRot?.value), [true, true, true]);
+  assert.equal(def.nodes[1].mesh.off, 1, 'the shared definition is untouched');
+});
+
 test('a clip moving an FxUVTweener speed: the offset sums speed × time frame by frame', async () => {
   const { inst } = await make([node('p', 0, { ps: sys({ rate: mm(10) }), uvt: { maps: [['_MainTex', 0.2, 0]] } })], [
     { node: 1, prop: 'uvt:xspeed', type: 114, curves: [ramp(1)] },   // xspeed = t → offset 2 · t² / 2 = t²

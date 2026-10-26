@@ -2933,6 +2933,30 @@
     `_maxLifetime` 11 / 6, `_isLoop` 857 / 253(같은 키 반복 이펙트를 한 자리에 3개까지 — 겹칠 때만), FollowMountPoint `_followScale` 23 / 10 등, 멈춤 조건
     `immune` 11 / 4, `useSharedMaterial` 51 / 5 [추정: 같은 재질끼리 한 오프셋], 트레일 정렬 TransformZ 2·텍스처 방식 DistributePerSegment 7, 다른 층(0)의 노드 4,
     동적 선 플래그 7종, 정렬 레이어(MeshRenderer 11 / 1·TrailRenderer 2 — 「그리기」 todo).
+- **꺼진 컴포넌트·재질 여럿 — 공식처럼 (2026-10-26, 위 todo의 첫 묶음)**: 위 전수에서 「보이는 것」을 고침. 수는 운영자 / 적 프리팹.
+  - **꺼진 MeshRenderer**(`m_Enabled` 0, 11 / 0): 추출이 `nodes[].mesh.off` 1을 쓰고 플레이어가 숨김 — 클립의 `mr:enabled` 트랙이 켜면 보인다. 공식
+    클라에서 확인: 이 11개 프리팹의 어느 클립도 그 렌더러의 `m_Enabled`를 움직이지 않음(대개 클립이 켜는 꺼진 노드 위 — 노드만 켜지고 렌더러는 꺼진 채). 보이던
+    차이: 첸 더 던스트릭 S1 시작 `dao_di_dm`, 라플란드 더 데카덴차 S1·S2·S3 시작의 첫 베기 `lap_s*slash01`(자식 베기는 켜져 있어 그대로), 무에나 S2 시작
+    망치 메시 5개·S3 버프 `piao_dm`·`swirl_03d3_dm`, 노시스 S2 범위 `002`(노드도 꺼짐). 스크립트도 안 켠다(공식 클라에서 확인, 2026-10-26): 이펙트 쪽에서
+    렌더러를 켜는 것은 멈춤 조건 `PauseEffectIf._disableMeshRendererWhenPause`와 `FxLODSetting.RevertToHighDetail`(그 `_disableObjects`)뿐인데 이 11개
+    프리팹엔 둘 다 없고, 켜진 Lua 핫픽스 목록에도 이펙트 것이 없다.
+  - **꺼진 스크립트**: Unity는 꺼진 Behaviour의 `OnEnable`·`Update`를 부르지 않으므로 추출이 읽지 않는다 — 자식의 FxDelay(위셔델 S2 시작·과부하 시작의
+    가지 둘: 늦춤 없이 바로), FxUVTweener·FxUVTweenerAdvance(24 / 7, 그중 흐름 속도가 있던 22 / 7: 케이퍼·그레인버즈·루실라·인사이더·언더플로우·벤델라·
+    라플란드 더 데카덴차의 투사체 꼬리, 무에나 S3 버프, 미즈키 S3 시작, 적 투사체 꼬리 — 텍스처가 흐르지 않고 재질의 오프셋 그대로), FxUVRotation(비나
+    빅토리아 S1·쏜즈 더 로드스타 S3 소환물 — 안 돌아감). 꺼진 Animator·Animation은 클립을 안 읽음(에이야퍄들라 더 크비트 아스카 S3 무기: 나무가 0.83초
+    동안 녹아 나오지 않고 바로 보임) [화면 미확인]. 공식 클라에서 확인(2026-10-26): 이펙트 코드가 켜는 Behaviour는 루트의 FxDelay 하나 —
+    `Effect.Awake`가 루트 자기 것만 쥐고 `Effect.OnBeforePlay`가 재생 때 켬(`OnEnable`에서 끔) — 이라 **루트의 FxDelay는 꺼져 있어도 늦춘다**(추출이 그대로
+    읽음; 지금 꺼진 루트 FxDelay는 없음). Animator·UV 스크립트를 켜는 이펙트 코드는 없고(무기 Animator를 건드리는 오퍼레이터 전용 코드도 없음), 클립
+    트랙·켜진 Lua 핫픽스도 없다.
+  - **재질 여럿**: Unity는 렌더러의 재질 i를 부분 메시 min(i, 부분 메시 수 − 1)로 그린다 — 메시 파일 `sub`(부분 메시가 둘 이상일 때 각각 [첫 인덱스,
+    인덱스 수]), 노드 `mesh.more`(둘째 재질부터, 빈 칸은 null). 미즈키 S3 시작의 메시 9개(부분 메시 하나에 재질 둘 — 같은 메시를 둘째 재질로 한 번 더)
+    [화면 미확인]; 노시스 S2 범위 `001`·`004`는 부분 메시 둘에 같은 재질 둘이라 보이는 차이 없음. 더 그리는 것은 첫 메시의 자식이라 렌더러 스위치·앞뒤 층을
+    같이 따르고, 클립의 재질 값(`mat:`)은 렌더러의 재질 전부에 간다(Unity 애니메이터는 렌더러의 속성 블록에 씀). 공식 클라에서 확인(2026-10-26):
+    FxUVTweener·FxUVTweenerAdvance는 첫 재질만 움직임(`activeMaterial` = `useSharedMaterial`이면 공유 재질, 아니면 `Renderer.materials`의 첫 칸),
+    FxUVRotation은 렌더러의 속성 블록에 칸 번호 없이 써서(`Renderer.SetPropertyBlock`) 재질 전부 — 플레이어도 메시의 `more`·입자 꼬리 재질까지 돌린다.
+  - **재질 없는 MeshRenderer**(4 / 1: 클레멘티아 S3 버프 둘·노시스 S3 버프·패신저 S2 버프, 적 공격 하나): 전부 꺼진 노드 위이고 켜는 클립이 없어 공식도
+    아무것도 안 그린다 — 화면 확인 불필요. 보이는 노드(켜져 있거나 클립이 켜는)에 생기면 `field` 「MeshRenderer.m_Materials empty on a node that shows」로
+    보고(`fx_extract.py no_material`).
 - 기준선의 큰 todo(비공개 조사 기록에 전체 목록): ~~`FollowDirection` 183개~~(2026-10-22 읽음 — 위 「이펙트 방향」) · ~~셰이더 `_CullMode`·`_ZWrite`·Disturb
   Origin `_SrcBlend`·`InheritVelocityModule`·`CollisionModule`·`SizeBySpeedModule`·Unity 기본 입자 재질·레거시 셰이더~~(2026-10-22 — 위 「입자 모듈·셰이더
   패스 상태」) · ~~`FxLODSetting` 37~~(2026-10-23 — 아래 「저사양 이펙트 — FxLODSetting」) · Shape Mesh 36(점으로 대체) · 기본 상태 밖 Animator 클립 23 · 클립이 움직이는 입자 모듈 값·트레일 길이·UV 흐름 속도(`EmptyEffect`·`OnPlayEmitter` /

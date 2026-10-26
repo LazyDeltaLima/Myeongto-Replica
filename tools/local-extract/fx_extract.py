@@ -887,11 +887,16 @@ class Extractor:
             pos = [r4(v) for vtx in h.m_Vertices for v in vtx] if h.m_Vertices and isinstance(h.m_Vertices[0], (list, tuple)) else [r4(v) for v in (h.m_Vertices or [])]
             uv = [r4(v) for vtx in (h.m_UV0 or []) for v in (vtx if isinstance(vtx, (list, tuple)) else [vtx])]
             col = [r4(v) for vtx in (h.m_Colors or []) for v in (vtx if isinstance(vtx, (list, tuple)) else [vtx])]
-            idx = [i for tri in h.get_triangles() for face in ([tri] if isinstance(tri[0], int) else tri) for i in face]
+            subs = [[i for face in sm for i in face] for sm in h.get_triangles()]
         except Exception as ex:
             print(f'[fx] mesh {key}: {ex}')
             return None
+        idx = [i for sm in subs for i in sm]
+        if not idx:   # an empty mesh (mostma fangkuai): nothing to draw
+            return None
         data = {'pos': pos, 'uv': uv, 'idx': idx}
+        if len(subs) > 1:   # (2026-10-26, effect bundle W2a) each sub-mesh's [first index, index count] (a MeshRenderer's `more`)
+            data['sub'] = [[sum(map(len, subs[:k])), len(sm)] for k, sm in enumerate(subs)]
         if col:
             data['col'] = col
         if skin:
@@ -908,7 +913,8 @@ class Extractor:
             data.update(bi=bi, bw=bw, bind=bind)
         p = out / 'mesh' / (key + '.json')
         p.parent.mkdir(parents=True, exist_ok=True)
-        if not p.exists() and not self.dry:   # 2026-10-10: the same key is the same mesh — a shared file is never rewritten
+        # 2026-10-10: the same key is the same mesh — a shared file is never rewritten (2026-10-26: but once for its `sub`)
+        if not self.dry and (not p.exists() or ('sub' in data and '"sub"' not in p.read_text())):
             p.write_text(json.dumps(data, separators=(',', ':')))
         self.meshes[key] = key
         return key
@@ -998,6 +1004,7 @@ class Extractor:
         self.gobjs = {}   # node index -> GameObject (clip bindings named by their component, fx_coverage)
         animators = []
         skinned = []
+        no_mat = []   # nodes whose MeshRenderer has no material
         pss = {}   # ParticleSystem path id -> node (sub emitters)
 
         gos = {}
@@ -1051,10 +1058,11 @@ class Extractor:
                     node['_mr'] = comp
                 elif t == 'MeshFilter':
                     node['_mf'] = comp
-                elif t == 'Animator':
-                    animators.append((idx, comp))
-                elif t == 'Animation':
-                    animators.append((idx, comp))   # legacy (animator_clips → legacy_clips)
+                elif t in ('Animator', 'Animation'):
+                    # (2026-10-26, effect bundle W2a) a switched-off one plays nothing (纯烬艾雅法拉 S3's weapon:
+                    # its tree shows at once instead of dissolving in) — no script of the client switches it on (enabled)
+                    if self.enabled(comp):
+                        animators.append((idx, comp))   # Animation: legacy (animator_clips → legacy_clips)
                 elif t == 'SkinnedMeshRenderer':
                     skinned.append((idx, comp))     # its bones are resolved once the whole tree is walked (skin)
                 elif t == 'TrailRenderer':
@@ -1120,10 +1128,21 @@ class Extractor:
                 mr = node.pop('_mr').read_typetree()
                 mf = node.pop('_mf')
                 mo = self.mesh_ref(mf.read_typetree()['m_Mesh'], mf)
-                mat = self.resolve(mr['m_Materials'][0], node.get('_ctx', mf)) if mr.get('m_Materials') else None
-                if mo is not None and mat is not None:
-                    node['mesh'] = {'mesh': self.mesh(mo, out), 'mat': self.material(mat, out, mats),
+                ms = [self.resolve(m, node.get('_ctx', mf)) for m in mr.get('m_Materials') or []]
+                if mo is not None and ms and ms[0] is not None:
+                    node['mesh'] = {'mesh': self.mesh(mo, out), 'mat': self.material(ms[0], out, mats),
                                     'order': mr.get('m_SortingOrder', 0)}
+                    # (2026-10-26, effect bundle W2a) Unity draws material i with sub-mesh min(i, sub-meshes − 1): the mesh
+                    # file's `sub` ranges, and a second material on a one-part mesh draws it once more (水月 S3 start) —
+                    # `more` = the materials after the first, null for an empty slot
+                    if len(ms) > 1:
+                        node['mesh']['more'] = [self.material(m, out, mats) if m is not None else None for m in ms[1:]]
+                    # a switched-off renderer draws nothing until a clip switches it on (`mr:enabled`) — no script of the
+                    # client turns these on (enabled; 赤刃明霄陈 S1 dao_di_dm, 荒芜拉普兰德's slashes)
+                    if not mr.get('m_Enabled', 1):
+                        node['mesh']['off'] = 1
+                elif mo is not None and ms:
+                    no_mat.append(idx)   # checked once the clips are read (no_material)
             node.pop('_mr', None)
             node.pop('_mf', None)
             if tr:
@@ -1150,6 +1169,7 @@ class Extractor:
         for aidx, anim in animators:
             clips.extend(self.animator_clips(anim, aidx, nodes, paths, mats, len(clips), sms))
         clip_modules(nodes, clips)
+        self.no_material(no_mat, nodes, clips)
         dur = 0
         for n in nodes:
             ps = n.get('ps')
@@ -1225,6 +1245,40 @@ class Extractor:
         if fly:
             out_def['fly'] = fly
         return out_def
+
+    @staticmethod
+    def enabled(comp, t=None, raw=None):
+        """(2026-10-26, effect bundle W2a) whether a Behaviour / Renderer component is switched on (`m_Enabled`; a
+        MonoBehaviour without a type tree: its raw byte 12, after the m_GameObject pointer). A switched-off script runs no
+        OnEnable / Update. Official client: the effect code switches on only the root's FxDelay (`Effect.OnBeforePlay`,
+        root_effect), a MeshRenderer only through `PauseEffectIf._disableMeshRendererWhenPause` and
+        `FxLODSetting.RevertToHighDetail` (its `_disableObjects`), an Animator through none; no prefab with a switched-off
+        one has either script, and no clip track switches one on."""
+        if t is None and raw is None:
+            try:
+                t = comp.read_typetree()
+            except Exception:
+                raw = comp.get_raw_data()
+        if t is not None:
+            return bool(t.get('m_Enabled', 1))
+        return len(raw) < 13 or raw[12] != 0
+
+    def no_material(self, idxs, nodes, clips):
+        """(2026-10-26, effect bundle W2a) a MeshRenderer whose material slot is empty (`idxs`) is reported only on a node
+        that shows — active, or switched on by a clip: every one so far (克莱门莎 S3 buff, 灵知 S3 buff, 异客 S2 buff, an
+        enemy's attack) sits on an inactive node no clip switches on, so the client draws nothing there either; what Unity
+        draws for an empty slot that shows is not checked."""
+        on = {t['node'] for c in clips for t in c['tracks'] if t['type'] == 1 and t['prop'] == f'attr:{crc32("m_IsActive")}'}
+        for i in idxs:
+            k, shows = i, True
+            while k >= 0:
+                if not nodes[k].get('active', True) and k not in on:
+                    shows = False
+                    break
+                k = nodes[k]['parent']
+            if shows:
+                self.cov.add('field', 'MeshRenderer.m_Materials empty on a node that shows',
+                             'the extract draws nothing; what the client draws there is not checked')
 
     def monos(self, go):
         """(2026-10-20) the GameObject's MonoBehaviours as (MonoScript PathID or None, raw bytes, type tree or None when it
@@ -1772,6 +1826,8 @@ class Extractor:
             if sid == FXDELAY_SCRIPT:
                 v = self.fx_delay_tree(t) if t is not None else self.fx_delay_raw(raw)
                 if v is not None:
+                    # (2026-10-26, official client) switched off or not: `Effect.Awake` keeps the root's own FxDelay and
+                    # `Effect.OnBeforePlay` switches it on as the effect plays (a child's switched-off one stays off: fx_delay)
                     delay = v['delay']
                     continue
             if pe is None:
@@ -1847,7 +1903,7 @@ class Extractor:
         rounded; None without one or ≤ 0. 텍사스 디 오메르토사 S2 texas2_birth_02_start: its four slashes 0 / 0.1 / 0.15 / 0.3.
         (2026-10-20) By its field name, the raw word without a type tree."""
         for sid, raw, t in self.monos(go):
-            if sid != FXDELAY_SCRIPT:
+            if sid != FXDELAY_SCRIPT or not self.enabled(None, t, raw):   # (2026-10-26) switched off: no OnEnable (위셔델 S2)
                 continue
             v = self.fx_delay_tree(t) if t is not None else self.fx_delay_raw(raw)
             if v is not None:
@@ -1968,6 +2024,8 @@ class Extractor:
                 continue
             if 'xspeed' not in t or 'secondMapName' not in t:
                 continue
+            if not t.get('m_Enabled', 1):   # (2026-10-26, effect bundle W2a) switched off: no Update (跃跃's trails, 水月 S3 start)
+                return None
             # (2026-10-22, official client) the offset each frame keeps only its fraction (x − floorf(x)): FxUVTweener's
             # `_MainTex` with `protectMainUV`, its second map with `protectSecondUV` (`Update`), every map of
             # an Advance with `tweenRepeat` — the same on a repeating texture, not on a Clamp one (tex/wrap.json):
@@ -2012,6 +2070,8 @@ class Extractor:
                 continue
             if '_rotateTex1' not in t or '_propertyName' not in t:
                 continue
+            if not t.get('m_Enabled', 1):   # (2026-10-26, effect bundle W2a) switched off: no Update (深巡 S2 buff)
+                return None
             if t.get('_propertyName') != '_Rotation':
                 print(f"[fx] FxUVRotation {d['m_Name']}: property {t.get('_propertyName')!r} skipped")
                 return None

@@ -228,6 +228,7 @@ function writeTrack(b, v) {
     case 'visible': b.m.visible = v[0] > 0.5; break; // 2026-10-22: MeshRenderer.m_Enabled
     default: b.u.value = v[0];
   }
+  if (b.also) for (const a of b.also) writeTrack(a, v);   // (2026-10-26) the renderer's further materials
 }
 
 /**
@@ -796,6 +797,7 @@ export class FxLibrary {
           g.setAttribute('vcol', new THREE.Float32BufferAttribute(mx > 1.001 ? d.col.map((v) => v / 255) : d.col, 4));
         }
         // 2026-10-14: a skinned mesh's 4 bone indices / weights per vertex and its bones' bind poses (FxInstance n.skin)
+        if (d.sub?.length > 1) g.userData.sub = d.sub;   // (2026-10-26) each sub-mesh's [first index, index count]
         if (d.bi?.length === nv * 4 && d.bw?.length === nv * 4 && d.bind?.length) {
           g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(d.bi, 4));
           g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(d.bw, 4));
@@ -1915,6 +1917,7 @@ export class FxInstance {
     this.systems = [];
     this.meshMats = [];
     this.meshObjs = [];   // 2026-10-22: a node's MeshRenderer object (a clip's `mr:enabled`)
+    this.meshMore = [];   // (2026-10-26) a node's further MeshRenderer materials (n.mesh.more)
     this.trails = [];
     this.lines = [];   // local patch: LineRenderers
     this.emitters = []; // 2026-10-21: RandomEmitter nodes ({ o, rec: node `emit`, next }) — render/fxgame.js plays their copies
@@ -1966,26 +1969,43 @@ export class FxInstance {
       const mr = n.mesh || n.skin;
       const src = mr && def.geoms[mr.mesh];
       if (src && (!n.skin || src.userData.bind)) {
-        const mat = meshSide(makeMaterial(def.materials[mr.mat], def.lib));
-        mat.uniforms.uMode.value = 4;
-        const g = new THREE.InstancedBufferGeometry();
-        g.index = src.index;
-        g.setAttribute('position', src.getAttribute('position'));
-        if (src.getAttribute('uv')) g.setAttribute('uv', src.getAttribute('uv'));
-        if (n.skin) { g.setAttribute('skinIndex', src.getAttribute('skinIndex')); g.setAttribute('skinWeight', src.getAttribute('skinWeight')); }
-        useMeshAttrs(g, src, mat); // local patch
-        const one = (name, v) => g.setAttribute(name, new THREE.InstancedBufferAttribute(new Float32Array(v), v.length));
-        one('iPos', [0, 0, 0]); one('iSize', [1, 1, 1]); one('iRot', [0, 0, 0]); one('iColor', [1, 1, 1, 1]);
-        one('iC1', [0, 0, 0, 0]); one('iC2', [0, 0, 0, 0]); one('iUV', [0, 0, 1, 1]); one('iVel', [0, 0, 0]);
-        g.instanceCount = 1;
-        const mesh = n.skin ? new THREE.SkinnedMesh(g, mat) : new THREE.Mesh(g, mat);
-        mesh.frustumCulled = false;
-        mesh.renderOrder = mr.order || 0;
+        // (2026-10-26, effect bundle W2a) material j draws sub-mesh min(j, sub-meshes − 1) (the mesh file's `sub`)
+        const sub = src.userData.sub;
+        const draw = (key, j) => {
+          const mat = meshSide(makeMaterial(def.materials[key], def.lib));
+          mat.uniforms.uMode.value = 4;
+          const g = new THREE.InstancedBufferGeometry();
+          g.index = src.index;
+          if (sub) g.setDrawRange(...sub[Math.min(j, sub.length - 1)]);
+          g.setAttribute('position', src.getAttribute('position'));
+          if (src.getAttribute('uv')) g.setAttribute('uv', src.getAttribute('uv'));
+          if (n.skin) { g.setAttribute('skinIndex', src.getAttribute('skinIndex')); g.setAttribute('skinWeight', src.getAttribute('skinWeight')); }
+          useMeshAttrs(g, src, mat); // local patch
+          const one = (name, v) => g.setAttribute(name, new THREE.InstancedBufferAttribute(new Float32Array(v), v.length));
+          one('iPos', [0, 0, 0]); one('iSize', [1, 1, 1]); one('iRot', [0, 0, 0]); one('iColor', [1, 1, 1, 1]);
+          one('iC1', [0, 0, 0, 0]); one('iC2', [0, 0, 0, 0]); one('iUV', [0, 0, 1, 1]); one('iVel', [0, 0, 0]);
+          g.instanceCount = 1;
+          const mesh = n.skin ? new THREE.SkinnedMesh(g, mat) : new THREE.Mesh(g, mat);
+          mesh.frustumCulled = false;
+          mesh.renderOrder = mr.order || 0;
+          mat.userData.t0 = t0[i];
+          return mesh;
+        };
+        const mesh = draw(mr.mat, 0);
         o.add(mesh);
         if (n.skin) skins.push({ mesh, skin: n.skin, bind: src.userData.bind });
-        this.meshMats[i] = mat;
+        this.meshMats[i] = mesh.material;
         this.meshObjs[i] = mesh;
-        mat.userData.t0 = t0[i];
+        // the renderer's further materials (fx_extract.py `more`; 水月 S3 start draws its mesh twice): copies under the
+        // first, so its switch hides them with it
+        n.mesh?.more?.forEach((key, k) => {
+          if (!def.materials[key]) return;
+          const m = draw(key, k + 1);
+          mesh.add(m);
+          (this.meshMore[i] ||= []).push(m.material);
+        });
+        // (2026-10-26) a switched-off MeshRenderer draws nothing until a clip switches it on (`mr:enabled`)
+        if (n.mesh?.off) mesh.visible = false;
       }
     });
     // Unity skins in world space: Σ weight · bone.localToWorld · bindpose · vertex — the renderer's own transform is not used.
@@ -2020,7 +2040,11 @@ export class FxInstance {
       if (n.uvr) {   // 2026-10-14: FxUVRotation, the same renderer
         const o = this.nodes[i];
         const sys = this.systems.find((s) => s.node === o), ln = this.lines.find((t) => t.node === o), tr = this.trails.find((t) => t.node === o);
-        uvRotation(this.meshMats[i] || sys?.material || ln?.batch.material || tr?.batch.material, n.uvr);
+        // (2026-10-26, official client) it writes the renderer's property block with no index: every material of it — a
+        // mesh's further ones (n.mesh.more), a particle system's trail
+        const mats = this.meshMats[i] ? [this.meshMats[i], ...(this.meshMore[i] || [])]
+          : sys ? [sys.material, sys.trailBatch?.material] : [ln?.batch.material || tr?.batch.material];
+        for (const m of mats) uvRotation(m, n.uvr);
       }
     });
     // 2026-10-14: sub emitters (fx_extract.py `mods.sub`, all Birth): the target system emits from each of this system's particles
@@ -2043,7 +2067,7 @@ export class FxInstance {
     this.sms = (def.sms || []).map((d, k) => this.newSm(d, k));
     const first = new Set(this.sms.map((m) => m.d.states[m.d.def]?.clip));
     this.clipLen = this.clips.reduce((m, c, i) => (c.sm == null || first.has(i) ? Math.max(m, c.len || 0) : m), 0);
-    this.meshMatList = this.meshMats.filter(Boolean);
+    this.meshMatList = [...this.meshMats, ...this.meshMore.flat()].filter(Boolean);
     // local patch: the floor cut and the per-renderer layers
     if (opts.floor !== null) {
       // every material that tests depth loses what lies under the floor (FxInstance opts.floor), as the client's opaque map
@@ -2079,7 +2103,8 @@ export class FxInstance {
           // around the unit (a dome / shell, > WRAP_H tall) is in front — the client sorts order 0 by distance; a flat
           // ground decal stays behind
           const order = (n.mesh || n.skin).order || 0;
-          if (mesh) put(mesh, back ? back(order) : order > 0 || (!order && wrapsUnit(mesh, this.object)));
+          const front = mesh && (back ? back(order) : order > 0 || (!order && wrapsUnit(mesh, this.object)));
+          if (mesh) for (const m of [mesh, ...mesh.children.filter((c) => c.isMesh)]) put(m, front);
         }
       });
       // local patch (opts.ahead, maintainer report 2026-10-08: the elite glow's gold band covers the legs in the game; every split
@@ -2201,12 +2226,18 @@ export class FxInstance {
     if (!mat) return null;
     const [name, comp0] = tr.prop.slice(4).split('.');
     const uname = CLIP_UNIFORM[name] || CLIP_COMP[name]?.[0], comp = comp0 || CLIP_COMP[name]?.[1];
-    if (/^_Anchor/.test(name) && mat.uniforms.uDisMode?.value !== 2) return null;   // only Disturb Anchor declares them
-    const u = mat.uniforms[uname];
-    if (!u) return null;
-    if (mat.userData.uvt) mat.userData.uvt = mat.userData.uvt.filter((e) => e.u !== u); // uvTween: the clip's property block wins
-    const k = uname === 'uTint' ? 2 : 1;   // the material tint carries the shaders' ×2 (makeMaterial)
-    return comp ? { tr, o, kind: 'matComp', u, axis: CLIP_AXIS[comp], k, len } : { tr, o, kind: 'mat', u, len };
+    const one = (m) => {
+      if (/^_Anchor/.test(name) && m.uniforms.uDisMode?.value !== 2) return null;   // only Disturb Anchor declares them
+      const u = m.uniforms[uname];
+      if (!u) return null;
+      if (m.userData.uvt) m.userData.uvt = m.userData.uvt.filter((e) => e.u !== u); // uvTween: the clip's property block wins
+      const k = uname === 'uTint' ? 2 : 1;   // the material tint carries the shaders' ×2 (makeMaterial)
+      return comp ? { tr, o, kind: 'matComp', u, axis: CLIP_AXIS[comp], k, len } : { tr, o, kind: 'mat', u, len };
+    };
+    // (2026-10-26) the renderer's property block reaches each of its materials (n.mesh.more)
+    const all = [mat, ...(mat === this.meshMats[tr.node] ? this.meshMore[tr.node] || [] : [])].map(one).filter(Boolean);
+    if (all.length > 1) all[0].also = all.slice(1);
+    return all[0] || null;
   }
 
   /** local patch: whether layer k (0, or FX_BACK / FX_FRONT of a split instance) has a renderer of this effect. */
@@ -2534,7 +2565,7 @@ export class FxInstance {
     for (const s of this.systems) s.dispose();
     for (const t of this.trails) t.dispose();
     for (const t of this.lines) t.dispose(); // local patch
-    for (const m of this.meshMats) m?.dispose();
+    for (const m of this.meshMatList || this.meshMats) m?.dispose();
     for (const sk of this.skeletons || []) sk.dispose();
     this.object.removeFromParent();
     const i = live.indexOf(this);

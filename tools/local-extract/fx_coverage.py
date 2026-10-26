@@ -417,8 +417,10 @@ COMP_FIELDS = {
                                        for f in ('m_AnchorMin', 'm_AnchorMax', 'm_AnchoredPosition', 'm_SizeDelta', 'm_Pivot')
                                        for a in 'xy'}},
     'MeshRenderer': {**_RENDERER_COMMON,
-                     'm_Enabled': _A(1, 'a switched-off MeshRenderer is drawn (a clip that switches it on is a track)'),
-                     'm_Materials': _V('nodes[].mesh.mat', _ONE_MAT), 'm_SortingOrder': _K('nodes[].mesh.order'),
+                     'm_Enabled': _K('nodes[].mesh.off'),   # (2026-10-26, effect bundle W2a) hidden until a clip's `mr:enabled`
+                     # material j draws sub-mesh min(j, sub-meshes − 1) (`more`, the mesh's `sub`); an empty first slot is
+                     # reported on a node that shows (fx_extract.py no_material)
+                     'm_Materials': _K('nodes[].mesh.more'), 'm_SortingOrder': _K('nodes[].mesh.order'),
                      'm_AdditionalVertexStreams': _A(None, 'vertex streams added per renderer (baked colours)')},
     'MeshFilter': {'m_GameObject': _N('the owner'), 'm_Mesh': _K('nodes[].mesh.mesh')},
     'SkinnedMeshRenderer': {**_RENDERER_COMMON, 'm_Enabled': _R('a switched-off one is not extracted (skin)'),
@@ -441,7 +443,7 @@ COMP_FIELDS = {
                      **{f'm_Positions[].{a}': _K('nodes[].lineR.pts') for a in 'xyz'},
                      'm_UseWorldSpace': _K('nodes[].lineR.world'), 'm_Loop': _K('nodes[].lineR.loop')},
     'Animator': {'m_GameObject': _N('the owner'), 'm_Controller': _R('its clips and states are the tracks (animator_clips)'),
-                 'm_Enabled': _A(1, 'a switched-off Animator plays nothing in the client; the extract plays its clips'),
+                 'm_Enabled': _R('a switched-off Animator plays nothing: its clips are not read (prefab)'),
                  'm_Avatar': _N('the effect clips bind by path, not by an avatar'),
                  'm_CullingMode': _A(0, 'stops animating off screen'), 'm_UpdateMode': _A(0, 'animates on unscaled time / physics'),
                  'm_ApplyRootMotion': _A(False, 'root motion'), 'm_KeepAnimatorStateOnDisable': _A(False, 'the state kept when switched off'),
@@ -451,7 +453,7 @@ COMP_FIELDS = {
                  'm_WriteDefaultValuesOnDisable': _N('what a switched-off Animator leaves')},
     'Animation': {'m_GameObject': _N('the owner'), 'm_Animation': _R('the default clip, the one track (legacy_clips)'),
                   'm_PlayAutomatically': _R('without it nothing plays (legacy_clips)'), 'm_WrapMode': _K('clips[].loop'),
-                  'm_Enabled': _A(1, 'a switched-off Animation plays nothing in the client; the extract plays its clip'),
+                  'm_Enabled': _R('a switched-off Animation plays nothing: its clip is not read (prefab)'),
                   'm_Animations': _N('its other clips: only a script plays them'),
                   'm_CullingType': _N('[ASSUMED] off-screen culling: the effects are on screen'),
                   'm_AnimatePhysics': _A(False, 'animates in the physics step')},
@@ -496,7 +498,7 @@ COMP_FIELDS = {
         '_rotate180Y': _A(0, 'the projectile turned 180° about y'),
         '_flipIfLeft': _A(0, 'the projectile mirrored when it flies left'), '_inactiveOnHit': _A((), 'nodes switched off on a hit')},
     'script:EmptyEffect': {**_EFFECT_BASE, '_delayToFinish': _K('finish')},
-    'script:FxDelay': {'m_Enabled': _A(1, _OFF + ' — FxDelay acts in OnEnable'), '_delayTime': _K('nodes[].delay')},
+    'script:FxDelay': {'m_Enabled': _R('a switched-off child FxDelay delays nothing (it acts in OnEnable); the root\'s is switched on as the effect plays'), '_delayTime': _K('nodes[].delay')},
     'script:FollowMountPoint': {
         'm_Enabled': _A(1, _OFF), '_mountPointType': _K('mount.type'), '_followScaleSign': _K('mount.followScaleSign'),
         '_followScale': _A(0, 'the effect takes its point\'s scale (`mount.followScale` is carried, not played)'), '_pauseWhenMountPointInvalid': _K('mount.pauseWhenInvalid'),
@@ -505,7 +507,7 @@ COMP_FIELDS = {
         '_pauseWhenFollowScaleNearlyZero': _A(0, 'paused while its point\'s scale is nearly zero'),
         '_scaleMultiplier': _A(1, 'the point\'s scale multiplied [ASSUMED from its name: a newer field of the CN client]', lambda t, _: bool(t.get('_followScale')))},
     **{f'script:{c}': {
-        'm_Enabled': _A(1, _OFF + ' — FxUVTweener moves the offsets in Update'),
+        'm_Enabled': _R('a switched-off tweener moves nothing (it moves the offsets in Update)'),
         'xspeed': _K('nodes[].uvt.maps'), 'yspeed': _K('nodes[].uvt.maps'), 'secondXSpeed': _K('nodes[].uvt.maps'),
         'secondYSpeed': _K('nodes[].uvt.maps'), 'secondMapName': _K('nodes[].uvt.maps'), 'useSecondMap': _K('nodes[].uvt.maps'),
         'keepInitOffset': _K('nodes[].uvt.keep'),
@@ -515,7 +517,7 @@ COMP_FIELDS = {
             **{f'extraMapSettings[].{f}': _K('nodes[].uvt.maps') for f in ('XSpeed', 'YSpeed', 'enabled', 'mapName')},
             **{f'extraMapSettings[].mapST.{a}': _A(0, 'the map\'s own tiling / offset [ASSUMED]') for a in 'xyzw'}})}
         for c in ('FxUVTweener', 'FxUVTweenerAdvance')},
-    'script:FxUVRotation': {'m_Enabled': _A(1, _OFF + ' — FxUVRotation turns in Update'),
+    'script:FxUVRotation': {'m_Enabled': _R('a switched-off rotation turns nothing (it turns in Update)'),
                             **{f: _K('nodes[].uvr') for f in ('angle1', '_angle2', '_angle3', '_angle4',
                                                               '_rotateTex1', '_rotateTex2', '_rotateTex3', '_rotateTex4')},
                             '_propertyName': _V('nodes[].uvr', ('_Rotation',))},
@@ -652,11 +654,11 @@ COMP_FIELDS = {
 # the fx_extract.py functions (or module tables) that read each kind, where the test looks for its fields' names
 COMP_READERS = {
     **{k: ('prefab',) for k in ('GameObject', 'Transform', 'RectTransform', 'MeshRenderer', 'MeshFilter', 'TrailRenderer', 'LineRenderer')},
-    'SkinnedMeshRenderer': ('skin',), 'Animator': ('animator_clips',), 'Animation': ('legacy_clips', 'legacy_clip'),
+    'SkinnedMeshRenderer': ('skin',), 'Animator': ('animator_clips', 'enabled'), 'Animation': ('legacy_clips', 'legacy_clip', 'enabled'),
     'Material': ('material',),
     'script:ParticleEffect': ('ROOT_EFFECT_FIELDS', 'root_effect_tree', 'off_on_finish', 'delay_to_finish'),
     'script:ProjectileEffect': ('projectile_tree',), 'script:EmptyEffect': ('delay_to_finish',),
-    'script:FxDelay': ('fx_delay_tree',), 'script:FollowMountPoint': ('MOUNT_FIELDS',),
+    'script:FxDelay': ('fx_delay_tree', 'enabled'), 'script:FollowMountPoint': ('MOUNT_FIELDS',),
     'script:FxUVTweener': ('uv_tween',), 'script:FxUVTweenerAdvance': ('uv_tween',), 'script:FxUVRotation': ('uv_rotation',),
     'script:SwitchableBackEffect': ('switch_back',), 'script:SwitchableRightEffect': ('right_tree',),
     'script:LineEffectEmitterDynamic': ('line_dynamic',), 'script:LineEffectEmitter': ('line_emitter',),
@@ -852,16 +854,7 @@ KNOWN = {
     # (2026-10-26, effect bundle W1) the other components, the read scripts and the materials, from the first field-level run
     # over the operators' prefabs (EN + CN clients) and the enemies' (EN): what the pipeline does not do yet
     **{f'field:{w}': (_TODO, f'components and scripts (open): {n}') for w, n in (
-        ('MeshRenderer.m_Enabled ≠ 1', 'a switched-off MeshRenderer is drawn from the start (赤刃明霄陈 S1 dao_di_dm, 灵知 S2 range)'),
-        ("MeshRenderer.m_Materials = ('ref', 'ref')", 'a second material draws the mesh again (Unity: the last sub-mesh once more)'),
-        ('MeshRenderer.m_Materials = (None,)', 'a renderer without its material: the extract draws nothing, Unity its error colour '
-                                               'unless something hides it [ASSUMED] — check on screen'),
         ('GameObject.m_Layer ≠ 15', 'a node on another layer (0): whether the battle camera draws it [ASSUMED]'),
-        ('Animator.m_Enabled ≠ 1', 'a switched-off Animator: the extract plays its clips'),
-        ('FxDelay.m_Enabled ≠ 1', 'a switched-off FxDelay (it acts in OnEnable): the extract delays the node'),
-        ('FxUVTweener.m_Enabled ≠ 1', 'a switched-off tweener (it moves in Update): the extract scrolls'),
-        ('FxUVTweenerAdvance.m_Enabled ≠ 1', 'a switched-off tweener (it moves in Update): the extract scrolls'),
-        ('FxUVRotation.m_Enabled ≠ 1', 'a switched-off rotation (it turns in Update): the extract turns'),
         ('FxUVTweener.useSharedMaterial ≠ 0', 'one offset for every renderer of the shared material [ASSUMED]'),
         ('FxUVTweenerAdvance.useSharedMaterial ≠ 0', 'one offset for every renderer of the shared material [ASSUMED]'),
         ('ProjectileEffect._randomAngle ≠ 0', 'the projectile turned by a random angle each time (空弦 S3, 哈洛德)'),
