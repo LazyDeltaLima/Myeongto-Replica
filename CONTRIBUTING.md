@@ -86,8 +86,10 @@ This is a remake of the official mode; the official game decides.
   name — never by how it was read: no code addresses, no code excerpts, no wording about the tools
   that read it (maintainer decision 2026-10-22). `test/public-repo.test.js` refuses that wording and code addresses.
 - **What no source settles** is implemented the simplest way closest to the official game and marked `[ASSUMED]` in the
-  code and the pull request. A decision the maintainer takes is cited as "maintainer decision YYYY-MM-DD". A decision
-  the maintainer calls provisional stays marked so in `docs/rules/` and is never presented as settled.
+  code and the pull request, with the reason no source settles it (`docs/rules/README.md`: server-side rule, engine
+  internals, CN-only, needs an official recording, no source, or not yet checked against the client; maintainer
+  decision 2026-10-26). Known official behaviour is implemented as it is, not left as an assumption. A decision the
+  maintainer takes is cited as "maintainer decision YYYY-MM-DD". A decision the maintainer calls provisional stays marked so in `docs/rules/` and is never presented as settled.
 - **Rules that differ from upstream or from the official game** are recorded with their evidence in
   [docs/rules/](docs/rules/README.md), one file per domain (`sim`, `diy`, `ui`, `render`, `fx`, `audio`, `upstream`).
   Before changing a rule read the owning section of `docs/design/` and the official source; after the change update
