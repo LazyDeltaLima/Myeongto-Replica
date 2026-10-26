@@ -81,6 +81,25 @@ test('ZDistort/* (2026-10-26): depth on the effect\'s floor plane, never cut by 
   for (const v of ['Disturb(CustomData)', 'Additive', 'AlphaBlend', 'Dissolve(CustomData)']) assert.ok(cov.includes(`'Torappu/Particles/ZDistort/${v}'`), v);
 });
 
+test('floor cut (2026-10-26): every depth-tested material is cut at the floor, wherever its node rests', async () => {
+  const mats = {
+    t: { shader: 'Torappu/Particles/AlphaBlend', tex: {}, floats: { _ZTest: 4 }, colors: {} },
+    o: { shader: 'Torappu/Particles/AlphaBlend', tex: {}, floats: { _ZTest: 0 }, colors: {} },
+  };
+  const THREE = await import('../../public/vendor/three.module.js');
+  const fxp = await import('../../public/js/render/fxplayer.js');
+  const tri = () => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3)); g.setIndex([0, 1, 2]); return g; };
+  const sys = (name, mat, z) => node(name, 0, { pos: [0, 0, z], ps: { ...ps({}, { n: 1 }), render: { ...ps({}).render, mat } } });
+  // on the floor (texas2 S3's smoke), above it, and under it with ZTest off (its yanwu_02)
+  const nodes = [node('root', -1), sys('ground', 't', 0), sys('above', 't', -1), sys('off', 'o', 0.139)];
+  const def = { name: 't', duration: 0, materials: mats, clips: [], geoms: new Proxy({}, { get: () => tri() }), lib: { texture: () => new THREE.Texture() }, nodes };
+  const [ground, above, off] = new fxp.FxInstance(def, { quality: 'high', floor: 0.42 }).systems.map((x) => x.material.uniforms.uFloor.value);
+  assert.ok(Math.abs(ground - 0.37) < 1e-9 && Math.abs(above - 0.37) < 1e-9, 'the floor less 0.05');
+  assert.equal(off, -1e9, 'no depth test: never cut');
+  const [none] = new fxp.FxInstance(def, { quality: 'high', floor: null }).systems.map((x) => x.material.uniforms.uFloor.value);
+  assert.equal(none, -1e9, 'floor null: no cut');
+});
+
 test('culling: mesh renderers and mesh particles take their pass\'s side; billboards keep both', async () => {
   const mats = {
     rim: { shader: 'Torappu/Particles/Rim/Rim Tint (Add)', tex: {}, floats: {}, colors: {} },

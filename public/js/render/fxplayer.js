@@ -1757,13 +1757,6 @@ const CLIP_UNIFORM = { _Amount: 'uAmount', _Opacity: 'uOpacity', _BorderWidth: '
 /** 2026-10-14: float tracks that drive one axis of a vector uniform (Disturb Origin / Anchor's strengths and anchors). */
 const CLIP_COMP = { _IntensityU: ['uDisturbStr', 'x'], _IntensityV: ['uDisturbStr', 'y'], _AnchorU: ['uDisAnchor', 'x'], _AnchorV: ['uDisAnchor', 'y'],
   _IntensityU_02: ['uDisturb2Str', 'x'], _IntensityV_02: ['uDisturb2Str', 'y'], _AnchorU_02: ['uDisturb2Anchor', 'x'], _AnchorV_02: ['uDisturb2Anchor', 'y'] };
-/**
- * local patch: a renderer whose node rests more than this far under the ground (board height, tiles) is cut at the floor
- * (FxInstance opts.floor): the client's map hides it by depth (surtr_skill_03_range gx_glow 0.42 under, 5 tiles away;
- * lemuen_skill_03_crosshair_range ring01/02; mudrok/blemsh range guangmang). Renderers on the ground whose particles merely
- * sink a little (texas2 S3's smoke) are left whole [ASSUMED: whether the client's ground hides those is not known].
- */
-const UNDER_FLOOR = 0.25;
 /** local patch: an order-0 mesh at least this tall (tiles, board height) wraps the unit — drawn in front (FxInstance split). */
 const WRAP_H = 0.3;
 /** local patch: … unless it starts more than this far behind the unit (rows, +y) — it stands behind her, not around her. */
@@ -2017,17 +2010,19 @@ export class FxInstance {
     this.meshMatList = this.meshMats.filter(Boolean);
     // local patch: the floor cut and the per-renderer layers
     if (opts.floor !== null) {
+      // every material that tests depth loses what lies under the floor (FxInstance opts.floor), as the client's opaque map
+      // hides it (2026-10-26, maintainer decision after the official recording: 缄默德克萨斯 S3's round smoke `yanwu`, on the
+      // ground and sinking, is gone there 0.2 s after the blades land; 酒神's waves 0.095 under the floor never show) —
+      // until then only renderers whose node rested 0.25 under were cut [the board's floor = the client's ground: ASSUMED]
       const cut = (opts.floor || 0) - 0.05;
-      unity.updateMatrixWorld(true);
-      const under = (node) => node.getWorldPosition(tmpV).z - this.object.position.z < -UNDER_FLOOR;
-      const setFloor = (m, node) => {
+      const setFloor = (m) => {
         if (m.userData.zflat) m.uniforms.uBaseH.value = m.userData.baseH + (opts.floor || 0);
-        else if (m.userData.ztest && under(node)) m.uniforms.uFloor.value = cut;
+        else if (m.userData.ztest) m.uniforms.uFloor.value = cut;
       };
-      this.meshMats.forEach((m, i) => { if (m) setFloor(m, this.nodes[i]); });
-      for (const s of this.systems) { setFloor(s.material, s.node); if (s.trailBatch) setFloor(s.trailBatch.material, s.node); }
-      for (const t of this.trails) setFloor(t.batch.material, t.node);
-      for (const t of this.lines) setFloor(t.batch.material, t.node); // local patch
+      this.meshMatList.forEach(setFloor);
+      for (const s of this.systems) { setFloor(s.material); if (s.trailBatch) setFloor(s.trailBatch.material); }
+      for (const t of this.trails) setFloor(t.batch.material);
+      for (const t of this.lines) setFloor(t.batch.material); // local patch
     }
     this.layerN = [0, 0, 0];
     if (opts.split) {
