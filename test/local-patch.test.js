@@ -1066,6 +1066,25 @@ test('frozen shop: a manual refresh that is also a special refresh (佩佩 / 杜
   assert.ok(ps.shop.slots.every((s) => !s || !s.frozen), 'an unfrozen shop stays unfrozen');
 });
 
+test('佩佩 博学多通: special refreshes do not stack — one saved from Lv2 plus Lv4 is still one (official play report; server/sim/content/bands/meta.js)', async () => {
+  const { makeMatch } = await import('./match/harness.js');
+  const h = makeMatch({ mode: 'solo', humans: 1, seed: 1 }).start();
+  h.toPrep(1);
+  const m = h.m, ps = h.ps('p_0');
+  ps.bandId = 'band_pepe'; ps.funds = 99;
+  for (let lv = 2; lv <= 4; lv++) {
+    ps.shop.upgradePrice = 0;
+    assert.equal(m.handle('p_0', { t: 'g.levelUp' }).ok, true);
+    assert.equal(ps.shop.level, lv);
+  }
+  assert.equal(ps.counters['band:pepe:special'], 1, 'Lv2 and Lv4 leave one pending special refresh');
+  assert.equal(m.handle('p_0', { t: 'g.refresh' }).ok, true);
+  assert.equal(ps.counters['band:pepe:special'], 0, 'the first refresh uses it');
+  assert.equal(m.handle('p_0', { t: 'g.refresh' }).ok, true);
+  assert.equal(ps.counters['band:pepe:special'], 0, 'none left for the second');
+  m.dispose();
+});
+
 test('특수 상품 연출: each pick-one offer the shop row shows carries a new shop.rewardOffer.seq; a 特殊刷新 refresh sends no special mark (server/local-patch.js)', async () => {
   await import('../server/local-patch.js');
   const { makeMatch } = await import('./match/harness.js');

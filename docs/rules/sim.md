@@ -1899,6 +1899,17 @@ upstream `6ab24682` → master `c9d804f4`·dev `06a92237` 대조에서 받은 �
   yanShip-high), diy-002·005, fields 6(boss_1-solo·boss_2/3/4-pair·hidden-boss_9-pair/solo), matches 11, roster 20.
 - **[화면 미확인]** 실제 판·브라우저에서 기습 瑕光의 주황 SP줄이 헛스윙 뒤 바로 돌아오는지.
 
+## 佩佩(전략) 【博学多通】 특별 갱신은 쌓이지 않는다 (2026-10-26, 공식 플레이 제보)
+
+- 문제: 조달 센터를 2·4·6레벨로 올릴 때마다 대기 중인 특별 갱신(特殊刷新)이 하나씩 더해져(`band:pepe:special` += 1, upstream 그대로), 2레벨에서
+  받은 것을 아껴 두고 4레벨까지 올리면 사르곤 우선 갱신을 두 번 쓸 수 있었다.
+- 규칙: 대기 중인 특별 갱신은 많아야 1회. lvlist 레벨에 오르면 카운터를 1로 둔다(`bands/meta.js up_shop_next_refresh_must_present_bond_char`
+  `onLevelUp` → `setCounter`). 수동 갱신 한 번이 그것을 쓰고, 가격은 전과 같이 평소 갱신 값(upstream #200).
+- 근거: 공식 플레이 경험 제보(2026-10-26) — 2레벨의 특별 갱신을 아껴 두었다가 4레벨로 올려도 쓸 수 있는 것은 1회. 공식 클라에서 확인: 상점 정보의
+  `specialRefresh`는 참/거짓이고, 플레이어 상태의 `speRefresh.cnt`를 어떻게 올리는지는 서버 판정이라 클라만으로는 정해지지 않는다. 테이블
+  `aceffect_band_29`(`lvlist` "2,4,6", `cnt`·`price` 0)도 중첩을 적지 않는다. upstream에는 중첩을 다룬 이슈가 없다(#200 #508 #589는 모두 유료 여부).
+- 테스트 `test/local-patch.test.js` 「佩佩 博学多通: special refreshes do not stack …」.
+
 ## 8인 협동 모드 (관리자 결정 2026-10-16·2026-10-19, 공식에 없는 기능)
 
 공식 방은 1–4명이고 8인용 데이터는 없다(`act2autochess`에는 난이도별 `bloodPoint*`와 단일·멀티 연합 방어 템플릿뿐). 아래 수치·규칙은 모두

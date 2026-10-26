@@ -13,7 +13,7 @@
 //   prep_start_gain_chess_from_pool_in_round {round}   老鲤     round start of `round`: 1 chess of pool
 //   band_coin_cost_gain_random_char_by_shop_level      绮良     every coin_cnt funds spent → count random chess ≤ shop level
 //   up_shop_next_refresh_must_present_bond_char        佩佩     level-up to a level of lvlist → the next manual refresh (its usual
-//                                                               price) prefers <bond>
+//                                                               price) prefers <bond>; at most one pending
 //   gain_bond_char_per_round {round,preround,bond}     哈洛德   rounds round, round+preround, …: a <bond> chess (≤ shop level, else any tier)
 //   first_buy_in_round_char_price_change {price,bond}  休露丝   first <bond> chess of the round costs `price` (bought in the
 //                                                               shop: onBuy — a free pick / grant never uses it up)
@@ -200,12 +200,14 @@ K.band_coin_cost_gain_random_char_by_shop_level = (ps) => ({
 // 佩佩 博学多通 "升级调度中心至2、4和6级后，获得1次特殊刷新：此次刷新出现的干员优先为<萨尔贡>干员": the special refresh is the
 // player's next manual refresh, paid as usual — the text gives no 免费 (德克萨斯's trait says 「获得1次免费刷新」 for a free
 // one), and the community report of 2026-10-06 「佩佩策略的特殊刷新也是要花钱的，不是免费」. Until 0.2.0 a free refresh came
-// with it (blackboard `price` 0 read as its price) [ASSUMED: `cnt` / `price` 0 change nothing].
+// with it (blackboard `price` 0 read as its price) [ASSUMED: `cnt` / `price` 0 change nothing]. The pending refreshes do
+// not stack: one saved from Lv2 and the one of Lv4 still make one special refresh (official play report of 2026-10-26;
+// the client only gets a 「specialRefresh」 flag).
 K.up_shop_next_refresh_must_present_bond_char = (ps) => ({
   onLevelUp(ctx, ev) {
     const p = ps[0];
     if (!list(p.lvlist).map(Number).includes(ev.level)) return;
-    ctx.incCounter('band:pepe:special', 1);
+    ctx.setCounter('band:pepe:special', 1);
   },
   onRefresh(ctx) {
     if (ctx.counter('band:pepe:special') <= 0) return;
