@@ -1465,7 +1465,8 @@
       `wisdel_skill_01_hit_02` 폭발 11종이 부모 입자 자리에서, 첸 더 던스트릭 `chen3_skill_03_trail_01` 별 9개가 동전 9곳에서, 무에나 별이 부모 별 자리에서.
       오류 0. [화면 미확인: 공식 녹화 대조, 실제 판]
   - **FxUVRotation**(움직임이 아니라 텍스처의 고정 회전, 추출본 96개 프리팹·노드 228): 공식 클라 `_Initialize`가
-    키워드 `_HG_UV_ROTATION`을 켜고 `_Rotation0..3`을 항등 (1, 0, 0, 1)(정적 필드, `.cctor`)로 두며, `Update`가 켜진 것
+    키워드 `_HG_UV_ROTATION`을 켜고(2026-10-26 클라 갱신 뒤 공식 클라에서 다시 보니 키워드를 켜는 호출은 없고, 렌더러 속성 블록에 칸 번호 없이 float
+    `_HG_UV_ROTATION`과 `_Rotation0..3`을 씀 — 셰이더가 그 float로 회전을 가르는지 변형으로 가르는지는 미확인 [추정: 회전함]) `_Rotation0..3`을 항등 (1, 0, 0, 1)(정적 필드, `.cctor`)로 두며, `Update`가 켜진 것
     (`_rotateTex1..4`)만 `_CalculateMatrix` = 각도(도 × 0.0174533)의 (cos, −sin, sin, cos)로 바꾼다 [추정: cos·sin — 이름 없는 CRT 함수
     둘, 각도 0이 항등이라는 데서]. 이 변형은 Disturb(CustomData) 계열(Disturb·Ram/Disturb·ZDistort … — 회전된 재질 전부가 이 둘)에만 있다. 정점
     셰이더가 텍스처마다 타일링(+ 메인은 커스텀 오프셋) 뒤 uv를 (0.5, 0.5) 둘레로 u' = x·u + z·v, v' = y·u + w·v 돌린 다음 흐름을 더한다:
