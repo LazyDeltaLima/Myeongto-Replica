@@ -127,24 +127,41 @@ export const OPERATOR_KITS = Object.freeze(Object.assign({}, ...OPERATOR_MODULES
  */
 export const KITS = Object.freeze(Object.assign({}, ...TIER_KITS, STANDIN_KITS, OPERATOR_KITS));
 
-/** Character codename (a chess kit file `<chessId>-<codename>.js`) → its chess kit keys with their tiers. */
+/**
+ * The chess kits written for a hidden chess of the current season (data/chess.json `isHidden`; test/seasons.test.js
+ * keeps the list in step): when an operator has several chess kits and none of another season's tier, the kit of its
+ * visible chess is taken.
+ */
+export const HIDDEN_CHESS_KITS = Object.freeze(['chess_char_1_05_a', 'chess_char_1_11_a', 'chess_char_1_15_a', 'chess_char_1_16_a',
+  'chess_char_2_03_a', 'chess_char_2_15_a', 'chess_char_3_07_a', 'chess_char_3_15_a', 'chess_char_4_03_a', 'chess_char_4_05_a',
+  'chess_char_4_08_a', 'chess_char_4_15_a', 'chess_char_5_04_a', 'chess_char_5_09_a', 'chess_char_5_16_a', 'chess_char_5_18_a',
+  'chess_char_6_10_a']);
+
+/**
+ * Character codename (a chess kit file `<chessId>-<codename>.js`) → the registry keys its file registers (`…_a`), with
+ * their tiers and whether the chess is hidden.
+ */
 const CHESS_KITS_OF_CODE = (() => {
   const out = new Map();
-  for (const f of KIT_FILES.flat()) {
-    const [key, code] = f.replace(/\.js$/, '').split('-');
-    const tier = Number(/^chess_char_(\d+)_/.exec(key)?.[1]);
-    if (!out.has(code)) out.set(code, []);
-    out.get(code).push({ key, tier });
-  }
+  KIT_FILES.forEach((group, t) => group.forEach((f, i) => {
+    const code = f.replace(/\.js$/, '').split('-')[1];
+    for (const key of Object.keys(registryOf(MODULES[t][i]))) {
+      const tier = Number(/^chess_char_(\d+)_/.exec(key)?.[1]);
+      if (!out.has(code)) out.set(code, []);
+      out.get(code).push({ key, tier, hidden: HIDDEN_CHESS_KITS.includes(key) });
+    }
+  }));
   return out;
 })();
 
 /**
  * The kit key of a character for a chess id that has no kit file — another season's chess (shared/seasons.js) of an
- * operator this season fields too: its one chess kit, or the one of the same tier when it has several (a tier form
- * each); failing that, its 自选 kit (OPERATOR_KITS: written for every skill under `skills` and reading only the chess
- * record, so it plays a chess as it plays a 自选 piece); null when none [ASSUMED: the same operator plays the same kit
- * across seasons]. No chess of the current season reaches it (every one either has its file or no operator kit at all).
+ * operator this season fields too: its one chess kit; with several (a tier form each, one of them a hidden chess's),
+ * the one of the same tier, else the one of its visible chess (maintainer decision 2026-10-26: the hidden twin carries
+ * the same operator data, and the visible chess's kit is the one written for the shop); failing that, its 自选 kit
+ * (OPERATOR_KITS: written for every skill under `skills` and reading only the chess record, so it plays a chess as it
+ * plays a 自选 piece); null when none [ASSUMED: the same operator plays the same kit across seasons]. No chess of the
+ * current season reaches it (every one either has its file or no operator kit at all).
  * @param {string | null | undefined} charId
  * @param {number} [tier]
  * @returns {string | null}
@@ -155,6 +172,8 @@ export function kitKeyOfChar(charId, tier) {
   if (list.length === 1) return list[0].key;
   const same = list.filter((k) => k.tier === tier);
   if (same.length === 1) return same[0].key;
+  const shown = list.filter((k) => !k.hidden);
+  if (!same.length && shown.length === 1) return shown[0].key;
   return Object.prototype.hasOwnProperty.call(OPERATOR_KITS, charId) ? charId : null;
 }
 

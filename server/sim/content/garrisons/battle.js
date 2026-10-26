@@ -541,3 +541,11 @@ function installHitMods(battle, by) {
     }, { priority: WEAKNESS_PRIORITY });
   }
 }
+
+/**
+ * Every IN_BATTLE effectKey this file acts on (INSTALLERS, the layer READERS, ADD_BOND grants, the hit modifiers, 混沌);
+ * `NONE` (只需2个…合成精锐) is no battle effect: the merge count is the chess's `upgradeNum`. A key outside it does
+ * nothing in battle (test/content/garrisons_battle.test.js: none of the current season's chess carries one).
+ */
+export const BATTLE_GARRISON_KEYS = Object.freeze([...Object.keys(INSTALLERS), ...READERS, 'ADD_BOND',
+  'act1autochess_gar_eff_attack_enemy', 'act2autochess_gar_eff_ab_damageScaleByBond', 'act1autochess_gar_eff_chaos']);

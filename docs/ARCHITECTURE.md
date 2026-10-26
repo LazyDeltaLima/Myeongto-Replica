@@ -146,8 +146,8 @@ public/assets/ ─────────▶ public/js/render/, public/js/audio
   `setSeason`); the default season changes nothing (DATA.md "Seasons"). The content modules read the bonds, items,
   garrisons, bands and effects of the battle's or the prep ctx's own data (`content/support/index.js` `dataFile`; a
   battle's DataSource carries its whole data as `all`), another season's match builds its prep handlers from its data
-  (`server/match/effectsMeta.js` `registryFor`), and a chess id without a kit file takes the same operator's chess kit, else
-  its 自选 kit (`kits/index.js` `kitKeyOfChar`).
+  (`server/match/effectsMeta.js` `registryFor`), and a chess id without a kit file takes the same operator's chess kit (of its
+  tier, else of its visible chess), else its 自选 kit (`kits/index.js` `kitKeyOfChar`).
 - **On the server**, `server/data.js` loads the files once; the match reads them through `server/match/gamedata.js`,
   the sim through `server/sim/simdata.js`, which turns every record into a frozen engine def.
 - **In the browser**, `public/js/data.js` fetches the same files once per page for the UI, and the battle runner takes

@@ -786,3 +786,19 @@ test('attrByBond on the real match path (spec → createBattleFromSpec): an in-b
   assert.ok(pct() > 0.01 * Math.floor(L0 / 3));
   m.dispose?.();
 });
+
+test('every 特质 of the current season\'s chess has its handler: IN_BATTLE in BATTLE_GARRISON_KEYS, the others in the prep registry', async () => {
+  // a key without one runs nothing, silently (effectsMeta.js _garrisons skips it): a new season's new 特质 needs one
+  const { BATTLE_GARRISON_KEYS } = await import('../../server/sim/content/garrisons/battle.js');
+  const { getDefaultRegistry } = await import('../../server/match/effectsMeta.js');
+  const reg = getDefaultRegistry();
+  const missing = [];
+  for (const c of Object.values(D.chess)) {
+    for (const gid of c.garrisonIds || []) {
+      const g = GR(gid);
+      const ok = g.eventType === 'IN_BATTLE' ? g.effectKey === 'NONE' || BATTLE_GARRISON_KEYS.includes(g.effectKey) : !!reg.get(`garrison:${g.effectKey}`);
+      if (!ok) missing.push(`${c.chessId} ${gid} ${g.eventType} ${g.effectKey}`);
+    }
+  }
+  assert.deepEqual([...new Set(missing)], []);
+});

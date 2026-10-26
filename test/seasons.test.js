@@ -279,21 +279,53 @@ test('prep registry: another season\'s match builds its own from its data; the d
 });
 
 test('kits: another season\'s chess id finds the same operator\'s kit; none of this season\'s chess is affected', async () => {
-  const { kitKeyOfChar, KITS: REG } = await import('../server/sim/content/kits/index.js');
+  const { kitKeyOfChar, HIDDEN_CHESS_KITS, KITS: REG } = await import('../server/sim/content/kits/index.js');
   const { kitOf } = await import('../server/sim/content/index.js');
-  // one kit: found whatever the new chess id; several (a tier form each): the one of the same tier, else none
+  // one kit: found whatever the new chess id; several (a tier form each): the one of the same tier, else the visible
+  // chess's; no chess kit: the 自选 kit
   const one = Object.values(BASE.chess).find((c) => !c.isGolden && c.charId && REG[c.baseChessId ?? c.chessId.replace(/_b$/, '_a')] === undefined && kitKeyOfChar(c.charId, c.tier));
   assert.equal(one, undefined, 'no chess of this season falls back');
+  const hidden = Object.keys(REG).filter((k) => BASE.chess[k]?.isHidden);
+  assert.deepEqual([...HIDDEN_CHESS_KITS].sort(), hidden.sort(), 'HIDDEN_CHESS_KITS = the kits of the hidden chess');
+  for (const k of [...new Set(Object.values(BASE.chess).map((c) => kitKeyOfChar(c.charId, 9)))]) {
+    if (k) assert.ok(typeof REG[k] === 'function', `${k}: a registry key`);
+  }
   const inside = BASE.chess.chess_char_1_01_a.charId;
-  assert.equal(kitKeyOfChar(inside, 5), 'chess_char_1_01', 'a one-kit operator, whatever the tier');
-  const tin = BASE.chess.chess_char_1_16_a.charId; // two kits: tier 1 and tier 2
-  assert.equal(kitKeyOfChar(tin, 2), 'chess_char_2_19');
-  assert.equal(kitKeyOfChar(tin, 6), null, 'ambiguous across tiers');
+  assert.equal(kitKeyOfChar(inside, 5), 'chess_char_1_01_a', 'a one-kit operator, whatever the tier');
+  const tin = BASE.chess.chess_char_1_16_a.charId; // two kits: tier 1 (hidden chess) and tier 2
+  assert.equal(kitKeyOfChar(tin, 1), 'chess_char_1_16_a');
+  assert.equal(kitKeyOfChar(tin, 2), 'chess_char_2_19_a');
+  assert.equal(kitKeyOfChar(tin, 6), 'chess_char_2_19_a', 'no kit of that tier: the visible chess\'s');
   assert.equal(kitKeyOfChar(null, 1), null);
   assert.equal(kitKeyOfChar('char_1042_phatm2', 3), 'char_1042_phatm2', 'no chess kit: the 自选 kit');
   assert.equal(kitKeyOfChar('char_9999_nobody', 3), null);
   const def = { id: 'chess_char_9_99_a', baseId: 'chess_char_9_99_a', charId: tin, tier: 1 };
-  assert.ok(kitOf(def, REG) === REG.chess_char_1_16);
+  assert.ok(typeof kitOf(def, REG) === 'function' && kitOf(def, REG) === REG.chess_char_1_16_a);
+});
+
+test('kits: 魔王 as another season\'s tier-6 chess (调和, a 休整期结束时 trait) plays her tier-4 kit, as the tier-4 chess', async () => {
+  const { KITS: REG } = await import('../server/sim/content/kits/index.js');
+  const { kitOf, skillSpecSource } = await import('../server/sim/content/index.js');
+  const { makeBattle } = await import('./helpers/battleHarness.js');
+  // the update's announcement (maintainer 2026-10-26): tier 6, bond 调和, trait 「休整期结束时 已激活的盟约层数+10」
+  const ID = 'chess_char_9_91_b';
+  const T4 = BASE.chess.chess_char_4_25_b;
+  const chess = { ...T4, chessId: ID, baseId: ID, goldenId: ID, tier: 6, bonds: ['maniShip'], garrisonIds: ['garrison_51_b'] };
+  const enemies = [{ key: 'enemy_1422_lrsldr', time: 0, route: 0, count: 8, interval: 1.2 }];
+  const others = [{ chessId: 'chess_char_1_02_a', row: 10, col: 5, uid: 2 }, { chessId: 'chess_char_1_08_a', row: 11, col: 4, uid: 3 }];
+  const run = (chessId, defs) => {
+    const h = makeBattle({ seed: 5, timeLimit: 60, captureNoisy: true, defs, units: [{ chessId, row: 10, col: 4, uid: 1, carryState: { sp: 999 } }, ...others], enemies });
+    h.run(25);
+    const sum = (list) => list.reduce((a, d) => a + (d.amount ?? 0), 0);
+    return { h, play: { casts: h.hooksOf('skillStart').length, dealt: sum(h.hooksOf('damaged').filter((d) => d.target?.side === 'enemy')), healed: sum(h.hooksOf('heal')), events: h.events.length } };
+  };
+  const as = run(ID, { chess: { [ID]: chess } });
+  const def = as.h.unit(1).def;
+  assert.ok(kitOf(def, REG) === REG.chess_char_4_25_a, 'the visible tier-4 chess\'s kit, not the hidden tier-5 one');
+  assert.notEqual(skillSpecSource(def), 'generic');
+  assert.deepEqual(as.h.battle.errors, []);
+  assert.ok(as.play.casts > 0, 'her skill runs');
+  assert.deepEqual(as.play, run('chess_char_4_25_b').play, 'the same battle as the tier-4 chess');
 });
 
 test('kits: an operator with only a 自选 kit, fielded as another season\'s chess, plays exactly as the 自选 piece', async () => {
