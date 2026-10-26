@@ -515,6 +515,8 @@ KNOWN = {
         ('CustomDataModule on, renderer.m_UseCustomVertexStreams off', 'the shader gets no custom data in Unity'),
         ('renderer.m_VertexStreams = [0, 1, 3, 4, 37, 38]', 'custom2 in the first custom slot'),
         ('renderer.m_VertexStreams = [0, 1, 3, 4]', 'custom streams on with no custom stream'),
+        ('renderer.m_VertexStreams = [0, 1, 3, 4, 36]', 'only custom2 (the enemies\' enemy_hlegle_attack_01_hit)'),
+        ('renderer.m_VertexStreams = [0, 1, 3, 4, 38, 31]', 'custom2 then custom1 (the enemies\' enemy_cnvsax_hit_02)'),
         ('renderer.m_Mesh1 ≠ None', 'one of several meshes'), ('renderer.m_Mesh2 ≠ None', 'one of several meshes'),
         ('renderer.m_Mesh3 ≠ None', 'one of several meshes'), ('renderer.m_FreeformStretching ≠ False', 'stretched quads not facing the camera'),
         ('renderer.m_Flip.x ≠ 0', 'a share mirrored'), ('TrailModule.textureMode ≠ 0', 'the texture tiles along the trail'),
