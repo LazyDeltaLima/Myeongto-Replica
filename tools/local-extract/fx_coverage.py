@@ -138,6 +138,12 @@ def _N(why, when=None):
     return ('none', None, why, when)
 
 
+def _R(why, when=None):
+    """(2026-10-26, effect bundle W1) read by the extractor to decide whether or how it carries the component (a switch, a
+    reference) — no key of its own; the test pins the field name to its reader (COMP_READERS)."""
+    return ('read', None, why, when)
+
+
 def _mod(ps, m):
     return ps.get(m) or {}
 
@@ -355,10 +361,330 @@ PS_FIELDS = {
 # Normal, Color, UV, then Custom1XYZW (34) and optionally a Custom2 (35–38)
 CUSTOM_STREAMS = {(0, 1, 3, 4, 34), *((0, 1, 3, 4, 34, k) for k in (35, 36, 37, 38))}
 
+# (2026-10-26, effect bundle W1) the same for everything else the walk meets: every serialized field of the GameObject, of
+# its other components, of the client scripts the extract reads (SCRIPTS_READ, as 'script:<class>') and of the materials
+# — the particle check above could not see a switched-off MeshRenderer (drawn anyway: 赤刃明霄陈 S1's dao_di_dm) or
+# a projectile's random turn (ProjectileEffect `_randomAngle`), because nothing looked inside those components. Rules as in
+# PS_FIELDS, plus _R (read to decide whether / how it is carried); `when` takes (the component's type tree, None). A
+# key is the extract's JSON path (`nodes[]` a node, `materials.*` a material); test/fx-coverage.test.js pins each
+# _K / _V / _R field name to the fx_extract.py readers of COMP_READERS and each key's last name to the render code.
+_RENDERER_COMMON = {
+    'm_GameObject': _N('the owner'), 'm_DynamicOccludee': _N('occlusion culling'), 'm_MotionVectors': _N('motion vectors'),
+    'm_RendererPriority': _N('render pipeline ordering'), 'm_RenderingLayerMask': _N('render pipeline layers'),
+    'm_SortingLayerID': _N('the layer\'s place is m_SortingLayer'),
+    'm_SortingLayer': _A(0, 'a sorting layer before or after the default one: draws behind or over everything there'),
+    'm_MaskInteraction': _A(0, 'drawn inside / outside a sprite mask'),
+    **{f: _N(_LIGHTING) for f in (
+        'm_CastShadows', 'm_ReceiveShadows', 'm_StaticShadowCaster', 'm_LightProbeUsage', 'm_LightProbeVolumeOverride',
+        'm_ReflectionProbeUsage', 'm_ProbeAnchor', 'm_LightmapIndex', 'm_LightmapIndexDynamic', 'm_StaticBatchInfo.firstSubMesh',
+        'm_StaticBatchInfo.subMeshCount', 'm_StaticBatchRoot', 'm_RayTraceProcedural', 'm_RayTracingMode', 'm_EnlightenVertexStream',
+        *(f'm_LightmapTilingOffset{d}.{a}' for d in ('', 'Dynamic') for a in 'xyzw'))},
+}
+
+
+def _line_params(key):
+    """A TrailRenderer's / LineRenderer's m_Parameters (Unity LineParameters) carried under `key`."""
+    return {'m_Parameters.widthMultiplier': _K(f'{key}.width'), 'm_Parameters.widthCurve': _K(f'{key}.widthCurve'),
+            'm_Parameters.colorGradient': _K(f'{key}.grad'), 'm_Parameters.alignment': _V(f'{key}.align', (0,)),
+            'm_Parameters.textureMode': _V(f'{key}.texMode', (0, 1, 2, 3) if key == 'lineR' else (0, 1)),
+            'm_Parameters.numCapVertices': _A(0, 'rounded ends'), 'm_Parameters.numCornerVertices': _A(0, 'rounded corners'),
+            'm_Parameters.textureScale.x': _A(1, 'the texture scaled along the line'),
+            'm_Parameters.textureScale.y': _A(1, 'the texture scaled across the line'),
+            'm_Parameters.shadowBias': _N(_LIGHTING), 'm_Parameters.generateLightingData': _N(_LIGHTING)}
+
+
+_ONE_MAT = [('ref',)]   # the walk draws a renderer's first material: a second one (a second sub-mesh) is reported
+_TRANSFORM = {f'm_Local{k}.{a}': _K(f'nodes[].{key}') for k, key, axes in (('Position', 'pos', 'xyz'), ('Rotation', 'rot', 'xyzw'),
+                                                                           ('Scale', 'scale', 'xyz')) for a in axes}
+_TRANSFORM.update({'m_Children': _R('the walk follows them'), 'm_Father': _N('the walk'), 'm_GameObject': _N('the owner'),
+                   'm_ConstrainProportionsScale': _N('an editor setting')})
+_POOL = 'how the client pools the effect'
+_OFF = 'a switched-off component is read as if it were on [ASSUMED: the client skips a disabled behaviour]'
+_SUBS = {'_subFXDelayConfigs': _N('an empty list'),
+         '_subFXDelayConfigs[].delayTime': _A(0, 'branch delays: the extract reads them on a ParticleEffect root only'),
+         '_subFXDelayConfigs[].transform': _N('with its delayTime')}
+_EFFECT_BASE = {'m_Enabled': _A(1, _OFF), '_allowAutoReuse': _N(_POOL), '_preloadCnt': _N(_POOL),
+                '_bodyTransofrm': _N('turned only by a ParticleEffect\'s ANY_DIR (`_rotateType` 4), read there'), **_SUBS}
+_PAUSE = 'paused per behaviour instead of the whole effect'
+_BUFF_PROGRESS = ('hand-written: the kit fx \'buffProgress\' hands the progress (render/fxgame.js), not these blackboard keys '
+                  '(`animSrc[].max` / `prog` are carried for it)')
+COMP_FIELDS = {
+    'GameObject': {'m_Name': _K('nodes[].name'), 'm_IsActive': _K('nodes[].active'),
+                   'm_Layer': _A(15, 'another layer: drawn by another camera, or by none [ASSUMED]'),
+                   'm_Tag': _N('a tag: scripts look it up'), 'm_StaticEditorFlags': _N('an editor setting')},
+    'Transform': _TRANSFORM,
+    'RectTransform': {**_TRANSFORM, **{f'{f}.{a}': _N('only under a RectTransform parent (fx_extract walk: placed as a Transform)')
+                                       for f in ('m_AnchorMin', 'm_AnchorMax', 'm_AnchoredPosition', 'm_SizeDelta', 'm_Pivot')
+                                       for a in 'xy'}},
+    'MeshRenderer': {**_RENDERER_COMMON,
+                     'm_Enabled': _A(1, 'a switched-off MeshRenderer is drawn (a clip that switches it on is a track)'),
+                     'm_Materials': _V('nodes[].mesh.mat', _ONE_MAT), 'm_SortingOrder': _K('nodes[].mesh.order'),
+                     'm_AdditionalVertexStreams': _A(None, 'vertex streams added per renderer (baked colours)')},
+    'MeshFilter': {'m_GameObject': _N('the owner'), 'm_Mesh': _K('nodes[].mesh.mesh')},
+    'SkinnedMeshRenderer': {**_RENDERER_COMMON, 'm_Enabled': _R('a switched-off one is not extracted (skin)'),
+                            'm_Materials': _V('nodes[].skin.mat', _ONE_MAT), 'm_SortingOrder': _K('nodes[].skin.order'),
+                            'm_Mesh': _K('nodes[].skin.mesh'), 'm_Bones': _K('nodes[].skin.bones'),
+                            'm_RootBone': _N('the bones are drawn from their world transforms; the root bone only bounds them'),
+                            **{f'm_AABB.{c}.{a}': _N('bounds for culling') for c in ('m_Center', 'm_Extent') for a in 'xyz'},
+                            'm_DirtyAABB': _N('bounds for culling'), 'm_UpdateWhenOffscreen': _N('bounds for culling'),
+                            'm_Quality': _N('[ASSUMED] bones per vertex: Auto (0) takes the quality setting'),
+                            'm_SkinnedMotionVectors': _N('motion vectors'),
+                            'm_BlendShapeWeights': _A((), 'blend shape weights')},
+    'TrailRenderer': {**_RENDERER_COMMON, **_line_params('trailR'),
+                      'm_Enabled': _R('a switched-off trail is not extracted'), 'm_Materials': _V('nodes[].trailR.mat', _ONE_MAT),
+                      'm_SortingOrder': _K('nodes[].trailR.order'), 'm_Time': _K('nodes[].trailR.time'),
+                      'm_MinVertexDistance': _K('nodes[].trailR.minDist'), 'm_Emitting': _A(True, 'a trail that does not emit (`trailR.emitting` is carried, not played)'),
+                      'm_Autodestruct': _A(False, 'the GameObject destroyed once the trail is gone')},
+    'LineRenderer': {**_RENDERER_COMMON, **_line_params('lineR'),
+                     'm_Enabled': _R('a switched-off line is not extracted'), 'm_Materials': _V('nodes[].lineR.mat', _ONE_MAT),
+                     'm_SortingOrder': _K('nodes[].lineR.order'), 'm_Positions': _K('nodes[].lineR.pts'),
+                     **{f'm_Positions[].{a}': _K('nodes[].lineR.pts') for a in 'xyz'},
+                     'm_UseWorldSpace': _K('nodes[].lineR.world'), 'm_Loop': _K('nodes[].lineR.loop')},
+    'Animator': {'m_GameObject': _N('the owner'), 'm_Controller': _R('its clips and states are the tracks (animator_clips)'),
+                 'm_Enabled': _A(1, 'a switched-off Animator plays nothing in the client; the extract plays its clips'),
+                 'm_Avatar': _N('the effect clips bind by path, not by an avatar'),
+                 'm_CullingMode': _A(0, 'stops animating off screen'), 'm_UpdateMode': _A(0, 'animates on unscaled time / physics'),
+                 'm_ApplyRootMotion': _A(False, 'root motion'), 'm_KeepAnimatorStateOnDisable': _A(False, 'the state kept when switched off'),
+                 'm_LinearVelocityBlending': _N('root motion only'), 'm_StabilizeFeet': _N('humanoid only'),
+                 'm_HasTransformHierarchy': _N('an optimised hierarchy: the paths still bind'),
+                 'm_AllowConstantClipSamplingOptimization': _N('an optimisation'),
+                 'm_WriteDefaultValuesOnDisable': _N('what a switched-off Animator leaves')},
+    'Animation': {'m_GameObject': _N('the owner'), 'm_Animation': _R('the default clip, the one track (legacy_clips)'),
+                  'm_PlayAutomatically': _R('without it nothing plays (legacy_clips)'), 'm_WrapMode': _K('clips[].loop'),
+                  'm_Enabled': _A(1, 'a switched-off Animation plays nothing in the client; the extract plays its clip'),
+                  'm_Animations': _N('its other clips: only a script plays them'),
+                  'm_CullingType': _N('[ASSUMED] off-screen culling: the effects are on screen'),
+                  'm_AnimatePhysics': _A(False, 'animates in the physics step')},
+    'Material': {'m_Name': _N('the name'), 'm_Shader': _K('materials.*.shader'),
+                 'm_ValidKeywords': _K('materials.*.keywords'),   # each one is also checked against KEYWORDS_READ (fields)
+                 'm_ShaderKeywords': _K('materials.*.keywords'),   # older clients: one string
+                 'm_InvalidKeywords': _N('keywords the shader does not declare: no variant switches'),
+                 'm_CustomRenderQueue': _K('materials.*.queue'),
+                 'm_SavedProperties.m_TexEnvs': _N('the `texture` kind checks them (material())'),
+                 'm_SavedProperties.m_Floats': _N('the `property` kind checks them (material())'),
+                 'm_SavedProperties.m_Colors': _N('the `property` kind checks them (material())'),
+                 'm_SavedProperties.m_Ints': _A((), 'integer properties: not read'),
+                 'disabledShaderPasses': _A((), 'shader passes switched off'), 'stringTagMap': _A((), 'override tags'),
+                 'm_LightmapFlags': _N(_LIGHTING), 'm_DoubleSidedGI': _N(_LIGHTING),
+                 'm_EnableInstancingVariants': _N('GPU instancing'), 'm_BuildTextureStacks': _N('virtual texturing'),
+                 'm_LockedProperties': _N('an editor setting'), 'm_Parent': _A(None, 'a material variant of another')},
+    # the client scripts (SCRIPTS_READ)
+    'script:ParticleEffect': {
+        'm_Enabled': _A(1, _OFF), '_allowAutoReuse': _N(_POOL), '_preloadCnt': _N(_POOL),
+        '_delayToPlay': _K('face.delay'), '_randomPlayDelay': _K('face.rnd'), '_delayToFinish': _K('finish'),
+        '_usePlaybackSpeed': _K('face.speed'), '_limitedPlaybackSpeed': _K('face.limit'), '_rotateType': _V('face.rot', (0, 1, 2, 3, 4)),
+        '_spawnLocation': _K('spawn'), '_leftIsDefault': _K('face.left'), '_useBodyRotation': _K('face.body'), '_mainDir': _K('face.dir'),
+        '_holdByOwner': _K('face.hold'), '_overwriteHeight': _K('height'), '_heightOffset': _K('height'),
+        '_bodyTransofrm': _K('face.bodyNode'), '_inactiveOnFinish': _K('offFinish'),
+        '_subFXDelayConfigs': _N('an empty list'), '_subFXDelayConfigs[].delayTime': _K('nodes[].sdelay'),
+        '_subFXDelayConfigs[].transform': _K('nodes[].sdelay'),
+        '_rotationY': _N('the node FLIP_TWO_SIDE turns — the player takes the first node named rotation_y (turned_nodes reports a '
+                         'difference)'),
+        '_rotationZ': _N('the node FLIP_TWO_SIDE / FOUR_DIRECTION / FIXED_DIRECTION turn — the player takes the first node named '
+                         'rotation_z (turned_nodes)'),
+        '_maxLifetime': _A(-1, 'the client finishes the effect this many seconds after it plays'),
+        '_isLoop': _A(0, 'a loop effect: the effect manager keeps at most 3 of one key at one place (ParticleEffectManager)'),
+        '_ignoredByParticleEffectManager': _A(0, 'left out of the effect manager (that cap)'),
+        '_toggleMeshRendererWhenPause': _A(0, 'its MeshRenderers switched off while it is paused'),
+        '_flipZ': _A(None, 'a node mirrored on z when facing left'),
+        '_disableBattleEffectShrink': _A(0, 'kept out of the battle\'s effect scaling [ASSUMED from its name: a newer field of the CN client]')},
+    'script:ProjectileEffect': {
+        **_EFFECT_BASE, '_delayToFinish': _K('finish'), '_inactiveOnFinish': _K('offFinish'),
+        '_resetMainDir': _A(1, 'the projectile not turned back to its main direction as it flies [ASSUMED]'),
+        '_mainDir': _A(1, 'another main direction [ASSUMED]', lambda t, _: bool(t.get('_resetMainDir'))),
+        '_randomAngle': _A(0, 'the projectile turned by a random angle up to this'),
+        '_rotate180Y': _A(0, 'the projectile turned 180° about y'),
+        '_flipIfLeft': _A(0, 'the projectile mirrored when it flies left'), '_inactiveOnHit': _A((), 'nodes switched off on a hit')},
+    'script:EmptyEffect': {**_EFFECT_BASE, '_delayToFinish': _K('finish')},
+    'script:FxDelay': {'m_Enabled': _A(1, _OFF + ' — FxDelay acts in OnEnable'), '_delayTime': _K('nodes[].delay')},
+    'script:FollowMountPoint': {
+        'm_Enabled': _A(1, _OFF), '_mountPointType': _K('mount.type'), '_followScaleSign': _K('mount.followScaleSign'),
+        '_followScale': _A(0, 'the effect takes its point\'s scale (`mount.followScale` is carried, not played)'), '_pauseWhenMountPointInvalid': _K('mount.pauseWhenInvalid'),
+        '_onlyPauseWhenMountPointInvalid': _A(0, 'paused only while its point is invalid (`mount.onlyPauseWhenInvalid` is carried, not played)'), '_keepOriginRotation': _K('mount.keepOriginRotation'),
+        '_useBehaviourPause': _A(0, _PAUSE + ' (`mount.useBehaviourPause` is carried, not played)'),
+        '_pauseWhenFollowScaleNearlyZero': _A(0, 'paused while its point\'s scale is nearly zero'),
+        '_scaleMultiplier': _A(1, 'the point\'s scale multiplied [ASSUMED from its name: a newer field of the CN client]', lambda t, _: bool(t.get('_followScale')))},
+    **{f'script:{c}': {
+        'm_Enabled': _A(1, _OFF + ' — FxUVTweener moves the offsets in Update'),
+        'xspeed': _K('nodes[].uvt.maps'), 'yspeed': _K('nodes[].uvt.maps'), 'secondXSpeed': _K('nodes[].uvt.maps'),
+        'secondYSpeed': _K('nodes[].uvt.maps'), 'secondMapName': _K('nodes[].uvt.maps'), 'useSecondMap': _K('nodes[].uvt.maps'),
+        'keepInitOffset': _K('nodes[].uvt.keep'),
+        'useSharedMaterial': _A(0, 'moves the shared material: one offset for every renderer that uses it [ASSUMED]'),
+        **({'protectMainUV': _K('nodes[].uvt.maps'), 'protectSecondUV': _K('nodes[].uvt.maps')} if c == 'FxUVTweener' else {
+            'tweenRepeat': _K('nodes[].uvt.until'), 'tweenAnmTime': _K('nodes[].uvt.until'), 'extraMapSettings': _N('an empty list'),
+            **{f'extraMapSettings[].{f}': _K('nodes[].uvt.maps') for f in ('XSpeed', 'YSpeed', 'enabled', 'mapName')},
+            **{f'extraMapSettings[].mapST.{a}': _A(0, 'the map\'s own tiling / offset [ASSUMED]') for a in 'xyzw'}})}
+        for c in ('FxUVTweener', 'FxUVTweenerAdvance')},
+    'script:FxUVRotation': {'m_Enabled': _A(1, _OFF + ' — FxUVRotation turns in Update'),
+                            **{f: _K('nodes[].uvr') for f in ('angle1', '_angle2', '_angle3', '_angle4',
+                                                              '_rotateTex1', '_rotateTex2', '_rotateTex3', '_rotateTex4')},
+                            '_propertyName': _V('nodes[].uvr', ('_Rotation',))},
+    'script:SwitchableBackEffect': {
+        'm_Enabled': _A(1, _OFF), '_backEffect': _K('back.effect'), '_predictFaceDirection': _A(0, 'the side predicted from the coming direction (`back.predict` is carried, not played)'), '_oneShot': _K('back.oneShot'),
+        '_createEffectOnStart': _A(0, 'the back copy made paused when it plays'),
+        '_forceCheckInUpdate': _A(0, 'the side checked again every frame'),
+        '_predictOnlyWhenDirectionNonBack': _A(1, 'the side predicted also when the direction is back'),
+        '_syncPlayBackSpeed': _A(0, 'the back copy takes this one\'s playback speed'), '_useBehaviourPause': _A(0, _PAUSE),
+        '_preserveBackWhenPredictingDirection': _A(0, 'the back copy kept while the side is predicted [ASSUMED from its name: a newer field of the CN client]')},
+    'script:SwitchableRightEffect': {
+        'm_Enabled': _A(1, _OFF), '_rightEffect': _K('right'), '_onlyCheckOnPlay': _A(0, 'the side checked only as it plays'),
+        '_reverseLeftRight': _A(0, 'left and right swapped'),
+        '_reactivationMode': _A(0, 'how the copy is played again [ASSUMED from its name: a newer field of the CN client]')},
+    'script:LineEffectEmitterDynamic': {
+        'm_Enabled': _A(1, _OFF), '_startMountPointType': _K('lineDyn.sMount'), '_endMountPointType': _K('lineDyn.eMount'),
+        '_startEffect': _K('lineDyn.start'), '_endEffect': _K('lineDyn.end'), '_midEffect': _K('lineDyn.mid'),
+        **{f'_startPosOffset.{a}': _K('lineDyn.sOff') for a in 'xyz'}, **{f'_endPosOffset.{a}': _K('lineDyn.eOff') for a in 'xyz'},
+        '_tweenEndPosition': _A(0, 'the end eased out from the start over _tweenDuration (`lineDyn.tween` is carried, not played)'),
+        '_tweenDuration': _N('only with _tweenEndPosition'),
+        '_finishIfBuffNotExists': _A(0, 'finished once the buff _buffKeyForFinish is gone (`lineDyn.finishBuff` is carried, not played)'),
+        '_buffKeyForFinish': _N('only with _finishIfBuffNotExists'),
+        '_fetchStartEndViaBuff': _A(0, 'the two ends taken from a buff\'s source and target'),
+        '_buffKey': _N('only with _fetchStartEndViaBuff'),
+        '_checkBuffSourceForFinish': _A(0, 'finished by the buff\'s source'),
+        '_effectGeneratedOnSourceIfFinish': _A('', 'an effect made on the source as it finishes'),
+        '_effectGeneratedOnTargetIfFinish': _A('', 'an effect made on the target as it finishes'),
+        '_finishIfEitherOfOwnersNotAliveOrReborn': _A(0, 'finished when either end dies or revives'),
+        '_finishIfEitherOfOwnersNotExist': _A(0, 'finished when either end is gone'),
+        '_forceLineUseWorldSpace': _A(0, 'its lines drawn in world space'),
+        '_pauseWhenDisappear': _A(0, 'paused while an end has disappeared'),
+        '_useSelfEffectOnly': _A(0, 'only its own effect, not the start / end ones'),
+        '_switchMaterialParamViaLR': _A(0, 'the material tiling / offset switched by the side'),
+        **{f'{f}.{a}': _N('only with _switchMaterialParamViaLR') for f in (
+            '_offsetValueLeft', '_offsetValueRight', '_tilingValueLeft', '_tilingValueRight') for a in 'xy'}},
+    'script:LineEffectEmitter': {'m_Enabled': _A(1, _OFF), '_startEffect': _K('lineEm.start'), '_midEffect': _K('lineEm.mid'),
+                                 '_endEffect': _K('lineEm.end')},
+    'script:RandomEmitter': {
+        'm_Enabled': _A(1, _OFF), '_effect': _K('nodes[].emit.effect'), '_count': _K('nodes[].emit.count'),
+        '_preDelay': _K('nodes[].emit.pre'), '_delayPerEffect': _K('nodes[].emit.per'),
+        **{f'_randomRangeFrom.{a}': _K('nodes[].emit.from') for a in 'xyz'}, **{f'_randomRangeTo.{a}': _K('nodes[].emit.to') for a in 'xyz'}},
+    'script:FlyToPredefinedLocation': {
+        'm_Enabled': _A(1, _OFF), '_location': _K('fly.loc'), '_duration': _K('fly.dur'), '_easeType': _K('fly.ease'),
+        '_isIndependentUpdate': _K('fly.real'), '_inversStartEnd': _K('fly.inv'), '_ignorePlayerSide': _A(0, 'flies to the place of either side (`fly.anySide` is carried, not played)')},
+    'script:OnPlayEmitter': {
+        'm_Enabled': _A(1, _OFF), '_effects': _K('nodes[].onPlay.effects'), '_preDelay': _K('nodes[].onPlay.pre'),
+        '_instant': _K('nodes[].onPlay.pre'), '_useFaceVector': _K('nodes[].onPlay.face'), '_clearWhenFinish': _K('nodes[].onPlay.clear'),
+        '_useSourceEffectPos': _K('nodes[].onPlay.srcPos'), '_keepPauseSync': _A(0, 'the effects it made paused with this one')},
+    'script:OnFinishEmitter': {
+        'm_Enabled': _A(1, _OFF), '_effects': _K('nodes[].onFinish.effects'), '_useFaceVector': _K('nodes[].onFinish.face'),
+        '_useEffectPosition': _K('nodes[].onFinish.effPos')},
+    'script:PauseEffectIf': {
+        'm_Enabled': _R('a switched-off one is not read (pause_scripts)'),
+        **{f: _K('nodes[].pauseIf.when') for f in (
+            '_checkAbnormalFlag', '_pauseWhenAbnormalFlag', '_pauseWhenAbnormalFlags', '_checkAbnormalCombo', '_pauseWhenAbnormalCombo',
+            '_checkUnitModeIndex', '_pauseWhenModeIndexList', '_checkDisappear', '_checkContainBuff', '_pauseWhenContainBuffKey',
+            '_pauseWhenContainBuffKeyList', '_checkNotInAbnormalFlag', '_pauseWhenNotInAbnormalFlag', '_checkFaceToBack',
+            '_checkFaceToRight', '_checkState', '_pauseWhenCharState', '_checkCharacterSharedBlackboardKey',
+            '_characterSharedBlackboardKeyList')},
+        '_checkAbnormalImmune': _A(0, 'paused while immune to a flag (`pauseIf.when[].immune` is carried, not played)'),
+        '_pauseWhenAbnormalImmune': _N('only with _checkAbnormalImmune'),
+        '_requireAllConditions': _K('nodes[].pauseIf.all'), '_checkOnPlay': _K('nodes[].pauseIf.onPlay'),
+        '_disableMeshRendererWhenPause': _A(0, 'its MeshRenderers off while paused (`pauseIf.meshOff` is carried, not played)')},
+    'script:PauseAnotherEffect': {'m_Enabled': _R('a switched-off one is not read (pause_scripts)'), '_effect': _K('nodes[].pauseOther[].effect'),
+                                  '_preDelay': _K('nodes[].pauseOther[].pre'), '_checkUpdate': _K('nodes[].pauseOther[].update')},
+    'script:PauseEffectWithAnimation': {
+        'm_Enabled': _R('a switched-off one is not read (pause_scripts)'), '_validAnimation': _K('nodes[].pauseAnim.valid'),
+        '_invalidAnimation': _K('nodes[].pauseAnim.invalid'), '_finishIfPause': _K('nodes[].pauseAnim.finish'),
+        '_noPauseWhenValid': _K('nodes[].pauseAnim.restore'), '_delayToPause': _K('nodes[].pauseAnim.pre'),
+        '_delayToRestore': _K('nodes[].pauseAnim.back'), '_useBehaviourPause': _A(0, _PAUSE)},
+    'script:PauseEffectIfNotIdle': {'m_Enabled': _R('a switched-off one is not read (pause_scripts)'),
+                                    '_needCheckFaceSwitch': _K('nodes[].pauseIdle.back'), '_pauseWhenBack': _K('nodes[].pauseIdle.back'),
+                                    '_pauseWhenFront': _K('nodes[].pauseIdle.front')},
+    'script:PauseEffectIfSpineEvent': {
+        'm_Enabled': _R('a switched-off one is not read (pause_scripts)'), '_pauseAtStart': _K('nodes[].pauseSpine.start'),
+        '_invertSpineEventMapping': _K('nodes[].pauseSpine.invert'), 'onlyCheckedAnimations': _K('nodes[].pauseSpine.anims'),
+        '_useBehaviourPause': _A(0, _PAUSE)},
+    'script:FinishEffectIf': {'m_Enabled': _R('a switched-off one is not read (pause_scripts)'),
+                              '_finishIfOwnerInvalid': _K('nodes[].finishIf.ownerGone'), '_finishIfNotDummy': _A(0, 'finished when its owner is not a dummy (`finishIf.notDummy` is carried, not played)'),
+                              '_finishIfCurrentAnimFinish': _K('nodes[].finishIf.animEnd')},
+    'script:PauseEffectIfNotMove': {'m_Enabled': _R('a switched-off one is not read (pause_scripts)')},
+    'script:FollowOwner': {'m_Enabled': _R('a switched-off one is not read (owner_follow)')},
+    'script:FollowOwnerRootTileHeight': {'m_Enabled': _R('a switched-off one is not read (owner_follow)')},
+    'script:FunnelHitEffect': {'m_Enabled': _A(1, _OFF), **{f'_randomRange.{a}': _K('jitter') for a in 'xyz'}},
+    'script:FollowDirection': {
+        'm_Enabled': _A(1, _OFF), **{f: _K('follow.src') for f in (
+            '_useFourDir', '_useOwnerDirection', '_useOwnerMoveDirection', '_useFaceToInsteadOfFaceVector', '_useFaceSwitcherFaceLORR')},
+        '_leftIsDefault': _K('follow.left'), '_flipWhenFaceToVertical': _K('follow.vflip'), '_onlyFollowOnPlay': _K('follow.once'),
+        '_useDirectionLerp': _K('follow.lerp'), '_lerpDuration': _K('follow.lerp'),
+        '_reverseWhenFaceToBack': _A(0, 'turned the other way while its owner faces back [ASSUMED from its name: a newer field of the CN client]')},
+    'script:SwitchableEffectByFaceDirection': {
+        'm_Enabled': _A(1, _OFF), '_upEffect': _K('swFace.up'), '_downEffect': _K('swFace.down'), '_leftEffect': _K('swFace.left'),
+        '_oneShot': _K('swFace.oneShot'), '_useBehaviourPause': _A(0, _PAUSE + ' (`swFace.beh` is carried, not played)')},
+    'script:SwitchableThreeFaceEffect': {
+        'm_Enabled': _A(1, _OFF), '_upEffect': _K('three.up'), '_downEffect': _K('three.down'),
+        '_forceCheckInUpdate': _A(0, 're-applied every frame (`three.check` is carried, not played)'), '_createEffectOnStart': _K('three.start')},
+    'script:RandomDirection': {'m_Enabled': _A(1, _OFF), **{f'{f}.{a}': _K('rdir') for f in ('_randomRotationFrom', '_randomRotationTo')
+                                                            for a in 'xyz'}},
+    'script:FollowTileHeight': {'m_Enabled': _A(1, _OFF), '_followTileHeightSpeed': _K('tileH')},
+    'script:FxLODSetting': {'m_Enabled': _A(1, _OFF), '_disableObjects': _K('lod.off'), '_particleDetailsHookers': _N('an empty list'),
+                            '_particleDetailsHookers[]._particle': _K('lod.ps'),
+                            '_particleDetailsHookers[]._detailPercentage': _K('lod.ps')},
+    'script:TriggerAnimatorWhenFinish': {'m_Enabled': _R('a switched-off one is not read (anim_scripts)'), '_customKey': _K('animFin[].p')},
+    'script:OnFinishAnime': {'m_Enabled': _R('a switched-off one is not read (anim_scripts)'), '_triggerName': _K('animFin[].p'),
+                             '_isTrigger': _K('animFin[].v'), '_isInt': _K('animFin[].v'), '_triggerValue': _K('animFin[].v')},
+    'script:SwitchAnimatorStateWhenFinish': {'m_Enabled': _R('a switched-off one is not read (anim_scripts)'),
+                                             '_stateName': _K('animFin[].play')},
+    'script:SetAnimatorTriggerOnEvent': {'m_Enabled': _R('a switched-off one is not read (anim_scripts)'),
+                                         '_event': _V('animFin[].p', (0,)), '_animatorTriggerName': _K('animFin[].p')},
+    'script:SetAnimatorFloatByCondition': {
+        'm_Enabled': _R('a switched-off one is not read (anim_scripts)'), '_paramName': _K('animSrc[].p'), '_isInt': _K('animSrc[].int'),
+        '_source': _N('[ASSUMED] the root\'s one BuffProgressFloatSource (anim_scripts reports more)')},
+    'script:BuffProgressFloatSource': {
+        'm_Enabled': _R('a switched-off one is not read (anim_scripts)'), '_buffKey': _K('animSrc[].buff'), '_maxKey': _N(_BUFF_PROGRESS),
+        '_progressKey': _N(_BUFF_PROGRESS), '_defaultVal': _K('animSrc[].def'), '_finishedVal': _K('animSrc[].fin'),
+        '_curve': _K('animSrc[].curve')},
+    'script:SetAnimatorTriggerByCondition': {
+        'm_Enabled': _R('a switched-off one is not read (anim_scripts)'),
+        '_source': _N('[ASSUMED] the root\'s AuraProjectileSetAnimatorTrigger'), '_autoFindSource': _N('[ASSUMED] the same'),
+        '_checkInterval': _A(-1, 'checked every so many seconds instead of every frame'),
+        '_skipWhenIsNullOrEmpty': _A(0, 'an empty value skipped')},
+    'script:AuraProjectileSetAnimatorTrigger': {'m_Enabled': _R('a switched-off one is not read (anim_scripts)'),
+                                                '_triggerKey': _K('animFin[].p'),
+                                                '_defaultKey': _A('', 'a trigger set before the aura stops')},
+    'script:EmitterRandomGroup': {
+        'm_Enabled': _R('a switched-off one is not read (random_group)'), '_effectPickFrom': _K('rgroup.pick'),
+        '_selfExcluded': _K('rgroup.self'), '_dontCheckOwner': _K('rgroup.noOwner'),
+        '_finishEffectWhenSelfFinish': _K('rgroup.keep'), '_useMainEffectPos': _K('rgroup.mainPos')},
+    'script:SwitchableWhenContainsEquipment': {
+        'm_Enabled': _R('a switched-off one is not read (equip_effects)'), '_pauseWhenSwitch': _K('equipFx.pause'),
+        '_equipmentEffectHookSchemas': _N('an empty list'),
+        **{f'_equipmentEffectHookSchemas[].{f}': _K('equipFx.hooks') for f in ('equipmentPair.key', 'equipmentPair.level', 'hookEffectKey')}},
+}
+# the fx_extract.py functions (or module tables) that read each kind, where the test looks for its fields' names
+COMP_READERS = {
+    **{k: ('prefab',) for k in ('GameObject', 'Transform', 'RectTransform', 'MeshRenderer', 'MeshFilter', 'TrailRenderer', 'LineRenderer')},
+    'SkinnedMeshRenderer': ('skin',), 'Animator': ('animator_clips',), 'Animation': ('legacy_clips', 'legacy_clip'),
+    'Material': ('material',),
+    'script:ParticleEffect': ('ROOT_EFFECT_FIELDS', 'root_effect_tree', 'off_on_finish', 'delay_to_finish'),
+    'script:ProjectileEffect': ('projectile_tree',), 'script:EmptyEffect': ('delay_to_finish',),
+    'script:FxDelay': ('fx_delay_tree',), 'script:FollowMountPoint': ('MOUNT_FIELDS',),
+    'script:FxUVTweener': ('uv_tween',), 'script:FxUVTweenerAdvance': ('uv_tween',), 'script:FxUVRotation': ('uv_rotation',),
+    'script:SwitchableBackEffect': ('switch_back',), 'script:SwitchableRightEffect': ('right_tree',),
+    'script:LineEffectEmitterDynamic': ('line_dynamic',), 'script:LineEffectEmitter': ('line_emitter',),
+    'script:RandomEmitter': ('random_emitter',), 'script:FlyToPredefinedLocation': ('fly_location',),
+    'script:OnPlayEmitter': ('on_emitters',), 'script:OnFinishEmitter': ('on_emitters',),
+    **{f'script:{c}': ('pause_scripts', 'pause_if') for c in (
+        'PauseEffectIf', 'PauseAnotherEffect', 'PauseEffectWithAnimation', 'PauseEffectIfNotIdle', 'PauseEffectIfSpineEvent',
+        'FinishEffectIf', 'PauseEffectIfNotMove')},
+    'script:FollowOwner': ('owner_follow',), 'script:FollowOwnerRootTileHeight': ('owner_follow',),
+    'script:FunnelHitEffect': ('funnel_hit',), 'script:FollowDirection': ('follow_direction',),
+    'script:SwitchableEffectByFaceDirection': ('switch_face',), 'script:SwitchableThreeFaceEffect': ('three_face',),
+    'script:RandomDirection': ('random_direction',), 'script:FollowTileHeight': ('tile_height',), 'script:FxLODSetting': ('lod_setting',),
+    **{f'script:{c}': ('anim_scripts',) for c in (
+        'TriggerAnimatorWhenFinish', 'OnFinishAnime', 'SwitchAnimatorStateWhenFinish', 'SetAnimatorTriggerOnEvent',
+        'SetAnimatorFloatByCondition', 'BuffProgressFloatSource', 'SetAnimatorTriggerByCondition', 'AuraProjectileSetAnimatorTrigger')},
+    'script:EmitterRandomGroup': ('random_group',), 'script:SwitchableWhenContainsEquipment': ('equip_effects',),
+}
+# a script's fields of the MonoBehaviour base: not the class's own
+_MONO_BASE = {'m_GameObject', 'm_Script', 'm_Name', 'm_EditorHideFlags', 'm_EditorClassIdentifier'}
+# material keywords the player follows (2026-10-26): by the keyword itself, or by the toggle float the shader pairs with it
+# (in PLAYER_VALUES). Another keyword a material switches on is reported: its shader variant may draw otherwise
+KEYWORDS_READ = {'_WEIGHT_ON': None, '_HGCUSTOMVERTEXSTREAM_ON': '_HGCustomVertexStream', '_DISSOLVE_THREE': '_Dissolve'}
+
 
 def _whole(v):
     """A type-tree value that is one field (a curve, a gradient, an object reference), not a struct of fields."""
-    return isinstance(v, dict) and any(k in v for k in ('minMaxState', 'm_PathID', 'm_PreInfinity'))
+    return isinstance(v, dict) and (any(k in v for k in ('minMaxState', 'm_PathID', 'm_PreInfinity', 'm_NumColorKeys'))
+                                    or ('first' in v and 'second' in v))   # a gradient, a map entry (a material's properties)
 
 
 def _fields(v, path, out):
@@ -523,6 +849,51 @@ KNOWN = {
         ('TrailModule.dieWithParticles ≠ True', 'the trail outlives its particle'),
         ('TrailModule.splitSubEmitterRibbons ≠ False', 'a ribbon per parent particle'),
         ('scalingMode = 2', 'Shape scaling: the parent scale reaches the shape only'))},
+    # (2026-10-26, effect bundle W1) the other components, the read scripts and the materials, from the first field-level run
+    # over the operators' prefabs (EN + CN clients) and the enemies' (EN): what the pipeline does not do yet
+    **{f'field:{w}': (_TODO, f'components and scripts (open): {n}') for w, n in (
+        ('MeshRenderer.m_Enabled ≠ 1', 'a switched-off MeshRenderer is drawn from the start (赤刃明霄陈 S1 dao_di_dm, 灵知 S2 range)'),
+        ("MeshRenderer.m_Materials = ('ref', 'ref')", 'a second material draws the mesh again (Unity: the last sub-mesh once more)'),
+        ('MeshRenderer.m_Materials = (None,)', 'a renderer without its material: the extract draws nothing, Unity its error colour '
+                                               'unless something hides it [ASSUMED] — check on screen'),
+        ('GameObject.m_Layer ≠ 15', 'a node on another layer (0): whether the battle camera draws it [ASSUMED]'),
+        ('Animator.m_Enabled ≠ 1', 'a switched-off Animator: the extract plays its clips'),
+        ('FxDelay.m_Enabled ≠ 1', 'a switched-off FxDelay (it acts in OnEnable): the extract delays the node'),
+        ('FxUVTweener.m_Enabled ≠ 1', 'a switched-off tweener (it moves in Update): the extract scrolls'),
+        ('FxUVTweenerAdvance.m_Enabled ≠ 1', 'a switched-off tweener (it moves in Update): the extract scrolls'),
+        ('FxUVRotation.m_Enabled ≠ 1', 'a switched-off rotation (it turns in Update): the extract turns'),
+        ('FxUVTweener.useSharedMaterial ≠ 0', 'one offset for every renderer of the shared material [ASSUMED]'),
+        ('FxUVTweenerAdvance.useSharedMaterial ≠ 0', 'one offset for every renderer of the shared material [ASSUMED]'),
+        ('ProjectileEffect._randomAngle ≠ 0', 'the projectile turned by a random angle each time (空弦 S3, 哈洛德)'),
+        ('ProjectileEffect._rotate180Y ≠ 0', 'the projectile turned 180° about y'),
+        ('ProjectileEffect._resetMainDir ≠ 1', 'the projectile not turned back to its main direction'),
+        ('ProjectileEffect._mainDir ≠ 1', 'another main direction'),
+        ('ParticleEffect._maxLifetime ≠ -1', 'the client finishes the effect after so many seconds (灵知\'s talent buff: 2 s)'),
+        ('ParticleEffect._isLoop ≠ 0', 'the effect manager keeps at most 3 loop effects of one key at one place'),
+        ('ParticleEffect._ignoredByParticleEffectManager ≠ 0', 'left out of that cap'),
+        ('FollowMountPoint._followScale ≠ 0', 'the effect takes its point\'s scale (焰尾\'s buff)'),
+        ('FollowMountPoint._onlyPauseWhenMountPointInvalid ≠ 0', 'paused only while its point is invalid'),
+        ('FollowMountPoint._useBehaviourPause ≠ 0', 'paused per behaviour'),
+        ('PauseEffectIf._checkAbnormalImmune ≠ 0', 'paused while its owner is immune to a flag'),
+        ('PauseEffectIf._disableMeshRendererWhenPause ≠ 0', 'its MeshRenderers off while paused'),
+        ('PauseEffectWithAnimation._useBehaviourPause ≠ 0', 'paused per behaviour'),
+        ('PauseEffectIfSpineEvent._useBehaviourPause ≠ 0', 'paused per behaviour'),
+        ('SwitchableBackEffect._useBehaviourPause ≠ 0', 'paused per behaviour'),
+        ('SwitchableBackEffect._forceCheckInUpdate ≠ 0', 'the side checked again every frame'),
+        ('SwitchableBackEffect._syncPlayBackSpeed ≠ 0', 'the back copy takes the playback speed'),
+        ('SwitchableRightEffect._onlyCheckOnPlay ≠ 0', 'the side checked only as it plays'),
+        ('OnPlayEmitter._keepPauseSync ≠ 0', 'the effects it made paused with it'),
+        ('LineEffectEmitterDynamic._fetchStartEndViaBuff ≠ 0', 'the two ends from a buff\'s source and target'),
+        ('LineEffectEmitterDynamic._finishIfEitherOfOwnersNotAliveOrReborn ≠ 0', 'finished when either end dies or revives'),
+        ('LineEffectEmitterDynamic._finishIfEitherOfOwnersNotExist ≠ 0', 'finished when either end is gone'),
+        ('LineEffectEmitterDynamic._forceLineUseWorldSpace ≠ 0', 'its lines in world space'),
+        ('LineEffectEmitterDynamic._pauseWhenDisappear ≠ 0', 'paused while an end has disappeared'),
+        ('LineEffectEmitterDynamic._checkBuffSourceForFinish ≠ 0', 'finished by the buff\'s source'),
+        ('LineEffectEmitterDynamic._finishIfBuffNotExists ≠ 0', 'finished once a buff is gone'),
+        ('TrailRenderer.m_Parameters.alignment = 1', 'a trail facing its transform\'s z, not the camera'),
+        ('TrailRenderer.m_Parameters.textureMode = 2', 'the texture spread per segment'))},
+    **{f'field:{w}': (_TODO, f'drawing (open): {n}') for w, n in (
+        ('MeshRenderer.m_SortingLayer ≠ 0', 'another sorting layer'), ('TrailRenderer.m_SortingLayer ≠ 0', 'another sorting layer'))},
     # materials (values: the extracted materials, 2026-10-16)
     'property:Torappu/Particles/Disturb/Disturb Anchor _Weight': (_NONE, 'the toggle behind keyword _WEIGHT_ON, which the player reads (all 198 materials agree)'),
     # clips
@@ -712,14 +1083,20 @@ class Coverage:
 
     # ------------------------------------------------------------ checks (called by the extractor)
 
-    def component(self, type_name):
+    def component(self, type_name, tree=None):
+        """A component by its type name, and (2026-10-26, effect bundle W1) its type tree's fields when given (fields)."""
         if type_name not in COMPONENTS_READ:
             self.add('component', type_name)
+        elif tree is not None:
+            self.fields(type_name, tree)
 
-    def script(self, script_id, fields=None):
-        """A MonoBehaviour by its MonoScript PathID and (when its type tree reads) its own field names."""
+    def script(self, script_id, fields=None, tree=None):
+        """A MonoBehaviour by its MonoScript PathID and (when its type tree reads) its own field names; a read one's type tree
+        (`tree`) field by field (fields)."""
         name = SCRIPTS.get(script_id)
         if name in SCRIPTS_READ:
+            if tree is not None:
+                self.fields(f'script:{name}', tree)
             return
         if name is None:
             name = self.class_of(fields) or f'#{script_id}'
@@ -768,19 +1145,7 @@ class Coverage:
                 _fields(v, k, fs)
         if psr:
             _fields(psr, 'renderer', fs)
-        for path, vals in fs.items():
-            rule = PS_FIELDS.get(path)
-            if rule is None:
-                self.add('field', f'{path} (not classified)', f'a field fx_coverage.PS_FIELDS does not know: {_val(vals[0])!r}')
-                continue
-            how, a, b, when = rule
-            if how in ('key', 'none') or (when and not when(ps, psr)):
-                continue
-            for v in map(_val, vals):
-                if how == 'assume' and not _same(v, a):
-                    self.add('field', f'{path} ≠ {a!r}', b)
-                elif how == 'values' and not any(_same(v, x) for x in b):
-                    self.add('field', f'{path} = {v!r}', f'the player handles {sorted(b)} ({a})')
+        self.check_fields(PS_FIELDS, fs, '', (ps, psr), 'PS_FIELDS')
         cd = ps.get('CustomDataModule') or {}
         if psr and cd.get('enabled') and 'CustomDataModule' in MODULES_READ:
             if not psr.get('m_UseCustomVertexStreams'):
@@ -792,6 +1157,64 @@ class Coverage:
         sh = ps.get('ShapeModule') or {}
         if sh.get('enabled') and sh.get('type') == 17 and not _same(_val((sh.get('arc') or {}).get('value', 360)), 360):
             self.add('field', 'ShapeModule.arc.value < 360 on a Donut', 'the player\'s donut emits all round')
+
+    def check_fields(self, table, fs, prefix, args, name):
+        """The `field` items of one type tree's fields `fs` ({dotted path: [values]}) by the rules of `table` (PS_FIELDS,
+        COMP_FIELDS[kind]); `prefix` names the kind in the item, `args` go to a rule's `when`."""
+        for path, vals in fs.items():
+            rule = table.get(path)
+            if rule is None:
+                self.add('field', f'{prefix}{path} (not classified)', f'a field fx_coverage.{name} does not know: {_val(vals[0])!r}')
+                continue
+            how, a, b, when = rule
+            if how in ('key', 'none', 'read') or (when and not when(*args)):
+                continue
+            for v in map(_val, vals):
+                if how == 'assume' and not _same(v, a):
+                    self.add('field', f'{prefix}{path} ≠ {a!r}', b)
+                elif how == 'values' and not any(_same(v, x) for x in b):
+                    self.add('field', f'{prefix}{path} = {v!r}', f'the player handles {sorted(b, key=lambda x: (type(x).__name__, x))} ({a})')
+
+    def fields(self, kind, t):
+        """(2026-10-26, effect bundle W1) the `field` kind for the type tree `t` of a GameObject, a component, a read script
+        ('script:<class>') or a material (COMP_FIELDS[kind]; a kind without a table is not looked into), and a material's
+        keywords the player does not follow (KEYWORDS_READ)."""
+        table = COMP_FIELDS.get(kind)
+        if table is None or not isinstance(t, dict):
+            return
+        fs = {}
+        strip = _MONO_BASE if kind.startswith('script:') else {'m_Component'}
+        _fields({k: v for k, v in t.items() if k not in strip}, '', fs)
+        self.check_fields(table, fs, kind.removeprefix('script:') + '.', (t, None), f'COMP_FIELDS[{kind!r}]')
+        if kind == 'Material':
+            kws = t.get('m_ValidKeywords')
+            if kws is None:
+                kws = (t.get('m_ShaderKeywords') or '').split()
+            for kw in kws or []:
+                if kw not in KEYWORDS_READ:
+                    self.add('field', f'Material keyword {kw}', 'a shader variant the player does not follow')
+
+    def turned_nodes(self, rotate, refs, nodes):
+        """(2026-10-26, effect bundle W1) the nodes a root ParticleEffect turns as it faces (`_rotationY` with FLIP_TWO_SIDE,
+        `_rotationZ` with it and with FOUR_DIRECTION / FIXED_DIRECTION: `_rotateType` 1, 2, 3) against the ones the player
+        turns — the first node named rotation_y / rotation_z (render/fxplayer.js applyTurn). `refs`: {field: the node index
+        it references, or None}, `nodes`: the node names in walk order."""
+        for field, name, types in (('_rotationY', 'rotation_y', (1,)), ('_rotationZ', 'rotation_z', (1, 2, 3))):
+            if rotate not in types:
+                continue
+            ref = refs.get(field)
+            first = next((i for i, n in enumerate(nodes) if n == name), None)
+            if ref == first:
+                continue
+            if ref is None:
+                self.add('field', f'ParticleEffect.{field} unset, a node named {name}',
+                         'the player turns that node; the client turns none')
+            elif first is None:
+                self.add('field', f'ParticleEffect.{field} on a node not named {name}',
+                         'the client turns it; the player turns none')
+            else:
+                self.add('field', f'ParticleEffect.{field} on another node than the first named {name}',
+                         'the client turns the one referenced; the player the first of that name')
 
     def material(self, shader, props, tex, values):
         """A material: its shader name, the shader's declared properties [(name, type, defaults)], the textures it sets

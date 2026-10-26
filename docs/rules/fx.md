@@ -2913,6 +2913,26 @@
     (이동 거리당 방출 198 프리팹 — 그것만 쓰는 계는 아무것도 안 나옴, 반복 계 `prewarm` 510, 노이즈 흐름 `scrollSpeed` 634, 원뿔 부피 길이 214, 호 방식
     141·간격 102, 궤도 속도 46 등)과 그리기(텍스처 시트 무작위 줄 172, 속도 방향 빌보드 82, `m_SortMode` 72, 정렬 레이어 16, 입자 꼬리 텍스처 방식 50 등).
     수는 프리팹 수. 고치는 순서는 관리자 노트.
+- **입자 밖 필드 — 다른 컴포넌트·스크립트·재질 (2026-10-26, 관리자 요청 「다른 사각지대가 더 없는지」)**: 위 입자 필드 검사와 같은 구멍(컴포넌트를 통째로만
+  봄)이 나머지에 그대로 있었다 — 첸 더 던스트릭 S1 시작의 `dao_di_dm`은 MeshRenderer가 꺼져 있는데(켜는 클립 트랙도 없음) 우리는 그렸고, 투사체
+  `ProjectileEffect._randomAngle`(매번 다른 각도)은 아무도 안 읽었다.
+  - 이제 `fx_coverage.COMP_FIELDS`가 GameObject·Transform(RectTransform)·MeshRenderer·MeshFilter·TrailRenderer·LineRenderer·SkinnedMeshRenderer·
+    Animator·Animation·재질과 추출이 읽는 클라 스크립트(`SCRIPTS_READ` 전부, 'script:<클래스>')의 **필드마다** 같은 규칙(`_K`·`_V`·`_A`·`_N`, 그리고 옮기진
+    않고 읽을지·어떻게 읽을지만 정하는 `_R`)을 적는다. 재질의 켜진 키워드는 플레이어가 따르는 것(`KEYWORDS_READ`: 키워드 자체 또는 짝 float) 밖이면 보고.
+    루트 ParticleEffect가 얼굴 돌릴 때 돌리는 노드(`_rotationY`·`_rotationZ`, `_rotateType` 1·2·3)와 플레이어가 이름으로 찾는 첫 `rotation_y`·`rotation_z`가
+    다르면 보고(`turned_nodes`).
+  - `test/fx-coverage.test.js` 「COMP_FIELDS」: `_K`·`_V`·`_R` 필드 이름은 `COMP_READERS`의 `fx_extract.py` 리더가, `_K`·`_V`의 키 끝 이름은 렌더
+    (`fxplayer.js`·`fxgame.js`·`fxpoints.js`·`fx/*.js`)가 읽어야 통과, 읽는 스크립트마다 표가 있어야 통과. 처음 돌렸을 때 옮기기만 하고 렌더가 안 읽는 키
+    18개가 나와 `_A`로 옮김(트레일 `emitting`, FollowMountPoint `followScale`·`onlyPauseWhenInvalid`·`useBehaviourPause`, 뒷면 `predict`, 동적 선
+    `tween`·`finishBuff`, 날기 `anySide`, 멈춤 `meshOff`·`notDummy`, 얼굴 전환 `beh`·`check` 등 — 버프 진행률 `max`·`prog`는 키트 fx 'buffProgress'가
+    손으로 줌).
+  - 첫 전수(운영자 묶음 EN + CN, 적 묶음 EN): 표에 없는 필드는 CN 클라의 새 필드 5개뿐 — `ParticleEffect._disableBattleEffectShrink` 91 등, 모두 기본값으로 보여
+    가정값으로 둠 [추정: 이름으로 본 뜻]. 재생 안 하는 것 41항목을 `KNOWN` todo로(수는 운영자 / 적 프리팹): 꺼진 MeshRenderer 11 / 0, 재질 둘인
+    MeshRenderer 3(Unity는 마지막 부분 메시를 한 번 더 그림), 재질 없는 MeshRenderer 4 / 1, 꺼진 스크립트를 켠 것처럼 읽음(FxUVTweenerAdvance 23 / 7,
+    FxUVRotation 3, FxDelay 2, FxUVTweener 1)·꺼진 Animator 1, 투사체 `_randomAngle` 7·`_rotate180Y` 2·`_resetMainDir` 0 8 / 11·`_mainDir` 7 / 3,
+    `_maxLifetime` 11 / 6, `_isLoop` 857 / 253(같은 키 반복 이펙트를 한 자리에 3개까지 — 겹칠 때만), FollowMountPoint `_followScale` 23 / 10 등, 멈춤 조건
+    `immune` 11 / 4, `useSharedMaterial` 51 / 5 [추정: 같은 재질끼리 한 오프셋], 트레일 정렬 TransformZ 2·텍스처 방식 DistributePerSegment 7, 다른 층(0)의 노드 4,
+    동적 선 플래그 7종, 정렬 레이어(MeshRenderer 11 / 1·TrailRenderer 2 — 「그리기」 todo).
 - 기준선의 큰 todo(비공개 조사 기록에 전체 목록): ~~`FollowDirection` 183개~~(2026-10-22 읽음 — 위 「이펙트 방향」) · ~~셰이더 `_CullMode`·`_ZWrite`·Disturb
   Origin `_SrcBlend`·`InheritVelocityModule`·`CollisionModule`·`SizeBySpeedModule`·Unity 기본 입자 재질·레거시 셰이더~~(2026-10-22 — 위 「입자 모듈·셰이더
   패스 상태」) · ~~`FxLODSetting` 37~~(2026-10-23 — 아래 「저사양 이펙트 — FxLODSetting」) · Shape Mesh 36(점으로 대체) · 기본 상태 밖 Animator 클립 23 · 클립이 움직이는 입자 모듈 값·트레일 길이·UV 흐름 속도(`EmptyEffect`·`OnPlayEmitter` /

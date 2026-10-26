@@ -4,7 +4,7 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -79,6 +79,45 @@ print(json.dumps(sorted(r['what'] + ' ' + r['status'] for r in cov.report() if r
       'prewarm ≠ False todo',
       'renderer.m_RenderAlignment = 4 todo',
       'scalingMode = 2 todo',
+    ]);
+  });
+
+  test('component, script and material fields: a switched-off mesh, a random projectile turn, a keyword, the turned nodes', () => {
+    // (2026-10-26, effect bundle W1) what the particle check could not see: the other components, the scripts, the materials
+    const rep = py(`
+cov = c.Coverage()
+cov.begin('chen3/chen3_skill_01_start_01')
+ref = lambda i: {'m_FileID': 0, 'm_PathID': i}
+cov.fields('GameObject', {'m_Name': 'dao_di_dm', 'm_IsActive': 1, 'm_Layer': 15, 'm_Component': [ref(1)]})
+cov.component('MeshRenderer', {'m_Enabled': 0, 'm_Materials': [ref(2), ref(3)], 'm_SortingOrder': 2, 'm_CastShadows': 1,
+                               'm_LightmapTilingOffset': {'x': 1, 'y': 1, 'z': 0, 'w': 0}, 'm_NewSwitch': 1})
+cov.component('MeshCollider', {'m_Enabled': 1})                                    # not read: the component kind only
+cov.component('TrailRenderer', {'m_Enabled': 1, 'm_Parameters': {'alignment': 1, 'widthCurve': {'m_Curve': [], 'm_PreInfinity': 2},
+              'colorGradient': {'key0': {'r': 1}, 'm_NumColorKeys': 2}}})
+cov.script(4524653206994915020, ['_randomAngle'], {'m_Enabled': 1, 'm_Script': ref(9), '_randomAngle': 360.0, '_resetMainDir': 1,
+           '_mainDir': 2, '_subFXDelayConfigs': []})                               # ProjectileEffect
+cov.script(568963171123803239, ['xspeed'], {'m_Enabled': 0, 'xspeed': 0.5, 'useSharedMaterial': 0})   # FxUVTweener, switched off
+cov.script(123, ['_someField'], {'_someField': 1})                                 # not read: no field check
+cov.fields('Material', {'m_Name': 'm', 'm_ValidKeywords': ['_WEIGHT_ON', '_GLOW_ON'], 'm_InvalidKeywords': ['_X_ON'],
+                        'm_SavedProperties': {'m_TexEnvs': [{'first': '_MainTex', 'second': {}}], 'm_Ints': [], 'm_Floats': [],
+                                              'm_Colors': []}})
+cov.turned_nodes(1, {'_rotationY': None, '_rotationZ': 3}, ['root', 'rotation_y', 'x', 'rotation_z'])   # y unset, z right
+cov.turned_nodes(2, {'_rotationZ': 2}, ['root', 'rotation_z', 'rotation_z'])                            # z: another one
+cov.turned_nodes(0, {}, ['root', 'rotation_y'])                                                         # NONE turns nothing
+print(json.dumps(sorted(r['kind'] + ':' + r['what'] for r in cov.report())))`);
+    assert.deepEqual(rep, [
+      'component:MeshCollider',
+      'field:FxUVTweener.m_Enabled ≠ 1',
+      'field:Material keyword _GLOW_ON',
+      'field:MeshRenderer.m_Enabled ≠ 1',
+      "field:MeshRenderer.m_Materials = ('ref', 'ref')",
+      'field:MeshRenderer.m_NewSwitch (not classified)',
+      'field:ParticleEffect._rotationY unset, a node named rotation_y',
+      'field:ParticleEffect._rotationZ on another node than the first named rotation_z',
+      'field:ProjectileEffect._mainDir ≠ 1',
+      'field:ProjectileEffect._randomAngle ≠ 0',
+      'field:TrailRenderer.m_Parameters.alignment = 1',
+      'script:#123 _someField',
     ]);
   });
 
@@ -475,6 +514,44 @@ describe('fx_coverage.py lists match the code they describe', { skip: !PY && 'no
       if (!segs.some(readsField)) bad.push(`${p}: no field ${segs.join('/')} in particle_system`);
       const last = key.split('.').pop().replace('[]', '');
       if (!readsKey(last)) bad.push(`${p} (${how}): fxplayer.js never reads \`${key}\``);
+    }
+    assert.deepEqual(bad, []);
+  });
+
+  test('COMP_FIELDS: a carried field is named by its fx_extract.py reader and its key read by the render code', () => {
+    // (2026-10-26, effect bundle W1) the PS_FIELDS check for every other component, the read scripts and the materials: a
+    // switched-off MeshRenderer was drawn and a projectile's random turn dropped because no check looked inside them
+    const t = py(`print(json.dumps({'rows': [[k, p, r[0], r[1]] for k, tb in c.COMP_FIELDS.items() for p, r in tb.items()
+                                             if r[0] in ('key', 'values', 'read')],
+  'kinds': sorted(c.COMP_FIELDS), 'readers': c.COMP_READERS, 'read': sorted(c.SCRIPTS_READ), 'kw': c.KEYWORDS_READ,
+  'values': sorted(c.PLAYER_VALUES)}))`);
+    const ex = readFileSync(path.join(TOOL, 'fx_extract.py'), 'utf8');
+    const fxDir = path.join(ROOT, 'public/js/render/fx');
+    const render = [player, ...['fxgame.js', 'fxpoints.js'].map((f) => readFileSync(path.join(ROOT, 'public/js/render', f), 'utf8')),
+      ...readdirSync(fxDir).filter((f) => f.endsWith('.js')).map((f) => readFileSync(path.join(fxDir, f), 'utf8'))].join('\n');
+    // a reader: a method (to the next method of its class) or a module table (to the blank line after it)
+    const source = (name) => {
+      const m = new RegExp(`^( *)def ${name}\\(|^${name} = `, 'm').exec(ex);
+      assert.ok(m, `no reader ${name} in fx_extract.py`);
+      const rest = ex.slice(m.index + m[0].length);
+      const end = m[1] === undefined ? rest.indexOf('\n\n') : rest.search(new RegExp(`\\n( {0,${m[1].length}})(def |@|class )`));
+      return end < 0 ? rest : rest.slice(0, end);
+    };
+    const readsKey = (k) => new RegExp(`(\\.|\\?\\.)${k}\\b|'${k}'|[{,]\\s*${k}\\s*[,}=]`).test(render);
+    const bad = [];
+    for (const kind of t.kinds) if (!t.readers[kind]) bad.push(`${kind}: no COMP_READERS entry`);
+    for (const s of t.read) if (!t.kinds.includes(`script:${s}`)) bad.push(`script:${s}: read, but no COMP_FIELDS table`);
+    for (const [kind, p, how, key] of t.rows) {
+      const src = (t.readers[kind] || []).map(source).join('\n');
+      const segs = p.split('.').map((s) => s.replace('[]', '')).filter((s, i) => i === 0 || (!/^[xyzw]$/.test(s) && s !== 'value'));
+      const named = (s) => src.includes(`'${s}'`) || (/\d$/.test(s) && src.includes(`f'${s.replace(/\d+$/, '')}{`));
+      if (!segs.some(named)) bad.push(`${kind} ${p}: no field ${segs.join('/')} in ${t.readers[kind]}`);
+      if (how === 'read') continue;
+      const last = key.split('.').pop().replace('[]', '');
+      if (!readsKey(last)) bad.push(`${kind} ${p} (${how}): the render code never reads \`${key}\``);
+    }
+    for (const [kw, f] of Object.entries(t.kw)) {
+      if (f ? !t.values.includes(f) : !player.includes(`'${kw}'`)) bad.push(`keyword ${kw}: the player reads neither it nor ${f}`);
     }
     assert.deepEqual(bad, []);
   });

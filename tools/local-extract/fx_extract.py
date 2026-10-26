@@ -41,7 +41,7 @@ import zlib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from fx_coverage import Coverage  # noqa: E402
+from fx_coverage import COMP_FIELDS, Coverage  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'public' / 'assets' / 'local' / 'fx'
@@ -941,6 +941,7 @@ class Extractor:
                              'offset': [r4(te['m_Offset']['x']), r4(te['m_Offset']['y'])]}
         floats = {n: r4(v) for n, v in pairs(props['m_Floats'])}
         colors = {n: color(v) for n, v in pairs(props['m_Colors'])}
+        self.cov.fields('Material', d)   # (2026-10-26, effect bundle W1) its own fields and keywords
         self.cov.material(shader, self.declared_props(sh),
                           {n for n, te in pairs(props['m_TexEnvs']) if (te.get('m_Texture') or {}).get('m_PathID')},
                           {**floats, **colors})
@@ -965,23 +966,31 @@ class Extractor:
         """(2026-10-16, fx_coverage) every component of the GameObject `go` (type tree `d`) to the coverage report; the
         MonoScript PathIDs of its MonoBehaviours (a set)."""
         sids = set()
+        self.cov.fields('GameObject', d)   # (2026-10-26, effect bundle W1) and every component's fields (fx_coverage.COMP_FIELDS)
         for c in d['m_Component']:
             comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], go)
             if comp is None:
                 continue
-            self.cov.component(comp.type.name)
-            if comp.type.name != 'MonoBehaviour':
+            tn = comp.type.name
+            if tn != 'MonoBehaviour':
+                try:   # the particle systems are checked where they are read (particle)
+                    tree = comp.read_typetree() if tn in COMP_FIELDS else None
+                except Exception:
+                    tree = None
+                self.cov.component(tn, tree)
                 continue
+            self.cov.component(tn)
             raw = comp.get_raw_data()
             if len(raw) < 28:
                 continue
             sid = struct.unpack_from('<q', raw, 20)[0]
             sids.add(sid)
             try:
-                fields = [k for k in comp.read_typetree() if not k.startswith('m_')]
+                tree = comp.read_typetree()
+                fields = [k for k in tree if not k.startswith('m_')]
             except Exception:
-                fields = None
-            self.cov.script(sid, fields)
+                tree = fields = None
+            self.cov.script(sid, fields, tree)
         return sids
 
     def prefab(self, root, out):
@@ -1173,6 +1182,7 @@ class Extractor:
         face = self.root_face(self.root_effect(root), gos)
         if face:
             out_def['face'] = face
+            self.cov.turned_nodes(face['rot'], self.turned_refs(root, gos), [n['name'] for n in nodes])
         finish = self.delay_to_finish(root)
         if finish:
             out_def['finish'] = finish
@@ -1480,6 +1490,15 @@ class Extractor:
             elif sid == ROOT_TILE_SCRIPT:
                 out['rootTile'] = 1
         return out
+
+    def turned_refs(self, root, gos):
+        """(2026-10-26, effect bundle W1, fx_coverage turned_nodes) the node indices the root ParticleEffect's `_rotationY` /
+        `_rotationZ` reference (`gos`: GameObject / Transform PathID → node index), None for an unset one."""
+        for sid, _raw, t in self.monos(root):
+            if sid == PARTICLE_EFFECT_SCRIPT and t is not None:
+                ref = lambda p: gos.get(p.get('m_PathID')) if isinstance(p, dict) and p.get('m_PathID') and not p.get('m_FileID') else None
+                return {f: ref(t.get(f)) for f in ('_rotationY', '_rotationZ')}
+        return {}
 
     def root_script(self, root, script, name, field):
         """The type tree of the root's MonoBehaviour of MonoScript `script` (None without one, or without its type tree — the
