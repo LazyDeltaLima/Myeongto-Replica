@@ -128,3 +128,53 @@ test('Shape scaling: the node\'s scale reaches the start positions, not the part
   assert.ok(Math.abs(sc.x - 1) < 1e-6, `the particles unscaled: ${sc.x}`);
   inst.dispose();
 });
+
+// (2026-10-27, the official engine's quads — rules/fx.md 「그리기 순서·시트」 「엔진의 사각형」)
+const IV_VEL = 25;
+
+test('the quads take velocity + animated velocity (the engine gathers both): VelocityOverLifetime reaches iVel', async () => {
+  const vol = { on: 1, x: K(3), y: K(0), z: K(0) };
+  const { inst } = await make([node('t', -1), node('v', 0, { ps: ps({ velOL: vol }, { n: 4, render: { mode: 1 } }) })]);
+  inst.update(0.02); inst.update(0.02);
+  const [s] = inst.systems;
+  assert.ok(rows(s, IV_VEL).every((v) => Math.abs(v - 3) < 1e-6), `x = the animated 3: ${rows(s, IV_VEL)}`);
+  assert.ok(rows(s, IV_VEL + 2).every((v) => Math.abs(v - 1) < 1e-6), `z = the start speed 1: ${rows(s, IV_VEL + 2)}`);
+  inst.dispose();
+});
+
+test('freeform stretching and Velocity alignment reach the shader; the Velocity frame follows the scene\'s handedness and facing', async () => {
+  const { inst } = await make([node('t', -1), node('f', 0, { ps: ps({}, { render: { mode: 1, free: 1 } }) }),
+    node('s', 0, { ps: ps({}, { render: { mode: 1 } }) }), node('v', 0, { ps: ps({}, { render: { mode: 0, align: 4 }, space: 1 }) })]);
+  inst.update(0.02);
+  const [f, s, v] = inst.systems, u = v.material.uniforms;
+  assert.equal(f.material.uniforms.uFree.value, true);
+  assert.equal(s.material.uniforms.uFree.value, false);
+  assert.equal(u.uAlign.value, 4);
+  assert.equal(u.uHand.value, -1, 'the Unity frame (z = −height) against the board: one flip');
+  assert.deepEqual(u.uUX.value.toArray(), [1, 0, 0]);
+  assert.equal(u.uWSign.value, 1);
+  inst.dispose();
+  const { inst: left } = await (async () => {
+    const THREE = await import('../../public/vendor/three.module.js');
+    const fxp = await import('../../public/js/render/fxplayer.js');
+    const def = { name: 't', duration: 0, materials: { m: MAT }, clips: [], geoms: {}, lib: { texture: () => new THREE.Texture() },
+      nodes: [node('t', -1), node('v', 0, { ps: ps({}, { render: { mode: 0, align: 4 }, space: 1 }) })] };
+    return { inst: new fxp.FxInstance(def, { quality: 'high', facing: -1 }) };
+  })();
+  left.update(0.02);
+  assert.equal(left.systems[0].material.uniforms.uWSign.value, -1, 'facing left: a world-space system\'s particles carry the mirror');
+  left.dispose();
+});
+
+test('oldest in front: the engine key max(0, 100 − age fraction) × start lifetime puts the longer-lived behind', async () => {
+  const { inst } = await make([node('t', -1), node('o', 0, { ps: ps({}, { n: 0, rate: 0, render: { sortMode: 2 } }) })]);
+  const [o] = inst.systems;
+  inst.update(0.02);
+  o.n = 3;
+  o.age.set([0.5, 0.1, 0.1]); o.life.set([1, 1, 2]);
+  o.pos.set([0, 0, 0, 0, 0, 1, 0, 0, 2]);
+  o.draw(0.02);
+  // keys: 99.5 × 1, 99.9 × 1, 99.95 × 2 → drawn first the largest: the long-lived (z 2), then the young (z 1), the old last
+  assert.deepEqual(rows(o, IV_POS + 2, 3), [2, 1, 0]);
+  inst.dispose();
+});

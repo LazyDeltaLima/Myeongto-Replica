@@ -282,6 +282,7 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
   attribute vec4 iUV; attribute vec3 iVel;
   attribute vec4 vcol; uniform bool uVCol; uniform bool uRim;
   uniform int uMode; uniform float uLengthScale; uniform float uVelScale; uniform int uAlign; uniform vec3 uPivot;
+  uniform bool uFree; uniform vec3 uUX; uniform float uHand; uniform float uWSign;
   varying vec2 vUv; varying vec4 vColor; varying vec4 vC1; varying vec4 vC2;
   // local patch: vH = the board height (scene z) of the fragment — what lies under the floor is cut (FRAG uFloor; the
   // official map's opaque ground hides it by depth); vN / vVP = view-space normal / position of a mesh (the Rim shaders)
@@ -329,23 +330,54 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
     // Stretched and mesh particles: below / above (2026-10-22)
     vec2 c = (position.xy + uPivot.xy) * iSize.xy;
     float cr = cos(-iRot.z), sr = sin(-iRot.z);
-    if (uMode == 1) {                       // stretched billboard: along the view-space velocity
+    if (uMode == 1) {                       // stretched billboard
       vec4 cv = modelViewMatrix * vec4(iPos, 1.0);
       vec3 vv = (modelViewMatrix * vec4(iVel, 0.0)).xyz;
-      vec2 d = length(vv.xy) > 1e-5 ? normalize(vv.xy) : vec2(1.0, 0.0);
       // local patch (maintainer video 2026-10-07, 锏 S3: long thin slash lines): the length is the size's y × lengthScale, the
-      // width its x (3D start size 0.15 × 3.6 drew short fat petals the other way round); equal for a uniform size
-      float len = iSize.y * uLengthScale + length(iVel) * uVelScale;
-      // 2026-10-22: the pivot in the stretched quad's frame — y along the stretch in lengths (pivot y ±0.5 puts one end on
-      // the particle: 爆刺 baoci −0.5 with a negative lengthScale), x across in widths. [추정: Unity's y runs against the
-      // velocity — the client's streaks (1,664 systems, |pivot y| 0.2–0.75 with its sign that of lengthScale) then trail
-      // behind their particle, a speed line's / spark's head on it; Unity builds these quads on the CPU, out of reach]
-      vec2 off = d * ((position.x - uPivot.y) * len) + vec2(-d.y, d.x) * ((position.y + uPivot.x) * iSize.x);
-      vH = (modelMatrix * vec4(iPos, 1.0)).z + hOfView(vec3(off, 0.0));
-      gl_Position = projectionMatrix * vec4(cv.xyz + vec3(off, 0.0), 1.0);
+      // width its x (3D start size 0.15 × 3.6 drew short fat petals the other way round) — the official engine's too
+      if (uFree) {
+        // freeform stretching (m_FreeformStretching, 30 systems): along the screen-plane velocity, centred on the particle,
+        // never thin [추정·미조사: the engine's freeform quad (camera-position facing, the particle's rotation and
+        // rotateWithStretchDirection skew it) is not read in full — rules/fx.md 「그리기 순서·시트」]
+        vec2 d = length(vv.xy) > 1e-5 ? normalize(vv.xy) : vec2(1.0, 0.0);
+        float len = iSize.y * uLengthScale + length(iVel) * uVelScale;
+        vec2 off = d * ((position.x - uPivot.y) * len) + vec2(-d.y, d.x) * ((position.y + uPivot.x) * iSize.x);
+        vH = (modelMatrix * vec4(iPos, 1.0)).z + hOfView(vec3(off, 0.0));
+        gl_Position = projectionMatrix * vec4(cv.xyz + vec3(off, 0.0), 1.0);
+        return;
+      }
+      // (2026-10-27, official engine: the stretched quad of the geometry job) in 3D from the head H = particle + v̂ · pivot y ×
+      // size y + across · pivot x × half the width back to the tail H − L, L = v̂ · lengthScale × size y + v · velocityScale
+      // (seen head-on it shortens and thins); across = the screen part of view ray × L (zero head-on); u runs 0 at the head
+      // to 1 at the tail, v across. No velocity draws nothing. The engine also takes off the camera's velocity × its
+      // cameraVelocityScale — the board camera does not move
+      float vl = dot(vv, vv);
+      vec3 vh = vl > 1e-30 ? vv * inversesqrt(vl) : vec3(0.0);
+      vec3 L = vh * (uLengthScale * iSize.y) + vv * uVelScale;
+      vec2 a = cross(cv.xyz, L).xy;          // this view space has −z ahead: the engine's camera-space cross, negated
+      vec3 W = vec3(dot(a, a) > 1e-30 ? -normalize(a) : vec2(0.0), 0.0) * (0.5 * iSize.x);
+      vec3 p = cv.xyz + vh * (uPivot.y * iSize.y) + W * uPivot.x - L * (position.x + 0.5) + W * (2.0 * position.y);
+      vH = (modelMatrix * vec4(iPos, 1.0)).z + hOfView(p - cv.xyz);
+      gl_Position = projectionMatrix * vec4(p, 1.0);
       return;
     }
     vec2 rc = vec2(c.x * cr - c.y * sr, c.x * sr + c.y * cr);
+    if (uMode == 0 && uAlign == 4) {
+      // (2026-10-27, official engine: the Velocity quad of the geometry job) the quad's normal is the velocity; its x axis
+      // normalize(M · (z × v̂)) with z the simulation space's (the output's x when the velocity runs along z or is zero, v̂
+      // then z), its y axis normal × x — taken in the Unity frame: uHand = this scene's handedness against it, uWSign =
+      // the mirror a world-space system's particles carry here and the engine's do not (FxInstance facing)
+      mat3 m3 = mat3(modelMatrix);
+      float vl = dot(iVel, iVel);
+      vec3 vh = vl > 1e-30 ? iVel * inversesqrt(vl) : vec3(0.0, 0.0, 1.0);
+      vec3 nw = normalize(m3 * vh);
+      vec3 w = m3 * vec3(-vh.y, vh.x, 0.0) * uWSign;
+      vec3 rt = dot(w, w) > 1e-30 ? normalize(w) : uUX;
+      vec3 wp = (modelMatrix * vec4(iPos, 1.0)).xyz + rt * rc.x + cross(nw, rt) * (uHand * rc.y);
+      vH = wp.z;
+      gl_Position = projectionMatrix * viewMatrix * vec4(wp, 1.0);
+      return;
+    }
     if (uMode == 2 || (uMode == 0 && (uAlign == 1 || uAlign == 2))) {
       // horizontal billboard (Unity: in the world XZ plane) / world- or local-aligned quad (XY plane of that space)
       vec3 p = uMode == 2 ? vec3(rc.x, 0.0, rc.y) : vec3(rc, 0.0);
@@ -642,6 +674,7 @@ function makeMaterial(m, lib) {
       uTime: { value: 0 }, uAdditive: { value: additive },
       uUVRot: { value: false }, uRot: { value: [0, 1, 2, 3].map(() => new THREE.Vector4(1, 0, 0, 1)) },   // uvRotation
       uMode: { value: 0 }, uLengthScale: { value: 2 }, uVelScale: { value: 0 }, uAlign: { value: 0 }, uPivot: { value: new THREE.Vector3() },
+      uFree: { value: false }, uUX: { value: new THREE.Vector3(1, 0, 0) }, uHand: { value: -1 }, uWSign: { value: 1 },
     },
   });
   mat.userData.order = m?.queue ?? 3000;
@@ -1176,6 +1209,7 @@ function customMap(r) {
 }
 const whiteVcol = (src) => new THREE.Float32BufferAttribute(new Float32Array(src.getAttribute('position').count * 4).fill(1), 4);
 const sortM = new THREE.Matrix4();
+const velAx = new THREE.Vector3();   // (2026-10-27) ParticleSystem.velFrame
 const tmpC = [0, 0, 0, 0], tmpC2 = [0, 0, 0, 0], tmpCD = new Float32Array(8);
 const D2R = Math.PI / 180;
 // (2026-10-22) a particle's size multipliers (sizeOf), the emitter velocity's frame change (emitterVelocity)
@@ -1224,6 +1258,9 @@ class ParticleSystem {
     this.planeAt = null;
     // particle state (SoA)
     this.pos = new Float32Array(max * 3); this.vel = new Float32Array(max * 3); this.age = new Float32Array(max);
+    // (2026-10-27) the step's animated velocity (VelocityOverLifetime, orbit, radial, noise): the engine's quads take
+    // velocity + animated velocity (stretched and Velocity-aligned billboards)
+    this.avel = new Float32Array(max * 3);
     this.life = new Float32Array(max); this.size0 = new Float32Array(max * 3); this.rot = new Float32Array(max * 3);
     this.rotVel = new Float32Array(max); this.col0 = new Float32Array(max * 4); this.rnd = new Float32Array(max * 4);
     this.nz = ps.mods.noise?.sizeAmt ? new Float32Array(max) : null;
@@ -1237,7 +1274,9 @@ class ParticleSystem {
     mat.uniforms.uMode.value = ps.render.mode === 3 ? 0 : ps.render.mode;
     mat.uniforms.uLengthScale.value = ps.render.lengthScale ?? 2;
     mat.uniforms.uVelScale.value = ps.render.velScale ?? 0;
-    mat.uniforms.uAlign.value = ps.render.mode === 0 || ps.render.align < 3 ? ps.render.align ?? 0 : 0;   // Facing: billboards only
+    mat.uniforms.uAlign.value = ps.render.mode === 0 || ps.render.align < 3 ? ps.render.align ?? 0 : 0;   // Facing, Velocity: billboards only
+    mat.uniforms.uFree.value = !!ps.render.free;
+    this.velAlign = ps.render.mode === 0 && ps.render.align === 4;
     if (opts.pivot && Array.isArray(ps.render.pivot)) mat.uniforms.uPivot.value.set(+ps.render.pivot[0] || 0, +ps.render.pivot[1] || 0, +ps.render.pivot[2] || 0); // local patch (FxInstance opts.pivot, default on)
     if (geomSrc !== QUAD) { useMeshAttrs(g, geomSrc, mat); meshSide(mat); } // local patch
     this.material = mat;
@@ -1401,6 +1440,7 @@ class ParticleSystem {
       this.pos[i * 3] = p.x; this.pos[i * 3 + 1] = p.y; this.pos[i * 3 + 2] = p.z;
       if (this.histN) this.histN[i] = 0;
       this.vel[i * 3] = d.x * sp; this.vel[i * 3 + 1] = d.y * sp; this.vel[i * 3 + 2] = d.z * sp;
+      this.avel[i * 3] = this.avel[i * 3 + 1] = this.avel[i * 3 + 2] = 0;
       if (this.inherit) {
         const k = evalMM(this.inherit, t01, Math.random()), v = this.emitV;
         this.vel[i * 3] += v.x * k; this.vel[i * 3 + 1] += v.y * k; this.vel[i * 3 + 2] += v.z * k;
@@ -1618,6 +1658,7 @@ class ParticleSystem {
     if (this.listed) liveParticles--;
     if (i === last) return;
     this.pos.copyWithin(i * 3, last * 3, last * 3 + 3); this.vel.copyWithin(i * 3, last * 3, last * 3 + 3);
+    this.avel.copyWithin(i * 3, last * 3, last * 3 + 3);
     this.size0.copyWithin(i * 3, last * 3, last * 3 + 3); this.rot.copyWithin(i * 3, last * 3, last * 3 + 3);
     this.col0.copyWithin(i * 4, last * 4, last * 4 + 4); this.rnd.copyWithin(i * 4, last * 4, last * 4 + 4);
     this.age[i] = this.age[last]; this.life[i] = this.life[last]; this.rotVel[i] = this.rotVel[last];
@@ -1800,7 +1841,13 @@ class ParticleSystem {
         ox += nv.x; oy += nv.y; oz += nv.z;
       }
       this.pos[i * 3] += (vx + ox) * sm * dt; this.pos[i * 3 + 1] += (vy + oy) * sm * dt; this.pos[i * 3 + 2] += (vz + oz) * sm * dt;
-      if (orbit) this.orbitStep(i, a, r, orbit, sm * dt);
+      if (orbit) {   // the engine adds the orbit's move ÷ (dt × the speed modifier) to the animated velocity
+        const q0 = this.pos[i * 3], q1 = this.pos[i * 3 + 1], q2 = this.pos[i * 3 + 2];
+        this.orbitStep(i, a, r, orbit, sm * dt);
+        const h = sm * dt;
+        if (h) { ox += (this.pos[i * 3] - q0) / h; oy += (this.pos[i * 3 + 1] - q1) / h; oz += (this.pos[i * 3 + 2] - q2) / h; }
+      }
+      this.avel[i * 3] = ox; this.avel[i * 3 + 1] = oy; this.avel[i * 3 + 2] = oz;
       if (P && !this.collide(i, a, r, P)) { this.kill(i); continue; }
       if (m.rotOL) {
         this.rot[i * 3 + 2] += evalMM(m.rotOL.z, a, r) * dt;
@@ -1818,12 +1865,14 @@ class ParticleSystem {
   /** The particles' instance data and trails for this frame (sinceStart: the branch's time, for the trails' ages). */
   draw(sinceStart) {
     const m = this.ps.mods;
+    if (this.velAlign && this.n) this.velFrame();
     // instance data, uploaded by the used range in one call
     const n = this.n, D = this.ib.array;
     for (let i = 0; i < n; i++) {
       const a = this.age[i] / this.life[i], r = this.rnd[i * 4 + 2], o = i * IV;
       D[o + IV_POS] = this.pos[i * 3]; D[o + IV_POS + 1] = this.pos[i * 3 + 1]; D[o + IV_POS + 2] = this.pos[i * 3 + 2];
-      D[o + IV_VEL] = this.vel[i * 3]; D[o + IV_VEL + 1] = this.vel[i * 3 + 1]; D[o + IV_VEL + 2] = this.vel[i * 3 + 2];
+      D[o + IV_VEL] = this.vel[i * 3] + this.avel[i * 3]; D[o + IV_VEL + 1] = this.vel[i * 3 + 1] + this.avel[i * 3 + 1];
+      D[o + IV_VEL + 2] = this.vel[i * 3 + 2] + this.avel[i * 3 + 2];
       const sk = this.sizeOf(i, a, r, sizeK);
       D[o + IV_SIZE] = this.size0[i * 3] * sk[0]; D[o + IV_SIZE + 1] = this.size0[i * 3 + 1] * sk[1]; D[o + IV_SIZE + 2] = this.size0[i * 3 + 2] * sk[2];
       D[o + IV_ROT] = this.rot[i * 3]; D[o + IV_ROT + 1] = this.rot[i * 3 + 1]; D[o + IV_ROT + 2] = this.rot[i * 3 + 2];
@@ -1872,14 +1921,15 @@ class ParticleSystem {
       idx.length = n;
       for (let i = 0; i < n; i++) {
         idx[i] = i;
-        if (mode === 2 || mode === 3) K[i] = Math.max(0, 100 - (this.life[i] - this.age[i])) / this.life[i];
+        // (official engine Sort) 2 / 3: max(0, 100 − its age fraction) × its start lifetime — the longer-lived behind, then by age
+        if (mode === 2 || mode === 3) K[i] = Math.max(0, 100 - this.age[i] / this.life[i]) * this.life[i];
         else {
           const dx = P[i * 3] - c.x, dy = P[i * 3 + 1] - c.y, dz = P[i * 3 + 2] - c.z;
           K[i] = mode === 4 ? dx * F.x + dy * F.y + dz * F.z : dx * dx + dy * dy + dz * dz;
         }
       }
-      // drawn first: the farthest (1, 4), the youngest (2), the oldest (3)
-      idx.sort(mode === 2 ? (x, y) => K[x] - K[y] : (x, y) => K[y] - K[x]);
+      // drawn first = the engine's first row: the farthest (1, 4), the largest key (2: the youngest), the smallest (3: the oldest)
+      idx.sort(mode === 3 ? (x, y) => K[x] - K[y] : (x, y) => K[y] - K[x]);
     }
     const T = this.rowTmp || (this.rowTmp = new Float32Array(this.max * IV));
     T.set(D.subarray(0, n * IV));
@@ -1900,6 +1950,20 @@ class ParticleSystem {
       m.g.instanceCount = w;
     });
     return n0;
+  }
+
+  /**
+   * (2026-10-27) The Velocity quad's frame uniforms: the Unity world's x in the scene (its fallback x axis), the scene's
+   * handedness against the Unity frame (FxInstance's object without the z flip of `unity`), and for a world-space system
+   * the facing mirror that `unity` puts on its particles (the engine's world-space particles carry none).
+   */
+  velFrame() {
+    const obj = this.root.parent || this.root, u = this.material.uniforms;
+    obj.updateWorldMatrix(true, false);
+    const e = obj.matrixWorld.elements;
+    u.uUX.value.copy(velAx.set(e[0], e[1], e[2]).normalize());
+    u.uHand.value = obj.matrixWorld.determinant() < 0 ? 1 : -1;
+    u.uWSign.value = this.world && this.root.scale.x < 0 ? -1 : 1;
   }
 
   /** setSubs: particle i (age a0 → a1 this frame) runs each sub emitter's emission module. */

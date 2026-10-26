@@ -73,12 +73,10 @@ cov.particle({'looping': False, 'prewarm': 1, 'ShapeModule': {'enabled': 1, 'typ
 print(json.dumps(sorted(r['what'] + ' ' + r['status'] for r in cov.report() if r['kind'] == 'field')))`);
     // (2026-10-26, effect bundle U) rate over distance, prewarm and a cone volume's length are played now: not reported;
     // (2026-10-27, effect bundle V) nor Shape scaling, a sort mode or the custom streams — a stream the player does not lay
-    // out (17 Velocity) is
+    // out (17 Velocity) is; (2026-10-27, the engine's quads) nor Velocity alignment and freeform stretching
     assert.deepEqual(rep, [
       'ShapeModule.alignToDirection ≠ False todo',
       'm_NewField (not classified) new',
-      'renderer.m_FreeformStretching ≠ False todo',
-      'renderer.m_RenderAlignment = 4 todo',
       'renderer.m_VertexStreams = [0, 1, 3, 4, 38, 17] new',
     ]);
   });

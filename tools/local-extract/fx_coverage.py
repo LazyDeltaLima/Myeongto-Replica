@@ -319,11 +319,12 @@ PS_FIELDS = {
     'SubModule.subEmitters[].emitProbability': _A(1, 'a sub-emitter fires only sometimes (`sub[].p` is carried, not played)'),
     # the ParticleSystemRenderer
     'renderer.m_RenderMode': _V('render.mode', (0, 1, 2, 4, 5)),
-    'renderer.m_RenderAlignment': _V('render.align', (0, 1, 2, 3)),
+    'renderer.m_RenderAlignment': _V('render.align', (0, 1, 2, 3, 4)),
     'renderer.m_LengthScale': _K('render.lengthScale'), 'renderer.m_VelocityScale': _K('render.velScale'),
     'renderer.m_CameraVelocityScale': _A(0, 'a stretch by the camera\'s motion'),
-    'renderer.m_FreeformStretching': _A(False, 'stretched quads not turned to the camera', lambda ps, r: r.get('m_RenderMode') == 1),
-    'renderer.m_RotateWithStretchDirection': _N('only with m_FreeformStretching'),
+    # (2026-10-27) carried; the player keeps its screen-plane quad for it [ASSUMED: the engine's freeform quad is not read in full]
+    'renderer.m_FreeformStretching': _K('render.free', lambda ps, r: r.get('m_RenderMode') == 1),
+    'renderer.m_RotateWithStretchDirection': _N('only with m_FreeformStretching (its quad: see that field)'),
     'renderer.m_AllowRoll': _N('billboards that do not roll with the camera: the board\'s camera does not roll'),
     'renderer.m_NormalDirection': _N('billboard normals for lit materials: the effects are unlit'),
     'renderer.m_Pivot.x': _K('render.pivot'), 'renderer.m_Pivot.y': _K('render.pivot'), 'renderer.m_Pivot.z': _K('render.pivot'),
@@ -822,9 +823,6 @@ KNOWN = {
     # (2026-10-26, effect bundle U) what that bundle left: the start direction turn of 4 systems (圣约送葬人's ranges)
     'field:ShapeModule.alignToDirection ≠ False': (_TODO, 'emission and motion (open): particles turned to their start direction'),
     'field:ShapeModule.arc on a Sphere / Hemisphere': (_TODO, 'emission and motion (open): a sphere\'s arc and its order (the enemies\' 40 systems, BurstSpread)'),
-    # (2026-10-27, effect bundle V) what that bundle left: how the engine builds its quads (not read) decides both
-    'field:renderer.m_FreeformStretching ≠ False': (_TODO, 'drawing (open): stretched quads not facing the camera'),
-    'field:renderer.m_RenderAlignment = 4': (_TODO, 'drawing (open): billboards along the velocity, drawn facing the camera'),
     # (2026-10-26, effect bundle W1) the other components, the read scripts and the materials, from the first field-level run
     # over the operators' prefabs (EN + CN clients) and the enemies' (EN): what the pipeline does not do yet
     **{f'field:{w}': (_TODO, f'components and scripts (open): {n}') for w, n in (
