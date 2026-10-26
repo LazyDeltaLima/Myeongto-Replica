@@ -168,6 +168,6 @@ test('FxUVRotation: a Disturb(CustomData) material gets its _Rotation0..3 = (cos
   near(r[1].x, 1, 'off: identity'); near(r[1].w, 1, 'off: identity');
   near(r[2].x, Math.SQRT1_2, '45°'); near(r[2].z, Math.SQRT1_2, '45°');
   const other = new fxp.FxInstance(def(origin, { uvr: [90, 0, 0, 0] }), { quality: 'high' });
-  assert.equal(other.meshMats[1].uniforms.uUVRot.value, false, 'Disturb Origin has no _HG_UV_ROTATION variant');
+  assert.equal(other.meshMats[1].uniforms.uUVRot.value, false, 'Disturb Origin has no _HG_UV_ROTATION branch');
   inst.dispose(); other.dispose();
 });

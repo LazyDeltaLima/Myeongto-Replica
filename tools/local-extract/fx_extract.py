@@ -2050,9 +2050,10 @@ class Extractor:
         return None
 
     def uv_rotation(self, go):
-        """(2026-10-14, official client) the GameObject's Torappu.Fx.FxUVRotation: `_Initialize` enables the
-        material keyword _HG_UV_ROTATION and sets `<_propertyName>0..3` to the identity (1, 0, 0, 1) (the class's static,
-        `.cctor`); `Update` sets each enabled one (`_rotateTex1..4`) to `_CalculateMatrix`
+        """(2026-10-14, official client) the GameObject's Torappu.Fx.FxUVRotation: `Update` writes the float
+        _HG_UV_ROTATION = 1 into the renderer's property block (the shader turns the uv when it is above 0.5 — a branch, not a
+        keyword; 2026-10-26) and `<_propertyName>0..3`, from the identity (1, 0, 0, 1) (the class's static,
+        `.cctor`); each enabled one (`_rotateTex1..4`) is `_CalculateMatrix`
         of its angle (`angle1`, `_angle2..4`, degrees × 0.0174533): (f₂, −f₁, f₁, f₂) of two unnamed CRT calls — (cos, −sin, sin,
         cos) [ASSUMED: identity at angle 0]. → `uvr` [4 angles, degrees; 0 for a disabled one], None without one or with all
         disabled. Every component (154 in 62 prefabs) names `_Rotation`. Drawn by render/fxplayer.js (uRot0..3)."""

@@ -395,7 +395,7 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
   varying vec2 vUv; varying vec4 vColor; varying vec4 vC1; varying vec4 vC2;
   // 2026-10-18 (client shader): a dissolve cut — saturate((d − amount + border · (1 − roundEven(amount + .5))) / border)
   float cut(float d, float amt, float bw) { bw = max(bw, 1e-3); return clamp((d - amt + bw * (1.0 - roundEven(amt + 0.5))) / bw, 0.0, 1.0); }
-  // 2026-10-14 (client shader, _HG_UV_ROTATION): FxUVRotation turns a texture's tiled uv about its centre, before the scroll
+  // 2026-10-14 (client shader, the _HG_UV_ROTATION branch): FxUVRotation turns a texture's tiled uv about its centre, before the scroll
   vec2 rotUV(vec2 t, vec4 r) { vec2 c = t - 0.5; return vec2(r.x * c.x + r.z * c.y, r.y * c.x + r.w * c.y) + 0.5; }
   void main() {
     if (vH < uFloor) discard;   // local patch: under the floor (FxInstance opts.floor)
@@ -637,7 +637,7 @@ function makeMaterial(m, lib) {
     },
   });
   mat.userData.order = m?.queue ?? 3000;
-  mat.userData.uvRot = /Disturb\(CustomData/.test(shader);   // the shaders with the _HG_UV_ROTATION variant (uvRotation)
+  mat.userData.uvRot = /Disturb\(CustomData/.test(shader);   // the shaders with the _HG_UV_ROTATION branch (uvRotation)
   mat.userData.rim = /\/Rim\//.test(shader);
   // 2026-10-22: the pass's culling — set on mesh geometry only (meshSide): a billboard, trail or line is built facing the
   // camera, as Unity builds them, so Back culls nothing there and the player keeps both sides
@@ -688,9 +688,9 @@ function uvTween(mat, uvt, m) {
 
 /**
  * (2026-10-14, official client and its shader) a node's FxUVRotation (fx_extract.py `uvr`: 4 angles in degrees, 0 = off): it switches the
- * material to its _HG_UV_ROTATION variant — only the Disturb(CustomData) family has one (Disturb / Ram/Disturb / ZDistort …;
- * every rotated material of the extracted prefabs) — and sets _Rotation0..3 to (cos, −sin, sin, cos) of each angle
- * [ASSUMED: cos / sin — the client calls two unnamed CRT functions; the identity at angle 0 settles it]. The shader turns
+ * shader's _HG_UV_ROTATION branch (a float the official script writes as 1 every frame, not a keyword; 2026-10-26) — only the
+ * Disturb(CustomData) family has one (Disturb / Ram/Disturb / ZDistort …; every rotated material of the extracted prefabs) —
+ * and sets _Rotation0..3 to (cos, −sin, sin, cos) of each angle [ASSUMED: cos / sin — the client calls two unnamed CRT functions; the identity at angle 0 settles it]. The shader turns
  * texture k's tiled uv (+ the custom offset for the main one) about (0.5, 0.5), u' = x·u + z·v, v' = y·u + w·v, then scrolls:
  * 0 main, 1 dissolve, 2 the third texture (_RamTex / _WeightTex), 3 the noise [ASSUMED: _Rotation2 / 3 in the order of their
  * constant slots — the shader's names are stripped].

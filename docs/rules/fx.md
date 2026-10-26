@@ -1464,11 +1464,13 @@
     - 확인: 단위 `test/render/fx-legacy-skin.test.js` 「Birth sub emitters」. Windows Chrome 디버그 페이지에서 대상 시스템의 입자 수·위치 개수: 위셔델
       `wisdel_skill_01_hit_02` 폭발 11종이 부모 입자 자리에서, 첸 더 던스트릭 `chen3_skill_03_trail_01` 별 9개가 동전 9곳에서, 무에나 별이 부모 별 자리에서.
       오류 0. [화면 미확인: 공식 녹화 대조, 실제 판]
-  - **FxUVRotation**(움직임이 아니라 텍스처의 고정 회전, 추출본 96개 프리팹·노드 228): 공식 클라 `_Initialize`가
-    키워드 `_HG_UV_ROTATION`을 켜고(2026-10-26 클라 갱신 뒤 공식 클라에서 다시 보니 키워드를 켜는 호출은 없고, 렌더러 속성 블록에 칸 번호 없이 float
-    `_HG_UV_ROTATION`과 `_Rotation0..3`을 씀 — 셰이더가 그 float로 회전을 가르는지 변형으로 가르는지는 미확인 [추정: 회전함]) `_Rotation0..3`을 항등 (1, 0, 0, 1)(정적 필드, `.cctor`)로 두며, `Update`가 켜진 것
+  - **FxUVRotation**(움직임이 아니라 텍스처의 고정 회전, 추출본 96개 프리팹·노드 228): 공식 클라 `Update`가
+    매 프레임 렌더러 속성 블록에 칸 번호 없이 float `_HG_UV_ROTATION` = 1(`UV_ROTATION_ENABLED`, `OnDestroy`는 0)과 `_Rotation0..3`을 쓰고
+    (`_propertyName`이 비면 아무것도 안 함 — 추출본은 모두 `_Rotation`), 셰이더는 그 float가 0.5보다 크면 돌린 uv를, 아니면 그대로를 고른다 — 변형
+    키워드가 아니라 같은 프로그램 안의 갈래(셰이더 키워드 목록에 없음; 공식 클라에서 확인 2026-10-26. 10-14 이전 판은 키워드를 켰고 재질도 그 키워드를
+    가졌다). `_Rotation0..3`은 항등 (1, 0, 0, 1)(정적 필드, `.cctor`)에서 시작하고, 켜진 것
     (`_rotateTex1..4`)만 `_CalculateMatrix` = 각도(도 × 0.0174533)의 (cos, −sin, sin, cos)로 바꾼다 [추정: cos·sin — 이름 없는 CRT 함수
-    둘, 각도 0이 항등이라는 데서]. 이 변형은 Disturb(CustomData) 계열(Disturb·Ram/Disturb·ZDistort … — 회전된 재질 전부가 이 둘)에만 있다. 정점
+    둘, 각도 0이 항등이라는 데서]. 이 갈래는 Disturb(CustomData) 계열(Disturb·Ram/Disturb·ZDistort … — 회전된 재질 전부가 이 둘)에만 있다. 정점
     셰이더가 텍스처마다 타일링(+ 메인은 커스텀 오프셋) 뒤 uv를 (0.5, 0.5) 둘레로 u' = x·u + z·v, v' = y·u + w·v 돌린 다음 흐름을 더한다:
     0 메인, 1 디졸브, 2 셋째 텍스처(Ram은 `_RamTex`, Disturb는 `_WeightTex`), 3 노이즈 [추정: 2·3의 짝은 상수 슬롯 순서 — 셰이더 이름이 지워짐;
     켜진 2번 72개 중 62개는 그 재질에 해당 텍스처가 없어 결과가 같음]. 예전엔 회전 없이 그려 그 텍스처들의 방향이 틀렸다(각도 −90°~270°; 첸 더
