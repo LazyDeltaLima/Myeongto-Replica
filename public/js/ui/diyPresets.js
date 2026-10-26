@@ -35,8 +35,8 @@ export const DIY_PRESETS_VERSION = 3;
 export const BASE_LINK = 'base';
 /** The draft's choice that applies no roster (the picks stay as they are). */
 export const KEEP_LINK = 'keep';
-/** How long the chat's 「…预设已套用 · 撤销」 line stays (ms). */
-export const PRESET_NOTICE_MS = 10000;
+/** How long the chat's 「…预设已套用 · 撤销」 line stays (ms); its × or typing in the chat drops it sooner (ui/factionPick.js). */
+export const PRESET_NOTICE_MS = 6000;
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 
@@ -253,7 +253,7 @@ export function undoFactionPreset() {
   return true;
 }
 
-/** Drop the notice (its time ran out). */
+/** Drop the notice (its time ran out, its × or typing in the chat). */
 export function clearPresetNotice() {
   if (diyPresetStore.get().notice) diyPresetStore.set({ notice: null });
 }

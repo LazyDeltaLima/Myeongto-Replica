@@ -1398,6 +1398,7 @@
   "此处的修改会保存到{faction}预设；在聊天中选择{faction}时自动套用": "Changes here are saved to the {faction} preset; picking {faction} in the chat applies it",
   "已将{faction}预设套用到自选编队": "Applied the {faction} preset to your self-select squad",
   "撤销": "Undo",
+  "关闭提示": "Dismiss",
   "本局生效": "Takes effect in this match",
   "「不使用预设」与每个阵营各存一套自选；在聊天或策略选择中选择阵营时自动套用该阵营的预设": "No preset and each faction keep their own picks; picking a faction in the chat or the strategy draft applies its preset",
   "全局作战目标": "Global Operation Objective",

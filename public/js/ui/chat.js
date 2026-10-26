@@ -15,7 +15,7 @@
 //                  player's lines and avatar until the match ends; picking one announces it as a `kind: 'faction'` line
 //                  and applies the faction's 自选 preset if the player made one (ui/factionPick.js chooseFaction — the
 //                  strategy draft's row picks the same way; PresetNotice = the 「…预设已套用 · 撤销」 line above the
-//                  input); during a match a faction whose bond is off is dimmed
+//                  input, dropped once the player types); during a match a faction whose bond is off is dimmed
 //   RoomChat       the room screen's panel: log + input, folds to a button (unread count while folded)
 //   GameChat       the match: a 聊天 button beside 交流 (unread badge) + panel above it; while it is closed, new lines
 //                  of the others float above the corner for a few seconds, or, with settings 常驻最近 3 条消息
@@ -34,6 +34,7 @@ import { t } from '../../../shared/i18n.js';
 import { playerName } from '../../../shared/botNames.js';
 import { FactionIcon, factionIconUrl } from './faction.js';
 import { chooseFaction, PresetNotice } from './factionPick.js';
+import { clearPresetNotice } from './diyPresets.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const KEEP = 60;            // lines kept on the client
@@ -258,7 +259,7 @@ function ChatInput({ disabled, inputRef, autoFocus = false, onEscape }) {
     <${FactionPicker} disabled=${disabled} />
     <input ref=${ref} class="chat__input" type="text" value=${text} maxlength=${CHAT_MAX_LEN} enterkeyhint="send" autocomplete="off"
       placeholder=${disabled ? t('连接中断') : touchUi() ? t('输入消息') : t('输入消息，Enter 发送')} aria-label=${t('聊天消息')} disabled=${disabled}
-      onInput=${(e) => setText(e.currentTarget.value)} onKeyDown=${onKey} data-i18n-skip="" />
+      onInput=${(e) => { setText(e.currentTarget.value); clearPresetNotice(); }} onKeyDown=${onKey} data-i18n-skip="" />
     <button type="submit" class="chat__send" disabled=${disabled || busy || !text.trim()} aria-label=${t('发送')} title=${t('发送')}><${Glyph} d=${SEND_D} /></button>
     ${err ? html`<span class="chat__err" role="status">${err}</span>` : null}
   </form>`;

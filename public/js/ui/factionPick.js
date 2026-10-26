@@ -6,9 +6,10 @@
 //                       (ui/diyPresets.js). Solo rooms have no chat faction: the pick only applies the preset. The
 //                       preset applies before the match and while its briefing / strategy draft runs (the server's match.setDiy takes it for THIS match then);
 //                       from the prep on a pick only changes the tag — the picks and presets stay (maintainer 2026-10-09).
-//   PresetNotice        「炎国预设已套用到自选编队 · 撤销」 for PRESET_NOTICE_MS after a pick applied a preset — above the
-//                       chat input, and `inline` in the draft's 自选预设 row; a faction whose bond this match disables
-//                       is still applied and says 本局禁用 (maintainer 2026-10-12).
+//   PresetNotice        「炎国预设已套用到自选编队 · 撤销 ×」 for PRESET_NOTICE_MS after a pick applied a preset — above the
+//                       chat input, and `inline` in the draft's 自选预设 row; × or typing in the chat (ui/chat.js) drops
+//                       it sooner, since it covers the chat log; a faction whose bond this match disables is still
+//                       applied and says 本局禁用 (maintainer 2026-10-12).
 //   applyPresetChoice(choice)  a strategy's linked roster (전략별 선발 프리셋, screens/bandDraft.js): a faction = the faction
 //                       pick above (chat tag + preset), BASE_LINK = 不使用预设, KEEP_LINK = nothing.
 
@@ -77,5 +78,6 @@ export function PresetNotice({ inline = false }) {
   return html`<p class=${cx('chat__preset', inline && 'chat__preset--inline', isOff && 'is-off')} role="status" data-testid="preset-notice">
     ${f ? html`<${FactionIcon} f=${f} />` : null}<span>${f ? t('已将{faction}预设套用到自选编队', { faction: t(f.name) }) : t('自选编队已切换为「不使用预设」')}${isOff ? html`<small class="chat__preset-off">${t('本局禁用')}</small>` : null}${n.inMatch ? html`<small>${t('本局生效')}</small>` : null}</span>
     <button type="button" class="chat__preset-undo" data-testid="preset-undo" onClick=${undoFactionPreset}>${t('撤销')}</button>
+    <button type="button" class="chat__preset-close" data-testid="preset-close" aria-label=${t('关闭提示')} title=${t('关闭提示')} onClick=${clearPresetNotice}>×</button>
   </p>`;
 }

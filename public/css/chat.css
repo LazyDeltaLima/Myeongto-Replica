@@ -179,6 +179,11 @@
   flex: none; padding: .02rem .1rem; border: 1px solid var(--mint-700); border-radius: .03rem;
   background: var(--mint-a20); color: var(--mint-400); font-weight: 700; font-size: max(.14rem, 12px);
 }
+.chat__preset-close {
+  flex: none; min-width: max(.28rem, 24px); align-self: stretch; padding: 0; border: 0; background: none;
+  color: var(--text-lo); font-size: max(.18rem, 15px); line-height: 1;
+}
+.chat__preset-close:hover { color: var(--text-hi, #e8f0ee); }
 
 /* faction avatar (ui/faction.js FactionGlyph): the tinted nation icon, the name's first letter small under it; sized
    from its avatar box (--av: room seat card AvatarFrame, --pa: PlayerAvatar in the team panel / draft / result) */

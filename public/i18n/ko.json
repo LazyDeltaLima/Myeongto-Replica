@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1494 of 1712 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1495 of 1713 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false,
@@ -1412,6 +1412,7 @@
   "此处的修改会保存到{faction}预设；在聊天中选择{faction}时自动套用": "여기서 바꾸면 {faction} 프리셋에 저장됩니다. 채팅에서 {faction}을(를) 고르면 자동으로 적용됩니다",
   "已将{faction}预设套用到自选编队": "{faction} 프리셋을 선발 편성에 적용했습니다",
   "撤销": "되돌리기",
+  "关闭提示": "알림 닫기",
   "本局生效": "이번 시뮬레이션에 적용",
   "「不使用预设」与每个阵营各存一套自选；在聊天或策略选择中选择阵营时自动套用该阵营的预设": "「프리셋 없음」과 맹약마다 편성이 따로 저장됩니다. 채팅이나 전략 선택에서 맹약을 고르면 그 맹약 프리셋이 적용됩니다",
   "全局作战目标": "전역 작전 목표",
