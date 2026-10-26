@@ -356,7 +356,7 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
     vH = (modelMatrix * vec4(iPos, 1.0)).z + hOfView(vec3(rc, 0.0));
     gl_Position = projectionMatrix * vec4(cv.xyz + vec3(rc, 0.0), 1.0);
   }
-  // 2026-10-26 (client shader ZDistort/Disturb(CustomData)): the depth of the point where this vertex's view ray meets the
+  // 2026-10-26 (client shaders ZDistort/*): the depth of the point where this vertex's view ray meets the
   // plane at board height uBaseH, the screen position unchanged — the client's vertex stage moves the world point along its
   // camera's slope (√3) to _BaselineZ and keeps it from falling below it, so the material depth-tests as if it lay on the
   // floor [추정: this camera's own ray for the client's fixed slope]
@@ -541,8 +541,10 @@ function makeMaterial(m, lib) {
   const rs = renderState(shader, f);
   // 2026-10-26 (client shader): ZDistort/Disturb(CustomData) draws as Ram/Disturb(CustomData) with every channel selector at
   // its default (main and _RamTex rgba, noise and dissolve .r — the same constant slots), the name rules above and below
-  // giving it that; its vertex stage only changes the depth (uZFlat)
-  const zflat = /\/ZDistort\/Disturb\(CustomData\)$/.test(shader);
+  // giving it that; its vertex stage only changes the depth (uZFlat). ZDistort/Additive, /AlphaBlend and
+  // /Dissolve(CustomData) are likewise Particles/Additive, /AlphaBlend and Dissolve/Dissolve(CustomData) without their
+  // channel selectors (main rgba, dissolve .r), with the same pass states and the same vertex stage
+  const zflat = /\/ZDistort\//.test(shader);
   const opaque =!additive && f._DstBlend === 0 && SRC_READ.test(shader);
   const src = rs.src, dst = additive ? 1 : opaque ? 0 : 10;
   // 2026-10-14: Disturb Origin / Anchor name their noise _DisturTex (it was never read: no distortion, no flow)

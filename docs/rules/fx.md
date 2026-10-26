@@ -1304,6 +1304,11 @@
   것처럼 깊이 시험을 받는다. `_ZTest` 0인 재질(타격들)에는 차이가 없고, 4인 5개(S2·S3 버프, S3 범위, 迷狂牢笼)만 해당. → `fxplayer.js` `uZFlat`: 이 정점의
   시선이 평면(이펙트 자기 바닥 + `_BaselineZ`, 추출 재질은 모두 0)과 만나는 점의 깊이, 바닥 자르기(`uFloor`) 없음 [추정: 클라의 고정 기울기 대신 이 카메라의
   시선; 평면을 낮은 바닥 대신 이펙트의 바닥으로 — 고지대 오퍼레이터의 버프가 자기 칸 가림막에 가리지 않게]. `fx_coverage.py SHADERS_CHECKED`에 넣음.
+  나머지 변형 셋도 같은 짜임(2026-10-26 셰이더 대조): `ZDistort/Additive`·`/AlphaBlend`는 `Particles/Additive`·`/AlphaBlend`에서, `ZDistort/Dissolve(CustomData)`는
+  `Dissolve/Dissolve(CustomData)`에서 채널 선택(`_MainTexChannel`·`_DissolvTexChannel`)만 뺀 것(메인 rgba, 디졸브 .r)이고, 패스 상태(컬링·깊이 쓰기·블렌드)도
+  같으며, 정점 단계는 위와 같은 `_BaselineZ` 평면 깊이다 — `uZFlat`을 `ZDistort/` 전체로, `SHADERS_CHECKED`에 셋을 더함. 추출된 기본 스킨에는 아직 이 셋이 없어
+  지금 그림은 그대로(새 시즌 후보 호시구마 더 브리처 S2·S3 버프, 윈드스쿠트 `wscoot_buff_03`, 타락사쿰 프리팹 3개가 쓸 것; `Dissolve(CustomData)`는 스킨에만).
+  확인: `test/render/fx-particle-modules.test.js` 「ZDistort」 [화면 미확인: 그 오퍼레이터들을 추출할 때].
   확인: `test/render/fx-round2.test.js` 「cast-target effects」, `test/render/fx-particle-modules.test.js` 「ZDistort」, 이벤트 골든 diy-012·013에 조준 세 줄,
   Windows Chrome 디버그 아레나(평지)에서 평타 30·S2 45·S3 19회 조준 재생(휘두름 시작에), 페이지·콘솔 오류 0. 고지대·실제 판 [화면 미확인].
 - 확인: Windows Chrome 디버그 아레나(정예·RIT-X, 스킬마다 약 50초, 재생된 프리팹 이름 기록) — S1 속박 표시 10회, S2 소환물 등장·범위·유인·퇴장 2회·틱 24회,

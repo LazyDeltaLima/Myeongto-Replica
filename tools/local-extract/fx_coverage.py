@@ -145,6 +145,10 @@ SHADERS_CHECKED = {
     # 2026-10-26 (酒神's hits, buffs, range and 迷狂牢笼): the pixel stage of Ram/Disturb(CustomData) with every channel at its
     # default, on the same constant slots; the vertex stage moves only the depth to the `_BaselineZ` plane (fxplayer.js uZFlat)
     'Torappu/Particles/ZDistort/Disturb(CustomData)',
+    # 2026-10-26: likewise Particles/Additive, /AlphaBlend and Dissolve/Dissolve(CustomData) without their channel selectors
+    # (main rgba, dissolve .r), with the same pass states and the same vertex stage (uZFlat)
+    'Torappu/Particles/ZDistort/Additive', 'Torappu/Particles/ZDistort/AlphaBlend',
+    'Torappu/Particles/ZDistort/Dissolve(CustomData)',
     # 2026-10-22: Unity's legacy particle shaders, by their pass states (SrcAlpha One / SrcAlpha OneMinusSrcAlpha — 2 × tint ×
     # vertex × texture; Premultiply One OneMinusSrcAlpha — vertex × texture × vertex alpha, Unity's Default-Particle)
     'Legacy Shaders/Particles/Additive', 'Legacy Shaders/Particles/Alpha Blended',
