@@ -1068,6 +1068,7 @@ class LineRenderer {
 
 const tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3(), tmpQ = new THREE.Quaternion(), tmpM = new THREE.Matrix4(), tmpM2 = new THREE.Matrix4();
 const emitM = new THREE.Matrix4();   // ParticleSystem.emit: node → root for a world-space system
+const frameQ = new THREE.Quaternion();   // ParticleSystem.syncFrame
 // ParticleSystem sub emitters (2026-10-14): the parent's node → root, a particle's point, the shape offset, inherited values
 const subM = new THREE.Matrix4(), subAt = new THREE.Vector3(), subOff = new THREE.Vector3(), subCol = [0, 0, 0, 0], subSize = [1, 1, 1];
 // one particle's instance data = 28 floats in one buffer (one upload per system and frame, was eight):
@@ -1084,6 +1085,8 @@ class ParticleSystem {
   constructor(ps, node, root, def, opts) {
     this.ps = ps;
     this.node = node;           // THREE.Object3D of its node
+    this.frame = node;          // where its particles live (useLocalScale: a stand-in without the parents' scale)
+    this.top = null;
     this.root = root;           // effect root (Unity frame)
     this.q = opts.q;
     this.lod = opts.lod ?? null;   // (2026-10-23) its FxLODSetting percentage at quality 'medium' (rateK / burstK)
@@ -1196,9 +1199,9 @@ class ParticleSystem {
     if (this.listed) liveParticles += room;
     // world space: the node → root transform, the same for every particle of this call
     if (this.world || sub) {
-      this.node.updateWorldMatrix(true, false);
+      if (this.top) this.syncFrame(); else this.node.updateWorldMatrix(true, false);
       this.root.updateWorldMatrix(true, false);
-      emitM.copy(this.root.matrixWorld).invert().multiply(this.node.matrixWorld);
+      emitM.copy(this.root.matrixWorld).invert().multiply(this.frame.matrixWorld);
     }
     if (sub) {   // the shape's origin moved to the particle: in the root frame (world) or the node's
       subOff.copy(sub.at);
@@ -1310,7 +1313,7 @@ class ParticleSystem {
   planeFrames() {
     if (!this.planes.length) return null;
     const P = this.planeAt || (this.planeAt = new Float32Array(this.planes.length * 6));
-    const frame = this.world ? this.root : this.node;
+    const frame = this.world ? this.root : this.frame;
     frame.updateWorldMatrix(true, false);
     tmpM2.copy(frame.matrixWorld).invert();
     this.planes.forEach((o, k) => {
@@ -1366,8 +1369,40 @@ class ParticleSystem {
     }
   }
 
+  /**
+   * (2026-10-26) Unity's ParticleSystemScalingMode.Local (fx_extract.py `scaling` 1, the default): a system takes its own
+   * node's scale only, never its parents' (Unity manual: "ignores parent scale"). Its particles move to `frame`, a stand-in
+   * under `top` (the prefab's frame) with the node's place and turn but the node's own scale, kept in step by syncFrame.
+   * FxInstance sets it up for a system under a scaled parent: 酒神 S2's hit wave (phatm2_skill_02_hit_range_01
+   * music_wave_*, parent ground_01 z ×2.73) stood 2.7 times taller than the official recording's
+   */
+  useLocalScale(top) {
+    const f = new THREE.Group();
+    f.matrixAutoUpdate = false;
+    top.add(f);
+    this.frame = f; this.top = top;
+    if (!this.world) f.add(this.mesh);
+    if (this.trailBatch && !(this.world || this.tm.world)) f.add(this.trailBatch.mesh);
+    this.syncFrame();
+  }
+
+  /** The stand-in `frame` to the node's place, turn (its own and its parents' turns) and own scale; shown while the node is. */
+  syncFrame() {
+    const f = this.frame, top = this.top;
+    let on = true;
+    frameQ.identity();
+    for (let o = this.node; o && o !== top; o = o.parent) { frameQ.premultiply(o.quaternion); if (!o.visible) on = false; }
+    f.visible = on;
+    this.node.updateWorldMatrix(true, false);
+    tmpV.setFromMatrixPosition(this.node.matrixWorld).applyMatrix4(tmpM.copy(top.matrixWorld).invert());
+    f.matrix.compose(tmpV, frameQ, this.node.scale);
+    f.matrixWorldNeedsUpdate = true;   // matrixAutoUpdate off: three.js recomputes matrixWorld only when told
+    f.updateWorldMatrix(false, false);
+  }
+
   update(dt, sinceStart) {
     const ps = this.ps, m = ps.mods;
+    if (this.top) this.syncFrame();
     if (this.inherit) this.emitterVelocity(dt);
     dt *= ps.speedMul || 1;
     setTime(this.material, sinceStart);
@@ -1403,8 +1438,8 @@ class ParticleSystem {
     const velOn = !!m.velOL && m.velOL.on !== 0 && m.velOL.on !== false, clampAll = velOn && !!m.limit;
     const P = m.collide ? this.planeFrames() : null;
     if (this.subs && !this.world) {   // the node → root transform for the sub emitters' points
-      this.node.updateWorldMatrix(true, false); this.root.updateWorldMatrix(true, false);
-      subM.copy(this.root.matrixWorld).invert().multiply(this.node.matrixWorld);
+      this.frame.updateWorldMatrix(true, false); this.root.updateWorldMatrix(true, false);
+      subM.copy(this.root.matrixWorld).invert().multiply(this.frame.matrixWorld);
     }
     for (let i = this.n - 1; i >= 0; i--) {
       const age0 = this.age[i];
@@ -1593,6 +1628,7 @@ class ParticleSystem {
     systems.delete(this);
     this.n = 0;
     this.mesh.removeFromParent();
+    if (this.top) this.frame.removeFromParent();
     this.geometry.dispose();
     this.material.dispose();
     this.trailBatch?.dispose();
@@ -2092,6 +2128,14 @@ export class FxInstance {
     const switched = new Set([...this.clipTracks, ...[...this.smSlots.values()].map((s) => s.b)].filter((b) => b.kind === 'active').map((b) => b.o));
     const under = (o) => { for (let p = o; p && p !== unity; p = p.parent) if (switched.has(p) || !p.visible) return true; return false; };
     this.gated = [...this.systems, ...this.trails].filter((x) => under(x.node)).map((x) => ({ x, on: true }));
+    // (2026-10-26) a system in Unity's Local scaling mode under a parent that is scaled, or whose scale a clip drives, drops
+    // its parents' scale (ParticleSystem.useLocalScale); 535 systems of 136 prefabs had a scaled parent
+    const scaledBy = new Set([...this.clipTracks, ...[...this.smSlots.values()].flatMap((s) => s.tracks)].filter((b) => b.kind === 'scale').map((b) => b.o));
+    const scaled = (o) => scaledBy.has(o) || Math.abs(o.scale.x - 1) > 1e-4 || Math.abs(o.scale.y - 1) > 1e-4 || Math.abs(o.scale.z - 1) > 1e-4;
+    for (const s of this.systems) {
+      if ((s.ps.scaling ?? 1) !== 1) continue;
+      for (let p = s.node.parent; p && p !== tilt; p = p.parent) if (scaled(p)) { s.useLocalScale(tilt); break; }
+    }
     this.clipV = [];
     live.push(this);
     while (live.length > PLAYER_CAP) live[0].dispose(); // the oldest goes (dispose removes it from `live`)

@@ -100,6 +100,35 @@ test('floor cut (2026-10-26): every depth-tested material is cut at the floor, w
   assert.equal(none, -1e9, 'floor null: no cut');
 });
 
+test('scaling mode (2026-10-26): a Local system drops its parents\' scale but keeps their place and turn; a Hierarchy one takes it', async () => {
+  // 酒神 S2's hit wave: music_wave_* (Local) under ground_01, scaled z ×2.73 and turned
+  const turn = [Math.SQRT1_2, 0, 0, Math.SQRT1_2];
+  const { THREE, inst } = await make([node('t', -1), node('p', 0, { rot: turn, scale: [1, 1, 3] }),
+    node('loc', 1, { pos: [0, 0, 0.5], scale: [2, 2, 2], ps: ps({}) }), node('hier', 1, { pos: [0, 0, 0.5], ps: { ...ps({}), scaling: 0 } })]);
+  const [loc, hier] = inst.systems;
+  const rel = (s) => {
+    s.update(0, 0);
+    s.mesh.updateWorldMatrix(true, false);
+    const top = inst.nodes[0].parent;
+    const m = new THREE.Matrix4().copy(top.matrixWorld).invert().multiply(s.mesh.matrixWorld);
+    const p = new THREE.Vector3(), q = new THREE.Quaternion(), k = new THREE.Vector3();
+    m.decompose(p, q, k);
+    const r = (v) => +v.toFixed(6) || 0;
+    return { p: p.toArray().map(r), k: k.toArray().map(r), q };
+  };
+  const a = rel(loc), b = rel(hier);
+  assert.ok(loc.frame !== loc.node && hier.frame === hier.node, 'only the Local system gets the stand-in frame');
+  assert.deepEqual(a.k, [2, 2, 2], 'its own scale only');
+  assert.deepEqual(b.p, a.p, 'the same place: the parent\'s scale still moves the node');
+  assert.deepEqual(a.p, [0, -1.5, 0], 'z 0.5 × 3, turned by the parent');
+  assert.ok(a.q.angleTo(new THREE.Quaternion(...turn)) < 1e-6, 'the parent\'s turn');
+  inst.nodes[1].visible = false;
+  loc.update(0, 0);
+  assert.equal(loc.frame.visible, false, 'hidden with its parent');
+  inst.dispose();
+  assert.equal(loc.frame.parent, null, 'removed with the system');
+});
+
 test('culling: mesh renderers and mesh particles take their pass\'s side; billboards keep both', async () => {
   const mats = {
     rim: { shader: 'Torappu/Particles/Rim/Rim Tint (Add)', tex: {}, floats: {}, colors: {} },
