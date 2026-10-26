@@ -105,11 +105,52 @@ test('noise: damping divides the strength by the frequency; the particles of one
   const noise = (damping) => ({ str: K(1), freq: 2, scroll: K(0), damping });
   const inst = await make([node('t', -1), node('d', 0, { ps: ps({ noise: noise(true) }, { n: 3 }) }),
     node('u', 0, { ps: ps({ noise: noise(false) }, { n: 3 }) })]);
-  inst.update(0.1);
   const [d, u] = inst.systems;
+  u.nOff = d.nOff;   // one field: each system's offset is random
+  inst.update(0.1);
   const len = (s, i) => Math.hypot(s.pos[i * 3], s.pos[i * 3 + 1], s.pos[i * 3 + 2]);
   assert.ok(len(u, 0) > 1e-4, `the noise moved them: ${len(u, 0)}`);
   near(len(d, 0) / len(u, 0), 0.5, 'strength ÷ frequency 2', 1e-6);
   near(len(u, 1), len(u, 0), 'one field: the same place moves the same', 1e-9);
   inst.dispose();
 });
+
+test('noise: the gradient noise is the official client\'s (its x / y derivatives × the frequency)', async () => {
+  const { perlinD } = await import('../../public/js/render/fxplayer.js');
+  for (const [p, f, a, b] of [[[37.15734, 23.21262, -54.97436], 0.37, -0.12021, -0.15386], [[57.86321, 55.77093, 18.4707], 0.37, -0.29497, 0.20339],
+    [[-25.31521, -51.57318, 31.95455], 1, 0.66523, 0.34181], [[3.40575, -52.85387, -37.17501], 0.37, 0.25536, 0.08866]]) {
+    const d = perlinD(p[0], p[1], p[2], f);
+    near(d[0], a, `∂x at ${p}`, 2e-4); near(d[1], b, `∂y at ${p}`, 2e-4);
+  }
+});
+
+test('shape order: Loop turns 360° a second whatever the arc and wraps at its end; BurstSpread includes both ends of a part arc / an edge', async () => {
+  const inst = await make([node('t', -1),
+    node('l', 0, { ps: ps({}, { n: 0, rate: 1, loop: true, dur: 5, shape: ring({ arc: 180, arcMode: 1, arcSpread: 0, arcSpeed: K(1) }) }) }),
+    node('b', 0, { ps: ps({}, { n: 3, shape: ring({ arc: 180, arcMode: 3, arcSpread: 0 }) }) }),
+    node('e', 0, { ps: ps({}, { n: 3, shape: ring({ type: 12, radius: 2, radMode: 3, radSpread: 0 }) }) })]);
+  const [l, b, e] = inst.systems;
+  for (let k = 0; k < 125; k++) inst.update(0.01);   // 1.25 s: the first particle at 1 s → 360° mod 180° = 0
+  assert.equal(l.n, 1);
+  near(Math.atan2(l.pos[1], l.pos[0]) / Math.PI * 180, 0, 'one turn, wrapped at 180°', 1);
+  for (let k = 0; k < 25; k++) inst.update(0.01);   // 1.5 s: the next at 1.5 s → 540° mod 180° = 0, 1.25 s would be 90°
+  assert.deepEqual(angles(b), [0, 90, 180]);
+  const xs = Array.from({ length: e.n }, (_, i) => Math.round(e.pos[i * 3] * 100) / 100).sort((x, y) => x - y);
+  assert.deepEqual(xs, [-2, 0, 2]);
+  inst.dispose();
+});
+
+test('random position moves the start point by exactly its amount; drag slows by drag × π(size/2)² × speed²', async () => {
+  const lim = (drag) => ({ mag: K(1e4), dampen: 0, drag: K(drag) });
+  const inst = await make([node('t', -1), node('p', 0, { ps: ps({}, { n: 20, shape: ring({ type: 12, radius: 0, randPos: 0.3 }) }) }),
+    node('g', 0, { ps: ps({ limit: lim(2) }, { n: 1, speed: 4 }) })]);
+  inst.update(0.001);
+  const [p, g] = inst.systems;
+  for (let i = 0; i < p.n; i++) near(Math.hypot(p.pos[i * 3], p.pos[i * 3 + 1], p.pos[i * 3 + 2]), 0.3, 'on the sphere of 0.3', 1e-3);
+  const v0 = Math.hypot(g.vel[0], g.vel[1], g.vel[2]);
+  inst.update(0.01);
+  const v1 = Math.hypot(g.vel[0], g.vel[1], g.vel[2]);
+  near(v0 - v1, 2 * Math.PI * 0.1 * 0.1 * v0 * v0 * 0.01, 'size 0.2: radius 0.1', 1e-3);
+  inst.dispose();
+});
+

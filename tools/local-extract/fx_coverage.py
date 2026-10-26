@@ -820,6 +820,7 @@ KNOWN = {
     # (2158 prefabs); the note says which open bundle takes them (docs/rules/fx.md 「추출 누락 보고」 「입자 필드」)
     # (2026-10-26, effect bundle U) what that bundle left: the start direction turn of 4 systems (圣约送葬人's ranges)
     'field:ShapeModule.alignToDirection ≠ False': (_TODO, 'emission and motion (open): particles turned to their start direction'),
+    'field:ShapeModule.arc on a Sphere / Hemisphere': (_TODO, 'emission and motion (open): a sphere\'s arc and its order (the enemies\' 40 systems, BurstSpread)'),
     **{f'field:{w}': (_TODO, f'drawing (open): {n}') for w, n in (
         ('UVModule.rowMode ≠ 0', 'a single-row sheet takes a random row per particle — the player draws row 0'),
         ('renderer.m_SortMode ≠ 0', 'particles by distance / age'), ('renderer.m_SortingLayer ≠ 0', 'another sorting layer'),
@@ -1131,6 +1132,13 @@ class Coverage:
             elif _val(psr.get('m_VertexStreams') or ()) not in CUSTOM_STREAMS:
                 self.add('field', f"renderer.m_VertexStreams = {list(_val(psr.get('m_VertexStreams') or ()))}",
                          f'the player feeds custom1 then custom2: {sorted(map(list, CUSTOM_STREAMS))}')
+        # (2026-10-26, effect bundle U) the engine's sphere / hemisphere take an arc and its order too (StartSphere<mode>);
+        # the player's spheres emit all round at random — PS_FIELDS looks at the arc on the cones, circles and donut only
+        sh = ps.get('ShapeModule') or {}
+        arc = sh.get('arc') or {}
+        if sh.get('enabled') and sh.get('type') in (0, 1, 2, 3) and (arc.get('mode', 0) or _val(arc.get('spread', 0))
+                                                                    or not _same(_val(arc.get('value', 360)), 360)):
+            self.add('field', 'ShapeModule.arc on a Sphere / Hemisphere', 'the player\'s spheres emit all round at random')
 
     def check_fields(self, table, fs, prefix, args, name):
         """The `field` items of one type tree's fields `fs` ({dotted path: [values]}) by the rules of `table` (PS_FIELDS,

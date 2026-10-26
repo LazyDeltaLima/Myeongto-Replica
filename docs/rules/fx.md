@@ -3094,34 +3094,48 @@
 - 확인: `test/render/fx-particle-modules.test.js` 「scaling mode」. 관리자 아레나 확인(2026-10-26): 酒神 S2 타격 물결, 耀骑士临光·风笛 S3 시작 호가
   공식에 더 가까워짐. [화면 미확인: 隐德来希 S3 잔상·赤刃明霄陈 S2 타격]
 
-### 방출·입자 운동 — 거리당 방출·미리 데우기·궤도·노이즈 (2026-10-26, 입자 필드 전수의 todo 「emission and motion」)
+### 방출·입자 운동 — 거리당 방출·미리 데우기·궤도·노이즈 (2026-10-26, 입자 필드 전수의 todo 「emission and motion」, 공식 클라에서 확인)
 
-입자 필드 전수(위 「추출 누락 보고」 입자 필드)가 남긴 방출·운동 항목. 근거는 Unity 매뉴얼·스크립트 참조(엔진 네이티브 코드라 식은 못 읽음 — 정해지지 않는
-것은 [추정]). 구현은 `fx_extract.py particle_system`·`vel_ol`(새 키는 기본값이 아닐 때만 씀)·`fxplayer.js ParticleSystem`(`advance`·`prewarm`·
-`orbitStep`·`noiseAt`·`dragOf`, `shapeSample`·`arcPick`).
-- **이동 거리당 방출**(`EmissionModule.rateOverDistance` → `dist`): 이미터가 움직인 거리(이펙트 루트 틀 = Unity 단위, `emitterVelocity`와 같은 측정)
-  × 값만큼 낸다. 월드 공간 계는 그 프레임의 이동 선을 따라 고르게 뒤로 놓는다 [추정: Unity가 경로를 보간하는 자리]. 클라의 FxLODSetting은 시간당 방출과
-  버스트만 줄여(`ApplyLowDetailPS`) 품질 배율만 곱한다. 예전엔 이것만 쓰는 계(클라 418개 — 투사체·돌진 꼬리의 별·잎·불꽃)가 아예 안 나왔다.
-- **미리 데우기**(`prewarm`, 반복 계만 — 추출본 2045개 모두 시작 지연 0): 첫 프레임 전에 한 주기를 1/30초 이하 걸음(최대 60)으로 돌려 둔다.
-  예전엔 반복 범위·버프·오라가 빈 채 시작해 한 주기 동안 차올랐다. 입자 꼬리는 그 자리에서 새로 시작.
-- **속도 모듈**: 궤도(`orbitalX/Y/Z` → `orbX`·`orbY`·`orbZ`)는 계의 축으로 중심(계 원점 + `orbitalOffset` → `orbOff`) 둘레로 위치를 돌린다(속도는
-  그대로) [추정: 초당 라디안 — 클라 값이 1–5; 회전 방향은 Quaternion.AngleAxis 같은 수]. 방사(`radial`)는 중심에서 밖으로 더하는 속도. 속도 배율
-  (`speedModifier` → `speedMul`)은 입자 속도 전체에 곱한다 [추정: 궤도에도] — 예전엔 추출만 하고 안 읽었는데 커버리지 시험은 계의 `speedMul`
-  (시뮬레이션 속도)과 이름이 같아 통과했다(−1인 계 6개는 거꾸로 날아야 함).
-- **모양**: 호·모서리의 방출 순서(`arc.mode`·`radius.mode` 1 Loop·2 PingPong·3 BurstSpread → `arcMode`·`radMode`)·간격(`spread` → `arcSpread`·
-  `radSpread`)·속도(`speed`, Loop·PingPong만): BurstSpread는 한 번에 내는 입자를 호에 고르게, Loop는 계 시간 × 속도 바퀴 [추정: 속도 1 = 초당 한 바퀴],
-  간격은 그 단위로 내림 [추정]. 원뿔 부피(8·9)는 `length`까지 높이 고르게 [추정], 도넛은 호와 관 반지름(`donutRadius` → `donut`, 두께 반영 — 관
-  중심선에서 밖으로 [추정: 방향]). 방향 구형화(`sphericalDirectionAmount` → `sphDir`)는 중심에서 밖을 향하는 방향으로 섞고, 위치 무작위(`randomPositionAmount`
-  → `randPos`)는 축마다 ±값 [추정: 정육면체].
-- **노이즈**: 입자 자리 × 주파수에서 뽑는 3D 기울기 노이즈 마당(축마다 따로)으로 더하는 속도(남지 않음) — 스크롤(`scrollSpeed`)은 마당을 z로 옮기고,
-  옥타브(`octaves` → `oct`, `octaveMultiplier`·`octaveScale`), 축별 세기(`separateAxes` → `strY`·`strZ`), 감쇠(`damping`: 세기 ÷ 주파수 — 스크립트 참조
-  「높은 주파수 노이즈는 그만큼 세기를 줄인다」), 위치·회전(도/초)·크기 배율(`positionAmount`·`rotationAmount`·`sizeAmount` → `posAmt`·`rotAmt`·`sizeAmt`)
-  [추정: Unity 노이즈 함수 자체·1D/2D 품질은 못 읽어 모든 품질에 같은 3D 마당; 크기는 × (1 + 노이즈 × 세기 × 배율)]. 예전엔 입자마다 나이의 사인으로
-  흔들어 주파수·감쇠·스크롤과 무관했다 — 같은 자리 입자가 같은 방향으로 흐르는 Unity 모습이 아니었다.
-- **끌림**(`ClampVelocityModule.drag`): Unity의 `multiplyDragByParticleSize`·`…Velocity`(끌림이 있는 추출 계는 모두 켜짐)대로 그린 크기의 가장 큰 축 ×
-  속력을 곱한다 [추정: 곱하는 식]. 꺼진 계는 커버리지가 보고한다.
-- 남은 것: `alignToDirection`(圣约送葬人 범위 4개, `KNOWN` todo).
-- 확인: `test/render/fx-emission-motion.test.js`. 운영자·적 전체 재추출 전후 JSON은 새 키만 늘었다(776 / 4022 파일). 픽셀 비교(앞 판 플레이어 대 새 것, 같은
-  새 추출물): 기본 스킨 2308개 중 1283개가 다르고, 다른 것은 모두 위 기능 중 하나를 쓴다(노이즈 835·미리 데우기 495·호 248·원뿔 길이 215·거리당 방출 131 …).
-  이펙트 이벤트 골든 145 일치, `--coverage` 처리 안 됨 0(todo 운영자 73 → 49, 적 45 → 27). [화면 미확인: 공식 녹화 대조 — 거리당 방출 꼬리, 미리 데운 범위,
-  노이즈 흐름]
+입자 필드 전수(위 「추출 누락 보고」 입자 필드)가 남긴 방출·운동 항목. 처음(82ff8c7a)은 Unity 매뉴얼·스크립트 참조로 짜고 정해지지 않는 것을 추정으로
+두었다가, 같은 날 공식 클라(엔진 2021.3.39f1의 입자 모듈)에서 확인해 고쳤다(관리자 요청 「추정으로 남은 것을 공식 클라와 대조해서 확인 후 수정」).
+구현은 `fx_extract.py particle_system`·`vel_ol`(새 키는 기본값이 아닐 때만)·`fxplayer.js ParticleSystem`(`advance`·`prewarm`·`orbitStep`·`noiseAt`·
+`dragOf`, `shapeSample`·`arcPick`·`perlinD`).
+- **이동 거리당 방출**(`EmissionModule.rateOverDistance` → `dist`): 이번 걸음의 개수 = |이미터 속도| × 값(계 시간 ÷ 지속에서) × dt, 소수는 누적
+  (공식 클라 `EmitOverDistance`). 이미터 속도는 Transform의 움직임(이펙트 루트 틀 = Unity 단위, `emitterVelocity`). 그 개수를 프레임 안 1/개수 간격으로
+  시작해(`StartParticles`) 월드 공간 계는 그 프레임의 이동 선을 따라 고르게 뒤로 놓인다. 클라의 FxLODSetting은 시간당 방출과 버스트만 줄이므로 품질
+  배율만 곱한다. 예전엔 이것만 쓰는 계(클라 418개 — 투사체·돌진 꼬리의 별·잎·불꽃)가 아예 안 나왔다.
+- **미리 데우기**(`prewarm`, 반복 계만 — 추출본 2045개 모두 시작 지연 0): 첫 프레임 전에 한 주기를 1/30초 이하 걸음(최대 60)으로 돌려 둔다
+  (Unity 매뉴얼: 한 주기를 이미 돈 것처럼; 걸음 크기는 우리 것). 예전엔 반복 범위·버프·오라가 빈 채 시작해 한 주기 동안 차올랐다. 입자 꼬리는 그 자리에서
+  새로 시작.
+- **속도 모듈**(공식 클라 `UpdateOrbitalAndRadialTpl`·`SimulateParticles`): 궤도(`orbitalX/Y/Z` → `orbX`·`orbY`·`orbZ`)는 초당 라디안, 계의 축으로
+  중심(계 원점 + `orbitalOffset` → `orbOff`) 둘레의 위치 회전이고 +z는 x를 y 쪽으로 돌린다. 방사(`radial`)는 중심에서 밖으로 더하는 초당 거리. 적분은
+  `위치 += (속도 + 애니메이션 속도) × 속도 배율 × dt` — 속도 배율(`speedModifier` → `speedMul`)이 시작 속도·궤도·방사·노이즈까지 곱한다(궤도는 회전각이
+  배율만큼 커짐). 예전엔 속도 배율을 추출만 하고 안 읽었는데 커버리지 시험이 계의 `speedMul`(시뮬레이션 속도)과 이름이 같아 통과시켰다(−1인 계 6개는
+  거꾸로 날아야 함). 축 여럿을 함께 쓰면 엔진은 걸음마다 세 축 회전을 잇고 우리는 그 합 축 하나로 돈다(걸음이 작으면 같음).
+- **모양**(공식 클라 `StartCircle`·`StartCone`·`StartConeVolume`·`StartDonut`·`StartSingleSidedEdge`의 방식별 판, `ShapeModule.Update`, `EmitterStoreData`):
+  - 호·모서리 순서(`arc.mode`·`radius.mode` → `arcMode`·`radMode`, 0 Random 1 Loop 2 PingPong 3 BurstSpread): Loop·PingPong은 계마다 `속도(계 시간 ÷ 지속,
+    곡선의 위쪽 값) × dt`를 쌓은 바퀴 수 — 호는 한 바퀴 = 360°라 속도 1이면 호 크기와 상관없이 초당 한 바퀴를 돌고 호 끝에서 감긴다, 모서리는 한 바퀴 =
+    반지름(위치 = 2·(누적 mod 반지름) − 반지름); PingPong은 한 번씩 접는다. BurstSpread는 한 번에 내는 입자를 k / 개수(온 원), k / (개수 − 1)(부분 호·모서리,
+    양 끝 포함)로. 간격(`spread` → `arcSpread`·`radSpread`)은 감기 전에 간격 × 호(모서리)로 내림. 한 걸음에 내는 입자는 이번 누적(첫 입자)과 지난 걸음
+    누적 사이에 차례로 나뉜다.
+  - 두께: 원은 반지름 × √lerp((1 − 두께)², 1, 난수)(넓이 고르게), 원뿔·원뿔 부피는 ρ = √lerp(1, max(0.001, 1 − 두께), 난수)이고 방향은
+    normalize(ρ·sin각·cosθ, ρ·sin각·sinθ, cos각). 예전엔 모든 모양이 반지름 × (1 − 두께 × 난수)였고 원뿔 방향의 퍼짐도 그 비율로 각을 줄였다(두께가 0과
+    1 사이인 원뿔 541·원 272·원뿔 부피 213 계).
+  - 원뿔 부피(8·9)는 밑면 점에서 그 방향으로 난수 × `length`만큼(높이가 아니라 방향을 따라 간 거리). 도넛은 호와 관 반지름 × lerp(max(0.001, 1 − 두께),
+    1, 난수), 방향은 관 중심선에서 밖.
+  - 모양의 위치·회전·크기 전에 방향 무작위(무작위 단위 벡터 쪽으로) → 방향 구형화(변환 전 점의 바깥 쪽으로, `sphericalDirectionAmount` → `sphDir`) →
+    위치 무작위(무작위 단위 벡터 × 값 — 정확히 그 거리, `randomPositionAmount` → `randPos`), 방향은 마지막에 한 번 정규화.
+- **노이즈**(공식 클라 `NoiseModule.Update`·`CalculateNoiseJob`·`Perlin3D`·`UpdateSize`): 컬 노이즈다 — Ken Perlin의 개선 노이즈(그의 순열, 기울기 16개,
+  6t⁵ − 15t⁴ + 10t³)의 x·y 편미분 × 주파수(`perlinD`, 무작위 점에서 공식 값과 float32 반올림 차이 안)를 세 번, 좌표를 돌려 뽑는다: 위치 + 계마다 난수 × 100
+  오프셋을 (z, y, x + 스크롤)·(x + 100, z, y + 스크롤)·(y, x + 100, z + 스크롤)에서 R1·R2·R3 → 속도 (R3x − R2y, R1x − R3y, R2x − R1y). 옥타브(`octaves` →
+  `oct`)는 진폭(`octaveMultiplier`)·주파수(`octaveScale`)를 곱해 가며 더하고 진폭 합으로 나눈다. 스크롤은 계마다 `scrollSpeed`(계 시간, 위쪽 값) × dt를 쌓는다.
+  × 세기(축 분리 `strY`·`strZ`; 감쇠면 ÷ 주파수) × 위치 배율(`posAmt`) → 그 걸음에만 더하는 속도. 회전(`rotAmt`)은 z 노이즈 × 세기 × 배율 × dt × π/360,
+  크기(`sizeAmt`)는 × max(0, 1 + ½ × 배율 × x 노이즈 × 세기). 예전엔 입자마다 나이의 사인으로 흔들어 주파수·감쇠·스크롤과 무관했다. [추정·미조사: 품질
+  1D·2D(`Perlin1D`·`Perlin2D`와 그 잡의 조립, 클라 62계)도 3D와 같이]
+- **끌림·한계**(공식 클라 `DragUpdate`·`MagnitudeUpdate`·`ClampVelocityModule.Update`): 끌림은 초당 `끌림 × π(크기/2)² × 속력²`만큼 속력을 줄인다
+  (`multiplyDragByParticleSize`·`…Velocity` — 끌림이 있는 추출 계는 모두 켜짐, 꺼진 계는 커버리지가 보고). 한계를 넘으면 속력이 걸음마다
+  1 − (1 − dampen)^(30·dt)만큼 한계 쪽으로 — 30fps에서 예전 식(프레임마다 dampen)과 같고, 60fps에선 예전이 두 배 빨리 줄였다.
+- 남은 것(§11 ③ 「묶음 U 남은 것」): `alignToDirection`(圣约送葬人 범위 4개), 구·반구의 호와 순서(엔진은 받는데 플레이어는 늘 무작위 — 적 40계, 커버리지
+  todo), 구·반구 두께 분포(안 읽음, 지금은 반지름 × (1 − 두께 × 난수)), 위 1D·2D 노이즈.
+- 확인: `test/render/fx-emission-motion.test.js`(Perlin 값은 공식 값 4점). 운영자·적 전체 재추출 전후 JSON은 새 키만 늘었다(776 / 4022 파일). 픽셀 비교와
+  이벤트 골든·`--coverage` 수치는 관리자 노트. [화면 미확인: 공식 녹화 대조 — 거리당 방출 꼬리, 미리 데운 범위, 노이즈 흐름]

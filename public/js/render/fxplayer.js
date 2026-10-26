@@ -1077,38 +1077,50 @@ const subM = new THREE.Matrix4(), subAt = new THREE.Vector3(), subOff = new THRE
 // the noise's output, one emission's place in its call for the shape's ordered modes (shapeSample `ctx`)
 const orbitLocal = new THREE.Matrix4(), orbitM = new THREE.Matrix4(), orbC = new THREE.Vector3(), orbW = new THREE.Vector3();
 const orbP = new THREE.Vector3(), orbQ = new THREE.Quaternion(), noiseV = new THREE.Vector4();
-const shapeCtx = { k: 0, count: 1, time: 0, t01: 0 };
+const shapeCtx = { k: 0, count: 1, time: 0, t01: 0, arcLaps: 0, radLaps: 0 };
 /** A MinMaxCurve that is not zero everywhere (its scalar multiplies a curve). */
 const mmOn = (mm) => !!mm && !!(mm.s || mm.n);
 
-// (2026-10-26, effect bundle U) gradient noise for the noise module (ParticleSystem.noiseAt): Perlin's improved noise on a
-// fixed permutation, about −1…1; `axis` picks one of three fields (one per axis of the velocity it adds)
-const PERM = (() => {
-  const p = Array.from({ length: 256 }, (_, i) => i);
-  let x = 0x9e3779b9;
-  for (let i = 255; i > 0; i--) { x = (Math.imul(x ^ (x >>> 15), 0x2c1b3c6d) + 0x297a2d39) >>> 0; const j = x % (i + 1); [p[i], p[j]] = [p[j], p[i]]; }
-  return Uint8Array.from([...p, ...p]);
-})();
-const fade = (t) => t * t * t * (t * (t * 6 - 15) + 10);
-function grad(h, x, y, z) {
-  const u = h < 8 ? x : y, v = h < 4 ? y : h === 12 || h === 14 ? x : z;
-  return ((h & 1) ? -u : u) + ((h & 2) ? -v : v);
-}
-function noise3(x, y, z) {
+// (2026-10-26, effect bundle U; official client Perlin3D) the noise module's gradient noise: Ken Perlin's improved noise
+// (his permutation, the engine's 16 gradients, fade 6t⁵ − 15t⁴ + 10t³); perlinD gives f × its derivatives along x and y at
+// p × f — what the official client's Perlin3D(p, f) returns (compared on random points: |Δ| < 0.003, float32 rounding)
+const PERM = Uint8Array.from([151,160,137,91,90,15,131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,190,6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,88,237,149,56,87,174,20,125,136,171,168,68,175,74,165,71,134,139,48,27,166,77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,55,46,245,40,244,102,143,54,65,25,63,161,1,216,80,73,209,76,132,187,208,89,18,169,200,196,135,130,116,188,159,86,164,100,109,198,173,186,3,64,52,217,226,250,124,123,5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42,223,183,170,213,119,248,152,2,44,154,163,70,221,153,101,155,167,43,172,9,129,22,39,253,19,98,108,110,79,113,224,232,178,185,112,104,218,246,97,228,251,34,242,193,238,210,144,12,191,179,162,241,81,51,145,235,249,14,239,107,49,192,214,31,181,199,106,157,184,84,204,176,115,121,50,45,127,4,150,254,138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180]);
+const GRAD = Int8Array.from([1,1,0,-1,1,0,1,-1,0,-1,-1,0,1,0,1,-1,0,1,1,0,-1,-1,0,-1,0,1,1,0,-1,1,0,1,-1,0,-1,-1,1,1,0,-1,1,0,0,-1,1,0,-1,-1]);
+const fade = (t) => t * t * t * (t * (t * 6 - 15) + 10), dfade = (t) => 30 * t * t * (t * (t - 2) + 1);
+const pdOut = [0, 0];
+export function perlinD(x, y, z, f) {
+  x *= f; y *= f; z *= f;
   const X = Math.floor(x), Y = Math.floor(y), Z = Math.floor(z);
   x -= X; y -= Y; z -= Z;
-  const xi = X & 255, yi = Y & 255, zi = Z & 255, u = fade(x), v = fade(y), w = fade(z), P = PERM;
-  const A = P[xi] + yi, AA = P[A] + zi, AB = P[A + 1] + zi, B = P[xi + 1] + yi, BA = P[B] + zi, BB = P[B + 1] + zi;
-  const L = (t, a, b) => a + t * (b - a);
-  return L(w, L(v, L(u, grad(P[AA] & 15, x, y, z), grad(P[BA] & 15, x - 1, y, z)), L(u, grad(P[AB] & 15, x, y - 1, z), grad(P[BB] & 15, x - 1, y - 1, z))),
-    L(v, L(u, grad(P[AA + 1] & 15, x, y, z - 1), grad(P[BA + 1] & 15, x - 1, y, z - 1)), L(u, grad(P[AB + 1] & 15, x, y - 1, z - 1), grad(P[BB + 1] & 15, x - 1, y - 1, z - 1))));
+  const xi = X & 255, yi = Y & 255, zi = Z & 255, P = PERM;
+  const u = fade(x), v = fade(y), w = fade(z), du = dfade(x), dv = dfade(y);
+  // the eight corners: value n and its gradient's x / y parts, each blended by the fades (and their derivatives)
+  const c = [0, 0, 0, 0, 0, 0, 0, 0], cx = [0, 0, 0, 0, 0, 0, 0, 0], cy = [0, 0, 0, 0, 0, 0, 0, 0];
+  for (let k = 0; k < 8; k++) {
+    const i = k & 1, j = (k >> 1) & 1, l = k >> 2;
+    const h = P[(P[(P[(xi + i) & 255] + yi + j) & 255] + zi + l) & 255] & 15, g = h * 3;
+    c[k] = GRAD[g] * (x - i) + GRAD[g + 1] * (y - j) + GRAD[g + 2] * (z - l); cx[k] = GRAD[g]; cy[k] = GRAD[g + 1];
+  }
+  const tri = (a) => {
+    const x00 = a[0] + u * (a[1] - a[0]), x10 = a[2] + u * (a[3] - a[2]), x01 = a[4] + u * (a[5] - a[4]), x11 = a[6] + u * (a[7] - a[6]);
+    const y0 = x00 + v * (x10 - x00), y1 = x01 + v * (x11 - x01);
+    return y0 + w * (y1 - y0);
+  };
+  // ∂/∂x: the blended gradients' x + du × (the x-differences blended in y, z); ∂/∂y the same in y
+  const ex = (j, l) => c[1 + 2 * j + 4 * l] - c[2 * j + 4 * l], ey = (i, l) => c[i + 2 + 4 * l] - c[i + 4 * l];
+  const by = (a00, a10, a01, a11, s, t) => { const p0 = a00 + s * (a10 - a00), p1 = a01 + s * (a11 - a01); return p0 + t * (p1 - p0); };
+  const gx = tri(cx) + du * by(ex(0, 0), ex(1, 0), ex(0, 1), ex(1, 1), v, w);
+  const gy = tri(cy) + dv * by(ey(0, 0), ey(1, 0), ey(0, 1), ey(1, 1), u, w);
+  pdOut[0] = gx * f; pdOut[1] = gy * f;
+  return pdOut;
 }
-const AXIS_OFF = [0, 37.17, 91.43];
-function fbm3(x, y, z, axis, oct, mul, scale) {
-  const d = AXIS_OFF[axis];
-  let sum = 0, amp = 1, fr = 1;
-  for (let k = 0; k < oct; k++) { sum += amp * noise3(x * fr + d, y * fr - d, z * fr + d * 0.5); amp *= mul; fr *= scale; }
-  return sum;
+/** (official client: the octave loop round Perlin3D) Σ ampₖ × perlinD(p, f × scaleᵏ) / Σ ampₖ, ampₖ = mulᵏ. */
+const fbOut = [0, 0];
+function perlinOct(x, y, z, f, oct, mul, scale) {
+  let sa = 0, sb = 0, amp = 1, sum = 0;
+  for (let k = 0; k < oct; k++) { const d = perlinD(x, y, z, f); sa += d[0] * amp; sb += d[1] * amp; sum += amp; amp *= mul; f *= scale; }
+  fbOut[0] = sa / sum; fbOut[1] = sb / sum;
+  return fbOut;
 }
 // one particle's instance data = 28 floats in one buffer (one upload per system and frame, was eight):
 // iPos 3, iSize 3, iRot 3, iColor 4, iC1 4, iC2 4, iUV 4, iVel 3
@@ -1151,6 +1163,10 @@ class ParticleSystem {
     // speed modifier (orbit); the noise module's field (noise, nz = each particle's last noise value for its size)
     this.moved = ps.dist ? new THREE.Vector3() : null;
     this.distAcc = 0;
+    this.arcLaps = this.arcLaps0 = 0; this.radLaps = this.radLaps0 = 0;   // the shape's Loop / PingPong clocks (arcPick), now and a step ago
+    // the noise field's per-system offset (the engine's: the system's random × 100 per axis) and its scroll
+    this.nOff = ps.mods.noise ? [Math.random() * 100, Math.random() * 100, Math.random() * 100] : null;
+    this.nScroll = 0;
     this.warm = !!(ps.prewarm && ps.loop && ps.dur > 0);
     const vo = ps.mods.velOL;
     this.orbit = !!vo && (!!vo.orbX || !!vo.orbY || mmOn(vo.orbZ) || mmOn(vo.radial) || !!vo.orbOff);
@@ -1234,6 +1250,7 @@ class ParticleSystem {
     if (on) {
       this.time = -(evalMM(this.ps.delay, 0, Math.random()) || 0);
       this.emitAcc = 0; this.distAcc = 0; this.burstDone.fill(0); this.stopped = false; this.cycle = 0;
+      this.arcLaps = this.arcLaps0 = this.radLaps = this.radLaps0 = this.nScroll = 0;
       this.warm = !!(this.ps.prewarm && this.ps.loop && this.ps.dur > 0);
     } else { this.stopped = true; while (this.n) this.kill(this.n - 1); }
   }
@@ -1242,8 +1259,9 @@ class ParticleSystem {
    * `count` particles from the shape. `sub` (2026-10-14, a sub emitter's call — setSubs): { at (the parent particle, root
    * frame), t01, col?, size?, rot?, lifeK? } — from that point instead of the node's origin, with the inherited values.
    * `along` (2026-10-26, effect bundle U: emission by distance) the emitter's move this frame in the root frame — a world-space
-   * system spreads the particles evenly back along it, from where the emitter was to where it is [ASSUMED: Unity places
-   * them on the path it interpolates; its native code is not readable]; a local-space system's move with the emitter.
+   * system spreads the particles evenly back along it, from where the emitter was to where it is (official client: the
+   * engine starts them through StartParticles at intervals of 1 / count inside the frame); a local-space system's move
+   * with the emitter.
    */
   emit(count, sub = null, along = null) {
     const ps = this.ps;
@@ -1285,6 +1303,9 @@ class ParticleSystem {
       // position + direction from the shape (local space of the node)
       const p = tmpV.set(0, 0, 0), d = tmpV2.set(0, 0, 1);
       shapeCtx.k = k; shapeCtx.count = room; shapeCtx.time = Math.max(0, this.time); shapeCtx.t01 = t01;
+      // the Loop clocks inside the frame: the k-th of this call between this step's laps (k 0) and the last step's
+      const f = room > 1 ? k / room : 0;
+      shapeCtx.arcLaps = this.arcLaps + (this.arcLaps0 - this.arcLaps) * f; shapeCtx.radLaps = this.radLaps + (this.radLaps0 - this.radLaps) * f;
       shapeSample(ps.shape, p, d, this.meshShape, shapeCtx);
       if (this.meshShape?.C) for (let j = 0; j < 4; j++) this.col0[i * 4 + j] *= this.meshShape.c[j];
       if (this.world) { p.applyMatrix4(emitM); d.transformDirection(emitM); }
@@ -1359,23 +1380,23 @@ class ParticleSystem {
       const x = evalMM(sb.x, t, r);
       out[0] *= x; out[1] *= sb.y ? evalMM(sb.y, t, r) : x; out[2] *= sb.z ? evalMM(sb.z, t, r) : x;
     }
-    if (this.nz) {   // (2026-10-26) the noise module's size amount [ASSUMED: × (1 + noise × strength × amount)]
-      const k = Math.max(0, 1 + this.nz[i] * evalMM(m.noise.sizeAmt, a, r));
+    if (this.nz) {   // (2026-10-26, official client NoiseModule.UpdateSize) × max(0, 1 + ½ × amount × noise x × strength)
+      const k = Math.max(0, 1 + 0.5 * this.nz[i] * evalMM(m.noise.sizeAmt, a, r));
       out[0] *= k; out[1] *= k; out[2] *= k;
     }
     return out;
   }
 
   /**
-   * (2026-10-26, effect bundle U) the limit module's drag for particle i: Unity multiplies it by the particle's size and by
-   * its speed when `multiplyDragByParticleSize` / `…Velocity` are on — on in every extracted system with a drag (the
-   * coverage report names one that is off) [ASSUMED: × the drawn size's largest axis and × the speed, a damping of
-   * `drag` per second].
+   * (2026-10-26, effect bundle U; official client DragUpdate) the limit module's drag for particle i: the speed it loses a
+   * second — drag × the particle's cross-section π (size / 2)² (`multiplyDragByParticleSize`, its largest axis) × its speed²
+   * (`…Velocity`); both are on in every extracted system with a drag (the coverage report names one that is off). Before,
+   * the player damped the velocity by drag × size × speed.
    */
-  dragOf(i, a, r, drag, speed) {
+  dragOf(i, a, drag, speed) {
     const sk = this.sizeOf(i, a, this.rnd[i * 4 + 2], sizeK), o = i * 3;
-    const size = Math.max(Math.abs(this.size0[o] * sk[0]), Math.abs(this.size0[o + 1] * sk[1]), Math.abs(this.size0[o + 2] * sk[2]));
-    return drag * size * speed;
+    const r = 0.5 * Math.max(Math.abs(this.size0[o] * sk[0]), Math.abs(this.size0[o + 1] * sk[1]), Math.abs(this.size0[o + 2] * sk[2]));
+    return drag * Math.PI * r * r * speed * speed;
   }
 
   /**
@@ -1401,8 +1422,11 @@ class ParticleSystem {
   }
 
   /**
-   * Particle i turned about the orbit's centre by the orbital velocity × h [ASSUMED: radians per second — the client's
-   * values are 1–5; the turn as Unity's Quaternion.AngleAxis of the same numbers]. The position turns, its velocity does not.
+   * Particle i turned about the orbit's centre by the orbital velocity × h (official client UpdateOrbitalAndRadialTpl:
+   * radians per second, +z turns x toward y as Quaternion.AngleAxis; the turn's move goes in as
+   * velocity ÷ the speed modifier, which the step multiplies back — so h carries it). The position turns, its velocity
+   * does not. [Several axes at once: the engine composes three axis turns per step, here one turn about their sum —
+   * the same to first order in the step]
    */
   orbitStep(i, a, r, M, h) {
     const vo = this.ps.mods.velOL;
@@ -1416,34 +1440,41 @@ class ParticleSystem {
     this.pos[o] = c.x + orbP.x; this.pos[o + 1] = c.y + orbP.y; this.pos[o + 2] = c.z + orbP.z;
   }
 
-  /** (2026-10-26) the noise field's scroll this step: Unity moves the field by `scroll` per second of the system's time. */
+  /**
+   * (2026-10-26; official client NoiseModule.Update) the field's scroll: each step it moves by the scroll speed at the
+   * system's time (the curve's upper value) × dt.
+   */
   noiseFrame(dt) {
     const nm = this.ps.mods.noise, dur = this.ps.dur;
     const t01 = dur > 0 ? ((Math.max(0, this.time) % dur) / dur) : 0;
-    this.nScroll = (this.nScroll || 0) + (evalMM(nm.scroll, t01, 0.5) || 0) * dt;
+    this.nScroll += (evalMM(nm.scroll, t01, 1) || 0) * dt;
     return true;
   }
 
   /**
-   * (2026-10-26, effect bundle U) Unity's noise module for particle i at age fraction a: a gradient noise field (each axis
-   * its own) sampled at the particle's place × `freq`, the field moved by its scroll along z; `oct` octaves, each `octScale`
-   * × the frequency and `octMul` × the amplitude; × the strength (`strY` / `strZ` per axis when separate), which damping
-   * divides by the frequency (Unity: "higher frequency noise reduces the strength by a proportional amount"); × the
-   * position amount `posAmt`. Out: xyz the velocity it adds (units / s, not kept), w the x noise × strength (rotation).
-   * [ASSUMED: Unity's own noise function and its 1D / 2D qualities are not readable — the same 3D field here; before this
-   * the player swayed each particle on a sine of its age, the same for every frequency]
+   * (2026-10-26, effect bundle U; official client NoiseModule.CalculateNoiseJob) the noise module for particle i at age
+   * fraction a — curl noise: three potentials sampled with their axes turned and the scroll on the third coordinate, the
+   * particle's place moved by the system's random offset (`nOff`, 100 × random per axis; the second and third samples add
+   * 100 to x), each giving perlinD's x / y derivatives (A, B):
+   * R1 = (z, y, x + s), R2 = (x + 100, z, y + s), R3 = (y, x + 100, z + s) → velocity (R3A − R2B, R1A − R3B, R2A − R1B),
+   * octaves averaged (perlinOct); × the strength (`strY` / `strZ` per axis when separate; damping divides it by the
+   * frequency) × the position amount — a velocity added for this step, not kept. Out: xyz that velocity, w the z noise ×
+   * strength (the 2D rotation). [ASSUMED·미조사: the 1D / 2D qualities (Perlin1D / 2D, 62 of the client's systems) as the 3D one]
    */
   noiseAt(i, a, r, out) {
-    const nm = this.ps.mods.noise, f = nm.freq || 0.5, o = i * 3;
+    const nm = this.ps.mods.noise, f = Math.max(1e-6, nm.freq || 0.5), o = i * 3;
     let s = evalMM(nm.str, a, r);
     let sy = nm.strY ? evalMM(nm.strY, a, r) : s, sz = nm.strZ ? evalMM(nm.strZ, a, r) : s;
     if (nm.damping) { s /= f; sy /= f; sz /= f; }
     const pa = nm.posAmt ? evalMM(nm.posAmt, a, r) : 1;
-    const x = this.pos[o] * f, y = this.pos[o + 1] * f, z = this.pos[o + 2] * f + (this.nScroll || 0);
+    const x = this.pos[o] + this.nOff[0], y = this.pos[o + 1] + this.nOff[1], z = this.pos[o + 2] + this.nOff[2], sc = this.nScroll;
     const oct = nm.oct || 1, om = nm.octMul ?? 0.5, os = nm.octScale ?? 2;
-    const nx = fbm3(x, y, z, 0, oct, om, os), ny = fbm3(x, y, z, 1, oct, om, os), nz = fbm3(x, y, z, 2, oct, om, os);
-    out.set(nx * s * pa, ny * sy * pa, nz * sz * pa, nx * s);
-    if (this.nz) this.nz[i] = nx * s;
+    let d = perlinOct(z, y, x + sc, f, oct, om, os); const a1 = d[0], b1 = d[1];
+    d = perlinOct(x + 100, z, y + sc, f, oct, om, os); const a2 = d[0], b2 = d[1];
+    d = perlinOct(y, x + 100, z + sc, f, oct, om, os); const a3 = d[0], b3 = d[1];
+    const nx = (a3 - b2) * s, ny = (a1 - b3) * sy, nz = (a2 - b1) * sz;
+    out.set(nx * pa, ny * pa, nz * pa, nz);
+    if (this.nz) this.nz[i] = nx;
     return out;
   }
 
@@ -1576,6 +1607,13 @@ class ParticleSystem {
     // emission
     const prev = this.time;
     this.time += dt;
+    const sh = ps.shape;
+    if (sh && (sh.arcSpeed || sh.radSpeed) && this.time >= 0) {   // ShapeModule.Update: the speed at the system's time, max random
+      const t01s = ps.dur > 0 ? (this.time % ps.dur) / ps.dur : 0;
+      this.arcLaps0 = this.arcLaps; this.radLaps0 = this.radLaps;
+      if (sh.arcSpeed) this.arcLaps += evalMM(sh.arcSpeed, t01s, 1) * dt;
+      if (sh.radSpeed) this.radLaps += evalMM(sh.radSpeed, t01s, 1) * dt;
+    }
     if (!this.stopped && !this.subOf && this.time >= 0) {
       let t = this.time;
       if (ps.loop && ps.dur > 0 && t >= ps.dur) {
@@ -1635,14 +1673,21 @@ class ParticleSystem {
       if (m.force) { vx += evalMM(m.force.x, a, r) * dt; vy += evalMM(m.force.y, a, r) * dt; vz += evalMM(m.force.z, a, r) * dt; }
       if (clampAll) { vx += ox; vy += oy; vz += oz; ox = oy = oz = 0; }
       if (m.limit) {
+        // (official client MagnitudeUpdate) over the limit the speed goes toward it by 1 − (1 − dampen)^(30 dt) a step
         const lim = evalMM(m.limit.mag, a, r), sp = Math.hypot(vx, vy, vz);
-        if (sp > lim && sp > 0) { const k = 1 - (m.limit.dampen || 0) * (1 - lim / sp); vx *= k; vy *= k; vz *= k; }
+        if (sp > lim && sp > 0) {
+          const k = 1 - Math.pow(1 - Math.min(1, Math.max(0, m.limit.dampen || 0)), 30 * dt), ns = sp + (lim - sp) * k;
+          vx *= ns / sp; vy *= ns / sp; vz *= ns / sp;
+        }
         const drag = evalMM(m.limit.drag, a, r);
-        if (drag) { const k = Math.max(0, 1 - this.dragOf(i, a, r, drag, Math.hypot(vx, vy, vz)) * dt); vx *= k; vy *= k; vz *= k; }
+        if (drag) {
+          const s0 = Math.hypot(vx, vy, vz);
+          if (s0 > 0) { const k = Math.max(0, s0 - this.dragOf(i, a, drag, s0) * dt) / s0; vx *= k; vy *= k; vz *= k; }
+        }
       }
       this.vel[i * 3] = vx; this.vel[i * 3 + 1] = vy; this.vel[i * 3 + 2] = vz;
-      // (2026-10-26, effect bundle U) the velocity module's speed modifier multiplies the particle's whole velocity this
-      // step (Unity: "a multiplier to the speed of particles") [ASSUMED: the orbit too]
+      // (2026-10-26, effect bundle U; official client SimulateParticles) the velocity module's speed modifier multiplies
+      // the particle's velocity and its VelocityOverLifetime / orbit / radial / noise velocity this step
       const sm = this.speedK ? evalMM(vo.speedMul, a, r) : 1;
       if (orbit) {   // radial: away from the orbit's centre, added like VelocityOverLifetime
         const o = i * 3, c = this.orbitC(a, r, orbit);
@@ -1666,7 +1711,8 @@ class ParticleSystem {
         if (m.rotOL.x) this.rot[i * 3] += evalMM(m.rotOL.x, a, r) * dt;
         if (m.rotOL.y) this.rot[i * 3 + 1] += evalMM(m.rotOL.y, a, r) * dt;
       }
-      if (nzOn && m.noise.rotAmt) this.rot[i * 3 + 2] += noiseV.w * evalMM(m.noise.rotAmt, a, r) * D2R * dt;
+      // (official client) the noise turns it by noise z × strength × the rotation amount × dt × π / 360
+      if (nzOn && m.noise.rotAmt) this.rot[i * 3 + 2] += noiseV.w * evalMM(m.noise.rotAmt, a, r) * (Math.PI / 360) * dt;
       if (this.subs) this.emitSubs(i, age0, this.age[i], dt);
     }
   }
@@ -1911,27 +1957,38 @@ function meshSample(ms, p, d) {
 }
 
 /**
- * (2026-10-26, effect bundle U) where on the arc (`arc*`) or the edge (`rad*`) one emission falls, 0…1: mode 0 Random, 1 Loop
- * and 2 PingPong (the system's time × the speed, laps of the whole arc), 3 BurstSpread (evenly over the particles of one
- * emission — ctx.k of ctx.count); a spread snaps it down to its steps. [ASSUMED: one lap per second at speed 1, from the
- * system's start; the step taken downward — Unity's manual: "0.1 only spawns particles at 10% intervals"]
+ * (2026-10-26, effect bundle U; official client — the engine's StartCircle / StartCone… / StartSingleSidedEdge for each mode,
+ * ShapeModule.Update) where on the arc or the edge one emission falls, 0…1 of it: mode 0 Random; 1 Loop / 2 PingPong — `laps`
+ * is the system's sum of its speed × dt (ShapeModule.Update, the speed curve at the system's time), in whole turns of 360°
+ * for an arc (`span` = the arc's degrees: speed 1 is one turn a second whatever the arc, wrapped at the arc's end) and in
+ * radii for an edge (`span` 0); PingPong folds every other lap back; 3 BurstSpread — the particles of one emission evenly,
+ * k / count round a full circle, k / (count − 1) on a part arc or an edge (both ends); a spread snaps the place down to its
+ * steps (spread × the arc / edge) before the wrap. The emissions of one step take laps between this step's (the first)
+ * and the last step's (emit: ctx.arcLaps / radLaps).
  */
-function arcPick(mode, spread, speed, ctx) {
-  let u;
-  if (mode === 3 && ctx) u = ctx.k / Math.max(1, ctx.count);
-  else if ((mode === 1 || mode === 2) && ctx) {
-    const v = ctx.time * (evalMM(speed, ctx.t01, Math.random()) || 0);
-    u = mode === 1 ? v - Math.floor(v) : 1 - Math.abs((v % 2 + 2) % 2 - 1);
-  } else u = Math.random();
-  if (spread > 0) u = Math.min(1, Math.floor(u / spread + 1e-6) * spread);
-  return u;
+function arcPick(mode, spread, laps, span, ctx) {
+  let v;
+  if (mode === 3 && ctx) v = ctx.k / Math.max(1, span >= 360 ? ctx.count : ctx.count - 1);
+  else if ((mode === 1 || mode === 2) && ctx) v = span > 0 ? laps * 360 / span : laps;
+  else v = Math.random();
+  if (spread > 0) v = Math.floor(v / spread) * spread;
+  if (mode === 1) v -= Math.floor(v);
+  else if (mode === 2) { v = ((v % 2) + 2) % 2; if (v > 1) v = 2 - v; }
+  return Math.min(1, v);
+}
+
+/** A random unit vector (the engine's RandomUnitVector — uniform on the sphere). */
+function randUnit(out) {
+  const z = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2, s = Math.sqrt(1 - z * z);
+  return out.set(s * Math.cos(th), s * Math.sin(th), z);
 }
 
 function shapeSample(sh, p, d, ms = null, ctx = null) {
   if (!sh) return;
   const rand = Math.random;
-  const arcU = () => (sh.arcMode || sh.arcSpread ? arcPick(sh.arcMode || 0, sh.arcSpread || 0, sh.arcSpeed, ctx) : rand());
+  const arcU = () => (sh.arcMode || sh.arcSpread ? arcPick(sh.arcMode || 0, sh.arcSpread || 0, ctx?.arcLaps || 0, sh.arc ?? 360, ctx) : rand());
   const r = (sh.radius || 0) * (1 - (sh.thick ?? 1) * rand());
+  const keep = 1 - (sh.thick ?? 1);
   switch (sh.type) {
     case 0: case 1: { // sphere
       const u = rand() * 2 - 1, th = rand() * Math.PI * 2, s = Math.sqrt(1 - u * u);
@@ -1944,14 +2001,15 @@ function shapeSample(sh, p, d, ms = null, ctx = null) {
       break;
     }
     case 4: case 7: case 8: case 9: { // cone along +z
-      const th = arcU() * (sh.arc ?? 360) * D2R, rr = r;
-      const bx = Math.cos(th), by = Math.sin(th);
-      p.set(bx * rr, by * rr, 0);
-      const ang = (sh.angle || 0) * D2R, k = (sh.radius ? rr / sh.radius : rand());
-      d.set(bx * Math.sin(ang * k), by * Math.sin(ang * k), Math.cos(ang * k)).normalize();
-      // (2026-10-26, effect bundle U) a cone volume (8, 9) emits anywhere up its `length`, along each particle's direction
-      // [ASSUMED: evenly in height] — the player emitted from its base only (214 prefabs)
-      if ((sh.type === 8 || sh.type === 9) && sh.length) p.addScaledVector(d, (rand() * sh.length) / Math.max(d.z, 1e-3));
+      // (2026-10-26, official client StartCone / StartConeVolume) the base point at ρ = √lerp(1, max(0.001, 1 − thickness), rand)
+      // of the radius (the player had ρ = 1 − thickness × rand, its radius / the radius for the direction); the direction
+      // (ρ sin a cos θ, ρ sin a sin θ, cos a) normalised; a cone volume (8, 9) then moves it rand × `length` along that
+      // direction (it emitted from its base only — 214 prefabs)
+      const th = arcU() * (sh.arc ?? 360) * D2R, rho = Math.sqrt(1 + (Math.max(0.001, keep) - 1) * rand());
+      const bx = Math.cos(th) * rho, by = Math.sin(th) * rho, ang = (sh.angle || 0) * D2R;
+      p.set(bx * (sh.radius || 0), by * (sh.radius || 0), 0);
+      d.set(bx * Math.sin(ang), by * Math.sin(ang), Math.cos(ang)).normalize();
+      if ((sh.type === 8 || sh.type === 9) && sh.length) p.addScaledVector(d, rand() * sh.length);
       break;
     }
     case 5: case 15: case 16: { // box: +z
@@ -1962,19 +2020,21 @@ function shapeSample(sh, p, d, ms = null, ctx = null) {
       break;
     }
     case 10: case 11: { // circle in XY, outward
+      // (2026-10-26, official client StartCircle) the radius at √lerp((1 − thickness)², 1, rand): even over the ring's area
       const th = arcU() * (sh.arc ?? 360) * D2R;
-      d.set(Math.cos(th), Math.sin(th), 0); p.copy(d).multiplyScalar(sh.type === 11 ? sh.radius : r);
+      d.set(Math.cos(th), Math.sin(th), 0);
+      p.copy(d).multiplyScalar(sh.type === 11 ? sh.radius : (sh.radius || 0) * Math.sqrt(keep * keep + (1 - keep * keep) * rand()));
       break;
     }
     case 12: { // edge along x, +y (2026-10-26: in order by `radMode` / `radSpread`)
-      const u = sh.radMode || sh.radSpread ? arcPick(sh.radMode || 0, sh.radSpread || 0, sh.radSpeed, ctx) : rand();
+      const u = sh.radMode || sh.radSpread ? arcPick(sh.radMode || 0, sh.radSpread || 0, (ctx?.radLaps || 0) / (sh.radius || 1), 0, ctx) : rand();
       p.set((u * 2 - 1) * (sh.radius || 0), 0, 0); d.set(0, 1, 0);
       break;
     }
-    case 17: { // donut: (2026-10-26, effect bundle U) its arc and its tube (`donut`, the tube radius, thinned by the
-      // thickness) — out from the tube's centre line [ASSUMED: the direction]; before, every particle sat on the centre ring
+    case 17: { // donut: (2026-10-26, effect bundle U; official client StartDonut) its arc and its tube (`donut`, the tube
+      // radius × lerp(max(0.001, 1 − thickness), 1, rand)), out from the tube's centre line; before, every particle sat on the centre ring
       const th = arcU() * (sh.arc ?? 360) * D2R, ph = rand() * Math.PI * 2;
-      const tr = (sh.donut ?? 0) * (1 - (sh.thick ?? 1) * rand()), cx = Math.cos(th), cy = Math.sin(th);
+      const lo = Math.max(0.001, keep), tr = (sh.donut ?? 0) * (lo + (1 - lo) * rand()), cx = Math.cos(th), cy = Math.sin(th);
       d.set(cx * Math.cos(ph), cy * Math.cos(ph), Math.sin(ph));
       p.set(cx * sh.radius, cy * sh.radius, 0).addScaledVector(d, tr);
       break;
@@ -1987,6 +2047,16 @@ function shapeSample(sh, p, d, ms = null, ctx = null) {
       break;
     default: break;
   }
+  // (2026-10-26, effect bundle U; official client EmitterStoreData) before the shape's transform: Randomize Direction
+  // (toward a random unit vector), then Spherize Direction (toward the untransformed point's outward), then Randomize
+  // Position (a random unit vector × the amount — on a sphere, not in a cube); the direction is normalised once after
+  if (sh.randDir || sh.sphDir || sh.randPos) {
+    d.normalize();
+    if (sh.randDir) d.lerp(randUnit(shapeV), sh.randDir);
+    if (sh.sphDir && p.lengthSq() > 1e-12) d.lerp(shapeV.copy(p).normalize(), sh.sphDir);
+    if (sh.randPos) p.addScaledVector(randUnit(shapeV), sh.randPos);
+    d.normalize();
+  }
   // the box family (5 Box, 15 BoxShell, 16 BoxEdge) and the rectangle took the scale as their size above — once (user
   // decision 2026-10-08, re-report: BoxShell / BoxEdge were scaled twice — 望 S3's lizi_l lines spread ±2 × ±4.5
   // tiles instead of ±1 × ±1.5; 58 systems of 36 prefabs)
@@ -1996,11 +2066,6 @@ function shapeSample(sh, p, d, ms = null, ctx = null) {
     p.applyQuaternion(tmpQ); d.applyQuaternion(tmpQ);
   }
   if (sh.pos) { p.x += sh.pos[0] ?? 0; p.y += sh.pos[1] ?? 0; p.z += sh.pos[2] ?? 0; }
-  // (2026-10-26, effect bundle U) Spherize Direction: the direction blended toward outward from the system's centre;
-  // Randomize Position: each axis moved up to ±`randPos` [ASSUMED: a cube; the blends' order]
-  if (sh.sphDir && p.lengthSq() > 1e-12) d.lerp(shapeV.copy(p).normalize(), sh.sphDir).normalize();
-  if (sh.randDir) d.lerp(shapeV.set(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1).normalize(), sh.randDir).normalize();
-  if (sh.randPos) { p.x += (rand() * 2 - 1) * sh.randPos; p.y += (rand() * 2 - 1) * sh.randPos; p.z += (rand() * 2 - 1) * sh.randPos; }
 }
 
 // ---------------------------------------------------------------- effect instance
