@@ -256,9 +256,15 @@ test('content data: a battle, a prep ctx or a data object reads its own season\'
   // a battle built from part of the data (tests): the files it lacks are the default's
   const partial = { data: new DataSource({ chess: BASE.chess }, null) };
   assert.ok(dataFile(partial, 'bonds') === BASE.bonds);
-  // a unit's 变形同构体 grants read the items of its battle's data (no items there: none granted)
-  const unit = { kind: 'op', def: { bonds: ['yanShip'] }, items: [] };
-  assert.deepEqual([...unitBonds(unit, battle)], ['yanShip']);
+  // a unit's 变形同构体 grants read the items of its battle's data: the same two items grant another bond where the
+  // season's item record names another one (a fresh unit each time: the grants are cached per unit)
+  const [shaper, giver] = ['chess_item_6_09_e_a', 'chess_item_1_01_e_a'];
+  assert.ok(BASE.items[shaper].canGiveBond && BASE.items[giver].giveBondId === 'victoriaShip');
+  const worn = () => ({ kind: 'op', def: { bonds: ['yanShip'] }, items: [shaper, giver] });
+  const items = { ...BASE.items, [giver]: { ...BASE.items[giver], giveBondId: 'preciShip' } };
+  const itemBattle = { data: new DataSource({ ...next, items }, null) };
+  assert.deepEqual([...unitBonds(worn())], ['yanShip', 'victoriaShip']);
+  assert.deepEqual([...unitBonds(worn(), itemBattle)], ['yanShip', 'preciShip']);
 });
 
 test('prep registry: another season\'s match builds its own from its data; the default season keeps the process one', () => {
@@ -283,13 +289,15 @@ test('kits: another season\'s chess id finds the same operator\'s kit; none of t
   const { kitOf } = await import('../server/sim/content/index.js');
   // one kit: found whatever the new chess id; several (a tier form each): the one of the same tier, else the visible
   // chess's; no chess kit: the 自选 kit
-  const one = Object.values(BASE.chess).find((c) => !c.isGolden && c.charId && REG[c.baseChessId ?? c.chessId.replace(/_b$/, '_a')] === undefined && kitKeyOfChar(c.charId, c.tier));
-  assert.equal(one, undefined, 'no chess of this season falls back');
+  // every operator chess of this season has its own kit under its base id (kitOf's first lookup), so the fallback never runs
+  const ops = Object.values(BASE.chess).filter((c) => c.charId);
+  assert.ok(ops.length > 100, `${ops.length} operator chess`);
+  assert.deepEqual(ops.filter((c) => typeof REG[c.baseId] !== 'function').map((c) => c.chessId), [], 'no chess of this season falls back');
   const hidden = Object.keys(REG).filter((k) => BASE.chess[k]?.isHidden);
+  assert.ok(hidden.length > 0);
   assert.deepEqual([...HIDDEN_CHESS_KITS].sort(), hidden.sort(), 'HIDDEN_CHESS_KITS = the kits of the hidden chess');
-  for (const k of [...new Set(Object.values(BASE.chess).map((c) => kitKeyOfChar(c.charId, 9)))]) {
-    if (k) assert.ok(typeof REG[k] === 'function', `${k}: a registry key`);
-  }
+  // and the fallback would find each of them a kit, whatever the tier
+  for (const c of ops) assert.ok(typeof REG[kitKeyOfChar(c.charId, 9)] === 'function', `${c.chessId}: a registry key`);
   const inside = BASE.chess.chess_char_1_01_a.charId;
   assert.equal(kitKeyOfChar(inside, 5), 'chess_char_1_01_a', 'a one-kit operator, whatever the tier');
   const tin = BASE.chess.chess_char_1_16_a.charId; // two kits: tier 1 (hidden chess) and tier 2
@@ -321,7 +329,7 @@ test('kits: 魔王 as another season\'s tier-6 chess (调和, a 休整期结束�
   };
   const as = run(ID, { chess: { [ID]: chess } });
   const def = as.h.unit(1).def;
-  assert.ok(kitOf(def, REG) === REG.chess_char_4_25_a, 'the visible tier-4 chess\'s kit, not the hidden tier-5 one');
+  assert.ok(typeof REG.chess_char_4_25_a === 'function' && kitOf(def, REG) === REG.chess_char_4_25_a, 'the visible tier-4 chess\'s kit, not the hidden tier-5 one');
   assert.notEqual(skillSpecSource(def), 'generic');
   assert.deepEqual(as.h.battle.errors, []);
   assert.ok(as.play.casts > 0, 'her skill runs');
@@ -338,9 +346,16 @@ test('kits: an operator with only a 自选 kit, fielded as another season\'s che
   const ID = 'chess_char_9_90_b';
   const enemies = [{ key: 'enemy_1422_lrsldr', time: 0, route: 0, count: 8, interval: 1.2 }, { key: 'enemy_1422_lrsldr', time: 1, route: 1, count: 6, interval: 1.6 }];
   const POS = { char_2027_wang: [11, 3] };
-  // 望 acts through his placed stones (test/local-patch-diy.test.js)
+  // 望 acts through his placed stones (test/local-patch-diy.test.js); 凯尔希·思衡托's S1 / S3 are heal skills, cast as she
+  // is about to heal (a wounded ally in her range), and S3 deploys her placed 战术锚点 (test/content/op_kalts2.test.js)
   const stone = (row, col, uid) => ({ kind: 'token', tokenId: 'token_10064_wang_stone1', ownerUid: 1, row, col, uid });
-  const PLACED = { char_2027_wang: [stone(10, 6, 50), stone(10, 7, 51)] };
+  const PLACED = {
+    char_2027_wang: [stone(10, 6, 50), stone(10, 7, 51)],
+    char_1052_kalts2: [
+      { kind: 'token', tokenId: 'token_10068_kalts2_mtship', ownerUid: 1, row: 10, col: 9, dir: 'RIGHT', uid: 50 },
+      { chessId: 'chess_char_1_02_a', row: 10, col: 5, uid: 51, carryState: { hpPct: 0.3 } },
+    ],
+  };
   /** Fight 25 s with SP full: the casts, the damage the enemies took and the healing (the unit's and its summons'). */
   const run = (charId, unit, defs) => {
     const [row, col] = POS[charId] ?? [10, 4];
@@ -359,7 +374,6 @@ test('kits: an operator with only a 自选 kit, fielded as another season\'s che
   for (const charId of Object.keys(OPERATOR_KITS)) {
     const unit = BASE.backups.units[charId];
     const xModule = Object.keys(unit.moduleNames ?? {}).find((id) => id.startsWith('uniequip_002_')) ?? null;
-    let cast = false;
     for (let skillIndex = 0; skillIndex < 3; skillIndex++) {
       const label = `${charId} S${skillIndex + 1}`;
       const pick = { charId, skillIndex, uniEquipId: xModule };
@@ -379,9 +393,9 @@ test('kits: an operator with only a 自选 kit, fielded as another season\'s che
       assert.equal(skillSpecSource(def), 'skills', `${label}: its 自选 kit's own skill spec`);
       assert.deepEqual(as.errors, [], `${label}: no handler error`);
       const diy = run(charId, { diy: { slot, ...pick }, elite: true });
+      // the comparison is not empty: the skill starts and the enemies take damage
+      assert.ok(as.play.casts > 0 && as.play.dealt > 0, `${label}: the skill starts and hits (${JSON.stringify(as.play)})`);
       assert.deepEqual(as.play, diy.play, `${label}: the same battle as the 自选 piece`);
-      cast ||= as.play.casts > 0;
     }
-    assert.ok(cast, `${charId}: a skill of hers / his starts (the comparison is not empty)`);
   }
 });
