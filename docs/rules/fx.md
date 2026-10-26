@@ -788,7 +788,8 @@
   `fxgame.js hitFx`가 그 이펙트를 시전 끝(`castSpan`)에 끄고 다음 휘두름·모드 전환·주인 사망에도 끈다(`castLoop` 표시; 이미 시전이 끝난 뒤 온 피해면 프리팹 길이).
   마비: 시뮬레이션이 적의 공격을 마비로 끊을 때 내는 fx `'palsy'` `{ id }`에서 `cutCast`가 그 시전의 이펙트를 전부 끄고(아직 로드 중인 것·첫 공격 지연 대기 포함) 시전을 닫는다.
 - **③ 시전 대상 이펙트(`_castTargetEffects`)** — `CastTargetEffectOptions.PlayEffect`: 시전 대상마다·능력 재생 속도. 대상은 우리 「맞은 대상마다」와 같고
-  속도만 달랐다 → `castTgt`(실버애쉬 더 레인프로스트 `svash2_attack_hit_01`)는 'dmg' 때 그 시전의 재생 속도로.
+  속도만 달랐다 → `castTgt`(실버애쉬 더 레인프로스트 `svash2_attack_hit_01`)는 'dmg' 때 그 시전의 재생 속도로. 2026-10-26: 켜는 때는 `_startEvent` — ON_CAST_START인
+  것(酒神 조준 표시)은 휘두름 시작에(아래 「선발 추가 酒神」 ①).
 - **④ 클립별 이펙트 변형** — `UberAnimationEffectEmitter.OnCastStart`: 능력의 애니 키가 `_sourceAnimKey`면 `_replaceGroup`에서 한 묶음을 골라
   (`_CalculatePlayIndex`: `_loopType` 0 LOOP 순환, 1 RANDOM 무작위) 그 `anim`을 틀고 그 묶음의 시전·타격 옵션을 이번 시전에 쓴다. 비나 빅토리아 기본 공격
   `Attack_1`/`Attack_2`(RANDOM) → `siege2_attack_start_01`/`_02`가 우리 바인딩에 없었다. → `char_modes.py clipFx[모드] = { src, loop, groups: [{ anim, cast, hit }] }`
@@ -1289,9 +1290,22 @@
     잡아 `KIT_OWNED`에 넣었다(牢笼 모습도).
   - S1 속박 표시: `phatm2_s_1[unmove]`의 `phatm2_skill_01_debuff_01`(`fxstatus.js SOURCE_FX.bind`, 땅 위 — `spawn` 5). 처음엔 `modes.json`의 `targetBuff`로
     붙을 줄 알았으나 안 나왔다: 속박 표시는 상태 표가 그린다.
-- **남은 것**(렌더 공통, 그녀만의 일이 아님 → 관리자 노트의 열린 항목): ① 공격 능력의 `_castTargetEffects`(`phatm2_*_hit_aim_01` 4종, 시전 시작에 대상 위)가
-  안 나온다 — `modes.json`이 이것을 모드 `hit` 목록 세 번째에 넣는데 렌더가 쓰지 않는다(세 번째 hit가 있는 오퍼레이터는 그녀와 플레임테일뿐). ② 셰이더
-  `Torappu/Particles/ZDistort/Disturb(CustomData)` 미지원(타격 프리팹 10개의 왜곡 층, 추출 보고 `NOT HANDLED`).
+- **렌더 공통으로 고친 것**(2026-10-26, 공식 클라에서 확인):
+  ① 공격 능력의 `_castTargetEffects`(조준 표시 `phatm2_attack_hit_aim_01`·`_skill_02_`·`_skill_03_`)가 안 나왔다 — 모드 `hit` 목록 세 번째라 타격 이펙트
+  상한(`MAX_HIT_FX` 2)에 잘렸고, 나왔더라도 타격 때였다. `CastTargetEffectOptions`는 시전 이펙트(`CastEffectOptions`)의 하위로 `_startEvent`에 시전 대상마다 켜진다
+  (`PlayEffect`). → `char_modes.py cast_target_timing`이 그 시점을 `castOpt`에 `t: 2`로 쓰고(바뀐 것: 그녀와 실버애쉬 더 레인프로스트 `svash2_attack_hit_01` 둘뿐),
+  `fxgame.js castTgtFx`가 ON_CAST_START인 것을 타격 목록에서 빼 휘두름 시작에 그 휘두름의 대상(6번째 칸 — 공격의 첫 대상) 위에, 없으면 지난 공격 대상, 그것도
+  없으면 타격 때 첫 대상 위에 튼다 [추정: 시뮬레이션의 주 대상 = 시전 대상]. 능력 재생 속도, 루프형(S3 `o` 0)은 시전 끝까지. ON_SPELL_ON인 실버애쉬 더 레인프로스트
+  것은 그대로 타격과 함께. 플레임테일(일반 오퍼레이터)의 세 번째 hit는 이것이 아니다 — `Attack`과 재능 상태별 `Attack_T1`/`_T1+` 능력의 타격이 한 목록에
+  섞인 것(관리자 노트의 열린 항목).
+  ② 셰이더 `Torappu/Particles/ZDistort/Disturb(CustomData)`(그녀 프리팹 10개, 추출된 이펙트 전체에서 그녀 것뿐): 픽셀 단계는 `Ram/Disturb(CustomData)`에서 채널
+  선택을 모두 기본값(메인·`_RamTex` rgba, 노이즈·디졸브 .r)으로 둔 것과 같고 상수 자리도 같다 — 플레이어의 이름 규칙이 이미 그렇게 그렸다. 다른 것은 정점
+  단계뿐: 화면 위치는 그대로 두고, 깊이를 월드 점을 카메라 기울기(√3)대로 `_BaselineZ` 평면까지 옮긴 점의 것으로 쓴다(평면 아래로는 안 내려감) — 바닥에 깔린
+  것처럼 깊이 시험을 받는다. `_ZTest` 0인 재질(타격들)에는 차이가 없고, 4인 5개(S2·S3 버프, S3 범위, 迷狂牢笼)만 해당. → `fxplayer.js` `uZFlat`: 이 정점의
+  시선이 평면(이펙트 자기 바닥 + `_BaselineZ`, 추출 재질은 모두 0)과 만나는 점의 깊이, 바닥 자르기(`uFloor`) 없음 [추정: 클라의 고정 기울기 대신 이 카메라의
+  시선; 평면을 낮은 바닥 대신 이펙트의 바닥으로 — 고지대 오퍼레이터의 버프가 자기 칸 가림막에 가리지 않게]. `fx_coverage.py SHADERS_CHECKED`에 넣음.
+  확인: `test/render/fx-round2.test.js` 「cast-target effects」, `test/render/fx-particle-modules.test.js` 「ZDistort」, 이벤트 골든 diy-012·013에 조준 세 줄,
+  Windows Chrome 디버그 아레나(평지)에서 평타 30·S2 45·S3 19회 조준 재생(휘두름 시작에), 페이지·콘솔 오류 0. 고지대·실제 판 [화면 미확인].
 - 확인: Windows Chrome 디버그 아레나(정예·RIT-X, 스킬마다 약 50초, 재생된 프리팹 이름 기록) — S1 속박 표시 10회, S2 소환물 등장·범위·유인·퇴장 2회·틱 24회,
   S3 범위·버프·牢笼 1회, 페이지 오류 0. 실제 판(전투 화면의 위치·크기·방향)은 아직.
 

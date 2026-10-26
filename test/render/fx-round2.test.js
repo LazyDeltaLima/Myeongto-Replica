@@ -51,6 +51,24 @@ test('char_modes.py: looping hits (hitLoop), cast-target hits (castTgt), clip gr
   assert.equal(MODES.char_4145_ulpia.modeStart[MODES.char_4145_ulpia.modes.indexOf('S3_Respawn_A')], 'ulpia_skill_03_bith_01');
 });
 
+test('cast-target effects (2026-10-26): timed in castOpt (t 2); the swing-start ones play on the target as the swing starts, not with the hits', () => {
+  const p = MODES.char_1042_phatm2;
+  // 酒神: her aim mark over the target at ON_CAST_START — S3's loops until the cast's end
+  assert.deepEqual(p.castOpt[0].phatm2_attack_hit_aim_01, { s: 2, e: 3, o: 1, t: 2 });
+  assert.deepEqual(p.castOpt[1].phatm2_skill_02_hit_aim_01, { s: 2, e: 3, o: 1, t: 2 });
+  assert.deepEqual(p.castOpt[2].phatm2_skill_03_hit_aim_01, { s: 2, e: 3, o: 0, t: 2 });
+  assert.equal(castPhase(castTiming(p, 0, 'phatm2_attack_hit_aim_01')), 'swing');
+  // 凛御银灰's (an ability group's child): at the strike — it stays with the hits
+  assert.deepEqual(MODES.char_1045_svash2.castOpt[0].svash2_attack_hit_01, { s: 4, e: 3, o: 1, t: 2 });
+  assert.equal(castPhase(castTiming(MODES.char_1045_svash2, 0, 'svash2_attack_hit_01')), 'strike');
+  assert.match(PY('char_modes.py'), /cast_target_timing\(d, cast_opt\[i\]\)/);
+  assert.match(PY('char_modes.py'), /cast_target_timing\(x, timing\[i\]\)/);
+  // fxgame: on the swing's target (its 6th field), the strike's when the swing named none; out of the hit list before its cap
+  assert.match(SRC, /castTgtFx\(src, c, mode, kind, faceId != null \? views\.get\(faceId\) : null\);/);
+  assert.match(SRC, /if \(c\.ctLate\) castTgtFx\(src, c, mode, kind, tgt, true\);/);
+  assert.match(SRC, /\.filter\(\(n\) => !swingTarget\(a\.src, a\.mode, n\)\)\.slice\(0, MAX_HIT_FX\)/);
+});
+
 test('clipGroup: the group of the clip played, else LOOP the next one / RANDOM one at random', () => {
   const cf = { loop: 1, groups: [{ anim: 'Attack_1', cast: ['a'] }, { anim: 'Attack_2', cast: ['b'] }] };
   assert.equal(clipGroup(cf, 'Attack_2', -1, 0).cast[0], 'b');
@@ -89,7 +107,7 @@ test('fxgame: input effects on the main target, looping hits end with the cast, 
   assert.match(SRC, /if \(entry\.cast\?\.cut\) \{ inst\.dispose\(\); return null; \}/);
   // clip groups: cast at the swing, hits at the damage
   assert.match(SRC, /c\.group = castGroup\(src, mode, sig, .*\);/);
-  assert.match(SRC, /const hits = withGroup\(hitList, c\?\.group\?\.hit\)\.slice\(0, MAX_HIT_FX\);/);
+  assert.match(SRC, /const hits = withGroup\(hitList, c\?\.group\?\.hit\)\.filter\(\(n\) => !swingTarget\(a\.src, a\.mode, n\)\)\.slice\(0, MAX_HIT_FX\);/);
   // the enemy's debuff mark: one per name per unit, renewed by a hit while it stands
   assert.match(SRC, /if \(Array\.isArray\(part\.hitBuff\) && part\.hitBuff\.length\) eholdBuff\(src, part, tgt\);/);
   assert.match(SRC, /const key = `\$\{tid\}:\$\{n\}`;/);

@@ -50,6 +50,28 @@ test('renderState: the culling / depth write / source factor each pass reads (cl
   assert.equal(renderState('Legacy Shaders/Particles/Alpha Blended Premultiply', {}).src, 1);
 });
 
+test('ZDistort/Disturb(CustomData) (2026-10-26): depth on the effect\'s floor plane, never cut by the floor', async () => {
+  const mats = {
+    m: { shader: 'Torappu/Particles/ZDistort/Disturb(CustomData)', tex: {}, floats: { _ZTest: 4, _BaselineZ: 0 }, colors: {} },
+    r: { shader: 'Torappu/Particles/Ram/Disturb(CustomData)', tex: {}, floats: { _ZTest: 4 }, colors: {} },
+  };
+  const THREE = await import('../../public/vendor/three.module.js');
+  const fxp = await import('../../public/js/render/fxplayer.js');
+  const tri = () => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3)); g.setIndex([0, 1, 2]); return g; };
+  // both under the floor (client z grows downward)
+  const nodes = [node('root', -1), node('z', 0, { pos: [0, 0, 1], ps: ps({}, { n: 1 }) }), node('r', 0, { pos: [0, 0, 1], ps: { ...ps({}, { n: 1 }), render: { ...ps({}).render, mat: 'r' } } })];
+  const def = { name: 't', duration: 0, materials: mats, clips: [], geoms: new Proxy({}, { get: () => tri() }), lib: { texture: () => new THREE.Texture() }, nodes };
+  const inst = new fxp.FxInstance(def, { quality: 'high', floor: 0.42 });
+  const [z, r] = inst.systems.map((s) => s.material.uniforms);
+  assert.equal(z.uZFlat.value, true);
+  assert.equal(z.uBaseH.value, 0.42, 'the plane: _BaselineZ above the effect\'s floor');
+  assert.equal(z.uFloor.value, -1e9, 'no floor cut');
+  assert.equal(r.uZFlat.value, false);
+  assert.ok(r.uFloor.value > 0, 'the Ram one is cut as before');
+  assert.match(readFileSync(path.join(ROOT, 'public/js/render/fxplayer.js'), 'utf8'), /gl_Position\.z = q\.z \/ q\.w \* gl_Position\.w;/);
+  assert.match(readFileSync(path.join(ROOT, 'tools/local-extract/fx_coverage.py'), 'utf8'), /'Torappu\/Particles\/ZDistort\/Disturb\(CustomData\)',/);
+});
+
 test('culling: mesh renderers and mesh particles take their pass\'s side; billboards keep both', async () => {
   const mats = {
     rim: { shader: 'Torappu/Particles/Rim/Rim Tint (Add)', tex: {}, floats: {}, colors: {} },

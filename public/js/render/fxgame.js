@@ -3421,6 +3421,42 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (delay > 0) castsDelayed.push({ t: clockS + delay, run: go }); else go();
     }
   }
+  // 2026-10-26, official client: a CastTargetEffectOptions (modes.json `castTgt`, castOpt t: 2 — char_modes.py
+  // cast_target_timing) is a CastEffectOptions created on each live cast target (`CastTargetEffectOptions.PlayEffect`) at
+  // its `_startEvent`. The mode's hit lists hold them; an ON_CAST_START one (酒神 phatm2_*_hit_aim_01, the aim mark over
+  // her target) plays here as the swing starts, on the swing's target (its 6th field — the attack's first target), else
+  // its last attack's while that one lives, else at the strike on the strike's first target [추정: the sim's main target
+  // stands for the cast targets]; a strike one (凛御银灰 svash2_attack_hit_01) stays with the hits (hitFx). Before, the
+  // hit path played them at the damage, and the two-hit cap (MAX_HIT_FX) dropped 酒神's, the third of her lists.
+  /** Whether hit `n` of mode `mode` is a cast-target effect of the swing start (castTgtFx plays it, not the hits). */
+  const swingTarget = (v, mode, n) => {
+    const opt = castTiming(bindOf(v), mode, n);
+    return opt?.t === 2 && castPhase(opt) === 'swing';
+  };
+  /** The swing-start cast-target effects of cast `c` (mode `mode`, attack kind `kind`) on `tgt`, or at the strike without one. */
+  function castTgtFx(v, c, mode, kind, tgt, strike = false) {
+    if (c.skip) return;
+    let names;
+    if (strike) { names = c.ctLate; c.ctLate = null; } else {
+      names = withGroup(boundFor(v, mode, 'hit', kind).names, c.group?.hit).filter((n) => swingTarget(v, mode, n));
+      tgt ||= lastTarget(v);
+      if (names.length && !tgt) { c.ctLate = names; return; }
+    }
+    if (!names?.length || !tgt || tgt.alive === false || tgt.remove) return;
+    for (const n of names) {
+      const opt = castTiming(bindOf(v), c.mode, n);
+      if (opt?.once && c.fired.has(n)) continue;
+      c.fired.add(n);
+      const loop = opt?.o === 0;
+      const end = !loop ? null : opt.e === CAST_EVENT.SPELL_ON || opt.e === CAST_EVENT.SPELL_END ? Math.max(c.hitAt, clockS) : c.end;
+      const go = () => {
+        if (v._fxCast !== c || v.alive === false || tgt.alive === false || tgt.remove) return;
+        play(v, 'attackHit', 0, { at: tgt, names: [n], tag: loop ? 'castLoop' : 'cast', until: end, speed: c.speed, cast: c });
+      };
+      const delay = c.first && opt?.d > 0 ? opt.d / c.speed : 0;
+      if (delay > 0) castsDelayed.push({ t: clockS + delay, run: go }); else go();
+    }
+  }
   /**
    * The clip group of a new cast of `v` (modes.json clipFx[mode], fxmap.js clipGroup — 비나 빅토리아's Attack_1 / Attack_2
    * cast siege2_attack_start_01 / _02): the group of the attack clip its model plays; its extracted cast / hit names. And
@@ -3510,6 +3546,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const { names: own, split } = boundFor(src, mode, 'cast', kind);
     const cast = castOf(own, c.group);
     inputFx(src, c, mode, 'swing');
+    castTgtFx(src, c, mode, kind, faceId != null ? views.get(faceId) : null);
     if (cast.length || split) { playCast(src, c, cast.filter((n) => phaseOf(src, mode, n) === 'swing')); return; }
     // no mode binding: the name mapping's attack start, at the swing like the client's ON_CAST_START majority [추정]
     if (!src._fxSkillOn) play(src, 'attackStart', 0, { tag: 'cast' });
@@ -3531,11 +3568,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (cast.length || split) playCast(src, c, cast.filter((n) => phaseOf(src, mode, n) === 'swing'));
         else if (!src._fxSkillOn) play(src, 'attackStart', 0, { tag: 'cast' });
         inputFx(src, c, mode, 'swing', tgt);
+        castTgtFx(src, c, mode, kind, tgt);
       }
     }
     if (c.struckAt != null && clockS - c.struckAt < 0.03) return;   // another target of the same strike
     c.struckAt = clockS;
     if (tgt) src._fxTgt = ownerOf(tgt);
+    if (c.ctLate) castTgtFx(src, c, mode, kind, tgt, true);
     const cast = castOf(own, c.group);
     if (!c.skip && cast.length) playCast(src, c, cast.filter((n) => phaseOf(src, mode, n) === 'strike'));
     inputFx(src, c, mode, 'strike', tgt);
@@ -3748,7 +3787,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       : a.shot ? { names: extracted(a.src, skillBind(a.src)?.shotHit), split: false } : boundFor(a.src, a.mode, 'hit', a.kind, !!a.combat);
     if (sg) hitList = [...new Set([...hitList, ...extracted(a.src, sg.g[strikeIndex(sg, a.n)])])];
     const c = a.src._fxCast?.mode === a.mode ? a.src._fxCast : null; // 2026-10-11: its cast (clip group, loop end, speed)
-    const hits = withGroup(hitList, c?.group?.hit).slice(0, MAX_HIT_FX);
+    const hits = withGroup(hitList, c?.group?.hit).filter((n) => !swingTarget(a.src, a.mode, n)).slice(0, MAX_HIT_FX);
     if (hits.length) { hitFx(a.src, tgt, hits, c); return; }
     if (split || bound(a.src, a.mode, 'input').length) return; // its hits are its input-target effects (inputFx), not a name-mapped one
     play(a.src, a.src._fxSkillOn ? 'skillHit' : 'attackHit', skillIdx(a.src), { at: tgt });

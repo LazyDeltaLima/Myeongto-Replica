@@ -296,7 +296,7 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
     mat3 rz = mat3(cz, sz, 0., -sz, cz, 0., 0., 0., 1.);
     return ry * rx * rz;
   }
-  void main() {
+  void fxMain() {
     vUv = iUV.xy + uv * iUV.zw; vColor = iColor * (uVCol ? vcol : vec4(1.0)); vC1 = iC1; vC2 = iC2;  // local patch: mesh vertex colours
     vN = vec3(0.0, 0.0, 1.0); vVP = vec3(0.0, 0.0, -1.0);
     if (uMode == 6) {                       // trail strip: camera-facing ribbon, iVel = tangent, iRot.x = side, iSize.x = width
@@ -355,6 +355,23 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
     vec4 cv = modelViewMatrix * vec4(iPos, 1.0);   // camera-facing (vertical billboards approximated)
     vH = (modelMatrix * vec4(iPos, 1.0)).z + hOfView(vec3(rc, 0.0));
     gl_Position = projectionMatrix * vec4(cv.xyz + vec3(rc, 0.0), 1.0);
+  }
+  // 2026-10-26 (client shader ZDistort/Disturb(CustomData)): the depth of the point where this vertex's view ray meets the
+  // plane at board height uBaseH, the screen position unchanged — the client's vertex stage moves the world point along its
+  // camera's slope (√3) to _BaselineZ and keeps it from falling below it, so the material depth-tests as if it lay on the
+  // floor [추정: this camera's own ray for the client's fixed slope]
+  uniform bool uZFlat; uniform float uBaseH;
+  void main() {
+    fxMain();
+    if (!uZFlat) return;
+    vec4 vp = inverse(projectionMatrix) * gl_Position;
+    vec3 v = vp.xyz / vp.w;
+    float dh = (vec4(v, 0.0) * viewMatrix).z;   // the scene height the ray climbs from the camera to the point
+    if (abs(dh) < 1e-6) return;
+    float t = (uBaseH - cameraPosition.z) / dh;
+    if (t <= 0.0) return;
+    vec4 q = projectionMatrix * vec4(v * t, 1.0);
+    gl_Position.z = q.z / q.w * gl_Position.w;
   }`;
 
 const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
@@ -522,7 +539,11 @@ function makeMaterial(m, lib) {
   else if (/Additive|Add\b|Add /.test(shader)) additive = true;
   else additive = (f._DstBlend ?? 1) === 1;
   const rs = renderState(shader, f);
-  const opaque = !additive && f._DstBlend === 0 && SRC_READ.test(shader);
+  // 2026-10-26 (client shader): ZDistort/Disturb(CustomData) draws as Ram/Disturb(CustomData) with every channel selector at
+  // its default (main and _RamTex rgba, noise and dissolve .r — the same constant slots), the name rules above and below
+  // giving it that; its vertex stage only changes the depth (uZFlat)
+  const zflat = /\/ZDistort\/Disturb\(CustomData\)$/.test(shader);
+  const opaque =!additive && f._DstBlend === 0 && SRC_READ.test(shader);
   const src = rs.src, dst = additive ? 1 : opaque ? 0 : 10;
   // 2026-10-14: Disturb Origin / Anchor name their noise _DisturTex (it was never read: no distortion, no flow)
   const disKey = t._DisturbTex ? '_DisturbTex' : t._NoiseTex ? '_NoiseTex' : '_DisturTex';
@@ -603,6 +624,8 @@ function makeMaterial(m, lib) {
       uAmount2: { value: f._Amount_02 || 0 }, uBorder2: { value: f._BorderWidth_02 || 0 },
       // local patch: vertex colours / Rim — turned on by the geometry's owner (useMeshAttrs); the floor (FxInstance opts.floor)
       uVCol: { value: false }, uRim: { value: false }, uRimPower: { value: f._RimPower ?? 1 }, uFloor: { value: -1e9 }, uPremul: { value: premul },
+      // 2026-10-26: ZDistort's floor depth (VERT main), + the effect's floor (FxInstance)
+      uZFlat: { value: zflat }, uBaseH: { value: -(f._BaselineZ || 0) },
       uHasRam: { value: !!t._RamTex }, uRam: { value: tex('_RamTex') || WHITE }, uRamST: { value: st('_RamTex') },
       uCustom: { value: (f._HGCustomVertexStream ?? (/CustomData/.test(shader) ? 1 : 0)) !== 0 },
       uTime: { value: 0 }, uAdditive: { value: additive },
@@ -619,6 +642,11 @@ function makeMaterial(m, lib) {
   // local patch: whether the material tests depth (`_ZTest` 4 LessEqual …; 0 Disabled / 8 Always do not) — the floor cut
   // applies only to those: the client's map hides what they draw under the ground by depth [ASSUMED: 0 = Disabled is used]
   mat.userData.ztest = !(f._ZTest === 0 || f._ZTest === 8);
+  // its depth never lies under its floor: no floor cut (FxInstance). The plane: client z grows downward, so _BaselineZ is minus
+  // a height — above the effect's own floor here (the tile top it stands on: a fixed plane at the low ground would hide a
+  // high-ground operator's buff behind her own tile in this board's occluders) [추정: every extracted material has 0]
+  mat.userData.zflat = zflat;
+  mat.userData.baseH = -(f._BaselineZ || 0);
   // local patch (maintainer report 2026-10-08): … and against the map's raised tiles / crates (render/fxgame.js occluders —
   // the only depth in an effect canvas: every effect renderer writes none, as before)
   mat.depthTest = mat.userData.ztest;
@@ -1990,7 +2018,10 @@ export class FxInstance {
       const cut = (opts.floor || 0) - 0.05;
       unity.updateMatrixWorld(true);
       const under = (node) => node.getWorldPosition(tmpV).z - this.object.position.z < -UNDER_FLOOR;
-      const setFloor = (m, node) => { if (m.userData.ztest && under(node)) m.uniforms.uFloor.value = cut; };
+      const setFloor = (m, node) => {
+        if (m.userData.zflat) m.uniforms.uBaseH.value = m.userData.baseH + (opts.floor || 0);
+        else if (m.userData.ztest && under(node)) m.uniforms.uFloor.value = cut;
+      };
       this.meshMats.forEach((m, i) => { if (m) setFloor(m, this.nodes[i]); });
       for (const s of this.systems) { setFloor(s.material, s.node); if (s.trailBatch) setFloor(s.trailBatch.material, s.node); }
       for (const t of this.trails) setFloor(t.batch.material, t.node);

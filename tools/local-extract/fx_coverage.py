@@ -122,7 +122,7 @@ PLAYER_VALUES = {'_Color', '_MainColor', '_TintColor', '_UVTween', '_AddFactor',
                  '_DisturbInfluenceMainUV', '_DisturbUSpeed', '_DisturbVSpeed', '_DstBlend', '_HGCustomVertexStream',
                  '_IntensityU', '_IntensityU_02', '_IntensityV', '_IntensityV_02', '_MainColorACtrl', '_MainUSpeed',
                  '_MainVSpeed', '_Opacity', '_RimPower', '_ToggleUseDissolve', '_ToggleUseDisturb2', '_UseDissolveTex', '_ZTest',
-                 '_CullMode', '_ZWrite', '_SrcBlend',
+                 '_CullMode', '_ZWrite', '_SrcBlend', '_BaselineZ',
                  '_Dissolve', '_TexSpeed', '_TexSpeed2', '_TintColorB', '_TintColorC'}
 # shaders whose behaviour render/fxplayer.js was checked against (by name: blend, tint, distortion, dissolve families)
 # (2026-10-16: every shader of the extracted effects then — a shader outside the list is new to the player)
@@ -142,6 +142,9 @@ SHADERS_CHECKED = {
     'Torappu/Particles-L2D/Ram/Disturb(CustomData)', 'Torappu/Particles-L2D/Disturb/Disturb(CustomData)',
     'Torappu/Particles-L2D/Dissolve/Dissolve(CustomData)', 'Torappu/Particles-L2D/Dissolve/Dissolve Add',
     'Torappu/Particles-L2D/AlphaBlend',   # 2026-10-21 (盟约·辅助干员's csuppo hit): properties, tags and blend state = Particles/AlphaBlend
+    # 2026-10-26 (酒神's hits, buffs, range and 迷狂牢笼): the pixel stage of Ram/Disturb(CustomData) with every channel at its
+    # default, on the same constant slots; the vertex stage moves only the depth to the `_BaselineZ` plane (fxplayer.js uZFlat)
+    'Torappu/Particles/ZDistort/Disturb(CustomData)',
     # 2026-10-22: Unity's legacy particle shaders, by their pass states (SrcAlpha One / SrcAlpha OneMinusSrcAlpha — 2 × tint ×
     # vertex × texture; Premultiply One OneMinusSrcAlpha — vertex × texture × vertex alpha, Unity's Default-Particle)
     'Legacy Shaders/Particles/Additive', 'Legacy Shaders/Particles/Alpha Blended',

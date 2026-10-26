@@ -588,6 +588,7 @@ def ability_groups(tree, mode_paths, by_pid, projectiles=None):
                 for k in MODE_HIT_KEYS:
                     add(hit, effect_names(x.get(k) or []))
                 add(tgt, effect_names(x.get('_castTargetEffects') or []))
+                cast_target_timing(x, timing[i])
                 for c in x.get('_castEffects') or []:
                     if isinstance(c, dict):
                         for e in c.get('_effects') or []:
@@ -682,7 +683,7 @@ def mode_parts(tree, mode_paths, projectiles=None):
 
 def cast_timing(c):
     """{ s, e, o, d?, once?, t?, p? } of a CastEffectOptions entry (castOpt): t = an InputTargetEffectOptions (on the main
-    target), p = its `_useInputPos`."""
+    target), p = its `_useInputPos`; t 2 = a CastTargetEffectOptions (on each cast target: cast_target_timing)."""
     opt = {'s': c.get('_startEvent', 2), 'e': c.get('_endEvent', 3), 'o': c.get('_oneshot', 1)}
     if isinstance(c.get('_delayIfFirstAttack'), (int, float)) and c['_delayIfFirstAttack'] > 0:
         opt['d'] = round(float(c['_delayIfFirstAttack']), 4)
@@ -693,6 +694,18 @@ def cast_timing(c):
         if c.get('_useInputPos') == 1:
             opt['p'] = 1
     return opt
+
+
+def cast_target_timing(d, out):
+    """2026-10-26: the castOpt of ability `d`'s `_castTargetEffects` into `out` { name: timing } with t: 2 — a
+    CastTargetEffectOptions is a CastEffectOptions created on each of the ability's cast targets (client
+    `CastTargetEffectOptions.PlayEffect`): at its `_startEvent` (酒神 phatm2_attack_hit_aim_01 ON_CAST_START, 凛御银灰
+    svash2_attack_hit_01 ON_SPELL_ON), a loop one until its `_endEvent`."""
+    for c in d.get('_castTargetEffects') or []:
+        if isinstance(c, dict):
+            for x in c.get('_effects') or []:
+                if isinstance(x, str) and x:
+                    out.setdefault(x, {**cast_timing(c), 't': 2})
 
 
 def modes_of(path, projectiles=None):
@@ -872,6 +885,7 @@ def modes_of(path, projectiles=None):
         add(cast[i], effect_names(d.get('_castEffects') or []))
         add(inputs[i], effect_names(d.get('_inputTargetEffects') or []))
         add(cast_tgt, effect_names(d.get('_castTargetEffects') or []))
+        cast_target_timing(d, cast_opt[i])
         for c in [*(d.get('_castEffects') or []), *(d.get('_inputTargetEffects') or [])]:
             if not isinstance(c, dict):
                 continue
