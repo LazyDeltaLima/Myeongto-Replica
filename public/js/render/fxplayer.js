@@ -354,8 +354,16 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       return;
     }
     vec4 cv = modelViewMatrix * vec4(iPos, 1.0);   // camera-facing (vertical billboards approximated)
-    vH = (modelMatrix * vec4(iPos, 1.0)).z + hOfView(vec3(rc, 0.0));
-    gl_Position = projectionMatrix * vec4(cv.xyz + vec3(rc, 0.0), 1.0);
+    // (2026-10-27, effect bundle V) Facing alignment (3): the quad faces the camera's position, not its plane (Unity manual)
+    vec3 off = vec3(rc, 0.0);
+    if (uMode == 0 && uAlign == 3 && length(cv.xyz) > 1e-6) {
+      vec3 f = normalize(-cv.xyz);
+      vec3 rt = cross(vec3(0.0, 1.0, 0.0), f);
+      rt = length(rt) > 1e-4 ? normalize(rt) : vec3(1.0, 0.0, 0.0);
+      off = rt * rc.x + cross(f, rt) * rc.y;
+    }
+    vH = (modelMatrix * vec4(iPos, 1.0)).z + hOfView(off);
+    gl_Position = projectionMatrix * vec4(cv.xyz + off, 1.0);
   }
   // 2026-10-26 (client shaders ZDistort/*): the depth of the point where this vertex's view ray meets the
   // plane at board height uBaseH, the screen position unchanged — the client's vertex stage moves the world point along its
@@ -826,6 +834,7 @@ export class FxLibrary {
         const keys = new Set();
         for (const n of def.nodes) {
           if (n.ps?.render?.mesh) keys.add(n.ps.render.mesh);
+          for (const k of n.ps?.render?.meshes || []) keys.add(k);   // (2026-10-27) the renderer's further meshes
           if (n.ps?.shape?.mesh) keys.add(n.ps.shape.mesh);   // 2026-10-22: a Mesh shape's mesh
           if (n.mesh?.mesh) keys.add(n.mesh.mesh);
           if (n.skin?.mesh) keys.add(n.skin.mesh);
@@ -945,7 +954,7 @@ class TrailRenderer {
     this.tr = tr; this.node = node; this.root = root;
     this.def0 = tr;   // 2026-10-22: the shared definition (a clip's `trail:time` drives an own copy)
     this.batch = new StripBatch(makeMaterial(def.materials[tr.mat], def.lib), TRAIL_PTS);
-    this.batch.mesh.renderOrder = tr.order || 0;
+    this.batch.mesh.renderOrder = sortingOrder(tr);
     root.add(this.batch.mesh);
     this.ring = new Float64Array(TRAIL_KEEP * 4);   // recorded points x, y, z, t; the oldest at `head`
     this.head = 0; this.count = 0;
@@ -1070,7 +1079,7 @@ class LineRenderer {
 
 const tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3(), tmpQ = new THREE.Quaternion(), tmpM = new THREE.Matrix4(), tmpM2 = new THREE.Matrix4();
 const emitM = new THREE.Matrix4();   // ParticleSystem.emit: node → root for a world-space system
-const frameQ = new THREE.Quaternion();   // ParticleSystem.syncFrame
+const frameQ = new THREE.Quaternion(), ONE3 = new THREE.Vector3(1, 1, 1);   // ParticleSystem.syncFrame
 // ParticleSystem sub emitters (2026-10-14): the parent's node → root, a particle's point, the shape offset, inherited values
 const subM = new THREE.Matrix4(), subAt = new THREE.Vector3(), subOff = new THREE.Vector3(), subCol = [0, 0, 0, 0], subSize = [1, 1, 1];
 // (2026-10-26, effect bundle U) the orbit's frames (orbitFrame: orbitLocal = a local-space system's own), its temporaries,
@@ -1127,7 +1136,47 @@ function perlinOct(x, y, z, f, oct, mul, scale) {
 const IV = 28, IV_POS = 0, IV_SIZE = 3, IV_ROT = 6, IV_COL = 9, IV_C1 = 13, IV_C2 = 17, IV_UV = 21, IV_VEL = 25;
 const INSTANCE_ATTRS = [['iPos', 3, IV_POS], ['iSize', 3, IV_SIZE], ['iRot', 3, IV_ROT], ['iColor', 4, IV_COL], ['iC1', 4, IV_C1],
   ['iC2', 4, IV_C2], ['iUV', 4, IV_UV], ['iVel', 3, IV_VEL]];
-const tmpC = [0, 0, 0, 0], tmpC2 = [0, 0, 0, 0];
+
+/** An instanced geometry over `src` (its index, positions, uvs) with its own instance buffer of `max` rows. */
+function instanced(src, max) {
+  const g = new THREE.InstancedBufferGeometry();
+  g.index = src.index;
+  g.setAttribute('position', src.getAttribute('position'));
+  if (src.getAttribute('uv')) g.setAttribute('uv', src.getAttribute('uv'));
+  const ib = new THREE.InstancedInterleavedBuffer(new Float32Array(max * IV), IV, 1);
+  ib.setUsage(THREE.DynamicDrawUsage);
+  for (const [name, size, offset] of INSTANCE_ATTRS) g.setAttribute(name, new THREE.InterleavedBufferAttribute(ib, size, offset));
+  g.instanceCount = 0;
+  return { g, ib };
+}
+
+/**
+ * (2026-10-27, effect bundle V) a renderer's place in Unity's transparent order — its sorting layer (`layer`, the layer's
+ * place: 0 = Default, −2 = two layers before it) before its sortingOrder (`order`) — as a three.js renderOrder.
+ */
+export const LAYER_ORDER = 100000;
+export const sortingOrder = (r) => (r?.layer || 0) * LAYER_ORDER + (r?.order || 0);
+
+/**
+ * (2026-10-27, effect bundle V) the custom data as the renderer streams it to the shader (official enum: 31–34 Custom1X…XYZW,
+ * 35–38 Custom2X…XYZW): the floats after the uv, in stream order, are what the shader reads as custom1 then custom2 — for
+ * each of those 8 slots the index into (custom1, custom2) that fills it, −1 for none; null when it is custom1 then custom2
+ * as they are. Custom streams off (`ownStreams` 0): Unity's default streams carry no custom data, all −1.
+ */
+function customMap(r) {
+  if (r.ownStreams == null) return null;   // an extract before 2026-10-27
+  const flat = [];
+  if (r.ownStreams) {
+    for (const s of r.streams || []) {
+      if (s >= 31 && s <= 38) { const c = s <= 34 ? 0 : 4; for (let k = 0; k <= (s - 31) % 4; k++) flat.push(c + k); }
+    }
+  }
+  const map = Array.from({ length: 8 }, (_, j) => (j < flat.length ? flat[j] : -1));
+  return map.every((v, j) => v === j) ? null : map;
+}
+const whiteVcol = (src) => new THREE.Float32BufferAttribute(new Float32Array(src.getAttribute('position').count * 4).fill(1), 4);
+const sortM = new THREE.Matrix4();
+const tmpC = [0, 0, 0, 0], tmpC2 = [0, 0, 0, 0], tmpCD = new Float32Array(8);
 const D2R = Math.PI / 180;
 // (2026-10-22) a particle's size multipliers (sizeOf), the emitter velocity's frame change (emitterVelocity)
 const sizeK = [1, 1, 1], tmpM3 = new THREE.Matrix3();
@@ -1179,15 +1228,8 @@ class ParticleSystem {
     this.rotVel = new Float32Array(max); this.col0 = new Float32Array(max * 4); this.rnd = new Float32Array(max * 4);
     this.nz = ps.mods.noise?.sizeAmt ? new Float32Array(max) : null;
     const geomSrc = ps.render.mode === 4 && def.geoms[ps.render.mesh] ? def.geoms[ps.render.mesh] : QUAD;
-    const g = new THREE.InstancedBufferGeometry();
-    g.index = geomSrc.index;
-    g.setAttribute('position', geomSrc.getAttribute('position'));
-    if (geomSrc.getAttribute('uv')) g.setAttribute('uv', geomSrc.getAttribute('uv'));
-    const ib = new THREE.InstancedInterleavedBuffer(new Float32Array(max * IV), IV, 1);
-    ib.setUsage(THREE.DynamicDrawUsage);
-    for (const [name, size, offset] of INSTANCE_ATTRS) g.setAttribute(name, new THREE.InterleavedBufferAttribute(ib, size, offset));
+    const { g, ib } = instanced(geomSrc, max);
     this.ib = ib;
-    g.instanceCount = 0;
     this.geometry = g;
     // a trail-only system (renderer mode None / no particle material) draws only its trails
     const drawParticles = ps.render.mat && ps.render.mode !== 5;
@@ -1195,16 +1237,49 @@ class ParticleSystem {
     mat.uniforms.uMode.value = ps.render.mode === 3 ? 0 : ps.render.mode;
     mat.uniforms.uLengthScale.value = ps.render.lengthScale ?? 2;
     mat.uniforms.uVelScale.value = ps.render.velScale ?? 0;
-    mat.uniforms.uAlign.value = ps.render.align ?? 0;
+    mat.uniforms.uAlign.value = ps.render.mode === 0 || ps.render.align < 3 ? ps.render.align ?? 0 : 0;   // Facing: billboards only
     if (opts.pivot && Array.isArray(ps.render.pivot)) mat.uniforms.uPivot.value.set(+ps.render.pivot[0] || 0, +ps.render.pivot[1] || 0, +ps.render.pivot[2] || 0); // local patch (FxInstance opts.pivot, default on)
     if (geomSrc !== QUAD) { useMeshAttrs(g, geomSrc, mat); meshSide(mat); } // local patch
     this.material = mat;
     this.mesh = new THREE.Mesh(g, mat);
     this.mesh.frustumCulled = false;
-    this.mesh.renderOrder = (ps.render.order || 0) + (mat.userData.order - 3000) / 100;
+    this.mesh.renderOrder = sortingOrder(ps.render) + (mat.userData.order - 3000) / 100;
     this.draws = !!drawParticles;
     this.mesh.visible = false;   // drawn while it has particles (update)
     (this.world ? root : node).add(this.mesh);
+    // (2026-10-27, effect bundle V) a mesh renderer's further meshes (m_Mesh1..3, `meshes`): each particle draws one of the
+    // set ones, picked at birth uniformly (official engine: GetMeshCount counts the set slots, CalculateRandomMeshIndex takes
+    // the particle's random modulo that count) — an instanced mesh per shape under the first, rows split by `mi`
+    this.more = [];
+    if (geomSrc !== QUAD) {
+      for (const k of ps.render.meshes || []) {
+        const src = def.geoms[k];
+        if (!src) continue;
+        const { g: g2, ib: ib2 } = instanced(src, max);
+        useMeshAttrs(g2, src, mat);
+        const m2 = new THREE.Mesh(g2, mat);
+        m2.frustumCulled = false;
+        m2.renderOrder = this.mesh.renderOrder;
+        this.mesh.add(m2);
+        this.more.push({ mesh: m2, g: g2, ib: ib2, src });
+      }
+      // a shared material with vertex colours from one shape: the others draw theirs white
+      if (mat.uniforms.uVCol.value) for (const [gg, src] of [[g, geomSrc], ...this.more.map((m) => [m.g, m.src])]) if (!gg.getAttribute('vcol')) gg.setAttribute('vcol', whiteVcol(src));
+    }
+    this.mi = this.more.length ? new Uint8Array(max) : null;
+    // (2026-10-27, effect bundle V) the renderer's sort mode (`sortMode`: 1 distance, 2 oldest in front, 3 youngest in front,
+    // 4 depth) — the camera as last drawn, in the particles' frame (orderRows)
+    this.sortMode = drawParticles ? ps.render.sortMode || 0 : 0;
+    if (this.sortMode) {
+      this.camP = null; this.camF = new THREE.Vector3(); this.sortKey = new Float32Array(max); this.sortIdx = []; this.rowTmp = new Float32Array(max * IV);
+      this.mesh.onBeforeRender = (r, sc, camera) => {
+        sortM.copy(this.mesh.matrixWorld).invert();
+        (this.camP ||= new THREE.Vector3()).setFromMatrixPosition(camera.matrixWorld).applyMatrix4(sortM);
+        camera.getWorldDirection(this.camF).transformDirection(sortM);
+      };
+    }
+    this.cmap = customMap(ps.render);
+    this.flipK = ps.render.flip?.some((v) => v) ? ps.render.flip : null;
     // particle trails (TrailModule): a short position history per particle (mode 0) or one ribbon through them (mode 1)
     const tm = ps.mods.trail;
     if (tm && typeof tm === 'object' && ps.render.trailMat && def.materials[ps.render.trailMat]) {
@@ -1218,12 +1293,18 @@ class ParticleSystem {
       (this.world || tm.world ? root : node).add(this.trailBatch.mesh);
       this.order = [];                                          // ribbon order, reused
       this.olderFirst = (x, y) => this.age[y] - this.age[x];
+      // (2026-10-27, effect bundle V) dieWithParticles off: a dead particle's trail stays until its points expire (ghosts);
+      // splitSubEmitterRibbons: a sub emitter's ribbon per parent particle (par = the parent's uid)
+      this.ghosts = tm.mode !== 1 && tm.die === false ? [] : null;
+      if (tm.mode === 1 && tm.split) { this.par = new Float64Array(max); this.byParent = (x, y) => this.par[x] - this.par[y] || this.age[y] - this.age[x]; }
     }
+    this.uid = new Float64Array(max); this.uidN = 0;            // each particle's id (a sub emitter's ribbons split by it)
     this.listed = true;                                         // counted in liveParticles until dispose
     systems.add(this);
   }
 
   get alive() {
+    if (this.ghosts?.length) return true;
     if (this.subOf) return this.n > 0 || this.subOf.alive;   // a sub emitter lives on its parent's particles
     return this.n > 0 || (!this.stopped && (this.ps.loop || this.time < this.ps.dur));
   }
@@ -1291,6 +1372,11 @@ class ParticleSystem {
       this.size0[i * 3] = s;
       this.size0[i * 3 + 1] = ps.sizeY ? evalMM(ps.sizeY, t01, Math.random()) : s;
       this.size0[i * 3 + 2] = ps.sizeZ ? evalMM(ps.sizeZ, t01, Math.random()) : s;
+      // (2026-10-27, effect bundle V) the renderer's flip: that share of the particles mirrored on each axis (Unity manual)
+      if (this.flipK) for (let j = 0; j < 3; j++) if (this.flipK[j] && Math.random() < this.flipK[j]) this.size0[i * 3 + j] = -this.size0[i * 3 + j];
+      if (this.mi) this.mi[i] = Math.floor(Math.random() * (this.more.length + 1));
+      this.uid[i] = ++this.uidN;
+      if (this.par) this.par[i] = sub?.parent ?? 0;
       const flip = Math.random() < (ps.flipRot || 0) ? -1 : 1;
       this.rot[i * 3] = ps.rotX ? evalMM(ps.rotX, t01, Math.random()) : 0;
       this.rot[i * 3 + 1] = ps.rotY ? evalMM(ps.rotY, t01, Math.random()) : 0;
@@ -1308,6 +1394,7 @@ class ParticleSystem {
       shapeCtx.arcLaps = this.arcLaps + (this.arcLaps0 - this.arcLaps) * f; shapeCtx.radLaps = this.radLaps + (this.radLaps0 - this.radLaps) * f;
       shapeSample(ps.shape, p, d, this.meshShape, shapeCtx);
       if (this.meshShape?.C) for (let j = 0; j < 4; j++) this.col0[i * 4 + j] *= this.meshShape.c[j];
+      if (this.shapeK) p.multiply(this.shapeK);   // Shape scaling: the scale reaches the start position only
       if (this.world) { p.applyMatrix4(emitM); d.transformDirection(emitM); }
       if (sub) p.add(subOff);
       if (along && this.world) p.addScaledVector(along, -(room - 1 - k) / room);
@@ -1526,6 +1613,7 @@ class ParticleSystem {
   }
 
   kill(i) {
+    if (this.ghosts && this.histN[i]) this.ghost(i);
     const last = --this.n;
     if (this.listed) liveParticles--;
     if (i === last) return;
@@ -1534,6 +1622,9 @@ class ParticleSystem {
     this.col0.copyWithin(i * 4, last * 4, last * 4 + 4); this.rnd.copyWithin(i * 4, last * 4, last * 4 + 4);
     this.age[i] = this.age[last]; this.life[i] = this.life[last]; this.rotVel[i] = this.rotVel[last];
     if (this.nz) this.nz[i] = this.nz[last];
+    if (this.mi) this.mi[i] = this.mi[last];
+    this.uid[i] = this.uid[last];
+    if (this.par) this.par[i] = this.par[last];
     if (this.subAcc) { const J = this.subs.length; this.subAcc.copyWithin(i * J, last * J, last * J + J); }
     if (this.hist) {
       const K = this.histK * 4;
@@ -1549,7 +1640,10 @@ class ParticleSystem {
    * FxInstance sets it up for a system under a scaled parent: 酒神 S2's hit wave (phatm2_skill_02_hit_range_01
    * music_wave_*, parent ground_01 z ×2.73) stood 2.7 times taller than the official recording's
    */
-  useLocalScale(top) {
+  useLocalScale(top, shape = false) {
+    // (2026-10-27, effect bundle V) Shape (`scaling` 2, Unity manual: the scale reaches the shape only, not the particles'
+    // size or movement): the stand-in has no scale and the node's whole scale up to `top` multiplies the start positions
+    if (shape) this.shapeK = new THREE.Vector3(1, 1, 1);
     const f = new THREE.Group();
     f.matrixAutoUpdate = false;
     top.add(f);
@@ -1568,7 +1662,11 @@ class ParticleSystem {
     f.visible = on;
     this.node.updateWorldMatrix(true, false);
     tmpV.setFromMatrixPosition(this.node.matrixWorld).applyMatrix4(tmpM.copy(top.matrixWorld).invert());
-    f.matrix.compose(tmpV, frameQ, this.node.scale);
+    if (this.shapeK) {
+      this.shapeK.set(1, 1, 1);
+      for (let o = this.node; o && o !== top; o = o.parent) this.shapeK.multiply(o.scale);
+    }
+    f.matrix.compose(tmpV, frameQ, this.shapeK ? ONE3 : this.node.scale);
     f.matrixWorldNeedsUpdate = true;   // matrixAutoUpdate off: three.js recomputes matrixWorld only when told
     f.updateWorldMatrix(false, false);
   }
@@ -1737,17 +1835,71 @@ class ParticleSystem {
         for (let k = 0; k < 4; k++) D[c + k] = e?.v?.[k] ? evalMM(e.v[k], a, r) : 0;
         if (e?.col) { evalMG(e.col, a, r, tmpC2); for (let k = 0; k < 4; k++) D[c + k] = tmpC2[k]; }
       }
+      if (cd && this.cmap) {
+        for (let k = 0; k < 8; k++) tmpCD[k] = D[o + IV_C1 + k];
+        for (let k = 0; k < 8; k++) D[o + IV_C1 + k] = this.cmap[k] < 0 ? 0 : tmpCD[this.cmap[k]];
+      }
       if (m.uv) {
         const tx = m.uv.tx || 1, ty = m.uv.ty || 1, frames = m.uv.anim === 1 ? tx : tx * ty;
         const f = Math.floor((evalMM(m.uv.frame, (a * (m.uv.cycles || 1)) % 1, r) + evalMM(m.uv.start, 0, r) / frames) * frames) % frames;
-        const col = f % tx, row = m.uv.anim === 1 ? (m.uv.row || 0) : Math.floor(f / tx);
+        // (2026-10-27, effect bundle V) a single-row sheet's row: `row` (rowMode 0 Custom) or one at random per particle (1 Random)
+        const row1 = m.uv.rowMode === 1 ? Math.min(ty - 1, Math.floor(this.rnd[i * 4 + 1] * ty)) : (m.uv.row || 0);
+        const col = f % tx, row = m.uv.anim === 1 ? row1 : Math.floor(f / tx);
         D[o + IV_UV] = col / tx; D[o + IV_UV + 1] = 1 - (row + 1) / ty; D[o + IV_UV + 2] = 1 / tx; D[o + IV_UV + 3] = 1 / ty;
       } else { D[o + IV_UV] = 0; D[o + IV_UV + 1] = 0; D[o + IV_UV + 2] = 1; D[o + IV_UV + 3] = 1; }
     }
-    if (n) { this.ib.clearUpdateRanges(); this.ib.addUpdateRange(0, n * IV); this.ib.needsUpdate = true; }
-    this.geometry.instanceCount = n;
     this.mesh.visible = this.draws && n > 0;
-    if (this.trailBatch) this.updateTrails(sinceStart);
+    if (this.trailBatch) this.updateTrails(sinceStart);   // they read the rows by particle: before the order below
+    let n0 = n;
+    if (this.mi || (this.sortMode && n > 1)) n0 = this.orderRows(n);
+    if (n0) { this.ib.clearUpdateRanges(); this.ib.addUpdateRange(0, n0 * IV); this.ib.needsUpdate = true; }
+    this.geometry.instanceCount = n0;
+  }
+
+  /**
+   * (2026-10-27, effect bundle V) The rows of this frame in drawing order, split by mesh (`mi`) → the first mesh's row count.
+   * Sort modes (official engine ParticleSystemRenderer::Sort): 1 the squared distance to the camera, 4 the depth along it,
+   * 2 / 3 the key max(0, 100 − remaining life) / start life, greater first for 1 2 4 and less first for 3; the engine's
+   * first is the nearest (1, 4), so its first is the one in front and is drawn last here — far to near, the oldest (2) /
+   * youngest (3) last. [추정·엔진: the geometry job drawing the sorted rows from the last — read from the distance modes]
+   */
+  orderRows(n) {
+    const D = this.ib.array, mode = this.sortMode;
+    let idx = null;
+    if (mode && (mode === 2 || mode === 3 || this.camP)) {
+      const K = this.sortKey, P = this.pos, c = this.camP, F = this.camF;
+      idx = this.sortIdx;
+      idx.length = n;
+      for (let i = 0; i < n; i++) {
+        idx[i] = i;
+        if (mode === 2 || mode === 3) K[i] = Math.max(0, 100 - (this.life[i] - this.age[i])) / this.life[i];
+        else {
+          const dx = P[i * 3] - c.x, dy = P[i * 3 + 1] - c.y, dz = P[i * 3 + 2] - c.z;
+          K[i] = mode === 4 ? dx * F.x + dy * F.y + dz * F.z : dx * dx + dy * dy + dz * dz;
+        }
+      }
+      // drawn first: the farthest (1, 4), the youngest (2), the oldest (3)
+      idx.sort(mode === 2 ? (x, y) => K[x] - K[y] : (x, y) => K[y] - K[x]);
+    }
+    const T = this.rowTmp || (this.rowTmp = new Float32Array(this.max * IV));
+    T.set(D.subarray(0, n * IV));
+    const fill = (buf, b) => {
+      let w = 0;
+      for (let k = 0; k < n; k++) {
+        const i = idx ? idx[k] : k;
+        if (this.mi && this.mi[i] !== b) continue;
+        buf.set(T.subarray(i * IV, i * IV + IV), w * IV);
+        w++;
+      }
+      return w;
+    };
+    const n0 = fill(D, 0);
+    this.more.forEach((m, k) => {
+      const w = fill(m.ib.array, k + 1);
+      if (w) { m.ib.clearUpdateRanges(); m.ib.addUpdateRange(0, w * IV); m.ib.needsUpdate = true; }
+      m.g.instanceCount = w;
+    });
+    return n0;
   }
 
   /** setSubs: particle i (age a0 → a1 this frame) runs each sub emitter's emission module. */
@@ -1788,14 +1940,14 @@ class ParticleSystem {
         size = subSize; size[0] = this.size0[i * 3] * sk[0]; size[1] = this.size0[i * 3 + 1] * sk[1]; size[2] = this.size0[i * 3 + 2] * sk[2];
       }
       sys.emit(n, { at, t01, col: props & 1 ? col : null, size: props & 2 ? size : null, rot: props & 4 ? this.rot[i * 3 + 2] : null,
-        lifeK: props & 8 ? Math.max(0, 1 - a) : 1 });
+        lifeK: props & 8 ? Math.max(0, 1 - a) : 1, parent: this.uid[i] });
     }
   }
 
   /** Trail width at u (0 = the particle, 1 = the tail) for particle i. */
   trailWidth(i, u) {
     const tm = this.tm;
-    return (tm.width ? evalMM(tm.width, u, this.rnd[i * 4]) : 1) * (tm.sizeWidth ? this.ib.array[i * IV + IV_SIZE] : 1);
+    return (tm.width ? evalMM(tm.width, u, this.rnd[i * 4]) : 1) * (tm.sizeWidth ? Math.abs(this.ib.array[i * IV + IV_SIZE]) : 1);
   }
 
   /** Trail colour at u for particle i → out. */
@@ -1807,25 +1959,95 @@ class ParticleSystem {
     return out;
   }
 
+  /**
+   * (2026-10-27, effect bundle V) The texture coordinate along a trail of m points (trailPts, from its head) by the module's
+   * textureMode (Unity manual): 0 Stretch = once over the whole length, by distance; 1 Tile = once per unit of length from the
+   * head (the material's tiling scales it); 2 DistributePerSegment = once over the length, the points evenly spaced;
+   * 3 RepeatPerSegment = once per segment. Before, every trail was 2.
+   */
+  trailTex(m) {
+    const mode = this.tm.texMode || 0;
+    if (mode === 2 || mode === 3) { for (let k = 0; k < m; k++) trailU[k] = mode === 3 ? k : m > 1 ? k / (m - 1) : 0; return; }
+    let d = 0;
+    trailU[0] = 0;
+    for (let k = 1; k < m; k++) {
+      d += Math.hypot(trailPts[k * 3] - trailPts[k * 3 - 3], trailPts[k * 3 + 1] - trailPts[k * 3 - 2], trailPts[k * 3 + 2] - trailPts[k * 3 - 1]);
+      trailU[k] = d;
+    }
+    if (mode === 0) for (let k = 1; k < m; k++) trailU[k] = d > 0 ? trailU[k] / d : k / (m - 1);
+  }
+
+  /** A dead particle's trail kept (dieWithParticles off): its points, the particle's age then and its width / colour. */
+  ghost(i) {
+    const K = this.histK, cnt = this.histN[i], a = Math.min(1, this.age[i] / this.life[i]);
+    const pts = new Float32Array((cnt + 1) * 4);
+    pts.set(this.hist.subarray(i * K * 4, i * K * 4 + cnt * 4));
+    pts[cnt * 4] = this.pos[i * 3]; pts[cnt * 4 + 1] = this.pos[i * 3 + 1]; pts[cnt * 4 + 2] = this.pos[i * 3 + 2]; pts[cnt * 4 + 3] = this.age[i];
+    const col = new Float32Array(4);
+    for (let k = 0; k < 4; k++) col[k] = this.col0[i * 4 + k];
+    if (this.ps.mods.colorOL) { evalMG(this.ps.mods.colorOL, a, this.rnd[i * 4 + 3], tmpC2); for (let k = 0; k < 4; k++) col[k] *= tmpC2[k]; }
+    this.ghosts.push({
+      pts, cnt: cnt + 1, born: this.time - this.age[i], tl: evalMM(this.tm.life, 0, this.rnd[i * 4 + 3]) * this.life[i],
+      r0: this.rnd[i * 4], r1: this.rnd[i * 4 + 1], r2: this.rnd[i * 4 + 2], a, col,
+      size: Math.abs(this.size0[i * 3] * this.sizeOf(i, a, this.rnd[i * 4 + 2], sizeK)[0]),
+    });
+  }
+
+  /** The ghosts' strips: their points age on with the system's clock and go once older than the trail's lifetime. */
+  ghostTrails() {
+    const tm = this.tm, G = this.ghosts;
+    for (let j = G.length - 1; j >= 0; j--) {
+      const g = G[j], now = this.time - g.born, P = g.pts;
+      let drop = 0;
+      while (drop < g.cnt && now - P[drop * 4 + 3] > g.tl) drop++;
+      if (drop >= g.cnt - 1) { G.splice(j, 1); continue; }
+      const m = Math.min(g.cnt - drop, TRAIL_PTS);
+      for (let k = 0; k < m; k++) {
+        const h = (g.cnt - 1 - k) * 4;
+        trailPts[k * 3] = P[h]; trailPts[k * 3 + 1] = P[h + 1]; trailPts[k * 3 + 2] = P[h + 2];
+      }
+      this.trailTex(m);
+      for (let k = 0; k < m; k++) {
+        const u = m > 1 ? k / (m - 1) : 0;
+        trailW[k] = (tm.width ? evalMM(tm.width, u, g.r0) : 1) * (tm.sizeWidth ? g.size : 1);
+        evalMG(tm.colorOT, u, g.r1, tmpC);
+        if (tm.colorOL) { evalMG(tm.colorOL, g.a, g.r2, tmpC2); for (let q = 0; q < 4; q++) tmpC[q] *= tmpC2[q]; }
+        if (tm.inherit) for (let q = 0; q < 4; q++) tmpC[q] *= g.col[q];
+        trailC.set(tmpC, k * 4);
+      }
+      this.trailBatch.strip(trailPts, m, trailW, trailC, trailU);
+    }
+  }
+
   updateTrails(sinceStart) {
     const tm = this.tm, K = this.histK, H = this.hist, n = this.n, b = this.trailBatch;
     setTime(b.material, sinceStart);
     b.begin();
     if (tm.mode === 1) {
-      // ribbon: the particles from the oldest to the newest (a stable sort, ties keep their index order)
+      // ribbon: the particles from the oldest to the newest (a stable sort, ties keep their index order); split by the
+      // parent particle (splitSubEmitterRibbons) — a strip per parent
       const order = this.order;
       order.length = n;
       for (let i = 0; i < n; i++) order[i] = i;
-      order.sort(this.olderFirst);
-      const m = Math.min(n, TRAIL_PTS);
-      for (let k = 0; k < m; k++) {
-        const i = order[k], u = m > 1 ? k / (m - 1) : 0;
-        trailPts[k * 3] = this.pos[i * 3]; trailPts[k * 3 + 1] = this.pos[i * 3 + 1]; trailPts[k * 3 + 2] = this.pos[i * 3 + 2];
-        trailW[k] = this.trailWidth(i, u);
-        trailC.set(this.trailColour(i, u, tmpC), k * 4);
-        trailU[k] = u;
+      order.sort(this.par ? this.byParent : this.olderFirst);
+      for (let s0 = 0; s0 < n;) {
+        let s1 = s0 + 1;
+        if (this.par) while (s1 < n && this.par[order[s1]] === this.par[order[s0]]) s1++;
+        else s1 = n;
+        const m = Math.min(s1 - s0, TRAIL_PTS);
+        for (let k = 0; k < m; k++) {
+          const i = order[s0 + k];
+          trailPts[k * 3] = this.pos[i * 3]; trailPts[k * 3 + 1] = this.pos[i * 3 + 1]; trailPts[k * 3 + 2] = this.pos[i * 3 + 2];
+        }
+        this.trailTex(m);
+        for (let k = 0; k < m; k++) {
+          const i = order[s0 + k], u = m > 1 ? k / (m - 1) : 0;
+          trailW[k] = this.trailWidth(i, u);
+          trailC.set(this.trailColour(i, u, tmpC), k * 4);
+        }
+        if (m > 1) b.strip(trailPts, m, trailW, trailC, trailU);
+        s0 = s1;
       }
-      b.strip(trailPts, m, trailW, trailC, trailU);
     } else {
       for (let i = 0; i < n; i++) {
         if (Math.random() > (tm.ratio ?? 1) && this.histN[i] === 0 && this.age[i] > 0.05) continue;
@@ -1851,14 +2073,15 @@ class ParticleSystem {
           const h = base + (cnt - k) * 4;
           trailPts[k * 3] = H[h]; trailPts[k * 3 + 1] = H[h + 1]; trailPts[k * 3 + 2] = H[h + 2];
         }
+        this.trailTex(m);
         for (let k = 0; k < m; k++) {
           const u = m > 1 ? k / (m - 1) : 0;
           trailW[k] = this.trailWidth(i, u);
           trailC.set(this.trailColour(i, u, tmpC), k * 4);
-          trailU[k] = u;
         }
         b.strip(trailPts, m, trailW, trailC, trailU);
       }
+      if (this.ghosts?.length) this.ghostTrails();
     }
     b.end();
   }
@@ -1872,6 +2095,7 @@ class ParticleSystem {
     this.mesh.removeFromParent();
     if (this.top) this.frame.removeFromParent();
     this.geometry.dispose();
+    for (const m of this.more) m.g.dispose();
     this.material.dispose();
     this.trailBatch?.dispose();
   }
@@ -2135,9 +2359,10 @@ const ACTIVE_PROP = 'attr:2086281974';
 const clipE = new THREE.Euler();
 const IDENTITY16 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 
-/** Whether any renderer of the prefab `def` has a negative sortingOrder (behind the units) — a status effect splits only then. */
+/** Whether any renderer of the prefab `def` is behind the units (a negative sortingOrder) — a status effect splits only then. */
 export function hasBackOrder(def) {
-  return !!def?.nodes?.some((n) => [n.mesh, n.skin, n.ps?.render, n.trailR, n.lineR].some((r) => (r?.order || 0) < 0));
+  // (2026-10-27) or a sorting layer before Default
+  return !!def?.nodes?.some((n) => [n.mesh, n.skin, n.ps?.render, n.trailR, n.lineR].some((r) => ((r?.layer || 0) || (r?.order || 0)) < 0));
 }
 
 export class FxInstance {
@@ -2276,7 +2501,7 @@ export class FxInstance {
           g.instanceCount = 1;
           const mesh = n.skin ? new THREE.SkinnedMesh(g, mat) : new THREE.Mesh(g, mat);
           mesh.frustumCulled = false;
-          mesh.renderOrder = mr.order || 0;
+          mesh.renderOrder = sortingOrder(mr);
           mat.userData.t0 = t0[i];
           return mesh;
         };
@@ -2379,6 +2604,9 @@ export class FxInstance {
       // backOnly (a status effect, render/fxgame.js playStatus): only sortingOrder < 0 goes behind the unit, the rest stays
       // in front as it was before the split
       const back = opts.split === 'backOnly' ? (o) => o >= 0 : null;
+      // (2026-10-27, effect bundle V) a renderer on a sorting layer after Default is over the units whatever its order, one
+      // before it under them (hsguma S2's floor, layer −2); on Default the order decides as before
+      const side = (r, f) => ((r?.layer || 0) ? r.layer > 0 : f(r?.order || 0));
       // 2026-10-22 (docs/rules/fx.md 「캐릭터 그림의 기울기」): the sides are judged in the prefab's own, untilted frame —
       // WRAP_H / AHEAD_Y were set there. Tilted, every order-0 plane in the model's plane (a background quad behind her,
       // 뮤엘시스 S3 bg_wave_01) stood 0.6–0.9 tall and counted as a dome around the unit, drawn over her
@@ -2391,8 +2619,7 @@ export class FxInstance {
           // local patch (maintainer report 2026-10-07, video: 蛇屠箱's S2 hex dome covers her): an order-0 mesh that stands up
           // around the unit (a dome / shell, > WRAP_H tall) is in front — the client sorts order 0 by distance; a flat
           // ground decal stays behind
-          const order = (n.mesh || n.skin).order || 0;
-          const front = mesh && (back ? back(order) : order > 0 || (!order && wrapsUnit(mesh, this.object)));
+          const front = mesh && side(n.mesh || n.skin, (order) => (back ? back(order) : order > 0 || (!order && wrapsUnit(mesh, this.object))));
           if (mesh) for (const m of [mesh, ...mesh.children.filter((c) => c.isMesh)]) put(m, front);
         }
       });
@@ -2401,12 +2628,13 @@ export class FxInstance {
       // the unit (nearer the camera) is drawn over it — the client sorts order 0 by distance [ASSUMED for all but the glow:
       // in front of / behind every unit at once, not sorted per unit]
       for (const s of this.systems) {
-        const r = s.ps.render, o = r.order || 0;
-        const front = back ? back(o) : o > 0 || (o === 0 && ((r.fudge || 0) < 0 || (opts.ahead !== false && aheadOf(s.node, this.object))));
+        const r = s.ps.render;
+        const front = side(r, (o) => (back ? back(o) : o > 0 || (o === 0 && ((r.fudge || 0) < 0 || (opts.ahead !== false && aheadOf(s.node, this.object))))));
         if (s.draws) put(s.mesh, front); else s.mesh.layers.set(front ? FX_FRONT : FX_BACK);
+        for (const m of s.more) m.mesh.layers.set(front ? FX_FRONT : FX_BACK);
         if (s.trailBatch) put(s.trailBatch.mesh, front);
       }
-      for (const t of this.trails) put(t.batch.mesh, back ? back(t.tr.order || 0) : (t.tr.order || 0) > 0);
+      for (const t of this.trails) put(t.batch.mesh, side(t.tr, (o) => (back ? back(o) : o > 0)));
       for (const t of this.lines) put(t.batch.mesh, back ? back(t.tr.order || 0) : (t.tr.order || 0) > 0); // local patch
       tilt.quaternion.copy(turned);
       this.object.updateMatrixWorld(true);
@@ -2447,8 +2675,10 @@ export class FxInstance {
     const scaledBy = new Set([...this.clipTracks, ...[...this.smSlots.values()].flatMap((s) => s.tracks)].filter((b) => b.kind === 'scale').map((b) => b.o));
     const scaled = (o) => scaledBy.has(o) || Math.abs(o.scale.x - 1) > 1e-4 || Math.abs(o.scale.y - 1) > 1e-4 || Math.abs(o.scale.z - 1) > 1e-4;
     for (const s of this.systems) {
-      if ((s.ps.scaling ?? 1) !== 1) continue;
-      for (let p = s.node.parent; p && p !== tilt; p = p.parent) if (scaled(p)) { s.useLocalScale(tilt); break; }
+      const mode = s.ps.scaling ?? 1;
+      if (mode === 1) for (let p = s.node.parent; p && p !== tilt; p = p.parent) if (scaled(p)) { s.useLocalScale(tilt); break; }
+      // (2026-10-27) Shape (2): a system scaled itself or by a parent (引星棘刺 S2 range: its node × 0.53)
+      if (mode === 2) for (let p = s.node; p && p !== tilt; p = p.parent) if (scaled(p)) { s.useLocalScale(tilt, true); break; }
     }
     this.clipV = [];
     live.push(this);

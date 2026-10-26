@@ -163,7 +163,7 @@ PS_FIELDS = {
     'lengthInSec': _K('dur'), 'looping': _K('loop'), 'startDelay': _K('delay'), 'simulationSpeed': _K('speedMul'),
     'moveWithTransform': _V('space', (0, 1)),
     'moveWithCustomTransform': _N('only with moveWithTransform 2 (Custom), reported there'),
-    'scalingMode': _V('scaling', (0, 1)),
+    'scalingMode': _V('scaling', (0, 1, 2)),
     'prewarm': _K('prewarm'),
     'playOnAwake': _A(True, 'a system that waits for a script to play it'),
     'autoRandomSeed': _N('the random sequence only'), 'randomSeed': _N('the random sequence only'),
@@ -274,7 +274,7 @@ PS_FIELDS = {
     'NoiseModule.rotationAmount': _K('mods.noise.rotAmt'), 'NoiseModule.sizeAmount': _K('mods.noise.sizeAmt'),
     'UVModule.enabled': _N('the module switch'), 'UVModule.tilesX': _K('mods.uv.tx'), 'UVModule.tilesY': _K('mods.uv.ty'),
     'UVModule.animationType': _V('mods.uv.anim', (0, 1)), 'UVModule.rowIndex': _K('mods.uv.row'),
-    'UVModule.rowMode': _A(0, 'a single-row sheet takes a random row per particle (`uv.rowMode` is carried, not played)',
+    'UVModule.rowMode': _V('mods.uv.rowMode', (0, 1),
                            lambda ps, r: _mod(ps, 'UVModule').get('animationType') == 1 and _mod(ps, 'UVModule').get('tilesY', 1) > 1),
     'UVModule.frameOverTime': _K('mods.uv.frame'), 'UVModule.startFrame': _K('mods.uv.start'), 'UVModule.cycles': _K('mods.uv.cycles'),
     'UVModule.mode': _A(0, 'frames from a sprite list instead of a grid'), 'UVModule.sprites[].sprite': _N('only with mode 1 (Sprites)'),
@@ -288,13 +288,12 @@ PS_FIELDS = {
     'TrailModule.enabled': _N('the module switch'), 'TrailModule.mode': _V('mods.trail.mode', (0, 1)),
     'TrailModule.ratio': _K('mods.trail.ratio'), 'TrailModule.lifetime': _K('mods.trail.life'),
     'TrailModule.minVertexDistance': _K('mods.trail.minDist'), 'TrailModule.worldSpace': _K('mods.trail.world'),
-    'TrailModule.textureMode': _A(0, 'the texture tiles along the trail instead of stretching (`trail.texMode` is carried, not played)'),
-    'TrailModule.dieWithParticles': _A(True, 'the trail outlives its particle (`trail.die` is carried, not played)'),
+    'TrailModule.textureMode': _K('mods.trail.texMode'), 'TrailModule.dieWithParticles': _K('mods.trail.die'),
     'TrailModule.sizeAffectsWidth': _K('mods.trail.sizeWidth'), 'TrailModule.sizeAffectsLifetime': _A(False, 'the trail\'s life follows the size'),
     'TrailModule.inheritParticleColor': _K('mods.trail.inherit'), 'TrailModule.colorOverLifetime': _K('mods.trail.colorOL'),
     'TrailModule.widthOverTrail': _K('mods.trail.width'), 'TrailModule.colorOverTrail': _K('mods.trail.colorOT'),
     'TrailModule.ribbonCount': _A(1, 'several ribbons (`trail.ribbons` is carried, not played)'),
-    'TrailModule.splitSubEmitterRibbons': _A(False, 'a sub-emitter\'s ribbons split per parent particle'),
+    'TrailModule.splitSubEmitterRibbons': _K('mods.trail.split'),
     'TrailModule.attachRibbonsToTransform': _A(False, 'ribbons joined to the system\'s position'),
     'TrailModule.generateLightingData': _N(_LIGHTING), 'TrailModule.shadowBias': _N(_LIGHTING),
     'InheritVelocityModule.enabled': _N('the module switch'), 'InheritVelocityModule.m_Mode': _N('MODULE_MODES reports another mode'),
@@ -320,7 +319,7 @@ PS_FIELDS = {
     'SubModule.subEmitters[].emitProbability': _A(1, 'a sub-emitter fires only sometimes (`sub[].p` is carried, not played)'),
     # the ParticleSystemRenderer
     'renderer.m_RenderMode': _V('render.mode', (0, 1, 2, 4, 5)),
-    'renderer.m_RenderAlignment': _V('render.align', (0, 1, 2)),
+    'renderer.m_RenderAlignment': _V('render.align', (0, 1, 2, 3)),
     'renderer.m_LengthScale': _K('render.lengthScale'), 'renderer.m_VelocityScale': _K('render.velScale'),
     'renderer.m_CameraVelocityScale': _A(0, 'a stretch by the camera\'s motion'),
     'renderer.m_FreeformStretching': _A(False, 'stretched quads not turned to the camera', lambda ps, r: r.get('m_RenderMode') == 1),
@@ -328,21 +327,21 @@ PS_FIELDS = {
     'renderer.m_AllowRoll': _N('billboards that do not roll with the camera: the board\'s camera does not roll'),
     'renderer.m_NormalDirection': _N('billboard normals for lit materials: the effects are unlit'),
     'renderer.m_Pivot.x': _K('render.pivot'), 'renderer.m_Pivot.y': _K('render.pivot'), 'renderer.m_Pivot.z': _K('render.pivot'),
-    'renderer.m_Flip.x': _A(0, 'a share of the particles mirrored'), 'renderer.m_Flip.y': _A(0, 'a share of the particles mirrored'),
-    'renderer.m_Flip.z': _A(0, 'a share of the particles mirrored'),
+    'renderer.m_Flip.x': _K('render.flip'), 'renderer.m_Flip.y': _K('render.flip'), 'renderer.m_Flip.z': _K('render.flip'),
     'renderer.m_SortingOrder': _K('render.order'), 'renderer.m_SortingFudge': _K('render.fudge'),
-    'renderer.m_SortingLayer': _A(0, 'a sorting layer before or after the default one: draws behind or over everything there'),
+    'renderer.m_SortingLayer': _K('render.layer'),
     'renderer.m_SortingLayerID': _N('the layer\'s place is m_SortingLayer'),
-    'renderer.m_SortMode': _A(0, 'particles drawn by distance / age instead of in emission order'),
+    'renderer.m_SortMode': _V('render.sortMode', (0, 1, 2, 3, 4)),
     'renderer.m_MaxParticleSize': _N('[ASSUMED] a cap on a billboard\'s share of the screen: the board\'s camera keeps them under it'),
     'renderer.m_MinParticleSize': _A(0, 'a floor on a billboard\'s share of the screen'),
     'renderer.m_Mesh': _K('render.mesh', lambda ps, r: r.get('m_RenderMode') == 4),
-    **{f'renderer.m_Mesh{i}': _A(None, 'mesh particles pick one of several meshes', lambda ps, r: r.get('m_RenderMode') == 4) for i in (1, 2, 3)},
-    'renderer.m_MeshDistribution': _N('only with several meshes'),
-    **{f'renderer.m_MeshWeighting{s}': _N('only with several meshes') for s in ('', '1', '2', '3')},
+    **{f'renderer.m_Mesh{i}': _K('render.meshes', lambda ps, r: r.get('m_RenderMode') == 4) for i in (1, 2, 3)},
+    'renderer.m_MeshDistribution': _A(0, 'the meshes picked by their weights (NonUniformRandom)',
+                                      lambda ps, r: r.get('m_RenderMode') == 4 and any(r.get(f'm_Mesh{i}') for i in (1, 2, 3))),
+    **{f'renderer.m_MeshWeighting{s}': _N('only with m_MeshDistribution 1 (reported there)') for s in ('', '1', '2', '3')},
     'renderer.m_Materials': _K('render.mat'),
-    'renderer.m_UseCustomVertexStreams': _N('checked with the CustomDataModule (particle())'),
-    'renderer.m_VertexStreams': _N('checked with the CustomDataModule (particle())'),
+    'renderer.m_UseCustomVertexStreams': _K('render.ownStreams'),
+    'renderer.m_VertexStreams': _K('render.streams'),   # the custom ones mapped (fxplayer.js customMap), others: particle()
     'renderer.m_ApplyActiveColorSpace': _N('[ASSUMED] vertex colours converted in a linear-space project'),
     'renderer.m_Enabled': _N('a disabled renderer is not extracted'),
     'renderer.m_MaskInteraction': _A(0, 'drawn inside / outside a sprite mask'),
@@ -357,9 +356,9 @@ PS_FIELDS = {
         'm_LightmapTilingOffsetDynamic.w', 'm_StaticBatchInfo.firstSubMesh', 'm_StaticBatchInfo.subMeshCount',
         'm_StaticBatchRoot', 'm_RayTraceProcedural', 'm_RayTracingMode')},
 }
-# the vertex streams a Torappu (CustomData) shader reads the player's way (fxplayer.js: custom1 then custom2): Position,
-# Normal, Color, UV, then Custom1XYZW (34) and optionally a Custom2 (35–38)
-CUSTOM_STREAMS = {(0, 1, 3, 4, 34), *((0, 1, 3, 4, 34, k) for k in (35, 36, 37, 38))}
+# (2026-10-27, effect bundle V) the vertex streams the player lays out the client's way (fxplayer.js customMap): Position,
+# Normal, Color, UV, then any of Custom1X…XYZW (31–34) and Custom2X…XYZW (35–38) in any order
+STREAMS_PLAYED = {0, 1, 3, 4, *range(31, 39)}
 
 # (2026-10-26, effect bundle W1) the same for everything else the walk meets: every serialized field of the GameObject, of
 # its other components, of the client scripts the extract reads (SCRIPTS_READ, as 'script:<class>') and of the materials
@@ -421,6 +420,7 @@ COMP_FIELDS = {
                      # material j draws sub-mesh min(j, sub-meshes − 1) (`more`, the mesh's `sub`); an empty first slot is
                      # reported on a node that shows (fx_extract.py no_material)
                      'm_Materials': _K('nodes[].mesh.more'), 'm_SortingOrder': _K('nodes[].mesh.order'),
+                     'm_SortingLayer': _K('nodes[].mesh.layer'),   # (2026-10-27, effect bundle V)
                      'm_AdditionalVertexStreams': _A(None, 'vertex streams added per renderer (baked colours)')},
     'MeshFilter': {'m_GameObject': _N('the owner'), 'm_Mesh': _K('nodes[].mesh.mesh')},
     'SkinnedMeshRenderer': {**_RENDERER_COMMON, 'm_Enabled': _R('a switched-off one is not extracted (skin)'),
@@ -434,7 +434,8 @@ COMP_FIELDS = {
                             'm_BlendShapeWeights': _A((), 'blend shape weights')},
     'TrailRenderer': {**_RENDERER_COMMON, **_line_params('trailR'),
                       'm_Enabled': _R('a switched-off trail is not extracted'), 'm_Materials': _V('nodes[].trailR.mat', _ONE_MAT),
-                      'm_SortingOrder': _K('nodes[].trailR.order'), 'm_Time': _K('nodes[].trailR.time'),
+                      'm_SortingOrder': _K('nodes[].trailR.order'), 'm_SortingLayer': _K('nodes[].trailR.layer'),
+                      'm_Time': _K('nodes[].trailR.time'),
                       'm_MinVertexDistance': _K('nodes[].trailR.minDist'), 'm_Emitting': _A(True, 'a trail that does not emit (`trailR.emitting` is carried, not played)'),
                       'm_Autodestruct': _A(False, 'the GameObject destroyed once the trail is gone')},
     'LineRenderer': {**_RENDERER_COMMON, **_line_params('lineR'),
@@ -821,21 +822,9 @@ KNOWN = {
     # (2026-10-26, effect bundle U) what that bundle left: the start direction turn of 4 systems (圣约送葬人's ranges)
     'field:ShapeModule.alignToDirection ≠ False': (_TODO, 'emission and motion (open): particles turned to their start direction'),
     'field:ShapeModule.arc on a Sphere / Hemisphere': (_TODO, 'emission and motion (open): a sphere\'s arc and its order (the enemies\' 40 systems, BurstSpread)'),
-    **{f'field:{w}': (_TODO, f'drawing (open): {n}') for w, n in (
-        ('UVModule.rowMode ≠ 0', 'a single-row sheet takes a random row per particle — the player draws row 0'),
-        ('renderer.m_SortMode ≠ 0', 'particles by distance / age'), ('renderer.m_SortingLayer ≠ 0', 'another sorting layer'),
-        ('renderer.m_RenderAlignment = 3', 'Facing billboards'), ('renderer.m_RenderAlignment = 4', 'billboards along the velocity'),
-        ('CustomDataModule on, renderer.m_UseCustomVertexStreams off', 'the shader gets no custom data in Unity'),
-        ('renderer.m_VertexStreams = [0, 1, 3, 4, 37, 38]', 'custom2 in the first custom slot'),
-        ('renderer.m_VertexStreams = [0, 1, 3, 4]', 'custom streams on with no custom stream'),
-        ('renderer.m_VertexStreams = [0, 1, 3, 4, 36]', 'only custom2 (the enemies\' enemy_hlegle_attack_01_hit)'),
-        ('renderer.m_VertexStreams = [0, 1, 3, 4, 38, 31]', 'custom2 then custom1 (the enemies\' enemy_cnvsax_hit_02)'),
-        ('renderer.m_Mesh1 ≠ None', 'one of several meshes'), ('renderer.m_Mesh2 ≠ None', 'one of several meshes'),
-        ('renderer.m_Mesh3 ≠ None', 'one of several meshes'), ('renderer.m_FreeformStretching ≠ False', 'stretched quads not facing the camera'),
-        ('renderer.m_Flip.x ≠ 0', 'a share mirrored'), ('TrailModule.textureMode ≠ 0', 'the texture tiles along the trail'),
-        ('TrailModule.dieWithParticles ≠ True', 'the trail outlives its particle'),
-        ('TrailModule.splitSubEmitterRibbons ≠ False', 'a ribbon per parent particle'),
-        ('scalingMode = 2', 'Shape scaling: the parent scale reaches the shape only'))},
+    # (2026-10-27, effect bundle V) what that bundle left: how the engine builds its quads (not read) decides both
+    'field:renderer.m_FreeformStretching ≠ False': (_TODO, 'drawing (open): stretched quads not facing the camera'),
+    'field:renderer.m_RenderAlignment = 4': (_TODO, 'drawing (open): billboards along the velocity, drawn facing the camera'),
     # (2026-10-26, effect bundle W1) the other components, the read scripts and the materials, from the first field-level run
     # over the operators' prefabs (EN + CN clients) and the enemies' (EN): what the pipeline does not do yet
     **{f'field:{w}': (_TODO, f'components and scripts (open): {n}') for w, n in (
@@ -870,8 +859,6 @@ KNOWN = {
         ('LineEffectEmitterDynamic._finishIfBuffNotExists ≠ 0', 'finished once a buff is gone'),
         ('TrailRenderer.m_Parameters.alignment = 1', 'a trail facing its transform\'s z, not the camera'),
         ('TrailRenderer.m_Parameters.textureMode = 2', 'the texture spread per segment'))},
-    **{f'field:{w}': (_TODO, f'drawing (open): {n}') for w, n in (
-        ('MeshRenderer.m_SortingLayer ≠ 0', 'another sorting layer'), ('TrailRenderer.m_SortingLayer ≠ 0', 'another sorting layer'))},
     # materials (values: the extracted materials, 2026-10-16)
     'property:Torappu/Particles/Disturb/Disturb Anchor _Weight': (_NONE, 'the toggle behind keyword _WEIGHT_ON, which the player reads (all 198 materials agree)'),
     # clips
@@ -1125,13 +1112,11 @@ class Coverage:
             _fields(psr, 'renderer', fs)
         self.check_fields(PS_FIELDS, fs, '', (ps, psr), 'PS_FIELDS')
         cd = ps.get('CustomDataModule') or {}
-        if psr and cd.get('enabled') and 'CustomDataModule' in MODULES_READ:
-            if not psr.get('m_UseCustomVertexStreams'):
-                self.add('field', 'CustomDataModule on, renderer.m_UseCustomVertexStreams off',
-                         'Unity hands the shader no custom data; the player feeds it (mods.custom)')
-            elif _val(psr.get('m_VertexStreams') or ()) not in CUSTOM_STREAMS:
-                self.add('field', f"renderer.m_VertexStreams = {list(_val(psr.get('m_VertexStreams') or ()))}",
-                         f'the player feeds custom1 then custom2: {sorted(map(list, CUSTOM_STREAMS))}')
+        if psr and cd.get('enabled') and 'CustomDataModule' in MODULES_READ and psr.get('m_UseCustomVertexStreams'):
+            st = list(_val(psr.get('m_VertexStreams') or ()))
+            if st[:4] != [0, 1, 3, 4] or not set(st) <= STREAMS_PLAYED:
+                self.add('field', f'renderer.m_VertexStreams = {st}',
+                         'the player lays out Position, Normal, Color, UV, then the custom streams (fxplayer.js customMap)')
         # (2026-10-26, effect bundle U) the engine's sphere / hemisphere take an arc and its order too (StartSphere<mode>);
         # the player's spheres emit all round at random — PS_FIELDS looks at the arc on the cones, circles and donut only
         sh = ps.get('ShapeModule') or {}

@@ -316,7 +316,7 @@ def clip_modules(nodes, clips):
         n.pop('_velOff', None)
 
 
-def particle_system(ps, psr, mat_key, mesh_key, trail_mat=None, shape_mesh=None):
+def particle_system(ps, psr, mat_key, mesh_key, trail_mat=None, shape_mesh=None, more_meshes=None):
     im = ps['InitialModule']
     o = {
         'dur': r4(ps['lengthInSec']), 'loop': bool(ps['looping']), 'delay': minmax(ps['startDelay']),
@@ -424,6 +424,9 @@ def particle_system(ps, psr, mat_key, mesh_key, trail_mat=None, shape_mesh=None)
                          'sizeWidth': bool(tm.get('sizeAffectsWidth')), 'inherit': bool(tm.get('inheritParticleColor')),
                          'colorOL': mmgrad(tm.get('colorOverLifetime')), 'width': minmax(tm.get('widthOverTrail')),
                          'colorOT': mmgrad(tm.get('colorOverTrail')), 'ribbons': tm.get('ribbonCount', 1)}
+        # (2026-10-27, effect bundle V) a sub emitter's ribbon per parent particle
+        if tm.get('splitSubEmitterRibbons'):
+            mods['trail']['split'] = 1
     # 2026-10-22: the three modules every extracted prefab sets one way (fx_coverage flags any other) — InheritVelocity in
     # mode 0 (Initial: at birth), SizeBySpeed, Collision against planes (type 0; `planes` = their Transforms, resolved to
     # nodes after the walk — collide_planes)
@@ -454,6 +457,20 @@ def particle_system(ps, psr, mat_key, mesh_key, trail_mat=None, shape_mesh=None)
                    'order': psr.get('m_SortingOrder', 0), 'fudge': r4(psr.get('m_SortingFudge', 0)),
                    'maxSize': r4(psr.get('m_MaxParticleSize', 0.5)), 'streams': list(psr.get('m_VertexStreams', b''))
                    if isinstance(psr.get('m_VertexStreams'), (bytes, list)) else []}
+    # (2026-10-27, effect bundle V) the drawing order and the rest of the renderer: the sorting layer's place (m_SortingLayer,
+    # 0 = Default), the particles' sort mode, whether `streams` reach the shader at all (off: Unity's default streams, no
+    # custom data), the further meshes of a mesh renderer (m_Mesh1..3, one picked per particle), the mirrored share per axis
+    r = o['render']
+    r['ownStreams'] = 1 if psr.get('m_UseCustomVertexStreams') else 0
+    if psr.get('m_SortingLayer', 0):
+        r['layer'] = psr['m_SortingLayer']
+    if psr.get('m_SortMode', 0):
+        r['sortMode'] = psr['m_SortMode']
+    if more_meshes:
+        r['meshes'] = more_meshes
+    fl = vec3(psr['m_Flip']) if isinstance(psr.get('m_Flip'), dict) else [0, 0, 0]
+    if any(fl):
+        r['flip'] = fl
     return o
 
 
@@ -1114,6 +1131,8 @@ class Extractor:
                                           'align': pr.get('alignment', 0), 'texMode': pr.get('textureMode', 0),
                                           'minDist': r4(tr_t.get('m_MinVertexDistance', 0.1)), 'emitting': bool(tr_t.get('m_Emitting', 1)),
                                           'mat': self.material(tm, out, mats), 'order': tr_t.get('m_SortingOrder', 0)}
+                        if tr_t.get('m_SortingLayer', 0):
+                            node['trailR']['layer'] = tr_t['m_SortingLayer']   # (2026-10-27, effect bundle V)
                 elif t == 'LineRenderer':
                     # local patch (maintainer report 2026-10-07: 蕾缪安 S3's aiming beams were missing): a line through fixed points
                     # (local space; world-space lines get their points from a client script — kept, drawn local [ASSUMED])
@@ -1142,11 +1161,15 @@ class Extractor:
                             m2 = self.resolve(psr_t['m_Materials'][1], psr)
                             if m2 is not None:
                                 trail_mat = self.material(m2, out, mats)
-                    mesh_key = None
+                    mesh_key, more_meshes = None, []
                     if psr_t.get('m_RenderMode') == 4:
-                        mo = self.mesh_ref(psr_t.get('m_Mesh'), psr)
-                        if mo is not None:
-                            mesh_key = self.mesh(mo, out)
+                        # (2026-10-27, effect bundle V) every set slot of m_Mesh..m_Mesh3 (the engine counts the set ones and
+                        # picks one per particle): the first is `mesh`, the rest `meshes`
+                        for slot in ('m_Mesh', 'm_Mesh1', 'm_Mesh2', 'm_Mesh3'):
+                            mo = self.mesh_ref(psr_t.get(slot), psr)
+                            if mo is not None:
+                                more_meshes.append(self.mesh(mo, out))
+                        mesh_key = more_meshes.pop(0) if more_meshes else None
                     ps_o = node.pop('_ps')
                     ps_t = ps_o.read_typetree()
                     shape_mesh = None   # 2026-10-22: a Mesh shape's mesh
@@ -1158,7 +1181,7 @@ class Extractor:
                     # a system without a material / an enabled renderer draws nothing (often an empty container)
                     has_trail = ps_t.get('TrailModule', {}).get('enabled') and trail_mat
                     if (mat_key or has_trail) and psr_t.get('m_Enabled', 1):
-                        node['ps'] = particle_system(ps_t, psr_t, mat_key, mesh_key, trail_mat, shape_mesh)
+                        node['ps'] = particle_system(ps_t, psr_t, mat_key, mesh_key, trail_mat, shape_mesh, more_meshes)
                         self.cov.particle(ps_t, psr_t)
                         if not ps_t['VelocityModule']['enabled']:
                             node['_velOff'] = vel_ol(ps_t['VelocityModule'])   # clip_modules
@@ -1171,6 +1194,8 @@ class Extractor:
                 if mo is not None and ms and ms[0] is not None:
                     node['mesh'] = {'mesh': self.mesh(mo, out), 'mat': self.material(ms[0], out, mats),
                                     'order': mr.get('m_SortingOrder', 0)}
+                    if mr.get('m_SortingLayer', 0):
+                        node['mesh']['layer'] = mr['m_SortingLayer']   # (2026-10-27, effect bundle V) as a particle renderer's
                     # (2026-10-26, effect bundle W2a) Unity draws material i with sub-mesh min(i, sub-meshes − 1): the mesh
                     # file's `sub` ranges, and a second material on a one-part mesh draws it once more (水月 S3 start) —
                     # `more` = the materials after the first, null for an empty slot
@@ -3469,7 +3494,8 @@ def prune(out):
             for t in m.get('tex', {}).values():
                 tex.add(t['img'])
         for n in d.get('nodes', []):
-            for k in ((n.get('ps') or {}).get('render') or {}).get('mesh'), (n.get('mesh') or {}).get('mesh'):
+            r = (n.get('ps') or {}).get('render') or {}
+            for k in r.get('mesh'), *(r.get('meshes') or ()), (n.get('mesh') or {}).get('mesh'):
                 if k:
                     mesh.add(k + '.json')
     gone = 0
