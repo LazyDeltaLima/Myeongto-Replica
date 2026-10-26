@@ -1403,8 +1403,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // _PlayTriggeredLineEffect makes the line once per run of two or more, on the born stone, with every
   // LineRenderer's point 0 / 1 = the run's first / last stone's `worldPosition` (set once). The sim says 'wangLink' for
   // each stone that gains a link direction, the born one and its neighbours alike: a line per direction new to that
-  // stone, the same run drawn once in a moment. The ends: a 跟子 on its tile point, a placed 棋子 on its ball (the
-  // activation's place, maintainer 2026-10-08; the client's entity point is the ground under it [추정: kept on the ball]).
+  // stone, the same run drawn once in a moment. The ends: every stone's ground point — `worldPosition` is the unit's
+  // `transform.position`, its feet (maintainer decision 2026-10-26 「공식처럼」; a placed 棋子's end sat on its ball before).
   const LINK_LINE = 'token_wang_passive_01_line';
   const linkAxes = new Map();   // stone id → the link directions drawn for it
   const linkRuns = new Map();   // run key → clockS it was drawn
@@ -1412,9 +1412,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // the throw starts]: a line with such an end is put off until it lands
   const throwLand = new Map();  // 跟子 id → clockS it lands
   function linkEnd(v) {
-    const z = (Number(v.z) || 0) + (Number(v.hover) || 0);
-    // a 跟子's view is drawn by its effects (units.js drawnByFx sets `_fxBody`)
-    return v._fxBody ? { x: Number(v.x), y: Number(v.y), z } : ballAt(Number(v.x), Number(v.y), z);
+    return { x: Number(v.x), y: Number(v.y), z: (Number(v.z) || 0) + (Number(v.hover) || 0) };
   }
   function linkLines(o, views) {
     const sv = views.get(o.id);
@@ -1458,7 +1456,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const o = e[4];
     if (!o || typeof o !== 'object') return false;
     const at = { x: Number(e[2]), y: Number(e[3]), z: 0 };
-    // local patch (maintainer 2026-10-08): the link line and the activation flash on the stones' balls (STONE_BALL)
+    // local patch (maintainer 2026-10-08): the activation flash on the stones' balls (STONE_BALL); the link line's ends: linkEnd
     const onBall = ballAt(at.x, at.y, 0);
     // local patch (maintainer report 2026-10-07: the old yellow circle / mint hex + pillar under the stones' official effects):
     // render/fx.js draws nothing for a stone event handled here

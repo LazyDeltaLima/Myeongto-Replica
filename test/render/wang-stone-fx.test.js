@@ -140,9 +140,9 @@ test('the ball effects sit on the drawn ball anywhere on screen (maintainer repo
   assert.match(SRC, /return liftedPoint\(camRef, x, y, z0, r\.y, r\.x, r\.y - STONE_BALL \* r\.s, out, BALL_Q\);/);
   assert.match(SRC, /const onBall = ballAt\(at\.x, at\.y, 0\);/);
   // (2026-10-17) a 跟子's ball is its effects' quad on the tile point: its link line and activation stay there, unlifted
-  // (2026-10-22: the link line's ends, a stone each — linkEnd)
+  // (2026-10-26: the link line's ends are every stone's ground point, as the client's `worldPosition` — linkEnd)
   assert.match(SRC, /const flat = !!o\.follower && stonesOn\(\);/);
-  assert.match(SRC, /return v\._fxBody \? \{ x: Number\(v\.x\), y: Number\(v\.y\), z \} : ballAt\(Number\(v\.x\), Number\(v\.y\), z\);/);
+  assert.match(SRC, /return \{ x: Number\(v\.x\), y: Number\(v\.y\), z: \(Number\(v\.z\) \|\| 0\) \+ \(Number\(v\.hover\) \|\| 0\) \};/);
   assert.match(SRC, /\{ at: flat \? sv : ballOf\(sv\), owner: o\.id, keep: true \}/);
   assert.doesNotMatch(SRC, /ballZ\(/);
 });

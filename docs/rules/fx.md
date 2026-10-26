@@ -991,7 +991,7 @@
   클라는 활성 이펙트를 그 투사체 위에 만든다(`WangStoneHitBehaviour.PlayStoneTriggeredEffect` → `CreateEffect`, 투사체 `_triggeredEffect`),
   프리팹이 휘감김을 제 높이(`line` 0.13–0.2)에 둔다. 공식도 跟子는 모델이 없다: `projectile_chr_wang_stone1/2/3`의 `Body`는 빈 노드, 렌더러 없음, 그림은
   `EffectBehaviour`(`_effectsToTileWhenStart` 칸 이펙트·`_effectOnTrigger`·`_effectsWhenHit`)와 던짐 `WangVisualStoneMarkAbility`(ProjectileToTile)의
-  `_startEffect`뿐. 고친 것: 跟子(`follower`, 공식 돌 이펙트가 돌 때)의 연결선·활성 이펙트는 칸 점에(올림 없음), 놓은 棋子는 그대로 공에. 확인: 아레나
+  `_startEffect`뿐. 고친 것: 跟子(`follower`, 공식 돌 이펙트가 돌 때)의 연결선·활성 이펙트는 칸 점에(올림 없음), 놓은 棋子는 그대로 공에(연결선 끝은 2026-10-26부터 돌마다 땅 — 아래 「望 연결선」). 확인: 아레나
   2배 픽셀 잘라 보기 — 휘감김이 공을 감싸고 연결선 십자가 공 중심을 지나 공식 캡처(비공개 조사 기록 2026-10-07 「공식 바둑알 빛 위치」)와 같은 배치.
   2026-10-22: 놓은 棋子 모델이 프리팹의 FaceSwitcher 자리로 내려가(render.md 「모델 위치값·그림자」) 공이 칸 점 ±0.05칸 — 跟子의 공과 같은 높이.
   `ballAt`은 옮긴 모델 뿌리에서 `STONE_BALL` 0.18을 올리므로 놓은 棋子의 활성 이펙트·연결선 끝도 같이 내려간다(跟子 쪽은 그대로).
@@ -1560,8 +1560,8 @@
   돌을 모아 정렬하고 그 돌을 지나는 끊김 없는 줄만 남긴 뒤(`_CollectTmpTiles` → `_FilterContinuousCharacters`), 줄마다(2개 이상)
   `_PlayTriggeredLineEffect`로 선을 태어난 돌에 한 번 만들고 모든 LineRenderer의 점 0·1 = 줄 첫 돌·끝 돌의 `worldPosition`으로
   한 번 놓는다. → `fxgame.js linkLines`/`linkRun`: 시뮬 'wangLink'(이웃이 생긴 돌마다 — 태어난 돌과 이웃 모두)마다 그 돌에 새로 생긴
-  방향의 줄을 찾아 `FxInstance.setLine`으로 양 끝을 놓고, 같은 순간 같은 줄은 한 번만. 끝점: 跟子는 칸 점, 놓은 棋子는 공(활성 이펙트와 같은 자리,
-  2026-10-08) [차이: 공식 점은 돌의 `worldPosition` = 유닛 발밑(아래 「연쇄 공격」, 공식 클라에서 확인)이라 공식 선은 땅 높이 — 관리자 결정 대기]. 던지는 중인 跟子가 끝에 있으면 착지(`THROW_S`) 뒤에 놓는다(클라 선은 돌의 탄생 때 — 시뮬의 'summon'은
+  방향의 줄을 찾아 `FxInstance.setLine`으로 양 끝을 놓고, 같은 순간 같은 줄은 한 번만. 끝점: 돌마다 칸 점(땅) — 공식 점은 돌의 `worldPosition` = 유닛 발밑(아래 「연쇄 공격」, 공식 클라에서 확인; 관리자 결정 2026-10-26 「공식처럼」,
+  그 전엔 놓은 棋子 쪽이 공(활성 이펙트와 같은 자리, 2026-10-08)). 던지는 중인 跟子가 끝에 있으면 착지(`THROW_S`) 뒤에 놓는다(클라 선은 돌의 탄생 때 — 시뮬의 'summon'은
   이미 착지 때라 위 跟子 던짐과 같은 0.25초 늦음 [차이]). 예전엔 활성(`first`) 때만 저작 점으로 틀었다. 아레나(Windows Chrome, 望 S1 자동 棋子): 선이 이웃 돌 사이에만, 1초 뒤 사라짐.
 - **'wangLink'는 상태**: 돌의 활성 이펙트가 돌이 서 있는 동안 남으므로(STONE_ON) 늦게 들어온 화면 버퍼(`keepEarly`)만이 아니라 따라잡기·숨긴 탭
   (`runner.js keepsState`)·밀린 이벤트 버림(`interp.js isCosmeticEvent`)도 남긴다 — 세 곳이 `shared/protocol.js stateFx` 하나를 씀.
