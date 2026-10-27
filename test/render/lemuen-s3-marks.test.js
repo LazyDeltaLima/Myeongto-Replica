@@ -57,3 +57,8 @@ test('a target locked again keeps its one mark until the shell of its last lock 
     assert.deepEqual(marks(), [21, 22], 'every lock of both has landed: new marks');
   } finally { globalThis.fetch = fetch0; }
 });
+
+test('the mark is turned 45° in its own plane (official recordings: big wedges X, small +)', () => {
+  const lock = SRC.slice(SRC.indexOf("if (e[1] === 'lock') {"), SRC.indexOf("if (e[1] === 'bombardShell' && emortarFx"));
+  assert.match(lock, /\[추정·화면: [^\]]+\]\s*\n\s*l\.inst\.nodes\[0\]\?\.rotateZ\(Math\.PI \/ 4\);/);
+});

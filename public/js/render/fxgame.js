@@ -3182,6 +3182,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             lemMarkFx.set(o.id, own);
             spawn(bundleOf(src).bundle, n, tgt, { owner: o.id, buff: true, on: o.id, until: clockS + 30 }).then((l) => {
               if (!l) return;
+              // turned 45° in its own plane: the official recordings show the big wedges as an X and the small ones as a + —
+              // the prefab (small wedges' node turned 45°, big ones not), the cone's BurstSpread (k/4 × 360°), the
+              // 3D-rotation Velocity quads and the HIT attach (`graphicTransform` rotation, `_rotateType` 0: no FaceTo) all give
+              // the opposite [추정·화면: where the official 45° comes from — the client engine build's ShapeModule::Start not checked]
+              l.inst.nodes[0]?.rotateZ(Math.PI / 4);
               own.l = l;
               if (!own.n) l.inst.stop();
             });

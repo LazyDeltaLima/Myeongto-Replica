@@ -3196,6 +3196,12 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
     속도를 품는 면으로 눕는다 — 74810ee4는 z만 돌려 모두 법선 = 속도로 세웠고, 蕾缪安 S3 표식 `crosshair_02`의 `triangle big`·`triangle small white`
     (원뿔 90°, 몸 앞 면 안에서 안쪽으로 나는 쐐기 넷씩)가 옆면으로 서서 안 보였다(관리자 제보 2026-10-27, 공식 영상은 정면·중심을 가리킴). 이제 정면으로
     서서 +자 넷이 보인다. 같은 이유로 蕾缪安 S3 타격 불꽃이 「납작한 원판」이던 것도 속도 쪽으로 다시 선다.
+    그 표식의 45°(2026-10-27): 공식 녹화 둘(관리자 캡처·10-07 녹화)은 큰 쐐기 X·작은 쐐기 +인데 데이터·엔진대로면 반대(큰 +·작은 X) — 프리팹은 작은 쐐기
+    노드만 z 45°, 원뿔 BurstSpread는 각 = 360°·k/n(k는 호출마다 0부터, n = 그 호출로 내는 입자 수 = 4 — `StartParticles` → `StartModules` →
+    `ShapeModule::Start` → `StartCone<3>`), 셰이프 회전 0, 버프 이펙트 붙이기는 HIT 점 + 대상 `graphicTransform` 회전(`Graphic` 기울기)뿐이고
+    `_rotateType` 0이라 FaceTo가 아무것도 안 함(공식 클라에서 확인). 클라가 쓰는 엔진 빌드도 `StartCone<3>`·3D 회전 Velocity 사각형은 같은 동작이고
+    `ShapeModule::Start`만 확인 못 함. 그래서 표식 루트를 자기 면 안에서 45° 돌린다(`fxgame.js` 'lock')
+    [추정·화면: 공식 45°의 출처 — 클라 엔진 빌드의 `ShapeModule::Start` 미확인].
     셰이더: R·n은 장면에서 세고 세로축은 Unity 틀과 이 장면의 손잡이 차(`uHand`, `velFrame`)를 곱함, 월드 공간 계는 우리가 입자에 얹는 좌우 반전을
     엔진은 안 얹으므로 R에 그 부호(`uWSign`). pivot z는 Velocity 계 중 쓰는 것이 없어 안 넣음. 엔진은 계의 변환 크기(Transform 배율)도 이 틀에서
     곱하지만 우리 빌보드는 어느 정렬도 그것을 안 곱한다 — 아래 「변환 크기」.
