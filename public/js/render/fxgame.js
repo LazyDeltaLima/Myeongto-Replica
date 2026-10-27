@@ -464,6 +464,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       camera = new THREE.PerspectiveCamera();
       size = new THREE.Vector2();
       lib = new fxp.FxLibrary('/assets/local/fx/');
+      // 2026-10-27: the effect shader linked before the first effect (compile() only queues the link: the browser links it
+      // while the effect's file loads). Its material is never disposed: three.js also drops a shader's source entry with
+      // its last material, and the next material's new entry id made a new program key, a pinned program or not
+      try {
+        const holder = fxp.programHolder();
+        for (const L of [layers.under, layers.over]) { L.renderer.compile(holder, camera); keepPrograms(L); }
+      } catch (err) { console.warn('[fx] shader precompile failed', err); }
       mod = { THREE, fxp };
     }).catch((err) => { failed = true; console.warn('[fx] official effects unavailable', err); });
     await loading;
@@ -484,6 +491,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return l;
   }
   function dropLive(l) { if (l.inst.pausers?.length) releaseOthers(l); l.inst.dispose(); l.layer.n--; }
+  // 2026-10-27 (Firefox stalls): three.js deletes a shader program when the last material using it is disposed
+  // (WebGLPrograms.releaseProgram), and an effect disposes its materials as it ends — so the first effect after a moment
+  // with none on screen compiled and linked the effect shader again: 0.13–0.29 s frozen on Windows Firefox (ANGLE / D3D11),
+  // every few seconds of a battle. A program a layer has used stays until the layer's renderer goes (a handful each).
+  function keepPrograms(L) {
+    const ps = L.renderer.info.programs;
+    if (!ps || ps.length === L.kept) return;
+    for (const p of ps) if (!p.spKept) { p.spKept = true; p.usedTimes++; }
+    L.kept = ps.length;
+  }
   /** End the oldest effects past their kind's cap (liveOverCap). */
   function trimLive() {
     if (!mod) return;
@@ -5248,6 +5265,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const S = layers.split, { FX_BACK, FX_FRONT } = mod.fxp;
       const draw = (L, scene, mask, clear) => {
         camera.layers.set(mask); L.renderer.autoClear = clear; L.renderer.render(scene, camera); calls += L.renderer.info.render.calls;
+        keepPrograms(L);
       };
       if (layers.under.n || S.n) { draw(layers.under, layers.under.scene, 0, true); if (S.n) draw(layers.under, S.scene, FX_BACK, false); }
       if (layers.over.n || S.n) { if (S.n) draw(layers.over, S.scene, FX_FRONT, true); draw(layers.over, layers.over.scene, 0, !S.n); }

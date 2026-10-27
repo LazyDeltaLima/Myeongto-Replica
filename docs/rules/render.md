@@ -451,6 +451,19 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
 - 확인: 같은 측정으로 destroy 직후 이펙트 컨텍스트 2개 모두 lost, 남은 텍스처 0(보스·후반 × 공속 3단계, 페이지 오류 없음). `test/render/board3d-retry.test.js`
   FxLibrary.dispose.
 
+## 이펙트 셰이더 유지 (2026-10-27, 관리자 제보 「전투 중 끊김」, Windows Firefox · GTX 980 · 품질 높음)
+- 증상: `?perf=1` 로그에서 평균 fps는 120–160인데 거의 모든 구간에 한 프레임 JS 255–319 ms(`peak js`), 그 몫이 이펙트 층(`fx`). Firefox 프로파일러:
+  30초 기록의 100 ms 넘는 멈춤 8번 모두 three.js `onFirstUse`의 `getProgramInfoLog` — 방금 링크한 셰이더 프로그램을 기다림(88–98%).
+- 원인: 이펙트는 끝날 때 재질을 dispose하고(`fxplayer.js FxInstance.dispose`), three.js는 마지막 재질이 사라진 프로그램(`WebGLPrograms.releaseProgram`)과
+  셰이더 소스 항목(`WebGLShaderCache.remove` — 다음 재질은 새 id를 받아 프로그램 키가 바뀜)을 지운다. 그래서 화면에 이펙트가 없던 순간 다음의 이펙트는
+  같은 이펙트 셰이더를 다시 컴파일·링크했다. Chrome은 GPU 프로세스의 프로그램 캐시로 거의 공짜지만 Firefox(ANGLE / D3D11)는 매번 100–300 ms.
+- 처리: `fxgame.js ensure` — 이펙트 재질 하나를 얹은 사각형(`fxplayer.js programHolder`)을 렌더러 2개가 `compile()`(링크만 걸어 둠, 기다리지 않음)하고
+  그 재질은 버리지 않음(소스 항목 id 유지); `keepPrograms` — 층이 쓴 프로그램마다 사용 횟수를 하나 더해 렌더러가 끝날 때까지 남김(면·스킨 변형은 첫 사용 때
+  한 번씩). 여섯 변형을 미리 다 컴파일하면(`compileAsync`든 `compile`이든) Firefox가 링크를 차례로 처리해 첫 이펙트가 1.2 s 멈췄다 → 하나만.
+- 확인: Windows Chrome·Firefox(puppeteer, 디버그 아레나에서 같은 이펙트 5번, 사이마다 층이 빔) `linkProgram` 횟수 — 고치기 전 매번 +5–10, Firefox
+  최악 프레임 125–131 ms / 고친 뒤 +0, 6–13 ms(이펙트 층을 처음 만드는 페이지 로드 한 번 306–338 ms, 고치기 전 154–156 ms).
+  [화면 미확인] 실제 판(Firefox, `?perf=1`)에서 `peak js`가 수십 ms 아래로 내려가는지.
+
 ## 블레이즈 디 이그나이팅 스파크(烛煌) S3 자세 (2026-10-10, 사용자 제보 「S3 켜진 동안 지금의 공격 모션을 계속 유지」)
 - 원인: S3 클립 묶음(Skill_3_Begin / Skill_3_Loop / Skill_3_End, 자기 Idle 없음)에서 렌더가 Skill_3_Loop을 공격 클립으로 써서 공격마다 처음부터
   한 번 틀고, 공격 사이(`attackUntil` 뒤)는 기본 Idle로, 클립 끝(`clip.end` = Skill_3_End)도 공격마다 틀었다 — 첫 공격 뒤 S3 자세가 사라짐.

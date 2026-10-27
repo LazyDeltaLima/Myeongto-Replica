@@ -717,6 +717,16 @@ function meshSide(mat) {
   return mat;
 }
 
+/**
+ * 2026-10-27: a scene of one effect material on a quad (the program billboards, trails and lines use) for a renderer to
+ * compile before the first effect and never dispose (fxgame.js ensure, keepPrograms).
+ */
+export function programHolder() {
+  const scene = new THREE.Scene();
+  scene.add(new THREE.Mesh(QUAD, makeMaterial(null, null)));
+  return scene;
+}
+
 /** 2026-10-14: the uniform holding a texture's tiling / offset, by the material's texture name. */
 const TEX_ST = { _MainTex: 'uMainST', _AddTex: 'uAddST', _DisturbTex: 'uDisturbST', _NoiseTex: 'uDisturbST', _DisturTex: 'uDisturbST', _DisturTex_02: 'uDisturb2ST',
   _DissolveTex: 'uDissolveST', _DissolveTex_01: 'uDissolveST', _DissolveTex_02: 'uDissolve2ST', _RamTex: 'uRamST', _WeightTex: 'uWeightST' };
