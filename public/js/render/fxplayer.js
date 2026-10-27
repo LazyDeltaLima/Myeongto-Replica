@@ -881,7 +881,9 @@ export class FxLibrary {
         // 2026-10-14: a skinned mesh's 4 bone indices / weights per vertex and its bones' bind poses (FxInstance n.skin)
         if (d.sub?.length > 1) g.userData.sub = d.sub;   // (2026-10-26) each sub-mesh's [first index, index count]
         if (d.bi?.length === nv * 4 && d.bw?.length === nv * 4 && d.bind?.length) {
-          g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(d.bi, 4));
+          // 2026-10-27: float indices — Uint16 ones (an integer input to three's `vec4 skinIndex`) froze the first draw of a
+          // skinned effect 0.14–0.19 s per renderer on Windows (ANGLE / D3D11, Firefox and Chrome), linked program or not
+          g.setAttribute('skinIndex', new THREE.Float32BufferAttribute(d.bi, 4));
           g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(d.bw, 4));
           g.userData.bind = d.bind;
         }

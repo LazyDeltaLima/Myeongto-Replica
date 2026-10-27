@@ -42,6 +42,21 @@ test('PROGRAM_VARIANTS: one scene each, the double-sided quad first', () => {
   assert.ok(!scenes[0].children[0].geometry.getAttribute('normal'));
 });
 
+// An integer vertex attribute under three's float `attribute vec4` (skinIndex was Uint16) froze the first draw of a
+// skinned effect 0.14–0.19 s per renderer on Windows (ANGLE / D3D11), after its program had linked.
+test('a loaded effect mesh has only float vertex attributes', async () => {
+  const saved = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({
+    pos: [0, 0, 0, 1, 0, 0, 0, 1, 0], uv: [0, 0, 1, 0, 0, 1], idx: [0, 1, 2], col: Array(12).fill(255),
+    bi: [0, 1, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0], bw: [0.5, 0.5, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0], bind: [[1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]],
+  }) });
+  try {
+    const g = await new fxp.FxLibrary('/fx/').mesh('skinned');
+    assert.ok(g.getAttribute('skinIndex'), 'skinned mesh read');
+    for (const [name, a] of Object.entries(g.attributes)) assert.ok(a.array instanceof Float32Array, `${name}: ${a.array.constructor.name}`);
+  } finally { globalThis.fetch = saved; }
+});
+
 test('PROGRAM_VARIANTS covers every extracted prefab', { skip: !fs.existsSync(FX) && 'no extracted effects (npm run setup)' }, () => {
   const listed = new Set(fxp.PROGRAM_VARIANTS.map(key));
   const missing = new Map();
