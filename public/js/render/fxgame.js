@@ -483,13 +483,36 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // units that left the field: an effect bound to one (buff / one-shot on it) whose file finished loading after its
   // 'die' would never be stopped — a 棋子 placed and used up in the same tick kept its looping cross for good
   const gone = new Set();
+  // 2026-10-27 (official client `ParticleEffect.OnBeforePlay` → `ParticleEffectManager.CheckEffectByPos`, effect bundle W2d;
+  // docs/rules/fx.md 「이펙트 개수 상한」): a looping effect the manager counts (fx_extract.py `posCap`: `_isLoop`, not
+  // `_ignoredByParticleEffectManager`) is finished at once, unplayed, when its prefab already plays `effectPositionMaxCount`
+  // (3) times in its place — the cell of floor(p / 1) and the cell of floor((p − 0.5) / 1) (`effectPositionThreshold` 1, the
+  // three axes) both; else it counts there until it finishes (`UnregisterParticleEffect`). Our map units are the client's
+  // world units [추정·엔진: the same origin — a cell edge on the tile centres or between them moves which effects share a cell]
+  const POS_MAX = 3;
+  const posCells = (p) => [Math.floor(p.x), Math.floor(p.y), Math.floor(p.z || 0), Math.floor(p.x - 0.5), Math.floor(p.y - 0.5), Math.floor((p.z || 0) - 0.5)];
+  function posCapped(inst) {
+    if (!inst.def?.posCap) return false;
+    const c = posCells(inst.object.position), name = inst.def.name;
+    let a = 0, b = 0;
+    for (const l of live) {
+      const k = l.posCell;
+      if (!k || l.inst.stopping || l.inst.def?.name !== name) continue;
+      if (k[0] === c[0] && k[1] === c[1] && k[2] === c[2]) a++;
+      if (k[3] === c[3] && k[4] === c[4] && k[5] === c[5]) b++;
+    }
+    if (a >= POS_MAX && b >= POS_MAX) return true;
+    inst.posCell = c;
+    return false;
+  }
   function addLive(inst, entry, layer) {
     if (entry.owner != null && gone.has(entry.owner) && (entry.buff || entry.onCaster)) { inst.dispose(); return null; }
     if (entry.cast?.cut) { inst.dispose(); return null; } // 2026-10-11: its cast was cut (cutCast) while the file loaded
+    if (posCapped(inst)) { inst.dispose(); return null; }
     recent.push({ n: inst.def?.name ?? inst.name ?? '?', t: clockS, seq: ++recentSeq }); if (recent.length > 24) recent.shift(); // local patch
     layer.scene.add(inst.object);
     layer.n++;
-    const l = { inst, ...entry, layer };
+    const l = { inst, ...entry, layer, posCell: inst.posCell || null };
     live.push(l);
     return l;
   }
@@ -547,9 +570,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (dry) for (const n of names) dryFollow(b.bundle, n, ownerOf(view) ?? null, (at || view).info ? ownerOf(at || view) ?? null : null);
     if (!names.length || !(await ensure())) return;
     // local patch (maintainer report 2026-10-08: 赤刃明霄陈's S3 dragon twice, over her): a left / right pair (fx_extract.py
-    // `right`: the client plays the left copy and swaps in its `_rightEffect` while the owner faces right) is one effect —
-    // the copy for the facing (all five pairs are `_rotateType` 0: never mirrored); the right copy that the name lookup
-    // listed besides is skipped
+    // `right`: the client plays the left copy and swaps in its `_rightEffect` while the owner faces right — rightSwitch) is
+    // one effect (all the pairs are `_rotateType` 0: never mirrored); the right copy that the name lookup listed besides is
+    // skipped
     // 2026-10-24 (묶음 S7): a right copy listed without its left one (`_left` is a directional name effectsFor skips: 凯尔希·思衡托
     // S3 kalts2_skill_03_buff_02_right_01, 寒檀 S2 sntlla_skill_02_buff_02_right) is that pair — its left copy plays and swaps
     for (let i = 0; i < names.length; i++) {
@@ -563,12 +586,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       let n = names[i], def = defs[i];
       if (!mod) return;   // destroyed while the file loaded (the view left the battle)
       if (!def || twins.has(n)) continue;
-      const sided = def.right ? ((view.visFacing ?? view.facing ?? 1) < 0 ? 'L' : 'R') : null;
-      if (sided === 'R') {
-        const r = await lib.load(b.bundle, def.right);
-        if (!mod) return;
-        if (r) { n = def.right; def = r; }
-      }
+      const sided = typeof def.right === 'string';
       // a one-shot on the caster (not a hit on a target) ends with its prefab's duration even if a system loops —
       // 望's S3 wang_skill_03_range_start (looping 'line1/2', the range cross) stayed on the board for good
       if (!buff && endAt != null && endAt <= clockS) continue;
@@ -614,7 +632,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // local patch (maintainer 2026-10-07: the skill effects covered the operator): every effect on the caster — its cast /
       // skill start as well as its buff loops — goes under the units; the hits on a target stay over
       // (local patch, maintainer report 2026-10-07: 마터호른 S2's dome must cover her) at 'high' the caster's effects split by their renderers' sorting
-      addLive(inst, { view: anchor, owner: view.id ?? view.info?.id, buff, onCaster: !at, until, tag, speed: sp, cast: own ? null : cast, backSw: backSwitch(def, at || view, b.bundle) }, split ? layers.split : buff || !at ? layers.under : layers.over);
+      addLive(inst, { view: anchor, owner: view.id ?? view.info?.id, buff, onCaster: !at, until, tag, speed: sp, cast: own ? null : cast, backSw: backSwitch(def, at || view, b.bundle), rightSw: rightSwitch(def, at || view, b.bundle) }, split ? layers.split : buff || !at ? layers.under : layers.over);
       trimLive();
     }
   }
@@ -672,36 +690,68 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const b = def?.back || (def?.three?.up ? { effect: def.three.up } : null);
     if (!b || typeof b.effect !== 'string' || !unit || !unit.info) return null;
     // `beh`: the front's pause is its own (SwitchableBackEffect `_useBehaviourPause`; a three-face's as before)
-    return { name: b.effect, bundle, unit, on: false, entry: null, beh: def?.back ? !!def.back.beh : true };
+    return { name: b.effect, bundle, unit, on: false, entry: null, beh: def?.back ? !!def.back.beh : true,
+      force: !!b.force, sync: !!b.sync, oneShot: !!b.oneShot, test: faceBack };
   }
-  async function startBack(l) {
-    const sw = l.backSw;
+  // ---- SwitchableRightEffect (2026-10-27, official client, effect bundle W2d; docs/rules/fx.md 「이펙트 방향」) ---------------
+  // The left copy of a left / right pair (fx_extract.py `right`: 赤刃明霄陈 S3, 玛恩纳, 缄默德克萨斯, 蒂比, 凯尔希·思衡托, 寒檀 …)
+  // plays and its root's SwitchableRightEffect swaps it: `OnPlay` and then every frame (`Update`; `_onlyCheckOnPlay`
+  // `rightOnce`: OnPlay only) `_UpdateFace` reads the owner's `faceLOrR` and, as it turns right (left with
+  // `_reverseLeftRight`, `rightRev`), pauses this one (`set_isPaused`) and creates `_rightEffect` on the owner once, then
+  // pauses / plays that copy on as the owner turns — the same swap as the back switch's. Before, the copy was picked once.
+  const faceRight = (u) => (u.visFacing ?? u.facing ?? 1) >= 0, faceLeft = (u) => !faceRight(u);
+  /** The right switch of `def` on its unit `unit`, or null. */
+  function rightSwitch(def, unit, bundle) {
+    if (typeof def?.right !== 'string' || !unit || !unit.info) return null;
+    return { name: def.right, bundle, unit, on: false, entry: null, beh: false, force: false, sync: false, oneShot: false,
+      once: !!def.rightOnce, test: def.rightRev ? faceLeft : faceRight, fixed: true };
+  }
+  /** The copy of switch `sw` of live effect `l`, made on its owner as `_UpdateFace` does (BattleController.CreateEffect). */
+  async function startBack(l, sw) {
     if (sw.name === 'common_empty' || !index?.bundles?.[sw.bundle]?.includes(sw.name)) return;
+    sw.loading = true;
     const def = await lib.load(sw.bundle, sw.name);
+    sw.loading = false;
     if (!mod || !def || !sw.on || !live.includes(l) || l.inst.stopping) return;
-    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (sw.unit.visFacing ?? sw.unit.facing ?? 1) < 0 ? -1 : 1, split: l.layer === layers.split, floor: sw.unit.z || 0, tilt: tiltOn(sw.unit, def) });
+    // `_syncPlayBackSpeed`: at this one's playback speed, else 1.0; a right copy is never mirrored (`fixed`)
+    const speed = sw.sync && l.speed > 0 ? l.speed : undefined;
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: sw.fixed ? 1 : (sw.unit.visFacing ?? sw.unit.facing ?? 1) < 0 ? -1 : 1, speed, split: l.layer === layers.split, floor: sw.unit.z || 0, tilt: tiltOn(sw.unit, def) });
     const at = lifted(sw.unit, def); // created on the owner at its own _spawnLocation / mount point
     inst.object.position.set(at.x, at.y, at.z || 0);
-    sw.entry = addLive(inst, { view: at, owner: l.owner, buff: l.buff, onCaster: l.onCaster, until: l.until, tag: l.tag, backOf: l }, l.layer);
+    // a `_oneShot` back copy runs its own course (its front finished); any other ends with its front (OnFinish)
+    sw.entry = addLive(inst, { view: at, owner: l.owner, buff: l.buff, onCaster: l.onCaster, until: sw.oneShot ? clockS + (def.duration || 3) + 0.5 : l.until, tag: l.tag, ...(speed ? { speed } : null), ...(sw.oneShot ? null : { backOf: l }) }, l.layer);
     trimLive();
   }
-  /** Swap the switchable effects whose owner turned to / from its back (each frame, before the players run). */
+  /**
+   * 2026-10-27 (official client `SwitchableBackEffect` / `SwitchableRightEffect`, `_UpdateFace(force)`; effect bundle W2d): a
+   * switch of live effect `l` — forced as it plays (`OnPlay`), then each frame on a change only, or every frame with
+   * `_forceCheckInUpdate` (`force`: the pauses written again, a finished copy made again); `_oneShot` / `_onlyCheckOnPlay` check
+   * at play only. Turned: this one paused — per behaviour with `_useBehaviourPause` (`hidden`, its own), else the effect's
+   * shared flag (`pzSelf`, stepPauses) — and its copy made once, then played on (its shared flag cleared); turned back: this one
+   * plays on and the copy is paused, not finished. `_oneShot` finishes this one when it turns.
+   */
+  function stepSwitch(l, sw) {
+    if (l.inst.stopping || l.inst.done) { if (sw.entry && !sw.oneShot && !sw.entry.inst.stopping) sw.entry.inst.stop(); return; }
+    const first = !sw.checked;
+    if (!first && (sw.once || sw.oneShot)) return;
+    sw.checked = true;
+    const on = !!sw.test(sw.unit);
+    if (!first && !sw.force && on === sw.on) return;
+    sw.on = on;
+    if (sw.beh) {
+      l.hidden = on;
+      l.inst.object.visible = !on && !l.offHeld && !l.paused;
+    } else { l.pzSelf = on; setPaused(l); }
+    if (sw.entry && (sw.entry.inst.stopping || !live.includes(sw.entry))) sw.entry = null;   // finished: made again
+    if (sw.entry) { sw.entry.pzSelf = !on; setPaused(sw.entry); }
+    else if (on && !sw.loading) startBack(l, sw);
+    if (sw.oneShot && on) l.inst.stop();
+  }
+  /** Swap the switchable effects whose owner turned (each frame, before the players run). */
   function stepBackSwitches() {
     for (const l of live) {
-      const sw = l.backSw;
-      if (!sw) continue;
-      if (l.inst.stopping || l.inst.done) { if (sw.entry && !sw.entry.inst.stopping) sw.entry.inst.stop(); continue; }
-      const back = faceBack(sw.unit);
-      if (back === sw.on) continue;
-      sw.on = back;
-      // 2026-10-27 (official client `SwitchableBackEffect._UpdateFace`): the front paused while the back copy shows — per
-      // behaviour with `_useBehaviourPause` (`hidden`, its own), else the effect's shared flag (`pzSelf`, stepPauses)
-      if (sw.beh) {
-        l.hidden = back;
-        l.inst.object.visible = !back && !l.offHeld && !l.paused;
-      } else { l.pzSelf = back; setPaused(l); }
-      if (back) startBack(l);
-      else if (sw.entry) { sw.entry.inst.stop(true); sw.entry = null; }
+      if (l.backSw) stepSwitch(l, l.backSw);
+      if (l.rightSw) stepSwitch(l, l.rightSw);
     }
   }
 
@@ -955,6 +1005,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     for (const em of inst.onEmit) {
       if (em.play && !em.kids && !ending && inst.wait <= 0 && onEmitNow(l, em)) {
         em.kids = onEmitPlay(l, em.play, em.play.srcPos);
+      }
+      // 2026-10-27 (official client `OnPlayEmitter.OnPaused`, effect bundle W2d): `_keepPauseSync` (`keepPause`) pauses and
+      // unpauses the effects it made with this one (their shared flag)
+      if (em.play?.keepPause && em.kids && !!l.paused !== !!em.paused) {
+        const pz = em.paused = !!l.paused;
+        for (const k of em.kids) Promise.resolve(k).then((c) => { if (c && live.includes(c)) { c.pzSelf = pz; setPaused(c); } });
       }
       if (ending && !em.ended) {
         em.ended = true;
@@ -2175,7 +2231,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     inst.object.position.set(at.x, at.y, at.z || 0);
     // 2026-10-24: a flying shot (`drop`) is moved by stepTrails, not pinned to the point it left (the live loop follows `view`
     // every frame — 流星 S2's arrow sat at her muzzle for the whole flight, maintainer report)
-    const e = { view: drop ? null : at, ...entry, speed: sp, backSw: backSwitch(def, unit, bundle), ...(drop ? { flight: drop } : null) };
+    const e = { view: drop ? null : at, ...entry, speed: sp, backSw: backSwitch(def, unit, bundle), rightSw: rightSwitch(def, unit, bundle), ...(drop ? { flight: drop } : null) };
     if (e.until === undefined) e.until = clockS + (def.duration || 3) + 0.5 + inst.lead / sp;
     if (drop) { drop.inst = inst; placeTrail(drop); }
     const l = addLive(inst, e, split ? layers.split : over ? layers.over : layers.under);
@@ -2900,7 +2956,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (!l) return;
         if (v._fxDrone !== rec) { l.inst.stop(true); return; }
         const back = x.back?.[m];
-        if (back && !l.backSw) l.backSw = { name: back, bundle: b.bundle, unit: v, on: false, entry: null };
+        if (back && !l.backSw) l.backSw = { name: back, bundle: b.bundle, unit: v, on: false, entry: null, test: faceBack };
         rec.ls[j].push(l);
       });
     }));
@@ -4462,7 +4518,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   function stepLines() {
     for (const [k, rec] of elines) {
-      const gone2 = (v) => !v || v.alive === false || v.remove || gone.has(ownerOf(v));
+      // 2026-10-27 (official client `LineEffectEmitterDynamic.Update`, effect bundle W2d): `_finishIfEitherOfOwnersNotExist`
+      // (`endDead` 'alive') also finishes it while an end is in its 重生 (`alive` false there; 'reborn', `aliveOrReborn`,
+      // keeps it, as a line without either does)
+      const reb = rec.dyn?.endDead === 'alive';
+      const gone2 = (v) => !v || v.alive === false || v.remove || gone.has(ownerOf(v)) || (reb && v.form === 'reborn');
       if (gone2(rec.tgt) || gone2(rec.src)) {
         rec.ended = true;
         rec.l?.inst.stop(true);

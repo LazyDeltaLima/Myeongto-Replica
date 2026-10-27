@@ -217,7 +217,7 @@ test('stepPauses: PauseEffectWithAnimation pauses after its delay and finishes w
 test('the layer steps them before each effect, a paused one is not stepped, a back switch keeps it hidden, the model\'s clip events reach the layer', () => {
   assert.match(SRC, /if \(l\.inst\.pausers\?\.length\) stepPauses\(l\);/);
   assert.match(SRC, /!l\.hidden && !l\.held && !l\.paused\) \|\| l\.inst\.stopping\) l\.inst\.update\(/);
-  assert.match(SRC, /l\.inst\.object\.visible = !back && !l\.offHeld && !l\.paused;/);
+  assert.match(SRC, /l\.inst\.object\.visible = !on && !l\.offHeld && !l\.paused;/);
   assert.match(SRC, /function dropLive\(l\) \{ if \(l\.inst\.pausers\?\.length\) releaseOthers\(l\);/);
   const app = readFileSync(path.join(ROOT, 'public/js/render/app.js'), 'utf8');
   assert.match(app, /fxGame\.spineEvent\(id, name\)/);

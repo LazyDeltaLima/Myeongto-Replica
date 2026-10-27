@@ -93,7 +93,7 @@ cov.fields('GameObject', {'m_Name': 'dao_di_dm', 'm_IsActive': 1, 'm_Layer': 15,
 cov.component('MeshRenderer', {'m_Enabled': 0, 'm_Materials': [ref(2), ref(3)], 'm_SortingOrder': 2, 'm_CastShadows': 1,
                                'm_LightmapTilingOffset': {'x': 1, 'y': 1, 'z': 0, 'w': 0}, 'm_NewSwitch': 1})
 cov.component('MeshCollider', {'m_Enabled': 1})                                    # not read: the component kind only
-cov.component('TrailRenderer', {'m_Enabled': 1, 'm_Parameters': {'alignment': 1, 'widthCurve': {'m_Curve': [], 'm_PreInfinity': 2},
+cov.component('TrailRenderer', {'m_Enabled': 1, 'm_Parameters': {'alignment': 1, 'textureMode': 4, 'widthCurve': {'m_Curve': [], 'm_PreInfinity': 2},
               'colorGradient': {'key0': {'r': 1}, 'm_NumColorKeys': 2}}})
 cov.script(4524653206994915020, ['_randomAngle'], {'m_Enabled': 1, 'm_Script': ref(9), '_randomAngle': 360.0, '_resetMainDir': 1,
            '_mainDir': 2, '_subFXDelayConfigs': []})                               # ProjectileEffect
@@ -112,7 +112,7 @@ print(json.dumps(sorted(r['kind'] + ':' + r['what'] for r in cov.report())))`);
       'field:MeshRenderer.m_NewSwitch (not classified)',
       'field:ParticleEffect._rotationY unset, a node named rotation_y',
       'field:ParticleEffect._rotationZ on another node than the first named rotation_z',
-      'field:TrailRenderer.m_Parameters.alignment = 1',
+      'field:TrailRenderer.m_Parameters.textureMode = 4',
       'script:#123 _someField',
     ]);
   });

@@ -151,13 +151,14 @@ test('SwitchableBackEffect: the front pauses and the back copy plays while the o
   // (2026-10-21) the test lives in render/fx/pause.js (PauseEffectIf's face check asks the same)
   assert.match(SRC, /const faceBack = facesBack;/);
   assert.match(readFileSync(path.join(ROOT, 'public/js/render/fx/pause.js'), 'utf8'), /export const facesBack = \(v\) => !!\(v && \(v\.entryBack \?\? v\.dir === 'UP'\)\);/);
-  assert.match(SRC, /if \(back\) startBack\(l\);\n\s+else if \(sw\.entry\) \{ sw\.entry\.inst\.stop\(true\); sw\.entry = null; \}/);
+  // (2026-10-27, W2d) the copy is made once and paused / played on after (test/render/fx-side-switch.test.js)
+  assert.match(SRC, /if \(sw\.entry\) \{ sw\.entry\.pzSelf = !on; setPaused\(sw\.entry\); \}\n\s+else if \(on && !sw\.loading\) startBack\(l, sw\);/);
   const py = readFileSync(path.join(ROOT, 'tools/local-extract/fx_extract.py'), 'utf8');
   assert.match(py, /BACK_SCRIPT = 7599136815520768295/);
   assert.match(py, /out = \{'effect': t\['_backEffect'\], 'predict'/);
   // (2026-10-27) `_useBehaviourPause` (`beh`): the front's own pause, else the effect's shared flag
   assert.match(py, /out\['beh'\] = 1/);
-  assert.match(SRC, /if \(sw\.beh\) \{\n\s+l\.hidden = back;[^\n]*\n[^\n]*\n\s+\} else \{ l\.pzSelf = back; setPaused\(l\); \}/);
+  assert.match(SRC, /if \(sw\.beh\) \{\n\s+l\.hidden = on;[^\n]*\n[^\n]*\n\s+\} else \{ l\.pzSelf = on; setPaused\(l\); \}/);
 });
 
 const CELLO = path.join(FX, 'cello', 'cello_skill_03_buff_front_02.json');

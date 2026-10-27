@@ -1307,6 +1307,8 @@ class Extractor:
         life = self.max_lifetime(root)
         if life is not None:
             out_def['maxLife'] = life
+        if self.pos_cap(root):
+            out_def['posCap'] = 1
         off = self.off_on_finish(root, gos)
         if off:
             out_def['offFinish'] = off
@@ -1334,6 +1336,7 @@ class Extractor:
         right = self.right_effect(root)
         if right:
             out_def['right'] = right
+            out_def.update(self.right_flags(root))
         back = self.switch_back(root)
         if back:
             out_def['back'] = back
@@ -1438,7 +1441,7 @@ class Extractor:
         `_endPosOffset` (`_tweenEndPosition`: lerped from the start over `_tweenDuration`), and `_startEffect` / `_endEffect`
         follow those two ends; the owners come from the node that made it (`Nodes.CreateLineEffect.Execute`: start =
         its source, end = its target). Read by the root component's type tree: { sMount, eMount, start?, end?, mid?, sOff?,
-        eOff?, tween?, finishBuff? } (Entity.MountPointType numbers), None without one."""
+        eOff?, tween?, finishBuff?, buffSrc?, endDead? } (Entity.MountPointType numbers), None without one."""
         try:
             d = root.read_typetree()
         except Exception:
@@ -1465,6 +1468,15 @@ class Extractor:
                 out['tween'] = r4(t.get('_tweenDuration') or 0)
             if t.get('_finishIfBuffNotExists') and isinstance(t.get('_buffKeyForFinish'), str) and t['_buffKeyForFinish']:
                 out['finishBuff'] = t['_buffKeyForFinish']
+                if t.get('_checkBuffSourceForFinish'):   # (2026-10-27) only that buff from the start owner counts
+                    out['buffSrc'] = 1
+            # (2026-10-27, official client, effect bundle W2d: `Update`) finished when either end owner is gone or not
+            # `alive` (`_TryDestroyIfOwnerNotExist`), or not `aliveOrReborn` (`_TryDestroyIfOwnerNotAliveOrReborn`: kept
+            # through a 重生)
+            if t.get('_finishIfEitherOfOwnersNotExist'):
+                out['endDead'] = 'alive'
+            elif t.get('_finishIfEitherOfOwnersNotAliveOrReborn'):
+                out['endDead'] = 'reborn'
             return out
         return None
 
@@ -1496,7 +1508,7 @@ class Extractor:
         SwitchableBackEffect — while the owner faces back (its back model) the client pauses this effect and plays
         `_backEffect` instead, and the other way round when it turns to the front (render/fxgame.js backSwap). Read by its
         type tree (the bundle carries it): { effect: _backEffect ('common_empty' = nothing while back), predict:
-        _predictFaceDirection, oneShot: _oneShot }. None when the root has none."""
+        _predictFaceDirection, oneShot: _oneShot, beh?, force?, sync? }. None when the root has none."""
         try:
             d = root.read_typetree()
         except Exception:
@@ -1517,6 +1529,11 @@ class Extractor:
             out = {'effect': t['_backEffect'], 'predict': int(t.get('_predictFaceDirection') or 0), 'oneShot': int(t.get('_oneShot') or 0)}
             if t.get('_useBehaviourPause'):   # (2026-10-27) `_UpdateFace` pauses this one per behaviour, else its shared flag
                 out['beh'] = 1
+            # (2026-10-27, effect bundle W2d) `Update` → `_UpdateFace(_forceCheckInUpdate)`: forced, the pauses are written
+            # again every frame and a finished back copy is made again; `_syncPlayBackSpeed`: the copy at this one's speed
+            for k, f in (('force', '_forceCheckInUpdate'), ('sync', '_syncPlayBackSpeed')):
+                if t.get(f):
+                    out[k] = 1
             return out
         return None
 
@@ -1530,6 +1547,15 @@ class Extractor:
             if v is not None:
                 return v['effect'] or None
         return None
+
+    def right_flags(self, root):
+        """(2026-10-27, official client, effect bundle W2d) the left / right pair's `SwitchableRightEffect` flags by its type tree:
+        `_onlyCheckOnPlay` → rightOnce (`Update` does not check the side again: only `OnPlay`'s forced `_UpdateFace`),
+        `_reverseLeftRight` → rightRev (the right copy shows while the owner faces left: `faceLOrR` 3, not 1)."""
+        for _sid, _raw, t in self.monos(root):
+            if t is not None and isinstance(t.get('_rightEffect'), str):
+                return {k: 1 for k, f in (('rightOnce', '_onlyCheckOnPlay'), ('rightRev', '_reverseLeftRight')) if t.get(f)}
+        return {}
 
     def fly_location(self, root):
         """(2026-10-21, official client) the client's FlyToPredefinedLocation on the root: { loc, dur, ease, real } — `OnPlay`
@@ -1775,6 +1801,8 @@ class Extractor:
                 out['onPlay'] = {'effects': effects, 'pre': 0 if t.get('_instant') else r4(t.get('_preDelay') or 0),
                                  'face': bool(t.get('_useFaceVector')), 'clear': bool(t.get('_clearWhenFinish')),
                                  'srcPos': bool(t.get('_useSourceEffectPos'))}
+                if t.get('_keepPauseSync'):   # (2026-10-27, effect bundle W2d) `OnPaused`: its effects paused / unpaused with it
+                    out['onPlay']['keepPause'] = True
             else:
                 out['onFinish'] = {'effects': effects, 'face': bool(t.get('_useFaceVector')),
                                    'effPos': bool(t.get('_useEffectPosition'))}
@@ -2119,7 +2147,7 @@ class Extractor:
         texture (XSpeed, YSpeed) by 2 × speed × dt (SPEED_SCALE 2; a texture with both speeds 0 is not touched); `OnEnable`
         starts the offsets from the material's own with `keepInitOffset`, else from 0; an Advance without `tweenRepeat` stops
         after `tweenAnmTime` s. Read by the component's type tree (found by its fields, not its script id): { maps:
-        [[texture, 2·sx, 2·sy, 1 when the offset keeps its fraction?], …], keep?, until? }, None without one. Drawn by
+        [[texture, 2·sx, 2·sy, 1 when the offset keeps its fraction?], …], keep?, until?, shared? }, None without one. Drawn by
         render/fxplayer.js uvTween."""
         try:
             d = go.read_typetree()
@@ -2155,6 +2183,8 @@ class Extractor:
             out = {'maps': maps}
             if t.get('keepInitOffset'):
                 out['keep'] = 1
+            if t.get('useSharedMaterial'):   # (2026-10-27, effect bundle W2d) render/fxplayer.js uvShared
+                out['shared'] = 1
             if 'tweenRepeat' in t and not t.get('tweenRepeat'):
                 out['until'] = r4(float(t.get('tweenAnmTime') or 0))
             return out
@@ -2570,6 +2600,17 @@ class Extractor:
             changed += 1
         print(f'[fx] {bundle}: {found} prefab(s) with a root effect component, {changed} file(s) changed')
         return found, changed
+
+    def pos_cap(self, root):
+        """(2026-10-27, official client, effect bundle W2d) True when the root ParticleEffect is `_isLoop` and not
+        `_ignoredByParticleEffectManager`: `ParticleEffect.OnBeforePlay` then asks `ParticleEffectManager.CheckEffectByPos`,
+        which finishes the new effect at once when its `effectKey` already plays `effectPositionMaxCount` (3) times in its
+        place — a 1-tile grid cell and the cell of the grid shifted half a tile, both — and registers it otherwise (render/
+        fxgame.js posCapped). By the type tree only (the raw fallback does not reach these fields)."""
+        for _sid, _raw, t in self.monos(root):
+            if t is not None and '_isLoop' in t and '_ignoredByParticleEffectManager' in t and '_maxLifetime' in t:
+                return bool(t['_isLoop']) and not t['_ignoredByParticleEffectManager']
+        return False
 
     def max_lifetime(self, root):
         """(2026-10-27, official client) the root ParticleEffect's `_maxLifetime` when it is ≥ 0, else None (−1: no limit).

@@ -632,7 +632,7 @@
     skillBuff`)으로 L·R을 둘 다 틀어 용이 두 마리였다. → `fx_extract.py right_effect`가 L 프리팹 JSON에 `right`를 쓰고(전 번들 15쌍: chen3 1, mlynar
     12(기본 스킨 추출분 3), texas2 1(미추출 스킨), tippi 1 — 추출된 L 5개만 다시 뽑음), `fxgame.js play()`는 오른쪽이면 R, 왼쪽이면 L을 **뒤집지 않고**
     한 번만 튼다(R은 목록에 같이 있어도 건너뜀). 뒤집지 않음(2026-10-11 공식 클라로 확정: `chen3_skill_03_buff_L_01`은 `_rotateType 0` — `ParticleEffect.FaceTo`가 안 뒤집음): L을 뒤집으면 왼쪽을 볼 때 용 머리가 그녀 앞(진행 방향)에 오는데 공식 녹화는 뒤.
-    `_onlyCheckOnPlay` 0(방향이 바뀌면 다시 고름)은 구현 안 함 — 발동 때만 고름.
+    `_onlyCheckOnPlay` 0(방향이 바뀌면 다시 고름)은 2026-10-27 W2d부터 공식대로 — L을 틀고 매 프레임 바꿈(아래 「뒷면·좌우 전환·선 끝·같은 자리 상한·공유 재질」).
     ② order 0 입체 메시 「앞」 규칙(`WRAP_H`, 쿠오라·마터호른 돔)에 조건 추가: 메시가 유닛 칸 줄에 닿아야(`min.y` ≤ 0.5행) 감싼다고 본다(`fxplayer.js
     wrapsUnit`). 용 머리 `longtou`(order 0, 높이 0.56)는 그녀 뒤 0.8~1.6행에 놓여 뒤로 간다; 돔은 −0.1행부터라 그대로 앞. 전 프리팹 중 바뀐 메시는 7개
     (chen3 buff_L/R longtou·range 뒤 벽, pepe S2 hit trail, texas2 S3 range_start 2, philae S1 start) — 모두 유닛보다 뒤에 놓인 것.
@@ -1438,8 +1438,8 @@
   - 구현: `fx_extract.py uv_tween` → 노드 `uvt` { maps: [[텍스처, 2·sx, 2·sy], …], keep?, until? }(스크립트 id가 아니라 필드로 찾음),
     `--uvt-only`로 이미 추출된 프리팹에 그것만 씀. `fxplayer.js uvTween`/`setTime`이 그 노드의 렌더러 재질(메시 → 파티클 → 선 → 꼬리 순, Unity
     `GetComponent<Renderer>`)의 `_ST` 유니폼을 렌더러 시간으로 움직인다. 재질에 없는 텍스처는 무시(클라도 없는 속성은 효과 없음). 같은 텍스처를
-    클립 트랙이 움직이면 클립이 이긴다(공식 클라에서 확인: FxUVTweener는 재질에, 애니메이터는 렌더러 속성 블록에 씀 — 아래 「추출 누락 보고」; 속성 블록이 재질 값을 덮음). `useSharedMaterial`(컴포넌트 72개)도 개별 재질처럼 움직임 [차이:
-    공식은 공유 재질을 움직여 동시에 켜진 개수만큼 빨라짐(공식 클라에서 확인) — 따르지 않음, `KNOWN` todo].
+    클립 트랙이 움직이면 클립이 이긴다(공식 클라에서 확인: FxUVTweener는 재질에, 애니메이터는 렌더러 속성 블록에 씀 — 아래 「추출 누락 보고」; 속성 블록이 재질 값을 덮음). `useSharedMaterial`은 2026-10-27 W2d부터 공식대로 재질마다 한 오프셋(아래
+    「뒷면·좌우 전환·선 끝·같은 자리 상한·공유 재질」 — 예전 기록 「켜진 개수만큼 빨라짐」은 틀림: 트위너마다 제 값을 쓰고 더하지 않는다).
   - 추출(2026-10-14): 운영자 이펙트 347개 프리팹(EN `index.json` 340 + CN 켈시 에스페란타 2·클레멘티아 4·안젤리나 더 멜로우 위시 1), 적
     이펙트 51개(`--index enemy-index.json`, `pfx_*`는 `--pack pkgrps/btl_pfb_fx_*.ab`), 흐름 1,133개. `uvt` 말고 바뀐 키 0.
 - **Disturb Origin**(클라 셰이더): 노이즈 = `_DisturTex`(uv × `_DisturTex_ST`).r, 렌더러 uv에 노이즈 × (`_IntensityU`, `_IntensityV`)를
@@ -2366,12 +2366,46 @@
 - 보이는 차이 없음으로 둔 것: `PauseEffectIf._disableMeshRendererWhenPause`는 `Init`이 자기 노드와 그 위의 MeshRenderer를 모으는데, 켠 프리팹 둘(실버애쉬 더
   레인프로스트 `svash2_attack_start_A_02`, 적 `enemy_crstf_buff_01`) 모두 그 스크립트가 메시 없는 루트에 있다. `_pauseWhenFollowScaleNearlyZero`는 켠 프리팹이 없다.
   `SwitchableEffectByFaceDirection`(`swFace`)은 우리가 사본으로 바꿔 틀어 원본 멈춤이 없다.
-- 덤으로 본 것(W2d): `SwitchableBackEffect._UpdateFace`는 뒷면 사본을 처음 한 번만 만들고 앞을 보면 **멈춰 두었다가** 뒤를 보면 이어 튼다(`_syncPlayBackSpeed`면
-  자기 재생 속도) — 우리는 앞을 보면 사본을 끝내고 뒤를 볼 때마다 새로 만든다.
+- 덤으로 본 것(W2d에서 고침, 아래 절): `SwitchableBackEffect._UpdateFace`는 뒷면 사본을 처음 한 번만 만들고 앞을 보면 **멈춰 두었다가** 뒤를 보면 이어 튼다.
 - 확인: `test/render/fx-pause.test.js`(면역 답·`ownPause` 함께 쓰는 깃발/행동별·`stepMount` 세 갈래·프레임 순서·`maxLife` 줄·뒤집기),
   `test/render/fx-direction.test.js` `pointScale`, 재추출(운영자 198 묶음·적 50, 실패 0) 전후 JSON = `maxLife` 17·`pauseAnim.beh` 4·`pauseSpine.beh` 1·`back.beh` 4뿐
   (+ 클레멘티아 S2 범위 탄 `still` — W2b-2 규칙, 이번에 처음 추출됨). 아레나(Windows Chrome, A = 요청 가로채기로 `maxLife` 지움): 노시스 T2 이펙트가 B에서 약 2 s 뒤
   끝나고 A에선 남음; 플레임테일·혼 S2·실버애쉬 더 레인프로스트 S3 페이지 오류 0. [화면 미확인: 크기 따르기·지점 무효 숨김의 실제 모습 — 아레나는 수치만 봄]
+
+### 뒷면·좌우 전환·선 끝·같은 자리 상한·공유 재질 — 작은 필드들 (2026-10-27, 이펙트 묶음 W2d, 공식 클라에서 확인)
+
+- **좌우 짝**(`SwitchableRightEffect`, 추출 `right`: 첸 더 던스트릭 S3 용, 무에나, 텍사스 디 오메르토사, 티피, 켈시 에스페란타, 산탈라 …): 공식은 `OnPlay`에 한 번 강제로, 그다음
+  `_onlyCheckOnPlay` 거짓이면 **매 프레임**(`Update`) `_UpdateFace` — 주인의 `faceLOrR`가 오른쪽(`_reverseLeftRight`면 왼쪽)이 되면 자기를 멈추고(`set_isPaused`)
+  `_rightEffect`를 주인에게 **처음 한 번만** 만들며(`CreateEffect`, 재생 속도 1), 이후엔 돌 때마다 자기와 사본을 서로 멈췄다 이어 튼다. 예전엔 발동 때 한 번 골라
+  스킬 중 돌아서도 반대쪽 사본이 남았다. 지금: L을 틀고 `rightSw`(추출 `rightOnce`·`rightRev`)가 뒷면 전환과 같은 길로 바꾼다. `_onlyCheckOnPlay`가 켜진
+  것은 CN 클레멘티아 S3 `clemnt_skill_03_buff_01_L` 하나.
+- **뒷면 전환**(`SwitchableBackEffect`): `Update`는 `_oneShot`이면 안 보고, 아니면 `_UpdateFace(_forceCheckInUpdate)` — 강제면 바뀌지 않아도 매 프레임 멈춤을 다시
+  쓰고 끝난 사본을 다시 만든다(켠 프리팹 7: 엑시아 더 뉴 커버넌트 S3 버프, 켈시 에스페란타 S3, 산크타 믹사파라토 S3, 실버애쉬 더 레인프로스트
+  평타·S3 시작, 위셔델 S3 둘). 사본은 처음 한 번만 만들고 앞을 보면 **멈춤**(예전: 끝내고 뒤볼 때마다 새로), `_syncPlayBackSpeed`면 자기 재생 속도(실버애쉬 더 레인프로스트
+  `svash2_attack_start_A_01`), 아니면 1. `_oneShot`이면 뒤를 볼 때 자기를 끝내고 사본은 제 길로.
+- **OnPlayEmitter `_keepPauseSync`**(`onPlay.keepPause`, 안젤리나 더 멜로우 위시 `aglna2_levitate_01_emit` 하나): `OnPaused`가 만든 이펙트들의 멈춤 깃발을 같이 쓴다.
+- **동적 선 끝**(`LineEffectEmitterDynamic.Update`): `_finishIfEitherOfOwnersNotExist`(적 기록 '염의 가호' 선) = 양 끝 중 하나가 없거나 `alive` 거짓이면 끝 —
+  우리 선은 이미 한쪽 뷰가 사라지면 끝나고, 이제 그 끝이 重生 중(`form` 'reborn')이어도 끝(`lineDyn.endDead` 'alive'). `_finishIfEitherOfOwnersNotAliveOrReborn`
+  (엔텔레키아 S3 `etlchi_skill_03_line_01`)은 重生 중엔 남음 = 예전 그대로. `_finishIfBuffNotExists`·`_checkBuffSourceForFinish`(시작점 유닛이 건 그 버프만)는 우리
+  선이 버프의 lifeTime으로 살고 출발·도착 짝마다 하나라 같은 결과. `_forceLineUseWorldSpace`(티티 S3 선)는 그 선이 이미 월드 좌표라 차이 없음. 남긴 것:
+  `_pauseWhenDisappear`(엔텔레키아 S3 선 — 사라진 적을 뷰가 모름, `PauseEffectIfDisappeared`와 같은 일), `_fetchStartEndViaBuff`(그의 `etlchi_skill_03_line_01_end`
+  — 무엇이 트는지 표에 없음).
+- **같은 자리 상한**(`ParticleEffect.OnBeforePlay` → `ParticleEffectManager.CheckEffectByPos`, 10-10 확인 기록 그대로): `_isLoop`이고
+  `_ignoredByParticleEffectManager` 아닌 이펙트(추출 `posCap`)는 같은 `effectKey`(프리팹 이름)가 1칸 격자(`floor(p / 1)`, 세 축)와 0.5칸 어긋난 격자 **둘 다**에서
+  이미 3개(`effectPositionMaxCount`) 켜져 있으면 틀지 않고 바로 끝낸다; 아니면 끝날 때까지 센다. 우리 판 좌표 = 클라 월드 좌표로 봄 [추정·엔진: 원점이 같은지 —
+  칸 경계가 타일 가운데냐 사이냐로 같은 칸에 드는 이펙트가 바뀜]. 상한에서 빠진 것: 위 S3 타일 범위 10개·장치 `trap_acgarm_buff_loop_01`.
+- **공유 재질**(FxUVTweener·Advance `useSharedMaterial`, 운영자 51 / 적 5): `Awake`가 렌더러 재질을 `MaterialManager.GetMaterial(재질, 'FX_UV_TWEENER')`로 바꿔
+  끼우는데, 그것은 (원본 재질, 키)마다 사본 **하나**를 만들어 사전에 두고 돌려준다. 트위너는 저마다 제 오프셋(`m_v2`, `OnEnable`에서 0 또는 `keepInitOffset`이면
+  그 재질의 지금 값)을 키워 그 재질에 쓰므로, 그 재질을 쓰는 렌더러는 모두 그 프레임에 마지막으로 쓴 트위너의 오프셋을 보인다. 지금: `fxplayer.js uvShared`가
+  그런 렌더러에 재질 키마다 하나의 `_ST` 벡터를 쥐여 줌 — 인스턴스가 도는 순서대로 쓰여 가장 새것이 이김 [추정·엔진: Unity의 트위너 `Update` 순서]. 클립이 그
+  텍스처를 움직이면 제 벡터로 돌아감(속성 블록).
+- **꼬리**(TrailRenderer): `textureMode`(Unity 매뉴얼, LineTextureMode) 0 Stretch = 길이 전체에 한 번(**거리로**), 1 Tile = 길이 1마다, 2 DistributePerSegment = 점을 고르게
+  본 한 번, 3 RepeatPerSegment = 칸마다. 예전엔 Stretch를 점 순번으로, Tile을 순번 × `minVertexDistance`로 폈다(2는 우연히 맞음 — 뮤엘시스 평타·S2·S3, 리드 더 플레임 섀도우
+  S3, 울피아누스 S1·S3, 왕 평타). 폭·색은 예전처럼 점 순번 [추정·엔진]. `alignment` 1 TransformZ(블레이즈 디 이그나이팅 스파크 평타 꼬리 `blaze2_attack_01_trail`, 공용 감속 `buff_slowdown`) =
+  띠가 카메라 대신 노드의 z축을 향함(셰이더 `uStripZ`) [추정·엔진: 모든 점에 지금의 축 — 점을 찍을 때의 축이 아니라].
+- 남긴 것: 다른 층(`m_Layer` 0)의 노드 4(엑시아 더 뉴 커버넌트 S3 시작 `angel2_skill_3_begin_start_001`, 이그제큐터 디 엑스 포에데레 `excu2_common_fx01` — 나머지 둘은 안 틂): 전투 카메라의
+  컬링 마스크가 그 층을 그리는지는 장면 자료가 필요 [추정·미조사: 지금은 그림].
+- 확인: 아래 「W2d 끝」 기록(재추출 전후 JSON, 픽셀 비교) — research 쪽.
 
 ### 타격별 명중 — MultiHitUberEffectEmitter `_hitGroups` (2026-10-16, 이펙트 연결 전수, 공식 클라에서 확인)
 

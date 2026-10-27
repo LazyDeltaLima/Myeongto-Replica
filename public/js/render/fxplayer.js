@@ -281,7 +281,7 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
   attribute vec3 iPos; attribute vec3 iSize; attribute vec3 iRot; attribute vec4 iColor; attribute vec4 iC1; attribute vec4 iC2;
   attribute vec4 iUV; attribute vec3 iVel;
   attribute vec4 vcol; uniform bool uVCol; uniform bool uRim;
-  uniform int uMode; uniform float uLengthScale; uniform float uVelScale; uniform int uAlign; uniform vec3 uPivot;
+  uniform int uMode; uniform float uLengthScale; uniform float uVelScale; uniform int uAlign; uniform vec3 uPivot; uniform vec3 uStripZ;
   uniform bool uFree; uniform bool uRotW; uniform vec3 uUX; uniform float uHand; uniform float uWSign;
   varying vec2 vUv; varying vec4 vColor; varying vec4 vC1; varying vec4 vC2;
   // local patch: vH = the board height (scene z) of the fragment — what lies under the floor is cut (FRAG uFloor; the
@@ -301,6 +301,14 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
   void fxMain() {
     vUv = iUV.xy + uv * iUV.zw; vColor = iColor * (uVCol ? vcol : vec4(1.0)); vC1 = iC1; vC2 = iC2;  // local patch: mesh vertex colours
     vN = vec3(0.0, 0.0, 1.0); vVP = vec3(0.0, 0.0, -1.0);
+    if (uMode == 6 && dot(uStripZ, uStripZ) > 0.25) {   // 2026-10-27: a TransformZ trail — its ribbon faces uStripZ, not the camera
+      vec3 wd = cross(iVel, uStripZ);
+      wd = dot(wd, wd) > 1e-12 ? normalize(wd) : vec3(1.0, 0.0, 0.0);
+      vec3 sp = position + wd * iRot.x * iSize.x * 0.5;
+      vH = (modelMatrix * vec4(sp, 1.0)).z;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(sp, 1.0);
+      return;
+    }
     if (uMode == 6) {                       // trail strip: camera-facing ribbon, iVel = tangent, iRot.x = side, iSize.x = width
       vec4 cv = modelViewMatrix * vec4(position, 1.0);
       vec3 tv = (modelViewMatrix * vec4(iVel, 0.0)).xyz;
@@ -687,7 +695,7 @@ function makeMaterial(m, lib) {
       uCustom: { value: (f._HGCustomVertexStream ?? (/CustomData/.test(shader) ? 1 : 0)) !== 0 },
       uTime: { value: 0 }, uAdditive: { value: additive },
       uUVRot: { value: false }, uRot: { value: [0, 1, 2, 3].map(() => new THREE.Vector4(1, 0, 0, 1)) },   // uvRotation
-      uMode: { value: 0 }, uLengthScale: { value: 2 }, uVelScale: { value: 0 }, uAlign: { value: 0 }, uPivot: { value: new THREE.Vector3() },
+      uMode: { value: 0 }, uLengthScale: { value: 2 }, uVelScale: { value: 0 }, uAlign: { value: 0 }, uPivot: { value: new THREE.Vector3() }, uStripZ: { value: new THREE.Vector3() },
       uFree: { value: false }, uRotW: { value: false }, uUX: { value: new THREE.Vector3(1, 0, 0) }, uHand: { value: -1 }, uWSign: { value: 1 },
     },
   });
@@ -754,15 +762,27 @@ const TEX_ST = { _MainTex: 'uMainST', _AddTex: 'uAddST', _DisturbTex: 'uDisturbS
  * 2), from the material's own offset with `keepInitOffset`, else from 0 (`OnEnable`), until `tweenAnmTime` for an Advance
  * without `tweenRepeat` (fx_extract.py `uvt`). The fractional wrap of `protect*UV` / `tweenRepeat` (the map's 4th field,
  * 2026-10-22) matters on a Clamp texture (tex/wrap.json). Kept on `mat.userData.uvt`, moved by setTime; a texture a clip track drives is left to the clip
- * (bindTrack0 — the Animator's property block wins over the material) [ASSUMED: a shared material (`useSharedMaterial`) moves
- * as an own one].
+ * (bindTrack0 — the Animator's property block wins over the material).
+ * 2026-10-27 (official client, effect bundle W2d): with `useSharedMaterial` (uvt `shared`) `Awake` swaps the renderer's material
+ * for MaterialManager.GetMaterial(it, 'FX_UV_TWEENER') — one copy per source material and key, made once — and `Update`
+ * moves that copy: every renderer of it shows the offsets the last tweener wrote that frame, and one starting with
+ * `keepInitOffset` starts from them. Here those renderers hold one tiling / offset vector per material (uvShared), which
+ * each instance writes as it steps — the newest last [추정·엔진: Unity's Update order of the tweeners].
  */
-function uvTween(mat, uvt, m) {
+const UV_SHARED = new Map();   // `${material key} ${uniform}` → its shared Vector4
+function uvShared(u, key, uname) {
+  const k = `${key} ${uname}`;
+  let v = UV_SHARED.get(k);
+  if (!v) UV_SHARED.set(k, (v = u.value.clone()));
+  u.value = v;
+}
+function uvTween(mat, uvt, m, key = null) {
   if (!mat || !uvt || !Array.isArray(uvt.maps)) return;
   const list = [];
   for (const [name, vx, vy, fr] of uvt.maps) {
     const u = TEX_ST[name] && m?.tex?.[name] ? mat.uniforms[TEX_ST[name]] : null;
     if (!u || list.some((e) => e.u === u)) continue;
+    if (uvt.shared && key) uvShared(u, key, TEX_ST[name]);
     list.push({ u, z0: uvt.keep ? u.value.z : 0, w0: uvt.keep ? u.value.w : 0, vx: +vx || 0, vy: +vy || 0, until: uvt.until > 0 ? uvt.until : Infinity, frac: fr === 1 });
   }
   if (list.length) mat.userData.uvt = list;
@@ -1055,20 +1075,32 @@ class TrailRenderer {
       this.count++;
     }
     while (this.count && this.time - R[this.head * 4 + 3] > tr.time) { this.head = (this.head + 1) % TRAIL_KEEP; this.count--; }
+    // 2026-10-27 (effect bundle W2d): `alignment` 1 TransformZ — the ribbon faces the node's z axis (Unity manual), else the camera
+    // [추정·엔진: the node's axis now for every point, not the one each point was recorded with]
+    const z = this.batch.material.uniforms.uStripZ.value;
+    if (tr.align === 1) z.setFromMatrixColumn(tmpM, 2).normalize(); else z.set(0, 0, 0);
     // newest first: the live head, then the recorded points
     const n = this.count + 1;
     this.batch.begin();
     if (n >= 2) {
+      let d = 0;
       for (let k = 0; k < n; k++) {
-        const u = k / (n - 1);
         if (k === 0) { trailPts[0] = p.x; trailPts[1] = p.y; trailPts[2] = p.z; } else {
           const h = ((this.head + this.count - k) % TRAIL_KEEP) * 4;
           trailPts[k * 3] = R[h]; trailPts[k * 3 + 1] = R[h + 1]; trailPts[k * 3 + 2] = R[h + 2];
+          d += Math.hypot(trailPts[k * 3] - trailPts[k * 3 - 3], trailPts[k * 3 + 1] - trailPts[k * 3 - 2], trailPts[k * 3 + 2] - trailPts[k * 3 - 1]);
         }
+        trailU[k] = d;
+      }
+      for (let k = 0; k < n; k++) {
+        const u = k / (n - 1), f = d > 0 ? trailU[k] / d : u;   // (the width and colour along the points, as before)
         trailW[k] = tr.width * (tr.wf ? evalFlat(tr.wf, u) : tr.widthCurve?.length ? evalCurve(tr.widthCurve, u) : 1);
         evalGradient(tr.grad, u, tmpC);
         trailC.set(tmpC, k * 4);
-        trailU[k] = tr.texMode === 1 ? k * tr.minDist : u;
+        // 2026-10-27 (effect bundle W2d; Unity manual, LineTextureMode): 0 Stretch = once over the length, by distance; 1 Tile =
+        // once per unit of length; 2 DistributePerSegment = once over the length, the points evenly spaced; 3 RepeatPerSegment =
+        // once per segment. Before, Stretch went by the point index and Tile by the point index × minVertexDistance
+        trailU[k] = tr.texMode === 1 ? trailU[k] : tr.texMode === 2 ? u : tr.texMode === 3 ? k : f;
       }
       this.batch.strip(trailPts, n, trailW, trailC, trailU);
     }
@@ -2655,10 +2687,10 @@ export class FxInstance {
       if (n.uvt) {
         const o = this.nodes[i];
         const sys = this.systems.find((s) => s.node === o), ln = this.lines.find((t) => t.node === o), tr = this.trails.find((t) => t.node === o);
-        if (this.meshMats[i]) uvTween(this.meshMats[i], n.uvt, def.materials[(n.mesh || n.skin).mat]);
-        else if (sys) uvTween(sys.material, n.uvt, def.materials[n.ps.render.mat]);
-        else if (ln) uvTween(ln.batch.material, n.uvt, def.materials[n.lineR.mat]);
-        else if (tr) uvTween(tr.batch.material, n.uvt, def.materials[n.trailR.mat]);
+        if (this.meshMats[i]) uvTween(this.meshMats[i], n.uvt, def.materials[(n.mesh || n.skin).mat], (n.mesh || n.skin).mat);
+        else if (sys) uvTween(sys.material, n.uvt, def.materials[n.ps.render.mat], n.ps.render.mat);
+        else if (ln) uvTween(ln.batch.material, n.uvt, def.materials[n.lineR.mat], n.lineR.mat);
+        else if (tr) uvTween(tr.batch.material, n.uvt, def.materials[n.trailR.mat], n.trailR.mat);
       }
       if (n.uvr) {   // 2026-10-14: FxUVRotation, the same renderer
         const o = this.nodes[i];
@@ -2859,6 +2891,7 @@ export class FxInstance {
       const u = m.uniforms[uname];
       if (!u) return null;
       if (m.userData.uvt) m.userData.uvt = m.userData.uvt.filter((e) => e.u !== u); // uvTween: the clip's property block wins
+      if ([...UV_SHARED.values()].includes(u.value)) u.value = u.value.clone();   // (its own block, not the shared material)
       const k = uname === 'uTint' ? 2 : 1;   // the material tint carries the shaders' ×2 (makeMaterial)
       return comp ? { tr, o, kind: 'matComp', u, axis: CLIP_AXIS[comp], k, len } : { tr, o, kind: 'mat', u, len };
     };
