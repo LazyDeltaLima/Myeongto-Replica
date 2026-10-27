@@ -1376,6 +1376,22 @@
   적 번들은 처음 돌려 ParticleEffect `finish`도 새로 들어갔다(상태 이펙트 끝 `statusOff`에만 쓰임).
 - 확인: `test/render/projectile-finish.test.js`(소스 계약, 추출 값, FxInstance: 애쉬락 포탄이 꺼지고 다른 가지 불꽃은 돎, 언더플로우 탄 시스템 정지). [화면 미확인]
 
+### 투사체 꼬리 방향 — 본체 위의 루트 회전·무작위 굴림 (2026-10-27, 이펙트 묶음 W2b, 공식 클라에서 확인)
+- 공식: 꼬리(`_mainEffect`)는 `Projectile._CreateMainEffect`가 투사체 본체(`_bodyTransform`) 밑에 만든다. 본체는 `BasicMovement.RotateToCertainDirection`이
+  `_rotateToTarget`일 때만 돌리고(`_freezeRotationXY` → `MapUtil.FaceTo2d`, `_freezeRotationZ`·이 모드 → `FaceTo3dUpwardMajor`, 그 밖 카메라 기준) 어느 갈래든
+  본체 +y = 비행 방향이다. 그다음 `ProjectileEffect.OnBeforePlay`가 재생마다 루트를 그 본체 위에서 다시 돌린다: ① `_resetMainDir`이고 `_mainDir`이 UP이 아니면
+  `localRotation` = Euler(0, `_rotate180Y` ? 180 : 0, `_mainDir`·90) — 루트의 원래 회전은 버림(UP이면 아무것도 안 함, 180Y도) ② `_flipIfLeft`(추출 프리팹 모두 0)
+  ③ `_randomAngle`이 0이 아니면 자기 x축 둘레로 Range(0, `_randomAngle`)만큼 굴림.
+- 예전: 꼬리 그룹을 비행 방향으로 돌려 프리팹 +x를 비행에 맞추고 루트의 원래 회전을 그대로 썼다 — 「초기화 + RIGHT」와 같아서 대부분은 맞았지만, 굴림이
+  없었고(아르케토 S3, 해럴드 평타·S2, 크루스 더 킨 글린트 S1·S2, 스와이어 디 엘리건트 위트 S3 — 360°), DOWN(글래디아 평타·S1·S2)·y 180°(토가와 사키코 S2 감속,
+  샤마르 평타)·초기화 안 함이 무시됐고, 클라가 버리는 원래 회전(아르케토 z −5°, 스즈란 −20°, 미니멀리스트 드론 90°, 티피 x 30° 등 25개)을 그렸다.
+- 고친 것: `fx_extract.py projectile_turn` → ProjectileEffect 루트 프리팹에 `mainRot`(본체 위 루트 사원수, Unity 틀)·`roll`(도). `render/fx/face.js bodyTurn`이
+  꼬리를 놓는 자리(`fxgame.js placeTrail`·부메랑 귀환·켈시 에스페란타 S3 비행·키트 비행 `p.fly`·드론 꼬리)에서 그룹을 비행 각 − 90°(본체), 루트를 `mainRot`·굴림
+  (재생마다 한 번, 화면용 `Math.random`)으로 돌린다. `mainRot`이 없는 꼬리(ParticleEffect 루트 등)는 예전 그대로. 꼬리 아닌 자리에서 재생되는 ProjectileEffect
+  (실버애쉬 더 레인프로스트 S3 독수리 `svash2_eagle_flyToHand_01`, LEFT)는 안 바꿈.
+- 아직: `_rotateToTarget`이 0인 투사체(꼬리 159개 — 마법구·스즈란·라플란드 더 데카덴차 등)는 공식에서 본체가 안 도는데 우리는 모두 비행 방향으로 돌린다 — 투사체별
+  회전 깃발을 바인딩에 싣는 일이 남음(관리자 노트의 열린 항목). 확인: `test/render/projectile-body-turn.test.js`. [화면 미확인]
+
 ### 횟수형 护盾 이펙트 (2026-10-11, 사용자 제보 「켈시 에스페란타 실드가 HP 바 위 가는 흰 줄 — 아르케토 재능 실드와 같은 유형, 인게임대로」)
 
 - 클라 데이터: 아르케토(空弦) T2 铁弦 버프 `archet_t_2`는 EN charpack `char_332_archet` Talents/2에서 `overrideEffectKey` **`archet_buff_01_start`**

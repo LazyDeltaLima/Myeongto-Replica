@@ -83,7 +83,8 @@ print(json.dumps(sorted(r['what'] + ' ' + r['status'] for r in cov.report() if r
 
   test('component, script and material fields: a random projectile turn, a keyword, the turned nodes', () => {
     // (2026-10-26, effect bundle W1) what the particle check could not see: the other components, the scripts, the materials
-    // (effect bundle W2a: a switched-off MeshRenderer / script and a second material are read now, not reported)
+    // (effect bundle W2a: a switched-off MeshRenderer / script and a second material are read now, not reported; W2b: the
+    // ProjectileEffect turn too — fx_extract.py projectile_turn)
     const rep = py(`
 cov = c.Coverage()
 cov.begin('chen3/chen3_skill_01_start_01')
@@ -111,8 +112,6 @@ print(json.dumps(sorted(r['kind'] + ':' + r['what'] for r in cov.report())))`);
       'field:MeshRenderer.m_NewSwitch (not classified)',
       'field:ParticleEffect._rotationY unset, a node named rotation_y',
       'field:ParticleEffect._rotationZ on another node than the first named rotation_z',
-      'field:ProjectileEffect._mainDir ≠ 1',
-      'field:ProjectileEffect._randomAngle ≠ 0',
       'field:TrailRenderer.m_Parameters.alignment = 1',
       'script:#123 _someField',
     ]);
@@ -223,7 +222,8 @@ PE, PJ, FXD, RIGHT = fe.PARTICLE_EFFECT_SCRIPT, fe.PROJECTILE_EFFECT_SCRIPT, fe.
 pe_tree = {f: 0 for f in fe.ROOT_EFFECT_FIELDS.values()}
 pe_tree.update(_delayToFinish=0.5, _usePlaybackSpeed=1, _limitedPlaybackSpeed=2.0, _rotateType=1, _spawnLocation=2,
                _subFXDelayConfigs=[{'transform': {'m_FileID': 0, 'm_PathID': 9}, 'delayTime': 0.25}])
-pj_tree = {'_delayToFinish': 0.5, '_inactiveOnFinish': [{'m_FileID': 0, 'm_PathID': 11}, {'m_FileID': 0, 'm_PathID': 12}]}
+pj_tree = {'_delayToFinish': 0.5, '_inactiveOnFinish': [{'m_FileID': 0, 'm_PathID': 11}, {'m_FileID': 0, 'm_PathID': 12}],
+           '_resetMainDir': 1, '_mainDir': 0, '_rotate180Y': 0, '_randomAngle': 0.0}
 ex = fe.Extractor.__new__(fe.Extractor)
 ex.cov = c.Coverage()
 read = {

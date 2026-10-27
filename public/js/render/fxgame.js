@@ -79,7 +79,7 @@ import { opShot } from './fx/speeds.js'; // 2026-10-21: a skill's own shot recor
 import { boomerangThrown, boomerangCaught } from './heldWheel.js'; // local patch: a 回环射手's boomerang leaves / is back in her hand
 import { PROJ } from './style.js';
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2: when her model is back home
-import { faceSwitchCopy, faceTurn, followDir, playSpeed } from './fx/face.js'; // 2026-10-11 (maintainer decision 15): `_usePlaybackSpeed` / `_limitedPlaybackSpeed`; 2026-10-22 FollowDirection, SwitchableEffectByFaceDirection
+import { bodyTurn, faceSwitchCopy, faceTurn, followDir, playSpeed } from './fx/face.js'; // 2026-10-11 (maintainer decision 15): `_usePlaybackSpeed` / `_limitedPlaybackSpeed`; 2026-10-22 FollowDirection, SwitchableEffectByFaceDirection; 2026-10-27 a projectile body's turn
 import { kitOfficialPlan, kitOperator } from './fx/kitofficial.js'; // 2026-10-16: kit events the buff templates draw
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
 import { enemyRecordMode } from '../../../shared/skill-modes.js'; // 2026-10-23: an ally from an enemy record (炎佑)
@@ -1875,7 +1875,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const z = rec.z0 + (rec.tz - rec.z0) * k + (rec.arc ? rec.arc * 4 * k * (1 - k) : 0);
     if (!rec.inst) return;
     rec.inst.object.position.set(x, y, z);
-    rec.inst.object.rotation.set(0, 0, Math.atan2(rec.ty - rec.y0, rec.tx - rec.x0));
+    bodyTurn(rec.inst, mod.THREE, Math.atan2(rec.ty - rec.y0, rec.tx - rec.x0));
   }
   /**
    * 2026-10-11 (user report: 언더플로우's and 애쉬락's projectiles disappear late): a projectile's `_mainEffect` ends as its
@@ -1901,7 +1901,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const home = !!rec.src && rec.src.alive !== false && !rec.src.remove;
         rec.k = Math.max(0, rec.k - g / rec.back);
         placeTrail(rec);
-        rec.inst?.object.rotation.set(0, 0, Math.atan2(rec.y0 - rec.ty, rec.x0 - rec.tx));
+        bodyTurn(rec.inst, mod.THREE, Math.atan2(rec.y0 - rec.ty, rec.x0 - rec.tx));
         if (rec.k <= 0 || !home) { rec.inst?.stop(true); trails.splice(i, 1); boomerangCaught(rec.src); }
         continue;
       }
@@ -2465,7 +2465,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (trail) {
           const z0 = src?.z || 0;   // both ends drawn over their points (fx/camera.js liftX)
           spawn(b.bundle, trail, glider(liftX(camRef, x, y, z0, z0 + z), y, liftX(camRef, tx, ty, z0, z0 + z), ty, dur, z0 + z), { owner: null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur })
-            .then((l) => { if (l) l.inst.object.rotation.set(0, 0, Math.atan2(ty - y, tx - x)); });
+            .then((l) => { if (l) bodyTurn(l.inst, mod.THREE, Math.atan2(ty - y, tx - x)); });
         }
         return true;
       }
@@ -2616,7 +2616,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         flight = Math.max(flight, dur);
         const z0 = op.z || 0;   // both ends drawn over their points (fx/camera.js liftX)
         spawn(pb.bundle, name, glider(liftX(camRef, op.x, op.y, z0, z0 + z), op.y, liftX(camRef, x, y, z0, z0 + z), y, dur, z0 + z), { owner: null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur })
-          .then((l) => { if (l) l.inst.object.rotation.set(0, 0, Math.atan2(y - op.y, x - op.x)); });
+          .then((l) => { if (l) bodyTurn(l.inst, mod.THREE, Math.atan2(y - op.y, x - op.x)); });
         n++;
         continue;
       }
@@ -2942,7 +2942,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const trail = !x.attach && (x.trail || []).find(has);
       if (trail) {
         spawn(b.bundle, trail, glider(from.x, from.y, to.x, to.y, dur, from.z), { owner: null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur })
-          .then((l) => { if (l) l.inst.object.rotation.set(0, 0, Math.atan2(to.y - from.y, to.x - from.x)); });
+          .then((l) => { if (l) bodyTurn(l.inst, mod.THREE, Math.atan2(to.y - from.y, to.x - from.x)); });
       }
       const groups = (src._fxSkillFlags?.has('overDrones') && x.overSeq) || x.seq;
       const g = groups ? (rec?.seq.get(j) ?? 0) % groups.length : 0;

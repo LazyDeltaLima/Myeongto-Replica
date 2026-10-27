@@ -1279,6 +1279,7 @@ class Extractor:
         off = self.off_on_finish(root, gos)
         if off:
             out_def['offFinish'] = off
+        out_def.update(self.projectile_turn(root, nodes[0].get('rot')))
         main = self.main_ps(root, [n['parent'] for n in nodes], [n['active'] for n in nodes], set(pss.values()),
                             [i for i, n in enumerate(nodes) if n.get('ps')])
         if main is not None:
@@ -2573,7 +2574,9 @@ class Extractor:
         if '_delayToFinish' not in t or '_inactiveOnFinish' not in t:
             return None
         return {'delayToFinish': float(t['_delayToFinish'] or 0),
-                'off': [int(p.get('m_PathID') or 0) for p in t['_inactiveOnFinish'] or [] if not p.get('m_FileID')]}
+                'off': [int(p.get('m_PathID') or 0) for p in t['_inactiveOnFinish'] or [] if not p.get('m_FileID')],
+                'reset': bool(t.get('_resetMainDir')), 'mainDir': int(t.get('_mainDir') or 0),
+                'rotate180Y': bool(t.get('_rotate180Y')), 'randomAngle': float(t.get('_randomAngle') or 0)}
 
     @staticmethod
     def projectile_raw(raw):
@@ -2600,7 +2603,31 @@ class Extractor:
         if not 0 <= a <= 256 or words < h + 1 or words != h + 1 + 3 * i(h):
             return None
         return {'delayToFinish': struct.unpack_from('<f', b, 4 * (s + 4))[0],
-                'off': [struct.unpack_from('<q', b, 4 * (s + 10 + 3 * k))[0] for k in range(a) if i(s + 9 + 3 * k) == 0]}
+                'off': [struct.unpack_from('<q', b, 4 * (s + 10 + 3 * k))[0] for k in range(a) if i(s + 9 + 3 * k) == 0],
+                'reset': bool(i(s) & 0xff), 'mainDir': i(s + 1), 'rotate180Y': bool(i(s + 2) & 0xff),
+                'randomAngle': struct.unpack_from('<f', b, 4 * (s + 3))[0]}
+
+    def projectile_turn(self, root, rot):
+        """(2026-10-27, effect bundle W2b, official client) how a ProjectileEffect root (projectile_effect) is turned on its
+        projectile's body each time it plays — `ProjectileEffect.OnBeforePlay`: with `_resetMainDir` and a `_mainDir` other
+        than UP its localRotation becomes Euler(0, `_rotate180Y` ? 180 : 0, `_mainDir` · 90) (its own rotation `rot` is
+        dropped; UP leaves it, 180Y included), then a `_randomAngle` ≠ 0 rolls it about its own x axis by
+        Random.Range(0, `_randomAngle`). The body's +y is the flight direction (`MapUtil.FaceTo2d` / `FaceTo3dUpwardMajor`).
+        {'mainRot': the Unity quaternion [x, y, z, w] on the body, 'roll': degrees (only ≠ 0)}, or {} for another root."""
+        pj = self.projectile_effect(root)
+        if pj is None:
+            return {}
+        if pj['reset'] and pj['mainDir'] != 0:
+            hy, hz = math.radians(180 if pj['rotate180Y'] else 0) / 2, math.radians(pj['mainDir'] * 90) / 2
+            sy, cy, sz, cz = math.sin(hy), math.cos(hy), math.sin(hz), math.cos(hz)
+            q = [sy * sz, sy * cz, cy * sz, cy * cz]   # Unity Euler order: qY · qX · qZ
+        else:
+            q = list(rot or [0, 0, 0, 1])
+        out = {'mainRot': [r4(v) + 0.0 for v in q]}
+        a = pj['randomAngle']
+        if math.isfinite(a) and abs(a) > 1e-6:
+            out['roll'] = r4(a)
+        return out
 
     def off_on_finish(self, root, gos):
         """(2026-10-11) the node indices of the ProjectileEffect's `_inactiveOnFinish` (projectile_effect; `gos`: GameObject /
