@@ -2292,6 +2292,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     obj.quaternion.setFromRotationMatrix(m);
   }
   const lemMarks = new Map();   // 蕾缪安 id → [[live entries of one lock's beam / reticle / mark]], in lock order (its shells land in that order)
+  const lemMarkFx = new Map();  // target id → { n: locks holding it, l: its live crosshair_02 } — the one mark of a locked target
   // ---- 2026-10-11: the 선발 picks only the CN client has — 凯尔希·思衡托 (kalts2), 克莱门莎 (clemnt), 予愿安洁莉娜 (aglna2): their kit
   // events drawn with their official prefabs. Which prefab plays at which moment is read from the CN client's
   // battle/prefabs/[uc]projectiles.ab (`_mainEffect` / `_effectsWhenReached` / `_effectsToTargetWhenStart`) and its buff templates
@@ -3168,6 +3169,33 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const from = tgt && shotFrom(src);
       for (const n of ['lemuen_skill_03_crosshair_01', 'lemuen_skill_03_trail_01', 'lemuen_skill_03_crosshair_range', 'lemuen_skill_03_crosshair_02']) {
         const aimFx = n.endsWith('crosshair_range');
+        // 2026-10-27 (maintainer report, video: a target locked again kept a brighter glow): the mark is the effect of buff
+        // lemuen_proj_s3_effect (`overrideEffectKey`), which every lock puts on its target — one per name per unit (client
+        // `Entity.AddBuffEffect` ref count), ended as the last of those buffs ends; a copy per lock stacked its `glow add`
+        // (additive, one particle living 5 s) once per lock
+        if (n.endsWith('crosshair_02') && tgt) {
+          let s = lemMarkFx.get(o.id);
+          if (!s || s.l?.inst.stopping) {
+            const own = s = { n: 0, l: null };
+            lemMarkFx.set(o.id, own);
+            spawn(bundleOf(src).bundle, n, tgt, { owner: o.id, buff: true, on: o.id, until: clockS + 30 }).then((l) => {
+              if (!l) return;
+              own.l = l;
+              if (!own.n) l.inst.stop();
+            });
+          }
+          const held = s;
+          held.n++;
+          let out = false;
+          mark.push({ inst: { stop(now) {
+            if (out) return;
+            out = true;
+            if (--held.n > 0) return;
+            if (lemMarkFx.get(o.id) === held) lemMarkFx.delete(o.id);
+            held.l?.inst.stop(now);
+          } } });
+          continue;
+        }
         spawn(bundleOf(src).bundle, n, (aimFx ? ground : tgt) || { x, y, z: 0 }, { owner: o.id, buff: true, on: o.id, until: clockS + 30, skyward: n.endsWith('trail_01') }).then((l) => {
           if (!l) return;
           if (aimFx && from) upwardMajor(l.inst.object, ground.x - from.x, ground.y - from.y, ground.z - from.z);
@@ -5214,7 +5242,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       stormGen++;
       for (const l of live) dropLive(l);
       live.length = 0;
-      lastAtk.clear(); healAtk.clear(); aimed.clear(); chainLines.clear(); strikes.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear(); packs.clear(); lemMarks.clear();
+      lastAtk.clear(); healAtk.clear(); aimed.clear(); chainLines.clear(); strikes.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear(); packs.clear(); lemMarks.clear(); lemMarkFx.clear();
       for (const r of trails) if (r.back) boomerangCaught(r.src); // local patch: back in hand for the next battle
       trails.length = 0; pending.length = 0; // local patch
       castsDelayed.length = 0; zones.clear(); eborn.clear(); eskillSeen.clear(); elines.clear(); ebreath.clear(); eshotLand.clear(); emortars.length = 0;

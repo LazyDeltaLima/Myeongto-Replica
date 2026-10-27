@@ -197,6 +197,10 @@
     이펙트 공간에 그대로 그림 [추정]. 클립의 텍스처 ST(`_MainTex_ST` 등, 흐르는 점선)도 바인딩. 21개 프리팹.
   - **르무엔 S3**: 'lock'마다 대상에 `trail_01`(하늘에서 내려오는 붉은 빔 4겹) + `crosshair_range`(수축하는 조준 원, 조준 투사체 `_mainEffect`) +
     `crosshair_02`(표식) — 그 대상 포탄이 떨어질 때 즉시 지움(긴 수명 입자 남던 것) + `crosshair_01`(buff lemuen_proj_s3_effect의 한 번 섬광).
+    표식은 대상마다 하나(2026-10-27, 공식 클라에서 확인): 조준 투사체 끝 버프 `lemuen_proj_s3_effect`(`disableOverride` — 잠금마다 따로)의
+    `overrideEffectKey`라 버프 이펙트 규칙(`Entity.AddBuffEffect`, 이름당 하나·참조 수)을 따른다 — 같은 대상을 다시 잠그면 새로 붙이지 않고 그 대상의
+    마지막 잠금 포탄 때 지움(`fxgame.js lemMarkFx`; 관리자 제보 2026-10-27 영상: 잠금마다 붙여 계속 켜진 가산 광원 `glow add`가 겹쳐 밝고 오래 남음).
+    섬광·빔·조준 원은 잠금마다 하나(CreateEffect·투사체 이펙트).
     S3 도중 쓰러짐·강제 퇴각('die')이면 포탄이 안 오므로(킷 onEnd 'death') 그때 그의 표식 전부를 지움(관리자 제보 2026-10-10: 대상이 죽거나 30초까지
     남았음) [추정: 조준 투사체는 그의 관리 투사체(FinishManagedProjectiles)라 시전자와 함께 끝남]. 2D 대체 조준 원(`fx/locks.js`)은 원래 그렇게 함.
     재능 通缉 'lemuen:wanted' → 상태 이펙트 `lemuen_talent_buff_01`(char_lemuen_range_aim[effect], 머리 — 프리팹 `_spawnLocation` 4, 공식 클라에서 확인).
