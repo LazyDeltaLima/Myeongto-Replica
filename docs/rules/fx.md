@@ -169,8 +169,8 @@
     `_directionType`의 방향별 사본(위·아래 배치)은 아직 기본 사본만 [남음].
   - **키트 이벤트** (`fxgame.js kitFx`): 余 S3 'firewall' → 벽이 지나는 줄(`fx.js wallTiles`, `app.js` `fieldRect` 옵션 1줄)의 칸마다
     `_root` + 앞 모서리 조각(2026-10-10 공식 클라대로 배치 — 아래 「위 S3 화염벽 배치」), 스킬이 끝나면 멈춤;
-    'firewallBlock' → `yu_skill3_annex_01`. 르무엔 S3(S3 장착일 때만 — S2 조준도 같은 'lock') 'lock' → 대상에 `crosshair_02`(그 대상의 포탄이 떨어질 때까지,
-    잠금 순서 = 착탄 순서), 'bombardShell' → `trail_02`를 착탄 지점(바닥)에 돌리지 않고 그대로 틂 — 떨어지는 모양은 프리팹 자체 클립(`pos` 노드 y 7.27 → 0.31, 0.27초,
+    'firewallBlock' → `yu_skill3_annex_01`. 르무엔 S3(S3 장착일 때만 — S2 조준도 같은 'lock') 'lock' → 대상에 `crosshair_02`(잠금이 끝나 첫 포탄이 뜰 때까지 — 아래 「르무엔 S3」;
+    빔·조준 원은 그 대상의 포탄까지, 잠금 순서 = 착탄 순서), 'bombardShell' → `trail_02`를 착탄 지점(바닥)에 돌리지 않고 그대로 틂 — 떨어지는 모양은 프리팹 자체 클립(`pos` 노드 y 7.27 → 0.31, 0.27초,
     `static_offset` X −30° 안이라 30° 카메라에서 화면 수직)이고, 공식 포탄 투사체도 이동 없이 `_lifeTime 0.25` 뒤 도착하는 정지 투사체다
     (관리자 제보 2026-10-22: 예전 「3칸 위에서 수직 낙하」는 루트를 90° 돌린 채 클립의 낙하와 겹쳐 45°로 비스듬히 날아왔음), 'bombard' → `hit_01`. 셋 다
     `ownFx`라 `fx.js` 2D 대역(빨간 조준 원·주황 폭발)은 안 그린다.
@@ -196,13 +196,15 @@
     (Stretch / Tile = 거리 / 구간별)로 시선 정렬 띠. Unity처럼 효과가 끝날 때까지(stop) 남는다. 월드 좌표 선(스크립트가 점을 정함, 르무엔 S2 등)은
     이펙트 공간에 그대로 그림 [추정]. 클립의 텍스처 ST(`_MainTex_ST` 등, 흐르는 점선)도 바인딩. 21개 프리팹.
   - **르무엔 S3**: 'lock'마다 대상에 `trail_01`(하늘에서 내려오는 붉은 빔 4겹) + `crosshair_range`(수축하는 조준 원, 조준 투사체 `_mainEffect`) +
-    `crosshair_02`(표식) — 그 대상 포탄이 떨어질 때 즉시 지움(긴 수명 입자 남던 것) + `crosshair_01`(buff lemuen_proj_s3_effect의 한 번 섬광).
+    `crosshair_02`(표식) + `crosshair_01`(buff lemuen_proj_s3_effect의 한 번 섬광). 빔·조준 원은 그 대상 포탄이 떨어질 때 즉시 지움.
+    표식은 잠금 단계가 끝날 때(첫 포탄이 뜰 때) 끝난다(2026-10-27, 관리자 제보·공식 녹화: 폭격이 시작되면 쐐기가 사라지고 빔·붉은 빛은
+    그 대상 포탄까지 남음): 버프 `lemuen_proj_s3_effect`는 스킬 버프 `lemuen_s_3`에서 갈라진 버프(`AttachAsDerivedBuffById`, 부모와 함께 끝남)라
+    버프 이펙트 끝(`Effect.FinishMe`)대로 첫 계(`fixed` 아래 전부)가 멈추고 `_delayToFinish` 0.5초 뒤 사라짐(`fxgame.js endLemMark`).
     표식은 대상마다 하나(2026-10-27, 공식 클라에서 확인): 조준 투사체 끝 버프 `lemuen_proj_s3_effect`(`disableOverride` — 잠금마다 따로)의
-    `overrideEffectKey`라 버프 이펙트 규칙(`Entity.AddBuffEffect`, 이름당 하나·참조 수)을 따른다 — 같은 대상을 다시 잠그면 새로 붙이지 않고 그 대상의
-    마지막 잠금 포탄 때 지움(`fxgame.js lemMarkFx`; 관리자 제보 2026-10-27 영상: 잠금마다 붙여 계속 켜진 가산 광원 `glow add`가 겹쳐 밝고 오래 남음).
-    섬광·빔·조준 원은 잠금마다 하나(CreateEffect·투사체 이펙트). 「포탄 때까지」는 공식 녹화로 확인(2026-10-27 재대조: 다른 대상 포탄이 떨어진 뒤에도
-    빛·빔이 그 대상 포탄까지 남고, 두 번 잠근 대상은 두 번째 포탄까지) — 버프 사슬(`AttachAsDerivedBuffById` → 스킬 버프 `lemuen_s_3`)만 읽으면
-    스킬 끝(폭격 시작)에 함께 끝나는 듯 보이지만 녹화가 다르다(스킬 버프가 폭격 동안 남는 것으로 보임, 클라 경로 미조사).
+    `overrideEffectKey`라 버프 이펙트 규칙(`Entity.AddBuffEffect`, 이름당 하나·참조 수)을 따른다 — 같은 대상을 다시 잠그면 새로 붙이지 않음
+    (`fxgame.js lemMarkFx`; 관리자 제보 2026-10-27 영상: 잠금마다 붙여 계속 켜진 가산 광원 `glow add`가 겹쳐 밝고 오래 남음).
+    섬광·빔·조준 원은 잠금마다 하나(CreateEffect·투사체 이펙트). 빔·조준 원의 「포탄 때까지」는 공식 녹화로 확인(2026-10-27 재대조: 다른 대상 포탄이
+    떨어진 뒤에도 빔·붉은 빛이 그 대상 포탄까지 남고, 두 번 잠근 대상은 두 번째 포탄까지; 표식 쐐기는 폭격 시작에 멈춤 — 버프 사슬대로).
     S3 도중 쓰러짐·강제 퇴각('die')이면 포탄이 안 오므로(킷 onEnd 'death') 그때 그의 표식 전부를 지움(관리자 제보 2026-10-10: 대상이 죽거나 30초까지
     남았음) [추정: 조준 투사체는 그의 관리 투사체(FinishManagedProjectiles)라 시전자와 함께 끝남]. 2D 대체 조준 원(`fx/locks.js`)은 원래 그렇게 함.
     재능 通缉 'lemuen:wanted' → 상태 이펙트 `lemuen_talent_buff_01`(char_lemuen_range_aim[effect], 머리 — 프리팹 `_spawnLocation` 4, 공식 클라에서 확인).

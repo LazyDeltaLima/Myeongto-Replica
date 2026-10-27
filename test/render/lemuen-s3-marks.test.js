@@ -55,7 +55,20 @@ test('a target locked again keeps its one mark until the shell of its last lock 
     land(); land(); land();   // 22's, then 21's other two
     lock(21); lock(22);
     assert.deepEqual(marks(), [21, 22], 'every lock of both has landed: new marks');
+    // her lock phase ends with her first shell: the marks' buff ends then, though their beams wait for their shells
+    layer.onEvent(['fx', 'bombardShell', 4, 3, { x: 4, y: 3, id: 1, r: 1, t: 0.3, i: 0 }], views);
+    lock(21);
+    assert.deepEqual(marks(), [21], 'the ended mark of 21 is not held on by a later lock');
   } finally { globalThis.fetch = fetch0; }
+});
+
+// 2026-10-27 (maintainer report, official recording: the wedges stop as the shelling starts, the beams stay): the mark's
+// buff is derived from her skill buff, so it ends with the lock phase (her first shell), as the client ends a buff's effect
+test("the marks end with her first shell, the client's end of a buff effect", () => {
+  const shell = SRC.slice(SRC.indexOf("if (e[1] === 'bombardShell' || e[1] === 'bombard') {"), SRC.indexOf("// 戴菲恩 S3 (skchr_blkkgt_3)"));
+  assert.match(shell, /if \(!o\.i\) for \(const s of lemMarkFx\.values\(\)\) if \(s\.src === o\.id && !s\.ended\) \{ s\.ended = true; endLemMark\(s\); \}/);
+  const end = SRC.slice(SRC.indexOf('function endLemMark(s) {'), SRC.indexOf('function endLemMark(s) {') + 300);
+  assert.match(end, /s\.l\.inst\.finish\(\);\s*s\.l\.finishAt = clockS \+ \(fin > 0 \? fin : 0\);/);
 });
 
 test('the mark is turned 45° in its own plane (official recordings: big wedges X, small +)', () => {

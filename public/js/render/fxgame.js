@@ -2292,7 +2292,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     obj.quaternion.setFromRotationMatrix(m);
   }
   const lemMarks = new Map();   // 蕾缪安 id → [[live entries of one lock's beam / reticle / mark]], in lock order (its shells land in that order)
-  const lemMarkFx = new Map();  // target id → { n: locks holding it, l: its live crosshair_02 } — the one mark of a locked target
+  const lemMarkFx = new Map();  // target id → { n: locks holding it, l: its live crosshair_02, src, ended } — the one mark of a locked target
+  // its buff ended (the lock phase is over): its systems stop, gone its prefab's `_delayToFinish` later (stopBuffs' end)
+  function endLemMark(s) {
+    if (!s.l || s.l.inst.stopping) return;
+    const fin = Number(s.l.inst.def?.finish);
+    s.l.inst.finish();
+    s.l.finishAt = clockS + (fin > 0 ? fin : 0);
+  }
   // ---- 2026-10-11: the 선발 picks only the CN client has — 凯尔希·思衡托 (kalts2), 克莱门莎 (clemnt), 予愿安洁莉娜 (aglna2): their kit
   // events drawn with their official prefabs. Which prefab plays at which moment is read from the CN client's
   // battle/prefabs/[uc]projectiles.ab (`_mainEffect` / `_effectsWhenReached` / `_effectsToTargetWhenStart`) and its buff templates
@@ -3145,7 +3152,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       return true;
     }
     // 蕾缪安 S3 ([uc]projectiles.ab projectile_chr_lemuen_s3_aim / _s3_attack): the lock leaves crosshair_02 on the target
-    // (its _extraBuffsInTheEnd) until that target's shell lands; each shell (_mainEffect trail_02, played on its point — the
+    // (its _extraBuffsInTheEnd) until her lock phase ends (her first shell); each shell (_mainEffect trail_02, played on its point — the
     // prefab falls by itself) ends at the sim's flight time and explodes (_effectsWhenReached hit_01). Her S2 aim (the same 'lock') keeps fx.js's reticle.
     if (e[1] === 'lock') {
       const src = views.get(o.src);
@@ -3154,9 +3161,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const tgt = views.get(o.id);
       // local patch (maintainer report 2026-10-07, video: each locked enemy keeps a red beam and a shrinking reticle until its shell
       // lands): the aim projectile's _effectsToTargetWhenStart trail_01 (LineRenderer beams) and its _mainEffect
-      // crosshair_range, on the target with the lock mark — all three stay until that target's shell (official recording,
-      // re-checked 2026-10-27: a target's glow and beam outlast the other targets' shells, one locked twice keeps them until
-      // its second shell)
+      // crosshair_range, on the target with the lock mark — the beam and the ring stay until that target's shell (official
+      // recording, re-checked 2026-10-27: a target's beam and its red glow outlast the other targets' shells, one locked twice
+      // keeps them until its second shell); the mark ends earlier, with the lock phase (endLemMark)
       const mark = [];
       const list = lemMarks.get(o.src) || []; list.push(mark); lemMarks.set(o.src, list);
       // the lock's flash: buff lemuen_proj_s3_effect CreateEffect crosshair_01 on the target — that buff lives with the aim
@@ -3177,8 +3184,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         // (additive, one particle living 5 s) once per lock
         if (n.endsWith('crosshair_02') && tgt) {
           let s = lemMarkFx.get(o.id);
-          if (!s || s.l?.inst.stopping) {
-            const own = s = { n: 0, l: null };
+          if (!s || s.ended || s.l?.inst.stopping) {
+            const own = s = { n: 0, l: null, src: o.src, ended: false };
             lemMarkFx.set(o.id, own);
             spawn(bundleOf(src).bundle, n, tgt, { owner: o.id, buff: true, on: o.id, until: clockS + 30 }).then((l) => {
               if (!l) return;
@@ -3189,6 +3196,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
               l.inst.nodes[0]?.rotateZ(Math.PI / 4);
               own.l = l;
               if (!own.n) l.inst.stop();
+              else if (own.ended) endLemMark(own);
             });
           }
           const held = s;
@@ -3223,6 +3231,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         spawn(bundleOf(src).bundle, 'lemuen_skill_03_hit_01', { x, y, z: 0 }, { owner: null, buff: false });
         return true;
       }
+      // 2026-10-27 (maintainer report, official recording: the wedges stop once the shelling starts, the beams stay): the
+      // mark's buff lemuen_proj_s3_effect is derived from her skill buff lemuen_s_3 (`AttachAsDerivedBuffById`, ended with
+      // its parent), so it ends with the lock phase — her first shell — as the client ends a buff's effect (Effect.FinishMe)
+      if (!o.i) for (const s of lemMarkFx.values()) if (s.src === o.id && !s.ended) { s.ended = true; endLemMark(s); }
       const dur = Math.max(0.05, Number(o.t) || 0.5);
       const rec = { inst: null, tgt: null, x0: x, y0: y, tx: x, ty: y, k: 0, dur, arc: 0, still: true };
       trails.push(rec);
