@@ -282,7 +282,7 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
   attribute vec4 iUV; attribute vec3 iVel;
   attribute vec4 vcol; uniform bool uVCol; uniform bool uRim;
   uniform int uMode; uniform float uLengthScale; uniform float uVelScale; uniform int uAlign; uniform vec3 uPivot;
-  uniform bool uFree; uniform vec3 uUX; uniform float uHand; uniform float uWSign;
+  uniform bool uFree; uniform bool uRotW; uniform vec3 uUX; uniform float uHand; uniform float uWSign;
   varying vec2 vUv; varying vec4 vColor; varying vec4 vC1; varying vec4 vC2;
   // local patch: vH = the board height (scene z) of the fragment — what lies under the floor is cut (FRAG uFloor; the
   // official map's opaque ground hides it by depth); vN / vVP = view-space normal / position of a mesh (the Rim shaders)
@@ -336,14 +336,25 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       // local patch (maintainer video 2026-10-07, 锏 S3: long thin slash lines): the length is the size's y × lengthScale, the
       // width its x (3D start size 0.15 × 3.6 drew short fat petals the other way round) — the official engine's too
       if (uFree) {
-        // freeform stretching (m_FreeformStretching, 30 systems): along the screen-plane velocity, centred on the particle,
-        // never thin [추정·미조사: the engine's freeform quad (camera-position facing, the particle's rotation and
-        // rotateWithStretchDirection skew it) is not read in full — rules/fx.md 「그리기 순서·시트」]
-        vec2 d = length(vv.xy) > 1e-5 ? normalize(vv.xy) : vec2(1.0, 0.0);
-        float len = iSize.y * uLengthScale + length(iVel) * uVelScale;
-        vec2 off = d * ((position.x - uPivot.y) * len) + vec2(-d.y, d.x) * ((position.y + uPivot.x) * iSize.x);
-        vH = (modelMatrix * vec4(iPos, 1.0)).z + hOfView(vec3(off, 0.0));
-        gl_Position = projectionMatrix * vec4(cv.xyz + vec3(off, 0.0), 1.0);
+        // (2026-10-27, effect bundle X2, official engine: the freeform quad of the geometry job) freeform stretching
+        // (m_FreeformStretching): the quad facing the camera's position (as Facing), turned by -rotation — and with
+        // rotateWithStretchDirection (uRotW) by atan2(-d.y, -d.x) more, d its frame's part of the velocity, so its x runs
+        // against the screen velocity — then drawn out by lengthScale + |v| × velocityScale along the 3D velocity; head-on it
+        // keeps its plain size. No velocity (or, turning, none across the view) draws nothing, as the engine's
+        vec3 f = normalize(-cv.xyz);
+        vec3 rt = cross(vec3(0.0, 1.0, 0.0), f);
+        rt = length(rt) > 1e-4 ? normalize(rt) : vec3(1.0, 0.0, 0.0);
+        vec3 ut = cross(f, rt);
+        vec2 d = vec2(dot(vv, rt), dot(vv, ut));
+        float vl = dot(vv, vv);
+        if (vl < 1e-30 || (uRotW && dot(d, d) < 1e-30)) { vH = 0.0; gl_Position = projectionMatrix * cv; return; }
+        float a = -iRot.z + (uRotW ? atan(-d.y, -d.x) : 0.0);
+        vec2 q = vec2(c.x * cos(a) - c.y * sin(a), c.x * sin(a) + c.y * cos(a));
+        vec3 vh = vv * inversesqrt(vl);
+        vec3 off = rt * q.x + ut * q.y;
+        off += (uLengthScale + sqrt(vl) * uVelScale - 1.0) * dot(off, vh) * vh;
+        vH = (modelMatrix * vec4(iPos, 1.0)).z + hOfView(off);
+        gl_Position = projectionMatrix * vec4(cv.xyz + off, 1.0);
         return;
       }
       // (2026-10-27, official engine: the stretched quad of the geometry job) in 3D from the head H = particle + v̂ · pivot y ×
@@ -366,14 +377,17 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       // (2026-10-27, official engine: the Velocity quad of the geometry job) the quad's normal is the velocity; its x axis
       // normalize(M · (z × v̂)) with z the simulation space's (the output's x when the velocity runs along z or is zero, v̂
       // then z), its y axis normal × x — taken in the Unity frame: uHand = this scene's handedness against it, uWSign =
-      // the mirror a world-space system's particles carry here and the engine's do not (FxInstance facing)
+      // the mirror a world-space system's particles carry here and the engine's do not (FxInstance facing). A 3D rotation
+      // turns the corner in that frame by -x, -y, -z in Unity's Z-X-Y order (the engine's 3D-rotation quad), so rotX 90°
+      // lays the quad along the velocity: 蕾缪安 S3's mark wedges (crosshair_02 triangle *) face the camera, flying inward
       mat3 m3 = mat3(modelMatrix);
       float vl = dot(iVel, iVel);
       vec3 vh = vl > 1e-30 ? iVel * inversesqrt(vl) : vec3(0.0, 0.0, 1.0);
       vec3 nw = normalize(m3 * vh);
       vec3 w = m3 * vec3(-vh.y, vh.x, 0.0) * uWSign;
       vec3 rt = dot(w, w) > 1e-30 ? normalize(w) : uUX;
-      vec3 wp = (modelMatrix * vec4(iPos, 1.0)).xyz + rt * rc.x + cross(nw, rt) * (uHand * rc.y);
+      vec3 lc = rotZXY(-iRot) * vec3(c, 0.0);
+      vec3 wp = (modelMatrix * vec4(iPos, 1.0)).xyz + rt * lc.x + cross(nw, rt) * (uHand * lc.y) + nw * lc.z;
       vH = wp.z;
       gl_Position = projectionMatrix * viewMatrix * vec4(wp, 1.0);
       return;
@@ -674,7 +688,7 @@ function makeMaterial(m, lib) {
       uTime: { value: 0 }, uAdditive: { value: additive },
       uUVRot: { value: false }, uRot: { value: [0, 1, 2, 3].map(() => new THREE.Vector4(1, 0, 0, 1)) },   // uvRotation
       uMode: { value: 0 }, uLengthScale: { value: 2 }, uVelScale: { value: 0 }, uAlign: { value: 0 }, uPivot: { value: new THREE.Vector3() },
-      uFree: { value: false }, uUX: { value: new THREE.Vector3(1, 0, 0) }, uHand: { value: -1 }, uWSign: { value: 1 },
+      uFree: { value: false }, uRotW: { value: false }, uUX: { value: new THREE.Vector3(1, 0, 0) }, uHand: { value: -1 }, uWSign: { value: 1 },
     },
   });
   mat.userData.order = m?.queue ?? 3000;
@@ -1276,6 +1290,7 @@ class ParticleSystem {
     mat.uniforms.uVelScale.value = ps.render.velScale ?? 0;
     mat.uniforms.uAlign.value = ps.render.mode === 0 || ps.render.align < 3 ? ps.render.align ?? 0 : 0;   // Facing, Velocity: billboards only
     mat.uniforms.uFree.value = !!ps.render.free;
+    mat.uniforms.uRotW.value = !!ps.render.rotw;
     this.velAlign = ps.render.mode === 0 && ps.render.align === 4;
     if (opts.pivot && Array.isArray(ps.render.pivot)) mat.uniforms.uPivot.value.set(+ps.render.pivot[0] || 0, +ps.render.pivot[1] || 0, +ps.render.pivot[2] || 0); // local patch (FxInstance opts.pivot, default on)
     if (geomSrc !== QUAD) { useMeshAttrs(g, geomSrc, mat); meshSide(mat); } // local patch

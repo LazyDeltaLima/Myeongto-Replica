@@ -324,7 +324,7 @@ PS_FIELDS = {
     'renderer.m_CameraVelocityScale': _A(0, 'a stretch by the camera\'s motion'),
     # (2026-10-27) carried; the player keeps its screen-plane quad for it [ASSUMED: the engine's freeform quad is not read in full]
     'renderer.m_FreeformStretching': _K('render.free', lambda ps, r: r.get('m_RenderMode') == 1),
-    'renderer.m_RotateWithStretchDirection': _N('only with m_FreeformStretching (its quad: see that field)'),
+    'renderer.m_RotateWithStretchDirection': _K('render.rotw', lambda ps, r: r.get('m_RenderMode') == 1 and r.get('m_FreeformStretching')),
     'renderer.m_AllowRoll': _N('billboards that do not roll with the camera: the board\'s camera does not roll'),
     'renderer.m_NormalDirection': _N('billboard normals for lit materials: the effects are unlit'),
     'renderer.m_Pivot.x': _K('render.pivot'), 'renderer.m_Pivot.y': _K('render.pivot'), 'renderer.m_Pivot.z': _K('render.pivot'),

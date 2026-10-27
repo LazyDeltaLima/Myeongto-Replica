@@ -468,9 +468,12 @@ def particle_system(ps, psr, mat_key, mesh_key, trail_mat=None, shape_mesh=None,
         r['sortMode'] = psr['m_SortMode']
     if more_meshes:
         r['meshes'] = more_meshes
-    # (2026-10-27) a stretched renderer's freeform stretching (the engine builds that quad another way)
+    # (2026-10-27) a stretched renderer's freeform stretching (the engine builds that quad another way) and, with it, whether
+    # the quad turns toward its stretch (effect bundle X2)
     if psr.get('m_RenderMode') == 1 and psr.get('m_FreeformStretching'):
         r['free'] = 1
+        if psr.get('m_RotateWithStretchDirection'):
+            r['rotw'] = 1
     fl = vec3(psr['m_Flip']) if isinstance(psr.get('m_Flip'), dict) else [0, 0, 0]
     if any(fl):
         r['flip'] = fl

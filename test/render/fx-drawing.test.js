@@ -143,12 +143,18 @@ test('the quads take velocity + animated velocity (the engine gathers both): Vel
 });
 
 test('freeform stretching and Velocity alignment reach the shader; the Velocity frame follows the scene\'s handedness and facing', async () => {
-  const { inst } = await make([node('t', -1), node('f', 0, { ps: ps({}, { render: { mode: 1, free: 1 } }) }),
+  const { inst } = await make([node('t', -1), node('f', 0, { ps: ps({}, { render: { mode: 1, free: 1, rotw: 1 } }) }),
     node('s', 0, { ps: ps({}, { render: { mode: 1 } }) }), node('v', 0, { ps: ps({}, { render: { mode: 0, align: 4 }, space: 1 }) })]);
   inst.update(0.02);
   const [f, s, v] = inst.systems, u = v.material.uniforms;
   assert.equal(f.material.uniforms.uFree.value, true);
   assert.equal(s.material.uniforms.uFree.value, false);
+  assert.equal(f.material.uniforms.uRotW.value, true, 'rotateWithStretchDirection (effect bundle X2)');
+  assert.equal(s.material.uniforms.uRotW.value, false);
+  // the engine's freeform quad: the camera-position-facing quad, turned (+ toward its stretch), drawn out along the 3D velocity
+  const fs = f.material.vertexShader;
+  assert.match(fs, /float a = -iRot\.z \+ \(uRotW \? atan\(-d\.y, -d\.x\) : 0\.0\);/);
+  assert.match(fs, /off \+= \(uLengthScale \+ sqrt\(vl\) \* uVelScale - 1\.0\) \* dot\(off, vh\) \* vh;/);
   assert.equal(u.uAlign.value, 4);
   assert.equal(u.uHand.value, -1, 'the Unity frame (z = −height) against the board: one flip');
   assert.deepEqual(u.uUX.value.toArray(), [1, 0, 0]);
@@ -164,6 +170,21 @@ test('freeform stretching and Velocity alignment reach the shader; the Velocity 
   left.update(0.02);
   assert.equal(left.systems[0].material.uniforms.uWSign.value, -1, 'facing left: a world-space system\'s particles carry the mirror');
   left.dispose();
+});
+
+test('a 3D-rotated Velocity quad turns by -x, -y, -z in the velocity frame (蕾缪安 S3 mark wedges: rotX 90° lays it along the velocity)', async () => {
+  const IV_ROT = 6;
+  const { inst } = await make([node('t', -1),
+    node('v', 0, { ps: ps({}, { n: 4, rotX: K(Math.PI / 2), rotY: K(0), render: { mode: 0, align: 4, pivot: [0, 0.33, 0] } }) })]);
+  inst.update(0.02);
+  const [v] = inst.systems;
+  assert.ok(rows(v, IV_ROT).every((x) => Math.abs(x - Math.PI / 2) < 1e-6), `iRot.x = rotX: ${rows(v, IV_ROT)}`);
+  // the engine's 3D-rotation quad, v = +x, rotX 90°: corners (−1,−1,0) (−1,1,0) (1,1,0) (1,−1,0) for the unit quad — the
+  // corner (x, y, 0) turned by Ry(−y)·Rx(−x)·Rz(−z) in the frame (right, up, normal = v̂)
+  const sh = v.material.vertexShader, at = sh.indexOf('uAlign == 4');
+  assert.ok(at > 0 && /vec3 lc = rotZXY\(-iRot\) \* vec3\(c, 0\.0\);/.test(sh.slice(at, at + 2000)), 'the Velocity branch turns the corner in 3D');
+  assert.match(sh.slice(at, at + 2000), /rt \* lc\.x \+ cross\(nw, rt\) \* \(uHand \* lc\.y\) \+ nw \* lc\.z/);
+  inst.dispose();
 });
 
 test('oldest in front: the engine key max(0, 100 − age fraction) × start lifetime puts the longer-lived behind', async () => {
