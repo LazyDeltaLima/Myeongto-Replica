@@ -13,7 +13,7 @@ const SRC = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
 const KIT = readFileSync(path.join(ROOT, 'server/sim/content/kits/ops/chess_char_6_01-lemuen.js'), 'utf8');
 
 test('the marks are owned by their targets, so only her own die can end them', () => {
-  assert.match(SRC, /spawn\(bundleOf\(src\)\.bundle, n, tgt \|\| \{ x, y, z: 0 \}, \{ owner: o\.id, buff: true, on: o\.id,/);
+  assert.match(SRC, /spawn\(bundleOf\(src\)\.bundle, n, \(aimFx \? ground : tgt\) \|\| \{ x, y, z: 0 \}, \{ owner: o\.id, buff: true, on: o\.id,/);
   // the kit sends no shells after a 'death' end
   assert.match(KIT, /if \(reason !== 'death' && unit\.alive\) bombard\(battle, unit, locks\);/);
 });

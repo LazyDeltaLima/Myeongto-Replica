@@ -84,5 +84,6 @@ test('stretched billboards and mesh particles take their renderer\'s pivot (uPiv
   const inst = await play([node('m', 0, ps)], { r: await rect() });
   assert.deepEqual(inst.systems[0].material.uniforms.uPivot.value.toArray().map((x) => +x.toFixed(4)), [0.2, 0.5, -0.3]);
   assert.match(PLAYER, /vec3 p = rm \* \(\(transformed \+ uPivot\) \* iSize\);/);
-  assert.match(PLAYER, /vec2 off = d \* \(\(position\.x - uPivot\.y\) \* len\) \+ vec2\(-d\.y, d\.x\) \* \(\(position\.y \+ uPivot\.x\) \* iSize\.x\);/);
+  // freeform (2026-10-27, the engine's freeform quad): the pivot moves the corner before the turn and the stretch, as a billboard's
+  assert.match(PLAYER, /vec2 c = \(position\.xy \+ uPivot\.xy\) \* iSize\.xy;/);
 });
