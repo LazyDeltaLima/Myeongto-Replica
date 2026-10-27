@@ -1122,6 +1122,7 @@ export async function createFieldView(host, options = {}) {
     if (stageRec?._wide) showStage();
     interp.reset();
     fx.clear(); fxGame.clear(); // local patch
+    fxGame.prewarm(); // 2026-10-27: the effect layer and its shaders ready before the battle (render/fxgame.js)
     battleCursors.clear();
     meleePending.clear();
     swingStrikes.clear();

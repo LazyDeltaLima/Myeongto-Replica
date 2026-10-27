@@ -457,12 +457,20 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
 - 원인: 이펙트는 끝날 때 재질을 dispose하고(`fxplayer.js FxInstance.dispose`), three.js는 마지막 재질이 사라진 프로그램(`WebGLPrograms.releaseProgram`)과
   셰이더 소스 항목(`WebGLShaderCache.remove` — 다음 재질은 새 id를 받아 프로그램 키가 바뀜)을 지운다. 그래서 화면에 이펙트가 없던 순간 다음의 이펙트는
   같은 이펙트 셰이더를 다시 컴파일·링크했다. Chrome은 GPU 프로세스의 프로그램 캐시로 거의 공짜지만 Firefox(ANGLE / D3D11)는 매번 100–300 ms.
-- 처리: `fxgame.js ensure` — 이펙트 재질 하나를 얹은 사각형(`fxplayer.js programHolder`)을 렌더러 2개가 `compile()`(링크만 걸어 둠, 기다리지 않음)하고
-  그 재질은 버리지 않음(소스 항목 id 유지); `keepPrograms` — 층이 쓴 프로그램마다 사용 횟수를 하나 더해 렌더러가 끝날 때까지 남김(면·스킨 변형은 첫 사용 때
-  한 번씩). 여섯 변형을 미리 다 컴파일하면(`compileAsync`든 `compile`이든) Firefox가 링크를 차례로 처리해 첫 이펙트가 1.2 s 멈췄다 → 하나만.
-- 확인: Windows Chrome·Firefox(puppeteer, 디버그 아레나에서 같은 이펙트 5번, 사이마다 층이 빔) `linkProgram` 횟수 — 고치기 전 매번 +5–10, Firefox
-  최악 프레임 125–131 ms / 고친 뒤 +0, 6–13 ms(이펙트 층을 처음 만드는 페이지 로드 한 번 306–338 ms, 고치기 전 154–156 ms).
-  [화면 미확인] 실제 판(Firefox, `?perf=1`)에서 `peak js`가 수십 ms 아래로 내려가는지.
+- 처리: `fxgame.js ensure` — 변형 목록(`fxplayer.js programVariants`)의 첫 장면(양면 사각형: 빌보드·꼬리·선)을 렌더러 2개가 `compile()`(링크만
+  걸어 둠, 기다리지 않음)하고 그 재질들은 버리지 않음(소스 항목 id 유지); `keepPrograms` — 층이 쓴 프로그램마다 사용 횟수를 하나 더해 렌더러가 끝날 때까지 남김.
+- 변형: three.js는 재질의 면(`meshSide`: 양면·앞면·뒷면)·스킨 메시(`SkinnedMesh`)·노멀 있는 지오메트리(Rim 셰이더 — `useMeshAttrs`, 정의 `HAS_NORMAL`)마다
+  프로그램을 따로 만든다 → 12개 × 렌더러 2. 추출된 이펙트 4,033개 중 스킨 메시 9(글래디아·호시구마·스즈란·미즈키·스카디·스카디 더 커럽팅 하트),
+  Rim 20, 한쪽 면 셰이더 22 — 나머지는 모두 양면 사각형. 처음 쓸 때마다 링크(Chrome 아레나 138–181 ms, 빈 캐시).
+- 준비 단계 미리 링크(`fxgame.js prewarm`, `app.js enterPrepMode`): 층을 준비 단계에서 만들고 나머지 22개를 0.4 s마다 하나씩 링크(`gl.flush()`로 바로
+  보냄). 전투 중 새 링크 0(Chrome·Firefox). **Firefox는 링크 하나가 곧 화면 한 번 멈춤**: WebGL을 한 스레드에서 처리해 판(Pixi·3D 보드)이 링크를 기다림 —
+  간격을 둬도 링크당 130–150 ms 프레임, `flush` 없이는 링크가 몰려 540 ms로 뭉침. 그래서 지금은 첫 준비 단계에서 약 9 s 동안 22번 끊김 → 배치한 기물이
+  쓰는 변형만 링크하도록 좁힐 일(§11 ③). 모두 미리 하면 첫 이펙트가 그 줄 끝까지 기다림(아레나 로드 1.2 s) — 준비 단계에 둔 까닭.
+- 셰이더 밖 비용: 스킨 메시 이펙트는 변형을 다 링크해 둬도 첫 그리기에 175–188 ms(렌더러마다 한 번, Firefox; Chrome 144–150) — CPU 프로파일엔 JS 원인
+  없음, [추정·미조사] 뼈 텍스처 첫 업로드·ANGLE 내부 준비(§11 ③).
+- 확인: Windows Chrome·Firefox(puppeteer, 디버그 아레나) `linkProgram` 횟수 — 고치기 전 같은 이펙트를 다시 틀 때마다 +5–10, Firefox 최악 프레임 125–131 ms /
+  고친 뒤 +0, 6–13 ms. 실제 판 확인 2026-10-27(관리자 로컬 Firefox 프로파일: 셰이더 대기가 30초에 8번 → 전투 진입 2번(166·157 ms), 그 뒤 없음; 진입 몫은
+  준비 단계 미리 링크 전).
 
 ## 블레이즈 디 이그나이팅 스파크(烛煌) S3 자세 (2026-10-10, 사용자 제보 「S3 켜진 동안 지금의 공격 모션을 계속 유지」)
 - 원인: S3 클립 묶음(Skill_3_Begin / Skill_3_Loop / Skill_3_End, 자기 Idle 없음)에서 렌더가 Skill_3_Loop을 공격 클립으로 써서 공격마다 처음부터

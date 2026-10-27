@@ -380,6 +380,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     loadEnemyModes().then((m) => { emodes = m && typeof m === 'object' ? m : null; });
   }
   let mod = null, loading = null, failed = false;
+  let variants = null, warmNext = 2, warmTimer = 0;   // 2026-10-27: the shader variants (ensure) and prewarm's next link
+  const WARM_GAP_MS = 400;
   let webp = null;   // the WebP probe's answer once known (the note layer decides synchronously)
   if (typeof Image !== 'undefined') webpOk().then((v) => { webp = v; });
   let camera = null, lib = null, size = null;
@@ -465,12 +467,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       size = new THREE.Vector2();
       lib = new fxp.FxLibrary('/assets/local/fx/');
       // 2026-10-27: the effect shader linked before the first effect (compile() only queues the link: the browser links it
-      // while the effect's file loads). Its material is never disposed: three.js also drops a shader's source entry with
-      // its last material, and the next material's new entry id made a new program key, a pinned program or not
+      // while the effect's file loads), its other variants by prewarm(). Their materials are never disposed: three.js also
+      // drops a shader's source entry with its last material, and the next material's new entry id made a new program key,
+      // a pinned program or not
       try {
-        const holder = fxp.programHolder();
-        for (const L of [layers.under, layers.over]) { L.renderer.compile(holder, camera); keepPrograms(L); }
-      } catch (err) { console.warn('[fx] shader precompile failed', err); }
+        variants = fxp.programVariants();
+        for (const L of [layers.under, layers.over]) { L.renderer.compile(variants[0], camera); keepPrograms(L); }
+      } catch (err) { variants = null; console.warn('[fx] shader precompile failed', err); }
       mod = { THREE, fxp };
     }).catch((err) => { failed = true; console.warn('[fx] official effects unavailable', err); });
     await loading;
@@ -5275,6 +5278,25 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       perf.calls = calls;
     },
 
+    /**
+     * 2026-10-27: make the layer during prep and link the effect shader's other variants (ensure links the first), one link
+     * every WARM_GAP_MS — a battle froze 0.14–0.18 s at the first effect of each (a skinned mesh, a one-sided mesh), and at
+     * its first effect of all when the layer was made there. Firefox links one at a time on its WebGL thread: spaced, and
+     * with no effect waiting for them, nothing waits.
+     */
+    prewarm() {
+      if (warmTimer) return;
+      const step = () => {
+        warmTimer = 0;
+        if (!mod || !variants || !layers.under || warmNext >= variants.length * 2) return;
+        const L = warmNext % 2 ? layers.over : layers.under;
+        try { L.renderer.compile(variants[warmNext >> 1], camera); L.renderer.getContext().flush(); keepPrograms(L); } catch (err) { console.warn('[fx] shader precompile failed', err); return; }
+        warmNext++;
+        warmTimer = setTimeout(step, WARM_GAP_MS);
+      };
+      warmTimer = setTimeout(() => { ensure().then((ok) => { if (ok) step(); else warmTimer = 0; }, () => { warmTimer = 0; }); }, WARM_GAP_MS);
+    },
+
     clear() {
       stormGen++;
       for (const l of live) dropLive(l);
@@ -5291,6 +5313,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
 
     destroy() {
       this.clear();
+      clearTimeout(warmTimer); warmTimer = 0;
       // local patch (maintainer request 2026-10-10, docs/rules/render.md 「이펙트 렌더러 정리」): free the textures, meshes
       // and occluders while the contexts still live, then end both contexts at once like the 3D board (scene.js destroy) —
       // renderer.dispose() alone left them, 45–170 MB of textures each match, to a GC that never came while anything held

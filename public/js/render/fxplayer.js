@@ -718,13 +718,31 @@ function meshSide(mat) {
 }
 
 /**
- * 2026-10-27: a scene of one effect material on a quad (the program billboards, trails and lines use) for a renderer to
- * compile before the first effect and never dispose (fxgame.js ensure, keepPrograms).
+ * 2026-10-27: the shader program variants an effect material compiles to — three.js keys a program by the material's side
+ * (meshSide), a skinned mesh and a geometry with normals (useMeshAttrs, the extracted meshes) — one scene each, the
+ * double-sided quad's (billboards, trails, lines) first, for a renderer to compile before the effects; their materials are
+ * never disposed (fxgame.js ensure / prewarm, keepPrograms).
  */
-export function programHolder() {
-  const scene = new THREE.Scene();
-  scene.add(new THREE.Mesh(QUAD, makeMaterial(null, null)));
-  return scene;
+export function programVariants() {
+  const withNormals = QUAD.clone();
+  withNormals.computeVertexNormals();
+  const out = [];
+  for (const geo of [QUAD, withNormals]) {
+    for (const side of [THREE.DoubleSide, THREE.FrontSide, THREE.BackSide]) {
+      const mat = makeMaterial(null, null);
+      mat.side = side;
+      const plain = new THREE.Scene();
+      plain.add(new THREE.Mesh(geo, mat));
+      const bone = new THREE.Bone();
+      const skinned = new THREE.SkinnedMesh(geo, mat);
+      skinned.add(bone);
+      skinned.bind(new THREE.Skeleton([bone]));
+      const withSkin = new THREE.Scene();
+      withSkin.add(skinned);
+      out.push(plain, withSkin);
+    }
+  }
+  return out;
 }
 
 /** 2026-10-14: the uniform holding a texture's tiling / offset, by the material's texture name. */
