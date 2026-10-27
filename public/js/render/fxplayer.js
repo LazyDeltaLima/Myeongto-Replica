@@ -718,31 +718,30 @@ function meshSide(mat) {
 }
 
 /**
- * 2026-10-27: the shader program variants an effect material compiles to — three.js keys a program by the material's side
- * (meshSide), a skinned mesh and a geometry with normals (useMeshAttrs, the extracted meshes) — one scene each, the
- * double-sided quad's (billboards, trails, lines) first, for a renderer to compile before the effects; their materials are
- * never disposed (fxgame.js ensure / prewarm, keepPrograms).
+ * 2026-10-27: the shader program variants the extracted effects use — three.js keys a program by the material's side
+ * (meshSide: its pass's `cull`), a skinned mesh and a geometry with normals (useMeshAttrs: a Rim material on a mesh). Of
+ * the 12 combinations only these occur (test/render/fx-program-variants.test.js walks every extracted prefab): the
+ * double-sided quad (billboards, trails, lines; first, ensure links it), a one-sided mesh either way, a double-sided
+ * skinned mesh and a Rim mesh culling its back.
  */
+export const PROGRAM_VARIANTS = [{ cull: 0 }, { cull: 2 }, { cull: 1 }, { cull: 0, skin: true }, { cull: 2, normals: true }];
+
+/** One scene per PROGRAM_VARIANTS entry, for a renderer to compile before the effects; their materials are never disposed (fxgame.js ensure / prewarm, keepPrograms). */
 export function programVariants() {
-  const withNormals = QUAD.clone();
-  withNormals.computeVertexNormals();
-  const out = [];
-  for (const geo of [QUAD, withNormals]) {
-    for (const side of [THREE.DoubleSide, THREE.FrontSide, THREE.BackSide]) {
-      const mat = makeMaterial(null, null);
-      mat.side = side;
-      const plain = new THREE.Scene();
-      plain.add(new THREE.Mesh(geo, mat));
-      const bone = new THREE.Bone();
-      const skinned = new THREE.SkinnedMesh(geo, mat);
-      skinned.add(bone);
-      skinned.bind(new THREE.Skeleton([bone]));
-      const withSkin = new THREE.Scene();
-      withSkin.add(skinned);
-      out.push(plain, withSkin);
-    }
-  }
-  return out;
+  return PROGRAM_VARIANTS.map(({ cull, skin, normals }) => {
+    let geo = QUAD;
+    if (normals) { geo = QUAD.clone(); geo.computeVertexNormals(); }
+    const mat = makeMaterial(null, null);
+    mat.side = SIDE[cull];
+    const scene = new THREE.Scene();
+    if (!skin) { scene.add(new THREE.Mesh(geo, mat)); return scene; }
+    const bone = new THREE.Bone();
+    const skinned = new THREE.SkinnedMesh(geo, mat);
+    skinned.add(bone);
+    skinned.bind(new THREE.Skeleton([bone]));
+    scene.add(skinned);
+    return scene;
+  });
 }
 
 /** 2026-10-14: the uniform holding a texture's tiling / offset, by the material's texture name. */
