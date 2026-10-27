@@ -3154,7 +3154,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const tgt = views.get(o.id);
       // local patch (maintainer report 2026-10-07, video: each locked enemy keeps a red beam and a shrinking reticle until its shell
       // lands): the aim projectile's _effectsToTargetWhenStart trail_01 (LineRenderer beams) and its _mainEffect
-      // crosshair_range, on the target with the lock mark [ASSUMED: all three stay until that target's shell]
+      // crosshair_range, on the target with the lock mark — all three stay until that target's shell (official recording,
+      // re-checked 2026-10-27: a target's glow and beam outlast the other targets' shells, one locked twice keeps them until
+      // its second shell)
       const mark = [];
       const list = lemMarks.get(o.src) || []; list.push(mark); lemMarks.set(o.src, list);
       // the lock's flash: buff lemuen_proj_s3_effect CreateEffect crosshair_01 on the target — that buff lives with the aim

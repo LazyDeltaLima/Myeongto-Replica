@@ -200,7 +200,9 @@
     표식은 대상마다 하나(2026-10-27, 공식 클라에서 확인): 조준 투사체 끝 버프 `lemuen_proj_s3_effect`(`disableOverride` — 잠금마다 따로)의
     `overrideEffectKey`라 버프 이펙트 규칙(`Entity.AddBuffEffect`, 이름당 하나·참조 수)을 따른다 — 같은 대상을 다시 잠그면 새로 붙이지 않고 그 대상의
     마지막 잠금 포탄 때 지움(`fxgame.js lemMarkFx`; 관리자 제보 2026-10-27 영상: 잠금마다 붙여 계속 켜진 가산 광원 `glow add`가 겹쳐 밝고 오래 남음).
-    섬광·빔·조준 원은 잠금마다 하나(CreateEffect·투사체 이펙트).
+    섬광·빔·조준 원은 잠금마다 하나(CreateEffect·투사체 이펙트). 「포탄 때까지」는 공식 녹화로 확인(2026-10-27 재대조: 다른 대상 포탄이 떨어진 뒤에도
+    빛·빔이 그 대상 포탄까지 남고, 두 번 잠근 대상은 두 번째 포탄까지) — 버프 사슬(`AttachAsDerivedBuffById` → 스킬 버프 `lemuen_s_3`)만 읽으면
+    스킬 끝(폭격 시작)에 함께 끝나는 듯 보이지만 녹화가 다르다(스킬 버프가 폭격 동안 남는 것으로 보임, 클라 경로 미조사).
     S3 도중 쓰러짐·강제 퇴각('die')이면 포탄이 안 오므로(킷 onEnd 'death') 그때 그의 표식 전부를 지움(관리자 제보 2026-10-10: 대상이 죽거나 30초까지
     남았음) [추정: 조준 투사체는 그의 관리 투사체(FinishManagedProjectiles)라 시전자와 함께 끝남]. 2D 대체 조준 원(`fx/locks.js`)은 원래 그렇게 함.
     재능 通缉 'lemuen:wanted' → 상태 이펙트 `lemuen_talent_buff_01`(char_lemuen_range_aim[effect], 머리 — 프리팹 `_spawnLocation` 4, 공식 클라에서 확인).
