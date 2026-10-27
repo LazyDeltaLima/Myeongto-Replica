@@ -123,17 +123,23 @@ export function startLead(face, speed = 1) {
  * client turns to the flight (`MapUtil.FaceTo2d` / `FaceTo3dUpwardMajor`), and a ProjectileEffect root then takes the turn
  * `ProjectileEffect.OnBeforePlay` gives it on that body (fx_extract.py projectile_turn: `mainRot` in place of its own
  * rotation, then a random roll about its own x up to `roll`°, drawn once per play). `inst`: an FxInstance placed in board
- * coordinates, `a`: the flight's board angle (radians), `THREE` the three.js module. A root without the record keeps the old
- * rule: its +x along the flight.
+ * coordinates, `a`: the flight's board angle (radians), `THREE` the three.js module. A root without the record keeps its own
+ * rotation on the body. 2026-10-27 (bundle W2b-2): a body without `_rotateToTarget` is not turned at all — it keeps the
+ * board's frame (fx_extract.py body_still: `still`, or `stillBy` naming the projectile `key` it flies on).
  */
-export function bodyTurn(inst, THREE, a, rnd = Math.random) {
+export function bodyTurn(inst, THREE, a, rnd = Math.random, key = null) {
   if (!inst) return;
   const def = inst.def, root = inst.nodes?.[0];
-  if (!Array.isArray(def?.mainRot) || !root) { inst.object.rotation.set(0, 0, a); return; }
-  inst.object.rotation.set(0, 0, a - Math.PI / 2);
-  if (inst._bodyTurned) return;
+  inst.object.rotation.set(0, 0, bodyStill(def, key) ? 0 : a - Math.PI / 2);
+  if (!Array.isArray(def?.mainRot) || !root || inst._bodyTurned) return;
   inst._bodyTurned = true;
   const q = def.mainRot, roll = Number(def.roll) || 0;
   root.quaternion.set(q[0], q[1], q[2], q[3]);
   if (roll) root.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), (rnd() * roll * Math.PI) / 180));
+}
+
+/** Whether the projectile body a trail prefab `def` sits on stays unturned (bodyTurn), flying on projectile `key`. */
+export function bodyStill(def, key = null) {
+  if (def?.still) return true;
+  return Array.isArray(def?.stillBy) && typeof key === 'string' && def.stillBy.includes(key.toLowerCase());
 }

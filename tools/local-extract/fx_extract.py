@@ -197,6 +197,32 @@ def bundle_path(game, rel):
     return None
 
 
+def projectile_carriers(game):
+    """(2026-10-27, effect bundle W2b-2) {`_mainEffect` prefab name: {projectile key: whether its body turns}} of the
+    projectiles of battle/prefabs/[uc]projectiles.ab (both bundle folders, a root of PersistentData first; names in lower
+    case). A chain graphic's `_mainEffect` is its line (char_modes.Projectiles), left out. The body turns only with
+    `_rotateToTarget` (BasicMovement.RotateToCertainDirection); a root without a movement keeps it as it is."""
+    from char_modes import load_tree
+    out, seen = {}, set()
+    for d in BUNDLE_DIRS:
+        f = Path(game) / d / 'battle/prefabs/[uc]projectiles.ab'
+        if not f.exists():
+            continue
+        per = {}
+        for gp, t, _ in load_tree(f)[0]:
+            per.setdefault(gp.split('/')[0], []).append(t)
+        for key, lst in per.items():
+            if key in seen:
+                continue
+            seen.add(key)
+            turn = any(t.get('_rotateToTarget') for t in lst)
+            for t in lst:
+                m = t.get('_mainEffect')
+                if isinstance(m, str) and m and '_playSpecialEffectOnFirstOne' not in t:
+                    out.setdefault(m.lower(), {})[key.lower()] = turn
+    return out
+
+
 # ---------------------------------------------------------------- CAB index
 
 def build_cab_index(game, out):
@@ -838,6 +864,7 @@ class Extractor:
         self.shader_props = {}   # shader path id -> [(name, type, defaults)] (Coverage.material)
         self.keep = None         # 2026-10-20: a dict to collect each walked prefab's JSON in ('bundle/name' -> data; fx_golden.py)
         self.dry = False         # --coverage: no texture / mesh file written
+        self.carriers = None     # 2026-10-27: projectile_carriers, read on first use (body_still)
 
     def load(self, bundle_rel):
         files = [bundle_path(self.game, bundle_rel)]
@@ -1280,6 +1307,7 @@ class Extractor:
         if off:
             out_def['offFinish'] = off
         out_def.update(self.projectile_turn(root, nodes[0].get('rot')))
+        out_def.update(self.body_still(nodes[0]['name']))
         main = self.main_ps(root, [n['parent'] for n in nodes], [n['active'] for n in nodes], set(pss.values()),
                             [i for i, n in enumerate(nodes) if n.get('ps')])
         if main is not None:
@@ -2629,6 +2657,46 @@ class Extractor:
             out['roll'] = r4(a)
         return out
 
+    def body_still(self, name):
+        """(2026-10-27, effect bundle W2b-2, official client) whether the projectile body a `_mainEffect` sits on
+        (projectile_turn) stays unturned: `BasicMovement.RotateToCertainDirection` does nothing without `_rotateToTarget`,
+        `OnInitPose` is one `OnTick(0)` through it, `BattleFactory.CreateProjectile` takes the projectile from the pool and
+        parents it without touching its rotation, and every projectile prefab's root and `_bodyTransform` are unrotated —
+        so such a body keeps the board's frame (its +y the board's UP) whichever way it flies. {'still': 1} when no
+        projectile that carries the prefab turns, {'stillBy': [the keys of those that do not]} when only some do (引星棘刺's
+        thorn2_attack_trail: her normal attack turns, S1–S3 do not), else {}."""
+        if self.carriers is None:
+            self.carriers = projectile_carriers(self.game)
+        c = self.carriers.get(str(name).lower()) or {}
+        keys = sorted(k for k, turn in c.items() if not turn)
+        if not keys:
+            return {}
+        return {'still': 1} if len(keys) == len(c) else {'stillBy': keys}
+
+    def still_only(self, bundle, index):
+        """2026-10-27: write only the `still` / `stillBy` (body_still) of the bundle's already extracted prefabs — by their
+        names, the bundle itself is not read; a prefab the other client wrote (`index` sources) is left to that client's run.
+        Returns (prefabs with one, files changed)."""
+        src = index.get('sources') or {}
+        found = changed = 0
+        for f in sorted((OUT / bundle).glob('*.json')):
+            if (src.get(f'{bundle}/{f.stem}') or {}).get('client', 'en') != self.client:
+                continue
+            d = json.loads(f.read_text())
+            want = self.body_still(d.get('name') or f.stem)
+            found += bool(want)
+            if all(d.get(k) == want.get(k) for k in ('still', 'stillBy')):
+                continue
+            for k in ('still', 'stillBy'):
+                if k in want:
+                    d[k] = want[k]
+                else:
+                    d.pop(k, None)
+            f.write_text(json.dumps(d, separators=(',', ':'), ensure_ascii=False))
+            changed += 1
+        print(f'[fx] {bundle}: {found} prefab(s) on a body that may stay unturned, {changed} file(s) changed')
+        return found, changed
+
     def off_on_finish(self, root, gos):
         """(2026-10-11) the node indices of the ProjectileEffect's `_inactiveOnFinish` (projectile_effect; `gos`: GameObject /
         Transform PathID → node index), sorted, or None: switched off the moment its projectile stops. (2026-10-21, official
@@ -3381,6 +3449,9 @@ def main():
                     'or particle effect\'s `_inactiveOnFinish` `offFinish` and the system it stops `mainPs`, 2026-10-21, and the '
                     'root\'s FxLODSetting `lod`, 2026-10-23) into the '
                     'already extracted prefabs of the bundles (every bundle of --index without --bundle; 2026-10-11)')
+    ap.add_argument('--still-only', action='store_true', help='only write the `still` / `stillBy` (a projectile `_mainEffect` '
+                    'whose body does not turn: `_rotateToTarget` 0) into the already extracted prefabs of the bundles, by name '
+                    '(every bundle of --index without --bundle; the prefabs of the --game client only; 2026-10-27)')
     ap.add_argument('--coverage', metavar='OUT', help='write no effect file or index: walk the already extracted prefabs of the bundles (every '
                     'bundle of --index without --bundle) and write the full list of what the pipeline leaves out to OUT '
                     '(JSON, fx_coverage.py; 2026-10-16). Each prefab is walked from where it was extracted (the index\'s '
@@ -3431,6 +3502,11 @@ def main():
         bundles = a.bundle or sorted(json.loads((OUT / a.index).read_text())['bundles'])
         tot = [ex.finish_only(b, pack=a.pack) for b in bundles]
         print(f'[fx] finish: {sum(x[0] for x in tot)} prefab(s) with a finish delay, {sum(x[1] for x in tot)} file(s) changed')
+        return
+    if a.still_only:
+        index = json.loads((OUT / a.index).read_text())
+        tot = [ex.still_only(b, index) for b in (a.bundle or sorted(index['bundles']))]
+        print(f'[fx] still: {sum(x[0] for x in tot)} prefab(s) on a body that may stay unturned, {sum(x[1] for x in tot)} file(s) changed')
         return
     if a.back_only:
         bundles = a.bundle or sorted(json.loads((OUT / 'index.json').read_text())['bundles'])

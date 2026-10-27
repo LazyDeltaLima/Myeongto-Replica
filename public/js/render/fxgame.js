@@ -74,7 +74,7 @@ import { boneMissing, heldAt, liftedPoint, loadPoints, mountSpawn, pointKey, poi
 import { GRAPHIC_TILT, takesGraphicTurn } from './fxpoints.js'; // 2026-10-22: an effect on a unit takes its Graphic's X −30°
 import { STANDARD_PLACE, modelOffset } from './fxpoints.js'; // 2026-10-22: 望's 棋子 model stands at its prefab's place (the ball)
 import { enemyProjSpeed, enemyShot } from './fx/speeds.js'; // 2026-10-10: an enemy shot's record / flight time (data/enemies.json `proj`)
-import { shotSpeedOf, shotArcOf } from './fx/projectiles.js'; // 2026-10-16: an operator shot's flight time (data/chess.json `shot`)
+import { shotSpeedOf, shotArcOf, shotKeyOf } from './fx/projectiles.js'; // 2026-10-16: an operator shot's flight time (data/chess.json `shot`); 2026-10-27 its key (bodyTurn)
 import { opShot } from './fx/speeds.js'; // 2026-10-21: a skill's own shot record (skillShotOut)
 import { boomerangThrown, boomerangCaught } from './heldWheel.js'; // local patch: a 回环射手's boomerang leaves / is back in her hand
 import { PROJ } from './style.js';
@@ -1659,7 +1659,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const from = shotFrom(src, mode);
     // (2026-10-23) a PARACURVE shot rises its official height (灰毫's shell), as an enemy's does
     const lob = e[3] === 'boomerang' ? null : shotArcOf({ lookupDef: unitDef }, src);
-    const rec = { inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, ...aimOf(tgt), k: 0,
+    // 2026-10-27 (bundle W2b-2): `key` = the projectile it flies on, for a trail whose body turns on some of its projectiles only
+    const rec = { inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, ...aimOf(tgt), k: 0, key: shotKeyOf({ lookupDef: unitDef }, src),
       dur: Math.max(0.04, dist / (v || projSpeed(e[3]))), arc: lob ?? (spec.arc ? spec.arc * Math.min(1.8, Math.max(0.6, 0.45 + dist * 0.18)) : 0) };
     // local patch (maintainer report 2026-10-08: one boomerang that comes back): a 回环射手's trail is the projectile itself
     // both ways — projectile_chr_caper `_comeBack` 1 at `_comeBackSpeedScale` .25 (the sim's BOOMERANG_RETURN_SPEED), its
@@ -1875,7 +1876,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const z = rec.z0 + (rec.tz - rec.z0) * k + (rec.arc ? rec.arc * 4 * k * (1 - k) : 0);
     if (!rec.inst) return;
     rec.inst.object.position.set(x, y, z);
-    bodyTurn(rec.inst, mod.THREE, Math.atan2(rec.ty - rec.y0, rec.tx - rec.x0));
+    bodyTurn(rec.inst, mod.THREE, Math.atan2(rec.ty - rec.y0, rec.tx - rec.x0), undefined, rec.key);
   }
   /**
    * 2026-10-11 (user report: 언더플로우's and 애쉬락's projectiles disappear late): a projectile's `_mainEffect` ends as its
@@ -1901,7 +1902,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const home = !!rec.src && rec.src.alive !== false && !rec.src.remove;
         rec.k = Math.max(0, rec.k - g / rec.back);
         placeTrail(rec);
-        bodyTurn(rec.inst, mod.THREE, Math.atan2(rec.y0 - rec.ty, rec.x0 - rec.tx));
+        bodyTurn(rec.inst, mod.THREE, Math.atan2(rec.y0 - rec.ty, rec.x0 - rec.tx), undefined, rec.key);
         if (rec.k <= 0 || !home) { rec.inst?.stop(true); trails.splice(i, 1); boomerangCaught(rec.src); }
         continue;
       }

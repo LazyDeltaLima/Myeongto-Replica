@@ -1387,10 +1387,19 @@
   샤마르 평타)·초기화 안 함이 무시됐고, 클라가 버리는 원래 회전(아르케토 z −5°, 스즈란 −20°, 미니멀리스트 드론 90°, 티피 x 30° 등 25개)을 그렸다.
 - 고친 것: `fx_extract.py projectile_turn` → ProjectileEffect 루트 프리팹에 `mainRot`(본체 위 루트 사원수, Unity 틀)·`roll`(도). `render/fx/face.js bodyTurn`이
   꼬리를 놓는 자리(`fxgame.js placeTrail`·부메랑 귀환·켈시 에스페란타 S3 비행·키트 비행 `p.fly`·드론 꼬리)에서 그룹을 비행 각 − 90°(본체), 루트를 `mainRot`·굴림
-  (재생마다 한 번, 화면용 `Math.random`)으로 돌린다. `mainRot`이 없는 꼬리(ParticleEffect 루트 등)는 예전 그대로. 꼬리 아닌 자리에서 재생되는 ProjectileEffect
+  (재생마다 한 번, 화면용 `Math.random`)으로 돌린다. 꼬리 아닌 자리에서 재생되는 ProjectileEffect
   (실버애쉬 더 레인프로스트 S3 독수리 `svash2_eagle_flyToHand_01`, LEFT)는 안 바꿈.
-- 아직: `_rotateToTarget`이 0인 투사체(꼬리 159개 — 마법구·스즈란·라플란드 더 데카덴차 등)는 공식에서 본체가 안 도는데 우리는 모두 비행 방향으로 돌린다 — 투사체별
-  회전 깃발을 바인딩에 싣는 일이 남음(관리자 노트의 열린 항목). 확인: `test/render/projectile-body-turn.test.js`. [화면 미확인]
+- 안 도는 본체 (2026-10-27, 이펙트 묶음 W2b-2, 공식 클라에서 확인): `_rotateToTarget`이 거짓이면 `RotateToCertainDirection`이 아무것도 안 하고(`OnInitPose`도
+  `OnTick(0)` 한 번으로 같은 길), `BattleFactory.CreateProjectile`은 풀에서 꺼내 폴더 밑에 두고 크기만 1로 — 회전은 안 건드린다. 투사체 프리팹의 루트·`_bodyTransform`은
+  모두 회전 없음(그려지는 꼬리를 실은 투사체 전수). 그래서 그 본체는 어느 쪽으로 날든 판 기준(+y = 판 위쪽) 그대로다 — 「초기화 + RIGHT」 꼬리는 늘 판 위쪽을, 초기화 안 한
+  꼬리는 프리팹 그대로를 향한다. 그려지는 꼬리 중 운영자 29개(사일런스 평타, 스즈란 평타·S2, 라플란드 더 데카덴차 평타·S1–S3, 미니멀리스트 평타·스킬·드론, 크루스 더 킨 글린트
+  평타 둘, 포덴코 S1·S2, 락락 셋, 토가와 사키코 S2 감속, 엑시아 S1, 마법구 `common_magic_trail_01` 등)와 적 14개. 움직임 컴포넌트가 없는 투사체(르무엔 S3 포탄)도 안 돈다.
+  같은 꼬리를 도는 투사체와 안 도는 투사체가 함께 쓰는 것은 쏜즈 더 로드스타 `thorn2_attack_trail` 하나(평타 `projectile_chr_thorn2`는 돎, S1·S2 `_s1`·`_s2`는 안 돎).
+- 본체 규칙은 루트 컴포넌트와 상관없다: ParticleEffect 루트이거나 Effect 컴포넌트가 없는 꼬리(그레인버즈 평타·S1·S2, 언더플로우 S2 등)도 같은 본체 밑이라 그룹 = 비행 − 90°,
+  루트 = 자기 회전(예전 「프리팹 +x = 비행」 규약은 화면 대조 없이 정한 일반 규칙이었다).
+- 고친 것(W2b-2): `fx_extract.py body_still` → 투사체 `_mainEffect` 프리팹에 `still`(싣는 투사체가 모두 안 돎) 또는 `stillBy`(안 도는 투사체 키, 섞일 때),
+  `--still-only`(이미 추출한 JSON에 이름만으로 씀). `render/fx/face.js bodyTurn`이 그 본체면 그룹을 돌리지 않고(`bodyStill`, 키는 `fxgame.js trailShot`의
+  `shotKeyOf`), 아니면 모든 꼬리를 비행 − 90°로. 확인: `test/render/projectile-body-turn.test.js`. [화면 미확인]
 
 ### 횟수형 护盾 이펙트 (2026-10-11, 사용자 제보 「켈시 에스페란타 실드가 HP 바 위 가는 흰 줄 — 아르케토 재능 실드와 같은 유형, 인게임대로」)
 
