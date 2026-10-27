@@ -154,7 +154,10 @@ test('SwitchableBackEffect: the front pauses and the back copy plays while the o
   assert.match(SRC, /if \(back\) startBack\(l\);\n\s+else if \(sw\.entry\) \{ sw\.entry\.inst\.stop\(true\); sw\.entry = null; \}/);
   const py = readFileSync(path.join(ROOT, 'tools/local-extract/fx_extract.py'), 'utf8');
   assert.match(py, /BACK_SCRIPT = 7599136815520768295/);
-  assert.match(py, /return \{'effect': t\['_backEffect'\], 'predict'/);
+  assert.match(py, /out = \{'effect': t\['_backEffect'\], 'predict'/);
+  // (2026-10-27) `_useBehaviourPause` (`beh`): the front's own pause, else the effect's shared flag
+  assert.match(py, /out\['beh'\] = 1/);
+  assert.match(SRC, /if \(sw\.beh\) \{\n\s+l\.hidden = back;[^\n]*\n[^\n]*\n\s+\} else \{ l\.pzSelf = back; setPaused\(l\); \}/);
 });
 
 const CELLO = path.join(FX, 'cello', 'cello_skill_03_buff_front_02.json');

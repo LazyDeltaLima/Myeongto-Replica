@@ -10,8 +10,9 @@ The points are Transforms of the battle model (chararts/<charId>.ab `DefaultSkin
 sit at a fixed spot of the skeleton. Their local position is in skeleton units × the SkeletonDataAsset `scale` (0.01):
 char_245_cello Front/SpecialPoint0 (0.602, 1.785) = bone F_Weapon_Chord (60.2, 178.5) in the Idle pose.
 
-Writes { charId: { muzzle | hit | head | sp<N>: { F?: point, B?: point } } } with point = { bone?: name, rot?: 1, at: [x, y] }
-(`at` in skeleton units, y up; `bone` the bone it follows, `rot` when it also turns with the bone) to
+Writes { charId: { muzzle | hit | head | sp<N>: { F?: point, B?: point } } } with point = { bone?: name, rot?: 1, ls?: 1 | 2, noFlip?: 1, at: [x, y] }
+(`at` in skeleton units, y up; `bone` the bone it follows, `rot` when it also turns with the bone, `ls` when it takes the
+bone's local scale (2: its world scale), `noFlip` when it does not follow the skeleton's flip) to
 tools/assets/local-char-points.json (reviewed in git) and public/assets/local/fx/points.json (read by render/fxgame.js,
 git-ignored beside the effects).
 
@@ -148,6 +149,14 @@ def points_of(path, root=None):
                     pt['bone'] = d['boneName']
                     if d.get('followBoneRotation'):
                         pt['rot'] = 1
+                    # (2026-10-27) the scale BoneFollower.DoLateUpdate gives the point's Transform each frame:
+                    # `followLocalScale` → (bone.scaleX, bone.scaleY) — the bone's world scale with `useAppliedLocalScale` —,
+                    # else 1; `followSkeletonFlip` × the sign of the skeleton's scaleX · scaleY on y. A FollowMountPoint with
+                    # `_followScale` copies that scale onto its effect (render/fxgame.js followed)
+                    if d.get('followLocalScale'):
+                        pt['ls'] = 2 if d.get('useAppliedLocalScale') else 1
+                    if not d.get('followSkeletonFlip'):
+                        pt['noFlip'] = 1
             # every point sits in the Front / Back renderer's frame or the switcher's (HeadPoint, HitPoint) — the same
             # skeleton frame (both at the switcher's origin, scale 1)
             sc = skeleton_scale(objs, tt, go_mbs, tt(tr)['m_Father']['m_PathID']) or 0.01

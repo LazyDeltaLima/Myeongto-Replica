@@ -2517,9 +2517,10 @@ export class FxInstance {
     const rdir = jit ? { x: Math.random() * 2 - 1, y: Math.random() * 2 - 1 } : rr ? { x: span(rr[0], rr[3]), y: span(rr[1], rr[4]) } : null;
     const turn = faceTurn(def?.face, rdir || opts.dir || { x: facing, y: 0 }, rdir ? null : opts.body ?? null);
     this.turn = turn;
-    // the mirror: by FollowMountPoint `_followScaleSign` (its point's scale sign = the Spine flip) when the prefab has its
-    // face record, else (no ParticleEffect root) the old rule — mirrored when its owner faces left
-    const mirror = turn ? (def?.mount?.followScaleSign ? facing : 1) : facing;
+    // the mirror: by FollowMountPoint `_followScaleSign` (its point's scale sign = the Spine flip) — or `_followScale`, which
+    // copies the whole scale, its sign too (2026-10-27, official client) — when the prefab has its face record, else (no
+    // ParticleEffect root) the old rule — mirrored when its owner faces left
+    const mirror = turn ? (def?.mount?.followScaleSign || def?.mount?.followScale ? facing : 1) : facing;
     unity.scale.set(mirror * (opts.scale || 1), opts.scale || 1, -(opts.scale || 1));
     if (jit) {   // Unity world (x, y, z = −height)
       const r = (a) => (a ? (Math.random() * 2 - 1) * a : 0);

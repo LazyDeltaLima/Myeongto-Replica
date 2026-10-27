@@ -12,7 +12,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { UF, ANIM } from '../../shared/constants.js';
 import { UF_CAMOU } from '../../shared/local.js';
-import { pauseIfNow, animPause, idlePause, clipOf } from '../../public/js/render/fx/pause.js';
+import { pauseIfNow, animPause, idlePause, clipOf, immuneTo } from '../../public/js/render/fx/pause.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SRC = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
@@ -35,11 +35,11 @@ test('fx_extract.py reads the six behaviours by their field names onto the node,
   }
 });
 
-test('the extracted records: 寒冷 pauses under 冻结, 晕眩 when not stunned (its immunity left to the view), 泥岩\'s first layer holds the other two, 予愿安洁莉娜 S2\'s weapon by her takeoff end', { skip: !extracted && 'no extracted effects' }, () => {
+test('the extracted records: 寒冷 pauses under 冻结, 晕眩 when not stunned or immune, 泥岩\'s first layer holds the other two, 予愿安洁莉娜 S2\'s weapon by her takeoff end', { skip: !extracted && 'no extracted effects' }, () => {
   assert.deepEqual(prefab('buff/buff_cold').nodes[0].pauseIf, { when: [{ flag: 'FROZEN' }], onPlay: true });
   assert.deepEqual(prefab('buff/buff_stun').nodes[0].pauseIf, { when: [{ immune: 'STUNNED' }, { flag: 'STUNNED', not: 1 }] });
   assert.deepEqual(prefab('mudrok/mudrok_buff_01_start').nodes[0].pauseOther.map((r) => r.effect), ['mudrok_buff_02_start', 'mudrok_buff_03_start']);
-  assert.deepEqual(prefab('aglna2/aglna2_skill_02_buff_weapon_02').nodes[0].pauseAnim, { invalid: ['Skill_2_Takeoff_End'], restore: true, pre: 0.3 });
+  assert.deepEqual(prefab('aglna2/aglna2_skill_02_buff_weapon_02').nodes[0].pauseAnim, { invalid: ['Skill_2_Takeoff_End'], restore: true, pre: 0.3, beh: true });
   assert.equal(prefab('pasngr/pasngr_attack_line').finish, 0.5, 'an EmptyEffect root\'s `_delayToFinish`');
 });
 
@@ -50,7 +50,7 @@ test('pauseIfNow: the answered terms OR-ed (AND with `all`), the flags from the 
   const stun = { when: [{ immune: 'STUNNED' }, { flag: 'STUNNED', not: 1 }] };
   assert.equal(pauseIfNow(stun, view(UF.STUNNED)), false);
   assert.equal(pauseIfNow(stun, view(0)), true);
-  assert.equal(pauseIfNow({ when: [{ immune: 'STUNNED' }] }, view(0)), null, 'an immunity is not answered');
+  assert.equal(pauseIfNow({ when: [{ immune: 'STUNNED' }] }, view(0)), null, 'an immunity is not answered without its resolver');
   assert.equal(pauseIfNow({ when: [{ flag: 'SP_MODIFY_STOPPED' }, { buff: ['x'] }] }, view(0)), null);
   const both = { when: [{ flag: 'STUNNED' }, { flag: 'COLD' }] };
   assert.equal(pauseIfNow(both, view(UF.STUNNED)), true);
@@ -62,6 +62,19 @@ test('pauseIfNow: the answered terms OR-ed (AND with `all`), the flags from the 
   assert.equal(pauseIfNow({ when: [{ flag: 'SILENCED' }] }, view(0, { statuses: new Set(['silence']) })), true);
   assert.equal(pauseIfNow({ when: [{ back: 1 }] }, view(0, { dir: 'UP' })), true);
   assert.equal(pauseIfNow({ when: [{ back: 1 }] }, view(0, { entryBack: false, dir: 'UP' })), false);
+});
+
+test('pauseIfNow: an `immune` term from an enemy owner\'s record (2026-10-27): its immunities and otherImmunities, null for a flag without such a key', () => {
+  const rec = { stats: { immunities: { stun: true, silence: false, levitate: false }, otherImmunities: ['FearedImmune'] } };
+  assert.equal(immuneTo(rec, 'STUNNED'), true);
+  assert.equal(immuneTo(rec, 'LEVITATE'), false);
+  assert.equal(immuneTo(rec, 'FEARED'), true, 'otherImmunities, as server/sim/simdata.js immuneSet names them');
+  assert.equal(immuneTo(rec, 'UNMOVABLE'), null);
+  assert.equal(immuneTo(null, 'STUNNED'), null);
+  const stun = { when: [{ immune: 'STUNNED' }, { flag: 'STUNNED', not: 1 }] };   // buff_stun
+  const by = (r) => (u, flag) => immuneTo(r, flag);
+  assert.equal(pauseIfNow(stun, view(UF.STUNNED), by(rec)), true, 'an immune owner hides it');
+  assert.equal(pauseIfNow(stun, view(UF.STUNNED), by({ stats: { immunities: {} } })), false);
 });
 
 test('pauseIfNow: a skill\'s own buff (SKILL_BUFFS) is held while that skill runs — 凛御银灰\'s 战鹰 off his arm through S3 (2026-10-24, 묶음 S5)', () => {
@@ -95,13 +108,14 @@ const body = (head) => {
 const line = (head) => { const at = SRC.indexOf(head); assert.ok(at >= 0, head); return SRC.slice(at, SRC.indexOf('\n', at)); };
 const method = (head) => { const at = SRC.indexOf(head); assert.ok(at >= 0, head); return SRC.slice(at, SRC.indexOf('\n    },\n', at) + 6); };
 function harness() {
-  const env = { clockS: 0, live: [], lastViews: new Map() };
-  const src = [line('const entryOwner = '), body('function setPaused(l)'), line('const behPause = '), body('function releaseOthers(l)'),
-    body('function stepPauses(l)'), `const spineEvent = ${method('    spineEvent(id, name)').trim().replace(/^spineEvent/, 'function')};`,
-    'return { stepPauses, setPaused, spineEvent };'].join('\n');
-  const make = new Function('env', 'pauseIfNow', 'idlePause', 'animPause', 'clipOf',
+  const env = { clockS: 0, live: [], lastViews: new Map(), enemyDef: () => null };
+  const src = [line('const entryOwner = '), line('const immuneOf = '), body('function setPaused(l)'), line('const behPause = '),
+    body('function ownPause(l, pz, now = false)'), body('function releaseOthers(l)'), body('function stepPauses(l)'), body('function stepMount(l)'),
+    `const spineEvent = ${method('    spineEvent(id, name)').trim().replace(/^spineEvent/, 'function')};`,
+    'return { stepPauses, stepMount, setPaused, spineEvent };'].join('\n');
+  const make = new Function('env', 'pauseIfNow', 'idlePause', 'animPause', 'clipOf', 'immuneTo',
     `with (env) { ${src} }`);
-  return { env, ...make(env, pauseIfNow, idlePause, animPause, clipOf) };
+  return { env, ...make(env, pauseIfNow, idlePause, animPause, clipOf, immuneTo) };
 }
 const entry = (name, owner, pausers = [], extra = {}) => ({
   owner, paused: false,
@@ -207,4 +221,65 @@ test('the layer steps them before each effect, a paused one is not stepped, a ba
   assert.match(SRC, /function dropLive\(l\) \{ if \(l\.inst\.pausers\?\.length\) releaseOthers\(l\);/);
   const app = readFileSync(path.join(ROOT, 'public/js/render/app.js'), 'utf8');
   assert.match(app, /fxGame\.spineEvent\(id, name\)/);
+});
+
+test('_useBehaviourPause (2026-10-27): PauseEffectWithAnimation / PauseEffectIfSpineEvent pause per behaviour with `beh`, else write the effect\'s shared flag as they change it', () => {
+  const h = harness();
+  let clip = 'Idle';
+  const v = view(0, { actor: { spine: { state: { getCurrent: () => ({ animation: { name: clip } }) } } } });
+  h.env.lastViews.set(1, v);
+  const anim = { k: 'pauseAnim', rec: { invalid: ['Die'], restore: true } };
+  const iff = { k: 'pauseIf', rec: { when: [{ flag: 'STUNNED' }] } };
+  // shared flag: the PauseEffectIf after it (in the node order) writes it over each frame
+  const shared = entry('x', 1, [anim, iff]);
+  clip = 'Die';
+  h.stepPauses(shared);
+  assert.equal(shared.paused, false, 'the later writer (not stunned) wins the shared flag');
+  // per behaviour: OR-ed with the shared flag
+  const own = entry('x', 1, [{ ...anim, rec: { ...anim.rec, beh: true } }, iff]);
+  h.stepPauses(own);
+  assert.equal(own.paused, true);
+  clip = 'Idle';
+  h.stepPauses(own);
+  assert.equal(own.paused, false);
+  // a Spine event writes the shared flag too
+  const sp = entry('y', 1, [{ k: 'pauseSpine', rec: { start: false, invert: false, anims: [] } }]);
+  h.env.live.push(sp);
+  h.stepPauses(sp);
+  h.spineEvent(1, 'OnDeactivateEffect');
+  assert.deepEqual([sp.paused, sp.pzSelf, sp.pzBeh?.size ?? 0], [true, true, 0]);
+});
+
+test('stepMount (2026-10-27, FollowMountPoint): paused while the point is invalid; `onlyPauseWhenInvalid` only pauses; `useBehaviourPause` makes it its own', () => {
+  const h = harness();
+  const mk = (mount) => { const l = entry('m', 1); l.inst.def.mount = mount; l.view = { invalid: false }; return l; };
+  const a = mk({ pauseWhenInvalid: 1 });
+  h.stepMount(a);
+  assert.equal(a.paused, false);
+  a.view.invalid = true;
+  h.stepMount(a);
+  assert.deepEqual([a.paused, a.inst.object.visible], [true, false], 'paused and not drawn, as any pause');
+  a.view.invalid = false;
+  h.stepMount(a);
+  assert.equal(a.paused, false);
+  const b = mk({ onlyPauseWhenInvalid: 1 });
+  b.view.invalid = true;
+  h.stepMount(b);
+  b.view.invalid = false;
+  h.stepMount(b);
+  assert.equal(b.paused, true, 'nothing of its own unpauses it');
+  const c = mk({ pauseWhenInvalid: 1, useBehaviourPause: 1 });
+  c.view.invalid = true;
+  h.stepMount(c);
+  assert.deepEqual([c.paused, !!c.pzSelf, c.pzBeh.has('mount')], [true, false, true]);
+  c.pzSelf = false;   // another behaviour's shared flag does not unpause it
+  h.setPaused(c);
+  assert.equal(c.paused, true);
+});
+
+test('the frame loop: stepMount after stepPauses, `_followScale` after the clips, `maxLife` finishes the effect on real time; FxInstance mirrors a `_followScale` mount', () => {
+  assert.match(SRC, /if \(mount\) stepMount\(l\);[^\n]*\n\s*if \(\(!l\.hidden && !l\.held && !l\.paused\) \|\| l\.inst\.stopping\) l\.inst\.update\([^\n]*\n\s*if \(mount && l\.inst\.def\.mount\.followScale && !l\.view\.invalid\)/);
+  assert.match(SRC, /\(l\.life = \(l\.life \|\| 0\) \+ dt\) >= l\.inst\.def\.maxLife\) \{\n\s*l\.stopped = true; l\.inst\.finish\(\); l\.finishAt = clockS \+ \(l\.inst\.def\.finish \|\| 0\);/);
+  const player = readFileSync(path.join(ROOT, 'public/js/render/fxplayer.js'), 'utf8');
+  assert.match(player, /const mirror = turn \? \(def\?\.mount\?\.followScaleSign \|\| def\?\.mount\?\.followScale \? facing : 1\) : facing;/);
 });

@@ -167,8 +167,9 @@ MOUNT_FIELDS = {'type': '_mountPointType', 'followScaleSign': '_followScaleSign'
 ROOT_EFFECT_FIELDS = {'delayToPlay': '_delayToPlay', 'delayToFinish': '_delayToFinish', 'randomDelay': '_randomPlayDelay',
                       'useSpeed': '_usePlaybackSpeed', 'limited': '_limitedPlaybackSpeed', 'rotate': '_rotateType',
                       'spawn': '_spawnLocation', 'leftIsDefault': '_leftIsDefault', 'body': '_useBodyRotation',
-                      'mainDir': '_mainDir', 'hold': '_holdByOwner', 'overwrite': '_overwriteHeight', 'heightOffset': '_heightOffset'}
-ROOT_EFFECT_FLOATS = {'delayToPlay', 'delayToFinish', 'limited', 'heightOffset'}
+                      'mainDir': '_mainDir', 'hold': '_holdByOwner', 'overwrite': '_overwriteHeight', 'heightOffset': '_heightOffset',
+                      'maxLife': '_maxLifetime'}
+ROOT_EFFECT_FLOATS = {'delayToPlay', 'delayToFinish', 'limited', 'heightOffset', 'maxLife'}
 
 
 def r4(v):
@@ -1303,6 +1304,9 @@ class Extractor:
         finish = self.delay_to_finish(root)
         if finish:
             out_def['finish'] = finish
+        life = self.max_lifetime(root)
+        if life is not None:
+            out_def['maxLife'] = life
         off = self.off_on_finish(root, gos)
         if off:
             out_def['offFinish'] = off
@@ -1510,7 +1514,10 @@ class Extractor:
                 return None
             if not isinstance(t.get('_backEffect'), str) or not t['_backEffect']:
                 return None
-            return {'effect': t['_backEffect'], 'predict': int(t.get('_predictFaceDirection') or 0), 'oneShot': int(t.get('_oneShot') or 0)}
+            out = {'effect': t['_backEffect'], 'predict': int(t.get('_predictFaceDirection') or 0), 'oneShot': int(t.get('_oneShot') or 0)}
+            if t.get('_useBehaviourPause'):   # (2026-10-27) `_UpdateFace` pauses this one per behaviour, else its shared flag
+                out['beh'] = 1
+            return out
         return None
 
     def right_effect(self, root):
@@ -1797,6 +1804,8 @@ class Extractor:
           it when `valid` (`_validAnimation`) is given and lacks it, or `invalid` (`_invalidAnimation`) holds it — after
           `pre` (`_delayToPause` > 0) s ÷ the playback speed (`_DoPause`), and `finish` (`_finishIfPause`) finishes
           the effect then; otherwise `restore` (`_noPauseWhenValid`) unpauses it (after `_delayToRestore` > 0 s: `back`).
+          `beh` (`_useBehaviourPause`, 2026-10-27): the pause is this behaviour's own (`SetBehaviourPause`), else the
+          effect's shared flag (`set_isPaused`) — also on `pauseSpine`.
         - `pauseMove` (PauseEffectIfNotMove; `Update`, 2026-10-25): paused while its owner, an Enemy, is not moving by itself
           (`Enemy.isMovingBySelf` false); an owner that is not an Enemy leaves it as it is.
         - `pauseIdle` (PauseEffectIfNotIdle; `Update`): paused while the owner is not in its idle state
@@ -1835,7 +1844,8 @@ class Extractor:
             elif sid == PAUSE_ANIM_SCRIPT:
                 v = {'valid': names(t.get('_validAnimation')), 'invalid': names(t.get('_invalidAnimation')),
                      'finish': bool(g('_finishIfPause')), 'restore': bool(g('_noPauseWhenValid')),
-                     'pre': r4(max(0, float(g('_delayToPause')))), 'back': r4(max(0, float(g('_delayToRestore'))))}
+                     'pre': r4(max(0, float(g('_delayToPause')))), 'back': r4(max(0, float(g('_delayToRestore')))),
+                     'beh': bool(g('_useBehaviourPause'))}
                 out['pauseAnim'] = {k: x for k, x in v.items() if x not in ([], 0, False)}
             elif sid == PAUSE_IDLE_SCRIPT:
                 face = bool(g('_needCheckFaceSwitch'))
@@ -1843,6 +1853,8 @@ class Extractor:
             elif sid == PAUSE_SPINE_SCRIPT:
                 out['pauseSpine'] = {'start': bool(g('_pauseAtStart')), 'invert': bool(g('_invertSpineEventMapping')),
                                      'anims': names(t.get('onlyCheckedAnimations'))}
+                if g('_useBehaviourPause'):
+                    out['pauseSpine']['beh'] = True
             else:
                 v = {'ownerGone': bool(g('_finishIfOwnerInvalid')), 'notDummy': bool(g('_finishIfNotDummy')),
                      'animEnd': bool(g('_finishIfCurrentAnimFinish'))}
@@ -1986,7 +1998,7 @@ class Extractor:
             return None
         if not (0 <= i(s + 8 + x) <= 8 and 0 <= i(s + 9 + x) < 64 and i(s + 3) in (0, 1) and i(s + 5) in (0, 1) and i(s + 14 + x) in (0, 1)):
             return None
-        return {'delayToPlay': f(s), 'delayToFinish': f(s + 1), 'randomDelay': i(s + 3), 'useSpeed': i(s + 5), 'limited': f(s + 6), 'rotate': i(s + 8 + x),
+        return {'delayToPlay': f(s), 'delayToFinish': f(s + 1), 'maxLife': life, 'randomDelay': i(s + 3), 'useSpeed': i(s + 5), 'limited': f(s + 6), 'rotate': i(s + 8 + x),
                 'spawn': i(s + 9 + x), 'leftIsDefault': i(s + 10 + x), 'body': i(s + 11 + x), 'mainDir': i(s + 12 + x), 'hold': i(s + 13 + x),
                 'overwrite': i(s + 14 + x),
                 'heightOffset': f(s + 15 + x),
@@ -2558,6 +2570,15 @@ class Extractor:
             changed += 1
         print(f'[fx] {bundle}: {found} prefab(s) with a root effect component, {changed} file(s) changed')
         return found, changed
+
+    def max_lifetime(self, root):
+        """(2026-10-27, official client) the root ParticleEffect's `_maxLifetime` when it is ≥ 0, else None (−1: no limit).
+        `ParticleEffect.OnEnable` starts `_CheckIfAlive`, which with `_maxLifetime` ≥ 0 waits that many seconds of real time
+        (WaitForSecondsRealtime) and finishes the effect (`FinishMe(false)`) — 灵知's talent buff ends 2 s after it shows
+        however long its systems loop."""
+        pe = self.root_effect(root)
+        v = pe.get('maxLife') if pe else None
+        return r4(v) if v is not None and math.isfinite(v) and 0 <= v <= 600 else None
 
     def delay_to_finish(self, root):
         """(2026-10-11, official client — `Effect.FinishMe`: an effect being finished (a buff ending,

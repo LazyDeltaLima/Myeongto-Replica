@@ -161,7 +161,7 @@ test('fxgame play() / spawn(): played with a direction and the prefab\'s speed; 
   // the old mirror and turns stay only for a prefab without the record
   assert.match(SRC, /const turnOld = !def\.face && fourWay/);
   assert.match(SRC, /if \(aimed && !def\.face\) aimAlong\(inst, aim, at\);/);
-  assert.match(PLAYER, /const mirror = turn \? \(def\?\.mount\?\.followScaleSign \? facing : 1\) : facing;/);
+  assert.match(PLAYER, /const mirror = turn \? \(def\?\.mount\?\.followScaleSign \|\| def\?\.mount\?\.followScale \? facing : 1\) : facing;/);
 });
 
 test('卫戍协议 template effects: the sim\'s [\'tplfx\', target | null, key, source] plays the prefab on the target or the field', () => {

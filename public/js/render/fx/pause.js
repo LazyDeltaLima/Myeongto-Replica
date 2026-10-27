@@ -3,8 +3,8 @@
 // render/units.js keeps it (its flags, statuses, facing, sim animation and Spine clip). The extract carries them per node
 // (tools/local-extract/fx_extract.py pause_scripts: `pauseIf`, `pauseAnim`, `pauseIdle`, `pauseSpine`, `finishIf`;
 // `pauseOther` is played by render/fxgame.js stepPauses, which applies all of them).
-// A term the view cannot answer (an immunity, a buff of the client's templates outside SKILL_BUFFS, a mode index, a
-// blackboard key) is left out as the client leaves out an unchecked one [ASSUMED: the conditions the remake cannot see are
+// A term the view cannot answer (an operator's immunity, a buff of the client's templates outside SKILL_BUFFS, a mode index,
+// a blackboard key) is left out as the client leaves out an unchecked one [ASSUMED: the conditions the remake cannot see are
 // not met].
 
 import { UF, ANIM } from '../../../../shared/constants.js';
@@ -35,6 +35,30 @@ const FLAGS = Object.freeze({
 /** Torappu.Battle.AbnormalCombo (SLEEPING: 沉睡) → whether the unit has it; SHELTERING is not answered. */
 const COMBOS = Object.freeze({ SLEEPING: (v) => !!((v.flags | 0) & UF.SLEEP) });
 
+/**
+ * 2026-10-27: Torappu.Battle.AbnormalFlag → the immunity an enemy record lists (data/enemies.json `stats.immunities`,
+ * `otherImmunities`: the keys server/sim/simdata.js immuneSet makes). The flags missing here have no such key.
+ */
+const IMMUNE_KEYS = Object.freeze({
+  STUNNED: 'stun', SILENCED: 'silence', FROZEN: 'frozen', LEVITATE: 'levitate', FEARED: 'feared', DISARMED_COMBAT: 'disarmedcombat',
+});
+/**
+ * Whether enemy record `rec` is immune to AbnormalFlag `flag` (PauseEffectIf `_checkAbnormalImmune`), or null when it
+ * cannot tell (no record, a flag without an immunity key) [추정·자료 없음: an immunity an ability or buff gives during the
+ * battle is not in the view — the record's own is].
+ * @param {any} rec data/enemies.json record
+ * @param {string|number} flag
+ * @returns {boolean|null}
+ */
+export function immuneTo(rec, flag) {
+  const k = IMMUNE_KEYS[flag];
+  const st = rec?.stats;
+  if (!k || !st) return null;
+  const norm = (x) => String(x).replace(/Immune$/, '').toLowerCase();
+  if (st.immunities && typeof st.immunities === 'object' && Object.entries(st.immunities).some(([x, on]) => on && norm(x) === k)) return true;
+  return (st.otherImmunities || []).some((x) => norm(x) === k);
+}
+
 /** The owner faces back: its Back model is drawn (UnitView.entryBack; before the model loads, a deploy facing UP). */
 export const facesBack = (v) => !!(v && (v.entryBack ?? v.dir === 'UP'));
 
@@ -52,10 +76,14 @@ const holdsSkillBuff = (v, keys) => {
   return !!v._fxSkillOn && ks.some((k) => SKILL_BUFFS[k] === i);
 };
 
-/** One `pauseIf` term on `v`: true / false, or null when the view cannot tell. */
-export function pauseTerm(t, v) {
+/**
+ * One `pauseIf` term on `v`: true / false, or null when the view cannot tell. `immune(v, flag)` answers an `immune` term
+ * (render/fxgame.js: immuneTo of an enemy owner's record).
+ */
+export function pauseTerm(t, v, immune = null) {
   let on = null;
   if (t.flag != null) on = FLAGS[t.flag]?.(v) ?? null;
+  else if (t.immune != null) on = immune ? immune(v, t.immune) : null;
   else if (t.combo != null) on = COMBOS[t.combo]?.(v) ?? null;
   else if (t.back) on = facesBack(v);
   else if (Array.isArray(t.buff)) on = holdsSkillBuff(v, t.buff);
@@ -66,12 +94,14 @@ export function pauseTerm(t, v) {
 /**
  * PauseEffectIf (`GetCheckResult`): the terms combined in order — OR, AND with `all` (`_CombinePauseFlag`); null when no term was answered (the client then leaves the pause as it is: `_CheckPause`).
  * @param {{ when: object[], all?: boolean }} rec node `pauseIf`
+ * @param {any} v the owner's view
+ * @param {((v: any, flag: string|number) => boolean|null)|null} [immune] see pauseTerm
  * @returns {boolean|null}
  */
-export function pauseIfNow(rec, v) {
+export function pauseIfNow(rec, v, immune = null) {
   let r = null;
   for (const t of rec?.when || []) {
-    const x = pauseTerm(t, v);
+    const x = pauseTerm(t, v, immune);
     if (x == null) continue;
     r = r == null ? x : rec.all ? r && x : r || x;
   }

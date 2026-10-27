@@ -220,7 +220,7 @@ def right_raw(name):
     return struct.pack('<i', len(s)) + s + b'\\0' * ((-len(s)) % 4) + struct.pack('<ii', 0, 0)
 PE, PJ, FXD, RIGHT = fe.PARTICLE_EFFECT_SCRIPT, fe.PROJECTILE_EFFECT_SCRIPT, fe.FXDELAY_SCRIPT, fe.RIGHT_SCRIPT
 pe_tree = {f: 0 for f in fe.ROOT_EFFECT_FIELDS.values()}
-pe_tree.update(_delayToFinish=0.5, _usePlaybackSpeed=1, _limitedPlaybackSpeed=2.0, _rotateType=1, _spawnLocation=2,
+pe_tree.update(_delayToFinish=0.5, _maxLifetime=-1.0, _usePlaybackSpeed=1, _limitedPlaybackSpeed=2.0, _rotateType=1, _spawnLocation=2,
                _subFXDelayConfigs=[{'transform': {'m_FileID': 0, 'm_PathID': 9}, 'delayTime': 0.25}])
 pj_tree = {'_delayToFinish': 0.5, '_inactiveOnFinish': [{'m_FileID': 0, 'm_PathID': 11}, {'m_FileID': 0, 'm_PathID': 12}],
            '_resetMainDir': 1, '_mainDir': 0, '_rotate180Y': 0, '_randomAngle': 0.0}

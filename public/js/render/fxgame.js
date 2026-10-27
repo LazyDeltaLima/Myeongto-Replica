@@ -70,7 +70,7 @@ import { bodyZ, bodyPoint, liftX } from './fx.js'; // local patch: status effect
 import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
 import { fxSpec } from './fx.js'; // local patch: the stand-in archetype of a kit fx event (standInOff)
 import { SHOT_HEIGHT } from './fx.js'; // local patch: a trail's start without a muzzle point
-import { boneMissing, heldAt, liftedPoint, loadPoints, mountSpawn, pointKey, pointOn, pointTurn, screenOffset } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
+import { boneMissing, heldAt, liftedPoint, loadPoints, mountSpawn, pointKey, pointOn, pointScale, pointTurn, screenOffset } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
 import { GRAPHIC_TILT, takesGraphicTurn } from './fxpoints.js'; // 2026-10-22: an effect on a unit takes its Graphic's X −30°
 import { STANDARD_PLACE, modelOffset } from './fxpoints.js'; // 2026-10-22: 望's 棋子 model stands at its prefab's place (the ball)
 import { enemyProjSpeed, enemyShot } from './fx/speeds.js'; // 2026-10-10: an enemy shot's record / flight time (data/enemies.json `proj`)
@@ -83,7 +83,7 @@ import { bodyTurn, faceSwitchCopy, faceTurn, followDir, playSpeed } from './fx/f
 import { kitOfficialPlan, kitOperator } from './fx/kitofficial.js'; // 2026-10-16: kit events the buff templates draw
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
 import { enemyRecordMode } from '../../../shared/skill-modes.js'; // 2026-10-23: an ally from an enemy record (炎佑)
-import { animPause, clipOf, facesBack, idlePause, movePause, pauseIfNow } from './fx/pause.js'; // 2026-10-21: the client's pause / finish behaviours
+import { animPause, clipOf, facesBack, idlePause, immuneTo, movePause, pauseIfNow } from './fx/pause.js'; // 2026-10-21: the client's pause / finish behaviours
 
 /**
  * local patch (maintainer report): `names` with each directional emitter entry of `groups` (char_modes.py `dirs` [{ t, s }])
@@ -671,7 +671,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function backSwitch(def, unit, bundle) {
     const b = def?.back || (def?.three?.up ? { effect: def.three.up } : null);
     if (!b || typeof b.effect !== 'string' || !unit || !unit.info) return null;
-    return { name: b.effect, bundle, unit, on: false, entry: null };
+    // `beh`: the front's pause is its own (SwitchableBackEffect `_useBehaviourPause`; a three-face's as before)
+    return { name: b.effect, bundle, unit, on: false, entry: null, beh: def?.back ? !!def.back.beh : true };
   }
   async function startBack(l) {
     const sw = l.backSw;
@@ -693,8 +694,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const back = faceBack(sw.unit);
       if (back === sw.on) continue;
       sw.on = back;
-      l.hidden = back;
-      l.inst.object.visible = !back && !l.offHeld && !l.paused;
+      // 2026-10-27 (official client `SwitchableBackEffect._UpdateFace`): the front paused while the back copy shows — per
+      // behaviour with `_useBehaviourPause` (`hidden`, its own), else the effect's shared flag (`pzSelf`, stepPauses)
+      if (sw.beh) {
+        l.hidden = back;
+        l.inst.object.visible = !back && !l.offHeld && !l.paused;
+      } else { l.pzSelf = back; setPaused(l); }
       if (back) startBack(l);
       else if (sw.entry) { sw.entry.inst.stop(true); sw.entry = null; }
     }
@@ -704,10 +709,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // An effect pauses as its behaviours ask (FxInstance.pausers, fx_extract.py pause_scripts, render/fx/pause.js): the
   // client's `Effect.set_isPaused` → `ParticleEffect.OnPausedUpdated` switches its particle system off and
   // pauses it, and the unpause plays it on — here it is not drawn and not stepped while `paused`. PauseEffectIf and
-  // PauseEffectIfNotIdle write the effect's own flag (`pzSelf`), PauseEffectWithAnimation / PauseEffectIfSpineEvent pause it
-  // per behaviour (`pzBeh`: `_useBehaviourPause`, the same pause — `Effect.get_isPaused`), another effect's
-  // PauseAnotherEffect holds it (`pzBy`: `SetPausedByOthers`); FinishEffectIf finishes it.
+  // PauseEffectIfNotIdle write the effect's own flag (`pzSelf`: the last writer wins), PauseEffectWithAnimation /
+  // PauseEffectIfSpineEvent / FollowMountPoint / SwitchableBackEffect too or, with `_useBehaviourPause`, pause it per
+  // behaviour (`pzBeh`: `SetBehaviourPause` — `Effect.get_isPaused` ORs them), another effect's PauseAnotherEffect holds it
+  // (`pzBy`: `SetPausedByOthers`); FinishEffectIf finishes it.
   const entryOwner = (l) => l.unit || (l.owner != null ? lastViews?.get(l.owner) : null) || null;
+  /** 2026-10-27: an `immune` term of PauseEffectIf — an enemy owner's record (fx/pause.js immuneTo); another owner: unknown. */
+  const immuneOf = (u, flag) => (u?.info?.side === 'enemy' ? immuneTo(enemyDef(u.info.defId), flag) : null);
 
   // ---- FollowDirection (2026-10-22, official client; docs/rules/fx.md 「이펙트 방향」) --------------------------------------
   // A prefab with the client's FollowDirection on its root (fx_extract.py `follow`: 183 operator / 89 enemy prefabs, most
@@ -746,6 +754,17 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     l.inst.object.visible = !p && !l.hidden && !l.offHeld;
   }
   const behPause = (l, pz, on) => { if (on) (l.pzBeh ||= new Set()).add(pz); else l.pzBeh?.delete(pz); };
+  /**
+   * 2026-10-27 (official client): a PauseEffectWithAnimation / PauseEffectIfSpineEvent pause `pz.on` — its own with
+   * `_useBehaviourPause` (`beh`: `SetBehaviourPause`), else the effect's shared flag (`set_isPaused`), written when the
+   * behaviour sets it: as `pz.on` changes, or each frame with `now` (`_SetPause` from an event or `Update`).
+   */
+  function ownPause(l, pz, now = false) {
+    if (pz.rec.beh) { behPause(l, pz, !!pz.on); return; }
+    if (pz.on == null || (!now && pz.on === pz.was)) return;
+    pz.was = pz.on;
+    l.pzSelf = !!pz.on;
+  }
   /** The effects `l`'s PauseAnotherEffect holds are given back (it finished, ended or is paused itself). */
   function releaseOthers(l) {
     for (const pz of l.inst.pausers) {
@@ -760,7 +779,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     for (const pz of inst.pausers) {
       const r = pz.rec;
       if (pz.k === 'pauseIf') {
-        const x = v ? pauseIfNow(r, v) : null;
+        const x = v ? pauseIfNow(r, v, immuneOf) : null;
         if (x != null) l.pzSelf = x;
       } else if (pz.k === 'pauseIdle') {
         const x = idlePause(r, v);
@@ -780,13 +799,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         }
         if (pz.at != null && clockS >= pz.at) { pz.at = null; pz.on = true; if (r.finish && !inst.stopping) inst.stop(); }
         if (pz.back != null && clockS >= pz.back) { pz.back = null; pz.on = false; }
-        behPause(l, pz, pz.on);
+        ownPause(l, pz);
       } else if (pz.k === 'pauseSpine') {
         // `_pauseAtStart`; the Spine events come through spineEvent(); outside `anims` it plays (`Update`)
-        if (pz.on == null) pz.on = !!r.start;
+        const start = pz.on == null;
+        if (start) pz.on = !!r.start;
         const clip = r.anims?.length ? clipOf(v) : null;
-        if (clip && !r.anims.includes(clip)) pz.on = false;
-        behPause(l, pz, pz.on);
+        const outside = !!clip && !r.anims.includes(clip);
+        if (outside) pz.on = false;
+        ownPause(l, pz, start || outside);
       } else if (pz.k === 'pauseOther') {
         // `OnPlay` / `Update`: the owner's effect named `effect`, after `pre` s; with `update`
         // again each frame, and given back while this one is paused
@@ -808,6 +829,21 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if ((r.ownerGone && gone) || clipEnd) inst.stop();
       }
     }
+    setPaused(l);
+  }
+  /**
+   * 2026-10-27 (official client; docs/rules/fx.md 「붙는 자리」): FollowMountPoint `_FollowMountPoint` each LateUpdate —
+   * after the other behaviours' Update, so its pause is written last. With `_pauseWhenMountPointInvalid` the effect is
+   * paused while its point is invalid and unpaused when it is back; `_onlyPauseWhenMountPointInvalid` only pauses it (nothing
+   * of its own unpauses it again); `_useBehaviourPause` makes the pause its own. While the point is valid
+   * `_followScale` gives the effect its point's scale (fxpoints.js pointScale) — after the clips (render loop).
+   * (`_pauseWhenFollowScaleNearlyZero`, a pause while that scale is under 0.02, is set on none of the extracted prefabs.)
+   */
+  function stepMount(l) {
+    const m = l.inst.def.mount, bad = !!l.view.invalid;
+    const pause = (on) => { if (m.useBehaviourPause) behPause(l, 'mount', on); else l.pzSelf = on; };
+    if (m.pauseWhenInvalid) pause(bad);
+    if (m.onlyPauseWhenInvalid && bad) pause(true);
     setPaused(l);
   }
 
@@ -1211,8 +1247,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const ex = (v) => (v.glideS ? Number(v.glideS.lx) + (Number(v.modelDX) || 0) : mx(v));
   const ey = (v) => (v.glideS ? Number(v.glideS.ly) : v.y);
   // local patch (maintainer report): a prefab with a FollowMountPoint (fx_extract.py `mount`) is placed
-  // at and follows its mount point instead of its _spawnLocation; with `pauseWhenInvalid` it stands still (`paused`, the
-  // frame loop skips its update) while the unit's current skeleton has none of the point's bones.
+  // at and follows its mount point instead of its _spawnLocation; with `pauseWhenInvalid` it is paused (stepMount) while the
+  // unit's current skeleton has none of the point's bones.
   // 2026-10-22 (official client; docs/rules/fx.md 「붙는 자리」): any other effect on a unit is put once where its
   // `_spawnLocation` is (`Effect._InitLocationFromEntity`: every location ends at the same tail) and then moves
   // with the unit only when held — `_holdByOwner` (face `hold`: `Entity.HoldEffect`), or `buff`: a buff's effect
@@ -1229,7 +1265,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function onRootTile(v, at) {
     return {
       get x() { return at.x; }, get y() { return at.y; }, get z() { return v.z || 0; }, get rot() { return at.rot; },
-      get paused() { return at.paused; }, get alive() { return v.alive; }, get remove() { return v.remove; },
+      get invalid() { return at.invalid; }, get scale() { return at.scale; }, get alive() { return v.alive; }, get remove() { return v.remove; },
       id: v.id, info: v.info, placed: at.placed,
     };
   }
@@ -1249,7 +1285,6 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (key && v && ptsOf(v)?.[key]) {
       const p = { x: 0, y: 0, z: 0 };
       const at = () => specialPoint(v, p, key) || (camRef ? bodyPoint(camRef, v, 0.5, mx(v)) : v);
-      const pause = !!def?.mount?.pauseWhenInvalid;
       // local patch (maintainer report — 아르케토 S3's cast fan stood upright; maintainer's decision 2026-10-08 「전체 적용」): a
       // FollowMountPoint with `_keepOriginRotation` 0 gives the effect its point's turn too (fxpoints.js pointTurn) — the
       // frame loop turns the prefab root about the Unity frame's z (the board's normal: +x = column, +y = row, as aimMover)
@@ -1264,11 +1299,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // [추정]), to be checked on screen
       const turns = def?.mount && def.mount.keepOriginRotation === 0;
       if (!def?.mount) return placedAt(v, def, key, spawn, at, buff);
+      // 2026-10-27 (official client): `invalid` — none of the point's bones on the current skeleton (`MountPoint.isValid`
+      // false) — is what the mount's pause reads (stepMount); `scale` its point's scale for `_followScale` (pointScale)
+      const grows = !!def.mount.followScale;
       return {
         get x() { return at().x; }, get y() { return at().y; }, get z() { return at().z; },
         get alive() { return v.alive; }, get remove() { return v.remove; },
-        get paused() { return pause && boneMissing(ptsOf(v)?.[key], v.actor?.spine?.skeleton); },
+        get invalid() { return boneMissing(ptsOf(v)?.[key], v.actor?.spine?.skeleton); },
         get rot() { return turns ? pointTurn(ptsOf(v)?.[key], v.actor?.spine?.skeleton, !!v.entryBack) : null; },
+        get scale() { return grows ? pointScale(ptsOf(v)?.[key], v.actor?.spine?.skeleton, !!v.entryBack) : null; },
         id: v.id, info: v.info,
       };
     }
@@ -4847,7 +4886,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (id == null || (!off && name !== 'OnActivateEffect')) return;
       for (const l of live) {
         if (l.owner !== id || !l.inst.pausers?.length) continue;
-        for (const pz of l.inst.pausers) if (pz.k === 'pauseSpine') { pz.on = pz.rec.invert ? !off : off; behPause(l, pz, pz.on); }
+        for (const pz of l.inst.pausers) if (pz.k === 'pauseSpine') { pz.on = pz.rec.invert ? !off : off; ownPause(l, pz, true); }
         setPaused(l);
       }
     },
@@ -5248,11 +5287,19 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (l.fly) stepFly(l, dt, dt * rate2); // 2026-10-21: FlyToPredefinedLocation
         // 2026-10-23: an end with a recycle (`finishAt`) is the client's FinishMe — its first system only (FxInstance.finish)
         if (l.until != null && clockS > l.until && !l.stopped) { l.stopped = true; if (l.finishAt != null) l.inst.finish(); else l.inst.stop(); }
+        // 2026-10-27 (official client): the root ParticleEffect's `_maxLifetime` (fx_extract.py `maxLife`) — `_CheckIfAlive`, started
+        // by `OnEnable`, waits that many seconds of real time and finishes the effect (`FinishMe(false)`: recycled `finish` s later)
+        if (l.inst.def?.maxLife != null && !l.stopped && (l.life = (l.life || 0) + dt) >= l.inst.def.maxLife) {
+          l.stopped = true; l.inst.finish(); l.finishAt = clockS + (l.inst.def.finish || 0);
+        }
         if (l.shotEnd != null && clockS >= l.shotEnd) { l.shotEnd = null; finishShot(l.inst, l); } // 2026-10-11: a flown main effect arrives
         if (l.finishAt != null && clockS >= l.finishAt) { l.finishAt = null; l.inst.stop(true); } // 2026-10-11: statusOff's delay
         if (l.backOf && (l.backOf.inst.stopping || !live.includes(l.backOf)) && !l.inst.stopping) l.inst.stop(); // 2026-10-10: a back copy ends with its front
         if (l.inst.pausers?.length) stepPauses(l); // 2026-10-21: the client's pause / finish behaviours
-        if ((!l.view?.paused && !l.hidden && !l.held && !l.paused) || l.inst.stopping) l.inst.update(dt * rate2 * (l.speed > 0 ? l.speed : 1));   // local patch: every effect on the battle clock (the notes did already: trail = speed × time); a front paused for its back copy (stepBackSwitches) waits
+        const mount = l.inst.def?.mount && l.view && typeof l.view.invalid === 'boolean';
+        if (mount) stepMount(l); // 2026-10-27: FollowMountPoint's pause
+        if ((!l.hidden && !l.held && !l.paused) || l.inst.stopping) l.inst.update(dt * rate2 * (l.speed > 0 ? l.speed : 1));   // local patch: every effect on the battle clock (the notes did already: trail = speed × time); a front paused for its back copy (stepBackSwitches) waits
+        if (mount && l.inst.def.mount.followScale && !l.view.invalid) { const sc = l.view.scale; if (sc && l.inst.nodes?.[0]) l.inst.nodes[0].scale.set(sc[0], sc[1], 1); } // 2026-10-27: `_followScale`, after the clips (LateUpdate)
         if (l.inst.emitters?.length) stepEmitters(l); // 2026-10-21: RandomEmitter copies
         if (l.inst.onEmit?.length) stepOnEmit(l); // 2026-10-21: OnPlayEmitter / OnFinishEmitter
         if (l.inst.done && l.status && l.again && l.unit?._fxStatusOn?.has(l.status) && l.unit.alive !== false) { const a = l.again; l.again = null; a(); } // local patch: a status loops

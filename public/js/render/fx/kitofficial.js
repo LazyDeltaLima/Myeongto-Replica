@@ -473,7 +473,8 @@ export const KIT_OFFICIAL = {
   lure: { sbell2: cite('sbell2_s3[switch_mode]', () => ({ play: [once('sbell2_skill_03_flow')] })) },
   // 灵知 T2 殊途同归 (his only 'kitHit', 10 s after the deploy): charpack Talents/2's wrapper ability gnosis_t_2_buff casts
   // gnosis_beidong_buff from ON_CAST_START to ON_CAST_END, and the wrapper is `_isInfinity` (ActiveAbilityWrapper._GetLifeTime
-  // returns no end): its cast never ends, so the effect, a burst with a looping glow, stays while he is deployed
+  // returns no end): its cast never ends, but the prefab's own `_maxLifetime` 2 s ends it (2026-10-27, official client:
+  // ParticleEffect._CheckIfAlive; render/fxgame.js `maxLife`) — a burst with a glow that loops for those 2 s
   kitHit: { gnosis: cite('char_206_gnosis/Others/Direction/Talents/2', () => ({ play: [{ n: 'gnosis_beidong_buff', on: 'op', life: 'deployed' }] })) },
   // 烛煌 S2: the burning tiles (charpack Modes/S2/Body/Talents/3 DoTile, an AttachListenerToTileAbility: `_effectSettings`
   // blaze2_skill_02_hit_plot from the first cast on a tile, castedTimeThreshold 1, ended with the ability at the skill's end

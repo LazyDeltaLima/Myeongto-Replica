@@ -435,7 +435,8 @@
   - `fxgame.js dollFx`: fx `substitute`에 dollBorn 1회 + Stand 모드 attach − attachFoe 반복, `swap`·`dollEnd`에 끔. 아레나·실제 솔로 판: 전환 순간 본체에 소용돌이 약 0.6초, 3×3 원형 유지.
     알려진 빈 곳: `beidong_buff_01_end` 안 틂; (3×3 원형 메시의 왜곡 텍스처 흐름 컴포넌트 = `FxUVTweener`, 2026-10-14부터 읽음 — 아래 「흐르는 텍스처」)
     `beidong_buff_02`를 적에게 붙이는 것은 안 함.
-- 안 한 것: `_followScaleSign`·`_followScale`(좌우·크기 따라감). `_keepOriginRotation`(본 회전)은 아래 「이펙트 방향」(57a8bc33)에서 적용.
+- 안 한 것: `_followScaleSign`·`_followScale`(좌우·크기 따라감). `_keepOriginRotation`(본 회전)은 아래 「이펙트 방향」(57a8bc33)에서 적용. `_followScale`·멈춤 갈래는
+  2026-10-27 아래 「붙는 지점 크기·멈춤·끝 시간」(지점 무효 멈춤도 이제 다른 멈춤처럼 숨김).
 - **(관리자 제보 2026-10-08, 2026-10-10 공식 클라로 정함 — 아래 「시전 이펙트 시점·붙는 대상」 ②)**: 6명은 본인이 맞고(능력에 `_selector` 없음 = 스펙터 디
   언체인드와 같은 경로) **아스트젠 더 라이트체이서만 적 1명**(`LinkEnemy`의 `_selector` → 범위 선택기 `_targetSide 2`·`_maxNum 1`). 아래는 그때의 기록. GeneralAbilities 버프 바인딩
   전원 적용(78e4c4fa)으로 늘어난 attach 중 일부는 적에게 붙는 버프의 이펙트일 수 있다. `attachFoe`(같은 GameObject의 `targetSide 2`)로 잡히는 것은 스펙터 디 언체인드·인디고뿐이고
@@ -2319,6 +2320,7 @@
   이벤트는 `units.js`의 클립 이벤트(`app.js ctx.spineEvent`)를 `fxGame.spineEvent`로도 넘김. 다른 이펙트 멈춤은 같은 주인(`owner`)의 같은 이름 항목.
   한계: 렌더가 모르는 조건(면역·`SKILL_BUFFS` 밖의 클라 버프 키·모드 번호·블랙보드·SHELTERING·`SP_MODIFY_STOPPED` 등)은 검사 안 한 것으로 — 그 조건만 가진
   모스티마 S2·시빌라이트 에테르나 S2 묶기·무장 해제 표시 등은 그대로 늘 보임.
+  면역은 2026-10-27부터 적 주인의 기록으로 답함(아래 「붙는 지점 크기·멈춤·끝 시간」).
 - 화면에서 바뀌는 것: 비르투오사 S3 장판 동안 재능 `cello_buff_01` 숨김, 머드락 층 이펙트가 한 겹(가장 높은 층만), 민트 S2 시작 0.2 s 뒤 범위가
   시작 이펙트가 끝날 때까지 숨음, 퍼퓨머 S2·아스카론·시·스와이어 디 엘리건트 위트의 같은 꼴(소스 이펙트가 틀릴 때), 한기는 빙결 중,
   혼 S2·S3 버프는 기절 중, 은신 버프(이네스 S2·은신 표시)는 은신이 깨지면, 수면 표시는 깨면 숨음, 안젤리나 더 멜로우 위시 S2 무기 이펙트는
@@ -2333,6 +2335,43 @@
   (새 키뿐), 이벤트 기록 골든 그대로(멈춤은 「트는」 줄이 아님). Windows Chrome 디버그 아레나(`stats().fxGame.paused`): 비르투오사 S3 `cello_buff_01`
   멈춤, 머드락 층 03 → 02(03 멈춤) → 01(02·03 멈춤), 민트 S2 범위 0.2 s 뒤 멈춤·시작 이펙트 끝에 풀림, 혼 S2(기절 없음) 그대로, 페이지 오류 0.
   [화면 미확인: 실제 판 — 상태 이상(빙결·기절·수면)이 걸린 경우, 공식 녹화와 대조]
+
+### 붙는 지점 크기·멈춤·끝 시간 — FollowMountPoint·`_maxLifetime`·면역 조건 (2026-10-27, 이펙트 묶음 W2c, 공식 클라에서 확인)
+
+- 공식(`FollowMountPoint._FollowMountPoint`, `OnPlay`와 매 `LateUpdate` — 다른 행동의 `Update` 뒤라 멈춤을 마지막에 씀): 지점이 유효하면 위치·회전(`_keepOriginRotation`
+  거짓)·크기 부호(`_followScaleSign`)를 따르고, `_followScale`이면 지점 Transform의 localScale을 **그대로** 자기 localScale로 — 부호까지. 그다음 유효 여부와
+  상관없이 `_pauseWhenMountPointInvalid`면 멈춤 = 무효(그리고 `_followScale`·`_pauseWhenFollowScaleNearlyZero`면 크기 < 0.02), `_onlyPauseWhenMountPointInvalid`면
+  무효일 때 멈춤만 하고 **풀지는 않는다**. 둘 다 `_useBehaviourPause`면 자기 몫의 멈춤(`SetBehaviourPause`), 아니면 이펙트가 함께 쓰는 깃발(`set_isPaused`).
+- 지점의 크기: 지점은 대개 spine-unity `BoneFollower`이고 `DoLateUpdate`가 매 프레임 localScale = `followLocalScale`이면 (뼈 scaleX, scaleY)(`useAppliedLocalScale`이면
+  뼈 월드 크기), 아니면 (1, 1), `followSkeletonFlip`이면 y에 스켈레톤 뒤집기 부호. 운영자 지점 310개·적 234개가 뼈 크기를 따르고, 뒤집기를 안 따르는 지점은
+  6개(아코르트·이네스·르무엔 — 크기 따르는 이펙트에 안 쓰임).
+- 끝 시간(`ParticleEffect._maxLifetime`): `OnEnable`이 시작하는 `_CheckIfAlive`가 `_maxLifetime` ≥ 0이면 그 초를 **실시간**(`WaitForSecondsRealtime`)으로 기다린 뒤
+  `FinishMe(false)` — 첫 입자계를 멈추고 `_delayToFinish` 뒤 회수(서서히 끝). 아니면 0.5 s마다 입자가 다 죽었으면 바로 끝(우리 `done`과 같음).
+- 멈춤 갈래: `PauseEffectWithAnimation`·`PauseEffectIfSpineEvent`·`SwitchableBackEffect`도 `_useBehaviourPause`면 자기 몫, 아니면 함께 쓰는 깃발 — 함께 쓰는
+  깃발은 마지막에 쓴 행동이 이긴다(`PauseEffectIf`가 매 프레임 쓰면 그것이 덮음). `Effect.get_isPaused` = 깃발 ∨ 남이 건 멈춤 ∨ 행동별 멈춤.
+- 예전: 크기를 안 따라 플레임테일 버프·혼 S1–S3·머드락·스펙터 디 언체인드·글래디아 S1·버블·적 머드락 이펙트가 지점 뼈가 커지고 작아져도 그대로였고,
+  `_followScale`만 있고 `_followScaleSign`은 없는 이펙트(혼·머드락·글래디아·버블)는 왼쪽을 볼 때 안 뒤집혔다. 지점 무효 멈춤은 「업데이트만 멈추고 보임」
+  이었고(다른 멈춤과 달리), `_onlyPause…`(파투스·혼·무에나·이그제큐터 디 엑스 포에데레 천사·적 데겐블레허 무기 등)는 안 멈췄고, 행동별
+  멈춤 구분이 없어 `PauseEffectWithAnimation`·`PauseEffectIfSpineEvent`는 늘 행동별이었다. `_maxLifetime`은 안 읽어 그 초에 안 끝났다 — 켠 프리팹 17개: 노시스 재능 버프 `gnosis_beidong_buff` 2 s(반복 입자),
+  충전 소모 `common_charge_cost_01` 5 s(플레임테일·뮤엘시스·실버애쉬 더 레인프로스트·텍사스·비질 묶음, 반복), 엑시아 평타·S1 시작 5 s(S1 시작만 그보다 김),
+  페페 S1 타격 1 s, 적 '툼스톤' 공격 시작 다섯 0.5 s(0.9–2.3 s짜리), 적 '염의 가호' 스킬 타격 1 s.
+  면역 조건은 모두 「검사 안 함」이었다.
+- 고친 것: `fx_extract.py` — 루트 ParticleEffect의 `maxLife`(`max_lifetime`, −1이면 안 씀), `pauseAnim`·`pauseSpine`의 `beh`, 뒷면 전환 `back.beh`.
+  `char_points.py`·`enemy_bindings.py` — 지점에 `ls`(1 뼈 크기, 2 월드)·`noFlip`. `fxpoints.js pointScale`, `fxgame.js` — 마운트 뷰의 `invalid`·`scale`,
+  `stepMount`(`stepPauses` 다음, 멈춤은 다른 멈춤과 같은 길: 안 그리고 안 돌림), `_followScale`은 클립 갱신 뒤 루트 노드 크기, `ownPause`(`beh` 아니면 바뀔 때
+  함께 쓰는 깃발 `pzSelf`), 뒷면 전환은 `beh`면 예전 `hidden`, 아니면 `pzSelf`; `maxLife`는 생긴 뒤 실제 프레임 시간(배속 안 곱함)으로 세어 `finish()` +
+  `finishAt`. `FxInstance` 좌우 뒤집기는 `_followScale`도 `_followScaleSign`처럼. 면역 조건(`render/fx/pause.js immuneTo`)은 적 주인의 기록(`stats.immunities`·
+  `otherImmunities`, 시뮬 `immuneSet`과 같은 키)으로 답한다 [추정·자료 없음: 싸움 중 능력·버프가 주는 면역은 뷰에 없음 — 기록의 것만; 운영자 주인·키 없는
+  플래그(UNMOVABLE·INVISIBLE·DISARMED)는 예전대로 검사 안 함].
+- 보이는 차이 없음으로 둔 것: `PauseEffectIf._disableMeshRendererWhenPause`는 `Init`이 자기 노드와 그 위의 MeshRenderer를 모으는데, 켠 프리팹 둘(실버애쉬 더
+  레인프로스트 `svash2_attack_start_A_02`, 적 `enemy_crstf_buff_01`) 모두 그 스크립트가 메시 없는 루트에 있다. `_pauseWhenFollowScaleNearlyZero`는 켠 프리팹이 없다.
+  `SwitchableEffectByFaceDirection`(`swFace`)은 우리가 사본으로 바꿔 틀어 원본 멈춤이 없다.
+- 덤으로 본 것(W2d): `SwitchableBackEffect._UpdateFace`는 뒷면 사본을 처음 한 번만 만들고 앞을 보면 **멈춰 두었다가** 뒤를 보면 이어 튼다(`_syncPlayBackSpeed`면
+  자기 재생 속도) — 우리는 앞을 보면 사본을 끝내고 뒤를 볼 때마다 새로 만든다.
+- 확인: `test/render/fx-pause.test.js`(면역 답·`ownPause` 함께 쓰는 깃발/행동별·`stepMount` 세 갈래·프레임 순서·`maxLife` 줄·뒤집기),
+  `test/render/fx-direction.test.js` `pointScale`, 재추출(운영자 198 묶음·적 50, 실패 0) 전후 JSON = `maxLife` 17·`pauseAnim.beh` 4·`pauseSpine.beh` 1·`back.beh` 4뿐
+  (+ 클레멘티아 S2 범위 탄 `still` — W2b-2 규칙, 이번에 처음 추출됨). 아레나(Windows Chrome, A = 요청 가로채기로 `maxLife` 지움): 노시스 T2 이펙트가 B에서 약 2 s 뒤
+  끝나고 A에선 남음; 플레임테일·혼 S2·실버애쉬 더 레인프로스트 S3 페이지 오류 0. [화면 미확인: 크기 따르기·지점 무효 숨김의 실제 모습 — 아레나는 수치만 봄]
 
 ### 타격별 명중 — MultiHitUberEffectEmitter `_hitGroups` (2026-10-16, 이펙트 연결 전수, 공식 클라에서 확인)
 
@@ -2617,7 +2656,7 @@
     백파이프 精密填弹 'talent' `splash` — `bpipe_t_1` SplashDamage의 `_createEffect`(블랙보드 `effect` `bpipe_attack_02_hit`)를 강화 타격의 추가
     피해를 받은 적에(2026-10-16부터 공격 대상이 아니라 일반 명중은 안 겹침, rules/sim.md 「风笛 精密填弹」); 그노시스 殊途同归 'kitHit'(배치 10초 뒤) — 감싸는 능력 `gnosis_t_2_buff`의 `_castEffects` `gnosis_beidong_buff`(ON_CAST_START → ON_CAST_END)를
     배치 동안(그 능력이 `_isInfinity`라 `ActiveAbilityWrapper._GetLifeTime`이 블랙보드 `duration` 대신 무한을 돌려주고, 감싼 능력은
-    `OnCastEnd`에야 떼짐 — 시전이 배치 동안 안 끝남); 블레이즈 디 이그나이팅 스파크 S2 불 붙은 칸 'burnTiles' `cells` [[x, y, 1|0]] —
+    `OnCastEnd`에야 떼짐 — 시전이 배치 동안 안 끝남. 이펙트 자체는 프리팹 `_maxLifetime` 2 s에 끝남 — 2026-10-27 「붙는 지점 크기·멈춤·끝 시간」); 블레이즈 디 이그나이팅 스파크 S2 불 붙은 칸 'burnTiles' `cells` [[x, y, 1|0]] —
     `Modes/S2/Body/Talents/3` DoTile(AttachListenerToTileAbility)의 `_effectSettings` `blaze2_skill_02_hit_plot`(castedTimeThreshold 1)을 칸마다, 스킬
     끝(능력 떼짐: `AttachListenerToTileAbility.OnDetached`가 `_ClearEffects`로 넘어감)에 모두 끔. 근거는 2026-10-14 EN 클라.
 - 텍사스 디 오메르토사 S3 창 (2026-10-21, 이펙트 묶음 E, EN `[uc]skills.ab`·charpack·버프 템플릿): S3 `skchr_texas2_3`의 시작 능력 AppearSwordRain이

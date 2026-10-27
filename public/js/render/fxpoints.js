@@ -98,6 +98,30 @@ export function pointTurn(entry, sk, back) {
 }
 
 /**
+ * 2026-10-27 (official client): the scale of point `entry` on skeleton `sk` now, [x, y], or null (no such bone, a fixed
+ * spot) — the Transform scale the point's BoneFollower gives it each frame (`DoLateUpdate`): with `followLocalScale`
+ * (char_points.py `ls` 1) the bone's local scaleX / scaleY, with `useAppliedLocalScale` too (`ls` 2) its world scale, else
+ * 1. Its y sign by the skeleton's flip (`followSkeletonFlip`) is the effect's mirror (render/fxplayer.js FxInstance), not
+ * here. A FollowMountPoint with `_followScale` copies it onto its effect (render/fxgame.js stepMount). The side as pointOn.
+ * @param {{F?: {bone?: string, ls?: number}, B?: {bone?: string, ls?: number}}|null|undefined} entry
+ * @param {{findBone: (name: string) => ({scaleX: number, scaleY: number}|null)}|null|undefined} sk
+ * @param {boolean} back
+ * @returns {number[]|null}
+ */
+export function pointScale(entry, sk, back) {
+  if (!entry || !sk) return null;
+  const mine = back ? entry.B || entry.F : entry.F || entry.B;
+  const other = mine === entry.F ? entry.B : entry.F;
+  for (const p of [mine, other]) {
+    const b = p?.bone ? sk.findBone(p.bone) : null;
+    if (!b) continue;
+    if (p.ls === 2 && typeof b.getWorldScaleX === 'function') return [b.getWorldScaleX(), b.getWorldScaleY()];
+    return p.ls ? [Number(b.scaleX), Number(b.scaleY)] : [1, 1];
+  }
+  return null;
+}
+
+/**
  * The rotation of a unit's battle prefab `Graphic` (operators' charpack and enemies' battle prefabs: X −30°, a Unity
  * quaternion), the plane its model is drawn in, facing the 30° camera.
  */

@@ -9,7 +9,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirCopies } from '../../public/js/render/fxgame.js';
-import { pointTurn } from '../../public/js/render/fxpoints.js';
+import { pointScale, pointTurn } from '../../public/js/render/fxpoints.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SRC = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
@@ -67,6 +67,19 @@ test('pointTurn: the bone\'s world rotation (radians, y up) when the point turns
   assert.equal(pointTurn({ F: { bone: 'F_Muzzle', rot: 0 } }, sk, false), null, 'a point that does not turn');
   assert.equal(pointTurn({ F: { at: [0, 400] } }, sk, false), null, 'a fixed spot');
   assert.equal(pointTurn(entry, null, false), null);
+});
+
+test('pointScale (2026-10-27, BoneFollower.DoLateUpdate): the bone\'s local scale with `ls` 1, its world scale with 2, else 1; null without the bone', () => {
+  const bone = { scaleX: 1.4, scaleY: 0.6, getWorldScaleX: () => 0.5, getWorldScaleY: () => 0.25 };
+  const sk = { findBone: (n) => (n === 'F_Weapon' ? bone : null) };
+  assert.deepEqual(pointScale({ F: { bone: 'F_Weapon', rot: 1, ls: 1 } }, sk, false), [1.4, 0.6]);
+  assert.deepEqual(pointScale({ F: { bone: 'F_Weapon', ls: 2 } }, sk, false), [0.5, 0.25]);
+  assert.deepEqual(pointScale({ F: { bone: 'F_Weapon', rot: 1 } }, sk, false), [1, 1], 'no followLocalScale');
+  assert.deepEqual(pointScale({ F: { bone: 'F_Weapon2', ls: 1 }, B: { bone: 'F_Weapon', ls: 1 } }, sk, false), [1.4, 0.6], 'the other side\'s bone');
+  assert.equal(pointScale({ F: { at: [0, 400] } }, sk, false), null, 'a fixed spot');
+  assert.equal(pointScale({ F: { bone: 'F_Weapon', ls: 1 } }, null, false), null);
+  // fxgame: a `_followScale` mount reads it as `scale`
+  assert.match(SRC, /get scale\(\) \{ return grows \? pointScale\(ptsOf\(v\)\?\.\[key\], v\.actor\?\.spine\?\.skeleton, !!v\.entryBack\) : null; \}/);
 });
 
 test('a mounted effect with _keepOriginRotation 0 turns its root about the board normal every frame', () => {

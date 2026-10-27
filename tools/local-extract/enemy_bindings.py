@@ -299,6 +299,11 @@ def points_of_bundle(f):
                         pt['bone'] = d['boneName']
                         if d.get('followBoneRotation'):
                             pt['rot'] = 1
+                        # (2026-10-27) the BoneFollower's scale, as char_points.py: `ls` 1 bone scale / 2 world, `noFlip`
+                        if d.get('followLocalScale'):
+                            pt['ls'] = 2 if d.get('useAppliedLocalScale') else 1
+                        if not d.get('followSkeletonFlip'):
+                            pt['noFlip'] = 1
                 pt['at'] = [round(pos['x'] / 0.01, 2), round(pos['y'] / 0.01, 2)]
                 for s1 in side:
                     pts.setdefault(key, {})[s1] = pt
