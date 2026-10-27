@@ -2275,6 +2275,22 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   const lemuenOn = (v) => !!(v && fxBundleOf(v.info?.spine || v.info?.defId) === 'lemuen' && bundleOf(v) && !failed);
   let SKY_Y = null, skyUp = null; // local patch: skyward beams (update; three.js loads lazily)
+  /**
+   * 2026-10-27 (official client): `obj` (an FxInstance's object) turned as MapUtil.FaceTo3dUpwardMajor(d, Vector3.forward)
+   * turns a projectile body — LookRotation(forward = (d × fwd) × d, up = d) in the Unity frame (z = −height, so its forward
+   * points down). In the scene (the Unity frame mirrored in z, FxInstance's `unity`): x = u × d, y = d, z = −u with u the
+   * down vector made square to d. A direction straight down leaves it as it is.
+   */
+  function upwardMajor(obj, dx, dy, dz) {
+    const T = mod.THREE, d = new T.Vector3(dx, dy, dz);
+    if (d.lengthSq() < 1e-9) return;
+    d.normalize();
+    const u = new T.Vector3(0, 0, -1).addScaledVector(d, d.z);
+    if (u.lengthSq() < 1e-9) return;
+    u.normalize();
+    const m = new T.Matrix4().makeBasis(new T.Vector3().crossVectors(u, d), d, u.clone().negate());
+    obj.quaternion.setFromRotationMatrix(m);
+  }
   const lemMarks = new Map();   // 蕾缪安 id → [[live entries of one lock's beam / reticle / mark]], in lock order (its shells land in that order)
   // ---- 2026-10-11: the 선발 picks only the CN client has — 凯尔希·思衡托 (kalts2), 克莱门莎 (clemnt), 予愿安洁莉娜 (aglna2): their kit
   // events drawn with their official prefabs. Which prefab plays at which moment is read from the CN client's
@@ -3143,9 +3159,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // the lock's flash: buff lemuen_proj_s3_effect CreateEffect crosshair_01 on the target — that buff lives with the aim
       // projectiles (FinishManagedProjectiles at lemuen_s3_end), so it ends with the mark too (maintainer 2026-10-07: it outlived
       // the bombing by up to 1 s as a 2.65 s one-shot)
+      // 2026-10-27 (official client): the aim projectile (AttachToTarget `_attachToMountPoint`, `_mountPointType` GROUND) sits on
+      // its target's ground point every tick, turned by BasicMovement.RotateToCertainDirection with `_rotateToTarget`: in this
+      // online mode MapUtil.FaceTo3dUpwardMajor(direction, Vector3.forward) — its +y along the muzzle → target direction of its
+      // start, its plane the board's
+      const ground = tgt && { get x() { return mx(tgt); }, get y() { return tgt.y; }, get z() { return (tgt.z || 0) + (tgt.hover || 0); },
+        get alive() { return tgt.alive; }, get remove() { return tgt.remove; }, id: tgt.id };
+      const from = tgt && shotFrom(src);
       for (const n of ['lemuen_skill_03_crosshair_01', 'lemuen_skill_03_trail_01', 'lemuen_skill_03_crosshair_range', 'lemuen_skill_03_crosshair_02']) {
-        spawn(bundleOf(src).bundle, n, tgt || { x, y, z: 0 }, { owner: o.id, buff: true, on: o.id, until: clockS + 30, skyward: n.endsWith('trail_01') }).then((l) => {
+        const aimFx = n.endsWith('crosshair_range');
+        spawn(bundleOf(src).bundle, n, (aimFx ? ground : tgt) || { x, y, z: 0 }, { owner: o.id, buff: true, on: o.id, until: clockS + 30, skyward: n.endsWith('trail_01') }).then((l) => {
           if (!l) return;
+          if (aimFx && from) upwardMajor(l.inst.object, ground.x - from.x, ground.y - from.y, ground.z - from.z);
           if (mark.done) l.inst.stop(); else mark.push(l);
         });
       }

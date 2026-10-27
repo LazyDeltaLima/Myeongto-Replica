@@ -220,7 +220,11 @@
     2.0초 시점에 멈춰 유지(`FxInstance opts.hold`, `STATUS_FX` 4번째 칸). ④ 르무엔 S3: 빔은 매 프레임 효과의 +y를 카메라 위쪽으로 돌려 어디서나 화면
     수직(`fxgame.js skyward`); 잠금 섬광 `crosshair_01`(2.65초)도 표식과 함께 포탄 때 지움(폭격 후 ~1초 남던 것); 조준 원 `ring 01/02` =
     Dissolve AB (VertexColor Major) — 클라 셰이더대로 amount = 1 − 정점 α, 색 = 2·텍스처·정점색(틴트 rgb 안 곱함). Dissolve(CustomData)의 amount는
-    `_DissolveIntensity`. 남은 차이: 원이 공식은 몸 앞에 세워진 원인데 우리는 바닥에 눕는다(정렬 Local의 기준 평면 [추정 불가] — 확인 필요).
+    `_DissolveIntensity`. 원이 바닥에 눕던 차이는 「캐릭터 그림의 기울기」(2026-10-22) 뒤로 공식처럼 몸 앞에 선다(2026-10-27 공식 영상 대조).
+    조준 원 `crosshair_range`(조준 투사체 `_mainEffect`)는 바닥에 눕는 것이 공식(2026-10-27, 공식 클라에서 확인): 투사체가 AttachToTarget으로 대상의
+    GROUND 점에 매 틱 붙고(`_attachToMountPoint`, `_mountPointType` 7), `_rotateToTarget`의 `BasicMovement.RotateToCertainDirection`이 이 모드
+    (`IGameMode.isOnline` 참)에서 `MapUtil.FaceTo3dUpwardMajor(방향, Vector3.forward)` — 위 = 시작(총구) → 대상 방향, 앞 = 그에 수직인 아래 —
+    라 판 평면에 눕고 +y가 그녀 → 대상 쪽(`fxgame.js upwardMajor`; 예전엔 대상 칸에 돌림 없이).
     ⑤ 데겐블레허: 늘인 빌보드(stretched)의 길이를 size.y(3D 시작 크기), 폭을 size.x로 — 베기 줄이 길고 가늘게; 天生的武者 165% 발동분은 기대 피해에서
     뺌(`dmg.lpExpectDiv`, damage.js 1줄·`chess_char_6_19-blkkgt.js` 1줄) → S3 베기가 전부 빨간 숫자(영상); 스킬 End 클립(마무리 `Skill_3_End`)은 다음 평타가 끊지 않음
     (`spine.js _endPlaying`). ⑥ 리드 S3: charpack 모드가 Attack→`Skill_3_Attack`, Idle→`Skill_3_Loop` — 공격 클립을 `Skill_3_Attack`, 대기를
@@ -3182,6 +3186,9 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
   - **Velocity 빌보드**(`uAlign` 4): 사각형 법선 = 속도 방향 n, 가로축 R = normalize(M · (z × v̂))(z = 시뮬레이션 공간 z, M = 그 공간 → 월드; 속도가 z와
     나란하거나 0이면 출력 공간 x, 속도 0이면 v̂ = z), 세로축 = n × R, 회전은 법선 둘레 시계 방향, pivot x·y는 사각형과 함께 돎(빌보드와 같음). 이
     판의 Unity 틀은 z = −높이라 **위아래로만 나는 입자의 사각형은 바닥에 눕는다**(蕾缪安 S3 타격 불꽃 등이 「납작한 원판」이 된 것이 공식).
+    공식 영상과 어긋나는 예(2026-10-27): 蕾缪安 S3 표식 `crosshair_02`의 `triangle big`·`triangle small white`(원뿔 각 90°라 몸 앞 면 안에서 안쪽으로
+    나는 쐐기 넷씩)는 공식 화면에서 정면으로 보이며 중심을 가리키는데, 법선 = 속도인 이 사각형은 옆면으로 서서 안 보인다 — 엔진 출력의 축 확인은
+    §11 ③ (관리자 노트).
     셰이더: R·n은 장면에서 세고 세로축은 Unity 틀과 이 장면의 손잡이 차(`uHand`, `velFrame`)를 곱함, 월드 공간 계는 우리가 입자에 얹는 좌우 반전을
     엔진은 안 얹으므로 R에 그 부호(`uWSign`). pivot z(법선 쪽)는 Velocity 계 중 쓰는 것이 없어 안 넣음.
   - **늘인 빌보드**(mode 1, freeform 아님 — 1,664계 넘게): 카메라 공간에서 머리 H = 입자 + v̂ · pivot y × 크기 y + 가로 · pivot x × 폭의 반, 꼬리 = H − L,
