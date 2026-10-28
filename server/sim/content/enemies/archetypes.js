@@ -392,7 +392,13 @@ function reborn({ dur = 0, hpRatio = 1, invincible = 0, invincibleUntargetable =
   };
 }
 
-/** 正面减伤: phys/arts damage from allies in front of the enemy (`a.facing` side) × (1 − cut); `face` updates a.facing. */
+/**
+ * 正面减伤: phys/arts damage from allies in front of the enemy (`a.facing` side) × (1 − cut); `face` updates a.facing.
+ * Front = by grid column, as the official templates of both users (心虚设计师 enemy_crshd_t[shield], skzjxd_t[shield]:
+ * ON_TAKE_DAMAGE CheckIfSourceGridPosFaceTargetGridPos, `_faceType` FRONT, `_targetColOffset` 0, `_faceIfSameCol` NONE):
+ * the attacker's tile column against the enemy's, and an attacker in the same column is never in front (until
+ * 2026-10-29 the exact x, so an offset inside one tile counted).
+ */
 function frontGuard(cut, face) {
   return {
     spawn(b, e, a) { a.facing = -1; a.px = e.x; },
@@ -400,7 +406,7 @@ function frontGuard(cut, face) {
     hitIn(c, b, e, a) {
       const s = c.source, ty = c.dmg.type;
       if (!s || s.side !== 'ally' || (ty !== 'phys' && ty !== 'arts') || !(cut > 0)) return;
-      if ((s.x - e.x) * a.facing > 1e-6) c.dmg.mul *= Math.max(0, 1 - cut);
+      if ((Math.round(s.x) - Math.round(e.x)) * a.facing > 0) c.dmg.mul *= Math.max(0, 1 - cut);
     },
   };
 }

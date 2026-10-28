@@ -213,17 +213,21 @@ describe('plates (sprite_bg 9-sliced: the core under the bars, the feather outsi
 });
 
 describe('假想敌：管 official SP (content/bosses.js skillSp)', () => {
-  test('裂管之奏 waits for SP 50 (0/50 +1/s): first cast at 50 s, not its 40-s initial cooldown; b.snap `bsp`', () => {
+  test('裂管之奏 waits for SP 50 (0/50 +1/s): no cast at its 40-s initial cooldown though a dark 余音 is there; b.snap `bsp`', () => {
     const h = makeBattle({ seed: 3, timeLimit: 70, kind: 'boss', units: [{ chessId: 'chess_char_5_01_a', row: 9, col: 5, uid: 1, skillIndex: 0 }],
       enemies: [{ key: 'enemy_9021_acduml', time: 0, route: 0, count: 1 }] });
     const b = h.battle;
-    let first = null, at40 = null;
-    while (b.time < 60 && first == null) {
+    // (ready at 50 s it is cast in place of the whole-field attack whose turn comes next — docs/rules/sim.md 「적 스킬 = 일반
+    // 공격 차례」; test/content/enemies_bosses.test.js 「假想敌：管 【裂管之奏】 at 50 s」)
+    let first = null, at40 = null, echoBefore50 = false;
+    while (b.time < 50 - 1e-9) {
       b.step();
+      if (b.time >= 40 && b.enemies.some((o) => o.alive && o.defId === 'enemy_9023_acdums')) echoBefore50 = true;
       for (const e of b.drainEvents()) if (e[0] === 'fx' && JSON.stringify(e).includes('pipeStrike') && first == null) first = b.time;
       if (at40 == null && b.time >= 40) at40 = b.snapshot().bsp;
     }
-    assert.ok(first != null && first >= 49.9 && first < 51, `first cast at ${first}`);
+    assert.ok(echoBefore50, 'a dark 余音 stands between 40 and 50 s');
+    assert.equal(first, null, `no cast before SP 50 (${first})`);
     assert.ok(at40 && at40[0][2] === 50 && Math.abs(at40[0][1] - 40) < 0.2, 'SP 40/50 at 40 s');
   });
 });

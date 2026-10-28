@@ -268,7 +268,9 @@ test('a 无来源 burst still passes on through content that shares damage: 圣�
   const pool0 = hb.b.sharedBoss.hp, sp0 = sp.hp;
   hb.b.dealDamage(hb.unit('t_wall'), sp, { type: 'element', element: 'burn', amount: sp.gaugeMax });
   assert.ok(sp0 - sp.hp > 0, 'the spring takes the burst');
-  approx(pool0 - hb.b.sharedBoss.hp, (sp0 - sp.hp) * bossesMod.PART_TRANSFER, 1e-9, '…and passes its share to 铳');
+  // 法术护盾's actrpa_passive passes every modifier applied: the burst's damage and the gauge fill before it (2026-10-29,
+  // docs/rules/sim.md 「upstream 0.3.2–0.3.4 대조 이식 — 적·보스」; the spring takes element damage ×1)
+  approx(pool0 - hb.b.sharedBoss.hp, (sp0 - sp.hp + sp.gaugeMax) * bossesMod.PART_TRANSFER, 1e-9, '…and passes its share to 铳');
 });
 
 test('凋亡 burst on an enemy: 800 元素伤害 per second, the 50 % 虚弱 drops to 50 % × 剩余时间 ÷ 15 s at each tick (PRTS 元素)', () => {

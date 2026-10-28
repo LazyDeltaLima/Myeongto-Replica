@@ -416,6 +416,24 @@ function aspdFloor(b, e, extra = 0) {
  * players deploy at t = 0, so "latest deployed" alone would always single out the second player [ASSUMED fairness
  * rule]. `P.turn` keeps the rotation.
  */
+/**
+ * The attack's turn of a leader whose kit swings its own normal attack (假想敌：管 / 弦 pipeCore, “萨米的意志” kitDeer — it
+ * sets `ab.ownAttack`): offered to its skills first, as the engine does for every armed enemy (the `enemySkillSlot` hook,
+ * ai.js enemySkillSlot → enemies.js onSkillSlot; docs/rules/sim.md 「적 스킬 = 일반 공격 차례」 — the client's
+ * `Enemy.AttackWrapper.SearchTarget` looks at the skills before the normal attack). A skill cast in its place puts the
+ * loop's next attack `atkCd` later (its accumulator `P[acc]` counts up to the attack interval) and not before the cast
+ * has played out (`P.castEnd`). True = a skill took the turn.
+ */
+function ownAttackTurn(b, e, P, acc) {
+  if (!b._hooks.enemySkillSlot) return false;
+  const c = { enemy: e, cast: null };
+  b.emit('enemySkillSlot', c);
+  if (!c.cast) return false;
+  P[acc] = e.s.interval - (c.cast.atkCd ?? e.s.interval);
+  P.castEnd = b.time + (c.cast.dur > 0 ? c.cast.dur : 0);
+  return true;
+}
+
 export function fairOrder(b, e, list, P) {
   const l = byPriority(e, list);
   if (b.players.length < 2 || l.length < 2) return l;
@@ -883,6 +901,14 @@ function kitSpring(ab, e) {
     b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: `spring_${kind}` });
   };
   const drop = (b) => { P.up = false; P.downAt = b.time; b.removeBuff(e, 'boss:springShield'); b.fx('shieldBreak', { x: e.x, y: e.y, id: e.id }); };
+  /** 【盲信之誓】: the gun loses `c.amount` (taken / healed / gauge below), credited to the ally that caused it. */
+  const pass = (b, c) => {
+    if (!(c.amount > 0)) return;
+    const s0 = c.source || c.credit;                                       // a 无来源 burst still passes on (credited)
+    const src = s0 && s0.side === 'ally' ? s0 : null;
+    const g = gun(b);
+    if (g) b.loseHp(g, c.amount * PART_TRANSFER, { source: src, from: c.dmg, sourceless: true });
+  };
   // the shield's skill (enemy_database spData INCREASE_WHEN_ATTACK: +1 per normal attack, max = spCost): with full SP the
   // next attack IS the skill — no normal hit (until 2026-10-15 it was added on top of every (spCost+1)-th attack). It needs
   // the shield: the broken shield's regenerate buff silences the spring and clears its SP as the shield returns (raise)
@@ -972,16 +998,16 @@ function kitSpring(ab, e) {
         }
       },
       burst(c, b) { if (kind === 'element' && P.up) drop(b); },  // 自身元素损伤爆发时，护盾消失
-      taken(c, b) {
-        if (!(c.amount > 0)) return;
-        const s0 = c.source || c.credit;                                       // a 无来源 burst still passes on (credited)
-        const src = s0 && s0.side === 'ally' ? s0 : null;
-        // 【盲信之誓】 受到伤害时令假想敌：铳受到等量的无来源生命流失 (PRTS): the official `actrp*_passive` passes `hp_lose` to the
-        // BossSelector's one gun (actrpa_hp_trans, PURE, no source) — and to nobody else (until 2026-10-15 an even split also
-        // went to the other springs, after the 隐秘核心 handbook 「传递给…和场上其他“碎铳之簧”」)
-        const g = gun(b);
-        if (g) b.loseHp(g, c.amount * PART_TRANSFER, { source: src, from: c.dmg, sourceless: true });
-      },
+      // 【盲信之誓】 受到伤害时令假想敌：铳受到等量的无来源生命流失 (PRTS): the official `actrp*_passive` passes `hp_lose` to the
+      // BossSelector's one gun (actrpa_hp_trans, PURE, no source) — and to nobody else (until 2026-10-15 an even split also
+      // went to the other springs, after the 隐秘核心 handbook 「传递给…和场上其他“碎铳之簧”」). What passes on differs:
+      // 法术护盾's `actrpa_passive` records the value of every modifier applied to it (ON_APPLIED_MODIFIER — PRTS 「调整值
+      // 包括伤害、治疗和元素损伤」): damage, healing (natural regeneration aside, the heal before the max-HP clamp) and
+      // element gauge hits; 元素护盾 / 频次护盾's `actrpb_passive` / `actrpc_passive` only the damage taken (ON_TAKE_DAMAGE).
+      // Until 2026-10-29 the 法术护盾 spring passed on only its damage taken
+      taken(c, b) { pass(b, c); },
+      healed(c, b) { if (kind === 'arts') pass(b, c); },
+      gauge(c, b) { if (kind === 'arts') pass(b, c); },
       tick(b, e2, a, dt) {
         if (!P.up && P.downAt != null && b.time - P.downAt >= regen) raise(b);
         const d = e2.mem.ab.dash;
@@ -1131,7 +1157,8 @@ function pipeBurst(b, e, at, r, kind) {
 function pipeCore(ab, e, b, tpl, { form, prefix }) {
   const hi = T(ab, `1.${prefix}_t_1[high_hp].interval`) ?? 40, lo = T(ab, `1.${prefix}_t_1[low_hp].interval`) ?? hi, thr = T(ab, '1.hp_ratio') ?? 0;
   const key = ab.tS['1.enemy_key'] ?? ECHO_KEY;
-  const P = { acc: 0, atk: Infinity };   // first strike as soon as an echo of its form exists (engine attack rule)
+  const P = { acc: 0, atk: Infinity, castEnd: -Infinity };   // first strike as soon as an echo of its form exists (engine attack rule)
+  ab.ownAttack = true;   // its skill takes the turn of this loop's attack (ownAttackTurn)
   const summon = (b2, e2) => {
     const got = branchSpawn(b2, tpl, 'summon_enemy', 0, { mods: summonMods(b2), at: { x: e2.x, y: e2.y }, fallback: () => [b2.spawnEnemy(key, { pos: [e2.y, e2.x], route: toGoal(b2, e2.x, e2.y), mods: summonMods(b2) })].filter(Boolean) });
     for (const u of got) if (u.defId === ECHO_KEY && form === 'gold') setEchoForm(b2, u, 'gold');
@@ -1144,7 +1171,8 @@ function pipeCore(ab, e, b, tpl, { form, prefix }) {
       if (P.acc >= (e2.hpRatio < thr ? lo : hi)) { P.acc = 0; summon(b2, e2); }
       if (!canCast(e2, false, b2)) return;
       P.atk += dt;
-      if (P.atk < e2.s.interval) return;
+      if (P.atk < e2.s.interval || b2.time < P.castEnd - 1e-9) return;
+      if (ownAttackTurn(b2, e2, P, 'atk')) return;               // 裂管之奏 / 断弦之奏 in place of this attack
       const echoes = echoesOf(b2, form);
       const t = echoes.length ? b2.rng.pick(echoes) : allTargets(b2, e2).sort(aggroCmp)[0];   // 优先攻击…形态余音, else an operator
       if (!t) return;
@@ -1252,11 +1280,20 @@ function kitQuintus(ab, e, b, tpl) {
   const stageSkills = [['Tidewater', 'Rockfall', 'SummonTentac'], ['TidewaterG1', 'RockfallG1', 'SummonTentacG1'], ['TidewaterG2', 'RockfallG2', 'SummonTentacG2', 'Doom']];
   const skills = [];
   const atkRatio = T(ab, 'epdamage.attack@ep_damage_ratio') ?? 0;
+  // 【断裂生殖】 「仅仍有未执行的小队动作指令时可触发」 (PRTS): its level branch (blackboard branch_id; the prefab's
+  // MoveNextLevelBranch, not looping), shared by the three forms, is used up after its last phase (7 in the official
+  // templates) — then the skill is no longer ready and leaves the attack's turn to the attack (until 2026-10-29 an empty
+  // cast still took it). Without the branch (tests, tools: the random-target fallback) no limit.
+  const tentLeft = (s) => {
+    const br = tpl && tpl.branches && tpl.branches[s.bs.branch_id ?? 'dslily_dstnta'];
+    return Array.isArray(br) && br.length ? br.length : Infinity;
+  };
   const mk = (name, stage) => {
     const s = ab.sk[name];
     if (!s) return null;
     const kind = name.replace(/G\d$/, '');
-    const a = { name: s.name, cd: s.cd, icd: s.icd, stage, cond: () => P.stage === stage, fire: (b2, e2) => QUINTUS[kind](b2, e2, s, P, tpl) };
+    const phases = kind === 'SummonTentac' ? tentLeft(s) : Infinity;
+    const a = { name: s.name, cd: s.cd, icd: s.icd, stage, cond: () => P.stage === stage && P.tent < phases, fire: (b2, e2) => QUINTUS[kind](b2, e2, s, P, tpl) };
     skills.push(a);
     return a;
   };
@@ -1597,7 +1634,6 @@ function kitLion(ab, e, b) {
         }
         if (!canCast(e2, false, b2)) return;
         P.sp += dt * ENEMY_SP_PER_SEC;
-        if (P.sp >= cost && decree(b2, e2)) P.sp = 0;
         if (Number.isFinite(cost)) e2.mem.lpSp = [Math.min(P.sp, cost), cost]; // local patch: the boss SP bar (local-hud.js)
         // 【莫非王土】: ANIMATE_DELAY s after equipment first lies on the field, then once per 王权号令 cycle; when no branch
         // can cast (a lone sword, nobody in range) it fires as soon as one can
@@ -1611,6 +1647,13 @@ function kitLion(ab, e, b) {
         if (v && v.shield > 0 && c.source && Math.sign(c.source.x - e2.x) === v.data.side) c.dmg.mul *= 1 - v.data.cut;
       },
     },
+    // 【王权号令】 (equip, ≤50 % equipA; its cooldown 0): with full SP it waits for the attack's turn and is cast in place of
+    // the attack (enemies.js onSkillSlot; until 2026-10-29 at once, on top of the attacks); the SP restarts at the cast
+    ...[[eq, false], [eqA, true]].map(([sk, adv]) => sk && {
+      name: sk.name, cd: 0, icd: 0,
+      cond: (b2, e2) => (P.adv && !!eqA) === adv && P.sp >= cost && targetsNear(b2, e2, range()).length > 0,
+      fire(b2, e2) { if (decree(b2, e2)) P.sp = 0; },
+    }),
     su && {
       name: su.name, cd: su.cd, icd: su.icd,
       fire(b2, e2) { // 【斥退】 "对场上所有我方单位…": every operator it can select (fieldAllies)
@@ -1741,7 +1784,8 @@ function kitDeer(ab, e) {
   const shot = e.def?.proj || null;                    // projectile_enemy_smdeer (data/enemies.json proj)
   const ATK2 = T(ab, 'atk_scale_2') ?? 1;
   const speed = shot && shot.speed > 0 ? shot.speed : 5;
-  const P = { low: false, acc: Infinity, swing: null };   // like engine attacks, the first 冰凌 comes as soon as it has a target
+  const P = { low: false, acc: Infinity, swing: null, castEnd: -Infinity };   // like engine attacks, the first 冰凌 comes as soon as it has a target
+  ab.ownAttack = true;   // 自然涌动 / Doom take the turn of its 冰凌 (ownAttackTurn)
   // the ice of one column: tile k (k tiles below the top row) gets its 冰凌 k·DEER_DIST / speed s after the strike, which
   // hits DEER_SUB_LIFE s after that
   const icicle = (b, e2, c) => {
@@ -1788,7 +1832,8 @@ function kitDeer(ab, e) {
         }
         if (!canCast(e2, false, b)) return;
         P.acc += dt;
-        if (P.acc < e2.s.interval) return;
+        if (P.acc < e2.s.interval || b.time < P.castEnd - 1e-9) return;
+        if (ownAttackTurn(b, e2, P, 'acc')) return;
         if (!allTargets(b, e2).length) return;
         P.acc = 0;   // the cooldown restarts as the swing starts (AbilityStandard.CastToTarget)
         const w = attackWindup(e2);

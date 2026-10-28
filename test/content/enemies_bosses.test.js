@@ -2017,7 +2017,7 @@ test(`${nm('enemy_2010_csdcr')}: neural on hit; after ${tb('enemy_2010_csdcr', '
   assert.equal(o.s.aspd, 100 + tb('enemy_2010_csdcr', 'AttackSpeedUp.attack_speed'));
 });
 
-test(`${nm('enemy_1364_spnaxe_2')}: heals and stacks ATK when a unit within ${tb('enemy_1364_spnaxe_2', 'Attack.range_radius')} tile is knocked out; leaves 2 inert 血珀 in place`, () => {
+test(`${nm('enemy_1364_spnaxe_2')}: heals and stacks ATK when a unit within ${tb('enemy_1364_spnaxe_2', 'Attack.range_radius')} tile is knocked out; leaves 2 血珀 in place`, () => {
   const h = arena();
   h.step();
   const e = put(h, 'enemy_1364_spnaxe_2', [10, 7]);
@@ -2036,7 +2036,7 @@ test(`${nm('enemy_1364_spnaxe_2')}: heals and stacks ATK when a unit within ${tb
   const seeds = alive(h, 'enemy_1367_dseed');
   assert.equal(seeds.length, tb('enemy_1364_spnaxe_2', 'Summon.cnt'));
   assert.equal(h.b.total, total, '血珀 are not counted (no altar in this mode)');
-  h.run(20);
+  h.run(5);                                                                     // (they bleed out within 10 s: 血珀 below)
   for (const d of seeds) { assert.ok(d.alive); assert.ok(Math.hypot(d.x - x, d.y - y) < 0.5, 'stays where it fell'); }
   checkInvariants(h.b);
 });
@@ -3596,7 +3596,10 @@ test('假想敌：管 【裂管之奏】 at 50 s (official SP): 3 shots on every
   const echo = put(h, ECHO, [3, 6], { tag: 'part', mods: { hpMul: 3 } });
   const at = firstCast('enemy_9021_acduml', '1');
   assert.equal(at, 50);
+  // ready at 50 s, cast in place of the normal attack whose turn comes next (docs/rules/sim.md 「적 스킬 = 일반 공격 차례」)
   h.run(at - h.b.time - 0.1);
+  h.runUntil(() => h.eventsOf('fx').some((f) => f[1] === 'enemySkill' && f[4].id === e.id), e.s.interval + 0.5);
+  assert.ok(h.b.time >= at && h.b.time <= at + e.s.interval + 1e-6, `cast at ${h.b.time}`);
   const n0 = hits.length;
   h.run(1.5);                                                                  // 6 tiles at 10 tiles/s, last shot 0.5 s in
   assert.equal(h.eventsOf('fx').filter((f) => f[1] === 'explode' && f[4].kind === 'pipeStrike').length, 3);
@@ -4232,7 +4235,9 @@ test('“萨米的意志”: 冰凌 hits a whole column; 自然涌动 stun + art
   const col = [h.unit('t_wall'), h.unit('t_wall2'), h.unit('t_wall3')].filter((u) => u.stats.taken > 0);
   assert.ok(col.length >= 1 && col.every((u) => u.tileC === col[0].tileC));
   if (col[0].tileC === 6) assert.equal(col.length, 2, 'both units of column 6');
+  // 自然涌动 / Doom are cast in the turn of the 冰凌 that comes once they are ready (docs/rules/sim.md 「적 스킬 = 일반 공격 차례」)
   h.run(skb('enemy_9033_acdeer', 'Lasso').initCooldown - h.b.time + 0.1);
+  h.runUntil(() => h.hooksOf('statusApplied').some((c) => c.status === 'stun'), e.s.interval + 0.5);
   const st = h.hooksOf('statusApplied').filter((c) => c.status === 'stun');
   assert.equal(st.length, 1);
   approx(st[0].duration, skb('enemy_9033_acdeer', 'Lasso').bb.projectile_life_time);
@@ -4240,7 +4245,8 @@ test('“萨米的意志”: 冰凌 hits a whole column; 自然涌动 stun + art
   h.run(0.5);
   approx(e.s.physTakenMul, 1 - tb('enemy_9033_acdeer', 'Madness.damage_resistance'));
   approx(e.s.artsTakenMul, 1 - tb('enemy_9033_acdeer', 'Madness.damage_resistance'));
-  h.run(50 - h.b.time + 0.2);
+  h.runUntil(() => h.hooksOf('lpLoss').length > 0, 50 - h.b.time + e.s.interval + 0.5);
+  assert.ok(h.b.time >= 50, 'Doom not before it is ready');
   assert.equal(h.hooksOf('lpLoss')[0].amount, Math.abs(skb('enemy_9033_acdeer', 'Doom').bb.value));
 });
 
@@ -4474,4 +4480,139 @@ test(`${nm('enemy_10122_uacann_2')}: its 燃烧区域 (不可对空) spares a fl
   assert.ok(burns.some((c) => c.target === w), 'the wall burns');
   assert.ok(!burns.some((c) => c.target === y), 'the dragon does not');
   assert.ok(!h.hooksOf('damaged').some((c) => c.source === e && c.target === y), 'nor is it shot or splashed');
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// upstream 0.3.2–0.3.4 comparison, enemies and leaders (docs/rules/sim.md 「적 스킬 = 일반 공격 차례」, 「upstream 0.3.2–0.3.4
+// 대조 이식 — 적·보스」)
+
+/**
+ * Run enemy `e` for `secs` s and return its attack turns in order: [time, 'cast' | 'atk']. A cast is an fx of `e` that
+ * `isCast(kind, extra)` names (fx 'enemySkill' by default: every named skill cast); an attack is `atkAt(e)` going up (a
+ * swing or the kit's own attack).
+ */
+const turnsOf = (h, e, secs, atkAt, isCast = (k) => k === 'enemySkill') => {
+  const out = [], fx = h.b.fx;
+  h.b.fx = function (k, o) { if (o && o.id === e.id && isCast(k, o)) out.push([h.b.time, 'cast']); return fx.apply(this, arguments); };
+  let n = atkAt(e);
+  const end = h.b.time + secs;
+  while (h.b.time < end - 1e-9) {
+    h.step();
+    const m = atkAt(e);
+    if (m > n) { out.push([h.b.time, 'atk']); n = m; }
+  }
+  return out.sort((p, q) => p[0] - q[0]);
+};
+/** Two turns are at least an attack interval apart (one tick of slack for the accumulators). */
+const turnsSpaced = (turns, interval, what) => {
+  for (let i = 1; i < turns.length; i++) {
+    const gap = turns[i][0] - turns[i - 1][0];
+    assert.ok(gap >= interval - 0.05, `${what}: ${turns[i - 1][1]} at ${turns[i - 1][0].toFixed(3)} then ${turns[i][1]} at ${turns[i][0].toFixed(3)} (interval ${interval})`);
+  }
+};
+
+test('假想敌：管: 【裂管之奏】 takes the turn of its own whole-field attack — no turn closer than its attack interval', () => {
+  const h = pipeArena('act1autochess_h07_03');
+  const e = put(h, 'enemy_9021_acduml', [3, 12], { tag: 'boss' });
+  const turns = turnsOf(h, e, 130, (u) => u.stats.attacks);
+  assert.ok(turns.some((t) => t[1] === 'cast'), 'the skill was cast');
+  assert.ok(turns.filter((t) => t[1] === 'atk').length >= 3);
+  turnsSpaced(turns, e.s.interval, '管');
+});
+
+test('“萨米的意志”: 自然涌动 takes the turn of its 冰凌 — no swing within an attack interval of the cast', () => {
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 9, col: 6 }, { chessId: 't_wall2', row: 12, col: 6 }] });
+  h.step();
+  const e = put(h, 'enemy_9033_acdeer', [3, 10], { tag: 'boss' });
+  const swings = () => h.eventsOf('swing').filter((x) => x[1] === e.id).length;
+  const turns = turnsOf(h, e, 70, swings);
+  assert.equal(turns.filter((t) => t[1] === 'cast').length, 1, '自然涌动 once (ready at 40 s)');
+  assert.ok(turns.find((t) => t[1] === 'cast')[0] >= skb('enemy_9033_acdeer', 'Lasso').initCooldown);
+  turnsSpaced(turns, e.s.interval, '萨米的意志');
+});
+
+test('阿利斯泰尔: 王权号令 with full SP waits for the attack\'s turn and is cast in place of the attack', () => {
+  const tpl = W.act1autochess_h07_06;
+  const ov = JSON.parse(JSON.stringify(tpl.overrides));
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 9 }, { chessId: 't_wall2', row: 11, col: 9 }], setup(b) { b.enemyOverrides = ov; } });
+  h.step();
+  const e = put(h, 'enemy_9032_aclionk', [3, 11], { tag: 'boss' });
+  const swings = () => h.eventsOf('swing').filter((x) => x[1] === e.id).length;
+  const turns = turnsOf(h, e, 60, swings, (k, o) => k === 'telegraph' && o.kind === 'royalDecree');
+  const cost = ov.enemy_9032_aclionk.skills.find((s) => s.prefabKey === 'equip').spCost;
+  const casts = turns.filter((t) => t[1] === 'cast');
+  assert.ok(casts.length >= 1 && casts[0][0] >= cost, `王权号令 at ${casts.map((t) => t[0].toFixed(2))}`);
+  assert.equal(h.eventsOf('fx').filter((f) => f[1] === 'telegraph' && f[4].kind === 'royalDecree').length, casts.length, 'every decree is a slot cast');
+  turnsSpaced(turns, e.s.interval, '阿利斯泰尔');
+});
+
+test('盐风主教昆图斯 【断裂生殖】: once the branch dslily_dstnta is spent it is no longer ready — it leaves the attack\'s turn to the attack', () => {
+  const ov = { enemy_1521_dslily: { skills: E.enemy_1521_dslily.skills.map((s) => (s.prefabKey === 'SummonTentac' ? { ...s, initCooldown: 1, cooldown: 1 } : s)) } };
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 12, col: 4 }], setup(b) { b.opts.templateId = 'act1autochess_h07_04'; b.enemyOverrides = ov; } });
+  h.step();
+  const boss = put(h, 'enemy_1521_dslily', [3, 10], { tag: 'boss' });
+  const tent = boss.mem.ab.list.find((a) => a && a.name === 'SummonTentac');
+  const casts = () => h.eventsOf('fx').filter((f) => f[1] === 'enemySkill' && f[4].id === boss.id && f[4].ability === 'SummonTentac').length;
+  const n = W.act1autochess_h07_04.branches.dslily_dstnta.length;
+  h.runUntil(() => casts() >= n, 200);
+  assert.equal(casts(), n);
+  assert.ok(!tent.cond(h.b, boss, tent), 'spent: not ready');
+  const atk0 = boss.stats.attacks;
+  h.run(30);
+  assert.equal(casts(), n, 'no empty cast after the last phase');
+  assert.ok(boss.stats.attacks > atk0, 'it keeps attacking');
+});
+
+test('“碎铳之簧” 法术护盾 (9018) passes every adjustment to 铳 — damage, healing (before the clamp, natural regeneration aside) and element damage; 9019 / 9020 only damage', () => {
+  for (const key of ['enemy_9018_actrpa', 'enemy_9019_actrpb', 'enemy_9020_actrpc']) {
+    const h = bossArena({ units: [{ chessId: 't_gun', row: 12, col: 3 }] });
+    h.step();
+    put(h, 'enemy_9017_achunt_2', [3, 18], { tag: 'boss' }).profile.noAttack = true;
+    const sp = put(h, key, [3, 10], { tag: 'part' });
+    sp.profile.noAttack = true;
+    const healer = put(h, 'enemy_1007_slime', [3, 6]);
+    const pool0 = h.b.sharedBoss.hp;
+    sp.hp = sp.s.maxHp - 20;
+    h.b.heal(healer, sp, 200);                                               // 20 missing: the modifier is 200
+    h.b.heal(sp, sp, 30, { regen: true });                                    // natural regeneration: not a modifier
+    const gauge = h.b.dealDamage(null, sp, { type: 'element', element: 'burn', amount: 10 });
+    const want = key === 'enemy_9018_actrpa' ? 200 + gauge : 0;
+    approx(pool0 - h.b.sharedBoss.hp, want, 1e-6, key);
+    if (key === 'enemy_9018_actrpa') assert.ok(gauge > 0);
+  }
+});
+
+test(`${nm('enemy_1367_dseed')}: loses ${tb('enemy_1367_dseed', 'Passive.hp_ratio') * 100} % of its max HP every second and is gone within 10 s — no kill, no count`, () => {
+  const h = arena();
+  h.step();
+  const e = put(h, 'enemy_1364_spnaxe_2', [10, 7]);
+  const total = h.b.total, killed0 = h.b.killed, inTotal0 = h.b.killedInTotal;
+  killed(h, e, null);
+  const k0 = h.b.killed, kIn0 = h.b.killedInTotal;
+  const seeds = alive(h, 'enemy_1367_dseed');
+  assert.equal(seeds.length, tb('enemy_1364_spnaxe_2', 'Summon.cnt'));
+  h.run(3.05);
+  for (const d of seeds) approx(d.hp, d.s.maxHp * (1 - 3 * tb('enemy_1367_dseed', 'Passive.hp_ratio')), 1e-6, 'three seconds');
+  h.run(7);
+  assert.ok(seeds.every((d) => !d.alive), 'bled out by 10 s');
+  assert.equal(h.b.total, total);
+  assert.equal(h.b.killed, k0, 'its loss is no kill');
+  assert.equal(h.b.killedInTotal, kIn0);
+  assert.ok(k0 >= killed0 && kIn0 >= inTotal0);
+  checkInvariants(h.b);
+});
+
+test(`${nm('enemy_10097_crshd')}: front by grid column — an attacker in its own column is never in front, a column ahead always`, () => {
+  const h = arena({ units: [{ chessId: 't_gun', row: 10, col: 5 }], kits: { t_gun: NOATK } });
+  h.step();
+  const d = put(h, 'enemy_10097_crshd', [11, 6], { move: true, route: { motion: 'WALK', start: [11, 6], end: [11, 2], checkpoints: [] } });
+  h.run(0.5);                                                                // walks left: faces −x
+  const g = h.unit('t_gun');
+  const cut = 1 - tb('enemy_10097_crshd', 'weakness.damage_resistance');
+  const hit = () => h.b.dealDamage(g, d, { amount: 1000, type: 'phys' });
+  d.mem.ab.list.find((a) => a && a.facing != null).facing = -1;
+  d.x = 5.4; d.y = 11;                                                      // same column 5 as the gun, the gun 0.4 to its left
+  approx(hit(), 1000 - d.s.def, 1e-6, 'same column: no reduction');
+  d.x = 6.4;                                                                // column 6: the gun one column ahead
+  approx(hit(), (1000 - d.s.def) * cut, 1e-6, 'one column ahead: reduced');
 });

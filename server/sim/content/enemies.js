@@ -10,7 +10,9 @@
 // Runtime model: `enemy.mem.ab = { key, t (talent bb), tS (talent bbStr), sk {prefabKey → {cd, icd, sp, bb, bs}},
 //   list [abilities], times, hitShield, atkType, immune, … }`. An ability is a plain object with optional methods
 //   spawn(b,e,a,ab) · dealt(c,…) ('damaged' by one of e's ATTACKS on an ally, non-element) · taken(c,…) ('damaged' on e,
-//   non-element) · hitIn(c,…) ('hit' on e, late: after every other hit handler) · hitOut(c,…) ('hit' from e, early) ·
+//   non-element) · gauge(c,…) ('damaged' on e by an element gauge hit, 元素损伤) · healed(c,…) ('heal' on e, natural
+//   regeneration aside; `c.amount` before the max-HP clamp) · hitIn(c,…) ('hit' on e, late: after every other hit
+//   handler) · hitOut(c,…) ('hit' from e, early) ·
 //   (`c.source` is null for 无来源 damage — element bursts; target-side reactions that must still fire, e.g. damage
 //   sharing, read `c.source || c.credit`, `credit` naming the unit that filled the gauge) ·
 //   before(c,…) (beforeAttack of e) · attack(c,…) · blocked(c,…) · killed(c,…) (return true = revived; the kill is then
@@ -160,6 +162,7 @@ export function ensureInstalled(b) {
   b.on('heal', (c) => {
     // 逐腐兽 bleeding ends when the target receives healing (natural regeneration excluded)
     if (c.amount > 0 && c.target && c.target.side === 'ally' && !(c.opts && c.opts.regen) && c.target.findBuff('ab:bleed')) b.removeBuff(c.target, 'ab:bleed');
+    if (c.amount > 0 && c.target && c.target.side === 'enemy' && c.target.mem.ab && !(c.opts && c.opts.regen)) dispatch(b, c.target, 'healed', c);
   }, { priority: -50 });
   b.on('elementBurst', (c) => onBurst(b, c), { priority: 50 });
   b.on('tick', (c) => onTick(b, c.dt), { priority: 50 });
@@ -208,7 +211,8 @@ function onHitIn(b, c) {
 
 function onDamaged(b, c) {
   const { source: s, target: t, dmg } = c;
-  if (!dmg || dmg.type === 'element') return;
+  if (!dmg) return;
+  if (dmg.type === 'element') { if (t && t.side === 'enemy' && t.mem.ab) dispatch(b, t, 'gauge', c); return; }
   if (t && t.side === 'enemy' && t.mem.ab) dispatch(b, t, 'taken', c);
   if (s && s.side === 'enemy' && s.mem.ab && dmg.isAttack && t && t.side === 'ally') dispatch(b, s, 'dealt', c);
 }
@@ -293,12 +297,14 @@ function castSkill(b, e, a) {
 /**
  * Whether cooldown ability `a` of enemy `e` is cast at an attack slot: a skill of the enemy's table whose prefab was read
  * (`ab.sk[name].cast`, data/enemies.json `skillCast` — every one of the mode has the ATTACK and / or COMBAT family), on
- * an enemy that makes normal attacks (ai.js enemyHasAttack). An unarmed enemy (noAttack, 'none', ATK 0) and the kits'
- * own timers keep their own cooldown [ASSUMED: the client gives such an enemy a combat or attack ability we do not model].
+ * an enemy that makes normal attacks — through the engine (ai.js enemyHasAttack) or through its kit's own attack loop
+ * (`ab.ownAttack`: 假想敌：管 / 弦, “萨米的意志”, bosses.js ownAttackTurn — the loop offers its turn through the same hook).
+ * An unarmed enemy (noAttack, 'none', ATK 0) and the kits' own timers keep their own cooldown [ASSUMED: the client gives
+ * such an enemy a combat or attack ability we do not model].
  */
 function slotSkill(e, ab, a) {
   const s = a.name != null ? ab.sk[a.name] : null;
-  return !!(s && s.cast) && enemyHasAttack(e);
+  return !!(s && s.cast) && (enemyHasAttack(e) || !!ab.ownAttack);
 }
 
 /**
@@ -379,7 +385,6 @@ export const STATS_ONLY = Object.freeze({
   enemy_1046_agent: 'plain', enemy_1071_dftman: 'plain', enemy_1092_mdgint: 'plain (bounty)',
   enemy_1251_lysyta: 'R-series armour interaction absent', enemy_1251_lysyta_2: 'same',
   enemy_1252_lysytb_2: 'same', enemy_1254_lypa_2: 'no listed ability', enemy_1325_cbgpro: 'plain', enemy_1325_cbgpro_2: 'plain',
-  enemy_1367_dseed: 'altar pulse absent (骸骨拷打者 leaves them inert, uncounted, in place)',
   enemy_1381_winman: 'plain', enemy_1381_winman_2: 'plain', enemy_1387_winshd: '封冻/供暖器 zones absent', enemy_1415_mmkabi_2: 'chains absent',
   enemy_1433_dsbasi: 'plain', enemy_1433_dsbasi_2: 'plain', enemy_1438_dspred: '赘生甲壳 absent',
   enemy_2002_bearmi: 'plain', enemy_2002_bearmi_2: 'plain',

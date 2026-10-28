@@ -1019,6 +1019,8 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   데이터: `tools/local-extract/attack_timing.py`가 적 프리팹 `EnemySkill`(`_familyMask` 있는 MonoBehaviour)과 같은 GameObject의 애니메이션 능력(`_animKey`·`_maxAnimScale`)을
   `tools/assets/local-attack-timing.json` `enemies[…].skills`에 쓰고, `tools/build-data.mjs` `enemySkillCast`가 `data/enemies.json` `skillCast`(스킬 이름 소문자 →
   `family`·`clip`·`dur`·`max`·`resetMain`·`waitFirst`, 클립 길이는 `data/assets.json`)로 싣는다. 템플릿 `overrides.skills`도 같은 이름으로 찾는다.
+  자기 공격 루프로 일반 공격을 하는 키트(가상적: 관·현, '사미의 의지' — `ab.ownAttack`)는 그 루프의 공격 차례에 같은 훅을 낸다(2026-10-29, 아래 「upstream 0.3.2–0.3.4
+  대조 이식 — 적·보스」).
   **[ASSUMED]**: 일반 공격이 없는 적(`noAttack`·`none`·ATK 0)과 키트 자체 타이머(표에 없는 이름)는 예전처럼 제 쿨로 쏜다(공식은 그런 적에게도 공격·전투 능력이
   있다 — 우리가 그리지 않을 뿐); 스킬 쿨에 `slowDown`을 곱하지 않음
   (`OnTick`은 곱함); 형태가 바뀌어도 일반 공격 쿨은 이어짐; 클립이 매니페스트에 없는 스킬 3개(`enemy_9014_acstma` `2`·`enemy_10065_ftzlc` `onfire`·
@@ -2070,3 +2072,56 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
 - 테스트 `test/eight-player.test.js`(수치, 8석 방·대기열, 실제 매치 경로 8인 한 판, 넓은 필드의 열·장치·경로, 걷는 적이 네 절반을 지나 2배 시간, 3–4명일 때만
   넓은 필드·시간 ×1.5 / ×2·오프셋, 8석 방의 공식 밴 기준·AI 옵션 숨김). golden: matches `coop8-HARD-3`, fields `unite-4-wide`·`unite-3-wide` 추가(다른
   시나리오는 그대로).
+
+## upstream 0.3.2–0.3.4 대조 이식 — 적·보스 (2026-10-29)
+
+같은 대조(위 「피해 계산」 절)에서 받은 적·보스 수정 5건(관리자 결정 2026-10-29, 묶음 B). 모두 손 이식이고, 5건 모두 우리 엔진에서 먼저 재현했다(새 시험이 수정 전 코드에서
+실패). 시험은 모두 `test/content/enemies_bosses.test.js` 끝의 「upstream 0.3.2–0.3.4 comparison, enemies and leaders」.
+
+### 자기 공격 루프 보스의 스킬도 공격 차례를 쓴다 (upstream `29dec9ba`, `b0faa58b` 일부, upstream #797)
+
+- 규칙: 「적 스킬 = 일반 공격 차례」를 엔진 일반 공격이 아닌 자기 공격 루프로 공격하는 키트에도 건다. 가상적: 관·현(보스)의 전장 전체 공격(`bosses.js pipeCore`)과 '사미의 의지'(보스)의
+  [고드름](`kitDeer`)은 공격 차례가 오면 먼저 `enemySkillSlot` 훅을 내고(`ownAttackTurn`), 엔진과 같은 `content/enemies.js onSkillSlot`이 준비된 표 스킬([열관의 연주]·[단현의 연주],
+  [자연의 요동]·Doom)을 골라 그 공격 **대신** 시전한다. 다음 공격은 `atkCd` 뒤, 시전 클립(`data/enemies.json` `skillCast`)이 끝난 뒤. 이 키트는 `ab.ownAttack`을 켜서 스킬이
+  제 쿨로 쏘지 않게 한다(`slotSkill`). 알리스테어, 제국의 여광(보스)의 [왕권 호령](`equip`·50 % 이하 `equipA`, 쿨 0)은 SP가 차면 바로 쏘지 않고 엔진 공격 차례를 기다려 공격 대신
+  시전하고, 시전할 때 SP가 0으로 돌아간다. 전에는 넷 다 스킬이 공격과 따로(즉시) 나갔다.
+- 근거: 공식 클라 `Enemy.AttackWrapper.SearchTarget`이 일반 공격 준비 때 SP 포함 `EnemySkill.CheckAvailable`을 통과한 스킬을 일반 공격 대신 시전(위 「적 스킬 = 일반 공격
+  차례」, 공식 클라에서 확인). 네 스킬 모두 프리팹 가족 3(ATTACK·COMBAT). upstream의 `ATTACK_SKILL_CLIP` 상수는 받지 않았다 — 우리는 시전 길이를 이미 `skillCast` 데이터에서 읽는다.
+- 그대로 둔 것: [자연의 요동]은 클립이 없어 시전 길이 0(`skillCast.lasso`에 `dur` 없음). 즈자이(적)의 대상 조건(upstream `b0faa58b` `leaders.js`)은 받지 않았다(클라 확인 필요).
+- 테스트: 「假想敌：管: 【裂管之奏】 takes the turn…」, 「“萨米的意志”: 自然涌动 takes the turn…」, 「阿利斯泰尔: 王权号令 with full SP waits…」(공격 차례 사이가 공격 간격보다
+  짧지 않음), 옛 시험은 「준비 뒤 다음 공격 차례」로 고침(관 [열관의 연주], '사미의 의지' [자연의 요동]·Doom; `test/local-patch-hud.test.js`의 관 SP 시험은 50초 전
+  시전 없음만 봄).
+
+### 퀸투스의 [생식 단절]은 소대 동작이 다 쓰이면 준비되지 않는다 (upstream `7c5bb9d2` 일부)
+
+- 규칙: 살비엔토 주교 퀸투스(보스)의 [생식 단절](`SummonTentac`·`G1`·`G2`)은 레벨 분기 `dslily_dstnta`(공식 템플릿 7단계, 세 형태가 함께 씀)를 다 쓴 뒤에는 `cond`가 거짓이라
+  공격 차례를 차지하지 않는다(`bosses.js kitQuintus`). 전에는 다 쓴 뒤에도 빈 시전이 공격 차례를 먹었다. 분기가 없는 템플릿(시험·도구)은 제한 없음.
+- 근거: PRTS 퀸투스 「아직 실행하지 않은 소대 동작 명령이 있을 때만 발동」(「仅仍有未执行的小队动作指令时可触发」). 공식 `EnemySkill.isSkillActivatable` 재정의는 보지 않았다(선택 확인, 안 함).
+- 테스트 「盐风主教昆图斯 【断裂生殖】: once the branch dslily_dstnta is spent…」.
+
+### '총을 부수는 리드' 법술 쪽은 치료·원소 손상도 가상적: 총에게 넘긴다 (upstream `febeeae5` 일부)
+
+- 규칙: '총을 부수는 리드'(적) 법술 방어 `enemy_9018_actrpa`의 [맹신의 서약] 전달은 받은 피해에 더해 받은 치료(자연 회복 제외, 최대 HP로 깎기 **전** 값)와 원소 손상(게이지)도
+  같은 양을 가상적: 총의 무출처 HP 손실로 넘긴다(`bosses.js kitSpring` `pass`; `content/enemies.js`의 새 키트 훅 `healed`·`gauge`). 원소·횟수 방어 `9019`·`9020`은 받은
+  피해만 — 그대로.
+- 근거: 공식 `actrpa_passive`는 조정값이 적용될 때(ON_APPLIED_MODIFIER) 그 값을 블랙보드에 적어 넘기고, `actrpb_passive`·`actrpc_passive`는 피해를 받을 때(ON_TAKE_DAMAGE)다.
+  PRTS 「조정값은 피해·치료·원소 손상을 포함」.
+- 그대로 둔 것: upstream이 법술 방어의 반격 침식을 「반격이 성공했을 때만」 거는 부분은 받지 않았다(우리 엔진의 피해 순서와 맞물려 [추정·엔진]).
+- 테스트 「“碎铳之簧” 法术护盾 (9018) passes every adjustment to 铳…」.
+
+### 블러드 앰버는 1초마다 최대 HP 10 %를 잃는다 (upstream `5f3a7492`, upstream #720)
+
+- 규칙: 살카즈 본가드 고문관(적)이 남기는 블러드 앰버(`enemy_1367_dseed`)는 1초마다 최대 HP × `Passive.hp_ratio`(0.1)를 무출처 손실로 잃어 10초 안에 사라진다
+  (`enemies/special.js`). 처치가 아니라 처치 수·보상 없음, 총수에 안 셈, 제자리·무공격은 그대로. 전에는 피의 부름 제단이 없는 이 모드에서 끝까지 남았다(`STATS_ONLY`에서 뺌).
+- 근거: 적 표 `enemy_1367_dseed` 재능 `Passive` `hp_ratio` 0.1(제단이 없을 때의 생명 손실), upstream #720.
+- 테스트 「血珀: loses 10 % of its max HP every second…」, 고문관 시험은 5초 뒤 제자리만 봄.
+
+### 불안해하는 디자이너·동글이의 정면은 격자 열로 가린다
+
+- 규칙: `archetypes.js frontGuard`(불안해하는 디자이너 `enemy_10097_crshd`, 동글이 `enemy_2085_skzjxd`·`_2`)는 공격자 칸의 열과 적이 선 칸의 열을 비교한다. 같은 열이면 정면이
+  아니어서 감쇠 없음. 전에는 연속 x로 봐서 같은 칸 안의 오프셋도 앞뒤가 갈렸다. 방향 규칙(디자이너는 이동으로만, 동글이는 오퍼레이터가 많은 쪽)은 그대로.
+- 근거: 공식 템플릿 `enemy_crshd_t[shield]`·`skzjxd_t[shield]` ON_TAKE_DAMAGE `CheckIfSourceGridPosFaceTargetGridPos` — `_faceType` FRONT, `_targetColOffset` 0,
+  `_faceIfSameCol` NONE(둘 다 같음). upstream 대조 중 우리 쪽에서 찾은 차이(관리자 결정 2026-10-29).
+- 그대로 둔 것: 알리스테어의 조끼 방향 감쇠(`kitLion hitIn`, 템플릿 `enemy_vtlionk_shld`도 같은 노드, `_faceType` BACK)는 아직 연속 x다 — 이번 범위 밖, 관리자의 열린 일 목록에 둠.
+- 테스트 「心虚设计师: front by grid column…」.
+
