@@ -1265,7 +1265,7 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
   - 추적: 대상 칸까지 칸 길로 걷고, 그 칸에 길이 없으면 이웃 8칸 중 길이 가장 짧은 칸([ASSUMED] 같으면 위·아래·왼·오른·대각 순). 도착점 = 칸 중심 + 축마다
     ±0.4 균등 난수. 0.3 s마다 대상이 마지막 경로 때보다 √0.1칸 넘게 움직였으면 다시 길을 찾고(새 난수), 총이 그 칸 중심 0.4칸 안이면 돌진이 끝난다.
   - 대상이 필드를 떠나면(쓰러짐·철수) 추적만 끝난다: 돌진 상태(속도 +2, 공격 없음)는 속도 버프 15 s(`3.duration`)가 끝날 때까지 남고, 총은 그동안 자기 경로를 걷는다.
-  - 화면 [화면 미확인]: 돌진 중 모델은 `Skill_1` 클립으로 걷는다(form `charge`, `render/units.js` FORMS), 끝나면 fx `chargeEnd`(그림 없음)로 Default로 돌아간다.
+  - 화면 [실제 판 이상 없음 2026-10-28]: 돌진 중 모델은 `Skill_1` 클립으로 걷는다(form `charge`, `render/units.js` FORMS), 끝나면 fx `chargeEnd`(그림 없음)로 Default로 돌아간다.
 - 근거(EN 클라 2026-10-14 판, Lua 핫픽스에 없음): 프리팹 `enm_pfb_28.ab` `enemy_9017_achunt` — `Skills/1`(버프 `achunt_s_1`: SwitchMode S1 →
   `TriggerAbilityUseSelector TraceEnemy`, 대상 없으면 SwitchMode 0), `Modes/S1/Body/Talents/3`의 패시브 버프 `achunt_s_1[speed]`(`attributeType` 6 MOVE_SPEED,
   `formulaItem` 0 = ADDITION, 블랙보드 값; `durationKey duration`; ON_BUFF_FINISH → SwitchMode 0), `_replaceAnimPairs` Move → Skill_1,

@@ -215,11 +215,11 @@
         归溟幽灵鲨 S3, 夕 S2·S3, 卡涅利安 S1–S3)와 평타(夕·莫斯提马·水月·野鬃)의 ON은 이제 `on`(공격 순간), 그 모드들은 HIT 뱅크가 없어 `noHit`.
         새로 `on`이 생긴 것: 오퍼레이터 16명 평타 + 26개 스킬 모드(阿斯卡纶 p_atk_smksndrtspd_*, 灰毫 등)와 적 19종. 새 sfx 44개(fetch-assets).
         S3 발동 순간의 소리(b_char_atkboost·p_skill_goldspearboost1·耀阳 검 탄생 p_skill_goldspearset)는 그대로.
-        확인: `test/local-patch-skill-impact.test.js` 3개(실제 매치 경로: 耀骑士临光 S3 공격마다 휘두름 + ON). [브라우저 미확인]
+        확인: `test/local-patch-skill-impact.test.js` 3개(실제 매치 경로: 耀骑士临光 S3 공격마다 휘두름 + ON). [실제 판 이상 없음 2026-10-28]
       - 耀骑士临光 S2: S2는 `kind: 'duration', activateOnDeploy`라 'skill'이 'spawn'보다 먼저 오고,
         배치 전 'skill' 잡아 두기(아래 缄默德克萨斯 ①)로 `p_skill_goldspearboost`가 난다(실제 경로 테스트로 고정).
       - 확인: `test/local-patch-skill-snapshot.test.js` 6개(매니페스트, 공식 데이터 규칙, 가짜 Web Audio 그래프의 램프 556 Hz/5 초·복귀·bus 밖 경로, 실제 매치 경로
-        归溟幽灵鲨 S2 → 대역 → 스냅샷 켜짐, 耀骑士临光 S2 배치 소리). [브라우저 미확인] 새 소리 파일 없음.
+        归溟幽灵鲨 S2 → 대역 → 스냅샷 켜짐, 耀骑士临光 S2 배치 소리). [실제 판 이상 없음 2026-10-28] 새 소리 파일 없음.
     - 缄默德克萨斯 S2 타격음: ① 배치 즉시 켜지는 스킬(`activateOnDeploy`: S1–S3)은 'skill'이 그 유닛의 'spawn'보다 먼저 와서(실제 경로 확인) 오디오가 버렸다 →
       `audio.js`가 추적 전 유닛의 'skill'을 잡아 두었다가 'spawn'(같은 묶음에 'deploy'가 있으면 그 'deploy')에서 처리, `screens/game.js` 작전 시작 early 버퍼도 'skill'을
       넘긴다(1줄). ② 모드 능력에 공격 뱅크만 있고 HIT 뱅크가 없으면(S2 `attack.2`는 `ON_ABILITY_ON` p_imp_reticentsword_h뿐) Default의 HIT(p_atk_reticentsword_n)는
@@ -467,7 +467,7 @@
   그 소리를 낸다 → 2026-10-22부터 그 틱만 `dotTickKey`로 `tinman:s2`(위 「버프·커스텀 트리거 소리」). 라플란드 더 데카덴차 드론·望 바둑돌은 원래 `sfx.kit`로
   따로 내서 변화 없음. 无来源 틱(深水区·원소 등)은 원래 착탄음 없음.
 - 확인: `test/local-patch-attack-signals.test.js` 「damage-over-time ticks」(틱 무음·같은 피해 플래그 없으면 착탄음, 틱이 공격 착탄을 가져가지 않음, 실제 매치 경로
-  아스카론 S2: 틱 7번째 = 1·공격 = 0·틱 무음). [브라우저 미확인]
+  아스카론 S2: 틱 7번째 = 1·공격 = 0·틱 무음). [실제 판 이상 없음 2026-10-28]
 
 ## 작전 종료 효과음 (2026-10-07)
 - 관리자 제보: 공식 효과음 3개는 이미 웹 매니페스트에 있었다(`sfx.ui.battleOverReduce` / `battleOverNoReduce` /
@@ -616,7 +616,7 @@
   (2026-10-15). 어느 단계에서 나는지, 전투 중 같은 필드의 다른 박사(联防·보스전) 층에도 나는지는 upstream 판단을 따랐다 — 전투에서는 화면 필드의 모든
   `layer`에 난다(렌더의 층 팝업과 같음).
 - 확인: `test/ui/bond-audio.test.js`(채널·끊기·디코딩 경합·되채움 없음·한 갱신 한 번), `test/match/bond-audio.test.js`(실제 `Match`로 `m.layer`: 단계별·상한·AI 없음).
-  [화면 미확인] 回合开始·机变·정비 구매(예: 마터호른 두 장 — 쉐라그·고수 층)·전투 중 층 얻음에 소리, 재접속 때 안 남.
+  [실제 판 이상 없음 2026-10-28] 回合开始·机变·정비 구매(예: 마터호른 두 장 — 쉐라그·고수 층)·전투 중 층 얻음에 소리, 재접속 때 안 남.
 
 ### 연쇄 공격 소리 (2026-10-16, 관리자 요청 「레이즈 효과음이 기억과 달라」)
 

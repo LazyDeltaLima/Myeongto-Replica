@@ -61,7 +61,7 @@
   「upstream 0.2.1·0.2.2 이식」): 필드 meta의 stageId가 경기 stageId라 보드는 일반 판과 같은 `ownStage`/`baseStage`·공식 씬을 그리고, 칸·경로·배치도 그 맵의 것이다.
   그래서 이식(2026-10-09)에서 우회를 걷어냈다 — `screens/game.js` `fieldStage`(upstream 75202776의 game.js hunk 그대로), `render/app.js setStage`의
   `roundSceneId`, `board3d/scene.js`의 `sceneId` 키·`_officialFor`, 그 테스트. 실제 경기 경로: `test/match/feedback5-unite-map.test.js`
-  (필드 meta·spec·`publicView()` 모두 경기 stageId), 브라우저 `test/e2e/coop.e2e.mjs`(`SP_E2E=1`, 联防 필드가 경기 맵을 그림) [화면 미확인].
+  (필드 meta·spec·`publicView()` 모두 경기 stageId), 브라우저 `test/e2e/coop.e2e.mjs`(`SP_E2E=1`, 联防 필드가 경기 맵을 그림) [실제 판 이상 없음 2026-10-28].
 - 알려진 차이: 공식 물 셰이더는 근사(깊은 색 하나 — 공식은 해안 근처가 깊이에 따라 청록으로 얕아짐, 거품·커스틱·하늘 반사 없음), m04 밀물 연출 미구현, `_HG_VERTEX_COLOR_BLEND`의 노이즈 항(`_BlendNoiseStrength`·`_BlendMaskNoiseSkew`)은 읽지 않음.
 
 ## 배치 낙하 (2026-10-07)
@@ -261,7 +261,7 @@
   선을 거기서 끊는다. ④ 전투의 0초 = 공식 웨이브·조각 시작(둘 다 preDelay 0).
 - 확인: `test/match/route-preview.test.js` — 데이터 표시, 커서 시각, 실제 매치 경로(4라운드 `act1autochess_04`: 액션 3 → 0·0.3초, 액션 0 → 9·9.3초)에서 적의 매 틱
   위치가 미리보기 선에서 0.02칸 안, 계획을 읽은 전투와 안 읽은 전투가 매 틱 같음; 联防 1인/2인; 브라우저 커서(한 번씩, 늦게 들어온 화면).
-  [화면 미확인]
+  [실제 판 이상 없음 2026-10-28]
 
 ## 보스 경로 미리보기 (2026-10-08, 관리자 제보 → 관리자 요청 「실제 루트를 알 수 없으니 준비기간에 경로를 표시」)
 - 2026-10-15부터 **캐주얼 규칙 모드에서만**(관리자 결정, `ui.md` 「규칙 모드 — 클래식·캐주얼」): 클래식 판은 서버가 리더 항목에 `paths`를 싣지 않는다(`server/match/match/views.js nextEnemiesFor`).
@@ -309,7 +309,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   서고(`render/drag.js dragStandTile` → `boardWorld`, 드롭 트윈과 같은 점), 그 밖(놓을 수 없는 칸·상점 띠)에서는 포인터 아래 `DRAG_HOLD_TILES`.
   근거는 upstream 주인의 공식 녹화(2026-10-09, upstream PR #403 제보). 픽·강조·`tileHover`·방향 선택·드롭은 여전히 포인터 칸.
   우리 배치 중 반투명(`GHOST_ALPHA`, ui.md)은 그대로 겹친다. 아이템 판은 늘 포인터 위.
-- 위 항목들은 [화면 미확인].
+- 위 항목들은 [실제 판 이상 없음 2026-10-28].
 
 ### sim 수정에 기대는 렌더 수정
 근거는 upstream 커밋(재현·측정은 upstream 몫).
@@ -325,7 +325,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
 - 렌더러 타임아웃(`0f6b25b9` ← `030d0a29`, PR #302): `createFieldView({signal})`·`mountFieldView`. 우리 자원 중 빌드 중에 만들어지는
   공식 이펙트 층(`fxGame`)·보스 준비 경로 커서(`routeCursors`)도 중단 정리(`setupCleanup`)에 등록. 보드 아트·3D 보드 대기는 view 객체 뒤로 옮겨졌지만
   여전히 `return` 전이라 호출자(공식 씬 `setStage`, 개시 낙하)가 보는 순서는 같다 [코드 읽기로 확인, 화면 미확인].
-- 위 항목들은 [화면 미확인]. 브라우저 테스트 `RENDER_E2E=1 test/render/initialization.browser.test.js`·`SP_E2E=1 test/e2e/coop.e2e.mjs`(联防 필드가 경기 맵을 그림)로 확인한다.
+- 위 항목들은 [실제 판 이상 없음 2026-10-28]. 브라우저 테스트 `RENDER_E2E=1 test/render/initialization.browser.test.js`·`SP_E2E=1 test/e2e/coop.e2e.mjs`(联防 필드가 경기 맵을 그림)로 확인한다.
 
 ## 공격 모션 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 근거: 공식 클라 `AbstractAnimatedAbility.UpdatePlaybackSpeed`(재생 속도 = 1 / 클립 배율, 배율 ∈ [0.1, `_maxAnimScale`]) — 규칙과 sim 쪽은 `sim.md` 「일반 공격 타이밍」.
@@ -345,15 +345,15 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   - 근거: upstream 관리자의 재현(upstream #506 「공격 뒤 한 번 더 휘두름」). **[ASSUMED]** 공식에서 연속 공격 사이에 대기 자세로 돌아가는지는 공식 녹화로 확인
     필요 — 우리 'swing' 길(위)도 클립이 끝나고 0.1초 뒤 쉬는 상태라 같은 가정이다.
   - 확인: `test/render/feedback2-enemy-attack-clip.test.js`(upstream 판 — 오퍼레이터 한 번·회복 중 다음 공격·프로방스 간격 0.08/1.6/8·실제 Spine 런타임의 묶음
-    갱신), `test/render/attack-alts.test.js`(아스카론 'swing' 없는 차례 클립). [화면 미확인]
+    갱신), `test/render/attack-alts.test.js`(아스카론 'swing' 없는 차례 클립). [실제 판 이상 없음 2026-10-28]
 - 'swing'은 `interp.js COSMETIC_EVENTS`(늦으면 버림), `shared/protocol.js EV.SWING`. 칸: `['swing', id, windup, kind, base?, face?, combat?]`(docs/SIM.md).
-- 테스트: `test/render/attack-swing.test.js`(가짜 PIXI). [화면 미확인]
+- 테스트: `test/render/attack-swing.test.js`(가짜 PIXI). [실제 판 이상 없음 2026-10-28]
 - **요새 근접·원거리 클립** (관리자 제보 2026-10-10: 号角이 원거리 공격에도 저지 시 모션을 씀): 클라 프리팹 `<id>/Modes/<mode>/Body/Attack/`의
   MeleeAttack·BlockedMeleeAttack·BlockedRangedAttack과 RangedAttack은 다른 클립 — 号角 Default `Attack_A`/`Attack_B`, S2 `Skill_2_A_Loop`/`Skill_2_B_Loop`,
   S3 `Skill_3_A_Loop`/`Skill_3_B_Loop`(아래로 배치하면 S3(D) 모드의 원거리 `Skill_Down_3_Loop` — 아래 「아래 방향」), 灰毫 Default `Attack02`/`Attack01`
   (반대로 저지 중에도 원거리 Attack01이었음). 역할 추출(`anim-roles.mjs`)은 첫 클립 하나만 고르므로 `units.js FORTRESS_CLIPS`([근접, 원거리] 쌍)를
   두고, 'swing'·'atk'의 kind(sim `ai.js`: 저지 중이면 'none')로 `spine.js _loopOf`가 고른다. 号角 `Skill_1_A`/`_B`는 쓰는 능력이 프리팹에 없음 [추정: 같은 나눔].
-  테스트 `test/render/fortress-clips.test.js`. [화면 미확인]
+  테스트 `test/render/fortress-clips.test.js`. [실제 판 이상 없음 2026-10-28]
 
 ## 모바일 3D 보드 복구 (2026-10-10, 관리자 제보 「모바일에서 간헐적으로 3D 렌더링이 안 된다」 → 관리자 요청 「진단 정보에 3D 상태를 넣고 1·2번부터」)
 - 진단(코드): 한 번의 실패가 그 판(또는 페이지) 끝까지 2D로 남겼다 — ① 판을 띄울 때 GPU 검사(`webgl2Available`)를 한 번만 하고, 실패하면 three.js를
@@ -436,7 +436,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   `retry`면 실패한 것만 다시 받는다(받은 이미지는 캐시 그대로). `scene.js _loadOfficial`은 그동안 절차형 보드를 그리고
   `OFFICIAL_RETRY_MS`(2·6·15·30초) 뒤 다시 시도, 마지막 시도는 `partial`(매니페스트에는 있는데 서버에 없는 파일은 영영 안 오므로 예전처럼
   받은 것만으로 그림). 진단 `render events:`에 `3d scene retry`(스테이지·몇 번째·빠진 것).
-- 확인: `test/render/board3d-official-retry.test.js`. [화면 미확인] 실제 휴대폰에서 요청 차단 → 절차형 보드 → 공식 씬 복귀.
+- 확인: `test/render/board3d-official-retry.test.js`. [실제 판 이상 없음 2026-10-28] 실제 휴대폰에서 요청 차단 → 절차형 보드 → 공식 씬 복귀.
 - 관리자 제보의 「2D 판으로 뜬다」는 이 결함이 아니다(이건 3D 보드 안에서 섬 일부가 검게·빠지게 그려짐). 2D 판이 되는 경로는 위
   「모바일 3D 보드 복구」의 GPU 검사(`failIfMajorPerformanceCaveat`: 하드웨어 가속 꺼짐·소프트웨어 GPU면 의도대로 2D)·보드 아트 받기 실패·
   컨텍스트 연속 소실(휴대폰 메모리 — 상한은 보류) — 진단 정보 `render:` 줄로 가른다.
@@ -488,7 +488,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
 - 공식(클라 charpack `char_1040_blaze2/Modes/S3`): `_replaceAnimPairs` Idle → Skill_3_Loop, 공격 능력 `_animKey ""`(`local-attack-timing.json` S3 anim "",
   wait 0) — S3 동안 Skill_3_Loop이 자세로 계속 돌고 공격은 클립을 바꾸지 않는다.
 - 고친 것: `spine.js _stance()`: 스킬이 켜져 있으면 쉬는 클립 = 스킬 루프, 공격 클립 없음
-  (swing / windUp / attack이 클립을 안 건드림). 시작 Skill_3_Begin, 끝 Skill_3_End는 그대로. 테스트 `test/render/stance-skill.test.js`. [화면 미확인]
+  (swing / windUp / attack이 클립을 안 건드림). 시작 Skill_3_Begin, 끝 Skill_3_End는 그대로. 테스트 `test/render/stance-skill.test.js`. [실제 판 이상 없음 2026-10-28]
 - 2026-10-22: 손 목록 `units.js STANCE_SKILLS`는 없어지고 클라 데이터 규칙(아래 「스킬 중 공격 클립」)이 烛煌 S3를 포함한 18개 스킬에 `stance`를 단다.
 
 ## 스킬 중 공격 클립 (2026-10-22, upstream `2b461767` `60d182c3` `ad9aa983` `72cb65a6`의 증상 — 우리 방식)
@@ -514,7 +514,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     / 'swire2Throw' `{ signal: 'spawnToken' }`을 보내고 평타 역할 `signals`(`SIGNAL_CLIPS`)가 그 클립을 틂.
     치유는 그 공격 차례 전체(관리자 결정 2026-10-22 「공식대로 변경」, 클라 근거·시뮬은 rules/sim.md 「스와이어 디 엘리건트 위트 S1 동전 치유 = 그 공격
     차례」) — fx 'swire2Heal' `{ signal: 'healAlly', t }`로 `Skill_1`을 처음부터 한 번. `signalSwing`은 타격이 지난 스윙의 꼬리를 끊고 들어감(새 스윙처럼; 그 전엔 거절해 평타 직후 던진
-    폭탄이 클립 없이 지나감). 테스트 `test/render/swire2-signal-clips.test.js`. [화면 미확인]
+    폭탄이 클립 없이 지나감). 테스트 `test/render/swire2-signal-clips.test.js`. [실제 판 이상 없음 2026-10-28]
   - 모드 키 = Default 키(평타 클립) + 스킬 클립이 Begin·idle 없는 한 개 → 그 클립은 시전 한 번(스킬 프리팹 시전 능력 `local-skill-cast.json`:
     블레미샤인 S2 `Skill_2`, 스펙터 S1 `Skill_1`, 치우바이 S2 `Skill_2`, 데겐블레허 S1 `Skill_1`(ReplacementSkill), 필라에 S1 `Skill_1`), 공격은 평타 클립.
   - 리드 더 플레임 섀도우 S2는 모드가 없음(공격 = Default `Attack`); 스킬 프리팹 능력이 `Skill_2`를 지속마다 한 번(`cd 20`, `cdKey duration`) — 손 목록.
@@ -524,7 +524,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   키 이름이 스킨 키 표로 바뀌는 모드(시 S3 `Skill_3_Attack` → 클립 `Skill3_Attack` 등)는 지금 역할 그대로.
 - 구현: `tools/assets/anim-overrides.mjs applyModeAttacks`(fetch-assets가 `data/assets.json` 스킬 역할에 `stance` / `plainAttack`을 닮;
   `MODE_ATTACK_KEEP` 뺄 것, `PLAIN_ATTACK` 모드 없는 것) → `render/spine.js _stance` / `_attackClip`. 테스트 `test/render/stance-skill.test.js`.
-  [화면 미확인]
+  [실제 판 이상 없음 2026-10-28]
 
 ## 가상적: 관(假想敌：管) 숨겨진 핵심 모델 위치 (2026-10-10, 사용자 제보 「일반 관은 맞는데 숨겨진 핵심의 관은 왼쪽으로 치우쳐 보인다」, 공식 캡처 없음)
 - 찾은 것: 숨겨진 핵심 레벨(act1autochess_h08_03 / _s)은 관(`enemy_9021_acduml_2`)과 가상적: 현을 둘 다 (행 3, 열 9)에 세운다 — 일반 관(h07_03)은 열 10(필드 가운데).
@@ -533,7 +533,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   클라에서 모델을 옮기는 장치는 못 찾음(EnemyGiantBoss `_bossHudOffset`은 HUD만).
 - [ASSUMED] 사용자 관찰대로 숨겨진 관의 몸·그림자를 한 열 오른쪽(피격 상자 자리, 열 10)에 그린다 — `units.js MODEL_SHIFT`(적 키 → 열 수, 지금 이 하나).
   유닛 위치·HP 바(자기 1.4 오프셋)·선택 영역은 그대로. 현은 같은 경우가 아님(오프셋 없음) — 그대로. 이 모델에 붙는 이펙트·그 모델에서 나가고
-  들어오는 궤적·버프 선 끝도 그린 열을 따른다(`fxgame.js mx`; 모델 점 `specialPoint`는 원래 그린 몸을 따름). 테스트 `test/render/model-shift.test.js`. [화면 미확인]
+  들어오는 궤적·버프 선 끝도 그린 열을 따른다(`fxgame.js mx`; 모델 점 `specialPoint`는 원래 그린 몸을 따름). 테스트 `test/render/model-shift.test.js`. [실제 판 이상 없음 2026-10-28]
 
 ## upstream 0.2.3 이식 — 렌더 (2026-10-11)
 - **외근 의료(外勤医疗, 전략)의 예비 오퍼레이터-메딕(预备干员-医疗)을 준비 단계에 표시** (upstream PR #451 by @YinqiMargatroid, `9db9f3ce`·`996fede8`; v0.2.4
@@ -543,7 +543,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   시작 때뿐. 클라 근거: `aceffect_band_61` = `auto_chess_change_map` 두 개(정예 ≤1 → `char_605_cmedic#*` 켬, ≥2 → `char_613_acmedc#*`)가 스테이지의 미리 놓인
   캐릭터(predefine)를 켜고 끄고, `AutoChessBattleDataModel.PrepareForPrepareState`가 말 목록을 비운 뒤 효과를 적용하므로 준비 화면은 늘 예비 메딕,
   `_PrepareForBattleState`가 실제 출전 말로 다시 센다(관리자 노트). 어그로 순서는 `sim.md` 「upstream 0.2.3 이식」. 테스트
-  `test/match/touch-prep.test.js`(PR). **[화면 미확인]** 준비·보스전 준비(오른쪽 플레이어 거울)·정찰·대체 화면에서 예비 메딕 위치·방향.
+  `test/match/touch-prep.test.js`(PR). **[실제 판 이상 없음 2026-10-28]** 준비·보스전 준비(오른쪽 플레이어 거울)·정찰·대체 화면에서 예비 메딕 위치·방향.
 - **멈춘 자세는 다시 계산·다시 그리지 않음 + 재배치 링 글자 공유** (upstream PR #434 by @Cloudnyco, `2fdc565c` cherry-pick, 브라우저 테스트 후속 `584cedc1`·
   `6036e6a4`; 관리자 결정 2026-10-11 전부 이식): `SpineActor.poseHeld()`(render/spine.js)는 얼어붙은 모델(`frozen`)이나 죽은 모델의 track 0 하나가 반복·믹스
   없이 끝까지 재생됐을 때(Die 마지막 프레임, Die 없는 골격은 timeScale 0의 Idle) 참 — 단 `update()`가 현재 클립·현재 tint를 한 번 반영한 뒤에만, 폼 마무리 클립·
@@ -556,7 +556,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   `update()`가 골격을 안 움직이므로 전과 같이 안 보임). ② 멈춘 자세의 impostor 슬롯도 `HELD_REDRAW_FRAMES`(240프레임, 60 fps에서 ~4초)마다 한 번은 다시 그림 —
   슬롯 픽셀은 RenderTexture에 있어 WebGL 컨텍스트를 잃었다 되찾으면(휴대폰 메모리 부족·탭 전환) 비어 돌아오는데, 우리 Pixi 쪽엔 복구 처리가 없어 쓰러진
   오퍼가 재배치까지 빈 칸으로 남을 수 있었다. 테스트 `test/render/held-pose.test.js`(upstream 9건 + 보강 2건), `test/render/downring.test.js`,
-  `test/render/held-pose.browser.test.js`(RENDER_E2E). **[화면 미확인]** 쓰러짐·재배치·빙결·확대·마스크 전환·跃跃 부메랑·DPR 변경·컨텍스트 소실 복구.
+  `test/render/held-pose.browser.test.js`(RENDER_E2E). **[실제 판 이상 없음 2026-10-28]** 쓰러짐·재배치·빙결·확대·마스크 전환·跃跃 부메랑·DPR 변경·컨텍스트 소실 복구.
 
 ## 이륙 높이 (2026-10-11, 관리자 결정 「이륙 중 모델을 띄움」)
 - 이륙(起飞, 시뮬 플래그 `liftoff`: 안젤리나 더 멜로우 위시 S1~S3, 켈시 에스페란타 재능(배치 내내), 蒂比 등)한 오퍼레이터를 비행 적과 같은 높이(`FLY_HOVER` 1.3칸)로
@@ -573,7 +573,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   (관리자 제보 「원형 이펙트가 약 한 칸 아래 타일에」), 비행 높이에서 시작하면 그녀 칸에 온다(디버그 아레나 확인). 다른 발밑 이펙트의 오프셋은 거의 0이다.
 - 코드: 스냅숏 비트 `shared/local.js UF_LIFTOFF`(2048, `server/sim/snapshot.js flagsOf`), `render/units.js` `liftoff` → `hover`, `render/fxgame.js lifted()`의
   발밑 기준점이 이륙한 오퍼레이터면 그 높이를 탄다. (2026-10-21) 비행 적(`units.js flying`: UnitInfo `motion` FLY 또는 스냅숏 UF.FLYING)도 같다 —
-  클라의 FOOT·NONE은 엔티티 자리라 비행 높이를 포함하는데 우리는 그 아래 길에 두었다(`test/render/fly-feet-fx.test.js`). [화면 미확인]
+  클라의 FOOT·NONE은 엔티티 자리라 비행 높이를 포함하는데 우리는 그 아래 길에 두었다(`test/render/fly-feet-fx.test.js`). [실제 판 이상 없음 2026-10-28]
 - golden: 결과는 그대로, 이륙 유닛이 있는 시나리오의 스냅숏 해시만(roster-004·006·025, diy-009·011).
 
 ## upstream 0.2.4 이식 — 렌더 (2026-10-11)
@@ -585,7 +585,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   `tools/local-extract/extract.py TOKEN_SPINES`에 더하고(`--only spine/token/token_10031_swire2_gdtrap`, EN 클라), `fetch-assets --local-spines`로
   `tools/assets/local-token-spines.json`·`data/assets.json tokens[id].spineLocal`에 실음(메타데이터는 upstream 것과 같음). 웹 스킨은 그대로 두어
   `spineEntry`의 `fallback` — 로컬 그림이 없거나 못 읽으면 지금처럼 웹 스킨. 크기는 전과 같이 `TOKEN_MODEL_K` 0.25/0.27. 테스트
-  `test/local-token-models.test.js`·`test/local-extract.test.js`(8개). **[화면 미확인]** 설치·공격·소멸 클립과 크기.
+  `test/local-token-models.test.js`·`test/local-extract.test.js`(8개). **[실제 판 이상 없음 2026-10-28]** 설치·공격·소멸 클립과 크기.
 
 ## Spine 클립 커버리지 (2026-10-12, 관리자 결정 「선발뿐 아니라 기존 오퍼레이터의 누락도 잡게」)
 - 배경: 안젤리나 더 멜로우 위시 S2의 `Skill_2_Takeoff_*`가 한 번도 안 틀렸다(`diy.md` 「S2 활공 모션」). 렌더는 모델의 역할(`anims`)과 아래 표에 이름으로
@@ -849,7 +849,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   [추정: 뒷모습 모델에서 공식이 무엇을 트는지는 안 읽음 — 뒷모습 스켈레톤 대부분에 Die가 없다].
 - 기절해 누운 채 쓰러지면 Die를 처음부터 다시 틀지 않고 이어 간다, 누운 채 빙결·수면이 겹치면 누운 자세로 멈추고 풀리면 다시 넘어지지 않는다 [추정].
 - 테스트: `test/render/stun-fall.test.js`(가짜 PIXI). 화면: 렌더 데모(Windows Chrome)에서 오른쪽을 보는 오퍼레이터 3명이 기절 동안 Die 끝 자세로
-  눕고 풀리면 Idle로 섬. 위를 보는 오퍼레이터(앞모습 모델로 바꿈)와 실제 판의 기절은 [화면 미확인].
+  눕고 풀리면 Idle로 섬. 위를 보는 오퍼레이터(앞모습 모델로 바꿈)와 실제 판의 기절은 [실제 판 이상 없음 2026-10-28].
 
 ## 심해 구역 잠김 (2026-10-14, 관리자 제보 「심해 구역에 들어가면 z축이 상당히 아래로 내려가야 하는데 일반 타일과 똑같다」)
 근거: 공식 버프 템플릿 `trap_sea_drown[enemy]`(buff_template_data — 涨潮控制 장치의 `sea_drown[enemy]` 버프, 이 포크의 深水区 수몰 `devices.js`)가
@@ -991,7 +991,7 @@ upstream 새 버그 이슈의 수정 PR 중 sim 수정에 기대는 렌더 쪽(�
   **[추정]**(PR 그대로): B 묶음이 팬이 멈춘 모습이라는 것은 클립 이름과 upstream PR뿐(클라 Graphic 표는 대조 안 함).
   그 순간의 fx `phase`(kind `stopped`)는 `fx/kinds.js SILENT_PHASES`에 넣어 대체 이펙트(보라색 사라짐)를 그리지 않는다 — 모델이 바뀌는 것으로 보이고,
   공식에 그 순간 이펙트가 있다는 근거가 없다 **[추정]**(upstream은 대체 이펙트를 그림).
-  테스트 `test/render/forms.test.js`(PR: A_Idle → setForm 뒤 B_Idle·B_Move·B_Attack·B_Die, 늦은 관전자는 처음부터 B). [화면 미확인] 침묵 뒤 B 모델·침묵이 끝나도
+  테스트 `test/render/forms.test.js`(PR: A_Idle → setForm 뒤 B_Idle·B_Move·B_Attack·B_Die, 늦은 관전자는 처음부터 B). [실제 판 이상 없음 2026-10-28] 침묵 뒤 B 모델·침묵이 끝나도
   HP 바 상한 그대로·늦은 관전자.
 - **假想敌：淤困 부착 闪现**(upstream #600, upstream PR #559): sim이 부착 순간 적을 접촉 지점(저지자 앞 약 0.7칸)에서 저지자 칸 중심으로 옮기고 fx `teleport`
   `{ id, fromX, fromY, kind: 'parasite' }`를 낸다. `interp.js SnapshotBuffer`는 이 fx(`kind: 'parasite'`, 유닛 id 있음)만 거리와 상관없이 위치 끊기로 쓴다 — 그 사이
@@ -1005,7 +1005,7 @@ upstream 새 버그 이슈의 수정 PR 중 sim 수정에 기대는 렌더 쪽(�
   붙는 움직임과 무관하다. 클라 프리팹은 EN 번들 `battle/enm_pfb_28.ab`에서 읽음. golden: roster-019의 fx 수만(`detached` 13개).
   테스트 `test/render/interp.test.js`(PR 두 개: 짧은 parasite blink는 끊기·외삽 없음, 다른 짧은 teleport는 보간; + 실제 sim 스냅샷·fx를 버퍼에 넣는 경우). PR의
   `test/render/browser.test.js` 브라우저 경우는 충돌·브라우저 필요로 안 가져왔다. `test/render/forms.test.js` 「淤困」(Parasitic → Idle_2 → Idle, 늦은 관전자, 대체 이펙트 없음).
-  [화면 미확인] 淤困이 막은 오퍼레이터 칸 중심에 미끄러지지 않고 붙으며 Parasitic 동작 뒤 Idle_2, 막기가 끝나면 Idle·Move.
+  [실제 판 이상 없음 2026-10-28] 淤困이 막은 오퍼레이터 칸 중심에 미끄러지지 않고 붙으며 Parasitic 동작 뒤 Idle_2, 막기가 끝나면 Idle·Move.
 
 ## upstream 0.2.5–0.3.1 버그 수정 이식 — 렌더 (2026-10-17, 관리자 결정)
 upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던 렌더 결함.
@@ -1014,12 +1014,12 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   (`render/units.js headTilesForUnit`). 발 기준 모델(y ≈ 0, 대부분)은 거의 안 바뀐다. 우리 `UNIT.modelScale`은 0.0027(upstream 1/320)이라 칸 수가
   upstream 숫자의 0.864배: 롯체이서(逐腐兽)·광기의 롯체이서 1.60 → 0.70칸, 데겐블레허(锏, 보스) 2.20 → 0.96칸, 사냥개 Pro·빅 밥은 변화 0.01칸 미만.
   확인: `test/render/bar-head.test.js`(upstream 판을 실제 `assets.json` 상자·우리 배율로), `test/render/playtest6-enemies.test.js`(합성 상자 높이 390 → 520:
-  우리 배율로는 위 240단위면 모든 바가 하한 0.55에 걸려 비교가 안 됨). [화면 미확인] 롯체이서의 HP바가 머리 바로 위.
+  우리 배율로는 위 240단위면 모든 바가 하한 0.55에 걸려 비교가 안 됨). [실제 판 이상 없음 2026-10-28] 롯체이서의 HP바가 머리 바로 위.
 - **처음 그리기 전 기물의 화면 사각형** (upstream `1df530f2`): `view.pieceScreenRect`가 이번 프레임에 만든 유닛의 아직 투영 안 된 (0, 0) 기록으로 사각형을 돌려줘,
   보충(替补) 표시(`screens/game/standInTags.js`)가 한 프레임 캔버스 모서리에 뜰 수 있고 브라우저 시험이 그 자리를 잡았다. 이제 뷰마다 첫 `update`의 투영에서
   `placed`를 켜고(`render/units.js` UnitView·ItemView·DeviceView), 그 전에는 `null`(`render/app.js`). 시험 쪽 `piecePoint`(`test/e2e/client.mjs`,
   `test/ui/real.e2e.test.js`)는 그려지고 멈춘 기물을 2.5 s까지 기다린다. 확인: `test/render/unitview.test.js` 「no screen rect before the first draw」.
-  [화면 미확인] 보충 오퍼레이터를 사서 벤치에 놓는 순간 「替补」 표시가 모서리에 깜빡이지 않음.
+  [실제 판 이상 없음 2026-10-28] 보충 오퍼레이터를 사서 벤치에 놓는 순간 「替补」 표시가 모서리에 깜빡이지 않음.
 - **공식 씬 위 특제 수상 플랫폼** (upstream `205f3bb7`의 장치 부분): 공식 씬은 절차 보드 메시(장치 판이 들어 있던)를 대신하는데, 공식 장치 모델은 사격대
   (`trap_1106_achplat`, 위 「공식 스테이지 3D 씬」 기기 모델)만 놓아 전장 #05(`act1autochess_m05`)의 특제 수상 플랫폼 64칸이 빈 물로 보였다. upstream은 절차 판을
   씬 위에 다시 그리지만, 우리는 사격대와 같은 방식으로 클라 프리팹을 하나만 추출해 놓는다: `scene_extract.py` `DEVICE_KEYS`에 `trap_040_canoe`
@@ -1030,7 +1030,7 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   확인 2026-10-17) — 공식 씬에서도 장치가 그리는 것이 없으므로 안 그린다(upstream은 절차 판). 추출하지 않은 서버(모델 없음)는 예전처럼 수상 플랫폼을 안 그린다.
   확인: `test/render/board3d-official-devices.test.js`(배치·한 칸 한 번·갑판 높이·2D 칸 높이; 실제 추출물 사례는 추출이 있을 때만). 추출 확인 2026-10-17:
   EN 클라에서 `--devices`를 임시 폴더로 돌려 장치 3개·그룹 4개·텍스처 2개(`TX_boat_trap`, `TX_supplyshadow`), 배 메시는 불투명 표준 재질, 그림자는 UNLIT 반투명.
-  [화면 미확인] 전장 #05 공식 씬에서 수상 플랫폼 배가 물에 떠 있고 그 위 오퍼레이터의 발이 갑판에 닿음; 전장 #06의 봉인된 지면 4칸이 공식 씬에 어떻게 보이는지
+  [실제 판 이상 없음 2026-10-28] 전장 #05 공식 씬에서 수상 플랫폼 배가 물에 떠 있고 그 위 오퍼레이터의 발이 갑판에 닿음; 전장 #06의 봉인된 지면 4칸이 공식 씬에 어떻게 보이는지
   (씬 자체 표시가 있는지).
 - **스텐실 없을 때 영역 눈알·가는 눈꺼풀** (upstream `43a5b571`, upstream #647): 스텐실 마스크가 꺼지면(붐비는 판·고화질 미만, `render/app.js pickClipping`) 눈꺼풀
   대체 처리(`render/spine.js SpineActor._eyeMaskFallback`, upstream #177 이식 — 위 「upstream 0.2.1·0.2.2 이식 — 렌더」 눈꺼풀)가 가린 슬롯의 중심이 클립 다각형 밖일 때만
@@ -1039,7 +1039,7 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   중심; 영역은 `bone.matrix`로 잼; 오목한 클립 안에 통째로 든 슬롯은 둠 — 안젤리나 더 멜로우 위시의 무기 빛). [ASSUMED] 두 몫(1/4·1/2)은 upstream 값, 슬롯
   단위 전부/전무도 그대로 근사. 페페 쓰러짐은 0.13 s → 0.10 s부터 숨김(upstream 기대값 그대로 통과). 확인: `test/render/eyemask.test.js`(합성 골격 — 늘 돎 —, 실제 골격:
   에이야퍄들라 더 크비트 아스카·페페 등, 16건 통과), `test/render/eyemask.browser.test.js`(RENDER_E2E, 스텐실 켬/끔 픽셀 비교 — 안 돌림).
-  [화면 미확인] 고화질 미만에서 에이야퍄들라 더 크비트 아스카가 깜빡일 때와 S3 동안 눈이 감겨 보임.
+  [실제 판 이상 없음 2026-10-28] 고화질 미만에서 에이야퍄들라 더 크비트 아스카가 깜빡일 때와 S3 동안 눈이 감겨 보임.
 
 ## 8인 넓은 연합 방어 필드 그리기 (관리자 결정 2026-10-19, 공식에 없는 기능)
 

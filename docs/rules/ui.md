@@ -420,7 +420,7 @@
 - SP 가득 참 빛 없음(관리자 결정: 캡처에 없고 자동 발동이라 순간).
 - '염의 가호'(炎佑, 炎 맹약 소환물 — 적 기록으로 만든 아군)는 HP 바만, SP 줄 없음(2026-10-23, 관리자 제보 「공식은 SP 바 없이 HP 바만」 — 관리자 기억,
   클라 근거는 안 찾음): 祛恶之焰이 적 스킬 쿨다운으로 돌아 sim이 SP를 보내지만 렌더가 안 그림(`shared/trap-tokens.js NO_SP_TOKENS` → `units.js noSp`).
-  [화면 미확인]
+  [실제 판 이상 없음 2026-10-28]
   그 HP 바도 평소엔 숨기고, HP가 바뀌면(맞거나 치유) 잠깐 보였다가 사라진다(2026-10-23, 관리자 제보 「공격받는 등의 변화가 있을 때 잠깐 보여 주고
   평소엔 안 보임」 — 관리자 기억): `FLASH_HP_TOKENS` → `units.js hpFlash`,
   `HP_FLASH` 2초 보이고 흐려짐 없이 바로 사라짐(관리자 제보 2026-10-23 「흐려지며가 아니라 바로 사라졌다」; 2초는 [추정 시간]). 관리자 화면 확인 2026-10-23 「대충 비슷」.
@@ -446,7 +446,7 @@
     信仰搅拌机(산크타 믹사파라토) S2 八臂电锯侠 42·45발 — 30발인 S3는 칸). 간격 값은 `(최대/5 + 1) × _gapFactor`를 셰이더에 넘기는 방식이라 우리 2단위 [추정]은 그대로, 10~39발의
     「부드러운 칸」(`USE_SMOOTH_COUNT`, 셰이더) 차이도 안 옮김.
   - 테스트 `test/render/sp-bullets.test.js`. 스와이어 디 엘리건트 위트의 금화 칸(2/2)·S3 충전 중 SP 막대 → 켜진 뒤 10칸은 Windows Chrome 실제 화면으로 확인(2026-10-11).
-    **[화면 미확인]** 엑시아 더 뉴 커버넌트 S2·S3 비율 막대(코드 근거만 — 공식 화면을 볼 기회가 있을 때).
+    **[실제 판 이상 없음 2026-10-28]** 엑시아 더 뉴 커버넌트 S2·S3 비율 막대(코드 근거만 — 공식 화면을 볼 기회가 있을 때).
 - 배리어(屏障·护盾, 관리자 요청 2026-10-10 「배리어도 HP 바처럼」): 공식 클라 `UIHudCharHpSlider.UpdatePlugin`이 유닛의 `shieldUIController.shieldToShow`(s)를
   읽어 HP 바를 (HP + s) / (최대 HP + s)로 채우고, 채운 부분 중 끝쪽 s / (HP + s)(`UIHpFillImage.splitValue`)를 바 머티리얼 `ui_battle_ally_hp_bar`(셰이더
   `Torappu/UI/Hp`, 클라 셰이더: uv.x > 1.003 − split이면 `_Color2`)의 `#bcdbdf` 불투명으로 그린다 — 따로 막대가 있는 게 아니라 HP 바가 배리어만큼 늘어난다. 아군만
@@ -612,7 +612,7 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
     폭발 순간의 타격(2026-10-21, `fxgame.js burstFx`, 시뮬 fx 'burst' {id, element}): EN 버프 템플릿 `ep_break_<원소>_char`/`_enemy`의 ON_BUFF_START
     `CreateEffect`(BUFF_OWNER) — 灼燃 적 `common_firedamage_hit`(오퍼레이터는 없음), 侵蚀 오퍼레이터 `common_waterElementExplosion`·적
     `common_waterdamage_hit`, 凋亡 양쪽 `common_darkdamage_hit`; 神经 오퍼레이터는 `ep_break_sanity[epfree]`의 overrideEffectKey
-    `common_nerve_injury_01_hit`(적은 palsy[stack], 없음). 공식 것이 나오면 옛 절차 'burst'는 안 그림. 추출 `--bundle common --prefab …` 5개. [화면 미확인]
+    `common_nerve_injury_01_hit`(적은 palsy[stack], 없음). 공식 것이 나오면 옛 절차 'burst'는 안 그림. 추출 `--bundle common --prefab …` 5개. [실제 판 이상 없음 2026-10-28]
   - 층별(`LAYER_FX`): 니어 더 래디언트 나이트 S2 `nearl2_s_2[shield][a..d]` = 남은 횟수 ≥ 1..4마다 `nearl2_skill_02_buff_02..05` 하나씩, 'parry' fx마다 하나 줄임.
   - 일반 스킬 보호막(`generic:shield:*`)·아이템·인연 보호막 층·우리 키트의 무적(첸 더 던스트릭 S2, 머드락 S3 闭锁, 데겐블레허 S3, 튤립, 카제마루 교체)·도발(벤델라)·
     메테오 파쇄·비질 늑대 표식(공식 이펙트는 늑대 쪽)은 공식 버프에 이펙트가 없어 아무것도 안 그린다.
@@ -621,7 +621,7 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
     --match '^token_10030_mlyss_wtrman_c3_debuff_01$'`/`'^token_cathy_catsld_shield_01'`, `--bundle common --prefab 'common_ resistance_01' --prefab common_darkdamage_debuff`,
     `--bundle buff --prefab buff_burn`. 나머지는 이미 뽑혀 있었다(오퍼레이터 번들). 근거 추출: EN `config/buff_template_holder.ab`(관리자 노트의 2026-10-10 추출),
     charpack MonoBehaviour, `[uc]skills.ab`, CN 공개 `battle/buff_template_data.json`.
-  - 확인: 단위 `test/render/status-buff-fx.test.js`, `test/local-patch-hud.test.js` ⑤. [화면 미확인]
+  - 확인: 단위 `test/render/status-buff-fx.test.js`, `test/local-patch-hud.test.js` ⑤. [실제 판 이상 없음 2026-10-28]
 - 디버그 아레나 확인: 寒冷+战栗(눈꽃 위·주먹 아래, 캡처 10과 같음), 冻结+寒冷(캡처 9의 얼음), 沉默 ✕, 脆弱, 沉睡, 迷彩. 아레나에서 WebGL 경고
   `drawElementsInstanced: no buffer is bound` — 상태를 하나도 안 걸어도 나와서 이번 작업과 무관(조사 안 함).
 - git 밖 생성물: `public/assets/local/fx/buff/`, `fx/common/`, 새 텍스처·메시, `fx/index.json`.
@@ -781,7 +781,7 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
 - 확인: `test/local-generation.test.js`(기다릴 방 판단, 150·180분, 실제 서버의 쿠키·`/healthz/accept`·welcome·거부·대기실 닫기·판 유지, 실제 프로세스의 `SIGUSR2` 단어와 exit 0, 페이지의 3초·판 대기·다른 탭 대기;
   대기실 넘기기: 실제 서버 둘이 폴더를 같이 써서 방 코드·방장·AI·규칙·준비 풀림·같은 playerId·파일 0600과 삭제·넘긴 방에서 판 시작, 판이 끝난 방, 30분 넘은 파일, 새로고침 기록과 창 문구).
   2026-10-17 리허설 경로판(Caddy + 슬롯 컨테이너 둘, 폴더 공유)에서 Windows Chrome 두 탭으로 대기실(방장·손님·AI) → 드레인 → 「업데이트됩니다」 창 → 새로고침 뒤 같은 방 코드·좌석·같은 playerId, 쿠키 b, 「업데이트되었습니다」 창·업데이트 내용 보기, 휴대폰 가로(844×390) 두 창 확인.
-  판 화면이 판 끝까지 기다리는 것·다른 탭 대기 띠는 브라우저와 실제 프록시로 아직 [화면 미확인].
+  판 화면이 판 끝까지 기다리는 것·다른 탭 대기 띠는 브라우저와 실제 프록시로 아직 [실제 판 이상 없음 2026-10-28].
 
 ## upstream 0.2.1·0.2.2 이식 — UI (2026-10-09)
 
@@ -797,7 +797,7 @@ upstream v0.2.0 이후 UI 수정(비공개 비교 기록). 첫 묶음 15건은 �
 - 진단 복사(`57dd2e62` ← `3f884412`, 관리자 결정 2026-10-09): 설정 → 「문제 제보」. 안내 주소와 PLAYING.md §12는 upstream이 아니라 우리 저장소
   `LazyDeltaLima/Myeongto-Replica/issues`(관리자 결정 2026-10-09).
 - 선발 선택 창 테스트(`4c41ab62`·`cafff52f`)는 우리 5명(아스카론·왕)과 필터 칩 없는 선택 창(관리자 결정 2026-10-07)에 맞춰 고쳐 넣었다.
-- 브라우저 e2e(`SP_E2E=1`)로 들어온 테스트(`mock` `settings-entry` `diy` `facing` `modal` `loadout` `i18n` `ready-fold`) [화면 미확인].
+- 브라우저 e2e(`SP_E2E=1`)로 들어온 테스트(`mock` `settings-entry` `diy` `facing` `modal` `loadout` `i18n` `ready-fold`) [실제 판 이상 없음 2026-10-28].
 
 ### 두 번째 묶음 — 잠재·练度 UI, 통계 페이지 등
 
@@ -825,7 +825,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 - 고른 스킬 테두리(`963f5584` ← `4d63e9d5`, #398): 첫 묶음에서 넘긴 CSS 1줄 — 로컬 클라이언트 그림 `image_skill_select_outline`이 있을 때만 보임.
 - 실제 경기 경로: `test/ui/ui2-real-match.test.js`(`54a1f5ac`) — 교편 제안(서버 m.private) → 클라이언트 선택지 → 준비 거부 → `g.choice` →
   준비 완료, 그리고 `m.private.ops`로 만든 카드 = 같은 판의 전투 수치(팀원 정찰 유닛도). 브라우저 e2e(`SP_E2E=1`: `stats` `inspect-range`
-  `mock` `playtest2.real` `loadout*` `teammate-loadout`) [화면 미확인].
+  `mock` `playtest2.real` `loadout*` `teammate-loadout`) [실제 판 이상 없음 2026-10-28].
 
 ## upstream 0.2.3 이식 — UI (2026-10-11)
 - 대화 상자 안 복사(`8a8db0eb`, GitHub #433): 클립보드 API가 없을 때(LAN) 쓰는 textarea 대체 경로가 모달 포커스 가두기 안에서 선택을 잃어
@@ -925,7 +925,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
     공식 모양 HUD에서는 오퍼레이터 카드와 같은 공식 모양(아래 「보드에서 연 카드가 벤치를 가림」). `[ASSUMED]` 공식 패널의 실제 배치·정비 단계에서 누를 수 있는지(공식 정비 화면 캡처 없음), upstream의 「装置机制」 설명 글(우리 sim 수치)은 upstream 것.
   - 문구: `en.json`·`ko/ui.json` 16개(ja·zh-TW 팩은 이번에 안 넣음 — 영어로 떨어짐). 한국어 「스테이지 장치」·「장치 효과」(지형 카드의 「지형 효과」에 맞춤).
   - 확인: `test/ui/device-tip.test.js`(upstream v0.2.4 판, 언어는 zh/en/ko + 공식 스킬 글·범위 사례), `test/ui/device-tip.e2e.test.js`(SP_E2E, upstream 그대로 + 공식 글 한 줄),
-    dev mock `?variant=devices&stage=act1autochess_m01`·`__MOCK__.hurtDevice(i, dmg)` [화면 미확인].
+    dev mock `?variant=devices&stage=act1autochess_m01`·`__MOCK__.hurtDevice(i, dmg)` [실제 판 이상 없음 2026-10-28].
 - **간이 보기 재시도** (`6bfc0827`의 `ui/fieldHost.js` + 같은 커밋의 `screens/game.js` 새 view 다시 들어가기): `render.md` 「모바일 3D 보드 복구」.
 
 ## 본판 정보 다시 뽑기 (2026-10-09, 관리자 결정)
@@ -988,7 +988,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   한 판 3건, 주소당 하루 10건, 전체 하루 200건(메모리, 재시작하면 초기화). `SP_FEEDBACK_DIR/inbox/FB-<UTC 날짜>-<id>.json` 하나에
   종류·내용(제어 문자 제거, 줄바꿈 유지)·진단·전투(풀어서, 4 MB 넘으면 버림)·버전·빌드·이 판의 `[stats]` 기록(이름 뺌, 방 코드·판 번호로 로그와 이어짐)·
   `sender`(주소의 HMAC-SHA256 앞 16자, 키는 `SP_FEEDBACK_DIR/.key`)를 쓴다. 90일 지난 파일은 시작할 때와 6시간마다 지운다.
-- 확인: `test/local-feedback.test.js`(검증·꺼짐·저장 내용·주소 해시·제한·정리·전투 묶기·실제 서버에서 판 끝난 뒤 전송). [화면 미확인]
+- 확인: `test/local-feedback.test.js`(검증·꺼짐·저장 내용·주소 해시·제한·정리·전투 묶기·실제 서버에서 판 끝난 뒤 전송). [실제 판 이상 없음 2026-10-28]
 - **GitHub issue 자동 등록**(2단계, `server/feedback-relay.js`, `node server/feedback-relay.js`): 게임 서버와 따로 도는 프로세스. 게임 서버는 네트워크
   밖으로 나가지 않고 보관함에 쓰기만 하고, relay가 `SP_FEEDBACK_DIR/inbox/`를 읽어(읽기 전용이어도 됨) 올린 기록을 `SP_FEEDBACK_DIR/issues/`에 쓴다.
   작성자는 사람 계정이 아니라 그 저장소 하나에만 설치한 GitHub App(권한 Issues 읽기·쓰기)의 봇. 설정: 두 쪽 모두 `SP_FEEDBACK_REPO=owner/name`,
@@ -1410,7 +1410,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 - upstream PR은 `layerCamera`만 바꿨는데, 전장에 들어갈 때(`screens/game.js` 전장 진입)는 층을 全景으로 되돌리고 카메라를 직접 정해서, 층이 이미 全景이면
   `[layer]` 효과가 돌지 않아 첫 카메라가 그대로 전체였다. 그래서 진입 때 联防 판의 카메라도 `layerCamera(field, 'ALL', side)`로 정한다.
 - 근거: 관리자 결정 2026-10-15(관리자 기억, 공식 녹화 없음). 공식 클라·녹화로는 확인하지 않음 `[ASSUMED]`.
-- 확인: `test/match/observe.test.js`(박사 한 명·둘, `sides` 없는 메타, 보스 판, 진입 코드 고정). [화면 미확인] 박사 한 명 연합 방어 첫 카메라.
+- 확인: `test/match/observe.test.js`(박사 한 명·둘, `sides` 없는 메타, 보스 판, 진입 코드 고정). [실제 판 이상 없음 2026-10-28] 박사 한 명 연합 방어 첫 카메라.
 
 ## 규칙 모드 — 클래식·캐주얼 (2026-10-15, 관리자 결정)
 - 방마다 **규칙 모드**를 고른다: **클래식**(经典) = 공식 위수협약 그대로, **캐주얼**(休闲) = 이 리메이크의 편의 기능을 켠다. 공식 게임에는 이런 선택이 없다(공식에 없는 편의 기능을 한곳에서 끄고 켜기 위한 우리 기능).
@@ -1520,7 +1520,7 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
     거부 효과음은 그대로 나고, 거절된 요청은 문제 제보용 오류 기록(`diag.js`)에 계속 남는다.
 - 설정과 무관한 것: 렌더러 간이 화면 전환 안내(`game.js`의 유일한 `toast`), 연결·재시작·복사 등 판 밖 토스트, 지형 칸 안내(`TileToast`).
 - 확인: `test/ui/gameLogic.test.js` 「对局通知 …」 두 건(설정 값, 판 중 경로가 스위치를 거치는지), `test/ui/settings-sections.test.js`(「画面」 절 안).
-  문구 `en`·`ja`·`zh-TW`·`ko/ui.json`. [화면 미확인]
+  문구 `en`·`ja`·`zh-TW`·`ko/ui.json`. [실제 판 이상 없음 2026-10-28]
 
 ## 충전 스킬 표식 (2026-10-17, 관리자 제보)
 

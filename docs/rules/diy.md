@@ -350,7 +350,7 @@
   `gameLogic/placement.js equipCheck`가 같은 검사로 「无法装备给自编干员」를 띄우고, AI 托管은 선발 조각을 비콘 대상으로 고르지 않는다
   (`bot.js itemTarget`). 처음 선발 구현(`shared/diy.js diyEquipRefused`)에 있던 거절이 0.2.0 upstream 틀로 옮길 때 빠졌고,
   upstream 0.2.0은 「선발 조각은 팀원에게 보내지 않음 [ASSUMED]」만 있어 선발 오퍼레이터가 파괴되고 2명 중 1명 특수 갱신이 열렸다
-  (2026-10-22 수정, 테스트 `feedback3-gift.test.js`·`gameLogic.test.js`·`feedback5-we2-bot-diy.test.js`). [화면 미확인]
+  (2026-10-22 수정, 테스트 `feedback3-gift.test.js`·`gameLogic.test.js`·`feedback5-we2-bot-diy.test.js`). [실제 판 이상 없음 2026-10-28]
 - 모듈: 공식 甄选 칸에는 기본 모듈이 없어(게임에서 직접 장착) 처음엔 미장착이었다. 2026-10-05부터 후보의 첫 모듈(`uniequip_002`, X 타입)을
   기본으로 장착한다(상점 `defaultUniEquipId`). 오퍼레이터 구성 화면에서 「없음」을 고를 수 있다.
 - 한국어: `public/i18n/ko/diy.json` — 위셔델·아스카론은 KR 공식 테이블, 왕·첸 더 던스트릭·사키코는 `tools/i18n/diy-ko-manual.json` 수동 번역(이름·스킬·재능·모듈 이름은 나무위키 표기).
@@ -686,7 +686,7 @@
   그대로(upstream은 같은 커밋에서 목록을 구성 화면처럼 한 줄씩 늘어놓는 표로 바꿨다 — 우리 선발은 8명이라 받지 않음), 글자 크기 변수(`--t`)는
   우리 CSS에 없어 그 hunk는 받지 않음.
 - 테스트: `test/ui/diy-ui.test.js` 「the picker detail (upstream 0.2.4)」(일반/정예화 전환마다 S1 수치·SP가 sim def와 같음, Lv 표기, 잠재·육성도 줄),
-  `test/ui/loadout-stats.test.js`(upstream: `LoadoutStats`가 `ui/loadoutStats.js`에서 옴). [화면 미확인]
+  `test/ui/loadout-stats.test.js`(upstream: `LoadoutStats`가 `ui/loadoutStats.js`에서 옴). [실제 판 이상 없음 2026-10-28]
 
 ## 아스카론 死亡拘审 틱 간격 (2026-10-11 확인)
 - 키트 `op-ascln.js`의 `interval: 1`(1초마다)은 공식과 같다. 클라 버프 템플릿 `ascln_t_1[debuff]`의 `triggerInterval` 2.0은 기본값일 뿐이다:
