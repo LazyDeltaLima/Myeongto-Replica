@@ -170,6 +170,8 @@
   "回合伤害统计": "Round Damage",
   "伤害统计样式": "Damage Panel Style",
   "自动": "Auto",
+  "自动：画面持续卡顿时降为「中」，恢复流畅后回到「高」。": "Auto: drops to Medium while the game keeps stuttering and returns to High once it runs smoothly again.",
+  "当前：{q}": "Now: {q}",
   "详细": "Detailed",
   "简洁": "Compact",
   "回合 {n}": "Round {n}",

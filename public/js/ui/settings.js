@@ -9,7 +9,7 @@
 // and the room open it from a 设置 button next to 玩法说明 (SettingsButton, GitHub #238); the title screen and the match
 // have their own gear.
 
-import { useLayoutEffect, useRef, useState } from '../../vendor/hooks.module.js';
+import { useEffect, useLayoutEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Modal, Button, Icon, MicroLabel, Tabs } from './components.js';
 import { GIcon } from './gameComponents.js';
 import { createStore, useStore, loadPref, savePref, store } from '../store.js';
@@ -26,11 +26,28 @@ import { t, tc, N_, langInfo } from '../../../shared/i18n.js';
 import { errorCount, currentBattle, diagnosticsText } from '../diag.js';
 import { copyText } from './clipboard.js';
 import { GpuNote } from './gpuNotice.js';
+import { autoQuality, onAutoQuality } from '../render/auto-quality.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /** Settings store: { bgm, sfx, voice, muted, damageNumbers, quality, keys }. */
-export const settingsStore = createStore(sanitizeSettings(loadPref('settings', null)));
+export const settingsStore = createStore(initialSettings());
+
+/**
+ * The saved settings. A touch-only device (a phone, a tablet without a mouse) defaults to 画面质量 「自动」, and a saved
+ * 「高」 moves to it once (maintainer decision 2026-10-28: the whole settings object is saved, so a 「高」 kept from the old
+ * default cannot be told from a chosen one); a 「高」 picked after that stays.
+ */
+function initialSettings() {
+  const raw = loadPref('settings', null);
+  const s = sanitizeSettings(raw);
+  const f = detectFeatures();
+  if (f.coarse && !f.fine && !loadPref('qualityAuto', false)) {
+    if (s.quality === 'high') s.quality = 'auto';
+    savePref('qualityAuto', true);
+  }
+  return s;
+}
 
 settingsStore.subscribe((s) => {
   savePref('settings', sanitizeSettings(s));
@@ -102,7 +119,15 @@ function ChatSoundSection({ s }) {
       <p class="set-hint">${t('房间和对局中其他玩家发来新消息时播放表情提示音。提示音播放中或提示间隔内收到的消息不再提示。')}</p>` : null}`;
 }
 
-const QUALITY = [['high', N_('高')], ['medium', N_('中')], ['low', N_('低')]];
+const QUALITY = [['auto', N_('自动')], ['high', N_('高')], ['medium', N_('中')], ['low', N_('低')]];
+const QUALITY_LABEL = Object.fromEntries(QUALITY);
+
+/** Under 画面质量 while 「自动」 is chosen: what it does and the preset in effect (render/auto-quality.js). */
+function AutoQualityHint() {
+  const [q, setQ] = useState(autoQuality);
+  useEffect(() => onAutoQuality(setQ), []);
+  return html`<p class="set-hint" data-testid="auto-quality"><strong>${t('当前：{q}', { q: t(QUALITY_LABEL[q]) })}</strong>${' · '}${t('自动：画面持续卡顿时降为「中」，恢复流畅后回到「高」。')}</p>`;
+}
 /** settings → 画面 「伤害统计样式」 (ui/roundDamage.js; ROUND_DAMAGE_STYLES) */
 const ROUND_DAMAGE_LOOKS = [['auto', N_('自动')], ['full', N_('详细')], ['compact', N_('简洁')]];
 
@@ -324,6 +349,7 @@ export function SettingsModal({ open, onClose }) {
               class=${s.quality === id ? 'is-on' : ''} onClick=${() => updateSettings({ quality: id })}>${t(label)}</button>`)}
           </div>
         </div>
+        ${s.quality === 'auto' ? html`<${AutoQualityHint} />` : null}
         <${NumberUnitsSetting} />
         <${Toggle} label=${t('精锐干员标记')} micro="ELITE BADGE" value=${s.eliteBadge} onChange=${(v) => updateSettings({ eliteBadge: v })} />
         <${Toggle} label=${t('回合伤害统计')} micro="ROUND DAMAGE" value=${s.roundDamage} onChange=${(v) => updateSettings({ roundDamage: v })} />

@@ -56,7 +56,7 @@
 //   view.holdPiece(uid, {row,col} | null)       keep a dropped prep piece standing on a tile while its direction is
 //                                               chosen / the move is in flight (null releases; setPrep then settles it)
 //   view.setPieceDir(uid, dir)                  show a prep piece facing UP|RIGHT|DOWN|LEFT (wheel preview / stored dir)
-//   view.setSettings({ damageNumbers, quality: 'high'|'medium'|'low' }) ; view.resize() ; view.destroy()
+//   view.setSettings({ damageNumbers, quality: 'auto'|'high'|'medium'|'low' }) ; view.resize() ; view.destroy()
 //   view.isReady() → false while the first frame is held back (its textures go up behind the loading screen); then
 //        emits ready (no payload) after the first frame that draws the field ("first frame" below)
 //   view.stats() → { fps, frameMs, cpuMs, renderMs, parts, units, particles, impostor, impostorAtlas, boardArt, … } (dev / perf)
@@ -154,6 +154,7 @@ import { CAMERA_MS, BOARD3D_STABLE_MS, BOARD3D_RETRY_MS, PEN_CAMERA_MS, RANGE_GR
 import { boardPreference, switchableBox, bandFor, fieldRows, boardArea, viewKind, penShown, leaderShown } from './app/view.js';
 import { renderInfo, FORCED_EXIT, showsDeathFx } from './app/info.js';
 import { resolveAssets, makeData, withTimeout, capWait, QUALITY_RES, BOARD_RES, releaseGl } from './app/host.js';
+import { autoQuality, autoQualityStepper, onAutoQuality } from './auto-quality.js'; // settings 「自动」 (render.md 「자동 화면 품질」)
 import { t } from '../../../shared/i18n.js';
 import { syncGoldenFx } from './fxgolden.js'; // local patch: the prep elite glow
 import { createRouteCursors, createBattleCursors } from './fxroute.js'; // the boss route preview (LOCAL-PATCH.md 「보스 경로 미리보기」); the battle start's official one (render.md 「적 경로 미리보기」)
@@ -207,6 +208,9 @@ export async function createFieldView(host, options = {}) {
   const assets = resolveAssets(opts.assets);
   const data = makeData(opts.data);
   const settings = { damageNumbers: true, quality: 'high', ...(opts.settings || {}) };
+  // 「自动」: settings.quality is the preset in effect (what every quality check below reads), stepped by auto-quality.js
+  let autoPick = settings.quality === 'auto';
+  if (autoPick) settings.quality = autoQuality();
   // the 3D board (three.js + the official art) loads in parallel with everything else; three.js (~2 MB) is fetched only
   // when the local-art manifest lists the board atlas. A failed GPU check or load is tried again (try3d below).
   const boardPref = boardPreference(opts.board);
@@ -2068,7 +2072,18 @@ export async function createFieldView(host, options = {}) {
     else if (frameMs < 17.6) { fastFor += dtRaw; slowFor = 0; }
     if (slowFor > 1 && loadLevel < 3) { loadLevel++; slowFor = 0; fastFor = 0; impInterval = pickImpostorInterval(); }
     else if (loadLevel > 0 && (fastFor > 6 * loadLevel || !busy && fastFor > 2)) { loadLevel--; fastFor = 0; impInterval = pickImpostorInterval(); }
+    if (autoPick) stepAuto(dtRaw, loadLevel); // a step reaches applyQuality through onAutoQuality
   }
+  const stepAuto = autoQualityStepper();
+  function applyQuality(q) {
+    if (q === settings.quality) return;
+    settings.quality = q;
+    board3d?.setQuality?.(q);
+    impInterval = pickImpostorInterval(); clipAllowed = pickClipping();
+    resize();
+  }
+  const offAuto = onAutoQuality((q) => { if (autoPick && !destroyed) applyQuality(q); });
+  setupCleanup.push(offAuto);
   // Crowded fields render skeletons through staggered RenderTexture impostors (units.js): the interval grows with
   // the number of Spine units so the per-frame vertex work stays roughly constant (hysteresis: re-evaluated
   // every 30 frames). Prep and ordinary fields keep full-rate direct rendering.
@@ -2539,11 +2554,10 @@ export async function createFieldView(host, options = {}) {
     },
     setSettings(s) {
       if (!s || typeof s !== 'object') return;
-      const q = settings.quality;
       if (typeof s.damageNumbers === 'boolean') settings.damageNumbers = s.damageNumbers;
       if (typeof s.eliteBadge === 'boolean') settings.eliteBadge = s.eliteBadge; // render/elite-mark.js
-      if (s.quality === 'high' || s.quality === 'medium' || s.quality === 'low') settings.quality = s.quality;
-      if (q !== settings.quality) { board3d?.setQuality?.(settings.quality); resize(); }
+      if (s.quality === 'auto') { autoPick = true; applyQuality(autoQuality()); }
+      else if (s.quality === 'high' || s.quality === 'medium' || s.quality === 'low') { autoPick = false; applyQuality(s.quality); }
     },
     resize,
     /** Dev / settings: switch the board layer ('3d' loads three.js + the art when available; '2d' = atlas board). */
@@ -2563,6 +2577,7 @@ export async function createFieldView(host, options = {}) {
       destroyed = true;
       try { ro?.disconnect(); } catch { /* ignore */ }
       try { offAssets?.(); } catch { /* ignore */ }
+      offAuto();
       globalThis.document?.removeEventListener?.('visibilitychange', onVisible);
       removeInput();
       offShadow?.();

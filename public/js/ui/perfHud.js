@@ -43,6 +43,7 @@
 
 import { loadPref, savePref, store } from '../store.js';
 import { settingsStore } from './settings.js';
+import { qualityInEffect } from '../render/auto-quality.js';
 import { battleRunner } from '../battle/runner.js';
 import { setPerfSource } from '../diag.js';
 import { net } from '../net.js';
@@ -350,7 +351,7 @@ export function installPerfHud() {
     const at = {
       view, kind, at: now - t0, wall: Date.now(),
       round: Number.isFinite(pub?.round) ? pub.round : null, phase: pub?.phase || null,
-      quality: settingsStore.get().quality ?? null, dpr: g.devicePixelRatio ?? null,
+      quality: qualityInEffect(settingsStore.get().quality) ?? null, dpr: g.devicePixelRatio ?? null,
       heapMB: mem && Number.isFinite(mem.usedJSHeapSize) ? mem.usedJSHeapSize / 1048576 : null,
     };
     const busy = busyMark();

@@ -22,14 +22,15 @@ export const CHAT_COOLDOWN = Object.freeze({ def: 2, min: 1, max: 5 });
 export const DEFAULT_SETTINGS = Object.freeze({ bgm: 0.6, sfx: 0.8, voice: 0.8, muted: false, damageNumbers: true, quality: 'high', keys: DEFAULT_HOTKEYS,
   chatSound: true, chatVolume: 0.5, chatCooldown: CHAT_COOLDOWN.def, chatFactionAlerts: false, chatPinRecent: false,
   eliteBadge: false, matchNotices: true, numberUnits: null, roundDamage: true, roundDamageStyle: 'auto' });
-const QUALITIES = ['high', 'medium', 'low'];
+/** 画面质量: 'auto' steps between high and medium by the load (render/auto-quality.js); a touch-only device starts there (ui/settings.js). */
+const QUALITIES = ['auto', 'high', 'medium', 'low'];
 /** The round damage panel's looks (settings → 画面 「伤害统计样式」): automatic, every row's name and share, avatars and bars only. */
 export const ROUND_DAMAGE_STYLES = Object.freeze(['auto', 'full', 'compact']);
 
 /**
  * Sanitize persisted settings.
  * @param {any} raw
- * @returns {{ bgm: number, sfx: number, voice: number, muted: boolean, damageNumbers: boolean, quality: 'high'|'medium'|'low',
+ * @returns {{ bgm: number, sfx: number, voice: number, muted: boolean, damageNumbers: boolean, quality: 'auto'|'high'|'medium'|'low',
  *   keys: Record<'refresh'|'freeze'|'levelUp'|'shop'|'ready'|'sell'|'viewEnemy'|'retreat'|'pause', string>, chatSound: boolean, chatVolume: number,
  *   chatCooldown: number, chatFactionAlerts: boolean, chatPinRecent: boolean, eliteBadge: boolean, matchNotices: boolean,
  *   numberUnits: 'myriad'|'thousand'|'full'|null, roundDamage: boolean, roundDamageStyle: 'auto'|'full'|'compact' }}

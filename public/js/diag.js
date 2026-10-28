@@ -40,6 +40,7 @@
 
 import { APP_VERSION } from '../../shared/constants.js';
 import { gpuStatus } from './gpu.js';
+import { qualityInEffect } from './render/auto-quality.js';
 
 export const LOG_MAX = 40;
 export const STACK_LINES = 6;
@@ -519,7 +520,7 @@ export function buildDiagnostics(input) {
       b.done ? 'done' : b.loading ? 'loading' : 'running', b.paused ? 'paused' : null, Number.isFinite(b.speed) ? `${b.speed}x` : null)}`);
   }
   if (settings) {
-    lines.push(`settings: ${join(`quality ${settings.quality}`, settings.damageNumbers ? 'damage numbers' : null, settings.muted ? 'muted' : null)}`);
+    lines.push(`settings: ${join(`quality ${qualityInEffect(settings.quality)}`, settings.damageNumbers ? 'damage numbers' : null, settings.muted ? 'muted' : null)}`);
   }
   const rv = input.render ?? null;
   const b3 = rv?.board3d || null;
