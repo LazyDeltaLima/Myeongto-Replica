@@ -830,7 +830,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 ## upstream 0.2.3 이식 — UI (2026-10-11)
 - 대화 상자 안 복사(`8a8db0eb`, GitHub #433): 클립보드 API가 없을 때(LAN) 쓰는 textarea 대체 경로가 모달 포커스 가두기 안에서 선택을 잃어
   「복사됨」인데 실제로는 안 되던 것 → textarea를 열린 모달·안내 안에 두고, 포커스와 전체 선택을 확인한 뒤에만 복사, 성공·실패 모두 정리하고 포커스를
-  돌려준다. 실패하면 원래의 손 복사 화면. 브라우저 테스트 `test/ui/modal.e2e.test.js`(SP_E2E) [화면 미확인].
+  돌려준다. 실패하면 원래의 손 복사 화면. 브라우저 테스트 `test/ui/modal.e2e.test.js`(SP_E2E) [실제 판 이상 없음 2026-10-28].
 - 렌더러를 못 불러온 토스트 문구(`708caf7d`): `sim.md` 「upstream 0.2.3 이식」.
 - AI 팀원 구매 양보(`f3658a0d` 중 `server/match/bot.js`, upstream PR #407, 관리자 결정 2026-10-11): 공식 규칙이 아니라 AI 휴리스틱(`feat`).
   5·6단계 공용 카드(정예·선발 제외)의 맹약이 살아 있는 다른 팀원의 시작 전략(`gd.bandBondIds`, 모드가 끈 맹약 제외)과 겹치면 구매 점수 −18.
@@ -860,7 +860,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   우리 쪽 차이: (1) 사람이 **유저 그림 탭**(`shared/emote-art.js`)으로 보낸 표정에도 그 id대로 답한다(관리자 결정 2026-10-11 — 처음 이식은 답하지 않게 했음).
   AI의 답은 늘 공식 그림. (2) upstream은 연합 방어 시작 반응을 서버 전투 경로(`startUnite`)에만 달아 기본값 `SP_COMBAT=client`에서는
   안 나왔다 — 클라이언트 전투 경로(`_startUniteClient`)에도 단다. `[ASSUMED]` 반응 고르기는 사회적 휴리스틱.
-  확인: `test/match/bot-emotes.test.js`(upstream 사례 + 유저 그림에도 답하는 사례) [화면 미확인].
+  확인: `test/match/bot-emotes.test.js`(upstream 사례 + 유저 그림에도 답하는 사례) [실제 판 이상 없음 2026-10-28].
 - 닫은 창의 판 복구(「恢复本机对局」, `f3658a0d` + 경쟁 조건 수정 `ba5b998a`, upstream GitHub #431, 관리자 결정 2026-10-11): 공식에 없는 기능(`feat`).
   같은 브라우저에서 판을 하던 창을 닫아 버렸을 때, 다른 창의 타이틀 아래쪽(저작권 줄 왼쪽)이나 로비 머리(「설정」 왼쪽)의 「이 기기의 판 복구」 →
   저장된 자리(닉네임 · 동맹 코드)를 골라 그 창에서 다시 접속한다. 복구할 것이 없으면 버튼이 없다. `public/js/net.js`·`ui/resumeMatch.js`는 upstream 그대로.
@@ -871,7 +871,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
     (「放弃模拟」·「离开同盟」·자리에서 빠짐) 복구 목록에서 지운다(`main.js` 스토어 구독 — upstream은 로비 복귀·새 세션 때만 지워, 포기한 자리가 목록에 남았다).
   - 버튼 자리: 공식 위수협약 UI 작업(아래 「공식 위수협약 UI」)은 판 안 화면이라 겹치지 않는다. upstream이 같이 넣은 설치 버튼(PWA)은 넣지 않는다(「iPhone 전체 화면 안내」의 결정: 홈 화면 안내만).
   - 확인: `test/client-static.test.js` 「explicit local match recovery」(살아 있는 창 보호·닫힌 창 복구·동시 복구·새로고침 중·welcome 전 저장 안 함),
-    `test/client-identity-handshake.test.js`(실제 클라·서버 hello 처리, 늦게 온 welcome). upstream 브라우저 테스트(`followup-023.e2e`)는 가져오지 않았다 [화면 미확인].
+    `test/client-identity-handshake.test.js`(실제 클라·서버 hello 처리, 늦게 온 welcome). upstream 브라우저 테스트(`followup-023.e2e`)는 가져오지 않았다 [실제 판 이상 없음 2026-10-28].
   - **다른 창이 쥔 자리 가져오기** (관리자 결정 2026-10-25, 제보 「휴대폰에서 튕긴 뒤 재접속이 안 된다」): 같은 브라우저의 다른 창이 아직 자리를 쥐고 있으면
     새 창은 지금까지 말없이 새 플레이어가 됐다(서버 기록: 자리는 「연결됨」인데 새 창은 `token not known, new session`). 이제는
     ① 창 사이 선택에서 가장 최근 자리를 잃었거나 ② `SESSION_IN_USE` 거절이 재시도(2·4·8초) 뒤에도 남으면, 복구 창이 그 자리로 저절로 열려
@@ -882,7 +882,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
     (잠든 휴대폰은 소켓이 열린 채 아무 답도 안 한다 — 10-24 사례는 거절 0.2초 뒤에 옛 소켓이 끊겼다). 서버 로그 `took the session over` /
     `replaced a socket that did not answer a probe`.
   - 확인: `test/connection-log.test.js`(실서버: takeover, 답 없는 소켓은 교체·답하는 소켓은 계속 거절), `test/client-identity-handshake.test.js`
-    (재시도 세 번 뒤에만 오류, 새 창의 가져오기·옛 창 새로고침이 되찾지 않음) [화면 미확인].
+    (재시도 세 번 뒤에만 오류, 새 창의 가져오기·옛 창 새로고침이 되찾지 않음) [실제 판 이상 없음 2026-10-28].
 
 ## 누수 때 위 HP 숫자 (2026-10-11, upstream #479, 관리자 결정 「위 방향대로 고쳐」)
 - 전에는 적이 파란 문에 들어가면 위 HP 숫자가 바로 `lp − 대기 손실`(빨간 글자)로 내려가고 옆에 「−N」이 붙었다(user playtest #3 item 2).
