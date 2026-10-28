@@ -19,8 +19,10 @@
 // range, a global particle budget per quality ('high' 6000 / 'medium' 2500 / 'low' 0 = the procedural FX only),
 // emission scaled by quality, at most PLAYER_CAP effects alive (the oldest is ended; an ended instance reports
 // done — render/fxgame.js keeps its own caps per kind below it: MAX_INSTANCES short, MAX_LASTING lasting), textures
-// and meshes shared. A speed-up must not change the picture: bench/fx/compare.mjs renders every effect with the git
-// version and the working file and compares the pixels.
+// and meshes shared; (2026-10-28) the shader's scalar uniforms packed (PACKED_GLSL: three.js walks every uniform of a
+// material on each draw), the noise and the ribbon order without per-call allocation or comparator. A speed-up must not
+// change the picture: render the same seeded scene with the git version and the working file and compare the pixels, and
+// pin the numbers in a test (test/render/fx-cpu-identity.test.js; docs/rules/fx.md 「공식 전투 이펙트」, 성능 2).
 //
 //   const lib = new FxLibrary('/assets/local/fx/');  const def = await lib.load('chen3', 'chen3_skill_01_start_01');
 //   const fx = new FxInstance(def, { quality });  scene.add(fx.object);  fx.object.position.set(col, row, 0);
@@ -277,12 +279,53 @@ const BLEND = { 0: THREE.ZeroFactor, 1: THREE.OneFactor, 2: THREE.DstColorFactor
   4: THREE.OneMinusDstColorFactor, 5: THREE.SrcAlphaFactor, 6: THREE.OneMinusSrcColorFactor, 7: THREE.DstAlphaFactor,
   8: THREE.OneMinusDstAlphaFactor, 9: THREE.SrcAlphaSaturateFactor, 10: THREE.OneMinusSrcAlphaFactor };
 
+// (2026-10-28, mobile perf) The shader's scalar uniforms travel packed: three.js walks every uniform of a material on each
+// draw (a draw is one particle system, trail or mesh, and each has its own material), and with ~80 of them that walk was the
+// largest part of the effect layer's draw in a boss fight. The 18 switches are bits of one int (uPFlags), the 4 small ints
+// one ivec4 (uPInt), the 17 floats five vec4s (uPF0..4); the shader reads them back by the same names (PACKED_GLSL's
+// defines), so its code is unchanged and it gets the same values. On the material the old names stay as accessors
+// (PackedFlag / PackedNum): code, clips and tests read and write `uniforms.uOpacity.value` as before.
+const PACKED_FLAGS = ['uFracUV', 'uHasAdd', 'uHasDisturb', 'uHasDisturb2', 'uHasWeight', 'uHasDissolve', 'uVCMajor', 'uHasDissolve2', 'uVCol',
+  'uRim', 'uPremul', 'uZFlat', 'uHasRam', 'uCustom', 'uAdditive', 'uUVRot', 'uFree', 'uRotW'];
+const PACKED_INTS = ['uMode', 'uAlign', 'uDisMode', 'uMulti'];
+const PACKED_FLOATS = ['uAddFactor', 'uOpacity', 'uACtrl', 'uDisturbMain', 'uDisturbDissolve', 'uAmount', 'uBorder', 'uAmount2', 'uBorder2',
+  'uRimPower', 'uFloor', 'uBaseH', 'uTime', 'uLengthScale', 'uVelScale', 'uHand', 'uWSign'];
+const AXES = ['x', 'y', 'z', 'w'];
+const PACKED_GLSL = [
+  `uniform int uPFlags; uniform ivec4 uPInt; ${[0, 1, 2, 3, 4].map((k) => `uniform vec4 uPF${k};`).join(' ')}`,
+  ...PACKED_FLAGS.map((n, k) => `#define ${n} ((uPFlags & ${1 << k}) != 0)`),
+  ...PACKED_INTS.map((n, k) => `#define ${n} uPInt.${AXES[k]}`),
+  ...PACKED_FLOATS.map((n, k) => `#define ${n} uPF${k >> 2}.${AXES[k & 3]}`),
+].join('\n');
+/** A switch of uPFlags under its old name: `value` reads and writes its bit (a boolean, as the bool uniform it was). */
+class PackedFlag {
+  constructor(u, bit) { this.u = u; this.bit = bit; }
+  get value() { return (this.u.value & this.bit) !== 0; }
+  set value(v) { this.u.value = v ? this.u.value | this.bit : this.u.value & ~this.bit; }
+}
+/** A component of a packed vector under its old name. */
+class PackedNum {
+  constructor(v, axis) { this.v = v; this.axis = axis; }
+  get value() { return this.v[this.axis]; }
+  set value(x) { this.v[this.axis] = x; }
+}
+/** The material's scalar uniforms → the packed ones, each old name an accessor onto its place (initial values kept). */
+function packUniforms(u) {
+  const flags = { value: 0 }, ints = { value: new THREE.Vector4() }, floats = [0, 1, 2, 3, 4].map(() => ({ value: new THREE.Vector4() }));
+  PACKED_FLAGS.forEach((n, k) => { const v = u[n].value; u[n] = new PackedFlag(flags, 1 << k); u[n].value = v; });
+  PACKED_INTS.forEach((n, k) => { const v = u[n].value; u[n] = new PackedNum(ints.value, AXES[k]); u[n].value = v; });
+  PACKED_FLOATS.forEach((n, k) => { const v = u[n].value; u[n] = new PackedNum(floats[k >> 2].value, AXES[k & 3]); u[n].value = v; });
+  u.uPFlags = flags; u.uPInt = ints;
+  floats.forEach((f, k) => { u[`uPF${k}`] = f; });
+  return u;
+}
+
 const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
+  ${PACKED_GLSL}
   attribute vec3 iPos; attribute vec3 iSize; attribute vec3 iRot; attribute vec4 iColor; attribute vec4 iC1; attribute vec4 iC2;
   attribute vec4 iUV; attribute vec3 iVel;
-  attribute vec4 vcol; uniform bool uVCol; uniform bool uRim;
-  uniform int uMode; uniform float uLengthScale; uniform float uVelScale; uniform int uAlign; uniform vec3 uPivot; uniform vec3 uStripZ;
-  uniform bool uFree; uniform bool uRotW; uniform vec3 uUX; uniform float uHand; uniform float uWSign;
+  attribute vec4 vcol;
+  uniform vec3 uPivot; uniform vec3 uStripZ; uniform vec3 uUX;   // the scalars: PACKED_GLSL
   varying vec2 vUv; varying vec4 vColor; varying vec4 vC1; varying vec4 vC2;
   // local patch: vH = the board height (scene z) of the fragment — what lies under the floor is cut (FRAG uFloor; the
   // official map's opaque ground hides it by depth); vN / vVP = view-space normal / position of a mesh (the Rim shaders)
@@ -423,7 +466,6 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
   // plane at board height uBaseH, the screen position unchanged — the client's vertex stage moves the world point along its
   // camera's slope (√3) to _BaselineZ and keeps it from falling below it, so the material depth-tests as if it lay on the
   // floor [추정: this camera's own ray for the client's fixed slope]
-  uniform bool uZFlat; uniform float uBaseH;
   void main() {
     fxMain();
     if (!uZFlat) return;
@@ -438,21 +480,19 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
   }`;
 
 const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
-  uniform sampler2D uMain; uniform vec4 uMainST; uniform vec2 uMainSpeed; uniform vec4 uTint; uniform float uOpacity; uniform bool uFracUV;
-  uniform bool uHasDisturb; uniform sampler2D uDisturb; uniform vec4 uDisturbST; uniform vec2 uDisturbSpeed; uniform vec2 uDisturbStr;
-  uniform float uDisturbMain; uniform float uDisturbDissolve;
-  uniform bool uHasDissolve; uniform sampler2D uDissolve; uniform vec4 uDissolveST; uniform vec2 uDissolveSpeed;
-  uniform float uAmount; uniform float uBorder; uniform bool uVCMajor;
-  uniform bool uHasDissolve2; uniform sampler2D uDissolve2; uniform vec4 uDissolve2ST; uniform float uAmount2; uniform float uBorder2;
-  uniform bool uRim; uniform float uRimPower; uniform float uFloor; uniform bool uPremul;
+  ${PACKED_GLSL}
+  uniform sampler2D uMain; uniform vec4 uMainST; uniform vec2 uMainSpeed; uniform vec4 uTint;
+  uniform sampler2D uDisturb; uniform vec4 uDisturbST; uniform vec2 uDisturbSpeed; uniform vec2 uDisturbStr;
+  uniform sampler2D uDissolve; uniform vec4 uDissolveST; uniform vec2 uDissolveSpeed;
+  uniform sampler2D uDissolve2; uniform vec4 uDissolve2ST;
   varying float vH; varying vec3 vN; varying vec3 vVP;
-  uniform bool uHasRam; uniform sampler2D uRam; uniform vec4 uRamST; uniform bool uCustom; uniform float uTime; uniform bool uAdditive;
-  uniform int uDisMode; uniform vec2 uDisAnchor; uniform float uACtrl;
-  uniform bool uHasDisturb2; uniform sampler2D uDisturb2; uniform vec4 uDisturb2ST; uniform vec2 uDisturb2Str; uniform vec2 uDisturb2Anchor;
-  uniform bool uHasWeight; uniform sampler2D uWeight; uniform vec4 uWeightST;
-  uniform bool uHasAdd; uniform sampler2D uAdd; uniform vec4 uAddST; uniform sampler2D uMask; uniform float uAddFactor;
-  uniform bool uUVRot; uniform vec4 uRot[4];
-  uniform int uMulti; uniform sampler2D uDisB; uniform vec4 uDisBST; uniform vec2 uSpeedB; uniform vec4 uTintB;
+  uniform sampler2D uRam; uniform vec4 uRamST;
+  uniform vec2 uDisAnchor;
+  uniform sampler2D uDisturb2; uniform vec4 uDisturb2ST; uniform vec2 uDisturb2Str; uniform vec2 uDisturb2Anchor;
+  uniform sampler2D uWeight; uniform vec4 uWeightST;
+  uniform sampler2D uAdd; uniform vec4 uAddST; uniform sampler2D uMask;
+  uniform vec4 uRot0; uniform vec4 uRot1; uniform vec4 uRot2; uniform vec4 uRot3;   // uvRotation (the material's uRot, one uniform each)
+  uniform sampler2D uDisB; uniform vec4 uDisBST; uniform vec2 uSpeedB; uniform vec4 uTintB;
   uniform sampler2D uDisC; uniform vec4 uDisCST; uniform vec2 uSpeedC; uniform vec4 uTintC; uniform vec3 uAmountV; uniform vec3 uBorderV;
   varying vec2 vUv; varying vec4 vColor; varying vec4 vC1; varying vec4 vC2;
   // 2026-10-18 (client shader): a dissolve cut — saturate((d − amount + border · (1 − roundEven(amount + .5))) / border)
@@ -468,13 +508,13 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       // custom data (Torappu (CustomData) shaders, streams Custom1XYZW + Custom2XYZW): custom1.xy = main uv offset,
       // custom1.zw = extra distortion, custom2.x = dissolve amount — [ASSUMED] from the curves, tuned by eye
       if (uCustom) uv += vC1.xy;
-      if (uUVRot) uv = rotUV(uv, uRot[0]);
+      if (uUVRot) uv = rotUV(uv, uRot0);
       // 2026-10-22 (client shader): every family scrolls by the fraction of speed × time (frc) — the same on a repeating
       // texture, not on a Clamp one (tex/wrap.json); Dissolve AB / Add UVTween wraps the whole scrolled uv (uFracUV)
       uv += fract(uMainSpeed * uTime);
       if (uHasDisturb) {
         vec2 duv = vUv * uDisturbST.xy + uDisturbST.zw;
-        if (uUVRot) duv = rotUV(duv, uRot[3]);
+        if (uUVRot) duv = rotUV(duv, uRot3);
         duv += fract(uDisturbSpeed * uTime);
         // local patch (client shader): the noise's red channel times the strength, not centred
         vec2 n = vec2(texture2D(uDisturb, duv).r);
@@ -506,12 +546,12 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
     // local patch (maintainer report 2026-10-07, 赤刃明霄陈 S3's range too bright): the Ram family multiplies by _RamTex sampled at
     // the renderer's own uv through its tiling / offset — all of rgba (the client's shader: Ram/Disturb(CustomData),
     // Ram/Add, Ram/AlphaBlend) — not a ramp looked up by the dissolve edge as assumed before
-    if (uHasRam) { vec2 ruv = vUv * uRamST.xy + uRamST.zw; if (uUVRot) ruv = rotUV(ruv, uRot[2]); col *= texture2D(uRam, ruv); }
+    if (uHasRam) { vec2 ruv = vUv * uRamST.xy + uRamST.zw; if (uUVRot) ruv = rotUV(ruv, uRot2); col *= texture2D(uRam, ruv); }
     // dissolve: the shaders declare no edge colour, so _BorderWidth is the softness of the cut [ASSUMED]
     float e = 1.0;
     if (uHasDissolve) {
       vec2 suv = vUv * uDissolveST.xy + uDissolveST.zw;
-      if (uUVRot) suv = rotUV(suv, uRot[1]);
+      if (uUVRot) suv = rotUV(suv, uRot1);
       suv = uDisMode == 0 ? suv + fract(uDissolveSpeed * uTime) + dis * uDisturbDissolve
         : (vUv + dis) * uDissolveST.xy + uDissolveST.zw;   // Anchor: the moved uv through _DissolveTex_ST (client shader)
       if (uFracUV) suv = fract(suv);
@@ -642,6 +682,7 @@ function makeMaterial(m, lib) {
   const multi = /Dissolve AB MultiTex/.test(shader) ? Math.min(3, Math.max(1, Math.round(f._Dissolve ?? 0) + 1)) : 0;
   const vec = (a, i) => (Array.isArray(a) ? +a[i] || 0 : 0);
   const tintOf = (a) => (Array.isArray(a) ? new THREE.Vector4(a[0] * 2, a[1] * 2, a[2] * 2, a[3] * 2) : new THREE.Vector4(1, 1, 1, 1));
+  const rot = [0, 1, 2, 3].map(() => new THREE.Vector4(1, 0, 0, 1));
   const mat = new THREE.ShaderMaterial({
     vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthWrite: rs.zwrite, depthTest: false,
     side: THREE.DoubleSide, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
@@ -650,7 +691,7 @@ function makeMaterial(m, lib) {
     // (render/fxgame.js, premultiplied) — additive light never covers what is under it (a texture without alpha has a black
     // background: it added to the alpha before and composited as a black square), alpha blend is the premultiplied "over"
     blendSrcAlpha: additive ? THREE.ZeroFactor : THREE.OneFactor, blendDstAlpha: additive ? THREE.OneFactor : opaque ? THREE.ZeroFactor : THREE.OneMinusSrcAlphaFactor,
-    uniforms: {
+    uniforms: packUniforms({
       uMain: { value: tex('_MainTex') || WHITE }, uMainST: { value: st('_MainTex') },
       uMainSpeed: { value: multi ? new THREE.Vector2(2 * vec(c._TexSpeed, 0), 2 * vec(c._TexSpeed, 1)) : tween ? new THREE.Vector2(uvTween[0], uvTween[1]) : new THREE.Vector2(sp(f._MainUSpeed), sp(f._MainVSpeed)) },
       uFracUV: { value: disMode === 0 && tween }, // 2026-10-22 (client shader): Dissolve AB / Add UVTween — frac(uv + _UVTween × t)
@@ -694,10 +735,11 @@ function makeMaterial(m, lib) {
       uHasRam: { value: !!t._RamTex }, uRam: { value: tex('_RamTex') || WHITE }, uRamST: { value: st('_RamTex') },
       uCustom: { value: (f._HGCustomVertexStream ?? (/CustomData/.test(shader) ? 1 : 0)) !== 0 },
       uTime: { value: 0 }, uAdditive: { value: additive },
-      uUVRot: { value: false }, uRot: { value: [0, 1, 2, 3].map(() => new THREE.Vector4(1, 0, 0, 1)) },   // uvRotation
+      uUVRot: { value: false }, uRot: { value: rot },   // uvRotation
+      uRot0: { value: rot[0] }, uRot1: { value: rot[1] }, uRot2: { value: rot[2] }, uRot3: { value: rot[3] },
       uMode: { value: 0 }, uLengthScale: { value: 2 }, uVelScale: { value: 0 }, uAlign: { value: 0 }, uPivot: { value: new THREE.Vector3() }, uStripZ: { value: new THREE.Vector3() },
       uFree: { value: false }, uRotW: { value: false }, uUX: { value: new THREE.Vector3(1, 0, 0) }, uHand: { value: -1 }, uWSign: { value: 1 },
-    },
+    }),
   });
   mat.userData.order = m?.queue ?? 3000;
   mat.userData.uvRot = /Disturb\(CustomData/.test(shader);   // the shaders with the _HG_UV_ROTATION branch (uvRotation)
@@ -1205,29 +1247,38 @@ const PERM = Uint8Array.from([151,160,137,91,90,15,131,13,201,95,96,53,194,233,7
 const GRAD = Int8Array.from([1,1,0,-1,1,0,1,-1,0,-1,-1,0,1,0,1,-1,0,1,1,0,-1,-1,0,-1,0,1,1,0,-1,1,0,1,-1,0,-1,-1,1,1,0,-1,1,0,0,-1,1,0,-1,-1]);
 const fade = (t) => t * t * t * (t * (t * 6 - 15) + 10), dfade = (t) => 30 * t * t * (t * (t - 2) + 1);
 const pdOut = [0, 0];
+// (2026-10-28, mobile perf) perlinD unrolled: it made three arrays and four closures per call and looked the permutation
+// up 24 times (a fifth of the particle update in a boss fight); the corners now share their x and xy lookups (14) and
+// live in locals. The same integer hashes and the same arithmetic in the same order — the same numbers
+// (test/render/fx-cpu-identity.test.js compares it with the earlier form).
+/** The trilinear blend of eight corner values (x fastest) by u, v, w. */
+function pdTri(a0, a1, a2, a3, a4, a5, a6, a7, u, v, w) {
+  const x00 = a0 + u * (a1 - a0), x10 = a2 + u * (a3 - a2), x01 = a4 + u * (a5 - a4), x11 = a6 + u * (a7 - a6);
+  const y0 = x00 + v * (x10 - x00), y1 = x01 + v * (x11 - x01);
+  return y0 + w * (y1 - y0);
+}
+/** The bilinear blend of a00 a10 a01 a11 by s, t. */
+function pdBy(a00, a10, a01, a11, s, t) { const p0 = a00 + s * (a10 - a00), p1 = a01 + s * (a11 - a01); return p0 + t * (p1 - p0); }
 export function perlinD(x, y, z, f) {
   x *= f; y *= f; z *= f;
   const X = Math.floor(x), Y = Math.floor(y), Z = Math.floor(z);
   x -= X; y -= Y; z -= Z;
-  const xi = X & 255, yi = Y & 255, zi = Z & 255, P = PERM;
+  const xi = X & 255, yi = Y & 255, zi = Z & 255, P = PERM, G = GRAD;
   const u = fade(x), v = fade(y), w = fade(z), du = dfade(x), dv = dfade(y);
-  // the eight corners: value n and its gradient's x / y parts, each blended by the fades (and their derivatives)
-  const c = [0, 0, 0, 0, 0, 0, 0, 0], cx = [0, 0, 0, 0, 0, 0, 0, 0], cy = [0, 0, 0, 0, 0, 0, 0, 0];
-  for (let k = 0; k < 8; k++) {
-    const i = k & 1, j = (k >> 1) & 1, l = k >> 2;
-    const h = P[(P[(P[(xi + i) & 255] + yi + j) & 255] + zi + l) & 255] & 15, g = h * 3;
-    c[k] = GRAD[g] * (x - i) + GRAD[g + 1] * (y - j) + GRAD[g + 2] * (z - l); cx[k] = GRAD[g]; cy[k] = GRAD[g + 1];
-  }
-  const tri = (a) => {
-    const x00 = a[0] + u * (a[1] - a[0]), x10 = a[2] + u * (a[3] - a[2]), x01 = a[4] + u * (a[5] - a[4]), x11 = a[6] + u * (a[7] - a[6]);
-    const y0 = x00 + v * (x10 - x00), y1 = x01 + v * (x11 - x01);
-    return y0 + w * (y1 - y0);
-  };
+  // the eight corners k = i + 2j + 4l: the gradient index of P[P[P[x + i] + y + j] + z + l] (each sum & 255), its value n
+  // and its gradient's x / y parts, each blended by the fades (and their derivatives)
+  const a0 = P[xi], a1 = P[(xi + 1) & 255];
+  const b0 = P[(a0 + yi) & 255], b1 = P[(a1 + yi) & 255], b2 = P[(a0 + yi + 1) & 255], b3 = P[(a1 + yi + 1) & 255];
+  const g0 = (P[(b0 + zi) & 255] & 15) * 3, g1 = (P[(b1 + zi) & 255] & 15) * 3, g2 = (P[(b2 + zi) & 255] & 15) * 3, g3 = (P[(b3 + zi) & 255] & 15) * 3;
+  const g4 = (P[(b0 + zi + 1) & 255] & 15) * 3, g5 = (P[(b1 + zi + 1) & 255] & 15) * 3, g6 = (P[(b2 + zi + 1) & 255] & 15) * 3, g7 = (P[(b3 + zi + 1) & 255] & 15) * 3;
+  const x1 = x - 1, y1 = y - 1, z1 = z - 1;
+  const c0 = G[g0] * (x - 0) + G[g0 + 1] * (y - 0) + G[g0 + 2] * (z - 0), c1 = G[g1] * x1 + G[g1 + 1] * (y - 0) + G[g1 + 2] * (z - 0);
+  const c2 = G[g2] * (x - 0) + G[g2 + 1] * y1 + G[g2 + 2] * (z - 0), c3 = G[g3] * x1 + G[g3 + 1] * y1 + G[g3 + 2] * (z - 0);
+  const c4 = G[g4] * (x - 0) + G[g4 + 1] * (y - 0) + G[g4 + 2] * z1, c5 = G[g5] * x1 + G[g5 + 1] * (y - 0) + G[g5 + 2] * z1;
+  const c6 = G[g6] * (x - 0) + G[g6 + 1] * y1 + G[g6 + 2] * z1, c7 = G[g7] * x1 + G[g7 + 1] * y1 + G[g7 + 2] * z1;
   // ∂/∂x: the blended gradients' x + du × (the x-differences blended in y, z); ∂/∂y the same in y
-  const ex = (j, l) => c[1 + 2 * j + 4 * l] - c[2 * j + 4 * l], ey = (i, l) => c[i + 2 + 4 * l] - c[i + 4 * l];
-  const by = (a00, a10, a01, a11, s, t) => { const p0 = a00 + s * (a10 - a00), p1 = a01 + s * (a11 - a01); return p0 + t * (p1 - p0); };
-  const gx = tri(cx) + du * by(ex(0, 0), ex(1, 0), ex(0, 1), ex(1, 1), v, w);
-  const gy = tri(cy) + dv * by(ey(0, 0), ey(1, 0), ey(0, 1), ey(1, 1), u, w);
+  const gx = pdTri(G[g0], G[g1], G[g2], G[g3], G[g4], G[g5], G[g6], G[g7], u, v, w) + du * pdBy(c1 - c0, c3 - c2, c5 - c4, c7 - c6, v, w);
+  const gy = pdTri(G[g0 + 1], G[g1 + 1], G[g2 + 1], G[g3 + 1], G[g4 + 1], G[g5 + 1], G[g6 + 1], G[g7 + 1], u, v, w) + dv * pdBy(c2 - c0, c3 - c1, c6 - c4, c7 - c5, u, w);
   pdOut[0] = gx * f; pdOut[1] = gy * f;
   return pdOut;
 }
@@ -2098,6 +2149,28 @@ class ParticleSystem {
     }
   }
 
+  /**
+   * (2026-10-28, mobile perf) A ribbon's order without a comparator: the order `order.sort(olderFirst)` gives — oldest first,
+   * equal ages in index order (a stable sort of 0..n−1) — from one native sort of doubles: each key is the particle's age (a
+   * float32, so its double leaves the low 29 mantissa bits zero) with 2²⁹ − 1 − index in those bits; ascending keys read
+   * backwards are age descending, then index ascending. False (nothing written) when an age is negative or not finite, or
+   * there are too many particles — the caller sorts as before. The comparator sort was a tenth of the particle update in a
+   * scene of ribbons.
+   */
+  ageOrder(order, n) {
+    if (n > LOW_MASK) return false;
+    const K = this.ageKey || (this.ageKey = new Float64Array(this.max)), W = this.ageKeyW || (this.ageKeyW = new Uint32Array(K.buffer)), A = this.age;
+    for (let i = 0; i < n; i++) {
+      const a = A[i];
+      if (!(a >= 0 && a < Infinity)) return false;
+      K[i] = a;
+      W[i * 2 + LO] |= LOW_MASK - i;
+    }
+    K.subarray(0, n).sort();
+    for (let k = 0; k < n; k++) order[k] = LOW_MASK - (W[(n - 1 - k) * 2 + LO] & LOW_MASK);
+    return true;
+  }
+
   /** Trail width at u (0 = the particle, 1 = the tail) for particle i. */
   trailWidth(i, u) {
     const tm = this.tm;
@@ -2182,8 +2255,10 @@ class ParticleSystem {
       // parent particle (splitSubEmitterRibbons) — a strip per parent
       const order = this.order;
       order.length = n;
-      for (let i = 0; i < n; i++) order[i] = i;
-      order.sort(this.par ? this.byParent : this.olderFirst);
+      if (this.par || !this.ageOrder(order, n)) {
+        for (let i = 0; i < n; i++) order[i] = i;
+        order.sort(this.par ? this.byParent : this.olderFirst);
+      }
       for (let s0 = 0; s0 < n;) {
         let s1 = s0 + 1;
         if (this.par) while (s1 < n && this.par[order[s1]] === this.par[order[s0]]) s1++;
@@ -2255,6 +2330,8 @@ class ParticleSystem {
   }
 }
 
+/** ParticleSystem.ageOrder: the low 29 mantissa bits of a double, and which 32-bit half of it holds them on this platform. */
+const LOW_MASK = 0x1fffffff, LO = new Uint8Array(new Float64Array([1]).buffer)[7] === 0x3f ? 0 : 1;
 const SCALE = new THREE.Vector3(), shapeE = new THREE.Euler(), shapeV = new THREE.Vector3();
 /**
  * 2026-10-22: a BoxShell (15) / BoxEdge (16) point from the volume point `p` (box `size`): a shell puts one axis on a face —

@@ -5436,7 +5436,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         keepPrograms(L);
       };
       if (layers.under.n || S.n) { draw(layers.under, layers.under.scene, 0, true); if (S.n) draw(layers.under, S.scene, FX_BACK, false); }
-      if (layers.over.n || S.n) { if (S.n) draw(layers.over, S.scene, FX_FRONT, true); draw(layers.over, layers.over.scene, 0, !S.n); }
+      if (layers.over.n || S.n) {
+        // (2026-10-28, mobile perf) the split scene's second draw keeps the world matrices its first one (just above)
+        // computed: nothing moves between the two, and three.js recomputed every node's matrix again
+        if (S.n) { S.scene.matrixWorldAutoUpdate = false; try { draw(layers.over, S.scene, FX_FRONT, true); } finally { S.scene.matrixWorldAutoUpdate = true; } }
+        draw(layers.over, layers.over.scene, 0, !S.n);
+      }
       camera.layers.set(0);
       perf.updateMs = perf.updateMs * 0.9 + (t1 - t0) * 0.1;
       perf.renderMs = perf.renderMs * 0.9 + (performance.now() - t1) * 0.1;
