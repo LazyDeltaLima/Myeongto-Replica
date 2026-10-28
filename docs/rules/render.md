@@ -1091,3 +1091,8 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   - 확인: Windows Chrome D3D11, 빈 호스트에 `createFxLayer`(조사 노트의 `fxfix10.mjs`) — 고치기 전/뒤: `prewarm` 뒤 400 ms에 `destroy()` 남은 컨텍스트 2 → 0
     (300–700 ms 12점 모두 0), 「낮음」 뒤 캔버스 2 → 0(다시 「높음」이면 2), 컨텍스트 하나를 잃게 하면 계속 `loaded`(산 컨텍스트 1) → 내려가고 다음
     준비 단계에 2개 새로, 첫 로드 실패 뒤 다음 준비 단계 다시 시도 안 함 → 됨. `test/render/*.test.js` 1196 통과.
+- **관전석은 이펙트 셰이더 미리 링크가 없었음**: 미리 링크(`prewarm`)는 `setPrep` → `enterPrepMode`에서만 불렸는데, 관전석은 `m.private`가 없어 `setPrep`이
+  안 불리고 준비 단계를 첫 플레이어의 정찰 보드(`enterBattle`의 `meta.prep`)로 본다 → 전투마다 첫 이펙트 때 링크(Firefox에서 끊김, 184 ms 관찰). 이제
+  정찰 보드에 들어갈 때도 `fxGame.prewarm()`(이미 끝났으면 바로 끝남). 판 중간 합류·새로고침은 그대로 첫 사용 때 링크. `stats().fxGame.programs` = 두 렌더러가
+  링크한 프로그램 수. 확인: Windows Chrome, 협동 방(나 + AI) + 다른 브라우저 컨텍스트의 관전석(조사 노트의 `spec10.mjs`) — 고치기 전 R1 준비 단계 내내
+  `programs` 0, 고친 뒤 라운드 시작~준비 단계에 10(변형 5 × 렌더러 2)까지 400 ms 간격. Windows Firefox 끊김 재측정은 안 함 **[화면 미확인]**.

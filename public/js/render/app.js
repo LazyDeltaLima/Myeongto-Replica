@@ -1615,6 +1615,9 @@ export async function createFieldView(host, options = {}) {
     // local patch (maintainer 2026-10-08 「협동 모드 중 휴식 기간에 다른 사람을 확인하려 갈때도 배치 연출이 보여」): a scouted board drops in
     if (battleMeta.prep) {
       scoutSeen = { fieldId: battleMeta.fieldId, at: new Map(), prev: scoutSeen && scoutSeen.fieldId === battleMeta.fieldId ? scoutSeen.at : null };
+      // 2026-10-28: a spectator's seat spends prep on a scouted board (no m.private, no setPrep → enterPrepMode): the
+      // effect shaders linked at each battle's first effects instead — a freeze on Firefox (render/fxgame.js prewarm)
+      fxGame.prewarm();
     } else scoutSeen = null;
     // a scouted teammate's board shows THEIR pen (m.field nextEnemies; without it the shared wave composition of the
     // own preview, bounties excluded); a real battle empties the pen (the enemies are about to spawn)

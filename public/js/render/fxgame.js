@@ -5516,7 +5516,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     /** Per-frame averages (update = the players, render = the layer's draw), the last frame's draw calls, live particles. */
     stats() {
       return {
-        live: live.length, loaded: !!mod, updateMs: Math.round(perf.updateMs * 100) / 100, renderMs: Math.round(perf.renderMs * 100) / 100,
+        live: live.length, loaded: !!mod, programs: mod ? layers.under.renderer.info.programs.length + layers.over.renderer.info.programs.length : 0, // 2026-10-28: linked (prewarm)
+        updateMs: Math.round(perf.updateMs * 100) / 100, renderMs: Math.round(perf.renderMs * 100) / 100,
         calls: perf.calls, particles: mod ? mod.fxp.fxStats().particles : 0, notes: notes.size,
         recent: recent.slice(), trails: trails.length, // local patch
         buffs: live.filter((l) => l.buff && !l.inst.done).map((l) => l.inst.def?.name ?? '?'), // local patch: the looping effects on now
