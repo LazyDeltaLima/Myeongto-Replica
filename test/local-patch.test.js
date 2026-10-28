@@ -300,6 +300,49 @@ describe('client helpers', () => {
     assert.equal(validEntry({ p: '/assets/a.png', h }), false, 'no size');
   });
 
+  test('resource worker: a cached file is served only when its hash is the listed one; a page load revalidates the list', async () => {
+    const { createHash } = await import('node:crypto');
+    const vm = await import('node:vm');
+    const sha = (s) => createHash('sha256').update(s).digest('hex');
+    let list = { files: [{ p: '/assets/local/fx/a.json', s: 3, h: sha('new') }] }, listTag = '"1"', listFetches = 0;
+    const store = new Map([['/assets/local/fx/a.json', { body: 'old', hash: sha('old') }]]);
+    const cached = (path) => {
+      const e = store.get(path);
+      return e ? new Response(e.body, { headers: { 'Content-Type': 'application/json', 'X-SP-Hash': e.hash } }) : undefined;
+    };
+    const handlers = {};
+    const ctx = {
+      self: { location: { origin: 'https://x.test' }, addEventListener: (k, f) => { handlers[k] = f; }, skipWaiting: async () => {}, clients: { claim: async () => {} } },
+      caches: { match: async (p) => cached(p), open: async () => ({ put: async (p, r) => { const b = await r.text(); store.set(p, { body: b, hash: r.headers.get('X-SP-Hash') }); } }) },
+      fetch: async (url) => {
+        const u = typeof url === 'string' ? url : url.url;
+        if (u === '/assets/browser-resources.json') { listFetches++; return new Response(JSON.stringify(list), { headers: { ETag: listTag } }); }
+        if (u === '/assets/local/fx/a.json') return new Response('new');
+        return new Response('server', { status: 200 });
+      },
+      Response, Headers, URL, AbortSignal, crypto: globalThis.crypto, decodeURIComponent,
+    };
+    vm.runInNewContext(readFileSync(path.join(ROOT, 'public', 'resource-worker.js'), 'utf8'), ctx);
+    const get = async (p, mode = 'cors') => {
+      let out = null;
+      handlers.fetch({ request: { method: 'GET', mode, destination: '', url: `https://x.test${p}`, headers: new Headers() }, respondWith: (r) => { out = r; } });
+      return out && (await out).text();
+    };
+    assert.equal(await get('/assets/local/fx/a.json'), 'new', 'the old deploy\'s copy is fetched again, not served');
+    assert.equal(store.get('/assets/local/fx/a.json').body, 'new', 'and the cache holds the listed version');
+    assert.equal(await get('/assets/local/fx/a.json'), 'new');
+    assert.equal(listFetches, 1);
+    // the next deploy changes the file again: a page load (a reload) revalidates the list before the cache answers
+    list = { files: [{ p: '/assets/local/fx/a.json', s: 5, h: sha('newer') }] }; listTag = '"2"';
+    ctx.fetch = ((f) => async (url) => (url === '/assets/local/fx/a.json' ? new Response('newer') : f(url)))(ctx.fetch);
+    assert.equal(await get('/assets/local/fx/a.json'), 'new', 'within the list\'s age the worker keeps the last list');
+    await get('/', 'navigate');
+    assert.equal(await get('/assets/local/fx/a.json'), 'newer', 'after a page load: the list again, the new file');
+    assert.equal(listFetches, 2);
+    await get('/', 'navigate');
+    assert.equal(await get('/assets/local/fx/a.json'), 'newer', 'an unchanged list (same ETag) keeps the parsed one');
+  });
+
   test('room: SP_MAX_BOTS facts (room.state maxBots)', async () => {
     const { roomFacts } = await mod('screens/room.js');
     const room = { code: 'ABCD', hostId: 'h', mode: 'coop', difficulty: 'HARD', seats: [

@@ -7,7 +7,9 @@
 // then this server — and kept (and answered) only when its size and SHA-256 match the list; a file that no source
 // delivers intact is answered by this server as before, uncached. Every player gets this, with or without the
 // pre-download consent (public/js/resources.js, which also downloads the rest of the list in the background after it).
-// A cached file carries its hash in X-SP-Hash, so the page's reconcile can adopt what this worker stored.
+// A cached file carries its hash in X-SP-Hash, so the page's reconcile can adopt what this worker stored, and this worker
+// answers from the cache only when that hash is the listed one: after a deploy changed a file, the old copy is fetched
+// again instead of served until the page's reconcile deletes it (2026-10-28). A page load revalidates the list first.
 //
 // Only same-origin GET /assets/…, /img/emotes/… and /media/… (extension-less audio, shared/media.js) are looked at;
 // unlisted files, Range requests and query strings go to the server untouched.
@@ -50,7 +52,9 @@ const lookup = (path) => caches.match(path, { cacheName: CACHE });
 
 let index = null;        // Map path → { p, s, h, u? }, or null while unknown / when the server has none
 let indexAt = 0;
+let indexTag = null;     // the list's ETag: a revalidation that answers the same list is not parsed again
 let indexLoading = null;
+let indexCheck = null;   // a page load's revalidation, which cached answers wait for
 
 function sourcesOf(f) {
   if (typeof f.u !== 'string') return [f.p];
@@ -66,20 +70,24 @@ const validEntry = (f) => !!f && typeof f.p === 'string' && PATH_RE.test(f.p) &&
 
 async function loadIndex() {
   try {
-    const res = await fetch(INDEX, { cache: 'no-cache' });
-    if (res.status === 404) { index = null; indexAt = Date.now(); return; }
+    const res = await fetch(INDEX, { cache: 'no-cache', signal: AbortSignal.timeout(10000) });
+    if (res.status === 404) { index = null; indexTag = null; indexAt = Date.now(); return; }
     if (!res.ok) return;
-    const j = await res.json();
-    if (!j || !Array.isArray(j.files)) return;
-    index = new Map(j.files.filter(validEntry).map((f) => [f.p, f]));
+    const tag = res.headers.get('ETag');
+    if (!(index && tag && tag === indexTag)) {
+      const j = await res.json();
+      if (!j || !Array.isArray(j.files)) return;
+      index = new Map(j.files.filter(validEntry).map((f) => [f.p, f]));
+      indexTag = tag;
+    }
     indexAt = Date.now();
   } catch { /* offline: keep the last list */ }
 }
+const refreshIndex = () => (indexLoading ||= loadIndex().finally(() => { indexLoading = null; }));
 async function getIndex() {
-  if (!indexAt || Date.now() - indexAt > INDEX_TTL_MS) {
-    indexLoading ||= loadIndex().finally(() => { indexLoading = null; });
-    if (!indexAt) await indexLoading;   // the first request waits for the list; later ones use the last one meanwhile
-  }
+  if (!indexAt) await refreshIndex();   // the first request waits for the list; later ones use the last one meanwhile
+  else if (Date.now() - indexAt > INDEX_TTL_MS) refreshIndex();
+  if (indexCheck) await indexCheck;
   return index;
 }
 
@@ -124,12 +132,15 @@ async function answer(request, path) {
   const candidates = path.startsWith('/media/')
     ? AUDIO_EXTS.map((ext) => '/assets/audio/' + path.slice('/media/'.length) + ext)
     : SERVED.test(path) ? [path] : [];
+  const list = candidates.length ? await getIndex() : null;
   for (const c of candidates) {
     const hit = await lookup(c);
-    if (hit) return safe(hit);
+    if (!hit) continue;
+    // without a list (offline, none on the server) what is cached is served; with one, only the listed version
+    const f = list && list.get(decode(c));
+    if (!list || (f && hit.headers.get('X-SP-Hash') === f.h)) return safe(hit);
   }
   if (candidates.length) {
-    const list = await getIndex();
     const f = list && candidates.map((c) => list.get(decode(c))).find(Boolean);
     if (f) { const res = await fromListed(f); if (res) return res; }
   }
@@ -138,6 +149,12 @@ async function answer(request, path) {
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
+  // a page load (often the reload after a deploy) revalidates the list before the cache answers that page: the worker
+  // outlives the reload, and a list up to INDEX_TTL_MS old would still name the old files as current
+  if (req.mode === 'navigate' && indexAt) {
+    indexCheck ||= refreshIndex().finally(() => { indexCheck = null; });
+    return;
+  }
   if (req.method !== 'GET' || req.headers.has('range') || req.mode === 'navigate' || req.destination === 'document') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin || url.search) return;
