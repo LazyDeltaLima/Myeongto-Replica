@@ -33,8 +33,8 @@
 // hover) as its 更换 does, and closing it (确认, 取消 or 清空) comes back here (maintainer requests 2026-10-13); a filled
 // slot's × empties it in the roster the dropdown shows, without leaving the draft (maintainer request 2026-10-13); a faction
 // without a preset is its own empty roster: four empty slots, edits saved into it, and no 自选 when applied (diyPresets.js
-// choiceRoster, maintainer decision 2026-10-29); a line names the roster the row's edits are saved to (selectPreset: the
-// live picks follow it, as the tab's own preset bar does); the order
+// choiceRoster, maintainer decision 2026-10-29: the dropdown is the roster shown and edited — selectPreset: the live
+// picks follow it, as the tab's own preset bar does); the order
 // list carries the overlay's entry (LoadoutButton, from 'draft' — it closes when the draft ends; maintainer request 2026-10-13).
 // 本局信息 (GitHub issue #8 item 1, "选策略时没法返回查看禁用的干员和盟约"): 查看禁用盟约与干员 under the order list opens the
 // briefing's bond rows, legend and 本局禁用干员 again, read-only (ui/matchInfo.js MatchInfoDialog — the very blocks of the
@@ -210,19 +210,6 @@ export function presetPreviewPicks(choice, st, live) {
 }
 
 /**
- * The line under the 自选预设 row's slots: the roster its edits are saved to (diyPresets.js choiceRoster — the one the
- * choice applies; it follows the dropdown).
- * @param {string} choice @param {{ active?: string|null }} st diyPresetStore state
- * @returns {{ roster: string } | null} roster = its name (「{faction}预设」 / 不使用预设); null for no roster
- */
-export function presetRosterNote(choice, st) {
-  const id = choiceRoster(choice, st || {});
-  if (id === undefined) return null;
-  const f = id == null ? null : chatFaction(id);
-  return { roster: f ? t('{faction}预设', { faction: t(f.name) }) : t('不使用预设') };
-}
-
-/**
  * The tags of the 自选预设 row: 已关联 (the choice is the strategy's saved link), 推荐 (no link: the faction the
  * strategy is built around), 本局禁用 (the faction's bond is off this match — applied anyway, maintainer 2026-10-12).
  * A turned-off recommendation (link KEEP_LINK, ui/diyPresets.js) reads as no link: 不使用预设 untagged (maintainer
@@ -353,17 +340,16 @@ export function PresetPicker({ choice, presets, off, locked, onChoice }) {
  * (ChessIcon without its own tier badge; the name in the tooltip; maintainer request 2026-10-13: an operator whose every
  * bond this match disables is drawn banned; a slot opens its picker through `onEdit(slotId)` — empty: +, filled: a swap
  * icon on hover, and its × (`onClear(slotId)`) empties it in the roster shown; a faction without a
- * preset: four empty slots) —, the line naming that roster (presetRosterNote), 记住 and 编辑自选编队 (`onEdit()`).
+ * preset: four empty slots) —, 记住 and 编辑自选编队 (`onEdit()`). The dropdown names the roster the row shows and
+ * edits (diyPresets.js choiceRoster), so no line repeats it (maintainer request 2026-10-29).
  * @param {{ band: any, choice: string, link: string|null, presets: Record<string, any>, base: Record<string, any>,
- *   active?: string|null,
  *   live: Record<string, any>, off: string[]|null, locked: boolean, remember: boolean, m?: any,
  *   onChoice: (v: string) => void, onRemember: (v: boolean) => void, onEdit?: ((slotId?: string) => void)|null,
  *   onClear?: ((slotId: string) => void)|null }} props
  */
-export function DraftPresetRow({ band, choice, link, presets, base, active = null, live, off, locked, remember, m = null, onChoice, onRemember, onEdit = null, onClear = null }) {
+export function DraftPresetRow({ band, choice, link, presets, base, live, off, locked, remember, m = null, onChoice, onRemember, onEdit = null, onClear = null }) {
   const tags = presetChoiceTags(choice, { link, rec: bandRecommendation(band), off });
   const picks = presetPreviewPicks(choice, { presets, base }, live);
-  const note = presetRosterNote(choice, { active });
   const slots = diySlotList({ chess: data.get('chess'), backups: data.get('backups') });
   const list = slots.length ? slots.map((x) => ({ id: x.slotId, tier: x.tier, shop: x.shopLevel }))
     : Object.keys(picks || {}).map((id) => ({ id, tier: slotTier(id), shop: slotTier(id) }));
@@ -415,7 +401,6 @@ export function DraftPresetRow({ band, choice, link, presets, base, active = nul
         </span>`;
       })}
     </div>`)}</div>
-    ${note ? html`<p class="draft-preset__src" data-testid="draft-preset-src">${t('修改保存到：{roster}', { roster: note.roster })}</p>` : null}
     <div class="draft-preset__foot">
       <label class="draft-preset__keep" title=${t('确认选择时套用，超时自动选择时也会套用；选择阵营预设时聊天阵营一并切换')}><input type="checkbox"
         checked=${remember && choice !== KEEP_LINK} disabled=${locked || choice === KEEP_LINK} onChange=${(e) => onRemember(e.currentTarget.checked)} />${t('记住此策略的预设')}</label>
@@ -443,7 +428,6 @@ export function BandDraftScreen() {
   const links = useStore((s) => s.links, Object.is, diyPresetStore);
   const presets = useStore((s) => s.presets, Object.is, diyPresetStore);
   const baseRoster = useStore((s) => s.base, Object.is, diyPresetStore);
-  const activeRoster = useStore((s) => s.active, Object.is, diyPresetStore);
   const livePicks = useStore((s) => s.diy, Object.is, loadoutStore);
   const roomKey = useStore((s) => `${s.room?.code || ''}#${s.room?.matchNo ?? 0}`);
 
@@ -638,7 +622,7 @@ export function BandDraftScreen() {
             <${RichText} as="p" text=${band.descRaw || band.desc} class="draft-detail__desc" />
           </div>
           ${inDraft ? html`<${DraftPresetRow} band=${band} choice=${choiceFor(band.bandId)} link=${links?.[band.bandId] ?? null}
-            presets=${presets} base=${baseRoster} active=${activeRoster} live=${livePicks} off=${pub?.disabledBonds ?? null} m=${gd.m}
+            presets=${presets} base=${baseRoster} live=${livePicks} off=${pub?.disabledBonds ?? null} m=${gd.m}
             locked=${(!!myPick && myPick !== band.bandId) || busy === 'pick'}
             remember=${remember[band.bandId] ?? true} onChoice=${(v) => changeChoice(band.bandId, v)}
             onRemember=${(v) => changeRemember(band.bandId, v)} onEdit=${(slotId) => editPreset(band.bandId, slotId)}

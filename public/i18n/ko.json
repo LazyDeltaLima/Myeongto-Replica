@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1498 of 1716 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1496 of 1714 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false,
@@ -1392,8 +1392,6 @@
   "推荐": "추천",
   "自选预设": "선발 프리셋",
   "保持当前编队": "지금 편성 유지",
-  "{faction}预设": "{faction} 프리셋",
-  "修改保存到：{roster}": "수정 저장 위치: {roster}",
   "记住此策略的预设": "이 전략에 기억",
   "确认选择时套用，超时自动选择时也会套用；选择阵营预设时聊天阵营一并切换": "선택 확인 때 적용되고, 시간 초과로 자동 선택돼도 적용됩니다. 맹약 프리셋을 고르면 채팅 맹약도 같이 바뀝니다",
   "关联策略": "연결된 전략",

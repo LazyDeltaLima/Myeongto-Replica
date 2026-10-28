@@ -288,7 +288,7 @@ test('the strategy draft\'s preset row: a filled slot\'s × empties it in the ro
 });
 
 test('the strategy draft: a faction is its own roster even while empty — shown, edited and applied (maintainer decision 2026-10-29)', async () => {
-  const { presetPreviewPicks, presetRosterNote } = await import('../../public/js/screens/bandDraft.js');
+  const { presetPreviewPicks } = await import('../../public/js/screens/bandDraft.js');
   const { net } = await import('../../public/js/net.js');
   const { applyPresetChoice } = await import('../../public/js/ui/factionPick.js');
   setDiyPicks({ [T6A]: CHEN }); // shown: 不使用预设
@@ -302,13 +302,8 @@ test('the strategy draft: a faction is its own roster even while empty — shown
   assert.equal(P.choiceRoster(P.BASE_LINK, st()), null);
   assert.equal(P.choiceRoster(P.KEEP_LINK, st()), 'victoria', '保持当前编队: the roster in use');
   assert.equal(P.choiceRoster('nowhere', st()), undefined);
-  // the preview and the line follow the dropdown
+  // the preview follows the dropdown
   assert.deepEqual(presetPreviewPicks('sargon', st(), loadoutStore.get().diy), {}, 'four empty slots');
-  assert.deepEqual(presetRosterNote('sargon', st()), { roster: '萨尔贡预设' });
-  assert.deepEqual(presetRosterNote('yan', st()), { roster: '炎国预设' });
-  assert.deepEqual(presetRosterNote(P.KEEP_LINK, st()), { roster: '维多利亚预设' });
-  assert.deepEqual(presetRosterNote(P.BASE_LINK, st()), { roster: '不使用预设' });
-  assert.equal(presetRosterNote('nowhere', st()), null);
   // applied: 萨尔贡's empty roster — no 自选, the 维多利亚 picks stay in their preset, no 萨尔贡 preset is created
   const request = net.request;
   net.request = async () => ({});
