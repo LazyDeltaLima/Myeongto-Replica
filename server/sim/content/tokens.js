@@ -1244,7 +1244,9 @@ function yanyouFallbackDef(battle) {
  *     It fires when a normal attack would (SP = the 15 s cooldown), locks that attack's first target, channels on it
  *     (no normal attacks meanwhile), deals the 1 s ticks (the first at once) and ends after 20 s, when the locked
  *     target is gone (dead, left, untargetable — "锁定1个目标…最多持续") or when silenced; the cooldown then runs again
- *     [ASSUMED: the cooldown counts from the end of the channel, like the engine's timed skills]. While stunned /
+ *     from the end of the channel (official client: Skill_2 is an `EnemySkill` whose ability, a `RangedAttack` with
+ *     `_waitForProjectileInvalid`, keeps casting while its line projectile lives; `EnemySkill.OnTick` runs the cooldown
+ *     only when not casting and `_OnCastFinish` restarts it). While stunned /
  *     frozen the channel keeps its lock but deals nothing.
  */
 const YANYOU_STOP = 0.25;             // [ASSUMED] how close it hovers to the tracked enemy (tiles)

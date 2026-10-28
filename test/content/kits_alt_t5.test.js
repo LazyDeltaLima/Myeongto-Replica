@@ -1515,7 +1515,8 @@ test('号角 S1 / 塞雷娅 S1 (自动触发, elite: 2 charges): hits never arm 
     assert.equal(new Set(shots.slice(0, 2).map((c) => c.t)).size, 2, 'one charge per attack');
     done(h);
   }
-  // 塞雷娅 S1: DEFAULT + an ally of the area at ≤ half HP — each charge replaces one of her attacks (no heal mode waits)
+  // 塞雷娅 S1: DEFAULT + an ally of the area at ≤ half HP — a charge is cast (技力 spent) the moment one is there and its
+  // heal replaces her next attack; while it waits the other charge is not spent
   {
     const id = 'chess_char_5_11_b';
     const h = run({ defs: { enemies: { enemy_dummy: dummy('enemy_dummy') }, chess: { t_low: ally('t_low'), t_low2: ally('t_low2') } },
@@ -1528,17 +1529,18 @@ test('号角 S1 / 塞雷娅 S1 (自动触发, elite: 2 charges): hits never arm 
     u.atkCd = 2;
     u.skill.gainSp(1000);
     assert.equal(u.skill.charges, 2, `${id}: 2 charges`);
+    for (let i = 0; i < 3; i++) h.b.dealDamage(e, u, { amount: 10, type: 'phys' });
+    h.step();
+    assert.equal(starts(), 0, 'hits do not arm it');
     h.unit('t_low').hp = h.unit('t_low').s.maxHp * 0.3;
     h.unit('t_low2').hp = h.unit('t_low2').s.maxHp * 0.3;
-    for (let i = 0; i < 3; i++) h.b.dealDamage(e, u, { amount: 10, type: 'phys' });
     h.run(1);
-    assert.equal(starts(), 0, 'hits do not arm it, nor does the injured ally alone: it waits for her attack');
-    assert.ok(h.runUntil(() => starts() === 1, 2), 'her attack casts one charge');
-    // (cast as the swing starts; the heal lands at the clip's damage frame)
-    assert.ok(h.runUntil(() => heals(h, u).length >= 1, 3));
-    assert.ok(!u.skill.pending, 'and is the heal');
+    assert.equal(starts(), 1, 'the injured allies cast one charge at once');
+    assert.ok(u.skill.pending, 'its heal waits for her attack');
     assert.equal(u.skill.charges, 1, 'the second charge stays stored');
-    assert.ok(h.runUntil(() => starts() === 2, 5), 'her next attack heals the other one');
+    // (the heal lands at the clip's damage frame of her next swing)
+    assert.ok(h.runUntil(() => heals(h, u).length >= 1, 3));
+    assert.ok(h.runUntil(() => starts() === 2, 5), 'then the other charge, for the other ally');
     assert.ok(h.runUntil(() => heals(h, u).length >= 2, 3));
     assert.equal(heals(h, u).length, 2);
     assert.notEqual(heals(h, u)[0].target, heals(h, u)[1].target);

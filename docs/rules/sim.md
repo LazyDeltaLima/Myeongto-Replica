@@ -420,11 +420,10 @@ upstream v0.2.3과 그 뒤 미병합 PR 가운데, 우리에게도 같은 버그
   돌아올 때(`dollSwap`)도 층을 얻는다(부여량·배치당 상한·켜진 맹약 확인은 그대로). **[추정 — 미확인]** 관리자 노트: 공식에는 「远牙가 준 것만」이라는
   구분이 없고, 배치 때 발동하는 특질 템플릿 `act2autochess_gar_event_onstart`(ON_BUFF_START)는 몸 바꿈 때 버프가 다시 시작되면 다른 배치 때 특질(106·107·124·143·155)도
   다시 발동할 수 있다. 버프 재시작 여부는 C#에서 못 읽어 upstream 범위대로 둠. golden 변화 없음. 테스트 `test/content/fartooth-doll-swap.test.js`(upstream).
-- **塞雷娅 S1 急救는 적이 없어도** (`e86c7c83`, GitHub #406, PRTS): 스킬 범위의 HP ≤ 절반 아군이 있으면 적이 없어도 그녀의 공격 간격에 시전하고 그 공격이 치료가 된다
-  (`ai.js updateAlly`가 대상이 없을 때 `trigger.allies` 스킬을 먼저 시도, `skills.js onAboutToAttack`은 아군 규칙이면 적 조건을 보지 않음). 침묵·무장해제·공격 간격은 그대로.
-  클라: AUTO 스킬이라 모드 자동 발동을 타지 않고 `NextAttackOrCombatSkill`이 아군만 찾는다(적·공격 상태 조건 없음). 다른 점 하나 **[ASSUMED]**: 공식은 조건이
-  맞는 순간 SP를 쓰고 우리는 공격 때 시전한다(치료는 같고 SP 시점이 공격 한 번 안쪽으로 다름). upstream의 黍·凯尔希·思衡托 부분(`triggerEnemies`)은 우리 풀에 없어 뺐다.
-  golden 변화 없음. 테스트 `test/content/heal-triggers-023.test.js`(upstream의 塞雷娅 케이스).
+- **塞雷娅 S1 急救는 적이 없어도** (`e86c7c83`, GitHub #406, PRTS): 스킬 범위의 HP ≤ 절반 아군이 있으면 적이 없어도 시전하고 그녀의 다음 공격이 치료가 된다.
+  침묵·공격 간격은 그대로. 클라: AUTO 스킬이라 모드 자동 발동을 타지 않고 `NextAttackOrCombatSkill`이 아군만 찾는다(적·공격 상태 조건 없음).
+  upstream의 黍·凯尔希·思衡托 부분(`triggerEnemies`)은 우리 풀에 없어 뺐다. 테스트 `test/content/heal-triggers-023.test.js`(upstream의 塞雷娅 케이스).
+  **시전 시점은 2026-10-29부터 공식대로** — 아래 「오퍼레이터 스킬 발동 시점 묶음 B」 B1.
 - **假想敌：管의 “余音” 펄스 큐** (`f3658a0d` 중 `bosses.js echoHit`): 피격 펄스 ↔ 반격(벤델라 등)이 서로 동기로 불러 훅 깊이 32 제한에 걸리던 것 → 펄스를 쌓아
   지금 펄스 뒤에 FIFO로 처리(치명타가 만든 펄스도 유지, 타이머·난수 추가 없음). **[ASSUMED]** 순서(upstream도 [ASSUMED]). golden: `fields` hidden-boss_10-solo.
   테스트 `test/content/echo-counter-023.test.js`(upstream).
@@ -2179,3 +2178,29 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
 - **[추정·화면: 제보의 「모두 아래 길」은 영상 판독뿐이라 후보 고르기는 시간 구간 그대로]**.
 - 테스트 `test/sim/feedback5-cb4-pins.test.js` 「item 35」(네 명이 같은 수, 플레이어 안에서는 한 종류, 플레이어끼리는 종류가 다른 라운드가 있음). 같은 라운드를 되풀이해
   0·1·2를 보던 시험(`bands.test.js`, `feedback1-ducklord.test.js`, `bot.test.js` 리허설)은 매치 시드를 바꿔 가며 본다.
+
+## 오퍼레이터 스킬 발동 시점 묶음 B (2026-10-29)
+
+오퍼레이터 스킬이 언제 켜지는지의 남은 추정 가운데 오퍼레이터별 작은 것들. 모두 공식 클라에서 확인(프리팹·버프 템플릿·자동 조작 코드).
+
+- **B1 사리아 S1 「응급처치」(`skchr_demkni_1`)**: 스킬 범위에 HP ≤ 절반인 치료 가능한 아군이 생기는 **그 틱에** 시전해 SP를 쓰고, 그녀의 **다음 공격**이
+  그 아군 치료가 된다(전에는 공격하는 순간에 시전 — SP 시점이 공격 한 번 안쪽으로 달랐다). 기다리는 동안 그 조건이 깨지면(아군이 절반 위로 회복) 시전은
+  사라지고 **SP는 돌려받지 않는다**(전에는 돌려받음). 휘두르던 일반 공격 중에 시전되면 그 휘두름은 일반 공격으로 끝나고 치료는 다음 공격. 2충전(정예)의
+  두 번째 충전은 앞 치료가 나갈 때까지 쓰지 않는다(그대로). 근거: 프리팹 `skchr_demkni_1` — `ReplacementSkill` 꼴(`_cancelIfSearchTargetFailed` 1,
+  `_recoverSpIfTargetDead` 1), 트리거 선택기 아군·`_maxHpRatio` 0.5(같음 포함). `NextAttackOrCombatSkill.DoTick`(AUTO: SP와 트리거 탐색만 보고
+  `UseSkill`), `ReplacementSkill.TryHookSearchTarget`(탐색 실패면 대체 해제, SP 반환 없음), `OnCastFinish`(전딜 중 대상 사망만 SP 반환 — `ai.js
+  dropNextAttack`). 구현 `skills.js` 틱(아군 규칙 DEFAULT), `ai.js allyStrike`(시전 전에 시작한 휘두름). 테스트 `test/content/heal-triggers-023.test.js`,
+  `kits_alt_t5.test.js` 「号角 S1 / 塞雷娅 S1」, `test/sim/playtest6-skills.test.js` 「#16」.
+- **B2 '염의 가호'(炎 맹약 소환물) 「祛恶之焰」(공식 한국어 이름 없음)**: 쿨다운은 채널이 끝난 뒤부터 다시 돈다 — 지금 구현과 같고 추정 표시만 근거로 바꿈. 근거: 적 프리팹
+  `enemy_9012_acloon` `Modes/2/Body/Skills/Skill_2` = `EnemySkill`(`_resetMainAbilityCdWhenCastEnd` 0) + `RangedAttack` 능력
+  (`_waitForProjectileInvalid` 1, `projectile_enemy_acloon_line`): `RangedAttack.OnWaitForPostDelay`가 투사체가 살아 있는 동안 시전을 이어 가고,
+  `EnemySkill.OnTick`은 시전 중엔 쿨을 안 돌리며 `_OnCastFinish`가 쿨을 처음부터 다시(`content/tokens.js` 炎佑 머리 주석).
+- **B3 스펙터 디 언체인드·카제마루의 替身 전환**: 전환(替身으로·본체로 둘 다)이 시작될 때 **SP를 비운다**. 替身 동안은 SP가 안 차므로(阻回) 어떤 발동
+  규칙으로도 스킬이 안 켜진다 — 「替身 동안 S1 技能范围도 시전 안 함」 추정이 이것으로 정해짐. 전에는 SP가 그대로 남아, 본체로 돌아오자마자
+  켜질 수 있었다. 근거: 버프 템플릿 `ghost2_switchbegin`·`kazema_switchbegin` ON_BUFF_START = ClearAllBuffs + InterruptCharacterSkill +
+  **ClearCharacterSp**, 替身 모드 `ghost2_standin[switch]` abnormalFlags SP_RECOVER_STOPPED. 구현 `professions.js installDollkeeper startSwitch`.
+  테스트 `test/sim/feedback2-doll.test.js` A·D.
+- **B4 토가와 사키코 S2 「满月的舞会」(공식 한국어 이름 없음)**: 공식은 자동 조작이 한 번만 켠다(피아노 → 오르간 뒤 그대로) — 확인했으나 **아직 안 바꿈**, `diy.md` 「사키코 S2」.
+- **B5 프라마닉스 더 프레리타 S1**: 키트의 `trigger: 'DEFAULT'` 강제와 옛 추정 주석을 지우고 데이터의 SEARCH를 쓴다(2026-10-11부터 엔진 SEARCH =
+  초기 공격 범위의 적, S1은 `rangeId`가 없어 DEFAULT와 같은 검사 — 동작 같음).
+- golden(B1·B3): `roster` roster-004(카제마루)·014·033·034·043·048(사리아·스펙터 디 언체인드), `matches` 11개(봇 편성).

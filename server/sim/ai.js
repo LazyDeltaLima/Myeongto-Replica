@@ -136,15 +136,9 @@ export function updateAlly(b, u, dt) {
   if (sk && sk.replacing) { startReplacement(b, u, sk); return; }
   // (a 秘术师's `canAttack` is its own target rule: false = no valid target — 深靛's bound enemies, 维伊's marked ones)
   if (prof.canAttack && !prof.canAttack(b, u)) { endSpell(b, u); faceIdle(b, u); if (prof.storeEnergy) { u.trait.hadTarget = false; storeEnergy(b, u, prof); } return; }
+  // (a heal of the ally rule — 塞雷娅 S1 急救, trigger.allies — cast by its tick (skills.js) makes this attack its heal: the
+  // profile above is the skill's, with or without an enemy; upstream e86c7c83, GitHub #406)
   let targets = acquireTargets(b, u, prof);
-  // a charged heal of the ally rule (塞雷娅 S1 急救: trigger.allies) casts at her attack cadence with no enemy too and that
-  // attack heals the ally (PRTS; client: an AUTO NextAttackOrCombatSkill whose trigger searches allies only). After the
-  // cooldown / control checks above, so silence, disarm and the attack cadence still hold (upstream e86c7c83, GitHub #406)
-  if (!targets.length && sk?.triggerAllies && sk.onAboutToAttack()) {
-    prof = effectiveProfile(u);
-    if (prof.noAttack || !u.alive) return;
-    targets = acquireTargets(b, u, prof);
-  }
   if (!targets.length) { endSpell(b, u); faceIdle(b, u); u.trait.hadTarget = false; storeEnergy(b, u, prof); return; }
   u.trait.hadTarget = true;
   if (sk && sk.onAboutToAttack()) {
@@ -327,6 +321,9 @@ function allyStrike(b, u, prof) {
   const sw = u.swing;
   u.swing = null;
   if (sw.replace) { sw.replace.fireReplacement(); return; }
+  // an ally-rule heal (塞雷娅 S1) cast during a normal swing replaces the NEXT attack (`Character.RegisterReplacement`):
+  // this swing strikes as the normal attack it started as, the heal keeps waiting
+  if (!sw.isSkill && prof.isSkill && u.skill?.pending && u.skill.triggerAllies && !u.skill.isTimed) prof = u.profile;
   let targets = sw.targets;
   if (sw.sel === 1 || sw.sel === 3 || (sw.sel === 2 && !strikable(targets[0])) || sw.isSkill !== !!prof.isSkill) {
     targets = acquireTargets(b, u, prof);

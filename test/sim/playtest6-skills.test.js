@@ -302,7 +302,7 @@ test('#16 古米 备用军粮 with an enemy blocked: the cast turns her next att
   done(h);
 });
 
-test('#16 塞雷娅 S1 急救 (audit): checked at her attack cadence, enemy or not — an ally of her area at ≤ half HP turns that attack into the heal; healed back meanwhile ⇒ she just attacks', () => {
+test('#16 塞雷娅 S1 急救 (audit): cast the moment an ally of her area is at ≤ half HP, enemy or not — her next attack is the heal; healed back before it ⇒ dropped, its 技力 lost', () => {
   // PRTS 备注 "此技能仅在周围有符合血量条件的友方单位时可触发，触发时会替换当次攻击"; text corrected to "血量小于等于一半"
   const id = 'chess_char_5_11_a';
   const s = skillOf(id, 'skchr_demkni_1');
@@ -318,7 +318,7 @@ test('#16 塞雷娅 S1 急救 (audit): checked at her attack cadence, enemy or n
   assert.equal(u.skill.rule, 'DEFAULT');
   fill(u);
   m.hp = 4000;
-  // no enemy: still cast at her attack cadence and the attack heals the ally (upstream e86c7c83, GitHub #406)
+  // no enemy: still cast and her next attack heals the ally (upstream e86c7c83, GitHub #406)
   assert.ok(h.runUntil(() => u.skill.activations === 1, 2), 'no enemy: the ally at 40 % still gets the heal');
   assert.ok(h.runUntil(() => m.hp > 4000, 2), 'and is healed');
   done(h);
@@ -329,11 +329,14 @@ test('#16 塞雷娅 S1 急救 (audit): checked at her attack cadence, enemy or n
   m.hp = 6000;
   assert.ok(h.runUntil(() => hits() >= 2, 5), '60 %: she attacks the enemy she blocks');
   assert.equal(u.skill.activations, 0, 'and casts nothing');
-  // an ally at exactly half HP: her next attack is the heal (the enemy is not hit by it)
+  // an ally at exactly half HP: cast at once, her next attack is the heal (the enemy is not hit by it)
+  assert.ok(h.runUntil(() => !u.swing, 2));
   u.atkCd = 0.5;
   m.hp = 5000;
   const hits0 = hits();
-  assert.ok(h.runUntil(() => u.skill.activations === 1, 2));
+  h.step();
+  assert.equal(u.skill.activations, 1, 'cast the moment she qualifies');
+  assert.ok(u.skill.pending);
   assert.equal(starts(h, u)[0].reason, 'DEFAULT');
   // (cast as her swing starts; the heal lands at that swing's damage frame — ai.js attackTiming)
   assert.ok(h.runUntil(() => h.hooksOf('heal').some((c) => c.source === u && c.target === m), 2));
@@ -342,24 +345,22 @@ test('#16 塞雷娅 S1 急救 (audit): checked at her attack cadence, enemy or n
   approx(heal.amount, u.s.atk * s.bb.heal_scale);
   assert.equal(hits(), hits0, 'that attack hit nobody');
   assert.ok(!u.skill.pending);
-  // dropped to 40 %, healed back to 80 % before her attack: no cast, she keeps attacking (no heal mode left waiting)
+  // dropped to 40 %, healed back to 80 % before her attack: the cast made at 40 % is dropped, its 技力 lost
+  // (ReplacementSkill `_cancelIfSearchTargetFailed`); she keeps attacking the enemy
+  assert.ok(h.runUntil(() => !u.swing, 2));
   fill(u);
   u.atkCd = 1;
   m.hp = 4000;
   h.run(0.5);
+  assert.equal(u.skill.activations, 2, 'cast at 40 %');
+  assert.ok(u.skill.pending && u.skill.charges === 0);
   m.hp = 8000;
   const hits1 = hits();
-  h.run(4);
-  assert.equal(u.skill.activations, 1, 'no second cast');
-  assert.ok(hits() >= hits1 + 3, `she kept hitting the enemy (${hits() - hits1} hits in 4 s)`);
-  // the engine's safety net: a cast whose ally condition fails before the attack is withdrawn, its charge returned
-  m.hp = 4000;
-  u.atkCd = 5;
-  assert.ok(u.skill.activate('test'));
-  assert.ok(u.skill.pending && u.skill.charges === 0);
-  m.hp = 10000;
   h.step();
-  assert.ok(!u.skill.pending && u.skill.charges === 1, 'withdrawn, the charge kept');
+  assert.ok(!u.skill.pending && u.skill.charges === 0, 'dropped, no charge back');
+  h.run(4);
+  assert.equal(u.skill.activations, 2, 'no further cast');
+  assert.ok(hits() >= hits1 + 3, `she kept hitting the enemy (${hits() - hits1} hits in 4 s)`);
   done(h);
 });
 

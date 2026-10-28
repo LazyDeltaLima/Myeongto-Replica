@@ -74,8 +74,7 @@
 // 落叶四季, 仇白 欲雪时, 耀骑士临光 “骑士家族”, 锏 新合同, 纯烬艾雅法拉 想要留下的生命 (生息演算 / 集成战略-only parts of
 // the RA / IS modules are not modelled). Alternate-skill simplifications:
 //  6_01 S2 the aim (disarmed meanwhile) spends its bullet when it begins; target = a wanted enemy (lowest DEF first).
-//  6_02 S1 casts with an enemy in her range (data SEARCH read as "search in range" [ASSUMED]; the engine SEARCH =
-//       any enemy on the field wasted both charges); the snow spreads along her facing line (≤ trig_cnt tiles);
+//  6_02 S1 the snow spreads along her facing line (≤ trig_cnt tiles);
 //       S2 "目标点变为冻结状态" = the frozen 保护目标 token (icetgt, one at a time) on a protection point (goal tile) reaching
 //       max snow, deploy attributes ignored, whose snow is used up (PRTS 备注; until 0.1.3 any standable tile froze, never the
 //       gate); spreads go to the thinnest 4-neighbour; the 20 % DoT ticks once per second.

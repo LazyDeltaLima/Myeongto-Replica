@@ -35,7 +35,11 @@
 // 触发技能后，在场所有Ave Mujica成员20秒内会持续释放当前技能"): a skill cast at ≥ 450 starts 20 s in which her skill
 // recasts as soon as it ends, SP-free; S2 attacks hit twice; under S3 a fatal hit does not knock her out until it ends.
 // S2 满月的舞会 (a mode, no duration): piano (start: ATK +attack@atk, phys) ↔ organ (ASPD +attack@attack_speed, arts);
-// each cast switches [ASSUMED: the remake casts automatically, so a cast toggles the timbre].
+// each cast switches. The official client casts it once here (a `ToggleSkill`, whose cast flips `toggled`, and
+// `AutoChessBattleTrigger._DoDefaultCheck` → `_CheckToggleSkill` refuses a toggled one: piano → organ for good) — held
+// back for now: the organ notes (NOTE.organ, turn 2.5 at 1.0 tiles/s) circle a target nearer than their turning circle
+// without reaching it, so a lasting organ would stop hitting what stands near her [추정·미조사: the client's tracing
+// steering is not checked] (docs/rules/diy.md 「사키코 S2」).
 
 import { COLS } from '../../../constants.js';
 import { dirVec } from '../../../dir.js';

@@ -36,15 +36,15 @@ function setup({ id = G, skillIndex = 1, sp = 0, enemy = true, capture = false, 
   return { h, g, log, lethal, fx };
 }
 
-test('A: a lethal hit with no skill running ⇒ the 替身 (form, full HP, block 0, 阻回), no normal attack, 拥抱自我 works; back after the 1 s switch + 20 s', { skip }, () => {
+test('A: a lethal hit with no skill running ⇒ the 替身 (form, full HP, block 0, SP emptied, 阻回), no normal attack, 拥抱自我 works; back after the 1 s switch + 20 s', { skip }, () => {
   for (const [id, skillIndex] of [[G, 1], [G, 0], [G, 2], ['chess_char_5_13_b', 1]]) {
     const { h, g, log, lethal, fx } = setup({ id, skillIndex, capture: true });
     h.run(1.5);
     assert.ok(log.attacks > 0, `${id}/${skillIndex}: the 本体 attacks`);
     const atk0 = log.attacks;
     const full = g.s.maxHp;
-    const sp = g.skill.sp;
     lethal();
+    assert.equal(g.skill.sp, 0, 'the switch empties the SP (official `ghost2_switchbegin` ClearCharacterSp)');
     assert.ok(g.alive && g.trait.doll && g.form === 'doll', `${id}/${skillIndex}: the 替身`);
     approx(g.hp, g.s.maxHp, 'full HP');
     approx(g.s.maxHp, full * (1 + (g.def.traitBb.max_hp || 0)), 'her own max HP (no 替身 token; trait bb max_hp the module bonus)');
@@ -54,7 +54,7 @@ test('A: a lethal hit with no skill running ⇒ the 替身 (form, full HP, block
     approx(sub[4].dur, DOLL_SWITCH + 20, 'until the switch back');
     h.run(DOLL_SWITCH + 19);
     assert.equal(log.attacks, atk0, 'no normal attack as the 替身 (PRTS 特性备注)');
-    approx(g.skill.sp, sp, '阻回: the SP waits');
+    assert.equal(g.skill.sp, 0, '阻回: none comes back as the 替身');
     const e = h.enemy('enemy_dummy');
     assert.ok(e.findBuff('ghost2:embrace'), '拥抱自我 slows');
     assert.ok(h.hooksOf('damaged').some((c) => c.source === g && c.target === e && (c.dmg.tags || []).includes('embrace')), '…and deals arts damage');
@@ -65,7 +65,7 @@ test('A: a lethal hit with no skill running ⇒ the 替身 (form, full HP, block
     approx(g.hp, g.s.maxHp, 'full HP again');
     h.run(DOLL_SWITCH + 1.5);
     assert.ok(log.attacks > atk0, 'the 本体 attacks again');
-    assert.ok(g.skill.sp > sp, 'SP again');
+    assert.ok(g.skill.sp > 0, 'SP again');
     checkInvariants(h.b);
   }
 });
@@ -114,30 +114,35 @@ test('C: a second lethal hit while she is the 替身 knocks her out: the death c
   checkInvariants(h.b);
 });
 
-test('D: SP near full or full when she switches ⇒ no skill cast as the 替身 (S2 DEFAULT, S1 技能范围); cast again as the 本体', { skip }, () => {
-  // S2 38 / 40: 阻回 holds it under the cost; after the switch back it fills and S2 is cast
+test('D: SP near full or full when she switches ⇒ emptied (both switches), no skill cast as the 替身 (S2 DEFAULT, S1 技能范围); cast again as the 本体 once refilled', { skip }, () => {
+  // official client: `ghost2_switchbegin` ClearCharacterSp on every switch, the 替身's `ghost2_standin[switch]` SP_RECOVER_STOPPED
+  // S2 38 / 40: emptied; after the switch back it fills from 0 and S2 is cast
   {
     const { h, g, log, lethal } = setup({ sp: 38 });
     h.run(0.5);
     lethal();
-    h.run(DOLL_SWITCH + 20 + DOLL_SWITCH + 5);
+    assert.equal(g.skill.sp, 0, 'emptied by the switch');
+    h.run(DOLL_SWITCH + 20 + DOLL_SWITCH);
     assert.deepEqual(log.castsAsDoll, [], 'no S2 as the 替身');
-    assert.ok(log.casts.length === 1 && log.casts[0] > 0.5 + 2 * DOLL_SWITCH + 20, 'S2 after the switch back');
+    assert.equal(log.casts.length, 0);
+    const back = h.b.time, refill = g.skill.spCost / g.s.spRecovery;
+    assert.ok(h.runUntil(() => log.casts.length === 1, refill + 5), 'S2 once it refilled');
+    assert.ok(log.casts[0] >= back + refill - DOLL_SWITCH - 0.1, `S2 after a whole refill (${log.casts[0]} vs back ${back})`);
     assert.ok(g.alive);
   }
-  // S1 (SKILL_RANGE) ready with no enemy around, then an enemy steps next to the 替身: no cast until she is back
+  // S1 (SKILL_RANGE) ready with no enemy around: emptied by the switch, so an enemy next to the 替身 casts nothing; once she
+  // is the 本体 again and S1 refilled, it is cast
   {
     const { h, g, log, lethal } = setup({ skillIndex: 0, sp: 999, enemy: false });
     h.run(0.5);
     assert.ok(g.skill.ready && !g.skill.active && log.casts.length === 0, 'S1 ready, nothing in its range');
     lethal();
+    assert.ok(!g.skill.ready && g.skill.sp === 0, 'emptied by the switch');
     h.run(DOLL_SWITCH + 0.5);
     h.spawn('enemy_dummy', { pos: [9, 6] });
     h.run(15);
-    assert.deepEqual(log.castsAsDoll, [], 'no S1 as the 替身 (silenced with its disarm) [ASSUMED]');
-    assert.ok(g.skill.ready, 'still ready');
-    h.run(10);
-    assert.equal(log.casts.length, 1, 'cast once she is the 本体 again');
+    assert.deepEqual(log.castsAsDoll, [], 'no S1 as the 替身');
+    assert.ok(h.runUntil(() => log.casts.length === 1, 10 + g.skill.spCost / g.s.spRecovery + 5), 'cast once she is the 本体 again and S1 refilled');
     assert.equal(log.castsAsDoll.length, 0);
   }
 });

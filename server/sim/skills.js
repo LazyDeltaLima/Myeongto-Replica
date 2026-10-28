@@ -26,8 +26,9 @@
 //   field — the client's `_GdglowSearchEnemy` counts `UnitManager.enemyCnt`, targetable or not), NEVER/MANUAL (never
 //   auto-cast: the kit calls skill.activate() itself); any unknown rule falls back to DEFAULT. Units that never attack
 //   (noAttack profiles) evaluate DEFAULT every tick instead. DEFAULT with `trigger.allies` (+ `hpAtMost`): the basic
-//   rule AND such an ally on the trigger grid — the cast replaces the attack about to be made (塞雷娅 S1 "触发时会替换当
-//   次攻击"); should that ally condition fail before the attack, the cast is withdrawn and its charge returned.
+//   rule replaced by such an ally on the trigger grid, checked every tick — the cast spends its 技力 at once and its heal
+//   replaces the unit's next attack (塞雷娅 S1 "触发时会替换当次攻击"); should that ally condition fail before the attack,
+//   the cast is dropped and its 技力 lost.
 // MANUAL skills (def.skillType) are cast by the battle's automatic operations (the client's `AutoChessBattleTrigger`;
 //   maintainer decision 2026-10-11): every 0.2 s one pass (Battle._autoTriggerPass → autoTrigger below) checks the rules
 //   above and casts at once — the first cast ends the pass (one per pass in the whole battle) and blocks its unit for
@@ -361,12 +362,11 @@ export class SkillRuntime {
       if (rate > 0) this.gainSp(rate * dt, 'time');
     }
     if (!u.canAct) return;
-    // a DEFAULT cast bound to an ally condition (塞雷娅 S1) replaces the attack about to be made: should the condition
-    // have failed before that attack (the ally healed meanwhile), the cast is withdrawn — no heal mode stays behind
-    if (this.pending && this.triggerAllies && this.rule !== 'SKILL_RANGE' && !this._allyTriggerSatisfied()) {
-      this.end('withdrawn');
-      this.addCharge(1);
-    }
+    // a DEFAULT cast bound to an ally condition (塞雷娅 S1) waits for the unit's next attack: should the condition have
+    // failed before that attack (the ally healed meanwhile), the cast is dropped and its 技力 is lost (official client:
+    // `ReplacementSkill.TryHookSearchTarget` with `_cancelIfSearchTargetFailed` unregisters it; only a target dying in
+    // the wind-up gives the 技力 back — ai.js dropNextAttack)
+    if (this.pending && this.triggerAllies && this.rule !== 'SKILL_RANGE' && !this._allyTriggerSatisfied()) this.end('withdrawn');
     if (!this.ready || u.s.flags.silence) return;
     if (this.active && this.isTimed) return;
     // a MANUAL skill is cast by the automatic operations only (Battle._autoTriggerPass → autoTrigger)
@@ -376,6 +376,12 @@ export class SkillRuntime {
     // an instant / charge skill with no attack of its own is cast at most once per attack interval of its unit
     // (activate sets nextCastAt; GitHub #298): the casts checked here wait for it — the unit's attacks are not touched
     if (!this.isTimed && !this.spec.attack && this.battle.time < this.nextCastAt - 1e-9) return;
+    // DEFAULT with an ally condition (塞雷娅 S1, an AUTO NextAttackOrCombatSkill — `DoTick`: the 技力 and its trigger's
+    // search, every tick): cast the moment such an ally is there, the 技力 spent now; the heal is her next attack
+    if (this.triggerAllies && !TICK_RULES.has(this.rule)) {
+      if (this._allyTriggerSatisfied()) this.activate('DEFAULT');
+      return;
+    }
     if (TICK_RULES.has(this.rule)) {
       if (this._tickRuleSatisfied()) this.activate(this.rule);
     } else if (this.rule !== 'TAKE_DAMAGE' && this.rule !== 'NEVER') {
@@ -542,8 +548,8 @@ export class SkillRuntime {
     if (this.autoOp || this.pending) return false;   // (a MANUAL skill: the automatic operations — autoTrigger)
     // (a skill read from the client: its skill ability's cooldown and action hold the next cast — _paceInstant)
     if (this.cast && !this.isTimed && !this.spec.attack && this.battle.time < this.nextCastAt - 1e-9) return false;
-    // an ally-rule heal (trigger.allies) brings its own attack target: no enemy needed (upstream e86c7c83, GitHub #406)
-    if (this.triggerAllies ? !this._allyTriggerSatisfied() : !this._defaultCondition()) return false;
+    // an ally-rule heal (trigger.allies) is cast by the tick (above), not by the attack
+    if (this.triggerAllies || !this._defaultCondition()) return false;
     this._beforeAttack = true;   // the attack follows this cast in the same check (ai.js updateAlly): attacks pace it
     try { return this.activate('DEFAULT'); } finally { this._beforeAttack = false; }
   }

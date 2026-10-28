@@ -189,13 +189,14 @@ const installCharger = (battle, unit) => {
  * 伤害且未持有不死的情况下" — a skill's / talent's own 不死 runs earlier, a running 坚固维式重锤 window just before this hook,
  * items/battle.js PRIO_UNDYING_HELD −99) starts a switch animation, after which the operator fights as its <替身> for the
  * trait's 20 s (bb duration) holding 阻回; then it switches back the same way. A switch animation clears the operator's
- * Buffs and resets its HP to the max of the form it switches to; during one the operator holds 不死, 无敌, 阻回, 禁疗, 孤立,
- * 强制缴械 and is immune to 眩晕 / 冻结 / 睡眠.
+ * Buffs and its 技力 and resets its HP to the max of the form it switches to; during one the operator holds 不死, 无敌, 阻回,
+ * 禁疗, 孤立, 强制缴械 and is immune to 眩晕 / 冻结 / 睡眠 (official client: `ghost2_switchbegin` / `kazema_switchbegin`
+ * ClearAllBuffs + InterruptCharacterSkill + ClearCharacterSp; the 替身's `*_standin[switch]` buff SP_RECOVER_STOPPED).
  * The 替身 blocks nothing from the start of the switch to it until the switch back starts; a lethal hit on it knocks the
  * operator out. Content may switch the operator at once (hook `dollSwitch` { unit, reason, done }: 归溟幽灵鲨 S2 "技能结束
  * 后立刻切换为<替身>"). A kit's `dollNoAttack` profile flag (归溟幽灵鲨, PRTS 特性备注 "<替身>不进行普通攻击") disarms the 替身
- * and keeps it from casting (the basic 技能策略 casts on an attack the 替身 never makes; [ASSUMED] every other rule — S1's
- * 技能范围 — likewise); 风丸's 替身 attacks (PRTS: "<替身>状态下可对空").
+ * and keeps it from casting — no rule could cast there anyway: the switch empties the 技力 and the 替身 recovers none
+ * (above); 风丸's 替身 attacks (PRTS: "<替身>状态下可对空").
  * The form is the unit's model state (`unit.form` 'doll', snapshot.js unitInfo; fx 'substitute' / 'swap' / 'dollEnd' with
  * `form`, shared/protocol.js fxForm): the client draws the 替身 on the skeleton's *_B clips (render/units.js FORMS).
  * The 替身's max HP is the operator's own (PRTS: HP "重设…至最大值"; the trait blackboard's 替身 HP bonus `max_hp` is 0 for
@@ -231,6 +232,11 @@ const installDollkeeper = (battle, unit) => {
   const startSwitch = () => {
     const sk = unit.skill;
     if (sk && sk.active && sk.kind !== 'passive') sk.end('substitute');
+    // the 技力 is emptied (official client: `*_switchbegin` ClearCharacterSp, both ways)
+    if (sk && !sk.noSkill && sk.kind !== 'passive') {
+      sk.sp = 0;
+      sk.charges = sk.spCost <= 0 ? sk.maxCharges : 0;
+    }
     for (const b of unit.buffs.slice()) if (b.status) battle.removeBuff(unit, b);
     unit.trait.dollSwitching = true;
     const done = () => { unit.trait.dollSwitching = false; };
