@@ -38,19 +38,20 @@ export function presetPickLive(s) {
  * Pick a faction (see the header). Resolves false when the server refused the chat tag (cooldown, offline).
  * @param {string} id chat faction id
  */
-export async function chooseFaction(id) {
+export async function chooseFaction(id, { orEmpty = false } = {}) {
   if (!chatFaction(id)) return false;
   if (store.get().room?.mode !== 'solo') {
     try { await net.request('room.chatFaction', { faction: id }); } catch { return false; }
   }
   const now = store.get();
-  if (presetPickLive(now)) applyFactionPreset(id, { inMatch: !!now.room?.inMatch });
+  if (presetPickLive(now)) applyFactionPreset(id, { inMatch: !!now.room?.inMatch, orEmpty });
   return true;
 }
 
 /**
  * Apply a strategy's roster choice (diyPresets.js bandPresetChoice): a chat faction is picked like the faction row
- * (chooseFaction: the chat tag follows, maintainer 2026-10-12), BASE_LINK shows 不使用预设, anything else changes nothing.
+ * (chooseFaction: the chat tag follows, maintainer 2026-10-12) and its roster applies even when empty (no picks),
+ * BASE_LINK shows 不使用预设, anything else changes nothing.
  * A chat tag the server refuses (cooldown, offline) still applies the faction's preset: the strategy's roster is what
  * the match takes, the tag is only the chat's (a refused tag left the picks in use silently before 2026-10-28).
  * @param {string|null} choice
@@ -62,10 +63,11 @@ export async function applyPresetChoice(choice) {
     if (presetPickLive(now)) applyBasePreset({ inMatch: !!now.room?.inMatch });
     return true;
   }
+  // a faction is its own roster here even while empty (no picks then — maintainer decision 2026-10-29)
   if (!chatFaction(choice)) return false;
-  if (await chooseFaction(choice)) return true;
+  if (await chooseFaction(choice, { orEmpty: true })) return true;
   const now = store.get();
-  if (presetPickLive(now)) applyFactionPreset(choice, { inMatch: !!now.room?.inMatch });
+  if (presetPickLive(now)) applyFactionPreset(choice, { inMatch: !!now.room?.inMatch, orEmpty: true });
   return false;
 }
 

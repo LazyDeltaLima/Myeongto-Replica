@@ -287,31 +287,44 @@ test('the strategy draft\'s preset row: a filled slot\'s × empties it in the ro
   assert.equal(rm(row({ onClear: null })).length, 0, 'no handler');
 });
 
-test('the strategy draft: a faction without a preset shows, edits and applies the picks in use (two player reports 2026-10-28)', async () => {
+test('the strategy draft: a faction is its own roster even while empty — shown, edited and applied (maintainer decision 2026-10-29)', async () => {
   const { presetPreviewPicks, presetRosterNote } = await import('../../public/js/screens/bandDraft.js');
+  const { net } = await import('../../public/js/net.js');
+  const { applyPresetChoice } = await import('../../public/js/ui/factionPick.js');
   setDiyPicks({ [T6A]: CHEN }); // shown: 不使用预设
   P.diyPresetStore.set({ presets: { yan: { [T6A]: WANG } } });
+  P.selectPreset('victoria'); // the tab left on 维多利亚 before the match (empty)
+  setDiyPicks({ [T6B]: WIS });
   const st = () => P.diyPresetStore.get();
-  // the roster each choice applies (and so shows and edits)
-  assert.equal(P.choiceRoster('sargon', st()), null, 'no 萨尔贡 preset: the roster in use (base)');
+  // the roster each choice applies (and so shows and edits): a faction's own, never the one the tab was left on
+  assert.equal(P.choiceRoster('sargon', st()), 'sargon', 'no 萨尔贡 preset: still 萨尔贡');
   assert.equal(P.choiceRoster('yan', st()), 'yan');
   assert.equal(P.choiceRoster(P.BASE_LINK, st()), null);
-  assert.equal(P.choiceRoster(P.KEEP_LINK, st()), null);
+  assert.equal(P.choiceRoster(P.KEEP_LINK, st()), 'victoria', '保持当前编队: the roster in use');
   assert.equal(P.choiceRoster('nowhere', st()), undefined);
-  // the preview: the picks that will reach the match, not four empty slots
-  assert.deepEqual(presetPreviewPicks('sargon', st(), loadoutStore.get().diy), { [T6A]: CHEN });
-  assert.deepEqual(presetRosterNote('sargon', st()), { roster: '不使用预设', keeps: true });
-  assert.deepEqual(presetRosterNote('yan', st()), { roster: '炎国预设', keeps: false });
-  assert.deepEqual(presetRosterNote(P.KEEP_LINK, st()), { roster: '不使用预设', keeps: false });
+  // the preview and the line follow the dropdown
+  assert.deepEqual(presetPreviewPicks('sargon', st(), loadoutStore.get().diy), {}, 'four empty slots');
+  assert.deepEqual(presetRosterNote('sargon', st()), { roster: '萨尔贡预设' });
+  assert.deepEqual(presetRosterNote('yan', st()), { roster: '炎国预设' });
+  assert.deepEqual(presetRosterNote(P.KEEP_LINK, st()), { roster: '维多利亚预设' });
+  assert.deepEqual(presetRosterNote(P.BASE_LINK, st()), { roster: '不使用预设' });
   assert.equal(presetRosterNote('nowhere', st()), null);
-  // a filled slot's × on the 萨尔贡 row empties the picks in use
-  P.clearRosterSlot('sargon', T6A);
+  // applied: 萨尔贡's empty roster — no 自选, the 维多利亚 picks stay in their preset, no 萨尔贡 preset is created
+  const request = net.request;
+  net.request = async () => ({});
+  try {
+    await applyPresetChoice('sargon');
+  } finally {
+    net.request = request;
+  }
   assert.deepEqual(loadoutStore.get().diy, {});
-  assert.equal(st().presets.sargon, undefined, 'and creates no 萨尔贡 preset');
-  // another roster in use: the 萨尔贡 row shows that one
+  assert.equal(st().active, 'sargon');
+  assert.deepEqual(st().presets.victoria, { [T6B]: WIS });
+  assert.equal(st().presets.sargon, undefined);
+  // a chat pick of an empty faction still changes nothing (maintainer decision 2026-10-09)
   P.selectPreset('yan');
-  assert.equal(P.choiceRoster('sargon', st()), 'yan');
-  assert.deepEqual(presetRosterNote('sargon', st()), { roster: '炎国预设', keeps: true });
+  assert.equal(P.applyFactionPreset('kjerag'), null);
+  assert.deepEqual(loadoutStore.get().diy, { [T6A]: WANG });
 });
 
 test('a strategy\'s faction preset applies even when the server refuses the chat tag (report 2026-10-28)', async () => {

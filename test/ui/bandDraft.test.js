@@ -299,7 +299,7 @@ describe('UI: one countdown and the highlighted band (user playtest #4 item 4)',
   test('전략별 선발 프리셋: the 自选预设 row previews the roster a choice applies and tags it', () => {
     const st = { presets: { laterano: { a: 1 } }, base: { b: 2 } };
     assert.deepEqual(presetPreviewPicks('laterano', st, { c: 3 }), { a: 1 });
-    assert.deepEqual(presetPreviewPicks('yan', st, { c: 3 }), { c: 3 }, 'a faction without a preset: nothing changes, the picks in use go');
+    assert.deepEqual(presetPreviewPicks('yan', st, { c: 3 }), {}, 'a faction without a preset: its empty roster (maintainer decision 2026-10-29)');
     assert.deepEqual(presetPreviewPicks('base', st, { c: 3 }), { b: 2 });
     assert.deepEqual(presetPreviewPicks('keep', st, { c: 3 }), { c: 3 });
     assert.deepEqual(presetChoiceTags('laterano', { link: 'laterano', rec: 'laterano' }), ['linked']);

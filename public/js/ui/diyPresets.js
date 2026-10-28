@@ -16,7 +16,7 @@
 //   links            { [bandId]: factionId | 'base' | 'keep' } — 전략별 선발 프리셋 (maintainer decision 2026-10-12): the
 //                    roster a strategy applies when the player's pick of it lands in the strategy draft
 //                    (screens/bandDraft.js); linkBand() sets / clears one; choiceRoster() = the roster a draft choice
-//                    applies, shows and edits (a faction without a preset: the one in use); clearRosterSlot() empties a slot of it. A strategy without a link falls back to the nation bond it is built
+//                    applies, shows and edits (a faction: its own, even empty); clearRosterSlot() empties a slot of it. A strategy without a link falls back to the nation bond it is built
 //                    around (bandRecommendation: bands.json bondIds ∩ the chat factions — 9 of 40) when that faction has
 //                    a preset, else to 不使用预设 (maintainer decision 2026-10-29: until then it kept the picks in use, so
 //                    a faction chosen in the tab before the match silently became every unlinked strategy's roster);
@@ -160,12 +160,14 @@ export function deletePreset(id) {
  * A faction pick: show that faction's preset. Null when it has none (nothing changes; an earlier notice goes, it was
  * about another faction); else the notice, kept in the store for its 撤销 — none when that roster was already shown.
  * @param {string} id chat faction id
- * @param {{ inMatch?: boolean, now?: number }} [o] inMatch: a running match takes the picks (its briefing / strategy
- *   draft — the caller, ui/factionPick.js chooseFaction, applies a preset only then)
+ * @param {{ inMatch?: boolean, now?: number, orEmpty?: boolean }} [o] inMatch: a running match takes the picks (its
+ *   briefing / strategy draft — the caller, ui/factionPick.js chooseFaction, applies a preset only then); orEmpty: a
+ *   faction without a preset is shown too, with no picks (the strategy draft's choice, maintainer decision 2026-10-29 —
+ *   a chat pick keeps "nothing changes")
  */
-export function applyFactionPreset(id, { inMatch = false, now = Date.now() } = {}) {
+export function applyFactionPreset(id, { inMatch = false, now = Date.now(), orEmpty = false } = {}) {
   const s = diyPresetStore.get();
-  const preset = chatFaction(id) ? s.presets[id] : null;
+  const preset = chatFaction(id) ? s.presets[id] || (orEmpty ? {} : null) : null;
   if (!preset) { clearPresetNotice(); return null; }
   if (s.active === id && samePicks(loadoutStore.get().diy, preset)) { clearPresetNotice(); return null; }
   const prev = { picks: loadoutStore.get().diy, active: s.active };
@@ -210,23 +212,22 @@ export function linkBand(bandId, target) {
 
 /**
  * The roster a strategy draft choice applies, and so the one its preset row shows and edits: BASE_LINK = base (null), a
- * chat faction with a preset = that faction, KEEP_LINK or a faction without a preset = the roster in use (`active`) —
- * a faction without one changes nothing, so its row shows and edits the picks that will go to the match (two player
- * reports 2026-10-28:four empty slots read as "no 自选", yet the picks in use reached the shop, and a pick added there
- * went into a roster that was never applied). Undefined for anything else.
- * @param {string} choice @param {{ presets?: Record<string, any>, active?: string|null }} [s] diyPresetStore state
+ * chat faction = that faction's, empty or not (applyFactionPreset orEmpty), KEEP_LINK = the roster in use (`active`).
+ * The row, its edits and what the match takes are the same roster (maintainer decision 2026-10-29: a faction linked or
+ * chosen there is its own roster even while empty — two player reports 2026-10-28 began with an empty faction that
+ * silently kept the picks in use). Undefined for anything else.
+ * @param {string} choice @param {{ active?: string|null }} [s] diyPresetStore state
  * @returns {string|null|undefined}
  */
 export function choiceRoster(choice, s = diyPresetStore.get()) {
   if (choice === BASE_LINK) return null;
   if (choice === KEEP_LINK) return s.active ?? null;
-  if (!chatFaction(choice)) return undefined;
-  return s.presets?.[choice] ? choice : s.active ?? null;
+  return chatFaction(choice) ? choice : undefined;
 }
 
 /**
  * Empty one slot of a roster — the strategy draft's preset row (its 清空 on a filled slot): the roster the row's choice
- * shows (choiceRoster: a chat faction, BASE_LINK, or KEEP_LINK / a faction without a preset = the picks in use). The
+ * shows (choiceRoster: a chat faction, BASE_LINK, or KEEP_LINK = the picks in use). The
  * roster in use takes it through the live picks (synced like an edit); another one is only stored, the live picks stay
  * (an emptied faction's preset goes, as in the tab).
  * @param {string} id @param {string} slotId
