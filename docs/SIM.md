@@ -1008,9 +1008,8 @@ instance) and skip `'counter'` / `'reflect'` damage. When the guard trips, the l
   时会替换当次攻击", ≤ half HP); a cast whose ally condition fails before that attack is withdrawn, its charge returned;
   `TAKE_DAMAGE` — ready and just hit, cast on the hit (the client's born buff `autochess_trigger_skill[on_take_damage]`), or
   SEARCH's condition at a 0.2 s pass (the client pass sends type 12 down SEARCH's branch, `_TrySearchTarget`: the unit's
-  attack trigger finds a target — docs/rules/sim.md 「스킬 범위 발동」) (重装: "不受技能范围影响，受到伤害时释放技能"; in the data every MANUAL 重装 skill but
-  the six of DESIGN §21.29 — 深巡 / 雷蛇 S2, 号角 S2 / S3, 灰毫 S1 / S2 — which are `DEFAULT`, a deliberate deviation (深巡
-  S2 on its 3-2 rangeId), and 余 S2 厚礼上宾, `SKILL_RANGE` on its own x-1 since DESIGN §22.10);
+  attack trigger finds a target — docs/rules/sim.md 「스킬 범위 발동」) (重装: "不受技能范围影响，受到伤害时释放技能"; in the data every MANUAL 重装 skill, the
+  stand-ins and 自选 重装 included — the deviations of DESIGN §21.29 / §22.10 are gone, maintainer decision 2026-10-28);
   `SP_FULL` (`ALWAYS`) — immediately;
   `CUSTOM_RANGE` — an enemy inside `trigger.customRangeGrid` (rotated by the unit direction like every grid); `SEARCH` — an
   enemy inside the INITIAL range, checked every tick (no attack needed: "不受基础策略影响，在初始攻击范围内存在敌人时释放技能");

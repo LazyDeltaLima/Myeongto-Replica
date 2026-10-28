@@ -483,31 +483,16 @@ test('chess: skills[] = every skill unlocked at the status, at the chess skill l
   assert.deepEqual(rules('chess_char_4_22_a'), ['DEFAULT', 'DEFAULT', 'DEFAULT']);      // 银灰: "攻击范围缩小 / 扩大" = the rangeId
   assert.deepEqual(grids('chess_char_4_22_a').slice(1), chess.chess_char_4_22_a.skills.slice(1).map((s) => s.rangeGrid));
   assert.deepEqual(rules('chess_char_3_18_a'), ['DEFAULT', 'DEFAULT', 'DEFAULT']);      // 忍冬: S2 对周围…, S3 攻击距离+1
-  // the deliberate deviation from the 重装 row (DESIGN §21.29, the owner's decision; tools/build-data.mjs
-  // TRIGGER_DEVIATIONS, per chess): six skills on the basic strategy, rawRule keeps the official TAKE_DAMAGE
-  for (const id of ['chess_char_1_04_a', 'chess_char_1_04_b']) {                       // 深巡: S1 keeps the row, S2 deviates
-    assert.deepEqual(rules(id), ['TAKE_DAMAGE', 'DEFAULT']);                           // (S2: on its rangeId, the basic strategy)
-    assert.deepEqual(raws(id), ['TAKE_DAMAGE', 'TAKE_DAMAGE']);
-    assert.deepEqual(grids(id)[1], chess[id].skills[1].rangeGrid);
-  }
-  for (const id of ['chess_char_1_20_a', 'chess_char_1_20_b']) {                       // 雷蛇: S1 AUTO, S2 deviates
-    assert.deepEqual(rules(id), ['DEFAULT', 'DEFAULT']);
-    assert.deepEqual(raws(id), ['DEFAULT', 'TAKE_DAMAGE']);
-  }
-  for (const id of ['chess_char_5_08_a', 'chess_char_5_08_b']) {                       // 号角: S1 AUTO, S2 / S3 deviate
-    assert.deepEqual(rules(id), ['DEFAULT', 'DEFAULT', 'DEFAULT']);
-    assert.deepEqual(raws(id), ['DEFAULT', 'TAKE_DAMAGE', 'TAKE_DAMAGE']);
-  }
-  for (const id of ['chess_char_2_18_a', 'chess_char_2_18_b']) {                       // 灰毫: S1 (generic skcom_atk_up[3]) and S2
-    assert.deepEqual(rules(id), ['DEFAULT', 'DEFAULT']);
-    assert.deepEqual(raws(id), ['TAKE_DAMAGE', 'TAKE_DAMAGE']);
-  }
-  // 余 S2 厚礼上宾 (DESIGN §22.10, the owner's decision of 2026-10-04): SKILL_RANGE on its own x-1, S1 keeps the row, S3 its
-  // official charId row
-  for (const id of ['chess_char_6_03_a', 'chess_char_6_03_b']) {
-    assert.deepEqual(rules(id), ['TAKE_DAMAGE', 'SKILL_RANGE', 'CUSTOM_RANGE']);
+  // the official 重装 row on every MANUAL 重装 skill (maintainer decision 2026-10-28: the deviations of DESIGN §21.29 /
+  // §22.10 are gone); the AUTO S1s keep their own rule, 余 S3 its official charId row
+  for (const id of ['chess_char_1_04_a', 'chess_char_1_04_b']) assert.deepEqual(rules(id), ['TAKE_DAMAGE', 'TAKE_DAMAGE']);         // 深巡
+  for (const id of ['chess_char_1_20_a', 'chess_char_1_20_b']) assert.deepEqual(rules(id), ['DEFAULT', 'TAKE_DAMAGE']);             // 雷蛇 (S1 AUTO)
+  for (const id of ['chess_char_5_08_a', 'chess_char_5_08_b']) assert.deepEqual(rules(id), ['DEFAULT', 'TAKE_DAMAGE', 'TAKE_DAMAGE']); // 号角 (S1 AUTO)
+  for (const id of ['chess_char_2_18_a', 'chess_char_2_18_b']) assert.deepEqual(rules(id), ['TAKE_DAMAGE', 'TAKE_DAMAGE']);         // 灰毫
+  for (const id of ['chess_char_6_03_a', 'chess_char_6_03_b']) {                                                                    // 余
+    assert.deepEqual(rules(id), ['TAKE_DAMAGE', 'TAKE_DAMAGE', 'CUSTOM_RANGE']);
     assert.deepEqual(raws(id), ['TAKE_DAMAGE', 'TAKE_DAMAGE', 'CUSTOM_RANGE_SEARCH_ENEMY']);
-    assert.deepEqual(chess[id].skills[1].trigger.customRangeGrid, chess[id].skills[1].rangeGrid);
+    assert.equal(chess[id].skills[1].trigger.customRangeGrid, null, `${id} 余 S2: the TAKE_DAMAGE row, no range check`);
   }
   // the basic strategy everywhere: a MANUAL DEFAULT skill checks exactly its own rangeId (or, without one, the attack
   // state); AUTO / PASSIVE skills take no row and no range; the old ACTIVE_RANGE (running attack range) is gone from the data
@@ -521,20 +506,19 @@ test('chess: skills[] = every skill unlocked at the status, at the chess skill l
       } else if (s.trigger.rule === 'DEFAULT') {
         assert.deepEqual(s.trigger.customRangeGrid, s.rangeGrid?.length ? s.rangeGrid : null, `${tag}: the basic strategy checks its rangeId`);
       }
-      if (s.trigger.rule === 'SKILL_RANGE') assert.ok(c.baseId === 'chess_char_6_03_a' && s.skillId === 'skchr_yu_2', `${tag}: SKILL_RANGE only for 余 S2's deviation`);
+      assert.notEqual(s.trigger.rule, 'SKILL_RANGE', `${tag}: no official SKILL_RANGE row on a chess skill`);
     }
   }
   const grown = (id, sid) => chess[id].skills.find((s) => s.skillId === sid).trigger;
   assert.deepEqual(grown('chess_char_5_07_a', 'skchr_surtr_3'), { rule: 'DEFAULT', rawRule: 'DEFAULT', customRangeGrid: null }, '史尔特尔 S3 攻击距离+2: no rangeId, the attack state');
   assert.deepEqual(grown('chess_char_5_03_a', 'skchr_blaze2_3').customRangeGrid, chess.chess_char_5_03_a.skills[2].rangeGrid, '烛煌 S3: its 4-11');
-  assert.deepEqual(grown('chess_char_1_04_a', 'skchr_udflow_2'), { rule: 'DEFAULT', rawRule: 'TAKE_DAMAGE', customRangeGrid: [[0, 0], [0, 1], [0, 2], [0, 3]] }, '深巡 S2: its 3-2, on top of the §21.29 deviation');
+  assert.deepEqual(grown('chess_char_1_04_a', 'skchr_udflow_2'), { rule: 'TAKE_DAMAGE', rawRule: 'TAKE_DAMAGE', customRangeGrid: null }, '深巡 S2: the 重装 row, not its 3-2');
   // the SEARCH row (解放者 / 阵法术师 / 安洁莉娜) keeps every MANUAL skill of the class, with or without a rangeId
   const search = Object.values(chess).flatMap((c) => (c.skills || []).filter((s) => s.trigger.rule === 'SEARCH').map((s) => `${c.baseId} ${s.skillId}`));
   assert.deepEqual([...new Set(search)].sort(), ['chess_char_3_08_a skchr_mint_1', 'chess_char_3_08_a skchr_mint_2', 'chess_char_4_05_a skchr_beewax_1', 'chess_char_4_05_a skchr_beewax_2', 'chess_char_4_24_a skchr_billro_1', 'chess_char_4_24_a skchr_billro_2', 'chess_char_4_24_a skchr_billro_3', 'chess_char_5_19_a skchr_mlynar_1', 'chess_char_5_19_a skchr_mlynar_2', 'chess_char_5_20_a skchr_aglina_2', 'chess_char_5_20_a skchr_aglina_3', 'chess_char_6_02_a skchr_sbell2_1']);
   assert.ok(Object.values(chess).every((c) => (c.skills || []).every((s) => s.trigger.rule !== 'SEARCH' || s.trigger.customRangeGrid === null)), 'SEARCH: the initial range, no grid');
   const deviated = Object.values(chess).flatMap((c) => (c.skills || []).filter((s) => s.trigger.rawRule === 'TAKE_DAMAGE' && s.trigger.rule !== 'TAKE_DAMAGE').map((s) => `${c.baseId} ${s.skillId}`));
-  assert.equal(deviated.length, 14, 'exactly the six skills of §21.29 and 余 S2, normal + elite');
-  assert.deepEqual([...new Set(deviated)].sort(), ['chess_char_1_04_a skchr_udflow_2', 'chess_char_1_20_a skchr_liskam_2', 'chess_char_2_18_a skchr_ashlok_2', 'chess_char_2_18_a skcom_atk_up[3]', 'chess_char_5_08_a skchr_horn_2', 'chess_char_5_08_a skchr_horn_3', 'chess_char_6_03_a skchr_yu_2']);
+  assert.deepEqual(deviated, [], 'no TAKE_DAMAGE row played as another rule');
   assert.deepEqual(chess.chess_char_1_01_a.skills.map((s) => [s.skillId, s.level, s.spCost, s.isDefault]),
     [['skchr_inside_1', 4, 14, false], ['skchr_inside_2', 4, 24, true]]);             // 隐现 Lv4 (default S2)
   const sw = chess.chess_char_3_04_b;                                                    // 琳琅诗怀雅: S2 makes the 香槟

@@ -597,18 +597,18 @@ test('号角 S1 照明榴弹 (自动触发 ⇒ DEFAULT): the next ranged shot de
   }
 });
 
-test('号角 S2 暴风号令: cast with an enemy in range (DEFAULT, DESIGN §21.29); 10 rounds of attack@s2.atk_scale × ATK splash; the second half adds magic_atk_scale × ATK arts (过载)', () => {
+test('号角 S2 暴风号令: cast with an enemy in range (the 重装 row TAKE_DAMAGE); 10 rounds of attack@s2.atk_scale × ATK splash; the second half adds magic_atk_scale × ATK arts (过载)', () => {
   for (const id of pair('08')) {
     const h = run({ defs: { enemies: { enemy_dummy: dummy('enemy_dummy') } }, units: [entry(id, 'skchr_horn_2', { row: 10, col: 2 })], enemies: [{ key: 'enemy_dummy', pos: [10, 6] }] });
     const u = sel(h, id, 'skchr_horn_2');
     const bb = bbOf(u);
     const e = h.b.enemies[0];
     h.step();
-    // the owner's deliberate deviation from the 重装 TAKE_DAMAGE row (DESIGN §21.29): cast with an enemy in range
-    assert.equal(u.skill.rule, 'DEFAULT');
+    // the official 重装 row TAKE_DAMAGE (maintainer decision 2026-10-28): cast with an enemy in range, at the 0.2 s pass
+    assert.equal(u.skill.rule, 'TAKE_DAMAGE');
     u.skill.gainSp(1000);
     assert.ok(h.runUntil(() => u.skill.activations === 1, 3), 'cast with the enemy in range');
-    assert.equal(h.hooksOf('skillStart').find((c) => c.unit === u).reason, 'DEFAULT');
+    assert.equal(h.hooksOf('skillStart').find((c) => c.unit === u).reason, 'TAKE_DAMAGE');
     assert.ok(!h.hooksOf('damaged').some((c) => c.target === u), 'no hit needed');
     assert.equal(u.skill.kind, 'ammo');
     assert.equal(u.skill.ammoLeft + h.hooksOf('ammoUsed').filter((c) => c.unit === u).length, bb['attack@s2.trigger_time']);

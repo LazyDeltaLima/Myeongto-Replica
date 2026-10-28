@@ -26,8 +26,8 @@ export default {
   //      0.1 s talent check then gives the enemies she still blocks the plain one again).
   //   S3 应力倒置 (30 s): DEF +def, block +block_cnt, every second ATK × atk_scale arts damage to each enemy she blocks.
   //   Module PRO-X (elite, trait addition): "阻挡敌人时防御力+20%" — DEF +def (trait blackboard) while she blocks.
-  //   Triggers (data, nothing set here): every skill DEFAULT with the official TAKE_DAMAGE as rawRule — the owner's 重装
-  //      exception for the stand-ins (tools/build-data.mjs STANDIN_TRIGGER_DEVIATIONS): she casts with an enemy in range.
+  //   Triggers (data, nothing set here): every skill the official 重装 row TAKE_DAMAGE — a hit, or an enemy she attacks or
+  //      blocks (the stand-ins' DEFAULT exception is gone, maintainer decision 2026-10-28).
   char_610_acfend: (bb, chess) => {
     const t0 = talentBb(chess, 0), t1 = talentBb(chess, 1), tb = traitBb(chess);
     const r1 = skillRec(chess, S1), r2 = skillRec(chess, S2), r3 = skillRec(chess, S3);

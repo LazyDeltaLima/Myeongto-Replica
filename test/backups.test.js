@@ -103,12 +103,11 @@ test('backups: the 17 stand-in characters, each with a form for every status it 
       else assert.deepEqual(f.modules.map((m) => [m.uniEquipId, m.level]), ELITES.includes(id) ? [[`uniequip_002_${id.replace(/^char_\d+_/, '')}`, f.status.equipLevel]] : [], `${label}: modules`);
     }
   }
-  // the official 重装 class row (TAKE_DAMAGE) meets the 重装 stand-ins' MANUAL skills, and the owner's 重装 exception
-  // (the approved 补位 plan, 2026-10-05; tools/build-data.mjs STANDIN_TRIGGER_DEVIATIONS) makes every one of them cast
-  // with an enemy in range — DEFAULT — on every form
+  // the official 重装 class row (TAKE_DAMAGE) meets the 重装 stand-ins' MANUAL skills and stays, on every form (their DEFAULT
+  // exception of 2026-10-05 is gone, maintainer decision 2026-10-28)
   for (const id of ['char_602_cdfend', 'char_610_acfend']) {
     for (const f of Object.values(backups.units[id].forms)) {
-      for (const s of f.skills) assert.deepEqual(s.trigger, { rule: 'DEFAULT', rawRule: 'TAKE_DAMAGE', customRangeGrid: null }, `${id}@${statusKey(f.status)} ${s.skillId}`);
+      for (const s of f.skills) assert.deepEqual(s.trigger, { rule: 'TAKE_DAMAGE', rawRule: 'TAKE_DAMAGE', customRangeGrid: null }, `${id}@${statusKey(f.status)} ${s.skillId}`);
     }
   }
   const tulipS3 = backups.units.char_608_acpion.forms['2/1/4/0'].skills[2];

@@ -1,7 +1,7 @@
 // test/content/standin_acfend.test.js — the Mechanist (char_610_acfend) 补位 stand-in kit (kits/ops/standin-acfend.js) on
 // every chess she replaces: 4 星熊 (S2), 5 号角 / 6 余 (S3, module PRO-X on the elite); S1 through the harness
 // `standIn: { skillIndex: 0 }`. Numbers: data/backups.json (skill_table, PRTS Mechanist(卫戍协议) and its 备注: the 0.1 s
-// checks of both talents, S2's swap of the talent effect). Her triggers: the owner's 重装 exception for the stand-ins.
+// checks of both talents, S2's swap of the talent effect). Her triggers: the official 重装 row TAKE_DAMAGE.
 // Run: node --test test/content/standin_acfend.test.js
 
 import { test } from 'node:test';
@@ -65,15 +65,15 @@ test('Mechanist fields on all 6 records she replaces: her body (+ PRO-X attribut
     assert.ok(!u.kit.generic && u.kit.skillSource === 'skills', `${id}: her kit's own spec`);
     assert.equal(!!u.def.raw.module?.active, !!mod, `${id}: module`);
     assert.deepEqual([u.base.def, u.base.maxHp, u.base.blockCnt], [form.stats.def + (mod?.attr.def ?? 0), form.stats.maxHp + (mod?.attr.maxHp ?? 0), 3], `${id}: stats`);
-    // STANDIN_TRIGGER_DEVIATIONS: DEFAULT (the official TAKE_DAMAGE kept as rawRule)
-    assert.deepEqual([u.skill.rule, sk.trigger.rawRule], ['DEFAULT', 'TAKE_DAMAGE'], `${id}: trigger`);
+    // the official 重装 row (maintainer decision 2026-10-28: no stand-in exception)
+    assert.deepEqual([u.skill.rule, sk.trigger.rawRule], ['TAKE_DAMAGE', 'TAKE_DAMAGE'], `${id}: trigger`);
     assert.equal(u.profile.canHitFly, false, `${id}: ground-only`);
     assert.equal(h.b.errors.length, 0);
   }
   assert.deepEqual([CHESS.chess_char_4_17_a, CHESS.chess_char_5_08_a, CHESS.chess_char_6_03_a].map((c) => c.backup.skillIndex), [1, 2, 2]);
 });
 
-test('her skills cast with an enemy she blocks before anything hurts her (the owner\'s 重装 exception) — never on an air unit she cannot reach', () => {
+test('her skills cast with an enemy she blocks before anything hurts her (TAKE_DAMAGE\'s SEARCH branch) — never on an air unit she cannot reach', () => {
   for (const id of ['chess_char_4_17_a', 'chess_char_5_08_b', 'chess_char_6_03_a']) {
     const h = battle({ units: [{ chessId: id, row: 10, col: 4, standIn: true, carryState: { sp: 999 } }], enemies: [{ key: 'enemy_fly', pos: [10, 4] }] });
     const u = h.unit(1);

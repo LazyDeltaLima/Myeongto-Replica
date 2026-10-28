@@ -278,15 +278,20 @@ function yuS2(chessId, foes, sp = 999, defs = undefined) {
 }
 const castOf = (h, u) => h.hooksOf('skillStart').find((c) => c.unit === u);
 
-test('余 S2 (deliberate deviation, DESIGN §22.10): it fires with a ground enemy two tiles away and nobody hitting him — SKILL_RANGE on x-1 — and the enemy lands on his tile', () => {
+/** A 1-damage hit from `e` on 余: what the official 重装 row TAKE_DAMAGE listens to (its cast comes on the hit). */
+const hitYu = (h, e, yu) => h.b.dealDamage(e, yu, { amount: 1, type: 'phys' });
+
+test('余 S2 (the official 重装 row TAKE_DAMAGE, maintainer decision 2026-10-28): a ground enemy two tiles away that neither hits nor touches him does not cast it; its hit does, and it lands on his tile', () => {
   for (const id of ['chess_char_6_03_a', 'chess_char_6_03_b']) {
     const h = yuS2(id, [['e', 10, 7]], 999, { enemies: { e: enemyRec({ key: 'e', hp: 1e6, speed: 0, atk: 0 }) } });
     const yu = h.unit(id);
-    assert.equal(yu.skill.rule, 'SKILL_RANGE', 'the data rule (rawRule TAKE_DAMAGE)');
+    assert.equal(yu.skill.rule, 'TAKE_DAMAGE', 'the data rule');
     const e = h.b.enemies[0];
-    assert.ok(yu.skill.active, 'cast in the first tick');
-    assert.equal(castOf(h, yu).reason, 'SKILL_RANGE');
-    assert.equal(yu.stats.taken, 0, 'nothing hit him');
+    h.run(2);
+    assert.ok(!yu.skill.active && yu.skill.activations === 0, 'no cast from an enemy on x-1 alone (the x-1 deviation is gone)');
+    hitYu(h, e, yu);
+    assert.ok(yu.skill.active, 'the hit casts it at once');
+    assert.equal(castOf(h, yu).reason, 'TAKE_DAMAGE');
     assert.deepEqual([e.y, e.x], [yu.tileR, yu.tileC], 'pulled onto his tile');
     h.step(1);
     assert.equal(e.blockedBy, yu, 'and blocked there');
@@ -294,22 +299,22 @@ test('余 S2 (deliberate deviation, DESIGN §22.10): it fires with a ground enem
   }
 });
 
-test('余 S2: a ranged enemy hitting him from outside x-1 no longer casts it (it was the official TAKE_DAMAGE); it fires once someone stands on x-1', () => {
+test('余 S2: a ranged enemy hitting him from outside x-1 casts it (the official TAKE_DAMAGE — GitHub #32 item 1\'s case: nobody to pull)', () => {
   // 深池暗影术师 (range 2.5) on (9,7): outside x-1 (|Δrow| + |Δcol| = 3) but in reach of him
   const h = yuS2('chess_char_6_03_a', [['enemy_1168_dumage', 9, 7]]);
   const yu = h.unit('chess_char_6_03_a');
+  const fx0 = h.eventsOf('fx').length;
   assert.ok(h.runUntil(() => yu.stats.taken > 0, 10), 'it hits him');
-  h.run(3);
-  assert.equal(yu.skill.activations, 0, 'no cast from the hit');
-  h.spawn('enemy_1422_lrsldr', { pos: [10, 6] });
-  h.runUntil(() => yu.skill.activations > 0, 0.25);   // (the automatic operations check every 0.2 s)
-  assert.equal(yu.skill.activations, 1, 'an enemy steps onto x-1: cast');
+  h.step(1);
+  assert.equal(yu.skill.activations, 1, 'cast by the hit');
+  assert.equal(castOf(h, yu).reason, 'TAKE_DAMAGE');
+  assert.deepEqual(h.eventsOf('fx').slice(fx0).filter((e) => e[1] === 'teleport' || e[1] === 'pull'), [], 'nobody on x-1: no teleport, no pull fx');
   done(h);
 });
 
 test('余 S2: a leader inside x-1 is teleported onto his tile like any ground enemy (PRTS 卢西恩 / 假想敌：铳 传送抗性 无); a 自缚 leader stays', () => {
   for (const id of ['chess_char_6_03_a', 'chess_char_6_03_b']) {
-    // (S2 empty at first: it casts the tick its SP is filled, the three leaders already on x-1)
+    // (S2 empty at first: it casts on the hit after its SP is filled, the three leaders already on x-1)
     const h = yuS2(id, [['enemy_2016_csphtm', 10, 7, 'boss'], ['enemy_9017_achunt', 11, 6, 'boss'], ['enemy_9033_acdeer', 9, 4, 'boss']], 0);
     const yu = h.unit(id);
     assert.ok(!yu.skill.active && !yu.skill.ready);
@@ -319,8 +324,8 @@ test('余 S2: a leader inside x-1 is teleported onto his tile like any ground en
     const samiAt = [sami.x, sami.y];
     const fx0 = h.eventsOf('fx').length;
     yu.skill.gainSp(yu.skill.spCost, 'init', true);
-    h.runUntil(() => yu.skill.active, 0.25);   // (the next 0.2 s pass of the automatic operations)
-    assert.ok(yu.skill.active && yu.skill.id === 'skchr_yu_2' && castOf(h, yu).reason === 'SKILL_RANGE', 'S2 cast (SKILL_RANGE)');
+    hitYu(h, lucien, yu);
+    assert.ok(yu.skill.active && yu.skill.id === 'skchr_yu_2' && castOf(h, yu).reason === 'TAKE_DAMAGE', 'S2 cast (TAKE_DAMAGE: the hit)');
     for (const e of [lucien, gun]) assert.deepEqual([e.y, e.x], [yu.tileR, yu.tileC], `${e.name} teleported onto 余`);
     assert.deepEqual([sami.x, sami.y], samiAt, '自缚: not a reachable target (PRTS 余 S2 备注)');
     const fx = h.eventsOf('fx').slice(fx0);
@@ -333,11 +338,12 @@ test('余 S2: a leader inside x-1 is teleported onto his tile like any ground en
   }
 });
 
-test('余 S2 with nobody to pull (a flyer on x-1 sets it off): the burst hits it, no teleport and no pull fx', () => {
+test('余 S2 with nobody to pull (a flyer on x-1 hits him): the burst hits it, no teleport and no pull fx', () => {
   const h = yuS2('chess_char_6_03_a', [['fly', 10, 6, null, 'FLY']], 999, { enemies: { fly: enemyRec({ key: 'fly', hp: 1e6, speed: 0, motion: 'FLY' }) } });
   const yu = h.unit('chess_char_6_03_a');
   const fly = h.b.enemies[0];
-  assert.ok(fly.isFlying && yu.skill.active, 'cast: SKILL_RANGE counts any enemy on x-1');
+  hitYu(h, fly, yu);
+  assert.ok(fly.isFlying && yu.skill.active, 'cast by its hit');
   assert.ok(fly.hp < fly.s.maxHp, 'the burst hits air units [ASSUMED]');
   const fx = h.eventsOf('fx').filter((e) => e[1] === 'teleport' || e[1] === 'pull');
   assert.deepEqual(fx, [], 'a flyer is no 地面可达目标: no teleport, no pull fx');
@@ -366,8 +372,8 @@ test('余 S2 on the real leader rounds: 假想敌：铳 teleported onto 余 walk
     e.mem.yuTest = true;
     const leg0 = e.route.legIdx;
     yu.skill.gainSp(yu.skill.spCost, 'init', true);
-    h.runUntil(() => yu.skill.active, 0.25);   // (the next 0.2 s pass of the automatic operations)
-    assert.ok(yu.skill.active, 'S2 (SKILL_RANGE)');
+    hitYu(h, e, yu);
+    assert.ok(yu.skill.active, 'S2 (TAKE_DAMAGE: the hit)');
     assert.deepEqual([e.y, e.x], [yu.tileR, yu.tileC], 'teleported onto 余');
     assert.equal(e.route.pts, null, 'its path is re-planned from there');
     if (key === 'enemy_9017_achunt') {

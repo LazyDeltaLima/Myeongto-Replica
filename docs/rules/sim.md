@@ -243,7 +243,8 @@
   `rangeToShow`의 `TargetSelector.FindTargets`가 하나라도 찾으면 시전. 그래서 TAKE_DAMAGE 스킬은 피격 **또는** 공격할 적(초기 범위 안·저지 중)이 있으면
   0.2 s 패스에서 켜진다 — 엔진 `autoTrigger`: `hurt || _defaultCondition()`(SEARCH와 같은 조건). 이전(2026-10-11 sim6)은 피격만 [추정]이었다.
   핫픽스(DefinedFix.lua en/zh)에 `AutoChessBattleTrigger` 없음. 결과: 근접 重装은 적을 저지하면 맞기 전에 시전(瑕光·蛇屠箱 S1 등),
-  `TRIGGER_DEVIATIONS`(重装 6개 → DEFAULT)와의 차이는 rangeId 상자 쪽뿐이다.
+  중장 편차(深巡·雷蛇·号角·灰毫 → DEFAULT, 余 S2 → SKILL_RANGE, 补位·자선 중장 → DEFAULT)는 2026-10-28 관리자 결정으로 없앴다 — 아래
+  「중장 스킬 공식 TAKE_DAMAGE」.
 - 전투 시작 배치 블록: `AUTO_OP_COOLDOWN` = 10틱 × 0.2 s = 2 s(`battle.flags.startOpCooldown`). [추정] 클라 `_OnUnitBorn`은 TAKE_DAMAGE 버프만 붙이고
   시작 블록은 코드로 못 찾음 — PRTS 「作战开始时部署的单位将进入冷却」를 블록 길이로 읽음.
 - 알려진 결과: 패스가 휘두름 시작 뒤에 오면 그 휘두름은 원래 쿨다운을 그대로 지닌다(`AbilityStandard.CastToTarget`이 휘두름 시작에 타이머를 다시 검) —
@@ -255,6 +256,23 @@
   틱당 시전 수 제한 없음, TAKE_DAMAGE는 피격 즉시. 되돌리려면 `tools/build-data.mjs resolveTrigger`(ACTIVE_RANGE·SKILL_RANGE 부여, `activeAttackGrid`·
   `strictlyContains`), `server/sim/skills.js`(`autoOp`이면 tick/onAboutToAttack 시전 안 함 → 되살림, `blockTicks` → `opReadyAt`), `battle/lifecycle.js _autoTriggerPass`
   삭제, `constants.js AUTO_OP_COOLDOWN` 3. 엔진 규칙 `ACTIVE_RANGE`·`SKILL_RANGE`는 키트용으로 남아 있다(Touch `content/tokens.js` 등).
+
+## 중장 스킬 공식 TAKE_DAMAGE — 관리자 결정 2026-10-28 「공식대로」
+- 규칙: 수동(MANUAL) 중장 스킬은 모두 공식 `act2autochess skillTriggerDataList`의 TANK 행 `TAKE_DAMAGE`를 따른다 — 선발(자선) 중장과
+  补位 预备干员-重装·Mechanist도. 시전 조건은 위 「스킬 범위 발동」의 TAKE_DAMAGE: 피격 순간(방향 무관) **또는** 0.2 s 패스에서 공격할
+  적(초기 공격 범위 안, 저지 중인 적 — 범위·방향 무관). `tools/build-data.mjs resolveTrigger`에 공식 행과 다른 규칙은 이제 없고,
+  `validateAll`이 TAKE_DAMAGE 행을 다른 규칙으로 바꾼 기록을 막는다.
+- 없앤 편차와 바뀐 점:
+  - 深巡(언더플로우) S2 행동능력 박탈: 스킬 범위 3-2(정면 4칸) 상자 → 피격·2-2 안 적·저지. 관리자 제보(2026-10-28): 뒤에서 맞거나 뒤쪽 적을
+    저지해도 안 켜졌다 — 뒤에서 온 적은 중심에서 약 0.7칸 뒤(뒤 칸)에서 저지돼 상자 밖이었다. 정면 4번째 칸만 있는 적으로는 이제 안 켜진다.
+  - 雷蛇(레이즈) S2, 灰毫(애쉬락) S1·S2, 号角(혼) S2·S3, 补位 预备干员-重装·Mechanist 전 스킬: rangeId 없음 → 공격 상태 조건은 같고 피격 시전만 더해짐.
+    雷蛇 S2 키트의 `trigger: 'DEFAULT'`(PR #12 줄)도 지움.
+  - 余(위) S2 厚礼上宾: 스킬 범위 x-1 안의 적(SKILL_RANGE, 2026-10-04 GitHub #32 item 1) → 피격·자기 칸(0-1) 안 적·저지. 공식처럼 원거리
+    피격으로 끌어올 적 없이 켜질 수 있다(#32 item 1이 불평한 그 동작).
+- 근거: 편차들(2026-10-03 issue #4·PR #12, 2026-10-04 #32, 2026-10-05 补位)은 TAKE_DAMAGE를 「맞을 때까지 기다림」으로 읽던 때 만들었다.
+  2026-10-11 공식 클라 확인으로 TAKE_DAMAGE도 공격할 적이 있으면 켜진다는 것이 밝혀져(위 절), 편차는 피격 시전을 빼는 것만 남았다.
+- 테스트: `test/sim/feedback1-tank-triggers.test.js`(데이터 전부 TAKE_DAMAGE, 深巡 뒤쪽 피격·저지 실제 대전 경로), `test/data.test.js`,
+  `test/backups.test.js`, `test/content/standin*.test.js`. 되돌리려면 git에서 `TRIGGER_DEVIATIONS`·`STANDIN_TRIGGER_DEVIATIONS`를 되살림.
 
 ## upstream 0.2.1·0.2.2 이식 (2026-10-09, 관리자 결정)
 upstream v0.2.0 이후 수정 가운데 고른 것(비공개 비교 기록). 근거는 각 upstream 커밋(과 그 커밋이 인용한 PRTS 비고)이다. golden은 바뀐 커밋마다 다시 만들었고,

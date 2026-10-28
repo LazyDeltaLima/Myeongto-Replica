@@ -267,8 +267,8 @@
     「with enemies only in the S3 range」(10,6에만 적: 검기·S3 범위·S3 공격), 실제 경기 경로 「S3 on m04」(시전 틱 + 13에 검기; 그녀 자리 10,7로 되돌림).
     `op-chen3.js chen3QiAdvance`(테스트용 export). `fx` 'chen3Qi'는 0.1초마다 + 꺾일 때 바로.
     S3 자동 발동: 공식 규칙 「攻击范围扩大」 → 기본 전략(평타 직전 + 1-1 안의 적, `DEFAULT`) — 평타로 칠 수 없는 비행 적만 있으면 켜지지 않는다.
-    한때 3-12 안의 적(비행 포함)으로 켜지는 `SKILL_RANGE` 예외였으나 관리자 결정(2026-10-06)으로 공식 규칙으로 되돌렸다. 예외가 다시 필요하면
-    `tools/build-data.mjs TRIGGER_DEVIATIONS`(관리자 결정으로만).
+    한때 3-12 안의 적(비행 포함)으로 켜지는 `SKILL_RANGE` 예외였으나 관리자 결정(2026-10-06)으로 공식 규칙으로 되돌렸다. 공식 행과 다른
+    규칙은 관리자 결정으로만 `tools/build-data.mjs resolveTrigger`에 넣는다(2026-10-28부터 남은 예외 없음).
   - 위셔델: 여진·잔영 폭발(재능1), 혼령의 그림자 소환과 근처 위장(재능2), S2 과부하(지속시간 후반부), S3 그림자 2개 추가(최대 3).
     S2 과부하 근거(2026-10-10, 그 전엔 [추정]): 스킬 프리팹 `skchr_wisdel_2`가 `_isOverloadSkill` 1이고, 공식 클라 `BasicSkill.get_overloadRatio`
 가 그런 스킬에 0.5 → `OverloadIfNecessary`가 진행도가 0.5를 넘으면 과부하(ON_OVERLOAD → 버프 `wisdel_s_2[overload_start]`,
@@ -410,7 +410,7 @@
 - 새 `battle.fx` 종류를 추가하면 `public/js/render/fx/kinds.js FX_KINDS`에 한 줄을 넣는다(테스트 "sim fx coverage").
 - 스킬 자동 발동 규칙은 `tools/build-data.mjs resolveTrigger`가 정한다: 공식 표에 없으면 MANUAL + rangeId(공격 범위 변경 포함) →
   `DEFAULT` + `customRangeGrid`(그 상자 안의 적, 치유 스킬도 적), rangeId 없으면 `DEFAULT`(공격 중) — `sim.md` 「스킬 범위 발동」.
-  다르게 하려면 `TRIGGER_DEVIATIONS`(의도적 예외, 관리자 결정으로만).
+  공식 표의 행은 그대로 따른다(중장은 `TAKE_DAMAGE`; 2026-10-28 관리자 결정으로 예외 없음).
 
 **동작 근거**
 - 출처 순서: 공식 테이블(skill_table blackboard, character_table 재능, battle_equip_table 모듈) → PRTS 비고 → 나무위키 평가.

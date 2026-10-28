@@ -845,20 +845,15 @@ test('突变细胞 after the WA merge (DESIGN §21.1): the carrier is destroyed,
   assert.ok(!/fromKey/.test(doc('server/match/audit.js')), 'audit.js: no exception for a transformed carrier\'s tile');
 });
 
-test('the deliberate trigger deviation (DESIGN §21.29): six 重装 skills DEFAULT in the builder, the data and every doc; research 03 keeps the history, not the wiki.gg summary', () => {
+test('the 重装 trigger deviations (DESIGN §21.29 / §22.10) are history: the builder, the data and the normative docs take the official TAKE_DAMAGE row (maintainer decision 2026-10-28); research 03 keeps the history, not the wiki.gg summary', () => {
+  // the history keeps the record of the old deviation
   const sub = DESIGN.slice(DESIGN.indexOf('### 21.29 '));
-  for (const re of [/深巡 S2 行动能力剥夺, 雷蛇 S2 反击电弧, 号角 S2 暴风号令 and S3 终极防线, 灰毫 S1 攻击力强化·γ型 and S2 专注轰击/, /反馈的人太多了/, /public issue #4/, /PR #12/, /never by the skill id alone/, /`rawRule` keeps the official row/]) assert.match(sub, re);
-  // the normative lines and the settled decision
-  assert.match(DESIGN, /every MANUAL 重装 skill, §21\.12 — but the six of the deliberate deviation, §21\.29/);
-  assert.match(DESIGN, /\*\*partly reverted by §21\.29\*\*/);
-  assert.match(DESIGN, /\| Six 重装 skills' trigger \(§21\.29\) \|/);
-  // the builder's table is per chess (灰毫 S1 is the generic skcom_atk_up[3]) and the data follows it
+  for (const re of [/深巡 S2 行动能力剥夺, 雷蛇 S2 反击电弧, 号角 S2 暴风号令 and S3 终极防线, 灰毫 S1 攻击力强化·γ型 and S2 专注轰击/, /反馈的人太多了/, /public issue #4/, /PR #12/]) assert.match(sub, re);
+  // the normative lines: no deviation left
+  assert.match(DESIGN, /every MANUAL 重装 skill, §21\.12, the 补位 stand-ins 预备干员-重装 \/ Mechanist and every 自选 重装 included — the deviations of §21\.29/);
   const bd = doc('tools/build-data.mjs');
-  assert.match(bd, /const TRIGGER_DEVIATIONS = Object\.freeze\(\{/);
-  for (const k of ["chess_char_1_04_a: { skchr_udflow_2: 'DEFAULT' }", "chess_char_1_20_a: { skchr_liskam_2: 'DEFAULT' }", "chess_char_2_18_a: { 'skcom_atk_up[3]': 'DEFAULT', skchr_ashlok_2: 'DEFAULT' }", "chess_char_5_08_a: { skchr_horn_2: 'DEFAULT', skchr_horn_3: 'DEFAULT' }"]) assert.ok(bd.includes(k), k);
-  for (const id of ['chess_char_1_04_b', 'chess_char_2_18_b', 'chess_char_5_08_b']) {
-    for (const s of DATA.chess[id].skills.filter((x) => x.trigger.rawRule === 'TAKE_DAMAGE' && x.trigger.rule === 'DEFAULT')) assert.ok(bd.includes(s.skillId), `${id} ${s.skillId}`);
-  }
+  assert.ok(!/TRIGGER_DEVIATIONS/.test(bd), 'no deviation table in the builder');
+  for (const c of Object.values(DATA.chess)) for (const s of c.skills || []) if (s.trigger.rawRule === 'TAKE_DAMAGE') assert.equal(s.trigger.rule, 'TAKE_DAMAGE', `${c.chessId} ${s.skillId}`);
   // research 03 §1.4: the community summary is gone (promised on PR #12); the activity_table history and the deviation stay
   const r03 = doc('docs/research/03-operators.md');
   assert.ok(!/arknights\.wiki\.gg/.test(r03), 'research 03: no wiki.gg summary');
@@ -866,15 +861,16 @@ test('the deliberate trigger deviation (DESIGN §21.29): six 重装 skills DEFAU
   assert.match(r03, /上半 \(act1autochess, 2025-11\) shipped no TANK row/);
   assert.match(r03, /下半 \(act2autochess, 2026-03-14\) added `TANK \| \| \| 0 \| TAKE_DAMAGE` for every skill index/);
   assert.match(r03, /\*\*Deliberate deviation\*\* \(the owner, 2026-10-03/);
-  // PR #12's kit line stays (雷蛇 S2; 深巡 S2 dropped its own in 0.2.0 and reads its data's DEFAULT on its 3-2 rangeId,
-  // maintainer decision 2026-10-11); the comments give this reason, not the community summary
+  // PR #12's kit line is gone too (雷蛇 S2 reads the data)
   const t1 = tierSources(1).map(doc).join('\n');
-  assert.equal((t1.match(/trigger: 'DEFAULT',/g) || []).length, 1, "PR #12's kit line left (雷蛇 S2)");
+  assert.equal((t1.match(/trigger: 'DEFAULT',/g) || []).length, 0, "no PR #12 kit line left");
   assert.ok(!/offensive skills activate when an enemy is in their skill range/.test(t1));
   assert.ok(!/documented for skillIndex 0/.test(t1));
-  assert.match(DATA_MD, /a deliberate deviation, `tools\/build-data\.mjs TRIGGER_DEVIATIONS`, DESIGN §21\.29/);
-  assert.match(SIM, /the six of DESIGN §21\.29/);
-  assert.match(PLAYING, /深巡、雷蛇的二技能，号角的二、三技能，灰毫的一、二技能按玩家反馈改为攻击范围内有敌人时就释放/);
+  assert.match(DATA_MD, /the deviations of DESIGN §21\.29 \/ §22\.10 are gone, maintainer decision 2026-10-28/);
+  assert.match(SIM, /the deviations of DESIGN §21\.29 \/ §22\.10 are gone, maintainer decision 2026-10-28/);
+  assert.match(PLAYING, /\*\*重装干员\*\*的手动技能按官方在受到伤害时释放，攻击范围内有敌人或正在阻挡敌人时也会释放/);
+  assert.ok(!/按玩家反馈改为攻击范围内有敌人时就释放/.test(PLAYING), 'PLAYING: no deviation left');
+  // the release that made the deviation keeps its line
   assert.match(doc('CHANGELOG.md'), /深巡、雷蛇的二技能，号角的二、三技能，灰毫的一、二技能改为攻击范围内有敌人时就释放/);
 });
 

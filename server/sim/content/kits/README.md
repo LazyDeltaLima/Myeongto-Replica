@@ -125,9 +125,8 @@ every active backup skill is cast).
   (`generic.js genericTalents`: unconditional stat lines like "攻击力+8%"). The eight 预备干员 need no file: their skills
   (攻击力 / 防御力 / 治疗强化, 战术咏唱, 冲锋号令, 一击即退) are covered by the generic spec
   (`test/content/standin.test.js`).
-- **Auto-cast**: the trigger comes from the data like any chess's (checklist item 5). The 重装 exception for the
-  stand-ins is `tools/build-data.mjs STANDIN_TRIGGER_DEVIATIONS` (预备干员-重装, Mechanist: every skill `DEFAULT`,
-  `rawRule` `TAKE_DAMAGE`).
+- **Auto-cast**: the trigger comes from the data like any chess's (checklist item 5): the 重装 stand-ins (预备干员-重装,
+  Mechanist) take the official TANK row, `TAKE_DAMAGE`, on every skill.
 - **Summons**: no stand-in has one (DATA.md §18).
 - **One character, one implementation**: a stand-in the mode also fields elsewhere reuses that code through a named
   export, never through another registry: Touch (`standin-acmedc.js`) runs the 外勤医疗 strategy's Touch S3 and talents,
@@ -153,8 +152,7 @@ file per operator, the same rules as every kit above.
   parts at that stage).
 - `tokens[tokenId]` = its summons, per owner form (`variants['<charId>@<statusKey>']`, with `bySkill` / `byModule`).
 - Verify the numbers against the official tables (`.cache/gamedata/excel`) and PRTS like any kit. If the data itself is
-  wrong or lacks something — a trigger deviation, a summon's abnormal effect — fix `tools/build-data.mjs`
-  (`STANDIN_TRIGGER_DEVIATIONS` is keyed by charId and applies to these units too; `TOKEN_ABNORMAL`), rebuild with
+  wrong or lacks something — a summon's abnormal effect, say — fix `tools/build-data.mjs` (`TOKEN_ABNORMAL`), rebuild with
   `node tools/build-data.mjs --offline` and check with a JSON compare that only the intended data changed.
 
 **File and registration.**
@@ -293,10 +291,10 @@ Each item is a mistake this project already made once. Tick every one for every 
   box (`customRangeGrid`; a heal skill counts enemies too), one without once the unit is attacking
   (`test/sim/skills.test.js`, `feedback1e-skillrange.test.js` 烛煌 S3 on its 4-11). The engine rules `ACTIVE_RANGE` /
   `SKILL_RANGE` stay for kits (`feedback5-active-range.test.js`); the data no longer resolves `ACTIVE_RANGE`, and
-  `SKILL_RANGE` only for 余 S2's deviation. An AUTO skill that acts on
+  `SKILL_RANGE` only for an official `SKILL_RANGE` row. An AUTO skill that acts on
   allies or itself fires at full SP (引星棘刺 S1, `kits_alt_t5.test.js` "… fires as soon as its SP is full, no enemy
-  needed (GitHub #124)"); the 重装 exception list (`TRIGGER_DEVIATIONS`: 深巡 S2, 雷蛇 S2, 号角 S2 / S3, 灰毫 S1 / S2,
-  余 S2; the 预备干员-重装 / Mechanist stand-ins: `STANDIN_TRIGGER_DEVIATIONS`, every skill), DESIGN §21.29 / §22.10,
+  needed (GitHub #124)"); every MANUAL 重装 skill, 自选 and stand-ins included, takes the official TANK row `TAKE_DAMAGE`
+  (a hit, or a target of its attack; the deviations of DESIGN §21.29 / §22.10 are gone, maintainer decision 2026-10-28),
   `test/sim/feedback1-tank-triggers.test.js`.
 - [ ] **6. Targeting** — can it hit air units (`canHitFly`), ground-only attacks, block count, target priority; can
   ground enemies hit it (起飞 / 对地规避, stealth, camouflage flags). Examples: `test/sim/professions.test.js` "fortress

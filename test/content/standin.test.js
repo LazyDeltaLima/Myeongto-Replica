@@ -7,8 +7,7 @@
 // path, on every chess they replace (normal + elite): the stand-in body, the skill firing with its blackboard numbers,
 // the unconditional stat talent (generic.js genericTalents), 一击即退 lasting its 10 s from every deployment (PRTS
 // 预备干员-特种: 被动, 持续 10), 冲锋号令's DP at full SP (as 德克萨斯's kit casts the same skill) and 预备干员-重装 casting
-// with an enemy in range (the owner's 重装 exception for the stand-ins, 2026-10-05; tools/build-data.mjs
-// STANDIN_TRIGGER_DEVIATIONS).
+// by the official 重装 row TAKE_DAMAGE (a hit, or an enemy it attacks or blocks — maintainer decision 2026-10-28).
 // Run: node --test test/content/standin.test.js
 
 import { test } from 'node:test';
@@ -340,20 +339,20 @@ function firstCast(chessId) {
   return { ...out, charId: u.def.charId, skill: u.skill.id, trigger: u.def.skill.trigger };
 }
 
-test('预备干员-重装 (for 泥岩 S2, 乌尔比安 S3): casts with an enemy in range before anything hits it — the owner\'s 重装 exception, rawRule TAKE_DAMAGE', () => {
+test('预备干员-重装 (for 泥岩 S2, 乌尔比安 S3): the official 重装 row TAKE_DAMAGE — cast by the first hit or, before it, by an enemy it attacks or blocks', () => {
   for (const id of ['chess_char_4_18_a', 'chess_char_4_18_b', 'chess_char_5_05_a', 'chess_char_5_05_b']) {
     const r = firstCast(id);
     const where = `${id}: ${JSON.stringify(r)}`;
     assert.equal(r.charId, 'char_602_cdfend', where);
-    assert.deepEqual(r.trigger, { rule: 'DEFAULT', grid: null }, where);
-    assert.equal(r.rule, 'DEFAULT', where);
+    assert.equal(r.trigger.rule, 'TAKE_DAMAGE', where);
+    assert.equal(r.rule, 'TAKE_DAMAGE', where);
     assert.ok(r.cast != null && r.cast >= 3, `cast once the enemy is on the field — ${where}`);
-    assert.equal(r.reason, 'DEFAULT', where);
-    assert.ok(r.enemyInRange || r.blocking, `an enemy on its tile at the cast — ${where}`);
-    assert.ok(r.hurt == null || r.hurt > r.cast, `cast before the first hit — ${where}`);
+    assert.equal(r.reason, 'TAKE_DAMAGE', where);
+    if (r.hurt != null) assert.ok(r.cast - r.hurt <= 0.2 + 1e-6, `cast by the first hit at the latest — ${where}`);
+    if (r.hurt == null || r.cast < r.hurt - 1e-9) assert.ok(r.enemyInRange || r.blocking, `before the hit only with an enemy on its tile — ${where}`);
   }
-  // the data keeps the official row as rawRule, on every skill of both 重装 stand-ins (Mechanist's kit reads it as is)
+  // the official row on every skill of both 重装 stand-ins (Mechanist's kit reads it as is)
   for (const charId of ['char_602_cdfend', 'char_610_acfend']) {
-    for (const f of Object.values(BACKUPS.units[charId].forms)) for (const s of f.skills) assert.deepEqual([s.trigger.rule, s.trigger.rawRule], ['DEFAULT', 'TAKE_DAMAGE'], `${charId} ${s.skillId}`);
+    for (const f of Object.values(BACKUPS.units[charId].forms)) for (const s of f.skills) assert.deepEqual([s.trigger.rule, s.trigger.rawRule], ['TAKE_DAMAGE', 'TAKE_DAMAGE'], `${charId} ${s.skillId}`);
   }
 });

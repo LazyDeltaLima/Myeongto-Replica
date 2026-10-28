@@ -480,7 +480,7 @@ test('2_17 折桠 S1 绝境抵抗: TAKE_DAMAGE; DEF +def and 抵抗 (control sta
   }
 });
 
-test('2_18 灰毫 S2 专注轰击: cast with an enemy in range (DEFAULT, the deliberate deviation from the 重装 row — DESIGN §21.29), then blocks nothing, ranged splash bombs only, shorter interval, ATK +atk', () => {
+test('2_18 灰毫 S2 专注轰击: cast with an enemy in range (the official 重装 row TAKE_DAMAGE: a target of her attack), then blocks nothing, ranged splash bombs only, shorter interval, ATK +atk', () => {
   for (const id of both('chess_char_2_18')) {
     const bb = bbAlt(id);
     const enemies = { w: enemyRec({ key: 'w', hp: 1e7, speed: 2, atk: 50, bat: 1 }) };
@@ -494,12 +494,12 @@ test('2_18 灰毫 S2 专注轰击: cast with an enemy in range (DEFAULT, the del
     const h = run({ defs: { enemies }, units: [U(id, 9, 5, { carryState: READY })], enemies: [{ key: 'w', route: 0 }, { key: 'w', route: 0, time: 2 }] });
     const u = h.unit(id);
     usesAlt(u, id);
-    // the official 下半 重装 row (TAKE_DAMAGE) is overridden for this skill by the owner's decision (data rawRule keeps it)
-    assert.equal(u.skill.rule, 'DEFAULT', 'an offensive 重装 skill of the deviation: the basic strategy');
+    // the official 下半 重装 row (TAKE_DAMAGE; the DEFAULT deviation is gone, maintainer decision 2026-10-28)
+    assert.equal(u.skill.rule, 'TAKE_DAMAGE', 'the 重装 row');
     assert.ok(h.runUntil(() => u.skill.active, 8));
     const st = h.b.time;
     const atk0 = h.eventsOf('atk').length;
-    assert.equal(started(h, u)[0].reason, 'DEFAULT', 'cast by the basic strategy');
+    assert.equal(started(h, u)[0].reason, 'TAKE_DAMAGE', 'cast by the 重装 row (its SEARCH branch)');
     assert.ok(!h.hooksOf('damaged').some((x) => x.target === u), 'with the walker in range, before anything hit her');
     assert.ok(u.s.flags.noBlock);
     approx(u.s.atk, u.base.atk * (1 + u.findBuff('talent:ashlok').mods.atkPct + bb.atk), 'ATK (+ 炮术研习)');

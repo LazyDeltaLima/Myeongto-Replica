@@ -11,10 +11,8 @@ export default {
   // 1_20 雷蛇 反击电弧 (hurt SP): attack interval ×(1 + base_attack_time) (PRTS "攻击间隔增大(+70%)": a RATIO for this skill,
   // 1.2 → 2.04 s — not +0.7 s), ATK +atk, arts attacks on up to attack@max_target enemies,
   // attack@buff_prob to stun attack@stun s; afterwards 雷蛇 is stunned `stun` s.
-  // 技能策略 → DEFAULT (PR #12; DESIGN §21.29): 反击电弧 is an offensive skill (ATK +125 %, arts hits on up to 3 enemies,
-  // stun); the official 下半 TANK row (TAKE_DAMAGE for every MANUAL 重装 skill) made it — and 深巡's S2 — wait for a hit
-  // (GitHub issue #4). The owner's deliberate deviation from that row (2026-10-03, community feedback) gives both
-  // 哨戒铁卫 S2s the basic strategy; the data says DEFAULT too (rawRule keeps the official TAKE_DAMAGE).
+  // 技能策略: the official 下半 TANK row, TAKE_DAMAGE (data; a hit, or an enemy she attacks or blocks — the client pass
+  // sends it down SEARCH's branch). The DEFAULT deviation of PR #12 / DESIGN §21.29 is gone (maintainer decision 2026-10-28).
   // 战术防御: when attacked, +sp SP to herself and to one random ally in the talent grid. Elite 雷抗: RES +magic_resistance.
   // Elite module (SPT-X): stealth of enemies inside the range is cancelled.
   // Alternate S1 充能防御 (AUTO, hurt SP, "技能自动开启" — an AUTO skill takes no 技能策略: SP_FULL, so the hit that fills SP
@@ -48,7 +46,6 @@ export default {
         }, { owner: unit, priority: 50 });
       },
       skill: {
-        trigger: 'DEFAULT',
         kind: 'duration', mods: { atkPct: num(bb.atk), batPct: Math.max(0, num(bb.base_attack_time)) },
         targeting: { maxTargets: Math.max(1, Math.floor(num(bb['attack@max_target'], 1))) },
         attack: {
