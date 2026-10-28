@@ -2,7 +2,7 @@
 // frame window summary, the readout's lines and the report's per-round lines.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { perfFlag, frameSummary, snapshot, hudLines, perfReportLines, otherMs, lostMs, timeUiRenders, LONG_FRAME_MS, REPORT_GROUPS } from '../../public/js/ui/perfHud.js';
+import { perfFlag, frameSummary, snapshot, hudLines, perfReportLines, otherMs, lostMs, refreshPeriod, timeUiRenders, LONG_FRAME_MS, REPORT_GROUPS } from '../../public/js/ui/perfHud.js';
 
 test('?perf=1 turns it on and remembers it, ?perf=0 turns it off and forgets it, no query reads the memory', () => {
   assert.deepEqual(perfFlag('?perf=1', false), { on: true, save: true });
@@ -21,8 +21,8 @@ test('a frame window: mean fps, the 95th-percentile and worst interval, frames t
   assert.ok(Math.abs(f.fps - 1000 * 20 / (300 + 100)) < 1e-9);
   assert.equal(frameSummary([LONG_FRAME_MS - 1]).long, 0);
   assert.equal(f.n, 20);
-  assert.equal(f.p10, 1000 / 60);
-  assert.deepEqual(frameSummary([]), { fps: 0, p95: 0, p10: 0, max: 0, long: 0, n: 0 });
+  assert.equal(f.p50, 1000 / 60);
+  assert.deepEqual(frameSummary([]), { fps: 0, p95: 0, p50: 0, max: 0, long: 0, n: 0 });
 });
 
 const view = {
@@ -162,4 +162,12 @@ test('lost: the mean interval minus the refresh period; the report names it with
   assert.match(line, /\| lost 31 ms\/f @60Hz \| /);
   assert.match(line, /\| ui 36 ms\/s \(16\.5\/s\): BattleHud 35\/16, Shop 1\/0\.5 \| /);
   assert.match(line, /\| top units enemy_1536_ncrmcr boss imp 4\.2, char_2027_wang 0\.5 \| top fx fx_boss_hit 3\.3 ×4$/);
+});
+
+test('the refresh period: a steady window\'s median — jittered 60 Hz timestamps (15 / 17 / 18 ms) read 16.7, not their low end', () => {
+  const jitter = Array.from({ length: 600 }, (_, i) => [15.1, 16.7, 16.7, 18.2, 16.6][i % 5]);
+  assert.equal(refreshPeriod(frameSummary(jitter)), 16.7);
+  // a window that drops frames is no estimate; neither is a short one
+  assert.equal(refreshPeriod(frameSummary(Array.from({ length: 300 }, (_, i) => (i % 3 ? 16.7 : 33.4)))), null);
+  assert.equal(refreshPeriod(frameSummary([16.7, 16.7])), null);
 });

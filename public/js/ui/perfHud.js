@@ -26,14 +26,15 @@
 // that only grows over a match is a leak. The browser's own style, layout and paint for the UI stay in `other`.
 //
 // `other` includes the wait for the display's next refresh (a frame of 2 ms of work still takes 16.7 ms at 60 Hz), so
-// the report also gives `lost`: the mean frame interval minus the refresh period (the shortest steady interval seen —
-// the 10th percentile of a window, the least of them since the page opened), the time per frame the display did not get
-// a new picture. `top units` / `top fx` (census, every SAMPLE_MS) name the unit views and effects that cost the most;
+// the report also gives `lost`: the mean frame interval minus the refresh period (refreshPeriod: the median interval of a
+// steady window, the least of them since the page opened — a phone's animation-frame timestamps jitter around the refresh,
+// so a low percentile read 14 ms on a 60 Hz iPhone), the time per frame the display did not get a new picture. `top units` / `top fx` (census, every SAMPLE_MS) name the unit views and effects that cost the most;
 // `ui` names the components whose re-renders took the most (each batch's roots: the components Preact re-rendered
 // because their own state changed, their subtree included).
 //
 //   perfFlag(search, saved)    → { on, save }  (save: the value to remember, undefined = leave it)
-//   frameSummary(intervals)    → { fps, p95, p10, max, long, n }
+//   frameSummary(intervals)    → { fps, p95, p50, max, long, n }
+//   refreshPeriod(frames)      → a steady window's median interval (ms) | null
 //   hudLines(snap)             → the readout's lines
 //   perfReportLines(samples)   → the report's `perf:` lines
 //   timeUiRenders(opts, acc)   wraps Preact's options.debounceRendering: each render batch's time adds to acc { ms, n };
@@ -65,13 +66,13 @@ export function perfFlag(search, saved) {
 /** @param {number[]} intervals frame intervals (ms) of one window */
 export function frameSummary(intervals) {
   const n = intervals.length;
-  if (!n) return { fps: 0, p95: 0, p10: 0, max: 0, long: 0, n: 0 };
+  if (!n) return { fps: 0, p95: 0, p50: 0, max: 0, long: 0, n: 0 };
   const sorted = intervals.slice().sort((a, b) => a - b);
   const sum = intervals.reduce((s, x) => s + x, 0);
   return {
     fps: 1000 * n / sum,
     p95: sorted[Math.min(n - 1, Math.floor(n * 0.95))],
-    p10: sorted[Math.floor(n * 0.1)],
+    p50: sorted[Math.floor(n * 0.5)],
     max: sorted[n - 1],
     long: intervals.filter((x) => x >= LONG_FRAME_MS).length,
     n,
@@ -139,6 +140,11 @@ const minOf = (xs) => { const v = xs.filter(Number.isFinite); return v.length ? 
 export function otherMs(s) {
   if (!(s.fps > 0 && s.fps < 55) || !Number.isFinite(s.js) || !Number.isFinite(s.draw)) return NaN;
   return Math.max(0, 1000 / s.fps - s.js - s.draw - (Number.isFinite(s.sim) ? s.sim : 0));
+}
+
+/** A window steady enough to show the display's refresh: its median interval (ms), else null. */
+export function refreshPeriod(f) {
+  return f && f.n >= 30 && f.p50 > 0 && f.p95 < f.p50 * 1.25 ? f.p50 : null;
 }
 
 /** A sample's frame time the display got no new picture for (ms): the mean interval minus the refresh period. */
@@ -320,7 +326,7 @@ export function installPerfHud() {
   };
   let secMark = runMark(t0), spanMark = secMark;
   let secBusy = busyMark(), spanBusy = secBusy, lastSec = t0;
-  let period = null;   // the display's refresh interval: the least steady 10th-percentile interval seen
+  let period = null;   // the display's refresh interval: the least steady window median seen (refreshPeriod)
   let lastSample = t0;
   let span = [];
   let spanStalls = [];
@@ -355,7 +361,8 @@ export function installPerfHud() {
     if (now - lastSample >= SAMPLE_MS) {
       // a sample's frame, stall, peak and sim numbers cover its whole span; samples are taken while a field is on screen
       const fr = frameSummary(span);
-      if (fr.n >= 30 && fr.p10 > 0 && (period == null || fr.p10 < period)) period = fr.p10;
+      const rp = refreshPeriod(fr);
+      if (rp != null && (period == null || rp < period)) period = rp;
       if (view) {
         let held;
         try { held = g.__SP_VIEW__?.raw?.census?.() ?? null; } catch { held = null; }
