@@ -17,9 +17,11 @@
 //                    roster a strategy applies when the player's pick of it lands in the strategy draft
 //                    (screens/bandDraft.js); linkBand() sets / clears one; choiceRoster() = the roster a draft choice
 //                    applies, shows and edits (a faction without a preset: the one in use); clearRosterSlot() empties a slot of it. A strategy without a link falls back to the nation bond it is built
-//                    around (bandRecommendation: bands.json bondIds ∩ the chat factions — 9 of 40), else keeps the picks;
-//                    'keep' (KEEP_LINK) is a recommendation the player turned off: the strategy keeps the picks
-//                    (maintainer request 2026-10-13). toggleBandLink() = a tap in the 自选编队 tab's strategy grid.
+//                    around (bandRecommendation: bands.json bondIds ∩ the chat factions — 9 of 40) when that faction has
+//                    a preset, else to 不使用预设 (maintainer decision 2026-10-29: until then it kept the picks in use, so
+//                    a faction chosen in the tab before the match silently became every unlinked strategy's roster);
+//                    'keep' (KEEP_LINK) is a recommendation the player turned off (maintainer request 2026-10-13): it
+//                    reads as no link, so the strategy takes 不使用预设 too. toggleBandLink() = a tap in the 自选编队 tab's strategy grid.
 // The picks themselves stay ui/loadoutSync.js's (setDiyPicks → localStorage + room.diy); a running match takes them while
 // its briefing or strategy draft runs (server platform.js setDiy) — from the prep on a faction pick applies no preset.
 // Storage: localStorage `sp.pref.diyPresets` = { v: 3, presets, base, active, links } (each roster cleaned like the picks;
@@ -91,13 +93,17 @@ export function bandRecommendation(band) {
 }
 
 /**
- * What the draft applies for a strategy: its link (KEEP_LINK for a turned-off recommendation), else the
- * recommendation, else KEEP_LINK.
+ * What the draft applies for a strategy: its link, else its recommendation when that faction holds a preset, else
+ * BASE_LINK (不使用预设 — maintainer decision 2026-10-29; a turned-off recommendation, KEEP_LINK, reads as no link).
+ * 保持当前编队 stays a choice of this match's dropdown only.
  * @param {string} bandId @param {any} band the bands.json record @param {Record<string, string>} [links]
+ * @param {Record<string, any>} [presets] the faction presets (diyPresetStore presets)
  */
-export function bandPresetChoice(bandId, band, links = diyPresetStore.get().links) {
+export function bandPresetChoice(bandId, band, links = diyPresetStore.get().links, presets = diyPresetStore.get().presets) {
   const l = links && isStoredLink(links[bandId]) ? links[bandId] : null;
-  return l || bandRecommendation(band) || KEEP_LINK;
+  if (l && l !== KEEP_LINK) return l;
+  const rec = l === KEEP_LINK ? null : bandRecommendation(band);
+  return rec && presets?.[rec] ? rec : BASE_LINK;
 }
 
 const samePicks = (a, b) => JSON.stringify(cleanPicks(a)) === JSON.stringify(cleanPicks(b));

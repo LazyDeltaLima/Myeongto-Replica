@@ -14,8 +14,9 @@
 // (BandOffTag / BandOffNote, DESIGN §21.26, §21.7's look); it stays selectable — information only.
 // 전략별 선발 프리셋 (local feature, maintainer decisions 2026-10-12; ui/diyPresets.js links): the detail pane's 自选预设 row
 // picks the roster the strategy applies — this match's choice, else the strategy's saved link, else the chat faction it is
-// built around (推荐, bandRecommendation), else 保持当前编队 — with a preview of its picks and 记住此策略的预设 (on by
-// default: the choice becomes the link). It applies when my pick lands — 确认选择 applies it first and flushes room.diy
+// built around (推荐, bandRecommendation) when that faction holds a preset, else 不使用预设 (maintainer decision 2026-10-29;
+// 保持当前编队 before) — with a preview of its picks and 记住此策略的预设 (on by default: the choice becomes the link; the
+// 不使用预设 default is saved only when picked in the dropdown, so a recommendation filled in later still applies). It applies when my pick lands — 确认选择 applies it first and flushes room.diy
 // and room.loadout (a solo draft ends with the pick), a turn that runs out or an AI 托管 pick right after — through the chat's faction pick
 // (ui/factionPick.js applyPresetChoice: the chat faction follows; a faction this match disables is still applied, 本局禁用).
 // Once my pick has landed, the row of my strategy applies a new choice at once (the faction row under the order list did
@@ -224,7 +225,7 @@ export function presetRosterNote(choice, st) {
 /**
  * The tags of the 自选预设 row: 已关联 (the choice is the strategy's saved link), 推荐 (no link: the faction the
  * strategy is built around), 本局禁用 (the faction's bond is off this match — applied anyway, maintainer 2026-10-12).
- * A turned-off recommendation (link KEEP_LINK, ui/diyPresets.js) reads as no link: 保持当前编队 untagged (maintainer
+ * A turned-off recommendation (link KEEP_LINK, ui/diyPresets.js) reads as no link: 不使用预设 untagged (maintainer
  * decision 2026-10-13).
  * @param {string} choice @param {{ link?: string|null, rec?: string|null, off?: string[]|null }} o
  * @returns {Array<'linked'|'rec'|'off'>}
@@ -500,11 +501,13 @@ export function BandDraftScreen() {
   const selTaken = !!band && taken.has(band.bandId);
   // 전략별 선발 프리셋: the roster a strategy applies when my pick of it lands (see the header)
   const inDraft = draft.order.includes(myId);
-  const choiceFor = (bid) => presetSel[bid] ?? bandPresetChoice(bid, gd.band(bid), links);
+  const choiceFor = (bid) => presetSel[bid] ?? bandPresetChoice(bid, gd.band(bid), links, presets);
   const applyBandPreset = async (bid) => {
     presetAppliedFor = `${roomKey}|${bid}`;
     const choice = choiceFor(bid);
-    if (choice !== KEEP_LINK && (remember[bid] ?? true)) linkBand(bid, choice);
+    // the 不使用预设 default is no choice of the player's: kept unlinked (a link only when picked in the dropdown)
+    const chosen = choice !== BASE_LINK || presetSel[bid] === BASE_LINK;
+    if (choice !== KEEP_LINK && chosen && (remember[bid] ?? true)) linkBand(bid, choice);
     if (choice === KEEP_LINK) return;
     await applyPresetChoice(choice);
     // a solo draft ends with the pick: the picks must reach the match first (room.diy is debounced)

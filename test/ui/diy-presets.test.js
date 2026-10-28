@@ -148,9 +148,13 @@ test('전략별 선발 프리셋 (maintainer 2026-10-12): links persist, a strat
   assert.equal(P.bandRecommendation(pag), 'laterano');
   assert.equal(P.bandRecommendation(bld), null);
   assert.equal(bands.filter((b) => P.bandRecommendation(b)).length, 9, '9 of the 40 strategies are built around a nation bond');
-  assert.equal(P.bandPresetChoice('band_paganini', pag, {}), 'laterano', 'no link: the recommendation');
-  assert.equal(P.bandPresetChoice('band_paganini', pag, { band_paganini: 'base' }), 'base', 'a link wins');
-  assert.equal(P.bandPresetChoice('band_bldsk', bld, {}), P.KEEP_LINK, 'neither: keep the picks');
+  const lat = { laterano: { [T6A]: WANG } };
+  assert.equal(P.bandPresetChoice('band_paganini', pag, {}, lat), 'laterano', 'no link: the recommendation, when it holds a preset');
+  assert.equal(P.bandPresetChoice('band_paganini', pag, { band_paganini: 'base' }, lat), 'base', 'a link wins');
+  // maintainer decision 2026-10-29: a strategy without a roster of its own takes 不使用预设, not the picks in use
+  assert.equal(P.bandPresetChoice('band_bldsk', bld, {}, lat), P.BASE_LINK, 'neither: 不使用预设');
+  assert.equal(P.bandPresetChoice('band_paganini', pag, {}, {}), P.BASE_LINK, 'a recommendation without a preset: 不使用预设');
+  assert.equal(P.bandPresetChoice('band_paganini', pag, { band_paganini: 'yan' }, {}), 'yan', 'a link to an empty faction stays the player\'s');
 });
 
 test('a 推荐 can be unlinked (maintainer request 2026-10-13): KEEP_LINK turns the recommendation off, and the grid toggles', () => {
@@ -159,7 +163,8 @@ test('a 推荐 can be unlinked (maintainer request 2026-10-13): KEEP_LINK turns 
   const chen = bands.find((b) => b.bandId === 'band_chen');
   P.diyPresetStore.set({ links: {} });
   assert.deepEqual(P.parseStoredPresets({ v: 3, presets: {}, base: {}, active: null, links: { band_paganini: 'keep' } }).links, { band_paganini: 'keep' }, 'stored');
-  assert.equal(P.bandPresetChoice('band_paganini', pag, { band_paganini: P.KEEP_LINK }), P.KEEP_LINK, 'turned off: keep the picks');
+  assert.equal(P.bandPresetChoice('band_paganini', pag, { band_paganini: P.KEEP_LINK }, { laterano: { [T6A]: WANG } }), P.BASE_LINK,
+    'turned off: no link, so 不使用预设 (maintainer decision 2026-10-29)');
   assert.equal(P.bandLinkTarget(pag, {}), 'laterano', 'the recommendation applies');
   assert.equal(P.bandLinkTarget(pag, { band_paganini: P.KEEP_LINK }), null);
   assert.equal(P.bandLinkTarget(pag, { band_paganini: 'yan' }), 'yan', 'a link wins');
