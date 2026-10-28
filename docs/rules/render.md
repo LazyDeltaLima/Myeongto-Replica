@@ -1072,3 +1072,9 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   답하고(다르면 목록대로 다시 받아 캐시를 바꿈, 목록에 없으면 서버로), 페이지 로드(내비게이션)마다 목록을 다시 확인하며 그 확인이 끝날 때까지 캐시 답을
   기다린다(같은 ETag면 다시 읽지 않음). 목록이 없을 때(오프라인·서버에 목록 없음)는 예전처럼 캐시를 내준다. 확인: `test/local-patch.test.js`
   「resource worker: …」(워커를 vm에서 돌림: 옛 판 → 새로 받음, 목록 유효 시간 안엔 마지막 목록, 페이지 로드 뒤 다음 배포의 파일).
+- **끝난 이펙트가 공용 버퍼를 지움**(르무엔 일반 공격 꼬리부터 WebGL `INVALID_OPERATION: drawElementsInstanced: no buffer is bound to enabled attribute`,
+  S3 중 수백 번 — 그 그리기는 건너뜀 = 이펙트 일부가 안 보임): 입자 시스템의 인스턴스 지오메트리는 공용 사각형 `QUAD`(또는 라이브러리 메시)의 인덱스·위치·uv를
+  빌려 쓰는데, three.js는 지오메트리를 dispose하면 그 모든 속성의 GL 버퍼를 지운다 → 시스템 하나가 끝날 때마다 살아 있는 다른 이펙트의 정점 배열 객체가 지워진
+  버퍼를 가리켰다. 10-05부터 있던 구조라 1.5.7만의 것은 아님. 이제 `fxplayer.js disposeOwn`이 빌린 속성을 떼고 dispose한다(입자 시스템·추가 메시, 그리고
+  dispose하지 않아 새던 메시 노드 지오메트리도). 확인: `test/render/fx-shared-buffers.test.js`, Windows Chrome D3D11 디버그 아레나 르무엔 S3 96 s — WebGL 경고
+  515건(고치기 전, Chrome이 「too many errors」로 끊음) → 0건(셰이더 컴파일 경고 1건만).

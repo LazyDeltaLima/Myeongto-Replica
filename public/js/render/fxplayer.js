@@ -1259,6 +1259,19 @@ function instanced(src, max) {
 }
 
 /**
+ * 2026-10-28: dispose an effect's geometry without the attributes it shares with `src` (QUAD, a library mesh: the index,
+ * positions, uvs, vertex colours, normals, skin). three.js deletes the GL buffer of every attribute of a disposed
+ * geometry, so a particle system ending deleted QUAD's buffers under every other live effect: their vertex array objects
+ * kept the deleted buffers and each of their draws failed (WebGL `drawElementsInstanced: no buffer is bound to enabled
+ * attribute` — the effect not drawn; 르무엔's attack trail on, hundreds during her S3). `src` itself goes with the library.
+ */
+function disposeOwn(g, src) {
+  if (src && g.index === src.index) g.setIndex(null);
+  if (src) for (const name of Object.keys(g.attributes)) if (src.getAttribute(name) === g.attributes[name]) g.deleteAttribute(name);
+  g.dispose();
+}
+
+/**
  * (2026-10-27, effect bundle V) a renderer's place in Unity's transparent order — its sorting layer (`layer`, the layer's
  * place: 0 = Default, −2 = two layers before it) before its sortingOrder (`order`) — as a three.js renderOrder.
  */
@@ -1343,6 +1356,7 @@ class ParticleSystem {
     const { g, ib } = instanced(geomSrc, max);
     this.ib = ib;
     this.geometry = g;
+    this.geomSrc = geomSrc;
     // a trail-only system (renderer mode None / no particle material) draws only its trails
     const drawParticles = ps.render.mat && ps.render.mode !== 5;
     const mat = makeMaterial(def.materials[ps.render.mat] || null, def.lib);
@@ -2234,8 +2248,8 @@ class ParticleSystem {
     this.n = 0;
     this.mesh.removeFromParent();
     if (this.top) this.frame.removeFromParent();
-    this.geometry.dispose();
-    for (const m of this.more) m.g.dispose();
+    disposeOwn(this.geometry, this.geomSrc);
+    for (const m of this.more) disposeOwn(m.g, m.src);
     this.material.dispose();
     this.trailBatch?.dispose();
   }
@@ -2572,6 +2586,7 @@ export class FxInstance {
     this.systems = [];
     this.meshMats = [];
     this.meshObjs = [];   // 2026-10-22: a node's MeshRenderer object (a clip's `mr:enabled`)
+    this.meshGeos = [];   // 2026-10-28: their geometries with the library mesh each shares attributes with (disposeOwn)
     this.meshMore = [];   // (2026-10-26) a node's further MeshRenderer materials (n.mesh.more)
     this.trails = [];
     this.lines = [];   // local patch: LineRenderers
@@ -2640,6 +2655,7 @@ export class FxInstance {
           one('iPos', [0, 0, 0]); one('iSize', [1, 1, 1]); one('iRot', [0, 0, 0]); one('iColor', [1, 1, 1, 1]);
           one('iC1', [0, 0, 0, 0]); one('iC2', [0, 0, 0, 0]); one('iUV', [0, 0, 1, 1]); one('iVel', [0, 0, 0]);
           g.instanceCount = 1;
+          this.meshGeos.push([g, src]);
           const mesh = n.skin ? new THREE.SkinnedMesh(g, mat) : new THREE.Mesh(g, mat);
           mesh.frustumCulled = false;
           mesh.renderOrder = sortingOrder(mr);
@@ -3227,6 +3243,7 @@ export class FxInstance {
     for (const t of this.trails) t.dispose();
     for (const t of this.lines) t.dispose(); // local patch
     for (const m of this.meshMatList || this.meshMats) m?.dispose();
+    for (const [g, src] of this.meshGeos || []) disposeOwn(g, src);
     for (const sk of this.skeletons || []) sk.dispose();
     this.object.removeFromParent();
     const i = live.indexOf(this);
