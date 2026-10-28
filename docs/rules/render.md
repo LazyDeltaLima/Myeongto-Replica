@@ -910,6 +910,16 @@ ON_BUFF_FINISH에 대상이 살아 있을 때만(`IfTarget _checkTargetAlive`) +
   캐시(Texture/BaseTexture), ticker 리스너, 문서 요소 수, 보기 맵(유닛/적 미리 보기/전투에서 사라진 것), 이펙트 층(살아 있는 것/노트/궤적);
   판 동안 줄지 않고 늘기만 하면 누수(보기 `census()`). 그리고 `imp a–b`(임포스터 간격 범위). 글자 표시엔 `ui …ms/s · msg …ms/s` 한 줄.
   측정 기능이지 동작 변경 없음(프레임당 `performance.now()` 12번 더). 테스트 `test/ui/perf-hud.test.js`.
+- **진단 보강 3** (2026-10-28, 같은 iPhone의 보강 2 로그: 보스전 마지막 공세 js 28.8 ms 중 이펙트 층 12.6·유닛 갱신 9.6, UI가 전투 중 초당
+  13–18번 다시 그림, `other`가 일이 거의 없는 프레임에서도 15 ms 안팎): ① `lost X ms/f @NHz` — 평균 프레임 간격 − 화면 주기(페이지가 열린 뒤
+  본 10초 창의 10백분위 간격 중 가장 짧은 것). `other`는 화면 주기를 기다린 시간까지 포함하므로(60 Hz에서 일이 2 ms인 프레임도 16.7 ms),
+  화면이 새 그림을 못 받은 시간은 `lost`로 읽는다. ② `js … (fx X: upd U draw D)` — 이펙트 층을 플레이어 갱신(입자 계산)과 three.js 그리기로
+  나눔(`fxGame.stats()`의 두 값, 0.5 ms 미만이면 생략). ③ `ui …: 이름 ms/s/회/s, …` — 다시 그리기 묶음의 뿌리 컴포넌트(자기 상태가 바뀌어 다시
+  그려진 컴포넌트, 하위 포함 시간) 상위 3개: Preact의 `options.__b`(내장본의 `_diff`)·`diffed` 훅을 기존 훅(preact/hooks) 앞뒤로 이어 깊이 0의
+  컴포넌트를 잼. ④ `top units id [boss] [imp] ms, …` — 10초 동안 `update()`가 가장 오래 걸린 유닛 보기 3개(프레임당 ms, 보스·impostor로 그림 여부),
+  `top fx 이름 ms ×개수` — 플레이어 갱신이 가장 오래 걸린 이펙트 3개(프레임당 ms, 프레임당 인스턴스 수; `fxGame.perfTop()`). 측정 기능이지 동작
+  변경 없음(유닛·이펙트마다 `performance.now()` 두 번). Windows Chrome 솔로 R1–R2 확인: `ui …: MatchScreen 8.1/4.7, GameScreen 2.4/0.4,
+  Countdown 0.7/4`, `top units chess_char_1_12_a 0.2, …`, `top fx … ×0.6`, `lost 0.4 ms/f @161Hz`. 테스트 `test/ui/perf-hud.test.js`.
 
 ## 3D 보드 첫 그리기 미리 준비 (2026-10-16, 관리자 제공 iPhone 12 Pro 로그 「필드가 뜬 직후 한 표본이 프레임 0, PIXI 그리기 평균 277 ms」)
 - 측정 기능의 `perf:` 줄로 본 멈춤은 필드 진입 직후(엔진 마운트가 끝나고 3D 보드·공식 씬이 막 도착한 구간)였다. Windows Chrome에서 같은

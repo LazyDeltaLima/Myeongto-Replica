@@ -2,7 +2,7 @@
 // frame window summary, the readout's lines and the report's per-round lines.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { perfFlag, frameSummary, snapshot, hudLines, perfReportLines, otherMs, timeUiRenders, LONG_FRAME_MS, REPORT_GROUPS } from '../../public/js/ui/perfHud.js';
+import { perfFlag, frameSummary, snapshot, hudLines, perfReportLines, otherMs, lostMs, timeUiRenders, LONG_FRAME_MS, REPORT_GROUPS } from '../../public/js/ui/perfHud.js';
 
 test('?perf=1 turns it on and remembers it, ?perf=0 turns it off and forgets it, no query reads the memory', () => {
   assert.deepEqual(perfFlag('?perf=1', false), { on: true, save: true });
@@ -21,7 +21,8 @@ test('a frame window: mean fps, the 95th-percentile and worst interval, frames t
   assert.ok(Math.abs(f.fps - 1000 * 20 / (300 + 100)) < 1e-9);
   assert.equal(frameSummary([LONG_FRAME_MS - 1]).long, 0);
   assert.equal(f.n, 20);
-  assert.deepEqual(frameSummary([]), { fps: 0, p95: 0, max: 0, long: 0, n: 0 });
+  assert.equal(f.p10, 1000 / 60);
+  assert.deepEqual(frameSummary([]), { fps: 0, p95: 0, p10: 0, max: 0, long: 0, n: 0 });
 });
 
 const view = {
@@ -55,8 +56,8 @@ test('the report: consecutive samples of one round and phase make a line; only t
     snap({ at: 80_000, frames: { fps: 40, p95: 35, max: 90, long: 5 }, view: { ...view, units: 56, lod: 2, board3d: { on: true, calls: 18 } } }),
   ];
   assert.deepEqual(perfReportLines(samples), [
-    'R12 PREP 1:00–1:00 | q high | fps 60 (min 60) | p95 17 ms | worst 18 ms | long 0 | sim 0.42 | js 3.1 (3d 2.1, fx 2) | draw 4.2 | fx 37 calls | 3d 14 calls | units 42 | lod 0–0 | imp 2–2',
-    'R12 COMBAT 1:10–1:20 | q high | fps 45 (min 40) | p95 30 ms | worst 90 ms | long 8 | sim 0.42 | js 3.1 (3d 2.1, fx 2) | draw 4.2 | other 14.7 ms | fx 37 calls | 3d 18 calls | units 56 | lod 0–2 | imp 2–2',
+    'R12 PREP 1:00–1:00 | q high | fps 60 (min 60) | p95 17 ms | worst 18 ms | long 0 | sim 0.42 | js 3.1 (3d 2.1, fx 2: upd 1.2 draw 0.8) | draw 4.2 | fx 37 calls | 3d 14 calls | units 42 | lod 0–0 | imp 2–2',
+    'R12 COMBAT 1:10–1:20 | q high | fps 45 (min 40) | p95 30 ms | worst 90 ms | long 8 | sim 0.42 | js 3.1 (3d 2.1, fx 2: upd 1.2 draw 0.8) | draw 4.2 | other 14.7 ms | fx 37 calls | 3d 18 calls | units 56 | lod 0–2 | imp 2–2',
   ]);
   const many = Array.from({ length: REPORT_GROUPS + 5 }, (_, i) => snap({ round: i + 1, at: i * 10_000 }));
   const lines = perfReportLines(many);
@@ -120,7 +121,7 @@ test('UI render timing: each Preact render batch adds its time and count, the ba
   opts.debounceRendering(() => { ran++; t += 7; });
   await Promise.resolve();
   assert.equal(ran, 1);
-  assert.deepEqual(acc, { ms: 7, n: 1 });
+  assert.deepEqual([acc.ms, acc.n], [7, 1]);
   // a debouncer set before it is kept
   const queued = [];
   const o2 = { debounceRendering: (cb) => queued.push(cb) };
@@ -128,5 +129,37 @@ test('UI render timing: each Preact render batch adds its time and count, the ba
   o2.debounceRendering(() => { t += 3; });
   assert.equal(queued.length, 1);
   queued[0]();
-  assert.deepEqual(acc, { ms: 10, n: 2 });
+  assert.deepEqual([acc.ms, acc.n], [10, 2]);
+});
+
+test('UI render roots: a component diffed at depth 0 is a root, its subtree counts in its time; earlier hooks still run', () => {
+  const seen = [];
+  const opts = { __b: (v) => seen.push(['b', v.type.name || v.type]), diffed: (v) => seen.push(['d', v.type.name || v.type]) };
+  const acc = { ms: 0, n: 0 };
+  let t = 0;
+  timeUiRenders(opts, acc, () => t);
+  function Board() {} function Cell() {}
+  const board = { type: Board }, div = { type: 'div' }, cell = { type: Cell };
+  opts.__b(board); t += 1; opts.__b(div); opts.__b(cell); t += 2; opts.diffed(cell); opts.diffed(div); t += 1; opts.diffed(board);
+  opts.__b(cell); t += 5; opts.diffed(cell);
+  assert.deepEqual(Object.fromEntries(acc.by), { Board: { ms: 4, n: 1 }, Cell: { ms: 5, n: 1 } });
+  assert.equal(seen.length, 8);
+  // a bare DOM vnode at depth 0 is no component root
+  opts.__b(div); opts.diffed(div);
+  assert.equal(acc.by.size, 2);
+});
+
+test('lost: the mean interval minus the refresh period; the report names it with the rate, top units / effects / UI roots', () => {
+  assert.ok(Math.abs(lostMs({ fps: 40, period: 1000 / 60 }) - (25 - 1000 / 60)) < 1e-9);
+  assert.ok(Number.isNaN(lostMs({ fps: 40, period: null })));
+  const held = { objs: 1, shown: 1, tex: 1, base: 1, ticker: 1, dom: 1, views: 1, pen: 0, gone: 0, fxLive: 0, fxNotes: 0, fxTrails: 0,
+    topUnits: [{ id: 'enemy_1536_ncrmcr', ms: 4.21, boss: true, imp: true }, { id: 'char_2027_wang', ms: 0.5, boss: false, imp: false }],
+    topFx: [{ name: 'fx_boss_hit', ms: 3.3, k: 4 }] };
+  const line = perfReportLines([
+    snap({ frames: { fps: 21, p95: 98, max: 247, long: 9, n: 210 }, period: 1000 / 60, held, ui: { ms: 32, n: 16 }, uiTop: [{ name: 'BattleHud', ms: 30, n: 15 }, { name: 'Shop', ms: 2, n: 1 }] }),
+    snap({ frames: { fps: 21, p95: 98, max: 247, long: 9, n: 210 }, period: 1000 / 60, held, ui: { ms: 40, n: 17 }, uiTop: [{ name: 'BattleHud', ms: 40, n: 17 }] }),
+  ])[0];
+  assert.match(line, /\| lost 31 ms\/f @60Hz \| /);
+  assert.match(line, /\| ui 36 ms\/s \(16\.5\/s\): BattleHud 35\/16, Shop 1\/0\.5 \| /);
+  assert.match(line, /\| top units enemy_1536_ncrmcr boss imp 4\.2, char_2027_wang 0\.5 \| top fx fx_boss_hit 3\.3 ×4$/);
 });

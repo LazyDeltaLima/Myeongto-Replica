@@ -60,7 +60,8 @@
 //   view.isReady() → false while the first frame is held back (its textures go up behind the loading screen); then
 //        emits ready (no payload) after the first frame that draws the field ("first frame" below)
 //   view.stats() → { fps, frameMs, cpuMs, renderMs, parts, units, particles, impostor, impostorAtlas, boardArt, … } (dev / perf)
-//   view.census() → { objs, shown, tex, base, ticker, views, pen, gone, fxLive, fxNotes, fxTrails } (perf: what the page holds)
+//   view.census() → { objs, shown, tex, base, ticker, views, pen, gone, fxLive, fxNotes, fxTrails, topUnits, topFx } (perf: what
+//        the page holds; the costliest unit views and effects since the last call)
 //
 // Enemy preview pen (research 09 §2.2 / 08 §4.2, render/pen.js): in prep the next round's enemies idle in the pen
 // (rows 14–18 × cols 7–13; upper-gate enemies rows 17–18, lower-gate rows 14–15; spawn-time order, ≤ 3 per tile,
@@ -2160,7 +2161,9 @@ export async function createFieldView(host, options = {}) {
           v.x = tw.fx + (tw.tx - tw.fx) * k; v.y = tw.fy + (tw.ty - tw.fy) * k; v.z = tw.fz + (tw.tz - tw.fz) * k;
           if (tw.t >= 1) v._tween = null;
         }
+        const tv = performance.now();
         v.update(dt, cam, clock);
+        v._perfMs = (v._perfMs || 0) + performance.now() - tv;   // census(): the views that cost the most
         if (v.remove) { dropView(key); if (mode === 'battle') gone.add(key); }
       }
       if (!penHidden) for (const v of penViews.values()) v.update(dt, cam, clock);
@@ -2188,8 +2191,15 @@ export async function createFieldView(host, options = {}) {
   }
   // What the page holds (the perf HUD reads it every SAMPLE_MS: a count that only grows over a match is a leak) — the PIXI
   // display objects under the stage and those drawn (visible all the way up), the texture caches, the ticker's
-  // listeners, the view maps.
+  // listeners, the view maps — and since the last call the three unit views whose update() took the most time (ms per
+  // frame; boss, impostor-drawn), the three effects whose players did (fxGame.perfTop).
+  let censusFrame = 0;
   function census() {
+    const frames = Math.max(1, frameNo - censusFrame);
+    censusFrame = frameNo;
+    const costly = [...views.values()].filter((v) => v._perfMs > 0).sort((a, b) => b._perfMs - a._perfMs).slice(0, 3)
+      .map((v) => ({ id: v.info?.defId ?? String(v.id), ms: v._perfMs / frames, boss: !!v.isBoss, imp: !!v.imp }));
+    for (const v of views.values()) v._perfMs = 0;
     let objs = 0, shown = 0;
     const walk = (o, on) => {
       objs++;
@@ -2204,6 +2214,7 @@ export async function createFieldView(host, options = {}) {
     return {
       objs, shown, tex: keys(P.utils?.TextureCache), base: keys(P.utils?.BaseTextureCache), ticker: app.ticker.count ?? null,
       views: views.size, pen: penViews.size, gone: gone.size, fxLive: fs.live, fxNotes: fs.notes, fxTrails: fs.trails,
+      topUnits: costly, topFx: fxGame.perfTop?.(3) ?? [],
     };
   }
   // local patch (LOCAL-PATCH.md 「공식 맵 렌더링」): the red 「!!!」 of the 活性源石 buff (render/infectionMark.js) — in prep

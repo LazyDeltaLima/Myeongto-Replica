@@ -25,11 +25,19 @@
 // ticker's listeners, the view maps, the effect layer's live / notes / trails; the document's element count) — a count
 // that only grows over a match is a leak. The browser's own style, layout and paint for the UI stay in `other`.
 //
+// `other` includes the wait for the display's next refresh (a frame of 2 ms of work still takes 16.7 ms at 60 Hz), so
+// the report also gives `lost`: the mean frame interval minus the refresh period (the shortest steady interval seen —
+// the 10th percentile of a window, the least of them since the page opened), the time per frame the display did not get
+// a new picture. `top units` / `top fx` (census, every SAMPLE_MS) name the unit views and effects that cost the most;
+// `ui` names the components whose re-renders took the most (each batch's roots: the components Preact re-rendered
+// because their own state changed, their subtree included).
+//
 //   perfFlag(search, saved)    → { on, save }  (save: the value to remember, undefined = leave it)
-//   frameSummary(intervals)    → { fps, p95, max, long, n }
+//   frameSummary(intervals)    → { fps, p95, p10, max, long, n }
 //   hudLines(snap)             → the readout's lines
 //   perfReportLines(samples)   → the report's `perf:` lines
-//   timeUiRenders(opts, acc)   wraps Preact's options.debounceRendering: each render batch's time adds to acc { ms, n }
+//   timeUiRenders(opts, acc)   wraps Preact's options.debounceRendering: each render batch's time adds to acc { ms, n };
+//                              and its _diff / diffed hooks: each root component's time adds to acc.by (name → { ms, n })
 //   installPerfHud()           main.js boot: reads the flag, mounts the readout, registers the report source
 
 import { loadPref, savePref, store } from '../store.js';
@@ -57,12 +65,13 @@ export function perfFlag(search, saved) {
 /** @param {number[]} intervals frame intervals (ms) of one window */
 export function frameSummary(intervals) {
   const n = intervals.length;
-  if (!n) return { fps: 0, p95: 0, max: 0, long: 0, n: 0 };
+  if (!n) return { fps: 0, p95: 0, p10: 0, max: 0, long: 0, n: 0 };
   const sorted = intervals.slice().sort((a, b) => a - b);
   const sum = intervals.reduce((s, x) => s + x, 0);
   return {
     fps: 1000 * n / sum,
     p95: sorted[Math.min(n - 1, Math.floor(n * 0.95))],
+    p10: sorted[Math.floor(n * 0.1)],
     max: sorted[n - 1],
     long: intervals.filter((x) => x >= LONG_FRAME_MS).length,
     n,
@@ -84,8 +93,9 @@ const resOf = (p) => (p.res != null ? `${r2(p.res)}/${p.boardRes != null ? r2(p.
  * @param {{ frames: ReturnType<typeof frameSummary>, view: any, kind: string|null, simMs: number|null, ticksPerSec: number|null,
  *   round: number|null, phase: string|null, quality: string|null, dpr: number|null, heapMB: number|null, at: number,
  *   wall?: number, stalls?: number[], peaks?: { js?: number, draw?: number, b3?: number }|null,
- *   ui?: { ms: number, n: number }|null, msg?: { ms: number, n: number, kB?: number }|null, held?: Record<string, number|null>|null }} s
- *   (ui / msg: per second)
+ *   ui?: { ms: number, n: number }|null, msg?: { ms: number, n: number, kB?: number }|null, held?: Record<string, any>|null,
+ *   uiTop?: { name: string, ms: number, n: number }[]|null, period?: number|null }} s
+ *   (ui / msg / uiTop: per second; period: the display's refresh interval, ms)
  */
 export function snapshot(s) {
   const v = s.view || {};
@@ -98,11 +108,12 @@ export function snapshot(s) {
     stalls: Array.isArray(s.stalls) ? s.stalls.slice() : [],
     sim: s.simMs, tps: s.ticksPerSec, js: v.cpuMs ?? null, draw: v.renderMs ?? null,
     peaks: pk ? { js: pk.js ?? null, draw: pk.draw ?? null, b3: pk.b3 ?? null } : null,
-    fxMs: fx.updateMs != null ? (fx.updateMs || 0) + (fx.renderMs || 0) : null, fxCalls: fx.calls ?? null, fxLive: fx.live ?? null, particles: fx.particles ?? null,
+    fxMs: fx.updateMs != null ? (fx.updateMs || 0) + (fx.renderMs || 0) : null, fxUpd: fx.updateMs ?? null, fxDraw: fx.renderMs ?? null, fxCalls: fx.calls ?? null, fxLive: fx.live ?? null, particles: fx.particles ?? null,
     b3: b3.on ? { calls: b3.calls ?? null, ms: b3.cpuMs ?? null, tex: b3.textures ?? null } : null,
     units: v.units ?? null, lod: v.lod ?? null, imp: v.impostor ?? null, quality: s.quality, dpr: s.dpr, heapMB: s.heapMB,
     res: v.res ?? null, boardRes: v.boardRes ?? null,
     parts: v.parts ? { ...v.parts } : null, ui: s.ui ?? null, msg: s.msg ?? null, held: s.held ?? null,
+    uiTop: s.uiTop ?? null, period: s.period ?? null,
   };
 }
 
@@ -128,6 +139,12 @@ const minOf = (xs) => { const v = xs.filter(Number.isFinite); return v.length ? 
 export function otherMs(s) {
   if (!(s.fps > 0 && s.fps < 55) || !Number.isFinite(s.js) || !Number.isFinite(s.draw)) return NaN;
   return Math.max(0, 1000 / s.fps - s.js - s.draw - (Number.isFinite(s.sim) ? s.sim : 0));
+}
+
+/** A sample's frame time the display got no new picture for (ms): the mean interval minus the refresh period. */
+export function lostMs(s) {
+  if (!(s.fps > 0) || !(s.period > 0)) return NaN;
+  return Math.max(0, 1000 / s.fps - s.period);
 }
 
 /**
@@ -157,7 +174,11 @@ export function perfReportLines(samples) {
     const peak = (k) => maxOf(list.map((s) => s.peaks?.[k]));
     const b3ms = avg(list.map((s) => s.b3?.ms));
     const fxMs = avg(pick('fxMs'));
-    const inJs = [Number.isFinite(b3ms) ? `3d ${r1(b3ms)}` : null, Number.isFinite(fxMs) ? `fx ${r1(fxMs)}` : null].filter(Boolean).join(', ');
+    const fxUpd = avg(pick('fxUpd')), fxDraw = avg(pick('fxDraw'));
+    const fxSplit = Number.isFinite(fxUpd) && Number.isFinite(fxDraw) && fxMs >= 0.5 ? `: upd ${r1(fxUpd)} draw ${r1(fxDraw)}` : '';
+    const inJs = [Number.isFinite(b3ms) ? `3d ${r1(b3ms)}` : null, Number.isFinite(fxMs) ? `fx ${r1(fxMs)}${fxSplit}` : null].filter(Boolean).join(', ');
+    const lost = avg(live.map(lostMs));
+    const period = live.find((s) => s.period > 0)?.period;
     const partKeys = Object.keys(list.find((s) => s.parts)?.parts || {});
     const parts = partKeys.map((k) => [k, avg(list.map((s) => s.parts?.[k]))]).filter(([, x]) => Number.isFinite(x));
     const rate = (k, f) => avg(list.map((s) => s[k]?.[f]));
@@ -175,8 +196,9 @@ export function perfReportLines(samples) {
       blank ? `no frames ${blank}` : null,
       `sim ${r2(avg(pick('sim')))}`, `js ${r1(avg(pick('js')))}${inJs ? ` (${inJs})` : ''}`, `draw ${r1(avg(pick('draw')))}`,
       Number.isFinite(other) ? `other ${r1(other)} ms` : null,
+      Number.isFinite(lost) ? `lost ${r1(lost)} ms/f @${r0(1000 / period)}Hz` : null,
       parts.length ? `parts ${parts.map(([k, x]) => `${k} ${r1(x)}`).join(', ')}` : null,
-      Number.isFinite(rate('ui', 'ms')) ? `ui ${r1(rate('ui', 'ms'))} ms/s (${r1(rate('ui', 'n'))}/s)` : null,
+      Number.isFinite(rate('ui', 'ms')) ? `ui ${r1(rate('ui', 'ms'))} ms/s (${r1(rate('ui', 'n'))}/s)${uiTopText(list)}` : null,
       Number.isFinite(rate('msg', 'ms')) ? `msg ${r1(rate('msg', 'ms'))} ms/s (${r1(rate('msg', 'n'))}/s, ${r1(rate('msg', 'kB'))} kB/s)` : null,
       Number.isFinite(peak('js')) || Number.isFinite(peak('draw')) ? `peak ${[['js', 'js'], ['draw', 'draw'], ['3d', 'b3']]
         .filter(([, k]) => Number.isFinite(peak(k))).map(([n, k]) => `${n} ${r0(peak(k))}`).join(', ')} ms` : null,
@@ -187,6 +209,8 @@ export function perfReportLines(samples) {
       imps.length ? `imp ${Math.min(...imps)}–${Math.max(...imps)}` : null,
       Number.isFinite(maxOf(pick('heapMB'))) ? `heap ${r0(maxOf(pick('heapMB')))} MB` : null,
       held ? `held ${heldText(held)}` : null,
+      held?.topUnits?.length ? `top units ${held.topUnits.map((u) => `${u.id}${u.boss ? ' boss' : ''}${u.imp ? ' imp' : ''} ${r1(u.ms)}`).join(', ')}` : null,
+      held?.topFx?.length ? `top fx ${held.topFx.map((e) => `${e.name} ${r1(e.ms)} ×${r1(e.k)}`).join(', ')}` : null,
     ].filter(Boolean).join(' | ');
   });
 }
@@ -197,12 +221,44 @@ const heldText = (h) => [
   `views ${h.views ?? '-'}/${h.pen ?? '-'}/${h.gone ?? '-'}`, `fx ${h.fxLive ?? '-'}/${h.fxNotes ?? '-'}/${h.fxTrails ?? '-'}`,
 ].join(', ');
 
+/** The line's components whose re-renders took the most (ms/s, re-renders/s), the top 3 over its samples. */
+function uiTopText(list) {
+  const by = new Map();
+  for (const s of list) for (const c of s.uiTop || []) {
+    const e = by.get(c.name) || { ms: 0, n: 0 };
+    e.ms += c.ms / list.length; e.n += c.n / list.length;
+    by.set(c.name, e);
+  }
+  if (!by.size) return '';
+  return `: ${[...by].sort((a, b) => b[1].ms - a[1].ms).slice(0, 3).map(([k, e]) => `${k} ${r1(e.ms)}/${r1(e.n)}`).join(', ')}`;
+}
+
 /** Wrap Preact's render batching so each batch's main-thread time adds to `acc` ({ ms, n }). */
 export function timeUiRenders(opts, acc, now = () => globalThis.performance.now()) {
   const prev = opts.debounceRendering;
   const defer = typeof Promise === 'function' ? Promise.prototype.then.bind(Promise.resolve()) : setTimeout;
+  acc.by ||= new Map();
+  // Preact's diff hooks (the vendored build's mangled options._diff = `__b`; `diffed` is public), chained to the ones
+  // already set (preact/hooks): a component diffed at depth 0 is a root of its batch, its time includes its subtree
+  let depth = 0, root = null, rootT = 0;
+  const prevDiff = opts.__b, prevDiffed = opts.diffed;
+  opts.__b = (vnode) => {
+    if (depth === 0 && typeof vnode?.type === 'function') { root = vnode; rootT = now(); }
+    depth++;
+    if (prevDiff) prevDiff(vnode);
+  };
+  opts.diffed = (vnode) => {
+    if (prevDiffed) prevDiffed(vnode);
+    depth = Math.max(0, depth - 1);
+    if (vnode === root) {
+      const name = vnode.type.displayName || vnode.type.name || '?', e = acc.by.get(name);
+      if (e) { e.ms += now() - rootT; e.n++; } else acc.by.set(name, { ms: now() - rootT, n: 1 });
+      root = null;
+    }
+  };
   opts.debounceRendering = (cb) => (prev || defer)(() => {
     const t0 = now();
+    depth = 0; root = null;   // a render that threw left no diffed
     try { cb(); } finally { acc.n++; acc.ms += now() - t0; }
   });
 }
@@ -264,6 +320,7 @@ export function installPerfHud() {
   };
   let secMark = runMark(t0), spanMark = secMark;
   let secBusy = busyMark(), spanBusy = secBusy, lastSec = t0;
+  let period = null;   // the display's refresh interval: the least steady 10th-percentile interval seen
   let lastSample = t0;
   let span = [];
   let spanStalls = [];
@@ -297,12 +354,16 @@ export function installPerfHud() {
     lastSec = now;
     if (now - lastSample >= SAMPLE_MS) {
       // a sample's frame, stall, peak and sim numbers cover its whole span; samples are taken while a field is on screen
+      const fr = frameSummary(span);
+      if (fr.n >= 30 && fr.p10 > 0 && (period == null || fr.p10 < period)) period = fr.p10;
       if (view) {
         let held;
         try { held = g.__SP_VIEW__?.raw?.census?.() ?? null; } catch { held = null; }
         if (held) held.dom = g.document.getElementsByTagName('*').length;
-        samples.push(snapshot({ ...at, frames: frameSummary(span), stalls: spanStalls, peaks: peaks ? spanPeaks : null, ...simSince(spanMark, mark),
-          ...busySince(spanBusy, busy, now - lastSample), held }));
+        const k = 1000 / Math.max(1, now - lastSample);
+        const uiTop = [...ui.by].map(([name, e]) => ({ name, ms: e.ms * k, n: e.n * k }));
+        samples.push(snapshot({ ...at, frames: fr, stalls: spanStalls, peaks: peaks ? spanPeaks : null, ...simSince(spanMark, mark),
+          ...busySince(spanBusy, busy, now - lastSample), held, uiTop, period }));
         if (samples.length > SAMPLES_KEPT) samples.shift();
       }
       span = [];
@@ -310,6 +371,7 @@ export function installPerfHud() {
       spanPeaks = { js: null, draw: null, b3: null };
       spanMark = mark;
       spanBusy = busy;
+      ui.by.clear();
       lastSample = now;
     }
   };

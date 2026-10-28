@@ -41,7 +41,8 @@
 // effects alive are capped here per kind (trimLive: MAX_INSTANCES short ones, MAX_LASTING lasting ones — the oldest of
 // that kind ends). The view's adaptive load level (render/app.js adaptLoad, as render/fx.js
 // drops its extras at level ≥ 2): level 2 plays 'high' as 'medium', level 3 also skips the normal-attack effects.
-// stats() → { live, loaded, updateMs, renderMs, calls, particles, notes } (view.stats().fxGame). `trace` (tests): called with
+// stats() → { live, loaded, updateMs, renderMs, calls, particles, notes } (view.stats().fxGame); perfTop(n) → the effects whose
+// players took the most time since the last call (the perf HUD). `trace` (tests): called with
 // { kind, names, by, at } for every effect play() starts, before it loads (node has no WebP, so nothing is drawn there), and
 // { kind: 'spawn', names, by, on, tag, facing } for every extracted prefab spawn() starts, { kind: 'status', names, by } for every
 // status effect statusOn() starts on `by` (render/fxstatus.js, 2026-10-21). `dry` (tests, 2026-10-20): nothing ever
@@ -404,6 +405,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   let stormGen = 0;                  // 2026-10-18: setStorm's battle (clear() ends it; a load finishing after drops its effect)
   let lastViews = null;               // the views map of the last event (the notes trace their targets' views)
   const perf = { updateMs: 0, renderMs: 0, calls: 0 };
+  // the perf HUD's top effects: each effect's player update time (ms) and instances by prefab name since the last perfTop()
+  const perfBy = new Map();
+  let perfFrames = 0;
+  const notePerf = (name, ms) => { const e = perfBy.get(name); if (e) { e.ms += ms; e.k++; } else perfBy.set(name, { ms, k: 1 }); };
   const recent = []; // local patch: the last prefabs started ({ n: name, t: battle clock, seq }) — stats().recent, /debug.html's log
   let recentSeq = 0;
 
@@ -5283,6 +5288,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     },
 
     update(dt, cam, vp) {
+      perfFrames++;
       camRef = cam; // local patch: status effects' heights (playStatus)
       clockS += dt * gameRate(); // local patch: the battle clock (gaps, ends) — the official effects use scaled time
       stepTrails(dt * gameRate()); // local patch
@@ -5357,9 +5363,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (l.backOf && (l.backOf.inst.stopping || !live.includes(l.backOf)) && !l.inst.stopping) l.inst.stop(); // 2026-10-10: a back copy ends with its front
         if (l.inst.pausers?.length) stepPauses(l); // 2026-10-21: the client's pause / finish behaviours
         const mount = l.inst.def?.mount && l.view && typeof l.view.invalid === 'boolean';
+        const tu = performance.now();   // the perf HUD's top effects (perfTop): mount, update and scale
         if (mount) stepMount(l); // 2026-10-27: FollowMountPoint's pause
         if ((!l.hidden && !l.held && !l.paused) || l.inst.stopping) l.inst.update(dt * rate2 * (l.speed > 0 ? l.speed : 1));   // local patch: every effect on the battle clock (the notes did already: trail = speed × time); a front paused for its back copy (stepBackSwitches) waits
         if (mount && l.inst.def.mount.followScale && !l.view.invalid) { const sc = l.view.scale; if (sc && l.inst.nodes?.[0]) l.inst.nodes[0].scale.set(sc[0], sc[1], 1); } // 2026-10-27: `_followScale`, after the clips (LateUpdate)
+        notePerf(l.inst.def?.name ?? '?', performance.now() - tu);
         if (l.inst.emitters?.length) stepEmitters(l); // 2026-10-21: RandomEmitter copies
         if (l.inst.onEmit?.length) stepOnEmit(l); // 2026-10-21: OnPlayEmitter / OnFinishEmitter
         if (l.inst.done && l.status && l.again && l.unit?._fxStatusOn?.has(l.status) && l.unit.alive !== false) { const a = l.again; l.again = null; a(); } // local patch: a status loops
@@ -5455,6 +5463,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       addLive(inst, { view: at, owner: at.id ?? at.info?.id ?? null, buff: false, until: clockS + (def.duration || 3) + 0.5 }, onOp ? (split ? layers.split : layers.under) : layers.over);
       trimLive();
       return true;
+    },
+
+    /**
+     * The perf HUD: the n effects whose players took the most time since the last call — { name, ms: per frame, k: instances
+     * per frame } — then reset.
+     */
+    perfTop(n = 3) {
+      const f = Math.max(1, perfFrames);
+      const top = [...perfBy].sort((a, b) => b[1].ms - a[1].ms).slice(0, n).map(([name, e]) => ({ name, ms: e.ms / f, k: e.k / f }));
+      perfBy.clear();
+      perfFrames = 0;
+      return top;
     },
 
     /** Per-frame averages (update = the players, render = the layer's draw), the last frame's draw calls, live particles. */
