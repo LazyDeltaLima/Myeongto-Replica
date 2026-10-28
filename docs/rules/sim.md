@@ -1105,8 +1105,8 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   - 假想敌：管 `1`(`projectile_enemy_acduml` 10): 0.25 s 간격 세 발이 余音에 닿을 때 폭발·余音 피격. 假想敌：弦 `1`(`projectile_enemy_acdumm` 10): 金 余音에
     닿을 때 폭발·暗 전환. 둘의 일반 공격도 공식 `proj`(같은 키, 10)로 날아 닿을 때 폭발(아래 「假想敌：管·弦 일반 공격…」).
 - **'dmg' 이벤트 6번째 = 공격자 unit id** (`server/sim/damage.js attackerId`): 일반 공격, 키트가 `battle.dealDamage`로 넣는 스킬 피해('atk' 없음 — 키트
-  약 60개), DoT(건 유닛), 소환물(자기 id). 无来源(원소 폭발, `periodicDamage`)·출처 없는 피해는 null — 다만 `showSource` 표시가 있는
-  无来源(锡人 연금 단위 틱)은 처치가 가는 유닛 id(아래 「锡人 연금 단위의 피해는 无来源이고 회피할 수 있다」). 원소 게이지
+  약 60개), DoT(건 유닛), 소환물(자기 id). 무출처(원소 폭발, `periodicDamage`)·출처 없는 피해는 null — 다만 `showSource` 표시가 있는
+  무출처(틴맨 연금 장판 틱)는 처치가 가는 유닛 id(`sim.md` 「틴맨 연금 장판의 피해는 무출처이고 회피할 수 있다」). 원소 게이지
   채움도 같은 자리(5번째는 0). 기존 원소 위치·뜻은 그대로.
 - **'dmg' 이벤트 7번째 = 지속 피해 틱 1 / 아니면 0** (2026-10-11, `server/sim/damage.js dotFlag`, 사용자 제보 「아스카론 S2 지속 피해 소리가 공격 소리」):
   태그 `'dot'`(持续伤害 = 공식 attackType BUFF, 버프 그래프의 피해 노드)인 피해. 소리가 그 틱을 착탄으로 치지 않게 한다(`docs/rules/audio.md` 「지속 피해 틱」).
@@ -1838,54 +1838,54 @@ upstream `6ab24682` → master `c9d804f4`·dev `06a92237` 대조에서 받은 �
 
 upstream master `c9d804f4`·dev `06a92237` → master `f07b8965`·dev `71b2363f` 대조에서 받은 피해 계산 수정 6건(관리자 결정 2026-10-29). upstream 0.3.2의 새
 상해 판정 커널 위 코드라 모두 손 이식이고, 커널과 순서 모델 자체는 받지 않았다(보류). 6건 모두 우리 엔진에서 같은 증상을 먼저 재현했다(새 시험이 수정 전 코드에서 실패).
+이름은 공식 한국어로 쓴다(관리자 결정 2026-10-29, 위 「쓰는 법」).
 
 ### 오퍼레이터가 받는 원소 폭발 피해는 회피할 수 있다 (upstream `6c2873eb`, `741428e3`)
 
-- 규칙: 오퍼레이터 쪽 폭발 피해(灼燃 1200 법술, 侵蚀 800 물리, 凋亡 초당 100 법술)는 다른 물리·법술 피해처럼 회피 판정을 거친다(`server/sim/damage.js resolveBurst`의
-  `hit`에서 `canDodge: false`를 뺌). 无来源·처치 귀속은 그대로. 적 쪽 元素伤害는 원래 회피가 없어 바뀌지 않는다. 신경 폭발의 1000 진실 피해도 회피 대상이 아니다.
-- 근거: 공식 `buff_template_data` `ep_break_fire_char`·`ep_break_water_char`·`ep_break_anger_char`의 NoSourceDamage — `_ignoreCancelReasonMask` NONE(회피로
+- 규칙: 오퍼레이터 쪽 폭발 피해(소각 1200 마법, 침식 800 물리, 쇠약 초당 100 마법)는 다른 물리·마법 피해처럼 회피 판정을 거친다(`server/sim/damage.js resolveBurst`의
+  `hit`에서 `canDodge: false`를 뺌). 무출처·처치 귀속은 그대로. 적 쪽 원소 대미지는 원래 회피가 없어 바뀌지 않는다. 신경 손상 폭발의 1000 트루 대미지도 회피 대상이 아니다.
+- 근거: 공식 `buff_template_data` `ep_break_fire_char`·`ep_break_water_char`·`ep_break_anger_char`의 무출처 피해 노드 — `_ignoreCancelReasonMask` NONE(회피로
   취소되는 것을 막지 않음).
 - 테스트 `test/sim/combat.test.js` 「element bursts on operators can be dodged」.
 
-### 茶器(적)는 법술·진실 피해만 센다 (upstream `741428e3`)
+### 다기(적)는 마법·트루 대미지만 센다 (upstream `741428e3`)
 
-- 규칙: `hitCountArts`(青瓷茶器·彩瓷茶器, `enemy_1204_msfhu`·`_2`)는 법술·진실 피해 한 번에 1씩 준다. 물리와 元素伤害는 0(`damage.js`의 频次 갈래). 전에는
-  元素伤害도 1로 셌다. `hitCount`(다른 频次 적)는 그대로 모든 종류.
-- 근거: 적 표 문구 「需要4次法术或真实伤害击倒」. **[추정·자료 없음: 적 문구가 법술·진실만 적어서 元素伤害를 뺐다. 공식 판정 노드는 확인 안 함]**
+- 규칙: `hitCountArts`(청자 다기 `enemy_1204_msfhu`·채색 다기 `enemy_1204_msfhu_2`)는 마법·트루 대미지 한 번에 1씩 준다. 물리와 원소 대미지는 0(`damage.js`의 빈도 갈래).
+  전에는 원소 대미지도 1로 셌다. `hitCount`(다른 빈도 적)는 그대로 모든 종류.
+- 근거: 적 표 문구 「마법 혹은 트루 대미지 4회 피격 시 쓰러진다」. **[추정·자료 없음: 적 문구가 마법·트루만 적어서 원소 대미지를 뺐다. 공식 판정 노드는 확인 안 함]**
 - 테스트 `test/content/enemies_bosses.test.js` 「茶器 (hitCountArts)」.
 
-### 호시구마 战术装甲은 종류·출처를 가리지 않고 막는다 (upstream `741428e3`)
+### 호시구마의 「전술 장갑」은 종류·출처를 가리지 않고 막는다 (upstream `741428e3`)
 
-- 규칙: 25 % 伤害抵挡이 모든 피해 한 번 — 진실 피해, 无来源, 적이 아닌 출처 포함 — 에 걸린다(`kits/ops/chess_char_4_17-hsguma.js`). 원소 게이지 채움(`element`)은
-  피해가 아니라 막지 않는다. 전에는 적이 낸 물리·법술만 막았다.
-- 근거: 공식 `hsguma_e_002_t` BlockDamage `_filterDamageType` false. `docs/SIM.md` 원소 절의 抵挡 문장도 고침.
+- 규칙: 호시구마(오퍼레이터)의 25 % 대미지 무효화가 모든 피해 한 번 — 트루 대미지, 무출처, 적이 아닌 출처 포함 — 에 걸린다(`kits/ops/chess_char_4_17-hsguma.js`).
+  원소 게이지 채움(`element`)은 피해가 아니라 막지 않는다. 전에는 적이 낸 물리·마법만 막았다.
+- 근거: 공식 `hsguma_e_002_t` BlockDamage `_filterDamageType` false. `docs/SIM.md` 원소 절의 무효화 문장도 고침.
 - 테스트 `test/content/kits_alt_t4.test.js` 「星熊 战术装甲」.
 
-### 锡人 연금 단위의 피해는 无来源이고 회피할 수 있다 (upstream `aa74f76a`)
+### 틴맨 연금 장판의 피해는 무출처이고 회피할 수 있다 (upstream `aa74f76a`)
 
-- 규칙: S1·S2 연금 단위의 초당 법술 피해는 `sourceless`(无来源)다. 그녀의 피해 증가 배율·관통이 안 붙고, 훅은 출처 없이 보며, 처치·통계는 `credit`으로 그녀에게
-  간다. 회피 판정도 거친다(`canDodge: false`를 뺌). 凋敝魂灵 배율은 대상 쪽 훅이라 그대로 붙는다(`kits/ops/chess_char_1_16-tinman.js`·`chess_char_2_19-tinman.js`).
-  `'dmg'` 이벤트의 공격자 칸(6번째)은 无来源이면 null이지만, 이 피해만은 `showSource`로 그녀의 id를 남긴다. 클라가 단위의 틱 소리(`tinman_s_2[audio]`)를 그녀에게
+- 규칙: 틴맨(오퍼레이터) S1·S2 연금 장판의 초당 마법 피해는 `sourceless`(무출처)다. 그녀의 피해 증가 배율·관통이 안 붙고, 훅은 출처 없이 보며, 처치·통계는 `credit`으로 그녀에게
+  간다. 회피 판정도 거친다(`canDodge: false`를 뺌). 재능 「쇠락의 영혼」 배율은 대상 쪽 훅이라 그대로 붙는다(`kits/ops/chess_char_1_16-tinman.js`·`chess_char_2_19-tinman.js`).
+  `'dmg'` 이벤트의 공격자 칸(6번째)은 무출처면 null이지만, 이 피해만은 `showSource`로 그녀의 id를 남긴다. 클라가 장판의 틱 소리(`tinman_s_2[audio]`)를 그녀에게
   묶어 내기 때문이다(`damage.js attackerId`). 빼면 실제 판에서 틱 소리가 사라진다(`test/audio-skill-hit-signals.test.js` 실제 매치 경로).
-- 근거: 공식 `tinman_s_1`·`tinman_s_2` NoSourceDamage MAGICAL, `_ignoreCancelReasonMask` NONE. 지침서가 걱정한 처치 귀속은 우리 엔진의 无来源이 이미 출처를
-  `credit`으로 남겨 깨지지 않는다. 그래서 출처를 남길지 따로 묻지 않았다.
-- 테스트 `test/content/kits_t1t2.test.js` 「锡人 alchemy units」, 기존 锡人 구역 시험은 `credit`으로 셈.
+- 근거: 공식 `tinman_s_1`·`tinman_s_2`의 무출처 마법 피해 노드, `_ignoreCancelReasonMask` NONE. 처치 귀속은 우리 엔진의 무출처가 이미 출처를 `credit`으로 남겨 깨지지 않는다.
+- 테스트 `test/content/kits_t1t2.test.js` 「锡人 alchemy units」, 기존 틴맨 장판 시험은 `credit`으로 셈.
 
-### 仇白 入隙는 맞힌 0.1초 뒤에 본다 (upstream `aa74f76a`)
+### 치우바이의 「빈틈 포착」은 맞힌 0.1초 뒤에 본다 (upstream `aa74f76a`)
 
-- 규칙: 공격이 맞으면 落英(모듈 첫 타 3초 속박 또는 확률 속박)을 먼저 걸고, 入隙의 停顿·束缚 확인과 추가 법술 피해는 0.1초 뒤(`battle.after`)에 한다. 그래서 같은 타격의
-  落英 속박도 入隙를 부른다. 공격력은 그때 값(`kits/ops/chess_char_6_15-qiubai.js`).
-- 근거: 공식 `qiubai_t_1`(모듈 `qiubai_e_002_t`) — ON_CALCULATE_DAMAGE → 대상에 lifeTime 0.1 버프 → ON_BUFF_FINISH에서 CheckAbnormalFlag → DamageViaAttr(MAGICAL).
-- 그대로 둔 것: 入隙를 부르는 것은 일반 공격 타격(`afterHit`)뿐이다. upstream은 ON_CALCULATE_DAMAGE 전체로 옮겼지만 그것은 상해 판정 커널(보류) 쪽이다.
+- 규칙: 치우바이(오퍼레이터)의 공격이 맞으면 「낙화」(모듈 첫 타 3초 속박 또는 확률 속박)를 먼저 걸고, 「빈틈 포착」의 정지·속박 확인과 추가 마법 피해는 0.1초 뒤(`battle.after`)에
+  한다. 그래서 같은 타격의 「낙화」 속박도 「빈틈 포착」을 부른다. 공격력은 그때 값(`kits/ops/chess_char_6_15-qiubai.js`).
+- 근거: 공식 `qiubai_t_1`(모듈 `qiubai_e_002_t`) — 피해 계산 때 대상에 0.1초 버프를 걸고, 그 버프가 끝날 때 상태를 확인해 마법 피해를 준다.
+- 그대로 둔 것: 「빈틈 포착」을 부르는 것은 일반 공격 타격(`afterHit`)뿐이다. upstream은 모든 피해 계산으로 넓혔지만 그것은 상해 판정 커널(보류) 쪽이다.
 - 테스트 `test/content/kits_alt_t6.test.js` 「仇白 入隙 checks 0.1 s after the hit」.
 
-### 弱点伤害는 이론 피해로만 종류를 고른다 (upstream `aa74f76a` 3)
+### 약점 대미지는 이론 피해로만 종류를 고른다 (upstream `aa74f76a` 3)
 
-- 규칙: 물리·법술 중 큰 쪽을 고를 때 관통 + 방어·저항 공식만 본다. 공격자의 `physDealtMul`·`artsDealtMul`과 대상의 `physTakenMul`·`artsTakenMul`은 넣지 않는다
-  (`server/sim/content/garrisons/battle.js weaknessType`). 같으면 원래 종류. 그 앞 기본 우선순위 훅의 공격력 배율(海怪 상대 공격력 200 % `garrison_18_b` 등)은
+- 규칙: 물리·마법 중 큰 쪽을 고를 때 관통 + 방어·마법 저항 공식만 본다. 공격자의 `physDealtMul`·`artsDealtMul`과 대상의 `physTakenMul`·`artsTakenMul`은 넣지 않는다
+  (`server/sim/content/garrisons/battle.js weaknessType`). 같으면 원래 종류. 그 앞 기본 우선순위 훅의 공격력 배율(바다 괴물 적 공격 시 공격력 200 % `garrison_18_b` 등)은
   이론 피해에 들어가는 공격력 배율이라 그대로 반영된다.
-- 근거: 공식 클라 `WeakDamage`는 물리·법술로 관통 + 기본 공식만 한 번씩 계산해 비교한다(공식 클라에서 확인). PRTS 术语释义 「仅计入攻击力、攻击力倍率、攻击力附加值、
-  百分比/固定值的物理/法术贯穿、目标防御/法抗，不计入…任何伤判效果」.
+- 근거: 공식 클라 `WeakDamage`는 물리·마법으로 관통 + 기본 공식만 한 번씩 계산해 비교한다(공식 클라에서 확인). PRTS 용어 설명은 이론 피해에 공격력·공격력 배율·추가 공격력·
+  % / 고정 관통·대상 방어·마법 저항만 넣고 「피해 판정 효과는 넣지 않는다」고 한다.
 - 테스트 `test/content/garrisons_battle.test.js` 「弱点伤害 compares 理论伤害 only」.
 
 golden: fields boss-boss_1-pair·boss-boss_2-pair·boss-boss_2-solo·boss-boss_3-pair·boss-boss_4-solo·boss-boss_5-pair·boss-boss_7-pair·hidden-boss_9-pair·

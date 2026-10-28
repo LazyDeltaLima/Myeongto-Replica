@@ -9,7 +9,9 @@ repository; there is no separate agent file.
 Languages: code, comments and the repository documents are English; game terms are quoted in the official Chinese
 (自选, 跟子, 联防) so they can be searched in the data; player-facing strings are Chinese through `t('…')` with the English in
 `public/i18n/en.json` and the Korean built into `public/i18n/ko.json`; issues and pull requests may be written in Korean or
-English; `docs/rules/` (this fork's rules and their evidence) is written in Korean.
+English; `docs/rules/` (this fork's rules and their evidence) is written in Korean and names operators, enemies, strategies,
+items, skills and game terms by their official Korean names (`public/i18n/ko/data.json` maps the Chinese to them), with
+the data id where a search needs it (maintainer decision 2026-10-29; `docs/rules/README.md` 「쓰는 법」).
 
 ## 1. Setup
 
