@@ -2,7 +2,7 @@
 // frame window summary, the readout's lines and the report's per-round lines.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { perfFlag, frameSummary, snapshot, hudLines, perfReportLines, otherMs, LONG_FRAME_MS, REPORT_GROUPS } from '../../public/js/ui/perfHud.js';
+import { perfFlag, frameSummary, snapshot, hudLines, perfReportLines, otherMs, timeUiRenders, LONG_FRAME_MS, REPORT_GROUPS } from '../../public/js/ui/perfHud.js';
 
 test('?perf=1 turns it on and remembers it, ?perf=0 turns it off and forgets it, no query reads the memory', () => {
   assert.deepEqual(perfFlag('?perf=1', false), { on: true, save: true });
@@ -55,8 +55,8 @@ test('the report: consecutive samples of one round and phase make a line; only t
     snap({ at: 80_000, frames: { fps: 40, p95: 35, max: 90, long: 5 }, view: { ...view, units: 56, lod: 2, board3d: { on: true, calls: 18 } } }),
   ];
   assert.deepEqual(perfReportLines(samples), [
-    'R12 PREP 1:00–1:00 | q high | fps 60 (min 60) | p95 17 ms | worst 18 ms | long 0 | sim 0.42 | js 3.1 (3d 2.1, fx 2) | draw 4.2 | fx 37 calls | 3d 14 calls | units 42 | lod 0–0',
-    'R12 COMBAT 1:10–1:20 | q high | fps 45 (min 40) | p95 30 ms | worst 90 ms | long 8 | sim 0.42 | js 3.1 (3d 2.1, fx 2) | draw 4.2 | other 14.7 ms | fx 37 calls | 3d 18 calls | units 56 | lod 0–2',
+    'R12 PREP 1:00–1:00 | q high | fps 60 (min 60) | p95 17 ms | worst 18 ms | long 0 | sim 0.42 | js 3.1 (3d 2.1, fx 2) | draw 4.2 | fx 37 calls | 3d 14 calls | units 42 | lod 0–0 | imp 2–2',
+    'R12 COMBAT 1:10–1:20 | q high | fps 45 (min 40) | p95 30 ms | worst 90 ms | long 8 | sim 0.42 | js 3.1 (3d 2.1, fx 2) | draw 4.2 | other 14.7 ms | fx 37 calls | 3d 18 calls | units 56 | lod 0–2 | imp 2–2',
   ]);
   const many = Array.from({ length: REPORT_GROUPS + 5 }, (_, i) => snap({ round: i + 1, at: i * 10_000 }));
   const lines = perfReportLines(many);
@@ -95,4 +95,38 @@ test('other: the frame time no measured cost explains, below 55 fps only', () =>
   assert.ok(Math.abs(otherMs(s) - (25 - 6.9 - 1 - 0.6)) < 1e-9);
   assert.ok(Number.isNaN(otherMs({ ...s, fps: 58 })));
   assert.ok(Number.isNaN(otherMs({ ...s, fps: 0 })));
+});
+
+test('the report splits js and other: frame sections, UI renders and messages per second, what the page holds', () => {
+  const held = { objs: 2400, shown: 1100, tex: 310, base: 120, ticker: 9, dom: 812, views: 20, pen: 5, gone: 0, fxLive: 3, fxNotes: 0, fxTrails: 1 };
+  const lines = perfReportLines([
+    snap({ view: { ...view, parts: { units: 2, imp: 0.4, status: 1 } }, ui: { ms: 3, n: 10 }, msg: { ms: 1, n: 8, kB: 20 }, held: { ...held, objs: 2000 } }),
+    snap({ view: { ...view, impostor: 4, parts: { units: 3, imp: 0.6, status: 1 } }, ui: { ms: 5, n: 14 }, msg: { ms: 2, n: 10, kB: 30 }, held }),
+  ]);
+  assert.equal(lines.length, 1);
+  assert.match(lines[0], /\| parts units 2\.5, imp 0\.5, status 1 \| ui 4 ms\/s \(12\/s\) \| msg 1\.5 ms\/s \(9\/s, 25 kB\/s\) \| /);
+  assert.match(lines[0], /\| imp 2–4 \| /);
+  // the last census of the line
+  assert.match(lines[0], /\| held objs 2400 \(1100 shown\), tex 310\/120, ticker 9, dom 812, views 20\/5\/0, fx 3\/0\/1$/);
+  assert.match(hudLines(snap({ ui: { ms: 2.34, n: 6 }, msg: { ms: 0.5, n: 4 } }))[2], /^ui 2\.3ms\/s \(6\) · msg 0\.5ms\/s \(4\)$/);
+});
+
+test('UI render timing: each Preact render batch adds its time and count, the batch still runs', async () => {
+  const opts = {};
+  const acc = { ms: 0, n: 0 };
+  let t = 0;
+  timeUiRenders(opts, acc, () => t);
+  let ran = 0;
+  opts.debounceRendering(() => { ran++; t += 7; });
+  await Promise.resolve();
+  assert.equal(ran, 1);
+  assert.deepEqual(acc, { ms: 7, n: 1 });
+  // a debouncer set before it is kept
+  const queued = [];
+  const o2 = { debounceRendering: (cb) => queued.push(cb) };
+  timeUiRenders(o2, acc, () => t);
+  o2.debounceRendering(() => { t += 3; });
+  assert.equal(queued.length, 1);
+  queued[0]();
+  assert.deepEqual(acc, { ms: 10, n: 2 });
 });

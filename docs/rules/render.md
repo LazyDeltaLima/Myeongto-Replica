@@ -899,6 +899,17 @@ ON_BUFF_FINISH에 대상이 살아 있을 때만(`IfTarget _checkTargetAlive`) +
   구분, fps에서 뺌), `no frames N`(프레임 없는 표본, fps·p95에서 뺌), `js X (3d …, fx …)`(js 안의 3D 보드 CPU·이펙트 몫),
   `other X ms`(55 fps 밑 표본에서 프레임 − js − draw − sim: GPU·합성 또는 프레임 밖 메인 스레드 일), `peak js …, draw …, 3d … ms`(한 프레임
   최대값: 보기 `takePeaks()`, 1초마다 비움). 테스트 `test/ui/perf-hud.test.js`.
+- **진단 보강 2** (2026-10-28, 관리자 iPhone 12 Pro 1.5.7 솔로 초월 R1–R15 로그: 준비 단계 `js`가 유닛 수 그대로인데 R10 → R15 3배, `other`가
+  R6부터 14–23 ms로 평평 — 무엇이 늘었는지 로그로 못 가름): `perf:` 줄에 넷을 더한다. ① `parts …`: 필드 프레임 JS를 구간별로(보기
+  `stats().parts`, `cpuMs`와 같은 이동 평균) — `misc`(카메라·HUD 확대·경로 커서), `b3`(3D 보드 그리기), `tiles`(타일 투영·배경·타일 애니메이션),
+  `ev`(전투 이벤트·스냅숏 동기화), `units`(유닛 보기 갱신, 임포스터 그리기 포함), `inf`(活性源石 「!!!」 표시), `hud`(피해 숫자), `status`
+  (`syncStatusFx`+`syncGoldenFx`), `fx`(`fxGame.update` 전체), `imp`(임포스터 아틀라스 flush); 합이 `js`보다 작은 몫은 그 앞의 일.
+  ② `ui X ms/s (N/s)`: UI 다시 그리기(Preact 묶음 렌더, 켜져 있을 때만 `options.debounceRendering`을 감싸 잼)의 초당 메인 스레드 시간.
+  ③ `msg X ms/s (N/s, K kB/s)`: 서버 메시지 처리(`net.js` `rx`: 파싱과 저장소의 동기 리스너)의 초당 시간·개수·크기. 브라우저의 스타일·
+  배치·칠하기는 여전히 `other`. ④ `held …`(줄의 마지막 표본, 10초마다): 페이지가 들고 있는 것 — PIXI 표시 객체 수(그려지는 것), 텍스처
+  캐시(Texture/BaseTexture), ticker 리스너, 문서 요소 수, 보기 맵(유닛/적 미리 보기/전투에서 사라진 것), 이펙트 층(살아 있는 것/노트/궤적);
+  판 동안 줄지 않고 늘기만 하면 누수(보기 `census()`). 그리고 `imp a–b`(임포스터 간격 범위). 글자 표시엔 `ui …ms/s · msg …ms/s` 한 줄.
+  측정 기능이지 동작 변경 없음(프레임당 `performance.now()` 12번 더). 테스트 `test/ui/perf-hud.test.js`.
 
 ## 3D 보드 첫 그리기 미리 준비 (2026-10-16, 관리자 제공 iPhone 12 Pro 로그 「필드가 뜬 직후 한 표본이 프레임 0, PIXI 그리기 평균 277 ms」)
 - 측정 기능의 `perf:` 줄로 본 멈춤은 필드 진입 직후(엔진 마운트가 끝나고 3D 보드·공식 씬이 막 도착한 구간)였다. Windows Chrome에서 같은

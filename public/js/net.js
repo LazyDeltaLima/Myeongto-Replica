@@ -169,6 +169,7 @@ export class Net {
     this._lastRx = 0;
     this._unansweredSince = null; // time of the oldest ping sent since the last inbound frame
     this._clockSamples = [];   // [{ offset, rtt }]
+    this.rx = { n: 0, ms: 0, bytes: 0 }; // inbound frames handled, the main-thread time they took, their size (the perf HUD)
   }
 
   // ---- events ----------------------------------------------------------------------------------
@@ -238,7 +239,14 @@ export class Net {
     this.ws = ws;
     if (!quiet) this._setStatus(this.attempt > 0 ? 'reconnecting' : 'connecting');
     ws.onopen = () => { if (ws === this.ws) this._onOpen(); };
-    ws.onmessage = (ev) => { if (ws === this.ws) this._onMessage(ev?.data); };
+    ws.onmessage = (ev) => {
+      if (ws !== this.ws) return;
+      const t0 = globalThis.performance?.now() ?? 0;
+      try { this._onMessage(ev?.data); } finally {
+        const rx = this.rx;
+        rx.n++; rx.ms += (globalThis.performance?.now() ?? 0) - t0; rx.bytes += typeof ev?.data === 'string' ? ev.data.length : 0;
+      }
+    };
     ws.onerror = () => { /* followed by close */ };
     ws.onclose = (ev) => { if (ws === this.ws) this._onClose(ev); };
   }

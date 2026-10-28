@@ -59,7 +59,8 @@
 //   view.setSettings({ damageNumbers, quality: 'high'|'medium'|'low' }) ; view.resize() ; view.destroy()
 //   view.isReady() → false while the first frame is held back (its textures go up behind the loading screen); then
 //        emits ready (no payload) after the first frame that draws the field ("first frame" below)
-//   view.stats() → { fps, frameMs, cpuMs, renderMs, units, particles, impostor, impostorAtlas, boardArt, … } (dev / perf)
+//   view.stats() → { fps, frameMs, cpuMs, renderMs, parts, units, particles, impostor, impostorAtlas, boardArt, … } (dev / perf)
+//   view.census() → { objs, shown, tex, base, ticker, views, pen, gone, fxLive, fxNotes, fxTrails } (perf: what the page holds)
 //
 // Enemy preview pen (research 09 §2.2 / 08 §4.2, render/pen.js): in prep the next round's enemies idle in the pen
 // (rows 14–18 × cols 7–13; upper-gate enemies rows 17–18, lower-gate rows 14–15; spawn-time order, ≤ 3 per tile,
@@ -2035,6 +2036,16 @@ export async function createFieldView(host, options = {}) {
   let lastJs = 0;   // the last frame's JS (ms): the report's first-frame notes
   // the longest single frame JS / PIXI render / 3D board draw (ms) since the last takePeaks() (the perf HUD's stalls)
   const peaks = { js: 0, draw: 0, b3: 0 };
+  // The frame JS split by section (ms, the same moving mean as cpuMs; stats().parts, the perf HUD's report): misc = camera,
+  // HUD zoom and the route cursors; b3 = the 3D board draw; tiles = tile projection, backdrop and tile animation; ev = the
+  // battle's events and snapshot sync (prep: pending drops); units = every unit view's update (impostor renders included);
+  // inf = the 活性源石 marks; hud = damage numbers (fx.js); status = syncStatusFx + syncGoldenFx; fx = fxGame.update (its
+  // own step functions included); imp = the impostor atlas flush. What the sum leaves of cpuMs ran before them.
+  const PARTS = ['misc', 'b3', 'tiles', 'ev', 'units', 'inf', 'hud', 'status', 'fx', 'imp'];
+  const parts = Object.fromEntries(PARTS.map((k) => [k, 0]));
+  const lapMs = Object.fromEntries(PARTS.map((k) => [k, 0]));
+  let lapT = 0;
+  const lap = (k) => { const t = performance.now(); lapMs[k] += t - lapT; lapT = t; };
   let frameNo = 0;
   let impInterval = 0;
   // Each frame the impostor units take slots 0, 1, 2 … in update order (units.js _updateImpostor): a unit refreshes when
@@ -2103,9 +2114,12 @@ export async function createFieldView(host, options = {}) {
     vp.width = Math.max(1, host.clientWidth || 1); vp.height = Math.max(1, host.clientHeight || 1);
     clock += dt;
     if ((globalThis.devicePixelRatio || 1) !== lastDpr) { lastDpr = globalThis.devicePixelRatio || 1; resize(); }
+    for (const k of PARTS) lapMs[k] = 0;
+    lapT = performance.now();
     try {
       stepCamera(now);
       updateHudZoom();
+      lap('misc');
       if (board3d) {
         if (board3d.lost) onBoard3dLost();
         else if (!board3d.warming) {
@@ -2115,8 +2129,10 @@ export async function createFieldView(host, options = {}) {
           if (ms3 > peaks.b3) peaks.b3 = ms3;
         }
       }
+      lap('b3');
       tiles.project(cam);
       updateBackdrop(clock);
+      lap('tiles');
       if (mode === 'battle') {
         const renderT = interp.update(now / 1000);
         if (Number.isFinite(renderT)) {
@@ -2135,6 +2151,7 @@ export async function createFieldView(host, options = {}) {
           }
         }
       }
+      lap('ev');
       for (const [key, v] of views) {
         if (v._tween) {
           const tw = v._tween;
@@ -2148,17 +2165,46 @@ export async function createFieldView(host, options = {}) {
       }
       if (!penHidden) for (const v of penViews.values()) v.update(dt, cam, clock);
       if (leader && !leaderHidden) leader.view.update(dt, cam, clock);
+      lap('units');
       updateInfectionMarks(); // local patch
+      lap('inf');
       tiles.update(dt);
+      lap('tiles');
       fx.update(dt);
+      lap('hud');
       syncStatusFx(views, fxGame, mode === 'battle'); // local patch: official status effects (fxstatus.js)
       syncGoldenFx(views, fxGame, mode === 'prep'); // local patch: the official elite glow in the prep (fxgolden.js)
+      lap('status');
       routeCursors.sync(leader && !leaderHidden && mode === 'prep' && prepXf.kind === 'bossPrep' ? leader.stand.entry.paths : null, leader?.stand.entry.fly ? 'FLY' : 'WALK', dt);
+      lap('misc');
       fxGame.update(dt, cam, vp); // local patch
+      lap('fx');
       impostors.flush();
+      lap('imp');
     } catch (err) {
       if (!frame.warned) { frame.warned = true; console.error('[render] frame failed', err); }
     }
+    for (const k of PARTS) parts[k] = parts[k] * 0.9 + lapMs[k] * 0.1;
+  }
+  // What the page holds (the perf HUD reads it every SAMPLE_MS: a count that only grows over a match is a leak) — the PIXI
+  // display objects under the stage and those drawn (visible all the way up), the texture caches, the ticker's
+  // listeners, the view maps.
+  function census() {
+    let objs = 0, shown = 0;
+    const walk = (o, on) => {
+      objs++;
+      const vis = on && o.visible !== false && o.renderable !== false;
+      if (vis) shown++;
+      const cs = o.children;
+      if (cs) for (let i = 0; i < cs.length; i++) walk(cs[i], vis);
+    };
+    walk(app.stage, true);
+    const keys = (o) => (o ? Object.keys(o).length : null);
+    const fs = fxGame.stats();
+    return {
+      objs, shown, tex: keys(P.utils?.TextureCache), base: keys(P.utils?.BaseTextureCache), ticker: app.ticker.count ?? null,
+      views: views.size, pen: penViews.size, gone: gone.size, fxLive: fs.live, fxNotes: fs.notes, fxTrails: fs.trails,
+    };
   }
   // local patch (LOCAL-PATCH.md 「공식 맵 렌더링」): the red 「!!!」 of the 活性源石 buff (render/infectionMark.js) — in prep
   // over the board pieces standing on the tile, in battle over every ground unit that has touched one this battle (the
@@ -2541,8 +2587,10 @@ export async function createFieldView(host, options = {}) {
         buffered: interp.size, camera: cam.params(),
         fxGame: fxGame.stats(), // local patch
         res: app.renderer.resolution, boardRes: board3d ? board3d.size.dpr : null,
+        parts: Object.fromEntries(PARTS.map((k) => [k, Math.round(parts[k] * 100) / 100])),
       };
     },
+    census,
     /** The longest single frame costs (ms) since the last call, then reset (the perf HUD; b3 null without a 3D board). */
     takePeaks() {
       const p = { js: peaks.js, draw: peaks.draw, b3: board3d ? peaks.b3 : null };

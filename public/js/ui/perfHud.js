@@ -17,16 +17,27 @@
 // clock drifts from them). `other` is the frame time no measured cost explains (frame − js − draw − sim) on samples
 // below 55 fps: the GPU and the compositor, or main-thread work outside the frame (messages, the UI).
 //
+// What splits `js` and `other` further (the report only): `parts`, the field frame's JS by section (render/app.js
+// stats().parts: unit updates, the impostor flush, status effects, …); `ui`, the main-thread time of the UI's re-renders
+// (Preact's batched renders, timed through options.debounceRendering while the HUD is on) per second; `msg`, the time of
+// the server messages' handling (net.js rx: parsing and the store's synchronous listeners) per second; `held`, every
+// SAMPLE_MS, what the page holds (render/app.js census(): PIXI display objects and those drawn, the texture caches, the
+// ticker's listeners, the view maps, the effect layer's live / notes / trails; the document's element count) — a count
+// that only grows over a match is a leak. The browser's own style, layout and paint for the UI stay in `other`.
+//
 //   perfFlag(search, saved)    → { on, save }  (save: the value to remember, undefined = leave it)
 //   frameSummary(intervals)    → { fps, p95, max, long, n }
 //   hudLines(snap)             → the readout's lines
 //   perfReportLines(samples)   → the report's `perf:` lines
+//   timeUiRenders(opts, acc)   wraps Preact's options.debounceRendering: each render batch's time adds to acc { ms, n }
 //   installPerfHud()           main.js boot: reads the flag, mounts the readout, registers the report source
 
 import { loadPref, savePref, store } from '../store.js';
 import { settingsStore } from './settings.js';
 import { battleRunner } from '../battle/runner.js';
 import { setPerfSource } from '../diag.js';
+import { net } from '../net.js';
+import { options as preactOptions } from '../../vendor/preact.module.js';
 
 export const SAMPLE_MS = 10_000;
 export const SAMPLES_KEPT = 720; // two hours
@@ -72,7 +83,9 @@ const resOf = (p) => (p.res != null ? `${r2(p.res)}/${p.boardRes != null ? r2(p.
  * One reading: the frame window, the view's and the runner's numbers, where the match is.
  * @param {{ frames: ReturnType<typeof frameSummary>, view: any, kind: string|null, simMs: number|null, ticksPerSec: number|null,
  *   round: number|null, phase: string|null, quality: string|null, dpr: number|null, heapMB: number|null, at: number,
- *   wall?: number, stalls?: number[], peaks?: { js?: number, draw?: number, b3?: number }|null }} s
+ *   wall?: number, stalls?: number[], peaks?: { js?: number, draw?: number, b3?: number }|null,
+ *   ui?: { ms: number, n: number }|null, msg?: { ms: number, n: number, kB?: number }|null, held?: Record<string, number|null>|null }} s
+ *   (ui / msg: per second)
  */
 export function snapshot(s) {
   const v = s.view || {};
@@ -89,6 +102,7 @@ export function snapshot(s) {
     b3: b3.on ? { calls: b3.calls ?? null, ms: b3.cpuMs ?? null, tex: b3.textures ?? null } : null,
     units: v.units ?? null, lod: v.lod ?? null, imp: v.impostor ?? null, quality: s.quality, dpr: s.dpr, heapMB: s.heapMB,
     res: v.res ?? null, boardRes: v.boardRes ?? null,
+    parts: v.parts ? { ...v.parts } : null, ui: s.ui ?? null, msg: s.msg ?? null, held: s.held ?? null,
   };
 }
 
@@ -98,6 +112,7 @@ export function hudLines(p) {
     `fps ${r0(p.fps)} · p95 ${r0(p.p95)}ms · max ${r0(p.max)} · long ${p.long}`,
     `sim ${r2(p.sim)}ms/f${p.tps != null ? ` (${r0(p.tps)} t/s)` : ''} · js ${r1(p.js)} · draw ${r1(p.draw)}`,
   ];
+  if (p.ui || p.msg) lines.push(`ui ${r1(p.ui?.ms)}ms/s (${r0(p.ui?.n)}) · msg ${r1(p.msg?.ms)}ms/s (${r0(p.msg?.n)})`);
   if (p.fxMs != null) lines.push(`fx ${r1(p.fxMs)}ms · ${p.fxCalls ?? '-'} calls · ${p.particles ?? '-'} p · ${p.fxLive ?? '-'} live`);
   lines.push(p.b3 ? `3d ${p.b3.calls ?? '-'} calls · ${r1(p.b3.ms)}ms · ${p.b3.tex ?? '-'} tex` : `3d off${p.kind && p.kind !== 'engine' ? ` · view ${p.kind}` : ''}`);
   lines.push(`units ${p.units ?? '-'} · lod ${p.lod ?? '-'} · imp ${p.imp ?? '-'} · q ${p.quality ?? '-'}${resOf(p) ? ` · res ${resOf(p)}` : ''} · dpr ${p.dpr ?? '-'}`);
@@ -143,6 +158,11 @@ export function perfReportLines(samples) {
     const b3ms = avg(list.map((s) => s.b3?.ms));
     const fxMs = avg(pick('fxMs'));
     const inJs = [Number.isFinite(b3ms) ? `3d ${r1(b3ms)}` : null, Number.isFinite(fxMs) ? `fx ${r1(fxMs)}` : null].filter(Boolean).join(', ');
+    const partKeys = Object.keys(list.find((s) => s.parts)?.parts || {});
+    const parts = partKeys.map((k) => [k, avg(list.map((s) => s.parts?.[k]))]).filter(([, x]) => Number.isFinite(x));
+    const rate = (k, f) => avg(list.map((s) => s[k]?.[f]));
+    const imps = pick('imp').filter(Number.isFinite);
+    const held = [...list].reverse().find((s) => s.held)?.held;
     const when = a.wall != null && z.wall != null ? `${wallClock(a.wall)}–${wallClock(z.wall)}` : `${clock(a.at)}–${clock(z.at)}`;
     return [
       `${a.round != null ? `R${a.round} ` : ''}${a.phase || 'no match'} ${when}`,
@@ -155,14 +175,35 @@ export function perfReportLines(samples) {
       blank ? `no frames ${blank}` : null,
       `sim ${r2(avg(pick('sim')))}`, `js ${r1(avg(pick('js')))}${inJs ? ` (${inJs})` : ''}`, `draw ${r1(avg(pick('draw')))}`,
       Number.isFinite(other) ? `other ${r1(other)} ms` : null,
+      parts.length ? `parts ${parts.map(([k, x]) => `${k} ${r1(x)}`).join(', ')}` : null,
+      Number.isFinite(rate('ui', 'ms')) ? `ui ${r1(rate('ui', 'ms'))} ms/s (${r1(rate('ui', 'n'))}/s)` : null,
+      Number.isFinite(rate('msg', 'ms')) ? `msg ${r1(rate('msg', 'ms'))} ms/s (${r1(rate('msg', 'n'))}/s, ${r1(rate('msg', 'kB'))} kB/s)` : null,
       Number.isFinite(peak('js')) || Number.isFinite(peak('draw')) ? `peak ${[['js', 'js'], ['draw', 'draw'], ['3d', 'b3']]
         .filter(([, k]) => Number.isFinite(peak(k))).map(([n, k]) => `${n} ${r0(peak(k))}`).join(', ')} ms` : null,
       `fx ${r0(maxOf(pick('fxCalls')))} calls`,
       Number.isFinite(maxOf(b3)) ? `3d ${r0(maxOf(b3))} calls` : '3d off',
       `units ${r0(maxOf(pick('units')))}`,
       lods.length ? `lod ${Math.min(...lods)}–${Math.max(...lods)}` : null,
+      imps.length ? `imp ${Math.min(...imps)}–${Math.max(...imps)}` : null,
       Number.isFinite(maxOf(pick('heapMB'))) ? `heap ${r0(maxOf(pick('heapMB')))} MB` : null,
+      held ? `held ${heldText(held)}` : null,
     ].filter(Boolean).join(' | ');
+  });
+}
+
+/** The last census of a line: display objects (drawn), textures (base), ticker listeners, DOM elements, view maps, effects. */
+const heldText = (h) => [
+  `objs ${h.objs ?? '-'} (${h.shown ?? '-'} shown)`, `tex ${h.tex ?? '-'}/${h.base ?? '-'}`, `ticker ${h.ticker ?? '-'}`, `dom ${h.dom ?? '-'}`,
+  `views ${h.views ?? '-'}/${h.pen ?? '-'}/${h.gone ?? '-'}`, `fx ${h.fxLive ?? '-'}/${h.fxNotes ?? '-'}/${h.fxTrails ?? '-'}`,
+].join(', ');
+
+/** Wrap Preact's render batching so each batch's main-thread time adds to `acc` ({ ms, n }). */
+export function timeUiRenders(opts, acc, now = () => globalThis.performance.now()) {
+  const prev = opts.debounceRendering;
+  const defer = typeof Promise === 'function' ? Promise.prototype.then.bind(Promise.resolve()) : setTimeout;
+  opts.debounceRendering = (cb) => (prev || defer)(() => {
+    const t0 = now();
+    try { cb(); } finally { acc.n++; acc.ms += now() - t0; }
   });
 }
 
@@ -186,6 +227,14 @@ export function installPerfHud() {
 
   const samples = [];
   setPerfSource(() => perfReportLines(samples));
+  const ui = { ms: 0, n: 0 };
+  timeUiRenders(preactOptions, ui);
+  // the UI's and the messages' running totals at the start of the readout's second and of the sample's span
+  const busyMark = () => ({ uiMs: ui.ms, uiN: ui.n, rxMs: net.rx?.ms ?? 0, rxN: net.rx?.n ?? 0, rxB: net.rx?.bytes ?? 0 });
+  const busySince = (from, to, ms) => {
+    const k = 1000 / Math.max(1, ms);
+    return { ui: { ms: (to.uiMs - from.uiMs) * k, n: (to.uiN - from.uiN) * k }, msg: { ms: (to.rxMs - from.rxMs) * k, n: (to.rxN - from.rxN) * k, kB: (to.rxB - from.rxB) * k / 1024 } };
+  };
 
   let intervals = [];
   let stalls = [];
@@ -214,6 +263,7 @@ export function installPerfHud() {
     return { simMs: df > 0 ? (to.stepMs - from.stepMs) / df : 0, ticksPerSec: (to.ticks - from.ticks) * 1000 / Math.max(1, to.at - from.at) };
   };
   let secMark = runMark(t0), spanMark = secMark;
+  let secBusy = busyMark(), spanBusy = secBusy, lastSec = t0;
   let lastSample = t0;
   let span = [];
   let spanStalls = [];
@@ -240,18 +290,26 @@ export function installPerfHud() {
       quality: settingsStore.get().quality ?? null, dpr: g.devicePixelRatio ?? null,
       heapMB: mem && Number.isFinite(mem.usedJSHeapSize) ? mem.usedJSHeapSize / 1048576 : null,
     };
-    el.textContent = hudLines(snapshot({ ...at, frames: frameSummary(second), ...simSince(secMark, mark) })).join('\n');
+    const busy = busyMark();
+    el.textContent = hudLines(snapshot({ ...at, frames: frameSummary(second), ...simSince(secMark, mark), ...busySince(secBusy, busy, now - lastSec) })).join('\n');
     secMark = mark;
+    secBusy = busy;
+    lastSec = now;
     if (now - lastSample >= SAMPLE_MS) {
       // a sample's frame, stall, peak and sim numbers cover its whole span; samples are taken while a field is on screen
       if (view) {
-        samples.push(snapshot({ ...at, frames: frameSummary(span), stalls: spanStalls, peaks: peaks ? spanPeaks : null, ...simSince(spanMark, mark) }));
+        let held;
+        try { held = g.__SP_VIEW__?.raw?.census?.() ?? null; } catch { held = null; }
+        if (held) held.dom = g.document.getElementsByTagName('*').length;
+        samples.push(snapshot({ ...at, frames: frameSummary(span), stalls: spanStalls, peaks: peaks ? spanPeaks : null, ...simSince(spanMark, mark),
+          ...busySince(spanBusy, busy, now - lastSample), held }));
         if (samples.length > SAMPLES_KEPT) samples.shift();
       }
       span = [];
       spanStalls = [];
       spanPeaks = { js: null, draw: null, b3: null };
       spanMark = mark;
+      spanBusy = busy;
       lastSample = now;
     }
   };
