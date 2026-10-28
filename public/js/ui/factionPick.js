@@ -51,7 +51,10 @@ export async function chooseFaction(id) {
 /**
  * Apply a strategy's roster choice (diyPresets.js bandPresetChoice): a chat faction is picked like the faction row
  * (chooseFaction: the chat tag follows, maintainer 2026-10-12), BASE_LINK shows 不使用预设, anything else changes nothing.
+ * A chat tag the server refuses (cooldown, offline) still applies the faction's preset: the strategy's roster is what
+ * the match takes, the tag is only the chat's (a refused tag left the picks in use silently before 2026-10-28).
  * @param {string|null} choice
+ * @returns {Promise<boolean>} false when the chat tag was refused or the choice is no roster
  */
 export async function applyPresetChoice(choice) {
   if (choice === BASE_LINK) {
@@ -60,7 +63,10 @@ export async function applyPresetChoice(choice) {
     return true;
   }
   if (!chatFaction(choice)) return false;
-  return chooseFaction(choice);
+  if (await chooseFaction(choice)) return true;
+  const now = store.get();
+  if (presetPickLive(now)) applyFactionPreset(choice, { inMatch: !!now.room?.inMatch });
+  return false;
 }
 
 /** The last preset a faction pick applied (ui/diyPresets.js notice), with its 撤销. @param {{ inline?: boolean }} props */

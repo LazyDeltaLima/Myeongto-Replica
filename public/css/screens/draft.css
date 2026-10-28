@@ -257,6 +257,10 @@
   .draft-preset__ava.chessico, .draft-preset__swap, .draft-preset__rm { --ci: 26px; }
   .draft-preset__tier .tier { --tier-h: 15px; }
 }
+/* the roster the row shows, applies and edits (bandDraft.js presetRosterNote); a faction without a preset says the picks
+   in use stay, in the warning tone, since its slots are those picks (two player reports 2026-10-28) */
+.draft-preset__src { display: flex; flex-wrap: wrap; gap: 0 .08rem; margin: 0; font-size: max(.13rem, 9px); color: var(--text-lo); }
+.draft-preset__keepnote { color: var(--amber); }
 .draft-preset__foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .04rem .08rem; }
 .draft-preset__edit.btn { flex: none; height: max(.32rem, 22px); padding: 0 .08rem; font-size: max(.13rem, 9px); }
 .draft-preset__edit .btn__icon { color: var(--mint-400); }

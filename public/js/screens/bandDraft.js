@@ -31,7 +31,9 @@
 // the roster the dropdown shows, a slot opens that slot's picker there — an empty one to fill, a filled one (a swap icon on
 // hover) as its 更换 does, and closing it (确认, 取消 or 清空) comes back here (maintainer requests 2026-10-13); a filled
 // slot's × empties it in the roster the dropdown shows, without leaving the draft (maintainer request 2026-10-13); a faction
-// without a preset shows four empty slots (its 「…自选编队不变」 in the tooltip) (selectPreset: the live picks follow it, as the tab's own preset bar does); the order
+// without a preset shows and edits the picks in use, the ones that go to the match, with 「该阵营尚未设置预设」 written under them
+// (diyPresets.js choiceRoster; until 2026-10-28 four empty slots that read as "no 自选" — two player reports), and a line
+// names the roster the row's edits are saved to (selectPreset: the live picks follow it, as the tab's own preset bar does); the order
 // list carries the overlay's entry (LoadoutButton, from 'draft' — it closes when the draft ends; maintainer request 2026-10-13).
 // 本局信息 (GitHub issue #8 item 1, "选策略时没法返回查看禁用的干员和盟约"): 查看禁用盟约与干员 under the order list opens the
 // briefing's bond rows, legend and 本局禁用干员 again, read-only (ui/matchInfo.js MatchInfoDialog — the very blocks of the
@@ -49,7 +51,7 @@ import { actions, act } from '../ui/gameActions.js';
 import { normalizeDraft, sortedPlayers, diyPickOff } from '../ui/gameLogic.js';
 import { useStore } from '../store.js';
 import { FactionIcon } from '../ui/faction.js';
-import { diyPresetStore, bandPresetChoice, bandRecommendation, linkBand, selectPreset, clearRosterSlot, KEEP_LINK, BASE_LINK } from '../ui/diyPresets.js';
+import { diyPresetStore, bandPresetChoice, bandRecommendation, linkBand, selectPreset, clearRosterSlot, choiceRoster, KEEP_LINK, BASE_LINK } from '../ui/diyPresets.js';
 import { loadoutStore, flushDiySync, flushLoadoutSync, openLoadout } from '../ui/loadoutSync.js';
 import { LoadoutButton } from './loadout.js';
 import { diySlotList } from '../ui/diyModel.js';
@@ -193,16 +195,30 @@ export function draftClock(pub) {
 }
 
 /**
- * The 自选 picks a strategy's roster choice would apply (the 自选预设 row's preview): a faction's preset (empty when it
- * has none — then nothing changes), 不使用预设's roster, or the live picks for 保持当前编队.
+ * The 自选 picks a strategy's roster choice would apply (the 自选预设 row's preview): a faction's preset, 不使用预设's
+ * roster, or the live picks for 保持当前编队 and for a faction without a preset (nothing changes, so the picks in use go
+ * to the match — drawn as such, not as four empty slots: two player reports 2026-10-28).
  * @param {string} choice a chat faction id, BASE_LINK or KEEP_LINK
  * @param {{ presets?: Record<string, any>, base?: Record<string, any> }} st diyPresetStore state
  * @param {Record<string, any>} live the live picks (loadoutStore diy)
  */
 export function presetPreviewPicks(choice, st, live) {
   if (choice === BASE_LINK) return st?.base || {};
-  if (chatFaction(choice)) return st?.presets?.[choice] || null;
+  if (chatFaction(choice) && st?.presets?.[choice]) return st.presets[choice];
   return live || {};
+}
+
+/**
+ * The line under the 自选预设 row's slots: the roster its edits are saved to (diyPresets.js choiceRoster — the one the
+ * choice applies), and for a faction without a preset that the picks in use stay.
+ * @param {string} choice @param {{ presets?: Record<string, any>, active?: string|null }} st diyPresetStore state
+ * @returns {{ roster: string, keeps: boolean } | null} roster = its name (「{faction}预设」 / 不使用预设); null for no roster
+ */
+export function presetRosterNote(choice, st) {
+  const id = choiceRoster(choice, st || {});
+  if (id === undefined) return null;
+  const f = id == null ? null : chatFaction(id);
+  return { roster: f ? t('{faction}预设', { faction: t(f.name) }) : t('不使用预设'), keeps: !!chatFaction(choice) && !st?.presets?.[choice] };
 }
 
 /**
@@ -336,16 +352,17 @@ export function PresetPicker({ choice, presets, off, locked, onChoice }) {
  * (ChessIcon without its own tier badge; the name in the tooltip; maintainer request 2026-10-13: an operator whose every
  * bond this match disables is drawn banned; a slot opens its picker through `onEdit(slotId)` — empty: +, filled: a swap
  * icon on hover, and its × (`onClear(slotId)`) empties it in the roster shown; a faction without a
- * preset: four empty slots) —, 记住 and 编辑自选编队 (`onEdit()`).
+ * preset: the picks in use) —, the line naming that roster (presetRosterNote), 记住 and 编辑自选编队 (`onEdit()`).
  * @param {{ band: any, choice: string, link: string|null, presets: Record<string, any>, base: Record<string, any>,
+ *   active?: string|null,
  *   live: Record<string, any>, off: string[]|null, locked: boolean, remember: boolean, m?: any,
  *   onChoice: (v: string) => void, onRemember: (v: boolean) => void, onEdit?: ((slotId?: string) => void)|null,
  *   onClear?: ((slotId: string) => void)|null }} props
  */
-export function DraftPresetRow({ band, choice, link, presets, base, live, off, locked, remember, m = null, onChoice, onRemember, onEdit = null, onClear = null }) {
+export function DraftPresetRow({ band, choice, link, presets, base, active = null, live, off, locked, remember, m = null, onChoice, onRemember, onEdit = null, onClear = null }) {
   const tags = presetChoiceTags(choice, { link, rec: bandRecommendation(band), off });
-  const preview = presetPreviewPicks(choice, { presets, base }, live);
-  const picks = preview || {}; // a faction without a preset: its slots drawn empty (nothing would change)
+  const picks = presetPreviewPicks(choice, { presets, base }, live);
+  const note = presetRosterNote(choice, { presets, active });
   const slots = diySlotList({ chess: data.get('chess'), backups: data.get('backups') });
   const list = slots.length ? slots.map((x) => ({ id: x.slotId, tier: x.tier, shop: x.shopLevel }))
     : Object.keys(picks || {}).map((id) => ({ id, tier: slotTier(id), shop: slotTier(id) }));
@@ -365,7 +382,7 @@ export function DraftPresetRow({ band, choice, link, presets, base, live, off, l
     <div class="draft-preset__head" title=${t('确认选择时套用，超时自动选择时也会套用；选择阵营预设时聊天阵营一并切换')}><${MicroLabel} tone="mint">DIY PRESET</${MicroLabel}><label for="draft-preset-sel">${t('自选预设')}</label>
       ${tags.map((k) => html`<span key=${k} class=${`draft-preset__tag is-${TAG[k][0]}`}>${TAG[k][1]}</span>`)}</div>
     <${PresetPicker} choice=${choice} presets=${presets} off=${off} locked=${locked} onChoice=${onChoice} />
-    <div class="draft-preset__slots" title=${preview ? null : t('该阵营尚未设置预设，自选编队不变')}>${groups.map((g) => html`<div key=${g.tier ?? '?'} class="draft-preset__grp" data-tier=${g.tier ?? ''}
+    <div class="draft-preset__slots">${groups.map((g) => html`<div key=${g.tier ?? '?'} class="draft-preset__grp" data-tier=${g.tier ?? ''}
         style=${g.tier ? `--gc: var(--tier-${g.tier})` : null}>
       ${g.tier ? html`<span class="draft-preset__tier" title=${[t('{tier}阶 自选', { tier: g.tier }), g.shop && t('调度中心等级 {level} 起出现在商店', { level: g.shop })].filter(Boolean).join(' · ')}>
         <${TierChip} tier=${g.tier} size="sm" /></span>` : null}
@@ -397,6 +414,8 @@ export function DraftPresetRow({ band, choice, link, presets, base, live, off, l
         </span>`;
       })}
     </div>`)}</div>
+    ${note ? html`<p class=${cx('draft-preset__src', note.keeps && 'is-keep')} data-testid="draft-preset-src">${note.keeps
+      ? html`<span class="draft-preset__keepnote">${t('该阵营尚未设置预设，保持当前编队')}</span>` : null}<span>${t('修改保存到：{roster}', { roster: note.roster })}</span></p>` : null}
     <div class="draft-preset__foot">
       <label class="draft-preset__keep" title=${t('确认选择时套用，超时自动选择时也会套用；选择阵营预设时聊天阵营一并切换')}><input type="checkbox"
         checked=${remember && choice !== KEEP_LINK} disabled=${locked || choice === KEEP_LINK} onChange=${(e) => onRemember(e.currentTarget.checked)} />${t('记住此策略的预设')}</label>
@@ -424,6 +443,7 @@ export function BandDraftScreen() {
   const links = useStore((s) => s.links, Object.is, diyPresetStore);
   const presets = useStore((s) => s.presets, Object.is, diyPresetStore);
   const baseRoster = useStore((s) => s.base, Object.is, diyPresetStore);
+  const activeRoster = useStore((s) => s.active, Object.is, diyPresetStore);
   const livePicks = useStore((s) => s.diy, Object.is, loadoutStore);
   const roomKey = useStore((s) => `${s.room?.code || ''}#${s.room?.matchNo ?? 0}`);
 
@@ -497,10 +517,11 @@ export function BandDraftScreen() {
     if (remember[bid] ?? true) linkBand(bid, v);
     void applyPresetChoice(v).then(() => flushDiySync());
   };
-  // 编辑自选编队: the 自选编队 tab on the roster the row shows (keep: the one in use); an empty slot's picker with it
+  // 编辑自选编队: the 自选编队 tab on the roster the row shows (keep, or a faction without a preset: the one in use —
+  // choiceRoster); an empty slot's picker with it
   const editPreset = (bid, slotId = null) => {
-    const choice = choiceFor(bid);
-    if (choice !== KEEP_LINK) selectPreset(choice === BASE_LINK ? null : choice);
+    const roster = choiceRoster(choiceFor(bid));
+    if (roster !== undefined) selectPreset(roster);
     openLoadout('draft', null, 'diy', slotId);
   };
   // a filled slot's ×: empties it in the roster the row shows (the picks in use only when that is the one shown)
@@ -615,7 +636,7 @@ export function BandDraftScreen() {
             <${RichText} as="p" text=${band.descRaw || band.desc} class="draft-detail__desc" />
           </div>
           ${inDraft ? html`<${DraftPresetRow} band=${band} choice=${choiceFor(band.bandId)} link=${links?.[band.bandId] ?? null}
-            presets=${presets} base=${baseRoster} live=${livePicks} off=${pub?.disabledBonds ?? null} m=${gd.m}
+            presets=${presets} base=${baseRoster} active=${activeRoster} live=${livePicks} off=${pub?.disabledBonds ?? null} m=${gd.m}
             locked=${(!!myPick && myPick !== band.bandId) || busy === 'pick'}
             remember=${remember[band.bandId] ?? true} onChoice=${(v) => changeChoice(band.bandId, v)}
             onRemember=${(v) => changeRemember(band.bandId, v)} onEdit=${(slotId) => editPreset(band.bandId, slotId)}

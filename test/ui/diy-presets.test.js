@@ -281,3 +281,46 @@ test('the strategy draft\'s preset row: a filled slot\'s × empties it in the ro
   assert.equal(rm(row({ locked: true })).length, 0, 'a locked row');
   assert.equal(rm(row({ onClear: null })).length, 0, 'no handler');
 });
+
+test('the strategy draft: a faction without a preset shows, edits and applies the picks in use (two player reports 2026-10-28)', async () => {
+  const { presetPreviewPicks, presetRosterNote } = await import('../../public/js/screens/bandDraft.js');
+  setDiyPicks({ [T6A]: CHEN }); // shown: 不使用预设
+  P.diyPresetStore.set({ presets: { yan: { [T6A]: WANG } } });
+  const st = () => P.diyPresetStore.get();
+  // the roster each choice applies (and so shows and edits)
+  assert.equal(P.choiceRoster('sargon', st()), null, 'no 萨尔贡 preset: the roster in use (base)');
+  assert.equal(P.choiceRoster('yan', st()), 'yan');
+  assert.equal(P.choiceRoster(P.BASE_LINK, st()), null);
+  assert.equal(P.choiceRoster(P.KEEP_LINK, st()), null);
+  assert.equal(P.choiceRoster('nowhere', st()), undefined);
+  // the preview: the picks that will reach the match, not four empty slots
+  assert.deepEqual(presetPreviewPicks('sargon', st(), loadoutStore.get().diy), { [T6A]: CHEN });
+  assert.deepEqual(presetRosterNote('sargon', st()), { roster: '不使用预设', keeps: true });
+  assert.deepEqual(presetRosterNote('yan', st()), { roster: '炎国预设', keeps: false });
+  assert.deepEqual(presetRosterNote(P.KEEP_LINK, st()), { roster: '不使用预设', keeps: false });
+  assert.equal(presetRosterNote('nowhere', st()), null);
+  // a filled slot's × on the 萨尔贡 row empties the picks in use
+  P.clearRosterSlot('sargon', T6A);
+  assert.deepEqual(loadoutStore.get().diy, {});
+  assert.equal(st().presets.sargon, undefined, 'and creates no 萨尔贡 preset');
+  // another roster in use: the 萨尔贡 row shows that one
+  P.selectPreset('yan');
+  assert.equal(P.choiceRoster('sargon', st()), 'yan');
+  assert.deepEqual(presetRosterNote('sargon', st()), { roster: '炎国预设', keeps: true });
+});
+
+test('a strategy\'s faction preset applies even when the server refuses the chat tag (report 2026-10-28)', async () => {
+  const { net } = await import('../../public/js/net.js');
+  const { applyPresetChoice } = await import('../../public/js/ui/factionPick.js');
+  const request = net.request;
+  net.request = async () => { throw Object.assign(new Error('rate'), { code: 'RATE' }); };
+  try {
+    P.diyPresetStore.set({ presets: { yan: { [T6A]: WANG } } });
+    setDiyPicks({ [T6A]: CHEN });
+    assert.equal(await applyPresetChoice('yan'), false, 'the tag was refused');
+    assert.deepEqual(loadoutStore.get().diy, { [T6A]: WANG }, 'the preset applied anyway');
+    assert.equal(P.diyPresetStore.get().active, 'yan');
+  } finally {
+    net.request = request;
+  }
+});
