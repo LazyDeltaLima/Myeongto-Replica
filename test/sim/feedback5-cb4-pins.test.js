@@ -6,8 +6,9 @@
 //     15 round slots, SPECIAL (特异) the other 6, shuffled — R14 (leader) and R15 (hidden core) take slots too, so the 13
 //     normal rounds hold 7–9 type waves, at most 3 per type;
 //   item 35 「鸭爵策略的悬赏现在有时候会一波出现多只，比如多只鸭子」 — PRTS 下半/PRTS盟约记录 鸭爵 备注 「每回合将有0~2名敌人被
-//     替换为上述敌人之一」: each player's wave gets 0–2 swaps (bands/meta.js duckReplace), each one of the four at random, so
-//     two ducks in one wave is official (≈ 1 wave in 12 here); never more than 2 per player's wave;
+//     替换为上述敌人之一」: each round's wave gets 0–2 swaps, the count shared by every player and each player's swaps one of the
+//     four at random (bands/meta.js duckReplace, maintainer decision 2026-10-29), so two ducks in one wave is official;
+//     never more than 2 per player's wave;
 //   item 29 「会移动的关底boss在各个地图的移动路线复核下是否正确」 — the only leaders that walk are 铳 and 卢西恩 (the 巨型单位 are
 //     自缚: content/bosses.js SELF_BOUND); their official PATROL_MOVE checkpoints (level_act1autochess_h07_02 route 6,
 //     act2 h07_05: (3,9) → (2,3) → (5,9), looped) are walked on every boss field of the season over walkable tiles only,
@@ -91,25 +92,35 @@ test('item 57: a prisoner freed in its own combat leaks and re-enters 联防 con
   checkInvariants(u.b);
 });
 
-test('item 35: the 鸭爵 strategy swaps 0–2 enemies of each player\'s wave, each one of its four at random (two ducks in one wave included), never more', () => {
+test('item 35: the 鸭爵 strategy swaps 0–2 enemies of each player\'s wave — the same count for every player of the round, one of its four per player (two ducks in one wave included), never more', () => {
   const hist = [0, 0, 0];
-  let twoSame = 0;
+  let twoSame = 0, kindsDiffer = 0;
   for (const seed of [31, 32]) {
-    const h = makeMatch({ mode: 'coop', difficulty: 'NORMAL', seed, fake: true }).start();
+    const h = makeMatch({ mode: 'coop', difficulty: 'NORMAL', humans: 1, bots: 3, seed, fake: true }).start();
     h.toPrep(6, { band: 'band_ducklord' });
-    for (const ps of h.m.alivePlayers()) {
-      for (let k = 0; k < 40; k++) {
-        const ducks = h.m._normalOpts(ps).spawns.filter((x) => x.tag === 'duck');
-        assert.ok(ducks.length <= 2, `${ducks.length} swaps in one wave`);
-        hist[ducks.length]++;
-        if (ducks.length === 2 && ducks[0].enemyKey === ducks[1].enemyKey) twoSame++;
-        for (const d of ducks) assert.deepEqual(d.bounty, { coins: 1, ownerPlayerId: ps.playerId });
-      }
+    const m = h.m;
+    const seed0 = m.seed;
+    const alive = m.alivePlayers();
+    assert.equal(alive.length, 4);
+    for (let k = 0; k < 40; k++) {
+      m.seed = seed0 + k; // the count is one roll per round from the match seed: another seed, another roll
+      const lists = alive.map((ps) => m._normalOpts(ps).spawns.filter((x) => x.tag === 'duck'));
+      const n = lists[0].length;
+      hist[n]++;
+      lists.forEach((ducks, i) => {
+        assert.equal(ducks.length, n, `player ${i}: the round's count (seed ${m.seed})`);
+        assert.ok(new Set(ducks.map((d) => d.enemyKey)).size <= 1, `player ${i}: one kind for all of its swaps`);
+        for (const d of ducks) assert.deepEqual(d.bounty, { coins: 1, ownerPlayerId: alive[i].playerId });
+      });
+      if (n === 2) twoSame++;
+      if (n > 0 && new Set(lists.map((l) => l[0].enemyKey)).size > 1) kindsDiffer++;
     }
-    h.m.dispose();
+    m.seed = seed0;
+    m.dispose();
   }
   assert.ok(hist.every((n) => n > 0), `0, 1 and 2 swaps all occur: ${hist}`);
   assert.ok(twoSame > 0, 'two of the same kind (e.g. two ducks) in one wave occurs');
+  assert.ok(kindsDiffer > 0, 'the players\' kinds differ in some rounds');
 });
 
 const BIG_POOL = () => ({ hp: 1e12, maxHp: 1e12, damage(pid, a) { this.hp = Math.max(0, this.hp - a); } });

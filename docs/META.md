@@ -51,7 +51,8 @@ LOBBY → INFO_CHECK (co-op 45 s; solo and single-human matches untimed; all hum
                         shop reroll (frozen slots kept in place, then unfrozen), the round's wave generated (preview),
                         onRoundStart dispatch
      [SP_DRAFT]         r ∈ modes[m].spRounds (机变)
-     PREP               onPrepStart; co-op timer rounds[r].prepTime, solo / single human untimed; ends when every alive seat is ready
+     PREP               onPrepStart (「进入休整期时」: after 机变 — the strategies' prep-start grants, SERVER_PREP_START
+                        traits); co-op timer rounds[r].prepTime, solo / single human untimed; ends when every alive seat is ready
      (prep end)         onPrepEnd, the temp pieces due at this prep resolved (tempDue; what arrived after Ready or
                         during onPrepEnd waits for the next prep), reward offers expire, unfrozen shop cleared, funds lost
                         (band_cannot keeps them), boss round: Σ activated layers recorded for the hidden-core check
@@ -360,7 +361,7 @@ Every handler method is `(ctx, ev)`; `ev` is shared by all handlers of one dispa
 |---|---|---|
 | `onIncome` | ROUND_START, before the income is credited | `{ round, income, pending }` — write `ev.income` / `ev.pending` (e.g. 老鲤 withholds R1–R2 income until R3) |
 | `onRoundStart` | ROUND_START, after income / shop roll | `{ round }` |
-| `onPrepStart` | PREP opens (after 机变) | `{ round }` |
+| `onPrepStart` | PREP opens (after 机变): 「进入休整期时」 | `{ round }` |
 | `onPrepEnd` | prep end, before funds are cleared | `{ round }` |
 | `onGain` | a chess / item was acquired (buy, reward, grant, merge result) | `{ piece, kind:'chess'|'item', source }` |
 | `onSold` | a chess was sold (after refund of copies) | `{ piece, gain }` — **write `ev.gain`** to change the funds paid |
@@ -398,7 +399,7 @@ that per garrison with `garrisonHooks(garrison) → hook[]`, e.g. "<进入休整
 | eventType | hook | whose garrisons |
 |---|---|---|
 | `SERVER_GAIN` 获得时 | `onGain` | the gained piece — run **×2 while 投资人 is active, ×3 at ≥ 100 投资人 layers** |
-| `SERVER_PREP_START` 进入休整期时 | `onRoundStart` | owned chess: board, and hand unless `bbStr.conditionkey === 'character_target_inboard'` |
+| `SERVER_PREP_START` 进入休整期时 | `onPrepStart` | owned chess: board, and hand unless `bbStr.conditionkey === 'character_target_inboard'` |
 | `SERVER_PREP_FIN` 休整期结束时 | `onPrepEnd` | same |
 | `SERVER_REFRESH_SHOP` 刷新时 | `onRefresh` | same, as they stood when the refresh happened (taken before its first handler: a chess gained during the dispatch — 贾维's gift, the elite it completes — waits for the next refresh; one that left is skipped); run **first**, before global, band and bond handlers (upstream #627, [ASSUMED] order) — manual refreshes only (`ev.trigger` marks a re-run); 拉普兰德's "本回合首次主动刷新" counts per copy (`incPieceCounter`) |
 | `SERVER_CHESS_SOLD` 售出时 | `onSold` | the sold piece |

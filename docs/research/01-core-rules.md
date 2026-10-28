@@ -197,6 +197,10 @@ Boss HP scaling:
 4. If `isSpPrepare`: run the 机变阶段 choice (§12) before the shop opens.
 5. Free automatic shop refresh of all **non-frozen** slots [ASSUMED, auto-chess convention]. Promotion-reward slots from last round are gone.
 6. Fire "<进入休整期时>" effects: bands (e.g. 小贾斯汀 R1/4/7/10, 杰西卡 R4/7/10/13, 松桐 on even rounds…), operator traits (garrison), equipment.
+   *Remake:* these run as PREP opens, after step 4 (the client's game states put 机变 `SP_PREPARE` before 休整期 `PREPARE`;
+   upstream #851; maintainer decision 2026-10-29), while steps 1–3 and 5 (funds, the shop refresh) stay at the round start
+   before the draft (official screenshots show the funds behind the 机变 screen). 「回合开始时」 effects (余, 铃兰) also stay
+   at the round start. The exact server order is [ASSUMED: server-side].
 7. Start the prep timer (`normalPhaseTime`; solo unlimited in 下半).
 
 ### 4.2 Prep (休整期): what a player can do [WIKI/tips/COMM]

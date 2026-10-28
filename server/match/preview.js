@@ -50,7 +50,7 @@ function dataView(gd) {
 export function previewContext(ctx, state, { teammates, player }) {
   const out = Object.create(null);
   for (const key of Object.keys(ctx)) {
-    if (['data', 'gd', 'rng', 'teammates', 'player'].includes(key)) continue;
+    if (['data', 'gd', 'rng', 'sharedRng', 'teammates', 'player'].includes(key)) continue;
     const value = ctx[key];
     out[key] = typeof value === 'function'
       ? READS.has(key) ? (...args) => structuredClone(value(...args)) : NOOP
@@ -60,6 +60,7 @@ export function previewContext(ctx, state, { teammates, player }) {
   out.gd = state.data.get(ctx.gd);
   Object.defineProperty(out, 'data', { enumerable: true, get: () => out.gd.raw });
   out.rng = state.rng;
+  out.sharedRng = ctx.sharedRng; // a fresh stream from the match seed: it writes nothing, and the preview draws as the match does
   out.teammates = teammates;
   out.player = player;
   return out;

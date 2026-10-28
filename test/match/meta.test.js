@@ -78,13 +78,13 @@ test('dispatch order and hooks: global → band → bond → garrison → item �
 // upstream #627 (upstream PR #642): onRefresh runs the board / hand 特质 before the global, band and bond handlers (a
 // 贾维 gift merging existing copies must not drop their first-refresh layers — the order is [ASSUMED]); every other hook
 // keeps global → band → bond → garrison
-test('onRefresh runs the garrisons first; onPrepEnd / onRoundStart keep global → band → bond → garrison (upstream #627)', () => {
+test('onRefresh runs the garrisons first; onPrepEnd / onPrepStart keep global → band → bond → garrison (upstream #627)', () => {
   const reg = registerBuiltins(new MetaRegistry(), DATA);
   const calls = [];
-  const spy = (who) => ({ onRefresh: () => calls.push(['onRefresh', who]), onPrepEnd: () => calls.push(['onPrepEnd', who]), onRoundStart: () => calls.push(['onRoundStart', who]) });
+  const spy = (who) => ({ onRefresh: () => calls.push(['onRefresh', who]), onPrepEnd: () => calls.push(['onPrepEnd', who]), onPrepStart: () => calls.push(['onPrepStart', who]) });
   const owned = (g) => g.owners.find((o) => DATA.chess[o] && DATA.chess[o].visible && !DATA.chess[o].isGolden);
   const byEvent = (ev) => Object.values(DATA.garrisons).find((g) => g.eventType === ev && owned(g) && !(g.bbStr && g.bbStr.conditionkey));
-  const garrisons = { onRefresh: byEvent('SERVER_REFRESH_SHOP'), onPrepEnd: byEvent('SERVER_PREP_FIN'), onRoundStart: byEvent('SERVER_PREP_START') };
+  const garrisons = { onRefresh: byEvent('SERVER_REFRESH_SHOP'), onPrepEnd: byEvent('SERVER_PREP_FIN'), onPrepStart: byEvent('SERVER_PREP_START') };
   reg.global('spy', spy('global'));
   reg.band('band_bldsk', spy('band'));
   reg.bond('yanShip', spy('bond'));
@@ -99,7 +99,7 @@ test('onRefresh runs the garrisons first; onPrepEnd / onRoundStart keep global �
   const want = {
     onRefresh: ['garrison', 'global', 'band', 'bond'],
     onPrepEnd: ['global', 'band', 'bond', 'garrison'],
-    onRoundStart: ['global', 'band', 'bond', 'garrison'],
+    onPrepStart: ['global', 'band', 'bond', 'garrison'],
   };
   for (const [hook, order] of Object.entries(want)) {
     calls.length = 0;

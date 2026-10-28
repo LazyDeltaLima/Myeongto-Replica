@@ -194,7 +194,7 @@ test('变形者集群 R5 grants the trait-fixed 变形同构体 outside the stoc
   assert.equal(m.itemPool.left(ITEM), 0, 'the shop stock is drained');
   a.bandId = 'band_damaztic';
   m.round = 5;
-  m.dispatch(a, 'onRoundStart', { round: 5 });
+  m.dispatch(a, 'onPrepStart', { round: 5 });
   const made = [...a.hand, ...a.temp].filter((p) => p && m.gd.baseIdOf(p.id) === ITEM);
   assert.equal(made.length, 1, 'the strategy grant survives the drained stock like the trait');
   assert.ok(made[0].noPool && m.itemPool.held(ITEM) === 3, 'and it holds no stock');
@@ -202,7 +202,7 @@ test('变形者集群 R5 grants the trait-fixed 变形同构体 outside the stoc
   assert.ok(b.acquireItem(PACK)); assert.ok(b.acquireItem(PACK));
   assert.equal(m.itemPool.left(PACK), 0);
   a.bandId = 'band_malkie';
-  m.dispatch(a, 'onRoundStart', { round: 1 });
+  m.dispatch(a, 'onPrepStart', { round: 1 });
   assert.equal([...a.hand, ...a.temp].some((p) => p && m.gd.baseIdOf(p.id) === PACK), false, 'an ordinary strategy item stays gated (#466)');
   checkInvariants(m);
   m.dispose();

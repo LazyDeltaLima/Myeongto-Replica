@@ -38,7 +38,8 @@ function setup({ band, mode = 'solo', humans = 1, seed = 41, bands: perPlayer = 
   const ps = h.ps('p_0');
   if (band) ps.bandId = band;
   const at = (r) => { m.round = r; };
-  const roundStart = (r, who = ps) => { at(r); m.dispatch(who, 'onRoundStart', { round: r }); };
+  /** A round's entry without a 机变 draft: the round start, then the prep start (「进入休整期时」, prep-start-grants.test.js). */
+  const roundStart = (r, who = ps) => { at(r); m.dispatch(who, 'onRoundStart', { round: r }); m.dispatch(who, 'onPrepStart', { round: r }); };
   const prepEnd = (who = ps) => m.dispatch(who, 'onPrepEnd', { round: m.round });
   return { h, m, ps, at, roundStart, prepEnd };
 }
@@ -189,7 +190,7 @@ test('杜宾 加练！: a 教鞭 every 2 rounds (even rounds)', () => {
   cover('band_doberm');
 });
 
-test('老鲤 得闲饮茶: income R1 0, R2 0, R3 15; R3 round start: 1 random tier-II and 1 tier-IV operator', () => {
+test('老鲤 得闲饮茶: income R1 0, R2 0, R3 15; R3 prep start: 1 random tier-II and 1 tier-IV operator', () => {
   const { m, ps, at, roundStart } = setup({ band: 'band_lmlee', seed: 14 });
   const got = [];
   for (const r of [1, 2, 3, 4]) {
@@ -350,6 +351,7 @@ test('鸭爵 “神秘顾客”: from R5, 0–2 ground enemies in the last 40 % 
   const counts = {};
   for (let k = 0; k < 30; k++) {
     m.round = 5;
+    m.seed = 4 + k; // the count is one roll per round from the match seed: another seed, another roll
     const ev = { input: p0.battleInput({ side: 'L', colOffset: 0 }), kind: 'normal', round: 5, spawns: wave() };
     m.dispatch(p0, 'onBattleStart', ev);
     const dk = ev.spawns.filter((sp) => ducks.includes(sp.enemyKey));

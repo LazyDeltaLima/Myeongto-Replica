@@ -609,6 +609,8 @@ test('rehearsal capabilities: official-registry start effects cannot write any p
     m.wave = buildNormalWave(m.gd, m.rngWave, m.factions, m.round);
     ps.bandId = 'band_ducklord';
     mate.bandId = 'band_amedic';
+    // 鸭爵's swap count is one roll per round from the match seed: take a match seed whose R7 roll swaps
+    for (let k = 0; k < 50 && !m._normalOpts(ps, { preview: true }).spawns.some((s) => s.tag === 'duck'); k++) m.seed++;
     const piece = give(m, ps, 'chess_char_1_01_a', 'board', [9, 4]);
     give(m, ps, 'chess_char_1_06_a', 'hand');
     // This item must not get pulled out of temp by a rehearsal recompute.

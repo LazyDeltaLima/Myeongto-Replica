@@ -32,7 +32,7 @@ Tags: **[DATA]** client game data · **[VERIFIED]** official or wiki rule text, 
 | Pre-game | INFO_CHECK 25 s → BAND_CHECK 50 s (co-op: random-order sequential picks, one skip each, duplicates allowed, timeout → 华法琳) → BATTLE_CHECK 3 s | DATA/VERIFIED |
 | SP (机变) rounds (`isSpPrepare`) | multi FUNNY 3, 9 · multi NORMAL 3, 6, 9 · HARD/ABYSS 3, 9, 11 · solo NORMAL 6, 9 · solo FUNNY none | DATA |
 | 机变 format | Multi: 6 shared cards of one family; random pick order; 30 s first, 16 s others; timeout auto-assign. Solo: 3 cards, no timer. Opens at prep start, after income. | DATA/VERIFIED |
-| Round flow | round start (income, −1 upgrade price, wipe temp hand, refresh unfrozen slots, <进入休整期时> effects) → [机变] → prep → <休整期结束时> → combat (all boards in parallel, 2× speed) → 联防 if needed → LP loss → next | VERIFIED |
+| Round flow | round start (income, −1 upgrade price, wipe temp hand, refresh unfrozen slots) → [机变] → prep (<进入休整期时> effects on entering) → <休整期结束时> → combat (all boards in parallel, 2× speed) → 联防 if needed → LP loss → next | VERIFIED |
 
 **Timers, co-op (s)** [DATA]. Solo in 下半 has **no** prep or 机变 timer.
 

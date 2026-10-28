@@ -7,10 +7,10 @@
 //   prep_finish_char_bond_add_layer {layer}            华法琳   prep end: per distinct board tier, 1 random op → its bonds +layer (无需激活)
 //   band_first_self_refresh_present_char {count,bond}  杜遥夜   first 2 manual refreshes/round: ≥count <bond> chess (tier ≤ shop level)
 //   band_shop_refresh_copy_max_lv_char {count}         梓兰     every manual refresh: highest-tier shop chess copied into another slot, copy frozen
-//   preparation_start_gain_chess_from_round {round}    梓兰/小贾斯汀/昆图斯/马克维茨/变形者集群/Pith/夕/杰西卡/缪尔赛思/芬  round start of `round`: bbStr.chess
-//   preparation_start_gain_chess_every_n_round {round} 杜宾     every `round` rounds (round % n = 0): bbStr.chess
+//   preparation_start_gain_chess_from_round {round}    梓兰/小贾斯汀/昆图斯/马克维茨/变形者集群/Pith/夕/杰西卡/缪尔赛思/芬  prep start of `round`: bbStr.chess
+//   preparation_start_gain_chess_every_n_round {round} 杜宾     prep start, every `round` rounds (round % n = 0): bbStr.chess
 //   give_coin_in_round {round,coin}                    老鲤     income of round `round` = coin (R1/R2 0, R3 15)
-//   prep_start_gain_chess_from_pool_in_round {round}   老鲤     round start of `round`: 1 chess of pool
+//   prep_start_gain_chess_from_pool_in_round {round}   老鲤     prep start of `round`: 1 chess of pool
 //   band_coin_cost_gain_random_char_by_shop_level      绮良     every coin_cnt funds spent → count random chess ≤ shop level
 //   up_shop_next_refresh_must_present_bond_char        佩佩     level-up to a level of lvlist → the next manual refresh (its usual
 //                                                               price) prefers <bond>; at most one pending
@@ -23,14 +23,23 @@
 //   coin_carry_over {capital,interest,max}             坎诺特   leftover ≥ capital at round start → +min(max, ⌊left/capital⌋×interest) income
 //   round_start_all_player_change_enemy_2              鸭爵     global: every alive player's battle from `round` (own + teammates;
 //                                                                normal, Final Assault, Hidden Core — on the player's half of a
-//                                                                pair field): 0–2 ground enemies → enemylist
+//                                                                pair field): 0–2 ground enemies (the count shared by
+//                                                                every player of the round) → one enemylist enemy each
 //   round_start_activate_char_chess_effect_in_board    铃兰     round start: 获得时 traits of the right-most (then bottom-most) board op with one
 //   first_sell_char_chess_exchange_char_chess_in_shop  巫恋     first sale of a normal op per round: swapped with a random shop chess (no funds)
-//   round_start_gain_char_chess_in_shop_every_n_round  松桐     round % n = 0: a random shop chess for free (its slot empties)
+//   round_start_gain_char_chess_in_shop_every_n_round  松桐     prep start, round % n = 0: a random shop chess for free (its slot empties)
 //   round_start_gain_coin_by_bond_char_chess_buy       玛恩纳   each <bond> chess bought → +count funds next round (≤ max_count / round)
 //   refresh_shop_count_gain_coin_bond_char_chess       贾维     every refresh_count manual refreshes (match total) → <bond> chess ≤ shop level (≤ max_count / round)
-//   preparation_start_add_special_goods_every_n_round  娜仁图亚 round % n = 0: pick choice_cnt of refresh_cnt items of pool (free)
-// "进入休整期时" / "回合开始时" = onRoundStart (research 01 §5 step 6).
+//   preparation_start_add_special_goods_every_n_round  娜仁图亚 prep start, round % n = 0: pick choice_cnt of refresh_cnt items of pool (free)
+// "进入休整期时" / "休整期开始时" = onPrepStart: PREP opens after the round's 机变 draft (the client's game states SP_PREPARE →
+// PREPARE; research 01 §4.1 steps 4 and 6; upstream #851: 老鲤's R3 operators came before the R3 draft). The five keys above
+// marked "prep start" run there, by their text (老鲤 「第3回合进入休整期时」, 松桐 「偶数回合的休整期开始时」, 娜仁图亚 / 小贾斯汀 /
+// 杰西卡 「进入休整期时」) or their key (preparation_start_*); the whole key moves, so 缪尔赛思's 「在第1回合开始时」 and the texts
+// with no time (杜宾 「每2个回合获得」) follow it [ASSUMED: which step of the round grants what is server-side]. Funds
+// (onIncome) and the shop refresh stay at the round start, before the draft (official screenshots show the funds behind the
+// 机变 screen). "回合开始时" (余, 铃兰) and 哈洛德's gain_bond_char_per_round stay onRoundStart; the operators' 「<进入休整期时>」
+// traits (SERVER_PREP_START) run on onPrepStart too (server/match/effectsMeta.js GARRISON_HOOK), after the strategy's grants
+// of the same dispatch (global → band → bonds → garrisons). A round without a 机变 draft keeps the old moment.
 
 import { GEO } from '../../../../shared/constants.js';
 import { buffsOf, num, bandRecord, gameData } from '../support/index.js';
@@ -141,7 +150,7 @@ K.band_shop_refresh_copy_max_lv_char = () => ({
 });
 
 K.preparation_start_gain_chess_from_round = (ps) => ({
-  onRoundStart(ctx) {
+  onPrepStart(ctx) {
     for (const p of ps) {
       const id = p.chess ?? p.chess_id;
       if (ctx.round !== int(p.round, -1) || !id) continue;
@@ -153,7 +162,7 @@ K.preparation_start_gain_chess_from_round = (ps) => ({
 });
 
 K.preparation_start_gain_chess_every_n_round = (ps) => ({
-  onRoundStart(ctx) {
+  onPrepStart(ctx) {
     for (const p of ps) {
       const n = int(p.round, 0);
       const id = p.chess ?? p.chess_id;
@@ -170,7 +179,7 @@ K.give_coin_in_round = (ps) => ({
 });
 
 K.prep_start_gain_chess_from_pool_in_round = (ps) => ({
-  onRoundStart(ctx) {
+  onPrepStart(ctx) {
     for (const p of ps) {
       if (ctx.round !== int(p.round, -1)) continue;
       for (let k = 0; k < Math.max(1, int(p.count, 1)); k++) {
@@ -327,7 +336,7 @@ K.first_sell_char_chess_exchange_char_chess_in_shop = (ps) => ({
 });
 
 K.round_start_gain_char_chess_in_shop_every_n_round = (ps) => ({
-  onRoundStart(ctx) {
+  onPrepStart(ctx) {
     const p = ps[0];
     const n = int(p.round, 0);
     if (n <= 0 || ctx.round % n !== 0) return;
@@ -366,7 +375,7 @@ K.refresh_shop_count_gain_coin_bond_char_chess = (ps) => ({
 });
 
 K.preparation_start_add_special_goods_every_n_round = (ps) => ({
-  onRoundStart(ctx) {
+  onPrepStart(ctx) {
     const p = ps[0];
     const n = int(p.round, 0);
     if (n <= 0 || ctx.round % n !== 0) return;
@@ -380,9 +389,16 @@ K.preparation_start_add_special_goods_every_n_round = (ps) => ({
 // （包括联防阶段）". A global handler rewrites the battle spawn list of every alive player while the band is held by that
 // player or a teammate: from round `round`, in the normal battle, the Final Assault and the Hidden Core (PRTS 卫戍协议：盟约
 // 下半/PRTS盟约记录 鸭爵 备注 "每回合将有0~2名敌人被替换为上述敌人之一…且在最终回合和隐秘核心回合中仍然生效"; the 联防 phase
-// replaces nothing: its enemies are leaks, which keep their bounty). min..max (0–2, uniform [ASSUMED]) of the player's
-// ground enemies from the `minweight`–`maxweight` share of the player's enemies (time order) [ASSUMED reading of the two
-// weights] — any wave enemy but the leader, its parts, bounties, earlier swaps and uncounted units. Elites are eligible
+// replaces nothing: its enemies are leaks, which keep their bounty). The number of swaps, min..max (0–2, uniform
+// [ASSUMED]), is rolled once per round and shared by every player (the key's `all_player`; PRTS 「每回合将有0~2名敌人被
+// 替换」; upstream #839, whose official recordings show the four players with the same count): a stream of its own from
+// the match seed and the round (ctx.sharedRng('duck:<round>')), so the previews and the bot rehearsals see the same
+// count and no player's meta stream moves. Each player then rolls one of the four for all of its swaps (「替换为上述敌人
+// 之一」; the same recordings show different kinds between players — maintainer decision 2026-10-29) and picks its own
+// units: that many of the player's ground enemies from the `minweight`–`maxweight` share of the player's enemies (time
+// order) [ASSUMED reading of the two weights; the report's 「总在下路」 (always the lower lane) is read off recordings
+// only, so no lane rule] — any wave enemy but the leader, its parts, bounties, earlier swaps and uncounted units; a
+// player with fewer candidates than the count swaps fewer. Elites are eligible
 // too [ASSUMED: the text names no rank; one rule for every battle; about two thirds of the leader rounds' escorts in that
 // share are elites, so a NORMAL-only rule would leave most Final Assault halves without a candidate — ≈ 80 % instead of
 // ≈ 36 % of the R14 pair-field halves over 40 seeds]. Flyers are never swapped [ASSUMED: the four are ground units and a
@@ -410,16 +426,22 @@ function duckParams(ctx) {
   return null;
 }
 
+/** The round's swap count, min..max (exported for tests); `rng` is the round's shared stream (duckGlobal). */
+export function duckCount(rng, p) {
+  const lo = Math.max(0, int(p.min, 0)), hi = Math.max(lo, int(p.max, lo));
+  return lo + rng.int(hi - lo + 1);
+}
+
 /**
- * Rewrite `spawns` in place (exported for tests). Returns the replaced spawn specs. `side` ('L' | 'R', a pair boss
- * field) limits the swap to the spawns whose route (`routes[routeIndex]`) ends on that half of the field.
+ * Rewrite `spawns` in place (exported for tests). Returns the replaced spawn specs. `want`: the round's shared count
+ * (default: rolled from ctx.rng). `side` ('L' | 'R', a pair boss field) limits the swap to the spawns whose route
+ * (`routes[routeIndex]`) ends on that half of the field.
  */
-export function duckReplace(ctx, spawns, p, ownerPlayerId, { routes = null, side = null } = {}) {
+export function duckReplace(ctx, spawns, p, ownerPlayerId, { routes = null, side = null, want = null } = {}) {
   const gd = ctx.gd;
   const ducks = list(p.enemylist).filter((k) => gd.enemy(k));
   if (!ducks.length || !Array.isArray(spawns)) return [];
-  const lo = Math.max(0, int(p.min, 0)), hi = Math.max(lo, int(p.max, lo));
-  const want = lo + ctx.rng.int(hi - lo + 1);
+  if (want == null) want = duckCount(ctx.rng, p);
   if (want <= 0) return [];
   const half = side === 'L' || side === 'R';
   const onHalf = (s) => {
@@ -448,6 +470,7 @@ export function duckReplace(ctx, spawns, p, ownerPlayerId, { routes = null, side
   });
   const picked = ctx.rng.shuffle(ok).slice(0, want);
   if (!picked.length) return [];
+  const enemyKey = ctx.rng.pick(ducks); // one of the four for all of this player's swaps
   const byIdx = new Map();
   for (const f of picked) { if (!byIdx.has(f.i)) byIdx.set(f.i, new Set()); byIdx.get(f.i).add(f.k); }
   const out = [];
@@ -459,7 +482,7 @@ export function duckReplace(ctx, spawns, p, ownerPlayerId, { routes = null, side
     for (const k of ks) {
       const d = {
         ...s, mods: s.mods ? { ...s.mods } : undefined, count: 1, interval: 0,
-        time: num(s.time, 0) + k * num(s.interval, 0), enemyKey: ctx.rng.pick(ducks), tag: 'duck',
+        time: num(s.time, 0) + k * num(s.interval, 0), enemyKey, tag: 'duck',
         bounty: { coins: DUCK_COINS, ownerPlayerId },
       };
       if (d.mods) delete d.mods.slot;
@@ -487,7 +510,8 @@ const duckGlobal = {
     if (!p || ctx.round < int(p.round, 1)) return;
     const held = ctx.bandId() === DUCK_BAND || ctx.teammates().some((t) => t.bandId() === DUCK_BAND);
     if (!held) return;
-    duckReplace(ctx, ev.spawns, p, ctx.playerId, { routes: ev.routes, side: ev.side });
+    const want = duckCount(ctx.sharedRng(`duck:${ctx.round}`), p);
+    duckReplace(ctx, ev.spawns, p, ctx.playerId, { routes: ev.routes, side: ev.side, want });
   },
 };
 
