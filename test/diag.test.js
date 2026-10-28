@@ -312,6 +312,8 @@ describe('the resource cache (resources: line, a mount\'s res part, fieldLoading
       + ' | cleanup 1461 deleted, 1500 left, held (match) | worker 1200 cached, 35 stale, 80 fetched (1.3 MB), 3 to server by 04:15:33');
     assert.equal(line({ reconcile: { at, ms: null }, download: { phase: 'ask', queued: 40, failed: 0 }, cleanup: { left: 0, deleted: 0 }, worker: null }),
       'resources: reconcile 04:14:33 running | download ask (40 queued)');
+    assert.equal(line({ reconcile: { at, ms: 4, skipped: true }, download: { phase: 'done', queued: 0, failed: 0 }, cleanup: { left: 0, deleted: 0 }, worker: null }),
+      'resources: reconcile 04:14:33 0.0 s (list unchanged) | download done', 'a load with an unchanged list skips the key scan');
     setResourceSource({ status: () => status });
     assert.match(buildDiagnostics({ state: {} }), /^resources: reconcile 04:14:33 3\.2 s/m, 'the registered source');
     setResourceSource({ status: () => { throw new Error('x'); } });

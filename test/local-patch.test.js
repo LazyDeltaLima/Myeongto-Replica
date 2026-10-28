@@ -403,6 +403,78 @@ describe('client helpers', () => {
     }
   });
 
+  test('resources: a load with the list and voice language of a scan whose stale entries are all gone skips the key scan', async () => {
+    const { installResources, resourceStatus } = await mod('resources.js');
+    const { store } = await mod('store.js');
+    const { voiceStore } = await mod('voice.js');
+    const h = (c) => c.repeat(64);
+    const origin = 'https://x.test';
+    const entries = new Map([[origin + '/assets/a.json', h('1')], [origin + '/assets/gone.png', h('2')]]);
+    let stateJson = { '/assets/a.json': h('1'), '/assets/gone.png': h('2') };
+    let clean = null, keyScans = 0;
+    const urlOf = (r) => (typeof r === 'string' ? origin + r : r.url);
+    const cache = {
+      keys: async () => { keyScans++; return [...entries.keys(), ...(clean ? [origin + '/__sp_res_clean__'] : [])].map((url) => ({ url })); },
+      match: async (r) => {
+        const u = urlOf(r);
+        if (u === origin + '/__sp_res_state__') return new Response(JSON.stringify(stateJson));
+        if (u === origin + '/__sp_res_clean__') return clean == null ? undefined : new Response(clean);
+        return entries.has(u) ? new Response('x', { headers: { 'X-SP-Hash': entries.get(u) } }) : undefined;
+      },
+      delete: async (r) => { const u = urlOf(r); if (u === origin + '/__sp_res_clean__') { const had = clean != null; clean = null; return had; } return entries.delete(u); },
+      put: async (r, res) => {
+        const u = urlOf(r);
+        if (u === origin + '/__sp_res_state__') stateJson = await res.json();
+        else if (u === origin + '/__sp_res_clean__') clean = await res.text();
+      },
+    };
+    let list = { version: 'v1', files: [{ p: '/assets/a.json', s: 1, h: h('1') }] };
+    const fakeCaches = { open: async () => cache, delete: async () => true };
+    const saved = { window: globalThis.window, location: globalThis.location, caches: globalThis.caches, fetch: globalThis.fetch,
+      navigator: Object.getOwnPropertyDescriptor(globalThis, 'navigator') };
+    const before = store.get();
+    const settle = async () => { for (let i = 0; i < 60 && (resourceStatus().cleanup.left || clean == null); i++) await new Promise((r) => setTimeout(r, 50)); };
+    try {
+      globalThis.window = { isSecureContext: true, caches: fakeCaches };
+      globalThis.location = { origin };
+      globalThis.caches = fakeCaches;
+      Object.defineProperty(globalThis, 'navigator', { value: { serviceWorker: { register: async () => {} } }, configurable: true });
+      globalThis.fetch = async (u) => (u === '/assets/browser-resources.json' ? new Response(JSON.stringify(list)) : new Response('', { status: 404 }));
+      store.set({ session: { entered: true }, room: null });
+      await installResources();
+      assert.equal(keyScans, 1);
+      assert.equal(resourceStatus().reconcile.stale, 1, 'gone.png left the list');
+      await settle();
+      assert.equal(clean, `v1|${voiceStore.get().lang}`, 'the cleanup marks the scan clean once its stale entries are gone');
+      assert.deepEqual([...entries.keys()], [origin + '/assets/a.json']);
+      // the next load, same list: no key scan
+      await installResources();
+      assert.equal(keyScans, 1, 'the unchanged list is not scanned again');
+      assert.equal(resourceStatus().reconcile.skipped, true);
+      // a deploy changes the list: the scan runs, and the mark is dropped until its stale entries are gone
+      list = { version: 'v2', files: [{ p: '/assets/a.json', s: 1, h: h('9') }] };
+      store.set({ session: { entered: true }, room: { inMatch: true } });   // a match holds the cleanup
+      await installResources();
+      assert.equal(keyScans, 2);
+      assert.equal(clean, null, 'no mark while a stale entry waits');
+      await installResources();
+      assert.equal(keyScans, 3, 'a load before the cleanup finished scans again');
+      store.set({ session: { entered: true }, room: null });
+      await settle();
+      assert.equal(clean, `v2|${voiceStore.get().lang}`);
+      await installResources();
+      assert.equal(keyScans, 3);
+      // a list without a version (an older server) always scans
+      list = { files: list.files };
+      await installResources();
+      assert.equal(keyScans, 4);
+    } finally {
+      store.set(before);
+      for (const k of ['window', 'location', 'caches', 'fetch']) { if (saved[k] === undefined) delete globalThis[k]; else globalThis[k] = saved[k]; }
+      if (saved.navigator) Object.defineProperty(globalThis, 'navigator', saved.navigator); else delete globalThis.navigator;
+    }
+  });
+
   test('room: SP_MAX_BOTS facts (room.state maxBots)', async () => {
     const { roomFacts } = await mod('screens/room.js');
     const room = { code: 'ABCD', hostId: 'h', mode: 'coop', difficulty: 'HARD', seats: [

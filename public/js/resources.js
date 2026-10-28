@@ -11,7 +11,9 @@
 //     never put a different file in the cache. A file that fails stays out (the game loads it from the server as now)
 //     and is tried again on the next visit.
 // What is cached is recorded in one JSON entry of the same cache (STATE): on load, entries whose hash changed or that
-// left the list are listed as stale, then the rest is downloaded. Nothing starts before the player agrees once (the choice
+// left the list are listed as stale, then the rest is downloaded. That scan walks every cache key (a phone took 27.5 s
+// over 15 thousand keys with nothing to delete, 2026-10-28), so a load whose list and voice language are those of a
+// scan whose stale entries were all deleted (CLEAN, written by the cleanup) skips it: nothing can have gone stale since. Nothing starts before the player agrees once (the choice
 // is remembered; 以后再说 asks again after ASK_AGAIN_MS). The download runs in the page, not the worker: a service worker
 // event is cut off after a few minutes, a page keeps going while the player plays — one file at a time during a match,
 // none while a field loads. The stale entries are deleted in the background, a few at a time and never during a match:
@@ -32,6 +34,7 @@ import { t } from '../../shared/i18n.js';
 
 const CACHE = 'sp-res';
 const STATE = '/__sp_res_state__';
+const CLEAN = '/__sp_res_clean__'; // the list version and voice language of the last scan whose stale entries are all gone
 const INDEX = '/assets/browser-resources.json';
 const PREF = 'resources';
 const ASK_AGAIN_MS = 7 * 86400e3;
@@ -103,7 +106,8 @@ let state = {};        // path → hash of what is in the cache
 let want = new Map();  // path → listed hash of the files this browser wants
 let pending = [];
 let stale = [];        // cache requests to delete (cleanup)
-let reconciled = null; // the last reconcile, for the report: { at, ms, keys, stale, adopted } (running: no ms)
+let reconciled = null; // the last reconcile, for the report: { at, ms, keys, stale, adopted, skipped } (running: no ms)
+let scanned = null;    // what CLEAN gets once the cleanup has deleted every stale entry of that scan
 let deleted = 0;
 let worker = null;     // the worker's answer counts the report last read: { at, hit, stale, fetched, bytes, server }
 
@@ -124,11 +128,21 @@ async function reconcile() {
   cache = await caches.open(CACHE);
   try { state = (await (await cache.match(STATE))?.json()) || {}; } catch { state = {}; }
   want = new Map(index.files.map((f) => [f.p, f.h]));
-  const stateKey = new URL(STATE, location.origin).href;
+  const sig = typeof index.version === 'string' && index.version ? `${index.version}|${voiceStore.get().lang}` : null;
+  let clean = null;
+  try { clean = sig && (await (await cache.match(CLEAN))?.text()); } catch { /* scan */ }
+  if (sig && clean === sig) {
+    stale = [];
+    reconciled = { ...reconciled, ms: now() - t0, skipped: true };
+    return index.files.filter((f) => state[f.p] !== f.h).sort((a, b) => priorityOf(a.p) - priorityOf(b.p));
+  }
+  scanned = sig;
+  try { await cache.delete(CLEAN); } catch { /* ignore */ } // until this scan's stale entries are gone
+  const stateKey = new URL(STATE, location.origin).href, cleanKey = new URL(CLEAN, location.origin).href;
   const found = [];
   let changed = false, keys = 0, adopted = 0;
   for (const req of await cache.keys()) {
-    if (req.url === stateKey) continue;
+    if (req.url === stateKey || req.url === cleanKey) continue;
     keys++;
     const key = keyOf(req);
     let h = state[key];
@@ -169,6 +183,7 @@ async function cleanup() {
       await sleep(CLEAN_REST_MS);
     }
     if (adopted) await saveState();
+    if (scanned) await cache.put(CLEAN, new Response(scanned));
   } catch (err) {
     console.warn('[resources] cleanup', err); // what is left is listed again on the next visit
   } finally {

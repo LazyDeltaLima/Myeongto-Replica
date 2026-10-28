@@ -162,7 +162,7 @@ function resourcesLine(s) {
   if (!s) return null;
   const r = s.reconcile, d = s.download, c = s.cleanup, w = s.worker;
   return `resources: ${join(
-    r ? `reconcile ${clockOf(r.at)} ${r.ms == null ? 'running' : `${sec(r.ms)} s (${r.keys} keys, ${r.stale} stale, ${r.adopted} adopted)`}` : 'no reconcile',
+    r ? `reconcile ${clockOf(r.at)} ${r.ms == null ? 'running' : r.skipped ? `${sec(r.ms)} s (list unchanged)` : `${sec(r.ms)} s (${r.keys} keys, ${r.stale} stale, ${r.adopted} adopted)`}` : 'no reconcile',
     d ? `download ${d.phase}${d.phase === 'running' ? ` ${d.done}/${d.total}` : d.queued ? ` (${d.queued} queued)` : ''}${d.failed ? `, ${d.failed} failed` : ''}${d.slowed === 'field' ? ', held (field loading)' : d.slowed === 'match' ? ', 1 at a time (match)' : ''}` : null,
     c && (c.left || c.deleted) ? `cleanup ${c.deleted} deleted, ${c.left} left${c.held ? ', held (match)' : ''}` : null,
     w ? `worker ${workerCounts(w)} by ${clockOf(w.at)}` : null)}`;
