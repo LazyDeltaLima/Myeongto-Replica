@@ -720,6 +720,23 @@ test('regression: 弱点伤害 keeps the type on a tie, counts the attacker\'s D
   assert.deepEqual(types.splice(0), ['phys'], 'decided on the multiplied amount: 400 − 150 = 250 > 200 ⇒ phys (on 200: 100 = 100 → arts)');
 });
 
+test('弱点伤害 compares 理论伤害 only: dealt / taken multipliers never choose the type (PRTS 术语释义 "不计入…任何伤判效果")', () => {
+  const h = battle({
+    units: [{ id: 'op', g: ['garrison_01_a'], row: 11, col: 4 }],
+    edefs: { e_mix: dummy({ key: 'e_mix', def: 300, res: 50 }) },
+    enemies: [{ key: 'e_mix', pos: [11, 9] }],
+  });
+  const types = [];
+  h.b.on('damaged', (c) => { if (c.dmg) types.push(c.dmg.type); });
+  const mix = h.enemies().find((e) => e.defId.endsWith('e_mix'));
+  h.b.addBuff(mix, { key: 'test:physTaken', mods: { physTakenMul: 1.5 } });
+  h.b.dealDamage(h.unit('op'), mix, { amount: 500, type: 'phys' });
+  assert.deepEqual(types.splice(0), ['arts'], '500 − 300 = 200 < 250 ⇒ arts, whatever the phys-taken ×1.5');
+  h.unit('op').s.artsDealtMul = 0.5;
+  h.b.dealDamage(h.unit('op'), mix, { amount: 500, type: 'phys' });
+  assert.deepEqual(types.splice(0), ['arts'], 'the attacker\'s arts-dealt ×0.5 does not choose either');
+});
+
 test('风丸 93 (NONE): no battle effect (the 2-copy merge is a prep rule, see garrisons_meta)', () => {
   for (const gid of idsOfKey('NONE')) {
     const h = battle({ units: [{ id: 'op', g: [gid], row: 10, col: 4 }] });

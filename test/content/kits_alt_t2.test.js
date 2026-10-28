@@ -32,6 +32,8 @@ function run(o) {
 /** Unit entry with the alternate skill selected (plus loadout / carry extras). */
 const U = (id, row, col, o = {}) => ({ chessId: id, row, col, skillIndex: alt(id).index, ...o });
 const dealt = (h, u, f = () => true) => h.hooksOf('damaged').filter((c) => c.source === u && f(c));
+/** Damage credited to `u`, 无来源 included (source null, credit u). */
+const credited = (h, u, f = () => true) => h.hooksOf('damaged').filter((c) => c.credit === u && f(c));
 const statuses = (h, key, f = () => true) => h.hooksOf('statusApplied').filter((c) => c.status === key && f(c));
 const heals = (h, u, f = () => true) => h.hooksOf('heal').filter((c) => c.source === u && f(c));
 const tagged = (tag) => (c) => (c.dmg?.tags || c.opts?.tags || []).includes(tag);
@@ -536,10 +538,10 @@ test('2_19 锡人 S1 “老科利”: alchemy unit — 8 s of weaken −atk and 
     approx(f.s.atk, 100, 'flyers unaffected');
     approx(far.s.atk, 100, 'outside');
     h.run(bb.projectile_delay_time);
-    const zone = dealt(h, u, (c) => c.target === g && (c.dmg.tags || []).includes('zone'));
+    const zone = credited(h, u, (c) => c.target === g && (c.dmg.tags || []).includes('zone'));
     assert.equal(zone.length, bb.projectile_delay_time, 'one pulse per second');
     for (const c of zone) { assert.equal(c.type, 'arts'); approx(c.amount, atk0 * bb.atk_scale * wither, `${id} ×${bb.atk_scale}${wither > 1 ? ' ×凋敝魂灵' : ''}`); }
-    assert.equal(dealt(h, u, (c) => (c.target === f || c.target === far) && (c.dmg.tags || []).includes('zone')).length, 0);
+    assert.equal(credited(h, u, (c) => (c.target === f || c.target === far) && (c.dmg.tags || []).includes('zone')).length, 0);
     approx(g.s.atk, 100, 'weaken over');
     assert.equal(u.mem.tinZones, 0);
     done(h);

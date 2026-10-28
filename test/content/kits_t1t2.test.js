@@ -27,6 +27,8 @@ function run(o) {
   return makeBattle({ seed: 7, autoFinish: false, timeLimit: 400, hooks: HOOKS, captureNoisy: true, ...o });
 }
 const dealt = (h, u, f = () => true) => h.hooksOf('damaged').filter((c) => c.source === u && f(c));
+/** Damage credited to `u`, 无来源 included (source null, credit u). */
+const credited = (h, u, f = () => true) => h.hooksOf('damaged').filter((c) => c.credit === u && f(c));
 const statuses = (h, key, f = () => true) => h.hooksOf('statusApplied').filter((c) => c.status === key && f(c));
 const heals = (h, u, f = () => true) => h.hooksOf('heal').filter((c) => c.source === u && f(c));
 /** The unit's first attack (its strike lands at the clip's damage frame after the swing starts: ai.js attackTiming). */
@@ -545,10 +547,10 @@ for (const [idA, idB] of [['chess_char_1_16_a', 'chess_char_1_16_b'], ['chess_ch
     yak.hp = yak.s.maxHp * 0.3;
     h.run(bb.projectile_delay_time + 1);
     const [g, f] = h.enemies();
-    const z = dealt(h, u, (c) => c.target === g && (c.dmg.tags || []).includes('zone'));
+    const z = credited(h, u, (c) => c.target === g && (c.dmg.tags || []).includes('zone'));
     assert.equal(z.length, bb.projectile_delay_time);
     for (const c of z) approx(c.amount, u.s.atk * bb.atk_scale);
-    assert.equal(dealt(h, u, (c) => c.target === f && (c.dmg.tags || []).includes('zone')).length, 0, 'air units unaffected');
+    assert.equal(credited(h, u, (c) => c.target === f && (c.dmg.tags || []).includes('zone')).length, 0, 'air units unaffected');
     assert.equal(heals(h, u, (c) => c.target === yak).length, 0, 'no heal of hers: an hpRegen buff (PRTS 备注 「增加目标的“生命回复速度”属性」)');
     done(h);
     // the ally inside: 生命回复速度 + her ATK at the cast × hp_recovery_per_sec_ratio for the unit's life, then gone
@@ -580,7 +582,7 @@ for (const [idA, idB] of [['chess_char_1_16_a', 'chess_char_1_16_b'], ['chess_ch
     const sp0 = u2.skill.sp, t0 = h2.b.time;
     h2.run(4);
     approx((u2.skill.sp - sp0) / (h2.b.time - t0), u2.s.spRecovery + mb.sp_recovery_per_sec, 'SP rate with a unit on the field', 1e-3);
-    const z2 = dealt(h2, u2, (c) => (c.dmg.tags || []).includes('zone'));
+    const z2 = credited(h2, u2, (c) => (c.dmg.tags || []).includes('zone'));
     assert.ok(z2.length >= 4);
     for (const c of z2) approx(c.amount, u2.s.atk * bbB.atk_scale * w, '×damage_scale');
     done(h2);
@@ -1326,6 +1328,28 @@ test('1_10 古米: 平底锅专精 stuns only when the proc hit lands (a dodged 
   assert.ok(h.eventsOf('fx').some((f) => f[1] === 'crit' && f[4]?.id === u.id), 'procs rolled');
   assert.equal(statuses(h, 'stun', (c) => c.source === u).length, 0, 'no stun from dodged hits');
   done(h);
+});
+
+test('锡人 alchemy units: their damage is 无来源 (hooks see no source, the kill credit stays hers) and can be dodged', () => {
+  // tinman_s_1 / tinman_s_2: NoSourceDamage MAGICAL, `_ignoreCancelReasonMask` NONE
+  for (const id of ['chess_char_1_16_a', 'chess_char_2_19_a']) {
+    const h = run({ defs: { enemies: { e: dummy('e') } }, units: [{ chessId: id, row: 10, col: 4, carryState: READY }], enemies: [{ key: 'e', pos: [10, 5] }] });
+    const u = h.unit(id);
+    h.run(2.5);
+    const zone = credited(h, u, tagged('zone'));
+    assert.ok(zone.length > 0, `${id}: the unit hits`);
+    assert.ok(zone.every((c) => c.source === null), `${id}: 无来源`);
+    done(h);
+    const d = run({
+      defs: { enemies: { e: dummy('e') } }, units: [{ chessId: id, row: 10, col: 4, carryState: READY }], enemies: [{ key: 'e', pos: [10, 5] }],
+      setup: (b) => b.on('enemySpawn', ({ enemy }) => b.addBuff(enemy, { key: 'test:dodge', mods: { dodgeArts: 1 } })),
+    });
+    const v = d.unit(id);
+    d.run(2.5);
+    assert.ok(d.eventsOf('fx').some((f) => f[1] === 'dodge'), `${id}: dodged`);
+    assert.equal(credited(d, v, tagged('zone')).length, 0, `${id}: every zone tick dodged`);
+    done(d);
+  }
 });
 
 test('1_16 锡人 elite: 凋敝魂灵 multiplies damage over time only, never instantaneous bursts', () => {

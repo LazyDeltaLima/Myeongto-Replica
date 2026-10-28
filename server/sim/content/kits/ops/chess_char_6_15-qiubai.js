@@ -68,17 +68,18 @@ function qiubai(bb, chess, def) {
       afterHit(battle, unit, target) {
         if (!target || !target.alive) return;
         if (modArts > 0) battle.dealDamage(unit, target, { amount: unit.s.atk * modArts, type: 'arts', tags: ['module'] });
-        const slug = !!target.findBuff('sluggish'), bind = !!(target.findBuff('bind') || target.s.flags.bind);
-        if ((slug || bind) && gapScale > 0 && target.alive) { // 入隙
-          battle.dealDamage(unit, target, { amount: unit.s.atk * gapScale * (slug && bind ? bothMul : 1), type: 'arts', tags: ['talent'] });
-        }
         if (!target.alive) return;
         if (firstBind > 0 && !hitOnce.has(target)) { // 落英 (module): first hit on an enemy
           hitOnce.add(target);
           battle.applyStatus(target, 'bind', { duration: firstBind, source: unit });
-          return;
-        }
-        if (num(t1.prob) > 0 && battle.rng() < num(t1.prob)) battle.applyStatus(target, 'bind', { duration: num(t1.duration), source: unit }); // 落英
+        } else if (num(t1.prob) > 0 && battle.rng() < num(t1.prob)) battle.applyStatus(target, 'bind', { duration: num(t1.duration), source: unit }); // 落英
+        // 入隙 looks 0.1 s after the hit, so the 落英 bind of the same hit counts: the official qiubai_t_1 (module
+        // qiubai_e_002_t) puts a 0.1 s buff on the target and checks 停顿 / 束缚 when it finishes (ON_BUFF_FINISH)
+        if (gapScale > 0) battle.after(0.1, () => {
+          if (!target.alive || !unit.alive) return;
+          const slug = !!target.findBuff('sluggish'), bind = !!(target.findBuff('bind') || target.s.flags.bind);
+          if (slug || bind) battle.dealDamage(unit, target, { amount: unit.s.atk * gapScale * (slug && bind ? bothMul : 1), type: 'arts', tags: ['talent'] });
+        }, { owner: unit });
       },
     },
     skill: {

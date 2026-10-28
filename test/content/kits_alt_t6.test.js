@@ -1548,6 +1548,20 @@ test('module 仇白 欲雪时: the first hit on an enemy binds it 3 s; ASPD +12 
   done(d);
 });
 
+test('仇白 入隙 checks 0.1 s after the hit: the module\'s first-hit 落英 bind of the same hit counts', () => {
+  // qiubai_t_1 / qiubai_e_002_t: a 0.1 s buff on the target, 停顿 / 束缚 checked when it finishes
+  const id = ELITE('chess_char_6_15'), M = 'uniequip_003_qiubai';
+  const h = run({ defs: { enemies: { e: dummy('e') } }, units: [{ chessId: id, row: 10, col: 4, moduleId: M, carryState: IDLE }], enemies: [{ key: 'e', pos: [10, 5] }] });
+  const u = h.unit(id);
+  assert.ok(h.runUntil(() => statuses(h, 'bind', (c) => c.source === u).length > 0, 5));
+  const tb = statuses(h, 'bind', (c) => c.source === u)[0].t;
+  h.run(0.2);
+  const gap = dealt(h, u, tagged('talent'));
+  assert.ok(gap.length > 0, 'the first hit already deals 入隙');
+  approx(gap[0].t - tb, 0.1, '0.1 s after the hit', 0.02);
+  done(h);
+});
+
 test('module 耀骑士临光 “骑士家族”: the first knock-out of a deployment keeps her up (max HP −60 %, ASPD +30) and bursts 不畏苦暗 again', () => {
   const id = ELITE('chess_char_6_17'), M = 'uniequip_003_nearl2';
   const h = run({ defs: { enemies: { e: dummy('e') } }, units: [{ chessId: id, row: 10, col: 4, moduleId: M, carryState: IDLE }], enemies: [{ key: 'e', pos: [10, 5], time: 1 }] });

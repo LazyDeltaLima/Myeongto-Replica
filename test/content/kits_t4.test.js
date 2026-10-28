@@ -1096,17 +1096,18 @@ test('寒芒克洛丝: dodged shots neither count towards the 40 hits nor stun',
   assert.equal(h.hooksOf('statusApplied').filter((c) => c.status === 'stun').length, 0);
 });
 
-test('星熊 战术装甲: blocks only physical/arts damage (true damage always lands)', () => {
+test('星熊 战术装甲: blocks about a quarter of every damage type (hsguma_e_002_t `_filterDamageType` false)', () => {
   const id = 'chess_char_4_17_a';
   const h = makeBattle({ defs: { enemies: { enemy_dummy: dummy() } }, units: [{ chessId: id, row: 9, col: 5 }], timeLimit: 60, hooks: ['damaged'], captureNoisy: true, seed: 4 });
   h.step();
   const u = h.unit(id);
   const e = h.spawn('enemy_dummy', { pos: [12, 9] });
   const n0 = noisy(h, 'damaged').filter((c) => c.target === u).length;
-  for (let i = 0; i < 40; i++) h.b.dealDamage(e, u, { amount: 1, type: 'true' });
-  assert.equal(noisy(h, 'damaged').filter((c) => c.target === u).length - n0, 40);
+  for (let i = 0; i < 80; i++) h.b.dealDamage(e, u, { amount: 1, type: 'true' });
+  const trues = noisy(h, 'damaged').filter((c) => c.target === u).length - n0;
+  assert.ok(trues < 75 && trues > 45, `true blocked ~25 %: ${trues}/80 landed`);
   for (let i = 0; i < 80; i++) h.b.dealDamage(e, u, { amount: 1, type: 'arts' });
-  const arts = noisy(h, 'damaged').filter((c) => c.target === u).length - n0 - 40;
+  const arts = noisy(h, 'damaged').filter((c) => c.target === u).length - n0 - trues;
   assert.ok(arts < 75 && arts > 45, `arts blocked ~25 %: ${arts}/80 landed`);
 });
 

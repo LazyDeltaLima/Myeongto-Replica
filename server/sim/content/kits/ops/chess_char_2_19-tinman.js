@@ -37,7 +37,7 @@ export default {
                 if (e.isFlying || e.s.flags.untargetable) continue;
                 if (weak > 0) b.applyStatus(e, 'weaken', { duration: STEP + 0.05, value: weak, source: unit });
                 if (wither > 1) b.addBuff(e, { key: 'tinman:wither', duration: STEP + 0.05, data: { mul: wither }, source: unit });
-                if (pulse && dmgScale > 0) b.dealDamage(unit, e, { amount: atk * dmgScale, type: 'arts', isSkill: true, canDodge: false, tags: ['dot', 'zone'] });
+                if (pulse && dmgScale > 0) b.dealDamage(unit, e, { amount: atk * dmgScale, type: 'arts', isSkill: true, sourceless: true, showSource: true, tags: ['dot', 'zone'] });
               }
               if (++i >= n) { sc.cancel(); unit.mem.tinZones = Math.max(0, (unit.mem.tinZones ?? 1) - 1); }
             }, { immediate: true });

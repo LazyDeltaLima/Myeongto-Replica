@@ -801,6 +801,20 @@ test('缄默德克萨斯 module none: no ATK +10 % when alone (EXE-Y default has
   assert.equal(has('uniequip_003_texas2'), false);
 });
 
+test('星熊 战术装甲: the 25 % 伤害抵挡 takes any damage type from any source (true, 无来源), never an element fill', () => {
+  // hsguma_e_002_t BlockDamage: `_filterDamageType` false
+  for (const id of pair('chess_char_4_17_a')) {
+    const h = battle([U(id, 10, 4, 0)]);
+    h.step();
+    const u = h.unit(id);
+    let blocked = 0;
+    for (let i = 0; i < 200; i++) { if (h.b.dealDamage(null, u, { amount: 1, type: 'true', sourceless: true }) === 0) blocked++; u.hp = u.s.maxHp; }
+    assert.ok(blocked > 20 && blocked < 90, `${id}: about a quarter of 无来源 true damage blocked (${blocked} / 200)`);
+    for (let i = 0; i < 20; i++) h.b.dealDamage(null, u, { type: 'element', element: 'burn', amount: 10 });
+    assert.equal(u.elem.burn, 200, `${id}: element fills all land`);
+  }
+});
+
 test('星熊 S1 战意 (TAKE_DAMAGE: DEF/ATK up, no thorns) and S3 力之锯 (ATK/DEF up, cuts every enemy in front)', () => {
   for (const id of pair('chess_char_4_17_a')) {
     const b1 = D(id, 0).skill.bb, b3 = D(id, 2).skill.bb;

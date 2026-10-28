@@ -755,8 +755,10 @@ official effects, which depend on the side hit (constants.js `ELEMENT`); burst d
 `sourceless`, PRTS 伤害分类 "无法被追溯伤害来源": no damage-dealt multiplier or penetration of the unit that filled the
 gauge, and the `hit` / `damaged` / `fatal` hooks see `source: null` — no attacker-keyed content applies — while the ctx's
 `credit`, the stats and the kill keep that unit; target-side reactions with no source condition read `source || credit`:
-damage sharing — 圣杯, 盲信之誓, 余音 — and 抵挡 — 星熊 战术装甲, 拉普兰德 日晷, whose "enemy damage" guard is otherwise
-the source's side):
+damage sharing — 圣杯, 盲信之誓, 余音 — and 抵挡 — 拉普兰德 日晷, whose "enemy damage" guard is otherwise the source's
+side; 星熊 战术装甲 blocks any damage instance whatever its type or source, hsguma_e_002_t `_filterDamageType` false). On an
+operator the burst damage can be dodged like any phys / arts instance (ep_break_*_char NoSourceDamage cancels nothing on
+dodge); 元素伤害 has no dodge:
 
 | element | operator hit by enemies (ba.dt.*) | enemy hit by operators ("·我方" ba.dt.*2) |
 |---|---|---|

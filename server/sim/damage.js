@@ -33,7 +33,9 @@
 // filled the gauge do not apply (the target's own RES cuts do, "可享受法抗减少效果"), and the `hit` / `damaged` / `fatal`
 // hooks get `source: null`, so no content keyed on the attacker (ATK ×1.5 vs 海怪, 精准狙击镜, bond / module 伤害提升,
 // reflect, "受到来自…的伤害") touches it; the hook ctx's `credit` and the kill / stats keep the filler ("元素爆发本身来源于
-// 造成“爆条”的元素损伤的来源").
+// 造成“爆条”的元素损伤的来源"). The bursts on operators (burn's arts, erosion's phys, apoptosis's arts per second) can be
+// dodged like any phys / arts instance: the official ep_break_fire_char / ep_break_water_char / ep_break_anger_char
+// NoSourceDamage cancels nothing on dodge (`_ignoreCancelReasonMask` NONE); the enemies' 元素伤害 has no dodge anyway.
 // 爆发冷却 (PRTS 元素, "阻回" after a burst): for the burst's duration (the `<el>Burst` buff) NO element of the unit can
 // fill or be recovered (reduceElement) — the bursting gauge shows full — and when it ends EVERY gauge of the unit
 // resets to 0. A burst that is still resolving (its `elementBurst` hook runs before the `<el>Burst` lock exists) already
@@ -71,10 +73,11 @@ export function hasHp(u) {
  * (`battle.dealDamage(u, …)` in content), a DoT tick credited to its applier, a summon's own id — so the client can bind
  * the attacker's official hit effect / sound to damage that has no 'atk' event (docs/SIM.md, docs/rules/sim.md
  * 「공식 바인딩용 이벤트 필드」). null for 无来源 damage (element bursts, `periodicDamage`: no attacker in the client's
- * DamageInfo either) and for damage without a source unit.
+ * DamageInfo either) and for damage without a source unit — except 无来源 damage marked `showSource`, whose credited
+ * unit plays its own effect for it (锡人's alchemy unit ticks: the client's tinman_s_2[audio] custom trigger).
  */
 function attackerId(source, dmg) {
-  return source && !dmg.sourceless && source.id != null ? source.id : null;
+  return source && (!dmg.sourceless || dmg.showSource) && source.id != null ? source.id : null;
 }
 
 /**
@@ -134,6 +137,7 @@ export function makeDamageInfo(d = {}) {
     // whatever the source's 行动方式
     ignoreSelect: !!d.ignoreSelect,
     sourceless: !!d.sourceless,
+    showSource: !!d.showSource, // 无来源 damage that still names its credited unit in the 'dmg' event (attackerId)
     attackId: d.attackId ?? 0,
     // the strike of its attack (0, 1 …: an attack of several hits — profile `hits` / `hitsFn`, ai.js resolveHit), else null:
     // the 'dmg' event's 8th field — the renderer plays that strike's official hit / shot by it (render/fxgame.js strikeGroups)
@@ -321,10 +325,11 @@ export function dealDamage(battle, source, target, dmgIn) {
     }
   }
   // 频次 units (flags hitCount / hitCountArts): every damage instance removes exactly 1 HP (maxHp = hits needed);
-  // hitCountArts ignores physical instances. The instance keeps its own DamageInfo, so `damaged` handlers still
-  // recognise their own (tagged) damage — never re-create such a loss with a fresh loseHp.
+  // hitCountArts counts arts and true instances only (茶器 "需要4次法术或真实伤害击倒"; that 元素伤害 does not count is
+  // [ASSUMED, no source: the enemy text names arts and true only]). The instance keeps its own DamageInfo, so `damaged`
+  // handlers still recognise their own (tagged) damage — never re-create such a loss with a fresh loseHp.
   if (ts.flags.hitCount || ts.flags.hitCountArts) {
-    const counts = !(ts.flags.hitCountArts && !ts.flags.hitCount && type === 'phys');
+    const counts = ts.flags.hitCount || type === 'arts' || type === 'true';
     return applyHpLoss(battle, source, target, absorbShields(battle, target, counts ? 1 : 0, type), dmg);
   }
   // 无来源 damage (element bursts) takes nothing from its source's stats; the source still gets the credit below
@@ -524,7 +529,7 @@ function resolveBurst(battle, source, target, el) {
   if (!target.alive) { reset(); return; }
   const tags = ['burst', el];
   // 无来源 damage credited to `source` (header)
-  const hit = (amount, type) => battle.dealDamage(source, target, { amount, type, element: el, canDodge: false, sourceless: true, tags });
+  const hit = (amount, type) => battle.dealDamage(source, target, { amount, type, element: el, sourceless: true, tags });
   const lock = (duration, extra = {}) => {
     if (!(duration > 0)) { reset(); return null; }
     return battle.addBuff(target, { key: `${el}Burst`, duration, visible: true, onExpire: reset, onRemove: reset, ...extra, flags: { burstLock: true, ...(extra.flags || {}) } });

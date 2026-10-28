@@ -36,7 +36,7 @@
 //   hit modifiers       act1autochess_gar_eff_attack_enemy (dmg.amount × atk vs check_tag enemies),
 //                       ab_damageScaleByBond (bound / sluggish targets), _chaos (弱点伤害, research 04 glossary:
 //                       phys/arts → whichever deals MORE after the engine's mitigation incl. the attacker's DEF/RES
-//                       ignore and dealt/taken multipliers; a tie keeps the type).
+//                       ignore, never the dealt/taken multipliers; a tie keeps the type).
 //   NONE                风丸 "2 copies merge" — prep rule (chess.upgradeNum 2), nothing in battle.
 //
 // Hooks: priority 0, except 弱点伤害 (hit, WEAKNESS_PRIORITY −10: decided on the final amount after the ATK
@@ -484,8 +484,10 @@ function installReaders(battle, by) {
 
 /**
  * 弱点伤害 (research 04 §glossary: "each hit is dealt as whichever of physical/arts yields MORE damage against that
- * target's DEF/RES"): the engine's own mitigation formula incl. the attacker's DEF/RES ignore stats; a tie keeps the
- * original type.
+ * target's DEF/RES"): the 理论伤害 of each type — the engine's mitigation formula incl. the attacker's DEF/RES ignore
+ * stats, and nothing else; a tie keeps the original type. The official client's WeakDamage compares penetration + the
+ * base formula only, and PRTS 术语释义 counts ATK, its multipliers and additions, penetration and the target's
+ * DEF / RES, "不计入…任何伤判效果": the dealt / taken multipliers (physDealtMul, artsTakenMul …) never choose the type.
  */
 export function weaknessType(source, target, dmg) {
   const ss = source && source.s ? source.s : null;
@@ -495,8 +497,8 @@ export function weaknessType(source, target, dmg) {
     resIgnorePct: S.num(dmg.resIgnorePct, 0) + (ss ? S.num(ss.resIgnorePct, 0) : 0),
     resIgnoreFlat: S.num(dmg.resIgnoreFlat, 0) + (ss ? S.num(ss.resIgnoreFlat, 0) : 0),
   };
-  const ph = mitigate(dmg.amount, 'phys', target.s, ign) * (ss ? S.num(ss.physDealtMul, 1) : 1) * S.num(target.s.physTakenMul, 1);
-  const ar = mitigate(dmg.amount, 'arts', target.s, ign) * (ss ? S.num(ss.artsDealtMul, 1) : 1) * S.num(target.s.artsTakenMul, 1);
+  const ph = mitigate(dmg.amount, 'phys', target.s, ign);
+  const ar = mitigate(dmg.amount, 'arts', target.s, ign);
   if (ar > ph + 1e-9) return 'arts';
   if (ph > ar + 1e-9) return 'phys';
   return dmg.type;

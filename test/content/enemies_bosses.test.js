@@ -427,7 +427,7 @@ for (const key of ['enemy_1200_msfjin', 'enemy_1204_msfhu', 'enemy_1288_duskls']
   });
 }
 
-test('茶器 (hitCountArts): physical instances remove nothing, true / elemental remove 1 each; element fills do not count', () => {
+test('茶器 (hitCountArts): only arts / true instances remove 1 each; physical, 元素伤害 and element fills do not count', () => {
   const h = arena({ units: [{ chessId: 't_gun', row: 12, col: 3 }] });
   h.step();
   const e = put(h, 'enemy_1204_msfhu', [10, 7]);
@@ -438,7 +438,9 @@ test('茶器 (hitCountArts): physical instances remove nothing, true / elemental
   h.b.dealDamage(g, e, { type: 'element', element: 'burn', amount: 100 });
   assert.equal(e.hp, n);
   h.b.dealDamage(g, e, { amount: 1, type: 'true' });
-  h.b.dealDamage(g, e, { amount: 1, type: 'elemental' });
+  assert.equal(h.b.dealDamage(g, e, { amount: 1, type: 'elemental' }), 0, '"需要4次法术或真实伤害击倒"');
+  assert.equal(e.hp, n - 1);
+  h.b.dealDamage(g, e, { amount: 1, type: 'arts' });
   assert.equal(e.hp, n - 2);
   checkInvariants(h.b);
 });

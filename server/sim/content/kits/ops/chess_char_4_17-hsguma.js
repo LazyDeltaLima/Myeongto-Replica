@@ -24,10 +24,11 @@ export default withDefaults({
       }),
       skill: { kind: 'passive', mods: { defPct: num(bb.def) } },
       talents: [
-        { install(battle, unit) { // 战术装甲: 25 % 伤害抵挡 — negates an enemy phys/arts damage instance ("抵挡一次物理或法术伤害")
-          battle.on('hit', (c) => { // 抵挡 is target-side: a 无来源 burst (source null) counts via the enemy credited with it
-            const src = c.source || c.credit;
-            if (c.target !== unit || !src || src.side !== 'enemy' || c.dmg.cancel || (c.dmg.type !== 'phys' && c.dmg.type !== 'arts')) return;
+        { install(battle, unit) { // 战术装甲: 25 % 伤害抵挡 — negates a damage instance of any type and any source (true and
+          // 无来源 included): the official hsguma_e_002_t BlockDamage does not filter the damage type (`_filterDamageType`
+          // false). An element fill ('element') is no damage instance and is never blocked.
+          battle.on('hit', (c) => {
+            if (c.target !== unit || c.dmg.cancel || c.dmg.type === 'element') return;
             if (battle.rng.chance(num(t0.prob, 0.25))) { c.dmg.cancel = true; battle.fx('block', { x: unit.x, y: unit.y, id: unit.id }); }
           }, { owner: unit });
         } },

@@ -13,7 +13,9 @@ import { num, talentBb, moduleBb, enemiesInGrid, once, spTimeBonus, makeZone, in
  * time taken by ground enemies inside a unit ×1.2) and the module's +sp_recovery_per_sec SP while a unit exists.
  * PRTS 锡人 技能2 备注: the unit caches her ATK at the cast, several can exist and their effects add up, and "生命恢复的
  * 提供方式为增加目标的“生命回复速度”属性，不受治疗加成和禁疗影响" — an hpRegen buff per unit on the allies inside it
- * (no heal: 无法被友方治疗 / 禁疗 units get it too), set at each pulse until the next.
+ * (no heal: 无法被友方治疗 / 禁疗 units get it too), set at each pulse until the next. The unit's damage is 无来源 and
+ * dodgeable: the official tinman_s_1 / tinman_s_2 deal it with NoSourceDamage MAGICAL, which cancels nothing on dodge
+ * (`_ignoreCancelReasonMask` NONE) — her damage-dealt multipliers do not scale it, the kill and the stats stay hers.
  */
 export function tinmanKit(bb, chess, def) {
   const dur = num(bb.projectile_delay_time, 10);
@@ -37,7 +39,7 @@ export function tinmanKit(bb, chess, def) {
             for (const e of b.foesInRadius(x, y, radius)) {
               if (e.isFlying || e.s.flags.untargetable) continue;
               if (wither > 1) b.addBuff(e, { key: witherKey, duration: 1.05, data: { mul: wither }, source: unit });
-              b.dealDamage(unit, e, { amount: atk * dmgScale, type: 'arts', isSkill: true, canDodge: false, tags: ['dot', 'zone'] });
+              b.dealDamage(unit, e, { amount: atk * dmgScale, type: 'arts', isSkill: true, sourceless: true, showSource: true, tags: ['dot', 'zone'] });
             }
             // pulses every second: the buff bridges to the next pulse (two ticks over), the last one ends with the unit.
             // 'tinman:zoneAlly' (no mods, one for every zone): tinman_s_2[buff] gives an ally in it tinman_s_2[buff][ally], whose

@@ -97,6 +97,24 @@ test('sleep: target is untargetable and inactive; fear stops enemy attacks', () 
   assert.ok(u.stats.attacks > a0);
 });
 
+test('element bursts on operators can be dodged: ep_break_*_char NoSourceDamage cancels nothing on dodge', () => {
+  const h = makeBattle({
+    defs: { chess: { t_guard: guard() }, enemies: { enemy_dummy: dummy() } },
+    units: [{ chessId: 't_guard', row: 9, col: 5 }], enemies: [{ key: 'enemy_dummy', pos: [11, 8] }], content: 'none', autoFinish: false,
+  });
+  h.step();
+  const u = h.unit('t_guard'), e = h.enemy('enemy_dummy');
+  h.b.addBuff(u, { key: 'test:dodge', mods: { dodgeArts: 1, dodgePhys: 1 } });
+  const hp0 = u.hp;
+  h.b.dealDamage(e, u, { type: 'element', element: 'burn', amount: 1000 });
+  assert.ok(u.findBuff('burnBurst'), 'burst');
+  assert.equal(u.hp, hp0, 'burn 1200 arts dodged');
+  h.run(ELEMENT.burn.ally.duration + 0.1); // the 爆发冷却 locks every gauge
+  h.b.dealDamage(e, u, { type: 'element', element: 'erosion', amount: 1000 });
+  assert.equal(u.hp, hp0, 'erosion phys dodged (the DEF cut stays)');
+  assert.ok(u.findBuff('erosionDown'));
+});
+
 test('element bursts on enemies ("·我方" terms): burn 7000 元素伤害 + RES −20 (10 s lock), neural 6000 + 3 麻痹, leaders hold 2000', () => {
   const h = makeBattle({
     defs: { enemies: { enemy_dummy: dummy({ res: 50 }), enemy_lead: enemyRec({ key: 'enemy_lead', hp: 1e6, speed: 0, rank: 'BOSS' }) } },
