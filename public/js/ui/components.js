@@ -352,11 +352,17 @@ export function useScrollEdges(ref, deps = []) {
 // Shared ticker so every live countdown re-renders from one interval per period.
 const tickers = new Map(); // ms -> { subs:Set, id }
 /**
- * Re-render the calling component every `ms` milliseconds (0/undefined = never).
+ * Re-render the calling component every `ms` milliseconds (0/undefined = never) — with `shown`, only on the ticks
+ * where its value differs from the one of the last render (a countdown checks 5× a second, its number moves once).
  * @param {number} ms
+ * @param {(() => any)|null} [shown]
  */
-export function useTicker(ms) {
+export function useTicker(ms, shown = null) {
   const [, force] = useReducer((c) => c + 1, 0);
+  const shownRef = useRef(shown);
+  shownRef.current = shown;
+  const seen = useRef(undefined);
+  seen.current = shown ? shown() : undefined;
   useEffect(() => {
     if (!(ms > 0)) return undefined;
     let tk = tickers.get(ms);
@@ -365,9 +371,10 @@ export function useTicker(ms) {
       tk.id = setInterval(() => { for (const fn of [...tk.subs]) fn(); }, ms);
       tickers.set(ms, tk);
     }
-    tk.subs.add(force);
+    const tick = () => { const fn = shownRef.current; if (!fn || !Object.is(fn(), seen.current)) force(); };
+    tk.subs.add(tick);
     return () => {
-      tk.subs.delete(force);
+      tk.subs.delete(tick);
       if (tk.subs.size === 0) { clearInterval(tk.id); tickers.delete(ms); }
     };
   }, [ms]);
@@ -411,7 +418,7 @@ export const warnCue = (wasWarn, warn) => !!warn && !wasWarn;
  */
 export function Countdown({ deadline, seconds, total, warnAt = 10, label = 'COUNTDOWN', size = 'md', gauge = true, onExpire, onWarn, class: cls }) {
   const live = seconds == null && hasDeadline(deadline);
-  useTicker(live ? 200 : 0);
+  useTicker(live ? 200 : 0, live ? () => secondsLeft(deadline) : null); // redrawn when the second changes
   const remain = seconds != null && Number.isFinite(Number(seconds)) ? Math.max(0, Math.floor(Number(seconds))) : live ? secondsLeft(deadline) : null;
   const warn = remain != null && remain <= warnAt;
   const text = remain == null ? '--' : String(Math.min(999, remain)).padStart(2, '0');

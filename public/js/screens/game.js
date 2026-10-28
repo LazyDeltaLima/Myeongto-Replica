@@ -75,7 +75,7 @@ import { html, Spinner, PhaseBanner, ResultDialog, Icon, Button, confirmDialog, 
 import { useGameData, GIcon, PlayerAvatar } from '../ui/gameComponents.js';
 import { enemyIconUrl } from '../ui/assetUrls.js';
 import { useFieldView } from '../ui/fieldHost.js';
-import { TopBar, liveLp, ownLeaks, uniteRemaining, tempInfo, matchLpCap } from '../ui/hud.js';
+import { TopBar, liveLp, ownLeaks, uniteRemaining, tempInfo, matchLpCap, battleHud } from '../ui/hud.js';
 import { BondStrip, BondPopup } from '../ui/bondStrip.js';
 import { TeamPanel } from '../ui/teamPanel.js';
 import { ShopBar } from '../ui/shopBar.js';
@@ -215,7 +215,7 @@ function MatchScreen() {
   const priv = useStore((s) => s.match.private);
   const field = useStore((s) => s.match.field);
   const myId = useStore((s) => s.me.playerId);
-  const conn = useStore((s) => s.connection, shallowEqual);
+  const online = useStore((s) => s.connection.status === 'online'); // the ping itself: ui/hud.js TopBar
   const emotes = useStore((s) => s.emotes);
   const roomSolo = useStore((s) => s.room?.mode === 'solo');
   const spectator = useStore((s) => isSpectating(s.room, s.me.playerId));
@@ -261,7 +261,10 @@ function MatchScreen() {
   const [sel, setSel] = useState(null);                  // tapped own piece: { uid }
   const [selBusy, setSelBusy] = useState(false);
   const [holdSeq, setHoldSeq] = useState(0);             // bumped when a held piece is released (re-apply the prep state)
-  const [hud, setHud] = useState(null);
+  // the battle HUD numbers live in their own store (ui/hud.js battleHud): the top bar's capsule and the DP counter
+  // redraw with them; the match screen only while a detail card is open (its HP, range and a device's close read the
+  // frames)
+  const hud = useStore((s) => (detail ? s.hud : null), Object.is, battleHud);
   const [banner, setBanner] = useState(null);
   const [opening, setOpening] = useState(false);         // game_start_dialog before round 1's round-start banner
   const [bossOpen, setBossOpen] = useState(null);        // the boss round's opening (BossPrepare kind) before its round-start banner
@@ -544,7 +547,7 @@ function MatchScreen() {
         lastFieldRef.current = null;
         enteredFieldRef.current = null;
         reentryRef.current = null;
-        setHud(null);
+        battleHud.set({ hud: null });
       }
       if (priv) {
         view.setPrep(priv, { editable, canPlace: (uid, target) => canPlace(live.current.placeCtx, uid, target).ok });
@@ -622,7 +625,7 @@ function MatchScreen() {
         snapUnitsRef.current = new Map(earlySnap.units.filter(Array.isArray).map((t) => [t[0], t]));
       }
       hudRef.current = snapHud(earlySnap);
-      setHud(hudRef.current);
+      battleHud.set({ hud: hudRef.current });
     }
   }, [view, showPrep, priv, editable, field, combat, mode, watchingOther, watching, holdSeq]);
 
@@ -632,7 +635,7 @@ function MatchScreen() {
   useEffect(() => {
     let last = 0;
     let pending = null;
-    const flush = () => { pending = null; last = performance.now(); setHud(hudRef.current); };
+    const flush = () => { pending = null; last = performance.now(); battleHud.set({ hud: hudRef.current }); };
     const onFieldMeta = (msg) => {
       if (!msg || typeof msg.fieldId !== 'string') return;
       evBufRef.current.set(msg.fieldId, []);
@@ -725,6 +728,7 @@ function MatchScreen() {
     }
     return () => { for (const off of offs) { try { off(); } catch { /* ignore */ } } clearTimeout(pending); };
   }, [view]);
+  useEffect(() => () => battleHud.set({ hud: null }), []); // a later match starts without this one's numbers
 
   // the prep board moves while prep is shown (a boss round's prep begins, or a teammate left and the pairs changed):
   // the next camera of the own board (the direction wheel sits on a board tile — it closes first)
@@ -1760,7 +1764,7 @@ function MatchScreen() {
     </div>
 
     <div class="gm__hud" ref=${hudElRef}>
-      <${TopBar} pub=${pub} priv=${priv} conn=${conn} hud=${hud} total=${total} drawer=${drawer}
+      <${TopBar} pub=${pub} priv=${priv} total=${total} drawer=${drawer}
         onExit=${() => setExitOpen(true)} onDrawer=${(t) => setDrawer((d) => (d ? null : t))} onReady=${toggleReady}
         readyBusy=${readyBusy} readyCount=${readyCount} playerCount=${solo ? 1 : aliveCount}
         pen=${pen} penAvail=${penAvail} onPen=${togglePen} config=${gd.config} frozenAt=${frozenAt} onTimerWarn=${timerCue}
@@ -1806,7 +1810,7 @@ function MatchScreen() {
       ${phase === PHASE.PREP && priv?.shop?.rewardOffer ? html`<${RewardOverlay} priv=${priv} minimized=${rewardMin || collapsed}
         onMinimize=${(m) => { setRewardMin(m); if (!m) setCollapsed(false); }} />` : null}
 
-      ${combat || mode === 'settle' ? html`<${CombatHud} pub=${pub} myId=${myId} watching=${watchingNow} hud=${hud} myDone=${!!myDone && alive} waitBand=${tipType === 'WAIT_FINISH'}
+      ${combat || mode === 'settle' ? html`<${CombatHud} pub=${pub} myId=${myId} watching=${watchingNow} myDone=${!!myDone && alive} waitBand=${tipType === 'WAIT_FINISH'}
         spectating=${!alive} spectator=${spectator} onWatch=${watchField}
         client=${cc ? { progress, observing: observingName ? { name: observingName } : null, layers, layer, onLayer: setLayer,
           own: watchingOther && alive ? ownProgress(pub, myId, { localDone }) : null } : null} />` : null}
@@ -1853,8 +1857,8 @@ function MatchScreen() {
       }} />` : null}
 
     <div class=${sp || personalChoice ? 'gm__corner is-over-choice' : 'gm__corner'}>${/* local patch (maintainer report): out of .gm__hud, above the 机变 / 悬赏 screen (css/phase-art.css) */ ''}
-      ${spectator ? null : html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen} onSend=${(id, set) => actions.emote(id, set)} disabled=${conn.status !== 'online'} />`}
-      ${solo ? null : html`<${GameChat} open=${chatOpen} onToggle=${(v) => { setChatOpen(v); if (v) setEmoteOpen(false); }} disabled=${conn.status !== 'online'} />`}
+      ${spectator ? null : html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen} onSend=${(id, set) => actions.emote(id, set)} disabled=${!online} />`}
+      ${solo ? null : html`<${GameChat} open=${chatOpen} onToggle=${(v) => { setChatOpen(v); if (v) setEmoteOpen(false); }} disabled=${!online} />`}
       ${/* phones (css/devices.css): ⚙ / 📖 / ⛶ fold behind one ⋯ button so the corner stops covering the bottom row of
           the 机变 cards and the bench (maintainer request 2026-10-12); elsewhere the ⋯ button is hidden and the three show */ ''}
       <button type="button" class=${toolsOpen ? 'gm__gear gm__more is-open' : 'gm__gear gm__more'} aria-expanded=${String(toolsOpen)}

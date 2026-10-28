@@ -51,7 +51,7 @@ function ProgressList({ list, label = t('队友作战进度') }) {
 }
 
 /**
- * @param {{ pub:any, myId:string, watching:string|null, hud:any, myDone:boolean, onWatch:(fieldId:string)=>void, spectating?: boolean,
+ * @param {{ pub:any, myId:string, watching:string|null, hud?:any, myDone:boolean, onWatch:(fieldId:string)=>void, spectating?: boolean,
  *   client?: null | { progress?: any[]|null, observing?: { name: string }|null,
  *                     layers?: Array<{ key: string, label: string, self: boolean, watch: boolean }>, layer?: string, onLayer?: (k: string) => void,
  *                     own?: any|null },

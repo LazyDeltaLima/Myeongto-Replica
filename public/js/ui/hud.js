@@ -33,13 +33,33 @@ import { PHASE } from '../../../shared/constants.js';
 import { html, Button, Icon, PingPill, Countdown, Tooltip, MicroLabel, DifficultyTag, useTicker } from './components.js';
 import { Sprite, LpTower, GIcon, LocalSprite } from './gameComponents.js';
 import { localAsset } from '../data.js';
-import { serverNow } from '../store.js';
+import { serverNow, createStore, useStore } from '../store.js';
 import { isCombatPhase, isBossPhase, prepCapsuleLabel, bossFrac, bossPctText, fmtNum, shopBlockReason, countdownWarnAt } from './gameLogic.js';
 import { overtimeState, overtimeDrainPerSec, remainAt } from './matchStatus.js';
 import { hotkeyLabelOf } from './settings.js';
 import { t, tParts } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
+
+/**
+ * The battle on screen's HUD numbers (gameLogic snapHud: kills, total, DP, boss pool), at most 5× a second from its
+ * frames (screens/game.js). A store of their own so only the capsule and the DP counter redraw with them, not the whole
+ * match screen: on a phone each of those redraws cost 2–10 ms, 5× a second in battle (`render.md` 「성능 표시」).
+ */
+export const battleHud = createStore({ hud: null });
+
+/** Whether two HUD frames draw the same phase capsule (the DP alone moving leaves it as it is). */
+export const sameCapsule = (a, b) => a === b || (!!a && !!b && a.resolved === b.resolved && a.killed === b.killed
+  && a.total === b.total && a.boss?.hp === b.boss?.hp && a.boss?.max === b.boss?.max);
+
+/**
+ * The phase capsule on the live HUD numbers (battleHud) — a `hud` prop (a fixed frame) wins.
+ * @param {{ pub:any, hud?:any, miss?:number|null }} props
+ */
+export function LiveCapsule({ pub, hud, miss = null }) {
+  const live = useStore((s) => s.hud, sameCapsule, battleHud);
+  return PhaseCapsule({ pub, hud: hud === undefined ? live : hud, miss });
+}
 
 /**
  * Phase capsule: prep label, kills n/m (combat/unite), kills + boss HP bar (boss rounds).
@@ -345,7 +365,7 @@ export function PauseButton({ paused, busy = false, onToggle }) {
 
 /**
  * Top bar.
- * @param {{ pub:any, priv:any, conn:any, hud:any, total:number|null, drawer:string|null, onExit:Function, onDrawer:(tab:string)=>void,
+ * @param {{ pub:any, priv:any, hud?:any, total:number|null, drawer:string|null, onExit:Function, onDrawer:(tab:string)=>void,
  *   onReady:(r:boolean)=>void, readyBusy?:boolean, readyCount?:number, playerCount?:number,
  *   pen?:boolean, penAvail?:boolean, onPen?:(on:boolean)=>void, config?: any, frozenAt?: number|null, onTimerWarn?: Function,
  *   pause?: { show: boolean, paused: boolean, busy?: boolean, onToggle: () => void } | null,
@@ -355,7 +375,7 @@ export function PauseButton({ paused, busy = false, onToggle }) {
  *   live: the own battle's pending LP loss (liveLp): the tower shows lp with a −N tick, 联防中 during 联防;
  *     `left` (a leaker in 联防): its enemies still standing — the capsule's ×N tag
  */
-export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, onReady, readyBusy, readyCount, playerCount, pen = false, penAvail = false, onPen = () => {},
+export function TopBar({ pub, priv, hud, total, drawer, onExit, onDrawer, onReady, readyBusy, readyCount, playerCount, pen = false, penAvail = false, onPen = () => {},
   config = null, frozenAt = null, pause = null, live = null, spectator = false, onTimerWarn }) {
   const phase = pub?.phase;
   const boss = isBossPhase(phase);
@@ -391,8 +411,7 @@ export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, 
     <div class="gtop__left">
       <${Button} variant="danger" size="lg" square=${true} icon="exit" onClick=${onExit} aria-label=${t('离开')} title=${t('离开 / 暂离')} class="gtop__exit tapx" />
       <div class="gtop__meta">
-        ${battleArt('ping').cls ? html`<${PingPanel} ms=${conn?.ping} online=${conn?.status === 'online'} />` /* the official panel_ping */
-          : html`<${PingPill} ms=${conn?.ping} online=${conn?.status === 'online'} />`}
+        <${LivePing} />
         ${pub?.difficulty ? html`<${DifficultyTag} difficulty=${pub.difficulty} size="sm" />` : null}
       </div>
     </div>
@@ -406,7 +425,7 @@ export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, 
         <span class="roundbox__label">${t('回合')}</span>
         <b class="roundbox__num num">${roundText}</b>
       </div>
-      <${PhaseCapsule} pub=${pub} hud=${hud} miss=${!boss && Number.isFinite(live?.left) ? live.left : null} />
+      <${LiveCapsule} pub=${pub} hud=${hud} miss=${!boss && Number.isFinite(live?.left) ? live.left : null} />
       <${LpTower} value=${lp} size="lg" tone=${lowLp ? 'danger' : boss || shared ? 'team' : null} pending=${pending}
         note=${pending > 0 && !boss && live?.unite ? t('联防中') : null} tip=${pendingTip(lp, pending, { unite: !boss && !!live?.unite, cap, left: live?.left ?? null, boss })} />
       <${Tooltip} text=${btn.right.tip} placement="bottom">
@@ -429,8 +448,18 @@ export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, 
   </header>`;
 }
 
-/** DP counter shown at the right edge during combat. */
+/** The ping on the connection store: a heartbeat (every 4 s) redraws only this, not the top bar or the match screen. */
+function LivePing() {
+  const ms = useStore((s) => s.connection?.ping);
+  const online = useStore((s) => s.connection?.status === 'online');
+  return battleArt('ping').cls ? html`<${PingPanel} ms=${ms} online=${online} />` /* the official panel_ping */
+    : html`<${PingPill} ms=${ms} online=${online} />`;
+}
+
+/** DP counter shown at the right edge during combat: `dp`, else the live HUD's (battleHud). */
 export function DpCounter({ dp }) {
+  const live = useStore((s) => (Number.isFinite(s.hud?.dp) ? Math.floor(s.hud.dp) : null), Object.is, battleHud);
+  if (dp === undefined) dp = live;
   if (!Number.isFinite(dp)) return null;
   return html`<div class="dpbox" title=${t('部署费用（再部署消耗）')}>
     <${GIcon} name="dp" class="dpbox__icon" /><b class="num">${Math.floor(dp)}</b><${MicroLabel}>COST</${MicroLabel}>
