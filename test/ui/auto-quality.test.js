@@ -44,6 +44,33 @@ test('back to high after 120 s at load level 0, longer each time it has to step 
   assert.deepEqual(run(step, AUTO_STEP.upMax + 1, 0), ['high'], `never more than ${AUTO_STEP.upMax} s`);
 });
 
+/** Feed `secs` seconds at load level 0 of a field (`busy`: more than 8 unit views) with these mean frame / JS times. */
+function runFrames(step, secs, busy, frameMs, jsMs) {
+  const seen = [];
+  for (let t = 0; t < secs; t += 1 / 60) if (step(1 / 60, 0, busy, frameMs, jsMs)) seen.push(autoQuality());
+  return seen;
+}
+
+test('the climb counts only crowded frames that are fast and light; a few-unit field holds the count', () => {
+  const step = autoQualityStepper();
+  run(step, 21, 3);
+  assert.equal(autoQuality(), 'medium');
+  // a phone still hot from the last match: the next one's opening rounds (≤ 8 units) at 54–55 fps
+  assert.deepEqual(runFrames(step, 300, false, 18.3, 3), [], 'a few-unit field never climbs');
+  // a crowded field at 59 fps but with the frame JS swollen by heat
+  assert.deepEqual(runFrames(step, 300, true, 16.9, 10), [], 'heavy JS is not calm');
+  // a crowded field at 51–57 fps: load level 0 yet not fast
+  assert.deepEqual(runFrames(step, 300, true, 18.5, 3), [], 'a frame rate under ~57 fps is not calm');
+  assert.deepEqual(runFrames(step, 100, true, 16.9, 3), []);
+  assert.deepEqual(runFrames(step, 60, false, 25, 12), [], 'a few-unit spell holds the count …');
+  assert.deepEqual(runFrames(step, 21, true, 16.9, 3), ['high'], '… and the crowded calm before it still counts');
+  run(step, 21, 3);
+  assert.deepEqual(runFrames(step, 200, true, 16.9, 3), []);
+  runFrames(step, 1, true, 19, 3);
+  assert.deepEqual(runFrames(step, 239, true, 16.9, 3), [], 'a slow crowded frame restarts the 240 s count');
+  assert.deepEqual(runFrames(step, 2, true, 16.9, 3), ['high']);
+});
+
 test('the level is shared by the page: a new field view starts where the last one ended', () => {
   run(autoQualityStepper(), 21, 3);
   const next = autoQualityStepper();

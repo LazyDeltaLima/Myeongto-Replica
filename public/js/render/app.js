@@ -2072,7 +2072,7 @@ export async function createFieldView(host, options = {}) {
     else if (frameMs < 17.6) { fastFor += dtRaw; slowFor = 0; }
     if (slowFor > 1 && loadLevel < 3) { loadLevel++; slowFor = 0; fastFor = 0; impInterval = pickImpostorInterval(); }
     else if (loadLevel > 0 && (fastFor > 6 * loadLevel || !busy && fastFor > 2)) { loadLevel--; fastFor = 0; impInterval = pickImpostorInterval(); }
-    if (autoPick) stepAuto(dtRaw, loadLevel); // a step reaches applyQuality through onAutoQuality
+    if (autoPick) stepAuto(dtRaw, loadLevel, busy, frameMs, cpuMs); // a step reaches applyQuality through onAutoQuality
   }
   const stepAuto = autoQualityStepper();
   function applyQuality(q) {
