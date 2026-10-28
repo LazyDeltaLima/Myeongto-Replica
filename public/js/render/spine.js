@@ -54,6 +54,31 @@
 
 const clampN = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
+/**
+ * PIXI.utils.rgb2hex for pixi-spine: Spine.update colours every attached slot through it on every update, and in PIXI 7
+ * it runs the shared Color — an array compare, a normalise and a copy per call, about a tenth of a skeleton's update in
+ * a desktop profile. An [r, g, b(, a)] array gets the same number straight away (Color.normalize clamps each channel to
+ * 0..1, refreshInt packs them); anything else goes to PIXI's own (`slow`).
+ * @param {any} rgb @param {(rgb: any) => number} slow
+ */
+export function fastRgb2hex(rgb, slow) {
+  if ((Array.isArray(rgb) || rgb instanceof Float32Array) && rgb.length >= 3 && rgb.length <= 4) {
+    const r = clampN(rgb[0], 0, 1), g = clampN(rgb[1], 0, 1), b = clampN(rgb[2], 0, 1);
+    return (r * 255 << 16) + (g * 255 << 8) + (b * 255 | 0);
+  }
+  return slow(rgb);
+}
+
+/** Puts fastRgb2hex in PIXI.utils once (pixi-spine reads `PIXI.utils.rgb2hex` at each call). @param {any} P PIXI */
+export function installFastRgb2hex(P) {
+  const u = P?.utils;
+  if (!u || typeof u.rgb2hex !== 'function' || u.rgb2hex.fast) return;
+  const slow = u.rgb2hex;
+  const fast = (rgb) => fastRgb2hex(rgb, slow);
+  fast.fast = true;
+  u.rgb2hex = fast;
+}
+
 /** Longest wind-up compression (× the rhythm speed) when the look-ahead is shorter than the natural wind-up. */
 export const MAX_WIND_SPEEDUP = 2.5;
 
@@ -240,6 +265,7 @@ export class SpineActor {
     this.entry = entry;
     this.roles = entry.anims || {};
     this.durations = entry.animations || {};
+    installFastRgb2hex(P);
     this.spine = new P.spine.Spine(spineData);
     this.spine.autoUpdate = false;
     this.names = new Set((spineData.animations || []).map((a) => a.name));

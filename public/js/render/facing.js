@@ -57,7 +57,12 @@ export class FacingMarker {
    * Lay it at world (x, y, z) facing `step` ([dx, dy], render/units.js DIR_STEP) with camera `cam`; `alpha` the unit's.
    */
   update(cam, x, y, z, step, alpha) {
+    this.root.alpha = alpha;
     const [dx, dy] = step;
+    // a standing unit under a still camera keeps its corners (each frame re-projected 8 of them for every ally)
+    const k0 = this._key;
+    if (k0 && k0.cam === cam && k0.v === cam.version && k0.x === x && k0.y === y && k0.z === z && k0.dx === dx && k0.dy === dy) return;
+    this._key = { cam, v: cam.version, x, y, z, dx, dy };
     const px = -dy, py = dx;                 // the texture's "up" (−v) on the ground: left of the facing
     const put = (mesh, pts) => {
       const v = mesh.vertices;
@@ -74,7 +79,6 @@ export class FacingMarker {
       return [cx + dx * along + px * side, cy + dy * along + py * side];
     };
     put(this.arrow, [corner(T.x, T.y), corner(T.x + T.w, T.y), corner(T.x + T.w, T.y + T.h), corner(T.x, T.y + T.h)]);
-    this.root.alpha = alpha;
   }
 
   destroy() { this.root.destroy({ children: true }); }
