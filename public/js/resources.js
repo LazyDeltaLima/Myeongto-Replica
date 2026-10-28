@@ -11,9 +11,13 @@
 //     never put a different file in the cache. A file that fails stays out (the game loads it from the server as now)
 //     and is tried again on the next visit.
 // What is cached is recorded in one JSON entry of the same cache (STATE): on load, entries whose hash changed or that
-// left the list are deleted, then the rest is downloaded. Nothing starts before the player agrees once (the choice is
-// remembered; 以后再说 asks again after ASK_AGAIN_MS). The download runs in the page, not the worker: a service worker
-// event is cut off after a few minutes, a page keeps going while the player plays — slower during a match.
+// left the list are listed as stale, then the rest is downloaded. Nothing starts before the player agrees once (the choice
+// is remembered; 以后再说 asks again after ASK_AGAIN_MS). The download runs in the page, not the worker: a service worker
+// event is cut off after a few minutes, a page keeps going while the player plays — one file at a time during a match,
+// none while a field loads. The stale entries are deleted in the background, a few at a time and never during a match:
+// the worker answers only the listed hash, so a stale copy waiting for its turn is never served, and after a deploy the
+// thousands of deletions no longer share the Cache Storage with a match's first pictures (a phone's first match after a
+// deploy waited 14.7 s for its art instead of 2.6 s, 2026-10-28).
 // Needs a secure context (https / localhost); on plain http the game simply loads everything from the server.
 //
 //   installResources()   main.js, once
@@ -23,6 +27,7 @@
 import { html, MicroLabel } from './ui/components.js';
 import { createStore, useStore, store, loadPref, savePref, selectRoute } from './store.js';
 import { voiceWanted, onVoiceLangChange, voiceStore, setVoiceLang, VOICE_LANGS, voiceLangLabel } from './voice.js';
+import { setResourceSource, fieldLoading } from './diag.js';
 import { t } from '../../shared/i18n.js';
 
 const CACHE = 'sp-res';
@@ -32,6 +37,9 @@ const PREF = 'resources';
 const ASK_AGAIN_MS = 7 * 86400e3;
 const SAVE_EVERY = 20;
 const TIMEOUT_MS = 60000;
+const CLEAN_CHUNK = 50;       // stale entries deleted between two rests
+const CLEAN_REST_MS = 100;
+const HOLD_POLL_MS = 1000;
 const RAW_RE = /^https:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/;
 const JSDELIVR_RE = /^https:\/\/cdn\.jsdelivr\.net\/gh\//;
 
@@ -92,34 +100,80 @@ let index = null;
 let listed = [];        // every valid entry of the list; index.files = the ones this browser wants (voice language)
 let cache = null;
 let state = {};        // path → hash of what is in the cache
+let want = new Map();  // path → listed hash of the files this browser wants
 let pending = [];
+let stale = [];        // cache requests to delete (cleanup)
+let reconciled = null; // the last reconcile, for the report: { at, ms, keys, stale, adopted } (running: no ms)
+let deleted = 0;
+let worker = null;     // the worker's answer counts the report last read: { at, hit, stale, fetched, bytes, server }
 
 async function saveState() {
   await cache.put(STATE, new Response(JSON.stringify(state), { headers: { 'Content-Type': 'application/json' } }));
 }
 
-/** Drop cache entries that are not (or no longer) the listed file; returns the files still to download. */
+const now = () => globalThis.performance?.now?.() ?? Date.now();
+const keyOf = (req) => {
+  const p = new URL(req.url).pathname;
+  try { return decodeURIComponent(p); } catch { return p; }
+};
+
+/** List the cache entries that are not (or no longer) the listed file for cleanup(); returns the files still to download. */
 async function reconcile() {
+  const t0 = now();
+  reconciled = { at: Date.now(), ms: null, keys: 0, stale: 0, adopted: 0 };
   cache = await caches.open(CACHE);
   try { state = (await (await cache.match(STATE))?.json()) || {}; } catch { state = {}; }
-  const want = new Map(index.files.map((f) => [f.p, f.h]));
+  want = new Map(index.files.map((f) => [f.p, f.h]));
   const stateKey = new URL(STATE, location.origin).href;
-  let changed = false;
+  const found = [];
+  let changed = false, keys = 0, adopted = 0;
   for (const req of await cache.keys()) {
     if (req.url === stateKey) continue;
-    const p = new URL(req.url).pathname;
-    let key;
-    try { key = decodeURIComponent(p); } catch { key = p; }
+    keys++;
+    const key = keyOf(req);
     let h = state[key];
     if (!h) { // stored by the worker on demand (resource-worker.js): adopt it when its hash is the listed one
       const stored = (await cache.match(req))?.headers.get('X-SP-Hash');
-      if (stored && want.get(key) === stored) { state[key] = h = stored; changed = true; }
+      if (stored && want.get(key) === stored) { state[key] = h = stored; changed = true; adopted++; }
     }
-    if (!h || want.get(key) !== h) { await cache.delete(req); changed = true; }
+    if (!h || want.get(key) !== h) found.push(req);
   }
   for (const p of Object.keys(state)) if (want.get(p) !== state[p]) { delete state[p]; changed = true; }
   if (changed) await saveState();
+  stale = found;
+  reconciled = { ...reconciled, ms: now() - t0, keys, stale: found.length, adopted };
+  cleanup();
   return index.files.filter((f) => state[f.p] !== f.h).sort((a, b) => priorityOf(a.p) - priorityOf(b.p));
+}
+
+const inMatch = () => selectRoute(store.get()) === 'game';
+
+/** Delete the stale entries reconcile() listed, CLEAN_CHUNK at a time, never while a match is on screen. An entry the
+ *  download or the worker replaced with the listed file since is kept (and adopted). */
+let cleaning = false;
+async function cleanup() {
+  if (cleaning) return;
+  cleaning = true;
+  let adopted = false;
+  try {
+    while (stale.length) {
+      if (inMatch()) { await sleep(HOLD_POLL_MS); continue; }
+      for (const req of stale.splice(0, CLEAN_CHUNK)) {
+        const key = keyOf(req);
+        const w = want.get(key);
+        if (w && state[key] === w) continue;
+        if (w && (await cache.match(req))?.headers.get('X-SP-Hash') === w) { state[key] = w; adopted = true; continue; }
+        await cache.delete(req);
+        deleted++;
+      }
+      await sleep(CLEAN_REST_MS);
+    }
+    if (adopted) await saveState();
+  } catch (err) {
+    console.warn('[resources] cleanup', err); // what is left is listed again on the next visit
+  } finally {
+    cleaning = false;
+  }
 }
 
 async function fetchOne(f) {
@@ -145,8 +199,9 @@ async function fetchOne(f) {
   return false;
 }
 
-/** Parallel downloads: fewer while a match is on screen so the game keeps the bandwidth. */
-const limit = () => (selectRoute(store.get()) === 'game' ? 2 : 4);
+/** Parallel downloads: none while a field loads, one while a match is on screen, so the game keeps the bandwidth and
+ *  the Cache Storage. */
+const limit = () => (fieldLoading() ? 0 : inMatch() ? 1 : 4);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 let running = false;
@@ -159,7 +214,7 @@ async function download() {
   let sinceSave = 0;
   const worker = async (slot) => {
     while (queue.length) {
-      if (slot >= limit()) { await sleep(1000); continue; }
+      if (slot >= limit()) { await sleep(HOLD_POLL_MS); continue; }
       const f = queue.shift();
       const ok = await fetchOne(f);
       resStore.set((s) => ({ done: s.done + 1, bytesDone: s.bytesDone + f.s, failed: s.failed + (ok ? 0 : 1) }));
@@ -243,6 +298,44 @@ async function resync() {
   } catch (err) { console.warn('[resources] resync', err); }
 }
 onVoiceLangChange(resync);
+
+/** The worker's answer counts (resource-worker.js `sp-res-stats`), or null without a worker or an answer in time. */
+function askWorker(timeout = 2000) {
+  const sw = globalThis.navigator?.serviceWorker?.controller;
+  if (!sw || typeof MessageChannel !== 'function') return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const ch = new MessageChannel();
+    const timer = setTimeout(() => { ch.port1.close(); resolve(null); }, timeout);
+    ch.port1.onmessage = (e) => {
+      clearTimeout(timer);
+      ch.port1.close();
+      const d = e.data;
+      resolve(d && typeof d === 'object' ? (worker = { at: Date.now(), ...d }) : null);
+    };
+    sw.postMessage({ t: 'sp-res-stats' }, [ch.port2]);
+  });
+}
+
+/** What the report says (diag.js): the last reconcile, the download, the cleanup and the worker's counts. */
+export function resourceStatus() {
+  const r = resStore.get();
+  const running = r.phase === 'running';
+  return {
+    reconcile: reconciled && { ...reconciled },
+    download: { phase: r.phase, done: r.done, total: r.total, failed: r.failed, queued: running ? r.total - r.done : pending.length,
+      slowed: running ? (fieldLoading() ? 'field' : inMatch() ? 'match' : null) : null },
+    cleanup: { left: stale.length, deleted, held: stale.length > 0 && inMatch() },
+    worker: worker && { ...worker },
+  };
+}
+setResourceSource({
+  status: resourceStatus,
+  // a field mount compares these before and after (diag.js mountTimer)
+  snap: async () => {
+    const s = resourceStatus();
+    return { queued: s.download.queued, cleanup: s.cleanup.left, reconciling: !!s.reconcile && s.reconcile.ms == null, sw: await askWorker() };
+  },
+});
 
 const mb = (n) => Math.max(1, Math.round(n / 1048576));
 

@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import {
   recordError, errorLog, errorCount, clearErrorLog, messageOf, stackOf, stripHosts, redact, redactValues, secretsOf, buildDiagnostics,
   setBattleSource, currentBattle, LOG_MAX, STACK_LINES, mountTimer, mountRecords, clearMountRecords, mountNet, MOUNT_MAX,
-  setPerfSource,
+  setPerfSource, setResourceSource, fieldLoading, FIELD_LOADING_MAX_MS,
 } from '../public/js/diag.js';
 import { APP_VERSION } from '../shared/constants.js';
 
@@ -292,5 +292,62 @@ describe('the performance HUD\'s lines (perf:)', () => {
     setPerfSource(() => { throw new Error('x'); });
     assert.doesNotMatch(buildDiagnostics({ state: {}, mounts: [] }), /perf:/);
     setPerfSource(null);
+  });
+});
+
+describe('the resource cache (resources: line, a mount\'s res part, fieldLoading)', () => {
+  beforeEach(() => { clearMountRecords(); setResourceSource(null); });
+
+  test('the line: the last reconcile, the download, the cleanup and the worker; none registered, no line', () => {
+    assert.doesNotMatch(buildDiagnostics({ state: {} }), /resources:/);
+    const at = Date.UTC(2026, 9, 28, 4, 14, 33);
+    const status = {
+      reconcile: { at, ms: 3240, keys: 17012, stale: 2961, adopted: 12 },
+      download: { phase: 'running', done: 120, total: 2961, failed: 2, queued: 2841, slowed: 'field' },
+      cleanup: { left: 1500, deleted: 1461, held: true },
+      worker: { at: at + 60000, hit: 1200, stale: 35, fetched: 80, bytes: 1.25 * 1048576, server: 3 },
+    };
+    const line = (s) => buildDiagnostics({ state: {}, resourceStatus: s }).split('\n').find((l) => l.startsWith('resources:'));
+    assert.equal(line(status), 'resources: reconcile 04:14:33 3.2 s (17012 keys, 2961 stale, 12 adopted) | download running 120/2961, 2 failed, held (field loading)'
+      + ' | cleanup 1461 deleted, 1500 left, held (match) | worker 1200 cached, 35 stale, 80 fetched (1.3 MB), 3 to server by 04:15:33');
+    assert.equal(line({ reconcile: { at, ms: null }, download: { phase: 'ask', queued: 40, failed: 0 }, cleanup: { left: 0, deleted: 0 }, worker: null }),
+      'resources: reconcile 04:14:33 running | download ask (40 queued)');
+    setResourceSource({ status: () => status });
+    assert.match(buildDiagnostics({ state: {} }), /^resources: reconcile 04:14:33 3\.2 s/m, 'the registered source');
+    setResourceSource({ status: () => { throw new Error('x'); } });
+    assert.doesNotMatch(buildDiagnostics({ state: {} }), /resources:/, 'a throwing source: no line');
+  });
+
+  test('a mount notes the queue at its start and the worker\'s answers until the field is shown', async () => {
+    let n = 0;
+    const sw = [{ hit: 10, stale: 0, fetched: 2, bytes: 0, server: 0 }, { hit: 150, stale: 30, fetched: 40, bytes: 2 * 1048576, server: 1 }];
+    setResourceSource({ status: () => null, snap: async () => ({ queued: 2900 - n, cleanup: 2961, reconciling: n === 0, sw: sw[n++] }) });
+    let t = 0;
+    const timer = mountTimer(() => t);
+    await Promise.resolve();
+    t += 5000; timer.done('engine');
+    t += 2000; timer.late('shown');
+    await new Promise((r) => setTimeout(r, 0));
+    const [m] = mountRecords();
+    const line = buildDiagnostics({ state: {}, renderEvents: [], mounts: [{ ...m, at: Date.UTC(2026, 9, 28, 4, 14, 43) }] })
+      .split('\n').find((l) => l.startsWith('mount:'));
+    assert.equal(line, 'mount: 04:14:43 engine in 5.0 s | arrived: shown 7.0 s'
+      + ' | res reconciling, 2900 queued, 2961 stale; worker 140 cached, 30 stale, 38 fetched (2.0 MB), 1 to server');
+    assert.equal(n, 2, 'one snapshot at the start, one when shown');
+  });
+
+  test('fieldLoading: the newest mount until its field is shown, cancelled, or FIELD_LOADING_MAX_MS old', () => {
+    assert.equal(fieldLoading(0), false, 'no mount');
+    let t = 1000;
+    const a = mountTimer(() => t);
+    assert.equal(fieldLoading(t), true);
+    a.done('fallback');
+    assert.equal(fieldLoading(t), true, 'the engine still loads behind the simplified view');
+    assert.equal(fieldLoading(t + FIELD_LOADING_MAX_MS), false, 'a field that never shows stops holding');
+    a.late('shown');
+    assert.equal(fieldLoading(t), false);
+    const b = mountTimer(() => t);
+    b.done('cancelled');
+    assert.equal(fieldLoading(t), false);
   });
 });

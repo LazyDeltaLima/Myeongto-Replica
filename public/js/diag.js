@@ -27,6 +27,9 @@
 //   mountTimer()                       times one field mount (fieldHost + createFieldView stages, late art / 3D / scene)
 //                                      for the report's `mount:` lines (+ the downloads in that window, Resource Timing)
 //   mountRecords() / clearMountRecords() / mountNet(m, resources)
+//   fieldLoading()                     a field mount is still on its way (resources.js holds its downloads meanwhile)
+//   setResourceSource({ status, snap }) resources.js registers its cache state for the report's `resources:` line and
+//                                      each mount's `res` part (queued downloads, stale entries, the worker's answers)
 //   installPageRecord()                main.js boot: this page's log, render events, mounts and perf lines kept in
 //                                      localStorage, so the page after a crash or a reload reports them (`prev …` lines)
 //   previousPage() / pageRecord()      that record of the page before this one / of this page
@@ -46,6 +49,11 @@ let perfSource = null;
 /** @param {(() => string[]) | null} fn */
 export function setPerfSource(fn) { perfSource = typeof fn === 'function' ? fn : null; }
 const perfLines = () => { try { return perfSource ? perfSource() : []; } catch { return []; } };
+
+let resSource = null;
+/** @param {{ status: () => any, snap?: () => Promise<any> } | null} src */
+export function setResourceSource(src) { resSource = src && typeof src.status === 'function' ? src : null; }
+const resStatus = () => { try { return resSource ? resSource.status() : null; } catch { return null; } };
 
 /** @type {{ source: string, message: string, stack: string|null, detail: string|null, battleId: string|null, at: number, lastAt: number, count: number }[]} */
 const log = [];
@@ -89,10 +97,15 @@ export function mountTimer(now = () => globalThis.performance.now()) {
   const t0 = now();
   let last = t0, lastPart = t0;
   let parts = [];
-  const rec = { at: Date.now(), t0, kind: null, total: null, steps: [], late: [] };
+  const rec = { at: Date.now(), t0, kind: null, total: null, steps: [], late: [], res0: null, res1: null };
   mountLog.push(rec);
   if (mountLog.length > MOUNT_MAX) mountLog.splice(0, mountLog.length - MOUNT_MAX);
   notePage();
+  // the resource cache's work at the start and when the field is shown (or the engine lost): what shared the load with it
+  const snap = (key) => {
+    try { resSource?.snap?.().then((s) => { if (s) { rec[key] = s; notePage(); } }, () => {}); } catch { /* ignore */ }
+  };
+  snap('res0');
   return {
     step(name, cut = false) {
       const t = now();
@@ -105,16 +118,54 @@ export function mountTimer(now = () => globalThis.performance.now()) {
     late(name, detail = null) {
       if (rec.late.length < LATE_MAX && !rec.late.some((e) => e.name === name)) {
         rec.late.push({ name: String(name), ms: now() - t0, ...(detail ? { detail: String(detail).slice(0, MESSAGE_MAX) } : {}) });
+        if (name === 'shown') snap('res1');
         notePage();
       }
     },
-    done(kind) { if (rec.kind == null) { rec.kind = String(kind); rec.total = now() - t0; notePage(); } },
+    done(kind) {
+      if (rec.kind == null) {
+        rec.kind = String(kind); rec.total = now() - t0;
+        if (rec.kind !== 'engine') snap('res1');
+        notePage();
+      }
+    },
   };
+}
+/** A field mount longer ago than this no longer holds the background downloads (a field that never shows). */
+export const FIELD_LOADING_MAX_MS = 60_000;
+/** The newest field mount is still on its way: begun under FIELD_LOADING_MAX_MS ago, not shown, not cancelled (a lost race
+ *  still loads the engine behind the simplified view). @param {number} [t] performance.now() */
+export function fieldLoading(t = globalThis.performance?.now?.() ?? 0) {
+  const m = mountLog[mountLog.length - 1];
+  return !!m && t - m.t0 < FIELD_LOADING_MAX_MS && m.kind !== 'cancelled' && !m.late.some((e) => e.name === 'shown');
 }
 export const mountRecords = () => mountLog.map((m) => ({ ...m, steps: m.steps.map((s) => ({ ...s, ...(s.parts ? { parts: s.parts.map((p) => ({ ...p })) } : {}) })), late: m.late.map((e) => ({ ...e })) }));
 export function clearMountRecords() { mountLog.length = 0; }
 
 const sec = (ms) => (ms / 1000).toFixed(1);
+const mbOf = (bytes) => (bytes / 1048576).toFixed(1);
+/** The worker's answers: from the cache, fetched again over a stale copy, fetched (MB), left to the server. */
+const workerCounts = (w) => `${w.hit ?? 0} cached, ${w.stale ?? 0} stale, ${w.fetched ?? 0} fetched (${mbOf(w.bytes ?? 0)} MB), ${w.server ?? 0} to server`;
+/** A mount's `res` part: the resource cache's queue at its start and the worker's answers until the field was shown. */
+function mountRes(m) {
+  const a = m.res0, b = m.res1;
+  if (!a) return null;
+  const at = `res ${a.reconciling ? 'reconciling, ' : ''}${a.queued ?? 0} queued, ${a.cleanup ?? 0} stale`;
+  if (!a.sw || !b?.sw) return at;
+  const d = {};
+  for (const k of ['hit', 'stale', 'fetched', 'bytes', 'server']) d[k] = Math.max(0, (b.sw[k] ?? 0) - (a.sw[k] ?? 0));
+  return `${at}; worker ${workerCounts(d)}`;
+}
+/** The `resources:` line (resources.js resourceStatus), or null. */
+function resourcesLine(s) {
+  if (!s) return null;
+  const r = s.reconcile, d = s.download, c = s.cleanup, w = s.worker;
+  return `resources: ${join(
+    r ? `reconcile ${clockOf(r.at)} ${r.ms == null ? 'running' : `${sec(r.ms)} s (${r.keys} keys, ${r.stale} stale, ${r.adopted} adopted)`}` : 'no reconcile',
+    d ? `download ${d.phase}${d.phase === 'running' ? ` ${d.done}/${d.total}` : d.queued ? ` (${d.queued} queued)` : ''}${d.failed ? `, ${d.failed} failed` : ''}${d.slowed === 'field' ? ', held (field loading)' : d.slowed === 'match' ? ', 1 at a time (match)' : ''}` : null,
+    c && (c.left || c.deleted) ? `cleanup ${c.deleted} deleted, ${c.left} left${c.held ? ', held (match)' : ''}` : null,
+    w ? `worker ${workerCounts(w)} by ${clockOf(w.at)}` : null)}`;
+}
 /**
  * The downloads of one mount, from its start to its last late arrival (or 60 s after it began, still loading):
  * Resource Timing entries → files, MB over the network, files with no transfer (browser / service worker cache).
@@ -333,7 +384,7 @@ function mountLines(mounts, resources) {
     const late = m.late.length ? `arrived: ${m.late.map((e) => `${e.name} ${sec(e.ms)} s${e.detail ? ` (${e.detail})` : ''}`).join(', ')}` : null;
     const net = resources ? mountNet(m, resources) : null;
     return `mount: ${join(`${clockOf(m.at)} ${head}`, steps || null, late,
-      net && net.files ? `net ${net.files} files, ${net.mb.toFixed(1)} MB${net.cached ? `, ${net.cached} cached` : ''}` : null)}`;
+      net && net.files ? `net ${net.files} files, ${net.mb.toFixed(1)} MB${net.cached ? `, ${net.cached} cached` : ''}` : null, mountRes(m))}`;
   });
 }
 /** The `errors:` line and the entries, newest first. */
@@ -374,7 +425,7 @@ export function pageRecord(now = Date.now()) {
   const errs = errorLog().slice(-PAGE_ERRORS);
   return {
     v: 1, start: pageStart, at: now, version: APP_VERSION, vis: pageVis, hiddenAt, ended: pageEnded,
-    lines: [renderEventsLine(renderEvents()), ...mountLines(mountRecords(), resources), ...perfLines().map((l) => `perf: ${l}`),
+    lines: [renderEventsLine(renderEvents()), resourcesLine(resStatus()), ...mountLines(mountRecords(), resources), ...perfLines().map((l) => `perf: ${l}`),
       ...errorLines(errs, total, dropped + log.length - errs.length)].filter(Boolean),
   };
 }
@@ -432,11 +483,12 @@ function previousLines(p) {
  * `render` is the field view on screen (`{ kind: 'engine' | 'fallback', board3d }`, render/app.js stats().board3d) and
  * `renderEvents` what its board did (noteRender), `mounts` the field mounts (mountTimer) and `resources` the page's
  * Resource Timing entries (each mount line sums the downloads of its window), `perf` the performance HUD's lines
- * (setPerfSource; empty unless `?perf=1`), `previous` the page before this one (previousPage(); default: the record
- * installPageRecord read, null in tests that do not install it).
+ * (setPerfSource; empty unless `?perf=1`), `resourceStatus` the resource cache's state (setResourceSource; null: no
+ * line), `previous` the page before this one (previousPage(); default: the record installPageRecord read, null in tests
+ * that do not install it).
  * @param {{ state: any, env?: any, settings?: any, battle?: any, entries?: any[], dropped?: number, total?: number,
  *   now?: number, pageStart?: number, version?: string, render?: any, renderEvents?: any[], mounts?: any[], resources?: any[],
- *   perf?: string[], previous?: any }} input
+ *   perf?: string[], resourceStatus?: any, previous?: any }} input
  */
 export function buildDiagnostics(input) {
   const { state = {}, env = {}, settings = null, battle = null } = input;
@@ -480,6 +532,8 @@ export function buildDiagnostics(input) {
   }
   const rev = renderEventsLine(input.renderEvents ?? renderEvents());
   if (rev) lines.push(rev);
+  const rl = resourcesLine(input.resourceStatus !== undefined ? input.resourceStatus : resStatus());
+  if (rl) lines.push(rl);
   lines.push(...mountLines(input.mounts ?? mountRecords(), input.resources ?? null));
   for (const l of input.perf ?? perfLines()) lines.push(`perf: ${l}`);
   lines.push('');

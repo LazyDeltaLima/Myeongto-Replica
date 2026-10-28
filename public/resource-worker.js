@@ -9,10 +9,12 @@
 // pre-download consent (public/js/resources.js, which also downloads the rest of the list in the background after it).
 // A cached file carries its hash in X-SP-Hash, so the page's reconcile can adopt what this worker stored, and this worker
 // answers from the cache only when that hash is the listed one: after a deploy changed a file, the old copy is fetched
-// again instead of served until the page's reconcile deletes it (2026-10-28). A page load revalidates the list first.
+// again instead of served until the page's cleanup deletes it (2026-10-28). A page load revalidates the list first.
 //
 // Only same-origin GET /assets/…, /img/emotes/… and /media/… (extension-less audio, shared/media.js) are looked at;
 // unlisted files, Range requests and query strings go to the server untouched.
+// A page's `sp-res-stats` message (with a port) is answered with the counts of this worker's answers (resources.js
+// askWorker, for the report: what a field's first load shared the cache and the network with).
 // Defence in depth (security review 2026-10-04): page loads (navigations) are never answered from the cache, only the
 // asset file types below are, and every cached answer carries nosniff and a sandboxing CSP — so even a planted cache
 // entry could never run as a page of this origin.
@@ -47,6 +49,13 @@ self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim(
 
 // caches.match with cacheName never creates the cache (caches.open would recreate it after the page dropped it)
 const lookup = (path) => caches.match(path, { cacheName: CACHE });
+
+// answers since the worker started: from the cache / a cached copy of another hash / fetched from the sources (and bytes)
+// / left to the server
+const stats = { hit: 0, stale: 0, fetched: 0, bytes: 0, server: 0 };
+self.addEventListener('message', (event) => {
+  if (event.data?.t === 'sp-res-stats' && event.ports?.[0]) event.ports[0].postMessage({ ...stats, inflight: inflight.size });
+});
 
 // ---- the list ------------------------------------------------------------------------------------------------------
 
@@ -111,6 +120,8 @@ async function fetchListed(f) {
       if (buf.byteLength !== f.s || (await sha256(buf)) !== f.h) continue;
       const headers = { 'Content-Type': typeOf(f.p), 'Content-Length': String(buf.byteLength), 'X-SP-Hash': f.h };
       try { await (await caches.open(CACHE)).put(f.p, new Response(buf, { headers })); } catch { /* quota: answer anyway */ }
+      stats.fetched++;
+      stats.bytes += buf.byteLength;
       return new Response(buf, { status: 200, headers });
     } catch { /* next source */ }
   }
@@ -133,16 +144,20 @@ async function answer(request, path) {
     ? AUDIO_EXTS.map((ext) => '/assets/audio/' + path.slice('/media/'.length) + ext)
     : SERVED.test(path) ? [path] : [];
   const list = candidates.length ? await getIndex() : null;
+  let staleHit = false;
   for (const c of candidates) {
     const hit = await lookup(c);
     if (!hit) continue;
     // without a list (offline, none on the server) what is cached is served; with one, only the listed version
     const f = list && list.get(decode(c));
-    if (!list || (f && hit.headers.get('X-SP-Hash') === f.h)) return safe(hit);
+    if (!list || (f && hit.headers.get('X-SP-Hash') === f.h)) { stats.hit++; return safe(hit); }
+    staleHit = true;
   }
+  if (staleHit) stats.stale++;
   if (candidates.length) {
     const f = list && candidates.map((c) => list.get(decode(c))).find(Boolean);
     if (f) { const res = await fromListed(f); if (res) return res; }
+    stats.server++;
   }
   return fetch(request);
 }

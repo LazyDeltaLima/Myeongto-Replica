@@ -341,6 +341,66 @@ describe('client helpers', () => {
     assert.equal(listFetches, 2);
     await get('/', 'navigate');
     assert.equal(await get('/assets/local/fx/a.json'), 'newer', 'an unchanged list (same ETag) keeps the parsed one');
+    // the page's report asks for the answer counts (resources.js askWorker)
+    let counts = null;
+    handlers.message({ data: { t: 'sp-res-stats' }, ports: [{ postMessage: (d) => { counts = d; } }] });
+    assert.deepEqual({ ...counts }, { hit: 3, stale: 2, fetched: 2, bytes: 8, server: 0, inflight: 0 });
+  });
+
+  test('resources: reconcile lists the stale entries; the cleanup deletes them outside a match and keeps what was replaced since', async () => {
+    const { installResources, resourceStatus } = await mod('resources.js');
+    const { store } = await mod('store.js');
+    const h = (c) => c.repeat(64);
+    const origin = 'https://x.test';
+    const entries = new Map();   // url → hash (X-SP-Hash)
+    const put = (p, hash) => entries.set(origin + p, hash);
+    put('/assets/a.json', h('1'));     // changed by the deploy
+    put('/assets/gone.png', h('2'));   // left the list
+    put('/assets/b.json', h('3'));     // the state says old, the worker since stored the listed one
+    put('/assets/keep.png', h('4'));
+    let stateJson = { '/assets/a.json': h('1'), '/assets/gone.png': h('2'), '/assets/b.json': h('0'), '/assets/keep.png': h('4') };
+    const urlOf = (r) => (typeof r === 'string' ? origin + r : r.url);
+    const cache = {
+      keys: async () => [...entries.keys()].map((url) => ({ url })),
+      match: async (r) => {
+        const u = urlOf(r);
+        if (u === origin + '/__sp_res_state__') return new Response(JSON.stringify(stateJson));
+        return entries.has(u) ? new Response('x', { headers: { 'X-SP-Hash': entries.get(u) } }) : undefined;
+      },
+      delete: async (r) => entries.delete(urlOf(r)),
+      put: async (r, res) => { if (urlOf(r) === origin + '/__sp_res_state__') stateJson = await res.json(); },
+    };
+    const list = { files: [{ p: '/assets/a.json', s: 1, h: h('5') }, { p: '/assets/b.json', s: 1, h: h('3') }, { p: '/assets/keep.png', s: 1, h: h('4') }] };
+    const fakeCaches = { open: async () => cache, delete: async () => true };
+    const saved = { window: globalThis.window, location: globalThis.location, caches: globalThis.caches, fetch: globalThis.fetch,
+      navigator: Object.getOwnPropertyDescriptor(globalThis, 'navigator') };
+    const before = store.get();
+    try {
+      globalThis.window = { isSecureContext: true, caches: fakeCaches };
+      globalThis.location = { origin };
+      globalThis.caches = fakeCaches;
+      Object.defineProperty(globalThis, 'navigator', { value: { serviceWorker: { register: async () => {} } }, configurable: true });
+      globalThis.fetch = async (u) => (u === '/assets/browser-resources.json' ? new Response(JSON.stringify(list)) : new Response('', { status: 404 }));
+      store.set({ session: { entered: true }, room: { inMatch: true } });   // a match is on screen
+      await installResources();
+      const s0 = resourceStatus();
+      assert.deepEqual([s0.reconcile.keys, s0.reconcile.stale, s0.reconcile.adopted], [4, 3, 0]);
+      assert.equal(entries.size, 4, 'reconcile deletes nothing itself');
+      assert.equal(s0.download.queued, 2, 'a.json and b.json (b is adopted by the download\'s own check)');
+      await new Promise((r) => setTimeout(r, 300));
+      assert.equal(resourceStatus().cleanup.held, true);
+      assert.equal(entries.size, 4, 'no deletion while a match is on screen');
+      store.set({ session: { entered: true }, room: null });
+      for (let i = 0; i < 60 && resourceStatus().cleanup.left + (stateJson['/assets/b.json'] === h('3') ? 0 : 1) > 0; i++) await new Promise((r) => setTimeout(r, 50));
+      assert.deepEqual([...entries.keys()].map((u) => u.slice(origin.length)).sort(), ['/assets/b.json', '/assets/keep.png'],
+        'the changed and the unlisted entries are deleted; the one the worker replaced is kept');
+      assert.equal(stateJson['/assets/b.json'], h('3'), 'and adopted');
+      assert.equal(resourceStatus().cleanup.deleted, 2);
+    } finally {
+      store.set(before);
+      for (const k of ['window', 'location', 'caches', 'fetch']) { if (saved[k] === undefined) delete globalThis[k]; else globalThis[k] = saved[k]; }
+      if (saved.navigator) Object.defineProperty(globalThis, 'navigator', saved.navigator); else delete globalThis.navigator;
+    }
   });
 
   test('room: SP_MAX_BOTS facts (room.state maxBots)', async () => {
