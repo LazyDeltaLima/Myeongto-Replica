@@ -1112,6 +1112,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const OCC_DOWN = 0.05; // tops a little lower: an effect on a unit standing on a high tile is at that height (fxplayer.js floor cut)
   function makeOccluders(THREE, scenes) {
     const geo = new THREE.BufferGeometry();
+    // 2026-10-28: a position from the start — three.js keys the program by it, so prewarm links the one syncOccluders' boxes draw with
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3));
+    geo.setDrawRange(0, 0);
     const mat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true, depthTest: true, side: THREE.DoubleSide });
     const meshes = scenes.map((sc) => {
       const m = new THREE.Mesh(geo, mat);
@@ -5459,9 +5462,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (failed && !noWebp && tries < MAX_TRIES) failed = false;   // 2026-10-28: the next prep tries a failed load again
       const step = () => {
         warmTimer = 0;
-        if (!mod || !variants || !layers.under || warmNext >= variants.length * 2) return;
+        const n = variants ? variants.length * 2 : 0;
+        if (!mod || !variants || !layers.under || warmNext >= n + 2) return;
         const L = warmNext % 2 ? layers.over : layers.under;
-        try { L.renderer.compile(variants[warmNext >> 1], camera); L.renderer.getContext().flush(); keepPrograms(L); } catch (err) { console.warn('[fx] shader precompile failed', err); return; }
+        // 2026-10-28: then the occluders' depth-only material (makeOccluders): the first effect on the 3D board linked it in battle
+        try {
+          if (warmNext < n) L.renderer.compile(variants[warmNext >> 1], camera);
+          else if (occ) L.renderer.compile(occ.meshes[0], camera, L.scene);
+          L.renderer.getContext().flush(); keepPrograms(L);
+        } catch (err) { console.warn('[fx] shader precompile failed', err); return; }
         warmNext++;
         warmTimer = setTimeout(step, WARM_GAP_MS);
       };
