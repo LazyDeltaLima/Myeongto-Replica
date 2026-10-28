@@ -2,8 +2,9 @@
 // 缪尔赛思, public/js/audio.js):
 //   #4 琳琅诗怀雅's 香槟炸弹 is a summon, not an operator: using it up is no knock-out (no operator-knocked-down sound,
 //      no death count, no "干员被击倒" effect); clients hear its explosion.
-//   #5 缪尔赛思's 流形: never attacks before it copied an operator, the copy skill waits (ready) while nobody can be
-//      copied, one respawn 25 s after being killed — never a quick second one (stale timers, her redeploy).
+//   #5 缪尔赛思's 流形: never attacks before it copied an operator (the client's automatic operations choose it by board
+//      priority — a knocked-out one or 缪尔赛思 herself too), one respawn 25 s after being killed — never a quick second
+//      one (stale timers, her redeploy).
 //   audit: official per-class death/deploy sounds for every summon kind (operator / summon / map character / device).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -12,7 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { hasGeneratedData, getDefaultSource } from '../../server/sim/simdata.js';
-import { TOKEN_IDS, pickCopyTarget } from '../../server/sim/content/tokens.js';
+import { TOKEN_IDS, manifoldCopyTarget } from '../../server/sim/content/tokens.js';
 import { AudioManager, deathSfxUrl, deploySfxUrl, unitSoundClass } from '../../public/js/audio.js';
 import { showsDeathFx } from '../../public/js/render/app.js';
 
@@ -160,7 +161,7 @@ test('#4 die events carry their reason: a retreat plays no knock-down sound, a k
 // =================================================================================================================
 // #5 流形
 
-test('#5 流形: never attacks before copying; with nobody to copy its copy skill waits ready, then copies at once', REAL, () => {
+test('#5 流形: never attacks before copying; the automatic operations copy the board operator of the lowest priority (client _GetMlyssCopiedTargetInstId) — knocked out too — and keep it for the tile', REAL, () => {
   const bad = [], atk = [];
   const h = makeBattle({
     defs: { chess: { test_guard: guard() }, enemies: { enemy_dummy: dummy() } }, timeLimit: 120, autoFinish: false,
@@ -172,27 +173,32 @@ test('#5 流形: never attacks before copying; with nobody to copy its copy skil
   const m = standing(h)[0], g = h.unit('test_guard');
   assert.ok(m);
   assert.equal(m.profile.noAttack, true, 'uncopied: no attack');
-  h.b.dealDamage(null, g, { amount: 1e9, type: 'true' }); // the only operator it could copy is knocked out
+  // the guard (down-right: 3 rows + 3 columns × 19 rows) comes before 缪尔赛思 (left of it: counted from the edge)
+  assert.equal(manifoldCopyTarget(h.b, m), g);
+  h.b.dealDamage(null, g, { amount: 1e9, type: 'true' }); // knocked out: its card is still the one copied
   assert.equal(g.alive, false);
-  h.run(12);
-  assert.equal(pickCopyTarget(h.b, m), null);
-  assert.equal(m.skill.active, false, 'copy skill not spent on nobody');
-  assert.ok(m.skill.ready, 'it stays ready');
-  assert.equal(m.mem.mlyss ?? null, null);
-  assert.deepEqual(bad, [], 'no attack / damage without a copy');
-  assert.equal(atk.length, 0);
-  // the operator comes back: the 流形 copies it at once and only then attacks
-  assert.ok(h.b.redeploy(g, { free: true }));
-  h.step(2);
-  assert.ok(m.mem.mlyss, 'copied as soon as someone can be copied');
-  assert.equal(m.mem.mlyss.from, g.id);
+  assert.ok(h.runUntil(() => m.mem.mlyss, 10), 'copied');
+  assert.equal(m.mem.mlyss.from, g.id, 'the knocked-out guard');
   assert.equal(m.profile.noAttack, false);
   assert.ok(h.runUntil(() => atk.length > 0, 5), 'attacks once copied');
-  assert.deepEqual(bad, []);
+  assert.deepEqual(bad, [], 'no attack / damage without a copy');
+  assert.equal(manifoldCopyTarget(h.b, m), g, 'kept for its tile');
   noErrors(h);
 });
 
-test('#5 流形: a respawned 流形 comes back uncopied after 25 s and does not attack until its copy (5 s later)', REAL, () => {
+test('#5 流形: with no other operator on the board it copies 缪尔赛思 herself (the client trigger leaves nobody out)', REAL, () => {
+  const h = makeBattle({
+    defs: { enemies: { enemy_dummy: dummy() } }, timeLimit: 60, autoFinish: false,
+    units: [{ chessId: 'chess_char_6_11_a', row: 12, col: 2, uid: 1 }, { kind: 'token', tokenId: MF, row: 9, col: 6, uid: 3, ownerUid: 1 }],
+  });
+  h.step();
+  const m = standing(h)[0], u = h.unit('chess_char_6_11_a');
+  assert.ok(h.runUntil(() => m.mem.mlyss, 10));
+  assert.equal(m.mem.mlyss.from, u.id);
+  noErrors(h);
+});
+
+test('#5 流形: a respawned 流形 comes back uncopied after 25 s and does not attack until its copy (a block after its SP fills)', REAL, () => {
   const bad = [];
   const h = makeBattle({
     defs: { chess: { test_guard: guard() }, enemies: { enemy_dummy: dummy() } }, timeLimit: 120, autoFinish: false,
@@ -202,7 +208,7 @@ test('#5 流形: a respawned 流形 comes back uncopied after 25 s and does not 
   });
   h.step();
   const first = standing(h)[0];
-  assert.ok(h.runUntil(() => first.mem.mlyss, 7), 'first copy after 95 → 100 SP');
+  assert.ok(h.runUntil(() => first.mem.mlyss, 9), 'first copy a block after 95 → 100 SP');
   h.b.dealDamage(null, first, { amount: 1e9, type: 'true' });
   const respawn = ds.getToken(MF, 'chess_char_6_11_a').talents.find((t) => t.bb.scale != null).bb.interval;
   const tKill = h.b.time;
@@ -213,8 +219,8 @@ test('#5 流形: a respawned 流形 comes back uncopied after 25 s and does not 
   assert.equal(again.mem.mlyss ?? null, null, 'uncopied');
   assert.equal(again.profile.noAttack, true);
   const t0 = h.b.time;
-  assert.ok(h.runUntil(() => again.mem.mlyss, 6));
-  assert.ok(h.b.time - t0 > 4.5, 'copies when its SP fills (95 → 100)');
+  assert.ok(h.runUntil(() => again.mem.mlyss, 8));
+  assert.ok(h.b.time - t0 > 6.5, 'copies a block after its SP fills (95 → 100)');
   assert.deepEqual(bad, [], 'the enemy on its tile was never attacked by an uncopied 流形');
   noErrors(h);
 });
@@ -266,7 +272,7 @@ test('#5 流形 (unmanaged token kit): redeploys uncopied (data stats, own tile 
   h.step();
   const m = standing(h)[0];
   const tdef = ds.getToken(MF, 'chess_char_6_11_a');
-  assert.ok(h.runUntil(() => m.mem.copy, 7));
+  assert.ok(h.runUntil(() => m.mem.copy, 9));
   assert.notEqual(m.base.atk, tdef.stats.atk);
   h.b.dealDamage(null, m, { amount: 1e9, type: 'true' });
   const respawn = tdef.talents.find((t) => t.bb.scale != null).bb.interval;
@@ -276,7 +282,7 @@ test('#5 流形 (unmanaged token kit): redeploys uncopied (data stats, own tile 
   assert.equal(m.base.blockCnt, tdef.stats.blockCnt);
   assert.deepEqual(m.rangeGrid, tdef.rangeGrid, 'own tile range again');
   assert.equal(m.profile.noAttack, true);
-  assert.ok(h.runUntil(() => m.mem.copy, 6), 'copies again');
+  assert.ok(h.runUntil(() => m.mem.copy, 8), 'copies again');
   assert.deepEqual(bad, [], 'no attack before either copy');
   noErrors(h);
 });

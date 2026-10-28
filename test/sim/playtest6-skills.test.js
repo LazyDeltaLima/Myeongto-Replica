@@ -192,6 +192,23 @@ test('#15 a redeployed unit is born again: its MANUAL skill waits BORN_TIME, and
   done(h);
 });
 
+test('#15 no attack in the born state (client BornState goes to IDLE only when it ends): a unit with an enemy in range first swings BORN_TIME after its deployment, a redeployment too', () => {
+  const rec = chessRec({ id: 't_w', profession: 'WARRIOR', skill: null });
+  const h = run({ flags: { bornTime: undefined }, defs: { enemies: { enemy_d: dummy('enemy_d') }, chess: { t_w: rec } },
+    units: [{ chessId: 't_w', row: 10, col: 4 }], enemies: [{ key: 'enemy_d', pos: [10, 5] }] });
+  const u = h.unit('t_w');
+  // a swing start restarts the attack cooldown (ai.js updateAlly)
+  const swingAt = (from) => { h.runUntil(() => u.atkCd > 0, 5); return h.b.time - from; };
+  const first = swingAt(0);
+  assert.ok(first >= BORN_TIME - 1e-6 && first < BORN_TIME + 0.1, `first swing at ${first}`);
+  h.b.retreat(u);
+  assert.ok(h.b._deploy(u, { tile: [10, 4] }));
+  const t0 = h.b.time;
+  const again = swingAt(t0);
+  assert.ok(again >= BORN_TIME - 1e-6 && again < BORN_TIME + 0.1, `swing ${again} s after the redeployment`);
+  done(h);
+});
+
 test('#15 the pass order is the client UnitManager.characters order: deployment order, the last unit moved into the hole of one that leaves', () => {
   const rec = (id) => chessRec({ id, profession: 'WARRIOR', skill: null });
   const h = run({ defs: { chess: { t_1: rec('t_1'), t_2: rec('t_2'), t_3: rec('t_3') } },

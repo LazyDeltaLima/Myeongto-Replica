@@ -210,7 +210,8 @@ export const BLOCK_SKILL_TICK = 10;
  * The born state after every deployment, in seconds (`battle.flags.bornTime`; the official `Consts.CHARACTER_BORN_TIME`):
  * `Character.States.BornState` plays the Born clip, and `CastSkill.UseSkill` refuses while the owner is in it — so a
  * MANUAL skill is not cast for this long after its unit is deployed (battle start, redeploy, summon alike), and the
- * operations pass goes on to the next character (no block). The trigger itself has no battle-start block: `StartBattle`
+ * operations pass goes on to the next character (no block); nor does the unit start an attack (`BornState` goes to IDLE
+ * only when it ends — ai.js updateAlly). The trigger itself has no battle-start block: `StartBattle`
  * empties `m_blockSkillTicker` and only a cast fills it (PRTS 卫戍协议/帮助 "…作战开始时部署的单位将进入冷却" is this born
  * state). [ASSUMED·엔진: the Born clip played to last 1 s (`_useRealBornTimeFromAnim` off); skills whose prefab sets
  * `_canCastDuringBorn` are not known and wait too.] Until 2026-10-29 the battle-start deployment was blocked 2 s.

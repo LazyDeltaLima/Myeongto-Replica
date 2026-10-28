@@ -124,6 +124,9 @@ export function updateAlly(b, u, dt) {
     if (!(u.swing.left > 0)) allyStrike(b, u, prof);
     return;
   }
+  // the born state of a deployment (constants.js BORN_TIME): the client's `BornState` goes to IDLE only when it ends, so
+  // no attack starts before — the attack cooldown runs meanwhile
+  if (b.time < (u.bornUntil ?? -Infinity) - 1e-9) { u.atkSpell = 0; return; }
   // the Skill state of a skill cast (skills.js _paceInstant, 'state'): no attack until its skill ability ends — the
   // attack cooldown keeps running meanwhile (and the unit has left its attack state)
   if (u.skillStateUntil > b.time + 1e-9) { u.atkSpell = 0; return; }

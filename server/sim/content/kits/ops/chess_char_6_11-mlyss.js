@@ -14,22 +14,6 @@ const RHINE = new Set(['char_108_silent', 'char_128_plosis', 'char_202_demkni', 
 // 缪尔赛思 chess_char_6_11 (战术家) — S3 浅层非熵适应; 净水即生命 (流形); 开源节流; module 梳妆流形
 
 /**
- * The operator a 流形 copies: the nearest (Chebyshev tiles) living operator of its player on the field, not the summoner;
- * ties → higher base ATK → lower id. Same pick as content/tokens.js (unmanaged 流形), so both paths agree.
- */
-function pickCopyTarget(battle, owner, t) {
-  let best = null, bs = null;
-  for (const a of battle.allyUnits) {
-    if (a.kind !== 'op' || !live(a) || a === owner || a.ownerId !== owner.ownerId) continue;
-    const s = [Math.max(Math.abs(a.tileR - t.tileR), Math.abs(a.tileC - t.tileC)), -a.base.atk, a.id];
-    let less = !bs;
-    if (!less) for (let i = 0; i < 3; i++) { if (s[i] < bs[i]) { less = true; break; } if (s[i] > bs[i]) break; }
-    if (less) { best = a; bs = s; }
-  }
-  return best;
-}
-
-/**
  * 流形 copy (token talent "复制目标90%的生命值、攻击力、防御力、法抗，以及阻挡数、攻击间隔、攻击范围、初始伤害类型（不攻击、
  * 治疗类型则不继承）"): scale × HP/ATK/DEF/RES, block count, BAT/ASPD, range and damage type. The attack itself stays the
  * token's single-target attack (melee or ranged after the copied position) — splash/chain/multi-hit shapes are not
@@ -77,12 +61,8 @@ function mlyss(bb, chess, def) {
   const respawnOf = (t) => num(tokTal(t, 'scale').interval, parseN(tdesc(def, 0), /(\d+(?:\.\d+)?)秒后自动刷新/, 25));
   const isRanged = (src) => (src.def?.position ? src.def.position === 'RANGED' : src.profile?.attack === 'ranged');
 
-  const copyNearest = (battle, unit, t) => {
-    const src = pickCopyTarget(battle, unit, t);
-    if (!src) { // nobody to copy: the copy skill is not spent — it ends and stays ready (no attack without a copy)
-      if (t.skill?.active) { t.skill.end('noTarget'); t.skill.gainSp(t.skill.spCost, 'refund'); }
-      return;
-    }
+  // the copy of an operator the automatic operations chose (content/tokens.js manifoldCopyTarget, the token skill's autoTrigger)
+  const copyFrom = (battle, unit, t, src) => {
     copyInto(battle, t, src, num(tokTal(t, 'scale').scale, 1), isRanged(src));
     // `mode`: the 流形's prefab mode from now on (Melee / Range — the client's mlyss_wtrman_switch_melee / _range; the S3 / S2
     // variants follow her running skill, public/js/audio.js), `by` her id (docs/SIM.md)
@@ -214,15 +194,10 @@ function mlyss(bb, chess, def) {
           unit.mem.mlyssFirst = true;
           if (unit.skill?.active && unit.skill.isTimed) buffManifold(battle, t, unit.skill.timeLeft);
         }, { owner: unit });
-        battle.on('skillStart', ({ unit: t }) => { if (mine(t) && !t.mem.mlyssClone) copyNearest(battle, unit, t); }, { owner: unit });
+        // the 流形 copies when the automatic operations say (content/tokens.js, the token skill's autoTrigger), this way
+        unit.mem.manifoldCopy = (b, t, src) => { if (mine(t) && !t.mem.mlyssClone) copyFrom(b, unit, t, src); };
         // trigger rule MLYSS_WTRMAN ("全部技能，受流形影响") for her own skills (`_TryUsingSkillTypeMlyssWtrman`, not a token):
         // the MANUAL check, then her ATTACK / COMBAT state — the engine's DEFAULT without a trigger grid; her 流形 do not count
-        battle.on('tick', () => { // without a dedicated token kit the copy fires once ready and someone can be copied
-          for (const t of battle.allyUnits) {
-            if (!mine(t) || !live(t) || t.mem.mlyssClone || !t.kit?.generic || !t.skill || t.skill.active || !t.skill.ready || t.skill.opCooling) continue;
-            if (pickCopyTarget(battle, unit, t)) t.skill.activate('MLYSS_WTRMAN');
-          }
-        }, { owner: unit });
         // "其被击败后会在25秒后自动刷新": one pending respawn at a time, on its tile, only while she is on the field and no
         // 流形 of hers stands (her redeploy summons it again as her 援军, tokens.js); expired / replaced ones do not return
         battle.on('death', ({ unit: t, reason }) => {

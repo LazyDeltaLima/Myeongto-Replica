@@ -408,9 +408,10 @@ export class SkillRuntime {
     this._hurt = false;
     if (!this.autoOp) return false;
     const u = this.unit;
-    if (!u.alive || !u.deployed || u.hidden || !u.canAct || this._born()) return false;
-    if (!this.ready || u.s.flags.silence || (this.active && this.isTimed) || this.pending) return false;
-    if (!this.isTimed && !this.spec.attack && this.battle.time < this.nextCastAt - 1e-9) return false;
+    if (!u.alive || !u.deployed) return false;
+    // a rule of the skill's own (流形's MLYSS_WTRMAN token branch, content/tokens.js): it checks what it needs (canAutoCast)
+    if (this.spec.autoTrigger) return this._call('autoTrigger', {}) === true;
+    if (!this.canAutoCast) return false;
     let ok;
     // TAKE_DAMAGE: a hit the born buff could not cast on (onDamaged), or SEARCH's condition — the client pass sends type 12
     // down SEARCH's branch (`_TryTriggerSkill` jump table: types 2 and 12 → `_DoDefaultCheck` + `_TrySearchTarget`), and
@@ -439,6 +440,18 @@ export class SkillRuntime {
     if (this.triggerGrid) ok = b.enemiesOnTiles(this._triggerKeys(), u, TRIGGER_PROFILE).length > 0 || (this.triggerRanges.length > 0 && this._extraTriggerSatisfied());
     else ok = this._defaultCondition();
     return ok && (!this.triggerAllies || this._allyTriggerSatisfied());
+  }
+
+  /**
+   * The automatic operations may cast this skill now, its rule aside (`_DoDefaultCheck` and what `UseSkill` refuses): the
+   * unit on the field, able, out of its born state, the skill ready, not silenced, not running, no cast waiting for its
+   * attack, and an instant one past its unit's attack interval (nextCastAt).
+   */
+  get canAutoCast() {
+    const u = this.unit;
+    if (!u.alive || !u.deployed || u.hidden || !u.canAct || this._born()) return false;
+    if (!this.ready || u.s.flags.silence || (this.active && this.isTimed) || this.pending) return false;
+    return this.isTimed || !!this.spec.attack || this.battle.time >= this.nextCastAt - 1e-9;
   }
 
   /** Public form of the operation cooldown, for kits with their own automatic cast of a MANUAL skill. */

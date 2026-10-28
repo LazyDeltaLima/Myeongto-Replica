@@ -40,11 +40,11 @@
 //  6_09 塑心     cannot normal attack; each skill charge is one attack; 精神逆构 multiplies every apoptosis gauge fill on
 //                enemies in her range (`elementHit`; several 塑心 do not stack — the strongest applies).
 //  6_10 妮芙     失魂 = 元素伤害 ('elemental') per second while the target's apoptosis burst lasts.
-//  6_11 缪尔赛思 流形 copies the nearest allied operator of its player on the field (no hand/bench in battle; same pick
-//                as content/tokens.js) when its own skill starts; it copies the listed stats + range + damage type (not
-//                splash/chain/multi-hit shapes); clones do not split again. MLYSS_WTRMAN trigger (her own skills) =
-//                the attack / combat state, 流形 ranges do not count (docs/rules/sim.md 「스킬 범위 발동」). An uncopied 流形 never attacks and its copy skill waits (ready) until someone
-//                can be copied. "被击败后25秒后自动刷新": one pending respawn at a time, only while she is on the field
+//  6_11 缪尔赛思 流形 copies the board operator the automatic operations choose (content/tokens.js manifoldCopyTarget)
+//                a block after its own skill is cast (the token skill's autoTrigger); it copies the listed stats + range
+//                + damage type (not splash/chain/multi-hit shapes); clones do not split again. MLYSS_WTRMAN trigger (her
+//                own skills) = the attack / combat state, 流形 ranges do not count (docs/rules/sim.md 「스킬 범위 발动」).
+//                An uncopied 流形 never attacks. "被击败后25秒后自动刷新": one pending respawn at a time, only while she is on the field
 //                and no 流形 of hers stands (her knock-out cancels it; her redeploy re-summons it as her 援军).
 //  6_12 迷迭香   "溅射范围扩大": S2 radius 1.5 (PRTS 溅射半径一览; ×1.3 [ASSUMED] until 0.1.1); 感知稳定 picks among the
 //                owner's deployed casters (none ⇒ no buff).

@@ -259,17 +259,28 @@
   수동 스킬이 안 켜지고 패스는 다음 캐릭터로 넘어간다(엔진 `bornUntil`, `skills.js _born`; TAKE_DAMAGE 피격 시전도). 첫 패스는 0.2 s(코루틴이 먼저
   기다림)이고 같은 패스에서 배치(`_TryDeployAvailableCharacter`, 한 패스에 하나) 다음 시전 검사. PRTS 「作战开始时部署的单位将进入冷却」는 이 BORN이다.
   [추정·엔진: Born 클립을 1 s로 재생한다고 읽음(`_useRealBornTimeFromAnim` 꺼짐) — 재생 함수의 반환값은 안 읽음]
-  [추정·미조사: `_canCastDuringBorn` 켜진 스킬 프리팹 — 안 뽑음, 모두 기다림으로 둠]. BORN 동안 공격도 안 하는 것(상태 기계가 BORN → IDLE 뒤에야
-  공격)은 아직 구현하지 않음 — 관리자 결정 대기. 2026-10-29 전에는 전투 시작 배치만 2 s 블록이었다.
+  [추정·미조사: `_canCastDuringBorn` 켜진 스킬 프리팹 — 안 뽑음, 모두 기다림으로 둠]. BORN 동안은 공격도 시작하지 않는다 — `BornState.OnTick`은
+  시간이 다 되어야 IDLE로 넘기고 공격은 IDLE부터라서(2026-10-29 공식 클라에서 확인): 엔진 `ai.js updateAlly`가 `bornUntil` 전에는 휘두름을 시작하지
+  않고, 공격 쿨다운은 그동안에도 돈다(배치 때 0이라 BORN이 끝나는 틱에 첫 휘두름). 저지는 건드리지 않음. 2026-10-29 전에는 전투 시작 배치만 2 s 블록이었고
+  BORN 동안에도 공격했다.
 - 특수 형(2026-10-29 공식 클라에서 확인): GDGLOW_SKILL_2(9, 荒芜拉普兰德·纯烬艾雅法拉 S3) = `_GdglowSearchEnemy` → `UnitManager.enemyCnt > 0`
   — 필드에 적이 하나라도 있으면(선택 가능 여부·은신·공중 무관), 아군 갈래 없음(전에는 선택 가능한 적, 치유 스킬은 다친 아군). CUSTOM_RANGE_SEARCH_ENEMY(7)
   = `_TrySearchWithCustomRange_FindEnemy` → `act2autochess skillRangeDict`의 스킬 범위를 캐릭터 방향으로 돌린 상자 안 적(지상·공중, 같은 `mapLayer`) —
   기존 구현 그대로, 사전에 없는 스킬은 효과 중이 아니면 바로 시전(데이터 10개는 모두 사전에 있음). `_FindAlly`(8)는 다치고 치유 가능한 아군 — 쓰는 행 없음.
   MLYSS_WTRMAN(3, 缪尔赛思 모든 스킬) = 본인은 `_DoDefaultCheck` 뒤 공격·저지 상태(`isInAttackState || isInCombatState`)면 시전 — 스킬 범위도 流形 범위도
-  안 본다(전에는 流形 범위 안 적도 조건이던 추정). 流形(토큰) 갈래는 다르다: 효과 중인데 아직 변신 버프(`mlyssWtrmanTransformBuff`)가 없으면 그 패스에
-  복사 대상으로 변신(시전으로 셈 → 10틱 블록), 아니면 SP가 차는 대로 조건 없이 `UseSkill` 뒤 다음 패스의 자동 배치를 건너뜀(`m_disableDeployNextFrame`).
-  복사 대상은 정비 말(`battleChessInsts`의 캐릭터) 중 `_GetMlyssTokenToGridPosPriority`가 가장 작은 것, 토큰 칸마다 전투 내내 고정
-  (`mlyssCopiedChessUid2CopiedChessInstId`). 우리 流形은 스킬 시작 때 필드의 가장 가까운 아군을 복사하고 패스 밖에서 켠다 — 이 차이는 관리자 노트의 할 일로 남김 [추정·미조사: 流形 복사 시점·대상].
+  안 본다(전에는 流形 범위 안 적도 조건이던 추정). 유동체(流形, 토큰) 갈래는 다르다(2026-10-29 공식 클라에서 확인, 엔진 `content/tokens.js`
+  유동체 스킬의 `autoTrigger` → `skills.js autoTrigger`): 스킬이 아직 안 켜졌으면 `_DoDefaultCheck` 뒤 조건 없이 `UseSkill`(SP가 차고 BORN이 끝난 첫 패스),
+  켜져 있는데 변신 버프(`mlyssWtrmanTransformBuff`)가 없으면 복사 — `_TryUsingMlyssWtrmanSkill`이 대상 카드의 더미를 유동체 칸에 짓는다
+  (`Tile.OnEntityWillBuild`; 공식에서 대기 중인 오퍼레이터를 켜진 유동체 위로 끌어다 놓는 것과 같은 길). 복사도 시전으로 세므로 복사는 시전보다 블록
+  (10패스 = 2 s) 뒤에 온다(전에는 스킬이 켜지는 순간 복사). 복사 대상 = `_GetMlyssCopiedTargetInstId`: 정비 말(`battleChessInsts`의 캐릭터 — 필드에
+  있든 쓰러졌든, 뮤엘시스 자신도) 중 정비 칸(`ChessInst.pos`, 엔진 `homeR`/`homeC`)이 `_GetMlyssTokenToGridPosPriority` 최소인 것, 같으면 목록 앞:
+  우선순위 = |x| + |y|, x = 유동체 행 − 대상 행이 0 이하면 그 값, 아니면 대상 행 + 맵 높이; y = (열도 같은 식, 맵 너비) × 맵 높이 — 유동체의 위·오른쪽
+  칸이 먼저, 아래·왼쪽은 가장자리부터 센다. 고른 대상은 유동체 칸마다 전투 내내 고정(`mlyssCopiedChessUid2CopiedChessInstId`: 그 칸에 다시 선 유동체도
+  같은 대상). 전에는 필드에 서 있는 가장 가까운 아군(뮤엘시스 제외)이었고 없으면 기다렸다. 클라는 시전 뒤 다음 패스의 자동 배치를 건너뛰지만
+  (`m_disableDeployNextFrame`) 이 엔진에서 패스 안 배치는 왕의 바둑돌뿐이라 막지 않는다. 더미를 받는 유동체 스킬 버프(`buff_template_data`
+  `mlyss_wtrman_s_begin`의 ON_ENTITY_WILL_OVERLAP)는 그 카드의 스냅숏(`_useCardSnapshot`)에서 생명·공격·방어·마법 저항(비율)과 저지 수·공격 간격을 옮기고
+  누구도 거르지 않는다 — 뮤엘시스 자신도 복사된다(공식 테이블에서 확인). [추정·엔진: 같은 우선순위일 때 목록 순서 — `battleChessInsts`를 채우는 곳은 안
+  읽음, 엔진은 `allyUnits` 순서; 연합 방어 공용 필드는 유동체 주인의 말만]
 - 알려진 결과: 패스가 휘두름 시작 뒤에 오면 그 휘두름은 원래 쿨다운을 그대로 지닌다(`AbilityStandard.CastToTarget`이 휘두름 시작에 타이머를 다시 검) —
   공속 스킬의 첫 몇 타가 느리다. 결정 1(즉발 시전)의 `cast` 모드(replace/state/free)는 「즉발 스킬의 시전」 절.
 - 근거 기록: 비공개 조사 기록 round2 §7, upstream 0.2.3 대조(스킬 발동). 테스트 `test/sim/skills.test.js`, `test/sim/instant-cast.test.js`, `test/local-patch-diy-chen3.test.js`(첸 S3 3-12 공중).

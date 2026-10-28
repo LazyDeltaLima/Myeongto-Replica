@@ -109,7 +109,7 @@ export class Battle {
     // non-boss kinds fall back to 60 s; only boss/hidden (or an explicit Infinity) run without a limit.
     const tl = Number(opts.timeLimit);
     this.timeLimit = opts.timeLimit == null || !(tl > 0) ? (bossLike ? Infinity : 60) : tl;
-    // bornTime: the born state after every deployment, when no MANUAL skill is cast (constants.js BORN_TIME)
+    // bornTime: the born state after every deployment, when no MANUAL skill is cast and no attack starts (constants.js BORN_TIME)
     this.flags = { layerGainsEnabled: this.kind === 'normal', ...DP_DEFAULTS, bornTime: BORN_TIME, ...(opts.flags || {}) };
     const bt = Number(this.flags.bornTime);
     this.flags.bornTime = this.flags.bornTime != null && Number.isFinite(bt) && bt >= 0 ? bt : BORN_TIME;

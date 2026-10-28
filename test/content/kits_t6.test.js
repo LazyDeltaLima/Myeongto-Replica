@@ -589,7 +589,7 @@ test('妮芙 (tier 6 elite module): 窥心钥 ASPD +12 from stack_cnt_check (10)
   assert.ok(near(m12.atkPct, tb.atk * 12, 1e-9), 'ATK stacks stop at 12');
 });
 
-test('缪尔赛思: 流形 copies the nearest operator (90 %), S3 gives 13 DP and +22 % ATK to her and 流形', () => {
+test('缪尔赛思: 流形 copies the operator above it (90 %), S3 gives 13 DP and +22 % ATK to her and 流形', () => {
   const h = battle({
     units: [
       { chessId: 'chess_char_6_11_a', row: 10, col: 3 },
@@ -603,7 +603,9 @@ test('缪尔赛思: 流形 copies the nearest operator (90 %), S3 gives 13 DP an
   const tok = () => h.b.allyUnits.find((x) => x.defId === 'token_10030_mlyss_wtrman' && x.alive);
   h.run(0.2);
   assert.ok(tok().base.atk < g.base.atk, 'not copied yet (token SP 95/100)');
-  h.run(6);
+  // cast at 100 SP (5 s), the copy a block (2 s) later — the automatic operations' 流形 branch
+  assert.ok(h.runUntil(() => tok().mem.mlyss, 8));
+  assert.ok(h.b.time >= 7 - 1e-6, `copied at ${h.b.time}`);
   const scale = tok().def.talents[0].bb.scale;
   assert.ok(near(tok().base.atk, g.base.atk * scale) && near(tok().base.maxHp, g.base.maxHp * scale), 'copied 90 % stats');
   assert.equal(tok().mem.mlyss.ranged, false);
@@ -1118,10 +1120,10 @@ test('缪尔赛思: 流形 copies stats/range/damage type but not the attack sha
   h.step();
   assert.ok(h.b.addBuff(d, { key: 'test:noSp', flags: { noSp: true }, persist: true }));
   const tok = () => h.b.allyUnits.find((x) => x.defId === 'token_10030_mlyss_wtrman' && x.alive);
-  h.run(6);
+  assert.ok(h.runUntil(() => tok().mem.mlyss, 8));
   const t = tok();
   const tal = t.def.talents.find((x) => x.bb.scale != null).bb;
-  assert.equal(t.mem.mlyss.from, d.id, 'copies the nearest operator (锏)');
+  assert.equal(t.mem.mlyss.from, d.id, 'copies the operator of the lowest board priority (锏, above it)');
   assert.ok(near(t.base.atk, d.base.atk * tal.scale) && t.base.blockCnt === d.base.blockCnt && t.base.bat === d.base.bat);
   assert.deepEqual(t.rangeGrid, d.rangeGrid, 'range copied');
   assert.equal(t.profile.dmgType, 'phys');
@@ -1291,7 +1293,7 @@ test('缪尔赛思: MLYSS_WTRMAN (client _TryUsingSkillTypeMlyssWtrman) — her 
   const tok = () => h.b.allyUnits.find((x) => x.defId === 'token_10030_mlyss_wtrman' && x.alive);
   h.step();
   assert.ok(!h.b.enemiesInKeys(u.baseRangeKeys, u, u.profile).length, 'outside her own range');
-  assert.ok(h.runUntil(() => !!tok().mem.mlyss, 6), 'the 流形 copies');
+  assert.ok(h.runUntil(() => !!tok().mem.mlyss, 8), 'the 流形 copies');
   assert.ok(!tok().mem.mlyss.ranged, 'melee copy of the guard');
   h.run(3);
   assert.ok(!u.skill.active && u.skill.activations === 0, 'the enemy by the 流形 does not trigger her S3');

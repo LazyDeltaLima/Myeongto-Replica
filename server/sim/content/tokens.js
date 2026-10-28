@@ -95,7 +95,7 @@ import { genericKit } from './generic.js';
 import { bardRegen } from '../professions.js';
 import { normDir, localOrder } from '../dir.js';
 import { SKILL_SUMMON_START_DEPLOY } from '../../../shared/constants.js';
-import { wideSpan } from '../wideStage.js';
+import { wideSpan, wideCols } from '../wideStage.js';
 import { hypot } from '../detmath.js';
 import { atPotential } from '../../../shared/potential.js';
 
@@ -853,21 +853,38 @@ function wolfPack(bb, raw, def) {
 }
 
 /**
- * The operator a 流形 copies ("可复制待部署区一名干员"): the nearest (Chebyshev tiles) living operator of its player on
- * the field, not the summoner; ties → higher base ATK → lower id. (The remake deploys the whole board at battle start,
- * so the official "operator waiting to deploy" is read as the nearest deployed operator — same pick as the 缪尔赛思
- * kit, content/kits/ops/chess_char_6_11-mlyss.js.) Null when there is none: the 流形 then waits with its copy skill ready.
+ * `AutoChessBattleTrigger._GetMlyssTokenToGridPosPriority` (lower first): a board tile up / right of the 流形's tile by
+ * its row and column distance, the column weighted by the row count; one down / left of it counts from the field's edge
+ * (row + rows, column + columns) — formula as the client computes it.
  */
-export function pickCopyTarget(battle, unit) {
-  let best = null, bs = null;
+function manifoldPriority(tr, tc, r, c, rows, cols) {
+  const x = tr - r > 0 ? r + rows : tr - r;
+  const y = (tc - c > 0 ? c + cols : tc - c) * rows;
+  return Math.abs(x) + Math.abs(y);
+}
+
+/**
+ * The operator a 流形 copies ("可复制待部署区一名干员"; the automatic operations, `AutoChessBattleTrigger.
+ * _GetMlyssCopiedTargetInstId`): among its player's operators of the board (`battleChessInsts` characters — on the field
+ * or not, knocked out, 缪尔赛思 herself too), the one whose board tile (`ChessInst.pos`: homeR / homeC) has the lowest
+ * manifoldPriority from the 流形's tile, the first in board order on a tie; kept for that tile for the whole battle
+ * (`mlyssCopiedChessUid2CopiedChessInstId`: a 流形 on that tile again copies the same one). Null with no operator. The
+ * token's skill buff (`mlyss_wtrman_s_begin`, ON_ENTITY_WILL_OVERLAP) copies whatever card is built on it, from the card's
+ * snapshot, with no filter — 缪尔赛思 too. [ASSUMED·엔진: the board order on a tie is `allyUnits`' order (where
+ * `battleChessInsts` is filled is not read); on a shared 联防 field only the 流形 owner's pieces]
+ */
+export function manifoldCopyTarget(battle, unit) {
+  const memo = (stateOf(battle).manifoldCopied ??= new Map());
+  const key = unit.tileR * COLS + unit.tileC;
+  if (memo.has(key)) return memo.get(key);
+  const cols = battle.wide ? wideCols(battle.wide) : STAGE_COLS;
+  let best = null, bp = Infinity;
   for (const a of battle.allyUnits) {
-    if (a.kind !== 'op' || !a.alive || !a.deployed || a.removed || a.hidden || a === unit.ownerUnit || a.ownerId !== unit.ownerId) continue;
-    const d = Math.max(Math.abs(a.tileR - unit.tileR), Math.abs(a.tileC - unit.tileC));
-    const s = [d, -a.base.atk, a.id];
-    let less = !bs;
-    if (!less) for (let i = 0; i < 3; i++) { if (s[i] < bs[i]) { less = true; break; } if (s[i] > bs[i]) break; }
-    if (less) { best = a; bs = s; }
+    if (a.kind !== 'op' || a.ownerId !== unit.ownerId) continue;
+    const p = manifoldPriority(unit.tileR, unit.tileC, a.homeR, a.homeC, ROWS, cols);
+    if (p < bp) { best = a; bp = p; }
   }
+  if (best) memo.set(key, best);
   return best;
 }
 
@@ -928,8 +945,8 @@ function cloneManifold(battle, clone, origin) {
 /**
  * 流形 (缪尔赛思 talent 净水即生命; token skill 流形 + token talents: copy scale, steal/split numbers, module).
  * Official rules (data texts):
- *   - token skill "可复制待部署区一名干员" (SP 95/100, 1 charge): the copy happens when the skill starts ("技能开启时复制
- *     目标90%…"); the skill only starts with an operator to copy (never wasted on nobody — it waits, ready);
+ *   - token skill "可复制待部署区一名干员" (SP 95/100, 1 charge): the automatic operations cast it, then copy on a later
+ *     pass (the skill's autoTrigger: the client's drag of an operator card onto the running 流形, manifoldCopyTarget);
  *   - an uncopied 流形 (block 0, range = its own tile) does not attack: attacking starts with its copy;
  *   - "其被击败后会在25秒后自动刷新": killed ⇒ back after the talent interval (never after expiring / being replaced),
  *     one 流形 at a time (deployLimit 1; split clones aside), each comes back uncopied and copies again;
@@ -964,12 +981,24 @@ function manifold(bb, raw, def) {
   };
   return {
     skill: {
-      // started by the install tick below only when there is an operator to copy (rule NEVER: no auto-cast on nobody)
-      kind: 'toggle', trigger: 'NEVER', spType: 'time', spCost, initSp,
-      onStart({ battle, unit }) {
-        if (unit.mem.noCopy || managed(unit)) return;
-        const t = pickCopyTarget(battle, unit);
-        if (t) applyManifoldCopy(battle, unit, t, scale);
+      // the automatic operations' 流形 branch (`AutoChessBattleTrigger._TryUsingSkillTypeMlyssWtrman`; skills.js
+      // autoTrigger): not running — cast as soon as it may, no condition (`_DoDefaultCheck` + `UseSkill`); running and not
+      // copied yet (no `mlyssWtrmanTransformBuff`) — copy (`_TryUsingMlyssWtrmanSkill`: a dummy of the target's card built
+      // on the 流形's tile), which counts as a cast. So the copy comes BLOCK_SKILL_TICK passes after the cast. The client
+      // also skips the next pass's deployment after the cast (`m_disableDeployNextFrame`): this engine deploys in the pass
+      // only 望's stones, not held back here.
+      kind: 'toggle', trigger: 'MLYSS_WTRMAN', spType: 'time', spCost, initSp,
+      autoTrigger({ battle, unit, skill }) {
+        if (unit.mem.noCopy || unit.mem.mlyssClone) return false;
+        if (!skill.active) return skill.canAutoCast && skill.activate('MLYSS_WTRMAN');
+        if (unit.mem.copy || unit.mem.mlyss) return false;
+        const t = manifoldCopyTarget(battle, unit);
+        if (!t) return false;
+        // a hand-authored 缪尔赛思 kit copies its own way (content/kits/ops/chess_char_6_11-mlyss.js `mem.manifoldCopy`)
+        const kitCopy = managed(unit) ? unit.ownerUnit.mem.manifoldCopy : null;
+        if (typeof kitCopy === 'function') kitCopy(battle, unit, t);
+        else applyManifoldCopy(battle, unit, t, scale);
+        return true;
       },
     },
     // no attack before the first copy (applyManifoldCopy / the 缪尔赛思 kit's copy switch it on)
@@ -1019,14 +1048,6 @@ function manifold(bb, raw, def) {
         // a hand-authored 缪尔赛思 kit grants the first-deployment SP itself (it tracks her first 流形 across respawns)
         if (firstSp > 0 && !unit.mem.firstSpDone && !managed(unit) && unit.skill) { unit.mem.firstSpDone = true; unit.skill.gainSp(firstSp, 'talent'); }
       }, 20);
-      // copy skill: starts once ready AND an operator to copy exists (both modes: the 缪尔赛思 kit copies on skillStart)
-      if (!unit.mem.noCopy) {
-        battle.on('tick', () => {
-          const sk = unit.skill;
-          if (!sk || !unit.alive || !unit.deployed || sk.active || !sk.ready || sk.opCooling || !unit.canAct || unit.s.flags.silence) return;
-          if (pickCopyTarget(battle, unit)) sk.activate('MLYSS_WTRMAN');
-        }, { owner: unit });
-      }
       // module 梳妆流形 (isToken part on the token talents): 援军受到来自自身阻挡单位的伤害降低15% — intrinsic to the token,
       // applied here for managed tokens too (the 缪尔赛思 kit leaves it to this kit when the token runs it)
       if (guardMul !== 1) {

@@ -10,11 +10,11 @@ const ENEMY = 'enemy_vulpis_probe';
 const approx = (a, b) => assert.ok(Math.abs(a - b) < 1e-6, `${a} vs ${b}`);
 const hunt = (c) => c.dmg?.tags?.includes('vulpisHunt');
 const finished = (h) => { assert.deepEqual(h.b.errors, []); checkInvariants(h.b); };
-function scenario(entry = {}, enemy = {}) {
+function scenario(entry = {}, enemy = {}, flags = { bornTime: 3 }) {
   return makeBattle({
     units: [{ chessId: NORMAL, row: 10, col: 4, ...entry }],
     defs: { enemies: { [ENEMY]: enemyRec({ key: ENEMY, hp: 1e7, speed: 0, ...enemy }) } },
-    autoFinish: false, timeLimit: 40, flags: { bornTime: 3 }, hooks: ['damaged'], captureNoisy: true,
+    autoFinish: false, timeLimit: 40, flags, hooks: ['damaged'], captureNoisy: true,
   });
 }
 const variants = [
@@ -26,9 +26,11 @@ const variants = [
 
 for (const { label, ...entry } of variants) for (const skillIndex of [0, 1, 2]) {
   test(`追凶: first ordinary hit includes one arts addition (${label}, S${skillIndex + 1})`, () => {
-    const h = scenario({ ...entry, skillIndex });
+    // no born state (it holds the first attack too), the skills kept off by a 3 s silence instead
+    const h = scenario({ ...entry, skillIndex }, {}, { bornTime: 0 });
     h.step();
     const u = h.unit(entry.chessId);
+    assert.ok(h.b.addBuff(u, { key: 'test:silence', flags: { silence: true }, duration: 3 }));
     if (entry.moduleId) assert.equal(u.def.loadout.moduleId, entry.moduleId, 'the requested module is equipped');
     const e = h.spawn(ENEMY, { pos: [10, 5] });
     const hp = e.hp;
@@ -78,7 +80,7 @@ test('追凶: each enemy starts its own fixed window; repeated damage does not e
   h.step();
   const u = h.unit(NORMAL);
   const e = h.spawn(ENEMY, { pos: [10, 5] });
-  h.run(12);
+  h.run(15); // the first attack after the 3 s born state
   const main = h.hooksOf('damaged').filter((c) => c.source === u && c.target === e && !hunt(c));
   const riders = h.hooksOf('damaged').filter((c) => c.source === u && c.target === e && hunt(c));
   assert.ok(main.some((c) => c.t > main[0].t + 10));

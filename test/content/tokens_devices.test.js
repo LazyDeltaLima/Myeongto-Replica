@@ -8,7 +8,9 @@ import { genericKit } from '../../server/sim/content/generic.js';
 import { spawnYanyou, spawnMapChar, TOKEN_IDS, wolfShadows, wolfShadowInterval, wolfTacticalPoint, tileFree, findSummonTile, summonToken } from '../../server/sim/content/tokens.js';
 import { startColdWind, kjeragColdWind, activateTurrets, terrainAt, deviceOverridesOf } from '../../server/sim/content/devices.js';
 import { HUSK_REBIRTH } from '../../server/sim/content/enemies.js';
-import { COLS } from '../../server/sim/constants.js';
+import { AUTO_TRIGGER_INTERVAL, BLOCK_SKILL_TICK, COLS } from '../../server/sim/constants.js';
+
+const BLOCK_S = BLOCK_SKILL_TICK * AUTO_TRIGGER_INTERVAL;
 
 const REAL = { skip: !hasGeneratedData() };
 const ds = getDefaultSource();
@@ -293,14 +295,14 @@ test('tactician without a board piece: the 援军 is the real talent token (狼�
   checkInvariants(h.b);
 });
 
-test('流形: copies the nearest operator (scale × stats, block, range, damage type) after its SP fills; melee copy steals ATK/DEF', REAL, () => {
+test('流形: copies the operator the automatic operations choose (scale × stats, block, range, damage type) a block after its SP fills; melee copy steals ATK/DEF', REAL, () => {
   const scaleA = tokDef(TOKEN_IDS.manifold, 'chess_char_6_11_a').talents.find((t) => t.bb.scale != null).bb.scale;
   const steal = tokDef(TOKEN_IDS.manifold, 'chess_char_6_11_a').talents.find((t) => t.bb.steal_atk != null).bb;
   const g = guard({ stats: { atk: 600, def: 300, maxHp: 5000, blockCnt: 2, bat: 1, res: 10 }, rangeGrid: [[0, 0], [0, 1]], dmgType: 'arts' });
   const h = makeBattle({
     defs: { chess: { test_guard: g }, enemies: { enemy_dummy: dummy({ atk: 500, def: 400 }) } },
     kits: { chess_char_6_11_a: genericNoSkill },
-    units: [{ chessId: 'chess_char_6_11_a', row: 12, col: 3, uid: 1 }, { chessId: 'test_guard', row: 10, col: 5, uid: 2 }, { kind: 'token', tokenId: TOKEN_IDS.manifold, row: 10, col: 6, uid: 3, ownerUid: 1 }],
+    units: [{ chessId: 'chess_char_6_11_a', row: 12, col: 3, uid: 1 }, { chessId: 'test_guard', row: 11, col: 6, uid: 2 }, { kind: 'token', tokenId: TOKEN_IDS.manifold, row: 10, col: 6, uid: 3, ownerUid: 1 }],
     enemies: [{ key: 'enemy_dummy', pos: [10, 7] }], autoFinish: false, timeLimit: 60,
   });
   h.step();
@@ -308,8 +310,9 @@ test('流形: copies the nearest operator (scale × stats, block, range, damage 
   assert.equal(h.unit('chess_char_6_11_a').trait.reinforcement, m);
   assert.equal(m.mem.copy, null, 'not yet');
   const need = (m.skill.spCost - m.skill.sp) / m.s.spRecovery;
-  assert.ok(h.runUntil(() => m.mem.copy, need + 1));
-  approx(h.b.time, need, 0.1, 'copy after the SP gap (95 → 100)');
+  assert.ok(h.runUntil(() => m.mem.copy, need + BLOCK_S + 1));
+  // cast on the first pass with 100 SP, the copy on the first pass after its block (client _TryUsingSkillTypeMlyssWtrman)
+  approx(h.b.time, need + BLOCK_S, AUTO_TRIGGER_INTERVAL + 1e-6, 'copy a block after the SP gap (95 → 100)');
   approx(m.base.atk, 600 * scaleA, 1e-9);
   approx(m.base.def, 300 * scaleA, 1e-9);
   approx(m.base.maxHp, 5000 * scaleA, 1e-9);
@@ -322,12 +325,12 @@ test('流形: copies the nearest operator (scale × stats, block, range, damage 
   approx(m.s.atk, 600 * scaleA + m.mem.stolenAtk, 1e-9, 'stolen ATK');
   approx(e.s.atk, 500 - m.mem.stolenAtk, 1e-9, 'robbed');
   checkInvariants(h.b);
-  // 精锐: +sp ⇒ copies at once, scale 1
+  // 精锐: +sp ⇒ cast at once, the copy a block later, scale 1
   const h2 = makeBattle({ defs: { chess: { test_guard: g } }, kits: { chess_char_6_11_a: genericNoSkill },
-    units: [{ chessId: 'chess_char_6_11_b', row: 12, col: 3, uid: 1 }, { chessId: 'test_guard', row: 10, col: 5, uid: 2 }, { kind: 'token', tokenId: TOKEN_IDS.manifold, row: 10, col: 6, uid: 3, ownerUid: 1 }], autoFinish: false, timeLimit: 10 });
-  h2.step(2);
+    units: [{ chessId: 'chess_char_6_11_b', row: 12, col: 3, uid: 1 }, { chessId: 'test_guard', row: 11, col: 6, uid: 2 }, { kind: 'token', tokenId: TOKEN_IDS.manifold, row: 10, col: 6, uid: 3, ownerUid: 1 }], autoFinish: false, timeLimit: 10 });
+  h2.step();
   const m2 = h2.b.allyUnits.find((u) => u.defId === TOKEN_IDS.manifold);
-  assert.ok(m2.mem.copy);
+  assert.ok(h2.runUntil(() => m2.mem.copy, BLOCK_S + 1));
   approx(m2.base.atk, 600, 1e-9);
 });
 
@@ -337,11 +340,12 @@ test('流形 ranged copy splits into a timed clone every N attacks', REAL, () =>
   const sniper = chessRec({ id: 'test_sniper', profession: 'SNIPER', skill: null, stats: { atk: 300, bat: 0.2, maxHp: 1000 }, rangeGrid: [[0, 0], [0, 1], [0, 2], [1, 1], [-1, 1]] });
   const h = makeBattle({
     defs: { chess: { test_sniper: sniper }, enemies: { enemy_dummy: dummy() } }, kits: { chess_char_6_11_a: genericNoSkill },
-    units: [{ chessId: 'chess_char_6_11_b', row: 12, col: 3, uid: 1 }, { chessId: 'test_sniper', row: 10, col: 4, uid: 2 }, { kind: 'token', tokenId: TOKEN_IDS.manifold, row: 10, col: 5, uid: 3, ownerUid: 1 }],
+    units: [{ chessId: 'chess_char_6_11_b', row: 12, col: 3, uid: 1 }, { chessId: 'test_sniper', row: 11, col: 5, uid: 2 }, { kind: 'token', tokenId: TOKEN_IDS.manifold, row: 10, col: 5, uid: 3, ownerUid: 1 }],
     enemies: [{ key: 'enemy_dummy', pos: [10, 6] }], autoFinish: false, timeLimit: 60,
   });
-  h.step(2);
+  h.step();
   const m = h.b.allyUnits.find((u) => u.defId === TOKEN_IDS.manifold && !u.mem.isClone);
+  assert.ok(h.runUntil(() => m.mem.copy, BLOCK_S + 1), 'copied a block after the cast');
   assert.ok(m.mem.copy && m.mem.copy.ranged);
   assert.ok(h.runUntil(() => m.stats.attacks >= every, 20));
   h.step();
@@ -1358,10 +1362,11 @@ test('流形 melee copy: ATK/DEF stolen up to steal_*_max; the robbed enemy lose
   const steal = tokDef(TOKEN_IDS.manifold, 'chess_char_6_11_a').talents.find((t) => t.bb.steal_atk != null).bb;
   const g = guard({ stats: { atk: 600, def: 300, maxHp: 5000, blockCnt: 2, bat: 0.2 }, rangeGrid: [[0, 0], [0, 1]] });
   const h = makeBattle({ defs: { chess: { test_guard: g }, enemies: { enemy_dummy: dummy({ atk: 800, def: 600 }) } }, kits: { chess_char_6_11_a: genericNoSkill },
-    units: [{ chessId: 'chess_char_6_11_b', row: 12, col: 3, uid: 1 }, { chessId: 'test_guard', row: 10, col: 5, uid: 2 }, { kind: 'token', tokenId: TOKEN_IDS.manifold, row: 10, col: 6, uid: 3, ownerUid: 1 }],
+    units: [{ chessId: 'chess_char_6_11_b', row: 12, col: 3, uid: 1 }, { chessId: 'test_guard', row: 11, col: 6, uid: 2 }, { kind: 'token', tokenId: TOKEN_IDS.manifold, row: 10, col: 6, uid: 3, ownerUid: 1 }],
     enemies: [{ key: 'enemy_dummy', pos: [10, 7] }], autoFinish: false, timeLimit: 60 });
-  h.step(2);
+  h.step();
   const m = h.b.allyUnits.find((u) => u.defId === TOKEN_IDS.manifold);
+  assert.ok(h.runUntil(() => m.mem.copy, BLOCK_S + 1), 'copied a block after the cast');
   const e = h.enemy('enemy_dummy');
   assert.ok(m.mem.copy && !m.mem.copy.ranged);
   assert.ok(h.runUntil(() => m.mem.stolenAtk >= steal.steal_atk_max, 40), `stole ${m.mem.stolenAtk}`);

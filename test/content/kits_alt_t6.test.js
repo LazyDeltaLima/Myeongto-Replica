@@ -673,7 +673,7 @@ function mlyssBattle(id, sid, extra = {}) {
   const h = run({
     defs: { chess: { guard: plain('guard', { profession: 'WARRIOR', stats: { maxHp: 3000, atk: 800, def: 100 } }), ...(extra.chess || {}) }, enemies: { e: dummy('e') } },
     units: [U(id, sid, 10, 3, extra.unit ?? { carryState: READY }), { chessId: extra.copyId ?? 'guard', row: 11, col: 5 }, { kind: 'token', tokenId: 'token_10030_mlyss_wtrman', row: 10, col: 5, ownerUid: 1 }],
-    enemies: [{ key: 'e', pos: [10, 6], time: extra.enemyAt ?? 7 }],
+    enemies: [{ key: 'e', pos: [10, 6], time: extra.enemyAt ?? 9 }],
     flags: { dpInit: 0, dpPerSec: 0 },
     setup(b) { const add = b.addDp.bind(b); b.addDp = (pid, n) => { log.push({ t: b.time, n }); return add(pid, n); }; },
   });
