@@ -381,6 +381,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     loadEnemyModes().then((m) => { emodes = m && typeof m === 'object' ? m : null; });
   }
   let mod = null, loading = null, failed = false;
+  // 2026-10-28 (#10 investigation, docs/rules/render.md): `gen` counts the layers taken down (teardown) — a load that ends
+  // after its layer went makes nothing; `destroyed` ends the layer for good; a failed load or a lost context leaves the
+  // procedural FX until the next prep tries again (prewarm), MAX_TRIES loads a page; a browser without WebP never does
+  let gen = 0, destroyed = false, tries = 0, noWebp = false;
+  const MAX_TRIES = 3;
   let variants = null, warmNext = 2, warmTimer = 0;   // 2026-10-27: the shader variants (ensure) and prewarm's next link
   const WARM_GAP_MS = 400;
   let webp = null;   // the WebP probe's answer once known (the note layer decides synchronously)
@@ -446,43 +451,86 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   };
 
   async function ensure() {
+    // 2026-10-28: 'low' before a layer already made (update takes it down): switching to low used to keep it
+    if (destroyed || q() === 'low') return false;
     if (mod) return true;
-    if (failed || q() === 'low') return false;
-    if (dry) return false;
+    if (failed || dry) return false;
     // the extracted textures are WebP (tools/local-extract/fx_extract.py): a browser without it (iOS Safari < 14) keeps
     // the procedural FX
-    if (!(await webpOk())) { failed = true; return false; }
-    loading ||= Promise.all([import('../../vendor/three.module.js'), import('./fxplayer.js')]).then(([THREE, fxp]) => {
-      const make = (before, z) => {
-        const canvas = document.createElement('canvas');
-        canvas.setAttribute('aria-hidden', 'true');
-        Object.assign(canvas.style, { position: 'absolute', left: '0', top: '0', width: '100%', height: '100%', display: 'none', pointerEvents: 'none', zIndex: z });
-        host.insertBefore(canvas, before);
-        // local patch: premultiplied — the page adds an additive effect's light and lets the alpha (fxplayer.js blendSrcAlpha) cover
-        const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false, premultipliedAlpha: true, powerPreference: 'high-performance' });
-        renderer.setClearColor(0x000000, 0);
-        return { canvas, renderer, scene: new THREE.Scene(), n: 0 };
-      };
-      // under: z 1 like the units canvas and before it in the DOM (above the 3D board's z 0)
-      layers.under = make(above, '1');
-      layers.over = make(above.nextSibling, '2');
-      layers.split = { scene: new THREE.Scene(), n: 0 }; // local patch
-      occ = makeOccluders(THREE, [layers.under.scene, layers.over.scene, layers.split.scene]); // local patch
-      camera = new THREE.PerspectiveCamera();
-      size = new THREE.Vector2();
-      lib = new fxp.FxLibrary('/assets/local/fx/');
-      // 2026-10-27: the effect shader linked before the first effect (compile() only queues the link: the browser links it
-      // while the effect's file loads), its other variants by prewarm(). Their materials are never disposed: three.js also
-      // drops a shader's source entry with its last material, and the next material's new entry id made a new program key,
-      // a pinned program or not
-      try {
-        variants = fxp.programVariants();
-        for (const L of [layers.under, layers.over]) { L.renderer.compile(variants[0], camera); keepPrograms(L); }
-      } catch (err) { variants = null; console.warn('[fx] shader precompile failed', err); }
-      mod = { THREE, fxp };
-    }).catch((err) => { failed = true; console.warn('[fx] official effects unavailable', err); });
+    if (!(await webpOk())) { failed = noWebp = true; return false; }
+    if (!loading && !destroyed) {
+      const g = gen;
+      tries++;
+      loading = Promise.all([import('../../vendor/three.module.js'), import('./fxplayer.js')]).then(([THREE, fxp]) => {
+        if (g !== gen) return;   // 2026-10-28: taken down (destroy, quality low) while the modules loaded — it leaked two contexts
+        const make = (before, z) => {
+          const canvas = document.createElement('canvas');
+          canvas.setAttribute('aria-hidden', 'true');
+          Object.assign(canvas.style, { position: 'absolute', left: '0', top: '0', width: '100%', height: '100%', display: 'none', pointerEvents: 'none', zIndex: z });
+          // local patch: premultiplied — the page adds an additive effect's light and lets the alpha (fxplayer.js blendSrcAlpha) cover
+          const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false, premultipliedAlpha: true, powerPreference: 'high-performance' });
+          renderer.setClearColor(0x000000, 0);
+          // 2026-10-28: a lost context (GPU memory, the browser's context limit, the app sent to the background) takes the
+          // layer down for the procedural FX; three.js alone kept drawing nothing until a restore that may never come
+          canvas.addEventListener('webglcontextlost', () => {
+            if (g !== gen || destroyed) return;   // our own forceContextLoss (teardown)
+            console.warn('[fx] effect context lost');
+            teardown();
+            failed = true;
+          });
+          host.insertBefore(canvas, before);   // after the renderer: a context that cannot be made leaves no canvas behind
+          return { canvas, renderer, scene: new THREE.Scene(), n: 0 };
+        };
+        // under: z 1 like the units canvas and before it in the DOM (above the 3D board's z 0)
+        layers.under = make(above, '1');
+        layers.over = make(above.nextSibling, '2');
+        layers.split = { scene: new THREE.Scene(), n: 0 }; // local patch
+        occ = makeOccluders(THREE, [layers.under.scene, layers.over.scene, layers.split.scene]); // local patch
+        camera = new THREE.PerspectiveCamera();
+        size = new THREE.Vector2();
+        lib = new fxp.FxLibrary('/assets/local/fx/');
+        // 2026-10-27: the effect shader linked before the first effect (compile() only queues the link: the browser links it
+        // while the effect's file loads), its other variants by prewarm(). Their materials are never disposed: three.js also
+        // drops a shader's source entry with its last material, and the next material's new entry id made a new program key,
+        // a pinned program or not
+        try {
+          variants = fxp.programVariants();
+          for (const L of [layers.under, layers.over]) { L.renderer.compile(variants[0], camera); keepPrograms(L); }
+        } catch (err) { variants = null; console.warn('[fx] shader precompile failed', err); }
+        mod = { THREE, fxp };
+      }).catch((err) => {
+        if (g !== gen) return;
+        teardown();   // what it made before the error (a canvas, the first context)
+        failed = true;
+        console.warn('[fx] official effects unavailable', err);
+      });
+    }
     await loading;
     return !!mod;
+  }
+
+  /**
+   * 2026-10-28: take the layer down — its effects, textures, meshes and occluders while the contexts still live, then both
+   * contexts at once like the 3D board (scene.js destroy) — for destroy, quality 'low', a lost context or a failed load; a
+   * later ensure() makes a new one.
+   */
+  function teardown() {
+    api.clear();
+    gen++;
+    loading = null; variants = null; warmNext = 2;
+    clearTimeout(warmTimer); warmTimer = 0;
+    // local patch (maintainer request 2026-10-10, docs/rules/render.md 「이펙트 렌더러 정리」): renderer.dispose() alone left
+    // the contexts, 45–170 MB of textures each match, to a GC that never came while anything held the old view
+    try { lib?.dispose(); } catch { /* ignore */ }
+    try { occ?.geo.dispose(); occ?.meshes[0]?.material.dispose(); } catch { /* ignore */ }
+    for (const L of [layers.under, layers.over]) {
+      try { L?.renderer.dispose(); } catch { /* ignore */ }
+      try { L?.renderer.forceContextLoss(); } catch { /* ignore */ }
+      L?.canvas.remove();
+    }
+    layers.under = layers.over = layers.split = null;
+    occ = null; occKey = ''; occGrid = null; occTiles = []; // local patch
+    mod = null;
   }
 
   // units that left the field: an effect bound to one (buff / one-shot on it) whose file finished loading after its
@@ -5289,6 +5337,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
 
     update(dt, cam, vp) {
       perfFrames++;
+      if (mod && q() === 'low') teardown();   // 2026-10-28: quality 'low' now, not only after a reload
       camRef = cam; // local patch: status effects' heights (playStatus)
       clockS += dt * gameRate(); // local patch: the battle clock (gaps, ends) — the official effects use scaled time
       stepTrails(dt * gameRate()); // local patch
@@ -5401,7 +5450,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
      * with no effect waiting for them, nothing waits.
      */
     prewarm() {
-      if (warmTimer) return;
+      if (warmTimer || destroyed) return;
+      if (failed && !noWebp && tries < MAX_TRIES) failed = false;   // 2026-10-28: the next prep tries a failed load again
       const step = () => {
         warmTimer = 0;
         if (!mod || !variants || !layers.under || warmNext >= variants.length * 2) return;
@@ -5428,22 +5478,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     },
 
     destroy() {
-      this.clear();
-      clearTimeout(warmTimer); warmTimer = 0;
-      // local patch (maintainer request 2026-10-10, docs/rules/render.md 「이펙트 렌더러 정리」): free the textures, meshes
-      // and occluders while the contexts still live, then end both contexts at once like the 3D board (scene.js destroy) —
-      // renderer.dispose() alone left them, 45–170 MB of textures each match, to a GC that never came while anything held
-      // the old view
-      try { lib?.dispose(); } catch { /* ignore */ }
-      try { occ?.geo.dispose(); occ?.meshes[0]?.material.dispose(); } catch { /* ignore */ }
-      for (const L of [layers.under, layers.over]) {
-        try { L?.renderer.dispose(); } catch { /* ignore */ }
-        try { L?.renderer.forceContextLoss(); } catch { /* ignore */ }
-        L?.canvas.remove();
-      }
-      layers.under = layers.over = layers.split = null;
-      occ = null; occKey = ''; occGrid = null; occTiles = []; // local patch
-      mod = null;
+      destroyed = true;
+      teardown();
     },
 
     /**
