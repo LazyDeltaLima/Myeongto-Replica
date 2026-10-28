@@ -36,7 +36,7 @@ import { SOLO_RECONNECT_FALLBACK_SEC } from '../server/lobby.js';
 import { moduleTypeIconUrl } from '../public/js/ui/assetUrls.js';
 import { validateC2S } from '../shared/protocol.js';
 import { ERR, PHASE } from '../shared/constants.js';
-import { PROJECTILE_SPEEDS, BOOMERANG_RETURN_SPEED, ELEMENT, ELEMENT_ORDER, DOWN_STATE, BLOCK_RADIUS, FORCED_EXIT, ASPD_MIN, BOSS_POOL_MIN_HP, AUTO_OP_COOLDOWN, ALLY_COLLIDER_RADIUS } from '../server/sim/constants.js';
+import { PROJECTILE_SPEEDS, BOOMERANG_RETURN_SPEED, ELEMENT, ELEMENT_ORDER, DOWN_STATE, BLOCK_RADIUS, FORCED_EXIT, ASPD_MIN, BOSS_POOL_MIN_HP, BORN_TIME, ALLY_COLLIDER_RADIUS } from '../server/sim/constants.js';
 import { SKILL_SUMMON_START_DEPLOY, BOND_LAYER_CAP, BOSS_HIT_LIMIT, layerGainRoom } from '../shared/constants.js';
 import * as SIM_CONST from '../server/sim/constants.js';
 import { MULTI_ROUND_BOUNTY_BATTLES } from '../server/match/choices.js';
@@ -476,14 +476,14 @@ test('user playtest #6 (DESIGN §20): summons, skill triggers, blocking, push fo
   assert.ok(!/meleeUnit/.test(battleSrc) && !/export function meleeUnit/.test(readFileSync(join(ROOT, 'server/sim/targeting.js'), 'utf8')), 'no melee gate in the engine');
   // #15 / #16: skill triggers and the operation block (code = §5.6 = §19.2 superseded; the client's AutoChessBattleTrigger
   // since maintainer decision 2026-10-11: 10 passes of 0.2 s)
-  assert.equal(AUTO_OP_COOLDOWN, 2);
+  assert.equal(BORN_TIME, 1);
   assert.match(s56, /`SKILL_RANGE` \(a MANUAL skill with a 技能范围 of its own/);
   assert.match(s56, /\*\*every MANUAL skill\*\* of the class and never an AUTO skill/);
-  assert.match(s56, /`AUTO_OP_COOLDOWN` \(2 s\) after the unit's battle-start deployment/);
+  assert.match(s56, /for `BORN_TIME` \(1 s\) after any deployment the unit is in its born state/);
   assert.match(s56, /one automatic cast per pass in the whole battle/);
   assert.match(sec(19), /灰毫 S2 专注轰击 — \*\*superseded by §20\.2\*\*/);
   assert.ok(!/so her S1 is TAKE_DAMAGE and S2 stays DEFAULT/.test(DESIGN), '§19.2: 灰毫 S2 is TAKE_DAMAGE now');
-  assert.ok(!/the battle-start part is left out/.test(readFileSync(join(ROOT, 'server/sim/constants.js'), 'utf8')), 'AUTO_OP_COOLDOWN comment');
+  assert.ok(!/AUTO_OP_COOLDOWN/.test(readFileSync(join(ROOT, 'server/sim/constants.js'), 'utf8')), 'no battle-start block constant');
   assert.match(DATA_MD, /50 MANUAL skills \(100 normal \+ elite records\) on\s+DEFAULT with a `rangeId` check that box/);
   assert.match(sub('20.2', '20.3'), /180 % \(精锐 200 %\)/, '#8: the elite shield ratio');
   // #14 / #17: push force vs weight, ASPD floor, 孤立 (code = §5.2 / §5.3 / §5.4 = §20.3)

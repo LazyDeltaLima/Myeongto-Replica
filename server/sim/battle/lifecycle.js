@@ -157,13 +157,14 @@ export class BattleLifecycle {
   /**
    * One pass of the automatic skill operations (the client's `AutoChessBattleTrigger._TryTriggerAvailableSkills`, every
    * 0.2 s: `AutoTrigger` → `WaitForFixedSeconds(AUTO_TRIGGER_INTERVAL)`; maintainer decision 2026-10-11): over the
-   * characters in deployment order, one whose block runs counts it down and is skipped; the first whose MANUAL skill
-   * casts (SkillRuntime.autoTrigger) is blocked BLOCK_SKILL_TICK passes and the pass ends there — one automatic cast per
-   * pass in the whole battle. [ASSUMED] one pass for every player's units of the field (the client runs one trigger per
-   * battle) and the order of `allyUnits`.
+   * characters, one whose block runs counts it down and is skipped; the first whose MANUAL skill casts
+   * (SkillRuntime.autoTrigger) is blocked BLOCK_SKILL_TICK passes and the pass ends there — one automatic cast per pass in
+   * the whole battle. The client runs one trigger per battle over `UnitManager.characters`, whoever's side (a shared
+   * field: every player's units in one pass); that list is `_chars` (Battle._deploy appends, _remove moves the last
+   * into the hole).
    */
   _autoTriggerPass() {
-    const list = this.allyUnits;
+    const list = this._chars;
     for (let i = 0; i < list.length && !this._endReq; i++) {
       const u = list[i];
       const sk = u.skill;

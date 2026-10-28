@@ -189,7 +189,8 @@ test('#3 菲莱 S2 冥河诅咒: the counter hits the ground enemies of the 3×3
 
 test('#3 纯烬艾雅法拉 火山灰疗愈: allies in range take −12 % 元素损伤 (×talent_scale in S3) — the gauge, not elemTakenMul', () => {
   const id = 'chess_char_6_20_a';
-  const h = battle({ units: [{ chessId: id, row: 10, col: 4 }, { chessId: 't_guard', row: 10, col: 5 }] });
+  // an enemy far away: S3 (GDGLOW_SKILL_2) casts with any enemy on the field (client `_GdglowSearchEnemy`)
+  const h = battle({ units: [{ chessId: id, row: 10, col: 4 }, { chessId: 't_guard', row: 10, col: 5 }], enemies: [{ key: 'enemy_w3a', pos: [8, 11] }] });
   const u = h.unit(id), g = h.unit('t_guard');
   h.run(0.6);
   const er = tal(id, 1).ep_damage_resistance;

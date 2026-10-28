@@ -53,7 +53,7 @@ const ENEMIES = {
 
 function arena(units, enemies) {
   const h = makeBattle({
-    autoFinish: false, timeLimit: 60, flags: { startOpCooldown: 0 }, hooks: ['skillStart'], captureNoisy: true,
+    autoFinish: false, timeLimit: 60, flags: { bornTime: 0 }, hooks: ['skillStart'], captureNoisy: true,
     defs: { chess: { sn: SN, gd: GD, sk_rid: skilled('sk_rid', RANGE), sk_def: skilled('sk_def', null) }, enemies: ENEMIES }, units, enemies,
   });
   const hits = [];

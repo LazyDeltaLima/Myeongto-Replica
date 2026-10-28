@@ -1013,16 +1013,18 @@ instance) and skip `'counter'` / `'reflect'` damage. When the guard trips, the l
   `SP_FULL` (`ALWAYS`) — immediately;
   `CUSTOM_RANGE` — an enemy inside `trigger.customRangeGrid` (rotated by the unit direction like every grid); `SEARCH` — an
   enemy inside the INITIAL range, checked every tick (no attack needed: "不受基础策略影响，在初始攻击范围内存在敌人时释放技能");
-  `GDGLOW_SKILL_2` — "全场存在可选目标时释放技能": a targetable enemy anywhere (a heal skill: an ally that needs healing),
-  every tick; `NEVER` (alias `MANUAL`) — never auto-casts: the kit calls `unit.skill.activate(reason)` itself;
-  `MLYSS_WTRMAN` and any unknown rule behave like DEFAULT. Units that never attack (bard, phalanx, librator) check
+  `GDGLOW_SKILL_2` — "全场存在可选目标时释放技能": any enemy on the field (the client's `UnitManager.enemyCnt > 0`, targetable
+  or not), every tick; `NEVER` (alias `MANUAL`) — never auto-casts: the kit calls `unit.skill.activate(reason)` itself;
+  `MLYSS_WTRMAN` (缪尔赛思's own skills: the attack / combat state, no trigger grid) and any unknown rule behave like DEFAULT. Units that never attack (bard, phalanx, librator) check
   DEFAULT every tick. Silence blocks activation. MANUAL skills are cast by the automatic operations only (official client
   `AutoChessBattleTrigger`, maintainer decision 2026-10-11): every `AUTO_TRIGGER_INTERVAL` 0.2 s one pass over the units in
-  deployment order (`battle/lifecycle.js _autoTriggerPass` → `skills.js autoTrigger`) casts at once the first whose rule
+  the client's `UnitManager.characters` order (`Battle._chars`: appended at each deployment, the last moved into the hole of
+  one that leaves; `battle/lifecycle.js _autoTriggerPass` → `skills.js autoTrigger`) casts at once the first whose rule
   holds and blocks it `BLOCK_SKILL_TICK` 10 passes (checked again ≈ 2.2 s later; a charged skill spends its charges that far
-  apart) — one automatic cast per pass in the whole battle; the battle-start deployment starts blocked
-  (`constants.js AUTO_OP_COOLDOWN` 2 s, `Battle._deploy` initial; `battle.flags.startOpCooldown` — the test harness sets 0
-  unless told otherwise); until 2026-10-11 a 3 s cooldown per unit (PRTS 「自动操作具有3s冷却」). AUTO skills are exempt; kits with their own automatic cast of a MANUAL skill check `skill.opCooling` (波登可 S1, 雪猎
+  apart) — one automatic cast per pass in the whole battle; for `constants.js BORN_TIME` 1 s after any deployment the unit
+  is in its born state and casts nothing, while the pass goes on to the others (`Battle._deploy` `bornUntil`;
+  `battle.flags.bornTime` — the test harness sets 0 unless told otherwise; until 2026-10-29 the battle-start deployment
+  was blocked 2 s instead); until 2026-10-11 a 3 s cooldown per unit (PRTS 「自动操作具有3s冷却」). AUTO skills are exempt; kits with their own automatic cast of a MANUAL skill check `skill.opCooling` (波登可 S1, 雪猎
   special bullets, 流形 copy). While a cast "next attack" (instant / charges with an attack override) waits for its
   attack, no further charge is cast. An instant / charges skill with no attack override of its own (a throw, a heal, a
   buff, a DP gain …) is cast the way the client's skill class says (data `cast`, tools/build-data.mjs skillCast ←

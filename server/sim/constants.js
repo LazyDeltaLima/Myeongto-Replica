@@ -207,12 +207,15 @@ export const DP_DEFAULTS = Object.freeze({ dpInit: 10, dpPerSec: 1, dpMax: 99 })
 export const AUTO_TRIGGER_INTERVAL = 0.2;
 export const BLOCK_SKILL_TICK = 10;
 /**
- * The block of the battle-start deployment, in seconds (`battle.flags.startOpCooldown`; PRTS 卫戍协议/帮助 "…作战开始时部署
- * 的单位将进入冷却") — BLOCK_SKILL_TICK passes [ASSUMED: no start block found in the client — `_OnUnitBorn` only gives a TAKE_DAMAGE
- * character its on-hit buff;
- * until 2026-10-11 every automatic cast waited 3 s, PRTS 「自动操作具有3s冷却」].
+ * The born state after every deployment, in seconds (`battle.flags.bornTime`; the official `Consts.CHARACTER_BORN_TIME`):
+ * `Character.States.BornState` plays the Born clip, and `CastSkill.UseSkill` refuses while the owner is in it — so a
+ * MANUAL skill is not cast for this long after its unit is deployed (battle start, redeploy, summon alike), and the
+ * operations pass goes on to the next character (no block). The trigger itself has no battle-start block: `StartBattle`
+ * empties `m_blockSkillTicker` and only a cast fills it (PRTS 卫戍协议/帮助 "…作战开始时部署的单位将进入冷却" is this born
+ * state). [ASSUMED·엔진: the Born clip played to last 1 s (`_useRealBornTimeFromAnim` off); skills whose prefab sets
+ * `_canCastDuringBorn` are not known and wait too.] Until 2026-10-29 the battle-start deployment was blocked 2 s.
  */
-export const AUTO_OP_COOLDOWN = BLOCK_SKILL_TICK * AUTO_TRIGGER_INTERVAL;
+export const BORN_TIME = 1;
 
 // The battle-start deployment interval lives in shared/constants.js: the browser's audio.js times the 部署 line by it and
 // can only import from /shared/ and /sim/ (this module is served as /sim/constants.js, not under its repository path).

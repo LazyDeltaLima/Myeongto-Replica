@@ -14,7 +14,7 @@ const done = (h) => { checkInvariants(h.b); assert.deepEqual(h.b.errors, []); };
 function field(form, { atk = 0, units = null } = {}) {
   return makeBattle({
     seed: 5, timeLimit: 600, autoFinish: false,
-    flags: { startOpCooldown: 3, dpInit: 99, dpPerSec: 10, dpMax: 999 },
+    flags: { bornTime: 3, dpInit: 99, dpPerSec: 10, dpMax: 999 },
     units: units ?? [{ chessId: form.id, moduleId: form.moduleId, uid: 1, row: 10, col: 4 }],
     defs: { enemies: { enemy_dummy: enemyRec({ key: 'enemy_dummy', hp: 1e7, speed: 0, atk, range: 5, bat: 2 }) } },
     enemies: [{ key: 'enemy_dummy', pos: [10, 5] }],

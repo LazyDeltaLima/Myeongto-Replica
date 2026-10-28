@@ -102,7 +102,7 @@
       "combat": "client",
       "boost": null,
       "setup": {"stageId":"act1autochess_m03","bossId":"boss_5","hiddenBossId":"boss_8","factions":["TIMES","DOT","INVISIBLE"]},
-      "end": {"victory":false,"roundsPassed":13,"hiddenReached":false,"hiddenCleared":false,"reason":"defeat","teamLp":0,"bossPoolLeft":32589,"virtualMs":106900},
+      "end": {"victory":false,"roundsPassed":13,"hiddenReached":false,"hiddenCleared":false,"reason":"defeat","teamLp":0,"bossPoolLeft":39081,"virtualMs":106900},
       "rng": {"setup":25,"shop":159,"waves":0,"draft":10,"bots":8211,"meta":1},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
@@ -141,7 +141,7 @@
         },
         {
           "round": 13,
-          "ai_0": [1,6,12,0,0,6,8,"5aa1bd68",177,"deputShip 1/16, kazimierzShip 0/8, kjeragShip 1/34, miraShip 0/3, preciShip 0/5, sargonShip 0/8, skillfulShip 1/7, soloShip 1/17, steadShip 1/47, suntShip 1/12, swiftShip 1/44, yanShip 0/6",106,35,9,119]
+          "ai_0": [1,9,12,0,0,6,8,"8a01b5fa",177,"deputShip 1/16, kazimierzShip 0/8, kjeragShip 1/34, miraShip 0/3, preciShip 0/5, sargonShip 0/8, skillfulShip 1/7, soloShip 1/17, steadShip 1/47, suntShip 1/12, swiftShip 1/44, yanShip 0/6",109,35,6,119]
         }
       ],
       "players": {
@@ -155,7 +155,7 @@
           "title": {"id":"comment_2","name":"不朽盟约","picId":"comment_icon_2","text":"激活的盟约层数总和最高"},
           "trophies": 0,
           "reward": 320,
-          "stats": {"activatedLayers":184,"bossDamage":357411,"dmgDealt":2214706,"gold":130,"itemsEquipped":17,"kills":371,"leaks":21,"lpLost":21,"merges":3,"perfectRounds":9,"refreshes":9},
+          "stats": {"activatedLayers":184,"bossDamage":350919,"dmgDealt":2201428,"gold":130,"itemsEquipped":17,"kills":373,"leaks":18,"lpLost":18,"merges":3,"perfectRounds":9,"refreshes":9},
           "lineup": ["4_21_a@12,7","3_16_a@12,8[4_10_e_a+2_04_e_a]","6_05_a@11,5","4_13_a@11,8[3_06_e_a]","3_20_b@10,3[5_02_e_b+4_08_e_a]","1_19_b@10,8[4_11_e_a]","1_02_a@9,4[5_02_e_b+3_08_e_b]","6_03_a@9,5"],
           "bonds": ["deputShip 1/18","kazimierzShip 0/8","kjeragShip 1/41","miraShip 0/3","preciShip 0/5","sargonShip 0/8","skillfulShip 1/14","soloShip 0/17","steadShip 2/51","suntShip 1/14","swiftShip 1/46","yanShip 0/6"]
         }
@@ -216,7 +216,7 @@
         },
         {
           "round": 13,
-          "ai_0": [1,19,13,0,1,6,8,"868b844c",184,"arcaneShip 2/30, kjeragShip 0/8, lateranoShip 1/33, miraShip 0/3, preciShip 1/49, sargonShip 0/2, steadShip 1/8, suntShip 1/0, swiftShip 1/25, yanShip 1/39",13,35,22,127]
+          "ai_0": [1,19,13,0,1,6,8,"868b844c",184,"arcaneShip 2/30, kjeragShip 0/8, lateranoShip 1/33, miraShip 0/3, preciShip 1/49, sargonShip 0/2, steadShip 1/8, suntShip 1/0, swiftShip 1/25, yanShip 1/39",14,35,21,127]
         }
       ],
       "players": {
@@ -230,7 +230,7 @@
           "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 0,
           "reward": 400,
-          "stats": {"activatedLayers":217,"bossDamage":390000,"dmgDealt":2399209,"gold":138,"itemsEquipped":24,"kills":256,"leaks":22,"lpLost":10,"merges":5,"perfectRounds":12,"refreshes":20},
+          "stats": {"activatedLayers":217,"bossDamage":390000,"dmgDealt":2423701,"gold":138,"itemsEquipped":24,"kills":258,"leaks":21,"lpLost":10,"merges":5,"perfectRounds":12,"refreshes":20},
           "lineup": ["1_17_b@12,5[4_03_e_a+3_11_e_a]","4_02_a@12,6[3_02_e_b+1_01_e_a]","4_14_a@12,7[3_11_e_b+1_02_e_a]","5_23_a@11,4","5_12_a@11,5[1_05_e_a+3_05_e_b]","1_01_b@10,3[5_02_e_a]","6_03_a@10,5[4_10_e_a+5_03_e_a]","4_01_b@10,6[4_07_e_a+4_11_e_a]"],
           "bonds": ["arcaneShip 2/36","kjeragShip 0/8","lateranoShip 1/33","miraShip 1/3","preciShip 1/54","sargonShip 0/2","steadShip 1/8","suntShip 1/0","swiftShip 1/30","yanShip 1/53"]
         }
@@ -246,7 +246,7 @@
       "combat": "client",
       "boost": null,
       "setup": {"stageId":"act1autochess_m03","bossId":"boss_5","hiddenBossId":"boss_8","factions":["TIMES","DOT","INVISIBLE"]},
-      "end": {"victory":false,"roundsPassed":13,"hiddenReached":false,"hiddenCleared":false,"reason":"defeat","teamLp":0,"bossPoolLeft":111755,"virtualMs":107800},
+      "end": {"victory":false,"roundsPassed":13,"hiddenReached":false,"hiddenCleared":false,"reason":"defeat","teamLp":0,"bossPoolLeft":96562,"virtualMs":107800},
       "rng": {"setup":25,"shop":215,"waves":0,"draft":42,"bots":8070,"meta":1},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
@@ -281,11 +281,11 @@
         },
         {
           "round": 12,
-          "ai_0": [1,17,13,0,0,6,8,"9d2fedd3",168,"deputShip 2/22, kazimierzShip 0/16, kjeragShip 0/10, sargonShip 1/39, skillfulShip 1/24, soloShip 0/13, steadShip 0/11, suntShip 1/20, swiftShip 1/63",14,31,17,108]
+          "ai_0": [1,17,13,0,0,6,8,"6649f2ef",176,"deputShip 2/22, kazimierzShip 0/16, kjeragShip 0/10, sargonShip 1/39, skillfulShip 1/24, soloShip 0/13, steadShip 0/11, suntShip 1/20, swiftShip 1/71",21,31,10,108]
         },
         {
           "round": 13,
-          "ai_0": [1,17,12,0,2,6,8,"3513fe7f",229,"deputShip 1/24, kazimierzShip 1/26, kjeragShip 0/10, sargonShip 1/41, skillfulShip 1/26, soloShip 1/15, steadShip 0/11, suntShip 1/22, swiftShip 1/75",115,35,0,120]
+          "ai_0": [1,17,12,0,2,6,8,"3513fe7f",237,"deputShip 1/24, kazimierzShip 1/26, kjeragShip 0/10, sargonShip 1/41, skillfulShip 1/26, soloShip 1/15, steadShip 0/11, suntShip 1/22, swiftShip 1/83",115,35,0,120]
         }
       ],
       "players": {
@@ -299,9 +299,9 @@
           "title": {"id":"comment_2","name":"不朽盟约","picId":"comment_icon_2","text":"激活的盟约层数总和最高"},
           "trophies": 0,
           "reward": 340,
-          "stats": {"activatedLayers":212,"bossDamage":668245,"dmgDealt":2292517,"gold":135,"itemsEquipped":16,"kills":397,"leaks":17,"lpLost":10,"merges":4,"perfectRounds":12,"refreshes":17},
+          "stats": {"activatedLayers":220,"bossDamage":683438,"dmgDealt":2396384,"gold":135,"itemsEquipped":16,"kills":404,"leaks":10,"lpLost":10,"merges":4,"perfectRounds":12,"refreshes":17},
           "lineup": ["3_13_a@12,5[1_01_e_b+3_08_e_a]","3_20_a@11,8[5_02_e_a]","4_13_a@10,3","6_19_a@10,5[1_02_e_a+3_11_e_a]","6_17_a@10,8[2_01_e_a+5_01_e_a]","2_08_a@9,3[4_02_e_a+3_07_e_b]","1_19_b@9,4","1_12_b@9,5[4_10_e_a]"],
-          "bonds": ["deputShip 0/24","kazimierzShip 1/26","kjeragShip 1/15","sargonShip 1/41","skillfulShip 1/31","soloShip 0/15","steadShip 0/11","suntShip 1/22","swiftShip 1/77"]
+          "bonds": ["deputShip 0/24","kazimierzShip 1/26","kjeragShip 1/15","sargonShip 1/41","skillfulShip 1/31","soloShip 0/15","steadShip 0/11","suntShip 1/22","swiftShip 1/85"]
         }
       }
     },
@@ -384,8 +384,8 @@
       "combat": "client",
       "boost": null,
       "setup": {"stageId":"act1autochess_m03","bossId":"boss_5","hiddenBossId":"boss_8","factions":["TIMES","DOT","INVISIBLE"]},
-      "end": {"victory":false,"roundsPassed":13,"hiddenReached":false,"hiddenCleared":false,"reason":"defeat","teamLp":0,"bossPoolLeft":2674861,"virtualMs":107800},
-      "rng": {"setup":25,"shop":215,"waves":0,"draft":42,"bots":8070,"meta":1},
+      "end": {"victory":false,"roundsPassed":12,"hiddenReached":false,"hiddenCleared":false,"reason":"eliminated","teamLp":null,"bossPoolLeft":null,"virtualMs":101900},
+      "rng": {"setup":25,"shop":184,"waves":0,"draft":42,"bots":7846,"meta":1},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
         {"round":1,"ai_0":[1,27,4,0,0,1,2,"cc1bac8f",0,"sargonShip 0/2, soloShip 1/0",5,5,0,4]},
@@ -403,43 +403,43 @@
         },
         {
           "round": 8,
-          "ai_0": [1,24,11,0,0,4,8,"acaac71b",58,"deputShip 2/10, kazimierzShip 0/8, kjeragShip 0/2, sargonShip 1/21, skillfulShip 1/8, soloShip 1/11, steadShip 0/9, suntShip 1/8, swiftShip 0/11",17,19,2,58]
+          "ai_0": [1,23,11,0,0,4,8,"acaac71b",58,"deputShip 2/10, kazimierzShip 0/8, kjeragShip 0/2, sargonShip 1/21, skillfulShip 1/8, soloShip 1/11, steadShip 0/9, suntShip 1/8, swiftShip 0/11",16,19,3,58]
         },
         {
           "round": 9,
-          "ai_0": [1,24,12,0,0,4,8,"4fb70cbc",81,"deputShip 1/12, kazimierzShip 0/8, kjeragShip 0/2, sargonShip 1/25, skillfulShip 1/10, soloShip 0/11, steadShip 1/11, suntShip 1/10, swiftShip 1/13",34,34,0,71]
+          "ai_0": [1,23,12,0,0,4,8,"4fb70cbc",81,"deputShip 1/12, kazimierzShip 0/8, kjeragShip 0/2, sargonShip 1/25, skillfulShip 1/10, soloShip 0/11, steadShip 1/11, suntShip 1/10, swiftShip 1/13",34,34,0,71]
         },
         {
           "round": 10,
-          "ai_0": [1,24,12,0,0,5,8,"b380bd34",99,"deputShip 1/14, kazimierzShip 0/8, kjeragShip 0/2, sargonShip 1/29, skillfulShip 1/14, soloShip 1/13, steadShip 0/11, suntShip 1/12, swiftShip 1/17",24,24,0,84]
+          "ai_0": [1,23,12,0,0,5,8,"b380bd34",99,"deputShip 1/14, kazimierzShip 0/8, kjeragShip 0/2, sargonShip 1/29, skillfulShip 1/14, soloShip 1/13, steadShip 0/11, suntShip 1/12, swiftShip 1/17",24,24,0,84]
         },
         {
           "round": 11,
-          "ai_0": [1,23,12,0,1,5,8,"d2737099",133,"deputShip 2/18, kazimierzShip 0/16, kjeragShip 0/10, sargonShip 1/35, skillfulShip 1/20, soloShip 0/13, steadShip 0/11, suntShip 1/16, swiftShip 1/44",33,34,1,96]
+          "ai_0": [1,20,12,0,1,5,8,"d2737099",133,"deputShip 2/18, kazimierzShip 0/16, kjeragShip 0/10, sargonShip 1/35, skillfulShip 1/20, soloShip 0/13, steadShip 0/11, suntShip 1/16, swiftShip 1/44",31,34,3,96]
         },
         {
           "round": 12,
-          "ai_0": [1,13,13,0,0,6,8,"6649f2ef",176,"deputShip 2/22, kazimierzShip 0/16, kjeragShip 0/10, sargonShip 1/39, skillfulShip 1/24, soloShip 0/13, steadShip 0/11, suntShip 1/20, swiftShip 1/71",15,31,16,108]
+          "ai_0": [1,10,13,0,0,6,8,"f2eb48ee",184,"deputShip 2/22, kazimierzShip 0/16, kjeragShip 0/10, sargonShip 1/39, skillfulShip 1/24, soloShip 0/13, steadShip 0/11, suntShip 1/20, swiftShip 1/79",14,31,17,108]
         },
         {
           "round": 13,
-          "ai_0": [1,3,12,0,2,6,8,"718889dd",237,"deputShip 1/24, kazimierzShip 1/26, kjeragShip 0/10, sargonShip 1/41, skillfulShip 1/26, soloShip 1/15, steadShip 0/11, suntShip 1/22, swiftShip 1/83",105,35,10,120]
+          "ai_0": [0,0,12,0,0,6,0,"811c9dc5",0,"deputShip 0/24, kazimierzShip 0/26, kjeragShip 0/10, sargonShip 0/41, skillfulShip 0/26, soloShip 0/15, steadShip 0/11, suntShip 0/22, swiftShip 0/91",97,35,18,120]
         }
       ],
       "players": {
         "ai_0": {
-          "alive": true,
+          "alive": false,
           "victory": false,
-          "roundsPassed": 13,
-          "eliminatedRound": null,
+          "roundsPassed": 12,
+          "eliminatedRound": 13,
           "lp": 0,
           "bandId": "band_ermengard",
-          "title": {"id":"comment_2","name":"不朽盟约","picId":"comment_icon_2","text":"激活的盟约层数总和最高"},
+          "title": {"id":"comment_4","name":"精英云集","picId":"comment_icon_4","text":"晋升精锐次数最多"},
           "trophies": 0,
-          "reward": 340,
-          "stats": {"activatedLayers":220,"bossDamage":325139,"dmgDealt":3162078,"gold":135,"itemsEquipped":16,"kills":380,"leaks":30,"lpLost":24,"merges":4,"perfectRounds":8,"refreshes":17},
-          "lineup": ["3_20_a@12,5[5_02_e_a]","4_13_a@11,8","3_13_a@10,3[1_01_e_b+3_08_e_a]","2_08_a@10,5[4_02_e_a+3_07_e_b]","6_17_a@10,8","1_12_b@9,4[4_10_e_a]","6_19_a@9,5[1_02_e_a+3_11_e_a]","1_19_b@9,9[2_01_e_a+5_01_e_a]"],
-          "bonds": ["deputShip 0/24","kazimierzShip 1/26","kjeragShip 1/15","sargonShip 1/41","skillfulShip 1/31","soloShip 0/15","steadShip 0/11","suntShip 1/22","swiftShip 1/85"]
+          "reward": 298,
+          "stats": {"activatedLayers":0,"bossDamage":0,"dmgDealt":2369292,"gold":120,"itemsEquipped":14,"kills":357,"leaks":42,"lpLost":27,"merges":3,"perfectRounds":8,"refreshes":14},
+          "lineup": [],
+          "bonds": ["deputShip 0/24","kazimierzShip 0/26","kjeragShip 0/10","sargonShip 0/41","skillfulShip 0/26","soloShip 0/15","steadShip 0/11","suntShip 0/22","swiftShip 0/91"]
         }
       }
     },
@@ -522,7 +522,7 @@
       "combat": "client",
       "boost": null,
       "setup": {"stageId":"act2autochess_m04","bossId":"boss_3","hiddenBossId":"boss_8","factions":["FLY","TIMES","DOT"]},
-      "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":47,"bossPoolLeft":0,"virtualMs":121400},
+      "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":46,"bossPoolLeft":0,"virtualMs":121400},
       "rng": {"setup":25,"shop":479,"waves":0,"draft":40,"bots":21596,"meta":2},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
@@ -578,18 +578,18 @@
         },
         {
           "round": 11,
-          "ai_0": [1,41,12,0,2,5,8,"8b148397",119,"arcaneShip 1/28, lateranoShip 1/15, preciShip 0/10, raidShip 1/6, sargonShip 0/10, siracusaShip 1/40, soloShip 1/6, steadShip 1/5, suntShip 1/0, swiftShip 1/19",21,23,2,105],
+          "ai_0": [1,41,12,0,2,5,8,"7fe0b8c6",110,"arcaneShip 1/28, lateranoShip 1/8, preciShip 0/10, raidShip 1/5, sargonShip 0/10, siracusaShip 1/40, soloShip 1/6, steadShip 1/4, suntShip 1/0, swiftShip 1/19",22,23,1,105],
           "ai_1": [1,26,14,0,0,5,8,"06a6f28a",88,"arcaneShip 1/28, deputShip 0/3, kazimierzShip 0/4, kjeragShip 0/6, preciShip 0/12, raidShip 1/5, sargonShip 0/10, siracusaShip 1/24, soloShip 1/0, steadShip 1/16, suntShip 1/0, swiftShip 0/16, victoriaShip 0/3, visiShip 1/15",23,23,0,101]
         },
         {
           "round": 12,
-          "ai_0": [1,41,14,0,0,6,8,"4d27dbba",121,"arcaneShip 1/28, lateranoShip 1/15, preciShip 0/10, raidShip 1/7, sargonShip 0/10, siracusaShip 1/40, soloShip 1/6, steadShip 1/6, suntShip 1/0, swiftShip 1/19",104,32,1,119],
+          "ai_0": [1,41,14,0,0,6,8,"4ac6c97e",112,"arcaneShip 1/28, lateranoShip 1/8, preciShip 0/10, raidShip 1/6, sargonShip 0/10, siracusaShip 1/40, soloShip 1/6, steadShip 1/5, suntShip 1/0, swiftShip 1/19",104,32,1,119],
           "ai_1": [1,26,12,0,2,6,8,"6698bdf6",106,"arcaneShip 2/30, deputShip 0/3, kazimierzShip 0/4, kjeragShip 0/6, preciShip 0/12, raidShip 1/10, sargonShip 0/10, siracusaShip 1/26, soloShip 1/0, steadShip 1/20, suntShip 1/0, swiftShip 0/16, victoriaShip 0/3, visiShip 1/20",105,32,0,113]
         },
         {
           "round": 13,
-          "ai_0": [1,31,12,0,0,6,8,"bf7bc976",143,"arcaneShip 1/36, lateranoShip 1/18, preciShip 0/10, raidShip 1/7, sargonShip 0/10, siracusaShip 1/48, soloShip 1/6, steadShip 1/6, suntShip 1/0, swiftShip 1/22, visiShip 1/0",20,34,14,130],
-          "ai_1": [1,16,14,0,2,6,8,"06ac87da",126,"arcaneShip 2/40, deputShip 0/3, kazimierzShip 0/4, kjeragShip 0/6, preciShip 0/12, raidShip 1/26, sargonShip 0/10, siracusaShip 1/40, soloShip 1/0, steadShip 0/20, suntShip 1/0, swiftShip 0/28, victoriaShip 0/3, visiShip 1/20",24,34,10,125]
+          "ai_0": [1,31,12,0,0,6,8,"bf7bc976",134,"arcaneShip 1/36, lateranoShip 1/11, preciShip 0/10, raidShip 1/6, sargonShip 0/10, siracusaShip 1/48, soloShip 1/6, steadShip 1/5, suntShip 1/0, swiftShip 1/22, visiShip 1/0",20,34,14,130],
+          "ai_1": [1,16,14,0,2,6,8,"6ff6d557",126,"arcaneShip 2/40, deputShip 0/3, kazimierzShip 0/4, kjeragShip 0/6, preciShip 0/12, raidShip 1/26, sargonShip 0/10, siracusaShip 1/40, soloShip 1/0, steadShip 0/20, suntShip 1/0, swiftShip 0/28, victoriaShip 0/3, visiShip 1/20",22,34,12,125]
         }
       ],
       "players": {
@@ -598,14 +598,14 @@
           "victory": true,
           "roundsPassed": 14,
           "eliminatedRound": null,
-          "lp": 31,
+          "lp": 30,
           "bandId": "band_sarkazb",
           "title": {"id":"comment_2","name":"不朽盟约","picId":"comment_icon_2","text":"激活的盟约层数总和最高"},
           "trophies": 4,
           "reward": 400,
-          "stats": {"activatedLayers":173,"bossDamage":586502,"dmgDealt":3029994,"gold":143,"itemsEquipped":21,"kills":323,"leaks":23,"lpLost":14,"merges":4,"perfectRounds":8,"refreshes":21},
+          "stats": {"activatedLayers":164,"bossDamage":545373,"dmgDealt":3010892,"gold":143,"itemsEquipped":21,"kills":323,"leaks":22,"lpLost":14,"merges":4,"perfectRounds":8,"refreshes":21},
           "lineup": ["1_01_b@11,7","4_02_a@11,8[2_04_e_a+5_02_e_a]","4_10_b@10,5[3_05_e_a+4_07_e_a]","4_01_a@9,3","3_05_b@9,4[4_02_e_b+3_11_e_a]","1_08_b@9,5[4_10_e_a+5_07_e_a]","3_18_a@9,6[4_04_e_b]","1_18_b@9,9"],
-          "bonds": ["arcaneShip 1/51","lateranoShip 1/21","preciShip 0/10","raidShip 1/7","sargonShip 0/10","siracusaShip 1/60","soloShip 1/6","steadShip 1/6","suntShip 2/0","swiftShip 1/22"]
+          "bonds": ["arcaneShip 1/51","lateranoShip 1/14","preciShip 0/10","raidShip 1/6","sargonShip 0/10","siracusaShip 1/60","soloShip 1/6","steadShip 1/5","suntShip 2/0","swiftShip 1/22"]
         },
         "ai_1": {
           "alive": true,
@@ -617,7 +617,7 @@
           "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 4,
           "reward": 400,
-          "stats": {"activatedLayers":120,"bossDamage":830998,"dmgDealt":3546932,"gold":140,"itemsEquipped":19,"kills":321,"leaks":13,"lpLost":12,"merges":3,"perfectRounds":10,"refreshes":20},
+          "stats": {"activatedLayers":120,"bossDamage":872127,"dmgDealt":3534266,"gold":140,"itemsEquipped":19,"kills":318,"leaks":15,"lpLost":12,"merges":3,"perfectRounds":10,"refreshes":20},
           "lineup": ["6_08_a@11,7[2_04_e_a]","5_12_a@11,8","4_10_a@10,5[1_01_e_b+4_08_e_b]","4_16_a@10,7[4_04_e_b+3_07_e_a]","3_18_b@10,8[4_07_e_a+2_01_e_a]","6_08_a@9,7","5_07_a@9,8[4_10_e_a+5_07_e_a]","1_08_b@9,9[4_02_e_b+4_02_e_a]"],
           "bonds": ["arcaneShip 2/48","deputShip 0/3","kazimierzShip 0/4","kjeragShip 0/6","preciShip 0/12","raidShip 1/26","sargonShip 0/10","siracusaShip 1/46","soloShip 1/0","steadShip 0/20","suntShip 1/0","swiftShip 0/28","victoriaShip 0/3","visiShip 0/20"]
         }
@@ -634,7 +634,7 @@
       "boost": null,
       "setup": {"stageId":"act1autochess_m04","bossId":"boss_4","hiddenBossId":"boss_10","factions":["FLY","TIMES","REFLECTION"]},
       "end": {"victory":false,"roundsPassed":12,"hiddenReached":false,"hiddenCleared":false,"reason":"eliminated","teamLp":null,"bossPoolLeft":null,"virtualMs":110650},
-      "rng": {"setup":25,"shop":410,"waves":0,"draft":73,"bots":14211,"meta":4},
+      "rng": {"setup":25,"shop":396,"waves":0,"draft":73,"bots":14211,"meta":4},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
         {
@@ -689,18 +689,18 @@
         },
         {
           "round": 11,
-          "ai_0": [1,16,12,0,1,5,8,"b526701b",151,"arcaneShip 1/19, deputShip 1/2, emptyShip 1/2, kazimierzShip 0/2, kjeragShip 0/4, preciShip 0/2, raidShip 1/93, siracusaShip 1/17, skillfulShip 1/11, soloShip 1/5, steadShip 0/28, suntShip 1/2, swiftShip 0/2",20,27,7,103],
+          "ai_0": [1,14,12,0,1,5,8,"a4a8614b",151,"arcaneShip 1/19, deputShip 1/2, emptyShip 1/2, kazimierzShip 0/2, kjeragShip 0/4, preciShip 0/2, raidShip 1/93, siracusaShip 1/17, skillfulShip 1/11, soloShip 1/5, steadShip 0/28, suntShip 1/2, swiftShip 0/2",18,27,9,103],
           "ai_1": [1,11,12,0,1,5,8,"730bd173",150,"arcaneShip 0/2, kazimierzShip 1/62, kjeragShip 0/8, preciShip 0/2, raidShip 1/32, skillfulShip 0/12, steadShip 2/15, suntShip 1/0, swiftShip 1/41",15,27,12,101]
         },
         {
           "round": 12,
-          "ai_0": [1,6,13,0,0,6,8,"19d0104d",190,"arcaneShip 1/21, deputShip 1/4, emptyShip 1/4, kazimierzShip 0/2, kjeragShip 0/4, preciShip 0/2, raidShip 1/118, siracusaShip 1/19, skillfulShip 1/13, soloShip 1/7, steadShip 0/28, suntShip 1/4, swiftShip 0/2",40,50,10,115],
-          "ai_1": [1,1,13,2,0,6,8,"59ccc969",210,"arcaneShip 0/2, indomShip 1/6, kazimierzShip 1/86, kjeragShip 0/8, preciShip 0/2, raidShip 1/38, skillfulShip 0/12, steadShip 2/20, suntShip 1/0, swiftShip 1/49, visiShip 1/11",28,50,22,115]
+          "ai_0": [1,8,13,0,0,6,8,"5bdcec39",198,"arcaneShip 1/21, deputShip 1/4, emptyShip 1/4, kazimierzShip 0/2, kjeragShip 0/4, preciShip 0/2, raidShip 1/126, siracusaShip 1/19, skillfulShip 1/13, soloShip 1/7, steadShip 0/28, suntShip 1/4, swiftShip 0/2",44,50,6,115],
+          "ai_1": [1,1,13,0,0,6,8,"59ccc969",202,"arcaneShip 0/2, indomShip 1/2, kazimierzShip 1/86, kjeragShip 0/8, preciShip 0/2, raidShip 1/38, skillfulShip 0/12, steadShip 2/20, suntShip 1/0, swiftShip 1/49, visiShip 1/7",36,50,14,115]
         },
         {
           "round": 13,
-          "ai_0": [0,0,12,0,0,6,0,"811c9dc5",0,"arcaneShip 0/29, deputShip 0/6, emptyShip 0/6, kazimierzShip 0/2, kjeragShip 0/4, preciShip 0/2, raidShip 0/162, siracusaShip 0/27, skillfulShip 0/15, soloShip 0/9, steadShip 0/28, suntShip 0/6, swiftShip 0/2",32,49,17,126],
-          "ai_1": [0,0,14,0,0,6,0,"811c9dc5",0,"arcaneShip 0/2, indomShip 0/6, kazimierzShip 0/110, kjeragShip 0/8, preciShip 0/2, raidShip 0/43, skillfulShip 0/12, steadShip 0/24, swiftShip 0/57, visiShip 0/16",30,49,19,130]
+          "ai_0": [0,0,12,0,0,6,0,"811c9dc5",0,"arcaneShip 0/29, deputShip 0/6, emptyShip 0/6, kazimierzShip 0/2, kjeragShip 0/4, preciShip 0/2, raidShip 0/154, siracusaShip 0/27, skillfulShip 0/15, soloShip 0/9, steadShip 0/28, suntShip 0/6, swiftShip 0/2",33,49,16,126],
+          "ai_1": [0,0,12,0,0,6,0,"811c9dc5",0,"arcaneShip 0/2, indomShip 0/2, kazimierzShip 0/118, kjeragShip 0/8, preciShip 0/2, raidShip 0/43, skillfulShip 0/12, steadShip 0/24, swiftShip 0/65, visiShip 0/12",32,49,17,129]
         }
       ],
       "players": {
@@ -714,9 +714,9 @@
           "title": {"id":"comment_4","name":"精英云集","picId":"comment_icon_4","text":"晋升精锐次数最多"},
           "trophies": 3,
           "reward": 298,
-          "stats": {"activatedLayers":0,"bossDamage":0,"dmgDealt":3746206,"gold":126,"itemsEquipped":9,"kills":249,"leaks":36,"lpLost":29,"merges":3,"perfectRounds":9,"refreshes":13},
+          "stats": {"activatedLayers":0,"bossDamage":0,"dmgDealt":3800156,"gold":126,"itemsEquipped":9,"kills":252,"leaks":33,"lpLost":27,"merges":3,"perfectRounds":9,"refreshes":13},
           "lineup": [],
-          "bonds": ["arcaneShip 0/29","deputShip 0/6","emptyShip 0/6","kazimierzShip 0/2","kjeragShip 0/4","preciShip 0/2","raidShip 0/162","siracusaShip 0/27","skillfulShip 0/15","soloShip 0/9","steadShip 0/28","suntShip 0/6","swiftShip 0/2"]
+          "bonds": ["arcaneShip 0/29","deputShip 0/6","emptyShip 0/6","kazimierzShip 0/2","kjeragShip 0/4","preciShip 0/2","raidShip 0/154","siracusaShip 0/27","skillfulShip 0/15","soloShip 0/9","steadShip 0/28","suntShip 0/6","swiftShip 0/2"]
         },
         "ai_1": {
           "alive": false,
@@ -728,9 +728,9 @@
           "title": {"id":"comment_5","name":"万事俱备","picId":"comment_icon_5","text":"装备配发数量最多"},
           "trophies": 3,
           "reward": 298,
-          "stats": {"activatedLayers":0,"bossDamage":0,"dmgDealt":2624015,"gold":130,"itemsEquipped":14,"kills":221,"leaks":61,"lpLost":35,"merges":3,"perfectRounds":8,"refreshes":21},
+          "stats": {"activatedLayers":0,"bossDamage":0,"dmgDealt":2853631,"gold":129,"itemsEquipped":14,"kills":231,"leaks":51,"lpLost":35,"merges":3,"perfectRounds":8,"refreshes":19},
           "lineup": [],
-          "bonds": ["arcaneShip 0/2","indomShip 0/6","kazimierzShip 0/110","kjeragShip 0/8","preciShip 0/2","raidShip 0/43","skillfulShip 0/12","steadShip 0/24","swiftShip 0/57","visiShip 0/16"]
+          "bonds": ["arcaneShip 0/2","indomShip 0/2","kazimierzShip 0/118","kjeragShip 0/8","preciShip 0/2","raidShip 0/43","skillfulShip 0/12","steadShip 0/24","swiftShip 0/65","visiShip 0/12"]
         }
       }
     },
@@ -852,7 +852,7 @@
           "title": {"id":"comment_2","name":"不朽盟约","picId":"comment_icon_2","text":"激活的盟约层数总和最高"},
           "trophies": 3,
           "reward": 340,
-          "stats": {"activatedLayers":279,"bossDamage":1052998,"dmgDealt":5257985,"gold":134,"itemsEquipped":14,"kills":326,"leaks":85,"lpLost":38,"merges":7,"perfectRounds":7,"refreshes":22},
+          "stats": {"activatedLayers":279,"bossDamage":1052998,"dmgDealt":5257841,"gold":134,"itemsEquipped":14,"kills":326,"leaks":85,"lpLost":38,"merges":7,"perfectRounds":7,"refreshes":22},
           "lineup": ["1_07_b@12,8[6_11_e_a+6_09_e_a]","3_21_b@11,7[4_07_e_b+3_03_e_a]","1_01_b@11,8","5_20_a@10,5[3_06_e_a+5_01_e_a]","2_13_a@10,7","4_16_b@10,8[4_05_e_a+3_11_e_a]","2_17_b@9,6[3_04_e_a]","4_01_a@9,9[4_02_e_a+4_04_e_b]"],
           "bonds": ["indomShip 0/1","kazimierzShip 0/11","lateranoShip 1/66","miraShip 1/0","siracusaShip 1/36","skillfulShip 1/61","soloShip 1/0","steadShip 1/89","suntShip 2/0","swiftShip 1/27"]
         },
@@ -989,7 +989,7 @@
           "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 3,
           "reward": 250,
-          "stats": {"activatedLayers":272,"bossDamage":369902,"dmgDealt":1806686,"gold":133,"itemsEquipped":21,"kills":296,"leaks":0,"lpLost":0,"merges":4,"perfectRounds":13,"refreshes":26},
+          "stats": {"activatedLayers":272,"bossDamage":364261,"dmgDealt":1801051,"gold":133,"itemsEquipped":21,"kills":296,"leaks":0,"lpLost":0,"merges":4,"perfectRounds":13,"refreshes":26},
           "lineup": ["4_25_a@11,3","1_06_b@11,6[3_02_e_a]","6_12_a@11,7[2_01_e_a+3_11_e_a]","3_20_a@10,3","5_14_a@10,4[3_08_e_a+5_02_e_a]","4_22_a@9,4[4_11_e_a+4_04_e_a]","4_14_b@9,8[2_01_e_b+1_05_e_b]","3_11_b@9,9[3_07_e_a+4_03_e_b]"],
           "bonds": ["deputShip 1/41","emptyShip 1/4","kjeragShip 1/35","preciShip 2/119","sargonShip 0/11","steadShip 0/8","swiftShip 1/73","victoriaShip 0/21"]
         },
@@ -1003,7 +1003,7 @@
           "title": {"id":"comment_3","name":"坚若磐石","picId":"comment_icon_3","text":"目标生命值损失最少"},
           "trophies": 3,
           "reward": 250,
-          "stats": {"activatedLayers":154,"bossDamage":232505,"dmgDealt":1640570,"gold":133,"itemsEquipped":14,"kills":292,"leaks":0,"lpLost":0,"merges":6,"perfectRounds":13,"refreshes":16},
+          "stats": {"activatedLayers":154,"bossDamage":231882,"dmgDealt":1639948,"gold":133,"itemsEquipped":14,"kills":292,"leaks":0,"lpLost":0,"merges":6,"perfectRounds":13,"refreshes":16},
           "lineup": ["6_18_a@11,3","6_12_a@11,6","4_20_b@11,7","5_10_a@10,3[3_08_e_a+1_02_e_b]","1_10_b@10,4","4_10_b@10,7[4_08_e_a+4_03_e_b]","3_05_b@9,4","6_05_a@9,9"],
           "bonds": ["deputShip 0/2","emptyShip 1/0","preciShip 2/14","sargonShip 0/2","siracusaShip 1/109","steadShip 1/31","visiShip 0/5"]
         },
@@ -1017,7 +1017,7 @@
           "title": {"id":"comment_4","name":"精英云集","picId":"comment_icon_4","text":"晋升精锐次数最多"},
           "trophies": 3,
           "reward": 250,
-          "stats": {"activatedLayers":224,"bossDamage":274271,"dmgDealt":1700136,"gold":127,"itemsEquipped":19,"kills":283,"leaks":0,"lpLost":0,"merges":4,"perfectRounds":13,"refreshes":15},
+          "stats": {"activatedLayers":224,"bossDamage":280951,"dmgDealt":1706826,"gold":127,"itemsEquipped":19,"kills":283,"leaks":0,"lpLost":0,"merges":4,"perfectRounds":13,"refreshes":15},
           "lineup": ["3_06_a@12,8[5_01_e_a+4_06_e_b]","6_12_a@11,6[4_08_e_a+6_09_e_a]","6_11_a@11,7","4_24_a@11,8","2_14_a@10,3","6_06_a@10,8[4_02_e_b]","4_14_a@9,8[3_11_e_a+3_05_e_a]","1_17_b@9,9[1_05_e_a+2_01_e_b]"],
           "bonds": ["deputShip 1/26","emptyShip 1/4","kjeragShip 0/5","maniShip 1/4","preciShip 2/135","sargonShip 1/55","yanShip 0/6"]
         },
@@ -1031,7 +1031,7 @@
           "title": {"id":"comment_5","name":"万事俱备","picId":"comment_icon_5","text":"装备配发数量最多"},
           "trophies": 3,
           "reward": 250,
-          "stats": {"activatedLayers":232,"bossDamage":263322,"dmgDealt":1827214,"gold":144,"itemsEquipped":33,"kills":279,"leaks":4,"lpLost":0,"merges":3,"perfectRounds":12,"refreshes":26},
+          "stats": {"activatedLayers":232,"bossDamage":262905,"dmgDealt":1826796,"gold":144,"itemsEquipped":33,"kills":279,"leaks":4,"lpLost":0,"merges":3,"perfectRounds":12,"refreshes":26},
           "lineup": ["6_20_a@11,3","6_12_a@11,6[6_09_e_a+4_05_e_a]","6_11_a@11,7","4_14_a@11,8[6_03_e_b]","4_07_a@10,8[4_11_e_a+2_01_e_a]","6_05_a@9,8[4_03_e_b+1_01_e_b]","4_11_a@9,9[3_11_e_a+4_07_e_a]"],
           "bonds": ["deputShip 0/10","emptyShip 0/6","maniShip 1/0","preciShip 2/122","siracusaShip 0/6","swiftShip 1/32","victoriaShip 1/14","visiShip 1/64","yanShip 0/1"]
         }
@@ -1123,21 +1123,21 @@
         },
         {
           "round": 11,
-          "ai_0": [1,21,12,0,0,5,8,"00899fa6",125,"arcaneShip 2/14, kazimierzShip 0/8, kjeragShip 1/20, preciShip 2/43, skillfulShip 0/10, suntShip 1/0, swiftShip 1/48",12,24,12,100],
+          "ai_0": [1,21,12,0,0,5,8,"179804ce",125,"arcaneShip 2/14, kazimierzShip 0/8, kjeragShip 1/20, preciShip 2/43, skillfulShip 0/10, suntShip 1/0, swiftShip 1/48",12,24,12,100],
           "ai_1": [1,13,12,0,2,5,8,"b914a74c",200,"arcaneShip 0/2, deputShip 2/14, kazimierzShip 0/15, kjeragShip 1/51, preciShip 0/2, sargonShip 1/83, siracusaShip 0/6, skillfulShip 1/19, soloShip 0/2, steadShip 0/18, swiftShip 1/33",20,24,4,95],
           "ai_2": [1,18,14,0,0,5,8,"0f1331d2",233,"arcaneShip 0/8, deputShip 1/31, egirShip 0/8, indomShip 2/52, kazimierzShip 0/2, kjeragShip 0/28, lateranoShip 0/4, raidShip 0/6, skillfulShip 1/6, soloShip 1/18, steadShip 1/64, suntShip 1/4, swiftShip 0/4, victoriaShip 1/50, visiShip 1/8, yanShip 0/10",20,24,4,108],
           "ai_3": [0,0,0,0,0,4,0,"811c9dc5",0,"arcaneShip 0/2, kjeragShip 0/5, preciShip 0/2, sargonShip 0/4, siracusaShip 0/7, skillfulShip 0/5, soloShip 0/12",null,null,null,59]
         },
         {
           "round": 12,
-          "ai_0": [1,11,12,0,0,6,8,"6993868a",138,"arcaneShip 2/14, kazimierzShip 0/8, kjeragShip 1/23, preciShip 2/48, skillfulShip 0/10, suntShip 1/0, swiftShip 1/53",7,47,40,111],
-          "ai_1": [1,3,14,0,0,6,8,"68a9599a",255,"arcaneShip 0/4, deputShip 1/16, kazimierzShip 0/15, kjeragShip 1/61, preciShip 0/4, sargonShip 1/94, siracusaShip 0/6, skillfulShip 1/21, soloShip 0/2, steadShip 1/20, swiftShip 1/43",15,47,32,107],
+          "ai_0": [1,11,12,0,0,6,8,"6993868a",137,"arcaneShip 2/14, kazimierzShip 0/8, kjeragShip 1/22, preciShip 2/48, skillfulShip 0/10, suntShip 1/0, swiftShip 1/53",7,47,40,111],
+          "ai_1": [1,3,14,0,0,6,8,"68a9599a",255,"arcaneShip 0/4, deputShip 1/16, kazimierzShip 0/15, kjeragShip 1/61, preciShip 0/4, sargonShip 1/94, siracusaShip 0/6, skillfulShip 1/21, soloShip 0/2, steadShip 1/20, swiftShip 1/43",16,47,31,107],
           "ai_2": [1,8,12,0,0,6,8,"1c7df2c9",284,"arcaneShip 0/10, deputShip 1/37, egirShip 0/10, indomShip 2/77, kazimierzShip 0/2, kjeragShip 0/28, lateranoShip 0/4, raidShip 0/6, skillfulShip 1/10, soloShip 1/20, steadShip 1/70, suntShip 1/6, swiftShip 0/4, victoriaShip 1/64, visiShip 0/8, yanShip 0/10",23,47,24,119],
           "ai_3": [0,0,0,0,0,4,0,"811c9dc5",0,"arcaneShip 0/2, kjeragShip 0/5, preciShip 0/2, sargonShip 0/4, siracusaShip 0/7, skillfulShip 0/5, soloShip 0/12",null,null,null,59]
         },
         {
           "round": 13,
-          "ai_0": [1,1,12,0,0,6,8,"2f00ed5e",159,"arcaneShip 2/20, kazimierzShip 0/8, kjeragShip 1/28, preciShip 2/53, skillfulShip 0/10, suntShip 1/0, swiftShip 1/58",11,39,28,122],
+          "ai_0": [1,1,12,0,0,6,8,"2f00ed5e",155,"arcaneShip 2/20, kazimierzShip 0/8, kjeragShip 1/24, preciShip 2/53, skillfulShip 0/10, suntShip 1/0, swiftShip 1/58",9,39,30,122],
           "ai_1": [0,0,12,0,0,6,0,"811c9dc5",0,"arcaneShip 0/6, deputShip 0/20, kazimierzShip 0/15, kjeragShip 0/77, preciShip 0/34, sargonShip 0/122, siracusaShip 0/6, skillfulShip 0/25, soloShip 0/2, steadShip 0/20, swiftShip 0/55",33,39,6,120],
           "ai_2": [0,0,12,0,0,6,0,"811c9dc5",0,"arcaneShip 0/24, deputShip 0/41, egirShip 0/12, indomShip 0/107, kazimierzShip 0/2, kjeragShip 0/30, lateranoShip 0/4, raidShip 0/6, skillfulShip 0/24, soloShip 0/22, steadShip 0/78, suntShip 0/8, swiftShip 0/4, victoriaShip 0/76, visiShip 0/8, yanShip 0/10",26,39,13,132],
           "ai_3": [0,0,0,0,0,4,0,"811c9dc5",0,"arcaneShip 0/2, kjeragShip 0/5, preciShip 0/2, sargonShip 0/4, siracusaShip 0/7, skillfulShip 0/5, soloShip 0/12",null,null,null,59]
@@ -1154,9 +1154,9 @@
           "title": {"id":"comment_2","name":"不朽盟约","picId":"comment_icon_2","text":"激活的盟约层数总和最高"},
           "trophies": 3,
           "reward": 340,
-          "stats": {"activatedLayers":175,"bossDamage":132177,"dmgDealt":4213577,"gold":133,"itemsEquipped":14,"kills":144,"leaks":104,"lpLost":44,"merges":3,"perfectRounds":6,"refreshes":28},
+          "stats": {"activatedLayers":171,"bossDamage":132177,"dmgDealt":4257993,"gold":133,"itemsEquipped":14,"kills":142,"leaks":106,"lpLost":44,"merges":3,"perfectRounds":6,"refreshes":28},
           "lineup": ["4_13_a@12,4[3_11_e_a+2_01_e_a]","1_17_b@12,8[5_07_e_a+3_06_e_b]","4_02_a@11,4","3_11_a@11,8[3_04_e_b+1_02_e_a]","4_10_a@10,4","4_22_a@10,7[4_02_e_a+4_04_e_b]","1_19_b@10,8[1_05_e_a+2_04_e_a]","4_14_a@9,3"],
-          "bonds": ["arcaneShip 2/26","kazimierzShip 0/8","kjeragShip 1/28","preciShip 2/58","skillfulShip 0/10","suntShip 1/0","swiftShip 1/63"]
+          "bonds": ["arcaneShip 2/26","kazimierzShip 0/8","kjeragShip 1/24","preciShip 2/58","skillfulShip 0/10","suntShip 1/0","swiftShip 1/63"]
         },
         "ai_1": {
           "alive": false,
@@ -1168,7 +1168,7 @@
           "title": {"id":"comment_6","name":"挥金如土","picId":"comment_icon_6","text":"消耗资金最多"},
           "trophies": 3,
           "reward": 298,
-          "stats": {"activatedLayers":0,"bossDamage":0,"dmgDealt":6059268,"gold":120,"itemsEquipped":12,"kills":205,"leaks":56,"lpLost":29,"merges":1,"perfectRounds":7,"refreshes":23},
+          "stats": {"activatedLayers":0,"bossDamage":0,"dmgDealt":6188956,"gold":120,"itemsEquipped":12,"kills":206,"leaks":55,"lpLost":29,"merges":1,"perfectRounds":7,"refreshes":23},
           "lineup": [],
           "bonds": ["arcaneShip 0/6","deputShip 0/20","kazimierzShip 0/15","kjeragShip 0/77","preciShip 0/34","sargonShip 0/122","siracusaShip 0/6","skillfulShip 0/25","soloShip 0/2","steadShip 0/20","swiftShip 0/55"]
         },
@@ -1212,8 +1212,8 @@
       "combat": "client",
       "boost": null,
       "setup": {"stageId":"act2autochess_m04","bossId":"boss_3","hiddenBossId":"boss_8","factions":["FLY","TIMES","DOT"]},
-      "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":18,"bossPoolLeft":0,"virtualMs":170000},
-      "rng": {"setup":25,"shop":1985,"waves":0,"draft":197,"bots":85603,"meta":112},
+      "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":59,"bossPoolLeft":0,"virtualMs":170000},
+      "rng": {"setup":25,"shop":2032,"waves":0,"draft":197,"bots":85559,"meta":116},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
         {
@@ -1299,7 +1299,7 @@
           "ai_1": [1,45,11,0,0,4,8,"839b5b7d",69,"deputShip 0/2, emptyShip 0/2, kazimierzShip 1/26, kjeragShip 0/8, preciShip 1/9, soloShip 1/2, steadShip 2/12, suntShip 1/2, swiftShip 1/18",51,17,2,63],
           "ai_2": [1,26,11,0,0,4,8,"3264cff1",78,"arcaneShip 1/14, egirShip 1/12, kazimierzShip 0/2, kjeragShip 0/2, preciShip 1/23, sargonShip 0/8, soloShip 1/0, steadShip 1/29, suntShip 1/0, swiftShip 0/2",54,17,1,62],
           "ai_3": [1,28,11,0,0,4,8,"6a105bb6",34,"arcaneShip 1/14, egirShip 1/8, kazimierzShip 0/2, kjeragShip 0/2, preciShip 0/8, raidShip 1/12, skillfulShip 1/0, soloShip 1/0, steadShip 0/2, suntShip 1/0, swiftShip 0/2, visiShip 1/0",56,17,0,64],
-          "ai_4": [1,28,11,0,0,4,8,"d1e802b5",81,"arcaneShip 0/8, kazimierzShip 1/26, preciShip 0/8, raidShip 1/41, siracusaShip 0/6, soloShip 1/0, steadShip 2/6, suntShip 1/0, swiftShip 1/8, yanShip 0/1",53,17,0,65],
+          "ai_4": [1,28,11,0,0,4,8,"d1e802b5",89,"arcaneShip 0/8, kazimierzShip 1/30, preciShip 0/8, raidShip 1/45, siracusaShip 0/6, soloShip 1/0, steadShip 2/6, suntShip 1/0, swiftShip 1/8, yanShip 0/1",53,17,0,65],
           "ai_5": [1,28,12,0,1,4,8,"d94af145",78,"deputShip 0/2, egirShip 0/8, raidShip 0/10, sargonShip 0/8, siracusaShip 0/5, skillfulShip 1/10, soloShip 1/5, steadShip 1/40, suntShip 1/0, swiftShip 1/2, victoriaShip 0/2, yanShip 1/21",51,17,2,67],
           "ai_6": [1,28,11,0,0,4,8,"f0916597",20,"arcaneShip 2/11, kazimierzShip 1/8, preciShip 0/2, sargonShip 0/8, soloShip 1/0, swiftShip 0/4, victoriaShip 1/1, yanShip 0/4",47,17,7,59],
           "ai_7": [1,29,12,0,1,4,8,"a2fdf17d",47,"arcaneShip 0/2, deputShip 1/6, kjeragShip 0/4, preciShip 0/2, raidShip 1/12, skillfulShip 1/6, soloShip 1/6, steadShip 1/17, swiftShip 0/16, yanShip 0/1",51,17,2,65]
@@ -1310,7 +1310,7 @@
           "ai_1": [1,45,12,0,3,4,8,"a5ec26e1",111,"deputShip 0/2, emptyShip 0/2, kazimierzShip 1/34, kjeragShip 0/8, preciShip 1/27, soloShip 1/2, steadShip 2/12, suntShip 1/2, swiftShip 1/34",20,20,0,75],
           "ai_2": [1,26,12,0,0,4,8,"64de14d3",77,"arcaneShip 1/17, egirShip 2/22, kazimierzShip 0/2, kjeragShip 0/2, preciShip 1/28, raidShip 1/5, sargonShip 0/8, soloShip 1/0, steadShip 0/29, suntShip 1/0, swiftShip 0/2, visiShip 1/5",19,20,1,75],
           "ai_3": [1,28,12,0,5,4,8,"8d953cbd",29,"arcaneShip 2/17, egirShip 1/12, kazimierzShip 0/2, kjeragShip 0/2, preciShip 0/8, raidShip 0/12, skillfulShip 1/0, soloShip 1/0, steadShip 0/2, suntShip 1/0, swiftShip 0/2",20,20,0,77],
-          "ai_4": [1,28,12,0,7,4,8,"aedad99e",118,"arcaneShip 0/8, kazimierzShip 1/34, preciShip 1/13, raidShip 1/49, siracusaShip 0/6, soloShip 1/0, steadShip 2/9, suntShip 1/0, swiftShip 1/13, yanShip 0/1",20,20,0,77],
+          "ai_4": [1,28,12,0,7,4,8,"aedad99e",126,"arcaneShip 0/8, kazimierzShip 1/38, preciShip 1/13, raidShip 1/53, siracusaShip 0/6, soloShip 1/0, steadShip 2/9, suntShip 1/0, swiftShip 1/13, yanShip 0/1",20,20,0,77],
           "ai_5": [1,28,13,0,3,4,8,"f79e4771",105,"deputShip 0/2, egirShip 0/8, investShip 0/2, raidShip 1/15, sargonShip 0/8, siracusaShip 0/7, skillfulShip 1/14, soloShip 1/7, steadShip 1/40, suntShip 1/0, swiftShip 0/4, victoriaShip 0/2, yanShip 1/29",19,20,1,78],
           "ai_6": [1,28,12,0,3,4,8,"2732432a",42,"arcaneShip 2/17, kazimierzShip 0/8, preciShip 0/2, raidShip 1/20, sargonShip 0/8, skillfulShip 1/0, soloShip 1/0, swiftShip 0/4, victoriaShip 1/5, yanShip 0/12",20,20,0,72],
           "ai_7": [1,29,13,0,1,4,8,"9f68478a",69,"arcaneShip 0/2, deputShip 1/8, emptyShip 1/2, kjeragShip 0/6, preciShip 0/2, raidShip 1/19, skillfulShip 0/8, soloShip 1/8, steadShip 1/23, suntShip 1/2, swiftShip 0/16, visiShip 1/7, yanShip 0/1",20,20,0,79]
@@ -1321,7 +1321,7 @@
           "ai_1": [1,45,15,0,2,5,8,"0b686753",137,"deputShip 0/2, emptyShip 0/2, kazimierzShip 1/38, kjeragShip 0/8, lateranoShip 1/0, preciShip 2/41, soloShip 0/2, steadShip 1/12, suntShip 1/2, swiftShip 1/44",20,20,0,89],
           "ai_2": [1,26,12,0,2,5,8,"3df87277",103,"arcaneShip 1/20, egirShip 2/30, kazimierzShip 0/2, kjeragShip 0/2, preciShip 1/33, raidShip 1/10, sargonShip 0/8, soloShip 1/0, steadShip 0/29, suntShip 1/0, swiftShip 0/2, visiShip 1/10",19,20,1,87],
           "ai_3": [1,27,17,0,0,5,8,"98ce6f58",64,"arcaneShip 2/17, egirShip 1/12, kazimierzShip 0/2, kjeragShip 0/2, preciShip 1/13, raidShip 1/17, soloShip 1/0, steadShip 0/2, suntShip 1/0, swiftShip 0/2, visiShip 1/5",13,20,7,93],
-          "ai_4": [1,27,19,0,0,5,8,"9218f303",152,"arcaneShip 1/14, kazimierzShip 1/38, preciShip 1/18, raidShip 1/53, siracusaShip 0/6, steadShip 2/11, suntShip 1/0, swiftShip 1/18, yanShip 0/1",19,20,1,96],
+          "ai_4": [1,27,19,0,0,5,8,"9218f303",160,"arcaneShip 1/14, kazimierzShip 1/42, preciShip 1/18, raidShip 1/57, siracusaShip 0/6, steadShip 2/11, suntShip 1/0, swiftShip 1/18, yanShip 0/1",19,20,1,96],
           "ai_5": [1,26,15,0,1,5,8,"67c6ecb6",122,"deputShip 0/2, egirShip 0/8, investShip 0/4, raidShip 1/20, sargonShip 0/8, siracusaShip 0/9, skillfulShip 1/18, soloShip 1/9, steadShip 1/40, suntShip 1/0, swiftShip 0/4, victoriaShip 0/2, yanShip 1/35",18,20,2,92],
           "ai_6": [1,27,15,0,0,5,8,"18ea2424",63,"arcaneShip 2/20, kazimierzShip 0/8, preciShip 0/2, raidShip 1/32, sargonShip 0/8, skillfulShip 1/0, swiftShip 0/4, victoriaShip 1/11, yanShip 0/17",12,20,8,86],
           "ai_7": [1,27,13,0,2,5,8,"10adb1fd",105,"arcaneShip 0/2, deputShip 1/10, emptyShip 1/4, kjeragShip 0/6, preciShip 0/2, raidShip 1/26, skillfulShip 1/10, soloShip 1/10, steadShip 1/27, suntShip 1/4, swiftShip 0/16, visiShip 1/14, yanShip 0/1",14,20,6,92]
@@ -1330,10 +1330,10 @@
           "round": 11,
           "ai_0": [1,30,13,0,5,5,8,"0a798b9a",143,"arcaneShip 2/42, miraShip 0/3, preciShip 1/28, raidShip 1/17, suntShip 1/0, visiShip 1/20, yanShip 1/36",19,21,2,102],
           "ai_1": [1,42,14,0,4,5,8,"03fdb4bc",161,"deputShip 0/2, emptyShip 0/2, kazimierzShip 1/46, kjeragShip 0/8, lateranoShip 1/0, preciShip 2/59, soloShip 0/2, steadShip 0/12, suntShip 1/2, swiftShip 1/54",17,21,4,104],
-          "ai_2": [1,26,14,0,4,5,8,"bf472ed0",116,"arcaneShip 1/23, egirShip 2/40, kazimierzShip 0/4, kjeragShip 0/2, preciShip 1/38, raidShip 1/15, sargonShip 0/8, soloShip 1/0, steadShip 0/29, suntShip 1/0, swiftShip 0/4, visiShip 0/10",21,21,0,101],
-          "ai_3": [1,20,12,0,2,5,8,"635ca72f",97,"arcaneShip 2/20, egirShip 1/27, kazimierzShip 0/2, kjeragShip 0/2, preciShip 1/18, raidShip 1/22, soloShip 1/0, steadShip 0/2, suntShip 1/0, swiftShip 0/2, visiShip 1/10",10,21,11,107],
-          "ai_4": [1,27,12,0,1,5,8,"6f14382b",173,"arcaneShip 1/20, kazimierzShip 1/50, preciShip 2/23, raidShip 1/65, siracusaShip 0/12, steadShip 1/15, suntShip 1/0, swiftShip 0/24, yanShip 0/1",21,21,0,106],
-          "ai_5": [1,17,13,0,2,5,8,"ab6b46a8",132,"deputShip 0/2, egirShip 0/8, investShip 0/6, kazimierzShip 0/10, kjeragShip 0/10, raidShip 1/27, sargonShip 0/8, siracusaShip 0/11, skillfulShip 1/22, soloShip 1/11, steadShip 0/40, suntShip 1/0, swiftShip 1/24, victoriaShip 0/2, visiShip 1/7, yanShip 1/41",9,21,12,107],
+          "ai_2": [1,26,14,0,1,5,8,"bf472ed0",116,"arcaneShip 1/23, egirShip 2/40, kazimierzShip 0/4, kjeragShip 0/2, preciShip 1/38, raidShip 1/15, sargonShip 0/8, soloShip 1/0, steadShip 0/29, suntShip 1/0, swiftShip 0/4, visiShip 0/10",21,21,0,101],
+          "ai_3": [1,19,12,0,2,5,8,"635ca72f",97,"arcaneShip 2/20, egirShip 1/27, kazimierzShip 0/2, kjeragShip 0/2, preciShip 1/18, raidShip 1/22, soloShip 1/0, steadShip 0/2, suntShip 1/0, swiftShip 0/2, visiShip 1/10",10,21,11,107],
+          "ai_4": [1,27,12,0,4,5,8,"6f14382b",181,"arcaneShip 1/20, kazimierzShip 1/54, preciShip 2/23, raidShip 1/69, siracusaShip 0/12, steadShip 1/15, suntShip 1/0, swiftShip 0/24, yanShip 0/1",21,21,0,106],
+          "ai_5": [1,18,13,0,2,5,8,"ab6b46a8",132,"deputShip 0/2, egirShip 0/8, investShip 0/6, kazimierzShip 0/10, kjeragShip 0/10, raidShip 1/27, sargonShip 0/8, siracusaShip 0/11, skillfulShip 1/22, soloShip 1/11, steadShip 0/40, suntShip 1/0, swiftShip 1/24, victoriaShip 0/2, visiShip 1/7, yanShip 1/41",9,21,12,107],
           "ai_6": [1,23,12,0,0,5,8,"863d7a26",57,"arcaneShip 2/24, kazimierzShip 0/8, preciShip 0/2, raidShip 0/32, sargonShip 0/8, skillfulShip 1/0, swiftShip 0/4, victoriaShip 1/12, yanShip 1/21",13,21,8,99],
           "ai_7": [1,25,14,0,5,5,8,"73f9ed25",117,"arcaneShip 0/2, deputShip 1/12, emptyShip 1/6, kjeragShip 0/6, preciShip 0/2, raidShip 1/28, siracusaShip 1/2, skillfulShip 0/10, soloShip 1/12, steadShip 1/31, suntShip 1/6, swiftShip 0/16, visiShip 1/20, yanShip 0/1",15,21,6,108]
         },
@@ -1341,23 +1341,23 @@
           "round": 12,
           "ai_0": [1,30,17,0,1,6,8,"61735cf6",157,"arcaneShip 2/46, miraShip 0/3, preciShip 1/28, raidShip 1/22, suntShip 1/0, visiShip 1/25, yanShip 1/36",105,32,0,117],
           "ai_1": [1,42,16,0,0,6,8,"4022dd09",197,"deputShip 0/2, emptyShip 0/2, kazimierzShip 1/54, kjeragShip 0/8, lateranoShip 1/0, preciShip 2/77, soloShip 0/2, steadShip 0/12, suntShip 1/2, swiftShip 1/64",103,32,2,118],
-          "ai_2": [1,26,16,0,0,6,8,"cc265172",167,"arcaneShip 2/26, egirShip 2/51, kazimierzShip 0/4, kjeragShip 0/2, preciShip 1/43, raidShip 1/47, sargonShip 0/8, soloShip 1/0, steadShip 0/29, suntShip 1/0, swiftShip 0/4, visiShip 0/10",102,32,3,117],
-          "ai_3": [1,20,14,0,0,6,8,"1b709f3c",118,"arcaneShip 2/23, egirShip 1/30, kazimierzShip 0/2, kjeragShip 0/2, preciShip 1/23, raidShip 1/27, soloShip 1/0, steadShip 0/2, suntShip 1/0, swiftShip 0/2, visiShip 1/15",105,32,0,119],
-          "ai_4": [1,27,13,0,0,6,8,"6a7fd260",206,"arcaneShip 1/20, kazimierzShip 1/62, preciShip 2/28, raidShip 1/77, siracusaShip 0/12, steadShip 1/19, suntShip 1/0, swiftShip 0/24, yanShip 0/1",105,32,0,118],
-          "ai_5": [1,17,14,0,4,6,8,"f22d372e",234,"deputShip 0/2, egirShip 0/10, investShip 0/6, kazimierzShip 0/10, kjeragShip 0/10, raidShip 1/44, sargonShip 0/8, siracusaShip 0/13, skillfulShip 1/26, soloShip 1/13, steadShip 1/54, suntShip 1/0, swiftShip 1/36, victoriaShip 0/2, visiShip 1/12, yanShip 1/49",99,32,6,121],
-          "ai_6": [1,23,12,0,0,6,8,"f56d6c98",114,"arcaneShip 2/24, kazimierzShip 0/8, preciShip 0/2, raidShip 1/56, sargonShip 0/8, swiftShip 0/4, victoriaShip 1/13, yanShip 1/21",105,32,0,111],
+          "ai_2": [1,26,13,0,0,6,8,"fe2ede07",141,"arcaneShip 1/26, egirShip 2/52, kazimierzShip 0/4, kjeragShip 0/2, preciShip 1/43, raidShip 1/20, sargonShip 0/8, soloShip 1/0, steadShip 0/29, suntShip 1/0, swiftShip 0/4, visiShip 0/10",101,32,4,113],
+          "ai_3": [1,19,14,0,0,6,8,"1b709f3c",118,"arcaneShip 2/23, egirShip 1/30, kazimierzShip 0/2, kjeragShip 0/2, preciShip 1/23, raidShip 1/27, soloShip 1/0, steadShip 0/2, suntShip 1/0, swiftShip 0/2, visiShip 1/15",105,32,0,119],
+          "ai_4": [1,27,16,0,0,6,8,"41b0dceb",211,"arcaneShip 2/22, kazimierzShip 1/66, preciShip 1/23, raidShip 1/81, siracusaShip 0/12, steadShip 1/19, suntShip 1/0, swiftShip 0/24, yanShip 0/1",105,32,0,122],
+          "ai_5": [1,18,14,0,4,6,8,"f22d372e",234,"deputShip 0/2, egirShip 0/10, investShip 0/6, kazimierzShip 0/10, kjeragShip 0/10, raidShip 1/44, sargonShip 0/8, siracusaShip 0/13, skillfulShip 1/26, soloShip 1/13, steadShip 1/54, suntShip 1/0, swiftShip 1/36, victoriaShip 0/2, visiShip 1/12, yanShip 1/49",99,32,6,121],
+          "ai_6": [1,23,12,0,0,6,8,"f56d6c98",114,"arcaneShip 2/24, kazimierzShip 0/8, preciShip 0/2, raidShip 1/56, sargonShip 0/8, swiftShip 0/4, victoriaShip 1/13, yanShip 1/21",104,32,1,111],
           "ai_7": [1,25,17,0,2,6,8,"ebc4606e",145,"arcaneShip 0/2, deputShip 1/14, emptyShip 1/8, kjeragShip 0/6, preciShip 0/2, raidShip 1/31, siracusaShip 1/4, skillfulShip 0/10, soloShip 1/14, steadShip 1/36, suntShip 1/8, swiftShip 0/16, visiShip 1/30, yanShip 0/1",79,32,26,125]
         },
         {
           "round": 13,
           "ai_0": [1,30,13,0,3,6,8,"ae1a85fa",219,"arcaneShip 2/66, miraShip 0/3, preciShip 1/28, raidShip 1/27, suntShip 1/0, visiShip 1/30, yanShip 1/68",49,49,0,130],
           "ai_1": [1,42,12,0,2,6,8,"3327d2b1",228,"deputShip 0/2, emptyShip 0/2, kazimierzShip 1/58, kjeragShip 0/8, lateranoShip 1/0, preciShip 2/94, soloShip 0/2, steadShip 0/12, suntShip 1/2, swiftShip 1/74",49,49,0,128],
-          "ai_2": [1,26,12,0,0,6,8,"6aaa07ff",209,"arcaneShip 2/29, egirShip 2/60, kazimierzShip 0/4, kjeragShip 0/2, preciShip 1/48, raidShip 1/72, sargonShip 0/8, soloShip 1/0, steadShip 0/29, suntShip 1/0, swiftShip 0/4, visiShip 0/10",48,49,1,127],
-          "ai_3": [1,20,12,0,0,6,8,"29255634",127,"arcaneShip 2/34, egirShip 1/33, kazimierzShip 0/2, kjeragShip 0/2, preciShip 1/28, raidShip 1/32, soloShip 1/0, steadShip 0/2, suntShip 1/0, swiftShip 0/2, visiShip 0/15",40,49,9,132],
-          "ai_4": [1,27,12,0,0,6,8,"942fcb87",319,"arcaneShip 1/26, kazimierzShip 1/92, kjeragShip 0/8, preciShip 1/28, raidShip 1/89, siracusaShip 1/30, soloShip 1/0, steadShip 0/19, suntShip 1/0, swiftShip 1/54, yanShip 0/1",49,49,0,130],
-          "ai_5": [1,17,16,0,2,6,8,"db91614d",310,"deputShip 0/2, egirShip 0/10, investShip 0/8, kazimierzShip 0/10, kjeragShip 0/10, raidShip 1/57, sargonShip 0/8, siracusaShip 0/15, skillfulShip 1/30, soloShip 1/15, steadShip 1/62, suntShip 1/0, swiftShip 1/56, victoriaShip 0/2, visiShip 1/19, yanShip 1/71",36,49,13,135],
-          "ai_6": [1,23,12,0,0,6,8,"1fa09976",74,"arcaneShip 2/34, kazimierzShip 0/8, preciShip 0/2, raidShip 0/56, sargonShip 0/8, skillfulShip 1/0, suntShip 1/0, swiftShip 0/4, victoriaShip 1/13, yanShip 1/27",49,49,0,124],
-          "ai_7": [1,25,14,0,0,6,8,"206cc685",147,"arcaneShip 0/2, deputShip 0/14, emptyShip 1/8, kjeragShip 0/10, preciShip 0/2, raidShip 1/32, siracusaShip 1/4, skillfulShip 0/10, soloShip 1/14, steadShip 2/43, suntShip 1/8, swiftShip 0/16, visiShip 1/38, yanShip 0/1",36,49,13,140]
+          "ai_2": [1,26,12,0,0,6,8,"c1b3673d",158,"arcaneShip 1/29, egirShip 2/61, kazimierzShip 0/4, kjeragShip 0/2, preciShip 1/48, raidShip 1/20, sargonShip 0/8, soloShip 1/0, steadShip 0/29, suntShip 1/0, swiftShip 0/4, visiShip 0/10",37,49,12,124],
+          "ai_3": [1,19,12,0,0,6,8,"29255634",127,"arcaneShip 2/34, egirShip 1/33, kazimierzShip 0/2, kjeragShip 0/2, preciShip 1/28, raidShip 1/32, soloShip 1/0, steadShip 0/2, suntShip 1/0, swiftShip 0/2, visiShip 0/15",40,49,9,132],
+          "ai_4": [1,27,12,0,0,6,8,"01e0e1a5",324,"arcaneShip 1/28, kazimierzShip 1/96, kjeragShip 0/8, preciShip 1/23, raidShip 1/93, siracusaShip 1/30, soloShip 1/0, steadShip 0/19, suntShip 1/0, swiftShip 1/54, yanShip 0/1",49,49,0,133],
+          "ai_5": [1,18,16,0,2,6,8,"40b062fc",288,"deputShip 0/2, egirShip 0/10, investShip 0/8, kazimierzShip 0/12, kjeragShip 0/12, raidShip 1/51, sargonShip 0/8, siracusaShip 0/15, skillfulShip 1/30, soloShip 1/15, steadShip 1/54, suntShip 1/0, swiftShip 1/48, victoriaShip 0/2, visiShip 1/19, yanShip 1/71",37,49,12,135],
+          "ai_6": [1,23,12,0,0,6,8,"67b94a05",151,"arcaneShip 2/26, kazimierzShip 0/8, preciShip 0/2, raidShip 1/88, sargonShip 0/8, swiftShip 0/4, victoriaShip 1/14, yanShip 1/23",45,49,4,124],
+          "ai_7": [1,25,14,0,0,6,8,"7ae7d4c7",143,"arcaneShip 0/2, deputShip 1/16, emptyShip 1/10, kjeragShip 0/10, preciShip 0/2, raidShip 1/37, siracusaShip 1/6, skillfulShip 0/10, soloShip 1/16, steadShip 2/48, suntShip 1/10, swiftShip 0/16, visiShip 0/34, yanShip 0/1",24,49,25,138]
         }
       ],
       "players": {
@@ -1366,112 +1366,112 @@
           "victory": true,
           "roundsPassed": 14,
           "eliminatedRound": null,
-          "lp": 3,
+          "lp": 8,
           "bandId": "band_orchid",
           "title": {"id":"comment_3","name":"坚若磐石","picId":"comment_icon_3","text":"目标生命值损失最少"},
           "trophies": 5,
           "reward": 425,
-          "stats": {"activatedLayers":220,"bossDamage":1915921,"dmgDealt":5510215,"gold":149,"itemsEquipped":20,"kills":406,"leaks":7,"lpLost":0,"merges":5,"perfectRounds":11,"refreshes":19},
-          "lineup": ["4_04_a@12,5","5_23_a@11,3","1_17_b@11,7[1_05_e_a+1_01_e_b]","5_12_a@11,8[3_02_e_b+3_08_e_a]","4_10_b@10,5","4_17_b@10,8","6_08_a@9,7","6_15_a@9,9[4_05_e_b]"],
-          "bonds": ["arcaneShip 2/85","miraShip 0/3","preciShip 1/28","raidShip 1/32","suntShip 1/0","visiShip 0/30","yanShip 1/75"]
+          "stats": {"activatedLayers":209,"bossDamage":1489737,"dmgDealt":5044030,"gold":148,"itemsEquipped":21,"kills":410,"leaks":7,"lpLost":0,"merges":5,"perfectRounds":11,"refreshes":19},
+          "lineup": ["1_17_b@11,7[1_01_e_b]","5_12_a@11,8[3_08_e_b+4_12_e_a]","5_23_a@10,3","4_10_b@10,5[1_05_e_a+3_05_e_a]","4_17_b@9,3[3_02_e_a+1_05_e_b]","1_08_a@9,4[4_04_e_a+4_05_e_a]","5_20_a@9,8","6_08_a@9,9"],
+          "bonds": ["arcaneShip 2/82","miraShip 1/3","preciShip 1/28","raidShip 0/27","siracusaShip 1/24","soloShip 1/0","suntShip 1/0","visiShip 0/30","yanShip 1/72"]
         },
         "ai_1": {
           "alive": true,
           "victory": true,
           "roundsPassed": 14,
           "eliminatedRound": null,
-          "lp": 4,
+          "lp": 12,
           "bandId": "band_sarkazb",
           "title": {"id":"comment_4","name":"精英云集","picId":"comment_icon_4","text":"晋升精锐次数最多"},
           "trophies": 5,
           "reward": 425,
-          "stats": {"activatedLayers":248,"bossDamage":2207978,"dmgDealt":5825597,"gold":142,"itemsEquipped":18,"kills":415,"leaks":8,"lpLost":3,"merges":7,"perfectRounds":10,"refreshes":22},
-          "lineup": ["4_20_b@11,7[1_05_e_a+3_02_e_a]","4_14_b@11,8[3_03_e_a+1_01_e_b]","3_10_b@10,5","6_15_a@10,7","4_01_a@10,8[4_02_e_a+2_01_e_a]","6_17_a@9,4[4_11_e_a+6_09_e_a]","6_05_a@9,8[4_08_e_b]","1_19_b@9,9[3_08_e_a+4_12_e_a]"],
-          "bonds": ["deputShip 0/2","emptyShip 0/2","kazimierzShip 1/58","kjeragShip 0/8","preciShip 2/104","raidShip 1/0","soloShip 0/2","steadShip 0/12","suntShip 1/2","swiftShip 1/84"]
+          "stats": {"activatedLayers":248,"bossDamage":2804152,"dmgDealt":7172012,"gold":142,"itemsEquipped":15,"kills":419,"leaks":8,"lpLost":3,"merges":6,"perfectRounds":10,"refreshes":22},
+          "lineup": ["4_20_a@11,7[4_08_e_a+3_02_e_a]","4_14_b@11,8[3_03_e_a+1_01_e_b]","3_10_b@10,3","5_07_a@10,8","6_17_a@9,4[4_10_e_a]","4_02_a@9,7","6_05_a@9,8","1_19_b@9,9[3_08_e_a+4_12_e_a]"],
+          "bonds": ["arcaneShip 1/0","deputShip 0/2","emptyShip 0/2","kazimierzShip 1/58","kjeragShip 0/8","preciShip 2/104","raidShip 1/0","soloShip 0/2","steadShip 0/12","suntShip 1/2","swiftShip 1/84"]
         },
         "ai_2": {
           "alive": true,
           "victory": true,
           "roundsPassed": 14,
           "eliminatedRound": null,
-          "lp": 2,
+          "lp": 7,
           "bandId": "band_emperor",
           "title": {"id":"comment_5","name":"万事俱备","picId":"comment_icon_5","text":"装备配发数量最多"},
           "trophies": 5,
           "reward": 425,
-          "stats": {"activatedLayers":214,"bossDamage":2640369,"dmgDealt":6847924,"gold":137,"itemsEquipped":18,"kills":409,"leaks":7,"lpLost":0,"merges":5,"perfectRounds":8,"refreshes":18},
-          "lineup": ["1_17_b@11,7","4_14_a@11,8","6_04_a@10,3","4_09_a@10,5[1_05_e_a+3_11_e_b]","4_12_a@10,7[4_07_e_a+4_04_e_b]","5_07_a@10,8","3_05_a@9,4[4_10_e_a+1_02_e_a]","3_09_b@9,8[3_06_e_a+5_01_e_b]"],
-          "bonds": ["arcaneShip 2/29","egirShip 2/60","kazimierzShip 0/4","kjeragShip 0/2","preciShip 1/53","raidShip 1/72","sargonShip 0/8","soloShip 1/0","steadShip 0/29","suntShip 1/0","swiftShip 0/4","visiShip 0/10"]
+          "stats": {"activatedLayers":168,"bossDamage":1156010,"dmgDealt":4922095,"gold":135,"itemsEquipped":17,"kills":394,"leaks":19,"lpLost":0,"merges":4,"perfectRounds":8,"refreshes":19},
+          "lineup": ["1_17_b@11,7","4_14_a@11,8","4_09_a@10,5[1_05_e_a+3_11_e_b]","1_04_b@10,7[4_02_e_a+3_06_e_b]","4_04_a@10,8","3_05_a@9,4[4_10_e_a+1_02_e_a]","3_09_a@9,8[5_01_e_b+3_11_e_a]","4_12_a@9,9[4_04_e_b+5_02_e_a]"],
+          "bonds": ["arcaneShip 1/29","egirShip 2/61","kazimierzShip 0/4","kjeragShip 0/2","preciShip 1/53","raidShip 1/25","sargonShip 0/8","soloShip 1/0","steadShip 0/29","suntShip 1/0","swiftShip 0/4","visiShip 0/10"]
         },
         "ai_3": {
           "alive": true,
           "victory": true,
           "roundsPassed": 14,
           "eliminatedRound": null,
-          "lp": 2,
+          "lp": 5,
           "bandId": "band_dusk",
           "title": null,
           "trophies": 5,
           "reward": 425,
-          "stats": {"activatedLayers":138,"bossDamage":1464422,"dmgDealt":4296514,"gold":143,"itemsEquipped":16,"kills":390,"leaks":27,"lpLost":8,"merges":3,"perfectRounds":10,"refreshes":21},
-          "lineup": ["1_17_b@11,7[5_02_e_a+2_04_e_a]","6_16_a@11,8","4_09_a@10,5[6_11_e_a+4_07_e_a]","4_12_a@10,7[4_11_e_a+1_05_e_b]","4_04_a@10,8[4_04_e_a+4_02_e_b]","1_18_b@9,4","5_02_a@9,7","3_09_a@9,8[3_08_e_a+4_07_e_b]"],
-          "bonds": ["arcaneShip 2/40","egirShip 1/33","kazimierzShip 0/2","kjeragShip 0/2","preciShip 1/28","raidShip 1/37","soloShip 1/0","steadShip 0/2","suntShip 1/0","swiftShip 0/2","visiShip 0/15"]
+          "stats": {"activatedLayers":117,"bossDamage":1215322,"dmgDealt":4050983,"gold":145,"itemsEquipped":16,"kills":388,"leaks":27,"lpLost":9,"merges":3,"perfectRounds":10,"refreshes":21},
+          "lineup": ["4_04_a@12,5[4_04_e_a+4_02_e_b]","1_17_b@11,7[1_05_e_a+3_01_e_a]","4_14_a@11,8","4_09_a@10,5[6_11_e_a+4_07_e_a]","4_12_a@10,7[4_11_e_a]","3_09_a@9,7[3_08_e_a+4_07_e_b]","6_16_a@9,8","6_05_a@9,9[3_05_e_a+5_07_e_a]"],
+          "bonds": ["arcaneShip 2/42","egirShip 1/33","kazimierzShip 0/4","kjeragShip 0/2","preciShip 2/33","raidShip 0/32","soloShip 1/0","steadShip 0/2","swiftShip 1/9","visiShip 0/15"]
         },
         "ai_4": {
           "alive": true,
           "victory": true,
           "roundsPassed": 14,
           "eliminatedRound": null,
-          "lp": 2,
+          "lp": 8,
           "bandId": "band_amedic",
-          "title": {"id":"comment_2","name":"不朽盟约","picId":"comment_icon_2","text":"激活的盟约层数总和最高"},
+          "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 5,
           "reward": 425,
-          "stats": {"activatedLayers":331,"bossDamage":2293205,"dmgDealt":7704545,"gold":142,"itemsEquipped":15,"kills":500,"leaks":1,"lpLost":1,"merges":5,"perfectRounds":12,"refreshes":21},
-          "lineup": ["1_17_b@11,7[2_04_e_a]","6_12_a@11,8","4_10_a@10,5[3_11_e_a+1_01_e_a]","1_08_b@10,7","6_17_a@10,8[4_08_e_b+1_02_e_b]","6_19_a@9,4[5_02_e_a+4_04_e_a]","3_12_a@9,5[1_02_e_b+3_02_e_a]","3_18_b@9,9[4_06_e_a]"],
-          "bonds": ["arcaneShip 1/32","kazimierzShip 1/92","kjeragShip 0/8","preciShip 1/28","raidShip 1/89","siracusaShip 1/36","soloShip 1/0","steadShip 0/19","suntShip 1/0","swiftShip 1/54","yanShip 0/1"]
+          "stats": {"activatedLayers":344,"bossDamage":3874154,"dmgDealt":9893135,"gold":144,"itemsEquipped":13,"kills":528,"leaks":1,"lpLost":1,"merges":5,"perfectRounds":12,"refreshes":18},
+          "lineup": ["1_17_b@11,7[3_04_e_a]","5_02_a@11,8","4_10_a@10,5[3_11_e_a+1_01_e_a]","1_08_b@10,7","6_17_a@10,8[4_08_e_b+1_02_e_b]","6_19_a@9,4[4_04_e_a+3_07_e_b]","3_12_a@9,5[1_02_e_b+3_02_e_a]","3_18_b@9,9"],
+          "bonds": ["arcaneShip 1/30","kazimierzShip 1/104","kjeragShip 0/16","preciShip 1/23","raidShip 1/93","siracusaShip 1/32","soloShip 1/0","steadShip 0/19","suntShip 1/0","swiftShip 1/62","yanShip 0/1"]
         },
         "ai_5": {
           "alive": true,
           "victory": true,
           "roundsPassed": 14,
           "eliminatedRound": null,
-          "lp": 1,
+          "lp": 5,
           "bandId": "band_bldsk",
-          "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
+          "title": {"id":"comment_6","name":"挥金如土","picId":"comment_icon_6","text":"消耗资金最多"},
           "trophies": 5,
           "reward": 425,
-          "stats": {"activatedLayers":324,"bossDamage":2709360,"dmgDealt":5462003,"gold":152,"itemsEquipped":17,"kills":354,"leaks":36,"lpLost":11,"merges":6,"perfectRounds":7,"refreshes":18},
-          "lineup": ["2_04_b@11,8[3_03_e_a]","4_04_a@10,7[4_07_e_a]","3_04_b@10,8[4_02_e_b]","6_03_a@9,3[3_04_e_a]","1_08_b@9,4[1_05_e_b+1_02_e_a]","6_19_a@9,5","2_13_a@9,7[4_10_e_a+4_07_e_b]","3_05_b@9,9[2_04_e_a+3_11_e_b]"],
-          "bonds": ["deputShip 0/2","egirShip 0/12","investShip 0/8","kazimierzShip 0/10","kjeragShip 0/10","raidShip 1/66","sargonShip 0/8","siracusaShip 0/17","skillfulShip 1/34","soloShip 1/17","steadShip 1/69","suntShip 1/0","swiftShip 1/58","victoriaShip 0/2","visiShip 0/21","yanShip 1/80"]
+          "stats": {"activatedLayers":292,"bossDamage":2669368,"dmgDealt":5439275,"gold":152,"itemsEquipped":17,"kills":355,"leaks":35,"lpLost":10,"merges":6,"perfectRounds":7,"refreshes":18},
+          "lineup": ["2_04_b@11,8[4_07_e_b+3_01_e_a]","4_04_a@10,7[4_02_e_a]","3_04_b@10,8[4_11_e_a+4_05_e_a]","6_03_a@9,3[4_08_e_a+3_02_e_a]","1_08_b@9,4[1_05_e_b+1_02_e_a]","6_19_a@9,5","2_13_a@9,7[4_10_e_a+4_07_e_b]","3_05_b@9,9[3_11_e_a+2_04_e_a]"],
+          "bonds": ["deputShip 0/2","egirShip 0/10","investShip 0/10","kazimierzShip 0/12","kjeragShip 0/12","raidShip 1/58","sargonShip 0/8","siracusaShip 0/17","skillfulShip 1/34","soloShip 1/17","steadShip 1/56","suntShip 1/0","swiftShip 1/50","victoriaShip 0/2","visiShip 0/21","yanShip 1/77"]
         },
         "ai_6": {
           "alive": true,
           "victory": true,
           "roundsPassed": 14,
           "eliminatedRound": null,
-          "lp": 2,
+          "lp": 7,
           "bandId": "band_mberry",
           "title": null,
           "trophies": 5,
           "reward": 425,
-          "stats": {"activatedLayers":79,"bossDamage":1502142,"dmgDealt":4814269,"gold":137,"itemsEquipped":14,"kills":366,"leaks":23,"lpLost":5,"merges":3,"perfectRounds":10,"refreshes":26},
-          "lineup": ["5_12_a@12,8[4_08_e_b+5_09_e_a]","5_03_a@11,7[5_03_e_a+3_11_e_a]","1_03_b@11,8","3_13_b@10,5[6_07_e_a]","5_07_a@10,8","1_06_a@9,7[1_01_e_b+1_01_e_a]","6_02_a@9,8","4_11_a@9,9[4_04_e_a]"],
-          "bonds": ["arcaneShip 2/36","kazimierzShip 0/8","preciShip 0/2","raidShip 0/56","sargonShip 0/8","skillfulShip 1/0","suntShip 1/0","swiftShip 0/4","victoriaShip 1/14","yanShip 1/29"]
+          "stats": {"activatedLayers":156,"bossDamage":1815872,"dmgDealt":4940555,"gold":136,"itemsEquipped":15,"kills":361,"leaks":28,"lpLost":5,"merges":2,"perfectRounds":8,"refreshes":31},
+          "lineup": ["5_12_a@12,8[1_05_e_a+4_08_e_b]","5_03_a@11,7[3_11_e_a+3_02_e_a]","1_03_b@11,8","5_08_a@10,5","5_07_a@10,8[4_04_e_a+5_03_e_b]","1_06_a@9,7[1_01_e_b+1_01_e_a]","2_10_a@9,8","3_12_a@9,9"],
+          "bonds": ["arcaneShip 2/26","kazimierzShip 0/8","preciShip 0/2","raidShip 1/92","sargonShip 0/8","swiftShip 0/4","victoriaShip 1/15","yanShip 1/23"]
         },
         "ai_7": {
           "alive": true,
           "victory": true,
           "roundsPassed": 14,
           "eliminatedRound": null,
-          "lp": 2,
+          "lp": 7,
           "bandId": "band_damaztic",
-          "title": {"id":"comment_6","name":"挥金如土","picId":"comment_icon_6","text":"消耗资金最多"},
+          "title": {"id":"comment_2","name":"不朽盟约","picId":"comment_icon_2","text":"激活的盟约层数总和最高"},
           "trophies": 5,
           "reward": 425,
-          "stats": {"activatedLayers":157,"bossDamage":1266085,"dmgDealt":4234979,"gold":153,"itemsEquipped":17,"kills":335,"leaks":53,"lpLost":4,"merges":3,"perfectRounds":8,"refreshes":28},
-          "lineup": ["5_21_a@12,8","6_11_a@11,7","6_12_a@11,8[3_02_e_b+6_09_e_a]","5_10_a@10,5[6_09_e_a+1_02_e_b]","4_16_a@10,7[3_03_e_b+4_03_e_a]","3_05_a@10,8[2_01_e_a+3_04_e_a]","1_02_b@9,4[4_02_e_a+4_11_e_a]","3_13_b@9,8","1_08_b@9,9[4_05_e_a+6_09_e_a]"],
-          "bonds": ["arcaneShip 0/2","deputShip 0/14","emptyShip 1/8","kjeragShip 0/10","maniShip 1/0","preciShip 0/2","raidShip 1/32","siracusaShip 1/4","skillfulShip 0/10","soloShip 1/14","steadShip 2/43","suntShip 1/8","swiftShip 0/16","visiShip 1/48","yanShip 0/1"]
+          "stats": {"activatedLayers":159,"bossDamage":975385,"dmgDealt":3432519,"gold":151,"itemsEquipped":17,"kills":323,"leaks":65,"lpLost":4,"merges":3,"perfectRounds":8,"refreshes":33},
+          "lineup": ["2_14_a@12,7","1_06_a@11,7[6_09_e_a]","3_13_b@11,8[5_01_e_b+3_04_e_b]","4_16_a@10,7[3_02_e_b+4_03_e_b]","3_05_a@10,8[2_01_e_a+4_10_e_a]","6_03_a@9,4","5_10_a@9,8[6_09_e_a+1_02_e_b]","1_08_b@9,9[4_05_e_a+4_08_e_a]"],
+          "bonds": ["arcaneShip 0/2","deputShip 1/18","emptyShip 1/12","kjeragShip 0/10","preciShip 0/2","raidShip 1/39","siracusaShip 1/8","skillfulShip 0/10","soloShip 1/18","steadShip 2/52","suntShip 1/12","swiftShip 0/16","visiShip 0/34","yanShip 0/1"]
         }
       }
     },
@@ -1551,7 +1551,7 @@
         },
         {
           "round": 13,
-          "ai_0": [1,10,12,0,0,6,8,"542c547b",165,"arcaneShip 2/23, indomShip 0/8, lateranoShip 1/0, maniShip 1/0, preciShip 1/39, raidShip 1/10, siracusaShip 1/75, soloShip 1/3, steadShip 0/9, suntShip 1/0, swiftShip 1/15, victoriaShip 0/8, visiShip 0/8",16,39,23,138],
+          "ai_0": [1,10,12,0,0,6,8,"542c547b",165,"arcaneShip 2/23, indomShip 0/8, lateranoShip 1/0, maniShip 1/0, preciShip 1/39, raidShip 1/10, siracusaShip 1/75, soloShip 1/3, steadShip 0/9, suntShip 1/0, swiftShip 1/15, victoriaShip 0/8, visiShip 0/8",17,39,22,138],
           "ai_1": [1,16,12,0,0,6,8,"78f09b0b",221,"arcaneShip 1/36, deputShip 1/18, indomShip 0/8, kjeragShip 1/51, preciShip 1/55, soloShip 1/12, steadShip 2/31, suntShip 2/18, victoriaShip 0/12, visiShip 0/8",36,39,3,120]
         }
       ],
@@ -1566,7 +1566,7 @@
           "title": {"id":"comment_6","name":"挥金如土","picId":"comment_icon_6","text":"消耗资金最多"},
           "trophies": 4,
           "reward": 400,
-          "stats": {"activatedLayers":195,"bossDamage":307354,"dmgDealt":3164851,"gold":149,"itemsEquipped":22,"kills":244,"leaks":49,"lpLost":20,"merges":3,"perfectRounds":9,"refreshes":25},
+          "stats": {"activatedLayers":195,"bossDamage":307354,"dmgDealt":3139525,"gold":149,"itemsEquipped":22,"kills":245,"leaks":48,"lpLost":20,"merges":3,"perfectRounds":9,"refreshes":25},
           "lineup": ["5_10_a@11,3[3_11_e_b+4_04_e_b]","6_11_a@11,6","1_01_b@11,7","1_17_a@10,3[1_01_e_a]","4_14_b@10,7[6_09_e_a+3_11_e_a]","4_16_a@10,8","4_02_a@9,8[6_01_e_a+3_03_e_b]","1_08_a@9,9[1_02_e_b+1_02_e_a]"],
           "bonds": ["arcaneShip 1/23","indomShip 0/8","lateranoShip 1/0","maniShip 1/0","preciShip 1/49","raidShip 1/20","siracusaShip 1/75","soloShip 1/3","steadShip 0/9","suntShip 1/0","swiftShip 1/25","victoriaShip 0/8","visiShip 0/8"]
         },
@@ -1580,7 +1580,7 @@
           "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 4,
           "reward": 400,
-          "stats": {"activatedLayers":243,"bossDamage":1042646,"dmgDealt":4596253,"gold":130,"itemsEquipped":29,"kills":264,"leaks":12,"lpLost":12,"merges":5,"perfectRounds":11,"refreshes":16},
+          "stats": {"activatedLayers":243,"bossDamage":1042646,"dmgDealt":4595073,"gold":130,"itemsEquipped":29,"kills":264,"leaks":12,"lpLost":12,"merges":5,"perfectRounds":11,"refreshes":16},
           "lineup": ["1_06_b@12,3[5_07_e_a+4_03_e_b]","1_17_b@11,6[4_03_e_a+1_01_e_b]","3_11_b@11,7[3_01_e_a+3_02_e_a]","1_02_b@11,8[5_02_e_a+4_11_e_b]","3_20_a@10,3[1_05_e_a+1_05_e_b]","1_10_b@10,8[4_02_e_a+6_11_e_a]","5_11_a@9,4[4_08_e_a+1_02_e_a]","5_12_a@9,9[4_10_e_a]"],
           "bonds": ["arcaneShip 1/40","deputShip 1/20","indomShip 0/8","kjeragShip 1/56","preciShip 1/57","soloShip 1/14","steadShip 2/36","suntShip 2/20","victoriaShip 0/12","visiShip 0/8"]
         }
@@ -1680,7 +1680,7 @@
       "combat": "client",
       "boost": {"lp":400,"layers":300},
       "setup": {"stageId":"act2autochess_m04","bossId":"boss_5","hiddenBossId":"boss_9","factions":["FLY","ELEMENT","INVISIBLE"]},
-      "end": {"victory":true,"roundsPassed":14,"hiddenReached":true,"hiddenCleared":false,"reason":"victory","teamLp":649,"bossPoolLeft":320496,"virtualMs":123150},
+      "end": {"victory":true,"roundsPassed":14,"hiddenReached":true,"hiddenCleared":false,"reason":"victory","teamLp":649,"bossPoolLeft":589060,"virtualMs":123150},
       "rng": {"setup":25,"shop":681,"waves":0,"draft":61,"bots":22096,"meta":161},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
@@ -1758,10 +1758,10 @@
           "eliminatedRound": null,
           "lp": 325,
           "bandId": "band_sarkazb",
-          "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
+          "title": {"id":"comment_3","name":"坚若磐石","picId":"comment_icon_3","text":"目标生命值损失最少"},
           "trophies": 6,
           "reward": 425,
-          "stats": {"activatedLayers":2242,"bossDamage":7263587,"dmgDealt":20811458,"gold":150,"itemsEquipped":20,"kills":304,"leaks":0,"lpLost":0,"merges":5,"perfectRounds":13,"refreshes":14},
+          "stats": {"activatedLayers":2242,"bossDamage":6537242,"dmgDealt":19398569,"gold":150,"itemsEquipped":20,"kills":305,"leaks":0,"lpLost":0,"merges":5,"perfectRounds":13,"refreshes":14},
           "lineup": ["1_02_b@12,8[4_02_e_a+4_08_e_b]","4_10_b@11,5[3_01_e_b+5_02_e_a]","3_11_a@11,8[3_03_e_a]","3_18_a@10,8[4_11_e_a]","6_16_a@9,6","5_10_a@9,7[3_04_e_a+3_08_e_a]","6_12_a@9,8[2_01_e_a]","5_14_a@9,9[4_03_e_a+1_01_e_b]"],
           "bonds": ["arcaneShip 1/360","deputShip 0/304","egirShip 0/300","emptyShip 1/302","indomShip 0/302","investShip 0/300","kazimierzShip 0/302","kjeragShip 1/325","lateranoShip 0/300","maniShip 0/300","miraShip 0/300","preciShip 1/329","raidShip 0/300","sargonShip 0/300","siracusaShip 1/318","skillfulShip 0/300","soloShip 0/302","steadShip 0/334","suntShip 1/300","swiftShip 1/308","victoriaShip 0/300","visiShip 0/300","yanShip 0/300"]
         },
@@ -1772,10 +1772,10 @@
           "eliminatedRound": null,
           "lp": 324,
           "bandId": "band_doberm",
-          "title": {"id":"comment_2","name":"不朽盟约","picId":"comment_icon_2","text":"激活的盟约层数总和最高"},
+          "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 6,
           "reward": 425,
-          "stats": {"activatedLayers":2317,"bossDamage":6302674,"dmgDealt":16259392,"gold":188,"itemsEquipped":35,"kills":258,"leaks":16,"lpLost":0,"merges":4,"perfectRounds":12,"refreshes":53},
+          "stats": {"activatedLayers":2317,"bossDamage":6756144,"dmgDealt":16889668,"gold":188,"itemsEquipped":35,"kills":258,"leaks":16,"lpLost":0,"merges":4,"perfectRounds":12,"refreshes":53},
           "lineup": ["2_04_b@11,5[4_03_e_a+3_11_e_b]","3_11_a@11,8[3_05_e_a+4_06_e_a]","4_13_a@10,3[5_09_e_b+3_08_e_b]","3_03_b@10,7[4_02_e_a+4_04_e_a]","3_14_b@9,6[1_05_e_b+4_08_e_a]","4_14_a@9,7[3_08_e_a+6_02_e_a]","6_05_a@9,8[3_11_e_a+1_01_e_b]","1_03_b@9,9[5_01_e_a+3_01_e_a]"],
           "bonds": ["arcaneShip 0/302","deputShip 0/300","egirShip 0/300","emptyShip 0/300","indomShip 0/300","investShip 0/300","kazimierzShip 0/304","kjeragShip 1/335","lateranoShip 0/300","maniShip 0/300","miraShip 0/300","preciShip 2/352","raidShip 0/300","sargonShip 0/300","siracusaShip 0/300","skillfulShip 1/323","soloShip 0/303","steadShip 0/300","suntShip 1/300","swiftShip 1/369","victoriaShip 0/300","visiShip 1/300","yanShip 1/338"]
         }
@@ -1791,7 +1791,7 @@
       "combat": "client",
       "boost": null,
       "setup": {"stageId":"act1autochess_m01","bossId":"boss_5","hiddenBossId":"boss_10","factions":["DOT","INVISIBLE","REFLECTION"]},
-      "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":41,"bossPoolLeft":0,"virtualMs":116900},
+      "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":51,"bossPoolLeft":0,"virtualMs":116900},
       "rng": {"setup":25,"shop":389,"waves":0,"draft":34,"bots":18105,"meta":12},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
@@ -1848,17 +1848,17 @@
         {
           "round": 11,
           "h_0": [1,28,12,0,0,5,8,"b5da5048",133,"arcaneShip 0/8, deputShip 0/6, emptyShip 1/6, kazimierzShip 0/4, preciShip 1/34, raidShip 1/24, skillfulShip 0/2, soloShip 1/6, steadShip 1/19, swiftShip 1/44, yanShip 0/1",25,25,0,98],
-          "ai_0": [1,23,12,0,0,5,8,"083c8c02",151,"arcaneShip 1/16, deputShip 0/8, kazimierzShip 0/8, lateranoShip 1/14, preciShip 2/36, raidShip 1/48, sargonShip 0/2, suntShip 1/8, swiftShip 1/29",25,25,0,99]
+          "ai_0": [1,23,12,0,0,5,8,"083c8c02",154,"arcaneShip 1/19, deputShip 0/8, kazimierzShip 0/8, lateranoShip 1/14, preciShip 2/36, raidShip 1/48, sargonShip 0/2, suntShip 1/8, swiftShip 1/29",25,25,0,99]
         },
         {
           "round": 12,
           "h_0": [1,28,12,0,0,5,8,"1b12a457",130,"arcaneShip 1/8, deputShip 0/6, egirShip 1/3, emptyShip 0/6, kazimierzShip 0/4, preciShip 1/39, raidShip 0/24, skillfulShip 0/2, soloShip 1/6, steadShip 1/23, suntShip 1/0, swiftShip 1/51, yanShip 0/1",31,31,0,111],
-          "ai_0": [1,23,12,0,0,6,8,"7258fcd5",196,"arcaneShip 1/21, deputShip 0/8, kazimierzShip 0/8, lateranoShip 1/20, preciShip 2/49, raidShip 1/64, sargonShip 0/2, suntShip 1/8, swiftShip 1/34",31,31,0,112]
+          "ai_0": [1,23,12,0,0,6,8,"7258fcd5",199,"arcaneShip 1/24, deputShip 0/8, kazimierzShip 0/8, lateranoShip 1/20, preciShip 2/49, raidShip 1/64, sargonShip 0/2, suntShip 1/8, swiftShip 1/34",31,31,0,112]
         },
         {
           "round": 13,
-          "h_0": [1,18,12,0,0,6,8,"14b4ec3a",175,"arcaneShip 0/8, deputShip 0/6, egirShip 1/11, emptyShip 0/6, kazimierzShip 0/4, preciShip 1/44, raidShip 1/30, skillfulShip 0/2, soloShip 1/6, steadShip 1/28, suntShip 1/0, swiftShip 1/56, yanShip 0/1",14,57,43,122],
-          "ai_0": [1,23,12,0,0,6,8,"024d752c",257,"arcaneShip 0/21, deputShip 0/8, kazimierzShip 0/8, lateranoShip 1/26, preciShip 2/60, raidShip 1/114, sargonShip 0/2, siracusaShip 0/6, soloShip 1/0, steadShip 1/4, suntShip 1/8, swiftShip 1/45",57,57,0,122]
+          "h_0": [1,28,12,0,0,6,8,"14b4ec3a",175,"arcaneShip 0/8, deputShip 0/6, egirShip 1/11, emptyShip 0/6, kazimierzShip 0/4, preciShip 1/44, raidShip 1/30, skillfulShip 0/2, soloShip 1/6, steadShip 1/28, suntShip 1/0, swiftShip 1/56, yanShip 0/1",14,57,43,122],
+          "ai_0": [1,23,12,0,0,6,8,"024d752c",257,"arcaneShip 0/24, deputShip 0/8, kazimierzShip 0/8, lateranoShip 1/26, preciShip 2/60, raidShip 1/114, sargonShip 0/2, siracusaShip 0/6, soloShip 1/0, steadShip 1/4, suntShip 1/8, swiftShip 1/45",57,57,0,122]
         }
       ],
       "players": {
@@ -1867,12 +1867,12 @@
           "victory": true,
           "roundsPassed": 14,
           "eliminatedRound": null,
-          "lp": 18,
+          "lp": 28,
           "bandId": "band_amedic",
-          "title": {"id":"comment_6","name":"挥金如土","picId":"comment_icon_6","text":"消耗资金最多"},
+          "title": {"id":"comment_3","name":"坚若磐石","picId":"comment_icon_3","text":"目标生命值损失最少"},
           "trophies": 4,
           "reward": 400,
-          "stats": {"activatedLayers":163,"bossDamage":155485,"dmgDealt":2698088,"gold":134,"itemsEquipped":13,"kills":274,"leaks":43,"lpLost":10,"merges":3,"perfectRounds":12,"refreshes":13},
+          "stats": {"activatedLayers":163,"bossDamage":155485,"dmgDealt":2698088,"gold":134,"itemsEquipped":13,"kills":274,"leaks":43,"lpLost":0,"merges":3,"perfectRounds":12,"refreshes":13},
           "lineup": ["6_04_a@12,3","4_14_a@12,7[4_07_e_b+4_03_e_a]","2_17_a@12,8","5_02_a@11,3","3_10_b@10,3","5_05_a@10,7[3_04_e_a+3_03_e_a]","3_05_a@10,8[3_08_e_a+5_02_e_b]","1_17_b@9,8[1_01_e_a+6_05_e_a]"],
           "bonds": ["arcaneShip 0/8","deputShip 0/6","egirShip 1/11","emptyShip 0/6","kazimierzShip 0/8","preciShip 2/49","raidShip 0/30","skillfulShip 0/2","soloShip 1/6","steadShip 1/32","suntShip 1/0","swiftShip 1/65","yanShip 0/1"]
         },
@@ -1886,9 +1886,9 @@
           "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 4,
           "reward": 400,
-          "stats": {"activatedLayers":271,"bossDamage":624515,"dmgDealt":3914861,"gold":136,"itemsEquipped":24,"kills":303,"leaks":0,"lpLost":0,"merges":5,"perfectRounds":13,"refreshes":16},
+          "stats": {"activatedLayers":271,"bossDamage":624515,"dmgDealt":4222392,"gold":136,"itemsEquipped":24,"kills":337,"leaks":0,"lpLost":0,"merges":5,"perfectRounds":13,"refreshes":16},
           "lineup": ["4_14_a@12,3[6_02_e_a]","6_01_a@12,6[2_01_e_a+3_01_e_a]","4_01_b@12,8[3_03_e_a+3_05_e_a]","2_01_b@11,3[3_02_e_a+3_06_e_a]","1_01_b@10,3[1_05_e_b+3_01_e_b]","2_17_a@10,4","5_07_a@10,7[3_07_e_a+3_05_e_b]","1_18_b@10,8[4_11_e_a+4_05_e_a]"],
-          "bonds": ["arcaneShip 0/21","deputShip 0/8","kazimierzShip 0/8","lateranoShip 1/26","preciShip 2/65","raidShip 1/114","sargonShip 0/2","siracusaShip 0/6","soloShip 1/0","steadShip 1/8","suntShip 1/8","swiftShip 1/50"]
+          "bonds": ["arcaneShip 0/24","deputShip 0/8","kazimierzShip 0/8","lateranoShip 1/26","preciShip 2/65","raidShip 1/114","sargonShip 0/2","siracusaShip 0/6","soloShip 1/0","steadShip 1/8","suntShip 1/8","swiftShip 1/50"]
         }
       },
       "standIns": {
@@ -1964,7 +1964,7 @@
         },
         {
           "round": 13,
-          "h_0": [1,27,12,0,0,6,8,"98353117",442,"arcaneShip 0/25, preciShip 2/176, raidShip 1/20, sargonShip 1/159, soloShip 1/0, steadShip 1/23, suntShip 1/0, swiftShip 1/40, visiShip 1/24",50,50,0,126],
+          "h_0": [1,27,12,0,0,6,8,"98353117",436,"arcaneShip 0/25, preciShip 2/175, raidShip 1/18, sargonShip 1/158, soloShip 1/0, steadShip 1/21, suntShip 1/0, swiftShip 1/40, visiShip 1/24",50,50,0,126],
           "ai_0": [1,28,14,0,3,6,8,"e95ff4d5",224,"deputShip 1/12, emptyShip 1/10, kjeragShip 0/5, preciShip 0/5, sargonShip 0/2, siracusaShip 1/82, skillfulShip 1/12, soloShip 1/12, suntShip 1/12, victoriaShip 0/25, visiShip 0/2, yanShip 1/84",39,50,11,141]
         }
       ],
@@ -1979,9 +1979,9 @@
           "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 4,
           "reward": 400,
-          "stats": {"activatedLayers":493,"bossDamage":873565,"dmgDealt":4411379,"gold":137,"itemsEquipped":20,"kills":322,"leaks":0,"lpLost":0,"merges":4,"perfectRounds":13,"refreshes":19},
+          "stats": {"activatedLayers":487,"bossDamage":872983,"dmgDealt":4410648,"gold":137,"itemsEquipped":20,"kills":322,"leaks":0,"lpLost":0,"merges":4,"perfectRounds":13,"refreshes":19},
           "lineup": ["5_02_a@11,7[6_01_e_a+3_11_e_a]","6_05_a@10,4[3_08_e_a+6_03_e_a]","6_16_a@10,5","4_14_b@10,6[3_03_e_a+1_01_e_b]","5_07_a@10,8[4_10_e_a]","5_11_a@9,4[4_06_e_a+2_01_e_a]","3_06_b@9,6[4_04_e_a+4_06_e_b]","3_05_b@9,9[4_02_e_a+4_11_e_b]"],
-          "bonds": ["arcaneShip 1/31","preciShip 2/186","raidShip 1/20","sargonShip 1/159","soloShip 1/0","steadShip 1/23","suntShip 1/0","swiftShip 1/50","visiShip 1/24"]
+          "bonds": ["arcaneShip 1/31","preciShip 2/185","raidShip 1/18","sargonShip 1/158","soloShip 1/0","steadShip 1/21","suntShip 1/0","swiftShip 1/50","visiShip 1/24"]
         },
         "ai_0": {
           "alive": true,
@@ -1993,7 +1993,7 @@
           "title": {"id":"comment_3","name":"坚若磐石","picId":"comment_icon_3","text":"目标生命值损失最少"},
           "trophies": 4,
           "reward": 400,
-          "stats": {"activatedLayers":261,"bossDamage":701435,"dmgDealt":3678222,"gold":157,"itemsEquipped":26,"kills":271,"leaks":18,"lpLost":0,"merges":5,"perfectRounds":9,"refreshes":22},
+          "stats": {"activatedLayers":261,"bossDamage":702017,"dmgDealt":3678938,"gold":157,"itemsEquipped":26,"kills":271,"leaks":18,"lpLost":0,"merges":5,"perfectRounds":9,"refreshes":22},
           "lineup": ["2_14_a@12,7","5_20_a@12,8[3_02_e_a+3_04_e_a]","2_04_a@11,7[6_03_e_a+3_03_e_a]","5_03_b@11,8[3_06_e_a+4_10_e_a]","4_21_a@10,6","1_08_b@10,8[1_02_e_a+4_06_e_b]","5_10_b@9,8[3_07_e_b+2_01_e_b]","3_04_b@9,9[4_11_e_a+3_11_e_a]"],
           "bonds": ["deputShip 1/14","emptyShip 1/12","kjeragShip 0/5","preciShip 0/5","sargonShip 0/2","siracusaShip 1/92","skillfulShip 1/14","soloShip 1/14","suntShip 1/14","victoriaShip 0/35","visiShip 0/2","yanShip 1/101"]
         }
@@ -2034,7 +2034,7 @@
       "combat": "client",
       "boost": null,
       "setup": {"stageId":"act1autochess_m03","bossId":"boss_5","hiddenBossId":"boss_8","factions":["TIMES","DOT","INVISIBLE"]},
-      "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":1,"bossPoolLeft":0,"virtualMs":119900},
+      "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":13,"bossPoolLeft":0,"virtualMs":119900},
       "rng": {"setup":25,"shop":503,"waves":0,"draft":40,"bots":16864,"meta":18},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
@@ -2102,12 +2102,12 @@
           "victory": true,
           "roundsPassed": 14,
           "eliminatedRound": null,
-          "lp": 0,
+          "lp": 1,
           "bandId": "band_lmlee",
           "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 4,
           "reward": 400,
-          "stats": {"activatedLayers":273,"bossDamage":556218,"dmgDealt":3341704,"gold":135,"itemsEquipped":13,"kills":351,"leaks":52,"lpLost":25,"merges":3,"perfectRounds":8,"refreshes":25},
+          "stats": {"activatedLayers":273,"bossDamage":592407,"dmgDealt":3392311,"gold":135,"itemsEquipped":13,"kills":350,"leaks":52,"lpLost":25,"merges":3,"perfectRounds":8,"refreshes":25},
           "lineup": ["3_20_a@12,5","4_20_a@12,6","3_14_a@12,7","3_11_a@11,8[5_02_e_a+5_03_e_a]","4_13_a@10,3[4_08_e_b+5_01_e_a]","1_19_b@10,8[4_11_e_a+4_10_e_a]","6_19_a@9,5[4_10_e_b+3_07_e_b]","6_02_a@9,6"],
           "bonds": ["deputShip 0/2","kazimierzShip 1/68","kjeragShip 2/60","miraShip 0/3","preciShip 1/60","skillfulShip 0/19","swiftShip 1/85"]
         },
@@ -2116,12 +2116,12 @@
           "victory": true,
           "roundsPassed": 14,
           "eliminatedRound": null,
-          "lp": 1,
+          "lp": 12,
           "bandId": "band_sarkazb",
           "title": {"id":"comment_2","name":"不朽盟约","picId":"comment_icon_2","text":"激活的盟约层数总和最高"},
           "trophies": 4,
           "reward": 400,
-          "stats": {"activatedLayers":469,"bossDamage":223782,"dmgDealt":2473582,"gold":127,"itemsEquipped":15,"kills":349,"leaks":46,"lpLost":23,"merges":6,"perfectRounds":9,"refreshes":19},
+          "stats": {"activatedLayers":469,"bossDamage":187593,"dmgDealt":2400530,"gold":127,"itemsEquipped":15,"kills":349,"leaks":46,"lpLost":23,"merges":6,"perfectRounds":9,"refreshes":19},
           "lineup": ["6_18_a@12,5[1_05_e_b+5_02_e_a]","5_20_a@12,6[3_02_e_a+3_11_e_b]","1_06_b@12,7","5_22_a@11,8","1_13_b@10,3[1_01_e_a]","2_13_a@10,7[4_10_e_a+4_11_e_b]","1_08_b@10,8[4_05_e_a+2_01_e_a]","4_21_a@9,8"],
           "bonds": ["deputShip 2/38","kazimierzShip 0/4","miraShip 1/17","sargonShip 0/8","siracusaShip 1/172","skillfulShip 1/46","soloShip 1/38","suntShip 1/26","swiftShip 1/132"]
         }
@@ -2155,7 +2155,7 @@
       "combat": "client",
       "boost": null,
       "setup": {"stageId":"act2autochess_m01","bossId":"boss_2","hiddenBossId":"boss_8","factions":["FLY","DOT","REFLECTION"]},
-      "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":56,"bossPoolLeft":0,"virtualMs":116900},
+      "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":56,"bossPoolLeft":0,"virtualMs":118400},
       "rng": {"setup":25,"shop":703,"waves":0,"draft":34,"bots":12384,"meta":111},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
@@ -2188,22 +2188,22 @@
         },
         {
           "round": 8,
-          "h_0": [1,30,12,0,3,5,8,"e4621d2f",167,"arcaneShip 1/15, egirShip 1/38, indomShip 1/20, raidShip 1/28, steadShip 2/9, visiShip 1/35, yanShip 1/22",19,19,0,73],
+          "h_0": [1,30,12,0,2,5,8,"e4621d2f",167,"arcaneShip 1/15, egirShip 1/38, indomShip 1/20, raidShip 1/28, steadShip 2/9, visiShip 1/35, yanShip 1/22",18,19,1,73],
           "ai_0": [1,26,12,0,0,4,8,"285e5e9b",39,"arcaneShip 1/9, indomShip 1/6, kjeragShip 1/8, preciShip 0/5, steadShip 1/4, victoriaShip 1/6, visiShip 1/6",18,18,0,62]
         },
         {
           "round": 9,
-          "h_0": [1,30,15,0,2,5,8,"833ff52a",251,"arcaneShip 1/33, egirShip 1/56, indomShip 1/20, raidShip 1/43, steadShip 2/15, suntShip 1/0, victoriaShip 0/5, visiShip 1/45, yanShip 1/39",15,15,0,91],
+          "h_0": [1,30,14,0,2,5,8,"833ff52a",251,"arcaneShip 1/33, egirShip 1/56, indomShip 1/20, raidShip 1/43, steadShip 2/15, suntShip 1/0, victoriaShip 0/5, visiShip 1/45, yanShip 1/39",15,15,0,91],
           "ai_0": [1,26,12,0,0,4,8,"7ad4c717",50,"arcaneShip 1/9, indomShip 1/8, kjeragShip 1/8, preciShip 0/5, steadShip 2/9, victoriaShip 1/8, visiShip 1/8",15,15,0,74]
         },
         {
           "round": 10,
-          "h_0": [1,30,14,0,4,5,8,"a4e12129",385,"arcaneShip 1/43, egirShip 1/95, indomShip 1/20, raidShip 1/82, steadShip 2/47, suntShip 1/0, victoriaShip 0/5, visiShip 1/55, yanShip 1/43",32,32,0,105],
+          "h_0": [1,30,14,0,4,5,8,"a4e12129",391,"arcaneShip 1/43, egirShip 1/97, indomShip 1/20, raidShip 1/84, steadShip 2/49, suntShip 1/0, victoriaShip 0/5, visiShip 1/55, yanShip 1/43",32,32,0,105],
           "ai_0": [1,26,12,2,0,5,8,"3aeaa206",73,"arcaneShip 1/12, indomShip 1/12, kjeragShip 1/8, preciShip 0/5, steadShip 2/17, victoriaShip 1/12, visiShip 1/12",31,31,0,86]
         },
         {
           "round": 11,
-          "h_0": [1,30,16,0,2,6,8,"3b47499b",445,"arcaneShip 1/55, egirShip 1/111, indomShip 1/20, raidShip 1/92, steadShip 2/53, suntShip 2/0, victoriaShip 0/5, visiShip 1/65, yanShip 1/49",10,10,0,119],
+          "h_0": [1,30,16,0,2,6,8,"3b47499b",451,"arcaneShip 1/55, egirShip 1/113, indomShip 1/20, raidShip 1/94, steadShip 2/55, suntShip 2/0, victoriaShip 0/5, visiShip 1/65, yanShip 1/49",10,10,0,119],
           "ai_0": [1,26,14,0,0,5,8,"674543ed",63,"arcaneShip 1/15, egirShip 1/10, indomShip 0/12, kjeragShip 1/10, preciShip 0/5, soloShip 1/0, steadShip 0/17, victoriaShip 1/14, visiShip 1/14",10,10,0,100]
         },
         {
@@ -2228,7 +2228,7 @@
           "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 4,
           "reward": 400,
-          "stats": {"activatedLayers":669,"bossDamage":698351,"dmgDealt":3675028,"gold":161,"itemsEquipped":26,"kills":272,"leaks":0,"lpLost":0,"merges":4,"perfectRounds":13,"refreshes":37},
+          "stats": {"activatedLayers":669,"bossDamage":670734,"dmgDealt":3634904,"gold":161,"itemsEquipped":26,"kills":271,"leaks":1,"lpLost":0,"merges":4,"perfectRounds":12,"refreshes":37},
           "lineup": ["3_16_b@12,8[4_02_e_a+4_06_e_a]","3_09_b@11,4[3_11_e_b+5_09_e_a]","5_13_a@11,7[4_07_e_a+3_05_e_a]","5_12_a@11,8[4_03_e_a+3_04_e_a]","4_04_b@10,5[2_04_e_a+3_01_e_a]","3_03_b@10,7[4_04_e_b+3_03_e_b]","3_05_b@10,8[2_01_e_b+1_02_e_a]","6_03_a@9,3[3_06_e_a+4_12_e_a]"],
           "bonds": ["arcaneShip 1/69","egirShip 1/183","indomShip 1/30","raidShip 1/148","steadShip 2/93","suntShip 2/0","victoriaShip 0/5","visiShip 1/95","yanShip 1/51"]
         },
@@ -2242,7 +2242,7 @@
           "title": {"id":"comment_3","name":"坚若磐石","picId":"comment_icon_3","text":"目标生命值损失最少"},
           "trophies": 4,
           "reward": 400,
-          "stats": {"activatedLayers":99,"bossDamage":101649,"dmgDealt":2902486,"gold":135,"itemsEquipped":13,"kills":248,"leaks":6,"lpLost":0,"merges":2,"perfectRounds":12,"refreshes":34},
+          "stats": {"activatedLayers":99,"bossDamage":129266,"dmgDealt":2986393,"gold":135,"itemsEquipped":13,"kills":249,"leaks":6,"lpLost":0,"merges":2,"perfectRounds":12,"refreshes":34},
           "lineup": ["3_09_a@11,4[1_01_e_b+2_01_e_a]","6_02_a@11,5","6_05_a@11,8","1_02_a@10,5","3_05_a@10,8[4_08_e_a+3_02_e_a]","3_14_a@9,7[5_02_e_a+1_01_e_a]","4_09_a@9,8","5_14_a@9,9[3_11_e_b+1_05_e_a]"],
           "bonds": ["arcaneShip 1/21","egirShip 1/31","indomShip 0/12","kjeragShip 1/16","preciShip 0/5","soloShip 1/0","steadShip 1/17","swiftShip 1/0","victoriaShip 0/14","visiShip 1/14"]
         }
@@ -2283,7 +2283,7 @@
       "combat": "client",
       "boost": null,
       "setup": {"stageId":"act1autochess_m03","bossId":"boss_5","hiddenBossId":"boss_8","factions":["TIMES","DOT","INVISIBLE"]},
-      "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":31,"bossPoolLeft":0,"virtualMs":121400},
+      "end": {"victory":true,"roundsPassed":14,"hiddenReached":false,"hiddenCleared":false,"reason":"victory","teamLp":32,"bossPoolLeft":0,"virtualMs":121400},
       "rng": {"setup":25,"shop":447,"waves":0,"draft":40,"bots":16880,"meta":14},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
@@ -2356,7 +2356,7 @@
           "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 4,
           "reward": 400,
-          "stats": {"activatedLayers":269,"bossDamage":448555,"dmgDealt":2811196,"gold":138,"itemsEquipped":17,"kills":348,"leaks":49,"lpLost":10,"merges":6,"perfectRounds":8,"refreshes":22},
+          "stats": {"activatedLayers":269,"bossDamage":479840,"dmgDealt":2907208,"gold":138,"itemsEquipped":17,"kills":347,"leaks":49,"lpLost":10,"merges":6,"perfectRounds":8,"refreshes":22},
           "lineup": ["6_14_a@12,5","3_20_a@12,6[3_05_e_a]","4_14_b@12,7[5_02_e_b+3_08_e_a]","3_11_b@11,8[5_03_e_a+5_01_e_a]","4_13_b@10,3[3_04_e_a+1_02_e_a]","6_20_a@10,6","2_13_a@10,7[4_10_e_a+4_04_e_a]","6_03_a@10,8[4_11_e_a+4_06_e_a]"],
           "bonds": ["deputShip 2/10","kazimierzShip 0/8","kjeragShip 1/54","miraShip 0/5","preciShip 1/82","skillfulShip 1/40","steadShip 0/8","suntShip 1/8","swiftShip 1/63","visiShip 1/12"]
         },
@@ -2365,12 +2365,12 @@
           "victory": true,
           "roundsPassed": 14,
           "eliminatedRound": null,
-          "lp": 21,
+          "lp": 22,
           "bandId": "band_sarkazb",
           "title": {"id":"comment_2","name":"不朽盟约","picId":"comment_icon_2","text":"激活的盟约层数总和最高"},
           "trophies": 4,
           "reward": 400,
-          "stats": {"activatedLayers":440,"bossDamage":331445,"dmgDealt":3135428,"gold":132,"itemsEquipped":16,"kills":404,"leaks":9,"lpLost":9,"merges":5,"perfectRounds":12,"refreshes":14},
+          "stats": {"activatedLayers":440,"bossDamage":300160,"dmgDealt":3032083,"gold":132,"itemsEquipped":16,"kills":404,"leaks":9,"lpLost":9,"merges":5,"perfectRounds":12,"refreshes":14},
           "lineup": ["6_18_a@12,5[1_05_e_b+3_08_e_a]","5_20_a@12,6[3_02_e_a+4_02_e_a]","1_06_b@12,7","6_05_a@11,8[2_04_e_a+4_04_e_a]","1_13_b@10,3[4_03_e_a]","2_13_a@10,7[4_10_e_a+3_07_e_a]","1_08_a@10,8[4_11_e_b+4_05_e_b]","4_21_b@9,7"],
           "bonds": ["deputShip 2/40","kazimierzShip 0/4","sargonShip 0/8","siracusaShip 1/178","skillfulShip 1/52","soloShip 1/32","suntShip 1/28","swiftShip 1/110"]
         }
@@ -2441,7 +2441,7 @@
         },
         {
           "round": 8,
-          "ai_0": [0,0,12,0,0,4,0,"811c9dc5",0,"deputShip 0/8, kjeragShip 0/15, preciShip 0/18, sargonShip 0/2, skillfulShip 0/6, soloShip 0/11, steadShip 0/39",20,55,35,74],
+          "ai_0": [0,0,12,0,0,4,0,"811c9dc5",0,"deputShip 0/8, kjeragShip 0/15, preciShip 0/18, sargonShip 0/2, skillfulShip 0/6, soloShip 0/11, steadShip 0/39",22,55,33,74],
           "ai_1": [0,0,12,0,0,4,0,"811c9dc5",0,"arcaneShip 0/2, deputShip 0/17, indomShip 0/12, kazimierzShip 0/37, kjeragShip 0/4, preciShip 0/4, soloShip 0/14, steadShip 0/62, swiftShip 0/4, victoriaShip 0/3",19,55,36,73]
         }
       ],
@@ -2456,7 +2456,7 @@
           "title": {"id":"comment_4","name":"精英云集","picId":"comment_icon_4","text":"晋升精锐次数最多"},
           "trophies": 1,
           "reward": 149,
-          "stats": {"activatedLayers":0,"bossDamage":0,"dmgDealt":1383970,"gold":74,"itemsEquipped":7,"kills":164,"leaks":47,"lpLost":47,"merges":1,"perfectRounds":5,"refreshes":6},
+          "stats": {"activatedLayers":0,"bossDamage":0,"dmgDealt":1409064,"gold":74,"itemsEquipped":7,"kills":166,"leaks":45,"lpLost":45,"merges":1,"perfectRounds":5,"refreshes":6},
           "lineup": [],
           "bonds": ["deputShip 0/8","kjeragShip 0/15","preciShip 0/18","sargonShip 0/2","skillfulShip 0/6","soloShip 0/11","steadShip 0/39"]
         },
@@ -2500,7 +2500,7 @@
       "combat": "client",
       "boost": {"lp":400,"layers":1200},
       "setup": {"stageId":"act2autochess_m02","bossId":"boss_2","hiddenBossId":"boss_10","factions":["TIMES","DOT","REFLECTION"]},
-      "end": {"victory":true,"roundsPassed":17,"hiddenReached":true,"hiddenCleared":true,"reason":"victory","teamLp":400,"bossPoolLeft":0,"virtualMs":128500},
+      "end": {"victory":true,"roundsPassed":17,"hiddenReached":true,"hiddenCleared":true,"reason":"victory","teamLp":397,"bossPoolLeft":0,"virtualMs":128500},
       "rng": {"setup":25,"shop":425,"waves":0,"draft":33,"bots":9496,"meta":27},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
@@ -2554,15 +2554,15 @@
         },
         {
           "round": 13,
-          "ai_0": [1,400,12,0,0,6,8,"db843f83",10042,"arcaneShip 1/1244, deputShip 0/1200, egirShip 0/1200, emptyShip 0/1200, indomShip 0/1200, investShip 0/1200, kazimierzShip 0/1200, kjeragShip 0/1213, lateranoShip 0/1200, maniShip 0/1200, miraShip 1/1208, preciShip 1/1212, raidShip 1/1346, sargonShip 0/1200, siracusaShip 1/1338, skillfulShip 0/1205, soloShip 0/1200, steadShip 1/1255, suntShip 2/1200, swiftShip 1/1239, victoriaShip 0/1200, visiShip 0/1200, yanShip 0/1200",35,35,0,149]
+          "ai_0": [1,400,12,0,0,6,8,"db843f83",10046,"arcaneShip 1/1244, deputShip 0/1200, egirShip 0/1200, emptyShip 0/1200, indomShip 0/1200, investShip 0/1200, kazimierzShip 0/1200, kjeragShip 0/1213, lateranoShip 0/1200, maniShip 0/1200, miraShip 1/1208, preciShip 1/1212, raidShip 1/1354, sargonShip 0/1200, siracusaShip 1/1334, skillfulShip 0/1205, soloShip 0/1200, steadShip 1/1255, suntShip 2/1200, swiftShip 1/1239, victoriaShip 0/1200, visiShip 0/1200, yanShip 0/1200",35,35,0,149]
         },
         {
           "round": 14,
-          "ai_0": [1,400,12,0,0,6,8,"cd2855a7",10142,"arcaneShip 1/1256, deputShip 0/1200, egirShip 0/1200, emptyShip 0/1200, indomShip 0/1200, investShip 0/1200, kazimierzShip 0/1200, kjeragShip 0/1213, lateranoShip 0/1200, maniShip 0/1200, miraShip 0/1208, preciShip 1/1222, raidShip 1/1378, sargonShip 0/1200, siracusaShip 1/1374, skillfulShip 0/1205, soloShip 1/1200, steadShip 1/1263, suntShip 2/1200, swiftShip 1/1249, victoriaShip 0/1200, visiShip 0/1200, yanShip 0/1200",67,22,0,161]
+          "ai_0": [1,400,12,0,0,6,8,"cd2855a7",10146,"arcaneShip 1/1256, deputShip 0/1200, egirShip 0/1200, emptyShip 0/1200, indomShip 0/1200, investShip 0/1200, kazimierzShip 0/1200, kjeragShip 0/1213, lateranoShip 0/1200, maniShip 0/1200, miraShip 0/1208, preciShip 1/1222, raidShip 1/1386, sargonShip 0/1200, siracusaShip 1/1370, skillfulShip 0/1205, soloShip 1/1200, steadShip 1/1263, suntShip 2/1200, swiftShip 1/1249, victoriaShip 0/1200, visiShip 0/1200, yanShip 0/1200",67,22,0,161]
         },
         {
           "round": 15,
-          "ai_0": [1,400,12,0,0,6,8,"13b3158b",10210,"arcaneShip 1/1264, deputShip 0/1200, egirShip 0/1200, emptyShip 0/1200, indomShip 0/1200, investShip 0/1200, kazimierzShip 0/1200, kjeragShip 0/1213, lateranoShip 0/1200, maniShip 0/1200, miraShip 0/1208, preciShip 1/1232, raidShip 1/1394, sargonShip 0/1200, siracusaShip 1/1398, skillfulShip 0/1205, soloShip 1/1200, steadShip 1/1263, suntShip 2/1200, swiftShip 1/1259, victoriaShip 0/1200, visiShip 0/1200, yanShip 0/1200",42,42,0,173]
+          "ai_0": [1,400,12,0,0,6,8,"13b3158b",10214,"arcaneShip 1/1264, deputShip 0/1200, egirShip 0/1200, emptyShip 0/1200, indomShip 0/1200, investShip 0/1200, kazimierzShip 0/1200, kjeragShip 0/1213, lateranoShip 0/1200, maniShip 0/1200, miraShip 0/1208, preciShip 1/1232, raidShip 1/1402, sargonShip 0/1200, siracusaShip 1/1394, skillfulShip 0/1205, soloShip 1/1200, steadShip 1/1263, suntShip 2/1200, swiftShip 1/1259, victoriaShip 0/1200, visiShip 0/1200, yanShip 0/1200",42,42,0,173]
         }
       ],
       "players": {
@@ -2571,14 +2571,14 @@
           "victory": true,
           "roundsPassed": 17,
           "eliminatedRound": null,
-          "lp": 400,
+          "lp": 397,
           "bandId": "band_sarkazb",
           "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 0,
           "reward": 425,
-          "stats": {"activatedLayers":10358,"bossDamage":7420000,"dmgDealt":16022121,"gold":195,"itemsEquipped":33,"kills":487,"leaks":0,"lpLost":0,"merges":6,"perfectRounds":15,"refreshes":43},
+          "stats": {"activatedLayers":10362,"bossDamage":7420000,"dmgDealt":16027173,"gold":195,"itemsEquipped":33,"kills":487,"leaks":0,"lpLost":0,"merges":6,"perfectRounds":15,"refreshes":43},
           "lineup": ["6_05_a@12,8[3_02_e_b+5_03_e_b]","5_20_b@11,7[1_02_e_b+2_01_e_a]","4_14_b@11,8[3_06_e_a+3_04_e_b]","4_10_b@10,5[1_01_e_a+3_05_e_a]","1_02_b@10,6[5_02_e_a+6_06_e_a]","5_07_a@10,7[3_03_e_a+4_06_e_a]","3_05_b@10,8[4_05_e_b+4_05_e_a]","1_08_b@9,8[4_11_e_a+3_02_e_a]"],
-          "bonds": ["arcaneShip 1/1294","deputShip 0/1200","egirShip 0/1200","emptyShip 0/1200","indomShip 0/1200","investShip 0/1200","kazimierzShip 0/1200","kjeragShip 0/1213","lateranoShip 0/1200","maniShip 0/1200","miraShip 0/1208","preciShip 1/1252","raidShip 1/1394","sargonShip 0/1200","siracusaShip 1/1476","skillfulShip 0/1205","soloShip 1/1200","steadShip 1/1263","suntShip 2/1200","swiftShip 1/1279","victoriaShip 0/1200","visiShip 0/1200","yanShip 0/1200"]
+          "bonds": ["arcaneShip 1/1294","deputShip 0/1200","egirShip 0/1200","emptyShip 0/1200","indomShip 0/1200","investShip 0/1200","kazimierzShip 0/1200","kjeragShip 0/1213","lateranoShip 0/1200","maniShip 0/1200","miraShip 0/1208","preciShip 1/1252","raidShip 1/1402","sargonShip 0/1200","siracusaShip 1/1472","skillfulShip 0/1205","soloShip 1/1200","steadShip 1/1263","suntShip 2/1200","swiftShip 1/1279","victoriaShip 0/1200","visiShip 0/1200","yanShip 0/1200"]
         }
       },
       "custom": {

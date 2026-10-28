@@ -139,7 +139,7 @@ test('Family Crest + suit triggers on Provence\'s first natural attack after six
     bonds: { siracusaShip: { count: 6, active: true, tier: 2, layers: 2 } },
     defs: { enemies: { dummy: enemyRec({ key: 'dummy', hp: 1e8, atk: 0, speed: 0 }) } },
     enemies: [{ key: 'dummy', pos: [10, 5] }], timeLimit: 45, autoFinish: false,
-    flags: { startOpCooldown: 3 },
+    flags: { bornTime: 3 },
     setup(b) {
       b.on('damaged', (c) => {
         if (c.source?.uid !== 1 || !(c.amount > 0)) return;

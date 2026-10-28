@@ -46,7 +46,7 @@
 //   events.js        client events, snapshot, field meta, fx, the sim log
 //   util.js          fin / clone
 
-import { TICK, ROWS, COLS, DP_DEFAULTS, MAX_HOOK_DEPTH, AUTO_OP_COOLDOWN, AUTO_TRIGGER_INTERVAL, PREBUILT_INTERVAL } from './constants.js';
+import { TICK, ROWS, COLS, DP_DEFAULTS, MAX_HOOK_DEPTH, BORN_TIME, AUTO_TRIGGER_INTERVAL, PREBUILT_INTERVAL } from './constants.js';
 import { GEO } from '../../shared/constants.js';
 import { createRng } from './rng.js';
 import { Grid } from './grid.js';
@@ -109,10 +109,10 @@ export class Battle {
     // non-boss kinds fall back to 60 s; only boss/hidden (or an explicit Infinity) run without a limit.
     const tl = Number(opts.timeLimit);
     this.timeLimit = opts.timeLimit == null || !(tl > 0) ? (bossLike ? Infinity : 60) : tl;
-    // startOpCooldown: the operation cooldown of the battle-start deployment (skills.js AUTO_OP_COOLDOWN)
-    this.flags = { layerGainsEnabled: this.kind === 'normal', ...DP_DEFAULTS, startOpCooldown: AUTO_OP_COOLDOWN, ...(opts.flags || {}) };
-    const soc = Number(this.flags.startOpCooldown);
-    this.flags.startOpCooldown = this.flags.startOpCooldown != null && Number.isFinite(soc) && soc >= 0 ? soc : AUTO_OP_COOLDOWN;
+    // bornTime: the born state after every deployment, when no MANUAL skill is cast (constants.js BORN_TIME)
+    this.flags = { layerGainsEnabled: this.kind === 'normal', ...DP_DEFAULTS, bornTime: BORN_TIME, ...(opts.flags || {}) };
+    const bt = Number(this.flags.bornTime);
+    this.flags.bornTime = this.flags.bornTime != null && Number.isFinite(bt) && bt >= 0 ? bt : BORN_TIME;
     // prebuiltInterval: game seconds between two pieces of the battle-start deployment (constants.js PREBUILT_INTERVAL)
     const pbi = Number(this.flags.prebuiltInterval);
     this.flags.prebuiltInterval = this.flags.prebuiltInterval != null && Number.isFinite(pbi) && pbi >= 0 ? pbi : PREBUILT_INTERVAL;
@@ -143,6 +143,8 @@ export class Battle {
     this.enemies = [];
     /** @type {import('./units.js').Unit[]} every ally unit (ops, tokens, devices; dead included) */
     this.allyUnits = [];
+    /** @type {import('./units.js').Unit[]} deployed allies in the operations pass order (battle/lifecycle.js _autoTriggerPass) */
+    this._chars = [];
     this._hooks = Object.create(null);
     this._emitDepth = 0;
     this._frameName = new Array(MAX_HOOK_DEPTH).fill(null);   // open hook/callback frames (diagnostics, _chain)

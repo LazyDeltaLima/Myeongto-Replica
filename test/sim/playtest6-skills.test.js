@@ -19,7 +19,9 @@ import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/batt
 import { getDefaultSource } from '../../server/sim/simdata.js';
 import { absoluteRangeKeys, canTargetAlly } from '../../server/sim/targeting.js';
 import { flagsOf } from '../../server/sim/snapshot.js';
-import { AUTO_OP_COOLDOWN, COLS } from '../../server/sim/constants.js';
+import { AUTO_TRIGGER_INTERVAL, BLOCK_SKILL_TICK, BORN_TIME, COLS } from '../../server/sim/constants.js';
+
+const BLOCK_S = BLOCK_SKILL_TICK * AUTO_TRIGGER_INTERVAL;
 import { UF } from '../../shared/constants.js';
 import { statusIconKey } from '../../public/js/render/style.js';
 
@@ -152,29 +154,59 @@ test('#15 the automatic operations block the caster 10 passes (client BLOCK_SKIL
   fill(u);
   assert.ok(h.runUntil(() => u.skill.activations === 1, 1));
   const t1 = h.b.time;
-  h.run(AUTO_OP_COOLDOWN - 0.2);
+  h.run(BLOCK_S - 0.2);
   assert.equal(u.skill.activations, 1, 'the stored charge waits');
   assert.ok(h.runUntil(() => u.skill.activations === 2, 1));
-  assert.ok(h.b.time - t1 >= AUTO_OP_COOLDOWN - 1e-6);
+  assert.ok(h.b.time - t1 >= BLOCK_S - 1e-6);
   done(h);
 });
 
-test('#15 "作战开始时部署的单位将进入冷却": a MANUAL skill ready at the battle start sits out 10 passes (2 s, the engine default) after the initial deployment; an AUTO one does not', () => {
+test('#15 "作战开始时部署的单位将进入冷却" = the born state (client CastSkill.UseSkill refuses in BornState, CHARACTER_BORN_TIME 1 s): a MANUAL skill waits BORN_TIME after every deployment, the pass goes on to the next unit; an AUTO one does not wait', () => {
   const rec = (id, skillType) => chessRec({ id, profession: 'SUPPORT', subProfessionId: 'bard', stats: { atk: 0 }, skill: { skillType, spCost: 10, initSp: 10, durationType: 'NONE', duration: 5, trigger: { rule: 'SP_FULL' } } });
-  // flags.startOpCooldown undefined = the Battle default the matches use (the harness otherwise turns it off)
-  const h = run({ flags: { startOpCooldown: undefined }, defs: { chess: { t_man: rec('t_man', 'MANUAL'), t_auto: rec('t_auto', 'AUTO') } },
+  // flags.bornTime undefined = the Battle default the matches use (the harness otherwise turns it off)
+  const h = run({ flags: { bornTime: undefined }, defs: { chess: { t_man: rec('t_man', 'MANUAL'), t_auto: rec('t_auto', 'AUTO') } },
     units: [{ chessId: 't_man', row: 10, col: 3 }, { chessId: 't_auto', row: 10, col: 6 }] });
-  assert.equal(h.b.flags.startOpCooldown, AUTO_OP_COOLDOWN);
+  assert.equal(h.b.flags.bornTime, BORN_TIME);
   const man = h.unit('t_man'), auto = h.unit('t_auto');
   h.step();
   assert.ok(man.skill.ready && man.skill.rule === 'SP_FULL');
   assert.equal(auto.skill.activations, 1, 'AUTO: at once');
   assert.ok(h.runUntil(() => man.skill.activations === 1, 5));
-  assert.ok(h.b.time >= AUTO_OP_COOLDOWN - 1e-6, `MANUAL: not before ${AUTO_OP_COOLDOWN} s (${h.b.time})`);
+  assert.ok(h.b.time >= BORN_TIME - 1e-6 && h.b.time < BORN_TIME + AUTO_TRIGGER_INTERVAL + 1e-6, `MANUAL: on the first pass after ${BORN_TIME} s (${h.b.time})`);
   done(h);
 });
 
-test('#15 GDGLOW_SKILL_2 "全场存在可选目标时释放技能": 荒芜拉普兰德 S3 casts with an enemy anywhere on the field, 纯烬艾雅法拉 S3 with an injured ally anywhere', () => {
+test('#15 a redeployed unit is born again: its MANUAL skill waits BORN_TIME, and the pass casts another ready unit meanwhile', () => {
+  const rec = (id) => chessRec({ id, profession: 'SUPPORT', subProfessionId: 'bard', stats: { atk: 0 }, skill: { skillType: 'MANUAL', spCost: 10, initSp: 10, durationType: 'NONE', duration: 1, trigger: { rule: 'SP_FULL' } } });
+  const h = run({ flags: { bornTime: undefined }, defs: { chess: { t_a: rec('t_a'), t_b: rec('t_b') } },
+    units: [{ chessId: 't_a', row: 10, col: 3 }, { chessId: 't_b', row: 10, col: 6 }] });
+  const a = h.unit('t_a'), b = h.unit('t_b');
+  assert.ok(h.runUntil(() => a.skill.activations === 1 && b.skill.activations === 1, 5));
+  h.b.retreat(a);
+  assert.ok(h.b._deploy(a, { tile: [10, 3] }));
+  const t0 = h.b.time;
+  assert.ok(a.skill._born());
+  a.skill.charges = a.skill.maxCharges; a.skill.sp = a.skill.spCost;
+  assert.ok(h.runUntil(() => a.skill.activations === 2, 5));
+  assert.ok(h.b.time - t0 >= BORN_TIME - 1e-6, `not before ${BORN_TIME} s after the redeployment (${h.b.time - t0})`);
+  done(h);
+});
+
+test('#15 the pass order is the client UnitManager.characters order: deployment order, the last unit moved into the hole of one that leaves', () => {
+  const rec = (id) => chessRec({ id, profession: 'WARRIOR', skill: null });
+  const h = run({ defs: { chess: { t_1: rec('t_1'), t_2: rec('t_2'), t_3: rec('t_3') } },
+    units: [{ chessId: 't_1', row: 10, col: 2 }, { chessId: 't_2', row: 10, col: 4 }, { chessId: 't_3', row: 10, col: 6 }] });
+  h.step();
+  const ids = () => h.b._chars.map((u) => u.defId);
+  assert.deepEqual(ids(), ['t_1', 't_2', 't_3']);
+  h.b.retreat(h.unit('t_1'));
+  assert.deepEqual(ids(), ['t_3', 't_2']);
+  assert.ok(h.b._deploy(h.unit('t_1'), { tile: [10, 2] }));
+  assert.deepEqual(ids(), ['t_3', 't_2', 't_1']);
+  done(h);
+});
+
+test('#15 GDGLOW_SKILL_2 "全场存在可选目标时释放技能" (client _GdglowSearchEnemy: UnitManager.enemyCnt > 0): 荒芜拉普兰德 S3 and 纯烬艾雅法拉 S3 cast with an enemy anywhere on the field, not for an injured ally', () => {
   const w = 'chess_char_6_18_a';
   let h = run({ defs: { enemies: { enemy_d: dummy('enemy_d') }, chess: noGarrison(w) }, units: [{ chessId: w, row: 12, col: 2 }] });
   let u = h.unit(w);
@@ -190,16 +222,19 @@ test('#15 GDGLOW_SKILL_2 "全场存在可选目标时释放技能": 荒芜拉普
   done(h);
   const a = 'chess_char_6_20_a';
   const mate = chessRec({ id: 't_mate', profession: 'WARRIOR', skill: null, stats: { maxHp: 10000 } });
-  h = run({ defs: { chess: { ...noGarrison(a), t_mate: mate } }, units: [{ chessId: a, row: 12, col: 2 }, { chessId: 't_mate', row: 9, col: 10 }] });
+  h = run({ defs: { enemies: { enemy_d: dummy('enemy_d') }, chess: { ...noGarrison(a), t_mate: mate } }, units: [{ chessId: a, row: 12, col: 2 }, { chessId: 't_mate', row: 9, col: 10 }] });
   u = h.unit(a);
   assert.equal(u.skill.rule, 'GDGLOW_SKILL_2');
   h.step();
   fill(u);
   h.run(1);
-  assert.equal(u.skill.activations, 0, 'nobody to heal');
+  assert.equal(u.skill.activations, 0, 'no enemy');
   h.unit('t_mate').hp = 5000;
   h.run(0.25);
-  assert.equal(u.skill.activations, 1, 'an injured ally anywhere');
+  assert.equal(u.skill.activations, 0, 'an injured ally is no condition');
+  h.spawn('enemy_d', { pos: [9, 10] });
+  h.run(0.25);
+  assert.equal(u.skill.activations, 1, 'an enemy anywhere');
   done(h);
 });
 

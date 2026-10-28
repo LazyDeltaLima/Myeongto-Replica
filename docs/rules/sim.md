@@ -227,7 +227,7 @@
 
 ## 스킬 범위 발동 — 관리자 결정 2026-10-11 확정 (클라 `AutoChessBattleTrigger` 그대로)
 - 규칙(관리자 결정 2026-10-11 「공식대로」, **확정**): MANUAL 스킬의 자동 시전은 클라 위수협약 자동 조작을 그대로 따른다.
-  0.2 s마다(`AutoTrigger` → `WaitForFixedSeconds(0.2)`, `constants.js AUTO_TRIGGER_INTERVAL`) 한 번 배치 순서대로 캐릭터를 돈다
+  0.2 s마다(`AutoTrigger` → `WaitForFixedSeconds(0.2)`, `constants.js AUTO_TRIGGER_INTERVAL`) 한 번 캐릭터를 돈다
   (`_TryTriggerAvailableSkills`): 블록이 남은 캐릭터는 1 줄이고 건너뛰고, 처음으로 시전한 캐릭터에 `BLOCK_SKILL_TICK` 10틱 블록을 걸고
   그 패스를 끝낸다 → 한 패스에 전투 전체에서 자동 시전 하나, 같은 캐릭터는 11번째 패스(≈ 2.2 s)에 다시 검사. AUTO 스킬은 자동 조작을 타지 않는다
   (`_DoDefaultCheck`: `skillType` MANUAL만) — 스킬 자신의 트리거로 켜진다.
@@ -245,8 +245,31 @@
   핫픽스(DefinedFix.lua en/zh)에 `AutoChessBattleTrigger` 없음. 결과: 근접 重装은 적을 저지하면 맞기 전에 시전(瑕光·蛇屠箱 S1 등),
   중장 편차(深巡·雷蛇·号角·灰毫 → DEFAULT, 余 S2 → SKILL_RANGE, 补位·자선 중장 → DEFAULT)는 2026-10-28 관리자 결정으로 없앴다 — 아래
   「중장 스킬 공식 TAKE_DAMAGE」.
-- 전투 시작 배치 블록: `AUTO_OP_COOLDOWN` = 10틱 × 0.2 s = 2 s(`battle.flags.startOpCooldown`). [추정] 클라 `_OnUnitBorn`은 TAKE_DAMAGE 버프만 붙이고
-  시작 블록은 코드로 못 찾음 — PRTS 「作战开始时部署的单位将进入冷却」를 블록 길이로 읽음.
+- 패스 순서와 협동 필드(2026-10-29 공식 클라에서 확인): 트리거는 전투당 하나이고 `BattleController.unitManager.characters`(`UnorderedArray`)를
+  편을 가리지 않고 돈다 → 联防·협동의 공용 필드는 모든 플레이어의 유닛이 한 패스. 순서는 그 목록 순서 — 배치할 때 끝에 붙고, 빠지는 유닛 자리에는
+  마지막 유닛이 옮겨 온다(`UnorderedArray.Remove`). 엔진 `Battle._chars`(`_deploy`가 붙이고 `_remove`가 같은 방식으로 뺌). 패스 중 캐릭터 수는
+  시작 때 값으로 돈다. 나머지 갈래(`_TryTriggerSkill`): 1 ALWAYS·2 SEARCH·12 TAKE_DAMAGE·5–9·기본 모두 `_DoDefaultCheck`(MANUAL만) 뒤 조건, 성공은
+  `UseSkill`이 참일 때만(실패하면 패스는 다음 캐릭터로).
+- 배치 직후(BORN) — 전투 시작 블록 없음(2026-10-29 공식 클라에서 확인, 관리자 요청으로 卫戍协议와 일반 스테이지 차이도 확인): `StartBattle`은
+  `m_blockSkillTicker`를 비우기만 하고, 블록은 시전에 성공했을 때만 걸린다. `_OnUnitBorn`은 TAKE_DAMAGE(12)에 버프만 붙인다. 대신 모든 모드 공용인
+  `Character.States.BornState`가 배치마다 Born 클립 시간(`PlayBornAnimationAndEffect`; `Consts.CHARACTER_BORN_TIME` 1)을 세고, `CastSkill.UseSkill`은
+  주인이 BORN이면 거절한다(프리팹 `_canCastDuringBorn`/`_canSwitchDuringBorn`이 켜진 스킬만 예외). 卫戍协议 배치(`_AutoDeploy` →
+  `Deck.SpawnCharacterOrToken(spawnManually: true)`)는 BORN을 건너뛰지 않는다 — 건너뛰는 것은 미리 놓인 유닛(`m_isBuiltPredefined`)이 전투
+  재생 전일 때뿐이고, `m_overrideBornTime`은 `ResetBornAnimationAndEffect`만 쓴다. 그래서 전투 시작·재배치·소환 모두 배치 뒤 `BORN_TIME` 1 s 동안
+  수동 스킬이 안 켜지고 패스는 다음 캐릭터로 넘어간다(엔진 `bornUntil`, `skills.js _born`; TAKE_DAMAGE 피격 시전도). 첫 패스는 0.2 s(코루틴이 먼저
+  기다림)이고 같은 패스에서 배치(`_TryDeployAvailableCharacter`, 한 패스에 하나) 다음 시전 검사. PRTS 「作战开始时部署的单位将进入冷却」는 이 BORN이다.
+  [추정·엔진: Born 클립을 1 s로 재생한다고 읽음(`_useRealBornTimeFromAnim` 꺼짐) — 재생 함수의 반환값은 안 읽음]
+  [추정·미조사: `_canCastDuringBorn` 켜진 스킬 프리팹 — 안 뽑음, 모두 기다림으로 둠]. BORN 동안 공격도 안 하는 것(상태 기계가 BORN → IDLE 뒤에야
+  공격)은 아직 구현하지 않음 — 관리자 결정 대기. 2026-10-29 전에는 전투 시작 배치만 2 s 블록이었다.
+- 특수 형(2026-10-29 공식 클라에서 확인): GDGLOW_SKILL_2(9, 荒芜拉普兰德·纯烬艾雅法拉 S3) = `_GdglowSearchEnemy` → `UnitManager.enemyCnt > 0`
+  — 필드에 적이 하나라도 있으면(선택 가능 여부·은신·공중 무관), 아군 갈래 없음(전에는 선택 가능한 적, 치유 스킬은 다친 아군). CUSTOM_RANGE_SEARCH_ENEMY(7)
+  = `_TrySearchWithCustomRange_FindEnemy` → `act2autochess skillRangeDict`의 스킬 범위를 캐릭터 방향으로 돌린 상자 안 적(지상·공중, 같은 `mapLayer`) —
+  기존 구현 그대로, 사전에 없는 스킬은 효과 중이 아니면 바로 시전(데이터 10개는 모두 사전에 있음). `_FindAlly`(8)는 다치고 치유 가능한 아군 — 쓰는 행 없음.
+  MLYSS_WTRMAN(3, 缪尔赛思 모든 스킬) = 본인은 `_DoDefaultCheck` 뒤 공격·저지 상태(`isInAttackState || isInCombatState`)면 시전 — 스킬 범위도 流形 범위도
+  안 본다(전에는 流形 범위 안 적도 조건이던 [추정]). 流形(토큰) 갈래는 다르다: 효과 중인데 아직 변신 버프(`mlyssWtrmanTransformBuff`)가 없으면 그 패스에
+  복사 대상으로 변신(시전으로 셈 → 10틱 블록), 아니면 SP가 차는 대로 조건 없이 `UseSkill` 뒤 다음 패스의 자동 배치를 건너뜀(`m_disableDeployNextFrame`).
+  복사 대상은 정비 말(`battleChessInsts`의 캐릭터) 중 `_GetMlyssTokenToGridPosPriority`가 가장 작은 것, 토큰 칸마다 전투 내내 고정
+  (`mlyssCopiedChessUid2CopiedChessInstId`). 우리 流形은 스킬 시작 때 필드의 가장 가까운 아군을 복사하고 패스 밖에서 켠다 — 이 차이는 관리자 노트의 할 일로 남김 [추정·미조사: 流形 복사 시점·대상].
 - 알려진 결과: 패스가 휘두름 시작 뒤에 오면 그 휘두름은 원래 쿨다운을 그대로 지닌다(`AbilityStandard.CastToTarget`이 휘두름 시작에 타이머를 다시 검) —
   공속 스킬의 첫 몇 타가 느리다. 결정 1(즉발 시전)의 `cast` 모드(replace/state/free)는 「즉발 스킬의 시전」 절.
 - 근거 기록: 비공개 조사 기록 round2 §7, upstream 0.2.3 대조(스킬 발동). 테스트 `test/sim/skills.test.js`, `test/sim/instant-cast.test.js`, `test/local-patch-diy-chen3.test.js`(첸 S3 3-12 공중).

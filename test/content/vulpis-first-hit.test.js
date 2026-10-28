@@ -14,7 +14,7 @@ function scenario(entry = {}, enemy = {}) {
   return makeBattle({
     units: [{ chessId: NORMAL, row: 10, col: 4, ...entry }],
     defs: { enemies: { [ENEMY]: enemyRec({ key: ENEMY, hp: 1e7, speed: 0, ...enemy }) } },
-    autoFinish: false, timeLimit: 40, flags: { startOpCooldown: 3 }, hooks: ['damaged'], captureNoisy: true,
+    autoFinish: false, timeLimit: 40, flags: { bornTime: 3 }, hooks: ['damaged'], captureNoisy: true,
   });
 }
 const variants = [

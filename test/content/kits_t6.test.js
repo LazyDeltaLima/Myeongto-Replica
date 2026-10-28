@@ -865,6 +865,7 @@ test('纯烬艾雅法拉: S3 heals across the whole field in 5 shots (35 %); 火
       { chessId: 'test_guard_a', row: 9, col: 10, uid: 9 },
       { chessId: 'test_guard_a', row: 10, col: 4, uid: 10 },
     ],
+    enemies: [{ key: 'enemy_dummy', pos: [8, 11] }], // GDGLOW_SKILL_2: any enemy on the field casts S3
     hooks: ['heal'], captureNoisy: true,
   });
   const u = h.unit('chess_char_6_20_a');
@@ -1277,7 +1278,7 @@ test('蕾缪安: 通缉 needs a continuous 8 s stay in a 拉特兰 range (leavin
   assert.ok(e.findBuff('lemuen:wanted'), 'wanted after 8 s in range');
 });
 
-test('缪尔赛思: MLYSS_WTRMAN — an enemy in a copied 流形\'s range triggers S3 even outside her own range', () => {
+test('缪尔赛思: MLYSS_WTRMAN (client _TryUsingSkillTypeMlyssWtrman) — her own skill needs her attack / combat state; an enemy in a copied 流形\'s range does not trigger it', () => {
   const h = battle({
     units: [
       { chessId: 'chess_char_6_11_a', row: 12, col: 2, carryState: { sp: 42 } },
@@ -1290,10 +1291,12 @@ test('缪尔赛思: MLYSS_WTRMAN — an enemy in a copied 流形\'s range trigge
   const tok = () => h.b.allyUnits.find((x) => x.defId === 'token_10030_mlyss_wtrman' && x.alive);
   h.step();
   assert.ok(!h.b.enemiesInKeys(u.baseRangeKeys, u, u.profile).length, 'outside her own range');
-  h.run(2);
-  assert.ok(!u.skill.active && !tok().mem.mlyss, 'no copy yet ⇒ no trigger');
-  assert.ok(h.runUntil(() => u.skill.active, 6), 'fires once the 流形 copied and sees the enemy');
-  assert.ok(tok().mem.mlyss && !tok().mem.mlyss.ranged, 'melee copy of the guard');
+  assert.ok(h.runUntil(() => !!tok().mem.mlyss, 6), 'the 流形 copies');
+  assert.ok(!tok().mem.mlyss.ranged, 'melee copy of the guard');
+  h.run(3);
+  assert.ok(!u.skill.active && u.skill.activations === 0, 'the enemy by the 流形 does not trigger her S3');
+  h.b.relocate(u, 9, 7);
+  assert.ok(h.runUntil(() => u.skill.active, 3), 'an enemy to attack does');
   checkInvariants(h.b);
 });
 

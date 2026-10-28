@@ -215,9 +215,8 @@ function mlyss(bb, chess, def) {
           if (unit.skill?.active && unit.skill.isTimed) buffManifold(battle, t, unit.skill.timeLeft);
         }, { owner: unit });
         battle.on('skillStart', ({ unit: t }) => { if (mine(t) && !t.mem.mlyssClone) copyNearest(battle, unit, t); }, { owner: unit });
-        // trigger rule MLYSS_WTRMAN ("全部技能，受流形影响") [ASSUMED]: DEFAULT (engine), and an enemy inside the range of one
-        // of her copied 流形 also satisfies it (her S3 acts through the 流形: pull/stun or bind around them)
-        if (unit.skill) unit.skill.addTriggerRange(() => battle.allyUnits.filter((t) => mine(t) && live(t) && t.mem.mlyss));
+        // trigger rule MLYSS_WTRMAN ("全部技能，受流形影响") for her own skills (`_TryUsingSkillTypeMlyssWtrman`, not a token):
+        // the MANUAL check, then her ATTACK / COMBAT state — the engine's DEFAULT without a trigger grid; her 流形 do not count
         battle.on('tick', () => { // without a dedicated token kit the copy fires once ready and someone can be copied
           for (const t of battle.allyUnits) {
             if (!mine(t) || !live(t) || t.mem.mlyssClone || !t.kit?.generic || !t.skill || t.skill.active || !t.skill.ready || t.skill.opCooling) continue;

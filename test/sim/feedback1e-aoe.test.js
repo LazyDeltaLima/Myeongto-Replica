@@ -142,7 +142,7 @@ test('E3 real stage + real wave: 卡涅利安 targets AND damages every enemy on
   for (const skillIndex of [1, 2]) {
     const id = 'chess_char_4_24_b';
     const h = makeBattle({
-      stageId: 'act2autochess_m01', waveTemplate: tpl, mods, timeLimit: rc.combatTimeLimit, seed: 11, flags: { startOpCooldown: 3 },
+      stageId: 'act2autochess_m01', waveTemplate: tpl, mods, timeLimit: rc.combatTimeLimit, seed: 11, flags: { bornTime: 3 },
       units: [
         { chessId: id, row: 10, col: 6, skillIndex },
         { chessId: 'chess_char_1_02_a', row: 10, col: 7 }, { chessId: 'chess_char_1_02_a', row: 11, col: 7 },

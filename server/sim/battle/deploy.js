@@ -3,7 +3,7 @@
 // automatic redeploys, leaks.
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
-import { AUTO_TRIGGER_INTERVAL, COLS } from '../constants.js';
+import { COLS } from '../constants.js';
 import { unitInfo } from '../snapshot.js';
 import { fin } from './util.js';
 
@@ -61,9 +61,11 @@ export class BattleDeploy {
     if (!u.skill) this._setupUnit(u);
     u.skill.reset(cs);
     const sk = u.skill;
-    // "…作战开始时部署的单位将进入冷却" (PRTS 卫戍协议/帮助): the battle-start deployment sits out the automatic operations
-    // for `startOpCooldown` s of passes (constants.js AUTO_OP_COOLDOWN = BLOCK_SKILL_TICK passes; skills.js)
-    if (initial) sk.blockTicks = Math.ceil(this.flags.startOpCooldown / AUTO_TRIGGER_INTERVAL - 1e-9);
+    // the born state of every deployment (constants.js BORN_TIME): no MANUAL cast until it ends, no block either
+    u.bornUntil = this.time + this.flags.bornTime;
+    // the operations pass walks the characters in the client's `UnitManager.characters` order: appended at each
+    // deployment, the last one moved into the hole of one that leaves (`UnorderedArray.Remove`; _remove)
+    if (!this._chars.includes(u)) this._chars.push(u);
     // keepSp (突袭 "保留技力"): the SP / charges before the jump — not for a skill that costs no SP (spCost 0, the
     // deploy-timed skills), which reset() just re-armed as at every deployment: the retreat ended it, so its snapshot
     // holds 0 charges, and writing that back took the charge 伊内丝 S3's deploy hook casts with (community report:
@@ -122,6 +124,8 @@ export class BattleDeploy {
       unit.skill.active = false;
     }
     unit._removing = false;
+    const ci = this._chars.indexOf(unit);
+    if (ci >= 0) { const last = this._chars.pop(); if (last !== unit) this._chars[ci] = last; }
     if (unit.side === 'ally') {
       this.releaseBlocked(unit);
       const k = unit.tileR * COLS + unit.tileC;

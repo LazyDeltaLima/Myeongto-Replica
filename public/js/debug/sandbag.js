@@ -144,7 +144,7 @@ export function createSandbagBattle(sim, baseDs, cfg) {
     seed: cfg.seed ?? 1, kind: 'normal', modeId: 'mode_multi_normal', round: 1, stage: cfg.stage, rect: { ...ARENA },
     timeLimit: 86400, players, spawns, routes: [], fieldId: cfg.fieldId ?? 'debug',
     // no battle-start operation cooldown (a fresh skill may go at once), no bond layers
-    flags: { startOpCooldown: 0, layerGainsEnabled: false },
+    flags: { bornTime: 0, layerGainsEnabled: false },
     data: sim.withUnitLoadouts(ds, players), content: 'full', autoFinish: false, quiet: true, logger: cfg.logger,
     setup: (b) => {
       b.on('spGain', (ctx) => { if (ctx.unit && ctx.unit.side === 'ally' && !spAuto()) ctx.amount = 0; });

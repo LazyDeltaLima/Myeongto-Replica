@@ -22,8 +22,8 @@
 //   `autochess_trigger_skill[on_take_damage]`), SP_FULL/ALWAYS (as soon as ready),
 //   CUSTOM_RANGE (enemy inside the custom trigger grid), SEARCH (an enemy inside the INITIAL range, checked every tick
 //   without waiting for an attack: "不受基础策略影响，在初始攻击范围内存在敌人时释放技能" — not any enemy on the field,
-//   which burnt the skill on enemies that had just spawned), GDGLOW_SKILL_2 ("全场存在可选目标时释放技能": a targetable
-//   enemy anywhere on the field — for a heal skill an ally that needs healing — every tick), NEVER/MANUAL (never
+//   which burnt the skill on enemies that had just spawned), GDGLOW_SKILL_2 ("全场存在可选目标时释放技能": any enemy on the
+//   field — the client's `_GdglowSearchEnemy` counts `UnitManager.enemyCnt`, targetable or not), NEVER/MANUAL (never
 //   auto-cast: the kit calls skill.activate() itself); any unknown rule falls back to DEFAULT. Units that never attack
 //   (noAttack profiles) evaluate DEFAULT every tick instead. DEFAULT with `trigger.allies` (+ `hpAtMost`): the basic
 //   rule AND such an ally on the trigger grid — the cast replaces the attack about to be made (塞雷娅 S1 "触发时会替换当
@@ -31,8 +31,8 @@
 // MANUAL skills (def.skillType) are cast by the battle's automatic operations (the client's `AutoChessBattleTrigger`;
 //   maintainer decision 2026-10-11): every 0.2 s one pass (Battle._autoTriggerPass → autoTrigger below) checks the rules
 //   above and casts at once — the first cast ends the pass (one per pass in the whole battle) and blocks its unit for
-//   BLOCK_SKILL_TICK passes (`blockTicks`; a charged skill spends its charges ≈ 2.2 s apart); the battle-start deployment
-//   starts blocked too (Battle._deploy `initial`). DEFAULT for a MANUAL skill (`_DefaultTriggerSkill`): with a trigger
+//   BLOCK_SKILL_TICK passes (`blockTicks`; a charged skill spends its charges ≈ 2.2 s apart); for BORN_TIME after any
+//   deployment the unit is in its born state and casts nothing (`bornUntil`, `CastSkill.UseSkill`). DEFAULT for a MANUAL skill (`_DefaultTriggerSkill`): with a trigger
 //   grid (its rangeId) a selectable enemy, ground or air, there; without one, the unit attacking (an attack target in its
 //   initial range or one it blocks — its ATTACK / COMBAT state). TAKE_DAMAGE: the hit itself (onDamaged), or one the cast
 //   could not use, seen by the next pass — and every pass SEARCH's condition too (the client sends type 12 down SEARCH's
@@ -55,17 +55,15 @@
 //   also carries `noAmmo` (set it to true: this attack spends no ammo). onEnd runs while the skill's mods / range are
 //   still applied (`active` is already false); they are removed right after it (unless onEnd re-activated the skill).
 
-import { absoluteRangeKeys, canTargetEnemy } from './targeting.js';
+import { absoluteRangeKeys } from './targeting.js';
 import { castFace } from './ai.js';
-import { BLOCK_SKILL_TICK, COLS, MIN_ANIM_SCALE, ROWS } from './constants.js';
+import { BLOCK_SKILL_TICK, COLS, MIN_ANIM_SCALE } from './constants.js';
 
 const TICK_RULES = new Set(['SP_FULL', 'SEARCH', 'CUSTOM_RANGE', 'SKILL_RANGE', 'ACTIVE_RANGE', 'GDGLOW_SKILL_2']);
 /** True when a SkillSpec `targeting` changes the unit's range while the skill runs (Battle._refreshRange). */
 const changesRange = (tg) => !!(tg && (tg.rangeGrid || tg.rangeExtend || tg.noRangeExtend));
 /** Enemies that satisfy a content trigger range (any targetable enemy, flyers included). */
 const TRIGGER_PROFILE = Object.freeze({ canHitFly: true });
-/** Every tile of the stage (GDGLOW_SKILL_2: the whole field). */
-const ALL_TILES = new Set(Array.from({ length: ROWS * COLS }, (_, i) => i));
 
 /**
  * The 'skill' animation window the sim reports to the client: `unit.skillAnimUntil` (snapshot.js `animOf` → ANIM.SKILL,
@@ -245,7 +243,7 @@ export class SkillRuntime {
     this.sp = 0;
     this._trigKeys = null;
     this._trigSet = null;
-    this.blockTicks = 0;          // (Battle._deploy blocks the battle-start deployment)
+    this.blockTicks = 0;
     this._hurt = false;
     this.nextCastAt = -Infinity;
     this._replace = null;
@@ -394,7 +392,10 @@ export class SkillRuntime {
   get autoOp() { return this.manual && !this.noSkill && this.kind !== 'passive' && this.rule !== 'NEVER'; }
 
   /** The automatic operations of a MANUAL skill are blocked for this unit (BLOCK_SKILL_TICK passes after a cast). */
-  _opCooling() { return this.manual && this.blockTicks > 0; }
+  _opCooling() { return this.manual && (this.blockTicks > 0 || this._born()); }
+
+  /** The unit is in its born state (constants.js BORN_TIME after a deployment): `CastSkill.UseSkill` refuses. */
+  _born() { return this.battle.time < (this.unit.bornUntil ?? -Infinity) - 1e-9; }
 
   /**
    * One automatic-operation check of this unit's MANUAL skill (Battle._autoTriggerPass; the client's
@@ -407,7 +408,7 @@ export class SkillRuntime {
     this._hurt = false;
     if (!this.autoOp) return false;
     const u = this.unit;
-    if (!u.alive || !u.deployed || u.hidden || !u.canAct) return false;
+    if (!u.alive || !u.deployed || u.hidden || !u.canAct || this._born()) return false;
     if (!this.ready || u.s.flags.silence || (this.active && this.isTimed) || this.pending) return false;
     if (!this.isTimed && !this.spec.attack && this.battle.time < this.nextCastAt - 1e-9) return false;
     let ok;
@@ -479,8 +480,10 @@ export class SkillRuntime {
     // SEARCH: an enemy inside the initial attack range, every tick (librators / phalanxes and 安洁莉娜 do not attack
     // while the skill is off, so DEFAULT's "about to attack" never comes)
     if (this.rule === 'SEARCH') return this._defaultCondition();
+    // CUSTOM_RANGE (`_TrySearchWithCustomRange_FindEnemy`): the act2autochess skillRangeDict range as the unit faces, an
+    // enemy there, ground or air (the trigger's ALL-motion options); a skill missing from the dict casts once not running
     if (this.rule === 'CUSTOM_RANGE') {
-      if (!this.triggerGrid) return this._defaultCondition();
+      if (!this.triggerGrid) return !this.active;
       return b.enemiesOnTiles(this._triggerKeys(), u, { canHitFly: true }).length > 0;
     }
     if (this.rule === 'SKILL_RANGE') {
@@ -489,11 +492,9 @@ export class SkillRuntime {
       return b.anyEnemyOnTiles(this._triggerKeys());
     }
     if (this.rule === 'ACTIVE_RANGE') return this._defaultCondition(this.triggerGrid ? this._triggerKeys() : null);
-    // GDGLOW_SKILL_2 "全场存在可选目标时释放技能": a targetable enemy anywhere (heal skill: an ally that needs healing)
-    if (this.rule === 'GDGLOW_SKILL_2') {
-      if (this.healSkill) return b.injuredAlliesInKeys(ALL_TILES, u, !!u.profile?.heal?.elementHealRatio).length > 0;
-      return b.enemies.some((e) => canTargetEnemy(u, e, TRIGGER_PROFILE));
-    }
+    // GDGLOW_SKILL_2 "全场存在可选目标时释放技能" (`_GdglowSearchEnemy`): `UnitManager.enemyCnt > 0` — any enemy on the
+    // field, stealthed or untargetable included; no ally variant
+    if (this.rule === 'GDGLOW_SKILL_2') return b.enemies.some((e) => e.alive);
     return false;
   }
 
@@ -543,7 +544,7 @@ export class SkillRuntime {
     // TAKE_DAMAGE (12) character the buff `autochess_trigger_skill[on_take_damage]`, whose ON_TAKE_DAMAGE node triggers the
     // skill (`_checkBeforeTrigger`); a hit the cast could not use is still seen by the next pass (_hurt)
     if (this.autoOp) this._hurt = true;
-    if (this.ready && !this.pending && !(this.active && this.isTimed) && this.unit.canAct && !this.unit.s.flags.silence) this.activate('TAKE_DAMAGE');
+    if (this.ready && !this.pending && !(this.active && this.isTimed) && this.unit.canAct && !this.unit.s.flags.silence && !this._born()) this.activate('TAKE_DAMAGE');
   }
 
   /**
