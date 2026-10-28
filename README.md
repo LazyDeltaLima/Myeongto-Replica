@@ -4,7 +4,7 @@
 
 [sganggs/Stronghold-Protocol](https://github.com/sganggs/Stronghold-Protocol) v0.2.0에서 갈라져 나온 **한국어 하드 포크**입니다.
 
-![version](https://img.shields.io/badge/version-1.5.7-2ea44f)
+![version](https://img.shields.io/badge/version-1.5.8-2ea44f)
 ![license](https://img.shields.io/badge/code%20license-GPL--3.0--or--later-blue)
 ![node](https://img.shields.io/badge/node-22%20%7C%2024-339933)
 
@@ -31,7 +31,7 @@ English summary: [below](#english) · 中文说明：[见下](#中文)
 - **8인 연합**(공식에 없는 모드). 박사 8명이 모두 앉아야 시작하고 AI 팀원은 없습니다. 1인당 체감이 4인과 같도록 상점 풀·장비 재고·맹약 밴·리더 체력을 조정했고, 연합 방어는 최대 4명이 넓힌 전장에서 막습니다. 수치와 근거는 [docs/rules/sim.md](docs/rules/sim.md) 「8인 협동 모드」.
 - **원본과의 관계.** 2026-10-07에 v0.2.0을 병합한 것이 마지막입니다. 그 뒤로는 원본의 버그 수정과 기능을 골라서 손으로 옮겨 옵니다([docs/rules/upstream.md](docs/rules/upstream.md)).
 
-현재 버전은 **1.5.7**이며 타이틀 화면 아래에 `v1.5.7 · WEB SIMULATION`으로 표시됩니다. 버전 번호는 이 저장소가 따로 매깁니다. 완성본 zip(Releases)은 배포하지 않으므로 소스에서 실행합니다.
+현재 버전은 **1.5.8**이며 타이틀 화면 아래에 `v1.5.8 · WEB SIMULATION`으로 표시됩니다. 버전 번호는 이 저장소가 따로 매깁니다. 완성본 zip(Releases)은 배포하지 않으므로 소스에서 실행합니다.
 
 ## 실행하기
 
