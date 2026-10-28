@@ -266,7 +266,7 @@
   = `_TrySearchWithCustomRange_FindEnemy` → `act2autochess skillRangeDict`의 스킬 범위를 캐릭터 방향으로 돌린 상자 안 적(지상·공중, 같은 `mapLayer`) —
   기존 구현 그대로, 사전에 없는 스킬은 효과 중이 아니면 바로 시전(데이터 10개는 모두 사전에 있음). `_FindAlly`(8)는 다치고 치유 가능한 아군 — 쓰는 행 없음.
   MLYSS_WTRMAN(3, 缪尔赛思 모든 스킬) = 본인은 `_DoDefaultCheck` 뒤 공격·저지 상태(`isInAttackState || isInCombatState`)면 시전 — 스킬 범위도 流形 범위도
-  안 본다(전에는 流形 범위 안 적도 조건이던 [추정]). 流形(토큰) 갈래는 다르다: 효과 중인데 아직 변신 버프(`mlyssWtrmanTransformBuff`)가 없으면 그 패스에
+  안 본다(전에는 流形 범위 안 적도 조건이던 추정). 流形(토큰) 갈래는 다르다: 효과 중인데 아직 변신 버프(`mlyssWtrmanTransformBuff`)가 없으면 그 패스에
   복사 대상으로 변신(시전으로 셈 → 10틱 블록), 아니면 SP가 차는 대로 조건 없이 `UseSkill` 뒤 다음 패스의 자동 배치를 건너뜀(`m_disableDeployNextFrame`).
   복사 대상은 정비 말(`battleChessInsts`의 캐릭터) 중 `_GetMlyssTokenToGridPosPriority`가 가장 작은 것, 토큰 칸마다 전투 내내 고정
   (`mlyssCopiedChessUid2CopiedChessInstId`). 우리 流形은 스킬 시작 때 필드의 가장 가까운 아군을 복사하고 패스 밖에서 켠다 — 이 차이는 관리자 노트의 할 일로 남김 [추정·미조사: 流形 복사 시점·대상].
