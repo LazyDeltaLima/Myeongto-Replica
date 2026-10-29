@@ -427,7 +427,8 @@
     S3는 침식 붕괴한 적에 `clemnt_s3[emit_projectile]`가 `projectile_chr_clemnt_s3`를 그 발밑에 쏘고 — REACH `p_atk_wtrbmcn`(fx `lock`), 그 프리팹의
     소리 동작 둘이 도착 뒤 0.5초에 낙하음 `clemnt_s3_projectile_tick_fall_audio`(`p_atk_wtrbmsl`), 1.0초에 착탄음 `…_tick_reach_audio`(`p_imp_wtrbmsl`),
     그 뒤 1초마다(횟수 = 타격 수 `audio_trigger_cnt`, 타격도 1초 뒤부터 1초마다 — rules/diy.md). 피해는 버프 `clemnt_s3[rocket_damage]`(HIT 신호 없음)라 S3 키트 피해는 무음(`SKILL_DAMAGE_KEYS` '';
-    전에는 S3 모드 착탄음이 났다). 우리: 착탄음은 키트 폭발 fx `blast`마다, 낙하음은 각 폭발 0.5초 전(`lock`의 `dur` − 0.5 + k초, `n`번). 재능 1 굴림이
+    전에는 S3 모드 착탄음이 났다). 우리: 착탄음은 키트 폭발 fx `blast`마다, 낙하음은 각 폭발 0.5초 전(`lock`의 `dur` − 0.5 + k초, `n`번) — 포탄은 그녀가 쓰러지거나 퇴각하면
+    멈추므로(`_stopWhenSourceInvalid`) 그녀의 'die'에 아직 안 난 낙하음을 취소(2026-10-29; 착탄음은 sim의 `blast`가 안 와서 저절로). 재능 1 굴림이
     이기면 `clemnt_t1[dice_damage]` ON_AFTER_OUTPUT_DAMAGE의 PlayAudio `clemnt_t1_power_attack_audio`(`p_imp_wtsdrvrtl`) — 'dmg' 9번째 칸 moment.
   - 할 것 없음: 혼 S2 `…_horn_s2_full*`(수동 종료 `Full Burst`의 탄 — 위 「공격 소리 신호」; 이 모드 기물은 S3). 남김(§11 ③ 소리): 실버애쉬 더 레인프로스트 S3
     새(`svash2_s_3[bird_on_self]`/`[bird_on_target]` — 이 모드에서 어느 쪽이 도는지 미조사).

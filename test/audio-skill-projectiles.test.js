@@ -148,6 +148,20 @@ describe('skill and talent projectile sounds wired 2026-10-29', () => {
     assert.ok(files(t).includes('p_imp_wtsdrvrtl.mp3'), files(t).join());
   });
 
+  // CN client projectile_chr_clemnt_s3 `_stopWhenSourceInvalid`: her 'die' stops the shells, so their falls still due
+  test('AudioManager: 克莱门莎 S3 falls not yet sounded are cancelled at her die, not at another unit\'s', () => {
+    const a = manager(), cancelled = [];
+    a._play = (url, o) => { a.played.push({ f: file(url), delay: o.delay ?? null }); return () => cancelled.push([file(url), o.delay ?? null]); };
+    field(a, 'char_4231_clemnt', 2);
+    a.handleBattleEvents([['skill', 1, 1], ['fx', 'lock', 3, 0, { id: 2, src: 1, dur: 1, n: 3 }]]);
+    a.handleBattleEvents([['die', 2, 'killed']]);
+    assert.deepEqual(cancelled, [], 'the marked enemy\'s death leaves them');
+    a.handleBattleEvents([['die', 1, 'killed']]);
+    assert.deepEqual(cancelled, [['p_atk_wtrbmsl.mp3', 0.5], ['p_atk_wtrbmsl.mp3', 1.5], ['p_atk_wtrbmsl.mp3', 2.5]]);
+    a.handleBattleEvents([['die', 1, 'killed']]);
+    assert.equal(cancelled.length, 3, 'once');
+  });
+
   test('real match path: 耶拉\'s drone damage is flagged 2, her S2 drones carry their index', async () => {
     const { makeMatch, give, legalTileFor } = await import('./match/harness.js');
     const { buildBattleSpec, createBattleFromSpec } = await import('../server/sim/spec.js');

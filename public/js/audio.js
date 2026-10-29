@@ -491,6 +491,13 @@ export function unitSoundClass(info) {
   return 'char';
 }
 
+/** 2026-10-29: 克莱门莎 S3 — the cancels of the fall sounds a unit's shells scheduled (her 'die' runs them; a new field clears). */
+function shellFalls(mgr, id) {
+  const m = (mgr._shellFalls ||= new Map());
+  if (!m.has(id)) m.set(id, []);
+  return m.get(id);
+}
+
 /** URL of the generic token death sound (b_char_tokendead): sfx.battle.tokenDie, else next to charDie. */
 function tokenDieUrl(manifest) {
   const b = manifest?.audio?.sfx?.battle;
@@ -1163,7 +1170,7 @@ export class AudioManager {
     if (capped) { slot = this.limiter.acquire(String(channel ?? bank ?? unitKey ?? url), info[2], !!info[3]); if (!slot) return; }
     else if (this.uiVoices >= 12) return;
     else this.uiVoices += 1;
-    let done = false, s = null, g = null, unsnap = null;
+    let done = false, s = null, g = null, unsnap = null, at = null;
     const end = () => {
       if (done) return;
       done = true;
@@ -1184,11 +1191,14 @@ export class AudioManager {
         s.connect(g); g.connect(sfxOut(this, url, !limited)); // local patch: outside the snapshot bus (audioSnapshot.js)
         s.onended = end;
         setTimeout(end, (buf.duration / pitch + delay) * 1000 + 250); // safety if onended never fires
-        if (delay > 0) s.start(this.ctx.currentTime + delay); else s.start();
+        at = this.ctx.currentTime + delay;
+        if (delay > 0) s.start(at); else s.start();
         const hook = snapshotHookOf(this, url); // local patch: 归溟幽灵鲨's switch sinks the rest of the mix (audioSnapshot.js)
         if (hook) unsnap = holdSnapshot(this, hook);
       } catch { end(); }
     }, end);
+    // 2026-10-29: cancels it while it has not started yet (still loading or waiting its delay); a playing one is left
+    return () => { if (done || (at != null && at <= this.ctx.currentTime)) return; try { s?.stop(); } catch { /* ignore */ } end(); };
   }
 
   /**
@@ -1641,6 +1651,7 @@ export class AudioManager {
   setFieldUnits(units) {
     this.stopBondCue(); // upstream #482: no layer-up cue carries into a new field
     this.units.clear();
+    this._shellFalls?.clear();
     this.lastAttacker.clear();
     this.chainStruck.clear();
     this.consumed.clear();
@@ -1743,11 +1754,12 @@ export class AudioManager {
    * Play sfx.kit key `hk` (null = nothing) — its mixer group (sfx.kitGrp), its bank's popOldest (sfx.kitLimit), one bank per key.
    * Returns whether the key has a sound.
    */
-  _kitSound(hk, delay = null) {
+  _kitSound(hk, delay = null, held = null) {
     const sfx = hk ? this.getManifest()?.audio?.sfx : null;
     const url = sfx?.kit?.[hk];
     if (typeof url !== 'string') return false;
-    this._play(url, { volume: groupGain(sfx.kitGrp?.[hk] ?? 'Battle_P_SImp'), limited: true, bank: `kit:${hk}`, pop: sfx.kitLimit?.[hk] ?? null, delay });
+    const cancel = this._play(url, { volume: groupGain(sfx.kitGrp?.[hk] ?? 'Battle_P_SImp'), limited: true, bank: `kit:${hk}`, pop: sfx.kitLimit?.[hk] ?? null, delay });
+    if (held && cancel) held.push(cancel); // `held`: the caller's list of sounds it may cancel before they start
     return true;
   }
 
@@ -1955,6 +1967,8 @@ export class AudioManager {
           if (u && unitSoundClass(u) === 'char' && !this.voicePolicy) this.voice(u.def, 'faceEnemy', { unitKey: e[1] });
         } else if (kind === 'die') {
           stopUnitLoops(this, e[1]); // local patch: its loop and held one-shots
+          for (const cancel of this._shellFalls?.get(e[1]) ?? []) cancel(); // 2026-10-29: 克莱门莎 S3's falls still due
+          this._shellFalls?.delete(e[1]);
           const u = this.units.get(e[1]);
           if (!u) continue;
           if (u.side === 'enemy') this._enemyOut(e[1], now);
@@ -2059,8 +2073,12 @@ export class AudioManager {
             // ability's playback speed, which divides it, taken as 1]
             if (hk === 'kjera:s2') this._kitSound('kjera:s2end', 0.6);
             // 2026-10-29: 克莱门莎 S3 — the shell's fall sound 0.5 s before each of its `n` impacts, 1 s apart from `dur` after it
-            // reached (the prefab's fall behaviour: 0.5 s after it reached, then every 1 s)
-            if (hk === 'clemnt:s3reach') for (let n = 0; n < (Number(e[4].n) || 3); n++) this._kitSound('clemnt:s3fall', Math.max(0, (Number(e[4].dur) || 0) - 0.5) + n);
+            // reached (the prefab's fall behaviour: 0.5 s after it reached, then every 1 s). The shell stops with her
+            // (`_stopWhenSourceInvalid`): her 'die' cancels the falls not yet sounded
+            if (hk === 'clemnt:s3reach') {
+              const held = shellFalls(this, e[4].src);
+              for (let n = 0; n < (Number(e[4].n) || 3); n++) this._kitSound('clemnt:s3fall', Math.max(0, (Number(e[4].dur) || 0) - 0.5) + n, held);
+            }
           }
           // 2026-10-29: 荒芜拉普兰德 S3's wolves released (each cruise projectile's BORN), 溯光星源 S3's newly linked enemies
           if (e[1] === 'drones' && e[4]?.id != null && unitOf(e[4].id)?.def === 'char_1038_whitw2' && unitOf(e[4].id)?.skillIndex === 2) {
