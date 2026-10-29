@@ -1272,7 +1272,8 @@
 - 키트 사건 연결(`fxgame.js pickFx`, 근거 = CN `[uc]projectiles.ab`의 `_mainEffect`·`_effectsWhenReached`와 버프 템플릿(`battle/buff_template_data`)의
   `overrideEffectKey`·`_effectKey`): 클레멘티아 S2 방축선 = `projectile_chr_clemnt_s2_lr`/`_ud`의 `bullet_01`(가로)/`bullet_02`(세로)가 멈출 자리까지 이동,
   소용돌이 = `_s2_range`의 `bullet_range_01` [추정: 그 투사체가 소용돌이], 운반 중인 적 머리 위 `mark_enemy`(`clemnt_s2[projectile_hit]`); S3 포격 = `_s3`의
-  `Mark_all_01`(3번 파동이 프리팹 안에 있어 포격 하나에 한 번, 시뮬 `lock`), 시뮬 `blast` 3번은 대체 그림 없음. 켈시 에스페란타 S2 착탄 = `_s2_dmg`/`_s2_heal`의
+  `Mark_all_01`(3번 파동이 프리팹 안에 있어 포격 하나에 한 번, 시뮬 `lock`; 2026-10-29부터 그녀의 'die'에 지움 — 포탄 `_clearReachedEffectWhenStop`,
+  rules/diy.md 「선발 추가 3명」), 시뮬 `blast` 3번은 대체 그림 없음. 켈시 에스페란타 S2 착탄 = `_s2_dmg`/`_s2_heal`의
   `range_damage_01`/`range_heal_01`(적/아군 — 시뮬 `aoe`의 `ally`); S3 비행 = `teleport_01`(떠남, [추정: 이름]) + `_s3_2`의 `teleport_trail_01`(날아가는 방향으로
   돌림) + `teleport_end_01`(착지, [추정: 이름]). 안젤리나 더 멜로우 위시 S2 = `aglna2_s_2[flying]`의 방향별 활공 꼬리·`fly_range_01`(吟唱 동안), `[chant_end]`의
   `fly_end_01–03`; 「이따 봐!」 표식 = `token_aglna2_agairp_01`. 이 프리팹들은 `KIT_OWNED` — 이름 규칙(`_range` 루프)이 시전자에게 또 틀던 것을 막는다.
