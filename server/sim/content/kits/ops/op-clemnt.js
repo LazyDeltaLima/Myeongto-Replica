@@ -3,9 +3,9 @@
 // https://prts.wiki/w/克莱门莎 . No module was released with her.
 // PRTS still marks several launch-day details unknown: [ASSUMED] carriage's unresolved 放逐 combination =
 // cannot walk/attack/be blocked, but remains damageable;
-// its boundary clearance 0.4, carriage updates once per sim tick, vortex ends with the skill;
-// launched S3 shells survive skill end. (S3's bombardment timing is the official client's since 2026-10-29: SHELL_FIRST; so is
-// their stop when she leaves: shellsStop.)
+// its boundary clearance 0.4, carriage updates once per sim tick, vortex ends with the skill.
+// (S3 is the official client's since 2026-10-29: the bombardment timing SHELL_FIRST, the stop when she leaves shellsStop, and
+// launched shells surviving the skill's end — only a FinishManagedProjectiles node ends her shells, and S2's carriage alone has one.)
 // These pending confirmations are listed in docs/rules/diy.md 「선발 추가 3명 (2026-10-11)」; keep each assumption local to this kit.
 
 import { num, talentBb, skillRec, up } from '../shared/tier1.js';

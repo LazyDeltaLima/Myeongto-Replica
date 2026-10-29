@@ -496,8 +496,9 @@
   **그녀에게 가까운 순**(`_postFilter` DIST_TO_SOURCE_ASC), 포탄이 이미 있는 칸은 빼고(`_sameGridBanProjectileKey`, 포탄 수명 `projectile_life_time` 5초) —
   키트는 쏜 표식을 지워 같은 결과. 포탄은 **적이 서 있던 칸에 고정**(`clemnt_s3[emit_projectile]` `_useTileAsTarget`·`_useTargetRootTile`, 프리팹
   `_followTarget` 0). **그녀가 쓰러지거나 퇴각하면 남은 포격이 멈춘다**(`_stopWhenSourceInvalid` 1 — 키트 `shellsStop`, 그 전엔 끝까지 터졌음; 착탄 이펙트
-  `clemnt_skill_03_Mark_all_01`도 `_clearReachedEffectWhenStop`대로 그녀의 'die'에 지움). 낙하음은 미리 예약돼 아직 멈추지 않는다(`audio.md` 「스킬·재능 투사체 소리」).
-  스킬이 끝나도 쏜 포탄이 남는 것은 그대로 [추정·미조사: `_managedBySource`의 뜻을 안 읽음],
+  `clemnt_skill_03_Mark_all_01`도 `_clearReachedEffectWhenStop`대로 그녀의 'die'에 지움). 낙하음도 그녀의 'die'에 아직 안 난 것을 취소(`audio.md` 「스킬·재능 투사체 소리」).
+  **스킬이 끝나도 쏜 포탄은 남는다**(공식 클라에서 확인): 포탄 `_managedBySource` 1은 그녀의 관리 투사체 목록에 넣기만 하고, 그 목록을 끝내는 것은
+  템플릿 노드 `FinishManagedProjectiles`뿐인데 S2(`clemnt_s2[emit_projectile]` 버프 끝 — 객차)만 쓰고 S3 템플릿·스킬 프리팹에는 없다,
   予愿安洁莉娜 4(S3 비행 이동 속도·0.1 s 재선택 등). 克莱门莎 S3 포격 화면은 upstream 공용 폭발 자리표시 `blast`(`public/js/render/fx/kinds.js`) [추정].
 - 공식 이펙트·소리·공격 타이밍·소환물 모델: EN 클라이언트에 없어 CN 클라이언트에서 뽑았다(2026-10-11, `fx.md` 「선발 추가 3명 — CN 클라이언트」).
   공격 타이밍(`tools/assets/local-attack-timing.json`)이 들어가며 세 명의 타격 시점이 공식대로 바뀌었다(golden `diy-009`…`diy-011`만 움직임).
