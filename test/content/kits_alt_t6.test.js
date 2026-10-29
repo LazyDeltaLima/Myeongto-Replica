@@ -857,6 +857,26 @@ test('6_13 新约能天使 S3 使命必达！: 5 hits per attack spending 5 bull
   }
 });
 
+test('6_13 新约能天使 S3: the 投递坐标 bombardment hits every enemy within 1.8 of the coordinate (projectile_chr_angel2_s3_start)', () => {
+  const id = both('chess_char_6_13')[0], sid = 'skchr_angel2_3';
+  const h = run({
+    defs: { chess: { vg: plain('vg', { skill: { skillId: 'sk_vg', spCost: 30, initSp: 0 }, stats: { respawnTime: 60 } }) }, enemies: { e: dummy('e') } },
+    units: [U(id, sid, 10, 3, { carryState: { sp: rec(id, sid).spCost - 2 } }), { chessId: 'vg', row: 12, col: 3 }], enemies: [{ key: 'e', pos: [10, 6] }],
+  });
+  const u = h.unit(id), vg = h.unit('vg');
+  h.step(2);
+  const coord = h.b.allyUnits.find((t) => t.defId === 'token_10056_angel2_target' && t.alive);
+  assert.ok(coord);
+  const near = h.b.spawnEnemy('e', { pos: [coord.y, coord.x + 1.7], mods: { speedMul: 0 } });
+  const far = h.b.spawnEnemy('e', { pos: [coord.y, coord.x + 1.9], mods: { speedMul: 0 } });
+  h.b.dealDamage(null, vg, { amount: 1e9, type: 'true' });
+  assert.ok(h.runUntil(() => u.skill.active, 10));
+  const boom = dealt(h, u, tagged('delivery'));
+  assert.ok(boom.some((c) => c.target === near), '1.7 from the coordinate: inside radius 1.8 (radius 1 missed it)');
+  assert.ok(!boom.some((c) => c.target === far), '1.9: outside');
+  done(h);
+});
+
 // =================================================================================================================
 // 6_14 流明
 

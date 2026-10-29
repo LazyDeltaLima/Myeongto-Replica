@@ -24,7 +24,9 @@ function decayingShield(battle, u, key, total, dur) {
 // initial/shield_max_duration per second ("屏障每秒衰减量为：初始屏障量/30"); a new one replaces the old one ("重复获得此
 // 屏障时，重置屏障量与衰减速度").
 
-const AIRSTRIKE_RADIUS = 1; // S3's 投递坐标 splash radius [ASSUMED·미조사: not in the tables; the S3 skill prefab is not read yet]
+// S3's 投递坐标 splash: her S3 mode's S3FireToToken fires projectile_chr_angel2_s3_start (CircleCollider2D radius 1.8, hits
+// every enemy once when it stops — `_hitNumType` INFINITY, `_onlyCheckHitWhenStop`)
+const AIRSTRIKE_RADIUS = 1.8;
 // 火力电台's bombing: PRTS 新约能天使 天赋 备注 「轰炸半径1.3，单轮多次轰炸之间间隔0.1s」; the client's TalentBomb
 // (`_triggerDelta` 0.1) fires projectile_chr_angel2_t1 (CircleCollider2D radius 1.3, life 0.3 s, hits when it stops)
 const BOMB_RADIUS = 1.3, BOMB_GAP = 0.1, BOMB_DELAY = 0.3;

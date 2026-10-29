@@ -985,8 +985,14 @@ function kitSpring(ab, e) {
             c.dmg.mul *= scale;
             // the counter "对来源造成…无来源物理附加伤害" picks its attacker directly — no selection, so an airborne 起飞
             // attacker takes it too (PRTS 异常效果 无法选择: "'直接选中'的能力…不受这些仅在选择时生效的异常效果制约")
+            // actrpa_t_1 runs the counter as one action list: the physical hit (`_ignoreMissFlag` / `_ignoreCancelReasonMask`
+            // NONE: it can be dodged or blocked), then its effect, sound and erosion. A node runs only when the one before it
+            // succeeded (ActionNode PREVIOUS_SUCCEED) and the damage node fails when its modifier is cancelled — so a dodged,
+            // blocked or fully absorbed counter brings no erosion (official client; upstream 0.3.2 reached the same)
             const s = c.source, o = { ignoreSelect: true, tags: ['springCounter'] };
-            if (s && s.side === 'ally' && s.alive) { hurt(b, e2, s, e2.s.atk * (T(ab, '1.atk_scale') ?? 0), 'phys', o); elem(b, e2, s, 'erosion', e2.s.atk * (T(ab, '1.ep_damage_ratio') ?? 0), o); }
+            if (s && s.side === 'ally' && s.alive && hurt(b, e2, s, e2.s.atk * (T(ab, '1.atk_scale') ?? 0), 'phys', { ...o, canDodge: true }) > 0) {
+              elem(b, e2, s, 'erosion', e2.s.atk * (T(ab, '1.ep_damage_ratio') ?? 0), o);
+            }
           }
         } else if (kind === 'element') {                 // 元素护盾: phys/arts heavily reduced
           if (ty === 'phys' || ty === 'arts') c.dmg.mul *= scale;

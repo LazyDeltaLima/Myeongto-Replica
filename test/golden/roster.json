@@ -3026,10 +3026,10 @@
         "enemy_1389_winbab_2": [48,26,22,68501,188731],
         "enemy_1525_blkswb": [1,0,1,7838,42944]
       },
-      "hooks": [1,182,6390,935,930,1093,1255,143,105,177,22,22,100,15898,675,64,142,68,1,107,0,0,0],
+      "hooks": [1,182,6390,935,930,1093,1255,143,105,177,22,22,100,15898,671,64,142,68,1,107,0,0,0],
       "events": {"atk":958,"bounty":3,"deploy":37,"die":109,"dmg":1129,"engage":12,"face":61,"fx":89,"heal":40,"leak":68,"skill":44,"spawn":164,"status":262,"swing":1050,"tplfx":3},
       "fx": {"airstrike":23,"anchor":2,"appear":1,"blink":1,"charges":15,"copy":1,"disappear":1,"ember":1,"emergency":1,"enemySkill":3,"explode":4,"garrisonGrant":2,"heal":5,"link":2,"palsy":1,"parry":9,"revive":4,"strike":3,"summon":2,"summonStun":2,"sunBurst":2,"sword":2,"telegraph":1,"zone":1},
-      "snaps": "f15750f7 2d158666 4dbcd89f 52563ba7 bab6d967 d7e83ec3 f4073784 0051e019 5c795914 10b3c015 fa196576 1df1dc19 c7b982a6 5381eb7b 529af72c 89516b7a 888e7986 dc22142d dc7b1e32 024e4cc8 14978fa7 5f152f9f"
+      "snaps": "f15750f7 7fb7d328 36f2cd89 f88d376d b14dabd5 04a07769 b19792f2 9ca90283 e1f884ea c37b45a7 0c139a8c 89e6adcf 1376ce1c 7082ea5d 59cf4b0a 84dc31d8 1575c3f0 bd4c019f 84dc7ea8 a69b4bda 6e6965a5 d7fa0e31"
     },
     "roster-048": {
       "about": "pass 2 band 7: chess_char_6_19_b chess_char_5_13_b chess_char_6_20_b chess_char_5_12_b chess_char_5_20_b chess_char_6_05_b",

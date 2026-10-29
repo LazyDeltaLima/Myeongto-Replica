@@ -2133,7 +2133,10 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
   피해만 — 그대로.
 - 근거: 공식 `actrpa_passive`는 조정값이 적용될 때(ON_APPLIED_MODIFIER) 그 값을 블랙보드에 적어 넘기고, `actrpb_passive`·`actrpc_passive`는 피해를 받을 때(ON_TAKE_DAMAGE)다.
   PRTS 「조정값은 피해·치료·원소 손상을 포함」.
-- 그대로 둔 것: upstream이 법술 방어의 반격 침식을 「반격이 성공했을 때만」 거는 부분은 받지 않았다(우리 엔진의 피해 순서와 맞물려 [추정·엔진]).
+- 반격 (2026-10-29 후속): 법술 방어의 반격 물리 피해는 회피·막힘이 될 수 있고, 반격이 들어가지 않으면(회피·막힘·전부 흡수) 침식도 없다(`bosses.js kitSpring`,
+  `hurt`의 `canDodge`와 결과 > 0). 근거: 공식 `actrpa_t_1`은 반격을 한 동작 목록(물리 피해 → 이펙트 → 소리 → 침식)으로 돌리고, 피해 노드는 `_ignoreMissFlag`·
+  `_ignoreCancelReasonMask` NONE이다. 노드는 앞 노드가 성공했을 때만 돌고(기본 실행 조건 PREVIOUS_SUCCEED), 피해 노드는 조정값이 취소되면 실패한다(공식 클라에서 확인).
+  upstream의 「반격이 성공했을 때만」과 같은 결론이다. 테스트 「“碎铳之簧” 法术护盾 (9018): the counter can be dodged…」. golden 이동 없음.
 - 테스트 「“碎铳之簧” 法术护盾 (9018) passes every adjustment to 铳…」.
 
 ### 블러드 앰버는 1초마다 최대 HP 10 %를 잃는다 (upstream `5f3a7492`, upstream #720)
@@ -2156,8 +2159,16 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
 ## upstream 0.3.2–0.3.4 대조 이식 — 엑시아 더 뉴 커버넌트의 「화력 무전」 (2026-10-29)
 
 같은 대조(위 「피해 계산」 절)에서 받은 오퍼레이터 재능 수정(관리자 결정 2026-10-29, 묶음 C). upstream `706a35a0`·`6898da6e`·`d962a1de`(그 커밋의 「화력 무전」 부분)를
-손 이식했다. 우리 엔진에서 먼저 재현했다(반경·사거리 시험 둘이 수정 전 코드에서 실패). 같은 키트의 S3 투하 좌표 포격 반경(`AIRSTRIKE_RADIUS` 1)은 이 수정과
-무관하다. **[추정·미조사: 표에 없고 S3 스킬 프리팹을 아직 읽지 않았다]** — 관리자의 열린 일 목록에 있다.
+손 이식했다. 우리 엔진에서 먼저 재현했다(반경·사거리 시험 둘이 수정 전 코드에서 실패). 같은 키트의 S3 투하 좌표 포격 반경은 아래 「S3 투하 좌표 포격 반경 1.8」.
+
+### S3 투하 좌표 포격 반경 1.8 (2026-10-29)
+
+- 규칙: 엑시아 더 뉴 커버넌트 S3 「사명 완수!」(`skchr_angel2_3`) 시작의 투하 좌표 포격은 좌표 칸 중심 반경 **1.8** 안의 적을 모두 한 번 맞힌다(`AIRSTRIKE_RADIUS`).
+  전에는 반경 1이었다(표에 값이 없어 둔 추정).
+- 근거: 그녀의 S3 모드 공격 능력 `S3FireToToken`(공격 배율 `cannon_atk_scale`, 물리)이 투사체 `projectile_chr_angel2_s3_start`를 쏘고, 그 투사체 루트의
+  `CircleCollider2D` 반경이 1.8, 맞히는 수 `_hitNumType` INFINITY, 멈출 때만 판정(`_onlyCheckHitWhenStop`), 위장 무시(공식 클라에서 확인, 2026-10-29). 판정 기준점은
+  지금 구현(적 중심)을 그대로 둠.
+- 테스트 `test/content/kits_alt_t6.test.js` 「新约能天使 S3: the 投递坐标 bombardment hits every enemy within 1.8」. golden: roster-047.
 
 ### 「화력 무전」 폭격은 한 번 소모에 한 라운드, 소모자의 자기 범위에서 대상 하나 (upstream `706a35a0`, `6898da6e`, `d962a1de`)
 
