@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { makeBattle, enemyRec, chessRec, checkInvariants } from '../helpers/battleHarness.js';
 import { COLS } from '../../server/sim/constants.js';
 import { applyModuleRange } from '../../server/sim/content/kits/shared/tier4.js';
+import { absoluteRangeKeys } from '../../server/sim/targeting.js';
 
 const dummy = (o = {}) => enemyRec({ key: 'enemy_dummy', hp: 1e7, speed: 0, ...o });
 const DEFS = {
@@ -24,6 +25,7 @@ const DEFS = {
       rangeGrid: Array.from({ length: 11 }, (_, c) => [0, c]).concat(Array.from({ length: 11 }, (_, c) => [-2, c]), Array.from({ length: 11 }, (_, c) => [2, c])),
     }),
     test_short_a: chessRec({ id: 'test_short_a', profession: 'SNIPER', skill: null, stats: { atk: 1 }, rangeGrid: [[0, 0], [0, 1]] }),
+    test_skill_a: chessRec({ id: 'test_skill_a', profession: 'SNIPER', stats: { atk: 1 }, rangeGrid: [[0, 0], [0, 1]], skill: { spCost: 999 } }),
   },
 };
 
@@ -42,6 +44,7 @@ function battle(opts) {
 }
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps * Math.max(1, Math.abs(b));
 const enemyAt = (h, key, i = 0) => h.b.units.filter((u) => u.side === 'enemy' && u.defId === key)[i];
+const absKeys = (u, grid) => absoluteRangeKeys(grid, u.tileR, u.tileC, u.dir, 0);
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -664,7 +667,7 @@ test('迷迭香: S2 adds 2 aftershocks per attack, ignores 160 DEF (talent)', ()
   assert.equal(u.profile.shockTimes, u.def.traitBb['attack@times'], 'restored after the skill');
 });
 
-test('新约能天使 火力电台 (PRTS 备注): one target per round, a bombing per success 0.1 s apart, radius 1.3, damage fixed per round', () => {
+test('新约能天使 火力电台 (PRTS 备注, client TalentBomb): one target per round, a bombing per success 0.1 s apart hitting 0.3 s after it is fired, radius 1.3, damage fixed per round', () => {
   const h = battle({
     units: [{ chessId: 'chess_char_6_13_a', row: 10, col: 1 }, { chessId: 'test_lat_a', row: 10, col: 2 }],
     enemies: [{ key: 'enemy_dummy', pos: [10, 8] }, { key: 'enemy_dummy2', pos: [9, 8.7] }],
@@ -683,7 +686,7 @@ test('新约能天使 火力电台 (PRTS 备注): one target per round, a bombin
   const onA = hits.filter((d) => d.tgt === a.id).map((d) => d.t - t0), onB = hits.filter((d) => d.tgt === b.id).map((d) => d.t - t0);
   assert.equal(onA.length, 3, 'three successes: three bombings of the round');
   assert.equal(onB.length, 3, 'radius 1.3 reaches the enemy 1.22 tiles away (radius 1 did not)');
-  onA.forEach((t, k) => assert.ok(Math.abs(t - 0.1 * k) < 0.04, `bombing ${k} at +${t.toFixed(3)} s`));
+  onA.forEach((t, k) => assert.ok(Math.abs(t - (0.3 + 0.1 * k)) < 0.04, `bombing ${k} at +${t.toFixed(3)} s`));
   // 「预计算的物理普通伤害」: an ATK buff after the round's first bombing leaves its later bombings at the first amount
   h.b.rng = Object.assign(() => 0, rng);
   const t1 = h.b.time;
@@ -714,7 +717,7 @@ test('新约能天使 火力电台: the target among the enemies of the consumer
   const t0 = h.b.time;
   h.b.emit('ammoUsed', { unit: sh, left: 4, skill: sh.skill });
   h.b.rng = rng;
-  h.run(0.3);
+  h.run(0.5);
   assert.equal(h.dmg.filter((x) => x.src === u.id && x.tags.includes('airstrike') && x.t >= t0 - 1e-9).length, 0, 'no target in the consumer\'s own grid: no bombing');
 });
 
@@ -741,9 +744,58 @@ test('新约能天使 火力电台: a module that replaces the consumer\'s grid 
   const t0 = h.b.time;
   h.b.emit('ammoUsed', { unit: sh, left: 4, skill: sh.skill });
   h.b.rng = rng;
-  h.run(0.3);
+  h.run(0.5);
   assert.equal(h.dmg.filter((x) => x.src === u.id && x.tgt === d.id && x.tags.includes('airstrike') && x.t >= t0 - 1e-9).length, 1);
   checkInvariants(h.b);
+});
+
+test('新约能天使 火力电台 (client TalentBomb): a bombing lands where its target stood when fired; none is fired once the target is gone', () => {
+  // the target in the consumer's range; a second enemy 1 tile from it, outside that range
+  const h = battle({
+    units: [{ chessId: 'chess_char_6_13_a', row: 10, col: 1 }, { chessId: 'test_lat_a', row: 10, col: 2 }],
+    enemies: [{ key: 'enemy_dummy', pos: [10, 8] }, { key: 'enemy_dummy2', pos: [9, 8] }],
+  });
+  const u = h.unit('chess_char_6_13_a'), lat = h.unit('test_lat_a');
+  h.step();
+  const a = enemyAt(h, 'enemy_dummy'), b = enemyAt(h, 'enemy_dummy2');
+  assert.ok(!h.b.enemiesInKeys(lat.rangeKeys, u).includes(b), 'the second enemy is outside the consumer\'s range');
+  const rng = h.b.rng;
+  h.b.rng = Object.assign(() => 0, rng);
+  const t0 = h.b.time;
+  for (let i = 0; i < 3; i++) h.b.emit('ammoUsed', { unit: lat, left: 10 - i, skill: lat.skill }); // three bombings
+  h.b.rng = rng;
+  h.run(0.05);
+  h.b.kill(a, null); // after the first bombing is fired, before the second
+  h.run(0.6);
+  const hits = h.dmg.filter((d) => d.src === u.id && d.tags.includes('airstrike') && d.t >= t0 - 1e-9);
+  assert.equal(hits.filter((d) => d.tgt === b.id).length, 1, 'the first bombing still lands on the dead target\'s spot');
+  assert.ok(Math.abs(hits[0].t - t0 - 0.3) < 0.04, 'at +0.3 s');
+  assert.equal(hits.length, 1, 'the second and third are not fired');
+  checkInvariants(h.b);
+});
+
+test('新约能天使 火力电台: a consumer running a skill with its own range lends that range', () => {
+  const h = battle({
+    units: [{ chessId: 'chess_char_6_13_a', row: 10, col: 1 }, { chessId: 'test_skill_a', row: 10, col: 3 }],
+    enemies: [{ key: 'enemy_dummy', pos: [10, 5] }],
+  });
+  const u = h.unit('chess_char_6_13_a'), sk = h.unit('test_skill_a');
+  h.step();
+  const d = enemyAt(h, 'enemy_dummy');
+  assert.ok(!h.b.enemiesInKeys(absKeys(sk, sk.rangeGrid), u).includes(d), 'outside its own grid');
+  // the skill's targeting, set by hand around the consumption (the client: the skill mode's attack range)
+  const spec = sk.skill.spec;
+  sk.skill.spec = { ...spec, targeting: { rangeGrid: [[0, 0], [0, 1], [0, 2]] } };
+  sk.skill.active = true;
+  const rng = h.b.rng;
+  h.b.rng = Object.assign(() => 0, rng);
+  const t0 = h.b.time;
+  h.b.emit('ammoUsed', { unit: sk, left: 4, skill: sk.skill });
+  h.b.rng = rng;
+  sk.skill.active = false;
+  sk.skill.spec = spec;
+  h.run(0.5);
+  assert.equal(h.dmg.filter((x) => x.src === u.id && x.tgt === d.id && x.tags.includes('airstrike') && x.t >= t0 - 1e-9).length, 1);
 });
 
 test('新约能天使: S2 steals 70 ASPD from an ally in range, shields both, 35+5 ammo; 火力电台 heals per ammo', () => {

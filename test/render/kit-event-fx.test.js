@@ -323,7 +323,7 @@ test('the kits send what the rules read', () => {
   assert.match(src('chess_char_4_24-billro.js'), /battle\.fx\('shell', \{[^}]*charged: /);
   assert.match(src('chess_char_4_24-billro.js'), /battle\.fx\('devour', \{[^}]*charged: /);
   assert.match(src('chess_char_5_02-titi.js'), /battle\.fx\('wake', \{[^}]*, to \}\);\s*sleepOthers\(e, to\)/);
-  assert.match(src('chess_char_6_13-angel2.js'), /battle\.fx\('airstrike', \{ x: r\.x, y: r\.y, id: unit\.id, r: BOMB_RADIUS, tgt: t\.id \}\)/);
+  assert.match(src('chess_char_6_13-angel2.js'), /battle\.fx\('airstrike', \{ x, y, id: unit\.id, r: BOMB_RADIUS, tgt: t\.id \}\)/);
   assert.match(src('chess_char_6_14-lumen.js'), /battle\.fx\('healField', \{ x: target\.x, y: target\.y, id: unit\.id, tgt: target\.id, t: life \}\)/);
   assert.match(src('chess_char_6_11-mlyss.js'), /battle\.fx\('copy', \{[^}]*mode: [^}]*by: unit\.id \}\)/);
   assert.match(src('chess_char_5_02-titi.js'), /battle\.fx\('sleepGuard', \{ x: a\.x, y: a\.y, id: a\.id, src: unit\.id \}\)/);
