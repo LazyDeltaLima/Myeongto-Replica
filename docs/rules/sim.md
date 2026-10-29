@@ -297,7 +297,7 @@
   `SKILL_RANGE`; 나머지 DEFAULT = `onAboutToAttack` 「다음 공격 직전」), 자동 조작 간격 `AUTO_OP_COOLDOWN` 3 s(PRTS 「自动操作具有3s冷却」, `opReadyAt`),
   틱당 시전 수 제한 없음, TAKE_DAMAGE는 피격 즉시. 되돌리려면 `tools/build-data.mjs resolveTrigger`(ACTIVE_RANGE·SKILL_RANGE 부여, `activeAttackGrid`·
   `strictlyContains`), `server/sim/skills.js`(`autoOp`이면 tick/onAboutToAttack 시전 안 함 → 되살림, `blockTicks` → `opReadyAt`), `battle/lifecycle.js _autoTriggerPass`
-  삭제, `constants.js AUTO_OP_COOLDOWN` 3. 엔진 규칙 `ACTIVE_RANGE`·`SKILL_RANGE`는 키트용으로 남아 있다(Touch `content/tokens.js` 등).
+  삭제, `constants.js AUTO_OP_COOLDOWN` 3. 엔진 규칙 `ACTIVE_RANGE`·`SKILL_RANGE`는 키트용으로 남아 있다(비비아나 S3 등; 외근 의료 Touch는 2026-10-29부터 데이터 DEFAULT — 「오퍼레이터 스킬 발동 시점 묶음 C」).
 
 ## 중장 스킬 공식 TAKE_DAMAGE — 관리자 결정 2026-10-28 「공식대로」
 - 규칙: 수동(MANUAL) 중장 스킬은 모두 공식 `act2autochess skillTriggerDataList`의 TANK 행 `TAKE_DAMAGE`를 따른다 — 선발(자선) 중장과
@@ -983,7 +983,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   패시브 길이: 검우 버프부터 `duration` → 스킬 지속 = `duration` + 0.8 s [추론: `texas2_s_3`·`[sword]` 버프(수명 `duration`)를 마지막 단계가 붙임] —
   검우 횟수는 그대로 `duration`번. [추정]: 1Frame 단계(1프레임)는 넣지 않음, 검이 생긴 뒤 `_lifeTime` 0.1 끝(`_alwaysHitTraceTargetInTheEnd`)에 맞는지는
   안 봄(생길 때 피해로 둠), AppearSwordRain `_preDelay`가 공속 배율을 받는지 안 봄(0.6 s 고정). 첫 처치 재시전(德克萨斯传统)은 남은 배치 타·검을 지우고
-  새로 시작한다. 그 전: 배치 2타 동시, 첫 검우 1 s(배치 기준), 검 동시. 테스트 `test/content/kits_t4.test.js`·`kits_alt_t4.test.js` 「缄默德克萨斯」.
+  새로 시작한다(배치 폭발 시전 1 s 안의 처치는 재시전 없음 — 「오퍼레이터 스킬 발동 시점 묶음 C」). 그 전: 배치 2타 동시, 첫 검우 1 s(배치 기준), 검 동시. 테스트 `test/content/kits_t4.test.js`·`kits_alt_t4.test.js` 「缄默德克萨斯」.
 - **歌蕾蒂娅 S3 缺水的碎漩狂舞 중 일반 공격 없음** (2026-10-14, 관리자 결정 「S3 중에는 일반 공격을 하지 않는다」; charpack `skchr_glady_3` `_switchToState` 1 =
   Skill 상태): 스킬 내내 `noAttack`(`chess_char_4_12-glady.js`), 모델은 `Skill_3_Chant`로 쉰다. 그 전엔 S3 중에도 평소 `Attack`으로 공격했다. 테스트
   `kits_alt_t4.test.js` 「歌蕾蒂娅 S3」.
@@ -2228,3 +2228,27 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
 - **B5 프라마닉스 더 프레리타 S1**: 키트의 `trigger: 'DEFAULT'` 강제와 옛 추정 주석을 지우고 데이터의 SEARCH를 쓴다(2026-10-11부터 엔진 SEARCH =
   초기 공격 범위의 적, S1은 `rangeId`가 없어 DEFAULT와 같은 검사 — 동작 같음).
 - golden(B1·B3): `roster` roster-004(카제마루)·014·033·034·043·048(사리아·스펙터 디 언체인드), `matches` 11개(봇 편성).
+
+## 오퍼레이터 스킬 발동 시점 묶음 C (2026-10-29)
+
+묶음 B 다음, §11에 있던 것 가운데 둘. 모두 공식 클라에서 확인(버프 템플릿·스킬 프리팹·자동 조작·능력 코드).
+
+- **C1 텍사스 디 오메르토사(`char_1028_texas2`) 재능 「텍사스 전통」(德克萨斯传统) 재시전** (`chess_char_4_16-texas2.js`): 배치마다 첫 처치에서
+  `texas2_recast_already`(배치당 한 번)와 검사 버프 `texas2_t_1[recast_after_born]`(INFINITY, 0.03 s 간격)이 생긴다. 검사 버프는 첫 트리거(처치 순간이 아니라
+  그 버프의 첫 틱, `Buff.OnTick`)에서 `AlwaysNext`로 **늘 끝나고**, 그때 주인에게 `texas2_recast_not_valid`가 없을 때만 스킬을 재시전 대기로 둔다
+  (`SetMultiAppearSkillPendingToCast`). 금지 버프는 S2 `Damage`·S3 `AppearSwordRain` 능력이 시전 동안 붙인다(`BuffDuringCasting`, `OnCastFinish`에 끝 표시 →
+  `ContainsBuff`가 안 셈). 두 능력의 시전은 `_timeMode` 2·`_cooldown` 1·`_animKey` 없음 → 1 s(후딜 `EasyToStartAbility.get_postDelay` 포함) →
+  **배치 뒤 1 s 안의 첫 처치(배치 폭발·등장 두 타 포함)는 재시전도 전체 회복도 없이 쓰인다.** 대기 재시전은 `MultiAppearSkill.OnTick`이 주인이 스킬을 쓸 수
+  있을 때(`ownerCanUseSkill` — 기절이면 기다림) 지금 스킬을 끝내고 다시 쓰며, 전체 회복은 그 재시전의 시작에서 난다(`texas2_t_1[conditional_atk]` ON_SKILL_START,
+  `texas2_recast_already`가 있으면 `HealViaMaxHpRatio`). 구현: 창 `BURST_CAST` 1 s, 재시전은 처치 다음 틱부터 `canAct`일 때, 회복도 그때. 전에는 처치 순간 회복하고
+  같은 틱에 재시전했으며, 배치 폭발 처치도 재시전(동기 재진입)했다. S1(배치 폭발 없음)은 언제나 재시전. 최상위 `texas2_recast_not_valid`(템플릿
+  `texas2_inturrput` = 공격 끊기)는 LIMITED에 `_duration` 키가 블랙보드에 없어 0 s(`Buff.FetchDuration`). 테스트 `kits_t4.test.js`·`kits_alt_t4.test.js`
+  「缄默德克萨斯」.
+  - 같은 근거로 드러났으나 **아직 안 바꾼 것**: 순차 묶음은 앞 능력의 시전이 끝나야 다음으로 가므로 S3 검우 버프는 1.0 s에 붙는다(첫 검우 1.4 s·지속
+    `duration` + 1.0 — 지금 1.2 s·+ 0.8), S2 폭발은 `Damage` 전딜 0.167 s 뒤이고 `Duration`(`texas2_s_2`)은 1.0 s부터 `duration`(지금은 둘 다 시전 순간부터).
+- **C3 외근 의료(外勤医疗, 전략) 맵 캐릭터 Touch 「간절함의 복음」(恳切福音)**: 발동 = 데이터의 DEFAULT, 스킬 rangeId 5-2 상자 안의 **적**(선발 대타 Touch와
+  같음). 근거: 자동 조작 `_TryTriggerAvailableSkills`가 `unitManager.characters` 전부(맵 캐릭터 포함)를 돌고, 카드가 없는 캐릭터의 형은
+  `_GetAutoChessSkillTriggerType`이 act2autochess `skillTriggerDataList`에서 찾는데 Touch(의료·의사, `char_613_acmedc`)는 항목이 없어 DEFAULT. 전에는 키트가
+  `ACTIVE_RANGE`(5-2 안의 부상 아군, upstream GitHub #260 / PR #278)로 덮어썼다. 구현 `content/tokens.js touchKit`. 테스트 `test/content/tokens_devices.test.js`
+  「外勤医疗 Touch」.
+

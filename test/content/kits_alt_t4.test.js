@@ -739,7 +739,7 @@ test('缄默德克萨斯 S2 阵雨连绵: deploy burst atk_scale arts + RES down
   }
 });
 
-test('缄默德克萨斯 S1/S2/S3: first kill reopens a full window, including a kill inside the deployment burst', () => {
+test('缄默德克萨斯 S1/S2/S3: first kill recasts a full window on the next tick; a kill by the deployment burst is spent with no recast', () => {
   for (const id of pair('chess_char_4_16_a')) for (const index of [0, 1, 2]) {
     const life = [];
     const h = battle([U(id, 10, 4, index)], { extra: { setup(b) {
@@ -752,14 +752,17 @@ test('缄默德克萨斯 S1/S2/S3: first kill reopens a full window, including a
     const e = h.spawn('enemy_dummy', { pos: [10, 5] });
     h.b.kill(e, u);
     assert.equal(u.mem.texasKilled, true);
-    approx(u.hpRatio, 1);
     assert.equal(u.findBuff('texas2:swordplay'), null);
+    assert.equal(sk.activations, 1, 'pending to cast (MultiAppearSkill.OnTick)');
+    h.step();
+    approx(u.hpRatio, 1);
     assert.equal(sk.activations, 2);
-    approx(sk.timeLeft, sk.duration);
+    approx(sk.timeLeft, sk.duration, h.TICK + 1e-9);
     assert.equal(sk.charges, 0);
     assert.equal(sk.ready, false);
     assert.deepEqual(h.hooksOf('skillEnd').map((c) => c.reason), ['recast']);
     h.b.kill(h.spawn('enemy_dummy', { pos: [10, 5] }), u);
+    h.step();
     assert.equal(sk.activations, 2, 'only first kill recasts');
     h.run(sk.duration + 0.1);
     assert.equal(sk.active, false);
@@ -776,21 +779,40 @@ test('缄默德克萨斯 S1/S2/S3: first kill reopens a full window, including a
     // S3's deployment burst lands after its 0.6 s pre-delay (client AppearSwordRain `_preDelay`)
     if (index === 2) { assert.equal(u.mem.texasKilled, false, 'S3 burst not landed yet'); h.runUntil(() => u.mem.texasKilled, 1); }
     assert.equal(u.mem.texasKilled, true);
-    assert.equal(sk.activations, 4, 'new deployment and first-kill recast, including synchronous burst reentry');
-    assert.deepEqual(life.slice(lifeAt), [['skillStart', 'deploy'], ['skillEnd', 'recast'], ['skillStart', 'kill']]);
     assert.equal(u.findBuff('texas2:swordplay'), null);
-    assert.ok(Math.abs(sk.timeLeft - sk.duration) <= h.TICK + 1e-9, `${sk.timeLeft} ≈ ${sk.duration}`);
+    h.step();
+    // texas2_recast_not_valid: the S2 `Damage` / S3 `AppearSwordRain` casting spends the first kill with no recast
+    const recast = index === 0;
+    assert.equal(sk.activations, recast ? 4 : 3, 'new deployment (+ the S1 first-kill recast)');
+    assert.deepEqual(life.slice(lifeAt), recast ? [['skillStart', 'deploy'], ['skillEnd', 'recast'], ['skillStart', 'kill']] : [['skillStart', 'deploy']]);
     if (index === 2) {
       const target = h.spawn('enemy_dummy', { pos: [10, 5] });
       h.run(sk.duration + 0.1);
       const waves = new Set(dmgBy(h, u, tagged('swordRain')).filter((c) => c.target === target).map((c) => c.t));
-      assert.equal(waves.size, D(id, 2).skill.duration, 'reentrant deployment keeps a full set of rain waves');
+      assert.equal(waves.size, D(id, 2).skill.duration, 'the same release keeps a full set of rain waves');
       const n = dmgBy(h, u, tagged('swordRain')).length;
       h.run(2);
       assert.equal(dmgBy(h, u, tagged('swordRain')).length, n, 'rain stops at skill end');
       assert.ok(target.alive);
     }
     checkInvariants(h.b);
+  }
+});
+
+test('缄默德克萨斯 德克萨斯传统: texas2_recast_not_valid lasts the burst ability\'s 1 s casting (S2 Damage / S3 AppearSwordRain, post delay included)', () => {
+  const id = 'chess_char_4_16_a';
+  for (const [index, at, recast] of [[1, 0.9, false], [1, 1.1, true], [2, 0.9, false], [2, 1.1, true]]) {
+    const h = battle([U(id, 10, 4, index)]);
+    h.step();
+    const u = h.unit(id);
+    h.b.retreat(u);
+    assert.ok(h.b.redeploy(u, { free: true }));
+    const t0 = h.b.time, casts = u.skill.activations;
+    h.run(at - (h.b.time - t0));
+    h.b.kill(h.spawn('enemy_dummy', { pos: [9, 0] }), u); // outside her 3-3: not a burst kill
+    h.run(0.2);
+    assert.equal(u.mem.texasKilled, true);
+    assert.equal(u.skill.activations, casts + (recast ? 1 : 0), `S${index + 1} kill at ${at} s: recast ${recast}`);
   }
 });
 

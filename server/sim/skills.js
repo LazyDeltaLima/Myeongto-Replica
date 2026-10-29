@@ -15,7 +15,7 @@
 //   injured ally of the grid whose HP ratio is at most that instead (an AUTO heal skill's own rule — 古米 S1 waits in
 //   its heal mode until it has healed);
 //   ACTIVE_RANGE — a kit rule (the data's until maintainer decision 2026-10-11: the owner's rule of 2026-10-05 for a MANUAL
-//   skill whose running attack range strictly contains the unit's own range; Touch's 恳切福音 still uses it) checks the DEFAULT condition on that larger range (trigger grid = the running
+//   skill whose running attack range strictly contains the unit's own range; kits still set it) checks the DEFAULT condition on that larger range (trigger grid = the running
 //   range, grown by the unit's permanent rangeExtend unless the skill ignores 攻击距离), every tick, no attack needed —
 //   an enemy the unit can target there (or one it blocks), a heal skill an injured ally;
 //   TAKE_DAMAGE (ready + just took a hit, cast on the hit: 重装 "不受技能范围影响，受到伤害时释放技能"; client born buff

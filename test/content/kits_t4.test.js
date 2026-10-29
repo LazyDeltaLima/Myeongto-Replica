@@ -707,20 +707,38 @@ test('缄默德克萨斯 S3 (passive): deploy burst 2 × 115 % arts + 1.5 s stun
   approx(u.s.atk, u.base.atk);
 });
 
-test('缄默德克萨斯: first kill ⇒ full heal + recast; 剑术 buff removed', () => {
+test('缄默德克萨斯: first kill after the deploy hits ⇒ recast on the next tick with its full heal; 剑术 buff removed', () => {
   const id = 'chess_char_4_16_a';
   const h = makeBattle({ defs: { enemies: { enemy_weak: dummy({ key: 'enemy_weak', hp: 50 }), enemy_dummy: dummy() } }, units: [{ chessId: id, row: 10, col: 5 }], timeLimit: 60, hooks: [] });
   h.step();
   const u = h.unit(id);
+  h.run(1); // past the two S3 deploy hits (texas2_recast_not_valid)
   h.spawn('enemy_dummy', { pos: [10, 6] });
   h.b.dealDamage(null, u, { amount: u.s.maxHp * 0.5, type: 'true' });
   h.spawn('enemy_weak', { pos: [9, 5] });
   h.runUntil(() => u.mem.texasKilled, 10);
   assert.ok(u.mem.texasKilled);
-  approx(u.hpRatio, 1, 1e-3, 'full heal');
   assert.equal(u.findBuff('texas2:swordplay'), null);
-  assert.equal(u.skill.active, true, 'skill recast');
-  assert.equal(u.skill.activations, 2);
+  assert.equal(u.skill.activations, 1, 'the pending recast waits for a later tick (MultiAppearSkill.OnTick)');
+  assert.ok(u.hpRatio < 0.9, 'the heal is the recast\'s skill start');
+  assert.ok(h.runUntil(() => u.skill.activations === 2, 0.1), 'skill recast');
+  assert.equal(u.skill.active, true);
+  approx(u.hpRatio, 1, 1e-3, 'full heal');
+});
+
+test('缄默德克萨斯: a stunned first kill recasts once she can act again', () => {
+  const id = 'chess_char_4_16_a';
+  const h = makeBattle({ defs: { enemies: { enemy_weak: dummy({ key: 'enemy_weak', hp: 50 }) } }, units: [{ chessId: id, row: 10, col: 5 }], timeLimit: 60, hooks: [] });
+  h.step();
+  const u = h.unit(id);
+  h.run(1);
+  const e = h.spawn('enemy_weak', { pos: [9, 5] });
+  h.b.applyStatus(u, 'stun', { duration: 1 });
+  h.b.dealDamage(u, e, { amount: 1e6, type: 'true' });
+  assert.ok(u.mem.texasKilled && !u.canAct);
+  h.run(0.8);
+  assert.equal(u.skill.activations, 1, 'no recast while stunned');
+  assert.ok(h.runUntil(() => u.skill.activations === 2, 0.5), 'recast after the stun');
 });
 
 test('星熊 S2 (passive): DEF +13 % and 65 % ATK thorns; 战术装甲 negates ~25 % of hits; 重装 aura DEF +6 %', () => {
@@ -1033,7 +1051,7 @@ test('elite modules: 泥岩 −15 % from blocked enemies, 百炼嘉维尔 ×1.1 
 // --------------------------------------------------------------------------------------------------------------
 // fidelity-verification regressions
 
-test('缄默德克萨斯: a kill by the deploy burst itself (redeploy) ⇒ full heal + recast, no 剑术 buff', () => {
+test('缄默德克萨斯: a kill by the deploy burst itself (redeploy) spends the first kill with no recast or heal (texas2_recast_not_valid), no 剑术 buff', () => {
   const id = 'chess_char_4_16_a';
   const h = makeBattle({ defs: { enemies: { enemy_weak: dummy({ key: 'enemy_weak', hp: 50 }), enemy_dummy: dummy() } }, units: [{ chessId: id, row: 10, col: 5 }],
     timeLimit: 60, hooks: ['heal', 'damaged'], captureNoisy: true });
@@ -1051,10 +1069,18 @@ test('缄默德克萨斯: a kill by the deploy burst itself (redeploy) ⇒ full 
   h.runUntil(() => u.mem.texasKilled, 1); // S3's burst lands after its 0.6 s pre-delay
   assert.equal(u.mem.texasKilled, true, 'the deploy burst scored the kill');
   assert.equal(u.findBuff('texas2:swordplay'), null, '剑术 is not granted after the kill');
-  assert.equal(noisy(h, 'heal').filter((c) => c.source === u && c.target === u).length, heals0 + 1, 'full-heal attempt');
-  // first burst hit (2 enemies, the weak one dies: its second hit is dropped by the recast) + recast burst (2 hits on the survivor)
+  const casts = u.skill.activations;
+  // first burst hit (2 enemies, the weak one dies) + the second hit on the survivor; no recast burst
   h.run(1);
-  assert.ok(dmgBy(h, u, (c) => c.dmg?.tags?.includes('burst')).length - bursts0 >= 4, 'passive re-released');
+  assert.equal(dmgBy(h, u, (c) => c.dmg?.tags?.includes('burst')).length - bursts0, 3, 'the release goes on unchanged');
+  assert.equal(u.skill.activations, casts, 'no recast');
+  assert.equal(noisy(h, 'heal').filter((c) => c.source === u && c.target === u).length, heals0, 'no full heal');
+  assert.ok(u.skill.active && u.mem.texasS3, 'the sword rain of the same release');
+  // a later kill is not a first kill any more
+  const w = h.spawn('enemy_weak', { pos: [9, 4] });
+  h.b.dealDamage(u, w, { amount: 1e6, type: 'true' });
+  h.run(0.5);
+  assert.equal(u.skill.activations, casts, 'once per deployment (texas2_recast_already)');
   checkInvariants(h.b);
 });
 

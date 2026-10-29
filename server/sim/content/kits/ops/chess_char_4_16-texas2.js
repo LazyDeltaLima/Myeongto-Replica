@@ -1,6 +1,7 @@
 // server/sim/content/kits/ops/chess_char_4_16-texas2.js — 缄默德克萨斯 (char_1028_texas2) kit, tier 4.
 // Conventions of the tier-4 kits: ../shared/tier4.js; kit contract and rules: ../README.md.
 
+import { TICK } from '../../../constants.js';
 import { sortEnemyTargets } from '../../../targeting.js';
 import {
   AURA, num, tbb, grid, targetsInGrid, whileDeployed, toggleBuff, resCut, isSel, alt, lonely, withDefaults,
@@ -9,6 +10,9 @@ import {
 // S3 剑雨滂沱 timings (EN client prefab skchr_texas2_3, see the kit note): AppearSwordRain `_preDelay` / `_triggerDelta`,
 // the rain buff's `firstTriggerInterval`, the rain sword's `_randomDelayToBorn` (s)
 const S3_APPEAR_PRE = 0.6, S3_APPEAR_DELTA = 0.2, S3_RAIN_FIRST = 0.4, S3_SWORD_DELAY = 0.3;
+// the deploy burst's casting (S2 `Damage` / S3 `AppearSwordRain`: `_timeMode` 2, `_cooldown` 1, no `_animKey` — the cast
+// lasts its cooldown, the post delay included: EasyToStartAbility.get_postDelay) (s)
+const BURST_CAST = 1;
 
 export default withDefaults({
   // ===== 缄默德克萨斯 (executor) S3 剑雨滂沱 (passive) — deploy burst 2×115 % + 1.5 s stun, sword rain 1/s; talents
@@ -34,8 +38,16 @@ export default withDefaults({
       if (!unit.alive || !unit.deployed) return;
       battle.fx('swordRain', { x: unit.x, y: unit.y, id: unit.id });
     };
+    // texas2_recast_not_valid (德克萨斯传统): a kill while the deploy burst casts does not recast (`mem.texasNoRecast`, the
+    // talent below) — the S2 `Damage` / S3 `AppearSwordRain` abilities carry it (BuffDuringCasting, INFINITY: from their
+    // cast start to OnCastFinish, BURST_CAST after the cast; the S3 second hit at 0.8 s is inside)
+    const noRecastWindow = (battle, unit) => {
+      const w = unit.mem.texasNoRecast = {};
+      battle.after(BURST_CAST, () => { if (unit.mem.texasNoRecast === w) unit.mem.texasNoRecast = false; }, { owner: unit });
+    };
     const castS2 = (battle, unit) => {
       if (!unit.alive || !unit.deployed) return;
+      noRecastWindow(battle, unit);
       const mr = num(bb.magic_resistance, 0);
       for (const e of targetsInGrid(battle, unit, g)) {
         battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale, 1.5), type: 'arts', isSkill: true, tags: ['skill', 'burst'] });
@@ -53,6 +65,7 @@ export default withDefaults({
       if (!unit.alive || !unit.deployed) return;
       battle.fx('swordStorm', { x: unit.x, y: unit.y, id: unit.id });
       stopS3(unit);
+      noRecastWindow(battle, unit);
       const timers = unit.mem.texasS3 = [];
       const seq = unit.deploySeq;
       const live = () => unit.alive && unit.deployed && unit.deploySeq === seq && unit.mem.texasS3 === timers;
@@ -80,7 +93,7 @@ export default withDefaults({
       timers.push(battle.after(S3_APPEAR_PRE + S3_APPEAR_DELTA, (b) => {
         if (!live()) return;
         appear(b);
-        if (!live()) return; // a kill by this hit recast the passive (德克萨斯传统): the new release owns the rain
+        if (!live()) return;
         const r = b.every(Math.max(0.1, num(bb['texas2_s_3[sword].interval'], 1)), rain, { owner: unit });
         r.due = b.time + S3_RAIN_FIRST;
         timers.push(r);
@@ -94,19 +107,8 @@ export default withDefaults({
       mods: { atkPct: num(t0.atk, 0.2) + (S1 || S2 ? num(bb.atk) : 0) },
       // 德克萨斯传统's recast: the S3 opens on Start_3_2 instead of Start_3 (render: anims skill `variants`)
       castVariant: ({ reason }) => (reason === 'kill' ? 'recast' : null),
-      onStart({ battle, unit, reason }) {
-        if (reason === 'kill' && unit.mem.texasRecastPending) {
-          unit.mem.texasRecastPending = false; // the synchronous burst already performed this recast
-          return;
-        }
-        unit.mem.texasCasting = true;
-        cast(battle, unit);
-        unit.mem.texasCasting = false;
-      },
-      onEnd({ unit, reason }) {
-        if (reason === 'recast' && unit.mem.texasRecastPending) return;
-        stopS3(unit);
-      },
+      onStart({ battle, unit }) { cast(battle, unit); },
+      onEnd({ unit }) { unit.mem.texasNoRecast = false; stopS3(unit); },
     };
     return {
       skill,
@@ -117,33 +119,35 @@ export default withDefaults({
       // S2: 攻击变为二连击 while the passive lasts
       trait: S2 ? { hitsFn: (b, u) => (u.skill?.active ? 2 : 1) } : undefined,
       talents: [
-        { install(battle, unit) { // 德克萨斯传统 (2nd half): first kill of each deployment ⇒ full heal + recast
+        { install(battle, unit) { // 德克萨斯传统 (2nd half): first kill of each deployment ⇒ recast + full heal
+          // The client (buff templates texas2_t_1[recast] / [recast_after_born] / [conditional_atk], MultiAppearSkill):
+          // her first kill (ON_TARGET_KILLED) marks texas2_recast_already — once per deployment — and adds an INFINITY
+          // check buff (every 0.03 s) whose first trigger always ends it and the recast effects (`AlwaysNext`), setting the
+          // skill pending to cast only without texas2_recast_not_valid: a first kill by the deploy burst (S2 `Damage`, the
+          // two S3 `AppearSwordRain` hits) is spent with no recast. The pending skill recasts on a later tick once she can
+          // use it (`MultiAppearSkill.OnTick`: alive + `ownerCanUseSkill` — a stun waits), and the full heal is that
+          // skill start's (ON_SKILL_START with texas2_recast_already → HealViaMaxHpRatio).
           // (the passive's deploy burst runs inside skill.reset, BEFORE the `deploy` hook: the per-deployment state is
-          // therefore reset when she leaves the field, so a kill by the deploy burst itself counts)
+          // therefore reset when she leaves the field, so a kill by the deploy burst itself counts as the first)
           battle.on('death', (c) => {
             if (c.unit !== unit) return;
-            unit.mem.texasKilled = unit.mem.texasCasting = unit.mem.texasRecastPending = false;
+            unit.mem.texasKilled = unit.mem.texasNoRecast = false;
           }, { owner: unit });
           battle.on('kill', (c) => {
             if (c.killer !== unit || !unit.alive || c.victim.side !== 'enemy' || unit.mem.texasKilled) return;
             unit.mem.texasKilled = true;
             battle.removeBuff(unit, 'texas2:swordplay');
             battle.removeBuff(unit, 'texas2:recast');
-            battle.heal(unit, unit, unit.s.maxHp * num(t0.hp_ratio, 1), { self: true });
-            if (unit.mem.texasCasting) {
-              unit.mem.texasRecastPending = true;
-              cast(battle, unit); // preserve the burst's synchronous reentry and damage order
-            } else {
+            if (unit.mem.texasNoRecast) return;
+            const seq = unit.deploySeq;
+            battle.every(TICK, (b, sched) => {
+              if (!unit.alive || !unit.deployed || unit.deploySeq !== seq) { sched.cancel(); return; }
+              if (!unit.canAct) return;
+              sched.cancel();
               unit.skill.end('recast');
-              unit.skill.activate('kill', { free: true });
-            }
+              if (unit.skill.activate('kill', { free: true })) b.heal(unit, unit, unit.s.maxHp * num(t0.hp_ratio, 1), { self: true });
+            }, { owner: unit, immediate: true }); // (never inside this kill: the scheduler's next pass at the earliest)
           }, { owner: unit });
-          battle.on('skillStart', (c) => {
-            if (c.unit !== unit || !unit.mem.texasRecastPending) return;
-            // Complete the lifecycle after observers received the outer start; the burst already recast above.
-            unit.skill.end('recast');
-            unit.skill.activate('kill', { free: true });
-          }, { owner: unit, priority: -2000 });
         } },
         { install(battle, unit) { // 德克萨斯剑术: until her first kill after each deployment: ASPD +8, −25 % damage taken
           // `visible` for the client's effects (render/fxstatus.js KEY_FX): texas2_t_2 carries texas2_buff_01_start (ended by

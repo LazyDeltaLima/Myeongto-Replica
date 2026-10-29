@@ -1193,25 +1193,23 @@ test('Touch talents: 攫升 +3 SP to the healed unit, 超脱 +5 SP when an opera
   checkInvariants(h.b);
 });
 
-test('GitHub #260: the 外勤医疗 Touch casts 恳切福音 on an injured ally only inside the skill\'s 5-2 (ACTIVE_RANGE, as the 补位 Touch); a full-HP or unhealable one does not', REAL, () => {
+test('外勤医疗 Touch: 恳切福音 is the data\'s DEFAULT on the 5-2 rangeId, as the 补位 Touch — an enemy in that box casts it, an injured ally alone does not (GitHub #260 superseded)', REAL, () => {
   // Touch stands on (10,2) facing right: her 3-3 reaches column 5, the skill's 5-2 column 7
-  const h = makeBattle({ stageId: 'act2autochess_m01', defs: { chess: { test_guard: guard({ stats: { maxHp: 10000, atk: 0 } }) } },
+  const h = makeBattle({ stageId: 'act2autochess_m01', defs: { chess: { test_guard: guard({ stats: { maxHp: 10000, atk: 0 } }) }, enemies: { enemy_dummy: dummy() } },
     units: [{ chessId: 'test_guard', row: 10, col: 7 }], autoFinish: false, timeLimit: 60 });
   h.step();
   const touch = spawnMapChar(h.b, 'p1', TOKEN_IDS.touch);
   assert.deepEqual([touch.tileR, touch.tileC], [10, 2]);
-  assert.equal(touch.skill.rule, 'ACTIVE_RANGE');
+  assert.equal(touch.skill.rule, 'DEFAULT');
+  assert.equal(touch.skill.triggerGrid.length, 18, 'the 5-2 rangeId box');
   const ally = h.unit('test_guard');
   touch.skill.gainSp(1000);
-  h.run(3);
-  assert.equal(touch.skill.activations, 0, 'every ally at full HP: no cast');
   ally.hp = 4000;
-  const buff = h.b.addBuff(ally, { key: 'test:noHeal', flags: { noHeal: true } });
-  h.run(2);
-  assert.equal(touch.skill.activations, 0, 'an ally no heal can pick: no cast');
-  h.b.removeBuff(ally, buff);
-  assert.ok(h.runUntil(() => touch.skill.activations === 1, 2), 'the injured ally five tiles ahead (outside her 3-3) casts the skill');
-  assert.ok(h.runUntil(() => ally.hp > 4000, 5), 'and she heals it from the larger range');
+  h.run(3);
+  assert.equal(touch.skill.activations, 0, 'an injured ally in the 5-2 with no enemy: no cast');
+  h.spawn('enemy_dummy', { pos: [10, 7] });
+  assert.ok(h.runUntil(() => touch.skill.activations === 1, 1), 'an enemy five tiles ahead (outside her 3-3) casts the skill');
+  assert.ok(h.runUntil(() => ally.hp > 4000, 5), 'and she heals the ally from the larger range');
   checkInvariants(h.b);
 });
 

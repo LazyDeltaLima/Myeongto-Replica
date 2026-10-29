@@ -1623,19 +1623,17 @@ export function touchGospel(bb, skill) {
 }
 
 /**
- * Touch (外勤医疗 map character): 恳切福音 (touchGospel) + 攫升 / 超脱 (mapCharTalents). The trigger is the kit rule
- * ACTIVE_RANGE on the skill's 5-2 range (her running range, which strictly contains her own 3-3): an injured ally inside
- * it casts — the owner's larger-range rule of 2026-10-05 read for a heal skill (GitHub #260, PR #278: the map
- * character's record keeps DEFAULT, so she waited for an injured ally in her 3-3). The Touch 补位 stand-in no longer
- * shares it: since maintainer decision 2026-10-11 her data rule is the client's basic strategy, DEFAULT on the 5-2
- * rangeId — an ENEMY in that box (docs/rules/sim.md 「스킬 범위 발동」). Whether the client's automatic operations drive
- * a map character the same way was not checked [ASSUMED: kept as it was].
+ * Touch (外勤医疗 map character): 恳切福音 (touchGospel) + 攫升 / 超脱 (mapCharTalents). The trigger is the data's, as
+ * the Touch 补位 stand-in's: DEFAULT on the skill's 5-2 rangeId — an ENEMY in that box (docs/rules/sim.md 「스킬 범위
+ * 발동」). The client's automatic operations drive every character of the field, map characters included
+ * (`_TryTriggerAvailableSkills` walks `unitManager.characters`), and one with no card takes its type from
+ * `_GetAutoChessSkillTriggerType`: act2autochess `skillTriggerDataList` has no entry for her (医疗 / 医师, char_613_acmedc),
+ * so DEFAULT. (Until then the kit rule ACTIVE_RANGE — an injured ally in the 5-2, GitHub #260 / PR #278.)
  */
 function touchKit(bb, raw, def) {
   const sk = def?.skill;
   if (!sk) return { skill: null, talents: mapCharTalents(def) };
   const g = touchGospel(bb, sk);
-  if (sk.rangeGrid && sk.rangeGrid.length) g.skill.trigger = { rule: 'ACTIVE_RANGE', grid: sk.rangeGrid };
   return { talents: mapCharTalents(def), skill: g.skill, install: g.install };
 }
 
