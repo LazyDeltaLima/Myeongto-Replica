@@ -377,10 +377,11 @@
     모스티마 S2 ON p_skill_blacktimewand_shot · 산크타 믹사파라토 S3 START p_atk_ftmxbrtlm_skiiop(버프 능력 — 시작) · 울피아누스 S3 `.2` START
     p_atk_wtrbatnchr_s(시작, 앞 자식이 버프)·ON p_atk_wtrbatnchrfr_s · 벤델라 S2 `.2` START p_imp_brmblhl_h(앞 자식 `MaxHpMark` 클립이 끝날 때).
     같은 규칙으로 기물이 안 쓰는 스킬(쏜즈 더 로드스타 S3, 위 S2, 아르케토 S2, 티티 S2, 치우바이 S2, 이네스 S3, 블레미샤인 S2)도 매니페스트에 들어가지만 나지 않는다.
-  - 민트 S2: `ON_ABILITY_ATTACK_FINISH.skchr_mint_2` p_skill_magend는 **스킬이 끝나는 순간**(끝 클립 `Skill_2_End`이 시작할 때) 난다. 이 신호는
+  - 민트 S2: `ON_ABILITY_ATTACK_FINISH.skchr_mint_2` p_skill_magend는 **스킬이 끝나는 순간**(끝 클립 `Skill_2_End`이 시작할 때 — 공식 스킬은 그때 끝남, `sim.md`
+    「민트 S2」) 난다. 이 신호는
     `AbilityStandard.OnAttackFinished`가 엔티티의 공격 끝 이벤트(0x14)를 받았을 때 그 인자가 자기 능력이면 한 번 내고, 민트 스킬 루트의 세 단계 애니
     (`ThreePartChannelingAnimation`, `_fireAttackFinishEvent` 1·`_delayToFireAttackSkillEvent` 1·`_delaySecond` 0)가 끝 클립을 틀자마자 그 이벤트를 **스킬 루트
-    능력**(신호 이름 `skchr_mint_2`)을 인자로 낸다(공식 클라에서 확인). 끝 폭발 `FinalAttack`은 0.6초 뒤 터지지만(`sim.md` 「민트 S2 끝 폭발」) 자기 공격 끝
+    능력**(신호 이름 `skchr_mint_2`)을 인자로 낸다(공식 클라에서 확인). 끝 폭발 `FinalAttack`은 0.6초 뒤 터지지만 자기 공격 끝
     소리가 없다(클립이 없고 그 이벤트의 인자가 아님). 구현: `audio.js`가 그녀의 S2 'skill' 꺼짐에 `sfx.kit mint:s2end`(같은 묶음에서 쓰러지면 안 냄 — 끝 클립이
     안 돎). 2026-10-29 처음 구현은 끝 폭발 fx `aoe`에 붙여 [추정·엔진: 공격 끝 이벤트를 판정 직후로 봄]이었고, 그때는 sim 폭발이 스킬 끝이라 시점은 같았다.
   - 글래디아 S3 `.2`(회오리 `Chant`의 ON p_skill_seasummon)는 순차 묶음의 첫 자식 `FinalAttack`(클립 없는 끌어당김 — `OnAttack` 이벤트를 기다림) 다음이라

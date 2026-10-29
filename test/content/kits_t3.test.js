@@ -303,6 +303,7 @@ test('3_08 薄绿: 聚能涡旋 pull + ATK% arts, end burst; 地质学者 DEF au
     approx(u.s.def, u.base.def * (1 + t0.def + tb.def), 1e-6, 'guard + own aura');
     fill(u);
     assert.ok(h.runUntil(() => u.skill.active, 5));
+    const startAt = h.b.time;
     h.run(0.5);
     approx(u.s.taunt, t0.taunt_level);
     approx(ally.s.def, ally.base.def * (1 + TB('chess_char_3_16_a', 0).def), 1e-6, 'aura off during the skill');
@@ -314,8 +315,10 @@ test('3_08 薄绿: 聚能涡旋 pull + ATK% arts, end burst; 地质学者 DEF au
     const hits = h.hooksOf('damaged').filter((c) => c.source === u && c.dmg?.isAttack && c.target === e);
     approx(hits[0].amount, u.s.atk * bb['attack@atk_scale']);
     h.runUntil(() => !u.skill.active, 30);
-    // the end burst lands on the end clip's OnAttack, 0.6 s after the skill ends (her FinalAttack)
+    // the skill ends as its end clip Skill_2_End (4/3 s) starts, inside its duration; the end burst lands on that clip's
+    // OnAttack, 0.6 s later (her FinalAttack)
     const endAt = h.b.time;
+    approx(endAt - startAt, D(id).skill.duration - 4 / 3, 0.01, 'the skill ends as the end clip starts');
     assert.equal(tagged(h, 'burst', u).length, 0, 'no burst as the skill ends');
     assert.equal(u.s.taunt, 0);
     h.runUntil(() => tagged(h, 'burst', u).length > 0, 2);

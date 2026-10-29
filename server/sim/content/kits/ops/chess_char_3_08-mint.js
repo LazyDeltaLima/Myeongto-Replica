@@ -4,7 +4,8 @@
 import { num, defOf, talentBb, traitBb, altSkills, gridKeys, fx, copyGrid, enemiesOn, aura } from '../shared/tier3.js';
 import { absoluteRangeKeys } from '../../../targeting.js';
 
-// S2's end burst: the OnAttack of her end clip Skill_2_End (seconds after the skill ends)
+// S2's end clip Skill_2_End (seconds): the skill ends as it starts, the end burst lands on its OnAttack
+const MINT_END_CLIP = 4 / 3;
 const MINT_BURST_DELAY = 0.6;
 
 export default {
@@ -53,6 +54,10 @@ export default {
       }),
       skill: {
         kind: 'duration',
+        // the skill's three-part animation (Skill_2_Begin → Skill_2_Loop → Skill_2_End) fits inside its duration and fires the
+        // attack-finished event as the end clip starts; the skill's _earlySkillFinishAtAttackFinished ends the skill right
+        // there (the official client: BasicSkill.OnSkillStart listens once, _OnReceiveAttackFinishEvent finishes it)
+        ...(num(d.skill?.duration) > MINT_END_CLIP ? { duration: num(d.skill.duration) - MINT_END_CLIP } : {}),
         attack: {
           atkScale: num(bb['attack@atk_scale'], 1),
           onHit({ battle, unit, target }) {
@@ -67,7 +72,8 @@ export default {
         onStart: guardOn,
         onEnd(ctx) {
           const { battle, unit, reason } = ctx;
-          // the end burst is her FinalAttack: a clip-less melee attack that lands on the OnAttack of the end clip Skill_2_End
+          // the end burst is her FinalAttack (the skill buff's ON_SKILL_FINISH casts it, beside a DISARMED buff — a phalanx does
+          // not attack off its skill anyway): a clip-less melee attack that lands on the OnAttack of the end clip Skill_2_End
           // (0.6 s; its own cap _cooldown 0.62 s) on the constant range x-1 (its selector's range is not extendable, so range
           // bonuses never widen it) — the official client's skill prefab skchr_mint_2. The guard ends with the skill, before it lands.
           if (reason !== 'death' && unit.alive && endScale > 0) {
