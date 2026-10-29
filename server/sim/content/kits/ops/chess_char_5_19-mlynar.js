@@ -42,13 +42,17 @@ export default {
      * knocks out, while his skill runs, that his current attack hit (or the mark it set off, tagged 'mlynarOwn') — so a
      * kill by the damage that attack carries (天马之枪, the 卡西米尔 bond's true damage, the mark) counts too, in any
      * hook order; `onAttack()` after each of his attacks ("加成降低于当次攻击后统一结算"), which also closes the set.
-     * 无动于衷's reflection and a mark another operator's attack set off happen outside his attack: never counted.
+     * The target is taken at `hit` as well: 天马之枪's 无来源 rider lands before the instance that carries it and may knock
+     * the enemy out first. 无动于衷's reflection and a mark another operator's attack set off happen outside his attack:
+     * never counted.
      */
     const ownKills = (battle, unit, onKill, onAttack = null) => {
       const hit = new Set();
-      battle.on('damaged', (c) => {
+      const take = (c) => {
         if (c.source === unit && (c.dmg?.isAttack || (c.dmg?.tags || []).includes('mlynarOwn'))) hit.add(c.target);
-      }, { owner: unit, priority: 1000 });
+      };
+      battle.on('hit', take, { owner: unit, priority: 1000 });
+      battle.on('damaged', take, { owner: unit, priority: 1000 });
       battle.on('kill', (c) => { if (c.killer === unit && hit.has(c.victim) && c.victim.side === 'enemy' && unit.skill?.active) onKill(c.victim); }, { owner: unit });
       battle.on('attack', (c) => { if (c.attacker !== unit) return; hit.clear(); if (onAttack) onAttack(); }, { owner: unit });
     };

@@ -505,7 +505,7 @@ test('双模机械臂: physical / arts damage is dealt as whichever the target r
   close(plain.b.dealDamage(plain.unit('t_op'), foe(plain), { amount: 1000, type: 'phys', canDodge: false }), 100, 'without the arm');
 });
 
-test('天马之盔 + 天马之枪 (either quality): regen 8 % max HP / s and +30 % ATK true damage per damage instance', () => {
+test('天马之盔 + 天马之枪 (either quality): regen 8 % max HP / s and +30 % of each damage instance as true damage', () => {
   for (const [helm, lance] of [[A('5_09'), A('6_01')], [B('5_09'), A('6_01')], [A('5_09'), B('6_01')]]) {
     const h = fight({ units: [{ chessId: 't_op', row: 10, col: 3, items: [helm, lance] }], foes: [[10, 9]] });
     h.step(1);
@@ -513,7 +513,7 @@ test('天马之盔 + 天马之枪 (either quality): regen 8 % max HP / s and +30
     const e = foe(h);
     const before = e.hp;
     hitTrue(h, u, e, 1000);
-    close(before - e.hp, 1000 + 0.3 * u.s.atk, `${helm}+${lance} lance proc`);
+    close(before - e.hp, 1000 + 0.3 * 1000, `${helm}+${lance} lance proc: 30 % of the instance, not of ATK`);
     h.b.loseHp(u, 1000);
     const hp0 = u.hp;
     h.run(1.02);

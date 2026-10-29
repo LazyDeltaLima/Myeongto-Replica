@@ -748,16 +748,21 @@ const BY_ITEM = {
     if (!partner || !(r > 0)) return;
     S.stat('set', null, { interval: 1, onTick: ({ unit }) => { if (unit.deployed && carries(battle, unit, partner)) battle.heal(unit, unit, unit.s.maxHp * r, { self: true }); } });
   },
-  // 天马之枪: with 天马之盔 ⇒ every damage instance also deals atk_scale × ATK true damage
+  // 天马之枪: with 天马之盔 ⇒ each of the carrier's non-附加 damage instances also deals atk_scale × that instance's damage as 无来源
+  // 真实附加伤害 — "额外造成的伤害基于原伤害计算攻击倍率后、计算单位防御力/法术抗性以及所有伤判效果前的伤害数值，且先于原伤害
+  // 处理完毕" (PRTS 盟约记录 下半 装备数据库 备注): the base is the instance's amount at the `hit` hook (after the attack
+  // multiplier, before DEF / RES and the dealt / taken multipliers), and it lands before the instance does. 无来源: hooks
+  // see no source, the kill and the stats stay the carrier's (credit). [ASSUMED·엔진: a dodged instance still carries it — the
+  // client resolves the rider first; whether its dodge roll comes before is not checked]
   chess_item_6_01_e(battle, u, rec, S) {
     const p = bp(rec, 'act2autochess_equip_acarm117_global_buff');
     const partner = partnerOf(p);
     const sc = p ? num(p.atk_scale) : 0;
     if (!partner || !(sc > 0)) return;
-    S.on('damaged', (c) => {
-      if (c.source !== u || isProc(c.dmg) || c.type === 'element' || !c.target || c.target.side !== 'enemy' || !c.target.alive) return;
+    S.on('hit', (c) => {
+      if (c.source !== u || isAddition(c.dmg) || !(c.dmg.amount > 0) || !c.target || c.target.side !== 'enemy' || !c.target.alive) return;
       if (!carries(battle, u, partner)) return;
-      battle.dealDamage(u, c.target, { amount: u.s.atk * sc, type: 'true', canDodge: false, tags: procTags('pegasus') });
+      battle.dealDamage(u, c.target, { amount: c.dmg.amount * sc, type: 'true', canDodge: false, sourceless: true, tags: [...procTags('pegasus'), 'addition'] });
     });
   },
   // 铳骑之威 (拉特兰): on attack 35 % ⇒ extra bullet at 1 enemy in range, atk_scale_1 (with 拉特兰桥夹 atk_scale_2) × ATK phys

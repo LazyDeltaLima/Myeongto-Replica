@@ -217,7 +217,7 @@ test('B4 玛恩纳 S3 per-kill rule (PRTS 备注): trait ATK bonus −10 % per k
 test('B4 玛恩纳: a kill by the damage his attack carries (卡西米尔 bond true damage, 天马之枪) is a kill of his own attack — S2 keeps the ramp, S3 lowers the bonus', () => {
   const weak = (key) => enemyRec({ key, hp: 1, def: 0, speed: 0, atk: 0 });
   const KAZ6 = { kazimierzShip: { count: 6, active: true, tier: 2, layers: 0 } };
-  const PEGASUS = ['chess_item_5_09_e_a', 'chess_item_6_01_e_a']; // 天马之盔 + 天马之枪: every damage instance + 30 % ATK true
+  const PEGASUS = ['chess_item_5_09_e_a', 'chess_item_6_01_e_a']; // 天马之盔 + 天马之枪: 30 % of each instance as 无来源 true, before it
   for (const [label, items, bonds, carried] of [['卡西米尔 6', [], KAZ6, 'bond:kazimierz'], ['天马之盔 + 天马之枪', PEGASUS, {}, 'item:pegasus']]) {
     const setup = (skillIndex) => {
       const h = makeBattle({
@@ -227,7 +227,7 @@ test('B4 玛恩纳: a kill by the damage his attack carries (卡西米尔 bond t
       const u = h.unit(MLYNAR);
       // which damage instance of his knocked each victim out (the last one he dealt it before the kill)
       const lastTags = new Map(), killedBy = [];
-      h.b.on('damaged', (c) => { if (c.source === u) lastTags.set(c.target, c.dmg?.tags || []); });
+      h.b.on('damaged', (c) => { if (c.credit === u) lastTags.set(c.target, c.dmg?.tags || []); }); // 无来源 riders: credit
       h.b.on('kill', (c) => { if (c.killer === u) killedBy.push(lastTags.get(c.victim) || []); });
       return { h, u, killedBy };
     };

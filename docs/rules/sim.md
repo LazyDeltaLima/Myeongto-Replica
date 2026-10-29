@@ -1912,6 +1912,21 @@ golden: fields boss-boss_1-pair·boss-boss_2-pair·boss-boss_2-solo·boss-boss_3
 hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3·coop2-NORMAL-14-standins·coop2-NORMAL-19-coverage-diy, roster-005·006·017·019·
 029·036·037·046·047, 이펙트 golden(`fx-events.json`)은 그 판의 전투가 바뀐 만큼.
 
+### 페가수스의 랜스 추가 트루 대미지는 원래 피해의 30 %, 무출처, 원래 피해보다 먼저 (upstream `741428e3` K10)
+
+- 규칙: 페가수스의 랜스(아이템 `chess_item_6_01_e`)를 페가수스의 투구(`chess_item_5_09_e`)와 같이 들면, 그 오퍼레이터가 주는 부가 피해가 아닌 피해 한 번마다 그 피해의
+  `atk_scale`(30 %)만큼 트루 대미지를 더 준다. 기준은 공격 배율까지 곱하고 방어·마법 저항과 피해 판정 효과(주는·받는 피해 배율)를 넣기 전의 값(`hit` 훅의 `dmg.amount`)이다.
+  추가 피해는 무출처(`sourceless`, 처치·통계는 `credit`으로 그 오퍼레이터)이고 부가 피해(`addition` 태그)라서 다시 랜스를 부르지 않는다. 원래 피해보다 먼저 들어가므로
+  그것만으로 적을 쓰러뜨리면 원래 피해는 들어가지 않는다(`server/sim/content/items/battle.js`). 붙은 드론처럼 부가 피해로 치는 공격분에는 붙지 않는다.
+  전에는 `damaged` 뒤에 공격력 × 30 %를 그 오퍼레이터 출처로 모든 피해(아이템 효과 피해만 빼고)에 붙였다.
+- 무에나(오퍼레이터) 스킬의 「자기 일반 공격(과 그 공격에 딸린 피해)으로 쓰러뜨림」은 공격이 맞은 대상을 `hit` 때도 잡는다. 랜스 피해가 먼저 쓰러뜨려도 그의
+  처치로 센다(`kits/ops/chess_char_5_19-mlynar.js ownKills`).
+- 근거: PRTS 맹약 기록(하) 장비 데이터베이스의 페가수스의 랜스 비고 — 「仅在造成非附加伤害时额外造成无来源真伤附加伤害」, 「额外造成的伤害基于原伤害计算攻击倍率后、计算单位防御力/法术抗性以及
+  所有伤判效果前的伤害数值，且先于原伤害处理完毕」. 공식 표의 값 키는 `act2autochess_equip_acarm117_global_buff` `atk_scale` 0.3.
+  **[추정·엔진: 원래 피해가 회피돼도 추가 피해는 들어간다 — 비고가 「먼저 처리」라고만 하고 회피 판정과의 순서는 확인 안 함. upstream도 회피 전]**
+- 테스트 `test/content/item-pegasus.test.js`(옛 코드에서 실패), `test/content/items.test.js` 「天马之盔 + 天马之枪」, `test/content/feedback1b_kits.test.js` 「B4 玛恩纳」, `test/sim/funnel-body.test.js` 「Pegasus riders」.
+  golden: fields boss-boss_2-pair·boss-boss_3-solo·boss-boss_5-pair·hidden-boss_8-pair·hidden-boss_10-pair, 이펙트 golden boss-boss_5-pair·hidden-boss_10-pair.
+
 ## upstream 0.3.1·0.3.2 대조 이식 — 매치 (2026-10-22)
 
 같은 대조에서 받은 매치 층 수정(관리자 결정 2026-10-22). upstream 판정 목록은 `upstream.md`.
