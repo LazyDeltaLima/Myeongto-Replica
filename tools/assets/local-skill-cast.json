@@ -859,10 +859,10 @@
   },
   "skchr_forcer_2": {
    "ability": {
-    "anim": "",
+    "anim": "Skill",
     "cd": 0,
     "cdKey": "duration",
-    "face": 1,
+    "face": 2,
     "max": -1,
     "pre": 0,
     "time": 0,
@@ -1247,6 +1247,33 @@
    "state": 1
   },
   "skchr_inside_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_kalts2_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_kalts2_2": {
+   "ability": {
+    "anim": "",
+    "cd": 0.1,
+    "cdKey": "duration",
+    "face": 1,
+    "max": -1,
+    "pre": 0,
+    "time": 2,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_kalts2_3": {
    "ability": null,
    "cls": "cast",
    "reset": 0,

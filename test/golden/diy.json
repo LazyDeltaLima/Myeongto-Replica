@@ -385,7 +385,7 @@
       ],
       "enemies": {"enemy_1267_nhpbr_2":[27,25,2,20375,260013],"enemy_1270_nhstlk_2":[36,17,19,0,717088],"enemy_9006_actoxi":[39,29,10,0,904937]},
       "hooks": [1,116,6408,562,562,1245,1245,1937,71,102,32,30,109,41796,503,0,102,31,1,71,0,0,0],
-      "events": {"atk":610,"deploy":12,"die":71,"dmg":1232,"engage":4,"face":124,"fx":388,"heal":329,"leak":31,"skill":62,"spawn":116,"status":238,"swing":561},
+      "events": {"atk":610,"deploy":12,"die":71,"dmg":1232,"engage":4,"face":136,"fx":388,"heal":329,"leak":31,"skill":62,"spawn":116,"status":238,"swing":561},
       "fx": {"aoe":107,"healAoe":107,"kalts2Mark":13,"parry":13,"shield":82,"takeoff":12,"zone":54},
       "snaps": "3c5bee66 5c6b8fe8 36a026d2 93834564 f6ce2ce4 66b35317 2dec1636 8d7ec6e4 01611e05 9cb96eee 8e84810a b285b221 2923cd14 09281479 06c1dce1 c9ad4cc6 9e129a16 146406b7 e5d51b76 0ec0752d 0a2be860 3123fcac"
     },

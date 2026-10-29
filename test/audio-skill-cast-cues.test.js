@@ -70,6 +70,14 @@ describe('castCues: a CastSkill\'s own ability banks', () => {
     assert.ok(!files('char_1050_chen3', 1).includes('b_char_atkboost.mp3'), 'the start sound');
   });
 
+  test('a group skill ability is its first child with a clip (인포서 S2: knock_back `Skill`, not the clip-less aura)', () => {
+    const chess = JSON.parse(readFileSync(path.join(ROOT, 'data', 'chess.json'), 'utf8'));
+    const c = (chess.chess || chess).chess_char_3_07_a.skill.cast;
+    assert.equal(c.clip, 'Skill');
+    assert.ok(c.hit > 0 && c.hit < c.dur, `its strike frame ${c.hit} inside the clip ${c.dur}`);
+    assert.equal(c.face, 2, 'knock_back turns to its deploy direction');
+  });
+
   test('castCuesOf: the waits from the skill event\'s [strike, end]', () => {
     const entry = { castCues: { 1: [{ at: 's', u: 'a' }, { at: 'a', u: 'b' }, { at: 'e', u: 'c' }] } };
     assert.deepEqual(castCuesOf(entry, 1, [0.3, 1.1]).map((x) => x.after), [0, 0.3, 1.1]);

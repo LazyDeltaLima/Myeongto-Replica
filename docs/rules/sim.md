@@ -1221,6 +1221,8 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
 ### 즉발 스킬의 시전 (결정 1, GitHub #298)
 - **규칙**: 자기 공격(`spec.attack`)이 없는 즉발·충전 스킬은 클라 스킬 클래스대로 시전한다 — 데이터 `skills[i].cast`
   (`tools/local-extract/skill_cast.py` → `tools/assets/local-skill-cast.json` → `tools/build-data.mjs skillCast`, 클립 길이는 `data/assets.json`).
+  스킬 능력 = 루트의 애니 능력, 없으면 루트 묶음(`_abilities` 순서)의 첫 클립 자식, 그것도 없으면 경로 이름순 첫 능력(2026-10-29: 인포서 S2가 클립 없는
+  `aura` 대신 `knock_back` `Skill` — 바뀐 것은 이 하나; 켈시 에스페란타 S1–S3의 시전 기록도 이때 들어감, golden은 바라보기 수만).
   - `replace` = `ReplacementSkill`(풀 49개; 공격 없는 것: 引星棘刺 S1·锡人 S1·伺夜 S1/S2·华法琳 S1): 시전 때 SP를 쓰고 **다음 공격이 스킬로 나간다** —
     그 주기에 일반 공격 없음, 스킬 자신의 대상 선택(적이 없어도 나감), 효과는 그 휘두름의 OnAttack 프레임, 다음 공격은 그 휘두름 시작부터 공격 간격 한 번 뒤.
     공식 클라 `ReplacementSkill.ApplyModification` → `Character.RegisterReplacement`, `Character.get_attack`,

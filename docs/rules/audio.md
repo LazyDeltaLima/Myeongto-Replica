@@ -378,12 +378,13 @@
     p_atk_wtrbatnchr_s(시작, 앞 자식이 버프)·ON p_atk_wtrbatnchrfr_s · 벤델라 S2 `.2` START p_imp_brmblhl_h(앞 자식 `MaxHpMark` 클립이 끝날 때).
     같은 규칙으로 기물이 안 쓰는 스킬(쏜즈 더 로드스타 S3, 위 S2, 아르케토 S2, 티티 S2, 치우바이 S2, 이네스 S3, 블레미샤인 S2)도 매니페스트에 들어가지만 나지 않는다.
   - 민트 S2: 끝 폭발(그녀의 `FinalAttack` 추가 능력)의 `ON_ABILITY_ATTACK_FINISH.skchr_mint_2` p_skill_magend — 이 신호는 `AbilityStandard.OnAttackFinished`가
-    낸다(공식 클라에서 확인). sim의 끝 폭발 fx `aoe`(`skill: 'mint_2'`)에 `sfx.kit mint:s2end`로 낸다 [추정·엔진: 공격이 끝나는 순간을 끝 폭발의 피해 순간과 같게 봄 —
-    `FinalAttack`의 `_cooldown` 0.62초 안 어디인지 안 읽음].
-  - 글래디아 S3 `.2`는 순차 묶음의 첫 자식 `FinalAttack`(클립 없음, `wait` 1) 다음이다 — 그 자식이 바로 끝난다고 보고 시작에 낸다 [추정·엔진: 클립 없는 공격 자식이
-    끝나는 시간 안 읽음].
-  - 인포서 S2의 타격 순간은 sim의 시전 기록을 따른다. 그 기록은 `skill_cast.py`가 묶음의 자식 중 경로 이름순 첫 자식(클립 없는 `aura`)을 능력으로 골라 클립이
-    없고, 그래서 타격이 공격 간격 끝이다 — 공식 `.1` = `knock_back`(클립 `Skill`)의 OnAttack 순간과 다르다. 고르는 규칙을 고치면 sim 시전 시간이 바뀐다(관리자 노트의 할 일).
+    그 능력의 공격 끝 이벤트(`AbilityStandard.Event` ON_ATTACK_FINISH)에서 한 번 낸다(공식 클라에서 확인). 공식 끝 폭발은 끝 클립 `Skill_2_End`의 `OnAttack`(0.6초,
+    `FinalAttack` `_cooldown` 0.62초)이고, sim은 스킬이 끝나는 순간 폭발한다(관리자 노트의 할 일). 소리는 sim의 끝 폭발 fx `aoe`(`skill: 'mint_2'`)에
+    `sfx.kit mint:s2end`로 낸다 [추정·엔진: 공격 끝 이벤트를 판정 직후로 봄].
+  - 글래디아 S3 `.2`는 순차 묶음의 첫 자식 `FinalAttack`(시작의 갈고리 — 클립 없는 투사체 공격 `projectile_chr_glady_s3_3`, `wait` 1; 묶음 끝의 같은 능력이 끝의
+    捕网) 다음이다 — 갈고리가 바로 끝난다고 보고 시작에 낸다 [추정·엔진: 클립 없는 투사체 자식이 끝나는 시간(비행) 안 읽음].
+  - 인포서 S2: 시전 능력은 묶음의 첫 클립 자식 `knock_back`(클립 `Skill`, 타격 0.4초, 배치 방향을 봄). 2026-10-29까지 `skill_cast.py`가 경로 이름순 첫 자식
+    (클립 없는 `aura`)을 골라 시전 기록에 클립이 없었고 타격이 공격 간격 끝이었다 — 이제 묶음 순서의 첫 클립 자식을 고른다(바뀐 것은 이 스킬 하나).
 - 확인: `test/audio-skill-cast-cues.test.js`(빌더·매니페스트 11건, 다른 길이 내는 뱅크 제외, `castCuesOf` 대기, 벤델라 `e`·노시스 HIT 지연, 실제 매치 경로: 레온하르트 S2
   이벤트의 `[타격, 끝]` = `castTiming()`과 그 대기, 민트 키). [화면 미확인]
 

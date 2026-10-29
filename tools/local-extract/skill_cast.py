@@ -8,8 +8,9 @@ A skill prefab's root MonoBehaviour is its skill class (docs/rules/sim.md 「즉
     Skill state until that ability ends (`Character.States.SkillState._StartSkill`), 0 casts it without a state change;
     `_resetAbilityCooldownWhenCastEnd` 1 makes the ability ready again as it ends (`CastSkill.OnCastFinish`).
 The skill ability is the animated ability on the root (`AbstractAnimatedAbility`: `_animKey`, `_timeMode`, `_cooldown`,
-`_maxAnimScale`, `_preDelay`, `_waitForAttackEvent`), else the first one below it (a group: 引星棘刺 S2 Mark / Token, 锡人 S2
-HitEnemy / HitTile play one clip). Its time (the client's `AbstractAnimatedAbility.get_cooldown` / `DoAttach` /
+`_maxAnimScale`, `_preDelay`, `_waitForAttackEvent`), else the first child of the root group (`_abilities` order) with a
+clip of its own (见行者 S2 knock_back `Skill`, not the clip-less aura), else the first one below it by path (引星棘刺 S2
+Mark / Token, 锡人 S2 HitEnemy / HitTile play one clip). Its time (the client's `AbstractAnimatedAbility.get_cooldown` / `DoAttach` /
 `UpdatePlaybackSpeed`): `_timeMode` 0 FROM_ATTACK_SPEED = the unit's attack interval, 1 FROM_ANIMATION = its clip length,
 2 SPECIFIED = `_cooldown`, 3 LOAD_FROM_BLACKBOARD = the blackboard value `_cooldownKey`; the clip is scaled to that time
 within [0.1, `_maxAnimScale`] as an attack's; its facing flags (`face`, as tools/local-extract/attack_timing.py: 1 its
@@ -72,22 +73,27 @@ def ability(d):
     return out
 
 
+def group_children(sid, comps):
+    """(group MonoBehaviour, [child MonoBehaviour in `_abilities` order]) of a skill whose root ability is a group, else
+    (None, [])."""
+    by_pid = {pid: d for _gp, d, pid in comps}
+    grp = next((d for gp, d, _pid in comps if gp == sid and isinstance(d.get('_abilities'), list) and d['_abilities']), None)
+    if grp is None:
+        return None, []
+    kids = [by_pid.get(ref.get('m_PathID')) if isinstance(ref, dict) else None for ref in grp['_abilities']]
+    return (grp, kids) if all(k is not None for k in kids) else (None, [])
+
+
 def group_subs(sid, comps):
     """`group` / `subs` of a skill whose root ability is a group (`_abilities`): the children in that order, which number
     the ability's sound signals (`<skillId>.<i+1>`, the client's group `DoSetData`). `group` 'seq' = an `AbilitySequenceGroup`
     (`_alwaysNext`: each child is cast as the one before it finishes), 'par' = the others (every child at once); a child is
     `{ anim: 0|1, wait: 0|1 }` (anim 1 = an animated ability with its own `_animKey`, 0 = no clip: a buff or a clip-less
     attack)."""
-    by_pid = {pid: d for _gp, d, pid in comps}
-    grp = next((d for gp, d, _pid in comps if gp == sid and isinstance(d.get('_abilities'), list) and d['_abilities']), None)
+    grp, kids = group_children(sid, comps)
     if grp is None:
         return {}
-    subs = []
-    for ref in grp['_abilities']:
-        d = by_pid.get(ref.get('m_PathID')) if isinstance(ref, dict) else None
-        if d is None:
-            return {}
-        subs.append({'anim': int(bool(d.get('_animKey'))), 'wait': int(bool(d.get('_waitForAttackEvent')))})
+    subs = [{'anim': int(bool(d.get('_animKey'))), 'wait': int(bool(d.get('_waitForAttackEvent')))} for d in kids]
     return {'group': 'seq' if '_alwaysNext' in grp else 'par', 'subs': subs}
 
 
@@ -114,6 +120,10 @@ def skill_entry(sid, comps3):
     else:
         return word or None
     ab = next((a for a in map(ability, root) if a is not None), None)
+    if ab is None:
+        # a group root: its first child with a clip of its own, in the group's order (执律者 S2: knock_back `Skill`, not the
+        # clip-less aura that sorts first by name)
+        ab = next((a for a in map(ability, group_children(sid, comps3)[1]) if a is not None and a.get('anim')), None)
     if ab is None:
         subs = sorted((gp, a) for gp, a in ((gp, ability(d)) for gp, d in comps if gp != sid) if a is not None)
         ab = subs[0][1] if subs else None
