@@ -668,7 +668,7 @@ test('录武官 / 华法琳 elite trait: heals on allies below 50 % are ×1.15',
   }
 });
 
-test('缄默德克萨斯 S3 (passive): deploy burst 2 × 115 % arts + 1.5 s stun (0.6 s, 0.2 s apart), sword rain ≤ 2 targets/s for 6 s (first 0.4 s after, swords 0–0.3 s late); talents', () => {
+test('缄默德克萨斯 S3 (passive): deploy burst 2 × 115 % arts + 1.5 s stun (0.6 s, 0.2 s apart), sword rain ≤ 2 targets/s for 6 s (first at 1.4 s: 0.4 s after the 1 s burst casting, swords 0–0.3 s late); talents', () => {
   const id = 'chess_char_4_16_a', bb = D(id).skill.bb, t0 = D(id).talents[0].bb, t1 = D(id).talents[1].bb;
   const h = makeBattle({ defs: { enemies: { enemy_dummy: dummy() } }, units: [{ chessId: id, row: 10, col: 5 }], timeLimit: 120, hooks: ['damaged', 'statusApplied'], captureNoisy: true });
   h.step();
@@ -691,8 +691,8 @@ test('缄默德克萨斯 S3 (passive): deploy burst 2 × 115 % arts + 1.5 s stun
   assert.equal(noisy(h, 'statusApplied').filter((c) => c.source === u && c.status === 'stun' && c.duration === bb['appear.stun']).length, 6, 'each hit stuns');
   h.run(D(id).skill.duration + 1.5);
   const rain = dmgBy(h, u, (c) => c.dmg?.tags?.includes('swordRain'));
-  // waves: the first 0.4 s after the second burst hit, then every second; each sword 0–0.3 s after its wave
-  const first = bt[1] + 0.4;
+  // waves: the first 0.4 s after the burst ability's 1 s casting (ModeWithSwordRain), then every second; each sword 0–0.3 s after its wave
+  const first = 1.4;
   const waves = new Map();
   for (const c of rain) {
     const k = Math.floor(c.t - t0d - first + 1e-6);
@@ -1075,7 +1075,7 @@ test('缄默德克萨斯: a kill by the deploy burst itself (redeploy) spends th
   assert.equal(dmgBy(h, u, (c) => c.dmg?.tags?.includes('burst')).length - bursts0, 3, 'the release goes on unchanged');
   assert.equal(u.skill.activations, casts, 'no recast');
   assert.equal(noisy(h, 'heal').filter((c) => c.source === u && c.target === u).length, heals0, 'no full heal');
-  assert.ok(u.skill.active && u.mem.texasS3, 'the sword rain of the same release');
+  assert.ok(u.skill.active && u.mem.texasRelease, 'the sword rain of the same release');
   // a later kill is not a first kill any more
   const w = h.spawn('enemy_weak', { pos: [9, 4] });
   h.b.dealDamage(u, w, { amount: 1e6, type: 'true' });
@@ -1243,9 +1243,9 @@ test('elite (精锐) kits read the Lv7 blackboard: skill magnitudes differ from 
     h.b.retreat(u); h.b.redeploy(u);
     const t0 = h.b.time;
     h.run(D('chess_char_4_16_b').skill.duration + 1.5);
-    // waves: 1.2 s after the deployment, then every second; each sword 0–0.3 s after its wave (client skchr_texas2_3)
+    // waves: 1.4 s after the deployment (0.4 s after the 1 s burst casting), then every second; each sword 0–0.3 s after its wave (client skchr_texas2_3)
     const waves = new Map();
-    for (const c of dmgBy(h, u, (c) => c.dmg?.tags?.includes('swordRain'))) { const k = Math.floor(c.t - t0 - 1.2 + 1e-6); waves.set(k, (waves.get(k) ?? 0) + 1); }
+    for (const c of dmgBy(h, u, (c) => c.dmg?.tags?.includes('swordRain'))) { const k = Math.floor(c.t - t0 - 1.4 + 1e-6); waves.set(k, (waves.get(k) ?? 0) + 1); }
     assert.equal(waves.size, D('chess_char_4_16_b').skill.duration);
     assert.ok([...waves.values()].every((n) => n === bb.max_target));
   }

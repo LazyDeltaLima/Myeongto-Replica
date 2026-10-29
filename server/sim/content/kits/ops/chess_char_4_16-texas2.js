@@ -10,8 +10,11 @@ import {
 // S3 剑雨滂沱 timings (EN client prefab skchr_texas2_3, see the kit note): AppearSwordRain `_preDelay` / `_triggerDelta`,
 // the rain buff's `firstTriggerInterval`, the rain sword's `_randomDelayToBorn` (s)
 const S3_APPEAR_PRE = 0.6, S3_APPEAR_DELTA = 0.2, S3_RAIN_FIRST = 0.4, S3_SWORD_DELAY = 0.3;
+// S2 阵雨连绵's deploy burst: the `Damage` ability's `_preDelay` (s)
+const S2_BURST_PRE = 0.16667;
 // the deploy burst's casting (S2 `Damage` / S3 `AppearSwordRain`: `_timeMode` 2, `_cooldown` 1, no `_animKey` — the cast
-// lasts its cooldown, the post delay included: EasyToStartAbility.get_postDelay) (s)
+// lasts its cooldown, the post delay included: EasyToStartAbility.get_postDelay); the next step of the skill's
+// sequence (S2 `Duration`, S3 `ModeWithSwordRain`) starts after it (s)
 const BURST_CAST = 1;
 
 export default withDefaults({
@@ -20,14 +23,17 @@ export default withDefaults({
   //       260/320 arts per s meanwhile); S2 阵雨连绵 (passive: deploy burst 150 %/180 % arts + RES −15 %/−20 % around her;
   //       for the skill duration ATK up and attacks become arts double hits). Talent 德克萨斯传统 applies to every passive.
   //       The S3 rain hits air units (PRTS 备注 "效果可对空"); so does the S2 deploy burst [ASSUMED: no note].
-  //       S3 timing (EN client prefab skchr_texas2_3, an AbilitySequenceGroup 1Frame → AppearSwordRain → ModeWithSwordRain,
-  //       each sub-ability starting when the one before finished — the client's AbilitySequenceGroup._OnSubAbilityFinished):
-  //       the deploy burst AppearSwordRain hits after `_preDelay` 0.6 s, twice 0.2 s apart (`_additionalTimes` 1,
-  //       `_triggerDelta` 0.2), re-selecting its targets each time (`_selectTargetTiming` 1) and stunning with each hit;
-  //       then ModeWithSwordRain attaches the rain buff texas2_s_3[sword] (`firstTriggerInterval` 0.4, `triggerInterval`
-  //       1, life `duration`): the first rain 0.4 s later, then every second, and the passive lasts `duration` from there.
+  //       S2 / S3 timing (EN client prefabs skchr_texas2_2 / _3, AbilitySequenceGroups 1Frame → burst → last step, each
+  //       sub-ability starting when the one before finished its cast — the client's AbilitySequenceGroup._OnSubAbilityFinished):
+  //       the burst ability casts BURST_CAST (1 s). S2 `Damage` hits after `_preDelay` 0.167 s; then `Duration` lasts
+  //       `duration` — the skill `duration` + 1 s, while the skill-wide texas2_s_2[atk] (ATK, attack mode) holds from the
+  //       start. S3 AppearSwordRain hits after `_preDelay` 0.6 s, twice 0.2 s apart (`_additionalTimes` 1, `_triggerDelta`
+  //       0.2), re-selecting its targets each time (`_selectTargetTiming` 1) and stunning with each hit; at 1 s
+  //       ModeWithSwordRain attaches the rain buff texas2_s_3[sword] (`firstTriggerInterval` 0.4, `triggerInterval` 1, life
+  //       `duration`): the first rain at 1.4 s, then every second, and the passive lasts `duration` from there.
   //       Each rain sword (projectile_chr_texas2_s3_sword_rain) lands after its own `_randomDelayToBorn` (0–0.3 s, the
-  //       battle rng) on the target chosen at the rain (EmitSword `_selectTargetTiming` 1).
+  //       battle rng) on the target chosen at the rain (EmitSword `_selectTargetTiming` 1). S1 is one buff ability:
+  //       `duration` from the cast.
   chess_char_4_16_a: (bb, chess, def) => {
     const t0 = tbb(def, 0), t1 = tbb(def, 1);
     const tb = def.traitBb || {};
@@ -45,30 +51,38 @@ export default withDefaults({
       const w = unit.mem.texasNoRecast = {};
       battle.after(BURST_CAST, () => { if (unit.mem.texasNoRecast === w) unit.mem.texasNoRecast = false; }, { owner: unit });
     };
+    // S2 / S3: every pending hit / sword of the current release (cancelled when it ends: recast, retreat, death)
+    const stopRelease = (unit) => {
+      for (const t of unit.mem.texasRelease || []) t.cancel();
+      unit.mem.texasRelease = null;
+    };
+    const release = (battle, unit) => {
+      stopRelease(unit);
+      noRecastWindow(battle, unit);
+      const timers = unit.mem.texasRelease = [];
+      const seq = unit.deploySeq;
+      const live = () => unit.alive && unit.deployed && unit.deploySeq === seq && unit.mem.texasRelease === timers;
+      return { timers, live };
+    };
     const castS2 = (battle, unit) => {
       if (!unit.alive || !unit.deployed) return;
-      noRecastWindow(battle, unit);
-      const mr = num(bb.magic_resistance, 0);
-      for (const e of targetsInGrid(battle, unit, g)) {
-        battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale, 1.5), type: 'arts', isSkill: true, tags: ['skill', 'burst'] });
-        // 同名效果取最高: one RES cut per enemy (the strongest), never one per 缄默德克萨斯
-        if (e.alive && mr) battle.applyStrongest(e, 'texas2:resDown', { duration: num(bb.debuff_duration, 8), value: mr, mods: resCut, source: unit });
-      }
+      // the cast effect texas2_birth_02_start plays at the cast start (`_castEffects` ON_CAST_START), the hit after `_preDelay`
       battle.fx('swordStorm', { x: unit.x, y: unit.y, id: unit.id });
-    };
-    // S3: every pending hit / sword of the current release (cancelled when it ends: recast, retreat, death)
-    const stopS3 = (unit) => {
-      for (const t of unit.mem.texasS3 || []) t.cancel();
-      unit.mem.texasS3 = null;
+      const { timers, live } = release(battle, unit);
+      const mr = num(bb.magic_resistance, 0);
+      timers.push(battle.after(S2_BURST_PRE, (b) => {
+        if (!live()) return;
+        for (const e of targetsInGrid(b, unit, g)) {
+          b.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale, 1.5), type: 'arts', isSkill: true, tags: ['skill', 'burst'] });
+          // 同名效果取最高: one RES cut per enemy (the strongest), never one per 缄默德克萨斯
+          if (e.alive && mr) b.applyStrongest(e, 'texas2:resDown', { duration: num(bb.debuff_duration, 8), value: mr, mods: resCut, source: unit });
+        }
+      }, { owner: unit }));
     };
     const castS3 = (battle, unit) => {
       if (!unit.alive || !unit.deployed) return;
       battle.fx('swordStorm', { x: unit.x, y: unit.y, id: unit.id });
-      stopS3(unit);
-      noRecastWindow(battle, unit);
-      const timers = unit.mem.texasS3 = [];
-      const seq = unit.deploySeq;
-      const live = () => unit.alive && unit.deployed && unit.deploySeq === seq && unit.mem.texasS3 === timers;
+      const { timers, live } = release(battle, unit);
       const appear = (b) => {
         for (const e of targetsInGrid(b, unit, g)) {
           b.dealDamage(unit, e, { amount: unit.s.atk * num(bb['appear.atk_scale'], 1.15), type: 'arts', isSkill: true, tags: ['skill', 'burst'] });
@@ -90,9 +104,9 @@ export default withDefaults({
         }
       };
       timers.push(battle.after(S3_APPEAR_PRE, (b) => { if (live()) appear(b); }, { owner: unit }));
-      timers.push(battle.after(S3_APPEAR_PRE + S3_APPEAR_DELTA, (b) => {
-        if (!live()) return;
-        appear(b);
+      timers.push(battle.after(S3_APPEAR_PRE + S3_APPEAR_DELTA, (b) => { if (live()) appear(b); }, { owner: unit }));
+      // ModeWithSwordRain, once AppearSwordRain's casting ends
+      timers.push(battle.after(BURST_CAST, (b) => {
         if (!live()) return;
         const r = b.every(Math.max(0.1, num(bb['texas2_s_3[sword].interval'], 1)), rain, { owner: unit });
         r.due = b.time + S3_RAIN_FIRST;
@@ -101,14 +115,13 @@ export default withDefaults({
     };
     const cast = S1 ? castS1 : S2 ? castS2 : castS3;
     const skill = {
-      // S3: the passive lasts `duration` from the rain buff, which starts after the two deploy hits [inferred: the
-      // client's texas2_s_3 / texas2_s_3[sword] buffs (life `duration`) are attached by ModeWithSwordRain, the last step]
-      kind: 'duration', activateOnDeploy: true, duration: S1 || S2 ? dur : dur + S3_APPEAR_PRE + S3_APPEAR_DELTA, spCost: 0, spType: 'none', trigger: 'NEVER',
+      // S2 / S3: the last step (`Duration` / ModeWithSwordRain, buffs of life `duration`) starts after the burst's casting
+      kind: 'duration', activateOnDeploy: true, duration: S1 ? dur : dur + BURST_CAST, spCost: 0, spType: 'none', trigger: 'NEVER',
       mods: { atkPct: num(t0.atk, 0.2) + (S1 || S2 ? num(bb.atk) : 0) },
       // 德克萨斯传统's recast: the S3 opens on Start_3_2 instead of Start_3 (render: anims skill `variants`)
       castVariant: ({ reason }) => (reason === 'kill' ? 'recast' : null),
       onStart({ battle, unit }) { cast(battle, unit); },
-      onEnd({ unit }) { unit.mem.texasNoRecast = false; stopS3(unit); },
+      onEnd({ unit }) { unit.mem.texasNoRecast = false; stopRelease(unit); },
     };
     return {
       skill,

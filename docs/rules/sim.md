@@ -977,13 +977,17 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   (1Frame → AppearSwordRain → ModeWithSwordRain; 앞 능력이 끝나야 다음 — 공식 클라 `AbilitySequenceGroup._OnSubAbilityFinished` → `_MoveToNextActiveAbility`).
   배치 폭발 AppearSwordRain: `_preDelay` 0.6 s 뒤, 0.2 s 간격 2타(`_additionalTimes` 1, `_triggerDelta` 0.2), 타마다 대상 다시 고름(`_selectTargetTiming` 1)·
   기절(`_activeBuffs` stun). 그다음 ModeWithSwordRain이 검우 버프 `texas2_s_3[sword]`(`triggerability_tick_trigger`, `firstTriggerInterval` 0.4,
-  `triggerInterval` 1, 수명 `duration`)를 붙인다 → 첫 검우는 둘째 타 0.4 s 뒤(배치 1.2 s), 그 뒤 1 s마다. 검우 대상은 그 순간 고르고(EmitSword
+  `triggerInterval` 1, 수명 `duration`)를 붙인다 — AppearSwordRain의 시전(1 s, 둘째 타 뒤 후딜 0.2 s 포함 — 「오퍼레이터 스킬 발동 시점 묶음 C」)이 끝난 뒤 →
+  첫 검우는 배치 1.4 s, 그 뒤 1 s마다. 검우 대상은 그 순간 고르고(EmitSword
   `_selectTargetTiming` 1, `max_target`), 검마다 `_randomDelayToBorn` 0–0.3 s(전투 난수 `battle.rng`; 클라 `Projectile._InitInline`은 0–최댓값 균등 지연 뒤 투사체를 탄생시킴, 난수는
   `randomTrivial`) 뒤 피해·기절(`projectile_chr_texas2_s3_sword_rain`).
-  패시브 길이: 검우 버프부터 `duration` → 스킬 지속 = `duration` + 0.8 s [추론: `texas2_s_3`·`[sword]` 버프(수명 `duration`)를 마지막 단계가 붙임] —
+  패시브 길이: 검우 버프부터 `duration` → 스킬 지속 = `duration` + 1 s(`texas2_s_3`·`[sword]` 버프(수명 `duration`)를 마지막 단계가 붙임) —
   검우 횟수는 그대로 `duration`번. [추정]: 1Frame 단계(1프레임)는 넣지 않음, 검이 생긴 뒤 `_lifeTime` 0.1 끝(`_alwaysHitTraceTargetInTheEnd`)에 맞는지는
   안 봄(생길 때 피해로 둠), AppearSwordRain `_preDelay`가 공속 배율을 받는지 안 봄(0.6 s 고정). 첫 처치 재시전(德克萨斯传统)은 남은 배치 타·검을 지우고
-  새로 시작한다(배치 폭발 시전 1 s 안의 처치는 재시전 없음 — 「오퍼레이터 스킬 발동 시점 묶음 C」). 그 전: 배치 2타 동시, 첫 검우 1 s(배치 기준), 검 동시. 테스트 `test/content/kits_t4.test.js`·`kits_alt_t4.test.js` 「缄默德克萨斯」.
+  새로 시작한다(배치 폭발 시전 1 s 안의 처치는 재시전 없음 — 「오퍼레이터 스킬 발동 시점 묶음 C」). 그 전: 배치 2타 동시, 첫 검우 1 s(배치 기준), 검 동시; 2026-10-29까지는 첫 검우 1.2 s·지속 + 0.8 s(능력이 마지막 타에서 끝난다고 봄).
+  S2 阵雨连绵(같은 꼴 1Frame → `Damage` → `Duration`): 폭발은 `Damage` `_preDelay` 0.167 s 뒤(전: 시전 순간), `Duration`(`texas2_s_2`)은 `Damage` 시전 1 s 뒤부터
+  `duration` → 스킬 지속 `duration` + 1 s(전: `duration`); 공격력·공격 모드(`texas2_s_2[atk]`, 스킬 루트 `switch_mode_restart_fsm`)는 스킬 내내.
+  S1은 버프 능력 하나라 시전부터 `duration`(그대로). 테스트 `test/content/kits_t4.test.js`·`kits_alt_t4.test.js` 「缄默德克萨斯」.
 - **歌蕾蒂娅 S3 缺水的碎漩狂舞 중 일반 공격 없음** (2026-10-14, 관리자 결정 「S3 중에는 일반 공격을 하지 않는다」; charpack `skchr_glady_3` `_switchToState` 1 =
   Skill 상태): 스킬 내내 `noAttack`(`chess_char_4_12-glady.js`), 모델은 `Skill_3_Chant`로 쉰다. 그 전엔 S3 중에도 평소 `Attack`으로 공격했다. 테스트
   `kits_alt_t4.test.js` 「歌蕾蒂娅 S3」.
@@ -2258,10 +2262,10 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
   있을 때(`ownerCanUseSkill` — 기절이면 기다림) 지금 스킬을 끝내고 다시 쓰며, 전체 회복은 그 재시전의 시작에서 난다(`texas2_t_1[conditional_atk]` ON_SKILL_START,
   `texas2_recast_already`가 있으면 `HealViaMaxHpRatio`). 구현: 창 `BURST_CAST` 1 s, 재시전은 처치 다음 틱부터 `canAct`일 때, 회복도 그때. 전에는 처치 순간 회복하고
   같은 틱에 재시전했으며, 배치 폭발 처치도 재시전(동기 재진입)했다. S1(배치 폭발 없음)은 언제나 재시전. 최상위 `texas2_recast_not_valid`(템플릿
-  `texas2_inturrput` = 공격 끊기)는 LIMITED에 `_duration` 키가 블랙보드에 없어 0 s(`Buff.FetchDuration`). 테스트 `kits_t4.test.js`·`kits_alt_t4.test.js`
+  `texas2_inturrput` = 공격 끊기)는 LIMITED, 버프 블랙보드 `_duration` 0.1 → 0.1 s(1 s 창 안). 테스트 `kits_t4.test.js`·`kits_alt_t4.test.js`
   「缄默德克萨斯」.
-  - 같은 근거로 드러났으나 **아직 안 바꾼 것**: 순차 묶음은 앞 능력의 시전이 끝나야 다음으로 가므로 S3 검우 버프는 1.0 s에 붙는다(첫 검우 1.4 s·지속
-    `duration` + 1.0 — 지금 1.2 s·+ 0.8), S2 폭발은 `Damage` 전딜 0.167 s 뒤이고 `Duration`(`texas2_s_2`)은 1.0 s부터 `duration`(지금은 둘 다 시전 순간부터).
+  - 같은 근거로 S2·S3 시전 시각도 클라대로(관리자 결정 2026-10-29 「공식대로 맞춰」): S3 첫 검우 1.4 s·지속 `duration` + 1 s, S2 폭발 0.167 s 뒤·지속
+    `duration` + 1 s — 위 「缄默德克萨斯 S3 剑雨滂沱」.
 - **C3 외근 의료(外勤医疗, 전략) 맵 캐릭터 Touch 「간절함의 복음」(恳切福音)**: 발동 = 데이터의 DEFAULT, 스킬 rangeId 5-2 상자 안의 **적**(선발 대타 Touch와
   같음). 근거: 자동 조작 `_TryTriggerAvailableSkills`가 `unitManager.characters` 전부(맵 캐릭터 포함)를 돌고, 카드가 없는 캐릭터의 형은
   `_GetAutoChessSkillTriggerType`이 act2autochess `skillTriggerDataList`에서 찾는데 Touch(의료·의사, `char_613_acmedc`)는 항목이 없어 DEFAULT. 전에는 키트가

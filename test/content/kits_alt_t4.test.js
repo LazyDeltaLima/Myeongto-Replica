@@ -701,12 +701,13 @@ test('缄默德克萨斯 S2: two copies cut the RES of an enemy around both once
   assert.equal(two.length, 2);
   const e = h.spawn('enemy_res', { pos: [10, 5] });
   for (const u of two) { h.b.retreat(u); assert.ok(h.b.redeploy(u)); }
+  h.run(0.3); // the burst after `Damage`'s 0.167 s pre-delay
   assert.equal(dmgBy(h, two[0], tagged('burst')).length + dmgBy(h, two[1], tagged('burst')).length, 2, 'both bursts hit it');
   assert.equal(e.buffs.filter((b) => String(b.key).startsWith('texas2:resDown')).length, 1, 'one RES cut');
   approx(e.s.res, 50 * (1 + bb.magic_resistance), 1e-6, 'once, not twice');
 });
 
-test('缄默德克萨斯 S2 阵雨连绵: deploy burst atk_scale arts + RES down around her; ATK up; attacks become arts double hits', () => {
+test('缄默德克萨斯 S2 阵雨连绵: deploy burst atk_scale arts + RES down around her (0.167 s); ATK up; attacks become arts double hits for 1 s + duration', () => {
   for (const id of pair('chess_char_4_16_a')) {
     const sk = D(id, 1).skill, bb = sk.bb;
     const h = battle([U(id, 10, 4, 1)], { enemies: { enemy_res: dummy({ key: 'enemy_res', res: 50 }) } });
@@ -716,20 +717,26 @@ test('缄默德克萨斯 S2 阵雨连绵: deploy burst atk_scale arts + RES down
     const far = h.spawn('enemy_res', { pos: [10, 8] });
     h.b.retreat(u);
     assert.ok(h.b.redeploy(u));
+    const t0 = h.b.time;
+    assert.equal(dmgBy(h, u, tagged('burst')).length, 0, 'the burst waits for `Damage`\'s pre-delay');
+    h.run(0.3);
     const burst = dmgBy(h, u, tagged('burst'));
+    assert.ok(Math.abs(burst[0].t - t0 - 0.16667) <= h.TICK + 1e-9, `burst at ${burst[0].t - t0}`);
     assert.deepEqual(burst.map((c) => c.target), [e], `${id}: only enemies around her`);
     approx(burst[0].amount, u.s.atk * bb.atk_scale * 0.5, 1e-6, 'arts burst vs RES 50');
     approx(e.s.res, 50 * (1 + bb.magic_resistance), 1e-6, 'RES down');
     assert.equal(far.s.res, 50);
     approx(u.skill.spec.mods.atkPct, bb.atk + D(id, 1).talents[0].bb.atk, 1e-9);
-    approx(u.skill.timeLeft, sk.duration, 1e-6);
+    approx(u.skill.timeLeft + (h.b.time - t0), sk.duration + 1, 1e-6, 'the 1 s `Damage` casting, then `Duration`');
     h.run(2);
     const hits = dmgBy(h, u, (c) => c.dmg.isAttack);
     assert.ok(hits.length >= 2 && hits.every((c) => c.type === 'arts'), 'arts attacks');
     const per = new Map();
     for (const c of hits) per.set(c.dmg.attackId, (per.get(c.dmg.attackId) ?? 0) + 1);
     assert.ok([...per.values()].every((v) => v === 2), 'double hits');
-    h.run(sk.duration);
+    h.run(sk.duration - 1.8); // 0.5 s past the data duration
+    assert.equal(u.skill.active, true, 'still on after the data duration');
+    h.run(1);
     assert.equal(u.skill.active, false);
     assert.equal(u.skill.ready, false);
     const n0 = dmgBy(h, u, (c) => c.dmg.isAttack).length;
@@ -776,8 +783,8 @@ test('缄默德克萨斯 S1/S2/S3: first kill recasts a full window on the next 
     weak.hp = 1;
     assert.ok(h.b.redeploy(u, { free: true }));
     if (index === 0) h.b.kill(weak, u); // S1 has no deployment burst
-    // S3's deployment burst lands after its 0.6 s pre-delay (client AppearSwordRain `_preDelay`)
-    if (index === 2) { assert.equal(u.mem.texasKilled, false, 'S3 burst not landed yet'); h.runUntil(() => u.mem.texasKilled, 1); }
+    // the deployment burst lands after its pre-delay (client S2 `Damage` 0.167 s, S3 AppearSwordRain 0.6 s)
+    if (index > 0) { assert.equal(u.mem.texasKilled, false, 'burst not landed yet'); h.runUntil(() => u.mem.texasKilled, 1); }
     assert.equal(u.mem.texasKilled, true);
     assert.equal(u.findBuff('texas2:swordplay'), null);
     h.step();
