@@ -192,6 +192,19 @@ export const skillExtrasOf = (entry, skillIndex) => {
   return Array.isArray(l) ? l.filter((x) => typeof x?.url === 'string') : [];
 };
 
+/**
+ * 2026-10-29, docs/rules/audio.md 「스킬 시전 능력 소리」: a CastSkill's own ability cues (sfx.units[def].castCues[skillIndex],
+ * skill-mode-sfx.mjs castCues), each with its wait in game seconds from the 'skill' event's `[strike, end]` (`at` 's' 0,
+ * 'a' the strike, 'e' the end; without timing 0). [{ cue, after }]
+ */
+export const castCuesOf = (entry, skillIndex, timing) => {
+  const l = Number.isInteger(skillIndex) ? entry?.castCues?.[skillIndex] : null;
+  if (!Array.isArray(l)) return [];
+  const t = Array.isArray(timing) ? timing : [];
+  const after = (at) => { const v = at === 'a' ? t[0] : at === 'e' ? t[1] : 0; return Number.isFinite(v) && v > 0 ? v : 0; };
+  return l.filter((c) => c && typeof c.u !== 'undefined').map((c) => ({ cue: c, after: after(c.at) }));
+};
+
 /** Stop every skill loop (a new field). */
 export function stopSkillLoops(mgr) {
   for (const key of [...(mgr?._skillLoops?.keys() || [])]) stopSkillLoop(mgr, key);

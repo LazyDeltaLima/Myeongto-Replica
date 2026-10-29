@@ -360,6 +360,33 @@
 - 확인: `test/local-patch-talent-sounds.test.js`(공식 데이터 위 키·모드 표, 순간별 키, AudioManager 재생, 실제 매치 경로: 크루스 `crit.by`·이그제큐터 'atk' T.1·
   노시스 kitHit 한 번·뮤엘시스 `copy.mode`). [브라우저 미확인]
 
+## 스킬 시전 능력 소리 (2026-10-29, 공식 클라 + 스킬 프리팹)
+- 공식: 시전형 스킬(`CastSkill`, `tools/assets/local-skill-cast.json` cls `cast`)은 켜질 때 자기 스킬 능력을 시전하고(`CastSkill.DoCast`), 그 능력이 보통
+  능력처럼 START(시전 시작)·ON(시전 클립의 OnAttack 순간, `_waitForAttackEvent` 0이면 바로)·HIT(대상마다)를 낸다(`AbilityStandard`, 위 「START·ON·HIT」). 뱅크 이름은
+  `battle.ON_ABILITY_START|ON|HIT.<skillId>[.<k>]`, 믹서 그룹은 상관없다. 능력이 묶음(`_abilities`)이면 `.<k>` = k번째 자식(묶음의 `DoSetData`, 위 「공격 소리
+  신호」의 묶음 자식 `.<i+1>`과 같음); 순차 묶음(`AbilitySequenceGroup`)은 한 자식이 끝날 때 다음을 바로 시전하므로 클립이 있는 자식 뒤의 자식은 시전이 끝날 때
+  시작한다. 묶음 구조는 `tools/local-extract/skill_cast.py`의 `group`('seq'|'par')·`subs`(자식마다 `anim`·`wait`).
+- 전에는 안 났다: `abilityCues`는 공격·타격 그룹만 스킬 중 공격에, `skillExtras`는 하위 키 없는 START만 시작에 냈고, 모드가 있는 스킬은 스킬 능력 뱅크를 아예 안 봤다.
+- 구현: 빌더 `skill-mode-sfx.mjs castCues` → 매니페스트 `sfx.units[id].castCues[스킬 번호]` = 큐 목록, `at` 's' 시전 시작·'a' 타격·'e' 시전 끝. 다른 길이 이미
+  내는 뱅크는 뺀다(스킬 시작음, `skillExtras`, 루프, 모드 없는 스킬의 공격 큐 `abilityCues`, 타격 그룹 HIT = `kd`). sim은 시전형 스킬의 'skill' 켜짐 이벤트 5번째
+  칸에 `[타격, 끝]`(게임 초, `castTiming()`)을 싣고(`server/sim/skills.js _evOn`, 클립 변형이 없으면 4번째 칸 null; 표시용 — 판정은 안 바뀜, golden 그대로),
+  `audio.js`가 그만큼 기다려 낸다(`audioOfficial.js castCuesOf`, 뱅크 자신의 지연은 더함).
+  - 이 모드 기물이 쓰는 것: 첸 더 던스트릭 S2 START p_atk_hljdswd_h(시작) · 플레임테일 S2 ON p_skill_lightsword · 인포서 S2 `.1` ON p_imp_fgun_s ·
+    글래디아 S3 `.1` START p_atk_seasword_h(시작)·`.2` ON p_skill_seasummon(「Chant」는 `wait` 0이라 타격 = 시작) · 노시스 S2 ON p_atk_iceprick_h·HIT
+    p_imp_iceprick_h(타격 + 뱅크 지연 0.1초 — 클립 없는 능력이라 대상마다의 HIT가 판정 순간과 같음, 뱅크 `maxSoundAllowed` 1) · 레온하르트 S2 ON p_skill_magblast ·
+    모스티마 S2 ON p_skill_blacktimewand_shot · 산크타 믹사파라토 S3 START p_atk_ftmxbrtlm_skiiop(버프 능력 — 시작) · 울피아누스 S3 `.2` START
+    p_atk_wtrbatnchr_s(시작, 앞 자식이 버프)·ON p_atk_wtrbatnchrfr_s · 벤델라 S2 `.2` START p_imp_brmblhl_h(앞 자식 `MaxHpMark` 클립이 끝날 때).
+    같은 규칙으로 기물이 안 쓰는 스킬(쏜즈 더 로드스타 S3, 위 S2, 아르케토 S2, 티티 S2, 치우바이 S2, 이네스 S3, 블레미샤인 S2)도 매니페스트에 들어가지만 나지 않는다.
+  - 민트 S2: 끝 폭발(그녀의 `FinalAttack` 추가 능력)의 `ON_ABILITY_ATTACK_FINISH.skchr_mint_2` p_skill_magend — 이 신호는 `AbilityStandard.OnAttackFinished`가
+    낸다(공식 클라에서 확인). sim의 끝 폭발 fx `aoe`(`skill: 'mint_2'`)에 `sfx.kit mint:s2end`로 낸다 [추정·엔진: 공격이 끝나는 순간을 끝 폭발의 피해 순간과 같게 봄 —
+    `FinalAttack`의 `_cooldown` 0.62초 안 어디인지 안 읽음].
+  - 글래디아 S3 `.2`는 순차 묶음의 첫 자식 `FinalAttack`(클립 없음, `wait` 1) 다음이다 — 그 자식이 바로 끝난다고 보고 시작에 낸다 [추정·엔진: 클립 없는 공격 자식이
+    끝나는 시간 안 읽음].
+  - 인포서 S2의 타격 순간은 sim의 시전 기록을 따른다. 그 기록은 `skill_cast.py`가 묶음의 자식 중 경로 이름순 첫 자식(클립 없는 `aura`)을 능력으로 골라 클립이
+    없고, 그래서 타격이 공격 간격 끝이다 — 공식 `.1` = `knock_back`(클립 `Skill`)의 OnAttack 순간과 다르다. 고르는 규칙을 고치면 sim 시전 시간이 바뀐다(관리자 노트의 할 일).
+- 확인: `test/audio-skill-cast-cues.test.js`(빌더·매니페스트 11건, 다른 길이 내는 뱅크 제외, `castCuesOf` 대기, 벤델라 `e`·노시스 HIT 지연, 실제 매치 경로: 레온하르트 S2
+  이벤트의 `[타격, 끝]` = `castTiming()`과 그 대기, 민트 키). [화면 미확인]
+
 ## 버프·커스텀 트리거 소리 (2026-10-10 저녁, 공식 클라 + EN 클라 버프 템플릿)
 - 공식: 버프가 붙을 때 `Entity.OnBuffStart`가 그 버프의 `audioSignal`(빈 값이면 없음)로 `ON_BUFF_START`를 낸다(`OnBuffTrigger`·
   `OnBuffShowEffect`/`AddBuffEffect`·`ON_BUFF_FINISH`도 같은 방식). `ON_CUSTOM_TRIGGER`는 버프 그래프의 `Action.Nodes.PlayAudio.Execute`와

@@ -22,7 +22,8 @@ unit is in its born state after a deployment: `CastSkill.UseSkill` checks `_canS
 tools/assets/local-skill-cast.json:
 
   { "skills": { "skchr_thorn2_1": { "cls": "replace", "ability": { "anim": "Skill", "time": 0, "max": 1, "wait": 1, … } },
-                "skchr_texas_2": { "cls": "cast", "state": 1, "reset": 0, "ability": { … } }, … } }
+                "skchr_texas_2": { "cls": "cast", "state": 1, "reset": 0, "ability": { … } },
+                "skchr_vendla_2": { …, "group": "seq", "subs": [{ "anim": 1, "wait": 1 }, { "anim": 0, "wait": 0 }] }, … } }
 
 Usage (from the repo root; --client = the EN client's Arknights_Data folder; ~1 min to read the bundle):
   .venv-extract/bin/python tools/local-extract/skill_cast.py [--client <…/Arknights_Data>]
@@ -71,8 +72,29 @@ def ability(d):
     return out
 
 
-def skill_entry(sid, comps):
-    """{cls, state?, reset?, ability} of one skill prefab's components [(GameObject path, MonoBehaviour)], or None."""
+def group_subs(sid, comps):
+    """`group` / `subs` of a skill whose root ability is a group (`_abilities`): the children in that order, which number
+    the ability's sound signals (`<skillId>.<i+1>`, the client's group `DoSetData`). `group` 'seq' = an `AbilitySequenceGroup`
+    (`_alwaysNext`: each child is cast as the one before it finishes), 'par' = the others (every child at once); a child is
+    `{ anim: 0|1, wait: 0|1 }` (anim 1 = an animated ability with its own `_animKey`, 0 = no clip: a buff or a clip-less
+    attack)."""
+    by_pid = {pid: d for _gp, d, pid in comps}
+    grp = next((d for gp, d, _pid in comps if gp == sid and isinstance(d.get('_abilities'), list) and d['_abilities']), None)
+    if grp is None:
+        return {}
+    subs = []
+    for ref in grp['_abilities']:
+        d = by_pid.get(ref.get('m_PathID')) if isinstance(ref, dict) else None
+        if d is None:
+            return {}
+        subs.append({'anim': int(bool(d.get('_animKey'))), 'wait': int(bool(d.get('_waitForAttackEvent')))})
+    return {'group': 'seq' if '_alwaysNext' in grp else 'par', 'subs': subs}
+
+
+def skill_entry(sid, comps3):
+    """{cls, state?, reset?, ability, group?, subs?} of one skill prefab's components [(GameObject path, MonoBehaviour,
+    path id)], or None."""
+    comps = [(gp, d) for gp, d, _pid in comps3]
     root = [d for gp, d in comps if gp == sid]
     sk = next((d for d in root if '_maxTriggerTime' in d), None)
     if sk is None:
@@ -96,6 +118,7 @@ def skill_entry(sid, comps):
         subs = sorted((gp, a) for gp, a in ((gp, ability(d)) for gp, d in comps if gp != sid) if a is not None)
         ab = subs[0][1] if subs else None
     e['ability'] = ab
+    e.update(group_subs(sid, comps3))
     return e
 
 
@@ -114,7 +137,7 @@ def main():
     for gp, d, _pid in tree:
         root = gp.split('/')[0]
         if root in want:
-            comps.setdefault(root, []).append((gp, d))
+            comps.setdefault(root, []).append((gp, d, _pid))
     out = {}
     for sid in sorted(comps):
         e = skill_entry(sid, comps[sid])

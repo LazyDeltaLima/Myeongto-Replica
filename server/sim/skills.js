@@ -576,10 +576,21 @@ export class SkillRuntime {
    * The 'skill' on event — `['skill', id, 1, variant]` when the spec's `castVariant(ctx)` names one for this cast: the
    * clip variant the client plays (render: anims skill `variants`, docs/rules/render.md 「Spine 클립 커버리지」 G — 灵知's
    * charged S2, 缄默德克萨斯's S3 recast). A display field: no rule reads it.
+   * A CastSkill with a skill ability adds `[strike, action]` (s, castTiming) as the 5th field (variant null without one):
+   * when its ability's ON signal sounds and when it ends — the next ability of a sequence group starts then (public/js/audio.js
+   * cast cues, docs/rules/audio.md 「스킬 시전 능력 소리」). A display field too.
    */
   _evOn(reason) {
     const v = typeof this.spec.castVariant === 'function' ? this._call('castVariant', { reason }) : null;
-    this.battle._ev(typeof v === 'string' && v ? ['skill', this.unit.id, 1, v] : ['skill', this.unit.id, 1]);
+    const c = this.cast;
+    const ev = ['skill', this.unit.id, 1];
+    if (typeof v === 'string' && v) ev.push(v);
+    if (c && c.mode !== 'replace' && c.time != null) {
+      const t = this.castTiming();
+      if (ev.length < 4) ev.push(null);
+      ev.push([Math.round(t.strike * 1000) / 1000, Math.round(t.action * 1000) / 1000]);
+    }
+    this.battle._ev(ev);
   }
 
   /** Activate now (consumes one charge). Returns true on success. */

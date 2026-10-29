@@ -304,6 +304,70 @@ export function skillExtras(audio, charId, skills, soundLeaf, startPaths = {}) {
   return Object.keys(out).length ? out : null;
 }
 
+export const LOCAL_SKILL_CAST_FILE = 'tools/assets/local-skill-cast.json';
+
+/** tools/assets/local-skill-cast.json `skills` (tools/local-extract/skill_cast.py), {} without the file. */
+export function loadSkillCast(root = process.cwd()) {
+  const p = join(root, LOCAL_SKILL_CAST_FILE);
+  if (!existsSync(p)) return {};
+  try { return JSON.parse(readFileSync(p, 'utf8')).skills || {}; } catch { return {}; }
+}
+
+/**
+ * 2026-10-29, docs/rules/audio.md 「스킬 시전 능력 소리」: sfx.units[charId].castCues — per skill index, the sound signals of a
+ * CastSkill's own ability (`battle.ON_ABILITY_START|ON|HIT.<skillId>[.<k>]`) that nothing else plays: the client casts that
+ * ability as the skill starts (CastSkill.DoCast) and emits START as it starts, ON at its OnAttack frame (wait off: at once),
+ * HIT on its targets (AbilityStandard), whatever the bank's mixer group. `.<k>` is the k-th child of a group ability
+ * (local-skill-cast.json `subs`); a sequence group casts a child as the one before it finishes, so a child after the
+ * animated one starts as the cast ends. Cue `at`: 's' the cast's start, 'a' its strike, 'e' its end — the sim's 'skill'
+ * event carries the strike / end (server/sim/skills.js _evOn). Left out: the banks the start sound, skillExtras, skillLoops,
+ * the attack cues (abilityCues: a skill without a mode) and the skill-damage cues (skillHitCues: impact groups) already sound.
+ * @param {ReturnType<import('./audio.mjs').indexAudio>} audio
+ * @param {{ index: number, skillId?: string }[]} skills
+ * @param {Record<string, any>} cast local-skill-cast.json `skills`
+ * @param {(index: number) => boolean} hasMode the skill switches the unit to a mode (skillModeIndex > 0)
+ * @param {(paths: string[]) => any} soundLeaf
+ * @param {Record<string, string[]>} [startPaths] skill index → its start sound paths (plan.mjs skillPaths)
+ */
+export function castCues(audio, skills, cast, hasMode, soundLeaf, startPaths = {}) {
+  const groupOf = (p) => (typeof audio.groupOf === 'function' ? audio.groupOf(p) : null);
+  const isLoop = (n) => (typeof audio.isLoop === 'function' ? audio.isLoop(n) : false);
+  const names = (ev, sid) => [`battle.${ev}.${sid}`, ...(typeof audio.namesWithPrefix === 'function' ? audio.namesWithPrefix(`battle.${ev}.${sid}.`) : [])];
+  const out = {};
+  for (const s of Array.isArray(skills) ? skills : []) {
+    const c = s?.skillId ? cast?.[s.skillId] : null;
+    if (!c || c.cls !== 'cast' || !Number.isInteger(s.index)) continue;
+    const start = startPaths[String(s.index)];
+    const mode = hasMode(s.index);
+    const list = [];
+    for (const [ev, role] of [['ON_ABILITY_START', 's'], ['ON_ABILITY_ON', 'a'], ['ON_ABILITY_HIT', 'd']]) {
+      for (const name of names(ev, s.skillId)) {
+        const sub = name.slice(`battle.${ev}.${s.skillId}`.length);
+        if (sub && !/^\.\d+$/.test(sub)) continue; // `.extra.0` …: another ability's
+        const p = audio.bank(name);
+        if (!p?.length || p === start || GENERIC_CUE.test(p[0]) || isLoop(name)) continue;
+        const g = groupOf(p);
+        if (role === 'd' && IMPACT_GROUPS.has(g)) continue; // skillHitCues
+        if (!mode && (role === 's' ? ATTACK_GROUPS.has(g) : role === 'a' && (ATTACK_GROUPS.has(g) || IMPACT_GROUPS.has(g)))) continue; // abilityCues
+        if (!sub && role === 's' && EXTRA_GROUPS.has(g)) continue; // skillExtras
+        let at;
+        if (!sub) at = role === 's' || !c.ability ? 's' : 'a';
+        else {
+          const k = Number(sub.slice(1));
+          const kid = Array.isArray(c.subs) ? c.subs[k - 1] : null;
+          if (!kid) continue;
+          const late = c.group === 'seq' && c.subs.slice(0, k - 1).some((x) => x.anim);
+          at = late ? 'e' : role === 's' || !(kid.anim || kid.wait) ? 's' : 'a';
+        }
+        const cue = bankCue(audio, name, at, soundLeaf);
+        if (cue) list.push(cue);
+      }
+    }
+    if (list.length) out[String(s.index)] = list;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 /** The mixer groups outside the BattleGameSound bus a snapshot filters (MainMixer: Independent / _2 under ~FX_VolumeControl). */
 const OUTSIDE_GROUPS = new Set(['Independent', 'Independent_2']);
 // a plan.mjs template leaf ({ alts: [{ rel }] }, resolved by fetch-assets to `/assets/<rel>` of the alternative it keeps) or

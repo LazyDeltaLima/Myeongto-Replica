@@ -111,6 +111,7 @@ describe('the modes a running skill switches to (SKILL_SUB_MODES)', () => {
     const a = manager(manifestOf());
     field(a, 'char_4145_ulpia', 2);
     a.handleBattleEvents([['skill', 1, 1]]);
+    a.played.length = 0; // its cast's own skchr_ulpia_3.2 START / ON (audio-skill-cast-cues.test.js)
     a.handleBattleEvents([['swing', 1, 0.3, 'none'], ['atk', 1, 2, 'none'], ['dmg', 2, 100, 'phys', 0, 1]]);
     a.handleBattleEvents([['fx', 'anchor', 0, 0, { id: 1 }]]);
     a.handleBattleEvents([['swing', 1, 0.3, 'none'], ['atk', 1, 2, 'none'], ['dmg', 2, 100, 'phys', 0, 1]]);

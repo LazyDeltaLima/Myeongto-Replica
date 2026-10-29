@@ -531,7 +531,7 @@ test('灵知 S2: 130 % ATK arts + 2.5 s cold to all in range; fully charged cast
   approx(burst[0].amount, u.s.atk * bb.atk_scale, 1e-6);
   assert.ok(a.s.flags.freeze && b.s.flags.freeze, 'charged cast: second cold ⇒ freeze');
   // its clip: the charged mode S2+ (the 'skill' event's variant, render anims skill `variants`)
-  assert.deepEqual(h.eventsOf('skill').filter((e) => e[1] === u.id && e[2] === 1)[0].slice(3), ['charged']);
+  assert.deepEqual(h.eventsOf('skill').filter((e) => e[1] === u.id && e[2] === 1)[0][3], 'charged');
   h.run(0.2);
   approx(a.findBuff('gnosis:fragile').mods.dmgTakenMul, t0.damage_scale_freeze, 1e-9, 'frozen ×2 fragile');
   // next (single-charge) cast only chills once per enemy

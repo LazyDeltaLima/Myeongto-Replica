@@ -28,7 +28,7 @@ import { literal } from './manifest.mjs';
 import { EMOTE_CATALOG } from '../../shared/constants.js';
 import { voiceTwin, VOICE_TWINS } from './voice.mjs'; // local patch
 import { skillStartSounds, skillStartIsFallback } from './skill-sfx.mjs'; // local patch
-import { loadCharModes, skillModes, unitGroups, skillLoops, skillExtras, defaultModeBanks, snapshotSfx, dubbedSfx, skillEnds, bankPlayTable, loadCharAudio, soundSet, skillHitCues, spineCues, enemySkillCues, enemyModeSets, tokenModeSets, loadTokenSkills } from './skill-mode-sfx.mjs'; // local patch
+import { loadCharModes, loadSkillCast, castCues, skillModeIndex, skillModes, unitGroups, skillLoops, skillExtras, defaultModeBanks, snapshotSfx, dubbedSfx, skillEnds, bankPlayTable, loadCharAudio, soundSet, skillHitCues, spineCues, enemySkillCues, enemyModeSets, tokenModeSets, loadTokenSkills } from './skill-mode-sfx.mjs'; // local patch
 import { kitHitSfx, kitHitGroups, kitHitLimits } from './kit-sfx.mjs'; // local patch
 
 /**
@@ -347,7 +347,7 @@ export function collectEnemyIds({ assets07, enemies05, maps05, ops03 }) {
 export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsData, charword = null, voiceLang = 'cn',
   voiceSlots = VOICE_BATTLE_SLOTS,
   extraEnemyIds = [], extraTokenIds = [], extraHandbook = {}, localEnemySpines = {}, localTokenSpines = {}, extraOperators = {},
-  moduleTypes = [], charModes = loadCharModes(), charAudio = loadCharAudio(), tokenSkills = loadTokenSkills() }) { // local patch: charModes, charAudio (2026-10-10)
+  moduleTypes = [], charModes = loadCharModes(), charAudio = loadCharAudio(), tokenSkills = loadTokenSkills(), skillCast = loadSkillCast() }) { // local patch: charModes, charAudio (2026-10-10)
   const notes = [];
   /** @type {Map<string, any>} */
   const models = new Map();
@@ -459,6 +459,9 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     if (loops) u.loops = loops;
     const extras = skillExtras(audio, id, (o.skills || []).filter((k) => idx.includes(k.index)), soundLeaf, skillPaths); // local patch
     if (extras) u.extras = extras;
+    // 2026-10-29, docs/rules/audio.md 「스킬 시전 능력 소리」: a CastSkill's own ability signals (skill-mode-sfx.mjs castCues)
+    const cc = castCues(audio, (o.skills || []).filter((k) => idx.includes(k.index)), skillCast, (i) => !!info && skillModeIndex(info.modes, i, info.skillMode) > 0, soundLeaf, skillPaths);
+    if (cc) u.castCues = cc;
     const ends = skillEnds(audio, (o.skills || []).filter((k) => idx.includes(k.index)), soundLeaf, id, charModes[id], charAudio[id]); // 2026-10-10: skill-end banks (2026-10-29: + the end mode's)
     if (ends) u.ends = ends;
     // docs/rules/audio.md 「더빙 효과음」: the deploy / skill-start banks a dub replaces (浊心斯卡蒂), in the planned dubs

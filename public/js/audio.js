@@ -55,7 +55,7 @@
 import { PHASE, PREBUILT_INTERVAL } from '../../shared/constants.js';
 import { enemyRecordMode } from '../../shared/skill-modes.js'; // 2026-10-23: an ally from an enemy record (炎佑)
 import { mediaUrl } from './media.js';
-import { officialGain, groupGain, battleGain, modeEntry, BATTLE_GROUP, VOICE_GAIN, startSkillLoop, stopSkillLoop, stopSkillLoops, skillLoopOf, loopGain, stopUnitLoops, skillExtrasOf, dollSwitchSfx, bankPlayOf, playPitch, skillEndOf, modeOn, roleGroup, cueSetOf, cueAbility, pickVariant, cuesAt, cueFile } from './audioOfficial.js'; // local patch: official mix + skill-mode sounds + skill loops / extras + bank play values
+import { officialGain, groupGain, battleGain, modeEntry, BATTLE_GROUP, VOICE_GAIN, startSkillLoop, stopSkillLoop, stopSkillLoops, skillLoopOf, loopGain, stopUnitLoops, skillExtrasOf, castCuesOf, dollSwitchSfx, bankPlayOf, playPitch, skillEndOf, modeOn, roleGroup, cueSetOf, cueAbility, pickVariant, cuesAt, cueFile } from './audioOfficial.js'; // local patch: official mix + skill-mode sounds + skill loops / extras + bank play values
 import { holdSnapshot, sfxOut, snapshotHookOf } from './audioSnapshot.js'; // local patch: mixer snapshots (归溟幽灵鲨's 替身 switch)
 
 /**
@@ -149,7 +149,9 @@ export function kitHitKey(fx, ex, unitOf) {
     case 'sonic': return def(ex.id) === 'char_4051_akkord' ? 'akkord:s2' : null;
     // 2026-10-11, docs/rules/audio.md 「재능·소환물 능력 소리」: 실버애쉬 더 레인프로스트 S2's slash — its ability's ON (no attack event);
     // 크루스 더 킨 글린트's 中的 shot — her talent ability's ON (the START: kitStartKey)
-    case 'aoe': return ex.skill === 'svash2' && def(ex.id) === 'char_1045_svash2' ? 'svash2:s2' : null;
+    // 2026-10-29: 薄绿 S2's end burst — her FinalAttack's ON_ABILITY_ATTACK_FINISH (docs/rules/audio.md 「스킬 시전 능력 소리」)
+    case 'aoe': return ex.skill === 'svash2' && def(ex.id) === 'char_1045_svash2' ? 'svash2:s2'
+      : ex.skill === 'mint_2' && def(ex.id) === 'char_388_mint' ? 'mint:s2end' : null;
     case 'crit': return ex.by != null && def(ex.by) === 'char_1021_kroos2' ? 'kroos2:t1' : null;
     default: return null;
   }
@@ -1315,7 +1317,7 @@ export class AudioManager {
    * Play one cue of unit model `def` (audioOfficial.js cueFile: one file of the bank, drawn by weight): its chance, its mixer
    * group × bank volume, its bank's cap (`def:at:url`). Returns whether a cue was there.
    */
-  _playCue(def, c, mode) {
+  _playCue(def, c, mode, after = 0) {
     if (!c) return false;
     // one draw per play, like SoundFXBank._GenerateWeightedRandomSound: the empty assets' share is silence (`p`), the rest
     // picks the file by weight
@@ -1326,7 +1328,8 @@ export class AudioManager {
     if (!f) return false;
     const role = c.at === 'd' ? 'hit' : 'attack';
     const volume = groupGain(typeof c.g === 'string' ? c.g : roleGroup(def, role, mode)) * (f.vol > 0 ? f.vol : 1);
-    this._play(f.url, { volume, limited: true, bank: `${def}:${c.at}:${f.url}`, delay: f.delay });
+    const delay = (Number(f.delay) > 0 ? Number(f.delay) : 0) + (after > 0 ? after : 0); // `after`: castCuesOf
+    this._play(f.url, { volume, limited: true, bank: `${def}:${c.at}:${f.url}`, delay: delay > 0 ? delay : f.delay });
     return true;
   }
 
@@ -1754,6 +1757,9 @@ export class AudioManager {
                 else this._play(x.url, { volume: gain, limited: true, bank: `${su.def}:x${su.skillIndex}:${k}` });
               });
             } else skillExtrasOf(ue, su.skillIndex).forEach((x, k) => stopSkillLoop(this, `${e[1]}:x${k}`));
+            // 2026-10-29, docs/rules/audio.md 「스킬 시전 능력 소리」: its skill ability's own START / ON / HIT (the sim's
+            // [strike, end] in e[4])
+            if (e[2]) for (const { cue, after } of castCuesOf(ue, su.skillIndex, e[4])) this._playCue(su.def, cue, true, after);
             // modes[i].deferStart: a fallback start sound — it plays only for a skill that ended without an attack (its
             // attacks sound the skill's own attack sound, as the official ability signals do)
             if (!e[2] && su.startHeld) this.unit(su.def, 'skill', e[1], su.skillIndex ?? undefined);

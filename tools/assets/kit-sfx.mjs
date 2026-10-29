@@ -82,6 +82,8 @@ export const KIT_HIT_BANKS = Object.freeze({
   // fire projectile_chr_svash2_s3 (its BORN at each strike)
   'svash2:s2': 'battle.ON_ABILITY_ON.skchr_svash2_2',
   'svash2:s3born': 'battle.ON_PROJECTILE_BORN.projectile_chr_svash2_s3',
+  // 2026-10-29: 薄绿 S2's end burst (its FinalAttack — AbilityStandard.OnAttackFinished sounds ON_ABILITY_ATTACK_FINISH)
+  'mint:s2end': 'battle.ON_ABILITY_ATTACK_FINISH.skchr_mint_2',
   // 뮤엘시스's 流形 (token_10030_mlyss_wtrman): the copy turning melee / ranged (mlyss_wtrman_s_begin's audio buffs), S3's
   // pull pulse of a melee copy (mlyss_s_3[token_melee_holder] audio buff, ON_BUFF_TRIGGER every pulse)
   'mlyss:melee': 'battle.ON_BUFF_START.mlyss_wtrman_s_melee_audio',
