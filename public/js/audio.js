@@ -2057,9 +2057,9 @@ export class AudioManager {
             // 2026-10-29: 耶拉 S2's Funnel_0 — its TriggerAudioSignalBehaviour after each hit (`_preDelay` 0.6 s) [추정·엔진: the
             // ability's playback speed, which divides it, taken as 1]
             if (hk === 'kjera:s2') this._kitSound('kjera:s2end', 0.6);
-            // 2026-10-29: 克莱门莎 S3 — the shell's fall sound 0.5 s before each of its impacts (the kit's three, 1 s apart from
-            // `dur` after the mark; the prefab's fall behaviour starts 0.5 s after it reached, the impact 1 s)
-            if (hk === 'clemnt:s3reach') for (let n = 0; n < 3; n++) this._kitSound('clemnt:s3fall', Math.max(0, (Number(e[4].dur) || 0) - 0.5) + n);
+            // 2026-10-29: 克莱门莎 S3 — the shell's fall sound 0.5 s before each of its `n` impacts, 1 s apart from `dur` after it
+            // reached (the prefab's fall behaviour: 0.5 s after it reached, then every 1 s)
+            if (hk === 'clemnt:s3reach') for (let n = 0; n < (Number(e[4].n) || 3); n++) this._kitSound('clemnt:s3fall', Math.max(0, (Number(e[4].dur) || 0) - 0.5) + n);
           }
           // 2026-10-29: 荒芜拉普兰德 S3's wolves released (each cruise projectile's BORN), 溯光星源 S3's newly linked enemies
           if (e[1] === 'drones' && e[4]?.id != null && unitOf(e[4].id)?.def === 'char_1038_whitw2' && unitOf(e[4].id)?.skillIndex === 2) {

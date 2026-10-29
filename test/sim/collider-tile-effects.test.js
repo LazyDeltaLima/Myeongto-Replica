@@ -85,7 +85,7 @@ test('克莱门莎 S3 bombardment: the cross takes an enemy 0.05 past its edge, 
   h.b.dealDamage(u, remote, { amount: 1000, type: 'element', element: 'erosion' });
   h.step();
   u.skill.stop();
-  h.run(2.6);
+  h.run(3.1); // its three hits 1, 2 and 3 s after the shell is fired
   const bombs = h.hooksOf('damaged').filter((c) => c.dmg?.tags?.includes('clemnt:bomb'));
   assert.equal(bombs.filter((c) => c.target === remote && c.type === 'phys').length, 3, 'the marked enemy');
   assert.equal(bombs.filter((c) => c.target === inside && c.type === 'phys').length, 3, '0.05 past the right arm');

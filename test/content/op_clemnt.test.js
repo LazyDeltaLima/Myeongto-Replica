@@ -235,7 +235,10 @@ test('与海为敌 normal attacks hit three and spend no ammunition; remote eros
   const remote = h.spawn('dummy', { pos: [11, 9] }), near = h.spawn('dummy', { pos: [12, 9] });
   const diagonal = h.spawn('dummy', { pos: [12, 8] }), fly = h.spawn('fly', { pos: [11, 9] });
   h.b.dealDamage(u, remote, { amount: 1000, type: 'element', element: 'erosion' }); h.step();
-  assert.equal(u.skill.ammoLeft, 9); u.skill.stop(); h.run(2.6);
+  assert.equal(u.skill.ammoLeft, 9); u.skill.stop();
+  // the shell's first hit waits its timer's first period, 1 s (CN client projectile_chr_clemnt_s3), then every 1 s
+  h.run(0.9); assert.equal(hits(h, 'clemnt:bomb').length, 0, 'nothing before 1 s');
+  h.run(2.2);
   const bombs = hits(h, 'clemnt:bomb');
   for (const e of [remote, near]) {
     assert.equal(bombs.filter((c) => c.target === e && c.type === 'phys').length, 3);

@@ -424,11 +424,9 @@
     (BORN `p_atk_wtfyswrsp` — fx `anchor`), 그것이 멈추면(ON_PROJECTILE_STOP → 그 버프 TRIGGER) 소용돌이 `…_s2_range`(BORN `p_imp_wtfyswrsp` — fx `tide`).
     S3는 침식 붕괴한 적에 `clemnt_s3[emit_projectile]`가 `projectile_chr_clemnt_s3`를 그 발밑에 쏘고 — REACH `p_atk_wtrbmcn`(fx `lock`), 그 프리팹의
     소리 동작 둘이 도착 뒤 0.5초에 낙하음 `clemnt_s3_projectile_tick_fall_audio`(`p_atk_wtrbmsl`), 1.0초에 착탄음 `…_tick_reach_audio`(`p_imp_wtrbmsl`),
-    그 뒤 1초마다(횟수 = 타격 수 `audio_trigger_cnt`). 피해는 버프 `clemnt_s3[rocket_damage]`(HIT 신호 없음)라 S3 키트 피해는 무음(`SKILL_DAMAGE_KEYS` '';
-    전에는 S3 모드 착탄음이 났다). 우리: 착탄음은 키트 폭발 fx `blast`마다, 낙하음은 각 폭발 0.5초 전(`lock`의 `dur` − 0.5 + n초, 3번). 재능 1 굴림이
+    그 뒤 1초마다(횟수 = 타격 수 `audio_trigger_cnt`, 타격도 1초 뒤부터 1초마다 — rules/diy.md). 피해는 버프 `clemnt_s3[rocket_damage]`(HIT 신호 없음)라 S3 키트 피해는 무음(`SKILL_DAMAGE_KEYS` '';
+    전에는 S3 모드 착탄음이 났다). 우리: 착탄음은 키트 폭발 fx `blast`마다, 낙하음은 각 폭발 0.5초 전(`lock`의 `dur` − 0.5 + k초, `n`번). 재능 1 굴림이
     이기면 `clemnt_t1[dice_damage]` ON_AFTER_OUTPUT_DAMAGE의 PlayAudio `clemnt_t1_power_attack_audio`(`p_imp_wtsdrvrtl`) — 'dmg' 9번째 칸 moment.
-    덤: 그 투사체의 타격 동작(`SelectorHitBehaviour` `_interval` 1·`_waitFirstPeriod`)과 착탄음 1.0초는 첫 포격이 표식 1초 뒤라는 뜻으로 읽히는데, 키트의
-    첫 포격은 0.5초(키트의 추정값 — rules/diy.md 「선발 추가 3명」) — sim은 안 바꿈(golden 이동, 관리자 결정 대기).
   - 할 것 없음: 혼 S2 `…_horn_s2_full*`(수동 종료 `Full Burst`의 탄 — 위 「공격 소리 신호」; 이 모드 기물은 S3). 남김(§11 ③ 소리): 실버애쉬 더 레인프로스트 S3
     새(`svash2_s_3[bird_on_self]`/`[bird_on_target]` — 이 모드에서 어느 쪽이 도는지 미조사).
 - 확인: `test/audio-skill-projectiles.test.js`(뱅크·매니페스트, 키, AudioManager 재생, 실제 매치 경로: 쉐라 드론 피해의 7번째 칸 2와 S2 드론 `i`; 클레멘티아 2026-10-29 같은 날 추가). [화면 미확인]
