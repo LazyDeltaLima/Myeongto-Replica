@@ -427,7 +427,7 @@
     전에는 S3 모드 착탄음이 났다). 우리: 착탄음은 키트 폭발 fx `blast`마다, 낙하음은 각 폭발 0.5초 전(`lock`의 `dur` − 0.5 + n초, 3번). 재능 1 굴림이
     이기면 `clemnt_t1[dice_damage]` ON_AFTER_OUTPUT_DAMAGE의 PlayAudio `clemnt_t1_power_attack_audio`(`p_imp_wtsdrvrtl`) — 'dmg' 9번째 칸 moment.
     덤: 그 투사체의 타격 동작(`SelectorHitBehaviour` `_interval` 1·`_waitFirstPeriod`)과 착탄음 1.0초는 첫 포격이 표식 1초 뒤라는 뜻으로 읽히는데, 키트의
-    첫 포격은 0.5초 [ASSUMED](rules/diy.md 「선발 추가 3명」) — sim은 안 바꿈(golden 이동, 관리자 결정 대기).
+    첫 포격은 0.5초(키트의 추정값 — rules/diy.md 「선발 추가 3명」) — sim은 안 바꿈(golden 이동, 관리자 결정 대기).
   - 할 것 없음: 혼 S2 `…_horn_s2_full*`(수동 종료 `Full Burst`의 탄 — 위 「공격 소리 신호」; 이 모드 기물은 S3). 남김(§11 ③ 소리): 실버애쉬 더 레인프로스트 S3
     새(`svash2_s_3[bird_on_self]`/`[bird_on_target]` — 이 모드에서 어느 쪽이 도는지 미조사).
 - 확인: `test/audio-skill-projectiles.test.js`(뱅크·매니페스트, 키, AudioManager 재생, 실제 매치 경로: 쉐라 드론 피해의 7번째 칸 2와 S2 드론 `i`; 클레멘티아 2026-10-29 같은 날 추가). [화면 미확인]
