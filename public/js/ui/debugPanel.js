@@ -13,6 +13,11 @@
 //   enemies   dbg.addEnemy { enemyKey, count } — `count` more of any enemy of the client's enemy table (token-only summons
 //             left out; search by name, Chinese name or key) in the player's next battle, joined like a 悬赏 card's
 //             enemies (preview, effects list); m.private.debug.enemies lists the queued ones, dbg.clearEnemies drops them
+//   boss      dbg.bossJump { bossId?, bondId?, layers, preset } the match goes to the Final Assault now (any prep before it):
+//             the leader (m.private.debug.boss.bosses, the mode's), and in its prep every seat — AI teammates too — gets an
+//             elite board around a bond (the sender's chosen one, else drawn; the others drawn) placed by the AI's planner,
+//             with the bond layers of the chosen level; unticked, the boards stay and only the layers are set
+//             (server/local-debug-board.js)
 //   end       dbg.finish { victory } the match ends now as won / lost — the settlement screen (and its feedback) at once
 //   F2        hides / shows the whole panel (remembered per browser: sp.pref.debugPanelHidden)
 // Sits left of the board under the bond strip (css/debug-panel.css), clear of the board, shop and hand.
@@ -34,6 +39,8 @@ export const DEBUG_PANEL_KEY = 'F2'; // KeyboardEvent.key that hides / shows the
 const HIDDEN_PREF = 'debugPanelHidden';
 const RANK_ORDER = { NORMAL: 0, ELITE: 1, BOSS: 2 };
 const RANK_LABEL = { NORMAL: N_('普通'), ELITE: N_('精英'), BOSS: N_('首领') };
+/** dbg.bossJump `layers` (server/local-debug-board.js DEBUG_LAYER_LEVELS) and their labels */
+const LAYER_LEVELS = [['keep', N_('保持当前')], ['normal', N_('常规')], ['strong', N_('较多')], ['max', N_('上限')]];
 
 /**
  * Every operator the panel offers: [{ key, kind: 'chess'|'diy', name, tiers, bonds, hidden, hay, cand? }], tier then
@@ -115,6 +122,10 @@ export function DebugPanel({ debug, prep, diy }) {
   const [skillSel, setSkillSel] = useState(null);   // null = the current loadout / default
   const [moduleSel, setModuleSel] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [bossSel, setBossSel] = useState('');   // '' = the match's own leader
+  const [jumpBond, setJumpBond] = useState(''); // '' = drawn
+  const [layerLv, setLayerLv] = useState('normal');
+  const [preset, setPreset] = useState(true);
   const candidates = debug?.candidates;
   const chessReady = data.status('chess');
   const entries = useMemo(() => debugEntries(data.list('chess'), candidates, (id) => data.lookupRaw('chess', id), (id) => data.lookup('bonds', id)),
@@ -186,6 +197,18 @@ export function DebugPanel({ debug, prep, diy }) {
     setBusy(false);
   };
   const clearEnemies = async () => { setBusy(true); await act('dbg.clearEnemies', {}, { sfx: false }); setBusy(false); };
+  const boss = debug.boss || null;
+  const bossName = (id) => data.lookup('bosses', id)?.name || id;
+  const jumpBonds = bonds.filter((b) => entries.some((e) => e.kind === 'chess' && !e.hidden && e.bonds.includes(b.bondId)));
+  const canJump = !!boss && prep && boss.at < boss.round;
+  const jump = async () => {
+    const fields = { layers: layerLv, preset };
+    if (bossSel) fields.bossId = bossSel;
+    if (preset && jumpBond) fields.bondId = jumpBond;
+    setBusy(true);
+    await send('dbg.bossJump', fields);
+    setBusy(false);
+  };
   const label = (e) => `${e.tiers.map(roman).join('/')} · ${e.name}`
     + (e.kind === 'diy' ? ` (${t('自选')})` : e.hidden ? ` (${t('隐藏')})` : '');
   return html`<div class="dbgp" role="group" aria-label=${t('调试面板')}>
@@ -263,6 +286,32 @@ export function DebugPanel({ debug, prep, diy }) {
         <span class="dbgp__queued">${t('下一场作战：{list}', { list: queued.map((q) => `${enemyName(q.enemyKey)} ×${q.count}`).join(', ') })}</span>
         <button type="button" class="dbgp__end dbgp__clear" disabled=${busy || !prep} onClick=${clearEnemies}>${t('清空')}</button>
       </div>` : null}
+      <div class="dbgp__sep"></div>
+      ${boss ? html`<div class="dbgp__row">
+        <span class="dbgp__label">${t('首领')}</span>
+        <select value=${bossSel} onChange=${(e) => setBossSel(e.currentTarget.value)}>
+          <option value="">${`${t('本局')} · ${bossName(boss.bossId)}`}</option>
+          ${(boss.bosses || []).map((id) => html`<option key=${id} value=${id}>${bossName(id)}</option>`)}
+        </select>
+      </div>
+      <label class="dbgp__pin">
+        <input type="checkbox" checked=${preset} disabled=${busy} onChange=${(e) => setPreset(!!e.currentTarget.checked)} />
+        <span>${t('按盟约重新布阵（含AI）')}</span>
+      </label>
+      ${preset ? html`<div class="dbgp__row">
+        <span class="dbgp__label">${t('盟约')}</span>
+        <select value=${jumpBond} onChange=${(e) => setJumpBond(e.currentTarget.value)}>
+          <option value="">${t('随机')}</option>
+          ${jumpBonds.map((b) => html`<option key=${b.bondId} value=${b.bondId}>${tName(b.name)}</option>`)}
+        </select>
+      </div>` : null}
+      <div class="dbgp__row">
+        <span class="dbgp__label">${t('层数')}</span>
+        <select value=${layerLv} onChange=${(e) => setLayerLv(e.currentTarget.value)}>
+          ${LAYER_LEVELS.map(([v, l]) => html`<option key=${v} value=${v}>${t(l)}</option>`)}
+        </select>
+      </div>
+      <button type="button" class="dbgp__add" disabled=${busy || !canJump} onClick=${jump}>${t('跳至最终攻势（第{round}回合）', { round: boss.round })}</button>` : null}
       <div class="dbgp__row">
         <span class="dbgp__label">${t('结算')}</span>
         <button type="button" class="dbgp__end" disabled=${busy} onClick=${() => finish(true)}>${t('胜利')}</button>

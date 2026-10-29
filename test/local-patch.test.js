@@ -1293,7 +1293,7 @@ test('SP_DEBUG_FUNDS: parsed only as an integer 0..999, unset on deployed server
   assert.equal(debugFunds({ SP_DEBUG_FUNDS: '5000' }), null);
 });
 
-describe('in-game debug panel: dbg.funds / dbg.addDiy / dbg.addChess / dbg.addEnemy / dbg.finish, local debug mode only (server/local-patch.js debugIntent)', () => {
+describe('in-game debug panel: dbg.funds / dbg.addDiy / dbg.addChess / dbg.addEnemy / dbg.bossJump / dbg.finish, local debug mode only (server/local-patch.js debugIntent)', () => {
   const DEBUG_ENV = { SP_DEBUG_PAGE: '1' };
   const humans = () => [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }, { seat: 1, playerId: 'p_1', name: 'P1', isBot: false, connected: true }];
   const prep = () => { const h = makeMatch({ mode: 'coop', seats: humans(), seed: 3 }); h.start(); h.toPrep(1); return h; };
@@ -1534,6 +1534,72 @@ describe('in-game debug panel: dbg.funds / dbg.addDiy / dbg.addChess / dbg.addEn
     assert.deepEqual(debugView(ps).enemies, [], 'one battle only');
     const listed = debugEnemyEntries(enemies);
     assert.ok(!listed.some((e) => e.key === token) && listed.some((e) => e.key === fly), 'the panel leaves token-only summons out');
+  });
+
+  test('dbg.bossJump goes from R1 to the Final Assault with the chosen leader: every seat (AI too) an elite board around a bond, its layers, the AI seats kept as placed', async () => {
+    const { debugIntent, debugView } = await import('../server/local-patch.js');
+    const { checkInvariants } = await import('./match/harness.js');
+    assert.equal(validateC2S({ t: 'dbg.bossJump' }), null);
+    assert.equal(validateC2S({ t: 'dbg.bossJump', bossId: 'boss_7', bondId: 'yanShip', layers: 'max', preset: true }), null);
+    assert.ok(validateC2S({ t: 'dbg.bossJump', layers: 'lots' }));
+    assert.ok(validateC2S({ t: 'dbg.bossJump', bossId: 'enemy_1' }));
+    const h = makeMatch({ mode: 'coop', humans: 1, bots: 3, seed: 5 });
+    h.start(); h.toPrep(1);
+    const m = h.m, gd = m.gd;
+    const jump = (f, env = DEBUG_ENV) => debugIntent(m, 'p_0', { t: 'dbg.bossJump', ...f }, env);
+    assert.equal(jump({}, {}).error, ERR.BAD_MSG, 'off outside debug mode');
+    const { boss } = debugView(h.ps('p_0'));
+    assert.equal(boss.round, gd.bossRound);
+    assert.equal(boss.at, 1);
+    const leader = boss.bosses.find((id) => id !== m.bossId);
+    assert.ok(leader, 'the mode has another leader');
+    assert.equal(jump({ bossId: 'boss_99' }).error, ERR.BAD_TARGET, 'not a leader of this mode');
+    assert.equal(jump({ bondId: 'noSuchShip' }).error, ERR.BAD_TARGET, 'a bond without chess');
+    assert.equal(m.round, 1, 'a refusal changes nothing');
+    assert.deepEqual(jump({ bossId: leader, bondId: 'yanShip', layers: 'normal' }), { ok: true });
+    assert.equal(m.round, gd.bossRound);
+    assert.equal(m.bossId, leader);
+    assert.ok(m.bossWaves.length >= 2, 'the boss fields are planned for the pairs');
+    assert.ok(h.drive(() => m.phase === 'PREP' && m.round === gd.bossRound, { ready: false }));
+    const core = new Map();
+    for (const ps of m.order) {
+      assert.equal(ps.deployCount, ps.deployCap, `${ps.playerId} full board`);
+      assert.ok([...ps.board.values()].every((p) => p.kind !== 'chess' || gd.isGolden(p.id)), `${ps.playerId} every operator elite`);
+      assert.ok([...ps.board.values()].every((p) => !p.items?.length), 'no equipment');
+      const top = Object.entries(ps.bonds).filter(([id, b]) => b.active && gd.bond(id).isCore).sort(([, a], [, b]) => b.layers - a.layers)[0];
+      assert.ok(top && top[1].layers === 150, `${ps.playerId} core bond on the R14 curve`);
+      core.set(ps.playerId, top[0]);
+    }
+    assert.equal(core.get('p_0'), 'yanShip', 'the sender\'s chosen bond');
+    assert.ok(h.ps('p_0').bonds.yanShip.tier >= 2, '6 炎 members');
+    assert.equal(new Set(core.values()).size, m.order.length, 'distinct bonds per seat');
+    checkInvariants(m);
+    const boards = () => m.order.filter((p) => p.isBot).map((p) => [...p.board].map(([k, x]) => `${k}:${x.id}`).sort().join(' '));
+    const placed = boards();
+    h.sched.advance(10000);
+    assert.ok(m.order.filter((p) => p.isBot).every((p) => p.ready), 'the AI seats Ready');
+    assert.deepEqual(boards(), placed, 'without rearranging');
+    assert.equal(jump({}).error, ERR.WRONG_PHASE, 'already at the Final Assault');
+    assert.ok(h.drive(() => m.phase === 'FINAL_ASSAULT'), 'the Final Assault starts');
+  });
+
+  test('dbg.bossJump without the preset keeps the boards and puts the layer level on their active bonds', async () => {
+    const { debugIntent } = await import('../server/local-patch.js');
+    const h = prep(), m = h.m;
+    const ps = h.ps('p_0');
+    const { bondMembers } = await import('../server/local-debug-board.js');
+    const { arrange } = await import('../server/match/bot.js');
+    ps.hand.fill(null);
+    for (const id of bondMembers(m.gd, 'yanShip').slice(-3)) debugIntent(m, 'p_0', { t: 'dbg.addChess', chessId: id }, DEBUG_ENV);
+    arrange(m, ps);
+    assert.ok(ps.bonds.yanShip.active, '3 炎 members on the board');
+    assert.deepEqual(debugIntent(m, 'p_0', { t: 'dbg.bossJump', preset: false, layers: 'max' }, DEBUG_ENV), { ok: true });
+    const held = () => [...ps.board.values(), ...ps.hand].filter((p) => p && p.kind === 'chess').map((p) => p.id).sort();
+    const before = held();
+    assert.ok(h.drive(() => m.phase === 'PREP' && m.round === m.gd.bossRound, { ready: false }));
+    assert.deepEqual(held(), before, 'the pieces stay');
+    assert.ok(ps.bonds.yanShip.active, 'still active on the boss field');
+    for (const [id, b] of Object.entries(ps.bonds)) if (b.active) assert.equal(b.layers, 999, `${id} at the cap`);
   });
 });
 

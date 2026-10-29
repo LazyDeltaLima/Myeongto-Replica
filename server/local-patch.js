@@ -12,7 +12,7 @@
 //   welcomeInfo(lobby)               Lobby.welcomeInfo: `feedback: true` while the feedback inbox is on (local-feedback.js)
 //   fb.send                          (via onMessage) the settlement screen's feedback, kept in SP_FEEDBACK_DIR (local-feedback.js)
 //   debugPageHidden(path)            server/index.js static route: the effect / sound debug page only with SP_DEBUG_PAGE=1
-//   dbg.funds / dbg.addDiy / dbg.addChess / dbg.addEnemy / dbg.clearEnemies / dbg.finish  (via onMessage) the in-game debug panel, local debug mode only — see debugMode below
+//   dbg.funds / dbg.addDiy / dbg.addChess / dbg.addEnemy / dbg.clearEnemies / dbg.bossJump / dbg.finish  (via onMessage) the in-game debug panel, local debug mode only — see debugMode below
 //
 // 선발 오퍼레이터: since 0.2.0 upstream's 自选 framework (shared/diy.js, server/match/player/diy.js) with our
 // operators as its only candidates (tools/build-data.mjs local patch); nothing of it is wrapped here.
@@ -28,7 +28,7 @@
 
 import { logMatchStats } from './local-stats.js';
 import { FeedbackInbox } from './local-feedback.js';
-import { ERR, MAX_SEATS } from '../shared/constants.js';
+import { ERR, MAX_SEATS, PHASE } from '../shared/constants.js';
 import { CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_HISTORY, chatFaction } from '../shared/local.js';
 import { sendSession } from './net.js';
 import { PlayerState } from './match/PlayerState.js';
@@ -38,6 +38,7 @@ import { localDiyPool } from '../shared/local-diy.js';
 import { checkDiyPicks } from '../shared/protocol.js';
 import { diyGameData } from './match/player/diy.js';
 import { KITTED_CHARS } from './sim/content/kits/index.js';
+import { DEBUG_LAYER_LEVELS, applyDebugBoard, applyDebugLayers, assignDebugBonds, bondMembers, debugBosses } from './local-debug-board.js';
 
 const OK = Object.freeze({ ok: true });
 
@@ -361,8 +362,9 @@ export const proxiedRequest = (req) => !!(req && req.headers && req.headers['x-f
 // Local debug mode = SP_DEBUG_PAGE=1 or a valid SP_DEBUG_FUNDS, and NODE_ENV is not 'production'.
 // A local debug run sets them; deployed servers set neither and the Docker image sets NODE_ENV=production, so a deployed
 // server is never in it. Only then:
-//   m.private.debug = { fundsPin, pinValue, candidates, enemies }   (privateView wrapper, installed at import) — the
-//                     client renders the panel only when this is present; `enemies` = the extra enemies queued below
+//   m.private.debug = { fundsPin, pinValue, candidates, enemies, boss }   (privateView wrapper, installed at import) —
+//                     the client renders the panel only when this is present; `enemies` = the extra enemies queued
+//                     below; `boss` = { round: the boss round, at: the match's round, bossId, bosses: the mode's leaders }
 //   dbg.funds { on }        the sender's funds pinned to pinValue (SP_DEBUG_FUNDS, else 99) or back to real funds
 //                           (they keep the pinned value and move normally from there)
 //   dbg.addDiy { charId, tier, golden?, skill?, module? }
@@ -389,12 +391,18 @@ export const proxiedRequest = (req) => !!(req && req.headers && req.headers['x-f
 //                           list; the settlement after that battle drops them (roundsLeft 1). Prep only — a bounty added in
 //                           combat would be dropped by that combat's settlement before it spawned.
 //   dbg.clearEnemies {}     the queued debug enemies dropped (prep only)
+//   dbg.bossJump { bossId?, bondId?, layers?, preset? }
+//                           the match goes to the Final Assault now (any prep before it): the leader `bossId` (one of
+//                           the mode's), then in its prep every alive seat's preset board around a bond and its layers
+//                           (server/local-debug-board.js; `preset: false` keeps the boards and only sets the layers).
+//                           The two wrappers it needs (Match.enterPrep puts the boards, Match.scheduleBotPrep only
+//                           Readies a placed AI seat) are installed on its first use.
 //   dbg.finish { victory }  the match ends now as won / lost (Match.finish, reason victory / defeat): the settlement screen,
 //                           its [stats] line and its feedback (local-feedback.js) without playing to the end — any phase
 // Outside debug mode these messages are refused as BAD_MSG (the server never trusts the client's panel).
 
 export const DEBUG_PIN_DEFAULT = 99;
-const DEBUG_MSGS = new Set(['dbg.funds', 'dbg.addDiy', 'dbg.addChess', 'dbg.addEnemy', 'dbg.clearEnemies', 'dbg.finish']);
+const DEBUG_MSGS = new Set(['dbg.funds', 'dbg.addDiy', 'dbg.addChess', 'dbg.addEnemy', 'dbg.clearEnemies', 'dbg.bossJump', 'dbg.finish']);
 export const DEBUG_ENEMY_NAME = 'DEBUG'; // the queued bounty's name in the effects list (the same in every language)
 
 /** Whether this server runs in local debug mode (see above). */
@@ -470,7 +478,43 @@ export function debugView(ps) {
   if (!ps || ps.isBot) return null;
   if (!ps.m.debugCandidates) ps.m.debugCandidates = debugCandidates(ps.gd);
   const enemies = ps.bounties.filter((b) => b.debugEnemies).map((b) => ({ enemyKey: b.card.enemyKey, count: b.card.count }));
-  return { fundsPin: fundsPinOf(ps) != null, pinValue: FIXED_FUNDS ?? DEBUG_PIN_DEFAULT, candidates: ps.m.debugCandidates, enemies };
+  const m = ps.m;
+  const boss = { round: m.gd.bossRound, at: m.round, bossId: m.bossId ?? null, bosses: debugBosses(m.gd) };
+  return { fundsPin: fundsPinOf(ps) != null, pinValue: FIXED_FUNDS ?? DEBUG_PIN_DEFAULT, candidates: ps.m.debugCandidates, enemies, boss };
+}
+
+// dbg.bossJump: the boss round's prep puts the queued preset boards (m.debugBossJump) once the phase is PREP — the deploy
+// map is the boss field then and the layout moves are legal —, and an AI seat placed by it only Readies afterwards
+let bossJumpInstalled = false;
+function installBossJump() {
+  if (bossJumpInstalled) return;
+  bossJumpInstalled = true;
+  const upstreamEnterPrep = Match.prototype.enterPrep;
+  Match.prototype.enterPrep = function enterPrep() {
+    upstreamEnterPrep.call(this);
+    const jump = this.debugBossJump;
+    if (!jump || this.round !== this.gd.bossRound) return;
+    this.debugBossJump = null;
+    for (const ps of this.alivePlayers()) {
+      try {
+        const bondId = jump.bonds ? jump.bonds.get(ps.playerId) : null;
+        if (bondId) applyDebugBoard(this, ps, bondId, jump.layers);
+        else if (!jump.bonds) applyDebugLayers(this, ps, jump.layers);
+      } catch (e) { this.reportError(`debug boss jump ${ps.playerId}`, e); }
+    }
+    this.markPublic();
+  };
+  const upstreamBotPrep = Match.prototype.scheduleBotPrep;
+  Match.prototype.scheduleBotPrep = function scheduleBotPrep(ps, i = 0) {
+    if (!ps.debugLocked) return upstreamBotPrep.call(this, ps, i);
+    const round = this.round;
+    this.later(0, () => {
+      if (this.phase !== PHASE.PREP || this.round !== round || !ps.alive || ps.ready || !ps.botControlled) return;
+      this.autoPickPersonalChoice(ps, 'random');
+      ps.resolveTemp();
+      ps.setReady(true);
+    });
+  };
 }
 
 /**
@@ -540,6 +584,20 @@ export function debugIntent(m, playerId, msg, env = process.env) {
     const b = id && ps.bounties.find((x) => x.id === id);
     if (!b) return fail(ERR.BAD_TARGET, 'not a spawnable enemy');
     b.debugEnemies = true;
+    return OK;
+  }
+  if (msg.t === 'dbg.bossJump') {
+    const g = ps._gate({ allowWhenReady: true }); if (g) return g;
+    if (!(m.round < m.gd.bossRound)) return fail(ERR.WRONG_PHASE, 'already at the Final Assault');
+    if (msg.bossId != null && !debugBosses(m.gd).includes(msg.bossId)) return fail(ERR.BAD_TARGET, 'not a leader of this mode');
+    if (msg.bondId != null && !bondMembers(m.gd, msg.bondId).length) return fail(ERR.BAD_TARGET, 'no chess of that bond');
+    const layers = DEBUG_LAYER_LEVELS.includes(msg.layers) ? msg.layers : 'normal';
+    const bonds = msg.preset === false ? null : assignDebugBonds(m, playerId, msg.bondId ?? null);
+    installBossJump();
+    if (bonds) for (const p of m.alivePlayers()) if (p.isBot && bonds.get(p.playerId)) p.debugLocked = true;
+    m.debugBossJump = { bonds, layers };
+    if (msg.bossId) m.bossId = msg.bossId;
+    m.startRound(m.gd.bossRound);
     return OK;
   }
   if (msg.t === 'dbg.clearEnemies') {
