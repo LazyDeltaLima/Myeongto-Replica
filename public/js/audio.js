@@ -167,6 +167,8 @@ export function kitHitKey(fx, ex, unitOf) {
     // 2026-10-29: 薄绿 S2's end burst — her FinalAttack's ON_ABILITY_ATTACK_FINISH (docs/rules/audio.md 「스킬 시전 능력 소리」)
     case 'aoe': return ex.skill === 'svash2' && def(ex.id) === 'char_1045_svash2' ? 'svash2:s2'
       : ex.skill === 'mint_2' && def(ex.id) === 'char_388_mint' ? 'mint:s2end' : null;
+    // 2026-10-29: 歌蕾蒂娅 S3's tornado forming — its Chant's ON (docs/rules/audio.md 「스킬 시전 능력 소리」)
+    case 'tornado': return def(ex.id) === 'char_474_glady' ? 'glady:s3' : null;
     case 'crit': return ex.by != null && def(ex.by) === 'char_1021_kroos2' ? 'kroos2:t1' : null;
     default: return null;
   }

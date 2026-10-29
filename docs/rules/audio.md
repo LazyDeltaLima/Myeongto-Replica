@@ -372,7 +372,7 @@
   칸에 `[타격, 끝]`(게임 초, `castTiming()`)을 싣고(`server/sim/skills.js _evOn`, 클립 변형이 없으면 4번째 칸 null; 표시용 — 판정은 안 바뀜, golden 그대로),
   `audio.js`가 그만큼 기다려 낸다(`audioOfficial.js castCuesOf`, 뱅크 자신의 지연은 더함).
   - 이 모드 기물이 쓰는 것: 첸 더 던스트릭 S2 START p_atk_hljdswd_h(시작) · 플레임테일 S2 ON p_skill_lightsword · 인포서 S2 `.1` ON p_imp_fgun_s ·
-    글래디아 S3 `.1` START p_atk_seasword_h(시작)·`.2` ON p_skill_seasummon(「Chant」는 `wait` 0이라 타격 = 시작) · 노시스 S2 ON p_atk_iceprick_h·HIT
+    글래디아 S3 `.1` START p_atk_seasword_h(시작)·`.2` ON p_skill_seasummon(회오리가 생길 때 — 아래) · 노시스 S2 ON p_atk_iceprick_h·HIT
     p_imp_iceprick_h(타격 + 뱅크 지연 0.1초 — 클립 없는 능력이라 대상마다의 HIT가 판정 순간과 같음, 뱅크 `maxSoundAllowed` 1) · 레온하르트 S2 ON p_skill_magblast ·
     모스티마 S2 ON p_skill_blacktimewand_shot · 산크타 믹사파라토 S3 START p_atk_ftmxbrtlm_skiiop(버프 능력 — 시작) · 울피아누스 S3 `.2` START
     p_atk_wtrbatnchr_s(시작, 앞 자식이 버프)·ON p_atk_wtrbatnchrfr_s · 벤델라 S2 `.2` START p_imp_brmblhl_h(앞 자식 `MaxHpMark` 클립이 끝날 때).
@@ -381,8 +381,9 @@
     그 능력의 공격 끝 이벤트(`AbilityStandard.Event` ON_ATTACK_FINISH)에서 한 번 낸다(공식 클라에서 확인). 공식 끝 폭발은 끝 클립 `Skill_2_End`의 `OnAttack`(0.6초,
     `FinalAttack` `_cooldown` 0.62초)이고, sim은 스킬이 끝나는 순간 폭발한다(관리자 노트의 할 일). 소리는 sim의 끝 폭발 fx `aoe`(`skill: 'mint_2'`)에
     `sfx.kit mint:s2end`로 낸다 [추정·엔진: 공격 끝 이벤트를 판정 직후로 봄].
-  - 글래디아 S3 `.2`는 순차 묶음의 첫 자식 `FinalAttack`(시작의 갈고리 — 클립 없는 투사체 공격 `projectile_chr_glady_s3_3`, `wait` 1; 묶음 끝의 같은 능력이 끝의
-    捕网) 다음이다 — 갈고리가 바로 끝난다고 보고 시작에 낸다 [추정·엔진: 클립 없는 투사체 자식이 끝나는 시간(비행) 안 읽음].
+  - 글래디아 S3 `.2`(회오리 `Chant`의 ON p_skill_seasummon)는 순차 묶음의 첫 자식 `FinalAttack`(클립 없는 끌어당김 — `OnAttack` 이벤트를 기다림) 다음이라
+    빌더가 시점을 모른다 → `castCues`는 클립 없는 공격 자식 뒤의 자식을 빼고, 회오리가 생기는 sim fx `tornado`에 `sfx.kit glady:s3`로 낸다(시작 0.3초 뒤 —
+    `sim.md` 「글래디아 S3 시작 순서」). `.1` START p_atk_seasword_h(첫 `FinalAttack`)는 시작에.
   - 인포서 S2: 시전 능력은 묶음의 첫 클립 자식 `knock_back`(클립 `Skill`, 타격 0.4초, 배치 방향을 봄). 2026-10-29까지 `skill_cast.py`가 경로 이름순 첫 자식
     (클립 없는 `aura`)을 골라 시전 기록에 클립이 없었고 타격이 공격 간격 끝이었다 — 이제 묶음 순서의 첫 클립 자식을 고른다(바뀐 것은 이 스킬 하나).
 - 확인: `test/audio-skill-cast-cues.test.js`(빌더·매니페스트 11건, 다른 길이 내는 뱅크 제외, `castCuesOf` 대기, 벤델라 `e`·노시스 HIT 지연, 실제 매치 경로: 레온하르트 S2

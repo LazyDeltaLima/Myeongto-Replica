@@ -356,6 +356,9 @@ export function castCues(audio, skills, cast, hasMode, soundLeaf, startPaths = {
           const k = Number(sub.slice(1));
           const kid = Array.isArray(c.subs) ? c.subs[k - 1] : null;
           if (!kid) continue;
+          // after a clip-less attack child (it waits for an OnAttack event — 歌蕾蒂娅 S3's FinalAttack): no known moment, the
+          // kit's fx sounds it (kit-sfx.mjs)
+          if (c.group === 'seq' && c.subs.slice(0, k - 1).some((x) => !x.anim && x.wait)) continue;
           const late = c.group === 'seq' && c.subs.slice(0, k - 1).some((x) => x.anim);
           at = late ? 'e' : role === 's' || !(kid.anim || kid.wait) ? 's' : 'a';
         }

@@ -28,7 +28,7 @@ const CASES = [
   ['char_1050_chen3', 1, 'skchr_chen3_2', [['p_atk_hljdswd_h', 's']]],
   ['char_420_flamtl', 1, 'skchr_flamtl_2', [['p_skill_lightsword', 'a']]],
   ['char_4036_forcer', 1, 'skchr_forcer_2', [['p_imp_fgun_s', 'a']]],
-  ['char_474_glady', 2, 'skchr_glady_3', [['p_atk_seasword_h', 's'], ['p_skill_seasummon', 'a']]],
+  ['char_474_glady', 2, 'skchr_glady_3', [['p_atk_seasword_h', 's']]], // .2 after the clip-less FinalAttack: the kit's 'tornado'
   ['char_206_gnosis', 1, 'skchr_gnosis_2', [['p_atk_iceprick_h', 'a'], ['p_imp_iceprick_h', 'a']]],
   ['char_373_lionhd', 1, 'skchr_lionhd_2', [['p_skill_magblast', 'a']]],
   ['char_213_mostma', 1, 'skchr_mostma_2', [['p_skill_blacktimewand_shot', 'a']]],
@@ -137,5 +137,12 @@ describe('薄绿 S2: her end burst sounds ON_ABILITY_ATTACK_FINISH', () => {
     assert.equal(kitHitKey('aoe', { id: 7, skill: 'mint_2', radius: 2 }, unitOf), 'mint:s2end');
     assert.equal(kitHitKey('aoe', { id: 7, skill: 'other' }, unitOf), null);
     assert.equal(kitHitKey('aoe', { id: 8, skill: 'svash2' }, unitOf), 'svash2:s2');
+  });
+
+  test('歌蕾蒂娅 S3: the tornado forming (kit fx \'tornado\') sounds its Chant\'s ON, skchr_glady_3.2', () => {
+    assert.equal(KIT_HIT_BANKS['glady:s3'], 'battle.ON_ABILITY_ON.skchr_glady_3.2');
+    assert.equal(file(manifest.audio.sfx.kit['glady:s3']), 'p_skill_seasummon.mp3');
+    assert.equal(kitHitKey('tornado', { id: 7, tgt: 2 }, () => ({ def: 'char_474_glady' })), 'glady:s3');
+    assert.equal(kitHitKey('tornado', { id: 7 }, () => ({ def: 'char_1028_texas2' })), null);
   });
 });
