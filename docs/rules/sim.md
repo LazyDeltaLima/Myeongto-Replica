@@ -2278,6 +2278,8 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
   규칙으로도 스킬이 안 켜진다 — 「替身 동안 S1 技能范围도 시전 안 함」 추정이 이것으로 정해짐. 전에는 SP가 그대로 남아, 본체로 돌아오자마자
   켜질 수 있었다. 근거: 버프 템플릿 `ghost2_switchbegin`·`kazema_switchbegin` ON_BUFF_START = ClearAllBuffs + InterruptCharacterSkill +
   **ClearCharacterSp**, 替身 모드 `ghost2_standin[switch]` abnormalFlags SP_RECOVER_STOPPED. 구현 `professions.js installDollkeeper startSwitch`.
+  예외 없음: 스펙터 디 언체인드는 본체로 돌아온 뒤(`ghost2_switchend`) `switch_recover_sp`로 SP를 받지만, 그 양(`ghost2_e_t_10` `sp`)은 X 모듈
+  (`uniequip_002_ghost2`) 2·3단계 재능의 8/15뿐이고 이 모드 정예는 1단계(`equipLevel` 1)라 0.
   테스트 `test/sim/feedback2-doll.test.js` A·D.
 - **B4 토가와 사키코 S2 「满月的舞会」(공식 한국어 이름 없음)**: 공식은 자동 조작이 한 번만 켠다(피아노 → 오르간 뒤 그대로) — 확인했으나 **아직 안 바꿈**, `diy.md` 「사키코 S2」.
 - **B5 프라마닉스 더 프레리타 S1**: 키트의 `trigger: 'DEFAULT'` 강제와 옛 추정 주석을 지우고 데이터의 SEARCH를 쓴다(2026-10-11부터 엔진 SEARCH =
