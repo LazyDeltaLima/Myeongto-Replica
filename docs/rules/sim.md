@@ -1872,7 +1872,8 @@ upstream master `c9d804f4`·dev `06a92237` → master `f07b8965`·dev `71b2363f`
 
 - 규칙: `hitCountArts`(청자 다기 `enemy_1204_msfhu`·채색 다기 `enemy_1204_msfhu_2`)는 마법·트루 대미지 한 번에 1씩 준다. 물리와 원소 대미지는 0(`damage.js`의 빈도 갈래).
   전에는 원소 대미지도 1로 셌다. `hitCount`(다른 빈도 적)는 그대로 모든 종류.
-- 근거: 적 표 문구 「마법 혹은 트루 대미지 4회 피격 시 쓰러진다」. **[추정·자료 없음: 적 문구가 마법·트루만 적어서 원소 대미지를 뺐다. 공식 판정 노드는 확인 안 함]**
+- 근거: 적 표 문구 「마법 혹은 트루 대미지 4회 피격 시 쓰러진다」. 두 적 프리팹은 기물형 적(`PropLikeEnemy`)에 `_acceptSpecificDamageType` 1·`_acceptDamageType`
+  MAGICAL이고, 그 적의 HP 조정값은 트루(PURE)와 `_acceptDamageType`만 받고 물리·원소(ELEMENT)는 거절한다(공식 클라에서 확인, 2026-10-29). 다른 빈도 적(`_acceptSpecificDamageType` 0)은 모든 종류를 1로 센다.
 - 테스트 `test/content/enemies_bosses.test.js` 「茶器 (hitCountArts)」.
 
 ### 호시구마의 「전술 장갑」은 종류·출처를 가리지 않고 막는다 (upstream `741428e3`)

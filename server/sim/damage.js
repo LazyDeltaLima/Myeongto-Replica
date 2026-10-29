@@ -325,8 +325,9 @@ export function dealDamage(battle, source, target, dmgIn) {
     }
   }
   // 频次 units (flags hitCount / hitCountArts): every damage instance removes exactly 1 HP (maxHp = hits needed);
-  // hitCountArts counts arts and true instances only (茶器 "需要4次法术或真实伤害击倒"; that 元素伤害 does not count is
-  // [ASSUMED, no source: the enemy text names arts and true only]). The instance keeps its own DamageInfo, so `damaged`
+  // hitCountArts counts arts and true instances only (茶器 "需要4次法术或真实伤害击倒": the official client's
+  // PropLikeEnemy with `_acceptSpecificDamageType` takes PURE and its `_acceptDamageType` MAGICAL, refusing physical and
+  // 元素伤害). The instance keeps its own DamageInfo, so `damaged`
   // handlers still recognise their own (tagged) damage — never re-create such a loss with a fresh loseHp.
   if (ts.flags.hitCount || ts.flags.hitCountArts) {
     const counts = ts.flags.hitCount || type === 'arts' || type === 'true';
