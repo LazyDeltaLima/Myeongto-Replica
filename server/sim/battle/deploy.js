@@ -61,7 +61,8 @@ export class BattleDeploy {
     if (!u.skill) this._setupUnit(u);
     u.skill.reset(cs);
     const sk = u.skill;
-    // the born state of every deployment (constants.js BORN_TIME): no MANUAL cast until it ends, no block either
+    // the born state of every deployment (constants.js BORN_TIME): no attack until it ends, nor a cast of a skill that waits
+    // for it (skills.js _born); no block either
     u.bornUntil = this.time + this.flags.bornTime;
     // the operations pass walks the characters in the client's `UnitManager.characters` order: appended at each
     // deployment, the last one moved into the hole of one that leaves (`UnorderedArray.Remove`; _remove)

@@ -2533,7 +2533,9 @@ function opShot(ctx, charId, charSkills) {
  * How a skill is cast (tools/assets/local-skill-cast.json, tools/local-extract/skill_cast.py) → the skill record's `cast`
  * (server/sim/skills.js, docs/rules/sim.md 「즉발 스킬의 시전」): `mode` 'replace' (ReplacementSkill: the cast replaces
  * the next attack), 'state' (CastSkill `_switchToState` 1: the unit stays in its Skill state until the skill ability
- * ends) or 'free' (`_switchToState` 0); `resetCd` 1 = `_resetAbilityCooldownWhenCastEnd`. With a skill ability: `time`
+ * ends) or 'free' (`_switchToState` 0); `resetCd` 1 = `_resetAbilityCooldownWhenCastEnd`; `bornWait` 1 = the cast is
+ * refused while the unit is in its born state (`born` 0: the prefab's `_canSwitchDuringBorn` / `_canCastDuringBorn` off —
+ * server/sim/skills.js _born). With a skill ability: `time`
  * = its `_timeMode` (0 the attack interval, 1 its clip, 2 / 3 `cd`), `cd` (time 2: `_cooldown`, 3: the blackboard
  * value of `_cooldownKey`), its clip (`clip`, `dur`, the first OnAttack frame `hit` — Front skeleton, data/assets.json,
  * a key the skeleton lacks also tried as `<key>_Loop`), abilityTiming's `max` / `pre` / `wait` and abilityFace's `face`
@@ -2545,6 +2547,7 @@ function skillCast(ctx, charId, s) {
   if (!c || (c.cls !== 'replace' && c.cls !== 'cast')) return null;
   const out = { mode: c.cls === 'replace' ? 'replace' : c.state ? 'state' : 'free' };
   if (c.cls === 'cast' && c.reset) out.resetCd = 1;
+  if (c.cls === 'cast' && c.born === 0) out.bornWait = 1;
   const a = c.ability;
   if (!a || typeof a !== 'object') return out;
   out.time = Number.isInteger(a.time) ? a.time : 0;

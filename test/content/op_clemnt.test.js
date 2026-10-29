@@ -22,9 +22,8 @@ function start(u) { u.skill.gainSp(999, 'init'); assert.equal(u.skill.activate('
 const hits = (h, tag) => h.hooksOf('damaged').filter((c) => c.dmg?.tags?.includes(tag));
 
 for (const tier of [5, 6]) for (const elite of [false, true]) test(`风暴潮 air-only automation retains ground-only normal attacks (${tier}/${elite})`, () => {
-  const { h, u } = field({ tier, elite, skill: 1, flags: { bornTime: 3 } });
+  const { h, u } = field({ tier, elite, skill: 1 });
   const e = h.spawn('fly', { pos: [10, 6] }); u.skill.gainSp(999, 'init');
-  h.run(2); assert.equal(u.skill.activations, 0, 'operation cooldown still applies');
   assert.ok(h.runUntil(() => u.skill.active, 2)); h.run(3);
   const damaged = h.hooksOf('damaged').filter(c => c.source === u && c.target === e);
   assert.ok(damaged.length > 0, 'the vortex hits the air-only target');

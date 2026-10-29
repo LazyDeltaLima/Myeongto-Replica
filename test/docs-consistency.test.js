@@ -479,7 +479,7 @@ test('user playtest #6 (DESIGN §20): summons, skill triggers, blocking, push fo
   assert.equal(BORN_TIME, 1);
   assert.match(s56, /`SKILL_RANGE` \(a MANUAL skill with a 技能范围 of its own/);
   assert.match(s56, /\*\*every MANUAL skill\*\* of the class and never an AUTO skill/);
-  assert.match(s56, /for `BORN_TIME` \(1 s\) after any deployment the unit is in its born state/);
+  assert.match(s56, /for `BORN_TIME` \(1 s\) after any deployment the unit is in its born state: it starts no attack, and only the 5 skills whose prefab refuses the cast there wait/);
   assert.match(s56, /one automatic cast per pass in the whole battle/);
   assert.match(sec(19), /灰毫 S2 专注轰击 — \*\*superseded by §20\.2\*\*/);
   assert.ok(!/so her S1 is TAKE_DAMAGE and S2 stays DEFAULT/.test(DESIGN), '§19.2: 灰毫 S2 is TAKE_DAMAGE now');

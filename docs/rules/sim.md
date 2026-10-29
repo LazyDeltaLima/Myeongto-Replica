@@ -253,13 +253,21 @@
 - 배치 직후(BORN) — 전투 시작 블록 없음(2026-10-29 공식 클라에서 확인, 관리자 요청으로 卫戍协议와 일반 스테이지 차이도 확인): `StartBattle`은
   `m_blockSkillTicker`를 비우기만 하고, 블록은 시전에 성공했을 때만 걸린다. `_OnUnitBorn`은 TAKE_DAMAGE(12)에 버프만 붙인다. 대신 모든 모드 공용인
   `Character.States.BornState`가 배치마다 Born 클립 시간(`PlayBornAnimationAndEffect`; `Consts.CHARACTER_BORN_TIME` 1)을 세고, `CastSkill.UseSkill`은
-  주인이 BORN이면 거절한다(프리팹 `_canCastDuringBorn`/`_canSwitchDuringBorn`이 켜진 스킬만 예외). 卫戍协议 배치(`_AutoDeploy` →
+  주인이 BORN이면 거절한다 — 단 프리팹 표시가 꺼진 스킬만(상태 전환 시전 `_switchToState` 1은 `_canSwitchDuringBorn`, 그 밖은 `_canCastDuringBorn`).
+  卫戍协议 배치(`_AutoDeploy` →
   `Deck.SpawnCharacterOrToken(spawnManually: true)`)는 BORN을 건너뛰지 않는다 — 건너뛰는 것은 미리 놓인 유닛(`m_isBuiltPredefined`)이 전투
-  재생 전일 때뿐이고, `m_overrideBornTime`은 `ResetBornAnimationAndEffect`만 쓴다. 그래서 전투 시작·재배치·소환 모두 배치 뒤 `BORN_TIME` 1 s 동안
-  수동 스킬이 안 켜지고 패스는 다음 캐릭터로 넘어간다(엔진 `bornUntil`, `skills.js _born`; TAKE_DAMAGE 피격 시전도). 첫 패스는 0.2 s(코루틴이 먼저
-  기다림)이고 같은 패스에서 배치(`_TryDeployAvailableCharacter`, 한 패스에 하나) 다음 시전 검사. PRTS 「作战开始时部署的单位将进入冷却」는 이 BORN이다.
-  [추정·엔진: Born 클립을 1 s로 재생한다고 읽음(`_useRealBornTimeFromAnim` 꺼짐) — 재생 함수의 반환값은 안 읽음]
-  [추정·미조사: `_canCastDuringBorn` 켜진 스킬 프리팹 — 안 뽑음, 모두 기다림으로 둠]. BORN 동안은 공격도 시작하지 않는다 — `BornState.OnTick`은
+  재생 전일 때뿐이고, `m_overrideBornTime`은 `ResetBornAnimationAndEffect`만 쓴다. 卫戍协议 스킬 프리팹 전부(2026-10-29 공식 클라에서 확인,
+  `tools/local-extract/skill_cast.py` `born`): `CastSkill` 계열 229개 가운데 표시가 꺼진 것은 상태 전환 시전 5개뿐 — 비르투오사 S1 '골든 엑스터시'
+  (`skchr_cello_1`), 시빌라이트 에테르나 S2 아득한 미래(`skchr_cetsyr_2`), 노시스 S2 영도 폭발(`skchr_gnosis_2`), 위셔델 S2 가득한 복수심·S3 작열하는
+  여명(`skchr_wisdel_2`·`_3`). 나머지 `CastSkill`은 두 표시가 다 켜져 있고, 다른 스킬 클래스(`ReplacementSkill`·`ToggleSkill`·`AppearSkill`·
+  `AttachOrDetachSkill`)의 `UseSkill`은 BORN을 보지 않는다. 자동 조작 쪽(`_DoDefaultCheck` → `IsAvailable`·`get_isAffecting`·`get_canCastCheck`,
+  `ownerCanUseSkill`)에도 BORN 검사는 없다. 그래서 전투 시작·재배치·소환 모두, 그 5개만 배치 뒤 `BORN_TIME` 1 s 동안 안 켜지고 패스는 다음 캐릭터로
+  넘어가며(엔진 데이터 `cast.bornWait`, `skills.js _born`; TAKE_DAMAGE 피격 시전도), 다른 스킬은 첫 패스에 켜진다. 상태 전환 시전은
+  `Character.SwitchToSkillState`가 상태 기계를 SKILL로 바꾸므로 BORN을 끝낸다(`SkillState`는 끝나면 IDLE) — 엔진은 그 시전 때 `bornUntil`을 지금으로
+  당긴다. 다음 공격 대체형(`ReplacementSkill`)은 BORN 동안 켜져도 그 공격이 BORN 뒤에 나간다. 첫 패스는 0.2 s(코루틴이 먼저 기다림)이고 같은
+  패스에서 배치(`_TryDeployAvailableCharacter`, 한 패스에 하나) 다음 시전 검사. PRTS 「作战开始时部署的单位将进入冷却」는 이 BORN이다.
+  [추정·엔진: Born 클립을 1 s로 재생한다고 읽음(`_useRealBornTimeFromAnim` 꺼짐) — 재생 함수의 반환값은 안 읽음]. 2026-10-29 같은 날 이 조사 전에는
+  모든 수동 스킬이 BORN 동안 기다렸다. BORN 동안은 공격도 시작하지 않는다 — `BornState.OnTick`은
   시간이 다 되어야 IDLE로 넘기고 공격은 IDLE부터라서(2026-10-29 공식 클라에서 확인): 엔진 `ai.js updateAlly`가 `bornUntil` 전에는 휘두름을 시작하지
   않고, 공격 쿨다운은 그동안에도 돈다(배치 때 0이라 BORN이 끝나는 틱에 첫 휘두름). 저지는 건드리지 않음. 2026-10-29 전에는 전투 시작 배치만 2 s 블록이었고
   BORN 동안에도 공격했다.

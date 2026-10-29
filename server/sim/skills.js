@@ -33,7 +33,8 @@
 //   maintainer decision 2026-10-11): every 0.2 s one pass (Battle._autoTriggerPass → autoTrigger below) checks the rules
 //   above and casts at once — the first cast ends the pass (one per pass in the whole battle) and blocks its unit for
 //   BLOCK_SKILL_TICK passes (`blockTicks`; a charged skill spends its charges ≈ 2.2 s apart); for BORN_TIME after any
-//   deployment the unit is in its born state and casts nothing (`bornUntil`, `CastSkill.UseSkill`). DEFAULT for a MANUAL skill (`_DefaultTriggerSkill`): with a trigger
+//   deployment the unit is in its born state (`bornUntil`), when only the few skills whose prefab refuses it wait
+//   (`cast.bornWait`, `CastSkill.UseSkill`) and a 'state' cast ends it. DEFAULT for a MANUAL skill (`_DefaultTriggerSkill`): with a trigger
 //   grid (its rangeId) a selectable enemy, ground or air, there; without one, the unit attacking (an attack target in its
 //   initial range or one it blocks — its ATTACK / COMBAT state). TAKE_DAMAGE: the hit itself (onDamaged), or one the cast
 //   could not use, seen by the next pass — and every pass SEARCH's condition too (the client sends type 12 down SEARCH's
@@ -400,8 +401,13 @@ export class SkillRuntime {
   /** The automatic operations of a MANUAL skill are blocked for this unit (BLOCK_SKILL_TICK passes after a cast). */
   _opCooling() { return this.manual && (this.blockTicks > 0 || this._born()); }
 
-  /** The unit is in its born state (constants.js BORN_TIME after a deployment): `CastSkill.UseSkill` refuses. */
-  _born() { return this.battle.time < (this.unit.bornUntil ?? -Infinity) - 1e-9; }
+  /**
+   * The unit is in its born state (constants.js BORN_TIME after a deployment) and this skill may not be cast there: only
+   * a `CastSkill` whose prefab flag for its kind of cast is off (`cast.bornWait`: `_canSwitchDuringBorn` for a 'state'
+   * cast, `_canCastDuringBorn` else) — `CastSkill.UseSkill` checks `Character.CheckIsBornState`; every other skill class
+   * (ReplacementSkill, ToggleSkill, AppearSkill, AttachOrDetachSkill) and nearly every CastSkill is cast there.
+   */
+  _born() { return !!this.cast?.bornWait && this.battle.time < (this.unit.bornUntil ?? -Infinity) - 1e-9; }
 
   /**
    * One automatic-operation check of this unit's MANUAL skill (Battle._autoTriggerPass; the client's
@@ -450,7 +456,7 @@ export class SkillRuntime {
 
   /**
    * The automatic operations may cast this skill now, its rule aside (`_DoDefaultCheck` and what `UseSkill` refuses): the
-   * unit on the field, able, out of its born state, the skill ready, not silenced, not running, no cast waiting for its
+   * unit on the field, able, out of its born state if the skill waits for that (_born), the skill ready, not silenced, not running, no cast waiting for its
    * attack, and an instant one past its unit's attack interval (nextCastAt).
    */
   get canAutoCast() {
@@ -612,6 +618,9 @@ export class SkillRuntime {
         return true;
       }
     }
+    // a 'state' cast leaves the born state (`Character.SwitchToSkillState` switches the state machine to SKILL, which hands
+    // over to IDLE as it ends): the unit's attacks are no longer held for the rest of BORN_TIME (ai.js updateAlly)
+    if (this.cast?.mode === 'state' && u.bornUntil > b.time) u.bornUntil = b.time;
     this._evOn(reason);
     u.skillAnimUntil = b.time + SKILL_ANIM_WINDOW;
     // a CastSkill casts its skill ability now: the unit turns by its flags (ai.js castFace; a 'replace' cast turns as

@@ -490,6 +490,7 @@
     "time": 0,
     "wait": 1
    },
+   "born": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -514,6 +515,7 @@
   },
   "skchr_cetsyr_2": {
    "ability": null,
+   "born": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -869,6 +871,7 @@
     "time": 0,
     "wait": 1
    },
+   "born": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2611,6 +2614,7 @@
   },
   "skchr_wisdel_2": {
    "ability": null,
+   "born": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2626,6 +2630,7 @@
     "time": 2,
     "wait": 1
    },
+   "born": 0,
    "cls": "cast",
    "reset": 0,
    "state": 1

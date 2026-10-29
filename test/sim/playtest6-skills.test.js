@@ -161,23 +161,26 @@ test('#15 the automatic operations block the caster 10 passes (client BLOCK_SKIL
   done(h);
 });
 
-test('#15 "作战开始时部署的单位将进入冷却" = the born state (client CastSkill.UseSkill refuses in BornState, CHARACTER_BORN_TIME 1 s): a MANUAL skill waits BORN_TIME after every deployment, the pass goes on to the next unit; an AUTO one does not wait', () => {
-  const rec = (id, skillType) => chessRec({ id, profession: 'SUPPORT', subProfessionId: 'bard', stats: { atk: 0 }, skill: { skillType, spCost: 10, initSp: 10, durationType: 'NONE', duration: 5, trigger: { rule: 'SP_FULL' } } });
+test('#15 "作战开始时部署的单位将进入冷却" = the born state (client BornState, CHARACTER_BORN_TIME 1 s): CastSkill.UseSkill refuses there only for a skill whose prefab flag is off (cast.bornWait) — that MANUAL skill waits BORN_TIME, the pass goes on to the next unit; any other MANUAL skill and an AUTO one are cast at once', () => {
+  const rec = (id, skillType, cast) => chessRec({ id, profession: 'SUPPORT', subProfessionId: 'bard', stats: { atk: 0 }, skill: { skillType, spCost: 10, initSp: 10, durationType: 'NONE', duration: 5, trigger: { rule: 'SP_FULL' }, ...(cast ? { cast } : {}) } });
   // flags.bornTime undefined = the Battle default the matches use (the harness otherwise turns it off)
-  const h = run({ flags: { bornTime: undefined }, defs: { chess: { t_man: rec('t_man', 'MANUAL'), t_auto: rec('t_auto', 'AUTO') } },
-    units: [{ chessId: 't_man', row: 10, col: 3 }, { chessId: 't_auto', row: 10, col: 6 }] });
+  const h = run({ flags: { bornTime: undefined }, defs: { chess: { t_wait: rec('t_wait', 'MANUAL', { mode: 'free', bornWait: 1 }), t_man: rec('t_man', 'MANUAL'), t_auto: rec('t_auto', 'AUTO') } },
+    units: [{ chessId: 't_wait', row: 10, col: 3 }, { chessId: 't_man', row: 10, col: 5 }, { chessId: 't_auto', row: 10, col: 7 }] });
   assert.equal(h.b.flags.bornTime, BORN_TIME);
-  const man = h.unit('t_man'), auto = h.unit('t_auto');
+  const wait = h.unit('t_wait'), man = h.unit('t_man'), auto = h.unit('t_auto');
   h.step();
-  assert.ok(man.skill.ready && man.skill.rule === 'SP_FULL');
+  assert.ok(wait.skill.ready && wait.skill.rule === 'SP_FULL');
   assert.equal(auto.skill.activations, 1, 'AUTO: at once');
-  assert.ok(h.runUntil(() => man.skill.activations === 1, 5));
-  assert.ok(h.b.time >= BORN_TIME - 1e-6 && h.b.time < BORN_TIME + AUTO_TRIGGER_INTERVAL + 1e-6, `MANUAL: on the first pass after ${BORN_TIME} s (${h.b.time})`);
+  assert.ok(h.runUntil(() => man.skill.activations === 1, 1));
+  assert.ok(h.b.time < AUTO_TRIGGER_INTERVAL + 1e-6, `MANUAL without the flag: on the first pass (${h.b.time})`);
+  assert.equal(wait.skill.activations, 0, 'the flagged one waits; the pass cast the next unit');
+  assert.ok(h.runUntil(() => wait.skill.activations === 1, 5));
+  assert.ok(h.b.time >= BORN_TIME - 1e-6 && h.b.time < BORN_TIME + AUTO_TRIGGER_INTERVAL + 1e-6, `flagged MANUAL: on the first pass after ${BORN_TIME} s (${h.b.time})`);
   done(h);
 });
 
-test('#15 a redeployed unit is born again: its MANUAL skill waits BORN_TIME, and the pass casts another ready unit meanwhile', () => {
-  const rec = (id) => chessRec({ id, profession: 'SUPPORT', subProfessionId: 'bard', stats: { atk: 0 }, skill: { skillType: 'MANUAL', spCost: 10, initSp: 10, durationType: 'NONE', duration: 1, trigger: { rule: 'SP_FULL' } } });
+test('#15 a redeployed unit is born again: its flagged MANUAL skill waits BORN_TIME, and the pass casts another ready unit meanwhile', () => {
+  const rec = (id) => chessRec({ id, profession: 'SUPPORT', subProfessionId: 'bard', stats: { atk: 0 }, skill: { skillType: 'MANUAL', spCost: 10, initSp: 10, durationType: 'NONE', duration: 1, trigger: { rule: 'SP_FULL' }, cast: { mode: 'free', bornWait: 1 } } });
   const h = run({ flags: { bornTime: undefined }, defs: { chess: { t_a: rec('t_a'), t_b: rec('t_b') } },
     units: [{ chessId: 't_a', row: 10, col: 3 }, { chessId: 't_b', row: 10, col: 6 }] });
   const a = h.unit('t_a'), b = h.unit('t_b');
@@ -189,6 +192,18 @@ test('#15 a redeployed unit is born again: its MANUAL skill waits BORN_TIME, and
   a.skill.charges = a.skill.maxCharges; a.skill.sp = a.skill.spCost;
   assert.ok(h.runUntil(() => a.skill.activations === 2, 5));
   assert.ok(h.b.time - t0 >= BORN_TIME - 1e-6, `not before ${BORN_TIME} s after the redeployment (${h.b.time - t0})`);
+  done(h);
+});
+
+test('#15 a \'state\' cast leaves the born state (client SwitchToSkillState → SKILL → IDLE): cast on the first pass, the unit is out of BORN at once; a \'free\' cast keeps it', () => {
+  const rec = (id, mode) => chessRec({ id, profession: 'SUPPORT', subProfessionId: 'bard', stats: { atk: 0 }, skill: { skillType: 'MANUAL', spCost: 10, initSp: 10, durationType: 'NONE', duration: 5, trigger: { rule: 'SP_FULL' }, cast: { mode } } });
+  const h = run({ flags: { bornTime: undefined }, defs: { chess: { t_st: rec('t_st', 'state'), t_fr: rec('t_fr', 'free') } },
+    units: [{ chessId: 't_st', row: 10, col: 3 }, { chessId: 't_fr', row: 10, col: 6 }] });
+  const st = h.unit('t_st'), fr = h.unit('t_fr');
+  assert.ok(h.runUntil(() => st.skill.activations === 1 && fr.skill.activations === 1, 1));
+  assert.ok(h.b.time < BORN_TIME - 0.3, `both cast in the born state (${h.b.time})`);
+  assert.ok(st.bornUntil <= h.b.time + 1e-9, 'the state cast ended its born state');
+  assert.ok(fr.bornUntil > h.b.time + 0.3, 'the free cast did not');
   done(h);
 });
 

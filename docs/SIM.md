@@ -1024,9 +1024,10 @@ instance) and skip `'counter'` / `'reflect'` damage. When the guard trips, the l
   one that leaves; `battle/lifecycle.js _autoTriggerPass` → `skills.js autoTrigger`) casts at once the first whose rule
   holds and blocks it `BLOCK_SKILL_TICK` 10 passes (checked again ≈ 2.2 s later; a charged skill spends its charges that far
   apart) — one automatic cast per pass in the whole battle; for `constants.js BORN_TIME` 1 s after any deployment the unit
-  is in its born state and casts nothing, while the pass goes on to the others (`Battle._deploy` `bornUntil`;
-  `battle.flags.bornTime` — the test harness sets 0 unless told otherwise; until 2026-10-29 the battle-start deployment
-  was blocked 2 s instead); until 2026-10-11 a 3 s cooldown per unit (PRTS 「自动操作具有3s冷却」). AUTO skills are exempt; kits with their own automatic cast of a MANUAL skill check `skill.opCooling` (波登可 S1, 雪猎
+  is in its born state: it starts no attack, and the 5 skills whose prefab refuses a cast there (data `cast.bornWait`,
+  `skills.js _born`) wait while the pass goes on to the others; every other skill is cast at once, a 'state' cast ending
+  the born state (`Battle._deploy` `bornUntil`; `battle.flags.bornTime` — the test harness sets 0 unless told otherwise;
+  until 2026-10-29 the battle-start deployment was blocked 2 s instead, then for part of that day every MANUAL skill waited); until 2026-10-11 a 3 s cooldown per unit (PRTS 「自动操作具有3s冷却」). AUTO skills are exempt; kits with their own automatic cast of a MANUAL skill check `skill.opCooling` (波登可 S1, 雪猎
   special bullets, 流形 copy). While a cast "next attack" (instant / charges with an attack override) waits for its
   attack, no further charge is cast. An instant / charges skill with no attack override of its own (a throw, a heal, a
   buff, a DP gain …) is cast the way the client's skill class says (data `cast`, tools/build-data.mjs skillCast ←

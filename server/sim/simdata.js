@@ -166,6 +166,9 @@ export function normSkillCast(c) {
   return {
     mode: c.mode,
     resetCd: !!c.resetCd,
+    // the cast is refused in the born state after a deployment (CastSkill `_canSwitchDuringBorn` / `_canCastDuringBorn`
+    // off; skills.js _born)
+    bornWait: !!c.bornWait,
     time,
     cd: cd > 0 ? cd : 0,
     dur: dur > 0 ? dur : null,
