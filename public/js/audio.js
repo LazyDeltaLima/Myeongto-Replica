@@ -1344,11 +1344,11 @@ export class AudioManager {
     const tn = !em && su.tmode ? tokenModeName(su, this.units.get(su.tby)) : null;
     const tm = tn ? ue?.tm?.[tn] : null;
     const set = em && Array.isArray(em.cues) ? { cues: em.cues, sel: em.sel, mode: true }
-      : tm && Array.isArray(tm.cues) ? { cues: tm.cues, sel: tm.sel, mode: false } : cueSetOf(ue, mode);
+      : tm && Array.isArray(tm.cues) ? { cues: tm.cues, sel: tm.sel, mode: false } : cueSetOf(ue, mode, su.skillOn ? su.sub : null);
     if (!set) return null;
     const melee = kind === 'none' || kind == null;
     const ab = cueAbility(set, melee);
-    const key = `${em ? `e${su.emode}` : tm ? `t${tn}` : set.mode ? mode : 'd'}:${ab ?? ''}`;
+    const key = `${em ? `e${su.emode}` : tm ? `t${tn}` : set.mode ? `${mode}${su.skillOn && su.sub ? `/${su.sub}` : ''}` : 'd'}:${ab ?? ''}`;
     const mem = ((su.vm ||= new Map()).get(key)) || {};
     su.vm.set(key, mem);
     const k = pickVariant(set.sel, ab, { melee, mem, random: this.random });
@@ -1373,7 +1373,7 @@ export class AudioManager {
       const kd = ue?.kd?.[au.skillIndex];
       c = Array.isArray(kd) && kd.length ? kd[0] : null;
       if (!c) {
-        const set = cueSetOf(ue, au.skillIndex);
+        const set = cueSetOf(ue, au.skillIndex, au.sub);
         if (set?.mode) c = cuesAt(set, 'd', cueAbility(set, false), null, undefined)[0] ?? null;
       }
     }
@@ -1737,6 +1737,7 @@ export class AudioManager {
           if (su) {
             su.skillOn = !!e[2];
             su.sw = null; su.vm = null; // 2026-10-10: a new mode run — its groups start over (a conditional group's first attack)
+            su.sub = null; // 2026-10-29: a mode it switched to on the way ends with the skill run (SKILL_SUB_MODES)
             // 2026-10-10: its 过载 ends with the skill (락락: rockr_s_2[overload] ON_BUFF_FINISH → rockr_overload_finish)
             if (su.over && su.def === 'char_4040_rockr') this._kitSound('rockr:ovf');
             su.over = false;
@@ -1758,8 +1759,10 @@ export class AudioManager {
             if (!e[2] && su.startHeld) this.unit(su.def, 'skill', e[1], su.skillIndex ?? undefined);
             su.startHeld = false;
             // 2026-10-10, docs/rules/audio.md 「스킬 종료음」: its ON_SKILL_FINISH / ON_ABILITY_END bank as it ends
+            // (2026-10-29: `mode` = the START of the mode its end switches to — 蒂比's landing, 蕾缪安 S3's closing call — which
+            // a unit leaving the field in this batch never casts)
             const fin = !e[2] ? skillEndOf(ue, su.skillIndex) : null;
-            if (fin) this._play(fin.url, { volume: loopGain(fin), limited: true, bank: `${su.def}:end:${su.skillIndex}` });
+            if (fin && !(fin.mode && ev.some((x) => x[0] === 'die' && x[1] === e[1]))) this._play(fin.url, { volume: loopGain(fin), limited: true, bank: `${su.def}:end:${su.skillIndex}` });
           }
         }
         if (kind === 'swing') {
@@ -1973,6 +1976,12 @@ export class AudioManager {
           const unitOf = (id) => this.units.get(id);
           // 2026-10-10: a 过载 starts — the running skill's attacks sound its overloaded buff banks from now (signalAttackKey)
           if (e[1] === 'overload' && e[4]?.id != null) { const ou = unitOf(e[4].id); if (ou) ou.over = true; }
+          // 2026-10-29: the running skill switches its owner's mode on the way (维什戴尔's 过载, 乌尔比安 S3's anchor —
+          // shared/skill-modes.js SKILL_SUB_MODES): its attacks sound that mode's signals until the skill ends (cueSetOf)
+          if (e[4]?.id != null) {
+            const ou = unitOf(e[4].id);
+            if (ou?.skillOn && ou.sub !== e[1] && this.getManifest()?.audio?.sfx?.units?.[ou.def]?.modes?.[ou.skillIndex]?.sub?.[e[1]]) { ou.sub = e[1]; ou.sw = null; ou.vm = null; }
+          }
           // 2026-10-11: a summon's prefab mode from now on (tokenModeName) — 流形's copy names it, a split copy keeps its origin's
           if ((e[1] === 'copy' || e[1] === 'split') && e[4]?.id != null) {
             const tu = unitOf(e[4].id);

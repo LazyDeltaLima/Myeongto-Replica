@@ -141,6 +141,15 @@
     `loops`가 이미 낸다). `skill-mode-sfx.mjs skillEnds` → `sfx.units[id].ends[스킬번호] = { url, grp?, vol? }`, `audio.js`가 'skill' 꺼짐에 낸다.
     안 한 것: 丰川祥子 `ON_SKILL_FINISH.skchr_oblvns_2.1/.2`(신호 id에 번호가 붙는 경로 미확인), 공격 능력의 `ON_ABILITY_END.<id>.attack`(공격마다 끝 —
     이그제큐터 attack.2 장전음 등, 공격 끝 이벤트가 없음), 퇴장 때(`OnOwnerFinish`)의 종료음. 확인: `test/local-patch-audio.test.js` 「skill end」.
+    - **끝 모드** (2026-10-29, 공식 클라 + EN 클라 버프 템플릿): 스킬 버프 템플릿의 `ON_BUFF_FINISH`(`Buff.Event` 1)에 고정 `_modeIndex` > 0인
+      `SwitchMode`가 있으면 스킬이 끝날 때 그 모드로 바뀌고, 그 모드의 공격 능력이 바로 닫는 클립을 낸다(티피 S2 `tippi_s_2[switch_mode]` → 모드 6
+      `S2_Landing`, 공격 능력 `_allowNoTarget`·`Skill_2_End`; 르무엔 S3 `lemuen_s_3` → 모드 4 `S3_End`, `Skill_3_End` = 포격 신호). 그 모드
+      신호의 START 뱅크가 종료음이다: 티피 S1·S2 `attack.3`/`attack.6` `p_skill_pmtjtckdw`(Battle_Skill_Important), 르무엔 S3 `attack.4`
+      `p_atk_lmwlcrstrst_s`; 이 모드 기물이 안 쓰는 스킬도 같이 실림(이그제큐터 디 엑스 포에데레 S3 `attack.4` `p_atk_bngel` — HIT `p_imp_bngel`은 안 냄,
+      스와이어 더 엘리건트 위트 S3 `attack.4`). 추출: `char_modes.py skill_end_modes`(`config/buff_template_holder.ab`) → `local-char-modes.json`
+      `skillEnd[스킬]`; 생성: `skillEnds`(자기 `ON_SKILL_FINISH`/`ON_ABILITY_END`가 없을 때만, `ends[i].mode` 1). 재생: 같은 이벤트 묶음에 그 유닛의
+      `'die'`(쓰러짐·퇴장)가 있으면 안 낸다(죽은 유닛은 그 모드의 능력을 못 씀). EN 템플릿에 없는 안젤리나 더 멜로우 위시(`S1/S2/S3_Landing`
+      `attack.6/7/9` `p_atk_arstrnstfld`)는 안 실림. 확인: `test/audio-skill-end-modes.test.js`. [화면 미확인]
   - 확인: `test/local-patch-audio.test.js` 8개, 전 오퍼레이터×스킬 시뮬+AudioManager 일괄(강제 시전 시 207개 중 185개에서 전용 소리 — 나머지 22개는
     피해를 키트가 직접 주는 스킬: 드론·음표·늑대·치유), 디버그 아레나(阿斯卡纶 S1/S3, 维什戴尔 S3, 赤刃明霄陈 S3 — 검기 타격 `p_imp_hljdswdlng_s`).
     새 효과음 220개(2.4MB)는 `npm run assets`(`fetch-assets`)가 받는다.
@@ -301,6 +310,17 @@
     먼저 알림) → `render/app.js` ctx `spineEvent`(전투 화면만, 정탐 보드·적 미리보기 제외) → `audio.spineEvent(unitId, 이름, 문자열)`. [화면 미확인] 이벤트를 보고하는 유닛은 대체음이 없고, 모델이 없는 유닛(마름모·혼잡한 저품질 필드)만
     스킬 k 중 타격마다 `Skill_<k>_<n>`을 차례로, 평소엔 `Attack_<n>`/`Attact_<n>`을 대신 낸다(유닛마다 — 예전에는 아무 이벤트 하나로 전체가 꺼졌다)
     [추정: 대체음 시점 = 타격]. 적도 `spine`(신호 `battle.ON_SPINE_EVENT_TRIGGER.<적 id>.<이벤트>`, 변형 `_2`는 자기 id 먼저 — 14종).
+- **스킬 중 바뀌는 모드** (2026-10-29, 공식 클라 + EN 클라 버프 템플릿): 스킬이 도는 중에 버프가 모드를 한 번 더 바꾸면 그 뒤 공격은 그 모드의 신호다 —
+  위셔델 S2 과부하(`wisdel_s_2[overload_start]` → 모드 2 `S2_Overload`: ON `attack.2` `p_atk_dkmrcaygnfrh_h`, 착탄은 S2와 같은 투사체 `_h`),
+  울피아누스 S3 닻 뒤(`ulpia_s3_switch_mode[born]`: 닻 자리에서 다시 태어날 때 — 옮겨 가든 제자리든 — 모드 3 `S3_Respawn_A`: START `attack.3`
+  `p_atk_wtrbatnchr`·HIT `p_imp_wtrbatnchr`, Battle_P_SAtk/SImp; 모드 2 `S3`의 `attack.2`는 평타와 같은 `_n`). 표 `shared/skill-modes.js
+  SKILL_SUB_MODES`(오퍼레이터 → sim fx 종류 → 모드 이름: 'wisdelOverload'·'anchor') → 생성 `modes[스킬].sub[fx] = { cues, sel? }` → 재생: 그 스킬 중
+  그 fx가 오면 스킬이 끝날 때까지 `cueSetOf(entry, 스킬, sub)`. sim 이벤트는 그대로(golden 무변화). 확인: `test/audio-skill-end-modes.test.js`. [화면 미확인]
+- 묶음 E(2026-10-29, 「모드 공격 뱅크 미사용」 7명) 중 할 것 없음: 이그제큐터 디 엑스 포에데레 `attack.4`(S3_End — 이 모드 기물은 S2), 그의
+  `ON_BUFF_START.excu2_multi_attack[audio]`/`[s3][audio]`(그 버프 키를 만드는 곳이 EN 클라 캐릭터·스킬 프리팹·버프 템플릿 어디에도 없음 — 재능 추가 사격은
+  `T.1` `p_atk_shotgunxdouble`로 이미 남, 아래 「재능·소환물 능력 소리」), 미니멀리스트 `attack.1`(`_d`: 그녀의 `_modes`는 Default 하나이고 그 신호는
+  `.attack` — `attack.1`을 내는 모드·자식이 없음; S2는 자기 능력 `skchr_malist_2` `_h`), 엑시아 더 뉴 커버넌트 `attack.5.Burst`(S1 모드 — 기물은 S2),
+  혼 `attack.1.Burst.*`(아래).
 - 혼 S2 `Full Burst`(`attack.1.Burst.1–3`)는 **수동으로 끌 때** 남은 탄을 모두 쏘는 능력이다(skill_table skchr_horn_2: 「主动关闭时发射剩余全部弹药」) —
   卫戍协议 자동 전투에는 수동 종료가 없어(`ON_SKILL_SPECIAL_POINT`와 같은 이유) 안 낸다.
 - 안 한 것: 재능 투사체(재능 능력·스킬 투사체 BORN·소환물 모드는 아래 「재능·소환물 능력 소리」, 2026-10-11), 스노우헌터 장전(`Reload` 자식 — sim에 탄수 없음), 아래 「버프·커스텀 트리거 소리」의 「안 한 것」. `ON_SKILL_SPECIAL_POINT`는 수동으로 스킬을 끊을 때(`CastSkillWithLimitTimes.DiscardRemainingCountInternal` —

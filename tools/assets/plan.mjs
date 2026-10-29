@@ -459,7 +459,7 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     if (loops) u.loops = loops;
     const extras = skillExtras(audio, id, (o.skills || []).filter((k) => idx.includes(k.index)), soundLeaf, skillPaths); // local patch
     if (extras) u.extras = extras;
-    const ends = skillEnds(audio, (o.skills || []).filter((k) => idx.includes(k.index)), soundLeaf); // 2026-10-10: skill-end banks
+    const ends = skillEnds(audio, (o.skills || []).filter((k) => idx.includes(k.index)), soundLeaf, id, charModes[id], charAudio[id]); // 2026-10-10: skill-end banks (2026-10-29: + the end mode's)
     if (ends) u.ends = ends;
     // docs/rules/audio.md 「더빙 효과음」: the deploy / skill-start banks a dub replaces (浊心斯卡蒂), in the planned dubs
     const dub = dubbedSfx(audio, id, (o.skills || []).filter((k) => idx.includes(k.index)), [voiceLang, ...Object.values(VOICE_TWINS)], dubLeaf);

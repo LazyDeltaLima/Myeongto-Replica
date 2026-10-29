@@ -15,6 +15,18 @@ export const ENEMY_RECORD_MODES = Object.freeze({ enemy_9012_acloon: Object.free
 export const enemyRecordMode = (id) => (typeof id === 'string' && Object.hasOwn(ENEMY_RECORD_MODES, id) ? ENEMY_RECORD_MODES[id] : null);
 
 /**
+ * 2026-10-29, official client: the modes a running skill switches its owner to on the way (a SwitchMode of its buffs), by
+ * the sim fx that marks that moment — 维什戴尔 S2's 过载 (wisdel_s_2[overload_start] → S2_Overload; fx 'wisdelOverload'),
+ * 乌尔比安 S3 once the anchor lands (ulpia_s3_switch_mode[born]: his redeploy there, moved or in place, → S3_Respawn_A;
+ * fx 'anchor'). From then until the skill ends its attacks sound that mode's signals (tools/assets/skill-mode-sfx.mjs
+ * `modes[i].sub`, public/js/audio.js). A name is a `_modes` entry of the skill's own mode (`<its name>_…`).
+ */
+export const SKILL_SUB_MODES = Object.freeze({
+  char_1035_wisdel: Object.freeze({ wisdelOverload: 'S2_Overload' }),
+  char_4145_ulpia: Object.freeze({ anchor: 'S3_Respawn_A' }),
+});
+
+/**
  * The mode index of skill `i` (0-based) in a `_modes` name list, or -1: the mode named exactly `S<k>` / `Sk<k>` (any case) first,
  * then a range `S<a>-<b>` holding k, then the first `S<k>…` variant (S2_Overload, S2Respawn, S3(D) …).
  * `skillMode` (char_modes.py: per skill, the mode its own prefab's switch_mode buff selects, or null) overrides names

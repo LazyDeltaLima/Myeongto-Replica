@@ -5,7 +5,8 @@ The official client sounds an operator's attacks through its attack mode: a bank
 where n is the mode's index in the character prefab's `_modes` list (charpack/char_*.ab: Default = 0, then the skill
 modes in prefab order, e.g. 维什戴尔 [Default, S2, S2_Overload, S3] → S3's attacks sound `attack.3`). Which skill a mode
 belongs to is in its name (`S<n>` + optional suffix), unless the skill's own prefab says otherwise: `skillMode`
-[mode | null per skill] from the switch_mode buff in battle/prefabs/[uc]skills.ab (莫斯提马 [Default, S2]: S3 → 1). audio_data.json does not carry this order, so the asset plan
+[mode | null per skill] from the switch_mode buff in battle/prefabs/[uc]skills.ab (莫斯提马 [Default, S2]: S3 → 1); `skillEnd` [mode | null
+per skill] = the mode the skill's buff switches to as it ends (config/buff_template_holder.ab, 蒂比 S2 → S2_Landing). audio_data.json does not carry this order, so the asset plan
 (tools/assets/plan.mjs) reads it from tools/assets/local-char-modes.json, which this script writes — with the projectile
 keys each mode's attack fires (`_projectileKey` under Modes/<name>/: a ranged mode's impact sound is its projectile's bank
 `battle.ON_PROJECTILE_HIT.<key>`):
@@ -119,6 +120,72 @@ def skill_switch_modes(tree):
                 for b in o.get('blackboard') or []:
                     if isinstance(b, dict) and b.get('key') == 'mode':
                         found.setdefault(sid, set()).add(int(b['value']))
+            for v in o.values():
+                walk(v, sid)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v, sid)
+
+    for gp, d, _pid in tree:
+        walk(d, gp.split('/')[0])
+    return {k: next(iter(v)) for k, v in found.items() if len(v) == 1}
+
+
+BUFF_FINISH = 1  # Buff.Event.ON_BUFF_FINISH (the template's eventToActions key)
+
+
+def buff_templates(client):
+    """{templateKey: {event: [action node, …]}} of config/buff_template_holder.ab (PersistentData first), {} without it.
+    The nodes are the `$type`-tagged JSON of each event's SerializedState."""
+    import aklz4  # noqa: F401  (registers the LZ4AK decoder)
+    import UnityPy
+    out = {}
+    for f in (Path(client) / 'PersistentData/Bundles/config/buff_template_holder.ab',
+              Path(client) / 'StreamingAssets/AB/Windows/config/buff_template_holder.ab'):
+        if not f.exists():
+            continue
+        for o in UnityPy.load(str(f)).objects:
+            if o.type.name != 'MonoBehaviour':
+                continue
+            for t in o.read_typetree().get('_templates') or []:
+                key = t.get('templateKey')
+                if not isinstance(key, str) or key in out:
+                    continue
+                ev = {}
+                for it in (t.get('eventToActions') or {}).get('_items') or []:
+                    try:
+                        ev[it['key']] = json.loads((it.get('value') or {}).get('SerializedState') or '[]')
+                    except (KeyError, TypeError, ValueError):
+                        pass
+                out[key] = ev
+        break
+    return out
+
+
+def skill_end_modes(tree, templates):
+    """{skill prefabId: mode index} — 2026-10-29, official client: the mode a skill's own buff switches its owner to as
+    it ends (a SwitchMode node with a fixed `_modeIndex` > 0 in the ON_BUFF_FINISH actions of a template its prefab names):
+    蒂比 tippi_s_2[switch_mode] → S2_Landing, 蕾缪安 lemuen_s_3 → S3_End. That mode's attack runs at once (its landing / closing
+    clip), so its START bank is the skill's end sound (tools/assets/skill-mode-sfx.mjs skillEnds). Only skills with one value."""
+    found = {}
+
+    def switches(o, acc):
+        if isinstance(o, dict):
+            if str(o.get('$type', '')).endswith('+SwitchMode') and not o.get('_loadModeFromBlackboard') and not o.get('_restoreDefault'):
+                n = o.get('_modeIndex')
+                if isinstance(n, int) and n > 0:
+                    acc.add(n)
+            for v in o.values():
+                switches(v, acc)
+        elif isinstance(o, list):
+            for v in o:
+                switches(v, acc)
+
+    def walk(o, sid):
+        if isinstance(o, dict):
+            tk = o.get('templateKey')
+            if isinstance(tk, str) and tk in templates:
+                switches(templates[tk].get(BUFF_FINISH) or [], found.setdefault(sid, set()))
             for v in o.values():
                 walk(v, sid)
         elif isinstance(o, list):
@@ -1263,6 +1330,7 @@ def main():
     prefabs = char_skill_prefabs()
     stree = skills_tree(a.client)
     switch = skill_switch_modes(stree)
+    end = skill_end_modes(stree, buff_templates(a.client))
     sk_fx = skill_effects(stree, projectiles)
     durations = skill_durations()
     for cid in ids:
@@ -1279,6 +1347,9 @@ def main():
             sm = skill_modes_of(m['modes'], prefabs.get(cid) or [], switch)
             if sm:
                 m['skillMode'] = sm
+            se = [end.get(pid) if isinstance(end.get(pid), int) and end[pid] < len(m['modes']) else None for pid in prefabs.get(cid) or []]
+            if any(x is not None for x in se):
+                m['skillEnd'] = se
             # local patch: the skills' own effects (skills.ab), in skill order; a skill's turned effects join the operator's
             # a skill's shot (skill_effects) flies with its first attack after the cast (render/fxgame.js trailShot): a skill
             # without duration only — a timed one's projectile is an ability of its own (焰影苇草 S2's fireballs, the kit's 'strike')

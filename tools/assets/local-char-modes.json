@@ -581,6 +581,11 @@
    null,
    null
   ],
+  "skillEnd": [
+   null,
+   null,
+   3
+  ],
   "skills": [
    {
     "cast": [],
@@ -1837,6 +1842,11 @@
     ]
    }
   ],
+  "skillEnd": [
+   null,
+   null,
+   4
+  ],
   "skills": [
    {
     "cast": [],
@@ -1998,6 +2008,11 @@
   ],
   "turn": [
    "swire2_skill_03_range"
+  ],
+  "skillEnd": [
+   null,
+   null,
+   4
   ],
   "skills": [
    {
@@ -13395,6 +13410,10 @@
    },
    null
   ],
+  "skillEnd": [
+   3,
+   6
+  ],
   "skills": [
    {
     "cast": [],
@@ -13593,6 +13612,11 @@
    1,
    2,
    null
+  ],
+  "skillEnd": [
+   null,
+   null,
+   4
   ],
   "skills": [
    {

@@ -13,6 +13,7 @@
 // plan.mjs (upstream) calls these through short local-patch lines: sfx.units[id].modes / .grp, sfx.kitGrp.
 //
 //   modes[i] = { attack?, hit?, mix?: { attack?, hit? }, grp?: { attack?, hit? }, deferStart?: true }  (i = skill index)
+//   (+ cues / sel, and sub: { [fx kind]: { cues, sel? } } — 2026-10-29, shared/skill-modes.js SKILL_SUB_MODES)
 //   deferStart: the skill's start sound is only a fallback (skill-sfx.mjs, no ON_SKILL_START) and the skill has attack /
 //   impact sounds of its own — the client plays that start sound only for a skill that ends without an attack.
 
@@ -36,7 +37,7 @@ export function loadCharModes(root = process.cwd()) {
 }
 
 export { skillModeIndex } from '../../shared/skill-modes.js'; // the same rule as the effect layer (render/fxgame.js)
-import { skillModeIndex } from '../../shared/skill-modes.js';
+import { skillModeIndex, SKILL_SUB_MODES } from '../../shared/skill-modes.js';
 
 /** Sub-ability order: the plain key first, then deeper keys with numeric parts ascending (audio.mjs abilityOrder). */
 const order = (a, b) => (a.split('.').length - b.split('.').length) || a.localeCompare(b, 'en', { numeric: true });
@@ -141,6 +142,17 @@ export function skillModes(audio, charId, skills, info, soundLeaf, startIsFallba
     if (!found.attack && !found.hit && !(set && (n > 0 || set.cues.length))) continue;
     const e = {};
     if (set && (n > 0 || set.cues.length)) { e.cues = set.cues; if (set.sel) e.sel = set.sel; }
+    // 2026-10-29: the modes the skill switches to on the way (SKILL_SUB_MODES), by the sim fx that marks the switch
+    if (set && n > 0) {
+      const sub = {};
+      for (const [fx, name] of Object.entries(SKILL_SUB_MODES[charId] || {})) {
+        const m = info.modes.indexOf(name);
+        if (m <= 0 || !name.startsWith(`${info.modes[n]}_`)) continue;
+        const ss = soundSet(audio, charId, ca, m, soundLeaf);
+        sub[fx] = ss.sel ? { cues: ss.cues, sel: ss.sel } : { cues: ss.cues };
+      }
+      if (Object.keys(sub).length) e.sub = sub;
+    }
     const mix = {}, grp = {};
     for (const r of ['attack', 'on', 'hit']) { // 2026-10-10: + on
       if (!found[r]) continue;
@@ -403,16 +415,24 @@ export function snapshotSfx(audio, soundLeaf, sfx) {
  * signal id) at the owner; also OnOwnerFinish / _OnReceiveAttackFinishEvent / ToggleSkill.DoCast) and the skill ability's
  * own `battle.ON_ABILITY_END.<skillId>` (AbilityStandard.OnCastEnd) unless that is a looping bank (烛煌 S3's
  * field: skillLoops). { url, grp?, vol? }. 银灰 S2 b_char_tactboost, 玛恩纳 S2 / 荒芜拉普兰德 S1 b_char_boostclose, …
+ * 2026-10-29, official client: without such a bank, the START bank of the mode the skill's buff switches to as it ends
+ * (local-char-modes.json `skillEnd`, char_modes.py skill_end_modes) — that mode's attack runs its closing clip at once:
+ * 蒂比 S2 S2_Landing `attack.6` p_skill_pmtjtckdw, 蕾缪安 S3 S3_End `attack.4` (the bombardment's call).
  * @param {{ bank: (n: string) => string[], groupOf?: Function, mixOf?: Function, isLoop?: Function }} audio
  * @param {{ index: number, skillId?: string }[]} skills
  * @param {(paths: string[]) => any} soundLeaf
+ * @param {string} [charId]
+ * @param {{ skillEnd?: (number|null)[] }} [info] local-char-modes.json entry
+ * @param {{ sig?: number[][] }} [ca] local-char-audio.json entry
  */
-export function skillEnds(audio, skills, soundLeaf) {
+export function skillEnds(audio, skills, soundLeaf, charId = null, info = null, ca = null) {
   const isLoop = (n) => (typeof audio.isLoop === 'function' ? audio.isLoop(n) : false);
   const out = {};
   for (const s of Array.isArray(skills) ? skills : []) {
     if (!s || !Number.isInteger(s.index) || !s.skillId) continue;
-    const name = [`battle.ON_SKILL_FINISH.${s.skillId}`, `battle.ON_ABILITY_END.${s.skillId}`].find((n) => audio.bank(n)?.length && !isLoop(n));
+    const n = info?.skillEnd?.[s.index];
+    const endMode = charId && Number.isInteger(n) && n > 0 ? `battle.ON_ABILITY_START.${charId}.${signalBase('attack', n, ca?.sig)}` : null;
+    const name = [`battle.ON_SKILL_FINISH.${s.skillId}`, `battle.ON_ABILITY_END.${s.skillId}`, endMode].find((x) => x && audio.bank(x)?.length && !isLoop(x));
     if (!name) continue;
     const paths = audio.bank(name);
     const e = { url: soundLeaf(paths) };
@@ -420,6 +440,7 @@ export function skillEnds(audio, skills, soundLeaf) {
     if (g) e.grp = g;
     const m = typeof audio.mixOf === 'function' ? audio.mixOf(paths) : null;
     if (m && Number.isFinite(m.vol)) e.vol = m.vol;
+    if (name === endMode) e.mode = 1; // an ability of the end mode: a unit knocked out / withdrawn casts none (audio.js)
     out[String(s.index)] = e;
   }
   return Object.keys(out).length ? out : null;

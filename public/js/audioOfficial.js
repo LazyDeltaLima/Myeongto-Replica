@@ -271,8 +271,11 @@ export function battleOverOf(losses, selfId) {
  * (`modes[mode].cues`, [] = it attacks in silence), else the Default's; null when the manifest has no cues (the role path).
  * @returns {{ cues: any[], sel?: any, mode: boolean }|null}
  */
-export function cueSetOf(entry, mode) {
+export function cueSetOf(entry, mode, sub = null) {
   const m = Number.isInteger(mode) ? entry?.modes?.[mode] : null;
+  // 2026-10-29: the mode the running skill switched to on the way (`modes[i].sub[fx]`, shared/skill-modes.js SKILL_SUB_MODES)
+  const s = m && typeof sub === 'string' ? m.sub?.[sub] : null;
+  if (s && Array.isArray(s.cues)) return { cues: s.cues, sel: s.sel, mode: true };
   if (m && Array.isArray(m.cues)) return { cues: m.cues, sel: m.sel, mode: true };
   return Array.isArray(entry?.cues) ? { cues: entry.cues, sel: entry.sel, mode: false } : null;
 }
