@@ -931,6 +931,18 @@ ON_BUFF_FINISH에 대상이 살아 있을 때만(`IfTarget _checkTargetAlive`) +
   `top fx 이름 ms ×개수` — 플레이어 갱신이 가장 오래 걸린 이펙트 3개(프레임당 ms, 프레임당 인스턴스 수; `fxGame.perfTop()`). 측정 기능이지 동작
   변경 없음(유닛·이펙트마다 `performance.now()` 두 번). Windows Chrome 솔로 R1–R2 확인: `ui …: MatchScreen 8.1/4.7, GameScreen 2.4/0.4,
   Countdown 0.7/4`, `top units chess_char_1_12_a 0.2, …`, `top fx … ×0.6`, `lost 0.4 ms/f @161Hz`. 테스트 `test/ui/perf-hud.test.js`.
+- **진단 보강 4** (2026-10-30, 관리자 제보: PC 「높음」에서 협동 보스전 이펙트가 기본(절차) 이펙트로 보이고 유닛 움직임이 끊김 — 적응 부하 단계
+  2·3(유닛 2프레임에 한 번, 이펙트 「중간」 경로, 단계 3은 일반 공격 공식 이펙트 생략·궤적 절차 탄)과 맞는데 단계가 왜·언제 올랐는지, 공식
+  이펙트가 무엇 때문에 빠졌는지 로그로 못 가름): 보기 `census()`(10초마다)에 셋을 더하고 `perf:` 줄에 찍는다. ① `lod a–b (s 0/1/2/3)` — 단계별로
+  머문 초(`adaptLoad`가 세는 프레임만: 숨은 페이지·250 ms 넘는 프레임 제외). ② `lod steps 0→1 hh:mm:ss (M ms, worst W ms, N views, battle), …` —
+  단계가 바뀐 시각(UTC), 그때 프레임 간격 이동 평균, 올린 느린 구간의 가장 긴 프레임(내릴 때는 없음), 보기 수, 준비/전투; 줄마다 6개까지(`+n`),
+  10초에 12개까지. 긴 프레임 몇 개로 오른 것(이펙트 파일·텍스처 첫 올리기)과 계속 느려서 오른 것을 가른다. ③ `fx skip lod3 A, off B, trail C ·
+  files F (wait S ms, max X) · lost L · layer 상태 (n tries)` — 공식 이펙트가 있는 유닛(오퍼레이터 묶음·적)의 일반 공격 중 단계 3이라 절차로 둔 것
+  (스킬 중 공격 제외)·이펙트 층이 아직 없을 때 온 것(불러오는 중이면 늦게, 실패·컨텍스트 잃음이면 절차), `MAX_TRAILS`(12) 때문에 절차 탄이 된 궤적,
+  처음 받은 이펙트 파일 수와 기다린 시간 합·최대, 잃은 WebGL 컨텍스트, 줄 끝의 층 상태(`on`·`loading`·`off`·`nowebp`·`none`)와 이 페이지의 불러오기
+  시도 수(`fxGame.perfSkips()`). 측정 기능이지 동작 변경 없음(궤적 상한 검사가 `trailFull()`로 셈, 공격 이벤트마다 비교 몇 번). Windows Chrome 1600×900
+  솔로 R4 전투 CPU ×12 확인: `lod 0–3 (s 15/1/1/14) | lod steps 0→1 … (59 ms, worst 88 ms, 14 views, battle), 1→2 … , 2→3 … | fx skip lod3 17, off 0,
+  trail 0 · files 7 (wait 1393 ms, max 303) · layer on (1 tries)`. 테스트 `test/ui/perf-hud.test.js`.
 
 ## 3D 보드 첫 그리기 미리 준비 (2026-10-16, 관리자 제공 iPhone 12 Pro 로그 「필드가 뜬 직후 한 표본이 프레임 0, PIXI 그리기 평균 277 ms」)
 - 측정 기능의 `perf:` 줄로 본 멈춤은 필드 진입 직후(엔진 마운트가 끝나고 3D 보드·공식 씬이 막 도착한 구간)였다. Windows Chrome에서 같은

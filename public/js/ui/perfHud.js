@@ -23,7 +23,10 @@
 // the server messages' handling (net.js rx: parsing and the store's synchronous listeners) per second; `held`, every
 // SAMPLE_MS, what the page holds (render/app.js census(): PIXI display objects and those drawn, the texture caches, the
 // ticker's listeners, the view maps, the effect layer's live / notes / trails; the document's element count) — a count
-// that only grows over a match is a leak. The browser's own style, layout and paint for the UI stay in `other`.
+// that only grows over a match is a leak. The browser's own style, layout and paint for the UI stay in `other`. From the
+// same census (2026-10-30): the seconds at each load level (`lod a–b (s …)`) and its steps with the frame times that
+// raised them (`lod steps`), and why official effects did not play (`fx skip`: normal attacks at load level 3 / while the
+// effect layer was not up, trails over the cap, effect files fetched during the line and their waits, lost contexts).
 //
 // `other` includes the wait for the display's next refresh (a frame of 2 ms of work still takes 16.7 ms at 60 Hz), so
 // the report also gives `lost`: the mean frame interval minus the refresh period (refreshPeriod: the median interval of a
@@ -212,7 +215,9 @@ export function perfReportLines(samples) {
       `fx ${r0(maxOf(pick('fxCalls')))} calls`,
       Number.isFinite(maxOf(b3)) ? `3d ${r0(maxOf(b3))} calls` : '3d off',
       `units ${r0(maxOf(pick('units')))}`,
-      lods.length ? `lod ${Math.min(...lods)}–${Math.max(...lods)}` : null,
+      lods.length ? `lod ${Math.min(...lods)}–${Math.max(...lods)}${lodSecText(list)}` : null,
+      lodStepsText(list),
+      fxSkipText(list),
       imps.length ? `imp ${Math.min(...imps)}–${Math.max(...imps)}` : null,
       Number.isFinite(maxOf(pick('heapMB'))) ? `heap ${r0(maxOf(pick('heapMB')))} MB` : null,
       held ? `held ${heldText(held)}` : null,
@@ -227,6 +232,37 @@ const heldText = (h) => [
   `objs ${h.objs ?? '-'} (${h.shown ?? '-'} shown)`, `tex ${h.tex ?? '-'}/${h.base ?? '-'}`, `ticker ${h.ticker ?? '-'}`, `dom ${h.dom ?? '-'}`,
   `views ${h.views ?? '-'}/${h.pen ?? '-'}/${h.gone ?? '-'}`, `fx ${h.fxLive ?? '-'}/${h.fxNotes ?? '-'}/${h.fxTrails ?? '-'}`,
 ].join(', ');
+
+/** The line's seconds at load levels 0–3 (census lodSec), e.g. ` (s 12/3/2/40)`. */
+function lodSecText(list) {
+  const sec = [0, 0, 0, 0];
+  let any = false;
+  for (const s of list) for (let i = 0; i < 4; i++) if (Number.isFinite(s.held?.lodSec?.[i])) { sec[i] += s.held.lodSec[i]; any = true; }
+  return any ? ` (s ${sec.map(r0).join('/')})` : '';
+}
+
+/** The line's load level steps (census lodSteps): `0→1 12:03:04 (35 ms, worst 180 ms, 21 views, battle)`, the first 6. */
+function lodStepsText(list) {
+  const steps = list.flatMap((s) => s.held?.lodSteps || []);
+  if (!steps.length) return null;
+  const one = (x) => `${x.from}→${x.to} ${wallClock(x.wall)} (${r0(x.ms)} ms${Number.isFinite(x.worst) ? `, worst ${r0(x.worst)} ms` : ''}, ${x.views} views, ${x.mode})`;
+  return `lod steps ${steps.slice(0, 6).map(one).join(', ')}${steps.length > 6 ? ` +${steps.length - 6}` : ''}`;
+}
+
+/**
+ * The line's official effects not played (census fxSkip, summed): normal attacks left procedural by load level 3 /
+ * while the layer was not up, trails refused by the cap, effect files fetched (summed and longest wait), lost
+ * contexts, and the layer at the line's end with the loads tried this page.
+ */
+function fxSkipText(list) {
+  const xs = list.map((s) => s.held?.fxSkip).filter(Boolean);
+  if (!xs.length) return null;
+  const sum = (k) => xs.reduce((n, x) => n + (x[k] || 0), 0);
+  const z = xs[xs.length - 1];
+  return `fx skip lod3 ${sum('lod3')}, off ${sum('off')}, trail ${sum('trail')}`
+    + ` · files ${sum('files')} (wait ${sum('waitMs')} ms, max ${Math.max(...xs.map((x) => x.waitMax || 0))})`
+    + `${sum('lost') ? ` · lost ${sum('lost')}` : ''} · layer ${z.layer ?? '-'}${z.tries ? ` (${z.tries} tries)` : ''}`;
+}
 
 /** The line's components whose re-renders took the most (ms/s, re-renders/s), the top 3 over its samples. */
 function uiTopText(list) {

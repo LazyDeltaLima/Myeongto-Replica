@@ -42,7 +42,8 @@
 // that kind ends). The view's adaptive load level (render/app.js adaptLoad, as render/fx.js
 // drops its extras at level ≥ 2): level 2 plays 'high' as 'medium', level 3 also skips the normal-attack effects.
 // stats() → { live, loaded, updateMs, renderMs, calls, particles, notes } (view.stats().fxGame); perfTop(n) → the effects whose
-// players took the most time since the last call (the perf HUD). `trace` (tests): called with
+// players took the most time since the last call (the perf HUD); perfSkips() → why official effects did not play since
+// the last call (load level 3, the layer not up, the trail cap) and the files fetched (the perf HUD). `trace` (tests): called with
 // { kind, names, by, at } for every effect play() starts, before it loads (node has no WebP, so nothing is drawn there), and
 // { kind: 'spawn', names, by, on, tag, facing } for every extracted prefab spawn() starts, { kind: 'status', names, by } for every
 // status effect statusOn() starts on `by` (render/fxstatus.js, 2026-10-21). `dry` (tests, 2026-10-20): nothing ever
@@ -410,6 +411,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   let stormGen = 0;                  // 2026-10-18: setStorm's battle (clear() ends it; a load finishing after drops its effect)
   let lastViews = null;               // the views map of the last event (the notes trace their targets' views)
   const perf = { updateMs: 0, renderMs: 0, calls: 0 };
+  // 2026-10-30 (the perf HUD, perfSkips): since the last call — the normal attacks of units with official effects that
+  // load level 3 left to the procedural FX (`lod3`, a running skill's attacks excepted) or that came while the layer was
+  // not up (`off`: loading → late, failed or lost → procedural), the official trails the MAX_TRAILS cap refused
+  // (`trail`), the effect files fetched (`files`, their summed / longest wait in ms) and the lost contexts (`lost`)
+  const skips = { lod3: 0, off: 0, trail: 0, files: 0, waitMs: 0, waitMax: 0, lost: 0 };
   // the perf HUD's top effects: each effect's player update time (ms) and instances by prefab name since the last perfTop()
   const perfBy = new Map();
   let perfFrames = 0;
@@ -475,6 +481,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           canvas.addEventListener('webglcontextlost', () => {
             if (g !== gen || destroyed) return;   // our own forceContextLoss (teardown)
             console.warn('[fx] effect context lost');
+            skips.lost++;
             teardown();
             failed = true;
           });
@@ -489,6 +496,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         camera = new THREE.PerspectiveCamera();
         size = new THREE.Vector2();
         lib = new fxp.FxLibrary('/assets/local/fx/');
+        const load0 = lib.load.bind(lib);   // 2026-10-30: the files fetched and their waits (perfSkips)
+        lib.load = (bundle, n) => {
+          const fresh = !lib.defs.has(`${bundle}/${n}`), t = performance.now(), p = load0(bundle, n);
+          if (fresh) {
+            skips.files++;
+            p.then(() => { const ms = performance.now() - t; skips.waitMs += ms; if (ms > skips.waitMax) skips.waitMax = ms; });
+          }
+          return p;
+        };
         // 2026-10-27: the effect shader linked before the first effect (compile() only queues the link: the browser links it
         // while the effect's file loads), its other variants by prewarm(). Their materials are never disposed: three.js also
         // drops a shader's source entry with its last material, and the next material's new entry id made a new program key,
@@ -1765,6 +1781,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
 
   // ---- official projectile trails (local patch 2026-10-07, see the header) ----
   const trails = [];               // { inst, tgt view, x0, y0, tx, ty, k, dur, arc }
+  /** MAX_TRAILS in flight: the shot stays procedural (counted for the perf HUD, perfSkips). */
+  const trailFull = () => { if (trails.length < MAX_TRAILS) return false; skips.trail++; return true; };
   const trailReady = new Set();    // `bundle/prefab` loaded once: its shots draw the official trail from then on
   const trailAtks = new WeakSet(); // 'atk' tuples drawn here (fx.js skips its shot: arrowKind)
   /**
@@ -1801,7 +1819,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       ensure().then((ok) => (ok ? lib.load(b.bundle, name) : null)).then((def) => { if (def) trailReady.add(key); }, () => {});
       return false;
     }
-    if (trails.length >= MAX_TRAILS) return false;
+    if (trailFull()) return false;
     const dx = tgt.x - src.x, dy = tgt.y - src.y, dist = Math.hypot(dx, dy);
     // 2026-10-16: the sim's flight time of this operator's shot (data/chess.json `shot`); none when it lands at the strike
     const v = e[3] === 'boomerang' ? null : shotSpeedOf({ lookupDef: unitDef }, src, tgt, dist);
@@ -1833,7 +1851,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const n = Array.isArray(s) ? s.find((x) => b.prefabs.includes(x)) : null;
       if (!n) return;
       if (!trailReady.has(`${b.bundle}/${n}`)) { ensure().then((ok) => (ok ? lib.load(b.bundle, n) : null)).then((def) => { if (def) trailReady.add(`${b.bundle}/${n}`); }, () => {}); return; }
-      const go = () => { if (trails.length < MAX_TRAILS && !gone.has(ownerOf(tgt))) launchTrail({ ...rec, inst: null, k: 0, ...aimOf(tgt) }, b.bundle, n); };
+      const go = () => { if (!trailFull() && !gone.has(ownerOf(tgt))) launchTrail({ ...rec, inst: null, k: 0, ...aimOf(tgt) }, b.bundle, n); };
       if (sg.dt > 0) castsDelayed.push({ t: clockS + sg.dt * (k + 1), run: go }); else go();
     });
     return true;
@@ -1971,7 +1989,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function caperSecond(e, views) {
     const o = e[4];
     const src = views.get(o.id), tgt = views.get(o.tgt);
-    if (!src || !tgt || !isOp(src) || !bundleOf(src) || level() >= 3 || failed || trails.length >= MAX_TRAILS) return false;
+    if (!src || !tgt || !isOp(src) || !bundleOf(src) || level() >= 3 || failed || trailFull()) return false;
     const mode = modeNow(src);
     const name = bound(src, mode, 'trail')[0];
     const b = bundleOf(src);
@@ -2829,7 +2847,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     let longest = 0;
     tos.forEach((u, k) => {
       const go = () => {
-        if (level() >= 3 || trails.length >= MAX_TRAILS || (!back && (u.alive === false || u.remove))) return;
+        if (level() >= 3 || trailFull() || (!back && (u.alive === false || u.remove))) return;
         const from = back ? { x, y, z: shotTo(op).z } : shotFrom(op, null);
         const tx = mx(u), ty = u.y, dur = Math.max(0.04, Math.hypot(tx - (back ? x : op.x), ty - (back ? y : op.y)) / speed);
         const rec = { inst: null, tgt: u, x0: from.x, y0: from.y, z0: from.z, ...aimOf(u), k: 0, dur, arc: 0 };
@@ -4094,6 +4112,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // prefab's bindings in its one mode — the attacker's paths below take it as an enemy, a target keeps its real side
   const erec = (v) => !!(v?.info && v.info.side !== 'enemy' && enemyRecordMode(v.info.defId));
   const efoe = (v) => v?.info?.side === 'enemy' || erec(v);
+  /** An attack of a unit with official effects the layer did not draw officially (perfSkips `off` / `lod3`). */
+  function countSkip(src) {
+    if (!src || !(bundleOf(src) || efoe(src))) return;
+    if (!mod) skips.off++;
+    else if (level() >= 3 && !src._fxSkillOn) skips.lod3++;
+  }
   const ebindOf = (v) => (efoe(v) && emodes ? emodes[v.info.defId] || emodes[v.info.spine] || null : null);
   /** [bundle, prefab] of effect `name` when it is extracted (enemy-modes.json `$fx`, without case), or null. */
   function efx(name) {
@@ -4215,7 +4239,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       ensure().then((ok) => (ok ? lib.load(r[0], r[1]) : null)).then((def) => { if (def) trailReady.add(key); }, () => {});
       return false;
     }
-    if (trails.length >= MAX_TRAILS) return false;
+    if (trailFull()) return false;
     trailAtks.add(e);
     const dist = Math.hypot(tgt.x - src.x, tgt.y - src.y);
     const from = eshotFrom(src, pr.mount);
@@ -4334,7 +4358,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const t = Number(o.t) > 0 ? Number(o.t) : 0;
     if (tgt && Array.isArray(pr.targetStart) && pr.targetStart.length) eplay(owner, pr.targetStart, { at: tgt });
     const r = efx(Array.isArray(pr.trail) ? pr.trail[0] : null);
-    if (r && camRef && t > 0 && t <= (dir ? 12 : 6) && !pr.link && level() < 3 && trails.length < MAX_TRAILS) {
+    if (r && camRef && t > 0 && t <= (dir ? 12 : 6) && !pr.link && level() < 3 && !trailFull()) {
       const p0 = from === shooter ? eshotFrom(from, pr.mount) : shotTo(from);
       let rec;
       if (dir) {
@@ -4396,7 +4420,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const at = { x: cell.c, y: cell.r, z: 0 };
         castsDelayed.push({ t: clockS + cell.t, run: () => { for (const f of subFx.slice(0, MAX_HIT_FX)) spawn(f[0], f[1], at, { owner: null, buff: false }); } });
       }
-      if (mainR && cells.length > 1 && camRef && trails.length < MAX_TRAILS) {
+      if (mainR && cells.length > 1 && camRef && !trailFull()) {
         const last = cells[cells.length - 1];
         const rec = { inst: null, tgt: null, x0: c0, y0: r0, z0: 0, tx: last.c, ty: last.r, tz: 0, k: 0, dur: Math.max(0.04, last.t), arc: 0 };
         ensure().then((ok) => { if (ok && lib) launchTrail(rec, mainR[0], mainR[1]); }, () => {});
@@ -4642,7 +4666,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (Array.isArray(pr.targetStart)) eplay(v, pr.targetStart, { at: target });
       const r = efx(Array.isArray(pr.trail) ? pr.trail[0] : null);
       const speed = Number(pr.speed) > 0 ? Number(pr.speed) : 0;
-      if (r && speed > 0 && !pr.link && trails.length < MAX_TRAILS && level() < 3) {
+      if (r && speed > 0 && !pr.link && level() < 3 && !trailFull()) {
         const dist = Math.hypot(target.x - v.x, target.y - v.y);
         if (dist / speed <= 6) {
           const from = eshotFrom(v, pr.mount);
@@ -5120,6 +5144,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // 2026-10-10: 萨米的意志's 冰凌 tile by tile (official or the staggered stand-in — at quality 'low' too)
       if (Array.isArray(e) && e[0] === 'fx' && e[1] === 'column' && e[4]?.r0 != null) { ecolumnFx(e, views); return; }
       if (!index || q() === 'low' || !Array.isArray(e)) return;
+      if (e[0] === 'atk' && !CHAIN_KINDS.has(e[3])) countSkip(views.get(e[1]));
       switch (e[0]) {
         case 'skill': {
           const v = views.get(e[1]);
@@ -5526,6 +5551,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       perfBy.clear();
       perfFrames = 0;
       return top;
+    },
+
+    /**
+     * The perf HUD (2026-10-30): the skips counted since the last call (see `skips`, waits rounded to ms), then reset —
+     * plus the layer now: 'on', 'loading', 'off' (a failed load or a lost context, until the next prep), 'nowebp', 'none'
+     * (not needed yet) — and the loads tried this page.
+     */
+    perfSkips() {
+      const out = { ...skips, waitMs: Math.round(skips.waitMs), waitMax: Math.round(skips.waitMax), tries,
+        layer: mod ? 'on' : noWebp ? 'nowebp' : failed ? 'off' : loading ? 'loading' : 'none' };
+      for (const k of Object.keys(skips)) skips[k] = 0;
+      return out;
     },
 
     /** Per-frame averages (update = the players, render = the layer's draw), the last frame's draw calls, live particles. */

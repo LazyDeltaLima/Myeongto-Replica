@@ -60,8 +60,9 @@
 //   view.isReady() → false while the first frame is held back (its textures go up behind the loading screen); then
 //        emits ready (no payload) after the first frame that draws the field ("first frame" below)
 //   view.stats() → { fps, frameMs, cpuMs, renderMs, parts, units, particles, impostor, impostorAtlas, boardArt, … } (dev / perf)
-//   view.census() → { objs, shown, tex, base, ticker, views, pen, gone, fxLive, fxNotes, fxTrails, topUnits, topFx } (perf: what
-//        the page holds; the costliest unit views and effects since the last call)
+//   view.census() → { objs, shown, tex, base, ticker, views, pen, gone, fxLive, fxNotes, fxTrails, topUnits, topFx, lodSec,
+//        lodSteps, fxSkip } (perf: what the page holds; since the last call the costliest unit views and effects, the seconds
+//        at each load level and its steps, why official effects did not play)
 //
 // Enemy preview pen (research 09 §2.2 / 08 §4.2, render/pen.js): in prep the next round's enemies idle in the pen
 // (rows 14–18 × cols 7–13; upper-gate enemies rows 17–18, lower-gate rows 14–15; spawn-time order, ≤ 3 per tile,
@@ -2065,13 +2066,22 @@ export async function createFieldView(host, options = {}) {
   // Adaptive load level 0–3: a device that cannot hold the frame rate with the current work switches crowds to
   // impostors earlier and animates small / far units at a lower rate (units.js); it steps back after a calm spell.
   let loadLevel = 0, slowFor = 0, fastFor = 0;
+  // 2026-10-30 (census, the perf HUD): the seconds at each level and the steps since the last census — UTC time, from →
+  // to, the mean frame interval, the longest frame of the slow spell that raised it, the views, prep / battle
+  const lodSec = [0, 0, 0, 0];
+  let lodSteps = [], slowWorst = 0;
+  const lodStep = (to) => {
+    if (lodSteps.length < 12) lodSteps.push({ wall: Date.now(), from: loadLevel, to, ms: frameMs, worst: to > loadLevel ? slowWorst * 1000 : null, views: views.size + penViews.size, mode });
+    loadLevel = to; slowFor = 0; fastFor = 0; slowWorst = 0; impInterval = pickImpostorInterval();
+  };
   function adaptLoad(dtRaw) {
     if (!(dtRaw > 0) || dtRaw > 0.25 || globalThis.document?.hidden) return;
+    lodSec[loadLevel] += dtRaw;
     const busy = views.size + penViews.size > 8;
-    if (frameMs > 19.5 && busy) { slowFor += dtRaw; fastFor = 0; }
-    else if (frameMs < 17.6) { fastFor += dtRaw; slowFor = 0; }
-    if (slowFor > 1 && loadLevel < 3) { loadLevel++; slowFor = 0; fastFor = 0; impInterval = pickImpostorInterval(); }
-    else if (loadLevel > 0 && (fastFor > 6 * loadLevel || !busy && fastFor > 2)) { loadLevel--; fastFor = 0; impInterval = pickImpostorInterval(); }
+    if (frameMs > 19.5 && busy) { slowFor += dtRaw; fastFor = 0; if (dtRaw > slowWorst) slowWorst = dtRaw; }
+    else if (frameMs < 17.6) { fastFor += dtRaw; slowFor = 0; slowWorst = 0; }
+    if (slowFor > 1 && loadLevel < 3) lodStep(loadLevel + 1);
+    else if (loadLevel > 0 && (fastFor > 6 * loadLevel || !busy && fastFor > 2)) lodStep(loadLevel - 1);
     if (autoPick) stepAuto(dtRaw, loadLevel, busy, frameMs, cpuMs); // a step reaches applyQuality through onAutoQuality
   }
   const stepAuto = autoQualityStepper();
@@ -2233,6 +2243,7 @@ export async function createFieldView(host, options = {}) {
       objs, shown, tex: keys(P.utils?.TextureCache), base: keys(P.utils?.BaseTextureCache), ticker: app.ticker.count ?? null,
       views: views.size, pen: penViews.size, gone: gone.size, fxLive: fs.live, fxNotes: fs.notes, fxTrails: fs.trails,
       topUnits: costly, topFx: fxGame.perfTop?.(3) ?? [],
+      lodSec: lodSec.splice(0, 4, 0, 0, 0, 0), lodSteps: lodSteps.splice(0), fxSkip: fxGame.perfSkips?.() ?? null, // 2026-10-30
     };
   }
   // local patch (LOCAL-PATCH.md 「공식 맵 렌더링」): the red 「!!!」 of the 活性源石 buff (render/infectionMark.js) — in prep
