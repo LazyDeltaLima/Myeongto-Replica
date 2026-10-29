@@ -43,7 +43,8 @@
 // drops its extras at level ≥ 2): level 2 plays 'high' as 'medium', level 3 also skips the normal-attack effects.
 // stats() → { live, loaded, updateMs, renderMs, calls, particles, notes } (view.stats().fxGame); perfTop(n) → the effects whose
 // players took the most time since the last call (the perf HUD); perfSkips() → why official effects did not play since
-// the last call (load level 3, the layer not up, the trail cap) and the files fetched (the perf HUD). `trace` (tests): called with
+// the last call (load level 3, the layer not up, the trail cap) and the files fetched (the perf HUD); preload(views) loads
+// the effect files of a boss round's prep before its battle (PRELOAD_GAP_MS). `trace` (tests): called with
 // { kind, names, by, at } for every effect play() starts, before it loads (node has no WebP, so nothing is drawn there), and
 // { kind: 'spawn', names, by, on, tag, facing } for every extracted prefab spawn() starts, { kind: 'status', names, by } for every
 // status effect statusOn() starts on `by` (render/fxstatus.js, 2026-10-21). `dry` (tests, 2026-10-20): nothing ever
@@ -372,6 +373,21 @@ export function yuWallPieces(dir, tiles, midX) {
   return out;
 }
 
+/**
+ * 2026-10-30 (preload): every string an enemy's enemy-modes.json binding holds outside its model points — its modes'
+ * cast / hit / trail names, its skills', auras', start and dead effects (the caller keeps those `$fx` knows), once each.
+ */
+export function bindingNames(binding) {
+  const out = new Set();
+  const walk = (o) => {
+    if (typeof o === 'string') out.add(o);
+    else if (Array.isArray(o)) for (const x of o) walk(x);
+    else if (o && typeof o === 'object') for (const k of Object.keys(o)) if (k !== 'points') walk(o[k]);
+  };
+  walk(binding);
+  return [...out];
+}
+
 export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1, fieldRect = () => null, grid = () => null, enemyDef = () => null, unitDef = () => null, audio = () => null, standIn = () => {}, trace = null, dry = false }) {
   let index = null, modes = null, emodes = null, plays = null;
   if (typeof fetch === 'function') {
@@ -525,6 +541,50 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return !!mod;
   }
 
+  // 2026-10-30 (docs/rules/fx.md 「보스 정비 때 미리 받기」): the effect files of the units a boss round's prep shows
+  // (own board, the pair partner's, the boss and its escorts in the pen; a spectator's scouted board), loaded one at a
+  // time PRELOAD_GAP_MS apart before the battle — a co-op boss fight fetched and parsed 70–180 files in its first
+  // seconds (the perf report's `files`), its effects late and its first shots procedural meanwhile, its frames slow
+  // enough to raise the load level. An operator queues its whole bundle (which skill and talent effects a battle plays
+  // is decided there) with its `<bundle>_token` and the shared `common` / `bond` bundles; an enemy the prefabs its
+  // enemy-modes.json binding names. Only the definitions and meshes (FxLibrary.load): the textures still load with the
+  // first instance, so no GPU memory is taken for effects that never play. preload(null) pauses it (a real battle's own
+  // loads first); the queue is kept and goes on at the next preload().
+  const PRELOAD_GAP_MS = 16;
+  const SHARED_BUNDLES = ['common', 'bond'];
+  const preQueue = [];               // `bundle/prefab` keys not loaded yet, in queue order
+  const preKeys = new Set();         // every key queued (the queue never takes one twice)
+  const preSeen = new Set();         // the bundles / enemy ids already queued
+  let preTimer = 0, preOn = false;
+  function preQueueKey(bundle, n) {
+    const k = `${bundle}/${n}`;
+    if (!preKeys.has(k)) { preKeys.add(k); preQueue.push(k); }
+  }
+  function preQueueUnit(v) {
+    const b = bundleOf(v);
+    if (b) {
+      for (const bn of [b.bundle, `${b.bundle}_token`, ...SHARED_BUNDLES]) {
+        if (preSeen.has(bn)) continue;
+        preSeen.add(bn);
+        for (const n of index.bundles[bn] || []) preQueueKey(bn, n);
+      }
+    }
+    const eb = ebindOf(v), id = eb && `enemy:${v.info.defId}|${v.info.spine || ''}`;
+    if (!eb || preSeen.has(id)) return;
+    preSeen.add(id);
+    for (const n of bindingNames(eb)) { const r = efx(n); if (r) preQueueKey(r[0], r[1]); }
+  }
+  function pumpPreload() {
+    if (preTimer || !preOn || !preQueue.length || destroyed) return;
+    preTimer = setTimeout(async () => {
+      if (!preOn || destroyed || !(await ensure())) { preTimer = 0; return; }
+      const k = preQueue.shift(), i = k.indexOf('/');
+      if (!lib.defs.has(k)) await lib.load(k.slice(0, i), k.slice(i + 1));
+      preTimer = 0;
+      pumpPreload();
+    }, PRELOAD_GAP_MS);
+  }
+
   /**
    * 2026-10-28: take the layer down — its effects, textures, meshes and occluders while the contexts still live, then both
    * contexts at once like the 3D board (scene.js destroy) — for destroy, quality 'low', a lost context or a failed load; a
@@ -535,6 +595,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     gen++;
     loading = null; variants = null; warmNext = 2;
     clearTimeout(warmTimer); warmTimer = 0;
+    clearTimeout(preTimer); preTimer = 0; preQueue.length = 0; preSeen.clear(); preKeys.clear(); // the library goes: load again
+
     // local patch (maintainer request 2026-10-10, docs/rules/render.md 「이펙트 렌더러 정리」): renderer.dispose() alone left
     // the contexts, 45–170 MB of textures each match, to a GC that never came while anything held the old view
     try { lib?.dispose(); } catch { /* ignore */ }
@@ -5554,6 +5616,19 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     },
 
     /**
+     * 2026-10-30: queue the effect files of these unit views (a boss round's prep, a scouted board) and load them one at a
+     * time (see PRELOAD_GAP_MS); null pauses the queue. → the keys still queued.
+     */
+    preload(list) {
+      if (!list) { preOn = false; return preQueue.length; }
+      if (destroyed || dry || q() === 'low' || !index) return preQueue.length;
+      for (const v of list) if (v?.info) preQueueUnit(v);
+      preOn = true;
+      pumpPreload();
+      return preQueue.length;
+    },
+
+    /**
      * The perf HUD (2026-10-30): the skips counted since the last call (see `skips`, waits rounded to ms), then reset —
      * plus the layer now: 'on', 'loading', 'off' (a failed load or a lost context, until the next prep), 'nowebp', 'none'
      * (not needed yet) — and the loads tried this page.
@@ -5571,7 +5646,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         live: live.length, loaded: !!mod, programs: mod ? layers.under.renderer.info.programs.length + layers.over.renderer.info.programs.length : 0, // 2026-10-28: linked (prewarm)
         updateMs: Math.round(perf.updateMs * 100) / 100, renderMs: Math.round(perf.renderMs * 100) / 100,
         calls: perf.calls, particles: mod ? mod.fxp.fxStats().particles : 0, notes: notes.size,
-        recent: recent.slice(), trails: trails.length, // local patch
+        recent: recent.slice(), trails: trails.length, preload: preQueue.length, // local patch; 2026-10-30: effect files still queued (preload)
         buffs: live.filter((l) => l.buff && !l.inst.done).map((l) => l.inst.def?.name ?? '?'), // local patch: the looping effects on now
         paused: live.filter((l) => l.paused && !l.inst.done).map((l) => l.inst.def?.name ?? '?'), // 2026-10-21: held by a pause behaviour (stepPauses)
         mode0: live.filter((l) => l.tag === 'mode0' && !l.inst.done && !l.inst.stopping).map((l) => l.inst.def?.name ?? '?'), // 2026-10-21: the Default mode's (defaultModeFx)

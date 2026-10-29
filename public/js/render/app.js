@@ -156,6 +156,7 @@ import { boardPreference, switchableBox, bandFor, fieldRows, boardArea, viewKind
 import { renderInfo, FORCED_EXIT, showsDeathFx } from './app/info.js';
 import { resolveAssets, makeData, withTimeout, capWait, QUALITY_RES, BOARD_RES, releaseGl } from './app/host.js';
 import { autoQuality, autoQualityStepper, onAutoQuality } from './auto-quality.js'; // settings 「自动」 (render.md 「자동 화면 품질」)
+import { loadLevelStepper } from './load-level.js'; // 2026-10-30: the adaptive load level's judgement (render.md 「적응 부하 단계」)
 import { t } from '../../../shared/i18n.js';
 import { syncGoldenFx } from './fxgolden.js'; // local patch: the prep elite glow
 import { createRouteCursors, createBattleCursors } from './fxroute.js'; // the boss route preview (LOCAL-PATCH.md 「보스 경로 미리보기」); the battle start's official one (render.md 「적 경로 미리보기」)
@@ -2065,23 +2066,26 @@ export async function createFieldView(host, options = {}) {
   let culledCount = 0;
   // Adaptive load level 0–3: a device that cannot hold the frame rate with the current work switches crowds to
   // impostors earlier and animates small / far units at a lower rate (units.js); it steps back after a calm spell.
-  let loadLevel = 0, slowFor = 0, fastFor = 0;
+  // The judgement (means over time, the waits) is render/load-level.js.
+  let loadLevel = 0;
+  const lodStepper = loadLevelStepper();
   // 2026-10-30 (census, the perf HUD): the seconds at each level and the steps since the last census — UTC time, from →
-  // to, the mean frame interval, the longest frame of the slow spell that raised it, the views, prep / battle
+  // to, the ~1 s mean frame interval (up) / ~2 s (down), the longest frame of the slow spell that raised it, the views,
+  // prep / battle
   const lodSec = [0, 0, 0, 0];
-  let lodSteps = [], slowWorst = 0;
-  const lodStep = (to) => {
-    if (lodSteps.length < 12) lodSteps.push({ wall: Date.now(), from: loadLevel, to, ms: frameMs, worst: to > loadLevel ? slowWorst * 1000 : null, views: views.size + penViews.size, mode });
-    loadLevel = to; slowFor = 0; fastFor = 0; slowWorst = 0; impInterval = pickImpostorInterval();
-  };
+  let lodSteps = [];
   function adaptLoad(dtRaw) {
     if (!(dtRaw > 0) || dtRaw > 0.25 || globalThis.document?.hidden) return;
     lodSec[loadLevel] += dtRaw;
     const busy = views.size + penViews.size > 8;
-    if (frameMs > 19.5 && busy) { slowFor += dtRaw; fastFor = 0; if (dtRaw > slowWorst) slowWorst = dtRaw; }
-    else if (frameMs < 17.6) { fastFor += dtRaw; slowFor = 0; slowWorst = 0; }
-    if (slowFor > 1 && loadLevel < 3) lodStep(loadLevel + 1);
-    else if (loadLevel > 0 && (fastFor > 6 * loadLevel || !busy && fastFor > 2)) lodStep(loadLevel - 1);
+    const worst = lodStepper.worst;
+    const to = lodStepper.step(dtRaw, busy);
+    if (to != null) {
+      const rise = to > loadLevel;
+      if (lodSteps.length < 12) lodSteps.push({ wall: Date.now(), from: loadLevel, to, ms: rise ? lodStepper.upMs : lodStepper.downMs, worst: rise ? Math.max(worst, dtRaw) * 1000 : null, views: views.size + penViews.size, mode });
+      loadLevel = to;
+      impInterval = pickImpostorInterval();
+    }
     if (autoPick) stepAuto(dtRaw, loadLevel, busy, frameMs, cpuMs); // a step reaches applyQuality through onAutoQuality
   }
   const stepAuto = autoQualityStepper();
@@ -2133,6 +2137,10 @@ export async function createFieldView(host, options = {}) {
       culledCount = 0;
       for (const v of views.values()) if (v.culled) culledCount++;
       for (const v of penViews.values()) if (v.culled) culledCount++;
+      // 2026-10-30: a boss round's prep (own board, the pair partner's, the boss in the pen) and a scouted board load the
+      // effect files of what they show before the battle; a real battle pauses that (render/fxgame.js preload)
+      if ((mode === 'prep' && prepXf.kind === 'bossPrep') || (mode === 'battle' && battleMeta?.prep)) fxGame.preload([...views.values(), ...penViews.values()]);
+      else if (mode === 'battle') fxGame.preload(null);
     }
     const dtRaw = (now - lastNow) / 1000;
     lastNow = now;
