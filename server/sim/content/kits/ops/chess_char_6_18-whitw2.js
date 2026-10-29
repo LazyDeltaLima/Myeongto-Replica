@@ -121,7 +121,9 @@ function whitw2(bb, chess, def) {
     const f = unit.profile?.funnel || { init: 0.2, delta: 0.15, max: 1.1 };
     d.ramp = d.rampId === t.id ? Math.min(f.max, d.ramp + f.delta) : f.init;
     d.rampId = t.id;
-    battle.fx('drone', { x: d.x, y: d.y, id: unit.id });
+    // `lock`: a strike of a locked drone (the client's attached projectile …_funnel_s3_<n>_attach; the 1 s pulse of a
+    // drone still roaming below is its cruise projectile)
+    battle.fx('drone', { x: d.x, y: d.y, id: unit.id, lock: 1 });
     battle.dealDamage(unit, t, { amount: unit.s.atk * unit.s.atkScaleMul * d.ramp, type: 'arts', tags: ['droneAttack'] });
   };
 

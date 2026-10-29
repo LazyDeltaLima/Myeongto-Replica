@@ -79,12 +79,13 @@ export function kjeraRelease(bb, { restart = false, announce = false } = {}) {
         if (!rel.drones.some((d) => d.lock) || rel.cd > 1e-9) return;
         rel.cd = unit.s.interval;
         const f = unit.profile.funnel || { init: 0.2, delta: 0.15, max: 1.1 };
-        for (const d of rel.drones) {
+        for (const [i, d] of rel.drones.entries()) {
           if (!d.lock || !d.lock.alive) continue;
           const scale = rel.restart
             ? (d.scale = d.scale == null ? f.init : Math.min(f.max, d.scale + f.delta))
             : stepMap(rel.ramp, d.lock.id, battle.time, f);
-          battle.fx('drone', { x: d.lock.x, y: d.lock.y, id: unit.id });
+          // `i` the drone (charpack S2 Funnel_<i>: only Funnel_0's projectile has sound banks)
+          battle.fx('drone', { x: d.lock.x, y: d.lock.y, id: unit.id, i });
           battle.dealDamage(unit, d.lock, {
             amount: unit.s.atk * unit.s.atkScaleMul * scale, type: 'arts',
             isSkill: true, isAttack: false, tags: ['skill', 'drone', DRONE_TAG],

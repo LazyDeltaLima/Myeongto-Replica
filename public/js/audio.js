@@ -125,7 +125,9 @@ export function kitHitKey(fx, ex, unitOf) {
     case 'kitHit': return typeof ex.k === 'string' ? ex.k : null;
     // local patch (maintainer report 2026-10-07): S1's impact is its DoT's (kitHit wang:1, every tick — client
     // wang_stone1_t[damage_audio]); the pop itself sounds through kitStartKey
-    case 'zone': return ex.token === 'token_10064_wang_stone1' && [2, 3].includes(ex.skill) ? `wang:${ex.skill}` : null;
+    case 'zone': return ex.token === 'token_10064_wang_stone1' && [2, 3].includes(ex.skill) ? `wang:${ex.skill}`
+      // 2026-10-29: 引星棘刺 S3's alchemy unit thrown at an operator (its projectile_chr_thorn2_s3 stopping there)
+      : ex.thrown && def(ex.id) === 'char_1039_thorn2' ? 'thorn2:s3' : null;
     case 'wangLink': return ex.first ? 'wang:link' : null;
     case 'swordStorm': return ex.id != null && def(ex.id) === 'char_1050_chen3' ? 'chen3:s2' : null;
     // local patch (maintainer report 2026-10-07): 蕾缪安 S3 — the bombardment's start (first shell), each landing, the lock
@@ -142,8 +144,16 @@ export function kitHitKey(fx, ex, unitOf) {
       // 2026-10-22: 洛洛 S2's released drone hitting (rockr_s_2[funnel_hit_audio] on its target: the _overload signal
       // while she holds rockr_s_2[overload] — `over`, signalFxKey 'overload')
       if (u?.def === 'char_4040_rockr') return u.over ? 'rockr:funnelo' : 'rockr:funnel';
+      // 2026-10-29: 耶拉 S2 — only Funnel_0's projectile (drone `i` 0) has banks; 荒芜拉普兰德 S3 — a locked wolf's strike is its
+      // attached projectile (`lock`), a roaming one's pulse its cruise projectile
+      if (u?.def === 'char_4013_kjera') return ex.i === 0 ? 'kjera:s2' : null;
+      if (u?.def === 'char_1038_whitw2' && u.skillIndex === 2 && ex.lock) return 'whitw2:s3lock';
       return u?.def === 'char_1038_whitw2' && Number.isInteger(u.skillIndex) ? `whitw2:s${u.skillIndex + 1}` : null;
     }
+    // 2026-10-29: 荒芜拉普兰德 S3 — a roaming wolf marks the enemy it found (whitw2_find_target_mark, its show effect)
+    case 'droneLock': return def(ex.src) === 'char_1038_whitw2' ? 'whitw2:mark' : null;
+    // 2026-10-29: 新约能天使's 火力电台 bombing landing (projectile_chr_angel2_t1 REACH; S3's fire-to-token strike has no `tgt`)
+    case 'airstrike': return ex.tgt != null && def(ex.id) === 'char_1041_angel2' ? 'angel2:t1' : null;
     // 2026-10-22: 协律 S2's sonic boom at each other operator in range (akkord_s_2[aoe_damage] PlayAudio akkord_aoe_audio at
     // that operator, whether or not an enemy is caught)
     case 'sonic': return def(ex.id) === 'char_4051_akkord' ? 'akkord:s2' : null;
@@ -223,7 +233,39 @@ export function signalAttackKey(su, at, melee) {
   if (su.def === 'char_4040_rockr' && su.skillIndex === 1 && (at === 'a' || at === 'd')) return `rockr:${at === 'a' ? 'atk' : 'hit'}${su.over ? 'o' : ''}`;
   // 2026-10-11: 실버애쉬 더 레인프로스트 S3 — every strike fires projectile_chr_svash2_s3 (skill prefab projectile): its BORN
   if (su.def === 'char_1045_svash2' && su.skillIndex === 2 && at === 'a') return 'svash2:s3born';
+  // 2026-10-29: 维什戴尔 S3 — the attack's AimEff (a child of its all-children group, no clip) marks the target as the attack
+  // starts: wisdel_s_3_mark[target]'s audioSignal WISDEL_S3_MARK [추정·엔진: a clip-less child's buff lands at the cast]
+  if (su.def === 'char_1035_wisdel' && su.skillIndex === 2 && at === 's') return 'wisdel:s3mark';
   return null;
+}
+/**
+ * 2026-10-29, docs/rules/audio.md 「스킬·재능 투사체 소리」: the sfx.kit key of impact `h` (0, 1 … of the swing) of tracked unit
+ * `su`'s attack that a skill prefab shoots with another projectile — 至简 S2's second shot (skchr_malist_2
+ * `_additionalProjectile` projectile_chr_malist_s2_2; the first, …_s1s2, has no bank) — or null.
+ */
+export function strikeImpactKey(su, h) {
+  if (su?.def === 'char_4054_malist' && su.skillOn && su.skillIndex === 1 && h === 1) return 'malist:s2';
+  return null;
+}
+/**
+ * 2026-10-29: the sfx.kit key of an unreleased drone's additional damage ('dmg' 7th field 2, server/sim/damage.js dotFlag) of a
+ * 驭械术师 `su` — the Default mode's Funnel projectile HIT (至简's has no bank), outside its skills [추정·자료 없음: a skill that
+ * keeps the drone attached is taken to shoot the same projectile] — or null.
+ */
+export function funnelHitKey(su) {
+  return su && !su.skillOn ? FUNNEL_HIT_KEYS[su.def] ?? null : null;
+}
+const FUNNEL_HIT_KEYS = Object.freeze({ char_4013_kjera: 'kjera:funnel', char_1038_whitw2: 'whitw2:funnel', char_4040_rockr: 'rockr:funnelN' });
+/**
+ * 2026-10-29: 溯光星源 S3's LinkEnemy — each enemy newly linked this skill run (fx 'link' `ids`) takes halo2_s_3_link, whose
+ * audioSignal sounds (ON_BUFF_START): how many plays, remembered on her tracked unit (`haloLinked`, cleared as the skill starts).
+ */
+export function haloLinkCount(su, ids) {
+  if (su?.def !== 'char_1047_halo2' || su.skillIndex !== 2 || !su.skillOn || !Array.isArray(ids)) return 0;
+  const seen = su.haloLinked ??= new Set();
+  let n = 0;
+  for (const id of ids) if (!seen.has(id)) { seen.add(id); n++; }
+  return n;
 }
 /**
  * 2026-10-10, docs/rules/audio.md 「버프·커스텀 트리거 소리」: the buff / custom-trigger sound a kit's fx stands for (an sfx.kit
@@ -1694,11 +1736,11 @@ export class AudioManager {
    * Play sfx.kit key `hk` (null = nothing) — its mixer group (sfx.kitGrp), its bank's popOldest (sfx.kitLimit), one bank per key.
    * Returns whether the key has a sound.
    */
-  _kitSound(hk) {
+  _kitSound(hk, delay = null) {
     const sfx = hk ? this.getManifest()?.audio?.sfx : null;
     const url = sfx?.kit?.[hk];
     if (typeof url !== 'string') return false;
-    this._play(url, { volume: groupGain(sfx.kitGrp?.[hk] ?? 'Battle_P_SImp'), limited: true, bank: `kit:${hk}`, pop: sfx.kitLimit?.[hk] ?? null });
+    this._play(url, { volume: groupGain(sfx.kitGrp?.[hk] ?? 'Battle_P_SImp'), limited: true, bank: `kit:${hk}`, pop: sfx.kitLimit?.[hk] ?? null, delay });
     return true;
   }
 
@@ -1741,6 +1783,7 @@ export class AudioManager {
             su.skillOn = !!e[2];
             su.sw = null; su.vm = null; // 2026-10-10: a new mode run — its groups start over (a conditional group's first attack)
             su.sub = null; // 2026-10-29: a mode it switched to on the way ends with the skill run (SKILL_SUB_MODES)
+            su.haloLinked = null; // 2026-10-29: 溯光星源 S3's linked enemies of this run (haloLinkCount)
             // 2026-10-10: its 过载 ends with the skill (락락: rockr_s_2[overload] ON_BUFF_FINISH → rockr_overload_finish)
             if (su.over && su.def === 'char_4040_rockr') this._kitSound('rockr:ovf');
             su.over = false;
@@ -1838,6 +1881,9 @@ export class AudioManager {
           // neither an attack's impact (it must not take the one lastAttacker keeps for the real hit) nor a skill impact
           // 2026-10-22: … unless its buff plays a sound of its own (dotTickKey: 锡人's alchemy unit)
           if (e[6] === 1) { if (e.length > 5 && e[5] != null) this._kitSound(dotTickKey(this.units.get(e[5])?.def)); continue; }
+          // 2026-10-29 (docs/rules/audio.md 「스킬·재능 투사체 소리」): an unreleased drone's additional damage — its own Funnel
+          // projectile's HIT, not one of the attack's impacts
+          if (e[6] === 2) { if (e.length > 5 && e[5] != null) this._kitSound(funnelHitKey(this.units.get(e[5]))); continue; }
           // 2026-10-22: a unit 帝国炮火先兆者's shell hit as it landed (the 'bombard' of this moment; its damage has no source)
           if (e.length > 5 && e[5] == null && this._shellAt === now) { this._kitSound('emppnt:hit'); this._kitSound('emppnt:shell'); continue; }
           const by = this.lastAttacker.get(e[1]);
@@ -1862,7 +1908,7 @@ export class AudioManager {
               if (sw && bounce) {
                 this._swingCues(au, sw, 'd', sw.h++, (c) => !c.r);
                 if (au.lastChainAt !== now) { au.lastChainAt = now; this._swingCues(au, sw, 'c'); }
-              } else if (sw) this._swingCues(au, sw, 'd', sw.h++);
+              } else if (sw) { this._kitSound(strikeImpactKey(au, sw.h)); this._swingCues(au, sw, 'd', sw.h++); }
               else this.unit(au.def, 'hit', `h${e[1]}`, undefined, own.mode);
               if (own) this._kitSound(signalAttackKey(au, 'd', false)); // 2026-10-10: its buff's impact sound (its own target)
             } else this._skillImpact(au, now);
@@ -1995,7 +2041,17 @@ export class AudioManager {
             const tmode = e[1] === 'copy' ? e[4].mode : from?.tmode;
             if (tu && (tmode === 'Melee' || tmode === 'Range')) { tu.tmode = tmode; tu.tby = e[1] === 'copy' ? e[4].by ?? null : from.tby; tu.sw = null; tu.vm = null; }
           }
-          for (const hk of [kitStartKey(e[1], e[4], unitOf), kitHitKey(e[1], e[4], unitOf), signalFxKey(e[1], e[4], unitOf)]) this._kitSound(hk);
+          for (const hk of [kitStartKey(e[1], e[4], unitOf), kitHitKey(e[1], e[4], unitOf), signalFxKey(e[1], e[4], unitOf)]) {
+            this._kitSound(hk);
+            // 2026-10-29: 耶拉 S2's Funnel_0 — its TriggerAudioSignalBehaviour after each hit (`_preDelay` 0.6 s) [추정·엔진: the
+            // ability's playback speed, which divides it, taken as 1]
+            if (hk === 'kjera:s2') this._kitSound('kjera:s2end', 0.6);
+          }
+          // 2026-10-29: 荒芜拉普兰德 S3's wolves released (each cruise projectile's BORN), 溯光星源 S3's newly linked enemies
+          if (e[1] === 'drones' && e[4]?.id != null && unitOf(e[4].id)?.def === 'char_1038_whitw2' && unitOf(e[4].id)?.skillIndex === 2) {
+            for (let i = 0; i < Math.max(1, Number(e[4].n) || 1); i++) if (!this._kitSound('whitw2:s3born')) break;
+          }
+          if (e[1] === 'link' && e[4]?.id != null) for (let i = haloLinkCount(unitOf(e[4].id), e[4].ids); i > 0; i--) this._kitSound('halo2:s3link');
           // 2026-10-22: a kitHit for `n` units at once (圣聆初雪 S2's tick) — one per unit, at most the bank's own limit
           if (e[1] === 'kitHit' && Number(e[4]?.n) > 1) {
             const hk = kitHitKey(e[1], e[4], unitOf);

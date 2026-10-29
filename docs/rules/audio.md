@@ -100,7 +100,7 @@
   `projectile_chr_wisdel_s2`·残影 폭발 `…_s1_shock`(fx `explode`에 `by`)·혼령의 그림자 `…_token`, 丰川祥子 음표 종류별(`projectile_chr_oblvns`·
   `_talent`·`_s2`·`_s2_slow`·`_s3_phy`·`_s3_mag`, S1 `projectile_chr_oblvns_s1_hit`), 荒芜拉普兰德 S3 늑대 `…_funnel_s3`. 그리고 维什戴尔의
   일반 타격음이 없던 것(`projectile_chr_wisdel_default` — 이름 끝 `_default`를 plan.mjs가 몰랐음). 스킬 중 일반 공격의 스킬 모드
-  공격·타격음은 아래 「스킬 모드 효과음·믹서 볼륨」(2026-10-07)에서 구현. 알려진 빈 곳: 荒芜拉普兰德 S1/S2 드론처럼 키트가 직접 주는 피해 중 매핑 안 된 것.
+  공격·타격음은 아래 「스킬 모드 효과음·믹서 볼륨」(2026-10-07)에서 구현. 알려진 빈 곳: 荒芜拉普兰德 S1/S2 드론처럼 키트가 직접 주는 피해 중 매핑 안 된 것(드론·투사체는 2026-10-29 「스킬·재능 투사체 소리」).
 
 - 스킬 모드 효과음·믹서 볼륨 (2026-10-07, 공식 데이터 비교 — 비공개 조사 기록):
   - 공식: 오퍼레이터 공격 소리는 공격 모드 단위 뱅크 `battle.ON_ABILITY_START|ON|HIT.<charId>.attack.<n>`이고 n = 캐릭터 프리팹(charpack) `_modes`
@@ -388,6 +388,41 @@
 - 확인: `test/audio-skill-cast-cues.test.js`(빌더·매니페스트 11건, 다른 길이 내는 뱅크 제외, `castCuesOf` 대기, 벤델라 `e`·노시스 HIT 지연, 실제 매치 경로: 레온하르트 S2
   이벤트의 `[타격, 끝]` = `castTiming()`과 그 대기, 민트 키). [화면 미확인]
 
+## 스킬·재능 투사체 소리 (2026-10-29, 공식 클라 — 캐릭터·스킬·투사체 프리팹)
+- 공식: 스킬·재능·드론이 쏘는 투사체도 자기 뱅크를 낸다 — BORN(발사)·HIT(맞힌 대상마다)·REACH(도착)·STOP(멈춤)·
+  BEHAVIOUR_TRIGGER(투사체 동작이 낼 때). 뱅크 이름은 투사체 키, 프리팹에 `_overrideAudioSignal`이 있으면 그 이름(라플란드 더 데카덴차의 늑대
+  `…_funnel_1~3` → `projectile_chr_whitw2_funnel`, `…_funnel_s3_<n>` → `…_funnel_s3`, `…_funnel_s3_<n>_attach` → `…_funnel_s3_attach`).
+  우리 도구는 이 필드를 읽지 않고 이름으로 맞춰 왔다(지금까지 결과는 같음). 소리는 `sfx.kit` 키(`tools/assets/kit-sfx.mjs`), 재생은 `public/js/audio.js`.
+  sim 이벤트는 개수가 그대로(새 이벤트 없음 — 기존 fx·'dmg'에 필드만 더함)라 golden 무변화.
+  - 크루스 더 킨 글린트(오퍼레이터) S2: 40타 뒤 모드 `S2_Sub`(4연사, `projectile_chr_kroos2_s2_2` HIT `p_imp_krossbow_s`/`_h` 가중 무작위) —
+    위 「공격 소리 신호」의 스킬 중 바뀌는 모드 표에 키트 fx `quadShot`으로 넣음.
+  - 미니멀리스트(오퍼레이터) S2: 스킬 프리팹 `skchr_malist_2`의 다음 공격이 두 발 — 첫 발 `_projectileKey` `…_malist_s1s2`(뱅크 없음),
+    둘째 발 `_additionalProjectile` `…_malist_s2_2` HIT `p_imp_staffcannon_h` → 그 휘두름의 둘째 착탄(`strikeImpactKey`, 키 `malist:s2`).
+  - 驭械术师의 풀어 놓지 않은 드론(쉐라·라플란드 더 데카덴차·락락·미니멀리스트 평타): 공식은 Default 모드 `Body/Funnel`(라플란드는 공격 아래
+    `Funnel1~3`)이 따로 쏘는 투사체 — 그 HIT(`p_imp_funnel_d`·`p_imp_whtolfdrkslfnl_n`·`p_atk_elecwandfunnel_n`, 미니멀리스트 것은 뱅크 없음).
+    sim은 드론 추가 피해를 공격 착탄과 같은 순간에 주므로(`ai.js resolveHit`, 태그 `funnel`) **'dmg' 7번째 칸 2**(`damage.js dotFlag`,
+    `docs/SIM.md`)로 표시하고, 오디오는 그것을 공격 착탄 회차에서 빼고 `funnelHitKey`로 낸다(전에는 「스플래시」로 잡혀 평타 착탄음이 한 번 더 났다).
+    [추정·자료 없음: 드론을 붙인 채 쓰는 스킬 중에는 소리를 내지 않음 — 스킬 모드의 드론 투사체를 안 대조함]
+  - 쉐라(오퍼레이터) S2: 풀어 놓은 드론 `Funnel_0`(`…_kjera_funnel_s2_1`)만 뱅크가 있다(`Funnel_1`의 `…_s2_2`는 없음) → 키트 fx `drone`에
+    드론 번호 `i`를 실어 `i` 0의 타격마다 HIT `p_imp_funnel_h`, 그리고 그 투사체의 `TriggerAudioSignalBehaviour`(OnHitTarget: `_preDelay` 0.6초
+    ÷ 능력 재생 속도 뒤 `PlayBehaviourAudio`, 공식 클라에서 확인)로 0.6초 뒤 `p_imp_funnel_end_h` [추정·엔진: 능력 재생 속도를 1로 봄].
+  - 라플란드 더 데카덴차 S3: 풀려나는 늑대(순항 투사체) BORN `p_atk_whtolfdrksltr_s`(fx `drones` n마다), 돌아다니던 늑대가 적을 찾으면 그
+    MovementController의 버프 `whitw2_find_target_mark`(SHOW_EFFECT `p_imp_whtolfdrkslfnlmrk` — fx `droneLock`), 붙은 늑대의 타격은
+    `…_attach` HIT `p_imp_whtolfdrkslfnl_s`(fx `drone`에 `lock` 1; 전에는 순항 투사체 HIT `p_imp_whtolfdrksltr_s`가 났다 — 그것은 이제 돌아다니는 늑대의
+    1초 펄스만).
+  - 쏜즈 더 로드스타 S3: 스킬 프리팹 `Token` 능력이 오퍼레이터마다 던지는 `projectile_chr_thorn2_s3`(수명 0.5초)의 STOP `p_atk_trshldacyd_h` →
+    S3 시전의 fx `zone`에 `thrown` 1. 다각형 `projectile_chr_thorn2_s3_polygon`의 `_audioSignal` `thorn2_polygon_appear`는 sim에 다각형이 없어 안 냄.
+  - 위셔델(선발) S3: 공격 묶음(`_mainAbility`, 자식 모두)의 `AimEff`가 대상에 `wisdel_s_3_mark[target]`(audioSignal `WISDEL_S3_MARK`, `p_atk_dkmrcaygnam`)
+    → 휘두름마다 [추정·엔진: 클립 없는 자식의 버프는 시전 순간에 붙음]. `WISDEL_S3_BOMB_EFF`는 그 신호를 내는 곳이 EN 클라 캐릭터·스킬·투사체
+    프리팹과 버프 템플릿에 없다 — 안 냄.
+  - 아스트젠 더 라이트체이서(오퍼레이터) S3: `LinkEnemy`가 적을 하나 더 연결할 때마다 `halo2_s_3_link`(audioSignal 같은 이름, `p_imp_strbsvrmk_s`) →
+    S3 fx `link`의 `ids` 중 이번 스킬에서 처음인 적마다(`haloLinkCount`). `_lineAudio` `halo2_line_appear`는 뱅크가 없다.
+  - 엑시아 더 뉴 커버넌트(오퍼레이터) 재능 「화력 무전」: `TalentBomb` 폭격 `projectile_chr_angel2_t1` REACH `p_imp_tlsrhgns_n` → 폭격이 터지는 fx
+    `airstrike`(`tgt` 있음; S3의 토큰 사격은 `signal`).
+  - 할 것 없음: 혼 S2 `…_horn_s2_full*`(수동 종료 `Full Burst`의 탄 — 위 「공격 소리 신호」; 이 모드 기물은 S3). 남김(§11 ③ 소리): 실버애쉬 더 레인프로스트 S3
+    새(`svash2_s_3[bird_on_self]`/`[bird_on_target]` — 이 모드에서 어느 쪽이 도는지 미조사), 클레멘티아(선발) S2·S3(CN 클라 프리팹).
+- 확인: `test/audio-skill-projectiles.test.js`(뱅크·매니페스트, 키, AudioManager 재생, 실제 매치 경로: 쉐라 드론 피해의 7번째 칸 2와 S2 드론 `i`). [화면 미확인]
+
 ## 버프·커스텀 트리거 소리 (2026-10-10 저녁, 공식 클라 + EN 클라 버프 템플릿)
 - 공식: 버프가 붙을 때 `Entity.OnBuffStart`가 그 버프의 `audioSignal`(빈 값이면 없음)로 `ON_BUFF_START`를 낸다(`OnBuffTrigger`·
   `OnBuffShowEffect`/`AddBuffEffect`·`ON_BUFF_FINISH`도 같은 방식). `ON_CUSTOM_TRIGGER`는 버프 그래프의 `Action.Nodes.PlayAudio.Execute`와
@@ -453,7 +488,7 @@
     뱅크가 있는데 우리가 내지 않는다 — 할 일로 남김.
 - 안 한 것 [시점·조건을 sim에서 못 얻음]: 티티 `titi_s_3[spread_from]`(연쇄 수면 선 — sim 이벤트 없음)·재능 `titi_t_1`(잠든 적 틱), 시빌라이트 에테르나
   재능 미진 재생성 `projectile_chr_cetsyr_talent[_s1|_s2]_cooldown_ready`(재생성 순간 이벤트가 없음 — 로스터 kit라 이벤트를 넣으면 golden이 넓게 바뀜),
-  위셔델 `WISDEL_S_OVERLOAD`·`WISDEL_S3_MARK`, 필라에 `philae_aoe`, 카넬리안·노시스·루멘 `[eff_cond]` 단계 버프, 뮤엘시스·비질 가짜 죽음, 실버애쉬 더 레인프로스트
+  위셔델 `WISDEL_S_OVERLOAD`(S3 표식은 위 「스킬·재능 투사체 소리」), 필라에 `philae_aoe`, 카넬리안·노시스·루멘 `[eff_cond]` 단계 버프, 뮤엘시스·비질 가짜 죽음, 실버애쉬 더 레인프로스트
   S2·S3의 버프 소리(`svash2_s_2[show]`·`[range]`·`[hit]`, `svash2_eagle_token[locate]`), 쏜즈 더 로드스타, 르무엔 `lemuen_attack_end_audio` 등
   (관리자 메모 「오퍼레이터 효과음」 조사의 H·I 묶음), 적 버프·커스텀 트리거(적 91·122개 뱅크 — 적 스킬처럼 sim이 그 순간을 알려야 함).
 - 확인: `test/local-patch-attack-signals.test.js` 「buff and custom-trigger sounds」(표·혼 S3·락락 S2·티티·프라마닉스 더 프레리타 눈 타일·실제 매치 경로 아스카론 S2).

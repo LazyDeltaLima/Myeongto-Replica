@@ -85,8 +85,10 @@ function attackerId(source, dmg) {
  * tick (tags 'dot': 持续伤害, the client's attackType BUFF — a buff's ON_BUFF_TRIGGER damage node such as `ascln_t_1[debuff]`
  * DamageViaAttr, which plays no sound and is no ability's HIT), else 0. The client plays no impact sound for it
  * (public/js/audio.js, docs/rules/audio.md 「지속 피해 틱」).
+ * 2026-10-29: 2 = an unreleased drone's additional damage on its 驭械术师's attack (ai.js resolveHit, tags 'funnel'): the client's
+ * Funnel ability with its own projectile, whose HIT bank sounds instead of the attack's (docs/rules/audio.md 「스킬·재능 투사체 소리」).
  */
-const dotFlag = (dmg) => (Array.isArray(dmg?.tags) && dmg.tags.includes('dot') ? 1 : 0);
+const dotFlag = (dmg) => (!Array.isArray(dmg?.tags) ? 0 : dmg.tags.includes('dot') ? 1 : dmg.tags.includes('funnel') ? 2 : 0);
 
 /**
  * The 9th field of the 'dmg' event and the 5th of the 'heal' event (2026-10-24): the official effect moments this hit / heal

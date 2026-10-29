@@ -24,6 +24,8 @@ export const enemyRecordMode = (id) => (typeof id === 'string' && Object.hasOwn(
 export const SKILL_SUB_MODES = Object.freeze({
   char_1035_wisdel: Object.freeze({ wisdelOverload: 'S2_Overload' }),
   char_4145_ulpia: Object.freeze({ anchor: 'S3_Respawn_A' }),
+  // 寒芒克洛丝 S2 after attack@max_stack_count hits: four shots of S2_Sub (projectile_chr_kroos2_s2_2; kit fx 'quadShot')
+  char_1021_kroos2: Object.freeze({ quadShot: 'S2_Sub' }),
 });
 
 /**

@@ -126,6 +126,32 @@ export const KIT_HIT_BANKS = Object.freeze({
   // each enemy (sbell2_t1[s2_dot] PlayAudio) — the kit's kitHit
   'sbell2:enter': 'battle.ON_CUSTOM_TRIGGER.sbell2_snow_tile_enter_damage_audio',
   'sbell2:s2dot': 'battle.ON_CUSTOM_TRIGGER.sbell2_skill2_dot_audio',
+  // 2026-10-29, docs/rules/audio.md 「스킬·재능 투사체 소리」 (charpack / skill / projectile prefabs; public/js/audio.js):
+  // an unreleased drone's shot on its 驭械术师's attack — the Default mode's Funnel ability projectile (荒芜拉普兰德's
+  // Funnel1–3 fire …_funnel_1–3, whose `_overrideAudioSignal` is projectile_chr_whitw2_funnel; 至简's has no bank)
+  'kjera:funnel': 'battle.ON_PROJECTILE_HIT.projectile_chr_kjera_funnel',
+  'whitw2:funnel': 'battle.ON_PROJECTILE_HIT.projectile_chr_whitw2_funnel',
+  'rockr:funnelN': 'battle.ON_PROJECTILE_HIT.projectile_chr_rockr_funnel',
+  // 耶拉 S2's released drone Funnel_0 (projectile_chr_kjera_funnel_s2_1; Funnel_1's …_s2_2 has none): each hit, and its
+  // TriggerAudioSignalBehaviour (OnHitTarget: `_preDelay` 0.6 s ÷ the ability's playback speed after each hit)
+  'kjera:s2': 'battle.ON_PROJECTILE_HIT.projectile_chr_kjera_funnel_s2_1',
+  'kjera:s2end': 'battle.ON_PROJECTILE_BEHAVIOUR_TRIGGER.projectile_chr_kjera_funnel_s2_1',
+  // 至简 S2: the second shot of the next attack (skchr_malist_2 `_additionalProjectile`; the first, …_s1s2, has no bank)
+  'malist:s2': 'battle.ON_PROJECTILE_HIT.projectile_chr_malist_s2_2',
+  // 荒芜拉普兰德 S3: the wolves released (cruise projectiles …_funnel_s3_<n>, `_overrideAudioSignal` …_funnel_s3: BORN), a
+  // roaming wolf marking the enemy it found (its MovementController's buff, audioSignal whitw2_find_target_mark: SHOW_EFFECT),
+  // a locked wolf's strike (…_funnel_s3_<n>_attach → …_funnel_s3_attach: HIT)
+  'whitw2:s3born': 'battle.ON_PROJECTILE_BORN.projectile_chr_whitw2_funnel_s3',
+  'whitw2:mark': 'battle.ON_BUFF_SHOW_EFFECT.whitw2_find_target_mark',
+  'whitw2:s3lock': 'battle.ON_PROJECTILE_HIT.projectile_chr_whitw2_funnel_s3_attach',
+  // 引星棘刺 S3: each alchemy unit thrown at an operator (skill prefab Token → projectile_chr_thorn2_s3, STOP)
+  'thorn2:s3': 'battle.ON_PROJECTILE_STOP.projectile_chr_thorn2_s3',
+  // 维什戴尔 S3: each attack's AimEff marks its target (wisdel_s_3_mark[target], audioSignal WISDEL_S3_MARK)
+  'wisdel:s3mark': 'battle.ON_BUFF_START.WISDEL_S3_MARK',
+  // 溯光星源 S3: LinkEnemy links one more enemy (halo2_s_3_link, audioSignal the same name)
+  'halo2:s3link': 'battle.ON_BUFF_START.halo2_s_3_link',
+  // 新约能天使 T1 火力电台: a bombing landing (TalentBomb → projectile_chr_angel2_t1, REACH)
+  'angel2:t1': 'battle.ON_PROJECTILE_REACH.projectile_chr_angel2_t1',
 });
 
 /**

@@ -119,7 +119,8 @@ export default {
             const dur = num(bb.projectile_delay_time, 19) + extend(battle, unit);
             for (const a of ops) {
               (unit.mem.zones ??= []).push({ type: 'sea', anchor: a, x: a.x, y: a.y, t: 0, acc: Math.max(0.1, num(bb.interval, 1)) - AURA_IV, dur });
-              battle.fx('zone', { x: a.x, y: a.y, id: unit.id, r: RING1, duration: dur });
+              // `thrown`: the unit thrown at that operator (skill prefab Token → projectile_chr_thorn2_s3, whose STOP sounds)
+              battle.fx('zone', { x: a.x, y: a.y, id: unit.id, r: RING1, duration: dur, thrown: 1 });
             }
           },
         }),
