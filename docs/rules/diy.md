@@ -487,9 +487,17 @@
   - 소환·스킬 시전이 기본 전략 패스를 타서, 스킬 직전에 한 공격이 먼저 나올 수 있다 — upstream 테스트 중 「시전과 같은 틱의 공격」을 세던 두 곳
     (凯尔希·思衡托 S3 2인 치료, 予愿安洁莉娜 S3 탄약 수)을 시전 뒤부터 세게 고쳤다.
 - [추정] 각 키트 머리 주석의 `[ASSUMED]`(upstream 것 그대로): 凯尔希·思衡托 5(S1 오라 전장 전체, S2 의료 유닛 속도·적 사망 시 소멸, S3 待投放 자동
-  재배치 등), 克莱门莎 4(S2 放逐 조합·운반 여유 0.4·틱마다 갱신·소용돌이 스킬과 함께 끝, 확산 대상 동률 순서; S3 포격 시점은 2026-10-29부터 공식 클라 —
+  재배치 등), 클레멘티아 4(S2 放逐 조합·운반 여유 0.4·틱마다 갱신·소용돌이 스킬과 함께 끝, 확산 대상 동률 순서; S3 포격 시점은 2026-10-29부터 공식 클라 —
   포탄 `projectile_chr_clemnt_s3`가 쏘자마자 도착(`_immediatelyReach`)하고 타격 타이머가 첫 주기를 기다려(`_waitFirstPeriod`, `_interval` 1) **1초 뒤부터
   1초마다 `audio_trigger_cnt`(3)번**, 공식 클라에서 확인; 전에는 0.5초 뒤로 추정했음),
+  클레멘티아 S3 발사·포탄 (2026-10-29, CN 클라 스킬 프리팹 `skchr_clemnt_3`·버프 템플릿·포탄 프리팹에서 확인): 능력 `RocketTrigger`의 버프
+  `clemnt_s3[rocket_trigger]`가 0.03초마다(`triggerInterval`, `INFINITY`) S3 모드·남은 탄약을 보고 `ShipLaunchedRocket`(선딜레이·애니메이션·쿨다운 없음)을 써서
+  **표식 다음 틱에 발사**(키트 그대로). 대상은 그녀가 단 `clemnt_s3[ep_break_mark]`가 있고 `clemnt_s3[hurt_mark]`(맞힌 적, `ep_break_duration`)가 없는 적 1명,
+  **그녀에게 가까운 순**(`_postFilter` DIST_TO_SOURCE_ASC), 포탄이 이미 있는 칸은 빼고(`_sameGridBanProjectileKey`, 포탄 수명 `projectile_life_time` 5초) —
+  키트는 쏜 표식을 지워 같은 결과. 포탄은 **적이 서 있던 칸에 고정**(`clemnt_s3[emit_projectile]` `_useTileAsTarget`·`_useTargetRootTile`, 프리팹
+  `_followTarget` 0). **그녀가 쓰러지거나 퇴각하면 남은 포격이 멈춘다**(`_stopWhenSourceInvalid` 1 — 키트 `shellsStop`, 그 전엔 끝까지 터졌음; 착탄 이펙트
+  `clemnt_skill_03_Mark_all_01`도 `_clearReachedEffectWhenStop`대로 그녀의 'die'에 지움). 낙하음은 미리 예약돼 아직 멈추지 않는다(`audio.md` 「스킬·재능 투사체 소리」).
+  스킬이 끝나도 쏜 포탄이 남는 것은 그대로 [추정·미조사: `_managedBySource`의 뜻을 안 읽음],
   予愿安洁莉娜 4(S3 비행 이동 속도·0.1 s 재선택 등). 克莱门莎 S3 포격 화면은 upstream 공용 폭발 자리표시 `blast`(`public/js/render/fx/kinds.js`) [추정].
 - 공식 이펙트·소리·공격 타이밍·소환물 모델: EN 클라이언트에 없어 CN 클라이언트에서 뽑았다(2026-10-11, `fx.md` 「선발 추가 3명 — CN 클라이언트」).
   공격 타이밍(`tools/assets/local-attack-timing.json`)이 들어가며 세 명의 타격 시점이 공식대로 바뀌었다(golden `diy-009`…`diy-011`만 움직임).

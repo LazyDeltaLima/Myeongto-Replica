@@ -2562,12 +2562,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         return true;
       }
       // 克莱门莎 S3: projectile_chr_clemnt_s3 flies with no effect (its fall is a sound) and `_effectsWhenReached` Mark_all_01, which
-      // holds its own three waves (5.25 s) — once a bombardment (the sim's 'lock'); its three 'blast's draw no stand-in
+      // holds its own three waves (5.25 s) — once a bombardment (the sim's 'lock'); its three 'blast's draw no stand-in.
+      // (2026-10-29) `_clearReachedEffectWhenStop`: the shell stops with her ('die', `_stopWhenSourceInvalid`), clearing it
       case 'lock': {
         const b = pickOf(views.get(o.src), 'clemnt'), n = pickName(b, 'clemnt_skill_03_Mark_all_01');
         if (!n) return false;
         ownFx.add(e);
-        spawn(b.bundle, n, { x, y, z: 0 }, { owner: null, buff: false }, { over: false });
+        spawn(b.bundle, n, { x, y, z: 0 }, { owner: null, buff: false, on: o.src }, { over: false });
         return true;
       }
       case 'blast': {

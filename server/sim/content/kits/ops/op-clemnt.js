@@ -4,7 +4,8 @@
 // PRTS still marks several launch-day details unknown: [ASSUMED] carriage's unresolved 放逐 combination =
 // cannot walk/attack/be blocked, but remains damageable;
 // its boundary clearance 0.4, carriage updates once per sim tick, vortex ends with the skill;
-// launched S3 shells survive skill end. (S3's bombardment timing is the official client's since 2026-10-29: SHELL_FIRST.)
+// launched S3 shells survive skill end. (S3's bombardment timing is the official client's since 2026-10-29: SHELL_FIRST; so is
+// their stop when she leaves: shellsStop.)
 // These pending confirmations are listed in docs/rules/diy.md 「선발 추가 3명 (2026-10-11)」; keep each assumption local to this kit.
 
 import { num, talentBb, skillRec, up } from '../shared/tier1.js';
@@ -23,6 +24,9 @@ const SPLASH_RADIUS = 1.1; // PRTS 2026-10-10: collision test (foesInColliderRad
 // its SelectorHitBehaviour's timer waits its first period (`_waitFirstPeriod`, `_interval` 1, `_firstPeriod` unset) — hits 1 s
 // after it is fired, then every 1 s, `audio_trigger_cnt` (3) times (`_limitedHitTimesBbKey`). Until 2026-10-29 0.5 s [ASSUMED].
 const SHELL_FIRST = 1, SHELL_GAP = 1;
+// The shell stops when its source is no longer valid (projectile_chr_clemnt_s3 `_stopWhenSourceInvalid`): her knock-out or
+// withdrawal ends the hits still due (and `_clearReachedEffectWhenStop` clears its reach effect, the render's 'die').
+const shellsStop = (unit) => { for (const s of unit.mem.clemntShells ?? []) s.cancel(); unit.mem.clemntShells = []; };
 const CAST = 'clemnt:cast', CARRY = 'clemnt:carry:';
 const skillBb = (raw, id) => skillRec(raw, id)?.bb ?? {};
 const tile = (u) => [Math.round(u.y), Math.round(u.x)];
@@ -141,7 +145,8 @@ export default {
       const hits = Math.max(1, Math.floor(num(b3.audio_trigger_cnt, 3)));
       // `n` the shell's hits (public/js/audio.js sounds its fall 0.5 s before each)
       battle.fx('lock', { x: c, y: r, id: e.id, src: unit.id, dur: SHELL_FIRST, n: hits });
-      for (let n = 0; n < hits; n++) battle.after(SHELL_FIRST + n * SHELL_GAP, () => {
+      const shells = unit.mem.clemntShells = (unit.mem.clemntShells ?? []).filter((s) => !s.cancelled && s.due > battle.time);
+      for (let n = 0; n < hits; n++) shells.push(battle.after(SHELL_FIRST + n * SHELL_GAP, () => {
         battle.fx('blast', { x: c, y: r, r: 1.5, id: unit.id });
         for (const t of battle.enemies) {
           // the 0.1 collider (CN client projectile_chr_clemnt_s3: a selector on an "x-5" box range)
@@ -151,7 +156,7 @@ export default {
           if (hasHp(t)) battle.dealDamage(unit, t, { amount: atk * num(b3.ep_damage_scale), type: 'elemental', element: 'erosion',
             canDodge: false, isSkill: true, tags: ['skill', 'clemnt:bomb'] });
         }
-      }, { owner: unit, holdsBattle: true });
+      }, { owner: unit, holdsBattle: true }));
       skill.ammoLeft--;
       battle.emit('ammoUsed', { unit, left: skill.ammoLeft, skill });
       return true;
@@ -232,6 +237,7 @@ export default {
             || !canTargetEnemy(unit, target, GROUND)) return;
           unit.mem.clemntBombs?.marks.set(target, battle.time + num(b3.ep_break_duration, 1));
         }, { owner: unit });
+        battle.on('death', ({ unit: u }) => { if (u === unit) shellsStop(unit); }, { owner: unit });
       },
     };
   },

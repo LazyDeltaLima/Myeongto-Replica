@@ -247,6 +247,20 @@ test('与海为敌 normal attacks hit three and spend no ammunition; remote eros
   assert.ok(!bombs.some((c) => c.target === diagonal || c.target === fly)); done(h);
 });
 
+// CN client projectile_chr_clemnt_s3 `_stopWhenSourceInvalid`: the shells still due stop with her, and hold no battle open
+for (const how of ['kill', 'retreat']) test(`与海为敌 shells stop when she is gone (${how})`, () => {
+  const { h, u } = field({ skill: 2 }); start(u);
+  const a = h.spawn('dummy', { pos: [11, 9] }), b = h.spawn('dummy', { pos: [12, 6] });
+  h.b.emit('elementBurst', { source: null, target: a, element: 'erosion' }); h.step();
+  h.b.emit('elementBurst', { source: null, target: b, element: 'erosion' }); h.step();
+  assert.equal(u.skill.ammoLeft, 8);
+  h.run(1.1); assert.equal(hits(h, 'clemnt:bomb').filter((c) => c.type === 'phys').length, 2, 'each shell hit once');
+  if (how === 'kill') h.b.kill(u, null); else h.b.retreat(u);
+  h.run(3); assert.equal(hits(h, 'clemnt:bomb').filter((c) => c.type === 'phys').length, 2, 'no hit after she is gone');
+  assert.ok(!h.b._sched.some((s) => !s.cancelled && s.holdsBattle), 'no stopped shell holds the battle');
+  done(h);
+});
+
 test('与海为敌 selects nearest marked enemy, suppresses duplicate bombing tiles and does not mark air or sleeping units', () => {
   const { h, u } = field({ skill: 2 }); start(u);
   const far = h.spawn('dummy', { pos: [12, 9] }), near = h.spawn('dummy', { pos: [11, 7] });
