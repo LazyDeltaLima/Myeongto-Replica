@@ -23,6 +23,7 @@ export default withDefaults({
     // S3 radii (no blackboard key) — PRTS 备注: 「龙卷风半径1.5」 (slow, pulses) and 「技能结束时的拖拽为捕网，捕网半径为1，无伤害」
     // (the skill-end pull; until 0.2.2 it reused the tornado's 1.5 — GitHub #324, PR #329)
     const R = 1.5, NET_R = 1;
+    const TORNADO_DELAY = 0.3; // the tornado forms this long after the cast (see S3 onStart)
     const force = num(bb.force, num(bb['attack@force'], 0));
     const iv = Math.max(0.1, num(bb.interval, 1.5));
     const g = grid(def.skill?.rangeGrid);
@@ -54,14 +55,28 @@ export default withDefaults({
         // no normal attack while it runs: she holds the S3 mode's Skill_3_Chant (charpack skchr_glady_3 `_switchToState` 1,
         // the unit's Skill state; maintainer decision 2026-10-14)
         attack: { noAttack: true },
+        // 2026-10-29, official client (docs/rules/sim.md 「글래디아 S3 시작 순서」): the skill ability is a sequence group —
+        // FinalAttack (a clip-less ranged pull that waits for an OnAttack event), then Chant (the tornado: ChantAttack1 / 2 at
+        // once), the S3 mode, FinalAttack again (the 捕网 at the end) — so the tornado forms a little after the cast, pulling
+        // the enemies around it to its centre as it does. [ASSUMED·화면: 0.3 s — the maintainer saw a very short delay in the
+        // official game; the OnAttack that ends FinalAttack's wait was not traced]
         onStart({ battle, unit, skill }) {
           const foes = targetsInRange(battle, unit).sort((a, b) => bodyDist(b, unit.x, unit.y) - bodyDist(a, unit.x, unit.y) || a.id - b.id);
           const t = foes[0];
-          unit.mem.tornado = t ? { x: t.x, y: t.y, acc: 0 } : null;
+          unit.mem.tornado = null;
           if (!t) return;
-          battle.applyStatus(t, 'bind', { duration: skill.duration, source: unit });
-          // `tgt`: the target of the client's opening ability (skchr_glady_3/Chant), which carries glady_s3[effect] (render only)
-          battle.fx('tornado', { x: t.x, y: t.y, id: unit.id, tgt: t.id, r: R, duration: skill.duration });
+          const seq = unit.deploySeq, at = { x: t.x, y: t.y };
+          battle.after(TORNADO_DELAY, () => {
+            if (unit.deploySeq !== seq || !unit.alive || !skill.active || unit.skill !== skill) return;
+            const T = t.alive ? { x: t.x, y: t.y, acc: 0 } : { ...at, acc: 0 };
+            unit.mem.tornado = T;
+            const left = Math.max(0, skill.timeLeft);
+            if (t.alive) battle.applyStatus(t, 'bind', { duration: left, source: unit });
+            // `tgt`: the target of the client's opening ability (skchr_glady_3/Chant), which carries glady_s3[effect] (render only)
+            battle.fx('tornado', { x: T.x, y: T.y, id: unit.id, tgt: t.alive ? t.id : null, r: R, duration: left });
+            // the pull as it forms (no damage: the pulses deal it)
+            for (const e of battle.foesInRadius(T.x, T.y, R)) if (e.alive && !e.s.flags.untargetable) dragDmg(battle, unit, e, battle.pull(e, force, { to: T, stop: 0.05 }));
+          }, { owner: unit });
         },
         onTick({ battle, unit, dt }) {
           const T = unit.mem.tornado;

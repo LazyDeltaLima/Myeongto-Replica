@@ -619,7 +619,7 @@ test('kitOfficialPlan (묶음 S11, 2026-10-24): 余\'s teleport and burns, 百�
 test('歌蕾蒂娅 S3: glady_s3[effect]\'s glady_skill_03_buff on the target the kit binds (`tgt`), for the skill', { skip: !LOCAL_ROWS && 'the key\'s row is a client-only row' }, () => {
   const plan = kitOfficialPlan('tornado', { id: 1, tgt: 2 }, 'glady', { skill: 2, plays: PLAYS });
   assert.deepEqual(plan.play, [{ n: 'glady_skill_03_buff', on: 'tgt', life: 'skill' }]);
-  assert.match(readFileSync(path.join(KITS, 'ops/chess_char_4_12-glady.js'), 'utf8'), /battle\.fx\('tornado', \{ x: t\.x, y: t\.y, id: unit\.id, tgt: t\.id,/);
+  assert.match(readFileSync(path.join(KITS, 'ops/chess_char_4_12-glady.js'), 'utf8'), /battle\.fx\('tornado', \{ x: T\.x, y: T\.y, id: unit\.id, tgt: t\.alive \? t\.id : null,/);
 });
 
 test('纯烬艾雅法拉 S2: the barrier\'s range effect follows what it can still absorb and ends when it is spent', () => {

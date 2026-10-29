@@ -454,6 +454,8 @@ test('歌蕾蒂娅 S3: binds the farthest target, tornado pulses 85 % ATK arts e
   h.runUntil(() => dmgBy(h, u, (c) => c.dmg.isAttack).length >= 1, 10);
   approx(dmgBy(h, u, (c) => c.dmg.isAttack)[0].amount, u.s.atk * t1.atk_scale, 1e-6, 'weight ≤ 3 ×1.3');
   assert.ok(u.skill.activate('test', { free: true }));
+  assert.ok(!noisy(h, 'statusApplied').some((c) => c.target === far && c.status === 'bind'), 'the tornado forms 0.3 s after the cast');
+  h.run(0.35);
   assert.ok(noisy(h, 'statusApplied').some((c) => c.target === far && c.status === 'bind'), 'farthest target bound');
   h.run(0.2);
   approx(far.findBuff(`glady:slow:${u.id}`).mods.moveMul, 1 + bb.move_speed, 1e-9);
@@ -474,6 +476,8 @@ test('歌蕾蒂娅 S3: the skill-end 捕网 has radius 1, the tornado 1.5 (PRTS 
   h.spawn('enemy_dummy', { pos: [10, 6] });   // the farthest enemy: bound, the tornado sits on it
   h.step();
   assert.ok(u.skill.activate('test', { free: true }));
+  assert.equal(u.mem.tornado, null, 'no tornado until 0.3 s after the cast');
+  h.run(0.35);
   assert.deepEqual([u.mem.tornado.x, u.mem.tornado.y], [6, 10]);
   const at = (x, y) => { const e = h.spawn('enemy_dummy', { pos: [10, 6] }); e.x = x; e.y = y; return e; };
   const inner = at(6, 9.1), outer = at(6, 11.25);   // 0.9 and 1.25 from the centre
@@ -484,6 +488,27 @@ test('歌蕾蒂娅 S3: the skill-end 捕网 has radius 1, the tornado 1.5 (PRTS 
   h.run(0.6);
   assert.ok(Math.hypot(inner.x - p0[0], inner.y - p0[1]) > 0.3, 'the net pulls the enemy 0.9 from the centre');
   assert.deepEqual([outer.x, outer.y], [p0[2], p0[3]], 'the one 1.25 from the centre stays: outside the net');
+  checkInvariants(h.b);
+});
+
+test('歌蕾蒂娅 S3: the tornado forms 0.3 s after the cast and pulls the enemies around it to its centre, without damage (official client sequence; maintainer 2026-10-29)', () => {
+  const id = 'chess_char_4_12_a';
+  const h = makeBattle({ defs: { enemies: { enemy_dummy: dummy() } }, units: [{ chessId: id, row: 10, col: 3 }], timeLimit: 200, autoFinish: false, hooks: ['damaged'], captureNoisy: true });
+  h.step();
+  const u = h.unit(id);
+  h.spawn('enemy_dummy', { pos: [10, 6] });   // the farthest enemy: the tornado sits on it
+  const near = h.spawn('enemy_dummy', { pos: [10, 6] });
+  near.x = 6; near.y = 11.2;                    // 1.2 from the centre: inside the tornado (1.5)
+  h.step();
+  const d0 = Math.hypot(near.x - 6, near.y - 10);
+  assert.ok(u.skill.activate('test', { free: true }));
+  h.run(0.2);
+  assert.equal(u.mem.tornado, null);
+  assert.ok(Math.abs(Math.hypot(near.x - 6, near.y - 10) - d0) < 1e-9, 'not pulled before it forms');
+  h.run(0.15);
+  assert.ok(u.mem.tornado);
+  assert.ok(Math.hypot(near.x - 6, near.y - 10) < d0 - 0.1, 'pulled to the centre as it forms');
+  assert.equal(dmgBy(h, u, (c) => c.dmg?.tags?.includes('tornado')).length, 0, 'the pulses deal the damage, not the forming pull');
   checkInvariants(h.b);
 });
 

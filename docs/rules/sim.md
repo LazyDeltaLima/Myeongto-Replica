@@ -991,6 +991,15 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
 - **歌蕾蒂娅 S3 缺水的碎漩狂舞 중 일반 공격 없음** (2026-10-14, 관리자 결정 「S3 중에는 일반 공격을 하지 않는다」; charpack `skchr_glady_3` `_switchToState` 1 =
   Skill 상태): 스킬 내내 `noAttack`(`chess_char_4_12-glady.js`), 모델은 `Skill_3_Chant`로 쉰다. 그 전엔 S3 중에도 평소 `Attack`으로 공격했다. 테스트
   `kits_alt_t4.test.js` 「歌蕾蒂娅 S3」.
+- **글래디아 S3 시작 순서** (2026-10-29, 공식 클라 + 관리자가 공식 게임에서 확인): 스킬 능력은 순차 묶음(`AbilitySequenceGroup`) [`FinalAttack` → `Chant` →
+  `SwitchMode` → `FinalAttack`] — 시작은 첫 능동(ACTIVE) 자식부터(`_MoveToNextActiveAbility`), 하나가 끝나면 다음. `FinalAttack`은 클립 없는 끌어당김 공격
+  (투사체 `projectile_chr_glady_s3_3`: 지점에 붙는 두 단계 끌어당김, 수명 1.3초; 대상 출처 INPUT_POINT)이라 Spine `OnAttack` 이벤트를 기다리고(`EasyToStartAbility`
+  선딜, 최대 시전 시간), 투사체가 끝난 뒤 애니 끝 이벤트를 최대 1초(`_minPostDelayWhenProjectileInvalid`) 더 기다린다. `Chant`(`Skill_3_Startup`)가 시작하자마자
+  회오리 본체 `ChantAttack1`·`ChantAttack2`를 시전한다. 묶음 끝의 `FinalAttack`이 끝의 捕网.
+  관리자 관찰: S3를 켜면 아주 약간 뒤 회오리가 생기면서 범위 주변 적을 끌어당긴다 — 끌어당김이 먼저. → sim: 시작 0.3초 뒤 회오리(묶기·회오리 fx·감속·맥동)가
+  생기면서 반경 1.5 안 적을 중심으로 한 번 끌어당김(피해 없음 — 피해는 맥동, 맥동 간격은 그때부터), 끝의 捕网은 그대로(반경 1, 글래디아 앞으로).
+  [추정·화면: 0.3초 — 관찰 「아주 약간의 지연」에 고른 값; `FinalAttack`의 `OnAttack` 대기를 무엇이 일찍 끝내는지는 안 읽음(스킬 상태 진입은 클립을 틀지 않음,
+  `SkillState._StartSkill`)]. 그 전에는 묶기·회오리가 시전 순간. 테스트 `kits_t4.test.js` 「歌蕾蒂娅 S3」. 조사 기록은 관리자 노트.
 - **傀儡师 전환 2 s** (2026-10-14, 클라 프리팹): 전환은 순차 능력(charpack `CommonAbilities` `kazema[switch2stand]`·`[switch2normal]`, 归溟幽灵鲨 `ghost2[…]`도
   같은 꼴) — SwitchBegin이 보호 버프(`*_switchbegin`: 무적·불사 등, INFINITY)를 걸고, 죽는 클립과 나오는 클립이 각각 제 길이(`_timeMode` 1, `_maxAnimScale` 1;
   风丸 `Die_2`→`Start_B`, 돌아올 때 `Die_B`→`Born`(=`Start`), 归溟幽灵鲨 `Die`→`Start_B`, `Die_B`→`Start_2`, 모두 1 s), 나오는 단계의 `BuffAfterAffecting`(OnEvent
