@@ -152,6 +152,17 @@ export const KIT_HIT_BANKS = Object.freeze({
   'halo2:s3link': 'battle.ON_BUFF_START.halo2_s_3_link',
   // 新约能天使 T1 火力电台: a bombing landing (TalentBomb → projectile_chr_angel2_t1, REACH)
   'angel2:t1': 'battle.ON_PROJECTILE_REACH.projectile_chr_angel2_t1',
+  // 克莱门莎 (CN client buff templates / projectile prefabs): S2's carriage fired (clemnt_s2[emit_projectile] →
+  // projectile_chr_clemnt_s2_lr / _ud BORN) and, as it stops, the vortex (→ …_s2_range BORN); S3's shell on a marked enemy
+  // (clemnt_s3[emit_projectile] → projectile_chr_clemnt_s3: REACH, then its two audio behaviours every 1 s — the fall
+  // 0.5 s and the impact 1 s after it reached); T1's won roll on the target (clemnt_t1[dice_damage] ON_AFTER_OUTPUT_DAMAGE
+  // PlayAudio)
+  'clemnt:s2cab': 'battle.ON_PROJECTILE_BORN.projectile_chr_clemnt_s2_lr',
+  'clemnt:s2tide': 'battle.ON_PROJECTILE_BORN.projectile_chr_clemnt_s2_range',
+  'clemnt:s3reach': 'battle.ON_PROJECTILE_REACH.projectile_chr_clemnt_s3',
+  'clemnt:s3fall': 'battle.ON_CUSTOM_TRIGGER.clemnt_s3_projectile_tick_fall_audio',
+  'clemnt:s3hit': 'battle.ON_CUSTOM_TRIGGER.clemnt_s3_projectile_tick_reach_audio',
+  'clemnt:t1': 'battle.ON_CUSTOM_TRIGGER.clemnt_t1_power_attack_audio',
 });
 
 /**

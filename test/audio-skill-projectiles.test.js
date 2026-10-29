@@ -1,7 +1,7 @@
 // Skill and talent projectile sounds (docs/rules/audio.md 「스킬·재능 투사체 소리」, 2026-10-29): the banks of skill / talent
 // projectiles and drones the sim has a moment for — 寒芒克洛丝 S2's four shots (S2_Sub), 至简 S2's second shot, 耶拉 S2's released
 // drone, a 驭械术师's unreleased drone (the 'dmg' 7th field 2), 荒芜拉普兰德 S3's wolves, 引星棘刺 S3's throw, 维什戴尔 S3's mark,
-// 溯光星源 S3's links, 新约能天使's 火力电台 bombing. The manifest under test is the committed one.
+// 溯光星源 S3's links, 新约能天使's 火力电台 bombing, 克莱门莎's carriage, vortex, shells and T1 roll. The manifest under test is the committed one.
 
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -25,6 +25,8 @@ const NEW_KEYS = {
   'whitw2:s3born': 'p_atk_whtolfdrksltr_s.mp3', 'whitw2:mark': 'p_imp_whtolfdrkslfnlmrk.mp3', 'whitw2:s3lock': 'p_imp_whtolfdrkslfnl_s.mp3',
   'thorn2:s3': 'p_atk_trshldacyd_h.mp3', 'wisdel:s3mark': 'p_atk_dkmrcaygnam.mp3', 'halo2:s3link': 'p_imp_strbsvrmk_s.mp3',
   'angel2:t1': 'p_imp_tlsrhgns_n.mp3',
+  'clemnt:s2cab': 'p_atk_wtfyswrsp.mp3', 'clemnt:s2tide': 'p_imp_wtfyswrsp.mp3', 'clemnt:s3reach': 'p_atk_wtrbmcn.mp3',
+  'clemnt:s3fall': 'p_atk_wtrbmsl.mp3', 'clemnt:s3hit': 'p_imp_wtrbmsl.mp3', 'clemnt:t1': 'p_imp_wtsdrvrtl.mp3',
 };
 
 function manager() {
@@ -122,6 +124,28 @@ describe('skill and talent projectile sounds wired 2026-10-29', () => {
     field(w, 'char_1035_wisdel', 2);
     w.handleBattleEvents([['skill', 1, 1], ['swing', 1, 2, 'arrow', 0.3]]);
     assert.ok(files(w).includes('p_atk_dkmrcaygnam.mp3'), files(w).join());
+  });
+
+  test('AudioManager: 克莱门莎 S2 carriage / vortex, S3 shells (fall 0.5 s before each impact, buff damage silent), T1 roll', () => {
+    const a = manager();
+    field(a, 'char_4231_clemnt', 1);
+    a.handleBattleEvents([['skill', 1, 1]]);
+    a.played.length = 0;
+    a.handleBattleEvents([['fx', 'anchor', 3, 0, { id: 1, fromX: 0, fromY: 0, dur: 1.5 }], ['fx', 'tide', 3, 0, { id: 1, r: 1.5, dur: 5 }]]);
+    assert.deepEqual(files(a), ['p_atk_wtfyswrsp.mp3', 'p_imp_wtfyswrsp.mp3']);
+    const b = manager();
+    field(b, 'char_4231_clemnt', 2);
+    b.handleBattleEvents([['skill', 1, 1]]);
+    b.played.length = 0;
+    b.handleBattleEvents([['fx', 'lock', 3, 0, { id: 2, src: 1, dur: 0.5 }]]);
+    assert.deepEqual(b.played.map((p) => [p.f, p.delay]), [['p_atk_wtrbmcn.mp3', null], ['p_atk_wtrbmsl.mp3', 0], ['p_atk_wtrbmsl.mp3', 1], ['p_atk_wtrbmsl.mp3', 2]]);
+    b.played.length = 0;
+    b.handleBattleEvents([['fx', 'blast', 3, 0, { id: 1, r: 1.5 }], ['dmg', 2, 50, 'phys', 0, 1, 0, null]]);
+    assert.deepEqual(files(b), ['p_imp_wtrbmsl.mp3'], 'the shell\'s damage itself is buff damage: no impact sound');
+    const t = manager();
+    field(t, 'char_4231_clemnt', 0);
+    t.handleBattleEvents([['dmg', 2, 50, 'phys', 0, 1, 0, 0, [['clemnt_t1[dice_damage]', 1]]]]);
+    assert.ok(files(t).includes('p_imp_wtsdrvrtl.mp3'), files(t).join());
   });
 
   test('real match path: 耶拉\'s drone damage is flagged 2, her S2 drones carry their index', async () => {

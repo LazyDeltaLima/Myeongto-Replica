@@ -135,7 +135,12 @@ export function kitHitKey(fx, ex, unitOf) {
     case 'bombardShell': return def(ex.id) === 'char_1035_wisdel' ? 'wisdel:s2' : def(ex.id) === 'char_4193_lemuen' && ex.i === 0 ? 'lemuen:s3end'
       : emppnt(unitOf(ex.id)) ? 'emppnt:aim' : null;
     case 'bombard': return def(ex.id) === 'char_4193_lemuen' ? 'lemuen:shell' : null;
-    case 'lock': { const u = unitOf(ex.src); return u?.def === 'char_4193_lemuen' && u.skillIndex === 2 ? 'lemuen:mark' : null; }
+    case 'lock': { const u = unitOf(ex.src); return u?.def === 'char_4193_lemuen' && u.skillIndex === 2 ? 'lemuen:mark'
+      : u?.def === 'char_4231_clemnt' ? 'clemnt:s3reach' : null; } // 2026-10-29: 克莱门莎 S3's shell reaching the marked enemy
+    // 2026-10-29: 克莱门莎 S2 — the carriage fired, the vortex fired where it stops; S3 — each shell's impact (its audio behaviour)
+    case 'anchor': return def(ex.id) === 'char_4231_clemnt' ? 'clemnt:s2cab' : null;
+    case 'tide': return def(ex.id) === 'char_4231_clemnt' ? 'clemnt:s2tide' : null;
+    case 'blast': return def(ex.id) === 'char_4231_clemnt' ? 'clemnt:s3hit' : null;
     case 'explode': return def(ex.by) === 'char_1035_wisdel' ? 'wisdel:bomb' : null;
     case 'burst': return def(ex.id) === 'token_10035_wisdel_wward' ? 'wisdel:token' : null;
     case 'oblvnsNote': return ex.e === 'hit' && typeof ex.m === 'string' ? `oblvns:${ex.m}` : null;
@@ -376,7 +381,9 @@ const SKILL_HIT_GAP_MS = 120;
  * Keyed by model, then skill index; '' = no sound here, the kit's own event sounds it (圣聆初雪 S2: her snow ticks and the
  * talent's entry damage, kitHit 'sbell2:s2dot' / 'sbell2:enter' — buff damage, no ability HIT).
  */
-const SKILL_DAMAGE_KEYS = Object.freeze({ char_4010_etlchi: Object.freeze({ 1: 'etlchi:s2' }), char_1046_sbell2: Object.freeze({ 1: '' }) });
+const SKILL_DAMAGE_KEYS = Object.freeze({ char_4010_etlchi: Object.freeze({ 1: 'etlchi:s2' }), char_1046_sbell2: Object.freeze({ 1: '' }),
+  // 2026-10-29: 克莱门莎 S3's shells — clemnt_s3[rocket_damage]'s buff damage (no ability HIT; their sound is 'clemnt:s3hit')
+  char_4231_clemnt: Object.freeze({ 2: '' }) });
 /** The sfx.kit key of unit model `def`'s skill damage during skill `skillIndex` (SKILL_DAMAGE_KEYS: '' silent), or null. */
 export function skillDamageKey(def, skillIndex) {
   return SKILL_DAMAGE_KEYS[def]?.[skillIndex] ?? null;
@@ -1875,6 +1882,8 @@ export class AudioManager {
           if (!this.unit(src.def, 'attack', e[1], undefined, mode) && src.side === 'enemy' && e[3] !== 'mortar') this.battle('enemyHit', { volume: 0.35 });
           this.unit(src.def, 'on', e[1], undefined, mode); // 2026-10-10: its ON bank too (START and ON both sound)
         } else if (kind === 'dmg') {
+          // 2026-10-29: 克莱门莎 T1's won roll (clemnt_t1[dice_damage], the 9th field's moment): PlayAudio on the target
+          if (Array.isArray(e[8]) && e[8].some((m) => Array.isArray(m) && m[0] === 'clemnt_t1[dice_damage]')) this._kitSound('clemnt:t1');
           if (!IMPACT_TYPES.has(e[3])) continue;
           // 2026-10-11 (user report: 아스카론's 死亡拘审 ticks sounded as her attack, docs/rules/audio.md 「지속 피해 틱」): a damage-over-time
           // tick (the sim's 7th field, damage.js dotFlag) is a buff's damage in the client — no ability HIT, no sound — and
@@ -2046,6 +2055,9 @@ export class AudioManager {
             // 2026-10-29: 耶拉 S2's Funnel_0 — its TriggerAudioSignalBehaviour after each hit (`_preDelay` 0.6 s) [추정·엔진: the
             // ability's playback speed, which divides it, taken as 1]
             if (hk === 'kjera:s2') this._kitSound('kjera:s2end', 0.6);
+            // 2026-10-29: 克莱门莎 S3 — the shell's fall sound 0.5 s before each of its impacts (the kit's three, 1 s apart from
+            // `dur` after the mark; the prefab's fall behaviour starts 0.5 s after it reached, the impact 1 s)
+            if (hk === 'clemnt:s3reach') for (let n = 0; n < 3; n++) this._kitSound('clemnt:s3fall', Math.max(0, (Number(e[4].dur) || 0) - 0.5) + n);
           }
           // 2026-10-29: 荒芜拉普兰德 S3's wolves released (each cruise projectile's BORN), 溯光星源 S3's newly linked enemies
           if (e[1] === 'drones' && e[4]?.id != null && unitOf(e[4].id)?.def === 'char_1038_whitw2' && unitOf(e[4].id)?.skillIndex === 2) {
