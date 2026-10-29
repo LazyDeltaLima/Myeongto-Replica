@@ -2,6 +2,10 @@
 // Conventions of the tier-3 kits: ../shared/tier3.js; kit contract and rules: ../README.md.
 
 import { num, defOf, talentBb, traitBb, altSkills, gridKeys, fx, copyGrid, enemiesOn, aura } from '../shared/tier3.js';
+import { absoluteRangeKeys } from '../../../targeting.js';
+
+// S2's end burst: the OnAttack of her end clip Skill_2_End (seconds after the skill ends)
+const MINT_BURST_DELAY = 0.6;
 
 export default {
   // ---- 3_08 薄绿 · 阵法术师 — S2 聚能涡旋: each attack strikes every enemy on her range (the trait's 群体法术伤害) and
@@ -21,6 +25,7 @@ export default {
     const tGrid = copyGrid(d.talents?.[0]?.rangeGrid) ?? [[1, 0], [0, -1], [0, 0], [0, 1], [-1, 0]];
     const pullForce = num(bb['attack@force'], num(bb.force, 0));
     const endScale = num(bb.atk_scale, 0);
+    const burstGrid = copyGrid(d.rangeGrid) ?? [[2, 0], [1, -1], [1, 0], [1, 1], [0, -2], [0, -1], [0, 0], [0, 1], [0, 2], [-1, -1], [-1, 0], [-1, 1], [-2, 0]]; // x-1
     const keepDef = num(tb['soil_e_002[buff].def'], 0), keepRes = num(tb['soil_e_002[buff].magic_resistance'], 0);
     // every skill: PLX-X keeps part of the guard, 地质学者 taunt −1 while it runs, DEF aura only while it does not
     const guardOn = ({ battle, unit }) => {
@@ -62,9 +67,16 @@ export default {
         onStart: guardOn,
         onEnd(ctx) {
           const { battle, unit, reason } = ctx;
+          // the end burst is her FinalAttack: a clip-less melee attack that lands on the OnAttack of the end clip Skill_2_End
+          // (0.6 s; its own cap _cooldown 0.62 s) on the constant range x-1 (its selector's range is not extendable, so range
+          // bonuses never widen it) — the official client's skill prefab skchr_mint_2. The guard ends with the skill, before it lands.
           if (reason !== 'death' && unit.alive && endScale > 0) {
-            for (const e of enemiesOn(battle, unit, unit.rangeKeys)) battle.dealDamage(unit, e, { amount: unit.s.atk * endScale, type: 'arts', isSkill: true, tags: ['skill', 'burst'] });
-            fx(battle, 'aoe', unit, { radius: 2, dmgType: 'arts', skill: 'mint_2' });
+            battle.after(MINT_BURST_DELAY, () => {
+              if (!unit.alive) return;
+              const keys = absoluteRangeKeys(burstGrid, unit.tileR, unit.tileC, unit.dir, 0);
+              for (const e of enemiesOn(battle, unit, keys)) battle.dealDamage(unit, e, { amount: unit.s.atk * endScale, type: 'arts', isSkill: true, tags: ['skill', 'burst'] });
+              fx(battle, 'aoe', unit, { radius: 2, dmgType: 'arts', skill: 'mint_2' });
+            }, { owner: unit });
           }
           guardOff(ctx);
         },

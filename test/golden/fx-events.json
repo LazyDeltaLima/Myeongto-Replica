@@ -6812,7 +6812,6 @@
    "- spawn snhunt_talent_01_hit → enemy",
    "- spawn swire2_buff_02_start → ally",
    "- spawn:dead common_char_die_01",
-   "- spawn:dead common_empty → enemy",
    "- spawn:dead common_enemy_die_01 → enemy",
    "- spawn:dead enemy_sfhu_die_01 → enemy",
    "- spawn:elemBurst common_waterElementExplosion → ally",

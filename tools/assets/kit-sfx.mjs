@@ -82,7 +82,7 @@ export const KIT_HIT_BANKS = Object.freeze({
   // fire projectile_chr_svash2_s3 (its BORN at each strike)
   'svash2:s2': 'battle.ON_ABILITY_ON.skchr_svash2_2',
   'svash2:s3born': 'battle.ON_PROJECTILE_BORN.projectile_chr_svash2_s3',
-  // 2026-10-29: 薄绿 S2's end burst (its FinalAttack — AbilityStandard.OnAttackFinished sounds ON_ABILITY_ATTACK_FINISH)
+  // 2026-10-29: 薄绿 S2's end — her skill ability's ON_ABILITY_ATTACK_FINISH as the end clip starts (audio.js on the 'skill' off)
   'mint:s2end': 'battle.ON_ABILITY_ATTACK_FINISH.skchr_mint_2',
   // 2026-10-29: 歌蕾蒂娅 S3's tornado as it forms (its Chant, the sequence's 2nd child — kit fx 'tornado')
   'glady:s3': 'battle.ON_ABILITY_ON.skchr_glady_3.2',

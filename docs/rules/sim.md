@@ -1000,6 +1000,15 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   생기면서 반경 1.5 안 적을 중심으로 한 번 끌어당김(피해 없음 — 피해는 맥동, 맥동 간격은 그때부터), 끝의 捕网은 그대로(반경 1, 글래디아 앞으로).
   [추정·화면: 0.3초 — 관찰 「아주 약간의 지연」에 고른 값; `FinalAttack`의 `OnAttack` 대기를 무엇이 일찍 끝내는지는 안 읽음(스킬 상태 진입은 클립을 틀지 않음,
   `SkillState._StartSkill`)]. 그 전에는 묶기·회오리가 시전 순간. 테스트 `kits_t4.test.js` 「歌蕾蒂娅 S3」. 조사 기록은 관리자 노트.
+- **민트(오퍼레이터, `char_388_mint`) S2 「커뮬레이티브 볼텍스」(`skchr_mint_2`) 끝 폭발은 스킬 끝 0.6초 뒤, 고정 범위 `x-1`** (2026-10-29, 공식 클라 — 스킬
+  프리팹 + 함수): 끝 폭발은 스킬의 추가 능력 `FinalAttack`(근접 공격, 클립 없음 `_animKey ""`, `_waitForAttackEvent` 1, `_timeMode` 2 `_cooldown` 0.62초,
+  `_atkScaleKey` atk_scale)이다. 클립이 없어 Spine `OnAttack`을 최대 시전 시간(0.62초)까지 기다리고(「글래디아 S3 시작 순서」의 `EasyToStartAbility` 선딜),
+  그 `OnAttack`은 스킬 루트의 세 단계 애니(`ThreePartChannelingAnimation`: `Skill_2_Begin` → `Skill_2_Loop` → `Skill_2_End`)가 스킬 끝에 트는 끝 클립
+  `Skill_2_End`의 0.6초 → sim은 스킬이 끝나고 0.6초 뒤 폭발한다(그 사이 그녀가 쓰러지면 안 남). 대상 고르기는 `ConstBoxRange` `_rangeId` x-1, `_extendable` 0이고
+  `PhysicsRange.UpdateExtend`는 `extendable`이 거짓이면 사거리 증가를 적용하지 않는다(공식 클라에서 확인) → 그녀의 지금 공격 범위가 아니라 늘 x-1(사거리
+  증가 맹약·장비를 받지 않음). 방어 유지(정예 모듈)·도발 −1은 스킬과 함께 끝나므로 폭발 전에 풀린다. 그 전: 스킬이 끝나는 순간 그녀의 지금 공격 범위에서
+  폭발. [추정·엔진: 끝 클립 재생 배율(`m_beginAndEndAnimScale`)을 1로 봄 — 끝 클립 대신 공격 클립이 돌면 `OnAttack`이 안 와 0.62초 상한에 터지므로 차이는 0.02초
+  안]. 소리는 폭발이 아니라 스킬 끝(`audio.md` 「스킬 시전 능력 소리」). 테스트 `kits_t3.test.js` 「3_08 薄绿」 둘.
 - **傀儡师 전환 2 s** (2026-10-14, 클라 프리팹): 전환은 순차 능력(charpack `CommonAbilities` `kazema[switch2stand]`·`[switch2normal]`, 归溟幽灵鲨 `ghost2[…]`도
   같은 꼴) — SwitchBegin이 보호 버프(`*_switchbegin`: 무적·불사 등, INFINITY)를 걸고, 죽는 클립과 나오는 클립이 각각 제 길이(`_timeMode` 1, `_maxAnimScale` 1;
   风丸 `Die_2`→`Start_B`, 돌아올 때 `Die_B`→`Born`(=`Start`), 归溟幽灵鲨 `Die`→`Start_B`, `Die_B`→`Start_2`, 모두 1 s), 나오는 단계의 `BuffAfterAffecting`(OnEvent

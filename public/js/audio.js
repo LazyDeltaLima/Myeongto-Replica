@@ -164,9 +164,7 @@ export function kitHitKey(fx, ex, unitOf) {
     case 'sonic': return def(ex.id) === 'char_4051_akkord' ? 'akkord:s2' : null;
     // 2026-10-11, docs/rules/audio.md 「재능·소환물 능력 소리」: 실버애쉬 더 레인프로스트 S2's slash — its ability's ON (no attack event);
     // 크루스 더 킨 글린트's 中的 shot — her talent ability's ON (the START: kitStartKey)
-    // 2026-10-29: 薄绿 S2's end burst — her FinalAttack's ON_ABILITY_ATTACK_FINISH (docs/rules/audio.md 「스킬 시전 능력 소리」)
-    case 'aoe': return ex.skill === 'svash2' && def(ex.id) === 'char_1045_svash2' ? 'svash2:s2'
-      : ex.skill === 'mint_2' && def(ex.id) === 'char_388_mint' ? 'mint:s2end' : null;
+    case 'aoe': return ex.skill === 'svash2' && def(ex.id) === 'char_1045_svash2' ? 'svash2:s2' : null;
     // 2026-10-29: 歌蕾蒂娅 S3's tornado forming — its Chant's ON (docs/rules/audio.md 「스킬 시전 능력 소리」)
     case 'tornado': return def(ex.id) === 'char_474_glady' ? 'glady:s3' : null;
     case 'crit': return ex.by != null && def(ex.by) === 'char_1021_kroos2' ? 'kroos2:t1' : null;
@@ -1821,6 +1819,9 @@ export class AudioManager {
             // a unit leaving the field in this batch never casts)
             const fin = !e[2] ? skillEndOf(ue, su.skillIndex) : null;
             if (fin && !(fin.mode && ev.some((x) => x[0] === 'die' && x[1] === e[1]))) this._play(fin.url, { volume: loopGain(fin), limited: true, bank: `${su.def}:end:${su.skillIndex}` });
+            // 2026-10-29, docs/rules/audio.md 「스킬 시전 능력 소리」: 薄绿 S2 — its skill ability's ON_ABILITY_ATTACK_FINISH as the
+            // end clip starts (the skill's three-part animation fires the attack-finish event then), not at the burst 0.6 s later
+            if (!e[2] && su.def === 'char_388_mint' && su.skillIndex === 1 && !ev.some((x) => x[0] === 'die' && x[1] === e[1])) this._kitSound('mint:s2end');
           }
         }
         if (kind === 'swing') {

@@ -2,7 +2,7 @@
 // 소리」): the client casts the skill ability as the skill starts and emits its START as it starts, ON at its OnAttack frame,
 // HIT on its targets — `.<k>` banks for the k-th child of a group ability, a sequence group's later child as the animated one
 // ends. The builder (skill-mode-sfx.mjs castCues → sfx.units[def].castCues), the sim's 'skill' event timing
-// (skills.js _evOn: [strike, end]) and the manager's waits; 薄绿 S2's ON_ABILITY_ATTACK_FINISH on her end burst.
+// (skills.js _evOn: [strike, end]) and the manager's waits; 薄绿 S2's ON_ABILITY_ATTACK_FINISH as her skill ends.
 
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -129,14 +129,27 @@ describe('castCues: a CastSkill\'s own ability banks', () => {
   });
 });
 
-describe('薄绿 S2: her end burst sounds ON_ABILITY_ATTACK_FINISH', () => {
-  test('the kit key, its bank and the manifest', () => {
+describe('薄绿 S2: ON_ABILITY_ATTACK_FINISH as the skill ends', () => {
+  test('the kit key, its bank and the manifest; the burst 0.6 s later sounds nothing of its own', () => {
     assert.equal(KIT_HIT_BANKS['mint:s2end'], 'battle.ON_ABILITY_ATTACK_FINISH.skchr_mint_2');
     assert.equal(file(manifest.audio.sfx.kit['mint:s2end']), 'p_skill_magend.mp3');
     const unitOf = (id) => (id === 7 ? { def: 'char_388_mint' } : { def: 'char_1045_svash2' });
-    assert.equal(kitHitKey('aoe', { id: 7, skill: 'mint_2', radius: 2 }, unitOf), 'mint:s2end');
-    assert.equal(kitHitKey('aoe', { id: 7, skill: 'other' }, unitOf), null);
+    assert.equal(kitHitKey('aoe', { id: 7, skill: 'mint_2', radius: 2 }, unitOf), null);
     assert.equal(kitHitKey('aoe', { id: 8, skill: 'svash2' }, unitOf), 'svash2:s2');
+  });
+
+  test('the manager: her S2 \'skill\' off sounds it, not her S1, not when she falls in that batch', () => {
+    const run = (skillIndex, extra = []) => {
+      const a = manager();
+      a.setFieldUnits([{ id: 7, kind: 'op', side: 'ally', spine: 'char_388_mint', defId: 'chess_char_3_08_a', skillIndex }]);
+      a.handleBattleEvents([['skill', 7, 1]]);
+      a.played = [];
+      a.handleBattleEvents([['skill', 7, 0], ...extra]);
+      return a.played.filter((p) => p.f === 'p_skill_magend.mp3').length;
+    };
+    assert.equal(run(1), 1);
+    assert.equal(run(0), 0);
+    assert.equal(run(1, [['die', 7]]), 0);
   });
 
   test('歌蕾蒂娅 S3: the tornado forming (kit fx \'tornado\') sounds its Chant\'s ON, skchr_glady_3.2', () => {

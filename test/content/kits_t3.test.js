@@ -314,12 +314,47 @@ test('3_08 薄绿: 聚能涡旋 pull + ATK% arts, end burst; 地质学者 DEF au
     const hits = h.hooksOf('damaged').filter((c) => c.source === u && c.dmg?.isAttack && c.target === e);
     approx(hits[0].amount, u.s.atk * bb['attack@atk_scale']);
     h.runUntil(() => !u.skill.active, 30);
+    // the end burst lands on the end clip's OnAttack, 0.6 s after the skill ends (her FinalAttack)
+    const endAt = h.b.time;
+    assert.equal(tagged(h, 'burst', u).length, 0, 'no burst as the skill ends');
+    assert.equal(u.s.taunt, 0);
+    h.runUntil(() => tagged(h, 'burst', u).length > 0, 2);
     const burst = tagged(h, 'burst', u);
     assert.equal(burst.length, 1);
+    approx(h.b.time - endAt, 0.6, 0.05, 'burst 0.6 s after the end');
     approx(burst[0].amount, u.s.atk * bb.atk_scale, 1e-6, 'end burst');
-    assert.equal(u.s.taunt, 0);
     done(h);
   }
+});
+
+test('3_08 薄绿 S2: the end burst covers the constant x-1 (range bonuses never widen it) and needs her alive', () => {
+  const id = 'chess_char_3_08_a';
+  const run = (extend, kill = false) => {
+    // [0,3]: outside x-1 (its reach is 2 forward) but inside x-1 extended by 1; [0,2] inside x-1
+    const h = makeBattle({
+      defs: { enemies: { enemy_d: dummy('enemy_d', { mass: 9 }) } }, timeLimit: 60, hooks: ['damaged'], captureNoisy: true, // too heavy to pull
+      units: [{ chessId: id, row: 10, col: 4 }], enemies: [{ key: 'enemy_d', pos: [10, 6] }, { key: 'enemy_d', pos: [10, 7] }],
+    });
+    const u = h.unit(id);
+    h.run(0.2);
+    if (extend) h.b.addBuff(u, { key: 'test:range', mods: { rangeExtend: 1 }, persist: true });
+    fill(u);
+    assert.ok(h.runUntil(() => u.skill.active, 5));
+    h.runUntil(() => !u.skill.active, 30);
+    if (kill) h.b.kill(u);
+    h.run(1);
+    return { h, u, burst: tagged(h, 'burst', u) };
+  };
+  for (const extend of [0, 1]) {
+    const { h, u, burst } = run(extend);
+    const xs = burst.map((c) => Math.round(c.target.x));
+    assert.ok(xs.every((x) => x <= 6), `extend ${extend}: nothing past x-1 (${xs})`);
+    assert.ok(burst.length >= 1, `extend ${extend}: the near one is hit`);
+    const farHit = h.hooksOf('damaged').some((c) => c.source === u && c.dmg?.isAttack && Math.round(c.target.x) === 7);
+    assert.equal(farHit, !!extend, `extend ${extend}: her attacks reach [0,3] only with the bonus`);
+    done(h);
+  }
+  assert.equal(run(0, true).burst.length, 0, 'no burst once she is down');
 });
 
 test('3_09 海霓: 测绘器材 fragile on non-elite enemies; 阻滞性显色剂 ATK, 2 targets, slow, kills raise the talent', () => {
