@@ -77,7 +77,7 @@ import { boneMissing, heldAt, liftedPoint, loadPoints, mountSpawn, pointKey, poi
 import { GRAPHIC_TILT, takesGraphicTurn } from './fxpoints.js'; // 2026-10-22: an effect on a unit takes its Graphic's X −30°
 import { STANDARD_PLACE, modelOffset } from './fxpoints.js'; // 2026-10-22: 望's 棋子 model stands at its prefab's place (the ball)
 import { enemyProjSpeed, enemyShot } from './fx/speeds.js'; // 2026-10-10: an enemy shot's record / flight time (data/enemies.json `proj`)
-import { shotSpeedOf, shotArcOf, shotKeyOf } from './fx/projectiles.js'; // 2026-10-16: an operator shot's flight time (data/chess.json `shot`); 2026-10-27 its key (bodyTurn)
+import { shotSpeedOf, shotArcOf, shotKeyOf, lobZ } from './fx/projectiles.js'; // 2026-10-16: an operator shot's flight time (data/chess.json `shot`); 2026-10-27 its key (bodyTurn)
 import { opShot } from './fx/speeds.js'; // 2026-10-21: a skill's own shot record (skillShotOut)
 import { boomerangThrown, boomerangCaught } from './heldWheel.js'; // local patch: a 回环射手's boomerang leaves / is back in her hand
 import { PROJ } from './style.js';
@@ -1984,7 +1984,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const t = rec.tgt;
       if (rec.k >= 1 && t && t.alive !== false && !t.remove) { const p = shotTo(t); return [p.x, p.y, p.z]; }
       const k = Math.min(1, rec.k);
-      return [rec.x0 + (rec.tx - rec.x0) * k, rec.y0 + (rec.ty - rec.y0) * k, rec.z0 + (rec.tz - rec.z0) * k + (rec.arc ? rec.arc * 4 * k * (1 - k) : 0)];
+      return [rec.x0 + (rec.tx - rec.x0) * k, rec.y0 + (rec.ty - rec.y0) * k, lobZ(rec, k, LOB_NO_RAISE)[0]];
     };
     const head = { id: `rope:${++ropeSeq}`, alive: true, get x() { return at()[0]; }, get y() { return at()[1]; }, get z() { return at()[2]; } };
     startLine(bundle, name, src, head, rec.dur + link, { sMount: 2, eMount: 7 });
@@ -2040,8 +2040,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }, () => {});
   }
   // client projectile_chr_caper_s2 / _s2_1 (EN [uc]projectiles.ab): ParacurveMovement `_raiseHeight` 0.3, `_noRaiseHeightThreshold`
-  // 1.3 — the second boomerang `_inverseParacurve` 1 [추정: the inverse curve dips under the straight line by the same height]
-  const caperArc = (dist, inverse) => (dist < 1.3 ? 0 : inverse ? -0.3 : 0.3);
+  // 1.3 — the second boomerang `_inverseParacurve` 1 (its arc turned, lobZ)
+  const LOB_NO_RAISE = 1.3;   // ParacurveMovement `_noRaiseHeightThreshold` of the lobs drawn here (one enemy's 0.8: projectile_enemy_vtsk)
+  const caperArc = (dist, inverse) => (dist < LOB_NO_RAISE ? 0 : inverse ? -0.3 : 0.3);
   /**
    * 2026-10-10: 跃跃 S2's later boomerang (sim fx 'caperBoomerang2' { id, tgt, n } — no 'atk' of its own, 0.1 s
    * after the attack's) — her S2 mode's trail (projectile_chr_caper_s2_1 `_mainEffect` caper_skill_02_trail) out to its target
@@ -2104,17 +2105,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       return;
     }
     const x = rec.x0 + (rec.tx - rec.x0) * k, y = rec.y0 + (rec.ty - rec.y0) * k;
-    const z = rec.z0 + (rec.tz - rec.z0) * k + (rec.arc ? rec.arc * 4 * k * (1 - k) : 0);
+    const z = lobZ(rec, k, LOB_NO_RAISE)[0];
     if (!rec.inst) return;
     rec.inst.object.position.set(x, y, z);
     bodyTurn(rec.inst, mod.THREE, flightDir(rec, k), undefined, rec.key);
   }
   /**
    * 2026-10-30 (official client: the body's +y = its 3D flight, bodyTurn): the drawn path's tangent at flight fraction `k`
-   * — the straight line's rise (muzzle → hit point) plus the lob's (`arc`); `s` −1 for a boomerang on its way back.
+   * — the line's rise (muzzle → hit point) or the lob's (lobZ); `s` −1 for a boomerang on its way back.
    */
-  const flightDir = (rec, k, s = 1) => [s * (rec.tx - rec.x0), s * (rec.ty - rec.y0),
-    s * ((rec.tz ?? 0) - (rec.z0 ?? 0) + (rec.arc ? rec.arc * 4 * (1 - 2 * k) : 0))];
+  const flightDir = (rec, k, s = 1) => [s * (rec.tx - rec.x0), s * (rec.ty - rec.y0), s * lobZ(rec, k, LOB_NO_RAISE)[1]];
   /**
    * 2026-10-11 (user report: 언더플로우's and 애쉬락's projectiles disappear late): a projectile's `_mainEffect` ends as its
    * projectile stops, the client's way (`Effect.FinishMe` on a ProjectileEffect): its first particle system

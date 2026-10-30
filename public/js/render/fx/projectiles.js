@@ -59,6 +59,28 @@ export function shotArcOf(ctx, src) {
   return h > 0 ? h : null;
 }
 
+/**
+ * [height, d height / d k] of trail record `rec` (render/fxgame.js placeTrail) at flight fraction `k`. A straight one
+ * (`arc` 0) runs the line z0 → tz.
+ * 2026-10-30 (maintainer report: 号角's and 灰毫's lobs looked off; official client, ParacurveMovement.OnInit): a lob
+ * rises `_raiseHeight` H above its start (not above the line's middle) and falls under constant gravity to the target's
+ * height — D = max(0, z0 + H − tz), g = 2(√H + √D)² / T², upward speed √(2Hg): an uneven arc, steeper as it comes down;
+ * `_inverseParacurve` (a negative `arc`, 跃跃's second boomerang) runs it with g and its speed turned (v − gT). Within
+ * `_noRaiseHeightThreshold` (1.3 tiles for all but one of the lobs the pool and the enemies use) of its target at launch
+ * it does not rise (H 0: it leaves level and drops to the target's height). In fractions of the flight (T = 1) here; what
+ * the arc cannot reach (a target above its top) is closed along the line.
+ */
+export function lobZ(rec, k, noRaise = 1.3) {
+  const z0 = rec.z0 ?? 0, tz = rec.tz ?? 0;
+  if (!rec.arc) return [z0 + (tz - z0) * k, tz - z0];
+  if (rec.flat == null) rec.flat = Math.hypot(rec.tx - rec.x0, rec.ty - rec.y0) <= noRaise;
+  const H = rec.flat ? 0 : Math.abs(rec.arc), D = Math.max(0, z0 + H - tz), s = Math.sqrt(H) + Math.sqrt(D);
+  let G = 2 * s * s, v = 2 * Math.sqrt(H) * s;
+  if (rec.arc < 0) { v -= G; G = -G; }
+  const miss = tz - (z0 + H - D);   // 0 unless the target is above the arc's top
+  return [z0 + v * k - 0.5 * G * k * k + miss * k, v - G * k + miss];
+}
+
 /** 2026-10-24: the key of the projectile an operator's shot flies now (opShot `key`), or null. */
 export function shotKeyOf(ctx, src) {
   let def;

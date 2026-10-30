@@ -74,7 +74,8 @@ test('fxgame: cast effects at their ability\'s speed, hits at 1.0; a hit with _u
 
 test('fxgame: 跃跃 S2\'s second boomerang flies her S2 trail on the inverse arc; _overwriteHeight lifts to the ground under it', () => {
   assert.match(SRC, /if \(e\[1\] === 'caperBoomerang2' && e\[4\]\) \{ caperSecond\(e, views\); return; \}/);
-  assert.match(SRC, /const caperArc = \(dist, inverse\) => \(dist < 1\.3 \? 0 : inverse \? -0\.3 : 0\.3\);/);
+  assert.match(SRC, /const LOB_NO_RAISE = 1\.3;/);
+  assert.match(SRC, /const caperArc = \(dist, inverse\) => \(dist < LOB_NO_RAISE \? 0 : inverse \? -0\.3 : 0\.3\);/);
   assert.match(SRC, /if \(!drop && Number\.isFinite\(def\.height\)\) at = overHeight\(at, def\.height\);/);
   const simfx = readFileSync(new URL('public/js/render/fx/simfx.js', ROOT), 'utf8');
   assert.match(simfx, /if \(kind === 'caperBoomerang2'\) \{[\s\S]*?this\.attack\(s, t, 'boomerang', \{ inverse: true \}\);/);

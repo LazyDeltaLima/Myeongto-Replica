@@ -172,7 +172,9 @@ test('fxgame: lifted() takes the point of pointKey(spawn) from the table; body /
   assert.match(src, /const p = \(key && specialPoint\(src, shotAt, key\)\) \|\| specialPoint\(src, shotAt, 'muzzle'\);/);
   assert.match(src, /if \(mp === 7\) return \{ x: mx\(src\), y: src\.y, z: \(src\.z \|\| 0\) \+ \(src\.hover \|\| 0\) \};/);   // mx: MODEL_SHIFT
   assert.match(src, /const p = specialPoint\(t, hitAt, 'hit'\) \|\| bodyPoint\(camRef, t, SPAWN_FRAC\[2\], mx\(t\), hitAt\);/);   // shotTo
-  assert.match(src, /const z = rec\.z0 \+ \(rec\.tz - rec\.z0\) \* k/);
+  // 2026-10-30: the height from the start's point to the hit point (a lob on the official arc: fx/projectiles.js lobZ)
+  assert.match(src, /const z = lobZ\(rec, k, LOB_NO_RAISE\)\[0\];/);
+  assert.match(readFileSync(new URL('../public/js/render/fx/projectiles.js', import.meta.url), 'utf8'), /if \(!rec\.arc\) return \[z0 \+ \(tz - z0\) \* k, tz - z0\];/);
 });
 
 // (maintainer report 2026-10-08): an effect's FollowMountPoint (fx_extract.py `mount`) — 스펙터 디 언체인드 S2's red ring

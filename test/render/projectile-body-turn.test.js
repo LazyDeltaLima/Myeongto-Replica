@@ -11,6 +11,7 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { bodyStill, bodyTurn } from '../../public/js/render/fx/face.js';
+import { lobZ } from '../../public/js/render/fx/projectiles.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const TOOL = path.join(ROOT, 'tools/local-extract');
@@ -159,4 +160,29 @@ test('the extracted 空弦 S3 trail (skipped without public/assets): RIGHT, roll
   const d = JSON.parse(readFileSync(ARCHET, 'utf8'));
   assert.deepEqual(d.mainRot, [0, 0, 0.7071, 0.7071]);
   assert.equal(d.roll, 360);
+});
+
+test('lobZ (2026-10-30, ParacurveMovement.OnInit): H above the start, an uneven fall to the target, none within 1.3 tiles', () => {
+  const near = (a, b, e = 1e-9) => Math.abs(a - b) < e;
+  const at = (rec, n = 2000) => Array.from({ length: n + 1 }, (_, i) => lobZ(rec, i / n));
+  const line = { x0: 0, y0: 0, z0: 0.6, tx: 3, ty: 0, tz: 0.3, arc: 0 };
+  const mid = lobZ(line, 0.5);
+  assert.ok(near(mid[0], 0.45) && near(mid[1], -0.3), 'arc 0: the straight line');
+  const lob = { x0: 0, y0: 0, z0: 0.6, tx: 3, ty: 0, tz: 0.3, arc: 1 };   // 灰毫: H 1 from a muzzle 0.3 above the hit point
+  const zs = at(lob), top = Math.max(...zs.map((p) => p[0])), kTop = zs.findIndex((p) => p[0] === top) / 2000;
+  assert.ok(near(lobZ(lob, 0)[0], 0.6) && near(lobZ(lob, 1)[0], 0.3), 'from the muzzle to the hit point');
+  assert.ok(near(top, 1.6, 1e-6), `the top H above the start (${top})`);
+  const H = 1, D = 0.6 + 1 - 0.3;
+  assert.ok(near(kTop, Math.sqrt(H) / (Math.sqrt(H) + Math.sqrt(D)), 1e-3) && kTop < 0.5, `up √H : down √D (${kTop})`);
+  for (const k of [0.1, 0.4, 0.8]) {
+    const d = (lobZ(lob, k + 1e-6)[0] - lobZ(lob, k - 1e-6)[0]) / 2e-6;
+    assert.ok(near(d, lobZ(lob, k)[1], 1e-5), `slope at ${k}`);
+  }
+  const close = { x0: 0, y0: 0, z0: 0.6, tx: 1, ty: 0.5, tz: 0.3, arc: 1 };   // 1.12 tiles: `_noRaiseHeightThreshold` 1.3
+  assert.ok(at(close).every((p) => p[0] <= 0.6 + 1e-12) && near(lobZ(close, 1)[0], 0.3) && near(lobZ(close, 0)[1], 0), 'leaves level, drops to it');
+  const inv = { x0: 0, y0: 0, z0: 0.6, tx: 3, ty: 0, tz: 0.6, arc: -0.3 };   // 跃跃's second boomerang
+  const zi = at(inv).map((p) => p[0]);
+  assert.ok(near(zi[2000], 0.6) && near(Math.min(...zi), 0.3, 1e-6), 'the inverse arc dips H under its start and comes back');
+  const high = { x0: 0, y0: 0, z0: 0.2, tx: 3, ty: 0, tz: 2, arc: 0.5 };   // a target above the top: closed along the line
+  assert.ok(near(lobZ(high, 1)[0], 2));
 });
