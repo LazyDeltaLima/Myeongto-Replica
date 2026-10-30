@@ -162,12 +162,16 @@ export function kitHitKey(fx, ex, unitOf) {
     // 2026-10-22: 协律 S2's sonic boom at each other operator in range (akkord_s_2[aoe_damage] PlayAudio akkord_aoe_audio at
     // that operator, whether or not an enemy is caught)
     case 'sonic': return def(ex.id) === 'char_4051_akkord' ? 'akkord:s2' : null;
-    // 2026-10-11, docs/rules/audio.md 「재능·소환물 능력 소리」: 실버애쉬 더 레인프로스트 S2's slash — its ability's ON (no attack event);
-    // 크루스 더 킨 글린트's 中的 shot — her talent ability's ON (the START: kitStartKey)
+    // 2026-10-11, docs/rules/audio.md 「재능·소환물 능력 소리」: 실버애쉬 더 레인프로스트 S2's slash — its ability's ON (no attack event)
     case 'aoe': return ex.skill === 'svash2' && def(ex.id) === 'char_1045_svash2' ? 'svash2:s2' : null;
     // 2026-10-29: 歌蕾蒂娅 S3's tornado forming — its Chant's ON (docs/rules/audio.md 「스킬 시전 능력 소리」)
     case 'tornado': return def(ex.id) === 'char_474_glady' ? 'glady:s3' : null;
-    case 'crit': return ex.by != null && def(ex.by) === 'char_1021_kroos2' ? 'kroos2:t1' : null;
+    // 2026-10-30: 叙拉古 [ex]'s proc — act2autochess_bond_eff_siracusa[ex][buff] PlayAudio siracusa_ex_attack on the target
+    // after its effect (the bond's only 'bondProc')
+    case 'bondProc': return ex.src === 'bond:siracusaShip' ? 'siracusa:ex' : null;
+    // 2026-10-30: a hit a block layer stops whole (BlockDamage.Execute: with the block effect it plays ON_DAMAGE_BLOCK at the
+    // holder) — not a barrier layer the hit broke through (`whole` 0)
+    case 'parry': return ex.whole === 0 ? null : 'block';
     default: return null;
   }
 }
@@ -176,16 +180,12 @@ export function kitHitKey(fx, ex, unitOf) {
  * (kitHitKey) — 望's stone pop: a placed stone's sktok_wang_<n> ON_ABILITY_START (p_atk_stwctp_d / _h / _s); a 跟子 (a
  * projectile of hers) sounds the same file through its projectile_chr_wang_stone<n> bank, but for S2
  * (ON_PROJECTILE_BEHAVIOUR_TRIGGER, p_atk_stwctps_h). A 跟子 landing (summon fx `follower`): ON_PROJECTILE_BORN.
- * 2026-10-11: 크루스 더 킨 글린트's 中的 shot (fx 'crit' `by` her) — her talent ability T.1's START [추정: the sim rolls the talent
- * as the shot lands, so START sounds with its ON there, not at the swing].
- * @param {(id: any) => ({ def?: string }|undefined)} [unitOf] the tracked unit of an id
  * @returns {string|null} sfx.kit key
  */
-export function kitStartKey(fx, ex, unitOf = () => undefined) {
+export function kitStartKey(fx, ex) {
   if (!ex || typeof ex !== 'object') return null;
   if (fx === 'zone' && ex.token === 'token_10064_wang_stone1' && [1, 2, 3].includes(ex.skill)) return ex.follower && ex.skill === 2 ? 'wang:2fs' : `wang:${ex.skill}s`;
   if (fx === 'summon' && ex.follower) return 'wang:thrown';
-  if (fx === 'crit' && ex.by != null && unitOf(ex.by)?.def === 'char_1021_kroos2') return 'kroos2:t1s';
   return null;
 }
 /**
@@ -200,13 +200,28 @@ const emppnt = (u) => typeof (u?.defId ?? u?.def) === 'string' && (u.defId ?? u.
 /**
  * 2026-10-11, docs/rules/audio.md 「재능·소환물 능력 소리」: the sfx.kit keys of a talent's own attack — sim 'atk' 5th field `signal`
  * (Battle.forceAttack, docs/SIM.md) — of unit model `def`, played instead of its normal attack's cues, or null. 이그제큐터 디 엑스
- * 포에데레's 受选之人 extra shot: ON_ABILITY_START.char_1032_excu2.T.1 (the ability has no ON / HIT bank).
+ * 포에데레's 受选之人 extra shot: ON_ABILITY_START.char_1032_excu2.T.1 (the ability has no ON / HIT bank). 2026-10-30: 크루스 더 킨
+ * 글린트's 中的 shot (outside her skills): ON_ABILITY_ON.char_1021_kroos2.T.1 at its strike (its START at the swing:
+ * talentSwingKeys; its arrow projectile_chr_kroos2_2 has no HIT bank).
  */
 export function talentAttackKeys(def, signal) {
   if (typeof signal !== 'string' || !signal) return null;
   return TALENT_ATTACK_KEYS[def]?.[signal] ?? null;
 }
-const TALENT_ATTACK_KEYS = Object.freeze({ char_1032_excu2: Object.freeze({ 'T.1': Object.freeze(['excu2:t1']) }) });
+const TALENT_ATTACK_KEYS = Object.freeze({
+  char_1032_excu2: Object.freeze({ 'T.1': Object.freeze(['excu2:t1']) }),
+  char_1021_kroos2: Object.freeze({ 'T.1': Object.freeze(['kroos2:t1']) }),
+});
+/**
+ * 2026-10-30, docs/rules/audio.md 「재능·소환물 능력 소리」: the sfx.kit keys a talent ability sounds as its swing starts — sim
+ * 'swing' 9th field `signal` (the client casts it in place of the attack, chosen at the cast start: its START,
+ * AbilityStandard.OnCastStart) — or null. 크루스 더 킨 글린트's 中的: ON_ABILITY_START.char_1021_kroos2.T.1.
+ */
+export function talentSwingKeys(def, signal) {
+  if (typeof signal !== 'string' || !signal) return null;
+  return TALENT_SWING_KEYS[def]?.[signal] ?? null;
+}
+const TALENT_SWING_KEYS = Object.freeze({ char_1021_kroos2: Object.freeze({ 'T.1': Object.freeze(['kroos2:t1s']) }) });
 /**
  * 2026-10-11, docs/rules/audio.md 「재능·소환물 능력 소리」: the prefab mode a summon attacks in (`sfx.units[def].tm[name]`) — 뮤엘시스's
  * 流形 after its copy (sim fx 'copy' `mode` Melee / Range, its owner `by`): Melee_S3 while her S3 runs, Range_S2 while her S2 runs
@@ -1841,6 +1856,9 @@ export class AudioManager {
           // (AbilityStandard.OnCastStart), its group child chosen for the whole attack (sim ai.js 'swing')
           const su = this.units.get(e[1]);
           if (!su) continue;
+          // 2026-10-30: a talent ability cast in place of the attack (9th field) — its own START, none of the attack's cues
+          const tsk = e.length > 8 ? talentSwingKeys(su.def, e[8]) : null;
+          if (tsk) { su.sw = null; for (const k of tsk) this._kitSound(k); continue; }
           su.sw = this._swingOf(su, e[3], now, e[2]);
           if (su.sw) this._swingCues(su, su.sw, 's');
           this._kitSound(signalAttackKey(su, 's', e[3] === 'none' || e[3] == null)); // 2026-10-10: its buff's swing sound

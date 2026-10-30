@@ -1463,8 +1463,8 @@ Unknown subprofessions fall back to the profession default (test `professions.te
   `['fx', kind, x, y, extra]` (`hitCap` `{ id, n }`: a leader's hit cancelled by 限伤 — the renderer draws nothing;
   `kitHit` `{ id, k }`: a sound-only moment of a kit — `k` names the official bank (`sfx.kit[k]`, tools/assets/kit-sfx.mjs:
   望 S1's DoT tick `wang:1`, 赤刃明霄陈 S3's 剑气 `chen3:s3`, 阿斯卡纶 S2's 死亡拘审 kill `ascln:s2bomb`, 灵知's 殊途同归 going off 10 s after
-  each deployment `gnosis:t2` — `id` = the operator); `crit` `{ id, by? }`: a crit mark on target `id` — 寒芒克洛丝's 中的 adds `by` (her id: the
-  client sounds that shot as her talent ability T.1); `copy` `{ id, src, mode, by }`: 缪尔赛思's 流形 `id` copies operator `src` — `mode` its
+  each deployment `gnosis:t2` — `id` = the operator); `crit` `{ id, by? }`: a crit mark on target `id` — 寒芒克洛丝's 中的 adds `by` (her id; the
+  sound of her T.1 shot rides on its 'swing' / 'atk' `signal`, not on this mark); `copy` `{ id, src, mode, by }`: 缪尔赛思's 流形 `id` copies operator `src` — `mode` its
   prefab mode from then on (`'Melee'` / `'Range'`; the client's `_S3` / `_S2` variants while her S3 / S2 runs follow from `by`'s 'skill');
   `enemySkill` `{ id, ability, n }`: an enemy's content skill is cast (`content/enemies.js onTick`, before its effects) — `ability` = the official
   ability name, the data skill's `prefabKey` (the client prefab's `Skills/<name>` — compare case-insensitively: `boomb` ↔ `Boomb`), `n` the cast count;

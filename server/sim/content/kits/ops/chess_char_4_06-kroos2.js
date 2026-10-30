@@ -52,7 +52,7 @@ export default withDefaults({
           if (!crits.has(c.dmg)) return;
           crits.delete(c.dmg);
           if (c.target.alive) battle.applyStatus(c.target, 'stun', { duration: num(t0.stun, 0.2), source: unit });
-          // `by`: the shooter — the client sounds this shot as her talent ability T.1 (public/js/audio.js, docs/SIM.md)
+          // `by`: the shooter (docs/SIM.md; the sound of a T.1 shot rides on its 'swing' / 'atk' signal, public/js/audio.js)
           battle.fx('crit', { x: c.target.x, y: c.target.y, id: c.target.id, by: unit.id });
         }, { owner: unit });
       } }],

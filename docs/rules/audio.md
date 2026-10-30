@@ -334,10 +334,13 @@
 - 공식: 재능도 자기 능력이다 — 신호 `<charId>.T.<n>`(`UnitMode.GenerateSignalId`), START = 능력 시작(`AbilityStandard.OnCastStart`),
   ON = 판정 순간. 스킬 프리팹의 투사체는 발사 순간 `ON_PROJECTILE_BORN.<키>`. 소환물도 자기 프리팹 `_modes`의 신호(위 「공격 소리 신호」). 뱅크는 zh_CN
   `audio_data.json`. 소리는 `sfx.kit` 키(`tools/assets/kit-sfx.mjs`), 소환물 모드는 매니페스트 `sfx.units[토큰].tm[모드 이름]`(`skill-mode-sfx.mjs tokenModeSets`).
-  - 크루스 더 킨 글린트 재능 「中的」(T.1, 따로 고르는 공격 능력): START p_atk_krossbow_d·ON p_imp_krossbow_d. sim은 확률을 착탄 때 굴리므로(`chess_char_4_06-kroos2.js`)
-    그 표시 fx `crit`에 **`by`(그녀 id)**를 더하고, 오디오가 그 순간 START+ON을 같이 낸다 [추정: 공식은 휘두름 시작에 T.1을 골라 START를 휘두름에, 그 사격의 평타
-    큐 대신 낸다 — 우리는 평타 큐도 이미 났고 START가 휘두름 길이만큼 늦음]. 2026-10-21부터 sim은 스킬 밖에선 휘두름 시작에 고르고 'swing'·'atk'에
-    'T.1'을 싣는다(`sim.md` 「재능이 고르는 공격」) — 오디오는 아직 'crit' 그대로(스킬 모드의 치명은 버프 템플릿이라 T.1 능력 소리가 없을 수도 [미확인]).
+  - 크루스 더 킨 글린트 재능 「中的」(T.1, 따로 고르는 공격 능력): START p_atk_krossbow_d·ON p_imp_krossbow_d. 공식은 스킬 밖에서 휘두름(시전) 시작에 T.1을
+    골라 평타 **대신** 시전한다 — START는 휘두름 시작, ON은 타격 순간, 그 화살 `projectile_chr_kroos2_2`는 HIT 뱅크가 없어 착탄음 없음, 평타 큐(p_atk_crossbow_n·
+    p_imp_crossbow_n)도 안 남. sim은 그 휘두름의 'swing' 9번째 칸·'atk' 5번째 칸에 'T.1'을 싣는다(`sim.md` 「재능이 고르는 공격」) → `audio.js talentSwingKeys`
+    (휘두름: START, 그 휘두름의 평타 큐는 고르지 않음)·`talentAttackKeys`(타격: ON, 착탄 없음) (2026-10-30). 스킬 모드의 치명은 버프 템플릿
+    `kroos2_t_1[critical]`(ON_CALCULATE_DAMAGE: Dice → AtkScaleUp → CreateBuff `stun`·`kroos_t_1[critical_effect]`, 어느 것도 audioSignal 없음 — EN 클라 버프
+    템플릿)이라 **소리 없음** — 그 사격은 스킬 모드 평타 소리 그대로. 표시 fx `crit`(`by` 그녀 id)은 이제 소리를 내지 않는다(2026-10-11~10-29엔 착탄 때
+    START+ON을 같이 냈다).
   - 이그제큐터 디 엑스 포에데레 재능 「受选之人」 추가 사격(T.1): START p_atk_shotgunxdouble(ON·HIT 뱅크 없음). sim은 그 사격을 `forceAttack(…, { signal: 'T.1' })`로
     쏘고 그 'atk' 이벤트 끝에 `'T.1'`을 단다(`ai.js performAttack`, `docs/SIM.md`) → `audio.js talentAttackKeys`: 그 순간 T.1 START 한 번, 평타 큐(p_atk_shotgunx_n)·
     착탄음 없음. 버프 `excu2_multi_attack[audio]`(p_atk_shotgunxdouble_2)·`[s3][audio]`(p_atk_shotgunxdouble3)는 붙는 곳이 버프 템플릿에 없다(캐릭터 프리팹 능력
@@ -357,7 +360,7 @@
     끌어당김마다 `mlyss_s_3[melee_audio]`(ON_BUFF_TRIGGER, p_atk_wtrlimepull, fx `pulse`). 안 한 것: S3 원거리 복제 `mlyss_s_3[range_audio]`(p_skill_wtrlimesplit,
     `token_range_trigger` — 그 순간을 sim에서 못 얻음), 가짜 죽음·부활(`mlyss_wtrman_t_1`).
 - 소리 파일: 새 키의 파일 대부분이 아직 없다 → 메인이 `node tools/fetch-assets.mjs --add-only`(매니페스트 `sfx.kit`·`tm` 재생성 + 새 파일만 받음).
-- 확인: `test/local-patch-talent-sounds.test.js`(공식 데이터 위 키·모드 표, 순간별 키, AudioManager 재생, 실제 매치 경로: 크루스 `crit.by`·이그제큐터 'atk' T.1·
+- 확인: `test/local-patch-talent-sounds.test.js`(공식 데이터 위 키·모드 표, 순간별 키, AudioManager 재생, 실제 매치 경로: 크루스 中的 휘두름·타격의 T.1·이그제큐터 'atk' T.1·
   노시스 kitHit 한 번·뮤엘시스 `copy.mode`). [브라우저 미확인]
 
 ## 스킬 시전 능력 소리 (2026-10-29, 공식 클라 + 스킬 프리팹)
@@ -496,8 +499,15 @@
   - 소리 없음 (2026-10-25, 묶음 U): 有限加速器(장비) 템플릿 `act1vautochess_acarm037_buff`의 PlayAudio `trap_acgarm_buff_03`, 炎国短刀(장비)
     `act1vautochess_acarm024_buff`의 `trap_acgarm_buff_02`(그 갈래는 이 시즌에 돌지도 않음 — rules/sim.md), 迅捷 맹약 `act1autochess_bond_eff_swift`의
     `bond_charge_battle_01`·`bond_charge_battle_01[all]` — 공식 audio_data에 `battle.ON_CUSTOM_TRIGGER.<신호>` 뱅크가 없어 공식에서도 소리가 나지
-    않는다(신호 이름만 있음). 같은 점검에서 叙拉古 맹약 [ex]의 `siracusa_ex_attack`(`act2autochess_bond_eff_siracusa[ex][buff]`, 뱅크 `a_bat_xscthrtcl`)은
-    뱅크가 있는데 우리가 내지 않는다 — 할 일로 남김.
+    않는다(신호 이름만 있음). 같은 점검에서 찾은 시라쿠사 맹약 [ex]의 `siracusa_ex_attack`은 뱅크가 있다 — 아래.
+  - 시라쿠사 맹약(siracusaShip) [ex] 발동 (2026-10-30): `act2autochess_bond_eff_siracusa[ex][buff]`의 ON_OUTPUT_DAMAGE가 피해·`fear`·이펙트
+    `common_071_bond_siracusa_hit_01` 다음 PlayAudio `siracusa_ex_attack`(대상, 뱅크 `a_bat_xscthrtcl`, Battle_UI_Important, 2개 popOldest — EN 클라 버프
+    템플릿) → sim fx `bondProc`(`src` `bond:siracusaShip`, 이 맹약만 냄; `bonds/core.js`) → `kitHitKey` `siracusa:ex`. 새 sfx 1개.
+  - 막기 (2026-10-30): 횟수형 护盾 층과 `blockFx` 방벽 층의 `Nodes.BlockDamage.Execute`는 남은 피해가 0 이하일 때(타격을 통째로 막음)만 막은 이펙트와 함께
+    `PlayAudioAtPos`로 `battle.ON_DAMAGE_BLOCK`(`e_atk_soldiershield`, Battle_BE_NAtk, 2개 popOldest)을 막은 유닛 자리에서 낸다 — 뚫고 들어간 타격은 이펙트도
+    소리도 없음(공식 클라에서 확인). 우리: sim fx `parry`(`damage.js absorbShields` 횟수형 층·`archetypes.js` 방벽 층) → `kitHitKey` `block`, 방벽 층이 깨지기만
+    한 것(`whole` 0)은 무음. 새 sfx 1개. 이펙트 쪽은 rules/fx.md 「횟수형 护盾 이펙트」.
+  - 확인: `test/audio-bond-block-sounds.test.js`(뱅크·키·AudioManager 재생, 시라쿠사 6 전투의 발동마다 소리 한 번 — battleHarness). [화면 미확인]
 - 안 한 것 [시점·조건을 sim에서 못 얻음]: 티티 `titi_s_3[spread_from]`(연쇄 수면 선 — sim 이벤트 없음)·재능 `titi_t_1`(잠든 적 틱), 시빌라이트 에테르나
   재능 미진 재생성 `projectile_chr_cetsyr_talent[_s1|_s2]_cooldown_ready`(재생성 순간 이벤트가 없음 — 로스터 kit라 이벤트를 넣으면 golden이 넓게 바뀜),
   위셔델 `WISDEL_S_OVERLOAD`(S3 표식은 위 「스킬·재능 투사체 소리」), 필라에 `philae_aoe`, 카넬리안·노시스·루멘 `[eff_cond]` 단계 버프, 뮤엘시스·비질 가짜 죽음, 실버애쉬 더 레인프로스트

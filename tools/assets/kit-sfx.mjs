@@ -72,7 +72,7 @@ export const KIT_HIT_BANKS = Object.freeze({
   // 아스카론 S2 — an enemy carrying ascln_s_2[enemy] killed (ON_OWNER_KILLED → PlayAudio ASCLN_S_2_BOMB at her)
   'ascln:s2bomb': 'battle.ON_CUSTOM_TRIGGER.ASCLN_S_2_BOMB',
   // 2026-10-11, docs/rules/audio.md 「재능·소환물 능력 소리」: talent abilities (`<charId>.T.<n>`, UnitMode signal rules) —
-  // 크루스 더 킨 글린트's 中的 shot (its own attack ability T.1: START + ON), 이그제큐터 디 엑스 포에데레's 受选之人 extra shot
+  // 크루스 더 킨 글린트's 中的 shot (its own attack ability T.1: START at the swing, ON at the strike), 이그제큐터 디 엑스 포에데레's 受选之人 extra shot
   // (T.1 START), 노시스's 殊途同归 going off 10 s after deployment (T.2 START)
   'kroos2:t1s': 'battle.ON_ABILITY_START.char_1021_kroos2.T.1',
   'kroos2:t1': 'battle.ON_ABILITY_ON.char_1021_kroos2.T.1',
@@ -165,6 +165,10 @@ export const KIT_HIT_BANKS = Object.freeze({
   'clemnt:s3fall': 'battle.ON_CUSTOM_TRIGGER.clemnt_s3_projectile_tick_fall_audio',
   'clemnt:s3hit': 'battle.ON_CUSTOM_TRIGGER.clemnt_s3_projectile_tick_reach_audio',
   'clemnt:t1': 'battle.ON_CUSTOM_TRIGGER.clemnt_t1_power_attack_audio',
+  // 2026-10-30 (public/js/audio.js kitHitKey): 叙拉古 [ex]'s proc on the target (act2autochess_bond_eff_siracusa[ex][buff]
+  // PlayAudio); a hit a block layer stops whole (BlockDamage.Execute plays ON_DAMAGE_BLOCK at the holder: fx 'parry')
+  'siracusa:ex': 'battle.ON_CUSTOM_TRIGGER.siracusa_ex_attack',
+  'block': 'battle.ON_DAMAGE_BLOCK',
 });
 
 /**
