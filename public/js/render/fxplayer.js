@@ -1027,9 +1027,12 @@ class StripBatch {
     vb.setUsage(THREE.DynamicDrawUsage);
     for (const [name, size, offset] of STRIP_ATTRS) g.setAttribute(name, new THREE.InterleavedBufferAttribute(vb, size, offset));
     this.vb = vb;
-    for (const [name, n, v] of [['iUV', 4, [0, 0, 1, 1]], ['iC1', 4, [0, 0, 0, 0]], ['iC2', 4, [0, 0, 0, 0]], ['iPos', 3, [0, 0, 0]]]) {
+    // the same values on every vertex: iUV (0, 0, 1, 1), iC1 / iC2 / iPos 0 — a new Float32Array is already 0, so only
+    // iUV's 1s are written (2026-10-30: an arr.set([…]) per vertex, up to 8000 for a particle trail, was ~5 % of
+    // Firefox's main thread in a co-op boss fight, at each effect's creation)
+    for (const [name, n] of [['iUV', 4], ['iC1', 4], ['iC2', 4], ['iPos', 3]]) {
       const arr = new Float32Array(cap * 2 * n);
-      for (let i = 0; i < cap * 2; i++) arr.set(v, i * n);
+      if (name === 'iUV') for (let o = 2; o < arr.length; o += 4) { arr[o] = 1; arr[o + 1] = 1; }
       g.setAttribute(name, new THREE.BufferAttribute(arr, n));
     }
     this.index = new THREE.BufferAttribute(new Uint16Array(cap * 6), 1);
