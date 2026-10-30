@@ -4,14 +4,17 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { LOAD_STEP, loadLevelStepper, meanWindow } from '../../public/js/render/load-level.js';
 
-/** Feed `secs` of frames from `pattern` (frame intervals in ms, repeated); returns the steps { t, to } and the stepper. */
-function run(st, secs, pattern, busy = true, t0 = 0) {
+/**
+ * Feed `secs` of frames from `pattern` (frame intervals in ms, repeated); `work(ms)` = the view's own work of a frame
+ * (default: the whole frame); returns the steps { t, to }.
+ */
+function run(st, secs, pattern, busy = true, t0 = 0, work = (ms) => ms) {
   const steps = [];
   let t = 0, i = 0;
   while (t < secs) {
-    const dt = pattern[i++ % pattern.length] / 1000;
+    const ms = pattern[i++ % pattern.length], dt = ms / 1000;
     t += dt;
-    const to = st.step(dt, busy);
+    const to = st.step(dt, busy, work(ms));
     if (to != null) steps.push({ t: t0 + t, to });
   }
   return steps;
@@ -87,4 +90,23 @@ test('worst: the longest frame of the slow spell under way, cleared by a step an
   assert.ok(st.worst < 0.07);
   run(st, 3, [10]);
   assert.equal(st.worst, 0);
+});
+
+test('slow frames the view\'s own work does not explain (3 ms of 26–43 ms: after the boss fight) raise no level', () => {
+  const st = loadLevelStepper();
+  run(st, 5, second(150));
+  assert.deepEqual(run(st, 10, [26, 43, 32], true, 0, () => 3), []);
+  assert.equal(st.level, 0);
+  // the same frames with the view's work at half of them (the Hidden Core's first effects: 16.9 of 34 ms) do
+  assert.deepEqual(run(st, 3.5, [34], true, 0, (ms) => ms / 2).map((s) => s.to), [1]);   // the work mean catches up first
+  assert.ok(st.workMs >= LOAD_STEP.workShare * st.upMs);
+});
+
+test('a slow spell not from the view\'s work restarts the count: 0.9 s of own slowness, a stall, 0.9 s again stays at 0', () => {
+  const st = loadLevelStepper();
+  run(st, 5, second(150));
+  run(st, 0.9, [30]);
+  run(st, 0.5, [30], true, 0, () => 2);
+  assert.deepEqual(run(st, 0.9, [30]), []);
+  assert.equal(st.level, 0);
 });

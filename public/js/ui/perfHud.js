@@ -241,11 +241,14 @@ function lodSecText(list) {
   return any ? ` (s ${sec.map(r0).join('/')})` : '';
 }
 
-/** The line's load level steps (census lodSteps): `0→1 12:03:04 (35 ms, worst 180 ms, 21 views, battle)`, the first 6. */
+/**
+ * The line's load level steps (census lodSteps): `0→1 12:03:04 (35 ms, work 16 ms, worst 180 ms, 21 views, battle)` —
+ * the mean interval, the view's own work of a frame (a step up), the longest frame — the first 6.
+ */
 function lodStepsText(list) {
   const steps = list.flatMap((s) => s.held?.lodSteps || []);
   if (!steps.length) return null;
-  const one = (x) => `${x.from}→${x.to} ${wallClock(x.wall)} (${r0(x.ms)} ms${Number.isFinite(x.worst) ? `, worst ${r0(x.worst)} ms` : ''}, ${x.views} views, ${x.mode})`;
+  const one = (x) => `${x.from}→${x.to} ${wallClock(x.wall)} (${r0(x.ms)} ms${Number.isFinite(x.work) ? `, work ${r0(x.work)} ms` : ''}${Number.isFinite(x.worst) ? `, worst ${r0(x.worst)} ms` : ''}, ${x.views} views, ${x.mode})`;
   return `lod steps ${steps.slice(0, 6).map(one).join(', ')}${steps.length > 6 ? ` +${steps.length - 6}` : ''}`;
 }
 

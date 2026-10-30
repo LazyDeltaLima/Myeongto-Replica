@@ -2044,6 +2044,7 @@ export async function createFieldView(host, options = {}) {
   let clock = 0;
   let cpuMs = 0;
   let lastJs = 0;   // the last frame's JS (ms): the report's first-frame notes
+  let lastDraw = 0; // the last frame's PIXI render (ms): with lastJs, the view's own work (adaptLoad)
   // the longest single frame JS / PIXI render / 3D board draw (ms) since the last takePeaks() (the perf HUD's stalls)
   const peaks = { js: 0, draw: 0, b3: 0 };
   // The frame JS split by section (ms, the same moving mean as cpuMs; stats().parts, the perf HUD's report): misc = camera,
@@ -2070,8 +2071,8 @@ export async function createFieldView(host, options = {}) {
   let loadLevel = 0;
   const lodStepper = loadLevelStepper();
   // 2026-10-30 (census, the perf HUD): the seconds at each level and the steps since the last census — UTC time, from →
-  // to, the ~1 s mean frame interval (up) / ~2 s (down), the longest frame of the slow spell that raised it, the views,
-  // prep / battle
+  // to, the ~1 s mean frame interval (up) / ~2 s (down), the ~1 s mean of the view's own work (up), the longest frame of
+  // the slow spell that raised it, the views, prep / battle
   const lodSec = [0, 0, 0, 0];
   let lodSteps = [];
   function adaptLoad(dtRaw) {
@@ -2079,10 +2080,10 @@ export async function createFieldView(host, options = {}) {
     lodSec[loadLevel] += dtRaw;
     const busy = views.size + penViews.size > 8;
     const worst = lodStepper.worst;
-    const to = lodStepper.step(dtRaw, busy);
+    const to = lodStepper.step(dtRaw, busy, lastJs + lastDraw);   // the last frame's work: this one's is not done yet
     if (to != null) {
       const rise = to > loadLevel;
-      if (lodSteps.length < 12) lodSteps.push({ wall: Date.now(), from: loadLevel, to, ms: rise ? lodStepper.upMs : lodStepper.downMs, worst: rise ? Math.max(worst, dtRaw) * 1000 : null, views: views.size + penViews.size, mode });
+      if (lodSteps.length < 12) lodSteps.push({ wall: Date.now(), from: loadLevel, to, ms: rise ? lodStepper.upMs : lodStepper.downMs, work: rise ? lodStepper.workMs : null, worst: rise ? Math.max(worst, dtRaw) * 1000 : null, views: views.size + penViews.size, mode });
       loadLevel = to;
       impInterval = pickImpostorInterval();
     }
@@ -2294,6 +2295,7 @@ export async function createFieldView(host, options = {}) {
     if (!renderT0) return;
     const ms = performance.now() - renderT0;
     renderMs = renderMs * 0.9 + ms * 0.1;
+    lastDraw = ms;
     if (ms > peaks.draw) peaks.draw = ms;
     afterRender(ms);
   };

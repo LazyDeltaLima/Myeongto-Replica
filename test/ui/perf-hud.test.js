@@ -177,14 +177,14 @@ test('the report: seconds at each load level, its steps with the frames that rai
   const wall = Date.UTC(2026, 9, 30, 12, 3, 4);
   const line = perfReportLines([
     snap({ held: { ...base, lodSec: [6, 1.2, 1.1, 1.4],
-      lodSteps: [{ wall, from: 0, to: 1, ms: 34.6, worst: 180.2, views: 21, mode: 'battle' }, { wall: wall + 1100, from: 1, to: 2, ms: 28, worst: 95, views: 21, mode: 'battle' }],
+      lodSteps: [{ wall, from: 0, to: 1, ms: 34.6, work: 15.6, worst: 180.2, views: 21, mode: 'battle' }, { wall: wall + 1100, from: 1, to: 2, ms: 28, worst: 95, views: 21, mode: 'battle' }],
       fxSkip: { lod3: 4, off: 2, trail: 3, files: 30, waitMs: 2400, waitMax: 410, lost: 0, tries: 1, layer: 'on' } } }),
     snap({ held: { ...base, lodSec: [0, 0, 0, 10],
       lodSteps: [{ wall: wall + 2300, from: 2, to: 3, ms: 25, worst: 60, views: 22, mode: 'battle' }],
       fxSkip: { lod3: 40, off: 0, trail: 9, files: 2, waitMs: 100, waitMax: 90, lost: 1, tries: 2, layer: 'off' } } }),
   ])[0];
   assert.match(line, /\| lod 1–1 \(s 6\/1\/1\/11\) \| /);
-  assert.match(line, /\| lod steps 0→1 12:03:04 \(35 ms, worst 180 ms, 21 views, battle\), 1→2 12:03:05 \(28 ms, worst 95 ms, 21 views, battle\), 2→3 12:03:06 \(25 ms, worst 60 ms, 22 views, battle\) \| /);
+  assert.match(line, /\| lod steps 0→1 12:03:04 \(35 ms, work 16 ms, worst 180 ms, 21 views, battle\), 1→2 12:03:05 \(28 ms, worst 95 ms, 21 views, battle\), 2→3 12:03:06 \(25 ms, worst 60 ms, 22 views, battle\) \| /);
   assert.match(line, /\| fx skip lod3 44, off 2, trail 12 · files 32 \(wait 2500 ms, max 410\) · lost 1 · layer off \(2 tries\) \| /);
   // a line without the census fields (an older page) prints none of them
   const old = perfReportLines([snap({ held: base })])[0];
