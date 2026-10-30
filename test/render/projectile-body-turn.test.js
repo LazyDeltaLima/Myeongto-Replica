@@ -117,6 +117,24 @@ test('bodyTurn (W2b-2): a body without _rotateToTarget keeps the board\'s frame,
   assert.ok(Math.abs(t.inst.object.rotation.z - (0.7 - Math.PI / 2)) < 1e-12);
 });
 
+test('bodyTurn (2026-10-30): a 3D flight direction pitches the body (FaceTo3dUpwardMajor) — level, the board angle\'s turn', async () => {
+  for (const a of [0, 1.1, -2.5]) {
+    const lvl = await trail({}), ang = await trail({});
+    bodyTurn(lvl.inst, lvl.THREE, [Math.cos(a) * 3, Math.sin(a) * 3, 0]);
+    bodyTurn(ang.inst, ang.THREE, a);
+    assert.ok(lvl.inst.object.quaternion.angleTo(ang.inst.object.quaternion) < 1e-6, `${a}: a level direction = the angle`);
+  }
+  const { THREE, inst } = await trail({});
+  bodyTurn(inst, THREE, [2, 0, -1]);   // muzzle above the hit point: nose down
+  const y = new THREE.Vector3(0, 1, 0).applyQuaternion(inst.object.quaternion);
+  const z = new THREE.Vector3(0, 0, 1).applyQuaternion(inst.object.quaternion);
+  assert.ok(y.distanceTo(new THREE.Vector3(2, 0, -1).normalize()) < 1e-6, `+y along the flight (${y.toArray()})`);
+  assert.ok(Math.abs(z.dot(y)) < 1e-6 && z.z > 0 && Math.abs(z.y) < 1e-6, `its z stays square to it in the vertical plane, upward (${z.toArray()})`);
+  const still = await trail({ still: 1 });
+  bodyTurn(still.inst, still.THREE, [2, 0, -1]);
+  assert.ok(still.inst.object.quaternion.equals(new still.THREE.Quaternion()), 'still: unturned');
+});
+
 test('fx_extract.py body_still: still when no carrier turns, stillBy when some do, nothing else', { skip: !PY && 'no python with UnityPy' }, () => {
   const src = `import sys, json
 sys.path.insert(0, ${JSON.stringify(TOOL)})

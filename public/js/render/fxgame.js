@@ -82,7 +82,7 @@ import { opShot } from './fx/speeds.js'; // 2026-10-21: a skill's own shot recor
 import { boomerangThrown, boomerangCaught } from './heldWheel.js'; // local patch: a 回环射手's boomerang leaves / is back in her hand
 import { PROJ } from './style.js';
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2: when her model is back home
-import { bodyTurn, faceSwitchCopy, faceTurn, followDir, playSpeed } from './fx/face.js'; // 2026-10-11 (maintainer decision 15): `_usePlaybackSpeed` / `_limitedPlaybackSpeed`; 2026-10-22 FollowDirection, SwitchableEffectByFaceDirection; 2026-10-27 a projectile body's turn
+import { bodyTurn, faceSwitchCopy, faceTurn, followDir, playSpeed, upwardMajor } from './fx/face.js'; // 2026-10-11 (maintainer decision 15): `_usePlaybackSpeed` / `_limitedPlaybackSpeed`; 2026-10-22 FollowDirection, SwitchableEffectByFaceDirection; 2026-10-27 a projectile body's turn
 import { kitOfficialPlan, kitOperator } from './fx/kitofficial.js'; // 2026-10-16: kit events the buff templates draw
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
 import { enemyRecordMode } from '../../../shared/skill-modes.js'; // 2026-10-23: an ally from an enemy record (炎佑)
@@ -2107,8 +2107,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const z = rec.z0 + (rec.tz - rec.z0) * k + (rec.arc ? rec.arc * 4 * k * (1 - k) : 0);
     if (!rec.inst) return;
     rec.inst.object.position.set(x, y, z);
-    bodyTurn(rec.inst, mod.THREE, Math.atan2(rec.ty - rec.y0, rec.tx - rec.x0), undefined, rec.key);
+    bodyTurn(rec.inst, mod.THREE, flightDir(rec, k), undefined, rec.key);
   }
+  /**
+   * 2026-10-30 (official client: the body's +y = its 3D flight, bodyTurn): the drawn path's tangent at flight fraction `k`
+   * — the straight line's rise (muzzle → hit point) plus the lob's (`arc`); `s` −1 for a boomerang on its way back.
+   */
+  const flightDir = (rec, k, s = 1) => [s * (rec.tx - rec.x0), s * (rec.ty - rec.y0),
+    s * ((rec.tz ?? 0) - (rec.z0 ?? 0) + (rec.arc ? rec.arc * 4 * (1 - 2 * k) : 0))];
   /**
    * 2026-10-11 (user report: 언더플로우's and 애쉬락's projectiles disappear late): a projectile's `_mainEffect` ends as its
    * projectile stops, the client's way (`Effect.FinishMe` on a ProjectileEffect): its first particle system
@@ -2133,7 +2139,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const home = !!rec.src && rec.src.alive !== false && !rec.src.remove;
         rec.k = Math.max(0, rec.k - g / rec.back);
         placeTrail(rec);
-        bodyTurn(rec.inst, mod.THREE, Math.atan2(rec.y0 - rec.ty, rec.x0 - rec.tx), undefined, rec.key);
+        bodyTurn(rec.inst, mod.THREE, flightDir(rec, Math.min(1, rec.k), -1), undefined, rec.key);
         if (rec.k <= 0 || !home) { rec.inst?.stop(true); trails.splice(i, 1); boomerangCaught(rec.src); }
         continue;
       }
@@ -2527,22 +2533,6 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   const lemuenOn = (v) => !!(v && fxBundleOf(v.info?.spine || v.info?.defId) === 'lemuen' && bundleOf(v) && !failed);
   let SKY_Y = null, skyUp = null; // local patch: skyward beams (update; three.js loads lazily)
-  /**
-   * 2026-10-27 (official client): `obj` (an FxInstance's object) turned as MapUtil.FaceTo3dUpwardMajor(d, Vector3.forward)
-   * turns a projectile body — LookRotation(forward = (d × fwd) × d, up = d) in the Unity frame (z = −height, so its forward
-   * points down). In the scene (the Unity frame mirrored in z, FxInstance's `unity`): x = u × d, y = d, z = −u with u the
-   * down vector made square to d. A direction straight down leaves it as it is.
-   */
-  function upwardMajor(obj, dx, dy, dz) {
-    const T = mod.THREE, d = new T.Vector3(dx, dy, dz);
-    if (d.lengthSq() < 1e-9) return;
-    d.normalize();
-    const u = new T.Vector3(0, 0, -1).addScaledVector(d, d.z);
-    if (u.lengthSq() < 1e-9) return;
-    u.normalize();
-    const m = new T.Matrix4().makeBasis(new T.Vector3().crossVectors(u, d), d, u.clone().negate());
-    obj.quaternion.setFromRotationMatrix(m);
-  }
   const lemMarks = new Map();   // 蕾缪安 id → [[live entries of one lock's beam / reticle / mark]], in lock order (its shells land in that order)
   const lemMarkFx = new Map();  // target id → { n: locks holding it, l: its live crosshair_02, src, ended } — the one mark of a locked target
   // its buff ended (the lock phase is over): its systems stop, gone its prefab's `_delayToFinish` later (stopBuffs' end)
@@ -3468,7 +3458,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         }
         spawn(bundleOf(src).bundle, n, (aimFx ? ground : tgt) || { x, y, z: 0 }, { owner: o.id, buff: true, on: o.id, until: clockS + 30, skyward: n.endsWith('trail_01') }).then((l) => {
           if (!l) return;
-          if (aimFx && from) upwardMajor(l.inst.object, ground.x - from.x, ground.y - from.y, 0);
+          if (aimFx && from) upwardMajor(l.inst.object, mod.THREE, ground.x - from.x, ground.y - from.y, 0);
           if (mark.done) l.inst.stop(); else mark.push(l);
         });
       }

@@ -126,16 +126,39 @@ export function startLead(face, speed = 1) {
  * coordinates, `a`: the flight's board angle (radians), `THREE` the three.js module. A root without the record keeps its own
  * rotation on the body. 2026-10-27 (bundle W2b-2): a body without `_rotateToTarget` is not turned at all — it keeps the
  * board's frame (fx_extract.py body_still: `still`, or `stillBy` naming the projectile `key` it flies on).
+ * 2026-10-30 (official client): in this mode the turn is `FaceTo3dUpwardMajor` with the flight's 3D direction — the body
+ * pitches with it (AdvancedMovement: target − position each tick; ParacurveMovement: along its arc; SmoothLerpDirection
+ * keeps the new direction unless it turns by more than 90°). `a` is that direction `[dx, dy, dz]`, or a board angle for a
+ * level flight (the same turn).
  */
 export function bodyTurn(inst, THREE, a, rnd = Math.random, key = null) {
   if (!inst) return;
   const def = inst.def, root = inst.nodes?.[0];
-  inst.object.rotation.set(0, 0, bodyStill(def, key) ? 0 : a - Math.PI / 2);
+  if (bodyStill(def, key)) inst.object.rotation.set(0, 0, 0);
+  else if (Array.isArray(a)) upwardMajor(inst.object, THREE, a[0], a[1], a[2]);
+  else inst.object.rotation.set(0, 0, a - Math.PI / 2);
   if (!Array.isArray(def?.mainRot) || !root || inst._bodyTurned) return;
   inst._bodyTurned = true;
   const q = def.mainRot, roll = Number(def.roll) || 0;
   root.quaternion.set(q[0], q[1], q[2], q[3]);
   if (roll) root.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), (rnd() * roll * Math.PI) / 180));
+}
+
+/**
+ * 2026-10-27 (official client): `obj` (an FxInstance's object) turned as MapUtil.FaceTo3dUpwardMajor(d, Vector3.forward)
+ * turns a projectile body — LookRotation(forward = (d × fwd) × d, up = d) in the Unity frame (z = −height, so its forward
+ * points down). In the scene (the Unity frame mirrored in z, FxInstance's `unity`): x = u × d, y = d, z = −u with u the
+ * down vector made square to d. A direction straight down, or none, leaves it as it is.
+ */
+export function upwardMajor(obj, THREE, dx, dy, dz) {
+  const d = new THREE.Vector3(dx, dy, dz);
+  if (d.lengthSq() < 1e-9) return;
+  d.normalize();
+  const u = new THREE.Vector3(0, 0, -1).addScaledVector(d, d.z);
+  if (u.lengthSq() < 1e-9) return;
+  u.normalize();
+  const m = new THREE.Matrix4().makeBasis(new THREE.Vector3().crossVectors(u, d), d, u.clone().negate());
+  obj.quaternion.setFromRotationMatrix(m);
 }
 
 /** Whether the projectile body a trail prefab `def` sits on stays unturned (bodyTurn), flying on projectile `key`. */

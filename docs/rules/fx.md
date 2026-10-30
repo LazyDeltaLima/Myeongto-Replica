@@ -1425,7 +1425,11 @@
 ### 투사체 꼬리 방향 — 본체 위의 루트 회전·무작위 굴림 (2026-10-27, 이펙트 묶음 W2b, 공식 클라에서 확인)
 - 공식: 꼬리(`_mainEffect`)는 `Projectile._CreateMainEffect`가 투사체 본체(`_bodyTransform`) 밑에 만든다. 본체는 `BasicMovement.RotateToCertainDirection`이
   `_rotateToTarget`일 때만 돌리고(`_freezeRotationXY` → `MapUtil.FaceTo2d`, `_freezeRotationZ`·이 모드 → `FaceTo3dUpwardMajor`, 그 밖 카메라 기준) 어느 갈래든
-  본체 +y = 비행 방향이다. 그다음 `ProjectileEffect.OnBeforePlay`가 재생마다 루트를 그 본체 위에서 다시 돌린다: ① `_resetMainDir`이고 `_mainDir`이 UP이 아니면
+  본체 +y = 비행 방향이다. 이 모드의 `FaceTo3dUpwardMajor`는 높이까지 따른다(2026-10-30, 공식 클라에서 확인): `BasicMovement.OnTick`이 매 틱 `direction`으로
+  돌리고, 날아가는 탄(`AdvancedMovement`)은 그것을 (대상 명중점 − 지금 위치)의 3D 정규화로, 곡사(`ParacurveMovement`)는 다음 점 − 지금 위치(중력 포물선)로
+  둔다; `SmoothLerpDirection`은 90°를 넘게 꺾일 때만 섞는다. 그래서 곧은 탄은 총구 → 명중점 선을 따라 숙고, 곡사는 오를 때 위·내릴 때 아래를 본다 —
+  우리는 그려지는 경로의 접선(`fxgame.js flightDir`: 3D 선 + `arc` 호의 미분, 부메랑 돌아오는 길은 반대)으로 `fx/face.js bodyTurn`(예전엔 판 위 각도만,
+  숙임 없음; 오퍼레이터 ~110·적 ~50 투사체). 높이가 같은 키트 비행(켈시 에스페란타 S3 순간이동 꼬리, `p.fly`, 드론 꼬리)은 판 위 각도 그대로 = 같은 회전. 그다음 `ProjectileEffect.OnBeforePlay`가 재생마다 루트를 그 본체 위에서 다시 돌린다: ① `_resetMainDir`이고 `_mainDir`이 UP이 아니면
   `localRotation` = Euler(0, `_rotate180Y` ? 180 : 0, `_mainDir`·90) — 루트의 원래 회전은 버림(UP이면 아무것도 안 함, 180Y도) ② `_flipIfLeft`(추출 프리팹 모두 0)
   ③ `_randomAngle`이 0이 아니면 자기 x축 둘레로 Range(0, `_randomAngle`)만큼 굴림.
 - 예전: 꼬리 그룹을 비행 방향으로 돌려 프리팹 +x를 비행에 맞추고 루트의 원래 회전을 그대로 썼다 — 「초기화 + RIGHT」와 같아서 대부분은 맞았지만, 굴림이
