@@ -937,7 +937,8 @@ ON_BUFF_FINISH에 대상이 살아 있을 때만(`IfTarget _checkTargetAlive`) +
   머문 초(`adaptLoad`가 세는 프레임만: 숨은 페이지·250 ms 넘는 프레임 제외). ② `lod steps 0→1 hh:mm:ss (M ms, worst W ms, N views, battle), …` —
   단계가 바뀐 시각(UTC), 그때의 평균 간격(올림은 약 1초·내림은 약 2초 평균, 「적응 부하 단계」)·올릴 때의 보기의 일 평균(`work`), 올린 느린 구간의 가장 긴 프레임(내릴 때는 없음), 보기 수, 준비/전투; 줄마다 6개까지(`+n`),
   10초에 12개까지. 긴 프레임 몇 개로 오른 것(이펙트 파일·텍스처 첫 올리기)과 계속 느려서 오른 것을 가른다. ③ `fx skip lod3 A, off B, trail C ·
-  files F (wait S ms, max X) · lost L · layer 상태 (n tries)` — 공식 이펙트가 있는 유닛(오퍼레이터 묶음·적)의 일반 공격 중 단계 3이라 절차로 둔 것
+  files F (wait S ms, max X) · lost L · first R · layer 상태 (n tries)`(`first`는 2026-10-31: 꼬리 프리팹이 아직 안 받아져 절차 탄으로 쏜 수 — 일반 공격·스킬
+  탄·적, 0이면 안 찍음; rules/fx.md 「보스 정비 때 미리 받기」) — 공식 이펙트가 있는 유닛(오퍼레이터 묶음·적)의 일반 공격 중 단계 3이라 절차로 둔 것
   (스킬 중 공격 제외)·이펙트 층이 아직 없을 때 온 것(불러오는 중이면 늦게, 실패·컨텍스트 잃음이면 절차), `MAX_TRAILS`(12) 때문에 절차 탄이 된 궤적,
   처음 받은 이펙트 파일 수와 기다린 시간 합·최대, 잃은 WebGL 컨텍스트, 줄 끝의 층 상태(`on`·`loading`·`off`·`nowebp`·`none`)와 이 페이지의 불러오기
   시도 수(`fxGame.perfSkips()`). 측정 기능이지 동작 변경 없음(궤적 상한 검사가 `trailFull()`로 셈, 공격 이벤트마다 비교 몇 번). Windows Chrome 1600×900

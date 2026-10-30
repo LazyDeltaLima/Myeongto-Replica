@@ -186,6 +186,10 @@ test('the report: seconds at each load level, its steps with the frames that rai
   assert.match(line, /\| lod 1–1 \(s 6\/1\/1\/11\) \| /);
   assert.match(line, /\| lod steps 0→1 12:03:04 \(35 ms, work 16 ms, worst 180 ms, 21 views, battle\), 1→2 12:03:05 \(28 ms, worst 95 ms, 21 views, battle\), 2→3 12:03:06 \(25 ms, worst 60 ms, 22 views, battle\) \| /);
   assert.match(line, /\| fx skip lod3 44, off 2, trail 12 · files 32 \(wait 2500 ms, max 410\) · lost 1 · layer off \(2 tries\) \| /);
+  assert.doesNotMatch(line, /first/, 'no shot waited for its trail: no `first`');
+  // 2026-10-31: shots left procedural while their trail loaded
+  const first = perfReportLines([snap({ held: { ...base, fxSkip: { lod3: 0, off: 0, trail: 0, files: 3, waitMs: 40, waitMax: 20, lost: 0, first: 5, tries: 1, layer: 'on' } } })])[0];
+  assert.match(first, /\| fx skip lod3 0, off 0, trail 0 · files 3 \(wait 40 ms, max 20\) · first 5 · layer on \(1 tries\) \| /);
   // a line without the census fields (an older page) prints none of them
   const old = perfReportLines([snap({ held: base })])[0];
   assert.doesNotMatch(old, /lod steps|fx skip|\(s /);

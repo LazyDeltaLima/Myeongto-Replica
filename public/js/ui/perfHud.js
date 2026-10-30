@@ -255,7 +255,8 @@ function lodStepsText(list) {
 /**
  * The line's official effects not played (census fxSkip, summed): normal attacks left procedural by load level 3 /
  * while the layer was not up, trails refused by the cap, effect files fetched (summed and longest wait), lost
- * contexts, and the layer at the line's end with the loads tried this page.
+ * contexts, shots left procedural while their trail loaded (`first`, 2026-10-31), and the layer at the line's end with
+ * the loads tried this page.
  */
 function fxSkipText(list) {
   const xs = list.map((s) => s.held?.fxSkip).filter(Boolean);
@@ -264,7 +265,8 @@ function fxSkipText(list) {
   const z = xs[xs.length - 1];
   return `fx skip lod3 ${sum('lod3')}, off ${sum('off')}, trail ${sum('trail')}`
     + ` · files ${sum('files')} (wait ${sum('waitMs')} ms, max ${Math.max(...xs.map((x) => x.waitMax || 0))})`
-    + `${sum('lost') ? ` · lost ${sum('lost')}` : ''} · layer ${z.layer ?? '-'}${z.tries ? ` (${z.tries} tries)` : ''}`;
+    + `${sum('lost') ? ` · lost ${sum('lost')}` : ''}${sum('first') ? ` · first ${sum('first')}` : ''}`
+    + ` · layer ${z.layer ?? '-'}${z.tries ? ` (${z.tries} tries)` : ''}`;
 }
 
 /** The line's components whose re-renders took the most (ms/s, re-renders/s), the top 3 over its samples. */

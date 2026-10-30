@@ -388,6 +388,24 @@ export function bindingNames(binding) {
   return [...out];
 }
 
+/**
+ * 2026-10-31 (first-shot trails): the trail prefabs an operator's modes.json binding names — every string under a `trail`
+ * key (its modes' `trail`, a talent part's `T.1.trail`, a side's `sideFx[].ally.trail`, a drone's `funnels[][].trail`), once
+ * each. A skill's own shot list (`skills[i].shot`) is warmShot's.
+ */
+export function trailNames(binding) {
+  const out = new Set();
+  const take = (o) => {
+    if (typeof o === 'string') { if (o) out.add(o); } else if (Array.isArray(o)) for (const x of o) take(x);
+  };
+  const walk = (o) => {
+    if (Array.isArray(o)) for (const x of o) walk(x);
+    else if (o && typeof o === 'object') for (const k of Object.keys(o)) if (k === 'trail') take(o[k]); else walk(o[k]);
+  };
+  walk(binding);
+  return [...out];
+}
+
 export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1, fieldRect = () => null, grid = () => null, enemyDef = () => null, unitDef = () => null, audio = () => null, standIn = () => {}, trace = null, dry = false }) {
   let index = null, modes = null, emodes = null, plays = null;
   if (typeof fetch === 'function') {
@@ -431,7 +449,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // load level 3 left to the procedural FX (`lod3`, a running skill's attacks excepted) or that came while the layer was
   // not up (`off`: loading → late, failed or lost → procedural), the official trails the MAX_TRAILS cap refused
   // (`trail`), the effect files fetched (`files`, their summed / longest wait in ms) and the lost contexts (`lost`)
-  const skips = { lod3: 0, off: 0, trail: 0, files: 0, waitMs: 0, waitMax: 0, lost: 0 };
+  const skips = { lod3: 0, off: 0, trail: 0, files: 0, waitMs: 0, waitMax: 0, lost: 0, first: 0 };   // first: 2026-10-31, a shot procedural while its trail loads
   // the perf HUD's top effects: each effect's player update time (ms) and instances by prefab name since the last perfTop()
   const perfBy = new Map();
   let perfFrames = 0;
@@ -555,13 +573,29 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const preQueue = [];               // `bundle/prefab` keys not loaded yet, in queue order
   const preKeys = new Set();         // every key queued (the queue never takes one twice)
   const preSeen = new Set();         // the bundles / enemy ids already queued
-  let preTimer = 0, preOn = false;
-  function preQueueKey(bundle, n) {
+  const preTrails = new Set();       // 2026-10-31: the queued keys that are trails (at the queue's head)
+  let preTimer = 0, preOn = false, preTrailsOnly = false;
+  function preQueueKey(bundle, n, trail = false) {
     const k = `${bundle}/${n}`;
-    if (!preKeys.has(k)) { preKeys.add(k); preQueue.push(k); }
+    if (preKeys.has(k)) return;
+    preKeys.add(k);
+    if (trail) { preTrails.add(k); preQueue.unshift(k); } else preQueue.push(k);
   }
-  function preQueueUnit(v) {
-    const b = bundleOf(v);
+  // 2026-10-31 (first-shot trails): a unit's trail prefabs go first — trailShot / eshotFx draw a shot's official trail only
+  // once its prefab is in `trailReady` (the procedural shot meanwhile), which the queue now fills as it loads them; an
+  // enemy's from its enemy-modes.json binding
+  function preQueueUnit(v, trailsOnly = false) {
+    const b = bundleOf(v), bind = b && bindOf(v), tk = bind && `trails:${b.bundle}`;
+    if (bind && !preSeen.has(tk)) {
+      preSeen.add(tk);
+      for (const n of trailNames(bind)) if (b.prefabs.includes(n)) preQueueKey(b.bundle, n, true);
+    }
+    const tb = ebindOf(v), te = tb && `etrails:${v.info.defId}|${v.info.spine || ''}`;
+    if (tb && !preSeen.has(te)) {
+      preSeen.add(te);
+      for (const n of trailNames(tb)) { const r = efx(n); if (r) preQueueKey(r[0], r[1], true); }
+    }
+    if (trailsOnly) return;
     if (b) {
       for (const bn of [b.bundle, `${b.bundle}_token`, ...SHARED_BUNDLES]) {
         if (preSeen.has(bn)) continue;
@@ -576,10 +610,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   function pumpPreload() {
     if (preTimer || !preOn || !preQueue.length || destroyed) return;
+    if (preTrailsOnly && !preTrails.has(preQueue[0])) return;   // a battle: its trails only, the rest waits for the next prep
     preTimer = setTimeout(async () => {
       if (!preOn || destroyed || !(await ensure())) { preTimer = 0; return; }
       const k = preQueue.shift(), i = k.indexOf('/');
-      if (!lib.defs.has(k)) await lib.load(k.slice(0, i), k.slice(i + 1));
+      const def = await lib.load(k.slice(0, i), k.slice(i + 1));   // a key loaded already: its cached promise
+      if (def) trailReady.add(k);   // 2026-10-31: a trail of it flies the official prefab from its first shot
       preTimer = 0;
       pumpPreload();
     }, PRELOAD_GAP_MS);
@@ -595,7 +631,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     gen++;
     loading = null; variants = null; warmNext = 2;
     clearTimeout(warmTimer); warmTimer = 0;
-    clearTimeout(preTimer); preTimer = 0; preQueue.length = 0; preSeen.clear(); preKeys.clear(); // the library goes: load again
+    clearTimeout(preTimer); preTimer = 0; preQueue.length = 0; preSeen.clear(); preKeys.clear(); preTrails.clear(); // the library goes: load again
 
     // local patch (maintainer request 2026-10-10, docs/rules/render.md 「이펙트 렌더러 정리」): renderer.dispose() alone left
     // the contexts, 45–170 MB of textures each match, to a GC that never came while anything held the old view
@@ -1879,6 +1915,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const key = `${b.bundle}/${name}`;
     if (!trailReady.has(key)) {
       ensure().then((ok) => (ok ? lib.load(b.bundle, name) : null)).then((def) => { if (def) trailReady.add(key); }, () => {});
+      skips.first++;
       return false;
     }
     if (trailFull()) return false;
@@ -1912,7 +1949,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     (sg?.shots?.slice(1) || []).forEach((s, k) => {
       const n = Array.isArray(s) ? s.find((x) => b.prefabs.includes(x)) : null;
       if (!n) return;
-      if (!trailReady.has(`${b.bundle}/${n}`)) { ensure().then((ok) => (ok ? lib.load(b.bundle, n) : null)).then((def) => { if (def) trailReady.add(`${b.bundle}/${n}`); }, () => {}); return; }
+      if (!trailReady.has(`${b.bundle}/${n}`)) { ensure().then((ok) => (ok ? lib.load(b.bundle, n) : null)).then((def) => { if (def) trailReady.add(`${b.bundle}/${n}`); }, () => {}); skips.first++; return; }
       const go = () => { if (!trailFull() && !gone.has(ownerOf(tgt))) launchTrail({ ...rec, inst: null, k: 0, ...aimOf(tgt) }, b.bundle, n); };
       if (sg.dt > 0) castsDelayed.push({ t: clockS + sg.dt * (k + 1), run: go }); else go();
     });
@@ -4291,6 +4328,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const key = `${r[0]}/${r[1]}`;
     if (!trailReady.has(key)) {
       ensure().then((ok) => (ok ? lib.load(r[0], r[1]) : null)).then((def) => { if (def) trailReady.add(key); }, () => {});
+      skips.first++;
       return false;
     }
     if (trailFull()) return false;
@@ -5609,12 +5647,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
 
     /**
      * 2026-10-30: queue the effect files of these unit views (a boss round's prep, a scouted board) and load them one at a
-     * time (see PRELOAD_GAP_MS); null pauses the queue. → the keys still queued.
+     * time (see PRELOAD_GAP_MS); null pauses the queue. → the keys still queued. 2026-10-31: `trailsOnly` (every other
+     * prep, and a battle) queues only the units' trail prefabs and loads only those — their first shots fly the official
+     * trail; a battle still leaves the rest of a boss prep's queue for later.
      */
-    preload(list) {
+    preload(list, { trailsOnly = false } = {}) {
       if (!list) { preOn = false; return preQueue.length; }
       if (destroyed || dry || q() === 'low' || !index) return preQueue.length;
-      for (const v of list) if (v?.info) preQueueUnit(v);
+      preTrailsOnly = trailsOnly;
+      for (const v of list) if (v?.info && (!trailsOnly || modes || emodes)) preQueueUnit(v, trailsOnly);
       preOn = true;
       pumpPreload();
       return preQueue.length;
