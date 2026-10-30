@@ -1016,35 +1016,102 @@ const QUAD = (() => {
 const SV = 18, SV_UV = 3, SV_COL = 5, SV_SIZE = 9, SV_ROT = 12, SV_TAN = 15;
 const STRIP_ATTRS = [['position', 3, 0], ['uv', 2, SV_UV], ['iColor', 4, SV_COL], ['iSize', 3, SV_SIZE], ['iRot', 3, SV_ROT], ['iVel', 3, SV_TAN]];
 
+// three.js names each new geometry and interleaved buffer with a uuid drawn from Math.random: the buffers grown while an
+// effect plays (StripBatch.strip, ParticleSystem.grow) take those draws from a counter instead, so the effect's particles
+// get the same random numbers as when everything was made at its start
+let uuidN = 0;
+const uuidRandom = () => (uuidN = (Math.imul(uuidN, 1103515245) + 12345) >>> 0) / 4294967296;
+function besideRandom(make) {
+  const r0 = Math.random;
+  Math.random = uuidRandom;
+  try { return make(); } finally { Math.random = r0; }
+}
+
+// the same values on every vertex of every strip batch: iUV (0, 0, 1, 1), iC1 / iC2 / iPos 0 — one set of attributes
+// shared by all batches (stripConsts), never deleted with a batch (StripBatch.dispose)
+const STRIP_CONSTS = [['iUV', 4], ['iC1', 4], ['iC2', 4], ['iPos', 3]];
+let stripConst = null;
+
+/** The shared constant attributes for at least `nv` vertices: a larger set when a batch outgrows the last one. */
+function stripConsts(nv) {
+  if (stripConst && stripConst.nv >= nv) return stripConst.attrs;
+  const NV = Math.max(nv, 512, (stripConst?.nv || 0) * 2);
+  // a new Float32Array is already 0, so only iUV's 1s are written (2026-10-30: an arr.set([…]) per vertex, up to 8000
+  // for a particle trail, was ~5 % of Firefox's main thread in a co-op boss fight, at each effect's creation)
+  const attrs = STRIP_CONSTS.map(([name, n]) => {
+    const arr = new Float32Array(NV * n);
+    if (name === 'iUV') for (let o = 2; o < arr.length; o += 4) { arr[o] = 1; arr[o + 1] = 1; }
+    return [name, new THREE.BufferAttribute(arr, n)];
+  });
+  stripConst = { nv: NV, attrs };
+  return attrs;
+}
+
+// the points a strip batch has room for at first (grown up to its cap by StripBatch.strip)
+const STRIP_ROOM0 = 64;
+const capBox = new THREE.Box3(), capV = new THREE.Vector3(), ORIGIN = new THREE.Vector3();
+
+/**
+ * three.js's bounding sphere of a strip geometry as it was while the buffers held the whole cap: the vertices past the room
+ * are 0 there. three.js computes it once, at the geometry's first draw, and sorts the transparent draws by its centre.
+ */
+function capSphere(g, cap) {
+  const P = g.getAttribute('position'), short = P.count < cap * 2;
+  capBox.setFromBufferAttribute(P);
+  if (short) capBox.expandByPoint(ORIGIN);
+  const s = g.boundingSphere || (g.boundingSphere = new THREE.Sphere());
+  capBox.getCenter(s.center);
+  let r2 = short ? s.center.distanceToSquared(ORIGIN) : 0;
+  for (let i = 0; i < P.count; i++) r2 = Math.max(r2, s.center.distanceToSquared(capV.fromBufferAttribute(P, i)));
+  s.radius = Math.sqrt(r2);
+}
+
 /** A batch of camera-facing strips drawn with one material in one draw call (rebuilt every frame; small counts). Only
  *  what a frame writes goes to the GPU: a ribbon batch holds max + 1 points but draws at most TRAIL_PTS, and the whole
- *  buffers were sent every frame before (2.8–3.5 MB per frame in a crowded scene). */
+ *  buffers were sent every frame before (2.8–3.5 MB per frame in a crowded scene).
+ *  2026-10-30: its buffers start with room for STRIP_ROOM0 points and grow when a frame needs more, up to `cap` — a
+ *  particle trail's whole cap (up to 4000 points, about 1 MB with the constant attributes) was allocated and sent to the GPU
+ *  at each effect's creation, while a sample of 116 effects drew at most 480 of their 54,462 points. */
 class StripBatch {
   constructor(material, cap = 256) {
     this.cap = cap;
-    const g = new THREE.BufferGeometry();
-    const vb = new THREE.InterleavedBuffer(new Float32Array(cap * 2 * SV), SV);
-    vb.setUsage(THREE.DynamicDrawUsage);
-    for (const [name, size, offset] of STRIP_ATTRS) g.setAttribute(name, new THREE.InterleavedBufferAttribute(vb, size, offset));
-    this.vb = vb;
-    // the same values on every vertex: iUV (0, 0, 1, 1), iC1 / iC2 / iPos 0 — a new Float32Array is already 0, so only
-    // iUV's 1s are written (2026-10-30: an arr.set([…]) per vertex, up to 8000 for a particle trail, was ~5 % of
-    // Firefox's main thread in a co-op boss fight, at each effect's creation)
-    for (const [name, n] of [['iUV', 4], ['iC1', 4], ['iC2', 4], ['iPos', 3]]) {
-      const arr = new Float32Array(cap * 2 * n);
-      if (name === 'iUV') for (let o = 2; o < arr.length; o += 4) { arr[o] = 1; arr[o + 1] = 1; }
-      g.setAttribute(name, new THREE.BufferAttribute(arr, n));
-    }
-    this.index = new THREE.BufferAttribute(new Uint16Array(cap * 6), 1);
-    this.index.setUsage(THREE.DynamicDrawUsage);
-    g.setIndex(this.index);
-    g.setDrawRange(0, 0);
-    this.geometry = g;
     material.uniforms.uMode.value = 6;
     this.material = material;
-    this.mesh = new THREE.Mesh(g, material);
+    this.geometry = null;
+    this.mesh = new THREE.Mesh(this.build(Math.min(cap, STRIP_ROOM0)), material);
     this.mesh.frustumCulled = false;
     this.n = 0; this.ni = 0;
+  }
+
+  /** New buffers with room for `room` points, holding what the old ones hold (a frame's strips so far). */
+  build(room) {
+    const g = new THREE.BufferGeometry();
+    const vb = new THREE.InterleavedBuffer(new Float32Array(room * 2 * SV), SV);
+    vb.setUsage(THREE.DynamicDrawUsage);
+    for (const [name, size, offset] of STRIP_ATTRS) g.setAttribute(name, new THREE.InterleavedBufferAttribute(vb, size, offset));
+    for (const [name, at] of stripConsts(room * 2)) g.setAttribute(name, at);
+    const index = new THREE.BufferAttribute(new Uint16Array(room * 6), 1);
+    index.setUsage(THREE.DynamicDrawUsage);
+    g.setIndex(index);
+    g.setDrawRange(0, 0);
+    // the draw order stays the one of the whole-cap buffers: their sphere, kept once computed (capSphere)
+    g.computeBoundingSphere = () => capSphere(g, this.cap);
+    const old = this.geometry;
+    if (old) {
+      vb.array.set(this.vb.array); index.array.set(this.index.array);
+      g.setDrawRange(old.drawRange.start, old.drawRange.count);
+      if (old.boundingSphere) g.boundingSphere = old.boundingSphere;
+      this.mesh.geometry = g;
+      this.drop(old);
+    }
+    this.vb = vb; this.index = index; this.geometry = g; this.room = room;
+    return g;
+  }
+
+  /** Dispose a geometry of this batch without the shared constant attributes (three.js deletes every attribute's buffer). */
+  drop(g) {
+    for (const [name] of STRIP_CONSTS) g.deleteAttribute(name);
+    g.dispose();
   }
 
   begin() { this.n = 0; this.ni = 0; }
@@ -1052,6 +1119,7 @@ class StripBatch {
   /** One strip: pts = flat [x, y, z, …], per point width w[], colour c[] (4 each), u[] along the trail. */
   strip(pts, count, w, c, u) {
     if (count < 2 || this.n + count > this.cap) return;
+    if (this.n + count > this.room) besideRandom(() => this.build(Math.min(this.cap, Math.max(this.n + count, this.room * 2))));
     const D = this.vb.array, I = this.index.array;
     for (let k = 0; k < count; k++) {
       const a = Math.max(0, k - 1), b = Math.min(count - 1, k + 1);
@@ -1082,7 +1150,7 @@ class StripBatch {
     this.geometry.setDrawRange(0, this.ni);
   }
 
-  dispose() { this.mesh.removeFromParent(); this.geometry.dispose(); this.material.dispose(); }
+  dispose() { this.mesh.removeFromParent(); this.drop(this.geometry); this.material.dispose(); }
 }
 
 const TRAIL_PTS = 48;
@@ -1326,6 +1394,23 @@ function disposeOwn(g, src) {
 }
 
 /**
+ * 2026-10-30: `mesh`'s instanced geometry `g` (over `src`, instance buffer `ib`) for `room` rows — a new one holding the old
+ * rows and its other attributes (vertex colours, normals); the old one disposed without what it shares (disposeOwn).
+ */
+function regrow(mesh, g, ib, src, room) {
+  const { g: g2, ib: ib2 } = instanced(src, room);
+  ib2.array.set(ib.array);
+  for (const name of Object.keys(g.attributes)) if (!g2.getAttribute(name)) { g2.setAttribute(name, g.getAttribute(name)); g.deleteAttribute(name); }
+  g2.instanceCount = g.instanceCount;
+  mesh.geometry = g2;
+  disposeOwn(g, src);
+  return { g: g2, ib: ib2 };
+}
+
+// the particles a system has room for at first (grown up to its max by ParticleSystem.grow)
+const PS_ROOM0 = 16;
+
+/**
  * (2026-10-27, effect bundle V) a renderer's place in Unity's transparent order — its sorting layer (`layer`, the layer's
  * place: 0 = Default, −2 = two layers before it) before its sortingOrder (`order`) — as a three.js renderOrder.
  */
@@ -1370,6 +1455,11 @@ class ParticleSystem {
     this.meshShape = ps.shape?.type === 6 ? meshShape(ps.shape, def.geoms?.[ps.shape.mesh]) : null;   // 2026-10-22
     const max = Math.max(1, Math.min(ps.max || 1000, opts.cap || 400));
     this.max = max;
+    // 2026-10-30: the per-particle arrays and instance buffers hold `room` particles, grown up to `max` as emission needs
+    // (grow) — each new system allocated `max` (750 at 'high') and sent the instance buffers to the GPU whole, while a
+    // sample of 854 systems peaked at 5,627 particles of their 486,650 (66 MB of GPU buffers for 0.7 MB used)
+    const room = Math.min(max, PS_ROOM0);
+    this.room = room;
     this.n = 0;
     this.time = -(evalMM(ps.delay, 0, Math.random()) || 0);
     this.emitAcc = 0;
@@ -1399,15 +1489,15 @@ class ParticleSystem {
     this.planes = [];
     this.planeAt = null;
     // particle state (SoA)
-    this.pos = new Float32Array(max * 3); this.vel = new Float32Array(max * 3); this.age = new Float32Array(max);
+    this.pos = new Float32Array(room * 3); this.vel = new Float32Array(room * 3); this.age = new Float32Array(room);
     // (2026-10-27) the step's animated velocity (VelocityOverLifetime, orbit, radial, noise): the engine's quads take
     // velocity + animated velocity (stretched and Velocity-aligned billboards)
-    this.avel = new Float32Array(max * 3);
-    this.life = new Float32Array(max); this.size0 = new Float32Array(max * 3); this.rot = new Float32Array(max * 3);
-    this.rotVel = new Float32Array(max); this.col0 = new Float32Array(max * 4); this.rnd = new Float32Array(max * 4);
-    this.nz = ps.mods.noise?.sizeAmt ? new Float32Array(max) : null;
+    this.avel = new Float32Array(room * 3);
+    this.life = new Float32Array(room); this.size0 = new Float32Array(room * 3); this.rot = new Float32Array(room * 3);
+    this.rotVel = new Float32Array(room); this.col0 = new Float32Array(room * 4); this.rnd = new Float32Array(room * 4);
+    this.nz = ps.mods.noise?.sizeAmt ? new Float32Array(room) : null;
     const geomSrc = ps.render.mode === 4 && def.geoms[ps.render.mesh] ? def.geoms[ps.render.mesh] : QUAD;
-    const { g, ib } = instanced(geomSrc, max);
+    const { g, ib } = instanced(geomSrc, room);
     this.ib = ib;
     this.geometry = g;
     this.geomSrc = geomSrc;
@@ -1438,7 +1528,7 @@ class ParticleSystem {
       for (const k of ps.render.meshes || []) {
         const src = def.geoms[k];
         if (!src) continue;
-        const { g: g2, ib: ib2 } = instanced(src, max);
+        const { g: g2, ib: ib2 } = instanced(src, room);
         useMeshAttrs(g2, src, mat);
         const m2 = new THREE.Mesh(g2, mat);
         m2.frustumCulled = false;
@@ -1449,12 +1539,12 @@ class ParticleSystem {
       // a shared material with vertex colours from one shape: the others draw theirs white
       if (mat.uniforms.uVCol.value) for (const [gg, src] of [[g, geomSrc], ...this.more.map((m) => [m.g, m.src])]) if (!gg.getAttribute('vcol')) gg.setAttribute('vcol', whiteVcol(src));
     }
-    this.mi = this.more.length ? new Uint8Array(max) : null;
+    this.mi = this.more.length ? new Uint8Array(room) : null;
     // (2026-10-27, effect bundle V) the renderer's sort mode (`sortMode`: 1 distance, 2 oldest in front, 3 youngest in front,
     // 4 depth) — the camera as last drawn, in the particles' frame (orderRows)
     this.sortMode = drawParticles ? ps.render.sortMode || 0 : 0;
     if (this.sortMode) {
-      this.camP = null; this.camF = new THREE.Vector3(); this.sortKey = new Float32Array(max); this.sortIdx = []; this.rowTmp = new Float32Array(max * IV);
+      this.camP = null; this.camF = new THREE.Vector3(); this.sortKey = new Float32Array(room); this.sortIdx = []; this.rowTmp = null;
       this.mesh.onBeforeRender = (r, sc, camera) => {
         sortM.copy(this.mesh.matrixWorld).invert();
         (this.camP ||= new THREE.Vector3()).setFromMatrixPosition(camera.matrixWorld).applyMatrix4(sortM);
@@ -1468,8 +1558,8 @@ class ParticleSystem {
     if (tm && typeof tm === 'object' && ps.render.trailMat && def.materials[ps.render.trailMat]) {
       this.tm = tm;
       this.histK = 10;
-      this.hist = new Float32Array(max * this.histK * 4);  // x, y, z, age at record
-      this.histN = new Uint8Array(max);
+      this.hist = new Float32Array(room * this.histK * 4);  // x, y, z, age at record
+      this.histN = new Uint8Array(room);
       const cap = Math.min(4000, tm.mode === 1 ? max + 1 : max * (this.histK + 1));
       this.trailBatch = new StripBatch(makeMaterial(def.materials[ps.render.trailMat], def.lib), cap);
       this.trailBatch.mesh.renderOrder = this.mesh.renderOrder;
@@ -1479,9 +1569,9 @@ class ParticleSystem {
       // (2026-10-27, effect bundle V) dieWithParticles off: a dead particle's trail stays until its points expire (ghosts);
       // splitSubEmitterRibbons: a sub emitter's ribbon per parent particle (par = the parent's uid)
       this.ghosts = tm.mode !== 1 && tm.die === false ? [] : null;
-      if (tm.mode === 1 && tm.split) { this.par = new Float64Array(max); this.byParent = (x, y) => this.par[x] - this.par[y] || this.age[y] - this.age[x]; }
+      if (tm.mode === 1 && tm.split) { this.par = new Float64Array(room); this.byParent = (x, y) => this.par[x] - this.par[y] || this.age[y] - this.age[x]; }
     }
-    this.uid = new Float64Array(max); this.uidN = 0;            // each particle's id (a sub emitter's ribbons split by it)
+    this.uid = new Float64Array(room); this.uidN = 0;            // each particle's id (a sub emitter's ribbons split by it)
     this.listed = true;                                         // counted in liveParticles until dispose
     systems.add(this);
   }
@@ -1503,7 +1593,32 @@ class ParticleSystem {
   setSubs(list) {
     this.subs = list;
     for (const x of list) { x.sys.subOf = this; x.sys.emitAcc = 0; }
-    this.subAcc = new Float32Array(this.max * list.length);
+    this.subAcc = new Float32Array(this.room * list.length);
+  }
+
+  /**
+   * 2026-10-30: room for `need` particles (at most `max`): every per-particle array and instance buffer, the old contents
+   * kept (the rows past `n` too, as the arrays held them); the sort scratch is made again at the new size. The new buffers
+   * leave Math.random alone (besideRandom).
+   */
+  grow(need) {
+    const room = Math.min(this.max, Math.max(need, this.room * 2));
+    const per = [['pos', 3], ['vel', 3], ['age', 1], ['avel', 3], ['life', 1], ['size0', 3], ['rot', 3], ['rotVel', 1], ['col0', 4],
+      ['rnd', 4], ['nz', 1], ['mi', 1], ['sortKey', 1], ['hist', (this.histK || 0) * 4], ['histN', 1], ['par', 1], ['uid', 1],
+      ['subAcc', this.subs?.length || 0]];
+    for (const [k, w] of per) {
+      const a = this[k];
+      if (!a) continue;
+      const b = new a.constructor(room * w);
+      b.set(a);
+      this[k] = b;
+    }
+    this.rowTmp = this.ageKey = this.ageKeyW = null;
+    besideRandom(() => {
+      ({ g: this.geometry, ib: this.ib } = regrow(this.mesh, this.geometry, this.ib, this.geomSrc, room));
+      for (const m of this.more) ({ g: m.g, ib: m.ib } = regrow(m.mesh, m.g, m.ib, m.src, room));
+    });
+    this.room = room;
   }
 
   /**
@@ -1531,6 +1646,7 @@ class ParticleSystem {
     const ps = this.ps;
     const room = Math.min(count, this.max - this.n, this.q.budget - liveParticles);
     if (room <= 0) return;
+    if (this.n + room > this.room) this.grow(this.n + room);
     if (this.listed) liveParticles += room;
     // world space: the node → root transform, the same for every particle of this call
     if (this.world || sub) {
@@ -2075,7 +2191,7 @@ class ParticleSystem {
       // drawn first = the engine's first row: the farthest (1, 4), the largest key (2: the youngest), the smallest (3: the oldest)
       idx.sort(mode === 3 ? (x, y) => K[x] - K[y] : (x, y) => K[y] - K[x]);
     }
-    const T = this.rowTmp || (this.rowTmp = new Float32Array(this.max * IV));
+    const T = this.rowTmp || (this.rowTmp = new Float32Array(this.room * IV));
     T.set(D.subarray(0, n * IV));
     const fill = (buf, b) => {
       let w = 0;
@@ -2162,7 +2278,7 @@ class ParticleSystem {
    */
   ageOrder(order, n) {
     if (n > LOW_MASK) return false;
-    const K = this.ageKey || (this.ageKey = new Float64Array(this.max)), W = this.ageKeyW || (this.ageKeyW = new Uint32Array(K.buffer)), A = this.age;
+    const K = this.ageKey || (this.ageKey = new Float64Array(this.age.length)), W = this.ageKeyW || (this.ageKeyW = new Uint32Array(K.buffer)), A = this.age;
     for (let i = 0; i < n; i++) {
       const a = A[i];
       if (!(a >= 0 && a < Infinity)) return false;

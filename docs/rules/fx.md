@@ -38,11 +38,21 @@
   받아 안 쓰는 이펙트에 GPU 메모리를 쓰지 않는다. 실제 전투가 시작되면 멈추고(전투 자신의 받기가 먼저), 레이어를 내리면(`teardown`) 비운다.
   확인: `test/render/fx-preload.test.js`; Windows Chrome 협동 보스(4인, 카시미어 최대) R14 정비에서 대기열 256 → 0이 약 15 s(369개, 정비 fps 128–134 유지),
   마지막 공세의 `files` 7개(기다림 0.25 s; 예전 72–177개). 텍스처 첫 올리기는 그대로 전투 중이다.
+  성능 4(2026-10-30, 같은 보스전의 WebGL 호출 집계): 입자 시스템(`ParticleSystem`)의 입자 배열·인스턴스 버퍼와 꼬리 배치의 버퍼를 처음엔 작게(입자 16개,
+  꼬리 64점) 잡고 방출이 넘치면 두 배씩(최대는 그대로 `max`·`cap`) 키운다. 예전엔 시스템마다 `max`(「높음」 750)·입자 꼬리 `cap`(최대 4000점, 상수 속성까지
+  약 1 MB)을 통째로 잡아 이펙트가 생길 때마다 GPU에 올렸다 — 이펙트 116개 표본에서 입자 시스템 854개가 가장 많을 때 쓴 입자는 잡은 486,650개 중 5,627개,
+  꼬리는 54,462점 중 480점. 꼬리 배치의 같은 값 속성(`iUV`·`iC1`·`iC2`·`iPos`)은 모든 배치가 한 벌을 나눠 쓴다(배치가 끝나도 지우지 않음). Windows Chrome
+  협동 보스(4인, 카시미어 최대) 마지막 공세: 이펙트 층의 새 버퍼가 프레임당 17.2개·846 KB → 2.1개·3.2 KB, 그리기당 WebGL 호출은 그대로(약 14.4) — 남은
+  호출은 그리기마다 three.js가 보내는 행렬·uniform이다. JS 힙 최고치는 판마다 다르지만 484–824 MB → 323–391 MB(각 세 판). 같은 그림이 되게 한 두 가지:
+  키울 때 새로 만드는 three.js 객체의 uuid가 `Math.random`을 쓰므로 그동안은 따로 센 수를 쓴다(`besideRandom`, 입자가 받는 난수 순서 그대로), 꼬리
+  배치의 bounding sphere(three.js가 첫 그리기에 한 번 계산해 투명 그리기 순서를 정함)는 통째로 잡던 버퍼의 것으로 계산한다(`capSphere`). 확인: 추출
+  프리팹 2308개 × 150프레임의 동적 버퍼·행렬·uniform 해시가 「높음」·「중간」 모두 git 판과 같음, 픽셀 비교 도구(비공개)로 보스전 12종×3(두 품질)과 색인의
+  20번째마다 7묶음(808개) × 5프레임 픽셀 차이 0; `test/render/fx-shared-buffers.test.js`(키운 뒤 내용 유지, 나눠 쓰는 속성을 지우지 않음).
   성능 3(2026-10-30, 관리자 Firefox 협동 보스전 프로파일): 꼬리 배치(`StripBatch`: TrailRenderer·LineRenderer·입자 꼬리)를 만들 때 정점마다 같은
   값인 `iUV`(0, 0, 1, 1)·`iC1`·`iC2`·`iPos`(0)를 정점마다 `arr.set([…])`으로 채우던 것을 `iUV`의 1만 직접 쓰기로(새 Float32Array는 이미 0) — 입자 꼬리는
   최대 8000 정점이라 이펙트가 생길 때마다 Firefox 메인 스레드의 약 5 %(일반 배열 → TypedArray 복사 경로)였다. 같은 값(크기 1·2·48·256·4000·4001에서
   옛 채우기와 전부 같음), node에서 4000 정점 한 배치 0.85 → 0.10 ms. 같은 프로파일에서 텍스처 올리기·이미지 해독은 전투 메인 스레드의 1 % 미만, 큰 몫은
-  WebGL 호출·명령 큐·버퍼 올리기·동기 IPC(합쳐 약 45–55 %: Firefox는 WebGL을 GPU 프로세스로 원격 실행) — 다음 일은 호출·업로드 수 줄이기.
+  WebGL 호출·명령 큐·버퍼 올리기·동기 IPC(합쳐 약 45–55 %: Firefox는 WebGL을 GPU 프로세스로 원격 실행) — 업로드는 성능 4.
   성능 2(2026-10-28, 휴대폰 보스전에서 이펙트 층이 프레임 JS의 절반 — 같은 그림으로만 줄임, 연출을 깎지 않음):
   ① 셰이더의 스칼라 uniform 39개를 7개로 묶음 — 스위치 18개는 int 하나의 비트, 작은 정수 4개는 ivec4, 실수 17개는 vec4 다섯
   (`PACKED_GLSL`의 `#define`이 옛 이름으로 읽어 셰이더 본문은 그대로), 재질의 옛 이름은 접근자(`PackedFlag`·`PackedNum`)라 코드·클립·
@@ -1449,7 +1459,7 @@
 - golden: 층이 막는 전투마다 `events.fx`·`fx.parry`만 늘었다(roster 13·bonds 6·fields 5·diy 1 시나리오, 상태 변화 없음).
 - 추출: `fx_extract.py --game <EN> --cab-index .cache/fx-cab-index.json --bundle archet --prefab archet_buff_01_start`, `--bundle common --prefab
   common_buff_parry_01`.
-- [미구현] 막을 때 소리 `battle.ON_DAMAGE_BLOCK` = `Enemy/e_atk/e_atk_soldiershield`(audio_data) — sfx 항목·에셋 받기가 필요. [화면 미확인] 루프 높이·크기, parry 위치.
+- 막을 때 소리 → rules/audio.md 「버프·커스텀 트리거 소리」 막기 (2026-10-30). [화면 미확인] 루프 높이·크기, parry 위치.
 
 ### 흐르는 텍스처 — FxUVTweener · Disturb Origin / Anchor (2026-10-14, 사용자 제보 「이펙트가 재생되지 않고 멈춰있는 것들이 많아」)
 
