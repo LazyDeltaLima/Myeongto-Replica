@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { bodyStill, bodyTurn } from '../../public/js/render/fx/face.js';
 import { lobZ } from '../../public/js/render/fx/projectiles.js';
 import { presetCamera } from '../../public/js/render/projection.js';
-import { liftedPoint, onModelPlane } from '../../public/js/render/fxpoints.js';
+import { liftedPoint, onModelPlane, planePoint } from '../../public/js/render/fxpoints.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const TOOL = path.join(ROOT, 'tools/local-extract');
@@ -212,4 +212,19 @@ test('onModelPlane (2026-10-31, the Graphic\'s X −30° under the 30° camera):
     return -lobZ(rec, 1)[1] / Math.hypot(rec.tx - rec.x0, rec.ty - rec.y0);
   };
   assert.ok(end(false) < 0.75 * end(true), `the 3D fall at the end (${end(false)} vs ${end(true)})`);
+});
+
+test('planePoint (2026-10-31): the cast and hit effects at model points on the model\'s plane — onModelPlane of the row\'s lift', () => {
+  const cam = presetCamera('normal', { width: 1920, height: 1080 });
+  for (const [x, y, z, du, dv] of [[3, 8, 0, 0.2, 0.6], [10, 9, 0.35, -0.1, 1.1], [17, 12, 0, 0, 0.3]]) {
+    const r = cam.project(x, y, z), gx = r.x + du * r.s, gy = r.y - dv * r.s;
+    const a = planePoint(cam, x, y, z, r.y, gx, gy, { x: 0, y: 0, z: 0 });
+    const b = onModelPlane(cam, x, y, z, liftedPoint(cam, x, y, z, r.y, gx, gy, { x: 0, y: 0, z: 0 }), { x: 0, y: 0, z: 0 });
+    assert.ok(Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) < 1e-6, `${[a.x, a.y, a.z]} vs ${[b.x, b.y, b.z]}`);
+    const q = cam.project(a.x, a.y, a.z);
+    assert.ok(Math.abs(q.x - gx) < 1e-6 && Math.abs(q.y - gy) < 1e-6 && Math.abs(q.s - r.s) < 1e-9, 'drawn there, at the root\'s scale');
+  }
+  const SRC = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
+  assert.match(SRC, /return planePoint\(camRef, v\.x, v\.y, \(v\.z \|\| 0\) \+ \(v\.hover \|\| 0\), v\.screen\.y, g\.x, g\.y, out, SP_P\);/, 'specialPoint');
+  assert.match(readFileSync(path.join(ROOT, 'public/js/render/fxpoints.js'), 'utf8'), /return planePoint\(cam, b\.x, b\.y, b\.z, r\.y,/, 'heldAt');
 });

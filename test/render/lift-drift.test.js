@@ -58,9 +58,9 @@ test('bodyPoint: the body / head point projects straight above the model\'s root
 
 test('fxgame: body / head effects, status effects, shot ends, orbits and line ends go through the lift', () => {
   // _spawnLocation 2 / 4 (followed)
-  assert.match(FXGAME, /get x\(\) \{ return liftX\(camRef, ex\(v\), ey\(v\), \(v\.z \|\| 0\) \+ \(v\.hover \|\| 0\), z\(\)\); \}/);
+  assert.match(FXGAME, /bp\.x = liftX\(camRef, ex\(v\), ey\(v\), \(v\.z \|\| 0\) \+ \(v\.hover \|\| 0\), z\(\)\); bp\.y = ey\(v\); bp\.z = z\(\);\n      return onModel\(v, bp, ey\(v\)\);/);
   // a model point's fallback, the status effects (fxstatus.js frac), the orbiters
-  assert.match(FXGAME, /specialPoint\(v, p, key\) \|\| \(camRef \? bodyPoint\(camRef, v, 0\.5, mx\(v\)\) : v\)/);
+  assert.match(FXGAME, /specialPoint\(v, p, key\) \|\| \(camRef \? onModel\(v, bodyPoint\(camRef, v, 0\.5, mx\(v\)\)\) : v\)/);
   assert.match(FXGAME, /get x\(\) \{ return frac > 0 && camRef \? bodyPoint\(camRef, view, frac, view\.x, statusAt\)\.x : view\.x; \}/);
   assert.match(FXGAME, /get x\(\) \{ return \(camRef \? bodyPoint\(camRef, v, SPAWN_FRAC\[2\], v\.x, orbitAt\)\.x : v\.x\) \+ r \* Math\.cos\(ang\(\)\); \}/);
   // shots: from the drawn model (no muzzle point), to its hit point or its middle — the whole point, not its z only
@@ -72,7 +72,7 @@ test('fxgame: body / head effects, status effects, shot ends, orbits and line en
   // gliders at a body height: both ends lifted
   assert.equal((FXGAME.match(/glider\(liftX\(camRef, [^;]+, liftX\(camRef, /g) || []).length, 2);
   // a line end without its point
-  assert.match(FXGAME, /else if \(!p\) bodyPoint\(camRef, v, SPAWN_FRAC\[2\], mx\(v\), out\);/);
+  assert.match(FXGAME, /else if \(!p\) Object\.assign\(out, onModel\(v, bodyPoint\(camRef, v, SPAWN_FRAC\[2\], mx\(v\), out\)\)\);/);
 });
 
 let fake, FX;

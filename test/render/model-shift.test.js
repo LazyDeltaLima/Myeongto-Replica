@@ -48,6 +48,6 @@ test('fxgame places effects, shots and line ends of a shifted model at its drawn
   assert.doesNotMatch(FX, /tx: mx\(t(gt|arget)\)/);
   assert.match(FX, /Object\.assign\(rec, aimOf\(t\)\);/);
   assert.match(FX, /if \(mount === 7\) return \{ x: mx\(src\),/);
-  assert.match(FX, /if \(!p && type === 7\) \{ out\.x = mx\(v\);[^\n]*else if \(!p\) bodyPoint\(camRef, v, SPAWN_FRAC\[2\], mx\(v\), out\);/);
+  assert.match(FX, /if \(!p && type === 7\) \{ out\.x = mx\(v\);[^\n]*else if \(!p\) Object\.assign\(out, onModel\(v, bodyPoint\(camRef, v, SPAWN_FRAC\[2\], mx\(v\), out\)\)\);/);
   assert.equal((FX.match(/onModel\(src, p \|\| bodyPoint\(camRef, src, SHOT_HEIGHT\.launch, mx\(src\)\)\);/g) || []).length, 3, 'shots leave the drawn model');
 });

@@ -236,7 +236,8 @@ export function boneMissing(entry, sk) {
 
 /**
  * The world point (column, row, height) of a model point drawn at screen (gx, gy) on a unit whose model stands at world
- * (x, y, z) — its root, which projects to screen y `rootY`. A unit's model is an upright screen billboard, so the point is
+ * (x, y, z) — its root, which projects to screen y `rootY` (2026-10-31: the model points themselves take planePoint, the
+ * official mount point's place; this row's lift stays for 望's stone balls). A unit's model is an upright screen billboard, so the point is
  * at the row of the unit, at the height whose projection is gy (Camera.liftFor), and at the column whose projection at
  * THAT height is gx. The camera is a perspective one: a point lifted toward it drifts away from the screen centre, so the
  * screen offset is converted at the lifted point's own projection and scale, not at the root's (maintainer report
@@ -269,9 +270,21 @@ export function liftedPoint(cam, x, y, z, rootY, gx, gy, out, tmp = { x: 0, y: 0
  */
 export function onModelPlane(cam, x, y, z, p, out, tmp = { x: 0, y: 0, s: 0, depth: 0 }) {
   const q = cam.project(p.x, p.y, p.z, tmp), qx = q.x, qy = q.y;
+  if (!Number.isFinite(qx) || !Number.isFinite(qy)) { out.x = p.x; out.y = p.y; out.z = p.z; return out; }
+  return planePoint(cam, x, y, z, cam.project(x, y, z, tmp).y, qx, qy, out, tmp);
+}
+
+/**
+ * The world point of a model point drawn at screen (gx, gy) on a unit whose model stands at world (x, y, z), projecting to
+ * screen y `rootY` — on the model's plane (onModelPlane: the official mount point's place), liftedPoint's arguments.
+ * 2026-10-31 (maintainer request after the shots: the cast and hit effects at model points too).
+ * @param {{project: Function, tilt: number}} cam
+ * @param {{x: number, y: number, z: number}} out
+ */
+export function planePoint(cam, x, y, z, rootY, gx, gy, out, tmp = { x: 0, y: 0, s: 0, depth: 0 }) {
   const r = cam.project(x, y, z, tmp);
-  if (!(r.s > 0) || !Number.isFinite(qx) || !Number.isFinite(qy)) { out.x = p.x; out.y = p.y; out.z = p.z; return out; }
-  const t = (cam.tilt * Math.PI) / 180, du = (qx - r.x) / r.s, dv = (r.y - qy) / r.s;
+  if (!(r.s > 0)) return liftedPoint(cam, x, y, z, rootY, gx, gy, out, tmp);
+  const t = (cam.tilt * Math.PI) / 180, du = (gx - r.x) / r.s, dv = (rootY - gy) / r.s;
   out.x = x + du; out.y = y + dv * Math.cos(t); out.z = z + dv * Math.sin(t);
   return out;
 }
@@ -288,7 +301,7 @@ export function screenOffset(cam, b, p, tmp = { x: 0, y: 0, s: 0, depth: 0 }) {
 }
 
 /**
- * The world point drawn at screen offset `off` (screenOffset) from base `b`, lifted as a model point (liftedPoint), into
+ * The world point drawn at screen offset `off` (screenOffset) from base `b`, on the model's plane (planePoint), into
  * `out`. 2026-10-25 (maintainer report: 더블린 적의 굴절, HIT_POINT, sat up and left of the model the further left it walked):
  * a held effect (`Entity.HoldEffect` / a buff's) moves with its unit from where it was made, and the client's world offset
  * stays on its model. Here the model is drawn straight up on screen from its root, so the world offset taken at the
@@ -298,5 +311,6 @@ export function screenOffset(cam, b, p, tmp = { x: 0, y: 0, s: 0, depth: 0 }) {
  */
 export function heldAt(cam, b, off, out, tmp = { x: 0, y: 0, s: 0, depth: 0 }) {
   const r = cam.project(b.x, b.y, b.z, tmp);
-  return liftedPoint(cam, b.x, b.y, b.z, r.y, r.x + off.du * r.s, r.y + off.dv * r.s, out, tmp);
+  // 2026-10-31: on the model's plane (planePoint), where the cast and hit effects at model points are made
+  return planePoint(cam, b.x, b.y, b.z, r.y, r.x + off.du * r.s, r.y + off.dv * r.s, out, tmp);
 }

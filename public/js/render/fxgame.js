@@ -73,7 +73,7 @@ import { bodyZ, bodyPoint, liftX } from './fx.js'; // local patch: status effect
 import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
 import { fxSpec } from './fx.js'; // local patch: the stand-in archetype of a kit fx event (standInOff)
 import { SHOT_HEIGHT } from './fx.js'; // local patch: a trail's start without a muzzle point
-import { boneMissing, heldAt, liftedPoint, loadPoints, mountSpawn, onModelPlane, pointKey, pointOn, pointScale, pointTurn, screenOffset } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
+import { boneMissing, heldAt, liftedPoint, loadPoints, mountSpawn, onModelPlane, planePoint, pointKey, pointOn, pointScale, pointTurn, screenOffset } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
 import { GRAPHIC_TILT, takesGraphicTurn } from './fxpoints.js'; // 2026-10-22: an effect on a unit takes its Graphic's X −30°
 import { STANDARD_PLACE, modelOffset } from './fxpoints.js'; // 2026-10-22: 望's 棋子 model stands at its prefab's place (the ball)
 import { enemyProjSpeed, enemyShot } from './fx/speeds.js'; // 2026-10-10: an enemy shot's record / flight time (data/enemies.json `proj`)
@@ -1454,8 +1454,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const kx = Number.isFinite(v.modelSX) ? v.modelSX : sp.scale.x, ky = Number.isFinite(v.modelSY) ? v.modelSY : sp.scale.y;
     const ox = (v.root?.x ?? v.screen.x) + (v.body?.x || 0), oy = (v.root?.y ?? v.screen.y) + (v.body?.y || 0);
     const g = { x: ox + bone.x * kx, y: oy + bone.y * ky };
-    // the world point under it at the unit's row (fxpoints.js liftedPoint: the camera's perspective taken into account)
-    return liftedPoint(camRef, v.x, v.y, (v.z || 0) + (v.hover || 0), v.screen.y, g.x, g.y, out, SP_P);
+    // the world point under it on the model's plane (fxpoints.js planePoint: the official mount point's 3D place — 2026-10-31,
+    // it was lifted at the unit's row, about four times as high: the shots' ends first, then the effects at the points)
+    return planePoint(camRef, v.x, v.y, (v.z || 0) + (v.hover || 0), v.screen.y, g.x, g.y, out, SP_P);
   }
   /**
    * Where a unit's entity stands (maintainer report 2026-10-12: 予愿安洁莉娜 S2's buff_01 on the ground went along with her
@@ -1510,7 +1511,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const key = pointKey(spawn);
     if (key && v && ptsOf(v)?.[key]) {
       const p = { x: 0, y: 0, z: 0 };
-      const at = () => specialPoint(v, p, key) || (camRef ? bodyPoint(camRef, v, 0.5, mx(v)) : v);
+      const at = () => specialPoint(v, p, key) || (camRef ? onModel(v, bodyPoint(camRef, v, 0.5, mx(v))) : v);
       // local patch (maintainer report — 아르케토 S3's cast fan stood upright; maintainer's decision 2026-10-08 「전체 적용」): a
       // FollowMountPoint with `_keepOriginRotation` 0 gives the effect its point's turn too (fxpoints.js pointTurn) — the
       // frame loop turns the prefab root about the Unity frame's z (the board's normal: +x = column, +y = row, as aimMover)
@@ -1565,11 +1566,17 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       };
     }
     // 2026-10-25: drawn straight above its column on screen (fx/camera.js liftX) — the column kept in world drifted off the
-    // model toward the board's edges, as 望's stone balls had (maintainer report 2026-10-16)
+    // model toward the board's edges, as 望's stone balls had (maintainer report 2026-10-16); 2026-10-31 on the model's plane
+    // (onModel), as the points of a unit with a points table
     const z = () => (camRef ? bodyZ(camRef, v, frac) : (v.z || 0) + (v.hover || 0) + (v._headTiles || 1.2) * frac);
+    const bp = { x: 0, y: 0, z: 0 };
+    const at = () => {
+      bp.x = liftX(camRef, ex(v), ey(v), (v.z || 0) + (v.hover || 0), z()); bp.y = ey(v); bp.z = z();
+      return onModel(v, bp, ey(v));
+    };
     return {
-      get x() { return liftX(camRef, ex(v), ey(v), (v.z || 0) + (v.hover || 0), z()); }, get y() { return ey(v); },
-      get z() { return z(); },
+      get x() { return at().x; }, get y() { return at().y; },
+      get z() { return at().z; },
       get alive() { return v.alive; }, get remove() { return v.remove; },
       id: v.id, info: v.info,
     };
@@ -2125,9 +2132,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const shotTo = (t) => onModel(t, specialPoint(t, hitAt, 'hit') || bodyPoint(camRef, t, SPAWN_FRAC[2], mx(t), hitAt));
   /**
    * 2026-10-31 (official client: a mount point's height is its own on the model's `Graphic` — fxpoints.js onModelPlane): a
-   * shot's end point `p` drawn on unit `v`'s model, moved onto the model's plane (the same spot on screen). A new point.
+   * shot's end point `p` drawn on unit `v`'s model, moved onto the model's plane (the same spot on screen) — through its root
+   * at row `y` (ey: the glide's tile). A new point.
    */
-  const onModel = (v, p) => (typeof camRef?.project === 'function' ? onModelPlane(camRef, v.x, v.y, (v.z || 0) + (v.hover || 0), p, { x: 0, y: 0, z: 0 }, SP_P) : { x: p.x, y: p.y, z: p.z });
+  const onModel = (v, p, y = v.y) => (typeof camRef?.project === 'function' ? onModelPlane(camRef, v.x, y, (v.z || 0) + (v.hover || 0), p, { x: 0, y: 0, z: 0 }, SP_P) : { x: p.x, y: p.y, z: p.z });
   /** A trail record's end on unit `t` (shotTo). */
   const aimOf = (t) => { const p = shotTo(t); return { tx: p.x, ty: p.y, tz: p.z }; };
   /** A trail at flight fraction k: on the line to the target's current spot (a lob on its arc), turned along it. */
@@ -4595,7 +4603,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function elinePoint(v, type, out, off) {
     const key = type === 7 ? null : pointKey(mountSpawn({ type }));
     const p = key ? specialPoint(v, out, key) : null;
-    if (!p && type === 7) { out.x = mx(v); out.y = v.y; out.z = v.z || 0; } else if (!p) bodyPoint(camRef, v, SPAWN_FRAC[2], mx(v), out);
+    if (!p && type === 7) { out.x = mx(v); out.y = v.y; out.z = v.z || 0; } else if (!p) Object.assign(out, onModel(v, bodyPoint(camRef, v, SPAWN_FRAC[2], mx(v), out)));
     if (Array.isArray(off)) { out.x += Number(off[0]) || 0; out.z += Number(off[1]) || 0; }   // Unity +y = up [추정]
     return out;
   }
