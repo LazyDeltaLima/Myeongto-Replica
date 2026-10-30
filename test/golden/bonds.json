@@ -802,8 +802,8 @@
       ],
       "enemies": {"enemy_1288_duskls":[11,11,0,105,63415],"enemy_1288_duskls_2":[7,7,0,0,48419],"enemy_1292_duskld":[5,5,0,979,57650]},
       "hooks": [1,38,2472,258,291,487,487,300,23,25,19,15,0,11280,197,29,23,0,1,51,0,0,0],
-      "events": {"atk":312,"deploy":12,"die":25,"dmg":487,"engage":11,"face":71,"fx":255,"skill":34,"spawn":38,"status":458,"swing":276},
-      "fx": {"aoe":2,"copy":1,"crit":7,"dp":2,"ember":23,"iceSpike":63,"roadTiles":1,"sleep":4,"split":3,"stacks":47,"watch":2,"weightless":2,"zone":98},
+      "events": {"atk":312,"deploy":12,"die":25,"dmg":487,"engage":11,"face":71,"fx":253,"skill":34,"spawn":38,"status":458,"swing":276},
+      "fx": {"aoe":2,"copy":1,"crit":7,"dp":2,"ember":23,"iceSpike":63,"roadTiles":1,"sleep":4,"split":3,"stacks":47,"weightless":2,"zone":98},
       "snaps": "73247a04 abdbc1af 31272fc4 b89b79b7 af401c4d 40a3d19e 8e279983 283a406f 7c278f9a"
     },
     "bond-miraShip-low": {
@@ -1351,8 +1351,8 @@
         "enemy_1208_msfji": [3,3,0,0,189]
       },
       "hooks": [1,80,2937,194,194,603,601,887,69,69,34,33,0,10399,102,12,67,0,1,75,0,0,2],
-      "events": {"atk":292,"deploy":10,"die":69,"dmg":601,"engage":8,"face":34,"fx":208,"skill":67,"spawn":78,"status":216,"swing":221,"tplfx":3},
-      "fx": {"aoe":12,"crit":8,"dodge":2,"dp":3,"roadTiles":1,"sp":3,"stacks":48,"substitute":2,"summon":21,"swap":1,"watch":2,"weightless":3,"zone":102},
+      "events": {"atk":292,"deploy":10,"die":69,"dmg":601,"engage":8,"face":34,"fx":206,"skill":67,"spawn":78,"status":216,"swing":221,"tplfx":3},
+      "fx": {"aoe":12,"crit":8,"dodge":2,"dp":3,"roadTiles":1,"sp":3,"stacks":48,"substitute":2,"summon":21,"swap":1,"weightless":3,"zone":102},
       "snaps": "c770d75f 4928b7e6 925357ac be347d56 2e8d2a77 2e10d5f3 9519ba3f 559c6428 7d3e8ae7 a3788e76"
     },
     "bond-steadShip-low": {

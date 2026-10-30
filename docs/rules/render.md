@@ -694,9 +694,9 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     골든 fx 개수만 움직임) → `units.js onSignal` → `spine.js signalSwing`(역할 `signals.store` 클립을 공격 간격에 맞춰 한 번). [화면 미확인]
   - **H+J** 焰尾 S3 중 前锋剑术(회피 뒤 강화 일격): 모드 S3 공격 트리거 묶음의 재능 공격 키 `Skill_3_Attack_2` = 스킨 키 표의 클립 `Skill_2_Attack_2` — 키트 'riposte' fx에
     `signal: 'riposte', strike: 1`(타격 순간, 이벤트 수 그대로) → 그 클립을 타격 프레임부터(`_signalStrike`). 기본 모드의 같은 공격은 `Attack`이라 그대로. [화면 미확인]
-  - **H** 玛恩纳 解放者: 기본 모드의 공격 능력이 피해 없는 `Body/AnimAttack`(`_animKey "Idle_2"`, 쿨다운 = 클립 길이) — 스킬 밖에서 사거리에 대상이 있으면 그 클립을
-    되풀이한다. 시뮬은 스킬 밖 해방자의 대상 유무를 형태 `watch`로(`ai.js watchForm`, 바뀔 때마다 fx 'watch', 골든 fx 개수만 움직임), `FORMS`가 대기 클립을
-    `Idle_2`로. 경계 자세라는 뜻은 [추정]. [화면 미확인]
+  - **H** 무에나(char_4064_mlynar) 해방자: 기본 모드의 공격 능력이 피해 없는 `Body/AnimAttack`(`_animKey "Idle_2"`)이지만, 공식 판에서는 스킬 밖이면 사거리에 적이
+    들어와도 서 있는 `Idle` 그대로다(관리자 제보 2026-10-30). 그래서 스킬 밖 대상 유무로 `Idle_2`를 되풀이하던 형태 `watch`(`ai.js watchForm`, fx 'watch')를
+    지웠다 — `Idle_2`는 `clip-coverage-list.js`의 `none`. 이 모드에서 그 능력이 왜 돌지 않는지는 클라에서 보지 않았다.
   - **G** 新约能天使 S3 시작 포격 `Skill_3_Skill`(모드 S3 공격 트리거 묶음의 S3FireToToken): 키트 'airstrike' fx에 `signal: 'fireToToken'`(이벤트 수 그대로) →
     같은 `signalSwing`, 스킬 begin이 끝난 뒤. `Skill_1_Close`(S1 수동 정지 뒤의 몰아 쏘기)는 `none` — 이 모드엔 수동 정지가 없음(스킬을 멈추는 클라 메시지 없음,
     `skills.js stop()` 호출처 없음). [화면 미확인]
@@ -753,8 +753,8 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     공격과 다를 때(묶음이면 자식들 — 仇白); U `up` = 공격·스킬 능력의 `_upAnimKey`; E `equip` = `_defaultModeIndex` 모드의 Born·Idle 짝과 공격(이륙 모드 `…_TakeOff`면
     그 한 번 공격이 배치 클립 — 予愿安洁莉娜 S1); F = 스킬 모드의 Die·Stun·Born 짝(Stun→Die 짝은 안 그림 — 耀骑士临光 S2); C 공격 역할 `firstBegin` = 기본 모드
     ThreePart의 첫 공격 begin; 자세 = 스킬 자신의 채널 옆에서도 모드 공격이 `_animKey ""`이면(薄绿 S2·小满 S2 — `MODE_STANCE`가 하던 것). 공격 역할 쪽 줄은 키의
-    공격이 이름 추측과 같은 클립일 때만 얹는다 — 다른 것은 기본 모드에 공격이 없는 阵法术师 6명(키는 공격 없음, 역할은 스킬 클립 대체)·玛恩纳 `Idle_2`(units.js
-    watch)·丰川祥子 `Combat`(그래서 `COMBAT_CLIPS` 그 줄은 남김)·灰毫 근접/원거리 짝(FORTRESS)뿐이고, 같은 곳은 begin·loop·end가 모두 같다.
+    공격이 이름 추측과 같은 클립일 때만 얹는다 — 다른 것은 기본 모드에 공격이 없는 阵法术师 6명(키는 공격 없음, 역할은 스킬 클립 대체)·玛恩纳 `Idle_2`(공식은 `Idle` 그대로,
+    위 H)·丰川祥子 `Combat`(그래서 `COMBAT_CLIPS` 그 줄은 남김)·灰毫 근접/원거리 짝(FORTRESS)뿐이고, 같은 곳은 begin·loop·end가 모두 같다.
     손 표에서 지운 것: `ATTACK_ALTS` 11명·`UP_CLIPS` 3명·`EQUIP_ROLES` 6줄·`MODE_STANCE` 3명 전부, `COMBAT_CLIPS` 丰川祥子 말고 전부, `SKILL_STATE_CLIPS`의
     die·stun·deploy(남은 것은 시뮬 키의 【移动】 `deploys` — 乌尔比安 S3·凯尔希·思衡托 S3), `FIRST_ATTACK_BEGIN` 歌蕾蒂娅 S2 말고 전부(그 S2는 `SKILL_CLIP_OVERRIDES`
     손 줄이 키 역할을 통째로 바꾸므로). 지운 뒤 매니페스트에서 바뀐 것(클라 기준, 결정 4): 引星棘刺 S3를 들면 배치부터 공격이 `Skill_3_Loop`(모드 S3 `Body/Attack`

@@ -68,6 +68,9 @@ export const UNPLAYED = {
   char_4016_kazema: {
     Default_B: 'none: setup pose of the stand-in form (0 s); only the buff template of another unit (parrot_m1_t) names it',
   },
+  char_4064_mlynar: {
+    Idle_2: 'none: the clip of her Default mode\'s animation-only Body/AnimAttack, but the official game keeps her on Idle outside her skills even with an enemy in her range (maintainer report 2026-10-30)',
+  },
   char_4039_horn: {
     Skill_Down_2_B_Loop: 'none: only an entry of the skin key table (SpineAnimator._animations: animKey = its name); no ability (`_downAnimKey`, a ThreePart / channel `_down` bundle), mode pair, skill `_beginAnimDown` or mix calls it; client keys 2026-10-23; S2 switches to no facing-down mode (only S3 does: S3(D))',
   },

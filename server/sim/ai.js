@@ -116,7 +116,6 @@ export function updateAlly(b, u, dt) {
   if (prof.noAttack || (prof.noAttackUnlessSkill && !(sk && sk.active)) || u.s.flags.disarm) {
     cutAllySwing(u);
     u.atkSpell = 0;
-    if (prof.watchForm) watchForm(b, u, prof);
     return;
   }
   if (u.swing) {
@@ -407,18 +406,6 @@ function endSpell(b, u) {
  */
 function storeEnergy(b, u, prof) {
   if (prof.storeEnergy && prof.storeEnergy(b, u)) u.atkCd = Math.max(u.atkCd, u.s.interval);
-}
-
-/**
- * A profile whose attack outside its skill strikes nothing (`watchForm`, professions.js 解放者: 玛恩纳's Default mode
- * attack is an animation-only ability, charpack Body/AnimAttack `_animKey "Idle_2"`): the unit is in that model form while
- * a valid target stands in its range — fx 'watch' { form } on each change (render/units.js FORMS). Display only.
- */
-function watchForm(b, u, prof) {
-  const form = !u.s.flags.disarm && !(u.skill && u.skill.active) && acquireTargets(b, u, prof).length ? prof.watchForm : null;
-  if ((u.form ?? null) === form) return;
-  u.form = form;
-  b.fx('watch', { x: u.x, y: u.y, id: u.id, form });
 }
 
 /** Release blocked enemies beyond the current block capacity (latest blocked first). */

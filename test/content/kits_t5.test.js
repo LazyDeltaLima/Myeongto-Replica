@@ -876,12 +876,12 @@ test('玛恩纳 S3: trait ×2, 5 targets at 125 % ATK (×1.1 游侠), Kazimierz 
   approx(refl[0].amount, u.s.atk * t1.atk_scale, 1e-6, 'reflect');
   h.b.dealDamage(null, foe, { amount: 1e9, type: 'true' });
   h.run(10);
-  assert.equal(u.form ?? null, null, 'no target in range: no 解放者 watch');
   for (const p of tiles) h.spawn('enemy_dummy', { pos: p });
   h.step();
-  // a target in range outside her skill: the watch form (her Default mode's AnimAttack Idle_2; render/units.js FORMS)
-  assert.equal(u.form, 'watch');
-  assert.ok(h.eventsOf('fx').some((e) => e[1] === 'watch' && e[4]?.id === u.id && e[4].form === 'watch'));
+  // a target in range outside her skill: she keeps standing on her idle — no model form, no swing (maintainer report
+  // 2026-10-30: the official game shows no other clip there)
+  assert.equal(u.form ?? null, null, 'no model form outside her skill');
+  assert.ok(!h.eventsOf('swing').some((e) => e[1] === u.id), 'no swing outside her skill');
   const ramp = u.trait.ramp;
   assert.ok(ramp > 0.4);
   u.skill.gainSp(1000);
