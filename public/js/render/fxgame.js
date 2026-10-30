@@ -3424,8 +3424,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // the bombing by up to 1 s as a 2.65 s one-shot)
       // 2026-10-27 (official client): the aim projectile (AttachToTarget `_attachToMountPoint`, `_mountPointType` GROUND) sits on
       // its target's ground point every tick, turned by BasicMovement.RotateToCertainDirection with `_rotateToTarget`: in this
-      // online mode MapUtil.FaceTo3dUpwardMajor(direction, Vector3.forward) — its +y along the muzzle → target direction of its
-      // start, its plane the board's
+      // online mode MapUtil.FaceTo3dUpwardMajor(direction, Vector3.forward) — its +y along `direction`, its plane the board's.
+      // 2026-10-30 (maintainer report: the ring was tilted): none of the aim's direction flags is set (`_useStartToTarget` 0), so
+      // BasicMovement._InitDirectionByStart takes its start's 2D `faceTo` with z = 0 — the muzzle → ground line tilted the ring by
+      // the muzzle's height. Ours keeps that line on the board [추정·미조사: the start's faceTo (MountPoint / Entity) not read]
       const ground = tgt && { get x() { return mx(tgt); }, get y() { return tgt.y; }, get z() { return (tgt.z || 0) + (tgt.hover || 0); },
         get alive() { return tgt.alive; }, get remove() { return tgt.remove; }, id: tgt.id };
       const from = tgt && shotFrom(src);
@@ -3466,7 +3468,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         }
         spawn(bundleOf(src).bundle, n, (aimFx ? ground : tgt) || { x, y, z: 0 }, { owner: o.id, buff: true, on: o.id, until: clockS + 30, skyward: n.endsWith('trail_01') }).then((l) => {
           if (!l) return;
-          if (aimFx && from) upwardMajor(l.inst.object, ground.x - from.x, ground.y - from.y, ground.z - from.z);
+          if (aimFx && from) upwardMajor(l.inst.object, ground.x - from.x, ground.y - from.y, 0);
           if (mark.done) l.inst.stop(); else mark.push(l);
         });
       }

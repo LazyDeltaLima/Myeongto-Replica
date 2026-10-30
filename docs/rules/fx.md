@@ -272,8 +272,11 @@
     `_DissolveIntensity`. 원이 바닥에 눕던 차이는 「캐릭터 그림의 기울기」(2026-10-22) 뒤로 공식처럼 몸 앞에 선다(2026-10-27 공식 영상 대조).
     조준 원 `crosshair_range`(조준 투사체 `_mainEffect`)는 바닥에 눕는 것이 공식(2026-10-27, 공식 클라에서 확인): 투사체가 AttachToTarget으로 대상의
     GROUND 점에 매 틱 붙고(`_attachToMountPoint`, `_mountPointType` 7), `_rotateToTarget`의 `BasicMovement.RotateToCertainDirection`이 이 모드
-    (`IGameMode.isOnline` 참)에서 `MapUtil.FaceTo3dUpwardMajor(방향, Vector3.forward)` — 위 = 시작(총구) → 대상 방향, 앞 = 그에 수직인 아래 —
-    라 판 평면에 눕고 +y가 그녀 → 대상 쪽(`fxgame.js upwardMajor`; 예전엔 대상 칸에 돌림 없이).
+    (`IGameMode.isOnline` 참)에서 `MapUtil.FaceTo3dUpwardMajor(방향, Vector3.forward)` — 위 = 방향, 앞 = 그에 수직인 아래 — 라 판 평면에 눕는다
+    (`fxgame.js upwardMajor`; 예전엔 대상 칸에 돌림 없이). 방향(2026-10-30 관리자 제보 「원이 기울었다」, 공식 클라에서 확인): 조준 투사체의 방향 필드가
+    모두 0(`_useStartToTarget` 0 포함)이라 `BasicMovement._InitDirectionByStart`가 시작점의 2D `faceTo`에 z = 0을 쓰고, `DoUpdateRotation`이 매 틱
+    그 방향으로 돌린다 — 높이 성분이 없다. 우리는 총구 → 대상 GROUND 점의 3D 선을 넘겨 총구 높이만큼 원이 기울었다 → 그 선의 판 위 성분만.
+    [추정·미조사: 시작점(MountPoint·Entity)의 `faceTo`가 4방향인지 안 읽음 — 원의 가시 넷(+자)이 판 축에 맞는지가 달림; 지금은 그녀 → 대상 판 위 방향]
     ⑤ 데겐블레허: 늘인 빌보드(stretched)의 길이를 size.y(3D 시작 크기), 폭을 size.x로 — 베기 줄이 길고 가늘게; 天生的武者 165% 발동분은 기대 피해에서
     뺌(`dmg.lpExpectDiv`, damage.js 1줄·`chess_char_6_19-blkkgt.js` 1줄) → S3 베기가 전부 빨간 숫자(영상); 스킬 End 클립(마무리 `Skill_3_End`)은 다음 평타가 끊지 않음
     (`spine.js _endPlaying`). ⑥ 리드 S3: charpack 모드가 Attack→`Skill_3_Attack`, Idle→`Skill_3_Loop` — 공격 클립을 `Skill_3_Attack`, 대기를
