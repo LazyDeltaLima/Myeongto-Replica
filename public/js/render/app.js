@@ -2139,7 +2139,7 @@ export async function createFieldView(host, options = {}) {
       for (const v of views.values()) if (v.culled) culledCount++;
       for (const v of penViews.values()) if (v.culled) culledCount++;
       // 2026-10-30: a boss round's prep (own board, the pair partner's, the boss in the pen) and a scouted board load the
-      // effect files of what they show before the battle; a real battle pauses that (render/fxgame.js preload)
+      // effect files of what they show before the battle; a real battle loads only trails, the rest waits (render/fxgame.js preload)
       if ((mode === 'prep' && prepXf.kind === 'bossPrep') || (mode === 'battle' && battleMeta?.prep)) fxGame.preload([...views.values(), ...penViews.values()]);
       // 2026-10-31: every other prep and a battle load only the trails of what they show — first shots fly the official trail
       else if (mode === 'prep' || mode === 'battle') fxGame.preload([...views.values()], { trailsOnly: true });
