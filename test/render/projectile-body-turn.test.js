@@ -12,6 +12,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { bodyStill, bodyTurn } from '../../public/js/render/fx/face.js';
 import { lobZ } from '../../public/js/render/fx/projectiles.js';
+import { presetCamera } from '../../public/js/render/projection.js';
+import { liftedPoint, onModelPlane } from '../../public/js/render/fxpoints.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const TOOL = path.join(ROOT, 'tools/local-extract');
@@ -185,4 +187,29 @@ test('lobZ (2026-10-30, ParacurveMovement.OnInit): H above the start, an uneven 
   assert.ok(near(zi[2000], 0.6) && near(Math.min(...zi), 0.3, 1e-6), 'the inverse arc dips H under its start and comes back');
   const high = { x0: 0, y0: 0, z0: 0.2, tx: 3, ty: 0, tz: 2, arc: 0.5 };   // a target above the top: closed along the line
   assert.ok(near(lobZ(high, 1)[0], 2));
+});
+
+test('onModelPlane (2026-10-31, the Graphic\'s X −30° under the 30° camera): a drawn model point at its official height, the same spot on screen', () => {
+  const cam = presetCamera('normal', { width: 1920, height: 1080 });
+  const near = (a, b, e) => Math.abs(a - b) < e;
+  const drawn = (x, y, h) => {   // the point drawn h tiles (the root's scale) above the root (x, y, 0), lifted at the unit's row
+    const r = cam.project(x, y, 0), o = { x: 0, y: 0, z: 0 };
+    return liftedPoint(cam, x, y, 0, r.y, r.x + 0.1 * r.s, r.y - h * r.s, o);
+  };
+  for (const [x, y] of [[3, 8], [10, 9], [17, 12]]) {
+    const lifted = drawn(x, y, 0.55), p = onModelPlane(cam, x, y, 0, lifted, { x: 0, y: 0, z: 0 });
+    const a = cam.project(lifted.x, lifted.y, lifted.z), b = cam.project(p.x, p.y, p.z);
+    assert.ok(near(a.x, b.x, 1e-6) && near(a.y, b.y, 1e-6), 'drawn at the same spot');
+    assert.ok(near(p.z, 0.55 * 0.5, 1e-9) && near(p.y - y, 0.55 * Math.cos(Math.PI / 6), 1e-9) && near(p.x - x, 0.1, 1e-9),
+      `h sin 30° up, h cos 30° rows back (${p.z}, ${p.y - y})`);
+    assert.ok(lifted.z > 3 * p.z, `the row's lift stood far higher (${lifted.z})`);
+  }
+  // 号角 (H 0.7) from a muzzle drawn 0.55 up to a hit point drawn 0.35 up 4 tiles away: the fall below the top is shallower
+  const end = (k0) => {
+    const a = k0 ? drawn(6, 10, 0.55) : onModelPlane(cam, 6, 10, 0, drawn(6, 10, 0.55), { x: 0, y: 0, z: 0 });
+    const b = k0 ? drawn(10, 10, 0.35) : onModelPlane(cam, 10, 10, 0, drawn(10, 10, 0.35), { x: 0, y: 0, z: 0 });
+    const rec = { x0: a.x, y0: a.y, z0: a.z, tx: b.x, ty: b.y, tz: b.z, arc: 0.7 };
+    return -lobZ(rec, 1)[1] / Math.hypot(rec.tx - rec.x0, rec.ty - rec.y0);
+  };
+  assert.ok(end(false) < 0.75 * end(true), `the 3D fall at the end (${end(false)} vs ${end(true)})`);
 });

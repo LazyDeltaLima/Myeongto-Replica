@@ -73,7 +73,7 @@ import { bodyZ, bodyPoint, liftX } from './fx.js'; // local patch: status effect
 import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
 import { fxSpec } from './fx.js'; // local patch: the stand-in archetype of a kit fx event (standInOff)
 import { SHOT_HEIGHT } from './fx.js'; // local patch: a trail's start without a muzzle point
-import { boneMissing, heldAt, liftedPoint, loadPoints, mountSpawn, pointKey, pointOn, pointScale, pointTurn, screenOffset } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
+import { boneMissing, heldAt, liftedPoint, loadPoints, mountSpawn, onModelPlane, pointKey, pointOn, pointScale, pointTurn, screenOffset } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
 import { GRAPHIC_TILT, takesGraphicTurn } from './fxpoints.js'; // 2026-10-22: an effect on a unit takes its Graphic's X −30°
 import { STANDARD_PLACE, modelOffset } from './fxpoints.js'; // 2026-10-22: 望's 棋子 model stands at its prefab's place (the ball)
 import { enemyProjSpeed, enemyShot } from './fx/speeds.js'; // 2026-10-10: an enemy shot's record / flight time (data/enemies.json `proj`)
@@ -2116,16 +2116,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (mp === 7) return { x: mx(src), y: src.y, z: (src.z || 0) + (src.hover || 0) };   // MountPointType GROUND
     const key = Number.isInteger(mp) ? pointKey(mountSpawn({ type: mp })) : null;
     const p = (key && specialPoint(src, shotAt, key)) || specialPoint(src, shotAt, 'muzzle');
-    return p ? { x: p.x, y: p.y, z: p.z } : bodyPoint(camRef, src, SHOT_HEIGHT.launch, mx(src));
+    return onModel(src, p || bodyPoint(camRef, src, SHOT_HEIGHT.launch, mx(src)));
   }
   /**
    * Where a shot meets unit `t`: its model's hit point, else half its drawn height, both drawn on the model (the column
    * too: a raised point drifts off the model toward the board's edges — fx/camera.js liftX). A new point each call.
    */
-  const shotTo = (t) => {
-    const p = specialPoint(t, hitAt, 'hit') || bodyPoint(camRef, t, SPAWN_FRAC[2], mx(t), hitAt);
-    return { x: p.x, y: p.y, z: p.z };
-  };
+  const shotTo = (t) => onModel(t, specialPoint(t, hitAt, 'hit') || bodyPoint(camRef, t, SPAWN_FRAC[2], mx(t), hitAt));
+  /**
+   * 2026-10-31 (official client: a mount point's height is its own on the model's `Graphic` — fxpoints.js onModelPlane): a
+   * shot's end point `p` drawn on unit `v`'s model, moved onto the model's plane (the same spot on screen). A new point.
+   */
+  const onModel = (v, p) => (typeof camRef?.project === 'function' ? onModelPlane(camRef, v.x, v.y, (v.z || 0) + (v.hover || 0), p, { x: 0, y: 0, z: 0 }, SP_P) : { x: p.x, y: p.y, z: p.z });
   /** A trail record's end on unit `t` (shotTo). */
   const aimOf = (t) => { const p = shotTo(t); return { tx: p.x, ty: p.y, tz: p.z }; };
   /** A trail at flight fraction k: on the line to the target's current spot (a lob on its arc), turned along it. */
@@ -3259,7 +3261,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function droneFrom(src, mp) {
     const key = Number.isInteger(mp) ? pointKey(mountSpawn({ type: mp })) : null;
     const p = (key && specialPoint(src, shotAt, key)) || specialPoint(src, shotAt, 'muzzle');
-    return p ? { x: p.x, y: p.y, z: p.z } : bodyPoint(camRef, src, SHOT_HEIGHT.launch, mx(src));
+    return onModel(src, p || bodyPoint(camRef, src, SHOT_HEIGHT.launch, mx(src)));
   }
 
   // ---- 伺夜's wolf pack (2026-10-16, 이펙트 연결 전수 묶음 3, docs/rules/fx.md 「伺夜 늑대 무리」) ---------------------------------
@@ -4305,7 +4307,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (mount === 7) return { x: mx(src), y: src.y, z: (src.z || 0) + (src.hover || 0) };
     const key = Number.isInteger(mount) ? pointKey(mountSpawn({ type: mount })) : null;
     const p = (key && specialPoint(src, shotAt, key)) || specialPoint(src, shotAt, 'muzzle');
-    return p ? { x: p.x, y: p.y, z: p.z } : bodyPoint(camRef, src, SHOT_HEIGHT.launch, mx(src));
+    return onModel(src, p || bodyPoint(camRef, src, SHOT_HEIGHT.launch, mx(src)));
   }
   /** Tiles per game second of `src`'s shot: data/enemies.json `proj` (what the sim flies it at), else the sim's enemy speed. */
   function eshotSpeed(src) {

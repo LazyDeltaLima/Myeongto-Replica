@@ -171,7 +171,9 @@ test('fxgame: lifted() takes the point of pointKey(spawn) from the table; body /
   // target's hit point when the table has it
   assert.match(src, /const p = \(key && specialPoint\(src, shotAt, key\)\) \|\| specialPoint\(src, shotAt, 'muzzle'\);/);
   assert.match(src, /if \(mp === 7\) return \{ x: mx\(src\), y: src\.y, z: \(src\.z \|\| 0\) \+ \(src\.hover \|\| 0\) \};/);   // mx: MODEL_SHIFT
-  assert.match(src, /const p = specialPoint\(t, hitAt, 'hit'\) \|\| bodyPoint\(camRef, t, SPAWN_FRAC\[2\], mx\(t\), hitAt\);/);   // shotTo
+  assert.match(src, /const shotTo = \(t\) => onModel\(t, specialPoint\(t, hitAt, 'hit'\) \|\| bodyPoint\(camRef, t, SPAWN_FRAC\[2\], mx\(t\), hitAt\)\);/);
+  // 2026-10-31: both ends on the model's plane (fxpoints.js onModelPlane: a mount point's own height on the tilted Graphic)
+  assert.equal(src.match(/return onModel\(src, p \|\| bodyPoint\(camRef, src, SHOT_HEIGHT\.launch, mx\(src\)\)\);/g)?.length, 3, 'shotFrom, droneFrom, eshotFrom');
   // 2026-10-30: the height from the start's point to the hit point (a lob on the official arc: fx/projectiles.js lobZ)
   assert.match(src, /const z = lobZ\(rec, k, LOB_NO_RAISE\)\[0\];/);
   assert.match(readFileSync(new URL('../public/js/render/fx/projectiles.js', import.meta.url), 'utf8'), /if \(!rec\.arc\) return \[z0 \+ \(tz - z0\) \* k, tz - z0\];/);

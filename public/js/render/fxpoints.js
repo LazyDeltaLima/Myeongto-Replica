@@ -255,6 +255,28 @@ export function liftedPoint(cam, x, y, z, rootY, gx, gy, out, tmp = { x: 0, y: 0
 }
 
 /**
+ * The point of a unit's model plane drawn where world point `p` is drawn, into `out`; the unit's model stands at world
+ * (x, y, z). 2026-10-31 (maintainer report: 号角's and 灰毫's lobs dived into their targets; official client): a mount point
+ * is a Transform under the model's `Graphic`, turned X −30° (GRAPHIC_TILT) — under the 30° battle camera its plane faces
+ * the camera, the model's up the camera's up (render/projection.js `u` = (0, cos tilt, sin tilt)) — and `MountPoint.get_height`
+ * is that Transform's own 3D height: a point drawn `h` tiles above the root is h·sin 30° up and h·cos 30° rows back.
+ * liftedPoint keeps the unit's row, so the same drawn point stood h / sin 30° up — four times as high — and a lob's fall
+ * from the muzzle to the hit point (render/fx/projectiles.js lobZ: D = start + raise − target) four times as deep. The
+ * plane is at the root's depth, so this is exact for render/projection.js Camera (the drawn point does not move).
+ * @param {{project: Function, tilt: number}} cam
+ * @param {{x: number, y: number, z: number}} p
+ * @param {{x: number, y: number, z: number}} out
+ */
+export function onModelPlane(cam, x, y, z, p, out, tmp = { x: 0, y: 0, s: 0, depth: 0 }) {
+  const q = cam.project(p.x, p.y, p.z, tmp), qx = q.x, qy = q.y;
+  const r = cam.project(x, y, z, tmp);
+  if (!(r.s > 0) || !Number.isFinite(qx) || !Number.isFinite(qy)) { out.x = p.x; out.y = p.y; out.z = p.z; return out; }
+  const t = (cam.tilt * Math.PI) / 180, du = (qx - r.x) / r.s, dv = (r.y - qy) / r.s;
+  out.x = x + du; out.y = y + dv * Math.cos(t); out.z = z + dv * Math.sin(t);
+  return out;
+}
+
+/**
  * The screen offset of world point `p` from a unit's base `b` (its entity point, height included), in tiles of the base's
  * own scale: { du, dv }. A held effect keeps it (heldAt).
  * @param {{project: Function}} cam

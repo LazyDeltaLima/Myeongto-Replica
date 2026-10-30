@@ -64,8 +64,9 @@ test('fxgame: body / head effects, status effects, shot ends, orbits and line en
   assert.match(FXGAME, /get x\(\) \{ return frac > 0 && camRef \? bodyPoint\(camRef, view, frac, view\.x, statusAt\)\.x : view\.x; \}/);
   assert.match(FXGAME, /get x\(\) \{ return \(camRef \? bodyPoint\(camRef, v, SPAWN_FRAC\[2\], v\.x, orbitAt\)\.x : v\.x\) \+ r \* Math\.cos\(ang\(\)\); \}/);
   // shots: from the drawn model (no muzzle point), to its hit point or its middle — the whole point, not its z only
-  assert.equal((FXGAME.match(/: bodyPoint\(camRef, src, SHOT_HEIGHT\.launch, mx\(src\)\);/g) || []).length, 3);
-  assert.match(FXGAME, /const p = specialPoint\(t, hitAt, 'hit'\) \|\| bodyPoint\(camRef, t, SPAWN_FRAC\[2\], mx\(t\), hitAt\);\n    return \{ x: p\.x, y: p\.y, z: p\.z \};/);
+  // (2026-10-31: both ends then moved onto the model's plane, the same spot on screen — fxpoints.js onModelPlane)
+  assert.equal((FXGAME.match(/onModel\(src, p \|\| bodyPoint\(camRef, src, SHOT_HEIGHT\.launch, mx\(src\)\)\);/g) || []).length, 3);
+  assert.match(FXGAME, /const shotTo = \(t\) => onModel\(t, specialPoint\(t, hitAt, 'hit'\) \|\| bodyPoint\(camRef, t, SPAWN_FRAC\[2\], mx\(t\), hitAt\)\);/);
   assert.doesNotMatch(FXGAME, /tz: shotTo\(|z: shotTo\([\w.]+\) \}/, 'no shot end on the target\'s z only');
   assert.doesNotMatch(FXGAME, /bodyZ\(camRef, (src|t|from|v), (SHOT_HEIGHT|SPAWN_FRAC)[^)]*\) \}/, 'no z-only body point left');
   // gliders at a body height: both ends lifted
