@@ -50,7 +50,7 @@ test('an ended effect releases only its own buffers: another live effect keeps t
 });
 
 // 2026-10-30: a particle system's arrays and instance buffers start small and grow as emission needs (ParticleSystem.grow);
-// strip batches start with room for 64 points and share one set of constant attributes (StripBatch)
+// strip batches start with room for 64 points and share one set of constant attributes (StripBatch); an empty one is hidden
 const big = () => {
   const d = def();
   d.nodes = [node('t', -1), node('meshps', 0, { ps: { ...ps(4), max: 100, mods: { trail: { mode: 1 } }, render: { ...ps(4).render, trailMat: 'm' } } })];
@@ -104,6 +104,12 @@ test('strip batches grow to their cap and never release the constant attributes 
   assert.equal(ba.n, 101);
   ba.strip(pts, 2, w, c, u);
   assert.equal(ba.n, 101, 'nothing past the cap');
+  assert.equal(ba.mesh.visible, true, 'a batch with strips is drawn');
+  ba.begin(); ba.end();
+  assert.equal(ba.mesh.visible, true, 'empty before its first draw: drawn, so three.js takes its bounding sphere (the draw order) when it always did');
+  ba.geometry.computeBoundingSphere();   // what three.js's first draw does
+  ba.begin(); ba.end();
+  assert.equal(ba.mesh.visible, false, 'an empty batch is not drawn at all');
   const gone = [];
   ba.geometry.addEventListener('dispose', () => { gone.push(...Object.values(ba.geometry.attributes)); });
   a.dispose();

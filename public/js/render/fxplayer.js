@@ -1146,8 +1146,10 @@ class StripBatch {
       this.vb.clearUpdateRanges(); this.vb.addUpdateRange(0, this.n * 2 * SV); this.vb.needsUpdate = true;
       this.index.clearUpdateRanges(); this.index.addUpdateRange(0, this.ni); this.index.needsUpdate = true;
     }
-    // stays visible while empty (draw range 0): hiding it changed other draws' pixels in the look check (GL state)
     this.geometry.setDrawRange(0, this.ni);
+    // an empty batch is not drawn — once three.js has its bounding sphere: the first draw computes it from what the buffer
+    // holds then and it sets the draw order, so that draw stays where it always was
+    this.mesh.visible = this.ni > 0 || !this.geometry.boundingSphere;
   }
 
   dispose() { this.mesh.removeFromParent(); this.drop(this.geometry); this.material.dispose(); }
