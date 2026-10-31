@@ -135,7 +135,7 @@ import { useDocClass, FullscreenButton } from '../ui/device.js';
 import { HUD_HZ_MS, MERGE_HL, SEL_RANGE, cx } from './game/marks.js';
 import { keepEarly } from './game/early.js';
 import { MatchEnded, PausedOverlay } from './game/overlays.js';
-import { inspectRange } from './game/range.js';
+import { inspectRange, skillButton } from './game/range.js';
 import { t, tParts } from '../../../shared/i18n.js';
 import { playerName } from '../../../shared/botNames.js';
 
@@ -259,6 +259,7 @@ function MatchScreen() {
   const [drag, setDrag] = useState(null);                // { uid, kind, id } while dragging a piece
   const [facing, setFacing] = useState(null);            // direction step: { uid, piece, row, col, grid, name }
   const [sel, setSel] = useState(null);                  // tapped own piece: { uid }
+  const [skillRangeOf, setSkillRangeOf] = useState(null); // the `sel` whose menu's skill range toggle is on (a new selection: off)
   const [selBusy, setSelBusy] = useState(false);
   const [holdSeq, setHoldSeq] = useState(0);             // bumped when a held piece is released (re-apply the prep state)
   // the battle HUD numbers live in their own store (ui/hud.js battleHud): the top bar's capsule and the DP counter
@@ -1668,7 +1669,25 @@ function MatchScreen() {
   const shopOpen = showShop && !collapsed;
   const ufShown = !!(selEntry && editable && !facing && !drag && showPrep && ufGeo);
   const ufActions = ufShown ? underframeActions(placeCtx, sel.uid) : null;
-  const ufOpts = { actions: ufActions, onBoard: !!ufActions?.retreat }; // the official menu's button rect (underframeRect)
+  // the player's own operators (and the shop / bond member cards) show the loadout's skill / module (DESIGN §16);
+  // a teammate's unit (前往查看 in prep, 联防 / 最终攻势 fields, an observed battle) shows ITS owner's choice, carried by
+  // the unit (UnitInfo skillIndex / moduleId: the sim's, or Match.prepFieldMeta's) — never the viewer's loadout
+  const detailLoadout = (() => {
+    if (!resolved || resolved.type !== 'chess') return null;
+    if (detailTarget?.kind === 'unit') {
+      const u = detailTarget.unit;
+      const owner = u?.ownerId;
+      if (resolved.piece || (owner != null && owner === myId)) return priv?.loadout ?? null;
+      return unitLoadout(resolved.chess, u);
+    }
+    return priv?.loadout ?? null; // own pieces, shop / reward / bond-member cards
+  })();
+  // a field operator's menu shows its skill button (game/range.js skillButton) — its card is the one open; the button's
+  // range toggle shows the skill's range instead of the attack range while it is on
+  const ufSkill = ufShown && ufActions?.retreat && detailTarget?.kind === 'piece' && detailTarget.uid === sel.uid
+    ? skillButton({ detail: resolved, loadout: detailLoadout, getChess: gd.chess, backups: gd.backups, m: data.get('assets') }) : null;
+  const skillRangeOn = !!(ufSkill?.grid && skillRangeOf && skillRangeOf === sel);
+  const ufOpts = { actions: ufActions, onBoard: !!ufActions?.retreat, skill: ufSkill }; // the official menu's button rect (underframeRect)
   // the temp overflow row holds pieces (user playtest #3 item 3): framed and labelled on the own prep board
   const temp = tempInfo(priv);
   const tempNotice = temp.count > 0 && !!view && viewKind !== 'loading' && showPrep && alive && !pen && !sp;
@@ -1708,19 +1727,6 @@ function MatchScreen() {
     const { rem, vp } = panelFrame();
     return bondPopupPlace(ufShown ? underframeRect(ufGeo, rem, ufOpts) : null, vp, rem, resolved ? dSide : null);
   })();
-  // the player's own operators (and the shop / bond member cards) show the loadout's skill / module (DESIGN §16);
-  // a teammate's unit (前往查看 in prep, 联防 / 最终攻势 fields, an observed battle) shows ITS owner's choice, carried by
-  // the unit (UnitInfo skillIndex / moduleId: the sim's, or Match.prepFieldMeta's) — never the viewer's loadout
-  const detailLoadout = (() => {
-    if (!resolved || resolved.type !== 'chess') return null;
-    if (detailTarget?.kind === 'unit') {
-      const u = detailTarget.unit;
-      const owner = u?.ownerId;
-      if (resolved.piece || (owner != null && owner === myId)) return priv?.loadout ?? null;
-      return unitLoadout(resolved.chess, u);
-    }
-    return priv?.loadout ?? null; // own pieces, shop / reward / bond-member cards
-  })();
   // the open detail card's unit draws its attack range on the field (screens/game/range.js inspectRange, GitHub PR #281):
   // an own board piece in prep (its loadout / stand-in record, its facing); in battle or on a scouted board an ally
   // operator / summon on the field — the range it fights with now (the live stats' `range` and `dir`, the snapshot's
@@ -1732,6 +1738,7 @@ function MatchScreen() {
     live: typeof liveStats === 'function' ? liveStats() : liveStats,
     loadout: detailLoadout, getChess: gd.chess, backups: gd.backups,
   }) : null;
+  if (cardRange && skillRangeOn) cardRange.grid = ufSkill.grid;
   const cardRangeKey = cardRange ? JSON.stringify(cardRange) : '';
   useEffect(() => {
     if (!view) return undefined;
@@ -1852,7 +1859,8 @@ function MatchScreen() {
       ${selEntry && editable && !facing && !drag && showPrep ? html`<${Underframe} key=${sel.uid} view=${view} uid=${sel.uid}
         row=${pieceTile(selEntry)?.row} col=${pieceTile(selEntry)?.col} actions=${underframeActions(placeCtx, sel.uid)} busy=${selBusy}
         name=${(selEntry.piece.kind === 'item' ? gd.item(selEntry.piece.id) : selEntry.piece.kind === 'token' ? gd.token(selEntry.piece.id) : ownShown(selEntry.piece.id))?.name || ''}
-        onRetreat=${retreatSel} onSell=${sellSel} onDestroy=${sellSel} />` : null}
+        onRetreat=${retreatSel} onSell=${sellSel} onDestroy=${sellSel}
+        skill=${ufSkill} skillRange=${skillRangeOn} onSkillRange=${(on) => setSkillRangeOf(on ? sel : null)} />` : null}
     </div>
 
     ${sp ? html`<${ChoiceOverlay} pub=${pub} sp=${sp} myId=${myId} solo=${solo} busyIdx=${spBusy} total=${total}

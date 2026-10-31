@@ -30,6 +30,8 @@
 .ufa__icon { filter: brightness(0); }
 .ufa__text { fill: rgba(0, 0, 0, .9); font-family: var(--font-cjk); font-weight: 700; }
 .ufa__price { fill: #e8e8e8; font-family: var(--font-num, var(--font-cjk)); font-weight: 700; }
+.ufa__sp { fill: #fff; font-family: var(--font-num, var(--font-cjk)); font-weight: 700; }
+.ufa__skillnone { fill: rgba(30, 30, 30, .8); }
 .ufa__key rect { fill: rgba(20, 20, 20, .85); stroke: rgba(255, 255, 255, .3); stroke-width: 2; }
 .ufa__key text { fill: #e8e8e8; font-family: var(--font-num, var(--font-cjk)); font-weight: 600; }
 .ufa__withdraw, .ufa__util { transition: filter .1s; }
@@ -37,6 +39,7 @@
 .uframe--art:has(:is(.uframe__btn--sell, .uframe__btn--destroy):hover:not(:disabled)) .ufa__util { filter: brightness(.96); }
 .uframe--art:has(.uframe__btn--retreat:active:not(:disabled)) .ufa__withdraw,
 .uframe--art:has(:is(.uframe__btn--sell, .uframe__btn--destroy):active:not(:disabled)) .ufa__util { filter: brightness(.78); }
+.uframe--art:has(.uframe__btn--range:active) .ufa__range { filter: brightness(.78); }
 .uframe--art:has(.uframe__btn:disabled) .ufa--btns { opacity: .5; filter: brightness(.78); }
 .uframe__btn.ufa__hit { position: absolute; transform: none; padding: 0; margin: 0; background: transparent; border: 0;
   filter: none; animation: none; display: block; }

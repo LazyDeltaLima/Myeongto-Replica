@@ -76,6 +76,14 @@ export function skillRecordIconUrl(m, skill, { empty = true } = {}) {
   return empty ? uiUrl(m, 'skillIcon/empty') : null;
 }
 
+/**
+ * Skill icon of the skill a unit fights with: the loadout's chosen skill (chessLoadout `lo`; null when the manifest
+ * lacks its icon) or, for the default skill, the record's own (`body`: the chess or its stand-in).
+ */
+export function loadoutSkillIconUrl(m, lo, body) {
+  return lo?.skill && !lo.defaultSkill ? skillRecordIconUrl(m, lo.skill, { empty: false }) : skillIconUrl(m, body);
+}
+
 const PROF_KEY = {
   PIONEER: 'pioneer', WARRIOR: 'warrior', TANK: 'tank', SNIPER: 'sniper', CASTER: 'caster', MEDIC: 'medic',
   SUPPORT: 'support', SPECIAL: 'special',

@@ -1,9 +1,16 @@
 // screens/game/range.js — the attack range the open detail card's unit draws on the field (GitHub PR #281 by
-// @IceCodeNew; the field-detail range idea after @BBleae's fork): see game.js cardRange.
+// @IceCodeNew; the field-detail range idea after @BBleae's fork): see game.js cardRange. Also the skill button of the
+// selected field piece's menu (ui/underframeArt.js), whose toggle swaps that range for the skill's.
 import { attackRangeGrid } from '../../../../shared/loadoutRecord.js';
 import { chessLoadout, standInLoadout } from '../../ui/gameLogic.js';
 import { tokenVariantFor } from '../../ui/gameLogic/loadout.js';
 import { normDir } from '../../ui/facing.js';
+import { loadoutSkillIconUrl } from '../../ui/assetUrls.js';
+
+/** The loadout (chessLoadout result) a chess detail card's unit fights with: its stand-in's, or the chess's. */
+function cardLoadout(detail, loadout, getChess, backups) {
+  return detail.standIn ? standInLoadout(detail.standIn, getChess, backups) : chessLoadout(detail.chess, detail.diy ? null : loadout, getChess);
+}
 
 /** Resolve the inspected field unit without granting placement or sale actions. */
 export function inspectRange({ target, detail, pieces, showPrep = false, field, snapshot, live, loadout, getChess, backups }) {
@@ -25,8 +32,30 @@ export function inspectRange({ target, detail, pieces, showPrep = false, field, 
   } else return null;
   if (!Number.isFinite(row) || !Number.isFinite(col)) return null;
   const record = detail.type === 'token' ? { ...detail.token, ...tokenVariantFor(detail.token, detail.ownerId) }
-    : detail.standIn ? standInLoadout(detail.standIn, getChess, backups)?.record || detail.standIn
-    : chessLoadout(detail.chess, detail.diy ? null : loadout, getChess)?.record || detail.chess;
+    : cardLoadout(detail, loadout, getChess, backups)?.record || detail.standIn || detail.chess;
   const grid = Array.isArray(live?.range) ? live.range : attackRangeGrid(record);
   return grid?.length ? { grid, row, col, dir } : null;
+}
+
+const gridKey = (g) => g.map(([r, c]) => `${r},${c}`).sort().join(' ');
+
+/**
+ * The skill button of a field operator's menu (AutoChessUnderFrameSkillButton; docs/rules/ui.md 「선택 메뉴」): shown
+ * for an operator with a skill that is not PASSIVE — its icon, its SP cost ("0/N": the prep shows no SP), and `grid`,
+ * the skill's own range when it has one other than the range the unit shows (Character.GetRangeOfSkill ≠ rangeToShow:
+ * only then the range toggle is drawn), else null. Null for a summon or an item.
+ */
+export function skillButton({ detail, loadout, getChess, backups, m }) {
+  if (detail?.type !== 'chess' || !detail.chess) return null;
+  const body = detail.standIn || detail.chess;
+  const lo = cardLoadout(detail, loadout, getChess, backups);
+  const sk = lo?.skill || body.skill || null;
+  if (!sk || sk.skillType === 'PASSIVE') return null;
+  const normal = attackRangeGrid(lo?.record || body);
+  const own = Array.isArray(sk.rangeGrid) && sk.rangeGrid.length ? sk.rangeGrid : null;
+  return {
+    icon: loadoutSkillIconUrl(m, lo, body),
+    spCost: sk.spCost ?? 0,
+    grid: own && !(normal?.length && gridKey(own) === gridKey(normal)) ? own : null,
+  };
 }

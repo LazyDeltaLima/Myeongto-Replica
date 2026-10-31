@@ -8,7 +8,14 @@
 //     copy under it), 撤退 `btn_escape` on the upper-left edge (`btn_withdraw`, tap area `hotspot` 220²), and — in the
 //     prep, not for a summon — the 出售 plate `util_btn` (AutoChessUnderFramePanelButton SELL: `btn_bg_yellow`, black
 //     `icon_sell`, the text, the price `img_bg_price_enough` "+N") at `_underFramePanelBtnParamSellPos`; the panel
-//     does not block presses (`dontBlockClick`), so the pieces under it stay pressable. (Its skill button is not drawn.)
+//     does not block presses (`dontBlockClick`), so the pieces under it stay pressable; for an operator in the prep
+//     (`showSkillBtn`) the skill button `group_skill` on the lower-right edge (AutoChessUnderFrameSkillButton): only for
+//     a skill that is not PASSIVE [추정·미조사: its `needToDisplay` is not read] — its icon `btn_skill` (a press does nothing), the not-ready bar
+//     `sprite_skill_notready` with `text_sp_progress` "0/N" (SP cost), and, when the skill has its own range other than
+//     the unit's, the range toggle `toggle_skill_range` (off at first; on → the field shows the skill's range,
+//     GridRangeDrawer TurnOnSkill, off → the attack range, TurnOn). Its AUTO mark and stop sign are inactive objects the
+//     script only enables, so they never show; the charge count `panel_skill_amount` needs a ready skill
+//     (`IsAvailable`) with maxChargeTime > 1, which the prep's "0/N" never is [추정·엔진: IsAvailable in the prep not read].
 //   * a bench / temp piece → no diamond: the menu button `btn_panel_root` (AutoChessCharacterMenuButton) — the black
 //     flag `img_btn_bg_all` and the same plate at 0.66 (SELL yellow, DESTROY `btn_bg_red` + `icon_destory` for an
 //     item); a summon gets nothing. Both display settings have `needRotate`: _RotateIfNeed turns `bg_offset` 90° (the
@@ -56,6 +63,15 @@ const MENU_HIT = { at: [6.59 - 14.42, -15.84], w: 151.89, h: 130 }; // menu util
 const MENU_BG = { at: [0, -201 * MENU_SCALE], w: 325 * 0.66 * MENU_SCALE, h: 225 * 0.66 * MENU_SCALE };
 const MENU_UTIL = [6 * MENU_SCALE, -190 * MENU_SCALE];
 const KEY = 46;                      // the drawn key cap (root units)
+// group_skill (190², centre (195, 195) of the root) and its children, relative to that centre
+const SKILL = {
+  at: [195, 195],
+  icon: { at: [1, 3], w: 168, h: 176 },             // btn_skill
+  bar: { at: [0, 140], w: 200, h: 80 },             // sprite_skill_notready
+  sp: { at: [13.3, 118.5], size: 30 },              // text_sp_progress
+  toggle: { at: [165, 10], w: 136, h: 138 },        // toggle_skill_range (image_off / image_on)
+  link: { at: [165 - 68 - 1, 10 - 5], w: 22, h: 5 }, // its image_link (sprite_mask), at the toggle's left edge
+};
 
 /** The menu sprites when the local client art is installed, else null (the original underframe). */
 export function underframeArt() {
@@ -67,7 +83,14 @@ export function underframeArt() {
   const price = localAsset('ui/battle', 'img_bg_price_enough');
   const sell = localAsset('ui/battle', 'icon_sell');
   const destroy = localAsset('ui/battle', 'icon_destory');
-  return frame && escape && yellow && red && flag && price && sell && destroy ? { frame, escape, yellow, red, flag, price, sell, destroy } : null;
+  if (!(frame && escape && yellow && red && flag && price && sell && destroy)) return null;
+  // the skill button's sprites (an older extract lacks them: no skill button)
+  const notready = localAsset('ui/battlecommon', 'sprite_skill_notready');
+  const rangeOff = localAsset('ui/battlecommon', 'sprite_skill_range_off');
+  const rangeOn = localAsset('ui/battlecommon', 'sprite_skill_range_on');
+  const link = localAsset('ui/battlecommon', 'sprite_mask');
+  const skill = notready && rangeOff && rangeOn && link ? { notready, rangeOff, rangeOn, link } : null;
+  return { frame, escape, yellow, red, flag, price, sell, destroy, skill };
 }
 
 /**
@@ -97,10 +120,12 @@ const add = (p, q, k = 1) => [p[0] + q[0] * k, p[1] + q[1] * k];
 
 /**
  * Where everything sits, in menu canvas units: the tap areas and key caps of the buttons shown (centre, size), the
- * util plate's origin and scale. `onBoard` = the underframe, else the bench menu.
+ * util plate's origin and scale, the skill group's centre and its range toggle. `onBoard` = the underframe, else the
+ * bench menu; `skill` = game/range.js skillButton (the underframe only).
  * @param {{ retreat: boolean, sell: number|null, destroy: boolean }} actions
+ * @param {{ grid: any } | null} [skill]
  */
-export function menuLayout(actions, onBoard) {
+export function menuLayout(actions, onBoard, skill = null) {
   const R = ROOT_SCALE;
   const util = actions.sell != null || actions.destroy ? (onBoard
     ? { at: (actions.destroy ? DESTROY_POS : SELL_POS).map((v) => v * R), k: R, key: UF_KEY, hit: UTIL.hit }
@@ -109,6 +134,7 @@ export function menuLayout(actions, onBoard) {
     withdraw: onBoard && actions.retreat && !actions.destroy
       ? { at: WITHDRAW.at.map((v) => v * R), hit: WITHDRAW.hit * R, key: add(WITHDRAW.at, WITHDRAW.key).map((v) => v * R) } : null,
     util: util && { ...util, hit: { at: add(util.at, util.hit.at, util.k), w: util.hit.w * util.k, h: util.hit.h * util.k }, keyAt: add(util.at, util.key, util.k) },
+    skill: onBoard && skill ? { at: SKILL.at.map((v) => v * R), toggle: skill.grid ? add(SKILL.at, SKILL.toggle.at).map((v) => v * R) : null } : null,
   };
 }
 
@@ -116,15 +142,17 @@ export function menuLayout(actions, onBoard) {
  * Client-px rect the menu's buttons cover (the diamond itself lies under the detail card): for the detail card / bond
  * popup placement (ui/underframe.js underframeRect).
  */
-export function menuRect(g, actions, onBoard) {
+export function menuRect(g, actions, onBoard, skill = null) {
   const basis = menuBasis(g);
   if (!basis) return null;
-  const L = menuLayout(actions, onBoard);
+  const L = menuLayout(actions, onBoard, skill);
   const boxes = [boxOf(basis, [0, 0], 1, 1)];
   if (L.withdraw) boxes.push(boxOf(basis, L.withdraw.at, L.withdraw.hit, L.withdraw.hit));
   if (L.util) boxes.push(boxOf(basis, add(L.util.at, UTIL.plate.at, L.util.k), UTIL.plate.w * L.util.k, UTIL.plate.h * L.util.k),
     boxOf(basis, add(L.util.at, UTIL.price.at, L.util.k), UTIL.price.w * L.util.k, UTIL.price.h * L.util.k));
   if (!onBoard) boxes.push(boxOf(basis, MENU_BG.at, MENU_BG.h, MENU_BG.w)); // turned 90°
+  if (L.skill) boxes.push(boxOf(basis, add(L.skill.at, SKILL.bar.at, ROOT_SCALE), SKILL.bar.w * ROOT_SCALE, SKILL.bar.h * ROOT_SCALE));
+  if (L.skill?.toggle) boxes.push(boxOf(basis, L.skill.toggle, SKILL.toggle.w * ROOT_SCALE, SKILL.toggle.h * ROOT_SCALE));
   return {
     left: Math.min(...boxes.map((b) => b.left)), top: Math.min(...boxes.map((b) => b.top)),
     right: Math.max(...boxes.map((b) => b.right)), bottom: Math.max(...boxes.map((b) => b.bottom)),
@@ -158,6 +186,18 @@ function UtilPlate({ art, kind, price, text }) {
   </g>`;
 }
 
+/** The skill group (AutoChessUnderFrameSkillButton), drawn at its centre in root units. */
+function SkillGroup({ art, skill, rangeOn }) {
+  const S = SKILL;
+  const img = (href, { at, w, h }, cls = null) => html`<image class=${cls} href=${href} x=${at[0] - w / 2} y=${at[1] - h / 2} width=${w} height=${h} preserveAspectRatio="none" />`;
+  return html`<g class="ufa__skill">
+    ${skill.icon ? img(skill.icon, S.icon) : html`<rect class="ufa__skillnone" x=${S.icon.at[0] - S.icon.w / 2} y=${S.icon.at[1] - S.icon.h / 2} width=${S.icon.w} height=${S.icon.h} />`}
+    ${img(art.skill.notready, S.bar)}
+    ${skill.grid ? html`<g class="ufa__range">${img(art.skill.link, S.link)}${img(rangeOn ? art.skill.rangeOn : art.skill.rangeOff, S.toggle)}</g>` : null}
+    <text class="ufa__sp" x=${S.sp.at[0]} y=${S.sp.at[1]} font-size=${S.sp.size} text-anchor="middle" dominant-baseline="central">${`0/${skill.spCost}`}</text>
+  </g>`;
+}
+
 /**
  * The diamond layer (field piece only) — under the detail card, like the original's .uframe--dia.
  * @param {{ g: any, art: any }} props
@@ -177,12 +217,13 @@ export function UnderframeDiamondArt({ g, art }) {
  * The buttons layer: the art (pointer-transparent SVG on the ground plane) + one transparent <button> per button over
  * its tap area (hotspot / collider), carrying the hotkey label for assistive tech and the tests.
  * @param {{ g: any, art: any, actions: { retreat: boolean, sell: number|null, destroy: boolean }, onBoard: boolean,
- *   keys: { retreat: string, sell: string }, busy?: boolean, onRetreat?: () => void, onSell?: () => void, onDestroy?: () => void }} props
+ *   keys: { retreat: string, sell: string }, busy?: boolean, onRetreat?: () => void, onSell?: () => void, onDestroy?: () => void,
+ *   skill?: { icon: string|null, spCost: number, grid: any } | null, skillRange?: boolean, onSkillRange?: (on: boolean) => void }} props
  */
-export function UnderframeButtonsArt({ g, art, actions, onBoard, keys, busy = false, onRetreat, onSell, onDestroy }) {
+export function UnderframeButtonsArt({ g, art, actions, onBoard, keys, busy = false, onRetreat, onSell, onDestroy, skill = null, skillRange = false, onSkillRange }) {
   const basis = menuBasis(g);
   if (!basis) return null;
-  const L = menuLayout(actions, onBoard);
+  const L = menuLayout(actions, onBoard, art.skill ? skill : null);
   const [a, b, c, d, e, f] = basis.m;
   const stop = (ev) => ev.stopPropagation();
   const R = ROOT_SCALE;
@@ -203,6 +244,9 @@ export function UnderframeButtonsArt({ g, art, actions, onBoard, keys, busy = fa
         <${UtilPlate} art=${art} kind=${kind} price=${actions.sell != null ? actions.sell : null} text=${kind === 'destroy' ? t('销毁') : t('出售')} />
       </g>
       ${actions.sell != null ? html`<${KeyCap} at=${U.keyAt} label=${keys.sell} k=${R} />` : null}` : null}
+      ${L.skill ? html`<g transform=${`translate(${L.skill.at[0]} ${L.skill.at[1]}) scale(${R})`}>
+        <${SkillGroup} art=${art} skill=${skill} rangeOn=${!!(L.skill.toggle && skillRange)} />
+      </g>` : null}
     </g></svg>
     ${W ? html`<button type="button" class="uframe__btn uframe__btn--retreat ufa__hit" disabled=${busy} onPointerDown=${stop}
         style=${hitStyle(boxOf(basis, W.at, W.hit, W.hit))}
@@ -220,6 +264,11 @@ export function UnderframeButtonsArt({ g, art, actions, onBoard, keys, busy = fa
         style=${hitStyle(boxOf(basis, U.hit.at, U.hit.w, U.hit.h))}
         onClick=${(ev) => { stop(ev); onDestroy?.(); }} title=${t('销毁道具')} aria-label=${t('销毁')}>
       <span class="uframe__label ufa__sr">${t('销毁')}</span>
+    </button>` : null}
+    ${L.skill?.toggle ? html`<button type="button" class="uframe__btn uframe__btn--range ufa__hit" onPointerDown=${stop}
+        style=${hitStyle(boxOf(basis, L.skill.toggle, SKILL.toggle.w * R, SKILL.toggle.h * R))}
+        onClick=${(ev) => { stop(ev); onSkillRange?.(!skillRange); }} title=${t('技能范围')} aria-label=${t('技能范围')} aria-pressed=${skillRange ? 'true' : 'false'}>
+      <span class="uframe__label ufa__sr">${t('技能范围')}</span>
     </button>` : null}`;
 }
 

@@ -426,7 +426,21 @@
     소환물이 아니고 정비 중일 때만, `_underFramePanelBtnParamSellPos` (208, 219)에: `btn_bg_yellow` + 검정 `icon_sell`(`_defaultIconColor`) + 「판매」
     (검정 0.9) + 가격 `img_bg_price_enough` 「+N」(#e8e8e8), 누름은 `collider` 155×124. DESTROY는 같은 판을 빨강(`btn_bg_red` + `icon_destory`)으로
     퇴각 자리(−195, 195)에 두고 퇴각 그림자를 끈다. `dontBlockClick`이 켜져 막는 판(`block_mask`)은 꺼진다 — 패널 밑 다른 기물도 눌린다.
-    스킬 버튼(`showSkillBtn`: 오퍼레이터 + 정비 중)은 그리지 않았다(요청 범위 밖).
+  - 스킬 버튼(관리자 요청, 같은 날): `showSkillBtn` = 오퍼레이터 + 정비 중일 때 `group_skill`(`AutoChessUnderFrameSkillButton`, 190²)을
+    오른쪽 아래 변 가운데 (195, −195)에. 공식 클라에서 확인(`Show`·`_SetData`·`_UpdateData`·`OnSkillButtonClicked`·`OnSkillRangeToggled`·
+    `_DoUpdateRangeToShow`·`_UpdateSkillCount`):
+    - 판은 스킬이 있고 `skillType`이 PASSIVE가 아닐 때만(`needToDisplay`도 보는데 이 값은 읽지 않았다 — 패시브가 아니면 늘 그림
+      [추정·미조사: `BasicSkill.get_needToDisplay`]). 소환물·아이템·대기석 기물에는 없다.
+    - 아이콘 `btn_skill` 168×176 = 로드아웃이 고른 스킬의 아이콘(상세 카드와 같은 계산, `ui/assetUrls.js loadoutSkillIconUrl`). 누름은 아무것도 안 한다
+      (`OnSkillButtonClicked`가 빈 함수). 그 밑 준비 안 됨 막대 `sprite_skill_notready`(늘 켜짐)와 SP 글자 `text_sp_progress`(30, 흰색)
+      「0/N」(`"{0}/{1}"`에 `"0"`·`spCost`).
+    - 범위 토글 `toggle_skill_range`(136×138 @ (165, −10), 왼쪽 끝에 잇는 막대 `image_link`): `Character.GetRangeOfSkill`이 있고 지금 보이는 범위와
+      다를 때만 보이고 꺼진 채 시작. 켜면 필드 범위 표시가 스킬 범위(`GridRangeDrawer.TurnOnSkill`), 끄면 공격 범위(`TurnOn`). 우리: 스킬
+      `rangeGrid`가 `attackRangeGrid(record)`와 다를 때(`screens/game/range.js skillButton`), 켬 상태는 그 선택에만(다른 기물을 고르거나 다시
+      고르면 꺼짐). 상세 카드의 범위 칸은 그대로 공격 범위.
+    - 그리지 않는 것: AUTO 표시 `text_auto_mark`·정지 `sprite_skill_stop`은 프리팹에서 GameObject가 꺼져 있고 스크립트는 `enabled`만 바꾼다 → 화면에
+      안 나온다. 충전 수 `panel_skill_amount`는 `hasSkill` ∧ 스킬 `IsAvailable` ∧ `maxChargeTime` > 1일 때 켜지고 글자는 「0」 — 정비 중 SP가
+      「0/N」이라 준비된 스킬이 아니므로 그리지 않는다 [추정·엔진: 정비 중 `IsAvailable` 값은 안 읽음].
   - 대기석·임시 정비 구역 기물 → 마름모 없이 메뉴 버튼(`btn_panel_root`, `AutoChessCharacterMenuButton`): 검은 깃발 `img_btn_bg_all`
     (325×225 × 0.66) + 같은 판을 0.66배로. 아이템은 빨간 파기 판, 소환물은 아무것도 없다. 두 표시 설정 모두 `needRotate`라 `_RotateIfNeed`가
     `bg_offset`을 90° 돌려(왼쪽을 가리키던 깃발 끝이 아래 = 기물 쪽) `rotatedOffsetPos` (0, 60)에 두고, 판은 돌리지 않고
@@ -446,11 +460,13 @@
   최종 공세(最终攻势) 정비의 거울 반쪽에서도 퇴각은 왼쪽(뒤집지 않음). 상세 카드·맹약 팝업 자리 계산(`underframeRect`)은 마름모가 아니라 버튼들의 범위를
   쓴다(마름모는 카드 밑 층, 버튼은 위 층 — 예전과 같음).
 - 버튼 색 반응은 프리팹 `Button` 전환값: 올림 .96, 누름 .78, 비활성 .78 · 반투명.
-- 추출: `tools/local-extract/extract.py` battlecommon 줄에 `sprite_character_menu_frame`·`btn_escape` 추가(`--game <…>/PersistentData/Bundles
-  --only ui/battlecommon`; StreamingAssets 판에는 없다). 나머지 판 그림은 이미 `ui/battle`에 있었다.
+- 추출: `tools/local-extract/extract.py` battlecommon 줄에 `sprite_character_menu_frame`·`btn_escape`, 스킬 버튼의 `sprite_skill_notready`·
+  `sprite_skill_range_off`·`sprite_skill_range_on`·`sprite_mask` 추가(`--game <…>/PersistentData/Bundles --only ui/battlecommon`; StreamingAssets
+  판에는 없다; 스킬 버튼 그림이 없는 예전 추출이면 스킬 버튼만 빠진다). 나머지 판 그림은 이미 `ui/battle`에 있었다.
 - 확인: 목업 판 3D 필드(`/dev/game-mock.html?render=engine&phase=PREP`, Windows Chrome 1920×1080) 필드 기물·대기석 기물 선택 캡처를 관리자가 준
-  공식 영상 캡처(대기석 판매)와 대조,
-  테스트 `test/render/placement-ui.test.js`(배치·거울·버튼 범위).
+  공식 영상 캡처(대기석 판매)와 대조, 스킬 버튼은 같은 판에서 필드 오퍼레이터 7명(토글 있는 3명은 켜고 끔 — 실버애쉬 S3 범위로 바뀜) 캡처
+  [화면 미확인: 공식 캡처와의 대조 없음],
+  테스트 `test/render/placement-ui.test.js`(배치·거울·버튼 범위·스킬 버튼 자리), `test/ui/inspect-range.test.js`(스킬 버튼 조건·토글 범위).
 
 ## 전투 화면 UI (2026-10-07)
 관리자 요청 「전투 화면 UI를 공식 인게임과 똑같이」: ① 아군 체력·SP·탄환 바 + 기물 레벨 → ② 적 HP(보스 포함) → ③ 원소 원형 바 → ④ 데미지·회복 숫자 순서,

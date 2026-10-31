@@ -13,8 +13,8 @@
 // buttons are never covered.
 //
 // With the local client art installed the official menu is drawn instead (ui/underframeArt.js: the underframe_panel
-// diamond with 撤退 / 出售 for a field piece, the menu button for a bench / temp piece); the rest of this file is the
-// original look it falls back to.
+// diamond with 撤退 / 出售 and an operator's skill button for a field piece, the menu button for a bench / temp piece);
+// the rest of this file is the original look it falls back to (no skill button).
 //
 // Button look (user playtest #2 item 7): the official sprites icon_sell / icon_destory are WHITE octagon plates with
 // the glyph cut out — tinted in the client. Drawn as is they read as a plain white block, so each button is a coloured
@@ -68,12 +68,13 @@ export function PlateIcon({ sprite, glyph, tone }) {
  * place (the diamond lies under the detail card).
  * @param {{ x: number, y: number, s: number }|null} g view.tileScreen(row, col)
  * @param {number} [rem] root font size (px)
- * @param {{ actions?: { retreat: boolean, sell: number|null, destroy: boolean } | null, onBoard?: boolean }} [opts]
+ * @param {{ actions?: { retreat: boolean, sell: number|null, destroy: boolean } | null, onBoard?: boolean, skill?: any }} [opts]
  * @returns {{ left: number, right: number, top: number, bottom: number }|null}
  */
-export function underframeRect(g, rem = 100, { actions = null, onBoard = true } = {}) {
+export function underframeRect(g, rem = 100, { actions = null, onBoard = true, skill = null } = {}) {
   if (!g || !Number.isFinite(g.x) || !Number.isFinite(g.y)) return null;
-  if (actions && underframeArt() && menuBasis(g)) return menuRect(g, actions, onBoard);
+  const art = actions ? underframeArt() : null;
+  if (art && menuBasis(g)) return menuRect(g, actions, onBoard, art.skill ? skill : null);
   const s = g.s > 0 ? g.s : 64;
   const half = s * 1.05;
   const P = rem * 0.56;                 // plate
@@ -86,10 +87,13 @@ export function underframeRect(g, rem = 100, { actions = null, onBoard = true } 
 }
 
 /**
+ * `skill` (game/range.js skillButton) adds the official menu's skill button to a field piece; `skillRange` is its range
+ * toggle, flipped through `onSkillRange`.
  * @param {{ view: any, uid?: number|null, row: number, col: number, actions: { retreat: boolean, sell: number|null, destroy: boolean },
- *   name?: string, busy?: boolean, onRetreat?: () => void, onSell?: () => void, onDestroy?: () => void }} props
+ *   name?: string, busy?: boolean, onRetreat?: () => void, onSell?: () => void, onDestroy?: () => void,
+ *   skill?: any, skillRange?: boolean, onSkillRange?: (on: boolean) => void }} props
  */
-export function Underframe({ view, uid = null, row, col, actions, name = '', busy = false, onRetreat, onSell, onDestroy }) {
+export function Underframe({ view, uid = null, row, col, actions, name = '', busy = false, onRetreat, onSell, onDestroy, skill = null, skillRange = false, onSkillRange }) {
   const g = useTileScreen(view, row, col);
   if (!g || !actions) return null;
   const s = g.s > 0 ? g.s : 64;
@@ -104,7 +108,7 @@ export function Underframe({ view, uid = null, row, col, actions, name = '', bus
     return html`${onBoard ? html`<div class="uframe uframe--dia uframe--art" style=${at} aria-hidden="true"><${UnderframeDiamondArt} g=${g} art=${art} /></div>` : null}<div
         class="uframe uframe--art" style=${at} data-uid=${uid} role="group" aria-label=${t('{name} 操作', { name: name || t('单位') })}>
       <${UnderframeButtonsArt} g=${g} art=${art} actions=${actions} onBoard=${onBoard} keys=${keys} busy=${busy}
-        onRetreat=${onRetreat} onSell=${onSell} onDestroy=${onDestroy} />
+        onRetreat=${onRetreat} onSell=${onSell} onDestroy=${onDestroy} skill=${skill} skillRange=${skillRange} onSkillRange=${onSkillRange} />
     </div>`;
   }
   const box = `left:${g.x}px;top:${g.y}px;width:${half * 2}px;height:${half * 2}px`;

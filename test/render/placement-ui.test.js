@@ -76,5 +76,17 @@ describe('local patch: placement UI', () => {
     // the buttons' rect: above-left and above-right of the piece, the piece's tile inside
     const r = menuRect(g, { retreat: true, sell: 2, destroy: false }, true);
     assert.ok(r.left < 500 && r.right > 500 && r.top < 400 && r.bottom >= 400);
+    // a field operator's skill button: group_skill at the lower-right edge (195, −195 × root 2), the range toggle beside
+    // it (165, −10) only when the skill has its own range; never on the bench menu
+    const op = { retreat: true, sell: 2, destroy: false };
+    const sk = menuLayout(op, true, { grid: [[0, 0], [0, 1]] }).skill;
+    assert.deepEqual(sk.at, [390, 390]);
+    assert.deepEqual(sk.toggle, [720, 410]);
+    assert.equal(menuLayout(op, true, { grid: null }).skill.toggle, null);
+    assert.equal(menuLayout(op, true).skill, null);
+    assert.equal(menuLayout({ retreat: false, sell: 1, destroy: false }, false, { grid: null }).skill, null);
+    // it widens the rect the detail card keeps clear of, down and to the right
+    const rs = menuRect(g, op, true, { grid: [[0, 0]] });
+    assert.ok(rs.right > r.right && rs.bottom > r.bottom);
   });
 });

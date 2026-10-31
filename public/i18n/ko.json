@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1503 of 1721 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1504 of 1722 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false,
@@ -1100,6 +1100,7 @@
   "休整期结束时未选择将自动选定": "휴식 기간이 끝날 때까지 선택하지 않으면 자동으로 선택됩니다",
   "从候选中选择一项战术特训": "후보 중에서 전술 특훈을 하나 선택하세요",
   "实际为生命值低于一半时提高治疗量，正好一半不提高（PRTS 修正，原文为“不高于”）": "실제로는 생명력이 절반 미만일 때 치료량이 증가하며, 정확히 절반일 때는 증가하지 않음 (PRTS 정정, 원문은 「이하」)",
+  "技能范围": "스킬 범위",
   "无法装备给自编干员": "선발 오퍼레이터에게는 장착할 수 없습니다",
   "更多": "더 보기",
   "等待重连中......": "재연결 대기 중......",

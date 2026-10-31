@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { inspectRange } from '../../public/js/screens/game/range.js';
+import { inspectRange, skillButton } from '../../public/js/screens/game/range.js';
 import { renderInfo } from '../../public/js/render/app/info.js';
 import { rangeTiles } from '../../public/js/ui/facing.js';
 import { unitStatsEntry } from '../../shared/protocol.js';
@@ -105,4 +105,19 @@ test('a scouted prep board (the server\'s m.field): the board operator draws its
   assert.equal(range(held), null, 'a held operator (area hand) has no field range');
   assert.equal(range(waiting), null, 'nor one in the 临时整备区 (area temp)');
   m.dispose();
+});
+
+test('user Given a field operator selected in the prep When its menu shows the skill button Then the toggle offers only a skill range of its own', () => {
+  const op = chess.chess_char_1_04_a; // 深巡: S1 no range of its own, S2 skchr_udflow_2 one tile longer
+  const m = { skills: {} };
+  const s1 = skillButton({ detail: { type: 'chess', chess: op }, loadout: { [op.chessId]: { skill: 0 } }, getChess, m });
+  assert.equal(s1.spCost, op.skills[0].spCost);
+  assert.equal(s1.grid, null);
+  const s2 = skillButton({ detail: { type: 'chess', chess: op }, loadout: { [op.chessId]: { skill: 1 } }, getChess, m });
+  assert.equal(s2.spCost, op.skills[1].spCost);
+  assert.deepEqual(s2.grid, op.skills[1].rangeGrid);
+  // a summon or an item gets none; nor does a PASSIVE skill
+  assert.equal(skillButton({ detail: { type: 'token', token: tokens.char_613_acmedc }, getChess, m }), null);
+  const passive = { ...op, skill: { ...op.skills[0], skillType: 'PASSIVE' }, skills: [{ ...op.skills[0], skillType: 'PASSIVE' }] };
+  assert.equal(skillButton({ detail: { type: 'chess', chess: passive }, getChess, m }), null);
 });

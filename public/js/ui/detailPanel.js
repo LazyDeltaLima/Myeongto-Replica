@@ -38,7 +38,7 @@ import { useEffect } from '../../vendor/hooks.module.js';
 import { html, Icon, TierChip, MicroLabel, Button, confirmDialog, useTicker } from './components.js';
 import { Img, RichText, UnitThumb, BondGlyph, GIcon, diyToken } from './gameComponents.js';
 import { attackInterval, rangeGridBox, fmtNum, tileKey, chessLoadout, nextThreshold, bondRequireCount, bondTier, briefingBondTip, pieceBondIds, grantedBonds, morphPairings, ownStandIn, standInOf, standInLoadout, standInLabel, standInTip, standInForText, ownDiyRecord, ownDiyPick, diyRecordFor, pickGetter, unitPick, unitCultivation } from './gameLogic.js';
-import { chessPortraitUrl, skillIconUrl, skillRecordIconUrl, profIconUrl, subProfIconUrl, itemIconUrl, enemyIconUrl, tokenAvatarUrl, factionIconUrl, uiUrl, moduleTypeIconUrl } from './assetUrls.js';
+import { chessPortraitUrl, loadoutSkillIconUrl, skillRecordIconUrl, profIconUrl, subProfIconUrl, itemIconUrl, enemyIconUrl, tokenAvatarUrl, factionIconUrl, uiUrl, moduleTypeIconUrl } from './assetUrls.js';
 import { abilityRows } from './abilityLines.js';
 import { data } from '../data.js';
 import { attackRangeGrid } from '../../../shared/loadoutRecord.js';
@@ -412,7 +412,7 @@ export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bond
   const golden = !!(c.isGolden || piece?.golden);
   const sk = lo?.skill || body.skill || null;
   // a chosen skill the manifest has no icon for (only the default skills' icons are fetched): its slot letter
-  const skIcon = sk && lo && !lo.defaultSkill ? skillRecordIconUrl(m, sk, { empty: false }) : skillIconUrl(m, body);
+  const skIcon = loadoutSkillIconUrl(m, lo, body);
   const skSlot = sk && Number.isInteger(sk.index) ? `S${sk.index + 1}` : null;
   const garrison = Array.isArray(c.garrisonIds) && c.garrisonIds[0] ? data.lookup('garrisons', c.garrisonIds[0]) : null;
   const items = Array.isArray(piece?.items) ? piece.items : [];
