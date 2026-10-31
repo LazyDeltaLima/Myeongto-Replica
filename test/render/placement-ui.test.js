@@ -51,4 +51,30 @@ describe('local patch: placement UI', () => {
     assert.equal(insideDiamond(b, 500 + 100 * DIR_HALF_TILES * 0.7, 400 - 80 * DIR_HALF_TILES * 0.7), false);
     assert.equal(dirBasis({ x: 0, y: 0, s: 1 }), null);
   });
+
+  test('selection menu: underframe_panel / menu button layout on the selector\'s ground plane', async () => {
+    const { menuBasis, menuLayout, menuRect } = await import('../../public/js/ui/underframeArt.js');
+    const { DIR_HALF_TILES } = await import('../../public/js/ui/placeArt.js');
+    const g = { x: 500, y: 400, s: 100, poly: [[450, 360], [550, 360], [550, 440], [450, 440]] };
+    const b = menuBasis(g);
+    // 301 selector units × 2.5 = DIR_HALF_TILES tiles
+    assert.ok(Math.abs(b.pt(213 * Math.SQRT2 * 2.5, 0)[0] - (500 + 100 * DIR_HALF_TILES)) < 1e-6);
+    // the mirrored Final Assault half keeps 撤退 on the left
+    const m = menuBasis({ ...g, poly: [[550, 360], [450, 360], [450, 440], [550, 440]] });
+    assert.ok(m.pt(-100, 0)[0] < 500);
+    // field operator: 撤退 on the upper-left edge (btn_withdraw −195, 195 × root 2), 出售 at the sell pos (208, 219 × 2)
+    const field = menuLayout({ retreat: true, sell: 2, destroy: false }, true);
+    assert.deepEqual(field.withdraw.at, [-390, -390]);
+    assert.deepEqual(field.util.at, [416, -438]);
+    assert.equal(field.util.k, 2);
+    // field summon: 撤退 only; bench operator: the menu button's plate, no 撤退; bench item: the plate (DESTROY)
+    assert.equal(menuLayout({ retreat: true, sell: null, destroy: false }, true).util, null);
+    const bench = menuLayout({ retreat: false, sell: 1, destroy: false }, false);
+    assert.equal(bench.withdraw, null);
+    assert.ok(bench.util.at[0] > 0 && bench.util.k < field.util.k);
+    assert.ok(menuLayout({ retreat: false, sell: null, destroy: true }, false).util);
+    // the buttons' rect: above-left and above-right of the piece, the piece's tile inside
+    const r = menuRect(g, { retreat: true, sell: 2, destroy: false }, true);
+    assert.ok(r.left < 500 && r.right > 500 && r.top < 400 && r.bottom >= 400);
+  });
 });

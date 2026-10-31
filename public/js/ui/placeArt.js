@@ -66,6 +66,9 @@ export function insideDiamond(basis, x, y, slack = 1.12) {
 }
 
 const VERT = { UP: [0, -R0], RIGHT: [R0, 0], DOWN: [0, R0], LEFT: [-R0, 0] };
+// the quarter frames are sprite_rectangle_frame_triangle sliced with a 6-unit border whose solid white is its outer 4
+// units: a 4-unit stroke centred 2 units inside the diamond's edge (the diamond scaled about its centre)
+const EDGE_IN = 1 - (2 * Math.SQRT2) / R0;
 const OUT = { UP: [0, -1], RIGHT: [1, 0], DOWN: [0, 1], LEFT: [-1, 0] };
 const ROT = { UP: 90, RIGHT: 180, DOWN: -90, LEFT: 0 }; // the sprite's chevron points left (âˆ’x)
 
@@ -105,7 +108,9 @@ export function PlaceWheelArt({ g, basis, art, dir, onCancel, cancelLabel = t('å
       </defs>
       <path class="pwheel__dim" d=${`M-10 -10 H${W + 10} V${H + 10} H-10 Z M${dia.join(' L')} Z`} fill-rule="evenodd" fill=${DIM} />
       <g transform=${M}>
-        ${['UP', 'RIGHT', 'DOWN', 'LEFT'].map((k) => html`<path key=${k} class=${`pwheel__edge${sel === k ? ' is-on' : ''}`} d=${quarter(k)} stroke=${sel === k ? HL : '#fff'} />`)}
+        <g transform=${`scale(${EDGE_IN})`}>
+          ${['UP', 'RIGHT', 'DOWN', 'LEFT'].map((k) => html`<path key=${k} class=${`pwheel__edge${sel === k ? ' is-on' : ''}`} d=${quarter(k)} stroke=${sel === k ? HL : '#fff'} />`)}
+        </g>
         ${sel ? html`<image class="pwheel__chev" href=${art.chev} width=${CHEV.w} height=${CHEV.h}
           transform=${`translate(${chx} ${chy}) rotate(${ROT[sel]}) translate(${-CHEV.tipX} ${-CHEV.tipY})`} />` : null}
         <g class=${`pwheel__cancel${sel ? '' : ' is-on'}`} transform=${`translate(${CANCEL.at[0] - 213} ${CANCEL.at[1] - 213})`}>

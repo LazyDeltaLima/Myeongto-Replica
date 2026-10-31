@@ -406,12 +406,51 @@
   - `panel_cancel_hint`(회전한 사각형의 (−327, 0) = 왼쪽 위 변 바깥): 방향이 없을 때 `btn_cancel`(빨간 변 + ✕ 태그, 눌러서 취소), 방향을 고르면
     `btn_drag_back`(검은 말풍선), 0.16초 페이드. EN 그림의 영어 글자는 잘라내고 게임 문자열을 그린다: 取消 → 취소, 拖回中心区域取消 → 「방향을 가운데로
     되돌려 취소」(KR 캡처 문구로 ko 번역 변경).
+  - 사분면 테두리는 `sprite_rectangle_frame_triangle`(18², 9-slice 테두리 6) — 흰색이 테두리 6단위 중 바깥 4단위라, 마름모 변에서 2단위 안쪽에
+    중심을 둔 4단위 선(2026-10-31, 전에는 변 위 3.6). 고른 방향은 색만 바뀐다(전에 있던 빛 번짐은 프리팹에 없어 뺐다).
   - [추정] 마름모를 바닥 평면에 투영(아래 칸의 화면 모양으로 기울임)하고 반대각 2.6칸(`DIR_HALF_TILES`, 캡처: 약 325 px / 칸 125 px). 말풍선은
     글자가 눌리지 않게 화면에 똑바로. 엄지(`sprite_direction_thumb`)는 캡처에 안 보여 그리지 않음.
 - 2D 보드(WebGL2·로컬 그림 없음)는 초록·주황 강조가 원본 그대로(방향 선택 그림만 공식).
 - 확인: `public/dev/game-mock.html?stage=act1autochess_m02`(사막)·`act2autochess_m01`, 2000×1125·1920×1080 headless 캡처를 관리자 캡처와 나란히 비교,
   취소 태그 누르기·방향 확정 동작. 테스트 `test/render/placement-ui.test.js`.
 - git 밖 생성물: `public/assets/local/ui/battlecommon/`, `public/assets/local/battle/common/`, `data/local-assets.json`(바뀌면 `node tools/build-browser-resources.mjs`).
+
+## 선택 메뉴 — 퇴각·판매 (2026-10-31)
+관리자 요청: 기물을 눌렀을 때 나오는 퇴각·판매 버튼을 공식 UI(프리팹)로. 전에는 점선 마름모 + 민트 모서리 + 팔각 판(자체 디자인, `ui/underframe.js`)이었다.
+이제 로컬 그림이 있으면 `ui/underframeArt.js`가 그리고, 없으면 예전 모양 그대로(원본 PR 가능).
+- 근거: `ui/autochess/[uc]autochessbattle.ab` `act2autochess_panel_character_menu`(`AutoChessCharacterMenuPanel`, 캔버스 `m_RenderMode` 2 = 월드 공간)와
+  그것이 필드 기물에 띄우는 `arts/ui/[uc]battlecommon.ab` `underframe_panel`(`UIBattleUnderframePanel`). 공식 클라에서 확인한 분기
+  (`_RenderBattleField` / `_RenderHand` / `_RenderDestoryMagic`, `UIBattleUnderframePanel.Render`, `AutoChessUnderFramePanelButton.Render`):
+  - 필드 기물 → `underframe_panel`을 발밑(`footMountPoint`)에: 빛나는 흰 마름모 `sprite_character_menu_frame`(그 밑에 검정 35 % 사본), 왼쪽 위 변
+    가운데에 퇴각 `btn_escape`(누름 `hotspot` 220², 그림 190²) — 장비·마법 기물이면 그림이 `icon_withdraw_magic`이고 누르면 파기. 판매 판(`util_btn`)은
+    소환물이 아니고 정비 중일 때만, `_underFramePanelBtnParamSellPos` (208, 219)에: `btn_bg_yellow` + 검정 `icon_sell`(`_defaultIconColor`) + 「판매」
+    (검정 0.9) + 가격 `img_bg_price_enough` 「+N」(#e8e8e8), 누름은 `collider` 155×124. DESTROY는 같은 판을 빨강(`btn_bg_red` + `icon_destory`)으로
+    퇴각 자리(−195, 195)에 두고 퇴각 그림자를 끈다. `dontBlockClick`이 켜져 막는 판(`block_mask`)은 꺼진다 — 패널 밑 다른 기물도 눌린다.
+    스킬 버튼(`showSkillBtn`: 오퍼레이터 + 정비 중)은 그리지 않았다(요청 범위 밖).
+  - 대기석·임시 정비 구역 기물 → 마름모 없이 메뉴 버튼(`btn_panel_root`, `AutoChessCharacterMenuButton`): 검은 깃발 `img_btn_bg_all`
+    (325×225 × 0.66) + 같은 판을 0.66배로. 아이템은 빨간 파기 판, 소환물은 아무것도 없다. 두 표시 설정 모두 `needRotate`라 `_RotateIfNeed`가
+    `bg_offset`을 90° 돌려(왼쪽을 가리키던 깃발 끝이 아래 = 기물 쪽) `rotatedOffsetPos` (0, 60)에 두고, 판은 돌리지 않고
+    `btn_util_root`.TransformPoint(`rotatedPos` (−100, −6)) = (6, 190)에 둔다 — **판은 기물 위**, 깃발 끝(▼)은 기물 위 94단위.
+    처음 구현(2026-10-31 오전)은 이 회전을 빼서 판이 기물 오른쪽에 있었다 — 관리자가 공식 영상 캡처로 짚음. 누름은 이 프리팹의 `collider`
+    151.89×130(필드 판의 것과 조금 다름).
+  - 플랫폼 차이(관리자 질문): 공식 클라에서 확인 — `Render`는 `Follower2D.Follow` 뒤 늘 `_RotateIfNeed`를 부르고 플랫폼 분기가 없다. 갈림은
+    프리팹의 `needRotate`뿐이고 EN·CN PC 클라 모두 두 설정이 1(같은 `rotatedPos`·`rotatedOffsetPos`), 켜진 Lua 핫픽스(en_US·zh_CN)도 이 클래스들을
+    덮지 않는다 → PC는 늘 위. 모바일 번들은 여기 없어 직접 보지 못했다 [추정·자료 없음: 같은 프리팹이라 모바일도 위로 봄]. 원본(upstream 첫
+    가져오기)의 「대기석도 마름모 + 오른쪽 위 판매」는 그쪽 자체 디자인이었고 모바일 화면을 따른 것이 아니다.
+  - 단축키: 각 버튼의 `pc_key_holder` 자리에 키 글자(퇴각 Q, 판매 X — 설정의 키). [추정·자료 없음: 키 표시 프리팹이 이 번들에 없어 작은 검은 키 모양]
+- 크기·자리: 방향 선택 마름모(위 「배치 UI」)처럼 바닥 평면에 투영한다(공식 영상 캡처에서 대기석 판의 정사각 아이콘이 세로 0.82로 눌려 보임).
+  대기석 메뉴의 배율은 그 캡처로 잼: 판의 노란 부분(101단위)이 ≈ 0.99칸(칸 182 px에 180 px) → 1단위 ≈ 0.0098칸(방향 선택 단위의 2.83배);
+  같은 배율로 깃발 끝 94단위(165 px)·판 가운데 200단위가 캡처와 맞는다. 필드 하부 패널은 방향 선택과 같은 단위(301단위 × 2.5 = 2.6칸)로 —
+  마름모 반대각 ≈ 2.8칸, 판의 노란 부분 1.06칸(대기석 판과 거의 같은 크기). [추정·화면: 필드 기물 메뉴의 공식 캡처가 아직 없음 — 하부 패널을 붙이는
+  부모의 배율은 프리팹에 없다] 자리는 프리팹 그대로: `Param.DEFAULT`의 `offset` (0, 0), `Follower2D`가 패널 중심을 발밑에 둔다.
+  최종 공세(最终攻势) 정비의 거울 반쪽에서도 퇴각은 왼쪽(뒤집지 않음). 상세 카드·맹약 팝업 자리 계산(`underframeRect`)은 마름모가 아니라 버튼들의 범위를
+  쓴다(마름모는 카드 밑 층, 버튼은 위 층 — 예전과 같음).
+- 버튼 색 반응은 프리팹 `Button` 전환값: 올림 .96, 누름 .78, 비활성 .78 · 반투명.
+- 추출: `tools/local-extract/extract.py` battlecommon 줄에 `sprite_character_menu_frame`·`btn_escape` 추가(`--game <…>/PersistentData/Bundles
+  --only ui/battlecommon`; StreamingAssets 판에는 없다). 나머지 판 그림은 이미 `ui/battle`에 있었다.
+- 확인: 목업 판 3D 필드(`/dev/game-mock.html?render=engine&phase=PREP`, Windows Chrome 1920×1080) 필드 기물·대기석 기물 선택 캡처를 관리자가 준
+  공식 영상 캡처(대기석 판매)와 대조,
+  테스트 `test/render/placement-ui.test.js`(배치·거울·버튼 범위).
 
 ## 전투 화면 UI (2026-10-07)
 관리자 요청 「전투 화면 UI를 공식 인게임과 똑같이」: ① 아군 체력·SP·탄환 바 + 기물 레벨 → ② 적 HP(보스 포함) → ③ 원소 원형 바 → ④ 데미지·회복 숫자 순서,

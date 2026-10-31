@@ -12,6 +12,10 @@
 // from the unit, `underframeRect` / gameLogic `panelSide`), and the underframe sits above every HUD panel, so its
 // buttons are never covered.
 //
+// With the local client art installed the official menu is drawn instead (ui/underframeArt.js: the underframe_panel
+// diamond with 撤退 / 出售 for a field piece, the menu button for a bench / temp piece); the rest of this file is the
+// original look it falls back to.
+//
 // Button look (user playtest #2 item 7): the official sprites icon_sell / icon_destory are WHITE octagon plates with
 // the glyph cut out — tinted in the client. Drawn as is they read as a plain white block, so each button is a coloured
 // octagon plate: the sprite is used as a CSS mask over the plate colour (出售 amber like every money action, 销毁 /
@@ -28,6 +32,7 @@ import { html, HexBadge, Icon } from './components.js';
 import { GIcon } from './gameComponents.js';
 import { useTileScreen } from './facingWheel.js';
 import { hotkeyLabelOf } from './settings.js';
+import { underframeArt, menuBasis, menuRect, UnderframeDiamondArt, UnderframeButtonsArt } from './underframeArt.js';
 import { localAsset } from '../data.js';
 import { GEO } from '../../../shared/constants.js';
 import { t, tParts } from '../../../shared/i18n.js';
@@ -59,12 +64,16 @@ export function PlateIcon({ sprite, glyph, tone }) {
  * Client-px rect the underframe of a tile covers: the diamond plus its buttons (plates, labels, the +N price) — the
  * geometry of the css below (.uframe__btn--retreat / --sell: .56rem plates at 25 % / 75 % across, 25 % down, shifted
  * −80 % / −20 % horizontally and −90 % vertically). Used for the detail panel placement.
+ * With the official art (ui/underframeArt.js) it is the rect of its buttons instead, given the piece's `actions` and
+ * place (the diamond lies under the detail card).
  * @param {{ x: number, y: number, s: number }|null} g view.tileScreen(row, col)
  * @param {number} [rem] root font size (px)
+ * @param {{ actions?: { retreat: boolean, sell: number|null, destroy: boolean } | null, onBoard?: boolean }} [opts]
  * @returns {{ left: number, right: number, top: number, bottom: number }|null}
  */
-export function underframeRect(g, rem = 100) {
+export function underframeRect(g, rem = 100, { actions = null, onBoard = true } = {}) {
   if (!g || !Number.isFinite(g.x) || !Number.isFinite(g.y)) return null;
+  if (actions && underframeArt() && menuBasis(g)) return menuRect(g, actions, onBoard);
   const s = g.s > 0 ? g.s : 64;
   const half = s * 1.05;
   const P = rem * 0.56;                 // plate
@@ -87,6 +96,17 @@ export function Underframe({ view, uid = null, row, col, actions, name = '', bus
   const half = s * 1.05;
   const stop = (e) => e.stopPropagation();
   const keys = { retreat: hotkeyLabelOf('retreat'), sell: hotkeyLabelOf('sell') }; // the player's keys (设置 → 快捷键)
+  const art = underframeArt();
+  if (art && menuBasis(g)) {
+    // the official menu: a field piece (one that can retreat) gets the underframe, a bench / temp piece the menu button
+    const onBoard = !!actions.retreat;
+    const at = `left:${g.x}px;top:${g.y}px`; // a 0 × 0 box on the piece, the art drawn around it
+    return html`${onBoard ? html`<div class="uframe uframe--dia uframe--art" style=${at} aria-hidden="true"><${UnderframeDiamondArt} g=${g} art=${art} /></div>` : null}<div
+        class="uframe uframe--art" style=${at} data-uid=${uid} role="group" aria-label=${t('{name} 操作', { name: name || t('单位') })}>
+      <${UnderframeButtonsArt} g=${g} art=${art} actions=${actions} onBoard=${onBoard} keys=${keys} busy=${busy}
+        onRetreat=${onRetreat} onSell=${onSell} onDestroy=${onDestroy} />
+    </div>`;
+  }
   const box = `left:${g.x}px;top:${g.y}px;width:${half * 2}px;height:${half * 2}px`;
   // local patch (2026-10-06, maintainer report): the diamond is its own layer (.uframe--dia) so the official look can put it
   // under the detail card (css/hud-art.css) while the buttons stay above every panel

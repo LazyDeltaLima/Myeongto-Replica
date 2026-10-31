@@ -139,16 +139,17 @@ describe('user playtest #2 — UI fixes (mock harness, headless Chrome)', { skip
         return { chess: p.hand.find((x) => x && x.kind === 'chess')?.uid, item: p.hand.find((x) => x && x.kind === 'item')?.uid };
       });
       await tapPiece(page, uids.chess);
-      await page.waitForSelector('.uframe__btn--sell .uframe__plate', { timeout: 3000 });
-      const plate = await page.$eval('.uframe__btn--sell .uframe__plate', (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width * 0.2, y: r.top + r.height * 0.2, w: r.width * 0.6, h: r.height * 0.6 }; });
+      // the original plate, or the official menu's tap box over its plate (ui/underframeArt.js)
+      await page.waitForSelector('.uframe__btn--sell .uframe__plate, .uframe__btn--sell.ufa__hit', { timeout: 3000 });
+      const plate = await page.$eval('.uframe__btn--sell .uframe__plate, .uframe__btn--sell.ufa__hit', (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width * 0.2, y: r.top + r.height * 0.2, w: r.width * 0.6, h: r.height * 0.6 }; });
       const c = await meanColor(page, plate);
       assert.ok(!(c.r > 225 && c.g > 225 && c.b > 225), `sell plate is not white (${JSON.stringify(c)})`);
       assert.ok(c.r > c.b + 50 && c.g > c.b + 10, `sell plate reads amber (${JSON.stringify(c)})`);
       await page.screenshot({ path: path.join(OUT, `fix-sell-${render}.png`) });
       await page.keyboard.press('Escape');
       await tapPiece(page, uids.item);
-      await page.waitForSelector('.uframe__btn--destroy .uframe__plate', { timeout: 3000 });
-      const dp = await page.$eval('.uframe__btn--destroy .uframe__plate', (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width * 0.2, y: r.top + r.height * 0.2, w: r.width * 0.6, h: r.height * 0.6 }; });
+      await page.waitForSelector('.uframe__btn--destroy .uframe__plate, .uframe__btn--destroy.ufa__hit', { timeout: 3000 });
+      const dp = await page.$eval('.uframe__btn--destroy .uframe__plate, .uframe__btn--destroy.ufa__hit', (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width * 0.2, y: r.top + r.height * 0.2, w: r.width * 0.6, h: r.height * 0.6 }; });
       const d = await meanColor(page, dp);
       assert.ok(!(d.r > 225 && d.g > 225 && d.b > 225), `destroy plate is not white (${JSON.stringify(d)})`);
       assert.ok(d.r > d.g + 60 && d.r > d.b + 60, `destroy plate reads red (${JSON.stringify(d)})`);

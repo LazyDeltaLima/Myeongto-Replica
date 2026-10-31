@@ -1667,6 +1667,8 @@ function MatchScreen() {
   const watchingNow = combat ? (watching || field?.fieldId || home) : watching;
   const shopOpen = showShop && !collapsed;
   const ufShown = !!(selEntry && editable && !facing && !drag && showPrep && ufGeo);
+  const ufActions = ufShown ? underframeActions(placeCtx, sel.uid) : null;
+  const ufOpts = { actions: ufActions, onBoard: !!ufActions?.retreat }; // the official menu's button rect (underframeRect)
   // the temp overflow row holds pieces (user playtest #3 item 3): framed and labelled on the own prep board
   const temp = tempInfo(priv);
   const tempNotice = temp.count > 0 && !!view && viewKind !== 'loading' && showPrep && alive && !pen && !sp;
@@ -1691,7 +1693,7 @@ function MatchScreen() {
   const dSide = (() => {
     if (ufShown) {
       const { rem, vp } = panelFrame();
-      return panelSide(underframeRect(ufGeo, rem), panelSlots(vp, rem, { shopOpen }));
+      return panelSide(underframeRect(ufGeo, rem, ufOpts), panelSlots(vp, rem, { shopOpen }));
     }
     if (mergeGeo && resolved) {
       const { rem, vp } = panelFrame();
@@ -1704,7 +1706,7 @@ function MatchScreen() {
   const bpPlace = (() => {
     if (!bondOpen) return 'left';
     const { rem, vp } = panelFrame();
-    return bondPopupPlace(ufShown ? underframeRect(ufGeo, rem) : null, vp, rem, resolved ? dSide : null);
+    return bondPopupPlace(ufShown ? underframeRect(ufGeo, rem, ufOpts) : null, vp, rem, resolved ? dSide : null);
   })();
   // the player's own operators (and the shop / bond member cards) show the loadout's skill / module (DESIGN §16);
   // a teammate's unit (前往查看 in prep, 联防 / 最终攻势 fields, an observed battle) shows ITS owner's choice, carried by

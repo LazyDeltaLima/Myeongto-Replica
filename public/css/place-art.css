@@ -5,8 +5,7 @@
 .pwheel { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; animation: pwheel-in 160ms ease-out; }
 @keyframes pwheel-in { from { opacity: 0; } }
 .pwheel * { pointer-events: none; }
-.pwheel__edge { fill: none; stroke-width: 3.6; stroke-linecap: square; stroke-linejoin: miter; }
-.pwheel__edge.is-on { stroke-width: 4.4; filter: drop-shadow(0 0 5px rgba(255, 196, 110, .85)); }
+.pwheel__edge { fill: none; stroke-width: 4; stroke-linecap: square; stroke-linejoin: miter; } /* the chosen one only changes colour */
 .pwheel__cancel, .pwheel__bubble { opacity: 0; transition: opacity .16s; } /* panel_cancel_hint _fadeTime 0.16 */
 .pwheel__cancel.is-on, .pwheel__bubble.is-on { opacity: 1; }
 .pwheel__label { fill: #fff; font-family: var(--font-cjk); font-weight: 700; font-size: 21px; }
@@ -18,3 +17,28 @@
 }
 .fwheel__cancel.pwheel__tap:hover { background: rgba(255, 255, 255, .08); }
 .fwheel__cancel.pwheel__tap:not(.is-on) { pointer-events: none; }
+
+/* The official selection menu (js/ui/underframeArt.js, drawn by js/ui/underframe.js when the local extracts
+   ui/battlecommon + ui/battle are installed): full-screen SVGs on the ground plane, pointer-transparent; only the
+   transparent tap boxes (.ufa__hit, over the hotspot / collider) take presses. Button colours as the prefab's Button
+   transition: highlighted .96, pressed .78, disabled .78 at half alpha. */
+.gm__hud > .uframe.uframe--art { width: 0; height: 0; transform: none; overflow: visible; } /* left / top: the piece */
+.ufa { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; pointer-events: none; animation: ufa-in 160ms ease-out; }
+@keyframes ufa-in { from { opacity: 0; } }
+.ufa * { pointer-events: none; }
+.ufa__shadow { filter: brightness(0); opacity: .35; }
+.ufa__icon { filter: brightness(0); }
+.ufa__text { fill: rgba(0, 0, 0, .9); font-family: var(--font-cjk); font-weight: 700; }
+.ufa__price { fill: #e8e8e8; font-family: var(--font-num, var(--font-cjk)); font-weight: 700; }
+.ufa__key rect { fill: rgba(20, 20, 20, .85); stroke: rgba(255, 255, 255, .3); stroke-width: 2; }
+.ufa__key text { fill: #e8e8e8; font-family: var(--font-num, var(--font-cjk)); font-weight: 600; }
+.ufa__withdraw, .ufa__util { transition: filter .1s; }
+.uframe--art:has(.uframe__btn--retreat:hover:not(:disabled)) .ufa__withdraw,
+.uframe--art:has(:is(.uframe__btn--sell, .uframe__btn--destroy):hover:not(:disabled)) .ufa__util { filter: brightness(.96); }
+.uframe--art:has(.uframe__btn--retreat:active:not(:disabled)) .ufa__withdraw,
+.uframe--art:has(:is(.uframe__btn--sell, .uframe__btn--destroy):active:not(:disabled)) .ufa__util { filter: brightness(.78); }
+.uframe--art:has(.uframe__btn:disabled) .ufa--btns { opacity: .5; filter: brightness(.78); }
+.uframe__btn.ufa__hit { position: absolute; transform: none; padding: 0; margin: 0; background: transparent; border: 0;
+  filter: none; animation: none; display: block; }
+.uframe__btn.ufa__hit:focus-visible { outline: 2px solid #ffe2b0; outline-offset: 2px; }
+.ufa__sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

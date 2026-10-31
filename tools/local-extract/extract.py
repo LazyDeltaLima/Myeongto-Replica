@@ -127,6 +127,8 @@ JOBS = [
      # the class glyph of every TRAP / TOKEN character (UICharacterInfoStatusSubPanelInAutochess `_professionIcons`:
      # TOKEN and TRAP share it, and it is the prefab's default `image_profession` sprite) — the class box of the device,
      # item and summon cards (ui/detailArt.js, maintainer decision 2026-10-14)
+     # the selection underframe of a board piece (underframe_panel: the diamond frame and the 撤退 plate)
+     r'|sprite_character_menu_frame|btn_escape'
      r'|icon_profession_token_lighten)$'),
     # the arrow sprite of the client's generic arrow projectile (projectile_arrow's Body SpriteRenderer draws the
     # projectile_arrow_new sprite): 流星's normal attack (render/fx.js 'spriteArrow')
