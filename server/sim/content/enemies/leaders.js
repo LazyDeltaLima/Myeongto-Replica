@@ -674,8 +674,9 @@ function kitWolfLord(ab) {
       P.form2 = true;
       e.profile.melee = false;
       e.base.rangeRadius = Math.max(e.base.rangeRadius || 0, WOLF_RANGE);
-      // the form-2 look enemy_wlfmster_m2_eff (enemy_wlfmster_B_buff_01) [추정: from the rebirth's end — the client's
-      // Modes/M1/Talents/Reborn BuffToOwner adds it as the rebirth starts]
+      // the form-2 look enemy_wlfmster_m2_eff (enemy_wlfmster_B_buff_01) from the rebirth's end — the client's BuffToOwner
+      // adds it 3 s earlier, as the rebirth's closing clip A_revive_3 starts (docs/rules/fx.md: a look only; the ATK and
+      // attack-time changes are the second form's Passive2, from the mode switch at the end as here)
       b.addBuff(e, { key: 'ab:wolfRage', persist: true, visible: true, mods: { atkPct: T(ab, 'Passive2.atk') ?? 0, batPct: (T(ab, 'Passive2.base_attack_time') ?? 0) / (e.base.bat || 1) },
         fxTag: 'buff:enemy_wlfmster_m2_eff' });
     },
