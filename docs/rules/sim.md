@@ -836,7 +836,8 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   즉 **스킬 한 번에 한 번만 굴림**(이전: 1발이 될 때마다).
 - **失衡 — 벽에 막힌 밀기**: `Enemy.States.UnbalanceState`는 시간표가 아니라 물리 — `OnTick` → `_UpdateFriction`이 매 프레임 마찰로 속도를 줄이고
   속력 ≤ 0.1이면 끝. 벽(고지대·맵 끝)이 막으면 그 자리에서 멈춰 끝난다 → 우리 길이 = 막히기까지 걸린 시간(행의 位移时间 T 동안 균등 감속으로 멈추는 운동에서
-  `T·(1 − √(1 − 간 거리/거리))` [ASSUMED: 균등 감속]), 최소 0.1 s(PRTS 失衡硬直; 클라의 최소 시간 출처는 다 읽지 못함). `displacement.js wallHold`. 이전 [ASSUMED]
+  `T·(1 − √(1 − 간 거리/거리))`), 최소 0.1 s(PRTS 失衡硬直). 2026-10-31 공식 클라에서 확인: `_UpdateFriction`은 매 프레임 속력 −= 마찰 계수 × 중력 × 질량 × 0.5 × dt
+  (균등 감속), 끝은 속력 ≤ 0.1이면서 `OnEnter`가 둔 최소 시각(그때 시각 + 0.1 s)이 지났을 때 — 둘 다 시뮬과 같음. `displacement.js wallHold`. 이전 추정
   「벽에 막혀도 그 행의 시간」 삭제. 테스트 `test/sim/unbalance.test.js`.
 - **적 생성기 예외** (`server/match/waves.js`, 지금 데이터에서는 안 일어남): 클라 `_GenerateRandomEnemyData` — 그 유형 후보가 없으면 그 라운드는 뽑기 없음(이전:
   SPECIAL로 다시 뽑기); `_DoReplaceActionDataClient` — 뽑기가 없거나 뽑힌 키에 적 데이터가 없으면(`LogError` 후 false) 자리표시 액션은 `isValid = false`

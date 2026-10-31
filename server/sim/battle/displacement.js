@@ -89,10 +89,10 @@ export class BattleDisplacement {
     if (inward && !(dl > 0)) { ux = -ux; uy = -uy; dist = Math.min(dist, Math.max(0, d - PULL_STOP_RADIUS)); }
     // 失衡 for the row's 位移时间 (also when the 特效 column shortens the slide). A wall that stops the slide ends it there:
     // the client's UnbalanceState is physics, not a timer (`Enemy.States.UnbalanceState.OnTick` →
-    // `_UpdateFriction`: friction slows the body every frame and the state ends once its speed is ≤ 0.1), so a
-    // blocked body leaves 失衡 when it hits the wall — the time to slide `moved` of `dist` under a uniform deceleration
-    // that would stop it after the row's time [ASSUMED: uniform], never below the 0.1 s floor (also a slide blocked at
-    // the first step)
+    // `_UpdateFriction`: every frame speed −= frictionFactor × GRAVITY × mass × 0.5 × dt, a uniform deceleration, and the
+    // state ends once its speed is ≤ 0.1 and the floor `OnEnter` sets — play time + 0.1 s — has passed), so a blocked body
+    // leaves 失衡 when it hits the wall — the time to slide `moved` of `dist` under the uniform deceleration that would stop
+    // it after the row's time, never below the 0.1 s floor (also a slide blocked at the first step)
     const hold = pushUnbalance(level);
     const holdOf = (moved) => (moved + 1e-6 >= dist ? hold : Math.max(UNBALANCE_MIN, wallHold(hold, moved, dist)));
     const moved = this.displace(e, { x: ux, y: uy }, dist, { dur: hold > 0 ? holdOf : 0, face: 'push' });

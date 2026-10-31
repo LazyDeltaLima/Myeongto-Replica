@@ -279,7 +279,9 @@
   - 위셔델: 여진·잔영 폭발(재능1), 혼령의 그림자 소환과 근처 위장(재능2), S2 과부하(지속시간 후반부), S3 그림자 2개 추가(최대 3).
     S2 과부하 근거(2026-10-10, 그 전엔 [추정]): 스킬 프리팹 `skchr_wisdel_2`가 `_isOverloadSkill` 1이고, 공식 클라 `BasicSkill.get_overloadRatio`
 가 그런 스킬에 0.5 → `OverloadIfNecessary`가 진행도가 0.5를 넘으면 과부하(ON_OVERLOAD → 버프 `wisdel_s_2[overload_start]`,
-    `mode 2`) — 25초 중 12.5초부터 끝까지(`op-wisdel.js overload`) [추론: 진행도 = 경과 비율, 보조 함수 하나는 해석 안 함].
+    `mode 2`) — 25초 중 12.5초부터 끝까지(`op-wisdel.js overload`). 진행도(2026-10-31 공식 클라에서 확인): `get_remainingOverloadProgress` =
+    `get_remainingProgress` ÷ 0.5(0–1로 자름, 남은 진행도가 0.5보다 크면 0)이고, 남은 진행도 = 1 − 능력의 `cooldownProgress`(스킬에 `SkillProgressHooker`도
+    SP 비율 표시도 없을 때) → 남은 진행도가 절반 이하일 때, 곧 시전의 뒤 절반(시뮬과 같음).
     S2 수정(2026-10-06): 과부하 본탄의 `attack@atk_scale_ol`(0.7)이 적용되지 않았다(사키코 S2와 같은 원인: `beforeAttack`의 `ctx.profile`
     교체를 엔진이 다시 읽지 않음). 과부하 동안 위셔델 자신의 `unit.profile` 복사본에 `atkScale`을 넣고 끝나면 되돌린다.
   - 사키코: 음표 수만큼 방어·저항 무시, Fever(450, 20초, 스킬 재시전·S2 2연타·S3 퇴각 안 함), S2는 시전마다 피아노↔오르간 전환(클라 프리팹
@@ -344,10 +346,12 @@
     (버프 없이·쏜 직후 공격력 2배 두 판의 같은 음표 피해가 같음, 실제 매치 경로 포함). S2 피아노의 관통은
     그림만(피해는 1명: `_maxHitNum` 1). 사인 비행은 그림만, 시뮬레이션은 직선. 한 음표가 2타(S2 Fever, S3 피아노)면 `w: 2`로 세고 그림도 2개.
     도착 판정 거리는 피아노 0.8(PRTS 「激活0.8半径的碰撞」; 클라 `projectile_chr_oblvns_s2`·`_s2_t` 루트 `CircleCollider2D` m_Radius 0.8 + `_maxHitNum` 1,
-    도착하면 `MovementSwitchControllerOblvns`가 3.0칸/s로 `passby_delay` 0.5초 미끄러진 뒤 멈춤 — 2026-10-10 확인. 클라 히트 검사는 0.1초 주기이고
-    이동 상태와 무관(`_onlyCheckHitWhenReachTarget` 0)이라 자유 비행 중에도 0.8 안이면 맞을 수 있는데, 우리는 추적 중에만 매 틱 본다 [추론: 히트
-    검사 동작 내부는 안 읽음 — 차이는 작음]), 나머지 **0.1** — 추적 이동 `AdvancedMovement.DoCheckReachedInternal`이 대상 위치
+    도착하면 `MovementSwitchControllerOblvns`가 3.0칸/s로 `passby_delay` 0.5초 미끄러진 뒤 멈춤 — 2026-10-10 확인. 클라 히트 검사는 0.1초 주기의
+    `SelectorHitBehaviour`(2026-10-31 공식 클라에서 확인: 루트 컴포넌트의 필드가 그 클래스와 같음)이고 `_hitPasserby` 0이라 도착한 뒤에만 타이머가
+    돈다 → 자유 비행 중에는 안 맞는다. 우리도 추적 중 도착 거리 안에서만 맞음 — 같음), 나머지 **0.1** — 추적 이동 `AdvancedMovement.DoCheckReachedInternal`이 대상 위치
     0.1 안이면 도착(2026-10-10, 관리자 결정; 그 전 0.2 [추정], `op-oblvns.js NOTE` `hit`). 화면: `fx.md`의 사키코 음표.
+    음표 프리팹마다 있는 이동 `Emtpy`(속도 0.1 → 2.0)는 쓰이지 않는다(2026-10-31 공식 클라에서 확인): 이동 목록 0번(상태 NONE)이고,
+    `MovementSwitchControllerOblvns.Init`이 곧바로 1번(추적 `ToTraceTarget`)이나 2번(자유 비행)으로 바꾸며, 대상을 잃으면 2번, 맞힌 뒤는 미끄러짐.
   - 아스카론: 사망 구금 중첩(이동 −18%/중첩, 현재 공격력 10%/초), S2 둔화·처치 시 확산, S3 범위 내 적 명중률 −30%(회피 시 회복).
   - 대미지 감사(2026-10-06): 범위 대상은 모두 선택 가능 규칙(`foesInRadius`/`enemiesInKeys`/`canTargetEnemy`: 미노출 은신·선택 불가 제외).
     고친 것: 첸 S2 첫 대상(`unitsInGrid`는 필터가 없음 → 은신 적을 벰; 은신 적만 있으면 선택 가능한 적이 올 때까지 대기), 아스카론 S2 처치 확산이
