@@ -505,8 +505,8 @@
   채움 = 1 − 카드의 `respawnProgress` — 남은 시간만큼 고리가 남고 시계 방향 끝에서 위쪽으로 줄어든다. **숫자는 없다**(프리팹에 글자 칸 없음).
 - 시간이 끝났지만 카드가 `readyToSpawn`이 아닐 때(DP 부족 — `BattleController.IsCostEnough` —, 또는 배치 수 상한) `cost_lack`(같은 원판에 코스트 그림)만.
   `readyToSpawn`이면 아무것도 안 그린다. 이 판정에 칸 검사는 없어서, 누운 칸이 막혀 기다리는 경우(우리 `DOWN_STATE.WAIT_TILE`)에도 아무것도 안 나온다.
-- 구현: `hud-bars.js RespawnHud`(채움은 원뿔꼴 Graphics 마스크), `units.js _updateDownRing`. 그림은 로컬 추출(`extract.py --only ui/battlecommon`)이고,
-  없으면 예전에 그리던 링(민트 호 + 남은 초, 「DP」/「!」)을 그대로 쓴다. 단독 그림 캡처(Windows Chrome)로 채움 방향·모양 확인. [화면 미확인: 실제 판]
+- 구현: `hud-bars.js RespawnHud`(채움은 원소 고리와 같은 `RadialFill` 부채꼴 메시 — 스텐실 마스크 없이 스프라이트와 한 번에 그려짐: 12개 떠 있을 때 그리기 호출 36 → 1), `units.js _updateDownRing`. 그림은 로컬 추출(`extract.py --only ui/battlecommon`)이고,
+  없으면 예전에 그리던 링(민트 호 + 남은 초, 「DP」/「!」)을 그대로 쓴다. 단독 그림 캡처(Windows Chrome)로 채움 방향·모양 확인, 디버그 아레나 확인 2026-10-31(관리자: 「공식이랑 거의 비슷」).
 
 **② 적 HP** (`EnemyBars`; 처음엔 맞기 전 숨김 — `_alwaysShowHp`는 圣堂剑士만 켜짐 — 보스는 늘 보임):
 - 일반·정예: `enemy_hp_slider` 105×7 `#ea4700` α.7, 흰 α.7 잔상, `sprite_bg` 받침 8 × 8.55 크게(`enemy_slider_background`; 위 그림자 설명), `hud_unit` 아래 55.3(캡처 ≈110px).

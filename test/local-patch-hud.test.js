@@ -132,36 +132,38 @@ describe('prep: official chip and equip bar (shop_hud)', () => {
 
   test('the redeploy countdown: the clock disc with its ring draining, cost_lack while DP is short, nothing once ready', async () => {
     const { DOWN_STATE } = await import('../public/js/render/units.js');
+    class SimpleMesh extends fake.P.Container {
+      constructor(t, v) { super(); this.texture = t; this.vertices = v; this.geometry = { getBuffer: () => ({ update() {} }) }; }
+    }
     const urls = { countdown_background: tex(85, 85), countdown_fill: tex(47, 47), cost_lack: tex(85, 85) };
-    const P = { ...fake.P, Texture: { ...fake.P.Texture, from: (u) => urls[u] } };
+    const P = { ...fake.P, SimpleMesh, Texture: { ...fake.P.Texture, from: (u) => urls[u] } };
+    const assets = { localUrl: (g, n) => (g === 'ui/battlecommon' ? n : null) };
     assert.equal(HB.respawnTextures(P, { localUrl: () => null }), null, 'none installed: the drawn ring');
-    const rt = HB.respawnTextures(P, { localUrl: (g, n) => (g === 'ui/battlecommon' ? n : null) });
+    assert.equal(HB.respawnTextures(fake.P, assets), null, 'no SimpleMesh: the drawn ring');
+    const rt = HB.respawnTextures(P, assets);
     assert.equal(rt.fill, urls.countdown_fill);
+    assert.equal(HB.respawnTextures(P, assets), rt, 'looked up once per asset store');
     const v = view({}, {});
-    const h = new HB.RespawnHud(fake.P, v.hud);
-    const arcs = [];
-    h.mask.arc = (x, y, r, a0, a1) => { arcs.push([r, a0, a1]); return h.mask; };
-    h.update(1000, 500, 1, 0.25, rt);
-    assert.ok(h.root.visible && h.bg.visible && h.fill.visible && !h.lack.visible);
-    assert.ok(Math.abs(h.root.position.y - (500 - 24.5 - 131.25)) < 1e-9, '(0, 105) × 1.25 over hud_unit');
-    assert.ok(Math.abs(h.bg.width - 74.375) < 1e-9 && Math.abs(h.fill.width - 41.125) < 1e-9);
-    assert.equal(h.fill.mask, h.mask);
-    const [r, a0, a1] = arcs.at(-1);
-    assert.ok(Math.abs(a0 + Math.PI / 2) < 1e-9 && Math.abs(a1 - a0 - Math.PI / 2) < 1e-9, 'a quarter, from the top, clockwise');
-    assert.ok(r > 41.125 / 2, 'the mask covers the whole ring');
-    h.update(1000, 500, 1, 0.25, rt);
-    assert.equal(arcs.length, 1, 'the mask is redrawn only when the share changes');
-    h.update(1000, 500, 1, 0, rt);
-    assert.ok(h.bg.visible && !h.fill.visible, 'time up: the disc alone');
-    h.update(1000, 500, 1, null, rt);
-    assert.ok(!h.bg.visible && !h.fill.visible && h.lack.visible && h.lack.texture === rt.lack);
+    const h = new HB.RespawnHud(P, v.hud);
+    h.update(1000, 500, 2, 0.25, rt);
+    assert.ok(h.root.visible && h.bg.visible && h.fillRoot.visible && h.fill.mesh.visible && !h.lack.visible);
+    assert.ok(Math.abs(h.root.position.y - (500 - 2 * (24.5 + 131.25))) < 1e-9, '(0, 105) × 1.25 over hud_unit');
+    assert.ok(Math.abs(h.bg.width - 2 * 74.375) < 1e-9 && h.fillRoot.scale.x === 2);
+    assert.equal(h.fill.mesh.texture, rt.fill);
+    assert.equal(h.fill.size, 41.125, 'the ring 47 × 0.7 × 1.25 units across');
+    const m = h.fill.mesh.vertices, last = m.length - 2;
+    assert.ok(Math.abs(m[last] - 41.125 / 2) < 1e-6 && Math.abs(m[last + 1]) < 1e-6, 'a quarter, from the top, clockwise: ends at 3 o\'clock');
+    h.update(1000, 500, 2, 0, rt);
+    assert.ok(h.bg.visible && !h.fill.mesh.visible, 'time up: the disc alone');
+    h.update(1000, 500, 2, null, rt);
+    assert.ok(!h.bg.visible && !h.fillRoot.visible && h.lack.visible && h.lack.texture === rt.lack);
     // through UnitView: time left / total, cost_lack on WAIT_DP, hidden on WAIT_TILE, the drawn ring never built
-    const ctx = fakeViewCtx(P, { assets: { localUrl: (g, n) => n }, cam, viewport: () => VP });
+    const ctx = fakeViewCtx(P, { assets, cam, viewport: () => VP });
     const w = new UnitView(ctx, { id: 2, side: 'ally', kind: 'chess', defId: 'char_x', tier: 3, x: 5, y: 12, maxHp: 1000 });
     w.update(1 / 60, cam(), 0);
     w.setDown([2, 30, 20, DOWN_STATE.COUNTING], 25);
     w.update(1 / 60, cam(), 0);
-    assert.ok(w._respawnHud.root.visible && Math.abs(w._respawnHud.amount - 0.25) < 1e-9, '5 of 20 s left');
+    assert.ok(w._respawnHud.root.visible && Math.abs(w._respawnHud.fill.amount - 0.25) < 1e-9, '5 of 20 s left');
     w.setDown([2, 30, 20, DOWN_STATE.WAIT_DP], 31); w.update(1 / 60, cam(), 0);
     assert.ok(w._respawnHud.lack.visible);
     w.setDown([2, 30, 20, DOWN_STATE.WAIT_TILE], 32); w.update(1 / 60, cam(), 0);

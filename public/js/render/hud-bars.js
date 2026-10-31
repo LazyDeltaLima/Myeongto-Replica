@@ -452,12 +452,20 @@ export class EquipBar {
   }
 }
 
-/** The redeploy countdown's textures `{ bg, fill, lack }`, or null while they are not installed / loaded. */
+let _respawnTex = null, _respawnAssets = null; // the textures once all three are loaded, per asset store
+/**
+ * The redeploy countdown's textures `{ bg, fill, lack }`, or null while they are not installed / loaded or there is no
+ * SimpleMesh (the fill is a RadialFill mesh, as the element ring's).
+ */
 export function respawnTextures(P, assets) {
+  if (!P.SimpleMesh) return null;
+  if (_respawnTex && _respawnAssets === assets) return _respawnTex;
   const bg = texOf(P, localUrl(assets, 'ui/battlecommon', 'countdown_background'));
   const fill = texOf(P, localUrl(assets, 'ui/battlecommon', 'countdown_fill'));
   const lack = texOf(P, localUrl(assets, 'ui/battlecommon', 'cost_lack'));
-  return bg && fill && lack ? { bg, fill, lack } : null;
+  if (!(bg && fill && lack)) return null;
+  _respawnAssets = assets;
+  return (_respawnTex = { bg, fill, lack });
 }
 
 /** The redeploy countdown of one knocked-out operator (see header), drawn into `parent`. */
@@ -466,13 +474,16 @@ export class RespawnHud {
     this.anchor = HUD_ANCHOR;
     this.root = new P.Container();
     const mk = () => { const s = new P.Sprite(P.Texture.EMPTY); s.anchor.set(0.5); return s; };
-    this.bg = mk(); this.fill = mk(); this.lack = mk();
-    // the fill is an Image Filled Radial360 (origin Top, clockwise): a pie mask over the ring sprite
-    this.mask = new P.Graphics();
-    this.fill.mask = this.mask;
-    this.root.addChild(this.bg, this.fill, this.mask, this.lack);
+    this.bg = mk();
+    this.root.addChild(this.bg);
+    // the fill: the ring sprite as a Radial360 fan mesh (RadialFill: batched with the sprites, no stencil mask, its
+    // vertices rewritten only when the share moves), sized in HUD units under a scaled container
+    this.fillRoot = new P.Container();
+    this.root.addChild(this.fillRoot);
+    this.fill = new RadialFill(P, this.fillRoot);
+    this.lack = mk();
+    this.root.addChild(this.lack);
     this.root.visible = false;
-    this.amount = -1; this.radius = 0;
     parent.addChild(this.root);
   }
 
@@ -488,23 +499,14 @@ export class RespawnHud {
     this.root.visible = true;
     this.root.position.set(x, hudAnchorY(y, u, this.anchor) - R.y * u);
     const counting = amount != null;
-    this.bg.visible = counting; this.lack.visible = !counting;
+    this.bg.visible = this.fillRoot.visible = counting; this.lack.visible = !counting;
     if (!counting) {
-      this.fill.visible = false;
       this.lack.texture = t.lack; this.lack.width = this.lack.height = R.size * u;
       return;
     }
     this.bg.texture = t.bg; this.bg.width = this.bg.height = R.size * u;
-    const a = clamp(Number(amount) || 0, 0, 1);
-    this.fill.visible = a > 0;
-    this.fill.texture = t.fill; this.fill.width = this.fill.height = R.fill * u;
-    const r = (R.fill * u) / 2 + 1;
-    if (a === this.amount && r === this.radius) return;
-    this.amount = a; this.radius = r;
-    const m = this.mask.clear().beginFill(0xffffff);
-    if (a >= 1) m.drawCircle(0, 0, r);
-    else if (a > 0) m.moveTo(0, 0).arc(0, 0, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * a).lineTo(0, 0);
-    m.endFill();
+    this.fillRoot.scale.set(u);
+    this.fill.update(t.fill, R.fill, Number(amount) || 0);
   }
 }
 
