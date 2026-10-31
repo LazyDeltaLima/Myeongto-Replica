@@ -129,6 +129,8 @@ JOBS = [
      # item and summon cards (ui/detailArt.js, maintainer decision 2026-10-14)
      # the selection underframe of a board piece (underframe_panel: the diamond frame and the 撤退 plate)
      r'|sprite_character_menu_frame|btn_escape'
+     # and its skill button (group_skill: the not-ready bar, the skill range toggle and its link)
+     r'|sprite_skill_notready|sprite_skill_range_off|sprite_skill_range_on|sprite_mask'
      r'|icon_profession_token_lighten)$'),
     # the arrow sprite of the client's generic arrow projectile (projectile_arrow's Body SpriteRenderer draws the
     # projectile_arrow_new sprite): 流星's normal attack (render/fx.js 'spriteArrow')
