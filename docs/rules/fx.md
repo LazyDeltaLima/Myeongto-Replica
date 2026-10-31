@@ -1113,7 +1113,7 @@
   `shoot`을 안 거치는 콘텐츠 투사체(迷路的巨像 StunAttack·蚀裂 사망 구름)는 `enemyShot`이 없어 안 그림 — sim이 `shoot`으로 바꾸면
   그대로 그려진다. 살카즈 부패의 전차(`enemy_1272_nhtank`) 秽蚀轰击는 아래 「적 장판 — 污染秽蚀」로 그린다(오염탄
   `projectile_enemy_nhtank_polluted`엔 꼬리가 없고, 날아가는 포탄은 그 공격의 `projectile_enemy_nhtank` 원거리 꼬리).
-- **적 장판 — 污染秽蚀** (2026-10-31) [화면 미확인]: 살카즈 부패의 전사·리더(`enemy_1267_nhpbr`/`_2`)의 사망 장판과 살카즈 부패의 전차·최첨단(`enemy_1272_nhtank`/`_2`)
+- **적 장판 — 污染秽蚀** (2026-10-31, 실제 판 확인 2026-10-31): 살카즈 부패의 전사·리더(`enemy_1267_nhpbr`/`_2`)의 사망 장판과 살카즈 부패의 전차·최첨단(`enemy_1272_nhtank`/`_2`)
   秽蚀轰击 장판은 공식 클라에서 투사체가 남기는 이펙트다 — 전사: 특성 `PollutedDie` 버프(템플릿 `projectile_on_killed`)의 blackboard `valueStr`
   `projectile_enemy_nhpbr_polluted` → `_effectsToTargetWhenStart` `enemy_nhpbr_attack_range`, 전차: 스킬 `PollutedRangedAtk/AttackPolluted`의
   `projectile_enemy_nhtank_polluted` → `_effectsWhenReached` `enemy_nhtank_attack_range`. sim fx 'zone'이 `id`(낸 적)·`ability`(`PollutedDie` /
