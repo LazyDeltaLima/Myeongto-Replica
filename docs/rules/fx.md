@@ -840,6 +840,20 @@
     지금 쓰는 곳은 상태 이펙트 끝(`ui.md` ⑤ 「끝내는 시점」, `fxgame.js statusOff`). **`fx_extract.py --game <클라> --finish-only` 실행 전에는 `finish`가 없어**
     예전처럼 바로 제거. 연결선 이펙트(`stepLines`)의 0.5초는 그대로 상수.
 
+### 쏠 때 트는 타격 이펙트 — 투사체 쏘는 능력 옆 발생기의 `_hitEffects` (2026-10-31, 관리자 제보 「이격 블레이즈 S3가 발사된 후 목표 적이 죽으면 타격 이펙트가 안 나옴」)
+
+- **증상**: 블레이즈 디 이그나이팅 스파크(烛煌) S3의 떨어지는 불길(`blaze2_skill_03_hit`·`_02`)이 볼트가 닿을 때(0.3초 뒤) 주 대상에만 나와, 그 사이 대상이
+  죽으면 안 나왔다.
+- **공식**(공식 클라에서 확인, 관리자 승인 큰 확인): 원거리 공격은 쏠 때 대상마다 시전한다 — `RangedAttack.OnCastOnTarget`이 기반 `AbilityStandard.OnCastOnTarget`을
+  부른 뒤 투사체를 만들고, 그것이 능력의 행동마다 `OnCastOnTarget` → `UberEffectEmitter.OnCastOnTarget`이 효과 옵션마다 → `HitEffectOptions.OnCastOnTarget`이
+  타격 이펙트를 대상에 만든다. 그래서 **투사체를 쏘는 능력과 같은 GameObject의 발생기 `_hitEffects`는 쏘는 순간 그 공격의 대상들에** 생긴다(확산으로 맞은 적은
+  시전 대상이 아니라 없음 — 「주 대상만」의 실제 이유). 투사체 자기 `_effectsWhenHit`·`_effectsWhenReached`는 그대로 명중·닿음 때.
+- 클라 전수(charpack 모든 모드): 그런 능력은 넷 — 烛煌 S3, 레코드키퍼(录武官, 메딕) 기본 치료 `reckpr_attack_hit`, 엑시아(能天使) S2·S3 `angle_attack_02_hit`(루프,
+  시전 끝까지), 그리고 우리 풀 밖의 예비 오퍼레이터 캐스터(`char_604_ccast`). 烛煌 기본 공격처럼 타격 이펙트가 투사체 쪽인 것은 해당 없음.
+- **고친 것**: `char_modes.py`가 그 이름에 `castOpt` `{ s: 4, e, o, t: 3 }`을 달고, `fxgame.js shotHitFx`가 'atk'(쏨) 때 그 대상에 틀며, `attackHit`('dmg')는 그것을
+  빼고 (그것뿐이면 이름 대응 대체도 안 틂). 대상이 그 뒤 죽어도 이펙트는 이미 났다. 테스트 `test/render/shot-hit-fx.test.js`, `fx-round2.test.js`.
+  [화면 미확인: 실제 판에서 烛煌 S3 불길이 쏠 때 떨어지기 시작하는지, 레코드키퍼 치료·엑시아 연사의 타격 시점]
+
 ### 입력 대상·루프 타격·클립별 이펙트·배치 이펙트 — 공식 클라 확인 (2026-10-11, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 근거: 공식 클라(아래 메서드는 켜진 Lua 핫픽스 목록에 없음)와 charpack·`[uc]skills.ab`·이펙트 번들 프리팹 값. 조사 기록은 관리자 노트.
 - **① 입력 대상 이펙트(`_inputTargetEffects`)** — `InputTargetEffectOptions`는 `CastEffectOptions`의 하위(켜는 때 `_startEvent`, `_oneshot`/`_endEvent`/`_onlyOnce`/
@@ -1656,8 +1670,8 @@
   (Unity TextureWrapMode 0 Repeat · 1 Clamp · 2 Mirror · 3 MirrorOnce)는 텍스처마다 다르다 — 추출 텍스처 2,554개 중 382개가 Repeat가 아님(Clamp 양축
   331·한 축 50·Mirror 1). 그 불기둥 메시는 u가 길이 방향(0→1)이고 주 텍스처 `blaze2_02`(Clamp)가 타일링 ×4, 클립이 `_MainTex_ST.z`를 −0.13 → 1로 민다.
   Clamp면 기둥의 1/4 길이 불꽃 머리만 보이며 기둥을 따라 지나가 빠지고(시전은 위로 0.7초, 피격은 `fixed`가 10 → 0으로 0.47초 떨어지며 아래로),
-  Repeat면 무늬가 기둥 전체를 덮는다. 위치·크기·시점(공격 0.3초 뒤 주 대상만, `projectile_chr_blaze2_s3` AttachToTarget `_delayToStart` 0.3·
-  `_onlyPlayHitEffectOnTraceTarget`)은 원래 공식과 같았다.
+  Repeat면 무늬가 기둥 전체를 덮는다. 위치·크기는 원래 공식과 같았다. (시점은 이때 「공격 0.3초 뒤 주 대상만, `_onlyPlayHitEffectOnTraceTarget`」으로
+  보았으나 틀림 — 2026-10-31 아래 「쏠 때 트는 타격 이펙트」: 공식은 쏘는 순간 대상에.)
 - **고친 것**: `fx_extract.py`가 텍스처마다 wrap을 읽어 `tex/wrap.json`({ 파일: [u, v] }, Repeat가 아닌 것만)에 합치고(추출할 때마다, 또는 `--wrap-only`가
   두 색인의 출처 팩 전부에서), `FxLibrary`가 첫 이펙트 전에 한 번 받아 텍스처마다 ClampToEdge / MirroredRepeat를 준다(MirrorOnce는 three.js에 없어
   MirroredRepeat — 추출 텍스처에는 MirrorOnce가 없음).

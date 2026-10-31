@@ -3827,6 +3827,20 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const opt = castTiming(bindOf(v), mode, n);
     return opt?.t === 2 && castPhase(opt) === 'swing';
   };
+  // 2026-10-31, official client: a ranged attack casts on each target as it shoots (RangedAttack.OnCastOnTarget →
+  // AbilityStandard.OnCastOnTarget → its behaviours → UberEffectEmitter → HitEffectOptions.OnCastOnTarget), so the hit
+  // effects of the emitter beside a shooting ability (castOpt t: 3, char_modes.py) start on the target at the 'atk' — the
+  // shot —, not at the projectile's hit: 烛煌 S3's falling fire (also when its target dies before the bolt lands), 录武官,
+  // 能天使 S2 / S3. Before, they played at the 'dmg' with the projectile's own hits.
+  /** Whether hit `n` of mode `mode` starts at the shot (shotHitFx plays it, not the hits). */
+  const shotHit = (v, mode, n) => castTiming(bindOf(v), mode, n)?.t === 3;
+  /** The shot ('atk' on `tgt`) of `src` in `mode`: its hits that start at the cast on the target. */
+  function shotHitFx(src, mode, kind, tgt) {
+    if (!tgt || tgt.alive === false || tgt.remove || (!src._fxSkillOn && level() >= 3)) return;
+    const c = src._fxCast?.mode === mode ? src._fxCast : null;
+    const names = withGroup(boundFor(src, mode, 'hit', kind).names, c?.group?.hit).filter((n) => shotHit(src, mode, n));
+    if (names.length) hitFx(src, tgt, names.slice(0, MAX_HIT_FX), c);
+  }
   /** The swing-start cast-target effects of cast `c` (mode `mode`, attack kind `kind`) on `tgt`, or at the strike without one. */
   function castTgtFx(v, c, mode, kind, tgt, strike = false) {
     if (c.skip) return;
@@ -4182,8 +4196,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       : a.shot ? { names: extracted(a.src, skillBind(a.src)?.shotHit), split: false } : boundFor(a.src, a.mode, 'hit', a.kind, !!a.combat);
     if (sg) hitList = [...new Set([...hitList, ...extracted(a.src, sg.g[strikeIndex(sg, a.n)])])];
     const c = a.src._fxCast?.mode === a.mode ? a.src._fxCast : null; // 2026-10-11: its cast (clip group, loop end, speed)
-    const hits = withGroup(hitList, c?.group?.hit).filter((n) => !swingTarget(a.src, a.mode, n)).slice(0, MAX_HIT_FX);
+    const all = withGroup(hitList, c?.group?.hit);
+    const hits = all.filter((n) => !swingTarget(a.src, a.mode, n) && !shotHit(a.src, a.mode, n)).slice(0, MAX_HIT_FX);
     if (hits.length) { hitFx(a.src, tgt, hits, c); return; }
+    if (all.some((n) => shotHit(a.src, a.mode, n))) return;   // its hits started at the shot (shotHitFx)
     if (split || bound(a.src, a.mode, 'input').length) return; // its hits are its input-target effects (inputFx), not a name-mapped one
     play(a.src, a.src._fxSkillOn ? 'skillHit' : 'attackHit', skillIdx(a.src), { at: tgt });
   }
@@ -5457,6 +5473,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // clock: those of ON_CAST_START already started at its 'swing', the strike's (ON_SPELL_ON) now (strikeFx); the
           // throttle (ATTACK_GAP_S) and load level 3 skip them as before (beginCast)
           strikeFx(src, mode, e[3], tgt, sig);
+          shotHitFx(src, mode, e[3], tgt);   // 2026-10-31: the hits that start at the shot
           svashBird(src, tgt);   // 2026-10-21: 凛御银灰 S3's eagle
           chargeRelease(src);    // 2026-10-21: a 秘术师's stored energies leave with it
           if (part !== 'body') droneShot(src, tgt, mode, lockByFx(src) ? 'free' : null);   // 2026-10-16: its drones (2026-10-21: the locks by 'drone')

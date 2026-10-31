@@ -2841,6 +2841,12 @@
     }
    },
    {
+    "angle_attack_02_hit": {
+     "s": 4,
+     "e": 6,
+     "o": 0,
+     "t": 3
+    },
     "angle_skill_01_start": {
      "s": 4,
      "e": 6,
@@ -2970,6 +2976,18 @@
     }
    },
    {
+    "blaze2_skill_03_hit": {
+     "s": 4,
+     "e": 3,
+     "o": 1,
+     "t": 3
+    },
+    "blaze2_skill_03_hit_02": {
+     "s": 4,
+     "e": 3,
+     "o": 1,
+     "t": 3
+    },
     "blaze2_skill_03_start": {
      "s": 5,
      "e": 3,
@@ -13862,6 +13880,12 @@
   ],
   "castOpt": [
    {
+    "reckpr_attack_hit": {
+     "s": 4,
+     "e": 3,
+     "o": 1,
+     "t": 3
+    },
     "reckpr_attack_start": {
      "s": 2,
      "e": 3,

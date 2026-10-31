@@ -67,7 +67,7 @@ test('cast-target effects (2026-10-26): timed in castOpt (t 2); the swing-start 
   assert.match(SRC, /const face = faceId != null \? views\.get\(faceId\) \|\| null : null;/);
   assert.match(SRC, /castTgtFx\(src, c, mode, kind, face\);/);
   assert.match(SRC, /if \(c\.ctLate\) castTgtFx\(src, c, mode, kind, tgt, true\);/);
-  assert.match(SRC, /\.filter\(\(n\) => !swingTarget\(a\.src, a\.mode, n\)\)\.slice\(0, MAX_HIT_FX\)/);
+  assert.match(SRC, /\.filter\(\(n\) => !swingTarget\(a\.src, a\.mode, n\) && !shotHit\(a\.src, a\.mode, n\)\)\.slice\(0, MAX_HIT_FX\)/);
 });
 
 test('clipGroup: the group of the clip played, else LOOP the next one / RANDOM one at random', () => {
@@ -109,7 +109,7 @@ test('fxgame: input effects on the main target, looping hits end with the cast, 
   assert.match(SRC, /if \(entry\.cast\?\.cut\) \{ inst\.dispose\(\); return null; \}/);
   // clip groups: cast at the swing, hits at the damage
   assert.match(SRC, /c\.group = castGroup\(src, mode, sig, .*\);/);
-  assert.match(SRC, /const hits = withGroup\(hitList, c\?\.group\?\.hit\)\.filter\(\(n\) => !swingTarget\(a\.src, a\.mode, n\)\)\.slice\(0, MAX_HIT_FX\);/);
+  assert.match(SRC, /const all = withGroup\(hitList, c\?\.group\?\.hit\);\n\s*const hits = all\.filter\(\(n\) => !swingTarget\(a\.src, a\.mode, n\) && !shotHit\(a\.src, a\.mode, n\)\)\.slice\(0, MAX_HIT_FX\);/);
   // the enemy's debuff mark: one per name per unit, renewed by a hit while it stands
   assert.match(SRC, /if \(Array\.isArray\(part\.hitBuff\) && part\.hitBuff\.length\) eholdBuff\(src, part, tgt\);/);
   assert.match(SRC, /const key = `\$\{tid\}:\$\{n\}`;/);

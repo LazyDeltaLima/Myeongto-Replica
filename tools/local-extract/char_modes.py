@@ -750,7 +750,8 @@ def mode_parts(tree, mode_paths, projectiles=None):
 
 def cast_timing(c):
     """{ s, e, o, d?, once?, t?, p? } of a CastEffectOptions entry (castOpt): t = an InputTargetEffectOptions (on the main
-    target), p = its `_useInputPos`; t 2 = a CastTargetEffectOptions (on each cast target: cast_target_timing)."""
+    target), p = its `_useInputPos`; t 2 = a CastTargetEffectOptions (on each cast target: cast_target_timing); t 3 = a hit
+    effect of a shooting ability, started on each target as it shoots (s 4: modes_of)."""
     opt = {'s': c.get('_startEvent', 2), 'e': c.get('_endEvent', 3), 'o': c.get('_oneshot', 1)}
     if isinstance(c.get('_delayIfFirstAttack'), (int, float)) and c['_delayIfFirstAttack'] > 0:
         opt['d'] = round(float(c['_delayIfFirstAttack']), 4)
@@ -904,6 +905,11 @@ def modes_of(path, projectiles=None):
         elif isinstance(o, list):
             for v in o:
                 keys(v, out)
+    # 2026-10-31, official client: a ranged attack casts on each target as it shoots (RangedAttack.OnCastOnTarget →
+    # AbilityStandard.OnCastOnTarget → each behaviour's OnCastOnTarget → UberEffectEmitter → HitEffectOptions.OnCastOnTarget),
+    # so the hit effects of an emitter beside an ability that fires a projectile start on the target at the shot, not when
+    # the projectile hits — castOpt t: 3 (烛煌 S3 blaze2_skill_03_hit, 录武官, 能天使 S2 / S3)
+    shot_gos = {gp for gp, d, _ in tree if isinstance(d.get('_projectileKey'), str) and d['_projectileKey']}
     for gp, d, _ in tree:
         i = next((k for k, mp in enumerate(mode_paths) if mp and (gp == mp or gp.startswith(mp + '/'))), None)
         if i is None:
@@ -953,6 +959,11 @@ def modes_of(path, projectiles=None):
         add(inputs[i], effect_names(d.get('_inputTargetEffects') or []))
         add(cast_tgt, effect_names(d.get('_castTargetEffects') or []))
         cast_target_timing(d, cast_opt[i])
+        if gp in shot_gos and not hit_groups(d):
+            for c in d.get('_hitEffects') or []:
+                for x in (c.get('_effects') or []) if isinstance(c, dict) else []:
+                    if isinstance(x, str) and x:
+                        cast_opt[i].setdefault(x, {'s': 4, 'e': int(c.get('_endEvent', 3)), 'o': int(c.get('_oneshot', 1)), 't': 3})
         for c in [*(d.get('_castEffects') or []), *(d.get('_inputTargetEffects') or [])]:
             if not isinstance(c, dict):
                 continue
