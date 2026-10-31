@@ -109,7 +109,7 @@ describe('official deploy drop-in (units.js onDeploy)', () => {
     assert.equal(v.bodyless, false);
     const fxg = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
     assert.match(fxg, /v\.drawnByFx\?\.\(stonesOn\);/);
-    assert.match(fxg, /castsDelayed\.push\(\{ t: clockS \+ THROW_S, run: \(\) => playAt\(\[STONE_BORN\.follower\]/);
+    assert.match(fxg, /v\.drawnByFx\?\.\(stonesOn\);\n\s+playAt\(\[STONE_BORN\.follower\], v,/);  // its 'summon' is the landing (2026-10-31)
   });
 
   test('a model that never comes: the diamond after BORN_WAIT_MAX_S', () => {

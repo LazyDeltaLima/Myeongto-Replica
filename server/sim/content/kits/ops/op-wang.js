@@ -5,7 +5,8 @@
 // get their kit here: the placed pieces in a talent install (battle._setupUnit, as upstream's), every spawned stone and
 // 跟子 through spawnToken `kit` (content/index.js resolves no token kit for it).
 // fx kinds the client draws / sounds from (render/fxgame.js stoneFx, audio.js kitHitKey): 'zone' { token, skill 1|2|3,
-// axes, line, follower, consumed } (a trigger), 'wangLink' { axes, first }, 'summon'.
+// axes, line, follower, consumed } (a trigger), 'wangLink' { axes, first }, 'summon', 'wangThrow' { id: her, r, c } (a 跟子
+// thrown at a tile: the cast start, its 'summon' FOLLOWER_PRE_DELAY later).
 //
 // 望 (陷阱师) — 铸子 / 料敌机先; S1 取势, S2 连星, S3 天下劫; 棋子 (token_10064_wang_stone1)
 //
@@ -125,7 +126,9 @@ const STONE_ARM_FRAMES = 30, STONE_BUILD_FRAMES = 4;
  * talent's BuildStone (`skchr_wang_3/SpawnTokenS3/BuildStone`, `…InSkill/BuildStone`, the talent's own) and S3's
  * InstantSpawn are projectile abilities (`projectile_chr_wang_stone3`) with `_preDelay` 0.25 — each 跟子 lands 0.25 s after
  * its request; S3's InstantSpawn takes one tile a cast (`_maxNum` 1) and casts again after its `_cooldown` 0.25. The
- * projectile's flight time is not added [open: its movement component was not read].
+ * projectile's flight time is not added [open: its movement component was not read]. The tile is the cast's
+ * (`CastOnTileAbility.m_castTiles`, picked at its cast start: OnCastStart creates the throw's `_startEffect` there — official
+ * client; 2026-10-31, before that the sim picked it as the 跟子 landed): throwFollower.
  */
 const FOLLOWER_PRE_DELAY = 0.25, S3_SPAWN_COOLDOWN = 0.25;
 
@@ -281,9 +284,32 @@ function wang(bb, chess, def) {
     battle.fx('summon', { x: f.x, y: f.y, id: f.id, follower: true, src: unit.id });
     return f;
   };
+  /** Her 跟子 in the air: [{ r, c }] — they count toward followerCap and hold their tile for other picks until they land. */
+  const throwsOf = (unit) => (st(unit).throws ||= []);
+  const flying = (battle, unit) => followers(battle, unit).length + throwsOf(unit).length;
+  const thrownAt = (unit, r, c) => throwsOf(unit).some((t) => t.r === r && t.c === c);
+  /**
+   * A 跟子 thrown at (r, c) now (the cast start: fx 'wangThrow', the render's falling stone), landing FOLLOWER_PRE_DELAY
+   * later (`_finishStartEffectsOnCastOnTile`) as placeFollower; `land(f)` gets the 跟子, or null when she left the field or
+   * the tile can no longer take one (a stone came back there, an operator was deployed on it)
+   * [추정·미조사: the projectile's landing on a tile that no longer suits it was not read].
+   */
+  const throwFollower = (battle, unit, r, c, from, land = null) => {
+    const seq = unit.deploySeq, t = { r, c };
+    throwsOf(unit).push(t);
+    battle.fx('wangThrow', { x: c, y: r, id: unit.id, r, c });
+    battle.after(FOLLOWER_PRE_DELAY, () => {
+      const list = throwsOf(unit), i = list.indexOf(t);
+      if (i >= 0) list.splice(i, 1);
+      const ok = unit.deploySeq === seq && live(unit) && followerClass(battle, r, c, stonesOf(battle, unit)) != null;
+      const f = ok ? placeFollower(battle, unit, r, c, from) : null;
+      land?.(f);
+    }, { owner: unit });
+  };
   /** Follower tile class (PRTS 备注): 0 undeployable ground, 1 deployable ground, 2 deployable high ground, null = none. */
-  const followerClass = (battle, r, c, stones) => {
+  const followerClass = (battle, r, c, stones, unit = null) => {
     if (!battle.grid.inRect(r, c) || stoneAt(stones, r, c) || battle.grid.isObstacle(r, c)) return null;
+    if (unit && thrownAt(unit, r, c)) return null; // another 跟子 of hers is falling there
     if (battle.downOn(r, c)) return null; // a knocked-out operator lies there (maintainer decision 2026-10-07, as upstream's downOn)
     const occ = battle.unitAt(r, c);
     if (occ && !isFollower(occ)) return null; // no character unit
@@ -301,23 +327,25 @@ function wang(bb, chess, def) {
    * the map, and _GetDirectionPriority compares grid offsets. 2026-10-07 – 2026-10-11 (W8) a mirrored
    * field swapped col+ and col− (ORTHO_MIRRORED) — docs/rules/diy.md 「되돌리기」.
    */
-  const buildOne = (battle, unit, r0, c0) => {
-    if (followers(battle, unit).length >= followerCap) return null;
+  const buildOne = (battle, unit, r0, c0, land) => {
+    if (flying(battle, unit) >= followerCap) return false;
     const stones = stonesOf(battle, unit);
     const cand = [];
     ORTHO.forEach(([dr, dc], dir) => {
       const r = r0 + dr, c = c0 + dc;
-      const cls = followerClass(battle, r, c, stones);
+      const cls = followerClass(battle, r, c, stones, unit);
       if (cls != null) cand.push({ r, c, cls, foe: enemiesOnTile(battle, r, c).length > 0, dir });
     });
     if (cand.length > 1) cand.sort(followerOrder);
-    return cand.length ? placeFollower(battle, unit, cand[0].r, cand[0].c) : null;
+    if (!cand.length) return false;
+    throwFollower(battle, unit, cand[0].r, cand[0].c, 'build', land);
+    return true;
   };
   /**
-   * 铸子 跟子 around `s`: `n` of them, the first FOLLOWER_PRE_DELAY after the stone's birth (BuildStone `_preDelay` 0.25;
-   * until 2026-10-10 evening at the birth), then one per STONE_BUILD_FRAMES (the client queues them —
-   * WangStoneTriggerManager buildStoneRequests, `_stoneBuildDelay` 4; 2026-10-10, until then all at once). Each picks its
-   * tile when it lands [ASSUMED: the client's ability picks at its cast start, 0.25 s earlier]. `s3`: the S3 deployment's — the first is the talent's (free), every
+   * 铸子 跟子 around `s`: `n` of them, the first thrown at the stone's birth and landing FOLLOWER_PRE_DELAY later (BuildStone
+   * `_preDelay` 0.25; until 2026-10-10 evening it landed at the birth), then one cast per STONE_BUILD_FRAMES (the client queues
+   * them — WangStoneTriggerManager buildStoneRequests, `_stoneBuildDelay` 4; 2026-10-10, until then all at once). Each picks
+   * its tile as it is thrown (throwFollower; until 2026-10-31 as it landed). `s3`: the S3 deployment's — the first is the talent's (free), every
    * later one built takes one ammo (spendS3; the last ammo ends S3). A build finding no tile is skipped (the client counts
    * the request down either way). While builds are pending S3 does not end for want of stones (the client's
    * WangS3CastSkillWithLimitTimes: hand 0 and `!hasRemainingBuildCnt`).
@@ -337,13 +365,13 @@ function wang(bb, chess, def) {
       if (unit.deploySeq !== seq || !live(unit)) { done(); return; }
       const paid = s3 && i > 0;
       if (paid && !s3Running(unit)) { done(); return; }
-      const f = buildOne(battle, unit, r0, c0);
-      i++;
-      if (f && paid && spendS3(unit)) { done(); return; }
-      if (i >= n) { done(); return; }
-      battle.after(STONE_BUILD_FRAMES * TICK, step, { owner: unit });
+      const last = ++i >= n;
+      // the ammo is paid as it lands (the last ammo ends S3); the build stays pending until the last one is down
+      const land = (f) => { if ((f && paid && spendS3(unit)) || last) done(); };
+      if (!buildOne(battle, unit, r0, c0, land) && last) { done(); return; }
+      if (!last) battle.after(STONE_BUILD_FRAMES * TICK, step, { owner: unit });
     };
-    battle.after(FOLLOWER_PRE_DELAY, step, { owner: unit });
+    step();
   };
   /** "获得N枚棋子" (ChargeToken): charge = min(deckCap − hand, n) cards; returns the count above it. */
   const addOwned = (unit, n) => {
@@ -382,25 +410,26 @@ function wang(bb, chess, def) {
           // Until 2026-10-10: enemy tiles first, the enemy closest to its goal first (goalFirst, maintainer decision 2026-10-06
           // [추정]) — no such order in the client. [ASSUMED] all at once: the client's InstantSpawn (`_preDelay` /
           // `_cooldown` 0.25, one tile a cast) may spread them out — not traced. Since 2026-10-10 evening (maintainer
-          // decision 「클라 타이밍」): one a cast, the first FOLLOWER_PRE_DELAY in, then one per S3_SPAWN_COOLDOWN, each cast
-          // drawing its tile anew (`_maxNum` 1) [ASSUMED: picked when it lands, the client picks at the cast start].
+          // decision 「클라 타이밍」): one a cast — the first cast at the start, landing FOLLOWER_PRE_DELAY later, then one cast per
+          // S3_SPAWN_COOLDOWN — each cast drawing its tile anew (`_maxNum` 1) as it is thrown (throwFollower; until 2026-10-31
+          // as it landed).
           let over = addOwned(unit, Math.max(1, num(bb.cnt, 8)));
           const instant = () => {
-            if (!running() || over <= 0 || followers(battle, unit).length >= followerCap) return false;
+            if (!running() || over <= 0 || flying(battle, unit) >= followerCap) return false;
             const stones0 = stonesOf(battle, unit);
             const cand = [];
             for (const k of unit.rangeKeys || []) {
-              const r = Math.floor(k / COLS), c = k % COLS, cls = followerClass(battle, r, c, stones0);
+              const r = Math.floor(k / COLS), c = k % COLS, cls = followerClass(battle, r, c, stones0, unit);
               if (cls != null) cand.push({ r, c, cls, foe: enemiesOnTile(battle, r, c).length > 0 });
             }
             if (!cand.length) return false;
             battle.rng.shuffle(cand);
             if (cand.length > 1) cand.sort(followerOrder);
-            if (placeFollower(battle, unit, cand[0].r, cand[0].c, 'instant')) over--;
-            return over > 0;
+            throwFollower(battle, unit, cand[0].r, cand[0].c, 'instant');
+            return --over > 0;
           };
           const cast = () => { if (instant()) battle.after(S3_SPAWN_COOLDOWN, cast, { owner: unit }); };
-          battle.after(FOLLOWER_PRE_DELAY, cast, { owner: unit });
+          cast();
           // no stone of the hand goes on a new tile (maintainer decision 2026-10-11, the client's AutoChessBattleTrigger.
           // _TryDeployAvailableCharacter: the prep pieces only): her deployments during S3 are the used stones coming back
           // (redeployUsed — on an enemy tile of her range too, with the S3 跟子 for ammo). It ends when stopped, out of

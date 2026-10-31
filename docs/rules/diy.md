@@ -119,8 +119,11 @@
       던진다 — 재능의 BuildStone(`skchr_wang_3/SpawnTokenS3/BuildStone`·`…InSkill/BuildStone`)과 S3 시작 InstantSpawn은 둘 다 투사체 능력
       (`projectile_chr_wang_stone3`, `_preDelay` 0.25), InstantSpawn은 시전마다 1칸(`_maxNum` 1)·`_cooldown` 0.25(EN 클라 `[uc]skills.ab`).
       지금: 돌의 跟子는 각 요청 0.25초 뒤(1/30초 틱이라 8번째 틱, 0.267초; 이어서 4프레임 간격), S3 시작 跟子는 0.25초 뒤 첫 개, 그 뒤 0.25초마다
-      한 개씩 — 칸은 내려앉을 때마다 새로 고른다 [ASSUMED: 클라는 시전 시작(0.25초 앞)에 고름]. 예전: 돌과 같은 틱(재능), S3 시작분은 한꺼번에.
-      `op-wang.js FOLLOWER_PRE_DELAY`·`S3_SPAWN_COOLDOWN`. 테스트 `test/local-patch-diy-wang.test.js` W12(0.25초 뒤 첫 跟子),
+      한 개씩. 칸은 던질 때(시전 시작) 고른다(2026-10-31, 공식 클라에서 확인: `CastOnTileAbility.OnCastStart`가 시전 칸 `m_castTiles`에 던짐
+      `_startEffect`를 만듦 — 그 전엔 내려앉을 때 골랐음): 시뮬 키트 fx 'wangThrow' { r, c } → 0.25초 뒤 그 칸에 'summon'(`op-wang.js throwFollower`).
+      날아가는 跟子도 상한(`max_spawn_cnt`)에 세고 그 칸은 다른 跟子가 못 고른다. 내려앉을 때 그 칸이 못 받게 됐으면(돌이 돌아옴·오퍼레이터 배치)
+      그 跟子는 없음 [추정·미조사: 투사체가 맞지 않게 된 칸에 내려앉을 때를 안 읽음]. 내려앉는 때는 그대로. 예전: 돌과 같은 틱(재능), S3 시작분은 한꺼번에.
+      `op-wang.js FOLLOWER_PRE_DELAY`·`S3_SPAWN_COOLDOWN`. 테스트 `test/local-patch-diy-wang.test.js` W12(0.25초 뒤 첫 跟子)·「thrown at its tile」,
       `test/local-patch-diy.test.js` 「none at the cast」.
       - **[열림] 투사체 비행 시간**: `projectile_chr_wang_stone3`의 이동 컴포넌트(속도)를 아직 못 읽어 0.25초에 비행 시간을 더하지 않았다 —
         조사 뒤 더할 것(관리자 결정 2026-10-10: 조사 전까지 제외).

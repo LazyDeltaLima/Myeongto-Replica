@@ -138,9 +138,11 @@ function kitLeaderMisc(key, ab, e) {
     case 'enemy_1509_mousek': {
       // 出场时拥有能够吸收大量法术伤害的屏障，屏障存在时防御力大幅增加 (arts-only barrier + DEF while it holds)
       // its client shield: three layers mousek_shield[a] / [b] / [c] (Talents/shield PassiveBuffAbility), each holding the
-      // whole shield.dynamic — 3 × 4667 = PRTS 「可吸收14001法术伤害的屏障」 (docs/rules/sim.md 「리더 방벽 층 셋」)
+      // whole shield.dynamic — 3 × 4667 = PRTS 「可吸收14001法术伤害的屏障」 (docs/rules/sim.md 「리더 방벽 층 셋」). Each layer's
+      // BlockDamage (the same node as “自在”'s / 泥岩's, `_specifyBlockEffect` empty, no blackboard `effect`) plays the default
+      // block effect common_buff_parry_01 on a hit it cancels (`blockFx`, render/fxgame.js parryFx; 2026-10-31, none before)
       const bar = artsBarrier(T(ab, 'shield.dynamic') ?? 0, { key: 'ab:sandDef', whileUp: { defFlat: T(ab, 'defup.def') ?? 0 },
-        layers: ['mousek_shield[a]', 'mousek_shield[b]', 'mousek_shield[c]'], brokeForm: 'noShield' });
+        layers: ['mousek_shield[a]', 'mousek_shield[b]', 'mousek_shield[c]'], brokeForm: 'noShield', blockFx: true });
       const ds = ab.sk.DriftSand, ss = ab.sk.SandStorm;
       return [bar, lowHpBuff(T(ab, 'enrage.hp_ratio') ?? 0.5, { dmgDealtMul: T(ab, 'enrage.damage_scale') ?? 1 }, 'ab:lowhp', 'buff:mousek_t'),
         // 【唱沙】 the highest-max-HP unit on the field and everything in its cross: physical `damage`

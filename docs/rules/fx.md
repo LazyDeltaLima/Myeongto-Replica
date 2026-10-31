@@ -1049,7 +1049,9 @@
   낙하 돌 `qizi`(0.2333초에 꺼짐)도 함께. 돌 토큰 모델과 겹쳐서 **跟子는 이펙트의 돌만 그린다**(관리자 결정 2026-10-17 — 공식: 跟子는 투사체라
   모델이 없음): 'summon' `follower`에 `fxgame.js`가 `units.js drawnByFx(stonesOn)`을 걸어, 공식 돌 이펙트가 도는 동안(품질 낮음·추출물 없음이면
   모델로 돌아감) 그 뷰는 모델·마름모·그림자를 안 그린다. 칸 이펙트 `wang_passive_01_buff`(쉬는 돌 `qizi (1)`·그림자 `andi`, 클립 반복이라 跟子가
-  떠날 때까지)는 던짐이 닿는 `THROW_S` 0.25초 뒤 — 클라 순서(`_preDelay` 뒤 착지, 그때 `_effectsToTileWhenStart`) [차이: 시뮬의 'summon'은 `FOLLOWER_PRE_DELAY`(= `_preDelay` 0.25 s) 뒤라 이미 착지 때 — 렌더가 0.25초를 한 번 더 늦춤, 고칠 것].
+  떠날 때까지)는 던짐이 닿을 때 — 클라 순서(`_preDelay` 뒤 착지, 그때 `_effectsToTileWhenStart`). 2026-10-31부터 시뮬이 시전 시작에 키트 fx 'wangThrow' { r, c }를
+  보내 던짐 `wang_passive_01_start`가 그때 그 칸(칸 위 높이 `tileTop`)에서 시작하고, 0.25초 뒤의 'summon'(착지)에 칸 이펙트가 바로 나온다 — 그 전엔 던짐을 'summon'에서
+  시작하고 칸 이펙트를 `THROW_S` 0.25초 더 늦춰 공식보다 0.25초 늦었다(rules/diy.md 「跟子 던지기 지연」).
   놓은 棋子(`token_10064_wang_stone1` 배치)는 모델 그대로. 확인: Windows Chrome 디버그 아레나(S1, 자동 棋子) — 跟子 뷰 6개 모두 모델·그림자 꺼짐,
   칸마다 돌 하나(跟子 = 이펙트 돌, 棋子 = 모델), `wang_passive_01_start` → 0.25초 뒤 `wang_passive_01_buff`. 테스트 `local-deploy-drop.test.js`·
   `wang-stone-fx.test.js`. [화면 미확인: 실제 판]
@@ -1253,8 +1255,9 @@
   `_AssignDynamicVar`: 남은 값 ≤ 0 → Cancel), 마지막 층은 `dynamic`이 0이 되면 IsBlackboardZero → FinishBuff → CreateEffect
   `enemy_xi_skill_02_buff_03`·`enemy_mdrock_skill_buff_05`(TARGET = 그 적). 시뮬: '즈자이' 층 버프 `blockFx`(`damage.js absorbShields`), 적 泥岩
   `artsBarrier` `blockFx` → fx 'parry' { id, buff, whole, broke }; 렌더 `fxgame.js parryFx` `BLOCK_FX`·`BREAK_FX`(적 泥岩은 같은 타의 'shieldBreak'
-  2D 깨짐을 대신함). 鼠王 `mousek_shield`는 `_specifyBlockEffect`가 비어 보내지 않음 [차이 추정: 그 템플릿도 즈자이·泥岩과 같은 BlockDamage이고 재능 블랙보드에 `effect`가 없어, 위 규칙대로면 공식은 기본
-  `common_buff_parry_01` — 화면 확인 뒤 고칠 것]. 이펙트 넷은 프리팹이 참조하지 않아 `enemy_bindings.py --all`에 없었다 — `fx_extract.py --index enemy-index.json
+  2D 깨짐을 대신함). 鼠王(래트킹) `mousek_shield`: 그 템플릿도 즈자이·泥岩과 같은 BlockDamage이고 `_specifyBlockEffect`가 비고 재능 블랙보드에
+  `effect`가 없어 기본 `common_buff_parry_01` — 2026-10-31부터 `artsBarrier` `blockFx`로 보냄(그 전엔 안 보냄; 렌더는 `BLOCK_FX`에 없는 층의 기본값 그대로).
+  [화면 미확인: 공식 녹화와 막을 때 섬광]. 이펙트 넷은 프리팹이 참조하지 않아 `enemy_bindings.py --all`에 없었다 — `fx_extract.py --index enemy-index.json
   --bundle pfx_enemy_14|pfx_enemy_8 --pack pkgrps/btl_pfb_fx_enemy_14|8.ab --prefab …`로 뽑음(git 밖, deploy.sh가 비교·복사). 확인
   `test/sim/leader-barrier-layers.test.js` 「fx parry」 둘, `test/render/kit-event-fx.test.js` 「block effects」, 이펙트 이벤트 골든 + 줄만. [실제 판 이상 없음 2026-10-28]
 - **천리안 사망 (2026-10-23, 버프 템플릿 확인)**: 재능 `enemy_hummbd_t` ON_OWNER_KILLED — 침묵이 아니면(CheckAbnormalFlag SILENCED) CreateEffect
@@ -1668,8 +1671,8 @@
   `_PlayTriggeredLineEffect`로 선을 태어난 돌에 한 번 만들고 모든 LineRenderer의 점 0·1 = 줄 첫 돌·끝 돌의 `worldPosition`으로
   한 번 놓는다. → `fxgame.js linkLines`/`linkRun`: 시뮬 'wangLink'(이웃이 생긴 돌마다 — 태어난 돌과 이웃 모두)마다 그 돌에 새로 생긴
   방향의 줄을 찾아 `FxInstance.setLine`으로 양 끝을 놓고, 같은 순간 같은 줄은 한 번만. 끝점: 돌마다 칸 점(땅) — 공식 점은 돌의 `worldPosition` = 유닛 발밑(아래 「연쇄 공격」, 공식 클라에서 확인; 관리자 결정 2026-10-26 「공식처럼」,
-  그 전엔 놓은 棋子 쪽이 공(활성 이펙트와 같은 자리, 2026-10-08)). 던지는 중인 跟子가 끝에 있으면 착지(`THROW_S`) 뒤에 놓는다(클라 선은 돌의 탄생 때 — 시뮬의 'summon'은
-  이미 착지 때라 위 跟子 던짐과 같은 0.25초 늦음 [차이]). 예전엔 활성(`first`) 때만 저작 점으로 틀었다. 아레나(Windows Chrome, 望 S1 자동 棋子): 선이 이웃 돌 사이에만, 1초 뒤 사라짐.
+  그 전엔 놓은 棋子 쪽이 공(활성 이펙트와 같은 자리, 2026-10-08)). 클라 선은 돌의 탄생 때 — 跟子는 착지('summon') 때 이어지므로 바로 그린다(2026-10-30까지는
+  던지는 중인 跟子 끝을 `THROW_S` 뒤로 미뤄 0.25초 늦었음). 예전엔 활성(`first`) 때만 저작 점으로 틀었다. 아레나(Windows Chrome, 望 S1 자동 棋子): 선이 이웃 돌 사이에만, 1초 뒤 사라짐.
 - **'wangLink'는 상태**: 돌의 활성 이펙트가 돌이 서 있는 동안 남으므로(STONE_ON) 늦게 들어온 화면 버퍼(`keepEarly`)만이 아니라 따라잡기·숨긴 탭
   (`runner.js keepsState`)·밀린 이벤트 버림(`interp.js isCosmeticEvent`)도 남긴다 — 세 곳이 `shared/protocol.js stateFx` 하나를 씀.
 - **상자 표면·모서리** (`fxplayer.js boxSurface`): BoxShell(15)은 면 한 쌍을 넓이로 골라 그 축을 ±½에, BoxEdge(16)는 모서리를 길이로 골라 나머지 두 축을

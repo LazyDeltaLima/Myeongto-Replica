@@ -59,6 +59,7 @@ export const FX_KINDS = Object.freeze({
   charge: { a: 'move', c: 0xff9c33 }, dash: { a: 'move', c: 0xffd9a0 }, slippery: { a: 'move', c: 0x9fe6ff },
   // pulses
   wangLink: { a: 'wave', c: 0xffd27a, r: 0.6 }, // local patch: 望's 棋子 activated (golden link pulse)
+  wangThrow: { a: 'none', c: 0xffd27a }, // 望 throws a 跟子 at a tile (fxgame.js stoneFx: wang_passive_01_start); no procedural mark
   // local patch: 赤刃明霄陈 S3 剑气 — render/fxgame.js carries her official trail; this pulse only without official effects
   // (low quality / no bundle) [ASSUMED colour]
   chen3Qi: { a: 'wave', c: 0xff6a4a, r: 0.6 },

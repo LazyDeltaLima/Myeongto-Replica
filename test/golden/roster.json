@@ -296,8 +296,8 @@
         "enemy_2010_csdcr": [1,1,0,1019,9600]
       },
       "hooks": [1,102,3950,649,649,1612,1572,682,84,90,37,35,0,26618,100,51,84,0,1,84,0,0,0],
-      "events": {"atk":795,"bounty":6,"deploy":18,"die":90,"dmg":1524,"engage":7,"face":97,"fx":173,"heal":122,"skill":72,"spawn":97,"status":397,"swing":682},
-      "fx": {"counter":1,"drone":78,"enemySkill":4,"explode":13,"expose":16,"overload":2,"parry":7,"phase":1,"shield":8,"shieldBreak":16,"sleep":6,"stacks":4,"summon":5,"telegraph":4,"zone":8},
+      "events": {"atk":795,"bounty":6,"deploy":18,"die":90,"dmg":1524,"engage":7,"face":97,"fx":207,"heal":122,"skill":72,"spawn":97,"status":397,"swing":682},
+      "fx": {"counter":1,"drone":78,"enemySkill":4,"explode":13,"expose":16,"overload":2,"parry":41,"phase":1,"shield":8,"shieldBreak":16,"sleep":6,"stacks":4,"summon":5,"telegraph":4,"zone":8},
       "snaps": "a9d38fa8 3756122e 16222b40 cdb93b8b 7897a29f bb02ea77 034ca296 1238fb91 2cfb7cba 1eba748f a671dd07 8e4abbc9 e67ce386 355cfd7d"
     },
     "roster-006": {
@@ -1860,8 +1860,8 @@
         "enemy_9006_actoxi": [1,0,1,0,0]
       },
       "hooks": [1,92,5100,454,454,649,659,58,37,87,31,31,0,5160,8,36,62,50,1,39,0,0,20],
-      "events": {"atk":485,"deploy":30,"die":37,"dmg":632,"engage":11,"face":4,"fx":89,"leak":50,"skill":62,"spawn":75,"status":266,"swing":475},
-      "fx": {"camouflage":1,"crit":4,"dodge":20,"dp":4,"enemySkill":2,"parry":2,"phase":1,"pulse":16,"revive":2,"sentry":10,"shadowWeave":3,"shield":5,"shieldBreak":2,"summon":2,"telegraph":2,"volley":6,"wolfCount":1,"wolfShadowLost":4,"wolfTacEnd":1,"zone":1},
+      "events": {"atk":485,"deploy":30,"die":37,"dmg":632,"engage":11,"face":4,"fx":90,"leak":50,"skill":62,"spawn":75,"status":266,"swing":475},
+      "fx": {"camouflage":1,"crit":4,"dodge":20,"dp":4,"enemySkill":2,"parry":3,"phase":1,"pulse":16,"revive":2,"sentry":10,"shadowWeave":3,"shield":5,"shieldBreak":2,"summon":2,"telegraph":2,"volley":6,"wolfCount":1,"wolfShadowLost":4,"wolfTacEnd":1,"zone":1},
       "snaps": "efb6aee8 91071f03 8200791b 9d34d983 31f0e608 010f4b73 098c8f0a 1c96a8ea 1f10de3d f457b7d5 f3554219 aa593a2b a9b67f68 2e089688 4c44db43 11ea14e6 1a8b47d4"
     },
     "roster-029": {

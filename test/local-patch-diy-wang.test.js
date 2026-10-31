@@ -111,6 +111,30 @@ describe('望 kit — maintainer decisions 2026-10-07 (op-wang.js)', () => {
     assert.equal(h.b.errors.length, 0);
   });
 
+  test('a 跟子 is thrown at its tile at the cast start (fx wangThrow) and lands there FOLLOWER_PRE_DELAY later (2026-10-31)', () => {
+    // client CastOnTileAbility: the cast tile (m_castTiles) is chosen at OnCastStart, where the throw's _startEffect is created
+    const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 120, autoFinish: false, units: [op(0, 11, 3), stone(9, 6, 50), stone(9, 8, 51)] });
+    const seen = [];
+    for (let i = 0; i < 40; i++) {
+      h.b.step();
+      for (const e of h.eventsOf('fx').splice(0)) {
+        // ['fx', kind, x, y, payload]
+        if (e[1] === 'wangThrow') seen.push(['throw', h.b.time, e[4].r, e[4].c]);
+        if (e[1] === 'summon' && e[4].follower) seen.push(['land', h.b.time, Math.round(e[3]), Math.round(e[2])]);
+      }
+      h.events.length = 0;
+    }
+    const throws = seen.filter((x) => x[0] === 'throw'), lands = seen.filter((x) => x[0] === 'land');
+    assert.equal(throws.length, 2, 'one 跟子 per prep stone');
+    assert.equal(lands.length, 2);
+    for (const [, t, r, c] of throws) {
+      const l = lands.find((x) => x[2] === r && x[3] === c);
+      assert.ok(l, `the 跟子 thrown at ${r},${c} lands there`);
+      assert.ok(Math.abs(l[1] - t - 0.25) < 0.04, `0.25 s later (${(l[1] - t).toFixed(3)} s)`);
+    }
+    assert.equal(h.b.errors.length, 0);
+  });
+
   test('W7: 连星 slow — independent stacks with their own timers, their values add up in the 直接乘算 stage, speed ≥ 0.1', () => {
     assert.equal(typeof WANG.addWangSlow, 'function', 'addWangSlow exported');
     const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 120, autoFinish: false, units: [op(1, 11, 3)] });

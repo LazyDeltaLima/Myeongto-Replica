@@ -78,9 +78,9 @@ test('the link line runs from end to end of the stones\' unbroken run through th
   assert.match(SRC, /if \(linkRuns\.get\(key\) === clockS\) continue;/);
   assert.match(SRC, /if \(e\[1\] === 'wangLink'\) \{\s+linkLines\(o, views\);/);
   assert.ok(!/playAt\(\['token_wang_passive_01_line'\]/.test(SRC), 'no longer played at its authored world points');
-  // a 跟子 still in its throw: the line waits for it to land (the client's line comes with the stone's birth)
-  assert.match(SRC, /throwLand\.set\(v\.id, t0 \+ THROW_S\);/);
-  assert.match(SRC, /if \(wait > 0\) castsDelayed\.push\(\{ t: clockS \+ wait, run: \(\) => playLine\(linkEnd\(a0\), linkEnd\(b0\)\) \}\);/);
+  // the client's line comes with the stone's birth: a 跟子 is linked as it lands (its 'summon'), so no end waits (2026-10-31)
+  assert.match(SRC, /playLine\(linkEnd\(at\.get\(run\[0\]\)\), linkEnd\(at\.get\(run\[1\]\)\)\);/);
+  assert.doesNotMatch(SRC, /throwLand/);
 });
 
 test('the activation effect is kept on the stone\'s ball until its die', () => {
@@ -101,10 +101,12 @@ test('the birth effects (the gold cross, the 跟子\'s rings) play on the stone\
 });
 
 test('a 跟子\'s throw start effect plays on its tile, not on 望, and ends as it lands (maintainer report 2026-10-16)', () => {
-  // CastOnTileAbility.OnCastStart: CreateEffect(_startEffect, cast tile, owner); _finishStartEffectsOnCastOnTile after _preDelay
-  // (maintainer decision 2026-10-17) the 跟子 is its effects' stone: the tile effect comes as the throw lands (THROW_S)
-  assert.match(SRC, /if \(o\.follower\) \{\n\s+v\.drawnByFx\?\.\(stonesOn\);\n\s+throwStart\(v\);\n\s+castsDelayed\.push\(\{ t: clockS \+ THROW_S, run: \(\) => playAt\(\[STONE_BORN\.follower\][^\n]*\n\s+\} else playAt\(\[STONE_BORN\.stone\]/);
-  assert.match(SRC, /spawn\(FOLLOWER_FX, 'wang_passive_01_start', \{ x: v\.x, y: v\.y, z: v\.z \|\| 0 \}/);
+  // CastOnTileAbility.OnCastStart: CreateEffect(_startEffect, cast tile, owner); _finishStartEffectsOnCastOnTile after _preDelay.
+  // 2026-10-31: the sim's 'wangThrow' { r, c } is the cast start, the 跟子's 'summon' THROW_S later its landing
+  // (maintainer decision 2026-10-17) the 跟子 is its effects' stone: the tile effect comes with that 'summon'
+  assert.match(SRC, /if \(o\.follower\) \{\n\s+v\.drawnByFx\?\.\(stonesOn\);\n\s+playAt\(\[STONE_BORN\.follower\][^\n]*\n\s+\} else playAt\(\[STONE_BORN\.stone\]/);
+  assert.match(SRC, /if \(e\[1\] === 'wangThrow'\) \{[^\n]*\n\s+const x = Number\(o\.c \?\? e\[2\]\), y = Number\(o\.r \?\? e\[3\]\);\n\s+throwStart\(\{ x, y, z: tileTop\(x, y\) \}\);/);
+  assert.match(SRC, /spawn\(FOLLOWER_FX, 'wang_passive_01_start', at, /);
   assert.match(SRC, /l\.until = Math\.max\(clockS, t0 \+ THROW_S\);/);
   assert.doesNotMatch(SRC, /views\.get\(o\.src\) : null;\n[^\n]*wang_passive_01_start/);
   if (existsSync(path.join(FX, 'wang', 'wang_passive_01_start.json'))) {

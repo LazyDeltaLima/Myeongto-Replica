@@ -139,7 +139,7 @@ test('“自在”\'s barrier layers announce a whole-hit block and a break (fx 
   m.dispose?.();
 });
 
-test('the enemy 泥岩\'s layers too; 鼠王\'s name no block effect and send none', async () => {
+test('the enemy 泥岩\'s layers too; 鼠王\'s too (their default block effect, 2026-10-31)', async () => {
   const { m, b, e, events } = await fieldWith('enemy_1511_mdrock');
   const dyn = skb('enemy_1511_mdrock', 'RefreshShield').bb.dynamic;
   b.dealDamage(null, e, { amount: artsFor(e, dyn + 10), type: 'arts' });
@@ -151,6 +151,6 @@ test('the enemy 泥岩\'s layers too; 鼠王\'s name no block effect and send no
   m.dispose?.();
   const k = await fieldWith('enemy_1509_mousek');
   k.b.dealDamage(null, k.e, { amount: artsFor(k.e, 100), type: 'arts' });
-  assert.deepEqual(parries(k.events, k.e.id), []);
+  assert.deepEqual(parries(k.events, k.e.id), [['ab:sandDef[1]', 1, 0]], 'taken whole: common_buff_parry_01 on the render side');
   k.m.dispose?.();
 });

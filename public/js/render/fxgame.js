@@ -1700,9 +1700,6 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const LINK_LINE = 'token_wang_passive_01_line';
   const linkAxes = new Map();   // stone id → the link directions drawn for it
   const linkRuns = new Map();   // run key → clockS it was drawn
-  // a 跟子 still in its throw (throwStart) — the client's line waits for its birth, the landing [추정: the sim links it as
-  // the throw starts]: a line with such an end is put off until it lands
-  const throwLand = new Map();  // 跟子 id → clockS it lands
   function linkEnd(v) {
     return { x: Number(v.x), y: Number(v.y), z: (Number(v.z) || 0) + (Number(v.hover) || 0) };
   }
@@ -1727,11 +1724,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (linkRuns.get(key) === clockS) continue;
       if (linkRuns.size > 64) for (const [k, t] of linkRuns) if (t !== clockS) linkRuns.delete(k);
       linkRuns.set(key, clockS);
-      const a0 = at.get(run[0]), b0 = at.get(run[1]);
-      const wait = Math.max(0, ...[...at.values()].filter((v) => linkRun(at, Math.round(v.x), Math.round(v.y), a)?.[0] === run[0])
-        .map((v) => (throwLand.get(v.id) ?? 0) - clockS));
-      if (wait > 0) castsDelayed.push({ t: clockS + wait, run: () => playLine(linkEnd(a0), linkEnd(b0)) });
-      else playLine(linkEnd(a0), linkEnd(b0));
+      // (a 跟子 is linked as it lands — its 'summon', the client's birth — so no end is still in its throw; 2026-10-31)
+      playLine(linkEnd(at.get(run[0])), linkEnd(at.get(run[1])));
     }
   }
   async function playLine(a, b) {
@@ -1752,8 +1746,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const onBall = ballAt(at.x, at.y, 0);
     // local patch (maintainer report 2026-10-07: the old yellow circle / mint hex + pillar under the stones' official effects):
     // render/fx.js draws nothing for a stone event handled here
-    const mine = (e[1] === 'zone' && o.token === STONE) || e[1] === 'wangLink' || (e[1] === 'summon' && isStone(views.get(o.id)));
+    const mine = (e[1] === 'zone' && o.token === STONE) || e[1] === 'wangLink' || e[1] === 'wangThrow' || (e[1] === 'summon' && isStone(views.get(o.id)));
     if (mine && stonesOn()) ownFx.add(e);
+    if (e[1] === 'wangThrow') { // on the cast tile, at its top (as the landed 跟子's view stands)
+      const x = Number(o.c ?? e[2]), y = Number(o.r ?? e[3]);
+      throwStart({ x, y, z: tileTop(x, y) });
+      return true;
+    }
     if (e[1] === 'zone' && o.token === STONE) {
       const fx = stoneBlastFx(o.skill, !!o.follower);
       const axes = Array.isArray(o.axes) && o.axes.length ? o.axes : ['h'];
@@ -1782,11 +1781,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (isStone(v)) {
         // local patch: a 跟子's rings (its own birth effect), a placed stone's gold cross — on the ground
         // (maintainer decision 2026-10-17) a 跟子 is its effects' stone, no model (units.js drawnByFx): the throw's falling
-        // `qizi` hides at 0.2333 s and its tile effect, with the resting `qizi (1)`, comes as it lands (THROW_S)
+        // `qizi` ('wangThrow', THROW_S before) has hidden at 0.2333 s; its 'summon' is the landing — its tile effect, with the resting `qizi (1)`
         if (o.follower) {
           v.drawnByFx?.(stonesOn);
-          throwStart(v);
-          castsDelayed.push({ t: clockS + THROW_S, run: () => playAt([STONE_BORN.follower], v, { owner: o.id, under: true, bundle: FOLLOWER_FX }) });
+          playAt([STONE_BORN.follower], v, { owner: o.id, under: true, bundle: FOLLOWER_FX });
         } else playAt([STONE_BORN.stone], v, { owner: o.id, under: true });
         return true;
       }
@@ -1797,13 +1795,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // a CastOnTileAbility's, created on each cast TILE, not on her (`CastOnTileAbility.OnCastStart`:
   // CreateEffect(_startEffect, m_castTiles[i], owner); its clip drops the stone from the sky onto that point), and finished
   // as the stone lands there (`_finishStartEffectsOnCastOnTile`: after the 0.25 s `_preDelay`) — emission stops, the effect
-  // goes its `finish` later (Effect.FinishMe, statusOff). [추정: the sim's 'summon' is the landing; it starts there]
+  // goes its `finish` later (Effect.FinishMe, statusOff). The sim's kit fx 'wangThrow' { r, c } is that cast start, its 'summon'
+  // of the 跟子 THROW_S later the landing (2026-10-31; before, the throw started at the 'summon' and landed 0.25 s after it)
   // (2026-10-16 maintainer report: it was played on her)
   const THROW_S = 0.25;
-  function throwStart(v) {
+  function throwStart(at) {
     const t0 = clockS;
-    throwLand.set(v.id, t0 + THROW_S);
-    spawn(FOLLOWER_FX, 'wang_passive_01_start', { x: v.x, y: v.y, z: v.z || 0 }, { owner: null, buff: false }, { over: false }).then((l) => {
+    spawn(FOLLOWER_FX, 'wang_passive_01_start', at, { owner: null, buff: false }, { over: false }).then((l) => {
       if (!l) return;
       l.until = Math.max(clockS, t0 + THROW_S);
       const fin = Number(l.inst.def?.finish);
@@ -5475,7 +5473,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           else if (v) allyDeathFx(v, e[2]); // 2026-10-11: an operator's / token's dead effect
           unitEndFx(e[1], v); // 2026-10-21: a kit plan's end effect where it stood (圣聆初雪's thawing tile)
           charges.delete(e[1]); // (its held charge effects: stopOwned above)
-          linkAxes.delete(e[1]); throwLand.delete(e[1]); // 望's stone: a stone that comes back links anew
+          linkAxes.delete(e[1]); // 望's stone: a stone that comes back links anew
           for (const k of ebuffs.keys()) if (k.startsWith(`${e[1]}:`)) ebuffs.delete(k);
           return;
         }
@@ -5633,7 +5631,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       trails.length = 0; pending.length = 0; // local patch
       castsDelayed.length = 0; zones.clear(); eborn.clear(); eskillSeen.clear(); elines.clear(); ebreath.clear(); eshotLand.clear(); emortars.length = 0;
       deployed.clear(); startedOnce.clear(); opDead.clear(); ebuffs.clear(); // 2026-10-11
-      linkAxes.clear(); linkRuns.clear(); throwLand.clear(); // 2026-10-22
+      linkAxes.clear(); linkRuns.clear(); // 2026-10-22
       brokeOwn.clear(); // 2026-10-23
       if (mod) showLayers();
     },
