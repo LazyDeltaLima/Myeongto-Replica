@@ -1156,9 +1156,14 @@
     스킬 `1`이 쏘는 투사체 `projectile_enemy_acstmr`의 것이다 — 그 투사체가 `_enemyKey` `enemy_9016_acstmr`(`_motionMode` 1, 비행)로 탄환 적을 태우고
     `TRACE_TARGET_WITH_SPEED` 0.45로 날아가 닿으면 `_effectsWhenReached` `enemy_acstmr_explode`. 렌더 표에는 이미 보스 `skills['1'].proj`로 실려 있어,
     sim 도착 fx 'explode'(helmShell)가 `id`(보스)·`ability: '1'`을 싣고 `eprojAreaFx`가 그 자리에 한 번 튼다(꼬리 있는 투사체라 reach 이펙트만,
-    절차 폭발 안 그림). 보스가 이미 죽어 있으면 `id` 없이 → 절차 폭발 그대로. 날아가는 꼬리
-    `enemy_acstmr_move`는 여전히 안 그림(sim 'shell' 이벤트, `eskillFx`의 꼬리 6 s 상한을 넘는 비행). fx 골든: hidden-boss_8-solo·pair에
-    `enemy_acstmr_explode` 한 줄. [화면 미확인: 실제 판에서 탄환 도착 폭발]. 전투 골든: 가상적: 침식이 죽는 roster-015·027·043, diy-001·009의
+    절차 폭발 안 그림). 보스가 이미 죽어 있으면 `id` 없이 → 절차 폭발 그대로. 날아가는 꼬리 `enemy_acstmr_move`(같은 날 이어서): 탄환 적은
+    `BObjectFollowerEnemy`라 매 틱 그 투사체 자리를 받는다(공식 클라에서 확인, `SummonEnemyBehaviour.OnProjectileBorn`이 소환하며 투사체를 주인으로 둠) →
+    발사 fx 'shell'(시전 중이라 `ability: '1'`·`caster` 보스가 붙음, `aim` = 대상 오퍼 — `tgt`가 아니어서 아래 일반 시전 경로가 따로 꼬리를 안 띄움)에서
+    `fxgame.js eshellRide`가 보스 마운트 → 대상 맞는 점 선 위에 꼬리를 띄우고, `stepTrails`의 `ride`가 매 프레임 **탄환 view가 목표 칸까지 간 몫**을
+    그 선의 진행도로 둔다(sim과 같은 자리); 탄환이 없어지면(도착·격추) 투사체 본체 이펙트처럼 끝낸다(`finishShot`). 고리처럼 도는 입자라 비행이 길어도
+    (8칸 18 s) 꼬리 목록에 있는 동안 남는다. fx 골든은 sim 속도 수정(rules/sim.md 「刺胄之弹 도착 장판」)과 함께 boss-boss_1-solo·pair,
+    hidden-boss_8-solo·pair가 움직임(`enemy_9016_acstmr spawn:ride enemy_acstmr_move` 포함). [화면 미확인: 실제 판에서 탄환 도착 폭발, 꼬리가 탄환과
+    같이 가며 격추되면 끊기는지]. 전투 골든: 가상적: 침식이 죽는 roster-015·027·043, diy-001·009의
     fx 수에 `enemyShot`이 더해짐(피해·결과 그대로). 테스트: `test/render/enemy-death-shot-fx.test.js`, `test/sim/enemy-death-shot-events.test.js`,
     `boss-patterns-real.test.js`(실제 boss_1 판의 zone `ability`).
   - 직선(FIXED_DIRECTION) 사격 — 重弩突袭者 直击(`enemies/helpers.js lineShot`, docs/rules/sim.md 「FIXED_DIRECTION 투사체」): `enemyShot`에 `dir` [dx, dy]

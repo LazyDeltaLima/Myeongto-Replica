@@ -1471,6 +1471,12 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
   1 s마다 다시 친다: `killed.value` 400 무출처 물리(스플래시) + `killed.stun` 2.1 s 기절, 공로는 예전처럼 胄. 나중에 배치·이동해 들어온 유닛도 맞는다
   (머무는 유닛은 0·1·…·9 s에 10번). fx: 도착 `explode` + 장판 `zone`(kind `helmShell`, `dur` 9.95, `tiles` 'box'). 도착 `explode`는 쏜 보스가 살아
   있으면 `id`(보스)·`ability: '1'`(탄환을 태운 보스 스킬 투사체 `projectile_enemy_acstmr` — 렌더가 그 닿음 이펙트를 틂, rules/fx.md 「적 장판 — 污染秽蚀」).
+- **비행 속도** (2026-10-31, 공식 클라에서 확인 — 작은 확인 넷): 탄환 적은 보스 스킬 `1`의 투사체 `projectile_enemy_acstmr`(`SummonEnemyBehaviour`)가
+  소환한 `BObjectFollowerEnemy`이고 `_MoveByRoute`가 매 틱 주인 투사체의 자리를 그대로 받는다(주인이 없어지면 `Suicide`). 그래서 **투사체 속도
+  0.45칸/s**(`TRACE_TARGET_WITH_SPEED`, `data/enemies.json` 스킬 `1`의 `proj.speed`)로 날고, 자기 이동 속도(0.5 × `MOVE_SCALE` = 0.25칸/s — 예전 sim)나
+  감속은 쓰지 않는다. 투사체는 대상이 유효한 동안 대상 마운트 점을, 아니면 저장된 대상 자리를 쫓는다(`BasicMovement.GetTraceTargetMapPosition`) —
+  오퍼레이터는 칸을 떠나지 않으니 쏠 때 대상 칸 그대로(`fireShell`). 골든: 필드 boss-boss_1-solo·pair, hidden-boss_8-solo·pair, 매치 coop4-ABYSS-7·
+  coop2-NORMAL-8-serverrun(더 빨리 닿아 장판·격추 시점이 바뀜). 테스트 `boss-patterns-real.test.js`(실제 boss_1 판 0.45칸/s).
 - **옛 동작**: 도착 순간 3×3에 있던 유닛만 `killed.duration` 10 s 기절 + 10회 DoT(`boss:helmShellDot`). 그 자리 유닛 기준 총 피해는 같았다.
 - 斩胄之剑·破胄之锤의 돌진 폭발(`acstma_s_1[reach_target]`)은 공식도 도착 순간 스냅샷이라 그대로(`stunBlast`). 테스트 `enemies_bosses.test.js`
   「假想敌：胄 + 刺胄之弹…」.

@@ -2193,6 +2193,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (rec.k <= 0 || !home) { rec.inst?.stop(true); trails.splice(i, 1); boomerangCaught(rec.src); }
         continue;
       }
+      if (rec.ride) {
+        // 2026-10-31: a projectile that carries an enemy (eshellRide): as far along its line as that unit is, gone with it
+        const u = rec.ride;
+        if (u.alive === false || u.remove || !Number.isFinite(u.x)) { finishShot(rec.inst); trails.splice(i, 1); continue; }
+        rec.k = rec.d0 > 0 ? Math.max(0, Math.min(1, 1 - Math.hypot(rec.gx - u.x, rec.gy - u.y) / rec.d0)) : 1;
+        placeTrail(rec);
+        continue;
+      }
       rec.k += g / rec.dur;
       placeTrail(rec);
       if (rec.k >= 1 && rec.back) { rec.phase = 1; rec.k = 1; rec.tgt = null; continue; } // local patch: turns back at the hit point
@@ -4536,6 +4544,30 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return true;
   }
   /**
+   * 2026-10-31: 刺胄之弹 in flight — sim fx 'shell' { id: the shell, aim, tx, ty, ability, caster } of 假想敌：胄's skill 1
+   * (content/bosses.js fireShell). Official: the skill's projectile_enemy_acstmr carries the shell (SummonEnemyBehaviour; the
+   * shell, a BObjectFollowerEnemy, takes its position every tick), so that projectile's trail (enemy-modes.json
+   * skills['1'].proj.trail, enemy_acstmr_move) flies from the boss's mount to the target's hit point as far along as the
+   * shell is (stepTrails `ride`), ended as the shell goes — it arrives (its burst: eprojAreaFx) or is shot down. true = drawn.
+   */
+  function eshellRide(e, views) {
+    const o = e[4], boss = views.get(o.caster), shell = views.get(o.id);
+    if (!boss || !shell || !eOn(boss) || level() >= 3) return false;
+    const pr = eskillPart(boss, o.ability)?.proj;
+    const r = efx(Array.isArray(pr?.trail) ? pr.trail[0] : null);
+    const gx = Number(o.tx), gy = Number(o.ty);
+    if (!r || pr.link || !Number.isFinite(gx) || !Number.isFinite(gy)) return false;
+    if (dry) { if (trace) trace({ kind: 'spawn', names: [r[1]], by: ownerOf(shell), on: null, tag: 'ride', facing: 1 }); return true; } // tests
+    if (!camRef || trailFull()) return false;
+    const tgt = o.aim != null ? views.get(o.aim) || null : null;   // `aim`, not `tgt`: the cast below flies no trail of its own
+    const from = eshotFrom(boss, pr.mount);
+    const d0 = Math.hypot(gx - Number(e[2]), gy - Number(e[3]));
+    const rec = { inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, ...(tgt ? aimOf(tgt) : { tx: gx, ty: gy, tz: 0 }), k: 0,
+      dur: d0 / (Number(pr.speed) > 0 ? Number(pr.speed) : 0.45), arc: 0, ride: shell, gx, gy, d0 };
+    ensure().then((ok) => { if (ok && lib) launchTrail(rec, r[0], r[1]); }, () => {});
+    return true;
+  }
+  /**
    * 2026-10-31: an enemy's area or burst left by an official projectile of its ability — sim fx 'zone' { x, y, r, dur, kind,
    * id, ability } (content/enemies/helpers.js zone) or 'explode' { x, y, r, kind, id, ability } (archetypes.js deathBoom).
    * That projectile's start / target-start / reach effects (enemy-modes.json skills[ability].proj) play on the spot: an area's
@@ -5536,6 +5568,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'caperBoomerang2' && e[4]) { caperSecond(e, views); return; } // 2026-10-10: 跃跃 S2's second boomerang
           // 2026-10-10: an enemy content skill's official projectile (eshotFx), and no stand-in beam for a shot drawn so
           if (e[1] === 'enemyShot' && e[4]) { eshotFx(e[4], views); return; }
+          // 2026-10-31: 刺胄之弹's flight — its boss skill's projectile trail rides the shell (then the cast's effects below)
+          if (e[1] === 'shell' && e[4]?.caster != null && e[4].id != null && typeof e[4].ability === 'string' && eshellRide(e, views)) ownFx.add(e);
           // 2026-10-31: an enemy ability's area (【污染秽蚀】, 毒雾, 刺胄之弹's landing) or death burst — its projectile's
           // effects, else the stand-in zone / ring (not the ability's cast below)
           if ((e[1] === 'zone' || e[1] === 'explode') && e[4]?.id != null && e[4].caster == null && typeof e[4].ability === 'string') { if (eprojAreaFx(e, views)) ownFx.add(e); return; }

@@ -504,7 +504,7 @@ function kitHelm(ab, e, b, tpl) {
       // "描述与游戏实际表现不符合": "【灭顶之灾】不会额外发射") and no blackboard holds a second shell (skill 1 has none)
       fire(b2, e2) {
         const t = shellTargets(b2).sort((p, q) => q.s.atk - p.s.atk || aggroCmp(p, q))[0];
-        if (t) fireShell(b2, e2, t, '1');
+        if (t) fireShell(b2, e2, t, s1.name, s1.proj && s1.proj.speed);
       },
     },
     s2 && {
@@ -547,14 +547,18 @@ export function droneLinkBase(boss, base = DRONE_LINK_BASE) {
 
 /**
  * Launch a 刺胄之弹 from `boss` at `target`'s tile. Official: the boss's skill `skill` fires projectile_enemy_acstmr, which
- * carries the shell enemy (its `_enemyKey`) and plays its `_effectsWhenReached` enemy_acstmr_explode where it arrives.
+ * carries the shell enemy (its SummonEnemyBehaviour `_enemyKey`) and plays its `_effectsWhenReached` enemy_acstmr_explode
+ * where it arrives. The shell (a BObjectFollowerEnemy) takes the projectile's position every tick, so it flies at the
+ * projectile's `speed` (TRACE_TARGET_WITH_SPEED 0.45 tiles/s), not at its own move speed, and no slow touches it. The
+ * projectile traces the target's mount point while the target is valid and its last spot after: an operator does not
+ * leave its tile, so the target's tile it is.
  */
-function fireShell(b, boss, target, skill) {
+function fireShell(b, boss, target, skill, speed) {
   const tr = target.tileR, tc = target.tileC;
   const sh = b.spawnEnemy(SHELL_KEY, { pos: [boss.y, boss.x], route: { motion: 'FLY', start: [boss.y, boss.x], end: [tr, tc], steps: [{ t: 'wait', s: 99999 }] }, tag: 'part', countInTotal: false, ownerPlayerId: boss.ownerId, mods: summonMods(b) });
   if (!sh) return null;
-  sh.mem.ab.shell = { tr, tc, boss, skill };
-  b.fx('shell', { x: boss.x, y: boss.y, id: sh.id, tx: tc, ty: tr, r: 1.5, kind: 'helmShell' });
+  sh.mem.ab.shell = { tr, tc, boss, skill, speed: speed > 0 ? speed : 0 };
+  b.fx('shell', { x: boss.x, y: boss.y, id: sh.id, aim: target.id, tx: tc, ty: tr, r: 1.5, kind: 'helmShell' });
   return sh;
 }
 
@@ -600,7 +604,7 @@ function kitShell(ab, e) {
     tick(b, e2, a, dt) {
       const s = e2.mem.ab.shell;
       if (!s || a.done) return;
-      if (!stepToward(e2, s.tc, s.tr, e2.s.moveSpeed * MOVE_SCALE * dt)) return;
+      if (!stepToward(e2, s.tc, s.tr, (s.speed || e2.s.moveSpeed * MOVE_SCALE) * dt)) return;
       a.done = true;                                            // arrival: the lasting 3×3 zone (stun + 无来源 phys every 1 s)
       shellZone(b, s.boss && s.boss.alive ? s.boss : e2, e2, s.tr, s.tc, dmg, stun, s.skill);
       b.kill(e2, null);

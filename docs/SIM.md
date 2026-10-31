@@ -1477,7 +1477,9 @@ Unknown subprofessions fall back to the profession default (test `professions.te
   projectile prefab, `t` its flight in game seconds; its effect lands then; `zone` 1 when it lands as an area whose fx `zone` { id, ability }
   carries its reach effects — 假想敌：蚀裂's 毒雾, 2026-10-31) — nothing procedural is drawn; a fx `zone` or `explode` that names `id` and
   `ability` with no `caster` is an area or death blast an enemy's official ability leaves (【污染秽蚀】, 刺胄之弹's landing, the 源石虫 /
-  卷心籽 death blasts: render/fxgame.js eprojAreaFx draws that ability's projectile effects there); a straight FIXED_DIRECTION shot
+  卷心籽 death blasts: render/fxgame.js eprojAreaFx draws that ability's projectile effects there); `shell` `{ id, aim, tx, ty, kind:
+  'helmShell' }` (假想敌：胄's 刺胄之弹, `content/bosses.js fireShell`, cast inside skill 1 so it carries `ability` / `caster`): shell `id`
+  leaves for tile (tx, ty) at target `aim` — render/fxgame.js eshellRide flies the skill projectile's trail along with it; a straight FIXED_DIRECTION shot
   (`helpers.js lineShot`, 重弩突袭者's 直击) adds `dir` [dx, dy] — its axis on the stage grid (+x a column right, +y a row up) — and `range`
   (tiles it covers), with `tgt` / `t` the first ally the field as it stands at the release puts in its way (`tgt` null, `range` = speed × life:
   nobody — it flies its life out unseen; the sim sweeps every step, so a unit that dies or arrives meanwhile changes the real hit);

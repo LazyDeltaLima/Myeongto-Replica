@@ -2,7 +2,8 @@
 // (2026-10-31, docs/rules/fx.md 「적 장판 — 污染秽蚀」): the sim's death fx name the enemy and its ability — 'explode'
 // { id, ability: 'boom' } (content/enemies/archetypes.js deathBoom), 刺胄之弹's 'zone' { id, ability: 'killed' }
 // (content/bosses.js shellZone) and its arrival 'explode' { id: 假想敌：胄, ability: '1' } (the boss skill's
-// projectile_enemy_acstmr that carries it → enemy_acstmr_explode), 蚀裂's 'enemyShot' { zone: 1 } then its 毒雾 'zone' { id, ability: '1' } (content/enemies/dot.js)
+// projectile_enemy_acstmr that carries it → enemy_acstmr_explode; its trail enemy_acstmr_move rides the shell from the
+// launch 'shell' { id, aim, ability: '1', caster }), 蚀裂's 'enemyShot' { zone: 1 } then its 毒雾 'zone' { id, ability: '1' } (content/enemies/dot.js)
 // — and fxgame.js eprojAreaFx draws that ability's projectile effects instead of the procedural ring / zone.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -59,6 +60,15 @@ test('death shots: bursts once, areas for their time, 蚀裂\'s cloud flies and 
     layer.onEvent(shell, views);
     assert.equal(layer.ownsFx(shell), true);
     assert.deepEqual(take(), ['st_range']);
+
+    // in flight: the boss skill's projectile trail rides the shell (its burst comes with the arrival)
+    const fly = ['fx', 'shell', 0, 0, { id: 4, aim: 9, tx: 4, ty: 4, r: 1.5, kind: 'helmShell', ability: '1', caster: 6 }];
+    layer.onEvent(fly, views);
+    assert.equal(layer.ownsFx(fly), true, 'no procedural shell');
+    assert.deepEqual(take(), ['st_move']);
+    const lost = ['fx', 'shell', 0, 0, { id: 4, aim: 9, tx: 4, ty: 4, r: 1.5, kind: 'helmShell', ability: '1', caster: 7 }];
+    layer.onEvent(lost, views);
+    assert.equal(layer.ownsFx(lost), false, 'no boss view: the stand-in');
 
     // its arrival burst: the reach effect of the boss skill's projectile that carried it, once (its trail flew with the shot)
     const blast = ['fx', 'explode', 4, 4, { r: 1.5, kind: 'helmShell', tiles: 'box', id: 6, ability: '1' }];
