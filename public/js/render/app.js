@@ -61,8 +61,9 @@
 //        emits ready (no payload) after the first frame that draws the field ("first frame" below)
 //   view.stats() → { fps, frameMs, cpuMs, renderMs, parts, units, particles, impostor, impostorAtlas, boardArt, … } (dev / perf)
 //   view.census() → { objs, shown, tex, base, ticker, views, pen, gone, fxLive, fxNotes, fxTrails, topUnits, topFx, lodSec,
-//        lodSteps, fxSkip } (perf: what the page holds; since the last call the costliest unit views and effects, the seconds
-//        at each load level and its steps, why official effects did not play)
+//        lodSteps, fxSkip, b3, fxGl, fxLib, spine } (perf: what the page holds; since the last call the costliest unit views
+//        and effects, the seconds at each load level and its steps, why official effects did not play; the GPU memory of the
+//        3D board, the effect layers and library, the spine LRU, and the 3D board's draws / kept pictures)
 //
 // Enemy preview pen (research 09 §2.2 / 08 §4.2, render/pen.js): in prep the next round's enemies idle in the pen
 // (rows 14–18 × cols 7–13; upper-gate enemies rows 17–18, lower-gate rows 14–15; spawn-time order, ≤ 3 per tile,
@@ -2232,6 +2233,7 @@ export async function createFieldView(host, options = {}) {
   // listeners, the view maps — and since the last call the three unit views whose update() took the most time (ms per
   // frame; boss, impostor-drawn), the three effects whose players did (fxGame.perfTop).
   let censusFrame = 0;
+  let b3Seen = { board: null, frames: 0, skipped: 0 }; // the 3D board's counts at the last census
   function census() {
     const frames = Math.max(1, frameNo - censusFrame);
     censusFrame = frameNo;
@@ -2249,11 +2251,23 @@ export async function createFieldView(host, options = {}) {
     walk(app.stage, true);
     const keys = (o) => (o ? Object.keys(o).length : null);
     const fs = fxGame.stats();
+    // 2026-10-31: the GPU memory the counts above miss — the 3D board's GL textures / geometries and its draws vs kept
+    // pictures since the last census (board3d/scene.js BOARD_REDRAW_MAX_S), the effect layers' GL copies and library
+    // (fxGame stats gl / lib), the spine LRU's skeletons and their estimated weight (assets.js spineDataWeight)
+    let b3 = null;
+    if (board3d) {
+      const st = board3d.stats();
+      const seen = b3Seen.board === board3d ? b3Seen : { frames: 0, skipped: 0 };
+      b3 = { tex: st.textures, geo: st.geometries, drawn: st.frames - seen.frames, kept: st.skipped - seen.skipped };
+      b3Seen = { board: board3d, frames: st.frames, skipped: st.skipped };
+    }
+    const sp = assets.spine?.stats?.() ?? null;
     return {
       objs, shown, tex: keys(P.utils?.TextureCache), base: keys(P.utils?.BaseTextureCache), ticker: app.ticker.count ?? null,
       views: views.size, pen: penViews.size, gone: gone.size, fxLive: fs.live, fxNotes: fs.notes, fxTrails: fs.trails,
       topUnits: costly, topFx: fxGame.perfTop?.(3) ?? [],
       lodSec: lodSec.splice(0, 4, 0, 0, 0, 0), lodSteps: lodSteps.splice(0), fxSkip: fxGame.perfSkips?.() ?? null, // 2026-10-30
+      b3, fxGl: fs.gl ?? null, fxLib: fs.lib ?? null, spine: sp ? { n: sp.size, mb: sp.weight / 2 ** 20, idleMb: sp.idleWeight / 2 ** 20 } : null,
     };
   }
   // local patch (LOCAL-PATCH.md 「공식 맵 렌더링」): the red 「!!!」 of the 活性源石 buff (render/infectionMark.js) — in prep

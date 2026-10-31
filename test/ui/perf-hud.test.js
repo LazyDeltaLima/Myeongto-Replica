@@ -194,3 +194,17 @@ test('the report: seconds at each load level, its steps with the frames that rai
   const old = perfReportLines([snap({ held: base })])[0];
   assert.doesNotMatch(old, /lod steps|fx skip|\(s /);
 });
+
+test('the report: the GPU memory the held counts miss, and the share of 3D board frames drawn (2026-10-31)', () => {
+  const base = { objs: 1, shown: 1, tex: 1, base: 1, ticker: 1, dom: 1, views: 1, pen: 0, gone: 0, fxLive: 0, fxNotes: 0, fxTrails: 0 };
+  const line = perfReportLines([
+    snap({ held: { ...base, b3: { tex: 40, geo: 90, drawn: 100, kept: 500 }, fxGl: [120, 30], fxLib: { tex: 80, mesh: 12, defs: 140 }, spine: { n: 20, mb: 61.4, idleMb: 9.6 } } }),
+    snap({ held: { ...base, b3: { tex: 41, geo: 92, drawn: 200, kept: 0 }, fxGl: [130, 31], fxLib: { tex: 85, mesh: 12, defs: 150 }, spine: { n: 22, mb: 70.2, idleMb: 12.1 } } }),
+  ])[0];
+  // the last census's counts; the drawn share over the whole line (300 of 800 frames)
+  assert.match(line, /\| gpu 3d 41\/92 \(drawn 38 %\), fx 130\/31, fxlib 85\/12\/150, spine 22 \(70 MB, idle 12\)/);
+  // no effect layer, no board: only what there is
+  const bare = perfReportLines([snap({ held: { ...base, b3: null, fxGl: null, fxLib: null, spine: { n: 3, mb: 5, idleMb: 0 } } })])[0];
+  assert.match(bare, /\| gpu spine 3 \(5 MB, idle 0\)/);
+  assert.doesNotMatch(perfReportLines([snap({ held: base })])[0], /gpu/, 'an older page prints none');
+});

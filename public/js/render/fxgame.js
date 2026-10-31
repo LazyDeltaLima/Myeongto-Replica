@@ -5730,6 +5730,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     stats() {
       return {
         live: live.length, loaded: !!mod, programs: mod ? layers.under.renderer.info.programs.length + layers.over.renderer.info.programs.length : 0, // 2026-10-28: linked (prewarm)
+        // 2026-10-31 (perf census): the GL copies the two layers hold (a library texture drawn on both has two) and what the
+        // library keeps for the view's lifetime (textures, meshes, effect definitions; freed by destroy)
+        gl: mod ? [layers.under, layers.over].reduce((a, L) => [a[0] + (L.renderer.info.memory?.textures ?? 0), a[1] + (L.renderer.info.memory?.geometries ?? 0)], [0, 0]) : null,
+        lib: lib ? { tex: lib.textures.size, mesh: lib.meshes.size, defs: lib.defs.size } : null,
         updateMs: Math.round(perf.updateMs * 100) / 100, renderMs: Math.round(perf.renderMs * 100) / 100,
         calls: perf.calls, particles: mod ? mod.fxp.fxStats().particles : 0, notes: notes.size,
         recent: recent.slice(), trails: trails.length, preload: preQueue.length, // local patch; 2026-10-30: effect files still queued (preload)

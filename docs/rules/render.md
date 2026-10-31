@@ -944,6 +944,14 @@ ON_BUFF_FINISH에 대상이 살아 있을 때만(`IfTarget _checkTargetAlive`) +
   시도 수(`fxGame.perfSkips()`). 측정 기능이지 동작 변경 없음(궤적 상한 검사가 `trailFull()`로 셈, 공격 이벤트마다 비교 몇 번). Windows Chrome 1600×900
   솔로 R4 전투 CPU ×12 확인: `lod 0–3 (s 15/1/1/14) | lod steps 0→1 … (59 ms, worst 88 ms, 14 views, battle), 1→2 … , 2→3 … | fx skip lod3 17, off 0,
   trail 0 · files 7 (wait 1393 ms, max 303) · layer on (1 tries)`. 테스트 `test/ui/perf-hud.test.js`.
+- **진단 보강 5** (2026-10-31, 관리자 iPhone 12 Pro 1.5.10 솔로 「높음」 고정 한 판 로그: 후반 `other` 14–23 ms, 46분 쉬고 이어 해도 그대로 —
+  관리자 질문 「GC가 안 돼 쌓이는 이펙트 데이터가 프레임을 떨어뜨리나」를 `held`로는 못 가림): `held`가 세지 않는 GPU 메모리를 `census()`에 더하고
+  `perf:` 줄에 `gpu 3d T/G (drawn P %), fx T/G, fxlib T/M/D, spine N (W MB, idle I)`로 찍는다 — 3D 보드 renderer의 GL 텍스처·지오메트리 수와 그 줄
+  동안 실제로 그린 프레임 비율(아래 「3D 보드 그대로면 다시 그리지 않기」), 이펙트 층 두 renderer의 GL 텍스처·지오메트리(라이브러리 텍스처 하나가
+  두 층에 올라가면 둘), 이펙트 라이브러리(`FxLibrary`: 텍스처·메시·정의 — 판 동안 쌓이고 보기를 부술 때 비움), 스파인 LRU의 골격 수와 추정 무게
+  (`spineDataWeight`, idle = 놓았지만 다시 쓸까 남긴 것). `held`처럼 판 동안 한 방향으로만 늘면 누수. 그 판 로그 판단: `held`의 표시 객체·이펙트
+  인스턴스·보기·DOM은 단계마다 돌아오고(누수 없음), `other`가 프레임마다 고르게 커서 GC 멈춤(튀는 긴 프레임)이 아니라 GPU 몫 [추정·화면: Safari는
+  JS 힙·GPU 시간을 못 읽음]. 측정 기능이지 동작 변경 없음. 테스트 `test/ui/perf-hud.test.js`.
 
 ## 3D 보드 첫 그리기 미리 준비 (2026-10-16, 관리자 제공 iPhone 12 Pro 로그 「필드가 뜬 직후 한 표본이 프레임 0, PIXI 그리기 평균 277 ms」)
 - 측정 기능의 `perf:` 줄로 본 멈춤은 필드 진입 직후(엔진 마운트가 끝나고 3D 보드·공식 씬이 막 도착한 구간)였다. Windows Chrome에서 같은

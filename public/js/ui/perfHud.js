@@ -23,7 +23,9 @@
 // the server messages' handling (net.js rx: parsing and the store's synchronous listeners) per second; `held`, every
 // SAMPLE_MS, what the page holds (render/app.js census(): PIXI display objects and those drawn, the texture caches, the
 // ticker's listeners, the view maps, the effect layer's live / notes / trails; the document's element count) — a count
-// that only grows over a match is a leak. The browser's own style, layout and paint for the UI stay in `other`. From the
+// that only grows over a match is a leak; `gpu` (2026-10-31), what that census misses: the GL textures / geometries of the 3D
+// board (and the share of its frames drawn) and of the effect layers, the effect library, the spine LRU. The browser's
+// own style, layout and paint for the UI stay in `other`. From the
 // same census (2026-10-30): the seconds at each load level (`lod a–b (s …)`) and its steps with the frame times that
 // raised them (`lod steps`), and why official effects did not play (`fx skip`: normal attacks at load level 3 / while the
 // effect layer was not up, trails over the cap, effect files fetched during the line and their waits, lost contexts).
@@ -221,6 +223,7 @@ export function perfReportLines(samples) {
       imps.length ? `imp ${Math.min(...imps)}–${Math.max(...imps)}` : null,
       Number.isFinite(maxOf(pick('heapMB'))) ? `heap ${r0(maxOf(pick('heapMB')))} MB` : null,
       held ? `held ${heldText(held)}` : null,
+      gpuText(list),
       held?.topUnits?.length ? `top units ${held.topUnits.map((u) => `${u.id}${u.boss ? ' boss' : ''}${u.imp ? ' imp' : ''} ${r1(u.ms)}`).join(', ')}` : null,
       held?.topFx?.length ? `top fx ${held.topFx.map((e) => `${e.name} ${r1(e.ms)} ×${r1(e.k)}`).join(', ')}` : null,
     ].filter(Boolean).join(' | ');
@@ -232,6 +235,26 @@ const heldText = (h) => [
   `objs ${h.objs ?? '-'} (${h.shown ?? '-'} shown)`, `tex ${h.tex ?? '-'}/${h.base ?? '-'}`, `ticker ${h.ticker ?? '-'}`, `dom ${h.dom ?? '-'}`,
   `views ${h.views ?? '-'}/${h.pen ?? '-'}/${h.gone ?? '-'}`, `fx ${h.fxLive ?? '-'}/${h.fxNotes ?? '-'}/${h.fxTrails ?? '-'}`,
 ].join(', ');
+
+/**
+ * 2026-10-31: the GPU memory the line ends with (census b3 / fxGl / fxLib / spine) — the 3D board's GL textures /
+ * geometries and the share of its frames drawn over the line (the others kept the last picture: board3d/scene.js
+ * BOARD_REDRAW_MAX_S), the effect layers' GL textures / geometries and their library (textures / meshes / definitions),
+ * the spine LRU's skeletons with their estimated weight (idle: released, kept for a re-acquire). As with `held`, a count
+ * that only grows over a match is a leak.
+ */
+function gpuText(list) {
+  const hs = list.map((s) => s.held).filter(Boolean);
+  const z = hs[hs.length - 1];
+  if (!z || !(z.b3 || z.fxGl || z.fxLib || z.spine)) return null;
+  const drawn = hs.reduce((n, h) => n + (h.b3?.drawn || 0), 0), kept = hs.reduce((n, h) => n + (h.b3?.kept || 0), 0);
+  return `gpu ${[
+    z.b3 ? `3d ${z.b3.tex}/${z.b3.geo}${drawn + kept ? ` (drawn ${r0((100 * drawn) / (drawn + kept))} %)` : ''}` : null,
+    z.fxGl ? `fx ${z.fxGl[0]}/${z.fxGl[1]}` : null,
+    z.fxLib ? `fxlib ${z.fxLib.tex}/${z.fxLib.mesh}/${z.fxLib.defs}` : null,
+    z.spine ? `spine ${z.spine.n} (${r0(z.spine.mb)} MB, idle ${r0(z.spine.idleMb)})` : null,
+  ].filter(Boolean).join(', ')}`;
+}
 
 /** The line's seconds at load levels 0–3 (census lodSec), e.g. ` (s 12/3/2/40)`. */
 function lodSecText(list) {
