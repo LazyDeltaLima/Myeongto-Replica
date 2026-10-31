@@ -307,7 +307,7 @@
     민트 육각+기둥(summon)·파동을 같이 그렸다 → 넣음. ② 공식 이펙트 번들이 있는 오퍼레이터의 키트 'fx' 이벤트는 `fx.js` 절차 대체(blast·zone·wall·
     summon·buff·wave·pillar·element·healAoe·shield·shatter·strike·volley)를 안 그림(`fxgame.js standInOff`; 이벤트의 오퍼레이터 = `src` → `by` → `id`,
     소환물·장치는 예외; 회피·치명·DP·표식·빔·이동 화살표·단일 회복은 남김). 그 순간에 공식 프리팹이 있는 것은 그것으로: 维什戴尔 残影 폭발 'explode' →
-    `wisdel_bomb_01_hit` [추정: 이름], 赤刃明霄陈 S2 'swordStorm' → `skchr_chen3_2 _hitGroups[0..5]`(`chen3_skill_02_hit_01~06` 순환, 공식 클라에서 확인 — 아래 「타격별 명중」; 공식은 시전마다 첫 것부터 셈(`spellCnt`) — 2026-10-31부터 우리도 S2 시전 시작
+    `wisdel_bomb_01_hit` [추정·자료 없음: 이름 — 프리팹 키를 못 찾음], 赤刃明霄陈 S2 'swordStorm' → `skchr_chen3_2 _hitGroups[0..5]`(`chen3_skill_02_hit_01~06` 순환, 공식 클라에서 확인 — 아래 「타격별 명중」; 공식은 시전마다 첫 것부터 셈(`spellCnt`) — 2026-10-31부터 우리도 S2 시전 시작
     키트 'chen3Vanish'에서 `_fxStormN`을 되돌림, 그 전엔 이어서 셈).
     토가와 사키코 열광 'sunBurst'는 그녀 이펙트를 틀지 않는다(2026-10-31): 그녀 번들(추출 30개)에 열광 시작 이펙트가 없고 열광 버프들(`oblvns_s_1/2/3[fever]`·
     `oblvns_s_2[fever_eff]`·`oblvns_t_2[fever]`, 버프 템플릿)도 이펙트 키가 없다. 그 전엔 Combat 모드 cast `oblvns_combat_01_start`를 틀었는데 그것은 저지한 적
