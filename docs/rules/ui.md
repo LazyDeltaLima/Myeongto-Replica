@@ -442,16 +442,21 @@
       `rangeToShow`)이 있고 유닛의 `rangeToShow`(지금 모드의 범위)와 **다른 객체**일 때만 보이고 꺼진 채 시작 — 칸 모양이 아니라 객체를 견준다.
       스킬 범위는 `rangeId`가 있으면 프리팹의 `_rangeToShow`(대상 선택기)나 `_trigger`라 유닛 범위와 늘 다른 객체 → 공격 범위와 칸이 같아도
       토글이 나온다(그레인버즈 S2). 없는 경우: `rangeId`가 비었음, CastSkill `_hideRangeToShow`(스와이어 디 엘리건트 위트 S3·이그제큐터 디 엑스
-      포에데레 S2·쏜즈 더 로드스타 S3), `_forceUseBaseShowRange`(이그제큐터 디 엑스 포에데레 S1·S3 — 기반 경로로 가 스킬 능력의 범위 또는 유닛
-      모드 범위를 돌려준다; [추정·엔진: 능력의 `rangeToShow`는 안 읽음 — 이름대로 유닛 기본 범위 = 같은 객체로 보고 토글 없음]). 켜면 필드 범위
+      포에데레 S2·쏜즈 더 로드스타 S3; 실행 중 값은 `AssignData`가 이 프리팹 값을 그대로 옮긴다 — 그 밖에 끄는 것은 버프 노드
+      `ForceHideSkillRangeToShow`뿐이고 안젤리나 더 멜로우 위시 S3 모드 버프·풀 밖 재능이 쓴다, 정비 중엔 해당 없음). `_forceUseBaseShowRange`는
+      기반 경로: 스킬 능력의 `_selector`(`Ability.rangeToShow`) → `_rangeIdModeIndex` 모드의 범위(`Unit.GetRangeOfMode`) → 기본 모드 범위 — 끝이
+      지금 모드면 같은 객체라 토글 없음. 이그제큐터 디 엑스 포에데레 S1·S3은 선택기가 없고 `_rangeIdModeIndex` 1·3(모드 S1·S3, 정비 중 모드는
+      Default)이라 **토글이 나오고** 그 모드의 범위를 그린다 [추정·엔진: 모드 범위 = 스킬 `rangeId`(2-5)로 봄 — `UnitMode.rangeToShow`는 안
+      읽음]. 켜면 필드 범위
       표시가 스킬 범위(`GridRangeDrawer.TurnOnSkill`), 끄면 공격 범위(`TurnOn`). 우리: 스킬 `rangeGrid`가 있고 `showRange`가 false가 아닐 때
       (`screens/game/range.js skillButton`; `showRange: false`는 `tools/local-extract/skill_cast.py`의 `range` 0 → `tools/build-data.mjs`),
       켬 상태는 그 선택에만(다른 기물을 고르거나 다시 고르면 꺼짐). 상세 카드의 범위 칸은 그대로 공격 범위.
     - 그리지 않는 것: AUTO 표시 `text_auto_mark`·정지 `sprite_skill_stop`은 프리팹에서 GameObject가 꺼져 있고 스크립트는 `enabled`만 바꾼다 → 화면에
       안 나온다. 충전 수 `panel_skill_amount`는 `hasSkill` ∧ 스킬 `IsAvailable` ∧ `maxChargeTime` > 1일 때 켜지고 글자는 「0」 — 정비 중 SP가
-      「0/N」이라 준비된 스킬이 아니므로 그리지 않는다 [추정·엔진: 정비 중 `IsAvailable` 값은 안 읽음].
-    - `CastSkill.get_rangeToShow`가 보는 것은 실행 중 값 `m_hideRangeToShow`이고 프리팹 값 `_hideRangeToShow`를 옮기는 곳은 안 읽었다
-      [추정·엔진: 초기화 때 그대로 옮긴다고 봄].
+      「0/N」이라 그리지 않는다. `IsAvailable` = 다 안 씀 ∧ 능력 `isReady` ∧ skillType ≠ 0 ∧ `spEnough`(유닛 SP ≥ spCost) ∧
+      `ownerCanUseSkill`(이상 상태·침묵·`SKILL_NOT_ACTIVATABLE` — 위수협의 정비에 이 표시를 거는 버프 없음). 남는 것은 정비 중 유닛 SP: 풀의
+      충전 스킬 기록 100개 중 initSp ≥ spCost는 비르투오사 정예 S1(12/6)뿐 — 정비 중 SP가 initSp라면 그 하나만 「0」 배지가 나온다
+      [추정·엔진: 정비 중 SP를 처음 넣는 곳을 찾지 못함(`Entity.UpdateSpData`·`Character.OnInit`/`OnBorn`에 없음)].
   - 대기석·임시 정비 구역 기물 → 마름모 없이 메뉴 버튼(`btn_panel_root`, `AutoChessCharacterMenuButton`): 검은 깃발 `img_btn_bg_all`
     (325×225 × 0.66) + 같은 판을 0.66배로. 아이템은 빨간 파기 판, 소환물은 아무것도 없다. 두 표시 설정 모두 `needRotate`라 `_RotateIfNeed`가
     `bg_offset`을 90° 돌려(왼쪽을 가리키던 깃발 끝이 아래 = 기물 쪽) `rotatedOffsetPos` (0, 60)에 두고, 판은 돌리지 않고
@@ -478,7 +483,7 @@
   공식 영상 캡처(대기석 판매)와 대조, 스킬 버튼은 같은 판에서 필드 오퍼레이터 7명(토글 있는 3명은 켜고 끔 — 실버애쉬 S3 범위로 바뀜) 캡처
   [화면 미확인: 공식 캡처와의 대조 없음],
   테스트 `test/render/placement-ui.test.js`(배치·거울·버튼 범위·스킬 버튼 자리), `test/ui/inspect-range.test.js`(스킬 버튼 조건·토글 범위 —
-  그레인버즈 S2 토글 있음, 쏜즈 더 로드스타 S3·이그제큐터 디 엑스 포에데레 S1·S3 없음).
+  그레인버즈 S2·이그제큐터 디 엑스 포에데레 S1·S3 토글 있음, 쏜즈 더 로드스타 S3 없음).
 
 ## 전투 화면 UI (2026-10-07)
 관리자 요청 「전투 화면 UI를 공식 인게임과 똑같이」: ① 아군 체력·SP·탄환 바 + 기물 레벨 → ② 적 HP(보스 포함) → ③ 원소 원형 바 → ④ 데미지·회복 숫자 순서,

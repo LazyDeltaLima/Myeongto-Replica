@@ -120,13 +120,20 @@ test('user Given a field operator selected in the prep When its menu shows the s
   const s2 = grabds.skills.find((s) => s.skillId === 'skchr_grabds_2');
   assert.deepEqual(s2.rangeGrid, grabds.rangeGrid);
   assert.deepEqual(btn(grabds, s2.index).grid, s2.rangeGrid);
-  // a prefab that hides its range (引星棘刺 S3 `_hideRangeToShow`) or shows the base range (圣约送葬人 S1 / S3): no toggle
-  for (const id of ['skchr_thorn2_3', 'skchr_excu2_1', 'skchr_excu2_3']) {
+  const skillOf = (id) => {
     const c = Object.values(chess).find((x) => !x.isGolden && x.skills?.some((s) => s.skillId === id));
-    const sk = c.skills.find((s) => s.skillId === id);
-    assert.equal(sk.showRange, false, id);
-    assert.ok(sk.rangeGrid?.length, id);
-    assert.equal(btn(c, sk.index).grid, null, id);
+    return [c, c.skills.find((s) => s.skillId === id)];
+  };
+  // a prefab that hides its range (引星棘刺 S3 `_hideRangeToShow`): no toggle
+  const [thorn, s3] = skillOf('skchr_thorn2_3');
+  assert.equal(s3.showRange, false);
+  assert.ok(s3.rangeGrid?.length);
+  assert.equal(btn(thorn, s3.index).grid, null);
+  // 圣约送葬人 S1 / S3 show the base range, but of their skill modes (`_rangeIdModeIndex` 1 / 3), not the Default one: toggle
+  for (const id of ['skchr_excu2_1', 'skchr_excu2_3']) {
+    const [c, sk] = skillOf(id);
+    assert.equal(sk.showRange, undefined, id);
+    assert.deepEqual(btn(c, sk.index).grid, sk.rangeGrid, id);
   }
   // a summon or an item gets none; nor does a PASSIVE skill
   assert.equal(skillButton({ detail: { type: 'token', token: tokens.char_613_acmedc }, getChess, m }), null);

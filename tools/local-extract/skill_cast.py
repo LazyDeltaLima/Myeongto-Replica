@@ -20,8 +20,10 @@ into every skill record of data/chess.json / data/backups.json (`cast`). `word` 
 off (no 作战中 line as it is cast; the record's `charWord: false`; any skill class). `born` 0 = the cast is refused while the
 unit is in its born state after a deployment: `CastSkill.UseSkill` checks `_canSwitchDuringBorn` (`_switchToState` 1) or
 `_canCastDuringBorn` (0) against `Character.CheckIsBornState`; the other skill classes do not check it. `range` 0 = the
-skill shows no range of its own (CastSkill `_hideRangeToShow`, or `_forceUseBaseShowRange` — the unit's base range): the
-selection menu then has no skill range toggle (`CastSkill.get_rangeToShow`, docs/rules/ui.md 「선택 메뉴」). Output
+skill shows no range of its own, so the selection menu has no skill range toggle (`CastSkill.get_rangeToShow`,
+docs/rules/ui.md 「선택 메뉴」): CastSkill `_hideRangeToShow`, or `_forceUseBaseShowRange` when the base path ends at the
+unit's own mode — no ability `_selector` and no `_rangeIdModeIndex` above 0 (the Default mode); 圣约送葬人 S1 / S3 point
+at their skill modes 1 / 3, another range, and keep the toggle. Output
 tools/assets/local-skill-cast.json:
 
   { "skills": { "skchr_thorn2_1": { "cls": "replace", "ability": { "anim": "Skill", "time": 0, "max": 1, "wait": 1, … } },
@@ -119,7 +121,8 @@ def skill_entry(sid, comps3):
         flag = '_canSwitchDuringBorn' if state else '_canCastDuringBorn'
         if flag in sk and not sk.get(flag):
             e['born'] = 0
-        if sk.get('_hideRangeToShow') or sk.get('_forceUseBaseShowRange'):
+        selector = any(isinstance(d.get('_selector'), dict) and d['_selector'].get('m_PathID') for d in root)
+        if sk.get('_hideRangeToShow') or (sk.get('_forceUseBaseShowRange') and not selector and int(sk.get('_rangeIdModeIndex', -1)) <= 0):
             e['range'] = 0
     else:
         return word or None

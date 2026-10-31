@@ -2590,7 +2590,7 @@ function skillSilent(ctx, s) {
 
 /**
  * Whether a skill shows no range of its own (`range` 0 in tools/assets/local-skill-cast.json: the prefab's
- * `_hideRangeToShow` / `_forceUseBaseShowRange`) → the skill record's `showRange: false`: the field piece menu draws no
+ * `_hideRangeToShow`, or `_forceUseBaseShowRange` ending at the unit's own mode) → the skill record's `showRange: false`: the field piece menu draws no
  * skill range toggle for it (public/js/screens/game/range.js skillButton; docs/rules/ui.md 「선택 메뉴」).
  */
 function skillRangeHidden(ctx, s) {
