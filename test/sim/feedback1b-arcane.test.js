@@ -73,14 +73,20 @@ test('奥术 on a real 险境 battle: two members debuff their targets and later
 test('奥术 with 3 different members: targets below 50 % HP take ×1.4·(1.2 + 0.01·L) (+68 % at 0 layers); 海霓 adds layers live', () => {
   const { m, ps } = setup(MEMBERS);
   assert.equal(ps.bonds.arcaneShip.tier, 2);
-  const res = run(m.newBattle(m._normalOpts(ps)), ps.playerId);
+  const b = m.newBattle(m._normalOpts(ps));
+  let heiKills = 0;
+  b.on('kill', (c) => { if (c.killer && c.killer.defId === MEMBERS[2]) heiKills++; });
+  const res = run(b, ps.playerId);
   const base = (L) => BB.base_damage_scale + BB.damage_scale_per_stack * L;
   const seen = res.hits.filter((x) => x.mul > 0).map((x) => x.mul);
   // L = 0 at the start; 海霓 "<战斗中>首次击倒敌人…【奥术】层数+3" raises it during the fight (bonds/addon live layers)
   const match = (v) => [0, 3].flatMap((L) => [['base', L, base(L)], ['low', L, BB.power_weak_scale * base(L)]]).find(([, , w]) => Math.abs(v - w) < 1e-9);
   for (const v of seen) assert.ok(match(v), `unexpected multiplier ×${v}`);
   const kinds = new Set(seen.map((v) => match(v).slice(0, 2).join(':')));
-  for (const k of ['base:0', 'low:0', 'base:3', 'low:3']) assert.ok(kinds.has(k), `${k} seen (${[...kinds]})`);
+  for (const k of ['base:0', 'low:0']) assert.ok(kinds.has(k), `${k} seen (${[...kinds]})`);
+  // the L = 3 values need 海霓's kill — whether she lands one depends on the fight (since a member's own instance is not
+  // refreshed, 2026-10-31, she does not in this one); the live layers themselves: test/content/bonds_addon.test.js
+  if (heiKills > 0) assert.ok(kinds.has('base:3') || kinds.has('low:3'), `L3 seen after 海霓's kill (${[...kinds]})`);
   assert.ok(Math.abs(BB.power_weak_scale * base(0) - 1 - BB.base_damage_scale_show_ex) < 1e-9, 'the shown +68 %');
   m.dispose();
 });

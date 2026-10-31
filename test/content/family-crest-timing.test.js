@@ -22,7 +22,7 @@ function fixture(items = [CREST, SUIT], bonds = ['siracusaShip']) {
   });
   h.step();
   h.b.applyStatus(h.unit(1), 'stealth', { duration: 20 });
-  h.run(1);
+  h.run(1.1); // past the first whole second of 隐匿: the client [buff] adds its first atk_per_sec
   return h;
 }
 
@@ -69,7 +69,7 @@ test('Family Crest does not re-arm the spent charge at the next poll, and can ch
   hit(h);
   assert.equal(crestHits(h).length, 1);
   h.b.applyStatus(u, 'stealth', { duration: 20 });
-  h.run(0.3);
+  h.run(1.1); // a whole second of the new 隐匿
   const atk = u.s.atk;
   assert.ok(atk > u.base.atk);
   h.b.removeBuff(u, 'stealth');

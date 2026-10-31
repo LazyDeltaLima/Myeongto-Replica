@@ -21,12 +21,13 @@
 //                        5: max_free_respawn_cnt free redeploys, one per member on its first knock-out — the devour's
 //                        knock-outs by board position once every devour is over (egirReviveScan), later ones at once
 //   叙拉古 siracusaShip  every member deployment: ASPD +(base + per·L) for (base_duration + per·L) s; 6: 隐匿 for the same
-//                        time, and while hidden / end_duration s after, every 普通伤害 hit (siracusaRolls) procs (PRD,
-//                        nominal `prob`) base_damage + damage_per_stack·L true damage + fear `fear` s
+//                        time, and while hidden / end_duration s after, every 普通伤害 hit (isNormalDamage) procs (PRD,
+//                        nominal `prob`, one count per battle) base_damage + damage_per_stack·L true damage + fear `fear` s
 //   卡西米尔 kazimierzShip every deployment of one of the player's operators (initial ones included): members ATK
 //                        +atk_when_born, total ≤ base_max_atk_when_born + max_atk_when_born_per_stack·L; 6: blocking
-//                        members pulse damage_atk_scale×ATK true damage + stun around them every damage_interval s,
-//                        non-blocking members' attacks add pure_atk_scale×ATK true damage
+//                        members pulse damage_atk_scale×ATK true damage + stun around them as they start blocking, then
+//                        every damage_interval s while they block; non-blocking members' 普通伤害 (isNormalDamage: skill
+//                        hits too) adds pure_atk_scale×ATK true damage
 //
 // Numbers: data/bonds.json buffs (support.buffParams by bbStr.key); 炎佑's 30 % is parsed from the effect text.
 // Tiers: a bond's upper tier is reached when count ≥ the blackboard threshold (power_bond_char_cnt / ex_bond_char_cnt)
@@ -41,11 +42,12 @@
 // death 10; every `fatal` saver runs before any death hook), layerGain −100 (after 魔王-style modifiers).
 
 import * as S from '../support/index.js';
-import { mitigate } from '../../damage.js';
+import { mitigate, isNormalDamage } from '../../damage.js';
 import { spawnYanyou } from '../tokens.js';
 import { kjeragColdWind } from '../devices.js';
 import * as items from '../items.js';
 import { FORCED_EXIT } from '../../constants.js';
+import { dicePRD } from './addon/battle.js';
 import { msg } from '../../../../shared/i18n.js';
 
 const num = S.num;
@@ -94,35 +96,6 @@ export function yanyouShare(scope = null) {
   const m = /总和的\s*(\d+(?:\.\d+)?)\s*%/.exec(text);
   const v = m ? +m[1] / 100 : NaN;
   return v > 0 && v <= 10 ? v : 0.3;
-}
-
-const PRD = new Map();
-/**
- * Pseudo-random-distribution constant C for a nominal probability p: attempt n since the last proc succeeds with
- * min(1, C·n), and the long-run proc rate equals p (3 % → C ≈ 0.00139, research 02 §3.7).
- */
-export function prdConstant(p) {
-  if (!(p > 0)) return 0;
-  if (p >= 1) return 1;
-  if (PRD.has(p)) return PRD.get(p);
-  const rate = (c) => {
-    let exp = 0, notYet = 1;
-    const nMax = Math.ceil(1 / c) + 1;
-    for (let n = 1; n <= nMax && notYet > 0; n++) {
-      const pn = Math.min(1, n * c);
-      exp += n * notYet * pn;
-      notYet *= 1 - pn;
-    }
-    return exp > 0 ? 1 / exp : 1;
-  };
-  let lo = 0, hi = p;
-  for (let i = 0; i < 50; i++) {
-    const mid = (lo + hi) / 2;
-    if (rate(mid) < p) lo = mid; else hi = mid;
-  }
-  const c = (lo + hi) / 2;
-  PRD.set(p, c);
-  return c;
 }
 
 // =====================================================================================================================
@@ -181,7 +154,6 @@ function onUnitDamaged(battle, unit, fn) {
 }
 
 const isEnemyTarget = (t) => !!t && t.side === 'enemy' && t.alive;
-const ownTag = (dmg, tag) => !!dmg && Array.isArray(dmg.tags) && dmg.tags.includes(tag);
 
 // =====================================================================================================================
 // 炎
@@ -575,29 +547,6 @@ function installEgir(battle, pid, bb, members) {
 // =====================================================================================================================
 // 叙拉古
 
-/**
- * Does a member's damage instance try the tier-6 proc? PRTS 盟约记录 叙拉古: "※仅在造成普通伤害时尝试造成来源为干员自身的
- * 真实附加伤害和恐惧", "每次造成普通伤害时尝试触发" — 普通伤害 is the attack type NORMAL (PRTS 伤害分类: the default type,
- * group damage included unless it is 溅射), not "a normal attack" (community report 「叙拉古盟约真伤概率数值没有正确递增
- * 成长」, GitHub #79: it rolled on normal attacks only). So skill hits roll — 德克萨斯 剑雨, 缄默德克萨斯's bursts and
- * sword rain, 阿罗玛 S1 / S2, 忍冬 S1 / S2, 伺夜 S3 — and so do 荒芜拉普兰德's S3 drone attacks (PRTS 备注 "不属于普通攻击/
- * 技能直接伤害": neither an attack nor skill damage, still 普通伤害). Not: 溅射 (`isSplash`); 持续伤害 (tags dot / periodic:
- * 荒芜拉普兰德's S3 pulse, PRTS 备注 "持续法术伤害"; 缄默德克萨斯 S1, "伤害分类为法术持续伤害"); 附加伤害 (tag `addition`:
- * 拉普兰德's module, 忍冬's 追凶 — PRTS "法术附加伤害"; item procs and the bonds' riders, own proc included [ASSUMED: 附加,
- * PRTS gives no class]); element damage; 无来源 damage (坚守's thorns); 流失.
- */
-function siracusaRolls(dmg) {
-  if (!dmg || dmg.isSplash || dmg.sourceless || dmg.type === 'element' || dmg.type === 'elemental') return false;
-  const tags = dmg.tags;
-  if (!Array.isArray(tags)) return true;
-  for (let i = 0; i < tags.length; i++) {
-    const t = tags[i];
-    if (t === 'dot' || t === 'periodic' || t === 'addition' || t === 'item' || t === 'hpLoss') return false;
-    if (typeof t === 'string' && t.startsWith('bond:')) return false;
-  }
-  return true;
-}
-
 function installSiracusa(battle, pid, bb, members) {
   const memberSet = new Set(members);
   const six = reached(battle, pid, 'siracusaShip', bb.power_bond_char_cnt);
@@ -614,17 +563,16 @@ function installSiracusa(battle, pid, bb, members) {
     battle.addBuff(unit, { key: 'bond:siracusa:stealth', duration: dur, flags: { stealth: true }, status: 'stealth', onExpire: off, onRemove: off });
   });
   if (!six) return;
-  const c = prdConstant(num(bb.prob, 0));
-  if (!(c > 0)) return;
-  const st = { n: 0 };
+  const prob = num(bb.prob, 0);
+  if (!(prob > 0)) return;
+  // the [ex][buff] DicePRD keeps its count on the battle's global blackboard ("prd#" + the template key): one count for
+  // the battle, both players of a pair field included (like 不屈's, bonds/addon/battle.js dicePRD)
+  const prd = S.battleStore(battle, 'bond:siracusa:prd', () => ({ n: 0 }));
   const onDmg = (ctx) => {
     const u = ctx.source, t = ctx.target, dmg = ctx.dmg;
-    if (!isEnemyTarget(t) || !siracusaRolls(dmg)) return;
+    if (!isEnemyTarget(t) || !isNormalDamage(dmg)) return;
     const hidden = u.s.flags.stealth || battle.time <= num(u.mem.siraStealthEnd, -Infinity) + end + 1e-9;
-    if (!hidden) return;
-    st.n++;
-    if (!(battle.rng() < Math.min(1, c * st.n))) return;
-    st.n = 0;
+    if (!hidden || !dicePRD(battle, prd, prob)) return;
     const amount = num(bb.base_damage, 0) + num(bb.damage_per_stack, 0) * S.bondLayers(battle, pid, 'siracusaShip');
     S.fxOn(battle, 'bondProc', t, 'bond:siracusaShip', 'assassin', { from: u.id, amount });
     // 'addition': act2autochess_bond_eff_siracusa[ex][buff]'s damage is attackType ADDITION (有限加速器, items/battle.js)
@@ -657,9 +605,16 @@ function installKazimierz(battle, pid, bb, members) {
   if (!reached(battle, pid, 'kazimierzShip', bb.power_bond_char_cnt)) return;
   const iv = num(bb.damage_interval, 0), radius = num(bb.range_radius, 0), scale = num(bb.damage_atk_scale, 0), stun = num(bb.stun, 0);
   if (iv > 0 && scale > 0) {
-    battle.every(iv, () => {
+    // client buff graph kazimierz[ex]: ON_OWNER_BLOCKEE_CHANGED creates the [ex][damage] buff when the member starts
+    // blocking and finishes it when it blocks nobody; its ticks (bb `interval` = damage_interval, waitFirstTriggerInterval
+    // false) pulse at once, then every damage_interval s while the member keeps blocking — a timer per member
+    const next = new Map();
+    battle.every(0, () => {
       for (const m of members) {
-        if (!S.onField(m) || !m.blocking || !m.blocking.length) continue;
+        if (!S.onField(m) || !m.blocking || !m.blocking.length) { next.delete(m); continue; }
+        const due = next.get(m);
+        if (due !== undefined && battle.time < due - 1e-9) continue;
+        next.set(m, (due ?? battle.time) + iv);
         const hits = battle.foesInRadius(m.x, m.y, radius);
         if (!hits.length) continue;
         const amount = scale * m.s.atk;
@@ -678,7 +633,9 @@ function installKazimierz(battle, pid, bb, members) {
   if (!(pure > 0)) return;
   const onDmg = (ctx) => {
     const u = ctx.source, t = ctx.target, dmg = ctx.dmg;
-    if (!dmg || !dmg.isAttack || !isEnemyTarget(t) || ownTag(dmg, 'bond:kazimierz')) return;
+    // kazimierz[ex] ON_OUTPUT_DAMAGE: every 普通伤害 instance (attack type NORMAL — skill hits too, not 溅射 / 持续 / 附加,
+    // not a dodged one) while the member blocks nobody
+    if (!isEnemyTarget(t) || !isNormalDamage(dmg)) return;
     if (u.blocking && u.blocking.length) return;
     // 'addition': the template's DamageViaAttr is attackType ADDITION (有限加速器 counts no 附加伤害, items/battle.js)
     battle.dealDamage(u, t, { amount: pure * u.s.atk, type: 'true', canDodge: false, tags: ['bond:kazimierz', 'addition'] });

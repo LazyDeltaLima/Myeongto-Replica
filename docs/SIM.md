@@ -107,10 +107,11 @@ report 28): 乌尔比安 knocked out while his S3 has moved him lies on his depl
 is free (`Unit.downAtHome`, set by his kit for that 【移动】, cleared by the return and by every deployment; DESIGN §25.17.3). "倒地干员所在地块视为可部署，但所有我方单位在此处的部署
 行为将被阻止": `downOn(r, c)` — `_deploy` (redeploys, the 突袭 landing, summons), `spawnDevice` and `relocate` refuse that
 tile and `isReservedTile` reports it, so every automatic picker skips it. The rule covers every 退场 (GitHub #60): an
-operator forced out by its own effects (`retreat` reason `'retreat'`: 史尔特尔's 余烬, 耀骑士临光 S2, 骑士戒律 + 竞技旗,
+operator forced out by its own effects (`retreat` reason `'retreat'`: 史尔特尔's 余烬, 耀骑士临光 S2,
 伊内丝 S3; `'merchant'`: a 商人 that cannot pay) lies down and comes back the same way — still no kill (its death reason is
 not `'killed'`: no 被击倒 effects, 阿戈尔 or knock-down count — except Touch's 超脱 on a `dying` exit, a knock-out put off
-by the operator's own effect that plays its death animation: 史尔特尔's 余烬, 骑士戒律 + 竞技旗; PRTS Touch(卫戍协议) 备注
+by the operator's own effect that plays its death animation: 史尔特尔's 余烬; the 骑士戒律 + 竞技旗 combo is a real knock-out
+when its skill ends — the client's InstantKill, `battle.kill` with no killer; PRTS Touch(卫戍协议) 备注
 "部分有死亡动画的强制撤退（如史尔特尔的天赋效果）也能触发这一天赋"), but 不屈 rolls on it (PRTS 盟约记录 不屈 修正 "被击倒、撤退、
 切换<替身>与<本体>时": a hit redeploys it at once, free, where it lies; addon/battle.js); only the 突袭 retreat (`'raid'`,
 redeployed at once on its landing tile — no 不屈 roll) and permanent removals leave nothing.
@@ -702,11 +703,11 @@ it, so the two players of a pair field compete for one instance instead of multi
 奥术 note "※同一单位仅可对同一目标同时施加1个该盟约法术伤害提升效果" limits each unit to one instance per target; read with
 the engine default — a newer same-named buff waits inert until the earlier ones end (PRTS 常见同名状态 "默认叠加方式") — and
 巴哈姆特 12316 ("共享型buff會跟對面搶"), one instance is effective at a time, which is what applyStrongest keeps; strongest
-rather than earliest is [ASSUMED]. Known deviation [ASSUMED]: an earlier revision of that note (oldid 386936) read
-"同一单位在对同一目标施加的“法术伤害提升”效果的持续期间内，无法对该目标施加新的该盟约的法术伤害提升效果" — no re-application
-while the unit's own instance lasts, so it would lapse 3 s after the first hit and return with the next arts hit —
-whereas an equal-value hit here refreshes the instance to a fresh 3 s; slightly stronger (at most one attack interval
-of coverage per 3 s), kept because the current wording no longer says so (feedback after 0.1.0).
+rather than earliest is [ASSUMED]. A unit does not re-apply while its own instance on that target lasts — the client
+buff graph act2autochess_bond_eff_arcane checks for a [weak] from the same member before creating one, as an earlier
+revision of that note (oldid 386936) read: "同一单位在对同一目标施加的“法术伤害提升”效果的持续期间内，无法对该目标施加新的该盟约的
+法术伤害提升效果" — so it lapses 3 s after the first hit and returns with the next arts hit (until 2026-10-31 an
+equal-value hit refreshed it to a fresh 3 s).
 
 | key | effect | value |
 |---|---|---|

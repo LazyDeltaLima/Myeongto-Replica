@@ -230,6 +230,26 @@ test('奥术: member arts damage → target arts taken ×(1.2+0.01·L) for 3 s; 
   close(e2.s.artsTakenMul, m * bb.power_weak_scale, 'low-HP multiplier (+68%+1.4%/L)');
   close(e2.s.artsTakenMul - 1, bb.base_damage_scale_show_ex + bb.damage_scale_per_stack_show_ex * 10, 'matches the *_show keys');
   checkInvariants(h2.b);
+
+  // client graph act2autochess_bond_eff_arcane: HP ≤ hp_ratio (FilterByTargetHpRatio LE) takes the tier-2 value; no
+  // re-application while the member's own instance lasts; the next one after it reads the live layers
+  const h3 = mk(bond(2, 10, 3));
+  h3.step(2);
+  const e3 = h3.enemy('enemy_addon_dummy');
+  const a3 = h3.unit('a_m');
+  e3.hp = e3.s.maxHp * 0.5;
+  h3.b.dealDamage(a3, e3, { amount: 0.001, type: 'arts' });
+  e3.hp = e3.s.maxHp * 0.5;
+  close(e3.s.artsTakenMul, m * bb.power_weak_scale, 'exactly 50 %: the tier-2 value');
+  h3.run(2);
+  e3.hp = e3.s.maxHp;
+  h3.b.dealDamage(a3, e3, { amount: 0.001, type: 'arts' });
+  close(e3.s.artsTakenMul, m * bb.power_weak_scale, 'its own instance lasts: no re-application with the full-HP value');
+  gainLayers(h3.b, { playerId: 'p1', bonds: 'arcaneShip', n: 20 });
+  h3.run(1.2);
+  h3.b.dealDamage(a3, e3, { amount: 0.001, type: 'arts' });
+  close(e3.s.artsTakenMul, bb.base_damage_scale + bb.damage_scale_per_stack * 30, 'after it: a new instance with the live layers');
+  checkInvariants(h3.b);
 });
 
 test('奥术 with two players on one field: one instance per target, the strongest wins (never multiplied); a weaker one resumes after it', () => {
@@ -262,10 +282,18 @@ test('奥术 with two players on one field: one instance per target, the stronge
   const hp0 = e.hp;
   h.b.dealDamage(x, e, { amount: 100, type: 'arts' });
   close(hp0 - e.hp, 100 * m2, 'any arts damage on the target');
-  // p2 stops: its instance expires at 3 s, p1's later application (≈ 3 s too) resumes for the rest
+  // a member does not re-apply while its own instance lasts (client buff graph act2autochess_bond_eff_arcane:
+  // CheckContainsBuff [weak] from this member → IfNot → CreateBuff): p1's hit 1 s later makes no new one
   h.run(1);
   h.b.dealDamage(u1, e, { amount: 100, type: 'arts' });
   close(e.s.artsTakenMul, m2, 'still the stronger one');
+  h.run(bb.weak_duration - 1 + 0.1);
+  close(e.s.artsTakenMul, 1, "both first instances expired; p1's hit while its own lasted added none");
+  // p2 applies, p1 applies 1 s later: when p2's expires, p1's (later) resumes for the rest
+  h.b.dealDamage(u2, e, { amount: 100, type: 'arts' });
+  h.run(1);
+  h.b.dealDamage(u1, e, { amount: 100, type: 'arts' });
+  close(e.s.artsTakenMul, m2, 'the stronger one shows');
   h.run(bb.weak_duration - 1 + 0.1);
   close(e.s.artsTakenMul, m1, 'the stronger expired, the weaker (applied later) resumes');
   h.run(1.1);
@@ -755,22 +783,23 @@ test('独行: the lone member ATK/HP ×1.6 and +15 SP on every deploy', () => {
   checkInvariants(h.b);
 });
 
-test('绝技: 2 elites → elite ATK ×1.3; 5 elites → elite SP cost ×0.7 (floored); normal chess untouched', () => {
+test('绝技: 2 elites → elite ATK ×1.3; 5 elites → elite SP cost ceil(×0.7) (client ModifySpData); normal chess untouched', () => {
   const bb = bondBb('suntShip');
   const defs = { chess: {
-    j_e_b: chessRec({ id: 'j_e_b', golden: true, skill: { spCost: 10 } }),
-    j_n: chessRec({ id: 'j_n', skill: { spCost: 10 } }),
+    j_e_b: chessRec({ id: 'j_e_b', golden: true, skill: { spCost: 25 } }),
+    j_n: chessRec({ id: 'j_n', skill: { spCost: 25 } }),
   } };
   const units = [{ chessId: 'j_e_b', row: 10, col: 3 }, { chessId: 'j_n', row: 12, col: 3 }];
   const h1 = makeBattle({ defs, units, bonds: { suntShip: bond(1, 0, 2) } });
   h1.step();
   close(h1.unit('j_e_b').s.atk, 500 * (1 + bb.power_atk));
   close(h1.unit('j_n').s.atk, 500);
-  assert.equal(h1.unit('j_e_b').skill.spCost, 10, 'tier 1: SP cost unchanged');
+  assert.equal(h1.unit('j_e_b').skill.spCost, 25, 'tier 1: SP cost unchanged');
   const h2 = makeBattle({ defs, units, bonds: { suntShip: bond(2, 0, 5) } });
   h2.step();
-  assert.equal(h2.unit('j_e_b').skill.spCost, Math.floor(10 * bb.sp_ratio));
-  assert.equal(h2.unit('j_n').skill.spCost, 10);
+  assert.equal(bb.sp_ratio, 0.7);
+  assert.equal(h2.unit('j_e_b').skill.spCost, 18, '25 × 0.7 = 17.5 → 18 (was floored to 17)');
+  assert.equal(h2.unit('j_n').skill.spCost, 25);
   checkInvariants(h2.b);
 });
 

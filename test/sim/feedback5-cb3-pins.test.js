@@ -19,7 +19,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { getDefaultSource } from '../../server/sim/simdata.js';
-import { prdConstant } from '../../server/sim/content/bonds/core.js';
+import { prdBase } from '../../server/sim/content/bonds/addon/battle.js';
 
 const ds = getDefaultSource();
 const dummy = (key, o = {}) => enemyRec({ key, hp: 1e9, speed: 0, mass: 0, atk: 0, ...o });
@@ -108,7 +108,7 @@ test('item 46 — 荒芜拉普兰德 S3: she attacks while her drones are out (t
   assert.ok(attacks() > n0, 'her attacks go on after the skill');
   assert.ok(h.hooksOf('damaged').some((c) => c.source === u() && c.t > t1 + 1 && funnel(c)), 'with the drone additions again');
   checkInvariants(h.b);
-  const c = prdConstant(0.03);
-  assert.ok(Math.abs(c - 0.00139) < 0.00001, `叙拉古 6 PRD constant ${c} ≈ PRTS 0.139 %`);
+  const c = prdBase(0.03);
+  assert.equal(c, 0.00139, `叙拉古 6 PRD constant ${c} = the client's prdBaseProbs[3] (PRTS 0.139 %)`);
   assert.ok(Math.ceil(1 / c) <= 722, 'a proc by the 722nd attempt at the latest (PRTS: 720 with the rounded 0.139 %)');
 });

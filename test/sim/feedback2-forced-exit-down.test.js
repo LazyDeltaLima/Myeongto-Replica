@@ -1,8 +1,8 @@
 // test/sim/feedback2-forced-exit-down.test.js — GitHub #60 「42突袭死后会消失」 (42 = 史尔特尔): every operator that leaves
 // the field lies down on its tile and redeploys there — PRTS 卫戍协议/帮助 §作战阶段 单位部署: "干员退场后，将返回隐藏的待部署区，
 // 并原地留下一个“倒地干员”以供查看信息，满足再部署条件时，移除场上的该倒地干员并自动部署至该位置。" (the owner's decision of
-// 2026-10-04). A forced exit — 史尔特尔's 余烬 (8 s after the lethal blow), 耀骑士临光 S2's withdrawal, the 骑士戒律 + 竞技旗
-// combo, 伊内丝 S3's first deployment, a 商人 that cannot pay — used to leave no body and no ring and to come back on the
+// 2026-10-04). A forced exit — 史尔特尔's 余烬 (8 s after the lethal blow), 耀骑士临光 S2's withdrawal,
+// 伊内丝 S3's first deployment, a 商人 that cannot pay — used to leave no body and no ring and to come back on the
 // board tile (Battle.isDown took only 'killed' / FORCED_EXIT); it still is no kill. The 突袭 retreat ('raid') redeploys at
 // once and leaves nothing; a real knock-out is unchanged.
 

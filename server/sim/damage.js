@@ -176,6 +176,32 @@ export function isHpLoss(dmg) {
   return !!dmg && Array.isArray(dmg.tags) && dmg.tags.includes('hpLoss');
 }
 
+/**
+ * Is this DamageInfo 普通伤害 — the attack type NORMAL? The client's mask is NORMAL 1 · SPLASH 2 · BUFF 4 (持续伤害) ·
+ * ADDITION 8, and graphs that want 普通伤害 filter ON_OUTPUT_DAMAGE with FilterDamageModifer `_attackTypeFilter` NORMAL
+ * (the bit test (type & NORMAL) == NORMAL; act2autochess_bond_eff_siracusa[ex][buff], kazimierz[ex], acarm122 [end] /
+ * [ex]). PRTS 盟约记录 叙拉古: "※仅在造成普通伤害时尝试造成来源为干员自身的
+ * 真实附加伤害和恐惧", "每次造成普通伤害时尝试触发" — 普通伤害 is the attack type NORMAL (PRTS 伤害分类: the default type,
+ * group damage included unless it is 溅射), not "a normal attack" (community report 「叙拉古盟约真伤概率数值没有正确递增
+ * 成长」, GitHub #79: it rolled on normal attacks only). So skill hits roll — 德克萨斯 剑雨, 缄默德克萨斯's bursts and
+ * sword rain, 阿罗玛 S1 / S2, 忍冬 S1 / S2, 伺夜 S3 — and so do 荒芜拉普兰德's S3 drone attacks (PRTS 备注 "不属于普通攻击/
+ * 技能直接伤害": neither an attack nor skill damage, still 普通伤害). Not: 溅射 (`isSplash`); 持续伤害 (tags dot / periodic:
+ * 荒芜拉普兰德's S3 pulse, PRTS 备注 "持续法术伤害"; 缄默德克萨斯 S1, "伤害分类为法术持续伤害"); 附加伤害 (tag `addition`:
+ * 拉普兰德's module, 忍冬's 追凶 — PRTS "法术附加伤害"; item procs and the bonds' riders, own proc included [ASSUMED: 附加,
+ * PRTS gives no class]); element damage; 无来源 damage (坚守's thorns); 流失.
+ */
+export function isNormalDamage(dmg) {
+  if (!dmg || dmg.isSplash || dmg.sourceless || dmg.type === 'element' || dmg.type === 'elemental') return false;
+  const tags = dmg.tags;
+  if (!Array.isArray(tags)) return true;
+  for (let i = 0; i < tags.length; i++) {
+    const t = tags[i];
+    if (t === 'dot' || t === 'periodic' || t === 'addition' || t === 'item' || t === 'hpLoss') return false;
+    if (typeof t === 'string' && t.startsWith('bond:')) return false;
+  }
+  return true;
+}
+
 /** 沉睡 (ba.sleep "无敌且无法行动"): only attackers whose profile has `hitSleep` (or `ignoreSleep` damage) reach a sleeper. */
 function sleepBlocks(target, source, dmg) {
   return !!target.s.flags.sleep && !dmg.ignoreSleep && !(source && source.profile && source.profile.hitSleep);
@@ -615,7 +641,8 @@ export function reduceElement(target, amount, el = null) {
  * Heal pipeline. Returns the HP actually restored. `noHeal` stops heals from others (`self` heals pass); `healFree` (禁疗,
  * PRTS 异常效果 HEAL_FREE "受到的治疗量变为0") stops the unit's own too — except an HP-regeneration attribute (`regen`:
  * "增减生命回复速度或生命回复速度（百分比）属性的效果不会被识别为治疗类能力") and a heal that ignores it (`ignoreHealFree`:
- * 史尔特尔 S3's start heal, PRTS "无视禁疗").
+ * 史尔特尔 S3's start heal, PRTS "无视禁疗"). `noEvent`: no `heal` hook at all — a client heal node with `_skipModifierEvent`
+ * (休眠子裔's HealViaMaxHpRatio), which fires no modifier event for the heal-counting graphs (有限加速器).
  * A `regen` tick (Battle status: the unit's own 生命回复速度, `s.hpRegen` — 吟游者 / 调香师 / 瑕光 S2 / 铃兰 S3 / 锡人 add to it
  * with an hpRegen buff, PRTS 备注 "不受治疗加成和禁疗影响") is no 治疗: no 治疗加成 scales it — neither the healing
  * multipliers nor a `heal` handler (handlers still see it, with `opts.regen`; a change they make to its amount is
@@ -633,7 +660,7 @@ export function heal(battle, source, target, amount, opts = {}) {
   if (target.s.flags.healFree && !regen && !opts.ignoreHealFree && !through) return 0;
   let amt = regen ? amount : amount * (source && source.s ? source.s.healingDealtMul : 1) * target.s.healingTakenMul;
   if (!(amt > 0) || !Number.isFinite(amt)) return 0;
-  if (battle._hooks.heal) {
+  if (battle._hooks.heal && !opts.noEvent) {
     const ctx = { source, target, amount: amt, opts };
     battle.emit('heal', ctx);
     if (!regen) amt = Number.isFinite(ctx.amount) ? Math.max(0, ctx.amount) : 0;

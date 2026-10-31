@@ -224,7 +224,7 @@ function whitw2(bb, chess, def) {
     // 信息 驭械术师 "浮游单元攻击不同目标…时，上述的伤害立刻恢复至初始值"). That damage is arts and neither a normal attack
     // nor skill damage (PRTS S3 备注 "该技能释放的浮游单元造成的伤害不属于普通攻击/技能直接伤害", which for this skill
     // overrides the branch note "通过技能释放的浮游单元造成技能直接伤害": no 'attack' hook, isAttack / isSkill false — the
-    // on-attack items skip it; it is still 普通伤害, so the 叙拉古 6 proc rolls on it, bonds/core.js siracusaRolls), and
+    // on-attack items skip it; it is still 普通伤害, so the 叙拉古 6 proc rolls on it, damage.js isNormalDamage), and
     // 缴械 does not stop it (PRTS 驭械术师 "…不受缴械类效果
     // 制约"); [ASSUMED] nor do her stun, freeze or silence (PRTS names only 缴械) — the skill ticks on and so do the drones.
     // Around every drone (attack@range_radius): move speed attack@move_speed and, once per second, attack@magic_atk_scale

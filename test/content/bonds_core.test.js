@@ -4,12 +4,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
-import { bondBb, deps, prdConstant, reached, yanyouShare, lateranoAmmo, registerMeta as coreRegisterMeta } from '../../server/sim/content/bonds/core.js';
+import { prdBase } from '../../server/sim/content/bonds/addon/battle.js';
+import { bondBb, deps, reached, yanyouShare, lateranoAmmo, registerMeta as coreRegisterMeta } from '../../server/sim/content/bonds/core.js';
 import * as items from '../../server/sim/content/items.js';
 import { TOKEN_IDS } from '../../server/sim/content/tokens.js';
 import { createRegistry } from '../../server/match/effectsMeta.js';
 import { makeMatch, DATA, give, legalTileFor } from '../match/harness.js';
 import { FORCED_EXIT } from '../../server/sim/constants.js';
+import { battleStore } from '../../server/sim/content/support/index.js';
 
 const close = (a, b, eps = 1e-6, msg) => assert.ok(Math.abs(a - b) <= eps, `${msg ?? ''} expected ${b}, got ${a}`);
 const op = (id, bonds, extra = {}) => chessRec({
@@ -876,7 +878,7 @@ test('叙拉古: after each deployment ASPD +(25+0.8L) for 32+0.4L s; 3 members:
 });
 
 test('叙拉古 6: 隐匿 for the same time; attacks while hidden / ≤ 10 s after proc (PRD) 5000+50L true damage + fear 3 s', () => {
-  close(prdConstant(0.03), 0.00139, 2e-5);
+  assert.equal(prdBase(0.03), 0.00139);   // battle_misc_table prdBaseProbs[3]
   const list = [];
   for (let i = 0; i < 6; i++) list.push([`r${i}_a`, ['siracusaShip']]);
   const L = 20;
@@ -907,6 +909,29 @@ test('叙拉古 6: 隐匿 for the same time; attacks while hidden / ≤ 10 s aft
   checkInvariants(h.b);
 });
 
+test('叙拉古 6: the PRD count is one for the battle — both players of a pair field roll it (client DicePRD global blackboard)', () => {
+  const list = [];
+  for (let i = 0; i < 12; i++) list.push([`r${i}_a`, ['siracusaShip']]);
+  const side = (pid, seat, from) => ({
+    playerId: pid, seat, side: seat ? 'R' : 'L', colOffset: 0, bandId: null, playerEffects: [],
+    units: Array.from({ length: 6 }, (_, i) => ({ uid: seat * 10 + i + 1, kind: 'chess', chessId: `r${from + i}_a`, row: 9 + seat * 3, col: 3 + i })),
+    bonds: { siracusaShip: bondOn(6, 0, null, [3, 6]) },
+  });
+  const h = makeBattle({
+    kind: 'boss', defs: defsOf(list), players: [side('p1', 0, 0), side('p2', 1, 6)],
+    enemies: [{ key: 'e_dummy', pos: [10, 9] }], autoFinish: false, timeLimit: 60,
+  });
+  h.step(1);
+  const orig = h.b.rng;
+  h.b.rng = Object.assign(() => 0.999, orig);   // every roll misses: the count only grows
+  const a = h.b.allyUnits.find((u) => u.defId === 'r0_a'), b = h.b.allyUnits.find((u) => u.defId === 'r6_a');
+  const e = h.enemies()[0];
+  for (let i = 0; i < 5; i++) h.b.dealDamage(a, e, { amount: 1, type: 'phys', isAttack: true });
+  for (let i = 0; i < 3; i++) h.b.dealDamage(b, e, { amount: 1, type: 'phys', isAttack: true });
+  assert.equal(battleStore(h.b, 'bond:siracusa:prd').n, 8, 'one count for both players');
+  checkInvariants(h.b);
+});
+
 // ---------------------------------------------------------------------------------------------------------------------
 // 卡西米尔
 
@@ -927,7 +952,7 @@ test('卡西米尔: every own deployment (initial included) → members ATK +20 
   }
 });
 
-test('卡西米尔 6: blocking members pulse 120 % ATK true damage + 0.1 s stun every 2 s; non-blocking attacks add 30 % ATK true', () => {
+test('卡西米尔 6: blocking members pulse 120 % ATK true damage + 0.1 s stun as they start blocking, then every 2 s; non-blocking 普通伤害 adds 30 % ATK true', () => {
   const list = [];
   for (let i = 0; i < 6; i++) list.push([`z${i}_a`, ['kazimierzShip']]);
   const walker = enemyRec({ key: 'e_walk', hp: 1e8, speed: 1, atk: 0 });
@@ -943,8 +968,11 @@ test('卡西米尔 6: blocking members pulse 120 % ATK true damage + 0.1 s stun 
   assert.ok(h.runUntil(() => z0.blocking.length > 0, 30), 'blocked');
   const t0 = h.b.time;
   h.run(4.1);
-  const pulses = tagged(h, 'bond:kazimierz').filter((c) => c.source === z0 && c.dmg.isSplash && c.t >= t0);
-  assert.ok(pulses.length >= 1 && pulses.length <= 3, `pulses ${pulses.length}`);
+  const pulses = tagged(h, 'bond:kazimierz').filter((c) => c.source === z0 && c.dmg.isSplash && c.t >= t0 - 0.1);
+  // client kazimierz[ex][damage]: created as the block starts, ticks at once (waitFirstTriggerInterval false), then every 2 s
+  assert.equal(pulses.length, 3, `pulses at the block's start, +2 s, +4 s (${pulses.map((c) => (c.t - t0).toFixed(2))})`);
+  assert.ok(Math.abs(pulses[0].t - t0) < 0.05, 'the first pulse as the block starts');
+  close(pulses[1].t - pulses[0].t, 2, 1e-6);
   close(pulses[0].amount, 1.2 * z0.s.atk, 1e-6);
   assert.ok(h.hooksOf('statusApplied').some((c) => c.status === 'stun' && c.source === z0 && Math.abs(c.duration - 0.1) < 1e-9));
   // (묶음 S12) the pulse's [ex_damage_effect] common_071_bond_kazimierz_hit_01_new on each enemy it hits
@@ -959,6 +987,13 @@ test('卡西米尔 6: blocking members pulse 120 % ATK true damage + 0.1 s stun 
   const extra = tagged(h, 'bond:kazimierz').filter((c) => c.source === z1);
   assert.equal(extra.length, n0 + 1);
   close(extra[extra.length - 1].amount, 0.3 * z1.s.atk, 1e-6);
+  // every 普通伤害 instance (kazimierz[ex] FilterDamageModifer NORMAL): a skill hit too; not 溅射 / 持续 / 附加
+  h.b.dealDamage(z1, e, { amount: 100, type: 'arts' });
+  assert.equal(tagged(h, 'bond:kazimierz').filter((c) => c.source === z1).length, n0 + 2, 'a skill hit');
+  h.b.dealDamage(z1, e, { amount: 100, type: 'arts', isSplash: true });
+  h.b.dealDamage(z1, e, { amount: 100, type: 'arts', tags: ['dot'] });
+  h.b.dealDamage(z1, e, { amount: 100, type: 'arts', tags: ['addition'] });
+  assert.equal(tagged(h, 'bond:kazimierz').filter((c) => c.source === z1).length, n0 + 2, 'no rider on splash / DoT / addition');
   checkInvariants(h.b);
 });
 

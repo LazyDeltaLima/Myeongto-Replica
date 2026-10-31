@@ -800,7 +800,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
 - **迅捷(`swiftShip`)** — `act1autochess_bond_eff_swift` ON_SKILL_FINISH: `Dice` 한 번 → 멤버면 +normal_sp → AlwaysNext → 층 ≥ 40이면 +power_sp. 이전 「멤버는 두 번 따로 굴림」 [ASSUMED]를 한 번 굴림으로.
 - **坚守(`steadShip`) 반격** — `[ex]` ON_TAKE_DAMAGE 순서가 쿨다운 → `weak[limit]`(취약) → `FixedValueDamage`라 반격 피해 자체가 방금 건 취약(×1.4)을 받음(이전: 피해 뒤 취약).
 - 2라운드(아래 「盟约·특질·장비·생성기 2라운드」)에서 炎·萨尔贡·维多利亚·谢拉格·拉特兰·阿戈尔·精准·灵巧·助力·协防, 주둔 이벤트, 乐队, 장비 일부를 대조했다.
-  아직 대조 안 함(템플릿 목록은 `autochess_templates_summary.tsv`, 조사 노트): act2 맹약(叙拉古·卡西米尔·奥术·独行·绝技) 그래프, 적 디버프(`act1autochess_debuff_*` 일부), 不屈 3명 SP(`AutochessCreateBuffToSpecifiedChar _filterByMinSp`·`_excludeOwner` — 자기 빼고 SP 가장 낮은 한 명일 수 있음, 미확정).
+  아직 대조 안 함(템플릿 목록은 `autochess_templates_summary.tsv`, 조사 노트): 적 디버프(`act1autochess_debuff_*` 일부), 不屈 3명 SP(`AutochessCreateBuffToSpecifiedChar _filterByMinSp`·`_excludeOwner` — 자기 빼고 SP 가장 낮은 한 명일 수 있음, 미확정). act2 맹약·이 시즌 장비는 아래 「act2 맹약·장비 템플릿 대조」.
 
 
 ## 盟约·특질·장비·생성기 2라운드 (2026-10-11, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
@@ -891,6 +891,57 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   EN 템플릿(卫戍协议 201개)의 노드 이펙트 16개 중 우리 sim이 모델하는 것 전부: 拉特兰桥夹(채울 때만), 黄沙罗盘, 迅捷(줄마다), 阿戈尔 표식·5 부활, 埃芒加德·M3茧甲 부활,
   歌利亚头盔(앞 칸이 비었을 때), 蒸汽之心(维多利亚 운반자), 叙拉古 6 발동, 谢拉格 바람(화면 가운데). 뺀 것: `act1vautochess_acarm024`의 `trap_acgarm_buff_02`(이 시즌 장비 炎国短刀의
   것이지만 그 갈래가 돌지 않음 — 위 「炎国短刀·有限加速器」), `trap_acspell004`(다른 모드, 우리 데이터에 없음); 버프 자체 이펙트(`overrideEffectKey`: 은신 `common_invisible` 등)는 노드가 아니라 버프가 붙어 있는 동안의 것이라 이 이벤트가 아님. 테스트 `test/content/tplfx.test.js`.
+
+## act2 맹약·장비 템플릿 대조 (2026-10-31, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
+출처: EN 클라(2026-08) 버프 템플릿 그래프와 공식 클라에서 확인한 노드 본문(`FilterDamageModifer`·`ModifySpData`·`AutoChessFilterChess`·
+`AutoChessAssignChessCntToBB`). 수치는 활동 표 블랙보드.
+- **공격 종류 거르기**: 공식 클라에서 확인 — `FilterDamageModifer`의 공격 종류 검사는 비트 마스크 `(종류 & 필터) == 필터`(NORMAL 1·SPLASH 2·
+  BUFF 4(지속 피해)·ADDITION 8), `_sharedFlag`는 `_filterSharedMask`가 켜졌을 때만 본다(이 시즌 템플릿은 모두 꺼짐). 그래서 NORMAL 필터 = 「일반 피해」
+  (스킬 피해 포함, 溅射·지속·부가 피해 빼고, `_filterModifierCancelled`면 회피된 것도 뺌) — 시라쿠사(맹약 `siracusaShip`) 6 발동이 쓰던 판정을
+  `damage.js isNormalDamage`로 옮겨 카시미어·패밀리 배지도 쓴다.
+- **아케인(맹약 `arcaneShip`)**: `act2autochess_bond_eff_arcane` ON_OUTPUT_DAMAGE — 법술 피해면(공격 종류 상관없음) 대상에 그 멤버가 건 `[weak]`가
+  있는지 보고(`CheckContainsBuff _checkBuffSource`) **없을 때만** 새로 건다 → 자기 것이 남아 있는 동안 다시 맞혀도 시간을 새로 하지 않는다(이전 추정:
+  같은 값이면 3초로 새로). 2단계 값은 대상 HP 비율 **50 % 이하**(`FilterByTargetHpRatio LE`, 이전: 미만). 두 플레이어 필드의 「가장 센 것 하나」는 그대로.
+  `bonds/addon/battle.js`.
+- **시라쿠사 6 발동**: `[ex][buff]`의 `DicePRD` — C는 클라 표 `prdBaseProbs`(3 % → 0.00139, 이전: 같은 값을 계산으로 구함), 횟수는 전투 전역 블랙보드
+  하나 → **두 플레이어 필드면 둘이 함께 셈**(불굴과 같음, 이전: 플레이어마다). 남은 것: EN 템플릿에서 `[ex]`를 붙이는 노드를 못 찾음(활동 표에도 없음) — 규칙은
+  `[ex]`·`[ex][buff]` 그래프대로. `bonds/core.js installSiracusa`.
+- **카시미어(맹약 `kazimierzShip`) 6**: `[ex]` ON_OWNER_BLOCKEE_CHANGED가 저지를 시작할 때 `[ex][damage]`를 만들고 저지가 없어지면 끝낸다. 틱 간격은 블랙보드
+  `interval`(= `damage_interval` 2), `waitFirstTriggerInterval` 꺼짐 → **저지 시작 순간 한 번, 그 뒤 저지하는 동안 2초마다**, 멤버마다 따로(이전: 전투 시계
+  2초마다 그때 저지 중인 멤버). 저지하지 않을 때의 30 % 진실 피해는 **모든 일반 피해**(스킬 피해 포함; 이전: 일반 공격만). 남은 것: 배치 수 `kazimierz_born`은
+  전역 블랙보드 `CHARACTER` 채널에 전역 버프가 시작될 때마다 더하는데, 그 채널이 플레이어별인지·소환물도 세는지는 안 읽음(지금: 자기 오퍼레이터 배치만, 묶음 라 범위).
+- **궁극기(맹약 `suntShip`) 5**: `ModifySpData`(`_onlyUpdateSpCost`, `_updateSpCostViaMaxRatioKey sp_ratio`) = **올림**(float32 곱 `ceil`)을 캐릭터 스킬
+  데이터에 씀(이전: 내림). 25 × 0.7 → 18. 2단계 공격력·「정예 수」 셈(`AutoChessAssignChessCntToBB _assignGoldenChess`: 같은 플레이어의 전장 말 중 정예)은 같음.
+  소환물: `AutoChessFilterChess`는 그 캐릭터의 카드가 전장 말(`GetInstIdByCardUid` ≥ 0)이고 정예일 때만 통과 — 소환물의 카드가 말에 묶이는지는 안 읽음(지금:
+  정예의 소환물도 SP 소모 감소, 그대로).
+- **독행(맹약 `soloShip`)**: 그래프(ON_BUFF_START 공격력·HP MULTIPLIER, ON_BUFF_LATE_ENABLE `ModifySp _forceFlag` +sp)가 지금과 같음 — 코드 변경 없음.
+- **위장복(장비 `chess_item_4_04_e`)**: `act2autochess_equip_acarm055_global_buff` ON_TAKE_DAMAGE → 은신 → 자기 끝. 전역 버프는 배치마다 새로 붙으므로
+  **배치마다 첫 피해에 한 번**(이전: 전투당 한 번).
+- **잠자는 후예(장비 `chess_item_4_06_e`)**: `act1vautochess_acarm025_buff` ON_OUTPUT_DAMAGE → `HealViaMaxHpRatio _skipModifierEvent` — **주는 피해 한 번마다**
+  (스킬·광역 각 대상·지속 피해·회피된 것도; 이전: 공격한 대상마다), 회복은 치료 이벤트를 내지 않는다(`heal` `noEvent`: 제한 가속기가 세지 않음). 원소 손상과
+  장비 발동 피해는 이 포크 규칙대로 뺌.
+- **카시미어 스포츠 깃발(장비 `chess_item_4_07_e`)**: 본 버프의 첫 틱(배치 15초 뒤)이 `[ending]`으로 넘기고, `[ending]`은 0.5초마다(`waitFirstTriggerInterval`)
+  −0.04 하다 1 아래면 끝 → **첫 감소는 창이 끝나고 0.5초 뒤**(이전: 창이 끝나자마자).
+- **해구 실험체(장비 `chess_item_6_04_e`)**: 반격 조건 맹약 거르기에 `_considerManiShip`이 없음 → **자기 맹약이 에기르일 때만**(조화 멤버 제외, 이전: 조화 포함).
+  `[lock]`이 피해 노드보다 먼저라 출처 없는 피해도 0.5초를 씀. 받은 지속 피해도 반격(거르기 없음 — 이전과 같음), 流失은 뺌.
+- **쉐라간드의 눈물(장비 `chess_item_6_06_e`)**: 능력 `act2autochess_equip_acarm102_ability`가 사거리 안 적마다 붙고, 寒冷·冻结이면 `[buff]`가 틱(`interval` 1,
+  `waitFirstTriggerInterval` 꺼짐) → **그 적이 얼어붙은 순간 한 번, 그 뒤 1초마다, 적마다 따로**; 풀리거나 사거리를 벗어나면 멈춤. 피해는 무출처(`_noSource`,
+  처치·통계는 운반자). 이전: 전투 시계 1초마다, 출처 있음.
+- **페가수스의 투구(장비 `chess_item_5_09_e`)**: 짝(페가수스의 랜스)이 있으면 `[ex]` 속성 `HP_RECOVERY_PER_SEC_BY_MAX_HP_RATIO` → **자기 생명 회복 속성**
+  (`hpRegenRatio`, 연속, 치료 이벤트 없음; 배치 때·빌려줄 때 판정). 이전: 1초마다 치료 한 번.
+- **페가수스의 랜스(장비 `chess_item_6_01_e`)**: 거르기가 공격 종류(ADDITION → IfNot)뿐이고 `_filterModifierCancelled`가 없음 → 회피된 피해에도 붙음(아래 절의
+  [추정·엔진] 해소). 코드 변경 없음.
+- **기사 계율(장비 `chess_item_6_10_e`) + 깃발**: `[ex]` UNDEADABLE, ON_BEFORE_TRY_SET_HP_ZERO 뒤 ON_BUFF_FINISH(스킬 끝)에 `InstantKill _noSource _skipReborn`
+  → **스킬이 끝날 때 쓰러짐**(`battle.kill`, 죽인 쪽 없음 — 쓰러짐 효과·불굴·에기르가 봄; 이전 추정: `dying` 철수).
+- **패밀리 배지(장비 `chess_item_6_11_e`)**: 은신에 들어가면 `[buff]`가 1초마다(`waitFirstTriggerInterval`) +0.02 → **은신 한 번의 온전한 1초마다**(이전: 0.25초마다
+  매끄럽게), 은신이 풀리면 `[end]`(+짝이면 `[ex]`)가 **첫 일반 피해**에 끝남(이전: 아무 피해). 
+- **특질 `act1autochess_gar_event_consume_ammo`**: `[consume]`가 사거리 안 소비마다 그 소비자에게서 0.1초짜리 `[cnt]`를 보유자에게 주되 이미 있으면 안 주고,
+  `[cnt]`가 시작될 때 1을 더함 → **한 소비자는 0.1초에 한 번까지 셈**. `garrisons/battle.js`. 남은 것: 본 능력(이 키 자체)은 EN 템플릿에 없어 `[self]`
+  틱 간격(한 틱에 문턱 하나만 넘김)은 안 봄 — 지금은 문턱을 넘는 순간.
+- 다른 장비 템플릿(시라쿠사 정장 `act2autochess_equip_acarm121_ability`)은 EN 템플릿에 없어 대조 못 함.
+- 테스트: `test/content/bonds_core.test.js` 「叙拉古 6: the PRD count is one for the battle」·「卡西米尔 6」, `bonds_addon.test.js` 「奥术 with two players」·「绝技」,
+  `items.test.js` 「伪装服」·「休眠子裔」·「卡西米尔竞技旗」·「天马之盔 + 天马之枪」·「海沟实验体」·「耶拉冈德之泪」·「骑士戒律」·「家族徽章」, `garrisons_battle.test.js`
+  「consume_ammo」.
 
 ## 일반 공격 타이밍 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 오퍼레이터·적의 일반 공격을 EN 공식 클라(관리자 노트)대로 맞췄다. 코드 `server/sim/ai.js` `attackTiming`·`updateAlly`·`enemyAttack`,
@@ -1960,7 +2011,7 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
   처치로 센다(`kits/ops/chess_char_5_19-mlynar.js ownKills`).
 - 근거: PRTS 맹약 기록(하) 장비 데이터베이스의 페가수스의 랜스 비고 — 「仅在造成非附加伤害时额外造成无来源真伤附加伤害」, 「额外造成的伤害基于原伤害计算攻击倍率后、计算单位防御力/法术抗性以及
   所有伤判效果前的伤害数值，且先于原伤害处理完毕」. 공식 표의 값 키는 `act2autochess_equip_acarm117_global_buff` `atk_scale` 0.3.
-  **[추정·엔진: 원래 피해가 회피돼도 추가 피해는 들어간다 — 비고가 「먼저 처리」라고만 하고 회피 판정과의 순서는 확인 안 함. upstream도 회피 전]**
+  원래 피해가 회피돼도 추가 피해는 들어간다 — 템플릿 거르기에 `_filterModifierCancelled`가 없음(위 「act2 맹약·장비 템플릿 대조」, 2026-10-31).
 - 테스트 `test/content/item-pegasus.test.js`(옛 코드에서 실패), `test/content/items.test.js` 「天马之盔 + 天马之枪」, `test/content/feedback1b_kits.test.js` 「B4 玛恩纳」, `test/sim/funnel-body.test.js` 「Pegasus riders」.
   golden: fields boss-boss_2-pair·boss-boss_3-solo·boss-boss_5-pair·hidden-boss_8-pair·hidden-boss_10-pair, 이펙트 golden boss-boss_5-pair·hidden-boss_10-pair.
 

@@ -131,12 +131,13 @@ test('叙拉古正装: allies on the two tiles beside the carrier (perpendicular
   }
 });
 
-test('精准狙击镜: damage ×1.3 / ×1.5 against targets ≥ 3 tiles away', () => {
+test('精准狙击镜: damage ×1.3 / ×1.5 against targets more than 3 tiles away', () => {
+  // exactly 3 tiles gives nothing (CheckDistance → IfNot, test/content/buff-node-items.test.js)
   for (const [id, sc] of [[A('3_02'), 1.3], [B('3_02'), 1.5]]) {
-    const h = fight({ units: [{ chessId: 't_op', row: 10, col: 3, items: [id] }], foes: [[10, 6], [10, 5]] });
+    const h = fight({ units: [{ chessId: 't_op', row: 10, col: 3, items: [id] }], foes: [[10, 7], [10, 5]] });
     h.step(1);
     const u = h.unit('t_op');
-    const [far, near] = [h.b.enemies.find((e) => e.x === 6), h.b.enemies.find((e) => e.x === 5)];
+    const [far, near] = [h.b.enemies.find((e) => e.x === 7), h.b.enemies.find((e) => e.x === 5)];
     close(hitTrue(h, u, far, 1000), 1000 * sc, `${id} far`);
     close(hitTrue(h, u, near, 1000), 1000, `${id} near`);
     cover(id);
@@ -324,7 +325,7 @@ test('有限加速器: a damage output (not 附加伤害) or a heal, at most onc
   }
 });
 
-test('伪装服: the first damage taken gives 隐匿 for 15 s / 25 s, once per battle', () => {
+test('伪装服: the first damage taken gives 隐匿 for 15 s / 25 s, once per deployment', () => {
   for (const [id, d] of [[A('4_04'), 15], [B('4_04'), 25]]) {
     const h = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [id] }], foes: [[10, 9]] });
     h.step(1);
@@ -337,6 +338,12 @@ test('伪装服: the first damage taken gives 隐匿 for 15 s / 25 s, once per b
     assert.ok(!u.s.flags.stealth, 'expired');
     hitTrue(h, foe(h), u, 10);
     assert.ok(!u.s.flags.stealth, `${id}: only the first damage`);
+    // the global buff starts again with the next deployment (client acarm055: CreateBuff → FinishBuff per buff)
+    h.b.retreat(u);
+    u.respawnAt = 0;
+    h.b.redeploy(u);
+    hitTrue(h, foe(h), u, 10);
+    assert.ok(u.s.flags.stealth, `${id}: hides again after a redeployment`);
     cover(id);
   }
 });
@@ -359,7 +366,7 @@ test('防暴盾: while blocking, damage from units it does not block ×0.6 / ×0
   }
 });
 
-test('休眠子裔: each attacked target heals the carrier 2 % / 4 % of its max HP', () => {
+test('休眠子裔: each damage instance the carrier deals heals it 2 % / 4 % of its max HP, with no heal event', () => {
   for (const [id, r] of [[A('4_06'), 0.02], [B('4_06'), 0.04]]) {
     const h = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [id] }], foes: [[10, 5]] });
     h.step(1);
@@ -370,6 +377,14 @@ test('休眠子裔: each attacked target heals the carrier 2 % / 4 % of its max 
     const heals = h.eventsOf('heal').filter((e) => e[1] === u.id);
     assert.ok(heals.length >= 1);
     close(heals[0][2], 2000 * r, id, 0.6);
+    // client acarm025: ON_OUTPUT_DAMAGE → HealViaMaxHpRatio `_skipModifierEvent` — skill / DoT instances too, no heal hook
+    let hooked = 0;
+    h.b.on('heal', (c) => { if (c.target === u) hooked++; });
+    const hp0 = u.hp;
+    h.b.dealDamage(u, foe(h), { amount: 10, type: 'arts', tags: ['dot'] });
+    h.b.dealDamage(u, foe(h), { amount: 10, type: 'arts' });
+    close(u.hp - hp0, 2 * 2000 * r, `${id}: two instances, two heals`, 1e-6);
+    assert.equal(hooked, 0, `${id}: the heal fires no heal event`);
     cover(id);
   }
 });
@@ -382,8 +397,10 @@ test('卡西米尔竞技旗: damage ×1.35 / ×1.6 for 15 s after deploying, the
     close(hitTrue(h, u, foe(h), 1000), 1000 * sc, `${id} t≈0`);
     h.run(14.5);
     close(hitTrue(h, u, foe(h), 1000), 1000 * sc, `${id} t≈14.5`);
-    h.run(16.8 - h.b.time); // 1.8 s past the window: 4 steps of 0.5 s started
-    close(hitTrue(h, u, foe(h), 1000), 1000 * (sc - 4 * minus), `${id} t≈16.8`, 1e-3);
+    h.run(15.3 - h.b.time); // just past the window: the first step comes 0.5 s after it (client [ending] tick)
+    close(hitTrue(h, u, foe(h), 1000), 1000 * sc, `${id} t≈15.3`);
+    h.run(16.8 - h.b.time); // 1.8 s past the window: 3 whole steps of 0.5 s
+    close(hitTrue(h, u, foe(h), 1000), 1000 * (sc - 3 * minus), `${id} t≈16.8`, 1e-3);
     h.run(10);
     close(hitTrue(h, u, foe(h), 1000), 1000, `${id} decayed`);
     cover(id);
@@ -515,9 +532,11 @@ test('天马之盔 + 天马之枪 (either quality): regen 8 % max HP / s and +30
     hitTrue(h, u, e, 1000);
     close(before - e.hp, 1000 + 0.3 * 1000, `${helm}+${lance} lance proc: 30 % of the instance, not of ATK`);
     h.b.loseHp(u, 1000);
-    const hp0 = u.hp;
+    const hp0 = u.hp, t0 = h.b.time;
     h.run(1.02);
-    close(u.hp - hp0, 0.08 * u.s.maxHp, `${helm}+${lance} regen`, 1);
+    // the unit's own 生命回复 (HP_RECOVERY_PER_SEC_BY_MAX_HP_RATIO): continuous, no heal event
+    close(u.hp - hp0, 0.08 * u.s.maxHp * (h.b.time - t0), `${helm}+${lance} regen`, 2);
+    assert.ok(u.s.hpRegen > 0, 'a regen attribute');
     cover(helm, lance);
   }
   // alone: neither set part does anything beyond its stat
@@ -602,6 +621,13 @@ test('海沟实验体: −180 / −300 per damage instance; (阿戈尔) hit take
   const e = foe(other), hp0 = e.hp;
   hitTrue(other, e, other.unit('t_op'), 500);
   close(hp0 - e.hp, 0, 'not 阿戈尔: no counter');
+  // the [lock] comes before the damage nodes: sourceless damage taken uses the 0.5 s too
+  const s2 = fight({ ops: { t_op: op('t_op', { bonds: ['egirShip'] }) }, units: [{ chessId: 't_op', row: 10, col: 3, items: [A('6_04')] }], foes: [[10, 9]] });
+  s2.step(1);
+  const e2 = foe(s2), hp2 = e2.hp;
+  hitTrue(s2, null, s2.unit('t_op'), 500);
+  hitTrue(s2, e2, s2.unit('t_op'), 500);
+  close(hp2 - e2.hp, 0, 'a sourceless hit took the lock');
 });
 
 test('蒸汽之心 (维多利亚): hammers equipped on the field are granted; the carrier\'s own hammer counts twice', () => {
@@ -656,7 +682,7 @@ test('耶拉冈德之泪 (谢拉格): cold / frozen enemies in range take 30 % A
     const procs = [];
     h.b.on('damaged', (c) => { if (c.dmg.tags && c.dmg.tags.includes('item:tears')) procs.push([c.target === cold, c.amount]); });
     h.run(3.05);
-    return { procs, atk: u.s.atk };
+    return { procs, atk: u.s.atk, h, u, warm };
   };
   let r = count(['kjeragShip'], [A('6_06')]);
   assert.ok(r.procs.length >= 3 && r.procs.every(([isCold]) => isCold), 'only the cold one, once per second');
@@ -665,6 +691,19 @@ test('耶拉冈德之泪 (谢拉格): cold / frozen enemies in range take 30 % A
   close(r.procs[0][1], 1.0 * r.atk, '100 % ATK with 不融冰');
   r = count(['yanShip'], [A('6_06')]);
   assert.equal(r.procs.length, 0, 'not 谢拉格');
+  // a timer per enemy (client acarm102 ability [buff], waitFirstTriggerInterval false): at once when it turns cold, then
+  // every second, with no source
+  r = count(['kjeragShip'], [A('6_06')]);
+  const times = [];
+  r.h.b.on('damaged', (c) => { if (c.dmg.tags && c.dmg.tags.includes('item:tears') && c.target === r.warm) times.push([r.h.b.time, c.source]); });
+  r.h.run(0.37);
+  const t0 = r.h.b.time;
+  r.h.b.applyStatus(r.warm, 'cold', { duration: 100 });
+  r.h.run(2.1);
+  assert.equal(times.length, 3, `at once, +1 s, +2 s (${times.map(([t]) => (t - t0).toFixed(2))})`);
+  assert.ok(times[0][0] - t0 < 0.05, 'the first hit as it turns cold');
+  close(times[1][0] - times[0][0], 1, 'then every second', 1e-6);
+  assert.equal(times[0][1], null, 'no source');
   cover(A('6_06'), B('6_06'), A('5_02'), B('5_02'));
 });
 
@@ -730,8 +769,9 @@ test('骑士戒律 (卡西米尔): 20 s after a skill starts enemies in range AS
   hitTrue(h, foe(h), k, 1e6);
   assert.ok(k.alive && k.hp >= 1, 'lethal damage does not retreat it');
   h.run(5.2);
-  assert.equal(k.alive, false, 'retreats when the skill ends');
-  assert.equal(k.removeReason, 'retreat');
+  // client [ex] ON_BUFF_FINISH → InstantKill (no source): a knock-out
+  assert.equal(k.alive, false, 'falls when the skill ends');
+  assert.equal(k.removeReason, 'killed');
   cover(A('6_10'), B('6_10'), A('4_07'), B('4_07'));
 });
 
@@ -741,8 +781,9 @@ test('家族徽章 (叙拉古): ATK +2 %/s while 隐匿 (max +100 %) until the f
     h.step(1);
     const u = h.unit('t_op');
     const atk0 = u.s.atk;
-    h.b.applyStatus(u, 'stealth', { duration: 10 });
-    h.run(10);
+    // the growth comes in whole seconds of the 隐匿 stint (client [buff] ticks once a second): 10.5 s → 10 steps
+    h.b.applyStatus(u, 'stealth', { duration: 10.5 });
+    h.run(10.5);
     const ramp = u.s.atk / atk0;
     assert.ok(!u.s.flags.stealth, 'damage immediately after stealth expires');
     const e = foe(h);
@@ -751,7 +792,7 @@ test('家族徽章 (叙拉古): ATK +2 %/s while 隐匿 (max +100 %) until the f
     return { ramp, dealt: hp0 - e.hp, atkAfter: u.s.atk / atk0, atk0, u };
   };
   let r = run([A('6_11')]);
-  close(r.ramp, 1.2, '+2 %/s over 10 s', 0.02);
+  close(r.ramp, 1.2, '+2 % per whole second over 10.5 s', 1e-9);
   close(r.dealt, 100, 'no true damage without 叙拉古正装');
   close(r.atkAfter, 1, 'bonus consumed by the first damage');
   r = run([B('6_11'), A('3_01')]);

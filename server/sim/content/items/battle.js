@@ -46,7 +46,7 @@ import {
   num, itemRecord, dataFile, itemKeyOf, buffsOf, isOp, onField, unitBonds, isMember, bondActive, isGroundOp, frontTile,
   alliesAround, passiveBuff, fxOn, tplFx, battleStore, contentInfo, itemsOf, directMods,
 } from '../support/index.js';
-import { mitigate, hasHp, periodicDamage, isHpLoss } from '../../damage.js';
+import { mitigate, hasHp, periodicDamage, isHpLoss, isNormalDamage } from '../../damage.js';
 import { hypot } from '../../detmath.js';
 
 // =====================================================================================================================
@@ -619,15 +619,18 @@ const BY_ITEM = {
     S.on('hit', (c) => { if (c.source === u && !isAddition(c.dmg)) stack(); });
     S.on('heal', (c) => { if (c.source === u && !c.opts?.regen) stack(); });
   },
-  // 伪装服: first damage taken in the battle ⇒ 隐匿 `duration` s (a 流失 is not 受到伤害: damage.js isHpLoss)
+  // 伪装服: first damage taken in each deployment ⇒ 隐匿 `duration` s (a 流失 is not 受到伤害: damage.js isHpLoss).
+  //   Client buff graph act2autochess_equip_acarm055_global_buff: ON_TAKE_DAMAGE → CreateBuff [invisible] → FinishBuff;
+  //   the global buff starts again with every deployment (like 黄沙罗盘's), so each deployment hides once
+  //   (until 2026-10-31: once per battle)
   chess_item_4_04_e(battle, u, rec, S) {
     const p = bp(rec, 'act2autochess_equip_acarm055_global_buff');
     const d = p ? num(p.duration) : 0;
     if (!(d > 0)) return;
-    let used = false;
+    let usedSeq = -1;
     S.on('damaged', (c) => {
-      if (used || c.target !== u || !(c.amount > 0) || !u.alive || isHpLoss(c.dmg)) return;
-      used = true;
+      if (c.target !== u || usedSeq === u.deploySeq || !(c.amount > 0) || !u.alive || isHpLoss(c.dmg)) return;
+      usedSeq = u.deploySeq;
       battle.applyStatus(u, 'stealth', { duration: d, source: u });
       fxOn(battle, 'camouflage', u, 'item:chess_item_4_04_e', rec.id, { duration: d });
     });
@@ -646,13 +649,24 @@ const BY_ITEM = {
       c.dmg.mul *= sc;
     });
   },
-  // 休眠子裔: each attacked target ⇒ heal self hp_ratio × max HP
+  // 休眠子裔: each damage instance the carrier deals ⇒ heal self hp_ratio × max HP. Client buff graph
+  //   act1vautochess_acarm025_buff: ON_OUTPUT_DAMAGE → HealViaMaxHpRatio `_skipModifierEvent` — every instance (skill hits,
+  //   each target of an area hit, damage over time, a dodged one), and the heal fires no heal event (heal `noEvent`: 有限加速器
+  //   does not count it). Not 元素损伤, not item procs (this fork's rule). Until 2026-10-31: once per attacked target
   chess_item_4_06_e(battle, u, rec, S) {
     const p = bp(rec, 'act1vautochess_equip_acarm025_global_buff');
     const r = p ? num(p.hp_ratio) : 0;
-    if (r > 0) onAttackEnemies(S, u, () => battle.heal(u, u, u.s.maxHp * r, { self: true }));
+    if (!(r > 0)) return;
+    S.on('hit', (c) => {
+      const t = c.target;
+      if (c.source !== u || !t || t.side !== 'enemy' || c.dmg.type === 'element' || isProc(c.dmg)) return;
+      battle.heal(u, u, u.s.maxHp * r, { self: true, noEvent: true });
+    });
   },
-  // 卡西米尔竞技旗: damage ×damage_scale for `interval` s after each deploy, then −damage_scale_minus every ex_interval s
+  // 卡西米尔竞技旗: damage ×damage_scale for `interval` s after each deploy, then −damage_scale_minus every ex_interval s.
+  //   Client buff graph act2autochess_equip_acarm120_global_buff: its first tick (after `interval`) hands over to [ending],
+  //   whose ticks (every ex_interval s, waitFirstTriggerInterval) add damage_scale_minus and end the buff once below 1 —
+  //   so the first decrease comes ex_interval s after the window (until 2026-10-31: at once)
   chess_item_4_07_e(battle, u, rec, S) {
     const p = bp(rec, 'act2autochess_equip_acarm120_global_buff');
     if (!p) return;
@@ -661,7 +675,7 @@ const BY_ITEM = {
       if (c.source !== u || c.dmg.type === 'element') return;
       const t = battle.time - u.deployedAt;
       let m = sc;
-      if (t > win + 1e-9) m = minus < 0 ? Math.max(1, sc + minus * Math.ceil((t - win) / step - 1e-9)) : 1;
+      if (t > win + 1e-9) m = minus < 0 ? Math.max(1, sc + minus * Math.floor((t - win) / step + 1e-9)) : 1;
       if (m !== 1) c.dmg.mul *= m;
     });
   },
@@ -743,20 +757,30 @@ const BY_ITEM = {
     S.on('hit', (c) => { if (c.source === u) weaknessRetype(c.dmg, u, c.target); }, 5);
     if (passiveBuff(battle, u, 'item:dualArm', null, { visible: true })) S.track(u, 'item:dualArm');
   },
-  // 天马之盔: with 天马之枪 ⇒ regen hp_recovery_per_sec_by_max_hp_ratio × max HP per second
+  // 天马之盔: with 天马之枪 ⇒ 生命回复 hp_recovery_per_sec_by_max_hp_ratio × max HP per second. Client buff graph
+  //   act2autochess_equip_acarm118_global_buff ON_BUFF_START: AutoChessCheckHasEquip → [ex] with the attribute
+  //   HP_RECOVERY_PER_SEC_BY_MAX_HP_RATIO — the unit's own regeneration (hpRegenRatio: continuous, no 治疗 event), judged
+  //   when the buff starts (each deployment, or a lend). Until 2026-10-31: a heal once a second
   chess_item_5_09_e(battle, u, rec, S) {
     const p = bp(rec, 'act2autochess_equip_acarm118_global_buff');
     const partner = partnerOf(p);
     const r = p ? num(p.hp_recovery_per_sec_by_max_hp_ratio) : 0;
     if (!partner || !(r > 0)) return;
-    S.stat('set', null, { interval: 1, onTick: ({ unit }) => { if (unit.deployed && carries(battle, unit, partner)) battle.heal(unit, unit, unit.s.maxHp * r, { self: true }); } });
+    const key = S.key('set');
+    const sync = () => {
+      if (carries(battle, u, partner)) S.buff(u, { key, mods: { hpRegenRatio: r }, refresh: 'replace' });
+      else battle.removeBuff(u, key);
+    };
+    S.on('deploy', (c) => { if (c.unit === u) sync(); });
+    sync();
   },
   // 天马之枪: with 天马之盔 ⇒ each of the carrier's non-附加 damage instances also deals atk_scale × that instance's damage as 无来源
   // 真实附加伤害 — "额外造成的伤害基于原伤害计算攻击倍率后、计算单位防御力/法术抗性以及所有伤判效果前的伤害数值，且先于原伤害
   // 处理完毕" (PRTS 盟约记录 下半 装备数据库 备注): the base is the instance's amount at the `hit` hook (after the attack
   // multiplier, before DEF / RES and the dealt / taken multipliers), and it lands before the instance does. 无来源: hooks
-  // see no source, the kill and the stats stay the carrier's (credit). [ASSUMED·엔진: a dodged instance still carries it — the
-  // client resolves the rider first; whether its dodge roll comes before is not checked]
+  // see no source, the kill and the stats stay the carrier's (credit). A dodged instance still carries it: the client graph
+  // act2autochess_equip_acarm117_global_buff filters ON_OUTPUT_DAMAGE only by attack type (FilterDamageModifer ADDITION →
+  // IfNot, no `_filterModifierCancelled`), so 持续 / 溅射 instances and cancelled ones carry it too
   chess_item_6_01_e(battle, u, rec, S) {
     const p = bp(rec, 'act2autochess_equip_acarm117_global_buff');
     const partner = partnerOf(p);
@@ -794,7 +818,10 @@ const BY_ITEM = {
     // whatever the count [추정: a count of 0 makes it with +0]: 'item:cauldron' (render/fxstatus.js KEY_FX)
     if (passiveBuff(battle, u, 'item:cauldron', null, { visible: true })) S.track(u, 'item:cauldron');
   },
-  // 海沟实验体 (阿戈尔): hit taken ⇒ atk_scale × ATK arts to the source (lock_duration CD); + 阿戈尔重刃 ⇒ one more hit
+  // 海沟实验体 (阿戈尔): hit taken ⇒ atk_scale × ATK arts to the source (lock_duration CD); + 阿戈尔重刃 ⇒ one more hit.
+  //   Client buff graph act2autochess_equip_acarm078_global_buff: ON_BUFF_START AutoChessFilterCharacterBondIds egirShip
+  //   without `_considerManiShip` (own bonds only — no 调和 member); ON_TAKE_DAMAGE (any damage, not a cancelled one) takes
+  //   the [lock] before the damage nodes, so damage with no source to hit back still uses the 0.5 s
   chess_item_6_04_e(battle, u, rec, S) {
     const p = bp(rec, 'act2autochess_equip_acarm078_global_buff');
     if (!p) return;
@@ -802,10 +829,11 @@ const BY_ITEM = {
     const cd = num(p.lock_duration, 0.5), sc = num(p.atk_scale);
     let ready = -Infinity;
     S.on('damaged', (c) => {
-      const src = c.source;
-      if (c.target !== u || !src || src.side !== 'enemy' || !src.alive || battle.time < ready || isProc(c.dmg)) return;
-      if (!u.alive || !memberOf(battle, u, 'egirShip')) return;
+      if (c.target !== u || battle.time < ready || isProc(c.dmg) || isHpLoss(c.dmg)) return;
+      if (!u.alive || !unitBonds(u, battle).includes('egirShip')) return;
       ready = battle.time + cd;
+      const src = c.source;
+      if (!src || src.side !== 'enemy' || !src.alive) return;
       const hits = partner && carries(battle, u, partner) ? 2 : 1;
       for (let i = 0; i < hits && src.alive; i++) battle.dealDamage(u, src, { amount: u.s.atk * sc, type: 'arts', tags: procTags('trench') });
     });
@@ -824,18 +852,31 @@ const BY_ITEM = {
     S.on('deploy', (c) => { if (c.unit === u) show(); });
     if (onField(u)) show();
   },
-  // 耶拉冈德之泪 (谢拉格): every interval s, cold/frozen enemies in range take atk_scale (+不融冰: atk_scale_ex) × ATK arts
+  // 耶拉冈德之泪 (谢拉格): cold/frozen enemies in range take atk_scale (+不融冰: atk_scale_ex) × ATK arts every interval s.
+  //   Client ability act2autochess_equip_acarm102_ability on each enemy in range: while it is 寒冷 / 冻结 a [buff] ticks
+  //   (bb `interval`, waitFirstTriggerInterval false) — at once, then every interval s, a timer per enemy that stops when
+  //   it thaws or leaves the range; the damage has no source (`_noSource`: hooks see none, the carrier keeps the credit).
+  //   Until 2026-10-31: one battle-wide 1 s clock with a source
   chess_item_6_06_e(battle, u, rec, S) {
     const p = bp(rec, 'act2autochess_equip_acarm102_ability');
     if (!p) return;
     const partner = partnerOf(p);
-    S.every(Math.max(0.1, num(p.interval, 1)), () => {
-      if (!onField(u) || !memberOf(battle, u, 'kjeragShip')) return;
-      const sc = partner && carries(battle, u, partner) ? num(p.atk_scale_ex) : num(p.atk_scale);
+    const iv = Math.max(0.1, num(p.interval, 1));
+    const next = new Map();
+    S.every(0, () => {
+      if (!onField(u) || !memberOf(battle, u, 'kjeragShip')) { next.clear(); return; }
+      const seen = new Set();
       for (const e of battle.enemiesInKeys(u.rangeKeys, u, { canHitFly: true })) {
         const f = e.s.flags;
-        if (f.cold || f.freeze) battle.dealDamage(u, e, { amount: u.s.atk * sc, type: 'arts', canDodge: false, tags: procTags('tears') });
+        if (!f.cold && !f.freeze) continue;
+        seen.add(e);
+        const due = next.get(e);
+        if (due !== undefined && battle.time < due - 1e-9) continue;
+        next.set(e, (due ?? battle.time) + iv);
+        const sc = partner && carries(battle, u, partner) ? num(p.atk_scale_ex) : num(p.atk_scale);
+        battle.dealDamage(u, e, { amount: u.s.atk * sc, type: 'arts', canDodge: false, sourceless: true, tags: procTags('tears') });
       }
+      for (const e of next.keys()) if (!seen.has(e)) next.delete(e);
     });
   },
   // 黄沙罗盘: 初始技力 +init_sp each deploy; (萨尔贡) first skill end of each deployment +sp; + 萨尔贡浓茶: each cast all 萨尔贡 +addition_sp
@@ -869,8 +910,10 @@ const BY_ITEM = {
     });
   },
   // 骑士戒律 (卡西米尔): skill start ⇒ 20 s aura: enemies in range ASPD ×attack_speed, move ×move_speed;
-  //   + 卡西米尔竞技旗: during the (timed) skill ATK +atk, lethal damage does not retreat it — it retreats when the skill ends
-  //   ("受到致命伤害时不撤退，技能结束后退场": a knock-out put off, so a `dying` retreat — Touch's 超脱 counts it [ASSUMED])
+  //   + 卡西米尔竞技旗: during the (timed) skill ATK +atk, lethal damage does not retreat it — it falls when the skill ends
+  //   ("受到致命伤害时不撤退，技能结束后退场"; client buff graph act2autochess_equip_acarm119_global_buff[ex]: UNDEADABLE, and
+  //   ON_BUFF_FINISH after ON_BEFORE_TRY_SET_HP_ZERO → InstantKill `_noSource` `_skipReborn` — a knock-out with no killer;
+  //   until 2026-10-31 a `dying` retreat)
   chess_item_6_10_e(battle, u, rec, S) {
     const p = bp(rec, 'act2autochess_equip_acarm119_global_buff');
     const a = bp(rec, 'act2autochess_equip_acarm119_ability');
@@ -895,7 +938,7 @@ const BY_ITEM = {
       battle.removeBuff(u, comboKey);
       if (doomed && c.reason !== 'death') {
         doomed = false;
-        battle.after(0, () => { if (u.alive) battle.retreat(u, { reason: 'retreat', dying: true }); });
+        battle.after(0, () => { if (u.alive) battle.kill(u, null); });
       }
     });
     S.on('fatal', (c) => {
@@ -911,28 +954,33 @@ const BY_ITEM = {
     }, { immediate: true });
   },
   // 家族徽章 (叙拉古): while 隐匿 ATK grows atk_per_sec/s up to +max_atk until the first damage after 隐匿 ends
-  //   (or leaving the field); + 叙拉古正装 ⇒ that first hit also deals atk_scale × ATK true damage
+  //   (or leaving the field); + 叙拉古正装 ⇒ that first hit also deals atk_scale × ATK true damage.
+  //   Client buff graph act2autochess_equip_acarm122_global_buff: entering 隐匿 starts a [buff] that ticks once a second
+  //   (waitFirstTriggerInterval) adding atk_per_sec — so it grows in whole seconds of each 隐匿 stint; leaving 隐匿 hands
+  //   the value to [end] (and [ex] with the partner), which end on the first 普通伤害 instance (FilterDamageModifer NORMAL:
+  //   not 溅射 / 持续 / 附加, not a dodged one). Until 2026-10-31: a smooth growth and any damage ended it
   chess_item_6_11_e(battle, u, rec, S) {
     const p = bp(rec, 'act2autochess_equip_acarm122_global_buff');
     if (!p) return;
     const partner = partnerOf(p);
     const key = S.key('stealth');
     const per = num(p.atk_per_sec), max = num(p.max_atk, 1);
-    const st = { bonus: 0, seq: -1 };
-    const TICKS = 0.25;
-    S.every(TICKS, () => {
-      if (u.deploySeq !== st.seq) { st.seq = u.deploySeq; st.bonus = 0; }
-      if (!onField(u) || !memberOf(battle, u, 'siracusaShip')) return;
-      const stealth = !!u.s.flags.stealth;
-      if (stealth && st.bonus < max) {
-        st.bonus = Math.min(max, st.bonus + per * TICKS);
-        S.buff(u, { key, mods: directMods({ atk: st.bonus }), refresh: 'replace' });
-      }
+    const st = { bonus: 0, seq: -1, since: null, ticks: 0 };
+    S.every(0, () => {
+      if (u.deploySeq !== st.seq) { st.seq = u.deploySeq; st.bonus = 0; st.since = null; }
+      if (!onField(u) || !memberOf(battle, u, 'siracusaShip') || !u.s.flags.stealth) { st.since = null; return; }
+      if (st.since === null) { st.since = battle.time; st.ticks = 0; }
+      const k = Math.floor(battle.time - st.since + 1e-6);
+      if (k <= st.ticks) return;
+      st.ticks = k;
+      if (st.bonus >= max) return;
+      st.bonus = Math.min(max, st.bonus + per);
+      S.buff(u, { key, mods: directMods({ atk: st.bonus }), refresh: 'replace' });
     });
     S.on('damaged', (c) => {
-      if (c.source !== u || isProc(c.dmg) || !(c.amount > 0) || st.bonus <= 0
+      if (c.source !== u || !isNormalDamage(c.dmg) || !(c.amount > 0) || st.bonus <= 0
         || u.deploySeq !== st.seq || !onField(u) || u.s.flags.stealth) return;
-      // Read stealth at the damage event: the first hit can land before the next 0.25 s growth poll.
+      // Read stealth at the damage event: the first hit can land before the next growth poll.
       // Claim the bonus before the combo's synchronous damage can re-enter this handler; keep its ATK for the combo.
       st.bonus = 0;
       if (partner && carries(battle, u, partner) && c.target && c.target.alive && c.target.side === 'enemy') {

@@ -15,16 +15,18 @@
 //                      its 4 adjacent tiles (L ≥ power_bond_stack_cnt: its 8 surrounding tiles) — members themselves
 //                      always; judged once per deployment and kept while it stays (client buff graph, see 灵巧 aura below)
 //   奥术 arcaneShip    member arts damage → target arts taken ×(base + per·L) for weak_duration s; tier 2: ×power_weak_scale
-//                      when the target is below hp_ratio at application. ONE instance per target whatever applies it — the
+//                      when the target is at or below hp_ratio at application. ONE instance per target whatever applies it — the
 //                      two players of a pair field compete for it, the strongest wins (battle.applyStrongest, 同名效果取最高:
 //                      PRTS 作战机制 "同名buff的默认叠加策略buff只能表现出一个"; 巴哈姆特 12316 first-hand: "共享型buff會跟對面搶
 //                      如果對面層數比你高就不需要再特別激活直接吃他的奧術buff"). v2.5 kept one per player, so two players'
 //                      instances multiplied (×5.4 × ×5.6 on a leader at ~250 layers, DESIGN §20.10). PRTS 盟约记录's own
 //                      note "※同一单位仅可对同一目标同时施加1个该盟约法术伤害提升效果" (one instance per unit and target)
 //                      fits it under the engine default (a newer same-named buff waits until the earlier ends, PRTS
-//                      常见同名状态); strongest vs earliest is [ASSUMED]. Known deviation [ASSUMED]: an earlier revision
-//                      (oldid 386936) forbade a unit re-applying while its own instance lasts; an equal hit here
-//                      refreshes it to a fresh 3 s (slightly stronger). Re-measured after the 0.1.0 report
+//                      常见同名状态); strongest vs earliest is [ASSUMED]. A member does not re-apply (nor refresh) while
+//                      its own instance on that target lasts: client buff graph act2autochess_bond_eff_arcane ON_OUTPUT_DAMAGE
+//                      (MAGICAL damage of any attack type, dodged included) → CheckContainsBuff [weak] from this member →
+//                      IfNot → CreateBuff (FilterByTargetHpRatio LE hp_ratio picks the tier-2 value; the PRTS revision
+//                      oldid 386936 said the same). Re-measured after the 0.1.0 report
 //                      "奥术盟约不生效": it works on the real and the browser path (test/sim/feedback1b-arcane.test.js);
 //                      标准 never activates it (modeDataDict inactiveBondIdList)
 //   坚守 steadShip     all operators max HP +(base + per·L); tier 2: 40 % of a non-member operator's damage is borne by
@@ -50,7 +52,7 @@
 //   协防 emptyShip     all operators phys/arts taken ×(1 − damage_resistance); members dealt ×damage_scale_normal
 //                      (elite ×damage_scale_extra)
 //   独行 soloShip      the member(s) ATK +atk, HP +max_hp, +sp SP on every deploy
-//   绝技 suntShip      tier 1: elite operators ATK +power_atk; tier 2: elites (and their summons) SP cost ×sp_ratio
+//   绝技 suntShip      tier 1: elite operators ATK +power_atk; tier 2: elites (and their summons) SP cost ceil(×sp_ratio)
 //   远见 / 奇迹 / 投资人 / 调和 have no battle effect (prep side, membership in support/index.js).
 //
 // Hooks registered only when a bond needs them. Priorities: `hit` −20 (坚守 redirect, after other modifiers had their
@@ -77,6 +79,7 @@ export const KEY = Object.freeze({
 const LAYERED = new Set([ID.preci, ID.swift, ID.skillful, ID.arcane, ID.stead, ID.deput, ID.raid, ID.indom]);
 const STEAD_CD = 'bond:steadShip:cd';
 const AURA_JUDGE = 'bond:skillfulShip:judge'; // u.mem: { near, cross } judged on the receiver's deployment
+const ARCANE_BY = 'bond:arcaneShip:by';  // target u.mem: member id → until when its own 奥术 instance lasts
 const RAID_POLL = 0.25;
 const RAID_SPAWN = 'bond:raidShip:spawn';  // u.mem: the [spawn] mark (any jump; kept until the member leaves the field)
 const RAID_TRIG_KEY = 'bond:raidShip:trig'; // u.mem: the running AUTO-skill [trig] (token)
@@ -234,11 +237,17 @@ function applyStatic(battle, st) {
   }
 }
 
+/**
+ * 绝技 tier 2: the skill's SP cost becomes ceil(cost × sp_ratio) — client node ModifySpData (`_onlyUpdateSpCost`,
+ * `_updateSpCostViaMaxRatioKey` sp_ratio): ceil of the float32 product, written into the character's skill data, so it
+ * stays for the battle (once per unit here).
+ */
 function suntSpCost(u, bb) {
   const sk = u && u.skill;
   if (!sk || sk.noSkill || u.mem[KEY.sunt]) return;
   u.mem[KEY.sunt] = true;
-  sk.spCostMul = sk.spCostMul * num(bb.sp_ratio, 1);
+  sk.baseSpCost = Math.ceil(Math.fround(Math.fround(sk.baseSpCost) * Math.fround(num(bb.sp_ratio, 1))));
+  sk._normalize();   // re-establish SP / charges for the new cost (as the spCostMul setter does)
 }
 
 // =====================================================================================================================
@@ -700,9 +709,13 @@ export function install(battle) {
       const st = byPid[src.ownerId];
       if (!st || !st.tiers[ID.arcane] || !st.members[ID.arcane].has(src)) return;
       const bb = st.bb[ID.arcane];
-      const low = st.tiers[ID.arcane] >= 2 && t.hpRatio < num(bb.hp_ratio);
+      const by = t.mem[ARCANE_BY] || (t.mem[ARCANE_BY] = {});
+      if (battle.time < num(by[src.id], -Infinity) - 1e-9) return;   // its own instance still lasts: no re-apply
+      const dur = num(bb.weak_duration, 3);
+      by[src.id] = battle.time + dur;
+      const low = st.tiers[ID.arcane] >= 2 && t.hpRatio <= num(bb.hp_ratio) + 1e-9;
       // one 奥术 instance per target, the strongest (both players of a pair field included): see the header
-      battle.applyStrongest(t, KEY.arcane, { duration: num(bb.weak_duration, 3), value: low ? st.arcaneLowMul : st.arcaneMul, mods: arcaneMods, source: src });
+      battle.applyStrongest(t, KEY.arcane, { duration: dur, value: low ? st.arcaneLowMul : st.arcaneMul, mods: arcaneMods, source: src });
     });
   }
 }
