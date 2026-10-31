@@ -784,5 +784,7 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
       for (const l of lms) { l.light?.dispose(); l.mask?.dispose(); }
     },
     update(t) { for (const m of animated) m.uniforms.uTime.value = t; },
+    /** Whether update() moves anything (the board is drawn every frame then: scene.js BOARD_REDRAW_MAX_S). */
+    get animated() { return animated.length > 0; },
   };
 }

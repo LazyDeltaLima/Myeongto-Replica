@@ -208,7 +208,8 @@ function stubRenderer() {
     capabilities: { getMaxAnisotropy: () => 8 },
     info: { render: { calls: 7, triangles: 1234 }, memory: { textures: 3, geometries: 5 } },
     setClearColor() {}, setPixelRatio(d) { calls.push(['dpr', d]); }, setSize(w, h) { calls.push(['size', w, h]); },
-    render(scene, camera) { calls.push(['render', scene, camera]); },
+    // like three.js: a draw renders the shadow map it was asked for (autoUpdate off) and clears the request
+    render(scene, camera) { calls.push(['render', scene, camera]); this.shadowMap.needsUpdate = false; },
     dispose() { calls.push(['dispose']); },
   };
 }
@@ -290,6 +291,107 @@ describe('BoardScene (three.js scene graph, stub renderer)', () => {
     assert.deepEqual(board.stats().calls, 7);
     board.lost = true;
     assert.equal(board.render(cam, 5), false, 'lost context: no draw');
+    board.destroy();
+  });
+
+  test('render keeps the last picture while nothing it shows changes, and draws on every change (BOARD_REDRAW_MAX_S)', () => {
+    const R = stubRenderer();
+    const board = new BoardScene(THREE, fakePack(), { renderer: R });
+    const still = ACTIVE.find((id) => {
+      board.setStage(stages[id]);
+      const M = board.meshes;
+      return !M.water && !M.mire && !M.infection && !M.smog;
+    });
+    assert.ok(still, 'a stage without animated terrain');
+    board.resize(1280, 720, 2);
+    const cam = presetCamera('normal', { width: 1280, height: 720 });
+    const draws = () => R.calls.filter((c) => c[0] === 'render').length;
+    let t = 10;
+    const step = (dt = 1 / 60) => board.render(cam, (t += dt));
+    assert.equal(step(), true, 'first frame drawn');
+    assert.equal(step(), false, 'nothing changed: the canvas keeps its picture');
+    const n = draws();
+    for (let i = 0; i < 20; i++) step();
+    assert.equal(draws(), n);
+    assert.equal(board.stats().skipped, 21);
+    assert.equal(step(1), true, 'drawn again after BOARD_REDRAW_MAX_S all the same');
+    assert.equal(step(), false);
+    // the camera
+    cam.update();
+    assert.equal(step(), true, 'camera moved');
+    assert.equal(step(), false);
+    // overlays: a tint is drawn once, the scrolling range stripes every frame
+    board.overlay.setTint([[10, 3]], () => 0);
+    assert.equal(step(), true, 'deploy tint shown');
+    assert.equal(step(), false);
+    board.overlay.stripes.material.uniforms.uMap.value ||= new THREE.Texture(); // Node has no canvas for the procedural copy
+    board.overlay.setStripes([[10, 4]], () => 0);
+    assert.ok(board.overlay.stripes.visible);
+    assert.equal(step(), true);
+    assert.equal(step(), true, 'stripes scroll');
+    board.overlay.setStripes(null);
+    board.overlay.setTint(null);
+    assert.equal(step(), true, 'overlays cleared');
+    assert.equal(step(), false);
+    // a leak flash: drawn while it fades and once more at 0
+    board.flashObjective(9, 2);
+    let flashDraws = 0;
+    while (flashDraws < 30 && step(0.1)) flashDraws++;
+    assert.ok(flashDraws >= 12 && flashDraws <= 13, `the flash fades over 1.2 s, then the frame at 0 (${flashDraws} draws)`);
+    assert.equal(board.mat.gateEndAb.uniforms.uFlash.value.r, 0);
+    // the focus eases, then snaps to its target and stops drawing
+    board.setFocus({ r0: 9, r1: 12, c0: 0, c1: 10 });
+    let eased = 0;
+    for (let i = 0; i < 200 && step(1 / 30); i++) eased++;
+    assert.ok(eased > 5 && eased < 200, `focus eased over ${eased} frames`);
+    const F = board.focus.uFocus.value;
+    assert.ok(near(F.x, -0.5) && near(F.y, 8.5) && near(F.z, 10.5) && near(F.w, 12.5), 'focus at its target exactly');
+    assert.equal(step(), false);
+    // a rebuild, a resize, a shadow map, a battle device
+    board.setBattleRect({ r0: 9, r1: 12, c0: 0, c1: 10 });
+    assert.equal(step(), true, 'battle rect: crates rebuilt');
+    assert.equal(step(), false);
+    board.resize(1000, 600, 2);
+    assert.equal(step(), true, 'resized');
+    R.shadowMap.needsUpdate = true;
+    assert.equal(step(), true, 'shadow map to render');
+    R.shadowMap.needsUpdate = false;
+    assert.equal(step(), false);
+    const h = board.createDevice();
+    h.update(null, { x: 5, y: 10, z: 0, size: 0.45, height: 0.3, alpha: 1 });
+    R.shadowMap.needsUpdate = false;
+    assert.equal(step(), true);
+    assert.equal(step(), true, 'battle devices: every frame');
+    h.destroy();
+    R.shadowMap.needsUpdate = false;
+    board.setBattleRect(null);
+    assert.equal(step(), true);
+    assert.equal(step(), false);
+    board.destroy();
+  });
+
+  test('animated terrain and the official scene water draw every frame', () => {
+    const R = stubRenderer();
+    const board = new BoardScene(THREE, fakePack(), { renderer: R });
+    const wet = ACTIVE.find((id) => { board.setStage(stages[id]); const M = board.meshes; return !!(M.water || M.mire || M.infection || M.smog); });
+    const cam = presetCamera('normal', { width: 1280, height: 720 });
+    board.resize(1280, 720, 2);
+    if (wet) {
+      board.render(cam, 1);
+      assert.equal(board.render(cam, 1.02), true, `${wet}: animated terrain`);
+    }
+    // an official scene whose materials animate (StylizedWater): its update() moves them every frame
+    const still = ACTIVE.find((id) => { board.setStage(stages[id]); const M = board.meshes; return !M.water && !M.mire && !M.infection && !M.smog; });
+    board.setStage(stages[still]);
+    board.render(cam, 2);
+    assert.equal(board.render(cam, 2.02), false);
+    board.officialBuilt = { animated: true, update() {} };
+    assert.equal(board.render(cam, 2.04), true, 'official water');
+    board.officialBuilt = { animated: false, update() {} };
+    board._touch();
+    board.render(cam, 2.06);
+    assert.equal(board.render(cam, 2.08), false);
+    board.officialBuilt = null;
     board.destroy();
   });
 

@@ -10,7 +10,8 @@
 //   board.createDevice()             → handle { update(cam, { x, y, z, size, height, top, side, alpha, rot }), mesh: null, destroy() }
 //                                      (render/units.js DeviceView boxes, drawn as the official crate mesh)
 //   board.flashObjective(r, c)       leak flash of a blue objective box
-//   board.render(cam, timeSec)       sync the camera, animate, draw
+//   board.render(cam, timeSec)       sync the camera, animate, draw → false when nothing it shows changed (the canvas
+//                                      keeps its last picture, BOARD_REDRAW_MAX_S) or the context is lost
 //   board.warm() → Promise           shaders compiled and textures uploaded before the first draw (WARM_MAX_MS at most)
 //   opts.loadOfficial(stageId, { retry, partial }) → Promise<official scene | null> (official.js loadOfficialScene; rejects
 //                                      while incomplete: tried again after OFFICIAL_RETRY_MS, opts.onOfficialMissing): when a stage has
@@ -61,6 +62,16 @@ export const LIGHTING = Object.freeze({
 export const OFFICIAL_RETRY_MS = Object.freeze([2000, 6000, 15000, 30000]);
 /** The longest wait (ms) for a loaded official scene's shaders and textures before it replaces the board anyway. */
 export const WARM_MAX_MS = 8000;
+/**
+ * 2026-10-31 (an iPhone run at 「高」: GPU-bound late rounds): render() draws the board again only when something it shows
+ * can have changed — the camera or the size, a rebuild (_touch), the focus easing, a leak flash, a shadow map to render,
+ * battle devices, an overlay change, or an animated material on screen (water, mire, infection, smog, the official
+ * scene's water, the range stripes, the 活性源石 effect); otherwise the canvas keeps its last picture. Still drawn at least
+ * this often (s of the render clock): a change the checks miss shows late by at most this much.
+ */
+export const BOARD_REDRAW_MAX_S = 1;
+/** The focus falloff snaps to its target closer than this (tiles, summed over the 4 edges; a fraction of a pixel). */
+const FOCUS_SNAP = 0.002;
 
 /** Additive gain of the gate boxes at the curve's mean (tuned against the official screenshots). */
 export const GATE_GAIN = 0.6;
@@ -236,6 +247,9 @@ export class BoardScene {
     this.camVersion = -1;
     this.camRef = null;
     this.frames = 0;
+    this.skipped = 0;                // render() calls that kept the last picture (BOARD_REDRAW_MAX_S)
+    this._rev = 0;                   // bumped by every rebuild (_touch)
+    this._drawn = null;              // what the last draw showed: { rev, cam, camVersion, t, flash, eased, ov, inf }
     this.lastMs = 0;
     this._crateGeom = null;
     this.officialData = new Map();   // stageId → loaded official scene (null: none / failed)
@@ -271,8 +285,12 @@ export class BoardScene {
     return m;
   }
 
+  /** The board changed: the next render() draws. */
+  _touch() { this._rev++; }
+
   _dropOfficial() {
     if (!this.officialBuilt) return;
+    this._touch();
     for (const m of this.officialBuilt.meshes) this.officialRoot.remove(m);
     this.officialBuilt.dispose();
     this.officialBuilt = null;
@@ -311,6 +329,7 @@ export class BoardScene {
     if (k === this.areaKey) return false;
     this.area = list;
     this.areaKey = k;
+    this._touch();
     if (this.stage) { this.stageKey = null; this.setStage(this.stage); }
     return true;
   }
@@ -322,6 +341,7 @@ export class BoardScene {
     if (key === this.stageKey) return;
     this.stageKey = key;
     this.stage = stage || null;
+    this._touch();
     this._clear();
     this.infectionFx?.setTiles(null); // local patch
     if (!stage) return;
@@ -536,6 +556,7 @@ export class BoardScene {
   }
 
   _rebuildCrates() {
+    this._touch();
     if (this.meshes.crates) { this.root.remove(this.meshes.crates); this.meshes.crates.geometry.dispose(); this.meshes.crates = null; }
     for (const g of this._officialCrates || []) this.root.remove(g);
     this._officialCrates = [];
@@ -819,6 +840,7 @@ export class BoardScene {
     R.shadowMap.enabled = on;
     this.key.castShadow = on;
     R.shadowMap.needsUpdate = true;
+    this._touch();
     return true;
   }
 
@@ -826,6 +848,7 @@ export class BoardScene {
     const W = Math.max(1, Math.round(w)), H = Math.max(1, Math.round(h));
     if (W === this.size.w && H === this.size.h && dpr === this.size.dpr) return;
     this.size = { w: W, h: H, dpr };
+    this._touch();   // setSize clears the drawing buffer
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(W, H, false);
     this.camVersion = -1;
@@ -843,10 +866,13 @@ export class BoardScene {
     }
     // focus falloff (eased)
     const F = this.focus.uFocus.value;
+    let eased = false;
     if (this.focusTarget) {
       const k = Math.min(1, dt * 5);
       const tg = this.focusTarget;
-      if (Math.abs(F.x - tg[0]) + Math.abs(F.y - tg[1]) + Math.abs(F.z - tg[2]) + Math.abs(F.w - tg[3]) > 40) F.set(tg[0], tg[1], tg[2], tg[3]);
+      const off = Math.abs(F.x - tg[0]) + Math.abs(F.y - tg[1]) + Math.abs(F.z - tg[2]) + Math.abs(F.w - tg[3]);
+      eased = off > 0;
+      if (off > 40 || off < FOCUS_SNAP) F.set(tg[0], tg[1], tg[2], tg[3]);
       else F.set(F.x + (tg[0] - F.x) * k, F.y + (tg[1] - F.y) * k, F.z + (tg[2] - F.z) * k, F.w + (tg[3] - F.w) * k);
     }
     // gate pulses (official 2 s curve → additive intensity), objective leak flashes
@@ -862,15 +888,32 @@ export class BoardScene {
     this.officialBuilt?.update(t);
     this.overlay?.update(t); // local patch
     this.infectionFx?.update(t); // local patch
+    const ov = this.overlay?.rev ?? 0, inf = this.infectionFx?.rev ?? 0;
+    if (!eased && !this._changed(cam, t, flash, ov, inf)) { this.skipped++; return false; }
+    this._drawn = { rev: this._rev, cam, camVersion: cam.version, t, flash, ov, inf };
     this.renderer.render(this.scene, this.camera);
     this.frames++;
     if (t0) this.lastMs = this.lastMs * 0.9 + ((typeof performance !== 'undefined' ? performance.now() : t0) - t0) * 0.1;
     return true;
   }
 
+  /**
+   * Whether this frame must be drawn (BOARD_REDRAW_MAX_S): the camera, a rebuild, the redraw cap, a shadow map to render,
+   * battle devices (they move every frame), a leak flash (and the frame after it, where the flash went back to 0), an
+   * overlay change, an animated material on screen.
+   */
+  _changed(cam, t, flash, ov, inf) {
+    const d = this._drawn;
+    if (!d || d.rev !== this._rev || d.cam !== cam || d.camVersion !== cam.version || !(t >= d.t && t - d.t < BOARD_REDRAW_MAX_S)) return true;
+    if (this.renderer.shadowMap.needsUpdate || this.devices.size || flash > 0 || d.flash > 0 || d.ov !== ov || d.inf !== inf) return true;
+    const M = this.meshes || {};
+    return !!(M.water?.visible || M.mire?.visible || M.infection?.visible || M.smog?.visible
+      || this.officialBuilt?.animated || this.overlay?.stripes?.visible || this.infectionFx?.mesh?.visible);
+  }
+
   stats() {
     const info = this.renderer.info;
-    return { official: !!this.officialBuilt, calls: info?.render?.calls ?? 0, triangles: info?.render?.triangles ?? 0, textures: info?.memory?.textures ?? 0, geometries: info?.memory?.geometries ?? 0, frames: this.frames, cpuMs: Math.round(this.lastMs * 100) / 100, lost: this.lost };
+    return { official: !!this.officialBuilt, calls: info?.render?.calls ?? 0, triangles: info?.render?.triangles ?? 0, textures: info?.memory?.textures ?? 0, geometries: info?.memory?.geometries ?? 0, frames: this.frames, skipped: this.skipped, cpuMs: Math.round(this.lastMs * 100) / 100, lost: this.lost };
   }
 
   destroy() {

@@ -2672,7 +2672,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         return true;
       }
       // …and its vortex where it stopped: projectile_chr_clemnt_s2_range (`_mainEffect` bullet_range_01, on the ground) for the
-      // rest of the skill [추정: that projectile is the vortex — no other S2 prefab is a ground ring of water]
+      // rest of the skill (the binding table: clemnt_s2[emit_projectile] fires that projectile, bullet_range_01 its `_mainEffect`)
       case 'tide': {
         const b = pickOf(views.get(o.id), 'clemnt'), n = pickName(b, 'clemnt_skill_02_bullet_range_01');
         if (!n) return false;
@@ -2693,7 +2693,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           }
           return true;
         }
-        // 凯尔希·思衡托 S3 lands on her anchor's tile: teleport_end_01 [추정: by its name — no template names it]
+        // 凯尔希·思衡托 S3 lands on her anchor's tile: teleport_end_01 (the binding table: buff kalts2_s_3[respawn_anim]'s effect,
+        // CommonAbility/RespawnBorn)
         const b = pickOf(views.get(o.id), 'kalts2'), n = pickName(b, 'kalts2_skill_03_teleport_end_01');
         if (!n) return false;
         ownFx.add(e);
@@ -2743,8 +2744,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         }
         return true;
       }
-      // 凯尔希·思衡托 S3 takes off for her anchor: teleport_01 where she leaves [추정: by its name], and projectile_chr_kalts2_s3_2's
-      // `_mainEffect` teleport_trail_01 flying to the anchor in the sim's time (at her hit-point height [추정])
+      // 凯尔希·思衡托 S3 takes off for her anchor: teleport_01 where she leaves (the binding table: buff kalts2_s_3[disarm]'s
+      // effect), and projectile_chr_kalts2_s3_2's `_mainEffect` teleport_trail_01 flying to the anchor in the sim's time (at her
+      // hit-point height [추정])
       case 'disappear': {
         const src = views.get(o.id), b = pickOf(src, 'kalts2');
         const tx = Number(o.tx), ty = Number(o.ty), dur = Math.max(0.05, Number(o.t) || 0);
@@ -4113,7 +4115,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // (estrikeFx), a healed ally's (strikeFx) —, render/fx.js drew a purple beam for it (now only without the line:
   // arrowKind), and then (0a7c6f4d) one line per bounce from hit point to hit point, following the units.
   const CHAIN_KINDS = new Set(['chain', 'chainHeal']);
-  const CHAIN_LINE_S = 0.5;     // the line's `_delayToFinish` after the projectile stops [추정: as startLine's]
+  const CHAIN_LINE_S = 0.5;     // the line prefabs' `_delayToFinish` after the projectile stops (official client, rules/fx.md)
   const aimed = new Map();      // `${shooter}:${target}` → { t, mode }: its last attack at that unit (the chain it starts)
   const chainLines = new Map(); // `${shooter}:${first unit}` (or the storm strike's) → { t, pts, l }: the line of a chain now
   const chainAtks = new WeakSet(); // bounce 'atk' tuples drawn here (arrowKind)
@@ -4591,7 +4593,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // while the buff lasts, one per name per unit: client `Entity.AddBuffEffect` keeps it with a ref count
   // (`BuffEffectHolder.refCounter`) and `RemoveBuffEffect` finishes it as the last buff of that name ends.
   // enemy-modes.json `hitBuffLife` { name: life } (enemy_bindings.py): a LIMITED buff — held `life` s, a hit while it stands
-  // renews it [추정: maxStackCnt 1, the life restarts]; IMMEDIATELY (0) — the prefab's own run; a buff whose end the tables
+  // renews it (the client's DEFAULT override queues the new buff and the effect stays to the last one's end); IMMEDIATELY (0) —
+  // the prefab's own run; a buff whose end the tables
   // do not give (INFINITY / CUSTOM: a stun's, a status's — its end is the sim's) — the prefab's own run as before, but one at
   // a time per name on the unit (no second copy while one plays) [추정].
   const ebuffs = new Map();   // `${target id}:${prefab}` → { l: live entry | null while it loads, until }

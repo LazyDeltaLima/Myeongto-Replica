@@ -23,8 +23,8 @@
 //     common_stealth (texture common_leaf), which only the 生息演算 buildings use (trap_405/406/459 talents' overrideEffectKey);
 //     an operator's own 隐匿 is common_invisible (skchr_milu_1 overrideEffectKey, dynamicabilities Invisible) [추정: the
 //     tile's 隐匿 the same]       camou 迷彩 → common_buff_micai_01 (body) [추정: _01 of the three]
-//   lemuen:wanted 通缉 (蕾缪安's talent) → lemuen/lemuen_talent_buff_01 (head) [추정 height]
-//   reed2:scorch 灼痕 (焰影苇草's talent) → reed2/reed2_debuff_01 (body) [추정 height]
+//   lemuen:wanted 通缉 (蕾缪安's talent) → lemuen/lemuen_talent_buff_01 (head: its _spawnLocation 4)
+//   reed2:scorch 灼痕 (焰影苇草's talent) → reed2/reed2_debuff_01 (body: its _spawnLocation 2)
 //   talent:archet_shield 铁弦 (空弦's 护盾 layer) → archet/archet_buff_01_start (feet: its _spawnLocation 1)
 // Beyond this table the client has no status effect of its own: every buff names its effect (`overrideEffectKey`, client
 // `Entity.AddBuffEffect`), and a status with none shows nothing — no 无敌 / 束缚 / 护盾 / 嘲讽 badge (EN buff templates: 21
@@ -65,11 +65,11 @@ export const STATUS_FX = Object.freeze({
   levitate: ['common', 'common_levitate_01', 0],
   stealth: ['common', 'common_invisible', 0], stealthAlly: ['common', 'common_invisible', 0], camou: ['common', 'common_buff_micai_01', 0.5],
   // local patch (maintainer report 2026-10-07): 蕾缪安's talent 跨境追缉许可 'lemuen:wanted' — the client's char_lemuen_range_aim[effect]
-  // buff (overrideEffectKey lemuen_talent_buff_01, the crosshair on the wanted enemy) [추정: at the head]
+  // buff (overrideEffectKey lemuen_talent_buff_01, the crosshair on the wanted enemy) at the head (its _spawnLocation 4)
   // its systems loop in / pulse / out every 2.5 s; the maintainer (2026-10-07): once shown it stays — held at 2.0 s (the X steady)
   wanted: keyed('char_lemuen_range_aim', 'lemuen', HEAD, 2.0),
   // local patch (maintainer report 2026-10-07, video: orange X strokes on her marked enemies): 焰影苇草's 灼痕 'reed2:scorch' —
-  // buff reed2_t_1 effectKey reed2_debuff_01 [추정: on the body]
+  // buff reed2_t_1 effectKey reed2_debuff_01, on the body (its _spawnLocation 2)
   scorch: keyedAll('reed2_t_1', 'reed2', 0.5),
   // 空弦's 铁弦 'talent:archet_shield' — its buff archet_t_2 carries overrideEffectKey archet_buff_01_start (EN charpack
   // char_332_archet Talents/2), a looping mesh at the feet (_spawnLocation 1) while the layer holds. Other 护盾 layers have

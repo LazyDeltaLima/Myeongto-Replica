@@ -547,7 +547,7 @@ def decode_clip(clip):
 def hermite_keys(keys, comp=None):
     """A legacy clip's AnimationCurve (Unity Keyframes: time, value, inSlope, outSlope; `comp` picks x / y / z / w of a vector
     or quaternion key) -> the clip keys of decode_clip: per segment the cubic of its Hermite span (a stepped key, an infinite
-    slope, holds its value). Weighted keys are read unweighted [ASSUMED: none of the extracted prefabs has one]."""
+    slope, holds its value). Weighted keys are read unweighted: no clip of the effect packs has one (2026-10-31)."""
     def val(k, f):
         v = k[f]
         return v[comp] if comp else v

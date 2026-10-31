@@ -83,6 +83,7 @@ export class InfectionFx {
     this.mesh.frustumCulled = false;
     this.mesh.visible = false;
     this.key = '';
+    this.rev = 0; // bumped by every change of what is drawn (the board redraws: scene.js BOARD_REDRAW_MAX_S)
     parent?.add?.(this.mesh);
   }
 
@@ -122,6 +123,7 @@ export class InfectionFx {
   }
 
   _sync() {
+    this.rev++;
     const U = this.material.uniforms;
     this.mesh.visible = !!this.key && !!U.uMain.value && !!U.uMask.value;
   }

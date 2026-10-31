@@ -149,6 +149,7 @@ export class TileOverlay {
       polygonOffset: true, polygonOffsetFactor: OFFSET.stripes[0], polygonOffsetUnits: OFFSET.stripes[1],
     }), 901);
     this.keys = { tint: '', bench: '', stripes: '' };
+    this.rev = 0; // bumped by every change of what is drawn (the board redraws: scene.js BOARD_REDRAW_MAX_S)
   }
 
   _texture(tex) {
@@ -178,6 +179,7 @@ export class TileOverlay {
     const key = data ? Array.from(data.position).join(',') : '';
     if (key === this.keys[which]) return;
     this.keys[which] = key;
+    this.rev++;
     const T = this.T;
     mesh.geometry.dispose();
     const g = new T.BufferGeometry();
@@ -206,6 +208,7 @@ export class TileOverlay {
     const old = this.stripes.material.uniforms.uMap.value;
     this.stripes.material.uniforms.uMap.value = tex;
     this.stripeTex = tex;
+    this.rev++;
     if (old && old !== tex) old.dispose();
   }
 

@@ -675,7 +675,7 @@ function makeMaterial(m, lib) {
   const dissolve2 = double ? tex('_DissolveTex_02') : null;
   const toggles = /Disturb Anchor/.test(shader), useTex = /Dissolve\(CustomData\)/.test(shader); // local patch
   // 2026-10-18 (client shader): Optimize/Dissolve AB MultiTex (战场#06's screen_desert_*) — `_Dissolve` picks the
-  // _DISSOLVE_ONE / _TWO / _THREE variant (its KeywordEnum order [ASSUMED]: the materials carry no keyword); `_Amount` /
+  // _DISSOLVE_ONE / _TWO / _THREE variant (its KeywordEnum order: the four materials keep _DISSOLVE_THREE with 2); `_Amount` /
   // `_BorderWidth` are vectors (x, y, z per dissolve texture); `_TexSpeed` scrolls the main uv (.xy) and the first dissolve
   // (.zw), `_TexSpeed2` the second (.xy) and third (.zw), by 2 · _Time.y (the constant slots by name: the variants'
   // parameter tables); `_MainTexSpeed` is declared but read by no variant

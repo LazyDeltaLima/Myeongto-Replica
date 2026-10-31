@@ -409,7 +409,8 @@
   보이는 차이: 걷는 적 위의 타격·시전 이펙트(`hold` 없는 것)가 적을 따라 미끄러지지 않고 맞은 자리에 남는다. 확인: `test/render/fx-face-switch.test.js`(소스 고정). [화면 미확인]
 - 확인: 단위 `test/render/fx-follow-direction.test.js`(소스 고정, 추출물 `hold`). 아레나(Windows Chrome, 수정 전·후, 3배 확대 16장씩).
   엑시아 S1 왼쪽 배치: 전에는 화염 줄기가 총기 위였고, 뒤에는 총구 끝에서 별 모양 섬광이 왼쪽으로 뻗는다. 오른쪽 배치는 전·후 같다.
-  첸 S2처럼 숨는 동안 본이 멀리 가는 버프는 다시 만든 자리(배치 링 안)에 남는다 [화면 미확인]. 상태 이펙트(`buff_stun` 머리, 붙들림)는 머리 본의 숨쉬기를 더 따라가지 않는다 [화면 미확인].
+  첸 더 던스트릭 S2 `chen3_skill_02_buff_01`은 FollowMountPoint(`mount`)라 이 한 번 놓기에서 빠지고 숨는 동안에도 검 본 `C_Weapon`을 따른다(위
+  「관리자가 확인한 이펙트에 생긴 변화」와 같음 — 2026-10-31 정리: 예전 문장 「다시 만든 자리에 남는다」는 `lifted`의 `def.mount`와 어긋났음). 상태 이펙트(`buff_stun` 머리, 붙들림)는 머리 본의 숨쉬기를 더 따라가지 않는다 [화면 미확인].
 
 ### 캐릭터 그림의 기울기 — 유닛에 붙는 이펙트는 X축 −30° (2026-10-22, 관리자 제보 「머드락 보호막처럼 원형으로 그려지는 보호막이 타원형」)
 - 증상: 머드락 재능 보호막 `mudrok_buff_0N_start`, 적 머드락 `enemy_mdrock_*`, 엑시아 더 뉴 커버넌트 S2 `angel2_skill_2_buff_01/02`의 원판이 화면에서 타원.
@@ -872,7 +873,7 @@
   공용 프리팹 3개는 `fx_extract.py --bundle common --prefab …`로 뽑아야 보인다(그 전에는 공용 것이 필요한 오퍼는 아무것도 안 틂).
 - **⑥ 적이 대상에 거는 버프 표식** — `Entity.AddBuffEffect`/`RemoveBuffEffect`: 버프 이펙트는 버프 동안 주인에게, 이름당 하나(`BuffEffectHolder.refCounter`).
   → `enemy_bindings.py`가 공격 부분에 `hitBuffLife { 이름: life }`(LIMITED `lifeTime`, IMMEDIATELY 0)를 쓰고 `fxgame.js eholdBuff`가 `life`초 유지(유지 중 다시 맞으면
-  연장 [추정: 갱신]), 같은 대상·같은 이름은 하나만. 수명이 표에 없는 버프(INFINITY·CUSTOM — 기절 등, 끝은 시뮬레이션이 앎)는 예전처럼 프리팹 길이로 한 번이되 이름당 하나 [차이: 공식 버프 이펙트는 그 버프가 끝날 때까지(공식 클라에서 확인) — 렌더가 그 끝을 모름].
+  연장 — 공식도 같은 결과: 프리팹 활성 버프 `overrideType` 0(DEFAULT)·`maxStackCnt` 1이라 `_DoAddInternal`이 새 버프를 따로 넣고 이펙트는 그 이름의 마지막 버프가 끝날 때까지(`refCounter`) = 다시 맞은 때 + `life`, 2026-10-31 프리팹으로 확인), 같은 대상·같은 이름은 하나만. 수명이 표에 없는 버프(INFINITY·CUSTOM — 기절 등, 끝은 시뮬레이션이 앎)는 예전처럼 프리팹 길이로 한 번이되 이름당 하나 [차이: 공식 버프 이펙트는 그 버프가 끝날 때까지(공식 클라에서 확인) — 렌더가 그 끝을 모름].
   지금 수명이 있는 것은 `enemy_vtsk_skill_01_marker_01`(5.8초) 하나.
 - **⑦ 추출기 `spawn` 인식** — `fx_extract.py`가 루트 이펙트 컴포넌트를 「#6 = −1(`_maxLifetime`) 그리고 #10 = 2.0(`_limitedPlaybackSpeed`)」로 알아봐 제한 속도가 다른
   묶인 프리팹 51개(예: 텍사스 디 오메르토사 `texas2_skill_02_start` −1)에 `spawn`이 없었고, `_subFXDelayConfigs`(#3 목록)가 비어 있지 않으면 뒤 필드가 4×n칸 밀렸다.
@@ -979,7 +980,7 @@
     어느 절반에서든 폭풍이 불면 켬.
 - 폭풍 상태: sim `content/devices.js stormView` → `Battle.fieldMeta().storm` = `[{ c0, c1, dir }]`(한 사람 판은 전체, 둘이면 절반마다 맵 카드 「모래 폭풍 정지」를 반영,
   폭풍 없는 스테이지는 키 없음). `render/app.js enterBattle` → `fxGame.setStorm(storm, 활성 토석 구조물)`; `clear()`가 끝냄. 고정(`pinned`)이라 개수 상한에 안 잘림.
-- Optimize/Dissolve AB MultiTex(클라 셰이더 + 변형별 파라미터 표의 이름으로 확인): 키워드 `_DISSOLVE_ONE/TWO/THREE` = 재질 `_Dissolve` 0/1/2 [ASSUMED: 키워드 열거 순서],
+- Optimize/Dissolve AB MultiTex(클라 셰이더 + 변형별 파라미터 표의 이름으로 확인): 키워드 `_DISSOLVE_ONE/TWO/THREE` = 재질 `_Dissolve` 0/1/2(KeywordEnum 선언 순서; 추출 재질 넷 `screen_desert_*` 모두 `m_ValidKeywords` `_DISSOLVE_THREE`·`_Dissolve` 2 — 2026-10-31 확인),
   `_Amount`·`_BorderWidth`는 벡터(.x/.y/.z = 디졸브 텍스처 A/B/C), `_TexSpeed` = (메인 uv .xy, 디졸브 A .zw), `_TexSpeed2` = (B .xy, C .zw), 흐름 = frac(2 · _Time.y · 속도);
   `_MainTexSpeed`는 선언만 있고 어느 변형도 안 읽음. 색 = 2 · 메인 · 정점색 × `_TintColor` / `B` / `C`, 각 알파 = saturate(알파 × 자르기) — A 위에 B를 B 알파로 lerp,
   그 위에 C × C 알파를 더함(네 채널 모두). → `fxplayer.js` FRAG `uMulti`.
@@ -1073,7 +1074,7 @@
 - 추출: `tools/local-extract/enemy_bindings.py` → `tools/assets/local-enemy-bindings.json`(검토용, 적 249종·투사체 93개) + `public/assets/local/fx/enemy-modes.json`(렌더 표,
   git 제외) + `--extract`면 나오는 적(웨이브·보스·랜덤 편성 자리·소환, 167종)의 이펙트 프리팹 365개를 `fx_extract.py`로(번들 `pfx_enemy_N`·`common`·`lazerd` …, 목록은
   `enemy-index.json` — 오퍼 `index.json`은 그대로; `fxgame.js mergeIndex`가 합침). 이름은 대소문자 무시(적 프리팹은 `…_B_hit_01`, 번들 컨테이너는 소문자 [추정: 클라도
-  소문자로 찾음]) — `enemy-modes.json $fx`(소문자 → [번들, 프리팹]). 적 점의 `at`은 스케일 0.01 가정 [추정: SkeletonDataAsset이 다른 번들], 뼈 이름은 그대로.
+  소문자로 찾음]) — `enemy-modes.json $fx`(소문자 → [번들, 프리팹]). 적 점의 `at`은 SkeletonDataAsset `scale` 0.01로 나눔(다른 번들 `refs/arts/enm_art_*` — 2026-10-31 EN 적 프리팹의 Spine 렌더러 2,026개가 가리키는 것 모두 0.01, 33개는 설치본에 번들 없음), 뼈 이름은 그대로.
 - 렌더(`fxgame.js` 「the enemies' official effects」): 모드 = 지금 클립 세트의 공격 클립이 그 모드 능력의 `_animKey`인 것(폼 전환이 바꿈), 없으면 0. sim 'swing' →
   공격의 ON_CAST_START 시전 이펙트(근접 타격 kind 'none' = `Combat` 능력, 사격 'enemy' = `Attack`), 'atk' → ON_SPELL_ON 것 + 투사체 `_mainEffect` 꼬리(마운트 점 →
   대상 hit 점, 비행 시간 = 거리 ÷ `data/enemies.json proj.speed`(폼별 `projModes`, sim이 그 속도로 날림; `proj` 없으면 sim 적 속도 10, `proj: null`·링크·즉발은 비행 없음), `_raiseHeight`면 호; 꼬리 없는 것·레이/링크형은 절차 구슬), 'dmg' →
@@ -1189,8 +1190,8 @@
   (새 이벤트 없음) → 위 모드 버프. (이 이펙트는 `pfx_enemy_*`가 아니라 래트킹 전용 묶음 `mousek`에 있다.)
 - **재생 이펙트(RebornTalent `_effects`, 2026-10-23, 공식 클라에서 확인)**: `Enemy.States.RebornState.OnEnter`가 재생이 시작될 때 만든다 —
   `_clearEffectsAfterReborn`이면 목록에 두었다가 `OnExit`에서 `Effect.FinishMe`, 아니면 `BattleController.CreateEffects`로 제 길이대로. 우리 적은
-  모두 0. `enemy_bindings.py`가 RebornTalent(와 `_effects`·`_modeIndex`가 같은 하위 클래스 `ManualTriggerRebornTalent` — 필드가 RebornTalent 그대로라
-  [추정: MonoScript id])의 것을 렌더 표 `reborn` [{ mode?, fx, clear, to }]로 쓰고 뽑는다. 렌더 `fxgame.js erebornFx`: 시뮬 form이 'reborn'이 되는
+  모두 0. `enemy_bindings.py`가 RebornTalent(와 `_effects`·`_modeIndex`가 같은 하위 클래스 `ManualTriggerRebornTalent` — 필드가 RebornTalent 그대로;
+  MonoScript `-9067469794004961147` = `Torappu.Battle.ManualTriggerRebornTalent`, 클라 MonoScript 번들의 `m_ClassName`으로 2026-10-31 확인)의 것을 렌더 표 `reborn` [{ mode?, fx, clear, to }]로 쓰고 뽑는다. 렌더 `fxgame.js erebornFx`: 시뮬 form이 'reborn'이 되는
   순간(리더 reborn()) — 제셀톤 `enemy_jakill_reborn_01~03_start`; 또는 form의 닫는 클립(units.js FORMS `end`)이 시작될 때 — 불씨가 일어서는
   `Revive`에 Prop 모드의 RebornToDefault `enemy_duskls_revive_3`·`_4`, 불꽃 가디언 `enemy_duskld_revive_1`·`_2`(시뮬은 그 클립이 끝날 때 일어섬).
 - **불씨의 1초 무적 (2026-10-23)**: 시뮬 `husk`의 1초 무적 버프를 `ab:ember:inv`(보임)로 — 상태가 `…:inv`면 그 적의 INVINCIBLE 버프 이펙트(`inv`)를
@@ -1201,7 +1202,8 @@
   `_spawnLocation` 5)는 오라가 붙을 때 주인에게 만들어지고 떨어질 때 끝난다. 그 오라는 `ActiveAbilityWrapper` 아래라 평생 `aura`가 아니고, 렌더 표
   `auraNested`(`enemy_bindings.py`: 다른 능력 밑 AuraAbility의 `_effects` — 지금 자로 하나)로 뽑힌다. 시뮬 `kitWolfLord`는 【远古威慑】를 쓰러진
   순간(重生 `during`)부터 둘째 형태 내내 돌리므로, 그 `onKo`에서 자로에게 `ab:aweAura`(보임, persist)를 붙이고 `fxstatus.js KEY_FX`가 이 고리를
-  그린다 [추정: 클라는 M1 Reborn 재능의 `enemy_wlfmster_trigger_fear`가 재생 시작에 켬 — 이름과 자리로만, 그 노드는 안 읽음]. 전투 golden은
+  그린다 — 공식도 재생 시작부터(2026-10-31, 공식 클라에서 확인: M1 `Talents/Reborn`의 RebornTalent `_useAbilityToHandle`·`_abilityName` 「Reborning」 → `_OnRebornAfterFakeDeath`가
+  가짜 죽음 때 그 능력을 `CastDirectly`, 같은 GameObject의 `BuffToOwner`(`_runActionOnEvent` 2 = ON_CAST_START)가 `enemy_wlfmster_trigger_fear`를 건다). 전투 golden은
   roster-013 status 수 +1. [실제 판 이상 없음 2026-10-28]
 - **'리드' 추적의 번쩍임 — IMMEDIATELY 버프 (2026-10-23, 공식 클라에서 확인)**: “碎铳之簧”('총을 부수는 리드')의
   MoveToHunter 모드 `Body/GeneralAbilities/Ability0`가 붙이는 `achunt_dog_silence`(템플릿 `empty`, `lifeTimeType` IMMEDIATELY)는 붙자마자
@@ -1220,7 +1222,7 @@
   | `ab:warden` / `ab:killer` | 제셀톤 윌리엄스 | `Modes/Default/Talents/Enhance` `jakill_enhance#0` → `enemy_jakill_buff_01_start` / R 모드 `jakill_enhance#1`·`[eff1]`·`[eff2]` → `_02_start`·`_02`·`_03` |
   | `ab:xiShield[a]`·`[b]`·`[c]`(층마다 상태 하나) | '즈자이' | `ShieldBurst(Reborn)` `enemy_xi_s2[shield][a]`·`[b]`·`[c]` → `enemy_xi_skill_02_buff`·`_01`·`_02` — 층마다 깨지면 그 층 이펙트만 꺼짐(rules/sim.md 「리더 방벽 층 셋」) |
   | `ab:xiReborn` | '즈자이' | RebornTalent `reborn_up` → `skulsr_buff_01_start` |
-  | `ab:wolfGuard` / `ab:wolfRage` | 자로, '늑대 군주' | M1 `enemy_wlfmster_reduce_damage` → `enemy_wlfmster_A_buff_01` / `enemy_wlfmster_m2_eff` → `_B_buff_01` [추정: 클라는 재생 시작(M1 Reborn의 BuffToOwner)부터, 우리는 재생 끝부터] |
+  | `ab:wolfGuard` / `ab:wolfRage` | 자로, '늑대 군주' | M1 `enemy_wlfmster_reduce_damage` → `enemy_wlfmster_A_buff_01` / `enemy_wlfmster_m2_eff` → `_B_buff_01` [추정·미조사: 클라는 「Reborning」(`ThreePartChannelingAnimation` Reborn → Reborn_Loop → Reborn_End, `_fireAttackFinishEvent`·`_delayToFireAttackSkillEvent` 1)의 ON_ATTACK_FINISH(6)에 `BuffToOwner`가 건다 — 끝 클립 시작, 재생 재능은 `_finishHandleAbilityAfterReborn` 0이라 안 끊음; 루프 길이가 재생 시간인지는 안 읽음(2026-10-31), 우리는 재생 끝부터] |
   | `ab:sandDef[1..3]` / `ab:lowhp` | 래트킹 | `Talents/shield` `mousek_shield[a/b/c]` → `mousek_buff_01/02/03_start`(층마다 `fxTag` 하나, 그 층이 깨지면 꺼짐; DEF 보너스 `ab:sandDef`는 안 그림) / `mousek_t` → `skulsr_buff_01_start` |
   | `ab:rockPower[1..3]` | 머드락(적) | `[shield][refresh]`가 만드는 `enemy_mdrock_s_2[shield_a/b/c]` → `enemy_mdrock_skill_buff_01/02/03`(층마다 하나; HP·공속 보너스 `ab:rockPower`는 안 그림) |
   | `ab:lowhp` | 스컬슈레더·'폼페이'·리벤져·'어벤져' | `skulsr_t_1`·`lslime_t_buff`·`reveng_t_atkup`·`enemy_reid_atkup_effect`(토글 버프) |
@@ -1325,11 +1327,11 @@
   123개가 EN 추출물과 같다(나머지 2개는 CN 쪽에만 `lineDyn`이 있음 — EN 추출물이 그 필드보다 오래됨). 세 명의 번들을 다시 뽑았다.
 - 키트 사건 연결(`fxgame.js pickFx`, 근거 = CN `[uc]projectiles.ab`의 `_mainEffect`·`_effectsWhenReached`와 버프 템플릿(`battle/buff_template_data`)의
   `overrideEffectKey`·`_effectKey`): 클레멘티아 S2 방축선 = `projectile_chr_clemnt_s2_lr`/`_ud`의 `bullet_01`(가로)/`bullet_02`(세로)가 멈출 자리까지 이동,
-  소용돌이 = `_s2_range`의 `bullet_range_01` [추정: 그 투사체가 소용돌이], 운반 중인 적 머리 위 `mark_enemy`(`clemnt_s2[projectile_hit]`); S3 포격 = `_s3`의
+  소용돌이 = `_s2_range`의 `bullet_range_01`(바인딩 표: `clemnt_s2[emit_projectile]`이 쏘는 그 투사체의 `_mainEffect` — 2026-10-31 확인, `fx-bindings.test.js` FXGAME도 이 키로), 운반 중인 적 머리 위 `mark_enemy`(`clemnt_s2[projectile_hit]`); S3 포격 = `_s3`의
   `Mark_all_01`(3번 파동이 프리팹 안에 있어 포격 하나에 한 번, 시뮬 `lock`; 2026-10-29부터 그녀의 'die'에 지움 — 포탄 `_clearReachedEffectWhenStop`,
   rules/diy.md 「선발 추가 3명」), 시뮬 `blast` 3번은 대체 그림 없음. 켈시 에스페란타 S2 착탄 = `_s2_dmg`/`_s2_heal`의
-  `range_damage_01`/`range_heal_01`(적/아군 — 시뮬 `aoe`의 `ally`); S3 비행 = `teleport_01`(떠남, [추정: 이름]) + `_s3_2`의 `teleport_trail_01`(날아가는 방향으로
-  돌림) + `teleport_end_01`(착지, [추정: 이름]). 안젤리나 더 멜로우 위시 S2 = `aglna2_s_2[flying]`의 방향별 활공 꼬리·`fly_range_01`(吟唱 동안), `[chant_end]`의
+  `range_damage_01`/`range_heal_01`(적/아군 — 시뮬 `aoe`의 `ally`); S3 비행 = `teleport_01`(떠남 — 바인딩 표: 버프 `kalts2_s_3[disarm]`의 이펙트) + `_s3_2`의 `teleport_trail_01`(날아가는 방향으로
+  돌림) + `teleport_end_01`(착지 — 바인딩 표: `CommonAbility/RespawnBorn`의 버프 `kalts2_s_3[respawn_anim]` 이펙트; 2026-10-31 정리). 안젤리나 더 멜로우 위시 S2 = `aglna2_s_2[flying]`의 방향별 활공 꼬리·`fly_range_01`(吟唱 동안), `[chant_end]`의
   `fly_end_01–03`; 「이따 봐!」 표식 = `token_aglna2_agairp_01`. 이 프리팹들은 `KIT_OWNED` — 이름 규칙(`_range` 루프)이 시전자에게 또 틀던 것을 막는다.
   시뮬 쪽은 fx 내용만 늘었다(`aoe.ally`, `disappear.tx/ty/t`, `dash.chant`; golden 그대로). 디버그 아레나에서 확인: S2 방축선·적 표시, 켈시 S2·S3, 안젤리나 S2
   (클레멘티아 S3 포격은 침식 폭발이 필요해 화면 확인 못 함).
@@ -1551,7 +1553,7 @@
     재질, `m_IsActive` → GameObject 켜고 끄기로 묶는다. 경로는 `Animation`이 붙은 GameObject 기준이라 그 아래가 아닌 이름은 Unity에서도 안 묶인다
     (프라마닉스 더 프레리타 S3 `sbell2_skill_03_range`의 `spin`은 형제 노드를 가리켜 공식에서도 안 돎 — 클립 없음). 길이 = 모든 곡선의 마지막 키
     (레거시 클립의 `m_StopTime`은 안 씀), 클립의 `m_WrapMode` 2(Loop) 또는 그것이 0이면 `Animation`의 값이 Loop면 반복. Once·ClampForever는 Mecanim
-    클립처럼 마지막 키에서 멈춤 [추정: Once는 Unity가 그 자리에서 클립을 멈춤]. 가중 키는 가중치 없이 읽음 [추정: 추출분에 없음]. 대상: 시빌라이트
+    클립처럼 마지막 키에서 멈춤 [추정: Once는 Unity가 그 자리에서 클립을 멈춤]. 가중 키는 가중치 없이 읽음 — 이펙트 원본 EN 팩 163개의 클립 2,486개·키 11,712개에 `weightedMode` ≠ 0 없음(2026-10-31; CN 전용 18팩은 안 봄). 대상: 시빌라이트
     에테르나 궤적·원의 회전(2초·8초 반복), 노시스 S2·S3 돌의 흔들림, 첸 더 던스트릭 S3 용, 패신저 S2, 크루스 더 킨 글린트 S2 궤적, 스펙터 디 언체인드
     3×3 원의 0.3초 나타나기·끝, 카넬리안 버프 색, 비질 소환, 엔텔레키아 등장·필라에 S1 시작, 아래 스킨드 메시의 뼈.
   - `SkinnedMeshRenderer`(9개 프리팹, 렌더러 24개 — 미즈키 S2 촉수, 스카디 S3 상어, 스카디 더 커럽팅 하트 S3, 스즈란 S3 꼬리, 호시구마 S3 귀신, 글래디아
@@ -2828,7 +2830,8 @@
   쉐라 S2 드론이 잠긴 동안 그녀 몸에 멈춘 채 보였다 → `fxgame.js holdDrone`: 멈춤이면 숨김. 적 옆의 드론은 잠금 명중 `_F_L_*`/`_F_R_*` 자신이
   그린다(`token` 노드의 머리·꼬리 메시와 꼬리, 클립이 0.5초에 나타나 대상 옆 −0.51·0.33에서 떠 있음; 탄 `projectile_chr_kjera_funnel_s2_*`은
   `_mainEffect` 없음, `Body`는 빈 Transform — 직접 확인). `SequenceEffectBehaviour.OnHitTarget`은 맞힐 때마다 새로 만들고 앞의 것을 끝내지 않는다
-  (탄이 멈출 때 `_clearHitEffectOnStop`) — 우리도 잠금 동안 쌓인다 [추정: 클라에서 그 이펙트가 저절로 끝나는지(입자 `loop`인 빛 둘)는 안 읽음].
+  (탄이 멈출 때 `_clearHitEffectOnStop`) — 우리도 잠금 동안 쌓인다. 명중 이펙트는 저절로 안 끝난다: 루트 `_maxLifetime` −1이고 빛 둘(`ray_add_01`·`caiguang`)이 반복 입자라
+  `_CheckIfAlive`의 「입자가 다 죽으면 끝」이 오지 않음(2026-10-31, 추출 프리팹 `kjera_token_skill_02_hit_F_L/R_01/02`).
   아레나 기본 샌드백은 바로 옆 칸이라 그 드론이 그녀 쪽 0.5칸에 떠 그녀 위처럼 보인다. 확인: 단위 `funnel-fx.test.js` 「a paused idle drone is hidden」,
   디버그 아레나(샌드백 3칸·2칸 앞): 잠근 드론은 그녀에게서 사라지고 적 옆에, 안 잠근 둘째는 그녀에게.
 - 잠금 드론은 키트의 드론 신호로 움직인다 (2026-10-21, 관리자 확인 「쉐라 S2 드론 하나가 여전히 머리 오른쪽에 고정」): 렌더는 잠금을 그녀

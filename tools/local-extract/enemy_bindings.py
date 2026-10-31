@@ -74,7 +74,7 @@ BUFF_CLASSES = {
     -4310938555973424352: 'toggleOnce',        # Torappu.Battle.Abilities.ToggleableOnlyOncePassiveBuffAbility
     -4458530021321694031: 'reborn',            # Torappu.Battle.RebornTalent
     -9067469794004961147: 'reborn',            # (2026-10-23) ManualTriggerRebornTalent — the only RebornTalent subclass, no field of
-    #                                            its own (the 逐火 ember's RebornToDefault: RebornTalent's fields exactly) [추정: the id]
+    #                                            its own (the 逐火 ember's RebornToDefault); the id is the MonoScript bundle's
     9073738633337710967: 'aura',               # Torappu.Battle.Abilities.AuraAbility (onto the units in its range)
     -5793748974791823428: 'globalAura',        # Torappu.Battle.Abilities.GlobalAuraAbility
     7085803614365642631: 'afterAffecting',     # Torappu.Battle.Abilities.BuffAfterAffecting
@@ -241,8 +241,8 @@ def read_buff_templates(game):
 
 def points_of_bundle(f):
     """{prefab root: {muzzle|hit|head|sp<N>: {F?/B?: {bone?, rot?, at: [x, y] skeleton units}}}} of one enemy bundle — the
-    reading of char_points.py (the enemies' SkeletonDataAsset sits in another bundle: its scale 0.01 is assumed, as every
-    operator's [추정])."""
+    reading of char_points.py (the enemies' SkeletonDataAsset sits in another bundle, refs/arts/enm_art_*: its scale is 0.01
+    for every enemy skeleton the battle prefabs point at — read 2026-10-31)."""
     import aklz4  # noqa: F401
     import UnityPy
     env = UnityPy.load(str(f))
