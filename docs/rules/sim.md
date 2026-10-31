@@ -1469,7 +1469,8 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
 - **규칙**: 도착(죽음)하면 클라 투사체 `projectile_enemy_acstmr_s1`을 남긴다 — 수명 9.95 s, 범위 `x-4`(도착 칸 둘레 3×3), `_keepAlreadyHitTime` 1.0 s.
   그 안의 오퍼레이터(起飞 포함 — 탄은 비행, 迷彩 무시, 隐匿 제외: 다른 보스 범위 선택과 같은 `areaAlliesInTiles`)를 도착 즉시, 그 뒤 머무는 동안 유닛마다
   1 s마다 다시 친다: `killed.value` 400 무출처 물리(스플래시) + `killed.stun` 2.1 s 기절, 공로는 예전처럼 胄. 나중에 배치·이동해 들어온 유닛도 맞는다
-  (머무는 유닛은 0·1·…·9 s에 10번). fx: 도착 `explode` + 장판 `zone`(kind `helmShell`, `dur` 9.95, `tiles` 'box').
+  (머무는 유닛은 0·1·…·9 s에 10번). fx: 도착 `explode` + 장판 `zone`(kind `helmShell`, `dur` 9.95, `tiles` 'box'). 도착 `explode`는 쏜 보스가 살아
+  있으면 `id`(보스)·`ability: '1'`(탄환을 태운 보스 스킬 투사체 `projectile_enemy_acstmr` — 렌더가 그 닿음 이펙트를 틂, rules/fx.md 「적 장판 — 污染秽蚀」).
 - **옛 동작**: 도착 순간 3×3에 있던 유닛만 `killed.duration` 10 s 기절 + 10회 DoT(`boss:helmShellDot`). 그 자리 유닛 기준 총 피해는 같았다.
 - 斩胄之剑·破胄之锤의 돌진 폭발(`acstma_s_1[reach_target]`)은 공식도 도착 순간 스냅샷이라 그대로(`stunBlast`). 테스트 `enemies_bosses.test.js`
   「假想敌：胄 + 刺胄之弹…」.

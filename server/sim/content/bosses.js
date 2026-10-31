@@ -504,7 +504,7 @@ function kitHelm(ab, e, b, tpl) {
       // "描述与游戏实际表现不符合": "【灭顶之灾】不会额外发射") and no blackboard holds a second shell (skill 1 has none)
       fire(b2, e2) {
         const t = shellTargets(b2).sort((p, q) => q.s.atk - p.s.atk || aggroCmp(p, q))[0];
-        if (t) fireShell(b2, e2, t);
+        if (t) fireShell(b2, e2, t, '1');
       },
     },
     s2 && {
@@ -545,12 +545,15 @@ export function droneLinkBase(boss, base = DRONE_LINK_BASE) {
   return boss.def.maxHp * (Number.isFinite(m) && m > 0 ? m : 1);
 }
 
-/** Launch a 刺胄之弹 from `boss` at `target`'s tile. */
-function fireShell(b, boss, target) {
+/**
+ * Launch a 刺胄之弹 from `boss` at `target`'s tile. Official: the boss's skill `skill` fires projectile_enemy_acstmr, which
+ * carries the shell enemy (its `_enemyKey`) and plays its `_effectsWhenReached` enemy_acstmr_explode where it arrives.
+ */
+function fireShell(b, boss, target, skill) {
   const tr = target.tileR, tc = target.tileC;
   const sh = b.spawnEnemy(SHELL_KEY, { pos: [boss.y, boss.x], route: { motion: 'FLY', start: [boss.y, boss.x], end: [tr, tc], steps: [{ t: 'wait', s: 99999 }] }, tag: 'part', countInTotal: false, ownerPlayerId: boss.ownerId, mods: summonMods(b) });
   if (!sh) return null;
-  sh.mem.ab.shell = { tr, tc, boss };
+  sh.mem.ab.shell = { tr, tc, boss, skill };
   b.fx('shell', { x: boss.x, y: boss.y, id: sh.id, tx: tc, ty: tr, r: 1.5, kind: 'helmShell' });
   return sh;
 }
@@ -565,9 +568,10 @@ function fireShell(b, boss, target) {
  * a snapshot — stays stunBlast).
  */
 const SHELL_ZONE_LIFE = 9.95, SHELL_ZONE_REHIT = 1;
-function shellZone(b, src, by, r, c, dmg, stun) {
+function shellZone(b, src, by, r, c, dmg, stun, skill) {
   const kind = 'helmShell';
-  b.fx('explode', { x: c, y: r, r: 1.5, kind, tiles: 'box' });
+  // the boss's skill names the projectile that carried the shell: the render plays its reach effect (enemy_acstmr_explode)
+  b.fx('explode', { x: c, y: r, r: 1.5, kind, tiles: 'box', ...(src !== by && skill ? { id: src.id, ability: skill } : {}) });
   // its talent `killed` names the projectile whose reach effect (enemy_acstmr_explode_range) the render draws for the zone
   b.fx('zone', { x: c, y: r, r: 1.5, dur: SHELL_ZONE_LIFE, kind, tiles: 'box', id: by.id, ability: 'killed' });
   const last = new Map();                                   // unit → time of its last hit (_keepAlreadyHitTime)
@@ -598,7 +602,7 @@ function kitShell(ab, e) {
       if (!s || a.done) return;
       if (!stepToward(e2, s.tc, s.tr, e2.s.moveSpeed * MOVE_SCALE * dt)) return;
       a.done = true;                                            // arrival: the lasting 3×3 zone (stun + 无来源 phys every 1 s)
-      shellZone(b, s.boss && s.boss.alive ? s.boss : e2, e2, s.tr, s.tc, dmg, stun);
+      shellZone(b, s.boss && s.boss.alive ? s.boss : e2, e2, s.tr, s.tc, dmg, stun, s.skill);
       b.kill(e2, null);
     },
   }];

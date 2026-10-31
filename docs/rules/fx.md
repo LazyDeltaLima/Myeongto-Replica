@@ -1151,8 +1151,14 @@
     날아온 투사체(꼬리 있음)라 장판은 reach 이펙트만, 그 사이 죽은 적의 view가 없어지면 사격이 남긴 기록(`ezoneShots`)으로 [추정·엔진:
     투사체 `stay` 10 s를 구름 시간(`1.projectile_life_time`)으로 둠; 죽인 오퍼가 없어 제자리에 떨어질 때는 구름만]. '갑주를 꿰뚫는 탄환'
     (`enemy_9016_acstmr`) 특성 `killed`(`projectile_enemy_acstmr_s1` → `_effectsWhenReached` `enemy_acstmr_explode_range`, 반복): 도착 장판 fx
-    'zone'(`content/bosses.js shellZone`)이 `ability: 'killed'`를 싣고 9.95 s 둔다. 도착 순간의 절차 폭발('explode' helmShell)은 그대로 —
-    `enemy_acstmr_explode`(Boom 모드)는 렌더 표에 묶인 곳이 없어 안 그림. 전투 골든: 가상적: 침식이 죽는 roster-015·027·043, diy-001·009의
+    'zone'(`content/bosses.js shellZone`)이 `ability: 'killed'`를 싣고 9.95 s 둔다. 도착 순간 폭발 `enemy_acstmr_explode`(2026-10-31 저녁,
+    공식 클라에서 확인): 탄환 적 프리팹에는 없고(Boom 모드는 스킬 `Boom`이 자기를 즉사시키는 `InstantKill`뿐), '가상의 적: 갑주'(`enemy_9013_acstmk`)
+    스킬 `1`이 쏘는 투사체 `projectile_enemy_acstmr`의 것이다 — 그 투사체가 `_enemyKey` `enemy_9016_acstmr`(`_motionMode` 1, 비행)로 탄환 적을 태우고
+    `TRACE_TARGET_WITH_SPEED` 0.45로 날아가 닿으면 `_effectsWhenReached` `enemy_acstmr_explode`. 렌더 표에는 이미 보스 `skills['1'].proj`로 실려 있어,
+    sim 도착 fx 'explode'(helmShell)가 `id`(보스)·`ability: '1'`을 싣고 `eprojAreaFx`가 그 자리에 한 번 튼다(꼬리 있는 투사체라 reach 이펙트만,
+    절차 폭발 안 그림). 보스가 이미 죽어 있으면 `id` 없이 → 절차 폭발 그대로. 날아가는 꼬리
+    `enemy_acstmr_move`는 여전히 안 그림(sim 'shell' 이벤트, `eskillFx`의 꼬리 6 s 상한을 넘는 비행). fx 골든: hidden-boss_8-solo·pair에
+    `enemy_acstmr_explode` 한 줄. [화면 미확인: 실제 판에서 탄환 도착 폭발]. 전투 골든: 가상적: 침식이 죽는 roster-015·027·043, diy-001·009의
     fx 수에 `enemyShot`이 더해짐(피해·결과 그대로). 테스트: `test/render/enemy-death-shot-fx.test.js`, `test/sim/enemy-death-shot-events.test.js`,
     `boss-patterns-real.test.js`(실제 boss_1 판의 zone `ability`).
   - 직선(FIXED_DIRECTION) 사격 — 重弩突袭者 直击(`enemies/helpers.js lineShot`, docs/rules/sim.md 「FIXED_DIRECTION 투사체」): `enemyShot`에 `dir` [dx, dy]

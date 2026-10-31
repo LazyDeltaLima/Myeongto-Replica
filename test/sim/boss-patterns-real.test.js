@@ -97,12 +97,18 @@ test('real boss_1 field: 刺胄之弹 leaves a 9.95 s zone that hits the operato
   b.on('damaged', (c) => { if (c.dmg && c.dmg.tags && c.dmg.tags.includes('helmShell')) { const l = hits.get(c.target) || []; l.push([b.time, c.amount]); hits.set(c.target, l); } }, { priority: -1000 });
   let dot = false;
   for (let i = 0; i < 30 * 90 && !b.finished; i++) { b.step(); if (b.allies().some((u) => u.findBuff('boss:helmShellDot'))) dot = true; }
-  const zones = b.drainEvents().filter((e) => e[0] === 'fx' && e[1] === 'zone' && e[4] && e[4].kind === 'helmShell');
+  const evs = b.drainEvents();
+  const zones = evs.filter((e) => e[0] === 'fx' && e[1] === 'zone' && e[4] && e[4].kind === 'helmShell');
   assert.ok(zones.length >= 1, 'a shell arrived and left its zone');
   approx(zones[0][4].dur, 9.95);
   // the render draws its talent killed's projectile there (projectile_enemy_acstmr_s1 → enemy_acstmr_explode_range)
   assert.equal(zones[0][4].ability, 'killed');
   assert.ok(zones[0][4].id != null && zones[0][4].caster == null, 'named by the shell, not a cast');
+  // its arrival burst names the boss's skill 1, whose projectile_enemy_acstmr carried it (→ enemy_acstmr_explode)
+  const boss = b.aliveEnemies().find((o) => o.isBoss);
+  const blasts = evs.filter((e) => e[0] === 'fx' && e[1] === 'explode' && e[4] && e[4].kind === 'helmShell');
+  assert.ok(blasts.length >= 1, 'a burst on arrival');
+  assert.ok(!boss || blasts.every((e) => e[4].id === boss.id && e[4].ability === '1' && e[4].caster == null), 'named by the boss skill');
   assert.ok(hits.size >= 1, 'operators were hit by the zone');
   assert.ok(!dot, 'no DoT buff any more');
   let again = false;
