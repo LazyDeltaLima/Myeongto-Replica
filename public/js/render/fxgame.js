@@ -436,6 +436,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // 'medium' (one upload per effect, not two) they keep the old rule: the caster's under the units, the rest over.
   const live = [];                   // { inst, view: followed view | null, owner: unit id, buff: boolean, layer }
   const lastAtk = new Map();         // target id → { src view, t }
+  // 2026-10-31: `${attacker}:${target}` → the same record: another unit's attack on the target replaces its lastAtk entry
+  // before a hit that lands later (迷迭香 S2's shots, 1.2 s: data `shot.land`), so that hit finds its own attack here
+  const ownAtk = new Map();
   const healAtk = new Map();         // ally id → { src view, t, mode, kind, shot }: the heal shot on its way to it (healHit)
   const lastHit = new Map();         // `${src}:${tgt}` → t
   const lastAttackFx = new Map();    // src id → t
@@ -5324,6 +5327,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           const shot = mode === -1 && takeShot(src); // 2026-10-16: a mode-less skill's own shot
           const sig = typeof e[4] === 'string' && e[4] ? e[4] : null; // 2026-10-21: a talent's own attack ('T.1': modePart)
           if (tgt) lastAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode, kind: e[3], shot, combat: !!src._fxCombat, sig });
+          if (tgt) {
+            ownAtk.set(`${src.id ?? src.info?.id}:${tgt.id ?? tgt.info?.id}`, lastAtk.get(tgt.id ?? tgt.info?.id));
+            if (ownAtk.size > 512) for (const [k, x] of ownAtk) if (clockS - x.t > 2.5) ownAtk.delete(k);
+          }
           if (tgt && tgt.info?.side !== 'enemy') healAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode, kind: e[3], shot }); // healHit
           if (tgt) aimed.set(`${src.id ?? src.info?.id}:${tgt.id ?? tgt.info?.id}`, { t: clockS, mode }); // the chain it may start (chainHop)
           if (aimed.size > 256) for (const [k, x] of aimed) if (clockS - x.t > 2.5) aimed.delete(k);
@@ -5359,12 +5366,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (pendingHit(tid, views, by)) return; // local patch: a skill's damage without an attack
           let a = lastAtk.get(tid);
           if (a && by != null && ownerOf(a.src) !== by) a = null; // another unit's damage: not that attack's hit
+          if (!a && by != null) a = ownAtk.get(`${by}:${tid}`) ?? null; // its own attack, replaced on lastAtk by another unit's
           // an attack with per-strike hits keeps its record for its strikes of the same tick (strikeGroups); a DoT tick is none
           // (2026-10-16: the sim's 8th field numbers them; one without — a talent's extra hit — is no strike; a numbered one
-          // after the last is a later strike even on a later tick — a 轰击术师's aftershocks 0.3 s apart)
+          // after the last is a later strike even on a later tick — a 轰击术师's aftershocks 0.15 s apart)
           const strike = Number.isInteger(e[7]) ? e[7] : null;
           const later = !!a && a.hitT != null && strike != null && strike > (a.n ?? -1) && clockS - a.t <= 2.5;
-          if (a && a.hitT != null && !later && (a.hitT !== clockS || e[6] === 1 || (e.length >= 8 && e[7] == null))) { if (a.hitT !== clockS) lastAtk.delete(tid); a = null; }
+          if (a && a.hitT != null && !later && (a.hitT !== clockS || e[6] === 1 || (e.length >= 8 && e[7] == null))) { if (a.hitT !== clockS) { if (lastAtk.get(tid) === a) lastAtk.delete(tid); ownAtk.delete(`${by}:${tid}`); } a = null; }
           if (!a || clockS - a.t > 2.5) { if (by != null) eskillHit(tid, by, views); return; } // an enemy ability's hit (2026-10-10)
           const tgt = views.get(tid);
           if (!tgt) return;

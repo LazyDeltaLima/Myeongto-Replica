@@ -958,7 +958,9 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   해당 모드(EN 클라 전수 + CN 켈시 에스페란타): 텍사스·엑시아 더 뉴 커버넌트·실버애쉬 더 레인프로스트·리스캄·백파이프·인포서·르무엔·산크타 믹사파라토·
   스노우헌터·비질·인사이더·켈시 에스페란타 Default, 스카디 Default·S2·S3, 르무엔 S2, 送葬人 S2 — begin 0.033~0.667 s. 같은 컴포넌트의 상한으로 바뀐 것:
   실버애쉬 더 레인프로스트 Default 1, 리스캄 Default 2, 르무엔 S2 1(공격 능력의 −1이던 것), 백파이프·비질 Default·비질 S3 −1(1이던 것).
-  [ASSUMED] 쿨다운이 남은 채 상태에 들어가면 클라는 OnEnter의 시전이 실패하고 다음 시전이 firstAttack 거짓일 수 있다(읽지 않음) — 시뮬은 그 상태의 첫 휘두름을 첫 공격으로 본다.
+  쿨다운이 남은 채 상태에 들어가도 첫 휘두름은 첫 공격이다(2026-10-31 공식 클라에서 확인 — 시뮬과 같음): `AttackState.OnEnter`는 `attackTrigger.isReadyToTrig`이면
+  `_StartAttack(true)`를 부르고, `AbilityStandard.CastToTarget`은 `isReady`가 아니면 거짓 → `OnEnter`가 IDLE로 바꾼다. `IdleState.OnTick`은 쿨다운을 보지 않고
+  `_SearchAttackTarget`이 참이면 다시 ATTACK으로 → 쿨다운이 끝날 때까지 들어갈 때마다 `firstAttack` 참으로 시도하고, 처음 성공한 시전이 첫 공격이 된다.
   `_minAnimScale` −1(상한 없는 아래쪽)은 안 옮김(전원 −1, 0.1 아래로 갈 간격 없음). 스노우헌터 장전 중 공격(`ReloadAttack` begin `Reload_Break`)도 같은 0.167 s.
   golden 전부가 움직였다(위 오퍼레이터의 첫 타격이 수십~수백 ms 늦어짐 + 'swing' 칸).
 
@@ -1198,7 +1200,7 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
   날지 않는 shot은 그리지 않는다. 모드는 렌더의 `_fxSkillOn`·`skillIndex`, 저지 대상은 「저지된 적이 1.2칸 안」으로 짐작 [추정]. `FxSystem`에 `lookupDef`를
   넘김(`render/app.js`) — 2026-10-10부터 있던 절차 적 오브의 공식 속도(`enemyProjSpeed`)도 그동안 기록을 못 읽어 10으로 그려졌다. 화면 확인(2026-10-16, Windows
   Chrome 디버그 아레나, 샌드백 3칸): 隐现 절차 0.297 s·공식 꼬리 ≈ 0.29 s, 能天使 투사체 없음, 流星 0.50 s, 深靛 0.15 s, 오류 0. 실제 판 [화면 미확인].
-- [추정] 로즈몬티스 S2·산탈라 S2의 AttachToTarget은 `_immediatelyReach` 0(닿는 시점이 다른 신호)인데 즉시로 둔다. 시뮬 틱(1/30 s) 때문에 비행은 한 틱 일찍 닿을 수 있다
+- 로즈몬티스 S2·산탈라 S2의 AttachToTarget(`_immediatelyReach` 0)은 2026-10-31부터 공식 시점에 닿는다 — 아래 「오퍼레이터 시점·차례 묶음 B」 투사체. 시뮬 틱(1/30 s) 때문에 비행은 한 틱 일찍 닿을 수 있다
   (적 투사체와 같음).
 - 안 한 것: 蒂比(스카이레인저)는 시뮬이 근접(투사체 없음)으로 다뤄 클라 TRACE 10이 안 들어감. 키트가 직접 쏘는 투사체(스킬 'strike' 등)는 키트 값 그대로.
 - 테스트 `test/sim/op-shot.test.js`(데이터·비행 시간·저지·렌더 짝·실제 판 경로의 치료 지연). 원거리 오퍼레이터 피해 시각이 바뀌어 golden이 움직인다.
@@ -2313,7 +2315,8 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
 
 ## 오퍼레이터 시점·차례 묶음 B (2026-10-31)
 
-남은 일 묶음 B의 두 줄. 모두 공식 클라에서 확인(버프 템플릿 `buff_template_data`·스킬 프리팹의 버프·액션 노드 동작).
+남은 일 묶음 B의 줄들. 모두 공식 클라에서 확인(버프 템플릿 `buff_template_data`·스킬·투사체 프리팹·액션 노드·투사체 동작). 첫 공격 OnEnter 판정은 위
+「일반 공격 타이밍」.
 
 - **우타게(宴, `char_337_utage`) S2 「낙지참·파문」(落地斩·破门) `respawn_time 1`**: 스킬 프리팹의 상시 버프 `utage_s_2[respawn]`은 속성 수정 하나 —
   `RESPAWN_TIME`, 식 칸 `FINAL_SCALER`, 값은 블랙보드에서(`loadFromBlackboard`: 블랙보드[속성 이름] = `respawn_time`). 최종 배율 × 1이라 재배치 시간은
@@ -2330,3 +2333,18 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
   - 테스트 `kits_t1t2.test.js` 「2_13 蒂比」(배치 직후·`stack_time` 전 미준비, 뒤 준비, 순수 피해에 남음, 첫 공격 회피·둘째 명중, S2 회피에 남음),
     `test/sim/stack-buff-fx-events.test.js` 「蒂比 T」. 골든: roster-004·006, 매치 coop3-ABYSS-5·coop8-HARD-3·coop2-NORMAL-1-coverage-standins·
     coop2-NORMAL-1-unowned-roster.
+- **오퍼레이터 투사체 — 로즈몬티스(迷迭香) S2·산탈라(寒檀) S2가 닿는 때** (2026-10-31, 관리자 요청으로 확인): 투사체 프리팹 원본 값 + 공식 클라의
+  `AttachToTarget.OnInit`·`OnTick`·`DoCheckReachedInternal`, `BasicMovement.CheckReached`·`DoCheckReachedInternal`, `Projectile.OnTick`·`EnsureLifeTime`·`StopMe`·
+  `OnProjectileStop`.
+  - `OnInit`이 대상 자리에 둔다. `_checkReached`일 때만 `OnTick`이 닿음을 본다(거리 0.1 안 → 첫 틱에 닿음), 닿은 뒤 `_delayAfterReached`면 남은 수명 =
+    `_delayTime`(블랙보드 `projectile_delay_time`이 덮음) + 그만큼 뒤 멈춤. `_checkReached` 0이면 이동이 닿게 하지 않고, LIMITED 수명이 끝나 멈출 때
+    `_alwaysReachInTheEnd`면 그때 닿는다. 명중 동작이 `_onlyCheckHitWhenStop`이면 멈출 때, `_onlyCheckHitWhenReachTarget`이면 닿을 때 친다.
+  - 로즈몬티스 S2 `projectile_chr_rosmon_s2`: `_checkReached` 0·수명 1.2 s·`_alwaysReachInTheEnd` → **공격 1.2 s 뒤 명중**(기절 `rosmon_s2_stun_equip`도 그때).
+    여진 `projectile_chr_rosmon_s2_after_shock`도 같은 1.2 s, 공격 능력 `_additionalTimes` 3·`_triggerDelta` 0.15 → 여진은 0.15 s 간격(모든 모드가 0.15 —
+    전: 0.3 s). 스킬이 끝나기 전에 쏜 공격은 끝난 뒤 닿아도 S2 모양(확산 1.5·여진 3·기절 확률)을 지닌다(투사체가 제 명중 동작을 가짐): 늦게 닿는 샷은 쏠 때의
+    프로필을 복사하고(`ai.js`), 기절은 스킬 동안 쏜 공격 id·여진 태그로 고른다(키트).
+  - 산탈라 S2 `projectile_chr_sntlla_s2`: `_checkReached` 1·`_delayAfterReached`·`_delayTime` 0.6·명중은 멈출 때 → **고드름 표시 0.6 s 뒤 명중**(전: 근거 없이 고른 0.3 s;
+    스킬 블랙보드에 `projectile_delay_time` 없음).
+  - 데이터: 추출기 `attach_land` → `shot.land`(`docs/DATA.md`), 시뮬은 날지 않는 샷의 대기에 `land`를 먼저 씀. 다른 오퍼레이터의 ATTACH 샷은 모두 즉시(해당 없음).
+    적 투사체 기록에도 `land`가 붙지만 적 경로는 읽지 않는다. 테스트 `kits_t6.test.js` 「迷迭香 S2 (client projectile_chr_rosmon_s2 …)」, `kits_t5.test.js`
+    「寒檀 S2: ice spikes …」.

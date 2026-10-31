@@ -948,6 +948,9 @@ test('寒檀 S2: ice spikes on random range tiles every 0.5 s — 65 % ATK arts 
   });
   const u = h.unit('chess_char_5_21_a');
   const bb = bbOf(u), t0 = tal(u, 0);
+  const spikeT = [];
+  const fx0 = h.b.fx.bind(h.b);
+  h.b.fx = (kind, o) => { if (kind === 'iceSpike') spikeT.push(h.b.time); return fx0(kind, o); };
   h.step();
   const atk0 = u.s.atk;
   u.skill.gainSp(1000);
@@ -959,6 +962,9 @@ test('寒檀 S2: ice spikes on random range tiles every 0.5 s — 65 % ATK arts 
   assert.ok(spikes >= 9 && spikes <= 11, `≈ 2 spikes/s (${spikes})`);
   const ice = tagged(h, 'iceSpike');
   assert.ok(ice.length > 0);
+  // the impact lands 0.6 s after the icicle appears (client projectile_chr_sntlla_s2: `_delayTime` 0.6 after it reaches)
+  assert.equal(u.def.shot.skills[1].land, 0.6);
+  assert.ok(Math.abs(ice[0].t - (spikeT[0] + 0.6)) <= 1 / 30 + 1e-6, `impact ${ice[0].t - spikeT[0]} s after the icicle`);
   for (const c of ice) approx(c.amount, atk0 * bb['attack@atk_scale'], 1e-6);
   assert.ok(h.hooksOf('statusApplied').some((c) => c.status === 'cold' && c.t >= t && c.duration === bb['attack@cold']));
   assert.ok(!h.hooksOf('damaged').some((c) => c.source === u && c.dmg.isAttack && !(c.dmg.tags || []).includes('iceSpike') && c.t > t + 0.1), 'no normal attacks during S2');

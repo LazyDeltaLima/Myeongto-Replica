@@ -15,7 +15,13 @@ classes, namespace Torappu.Battle.Projectiles):
                      distance / speed; the height only shapes the arc); `_delayTime` with `_delayAfterReached` (stay: it
                      lies where it landed that long — the blackboard `projectile_delay_time` overrides it)
   HarpoonMovement    `_extendLenth` → move HARPOON (a line that extends at `_speed` (+ `_acceleration`) to its target)
-  AttachToTarget     `_immediatelyReach` → move ATTACH (no flight: on the target after `_delayToStart` s)
+  AttachToTarget     `_immediatelyReach` → move ATTACH (no flight: on the target after `_delayToStart` s); one that is not
+                     instant gets `land` = when its hit lands (attach_land): the client's AttachToTarget.OnTick checks the
+                     reach only with `_checkReached` (on the target from OnInit: reached at once), and `_delayAfterReached`
+                     then stops it `_delayTime` s later (Projectile.EnsureLifeTime + a timed Stop); without `_checkReached`
+                     it is reached only when its LIMITED life ends (`_alwaysReachInTheEnd`, Projectile.OnProjectileStop);
+                     a hit behaviour with `_onlyCheckHitWhenStop` hits at the stop, one with
+                     `_onlyCheckHitWhenReachTarget` at the reach
   none               a projectile with no movement behaviour (an area / effect carrier at its target) → move NONE
 
 The sim (server/sim/ai.js enemyAttack, content kits) times the hit of an enemy's shot by these numbers; the renderer and
@@ -139,8 +145,32 @@ def projectiles(C):
                     r.setdefault('sub', []).append(d[k])
         r.setdefault('move', 'NONE')
         r.setdefault('speed', 0)
+        land = attach_land([d for gp, d in lst if gp == key])
+        if land is not None:
+            r['land'] = land
         out[key] = dict(sorted(r.items()))
     return out
+
+
+def attach_land(ds):
+    """When the hit of a non-instant AttachToTarget projectile lands, in s after it is fired (None: instant or not
+    ATTACH, or nothing lands it). `ds` = the behaviours on the prefab root."""
+    att = next((d for d in ds if '_immediatelyReach' in d), None)
+    if att is None or att.get('_immediatelyReach'):
+        return None
+    start = num(att.get('_delayToStart') or 0)
+    life = next((num(d['_lifeTime']) for d in ds if d.get('_lifeTimeType') == 1 and '_lifeTime' in d), None)
+    at_end = any(d.get('_alwaysReachInTheEnd') for d in ds)
+    if att.get('_checkReached'):
+        reach = start
+        delay = num(att.get('_delayTime') or 0) if att.get('_delayAfterReached') else 0
+        stop = reach + delay if delay > 0 else (life if life is not None else None)
+    else:
+        stop = life
+        reach = life if at_end else None
+    hit_stop = any(d.get('_onlyCheckHitWhenStop') for d in ds)
+    land = stop if hit_stop else reach
+    return None if land is None else round(land, 4)
 
 
 def shot(d):

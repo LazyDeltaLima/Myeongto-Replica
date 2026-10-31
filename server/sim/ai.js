@@ -541,8 +541,15 @@ export function performAttack(b, u, prof, targets, opts = null) {
       throwBoomerang(b, u, prof, t, info);
     } else if (ranged && foe && shot && !(shot.speed > 0)) {
       // no flight (能天使's Default attack, 夕, an AttachToTarget shot): the hit at the strike, an AttachToTarget's
-      // `_delayToStart` after it
-      if (shot.delay > 0) b.after(shot.delay, () => { if (t.alive && !t.hidden) resolveHit(b, u, prof, t, info, t.x, t.y); });
+      // `_delayToStart` after it — or its `land` (one that is not instant: 迷迭香 S2 at the end of its 1.2 s life,
+      // 寒檀 S2 0.6 s after it reaches; tools/local-extract/enemy_projectiles.py attach_land)
+      // A shot that lands later carries the attack as it was fired (the client's projectile holds its own hit behaviours):
+      // the profile is copied now, so a skill ending meanwhile (迷迭香 S2's splash radius and aftershocks) does not change it.
+      const wait = shot.land ?? shot.delay;
+      if (wait > 0) {
+        const fired = { ...prof };
+        b.after(wait, () => { if (t.alive && !t.hidden) resolveHit(b, u, fired, t, info, t.x, t.y); });
+      }
       else resolveHit(b, u, prof, t, info, t.x, t.y);
     } else if (ranged && foe) {
       const speed = shot ? shot.speed : (PROJECTILE_SPEEDS[prof.projectile] ?? PROJECTILE_SPEED);
@@ -695,7 +702,7 @@ export function resolveHit(b, u, prof, target, info, x, y) {
     }
     if (prof.chain.sluggish && target.alive) b.applyStatus(target, 'sluggish', { duration: prof.chain.sluggish, source: u });
   }
-  const hctx = { dealt: dealtTotal, x, y, isSkill: info.isSkill };
+  const hctx = { dealt: dealtTotal, x, y, isSkill: info.isSkill, profile: prof };
   if (prof.afterHit) b._safe(() => prof.afterHit(b, u, target, hctx), 'profile.afterHit', u);
   if (prof.skillOnHit && u.skill) {
     const fn = prof.skillOnHit;

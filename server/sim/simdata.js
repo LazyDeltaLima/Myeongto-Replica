@@ -337,7 +337,9 @@ export function normShot(p) {
  * data/chess.json `shot` { base, skills } (tools/build-data.mjs opShot) → { base, skills } of normShot plus `combat`
  * (1: the mode's blocked attack has no projectile), or undefined when absent. A shot without a key (`{ move: 'NONE',
  * speed: 0 }`: the attack has no projectile) normalises to { key: null, move: 'NONE', speed: 0, delay: 0 }; a skill
- * entry null = the skill keeps the Default mode's; `move` OTHER = not read (ai.js opShot: the kind's speed).
+ * entry null = the skill keeps the Default mode's; `move` OTHER = not read (ai.js opShot: the kind's speed). `land`: when
+ * the hit of an AttachToTarget shot that is not instant lands, s after it is fired (迷迭香 S2 1.2, 寒檀 S2 0.6 —
+ * tools/local-extract/enemy_projectiles.py attach_land).
  */
 function normOpShot(s) {
   if (!s || typeof s !== 'object') return undefined;
@@ -345,7 +347,8 @@ function normOpShot(s) {
     if (!p || typeof p !== 'object') return null;
     const n = normShot(typeof p.key === 'string' ? p : { ...p, key: '' });
     if (!n) return null;
-    return { ...n, key: n.key || null, ...(p.combat ? { combat: true } : {}) };
+    const land = Number(p.land);
+    return { ...n, key: n.key || null, ...(Number.isFinite(land) && land > 0 ? { land } : {}), ...(p.combat ? { combat: true } : {}) };
   };
   return { base: one(s.base), skills: Array.isArray(s.skills) ? s.skills.map(one) : [] };
 }

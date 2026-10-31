@@ -667,6 +667,40 @@ test('迷迭香: S2 adds 2 aftershocks per attack, ignores 160 DEF (talent)', ()
   assert.equal(u.profile.shockTimes, u.def.traitBb['attack@times'], 'restored after the skill');
 });
 
+test('迷迭香 S2 (client projectile_chr_rosmon_s2, AttachToTarget reached at the end of its 1.2 s life): the hit lands 1.2 s after the attack, after-shocks 0.15 s apart, and an attack fired before the skill ends keeps its S2 shape', () => {
+  const atkT = [];
+  const h = battle({
+    units: [{ chessId: 'chess_char_6_12_a', row: 10, col: 3, carryState: { sp: 36 } }],
+    enemies: [{ key: 'enemy_armored', pos: [10, 5] }],
+    setup(b) { b.on('attack', (c) => { if (c.attacker.defId === 'chess_char_6_12_a') atkT.push({ t: b.time, s2: !!c.attacker.skill?.active }); }); },
+  });
+  const u = h.unit('chess_char_6_12_a');
+  const land = u.def.shot.skills[u.def.skill.index].land;
+  assert.equal(land, 1.2);
+  assert.ok(h.runUntil(() => u.skill.active, 10));
+  assert.ok(h.runUntil(() => atkT.some((a) => a.s2), 10));
+  const a0 = atkT.find((a) => a.s2).t;
+  h.run(land + 1);
+  const mains = h.dmg.filter((d) => d.src === u.id && d.attack && !d.splash && !d.tags.includes('aftershock') && d.t >= a0 - 1e-9);
+  const tick = 1 / 30 + 1e-6;
+  assert.ok(Math.abs(mains[0].t - (a0 + land)) <= tick, `main hit ${mains[0].t - a0} s after the attack`);
+  const shocks = h.dmg.filter((d) => d.src === u.id && d.tags.includes('aftershock') && d.t > mains[0].t - 1e-9 && d.t <= mains[0].t + 0.5);
+  const per = u.profile.shockTimes - 1;
+  assert.equal(shocks.length, per, 'S2 after-shocks of one attack');
+  shocks.forEach((d, i) => assert.ok(Math.abs(d.t - (mains[0].t + 0.15 * (i + 1))) <= tick, `after-shock ${i + 1} at +${d.t - mains[0].t}`));
+  // the last S2 attack lands after the skill ends: still 3 after-shocks (its profile was copied when fired)
+  assert.ok(h.runUntil(() => !u.skill.active, 60));
+  const last = atkT.filter((a) => a.s2).at(-1).t;
+  const end = h.b.time;
+  h.run(land + 1);
+  const lateMain = h.dmg.find((d) => d.src === u.id && d.attack && !d.splash && !d.tags.includes('aftershock') && Math.abs(d.t - (last + land)) <= tick);
+  assert.ok(lateMain && lateMain.t > end, 'this seed: the last S2 attack lands after the skill');
+  const late = h.dmg.filter((d) => d.src === u.id && d.tags.includes('aftershock') && d.t > lateMain.t - 1e-9 && d.t <= lateMain.t + 0.5);
+  assert.equal(late.length, per, 'an S2 attack landing after the skill keeps its after-shocks');
+  assert.ok(late.every((d) => d.tags.includes('rosmon:s2')), 'and its stun chance');
+  assert.equal(u.profile.shockTimes, u.def.traitBb['attack@times'], 'restored after the skill');
+});
+
 test('新约能天使 火力电台 (PRTS 备注, client TalentBomb): one target per round, a bombing per success 0.1 s apart hitting 0.3 s after it is fired, radius 1.3, damage fixed per round', () => {
   const h = battle({
     units: [{ chessId: 'chess_char_6_13_a', row: 10, col: 1 }, { chessId: 'test_lat_a', row: 10, col: 2 }],

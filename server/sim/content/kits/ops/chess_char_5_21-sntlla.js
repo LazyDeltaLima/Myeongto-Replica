@@ -8,8 +8,12 @@ import { num, talent, skillGrid, batPct, mods, lazySkills, whileOn } from '../sh
 
 /** 寒檀 S2 icicle splash radius (PRTS 备注 "冰凌溅射半径1.5"). */
 const ICICLE_RADIUS = 1.5;
-/** 寒檀 S2 icicle fall time (s) between the attack and the impact. [ASSUMED] */
-const ICICLE_DELAY = 0.3;
+/**
+ * 寒檀 S2 icicle fall time (s) between the attack and the impact: the S2 mode's shot projectile_chr_sntlla_s2 is on its
+ * tile at once and its area hit (`_onlyCheckHitWhenStop`) lands when it stops, `_delayTime` 0.6 s after it reaches (the
+ * client's AttachToTarget `_delayAfterReached`; data `shot.land`, read below — this is its value when data lacks it).
+ */
+const ICICLE_DELAY = 0.6;
 /** 寒檀 S2 icicle lines, lateral offsets in her facing-RIGHT frame: ① the line on her left, ② on her right, ③ her own, then ①. */
 const ICICLE_ROWS = [1, -1, 0];
 
@@ -21,6 +25,7 @@ export default {
   chess_char_5_21_a: (bb, chess, def) => {
     const t0 = talent(chess, 0);
     const scale = num(bb['attack@atk_scale'], 1), cold = num(bb['attack@cold']);
+    const fall = num(def?.shot?.skills?.find((x) => x?.key === 'projectile_chr_sntlla_s2')?.land, ICICLE_DELAY);
     const resist = Math.min(1, Math.max(0, -num(t0.one_minus_status_resistance)));   // share of the duration removed
     return {
       // S1 迅捷打击·γ型 (duration): ATK +, ASPD +.
@@ -53,7 +58,7 @@ export default {
           unit.lastAttackAt = battle.time;
           unit.stats.attacks++; // "攻击变为…召唤冰凌": every icicle is one of her attacks
           battle.fx('iceSpike', { x: c, y: r, id: unit.id, r: ICICLE_RADIUS });
-          battle.after(ICICLE_DELAY, () => {
+          battle.after(fall, () => {
             const hit = [];
             for (const e of battle.foesInRadius(c, r, ICICLE_RADIUS)) {
               battle.dealDamage(unit, e, { amount: unit.s.atk * scale, type: 'arts', isAttack: true, isSkill: true, isSplash: true, tags: ['skill', 'iceSpike'] });

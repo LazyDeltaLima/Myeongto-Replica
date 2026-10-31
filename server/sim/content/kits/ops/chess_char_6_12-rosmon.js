@@ -10,6 +10,8 @@ import { num, tbb, live, opsOf, selectedSkill, batOf } from '../shared/tier6.js'
 
 /** S2 末梢阻断 "溅射范围扩大": radius 1.5 (PRTS 溅射半径一览, 技能: 迷迭香 末梢阻断 1.5; ×1.3 [ASSUMED] until 0.1.1). */
 const ROSMON_S2_SPLASH = 1.5;
+/** Tag of the after-shocks fired by S2 attacks (profile `shockTags`): they keep its stun chance after the skill ends. */
+const S2_SHOCK = 'rosmon:s2';
 
 function rosmon(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1);
@@ -57,23 +59,32 @@ function rosmon(bb, chess, def) {
     skill: {
       kind: 'duration',
       mods: { batPct: batOf(bb.base_attack_time, def), atkPct: num(bb.atk) },
-      onStart({ unit }) {
+      // The S2 mode's shots land 1.2 s after they are fired (projectile_chr_rosmon_s2 and its after-shocks: the client's
+      // AttachToTarget reaches only at the end of its life — data `shot.land`), so an attack fired near the end of the skill
+      // lands after it: it keeps the S2 splash and after-shocks (ai.js copies the profile it was fired with) and its stun
+      // chance (rosmon_s_2[stun] rides on the attack) — the attack ids fired during the skill and the after-shock tag below.
+      onStart({ battle, unit }) {
         const p = unit.profile;
-        unit.mem.rosSaved = { r: p.splashRadius, n: p.shockTimes };
+        unit.mem.rosSaved = { r: p.splashRadius, n: p.shockTimes, t: p.shockTags };
         p.splashRadius = Math.max(num(p.splashRadius, 0.9), ROSMON_S2_SPLASH);
         p.shockTimes = num(p.shockTimes, 2) + Math.floor(num(bb.add_times));
+        p.shockTags = [S2_SHOCK];
+        unit.mem.rosS2Ids = [battle._attackSeq + 1, Infinity];
       },
-      onEnd({ unit }) {
+      onEnd({ battle, unit }) {
         const s = unit.mem.rosSaved;
-        if (s) { unit.profile.splashRadius = s.r; unit.profile.shockTimes = s.n; }
+        if (s) { unit.profile.splashRadius = s.r; unit.profile.shockTimes = s.n; unit.profile.shockTags = s.t; }
         unit.mem.rosSaved = null;
+        if (unit.mem.rosS2Ids) unit.mem.rosS2Ids[1] = battle._attackSeq;
       },
     },
     talents: [
       { install(battle, unit) { // S2: attack & aftershock stun chance
         battle.on('damaged', (ctx) => {
-          if (ctx.source !== unit || !unit.skill?.active || !(stun > 0) || !ctx.target.alive || ctx.target.side !== 'enemy') return;
-          if (!ctx.dmg?.isAttack && !ctx.dmg?.tags?.includes('aftershock')) return;
+          if (ctx.source !== unit || !(stun > 0) || !ctx.target.alive || ctx.target.side !== 'enemy') return;
+          const w = unit.mem.rosS2Ids, id = ctx.dmg?.attackId;
+          const s2Attack = ctx.dmg?.isAttack && w && id >= w[0] && id <= w[1];
+          if (!s2Attack && !ctx.dmg?.tags?.includes(S2_SHOCK)) return;
           if (battle.rng() < prob) battle.applyStatus(ctx.target, 'stun', { duration: stun, source: unit });
         }, { owner: unit });
       } },
