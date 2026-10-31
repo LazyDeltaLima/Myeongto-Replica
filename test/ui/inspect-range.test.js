@@ -107,15 +107,27 @@ test('a scouted prep board (the server\'s m.field): the board operator draws its
   m.dispose();
 });
 
-test('user Given a field operator selected in the prep When its menu shows the skill button Then the toggle offers only a skill range of its own', () => {
-  const op = chess.chess_char_1_04_a; // 深巡: S1 no range of its own, S2 skchr_udflow_2 one tile longer
+test('user Given a field operator selected in the prep When its menu shows the skill button Then the toggle offers the skill\'s own range', () => {
   const m = { skills: {} };
-  const s1 = skillButton({ detail: { type: 'chess', chess: op }, loadout: { [op.chessId]: { skill: 0 } }, getChess, m });
-  assert.equal(s1.spCost, op.skills[0].spCost);
-  assert.equal(s1.grid, null);
-  const s2 = skillButton({ detail: { type: 'chess', chess: op }, loadout: { [op.chessId]: { skill: 1 } }, getChess, m });
-  assert.equal(s2.spCost, op.skills[1].spCost);
-  assert.deepEqual(s2.grid, op.skills[1].rangeGrid);
+  const btn = (c, skill) => skillButton({ detail: { type: 'chess', chess: c }, loadout: skill == null ? null : { [c.chessId]: { skill } }, getChess, m });
+  const op = chess.chess_char_1_04_a; // 深巡: S1 no range of its own, S2 skchr_udflow_2 one tile longer
+  assert.equal(btn(op, 0).spCost, op.skills[0].spCost);
+  assert.equal(btn(op, 0).grid, null);
+  assert.equal(btn(op, 1).spCost, op.skills[1].spCost);
+  assert.deepEqual(btn(op, 1).grid, op.skills[1].rangeGrid);
+  // a range of its own with the attack range's tiles still gets the toggle (the client compares range objects)
+  const grabds = Object.values(chess).find((c) => !c.isGolden && c.skills?.some((s) => s.skillId === 'skchr_grabds_2'));
+  const s2 = grabds.skills.find((s) => s.skillId === 'skchr_grabds_2');
+  assert.deepEqual(s2.rangeGrid, grabds.rangeGrid);
+  assert.deepEqual(btn(grabds, s2.index).grid, s2.rangeGrid);
+  // a prefab that hides its range (引星棘刺 S3 `_hideRangeToShow`) or shows the base range (圣约送葬人 S1 / S3): no toggle
+  for (const id of ['skchr_thorn2_3', 'skchr_excu2_1', 'skchr_excu2_3']) {
+    const c = Object.values(chess).find((x) => !x.isGolden && x.skills?.some((s) => s.skillId === id));
+    const sk = c.skills.find((s) => s.skillId === id);
+    assert.equal(sk.showRange, false, id);
+    assert.ok(sk.rangeGrid?.length, id);
+    assert.equal(btn(c, sk.index).grid, null, id);
+  }
   // a summon or an item gets none; nor does a PASSIVE skill
   assert.equal(skillButton({ detail: { type: 'token', token: tokens.char_613_acmedc }, getChess, m }), null);
   const passive = { ...op, skill: { ...op.skills[0], skillType: 'PASSIVE' }, skills: [{ ...op.skills[0], skillType: 'PASSIVE' }] };

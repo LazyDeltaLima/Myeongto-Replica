@@ -428,19 +428,30 @@
     퇴각 자리(−195, 195)에 두고 퇴각 그림자를 끈다. `dontBlockClick`이 켜져 막는 판(`block_mask`)은 꺼진다 — 패널 밑 다른 기물도 눌린다.
   - 스킬 버튼(관리자 요청, 같은 날): `showSkillBtn` = 오퍼레이터 + 정비 중일 때 `group_skill`(`AutoChessUnderFrameSkillButton`, 190²)을
     오른쪽 아래 변 가운데 (195, −195)에. 공식 클라에서 확인(`Show`·`_SetData`·`_UpdateData`·`OnSkillButtonClicked`·`OnSkillRangeToggled`·
-    `_DoUpdateRangeToShow`·`_UpdateSkillCount`):
-    - 판은 스킬이 있고 `skillType`이 PASSIVE가 아닐 때만(`needToDisplay`도 보는데 이 값은 읽지 않았다 — 패시브가 아니면 늘 그림
-      [추정·미조사: `BasicSkill.get_needToDisplay`]). 소환물·아이템·대기석 기물에는 없다.
+    `_DoUpdateRangeToShow`·`_UpdateSkillCount`, `BasicSkill`/`SkillData.get_needToDisplay`, `Character.GetRangeOfSkill`·`get_rangeToShow`,
+    `Unit.get_rangeToShow`, `BasicSkill`/`CastSkill`/`NextAttackOrCombatSkill`/`ReplacementSkill.get_rangeToShow`). 이 메뉴 클래스들은
+    위수협의 전용(`AutoChess…`)이라 읽은 동작이 곧 위수협의 동작이고, 거기서 부르는 스킬·범위 함수는 전투 공용 코드에 위수협의 분기가 없다.
+    켜진 Lua 핫픽스(en_US·zh_CN)도 이 메서드들을 덮지 않는다. 필드 기물 메뉴 전체(`_RenderBattleField`): 퇴각은 늘, 판매 판은 소환물이 아니고
+    정비 중일 때, 스킬 버튼은 오퍼레이터이고 정비 중일 때(장비·마법 기물은 퇴각 자리가 파기).
+    - 판은 스킬이 있고 `needToDisplay`이고 `skillType`이 PASSIVE가 아닐 때만. `needToDisplay` = 스킬 프리팹의 `_hidden`이 꺼짐 ∧ `skillId`가
+      비지 않음 — 풀 스킬 프리팹 전부(302개)에서 `_hidden`이 켜진 것은 없어 패시브가 아니면 늘 그린다. 소환물·아이템·대기석 기물에는 없다.
     - 아이콘 `btn_skill` 168×176 = 로드아웃이 고른 스킬의 아이콘(상세 카드와 같은 계산, `ui/assetUrls.js loadoutSkillIconUrl`). 누름은 아무것도 안 한다
       (`OnSkillButtonClicked`가 빈 함수). 그 밑 준비 안 됨 막대 `sprite_skill_notready`(늘 켜짐)와 SP 글자 `text_sp_progress`(30, 흰색)
       「0/N」(`"{0}/{1}"`에 `"0"`·`spCost`).
-    - 범위 토글 `toggle_skill_range`(136×138 @ (165, −10), 왼쪽 끝에 잇는 막대 `image_link`): `Character.GetRangeOfSkill`이 있고 지금 보이는 범위와
-      다를 때만 보이고 꺼진 채 시작. 켜면 필드 범위 표시가 스킬 범위(`GridRangeDrawer.TurnOnSkill`), 끄면 공격 범위(`TurnOn`). 우리: 스킬
-      `rangeGrid`가 `attackRangeGrid(record)`와 다를 때(`screens/game/range.js skillButton`), 켬 상태는 그 선택에만(다른 기물을 고르거나 다시
-      고르면 꺼짐). 상세 카드의 범위 칸은 그대로 공격 범위.
+    - 범위 토글 `toggle_skill_range`(136×138 @ (165, −10), 왼쪽 끝에 잇는 막대 `image_link`): `Character.GetRangeOfSkill`(= 스킬의
+      `rangeToShow`)이 있고 유닛의 `rangeToShow`(지금 모드의 범위)와 **다른 객체**일 때만 보이고 꺼진 채 시작 — 칸 모양이 아니라 객체를 견준다.
+      스킬 범위는 `rangeId`가 있으면 프리팹의 `_rangeToShow`(대상 선택기)나 `_trigger`라 유닛 범위와 늘 다른 객체 → 공격 범위와 칸이 같아도
+      토글이 나온다(그레인버즈 S2). 없는 경우: `rangeId`가 비었음, CastSkill `_hideRangeToShow`(스와이어 디 엘리건트 위트 S3·이그제큐터 디 엑스
+      포에데레 S2·쏜즈 더 로드스타 S3), `_forceUseBaseShowRange`(이그제큐터 디 엑스 포에데레 S1·S3 — 기반 경로로 가 스킬 능력의 범위 또는 유닛
+      모드 범위를 돌려준다; [추정·엔진: 능력의 `rangeToShow`는 안 읽음 — 이름대로 유닛 기본 범위 = 같은 객체로 보고 토글 없음]). 켜면 필드 범위
+      표시가 스킬 범위(`GridRangeDrawer.TurnOnSkill`), 끄면 공격 범위(`TurnOn`). 우리: 스킬 `rangeGrid`가 있고 `showRange`가 false가 아닐 때
+      (`screens/game/range.js skillButton`; `showRange: false`는 `tools/local-extract/skill_cast.py`의 `range` 0 → `tools/build-data.mjs`),
+      켬 상태는 그 선택에만(다른 기물을 고르거나 다시 고르면 꺼짐). 상세 카드의 범위 칸은 그대로 공격 범위.
     - 그리지 않는 것: AUTO 표시 `text_auto_mark`·정지 `sprite_skill_stop`은 프리팹에서 GameObject가 꺼져 있고 스크립트는 `enabled`만 바꾼다 → 화면에
       안 나온다. 충전 수 `panel_skill_amount`는 `hasSkill` ∧ 스킬 `IsAvailable` ∧ `maxChargeTime` > 1일 때 켜지고 글자는 「0」 — 정비 중 SP가
       「0/N」이라 준비된 스킬이 아니므로 그리지 않는다 [추정·엔진: 정비 중 `IsAvailable` 값은 안 읽음].
+    - `CastSkill.get_rangeToShow`가 보는 것은 실행 중 값 `m_hideRangeToShow`이고 프리팹 값 `_hideRangeToShow`를 옮기는 곳은 안 읽었다
+      [추정·엔진: 초기화 때 그대로 옮긴다고 봄].
   - 대기석·임시 정비 구역 기물 → 마름모 없이 메뉴 버튼(`btn_panel_root`, `AutoChessCharacterMenuButton`): 검은 깃발 `img_btn_bg_all`
     (325×225 × 0.66) + 같은 판을 0.66배로. 아이템은 빨간 파기 판, 소환물은 아무것도 없다. 두 표시 설정 모두 `needRotate`라 `_RotateIfNeed`가
     `bg_offset`을 90° 돌려(왼쪽을 가리키던 깃발 끝이 아래 = 기물 쪽) `rotatedOffsetPos` (0, 60)에 두고, 판은 돌리지 않고
@@ -466,7 +477,8 @@
 - 확인: 목업 판 3D 필드(`/dev/game-mock.html?render=engine&phase=PREP`, Windows Chrome 1920×1080) 필드 기물·대기석 기물 선택 캡처를 관리자가 준
   공식 영상 캡처(대기석 판매)와 대조, 스킬 버튼은 같은 판에서 필드 오퍼레이터 7명(토글 있는 3명은 켜고 끔 — 실버애쉬 S3 범위로 바뀜) 캡처
   [화면 미확인: 공식 캡처와의 대조 없음],
-  테스트 `test/render/placement-ui.test.js`(배치·거울·버튼 범위·스킬 버튼 자리), `test/ui/inspect-range.test.js`(스킬 버튼 조건·토글 범위).
+  테스트 `test/render/placement-ui.test.js`(배치·거울·버튼 범위·스킬 버튼 자리), `test/ui/inspect-range.test.js`(스킬 버튼 조건·토글 범위 —
+  그레인버즈 S2 토글 있음, 쏜즈 더 로드스타 S3·이그제큐터 디 엑스 포에데레 S1·S3 없음).
 
 ## 전투 화면 UI (2026-10-07)
 관리자 요청 「전투 화면 UI를 공식 인게임과 똑같이」: ① 아군 체력·SP·탄환 바 + 기물 레벨 → ② 적 HP(보스 포함) → ③ 원소 원형 바 → ④ 데미지·회복 숫자 순서,

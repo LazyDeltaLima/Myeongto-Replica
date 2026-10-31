@@ -747,18 +747,21 @@
   "skchr_excu2_1": {
    "ability": null,
    "cls": "cast",
+   "range": 0,
    "reset": 0,
    "state": 1
   },
   "skchr_excu2_2": {
    "ability": null,
    "cls": "cast",
+   "range": 0,
    "reset": 0,
    "state": 1
   },
   "skchr_excu2_3": {
    "ability": null,
    "cls": "cast",
+   "range": 0,
    "reset": 0,
    "state": 1
   },
@@ -2471,6 +2474,7 @@
   "skchr_swire2_3": {
    "ability": null,
    "cls": "cast",
+   "range": 0,
    "reset": 0,
    "state": 1
   },
@@ -2607,6 +2611,7 @@
     "wait": 1
    },
    "cls": "cast",
+   "range": 0,
    "reset": 0,
    "state": 1
   },

@@ -37,13 +37,12 @@ export function inspectRange({ target, detail, pieces, showPrep = false, field, 
   return grid?.length ? { grid, row, col, dir } : null;
 }
 
-const gridKey = (g) => g.map(([r, c]) => `${r},${c}`).sort().join(' ');
-
 /**
  * The skill button of a field operator's menu (AutoChessUnderFrameSkillButton; docs/rules/ui.md 「선택 메뉴」): shown
  * for an operator with a skill that is not PASSIVE — its icon, its SP cost ("0/N": the prep shows no SP), and `grid`,
- * the skill's own range when it has one other than the range the unit shows (Character.GetRangeOfSkill ≠ rangeToShow:
- * only then the range toggle is drawn), else null. Null for a summon or an item.
+ * the skill's own range, else null. The client draws the range toggle when Character.GetRangeOfSkill is a range object
+ * other than the unit's own (rangeToShow): any skill with a range of its own — even one with the attack range's tiles —
+ * unless its prefab hides it or shows the base range (`showRange: false`). Null for a summon or an item.
  */
 export function skillButton({ detail, loadout, getChess, backups, m }) {
   if (detail?.type !== 'chess' || !detail.chess) return null;
@@ -51,11 +50,6 @@ export function skillButton({ detail, loadout, getChess, backups, m }) {
   const lo = cardLoadout(detail, loadout, getChess, backups);
   const sk = lo?.skill || body.skill || null;
   if (!sk || sk.skillType === 'PASSIVE') return null;
-  const normal = attackRangeGrid(lo?.record || body);
-  const own = Array.isArray(sk.rangeGrid) && sk.rangeGrid.length ? sk.rangeGrid : null;
-  return {
-    icon: loadoutSkillIconUrl(m, lo, body),
-    spCost: sk.spCost ?? 0,
-    grid: own && !(normal?.length && gridKey(own) === gridKey(normal)) ? own : null,
-  };
+  const own = Array.isArray(sk.rangeGrid) && sk.rangeGrid.length && sk.showRange !== false ? sk.rangeGrid : null;
+  return { icon: loadoutSkillIconUrl(m, lo, body), spCost: sk.spCost ?? 0, grid: own };
 }

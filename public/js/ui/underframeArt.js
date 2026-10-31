@@ -10,9 +10,10 @@
 //     `icon_sell`, the text, the price `img_bg_price_enough` "+N") at `_underFramePanelBtnParamSellPos`; the panel
 //     does not block presses (`dontBlockClick`), so the pieces under it stay pressable; for an operator in the prep
 //     (`showSkillBtn`) the skill button `group_skill` on the lower-right edge (AutoChessUnderFrameSkillButton): only for
-//     a skill that is not PASSIVE [추정·미조사: its `needToDisplay` is not read] — its icon `btn_skill` (a press does nothing), the not-ready bar
-//     `sprite_skill_notready` with `text_sp_progress` "0/N" (SP cost), and, when the skill has its own range other than
-//     the unit's, the range toggle `toggle_skill_range` (off at first; on → the field shows the skill's range,
+//     a skill that is not PASSIVE (and `needToDisplay`: no pool skill prefab sets `_hidden`) — its icon `btn_skill` (a
+//     press does nothing), the not-ready bar `sprite_skill_notready` with `text_sp_progress` "0/N" (SP cost), and, when
+//     the skill has a range object of its own other than the unit's (not hidden by its prefab — game/range.js
+//     skillButton), the range toggle `toggle_skill_range` (off at first; on → the field shows the skill's range,
 //     GridRangeDrawer TurnOnSkill, off → the attack range, TurnOn). Its AUTO mark and stop sign are inactive objects the
 //     script only enables, so they never show; the charge count `panel_skill_amount` needs a ready skill
 //     (`IsAvailable`) with maxChargeTime > 1, which the prep's "0/N" never is [추정·엔진: IsAvailable in the prep not read].
@@ -232,23 +233,8 @@ export function UnderframeButtonsArt({ g, art, actions, onBoard, keys, busy = fa
   const kind = actions.destroy ? 'destroy' : 'sell';
   // the layer's box sits on the piece (g): the SVG and the tap boxes are placed back to client px from there
   const hitStyle = (box) => `left:${box.left - g.x}px;top:${box.top - g.y}px;width:${box.right - box.left}px;height:${box.bottom - box.top}px`;
-  return html`<svg class="ufa ufa--btns" aria-hidden="true" style=${`left:${-g.x}px;top:${-g.y}px`}><g transform=${`matrix(${a} ${b} ${c} ${d} ${e} ${f})`}>
-      ${onBoard ? null : html`<image class="ufa__flag" href=${art.flag} x=${-MENU_BG.w / 2} y=${-MENU_BG.h / 2} width=${MENU_BG.w} height=${MENU_BG.h}
-        preserveAspectRatio="none" transform=${`translate(${MENU_BG.at[0]} ${MENU_BG.at[1]}) rotate(-90)`} />`}
-      ${W ? html`<g class="ufa__withdraw">
-        <image class="ufa__shadow" href=${art.escape} x=${W.at[0] - WITHDRAW.size * R / 2} y=${W.at[1] - WITHDRAW.size * R / 2} width=${WITHDRAW.size * R} height=${WITHDRAW.size * R} preserveAspectRatio="none" />
-        <image href=${art.escape} x=${W.at[0] - WITHDRAW.size * R / 2} y=${W.at[1] - WITHDRAW.size * R / 2} width=${WITHDRAW.size * R} height=${WITHDRAW.size * R} preserveAspectRatio="none" />
-        <${KeyCap} at=${W.key} label=${actions.sell != null ? keys.retreat : ''} k=${R} />
-      </g>` : null}
-      ${U ? html`<g transform=${`translate(${U.at[0]} ${U.at[1]}) scale(${U.k})`}>
-        <${UtilPlate} art=${art} kind=${kind} price=${actions.sell != null ? actions.sell : null} text=${kind === 'destroy' ? t('销毁') : t('出售')} />
-      </g>
-      ${actions.sell != null ? html`<${KeyCap} at=${U.keyAt} label=${keys.sell} k=${R} />` : null}` : null}
-      ${L.skill ? html`<g transform=${`translate(${L.skill.at[0]} ${L.skill.at[1]}) scale(${R})`}>
-        <${SkillGroup} art=${art} skill=${skill} rangeOn=${!!(L.skill.toggle && skillRange)} />
-      </g>` : null}
-    </g></svg>
-    ${W ? html`<button type="button" class="uframe__btn uframe__btn--retreat ufa__hit" disabled=${busy} onPointerDown=${stop}
+  // the tap boxes first: the art's hover / pressed / disabled looks follow them by sibling selectors (css/place-art.css)
+  return html`${W ? html`<button type="button" class="uframe__btn uframe__btn--retreat ufa__hit" disabled=${busy} onPointerDown=${stop}
         style=${hitStyle(boxOf(basis, W.at, W.hit, W.hit))}
         onClick=${(ev) => { stop(ev); onRetreat?.(); }} title=${actions.sell != null ? t('撤退至整备区（{key}）', { key: keys.retreat }) : t('撤退至整备区')}
         aria-label=${t('撤退')} aria-keyshortcuts=${actions.sell != null ? keys.retreat : undefined}>
@@ -269,6 +255,22 @@ export function UnderframeButtonsArt({ g, art, actions, onBoard, keys, busy = fa
         style=${hitStyle(boxOf(basis, L.skill.toggle, SKILL.toggle.w * R, SKILL.toggle.h * R))}
         onClick=${(ev) => { stop(ev); onSkillRange?.(!skillRange); }} title=${t('技能范围')} aria-label=${t('技能范围')} aria-pressed=${skillRange ? 'true' : 'false'}>
       <span class="uframe__label ufa__sr">${t('技能范围')}</span>
-    </button>` : null}`;
+    </button>` : null}
+    <svg class="ufa ufa--btns" aria-hidden="true" style=${`left:${-g.x}px;top:${-g.y}px`}><g transform=${`matrix(${a} ${b} ${c} ${d} ${e} ${f})`}>
+      ${onBoard ? null : html`<image class="ufa__flag" href=${art.flag} x=${-MENU_BG.w / 2} y=${-MENU_BG.h / 2} width=${MENU_BG.w} height=${MENU_BG.h}
+        preserveAspectRatio="none" transform=${`translate(${MENU_BG.at[0]} ${MENU_BG.at[1]}) rotate(-90)`} />`}
+      ${W ? html`<g class="ufa__withdraw">
+        <image class="ufa__shadow" href=${art.escape} x=${W.at[0] - WITHDRAW.size * R / 2} y=${W.at[1] - WITHDRAW.size * R / 2} width=${WITHDRAW.size * R} height=${WITHDRAW.size * R} preserveAspectRatio="none" />
+        <image href=${art.escape} x=${W.at[0] - WITHDRAW.size * R / 2} y=${W.at[1] - WITHDRAW.size * R / 2} width=${WITHDRAW.size * R} height=${WITHDRAW.size * R} preserveAspectRatio="none" />
+        <${KeyCap} at=${W.key} label=${actions.sell != null ? keys.retreat : ''} k=${R} />
+      </g>` : null}
+      ${U ? html`<g transform=${`translate(${U.at[0]} ${U.at[1]}) scale(${U.k})`}>
+        <${UtilPlate} art=${art} kind=${kind} price=${actions.sell != null ? actions.sell : null} text=${kind === 'destroy' ? t('销毁') : t('出售')} />
+      </g>
+      ${actions.sell != null ? html`<${KeyCap} at=${U.keyAt} label=${keys.sell} k=${R} />` : null}` : null}
+      ${L.skill ? html`<g transform=${`translate(${L.skill.at[0]} ${L.skill.at[1]}) scale(${R})`}>
+        <${SkillGroup} art=${art} skill=${skill} rangeOn=${!!(L.skill.toggle && skillRange)} />
+      </g>` : null}
+    </g></svg>`;
 }
 

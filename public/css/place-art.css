@@ -35,13 +35,16 @@
 .ufa__key rect { fill: rgba(20, 20, 20, .85); stroke: rgba(255, 255, 255, .3); stroke-width: 2; }
 .ufa__key text { fill: #e8e8e8; font-family: var(--font-num, var(--font-cjk)); font-weight: 600; }
 .ufa__withdraw, .ufa__util { transition: filter .1s; }
-.uframe--art:has(.uframe__btn--retreat:hover:not(:disabled)) .ufa__withdraw,
-.uframe--art:has(:is(.uframe__btn--sell, .uframe__btn--destroy):hover:not(:disabled)) .ufa__util { filter: brightness(.96); }
-.uframe--art:has(.uframe__btn--retreat:active:not(:disabled)) .ufa__withdraw,
-.uframe--art:has(:is(.uframe__btn--sell, .uframe__btn--destroy):active:not(:disabled)) .ufa__util { filter: brightness(.78); }
-.uframe--art:has(.uframe__btn--range:active) .ufa__range { filter: brightness(.78); }
-.uframe--art:has(.uframe__btn:disabled) .ufa--btns { opacity: .5; filter: brightness(.78); }
-.uframe__btn.ufa__hit { position: absolute; transform: none; padding: 0; margin: 0; background: transparent; border: 0;
+/* the tap boxes come before the art in the DOM (no :has(): Firefox ESR 115, Safari < 15.4), drawn above it by z-index */
+.uframe__btn--retreat:hover:not(:disabled) ~ .ufa--btns .ufa__withdraw,
+.uframe__btn--sell:hover:not(:disabled) ~ .ufa--btns .ufa__util,
+.uframe__btn--destroy:hover:not(:disabled) ~ .ufa--btns .ufa__util { filter: brightness(.96); }
+.uframe__btn--retreat:active:not(:disabled) ~ .ufa--btns .ufa__withdraw,
+.uframe__btn--sell:active:not(:disabled) ~ .ufa--btns .ufa__util,
+.uframe__btn--destroy:active:not(:disabled) ~ .ufa--btns .ufa__util,
+.uframe__btn--range:active ~ .ufa--btns .ufa__range { filter: brightness(.78); }
+.uframe__btn:disabled ~ .ufa--btns { opacity: .5; filter: brightness(.78); }
+.uframe__btn.ufa__hit { position: absolute; z-index: 1; transform: none; padding: 0; margin: 0; background: transparent; border: 0;
   filter: none; animation: none; display: block; }
 .uframe__btn.ufa__hit:focus-visible { outline: 2px solid #ffe2b0; outline-offset: 2px; }
 .ufa__sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

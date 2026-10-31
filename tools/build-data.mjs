@@ -968,6 +968,7 @@ function buildChess(ctx) {
       const bullets = skillBulletMode(ctx, s);
       if (bullets != null) s.bulletMode = bullets;
       if (skillSilent(ctx, s)) s.charWord = false;
+      if (skillRangeHidden(ctx, s)) s.showRange = false;
       s.overrideTokenKey = se.overrideTokenKey || null;
       skillRecs.push(s);
     });
@@ -1173,6 +1174,7 @@ function buildUnitForm(ctx, charId, status, { chessId = null, skillIndex = null 
     const bullets = skillBulletMode(ctx, s);
     if (bullets != null) s.bulletMode = bullets;
     if (skillSilent(ctx, s)) s.charWord = false;
+    if (skillRangeHidden(ctx, s)) s.showRange = false;
     s.overrideTokenKey = se.overrideTokenKey || null;
     skills.push(s);
   });
@@ -2584,6 +2586,16 @@ function skillBulletMode(ctx, s) {
 function skillSilent(ctx, s) {
   const c = ctx.skillCast?.skills?.[s.prefabId] ?? ctx.skillCast?.skills?.[s.skillId];
   return c?.word === 0;
+}
+
+/**
+ * Whether a skill shows no range of its own (`range` 0 in tools/assets/local-skill-cast.json: the prefab's
+ * `_hideRangeToShow` / `_forceUseBaseShowRange`) → the skill record's `showRange: false`: the field piece menu draws no
+ * skill range toggle for it (public/js/screens/game/range.js skillButton; docs/rules/ui.md 「선택 메뉴」).
+ */
+function skillRangeHidden(ctx, s) {
+  const c = ctx.skillCast?.skills?.[s.prefabId] ?? ctx.skillCast?.skills?.[s.skillId];
+  return c?.range === 0;
 }
 
 /** The handbook's 「不停止移动」 attack (“十字路口”量产型's 四向攻击) → enemies.json `attackMoves`: it never stops to attack. */

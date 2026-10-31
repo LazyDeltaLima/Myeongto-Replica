@@ -19,7 +19,9 @@ starts (`AbstractAnimatedAbility.DealWithFaceDirection`, docs/rules/render.md �
 into every skill record of data/chess.json / data/backups.json (`cast`). `word` 0 = the skill's `_playCharWordVoice` is
 off (no 作战中 line as it is cast; the record's `charWord: false`; any skill class). `born` 0 = the cast is refused while the
 unit is in its born state after a deployment: `CastSkill.UseSkill` checks `_canSwitchDuringBorn` (`_switchToState` 1) or
-`_canCastDuringBorn` (0) against `Character.CheckIsBornState`; the other skill classes do not check it. Output
+`_canCastDuringBorn` (0) against `Character.CheckIsBornState`; the other skill classes do not check it. `range` 0 = the
+skill shows no range of its own (CastSkill `_hideRangeToShow`, or `_forceUseBaseShowRange` — the unit's base range): the
+selection menu then has no skill range toggle (`CastSkill.get_rangeToShow`, docs/rules/ui.md 「선택 메뉴」). Output
 tools/assets/local-skill-cast.json:
 
   { "skills": { "skchr_thorn2_1": { "cls": "replace", "ability": { "anim": "Skill", "time": 0, "max": 1, "wait": 1, … } },
@@ -117,6 +119,8 @@ def skill_entry(sid, comps3):
         flag = '_canSwitchDuringBorn' if state else '_canCastDuringBorn'
         if flag in sk and not sk.get(flag):
             e['born'] = 0
+        if sk.get('_hideRangeToShow') or sk.get('_forceUseBaseShowRange'):
+            e['range'] = 0
     else:
         return word or None
     ab = next((a for a in map(ability, root) if a is not None), None)
