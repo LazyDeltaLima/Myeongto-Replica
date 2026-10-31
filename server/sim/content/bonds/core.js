@@ -595,8 +595,9 @@ function installKazimierz(battle, pid, bb, members) {
   // blackboard, channel CHARACTER — one blackboard per channel, no player key (BattleGlobalBlackboard) ⇒ one count for
   // the field: in a pair field where both players have 卡西米尔, each one's deployments count for both (until
   // 2026-10-31 per player). The env buff (global buff prefab, profession mask without tokens) reaches operators only;
-  // its player filter is the global buff data's playerSideMask (GlobalBuff.OnInit → TargetOptions.Init)
-  // [ASSUMED·엔진: the mode fills that mask with the bond owner's side — where it is filled is not read]
+  // its player filter is the global buff data's playerSideMask (GlobalBuff.OnInit → TargetOptions.Init), the bond
+  // owner's side: AutoChessBattleDataModel._AddPackedRuneData writes that side into each bond rune's selector and
+  // LGlobalBuffNew.OnPreprocessFinished copies it into the global buff data
   const st = S.battleStore(battle, 'bond:kazimierz:born', () => ({ deploys: 0, applies: [] }));
   const apply = () => {
     const cap = num(bb.base_max_atk_when_born, 0) + num(bb.max_atk_when_born_per_stack, 0) * S.bondLayers(battle, pid, 'kazimierzShip');

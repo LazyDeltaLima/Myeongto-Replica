@@ -251,6 +251,26 @@ test('consume_ammo: one count per consumer per 0.1 s, one threshold per 0.3 s ti
   assert.equal(gains(h).lateranoShip, n0, 'no catch-up past the count');
 });
 
+test('consume_ammo: a redeployment starts the count again, a relocation keeps it (the withdrawal clears every buff)', () => {
+  const gid = 'garrison_23_a'; // 圣约送葬人: self, every 7 → 拉特兰 +per
+  const per = num(GR(gid).bb.bond_add_count);
+  const h = battle({ units: [{ id: 'exe', g: [gid], row: 10, col: 4 }], bonds: { lateranoShip: B(0) } });
+  const u = h.unit('exe');
+  shoot(h, u, 6);
+  h.b.retreat(u, { reason: 'test' });
+  assert.ok(h.b.redeploy(u, { free: true }));
+  shoot(h, u, 1);
+  assert.deepEqual(gains(h), {}, '6 before the withdrawal + 1 after: no threshold');
+  shoot(h, u, 5);
+  assert.deepEqual(gains(h), {}, '6 since the redeployment');
+  shoot(h, u, 1);
+  assert.deepEqual(gains(h), { lateranoShip: per }, 'the 7th since the redeployment');
+  shoot(h, u, 6);
+  assert.ok(h.b.moveRedeploy(u, 10, 6));
+  shoot(h, u, 1);
+  assert.deepEqual(gains(h), { lateranoShip: 2 * per }, '【移动】 keeps the count: 6 + 1');
+});
+
 test('enemy_abflag_inrange (初雪 / 银灰 28): entering 冻结 in range × prob; a refreshed freeze is not a new entry', () => {
   for (const gid of idsOfKey('act1autochess_gar_event_enemy_abflag_inrange')) {
     if (!D.garrisons[gid].owners.some((o) => D.chess[o].visible)) continue; // 29: granted by 凛御银灰 (ADD_BOND test)

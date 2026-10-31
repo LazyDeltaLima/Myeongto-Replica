@@ -914,9 +914,11 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   (`BattleGlobalBlackboard`)는 채널마다 블랙보드 하나이고 노드는 키에 플레이어를 붙이지 않음 → **필드 하나에 한 수**, 두 플레이어 필드에서 둘 다 카시미어면
   서로의 배치를 함께 센다(2026-10-31, 이전: 플레이어마다). 이 전역 버프의 대상(전역 버프 프리팹 `act2autochess_bond_eff_kazimierz`, 1초 틱)은 아군 오퍼레이터,
   직업 마스크 639 → **소환물 배치는 안 셈**(지금과 같음). 대상 검사 `GlobalBuff._VerifyTarget` → `TargetOptions.VerifyTargetWithPlayerSide`는 출처 플레이어
-  마스크로 거르고 그 마스크는 `GlobalBuff.OnInit`이 전역 버프 데이터의 `playerSideMask`로 채운다. [추정·엔진: 卫戍协议가 맹약 전역 버프의 `playerSideMask`를 그
-  플레이어 쪽으로 채운다 — 채우는 곳은 안 읽음(함수 6개째), 그래서 상대 플레이어의 배치는 상대도 카시미어일 때만 들어옴] `bonds/core.js installKazimierz`, 테스트
-  `bonds_core.test.js` 「卡西米尔: the deploy count is one for the field」.
+  마스크로 거르고 그 마스크는 `GlobalBuff.OnInit`이 전역 버프 데이터의 `playerSideMask`로 채운다. 그 값은 맹약 플레이어 쪽이다 — 공식 클라에서 확인
+  (2026-10-31): `AutoChessBattleDataModel._AppendBattlePlayerRunes`가 전투 플레이어마다 활성 맹약의 룬을 `_AddPackedRuneData(룬, 그 플레이어 쪽, 플레이어)`로
+  넣고(쪽 = 왼쪽·오른쪽 맵 절반), `_AddPackedRuneData`가 룬마다 선택자 `playerSideMask` = 그 쪽 마스크로 쓰며, `LGlobalBuffNew.OnPreprocessFinished`가 그
+  선택자 마스크를 전역 버프 데이터로 옮긴다 → **맹약 전역 버프는 그 플레이어 쪽 말에만**, 상대 플레이어의 배치는 상대도 카시미어일 때만 같은 수에 들어온다(지금과
+  같음, 코드 변경 없음). `bonds/core.js installKazimierz`, 테스트 `bonds_core.test.js` 「卡西米尔: the deploy count is one for the field」.
 - **궁극기(맹약 `suntShip`) 5**: `ModifySpData`(`_onlyUpdateSpCost`, `_updateSpCostViaMaxRatioKey sp_ratio`) = **올림**(float32 곱 `ceil`)을 캐릭터 스킬
   데이터에 씀(이전: 내림). 25 × 0.7 → 18. 2단계 공격력·「정예 수」 셈(`AutoChessAssignChessCntToBB _assignGoldenChess`: 같은 플레이어의 전장 말 중 정예)은 같음.
   소환물: `AutoChessFilterChess`는 그 캐릭터의 카드가 전장 말(`GetInstIdByCardUid` ≥ 0)이고 정예일 때만 통과하는데, 공식 클라에서 확인 —
@@ -949,8 +951,11 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   → `OnEventCountConsumed`)가 **세는 이벤트 한 번마다**(공격·조준 한 번, 그때 쓴 발 수 `consumeCnt`는 이 특질이 안 씀) 나고, 검사기는 오퍼레이터만(직업 마스크에
   소환물·장치 없음). 소비자에게 `[consume]`(바로 끝남)를 붙이고, `[consume]`는 사거리 안이면 보유자에게 그 소비자 출처의 0.1초 `[cnt]`를 주되 이미 있으면
   안 주며, `[cnt]`가 1을 더함 → **한 소비자는 0.1초에 한 번까지 셈**(엑시아 더 뉴 커버넌트 S3의 한 공격 5발 = 1). 문턱은 `[self]`가 **0.3초마다**
-  (`waitFirstTriggerInterval`, 배치부터) 보고 한 틱에 하나만 넘김(`target_count += consume_count`). 이전: 발마다 세고 넘는 순간 바로. [추정·엔진: 센 수는
-  재배치 뒤에도 이어짐 — 본 버프가 `isDurableBuff`이나 재배치 때의 수명은 안 읽음] `garrisons/battle.js`, 테스트 `garrisons_battle.test.js` 「consume_ammo」 둘.
+  (`waitFirstTriggerInterval`, 배치부터) 보고 한 틱에 하나만 넘김(`target_count += consume_count`). 이전: 발마다 세고 넘는 순간 바로. 센 수
+  (`consumed_cnt`)는 본 버프의, 문턱(`target_count`)은 `[status]`의 블랙보드에 있다. 공식 클라에서 확인(2026-10-31): 철수(`Entity.OnFinish`)는
+  `BuffContainer.Clear`로 **지속 버프(`isDurableBuff`)까지** 모두 지우고 능력도 지운다 — 지속 버프를 남기는 것은 `ClearWithWhiteList`뿐이고 그 호출처는 가짜
+  죽음(`Unit.DoFakeDeath`, 부활)·`ClearAllBuffs` 노드·`RallyPoint.SwitchCategory` → **재배치마다 0부터 다시 셈**(이전: 이어 셈). 【移动】은 이어 셈(지금
+  규칙: 버프 유지 — 공식에서 버프가 다시 시작하는지는 묶음 라). `garrisons/battle.js`, 테스트 `garrisons_battle.test.js` 「consume_ammo」 셋.
 - **시라쿠사 정장(장비 `chess_item_3_01_e`)** `act2autochess_equip_acarm121_ability`는 템플릿이 아니라 동적 능력 프리팹(2026-10-31 대조): 오라 능력, 범위 `0-2`(방향으로 돌린 좌우 두 칸 + 자기 칸), `_selfOption` EXCLUDE(자신 제외), 검사기는 오퍼레이터만(소환물 제외)·은신도 받음, 버프는 범위 안에 있는 동안 공격 속도 +`attack_speed` → 지금 구현(`items/battle.js`, 좌우 두 칸의 오퍼레이터)과 같음 — 코드 변경 없음. [추정·엔진: 오라를 다시 보는 간격 — 우리는 0.5초마다 0.6초 버프]
 - 테스트: `test/content/bonds_core.test.js` 「叙拉古 6: the PRD count is one for the battle」·「卡西米尔 6」, `bonds_addon.test.js` 「奥术 with two players」·「绝技」,
   `items.test.js` 「伪装服」·「休眠子裔」·「卡西米尔竞技旗」·「天马之盔 + 天马之枪」·「海沟实验体」·「耶拉冈德之泪」·「骑士戒律」·「家族徽章」, `garrisons_battle.test.js`

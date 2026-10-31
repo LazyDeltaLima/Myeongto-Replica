@@ -298,10 +298,18 @@ const INSTALLERS = {
   // tokens); [consume] → the holder takes a 0.1 s [cnt] from that consumer unless it already has one, and [cnt] adds 1 ⇒
   // a consumer counts at most once per 0.1 s (the 5 bullets of one attack are one). [self] ticks every 0.3 s
   // (waitFirstTriggerInterval, from the deployment) and passes ONE threshold per tick (target += consume_count).
-  // [ASSUMED·엔진: the count survives a redeployment — the main buff is durable, its lifetime over a redeploy not read]
+  // The count (consumed_cnt) and threshold live on the holder's buffs: a withdrawal finishes the entity, which clears
+  // every buff (durable ones too; only a fake death keeps those) and its abilities ⇒ each deployment starts from 0; a
+  // relocation (`deploy` with move) keeps them, as for the kill count above.
   act1autochess_gar_event_consume_ammo(battle, list) {
     const LOCK = 0.1, TICK = 0.3;
-    for (const it of list) { it.locks = new Map(); it.target = Math.max(1, S.num(it.bb.consume_count, 1)); it.seq = -1; it.next = 0; }
+    const reset = (it) => { it.locks = new Map(); it.cnt = 0; it.target = Math.max(1, S.num(it.bb.consume_count, 1)); };
+    for (const it of list) { reset(it); it.seq = -1; it.next = 0; }
+    const m = byUnit(list);
+    battle.on('deploy', ({ unit, move }) => {
+      const arr = !move && m.get(unit);
+      if (arr) for (const it of arr) reset(it);
+    });
     battle.on('ammoUsed', ({ unit }) => {
       if (!unit || !S.isOp(unit)) return;
       for (let i = 0; i < list.length; i++) {
