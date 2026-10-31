@@ -33,7 +33,9 @@
 // player report F5 after 0.1.0) in its knocked-down pose — the Spine Die clip played once and held on its last
 // frame (the collapsed / kneeling pose with closed eyes; the Front model's for one facing UP unless its Back skeleton has its own Die clip, see above), slightly
 // greyed — with a redeploy ring above its head:
-// a dark disc, a mint arc filling as the respawn timer runs and the seconds left; once the timer is done and it still
+// the client's countdown when its art is installed (hud-bars.js RespawnHud: the time left as a white ring draining
+// clockwise on the clock disc, cost_lack while DP is short, nothing once it only waits for its tile); without it a drawn
+// one — a dark disc, a mint arc filling as the respawn timer runs and the seconds left; once the timer is done and it still
 // waits, a full amber ring with "DP" (not enough DP) or a red ring with "!" (its tile is taken). `onDeploy` (the
 // redeploy) plays the deploy clip and restores the normal look; `setDown(null)` on a dead view lets it fade out.
 // An operator that enters a battle already knocked out (联防, user playtest #5 item 2: sim 'die' reason 'forcedExit')
@@ -81,7 +83,7 @@ import { faceOf, turnFace, turnWidth, dirVector, NEAR_SQ, SWITCH_TIME } from './
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2's glide: when her model is back
 import { syncHeldWeapon } from './heldWheel.js'; // local patch: a 回环射手's boomerang in her hand (Spine skin 'Bullet')
 import { loadPlaces, modelPlace, placesVersion } from './fxpoints.js'; // a model's place and shadow in its battle prefab
-import { ElementRing, epRingReady, AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, HUD_ANCHOR, prepChip, PREP_CHIP, EquipBar, equipTextures, shieldedBar, SkillMark } from './hud-bars.js'; // local patch: official battle HUD
+import { ElementRing, epRingReady, AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, HUD_ANCHOR, prepChip, PREP_CHIP, EquipBar, equipTextures, RespawnHud, respawnTextures, shieldedBar, SkillMark } from './hud-bars.js'; // local patch: official battle HUD
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 loadPlaces(); // the per-unit model places (fxpoints.js); views built before it arrives re-read it
@@ -766,6 +768,7 @@ export class UnitView {
     this.el = null; this.elFill = 0; this.elUntil = 0; this.elDur = 0;   // shown element gauge (sync)
     this._elBar = null;           // { root, disc, bg, fill } sprites of the element gauge row, built on first use
     this._downRing = null;        // { disc, track, arc, text } sprites (text: the shared label, textures.js downLabel), built on first use
+    this._respawnHud = null;      // the official redeploy countdown (hud-bars.js RespawnHud) instead, when its art is installed
     this.alpha = 1; this.fadeIn = this.prep ? 1 : 0;
     this.bornOfficial = false; this._bornT = 0; this._bornWait = -1; // local patch: official drop-in (onDeploy; -1 = not waiting)
     this.lunge = 0; this.lungeDir = { x: 1, y: 0 };
@@ -2208,6 +2211,20 @@ export class UnitView {
    */
   _updateDownRing(show, cx, cy, s, t) {
     let r = this._downRing;
+    // the official countdown (hud-bars.js RespawnHud) when its art is installed: the time left drains clockwise, no
+    // number; cost_lack while it waits for DP; nothing once the card is ready (the client's readyToSpawn: no tile check)
+    const rt = show ? respawnTextures(this.P, this.ctx.assets) : null;
+    if (rt) {
+      if (r) r.root.visible = false;
+      const h = this._respawnHud || (this._respawnHud = new RespawnHud(this.P, this.hud));
+      h.anchor = this.hudAnchor;
+      const dn = this.down, u = hudU(this.ctx);
+      if (dn.state === DOWN_STATE.COUNTING) h.update(this.screen.x, this.screen.y, u, dn.total > 0 ? Math.max(0, dn.until - this.gameT) / dn.total : 0, rt);
+      else if (dn.state === DOWN_STATE.WAIT_DP) h.update(this.screen.x, this.screen.y, u, null, rt);
+      else h.hide();
+      return;
+    }
+    if (this._respawnHud) this._respawnHud.hide();
     if (!show) { if (r) r.root.visible = false; return; }
     const tex = hudRings();
     if (!r) {

@@ -499,6 +499,15 @@
 제 크기). 이 바가 그려지면 예전 아이템 아이콘(item pips)은 숨긴다(캡처에 아이콘 없음). 그림은 로컬 추출(`extract.py --only ui/battlecommon`)만 있어서
 없는 서버는 예전 아이콘 그대로. 금색 여부는 `render/app.js`의 `setItems` 옆 `setEquip` 한 줄씩(2곳)이 넘긴다. 장비 바 그림은 git 밖 로컬 소재(`public/assets/local/ui/battlecommon`)다.
 
+**재배치 카운트다운 (쓰러진 오퍼레이터)** (2026-10-31, 관리자 요청 「공식처럼 똑같이」): 같은 프리팹의 `battle_state`(공식 클라 `AutoChessDummyHud._UpdateBattleState`).
+- 카드를 아직 쓸 수 없는 동안(재배치 시간이 도는 중): `countdown_bg`(`countdown_background` 85×85 × 0.7, (0, 105), 루트 × 1.25 → 지름 74.4단위,
+  `hud_unit` 위 131.25단위 — 빨간 원판에 시계 그림) 위에 `countdown_fill`(흰 고리 47×47)을 Image Filled **Radial360·위에서 시작·시계 방향**으로,
+  채움 = 1 − 카드의 `respawnProgress` — 남은 시간만큼 고리가 남고 시계 방향 끝에서 위쪽으로 줄어든다. **숫자는 없다**(프리팹에 글자 칸 없음).
+- 시간이 끝났지만 카드가 `readyToSpawn`이 아닐 때(DP 부족 — `BattleController.IsCostEnough` —, 또는 배치 수 상한) `cost_lack`(같은 원판에 코스트 그림)만.
+  `readyToSpawn`이면 아무것도 안 그린다. 이 판정에 칸 검사는 없어서, 누운 칸이 막혀 기다리는 경우(우리 `DOWN_STATE.WAIT_TILE`)에도 아무것도 안 나온다.
+- 구현: `hud-bars.js RespawnHud`(채움은 원뿔꼴 Graphics 마스크), `units.js _updateDownRing`. 그림은 로컬 추출(`extract.py --only ui/battlecommon`)이고,
+  없으면 예전에 그리던 링(민트 호 + 남은 초, 「DP」/「!」)을 그대로 쓴다. 단독 그림 캡처(Windows Chrome)로 채움 방향·모양 확인. [화면 미확인: 실제 판]
+
 **② 적 HP** (`EnemyBars`; 처음엔 맞기 전 숨김 — `_alwaysShowHp`는 圣堂剑士만 켜짐 — 보스는 늘 보임):
 - 일반·정예: `enemy_hp_slider` 105×7 `#ea4700` α.7, 흰 α.7 잔상, `sprite_bg` 받침 8 × 8.55 크게(`enemy_slider_background`; 위 그림자 설명), `hud_unit` 아래 55.3(캡처 ≈110px).
 - 보스(거대 패널이 아닌 보스 — 铳·卢西恩 등): `enemy_boss_hp_slider` 130×9 `#ea2727` α.85, `hud_unit` 아래 43, `sprite_bg` 받침 10×8 크게

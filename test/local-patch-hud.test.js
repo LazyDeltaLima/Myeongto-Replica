@@ -130,6 +130,47 @@ describe('prep: official chip and equip bar (shop_hud)', () => {
     assert.ok(!v._equipBar || !v._equipBar.root.visible, 'no items: no bar');
   });
 
+  test('the redeploy countdown: the clock disc with its ring draining, cost_lack while DP is short, nothing once ready', async () => {
+    const { DOWN_STATE } = await import('../public/js/render/units.js');
+    const urls = { countdown_background: tex(85, 85), countdown_fill: tex(47, 47), cost_lack: tex(85, 85) };
+    const P = { ...fake.P, Texture: { ...fake.P.Texture, from: (u) => urls[u] } };
+    assert.equal(HB.respawnTextures(P, { localUrl: () => null }), null, 'none installed: the drawn ring');
+    const rt = HB.respawnTextures(P, { localUrl: (g, n) => (g === 'ui/battlecommon' ? n : null) });
+    assert.equal(rt.fill, urls.countdown_fill);
+    const v = view({}, {});
+    const h = new HB.RespawnHud(fake.P, v.hud);
+    const arcs = [];
+    h.mask.arc = (x, y, r, a0, a1) => { arcs.push([r, a0, a1]); return h.mask; };
+    h.update(1000, 500, 1, 0.25, rt);
+    assert.ok(h.root.visible && h.bg.visible && h.fill.visible && !h.lack.visible);
+    assert.ok(Math.abs(h.root.position.y - (500 - 24.5 - 131.25)) < 1e-9, '(0, 105) × 1.25 over hud_unit');
+    assert.ok(Math.abs(h.bg.width - 74.375) < 1e-9 && Math.abs(h.fill.width - 41.125) < 1e-9);
+    assert.equal(h.fill.mask, h.mask);
+    const [r, a0, a1] = arcs.at(-1);
+    assert.ok(Math.abs(a0 + Math.PI / 2) < 1e-9 && Math.abs(a1 - a0 - Math.PI / 2) < 1e-9, 'a quarter, from the top, clockwise');
+    assert.ok(r > 41.125 / 2, 'the mask covers the whole ring');
+    h.update(1000, 500, 1, 0.25, rt);
+    assert.equal(arcs.length, 1, 'the mask is redrawn only when the share changes');
+    h.update(1000, 500, 1, 0, rt);
+    assert.ok(h.bg.visible && !h.fill.visible, 'time up: the disc alone');
+    h.update(1000, 500, 1, null, rt);
+    assert.ok(!h.bg.visible && !h.fill.visible && h.lack.visible && h.lack.texture === rt.lack);
+    // through UnitView: time left / total, cost_lack on WAIT_DP, hidden on WAIT_TILE, the drawn ring never built
+    const ctx = fakeViewCtx(P, { assets: { localUrl: (g, n) => n }, cam, viewport: () => VP });
+    const w = new UnitView(ctx, { id: 2, side: 'ally', kind: 'chess', defId: 'char_x', tier: 3, x: 5, y: 12, maxHp: 1000 });
+    w.update(1 / 60, cam(), 0);
+    w.setDown([2, 30, 20, DOWN_STATE.COUNTING], 25);
+    w.update(1 / 60, cam(), 0);
+    assert.ok(w._respawnHud.root.visible && Math.abs(w._respawnHud.amount - 0.25) < 1e-9, '5 of 20 s left');
+    w.setDown([2, 30, 20, DOWN_STATE.WAIT_DP], 31); w.update(1 / 60, cam(), 0);
+    assert.ok(w._respawnHud.lack.visible);
+    w.setDown([2, 30, 20, DOWN_STATE.WAIT_TILE], 32); w.update(1 / 60, cam(), 0);
+    assert.equal(w._respawnHud.root.visible, false);
+    assert.equal(w._downRing, null);
+    w.onDeploy(); w.update(1 / 60, cam(), 0);
+    assert.equal(w._respawnHud.root.visible, false, 'gone once redeployed');
+  });
+
   test('every prep piece wears the equip bar: own pieces, battle-field prep units and the boss round partner', async () => {
     const { readFileSync } = await import('node:fs');
     const src = readFileSync(new URL('../public/js/render/app.js', import.meta.url), 'utf8');

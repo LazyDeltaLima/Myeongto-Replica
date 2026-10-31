@@ -35,6 +35,12 @@
 //   (74×30, at (13, 29.4) in shop_hud — right of the chip) with equip_0 / equip_1 (23×6 at ±12.8 / 13) — a white pill
 //   (equip_normal_icon) per item, [추정] the glowing gold pill (equip_gold_icon, 31×14 drawn at its own size) for a golden
 //   item; hidden without items. Sprites: local client ui/battlecommon (tools/local-extract/extract.py); none: item pips.
+// Redeploy countdown over a knocked-out operator (the same prefab's battle_state, AutoChessDummyHud._UpdateBattleState):
+//   while the card is not available, countdown_bg (countdown_background: the red clock disc, 85 × 0.7 at (0, 105)) with
+//   countdown_fill (a white ring, 47) as an Image Filled Radial360 from the top, clockwise, fillAmount = 1 − the card's
+//   respawnProgress — the time left drains; no number. Once available, cost_lack (the same disc with the cost glyph) while
+//   the card is not readyToSpawn (DP short, or no deploy slot left), else nothing — readyToSpawn has no tile check, so an
+//   operator waiting for its taken tile shows none. Sprites as above; none: units.js keeps its drawn ring.
 // Enemies (shown once hurt, bosses always — `_alwaysShowHp` is off but on 圣堂剑士):
 //   - `enemy_hp_slider`: 105×7 #ea4700 α.7 over the white α.7 loss, the sprite_bg plate 8 × 8.55 larger
 //     (enemy_slider_background), 55.3 under hud_unit (CN captures: ≈ 110 px at 2000 wide);
@@ -108,6 +114,12 @@ export function shieldedBar(hp, maxHp, ghostHp, shield) {
 export const PREP_CHIP = Object.freeze({ x: -45.5, y: 115, interior: 37.5 });
 /** Prep equipment bar (`shop_hud` equip_bg, root scale 1.25), in HUD units: centre from hud_unit's centre, size, slots. */
 export const PREP_EQUIP = Object.freeze({ x: 14.75, y: 129.5, w: 92.5, h: 37.5, slots: Object.freeze([-16, 16.25]), slotW: 28.75, slotH: 7.5, scale: 1.25 });
+
+/**
+ * Redeploy countdown over a knocked-out operator (the dummy HUD's battle_state, root scale 1.25), in HUD units: centre
+ * above hud_unit's centre (countdown_bg / cost_lack at (0, 105)), the disc (85 × 0.7) and the fill ring in it (47 × 0.7).
+ */
+export const RESPAWN_HUD = Object.freeze({ y: 105 * 1.25, size: 85 * 0.7 * 1.25, fill: 47 * 0.7 * 1.25 });
 
 /** Enemy bars (see header), in HUD units; y: below hud_unit's centre (normal / boss) or from the feet (giant). */
 export const ENEMY_BAR = Object.freeze({ w: 105, h: 7, y: 55.3, hp: 0xea4700, alpha: 0.7, plateAlpha: 0.5, grow: Object.freeze([8, 8.55]) });
@@ -437,6 +449,62 @@ export class EquipBar {
       if (gold[i]) { s.texture = t.gold; s.width = t.gold.width * E.scale * u; s.height = t.gold.height * E.scale * u; }
       else { s.texture = t.normal; s.width = E.slotW * u; s.height = E.slotH * u; }
     }
+  }
+}
+
+/** The redeploy countdown's textures `{ bg, fill, lack }`, or null while they are not installed / loaded. */
+export function respawnTextures(P, assets) {
+  const bg = texOf(P, localUrl(assets, 'ui/battlecommon', 'countdown_background'));
+  const fill = texOf(P, localUrl(assets, 'ui/battlecommon', 'countdown_fill'));
+  const lack = texOf(P, localUrl(assets, 'ui/battlecommon', 'cost_lack'));
+  return bg && fill && lack ? { bg, fill, lack } : null;
+}
+
+/** The redeploy countdown of one knocked-out operator (see header), drawn into `parent`. */
+export class RespawnHud {
+  constructor(P, parent) {
+    this.anchor = HUD_ANCHOR;
+    this.root = new P.Container();
+    const mk = () => { const s = new P.Sprite(P.Texture.EMPTY); s.anchor.set(0.5); return s; };
+    this.bg = mk(); this.fill = mk(); this.lack = mk();
+    // the fill is an Image Filled Radial360 (origin Top, clockwise): a pie mask over the ring sprite
+    this.mask = new P.Graphics();
+    this.fill.mask = this.mask;
+    this.root.addChild(this.bg, this.fill, this.mask, this.lack);
+    this.root.visible = false;
+    this.amount = -1; this.radius = 0;
+    parent.addChild(this.root);
+  }
+
+  hide() { this.root.visible = false; }
+
+  /**
+   * Draw for feet at (x, y), `u` px per unit, with textures `t`: `amount` = the fill's share (the client sets
+   * 1 − Card.respawnProgress, the time left) on countdown_background, or null for cost_lack alone (the timer is done
+   * but the card is not readyToSpawn).
+   */
+  update(x, y, u, amount, t) {
+    const R = RESPAWN_HUD;
+    this.root.visible = true;
+    this.root.position.set(x, hudAnchorY(y, u, this.anchor) - R.y * u);
+    const counting = amount != null;
+    this.bg.visible = counting; this.lack.visible = !counting;
+    if (!counting) {
+      this.fill.visible = false;
+      this.lack.texture = t.lack; this.lack.width = this.lack.height = R.size * u;
+      return;
+    }
+    this.bg.texture = t.bg; this.bg.width = this.bg.height = R.size * u;
+    const a = clamp(Number(amount) || 0, 0, 1);
+    this.fill.visible = a > 0;
+    this.fill.texture = t.fill; this.fill.width = this.fill.height = R.fill * u;
+    const r = (R.fill * u) / 2 + 1;
+    if (a === this.amount && r === this.radius) return;
+    this.amount = a; this.radius = r;
+    const m = this.mask.clear().beginFill(0xffffff);
+    if (a >= 1) m.drawCircle(0, 0, r);
+    else if (a > 0) m.moveTo(0, 0).arc(0, 0, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * a).lineTo(0, 0);
+    m.endFill();
   }
 }
 
