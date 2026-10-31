@@ -1914,6 +1914,11 @@ class ParticleSystem {
     return true;
   }
 
+  /** Kill the particles whose life ends within the step `dt` (advance: a full system's room before it emits). */
+  reapDue(dt) {
+    for (let i = this.n - 1; i >= 0; i--) if (this.age[i] + dt * (1 + 1e-3) >= this.life[i]) this.kill(i);
+  }
+
   kill(i) {
     if (this.ghosts && this.histN[i]) this.ghost(i);
     const last = --this.n;
@@ -2016,6 +2021,12 @@ class ParticleSystem {
       if (sh.radSpeed) this.radLaps += evalMM(sh.radSpeed, t01s, 1) * dt;
     }
     if (!this.stopped && !this.subOf && this.time >= 0) {
+      // (2026-10-31, maintainer report 「시빌라이트 에테르나 S3 이펙트가 보였다가 사라지기를 반복」) a full system first lets go
+      // of the particles this step ends, then emits: a one-particle plane (cetsyr_skill_03_buff_01's plane_boli_01, max 1,
+      // rate 1 / s, life 1 s at simulation speed 0.4) is born again as it dies. Emitting first, the full system dropped that
+      // emission and stood empty a whole period (2.5 s there) [추정·엔진: Unity's update order — the dead particles go before
+      // the step's emission — is the engine's own]
+      if (this.n >= this.max) this.reapDue(dt);
       let t = this.time;
       if (ps.loop && ps.dur > 0 && t >= ps.dur) {
         t %= ps.dur;
@@ -2025,8 +2036,17 @@ class ParticleSystem {
         const t01 = ps.dur > 0 ? Math.min(1, t / ps.dur) : 0;
         const rate = evalMM(ps.rate, t01, Math.random()) * this.rateK();
         this.emitAcc += rate * dt;
-        const whole = Math.floor(this.emitAcc);
-        if (whole > 0) { this.emitAcc -= whole; this.emit(whole); }
+        // (a thousandth of a particle short counts as due: the float sums of `emitAcc` and `age` keep a life of whole
+        // emission periods on the next emission's step — reapDue)
+        const whole = Math.floor(this.emitAcc + 1e-3);
+        if (whole > 0) {
+          this.emitAcc = Math.max(0, this.emitAcc - whole);
+          const n0 = this.n;
+          this.emit(whole);
+          // each one's age from its own moment in the step (Unity emits at sub-frame times), the newest `emitAcc / rate` old
+          // once this step has aged it: a life of the emission period ends at the step of the next emission, not one before
+          if (rate > 0) for (let i = n0, j = this.n - n0 - 1; i < this.n; i++, j--) this.age[i] = (this.emitAcc + j) / rate - dt;
+        }
         // (2026-10-26, effect bundle U) Unity's rate over distance: particles per unit the emitter moved (root frame = Unity
         // units) — the client's FxLODSetting scales the rate over time and the bursts only (ApplyLowDetailPS), so only the
         // quality's factor here. A system emitting only so (418 of the client's systems: the stars and leaves behind
@@ -2058,9 +2078,12 @@ class ParticleSystem {
       this.frame.updateWorldMatrix(true, false); this.root.updateWorldMatrix(true, false);
       subM.copy(this.root.matrixWorld).invert().multiply(this.frame.matrixWorld);
     }
+    const step = dt;
     for (let i = this.n - 1; i >= 0; i--) {
-      const age0 = this.age[i];
-      this.age[i] += dt;
+      // emitted within this step (its sub-frame age below 0 until now): it moves for its part of the step only
+      const before = this.age[i], born = before < 0;
+      this.age[i] += step;
+      const age0 = born ? 0 : before, dt = born ? this.age[i] : step;
       if (this.age[i] >= this.life[i]) { this.kill(i); continue; }
       const a = this.age[i] / this.life[i], r = this.rnd[i * 4];
       let vx = this.vel[i * 3], vy = this.vel[i * 3 + 1], vz = this.vel[i * 3 + 2];
