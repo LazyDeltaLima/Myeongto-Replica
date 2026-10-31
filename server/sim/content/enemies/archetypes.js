@@ -191,13 +191,15 @@ const deathSpawn = (key, cnt, extra = {}) => ({
  * Death explosion on the allies within r it can select (areaAllies — PRTS 高能源石虫 / 冰爆源石虫 / 卷心籽 死亡爆炸 "…无视迷彩，
  * 不可对空", no 无视无法选择: a 隐匿 ally is spared; the dead enemy blocks nobody). `noAir` (default — all three say so):
  * a flying ally (the 炎佑 dragon) is skipped; until 0.2.1 it took the blast (community report: 炎祐吃到了不该吃到的地面伤害).
+ * `ability`: the official talent that fires it (all three: `boom`, its buff's projectile_on_killed) — the fx 'explode'
+ * names it, so the render draws that projectile's effects (render/fxgame.js eprojAreaFx).
  */
-const deathBoom = ({ scale, type = 'phys', r = BOOM_RADIUS, status = null, sil = true, cond = null, noAir = true }) => ({
+const deathBoom = ({ scale, type = 'phys', r = BOOM_RADIUS, status = null, sil = true, cond = null, noAir = true, ability = null }) => ({
   sil,
   death(c, b, e, a) {
     if (c.reason !== 'killed' || (cond && !cond(e, a))) return;
     const atk = e.s.atk;
-    b.fx('explode', { x: e.x, y: e.y, r, kind: 'deathBoom', id: e.id });
+    b.fx('explode', { x: e.x, y: e.y, r, kind: 'deathBoom', id: e.id, ...(ability ? { ability } : {}) });
     for (const u of areaAllies(b, e, e.x, e.y, r)) {
       if (noAir && u.isFlying) continue;
       if (scale > 0) hurt(b, e, u, atk * scale, type);
@@ -647,10 +649,11 @@ function pollution(b, src, x, y, r, life, low, high, ability = null) {
  * enemy — PRTS 集团军重型火炮 【燃烧区域】 "碰撞不受迷彩制约，不可对空": 迷彩 only). A sourceless zone (`src` null: 假想敌：蚀裂's
  * 毒雾, an enemy's 死亡爆炸 with no 无视可选性 note on PRTS) selects as an effect with no selecting enemy: 隐匿 kept out, an
  * airborne 起飞 ally reached (§21.22; until 0.1.2 it took everyone inside). `noAir`: "不可对空" — a flying ally (the 炎佑
- * dragon) is skipped too (集团军重型火炮's 【燃烧区域】, since 0.1.3).
+ * dragon) is skipped too (集团军重型火炮's 【燃烧区域】, since 0.1.3). `by` + `ability`: the enemy whose official ability
+ * leaves it, apart from the damage source (假想敌：蚀裂's sourceless 毒雾 — zone: the render draws that ability's projectile).
  */
-function dmgZone(b, src, x, y, r, life, iv, amount, type = 'arts', kind = 'zone', el = null, elAmount = 0, { noAir = false } = {}) {
-  zone(b, { x, y, r, life, iv, kind, pick: (zx, zy, zr) => areaAllies(b, src, zx, zy, zr).filter((u) => !(noAir && u.isFlying)), tick(units) {
+function dmgZone(b, src, x, y, r, life, iv, amount, type = 'arts', kind = 'zone', el = null, elAmount = 0, { noAir = false, by = null, ability = null } = {}) {
+  zone(b, { x, y, r, life, iv, kind, src: by, ability, pick: (zx, zy, zr) => areaAllies(b, src, zx, zy, zr).filter((u) => !(noAir && u.isFlying)), tick(units) {
     for (const u of units) {
       hurt(b, src, u, amount, type, { tags: [kind] });
       if (el && elAmount > 0) elem(b, src, u, el, elAmount, { tags: [kind] });

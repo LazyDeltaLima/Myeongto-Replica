@@ -159,7 +159,7 @@ function kitParasite(ab) {
 }
 
 function kitIgnitable(ab) {
-  return [deathBoom({ scale: T(ab, 'boom.atk_scale') ?? 0, type: 'arts', cond: (e) => !!e.mem.ab.ignited, sil: true })];
+  return [deathBoom({ scale: T(ab, 'boom.atk_scale') ?? 0, type: 'arts', cond: (e) => !!e.mem.ab.ignited, sil: true, ability: 'boom' })];
 }
 
 function kitFlameVine(ab) {

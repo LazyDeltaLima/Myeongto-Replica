@@ -1,9 +1,10 @@
 // server/sim/content/enemies/dot.js — DOT 持续 kits (pulses, 污染秽蚀 / burning zones, bleeding) and their part of KITS
 // (split from content/enemies.js).
 
-import { SHELL_SPLASH_RADIUS, num, T, elem, hurt, areaAllies } from './helpers.js';
+import { SHELL_SPLASH_RADIUS, num, T, elem, hurt, areaAllies, shoot } from './helpers.js';
 import { splashAttack, noAirTargets, resist, immuneTo, bleed, pollution, dmgZone, kitPolluted } from './archetypes.js';
 import { hypot } from '../../detmath.js';
+import { normShot } from '../../simdata.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -133,10 +134,11 @@ export const DOT_KITS = Object.freeze({
       const atk = e.s.atk;
       // a sourceless zone (`src` null): its ticks skip a 隐匿 / untargetable / sleeping operator (PRTS 假想敌：蚀裂: no 无视
       // 可选性 note — PRTS 作战机制's "无来源的毒雾" that reaches 隐匿 units is the stage hazard), not an airborne 起飞 one
-      const cloud = (x, y) => dmgZone(b, null, x, y, T(ab, '1.projectile_range') ?? 0.8, T(ab, '1.projectile_life_time') ?? 0, T(ab, '1.interval') ?? 1, atk * (T(ab, '1.damage_atk_scale') ?? 0), 'arts', 'poison');
+      // (the zone names talent `1` for the render: its projectile's reach effect enemy_actoxi_idle is the cloud)
+      const cloud = (x, y) => dmgZone(b, null, x, y, T(ab, '1.projectile_range') ?? 0.8, T(ab, '1.projectile_life_time') ?? 0, T(ab, '1.interval') ?? 1, atk * (T(ab, '1.damage_atk_scale') ?? 0), 'arts', 'poison', null, 0, { by: e, ability: '1' });
       // the cloud flies as its talent's official projectile (data/enemies.json talentProj['1'] — projectile_enemy_actoxi, a
-      // PARACURVE at 5 tiles/s; until 2026-10-10 8)
-      if (k) b.addProjectile({ from: e, target: k, speed: e.def?.raw?.talentProj?.['1']?.speed || 5, visual: 'lob', source: null, hitDead: true, onHit: (h) => cloud(h.x ?? k.x, h.y ?? k.y) });
+      // PARACURVE at 5 tiles/s; until 2026-10-10 8); since 2026-10-31 its fx 'enemyShot' draws the official flight
+      if (k) shoot(b, e, k, normShot(e.def?.raw?.talentProj?.['1']) ?? { key: null, move: 'PARACURVE', speed: 5 }, (_t, h) => cloud(h ? h.x : k.x, h ? h.y : k.y), { hitDead: true, zone: true });
       else cloud(e.x, e.y);
     },
   }],

@@ -568,7 +568,8 @@ const SHELL_ZONE_LIFE = 9.95, SHELL_ZONE_REHIT = 1;
 function shellZone(b, src, by, r, c, dmg, stun) {
   const kind = 'helmShell';
   b.fx('explode', { x: c, y: r, r: 1.5, kind, tiles: 'box' });
-  b.fx('zone', { x: c, y: r, r: 1.5, dur: SHELL_ZONE_LIFE, kind, tiles: 'box', id: by.id });
+  // its talent `killed` names the projectile whose reach effect (enemy_acstmr_explode_range) the render draws for the zone
+  b.fx('zone', { x: c, y: r, r: 1.5, dur: SHELL_ZONE_LIFE, kind, tiles: 'box', id: by.id, ability: 'killed' });
   const last = new Map();                                   // unit → time of its last hit (_keepAlreadyHitTime)
   const end = b.time + SHELL_ZONE_LIFE;
   const sweep = () => {

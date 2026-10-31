@@ -55,8 +55,8 @@
       ],
       "enemies": {"enemy_1267_nhpbr_2":[36,36,0,26801,472980],"enemy_1270_nhstlk_2":[27,27,0,3049,1031956],"enemy_9006_actoxi":[30,30,0,1947,1074954]},
       "hooks": [1,125,5993,488,488,5943,5943,0,109,109,240,239,28,39821,1346,14,93,0,1,109,0,0,0],
-      "events": {"atk":542,"deploy":29,"die":109,"dmg":5943,"engage":12,"face":54,"fx":566,"skill":479,"spawn":117,"status":1430,"swing":516},
-      "fx": {"bombardShell":108,"burst":187,"explode":190,"summon":9,"wisdelOverload":6,"zone":66},
+      "events": {"atk":542,"deploy":29,"die":109,"dmg":5943,"engage":12,"face":54,"fx":596,"skill":479,"spawn":117,"status":1430,"swing":516},
+      "fx": {"bombardShell":108,"burst":187,"enemyShot":30,"explode":190,"summon":9,"wisdelOverload":6,"zone":66},
       "snaps": "4986bd7f 8119bfdb 74ca60ea 26014751 06e68bc1 5865bcf9 9354cd60 7b276e11 d0395779 85f906b9 7ae02d91 d44f8d4b 7eb2b2e7 0a251b65 1b130d0a 62374da4 715f1d64 fc17b5d6 4d38a53f 2392eb7f"
     },
     "diy-002": {
@@ -385,8 +385,8 @@
       ],
       "enemies": {"enemy_1267_nhpbr_2":[27,25,2,20375,260013],"enemy_1270_nhstlk_2":[36,17,19,0,717088],"enemy_9006_actoxi":[39,29,10,0,904937]},
       "hooks": [1,116,6408,562,562,1245,1245,1937,71,102,32,30,109,41796,503,0,102,31,1,71,0,0,0],
-      "events": {"atk":610,"deploy":12,"die":71,"dmg":1232,"engage":4,"face":136,"fx":388,"heal":329,"leak":31,"skill":62,"spawn":116,"status":238,"swing":561},
-      "fx": {"aoe":107,"healAoe":107,"kalts2Mark":13,"parry":13,"shield":82,"takeoff":12,"zone":54},
+      "events": {"atk":610,"deploy":12,"die":71,"dmg":1232,"engage":4,"face":136,"fx":417,"heal":329,"leak":31,"skill":62,"spawn":116,"status":238,"swing":561},
+      "fx": {"aoe":107,"enemyShot":29,"healAoe":107,"kalts2Mark":13,"parry":13,"shield":82,"takeoff":12,"zone":54},
       "snaps": "3c5bee66 5c6b8fe8 36a026d2 93834564 f6ce2ce4 66b35317 2dec1636 8d7ec6e4 01611e05 9cb96eee 8e84810a b285b221 2923cd14 09281479 06c1dce1 c9ad4cc6 9e129a16 146406b7 e5d51b76 0ec0752d 0a2be860 3123fcac"
     },
     "diy-010": {

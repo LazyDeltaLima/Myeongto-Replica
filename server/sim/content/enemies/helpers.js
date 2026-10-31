@@ -361,8 +361,10 @@ export const isHitCount = (e) => !!e.findBuff(HIT_COUNT_KEY);
  * `target` null when it fizzled on a dead target with `opts.hitDead`. Timing as the engine's normal attacks (ai.js
  * shotSpeed, docs/rules/sim.md 「적 투사체」): TRACE_TARGET_WITH_SPEED / PARACURVE / HARPOON home at `speed` (a FIXED_DIRECTION
  * one that should fly straight goes through lineShot); ATTACH / NONE / no shot land now. An fx 'enemyShot' { id (shooter), from (the unit it leaves, when not the
- * shooter), tgt, key, move, speed, t (flight s) } lets the client draw the official projectile (docs/SIM.md events).
- * Returns the flight time in seconds.
+ * shooter), tgt, key, move, speed, t (flight s) } lets the client draw the official projectile (docs/SIM.md events);
+ * `opts.zone` marks it `zone: 1` — it lands as an area whose fx 'zone' draws the projectile's reach effects (假想敌：蚀裂's
+ * 毒雾). `onHit` also gets the projectile's arrival point ({ x, y }; none when it lands at once). Returns the flight time
+ * in seconds.
  */
 export function shoot(b, from, t, shot, onHit, opts = {}) {
   const src = opts.source ?? (from && from.id != null ? from : null);
@@ -371,10 +373,10 @@ export function shoot(b, from, t, shot, onHit, opts = {}) {
   const flight = v > 0 ? d / v : 0;
   if (shot) {
     b.fx('enemyShot', { x: from.x, y: from.y, id: src ? src.id : null, ...(from.id != null && from !== src ? { from: from.id } : {}),
-      tgt: t.id, key: shot.key, move: shot.move, speed: v, t: Math.round(flight * 1000) / 1000 });
+      tgt: t.id, key: shot.key, move: shot.move, speed: v, t: Math.round(flight * 1000) / 1000, ...(opts.zone ? { zone: 1 } : {}) });
   }
   if (!(v > 0) || !(d > 1e-9)) { onHit(t); return 0; }
-  b.addProjectile({ from, target: t, speed: v, visual: opts.visual ?? 'enemy', source: src, hitDead: !!opts.hitDead, onHit: (c) => onHit(c.target) });
+  b.addProjectile({ from, target: t, speed: v, visual: opts.visual ?? 'enemy', source: src, hitDead: !!opts.hitDead, onHit: (c) => onHit(c.target, c) });
   return flight;
 }
 

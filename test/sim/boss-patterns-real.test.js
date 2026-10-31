@@ -100,6 +100,9 @@ test('real boss_1 field: 刺胄之弹 leaves a 9.95 s zone that hits the operato
   const zones = b.drainEvents().filter((e) => e[0] === 'fx' && e[1] === 'zone' && e[4] && e[4].kind === 'helmShell');
   assert.ok(zones.length >= 1, 'a shell arrived and left its zone');
   approx(zones[0][4].dur, 9.95);
+  // the render draws its talent killed's projectile there (projectile_enemy_acstmr_s1 → enemy_acstmr_explode_range)
+  assert.equal(zones[0][4].ability, 'killed');
+  assert.ok(zones[0][4].id != null && zones[0][4].caster == null, 'named by the shell, not a cast');
   assert.ok(hits.size >= 1, 'operators were hit by the zone');
   assert.ok(!dot, 'no DoT buff any more');
   let again = false;

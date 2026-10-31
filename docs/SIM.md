@@ -1474,7 +1474,10 @@ Unknown subprofessions fall back to the profession default (test `professions.te
   `ON_ABILITY_*` sounds by it; `hold: 1` marks a cast that lasts until its `enemySkillEnd` `{ id, ability }` (子代's 摄食, `bosses.js kitBrood`: the
   client's ON_CAST_START … ON_CAST_END — the effects held to the cast's end end then); `enemyShot` `{ id, from?, tgt, key, move, speed, t }`: an enemy content ability's official projectile leaves
   (`content/enemies/helpers.js shoot` — `id` the shooter, `from` the unit it leaves when that is not the shooter (a chain / bounce hop), `key` the
-  projectile prefab, `t` its flight in game seconds; its effect lands then) — nothing procedural is drawn; a straight FIXED_DIRECTION shot
+  projectile prefab, `t` its flight in game seconds; its effect lands then; `zone` 1 when it lands as an area whose fx `zone` { id, ability }
+  carries its reach effects — 假想敌：蚀裂's 毒雾, 2026-10-31) — nothing procedural is drawn; a fx `zone` or `explode` that names `id` and
+  `ability` with no `caster` is an area or death blast an enemy's official ability leaves (【污染秽蚀】, 刺胄之弹's landing, the 源石虫 /
+  卷心籽 death blasts: render/fxgame.js eprojAreaFx draws that ability's projectile effects there); a straight FIXED_DIRECTION shot
   (`helpers.js lineShot`, 重弩突袭者's 直击) adds `dir` [dx, dy] — its axis on the stage grid (+x a column right, +y a row up) — and `range`
   (tiles it covers), with `tgt` / `t` the first ally the field as it stands at the release puts in its way (`tgt` null, `range` = speed × life:
   nobody — it flies its life out unseen; the sim sweeps every step, so a unit that dies or arrives meanwhile changes the real hit);

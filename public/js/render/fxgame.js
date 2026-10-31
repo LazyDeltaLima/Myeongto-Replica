@@ -4415,6 +4415,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return eprojAll.get(key) || null;
   }
   const eshotLand = new Map();   // `${shooter id}:${target id}` → battle clock its official shot lands (eskillHit)
+  const ezoneShots = new Map();  // enemy id → the projectile record of its shot that lands as an area (eshotFx `zone`, eprojAreaFx)
   /**
    * 2026-10-22 (maintainer request): an enemy's shell fired at a spot (content/enemies/fly.js kitShell — 帝国炮火先兆者 /
    * 中枢先兆者: fx 'bombardShell' { id, t } as it fires, 'bombard' at the spot `t` s later) with its projectile's official
@@ -4491,6 +4492,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // the cast's own effects when no 'enemySkill' came before it (one play per ability and moment: eskillFx)
     if (shooter && typeof o.ability === 'string' && o.ability) eskillFx(shooter, o.ability);
     const t = Number(o.t) > 0 ? Number(o.t) : 0;
+    // 2026-10-31: its start effects where it leaves (projectile_enemy_actoxi's enemy_actoxi_die_2_start, the only one so far)
+    if (Array.isArray(pr.start) && pr.start.length) eplay(owner, pr.start, { at: from });
     if (tgt && Array.isArray(pr.targetStart) && pr.targetStart.length) eplay(owner, pr.targetStart, { at: tgt });
     const r = efx(Array.isArray(pr.trail) ? pr.trail[0] : null);
     if (r && camRef && t > 0 && t <= (dir ? 12 : 6) && !pr.link && level() < 3 && !trailFull()) {
@@ -4508,32 +4511,45 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       ensure().then((ok) => { if (ok && lib) launchTrail(rec, r[0], r[1]); }, () => {});
     }
     if (dir) return true;   // its hit: the 'dmg' the sim's sweep makes (eskillHit draws the projectile's hit then)
-    const land = [...new Set([...(pr.hit || []), ...(pr.reached || [])])].filter((n) => efx(n)).slice(0, MAX_HIT_FX);
+    // a shot that lands as an area (`zone`: 假想敌：蚀裂's 毒雾): its reach effects stand there with the fx 'zone' (eprojAreaFx)
+    if (o.zone && o.id != null) { ezoneShots.set(o.id, pr); if (ezoneShots.size > 64) ezoneShots.delete(ezoneShots.keys().next().value); }
+    const land = [...new Set([...(pr.hit || []), ...(o.zone ? [] : pr.reached || [])])].filter((n) => efx(n)).slice(0, MAX_HIT_FX);
     eshotLand.set(`${o.id ?? o.from}:${o.tgt}`, clockS + t);
     const go = () => { if (land.length && tgt.alive !== false && !tgt.remove && level() < 3) eplay(owner, land, { at: tgt }); };
     if (t > 0) castsDelayed.push({ t: clockS + t, run: go }); else go();
     return true;
   }
   /**
-   * 2026-10-31: an enemy's area left by an official projectile of its ability — sim fx 'zone' { x, y, r, dur, kind, id,
-   * ability } (content/enemies/helpers.js zone): 萨卡兹枯朽战士's PollutedDie (projectile_enemy_nhpbr_polluted →
-   * enemy_nhpbr_attack_range) and 萨卡兹枯朽战车's PollutedRangedAtk (projectile_enemy_nhtank_polluted → enemy_nhtank_attack_range)
-   * 【污染秽蚀】. That projectile's start / target-start / reach effects (enemy-modes.json skills[ability].proj) stand on the
-   * area's spot until its time is up and are finished as a reach effect is (zoneEnd); the procedural zone stays when none is
-   * extracted. The 战车's shell flies with its attack (the ranged part's projectile_enemy_nhtank — the polluted projectile
-   * has no trail). true = drawn here (ownFx).
+   * 2026-10-31: an enemy's area or burst left by an official projectile of its ability — sim fx 'zone' { x, y, r, dur, kind,
+   * id, ability } (content/enemies/helpers.js zone) or 'explode' { x, y, r, kind, id, ability } (archetypes.js deathBoom).
+   * That projectile's start / target-start / reach effects (enemy-modes.json skills[ability].proj) play on the spot: an area's
+   * until its time is up, finished as a reach effect is (zoneEnd); a burst's once. Areas: 萨卡兹枯朽战士's PollutedDie
+   * (projectile_enemy_nhpbr_polluted → enemy_nhpbr_attack_range) and 萨卡兹枯朽战车's PollutedRangedAtk
+   * (projectile_enemy_nhtank_polluted → enemy_nhtank_attack_range) 【污染秽蚀】, 刺胄之弹's killed
+   * (projectile_enemy_acstmr_s1 → enemy_acstmr_explode_range), 假想敌：蚀裂's 1 (projectile_enemy_actoxi → enemy_actoxi_idle,
+   * the 毒雾); bursts: 高能源石虫 / 冰爆源石虫 / 卷心籽's boom (bslime_die_01_start, snslime_die_01_start, enemy_ftzlc_boom_01).
+   * A projectile that flew there (a trail: 蚀裂's, eshotFx `zone`) brings its start and hit with the flight — its reach
+   * effects alone stand here, from the record its shot left (ezoneShots) when its dead owner's view is gone meanwhile. The
+   * procedural zone / ring stays when none is extracted. The 战车's shell flies with its attack (the ranged part's
+   * projectile_enemy_nhtank — the polluted projectile has no trail). true = drawn here (ownFx).
    */
-  function ezoneFx(e, views) {
+  function eprojAreaFx(e, views) {
     const o = e[4];
     if (!o || typeof o !== 'object' || o.id == null || typeof o.ability !== 'string' || !o.ability) return false;
     const v = views.get(o.id);
-    const pr = eOn(v) ? eskillPart(v, o.ability)?.proj : null;
+    const pr = (eOn(v) ? eskillPart(v, o.ability)?.proj : null) || (e[1] === 'zone' && !failed && q() !== 'low' ? ezoneShots.get(o.id) : null);
+    if (e[1] === 'zone') ezoneShots.delete(o.id);
     if (!pr) return false;
-    const names = [...new Set([...(pr.start || []), ...(pr.targetStart || []), ...(pr.tileStart || []), ...(pr.reached || [])])].filter((n) => efx(n));
+    const flew = Array.isArray(pr.trail) && pr.trail.length > 0;
+    const names = [...new Set([...(flew ? [] : [...(pr.start || []), ...(pr.targetStart || []), ...(pr.tileStart || [])]), ...(pr.reached || [])])].filter((n) => efx(n));
     if (!names.length) return false;
+    const at = { x: Number(e[2]), y: Number(e[3]), z: 0 };
+    if (e[1] !== 'zone') {
+      for (const n of names.slice(0, MAX_HIT_FX)) { const r = efx(n); spawn(r[0], r[1], at, { owner: null, buff: false }, { over: false }); }
+      return true;
+    }
     const dur = Math.max(0, Number(o.dur ?? o.duration) || 0);
     const until = clockS + (dur > 0 ? dur : 3);
-    const at = { x: Number(e[2]), y: Number(e[3]), z: 0 };
     for (const n of names.slice(0, MAX_HIT_FX)) {
       const r = efx(n);
       spawn(r[0], r[1], at, { owner: null, buff: false, until }, { over: false }).then((l) => { if (l) zoneEnd(l, until, true); });
@@ -5503,8 +5519,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'caperBoomerang2' && e[4]) { caperSecond(e, views); return; } // 2026-10-10: 跃跃 S2's second boomerang
           // 2026-10-10: an enemy content skill's official projectile (eshotFx), and no stand-in beam for a shot drawn so
           if (e[1] === 'enemyShot' && e[4]) { eshotFx(e[4], views); return; }
-          // 2026-10-31: an enemy ability's 【污染秽蚀】 — its projectile's effects, else the stand-in zone (not the ability's cast below)
-          if (e[1] === 'zone' && e[4]?.id != null && e[4].caster == null && typeof e[4].ability === 'string') { if (ezoneFx(e, views)) ownFx.add(e); return; }
+          // 2026-10-31: an enemy ability's area (【污染秽蚀】, 毒雾, 刺胄之弹's landing) or death burst — its projectile's
+          // effects, else the stand-in zone / ring (not the ability's cast below)
+          if ((e[1] === 'zone' || e[1] === 'explode') && e[4]?.id != null && e[4].caster == null && typeof e[4].ability === 'string') { if (eprojAreaFx(e, views)) ownFx.add(e); return; }
           if (e[1] === 'beam' && e[4] && SHOT_BEAMS[e[4].kind] && level() < 3) {
             const o = e[4], from = views.get(o.from ?? o.id);
             const pr = from && views.get(o.to) ? eshotDrawable(views.get(o.caster) || from, SHOT_BEAMS[o.kind]) : null;
