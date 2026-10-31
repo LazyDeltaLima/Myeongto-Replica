@@ -7,7 +7,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { closesOnOutsidePress, openedFromWindow, windowCardGone, closesOnFieldPress, WINDOW_CARD_KEEP } from '../../public/js/ui/gameLogic.js';
+import { closesOnOutsidePress, drawerClosesOnPress, openedFromWindow, windowCardGone, closesOnFieldPress, WINDOW_CARD_KEEP } from '../../public/js/ui/gameLogic.js';
 
 const read = (p) => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8');
 /** A stand-in for a pressed element: `closest` answers for the selectors listed in `inside`. */
@@ -52,6 +52,22 @@ describe('a card a window opened closes on a press elsewhere', () => {
     assert.equal(windowCardGone(bondCard, { drawer: 'info', bond: null }), true);
     assert.equal(windowCardGone(bondCard, { drawer: null, bond: { id: 'b' } }), false);
     assert.equal(windowCardGone({ kind: 'piece', uid: 1 }, {}), false);
+  });
+});
+
+describe('the 本局信息 / 敌方情报 drawer closes on a press outside it', () => {
+  test('the board, the HUD and the right 🔍 close it', () => {
+    assert.equal(drawerClosesOnPress(el()), true, 'the board canvas or the HUD');
+    assert.equal(drawerClosesOnPress(el('.gtop')), true, 'the top bar');
+    assert.equal(drawerClosesOnPress(null), true);
+  });
+  test('the drawer, what it opened, a dialog and its own toggle keep it', () => {
+    for (const sel of ['.edrawer', '.dpanel', '.modal', '.bpop', '.bpop-nav', '[data-testid="check-player"]']) {
+      assert.equal(drawerClosesOnPress(el(sel)), false, sel);
+    }
+  });
+  test('the match screen wires it', () => {
+    assert.match(read('public/js/screens/game.js'), /const onDown = \(e\) => \{ if \(drawerClosesOnPress\(e\.target\)\) setDrawer\(null\); \};/);
   });
 });
 

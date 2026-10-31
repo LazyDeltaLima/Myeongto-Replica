@@ -244,6 +244,13 @@ export function closesOnOutsidePress(detail, target) {
   return !(target && typeof target.closest === 'function' && target.closest(keep));
 }
 /**
+ * Whether a press on `target` closes the 本局信息 / 敌方情报 drawer: a press outside it does, like a dialog's backdrop.
+ * The drawer itself, the card or bond popup it opened, a dialog over it and the left 🔍 (its own toggle) keep it.
+ * @param {{ closest?: (sel: string) => any }|null|undefined} target
+ */
+export const drawerClosesOnPress = (target) =>
+  !(target && typeof target.closest === 'function' && target.closest('.edrawer, .dpanel, .modal, .bpop, .bpop-nav, [data-testid="check-player"]'));
+/**
  * Whether the window that opened the card is gone (the drawer closed, the bond popup closed): the card goes with it.
  * @param {{ from?: string }|null|undefined} detail @param {{ drawer?: any, bond?: any }} open
  */

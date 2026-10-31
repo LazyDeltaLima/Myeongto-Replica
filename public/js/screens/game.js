@@ -106,7 +106,7 @@ import { pieceTile } from '../render/drag.js';
 import {
   phaseMode, phaseBanner, isCombatPhase, showDeadPill, isBossPhase, placementContext, placementRecords, canPlace, boardTargets, dropIntent,
   holdsBattleEnd, settleBattleEnd, roundResultBox,
-  snapHud, activeBubbles, shortcutFor, shortcutBlocked, closesOnFieldPress, closesOnOutsidePress, openedFromWindow, windowCardGone, phaseTotalSeconds, homeFieldId, ownFieldId, normalizeSp, normalizePersonalChoice, sortedPlayers,
+  snapHud, activeBubbles, shortcutFor, shortcutBlocked, closesOnFieldPress, closesOnOutsidePress, drawerClosesOnPress, openedFromWindow, windowCardGone, phaseTotalSeconds, homeFieldId, ownFieldId, normalizeSp, normalizePersonalChoice, sortedPlayers,
   terrainInfo, deviceInfo, deviceTipAt, noteDeviceUnits, deviceUnitsForEntry,
   shopBlockReason, stageOverrides, effectiveStage, watchTarget, dropFailureReason,
   previewEnemyKey, prepCamera, prepCameraFor, foldCamera, deployFieldOf, fieldTile, panelSide, panelSlots, bondPopupPlace, unitLoadout, deployedRecord,
@@ -1653,6 +1653,14 @@ function MatchScreen() {
     window.addEventListener('pointerdown', onDown, true);
     return () => window.removeEventListener('pointerdown', onDown, true);
   }, [windowCard]);
+  // a press outside the 本局信息 / 敌方情报 drawer closes it, as a dialog's backdrop does (its card, a bond popup it
+  // opened, a dialog and the left 🔍 that toggles it keep it: gameLogic/shortcuts.js drawerClosesOnPress)
+  useEffect(() => {
+    if (!drawer) return undefined;
+    const onDown = (e) => { if (drawerClosesOnPress(e.target)) setDrawer(null); };
+    window.addEventListener('pointerdown', onDown, true);
+    return () => window.removeEventListener('pointerdown', onDown, true);
+  }, [!!drawer]);
   useEffect(() => {
     setDetail((d) => (windowCardGone(d, { drawer, bond: bondOpen }) ? null : d));
   }, [!!drawer, !!bondOpen, windowCard]);

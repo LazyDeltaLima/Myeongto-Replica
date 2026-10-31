@@ -140,7 +140,7 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
         off: el.classList.contains('is-off'), incomplete: el.classList.contains('is-incomplete'),
         x: !!el.querySelector('.ibd.is-off .ibd__mark, .ibd.is-off .ibd__x'),
       })),
-      rows: [...scope.querySelectorAll('.brief-bonds .brief-h > span:first-child')].map((el) => el.textContent),
+      rows: [...scope.querySelectorAll('.brief-bonds .brief-h > span:not([class])')].map((el) => el.textContent), // the title (after the bar icon)
       legend: scope.querySelector('.brief-legend')?.textContent.trim() || '',
       count: scope.querySelector('.brief-banned__n')?.textContent.trim() || '',
       // 本局禁用干员 by greyed bond (an operator whose bonds are all off is under each of them)
@@ -186,10 +186,10 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
       assert.deepEqual(brief.groups.filter((g) => g.names.includes(name)).map((g) => g.bond).sort(), bonds, `${name}: under each of its bonds`);
     }
     assert.equal(brief.count, String(want.names.length));
-    assert.match(brief.legend, /或本模式禁用/);
+    assert.match(brief.legend, /또는 이 모드에서 금지/);
     await shot(page, 'solo-briefing');
 
-    await press(p, '.brief__foot .btn--primary', '准备就绪');
+    await press(p, '.brief__foot .btn--primary', '준비 완료');
     await waitSt(page, (s) => s.phase === 'BAND_DRAFT', 'band draft');
     await page.waitForSelector('[data-testid="match-info-open"]', { visible: true, timeout: 10000 });
     await shot(page, 'solo-draft');
@@ -201,15 +201,15 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     await openDialog(p);
     const dlg = await readInfo(page, '.minfo-dlg');
     assert.deepEqual(dlg, brief, 'the dialog shows exactly the briefing\'s bonds, badges, legend and banned operators');
-    assert.deepEqual(dlg.rows, ['核心盟约', '附加盟约']);
+    assert.deepEqual(dlg.rows, ['핵심 맹약', '부가 맹약']);
     assert.ok(dlg.bonds.filter((b) => b.off).every((b) => b.x), 'every greyed item carries the banned mark');
     assert.ok(dlg.bonds.filter((b) => !b.off).every((b) => !b.x));
     const arcane = await centre(page, '.minfo-dlg .brief-bond[data-bond="arcaneShip"] .ibd__disc');
     await page.mouse.move(arcane.x, arcane.y);
     await page.waitForSelector('.tooltip.is-shown', { visible: true, timeout: 3000 });
-    assert.equal(await page.$eval('.tooltip.is-shown', (el) => el.textContent), '奥术：本局禁用（该盟约不会激活）');
+    assert.equal(await page.$eval('.tooltip.is-shown', (el) => el.textContent), '아케인: 금지 (이번 시뮬레이션에서 활성화되지 않음)');
     const status = await page.$eval('[data-testid="match-info-status"]', (el) => el.textContent.trim());
-    assert.equal(status, '轮到你决策', 'solo: untimed — no seconds');
+    assert.equal(status, '내 차례입니다', 'solo: untimed — no seconds');
     const box = await page.$eval('.minfo-dlg', (el) => { const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right }; });
     assert.ok(box.top >= 0 && box.bottom <= 1080 && box.left >= 0 && box.right <= 1920, `inside the screen ${JSON.stringify(box)}`);
     // the banned operators are grouped by bond as the client's stage-info view (a scroll view there too): the body scrolls
@@ -232,38 +232,38 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     assert.equal((await st(page)).phase, 'BAND_DRAFT', 'the press on the backdrop confirmed nothing');
     // 关闭
     await openDialog(p);
-    await press(p, '[data-testid="match-info-close"]', '关闭');
+    await press(p, '[data-testid="match-info-close"]', '닫기');
     await page.waitForFunction(() => !document.querySelector('.minfo-dlg'), { timeout: 3000 });
     assert.equal(await selBand(page), sel0, 'the highlighted band is untouched');
     assert.deepEqual((await intents(page)).slice(req0), [], 'no intent while looking');
 
     // the draft still works: highlight another strategy, confirm
-    await press(p, '.dband', '阿米娅');
-    assert.equal(await selBand(page), '阿米娅');
-    await press(p, '.draft-detail__btns .btn--primary', '确认选择');
+    await press(p, '.dband', '아미야');
+    assert.equal(await selBand(page), '아미야');
+    await press(p, '.draft-detail__btns .btn--primary', '선택 확인');
     const s1 = await waitSt(page, (s) => s.phase !== 'BAND_DRAFT', 'the draft to end');
     assert.equal(s1.bandId, 'band_amiya');
 
-    // the in-game 本局信息 tab (left 🔍) lists the same greyed bonds, badges and banned operators (by tier)
+    // the in-game 本局信息 tab (left 🔍) groups the same banned operators by the same greyed bonds (by tier), each
+    // bond's badge counting its group
     await waitSt(page, (s) => s.phase === 'PREP', 'the first prep', 60000);
     await page.waitForFunction(() => !document.querySelector('.pbanner'), { timeout: 10000 }); // the 休整期 banner has played
     await press(p, '.gtop__iconbtn');
-    await page.waitForSelector('.edrawer .ibanned', { visible: true, timeout: 5000 });
+    await page.waitForSelector('.edrawer .igroup', { visible: true, timeout: 5000 });
     const tab = await page.evaluate(() => ({
-      off: [...document.querySelectorAll('.edrawer .ibond.is-off')].map((el) => el.querySelector(':scope > span:not([class])')?.textContent || ''),
-      ban: Object.fromEntries([...document.querySelectorAll('.edrawer .ibond')].map((el) => [el.querySelector(':scope > span:not([class])')?.textContent || '', el.querySelector('.ibond__ban')?.textContent.trim() || ''])),
-      banned: [...document.querySelectorAll('.edrawer .ibanned .chessico')].map((el) => el.getAttribute('title')),
+      groups: [...document.querySelectorAll('.edrawer .igroup')].map((el) => ({ bond: el.dataset.group,
+        badge: el.querySelector('.ibond__ban')?.textContent.trim() || '', names: [...el.querySelectorAll('.chessico')].map((u) => u.getAttribute('title')) })),
       count: document.querySelector('.edrawer .ihead small')?.textContent.trim() || '',
     }));
-    assert.deepEqual(tab.off.sort(), brief.bonds.filter((b) => b.off).map((b) => b.name).sort(), 'the same greyed bonds');
-    for (const b of brief.bonds) {
-      const n = brief.groups.find((g) => g.bond === b.id)?.names.length || 0;
-      if (n) assert.equal(tab.ban[b.name], String(n), `${b.name}: the tab's badge = the briefing group's operators`);
-    }
-    assert.deepEqual([...tab.banned].sort(), brief.banned, 'the same banned operators');
-    assert.deepEqual(tab.banned, want.names, 'the tab lists them by tier');
+    assert.deepEqual(tab.groups.map(({ bond, names }) => ({ bond, names })), brief.groups, 'the briefing\'s groups, in its order');
+    for (const g of tab.groups) assert.equal(g.badge, g.names.length ? String(g.names.length) : '', `${g.bond}: the badge counts the group`);
+    assert.deepEqual([...new Set(tab.groups.flatMap((g) => g.names))].sort(), brief.banned, 'the same banned operators');
     assert.equal(tab.count, brief.count);
     await shot(page, 'solo-ingame-tab');
+    // a press outside the drawer (the board just under it) closes it
+    const below = await page.$eval('.edrawer', (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.bottom + 24 }; });
+    await page.mouse.click(below.x, below.y);
+    await page.waitForFunction(() => !document.querySelector('.edrawer'), { timeout: 3000 });
     assert.deepEqual(p.problems, []);
   });
 
@@ -291,11 +291,11 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     for (const [p, info] of briefs) {
       assert.deepEqual(greyedOf(info), want.greyed, `${p.name}: briefing greyed`);
       assert.deepEqual(info.banned, [...want.names].sort(), `${p.name}: briefing banned`);
-      assert.doesNotMatch(info.legend, /本模式禁用/);
+      assert.doesNotMatch(info.legend, /이 모드에서 금지/);
     }
     assert.deepEqual(briefs.get(b), briefs.get(a), 'both players see the same briefing');
     await shot(b.page, 'coop-phone-briefing-844');
-    for (const p of [a, b]) await press(p, '.brief__foot .btn--primary', '准备就绪');
+    for (const p of [a, b]) await press(p, '.brief__foot .btn--primary', '준비 완료');
     for (const p of [a, b]) await waitSt(p.page, (s) => s.phase === 'BAND_DRAFT' && !!s.turn, `${p.name}: band draft`);
 
     const turn = (await st(a.page)).turn;
@@ -310,7 +310,7 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     await openDialog(waiter);
     assert.deepEqual(await readInfo(waiter.page, '.minfo-dlg'), briefs.get(waiter), `${waiter.name}: the dialog = the briefing`);
     const wStatus = await waiter.page.$eval('[data-testid="match-info-status"]', (el) => el.textContent.trim());
-    assert.match(wStatus, new RegExp(`^${picker.name} 决策中\\s*\\d+s$`), `whose turn and its seconds: ${wStatus}`);
+    assert.match(wStatus, new RegExp(`^${picker.name} 선택 중\\s*\\d+s$`), `whose turn and its seconds: ${wStatus}`);
     await shot(waiter.page, waiter.phone ? 'coop-phone-dialog-waiting-844' : 'coop-dialog-waiting');
 
     // the picker: its own dialog says 轮到你决策 with the running clock; Esc; then it confirms with the dialog closed
@@ -320,13 +320,13 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     assert.deepEqual(await readInfo(picker.page, '.minfo-dlg'), briefs.get(picker), `${picker.name}: the dialog = the briefing`);
     const secsOf = async (p) => Number((await p.page.$eval('[data-testid="match-info-status"]', (el) => el.textContent)).match(/(\d+)s/)?.[1]);
     const s1 = await secsOf(picker);
-    assert.match(await picker.page.$eval('[data-testid="match-info-status"]', (el) => el.textContent.trim()), /^轮到你决策\s*\d+s$/);
+    assert.match(await picker.page.$eval('[data-testid="match-info-status"]', (el) => el.textContent.trim()), /^내 차례입니다\s*\d+s$/);
     await sleep(2200);
     const s2 = await secsOf(picker);
     assert.ok(s1 > 0 && s2 < s1, `the countdown keeps running in the dialog (${s1} → ${s2})`);
     await shot(picker.page, picker.phone ? 'coop-phone-dialog-picker-844' : 'coop-dialog-picker');
     if (picker.phone) {
-      await press(picker, '[data-testid="match-info-close"]', '关闭');
+      await press(picker, '[data-testid="match-info-close"]', '닫기');
     } else {
       await picker.page.keyboard.press('Escape');
     }
@@ -334,8 +334,8 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     assert.equal(await selBand(picker.page), selP, 'the highlighted band survived the dialog');
     assert.deepEqual((await intents(picker.page)).slice(reqP).filter((t) => t !== 'g.bandFocus'), [], 'nothing but the draft\'s own focus report');
     assert.equal(await dialogOpen(waiter.page), true, 'the waiting player is still looking');
-    await press(picker, '.dband', '阿米娅');
-    await press(picker, '.draft-detail__btns .btn--primary', '确认选择');
+    await press(picker, '.dband', '아미야');
+    await press(picker, '.draft-detail__btns .btn--primary', '선택 확인');
     await waitSt(picker.page, (s) => !!s.bandId, `${picker.name}: picked`);
 
     // the turn moves on: the waiting player's dialog closes by itself, its draft is in front of it
@@ -368,8 +368,8 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
       assert.ok(lay.scrolls && lay.overflow === 'auto', `${w}×${h}: the body scrolls`);
       assert.deepEqual(await readInfo(ph.page, '.minfo-dlg'), briefs.get(ph), `${w}×${h}: the dialog = the briefing`);
       const phStatus = await ph.page.$eval('[data-testid="match-info-status"]', (el) => el.textContent.trim());
-      if (ph === last) assert.match(phStatus, /^轮到你决策\s*\d+s$/);
-      else assert.equal(phStatus, '已选择「阿米娅」，等待其他博士');
+      if (ph === last) assert.match(phStatus, /^내 차례입니다\s*\d+s$/);
+      else assert.equal(phStatus, '「아미야」 선택 완료, 다른 박사를 기다리는 중');
       await shot(ph.page, `coop-phone-dialog-${w}`);
       // a finger swipe up the body brings the banned operators into view
       const bodyPt = await centre(ph.page, '.minfo-dlg .modal__body');
@@ -384,10 +384,11 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
       await sleep(200);
       const bannedVisible = await ph.page.evaluate(() => {
         const body = document.querySelector('.minfo-dlg .modal__body').getBoundingClientRect();
-        const g = document.querySelector('.minfo-dlg .brief-bgroups').getBoundingClientRect();
+        // the groups (one per greyed bond, 7 here) are taller than a phone's body: their end comes into view
+        const g = document.querySelector('.minfo-dlg .brief-bgroup:last-child').getBoundingClientRect();
         return g.top >= body.top - 1 && g.bottom <= body.bottom + 1;
       });
-      assert.ok(bannedVisible, `${w}×${h}: the banned operators scrolled into view`);
+      assert.ok(bannedVisible, `${w}×${h}: the last banned group scrolled into view`);
       await shot(ph.page, `coop-phone-dialog-${w}-scrolled`);
       // a tap outside the box (the order list on the left) closes it and changes nothing
       const sel = await selBand(ph.page);
@@ -403,8 +404,8 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     // the player who already picked keeps its dialog open; the last picker confirms a free strategy (阿米娅 is 队友已选) —
     // the end of the draft takes the open dialog away with the screen
     await openDialog(done);
-    await press(last, '.dband', '华法琳');
-    await press(last, '.draft-detail__btns .btn--primary', '确认选择');
+    await press(last, '.dband', '와파린');
+    await press(last, '.draft-detail__btns .btn--primary', '선택 확인');
     for (const p of [a, b]) {
       const s = await waitSt(p.page, (x) => x.phase !== 'BAND_DRAFT', `${p.name}: the draft to end`);
       assert.ok(s.bandId, `${p.name} has a strategy`);

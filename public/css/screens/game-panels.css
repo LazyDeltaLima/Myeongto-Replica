@@ -386,8 +386,14 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .ibond.is-off .bglyph img { filter: grayscale(1) brightness(.5); }
 .ibond__ban { display: inline-flex; align-items: center; gap: .02rem; font-size: .12rem; padding: 0 .05rem; background: var(--red); color: #fff; text-decoration: none; }
 .ibond__ban .icon { width: .12rem; height: .12rem; }
+/* the banned operators by greyed bond (the briefing's chess_banned_group): the bond chip, then its operators */
+.igroups { display: flex; flex-direction: column; }
+.igroup { display: flex; align-items: center; gap: .12rem; padding: .06rem 0; }
+.igroup + .igroup { border-top: 1px solid rgba(255, 255, 255, .05); }
+.igroup > .ibond { flex: none; width: 1.5rem; }
+.igroup > .ibond > span:not([class]) { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* the briefing's banned icon (matchInfo.js ChessIcon): room for the tier that sticks out on the bottom-left */
-.ibanned { display: flex; flex-wrap: wrap; gap: .1rem .12rem; padding: .04rem 0 .04rem .06rem; }
+.ibanned { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: .1rem .12rem; padding: .04rem 0 .04rem .06rem; }
 .ibanned__one { padding: 0; background: none; border: 0; line-height: 0; }
 /* 0.2.0: the player's own 自选 pieces out of the shop this match (ui/matchInfo.js DiyBannedLine) */
 .idiybanned { margin: .08rem 0 0; font-size: .13rem; line-height: 1.5; }
