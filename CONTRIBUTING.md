@@ -157,6 +157,18 @@ This is a remake of the official mode; the official game decides.
   (or `server/lobby.js` for `room.*`).
 - Effects (`public/js/render/fxgame.js`): prefab loads are async, so guard units that died meanwhile (`gone`); a looping
   prefab is bound to an owner or cut by `until`; a world-space trail must not follow a moving root (`followWorld`).
+- Per-frame rendering (`render/units.js` updates, the HUD, the effect players) is written for the worst case — an
+  8-player field, many units showing the same thing, a phone — from the first version (maintainer decision 2026-10-31):
+  - nothing is rebuilt, allocated or rasterised in a frame whose inputs did not change: keep the last value and skip
+    (`RadialFill`, `downLabel`);
+  - what many units can show at once is drawn without per-unit stencil masks, filters, `Graphics` redraws or `Text`:
+    sprites of shared textures, atlases (`hudRings`) or small meshes (under 100 vertices, batched with the sprites);
+  - look for the existing primitive first (`hud-bars.js` `RadialFill`, `texOf`; `textures.js` `hudRings`, `ringArc`,
+    `downLabel`) before writing another;
+  - a change to the per-frame drawing path is measured with many copies on screen, before and after (draw calls per
+    frame and ms, on a GPU), and a change meant to keep the picture is compared pixel by pixel with the previous
+    version; the numbers go in the commit message (a redeploy countdown drawn with a stencil mask cost 36 draw calls
+    for 12 operators, the batched mesh 1).
 - Before adding or editing a 自选 operator kit, walk the checklist in `docs/rules/diy.md`
   (「새 선발 오퍼레이터 키트 체크리스트」): targetable-only AoE through `canTargetEnemy`, the `dealDamage` options, no invented
   stop conditions.
