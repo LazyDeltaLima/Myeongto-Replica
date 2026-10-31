@@ -2,19 +2,19 @@
 // research 09 §2.1) with two tabs:
 //   本局信息 — own strategy, stage, disabled bonds with banned-member counts and the banned operator list (default) —
 //              the same bonds, states and banned operators (by tier) as the briefing and the strategy draft's 本局信息
-//              dialog: ui/matchInfo.js matchInfoModel, drawn here as compact chips and avatars, the banned operators
-//              grouped by greyed bond like the briefing's 本局禁用干员 (bannedGroups: a greyed bond's chip with its banned
-//              members, an operator whose bonds are both off under each); a 自定义 match adds its differences from the
-//              official rules (ui/customSummary.js);
+//              dialog: ui/matchInfo.js matchInfoModel, the banned operators grouped by greyed bond as the briefing's
+//              本局禁用干员 draws them (matchInfo.js BannedGroups, the client's chess_banned_group: the greyed bond disc,
+//              the divider, its banned members, an operator whose bonds are both off under each), each opening its card;
+//              a 自定义 match adds its differences from the official rules (ui/customSummary.js);
 //   敌方情报 — the secondary enemy list: m.private.nextEnemies (icons, names, counts, tags, 特训 faction tags) + this
 //              match's factions and the enemy leader on boss rounds. The primary enemy preview is the pen on the board
 //              (the right 🔍▶▶ pans the camera there; tapping an enemy in the pen opens its detail card) — research 09 §6.2.
 // It closes with its ×, the left 🔍, Esc or a press outside it (screens/game.js, gameLogic/shortcuts.js drawerClosesOnPress).
 
 import { html, Icon, Tabs, MicroLabel } from './components.js';
-import { Img, UnitThumb, BondGlyph, BandIcon, RichText, GIcon } from './gameComponents.js';
-import { groupEnemies, factionTypes, briefingBondTip } from './gameLogic.js';
-import { matchInfoModel, DiyBannedLine, ChessIcon } from './matchInfo.js';
+import { Img, UnitThumb, BandIcon, RichText, GIcon } from './gameComponents.js';
+import { groupEnemies, factionTypes } from './gameLogic.js';
+import { matchInfoModel, DiyBannedLine, BannedGroups } from './matchInfo.js';
 import { CustomRulesInfo } from './customSummary.js';
 import { factionIconUrl } from './assetUrls.js';
 import { data } from '../data.js';
@@ -71,7 +71,7 @@ function InfoTab({ pub, priv, onChess, bandId = null, bandOwner = null }) {
     // the own 自选 pieces this match leaves out of the shop (m.private.diyBanned) — not while scouting a teammate
     priv: bandOwner ? null : priv, diyData: { chess: data.get('chess'), backups: data.get('backups') },
   });
-  const { banned, perBond, bannedGroups, stateOf } = model;
+  const { banned, bannedGroups } = model;
   // while scouting a teammate's prep board the drawer shows THEIR 策略 in place of one's own (user playtest #2 item 2)
   const band = (bandId || priv?.bandId) ? data.lookup('bands', bandId || priv.bandId) : null;
   const stage = pub?.stageId ? data.lookup('stages', pub.stageId) : null;
@@ -84,16 +84,8 @@ function InfoTab({ pub, priv, onChess, bandId = null, bandOwner = null }) {
     ${stage ? html`<p class="istage"><${Icon} name="rook" />${t('战场：')}<b>${stage.name || stage.id}</b></p>` : null}
     ${model.custom ? html`<${CustomRulesInfo} lines=${model.custom} class="crs--sm" />` : null}
     <h4 class="ihead">${t('本局禁用干员情况')} <small class="num">${banned.length}</small></h4>
-    ${bannedGroups.length ? html`<div class="igroups">
-      ${bannedGroups.map(({ bond: b, chess }) => html`<div key=${b.bondId} class="igroup" data-group=${b.bondId}>
-        <span class="ibond is-off" title=${briefingBondTip(b.name, stateOf(b.bondId), perBond.get(b.bondId) || 0)}>
-          <${BondGlyph} bondId=${b.bondId} /><span>${b.name}</span>
-          ${chess.length ? html`<span class="ibond__ban num" title=${t('该盟约中被禁用的干员数')}><${Icon} name="user" />${chess.length}</span>` : null}
-        </span>
-        <div class="ibanned">${chess.map((id) => html`<button key=${id} type="button" class="ibanned__one" onClick=${() => onChess(id)}>
-          <${ChessIcon} id=${id} banned=${true} /></button>`)}</div>
-      </div>`)}
-    </div>` : html`<span class="t-dim">${t('本局没有禁用盟约')}</span>`}
+    ${bannedGroups.length ? html`<div class="igroups"><${BannedGroups} model=${model} onChess=${onChess} /></div>`
+      : html`<span class="t-dim">${t('本局没有禁用盟约')}</span>`}
     <${DiyBannedLine} model=${model} class="idiybanned" />
   </div>`;
 }

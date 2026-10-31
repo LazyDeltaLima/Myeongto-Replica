@@ -204,24 +204,37 @@ export function ChessIcon({ id = null, src = null, name = '', tier = null, banne
 }
 
 /**
- * 本局禁用干员: the count, then one group per greyed bond (MatchInfoModel bannedGroups) — the bond, a divider and its
- * banned operators by tier, each darkened under the banned corner.
+ * The banned operators by greyed bond (MatchInfoModel bannedGroups, chess_banned_group): the bond, a divider and its
+ * banned operators by tier, each darkened under the banned corner. With `onChess` each operator is a button that opens
+ * its card (the in-game 本局信息 tab, ui/enemyDrawer.js).
+ * @param {{ model: MatchInfoModel, onChess?: ((id: string) => void)|null }} props
+ */
+export function BannedGroups({ model, onChess = null }) {
+  const split = outerArt('img_bond_banned_split');
+  return html`<div class="brief-bgroups">
+    ${(model.bannedGroups || []).map(({ bond, chess }) => html`<div key=${bond.bondId} class="brief-bgroup" data-bond=${bond.bondId}>
+      <${Tooltip} text=${briefingBondTip(bond.name, model.stateOf(bond.bondId), model.perBond.get(bond.bondId) || 0)}>
+        <div class="brief-bgroup__bond"><${InfoBond} bond=${bond} off=${true} small=${true} /></div>
+      <//>
+      <i class="brief-bgroup__split" aria-hidden="true" style=${split ? `background-image:url("${split}")` : null}></i>
+      <div class="brief-bgroup__chess">
+        ${chess.map((id) => onChess
+          ? html`<button key=${id} type="button" class="brief-bchess ibanned__one" data-chess=${id} onClick=${() => onChess(id)}><${ChessIcon} id=${id} banned=${true} /></button>`
+          : html`<span key=${id} class="brief-bchess" data-chess=${id}><${ChessIcon} id=${id} banned=${true} /></span>`)}
+      </div>
+    </div>`)}
+  </div>`;
+}
+
+/**
+ * 本局禁用干员: the count, then the groups (BannedGroups).
  * @param {{ model: MatchInfoModel }} props
  */
 export function BannedOperators({ model }) {
-  const { banned, bannedGroups = [] } = model;
-  const split = outerArt('img_bond_banned_split');
+  const { banned } = model;
   return html`<div class="brief-banned">
     <${InfoTitle} kind="chess" title=${t('本局禁用干员')} micro="BANNED OPERATORS" extra=${html`<b class="num brief-banned__n">${banned.length}</b>`} />
-    ${banned.length ? html`<div class="brief-bgroups">
-      ${bannedGroups.map(({ bond, chess }) => html`<div key=${bond.bondId} class="brief-bgroup" data-bond=${bond.bondId}>
-        <div class="brief-bgroup__bond"><${InfoBond} bond=${bond} off=${true} small=${true} /></div>
-        <i class="brief-bgroup__split" aria-hidden="true" style=${split ? `background-image:url("${split}")` : null}></i>
-        <div class="brief-bgroup__chess">
-          ${chess.map((id) => html`<span key=${id} class="brief-bchess" data-chess=${id}><${ChessIcon} id=${id} banned=${true} /></span>`)}
-        </div>
-      </div>`)}
-    </div>` : html`<p class="t-dim">${t('本局没有禁用干员')}</p>`}
+    ${banned.length ? html`<${BannedGroups} model=${model} />` : html`<p class="t-dim">${t('本局没有禁用干员')}</p>`}
     <${DiyBannedLine} model=${model} />
   </div>`;
 }

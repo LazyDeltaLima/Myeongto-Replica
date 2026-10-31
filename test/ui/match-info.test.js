@@ -24,7 +24,7 @@ globalThis.fetch = async (url) => {
   }
 };
 
-const { matchInfoModel, MatchBondRow, MatchLegend, BannedOperators, MatchInfo, MatchInfoDialog, InfoBond, InfoTitle, ChessIcon } = await import('../../public/js/ui/matchInfo.js');
+const { matchInfoModel, MatchBondRow, MatchLegend, BannedOperators, BannedGroups, MatchInfo, MatchInfoDialog, InfoBond, InfoTitle, ChessIcon } = await import('../../public/js/ui/matchInfo.js');
 const { briefingBondTip } = await import('../../public/js/ui/gameLogic.js');
 const { Tooltip, Modal, Button } = await import('../../public/js/ui/components.js');
 const { draftInfoStatus } = await import('../../public/js/screens/bandDraft.js');
@@ -129,7 +129,9 @@ test('BannedOperators: the count, one group per greyed bond (the bond, then its 
   const block = BannedOperators({ model: m });
   const head = [...walk(block)].find((v) => v.type === InfoTitle);
   assert.deepEqual([head.props.kind, head.props.title, head.props.micro, textOf(head.props.extra)], ['chess', '本局禁用干员', 'BANNED OPERATORS', '4']);
-  const groups = [...walk(block)].filter((v) => hasClass(v, 'brief-bgroup'));
+  const inner = [...walk(block)].find((v) => v.type === BannedGroups);
+  assert.equal(inner.props.model, m);
+  const groups = [...walk(BannedGroups({ model: m }))].filter((v) => hasClass(v, 'brief-bgroup'));
   assert.deepEqual(groups.map((v) => v.props['data-bond']), m.bannedGroups.map((g) => g.bond.bondId));
   for (const [i, gv] of groups.entries()) {
     const bond = [...walk(gv)].find((v) => v.type === InfoBond);
@@ -138,6 +140,12 @@ test('BannedOperators: the count, one group per greyed bond (the bond, then its 
     assert.deepEqual(thumbs.map((v) => v.props.id), m.bannedGroups[i].chess);
     assert.ok(thumbs.every((v) => v.props.banned === true), 'drawn banned (the red corner, the tier on the bottom-left)');
   }
+  // the in-game tab's: each operator a button that opens its card
+  const opened = [];
+  const btns = [...walk(BannedGroups({ model: m, onChess: (id) => opened.push(id) }))].filter((v) => v.type === 'button' && hasClass(v, 'ibanned__one'));
+  assert.deepEqual(btns.map((v) => v.props['data-chess']), m.bannedGroups.flatMap((g) => g.chess));
+  btns[0].props.onClick();
+  assert.deepEqual(opened, [m.bannedGroups.flatMap((g) => g.chess)[0]]);
   const none = BannedOperators({ model: matchInfoModel({}, SRC('mode_single_normal')) });
   assert.match(textOf(none), /本局没有禁用干员/);
   assert.equal([...walk(none)].filter((v) => v.type === ChessIcon).length, 0);
@@ -229,8 +237,9 @@ test('the briefing, the strategy draft and the in-game 本局信息 tab all read
   // a turn change or my pick closes it; the draft's end unmounts the screen
   assert.match(draft, /const turnKey = `\$\{draft\.turnPid \|\| ''\}\|\$\{myPick \|\| ''\}`;\n\s*useEffect\(\(\) => \{ setInfoOpen\(false\); \}, \[turnKey\]\);/);
   const drawer = read('public/js/ui/enemyDrawer.js');
-  // (+ ChessIcon: its banned operators drawn as the briefing draws them)
-  assert.match(drawer, /import \{ matchInfoModel, DiyBannedLine, ChessIcon \} from '\.\/matchInfo\.js';/);
+  // (+ BannedGroups: its banned operators grouped and drawn as the briefing draws them)
+  assert.match(drawer, /import \{ matchInfoModel, DiyBannedLine, BannedGroups \} from '\.\/matchInfo\.js';/);
+  assert.match(drawer, /<\$\{BannedGroups\} model=\$\{model\} onChess=\$\{onChess\} \/>/);
   assert.match(drawer, /matchInfoModel\(pub, \{\s*bonds: data\.list\('bonds'\), chess: \(id\) => data\.lookup\('chess', id\), mode: data\.get\('config'\)\?\.modes\?\.\[pub\?\.modeId\],/);
   assert.doesNotMatch(drawer, /bannedPerBond|disabledBondSets/, 'the drawer derives nothing on its own');
 });

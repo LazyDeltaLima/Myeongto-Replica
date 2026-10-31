@@ -244,19 +244,17 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     const s1 = await waitSt(page, (s) => s.phase !== 'BAND_DRAFT', 'the draft to end');
     assert.equal(s1.bandId, 'band_amiya');
 
-    // the in-game 本局信息 tab (left 🔍) groups the same banned operators by the same greyed bonds (by tier), each
-    // bond's badge counting its group
+    // the in-game 本局信息 tab (left 🔍) draws the same banned groups (the briefing's chess_banned_group)
     await waitSt(page, (s) => s.phase === 'PREP', 'the first prep', 60000);
     await page.waitForFunction(() => !document.querySelector('.pbanner'), { timeout: 10000 }); // the 休整期 banner has played
     await press(p, '.gtop__iconbtn');
-    await page.waitForSelector('.edrawer .igroup', { visible: true, timeout: 5000 });
+    await page.waitForSelector('.edrawer .brief-bgroup', { visible: true, timeout: 5000 });
     const tab = await page.evaluate(() => ({
-      groups: [...document.querySelectorAll('.edrawer .igroup')].map((el) => ({ bond: el.dataset.group,
-        badge: el.querySelector('.ibond__ban')?.textContent.trim() || '', names: [...el.querySelectorAll('.chessico')].map((u) => u.getAttribute('title')) })),
+      groups: [...document.querySelectorAll('.edrawer .brief-bgroup')].map((el) => ({ bond: el.dataset.bond,
+        names: [...el.querySelectorAll('.chessico')].map((u) => u.getAttribute('title')) })),
       count: document.querySelector('.edrawer .ihead small')?.textContent.trim() || '',
     }));
-    assert.deepEqual(tab.groups.map(({ bond, names }) => ({ bond, names })), brief.groups, 'the briefing\'s groups, in its order');
-    for (const g of tab.groups) assert.equal(g.badge, g.names.length ? String(g.names.length) : '', `${g.bond}: the badge counts the group`);
+    assert.deepEqual(tab.groups, brief.groups, 'the briefing\'s groups, in its order');
     assert.deepEqual([...new Set(tab.groups.flatMap((g) => g.names))].sort(), brief.banned, 'the same banned operators');
     assert.equal(tab.count, brief.count);
     await shot(page, 'solo-ingame-tab');

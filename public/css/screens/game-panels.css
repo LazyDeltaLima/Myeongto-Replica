@@ -380,21 +380,11 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .istage b { color: var(--text-hi); }
 .ihead { font-size: .16rem; color: var(--mint-400); display: flex; gap: .08rem; align-items: baseline; }
 .ihead small { color: var(--text-lo); font-size: .14rem; }
-.ibonds { display: flex; flex-wrap: wrap; gap: .06rem; }
-.ibond { display: inline-flex; align-items: center; gap: .05rem; padding: .03rem .08rem .03rem .04rem; font-size: .14rem; border: 1px solid var(--line-2); color: var(--text-md); }
-.ibond.is-off { color: var(--text-dim); background: rgba(255, 255, 255, .02); text-decoration: line-through; text-decoration-color: rgba(255, 84, 84, .6); }
-.ibond.is-off .bglyph img { filter: grayscale(1) brightness(.5); }
-.ibond__ban { display: inline-flex; align-items: center; gap: .02rem; font-size: .12rem; padding: 0 .05rem; background: var(--red); color: #fff; text-decoration: none; }
-.ibond__ban .icon { width: .12rem; height: .12rem; }
-/* the banned operators by greyed bond (the briefing's chess_banned_group): the bond chip, then its operators */
-.igroups { display: flex; flex-direction: column; }
-.igroup { display: flex; align-items: center; gap: .12rem; padding: .06rem 0; }
-.igroup + .igroup { border-top: 1px solid rgba(255, 255, 255, .05); }
-.igroup > .ibond { flex: none; width: 1.5rem; }
-.igroup > .ibond > span:not([class]) { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* the briefing's banned icon (matchInfo.js ChessIcon): room for the tier that sticks out on the bottom-left */
-.ibanned { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: .1rem .12rem; padding: .04rem 0 .04rem .06rem; }
-.ibanned__one { padding: 0; background: none; border: 0; line-height: 0; }
+/* the banned operators by greyed bond: the briefing's chess_banned_group (css/screens/briefing.css .brief-bgroup*, one
+   prefab unit = --ou), scaled to the drawer (~1180 units across its body, as the client's 1186-unit groups) */
+.igroups { --ou: max(.006rem, .4px); }
+.igroups .brief-bgroup { padding-left: 0; padding-right: 0; }
+.ibanned__one { padding: 0; background: none; border: 0; line-height: 0; color: inherit; cursor: pointer; }
 /* 0.2.0: the player's own 自选 pieces out of the shop this match (ui/matchInfo.js DiyBannedLine) */
 .idiybanned { margin: .08rem 0 0; font-size: .13rem; line-height: 1.5; }
 .idiybanned .diybanned__tag { display: inline-block; margin-right: .05rem; padding: 0 .05rem; font-size: .11rem; font-weight: 700;
