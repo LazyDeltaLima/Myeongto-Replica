@@ -339,7 +339,8 @@ export function normShot(p) {
  * speed: 0 }`: the attack has no projectile) normalises to { key: null, move: 'NONE', speed: 0, delay: 0 }; a skill
  * entry null = the skill keeps the Default mode's; `move` OTHER = not read (ai.js opShot: the kind's speed). `land`: when
  * the hit of an AttachToTarget shot that is not instant lands, s after it is fired (迷迭香 S2 1.2, 寒檀 S2 0.6 —
- * tools/local-extract/enemy_projectiles.py attach_land).
+ * tools/local-extract/enemy_projectiles.py attach_land); `instant`: an AttachToTarget that reaches as it is placed
+ * (`_immediatelyReach`: 烛煌 S3, 维什戴尔 S2 — ai.js lands its splash on its spot after its target died).
  */
 function normOpShot(s) {
   if (!s || typeof s !== 'object') return undefined;
@@ -348,7 +349,7 @@ function normOpShot(s) {
     const n = normShot(typeof p.key === 'string' ? p : { ...p, key: '' });
     if (!n) return null;
     const land = Number(p.land);
-    return { ...n, key: n.key || null, ...(Number.isFinite(land) && land > 0 ? { land } : {}), ...(p.combat ? { combat: true } : {}) };
+    return { ...n, key: n.key || null, ...(Number.isFinite(land) && land > 0 ? { land } : {}), ...(p.instant ? { instant: true } : {}), ...(p.combat ? { combat: true } : {}) };
   };
   return { base: one(s.base), skills: Array.isArray(s.skills) ? s.skills.map(one) : [] };
 }

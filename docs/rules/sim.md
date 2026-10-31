@@ -2417,6 +2417,21 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
   - 데이터: 추출기 `attach_land` → `shot.land`(`docs/DATA.md`), 시뮬은 날지 않는 샷의 대기에 `land`를 먼저 씀. 다른 오퍼레이터의 ATTACH 샷은 모두 즉시(해당 없음).
     적 투사체 기록에도 `land`가 붙지만 적 경로는 읽지 않는다. 테스트 `kits_t6.test.js` 「迷迭香 S2 (client projectile_chr_rosmon_s2 …)」, `kits_t5.test.js`
     「寒檀 S2: ice spikes …」.
+- **대상이 먼저 죽은 즉시 AttachToTarget 샷 — 블레이즈 디 이그나이팅 스파크(烛煌) S3·위셔델(维什戴尔) S2** (2026-10-31, 관리자 제보 「이격 블레이즈 S3가
+  발사된 후 목표 적이 죽으면 타격 이펙트가 안 나옴」): 늦게 닿는 샷은 닿을 때 대상이 죽었거나 숨었으면 통째로 버려졌다(피해·확산·이펙트 모두 없음).
+  - 공식(투사체 프리팹 원본 값 + 공식 클라에서 확인): `projectile_chr_blaze2_s3`·`projectile_chr_wisdel_s2`는 `_stopIfTargetDead` 0·`_stopIfTargetDisappeared` 0 —
+    대상이 죽어도 멈추지 않고, `_keepUpdate`·`_followTarget` 0이라 쏠 때 놓인 자리에 남는다. 멈출 때 충돌체(`_rangeToLoad`) 안 적을 친다(`HitBehaviour`
+    `_onlyCheckHitWhenStop`). 주 대상은 `_alwaysHitTraceTargetInTheEnd`로 따로 치지만 `Projectile._DealHitTraceTarget`이 `ValidAndAlive`일 때만 → 죽은 대상은 빠진다.
+  - 고친 것(`ai.js`): 즉시(`instant`, 추출 `_immediatelyReach`) ATTACH 샷이고 확산이 있으면, 닿을 때 대상이 없으면 **쏜 순간의 대상 자리**에서 대상 없이
+    `resolveHit`(확산·키트의 `onHit`/`afterHit`). `simdata.js normOpShot`이 `instant`를 넘긴다. 로즈몬티스 S2(즉시 아님, 충돌체 없이 닿을 때 명중)는 그대로
+    대상이 있어야 친다 [추정·미조사: 그 명중 동작이 죽은 대상의 자리에서 확산을 내는지 안 읽음]. 산탈라 S2는 키트가 칸에 떨어뜨려 대상과 무관.
+  - 살아 있는 대상이 0.3 s 동안 움직이면 공식 충돌체는 쏜 자리에, 우리 확산은 지금 자리에 중심을 둔다 — 그대로 둠 [추정·미조사: 이동 중 차이, 골든 다수 이동].
+  - 화면: 烛煌 S3 타격 이펙트 `blaze2_skill_03_hit`·`_02`는 투사체가 아니라 공격 능력의 `_hitEffects`(HitEffectOptions)이고, `RangedAttack.OnCastOnTarget`은 쏠 때
+    기반 `AbilityStandard.OnCastOnTarget`을 부른 뒤 투사체를 만든다. 그 이펙트가 쏠 때 생기는지(그러면 대상이 죽어도 남) 명중 때인지는 안 읽음 — 우리 렌더는 주 대상
+    'dmg' 때만 튼다(대상이 죽으면 안 나옴) [추정·미조사: 능력 타격 이펙트의 시점, 큰 확인 승인 대기]. 투사체의 `_onlyPlayHitEffectOnTraceTarget`은
+    `EffectBehaviour.OnHitTarget`에서 투사체 자기 `_effectsWhenHit`(이 샷은 비어 있음)만 거른다 — 2026-10-22 「텍스처 반복 방식」의 「주 대상만」 근거가 아님.
+  - 테스트 `test/sim/attach-shot-dead-target.test.js`. 골든: bond-investShip-high·bond-skillfulShip-high·bond-yanShip-high, boss-boss_1-solo, 매치
+    coop2-NORMAL-70-diy, diy-001.
 
 ## 버프 그래프 노드 본문 (2026-10-31)
 

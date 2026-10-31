@@ -548,7 +548,16 @@ export function performAttack(b, u, prof, targets, opts = null) {
       const wait = shot.land ?? shot.delay;
       if (wait > 0) {
         const fired = { ...prof };
-        b.after(wait, () => { if (t.alive && !t.hidden) resolveHit(b, u, fired, t, info, t.x, t.y); });
+        // An instant AttachToTarget (烛煌 S3, 维什戴尔 S2) is put on its target's spot once (`_keepUpdate` 0) and does not
+        // stop when the target dies (`_stopIfTargetDead` 0): its collider hits the enemies there when it stops
+        // (HitBehaviour `_onlyCheckHitWhenStop`), the dead target left out (Projectile._DealHitTraceTarget: ValidAndAlive)
+        // — a splash shot lands on the spot it was fired at without it (official client). A non-instant one (迷迭香 S2)
+        // still needs its target.
+        const x0 = t.x, y0 = t.y, spot = !!shot.instant && fired.splashRadius > 0;
+        b.after(wait, () => {
+          if (t.alive && !t.hidden) resolveHit(b, u, fired, t, info, t.x, t.y);
+          else if (spot) resolveHit(b, u, fired, null, info, x0, y0);
+        });
       }
       else resolveHit(b, u, prof, t, info, t.x, t.y);
     } else if (ranged && foe) {
