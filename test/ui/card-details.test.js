@@ -70,6 +70,17 @@ describe('a summon\'s card in the official form', () => {
     const css = read('public/css/hud-art.css');
     assert.match(css, /\.dart\.is-summon \.dart__prof img \{/);
   });
+
+  test('TokenDetailArt reads a talent list only: 炎佑\'s enemy-shaped `{ bb, bbStr }` talents do not crash the card', () => {
+    const tokens = JSON.parse(read('data/tokens.json'));
+    const shaped = Object.values(tokens).filter((x) => x && x.talents != null && !Array.isArray(x.talents)).map((x) => x.tokenId);
+    assert.ok(shaped.includes('enemy_9012_acloon'), 'the data still has an object-shaped talents record');
+    const js = read('public/js/ui/detailArt.js');
+    const i = js.indexOf('export function TokenDetailArt(');
+    const body = js.slice(i, js.indexOf('\n/**', i));
+    assert.match(body, /\(Array\.isArray\(rec\.talents\) \? rec\.talents : \[\]\)\.filter\(/);
+    assert.doesNotMatch(body, /\(rec\.talents \|\| \[\]\)/);
+  });
 });
 
 describe('the class box of a TRAP / TOKEN character', () => {

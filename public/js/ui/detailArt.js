@@ -459,7 +459,8 @@ export function TokenDetailArt({ token, piece = null, ownerId = null, snapHp = n
   const eliteUrl = phase != null ? uiUrl(m, `elite/elite_${phase}`) : null;
   // the skill: a summon's withdraw skill (skcom_withdraw) says nothing (TokenDetail's rule)
   const sk = rec.skill && rec.skill.desc && !/^skcom_withdraw/.test(String(rec.skill.skillId || '')) ? rec.skill : null;
-  const talents = mapChar ? chessTalents(token) : (rec.talents || []).filter((x) => x && x.name && x.desc);
+  // an enemy-shaped record (炎佑 enemy_9012_acloon) carries one `{ bb, bbStr }` talent object, not a list: no 天赋 tab
+  const talents = mapChar ? chessTalents(token) : (Array.isArray(rec.talents) ? rec.talents : []).filter((x) => x && x.name && x.desc);
   const trait = (mapChar ? token.trait?.descRaw || token.trait?.desc : '') || token?.descRaw || token?.desc || '';
   const hint = piece ? summonDeployHint(token) : null;
   const prof = mapChar ? profIconUrl(m, token.profession) : null;
