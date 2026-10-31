@@ -239,10 +239,11 @@ export function byPriority(e, list) { return sortAllyTargets(e, list.slice()); }
 /**
  * An HP-loss / damage zone. `tick(units)` runs every `iv` s for `life` s on the allies inside: `pick(x, y, r)` chooses
  * them — by default every ally in the circle (【污染秽蚀】 "无视无法选择"); the other zones (dmgZone, 烹泉's steam) pass
- * their area selection (areaAllies).
+ * their area selection (areaAllies). `src` + `ability`: the enemy whose official ability leaves it (the prefab's
+ * `Skills/<name>` / `Talent/<name>`) — the fx 'zone' names them, so the render draws that ability's projectile effects there.
  */
-export function zone(b, { x, y, r, life, iv = 1, kind = 'zone', tick, pick = null }) {
-  b.fx('zone', { x, y, r, dur: life, kind });
+export function zone(b, { x, y, r, life, iv = 1, kind = 'zone', tick, pick = null, src = null, ability = null }) {
+  b.fx('zone', { x, y, r, dur: life, kind, ...(src && src.id != null && ability ? { id: src.id, ability } : {}) });
   let left = life;
   const h = b.every(iv, () => {
     tick(pick ? pick(x, y, r) : b.alliesInRadius(x, y, r));

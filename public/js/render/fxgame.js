@@ -4514,6 +4514,32 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return true;
   }
   /**
+   * 2026-10-31: an enemy's area left by an official projectile of its ability — sim fx 'zone' { x, y, r, dur, kind, id,
+   * ability } (content/enemies/helpers.js zone): 萨卡兹枯朽战士's PollutedDie (projectile_enemy_nhpbr_polluted →
+   * enemy_nhpbr_attack_range) and 萨卡兹枯朽战车's PollutedRangedAtk (projectile_enemy_nhtank_polluted → enemy_nhtank_attack_range)
+   * 【污染秽蚀】. That projectile's start / target-start / reach effects (enemy-modes.json skills[ability].proj) stand on the
+   * area's spot until its time is up and are finished as a reach effect is (zoneEnd); the procedural zone stays when none is
+   * extracted. The 战车's shell flies with its attack (the ranged part's projectile_enemy_nhtank — the polluted projectile
+   * has no trail). true = drawn here (ownFx).
+   */
+  function ezoneFx(e, views) {
+    const o = e[4];
+    if (!o || typeof o !== 'object' || o.id == null || typeof o.ability !== 'string' || !o.ability) return false;
+    const v = views.get(o.id);
+    const pr = eOn(v) ? eskillPart(v, o.ability)?.proj : null;
+    if (!pr) return false;
+    const names = [...new Set([...(pr.start || []), ...(pr.targetStart || []), ...(pr.tileStart || []), ...(pr.reached || [])])].filter((n) => efx(n));
+    if (!names.length) return false;
+    const dur = Math.max(0, Number(o.dur ?? o.duration) || 0);
+    const until = clockS + (dur > 0 ? dur : 3);
+    const at = { x: Number(e[2]), y: Number(e[3]), z: 0 };
+    for (const n of names.slice(0, MAX_HIT_FX)) {
+      const r = efx(n);
+      spawn(r[0], r[1], at, { owner: null, buff: false, until }, { over: false }).then((l) => { if (l) zoneEnd(l, until, true); });
+    }
+    return true;
+  }
+  /**
    * 2026-10-10: “萨米的意志”'s 冰凌 — sim fx 'column' { x, y, c, id, key, sub, r0, dir, speed, dist, life } once at the strike
    * (content/bosses.js kitDeer, docs/rules/sim.md 「萨米的意志 冰凌」): projectile `key` runs from row `r0` of column `c` along
    * `dir` at `speed` and places projectile `sub` on the tile k·`dist` from the start as it passes (k·dist / speed s after the
@@ -5417,6 +5443,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'caperBoomerang2' && e[4]) { caperSecond(e, views); return; } // 2026-10-10: 跃跃 S2's second boomerang
           // 2026-10-10: an enemy content skill's official projectile (eshotFx), and no stand-in beam for a shot drawn so
           if (e[1] === 'enemyShot' && e[4]) { eshotFx(e[4], views); return; }
+          // 2026-10-31: an enemy ability's 【污染秽蚀】 — its projectile's effects, else the stand-in zone (not the ability's cast below)
+          if (e[1] === 'zone' && e[4]?.id != null && e[4].caster == null && typeof e[4].ability === 'string') { if (ezoneFx(e, views)) ownFx.add(e); return; }
           if (e[1] === 'beam' && e[4] && SHOT_BEAMS[e[4].kind] && level() < 3) {
             const o = e[4], from = views.get(o.from ?? o.id);
             const pr = from && views.get(o.to) ? eshotDrawable(views.get(o.caster) || from, SHOT_BEAMS[o.kind]) : null;

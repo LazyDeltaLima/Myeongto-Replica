@@ -702,7 +702,12 @@ def emit_part(abilities, projs):
             for n in (b.get('template') or {}).get('line') or []:
                 if all(x['fx'] != n for x in lines):
                     lines.append({'fx': n, **({'life': b['life']} if 'life' in b else {})})
-        for p in a.get('projectiles') or []:
+        # 2026-10-31: a talent's buff that fires a projectile (its blackboard `valueStr`: template projectile_on_killed —
+        # 萨卡兹枯朽战士's PollutedDie projectile_enemy_nhpbr_polluted, the 源石虫 blasts) counts as the ability's own
+        # projectile — its effects were left out of the table and of the extraction
+        own = list(a.get('projectiles') or []) + [{'key': x['key'], 'mount': None} for x in a.get('otherProjectiles') or []
+                                                   if x.get('field') == '_buffs.blackboard.valueStr']
+        for p in own:
             if proj is None and p['key'] in projs:
                 pr = projs[p['key']]
                 proj = {'key': p['key'], 'mount': MOUNTS.index(p['mount']) if p['mount'] in MOUNTS else None}

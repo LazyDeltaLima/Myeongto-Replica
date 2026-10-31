@@ -909,6 +909,10 @@ for (const key of ['enemy_1267_nhpbr', 'enemy_1267_nhpbr_2']) {
     killed(h, e, null);
     h.run(3.05);
     approx(h.unit('t_wall').stats.taken, 3 * tb(key, 'PollutedDie.polluted_damage_low'));
+    // the zone names its source and the official talent (the render draws projectile_enemy_nhpbr_polluted's effects there)
+    const z = h.eventsOf('fx').filter((x) => x[1] === 'zone' && x[4] && x[4].kind === 'pollution');
+    assert.equal(z.length, 1);
+    assert.ok(z[0][4].id === e.id && z[0][4].ability === 'PollutedDie', `zone fields ${JSON.stringify(z[0][4])}`);
   });
 
   // PRTS 特殊机制 死亡爆炸 "默认可沉默…若不处于沉默状态，将会…释放"; client template projectile_on_killed: CheckAbnormalFlag

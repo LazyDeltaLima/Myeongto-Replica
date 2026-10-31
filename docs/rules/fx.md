@@ -1110,8 +1110,21 @@
   꼬리가 MAX_TRAILS로 밀린 사격은 대체 beam도 없이 착탄 이펙트만 그린다(알려진 한계).
   2026-10-21(이펙트 묶음 F)부터 모든 적의 이펙트가 뽑혀 있다(`--extract --all`, 아래 「적 상태의 버프 이펙트」) — 凋零骑士·陷落雪祀·杰斯顿·迷路的巨像
   스킬 탄 꼬리도 그려진다(그 전: 黑云 FireWeapon·碎铳之簧·管·弦만).
-  `shoot`을 안 거치는 콘텐츠 투사체(迷路的巨像 StunAttack·蚀裂 사망 구름·枯朽战车 秽蚀轰击)는 `enemyShot`이 없어 안 그림 — sim이 `shoot`으로 바꾸면
-  그대로 그려진다.
+  `shoot`을 안 거치는 콘텐츠 투사체(迷路的巨像 StunAttack·蚀裂 사망 구름)는 `enemyShot`이 없어 안 그림 — sim이 `shoot`으로 바꾸면
+  그대로 그려진다. 살카즈 부패의 전차(`enemy_1272_nhtank`) 秽蚀轰击는 아래 「적 장판 — 污染秽蚀」로 그린다(오염탄
+  `projectile_enemy_nhtank_polluted`엔 꼬리가 없고, 날아가는 포탄은 그 공격의 `projectile_enemy_nhtank` 원거리 꼬리).
+- **적 장판 — 污染秽蚀** (2026-10-31) [화면 미확인]: 살카즈 부패의 전사·리더(`enemy_1267_nhpbr`/`_2`)의 사망 장판과 살카즈 부패의 전차·최첨단(`enemy_1272_nhtank`/`_2`)
+  秽蚀轰击 장판은 공식 클라에서 투사체가 남기는 이펙트다 — 전사: 특성 `PollutedDie` 버프(템플릿 `projectile_on_killed`)의 blackboard `valueStr`
+  `projectile_enemy_nhpbr_polluted` → `_effectsToTargetWhenStart` `enemy_nhpbr_attack_range`, 전차: 스킬 `PollutedRangedAtk/AttackPolluted`의
+  `projectile_enemy_nhtank_polluted` → `_effectsWhenReached` `enemy_nhtank_attack_range`. sim fx 'zone'이 `id`(낸 적)·`ability`(`PollutedDie` /
+  `PollutedRangedAtk`)를 싣고(`content/enemies/helpers.js zone`), `fxgame.js ezoneFx`가 그 능력의 투사체(enemy-modes.json `skills[능력].proj`)
+  start·targetStart·tileStart·reached 이펙트를 장판 자리에 장판 시간(`dur`) 동안 두고 reach 이펙트처럼 끝낸다(`zoneEnd`), 절차 장판은 안 그린다.
+  하나도 안 뽑혀 있으면 절차 장판 그대로(그 능력의 시전 이펙트를 착탄 때 다시 틀지 않음). 사망 이펙트 자체는 프리팹에 고유 사망 이펙트가 없어 공식도
+  공용 `common_enemy_die_01`. 2026-10-31 전에는 버프 `valueStr`이 가리키는 투사체(`otherProjectiles` 중 `_buffs.blackboard.valueStr`)가
+  렌더 표에 안 실려 그 이펙트가 추출에서 빠졌다 — `enemy_bindings.py emit_part`가 이제 그 능력의 투사체로 싣는다(같이 뽑힌 것: 양배추 씨앗·
+  고에너지 원석충·빙폭 원석충·가상적: 침식·'갑주를 꿰뚫는 탄환'의 사망 탄 이펙트 — 이 적들은 sim 'zone'·사망 이벤트가 능력을 안 실어 아직 연결 안 됨).
+  [추정·엔진: 장판 이펙트를 sim 장판 시간 동안 둠 — 전차 투사체 `_lifeTime` 20 s, 스킬 `projectile_life_time` 10 s] 테스트:
+  `test/render/enemy-pollution-fx.test.js`, `playtest6-enemies.test.js`·`enemies_bosses.test.js`(zone `id`·`ability`).
   - 직선(FIXED_DIRECTION) 사격 — 重弩突袭者 直击(`enemies/helpers.js lineShot`, docs/rules/sim.md 「FIXED_DIRECTION 투사체」): `enemyShot`에 `dir` [dx, dy]
     (보드 축: +x 오른쪽 열, +y 위 행)·`range`(타일)가 붙고 `tgt`/`t`는 예측한 첫 충돌(아무도 없으면 `tgt` null, `range` = 속도 × 수명). 꼬리는 쏜 점에서
     `dir`로 `range`만큼 `t` 동안 직진(높이는 출발 높이 그대로 [추정]); 맞음 이펙트는 착탄 시각에 미리 그리지 않고 sim의 실제 'dmg'(그 능력의 hit + 투사체

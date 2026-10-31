@@ -626,9 +626,10 @@ function bleed(ab) {
  * （可对空，无视无法选择、迷彩；同名效果不叠加）"): `low` true damage per second on low ground, `high` on high ground, to every
  * ally inside (flyers, stealthed, untargetable and airborne 起飞 ones included — `ignoreSelect`; an airborne 蒂比 stands on
  * her low tile: `low`); a unit inside several zones takes one tick per second (`mem.pollutedAt`: the last tick it took).
+ * `ability`: the official ability that leaves it (zone: the render draws its projectile's effects).
  */
-function pollution(b, src, x, y, r, life, low, high) {
-  zone(b, { x, y, r, life, iv: POLLUTION_INTERVAL, kind: 'pollution', tick(units) {
+function pollution(b, src, x, y, r, life, low, high, ability = null) {
+  zone(b, { x, y, r, life, iv: POLLUTION_INTERVAL, kind: 'pollution', src, ability, tick(units) {
     for (const u of units) {
       // the client's polluted_area buff: IfElse(CheckHeightTypeOfCharacterRootTile LOWLAND) → polluted_damage_low / _high —
       // the tile under the unit, no motion check: a flyer (炎佑, unit.ground false) over a low tile takes `low` too
@@ -730,7 +731,7 @@ const kitPolluted = (ab) => [{
   death(c, b, e) {
     if (c.reason !== 'killed') return;
     pollution(b, e, e.x, e.y, T(ab, 'PollutedDie.projectile_range') ?? 1, T(ab, 'PollutedDie.projectile_life_time') ?? 0,
-      T(ab, 'PollutedDie.polluted_damage_low') ?? 0, T(ab, 'PollutedDie.polluted_damage_high') ?? 0);
+      T(ab, 'PollutedDie.polluted_damage_low') ?? 0, T(ab, 'PollutedDie.polluted_damage_high') ?? 0, 'PollutedDie');
   },
 }];
 

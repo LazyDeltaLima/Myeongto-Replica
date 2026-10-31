@@ -90,7 +90,7 @@ function kitTank(ab, e) {
       // ParacurveMovement.OnInit) to the target's spot at the attack [추정: a target moving meanwhile]; until 2026-10-10 at
       // the attack itself
       const x = t.x, y = t.y;
-      const zone = () => pollution(b, e2, x, y, TANK_ZONE_RADIUS, s.projectile_life_time ?? 0, s.polluted_damage_low ?? 0, s.polluted_damage_high ?? 0);
+      const zone = () => pollution(b, e2, x, y, TANK_ZONE_RADIUS, s.projectile_life_time ?? 0, s.polluted_damage_low ?? 0, s.polluted_damage_high ?? 0, sk?.name ?? null);
       const v = sk?.proj?.speed > 0 ? sk.proj.speed : 0;
       const d = hypot(x - e2.x, y - e2.y);
       if (v > 0 && d > 0.75) b.after(d / v, zone); else zone();
