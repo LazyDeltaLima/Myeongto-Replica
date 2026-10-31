@@ -804,7 +804,7 @@
       "hooks": [1,38,2559,254,283,481,481,236,23,25,18,15,0,11943,191,28,23,0,1,48,0,0,0],
       "events": {"atk":309,"deploy":12,"die":25,"dmg":481,"engage":12,"face":69,"fx":252,"skill":33,"spawn":38,"status":428,"swing":278},
       "fx": {"aoe":2,"copy":1,"crit":3,"dp":2,"ember":23,"iceSpike":59,"palsy":2,"roadTiles":1,"sleep":2,"split":3,"stacks":52,"weightless":2,"zone":100},
-      "snaps": "513edef0 b7afb798 d17fc326 f50cbccc c27c6f65 e5f34d5e 309397a3 02c6bb0a 779340d8"
+      "snaps": "07be0154 eaaf549b ca4dd9dd 41e905bc fa41f4e0 d8f58296 b464a907 b7aaace1 2458953b"
     },
     "bond-miraShip-low": {
       "about": "奇迹 low: tier 1 layers 1; chess_char_4_01_a chess_char_2_11_a chess_char_3_18_a chess_char_3_01_a chess_char_3_17_a chess_char_3_20_a chess_char_3_21_a chess_char_4_02_a",

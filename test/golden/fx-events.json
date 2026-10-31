@@ -4630,6 +4630,7 @@
    "- spawn enemy_actoxi_die_2_hit → ally",
    "- spawn enemy_actoxi_die_2_start → enemy",
    "- spawn enemy_actoxi_idle",
+   "- spawn enemy_nhpbr_attack_hit → ally",
    "- spawn enemy_nhpbr_attack_range",
    "- spawn enemy_nhstlk_attack_hit_01 → ally",
    "- spawn wisdel_bomb_01_hit",
@@ -4655,6 +4656,7 @@
    "char_1035_wisdel skillBuff wisdel_skill_03_buff_02_F+wisdel_skill_03_buff_F",
    "char_1035_wisdel skillStart wisdel_skill_01_start+wisdel_skill_01_start_02",
    "char_1035_wisdel spawn:born wisdel_birth_01_start → self",
+   "enemy_1267_nhpbr_2 spawn:cast enemy_nhpbr_attack_start → self",
    "enemy_1270_nhstlk_2 spawn:cast enemy_nhstlk_attack_start → self",
    "token_10035_wisdel_wward spawn:born token_wisdel_birth_01_start → self"
   ],
