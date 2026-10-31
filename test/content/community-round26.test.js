@@ -62,7 +62,10 @@ for (const elite of [false, true]) {
       bonds: { lateranoShip: bond(), preciShip: bond() },
       units: [{ chessId: id, row: 10, col: 4 }, { chessId: 'a', row: 10, col: 2 }, { chessId: 'b', row: 10, col: 3 }] });
     h.step(); const u = h.unit(id); h.spawn('dummy', { pos: [10, 6] });
-    for (let i = 0; i < 2; i++) { u.skill.gainSp(999, 'init'); assert.ok(u.skill.activate('test')); assert.ok(h.runUntil(() => !u.skill.active, 30)); }
+    // casts 0.2 s apart: the trait counts a consumer once per 0.1 s, and passes a threshold on its next 0.3 s tick (client
+    // ListenAmmoConsumeAbility)
+    for (let i = 0; i < 2; i++) { u.skill.gainSp(999, 'init'); assert.ok(u.skill.activate('test')); assert.ok(h.runUntil(() => !u.skill.active, 30)); h.run(0.2); }
+    h.run(0.5);
     const spent = h.hooksOf('ammoUsed').filter((c) => c.unit === u).length;
     assert.ok(spent >= 10); const gains = h.result().perPlayer.p1.layerGains;
     for (const b of ['lateranoShip', 'preciShip']) assert.equal(gains[b], Math.floor(spent / 10) * (elite ? 4 : 2), b);

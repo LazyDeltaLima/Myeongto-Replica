@@ -800,6 +800,12 @@ test('绝技: 2 elites → elite ATK ×1.3; 5 elites → elite SP cost ceil(×0.
   assert.equal(bb.sp_ratio, 0.7);
   assert.equal(h2.unit('j_e_b').skill.spCost, 18, '25 × 0.7 = 17.5 → 18 (was floored to 17)');
   assert.equal(h2.unit('j_n').skill.spCost, 25);
+  // summons keep their cost: the client's AutoChessFilterChess needs a card mapped to a board piece, and only operator
+  // cards are (AutoChessDataIndexer runtimeCard2ChessDict; token cards sit in runtimeToken2CardDict)
+  const tok = h2.b.spawnToken(h2.unit('j_e_b'), 'test_token', 11, 5, { def: { name: 'tok', stats: { maxHp: 1000, atk: 100, def: 0, magicResistance: 0, blockCnt: 0, baseAttackTime: 1, attackSpeed: 100 }, rangeGrid: [[0, 0]], profession: 'TOKEN', skill: { spCost: 25 } } });
+  h2.step();
+  assert.ok(tok && tok.skill, 'the summon has a skill');
+  assert.equal(tok.skill.spCost, 25, 'an elite’s summon: SP cost unchanged');
   checkInvariants(h2.b);
 });
 

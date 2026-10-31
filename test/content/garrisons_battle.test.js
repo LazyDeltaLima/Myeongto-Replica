@@ -185,7 +185,10 @@ test('selfdead (幽灵鲨 46 / 砾 75 / 归溟幽灵鲨 40): per knock-out; 归�
   checkInvariants(h.b);
 });
 
-test('consume_ammo (莫斯提马 22 x-5 / 圣约送葬人 23+55 / 蕾缪安 24 row of 3): per consume_count ammo, per-id caps', () => {
+// shots 0.2 s apart (past a consumer's 0.1 s [cnt] lock), then 0.3 s for the [self] tick that passes the threshold
+const shoot = (h, u, n) => { for (let i = 0; i < n; i++) { h.b.emit('ammoUsed', { unit: u, left: 0 }); h.run(0.2); } h.run(0.3); };
+
+test('consume_ammo (莫斯提马 22 x-5 / 圣约送葬人 23+55 / 蕾缪安 24 row of 3): per consume_count ammo events, per-id caps', () => {
   for (const gid of idsOfKey('act1autochess_gar_event_consume_ammo')) {
     const g = GR(gid);
     const sc = scenario(gid);
@@ -195,10 +198,10 @@ test('consume_ammo (莫斯提马 22 x-5 / 圣约送葬人 23+55 / 蕾缪安 24 r
     const h = battle({ units, bonds: sc.bonds });
     const shooter = h.unit(x5 ? 'nb' : 'op');
     const every = num(g.bb.consume_count, 1), per = num(g.bb.bond_add_count);
-    for (let i = 0; i < every * 3; i++) h.b.emit('ammoUsed', { unit: h.unit('far') });
+    shoot(h, h.unit('far'), every * 3);
     expectAll(h, sc.targets, 0, `${gid}: ammo of an operator out of scope`);
     for (let k = 1; k <= 12; k++) {
-      for (let i = 0; i < every; i++) h.b.emit('ammoUsed', { unit: shooter, left: 0 });
+      shoot(h, shooter, every);
       expectAll(h, sc.targets, Math.min(k * per, capOf(gid)), `${gid} × ${k}`);
     }
     cover(gid);
@@ -207,14 +210,14 @@ test('consume_ammo (莫斯提马 22 x-5 / 圣约送葬人 23+55 / 蕾缪安 24 r
     const h = battle({ units: [{ id: 'exe', g: gids, row: 10, col: 4 }], bonds: { lateranoShip: B(0), visiShip: B(0) } });
     const u = h.unit('exe');
     const out = [];
-    for (const n of [7, 70]) { for (let i = 0; i < n; i++) h.b.emit('ammoUsed', { unit: u, left: 0 }); out.push({ ...gains(h) }); }
+    for (const n of [7, 70]) { shoot(h, u, n); out.push({ ...gains(h) }); }
     return out;
   };
   assert.deepEqual(exe(['garrison_23_a', 'garrison_55_a']), [{ lateranoShip: 7, visiShip: 3 }, { lateranoShip: 49, visiShip: 21 }], '圣约送葬人: 7 triggers max');
   assert.deepEqual(exe(['garrison_23_b', 'garrison_55_b']), [{ lateranoShip: 14, visiShip: 6 }, { lateranoShip: 98, visiShip: 42 }]);
   const rem = (gid, n) => {
     const h = battle({ units: [{ id: 'rem', g: [gid], row: 10, col: 3 }, ...Array.from({ length: n - 1 }, (_, i) => ({ id: `m${i}`, row: 10, col: 5 + i * 2 }))], bonds: { lateranoShip: B(0), preciShip: B(0) } });
-    for (let i = 0; i < 10; i++) h.b.emit('ammoUsed', { unit: h.unit('rem') });
+    shoot(h, h.unit('rem'), 10);
     return gains(h);
   };
   assert.deepEqual(rem('garrison_24_a', 2), {}, '蕾缪安: 2 in the row');
@@ -222,12 +225,30 @@ test('consume_ammo (莫斯提马 22 x-5 / 圣约送葬人 23+55 / 蕾缪安 24 r
   assert.deepEqual(rem('garrison_24_b', 3), { lateranoShip: 4, preciShip: 4 });
   const most = (gid) => {
     const h = battle({ units: [{ id: 'most', g: [gid], row: 10, col: 5 }, { id: 'nb', row: 10, col: 6 }, { id: 'nb2', row: 9, col: 5 }], bonds: { lateranoShip: B(0) } });
-    for (let i = 0; i < 3; i++) h.b.emit('ammoUsed', { unit: h.unit('nb') });
-    for (let i = 0; i < 3; i++) h.b.emit('ammoUsed', { unit: h.unit('nb2') });
+    shoot(h, h.unit('nb'), 3);
+    shoot(h, h.unit('nb2'), 3);
     return gains(h);
   };
   assert.deepEqual(most('garrison_22_a'), { lateranoShip: 1 }, '莫斯提马: ammo of the 4 neighbours is pooled');
   assert.deepEqual(most('garrison_22_b'), { lateranoShip: 2 });
+});
+
+test('consume_ammo: one count per consumer per 0.1 s, one threshold per 0.3 s tick (client ListenAmmoConsumeAbility)', () => {
+  const gid = 'garrison_23_a'; // 圣约送葬人: self, every 7 → 拉特兰 +per
+  const per = num(GR(gid).bb.bond_add_count);
+  const h = battle({ units: [{ id: 'exe', g: [gid], row: 10, col: 4 }], bonds: { lateranoShip: B(0) } });
+  const u = h.unit('exe');
+  for (let i = 0; i < 35; i++) h.b.emit('ammoUsed', { unit: u, left: 0 }); // 35 bullets in one instant = one event
+  h.run(0.5);
+  assert.deepEqual(gains(h), {}, 'one count, not 35');
+  shoot(h, u, 6);
+  assert.deepEqual(gains(h), { lateranoShip: per }, 'the 7th event');
+  for (let i = 0; i < 14; i++) { h.b.emit('ammoUsed', { unit: u, left: 0 }); h.run(0.11); } // 14 counts in ~1.5 s
+  h.run(0.29);
+  assert.deepEqual(gains(h), { lateranoShip: 3 * per }, 'two more thresholds, one per tick');
+  const n0 = gains(h).lateranoShip;
+  h.run(1);
+  assert.equal(gains(h).lateranoShip, n0, 'no catch-up past the count');
 });
 
 test('enemy_abflag_inrange (初雪 / 银灰 28): entering 冻结 in range × prob; a refreshed freeze is not a new entry', () => {

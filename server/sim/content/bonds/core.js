@@ -23,8 +23,9 @@
 //   叙拉古 siracusaShip  every member deployment: ASPD +(base + per·L) for (base_duration + per·L) s; 6: 隐匿 for the same
 //                        time, and while hidden / end_duration s after, every 普通伤害 hit (isNormalDamage) procs (PRD,
 //                        nominal `prob`, one count per battle) base_damage + damage_per_stack·L true damage + fear `fear` s
-//   卡西米尔 kazimierzShip every deployment of one of the player's operators (initial ones included): members ATK
-//                        +atk_when_born, total ≤ base_max_atk_when_born + max_atk_when_born_per_stack·L; 6: blocking
+//   卡西米尔 kazimierzShip every deployment of one of the player's operators (initial ones included; one count for the
+//                        field, both 卡西米尔 players of a pair field): members ATK +atk_when_born, total ≤
+//                        base_max_atk_when_born + max_atk_when_born_per_stack·L; 6: blocking
 //                        members pulse damage_atk_scale×ATK true damage + stun around them as they start blocking, then
 //                        every damage_interval s while they block; non-blocking members' 普通伤害 (isNormalDamage: skill
 //                        hits too) adds pure_atk_scale×ATK true damage
@@ -34,7 +35,8 @@
 // or the bond's tier index says so. Members = support.isMember (own bonds, 变形同构体, 调和 enjoying core bonds).
 // Live layers: effects that read L at a moment (stack duration, ammo, deploy buffs, proc damage, cold multiplier) read
 // the live value; standing buffs (炎 ATK, 维多利亚, 阿戈尔 HP, 卡西米尔 cap) are refreshed one tick after a `layerGain`.
-// Two players in one field: everything is per player (own members, own deployments); the 谢拉格 wind and 炎佑 act on
+// Two players in one field: everything is per player (own members, own deployments) except the client's battle-global
+// counts (叙拉古's PRD count, 卡西米尔's deploy count); the 谢拉格 wind and 炎佑 act on
 // every enemy of the field (debuffs on shared enemies help both, research 06 §8.6), and 炎佑's stats sum every 炎
 // operator of the field (installYan). The wind is one per field (either
 // player at 6; duration from the higher 谢拉格 layers — devices.js kjeragColdWind).
@@ -589,17 +591,24 @@ function installSiracusa(battle, pid, bb, members) {
 // 卡西米尔
 
 function installKazimierz(battle, pid, bb, members) {
-  const st = { deploys: 0 };
+  // the deploy count kazimierz_born: the env buff's ON_BUFF_START adds 1 (AddGlobalBlackboard) on the battle's global
+  // blackboard, channel CHARACTER — one blackboard per channel, no player key (BattleGlobalBlackboard) ⇒ one count for
+  // the field: in a pair field where both players have 卡西米尔, each one's deployments count for both (until
+  // 2026-10-31 per player). The env buff (global buff prefab, profession mask without tokens) reaches operators only;
+  // its player filter is the global buff data's playerSideMask (GlobalBuff.OnInit → TargetOptions.Init)
+  // [ASSUMED·엔진: the mode fills that mask with the bond owner's side — where it is filled is not read]
+  const st = S.battleStore(battle, 'bond:kazimierz:born', () => ({ deploys: 0, applies: [] }));
   const apply = () => {
     const cap = num(bb.base_max_atk_when_born, 0) + num(bb.max_atk_when_born_per_stack, 0) * S.bondLayers(battle, pid, 'kazimierzShip');
     const bonus = Math.max(0, Math.min(cap, st.deploys * num(bb.atk_when_born, 0)));
     if (!(bonus > 0)) return;
     for (const u of members) S.passiveBuff(battle, u, 'bond:kazimierz', S.directMods({ atk: bonus }));
   };
+  st.applies.push(apply);
   battle.on('deploy', ({ unit }) => {
     if (!S.isOp(unit) || unit.ownerId !== pid) return;
     st.deploys++;
-    apply();
+    for (const f of st.applies) f();
   });
   onLayers(battle, pid, 'kazimierzShip', apply);
   if (!reached(battle, pid, 'kazimierzShip', bb.power_bond_char_cnt)) return;

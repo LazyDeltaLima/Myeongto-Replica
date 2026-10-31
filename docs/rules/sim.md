@@ -904,16 +904,25 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   같은 값이면 3초로 새로). 2단계 값은 대상 HP 비율 **50 % 이하**(`FilterByTargetHpRatio LE`, 이전: 미만). 두 플레이어 필드의 「가장 센 것 하나」는 그대로.
   `bonds/addon/battle.js`.
 - **시라쿠사 6 발동**: `[ex][buff]`의 `DicePRD` — C는 클라 표 `prdBaseProbs`(3 % → 0.00139, 이전: 같은 값을 계산으로 구함), 횟수는 전투 전역 블랙보드
-  하나 → **두 플레이어 필드면 둘이 함께 셈**(불굴과 같음, 이전: 플레이어마다). 남은 것: EN 템플릿에서 `[ex]`를 붙이는 노드를 못 찾음(활동 표에도 없음) — 규칙은
-  `[ex]`·`[ex][buff]` 그래프대로. `bonds/core.js installSiracusa`.
+  하나 → **두 플레이어 필드면 둘이 함께 셈**(불굴과 같음, 이전: 플레이어마다). `[ex]`를 붙이는 곳(2026-10-31 확인): 템플릿이 아니라 전역 버프 프리팹
+  `battle/prefabs/[uc]globalbuffs`의 `act2autochess_bond_eff_siracusa` — `_buffs`에 본 버프(0.5초 틱)와 `[ex]`(0.3초 틱)를 함께 두고, 대상은 아군 오퍼레이터
+  (직업 마스크 639, 소환물 없음) → 지금 구현(멤버마다 본 버프와 함께, `[ex]` ON_BUFF_START가 6명 판정)과 같음, 코드 변경 없음. `bonds/core.js installSiracusa`.
 - **카시미어(맹약 `kazimierzShip`) 6**: `[ex]` ON_OWNER_BLOCKEE_CHANGED가 저지를 시작할 때 `[ex][damage]`를 만들고 저지가 없어지면 끝낸다. 틱 간격은 블랙보드
   `interval`(= `damage_interval` 2), `waitFirstTriggerInterval` 꺼짐 → **저지 시작 순간 한 번, 그 뒤 저지하는 동안 2초마다**, 멤버마다 따로(이전: 전투 시계
-  2초마다 그때 저지 중인 멤버). 저지하지 않을 때의 30 % 진실 피해는 **모든 일반 피해**(스킬 피해 포함; 이전: 일반 공격만). 남은 것: 배치 수 `kazimierz_born`은
-  전역 블랙보드 `CHARACTER` 채널에 전역 버프가 시작될 때마다 더하는데, 그 채널이 플레이어별인지·소환물도 세는지는 안 읽음(지금: 자기 오퍼레이터 배치만, 묶음 라 범위).
+  2초마다 그때 저지 중인 멤버). 저지하지 않을 때의 30 % 진실 피해는 **모든 일반 피해**(스킬 피해 포함; 이전: 일반 공격만). 배치 수 `kazimierz_born`은
+  전역 버프가 시작될 때마다(멤버 거르기 앞) `AddGlobalBlackboard`가 전역 블랙보드 `CHARACTER` 채널에 1을 더한다 — 공식 클라에서 확인: 전역 블랙보드
+  (`BattleGlobalBlackboard`)는 채널마다 블랙보드 하나이고 노드는 키에 플레이어를 붙이지 않음 → **필드 하나에 한 수**, 두 플레이어 필드에서 둘 다 카시미어면
+  서로의 배치를 함께 센다(2026-10-31, 이전: 플레이어마다). 이 전역 버프의 대상(전역 버프 프리팹 `act2autochess_bond_eff_kazimierz`, 1초 틱)은 아군 오퍼레이터,
+  직업 마스크 639 → **소환물 배치는 안 셈**(지금과 같음). 대상 검사 `GlobalBuff._VerifyTarget` → `TargetOptions.VerifyTargetWithPlayerSide`는 출처 플레이어
+  마스크로 거르고 그 마스크는 `GlobalBuff.OnInit`이 전역 버프 데이터의 `playerSideMask`로 채운다. [추정·엔진: 卫戍协议가 맹약 전역 버프의 `playerSideMask`를 그
+  플레이어 쪽으로 채운다 — 채우는 곳은 안 읽음(함수 6개째), 그래서 상대 플레이어의 배치는 상대도 카시미어일 때만 들어옴] `bonds/core.js installKazimierz`, 테스트
+  `bonds_core.test.js` 「卡西米尔: the deploy count is one for the field」.
 - **궁극기(맹약 `suntShip`) 5**: `ModifySpData`(`_onlyUpdateSpCost`, `_updateSpCostViaMaxRatioKey sp_ratio`) = **올림**(float32 곱 `ceil`)을 캐릭터 스킬
   데이터에 씀(이전: 내림). 25 × 0.7 → 18. 2단계 공격력·「정예 수」 셈(`AutoChessAssignChessCntToBB _assignGoldenChess`: 같은 플레이어의 전장 말 중 정예)은 같음.
-  소환물: `AutoChessFilterChess`는 그 캐릭터의 카드가 전장 말(`GetInstIdByCardUid` ≥ 0)이고 정예일 때만 통과 — 소환물의 카드가 말에 묶이는지는 안 읽음(지금:
-  정예의 소환물도 SP 소모 감소, 그대로).
+  소환물: `AutoChessFilterChess`는 그 캐릭터의 카드가 전장 말(`GetInstIdByCardUid` ≥ 0)이고 정예일 때만 통과하는데, 공식 클라에서 확인 —
+  `GetInstIdByCardUid`는 `AutoChessDataIndexer.runtimeCard2ChessDict`를 찾고, `ConstructRunTimeIndexer`는 이 표에 **오퍼레이터 카드만** 넣는다(소환물
+  카드는 `runtimeToken2CardDict`에 따로) → **정예의 소환물은 SP 소모 감소를 받지 않음**(2026-10-31, 이전: 받음 — upstream 때부터의 추정).
+  `bonds/addon/battle.js`, 테스트 `bonds_addon.test.js` 「绝技」.
 - **독행(맹약 `soloShip`)**: 그래프(ON_BUFF_START 공격력·HP MULTIPLIER, ON_BUFF_LATE_ENABLE `ModifySp _forceFlag` +sp)가 지금과 같음 — 코드 변경 없음.
 - **위장복(장비 `chess_item_4_04_e`)**: `act2autochess_equip_acarm055_global_buff` ON_TAKE_DAMAGE → 은신 → 자기 끝. 전역 버프는 배치마다 새로 붙으므로
   **배치마다 첫 피해에 한 번**(이전: 전투당 한 번).
@@ -935,10 +944,14 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   → **스킬이 끝날 때 쓰러짐**(`battle.kill`, 죽인 쪽 없음 — 쓰러짐 효과·불굴·에기르가 봄; 이전 추정: `dying` 철수).
 - **패밀리 배지(장비 `chess_item_6_11_e`)**: 은신에 들어가면 `[buff]`가 1초마다(`waitFirstTriggerInterval`) +0.02 → **은신 한 번의 온전한 1초마다**(이전: 0.25초마다
   매끄럽게), 은신이 풀리면 `[end]`(+짝이면 `[ex]`)가 **첫 일반 피해**에 끝남(이전: 아무 피해). 
-- **특질 `act1autochess_gar_event_consume_ammo`**: `[consume]`가 사거리 안 소비마다 그 소비자에게서 0.1초짜리 `[cnt]`를 보유자에게 주되 이미 있으면 안 주고,
-  `[cnt]`가 시작될 때 1을 더함 → **한 소비자는 0.1초에 한 번까지 셈**. `garrisons/battle.js`. 남은 것: 본 능력(이 키 자체)은 EN 템플릿에 없어 `[self]`
-  틱 간격(한 틱에 문턱 하나만 넘김)은 안 봄 — 지금은 문턱을 넘는 순간.
-- 다른 장비 템플릿(시라쿠사 정장 `act2autochess_equip_acarm121_ability`)은 EN 템플릿에 없어 대조 못 함.
+- **특질 `act1autochess_gar_event_consume_ammo`** (2026-10-31): 본 능력은 버프 템플릿이 아니라 동적 능력 프리팹(`battle/prefabs/[uc]dynamicabilities`,
+  룬 `char_dynamic_ability_new`, 클래스 `ListenAmmoConsumeAbility`). 공식 클라에서 확인: `ON_AMMO_CONSUME`은 탄약 계수기(`AbilityEventCounter.DealCountEvent`
+  → `OnEventCountConsumed`)가 **세는 이벤트 한 번마다**(공격·조준 한 번, 그때 쓴 발 수 `consumeCnt`는 이 특질이 안 씀) 나고, 검사기는 오퍼레이터만(직업 마스크에
+  소환물·장치 없음). 소비자에게 `[consume]`(바로 끝남)를 붙이고, `[consume]`는 사거리 안이면 보유자에게 그 소비자 출처의 0.1초 `[cnt]`를 주되 이미 있으면
+  안 주며, `[cnt]`가 1을 더함 → **한 소비자는 0.1초에 한 번까지 셈**(엑시아 더 뉴 커버넌트 S3의 한 공격 5발 = 1). 문턱은 `[self]`가 **0.3초마다**
+  (`waitFirstTriggerInterval`, 배치부터) 보고 한 틱에 하나만 넘김(`target_count += consume_count`). 이전: 발마다 세고 넘는 순간 바로. [추정·엔진: 센 수는
+  재배치 뒤에도 이어짐 — 본 버프가 `isDurableBuff`이나 재배치 때의 수명은 안 읽음] `garrisons/battle.js`, 테스트 `garrisons_battle.test.js` 「consume_ammo」 둘.
+- **시라쿠사 정장(장비 `chess_item_3_01_e`)** `act2autochess_equip_acarm121_ability`는 템플릿이 아니라 동적 능력 프리팹(2026-10-31 대조): 오라 능력, 범위 `0-2`(방향으로 돌린 좌우 두 칸 + 자기 칸), `_selfOption` EXCLUDE(자신 제외), 검사기는 오퍼레이터만(소환물 제외)·은신도 받음, 버프는 범위 안에 있는 동안 공격 속도 +`attack_speed` → 지금 구현(`items/battle.js`, 좌우 두 칸의 오퍼레이터)과 같음 — 코드 변경 없음. [추정·엔진: 오라를 다시 보는 간격 — 우리는 0.5초마다 0.6초 버프]
 - 테스트: `test/content/bonds_core.test.js` 「叙拉古 6: the PRD count is one for the battle」·「卡西米尔 6」, `bonds_addon.test.js` 「奥术 with two players」·「绝技」,
   `items.test.js` 「伪装服」·「休眠子裔」·「卡西米尔竞技旗」·「天马之盔 + 天马之枪」·「海沟实验体」·「耶拉冈德之泪」·「骑士戒律」·「家族徽章」, `garrisons_battle.test.js`
   「consume_ammo」.

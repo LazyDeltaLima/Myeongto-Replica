@@ -293,14 +293,36 @@ const INSTALLERS = {
     });
   },
 
+  // Client dynamic ability act1autochess_gar_event_consume_ammo (ListenAmmoConsumeAbility): ON_AMMO_CONSUME comes once per
+  // ammo-counter event (an attack or lock that spends bullets, consumeCnt unused here) of an operator (validator: no
+  // tokens); [consume] → the holder takes a 0.1 s [cnt] from that consumer unless it already has one, and [cnt] adds 1 ⇒
+  // a consumer counts at most once per 0.1 s (the 5 bullets of one attack are one). [self] ticks every 0.3 s
+  // (waitFirstTriggerInterval, from the deployment) and passes ONE threshold per tick (target += consume_count).
+  // [ASSUMED·엔진: the count survives a redeployment — the main buff is durable, its lifetime over a redeploy not read]
   act1autochess_gar_event_consume_ammo(battle, list) {
+    const LOCK = 0.1, TICK = 0.3;
+    for (const it of list) { it.locks = new Map(); it.target = Math.max(1, S.num(it.bb.consume_count, 1)); it.seq = -1; it.next = 0; }
     battle.on('ammoUsed', ({ unit }) => {
-      if (!unit) return;
+      if (!unit || !S.isOp(unit)) return;
       for (let i = 0; i < list.length; i++) {
         const it = list[i];
         if (!ammoScope(it, unit)) continue;
+        if (battle.time + 1e-9 < (it.locks.get(unit) ?? -Infinity)) continue;
+        it.locks.set(unit, battle.time + LOCK);
         it.cnt++;
-        if (it.cnt % Math.max(1, S.num(it.bb.consume_count, 1)) === 0) fireGain(battle, it);
+      }
+    });
+    battle.on('tick', () => {
+      for (let i = 0; i < list.length; i++) {
+        const it = list[i];
+        const h = it.unit;
+        if (!S.onField(h)) continue;
+        if (it.seq !== h.deploySeq) { it.seq = h.deploySeq; it.next = h.deployedAt + TICK; }
+        if (battle.time + 1e-9 < it.next) continue;
+        it.next += TICK;
+        if (it.cnt < it.target) continue;
+        it.target += Math.max(1, S.num(it.bb.consume_count, 1));
+        fireGain(battle, it);
       }
     });
   },

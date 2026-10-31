@@ -952,6 +952,30 @@ test('卡西米尔: every own deployment (initial included) → members ATK +20 
   }
 });
 
+test('卡西米尔: the deploy count is one for the field — both 卡西米尔 players of a pair field count it (client global blackboard CHARACTER)', () => {
+  const list = [];
+  for (let i = 0; i < 6; i++) list.push([`k${i}_a`, ['kazimierzShip']]);
+  const side = (pid, seat, from, bonds) => ({
+    playerId: pid, seat, side: seat ? 'R' : 'L', colOffset: 0, bandId: null, playerEffects: [],
+    units: Array.from({ length: 3 }, (_, i) => ({ uid: seat * 10 + i + 1, kind: 'chess', chessId: `k${from + i}_a`, row: 9 + seat * 3, col: 3 + i })),
+    bonds,
+  });
+  const on = { kazimierzShip: bondOn(3, 100, null, [3, 6]) };
+  const field = (b2) => {
+    const h = makeBattle({ kind: 'boss', defs: defsOf(list), players: [side('p1', 0, 0, on), side('p2', 1, 3, b2)], autoFinish: false, timeLimit: 60 });
+    h.step(1);
+    return h;
+  };
+  let h = field(on);
+  close(h.unit('k0_a').s.atk, 1000 * 2.2, 1e-6, '6 deployments on the field: 6 × 20 %');
+  close(h.unit('k3_a').s.atk, 1000 * 2.2, 1e-6);
+  checkInvariants(h.b);
+  h = field({});
+  close(h.unit('k0_a').s.atk, 1000 * 1.6, 1e-6, 'without 卡西米尔 the other player adds nothing');
+  close(h.unit('k3_a').s.atk, 1000);
+  checkInvariants(h.b);
+});
+
 test('卡西米尔 6: blocking members pulse 120 % ATK true damage + 0.1 s stun as they start blocking, then every 2 s; non-blocking 普通伤害 adds 30 % ATK true', () => {
   const list = [];
   for (let i = 0; i < 6; i++) list.push([`z${i}_a`, ['kazimierzShip']]);

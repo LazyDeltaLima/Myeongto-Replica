@@ -52,7 +52,7 @@
 //   协防 emptyShip     all operators phys/arts taken ×(1 − damage_resistance); members dealt ×damage_scale_normal
 //                      (elite ×damage_scale_extra)
 //   独行 soloShip      the member(s) ATK +atk, HP +max_hp, +sp SP on every deploy
-//   绝技 suntShip      tier 1: elite operators ATK +power_atk; tier 2: elites (and their summons) SP cost ceil(×sp_ratio)
+//   绝技 suntShip      tier 1: elite operators ATK +power_atk; tier 2: elites SP cost ceil(×sp_ratio) — not their summons
 //   远见 / 奇迹 / 投资人 / 调和 have no battle effect (prep side, membership in support/index.js).
 //
 // Hooks registered only when a bond needs them. Priorities: `hit` −20 (坚守 redirect, after other modifiers had their
@@ -576,19 +576,20 @@ export function install(battle) {
     });
   }
 
-  // 独行 (SP on every deploy) / 绝技 (summons of elites)
-  const soloOrSunt = has(ID.solo) || has(ID.sunt, 2);
-  if (soloOrSunt) {
+  // 独行 (SP on every deploy). 绝技's SP cost skips summons: its AutoChessFilterChess passes a character whose card maps to
+  // a board piece (AutoChessBattleUtil.GetInstIdByCardUid ≥ 0), and AutoChessDataIndexer.ConstructRunTimeIndexer fills
+  // that map (runtimeCard2ChessDict) with operator cards only — token cards go to runtimeToken2CardDict (until
+  // 2026-10-31 an elite's summons had the cost cut too)
+  if (has(ID.solo)) {
     battle.on('deploy', (c) => {
       const u = c.unit;
-      if (!u || (u.kind !== 'op' && u.kind !== 'token')) return;
+      if (!u || u.kind !== 'op') return;
       const st = byPid[u.ownerId];
       if (!st) return;
-      if (u.kind === 'op' && st.tiers[ID.solo] && st.members[ID.solo].has(u) && u.skill) {
+      if (st.tiers[ID.solo] && st.members[ID.solo].has(u) && u.skill) {
         const n = num(st.bb[ID.solo].sp);
         if (n > 0) u.skill.gainSp(n, 'init');
       }
-      if (u.kind === 'token' && (st.tiers[ID.sunt] ?? 0) >= 2 && isElite(u.ownerUnit)) suntSpCost(u, st.bb[ID.sunt]);
     });
   }
 
