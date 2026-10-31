@@ -149,12 +149,15 @@ test('赤刃明霄陈 T2: the held dodge is a status from its heal (evadeReady) 
   assert.deepEqual(statusOf(h, u.id, 'chen3:evade'), [1, 0]);
 });
 
-test('蒂比 T: the held dodge is a status while ready, gone when a damage takes it', () => {
+test('蒂比 T: the held dodge is a status while ready (stack_time s after deployment), gone when a damage takes it', () => {
   const id = 'chess_char_2_13_a';
   const h = battle([{ chessId: id, row: 10, col: 4 }]);
   h.step();
   const u = h.unit(id);
   h.run(0.2);
+  assert.deepEqual(statusOf(h, u.id, 'tippi:evade'), [], 'not ready at deployment');
+  const T = u.def.talents[0].bb.stack_time;
+  assert.ok(h.runUntil(() => statusOf(h, u.id, 'tippi:evade').length > 0, T + 1));
   assert.deepEqual(statusOf(h, u.id, 'tippi:evade'), [1]);
   h.spawn('enemy_hitter', { pos: [10, 5] });
   assert.ok(h.runUntil(() => statusOf(h, u.id, 'tippi:evade').length > 1, 10));

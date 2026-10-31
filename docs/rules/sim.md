@@ -158,7 +158,7 @@
   틀었다. 근거(EN 클라이언트): `[uc]skills.ab` `skchr_utage_1`에만 애니 컴포넌트 `_default {Skill_Start, Skill_Loop, Skill_End}`, `skchr_utage_2`는
   애니 컴포넌트 없음(switch_mode 2); charpack S2 모드 공격 `_animKey "Attack"`, `_damageType 2`(법술). 수정: 새 파일 `tools/assets/anim-overrides.mjs`
   (`op:char_337_utage:` S2 → 공격 클립 `via: 'attack'`) + `tools/assets/spine.mjs` 연결 2줄, `data/assets.json`은 같은 결과로 宴 front/back과 hash만 갱신.
-  참고: S2 blackboard `respawn_time 1`(클라이언트 `utage_s_2[respawn]`, 재배치 시간)은 키트에 없다 — 이번 범위 밖.
+  참고: S2 blackboard `respawn_time 1`(클라이언트 `utage_s_2[respawn]`, 재배치 시간)은 키트에 없다 — 공식에서도 바뀌는 것이 없어서다(아래 「오퍼레이터 시점·차례 묶음 B」).
   - 후속 제보(S2에서 적을 저지하지 못함): 재현 안 됨. 실제 경로(정비 loadout 0/1/없음 = 상점 기본 S2, 일반·정예)에서 저지 수는 S2 중·후 모두 1, S1 分神 중에만 0.
     S2를 고르면 저지 테스트(大鲍勃)도 통과. m04에서 S2일 때 저지 0회였던 판은 적(灼热源石虫)이 앞 칸에서 그녀의 공격 + 지형 지속 피해로 먼저 죽어 닿지 않은 것이다.
     공식에도 S2는 저지 수를 바꾸지 않는다(skill_table·클라이언트 S2 모드). 화면에서는 S2 15초 동안 分神 자세(이번 그림 버그)였고, S2는 HP 50%를 잃고 회복이
@@ -2309,3 +2309,23 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
   `ACTIVE_RANGE`(5-2 안의 부상 아군, upstream GitHub #260 / PR #278)로 덮어썼다. 구현 `content/tokens.js touchKit`. 테스트 `test/content/tokens_devices.test.js`
   「外勤医疗 Touch」.
 
+
+## 오퍼레이터 시점·차례 묶음 B (2026-10-31)
+
+남은 일 묶음 B의 두 줄. 모두 공식 클라에서 확인(버프 템플릿 `buff_template_data`·스킬 프리팹의 버프·액션 노드 동작).
+
+- **우타게(宴, `char_337_utage`) S2 「낙지참·파문」(落地斩·破门) `respawn_time 1`**: 스킬 프리팹의 상시 버프 `utage_s_2[respawn]`은 속성 수정 하나 —
+  `RESPAWN_TIME`, 식 칸 `FINAL_SCALER`, 값은 블랙보드에서(`loadFromBlackboard`: 블랙보드[속성 이름] = `respawn_time`). 최종 배율 × 1이라 재배치 시간은
+  그대로다(본편 skill_table도 10레벨 모두 1, 설명에 재배치 문구 없음). 그래서 키트에 넣지 않는다 — 구현 없음이 공식과 같다. 코드 변경 없음.
+- **티피(蒂比, `char_4191_tippi`) 재능 「촬영장 업무 지침」(片场工作指南)** (`chess_char_2_13-tippi.js`): 공식 그래프 `tippi_t` / `tippi_t[timer]` /
+  `tippi_t[evade]`대로.
+  - `tippi_t`가 버프 시작(배치)에 타이머를 만든다. 타이머는 1초마다 `tippi_t[stack]` +1, `stack_time` 이상이면 `tippi_t[evade]`(이펙트 `tippi_buff_01`)를
+    만들고 스택·자기를 끝낸다 → **배치 뒤 `stack_time` 초에 준비**(전: 배치 즉시 준비).
+  - `tippi_t` ON_TAKE_DAMAGE: 타이머·스택을 끝내고, `[evade]`가 없을 때만 다시 시작 → 준비 전에는 피해마다 처음부터.
+  - `tippi_t[evade]` ON_TAKE_DAMAGE: `FilterDamageModifer`(취소된 피해 거름) → `Evade`(물리·법술, 블랙보드 `prob`) → `tippi_t` 다시 시작 → 자기 끝.
+    `Nodes.Evade`는 취소된 피해·물리/법술 밖의 피해·확률 실패면 실패하고, 동작 목록은 앞 노드가 실패하면 멈춘다 → **준비된 동안 순수 피해, S2가 먼저
+    피한 피해(이미 취소), 확률에 진 피해에는 준비가 남고 타이머도 다시 안 돎**(전: 어떤 피해든 준비를 썼다).
+  - 이동 재배치(`moveRedeploy`)도 배치 이벤트라 타이머가 다시 시작한다(공식 이동 = 퇴각 + 배치).
+  - 테스트 `kits_t1t2.test.js` 「2_13 蒂比」(배치 직후·`stack_time` 전 미준비, 뒤 준비, 순수 피해에 남음, 첫 공격 회피·둘째 명중, S2 회피에 남음),
+    `test/sim/stack-buff-fx-events.test.js` 「蒂比 T」. 골든: roster-004·006, 매치 coop3-ABYSS-5·coop8-HARD-3·coop2-NORMAL-1-coverage-standins·
+    coop2-NORMAL-1-unowned-roster.

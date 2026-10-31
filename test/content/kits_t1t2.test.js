@@ -1120,15 +1120,42 @@ test('2_13 蒂比: an incoming attack triggers 紧急赶场通知 and is dodged;
   h.step();
   assert.equal(fl.blockedBy, null, 'landed: flyers released');
   done(h);
-  // talent: the first attack after stack_time s without being attacked is dodged, the next one lands
-  const h2 = run({ defs: { enemies: { e: dummy('e', { atk: 400, bat: 1 }) } }, units: [{ chessId: id, row: 9, col: 5 }], enemies: [{ key: 'e', pos: [9, 5] }] });
+  // talent (the client's tippi_t graph): ready only stack_time s after deployment; a pure damage leaves the held dodge;
+  // the first attack then is dodged, the next one lands
+  const T = t.stack_time;
+  assert.ok(T > 1);
+  const h2 = run({ defs: { enemies: { e: dummy('e', { atk: 400, bat: 1 }) } }, units: [{ chessId: id, row: 9, col: 5 }] });
   const u2 = h2.unit(id);
-  h2.run(0.9);
-  assert.equal(u2.stats.taken, 0, 'first attack dodged');
-  h2.run(1.5);
-  assert.ok(u2.stats.taken > 0, 'second attack lands');
-  assert.ok(t.stack_time > 0);
+  h2.step();
+  assert.equal(u2.hasBuff('tippi:evade'), false, 'not ready at deployment');
+  h2.run(T - 1);
+  assert.equal(u2.hasBuff('tippi:evade'), false, `not ready before ${T} s`);
+  h2.run(1.2);
+  assert.equal(u2.hasBuff('tippi:evade'), true, `ready after ${T} s`);
+  assert.ok(!u2.skill.ready, 'S2 not charged yet: the talent alone');
+  h2.b.dealDamage(null, u2, { amount: 100, type: 'true' });
+  const taken0 = u2.stats.taken;
+  assert.ok(taken0 > 0, 'pure damage lands');
+  assert.equal(u2.hasBuff('tippi:evade'), true, 'pure damage leaves the dodge held');
+  const e2 = h2.spawn('e', { pos: [9, 5] });
+  const swings = () => h2.hooksOf('attack').filter((c) => c.attacker === e2).length;
+  h2.runUntil(() => swings() >= 1 && !u2.hasBuff('tippi:evade'), 3);
+  assert.equal(u2.stats.taken, taken0, 'first attack dodged');
+  h2.runUntil(() => u2.stats.taken > taken0, 3);
+  assert.ok(u2.stats.taken > taken0, 'second attack lands');
   done(h2);
+  // S2 dodging a hit while the talent's dodge is held: the hit is cancelled first, so the held dodge stays
+  const h3 = run({ defs: { enemies: { e: dummy('e', { atk: 400, bat: 1 }) } }, units: [{ chessId: id, row: 9, col: 5 }] });
+  const u3 = h3.unit(id);
+  h3.run(T + 0.2);
+  assert.equal(u3.hasBuff('tippi:evade'), true);
+  u3.skill.setSpTotal(999);
+  assert.ok(u3.skill.ready);
+  h3.spawn('e', { pos: [9, 5] });
+  h3.runUntil(() => u3.skill.active, 3);
+  assert.equal(u3.stats.taken, 0, 'S2 dodged the hit');
+  assert.equal(u3.hasBuff('tippi:evade'), true, 'the talent dodge is still held');
+  done(h3);
 });
 
 test('2_14 调香师: 精调 ATK +atk / ASPD −50; 熏衣草 every ally 生命回复速度 +atk_to_hp_recovery_ratio × ATK (PRTS 备注: no heal); elite heals 4', () => {

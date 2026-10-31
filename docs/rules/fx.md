@@ -2665,8 +2665,8 @@
   - 赤刃明霄陈 `chen3:evade`(쥔 동안, 다시 배치되면 다시 켬)·蒂比 `tippi:evade`(준비된 순간부터 피해가 가져갈 때까지) → `KEY_FX`; 赤刃明霄陈의 순간 둘은
     새 키트 이벤트 'evadeReady' → `kitofficial.js`(대체 그림 없음 `a: 'none'`).
   - `fx_coverage.py`: `SwitchableEffectByBuffStackCnt` todo → hand(信仰搅拌机만).
-- 안 한 것: 阿斯卡纶의 `[max_eff]` 판정 주기(1초)는 안 따름 — 스택이 바뀌는 순간. 蒂比 회피 준비는 시뮬 그대로(배치 즉시 준비, 피하지 못하는 피해도
-  준비를 되돌림 — 공식 `tippi_t[evade]`는 `FilterDamageModifer`를 거친 피해에만 끝남 [추정]); 赤刃明霄陈의 쥔 회피는 시뮬처럼 퇴각에도 남는다.
+- 안 한 것: 阿斯卡纶의 `[max_eff]` 판정 주기(1초)는 안 따름 — 스택이 바뀌는 순간. 赤刃明霄陈의 쥔 회피는 시뮬처럼 퇴각에도 남는다.
+  (蒂比 회피 준비는 2026-10-31부터 공식 그래프대로 — 배치 뒤 `stack_time` 초에 켜지고, 피하지 못한 피해에는 남음: rules/sim.md 「오퍼레이터 시점·차례 묶음 B」.)
 - 확인: 시뮬 `test/sim/stack-buff-fx-events.test.js`(키트마다 'status'·'stacks' 수와 경계, 佩佩 S2 단계, S3 `tgt`, 'evadeReady'), 렌더
   `test/render/stack-buff-fx.test.js`(구간·`max`/`mid`·적용자 키·단계·회피 준비·佩佩 S3 명중 단계). 골든: 표시 이벤트 수(`status`·`fx`·`stacks`·
   `evadeReady`)만; 이벤트 기록 골든 + 줄만(첫 단계들, 信仰搅拌机 `_02`, 佩佩 S3 `_01`~`_03`, 赤刃明霄陈 셋, 蒂比). Windows Chrome 디버그 아레나(정예,

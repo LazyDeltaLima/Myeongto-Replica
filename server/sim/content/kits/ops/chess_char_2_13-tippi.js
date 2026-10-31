@@ -30,9 +30,13 @@ export default {
   // physical/arts one is dodged; takes off for the duration: skill range, ATK +atk, attacks become 3 shots, blocks flying
   // (not ground) enemies. Trait "起飞后能够阻挡2个飞行敌人": flying enemies are blocked only while airborne. 片场工作指南
   // ("若最近N秒内未受伤害" — 修正 原文 攻击): if no damage for stack_time s, the next physical/arts damage is dodged (prob);
-  // every damage instance restarts that timer (dodged or not; a 流失 does not — PRTS 备注).
+  // a damage instance restarts that timer while she is not ready (a 流失 does not — PRTS 备注; the client's graph below).
   // S1 专业喷绘技巧 (alt, DEFAULT trigger from data): takes off at once for its duration — skill range, ATK +atk, blocks
   // flyers only; no triple shot, and incoming attacks never set it off.
+  // 片场工作指南 as the client's graph (buff_template_data tippi_t / [timer] / [evade]): the timer starts at each deployment
+  // and makes her ready after stack_time s (not at once); while not ready any damage restarts it; once ready (the held
+  // [evade]) only an uncancelled physical/arts damage that wins `prob` takes it (Nodes.Evade fails otherwise, so a pure
+  // damage, a lost roll or a hit S2 already dodged leave it held, and the timer does not restart).
   // Both take off as 起飞 (LIFTOFF_FLAGS): she blocks no ground enemy and none selects her (对地规避), so a ground enemy's
   // selected damage refused on the way never reaches her `hit` and neither sets off S2 nor restarts 片场工作指南.
   chess_char_2_13_a: (bb, chess, def) => {
@@ -60,9 +64,13 @@ export default {
         battle.removeBuff(unit, 'trait:skywalker'); // the profession grants blockFly permanently; here only airborne
         const st = num(t.stack_time), p = num(t.prob, 1);
         let last = -Infinity;
-        battle.on('deploy', ({ unit: u }) => { if (u === unit) last = battle.time - st; }, { owner: unit });
+        battle.on('deploy', ({ unit: u }) => {
+          if (u !== unit) return;
+          last = battle.time;
+          if (unit.hasBuff('tippi:evade')) battle.removeBuff(unit, 'tippi:evade');
+        }, { owner: unit });
         // the dodge held: tippi_t[evade]'s effect from the moment it is ready until a damage takes it (render/fxstatus.js KEY_FX)
-        const ready = () => st > 0 && battle.time - last + 1e-9 >= st;
+        const ready = () => st > 0 && (unit.hasBuff('tippi:evade') || battle.time - last + 1e-9 >= st);
         battle.on('tick', () => {
           if (!up(unit) || unit.hasBuff('tippi:evade') || !ready()) return;
           battle.addBuff(unit, { key: 'tippi:evade', visible: true });
@@ -72,12 +80,15 @@ export default {
           if (!dmg || dmg.cancel || !up(unit)) return;
           const dodgeable = dmg.type === 'phys' || dmg.type === 'arts';
           const sk = unit.skill;
-          let dodged = false;
-          if (s2 && sk && sk.ready && !sk.active && unit.canAct && !unit.s.flags.silence && sk.activate('TAKE_DAMAGE')) dodged = dodgeable;
-          else if (dodgeable && st > 0 && battle.time - last + 1e-9 >= st && battle.rng.chance(p)) dodged = true;
-          last = battle.time;
-          if (unit.hasBuff('tippi:evade')) battle.removeBuff(unit, 'tippi:evade');
-          if (dodged) { dmg.cancel = true; battle.fx('dodge', { x: unit.x, y: unit.y, id: unit.id }); }
+          let s2Dodged = false, dodged = false;
+          if (s2 && sk && sk.ready && !sk.active && unit.canAct && !unit.s.flags.silence && sk.activate('TAKE_DAMAGE')) s2Dodged = dodgeable;
+          if (!ready()) last = battle.time;
+          else if (!s2Dodged && dodgeable && battle.rng.chance(p)) {
+            dodged = true;
+            last = battle.time;
+            if (unit.hasBuff('tippi:evade')) battle.removeBuff(unit, 'tippi:evade');
+          }
+          if (s2Dodged || dodged) { dmg.cancel = true; battle.fx('dodge', { x: unit.x, y: unit.y, id: unit.id }); }
         }, 5);
       } }],
     };
