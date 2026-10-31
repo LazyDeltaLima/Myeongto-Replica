@@ -1191,10 +1191,38 @@ export class SpineActor {
     this.mode = 'die';
     if (down) { const e = this.spine.state.tracks[0]; return Math.max(0, this.dur(d) - (e ? e.trackTime : 0)); }
     if (d) { this._play(d, false, { mix: 0.05 }); return this.dur(d); }
-    const idle = this.has(this.roles.idle) ? this.roles.idle : this.has('Idle') ? 'Idle' : null;
-    if (idle) this._play(idle, false, { mix: 0.1, timeScale: 0 });
-    else this.frozen = true;
+    this._holdIdle(0.1);
     return 0;
+  }
+
+  /** The pose of a dead skeleton without a death clip: its idle clip's first frame (frozen when it has none either). */
+  _holdIdle(mix) {
+    const idle = this.has(this.roles.idle) ? this.roles.idle : this.has('Idle') ? 'Idle' : null;
+    if (idle) this._play(idle, false, { mix, timeScale: 0 });
+    else this.frozen = true;
+  }
+
+  /**
+   * A death clip that has played out and draws nothing on its last frame — 魔王 (char_4134_cetsyr)'s Die hides the body
+   * at 0.13 s and its dust is gone by 1 s, the only such Die of the 152 operator / summon models — gives way to the pose
+   * of a skeleton without one (_holdIdle), so a knocked-out unit still shows on its tile [추정·화면: the official 卫戍协议
+   * look of a downed model whose Die ends empty, no recording]. True when it swapped (render/units.js fades the body back in).
+   */
+  holdBody() {
+    if (!this.dead || this.mode !== 'die' || this.frozen || !this._applied || this.spine.state.tracks.length > 1) return false;
+    const e = this.spine.state.tracks[0];
+    if (!e || e.loop || e.timeScale === 0 || e.mixingFrom || e.trackTime < e.animationEnd - e.animationStart) return false;
+    if (this._bodyChecked === e) return false;        // looked at once per played-out clip: its last frame stays
+    this._bodyChecked = e;
+    const slots = this.spine.skeleton.slots;
+    if (!slots.length) return false;
+    for (const s of slots) {
+      const att = typeof s.getAttachment === 'function' ? s.getAttachment() : s.attachment;
+      // region (0) or mesh (2): the attachments that draw
+      if (att && (att.type === 0 || att.type === 2) && s.color.a > 0.02) return false;
+    }
+    this._holdIdle(0);
+    return true;
   }
 
   /**

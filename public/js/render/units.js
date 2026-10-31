@@ -761,6 +761,7 @@ export class UnitView {
     this.dieT = 0;                // seconds since die() (the Die clip's clock; a late Spine model catches up)
     this.remove = false;          // set when the death fade ended (owner removes the view)
     this.down = null;             // knocked out, waiting to redeploy: { until, total, state } (setDown) — no fade meanwhile
+    this._holdIn = 1;             // fade-in of a downed body back from an empty death clip's end (SpineActor.holdBody)
     this.gameT = 0;               // battle game time of the frame (render clock), for the redeploy ring's countdown and the element bar's refill
     this.el = null; this.elFill = 0; this.elUntil = 0; this.elDur = 0;   // shown element gauge (sync)
     this._elBar = null;           // { root, disc, bg, fill } sprites of the element gauge row, built on first use
@@ -1761,7 +1762,10 @@ export class UnitView {
       if (this.actor && this.spineReady && this._bornWait >= BORN_LEAD_S && this.alive) { this._bornWait = -1; this.actor.deploy(this._deployKey); this._bornT = BORN_TINT_S; }
       else if (this._bornWait >= BORN_WAIT_MAX_S || !this.alive) this._bornWait = -1;
     }
-    this.body.alpha = this._bornWait >= 0 ? 0 : 1;
+    // knocked out on a death clip that ends on nothing (SpineActor.holdBody): the body comes back in over 0.25 s
+    if (this.down && this.actor && this.spineReady && this.actor.holdBody()) this._holdIn = 0;
+    if (this._holdIn < 1) this._holdIn = Math.min(1, this._holdIn + dt * 4);
+    this.body.alpha = this._bornWait >= 0 ? 0 : this._holdIn;
     let alpha = this.fadeIn;
     if (this.down) {
       // knocked down: the Die clip ends and holds its last frame (the actor keeps its clock), no fade
