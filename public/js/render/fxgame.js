@@ -2529,6 +2529,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     spawn(EXPOSE_FX[0], EXPOSE_FX[1], at, { owner: null, buff: false, tag: 'expose', ...(v ? { on: v.id } : {}) }, { over: true, facing: v ? efacing(v) : 1 });
     return true;
   }
+  // 2026-10-31: the 暴露 itself (sim fx 'expose' on each operator it lands on, content/enemies/helpers.js expose) is the
+  // client buff weak[limit], drawn by its own effect buff_weak[limit] while it lasts (render/fxstatus.js KEY_FX 'ab:exposed'):
+  // no 2D reticle while the status layer draws it
+  const weakLimitOn = () => !!(index?.bundles?.buff?.includes('buff_weak[limit]') && !failed && q() !== 'low');
   // (2026-10-21) An element burst (sim damage.js resolveBurst → its fx burst {id, element}): the EN buff templates'
   // ep_break_<el>_char / _enemy play one CreateEffect on the BUFF_OWNER at ON_BUFF_START — fire on an enemy
   // common_firedamage_hit (none on an operator: its 灼燃 shows ep_fire_magic_res_down's buff_burn, fxstatus.js), water
@@ -5417,6 +5421,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'parry' && e[4]) { parryFx(e, views); return; }
           if (e[1] === 'shieldBreak' && e[4] && brokeOwn.delete(e[4].id)) { ownFx.add(e); return; } // 2026-10-23: its official break drew it (parryFx)
           if (e[1] === 'explode' && e[4]?.kind === 'expose' && exposeFx(e, views)) { ownFx.add(e); return; }
+          if (e[1] === 'expose' && weakLimitOn()) { ownFx.add(e); return; }
           if (e[1] === 'burst' && e[4]?.element) { if (burstFx(e, views)) ownFx.add(e); return; }
           // (2026-10-24, 묶음 S8) and the marks on their targets (render/fx/kitofficial.js)
           if (e[1] === 'whitw2Drones' && e[4]) { wolfFx(e); officialKitFx(e, views); return; }

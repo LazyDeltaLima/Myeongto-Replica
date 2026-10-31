@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { KIT_OFFICIAL, tplPlays } from '../../public/js/render/fx/kitofficial.js';
 import { rowsFor, buildPlays, isGuard } from '../../tools/build-fx-plays.mjs';
 import { JUDGED, whenPlays } from '../../public/js/render/fx/conds.js';
-import { KEY_FX, SOURCE_FX, LAYER_FX, STACK_FX, END_FX, STATUS_FX } from '../../public/js/render/fxstatus.js';
+import { KEY_FX, HINT_FX, SOURCE_FX, LAYER_FX, STACK_FX, END_FX, STATUS_FX } from '../../public/js/render/fxstatus.js';
 import { TALENT_ALWAYS, SKILL_HELD, SKILL_EDGE, CAST_END, NOTE_FX, DEPLOY_FX, noteEffects, effectsFor, isVariant, isDirectional, fxBundleOf } from '../../public/js/render/fxmap.js';
 import { PLAYS as FIXED } from './fxPlays.js';
 
@@ -148,7 +148,7 @@ function stackedPlays(e) {
 
 /**
  * Every `cite`d entry: { table, entry, src: [keys], plays: [{ n, life, side? }] } — KIT_OFFICIAL plans, fxstatus.js
- * (STATUS_FX, SOURCE_FX, KEY_FX, LAYER_FX, STACK_FX, END_FX) and fxmap.js (TALENT_ALWAYS, SKILL_HELD, SKILL_EDGE, CAST_END, NOTE_FX, DEPLOY_FX).
+ * (STATUS_FX, SOURCE_FX, KEY_FX, HINT_FX, LAYER_FX, STACK_FX, END_FX) and fxmap.js (TALENT_ALWAYS, SKILL_HELD, SKILL_EDGE, CAST_END, NOTE_FX, DEPLOY_FX).
  */
 export function handEntries() {
   const out = [];
@@ -163,6 +163,7 @@ export function handEntries() {
     }
   }
   for (const [k, v] of Object.entries(KEY_FX)) put('KEY_FX', k, v, specPlays(v));
+  for (const [k, v] of Object.entries(HINT_FX)) put('HINT_FX', k, v, specPlays(v));
   for (const [k, v] of Object.entries(LAYER_FX)) put('LAYER_FX', k, v, specPlays(v));
   for (const [k, v] of Object.entries(STACK_FX)) put('STACK_FX', k, v, v.tpl ? stackedPlays(v) : v.flatMap((x) => specPlays(x[1])));
   for (const [k, v] of Object.entries(END_FX)) put('END_FX', k, v, specPlays(v).map(({ n }) => ({ n, life: 'once' })));

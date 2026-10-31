@@ -38,6 +38,18 @@ describe('sim: the status on-event carries the applier, the fx hint and the 护�
     assert.deepEqual(on(op.id, 'nearl2:shield'), ['status', op.id, 'nearl2:shield', 1, null, { n: 3 }]);
     assert.deepEqual(ev.find((x) => x[1] === e.id && x[2] === 'bind' && x[3] === 0), ['status', e.id, 'bind', 0]);
   });
+  test('同名效果取最高 keeps the hint per application: a stronger tagged 脆弱 sends it, a resumed weaker one its own', () => {
+    const h = setup();
+    h.run(0.5);
+    const op = h.unit(MEDIC), e = h.b.aliveEnemies()[0];
+    h.b.applyStatus(e, 'fragile', { duration: 3, value: 0.2, source: op });
+    h.b.applyStatus(e, 'fragile', { duration: 1, value: 0.4, source: op, fxTag: 'weak[limit]' });
+    assert.equal(e.findBuff('fragile').fxTag, 'weak[limit]');
+    h.run(1.5);
+    const on = h.eventsOf('status').filter((x) => x[1] === e.id && x[2] === 'fragile' && x[3] === 1);
+    assert.deepEqual(on.map((x) => x[5]?.fx ?? null), [null, 'weak[limit]', null], 'plain, then the takeover, then the weaker one resumed');
+    assert.equal(e.findBuff('fragile').fxTag, null);
+  });
 });
 
 describe('client: status → the official buff effect', () => {
@@ -150,6 +162,14 @@ describe('client: status → the official buff effect', () => {
     for (const s of F.wantedStatusFx(op('DOWN'), undefined, null, PLAYS).values()) assert.equal(s[2], F.OWN, `${s[1]} at its own spawn point`);
     // sand_storm[enemy]'s slow_down names no effect: not the 'slow' fallback
     assert.deepEqual(names(enemy(['terrain:sandstormSlow'], [])), []);
+  });
+
+  test('weak[limit] (2026-10-31): 坚守\'s thorn 脆弱 and 重装侦察兵 / 远眺\'s 暴露 wear buff_weak[limit] over the head, a plain 脆弱 the common one', () => {
+    const fragile = (fx) => enemy(['fragile'], [['fragile', { src: 'amiya', fx, n: 0 }]]);
+    assert.deepEqual(names(fragile('weak[limit]')), ['buff_weak[limit]'], 'the buff-table row of weak[limit] names its own effect');
+    assert.deepEqual(names(fragile(null)), ['buff_ fragile_01'], 'any other 脆弱: the common effect, as before');
+    assert.deepEqual(names(unit('char_002_amiya', { statuses: new Set(['ab:exposed']) })), ['buff_weak[limit]']);
+    for (const s of F.wantedStatusFx(fragile('weak[limit]'), undefined, null, PLAYS).values()) assert.equal(s[2], F.OWN, 'its own spawn point (4: head)');
   });
 
   test('耀骑士临光 S2: one shield per layer left, one fewer per parry (UnitView.onStatusHit)', async () => {

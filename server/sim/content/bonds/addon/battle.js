@@ -686,8 +686,9 @@ export function install(battle) {
         // member hit — its player's stats and shared-pool tally count it, like an element burst (v2.5: no credit at all,
         // up to 19 % of a co-op leader's pool and 88 % of a solo one went unattributed, DESIGN §20.10)
         // the 脆弱 first, then the damage (act1autochess_bond_eff_stead[ex] ON_TAKE_DAMAGE: [cd] → CreateBuffById weak[limit]
-        // → FixedValueDamage), so the thorn itself already takes the 脆弱
-        battle.applyStatus(src, 'fragile', { duration: num(bb['weak[limit]'], 5), value: num(bb.damage_scale, 1) - 1, source: t });
+        // → FixedValueDamage), so the thorn itself already takes the 脆弱; `fxTag` names that client buff (its own
+        // effect buff_weak[limit] over the head, render/fxstatus.js HINT_FX)
+        battle.applyStatus(src, 'fragile', { duration: num(bb['weak[limit]'], 5), value: num(bb.damage_scale, 1) - 1, source: t, fxTag: 'weak[limit]' });
         const d = battle.makeDamage({ amount: num(bb.base_damage_value) + num(bb.damage_value_per_stack) * L(battle, st, ID.stead), type: 'arts', canDodge: false, sourceless: true });
         d.steadThorn = true;
         battle.dealDamage(t, src, d);

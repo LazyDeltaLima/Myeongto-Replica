@@ -25,7 +25,8 @@ export default {
   // S1 周旋的谋略 (instant): +cost DP at once; the waiting op nearest to the eye gets −[deck].cost redeploy cost (same pick
   // as S2) and a barrier of [deck].shield × his max HP when it redeploys.
   // S3 变革已至 (duration 48 s): skill range; enemies in it lose 隐匿; every attack hits every enemy of the range on the
-  // target's line (his facing) for bird_atk_scale × ATK phys + 脆弱 (damage_scale − 1, weak[limit] s [ASSUMED duration]);
+  // target's line (his facing) for bird_atk_scale × ATK phys + 脆弱 (damage_scale − 1, weak[limit] s: the client buff
+  // weak[limit], whose buff-table row reads its length from the blackboard key weak[limit]);
   // +[start_cost] DP at once, then +[cost].cost DP every [cost].interval s; the first activation of the battle swaps the
   // base costs of the most (guard/caster/sniper first) and least expensive waiting ops. "风雪之眼变为可部署" is not
   // modelled (nobody deploys by hand in the auto battle).
@@ -82,7 +83,8 @@ export default {
             onEachHit({ battle, unit, target }) {
               if (!target || !target.alive || target.side !== 'enemy') return;
               const v = num(bb.damage_scale, 1) - 1;
-              if (v > 0) battle.applyStatus(target, 'fragile', { duration: num(bb['weak[limit]'], 2), value: v, source: unit });
+              // the client buff weak[limit] (the S3 projectile's `_buffData`): its own effect, render/fxstatus.js HINT_FX
+              if (v > 0) battle.applyStatus(target, 'fragile', { duration: num(bb['weak[limit]'], 2), value: v, source: unit, fxTag: 'weak[limit]' });
             },
           },
           onStart({ battle, unit }) {

@@ -1229,9 +1229,19 @@
   | 隐匿(플래그) | 隐匿 적 | 그 적의 INVISIBLE 플래그 버프(`stealth`): 대부분 `common_invisible`(그대로), 가상적: 골극 `enemy_acbunn_buff`, 패밀리 멸살자 `enemy_sgkill_buff`, 데겐블레허 둘째 형태 `enemy_blkswb_buff_03` |
   | `boss:eternal` | 가상적: 현 | 평생 `acdumm_passive` → `enemy_acdumm_invincible`(전부터 `aura`) |
   | 굴절 | 더블린 계열 | 평생 `enemy_refracting` → `enemy_dushdo_2_buff_01`/`_03`(전부터 `aura`; 침묵 때 끝나는지는 안 봄) |
-  | `boss:helmGuard`·`ab:exposed`·`boss:equip`·`ab:burnDot` | 가상적: 갑주·중장갑 정찰병/천리안·알리스테어 장비·'폼페이' | 클라 버프에 이펙트 없음(`enemy_acstmk[low_hp]`, `enemy_tgshd_exposed_mark`·`weak[limit]` 모두 `empty`) — 그대로 안 그림 |
+  | `ab:exposed`(오퍼레이터 쪽) | 중장갑 정찰병(`enemy_1402_tgshd_2`)·천리안(`enemy_1407_hummbd`) | `enemy_tgshd_t`·`enemy_hummbd_t[expose]`가 거는 `weak[limit]` → `buff_weak[limit]`(머리 위, 반복) — 아래 「`weak[limit]`의 이펙트」 (2026-10-31, 이전: 「이펙트 없음」으로 안 그리고 2D 조준선만) |
+  | `boss:helmGuard`·`boss:equip`·`ab:burnDot` | 가상적: 갑주·알리스테어 장비·'폼페이' | 클라 버프에 이펙트 없음(`enemy_acstmk[low_hp]` 등 `empty`) — 그대로 안 그림 |
   `ab:artsBarrier`(기본 키)는 지금 쓰는 적이 없다(둘 다 자기 키). 끝 이펙트(`buffEnd`)가 있는 것은 자로의 `enemy_wlfmster_fearcage`(오퍼레이터 쪽,
   시뮬 상태가 안 가리킴)뿐 — 아래 오퍼레이터 둘이 같은 길(`END_FX`).
+- **`weak[limit]`의 이펙트 (2026-10-31, 공식 클라에서 확인; 관리자 기억 「중장갑 정찰병을 때려도 같은 이펙트가 오퍼레이터 머리 위에」)**: `loadFromDB` 버프는
+  템플릿(`empty`)이 아니라 클라 버프 표(`BuffDB`, EN 번들 `dyn/gamedata/buff_table*.bytes`)의 행에서 모양을 읽는다. `weak[limit]` 행: buffKey `weak`,
+  `overrideEffectKey` `buff_weak[limit]`, `durationKey` `weak[limit]`(같은 표의 `stun` → `buff_stun`, `sluggish` → `buff_sluggish`로 자리 확인;
+  `weak[inf]` 행은 이펙트 없음). 프리팹 `battle/prefabs/effects/buff.ab` `buff_weak[limit]`: `_spawnLocation` 4(머리), `_isLoop` 1, 「易伤」 메시 +
+  번개 입자 — 공용 脆弱 `buff_ fragile_01`(발)과 다른 것. 이 모드에서 거는 곳: 고수(맹약, `act1autochess_bond_eff_stead[ex]`, 3명부터 반격과 함께 적에게),
+  중장갑 정찰병·천리안(적, 오퍼레이터에게), 실버애쉬 더 레인프로스트(오퍼레이터) S3(투사체 `_buffData`, 적에게). 렌더: 시뮬 脆弱의 `fxTag`
+  `'weak[limit]'` → `fxstatus.js HINT_FX`, `ab:exposed` → `KEY_FX`(둘 다 같은 `WEAK_LIMIT`, `OWN` 높이); 이펙트 층이 그릴 때 시뮬 fx `expose`의
+  2D 조준선은 안 그림(`fxgame.js weakLimitOn`). 同名效果取最高로 합쳐진 脆弱은 지금 효력을 내는 쪽의 태그를 보인다(더 센 태그 脆弱이 이어받으면
+  'status'를 한 번 더 보냄 — `status.js _applyValuedStatus`, roster-043 이벤트 수 +3). [화면 미확인]
 - **버프 노드의 끝 이펙트(오퍼레이터)**: `fxstatus.js END_FX` — 캐서린 장치 `catsld_t_1[shield_mark]` ON_BUFF_FINISH `CreateEffect` `token_cathy_catsld_shield_01_end`
   (방패가 깨지거나 시간이 다 돼 표식이 끝날 때), 머드락 마지막 층 `mudrok_t_1[shield_c]` — [shield_a]·[shield_b]가 없을 때 맞으면 `mudrok_buff_01_end`
   (렌더: `LAYER_FX` 첫 층 `mudrok_buff_03_start`가 꺼질 때). 층을 다시 얻을 때의 `mudrok_buff_01_begin`은 키트 'stacks'(아래 「키트 이벤트의 공식

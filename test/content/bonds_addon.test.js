@@ -302,6 +302,7 @@ test('坚守: all operators HP ×(1.25+0.012·L); tier 2 redirect 40% to members
   h.b.dealDamage(e, d1, { amount: 100, type: 'true' });
   close(e0 - e.hp, thorn * bb.damage_scale, 'thorns, after the 脆弱 they bring (stead[ex]: weak[limit] before FixedValueDamage)');
   close(e.s.dmgTakenMul, bb.damage_scale, 'fragile');
+  assert.equal(e.findBuff('fragile')?.fxTag, 'weak[limit]', 'the 脆弱 names its client buff (its own effect buff_weak[limit])');
   const e1 = e.hp;
   h.b.dealDamage(e, d1, { amount: 100, type: 'true' });
   close(e.hp, e1, 'per-member cooldown');

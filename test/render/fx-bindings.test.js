@@ -12,7 +12,7 @@ import path from 'node:path';
 import { ROOT, loadTables, handEntries, judge, unplayed, renderNames, planTpls } from '../helpers/fxBindings.js';
 import { buildPlays, PLAYS_FILE } from '../../tools/build-fx-plays.mjs';
 import { KIT_OFFICIAL } from '../../public/js/render/fx/kitofficial.js';
-import { KEY_FX, SOURCE_FX, LAYER_FX, STACK_FX, END_FX, STATUS_FX } from '../../public/js/render/fxstatus.js';
+import { KEY_FX, HINT_FX, SOURCE_FX, LAYER_FX, STACK_FX, END_FX, STATUS_FX } from '../../public/js/render/fxstatus.js';
 import { PLAYS as FIXED } from '../helpers/fxPlays.js';
 import { TALENT_ALWAYS, SKILL_HELD, SKILL_EDGE, NOTE_FX } from '../../public/js/render/fxmap.js';
 
@@ -87,6 +87,8 @@ const KNOWN = {
   'KEY_FX item:cauldron|*': ['untabled', 'as item:dualArm — 天师古鼎\'s act1autochess_acarm077_buff [attr]'],
   'KEY_FX item:yanDagger|*': ['untabled', 'as item:dualArm — 炎国短刀\'s act1vautochess_acarm024_buff (this season\'s eff_acarm040, 묶음 U)'],
   'KEY_FX item:accel|*': ['untabled', 'as item:dualArm — 有限加速器\'s act1vautochess_acarm037_buff (this season\'s eff_acarm052, 묶음 U)'],
+  'KEY_FX ab:exposed|*': ['untabled', 'weak[limit] is a BuffDB buff (loadFromDB): its overrideEffectKey buff_weak[limit] is in the client buff table (gamedata buff_table), not a template row'],
+  'HINT_FX weak[limit]|*': ['untabled', 'as KEY_FX ab:exposed'],
   'KEY_FX ab:aweAura|*': ['untabled', '扎罗\'s FearAura AuraAbility `_effects` (its prefab, enemy-modes.json `auraNested`): the binding table holds the charpacks\' rows only'],
   'DEPLOY_FX DEPLOY_FX|*': ['untabled', 'the client\'s default effects (DefaultEffects), not a binding row'],
   'fxgame screen_desert_up_to_down|screen_desert_up_to_down': ['missing', 'sand_storm[camera_effect] creates screen_desert_*_empty (SwitchDirection branches), a wrapper whose `_effects` is this looping prefab (not extracted itself): the hand plays the inner one'],
@@ -146,7 +148,7 @@ test('the template table: rows of the template source, in the row shape', () => 
 test('every hand-table entry cites the client key it stands for', () => {
   const none = [];
   for (const [ev, by] of Object.entries(KIT_OFFICIAL)) for (const [b, fn] of Object.entries(by)) if (!fn.src) none.push(`KIT_OFFICIAL ${ev}.${b}`);
-  for (const [name, t] of Object.entries({ KEY_FX, LAYER_FX, STACK_FX, END_FX, TALENT_ALWAYS, NOTE_FX })) {
+  for (const [name, t] of Object.entries({ KEY_FX, HINT_FX, LAYER_FX, STACK_FX, END_FX, TALENT_ALWAYS, NOTE_FX })) {
     for (const [k, v] of Object.entries(t)) if (!v.src) none.push(`${name} ${k}`);
   }
   for (const [name, t] of Object.entries({ SKILL_HELD, SKILL_EDGE })) for (const [k, by] of Object.entries(t)) for (const [i, v] of Object.entries(by)) if (!v.src) none.push(`${name} ${k}.${i}`);

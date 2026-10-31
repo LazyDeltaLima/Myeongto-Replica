@@ -14,6 +14,7 @@
 //   aspdDown → buff_attack_speed_reduction_01 (feet)   weaken 虚弱 → buff_weak (head)
 //   defDown → buff_defdown (head)             resDown → buff_magic_resistance_down (head)
 //   fragile 脆弱 (all kinds) → 'buff_ fragile_01' (feet)   levitate 浮空 → common_levitate_01 (ground)
+//     (a 脆弱 that is the client buff weak[limit] — 坚守's thorn — draws its own effect instead: HINT_FX)
 //   stealth 隐匿 → common_invisible on both sides (feet; its ColorModifier greys the model to α .894 — units.js) —
 //     local patch (maintainer report 2026-10-07: a big green leaf on 望's stone on an 排气格栅 tile): the leaf was
 //     common_stealth (texture common_leaf), which only the 生息演算 buildings use (trap_405/406/459 talents' overrideEffectKey);
@@ -121,6 +122,10 @@ export const SOURCE_FX = Object.freeze({
 const STATUS_FALLBACK = new Set(['levitate', 'camou']);
 
 const BURN_BURST = keyed('ep_fire_magic_res_down', 'buff', 0.5);
+// 2026-10-31: the client buff weak[limit] (脆弱 ×damage_scale for weak[limit] s), whose BuffDB row (gamedata buff_table:
+// loadFromDB) names overrideEffectKey buff_weak[limit] — a loop over the head (spawn 4). Its users here: 坚守's thorn
+// (act1autochess_bond_eff_stead[ex] CreateBuffById), 重装侦察兵 / 远眺 (enemy_tgshd_t, enemy_hummbd_t[expose] CreateBuff)
+const WEAK_LIMIT = Object.freeze(cite('weak[limit]', ['buff', 'buff_weak[limit]', OWN]));
 const EROSION_DOWN = keyed('ep_water_def_down', 'buff', HEAD);
 // (each of the two keys' rows holds both prefabs: the holder picks — not by key)
 const ANGEL2_SELF = Object.freeze(['angel2', 'angel2_skill_2_buff_01', 0]);
@@ -132,6 +137,8 @@ const HUMUS_PEAK = Object.freeze([Object.freeze(['humus', 'humus_buff_01', OWN])
  * the holder (`view`) and its statusSource() (`from`) or returns null for none.
  */
 export const KEY_FX = Object.freeze({
+  // 重装侦察兵 / 远眺's 暴露 on the operators (content/enemies/helpers.js expose): their weak[limit]
+  'ab:exposed': WEAK_LIMIT,
   'papyrs:shield': keyedAll('papyrs_t_1[shield_core]', 'papyrs', 0.5),
   // 休谟斯 再回收 (2026-10-24, 묶음 S6): humus_t_1[effect] holds humus_t_1[effect_holder] (humus_buff_03) while her barrier's
   // `dynamic` is above 0 — the sim's barrier buff, gone when spent
@@ -240,6 +247,14 @@ export const KEY_FX = Object.freeze({
   'terrain:sandstorm': cite('sand_storm[ally]', (v, from) => [['map', `map_desert_03_${STORM_FROM[from?.fx] || 'up'}`, OWN], ['buff', 'buff_desert_01', OWN]]),
   // … and on an enemy: sand_storm[enemy] creates sand_storm[slow_down], which names no effect (not the 'slow' fallback)
   'terrain:sandstormSlow': cite('sand_storm[enemy]', () => null),
+});
+/**
+ * A catalogue status whose buff names the client buff it is (its `fxTag`, sent as the status's `fx` hint) → that buff's
+ * effect, before the status's common one (STATUS_FX): the client draws each buff's own effect key.
+ */
+export const HINT_FX = Object.freeze({
+  // 坚守's thorn: the 脆弱 is weak[limit] (content/bonds/addon/battle.js), not the common buff_ fragile_01
+  'weak[limit]': WEAK_LIMIT,
 });
 /**
  * 2026-10-25 (묶음 U): KEY_FX buffs the client finishes and makes again on each stack (FinishDerivedBuff + CreateBuff): the
@@ -483,6 +498,8 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null) {
         else for (const [min, spec, below] of stacks) if (n >= bound(min, from) && (below == null || n < bound(below, from))) byName(out, spec);
         continue;
       }
+      const hinted = typeof from?.fx === 'string' ? HINT_FX[from.fx] : null;
+      if (hinted) { byName(out, hinted); continue; }
       const s = statusFxKey(k);
       if (s === 'stealth' || s === 'camou') continue; // by the flags above (side, 迷彩)
       if (s) put(out, s, typeof STATUS_FX[s][1] === 'string' ? STATUS_FX[s] : specsOf(STATUS_FX[s], plays)[0]);

@@ -233,7 +233,7 @@ export class BattleStatus {
     if (tpl.palsy) {
       this.addBuff(target, { ...palsyBuff(value ?? 1), duration, source });
     } else if (tpl.valued != null && typeof tpl.mods === 'function' && opts.refresh == null) {
-      this._applyValuedStatus(target, key, tpl, duration, value ?? tpl.valued, source, opts.stackAs);
+      this._applyValuedStatus(target, key, tpl, duration, value ?? tpl.valued, source, opts.stackAs, opts.fxTag ?? null);
     } else {
       const mods = tpl.enemyOnlyMods && target.side !== 'enemy' ? null : typeof tpl.mods === 'function' ? tpl.mods(value) : (tpl.mods || null);
       const b = this.addBuff(target, { key, duration, refresh: opts.refresh ?? 'extend', mods, flags: tpl.flags || null, status: key, visible: true, source, fxTag: opts.fxTag ?? null });
@@ -294,8 +294,9 @@ export class BattleStatus {
    * `buff.data.tail` links the waiting effects, with decreasing strength and increasing expiry times. A
    * `plain` template (applyStrongest) is an ordinary invisible buff, not a status. `stackAs` (finite): the strength this
    * application competes with instead of its value (applyStatus opts.stackAs); kept in `data.stackAs` / the tail.
+   * `fxTag` (applyStatus opts.fxTag): the buff's display tag, kept per waiting effect (`fx`) so a resumed one shows its own.
    */
-  _applyValuedStatus(target, key, tpl, duration, value, source, stackAs = null) {
+  _applyValuedStatus(target, key, tpl, duration, value, source, stackAs = null, fxTag = null) {
     const as = Number.isFinite(stackAs) ? stackAs : null;
     const strength = (v, s = null) => Math.abs(Number.isFinite(s) ? s : Number.isFinite(v) ? v : tpl.valued);
     const entry = (v, s, extra) => (Number.isFinite(s) ? { value: v, stackAs: s, ...extra } : { value: v, ...extra });
@@ -315,29 +316,31 @@ export class BattleStatus {
       const kept = incoming.until > tail.until ? incoming : tail;
       return { ...kept, tail: after(tail.tail, kept.until) };
     };
-    const make = (v, dur, tail, s = null) => ({
+    const make = (v, dur, tail, s = null, fx = null) => ({
       ...(tpl.buff || null),   // extra buff fields of the status (抵抗: the 麻痹 decay tick)
       key, duration: dur, refresh: 'replace', mods: tpl.mods(v), flags: tpl.flags || null, status: tpl.plain ? null : key,
-      visible: !tpl.plain, source,
+      visible: !tpl.plain, source, fxTag: fx,
       data: entry(v, s, { tail }),
       onExpire: ({ battle, unit, buff }) => {
         const t = after(buff.data.tail, battle.time + 1e-6);
-        if (t && unit.alive) battle.addBuff(unit, make(t.value, t.until - battle.time, t.tail || null, t.stackAs));
+        if (t && unit.alive) battle.addBuff(unit, make(t.value, t.until - battle.time, t.tail || null, t.stackAs, t.fx ?? null));
       },
     });
     const old = target.buffs.find((b) => b.key === key && (tpl.plain || b.status === key));
-    if (!old) { this.addBuff(target, make(value, duration, null, as)); return; }
+    if (!old) { this.addBuff(target, make(value, duration, null, as, fxTag)); return; }
     const oldV = old.data && Number.isFinite(old.data.value) ? old.data.value : tpl.valued;
     const oldAs = old.data && Number.isFinite(old.data.stackAs) ? old.data.stackAs : null;
     const oldEnd = this.time + old.timeLeft, newEnd = this.time + duration;
     const oldTail = old.data && old.data.tail;
     if (strength(value, as) > strength(oldV, oldAs) + 1e-12) {
       // Stronger: take over now, retaining every old effect that can still become active afterwards.
-      const tail = after(entry(oldV, oldAs, { until: oldEnd, tail: oldTail }), newEnd);
-      this.addBuff(target, make(value, duration, tail, as));
+      const tail = after(entry(oldV, oldAs, { until: oldEnd, tail: oldTail, fx: old.fxTag ?? null }), newEnd);
+      const b = this.addBuff(target, make(value, duration, tail, as, fxTag));
+      // a replaced buff sends no 'status': a new display tag is sent as one (display only — render/fxstatus.js)
+      if (b && !tpl.plain && (old.fxTag ?? null) !== fxTag) this._ev(statusOnEvent(target, key, b));
     } else if (strength(value, as) < strength(oldV, oldAs) - 1e-12) {
       // Weaker: insert among the waiting effects instead of replacing the one with the latest expiry.
-      if (newEnd > oldEnd) old.data = { ...old.data, value: oldV, tail: insertTail(oldTail, entry(value, as, { until: newEnd })) };
+      if (newEnd > oldEnd) old.data = { ...old.data, value: oldV, tail: insertTail(oldTail, entry(value, as, { until: newEnd, fx: fxTag })) };
     } else if (duration > old.timeLeft) {
       old.timeLeft = duration;
       old.duration = Math.max(old.duration, duration);

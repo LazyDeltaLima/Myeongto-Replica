@@ -2767,7 +2767,7 @@
         "enemy_9006_actoxi": [12,12,0,14837,298598]
       },
       "hooks": [1,90,5673,634,634,2355,2455,1245,76,77,17,14,5,28824,590,61,64,0,1,81,10,5,1],
-      "events": {"atk":739,"bounty":4,"deploy":23,"die":77,"dmg":2455,"engage":17,"face":27,"fx":171,"heal":1181,"layer":10,"skill":31,"spawn":84,"status":609,"swing":667,"tplfx":1},
+      "events": {"atk":739,"bounty":4,"deploy":23,"die":77,"dmg":2455,"engage":17,"face":27,"fx":171,"heal":1181,"layer":10,"skill":31,"spawn":84,"status":612,"swing":667,"tplfx":1},
       "fx": {"aoe":8,"beam":1,"burnTiles":11,"burst":5,"crit":14,"displace":32,"dodge":1,"dollEnd":2,"enemySkill":2,"garrison":10,"meltdown":3,"reborn":1,"revive":1,"roadTiles":2,"sp":1,"stacks":11,"substitute":5,"summon":5,"swap":2,"telegraph":1,"teleport":3,"zone":50},
       "snaps": "7dc1b29f 3f479346 5945a2bd d4bbce0f 94fd388b ab1f7278 633b6fb1 fc6cd33c 070e31e4 e11784e8 657b1ec4 9c5ce5c4 87efa564 8c14b421 1f9870a2 cef3045e 2a82ad2d f7ef34ed 7c77438b"
     },
