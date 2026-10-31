@@ -432,7 +432,7 @@ describe('⑤ official status effects (fxstatus.js → fxgame.js statusOn / stat
     assert.equal(F.statusFxKey('ines:aspdGain'), null, 'an ASPD gain is no 攻速下降');
     assert.equal(F.statusFxKey('bind'), null, 'no common prefab: the applier\'s buff effect (SOURCE_FX)');
     assert.equal(F.statusFxKey('invulnerable'), null, 'no 脆弱 by the /vulner/ keyword');
-    assert.equal(F.STATUS_FX.freeze[1], 'buff_autochess_frozen');
+    assert.equal(F.STATUS_FX.freeze[1], 'buff_frozen', 'an operator\'s (an enemy\'s: test/render/status-buff-fx.test.js)');
     assert.equal(F.STATUS_FX.freeze[2], 0); assert.ok(F.STATUS_FX.cold[2] > 1, 'head point over the head');
   });
   test('flags and statuses → wanted effects; stealth by side, 迷彩 by its flag; sync turns them on / off', async () => {

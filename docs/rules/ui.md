@@ -576,11 +576,23 @@
 공식은 상태를 아이콘 줄이 아니라 이펙트 프리팹으로 보인다(캡처 9·10). 프리팹은 `battle/prefabs/effects/buff.ab`·`common.ab`(`fx_extract.py --bundle buff/common`,
 index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_isLoop` 1), 붙는 곳은 `_spawnLocation`(1 발, 2 몸 HIT, 4 머리, 5 바닥 중앙 — 데이터).
 상태 → 프리팹은 이름으로 맞춤(클라 매핑은 네이티브, 메타데이터 `COMMON_EFFECT_PREFIX`) [추정]:
-晕眩 `buff_stun`(머리) · 冻结 `buff_autochess_frozen`(발, 얼음 덩어리) · 寒冷 `buff_cold`(머리 눈꽃 — 冻结 중에도) · 沉睡 `buff_sleep`(몸) · 沉默 `buff_silence`(머리) ·
+晕眩 `buff_stun`(머리) · 冻结은 아래 「클라 버프 표의 이펙트」 · 寒冷 `buff_cold`(머리 눈꽃 — 冻结 중에도) · 沉睡 `buff_sleep`(몸) · 沉默 `buff_silence`(머리) ·
 恐惧 `common_buff_fear` · 战栗 `common_buff_thrill`(머리 주먹 — 캡처 10; 예전엔 공포 아이콘으로 잘못 연결) · 缴械 `common_disarm_icon` · 减速 `buff_slowdown`(발) ·
 迟缓 `buff_sluggish`(발) · 攻速下降 `buff_attack_speed_reduction_01`(발) · 虚弱 `buff_weak` · 防御下降 `buff_defdown` · 法抗下降 `buff_magic_resistance_down` ·
-脆弱(4종) `buff_ fragile_01`(발; 클라 버프 `weak[limit]`인 脆弱은 자기 `buff_weak[limit]`(머리) — docs/rules/fx.md 「`weak[limit]`의 이펙트」) · 浮空 `common_levitate_01`(바닥) · 적 隐匿 `common_invisible`(발; 그 ColorModifier대로 모델 회색 .5·α .894 — 예전 45 % 반투명 대신) ·
+脆弱(4종) 없음(관리자 결정 2026-10-31 — 아래 「클라 버프 표의 이펙트」; 클라 버프 `weak[limit]`인 脆弱은 자기 `buff_weak[limit]`(머리) — docs/rules/fx.md 「`weak[limit]`의 이펙트」) · 浮空 `common_levitate_01`(바닥) · 적 隐匿 `common_invisible`(발; 그 ColorModifier대로 모델 회색 .5·α .894 — 예전 45 % 반투명 대신) ·
 아군 隐匿 `common_stealth` [추정] · 迷彩 `common_buff_micai_01`(몸) [추정: 세 변형 중 _01].
+- **클라 버프 표의 이펙트**(2026-10-31, 공식 클라에서 확인): 冻结·麻痹는 `loadFromDB` 버프라 그 모양은 클라 버프 표(BuffDB) 행의 `overrideEffectKey`다 —
+  이름 맞춤을 이것으로 바꿨다. 冻结: 오퍼레이터(적의 寒冷 짝, `e2c_freeze`) `buff_frozen`(발), 적(오퍼레이터의 寒冷 짝, `c2e_freeze`) `buff_frozen_to_enemy` —
+  빈 루트에 `OnPlayEmitter` 둘이 재생 순간의 이동 방식을 봐서 지상이면 `buff_frozen_to_walk`(발), 비행이면 `buff_frozen_to_fly`(몸). 예전 `buff_autochess_frozen`은
+  어느 버프도 부르지 않는 이름이었다(셋 다 같은 짜임의 발 얼음 덩어리 — 노드 10개가 같고, `_to_walk`는 얼음 재질 셋이 따로). 麻痹: `palsy[stack]` → `common_061_numb_01`(머리)인데,
+  그 프리팹의 `SwitchableMultiEffectByBuffStackCnt`가 2층(EQUALS)이면 `_02`, 3층부터(GE) `_03`을 만들고 자기는 멈춘다(멈춘 파티클은 꺼짐) — 한 번에
+  하나(`fxstatus.js STACK_FX palsy`; 시뮬이 층이 바뀔 때마다 fx `stacks`를 보냄). 麻痹震颤 0.5 s는 `palsying` → `common_061_numb_hit_01`(HIT 지점, 한 번,
+  `_delayToFinish` 0.5; `fxgame.js palsyFx`, 그리면 2D 표시 대신). 缴械 `common_disarm_icon`은 그대로: 이 모드에서 缴械를 거는 것은 `enemy_1525_blkswb`의
+  `enemy_blkswb_s[clear_sp]`뿐이고 그 버프가 이 이펙트를 부른다(표의 `disarmed_and_cant_use_skill` → `common_disarm_01`은 `common_disarm_icon`을
+  띄우는 껍데기 + 발 부분 — 거는 곳 없음). 战栗 `disarmed_combat` → `common_buff_thrill`, 晕眩·沉默·沉睡·迟缓·恐惧·寒冷도 표와 같다.
+  脆弱: 표의 취약 행(`weak`·`weak[phy]`·`weak[magic]`·`weak[ep]`의 `[inf]`/`[limit]`)은 `weak[limit]` 말고 이펙트가 없고, 예전에 모든 脆弱에 그리던
+  공용 `buff_ fragile_01`은 클라 전체에서 `sktok_mine`·`sktok_dqmine`(이 모드에 없는 지뢰 토큰)의 `take_damage_scale_up[mine]`만 부른다 → 관리자 결정
+  2026-10-31로 지움(이펙트 층이 꺼졌을 때의 아이콘은 그대로).
 - 머리 높이 = 모델 높이 × 1.1 [추정 — 캡처 10의 주먹이 머리 위], 몸 .5, 발 0(`fx.js bodyZ`). 늘 위 캔버스(유닛 위)에 그린다: 이펙트 세션의 렌더러별
   위/아래 나누기(1f5ecd41, sortingOrder > 0 또는 0 + fudge < 0 = 위)를 상태 프리팹에 쓰면 冻结 얼음(전부 order 0·fudge 0)이 유닛 뒤로 가서 캡처 9와 달랐다
   — 클라는 order 0을 깊이로 정렬해 덩어리가 모델 앞에 온다 → 상태 이펙트는 나누지 않는다(`playStatus` `split = false`).
@@ -605,7 +617,7 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   `delayToRecycle`은 프리팹 `_delayToFinish`(`ParticleEffect.get_delayToRecycle`). 그래서 `now`는 「방출을 멈추고 프리팹 `_delayToFinish` 뒤
   제거」(`fxgame.js statusOff`, 프레임마다 `finishAt`; 2026-10-23부터 멈추는 것은 첫 시스템과 `_inactiveOnFinish`만 — docs/rules/fx.md 「투사체 꼬리
   끝내기」 버프 이펙트의 끝)이고, 값이 0이거나 없으면 예전처럼 바로 제거. 값은 `fx_extract.py delay_to_finish`가 프리팹 JSON의
-  `finish`로 뽑는다(루트 이펙트 구성 요소의 raw float #5): buff_stun·buff_autochess_frozen·buff_sleep·buff_silence·buff_sluggish·common_buff_fear·
+  `finish`로 뽑는다(루트 이펙트 구성 요소의 raw float #5): buff_stun·buff_autochess_frozen(2026-10-31부터 안 씀)·buff_sleep·buff_silence·buff_sluggish·common_buff_fear·
   common_buff_thrill·common_disarm_icon·common_levitate_01 0, buff_cold 0.06, buff_attack_speed_reduction_01 0.3, buff_slowdown·buff_weak·buff_defdown·
   buff_magic_resistance_down·buff_ fragile_01·common_invisible·common_buff_micai_01·lemuen_talent_buff_01 0.5 — 기절 표시는 공식도 바로 사라진다.
   `immediately`(즉시 끝내기)를 고르는 쪽(버프가 끝난 이유)은 안 봄 [추정: 시간이 다 된 상태는 즉시 아님]. `playStatus`는 같은 유닛·같은 키의 살아 있는

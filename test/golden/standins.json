@@ -408,8 +408,8 @@
         "enemy_1071_dftman": [1,0,1,0,0]
       },
       "hooks": [1,112,6796,293,293,570,563,559,34,105,13,13,0,9251,8,16,80,71,1,34,1,0,7],
-      "events": {"atk":318,"bounty":2,"deploy":30,"die":34,"dmg":563,"engage":11,"face":4,"fx":21,"layer":1,"leak":71,"skill":26,"spawn":94,"status":114,"swing":303,"tplfx":3},
-      "fx": {"aoe":1,"dodge":7,"dp":8,"garrison":1,"garrisonGrant":1,"revive":3},
+      "events": {"atk":318,"bounty":2,"deploy":30,"die":34,"dmg":563,"engage":11,"face":4,"fx":22,"layer":1,"leak":71,"skill":26,"spawn":94,"status":114,"swing":303,"tplfx":3},
+      "fx": {"aoe":1,"dodge":7,"dp":8,"garrison":1,"garrisonGrant":1,"revive":3,"stacks":1},
       "snaps": "2caac071 8c959eaa cd9c0a2c d9edb644 ed12ef8a 90d610c8 9ef7fa76 88f3aa87 6695a31a 46b802c1 b3a1a3c8 de9e52f3 4b2c5ff0 4a817bb9 5dccee2c e9d48ad6 14f16622 81ede72c b31fdfd0 939519b3 8ffb4668 8a77f35a 3314a8a5"
     },
     "standin-08": {

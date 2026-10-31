@@ -50,6 +50,20 @@ describe('sim: the status on-event carries the applier, the fx hint and the 护�
     assert.deepEqual(on.map((x) => x[5]?.fx ?? null), [null, 'weak[limit]', null], 'plain, then the takeover, then the weaker one resumed');
     assert.equal(e.findBuff('fragile').fxTag, null);
   });
+  test('麻痹 sends its stack count as it changes (fx \'stacks\' { buff: \'palsy\', n }); a refresh at the cap sends none', () => {
+    const h = setup();
+    h.run(0.5);
+    const op = h.unit(MEDIC), e = h.b.aliveEnemies()[0];
+    for (let i = 0; i < 4; i++) h.b.applyStatus(e, 'palsy', { value: 1, source: op });
+    h.run(0.1);
+    const n = h.eventsOf('fx').filter((x) => x[1] === 'stacks' && x[4]?.buff === 'palsy' && x[4].id === e.id).map((x) => x[4].n);
+    assert.deepEqual(n, [1, 2, 3]);
+    // the 抵抗 decay (buffs.js resistPalsyDecay) sends the count it leaves
+    h.b.applyStatus(e, 'resist', { duration: 12, value: 0.5 });
+    h.run(5.5);
+    const after = h.eventsOf('fx').filter((x) => x[1] === 'stacks' && x[4]?.buff === 'palsy' && x[4].id === e.id).map((x) => x[4].n);
+    assert.deepEqual(after.slice(3, 4), [2]);
+  });
 });
 
 describe('client: status → the official buff effect', () => {
@@ -164,12 +178,34 @@ describe('client: status → the official buff effect', () => {
     assert.deepEqual(names(enemy(['terrain:sandstormSlow'], [])), []);
   });
 
-  test('weak[limit] (2026-10-31): 坚守\'s thorn 脆弱 and 重装侦察兵 / 远眺\'s 暴露 wear buff_weak[limit] over the head, a plain 脆弱 the common one', () => {
+  test('weak[limit] (2026-10-31): 坚守\'s thorn 脆弱 and 重装侦察兵 / 远眺\'s 暴露 wear buff_weak[limit] over the head, a plain 脆弱 none', () => {
     const fragile = (fx) => enemy(['fragile'], [['fragile', { src: 'amiya', fx, n: 0 }]]);
     assert.deepEqual(names(fragile('weak[limit]')), ['buff_weak[limit]'], 'the buff-table row of weak[limit] names its own effect');
-    assert.deepEqual(names(fragile(null)), ['buff_ fragile_01'], 'any other 脆弱: the common effect, as before');
+    assert.deepEqual(names(fragile(null)), [], 'any other 脆弱: the client buff table\'s weak rows name no effect');
+    assert.deepEqual(names(enemy(['artsFragile', 'talent:weak_fragile'], [])), []);
     assert.deepEqual(names(unit('char_002_amiya', { statuses: new Set(['ab:exposed']) })), ['buff_weak[limit]']);
     for (const s of F.wantedStatusFx(fragile('weak[limit]'), undefined, null, PLAYS).values()) assert.equal(s[2], F.OWN, 'its own spawn point (4: head)');
+  });
+
+  test('冻结 (2026-10-31) by its client buff: an operator buff_frozen, an enemy buff_frozen_to_enemy\'s walk / fly effect', () => {
+    const frozen = (isEnemy, flying = false) => ({ info: {}, isEnemy, flying, alive: true, flags: UF.FROZEN, statuses: new Set(['freeze']) });
+    assert.deepEqual(names(frozen(false)), ['buff_frozen'], 'e2c_freeze');
+    assert.deepEqual(names(frozen(true)), ['buff_frozen_to_walk'], 'c2e_freeze, motion WALK');
+    assert.deepEqual(names(frozen(true, true)), ['buff_frozen_to_fly'], 'c2e_freeze, motion FLY');
+    const early = { ...frozen(true), flags: 0 };   // the status event before the snapshot's flag
+    assert.deepEqual(names(early), ['buff_frozen_to_walk']);
+  });
+
+  test('麻痹 (2026-10-31): palsy[stack]\'s common_061_numb_01, _02 at 2 stacks, _03 from 3 — one at a time', async () => {
+    const { UnitView } = await import('../../public/js/render/units.js');
+    const e = enemy(['palsy'], [['palsy', { src: 'amiya', fx: null, n: 0 }]]);
+    assert.deepEqual(names(e), ['common_061_numb_01'], 'no count yet: one stack');
+    UnitView.prototype.onStatusCount.call(e, 'palsy', 2);
+    assert.deepEqual(names(e), ['common_061_numb_02']);
+    UnitView.prototype.onStatusCount.call(e, 'palsy', 3);
+    assert.deepEqual(names(e), ['common_061_numb_03']);
+    UnitView.prototype.onStatusCount.call(e, 'palsy', 1);
+    assert.deepEqual(names(e), ['common_061_numb_01']);
   });
 
   test('耀骑士临光 S2: one shield per layer left, one fewer per parry (UnitView.onStatusHit)', async () => {

@@ -802,8 +802,8 @@
       ],
       "enemies": {"enemy_1288_duskls":[11,11,0,105,63415],"enemy_1288_duskls_2":[7,7,0,0,48419],"enemy_1292_duskld":[5,5,0,490,57650]},
       "hooks": [1,38,2530,260,296,494,494,169,23,25,19,15,0,11606,200,28,23,0,1,50,0,0,0],
-      "events": {"atk":315,"deploy":12,"die":25,"dmg":494,"engage":12,"face":73,"fx":256,"skill":34,"spawn":38,"status":446,"swing":280},
-      "fx": {"aoe":2,"copy":1,"crit":5,"dp":2,"ember":23,"iceSpike":63,"palsy":2,"roadTiles":1,"sleep":3,"split":3,"stacks":49,"weightless":2,"zone":100},
+      "events": {"atk":315,"deploy":12,"die":25,"dmg":494,"engage":12,"face":73,"fx":259,"skill":34,"spawn":38,"status":446,"swing":280},
+      "fx": {"aoe":2,"copy":1,"crit":5,"dp":2,"ember":23,"iceSpike":63,"palsy":2,"roadTiles":1,"sleep":3,"split":3,"stacks":52,"weightless":2,"zone":100},
       "snaps": "73247a04 076baffd 938ae048 1245c4f1 58cd6c3b d300417b 51b5b709 fbb9d43e 947bc9b1"
     },
     "bond-miraShip-low": {

@@ -14,7 +14,8 @@ import { powi } from './detmath.js';
 function resistPalsyDecay({ battle, unit }) {
   const p = unit.findBuff('palsy');
   if (!p) return;
-  if (--p.stacks <= 0) battle.removeBuff(unit, p); else unit.markDirty();
+  if (--p.stacks <= 0) battle.removeBuff(unit, p);
+  else { unit.markDirty(); battle.fx('stacks', { x: unit.x, y: unit.y, id: unit.id, buff: 'palsy', n: p.stacks }); }
 }
 
 /** Additive mod keys (summed; × stacks). `atkFinal` = 最终加算: added after the percentages (units.js _recalc). */

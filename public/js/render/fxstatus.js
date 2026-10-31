@@ -6,15 +6,18 @@
 // its `_spawnLocation` (EN client data: 1 feet, 2 body / HIT point, 4 head, 5 ground centre). The sim status → prefab
 // mapping is by the prefab names (the client builds them from the status — metadata COMMON_EFFECT_PREFIX; the mapping
 // code is native) [추정 where marked]:
-//   stun 晕眩 → buff_stun (head)              freeze 冻结 → buff_autochess_frozen (feet: the block around the model)
+//   stun 晕眩 → buff_stun (head)              freeze 冻结 → by its client buff: FROZEN_FX (2026-10-31)
 //   cold 寒冷 → buff_cold (head)              sleep 沉睡 → buff_sleep (body)
 //   silence 沉默 → buff_silence (head)        fear 恐惧 → common_buff_fear (head)
 //   tremble 战栗 → common_buff_thrill (head, the fist — maintainer capture 10)   disarm 缴械 → common_disarm_icon (head)
 //   slow 减速 → buff_slowdown (feet)          sluggish 迟缓 → buff_sluggish (feet)
 //   aspdDown → buff_attack_speed_reduction_01 (feet)   weaken 虚弱 → buff_weak (head)
 //   defDown → buff_defdown (head)             resDown → buff_magic_resistance_down (head)
-//   fragile 脆弱 (all kinds) → 'buff_ fragile_01' (feet)   levitate 浮空 → common_levitate_01 (ground)
-//     (a 脆弱 that is the client buff weak[limit] — 坚守's thorn — draws its own effect instead: HINT_FX)
+//   levitate 浮空 → common_levitate_01 (ground)
+//   palsy 麻痹 → common_061_numb_01 / _02 / _03 by its stacks (head; STACK_FX — the client buff palsy[stack])
+//   fragile 脆弱 (all kinds) → none (maintainer decision 2026-10-31): the client buff table's weak rows name no
+//     effect but weak[limit] (坚守's thorn, 暴露 — HINT_FX / KEY_FX buff_weak[limit]); the common 'buff_ fragile_01' drawn
+//     until then is named by no buff of this mode (only the sktok_mine / sktok_dqmine tokens' take_damage_scale_up[mine])
 //   stealth 隐匿 → common_invisible on both sides (feet; its ColorModifier greys the model to α .894 — units.js) —
 //     local patch (maintainer report 2026-10-07: a big green leaf on 望's stone on an 排气格栅 tile): the leaf was
 //     common_stealth (texture common_leaf), which only the 生息演算 buildings use (trap_405/406/459 talents' overrideEffectKey);
@@ -54,12 +57,12 @@ const keyedAll = (key, bundle, frac, ...rest) => Object.freeze(cite(key, [bundle
 const ALL = Object.freeze({ all: true });
 /** status → [bundle, prefab, height share (0 feet, .5 body, HEAD head), hold (s: frozen there — local patch)]; `stealth` takes the side's prefab. */
 export const STATUS_FX = Object.freeze({
-  stun: ['buff', 'buff_stun', HEAD], freeze: ['buff', 'buff_autochess_frozen', 0], cold: ['buff', 'buff_cold', HEAD],
+  stun: ['buff', 'buff_stun', HEAD], freeze: ['buff', 'buff_frozen', 0], cold: ['buff', 'buff_cold', HEAD],
   sleep: ['buff', 'buff_sleep', 0.5], silence: ['buff', 'buff_silence', HEAD], fear: ['common', 'common_buff_fear', HEAD],
   tremble: ['common', 'common_buff_thrill', HEAD], disarm: ['common', 'common_disarm_icon', HEAD],
   slow: ['buff', 'buff_slowdown', 0], sluggish: ['buff', 'buff_sluggish', 0], aspdDown: ['buff', 'buff_attack_speed_reduction_01', 0],
   weaken: ['buff', 'buff_weak', HEAD], defDown: ['buff', 'buff_defdown', HEAD], resDown: ['buff', 'buff_magic_resistance_down', HEAD],
-  fragile: ['buff', 'buff_ fragile_01', 0], levitate: ['common', 'common_levitate_01', 0],
+  levitate: ['common', 'common_levitate_01', 0],
   stealth: ['common', 'common_invisible', 0], stealthAlly: ['common', 'common_invisible', 0], camou: ['common', 'common_buff_micai_01', 0.5],
   // local patch (maintainer report 2026-10-07): 蕾缪安's talent 跨境追缉许可 'lemuen:wanted' — the client's char_lemuen_range_aim[effect]
   // buff (overrideEffectKey lemuen_talent_buff_01, the crosshair on the wanted enemy) [추정: at the head]
@@ -74,6 +77,15 @@ export const STATUS_FX = Object.freeze({
   archet_shield: keyed('archet_t_2', 'archet', 0),
 });
 const ALIAS = Object.freeze({ artsFragile: 'fragile', physFragile: 'fragile', elemFragile: 'fragile' });
+/**
+ * 2026-10-31: 冻结 is a BuffDB buff (gamedata buff_table, loadFromDB) whose row names its effect. On an operator (an enemy's
+ * cold pair, e2c_freeze) buff_frozen at the feet — STATUS_FX.freeze. On an enemy (the operators' cold pair, c2e_freeze)
+ * buff_frozen_to_enemy, an empty root whose two OnPlayEmitters check the holder's motion mode as it plays: WALK
+ * buff_frozen_to_walk (feet), FLY buff_frozen_to_fly (body). Until then every 冻结 drew buff_autochess_frozen by its name,
+ * which no buff of the client tables names.
+ */
+const FROZEN_FX = Object.freeze({ walk: Object.freeze(['buff', 'buff_frozen_to_walk', 0]), fly: Object.freeze(['buff', 'buff_frozen_to_fly', 0.5]) });
+const frozenFx = (v) => (v.isEnemy ? FROZEN_FX[v.flying ? 'fly' : 'walk'] : STATUS_FX.freeze);
 
 // ---- buff effects (docs/rules/ui.md ⑤ 「버프 이펙트」; EN buff templates, charpacks, [uc]skills.ab, 2026-10-14) ----------
 // A spec is [bundle, prefab, height share] as STATUS_FX (spawn 1 feet / 5 ground → 0, 2 body → 0.5, 4 head → HEAD), or
@@ -253,7 +265,7 @@ export const KEY_FX = Object.freeze({
  * effect, before the status's common one (STATUS_FX): the client draws each buff's own effect key.
  */
 export const HINT_FX = Object.freeze({
-  // 坚守's thorn: the 脆弱 is weak[limit] (content/bonds/addon/battle.js), not the common buff_ fragile_01
+  // 坚守's thorn: the 脆弱 is weak[limit] (content/bonds/addon/battle.js) — any other 脆弱 draws none
   'weak[limit]': WEAK_LIMIT,
 });
 /**
@@ -317,6 +329,11 @@ export const STACK_FX = Object.freeze({
   // 玛恩纳 解放者 trait: mlynar_tr's stack per second — [a] _L_01 from the first, [b] _L_02 from mid_stack_cnt, [c] _L_03 at
   // max_stack_cnt (set while the skill is off; mlynar_s_cast's finish ends them with the stacks)
   'trait:libratorRamp': stacked('mlynar_tr', 'mlynar_tr_atk', 'mlynar'),
+  // 2026-10-31: 麻痹 (the sim's 'palsy' stacks) is the BuffDB buff palsy[stack] (gamedata buff_table), overrideEffectKey
+  // common_061_numb_01 over the head, whose SwitchableMultiEffectByBuffStackCnt on palsy[stack] creates common_061_numb_02 at
+  // 2 stacks (EQUALS) and _03 from 3 (GE), pausing itself — a paused particle effect is inactive (official client)
+  palsy: Object.freeze(cite('palsy[stack]', [[1, st('common', 'common_061_numb_01'), 2], [2, st('common', 'common_061_numb_02'), 3],
+    [3, st('common', 'common_061_numb_03')]])),
 });
 /** A STACK_FX bound: a number, or the count info's `max` / `mid`. */
 const bound = (b, from) => (typeof b === 'number' ? b : Number(from?.[b]) || Infinity);
@@ -453,7 +470,7 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null) {
   // 逐火 ember …) — held while the mode is on; one a status names too is the same `bundle/prefab` key, drawn once
   if (own) { const r = own('mode'); if (r) byOwn(r); }
   if (f & UF.STUNNED) put(out, 'stun', STATUS_FX.stun);
-  if (f & UF.FROZEN) put(out, 'freeze', STATUS_FX.freeze);
+  if (f & UF.FROZEN) put(out, 'freeze', frozenFx(v));
   if (f & UF.COLD) put(out, 'cold', STATUS_FX.cold);
   if (f & UF.SLEEP) put(out, 'sleep', STATUS_FX.sleep);
   if (f & UF.STEALTH) {
@@ -502,7 +519,8 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null) {
       if (hinted) { byName(out, hinted); continue; }
       const s = statusFxKey(k);
       if (s === 'stealth' || s === 'camou') continue; // by the flags above (side, 迷彩)
-      if (s) put(out, s, typeof STATUS_FX[s][1] === 'string' ? STATUS_FX[s] : specsOf(STATUS_FX[s], plays)[0]);
+      if (s === 'freeze') { put(out, s, frozenFx(v)); continue; }
+      if (s && STATUS_FX[s]) put(out, s, typeof STATUS_FX[s][1] === 'string' ? STATUS_FX[s] : specsOf(STATUS_FX[s], plays)[0]);
     }
   }
   return out;

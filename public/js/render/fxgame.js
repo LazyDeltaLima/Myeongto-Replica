@@ -29,7 +29,8 @@
 //                  patch: once per attack — the first damage after it)
 //   'deploy'     → (2026-10-11) the operator's / token's deploy effect (flushDeploys); 'die' 'killed' → its dead effect
 //                  and (2026-10-16) its always-on effects (modes.json `common`), until its 'die'
-//   fx 'palsy'   → (2026-10-11) the enemy's cast cut by 麻痹 ends its effects (cutCast)
+//   fx 'palsy'   → (2026-10-11) the enemy's cast cut by 麻痹 ends its effects (cutCast); (2026-10-31) its 麻痹震颤
+//                  common_061_numb_hit_01 (palsyFx)
 // Effects follow their unit's rendered position and facing.
 //
 // Cost: nothing is loaded (three.js, the player, the files) until an operator with an extracted bundle acts; the layer
@@ -1663,7 +1664,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       get alive() { return view.alive; }, get remove() { return view.remove; },
     };
     // local patch: status prefabs are not split like a caster's effect — their renderers are sortingOrder 0 / fudge 0
-    // (buff_autochess_frozen's block too), which that split puts behind the unit, while the client sorts them by depth and
+    // (the buff_frozen* blocks too), which that split puts behind the unit, while the client sorts them by depth and
     // the 冻结 block covers the model (maintainer capture 9); drawn over the units (the snowflake / fist over heads, capture 10).
     // 2026-10-14 (maintainer report: 伊内丝's / 卡涅利安's bind tinted the whole enemy, YouTube captures: thin red lines / gold
     // sand strands, the glow only around the silhouette): a renderer with sortingOrder < 0 is behind the model (伊内丝 glow -1,
@@ -2538,13 +2539,23 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // ep_break_<el>_char / _enemy play one CreateEffect on the BUFF_OWNER at ON_BUFF_START — fire on an enemy
   // common_firedamage_hit (none on an operator: its 灼燃 shows ep_fire_magic_res_down's buff_burn, fxstatus.js), water
   // common_waterElementExplosion / common_waterdamage_hit, dark common_darkdamage_hit on both; 神经 on an operator is
-  // ep_break_sanity[epfree]'s overrideEffectKey common_nerve_injury_01_hit, on an enemy palsy[stack] (none) [operator, enemy]
+  // ep_break_sanity[epfree]'s overrideEffectKey common_nerve_injury_01_hit, on an enemy none of its own (its palsy[stack] is
+  // the 麻痹 status: fxstatus.js STACK_FX) [operator, enemy]
   const BURST_FX = {
     burn: [null, 'common_firedamage_hit'],
     erosion: ['common_waterElementExplosion', 'common_waterdamage_hit'],
     apoptosis: ['common_darkdamage_hit', 'common_darkdamage_hit'],
     neural: ['common_nerve_injury_01_hit', null],
   };
+  // 2026-10-31: 麻痹震颤 (sim fx 'palsy' { id }, ai.js) is the client BuffDB buff palsying (gamedata buff_table: duration 0.5,
+  // overrideEffectKey common_061_numb_hit_01 — a one-shot at the HIT point, `_delayToFinish` 0.5), played on the enemy
+  function palsyFx(e, views) {
+    const v = views?.get?.(e[4]?.id);
+    const n = 'common_061_numb_hit_01';
+    if (!v || failed || q() === 'low' || !index?.bundles?.common?.includes(n)) return false;
+    spawn('common', n, v, { owner: null, buff: false, on: v.id, tag: 'palsying' }, { over: true, facing: efacing(v) });
+    return true;
+  }
   function burstFx(e, views) {
     const tgt = views?.get?.(e[4]?.id);
     const n = BURST_FX[e[4]?.element]?.[tgt?.info?.side === 'enemy' ? 1 : 0];
@@ -5394,7 +5405,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         // kit effect moments (5th field)
         case 'heal': healHit(e, views); if (Array.isArray(e[4])) hitMoments(e[4], e[1], e[3] ?? null, views); return;
         case 'fx': { // a kit's moving effect: 赤刃明霄陈 S3 剑气 (kits/ops/op-chen3.js) carries her official trail along its path
-          if (e[1] === 'palsy' && e[4]?.id != null) { const v = views.get(e[4].id); if (v) cutCast(v); } // 2026-10-11: 麻痹 cut its cast
+          if (e[1] === 'palsy' && e[4]?.id != null) { // 2026-10-11: 麻痹 cut its cast; 2026-10-31: its official effect, no 2D mark
+            const v = views.get(e[4].id);
+            if (v) cutCast(v);
+            if (palsyFx(e, views)) { ownFx.add(e); return; }
+          }
           if (stoneFx(e, views)) return;
           if (e[1] === 'caperBoomerang2' && e[4]) { caperSecond(e, views); return; } // 2026-10-10: 跃跃 S2's second boomerang
           // 2026-10-10: an enemy content skill's official projectile (eshotFx), and no stand-in beam for a shot drawn so

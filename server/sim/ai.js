@@ -1366,7 +1366,10 @@ function enemyStrike(b, e, radius, reach, own) {
       keep = !!b.emit('palsyTrigger', { enemy: e, buff: palsy, keep: false }).keep;
       if (!e.alive) return;
     }
-    if (!keep) { if (--palsy.stacks <= 0) b.removeBuff(e, palsy); else e.markDirty(); }
+    if (!keep) {
+      if (--palsy.stacks <= 0) b.removeBuff(e, palsy);
+      else { e.markDirty(); b.fx('stacks', { x: e.x, y: e.y, id: e.id, buff: 'palsy', n: palsy.stacks }); }   // the screen's 麻痹 effect
+    }
     e.castLeft = 0;
     // 麻痹震颤 (the client's `Enemy.OnTriggerPalsy` → `Enemy.States.PalsyState`; maintainer decision 2026-10-11): every
     // enemy so interrupted — blocked or not, melee or ranged, a 「不停止移动」 one too — stands PALSY_STOP s and starts no

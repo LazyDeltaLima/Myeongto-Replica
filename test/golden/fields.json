@@ -318,7 +318,7 @@
         "enemy_9023_acdums": [9,9,0,29310,387]
       },
       "hooks": [1,63,6000,1554,1554,4096,4681,2792,29,38,66,59,378,43665,2150,4,22,0,1,30,0,8,118],
-      "events": {"atk":1767,"deploy":37,"die":38,"dmg":4384,"engage":18,"face":134,"fx":2275,"heal":332,"skill":125,"spawn":58,"status":973,"swing":1572,"tplfx":3},
+      "events": {"atk":1767,"deploy":37,"die":38,"dmg":4384,"engage":18,"face":134,"fx":2279,"heal":332,"skill":125,"spawn":58,"status":973,"swing":1572,"tplfx":3},
       "fx": {
         "airstrike": 130,
         "beam": 11,
@@ -352,6 +352,7 @@
         "scorchBurst": 1,
         "slash": 20,
         "snow": 47,
+        "stacks": 4,
         "steal": 6,
         "storm": 4,
         "summon": 18,
@@ -1038,7 +1039,7 @@
         "enemy_9016_acstmr": [6,5,0,0,123]
       },
       "hooks": [1,72,6000,1242,1246,3468,3823,12556,45,47,117,114,11,39729,1109,13,32,0,1,35,0,3,10],
-      "events": {"atk":1447,"deploy":40,"die":47,"dmg":3820,"engage":17,"face":114,"fx":1045,"heal":50,"skill":231,"spawn":54,"status":957,"swing":1310,"tplfx":10},
+      "events": {"atk":1447,"deploy":40,"die":47,"dmg":3820,"engage":17,"face":114,"fx":1048,"heal":50,"skill":231,"spawn":54,"status":957,"swing":1310,"tplfx":10},
       "fx": {
         "aoe": 23,
         "appear": 1,
@@ -1076,7 +1077,7 @@
         "soul": 3,
         "sp": 9,
         "spGain": 4,
-        "stacks": 78,
+        "stacks": 81,
         "stealth": 5,
         "summon": 3,
         "swordRain": 93,
@@ -1335,8 +1336,8 @@
         "enemy_9020_actrpc": [1,0,0,9915,262916]
       },
       "hooks": [1,30,6000,761,761,3237,4780,2254,13,16,105,100,109,24790,821,2,11,0,1,125,0,10,0],
-      "events": {"atk":1105,"deploy":19,"die":16,"dmg":4217,"engage":10,"face":53,"fx":924,"heal":580,"skill":205,"spawn":22,"status":231,"swing":791},
-      "fx": {"anchor":5,"aoe":2,"beam":39,"burst":10,"candle":4,"charge":6,"chargeEnd":6,"dash":12,"downed":1,"ember":2,"enemyShot":38,"enemySkill":18,"explode":1,"healAoe":36,"link":591,"overload":4,"palsy":1,"phase":12,"reborn":2,"revive":1,"shieldBreak":10,"sleepGuard":1,"splash":108,"stacks":5,"substitute":3,"swap":3,"teleport":3},
+      "events": {"atk":1105,"deploy":19,"die":16,"dmg":4217,"engage":10,"face":53,"fx":925,"heal":580,"skill":205,"spawn":22,"status":231,"swing":791},
+      "fx": {"anchor":5,"aoe":2,"beam":39,"burst":10,"candle":4,"charge":6,"chargeEnd":6,"dash":12,"downed":1,"ember":2,"enemyShot":38,"enemySkill":18,"explode":1,"healAoe":36,"link":591,"overload":4,"palsy":1,"phase":12,"reborn":2,"revive":1,"shieldBreak":10,"sleepGuard":1,"splash":108,"stacks":6,"substitute":3,"swap":3,"teleport":3},
       "snaps": "d2622701 92179d06 b4506596 31788ae7 32bbaa21 d58af71e 0c4be636 9282637a 4dc3ce5b 08cd5059 a346c9c5 19fd4ba2 af54c08b ff835ac2 d4d57f00 d1fd4933 082b4839 c7ba9d10 bed65fa4 d8de3341"
     },
     "hidden-boss_10-pair": {

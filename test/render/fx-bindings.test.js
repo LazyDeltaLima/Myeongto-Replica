@@ -89,6 +89,7 @@ const KNOWN = {
   'KEY_FX item:accel|*': ['untabled', 'as item:dualArm — 有限加速器\'s act1vautochess_acarm037_buff (this season\'s eff_acarm052, 묶음 U)'],
   'KEY_FX ab:exposed|*': ['untabled', 'weak[limit] is a BuffDB buff (loadFromDB): its overrideEffectKey buff_weak[limit] is in the client buff table (gamedata buff_table), not a template row'],
   'HINT_FX weak[limit]|*': ['untabled', 'as KEY_FX ab:exposed'],
+  'STACK_FX palsy|*': ['untabled', 'as KEY_FX ab:exposed — palsy[stack] (overrideEffectKey common_061_numb_01, its prefab switching to _02 / _03 by the stacks)'],
   'KEY_FX ab:aweAura|*': ['untabled', '扎罗\'s FearAura AuraAbility `_effects` (its prefab, enemy-modes.json `auraNested`): the binding table holds the charpacks\' rows only'],
   'DEPLOY_FX DEPLOY_FX|*': ['untabled', 'the client\'s default effects (DefaultEffects), not a binding row'],
   'fxgame screen_desert_up_to_down|screen_desert_up_to_down': ['missing', 'sand_storm[camera_effect] creates screen_desert_*_empty (SwitchDirection branches), a wrapper whose `_effects` is this looping prefab (not extracted itself): the hand plays the inner one'],

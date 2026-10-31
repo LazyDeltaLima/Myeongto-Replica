@@ -231,7 +231,10 @@ export class BattleStatus {
     let entered = true;
     if (opts.reenter !== true) for (const b of target.buffs) if ((b.status ?? b.key) === key) { entered = false; break; }
     if (tpl.palsy) {
-      this.addBuff(target, { ...palsyBuff(value ?? 1), duration, source });
+      // the stack count goes to the screen (fx 'stacks'): the client's 麻痹 effect changes with it (render/fxstatus.js STACK_FX)
+      const was = target.findBuff('palsy')?.stacks ?? 0;
+      const pb = this.addBuff(target, { ...palsyBuff(value ?? 1), duration, source });
+      if (pb && pb.stacks !== was) this.fx('stacks', { x: target.x, y: target.y, id: target.id, buff: 'palsy', n: pb.stacks });
     } else if (tpl.valued != null && typeof tpl.mods === 'function' && opts.refresh == null) {
       this._applyValuedStatus(target, key, tpl, duration, value ?? tpl.valued, source, opts.stackAs, opts.fxTag ?? null);
     } else {

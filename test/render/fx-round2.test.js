@@ -104,7 +104,7 @@ test('fxgame: input effects on the main target, looping hits end with the cast, 
   // cast-target hits at the ability's speed
   assert.match(SRC, /names: quick, aim: src, speed: c\?\.speed \|\| 1/);
   // 麻痹: every effect of the cast, and what still loads
-  assert.match(SRC, /if \(e\[1\] === 'palsy' && e\[4\]\?\.id != null\) \{ const v = views\.get\(e\[4\]\.id\); if \(v\) cutCast\(v\); \}/);
+  assert.match(SRC, /if \(e\[1\] === 'palsy' && e\[4\]\?\.id != null\) \{[^\n]*\n\s*const v = views\.get\(e\[4\]\.id\);\n\s*if \(v\) cutCast\(v\);\n\s*if \(palsyFx\(e, views\)\) \{ ownFx\.add\(e\); return; \}/);
   assert.match(SRC, /for \(const l of live\) if \(l\.cast === c && !l\.inst\.stopping\) l\.inst\.stop\(\);/);
   assert.match(SRC, /if \(entry\.cast\?\.cut\) \{ inst\.dispose\(\); return null; \}/);
   // clip groups: cast at the swing, hits at the damage
