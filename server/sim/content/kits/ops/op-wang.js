@@ -125,10 +125,11 @@ const STONE_ARM_FRAMES = 30, STONE_BUILD_FRAMES = 4;
  * A 跟子 is thrown, not set down (docs/rules/diy.md 「跟子 던지기 지연」, maintainer decision 2026-10-10 「클라 타이밍」): the
  * talent's BuildStone (`skchr_wang_3/SpawnTokenS3/BuildStone`, `…InSkill/BuildStone`, the talent's own) and S3's
  * InstantSpawn are projectile abilities (`projectile_chr_wang_stone3`) with `_preDelay` 0.25 — each 跟子 lands 0.25 s after
- * its request; S3's InstantSpawn takes one tile a cast (`_maxNum` 1) and casts again after its `_cooldown` 0.25. The
- * projectile's flight time is not added [open: its movement component was not read]. The tile is the cast's
- * (`CastOnTileAbility.m_castTiles`, picked at its cast start: OnCastStart creates the throw's `_startEffect` there — official
- * client; 2026-10-31, before that the sim picked it as the 跟子 landed): throwFollower.
+ * its request; S3's InstantSpawn takes one tile a cast (`_maxNum` 1) and casts again after its `_cooldown` 0.25. No
+ * flight time follows: the projectile moves by AttachToTarget with `_immediatelyReach` 1, set on the tile as it is made
+ * (official client, 2026-10-31). The tile is the cast's (`CastOnTileAbility.m_castTiles`, picked at its cast start:
+ * `_selectTargetTiming` 0 AT_BEGINING, and OnCastStart creates the throw's `_startEffect` there — official client;
+ * 2026-10-31, before that the sim picked it as the 跟子 landed): throwFollower.
  */
 const FOLLOWER_PRE_DELAY = 0.25, S3_SPAWN_COOLDOWN = 0.25;
 
@@ -291,8 +292,11 @@ function wang(bb, chess, def) {
   /**
    * A 跟子 thrown at (r, c) now (the cast start: fx 'wangThrow', the render's falling stone), landing FOLLOWER_PRE_DELAY
    * later (`_finishStartEffectsOnCastOnTile`) as placeFollower; `land(f)` gets the 跟子, or null when she left the field or
-   * the tile can no longer take one (a stone came back there, an operator was deployed on it)
-   * [추정·미조사: the projectile's landing on a tile that no longer suits it was not read].
+   * the tile can no longer take one (a stone came back there, an operator was deployed on it). Official client
+   * (2026-10-31): the cast (DoCastOnTargets on the `m_castTiles` tiles) runs WangVisualStoneMarkAbility
+   * .CreateProjectileOnTile, which makes the projectile only when WangStoneTriggerManager.TryMarkVisualStone marks the
+   * tile — no stone or 跟子 marked there (CheckStoneMarkable) and no character on it (Tile.GetCharacter) — and otherwise
+   * runs `_actionsOnMarkFailed` (empty for both of hers).
    */
   const throwFollower = (battle, unit, r, c, from, land = null) => {
     const seq = unit.deploySeq, t = { r, c };

@@ -135,6 +135,28 @@ describe('望 kit — maintainer decisions 2026-10-07 (op-wang.js)', () => {
     assert.equal(h.b.errors.length, 0);
   });
 
+  test('a thrown 跟子 does not land when a unit takes its tile in the air (2026-10-31)', () => {
+    // client: WangVisualStoneMarkAbility.CreateProjectileOnTile makes the projectile only if TryMarkVisualStone marks the
+    // tile, which refuses a tile with a character on it (Tile.GetCharacter)
+    const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 120, autoFinish: false, units: [op(0, 11, 3), stone(9, 6, 50)] });
+    let thrown = null, landed = null, blocker = null;
+    for (let i = 0; i < 40; i++) {
+      h.b.step();
+      for (const e of h.eventsOf('fx').splice(0)) {
+        if (e[1] === 'wangThrow' && !thrown) {
+          thrown = [e[4].r, e[4].c];
+          blocker = h.b.spawnDevice('crate', thrown[0], thrown[1], { hp: 100 });
+        }
+        if (e[1] === 'summon' && e[4].follower) landed = [Math.round(e[3]), Math.round(e[2])];
+      }
+      h.events.length = 0;
+    }
+    assert.ok(thrown && blocker, 'a 跟子 was thrown and a unit took its tile');
+    assert.equal(landed, null, 'no 跟子 lands there');
+    assert.ok(h.b.unitAt(thrown[0], thrown[1]) === blocker, 'the unit keeps the tile');
+    assert.equal(h.b.errors.length, 0);
+  });
+
   test('W7: 连星 slow — independent stacks with their own timers, their values add up in the 直接乘算 stage, speed ≥ 0.1', () => {
     assert.equal(typeof WANG.addWangSlow, 'function', 'addWangSlow exported');
     const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 120, autoFinish: false, units: [op(1, 11, 3)] });

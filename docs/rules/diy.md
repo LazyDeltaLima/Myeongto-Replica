@@ -122,11 +122,15 @@
       한 개씩. 칸은 던질 때(시전 시작) 고른다(2026-10-31, 공식 클라에서 확인: `CastOnTileAbility.OnCastStart`가 시전 칸 `m_castTiles`에 던짐
       `_startEffect`를 만듦 — 그 전엔 내려앉을 때 골랐음): 시뮬 키트 fx 'wangThrow' { r, c } → 0.25초 뒤 그 칸에 'summon'(`op-wang.js throwFollower`).
       날아가는 跟子도 상한(`max_spawn_cnt`)에 세고 그 칸은 다른 跟子가 못 고른다. 내려앉을 때 그 칸이 못 받게 됐으면(돌이 돌아옴·오퍼레이터 배치)
-      그 跟子는 없음 [추정·미조사: 투사체가 맞지 않게 된 칸에 내려앉을 때를 안 읽음]. 내려앉는 때는 그대로. 예전: 돌과 같은 틱(재능), S3 시작분은 한꺼번에.
-      `op-wang.js FOLLOWER_PRE_DELAY`·`S3_SPAWN_COOLDOWN`. 테스트 `test/local-patch-diy-wang.test.js` W12(0.25초 뒤 첫 跟子)·「thrown at its tile」,
-      `test/local-patch-diy.test.js` 「none at the cast」.
-      - **[열림] 투사체 비행 시간**: `projectile_chr_wang_stone3`의 이동 컴포넌트(속도)를 아직 못 읽어 0.25초에 비행 시간을 더하지 않았다 —
-        조사 뒤 더할 것(관리자 결정 2026-10-10: 조사 전까지 제외).
+      그 跟子는 없음(2026-10-31, 공식 클라에서 확인: 두 능력은 `WangVisualStoneMarkAbility`이고, 시전(`_selectTargetTiming` 0 = 시전 시작에 고른
+      `m_castTiles` 그대로)의 `CreateProjectileOnTile`이 `WangStoneTriggerManager.TryMarkVisualStone`으로 그 칸을 표시할 수 있을 때만 투사체를
+      만든다 — 그 칸에 표시된 돌·跟子가 없고(`CheckStoneMarkable`) 캐릭터가 없을 때(`Tile.GetCharacter`); 못 하면 `_actionsOnMarkFailed`(둘 다 빔)뿐).
+      우리 `followerClass`의 쓰러진 오퍼레이터 칸 제외(관리자 결정 2026-10-07)는 내려앉을 때도 그대로. 내려앉는 때는 그대로. 예전: 돌과 같은 틱(재능),
+      S3 시작분은 한꺼번에. `op-wang.js FOLLOWER_PRE_DELAY`·`S3_SPAWN_COOLDOWN`. 테스트 `test/local-patch-diy-wang.test.js` W12(0.25초 뒤 첫 跟子)·
+      「thrown at its tile」·「does not land when a unit takes its tile」, `test/local-patch-diy.test.js` 「none at the cast」.
+      - **투사체 비행 시간 없음** (2026-10-31, 공식 클라에서 확인 — 관리자 결정 2026-10-10 「조사 전까지 제외」를 닫음): `projectile_chr_wang_stone3`의
+        이동 컴포넌트는 `AttachToTarget`(`_immediatelyReach` 1, `_delayToStart` 0) — 만들어질 때 그 칸에 놓이고 날아가지 않는다. 그래서 0.25초
+        (`_preDelay`) 뒤 = 내려앉음 그대로; 떨어지는 모습은 던짐 `_startEffect` `wang_passive_01_start`(렌더 'wangThrow')가 그 0.25초 동안 보여 준다.
       놓을 수 없는 칸(2026-10-06 관리자 제보): 클라이언트 跟子 선택기 `exceptTileTypes` + tileTypesMask 14. 비트는 클라 enum
       `Torappu.Battle.TileTypesMask`([Flags]: NONE 0, DEFAULT 1, HOLE 2, END 4, START 8, FAKE_HIGHLAND 16; 2026-10-10 확인 — 그 전엔 tileTypeDict
       순서로 END 2·START 4·HOLE 8이라 [추정]했다) → 14 = HOLE·END·START = `tile_end`·`tile_end_cooperate`·`tile_allygoal`(방어 지점),
