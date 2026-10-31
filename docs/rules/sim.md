@@ -1296,7 +1296,8 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
 ### 麻痹震颤 (결정 4 조사)
 - **규칙**: 麻痹로 공격이 끊긴 적은 모두(막힘·근접·원거리·「不停止移动」) `PALSY_STOP` 0.5 s 동안 움직이지 않고 새 공격을 시작하지 않는다(`ai.js` `palsyUntil`·
   `atkStandUntil`); 기절·빙결·수면·浮空이 오면 끝. 공식 클라 `Enemy.OnTriggerPalsy` → `Enemy.States.PalsyState.OnTick`(`palsying` 버프가
-  있는 동안 머묾). [ASSUMED] 0.5 s — `palsying`은 클라 버프 표 값이라 PRTS 术语释义 麻痹 「进入0.5秒的麻痹震颤状态」. `_PlayShaking`의 5 s는 흔들림 연출 길이일 뿐.
+  있는 동안 머묾). 0.5 s = 클라 버프 표(`dyn/gamedata/buff_table*.bytes`)의 `palsying` 행 blackboard `duration` 0.5(2026-10-31 공식 클라에서 확인; PRTS
+  术语释义 麻痹 「进入0.5秒的麻痹震颤状态」과 같음; 이전엔 PRTS 근거의 추정). `_PlayShaking`의 5 s는 흔들림 연출 길이일 뿐.
 - **옛 동작**: 막히지 않은 원거리 적만 `ATTACK_PAUSE` 0.35 s 섬. 되돌리려면 `ai.js enemyAttack`의 麻痹 갈래 두 줄을 옛 `atkStandUntil` 식으로.
 - 미구현: PRTS 「或开始动作2秒时被打断」(선딜 2 s 넘는 공격의 2 s 시점 끊김).
 
