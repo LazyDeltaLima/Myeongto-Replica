@@ -21,7 +21,9 @@ classes, namespace Torappu.Battle.Projectiles):
                      then stops it `_delayTime` s later (Projectile.EnsureLifeTime + a timed Stop); without `_checkReached`
                      it is reached only when its LIMITED life ends (`_alwaysReachInTheEnd`, Projectile.OnProjectileStop);
                      a hit behaviour with `_onlyCheckHitWhenStop` hits at the stop, one with
-                     `_onlyCheckHitWhenReachTarget` at the reach
+                     `_onlyCheckHitWhenReachTarget` at the reach; `trace` 1 = it hits its own target in the end
+                     wherever that one stands (`_alwaysHitTraceTargetInTheEnd` / `_alwaysHitTraceTargetWhenReached`,
+                     the client's Projectile._DealHitTraceTarget: while it lives) — else only the enemies in its collider
   none               a projectile with no movement behaviour (an area / effect carrier at its target) → move NONE
 
 The sim (server/sim/ai.js enemyAttack, content kits) times the hit of an enemy's shot by these numbers; the renderer and
@@ -148,6 +150,9 @@ def projectiles(C):
         land = attach_land([d for gp, d in lst if gp == key])
         if land is not None:
             r['land'] = land
+        if r['move'] == 'ATTACH' and any(d.get('_alwaysHitTraceTargetInTheEnd') or d.get('_alwaysHitTraceTargetWhenReached')
+                                         for gp, d in lst if gp == key):
+            r['trace'] = 1
         out[key] = dict(sorted(r.items()))
     return out
 

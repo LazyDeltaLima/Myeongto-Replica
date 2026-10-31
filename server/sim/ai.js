@@ -548,15 +548,16 @@ export function performAttack(b, u, prof, targets, opts = null) {
       const wait = shot.land ?? shot.delay;
       if (wait > 0) {
         const fired = { ...prof };
-        // An instant AttachToTarget (烛煌 S3, 维什戴尔 S2) is put on its target's spot once (`_keepUpdate` 0) and does not
-        // stop when the target dies (`_stopIfTargetDead` 0): its collider hits the enemies there when it stops
-        // (HitBehaviour `_onlyCheckHitWhenStop`), the dead target left out (Projectile._DealHitTraceTarget: ValidAndAlive)
-        // — a splash shot lands on the spot it was fired at without it (official client). A non-instant one (迷迭香 S2)
-        // still needs its target.
-        const x0 = t.x, y0 = t.y, spot = !!shot.instant && fired.splashRadius > 0;
+        // A splash AttachToTarget (烛煌 S3, 维什戴尔 S2, 迷迭香 S2) is put on its target's spot once (`_keepUpdate` 0) and
+        // does not stop when the target dies (`_stopIfTargetDead` 0): its collider (the splash radius) hits the enemies
+        // around that spot as it stops / reaches (HitBehaviour), whether its target is still there or not; a `trace` one
+        // hits its live target wherever it stands too (Projectile._DealHitTraceTarget: ValidAndAlive) — official client
+        const x0 = t.x, y0 = t.y, spot = fired.splashRadius > 0;
         b.after(wait, () => {
-          if (t.alive && !t.hidden) resolveHit(b, u, fired, t, info, t.x, t.y);
-          else if (spot) resolveHit(b, u, fired, null, info, x0, y0);
+          const live = t.alive && !t.hidden;
+          if (!spot) { if (live) resolveHit(b, u, fired, t, info, t.x, t.y); return; }
+          const main = live && (shot.trace || b.foesInRadius(x0, y0, fired.splashRadius, true).includes(t)) ? t : null;
+          resolveHit(b, u, fired, main, { ...info, spot: true }, x0, y0);
         });
       }
       else resolveHit(b, u, prof, t, info, t.x, t.y);
@@ -621,6 +622,7 @@ export function throwBoomerang(b, u, prof, t, info) {
  * Apply one attack hit (called on impact for projectiles). `target` may be null (splash on a dead target's spot).
  * `info.cachedAtk` { atk, atkScaleMul } — the attacker's ATK and 攻击倍率 multiplier when it fired, used instead of the
  * values at impact (client RangedAttack `_useCachedAtkOnly`); content sets it on the projectile (`projectile.cachedAtk`).
+ * `info.spot`: the splash stays centred on (x, y) instead of following the target (a shot's collider left where it was fired).
  */
 export function resolveHit(b, u, prof, target, info, x, y) {
   const cached = info.cachedAtk;
@@ -672,7 +674,7 @@ export function resolveHit(b, u, prof, target, info, x, y) {
     dealtTotal += dealtMain;
     if (prof.onHitStatus && target.alive) b.applyStatus(target, prof.onHitStatus.key, { duration: prof.onHitStatus.duration, source: u, value: prof.onHitStatus.value });
     if (each) each(target, dealtMain, 'main');
-    x = target.x; y = target.y;
+    if (!info.spot) { x = target.x; y = target.y; }   // (a shot whose collider stays where it was fired: that spot)
   }
   // splash: a 中点判定 radius around the target's position — a huge enemy counts by its 判定中心 (Battle.enemiesInRadius)
   if (prof.splashRadius > 0) {
