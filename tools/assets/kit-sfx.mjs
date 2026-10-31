@@ -169,6 +169,9 @@ export const KIT_HIT_BANKS = Object.freeze({
   // PlayAudio); a hit a block layer stops whole (BlockDamage.Execute plays ON_DAMAGE_BLOCK at the holder: fx 'parry')
   'siracusa:ex': 'battle.ON_CUSTOM_TRIGGER.siracusa_ex_attack',
   'block': 'battle.ON_DAMAGE_BLOCK',
+  // 2026-11-01 (public/js/audio.js TPL_FX_SOUNDS): 卡西米尔 [ex]'s pulse on each enemy it hits — the AOEDamage `_buffs`
+  // [ex_damage_effect] carries audioSignal kazimierz_ex_attack beside its effect, sounded as the buff starts
+  'kazimierz:ex': 'battle.ON_BUFF_START.kazimierz_ex_attack',
 });
 
 /**

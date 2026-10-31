@@ -507,7 +507,13 @@
     `PlayAudioAtPos`로 `battle.ON_DAMAGE_BLOCK`(`e_atk_soldiershield`, Battle_BE_NAtk, 2개 popOldest)을 막은 유닛 자리에서 낸다 — 뚫고 들어간 타격은 이펙트도
     소리도 없음(공식 클라에서 확인). 우리: sim fx `parry`(`damage.js absorbShields` 횟수형 층·`archetypes.js` 방벽 층) → `kitHitKey` `block`, 방벽 층이 깨지기만
     한 것(`whole` 0)은 무음. 새 sfx 1개. 이펙트 쪽은 rules/fx.md 「횟수형 护盾 이펙트」.
-  - 확인: `test/audio-bond-block-sounds.test.js`(뱅크·키·AudioManager 재생, 시라쿠사 6 전투의 발동마다 소리 한 번 — battleHarness). [화면 미확인]
+  - 카시미어 맹약(kazimierzShip) 6 [ex] 진 피해 (2026-11-01): `act2autochess_bond_eff_kazimierz[ex][damage]`의 AOEDamage가 맞은 적마다 거는
+    0.5초 버프 `[ex_damage_effect]`에 이펙트 `common_071_bond_kazimierz_hit_01_new`와 함께 `audioSignal` `kazimierz_ex_attack`이 있다 — 버프가 시작될 때
+    `battle.ON_BUFF_START.kazimierz_ex_attack`(그 적, 뱅크 `a_bat_kswdrn`, Battle_UI_Important, 2개 popOldest — EN 클라 버프 템플릿). 이 모드 템플릿에서
+    `audioSignal`은 이것 하나. 우리: 이미 있던 그 이펙트의 상태 이벤트 `tplfx`(`bonds/core.js`)에 `audio.js TPL_FX_SOUNDS` → `kazimierz:ex`(sim·golden 그대로).
+    새 sfx 1개(예전엔 이 소리가 없었음 — 관리자 제보).
+  - 확인: `test/audio-bond-block-sounds.test.js`(뱅크·키·AudioManager 재생, 시라쿠사 6 전투의 발동마다 소리 한 번, 카시미어 6 전투의 맞은 적마다
+    소리 한 번 — battleHarness). [화면 미확인]
 - 안 한 것 [시점·조건을 sim에서 못 얻음]: 티티 `titi_s_3[spread_from]`(연쇄 수면 선 — sim 이벤트 없음)·재능 `titi_t_1`(잠든 적 틱), 시빌라이트 에테르나
   재능 미진 재생성 `projectile_chr_cetsyr_talent[_s1|_s2]_cooldown_ready`(재생성 순간 이벤트가 없음 — 로스터 kit라 이벤트를 넣으면 golden이 넓게 바뀜),
   위셔델 `WISDEL_S_OVERLOAD`(S3 표식은 위 「스킬·재능 투사체 소리」), 필라에 `philae_aoe`, 카넬리안·노시스·루멘 `[eff_cond]` 단계 버프, 뮤엘시스·비질 가짜 죽음, 실버애쉬 더 레인프로스트

@@ -4,6 +4,8 @@
 // ON_DAMAGE_BLOCK at the holder with its block effect — the sim's fx 'parry'; a barrier layer the hit broke through,
 // `whole` 0, plays neither). The committed data/assets.json predates these keys: the manifest here is it plus the keys
 // built from the official audio_data.json by the generator (tools/assets/kit-sfx.mjs kitHitSfx).
+// 2026-11-01: 卡西米尔 [ex]'s pulse — its AOEDamage `_buffs` [ex_damage_effect] on each enemy hit carries audioSignal
+// kazimierz_ex_attack beside its effect (battle.ON_BUFF_START.kazimierz_ex_attack): the sim's 'tplfx' of that effect.
 
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,7 +13,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { AudioManager, kitHitKey } from '../public/js/audio.js';
+import { AudioManager, kitHitKey, TPL_FX_SOUNDS } from '../public/js/audio.js';
 import { KIT_HIT_BANKS, kitHitSfx } from '../tools/assets/kit-sfx.mjs';
 import { indexAudio } from '../tools/assets/audio.mjs';
 import { makeBattle, chessRec, enemyRec } from './helpers/battleHarness.js';
@@ -90,5 +92,47 @@ describe('叙拉古 [ex] proc and a blocked hit', () => {
     a.setFieldUnits([...h.b.allyUnits, ...h.b.enemies].map((u) => ({ id: u.id, kind: u.side === 'enemy' ? 'enemy' : 'op', side: u.side, spine: 'x', defId: 'x' })));
     a.handleBattleEvents(h.eventsOf('fx'));
     assert.equal(a.played.filter((f) => f === 'a_bat_xscthrtcl.mp3').length, procs);
+  });
+});
+
+describe('卡西米尔 [ex] pulse', () => {
+  test('the bank and the template effect it rides on', { skip: NO_DATA }, () => {
+    const out = kitHitSfx(indexAudio(JSON.parse(readFileSync(OFFICIAL, 'utf8'))), (p) => p);
+    assert.equal(KIT_HIT_BANKS['kazimierz:ex'], 'battle.ON_BUFF_START.kazimierz_ex_attack');
+    assert.equal(file(out['kazimierz:ex'][0]), 'a_bat_kswdrn.mp3');
+    assert.equal(TPL_FX_SOUNDS.common_071_bond_kazimierz_hit_01_new, 'kazimierz:ex');
+  });
+
+  test('the audio manager plays it on the template effect, not on other ones', { skip: NO_DATA }, () => {
+    const a = manager();
+    a.handleBattleEvents([['tplfx', 2, 'common_071_bond_kazimierz_hit_01_new', 1], ['tplfx', 1, 'bond_charge_battle_01', null]]);
+    assert.deepEqual(a.played, ['a_bat_kswdrn.mp3']);
+  });
+
+  test('a 卡西米尔 6 battle: one sound per enemy a pulse hits', { skip: NO_DATA }, () => {
+    const ops = {};
+    for (let i = 0; i < 6; i++) {
+      ops[`z${i}`] = chessRec({
+        id: `z${i}`, profession: 'WARRIOR', bonds: ['kazimierzShip'], tier: 1, rangeGrid: [[0, 0], [0, 1]],
+        stats: { maxHp: 2000, atk: 500, def: 200, res: 0, aspd: 100, bat: 1, respawnTime: 20, spRecovery: 1, blockCnt: 2 },
+        skill: { spCost: 60, duration: 5, initSp: 0 },
+      });
+    }
+    // z0 on the walking lane (row 9); the others on row 12 behind the lane's end
+    const units = Object.keys(ops).map((id, i) => ({ chessId: id, row: i === 0 ? 9 : 12, col: i === 0 ? 5 : 2 + i }));
+    const h = makeBattle({
+      defs: { chess: ops, enemies: { e_walk: enemyRec({ key: 'e_walk', hp: 1e8, speed: 1, atk: 0 }) } }, units,
+      bonds: { kazimierzShip: { count: 6, active: true, tier: 2, layers: 0 } },
+      enemies: [{ key: 'e_walk', route: 0 }], timeLimit: 120, autoFinish: false, hooks: ['damaged'], captureNoisy: true,
+    });
+    const z0 = h.unit('z0');
+    assert.ok(h.runUntil(() => z0.blocking.length > 0, 30), 'blocked');
+    h.run(4.1);
+    const hits = h.hooksOf('damaged').filter((c) => c.dmg?.tags?.includes('bond:kazimierz') && c.dmg.isSplash).length;
+    assert.ok(hits >= 3, `pulses at the block's start, +2 s, +4 s (${hits})`);
+    const a = manager();
+    a.setFieldUnits([...h.b.allyUnits, ...h.b.enemies].map((u) => ({ id: u.id, kind: u.side === 'enemy' ? 'enemy' : 'op', side: u.side, spine: 'x', defId: 'x' })));
+    a.handleBattleEvents(h.eventsOf('tplfx'));
+    assert.equal(a.played.filter((f) => f === 'a_bat_kswdrn.mp3').length, hits);
   });
 });

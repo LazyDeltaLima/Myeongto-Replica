@@ -111,6 +111,11 @@ const CHAIN_KINDS = new Set(['chain', 'chainHeal']);
 const IMPACT_TYPES = new Set(['phys', 'arts', 'true']);
 /** The Spine clip events the client sounds (AnimationConsts ON_PLAY_AUDIO_EVENT[_1–3]; AudioManager.spineEvent). */
 const SPINE_AUDIO_EVENT = /^OnPlayAudio(?:_[1-3])?$/;
+/**
+ * The `sfx.kit` key of a 卫戍协议 template effect (sim status event 'tplfx') whose buff carries an `audioSignal`, played
+ * as it starts (bank battle.ON_BUFF_START.<signal>). The mode's templates have one: 卡西米尔 [ex]'s [ex_damage_effect].
+ */
+export const TPL_FX_SOUNDS = Object.freeze({ common_071_bond_kazimierz_hit_01_new: 'kazimierz:ex' });
 
 /**
  * local patch: the `sfx.kit` key of a kit's skill hit (tools/assets/kit-sfx.mjs) for a battle.fx event, or null.
@@ -2117,6 +2122,9 @@ export class AudioManager {
           this.consumed.add(ex.id);
           if (this.consumed.size > 200) this.consumed.delete(this.consumed.values().next().value);
           this.unit(u.def, 'hit', `${ex.id}:boom`);
+        } else if (kind === 'tplfx') {
+          // 2026-11-01: a template effect whose buff also carries an audio signal (['tplfx', target, effectKey, source])
+          this._kitSound(TPL_FX_SOUNDS[e[2]] ?? null);
         } else if (kind === 'bounty') {
           this.battle('killCoin');
         } else if (kind === 'layer') {
