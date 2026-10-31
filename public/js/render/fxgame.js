@@ -2474,8 +2474,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
     // on its target (followed, at its prefab's _spawnLocation), ended with it; played with the target's facing [추정: the
     // node's direction options are not in the event]
-    spawn(r[0], r[1], tgt, { owner: null, buff: false, on: tgt.id ?? e[1], tag: 'tplfx' }, { over: true, facing: efacing(tgt) });
+    const t0 = clockS, life = TPL_BUFF_S[String(e[2]).toLowerCase()];
+    const p = spawn(r[0], r[1], tgt, { owner: null, buff: false, on: tgt.id ?? e[1], tag: 'tplfx' }, { over: true, facing: efacing(tgt) });
+    if (life > 0) p.then((l) => { if (l) zoneEnd(l, Math.max(clockS, t0 + life), true); });
   }
+  // A template effect that is a buff's own (`overrideEffectKey`), not a CreateEffect node: it lasts the buff, then
+  // Effect.FinishMe — gone its prefab's `_delayToFinish` later (def.finish). 2026-10-31: 카시미어 맹약 [ex] 파동, the AOEDamage
+  // `_buffs` [ex_damage_effect] (LIMITED 0.5 s, buff template; official client) — it played its whole 2.83 s prefab before.
+  const TPL_BUFF_S = { common_071_bond_kazimierz_hit_01_new: 0.5 };
   // A 护盾 layer blocking a hit (sim damage.js absorbShields → fx 'parry' {id, buff}): the client's BlockDamage.Execute
   // plays the buff blackboard's `effect` (GetStringOrDefault, the node's
   // _specifyBlockEffect the default) on the holder, else common_buff_parry_01. Empty in archet_t_2, kalts2_t_2[shield],
@@ -3419,18 +3425,24 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       for (const n of names) spawn(b.bundle, n, views.get(o.id) || { x, y, z: 0 }, { owner: null, buff: false });
       return true;
     }
+    // 赤刃明霄陈 S2: the slashes are the hits of one cast — the client's spellCnt is 0 at its start (`_DoCast`), so the
+    // _hitGroups cycle starts again from _hit_01 every cast (2026-10-31; official client): 'chen3Vanish' is that start
+    if (e[1] === 'chen3Vanish') { const v = views.get(o.id); if (v) v._fxStormN = -1; return false; }
+    // 丰川祥子's fever (and 耀骑士临光's bursts) play no prefab of theirs, standInOff keeps the 2D ring off: her bundle has no
+    // Fever start effect and her Fever buffs (oblvns_*[fever], buff templates) name none — until 2026-10-31 it played
+    // oblvns_combat_01_start, her blocked-enemy attack's cast (Body/Combat, modes.json combatSplit)
+    if (e[1] === 'sunBurst') return false;
     // local patch (maintainer report 2026-10-07: the old stand-ins go — standInOff): the kit events whose moment has an official
     // prefab draw it instead of nothing — 维什戴尔's 残影 bomb ('explode', by = her) wisdel_bomb_01_hit [추정: by name; no
-    // prefab key found], 赤刃明霄陈 S2's strikes ('swordStorm', id = her) skchr_chen3_2 _hitGroups[0..5] in turn [추정: one
-    // group a strike], 丰川祥子's fever ('sunBurst', id = her) her Combat mode's cast oblvns_combat_01_start [추정]
-    if (e[1] === 'explode' || e[1] === 'swordStorm' || e[1] === 'sunBurst') {
+    // prefab key found], 赤刃明霄陈 S2's strikes ('swordStorm', id = her) skchr_chen3_2 _hitGroups[0..5] in turn (the
+    // n-th slash of a cast: the n-th group, looped)
+    if (e[1] === 'explode' || e[1] === 'swordStorm') {
       const src = views.get(e[1] === 'explode' ? o.by : o.id), b = bundleOf(src);
       const n = !b ? null : e[1] === 'explode' ? (b.bundle === 'wisdel' ? 'wisdel_bomb_01_hit' : null)
-        : e[1] === 'swordStorm' ? (b.bundle === 'chen3' ? `chen3_skill_02_hit_0${((src._fxStormN = ((src._fxStormN ?? -1) + 1) % 6)) + 1}` : null)
-          : b.bundle === 'oblvns' ? 'oblvns_combat_01_start' : null;
+        : b.bundle === 'chen3' ? `chen3_skill_02_hit_0${((src._fxStormN = ((src._fxStormN ?? -1) + 1) % 6)) + 1}` : null;
       if (!n || !b.prefabs.includes(n)) return false;
       ownFx.add(e);
-      spawn(b.bundle, n, e[1] === 'sunBurst' ? src : { x, y, z: 0 }, { owner: null, buff: false });
+      spawn(b.bundle, n, { x, y, z: 0 }, { owner: null, buff: false });
       return true;
     }
     // local patch: 焰影苇草 S3 — a 灼痕 enemy's death bursts (sim 'scorchBurst', id = her): reed2_debuff_boom_01 there
@@ -3745,8 +3757,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // instead of the caster (client `InputTargetEffectOptions.CreateEffect`): at its `_startEvent` (4 the
   // strike, 2 the swing start — 시's dusk_attack_01_hit_02 loops on the target from the swing to the strike), at the
   // ability's playback speed, and — `_useInputPos` (castOpt p) — at the target's last place once it died. The main target is
-  // the strike's first 'atk' target; a swing names none, so a swing-start one goes on its last attack's target while that
-  // one lives [추정: the sim's 'swing' carries no target], else it starts at the strike.
+  // the strike's first 'atk' target; a swing-start one goes on the swing's main target (its `face`, 2026-10-31 — the sim's
+  // 'swing' names it since 2026-10-26), else on its last attack's target while that one lives (a swing that turns it
+  // nowhere or to a direction, `face` absent / 'D' / 'F'), else it starts at the strike.
   /** The main target of `v`'s last strike, while it is on the field. */
   function lastTarget(v) {
     const t = v._fxTgt != null ? lastViews?.get(v._fxTgt) : null;
@@ -3902,13 +3915,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     skillByFlag(src, views);
     const mode = modeNow(src);
     const c = beginCast(src, windup, mode);
+    const face = faceId != null ? views.get(faceId) || null : null;   // the main target ('D' / 'F': none)
     c.sig = sig;
-    c.group = castGroup(src, mode, sig, faceId != null ? views.get(faceId) : null);
+    c.group = castGroup(src, mode, sig, face);
     if (c.skip) return;
     const { names: own, split } = boundFor(src, mode, 'cast', kind);
     const cast = castOf(own, c.group);
-    inputFx(src, c, mode, 'swing');
-    castTgtFx(src, c, mode, kind, faceId != null ? views.get(faceId) : null);
+    inputFx(src, c, mode, 'swing', face);
+    castTgtFx(src, c, mode, kind, face);
     if (cast.length || split) { playCast(src, c, cast.filter((n) => phaseOf(src, mode, n) === 'swing')); return; }
     // no mode binding: the name mapping's attack start, at the swing like the client's ON_CAST_START majority [추정]
     if (!src._fxSkillOn) play(src, 'attackStart', 0, { tag: 'cast' });

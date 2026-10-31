@@ -307,8 +307,11 @@
     민트 육각+기둥(summon)·파동을 같이 그렸다 → 넣음. ② 공식 이펙트 번들이 있는 오퍼레이터의 키트 'fx' 이벤트는 `fx.js` 절차 대체(blast·zone·wall·
     summon·buff·wave·pillar·element·healAoe·shield·shatter·strike·volley)를 안 그림(`fxgame.js standInOff`; 이벤트의 오퍼레이터 = `src` → `by` → `id`,
     소환물·장치는 예외; 회피·치명·DP·표식·빔·이동 화살표·단일 회복은 남김). 그 순간에 공식 프리팹이 있는 것은 그것으로: 维什戴尔 残影 폭발 'explode' →
-    `wisdel_bomb_01_hit` [추정: 이름], 赤刃明霄陈 S2 'swordStorm' → `skchr_chen3_2 _hitGroups[0..5]`(`chen3_skill_02_hit_01~06` 순환, 공식 클라에서 확인 — 아래 「타격별 명중」; 공식은 시전마다 첫 것부터 세고 우리 `_fxStormN`은 이어서 셈 [차이]),
-    丰川祥子 열광 'sunBurst' → Combat 모드 cast `oblvns_combat_01_start` [차이: 이 프리팹은 저지한 적 공격(Body/Combat)의 시전 이펙트라 열광 시작 것이 아님 — 아래 「능력 묶음의 자식·COMBAT 상태 공격」 `combatSplit`; 열광 시작에 트는 공식 이펙트는 미확인].
+    `wisdel_bomb_01_hit` [추정: 이름], 赤刃明霄陈 S2 'swordStorm' → `skchr_chen3_2 _hitGroups[0..5]`(`chen3_skill_02_hit_01~06` 순환, 공식 클라에서 확인 — 아래 「타격별 명중」; 공식은 시전마다 첫 것부터 셈(`spellCnt`) — 2026-10-31부터 우리도 S2 시전 시작
+    키트 'chen3Vanish'에서 `_fxStormN`을 되돌림, 그 전엔 이어서 셈).
+    토가와 사키코 열광 'sunBurst'는 그녀 이펙트를 틀지 않는다(2026-10-31): 그녀 번들(추출 30개)에 열광 시작 이펙트가 없고 열광 버프들(`oblvns_s_1/2/3[fever]`·
+    `oblvns_s_2[fever_eff]`·`oblvns_t_2[fever]`, 버프 템플릿)도 이펙트 키가 없다. 그 전엔 Combat 모드 cast `oblvns_combat_01_start`를 틀었는데 그것은 저지한 적
+    공격(Body/Combat)의 시전 이펙트(아래 「능력 묶음의 자식·COMBAT 상태 공격」 `combatSplit`). 2D 절차 원은 위 규칙대로 안 그림.
     **예외 (2026-10-08)**: 오퍼레이터에게서 0.5칸 넘게 떨어진 오래가는 'zone'(`key`가 있거나 지속 > 1초)은 2D 원을 남긴다
     (`fxgame.js areaAway`) — 그 자리의 공식 프리팹(`…_token`·`…_range`)을 트는 곳이 없어서, 引星棘刺 S2 炼金单元(upstream f1e462ef: 1초마다 `key`로
     다시 보냄)이 품질 low가 아니면 아무것도 안 보였다(실제 판 확인). 전수: 引星棘刺 S1·S2·S3, 锡人, 歌蕾蒂娅 漩涡, 号角 조명, 异客 폭풍 → 2D 원.
@@ -842,8 +845,8 @@
   `_delayIfFirstAttack` 그대로)이고 `CreateEffect`만 다르다: 능력의 입력 대상(주 대상 1명)에, 시전자의 방향·능력 재생 속도로; 대상이 죽었고
   `_useInputPos`면 그 자리(`CreateEffectAtMapPos`). 우리는 타격 이펙트로 묶어 'dmg' 때 맞은 대상마다 1.0배속으로 틀었다(시 `dusk_attack_01_hit_02`처럼 휘두름 동안
   대상에 붙는 루프가 타격 때 한 번). → `char_modes.py`가 모드의 `input[모드]`로 따로 쓰고(타격 `hit`에서 뺌) 시점을 `castOpt`에 `t: 1`(+ `_useInputPos`면 `p: 1`)로,
-  `fxgame.js inputFx`가 시전 이펙트와 같은 시계로 주 대상에 튼다: 시작 4(타격) = 그 타격의 첫 'atk' 대상, 시작 2(휘두름) = 그 유닛이 지난번에 친 대상이 살아 있으면
-  그 대상(2026-10-26부터 'swing' 여섯째 칸에 공격 대상이 오지만 `inputFx`는 아직 그것을 안 씀 — 고칠 것), 없으면 타격 때. 끝 4 = 타격, 3·6 = 시전 끝. 풀 12개: 시 기본·S3(+ 스킬 묶음 S1), 모스티마, 산탈라,
+  `fxgame.js inputFx`가 시전 이펙트와 같은 시계로 주 대상에 튼다: 시작 4(타격) = 그 타격의 첫 'atk' 대상, 시작 2(휘두름) = 'swing' 여섯째 칸의 공격 대상(2026-10-31부터;
+  시뮬은 2026-10-26부터 보냄), 그 칸이 없거나 방향('D'·'F')이면 그 유닛이 지난번에 친 대상이 살아 있을 때 그 대상, 없으면 타격 때. 끝 4 = 타격, 3·6 = 시전 끝. 풀 12개: 시 기본·S3(+ 스킬 묶음 S1), 모스티마, 산탈라,
   레온하르트(`_onlyOnce`), 페페 S2, 위셔델 S3(`_useInputPos` 0). 스킬 묶음(`skills[i].target`) 쪽 입력 대상(시 S1 등)은 발동 경로라 그대로.
 - **② 루프형 타격 이펙트·마비** — `HitEffectOptions.OnEvent`: 루프형(`_oneshot` 0)은 `_endEvent`에 끄고, `OnCastFinish`는 루프형을 끄며 이유가
   PALSY(4)면 그 옵션이 만든 이펙트 전부(한 번형 포함)를 끈다(`CastEffectOptions.OnCastFinish` → `EffectOptions.OnCastFinish`도 같음).
@@ -937,7 +940,8 @@
   - 고수 맹약 2단계 피해 나눔: `act1autochess_bond_eff_stead[other]`의 `AutoChessDamageSplit`이 나눈 몫을 받는 **구성원마다** `ApplyModifier` 뒤 `_hitEffectKey`
     `bond_shield_buff_hit`을 그 구성원에(방향 = 보호받은 유닛 → 구성원; 공식 클라에서 확인) → `tplfx` (구성원, 보호받은 유닛).
   - 카시미어 맹약 [ex] 저지 중 파동: `act2autochess_bond_eff_kazimierz[ex][damage]` AOEDamage의 `_buffs` `[ex_damage_effect]`(0.5 s, `common_071_bond_kazimierz_hit_01_new`)를
-    맞은 적마다 → `tplfx`(프리팹 길이만큼 한 번 [차이: 이 버프 `[ex_damage_effect]`는 LIMITED 0.5 s라 공식은 0.5 s 뒤 끝나고 `_delayToFinish` 0.5 s 뒤 사라짐(버프 템플릿·공식 클라에서 확인) — 우리는 프리팹 길이 2.83 s, 고칠 것]).
+    맞은 적마다 → `tplfx`. 이 이펙트는 버프 `[ex_damage_effect]`의 것(LIMITED 0.5 s)이라 0.5 s 뒤 끝나고(Effect.FinishMe) `_delayToFinish` 0.5 s 뒤 사라짐(버프 템플릿·공식 클라에서 확인)
+    — 2026-10-31부터 `fxgame.js TPL_BUFF_S`가 그 0.5 s로 끝냄(그 전엔 프리팹 길이 2.83 s 동안).
   - 소지 중 장비 이펙트(한 번이 아니라 버프 동안 — `fxstatus.js KEY_FX`, sim의 수정치 없는 표시 버프): 듀얼 모드 기계팔(장비) 전역 버프의
     `act1autochess_acarm067_buff`(INFINITY, `map_act1autochess_chaosbuff_01`, `'item:dualArm'`), 천사의 고정(장비) `act1autochess_acarm077_buff`가 炎 소지자에게 만드는
     `[attr]`(INFINITY, `trap_acarm40_buff`, `'item:cauldron'`; 얻은 수가 0이어도 — 버프 템플릿에서 확인: 炎 필터 뒤 CreateBuff에 수 조건 없음). 모드 템플릿은 바인딩 표 밖이라 `fx-bindings`

@@ -63,7 +63,7 @@ const FXGAME = {
   vigil_token_skill_02_hint: 'vigil_wolf_s_2', vigil_token_heal: 'vigil_wolf_s_1[enhance]',
   vigil_token_attack_hit_1: 'vigil_wolf_hit_effect', vigil_token_attack_hit_extra: 'vigil_wolf_hit_effect',
   chen3_skill_02_hit_01: 'skchr_chen3_2', wisdel_bomb_01_hit: 'wisdel_t_1[projectile_shock]',
-  oblvns_combat_01_start: 'char_4182_oblvns/Modes/Default/Body/Combat', reed2_debuff_boom_01: 'skchr_reed2_3',
+  reed2_debuff_boom_01: 'skchr_reed2_3',
   lemuen_skill_03_crosshair_01: 'lemuen_proj_s3_effect', lemuen_skill_03_trail_01: 'projectile_chr_lemuen_s3_aim',
   lemuen_skill_03_crosshair_range: 'projectile_chr_lemuen_s3', lemuen_skill_03_crosshair_02: 'projectile_chr_lemuen_s3_aim',
   lemuen_skill_03_hit_01: 'projectile_chr_lemuen_s3_attack', lemuen_skill_03_trail_02: 'projectile_chr_lemuen_s3_attack',

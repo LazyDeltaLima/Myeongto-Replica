@@ -64,7 +64,8 @@ test('cast-target effects (2026-10-26): timed in castOpt (t 2); the swing-start 
   assert.match(PY('char_modes.py'), /cast_target_timing\(d, cast_opt\[i\]\)/);
   assert.match(PY('char_modes.py'), /cast_target_timing\(x, timing\[i\]\)/);
   // fxgame: on the swing's target (its 6th field), the strike's when the swing named none; out of the hit list before its cap
-  assert.match(SRC, /castTgtFx\(src, c, mode, kind, faceId != null \? views\.get\(faceId\) : null\);/);
+  assert.match(SRC, /const face = faceId != null \? views\.get\(faceId\) \|\| null : null;/);
+  assert.match(SRC, /castTgtFx\(src, c, mode, kind, face\);/);
   assert.match(SRC, /if \(c\.ctLate\) castTgtFx\(src, c, mode, kind, tgt, true\);/);
   assert.match(SRC, /\.filter\(\(n\) => !swingTarget\(a\.src, a\.mode, n\)\)\.slice\(0, MAX_HIT_FX\)/);
 });
@@ -91,8 +92,9 @@ test('deployEffect / deadEffect: the mode\'s override, the root\'s, else common_
 });
 
 test('fxgame: input effects on the main target, looping hits end with the cast, 麻痹 cuts the cast, debuff marks held', () => {
-  // input: the swing's on its last attack's target (or at the strike), the strike's on its first target
-  assert.match(SRC, /inputFx\(src, c, mode, 'swing'\);/);
+  // input: the swing's on its main target (the 'swing' face), else its last attack's target (or at the strike), the strike's on its first target
+  assert.match(SRC, /inputFx\(src, c, mode, 'swing', face\);/);
+  assert.match(SRC, /c\.inTgt = tgt \|\| lastTarget\(v\);/);
   assert.match(SRC, /inputFx\(src, c, mode, 'strike', tgt\);/);
   assert.match(SRC, /if \(dead && !opt\?\.p\) return;/);
   assert.match(SRC, /play\(v, 'attackHit', 0, \{ at, names: \[n\], tag: loop \? 'castLoop' : 'cast', until: end, speed: c\.speed, cast: c \}\);/);

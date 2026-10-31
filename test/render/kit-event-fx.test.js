@@ -402,6 +402,10 @@ const files = { '/assets/local/fx/index.json': { bundles: {
   philae: ['philae_skill_02_hit_01', 'philae_skill_02_hit_02'], malist: ['malist_hit_extra'], indigo: ['indigo_skill_02_buff_03'],
   haini: ['haini_skill_02_buff_01', 'haini_skill_02_buff_02', 'haini_skill_02_weapon_01'], whitw2: ['whitw2_skill_03_mark_01', 'whitw2_skill_03_mark_02'],
 } } };
+// 2026-10-31 (fx.md 「공용(절차) 이펙트 제거」): 赤刃明霄陈 S2's slashes, 丰川祥子's fever
+Object.assign(files['/assets/local/fx/index.json'].bundles, {
+  chen3: [1, 2, 3, 4, 5, 6].map((i) => `chen3_skill_02_hit_0${i}`), oblvns: ['oblvns_combat_01_start'],
+});
 files['/assets/local/fx/index.json'].bundles.reed2.push('reed2_skill_02_fireball_01', 'reed2_skill_02_fireball_02', 'reed2_skill_02_fireball_hit');
 const settle = () => new Promise((r) => setTimeout(r, 5));
 
@@ -656,4 +660,32 @@ test('the plans by client key play what their hand prefabs played (묶음 K2: th
   assert.deepEqual(p('summon', { id: 4, token: 'token_10058_sbell2_icetgt' }, 'sbell2'), [{ on: 'id', life: 'unit', n: 'sbell2_tile_frozen', end: 'sbell2_tile_defrost' }]);
   assert.deepEqual(p('kalts2Takeoff', { id: 1, picks: [2] }, 'kalts2'), [{ on: 'picks', n: 'kalts2_skill_03_teleport_02', life: 'once' }]);
   assert.deepEqual(p('reborn', { id: 1 }, 'etlchi'), [{ on: 'op', life: 3, n: 'etlchi_innate_hit_01' }]);
+});
+
+test('fxgame.js (2026-10-31): 赤刃明霄陈 S2 counts her slashes from _hit_01 every cast; 丰川祥子\'s fever plays no Combat cast', async () => {
+  const fetch0 = globalThis.fetch;
+  globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
+  try {
+    const plays = [];
+    const layer = createFxLayer({ host: null, above: null, quality: () => 'high', trace: (p) => plays.push(p) });
+    await settle();
+    const op = (id, defId) => ({ id, x: id, y: 0, alive: true, info: { id, side: 'ally', defId, skillIndex: 1 } });
+    const views = new Map([[1, op(1, 'char_1050_chen3')], [2, op(2, 'char_4182_oblvns')]]);
+    const ev = (name, o) => { const e = ['fx', name, 0, 0, { x: 0, y: 0, ...o }]; layer.onEvent(e, views); return e; };
+    const got = () => plays.splice(0).filter((p) => p.kind === 'spawn').map((p) => p.names[0]);
+    // (sent without awaiting: node has no WebP, the first spawn's check fails the layer for later events)
+    ev('chen3Vanish', { id: 1, form: 'vanish' });
+    for (let i = 0; i < 3; i++) ev('swordStorm', { id: 1, r: 0.6 });
+    ev('chen3Vanish', { id: 1, form: 'vanish' });   // the next cast (the sim's AbilityStandard spellCnt back to 0)
+    ev('swordStorm', { id: 1, r: 0.6 });
+    assert.deepEqual(got(), ['chen3_skill_02_hit_01', 'chen3_skill_02_hit_02', 'chen3_skill_02_hit_03', 'chen3_skill_02_hit_01']);
+    const fever = ev('sunBurst', { id: 2 });
+    assert.deepEqual(got(), [], 'no prefab of hers for the fever');
+    assert.equal(layer.ownsFx(fever), true, 'and no 2D ring (standInOff)');
+  } finally { globalThis.fetch = fetch0; }
+});
+
+test('fxgame.js (2026-10-31): 卡西米尔\'s [ex] wave lasts its buff [ex_damage_effect] (LIMITED 0.5 s), then its _delayToFinish', () => {
+  assert.match(GAME, /const TPL_BUFF_S = \{ common_071_bond_kazimierz_hit_01_new: 0\.5 \};/);
+  assert.match(GAME, /if \(life > 0\) p\.then\(\(l\) => \{ if \(l\) zoneEnd\(l, Math\.max\(clockS, t0 \+ life\), true\); \}\);/);
 });
