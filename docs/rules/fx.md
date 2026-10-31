@@ -1210,8 +1210,21 @@
 - **재생을 다루는 능력 (2026-10-31, 공식 클라에서 확인)**: RebornTalent `_useAbilityToHandle`이면 `_OnRebornAfterFakeDeath`가 `_abilityName`의 붙은 능력을 가짜 죽음 때
   `CastDirectly`로 시작하고(`_finishHandleAbilityAfterReborn`이면 재생 끝에 `InterruptIfNot`), 그 능력의 시전 이펙트·`BuffToOwner`가 그 능력의 사건(ON_CAST_START·ON_ATTACK_FINISH·ON_CAST_END)에
   돈다. 이 모드에 나오는 적 7종이 그렇다(EN 적 프리팹 스캔): 자로(늑대 군주) 「Reborning」, 주인공 진영 캐릭터 `enemy_10098_crhro`, 무덤지기 석상·성난 무덤지기 석상 `enemy_1172_dugago`·`_2`,
-  '거대하고 못생긴 것' `enemy_1512_mcmstr`, 데겐블레허 `enemy_1525_blkswb`, '어벤져' `enemy_1539_reid` — 렌더 표 `skills`의 `reborn`('거대하고 못생긴 것'은 `bomb[reborning]`) 부분. [차이: 시뮬이 이 능력을 알리지 않아(재생은 'reborn' 폼만) 렌더가 이 부분의 시전 이펙트를
-  안 틂 — 자로 `enemy_wlfmster_A_revive_2`(재생 내내)·`_3`·`_3_03`(끝 클립 시작) 등; 고칠 일은 §11 ③]
+  '거대하고 못생긴 것' `enemy_1512_mcmstr`, 데겐블레허 `enemy_1525_blkswb`, '어벤져' `enemy_1539_reid`.
+  `enemy_bindings.py`가 그 능력(재능과 같은 GameObject의 능력, 없으면 이름이 `…[<_abilityName>]`인 것 — '거대하고 못생긴 것' `CommonAbility/bomb[reborning]`)을
+  렌더 표 `rebornAbility` [{ mode?, to, cast, opt, dirs?, buffs: [{ fx, ev, once? }] }]로 쓴다(`BuffToOwner` 버프는 `_runActionOnEvent`를 `ev`로, IMMEDIATELY면 `once`).
+  렌더 `fxgame.js erebornAbility`: ON_CAST_START = 시뮬 'reborn' 폼이 켜질 때(무덤지기 석상은 重生 폼 없이 석상이 되므로 모드가 Walk → Stone으로 바뀔 때 시작·끝을 함께),
+  ON_ATTACK_FINISH = 그 폼의 닫는 클립 시작(units.js FORMS `end` — `_fireAttackFinishEvent`인 것은 자로의 Reborn_End `A_revive_3`뿐), ON_CAST_END = 재생 끝.
+  능력 길이(2026-10-31, 적 프리팹·`enemy_database`에서 확인): 자로·주인공 진영 캐릭터·데겐블레허·'어벤져'는 `_timeMode` 3 = 재능 블랙보드 duration = 재생 시간,
+  '거대하고 못생긴 것'은 SPECIFIED 5초(재생 10초 — 끝 사건에 붙은 것이 없음), 석상은 SPECIFIED 0; `_finishHandleAbilityAfterReborn`은 7종 다 0.
+  시전 이펙트는 제 `_startEvent`에, 루프(`_oneshot` 0)는 `_endEvent`까지(ON_CAST_END엔 남은 것 모두 끝); `BuffToOwner` 버프의 이펙트는 IMMEDIATELY면 곧바로
+  `FinishMe`(주인공 진영 캐릭터 `enemy_crhro[reborn]` → `enemy_sgactr_die_01_end`, 재생 끝), 重生 동안 붙은 것은 재생 끝까지 들고 그 뒤는 그 버프를 나타내는 시뮬 상태가
+  그리며(자로 `enemy_wlfmster_m2_eff` → `_B_buff_01`: 끝 클립 시작 = 37초째부터, 40초부터는 `ab:wolfRage`), 그 밖은 제 길이(석상 `dugago_reborn_begin_effect` →
+  `enemy_dugago _2_buff_02`, 반복 없는 2.5초 프리팹). 새로 그려지는 것: 자로 `enemy_wlfmster_A_revive_2`(재생 내내)·`_3`·`_3_03`, 주인공 진영 캐릭터
+  `enemy_crhro_2_revive_loop`·`_loop_end`, 석상 둘 `_2_buff_02`, '거대하고 못생긴 것' `mcmstr_buff_04_start`·`mcmstr_die_01_range`·`mcmstr_die_01_start`
+  (가짜 죽음 때 — 이것이 그려지면 시뮬 자폭의 대신 그림인 'telegraph'·'explode' `mechBomb` 고리·폭발은 안 그림), 데겐블레허 `enemy_blkswb_reborn_loop_01`·`_02`·`_weapon_01`·`_02`·`_start_01`,
+  '어벤져' `enemy_reid_revive_01`·`_02`. 재생 중에 처음 보인 적(뷰가 늦게 만들어짐)은 그 뒤 사건만. 재생 끝에 시뮬 상태로 넘길 때 같은 이펙트를 새로 시작한다
+  [추정·화면: 공식은 같은 버프라 이어짐 — 루프라 거의 안 보일 것]. [화면 미확인]
 - **불씨의 1초 무적 (2026-10-23)**: 시뮬 `husk`의 1초 무적 버프를 `ab:ember:inv`(보임)로 — 상태가 `…:inv`면 그 적의 INVINCIBLE 버프 이펙트(`inv`)를
   그리는 기존 길로 Prop BornAnim `enemy_duskls_invincible` → `enemy_duskls_revive_2`(불꽃 가디언은 이펙트 없음). 전투 golden은 status 수만 움직임.
 - **자로 【远古威慑】 오퍼레이터 쪽 (2026-10-23)**: `CommonAbilities/FearAura/Aura`가 범위 안 오퍼레이터에게 거는 `enemy_wlfmster_fear`의
@@ -1240,7 +1253,7 @@
   | `ab:warden` / `ab:killer` | 제셀톤 윌리엄스 | `Modes/Default/Talents/Enhance` `jakill_enhance#0` → `enemy_jakill_buff_01_start` / R 모드 `jakill_enhance#1`·`[eff1]`·`[eff2]` → `_02_start`·`_02`·`_03` |
   | `ab:xiShield[a]`·`[b]`·`[c]`(층마다 상태 하나) | '즈자이' | `ShieldBurst(Reborn)` `enemy_xi_s2[shield][a]`·`[b]`·`[c]` → `enemy_xi_skill_02_buff`·`_01`·`_02` — 층마다 깨지면 그 층 이펙트만 꺼짐(rules/sim.md 「리더 방벽 층 셋」) |
   | `ab:xiReborn` | '즈자이' | RebornTalent `reborn_up` → `skulsr_buff_01_start` |
-  | `ab:wolfGuard` / `ab:wolfRage` | 자로, '늑대 군주' | M1 `enemy_wlfmster_reduce_damage` → `enemy_wlfmster_A_buff_01` / `enemy_wlfmster_m2_eff` → `_B_buff_01` [차이: 공식은 재생 37초째(공식 클라에서 확인 2026-10-31 — 재생 재능이 가짜 죽음 때 시작하는 능력 「Reborning」(`ThreePartChannelingAnimation` Reborn → Reborn_Loop → Reborn_End = `A_revive_1`·`_2`·`_3`, 프리팹 Spine 애니메이션 표)은 길이 = 블랙보드 `Reborn.duration` 40초(`_timeMode` LOAD_FROM_BLACKBOARD, 재생 시간과 같은 키), 루프 = 40 − 시작 − 끝 클립, ON_ATTACK_FINISH는 끝 클립 `A_revive_3`(3초)이 시작할 때 → 그때 `BuffToOwner`가 건다), 우리는 시뮬 재생 끝(40초)부터 — 3초 늦음. `m2_eff`는 템플릿 `empty`·수정자 없음이라 그림만; 공격력·공격 간격은 둘째 형태 재능 `Passive2`(재생 끝의 모드 전환)라 시뮬은 그대로 맞음] |
+  | `ab:wolfGuard` / `ab:wolfRage` | 자로, '늑대 군주' | M1 `enemy_wlfmster_reduce_damage` → `enemy_wlfmster_A_buff_01` / `enemy_wlfmster_m2_eff` → `_B_buff_01` [공식은 재생 37초째(공식 클라에서 확인 2026-10-31 — 재생 재능이 가짜 죽음 때 시작하는 능력 「Reborning」(`ThreePartChannelingAnimation` Reborn → Reborn_Loop → Reborn_End = `A_revive_1`·`_2`·`_3`, 프리팹 Spine 애니메이션 표)은 길이 = 블랙보드 `Reborn.duration` 40초(`_timeMode` LOAD_FROM_BLACKBOARD, 재생 시간과 같은 키), 루프 = 40 − 시작 − 끝 클립, ON_ATTACK_FINISH는 끝 클립 `A_revive_3`(3초)이 시작할 때 → 그때 `BuffToOwner`가 건다), 시뮬 상태는 재생 끝(40초)부터 — 2026-10-31부터 렌더가 끝 클립 시작부터 그린다(위 「재생을 다루는 능력」). `m2_eff`는 템플릿 `empty`·수정자 없음이라 그림만; 공격력·공격 간격은 둘째 형태 재능 `Passive2`(재생 끝의 모드 전환)라 시뮬은 그대로 맞음] |
   | `ab:sandDef[1..3]` / `ab:lowhp` | 래트킹 | `Talents/shield` `mousek_shield[a/b/c]` → `mousek_buff_01/02/03_start`(층마다 `fxTag` 하나, 그 층이 깨지면 꺼짐; DEF 보너스 `ab:sandDef`는 안 그림) / `mousek_t` → `skulsr_buff_01_start` |
   | `ab:rockPower[1..3]` | 머드락(적) | `[shield][refresh]`가 만드는 `enemy_mdrock_s_2[shield_a/b/c]` → `enemy_mdrock_skill_buff_01/02/03`(층마다 하나; HP·공속 보너스 `ab:rockPower`는 안 그림) |
   | `ab:lowhp` | 스컬슈레더·'폼페이'·리벤져·'어벤져' | `skulsr_t_1`·`lslime_t_buff`·`reveng_t_atkup`·`enemy_reid_atkup_effect`(토글 버프) |

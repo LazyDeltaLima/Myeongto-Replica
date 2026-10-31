@@ -445,6 +445,11 @@ def enemy_record(root, tree, fx_index, proj_keys, skills=None):
             if cls in ('aura', 'globalAura') and k == '_passiveBuffs':
                 by = 'passive'
             lst = [buff(b, by) for b in d.get(k) or [] if isinstance(b, dict) and (b.get('buffKey') or b.get('templateKey'))]
+            # (2026-10-31) a BuffToOwner's `_buffs` go on its owner on its ability's event `_runActionOnEvent`
+            # (AbilityStandard.Event: 2 ON_CAST_START, 3 ON_CAST_END, 6 ON_ATTACK_FINISH …)
+            if k == '_buffs' and isinstance(d.get('_runActionOnEvent'), int):
+                for x in lst:
+                    x['ev'] = d['_runActionOnEvent']
             if lst:
                 a.setdefault(k.strip('_'), []).extend(lst)
         # (2026-10-21) an AuraAbility's own `_effects`: created on its owner as it attaches, finished as it detaches (DoAttach
@@ -457,6 +462,11 @@ def enemy_record(root, tree, fx_index, proj_keys, skills=None):
         if BUFF_CLASSES.get((d.get('m_Script') or {}).get('m_PathID')) == 'reborn' and strs(d.get('_effects')):
             a['rebornFx'] = {'fx': strs(d.get('_effects')), 'clear': 1 if d.get('_clearEffectsAfterReborn') else 0,
                              'mode': d.get('_modeIndex') or 0}
+        # (2026-10-31) a RebornTalent with `_useAbilityToHandle`: `_OnRebornAfterFakeDeath` casts its attached ability
+        # `_abilityName` at the fake death (CastDirectly); `_finishHandleAbilityAfterReborn` interrupts it at the rebirth's end
+        if BUFF_CLASSES.get((d.get('m_Script') or {}).get('m_PathID')) == 'reborn' and d.get('_useAbilityToHandle') and d.get('_abilityName'):
+            a['rebornHandle'] = {'name': d['_abilityName'], 'finish': 1 if d.get('_finishHandleAbilityAfterReborn') else 0,
+                                 'to': d.get('_modeIndex') or 0}
         if d.get('_projectileKey'):
             p = {'key': d['_projectileKey'], 'mount': enum(MOUNTS, d.get('_mountPointType'))}
             ex = strs([x.get('_projectileKey') if isinstance(x, dict) else x for x in d.get('_extraProjectileKeys') or []])
@@ -955,6 +965,36 @@ def render_entry(r, projs):
               for a in r['abilities'] if a.get('rebornFx')]
     if reborn:
         out['reborn'] = reborn
+    # (2026-10-31) the abilities that handle a rebirth (enemy_record `rebornHandle`, render/fxgame.js erebornAbility):
+    # [{ mode: the talent's mode (absent: outside the modes), to, finish?, cast, opt, dirs?, buffs: [{ fx, ev, once? }] }] —
+    # the ability on the talent's own GameObject, else the one named `…[<_abilityName>]` (巨大的丑东西's
+    # CommonAbility/bomb[reborning] for 「Reborning」), as the enemies of this mode pair them; its BuffToOwner buffs' effects
+    # with their event, `once` for an IMMEDIATELY buff
+    handles = []
+    for a in r['abilities']:
+        h = a.get('rebornHandle')
+        if not h:
+            continue
+        nm = h['name'].lower()
+        own_ab = a.get('castEffects') or any('ev' in b for b in a.get('buffs') or [])
+        lst = [a] if own_ab else [x for x in r['abilities'] if x['path'].split('/')[-1].lower().endswith(f'[{nm}]')]
+        if not lst:
+            print(f'  {r.get("prefab", "?")}: rebirth ability {h["name"]!r} not found', file=sys.stderr)
+            continue
+        part = emit_part(lst, projs)
+        e = {'to': h['to'], 'cast': part['cast'], 'opt': part['opt']}
+        if part.get('dirs'):
+            e['dirs'] = part['dirs']
+        if h['finish']:
+            e['finish'] = 1
+        e['buffs'] = [dict({'fx': n, 'ev': b['ev']}, **({'once': 1} if b.get('life') == 0 else {}))
+                      for x in lst for b in x.get('buffs') or [] if 'ev' in b for n in strs(b.get('fx'))]
+        if a.get('mode') is not None:
+            e['mode'] = a['mode']
+        if e['cast'] or e['buffs']:
+            handles.append(e)
+    if handles:
+        out['rebornAbility'] = handles
     if r.get('points'):
         out['points'] = r['points']
     return out
@@ -963,6 +1003,7 @@ def render_entry(r, projs):
 def entry_names(e):
     out = [e.get('start'), e.get('dead')] + list(e.get('aura', [])) + list(e.get('handed', [])) + list(e.get('auraNested', []))
     out += [x for rb in e.get('reborn') or [] for x in rb['fx']]
+    out += [x for ra in e.get('rebornAbility') or [] for x in ra['cast'] + [b['fx'] for b in ra['buffs']]]
     for k in ('buffFx', 'buffEnd'):
         for lst in (e.get(k) or {}).values():
             out += lst

@@ -165,6 +165,7 @@ const MAX_HIT_FX = 2;
 const MAX_TRAILS = 12;      // official projectile trails in flight at once (then fx.js's procedural shots)
 const HIT_GAP_S = 0.12;        // one hit effect per attacker → target pair within this time (multi-hit skills)
 const ESKILL_HOLD_CAP = 40;    // 2026-10-15: a held enemy skill's effects without its end event (子代 lives 35 s) [추정]
+const REBORN_HOLD_CAP = 60;    // 2026-10-31: a rebirth ability's held effects without the rebirth's end (扎罗's lasts 40 s) [추정·자료 없음: a lost end]
 const ATTACK_GAP_S = 0.2;
 let webpPromise = null;
 /** Whether the browser decodes (lossy + alpha) WebP — a 1×1 probe image. */
@@ -5043,12 +5044,17 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!emodes || !views) return;
     for (const v of views.values()) {
       if (v?.info?.side !== 'enemy' || v.alive === false || !ebindOf(v)) continue;
-      if (v._fxEMode === undefined) { v._fxEMode = emodeOf(v); v._fxEClip = v.actor?.current; v._fxEForm = v.form ?? null; continue; } // on the field before this layer
-      // 2026-10-23: a rebirth starting — the 重生 form coming on (a leader's reborn()) — plays its RebornTalent `_effects`
+      if (v._fxEMode === undefined) { v._fxEMode = emodeOf(v); v._fxEClip = v.actor?.current; v._fxEForm = v.form ?? null; v._fxRebSeen = v.form === 'reborn'; continue; } // on the field before this layer
+      // 2026-10-23: a rebirth starting — the 重生 form coming on (a leader's reborn()) — plays its RebornTalent `_effects`;
+      // 2026-10-31: and the ability that handles it starts (ON_CAST_START) / ends with the rebirth (ON_CAST_END)
       const form = v.form ?? null;
       if (form !== v._fxEForm) {
+        const was = v._fxEForm;
         v._fxEForm = form;
-        if (form === 'reborn' && eOn(v)) erebornFx(v, v._fxEMode);
+        if (form === 'reborn') {
+          v._fxRebSeen = true;
+          if (eOn(v)) { erebornFx(v, v._fxEMode); erebornAbility(v, CAST_EVENT.CAST_START); }
+        } else if (was === 'reborn') erebornAbility(v, CAST_EVENT.CAST_END);
       }
       const mi = emodeOf(v);
       if (mi !== v._fxEMode) {
@@ -5056,6 +5062,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         v._fxEMode = mi;
         endCast(v); v._fxFirstDone = null;
         try { audio()?.enemyMode?.(ownerOf(v), v.info.defId, mi, prev); } catch { /* the sound never breaks the view */ }
+        // 2026-10-31: a rebirth the sim holds no 重生 form for (守墓石像: straight into the statue) — its ability starts and
+        // ends as the mode switches to the one the rebirth leads to
+        if (!v._fxRebSeen && rebornAbOf(v, prev)?.to === mi && eOn(v)) {
+          v._fxRebSeen = true;
+          erebornAbility(v, CAST_EVENT.CAST_START, prev);
+          erebornAbility(v, CAST_EVENT.CAST_END, prev);
+        }
       }
       if (!eOn(v)) continue;
       const clip = v.actor?.current;
@@ -5067,6 +5080,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         // stand-up comes as that clip ends, the client's rebirth plays its clip and effects from its start)
         const fd = typeof v._formSpec === 'function' ? v._formSpec() : null;
         if (fd?.end && clip === fd.end && form !== 'reborn') erebornFx(v, v._fxEMode);   // (a 重生's own closing clip: started above)
+        // 2026-10-31: a 重生's closing clip = the rebirth ability's end clip, where it raises ON_ATTACK_FINISH (扎罗's Reborn_End)
+        if (fd?.end && clip === fd.end && form === 'reborn') erebornAbility(v, CAST_EVENT.ATTACK_FINISH);
       }
     }
   }
@@ -5082,6 +5097,51 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     for (const rb of Array.isArray(b?.reborn) ? b.reborn : []) {
       if (rb.mode != null && rb.mode !== mode) continue;
       eplay(v, rb.fx, { tag: 'reborn' });
+    }
+  }
+  /** enemy-modes.json `rebornAbility` of enemy `v`'s rebirth from mode `mode` (the talent outside the modes or in it), or null. */
+  function rebornAbOf(v, mode = v._fxEMode) {
+    const lst = ebindOf(v)?.rebornAbility;
+    return Array.isArray(lst) ? lst.find((r) => r.mode == null || r.mode === mode) || null : null;
+  }
+  /** Whether enemy `v`'s rebirth ability has a cast effect extracted (drawn by erebornAbility). */
+  const rebornAbDrawn = (v) => !!v && eOn(v) && (rebornAbOf(v)?.cast || []).some((n) => efx(n));
+  /**
+   * 2026-10-31 (docs/rules/fx.md 「적 상태의 버프 이펙트」 재생을 다루는 능력): event `ev` of the ability a RebornTalent with
+   * `_useAbilityToHandle` casts at the fake death (`_OnRebornAfterFakeDeath` → `CastDirectly`) — enemy-modes.json
+   * `rebornAbility` { cast, opt, dirs?, buffs: [{ fx, ev, once? }], to }. ON_CAST_START as the 重生 starts, ON_ATTACK_FINISH as
+   * its closing clip starts (扎罗's Reborn_End), ON_CAST_END as it ends: the ability lasts the rebirth's time in all seven of
+   * this mode (the talent blackboard's duration, or shorter with nothing at its end — 巨大的丑东西's 5 s bomb[reborning]), and
+   * none sets `_finishHandleAbilityAfterReborn`. Its cast effects start on their `_startEvent`, a loop one held to its
+   * `_endEvent`; its BuffToOwner buffs' effects on their `_runActionOnEvent` — an IMMEDIATELY one flashed (finished at once),
+   * one put on during the 重生 held to its end, where the sim's own status for that buff takes over (扎罗's
+   * `ab:wolfRage` → enemy_wlfmster_m2_eff), any other its own length.
+   */
+  function erebornAbility(v, ev, mode = v._fxEMode) {
+    const ra = rebornAbOf(v, mode);
+    if (!ra) return;
+    const id = ownerOf(v);
+    // the loops this event ends — every one at the ability's end
+    const ends = (tag) => tag === `rebornAb:${ev}` || (ev === CAST_EVENT.CAST_END && String(tag).startsWith('rebornAb:'));
+    for (const l of live) if (l.owner === id && ends(l.tag) && (l.until == null || l.until > clockS)) l.until = clockS;
+    if (!eOn(v)) return;
+    for (const n of edirs(v, ra, ra.cast)) {
+      const o = ra.opt?.[n];
+      if (!o || o.s !== ev) continue;
+      eplay(v, [n], o.o === 0 ? { buff: true, tag: `rebornAb:${o.e}`, until: clockS + REBORN_HOLD_CAP } : { tag: 'reborn' });
+    }
+    for (const b of Array.isArray(ra.buffs) ? ra.buffs : []) {
+      if (b.ev !== ev) continue;
+      const r = efx(b.fx);
+      if (!r) continue;
+      if (b.once) {
+        spawn(r[0], r[1], v, { owner: id, buff: true, onCaster: true, tag: 'reborn' }, { facing: efacing(v) }).then((l) => {
+          if (!l) return;
+          const fin = Number(l.inst.def?.finish) || 0;
+          l.until = clockS; l.finishAt = clockS + fin;
+        });
+      } else if (ev !== CAST_EVENT.CAST_END && v.form === 'reborn') eplay(v, [b.fx], { buff: true, tag: `rebornAb:${CAST_EVENT.CAST_END}`, until: clockS + REBORN_HOLD_CAP });
+      else eplay(v, [b.fx], { tag: 'reborn' });
     }
   }
   /**
@@ -5473,6 +5533,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'parry' && e[4]) { parryFx(e, views); return; }
           if (e[1] === 'shieldBreak' && e[4] && brokeOwn.delete(e[4].id)) { ownFx.add(e); return; } // 2026-10-23: its official break drew it (parryFx)
           if (e[1] === 'explode' && e[4]?.kind === 'expose' && exposeFx(e, views)) { ownFx.add(e); return; }
+          // 2026-10-31: 巨大的丑东西's self-destruct — its rebirth ability bomb[reborning] draws the official range and blast
+          // from the fake death (erebornAbility, ON_CAST_START): not the stand-in ring and blast as well
+          if ((e[1] === 'telegraph' || e[1] === 'explode') && e[4]?.kind === 'mechBomb' && rebornAbDrawn(views.get(e[4].id))) { ownFx.add(e); return; }
           if (e[1] === 'expose' && weakLimitOn()) { ownFx.add(e); return; }
           if (e[1] === 'burst' && e[4]?.element) { if (burstFx(e, views)) ownFx.add(e); return; }
           // (2026-10-24, 묶음 S8) and the marks on their targets (render/fx/kitofficial.js)
