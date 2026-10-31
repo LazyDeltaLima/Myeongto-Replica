@@ -1258,6 +1258,7 @@
   | `ab:rockPower[1..3]` | 머드락(적) | `[shield][refresh]`가 만드는 `enemy_mdrock_s_2[shield_a/b/c]` → `enemy_mdrock_skill_buff_01/02/03`(층마다 하나; HP·공속 보너스 `ab:rockPower`는 안 그림) |
   | `ab:lowhp` | 스컬슈레더·'폼페이'·리벤져·'어벤져' | `skulsr_t_1`·`lslime_t_buff`·`reveng_t_atkup`·`enemy_reid_atkup_effect`(토글 버프) |
   | `ab:rage` | 부패한 기사 | `dekght[trigger_rage]`의 끝이 만드는 `dekght[rage]` → `dekght_buff_04_start` |
+  | `ab:nhtankReady` | 살카즈 부패의 전차·최첨단(`enemy_1272_nhtank`/`_2`) | `Talent/Empty` 패시브 버프(템플릿 `enemy_nhtank_s_effect[buff]`, `triggerInterval` 0.1초, 첫 확인 0.1초 뒤)가 SP = 2이면 만드는 `nhtank_s_effect` → `enemy_nhtank_attack_buff_01`(다음 공격이 秽蚀轰击라는 표시; SP가 2 아니면 끝남, 2026-10-31) [화면 미확인] |
   | `boss:hover` | '갑주를 베는 검' 둘 | 떠 있는 모드 GeneralAbilities `acstma/acstmb_passive[unmovable]` → `enemy_acstma_invincible` |
   | `boss:springShield` | '총을 부수는 리드' 셋 | `actrpa/b/c_t_1`(깨지면 `[regenerate]` 끝이 다시 만듦) → `enemy_actrpa/b/c_shield` |
   | `ab:reborn:inv`(재생 뒤 无敌) | 재생하는 적 전부 | 그 적의 INVINCIBLE 플래그 버프(`inv`, 재생 뒤에 붙는 것): 대개 `common_invincible_01`(자로는 M2 Passive2 `p2_invincible`) |

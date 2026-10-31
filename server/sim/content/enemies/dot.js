@@ -12,6 +12,11 @@ import { hypot } from '../../detmath.js';
  *  持续10s的【污染秽蚀】" — the skill blackboard's range_radius 2.2 is its trigger range; the zone's radius is in no table). */
 const TANK_ZONE_RADIUS = 1.7;
 
+/** 萨卡兹枯朽战车: its skill-ready buff (client `nhtank_s_effect`) and how often its passive buff checks the SP (prefab
+ *  Talent/Empty `_buffs[0].triggerInterval`). */
+const TANK_READY_KEY = 'ab:nhtankReady';
+const TANK_READY_CHECK = 0.1;
+
 /** 集团军重型火炮's 【燃烧区域】: PRTS "碰撞半径1.5" with the source note "1.5倍可变半径" — ×1.5 on the blackboard's
  *  ProjectileBoomRange.attack@projectile_range (1). Until 0.1.3 the zone took the blackboard's 1. */
 const UACANN_ZONE_SCALE = 1.5;
@@ -66,6 +71,9 @@ function kitDsubrl(ab, e) {
  * Reach: the 2.2 range circle takes an ally whose 0.25 collider touches it (ai.js enemyAttack, constants.js
  * ALLY_COLLIDER_RADIUS; PRTS 作战机制 §碰撞体积) — 2.45 from the ally's centre, 21 tiles around it instead of 13 (user
  * playtest #6 follow-up: the user remembers a long-reaching, hard-hitting ranged attack; the data scale stays 100 %).
+ * Its skill is ready (SP full) while it carries the client buff `nhtank_s_effect` (effect enemy_nhtank_attack_buff_01): the
+ * passive buff of its Talent/Empty (template enemy_nhtank_s_effect[buff], `triggerInterval` 0.1 s, the first check 0.1 s
+ * after it comes) adds it on a trigger with SP = 2 and finishes it on one without — TANK_READY_KEY, synced on that cadence.
  */
 function kitTank(ab, e) {
   const melee = T(ab, 'Empty.attack@chuang_atk_scale') ?? 1;
@@ -76,6 +84,12 @@ function kitTank(ab, e) {
   const init = Math.min(max, Math.max(0, num(spd && spd.initSp, 0)));
   return [{
     spawn(b, e2, a) { a.sp = init; a.skill = false; e2.profile.canTarget = (u) => !!u.ground && !u.isFlying; },
+    iv: TANK_READY_CHECK,
+    tick(b, e2, a) {
+      const on = !!e2.findBuff(TANK_READY_KEY);
+      if (a.sp >= max && !on) b.addBuff(e2, { key: TANK_READY_KEY, persist: true, visible: true, fxTag: 'buff:nhtank_s_effect' });
+      else if (a.sp < max && on) b.removeBuff(e2, TANK_READY_KEY);
+    },
     // SP full: this attack is 秽蚀轰击 (a blocked hit lands at once, inside this attack, while `a.skill` is set)
     before(c, b, e2, a) { a.skill = a.sp >= max; },
     hitOut(c, b, e2, a) { if (c.dmg.isAttack && !a.skill && c.target === e2.blockedBy) c.dmg.amount *= melee; },

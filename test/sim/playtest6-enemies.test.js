@@ -262,6 +262,27 @@ describe('#12 萨卡兹枯朽战车: 秽蚀轰击 first, 污染秽蚀 radius 1.7
     });
   }
 
+  test('skill ready: the client buff nhtank_s_effect while SP is full, checked every 0.1 s (first check 0.1 s after spawn)', () => {
+    const h = arena({ units: [{ chessId: 't_wall', row: 10, col: 7 }], captureNoisy: true, hooks: ['attack'] });
+    h.step();
+    const e = h.spawn('enemy_1272_nhtank', { pos: [9, 8], routeIndex: 0, mods: { speedMul: 0 } });
+    const ready = () => !!e.findBuff('ab:nhtankReady');
+    h.run(0.05);
+    assert.equal(ready(), false, 'not before its first check');
+    h.run(0.1);
+    assert.equal(ready(), true, 'SP starts full: ready');
+    assert.equal(e.findBuff('ab:nhtankReady').fxTag, 'buff:nhtank_s_effect');
+    h.runUntil(() => e.stats.attacks >= 1, 30);
+    h.run(0.15);
+    assert.equal(ready(), false, 'the skill attack spent it');
+    h.runUntil(() => e.stats.attacks >= 2, 30);
+    h.run(0.15);
+    assert.equal(ready(), false, 'one attack: SP 1');
+    h.runUntil(() => e.stats.attacks >= 3, 30);
+    h.run(0.15);
+    assert.equal(ready(), true, 'two attacks: SP full again');
+  });
+
   test('reach: its 2.2 range circle takes an operator whose 0.25 collider touches it (PRTS 作战机制 §碰撞体积) — 2.45 from the centre', () => {
     // user follow-up (2026-10-01): "远程攻击射程挺远、伤害很高". The data range stays 2.2; the official target search
     // uses the operators' colliders, which the remake measured from the centre (2.2 reached 13 tiles around it, 2.45 21)

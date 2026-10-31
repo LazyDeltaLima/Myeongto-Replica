@@ -650,7 +650,7 @@
       ],
       "enemies": {"enemy_1267_nhpbr_2":[11,11,0,2676,69696],"enemy_1270_nhstlk_2":[4,4,0,0,73728],"enemy_1272_nhtank_2":[2,2,0,1212,34560]},
       "hooks": [1,26,2141,51,51,114,114,13,18,18,25,24,0,7407,1537,4,17,0,1,18,0,0,0],
-      "events": {"atk":51,"deploy":9,"die":18,"dmg":114,"engage":4,"face":28,"fx":97,"heal":12,"skill":49,"spawn":26,"status":21,"swing":70,"tplfx":2},
+      "events": {"atk":51,"deploy":9,"die":18,"dmg":114,"engage":4,"face":28,"fx":97,"heal":12,"skill":49,"spawn":26,"status":24,"swing":70,"tplfx":2},
       "fx": {"charges":11,"coldWind":2,"drone":10,"frostNova":3,"healAoe":3,"hunterReload":32,"kitHit":1,"stacks":6,"strike":8,"summon":1,"volley":8,"zone":12},
       "snaps": "83241a53 baa1e86a 3e2f11a6 7edf1d10 626719cc d68baa45 02e2bbb0 31120c7b"
     },
@@ -687,7 +687,7 @@
       ],
       "enemies": {"enemy_1267_nhpbr":[11,11,0,4348,57024],"enemy_1267_nhpbr_2":[5,5,0,1250,31680],"enemy_1272_nhtank":[1,1,0,1510,13824]},
       "hooks": [1,25,1916,114,114,444,444,0,21,21,6,4,15,7426,0,1,17,0,1,21,1,0,0],
-      "events": {"atk":151,"deploy":8,"die":21,"dmg":444,"engage":7,"face":13,"fx":23,"layer":1,"skill":10,"spawn":25,"swing":119,"tplfx":1},
+      "events": {"atk":151,"deploy":8,"die":21,"dmg":444,"engage":7,"face":13,"fx":23,"layer":1,"skill":10,"spawn":25,"status":3,"swing":119,"tplfx":1},
       "fx": {"displace":2,"garrison":1,"pull":2,"sp":1,"zone":17},
       "snaps": "a22647d4 abda87d5 26f3bc13 3e5335cf b95c175d bd0a33a2 2e2e1f2a"
     },
@@ -1082,7 +1082,7 @@
       ],
       "enemies": {"enemy_1267_nhpbr":[11,11,0,3201,44550],"enemy_1267_nhpbr_2":[5,5,0,584,24750],"enemy_1272_nhtank":[1,0,0,8516,3323]},
       "hooks": [1,25,3300,194,194,432,432,2394,16,16,20,20,0,14134,0,2,17,0,1,16,1,0,0],
-      "events": {"atk":273,"deploy":8,"die":16,"dmg":384,"engage":3,"face":36,"fx":164,"heal":62,"layer":1,"skill":40,"spawn":25,"status":245,"swing":197},
+      "events": {"atk":273,"deploy":8,"die":16,"dmg":384,"engage":3,"face":36,"fx":164,"heal":62,"layer":1,"skill":40,"spawn":25,"status":257,"swing":197},
       "fx": {"buff":1,"counter":15,"garrison":1,"healField":1,"mote":38,"motes":55,"redistribute":15,"reweave":1,"slash":13,"spGift":1,"truesilver":1,"zone":22},
       "snaps": "6814f750 336a4de6 b4bc6304 52c72428 dd2710e9 adcc66e1 99a143b4 6a3a991e 727fd087 823bb5d0 81e99091"
     },
