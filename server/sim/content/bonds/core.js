@@ -34,7 +34,8 @@
 // Live layers: effects that read L at a moment (stack duration, ammo, deploy buffs, proc damage, cold multiplier) read
 // the live value; standing buffs (炎 ATK, 维多利亚, 阿戈尔 HP, 卡西米尔 cap) are refreshed one tick after a `layerGain`.
 // Two players in one field: everything is per player (own members, own deployments); the 谢拉格 wind and 炎佑 act on
-// every enemy of the field (debuffs on shared enemies help both, research 06 §8.6). The wind is one per field (either
+// every enemy of the field (debuffs on shared enemies help both, research 06 §8.6), and 炎佑's stats sum every 炎
+// operator of the field (installYan). The wind is one per field (either
 // player at 6; duration from the higher 谢拉格 layers — devices.js kjeragColdWind).
 // Hook priorities: 拉特兰 skillStart −10 (after kits' own ammo changes), 阿戈尔 death 11 (5-tier revive, before 不屈's
 // death 10; every `fatal` saver runs before any death hook), layerGain −100 (after 魔王-style modifiers).
@@ -196,10 +197,12 @@ function installYan(battle, pid, bb, members) {
   if (!reached(battle, pid, 'yanShip', bb.power_bond_char_cnt)) return;
   const ex = reached(battle, pid, 'yanShip', bb.ex_bond_char_cnt);
   battle.on('battleStart', () => {
-    // PRTS: the sums count real 炎 operators only (调和 operators' stats are not collected unless they are 炎 too)
+    // PRTS: the sums count real 炎 operators only (调和 operators' stats are not collected unless they are 炎 too). The
+    // client's acloon_gather_attribute (AutoChessAssignGatheredAttributeToBlackboard) sums every character of the field
+    // whose bonds hold yanShip, whoever owns it: in a two-player field the partner's 炎 operators count too
     let atk = 0, hp = 0;
-    for (const u of S.playerOps(battle, pid, { fieldOnly: true })) {
-      if (!S.unitBonds(u, battle).includes('yanShip')) continue;
+    for (const u of battle.allyUnits) {
+      if (u.kind !== 'op' || !S.onField(u) || !S.unitBonds(u, battle).includes('yanShip')) continue;
       atk += num(u.s.atk, 0);
       hp += num(u.s.maxHp, 0);
     }

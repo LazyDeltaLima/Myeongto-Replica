@@ -482,14 +482,16 @@ const BY_BUFF = {
 
 /** Item-key behaviours. */
 const BY_ITEM = {
-  // 精准狙击镜: damage ×damage_scale against targets ≥ radius tiles away
+  // 精准狙击镜: damage ×damage_scale against targets more than radius tiles away — the client graph act1autochess_acarm063_buff
+  // scales when CheckDistance (squared distance ≤ radius²) fails, so a target exactly radius away gets none (the text
+  // says "3格及以上")
   chess_item_3_02_e(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm063_global_buff');
     if (!p) return;
     const r = num(p.radius, 3), sc = num(p.damage_scale, 1);
     S.on('hit', (c) => {
       if (c.source !== u || !c.target || c.target.side !== 'enemy' || c.dmg.type === 'element') return;
-      if (hypot(c.target.x - u.x, c.target.y - u.y) >= r - 1e-6) c.dmg.mul *= sc;
+      if (hypot(c.target.x - u.x, c.target.y - u.y) > r + 1e-6) c.dmg.mul *= sc;
     });
   },
   // 炎国短刀: each skill start +atk (≤ atk_buff_cnt stacks) — one 直接乘算 bonus of atk × stacks. Client buff template
@@ -522,7 +524,9 @@ const BY_ITEM = {
       S.buff(u, { key: 'item:yanDagger', visible: true, refresh: 'replace' });
     });
   },
-  // 迅捷作战粮: on deploy SP += sp_each_person × (1 + other operators sharing a bond)
+  // 迅捷作战粮: on deploy SP += sp_each_person × (1 + other operators sharing a bond). The client's
+  // AutoChessAssignSameBondCharacterCntToBB counts the player's characters in battle sharing a bond with it, itself
+  // included — none at all for an operator without a bond, so it gains nothing
   chess_item_3_05_e(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm051_global_buff');
     const each = p ? num(p.sp_each_person) : 0;
@@ -530,13 +534,12 @@ const BY_ITEM = {
     S.on('deploy', (c) => {
       if (c.unit !== u || !u.skill) return;
       const mine = unitBonds(u, battle);
+      if (!mine.length) return;
       let n = 0;
-      if (mine.length) {
-        for (const a of battle.allyUnits) {
-          if (a === u || a.kind !== 'op' || a.ownerId !== u.ownerId || a.removed) continue;
-          if (!(c.initial ? !a.removed : onField(a))) continue;
-          if (unitBonds(a, battle).some((b) => mine.includes(b))) n++;
-        }
+      for (const a of battle.allyUnits) {
+        if (a === u || a.kind !== 'op' || a.ownerId !== u.ownerId || a.removed) continue;
+        if (!(c.initial ? !a.removed : onField(a))) continue;
+        if (unitBonds(a, battle).some((b) => mine.includes(b))) n++;
       }
       u.skill.gainSp(each * (1 + n), 'item');
     });

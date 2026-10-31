@@ -1289,7 +1289,11 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
 ### 저항 대상 (결정 4 조사)
 - **규칙**: 抵抗이 줄이는 상태 = 晕眩·冻结·寒冷·恐惧·诱导(`buffs.js RESIST_STATUSES`). 공식 클라 `Buff._InitIsStatusResistable`: 버프마다
   `statusResistable` NO/YES/AUTOMATIC, AUTOMATIC은 이상 플래그가 STUNNED·FROZEN·DOZE·ATTRACTED이면 저항 — 우리 풀 스킬 프리팹 버프 586개가 모두 AUTOMATIC.
-  寒冷·恐惧는 클라 버프 표(DB, 우리가 읽은 번들에 없음) 값이라 PRTS 「可抵抗状态」를 따른다; 같은 근거로 沉睡·停顿·战栗은 뺐다. 浮空·束缚·沉默·缴械·减速·缚地는
+  DB 상태(`loadFromDB`)는 공식 클라 버프 표의 행(2026-10-31 공식 클라에서 확인 — 이상 플래그는 `attributes.abnormalFlags`만 버프의 플래그 마스크로
+  가고, `abnormalCombos`는 따로 콤보 마스크로 가서 AUTOMATIC 판정에 안 쓰인다): 한랭(寒冷, `c2e_cold`·`e2c_cold`)·공포(恐惧, `fear`) YES → 저항,
+  기절(晕眩, `stun` STUNNED)·동결(冻结, `c2e_freeze[holder]`·`e2c_freeze` FROZEN) AUTOMATIC → 저항; 수면(沉睡, `sleep` — 플래그 없이 콤보 SLEEPING),
+  정지(停顿, `sluggish` — 이동 속도 수정치뿐), 전율(战栗, `disarmed_combat` DISARMED_COMBAT), 침묵(沉默, `silence`), 마비(麻痹, `palsy[stack]`·`palsying`)는
+  AUTOMATIC인데 그 넷이 아니라 저항 안 됨 — PRTS 「可抵抗状态」와 같다. 浮空·束缚·缴械·减速·缚地는
   플래그 없는 AUTOMATIC(데이터)이라 저항 안 됨. 티티 小睡(DOZE, 아군)는 키트의 `addBuff`라 저항 경로 밖(그대로).
 - 감쇠: `Buff._PreprocessDeltaTime` = dt ÷ max(0.001, 1 − 저항) → 걸 때 지속 × max(0.001, 1 − 저항)과 같다(저항이 도중에 바뀌면 다름 — 작은 차이,
   그대로). `resistOf` 상한 0.95는 그대로 [ASSUMED].
@@ -2348,3 +2352,24 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
   - 데이터: 추출기 `attach_land` → `shot.land`(`docs/DATA.md`), 시뮬은 날지 않는 샷의 대기에 `land`를 먼저 씀. 다른 오퍼레이터의 ATTACH 샷은 모두 즉시(해당 없음).
     적 투사체 기록에도 `land`가 붙지만 적 경로는 읽지 않는다. 테스트 `kits_t6.test.js` 「迷迭香 S2 (client projectile_chr_rosmon_s2 …)」, `kits_t5.test.js`
     「寒檀 S2: ice spikes …」.
+
+## 버프 그래프 노드 본문 (2026-10-31)
+
+남은 일 묶음 가·나: 버프 그래프 노드·카드 버프가 하는 일을 공식 클라에서 확인. 가(저항 대상)는 위 「저항 대상」.
+
+- **`ModifySp` `_modifyByRatio`** (기습(突袭) `modify_sp[ratio]`): 더하는 SP = `RoundToInt(최대 SP × 블랙보드[_spString](없으면 _modifyRatio))`, SP 수정치로
+  **더한다**(설정이 아님; `_modifyByRatioBasedOnCurSP`면 지금 SP 기준, `_isMinis`면 뺌). 스킬 경로(`sp` 1.0)는 가득 참 — 시뮬 `raidJump` `fullSp`와 같음.
+  10초 무공격 경로는 뛰기 전 비율(`AssignCurSpToBB`)을 더해 SP 유지(PRTS 「保留技力」) — 시뮬 `keepSp`와 같음. 코드 변경 없음.
+- **`CheckDistance`**: 두 대상의 맵 위치 사이 유클리드 거리, `d² ≤ r²`면 참(경계 포함; `_checkCertainPosition`이면 블랙보드 행·열과 맨해튼 거리).
+  정밀 조준경(精准狙击镜, `act1autochess_acarm063_buff`)은 `CheckDistance radius 3` → `IfNot` → `DamageScale`이라 **정확히 3칸인 적은 보너스 없음**,
+  3칸 넘는 적만 ×`damage_scale`(설명은 「3格及以上」). 2026-10-31부터 시뮬도 `> radius`(전: `≥ radius`). `items/battle.js chess_item_3_02_e`.
+- **`AutoChessAssignSameBondCharacterCntToBB`**: 주인과 같은 플레이어의, 전투 중인 캐릭터 말 가운데 맹약이 하나라도 겹치는 수(주인 포함). 주인에게
+  맹약이 없으면 0. 신속 전투식량(迅捷作战粮, `act1autochess_acarm051_buff` ON_OWNER_LOCATE: SP = `sp_each_person` × 그 수)은 시뮬의 `each × (1 + 겹치는
+  다른 오퍼레이터)`와 같고, **맹약 없는 오퍼레이터는 0**(전: `each`). `items/battle.js chess_item_3_05_e`.
+- **`AutoChessAssignGatheredAttributeToBlackboard`**: 필드의 모든 캐릭터(유닛 관리자 목록, 주인 플레이어로 거르지 않음) 가운데 `_filterByBondIds`가
+  하나라도 겹치는 캐릭터의 속성 지금 값의 합 × 블랙보드[_scaleKey](없으면 `_scale`). 염의 가호(炎佑, 소환물 `enemy_9012_acloon`; `acloon_gather_attribute`, ON_BUFF_START, `scale_attribute`
+  0.3, FINAL_ADDITION)는 **2인 필드에서 짝의 炎 오퍼레이터까지 더한다**(전: 부른 플레이어의 것만). `bonds/core.js installYan`.
+- **카드 버프 재배치 시간 비율**(`Deck.Card.RuntimeRespawnTimeModifier`): 첫 단계에서 비율 아닌 값을 더하거나(덮어쓰기면 바꿈), 둘째 단계에서 비율
+  수정치마다 재배치 시간 × `SharedUtils.ProcessFinalScaler(값)`(값 < 0이면 1 + 값). 엠퍼러(大帝) 「긴급 파견」(加急调派, `band16`) −0.5는 배치마다 ×0.5로
+  **곱해 쌓인다** — 시뮬 0.5ⁿ과 같음, 코드 변경 없음.
+- 테스트 `test/content/buff-node-items.test.js`.

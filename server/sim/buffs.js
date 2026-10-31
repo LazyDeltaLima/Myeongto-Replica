@@ -136,9 +136,11 @@ export const STATUS = Object.freeze({
  * The statuses 抵抗 shortens: 晕眩 冻结 寒冷 恐惧 诱导 (maintainer decision 2026-10-11, docs/rules/sim.md 「저항 대상」). The
  * client decides it per buff, not per status (the client's `Buff._InitIsStatusResistable`): `statusResistable` NO / YES,
  * or AUTOMATIC (every buff of the pool's skill prefabs) = resisted when its abnormal flags hold STUNNED, FROZEN, DOZE or
- * ATTRACTED. 寒冷 and 恐惧 come from the client's buff table, which the client files we read do not hold: they rest on
- * PRTS 可抵抗状态 (寒冷 both sides, 恐惧), as does leaving out 沉睡 (sleep — not DOZE), 停顿 (sluggish) and 战栗 (tremble);
- * 浮空 束缚 沉默 缴械 减速 缚地 are AUTOMATIC buffs without those flags (data). Until 2026-10-11 all fourteen were resisted.
+ * ATTRACTED (only the buff's own abnormal flags count, not its abnormal combos). The client's buff table settles the
+ * table statuses: 寒冷 (c2e_cold / e2c_cold) and 恐惧 (fear) are YES; 晕眩 (stun) and 冻结 (c2e_freeze[holder] / e2c_freeze)
+ * are AUTOMATIC with STUNNED / FROZEN; 沉睡 (sleep: combo SLEEPING, no flag), 停顿 (sluggish), 战栗 (disarmed_combat),
+ * 沉默 and 麻痹 are AUTOMATIC without those flags — the same as PRTS 可抵抗状态. 浮空 束缚 缴械 减速 缚地 are AUTOMATIC
+ * buffs without those flags (data). Until 2026-10-11 all fourteen were resisted.
  * 麻痹 is stack-based: it decays instead (RESIST_PALSY_DECAY).
  */
 export const RESIST_STATUSES = Object.freeze(new Set(['stun', 'freeze', 'cold', 'fear', 'attract']));
