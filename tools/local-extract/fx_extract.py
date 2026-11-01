@@ -856,6 +856,14 @@ class Extractor:
         self.game = Path(game)
         self.client = client or client_of(game)   # 2026-10-21: recorded with each written prefab (index `sources`)
         self.cab = json.loads(Path(cab_index).read_text()) if cab_index else {}
+        # 2026-11-01: a client update renames bundles (the CN 10-23 one its `anon/*.bin`), and an index made before it then
+        # resolves a CAB to a file that is gone — its prefabs lose those dependencies. Said loudly at every load; a fixed
+        # sample of 256 bundles (every file over the Windows drive takes a minute; the CN update left 154 of ~8,000 gone)
+        paths = sorted(set(self.cab.values()))
+        gone = [p for p in paths[::max(1, len(paths) // 256)] if not (self.game / p).exists()]
+        if gone:
+            print(f'[fx] WARNING: CAB index {cab_index} is stale — {len(gone)} sampled bundle(s) are gone from {game} '
+                  f'(e.g. {gone[0]}); rebuild it (--build-cab-index) before trusting this run', file=sys.stderr)
         self.textures = {}   # path_id/name key -> file name
         self.wraps = {}      # 2026-10-22: texture file name -> (wrap u, wrap v) of each texture met (merge_wraps)
         self.meshes = {}

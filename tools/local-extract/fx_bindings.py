@@ -344,6 +344,14 @@ def main():
     # the projectiles the pool's buff templates fire (凛御银灰 S3 svash2_s_3[bird_on_self] → projectile_chr_svash2_s3_bird_self)
     if FX_TEMPLATES.exists():
         pool_tpls = set(json.loads(FX_TEMPLATES.read_text(encoding='utf-8')).get('templates') or {})
+        # 2026-11-01: the table is read by its keys, so one built before an operator joined the pool drops the projectiles
+        # her templates fire without a word (冻河 / 塔露拉's S3) — refuse to run on it
+        codes = {c.split('_', 2)[2] for c in pool_char_ids() if c.count('_') >= 2}
+        stale = sorted({k for f in TEMPLATE_DATA if f.exists() for k in json.loads(f.read_text(encoding='utf-8'))
+                        if (m := re.match(r'([a-z0-9]+)[_\[]', k)) and m.group(1) in codes and k not in pool_tpls})
+        if stale:
+            sys.exit(f'{FX_TEMPLATES.name} lacks {len(stale)} template(s) of the pool ({", ".join(stale[:5])}…): '
+                     'run node tools/build-fx-templates.mjs first')
         for f in TEMPLATE_DATA:
             if not f.exists():
                 continue

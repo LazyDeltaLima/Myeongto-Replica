@@ -340,6 +340,11 @@ Each item is a mistake this project already made once. Tick every one for every 
     reads): `_playSkillBeginAnim` / `_beginAnim`, `_switchToState`, a chant's `_animation` begin / loop / end,
     `_afterEndAnim`, `_buffOnAfterEndAnim`, an anim component `_default`, a `switch_mode` buff → that mode's clips
     (charpack `_modes` / `_replaceAnimPairs`, `char_modes.py`, `attack_timing.py`);
+  - **every sound bank** (a 自选 operator): `node --test test/audio-bank-coverage.test.js` checks the official banks whose
+    name carries the operator's codename (projectiles, custom triggers and buff signals included) against the asset
+    manifest; every bank not played is listed in `test/audio-bank-coverage-list.js` as `none` (with the evidence) or
+    `todo` (docs/rules/audio.md 「선발 소리 뱅크 커버리지」). A bank the gamedata cache lacks is not seen at all: when the
+    operator's records were merged into an older cache, check first that all of them came;
   - **the projectile** (`battle/prefabs/[uc]projectiles.ab`): a follower component (`_follower`, `_restoreOnEnd`,
     `_faceToMoveDirection`) means the caster's body rides it (`_restoreOnEnd` 1 = back to its tile at the end);
   - **the buff templates** (`config/buff_template_holder.ab`, read as `enemy_bindings.py read_buff_templates` does):
