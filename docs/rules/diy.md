@@ -601,7 +601,8 @@
   1 + 값 × 유효 층 수를 곱한다(공식 클라에서 확인, 2026-11-01 — 최대 +18%, 잠재 5 미만 +15%).
 - **재능 2 「나는 곧 불꽃」**: 그녀가 배치돼 있는 동안 아무 적(은신 포함)의 소각 손상 폭발이 **시작될 때**(`ON_BEFORE_EP_BREAK_START`, 엔진 `elementBurst`)
   그 적에 5초 「흔적」(`oxi_t_2_trail`): 0.5초마다와 서 있는 칸이 바뀔 때마다 그 칸(통행 가능한 지면만, `TileSelector`)을 `field_duration`(4초, 잠재 3
-  미만 3초) 동안 발자국으로 잡는다. 최대 `max_count` 25칸, 꽉 차면 새 칸은 받지 않는다(`_rejectNewWhenFull`). 발자국 위의 지상 적(은신·선택 불가·무적 제외)은
+  미만 3초) 동안 발자국으로 잡는다. 최대 `max_count` 25칸, 꽉 차면 새 칸은 받지 않는다(CN 프리팹 `_rejectNewWhenFull` 1 — 관리자 기억 「오래된 칸이 지워짐」
+  (2026-11-01, 추정)과 엇갈림: 필드를 따름 [추정·CN: 필드의 동작은 클래스가 CN에만 있어 이름으로 읽음]). 발자국 위의 지상 적(은신·선택 불가·무적 제외)은
   들어온 때부터 `field_interval`(0.3초)마다 탈룰라 공격력 × `field_atk_scale`(15%, 잠재 3 미만 12%) 마법 대미지(지속 피해 — 재능 1 손상·奥术 대상 아님),
   발자국 여러 칸을 밟아도 타이머 하나(EXTEND 버프 하나), 발자국을 벗어나면 끊긴다. 그녀가 쓰러지거나 물러나면 흔적·발자국이 모두 사라진다.
   [추정·자료 없음: 이미 잡힌 칸을 다시 잡으면 4초가 새로 시작 — 관리자 기억 「아마 새로 시작」(2026-11-01), `TimedTileLeaseAbility`는 CN에만] [추정·CN: 피해의 공격력은 그 틱의 공격력
@@ -616,7 +617,9 @@
   적에게 `retaliate_atk_scale` 마법 대미지(공격자가 사라졌거나 선택 불가면 1-1 안 저지/범위 적 중심, 없으면 피해 없음), 준 대미지마다 `heal_ratio`(5%) 자기
   치유 ③ 가호 `damage_resistance` 90%를 `shelter_hold_duration` 0.2초 유지한 뒤 `skill_duration` 1.3초에 0이 되도록 직선 감소 — 버프 목록이 이중 버퍼라
   시전시킨 그 피해에는 안 걸린다(다음 단계부터). 중첩이 있는 동안 평타는 `BuffedAttack`: 저지 중인 적 전부(`_limitedMaxTargetNumToBlockedCnt` = 엔진
-  `hitAllBlocked`). 반격은 적에게 공격받은 그때 나간다(관리자 확인 2026-11-01, 공식 화면). [추정·미조사: 시전 동안 평타 멈춤(`CastSkill`
+  `hitAllBlocked`). 반격 대상은 피해의 근원(`TriggerAutoSkill` 입력 대상 = 피해 출처, 없으면 투사체 주인), 그녀의 사거리와 상관없이 전장 어디서든
+  [추정·CN: 입력 대상 검증기 `CircleRange`의 반경을 모름 — 제한 없음으로 둠; 관리자 기억 「아마 맵 전체」(2026-11-01)와 같음]. [추정·자료 없음: 반격 피해는
+  시전 즉시 — 공식은 `Skill_2_Cambat`의 공격 이벤트일 수 있음; 관리자 기억 「공격받았을 때」(2026-11-01)] [추정·미조사: 시전 동안 평타 멈춤(`CastSkill`
   `_switchToState` 1) — CN 스킬 시전 표(`tools/assets/local-skill-cast.json`)가 들어오면 엔진이 처리, 지금은 안 멈춤]
 - **S3 「코로나의 맹렬」**(MANUAL 36초, 과부하 스킬): 공격력 + `atk`, 공격하지 않음(모드 `S3NoAttack` → `disarm`, 저지는 함). 시작에 `normal_interval`(2.67초)마다,
   과부하(진행 절반)부터 `overload_interval`(2초)마다 물결 — 각 물결 버프는 시작하자마자 한 번 쏜다(`waitFirstTriggerInterval` 꺼짐). 물결: 배치 방향을
@@ -624,9 +627,9 @@
   (`_shiftLaneWindowAtMapEdge`), 줄마다 簇火 하나(`_emitSingleTileLane`), 속도 `wave_speed` 2.3칸/초. 簇火는 판정 반경 `projectile_range` 0.5 안에 적이
   들어오면 터져 반경 `range_radius` 1.5의 적에게 `heatwave_atk_scale` 마법 대미지(대상이 소각 손상 폭발 냉각 중이면 원소 대미지), 같은 물결에 이미 맞은 적은
   `same_wave_repeat_damage_scale`(15%); 터진 簇火는 사라진다. 피해의 공격력은 그 물결을 쏜 때의 값. 「언제든 끌 수 있음」은 위수협의에 수동 종료가 없어
-  옮기지 않는다. 簇火는 배치 방향 반대쪽 맵 끝에서 출발하고 공중 적도 맞는다(관리자 확인 2026-11-01, 공식 화면 — 문구에도 「地面」이 없음, S1에는 있음);
-  출발 칸은 그녀 뒤 최대 11칸(`_maxBackDistance` — 보통 전장은 이보다 좁아 늘 맵 끝). [추정·CN: 끝 — 앞쪽 끝 + `wave_exit_distance` 5칸까지로 둠
-  (`EmitDirectionalMapEdgeProjectileVolley`)] [추정·CN: 스킬이
+  옮기지 않는다. [추정·CN: 簇火는 배치 방향 반대쪽 맵 끝에서 출발(클래스 이름 `EmitDirectionalMapEdgeProjectileVolley`, 관리자 기억 2026-11-01과 같음),
+  그녀 뒤 최대 11칸(`_maxBackDistance` — 보통 전장은 이보다 좁아 늘 맵 끝); 적에 안 닿으면 앞쪽 맵 끝 + `wave_exit_distance` 5칸에서 사라짐(관리자 기억
+  「아마 맵 끝」)] [추정·자료 없음: 공중 적도 맞음 — 문구에 「地面」이 없음(S1에는 있음)·관리자 기억(2026-11-01), 투사체 프리팹 안 읽음] [추정·CN: 스킬이
   끝나도 날던 簇火는 계속 — 끝낼 노드가 스킬에 없음] [추정·CN: 첫 물결 시점 = 스킬 시작(공식은 능력 이벤트 4), `CheckOxiFireRainSlot`(여러 탈룰라·물결
   제한으로 보임)은 옮기지 않음]
 - 자산: 미러에 모델(앞·뒤)·그림·스킬 아이콘·효과음·CN 음성이 있어 `tools/fetch-assets.mjs`가 그대로 받는다. S2의 클립은 프리팹이 정한

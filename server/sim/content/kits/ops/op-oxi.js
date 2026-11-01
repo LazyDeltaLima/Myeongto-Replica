@@ -85,8 +85,11 @@ export default {
     const shelterAt = (dt) => (dt < guardHold ? guardProtect
       : guardProtect * Math.max(0, 1 - (dt - guardHold) / Math.max(1e-9, guardTotal - guardHold)));
     const retaliate = (battle, unit, from) => {
-      // TargetCenteredAreaMeleeAttack: around the attacker, else (gone, untargetable) around an enemy she blocks or has in
-      // her 1-1 box (the CenterFallbackSelector); no centre = no damage (`_allowNoTarget`, the buffs still come)
+      // TargetCenteredAreaMeleeAttack: around the attacker wherever it stands, else (gone, untargetable) around an enemy she
+      // blocks or has in her 1-1 box (the CenterFallbackSelector); no centre = no damage (`_allowNoTarget`, the buffs still
+      // come) [ASSUMED·CN: no range limit — the input target validator's CircleRange radius is unknown; the maintainer
+      // remembers "probably the whole map" (2026-11-01)] [ASSUMED·no source: the damage at the cast, not at the
+      // Skill_2_Cambat attack event]
       let centre = from && from.side === 'enemy' && canTargetEnemy(unit, from, ANY) ? from : null;
       if (!centre) centre = battle.enemiesInKeys(unit.baseRangeKeys || unit.rangeKeys, unit, GROUND)
         .sort((a, b) => (b.blockedBy === unit) - (a.blockedBy === unit) || a.spawnSeq - b.spawnSeq)[0] ?? null;
@@ -127,9 +130,9 @@ export default {
       if (a < lo) { z += lo - a; a = lo; }
       if (z > hi) { a -= z - hi; z = hi; }
       a = Math.max(a, lo);
-      // along her facing: from the map edge behind her (the maintainer, from the official game, 2026-11-01), at most
-      // WAVE_MAX_BACK behind, to wave_exit_distance past the far edge [ASSUMED·CN: the end point —
-      // EmitDirectionalMapEdgeProjectileVolley is CN-only]
+      // along her facing: from the map edge behind her, at most WAVE_MAX_BACK behind, to wave_exit_distance past the far edge
+      // [ASSUMED·CN: EmitDirectionalMapEdgeProjectileVolley is CN-only — read by its name and fields; the maintainer's
+      // memory (2026-11-01) agrees: from the edge opposite her facing, gone at the far edge]
       const along = horizontal ? c : r, back = sign > 0 ? (horizontal ? R.c0 : R.r0) : (horizontal ? R.c1 : R.r1);
       const ahead = sign > 0 ? (horizontal ? R.c1 : R.r1) : (horizontal ? R.c0 : R.r0);
       const from = sign > 0 ? Math.max(back, along - WAVE_MAX_BACK) : Math.min(back, along + WAVE_MAX_BACK);
@@ -140,7 +143,8 @@ export default {
     const explode = (battle, unit, p, x, y) => {
       const radius = num(b3.range_radius, 1.5), scale = num(b3.heatwave_atk_scale), repeat = num(b3.same_wave_repeat_damage_scale, 1);
       battle.fx('blast', { x, y, r: radius, id: unit.id, element: 'burn' });
-      // flyers too (the maintainer, from the official game, 2026-11-01; the text names no 地面, S1's does)
+      // flyers too [ASSUMED·no source: the text names no 地面 (S1's does) and the maintainer remembers so (2026-11-01); the
+      // projectile prefab is not read]
       for (const e of battle.foesInRadius(x, y, radius)) {
         const m = p.wave.hit.has(e) ? repeat : 1;
         p.wave.hit.add(e);
