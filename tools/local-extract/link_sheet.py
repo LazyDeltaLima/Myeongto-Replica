@@ -22,7 +22,8 @@ Sources: charpack/<charId>.ab, the model's AudioWhenPlayAnimation in chararts/<c
 from the raw object), the [uc]skills.ab and [uc]projectiles.ab prefabs and the config/buff_template_holder.ab
 templates whose name carries the codename, and the summons' prefabs (pkgrps/btl_pfb_tokens_*.ab, a `token_` root with the
 codename). Classes: a prefab component's MonoScript (`--cab-index`, the bundle every m_Script points at), a template or
-SerializedState node's `$type`; buff template events by the Buff.Event names of `.cache/il2cpp/dump.cs` when it is there.
+SerializedState node's `$type`; buff template events by their Buff.Event names (BUFF_EVENTS; another one prints as its
+number).
 
 Usage (from the repo root; the CN client for an operator only it has, with its own CAB index):
   .venv-extract/bin/python -I tools/local-extract/link_sheet.py --id char_1052_kalts2 [--id …] [--client <Arknights_Data>]
@@ -76,13 +77,18 @@ def short(t):
     return re.split(r'[.+]', str(t).split(',')[0])[-1]
 
 
-def event_names():
-    """{Buff.Event number: name} from the local dump.cs, {} without it."""
-    f = ROOT / '.cache/il2cpp/dump.cs'
-    if not f.exists():
-        return {}
-    text = f.read_text(encoding='utf-8', errors='replace')
-    return {int(n): name for name, n in re.findall(r'public const Buff\.Event (\w+) = (\d+);', text)}
+# Buff.Event: the event numbers of a buff template's eventToActions (0 … 37, and 80)
+BUFF_EVENTS = {**dict(enumerate([
+    'ON_BUFF_START', 'ON_BUFF_FINISH', 'ON_BUFF_TRIGGER', 'ON_OWNER_KILLED', 'ON_OWNER_FINISH',
+    'ON_BEFORE_APPLYING_MODIFIER', 'ON_APPLYING_MODIFIER', 'ON_APPLIED_MODIFIER', 'ON_OUTPUT_MODIFIER',
+    'ON_TARGET_KILLED', 'ON_TAKE_DAMAGE', 'ON_OUTPUT_DAMAGE', 'ON_OWNER_BORN', 'ON_OWNER_LOCATE',
+    'ON_CALCULATE_DAMAGE', 'ON_EVADE_DAMAGE', 'ON_ABILITY_START', 'ON_ABILITY_FINISH', 'ON_ABILITY_SPELL_ON',
+    'ON_ABILITY_CAST_ON_TARGET', 'ON_SKILL_FINISH', 'ON_AFTER_OUTPUT_DAMAGE', 'ON_OUTPUT_ATK_OR_HEAL',
+    'ON_AFTER_ATTACK', 'ON_BUFF_ENABLE', 'ON_BUFF_DISABLE', 'ON_BEFORE_ATTACK', 'ON_BEFORE_TRY_SET_HP_ZERO',
+    'ON_BEFORE_DISAPPEAR', 'ON_OWNER_KILLED_BY_MAIN_TARGET', 'ON_ABNORMAL_FLAG_DIRTY', 'ON_AFTER_CALCULATE_DAMAGE',
+    'ON_BUFF_LATE_ENABLE', 'ON_SKILL_START', 'ON_OWNER_REACH_EXIT', 'ON_OWNER_POST_BORN', 'ON_OTHER_BUFF_START',
+    'ON_OWNER_BLOCKEE_CHANGED',
+])), 80: 'ON_TOGGLE_SKILL_START'}
 
 
 class Scripts:
@@ -316,7 +322,7 @@ def main():
     tokens = json.loads((ROOT / 'data/backups.json').read_text(encoding='utf-8')).get('tokens') or {}
     scripts = Scripts(a.client, a.cab_index)
     templates = buff_templates(a.client)
-    events = event_names()
+    events = BUFF_EVENTS
     out = []
     for cid in a.id:
         code = cid.split('_', 2)[2]
