@@ -25,6 +25,14 @@
 //   blocks, the same gaps — many bullets make thin blocks). From BULLET_NO_GAP (40) bullets the client draws no gaps
 //   (UIBulletBar.ShowBulletCount: IGNORE_GAP_COUNT), i.e. one bar of the share left; so does a block under 1 px. No glow when
 //   the SP is full (maintainer decision 2026-10-07: none in the captures, the skills fire at once).
+//   A 过载 skill (data `overload`: the prefab's `_isOverloadSkill`; b.snap `ovl`) splits its run at the client's overload
+//   ratio (BasicSkill.get_overloadRatio: 0.5) — overloadBar. Before it the cast slider shows only the first half's share
+//   left (UIHudCharSpCastSlider._GetOverloadSpProgress: clamp01((r − ½) / ½) of the remaining progress r, #ffa800 α.7) and
+//   `char_sp_overload_tint_cast_slider` the spent rest, #bd5a00 α.4 from the right (Slider direction RightToLeft, value
+//   1 − that); from it (r ≤ ½) `char_overload_sp_cast_slider` alone, #d04500 opaque, r / ½ (get_remainingOverloadProgress).
+//   An ammo one with the bullet flag (号角 S2) likewise: the bullet bar shows max(0, left − ½·max) of (1 − ½)·max bullets
+//   (UIHudCharBulletBar.UpdatePlugin), then `char_overload_bullet_bar` left of ½·max on a #4b4b4b α.31 track in the
+//   overload material's _BulletColor #d04500 (UIHudCharOverloadBulletBar, hidden at 0 left).
 // Tier chip: the official shows none in battle (CN captures) and `shop_hud`'s chess_level_icon (autochess_level_N,
 //   rect 42, scale 1.25, at (-45.5, +127.75) from the feet) over a piece in prep. That sprite is only 38 px (looked blurry
 //   at its 1.25× size, maintainer check 2026-10-07); img_chess_level_N (45 px, the shop card's) is the same design — numeral
@@ -84,6 +92,8 @@ export const ALLY_BAR = Object.freeze({
   hp: 0x49b2e3, sp: 0xcaec46, cast: 0xffa800, alpha: 0.7, ghost: 0xffffff,
   plateAlpha: 0.5,
   ammoTrack: 0xe56d00, ammoTrackAlpha: 0.31, ammo: 0xffa800, ammoAlpha: 1, ammoGap: 2,
+  // 过载 (see header): char_overload_sp_cast_slider, char_sp_overload_tint_cast_slider, char_overload_bullet_bar
+  over: 0xd04500, overAlpha: 1, overTint: 0xbd5a00, overTintAlpha: 0.4, overTrack: 0x4b4b4b, overTrackAlpha: 0.31,
   shield: 0xbcdbdf, shieldAlpha: 1,
 });
 
@@ -152,6 +162,9 @@ export const GIANT_BOSS = Object.freeze({
 /** The giant boss entry of a unit info (`spine` first: the _2 variants share a prefab), or null. */
 export const giantBossOf = (info) => (info && (GIANT_BOSS[info.spine] || GIANT_BOSS[info.defId])) || null;
 
+/** The client's overload ratio of a 过载 skill (BasicSkill.get_overloadRatio): the share of its run left when it overloads. */
+export const OVERLOAD_RATIO = 0.5;
+
 /** Narrowest bullet block drawn (px): with more bullets than fit, the bullets left share the track as one bar. */
 const AMMO_BLOCK_MIN = 1;
 /** From this many bullets the client's bullet bar has no gaps (UIBulletBar IGNORE_GAP_COUNT): one bar of the share left. */
@@ -217,6 +230,8 @@ export class AllyBars {
     this.shield = rect(P, this.root, B.shield, B.shieldAlpha); // the barrier's end of the HP fill (shieldedBar)
     this.shield.visible = false;
     this.sp = rect(P, this.root, B.sp, B.alpha);
+    this.spTint = rect(P, this.root, B.overTint, B.overTintAlpha); // a 过载 skill's spent first half (overloadBar)
+    this.spTint.visible = false;
     this.ammoTrack = rect(P, this.root, B.ammoTrack, B.ammoTrackAlpha);
     this.blocks = [];
     this.root.visible = false;
@@ -227,10 +242,10 @@ export class AllyBars {
   /**
    * Draw for feet at (x, y) with `u` px per unit: `hp` / `ghost` (shares 0..1 of the max HP), `sp` (share 0..1 or null: no
    * SP bar), `cast` (the skill runs: the SP bar is its remaining duration), `ammo` ([left, max] or null), `split` (the
-   * barrier's share of the HP fill's length, shieldedBar — 0: none); `assets` for the plate sprite. Returns the bottom
-   * edge (px) of the bars.
+   * barrier's share of the HP fill's length, shieldedBar — 0: none), `overload` (a 过载 skill runs: overloadBar);
+   * `assets` for the plate sprite. Returns the bottom edge (px) of the bars.
    */
-  update(x, y, u, { hp, ghost, sp = null, cast = false, ammo = null, split = 0 }, assets = null) {
+  update(x, y, u, { hp, ghost, sp = null, cast = false, ammo = null, split = 0, overload = false }, assets = null) {
     const B = ALLY_BAR;
     this.root.visible = true;
     const w = B.w * u, h = B.h * u, x0 = x - w / 2;
@@ -244,12 +259,30 @@ export class AllyBars {
     if (sw > 0) { this.shield.position.set(x0 + this.hp.width - sw, hy); this.shield.width = sw; this.shield.height = h; }
     const sy = hy + h;
     const showAmmo = !!ammo && ammo[1] > 0;
+    const ov = overload && cast;
     this.sp.visible = sp != null && !showAmmo;
+    this.spTint.visible = false;
     if (this.sp.visible) {
-      this.sp.tint = cast ? B.cast : B.sp;
-      this.sp.position.set(x0, sy); this.sp.width = w * clamp(sp, 0, 1); this.sp.height = h;
+      let k = clamp(sp, 0, 1), color = cast ? B.cast : B.sp, alpha = B.alpha;
+      if (ov) {
+        const R = OVERLOAD_RATIO;
+        if (k > R) {
+          k = clamp((k - R) / (1 - R), 0, 1);
+          this.spTint.visible = k < 1;
+          if (k < 1) { this.spTint.position.set(x0 + w * k, sy); this.spTint.width = w * (1 - k); this.spTint.height = h; }
+        } else { k = clamp(k / R, 0, 1); color = B.over; alpha = B.overAlpha; }
+      }
+      if (this.sp.tint !== color) this.sp.tint = color;
+      if (this.sp.alpha !== alpha) this.sp.alpha = alpha;
+      this.sp.position.set(x0, sy); this.sp.width = w * k; this.sp.height = h;
     }
-    drawBullets(this, showAmmo ? ammo : null, x0, sy, w, h, u);
+    let bullets = showAmmo ? ammo : null, over = false;
+    if (bullets && ov) {
+      const half = bullets[1] * OVERLOAD_RATIO, left = bullets[0];
+      over = left <= half + 1e-9;
+      bullets = over ? (left > 0 ? [left, half] : null) : [Math.max(0, left - half), bullets[1] - half];
+    }
+    drawBullets(this, bullets, x0, sy, w, h, u, over);
     this.box = { x0, w, top: hy - h / 2 };
     return hy - h / 2 + rows * h;
   }
@@ -257,17 +290,26 @@ export class AllyBars {
 
 /**
  * Bullet blocks (see header) on `o.ammoTrack` / `o.blocks` (made on use in `o.root`): `ammo` [left, max] or null (hidden),
- * the row's left `x0`, centre `y`, size `w` × `h` px.
+ * the row's left `x0`, centre `y`, size `w` × `h` px; `over`: the overload bullet bar's track and colour.
  */
-function drawBullets(o, ammo, x0, y, w, h, u) {
+function drawBullets(o, ammo, x0, y, w, h, u, over = false) {
   const B = ALLY_BAR;
   o.ammoTrack.visible = !!ammo;
   let used = 0;
   if (ammo) {
+    const track = over ? B.overTrack : B.ammoTrack, trackAlpha = over ? B.overTrackAlpha : B.ammoTrackAlpha;
+    if (o.ammoTrack.tint !== track) { o.ammoTrack.tint = track; o.ammoTrack.alpha = trackAlpha; }
     o.ammoTrack.position.set(x0, y); o.ammoTrack.width = w; o.ammoTrack.height = h;
-    const max = Math.round(ammo[1]), left = clamp(Math.round(ammo[0]), 0, max);
+    const max = Math.max(1, Math.round(ammo[1])), left = clamp(Math.round(ammo[0]), 0, max);
     const gap = B.ammoGap * u, bw = (w - gap * (max - 1)) / max;
-    const block = (i) => { let b = o.blocks[i]; if (!b) b = o.blocks[i] = rect(o.P, o.root, B.ammo, B.ammoAlpha); b.visible = true; return b; };
+    const color = over ? B.over : B.ammo;
+    const block = (i) => {
+      let b = o.blocks[i];
+      if (!b) b = o.blocks[i] = rect(o.P, o.root, color, B.ammoAlpha);
+      else if (b.tint !== color) b.tint = color;
+      b.visible = true;
+      return b;
+    };
     if (bw >= AMMO_BLOCK_MIN && max < BULLET_NO_GAP) {
       for (let i = 0; i < left; i++) { const b = block(i); b.position.set(x0 + i * (bw + gap), y); b.width = bw; b.height = h; }
       used = left;

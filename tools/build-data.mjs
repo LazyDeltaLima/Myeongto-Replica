@@ -411,7 +411,7 @@ async function loadContext() {
     opProjectiles: await loadLocalJson('tools/assets/local-op-projectiles.json', 'operator projectiles (tools/local-extract/op_projectiles.py): no `shot` …'),
     enemyProjectiles: await loadLocalJson('tools/assets/local-enemy-projectiles.json', 'enemy projectiles (tools/local-extract/enemy_projectiles.py): no `proj` …'),
     skillCast: await loadLocalJson('tools/assets/local-skill-cast.json', 'skill classes (tools/local-extract/skill_cast.py): no skill `cast` …'),
-    skillHud: await loadLocalJson('tools/assets/local-skill-hud.json', 'skill HUD rows (tools/local-extract/skill_hud.py): no skill `bulletMode` …'),
+    skillHud: await loadLocalJson('tools/assets/local-skill-hud.json', 'skill HUD rows (tools/local-extract/skill_hud.py): no skill `bulletMode` / `overload` …'),
   };
 }
 
@@ -967,6 +967,7 @@ function buildChess(ctx) {
       if (cast) s.cast = cast;
       const bullets = skillBulletMode(ctx, s);
       if (bullets != null) s.bulletMode = bullets;
+      if (skillOverload(ctx, s)) s.overload = 1;
       if (skillSilent(ctx, s)) s.charWord = false;
       if (skillRangeHidden(ctx, s)) s.showRange = false;
       s.overrideTokenKey = se.overrideTokenKey || null;
@@ -1173,6 +1174,7 @@ function buildUnitForm(ctx, charId, status, { chessId = null, skillIndex = null 
     if (cast) s.cast = cast;
     const bullets = skillBulletMode(ctx, s);
     if (bullets != null) s.bulletMode = bullets;
+    if (skillOverload(ctx, s)) s.overload = 1;
     if (skillSilent(ctx, s)) s.charWord = false;
     if (skillRangeHidden(ctx, s)) s.showRange = false;
     s.overrideTokenKey = se.overrideTokenKey || null;
@@ -2576,6 +2578,16 @@ function skillCast(ctx, charId, s) {
 function skillBulletMode(ctx, s) {
   const v = ctx.skillHud?.skills?.[s.prefabId] ?? ctx.skillHud?.skills?.[s.skillId];
   return v === 0 || v === 1 ? v : null;
+}
+
+/**
+ * Whether a skill is a 过载 skill: its prefab's `_isOverloadSkill` (the `overload` map of tools/assets/local-skill-hud.json,
+ * tools/local-extract/skill_hud.py) → the skill record's `overload: 1` — from half of its run the unit's HUD shows the red
+ * overload bar (server/sim/local-hud.js `ovl`, public/js/render/hud-bars.js; docs/rules/ui.md 「과부하 스킬」).
+ */
+function skillOverload(ctx, s) {
+  const o = ctx.skillHud?.overload;
+  return !!(o && (o[s.prefabId] ?? o[s.skillId]));
 }
 
 /**

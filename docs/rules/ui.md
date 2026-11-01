@@ -539,6 +539,23 @@
     「부드러운 칸」(`USE_SMOOTH_COUNT`, 셰이더) 차이도 안 옮김.
   - 테스트 `test/render/sp-bullets.test.js`. 스와이어 디 엘리건트 위트의 금화 칸(2/2)·S3 충전 중 SP 막대 → 켜진 뒤 10칸은 Windows Chrome 실제 화면으로 확인(2026-10-11).
     **[실제 판 이상 없음 2026-10-28]** 엑시아 더 뉴 커버넌트 S2·S3 비율 막대(코드 근거만 — 공식 화면을 볼 기회가 있을 때).
+- **과부하 스킬**(관리자 요청 2026-11-01 「과부하 모드에 들어가면 SP 바가 붉은색 — 공식 클라대로」): 스킬 프리팹의 `_isOverloadSkill`
+  (`CastSkillWithLimitTimes`·`CastSkillWithSuspendable`의 `get_isOverloadSkill`)이 켜진 스킬은 진행이 과부하 비율(`BasicSkill.get_overloadRatio`
+  0.5)에 닿으면 HUD 줄이 바뀐다 — 공식 클라에서 확인. 우리 풀에서는 혼(포트리스) S2·S3, 락락(메카 캐스터) S2, 위셔델 S2, 탈룰라 S3(`char_4247_oxi`, CN
+  클라) 다섯. 남은 진행도 r(지속형 = 남은 시간 / 지속, 탄환형 = 남은 탄 / 전체; 스냅숏 SP 비율과 같다)로:
+  - 과부하 전(r > ½): 스킬 막대(`UIHudCharSpCastSlider`, `#ffa800` α.7)가 앞 절반의 남은 몫 clamp01((r − ½) / ½)만, 그 뒤 빈 자리를
+    `char_sp_overload_tint_cast_slider`(`UIHudCharOverloadSpTintSlider`, 값 1 − 그 몫, 방향 RightToLeft)가 `#bd5a00` α.4로 오른쪽부터 채운다.
+  - 과부하(r ≤ ½, `isOverloaded`): `char_overload_sp_cast_slider`(`UIHudCharOverloadSpCastSlider`, `get_remainingOverloadProgress` = r / ½)가
+    `#d04500` 불투명으로 줄어든다. 틴트는 사라진다.
+  - 탄환 칸 스킬(혼 S2, `_showSpAsBulletMode` 켜짐): 과부하 전엔 탄환 칸이 (1 − ½)·최대 칸 중 max(0, 남은 − ½·최대)만(`UIHudCharBulletBar.UpdatePlugin`,
+    과부하면 숨김), 과부하면 `char_overload_bullet_bar`(`UIHudCharOverloadBulletBar`)가 ½·최대 칸 중 남은 탄을 받침 `#4b4b4b` α.31 위
+    `ui_battle_ally_overload_bullet_bar` 머티리얼 `_BulletColor` `#d04500`로(남은 탄 0이면 안 보임).
+  - 길: 클라 플래그 → `tools/local-extract/skill_hud.py`(EN, 탈룰라는 CN `--client`) → `tools/assets/local-skill-hud.json` `overload` →
+    `tools/build-data.mjs`가 스킬 기록에 `overload: 1` → 시뮬레이션이 켜진 동안 `b.snap.ovl = [[id]]`(`local-hud.js overloadMark`) →
+    `hud-bars.js` `AllyBars`(`OVERLOAD_RATIO`)가 비율로 나눠 그린다. 시뮬레이션의 과부하 효과도 다섯 키트 모두 절반에서 시작한다(락락 S2 40초 중 20초,
+    `test/render/overload-bar.test.js`). 그리기 호출은 그대로(바 20개 1회, `bench/draw` 장면 `overload`).
+  - [화면 미확인] 실제 판에서 위 다섯의 바를 아직 못 봤다(그림 비교만). 같은 머티리얼의 보통 탄환 색 `_BulletColor`는 `#ebaa2d`인데 우리는 캡처로 잰
+    `#ffa800`([추정], 위 「탄환형 스킬」)을 쓴다 — 셰이더가 색을 바꾸는지 안 봐서 그대로 둠.
 - 배리어(屏障·护盾, 관리자 요청 2026-10-10 「배리어도 HP 바처럼」): 공식 클라 `UIHudCharHpSlider.UpdatePlugin`이 유닛의 `shieldUIController.shieldToShow`(s)를
   읽어 HP 바를 (HP + s) / (최대 HP + s)로 채우고, 채운 부분 중 끝쪽 s / (HP + s)(`UIHpFillImage.splitValue`)를 바 머티리얼 `ui_battle_ally_hp_bar`(셰이더
   `Torappu/UI/Hp`, 클라 셰이더: uv.x > 1.003 − split이면 `_Color2`)의 `#bcdbdf` 불투명으로 그린다 — 따로 막대가 있는 게 아니라 HP 바가 배리어만큼 늘어난다. 아군만

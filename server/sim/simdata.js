@@ -149,6 +149,8 @@ export function normalizeSkill(rec) {
     cast: normSkillCast(s.cast),
     // the client's `_showSpAsBulletMode` (data: tools/build-data.mjs skillBulletMode) — display only: local-hud.js `ammo`
     bulletMode: s.bulletMode === 1 ? 1 : s.bulletMode === 0 ? 0 : null,
+    // the client's `_isOverloadSkill` (data: tools/build-data.mjs skillOverload) — display only: local-hud.js `ovl`
+    overload: s.overload === 1 ? 1 : 0,
   };
 }
 

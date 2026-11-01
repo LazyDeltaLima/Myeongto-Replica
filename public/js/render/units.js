@@ -1051,6 +1051,7 @@ export class UnitView {
     if (this.lpMark) this.lpMark.anchor = this.hudAnchor;
     this.ammo = null;
     this.charge = 0;
+    this.overload = false;
     this.barrier = 0;
     this.chip = null;
     // operators only: summon tokens have no tier (hand and field alike) — local patch (maintainer request 2026-10-08): a prep
@@ -1186,6 +1187,7 @@ export class UnitView {
     this.sp = s.sp; this.spMax = s.spMax;
     this.ammo = s.ammo || null; // local patch: official bullet bar (b.snap `ammo`)
     this.charge = s.charge || 0; // an AUTO charge skill's stored charges (b.snap `charge`, hud-bars.js SkillMark)
+    this.overload = !!s.ovl; // a running 过载 skill (b.snap `ovl`, hud-bars.js overloadBar)
     this.barrier = Number(s.shield) > 0 ? Number(s.shield) : 0; // the barrier on the HP bar (b.snap `shield`, hud-bars.js shieldedBar)
     this.bsp = s.bsp || null;   // local patch: a boss's official SP (b.snap `bsp`)
     const prevFlags = this.flags;
@@ -2035,7 +2037,7 @@ export class UnitView {
         const u = hudU(this.ctx), active = !!(this.flags & UF.SKILL);
         const sp = this.spMax > 0 && !this.noSp ? clamp(this.sp / this.spMax, 0, 1) : null;
         const bar = shieldedBar(this.hp, this.maxHp, this.ghostHp, this.barrier);
-        lpBottom = this.lpBars.update(this.screen.x + sx, this.screen.y, u, { hp: bar.hp, ghost: bar.ghost, split: bar.split, sp, cast: active, ammo: this.ammo }, this.ctx.assets);      }
+        lpBottom = this.lpBars.update(this.screen.x + sx, this.screen.y, u, { hp: bar.hp, ghost: bar.ghost, split: bar.split, sp, cast: active, ammo: this.ammo, overload: this.overload }, this.ctx.assets);      }
       this.hpBg.position.set(x0 - 1, cy); this.hpBg.width = bw + 2; this.hpBg.height = bh + 2;
       this.hpGhost.position.set(x0, cy); this.hpGhost.width = bw * g; this.hpGhost.height = bh;
       this.hpFill.position.set(x0, cy); this.hpFill.width = bw * k; this.hpFill.height = bh;

@@ -117,6 +117,8 @@ export function normalizeSnapshot(snap) {
   if (Array.isArray(snap.shield)) for (const e of snap.shield) { const tu = Array.isArray(e) && units.get(e[0]); if (tu && finite(e[1]) > 0) tu.shield = finite(e[1]); }
   // b.snap `charge` [[id, n]] (an AUTO charge skill's stored charges, sim local-hud.js chargeMark) rides on it as `.charge`
   if (Array.isArray(snap.charge)) for (const e of snap.charge) { const tu = Array.isArray(e) && units.get(e[0]); if (tu && finite(e[1]) >= 1) tu.charge = Math.floor(finite(e[1])); }
+  // b.snap `ovl` [[id]] (a running 过载 skill, sim local-hud.js overloadMark) rides on it as `.ovl`
+  if (Array.isArray(snap.ovl)) for (const e of snap.ovl) { const tu = Array.isArray(e) && units.get(e[0]); if (tu) tu.ovl = 1; }
   let down = null;
   if (Array.isArray(snap.down)) {
     for (const d of snap.down) {
@@ -404,6 +406,7 @@ export class SnapshotBuffer {
       o.ammo = a.ammo || null; o.bsp = a.bsp || null; // local patch: official bullet bar, boss SP
       o.shield = a.shield || 0; // the barrier on the official HP bar
       o.charge = a.charge || 0; // the stored charges of the official skill mark (hud-bars.js SkillMark)
+      o.ovl = a.ovl === 1; // a running 过载 skill: the official overload bar (hud-bars.js overloadBar)
       o.seen = stamp;
     }
     for (const id of out.keys()) if (!A.units.has(id)) out.delete(id);

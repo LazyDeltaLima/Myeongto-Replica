@@ -314,5 +314,12 @@
   "skcom_def_up": 0,
   "skcom_heal_up": 0,
   "skcom_quickattack": 0
+ },
+ "overload": {
+  "skchr_horn_2": 1,
+  "skchr_horn_3": 1,
+  "skchr_oxi_3": 1,
+  "skchr_rockr_2": 1,
+  "skchr_wisdel_2": 1
  }
 }
