@@ -625,6 +625,36 @@ test('号角 S2 暴风号令: cast with an enemy in range (the 重装 row TAKE_D
   }
 });
 
+test('号角 S2 过载 counts the activation\'s bullets (extra ones included) and lasts to the end (official BasicSkill overload)', () => {
+  const id = 'chess_char_5_08_a';
+  const shotsOf = (refill) => {
+    const h = run({ defs: { enemies: { enemy_dummy: dummy('enemy_dummy') } }, units: [entry(id, 'skchr_horn_2', { row: 10, col: 2 })], enemies: [{ key: 'enemy_dummy', pos: [10, 6] }] });
+    const u = sel(h, id, 'skchr_horn_2');
+    const n = bbOf(u)['attack@s2.trigger_time'];
+    // 拉特兰's extra bullets at the start: the total is n + 2
+    h.b.on('skillStart', (c) => { if (c.unit === u) u.skill.addAmmo(2); });
+    // a refill while overloaded lifts the bullets left above half: the skill stays overloaded
+    if (refill) h.b.on('ammoUsed', (c) => { if (c.unit === u && c.left === 2 && !u.mem.refilled) { u.mem.refilled = true; u.skill.addAmmo(n); } });
+    cast(h, u);
+    assert.ok(h.runUntil(() => !u.skill.active, 90));
+    h.run(1);
+    const e = h.b.enemies[0];
+    const shots = dealt(h, u, (c) => c.dmg.isSkill && c.dmg.isAttack && c.target === e && c.type === 'phys');
+    const over = tagged(h, u, 'hornOverload', e);
+    const fx = h.eventsOf('fx').filter((f) => f[1] === 'overload' && f[4].id === u.id);
+    done(h);
+    return { n, shots: shots.length, over: over.length, fx: fx.length, firstOver: shots.findIndex((s) => s.t >= over[0].t - 1e-9) };
+  };
+  const a = shotsOf(false);
+  assert.equal(a.shots, a.n + 2);
+  assert.equal(a.over, (a.n + 2) / 2, 'half of n + 2 bullets: from shot n / 2 + 2');
+  assert.equal(a.fx, 1);
+  const b = shotsOf(true);
+  assert.equal(b.shots, 2 * a.n + 2);
+  assert.equal(b.over, b.shots - (a.n + 2) / 2, 'every shot after the overload, the refilled ones too');
+  assert.equal(b.fx, 1, 'overloads once');
+});
+
 test('号角 module FOR-Y (旧日新装): ASPD +10 while not blocking; no ×1.1 vs blocked', () => {
   const h = run({
     defs: { enemies: { enemy_walk: enemyRec({ key: 'enemy_walk', hp: 1e7, speed: 1 }) } },

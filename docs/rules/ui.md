@@ -556,6 +556,13 @@
     `tools/build-data.mjs`가 스킬 기록에 `overload: 1` → 시뮬레이션이 켜진 동안 `b.snap.ovl = [[id]]`(`local-hud.js overloadMark`) →
     `hud-bars.js` `AllyBars`(`OVERLOAD_RATIO`)가 비율로 나눠 그린다. 시뮬레이션의 과부하 효과도 다섯 키트 모두 절반에서 시작한다(락락 S2 40초 중 20초,
     `test/render/overload-bar.test.js`). 그리기 호출은 그대로(바 20개 1회, `bench/draw` 장면 `overload`).
+  - 혼 S2(탄환형, 스킬 프리팹 `BurstCastSkill`)의 과부하 시점 — 공식 클라에서 확인 2026-11-01: 남은 진행도 = (최대 탄 + 추가 탄 − 쏜 탄) ÷ (최대 탄 +
+    추가 탄)(`CastSkillWithLimitTimes.get_remainingProgress` → 주 공격의 `AbilityEventCounter.GetProgress`; 탄은 `_countEvent` 4 `ON_SPELL_ON`,
+    사격 순간에 셈), 과부하 판정은 스킬 틱마다(`BasicSkill.OnTick`) 한 번 켜지면 끝까지(`horn_s_2[overload_mark]`는 `ON_CAST_END`까지). 추가 마법 피해는
+    S2 원거리 공격(`RangedAttackWithConditionalActions`)의 조건부 동작으로, 주인이 `[overload_mark]`를 가졌는지를 포탄이 생길 때
+    (`Projectile.ActionController.Init` → `GetProjectileActions`) 정한다. 그래서 10발이면 6~10발째, 시작 때 탄이 늘면(라테라노 맹약) 그 발동의 전체 탄
+    기준, 과부하 중 재장전(산크타 믹사파라토 S1·S2 등)으로 남은 탄이 절반을 넘어도 과부하는 그대로. 키트: `chess_char_5_08-horn.js` `ammoUsed`에서 켬
+    (`test/content/kits_alt_t5.test.js` 「号角 S2 过载 counts」). 프리팹의 `_burstOnOverload`는 수동 종료 `Full Burst`를 과부하 중에만 허용 — 자동 전투엔 없음.
   - [화면 미확인] 실제 판에서 위 다섯의 바를 아직 못 봤다(그림 비교만).
 - 배리어(屏障·护盾, 관리자 요청 2026-10-10 「배리어도 HP 바처럼」): 공식 클라 `UIHudCharHpSlider.UpdatePlugin`이 유닛의 `shieldUIController.shieldToShow`(s)를
   읽어 HP 바를 (HP + s) / (최대 HP + s)로 채우고, 채운 부분 중 끝쪽 s / (HP + s)(`UIHpFillImage.splitValue`)를 바 머티리얼 `ui_battle_ally_hp_bar`(셰이더

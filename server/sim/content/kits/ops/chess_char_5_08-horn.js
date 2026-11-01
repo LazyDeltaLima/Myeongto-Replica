@@ -6,8 +6,11 @@ import {
   AURA_IV, AURA_DUR, num, talent, traitBb, batPct, mods, isOp, selectedId, lazySkills, instantKind, whileOn,
 } from '../shared/tier5.js';
 
-/** 号角 S2 过载: the second half of the ammo (PRTS 备注 of S3 "技能进行到一半时"; S2 counts shots). [ASSUMED] */
-const HORN_S2_OVERLOAD_AT = 0.5;
+/** 号角 S2 过载 (official client, the skill prefab `skchr_horn_2` is a BurstCastSkill with `_isOverloadSkill`): the skill
+ *  overloads once its remaining progress — bullets left over the activation's total, extra bullets counted — is at most
+ *  `BasicSkill.get_overloadRatio` 0.5 (checked every skill tick, a shot counted at its ON_SPELL_ON), and stays overloaded
+ *  until it ends (`horn_s_2[overload_mark]` lasts to ON_CAST_END): 10 bullets → shots 6–10. */
+const HORN_S2_OVERLOAD_RATIO = 0.5;
 
 export default {
   // ---------------------------------------------------------------------------------------------------------------
@@ -18,9 +21,11 @@ export default {
   // Module (elite): ×1.1 vs blocked enemies.
   // S1 照明榴弹 (instant / 2 charges elite, 自动触发 ⇒ DEFAULT): next attack atk_scale × ATK; a ranged (unblocked) one also
   // splashes projectile_range and lights the impact for projectile_delay_time s (enemies within projectile_range lose
-  // 隐匿). S2 暴风号令 (ammo 10): every attack attack@s2.atk_scale × ATK phys splash; 过载 for the second half of the
-  // ammo [ASSUMED like S3]: + attack@s2.magic_atk_scale × ATK arts to every enemy hit (manual close never happens in the
-  // auto battle). Module FOR-Y (elite): ASPD +10 while not blocking.
+  // 隐匿). S2 暴风号令 (ammo 10): every attack attack@s2.atk_scale × ATK phys splash; 过载 once half of the
+  // activation's bullets are left (HORN_S2_OVERLOAD_RATIO): + attack@s2.magic_atk_scale × ATK arts to every enemy a shell
+  // fired then hits — the client builds a shell's actions when it is fired (`RangedAttackWithConditionalActions`, owner
+  // holds `horn_s_2[overload_mark]`). Manual close (`Full Burst`, only while overloaded: `_burstOnOverload`) never
+  // happens in the auto battle. Module FOR-Y (elite): ASPD +10 while not blocking.
   // S2 and S3 take the official 重装 row, TAKE_DAMAGE (data): a hit, or an enemy she attacks or blocks (the DEFAULT
   // deviation of DESIGN §21.29 is gone, maintainer decision 2026-10-28).
   chess_char_5_08_a: (bb, chess, def) => {
@@ -121,13 +126,14 @@ export default {
         }
         if (sid === 'skchr_horn_2') {
           const magic = num(bb['attack@s2.magic_atk_scale']);
-          battle.on('beforeAttack', (c) => { // 过载: the second half of the ammo
-            if (c.attacker !== unit || !unit.skill?.active || !c.profile) return;
-            const shot = s2Ammo - num(unit.skill.ammoLeft) + 1;
-            const over = shot > s2Ammo * HORN_S2_OVERLOAD_AT + 1e-9;
-            if (over && !unit.mem.hornS2Over) battle.fx('overload', { x: unit.x, y: unit.y, id: unit.id });
-            unit.mem.hornS2Over = over;
-            if (!over || !(magic > 0)) return;
+          battle.on('ammoUsed', (c) => { // 过载 from the shot that leaves half of the activation's bullets, to the end
+            if (c.unit !== unit || c.skill !== unit.skill || unit.mem.hornS2Over || !(c.left > 0)) return;
+            if (c.left > Math.max(1, num(c.skill.ammoMax)) * HORN_S2_OVERLOAD_RATIO + 1e-9) return;
+            unit.mem.hornS2Over = true;
+            battle.fx('overload', { x: unit.x, y: unit.y, id: unit.id });
+          }, { owner: unit });
+          battle.on('beforeAttack', (c) => {
+            if (c.attacker !== unit || !unit.skill?.active || !c.profile || !unit.mem.hornS2Over || !(magic > 0)) return;
             // decided at the shot (a shell still in flight when the skill ends keeps it): the effective profile of this
             // attack (a per-attack copy while the skill runs) carries the extra arts splash on every enemy it hits
             const prev = c.profile.onEachHit;

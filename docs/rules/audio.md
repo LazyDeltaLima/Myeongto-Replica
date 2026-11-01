@@ -471,7 +471,7 @@
   「공식 버프 템플릿 추출」)의 이벤트가 정한다. 소리는 `sfx.kit` 키(`tools/assets/kit-sfx.mjs`), 재생은 `public/js/audio.js signalAttackKey`/`signalFxKey`.
   - 혼 S2·S3: `horn_s_<n>[signal_melee|signal_ranged]`의 `ON_ABILITY_SPELL_ON`(= 공격 판정 순간)마다 `[overload_mark]`가 있으면
     `horn_s_<n>[overload][melee|ranged].attack`, 없으면 `[normal]…`(audioSignal을 가진 즉시 버프) → 우리 'atk'(근접 = `none`)마다. 과부하 시작
-    `horn_s_<n>[overload_start]`은 sim fx `overload`(S3 = 지속시간 절반, S2 = 탄 절반 [ASSUMED, kit]); 과부하는 스킬 끝에 풀림.
+    `horn_s_<n>[overload_start]`은 sim fx `overload`(S3 = 지속시간 절반, S2 = 이번 발동의 탄이 절반 남은 사격 뒤 — rules/ui.md 「과부하 스킬」); 과부하는 스킬 끝에 풀림.
   - 락락 S2: 과부하 시작 `rockr_overload_start`(fx `overload`), 끝 `rockr_overload_finish`(`rockr_s_2[overload]`의 ON_BUFF_FINISH → 과부하 중 스킬이 끝날 때),
     자기 공격 `rockr_s2_common_attack_start`/`_hit`(+`_overload`) → 'atk'/자기 대상 착탄 (2026-10-21 클라 확인: start는 S2 Attack의
     BuffToOwnerDuringAbility(OnEvent) `_startEvent` ON_SPELL_ON(4)이 그녀에게 거는 `rockr_s_2[start_audio_trigger]` = 타격 순간 — 그 전엔
