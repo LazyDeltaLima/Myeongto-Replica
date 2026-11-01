@@ -32,8 +32,8 @@ test('塔露拉 is selectable with authored skills in both slots, every form and
       assert.equal(u.skill.id, `skchr_oxi_${skill + 1}`);
       // 绝不妥协 「攻击造成法术伤害」; 2 blocks, 1.2 s, no air
       assert.deepEqual([u.profile.dmgType, u.profile.canHitFly, u.s.blockCnt, u.base.bat], ['arts', false, 2, 1.2]);
-      // S2 is never auto-cast (NeverTrigger: the guard manager casts it); S1 / S3 keep the data's rule
-      assert.equal(u.skill.rule, skill === 1 ? 'NEVER' : 'DEFAULT');
+      // S2 is never auto-cast (NeverTrigger: the guard manager casts it); S1 keeps the data's rule; S3 an enemy on the field
+      assert.equal(u.skill.rule, ['DEFAULT', 'NEVER', 'GDGLOW_SKILL_2'][skill]);
       assert.equal(u.skill.maxCharges, skill === 1 ? 5 : 1);
       assert.equal(u.skill.kind, ['instant', 'charges', 'duration'][skill]);
       done(h);
@@ -314,6 +314,18 @@ test('S3 日冕重烈: ATK +108 % / +120 %, no attack; a 簇火 per lane (5 lane
     assert.ok(gaps.some((g) => Math.abs(g - bb.overload_interval) < 0.05), `overload ${gaps}`);
     done(h);
   }
+});
+
+test('S3 日冕重烈 is cast by the automatic operations with an enemy anywhere on the field (GDGLOW_SKILL_2), not only in her 1-1 range; none without an enemy', () => {
+  const { h, u } = field({ skill: 2, row: 10, col: 1 });
+  u.skill.gainSp(999, 'init');
+  h.run(1);
+  assert.equal(u.skill.activations, 0, 'no enemy');
+  h.spawn('dummy', { pos: [12, 12] });
+  assert.ok(!u.rangeKeySet.has(12 * COLS + 12));
+  h.run(0.25);   // (the next 0.2 s pass)
+  assert.equal(u.skill.activations, 1, 'an enemy far outside her range');
+  done(h);
 });
 
 test('S3 lanes: 5 centred on her, shifted inside the map at an edge, 13 in the 过载; facing UP the lanes are columns', () => {
