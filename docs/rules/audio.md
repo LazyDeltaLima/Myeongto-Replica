@@ -176,6 +176,10 @@
   - **르무엔 S3 효과음** (관리자 제보 2026-10-07): `kit-sfx.mjs KIT_HIT_BANKS` `lemuen:mark` = `ON_BUFF_SHOW_EFFECT.char_lemuen_range_aim`(S3 'lock'마다), `lemuen:s3end` =
     `ON_ABILITY_START.char_4193_lemuen.attack.4`(S3_End 모드, 첫 'bombardShell' i 0), `lemuen:shell` = `ON_PROJECTILE_REACH.projectile_chr_lemuen_s3_attack`('bombard'마다),
     `audio.js kitHitKey` 3줄. `lemuen_s3_audio_triggered`(p_atk_lmwlcrstr_s)는 시점이 불확실해 뺐다.
+  - **르무엔 S2** (2026-11-01, 공식 클라 프리팹): S2 모드의 `M2Attack`은 FirstSucceed 묶음(Aim·Normal, 아래 「공격 소리 신호」) — 평타는 Normal(`attack.2.2`),
+    Aim은 키트가 평타 밖에서 따로 내는 조준 채널이라 키트 소리로 잇는다: 조준 시작(fx `lemuenAim` `on` 1) `lemuen:aim` = START `attack.2.1`
+    `p_atk_lmwlcrstrcg_h`, 저격(fx `crit`, `src` 그녀) `lemuen:snipe` = ON `attack.2.1` `p_atk_lmwlcrstrcgst_h`와 `lemuen:s2hit` = `projectile_chr_lemuen_s2`
+    HIT `p_imp_lmwlcrstr_d`(키트의 저격은 투사체 없이 바로 맞아 착탄음도 같은 순간; `audio.js signalFxKey`·`kitHitKey`). 그 전에는 평타가 Aim·Normal 소리를 번갈아 냈다.
   - **kit 소리 동시 재생 = 공식 popOldest**: kit 뱅크 22개는 공식에서 모두 `popOldest true`, 상한(`maxSoundAllowed`) 1–3. plan이 `kit-sfx.mjs kitHitLimits`로
     `audio.sfx.kitLimit[key] = { max, pop }`에 싣고(`audio.mjs indexAudio limitOf`), 상한에 차면 가장 오래된 것을 끊고 새 소리를 낸다(르무엔 착탄 5발 모두 —
     예전엔 셋째부터 빠짐). 2026-10-10부터 모든 소리가 같은 규칙(위 「효과음 재생: 피치·동시 재생 상한」, `sfx.bank`; `kitLimit`은 표에 없을 때의 대체).
@@ -273,7 +277,11 @@
   - 묶음 능력의 자식은 `.<i+1>`(`AbilityRandomGroup.DoSetData`): **Random**(`_selectMethod` 0)은 공격마다 하나를 고르고
     (`_diffFromLastOneIfNotFirst` = 직전과 다르게, `_selectAllAtLeastOnce` = 한 바퀴 다 돈 뒤 반복), **Loop**(1)는 차례로, 조건 묶음(`_abilityConfigs`)은 조건이
     맞는 첫 자식(우리: 이름으로 — 근접 타격이면 `Melee…`, 원거리면 `Common`/`Ranged…`, 모드 첫 공격이면 `First…` [추정: 조건 자체는 안 읽음]),
-    `_mainAbility` 묶음은 자식 모두. 실버애쉬 더 레인프로스트·위셔델 평타 `attack.0.1–0.3`, 아스카론 `.0.1/.0.2`, 혼·애쉬락 근접/원거리 자식,
+    `_mainAbility` 묶음은 자식 모두. **FirstSucceed**(`AbilityFirstSucceedGroup`, 2026-11-01 공식 클라에서 확인: `CastToTarget`이 `_abilities` 차례로
+    준비된(`isReady`) 첫 자식을 시전, `DoSetData`가 자식 i에 `{신호}.{i+1}`)는 시뮬레이션이 휘두름에 이름을 단 자식(sim `'swing'` 9번째 칸 —
+    토스카 `T2Attack`), 없으면 마지막 자식(평타; `soundSet` `sel` `{ how: 'first', def, sig }`, `pickVariant`). 필드만으로는 이 묶음을 못 가르므로
+    추출기가 MonoScript(PathID)로 가르고, 모르는 클래스의 `_abilities` 묶음은 경고한다(EN 전체 0건). 실버애쉬 더 레인프로스트 S3 Attack의
+    `ExtraAbilities`는 묶음이 아니라 능력의 행동이라 Attack 자기 신호(`attack.1`). 실버애쉬 더 레인프로스트·위셔델 평타 `attack.0.1–0.3`, 아스카론 `.0.1/.0.2`, 혼·애쉬락 근접/원거리 자식,
     마운틴 평타 `attack.1–3`(자식 1은 뱅크 없음 → 그 공격은 무음), 플레임테일 `attack.2/3`(조사 때 「모드 번호와 안 맞는 뱅크」였던 것) 등.
   - 연타 공격(`MultiMeleeAttack`)은 ON/HIT 신호 끝에 회차(`_addSpellCntToAllSignalId`/`…LastSignalId`/`…AllHitSignalId`, 0부터):
     첸 더 던스트릭 S1 HIT `attack.1.0`/`.1.1`.
@@ -331,6 +339,8 @@
 - 확인: `test/local-patch-attack-signals.test.js` 13개(추출값, 공식 audio_data 위 `soundSet`, 매니페스트, 재생: 휘두름/타격/착탄·지연·근접·원거리·무음 모드·
   스파인·공격자 계약·적 스킬, 실제 매치 경로 애쉬락 START가 타격보다 먼저) + 2026-10-10 저녁 10개(유닛별 스파인 대체음·렌더 연결(소스)·적 스파인,
   적 모드, 버프·커스텀 트리거). [브라우저 미확인 — 마운틴 S2·S3 주먹, 파투스 평타 장전음이 실제 클립 이벤트에서 나는지 들어 볼 것]
+  FirstSucceed 묶음(2026-11-01): `test/audio-first-succeed-group.test.js` 6개(추출값 셋, `soundSet`·매니페스트, `pickVariant`, 토스카·르무엔 S2 재생,
+  시뮬레이션의 토스카 휘두름 신호 → 재생).
 
 ## 재능·소환물 능력 소리 (2026-10-11, 클라 신호 규칙 + EN 클라 버프 템플릿; 관리자 결정 「공식이랑 동일하게」)
 - 공식: 재능도 자기 능력이다 — 신호 `<charId>.T.<n>`(`UnitMode.GenerateSignalId`), START = 능력 시작(`AbilityStandard.OnCastStart`),
@@ -457,9 +467,9 @@
     `p_atk_rylntbwbf_s`, 아군과 그녀 둘 다)이 붙을 때 — 키트의 보이는 버프가 시작될 때의 sim `status`(`audio.js statusSoundKey`)
     [추정·엔진: SHOW_EFFECT를 버프 시작 순간으로 봄, 위 다른 SHOW_EFFECT 뱅크와 같음]; S3 발동형 효과를 걸 때 `tocka_s3[trigger]`(START
     `p_imp_rylntbwflt`, fx `tockaFx` `s` 3 — 옮겨 갈 때도), S2 투사체가 아군에 닿을 때 `projectile_chr_tocka_s2` HIT `p_imp_rylntbw_h`(`tockaFx` `s` 2
-    `shot`; 자기에게 걸 때는 투사체 없음). 남은 하나: 재능 2 공격 `projectile_chr_tocka_t2` HIT — 공격 묶음(AbilityFirstSucceedGroup)을 추출기가
-    묶음 종류 없이 읽어(`char_audio.py ability_info`) 빌더가 자식 `attack.0.1`/`0.2`를 번갈아 내고 T2 투사체를 안 붙인다(평타 둘 중 하나가 T2 소리로
-    나는 것도 이것). 르무엔 `Modes/S2/Body/M2Attack`과 필드로는 못 가름 — 스크립트 클래스 이름을 읽어야 함(관리자 노트의 열린 항목).
+    `shot`; 자기에게 걸 때는 투사체 없음). 재능 2 공격(표식을 쓰는 평타 `T2Attack`)은 공격 묶음의 첫 자식 `attack.0.1`(ON `p_atk_rylntbwmfr`)과
+    `projectile_chr_tocka_t2` HIT `p_imp_rylntbwm` — 키트의 휘두름 신호로 고른다(위 「공격 소리 신호」 FirstSucceed, 2026-11-01). 그 전에는 묶음 종류
+    없이 읽혀 평타가 두 자식을 번갈아 냈고 T2 착탄음이 없었다.
   - 할 것 없음: 혼 S2 `…_horn_s2_full*`(수동 종료 `Full Burst`의 탄 — 위 「공격 소리 신호」; 이 모드 기물은 S3). 남김(§11 ③ 소리): 실버애쉬 더 레인프로스트 S3
     새(`svash2_s_3[bird_on_self]`/`[bird_on_target]` — 이 모드에서 어느 쪽이 도는지 미조사).
 - 확인: `test/audio-skill-projectiles.test.js`(뱅크·매니페스트, 키, AudioManager 재생, 실제 매치 경로: 쉐라 드론 피해의 7번째 칸 2와 S2 드론 `i`; 클레멘티아 2026-10-29 같은 날 추가). [화면 미확인]

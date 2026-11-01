@@ -303,8 +303,10 @@ export function cueAbility(set, melee) {
 /**
  * The group child an attack sounds (1-based) — the client's AbilityRandomGroup (Random: uniform, `diff` never the last one
  * twice, `once` each before any repeats; Loop: in turn) or a conditional group (`cond`: the melee / ranged child, `first` on
- * the mode's first attack); null without a group.
- * @param {any} sel the set's sel (by ability) @param {string|null} ab @param {{ melee: boolean, mem: any, random: => number }} o
+ * the mode's first attack), or an AbilityFirstSucceedGroup (`first`, 2026-11-01: the child the sim's swing names — `sig` by
+ * its GameObject name, sim 'swing' 9th field — else `def`, the plain attack); null without a group.
+ * @param {any} sel the set's sel (by ability) @param {string|null} ab
+ * @param {{ melee: boolean, mem: any, random: () => number, signal?: string|null }} o
  *   `mem` = this unit's memory for the set ({ last, bag, loop, first })
  */
 export function pickVariant(sel, ab, o) {
@@ -316,6 +318,7 @@ export function pickVariant(sel, ab, o) {
   let k;
   if (s.how === 'loop') k = (mem.loop ?? 0) % s.n + 1;
   else if (s.how === 'cond') k = first && s.first ? s.first : o.melee ? (s.melee ?? s.ranged ?? 1) : (s.ranged ?? 1);
+  else if (s.how === 'first') k = (typeof o.signal === 'string' && s.sig?.[o.signal]) || s.def || s.n;
   else if (s.how === 'rand') {
     if (s.once) {
       if (!mem.bag?.length) mem.bag = Array.from({ length: s.n }, (_, i) => i + 1);

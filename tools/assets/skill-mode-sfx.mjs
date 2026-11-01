@@ -545,7 +545,8 @@ export function bankPlayTable(audio, leafPaths, sfx) {
 // The client sounds an attack through its ability's signal id (UnitMode.GenerateSignalId): the mode's
 // `attack` / `combat` + `.<mode index>` when the mode sets `_addIndexToSignalId` (index 0 only with `_includeIndexZero`;
 // 텍사스 디 오메르토사 S1 / S3 use the Default's `.attack`); a child of a random / loop / conditional group adds `.<i + 1>`
-// (AbilityRandomGroup.DoSetData — Random picks one per attack, Loop in turn); a multi-hit attack adds its spell
+// (AbilityRandomGroup.DoSetData — Random picks one per attack, Loop in turn; AbilityFirstSucceedGroup.DoSetData alike —
+// the first ready child that casts, firstPick); a multi-hit attack adds its spell
 // count to ON / HIT (MultiMeleeAttack.DoEmitAudioSignalForSpellOn / ForHit). START sounds as the swing
 // starts (AbilityStandard.OnCastStart), ON at the strike, HIT on each target hit, a projectile's BORN as it is fired
 // and HIT / REACH as it lands; the middleware plays every bank of the name (TorappuAudioMiddleware.PlayEvent).
@@ -556,7 +557,8 @@ export function bankPlayTable(audio, leafPaths, sfx) {
 //   volume, p its play chance (empty assets), dl its delay (s), or = [{ u, w, v?, dl? }] a bank of several files (one drawn by
 //   weight); ab 'attack' |
 //   'combat' when the mode has both (combat = a melee strike); k = the group child it belongs to (1-based); sp = the spell index.
-//   sel[ab] = { n, how: 'rand' | 'loop' | 'all' | 'cond' | 'spell', diff?, once?, melee?, ranged?, first?, def? } (public/js/audio.js).
+//   sel[ab] = { n, how: 'rand' | 'loop' | 'all' | 'cond' | 'first' | 'spell', diff?, once?, melee?, ranged?, first?, def?, sig? }
+//   (public/js/audio.js).
 
 export const LOCAL_CHAR_AUDIO_FILE = 'tools/assets/local-char-audio.json';
 
@@ -629,6 +631,17 @@ function condPick(names) {
 }
 
 /**
+ * The pick rule of an AbilityFirstSucceedGroup (2026-11-01, official client: CastToTarget casts the first child in order
+ * that is ready and casts): the sim names a child that took the attack by its GameObject name — sim 'swing' 9th field
+ * `signal` (冻河's T2Attack) — else the last child, the plain attack the others fall back to (`def`).
+ */
+function firstPick(names, n) {
+  const sig = {};
+  names.forEach((x, i) => { if (typeof x === 'string' && x !== '?' && i < n - 1) sig[x] = i + 1; });
+  return { def: n, ...(Object.keys(sig).length ? { sig } : null) };
+}
+
+/**
  * The attack sound set of mode `n` of a unit (see above), from its bank table and its local-char-audio.json entry.
  * @param {ReturnType<import('./audio.mjs').indexAudio>} audio
  * @param {string} owner the id its banks are named after (an enemy's sound owner)
@@ -671,7 +684,7 @@ export function soundSet(audio, owner, entry, n, soundLeaf) {
       }
     };
     abilityCues(base, {});
-    const kids = Number.isInteger(info.n) && info.n > 0 && ['rand', 'loop', 'all', 'cond'].includes(info.g) ? info.n : 0;
+    const kids = Number.isInteger(info.n) && info.n > 0 && ['rand', 'loop', 'all', 'cond', 'first'].includes(info.g) ? info.n : 0;
     if (kids) {
       for (let j = 1; j <= kids; j++) {
         abilityCues(`${base}.${j}`, info.g === 'all' ? {} : { k: j });
@@ -684,6 +697,7 @@ export function soundSet(audio, owner, entry, n, soundLeaf) {
         if (info.diff) s.diff = 1;
         if (info.once) s.once = 1;
         if (info.g === 'cond') Object.assign(s, condPick(info.names || []));
+        if (info.g === 'first') Object.assign(s, firstPick(info.names || [], kids));
         if (info.seq) s.how = 'loop';
         sel[kind] = s;
       }

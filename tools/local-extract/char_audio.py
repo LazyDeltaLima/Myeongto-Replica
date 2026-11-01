@@ -14,7 +14,8 @@ when, so tools/assets/plan.mjs reads them from tools/assets/local-char-audio.jso
       "sig": [[add, zero], …],                       per mode: `_addIndexToSignalId`, `_includeIndexZero`
       "ab": [{ "attack": {…}, "combat": {…} }, …],   per mode, its Body/Attack and Body/Combat ability:
              g: 'rand' | 'loop' (AbilityRandomGroup `_selectMethod`) | 'all' (a group with a `_mainAbility`: every child
-             runs), n: its children, diff / once / prob (random group options), spell: 'all' | 'last', hitSpell: 1,
+             runs) | 'cond' (`_abilityConfigs`) | 'first' (AbilityFirstSucceedGroup: the first ready child that casts),
+             n: its children, names: their GameObject names, diff / once / prob (random group options), spell: 'all' | 'last', hitSpell: 1,
              times: `_additionalTimes`
       "proj": [[key, …], …],                         per mode: every projectile its abilities fire (+ extra / duo keys and
                                                      the sub-projectiles those spawn)
@@ -98,9 +99,26 @@ class Projectiles:
         return out
 
 
+# (2026-11-01) ability classes whose fields do not tell them apart, by MonoScript PathID (the same ids in the EN and CN
+# clients): AbilityFirstSucceedGroup casts the first child that is ready and casts (CastToTarget, in `_abilities` order;
+# DoSetData gives child i the signal '{parent}.{i + 1}'); ExtraAbilities is a behaviour of its ability, not a group — its
+# `_abilities` are extras, the ability still sounds as itself (실버애쉬 더 레인프로스트 S3 Attack)
+FIRST_SUCCEED_GROUP = 9054077595100407899   # Torappu.Battle.Abilities.AbilityFirstSucceedGroup
+EXTRA_ABILITIES = 5605707488871161295       # Torappu.Battle.Abilities.ExtraAbilities
+GROUP_FIELDS = ('_selectMethod', '_mainAbility', '_abilityConfigs')
+unclassified = set()
+
+
 def ability_info(tree, by_pid, gp, d):
     """The signal facts of a Body/Attack | Body/Combat ability (see the header)."""
     info = {}
+    script = (d.get('m_Script') or {}).get('m_PathID')
+    if script == EXTRA_ABILITIES:
+        return info
+    if (isinstance(d.get('_abilities'), list) and d['_abilities'] and script != FIRST_SUCCEED_GROUP
+            and not any(k in d for k in GROUP_FIELDS) and script not in unclassified):
+        unclassified.add(script)
+        print(f'unclassified ability group: MonoScript {script} at {gp} (its children sound as one ability)', file=sys.stderr)
     kids = [by_pid.get(r.get('m_PathID')) for r in d.get('_abilities') or [] if isinstance(r, dict)]
     if kids:
         info['names'] = [p.split('/')[-1] if p else '?' for p in kids]
@@ -112,6 +130,9 @@ def ability_info(tree, by_pid, gp, d):
                 info[f] = 1
     elif '_mainAbility' in d and isinstance(d.get('_abilities'), list):
         info['g'] = 'all'
+        info['n'] = len(d['_abilities'])
+    elif script == FIRST_SUCCEED_GROUP and isinstance(d.get('_abilities'), list):
+        info['g'] = 'first'
         info['n'] = len(d['_abilities'])
     elif isinstance(d.get('_abilityConfigs'), list) and d['_abilityConfigs']:
         # a conditional group: the first child whose trigger passes casts (blocked / melee / ranged, reload …); child i

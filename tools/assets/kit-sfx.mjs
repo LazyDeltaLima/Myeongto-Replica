@@ -42,6 +42,12 @@ export const KIT_HIT_BANKS = Object.freeze({
   'lemuen:mark': 'battle.ON_BUFF_SHOW_EFFECT.char_lemuen_range_aim',
   'lemuen:s3end': 'battle.ON_ABILITY_START.char_4193_lemuen.attack.4',
   'lemuen:shell': 'battle.ON_PROJECTILE_REACH.projectile_chr_lemuen_s3_attack',
+  // 2026-11-01: S2's Aim — the first child of its mode's M2Attack (AbilityFirstSucceedGroup, signal attack.2.1), which the
+  // kit casts as its own channel, not as an attack (public/js/audio.js signalFxKey / kitHitKey): START as the aim begins
+  // (fx 'lemuenAim' on 1), ON and its projectile_chr_lemuen_s2's HIT at the shot (fx 'crit' from her)
+  'lemuen:aim': 'battle.ON_ABILITY_START.char_4193_lemuen.attack.2.1',
+  'lemuen:snipe': 'battle.ON_ABILITY_ON.char_4193_lemuen.attack.2.1',
+  'lemuen:s2hit': 'battle.ON_PROJECTILE_HIT.projectile_chr_lemuen_s2',
   // 归溟幽灵鲨 (maintainer report 2026-10-08 「S2 종료 후 대역 전환」): the switch to her <替身> (sim fx 'substitute',
   // professions.js installDollkeeper) — its buff start p_skill_sharpstandborn and the stand-in's show effect
   // p_skill_sharpstandspell (11.6 s, cut 0.8 s by ghost2_stand_effect_end: public/js/audio.js on her switch back / death);

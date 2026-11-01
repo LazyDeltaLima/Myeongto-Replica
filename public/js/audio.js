@@ -154,6 +154,8 @@ export function kitHitKey(fx, ex, unitOf) {
     case 'bombardShell': return def(ex.id) === 'char_1035_wisdel' ? 'wisdel:s2' : def(ex.id) === 'char_4193_lemuen' && ex.i === 0 ? 'lemuen:s3end'
       : emppnt(unitOf(ex.id)) ? 'emppnt:aim' : null;
     case 'bombard': return def(ex.id) === 'char_4193_lemuen' ? 'lemuen:shell' : null;
+    // 2026-11-01: 蕾缪安 S2's aimed shot (its Aim ability's projectile_chr_lemuen_s2 HIT; the ON: signalFxKey)
+    case 'crit': { const u = unitOf(ex.src); return u?.def === 'char_4193_lemuen' && u.skillIndex === 1 ? 'lemuen:s2hit' : null; }
     case 'lock': { const u = unitOf(ex.src); return u?.def === 'char_4193_lemuen' && u.skillIndex === 2 ? 'lemuen:mark'
       : u?.def === 'char_4231_clemnt' ? 'clemnt:s3reach' : null; } // 2026-10-29: 克莱门莎 S3's shell reaching the marked enemy
     // 2026-10-29: 克莱门莎 S2 — the carriage fired, the vortex fired where it stops; S3 — each shell's impact (its audio behaviour)
@@ -335,6 +337,9 @@ export function signalFxKey(fx, ex, unitOf) {
     u.lemS3 = true;
     return 'lemuen:s3lock';
   }
+  // 2026-11-01: 蕾缪安 S2's Aim (M2Attack's first child, attack.2.1) — its START as the aim begins, its ON at the shot
+  if (fx === 'lemuenAim' && ex.on === 1 && u?.def === 'char_4193_lemuen') return 'lemuen:aim';
+  if (fx === 'crit' && ex.src != null) { const s = unitOf(ex.src); if (s?.def === 'char_4193_lemuen' && s.skillIndex === 1) return 'lemuen:snipe'; }
   // 2026-10-22: 佩佩 S3 — each attack's pepe_s_3_fx on its main target (the kit's 'stacks', `n` = her stacks before this
   // attack's): PlayAudio pepe_s3_hit_03 at ≥ max_stack_cnt, _02 at ≥ 2, else _01 (as render/fx/kitofficial.js stacks.pepe)
   if (fx === 'stacks' && ex.buff === 'pepe:tremor') {
@@ -1434,9 +1439,10 @@ export class AudioManager {
   /**
    * The swing of tracked unit `su` (id `id`) as it starts — its mode's cue set, the ability (melee 'combat' / ranged
    * 'attack') and the group child it sounds (audioOfficial.js pickVariant) — or null without cues (the role path).
-   * `kind` = the swing / strike's projectile kind ('none' = a melee strike).
+   * `kind` = the swing / strike's projectile kind ('none' = a melee strike); `signal` = the child ability the sim says took
+   * the swing ('swing' 9th field: an AbilityFirstSucceedGroup's, pickVariant `first`).
    */
-  _swingOf(su, kind, now, windup = 0) {
+  _swingOf(su, kind, now, windup = 0, signal = null) {
     const ue = this.getManifest()?.audio?.sfx?.units?.[su.def];
     const mode = su.skillOn ? su.skillIndex : null;
     // an enemy in another prefab mode (enemyMode): that mode's attack signals
@@ -1452,7 +1458,7 @@ export class AudioManager {
     const key = `${em ? `e${su.emode}` : tm ? `t${tn}` : set.mode ? `${mode}${su.skillOn && su.sub ? `/${su.sub}` : ''}` : 'd'}:${ab ?? ''}`;
     const mem = ((su.vm ||= new Map()).get(key)) || {};
     su.vm.set(key, mem);
-    const k = pickVariant(set.sel, ab, { melee, mem, random: this.random });
+    const k = pickVariant(set.sel, ab, { melee, mem, random: this.random, signal });
     return { set, mode, ab, k, at: now, windup: Number(windup) > 0 ? Number(windup) : 0, n: 0, h: 0 };
   }
 
@@ -1883,7 +1889,7 @@ export class AudioManager {
           // 2026-10-30: a talent ability cast in place of the attack (9th field) — its own START, none of the attack's cues
           const tsk = e.length > 8 ? talentSwingKeys(su.def, e[8]) : null;
           if (tsk) { su.sw = null; for (const k of tsk) this._kitSound(k); continue; }
-          su.sw = this._swingOf(su, e[3], now, e[2]);
+          su.sw = this._swingOf(su, e[3], now, e[2], e.length > 8 ? e[8] : null);
           if (su.sw) this._swingCues(su, su.sw, 's');
           this._kitSound(signalAttackKey(su, 's', e[3] === 'none' || e[3] == null)); // 2026-10-10: its buff's swing sound
           continue;
@@ -1915,7 +1921,7 @@ export class AudioManager {
             if (est >= 0.25 && est <= 16) this._speedEst = Number.isFinite(this._speedEst) ? this._speedEst * 0.7 + est * 0.3 : est;
           }
           if (!open) {
-            sw = this._swingOf(src, e[3], now);
+            sw = this._swingOf(src, e[3], now, 0, e.length > 4 ? e[4] : null);
             src.sw = sw;
             if (sw) this._swingCues(src, sw, 's');
           }
