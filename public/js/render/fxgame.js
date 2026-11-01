@@ -2651,6 +2651,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (n && until > clockS) cabinMarks.set(id, spawn(b.bundle, n, v, { owner: id, buff: true, until, tag: 'cabinMark' }));
   }
   const aglFlights = new Map(); // 予愿安洁莉娜 id → her S3 flight's effects { off, lives } (ended by the 'aglnaFlight' off)
+  const oxiFires = new Map();   // 塔露拉 S3: `<her id>|<wave>|<lane>` → the spawn promise of that 簇火's trail (until it explodes or runs out)
   /** Summons without a model drawn by one held effect (pickFx 'summon'): token id → [bundle, prefab]. */
   const SUMMON_LOOK = Object.freeze({
     token_10071_aglna2_agairp: Object.freeze(['aglna2_token', 'token_aglna2_agairp_01']),
@@ -2724,7 +2725,38 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         spawn(b.bundle, n, { x, y, z: 0 }, { owner: null, buff: false, on: o.src }, { over: false });
         return true;
       }
+      // (2026-11-01) 塔露拉 S3 日冕重烈: each wave's 簇火 (EmitDirectionalMapEdgeProjectileVolley, one projectile a lane:
+      // projectile_chr_oxi_s_3_heatwave, `_mainEffect` oxi_skill_03_trail_01) along lanes a..z from `s` to `to` at the sim's
+      // wave_speed `v`, turned to its way; the trail ends where its 簇火 explodes ('blast' with its wave and lane: the
+      // projectile's ON_HIT action oxi_skill_03_hit_01 there) or runs out past the far edge [추정·화면: on the ground]
+      case 'oxiWave': {
+        const b = pickOf(views.get(o.id), 'oxi'), n = pickName(b, 'oxi_skill_03_trail_01');
+        if (!n || level() >= 3) return false;
+        ownFx.add(e);
+        const s0 = Number(o.s), s1 = Number(o.to), dur = Math.abs(s1 - s0) / Math.max(0.1, Number(o.v) || 2.3);
+        for (let lane = Number(o.a); lane <= Number(o.z); lane++) {
+          const [x0, y0, x1, y1] = o.h ? [s0, lane, s1, lane] : [lane, s0, lane, s1];
+          const k = `${o.id}|${o.w}|${lane}`, g = glider(x0, y0, x1, y1, dur, 0);
+          let stop = null;   // where it exploded: the trail's remains stay there
+          const at = { get x() { return stop ? stop.x : g.x; }, get y() { return stop ? stop.y : g.y; }, z: 0, alive: true };
+          const l = spawn(b.bundle, n, at, { owner: null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur })
+            .then((r) => { if (r) bodyTurn(r.inst, mod.THREE, Math.atan2(y1 - y0, x1 - x0)); return r; });
+          oxiFires.set(k, { l, end: () => { stop = { x: g.x, y: g.y }; } });
+          castsDelayed.push({ t: clockS + dur, run: () => oxiFires.delete(k) });
+        }
+        return true;
+      }
       case 'blast': {
+        if (o.w != null && o.lane != null) {
+          const b = pickOf(views.get(o.id), 'oxi');
+          if (!b) return false;
+          const k = `${o.id}|${o.w}|${o.lane}`, fire = oxiFires.get(k), hit = pickName(b, 'oxi_skill_03_hit_01');
+          oxiFires.delete(k);
+          if (fire) { fire.end(); fire.l.then((l) => { if (l) { l.shotEnd = null; finishShot(l.inst, l); } }); }
+          if (hit) spawn(b.bundle, hit, { x, y, z: 0 }, { owner: null, buff: false }, { over: false });
+          ownFx.add(e);
+          return true;
+        }
         if (!pickName(pickOf(views.get(o.id), 'clemnt'), 'clemnt_skill_03_Mark_all_01')) return false;
         ownFx.add(e);
         return true;
@@ -2972,20 +3004,25 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * (`gap` s apart — 琳琅诗怀雅 S3's coins, RandomGold `_triggerDelta`), or (`from: 'point'`) from the event's point back to
    * the operator (伊内丝 S3's recalled 影哨). On landing `hit` plays on its unit; `rope` runs from the operator to the head
    * (ropeLine — the guard_back projectile's line, `_useEndPointAsStartPos`); `pass` { n, on } plays on each unit of the
-   * event's field `on` as the head passes it (its projection on the flight). The longest flight's time (s).
+   * event's field `on` as the head passes it (its projection on the flight). (2026-11-01) `from` naming another field: from
+   * that unit's HIT point instead of the operator's muzzle (冻河 S3's effect moving on from the ally it leaves). The
+   * longest flight's time (s).
    */
   function planShots(pb, name, op, p, o, x, y, views) {
     const speed = Number(p.fly) > 0 ? Number(p.fly) : 10;
     const hits = (Array.isArray(p.hit) ? p.hit : []).map((h) => pickName(pb, h)).filter(Boolean);
     const rope = p.rope ? pickName(pb, p.rope) : null;
     const back = p.from === 'point';
+    const fromU = p.from && !back ? views.get(o[p.from]) : null;
+    if (p.from && !back && (!fromU || fromU.alive === false || fromU.remove)) return 0;
     const tos = back ? [op] : [o[p.to]].flat().map((id) => views.get(id)).filter((u) => u && u.alive !== false && !u.remove);
     let longest = 0;
     tos.forEach((u, k) => {
       const go = () => {
         if (level() >= 3 || trailFull() || (!back && (u.alive === false || u.remove))) return;
-        const from = back ? { x, y, z: shotTo(op).z } : shotFrom(op, null);
-        const tx = mx(u), ty = u.y, dur = Math.max(0.04, Math.hypot(tx - (back ? x : op.x), ty - (back ? y : op.y)) / speed);
+        const from = back ? { x, y, z: shotTo(op).z } : fromU ? shotTo(fromU) : shotFrom(op, null);
+        const ox = back ? x : fromU ? fromU.x : op.x, oy = back ? y : fromU ? fromU.y : op.y;
+        const tx = mx(u), ty = u.y, dur = Math.max(0.04, Math.hypot(tx - ox, ty - oy) / speed);
         const rec = { inst: null, tgt: u, x0: from.x, y0: from.y, z0: from.z, ...aimOf(u), k: 0, dur, arc: 0 };
         trails.push(rec);
         spawn(pb.bundle, name, { x: from.x, y: from.y, z: from.z }, { owner: null, buff: false, until: clockS + dur + 5 }, { drop: rec })
@@ -3679,7 +3716,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // 2026-10-24 (묶음 S7): 圣约送葬人 S3's front buff is SKILL_HELD's, by the deploy facing (its `_back` copy otherwise)
     'excu2_skill_03_buff_01',
     // 2026-10-24 (묶음 S8): 海霓 S2's stage buffs come with her talent's raises (kitofficial.js 'hit'), not at the skill's start
-    'haini_skill_02_buff_01', 'haini_skill_02_buff_02']);
+    'haini_skill_02_buff_01', 'haini_skill_02_buff_02',
+    // 2026-11-01: 冻河's — her buffs on the allies (fxstatus.js 'tocka:*': 屏障, S2's ASPD, S3's ATK, the S3 effect's marks), the
+    // 触发型效果's start effects, S2's arrival, T1's heal and the S3 effect's move (kitofficial.js 'tockaFx' / 'tockaMove' /
+    // 'hit'); the trigger buffs' own (paused) effects and S3's start effects no client row creates — the `_buff` name rule
+    // played them on her for the skill
+    'tocka_skill_01_buff_01', 'tocka_skill_02_buff_01', 'tocka_skill_03_buff_04', 'tocka_skill_03_buff_01', 'tocka_skill_03_buff_02',
+    'tocka_skill_03_buff_03', 'tocka_skill_01_buff_02_start_01', 'tocka_skill_02_buff_02_start_01', 'tocka_skill_03_buff_start_01',
+    'tocka_skill_03_buff_start_02', 'tocka_skill_03_buff_start_03', 'tocka_skill_01_buff_02', 'tocka_skill_02_buff_02',
+    'tocka_skill_02_hit_01', 'tocka_heal_01_hit_01', 'tocka_skill_03_buff_trail_01',
+    // … and 塔露拉's: S2's stacks while they last (fxstatus.js oxi_s_2_stack, not the skill's instant), the footprints, 奥术
+    // (kitofficial.js 'zone' / 'stacks'); oxi_skill_02_buff_02, which no client row creates
+    'oxi_skill_02_buff_01', 'oxi_skill_02_buff_02', 'oxi_buff_01', 'oxi_buff_02', 'oxi_buff_03']);
   /** What a skill activation plays on the caster (fxmap.js activationEffects: { start, loops }). */
   const activation = (v) => {
     const b = bundleOf(v), em = emittedIn(b.bundle);

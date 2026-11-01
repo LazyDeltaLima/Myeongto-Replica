@@ -134,6 +134,7 @@ test('the rules name prefabs the client binds for that operator', () => {
       assert.equal(typeof rule, 'function');
       const o = { left: 0, t: 2, id: 1, of: 2, n: 2, cap: 3, name: 'extradition', cells: [[1, 1, 1], [2, 1, 3], [3, 1, 5], [4, 1, 0]], skill: 'swire2_3', targets: [2], token: 'token_10058_sbell2_icetgt', ids: [2], off: [3], picks: [2], src: 2, cd: 1.5 };
       if (n === 'whitw2Drones') o.t = [[2, 0], [3, 1]];
+      if (n === 'tockaFx') Object.assign(o, { s: 2, shot: 1 });
       // ('hit' rules answer their own moment keys)
       const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((c) => ({ ...c, plays: PLAYS }))
         .flatMap((ctx) => (n === 'hit' ? HIT_KEYS : [undefined]).map((k) => kitOfficialPlan(n, { ...o, k }, b, ctx))).filter(Boolean);

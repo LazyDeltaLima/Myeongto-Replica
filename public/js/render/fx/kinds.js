@@ -65,6 +65,9 @@ export const FX_KINDS = Object.freeze({
   chen3Qi: { a: 'wave', c: 0xff6a4a, r: 0.6 },
   kitHit: { a: 'none', c: 0xffffff }, // local patch: a kit's skill hit with no effect of its own — its sound only (audio.js kitHitKey)
   whitw2Drones: { a: 'none', c: 0x8fe6ff }, // local patch: 荒芜拉普兰德 S3 drone positions (the wolves, render/fxgame.js; nothing in the fallback)
+  // 2026-11-01: 冻河's 触发型效果 put on an ally and its S3 effect moving on, 塔露拉 S3's 簇火 wave — drawn only by their official
+  // effects (render/fx/kitofficial.js, render/fxgame.js pickFx); nothing in the fallback
+  tockaFx: { a: 'none', c: 0x9fe6ff }, tockaMove: { a: 'none', c: 0x9fe6ff }, oxiWave: { a: 'none', c: 0xff8a3a },
   buffProgress: { a: 'none', c: 0xdfe8ff }, // 2026-10-22: a buff's remaining share for its official effect (render/fxgame.js buffProgress)
   burnTiles: { a: 'none', c: 0xff7a33 }, // 烛煌 S2's burning tiles (render/fx/kitofficial.js; nothing in the fallback)
   roadTiles: { a: 'none', c: 0x9fd8ff }, // 引星棘刺 T2's straight-road tiles (render/fx/kitofficial.js; nothing in the fallback)

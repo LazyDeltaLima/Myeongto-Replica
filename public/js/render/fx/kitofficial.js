@@ -97,6 +97,14 @@ export const KIT_OFFICIAL = {
     mudrok: cite(['mudrok_t_1[init]', 'mudrok_t_1[recharge]'], () => ({ play: [once('mudrok_buff_01_begin')] })),
     pepe: cite('pepe_s_3_fx', (o) => ({ play: [{ tpl: 'pepe_s_3_fx', on: 'tgt',
       when: { stacks: { 'pepe_s3_range[atk]': Number(o.n) || 0 }, bb: { max_stack_cnt: Number(o.max) || 0 } } }] })),
+    // (2026-11-01) 塔露拉 T1 奥术 (the sim's count `n` of oxi_t_1_arcane_stack, `max` its max_stack_cnt): the stacked buff's one
+    // effect oxi_buff_02 while she has a stack, and oxi_t_1_arcane_full_fx's oxi_buff_03 from the stack that fills it
+    // (oxi_t_1_arcane_manager's GE row) until her next attack takes one off (oxi_t_1_attack_completed FinishBuffsById)
+    oxi: cite(['oxi_t_1_arcane_stack', 'oxi_t_1_arcane_full_fx'], (o) => {
+      const n = Number(o.n) || 0, max = Number(o.max) || 0;
+      return { play: [n > 0 ? { n: 'oxi_buff_02', on: 'op', slot: 'oxiArcane' } : { slot: 'oxiArcane', off: true },
+        max > 0 && n >= max ? { n: 'oxi_buff_03', on: 'op', slot: 'oxiArcaneFull' } : { slot: 'oxiArcaneFull', off: true }] };
+    }),
   },
   // 赤刃明霄陈 T2: the dodge held again (chen3_t2[timer] at stack_time: CreateEffect chen3_buff_start_01, and the heal's
   // chen3_Shield_buff_02); its loop is the 'chen3:evade' status (fxstatus.js KEY_FX)
@@ -176,6 +184,9 @@ export const KIT_OFFICIAL = {
     // (2026-10-26) 酒神 S2: each tick of 本能的召唤's exit (phatm2_s_2[damage], ON_BUFF_TRIGGER) creates
     // phatm2_skill_02_debuff_hit_01 on the enemy it damages
     phatm2: cite('phatm2_s_2[damage]', (o) => (o.k === 'phatm2_s_2[damage]' ? { play: [once('phatm2_skill_02_debuff_hit_01', 'id')] } : null)),
+    // (2026-11-01) 冻河 T1: tocka_t1[sp_and_heal]'s heal makes tocka_t1[heal_core] on the ally (ON_BUFF_START CreateEffect
+    // tocka_heal_01_hit_01)
+    tocka: cite('tocka_t1[heal_core]', (o) => (o.k === 'tocka_t1[heal_core]' ? { play: [once('tocka_heal_01_hit_01', 'id')] } : null)),
     // 折桠 T1 简易包扎: branch_t_1 ON_SKILL_FINISH heals her (HealViaMaxHpRatio) and creates branch_talent_01 on her
     branch: cite('branch_t_1', (o) => (o.k === 'branch_t_1' ? { play: [once('branch_talent_01')] } : null)),
     // 圣约送葬人 S3: excu2_s_3[mark][effect] ON_OUTPUT_DAMAGE puts excu2_s_3[mark] (INFINITY, excu2_skill_03_aim_01) on each enemy
@@ -504,6 +515,28 @@ export const KIT_OFFICIAL = {
   roadTiles: {
     thorn2: cite('char_1039_thorn2/Others/Talent/2/tiles_ally', (o) => ({ play: (Array.isArray(o.cells) ? o.cells : [])
       .map(([x, y]) => ({ n: 'thorn2_buff', on: 'point', at: [x, y], slot: `road${x},${y}` })) })),
+  },
+  // (2026-11-01) 冻河: a 触发型效果 put on an ally (`s` the skill 1–3) — the ON_BUFF_START CreateEffect of tocka_s1[trigger]
+  // (tocka_skill_01_buff_02_start_01), tocka_s2[trigger] (_02_buff_02_start_01), tocka_s3[trigger] (_03_buff_start_02,
+  // `_constDirection` UP); S2's arriving by its projectile_chr_tocka_s2 (`shot`) also plays its `_effectsWhenHit`
+  // tocka_skill_02_hit_01. The effects the trigger buffs hold (tocka_skill_01_buff_02 / _02_buff_02) are paused while no
+  // operator menu is open (PauseEffectIfCharMenuNotOpen) — never in a battle of this mode: not drawn
+  tockaFx: {
+    tocka: cite(['tocka_s1[trigger]', 'tocka_s2[trigger]', 'tocka_s3[trigger]', 'projectile_chr_tocka_s2'], (o) => {
+      const k = Number(o.s);
+      const start = k === 1 ? 'tocka_skill_01_buff_02_start_01' : k === 2 ? 'tocka_skill_02_buff_02_start_01' : k === 3 ? 'tocka_skill_03_buff_start_02' : null;
+      return start ? { play: [once(start, 'id'), ...(k === 2 && o.shot ? [once('tocka_skill_02_hit_01', 'id')] : [])] } : null;
+    }),
+  },
+  // … and her S3 effect moving on (`from` the ally it leaves, `id` the next holder): tocka_s3[trigger]'s EmitProjectile
+  // projectile_tocka_s3_effect (`_mainEffect` tocka_skill_03_buff_trail_01, AdvancedMovement 6 tiles / s) to the new
+  // holder [추정·엔진: from the ally it leaves — the node's SOURCE in a forced ON_BUFF_TRIGGER read as the buff's owner]
+  tockaMove: { tocka: cite('projectile_tocka_s3_effect', () => ({ play: [{ n: 'tocka_skill_03_buff_trail_01', fly: 6, to: 'id', from: 'from' }] })) },
+  // (2026-11-01) 塔露拉 T2's footprint (a tile her oxi_fire_field_lease holds, `dur` s from its latest lease — the sim sends a
+  // re-lease again): the TimedTileLeaseAbility's `_effectKey` oxi_buff_01 on the tile, one per tile
+  zone: {
+    oxi: cite('char_4247_oxi/Others/Direction/CommonAbilities/oxi_fire_field_lease', (o) => ({ play: [{ n: 'oxi_buff_01', on: 'point',
+      life: Math.max(0.1, Number(o.dur) || 4), slot: `oxiTile:${o.tile}` }] })),
   },
   pull: {
     glady: cite('projectile_chr_glady_s3_3', () => ({ play: [

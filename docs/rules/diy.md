@@ -580,8 +580,10 @@
   덮어쓰기 EXTEND라, 있던 버프가 남고 남은 시간을 새것으로 다시 채운다(값을 새것으로 옮기는 것은 버프 표의 `takeSnapshotWhenExtend`가 켜졌을 때만).
   `[추정·CN]` 큰 값: 그녀 템플릿의 MAX 대입(`AssignBuffBlackboard`의 `_assignMode`·`_includeDisableBuffs`)이 EN 클라에 없는 CN 필드.
 - 이펙트·공격 타이밍·투사체·스킬 시전 데이터: CN 클라에서 뽑음(2026-11-01, `fx.md` 「선발 추가 토스카·탈룰라」) — 평타·스킬 시전·타격·꼬리는
-  공식 이펙트, 공격 타이밍은 공식 값(golden `diy-013`·`014` 이동). 아직 안 한 것: 발동형 효과·屏障·재능 1 치유·S2 투사체·S3 효과의 이동 이펙트를
-  키트 사건에 잇기(같은 절의 목록). 화면 확인 전.
+  공식 이펙트, 공격 타이밍은 공식 값(golden `diy-013`·`014` 이동). 키트 사건 연결(2026-11-01, 같은 절 「손으로 이은 것」): 발동형 효과의 시작
+  이펙트(사건 `tockaFx`)·S2 도착 타격·S3 효과의 이동(`tockaMove`)·재능 1 치유(치유의 `moment` `tocka_t1[heal_core]`)·재능 2 공격(휘두름 신호
+  `T2Attack` — 그 능력의 투사체·타격)·아군 쪽 屏障·S2 공격 속도·S3 공격력과 S3 효과가 다녀간 표시(보이는 버프 `tocka:shield`·`:auto`·`:bonus`·
+  `:visit` — 표시만, 시뮬 결과 그대로). 화면 확인 전.
 - 테스트: `test/content/op_tocka.test.js`(9 — 모든 폼, 세 스킬, 두 재능, 실제 매치 경로 하나), 선발 수를 세는 테스트 9 → 10명, golden `diy-013`
   (그녀의 5티어 행이 함께 실림)·`diy-014`(새 시나리오), 다른 가족 변화 없음.
 
@@ -639,7 +641,8 @@
   `Skill_2_Cambat`(`skchr_oxi_2` `TargetCenteredAreaMeleeAttack` `_animKey` — 이름 추측의 `Skill_2_Attack`이 아님; `tools/assets/anim-overrides.mjs`),
   `Skill_2_Attack`은 `todo: J`(CN 클라 키는 2026-11-01에 뽑았고 메타데이터 반영 전, `test/render/clip-coverage-list.js`). 이펙트·공격 타이밍·
   스킬 시전 데이터는 CN 클라에서 뽑음(2026-11-01, `fx.md` 「선발 추가 토스카·탈룰라」 — 공격 타이밍 공식 값, golden `diy-014`·`015` 이동);
-  발자국·S3 簇火·奥术 중첩은 아직 대체 연출(같은 절).
+  발자국(`zone`, 다시 잡을 때도 보냄)·S3 簇火(`oxiWave`, 폭발 `blast`에 물결·줄 번호)·奥术 중첩(`stacks`에 `max`)·S2 중첩(보이는 버프
+  `oxi_s_2_stack`)은 2026-11-01에 공식 이펙트로 이음(같은 절 「손으로 이은 것」).
 - 테스트: `test/content/op_oxi.test.js`(12: 모든 폼·잠재, 재능 둘, 세 스킬, 은신 적, 실제 경기 경로 S2), 선발 수를 세는 테스트 10 → 11명, golden
   `diy-014`(토스카 다음 칸들과 다시 묶임)·`diy-015`(새 시나리오). 화면·공식 화면 대조는 아직 — 관리자 노트의 열린 항목.
 

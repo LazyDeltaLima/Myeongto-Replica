@@ -265,6 +265,13 @@ def strings(o, out):
             strings(v, out)
     elif isinstance(o, str):
         out.add(o)
+        # 2026-11-01: an ability's `_actions` hold their nodes as a JSON string (SerializedState) — 冻河 S2's EmitProjectile
+        # `_projectileKey` projectile_chr_tocka_s2 is only there
+        if o.startswith('[{'):
+            try:
+                strings(json.loads(o), out)
+            except ValueError:
+                pass
     return out
 
 

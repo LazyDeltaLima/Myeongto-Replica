@@ -35,19 +35,21 @@ export default {
     // element damage ×(1 + arcane_step × stacks): Nodes.DamageScale with `_isStackable` multiplies by 1 + value × the
     // valid stack count (official client).
     const arcaneMax = Math.max(0, Math.round(num(t0.arcane_max) / Math.max(1e-9, num(t0.arcane_step, 1))));
-    const arcaneShow = (battle, unit, a) => battle.fx('stacks', { x: unit.x, y: unit.y, id: unit.id, buff: 'oxi_t_1_arcane_stack', n: a.n });
+    const arcaneShow = (battle, unit, a) => battle.fx('stacks', { x: unit.x, y: unit.y, id: unit.id, buff: 'oxi_t_1_arcane_stack', n: a.n, max: arcaneMax });
 
     // ---- 我即火焰 (talent 2): the footprints (oxi_fire_field_lease, a TimedTileLeaseAbility) ----
     const fieldDuration = num(t1.field_duration, 4), fieldCap = Math.max(0, num(t1.max_count, 25));
     const fieldStep = num(t1.field_interval, 0.3), fieldScale = num(t1.field_atk_scale);
     const lease = (battle, unit, f, key) => {
       // a re-lease restarts its time [ASSUMED·no source: the maintainer's memory of the official game, "probably" (2026-11-01)]
-      if (f.tiles.has(key)) { f.tiles.set(key, battle.time + fieldDuration); return; }
+      // (its 'zone' again: the footprint's effect is held the new time — render/fx/kitofficial.js 'zone')
+      const show = () => battle.fx('zone', { x: key % COLS, y: Math.floor(key / COLS), r: 0.5, dur: fieldDuration, id: unit.id, tile: key });
+      if (f.tiles.has(key)) { f.tiles.set(key, battle.time + fieldDuration); show(); return; }
       // full: a new tile is refused (`_rejectNewWhenFull`, kept over the maintainer's memory of the oldest one going —
       // maintainer decision 2026-11-01) [ASSUMED·CN: the field read by its name]
       if (f.tiles.size >= fieldCap) return;
       f.tiles.set(key, battle.time + fieldDuration);
-      battle.fx('zone', { x: key % COLS, y: Math.floor(key / COLS), r: 0.5, dur: fieldDuration, id: unit.id });
+      show();
     };
     const tickField = (battle, unit) => {
       const f = unit.mem.oxiField;
@@ -140,12 +142,16 @@ export default {
       const ahead = sign > 0 ? (horizontal ? R.c1 : R.r1) : (horizontal ? R.c0 : R.r0);
       const from = sign > 0 ? Math.max(back, along - WAVE_MAX_BACK) : Math.min(back, along + WAVE_MAX_BACK);
       const to = ahead + sign * num(b3.wave_exit_distance, 5);
-      const wave = { hit: new Set() }, atk = unit.s.atk;
+      const wave = { hit: new Set(), id: w.waves = (w.waves ?? 0) + 1 }, atk = unit.s.atk;
       for (let lane = a; lane <= z; lane++) w.fires.push({ wave, atk, s: from, to, sign, horizontal, lane });
+      // its 簇火 (projectile_chr_oxi_s_3_heatwave, one a lane) for the renderer: lanes a..z from `s` to `to` along the rows
+      // (h 1) or the columns, at wave_speed; an explosion names its wave and lane ('blast' w / lane)
+      battle.fx('oxiWave', { x: unit.x, y: unit.y, id: unit.id, w: wave.id, h: horizontal ? 1 : 0, a, z, s: from, to,
+        v: num(b3.wave_speed, 2.3) });
     };
     const explode = (battle, unit, p, x, y) => {
       const radius = num(b3.range_radius, 1.5), scale = num(b3.heatwave_atk_scale), repeat = num(b3.same_wave_repeat_damage_scale, 1);
-      battle.fx('blast', { x, y, r: radius, id: unit.id, element: 'burn' });
+      battle.fx('blast', { x, y, r: radius, id: unit.id, element: 'burn', w: p.wave.id, lane: p.lane });
       // flyers too [ASSUMED·no source: the text names no 地面 (S1's does) and the maintainer remembers so (2026-11-01); the
       // projectile prefab is not read]
       for (const e of battle.foesInRadius(x, y, radius)) {
@@ -208,7 +214,7 @@ export default {
         [S3]: {
           kind: 'duration', mods: { atkPct: num(b3.atk) }, flags: { disarm: true },
           onStart({ battle, unit }) {
-            unit.mem.oxiS3 = { fires: unit.mem.oxiS3?.fires ?? [], next: battle.time, over: false };
+            unit.mem.oxiS3 = { fires: unit.mem.oxiS3?.fires ?? [], waves: unit.mem.oxiS3?.waves ?? 0, next: battle.time, over: false };
           },
           onTick({ battle, unit, skill }) {
             const w = unit.mem.oxiS3;

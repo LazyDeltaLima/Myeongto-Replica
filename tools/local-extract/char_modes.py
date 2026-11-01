@@ -690,6 +690,10 @@ def mode_parts(tree, mode_paths, projectiles=None):
       talent[mode] = { 'T.<n>': { cast, trail, hit } } — a mode talent (charpack `Body/Talents/<n>` with `_isModeTalent` 1):
         寒芒克洛丝's 中的 (`_probKey` prob: the client casts it instead of the attack — its arrow projectile_chr_kroos2_2 and
         kroos2_attack_start_02), 圣约送葬人's 受选之人 shot; the sim marks such a swing and its 'atk' events with 'T.<n>'.
+      2026-11-01: talent[mode] also holds { '<child>': … } — a child of the mode's attack (`Body/Attack/<child>`) the attack
+        casts first only while its own validator holds (`SelfConditionalValidator` in its subtree, under the attack's
+        AbilityFirstSucceedGroup): 冻河's T2Attack (her mark tocka_t2[aoe_mark] — projectile_chr_tocka_t2 and its
+        tocka_attack_02_range_01); the sim marks such a swing and its 'atk' events with the child's name.
       side[mode] = { ally: { cast, trail, hit }, foe: { … } } — the children of the mode's attack (`Body/Attack/<child>`) whose
         own Trigger picks one side (`_targetSide` 1 allies / 2 enemies), when both sides are there: 凯尔希·思衡托 S2 HealAlly /
         AttackEnemy (projectile_chr_kalts2_s2_heal / _dmg, start_heal / start_damage) — the attack takes the one of its target.
@@ -741,6 +745,11 @@ def mode_parts(tree, mode_paths, projectiles=None):
                 ts = [x.get('_targetSide') for x in by_go.get(gp + '/Trigger', []) if x.get('_targetSide') in (1, 2)]
                 if ts:
                     sides.setdefault('ally' if ts[0] == 1 else 'foe', gp)
+                # (the validator's fields are FilterBuffTargetValidator's too: a group's child whose own Selector requires
+                # buffs — `_buffs` with `_excludeKey` 0 — is the conditional one)
+                group = any(isinstance(x.get('_abilities'), list) for x in by_go.get(mp + '/Body/Attack', []))
+                if group and any(x.get('_buffs') and not x.get('_excludeKey') and '_targetOptions' in x for x in by_go.get(gp + '/Selector', [])):
+                    tal[parts[2]] = gp
         if tal:
             talent[i] = {k: collect(i, ap) for k, ap in sorted(tal.items())}
         if len(sides) == 2:

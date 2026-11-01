@@ -143,6 +143,7 @@ const EROSION_DOWN = keyed('ep_water_def_down', 'buff', HEAD);
 const ANGEL2_SELF = Object.freeze(['angel2', 'angel2_skill_2_buff_01', 0]);
 const ANGEL2_OTHER = Object.freeze(['angel2', 'angel2_skill_2_buff_02', 0]);
 const CETSYR_HEAL = Object.freeze(['cetsyr', 'cetsyr_buff_02', OWN]);
+const TOCKA_VISIT = Object.freeze(['tocka_skill_03_buff_01', 'tocka_skill_03_buff_02', 'tocka_skill_03_buff_03'].map((n) => Object.freeze(['tocka', n, OWN])));
 const HUMUS_PEAK = Object.freeze([Object.freeze(['humus', 'humus_buff_01', OWN]), Object.freeze(['humus', 'humus_buff_02', OWN])]);
 /**
  * A kit buff → the official buff's effect: by its key; a list of specs when the buff stands for several; a function picks by
@@ -223,6 +224,17 @@ export const KEY_FX = Object.freeze({
   'cello:tango:hp': keyed('cello_s_3[effect_hp]', 'cello', OWN),
   'cello:tango:atk': keyed('cello_s_3[effect_atk]', 'cello', OWN),
   'cello:tango:def': keyed('cello_s_3[effect_def]', 'cello', OWN),
+  // 2026-11-01: 冻河's buffs on the ally (and her) — S1's 屏障 tocka_s1[shield] (tocka_skill_01_buff_01), S2's ASPD
+  // tocka_s2[auto_skill] (_02_buff_01), S3's ATK tocka_s3[bonus] (_03_buff_04); each created by a condition the sim decided
+  // (the 触发型效果 set off), and the marks her S3 effect leaves where it has been — tocka_s3[trigger_effect_a] / [_b] / [_c]
+  // (_03_buff_01 / _02 / _03, all kept: the 1st, 2nd, 3rd arrival; the sim's `fx` the count)
+  'tocka:shield': keyedAll('tocka_s1[shield]', 'tocka', OWN),
+  'tocka:auto': keyedAll('tocka_s2[auto_skill]', 'tocka', OWN),
+  'tocka:bonus': keyedAll('tocka_s3[bonus]', 'tocka', OWN),
+  // 塔露拉 S2's stacks (the sim's oxi_s_2_stack, refreshed by each cast): their buff's oxi_skill_02_buff_01 while they last
+  oxi_s_2_stack: keyed('oxi_s_2_stack', 'oxi', OWN),
+  'tocka:visit': cite(['tocka_s3[trigger_effect_a]', 'tocka_s3[trigger_effect_b]', 'tocka_s3[trigger_effect_c]'],
+    (v, from) => TOCKA_VISIT.slice(0, Math.max(0, Math.min(3, Number(from?.fx) || 0)))),
   // 2026-10-24 (묶음 S2): 百炼嘉维尔 S3's end — gvial2_s_3's ON_BUFF_FINISH creates gvial2_s_3[final_bleed] (LIMITED final_duration,
   // gvial2_skill_3_bleed) on her: the kit's self bleed after the skill
   'gvial:bleed': keyed('gvial2_s_3[final_bleed]', 'gvial2', OWN),

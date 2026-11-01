@@ -44,7 +44,9 @@ export const HIT_KEYS = Object.freeze(['bubble_t_1[atk_down]', 'skadi2_s_1[prote
   // 묶음 S11 (2026-10-24)
   'yu_s_1[inverse_damage]', 'yu_t_1[enemy]', 'yu_s_3[ally]', 'gvial2_s_1',
   // 酒神 (2026-10-26)
-  'phatm2_s_2[damage]']);
+  'phatm2_s_2[damage]',
+  // 冻河 (2026-11-01)
+  'tocka_t1[heal_core]']);
 
 /** The sample inputs a kit plan is called with (every branch of the plans in KIT_OFFICIAL). */
 const KIT_O = [
@@ -53,6 +55,7 @@ const KIT_O = [
   { cells: [[0, 0, 1], [0, 1, 2], [0, 2, 5], [0, 3, 0]] }, { mode: 'Range' }, { mode: 'Melee' }, { signal: 'fireToToken' },
   { signal: 'bomb' }, { name: 'extradition' }, { id: 1, src: 1 }, { cap: 12, n: 12, sk: 1 }, { cap: 12, n: 12, sk: 2 },
   { cap: 12, n: 12, sk: 3 }, { duration: 5 }, { t: 3 }, { ids: [6], off: [7] }, { t: [[6, 0], [7, 1], null] }, { src: 6, cd: 1.5 },
+  { s: 1 }, { s: 2, shot: 1 }, { s: 3 }, { n: 6, max: 6 }, { dur: 4, tile: 31 },   // 冻河's 触发型效果, 塔露拉's 奥术 / footprint
   ...HIT_KEYS.map((k) => ({ k, by: 4, life: 5 })),   // 'hit': a 'dmg' / 'heal' event's effect moments
   { k: 'snhunt_t[effect]', by: 4, fly: 1 },   // … on a flying unit
 ];

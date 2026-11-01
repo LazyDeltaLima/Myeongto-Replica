@@ -128,12 +128,6 @@ const UNPLAYED = {
   'pepe_e_003_t[aoe][finish]|pepe_skill_01_hit_01_optimize': 'unconditional',
   // not reached (2026-10-24, 묶음 S5): the 战鹰 on another operator — 风雪之眼 deployed onto its card, which no one does in the auto battle
   'svash2_s_3[target_bird_onuse]|svash2_eagle_fly_01': 'unconditional',
-  // 冻河 · 塔露拉 (CN client, 2026-11-01): extracted, their kit moments not bound by hand yet (docs/rules/fx.md 「선발 추가 토스카·탈룰라」)
-  'oxi_t_1_arcane_stack|oxi_buff_02': 'cond',
-  'oxi_t_1_arcane_full_fx|oxi_buff_03': 'cond',
-  'tocka_t1[heal_core]|tocka_heal_01_hit_01': 'unconditional',
-  'tocka_s3[trigger_effect_c]|tocka_skill_03_buff_03': 'cond',
-  'tocka_s3[bonus]|tocka_skill_03_buff_04': 'condOther',
 };
 
 const entries = () => [

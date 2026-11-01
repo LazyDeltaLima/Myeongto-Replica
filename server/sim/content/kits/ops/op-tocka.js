@@ -64,6 +64,13 @@ const S3 = 'skchr_tocka_3';
 export const S1_FX = 'tocka:s1', S2_FX = 'tocka:s2', S3_FX = 'tocka:s3';
 /** tocka_s1[shield], tocka_s2[auto_skill], tocka_s3[bonus] (per 冻河), tocka_t2[aoe_mark] (on her), tocka_mx_a[t2_dot] (per 冻河). */
 export const SHIELD = 'tocka:shield', AUTO = 'tocka:auto', BONUS = 'tocka:bonus', MARK = 'tocka:mark', DOT = 'tocka:dot';
+/**
+ * tocka_s3[trigger_effect_a] / [_b] / [_c] (per 冻河): the UNIQUE, INFINITY marks her S3 effect leaves on an ally the 1st,
+ * 2nd and 3rd time it arrives there (ON_BUFF_START) — display only: one buff whose `fxTag` is that count (≤ 3).
+ */
+export const VISIT = 'tocka:visit';
+/** The client ability her normal attack is while she holds T2's mark (the attack group's T2Attack): the swing's signal. */
+const T2_SIGNAL = 'T2Attack';
 /** tocka_s2[trigger] / [auto_skill]: their trigger interval (s). */
 const POLL = 0.2;
 /** projectile_chr_tocka_s2 (AdvancedMovement `_speed`, tiles/s): S2's shot to its ally. */
@@ -98,7 +105,7 @@ function talent1(battle, src, t1) {
   giveSp(src, num(t1.sp, 0), 'talent');
   const pick = battle.injuredAlliesInKeys(src.rangeKeys, src).find((a) => a !== src && a.kind === 'op' && battle.allySelectable(a, src));
   const amount = src.s.atk * num(t1.heal_scale, 0);
-  if (pick && amount > 0) battle.heal(src, pick, amount);
+  if (pick && amount > 0) battle.heal(src, pick, amount, { moment: 'tocka_t1[heal_core]' });   // its ON_BUFF_START effect on the ally
 }
 
 /** T2's mark on her (tocka_t2[aoe_mark_listener] → [aoe_mark], one) — the next normal attack is T2Attack. */
@@ -106,6 +113,14 @@ function mark(battle, src, t2) {
   if (!up(src) || !t2 || src.buffs.some((b) => b.key === MARK)) return;
   battle.addBuff(src, { key: MARK, tags: ['talent'] });
   syncT2(src, t2);
+}
+
+/**
+ * A 触发型效果 put on ally `a` (its ON_BUFF_START effect — render/fx/kitofficial.js 'tockaFx'); `shot`: S2's, as its
+ * projectile reaches the ally (projectile_chr_tocka_s2 `_effectsWhenHit`).
+ */
+function putFx(battle, src, a, k, shot = false) {
+  battle.fx('tockaFx', { x: a.x, y: a.y, id: a.id, src: src.id, s: k, ...(shot ? { shot: 1 } : {}) });
 }
 
 /**
@@ -174,7 +189,7 @@ function s1Shield(battle, a, src, amount, time) {
   if (!(cap > 0)) return;
   const dec = cap / Math.max(1e-9, time);
   battle.addBuff(a, {
-    key, shield: cap, shieldType: SHIELD_TYPES, blockFx: true, interval: 1, tags: ['tocka'],
+    key, shield: cap, shieldType: SHIELD_TYPES, blockFx: true, interval: 1, tags: ['tocka'], visible: true, source: src,
     onTick: ({ battle: b, unit: t, buff }) => {
       buff.shield = Math.max(0, buff.shield - dec);
       t.markDirty();
@@ -195,14 +210,15 @@ function s2Fire(battle, src, x, fx, b2, t1) {
   battle.removeBuff(x, fx);
   battle.addBuff(x, {
     key: keyOf(AUTO, src), duration: num(b2.buff_duration), refresh: 'extend', mods: { aspd: num(b2.attack_speed) },
-    interval: POLL, tags: ['tocka'],
+    interval: POLL, tags: ['tocka'], visible: true, source: src,
     onTick: ({ unit: y }) => { if (y.skill && y.skill.manual && triggerable(y)) y.skill.activate('tocka'); },
   });
   talent1(battle, src, t1);
 }
 
-function s2Apply(battle, src, a, b2, t1, t2) {
+function s2Apply(battle, src, a, b2, t1, t2, shot = false) {
   if (!up(a) || anyOf(a, S2_FX) || anyOf(a, AUTO)) return;
+  putFx(battle, src, a, 2, shot);
   battle.addBuff(a, {
     key: keyOf(S2_FX, src), interval: POLL, tags: ['tocka'],
     onTick: ({ battle: b, unit: x, buff }) => { if (skillAvailable(x)) s2Fire(b, src, x, buff, b2, t1); },
@@ -217,7 +233,17 @@ function s3Pick(battle, src) {
   return pool.find((a) => activeSkill(a) && !a.skill.active) ?? pool.find(activeSkill) ?? pool[0] ?? null;
 }
 
-function s3Apply(battle, src, a, b3, t2) {
+function s3Apply(battle, src, a, b3, t2, from = null) {
+  // the move's projectile_tocka_s3_effect from the ally it leaves (tocka_s3[trigger] ON_BUFF_TRIGGER EmitProjectile, to the
+  // new holder's tile: display only — the buff is on at once, CreateBuffUseAbilitySelector)
+  if (from) battle.fx('tockaMove', { x: a.x, y: a.y, id: a.id, from: from.id, src: src.id });
+  putFx(battle, src, a, 3);
+  const vk = keyOf(VISIT, src), seen = a.buffs.find((b) => b.key === vk);
+  const n = Math.min(3, (seen?.fxTag ?? 0) + 1);
+  if (!seen || seen.fxTag !== n) {
+    if (seen) battle.removeBuff(a, seen);
+    battle.addBuff(a, { key: vk, fxTag: n, tags: ['tocka'], visible: true, source: src });
+  }
   battle.addBuff(a, {
     key: keyOf(S3_FX, src), interval: 1, data: { valid: true }, tags: ['tocka'],
     // tocka_s3[skill_add_sp]: every second while her S3 runs (CheckCharSkillAffecting)
@@ -231,6 +257,7 @@ function s3Bonus(battle, src, a, b3) {
   const dec = num(b3.bonus_atk_dec_per_sec);
   battle.addBuff(a, {
     key: keyOf(BONUS, src), duration: num(b3.bonus_duration), mods: { atkPct: num(b3.bonus_init_atk) }, interval: 1, tags: ['tocka'],
+    visible: true, source: src,
     onTick: ({ unit: t, buff }) => {
       buff.mods = { atkPct: Math.max(0, (buff.mods?.atkPct ?? 0) - dec) };
       t.markDirty();
@@ -245,7 +272,7 @@ function s3Fire(battle, src, x, b3, t1, t2) {
   fx.data.valid = false;
   s3Bonus(battle, src, x, b3);
   const y = s3Pick(battle, src);   // (x still holds it: never picked)
-  if (y) s3Apply(battle, src, y, b3, t2);
+  if (y) s3Apply(battle, src, y, b3, t2, x);
   battle.removeBuff(x, fx);
   if (x !== src) s3Bonus(battle, src, src, b3);
   talent1(battle, src, t1);
@@ -274,6 +301,7 @@ export default {
             const atk = unit.s.atk * num(b1.atk_scale, 1);
             for (const a of s1Targets(battle, unit, b1)) {
               battle.addBuff(a, { key: keyOf(S1_FX, unit), data: { atk }, tags: ['tocka'] });
+              putFx(battle, unit, a, 1);
               mark(battle, unit, hasT2);
             }
           },
@@ -284,7 +312,7 @@ export default {
             const t = s2Target(battle, unit);
             if (!t) return;
             if (t === unit) { s2Apply(battle, unit, t, b2, t1, hasT2); return; }
-            battle.addProjectile({ from: unit, target: t, speed: S2_SHOT, visual: 'orb', source: unit, onHit: ({ target }) => { if (target) s2Apply(battle, unit, target, b2, t1, hasT2); } });
+            battle.addProjectile({ from: unit, target: t, speed: S2_SHOT, visual: 'orb', source: unit, onHit: ({ target }) => { if (target) s2Apply(battle, unit, target, b2, t1, hasT2, true); } });
           },
         },
         [S3]: {
@@ -314,6 +342,8 @@ export default {
             syncT2(unit, hasT2);
           }, { owner: unit });
           battle.on('tick', () => syncT2(unit, hasT2), { owner: unit });
+          // the swing is T2Attack's (its own projectile_chr_tocka_t2 and hit — render/fxmap.js modePart)
+          battle.on('swing', (c) => { if (c.unit === unit && !c.isSkill && unit.profile === unit.mem.tockaT2) c.signal = T2_SIGNAL; }, { owner: unit });
         }
         if (sid === S1 || sid === S2) {
           battle.on('tick', () => {

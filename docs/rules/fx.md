@@ -1497,14 +1497,41 @@
 - 저절로 붙은 것(`modes.json`): 토스카 평타 시전(방향별 사본 `_up`·`_down` — 방향별 사본이 있는 오퍼레이터 16 → 17명)·타격·투사체 꼬리, S3 모드의
   시전·타격·꼬리·`attach`(`tocka_skill_03_buff_05`·`_06`), S1·S2 시전. 탈룰라 평타 시전·타격, 등장(`oxi_birth_01` + 그 안의 `oxi_birth_02`),
   S1~S3 시전·S1·S2 대상 타격, S2·S3 버프.
-- **아직 손으로 잇지 않은 것**(이름 규칙이 대신 틀거나 아무것도 안 틂, 바인딩 표 키는 이 절 뒤에 붙일 때 적음): 토스카 — S1 屏障
-  `tocka_s1[shield]`·S2 `tocka_s2[auto_skill]`·S3 `tocka_s3[bonus]`(아군·그녀)는 아군 쪽 버프인데 이름 규칙이 스킬 동안 그녀에게 틂; 발동형 효과를
-  걸 때의 시작 이펙트(`tocka_s1|s2|s3[trigger]` ON_BUFF_START)·재능 1 치유 `tocka_t1[heal_core]`·S2 투사체 `projectile_chr_tocka_s2`(도착 때
-  `tocka_skill_02_hit_01`)·S3 효과가 옮겨 갈 때 `projectile_tocka_s3_effect`·재능 2 공격의 `projectile_chr_tocka_t2`(꼬리·착탄 범위)·S3 효과가
-  다녀간 아군의 표시 셋(`tocka_s3[trigger_effect_a|b|c]` — 템플릿 `empty`의 영구 표시, 다녀간 횟수만큼 `tocka_skill_03_buff_01`~`_03`). 탈룰라 — 발자국
-  `oxi_fire_field_lease`의 `oxi_buff_01`(지금 대체 `zone`), S3 簇火 `projectile_chr_oxi_s_3_heatwave`(꼬리·타격, 지금 대체 `blast`), 奥术 중첩
-  `oxi_t_1_arcane_stack`·`_full_fx`(`oxi_buff_02`·`_03`), 클립 키 todo J(추출함, 메타데이터 반영 전). 클라 바인딩이 없는 `oxi_skill_02_buff_02`·
-  `tocka_skill_03_buff_start_01`·`_03`을 이름 규칙이 트는 것도 그때 막는다. [화면 미확인: 전부]
+- **손으로 이은 것**(2026-11-01, 근거 = 바인딩 표의 키 — `cite`, `fx-bindings.test.js`가 대조; 그 전엔 이름 규칙이 토스카의 S1·S2·S3 버프와
+  발동형 효과 시작을 스킬 동안 그녀에게 틀고 탈룰라 S2 중첩은 스킬 순간만 보였다). 공식 클라에서 확인한 키:
+  - 토스카 아군 쪽 버프(`fxstatus.js KEY_FX`, 시뮬의 보이는 버프): 屏障 `tocka_s1[shield]` → `tocka_skill_01_buff_01`, S2 공격 속도
+    `tocka_s2[auto_skill]` → `_02_buff_01`, S3 공격력 `tocka_s3[bonus]` → `_03_buff_04`(아군과 그녀 — 템플릿의 BUFF_OWNER·BUFF_SOURCE 두 줄).
+    S3 효과가 다녀간 표시 `tocka_s3[trigger_effect_a|b|c]`(UNIQUE·INFINITY, 템플릿 `empty`) → 1·2·3번째 도착에 `_03_buff_01`·`_02`·`_03`을 더해 셋
+    다 남김(시뮬 버프 `tocka:visit`의 `fx` = 도착 횟수, 그녀마다 하나).
+  - 발동형 효과를 걸 때(`kitofficial.js 'tockaFx'`, 키트 사건): 각 `[trigger]`의 ON_BUFF_START CreateEffect — S1 `tocka_skill_01_buff_02_start_01`,
+    S2 `_02_buff_02_start_01`, S3 `_03_buff_start_02`(`_constDirection` UP). S2는 투사체 `projectile_chr_tocka_s2`로 닿으므로 그 `_effectsWhenHit`
+    `tocka_skill_02_hit_01`도(꼬리 `_mainEffect`는 없음 — 날아가는 동안 아무것도 안 그림). 발동형 효과 버프가 쥔 `tocka_skill_01_buff_02`·
+    `_02_buff_02`는 위의 `PauseEffectIfCharMenuNotOpen`으로 늘 멈춤이라 안 그린다. 바인딩 표가 S2 투사체를 몰랐던 것: 능력의 `_actions`(직렬 JSON
+    문자열) 안의 EmitProjectile `_projectileKey`를 `fx_bindings.py strings`가 읽지 않았다 — 고친 뒤 새 행 5개(이것과 켈시 에스페란타 S2 후속
+    투사체 둘의 `_effectsToTargetWhenStart` 넷 — 이미 손으로 이어 둔 것), 없어진 행 0.
+  - S3 효과의 이동(`'tockaMove'`): `tocka_s3[trigger]` ON_BUFF_TRIGGER의 EmitProjectile `projectile_tocka_s3_effect`(`_mainEffect`
+    `tocka_skill_03_buff_trail_01`, AdvancedMovement 6칸/초)가 새 주인에게 — 출발은 떠나는 아군의 HIT 점 [추정·엔진: 강제 발동한 버프 노드의 SOURCE를
+    그 버프의 주인으로 봄]. 버프는 바로 옮겨 가고(CreateBuffUseAbilitySelector) 투사체는 그림만(`kitofficial.js` `fly` + `from` 칸, `fxgame.js planShots`).
+  - 재능 1 치유: 치유 사건의 순간 `tocka_t1[heal_core]`(ON_BUFF_START `tocka_heal_01_hit_01`, `kitofficial.js 'hit'`).
+  - 재능 2 공격: 공격 묶음(AbilityFirstSucceedGroup)의 첫 자식 `T2Attack`은 자기 검증기(`SelfConditionalValidator`, 그녀의 `tocka_t2[aoe_mark]`)가
+    맞을 때만 나간다 → `char_modes.py mode_parts`가 이런 자식을 `talentAtk[mode]['T2Attack']`(꼬리 `tocka_attack_02_trail_01`, 타격
+    `tocka_attack_02_range_01`)로 적고, 키트가 그 휘두름에 신호 `T2Attack`을 단다(`modePart`가 꼬리·타격을 바꿈). 타격은 주 대상에만
+    (`_onlyPlayHitEffectOnTraceTarget` — 휩쓸린 적은 'atk'가 없어 원래 안 틂). 검증기 필드는 FilterBuffTargetValidator와 같아 구조로 가림: 모드
+    `Body/Attack`이 묶음(`_abilities`)이고 자식의 Selector가 버프를 요구(`_buffs`, `_excludeKey` 0). EN 전체 + CN 다섯 명 다시 뽑아 바뀐 것은
+    토스카 한 명(안젤리나 더 멜로우 위시의 `skillEnd`는 10-29에 생긴 필드가 CN에서 처음 채워진 것이라 이번에 넣지 않음 — 관리자 노트의 열린 항목).
+  - 탈룰라 발자국(`'zone'`, 칸마다 `slot`): TimedTileLeaseAbility `oxi_fire_field_lease`의 `_effectKey` `oxi_buff_01`을 그 칸에 잡은 시간 동안 — 다시
+    잡으면 키트가 사건을 또 보내 시간을 새로 채움(키트의 다시 잡기 규칙 그대로, 그 규칙의 추정 표시는 `diy.md`). 대체 `zone`은 안 그림.
+  - 탈룰라 奥术(`'stacks'`의 `n`·`max`): 쌓이는 버프 `oxi_t_1_arcane_stack`(STACK, 효과 하나) `oxi_buff_02`를 1층부터, `oxi_t_1_arcane_full_fx`
+    `oxi_buff_03`을 가득 찬 순간(`oxi_t_1_arcane_manager`의 GE 줄)부터 다음 평타가 한 층 지울 때까지(`oxi_t_1_attack_completed` FinishBuffsById).
+  - 탈룰라 S2 중첩: 시뮬 버프 `oxi_s_2_stack`(보이는 버프)이 남은 동안 그 버프의 `oxi_skill_02_buff_01`(`fxstatus.js KEY_FX` `keyed`).
+  - 탈룰라 S3 簇火(`'oxiWave'` 물결 하나에 줄 a..z, `fxgame.js pickFx`): 줄마다 `projectile_chr_oxi_s_3_heatwave`의 `_mainEffect` `oxi_skill_03_trail_01`이
+    시뮬의 출발 `s`에서 끝 `to`까지 `wave_speed`로, 가는 쪽으로 돌려; 그 줄이 터지면(`'blast'`에 물결·줄 번호) 꼬리는 그 자리에서 끝나고(`finishShot`)
+    `oxi_skill_03_hit_01`. 대체 `blast`는 안 그림. [추정·화면: 땅 높이 — 출발점·방향의 추정 표시는 `diy.md`]
+  - 이름 규칙이 틀던 것을 `KIT_OWNED`로 막음: 위 프리팹 전부, 바인딩 없는 `tocka_skill_03_buff_start_01`·`_03`·`oxi_skill_02_buff_02`.
+  - 확인: `fx-bindings.test.js`(UNPLAYED에서 다섯 줄 빠짐 — 이제 틂), `kit-event-fx.test.js`, 이펙트 이벤트 골든 diy-013~015만 이동(위 줄들이 아군·적·땅에
+    생김, 그녀에게 틀던 skillBuff·skillStart 줄 빠짐).
+- **아직 안 한 것**: 클립 키 todo J(`.cache/anim-keys.json`에 뽑았고 `data/assets.json` 반영 전), 탈룰라 S2 시전 동안 평타 멈춤(`_switchToState` 1,
+  `[추정·미조사]`, 시뮬 규칙). [화면 미확인: 전부]
 
 ### 투사체 꼬리 끝내기 — 착탄 뒤 늦게 사라짐 (2026-10-11, 사용자 제보 「언더플로우·애쉬락 투사체가 적에 닿은 뒤 늦게 사라짐」)
 - 원인: 날아가는 공식 꼬리(투사체의 `_mainEffect`, 위 「투사체 꼬리」)가 도착하면 `fxgame.js stepTrails`가 `stop()`(방출만 멈춤)만 하고, 인스턴스는 남은 입자가

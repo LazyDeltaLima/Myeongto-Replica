@@ -14633,6 +14633,22 @@
     }
    }
   ],
+  "talentAtk": [
+   {
+    "T2Attack": {
+     "cast": [
+      "tocka_attack_01_start_01"
+     ],
+     "trail": [
+      "tocka_attack_02_trail_01"
+     ],
+     "hit": [
+      "tocka_attack_02_range_01"
+     ]
+    }
+   },
+   null
+  ],
   "dirs": [
    {
     "t": 5,
