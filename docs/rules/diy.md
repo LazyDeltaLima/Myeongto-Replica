@@ -624,8 +624,9 @@
   시전시킨 그 피해에는 안 걸린다(다음 단계부터). 중첩이 있는 동안 평타는 `BuffedAttack`: 저지 중인 적 전부(`_limitedMaxTargetNumToBlockedCnt` = 엔진
   `hitAllBlocked`). 반격 대상은 피해의 근원(`TriggerAutoSkill` 입력 대상 = 피해 출처, 없으면 투사체 주인), 그녀의 사거리와 상관없이 전장 어디서든
   [추정·CN: 입력 대상 검증기 `CircleRange`의 반경을 모름 — 제한 없음으로 둠; 관리자 기억 「아마 맵 전체」(2026-11-01)와 같음]. [추정·자료 없음: 반격 피해는
-  시전 즉시 — 공식은 `Skill_2_Cambat`의 공격 이벤트일 수 있음; 관리자 기억 「공격받았을 때」(2026-11-01)] [추정·미조사: 시전 동안 평타 멈춤(`CastSkill`
-  `_switchToState` 1) — CN 스킬 시전 표(`tools/assets/local-skill-cast.json`)가 들어오면 엔진이 처리, 지금은 안 멈춤]
+  시전 즉시 — 공식은 `Skill_2_Cambat`의 공격 이벤트일 수 있음; 관리자 기억 「공격받았을 때」(2026-11-01)]. 시전 동안 평타를 멈춘다: 스킬 프리팹이
+  `CastSkill` `_switchToState` 1, 스킬 능력 시간 `_timeMode` 3 = `skill_duration` 1.3초(공식 클라에서 확인 — CN 스킬 시전 표가 들어온 뒤로 엔진의
+  `sim.md` 「즉발 스킬의 시전」 'state' 규칙이 하던 휘두름을 끊고 1.3초 동안 공격하지 않음; 공식 플레이 영상에서도 같음, 관리자 확인 2026-11-01).
 - **S3 「코로나의 맹렬」**(MANUAL 36초, 과부하 스킬): 공격력 + `atk`, 공격하지 않음(모드 `S3NoAttack` → `disarm`, 저지는 함). 시작에 `normal_interval`(2.67초)마다,
   과부하(진행 절반)부터 `overload_interval`(2초)마다 물결 — 각 물결 버프는 시작하자마자 한 번 쏜다(`waitFirstTriggerInterval` 꺼짐). 물결: 배치 방향을
   가로지르는 줄 `normal_half_width` 2 → 5줄(과부하 `overload_half_width` 6 → 13줄), 그녀 줄 가운데, 전장 끝에서는 묶음을 안으로 민다

@@ -249,6 +249,25 @@ test('S2 阂断骤雪: the shelter holds 90 % for 0.2 s then falls linearly to 0
   done(h);
 });
 
+test('S2 阂断骤雪: no normal attack while it is cast (its CastSkill `_switchToState` 1, the skill ability\'s 1.3 s): the swing in progress is cut, the next attack waits', () => {
+  const { h, u } = field({ skill: 1 });
+  assert.deepEqual([u.skill.cast?.mode, u.skill.cast?.cd], ['state', 1.3], 'CN client skchr_oxi_2');
+  const src = h.spawn('dummy', { pos: [10, 3.4] });
+  u.mem.oxiArcane.recent = Infinity;
+  h.run(3);
+  assert.ok(h.hooksOf('attack').filter((c) => c.attacker === u && !c.isSkill).length >= 2, 'attacking before');
+  u.skill.charges = 5;
+  const t0 = h.b.time;
+  h.b.dealDamage(src, u, { amount: 1, type: 'true', isAttack: true });
+  assert.equal(u.skill.activations, 1);
+  approx(u.skillStateUntil - t0, 1.3, 'held for the skill ability');
+  let first = null;
+  h.b.on('attack', (c) => { if (c.attacker === u && !c.isSkill && first == null) first = h.b.time; });
+  h.run(3);
+  assert.ok(first != null && first >= t0 + 1.3 - 1e-6, `next attack at ${first - t0} s`);
+  done(h);
+});
+
 test('S3 日冕重烈: ATK +108 % / +120 %, no attack; a 簇火 per lane (5 lanes, 13 from the 过载) every 2.67 s, every 2 s from the half; each explodes on the first enemy it meets: 130 % / 175 % ATK arts within 1.5, 元素伤害 on a bursting enemy, 15 % from a second fire of the same wave', () => {
   for (const elite of [false, true]) {
     const { h, u } = field({ elite, skill: 2, row: 10, col: 1 });
