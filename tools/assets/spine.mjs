@@ -15,7 +15,7 @@
 import { readFile, readdir, writeFile, stat, rename, mkdir, unlink } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { assetUrl, safeName, urlDir } from './sources.mjs';
-import { kindOf, pngSize } from './formats.mjs';
+import { decodePng, kindOf, pngSize } from './formats.mjs';
 import { atlasInfo, normalizeAtlas } from './atlas.mjs';
 import { parseSkel } from './skel.mjs';
 import { resolveRoles } from './anim-roles.mjs';
@@ -242,6 +242,31 @@ export const loadLocalEnemySpines = loadLocalSpines;
  *   animations: Record<string, number>, events: string[], hits: Record<string, number[]>, bounds: any }} SpineEntry
  */
 
+/** premultipliedPage: the largest share of the transparent texels that may carry colour, and of the soft-edge ones
+ *  whose colour may exceed their alpha (measured on the 295 operator pages: premultiplied ≤ 0.5 % and ≤ 5.5 % —
+ *  能天使's glow —, straight ≥ 9.8 % bled). */
+const PMA_BLEED_MAX = 0.02, PMA_OVER_MAX = 0.1;
+
+/**
+ * Whether an operator or token page (decoded RGBA) is premultiplied (pure). The web models carry no `pma` line, and
+ * their pages are of two kinds (docs/rules/render.md 「오퍼레이터 Spine 페이지의 알파」): the client's Spine shader multiplies RGB
+ * by A only on its `_UseBleed` pages — straight, their colour bled into the transparent texels — and draws the rest
+ * (the `[alpha]` split pages, merged into RGBA by the web source) as they are: premultiplied, black where A is 0 and RGB ≤ A at the
+ * soft edges. Read as straight, such a page is multiplied once more on upload and every soft edge darkens (铃兰's and
+ * 史尔特尔's eye patches drew a dark ring over the white of the eye).
+ * @param {{ rgba: Uint8Array }} img
+ * @returns {boolean}
+ */
+export function premultipliedPage({ rgba }) {
+  let clear = 0, bled = 0, soft = 0, over = 0;
+  for (let o = 0; o < rgba.length; o += 4) {
+    const a = rgba[o + 3], m = Math.max(rgba[o], rgba[o + 1], rgba[o + 2]);
+    if (a === 0) { clear++; if (m > 8) bled++; }
+    else if (a > 8 && a < 247) { soft++; if (m > a + 12) over++; }
+  }
+  return bled <= clear * PMA_BLEED_MAX && over <= soft * PMA_OVER_MAX;
+}
+
 /** Every clip name a role tree names (strings anywhere in it but its `via` / `pick` words and a facing clip's `by`). */
 export function namesAll(o, out = []) {
   if (typeof o === 'string') out.push(o);
@@ -315,15 +340,18 @@ export async function processModels(models, { root, dl, cachePath, download = tr
     // Normalize the atlas against the real page sizes.
     const info0 = atlasInfo(atlasText);
     const sizes = new Map();
+    const pagePma = new Map(); // a model planned straight (the web operators and tokens): which of its pages are premultiplied
     let pagesOk = info0.pages.length > 0;
     for (const page of info0.pages) {
       const buf = await readFile(join(root, m.dir + safeName(page))).catch(() => null);
       const sz = buf ? pngSize(buf) : null;
       if (!sz) { pagesOk = false; problems.push(`${m.key}: missing/invalid page ${page}`); continue; }
       sizes.set(page, sz);
+      if (m.pma) continue;
+      try { pagePma.set(page, premultipliedPage(decodePng(buf))); } catch (e) { problems.push(`${m.key}: page ${page} not decoded (${e.message}), read as straight`); }
     }
     if (!pagesOk) continue;
-    const norm = normalizeAtlas(atlasText, { pageSize: (p) => sizes.get(p) || null, pma: !!m.pma, renamePage: (p) => safeName(p) });
+    const norm = normalizeAtlas(atlasText, { pageSize: (p) => sizes.get(p) || null, pma: m.pma || ((p) => pagePma.get(p) === true), renamePage: (p) => safeName(p) });
     if (norm.missingSize.length) { problems.push(`${m.key}: cannot size pages ${norm.missingSize.join(',')}`); continue; }
     if (norm.changed) {
       if (!writable(m.atlas.rel)) { problems.push(`${m.key}: atlas needs normalizing, left as it is (an existing file)`); continue; }
@@ -374,7 +402,7 @@ export async function processModels(models, { root, dl, cachePath, download = tr
       skel: assetUrl(m.skel.rel),
       atlas: assetUrl(m.atlas.rel),
       textures: info.pages.map((p) => assetUrl(m.dir + p)),
-      pma: !!m.pma,
+      pma: info.hasPma,
       anims,
       animations: sk.durations,
       events: sk.events,

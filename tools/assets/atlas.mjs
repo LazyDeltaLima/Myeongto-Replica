@@ -8,7 +8,8 @@
 //   - insert `size: W,H` right after the page name when missing (fexli atlases
 //     omit it; spine-ts divides by 0 and pixi-spine warns), or correct it when it
 //     disagrees with the real PNG size;
-//   - insert `pma: true` for premultiplied-alpha textures (Ark-Models enemies).
+//   - insert `pma: true` for premultiplied-alpha textures (Ark-Models enemies, and
+//     the operator pages that are premultiplied: spine.mjs premultipliedPage).
 // Normalization is idempotent: running it twice yields the same text.
 
 /**
@@ -64,7 +65,8 @@ export function parseAtlas(text) {
  * @param {string} text original atlas text
  * @param {object} opts
  * @param {(pageName:string)=>({width:number,height:number}|null)} opts.pageSize real texture size lookup
- * @param {boolean} [opts.pma] add `pma: true` to every page
+ * @param {boolean|((pageName:string)=>boolean)} [opts.pma] add `pma: true` to every page (true) or to the pages it
+ *   returns true for (an operator model's premultiplied pages, tools/assets/spine.mjs premultipliedPage)
  * @param {(pageName:string)=>string} [opts.renamePage] local file name for a page (rewrites the page line)
  * @returns {{ text: string, changed: boolean, pages: string[], missingSize: string[], fixedSize: string[] }}
  */
@@ -76,6 +78,7 @@ export function normalizeAtlas(text, { pageSize, pma = false, renamePage = null 
   const missingSize = [];
   const fixedSize = [];
   const addAfter = (idx, s) => { if (!inserts.has(idx)) inserts.set(idx, []); inserts.get(idx).push(s); };
+  const pmaOf = typeof pma === 'function' ? pma : () => !!pma;
   for (const p of pages) {
     if (renamePage) {
       const local = renamePage(p.name);
@@ -92,7 +95,7 @@ export function normalizeAtlas(text, { pageSize, pma = false, renamePage = null 
         fixedSize.push(p.name);
       }
     }
-    if (pma && p.fields.pma === undefined) {
+    if (pmaOf(p.name) && p.fields.pma === undefined) {
       // Append after the last page field (or after the inserted size line).
       addAfter(p.lastFieldLine, 'pma: true');
     }

@@ -143,6 +143,7 @@ The `stem` of a Spine model is the upstream file name. Two examples: `char_107_l
 - **Atlases** (research 07 §5.3):
   - Insert `size: W,H` right after each page name. fexli atlases omit it; the value is read from the PNG header. An existing size that disagrees with the PNG is corrected.
   - Ark-Models enemy atlases get `pma: true`, because their textures are premultiplied. pixi-spine reads this and sets `ALPHA_MODES.PMA`.
+  - Operator and token pages are of two kinds and the fexli atlases do not say which: `tools/assets/spine.mjs premultipliedPage` reads each page's pixels, and a premultiplied one (black wherever alpha is 0, colour no brighter than its alpha at the soft edges) gets `pma: true` too; a straight one (its colour bled into the transparent texels) gets none. Read as straight, a premultiplied page is multiplied by alpha once more on upload and its soft edges darken (docs/rules/render.md, the operator page alpha section).
   - Page names are sanitized to safe file names.
   - All of this is idempotent.
 - **Skeletons:** every `.skel` (Spine 3.8.99 binary) is parsed in Node with `@pixi-spine/runtime-3.8`, the parser the client ships.
@@ -239,7 +240,7 @@ All paths are URL paths relative to the site root, for example `/assets/char/ava
 ```js
 {
   skel, atlas, textures: [url],       // load with PIXI.Assets.load(skel); atlas/png sit next to it
-  pma: boolean,                       // true for enemies (atlas already carries `pma: true`)
+  pma: boolean,                       // every page of the atlas carries `pma: true` (enemies, premultiplied operator pages)
   anims: Roles,                       // resolved roles, below
   animations: { [name]: seconds },    // every animation with its duration
   events: [name],                     // e.g. ['OnAttack', 'OnStart']
@@ -451,7 +452,7 @@ Other renderer rules from research 07 §5.4–5.5:
 When `public/assets` exists, the same file also checks the generated output:
 - Every manifest path exists on disk.
 - Every pool operator has an avatar, a portrait and a Front model.
-- Every atlas has `size:` lines, plus `pma: true` for enemies.
+- Every atlas has `size:` lines, plus `pma: true` for enemies and on exactly the premultiplied operator pages.
 - Every Spine model loads the way the client loads it — the local-client enemy and token models too, when `data/local-assets.json` lists them. That means pixi-spine's atlas reader with real page sizes, where a region outside its page throws, then `SkeletonBinary` with `AtlasAttachmentLoader`, where a missing region throws. Every resolved role is then posed.
 
 `test/feedback1d-models.test.js` (enemies) and `test/local-token-models.test.js` (tokens) check the local-client overlays: the plan, the committed metadata, the manifest without `/assets/local/` URLs, the client's choice of model; `test/local-extract.test.js` the extractor's job table and helpers.

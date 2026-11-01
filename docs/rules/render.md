@@ -229,6 +229,22 @@
 - 확인: `test/local-extract.test.js`(`material_straight`, `merge_alpha` straight 곱하기), 다시 뽑은 페이지의 반투명 픽셀 중 RGB = A(잘린 흔적)
   风雪之眼 66 → 1.9 %·战术锚点 90 → 2.7 %, 香槟炸弹 2.8 % 그대로. [화면 미확인: 风雪之眼·战术锚点 가장자리가 회색 테 없이 원래 색, 원석충은 그대로]
 
+## 오퍼레이터·소환물 Spine 페이지의 알파 (2026-11-01, 관리자 제보 「스즈란·수르트 얼굴 눈 주변에 외곽선이 보인다」)
+- 증상: 스즈란(`char_358_lisa`)·수르트(`char_350_surtr`)의 눈 둘레에 어두운 고리. 두 모델은 흰자(`F_Face_Default_l`·`m`) 위에 구멍 뚫린
+  피부 조각 메시(`F_Face_Default_h`·`i`)를 덮어 눈 모양을 만드는데, 그 조각의 반투명 가장자리가 어둡게 그려졌다.
+- 원인: 웹에서 받는 오퍼레이터·소환물 모델(atlas에 `pma` 줄 없음)을 모두 straight로 읽었다(`tools/assets/plan.mjs` `pma: false`). 페이지는 두 종류다 — 앞 절의
+  셰이더 규칙 그대로 `_UseBleed` 페이지는 straight(투명 텍셀에 색이 번져 있음), 나머지(`[alpha]` 분리 페이지를 합친 것)는 이미 premultiplied(A가 0인
+  곳은 검정, 반투명 가장자리는 RGB ≤ A). premultiplied 페이지를 straight로 올리면 업로드 때 A를 한 번 더 곱해 반투명 가장자리가 A²로 어두워진다.
+  흰자 위에 놓인 피부색 가장자리라 이 두 모델에서 눈에 띄었을 뿐, 같은 종류의 페이지를 쓰는 모델 전부가 그랬다.
+- 판정(페이지 픽셀): 오퍼레이터 295쪽 중 170쪽이 premultiplied(색 있는 투명 텍셀 ≤ 0.5 %, A보다 밝은 반투명 텍셀 ≤ 5.5 % — 엑시아 `char_103_angel`의 빛),
+  125쪽이 straight(색 있는 투명 텍셀 ≥ 9.8 %). 한 모델 안에서 두 종류가 섞인 것은 없다. 소환물은 8모델이 premultiplied(메딕프로브 `token_10000_silent_healrb`·저주인형·종이 인형·늑대 무리 등). `tools/assets/spine.mjs premultipliedPage`가 경계
+  2 %·10 %로 가르고, premultiplied 페이지만 atlas에 `pma: true`를 붙인다(pixi-spine이 `ALPHA_MODES.PMA`로 올림). manifest `pma`는 모든 페이지가
+  `pma: true`인지.
+- 확인: `test/assets.test.js`(페이지 판정, 페이지별 `pma`, 디스크의 모든 오퍼레이터·소환물 atlas가 픽셀 판정과 같은지). 얼굴 메시를 CPU로 그려 비교 —
+  A를 두 번 곱하면 두 모델 모두 눈 둘레에 어두운 고리, 한 번이면 없음. Windows Chrome(GPU)에서 pixi-spine으로 같은 atlas를 `pma` 줄 있이·없이
+  그려(Idle 첫 프레임, 얼굴 확대·게임 크기) 고리가 `pma: true`에서만 사라지는 것을 확인. [화면 미확인: 실제 판에서 스즈란·수르트 눈 둘레, 다른
+  오퍼레이터·소환물의 반투명 가장자리]
+
 ## 적 경로 미리보기 (2026-10-10, 관리자 결정 「공식 卫戍协议에서는 라운드 작전이 시작될 때 적 경로가 실제로 표시됐다」 → 공식대로)
 - 공식(EN 공식 클라 — 레벨 데이터 액션이 아니라 SPAWN 액션의 플래그):
   - `Scheduler._DealAction`: SPAWN 액션에 `autoPreviewRoute`(ActionData)가 있으면 PREVIEW_CURSOR(ActionType 1) 액션을 새로 만들어

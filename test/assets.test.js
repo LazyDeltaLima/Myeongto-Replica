@@ -14,7 +14,9 @@ import zlib from 'node:zlib';
 
 import { resolveRoles, roleAnimationNames } from '../tools/assets/anim-roles.mjs';
 import { normalizeAtlas, atlasInfo, parseAtlas } from '../tools/assets/atlas.mjs';
-import { pngSize, isCompletePng, isMp3, validate } from '../tools/assets/formats.mjs';
+import { pngSize, isCompletePng, isMp3, validate, decodePng } from '../tools/assets/formats.mjs';
+import { premultipliedPage } from '../tools/assets/spine.mjs';
+import { encodePng } from '../tools/crop-board-atlas.mjs';
 import { encodeWoff2, decodeWoff2Tables, readSfnt, uintBase128 } from '../tools/assets/woff2.mjs';
 import { assetToPath, pickUnitSfx, indexAudio } from '../tools/assets/audio.mjs';
 import { mirrorUrl, safeName, encodePath } from '../tools/assets/sources.mjs';
@@ -241,6 +243,13 @@ describe('atlas normalization', () => {
     assert.equal(normalizeAtlas(r.text, { pageSize: sizeOf, pma: true }).changed, false);
   });
 
+  test('pma per page: only the pages the function marks', () => {
+    const two = 'a.png\nformat: RGBA8888\nA\n  xy: 0, 0\n\nb.png\nformat: RGBA8888\nB\n  xy: 1, 1\n';
+    const r = normalizeAtlas(two, { pageSize: sizeOf, pma: (p) => p === 'b.png' });
+    assert.deepEqual(parseAtlas(r.text).pages.map((p) => [p.name, p.fields.pma ?? null]), [['a.png', null], ['b.png', 'true']]);
+    assert.equal(normalizeAtlas(r.text, { pageSize: sizeOf, pma: (p) => p === 'b.png' }).changed, false);
+  });
+
   test('handles multiple pages and CRLF; reports unsized pages', () => {
     const two = 'a.png\r\nformat: RGBA8888\r\nA\r\n  xy: 0, 0\r\n\r\nb.png\r\nformat: RGBA8888\r\nB\r\n  xy: 1, 1\r\n';
     const r = normalizeAtlas(two, { pageSize: (p) => (p === 'a.png' ? { width: 4, height: 8 } : null) });
@@ -265,6 +274,12 @@ describe('format helpers', () => {
     assert.equal(isCompletePng(png.subarray(0, png.length - 6)), false);
     assert.equal(pngSize(Buffer.from('<html>not found</html>')), null);
     assert.equal(validate('png', Buffer.from('404: Not Found')), false);
+  });
+
+  test('PNG decoding: RGBA and RGB round trip', () => {
+    const rgba = Buffer.from([255, 0, 0, 255, 0, 40, 0, 40, 0, 0, 0, 0, 9, 8, 7, 6, 1, 2, 3, 4, 200, 100, 50, 255]);
+    assert.deepEqual(decodePng(encodePng(3, 2, rgba)), { w: 3, h: 2, rgba });
+    assert.throws(() => decodePng(Buffer.from('404: Not Found')), /not a PNG/);
   });
 
   test('MP3 and atlas sniffing', () => {
@@ -556,6 +571,39 @@ describe('downloader (fake network)', () => {
     assert.match(readFileSync(join(root, 'spine', 'x', 'm.atlas'), 'utf8'), /size: 2,2/); // atlas still normalized
   });
 
+  // an operator page: premultiplied (black where A is 0, RGB ≤ A at the soft edge) or straight (colour bled into the
+  // transparent texels), docs/rules/render.md 「오퍼레이터 Spine 페이지의 알파」
+  const page = (edge, clear) => encodePng(2, 2, Buffer.from([...[200, 180, 170, 255], ...edge, ...clear, ...clear]));
+  const PREMUL = page([60, 50, 50, 64], [0, 0, 0, 0]), STRAIGHT = page([240, 200, 200, 64], [240, 200, 200, 0]);
+
+  test('premultipliedPage: transparent texels black and soft edges RGB ≤ A, else straight', () => {
+    assert.equal(premultipliedPage(decodePng(PREMUL)), true);
+    assert.equal(premultipliedPage(decodePng(STRAIGHT)), false);
+    assert.equal(premultipliedPage(decodePng(page([240, 200, 200, 64], [0, 0, 0, 0]))), false, 'straight on black: the edge outshines its alpha');
+    assert.equal(premultipliedPage(decodePng(page([60, 50, 50, 64], [240, 200, 200, 0]))), false, 'colour in the transparent texels');
+  });
+
+  test('an operator model (planned straight) gets pma: true on its premultiplied pages only', async () => {
+    const { mkdtemp, mkdir, writeFile } = await import('node:fs/promises');
+    const { tmpdir } = await import('node:os');
+    const { processModels } = await import('../tools/assets/spine.mjs');
+    const dir = await mkdtemp(join(tmpdir(), 'sp-spine-'));
+    const root = join(dir, 'assets');
+    const job = (rel) => ({ rel, urls: ['u'], kind: rel.split('.').pop() });
+    const models = new Map();
+    for (const [k, png] of [['pm', PREMUL], ['st', STRAIGHT]]) {
+      await mkdir(join(root, 'spine', k), { recursive: true });
+      await writeFile(join(root, 'spine', k, 'm.skel'), Buffer.alloc(64, 0xff)); // a corrupt skeleton: the atlas is normalized before the parse
+      await writeFile(join(root, 'spine', k, 'm.atlas'), '\nm.png\nformat: RGBA8888\nfilter: Linear,Linear\nrepeat: none\nR\n  xy: 0, 0\n  size: 1, 1\n');
+      await writeFile(join(root, 'spine', k, 'm.png'), png);
+      models.set(k, { key: k, dir: `spine/${k}/`, pma: false, skillIndices: [0], skel: job(`spine/${k}/m.skel`), atlas: { ...job(`spine/${k}/m.atlas`), mutable: true }, pngs: [job(`spine/${k}/m.png`)] });
+    }
+    const dl = { ledger: { files: {} }, saveLedger: async () => {} };
+    await processModels(models, { root, dl, cachePath: join(dir, 'cache.json'), download: false, log: () => {} });
+    assert.equal(atlasInfo(readFileSync(join(root, 'spine', 'pm', 'm.atlas'), 'utf8')).hasPma, true);
+    assert.doesNotMatch(readFileSync(join(root, 'spine', 'st', 'm.atlas'), 'utf8'), /pma/);
+  });
+
   test('leaf fallbacks follow 404s only, never transient errors', async () => {
     const { downloadLeaves } = await import('../tools/assets/manifest.mjs');
     const base = 'https://raw.githubusercontent.com/o/r/main/';
@@ -708,7 +756,7 @@ describe('generated manifest data/assets.json', () => {
     assert.deepEqual(noClip, [], 'Spine skill clips per index (a non-default skill never plays the default skill\'s animation)');
   });
 
-  test('every atlas on disk has size: lines (and pma: true for enemies)', { skip }, () => {
+  test('every atlas on disk has size: lines (and pma: true for enemies and the premultiplied operator / token pages)', { skip }, () => {
     const atlases = [];
     const walk = (dir) => {
       for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -723,6 +771,11 @@ describe('generated manifest data/assets.json', () => {
       const info = atlasInfo(readFileSync(p, 'utf8'));
       assert.ok(info.hasSize, `${p} has size`);
       if (p.includes(`${join('spine', 'enemy')}`)) assert.ok(info.hasPma, `${p} has pma`);
+      // a web operator or token page is premultiplied or straight by its pixels (tools/assets/spine.mjs premultipliedPage)
+      else if (p.includes(`${join('spine', 'op')}`) || p.includes(`${join('spine', 'token')}`)) {
+        const { pages } = parseAtlas(readFileSync(p, 'utf8'));
+        for (const pg of pages) assert.equal(pg.fields.pma === 'true', premultipliedPage(decodePng(readFileSync(join(dirname(p), pg.name)))), `${p} page ${pg.name} pma`);
+      }
       for (const page of info.pages) assert.ok(existsSync(join(dirname(p), page)), `${p} page ${page}`);
     }
   });
