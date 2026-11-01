@@ -129,6 +129,7 @@ describe('the view: the overload bar', () => {
     assert.ok(near(shown()[0].width, (W - 2 * 4) / 5), 'out of (1 − ½)·max');
     assert.equal(b.ammoTrack.tint, B.ammoTrack);
     assert.ok(shown().every((x) => x.tint === B.ammo));
+    assert.equal(B.ammo, 0xebaa2d, 'ui_battle_ally_bullet_bar _BulletColor, output as is by Torappu/UI/BulletBar');
     b.update(1000, 500, 1, { hp: 1, ghost: 1, sp: 0.5, cast: true, ammo: [5, 10], overload: true });
     assert.equal(shown().length, 5, 'overloaded: left of ½·max');
     assert.equal(b.ammoTrack.tint, B.overTrack); assert.equal(b.ammoTrack.alpha, B.overTrackAlpha);

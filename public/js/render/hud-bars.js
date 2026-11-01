@@ -21,8 +21,9 @@
 //   the sprite (local client art): a plain α .35 rect under the bars. The bullet bar (b.snap `ammo`, server/sim/local-hud.js
 //   bulletView — a running ammo skill's bullets left, or a bullet-mode skill's SP such as 琳琅诗怀雅's coins) replaces the SP
 //   row: one block per bullet on a #e56d00 α.31 track (`char_bullet_bar`), the blocks laid out by code (UIBulletBar) —
-//   [추정] their colour #ffa800 and 2-unit gaps from the captures (7 bullets: 16–17 px blocks 2 px apart; 19 bullets: ~4.5 px
-//   blocks, the same gaps — many bullets make thin blocks). From BULLET_NO_GAP (40) bullets the client draws no gaps
+//   their colour the material's _BulletColor #ebaa2d (`ui_battle_ally_bullet_bar`; the shader Torappu/UI/BulletBar outputs
+//   it as is, the fill Image is white — official client), [추정] 2-unit gaps from the captures (7 bullets: 16–17 px blocks
+//   2 px apart; 19 bullets: ~4.5 px blocks, the same gaps — many bullets make thin blocks). From BULLET_NO_GAP (40) bullets the client draws no gaps
 //   (UIBulletBar.ShowBulletCount: IGNORE_GAP_COUNT), i.e. one bar of the share left; so does a block under 1 px. No glow when
 //   the SP is full (maintainer decision 2026-10-07: none in the captures, the skills fire at once).
 //   A 过载 skill (data `overload`: the prefab's `_isOverloadSkill`; b.snap `ovl`) splits its run at the client's overload
@@ -91,7 +92,7 @@ export const ALLY_BAR = Object.freeze({
   w: 125, h: 7, y: 54.5, grow: Object.freeze([8.6, 10.32]),
   hp: 0x49b2e3, sp: 0xcaec46, cast: 0xffa800, alpha: 0.7, ghost: 0xffffff,
   plateAlpha: 0.5,
-  ammoTrack: 0xe56d00, ammoTrackAlpha: 0.31, ammo: 0xffa800, ammoAlpha: 1, ammoGap: 2,
+  ammoTrack: 0xe56d00, ammoTrackAlpha: 0.31, ammo: 0xebaa2d, ammoAlpha: 1, ammoGap: 2,
   // 过载 (see header): char_overload_sp_cast_slider, char_sp_overload_tint_cast_slider, char_overload_bullet_bar
   over: 0xd04500, overAlpha: 1, overTint: 0xbd5a00, overTintAlpha: 0.4, overTrack: 0x4b4b4b, overTrackAlpha: 0.31,
   shield: 0xbcdbdf, shieldAlpha: 1,

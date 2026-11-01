@@ -516,8 +516,10 @@
   그 HP 바도 평소엔 숨기고, HP가 바뀌면(맞거나 치유) 잠깐 보였다가 사라진다(2026-10-23, 관리자 제보 「공격받는 등의 변화가 있을 때 잠깐 보여 주고
   평소엔 안 보임」 — 관리자 기억): `FLASH_HP_TOKENS` → `units.js hpFlash`,
   `HP_FLASH` 2초 보이고 흐려짐 없이 바로 사라짐(관리자 제보 2026-10-23 「흐려지며가 아니라 바로 사라졌다」; 2초는 [추정 시간]). 관리자 화면 확인 2026-10-23 「대충 비슷」.
-- 탄환형 스킬(관리자 제보): `char_bullet_bar` 받침 `#e56d00` α.31 위에 남은 탄환마다 칸. 칸은 코드(UIBulletBar)가 만들어
-  프리팹에 색이 없다 — [추정] 캡처 측정: 색 ≈ `#ffa800`(G 168 일치), 간격 2단위(7발: 16~17px 칸 2px 간격, 19발: 약 4.5px 칸 같은 간격). 칸이 1px보다 좁아지면 남은 비율 한 줄.
+- 탄환형 스킬(관리자 제보): `char_bullet_bar` 받침 `#e56d00` α.31 위에 남은 탄환마다 칸. 칸은 코드(UIBulletBar)가 만든다(프리팹에 칸 없음).
+  칸의 색은 머티리얼 `ui_battle_ally_bullet_bar`의 `_BulletColor` `#ebaa2d` — 셰이더 `Torappu/UI/BulletBar`는 그 색을 그대로 내고(알파 = 칸
+  가장자리 부드럽게 × `_BulletColor` α × 정점 α, 정점 색 RGB는 칸 수·간격 값을 나를 뿐), `fill` Image는 흰색 불투명 — 공식 클라에서 확인 2026-11-01
+  (그 전엔 캡처로 잰 `#ffa800`, G 168만 맞았다). [추정·화면: 캡처 측정] 간격 2단위(7발: 16~17px 칸 2px 간격, 19발: 약 4.5px 칸 같은 간격). 칸이 1px보다 좁아지면 남은 비율 한 줄.
   탄환 수는 시뮬레이션이 `b.snap.ammo = [[id, 남은, 최대]]`로 넘긴다(`server/sim/local-hud.js`; 시뮬레이션은 브라우저에서 돈다 — `battle/runner.js`).
   - **언제 탄환 칸인가 = 스킬 프리팹의 `_showSpAsBulletMode`** (upstream 0.2.4 이식 2차, 관리자 결정 2026-10-11 「공식대로」): 공식 클라
     `Character.get_hudPluginMask`가 HUD 줄을 고른다 — 스킬이 효과 중(`BasicSkill.isAffecting`)이면 플래그
@@ -554,8 +556,7 @@
     `tools/build-data.mjs`가 스킬 기록에 `overload: 1` → 시뮬레이션이 켜진 동안 `b.snap.ovl = [[id]]`(`local-hud.js overloadMark`) →
     `hud-bars.js` `AllyBars`(`OVERLOAD_RATIO`)가 비율로 나눠 그린다. 시뮬레이션의 과부하 효과도 다섯 키트 모두 절반에서 시작한다(락락 S2 40초 중 20초,
     `test/render/overload-bar.test.js`). 그리기 호출은 그대로(바 20개 1회, `bench/draw` 장면 `overload`).
-  - [화면 미확인] 실제 판에서 위 다섯의 바를 아직 못 봤다(그림 비교만). 같은 머티리얼의 보통 탄환 색 `_BulletColor`는 `#ebaa2d`인데 우리는 캡처로 잰
-    `#ffa800`(위 「탄환형 스킬」의 추정값)을 쓴다 — 셰이더가 색을 바꾸는지 안 봐서 그대로 둠.
+  - [화면 미확인] 실제 판에서 위 다섯의 바를 아직 못 봤다(그림 비교만).
 - 배리어(屏障·护盾, 관리자 요청 2026-10-10 「배리어도 HP 바처럼」): 공식 클라 `UIHudCharHpSlider.UpdatePlugin`이 유닛의 `shieldUIController.shieldToShow`(s)를
   읽어 HP 바를 (HP + s) / (최대 HP + s)로 채우고, 채운 부분 중 끝쪽 s / (HP + s)(`UIHpFillImage.splitValue`)를 바 머티리얼 `ui_battle_ally_hp_bar`(셰이더
   `Torappu/UI/Hp`, 클라 셰이더: uv.x > 1.003 − split이면 `_Color2`)의 `#bcdbdf` 불투명으로 그린다 — 따로 막대가 있는 게 아니라 HP 바가 배리어만큼 늘어난다. 아군만
