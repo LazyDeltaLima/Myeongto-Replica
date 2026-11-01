@@ -550,12 +550,44 @@ export function loadImageElement(url) {
   });
 }
 
+/**
+ * Load parser for the pages of a premultiplied Spine model (manifest `pma`: enemies, the premultiplied operator and token
+ * pages, the client models; docs/rules/render.md 「오퍼레이터·소환물 Spine 페이지의 알파」). PIXI's own image loader
+ * decodes every page with a plain `createImageBitmap`, which the browser premultiplies, and WebGL ignores the unpack
+ * flags for an ImageBitmap — so the atlas's `pma: true` (pixi-spine: `ALPHA_MODES.PMA`) only changed the blending, and
+ * a premultiplied page was multiplied by its alpha a second time: its soft edges darkened (a dark ring round 铃兰's and
+ * 史尔特尔's eyes). Here the page is decoded as it is (`premultiplyAlpha: 'none'`). The atlas parser hands pixi-spine's
+ * `imageMetadata` to each page load as its `data`, which is how loadSpineData picks this parser.
+ */
+export const PMA_PAGE_PARSER = 'spPremultipliedSpinePage';
+/** Adds the parser once; false when this PIXI lacks what it needs (then pages load as before). */
+function installPmaPageParser(PIXI) {
+  const parsers = PIXI.Assets.loader && PIXI.Assets.loader.parsers;
+  if (!Array.isArray(parsers) || !PIXI.extensions || !PIXI.ImageBitmapResource || !PIXI.createTexture) return false;
+  if (parsers.some((p) => p.name === PMA_PAGE_PARSER)) return true;
+  PIXI.extensions.add({
+    extension: { type: PIXI.ExtensionType.LoadParser, priority: PIXI.LoaderParserPriority.High + 1 },
+    name: PMA_PAGE_PARSER,
+    test: (url, asset) => !!(asset && asset.data && asset.data[PMA_PAGE_PARSER]),
+    async load(url, asset, loader) {
+      const resource = new PIXI.ImageBitmapResource(url, { alphaMode: PIXI.ALPHA_MODES.PMA, ownsImageBitmap: true, autoLoad: false });
+      await resource.load();
+      const base = new PIXI.BaseTexture(resource, { alphaMode: PIXI.ALPHA_MODES.PMA, resolution: PIXI.utils.getResolutionOfUrl(url) });
+      base.resource.src = url;
+      return PIXI.createTexture(base, loader, url);
+    },
+    unload(texture) { texture.destroy(true); },
+  });
+  return true;
+}
+
 /** Default Spine loader: PIXI.Assets.load(skel) → spineData (needs globalThis.PIXI + PIXI.spine). */
 export async function loadSpineData(entry, opts) {
   const PIXI = globalThis.PIXI;
   if (!PIXI || !PIXI.Assets || !PIXI.spine) throw new Error('PIXI / pixi-spine not loaded');
   if (opts && opts.fresh) forgetPendingSpine(entry, opts.keep);
-  const res = await PIXI.Assets.load(entry.skel);
+  const pma = !!entry.pma && installPmaPageParser(PIXI);
+  const res = await PIXI.Assets.load(pma ? { src: entry.skel, data: { imageMetadata: { [PMA_PAGE_PARSER]: true } } } : entry.skel);
   const data = res && (res.spineData || res);
   if (!data || !Array.isArray(data.animations)) throw new Error(`bad spine data: ${entry.skel}`);
   return data;

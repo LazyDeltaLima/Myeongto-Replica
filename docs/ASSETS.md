@@ -142,7 +142,9 @@ The `stem` of a Spine model is the upstream file name. Two examples: `char_107_l
 
 - **Atlases** (research 07 §5.3):
   - Insert `size: W,H` right after each page name. fexli atlases omit it; the value is read from the PNG header. An existing size that disagrees with the PNG is corrected.
-  - Ark-Models enemy atlases get `pma: true`, because their textures are premultiplied. pixi-spine reads this and sets `ALPHA_MODES.PMA`.
+  - Ark-Models enemy atlases get `pma: true`, because their textures are premultiplied. pixi-spine reads this and sets `ALPHA_MODES.PMA`;
+    the game also decodes such a model's pages without premultiplying them (`public/js/assets.js` `loadSpineData`, by the manifest `pma`):
+    PIXI's own image loader premultiplies every page while decoding it, which the PMA mode alone does not undo.
   - Operator and token pages are of two kinds and the fexli atlases do not say which: `tools/assets/spine.mjs premultipliedPage` reads each page's pixels, and a premultiplied one (black wherever alpha is 0, colour no brighter than its alpha at the soft edges) gets `pma: true` too; a straight one (its colour bled into the transparent texels) gets none. Read as straight, a premultiplied page is multiplied by alpha once more on upload and its soft edges darken (docs/rules/render.md, the operator page alpha section).
   - Page names are sanitized to safe file names.
   - All of this is idempotent.

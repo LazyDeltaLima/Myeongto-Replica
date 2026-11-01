@@ -223,7 +223,8 @@
   `token_10041_cathy_catsld`·风雪之眼 3종 `token_10057_svash2_eagle1–3`·棋子 `token_10064_wang_stone1`·战术锚点 `token_10068_kalts2_mtship`·
   `trap_185_vtlntw`(페이지만 바뀌고 skel·atlas·manifest는 같음). 분리 페이지 둘(香槟炸弹·`trap_039_dstnta`)과 적 원석충은 바이트까지 같다.
 - PR #668을 그대로 받지 않은 까닭: 분리 페이지는 이미 premultiplied라 `pma`를 빼면 업로드 때 한 번 더 곱해져 가장자리가 어두워진다(원석충·香槟炸弹이
-  틀어짐). PR의 「알파를 두 번 곱한다」는 설명도 우리 코드(`pma: true` 페이지는 다시 안 곱함)에는 맞지 않는다.
+  틀어짐). PR의 「알파를 두 번 곱한다」는 설명은 이때 우리 코드에 맞지 않는다고 봤으나, 게임의 로더 경로에서는 `pma: true` 페이지도 두 번
+  곱해지고 있었다(2026-11-01, 다음 절 「로더」).
 - 그대로 둔 것: 분리 페이지의 `min` 클램프(클라는 RGB > A를 그대로 더해 발광처럼 보임; 원석충 0.6 % 픽셀, 최대 63 차이) — 압축 번짐인지 의도된
   발광인지 모름 [ASSUMED].
 - 확인: `test/local-extract.test.js`(`material_straight`, `merge_alpha` straight 곱하기), 다시 뽑은 페이지의 반투명 픽셀 중 RGB = A(잘린 흔적)
@@ -240,10 +241,19 @@
   125쪽이 straight(색 있는 투명 텍셀 ≥ 9.8 %). 한 모델 안에서 두 종류가 섞인 것은 없다. 소환물은 8모델이 premultiplied(메딕프로브 `token_10000_silent_healrb`·저주인형·종이 인형·늑대 무리 등). `tools/assets/spine.mjs premultipliedPage`가 경계
   2 %·10 %로 가르고, premultiplied 페이지만 atlas에 `pma: true`를 붙인다(pixi-spine이 `ALPHA_MODES.PMA`로 올림). manifest `pma`는 모든 페이지가
   `pma: true`인지.
-- 확인: `test/assets.test.js`(페이지 판정, 페이지별 `pma`, 디스크의 모든 오퍼레이터·소환물 atlas가 픽셀 판정과 같은지). 얼굴 메시를 CPU로 그려 비교 —
-  A를 두 번 곱하면 두 모델 모두 눈 둘레에 어두운 고리, 한 번이면 없음. Windows Chrome(GPU)에서 pixi-spine으로 같은 atlas를 `pma` 줄 있이·없이
-  그려(Idle 첫 프레임, 얼굴 확대·게임 크기) 고리가 `pma: true`에서만 사라지는 것을 확인. [화면 미확인: 실제 판에서 스즈란·수르트 눈 둘레, 다른
-  오퍼레이터·소환물의 반투명 가장자리]
+- 로더(같은 날, 관리자 재제보 「로컬 디버그 아레나와 인게임에서 이전과 똑같다」): atlas의 `pma: true`만으로는 게임에서 아무것도 바뀌지 않았다.
+  게임은 모델을 `PIXI.Assets.load(skel)`로 올리고(`public/js/assets.js loadSpineData`), pixi-spine의 atlas 파서가 페이지를 PIXI 로더에 맡기는데,
+  PIXI 이미지 로더(`loadTextures`)는 모든 페이지를 옵션 없는 `createImageBitmap`으로 디코드한다 — 브라우저가 이때 A를 곱하고, WebGL은
+  ImageBitmap에 언팩 플래그를 쓰지 않는다. 그래서 `ALPHA_MODES.PMA`는 블렌드만 바꾸고, premultiplied 페이지는 그대로 두 번 곱해졌다. 이는 적
+  (모든 적 페이지가 premultiplied: 243쪽)과 클라에서 뽑은 모델에도 처음부터 그랬다. 고침: `loadSpineData`가 manifest `pma` 모델을 pixi-spine
+  `imageMetadata`에 표시해 올리고, 그 표시가 붙은 페이지는 전용 로드 파서(`PMA_PAGE_PARSER`, `loadTextures`보다 앞)가 `ImageBitmapResource`
+  (`alphaMode` PMA → `premultiplyAlpha: 'none'`)로 있는 그대로 디코드한다. 한 atlas 안에서 페이지 종류가 섞인 것은 없어(309개 atlas) 모델 단위 표시로 충분하다.
+- 확인: `test/assets.test.js`(페이지 판정, 페이지별 `pma`, 디스크의 모든 오퍼레이터·소환물 atlas가 픽셀 판정과 같은지), `test/render/assets.test.js`
+  (`pma` 모델의 로드 인자, 파서 한 번 등록·고르는 조건·`alphaMode`). 얼굴 메시를 CPU로 그려 비교 — A를 두 번 곱하면 두 모델 모두 눈 둘레에 어두운
+  고리, 한 번이면 없음. Windows Chrome(GPU): 게임 로더(`loadSpineData`)로 그린 얼굴이 고치기 전에는 straight로 읽은 그림과 같고(최대 차 1–3/255),
+  고친 뒤에는 `pma: true`를 지킨 그림과 같다(최대 차 1). 게임 로더 고치기 전·후(Idle 첫 프레임): 스즈란 1223픽셀·수르트 285·W(`enemy_1504_cqbw`)
+  1520이 8 넘게 다름(눈·볼 둘레 어두운 선이 사라짐), 원석충은 1픽셀. `RENDER_E2E` `eyemask.browser.test.js`(에이야퍄들라 더 크비트 아스카, `pma`
+  모델을 실제 서버 페이지에서) 통과. [화면 미확인: 실제 판에서 스즈란·수르트 눈 둘레, 적과 다른 오퍼레이터·소환물의 반투명 가장자리]
 
 ## 적 경로 미리보기 (2026-10-10, 관리자 결정 「공식 卫戍协议에서는 라운드 작전이 시작될 때 적 경로가 실제로 표시됐다」 → 공식대로)
 - 공식(EN 공식 클라 — 레벨 데이터 액션이 아니라 SPAWN 액션의 플래그):

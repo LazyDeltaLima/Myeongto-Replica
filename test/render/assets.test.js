@@ -10,7 +10,7 @@ import {
   avatarUrl, portraitUrl, enemyIconUrl, tokenAvatarUrl, bondIconUrl, bandIconUrl, itemIconUrl, skillIconUrl, uiUrl,
   profIconUrl, subProfIconUrl, spineEntry, hasBackSpine, unitPictureUrl, bgmEntry, sfxUrl, unitSfxUrl, baseCharId,
   validSpine, RefLru, createAssets, unloadSpineData, spinePages, spineDataWeight, SPINE_WEIGHT_MIN, SPINE_IDLE_BYTES,
-  SPINE_IDLE_GRACE_MS, SPINE_EVICT_DELAY_MS, SPINE_QUIET_DELAY_MS,
+  SPINE_IDLE_GRACE_MS, SPINE_EVICT_DELAY_MS, SPINE_QUIET_DELAY_MS, loadSpineData, PMA_PAGE_PARSER,
 } from '../../public/js/assets.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -518,6 +518,69 @@ describe('createAssets store', () => {
     a.spine.release(e);
     await assert.rejects(a.spine.acquire(null), /no spine/);
     assert.equal(a.spine.stats().refs, 0);
+  });
+});
+
+describe('premultiplied Spine pages are decoded as they are', () => {
+  // PIXI's image loader premultiplies every page while decoding it, so a `pma` model's pages go through a parser of their
+  // own (docs/rules/render.md 「오퍼레이터·소환물 Spine 페이지의 알파」); pixi-spine hands imageMetadata to each page load
+  function fakePixi() {
+    const loads = [], parsers = [];
+    const prev = globalThis.PIXI;
+    class BaseTexture { constructor(resource, opts) { this.resource = resource; this.opts = opts; } }
+    class ImageBitmapResource {
+      constructor(url, opts) { this.url = url; this.opts = opts; }
+      async load() { this.loaded = true; }
+    }
+    globalThis.PIXI = {
+      spine: {},
+      ALPHA_MODES: { PMA: 2 },
+      ExtensionType: { LoadParser: 'load-parser' },
+      LoaderParserPriority: { High: 2 },
+      extensions: { add: (p) => parsers.push(p) },
+      utils: { getResolutionOfUrl: () => 1 },
+      BaseTexture, ImageBitmapResource,
+      createTexture: (base, loader, url) => ({ base, loader, url }),
+      Assets: { loader: { parsers }, load: async (a) => { loads.push(a); return { spineData: { animations: [] } }; } },
+    };
+    return { loads, parsers, restore: () => { if (prev === undefined) delete globalThis.PIXI; else globalThis.PIXI = prev; } };
+  }
+
+  test('a pma model loads with the parser flag in imageMetadata; a straight one by its URL; the parser is added once', async () => {
+    const f = fakePixi();
+    try {
+      await loadSpineData({ skel: '/s/a.skel', pma: true });
+      await loadSpineData({ skel: '/s/b.skel', pma: true });
+      await loadSpineData({ skel: '/s/c.skel' });
+      assert.deepEqual(f.loads, [
+        { src: '/s/a.skel', data: { imageMetadata: { [PMA_PAGE_PARSER]: true } } },
+        { src: '/s/b.skel', data: { imageMetadata: { [PMA_PAGE_PARSER]: true } } },
+        '/s/c.skel',
+      ]);
+      assert.equal(f.parsers.length, 1);
+      const p = f.parsers[0];
+      assert.ok(p.extension.priority > 2, 'ahead of PIXI loadTextures (High)');
+      assert.equal(p.test('/s/a.png', { src: '/s/a.png', data: { [PMA_PAGE_PARSER]: true } }), true);
+      assert.equal(p.test('/s/c.png', { src: '/s/c.png' }), false);
+      assert.equal(p.test('/s/c.png', { src: '/s/c.png', data: {} }), false);
+      const tex = await p.load('/s/a.png', { src: '/s/a.png' }, 'LOADER');
+      // decoded without premultiplying (ImageBitmapResource: alphaMode PMA → createImageBitmap premultiplyAlpha 'none')
+      assert.equal(tex.base.resource.opts.alphaMode, 2);
+      assert.equal(tex.base.resource.loaded, true);
+      assert.equal(tex.base.opts.alphaMode, 2);
+      assert.equal(tex.url, '/s/a.png');
+      assert.equal(tex.loader, 'LOADER');
+    } finally { f.restore(); }
+  });
+
+  test('a PIXI without the loader parts loads a pma model by its URL', async () => {
+    const f = fakePixi();
+    try {
+      delete globalThis.PIXI.ImageBitmapResource;
+      await loadSpineData({ skel: '/s/a.skel', pma: true });
+      assert.deepEqual(f.loads, ['/s/a.skel']);
+      assert.equal(f.parsers.length, 0);
+    } finally { f.restore(); }
   });
 });
 
