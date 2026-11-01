@@ -123,9 +123,15 @@ export const TPL_FX_SOUNDS = Object.freeze({ common_071_bond_kazimierz_hit_01_ne
  * on her) [ASSUMED·engine: the SHOW_EFFECT banks at the buff's start, as the other ones here].
  */
 const STATUS_SOUNDS = Object.freeze({ 'tocka:shield': 'tocka:s1shield', 'tocka:auto': 'tocka:s2auto', 'tocka:bonus': 'tocka:s3bonus' });
-export function statusSoundKey(key) {
+/**
+ * A catalogue status by its applier's model (the sim 'status' 5th field): 予愿安洁莉娜 S2's sweep — 浮空 / 缚地 on each enemy
+ * it reaches (aglna2_s_2[enemy] CreateBuff audioSignal …[levitate] / …[ground_bound]) [하한: an enemy already 浮空 / 缚地 when
+ * it is reached sends no new 'status', and stays silent].
+ */
+const SOURCE_STATUS_SOUNDS = Object.freeze({ char_1015_aglna2: Object.freeze({ levitate: 'aglna2:levitate', groundbind: 'aglna2:groundbind' }) });
+export function statusSoundKey(key, sourceDef = null) {
   if (typeof key !== 'string') return null;
-  return STATUS_SOUNDS[key] ?? STATUS_SOUNDS[key.replace(/:\d+$/, '')] ?? null;
+  return STATUS_SOUNDS[key] ?? STATUS_SOUNDS[key.replace(/:\d+$/, '')] ?? SOURCE_STATUS_SOUNDS[sourceDef]?.[key] ?? null;
 }
 
 /**
@@ -168,6 +174,20 @@ export function kitHitKey(fx, ex, unitOf) {
     case 'tockaFx': return def(ex.src) !== 'char_4244_tocka' ? null : ex.s === 3 ? 'tocka:s3trigger' : ex.s === 2 && ex.shot ? 'tocka:s2hit' : null;
     case 'explode': return def(ex.by) === 'char_1035_wisdel' ? 'wisdel:bomb' : null;
     case 'burst': return def(ex.id) === 'token_10035_wisdel_wward' ? 'wisdel:token' : null;
+    // 2026-11-01 (the linking sheet, tools/local-extract/link_sheet.py): 赤刃明霄陈 T2's held dodge gained (chen3_t2[evade]
+    // ON_BUFF_ENABLE — Buff.OnEnable runs it as the buff is enabled) [추정·엔진: not again on a re-enable after a stun or
+    // silence — the kit does not disable the buff]
+    case 'evadeReady': return def(ex.id) === 'char_1050_chen3' ? 'chen3:t2evade' : null;
+    // 凯尔希·思衡托 S3: the transport's start (StartTransporting START), her flight reaching the anchor (its REACH)
+    case 'kalts2Takeoff': return def(ex.id) === 'char_1052_kalts2' ? 'kalts2:s3start' : null;
+    case 'teleport': return def(ex.id) === 'char_1052_kalts2' ? 'kalts2:s3reach' : null;
+    // 本能的召唤's attract projectile reaching the enemy it lures
+    case 'lure': return def(ex.src) === 'token_10054_phatm2_encdool' ? 'phatm2:lurehit' : null;
+    // 予愿安洁莉娜 (CN client): S2's sweep fired (its BORN), S3's flight body (BORN) — the way home opens on her
+    // Skill_3_Restart_Begin instead (RestoreAbility; AudioWhenPlayAnimation aglna2_restart) [추정·CN: the way home is the
+    // same projectile, not a new one]
+    case 'dash': return def(ex.id) === 'char_1015_aglna2' ? 'aglna2:s2fly' : null;
+    case 'aglnaFlight': return ex.on !== 1 || def(ex.id) !== 'char_1015_aglna2' ? null : ex.signal === 'comeback' ? 'aglna2:restart' : 'aglna2:s3fly';
     case 'oblvnsNote': return ex.e === 'hit' && typeof ex.m === 'string' ? `oblvns:${ex.m}` : null;
     case 'drone': {
       const u = unitOf(ex.id);
@@ -205,12 +225,19 @@ export function kitHitKey(fx, ex, unitOf) {
  * (kitHitKey) — 望's stone pop: a placed stone's sktok_wang_<n> ON_ABILITY_START (p_atk_stwctp_d / _h / _s); a 跟子 (a
  * projectile of hers) sounds the same file through its projectile_chr_wang_stone<n> bank, but for S2
  * (ON_PROJECTILE_BEHAVIOUR_TRIGGER, p_atk_stwctps_h). A 跟子 landing (summon fx `follower`): ON_PROJECTILE_BORN.
+ * 2026-11-01: 魂灵之影's strike — its skill's RangedAttack ON (the shot; its HIT is kitHitKey's 'wisdel:token'); 凯尔希·思衡托's
+ * S3 landing — the respawn's RespawnBorn buff (beside the flight's REACH); 本能的召唤's attract ability on each enemy it lures.
+ * @param {(id: any) => ({ def?: string }|undefined)} [unitOf] the tracked unit of an id
  * @returns {string|null} sfx.kit key
  */
-export function kitStartKey(fx, ex) {
+export function kitStartKey(fx, ex, unitOf = () => undefined) {
   if (!ex || typeof ex !== 'object') return null;
   if (fx === 'zone' && ex.token === 'token_10064_wang_stone1' && [1, 2, 3].includes(ex.skill)) return ex.follower && ex.skill === 2 ? 'wang:2fs' : `wang:${ex.skill}s`;
   if (fx === 'summon' && ex.follower) return 'wang:thrown';
+  const def = (id) => unitOf(id)?.def || '';
+  if (fx === 'burst' && def(ex.id) === 'token_10035_wisdel_wward') return 'wisdel:tokenon';
+  if (fx === 'teleport' && def(ex.id) === 'char_1052_kalts2') return 'kalts2:respawn';
+  if (fx === 'lure' && def(ex.src) === 'token_10054_phatm2_encdool') return 'phatm2:lure';
   return null;
 }
 /**
@@ -1947,6 +1974,8 @@ export class AudioManager {
         } else if (kind === 'dmg') {
           // 2026-10-29: 克莱门莎 T1's won roll (clemnt_t1[dice_damage], the 9th field's moment): PlayAudio on the target
           if (Array.isArray(e[8]) && e[8].some((m) => Array.isArray(m) && m[0] === 'clemnt_t1[dice_damage]')) this._kitSound('clemnt:t1');
+          // 2026-11-01: 酒神 S2 — each tick of 本能的召唤's phatm2_s_2[damage] on an enemy (its ON_BUFF_TRIGGER PlayAudio)
+          if (Array.isArray(e[8]) && e[8].some((m) => Array.isArray(m) && m[0] === 'phatm2_s_2[damage]')) this._kitSound('phatm2:s2dmg');
           if (!IMPACT_TYPES.has(e[3])) continue;
           // 2026-10-11 (user report: 아스카론's 死亡拘审 ticks sounded as her attack, docs/rules/audio.md 「지속 피해 틱」): a damage-over-time
           // tick (the sim's 7th field, damage.js dotFlag) is a buff's damage in the client — no ability HIT, no sound — and
@@ -1999,6 +2028,9 @@ export class AudioManager {
             const ue = this.getManifest()?.audio?.sfx?.units?.[u.def]; // local patch
             if (modeEntry(ue, u.skillIndex)?.deferStart) u.startHeld = true; // local patch
             else if (!skillLoopOf(ue, u.skillIndex)?.start) this.unit(u.def, 'skill', e[1], u.skillIndex ?? undefined); // local patch: a start bank that loops plays as the loop
+            // 2026-11-01: 予愿安洁莉娜 S1 opens on Skill_1_Begin (AudioWhenPlayAnimation aglna2_born, CN client) [추정·CN: S1's
+            // take-off plays that clip at the cast — the S1 mode turns Born into it]
+            if (u.def === 'char_1015_aglna2' && u.skillIndex === 0) this._kitSound('aglna2:born');
             // 作战中N: the equipped skill's own slot (0-based; 作战中4 is the fallback of a 4th slot)
             if (unitSoundClass(u) === 'char') {
               const n = Number.isInteger(u.skillIndex) ? Math.min(4, u.skillIndex + 1) : 1;
@@ -2082,6 +2114,8 @@ export class AudioManager {
           // ON_PROJECTILE_BORN (kitStartKey 'wang:thrown', its summon fx `follower` in the same tick), not as a stone's birth
           if (ev.some((x) => Array.isArray(x) && x[0] === 'fx' && x[1] === 'summon' && x[4]?.follower && x[4].id === e[1])) continue;
           this.playDeploySfx(u, e[1]);
+          // 2026-11-01: 予愿安洁莉娜's Born clip (AudioWhenPlayAnimation aglna2_born, CN client) beside the deploy sound
+          if (u.def === 'char_1015_aglna2') this._kitSound('aglna2:born');
         } else if (kind === 'fx') {
           if (e[1] === 'bombard' && e[4]?.kind === 'emppnt') this._shellAt = now;   // 2026-10-22: its hits follow in this batch (dmg)
           // 2026-10-10, docs/rules/audio.md 「적 소리」: an enemy skill's cast (sim fx 'enemySkill' { id, ability }) —
@@ -2138,6 +2172,17 @@ export class AudioManager {
             for (let i = 0; i < Math.min(Math.max(1, (Number(e[4].z) - Number(e[4].a) + 1) || 1), max); i++) if (!this._kitSound('oxi:s3fire')) break;
           }
           if (e[1] === 'link' && e[4]?.id != null) for (let i = haloLinkCount(unitOf(e[4].id), e[4].ids); i > 0; i--) this._kitSound('halo2:s3link');
+          // 2026-11-01: 予愿安洁莉娜 S2 — Skill_2_Begin (ChantWithProjectileBeforeSkill `_afterEndAnim`) plays as the glide's
+          // 吟唱 ends, `chant` s on: its AudioWhenPlayAnimation signal [추정·CN: at the clip's start — the class is CN-only]
+          if (e[1] === 'dash' && e[4]?.id != null && unitOf(e[4].id)?.def === 'char_1015_aglna2') this._kitSound('aglna2:s2begin', Math.max(0, Number(e[4].chant) || 0));
+          // 2026-11-01: 本能的召唤 leaving (token_phatm2_encdool_kill ON_BUFF_FINISH): its Boom first when a lured enemy reached
+          // it (`boom`: the BUFF_TRIGGER path), the boom_start, then each enemy of its x-1 starting phatm2_s_2[damage] (`n`)
+          if (e[1] === 'aoe' && e[4]?.skill === 'phatm2:call') {
+            if (e[4].boom) this._kitSound('phatm2:boom');
+            this._kitSound('phatm2:boomstart');
+            const max = this.getManifest()?.audio?.sfx?.kitLimit?.['phatm2:boomhit']?.max ?? 2;
+            for (let i = 0; i < Math.min(Number(e[4].n) || 0, max); i++) if (!this._kitSound('phatm2:boomhit')) break;
+          }
           // 2026-10-22: a kitHit for `n` units at once (圣聆初雪 S2's tick) — one per unit, at most the bank's own limit
           if (e[1] === 'kitHit' && Number(e[4]?.n) > 1) {
             const hk = kitHitKey(e[1], e[4], unitOf);
@@ -2157,7 +2202,7 @@ export class AudioManager {
           this._kitSound(TPL_FX_SOUNDS[e[2]] ?? null);
         } else if (kind === 'status' && e[3]) {
           // 2026-11-01: a kit buff whose client buff carries an audio signal, as it starts on its holder (statusSoundKey)
-          this._kitSound(statusSoundKey(e[2]));
+          this._kitSound(statusSoundKey(e[2], e.length > 4 && e[4] != null ? this.units.get(e[4])?.def : null));
         } else if (kind === 'bounty') {
           this.battle('killCoin');
         } else if (kind === 'layer') {

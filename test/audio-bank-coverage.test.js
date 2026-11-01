@@ -18,17 +18,30 @@ const skip = existsSync(OFFICIAL) ? false : 'no official audio table (.cache/gam
 /** The manifest URL of a bank sound's asset (Audio/Sound_Beta_2/Player/p_imp/x → /assets/audio/sfx/player/p_imp/x.mp3). */
 const urlOf = (asset) => `/assets/audio/sfx/${String(asset).split('/').slice(-3).join('/')}.mp3`.toLowerCase();
 
+/** A regexp of `w` as a word of a bank name. */
+const asWord = (w) => new RegExp(`(?<![a-z0-9])${w}(?![a-z0-9])`);
+
+/**
+ * The words that name a pick's banks: its codename and (2026-11-01) its summons' own codes (data/backups.json `tokens`:
+ * token_<n>_<codename>_<code>) — 酒神's 本能的召唤 sounds token_encdool_boom_start, without her codename.
+ */
+function wordsOf(id, tokens) {
+  const code = id.split('_').slice(2).join('_');
+  const own = Object.keys(tokens).filter((t) => asWord(code).test(t)).map((t) => t.split('_').slice(2).join('_').replace(new RegExp(`^${code}_`), ''));
+  return [code, ...own.filter((c) => c && c !== code)].map(asWord);
+}
+
 /** {charId: {bank name without `battle.`: true}} of the picks' banks whose files the manifest never plays. */
 function unsounded() {
   const banks = JSON.parse(readFileSync(OFFICIAL, 'utf8')).soundFXBanks;
   const manifest = JSON.parse(readFileSync(path.join(ROOT, 'data', 'assets.json'), 'utf8'));
+  const tokens = JSON.parse(readFileSync(path.join(ROOT, 'data', 'backups.json'), 'utf8')).tokens ?? {};
   const played = new Set((JSON.stringify(manifest.audio).match(/\/assets\/audio\/[^"]+?\.mp3/g) || []).map((u) => u.toLowerCase()));
   const out = {}, all = new Set();
   for (const id of LOCAL_DIY_PICKS) {
-    const code = id.split('_').slice(2).join('_');
-    const word = new RegExp(`(?<![a-z0-9])${code}(?![a-z0-9])`);
+    const words = wordsOf(id, tokens);
     for (const b of banks) {
-      if (!b.name.startsWith('battle.') || !word.test(b.name)) continue;
+      if (!b.name.startsWith('battle.') || !words.some((w) => w.test(b.name))) continue;
       const name = b.name.slice('battle.'.length);
       all.add(`${id} ${name}`);
       if (!(b.sounds || []).some((s) => played.has(urlOf(s.asset)))) (out[id] ??= {})[name] = true;

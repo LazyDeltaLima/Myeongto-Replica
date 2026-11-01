@@ -147,7 +147,10 @@ function callKit(t, owner, b2) {
       // the first lured enemy within `arrive` of it: it leaves
       battle.on('tick', () => {
         if (!up(tok)) return;
-        if (lured.some((e) => e.alive && mine(e) && hypot(e.x - tok.x, e.y - tok.y) <= arrive + 1e-9)) battle.retreat(tok, { reason: 'expired', permanent: true });
+        if (lured.some((e) => e.alive && mine(e) && hypot(e.x - tok.x, e.y - tok.y) <= arrive + 1e-9)) {
+          tok.mem.callBoom = true;   // its skill's Boom (token_phatm2_encdool_kill ON_BUFF_TRIGGER): the leave's `boom` below
+          battle.retreat(tok, { reason: 'expired', permanent: true });
+        }
       }, { owner: tok });
       // leaving (any reason): 停顿 + the damage over time on every selectable enemy of its x-1; the 诱导 ends
       battle.on('death', (c) => {
@@ -157,8 +160,12 @@ function callKit(t, owner, b2) {
         const keys = keysAt(grid, tok);
         const slow = pick('sluggish', 6), dur = pick('buff_time', 6), iv = Math.max(0.1, pick('interval_damage', 0.5));
         const ep = pick('ep_damage_ratio_token', 0), scale = pick('atk_scale', 1), a0 = atk;
-        battle.fx('aoe', { x: tok.x, y: tok.y, radius: 2, id: tok.id, skill: 'phatm2:call' });
-        for (const e of battle.enemiesInKeys([...keys], tok, ANY)) {
+        // `boom`: a lured enemy reached it (its Boom ability, not the 10 s end); `n`: the enemies the damage over time starts on
+        // (audio.js: one boom_hit each)
+        const hit = battle.enemiesInKeys([...keys], tok, ANY);
+        battle.fx('aoe', { x: tok.x, y: tok.y, radius: 2, id: tok.id, skill: 'phatm2:call', n: hit.length, ...(tok.mem.callBoom ? { boom: 1 } : null) });
+        tok.mem.callBoom = false;
+        for (const e of hit) {
           if (slow > 0) battle.applyStatus(e, 'sluggish', { duration: slow, source: owner });
           battle.addBuff(e, {
             key: `phatm2:delirium#${owner.id}`, duration: dur, source: owner, tags: ['skill'], data: { next: battle.time + IV },

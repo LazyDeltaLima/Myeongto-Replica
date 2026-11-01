@@ -139,7 +139,8 @@
     `ON_ABILITY_END`는 `AbilityStandard.OnCastEnd`. 데이터의 두 이름 뱅크 100개 중 우리 로스터 스킬은: 银灰 S2 b_char_tactboost,
     山(f12yin) S2 b_char_atkboost, 玛恩纳 S2·荒芜拉普兰德 S1 b_char_boostclose, 仇白 S2 p_imp_swordcutexplode(烛煌 S3의 `ON_ABILITY_END`는 루프라
     `loops`가 이미 낸다). `skill-mode-sfx.mjs skillEnds` → `sfx.units[id].ends[스킬번호] = { url, grp?, vol? }`, `audio.js`가 'skill' 꺼짐에 낸다.
-    안 한 것: 丰川祥子 `ON_SKILL_FINISH.skchr_oblvns_2.1/.2`(신호 id에 번호가 붙는 경로 미확인), 공격 능력의 `ON_ABILITY_END.<id>.attack`(공격마다 끝 —
+    丰川祥子 `ON_SKILL_FINISH.skchr_oblvns_2.1/.2`는 종료음이 아니라 켜진 토글을 다시 누를 때의 시작음이라 이 모드에선 안 난다(2026-11-01, 아래
+    「선발 소리 뱅크 커버리지」). 안 한 것: 공격 능력의 `ON_ABILITY_END.<id>.attack`(공격마다 끝 —
     이그제큐터 attack.2 장전음 등, 공격 끝 이벤트가 없음), 퇴장 때(`OnOwnerFinish`)의 종료음. 확인: `test/local-patch-audio.test.js` 「skill end」.
     - **끝 모드** (2026-10-29, 공식 클라 + EN 클라 버프 템플릿): 스킬 버프 템플릿의 `ON_BUFF_FINISH`(`Buff.Event` 1)에 고정 `_modeIndex` > 0인
       `SwitchMode`가 있으면 스킬이 끝날 때 그 모드로 바뀌고, 그 모드의 공격 능력이 바로 닫는 클립을 낸다(티피 S2 `tippi_s_2[switch_mode]` → 모드 6
@@ -416,6 +417,37 @@
   아예 없으면(옮길 때 빠짐) 이 시험에도 안 보인다 — 옮긴 쪽에서 원본과 이름 대조(관리자 노트의 병합 도구가 한다).
 - 첫 목록(2026-11-01): 선발 11명의 뱅크 243개 중 25개 — 토스카 6, 안젤리나 더 멜로우 위시 8, 트라고디아 4, 켈시 에스페란타 3, 토가와 사키코 2,
   첸 더 던스트릭 1, 위셔델 1. 모두 `todo`(아직 하나도 안 봄). 같은 날 토스카 5개를 이어 20개(아래 「스킬·재능 투사체 소리」 토스카 줄).
+- 뱅크를 모으는 단어(2026-11-01 더함): 코드네임 + 그 오퍼레이터 소환물의 고유 코드(`data/backups.json` `tokens`의 `token_<n>_<코드네임>_<코드>`) —
+  트라고디아의 본능의 부름(`token_10054_phatm2_encdool`)이 내는 `token_encdool_boom_start`·`_hit`는 이름에 `phatm2`가 없어 빠져 있었다(이 둘만 늘어남).
+- **연결 작업표** `tools/local-extract/link_sheet.py --id <charId>`(EN 기본, CN 전용이면 `--client <CN> --cab-index .cache/fx-cab-index-cn.json`; 읽기만):
+  오퍼레이터마다 ① 뱅크 표 — 상태(`played` / 목록의 `none`·`todo` / `MISSING`), 연결한 `tools/assets/*.mjs`, 그 신호 id를 값으로 가진 클라 노드
+  (`charpack`·`skills`·`projectiles`·소환물 프리팹·버프 템플릿 이벤트, 클래스는 MonoScript·`$type`), 능력 신호 `<유닛|스킬>.<경로>`는 맞는
+  GameObject(`T` = Talents, `extra.<n>` = 스킬의 `_extraAbilities` n번째), 모델의 `AudioWhenPlayAnimation`(CN 전용, 클립 → 신호; 타입 트리가 안
+  읽혀 원시 객체에서) — ② 신호·투사체·이펙트 키를 가진 노드 전부와 그 이름의 뱅크. 새 오퍼레이터를 넣을 때 「어느 키인가 찾기」를 이 표 한 장으로 한다.
+- 첫 목록의 나머지 19개(2026-11-01, 작업표로 찾음 — `kit-sfx.mjs` 키 · `audio.js`; 확인 `test/audio-link-sheet.test.js`) [화면 미확인]:
+  - 첸 더 던스트릭 재능2 회피 준비(`chen3_t2[evade]` `ON_BUFF_ENABLE` PlayAudio — `Buff.OnEnable`이 이 이벤트를 돌림, 공식 클라에서 확인) → 키트 fx
+    `evadeReady`. [추정·엔진: 기절·침묵 뒤 다시 켜질 때는 안 냄 — 키트가 버프를 끄지 않음]
+  - 위셔델의 혼령의 그림자: 스킬 `sktok_wisdel_wward`(RangedAttack)의 ON = 쏠 때 → fx `burst`에 착탄음과 함께(sim은 쏘기와 맞히기가 한 순간).
+  - 켈시 에스페란타 S3: 수송 시작(`Talents/-1` StartTransporting START → fx `kalts2Takeoff`), 비행 `projectile_chr_kalts2_s3_2` REACH와 착지 재배치
+    (`CommonAbility/RespawnBorn` BuffDuringCastingFixed audioSignal `kalts2_respawn_range`) → 둘 다 fx `teleport`.
+  - 안젤리나 더 멜로우 위시(CN 클라): 모델의 `AudioWhenPlayAnimation`이 클립 Born·Skill_1_Begin → `aglna2_born`, Skill_2_Begin → `aglna2_s_2[Begin]`,
+    Skill_3_Restart_Begin → `aglna2_restart`(`ON_PLAY_ANIMATION`, 이 뱅크 셋뿐) — 배치(비행 착지는 안 냄)·S1 시작·S2 활공의 吟唱 끝(`ChantWithProjectileBeforeSkill`
+    `_afterEndAnim` Skill_2_Begin → fx `dash`의 `chant`초 뒤)·S3 귀환 비행 시작(`RestoreAbility` 클립, fx `aglnaFlight` `signal: 'comeback'`)에 sim 순간으로
+    낸다(렌더러 클립이 아니라 모델 없이도 남). [추정·CN: 클립 시작에 냄 — 클래스가 CN 전용] [추정·CN: S1은 시작 때 Skill_1_Begin — S1 모드가 Born을 그
+    클립으로 바꿈] S2 활공 투사체 BORN(fx `dash`), 맞은 적마다 공중 띄우기·지면 속박(`aglna2_s_2[enemy]` CreateBuff audioSignal → sim 'status'의
+    적용자로 가림; 하한: 이미 그 상태인 적은 새 'status'가 없어 무음), S3 비행 몸체 `projectile_chr_aglna2_s3_fly` BORN(fx `aglnaFlight` 시작; [추정·CN:
+    귀환은 같은 투사체의 Comback 이동이라 새 BORN 없음]). S3 시작음은 `ON_SKILL_START.skchr_aglna2_3.move_like_projectile.skill_start`
+    (`skill-sfx.mjs` `START_BANKS`; 그동안 S3 시작음이 없었다) [추정·CN: 스킬 시작에 냄 — MoveLikeRespawnByProjectileBehaviour가 CN 전용].
+  - 트라고디아의 본능의 부름: 유인 능력(`Talents/1` ProjectileToTileAbility, 별칭 attract) START와 그 투사체 HIT → 유인한 적마다(fx `lure`) [추정·엔진:
+    적마다 한 번 시전 — 능력이 부르는 주기는 안 읽음]; 떠날 때 — 스킬의 `extra.0` = `Boom`(스킬 프리팹 `_extraAbilities` 첫째, 유인한 적이 닿아 떠날 때만:
+    `token_phatm2_encdool_kill` ON_BUFF_TRIGGER), `token_encdool_boom_start`(같은 버프 FINISH), x-1의 적마다 `phatm2_s_2[damage]` 시작 `token_encdool_boom_hit`
+    (뱅크 한도 2) → fx `aoe` `phatm2:call`에 `boom`·`n`을 실음(표시용, golden 무변화); 그 버프의 틱마다 `phatm2_s2_boom_damage`('dmg' 9번째 칸 순간).
+  - 토가와 사키코 S2: `ToggleSkillWithEndAnimation.PlayBeginAudio`(공식 클라에서 확인)가 켜기 전이면 ON_SKILL_START, 켜져 있으면 ON_SKILL_FINISH를
+    `skchr_oblvns_2.<지금 모드 번호>`로 낸다(`_appendModeIndexToBeginAudioSignal`, 피버 중이면 `_audioValidator`로 안 냄). 이 모드의 한 번뿐인 시전은
+    모드 2 `S2_Atk`(스킬 `_defaultModeIndex`)에서 → 시작음은 `.2`(h1)인데 `skill-sfx.mjs`가 먼저 찾은 `.1`(h2)을 내고 있었다 → `START_BANKS`로 `.2`.
+    `.1` START·FINISH는 목록에 `none`(켜진 토글 스킬은 자동 전투가 안 씀 — `_CheckToggleSkill`). 키트는 시전마다 음색을 바꾸므로(공식은 한 번 —
+    diy.md 「사키코 S2」의 보류) 둘째 시전도 `.2`가 난다.
+- 지금 목록: 토가와 사키코 `none` 2개뿐(`todo` 0).
 
 ## 스킬·재능 투사체 소리 (2026-10-29, 공식 클라 — 캐릭터·스킬·투사체 프리팹)
 - 공식: 스킬·재능·드론이 쏘는 투사체도 자기 뱅크를 낸다 — BORN(발사)·HIT(맞힌 대상마다)·REACH(도착)·STOP(멈춤)·

@@ -185,6 +185,34 @@ export const KIT_HIT_BANKS = Object.freeze({
   'tocka:s3bonus': 'battle.ON_BUFF_SHOW_EFFECT.tocka_s3_bonus_start_audio',
   'tocka:s3trigger': 'battle.ON_BUFF_START.tocka_s3_trigger_start_audio',
   'tocka:s2hit': 'battle.ON_PROJECTILE_HIT.projectile_chr_tocka_s2',
+  // 2026-11-01 (public/js/audio.js kitHitKey / kitStartKey / kitMomentKeys; the linking sheet tools/local-extract/link_sheet.py):
+  // 赤刃明霄陈 T2's held dodge gained (chen3_t2[evade] ON_BUFF_ENABLE PlayAudio); 魂灵之影's strike (its skill's RangedAttack ON)
+  'chen3:t2evade': 'battle.ON_CUSTOM_TRIGGER.chen3_talent_evade_start_audio',
+  'wisdel:tokenon': 'battle.ON_ABILITY_ON.sktok_wisdel_wward',
+  // 凯尔希·思衡托 S3: the transport starting (Talents/-1 StartTransporting START), its flight projectile_chr_kalts2_s3_2
+  // reaching the anchor (REACH) and the landing's respawn (CommonAbility/RespawnBorn BuffDuringCastingFixed audioSignal)
+  'kalts2:s3start': 'battle.ON_ABILITY_START.char_1052_kalts2.T.-1',
+  'kalts2:s3reach': 'battle.ON_PROJECTILE_REACH.projectile_chr_kalts2_s3_2',
+  'kalts2:respawn': 'battle.ON_BUFF_START.kalts2_respawn_range',
+  // 予愿安洁莉娜 (CN client): her model's AudioWhenPlayAnimation (clip → signal: Born and Skill_1_Begin →
+  // aglna2_born, Skill_2_Begin → aglna2_s_2[Begin], Skill_3_Restart_Begin → aglna2_restart), S2's sweep fired (BORN) and
+  // each enemy it lifts / holds down (aglna2_s_2[enemy] CreateBuff audioSignal), S3's flight body (BORN)
+  'aglna2:born': 'battle.ON_PLAY_ANIMATION.aglna2_born',
+  'aglna2:s2begin': 'battle.ON_PLAY_ANIMATION.aglna2_s_2[Begin]',
+  'aglna2:restart': 'battle.ON_PLAY_ANIMATION.aglna2_restart',
+  'aglna2:s2fly': 'battle.ON_PROJECTILE_BORN.projectile_chr_aglna2_s2_fly',
+  'aglna2:levitate': 'battle.ON_BUFF_START.aglna2_s_2[enemy][levitate]',
+  'aglna2:groundbind': 'battle.ON_BUFF_START.aglna2_s_2[enemy][ground_bound]',
+  'aglna2:s3fly': 'battle.ON_PROJECTILE_BORN.projectile_chr_aglna2_s3_fly',
+  // 酒神's 本能的召唤: its attract ability (Talents/1, ProjectileToTileAbility) on each enemy it lures and that projectile's
+  // HIT; as it leaves — its skill's Boom (extra.0, only when a lured enemy reached it), token_phatm2_encdool_kill's
+  // boom_start, each enemy's phatm2_s_2[damage] start (boom_hit) and every tick of it (phatm2_s2_boom_damage)
+  'phatm2:lure': 'battle.ON_ABILITY_START.token_10054_phatm2_encdool.T.1',
+  'phatm2:lurehit': 'battle.ON_PROJECTILE_HIT.projectile_token_phatm2_encdool',
+  'phatm2:boom': 'battle.ON_ABILITY_START.sktok_phatm2_encdool_2.extra.0',
+  'phatm2:boomstart': 'battle.ON_CUSTOM_TRIGGER.token_encdool_boom_start',
+  'phatm2:boomhit': 'battle.ON_CUSTOM_TRIGGER.token_encdool_boom_hit',
+  'phatm2:s2dmg': 'battle.ON_CUSTOM_TRIGGER.phatm2_s2_boom_damage',
   // 2026-10-30 (public/js/audio.js kitHitKey): 叙拉古 [ex]'s proc on the target (act2autochess_bond_eff_siracusa[ex][buff]
   // PlayAudio); a hit a block layer stops whole (BlockDamage.Execute plays ON_DAMAGE_BLOCK at the holder: fx 'parry')
   'siracusa:ex': 'battle.ON_CUSTOM_TRIGGER.siracusa_ex_attack',

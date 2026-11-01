@@ -7,6 +7,18 @@
 
 const EVENTS = ['ON_SKILL_START', 'ON_ABILITY_START', 'ON_CUSTOM_TRIGGER', 'ON_ABILITY_ON', 'ON_ABILITY_HIT'];
 const SUFFIXES = ['', '.1', '.2', '[start]'];
+/**
+ * 2026-11-01, docs/rules/audio.md 「선발 소리 뱅크 커버리지」: the start bank of a skill whose signal id the client builds with a
+ * suffix the fallbacks above miss or take wrong. 丰川祥子 S2 (ToggleSkillWithEndAnimation `_appendModeIndexToBeginAudioSignal`:
+ * PlayBeginAudio sounds ON_SKILL_START, or ON_SKILL_FINISH once toggled, at `<skill>.<current mode index>`) — her only cast
+ * here comes from mode 2 S2_Atk (the skill's `_defaultModeIndex`; the automatic battle never casts a toggled skill), so .2,
+ * not the first-found .1; 予愿安洁莉娜 S3 (CN client: its MoveLikeRespawnByProjectileBehaviour's signal) [추정·CN: sounded at
+ * the skill's start — the class is CN-only].
+ */
+const START_BANKS = Object.freeze({
+  skchr_oblvns_2: 'battle.ON_SKILL_START.skchr_oblvns_2.2',
+  skchr_aglna2_3: 'battle.ON_SKILL_START.skchr_aglna2_3.move_like_projectile.skill_start',
+});
 
 /**
  * Sound paths of a skill's activation, from the indexed audio_data (tools/assets/audio.mjs indexAudio).
@@ -16,6 +28,8 @@ const SUFFIXES = ['', '.1', '.2', '[start]'];
  */
 export function skillStartSounds(audio, skillId) {
   if (!skillId) return null;
+  const fixed = START_BANKS[skillId] ? audio.bank(START_BANKS[skillId]) : null;
+  if (fixed?.length) return fixed;
   const own = audio.skillBanks?.get(skillId)?.get('ON_SKILL_START');
   if (own?.length) return own;
   for (const ev of EVENTS) {
@@ -33,7 +47,7 @@ export function skillStartSounds(audio, skillId) {
  * (丰川祥子 S3 `ON_CUSTOM_TRIGGER.skchr_oblvns_3[start]`) is a real start sound.
  */
 export function skillStartIsFallback(audio, skillId) {
-  if (!skillId || audio.skillBanks?.get(skillId)?.get('ON_SKILL_START')?.length) return false;
+  if (!skillId || START_BANKS[skillId] || audio.skillBanks?.get(skillId)?.get('ON_SKILL_START')?.length) return false;
   const p = skillStartSounds(audio, skillId);
   if (!p?.length) return false;
   for (const suf of SUFFIXES) if (audio.bank(`battle.ON_CUSTOM_TRIGGER.${skillId}${suf}`) === p) return false;
