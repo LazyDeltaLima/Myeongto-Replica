@@ -35,6 +35,7 @@ import { SettingsButton } from '../ui/settings.js';
 import { LoadoutButton } from './loadout.js';
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
 import { MatchQueueDialog, joinQueue } from '../ui/matchQueue.js';
+import { SeasonChip, pickedSeason, seasonFields, seasonQueueCounts } from '../ui/season.js';
 import { RulesetSwitch, lobbyRuleset, lobbyQueueRuleset, saveLobbyRuleset, queueCountOf } from '../ui/ruleset.js';
 import { QUEUE_PRESETS, isQueuePreset, customDiffs, officialBans } from '../../../shared/ruleset.js';
 import { CustomRulesDialog, openCustomRules } from '../ui/customRules.js';
@@ -372,8 +373,10 @@ export function LobbyScreen() {
   const [queueRuleset, setQueueRuleset] = useState(lobbyQueueRuleset);
   const customRules = useStore((s) => s, Object.is, customRulesStore);
   const [size, setSize] = useState(lobbySize);
-  const queueCounts4 = useStore((s) => s.ui.queueCounts);
-  const queueCounts8 = useStore((s) => s.ui.queueCounts8);
+  // the picked 卫戍协议 season (ui/season.js): rooms are created and queued in it, its queues' Doctors are shown
+  const season = useStore(pickedSeason);
+  const queueCounts4 = useStore((s) => seasonQueueCounts(s, pickedSeason(s), false));
+  const queueCounts8 = useStore((s) => seasonQueueCounts(s, pickedSeason(s), true));
   const big = roomMode !== 'solo' && size === LARGE_SEATS;
   // the waiting Doctors of the queues of the chosen size
   const queueCounts = big ? queueCounts8 : queueCounts4;
@@ -408,9 +411,9 @@ export function LobbyScreen() {
     }
   };
   const create = () => run('create', () => net.request('room.create', ruleset === 'custom'
-    ? { mode: roomMode, difficulty, ruleset, custom: customDraft(), ...sizeFields(roomMode, size) }
-    : { mode: roomMode, difficulty, ruleset, ...sizeFields(roomMode, size) }));
-  const queue = () => run('create', () => joinQueue(difficulty, queueRuleset, big ? LARGE_SEATS : MAX_SEATS));
+    ? { mode: roomMode, difficulty, ruleset, custom: customDraft(), ...sizeFields(roomMode, size), ...seasonFields(season) }
+    : { mode: roomMode, difficulty, ruleset, ...sizeFields(roomMode, size), ...seasonFields(season) }));
+  const queue = () => run('create', () => joinQueue(difficulty, queueRuleset, big ? LARGE_SEATS : MAX_SEATS, season));
   const join = (c = code) => {
     // `onClick=${join}` hands the click EVENT as the first argument, and a default parameter only applies to
     // `undefined` — codeArg keeps an event target out of the key and falls back to the input field
@@ -448,6 +451,7 @@ export function LobbyScreen() {
         <${Button} variant="ghost" size="sm" icon="chevronLeft" onClick=${backToTitle} title=${t('返回标题')}>${t('返回')}<//>
         <${PingPill} ms=${conn.ping} online=${online} />
         ${online ? html`<${OnlinePill} n=${conn.online} />` : null}
+        <${SeasonChip} />
       </div>
       <div class="topbar__center">
         <${MicroLabel} tone="mint">SIMULATION PROTOCOL SELECT<//>

@@ -28,7 +28,7 @@ test('lobby: room.create / room.queue carry size 8 only for an 8-seat alliance (
   assert.deepEqual(sizeFields('coop', 4), {});
   const src = read('public/js/screens/lobby.js');
   assert.match(src, /\.\.\.sizeFields\(roomMode, size\)/);
-  assert.match(src, /joinQueue\(difficulty, queueRuleset, big \? LARGE_SEATS : MAX_SEATS\)/);
+  assert.match(src, /joinQueue\(difficulty, queueRuleset, big \? LARGE_SEATS : MAX_SEATS, season\)/);
   assert.match(src, /savePref\('lobby\.size', n\)/);
   // the switch sits at the right end of the 01 label (like 规则 on the 02 label), hidden in place for 独立模拟
   const label = src.slice(src.indexOf('<span class="section-label__idx num">01</span>'), src.indexOf('<div class="mode-cards">'));

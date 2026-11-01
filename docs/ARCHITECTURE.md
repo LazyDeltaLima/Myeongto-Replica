@@ -147,7 +147,10 @@ public/assets/ ─────────▶ public/js/render/, public/js/audio
   garrisons, bands and effects of the battle's or the prep ctx's own data (`content/support/index.js` `dataFile`; a
   battle's DataSource carries its whole data as `all`), another season's match builds its prep handlers from its data
   (`server/match/effectsMeta.js` `registryFor`), and a chess id without a kit file takes the same operator's chess kit (of its
-  tier, else of its visible chess), else its 自选 kit (`kits/index.js` `kitKeyOfChar`).
+  tier, else of its visible chess), else its 自选 kit (`kits/index.js` `kitKeyOfChar`). While the server offers several seasons the
+  page shows a season picker (`public/js/ui/season.js`: the title's tabs, the lobby's chip, the room's badge; the offered list
+  comes in a socket's first `pong`); the picked season is the one rooms are created and 랜덤 매칭 queued in, every season has its
+  own queues, and the loadout settings and statistics are kept per season.
 - **On the server**, `server/data.js` loads the files once; the match reads them through `server/match/gamedata.js`,
   the sim through `server/sim/simdata.js`, which turns every record into a frozen engine def.
 - **In the browser**, `public/js/data.js` fetches the same files once per page for the UI, and the battle runner takes

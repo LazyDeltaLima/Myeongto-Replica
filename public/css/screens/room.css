@@ -354,3 +354,8 @@
 .room-fill__n { margin-left: .08rem; }
 .room-fill__n.is-on { background: rgba(78, 216, 175, .2); color: var(--mint-400); }
 .room-bar__match b { color: var(--text-hi); }
+
+/* the room's 卫戍协议 season under the title while the server offers several (ui/season.js SeasonBadge) */
+.season-badge { display: inline-flex; align-items: center; gap: .05rem; margin-top: .02rem; padding: 0 .08rem; height: max(.24rem, 18px);
+  font-size: max(.13rem, 10px); color: var(--mint-400); border: 1px solid var(--mint-a35); background: var(--mint-a10); white-space: nowrap; }
+.season-badge--new { color: var(--gold); border-color: rgba(255, 198, 0, .45); background: var(--gold-a20); }

@@ -31,6 +31,7 @@ import { store, useStore, serverNow } from '../store.js';
 import { audio } from '../audio.js';
 import { t, N_ } from '../../../shared/i18n.js';
 import { presetName } from './ruleset.js';
+import { seasonFields } from './season.js';
 
 /**
  * Why the server took the player out of the queue (room.queueState queued:false reason); 'left' / 'declined' say
@@ -133,7 +134,8 @@ export function installMatchQueue({ net: n = net } = {}) {
   n.on('room.closed', () => { if (store.get().ui.queue?.party) setQueue(null); });
   // the waiting Doctors of every queue (the lobby's 同盟匹配 card): { [ruleset]: { [difficulty]: n } }, of the 8-player queues too
   const countsOf = (c) => (c && typeof c === 'object' ? c : null);
-  n.on('lobby.queueCounts', (msg) => store.patch('ui', { queueCounts: countsOf(msg.counts), queueCounts8: countsOf(msg.counts8) }));
+  // (the other offered 卫戍协议 seasons' in `seasons`: ui/season.js seasonQueueCounts)
+  n.on('lobby.queueCounts', (msg) => store.patch('ui', { queueCounts: countsOf(msg.counts), queueCounts8: countsOf(msg.counts8), queueCountsBy: countsOf(msg.seasons) }));
   n.on('welcome', (msg) => { if (!msg.resumed && store.get().ui.queue) setQueue(null); });
   // while queued the page's audio stays up in a hidden tab; the title blink ends with its group
   store.subscribe((s, prev) => {
@@ -145,11 +147,12 @@ export function installMatchQueue({ net: n = net } = {}) {
 }
 
 /**
- * room.queue for the difficulty, ruleset and alliance size (the lobby's 开始匹配 button; `size` only for an 8-player queue).
+ * room.queue for the difficulty, ruleset, alliance size and season (the lobby's 开始匹配 button; `size` only for an
+ * 8-player queue, `season` only for another than the default: ui/season.js seasonFields).
  * @returns {Promise<any>}
  */
-export const joinQueue = (difficulty, ruleset, size = MAX_SEATS) =>
-  net.request('room.queue', { difficulty, ...(ruleset ? { ruleset } : {}), ...(size !== MAX_SEATS ? { size } : {}) });
+export const joinQueue = (difficulty, ruleset, size = MAX_SEATS, season = null) =>
+  net.request('room.queue', { difficulty, ...(ruleset ? { ruleset } : {}), ...(size !== MAX_SEATS ? { size } : {}), ...(season ? seasonFields(season) : {}) });
 
 /** m:ss of a waiting time. */
 export const mmss = (ms) => {

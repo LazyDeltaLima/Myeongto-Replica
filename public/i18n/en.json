@@ -1727,5 +1727,11 @@
   "装备（官方）": "Equipment (official)",
   "装备（自定义）": "Equipment (custom)",
   "干员卡池 {n}%": "Operator Pool {n}%",
-  "装备库存 {n}%": "Equipment Stock {n}%"
+  "装备库存 {n}%": "Equipment Stock {n}%",
+  "规程": "Regulation",
+  "赛季": "Season",
+  "该同盟属于「{season}」赛季，已切换到该赛季": "This alliance plays the {season} season: switched to it",
+  "该同盟属于「{season}」赛季，将以该赛季加入": "This alliance plays the {season} season: you join it there",
+  "干员调配与统计按赛季分开保存；作战提示与更新公告共用": "Operator Loadout and stats are kept per season; Combat Tips and update news are shared",
+  "{name}邀请你加入卫戍协议：{season}【{difficulty}】": "{name} invites you to Stronghold Protocol: {season} [{difficulty}]"
 }

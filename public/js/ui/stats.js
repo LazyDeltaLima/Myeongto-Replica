@@ -41,6 +41,7 @@
 
 import { PHASE } from '../../../shared/constants.js';
 import { isRulePreset, rulesetKey } from '../../../shared/ruleset.js';
+import { DEFAULT_SEASON } from '../../../shared/seasons.js';
 
 /** Current record-envelope version (bump + add a MIGRATIONS step when the record shape changes). */
 export const STATS_VERSION = 2;
@@ -246,11 +247,18 @@ export function normalizeRecord(raw) {
     selfId: str(r.selfId),
     players,
   };
+  // the 卫戍协议 season (shared/seasons.js; maintainer decision 2026-11-01: the statistics are per season), only when it
+  // is not the default one: every record before seasons — and every record of the default season — has none
+  const season = str(r.season, 32);
+  if (season && season !== DEFAULT_SEASON) rec.season = season;
   if (r.compact === true) rec.compact = true;
   // an id-less (hand-made) record gets a content id, so both copies of it land on the same key
   if (!rec.id) rec.id = `c.${fnv1a(JSON.stringify(rec))}`;
   return rec;
 }
+
+/** The 卫戍协议 season of a record (normalizeRecord: none = the default season). @param {any} rec @returns {string} */
+export const recordSeason = (rec) => (typeof rec?.season === 'string' && rec.season ? rec.season : DEFAULT_SEASON);
 
 /**
  * The MIGRATIONS chain: `MIGRATIONS[v]` upgrades a v-envelope to v+1, for v = STATS_VERSION and down.
@@ -408,7 +416,7 @@ export function roomModeOf(modeId, roomMode) {
  * without players (the error-path settlement) or matches the local player did not take part in (spectator
  * seats get every result pushed too — eliminated players, who ARE in players[], keep recording).
  * @param {any} res raw m.result payload
- * @param {{ myId?: string|null, roomMode?: string|null, ruleset?: any, now?: number }} ctx
+ * @param {{ myId?: string|null, roomMode?: string|null, ruleset?: any, season?: string|null, now?: number }} ctx
  * @returns {any|null}
  */
 export function buildRecord(res, ctx = {}) {
@@ -440,6 +448,7 @@ export function buildRecord(res, ctx = {}) {
     uniteRounds: num(r.uniteRounds),
     roomMode: roomModeOf(str(r.modeId), ctx.roomMode),
     ruleset: rulesetKey(ctx.ruleset),
+    season: str(ctx.season),
     selfId: myId,
     players: r.players,
   });
@@ -538,6 +547,7 @@ export function buildQuitRecord(state, ctx = {}) {
     teamLp: num(pub.teamLp),
     roomMode: roomModeOf(str(pub.modeId), state.room?.mode),
     ruleset: rulesetKey(pub.ruleset),
+    season: str(state.room?.season),
     selfId: myId,
     players: [{
       playerId: myId, seat: row.seat, name: row.name, isBot: false, left: true, alive, victory: false, roundsPassed,

@@ -1,10 +1,14 @@
-// Title screen: season-style backdrop, big title 卫戍协议：盟约, remembered nickname, 开始, the language menu
+// Title screen: season-style backdrop, big title 卫戍协议：<season> (盟约), remembered nickname, 开始, the language menu
 // (中文 | English | every pack in public/i18n/, ui/lang.js; a title in an alphabetic script — English — is the big one and
 // the small wordmark above it hides).
 //
 // Pressing 开始 validates the nickname (1..NAME_MAX_LEN chars, no control characters), stores it,
 // marks this tab as "entered" (so reloads skip the title) and hands the name to net.js, which
 // sends `hello` (now, or as soon as the socket is open). The router then shows the lobby.
+//
+// While the server offers several 卫戍协议 seasons, the login box starts with the season tabs (ui/season.js SeasonTabs;
+// maintainer decision 2026-11-01) and the title's season word and wordmark are the picked season's — an invitation's
+// room's when the link names it.
 //
 // Backdrop art: if data/assets.json lists a UI backdrop (`ui.titleBackdrop`, or one of the
 // entry/loading illustration names) it is layered under the CSS art; otherwise the screen is
@@ -27,6 +31,8 @@ import { GIcon } from '../ui/gameComponents.js';
 import { SettingsModal } from '../ui/settings.js';
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
 import { AboutModal } from '../ui/about.js';
+import { SeasonTabs, InviteSeason, activeSeason, seasonName } from '../ui/season.js';
+import { seasonInfo } from '../../../shared/seasons.js';
 
 // Same character classes as server/net.js sanitizeName (control, zero-width, bidi, BOM), so a name
 // the client accepts is never rejected by the server's hello validation.
@@ -192,6 +198,7 @@ const STATUS_TEXT = {
 export function TitleScreen() {
   const conn = useStore((s) => s.connection, shallowEqual);
   const pendingJoin = useStore((s) => s.ui.pendingJoin);
+  const season = useStore(activeSeason);
   useLang(); // re-render on a language switch
   const [name, setName] = useState(() => store.get().me.name || identity.loadName() || '');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -271,15 +278,17 @@ export function TitleScreen() {
       <${Emblem} />
       ${alphabetic ? null : html`<div class="title-en">
         <span class="title-en__a">STRONGHOLD PROTOCOL</span>
-        <span class="title-en__b">ALLIANCE</span>
+        <span class="title-en__b">${seasonInfo(season).mark}</span>
       </div>`}
-      <h1 class=${`title-cn${alphabetic ? ' title-cn--latin' : ''}`}>${t('卫戍协议')}<span class="title-cn__colon">${alphabetic ? ': ' : '：'}</span><em>${t('盟约')}</em></h1>
+      <h1 class=${`title-cn${alphabetic ? ' title-cn--latin' : ''}`}>${t('卫戍协议')}<span class="title-cn__colon">${alphabetic ? ': ' : '：'}</span><em>${seasonName(season)}</em></h1>
       <p class="title-tag">${t('调配资金与干员，与同伴协同布防，抵御多波次进攻，直至击败敌方领袖。')}</p>
 
       <div class="title-login">
+        <${SeasonTabs} />
         ${pendingJoin ? html`<div class="title-invite">
           <span class="title-invite__head"><${Icon} name="key" /><span>${t('收到同盟邀请')}</span><b class="num">${pendingJoin}</b></span>
           <span class="title-invite__hint t-lo">${t('· 输入代号后将自动加入')}</span>
+          <${InviteSeason} />
         </div>` : null}
         <${TextField} label=${t('博士代号')} micro="CALLSIGN" size="lg" icon="user" value=${name} maxLength=${NAME_MAX_LEN}
           placeholder=${t('输入你的代号（最多 {NAME_MAX_LEN} 字）', { NAME_MAX_LEN })} autoFocus=${!touchUi}

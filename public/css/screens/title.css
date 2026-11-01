@@ -248,6 +248,18 @@
 .title-invite .icon { flex: none; width: .2rem; height: .2rem; }
 .title-invite b { font-size: .2rem; letter-spacing: .2em; color: #ffd08a; }
 .title-invite__hint { min-width: min(100%, max-content); font-size: .15rem; }
+/* the 卫戍协议 season tabs at the top of the login box while the server offers several (ui/season.js SeasonTabs) */
+.season-tabs { display: flex; align-items: center; gap: .1rem; }
+.season-tabs__k { font-size: max(.13rem, 11px); color: var(--text-md); white-space: nowrap; }
+.season-tabs__k small { margin-left: .06rem; font: 600 max(.09rem, 8px) var(--font-display); letter-spacing: .14em; color: var(--text-lo); }
+.season-tabs__opts { flex: 1; display: flex; border: 1px solid var(--line-2); }
+.season-tabs__opt { flex: 1; min-width: 0; height: max(.4rem, 30px); background: transparent; color: var(--text-md); border: 0;
+  font-size: max(.15rem, 12px); cursor: pointer; white-space: nowrap; }
+.season-tabs__opt + .season-tabs__opt { border-left: 1px solid var(--line-2); }
+.season-tabs__opt.is-on { background: var(--mint-a20); color: var(--mint-400); font-weight: 700; box-shadow: 0 -2px 0 var(--mint-500) inset; }
+.season-tabs__opt:focus-visible { outline: 1px solid var(--mint-400); outline-offset: -2px; }
+/* an invitation of a room of another season than the picked one: its season, the card's last line (ui/season.js InviteSeason) */
+.title-invite__season { flex-basis: 100%; font-size: max(.14rem, 11px); color: var(--gold); }
 /* the connection row: the status dot with the ping, then the buttons — two groups that never break inside, side by side
    on one line in Chinese and Korean (the 在线 count is the lobby's alone, the status words show only while not online;
    a touch screen's bigger buttons widen the box, devices.css); a longer language still takes two lines */

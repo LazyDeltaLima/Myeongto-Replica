@@ -316,3 +316,21 @@
 .queue-option.is-on { color: var(--text-hi); border-color: var(--mint-400); box-shadow: inset .04rem 0 0 var(--mint-400); }
 .queue-option:disabled { opacity: .6; cursor: default; }
 .queue-dialog__wait { display: inline-flex; align-items: center; gap: .1rem; color: var(--text-lo); font-size: .16rem; }
+
+/* the 卫戍协议 season chip of the top bar and its menu while the server offers several (ui/season.js SeasonChip) */
+.season-chip-wrap { position: relative; display: inline-flex; }
+.season-chip { display: inline-flex; align-items: center; gap: .06rem; height: max(.34rem, 26px); padding: 0 .1rem 0 .08rem;
+  border: 1px solid var(--mint-a35); background: var(--mint-a10); color: var(--text-hi); font-size: max(.14rem, 11px); cursor: pointer; white-space: nowrap; }
+.season-chip.is-open, .season-chip:hover { border-color: var(--mint-500); }
+.season-chip__k { color: var(--text-lo); font-size: .9em; }
+.season-chip b { color: var(--mint-400); }
+.season-chip__caret { color: var(--mint-400); font-size: .8em; }
+.season-menu { position: absolute; z-index: 60; left: 0; top: calc(100% + 6px); min-width: max(3.2rem, 240px); max-width: calc(100vw - 32px); padding: .06rem;
+  background: rgba(10, 14, 13, .97); border: 1px solid var(--line-2); box-shadow: 0 .08rem .3rem rgba(0, 0, 0, .6); }
+.season-menu__row { display: flex; width: 100%; align-items: center; gap: .1rem; padding: .08rem .1rem; border: 0; background: transparent;
+  color: var(--text-md); font-size: max(.14rem, 11px); text-align: left; cursor: pointer; }
+.season-menu__row + .season-menu__row { border-top: 1px solid var(--line); }
+.season-menu__row:hover { background: var(--mint-a10); }
+.season-menu__row.is-on { background: var(--mint-a10); color: var(--mint-400); font-weight: 700; }
+.season-menu__name { flex: 1; white-space: nowrap; }
+.season-menu__foot { padding: .06rem .1rem .02rem; font-size: max(.11rem, 9px); color: var(--text-lo); }

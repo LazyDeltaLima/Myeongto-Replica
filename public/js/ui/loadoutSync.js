@@ -15,8 +15,14 @@
 // loadout and the 自选 picks lock when the strategy draft ends, the ownership never changes during a match) — stored for the
 // next match, not an error for the player; anything else is logged. `sync` / `ownSync` / `diySync` ∈ 'idle' |
 // 'pending' | 'sending' | 'synced' | 'locked' | 'error' are mirrored into the store for the screen's status line.
+//
+// The three settings are kept per 卫戍协议 season (maintainer decision 2026-11-01; shared/seasons.js): the default season's
+// under their old pref keys, another season's under `<key>@<season>` (seasonPref). setLoadoutSeason (main.js: the season
+// on screen — the room's, else the one picked, ui/season.js) loads that season's into `loadoutStore`, and the syncs send
+// them like an edit.
 
 import { createStore, loadPref, savePref } from '../store.js';
+import { DEFAULT_SEASON, seasonOf } from '../../../shared/seasons.js';
 import { data } from '../data.js';
 import { LOADOUT_PREF, parseStored, parseStoredOps, toStored, sanitizeEntries, sanitizeOps } from './loadoutModel.js';
 import { cultivationCharIds } from '../../../shared/protocol.js';
@@ -28,17 +34,26 @@ import { t, N_ } from '../../../shared/i18n.js';
 export const SYNC_DEBOUNCE_MS = 500;
 export const RETRY_MS = 1500;
 
+/**
+ * The pref key of a setting in a season: the default season's is the key itself (stored before there were seasons),
+ * another season's `<key>@<season>`. @param {string} key @param {unknown} season
+ */
+export const seasonPref = (key, season) => (seasonOf(season) === DEFAULT_SEASON ? key : `${key}@${seasonOf(season)}`);
+/** The season whose settings `loadoutStore` holds (setLoadoutSeason). */
+let prefSeason = DEFAULT_SEASON;
+const prefKey = (key) => seasonPref(key, prefSeason);
+
 function readStored() {
-  try { return parseStored(loadPref(LOADOUT_PREF, null)); } catch { return {}; }
+  try { return parseStored(loadPref(prefKey(LOADOUT_PREF), null)); } catch { return {}; }
 }
 function readStoredOps() {
-  try { return parseStoredOps(loadPref(LOADOUT_PREF, null)); } catch { return {}; }
+  try { return parseStoredOps(loadPref(prefKey(LOADOUT_PREF), null)); } catch { return {}; }
 }
 function readStoredOwnership() {
-  try { return parseStoredOwnership(loadPref(OWNERSHIP_PREF, null)); } catch { return []; }
+  try { return parseStoredOwnership(loadPref(prefKey(OWNERSHIP_PREF), null)); } catch { return []; }
 }
 function readStoredDiy() {
-  try { return parseStoredDiy(loadPref(DIY_PREF, null)); } catch { return {}; }
+  try { return parseStoredDiy(loadPref(prefKey(DIY_PREF), null)); } catch { return {}; }
 }
 
 /** Loadout + ownership + screen state (separate from the app store: it must survive room / match resets). */
@@ -59,17 +74,29 @@ export const loadoutStore = createStore({
   diySync: 'idle',
 });
 
+/**
+ * Hold the settings of another season (header): the stored loadout, 潜能 / 练度, not-owned list and 自选 picks of `season`
+ * replace the current ones (the syncs send them). The same season: nothing happens.
+ * @param {unknown} season @param {ReturnType<typeof createStore>} [target]
+ */
+export function setLoadoutSeason(season, target = loadoutStore) {
+  const next = seasonOf(season);
+  if (next === prefSeason) return;
+  prefSeason = next;
+  target.set({ entries: readStored(), ops: readStoredOps(), notOwned: readStoredOwnership(), diy: readStoredDiy(), sel: null, diyPick: null });
+}
+
 /** Replace the stored entries (persisted at once with the settings; the sync picks the change up). */
 export function setEntries(entries) {
   const next = entries && typeof entries === 'object' ? entries : {};
-  savePref(LOADOUT_PREF, toStored(next, loadoutStore.get().ops));
+  savePref(prefKey(LOADOUT_PREF), toStored(next, loadoutStore.get().ops));
   loadoutStore.set({ entries: next });
 }
 
 /** Replace the stored per-operator 潜能 / 练度 (0.2.2; persisted at once with the entries; the sync picks it up). */
 export function setOpsMap(ops) {
   const next = ops && typeof ops === 'object' ? ops : {};
-  savePref(LOADOUT_PREF, toStored(loadoutStore.get().entries, next));
+  savePref(prefKey(LOADOUT_PREF), toStored(loadoutStore.get().entries, next));
   loadoutStore.set({ ops: next });
 }
 
@@ -104,7 +131,7 @@ export function applyLoadoutEntries(entries, lookup, { ops = null, isOperator = 
 /** Replace the stored not-owned list (干员持有; persisted at once, the sync picks the change up). */
 export function setNotOwned(list) {
   const next = cleanIds(list);
-  savePref(OWNERSHIP_PREF, toStoredOwnership(next));
+  savePref(prefKey(OWNERSHIP_PREF), toStoredOwnership(next));
   loadoutStore.set({ notOwned: next });
 }
 
@@ -124,7 +151,7 @@ export function applyOwnershipImport(list, lookup) {
 /** Replace the stored 自选编队 picks (persisted at once, the sync picks the change up). */
 export function setDiyPicks(picks) {
   const next = cleanPicks(picks);
-  try { savePref(DIY_PREF, toStoredDiy(next)); } catch { /* private mode: the session keeps it */ }
+  try { savePref(prefKey(DIY_PREF), toStoredDiy(next)); } catch { /* private mode: the session keeps it */ }
   loadoutStore.set({ diy: next });
 }
 

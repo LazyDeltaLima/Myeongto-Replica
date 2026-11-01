@@ -56,7 +56,8 @@ import { installPerfHud } from './ui/perfHud.js'; // `?perf=1`: frame / sim / re
 import { LoadoutHost } from './screens/loadout.js';
 import { StatsHost } from './screens/stats.js';
 import { recordResult, installStatsRecorder } from './ui/stats.js';
-import { installLoadoutSync, installOwnershipSync, installDiySync } from './ui/loadoutSync.js';
+import { installLoadoutSync, installOwnershipSync, installDiySync, setLoadoutSeason } from './ui/loadoutSync.js';
+import { installSeasons, activeSeason, loadPickedSeason, parseSeasonParam } from './ui/season.js';
 import { installDiyPresets } from './ui/diyPresets.js'; // 맹약별 선발 프리셋
 import { startBuildGuard } from './ui/buildGuard.js';
 import { installChat } from './ui/chat.js';
@@ -91,8 +92,9 @@ function payload(msg) {
 function clearRoomParam() {
   try {
     const url = new URL(location.href);
-    if (!url.searchParams.has('room')) return;
+    if (!url.searchParams.has('room') && !url.searchParams.has('season')) return;
     url.searchParams.delete('room');
+    url.searchParams.delete('season');
     history.replaceState(history.state, '', url.pathname + (url.search || '') + url.hash);
   } catch { /* ignore */ }
 }
@@ -110,7 +112,7 @@ let joinInFlight = false;
 let buildGuard = null;
 
 function clearPendingJoin() {
-  store.patch('ui', { pendingJoin: null });
+  store.patch('ui', { pendingJoin: null, pendingSeason: null });
   clearRoomParam();
 }
 
@@ -286,9 +288,16 @@ function wireNet() {
   });
   net.on('unhandledError', (err) => toastError(err));
   net.on('room.state', onRoomState);
-  // the page reads the data of its room's 卫戍协议 season (room.state `season`, absent = the default; out of a room the
-  // default): shared/seasons.js, data.js setSeason — the battle runner then loads the sim again with it
-  store.subscribe((s, prev) => { if (s.room?.season !== prev.room?.season) data.setSeason(s.room?.season); });
+  // the page reads the data, the loadout and the statistics of the 卫戍协议 season on screen (ui/season.js activeSeason:
+  // the room's — room.state `season`, absent = the default — else the picked one): shared/seasons.js, data.js setSeason
+  // (the battle runner then loads the sim again with it), loadoutSync.js setLoadoutSeason
+  installSeasons({ net });
+  store.subscribe((s, prev) => {
+    const season = activeSeason(s);
+    if (season === activeSeason(prev)) return;
+    data.setSeason(season);
+    setLoadoutSeason(season);
+  });
   net.on('room.closed', (msg) => {
     // a waiting room the draining server closed: it stays on screen under the move dialog, which says whether it comes
     // back on the new server, while the page reloads onto it (ui/generation.js, ui/updateNotice.js) — no toast
@@ -313,7 +322,7 @@ function wireNet() {
     store.patch('match', { result: res });
     // 本机统计 (PR #323): every arrival, including the lobby's result replay after a reconnect / reload —
     // replays dedupe by content id inside recordResult (spectator seats' copies build no record at all)
-    recordResult(res, { myId: store.get().me.playerId, roomMode: store.get().room?.mode ?? null, ruleset: store.get().match.public?.ruleset ?? store.get().room?.ruleset ?? null, now: Date.now() });
+    recordResult(res, { myId: store.get().me.playerId, roomMode: store.get().room?.mode ?? null, ruleset: store.get().match.public?.ruleset ?? store.get().room?.ruleset ?? null, season: store.get().room?.season ?? null, now: Date.now() });
   });
   net.on('m.toast', (msg) => {
     const kind = ['info', 'success', 'warn', 'error'].includes(msg.kind) ? msg.kind : 'info';
@@ -443,12 +452,13 @@ async function boot() {
   const identityReady = identity.init();
 
   const pendingJoin = parseRoomParam(location.search);
+  const pendingSeason = pendingJoin ? parseSeasonParam(location.search) : null;
   const savedName = sanitizeName(identity.loadName());
   const entered = identity.wasEntered() && !!savedName;
   store.set((s) => ({
     me: { ...s.me, name: savedName },
     session: { entered },
-    ui: { ...s.ui, pendingJoin, updated: takeMoved() }, // this tab just moved onto a new version (ui/updateNotice.js)
+    ui: { ...s.ui, pendingJoin, pendingSeason, season: loadPickedSeason(), updated: takeMoved() }, // this tab just moved onto a new version (ui/updateNotice.js)
   }));
 
   wireNet();

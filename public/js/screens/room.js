@@ -52,6 +52,8 @@ import { CustomRulesDialog, openCustomRules } from '../ui/customRules.js';
 import { customDraft } from '../ui/customRulesStore.js';
 import { customSummary } from '../ui/customSummary.js';
 import { getBond, getBoss, getStage, getConfig, getMode } from '../data.js';
+import { DEFAULT_SEASON, seasonOf } from '../../../shared/seasons.js';
+import { SeasonBadge, seasonName, seasonQueueCounts } from '../ui/season.js';
 
 /**
  * Seats padded to the room's capacity (co-op 4 or its `size` 8, solo 1), each null or a seat record.
@@ -146,11 +148,14 @@ export function rulesetOption(room, myId) {
   return { preset: resolveRuleset(room.ruleset).preset, editable: room.hostId != null && room.hostId === myId && !room.matching };
 }
 
-/** Invite link for a room code (current page URL with ?room=CODE). */
-export function inviteLink(code) {
+/**
+ * Invite link for a room code (current page URL with ?room=CODE; a room of another 卫戍协议 season than the default adds
+ * &season=<id>, so the invited title names it: ui/season.js).
+ */
+export function inviteLink(code, season = DEFAULT_SEASON) {
   const loc = globalThis.location;
   const base = loc ? `${loc.origin}${loc.pathname}` : '';
-  return `${base}?room=${encodeURIComponent(code)}`;
+  return `${base}?room=${encodeURIComponent(code)}${seasonOf(season) !== DEFAULT_SEASON ? `&season=${seasonOf(season)}` : ''}`;
 }
 
 /**
@@ -165,7 +170,9 @@ export function inviteMessage(room, name) {
   const difficulty = DIFFICULTY_NAMES[room?.difficulty] ? t(DIFFICULTY_NAMES[room.difficulty]) : '';
   const rs = resolveRuleset(room?.ruleset);
   const out = [
-    `${inviteLink(room?.code ?? '')} ${t('{name}邀请你加入卫戍协议：盟约【{difficulty}】', { name: name ?? '', difficulty })}`,
+    `${inviteLink(room?.code ?? '', room?.season)} ${seasonOf(room?.season) === DEFAULT_SEASON
+      ? t('{name}邀请你加入卫戍协议：盟约【{difficulty}】', { name: name ?? '', difficulty })
+      : t('{name}邀请你加入卫戍协议：{season}【{difficulty}】', { name: name ?? '', season: seasonName(room.season), difficulty })}`,
     `${t('{n} 人同盟', { n: seatsOf(room?.size) })} · ${presetName(rs)}`,
   ];
   if (rs.custom) {
@@ -320,8 +327,9 @@ export function RoomScreen() {
   const me = useStore((s) => s.me, shallowEqual);
   const conn = useStore((s) => s.connection, shallowEqual);
   const queue = useStore((s) => s.ui.queue);
-  const queueCounts = useStore((s) => s.ui.queueCounts);
-  const queueCounts8 = useStore((s) => s.ui.queueCounts8);
+  // the waiting Doctors of the room's season's queues (ui/season.js)
+  const queueCounts = useStore((s) => seasonQueueCounts(s, seasonOf(s.room?.season), false));
+  const queueCounts8 = useStore((s) => seasonQueueCounts(s, seasonOf(s.room?.season), true));
   const [busy, setBusy] = useState(null);
   const alive = useRef(true);
   const inFlight = useRef(false); // synchronous guard against double clicks (state updates are async)
@@ -445,6 +453,7 @@ export function RoomScreen() {
       <div class="topbar__center">
         <${MicroLabel} tone="mint">${coop ? (facts.large ? 'ALLIANCE LOBBY · 8' : 'ALLIANCE LOBBY') : 'SOLO SIMULATION'}<//>
         <h1 class="topbar__title">${coop ? t('同盟模拟') : t('独立模拟')}<span class="topbar__sep"></span><${DifficultyTag} difficulty=${room.difficulty} size="lg" /><span class=${`rtag rtag--${roomRules.preset}`} data-testid="room-ruleset">${presetName(roomRules)}</span>${facts.large ? html`<span class="rtag rtag--size" data-testid="room-size">${t('{n} 人同盟', { n: facts.seats.length })}</span>` : null}</h1>
+        <${SeasonBadge} />
       </div>
       <div class="topbar__right">
         ${coop ? html`<${InviteBox} room=${room} name=${me.name} />` : html`<div class="solo-note"><${MicroLabel}>SINGLE OPERATOR<//><span>${t('仅限 1 名博士')}</span></div>`}

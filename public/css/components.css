@@ -1035,6 +1035,9 @@
 }
 .topbar__left { justify-self: start; display: flex; align-items: center; gap: .18rem; min-width: 0; }
 .topbar__center { display: flex; flex-direction: column; align-items: center; gap: .03rem; text-align: center; }
+/* the NEW mark of a 卫戍协议 season other than the default (ui/season.js: the title's tabs, the lobby's season menu) */
+.season-new { display: inline-block; margin-left: .06rem; padding: 0 .05rem; font: 800 max(.11rem, 9px)/1.5 var(--font-num);
+  color: #111; background: var(--gold); letter-spacing: .02em; vertical-align: middle; }
 .topbar__title { display: flex; align-items: center; gap: .18rem; font-size: .3rem; font-weight: 700; letter-spacing: .1em; line-height: 1.2; }
 .topbar__sep { width: 1px; height: .28rem; background: var(--line-2); }
 .topbar__right { justify-self: end; display: flex; align-items: center; gap: .16rem; min-width: 0; }
