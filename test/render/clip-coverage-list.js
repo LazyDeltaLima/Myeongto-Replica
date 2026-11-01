@@ -100,6 +100,9 @@ export const UNPLAYED = {
     Attack_Down_End: 'todo: J — the Default attack plays it facing down (RangedAttack `_downEndAnimKey`); her client keys (CN client only) are not read yet, so the role has no down map',
     Attack_Down_Loop: 'todo: J — the Default attack plays it facing down (ThreePartOneshotAnimation `_down`); her client keys (CN client only) are not read yet, so the role has no down map',
   },
+  char_4247_oxi: {
+    Skill_2_Attack: 'todo: J — no ability of her CN prefabs names it (Attack, Skill_1, Skill_2_Cambat, Skill_3_* — the S3NoAttack mode maps Idle → Skill_3_Loop); her client keys (CN client only) are not read yet',
+  },
   char_426_billro: {
     Skill_2_Begin: 'none: no client key names it (abilities, mode pairs, skin key table, mix — the mixes go to Idle only), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; a skill switches to its mode SN / SN_Enhance (Skill_Idle / Skill_2_Idle) without an opening clip',
     Skill_Begin: 'none: no client key names it (abilities, mode pairs, skin key table, mix — the mixes go to Idle only), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; a skill switches to its mode SN / SN_Enhance (Skill_Idle / Skill_2_Idle) without an opening clip',

@@ -11,9 +11,9 @@
 - 지금 구현(0.2.0부터): upstream 「自选」 틀이 선발 칸·재고·상점·보상·밴을 맡는다(`server/match/player/diy.js initDiyStock`, `shared/diy.js`, 데이터
   `data/backups.json` `diy`). 맹약이 전부 꺼진 픽은 그 판 재고가 없다(`m.private.diyBanned`). 이 포크는 후보를 구현·대조한 10명으로 줄인다:
   `shared/local-diy.js LOCAL_DIY_PICKS`(왕·첸 더 던스트릭·위셔델·토가와 사키코·아스카론, 2026-10-11부터 켈시 에스페란타·클레멘티아·안젤리나 더 멜로우 위시 — 아래
-  「선발 추가 3명 (2026-10-11)」, 2026-10-26부터 트라고디아 — 아래 「선발 추가 酒神 (2026-10-26)」, 2026-11-01부터 토스카 — 아래 「선발 추가 토스카
-  (2026-11-01)」) — `tools/build-data.mjs`가 이것으로 `diy.ownedPool`을 만들고, `server/lobby.js`가 다른 픽을 거부한다.
-  키트는 `server/sim/content/kits/ops/op-{wang,chen3,wisdel,oblvns,ascln,kalts2,clemnt,aglna2,phatm2,tocka}.js`(등록 `kits/index.js OPERATOR_KIT_FILES`).
+  「선발 추가 3명 (2026-10-11)」, 2026-10-26부터 트라고디아 — 아래 「선발 추가 酒神 (2026-10-26)」, 2026-11-01부터 토스카·탈룰라 — 아래 「선발 추가 토스카
+  (2026-11-01)」·「선발 추가 탈룰라 (2026-11-01)」) — `tools/build-data.mjs`가 이것으로 `diy.ownedPool`을 만들고, `server/lobby.js`가 다른 픽을 거부한다.
+  키트는 `server/sim/content/kits/ops/op-{wang,chen3,wisdel,oblvns,ascln,kalts2,clemnt,aglna2,phatm2,tocka,oxi}.js`(등록 `kits/index.js OPERATOR_KIT_FILES`).
   틀의 자세한 규칙은 `server/sim/content/kits/README.md`, 병합 경위는 `upstream.md` 「0.2.0 병합」.
 - 0.2.0 전(2026-10-05 ~ 10-07)에는 전용 데이터·풀·UI를 직접 만들었다. 그 구현은 지웠고, 그때 정한 키트 동작과 관리자 결정은 `op-*.js`로 옮겨져 아래에 남는다.
 - 키트:
@@ -581,6 +581,57 @@
   투사체 종류로 보인다. 화면 확인 전.
 - 테스트: `test/content/op_tocka.test.js`(9 — 모든 폼, 세 스킬, 두 재능, 실제 매치 경로 하나), 선발 수를 세는 테스트 9 → 10명, golden `diy-013`
   (그녀의 5티어 행이 함께 실림)·`diy-014`(새 시나리오), 다른 가족 변화 없음.
+
+## 선발 추가 탈룰라 (2026-11-01, 관리자 결정)
+- 관리자 결정 2026-11-01: CN 클라이언트에 새로 들어온 탈룰라(塔露拉 `char_4247_oxi`, 6성 가드 本源近卫)를 새 시즌 대비로 미리 넣고, 지금 시즌 선발에도
+  공개한다(`LOCAL_DIY_PICKS` 끝). 모듈·소환물 없음. EN·KR 서버에 아직 없어 이름·스킬·재능 문구는 비공식 번역(`tools/i18n/diy-ko-manual.json`): 탈룰라,
+  백야를 비추는 섬광(照霎白夜) · 가로막는 눈보라(阂断骤雪) · 코로나의 맹렬(日冕重烈), 재능 결코 타협하지 않는다(绝不妥协) · 나는 곧 불꽃(我即火焰).
+- 데이터: CN 79.0 표(2026-10-28)의 그녀 항목만 옛 캐시에 더해 만든다(다른 데이터는 그대로; 다음 정식 표 갱신 때 같이 들어온다). 맹약: 우르수스에 이번 시즌
+  핵심 맹약이 없어 협방(`emptyShip`).
+- 근거: 공식 표(skill_table·character_table 블랙보드) + CN 클라의 전투·스킬 프리팹과 버프 템플릿(`oxi_*`). 그녀만 쓰는 클래스 — 발자국의
+  `TimedTileLeaseAbility`, S2의 `TargetCenteredAreaMeleeAttack`·`LinearDecayBuffToOwnerDuringAbility`, S3의 `OxiFireRainSlotBehaviour`·
+  `CheckOxiFireRainSlot`·`EmitDirectionalMapEdgeProjectileVolley` — 는 CN 클라에만 있어 직렬화된 필드 이름·값과 스킬 문구로 옮겼다. 나머지 노드는 EN 클라에도
+  있는 클래스다. PRTS 비고는 아직 없다(2026-11-01). 키트 `server/sim/content/kits/ops/op-oxi.js`(이 포크가 처음 쓴 것 — upstream에 없음).
+- **특성·재능 1 「결코 타협하지 않는다」**: 기본 공격은 마법(Default 모드 `MeleeAttack` `_damageType` 2). 그녀가 주는 지속이 아닌 마법 대미지마다 그 대미지 ×
+  `ep_damage_ratio`(13%, 잠재 5 미만 11%)의 소각 손상(`oxi_t_1_burning_damage` `ApplyElementDamageBasedOnDamageValue` FIRE — 손상량 기준은 정산 뒤 HP 대미지,
+  `SIM.md` §7.2 원소 관례). 「奥术」 중첩(`oxi_t_1_arcane_manager`): 배치 때와 평타마다 「최근 공격」 표시가 `arcane_idle_delay`(3초) 붙고, 표시가 없으면
+  `arcane_step_interval`(0.5초)마다 +1, 최대 round(`arcane_max` / `arcane_step`) = 6. 평타 한 번에 −1(`oxi_t_1_attack_completed`는 Default 모드의 두 공격에만 붙음
+  — S1·S2 스킬 공격은 줄이지 않음). 중첩마다 그녀의 지속 아닌 마법·원소 대미지 × (1 + `arcane_step` × 중첩): 층이 쌓이는 `DamageScale`은
+  1 + 값 × 유효 층 수를 곱한다(공식 클라에서 확인, 2026-11-01 — 최대 +18%, 잠재 5 미만 +15%).
+- **재능 2 「나는 곧 불꽃」**: 그녀가 배치돼 있는 동안 아무 적(은신 포함)의 소각 손상 폭발이 **시작될 때**(`ON_BEFORE_EP_BREAK_START`, 엔진 `elementBurst`)
+  그 적에 5초 「흔적」(`oxi_t_2_trail`): 0.5초마다와 서 있는 칸이 바뀔 때마다 그 칸(통행 가능한 지면만, `TileSelector`)을 `field_duration`(4초, 잠재 3
+  미만 3초) 동안 발자국으로 잡는다. 최대 `max_count` 25칸, 꽉 차면 새 칸은 받지 않는다(`_rejectNewWhenFull`). 발자국 위의 지상 적(은신·선택 불가·무적 제외)은
+  들어온 때부터 `field_interval`(0.3초)마다 탈룰라 공격력 × `field_atk_scale`(15%, 잠재 3 미만 12%) 마법 대미지(지속 피해 — 재능 1 손상·奥术 대상 아님),
+  발자국 여러 칸을 밟아도 타이머 하나(EXTEND 버프 하나), 발자국을 벗어나면 끊긴다. 그녀가 쓰러지거나 물러나면 흔적·발자국이 모두 사라진다.
+  [추정·CN: 이미 잡힌 칸을 다시 잡을 때 4초가 새로 시작하는지(`TimedTileLeaseAbility`) — 새로 시작으로 둠] [추정·CN: 피해의 공격력은 그 틱의 공격력
+  — 공식은 `_cachedAtkKey atk`로 기록한 값인데 기록 시점을 모름]
+- **S1 「백야를 비추는 섬광」**(AUTO, SP 8): 다음 공격이 목표 칸의 모든 지상 적에게 `atk_scale` 마법 대미지 + `fear` 초 공포. 발동은 데이터의 `DEFAULT`(프리팹
+  발동기 = 1-1 안 저지 중이거나 범위 안 지상 적 1명 — 같은 조건).
+- **S2 「가로막는 눈보라」**(AUTO, 충전 5, 발동기 `NeverTrigger`): 스스로 켜지지 않고 `oxi_s_2_guard_manager`(HIGH 우선순위)가 켠다 — 키트 `trigger: 'NEVER'` +
+  피격 훅. 조건: 피해 마스크 `ANY_ATTACK`(물리·마법·순수·원소 대미지), 지속·BUFF 종류·환경 피해가 아니고, 출처가 있는 적, 회피된 공격도 포함(MISS·HIT_FAILED —
+  엔진 `hit` 훅이 회피 판정 전에 돈다), 직전 시전의 보호 시간(`skill_duration` 1.3초) 밖, 충전·행동 가능·침묵 아님. 시전되면 그 피해가 물리·마법이면
+  × `damage_remaining_scale`(10%, 노드 목록은 앞 노드가 실패하면 멈춰 시전에 성공했을 때만). 시전: ① `oxi_s_2_stack`(공격력·방어력 + `atk`/`def`, 최대 5층,
+  `stack_duration` 5초 — STACK 그룹이라 쌓을 때마다 시간 갱신, INDEX 직접 확인 항목과 같음)을 능력 시작에 받고 ② 공격자 중심 반경 `ability_range_radius`(1)의
+  적에게 `retaliate_atk_scale` 마법 대미지(공격자가 사라졌거나 선택 불가면 1-1 안 저지/범위 적 중심, 없으면 피해 없음), 준 대미지마다 `heal_ratio`(5%) 자기
+  치유 ③ 가호 `damage_resistance` 90%를 `shelter_hold_duration` 0.2초 유지한 뒤 `skill_duration` 1.3초에 0이 되도록 직선 감소 — 버프 목록이 이중 버퍼라
+  시전시킨 그 피해에는 안 걸린다(다음 단계부터). 중첩이 있는 동안 평타는 `BuffedAttack`: 저지 중인 적 전부(`_limitedMaxTargetNumToBlockedCnt` = 엔진
+  `hitAllBlocked`). [추정·화면: 반격 피해는 시전 즉시 — 공식은 `Skill_2_Cambat` 공격 이벤트 때] [추정·미조사: 시전 동안 평타 멈춤(`CastSkill`
+  `_switchToState` 1) — CN 스킬 시전 표(`tools/assets/local-skill-cast.json`)가 들어오면 엔진이 처리, 지금은 안 멈춤]
+- **S3 「코로나의 맹렬」**(MANUAL 36초, 과부하 스킬): 공격력 + `atk`, 공격하지 않음(모드 `S3NoAttack` → `disarm`, 저지는 함). 시작에 `normal_interval`(2.67초)마다,
+  과부하(진행 절반)부터 `overload_interval`(2초)마다 물결 — 각 물결 버프는 시작하자마자 한 번 쏜다(`waitFirstTriggerInterval` 꺼짐). 물결: 배치 방향을
+  가로지르는 줄 `normal_half_width` 2 → 5줄(과부하 `overload_half_width` 6 → 13줄), 그녀 줄 가운데, 전장 끝에서는 창을 안으로 민다
+  (`_shiftLaneWindowAtMapEdge`), 줄마다 簇火 하나(`_emitSingleTileLane`), 속도 `wave_speed` 2.3칸/초. 簇火는 판정 반경 `projectile_range` 0.5 안에 적이
+  들어오면 터져 반경 `range_radius` 1.5의 적에게 `heatwave_atk_scale` 마법 대미지(대상이 소각 손상 폭발 냉각 중이면 원소 대미지), 같은 물결에 이미 맞은 적은
+  `same_wave_repeat_damage_scale`(15%); 터진 簇火는 사라진다. 피해의 공격력은 그 물결을 쏜 때의 값. 「언제든 끌 수 있음」은 위수협의에 수동 종료가 없어
+  옮기지 않는다. [추정·CN: 출발·끝 — 뒤쪽 전장 끝(그녀 뒤 최대 11칸, `_maxBackDistance`)에서 앞쪽 끝 + `wave_exit_distance` 5칸까지로 둠
+  (`EmitDirectionalMapEdgeProjectileVolley`)] [추정·CN: 공중 적도 맞음 — 문구에 「地面」이 없음(S1에는 있음), 투사체 프리팹 안 읽음] [추정·CN: 스킬이
+  끝나도 날던 簇火는 계속 — 끝낼 노드가 스킬에 없음] [추정·CN: 첫 물결 시점 = 스킬 시작(공식은 능력 이벤트 4), `CheckOxiFireRainSlot`(여러 탈룰라·물결
+  제한으로 보임)은 옮기지 않음]
+- 자산: 미러에 모델(앞·뒤)·그림·스킬 아이콘·효과음·CN 음성이 있어 `tools/fetch-assets.mjs`가 그대로 받는다. S2의 클립은 프리팹이 정한
+  `Skill_2_Cambat`(`skchr_oxi_2` `TargetCenteredAreaMeleeAttack` `_animKey` — 이름 추측의 `Skill_2_Attack`이 아님; `tools/assets/anim-overrides.mjs`),
+  `Skill_2_Attack`은 `todo: J`(CN 클라 키 미추출, `test/render/clip-coverage-list.js`). 이펙트·공격 타이밍·스킬 시전 데이터는 CN 클라 로컬 추출 뒤.
+- 테스트: `test/content/op_oxi.test.js`(12: 모든 폼·잠재, 재능 둘, 세 스킬, 은신 적, 실제 경기 경로 S2), 선발 수를 세는 테스트 10 → 11명, golden
+  `diy-014`(토스카 다음 칸들과 다시 묶임)·`diy-015`(새 시나리오). 화면·공식 화면 대조는 아직 — 관리자 노트의 열린 항목.
 
 ## 안젤리나 더 멜로우 위시 S3 이동 · 「이따 봐!」 표식 (2026-10-11, 관리자 제보)
 - 제보 2건: ① S3로 공중 적에게 갈 때 처음 칸에 남는 「이따 봐!」(“一会儿见！”)가 대체 마름모로 보임, ② 공식은 공중 적에게 **직접 날아가는데** 우리는 그 칸에

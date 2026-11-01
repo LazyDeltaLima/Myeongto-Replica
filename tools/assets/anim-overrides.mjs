@@ -43,6 +43,9 @@ export const SKILL_CLIP_OVERRIDES = Object.freeze({
   // 赤刃明霄陈 (char_1050_chen3): S2 attacks with her plain clips; its Skill_2_Begin → Skill_2_Disappear (she vanishes while
   // she slashes) and Start_2 (back, mode S2Respawn) are a model form (render/units.js FORMS)
   'op:char_1050_chen3:': Object.freeze({ 1: 'attack' }),
+  // 塔露拉 (char_4247_oxi): S2's cast is its retaliation, skchr_oxi_2 TargetCenteredAreaMeleeAttack `_animKey
+  // "Skill_2_Cambat"` (CN client prefab; her client keys are not extracted yet) — not the Skill_2_Attack the name guess takes
+  'op:char_4247_oxi:': Object.freeze({ 1: clips({ loop: 'Skill_2_Cambat' }) }),
   // 丰川祥子 (char_4182_oblvns): S2 满月的舞会's cast clip is skchr_oblvns_2 `_beginAnim "Skill_2_Trans_B"` (`_playSkillBeginAnim
   // 1), which the piano mode pairs Trans_B→Trans_A (SKILL_VARIANTS: from the organ, Trans_B); Skill_2_Start / _Idle_A / _Loop_A
   // are the piano mode's (EQUIP_ROLES), _Idle_B / _Loop_B the organ's (render/units.js FORMS).
