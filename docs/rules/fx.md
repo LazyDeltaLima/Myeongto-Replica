@@ -1470,6 +1470,42 @@
 - 확인: Windows Chrome 디버그 아레나(정예·RIT-X, 스킬마다 약 50초, 재생된 프리팹 이름 기록) — S1 속박 표시 10회, S2 소환물 등장·범위·유인·퇴장 2회·틱 24회,
   S3 범위·버프·牢笼 1회, 페이지 오류 0. 실제 판(전투 화면의 위치·크기·방향)은 아직.
 
+### 선발 추가 토스카·탈룰라 — CN 클라이언트 10-23 갱신 뒤 (2026-11-01)
+- 토스카(冻河 `char_4244_tocka`)·탈룰라(塔露拉 `char_4247_oxi`)는 CN 클라이언트에만 있다(규칙 `diy.md` 「선발 추가 토스카」·「선발 추가 탈룰라」).
+  절차는 위 「선발 추가 3명」·「선발 추가 酒神」 그대로, 다른 오퍼레이터 항목은 그대로(전부 JSON 비교):
+  - CN CAB 색인을 다시 만듦(13,581개 — 10-23 갱신으로 `anon/*.bin` 이름이 바뀜) → CN 추출 JSON 골든 12개 그대로.
+  - 이펙트: `fx_extract.py --client cn --bundle tocka --bundle oxi`(33·17개). 모드·붙는 자리·소리는 `--id`, 공격 타이밍·투사체·스킬 시전·스킬
+    HUD는 `--out` 임시 파일에서 두 사람 것만 합침(CN 값은 기존 147·145·192·299·308개 항목과 전부 같았다). 버프 템플릿 표(`build-fx-templates.mjs`)를
+    먼저, 그다음 `fx_bindings.py --cn`·`build-fx-plays.mjs` — 바인딩 표는 템플릿 표의 키로 투사체를 찾으므로 순서가 바뀌면 템플릿이 쏘는 투사체
+    (`projectile_tocka_s3_effect`, `projectile_chr_oxi_s_3_heatwave`)가 빠진다.
+  - 데이터를 다시 만들어(`build-data --offline`) 두 사람이 공식 공격 타이밍(`attackAnim`)·투사체(`shot`)를 얻음 — golden `diy-013`~`015`만 이동.
+- **CN 클라 10-23 갱신에서 바뀐 것**(추출 누락 보고가 처음 보인 줄, 모두 공식 클라에서 확인):
+  - 셰이더 `Particles/AlphaBlend`·`Ram/Disturb(CustomData)`(Particles-L2D 사본도)·새 셰이더 `Ram/VertexDisturb(CustomData)`의 패스가 원본 혼합
+    계수를 재질의 `_PremultiplyAlpha`에서 읽는다(기본 5 SrcAlpha; EN은 고정 SrcAlpha). 1(One)이면 픽셀 단계가 「`_PremultiplyAlpha` < 1.5」
+    갈래로 색 × 2 × 알파를 낸다(premultiplied over). 두 사람 재질 28개가 1 — `fxplayer.js renderState`·`uPremulX2`. EN 재질은 모두 5거나 없음.
+  - `Ram/Disturb(CustomData)`의 디졸브 채널 선택 `_DissolvTexChannel`(0 r · 1 g · 2 b · 그 밖 a; EN 셰이더에도 있으나 EN 재질은 모두 0): 토스카
+    타격 재질 5개가 3(a) — `uDisChan`. 다른 채널 선택(`_MainTexChannel`·`_RamTexChannel`·`_DisturbTexChannel`)은 두 사람 재질이 모두 기본값.
+  - `Ram/VertexDisturb(CustomData)`의 정점 단계: 정점마다 객체 공간에서 (`_VertexDisturbTex`(U·V 속도로 흐름) − 0.5) × `_VertexDisturbWeightTex`.r
+    (없으면 흰색) × `_VertexDisturbIntensity`, `_NormalDisturb` > 0이면 법선 방향 × `_NormalDisturbIntensity`만큼 움직인다. 쓰는 재질은 탈룰라
+    S3 簇火 `oxi_skill_03_trail_01`의 하나뿐이고 세기 (0, 0, 0)·법선 0.03 → 0.015 객체 단위 미만, 판에서 1픽셀 아래라 그리지 않는다(추출 메시에
+    법선도 없음). 픽셀 단계는 `Ram/Disturb(CustomData)`에서 채널 선택을 뺀 것.
+  - `ProjectileEffect`에 `_delayToPlay`가 생겨(`_delayToFinish` 앞, 50개 모두 0) 원시 읽기 대비책이 한 칸 밀린 배치도 알아본다.
+  - CN에만 있는 `PauseEffectIfCharMenuNotOpen`(`_buffKey`·`_targetType`): 토스카 S1·S2 효과가 걸린 아군 표시 `tocka_skill_01_buff_02`·
+    `_skill_02_buff_02` — 오퍼레이터 메뉴가 열려 있지 않으면 멈춤(= 안 보임). 이 모드 전투엔 그 메뉴가 없어 늘 멈춤(노드 `pauseMenu`) [추정·CN: 클래스 이름으로].
+  - 탈룰라 S3 타격 `oxi_skill_03_hit_01`은 입자계 모두 `playOnAwake` 꺼짐 — `ParticleEffect.DoPlay`가 첫 입자계를 자식과 함께 `Play(true)`로 틀므로
+    상관없다(플레이어가 하는 것과 같음).
+- 저절로 붙은 것(`modes.json`): 토스카 평타 시전(방향별 사본 `_up`·`_down` — 방향별 사본이 있는 오퍼레이터 16 → 17명)·타격·투사체 꼬리, S3 모드의
+  시전·타격·꼬리·`attach`(`tocka_skill_03_buff_05`·`_06`), S1·S2 시전. 탈룰라 평타 시전·타격, 등장(`oxi_birth_01` + 그 안의 `oxi_birth_02`),
+  S1~S3 시전·S1·S2 대상 타격, S2·S3 버프.
+- **아직 손으로 잇지 않은 것**(이름 규칙이 대신 틀거나 아무것도 안 틂, 바인딩 표 키는 이 절 뒤에 붙일 때 적음): 토스카 — S1 屏障
+  `tocka_s1[shield]`·S2 `tocka_s2[auto_skill]`·S3 `tocka_s3[bonus]`(아군·그녀)는 아군 쪽 버프인데 이름 규칙이 스킬 동안 그녀에게 틂; 발동형 효과를
+  걸 때의 시작 이펙트(`tocka_s1|s2|s3[trigger]` ON_BUFF_START)·재능 1 치유 `tocka_t1[heal_core]`·S2 투사체 `projectile_chr_tocka_s2`(도착 때
+  `tocka_skill_02_hit_01`)·S3 효과가 옮겨 갈 때 `projectile_tocka_s3_effect`·재능 2 공격의 `projectile_chr_tocka_t2`(꼬리·착탄 범위)·S3 효과가
+  다녀간 아군의 표시 셋(`tocka_s3[trigger_effect_a|b|c]` — 템플릿 `empty`의 영구 표시, 다녀간 횟수만큼 `tocka_skill_03_buff_01`~`_03`). 탈룰라 — 발자국
+  `oxi_fire_field_lease`의 `oxi_buff_01`(지금 대체 `zone`), S3 簇火 `projectile_chr_oxi_s_3_heatwave`(꼬리·타격, 지금 대체 `blast`), 奥术 중첩
+  `oxi_t_1_arcane_stack`·`_full_fx`(`oxi_buff_02`·`_03`), 클립 키 todo J(추출함, 메타데이터 반영 전). 클라 바인딩이 없는 `oxi_skill_02_buff_02`·
+  `tocka_skill_03_buff_start_01`·`_03`을 이름 규칙이 트는 것도 그때 막는다. [화면 미확인: 전부]
+
 ### 투사체 꼬리 끝내기 — 착탄 뒤 늦게 사라짐 (2026-10-11, 사용자 제보 「언더플로우·애쉬락 투사체가 적에 닿은 뒤 늦게 사라짐」)
 - 원인: 날아가는 공식 꼬리(투사체의 `_mainEffect`, 위 「투사체 꼬리」)가 도착하면 `fxgame.js stepTrails`가 `stop()`(방출만 멈춤)만 하고, 인스턴스는 남은 입자가
   다 죽을 때까지 그 자리에 남았다. 언더플로우 평타 `udflow_attack_01_trail_01`의 탄 `bullet`은 수명 5초·반복·1개짜리 입자라 대상 위에 최대 5초,

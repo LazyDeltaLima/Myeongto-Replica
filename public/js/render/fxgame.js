@@ -1009,6 +1009,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       } else if (pz.k === 'pauseMove') {
         const x = movePause(v);
         if (x != null) l.pzSelf = x;
+      } else if (pz.k === 'pauseMenu') {
+        // 2026-11-01 (CN client, PauseEffectIfCharMenuNotOpen): paused unless the operator menu is open — this mode's battle
+        // opens none [ASSUMED·CN: from the class name] (冻河's tocka_skill_01_buff_02 / _skill_02_buff_02)
+        l.pzSelf = true;
       } else if (pz.k === 'pauseAnim') {
         // `_DoPause`: after `pre` s ÷ the playback speed, then `finish`; the restore (`_noPauseWhenValid`) after `back`
         const want = animPause(r, clipOf(v));

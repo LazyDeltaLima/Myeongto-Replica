@@ -39,7 +39,7 @@ export const QUALITY = Object.freeze({
 /** Short effects (hits, casts, trails) alive at once — render/fxgame.js trimLive ends the oldest past it. */
 export const MAX_INSTANCES = 24;
 /** (2026-10-21) the node keys of the client's pause / finish behaviours (fx_extract.py pause_scripts; render/fx/pause.js). */
-export const PAUSE_KEYS = Object.freeze(['pauseIf', 'pauseOther', 'pauseAnim', 'pauseIdle', 'pauseMove', 'pauseSpine', 'finishIf']);
+export const PAUSE_KEYS = Object.freeze(['pauseIf', 'pauseOther', 'pauseAnim', 'pauseIdle', 'pauseMove', 'pauseMenu', 'pauseSpine', 'finishIf']);
 /** Lasting effects (buff loops, skill walls / zones: render/fxgame.js isLasting) alive at once besides them (2026-10-10:
  * 余 S3's wall alone is 2 per tile + 2 ends — 44 across the boss field). */
 export const MAX_LASTING = 48;
@@ -286,10 +286,10 @@ const BLEND = { 0: THREE.ZeroFactor, 1: THREE.OneFactor, 2: THREE.DstColorFactor
 // defines), so its code is unchanged and it gets the same values. On the material the old names stay as accessors
 // (PackedFlag / PackedNum): code, clips and tests read and write `uniforms.uOpacity.value` as before.
 const PACKED_FLAGS = ['uFracUV', 'uHasAdd', 'uHasDisturb', 'uHasDisturb2', 'uHasWeight', 'uHasDissolve', 'uVCMajor', 'uHasDissolve2', 'uVCol',
-  'uRim', 'uPremul', 'uZFlat', 'uHasRam', 'uCustom', 'uAdditive', 'uUVRot', 'uFree', 'uRotW'];
+  'uRim', 'uPremul', 'uZFlat', 'uHasRam', 'uCustom', 'uAdditive', 'uUVRot', 'uFree', 'uRotW', 'uPremulX2'];
 const PACKED_INTS = ['uMode', 'uAlign', 'uDisMode', 'uMulti'];
 const PACKED_FLOATS = ['uAddFactor', 'uOpacity', 'uACtrl', 'uDisturbMain', 'uDisturbDissolve', 'uAmount', 'uBorder', 'uAmount2', 'uBorder2',
-  'uRimPower', 'uFloor', 'uBaseH', 'uTime', 'uLengthScale', 'uVelScale', 'uHand', 'uWSign'];
+  'uRimPower', 'uFloor', 'uBaseH', 'uTime', 'uLengthScale', 'uVelScale', 'uHand', 'uWSign', 'uDisChan'];
 const AXES = ['x', 'y', 'z', 'w'];
 const PACKED_GLSL = [
   `uniform int uPFlags; uniform ivec4 uPInt; ${[0, 1, 2, 3, 4].map((k) => `uniform vec4 uPF${k};`).join(' ')}`,
@@ -555,7 +555,10 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       suv = uDisMode == 0 ? suv + fract(uDissolveSpeed * uTime) + dis * uDisturbDissolve
         : (vUv + dis) * uDissolveST.xy + uDissolveST.zw;   // Anchor: the moved uv through _DissolveTex_ST (client shader)
       if (uFracUV) suv = fract(suv);
-      float d = texture2D(uDissolve, suv).r;
+      // 2026-11-01 (client shader): Ram/Disturb(CustomData) picks the dissolve texture's channel by _DissolvTexChannel
+      // (0 r, 1 g, 2 b, else a — uDisChan; 冻河's hits keep 3)
+      vec4 dt = texture2D(uDissolve, suv);
+      float d = uDisChan < 0.5 ? dt.r : uDisChan < 1.5 ? dt.g : uDisChan < 2.5 ? dt.b : dt.a;
       // local patch (client shader): saturate((d − amount + border · (1 − roundEven(amount + .5))) / border) — at amount 0
       // the border is added, so nothing is cut (the dark texels were holes before)
       float amt = uAmount + (uCustom ? vC2.x : 0.0);
@@ -592,6 +595,9 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
     if (uRim) { float rim = pow(clamp(1.0 - abs(dot(normalize(vN), normalize(-vVP))), 0.0, 1.0), uRimPower); col *= rim; }
     col.a *= uOpacity;
     if (col.a < 0.002) discard;
+    // 2026-11-01 (client shader, the CN client since its 10-23 update): with _PremultiplyAlpha One the pass blends
+    // One OneMinusSrcAlpha and the colour leaves as 2 · alpha · colour (renderState src, uPremulX2)
+    if (uPremulX2) col.rgb *= 2.0 * col.a;
     gl_FragColor = col;
   }`;
 
@@ -603,19 +609,24 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
  * Off for the rest (Additive, AlphaBlend, Dissolve, Mask … — their `_CullMode` is a value left from another shader).
  * Depth write: `_ZWrite` for AlphaBlend(ZWrite) / Common / Cutout, off elsewhere (Disturb Origin / Anchor carry a `_ZWrite`
  * 1 no pass reads). Source factor: `_SrcBlend` for Disturb Origin / Anchor / Cutout, SrcAlpha elsewhere (One for the
- * Premultiply legacy shader).
+ * Premultiply legacy shader). 2026-11-01: the CN client's AlphaBlend, Ram/Disturb(CustomData) (and its Particles-L2D copy) and
+ * Ram/VertexDisturb(CustomData) since its 10-23 update read it from `_PremultiplyAlpha` (default 5 SrcAlpha; 1 One — then the
+ * pixel stage premultiplies, FRAG uPremulX2); the EN client's are fixed SrcAlpha and its materials carry 5 or nothing.
  */
 const CULL_READ = /^(?!.*GrabPass).*(Disturb|\(CustomData)|AlphaBlend\(ZWrite\)|\/Particles\/Common$|^Torappu\/Particles\/Dissolve\/Dissolve Double$/;
 const CULL_BACK = /\/Rim\/|Flipbook|MatCap|Poker-Reflect|\/3D\/Toon|Unlit-Outline|Dissolve Cutout/;
 const ZWRITE_READ = /AlphaBlend\(ZWrite\)|\/Particles\/(Common|Cutout)$/;
 const SRC_READ = /\/Disturb\/Disturb (Origin|Anchor)$|\/Particles\/Cutout$/;
+const PREMUL_READ = /^Torappu\/Particles(-L2D)?\/(AlphaBlend|Ram\/(Vertex)?Disturb\(CustomData\))$/;
+/** The pass premultiplies: `_PremultiplyAlpha` One (below 1.5, the pixel stage's own test) where the pass reads it. */
+const premulX2 = (shader, f) => PREMUL_READ.test(shader) && (f._PremultiplyAlpha ?? 5) < 1.5;
 /** three.js side for a Unity CullMode on mesh geometry (the Unity frame's z flip turns three's winding with it). */
 const SIDE = { 0: THREE.DoubleSide, 1: THREE.BackSide, 2: THREE.FrontSide };
 export function renderState(shader, f = {}) {
   return {
     cull: CULL_READ.test(shader) ? f._CullMode ?? 0 : CULL_BACK.test(shader) ? 2 : 0,
     zwrite: ZWRITE_READ.test(shader) && (f._ZWrite ?? 0) !== 0,
-    src: SRC_READ.test(shader) ? f._SrcBlend ?? 5 : /Alpha Blended Premultiply/.test(shader) ? 1 : 5,
+    src: SRC_READ.test(shader) ? f._SrcBlend ?? 5 : /Alpha Blended Premultiply/.test(shader) || premulX2(shader, f) ? 1 : 5,
   };
 }
 
@@ -730,6 +741,7 @@ function makeMaterial(m, lib) {
       uAmount2: { value: f._Amount_02 || 0 }, uBorder2: { value: f._BorderWidth_02 || 0 },
       // local patch: vertex colours / Rim — turned on by the geometry's owner (useMeshAttrs); the floor (FxInstance opts.floor)
       uVCol: { value: false }, uRim: { value: false }, uRimPower: { value: f._RimPower ?? 1 }, uFloor: { value: -1e9 }, uPremul: { value: premul },
+      uPremulX2: { value: premulX2(shader, f) }, uDisChan: { value: /\/Ram\/Disturb\(CustomData\)$/.test(shader) ? f._DissolvTexChannel ?? 0 : 0 },
       // 2026-10-26: ZDistort's floor depth (VERT main), + the effect's floor (FxInstance)
       uZFlat: { value: zflat }, uBaseH: { value: -(f._BaselineZ || 0) },
       uHasRam: { value: !!t._RamTex }, uRam: { value: tex('_RamTex') || WHITE }, uRamST: { value: st('_RamTex') },

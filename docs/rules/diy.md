@@ -579,8 +579,9 @@
   ③ 같은 토스카가 다시 건 지속 피해는 새 8초 + 둘 중 큰 값. 시간은 공식 클라에서 확인(2026-11-01): 버프가 그녀마다 따로(`independentCharacterSource`)
   덮어쓰기 EXTEND라, 있던 버프가 남고 남은 시간을 새것으로 다시 채운다(값을 새것으로 옮기는 것은 버프 표의 `takeSnapshotWhenExtend`가 켜졌을 때만).
   `[추정·CN]` 큰 값: 그녀 템플릿의 MAX 대입(`AssignBuffBlackboard`의 `_assignMode`·`_includeDisableBuffs`)이 EN 클라에 없는 CN 필드.
-- 아직 안 한 것: 이펙트·공격 타이밍·투사체 속도·스킬 시전 데이터(CN 클라 로컬 추출 — CN CAB 색인을 다시 만든 뒤). 지금은 공격·스킬 이펙트 없이 기본 화살·
-  투사체 종류로 보인다. 화면 확인 전.
+- 이펙트·공격 타이밍·투사체·스킬 시전 데이터: CN 클라에서 뽑음(2026-11-01, `fx.md` 「선발 추가 토스카·탈룰라」) — 평타·스킬 시전·타격·꼬리는
+  공식 이펙트, 공격 타이밍은 공식 값(golden `diy-013`·`014` 이동). 아직 안 한 것: 발동형 효과·屏障·재능 1 치유·S2 투사체·S3 효과의 이동 이펙트를
+  키트 사건에 잇기(같은 절의 목록). 화면 확인 전.
 - 테스트: `test/content/op_tocka.test.js`(9 — 모든 폼, 세 스킬, 두 재능, 실제 매치 경로 하나), 선발 수를 세는 테스트 9 → 10명, golden `diy-013`
   (그녀의 5티어 행이 함께 실림)·`diy-014`(새 시나리오), 다른 가족 변화 없음.
 
@@ -636,7 +637,9 @@
   제한으로 보임)은 옮기지 않음]
 - 자산: 미러에 모델(앞·뒤)·그림·스킬 아이콘·효과음·CN 음성이 있어 `tools/fetch-assets.mjs`가 그대로 받는다. S2의 클립은 프리팹이 정한
   `Skill_2_Cambat`(`skchr_oxi_2` `TargetCenteredAreaMeleeAttack` `_animKey` — 이름 추측의 `Skill_2_Attack`이 아님; `tools/assets/anim-overrides.mjs`),
-  `Skill_2_Attack`은 `todo: J`(CN 클라 키 미추출, `test/render/clip-coverage-list.js`). 이펙트·공격 타이밍·스킬 시전 데이터는 CN 클라 로컬 추출 뒤.
+  `Skill_2_Attack`은 `todo: J`(CN 클라 키는 2026-11-01에 뽑았고 메타데이터 반영 전, `test/render/clip-coverage-list.js`). 이펙트·공격 타이밍·
+  스킬 시전 데이터는 CN 클라에서 뽑음(2026-11-01, `fx.md` 「선발 추가 토스카·탈룰라」 — 공격 타이밍 공식 값, golden `diy-014`·`015` 이동);
+  발자국·S3 簇火·奥术 중첩은 아직 대체 연출(같은 절).
 - 테스트: `test/content/op_oxi.test.js`(12: 모든 폼·잠재, 재능 둘, 세 스킬, 은신 적, 실제 경기 경로 S2), 선발 수를 세는 테스트 10 → 11명, golden
   `diy-014`(토스카 다음 칸들과 다시 묶임)·`diy-015`(새 시나리오). 화면·공식 화면 대조는 아직 — 관리자 노트의 열린 항목.
 

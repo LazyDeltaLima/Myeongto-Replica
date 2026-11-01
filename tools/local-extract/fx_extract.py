@@ -124,6 +124,9 @@ FOLLOW_TILE_HEIGHT_SCRIPT = 2994498389723426252
 FOLLOW_OWNER_SCRIPT = -2862109401119915025
 ROOT_TILE_SCRIPT = -1576532863054725745
 PAUSE_MOVE_SCRIPT = -1569843327534094582
+# (2026-11-01, CN client only) Torappu.Battle.Effects.PauseEffectIfCharMenuNotOpen (pause_scripts: `pauseMenu`; its fields
+# `_buffKey`, `_targetType` are not read)
+PAUSE_MENU_SCRIPT = -459260035723506154
 # (2026-10-22, official client) the MonoScript PathIDs of the scripts that drive an Animator at the effect's finish / play
 # (anim_scripts, `animFin` / `animSrc`), and of EmitterRandomGroup (random_group, `rgroup`) and SwitchableWhenContainsEquipment
 # (equip_effects, `equipFx`)
@@ -1836,6 +1839,8 @@ class Extractor:
           effect's shared flag (`set_isPaused`) — also on `pauseSpine`.
         - `pauseMove` (PauseEffectIfNotMove; `Update`, 2026-10-25): paused while its owner, an Enemy, is not moving by itself
           (`Enemy.isMovingBySelf` false); an owner that is not an Enemy leaves it as it is.
+        - `pauseMenu` (PauseEffectIfCharMenuNotOpen, CN client only, 2026-11-01): paused unless the operator menu is open
+          [ASSUMED from its name] — 冻河's marks of her S1 / S2 effect on an ally.
         - `pauseIdle` (PauseEffectIfNotIdle; `Update`): paused while the owner is not in its idle state
           (`Character.isInIdletState`), and with `_needCheckFaceSwitch` while it faces back (`back`) / front (`front`).
         - `pauseSpine` (PauseEffectIfSpineEvent): { start, invert, anims } — paused at play with `_pauseAtStart` (`OnPlay`);
@@ -1848,9 +1853,9 @@ class Extractor:
           `_finishIfCurrentAnimFinish`)."""
         out = {}
         for sid, _raw, t in self.monos(go):
-            if sid == PAUSE_MOVE_SCRIPT:   # field-less
+            if sid in (PAUSE_MOVE_SCRIPT, PAUSE_MENU_SCRIPT):   # field-less / fields not read
                 if not (isinstance(t, dict) and t.get('m_Enabled') == 0):
-                    out['pauseMove'] = 1
+                    out['pauseMove' if sid == PAUSE_MOVE_SCRIPT else 'pauseMenu'] = 1
                 continue
             what = {PAUSE_IF_SCRIPT: 'PauseEffectIf', PAUSE_OTHER_SCRIPT: 'PauseAnotherEffect', PAUSE_ANIM_SCRIPT: 'PauseEffectWithAnimation',
                     PAUSE_IDLE_SCRIPT: 'PauseEffectIfNotIdle', PAUSE_SPINE_SCRIPT: 'PauseEffectIfSpineEvent',
@@ -2674,7 +2679,9 @@ class Extractor:
         `_bodyTransofrm` (PPtr, 3 words) and `_subFXDelayConfigs` (count n + 4 words each), then from s = 4 + 4n: s
         `_resetMainDir`, s+1 `_mainDir`, s+2 `_rotate180Y`, s+3 `_randomAngle`, s+4 `_delayToFinish`, s+5 `_allowAutoReuse`,
         s+6 `_preloadCnt`, s+7 `_flipIfLeft`, s+8 `_inactiveOnFinish` (count + 3 words each), then `_inactiveOnHit` (count +
-        3 words each) — the same in the EN and CN clients (202 + 11 compared). None when it is not that layout."""
+        3 words each) — the same in the EN and CN clients (202 + 11 compared). (2026-11-01) The CN client since its 10-23
+        update has `_delayToPlay` before `_delayToFinish` (one word more from s+4: 冻河 · 塔露拉's trails). None when it is
+        neither layout."""
         if len(raw) < 32:
             return None
         n = struct.unpack_from('<i', raw, 28)[0]
@@ -2686,16 +2693,18 @@ class Extractor:
         if words < 4 or not 0 <= i(3) <= 64:
             return None
         s = 4 + 4 * i(3)
-        if words < s + 10:
-            return None
-        a = i(s + 8)
-        h = s + 9 + 3 * a
-        if not 0 <= a <= 256 or words < h + 1 or words != h + 1 + 3 * i(h):
-            return None
-        return {'delayToFinish': struct.unpack_from('<f', b, 4 * (s + 4))[0],
-                'off': [struct.unpack_from('<q', b, 4 * (s + 10 + 3 * k))[0] for k in range(a) if i(s + 9 + 3 * k) == 0],
-                'reset': bool(i(s) & 0xff), 'mainDir': i(s + 1), 'rotate180Y': bool(i(s + 2) & 0xff),
-                'randomAngle': struct.unpack_from('<f', b, 4 * (s + 3))[0]}
+        for x in (0, 1):
+            if words < s + 10 + x:
+                return None
+            a = i(s + 8 + x)
+            h = s + 9 + x + 3 * a
+            if not 0 <= a <= 256 or words < h + 1 or words != h + 1 + 3 * i(h):
+                continue
+            return {'delayToFinish': struct.unpack_from('<f', b, 4 * (s + 4 + x))[0],
+                    'off': [struct.unpack_from('<q', b, 4 * (s + 10 + x + 3 * k))[0] for k in range(a) if i(s + 9 + x + 3 * k) == 0],
+                    'reset': bool(i(s) & 0xff), 'mainDir': i(s + 1), 'rotate180Y': bool(i(s + 2) & 0xff),
+                    'randomAngle': struct.unpack_from('<f', b, 4 * (s + 3))[0]}
+        return None
 
     def projectile_turn(self, root, rot):
         """(2026-10-27, effect bundle W2b, official client) how a ProjectileEffect root (projectile_effect) is turned on its

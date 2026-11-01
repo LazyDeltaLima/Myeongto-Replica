@@ -86,6 +86,7 @@ SCRIPTS = {
     -1569843327534094582: 'PauseEffectIfNotMove', 8401462487392191767: 'PauseEffectIfDisappeared', -2862109401119915025: 'FollowOwner',
     -1576532863054725745: 'FollowOwnerRootTileHeight',
     -6714358757634045276: 'CameraEffect',   # (2026-10-26) by its fields; screen_com_poison_04 (the time-out screen)
+    -459260035723506154: 'PauseEffectIfCharMenuNotOpen',   # (2026-11-01) CN client only: 冻河's buff_02 marks
 }
 # what the extract reads of the scripts above (reader() checks the raw fallbacks)
 SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoint', 'FxUVTweener', 'FxUVTweenerAdvance',
@@ -100,6 +101,8 @@ SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoi
                 'OnFinishAnime', 'TriggerAnimatorWhenFinish', 'SwitchAnimatorStateWhenFinish', 'SetAnimatorTriggerOnEvent',
                 'SetAnimatorFloatByCondition', 'BuffProgressFloatSource', 'SetAnimatorTriggerByCondition',
                 'AuraProjectileSetAnimatorTrigger', 'EmitterRandomGroup', 'SwitchableWhenContainsEquipment',
+                # (2026-11-01, CN client only) pause_scripts (`pauseMenu`)
+                'PauseEffectIfCharMenuNotOpen',
                 # (2026-10-25) owner_follow (`followOwner`, `rootTile`) and pause_scripts (`pauseMove`): field-less
                 'FollowOwner', 'FollowOwnerRootTileHeight', 'PauseEffectIfNotMove'}
 
@@ -165,7 +168,10 @@ PS_FIELDS = {
     'moveWithCustomTransform': _N('only with moveWithTransform 2 (Custom), reported there'),
     'scalingMode': _V('scaling', (0, 1, 2)),
     'prewarm': _K('prewarm'),
-    'playOnAwake': _A(True, 'a system that waits for a script to play it'),
+    # (2026-11-01, official client) ParticleEffect.DoPlay plays the root's first system with its children (Play(true)),
+    # whatever their playOnAwake — 塔露拉's S3 hit has it off on every system [ASSUMED: every such system so far sits under
+    # the first one]
+    'playOnAwake': _N('the effect\'s root plays its first system with the children (ParticleEffect.DoPlay)'),
     'autoRandomSeed': _N('the random sequence only'), 'randomSeed': _N('the random sequence only'),
     'cullingMode': _N('what Unity does off screen'),
     'emitterVelocityMode': _N('[ASSUMED] without a Rigidbody on the effect Unity takes the Transform\'s motion either way'),
@@ -494,7 +500,8 @@ COMP_FIELDS = {
     'script:ProjectileEffect': {
         **_EFFECT_BASE, '_delayToFinish': _K('finish'), '_inactiveOnFinish': _K('offFinish'),
         '_resetMainDir': _K('mainRot'), '_mainDir': _K('mainRot'), '_rotate180Y': _K('mainRot'), '_randomAngle': _K('roll'),
-        '_flipIfLeft': _A(0, 'the projectile mirrored when it flies left'), '_inactiveOnHit': _A((), 'nodes switched off on a hit')},
+        '_flipIfLeft': _A(0, 'the projectile mirrored when it flies left'), '_inactiveOnHit': _A((), 'nodes switched off on a hit'),
+        '_delayToPlay': _A(0, 'the projectile\'s effect starts that much later (a newer field of the CN client, 2026-11-01)')},
     'script:EmptyEffect': {**_EFFECT_BASE, '_delayToFinish': _K('finish')},
     'script:FxDelay': {'m_Enabled': _R('a switched-off child FxDelay delays nothing (it acts in OnEnable); the root\'s is switched on as the effect plays'), '_delayTime': _K('nodes[].delay')},
     'script:FollowMountPoint': {
@@ -598,6 +605,10 @@ COMP_FIELDS = {
                               '_finishIfOwnerInvalid': _K('nodes[].finishIf.ownerGone'), '_finishIfNotDummy': _A(0, 'finished when its owner is not a dummy (`finishIf.notDummy` is carried, not played)'),
                               '_finishIfCurrentAnimFinish': _K('nodes[].finishIf.animEnd')},
     'script:PauseEffectIfNotMove': {'m_Enabled': _R('a switched-off one is not read (pause_scripts)')},
+    'script:PauseEffectIfCharMenuNotOpen': {'m_Enabled': _R('a switched-off one is not read (pause_scripts)'),
+                                             '_buffKey': _N('[ASSUMED] the buff of the menu\'s operator it waits for: this battle '
+                                                            'opens no operator menu'),
+                                             '_targetType': _N('[ASSUMED] whose buff: this battle opens no operator menu')},
     'script:FollowOwner': {'m_Enabled': _R('a switched-off one is not read (owner_follow)')},
     'script:FollowOwnerRootTileHeight': {'m_Enabled': _R('a switched-off one is not read (owner_follow)')},
     'script:FunnelHitEffect': {'m_Enabled': _A(1, _OFF), **{f'_randomRange.{a}': _K('jitter') for a in 'xyz'}},
@@ -665,7 +676,7 @@ COMP_READERS = {
     'script:OnPlayEmitter': ('on_emitters',), 'script:OnFinishEmitter': ('on_emitters',),
     **{f'script:{c}': ('pause_scripts', 'pause_if') for c in (
         'PauseEffectIf', 'PauseAnotherEffect', 'PauseEffectWithAnimation', 'PauseEffectIfNotIdle', 'PauseEffectIfSpineEvent',
-        'FinishEffectIf', 'PauseEffectIfNotMove')},
+        'FinishEffectIf', 'PauseEffectIfNotMove', 'PauseEffectIfCharMenuNotOpen')},
     'script:FollowOwner': ('owner_follow',), 'script:FollowOwnerRootTileHeight': ('owner_follow',),
     'script:FunnelHitEffect': ('funnel_hit',), 'script:FollowDirection': ('follow_direction',),
     'script:SwitchableEffectByFaceDirection': ('switch_face',), 'script:SwitchableThreeFaceEffect': ('three_face',),
@@ -742,7 +753,8 @@ PLAYER_VALUES = {'_Color', '_MainColor', '_TintColor', '_UVTween', '_AddFactor',
                  '_IntensityU', '_IntensityU_02', '_IntensityV', '_IntensityV_02', '_MainColorACtrl', '_MainUSpeed',
                  '_MainVSpeed', '_Opacity', '_RimPower', '_ToggleUseDissolve', '_ToggleUseDisturb2', '_UseDissolveTex', '_ZTest',
                  '_CullMode', '_ZWrite', '_SrcBlend', '_BaselineZ',
-                 '_Dissolve', '_TexSpeed', '_TexSpeed2', '_TintColorB', '_TintColorC'}
+                 '_Dissolve', '_TexSpeed', '_TexSpeed2', '_TintColorB', '_TintColorC',
+                 '_PremultiplyAlpha', '_DissolvTexChannel'}
 # shaders whose behaviour render/fxplayer.js was checked against (by name: blend, tint, distortion, dissolve families)
 # (2026-10-16: every shader of the extracted effects then — a shader outside the list is new to the player)
 SHADERS_CHECKED = {
@@ -772,6 +784,10 @@ SHADERS_CHECKED = {
     # vertex × texture; Premultiply One OneMinusSrcAlpha — vertex × texture × vertex alpha, Unity's Default-Particle)
     'Legacy Shaders/Particles/Additive', 'Legacy Shaders/Particles/Alpha Blended',
     'Legacy Shaders/Particles/Alpha Blended Premultiply',
+    # 2026-11-01 (the CN client's shaders since its 10-23 update; 塔露拉's S3 trail): the pixel stage of Ram/Disturb(CustomData)
+    # with every channel at its default and the same premultiply switch (`_PremultiplyAlpha`); its vertex stage moves the
+    # vertices — the property / texture entries of KNOWN below
+    'Torappu/Particles/Ram/VertexDisturb(CustomData)',
 }
 
 # known items: 'kind:what' -> (status, note). `todo` = known, not drawn as the client does (the 2026-10-16 baseline; the
@@ -831,6 +847,16 @@ KNOWN = {
         )},
     # materials (values: the extracted materials, 2026-10-16)
     'property:Torappu/Particles/Disturb/Disturb Anchor _Weight': (_NONE, 'the toggle behind keyword _WEIGHT_ON, which the player reads (all 198 materials agree)'),
+    # (2026-11-01, the CN client) Ram/VertexDisturb(CustomData)'s vertex stage: each vertex moves in object space by
+    # (_VertexDisturbTex(uv scrolled by the U / V speeds) − 0.5) × _VertexDisturbWeightTex.r (white when unset) ×
+    # _VertexDisturbIntensity, plus along its normal × _NormalDisturbIntensity when _NormalDisturb > 0. Its one material
+    # (塔露拉's oxi_skill_03_trail_01 core_01) has intensity (0, 0, 0) and a normal intensity of 0.03: under 0.015 object units,
+    # less than a pixel on the board — not drawn (the extracted meshes carry no normals either)
+    **{f'{k}:Torappu/Particles/Ram/VertexDisturb(CustomData) {n}': (
+        _NONE, 'its vertex wobble: under a pixel on its one material, not drawn (2026-11-01)') for k, n in (
+        ('property', '_NormalDisturb'), ('property', '_NormalDisturbIntensity'), ('property', '_VertexDisturbUSpeed'),
+        ('property', '_VertexDisturbVSpeed'), ('property', '_VertexDisturbIntensity'), ('texture', '_VertexDisturbTex'),
+        ('texture', '_VertexDisturbWeightTex'))},
     # clips
     'clip:binding to a path outside the Animator': (_NONE, 'the clip names a node the prefab does not have (deleted in authoring): '
                                                     'Unity binds nothing either'),
