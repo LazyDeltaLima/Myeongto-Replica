@@ -13,6 +13,13 @@
 //   neither is known) when it passes format validation. The ledger lives in
 //   .cache/assets-ledger.json. `keepExisting` (fetch-assets --add-only) keeps
 //   every existing file as it is; `written` = the files this run wrote.
+// - `adopt`: a kept file without a ledger entry (on disk from before the ledger,
+//   or kept by its research byte count) is fetched once from its sources; one that
+//   serves the same bytes becomes its ledger entry, as if this run had downloaded
+//   it — tools/build-browser-resources.mjs lets the browser fetch only ledger files
+//   from jsDelivr / GitHub. A file every source answers with other bytes (or not at
+//   all) is recorded without a URL, so it is not checked again; a network failure
+//   records nothing.
 
 import { mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -42,6 +49,7 @@ export class Downloader {
    * @param {number} [o.timeoutMs]
    * @param {boolean} [o.force] re-download even when files exist
    * @param {boolean} [o.keepExisting] never re-download or rewrite an existing file (a checkout sharing public/assets)
+   * @param {boolean} [o.adopt] give kept files without a ledger entry theirs, when a source serves the same bytes
    * @param {(msg:string)=>void} [o.log]
    * @param {typeof fetch} [o.fetchImpl]
    * @param {number} [o.backoffMs] base retry delay (doubles per attempt)
@@ -49,7 +57,7 @@ export class Downloader {
    * @param {string} [o.proxyPrefix] HTTPS prefix for GitHub downloads
    * @param {MirrorPolicy} [o.mirrorPolicy] invocation-wide policy and mirror circuit breaker
    */
-  constructor({ root, ledgerPath, concurrency = 16, retries = 3, timeoutMs = 120000, force = false, keepExisting = false, log = console.log, fetchImpl = globalThis.fetch, backoffMs = 400, source = 'direct', proxyPrefix, mirrorPolicy }) {
+  constructor({ root, ledgerPath, concurrency = 16, retries = 3, timeoutMs = 120000, force = false, keepExisting = false, adopt = false, log = console.log, fetchImpl = globalThis.fetch, backoffMs = 400, source = 'direct', proxyPrefix, mirrorPolicy }) {
     this.root = root;
     this.ledgerPath = ledgerPath;
     this.concurrency = Math.max(1, Math.min(64, Number(concurrency) || 16));
@@ -57,6 +65,7 @@ export class Downloader {
     this.timeoutMs = timeoutMs;
     this.force = force && !keepExisting;
     this.keepExisting = !!keepExisting;
+    this.adopt = !!adopt && !this.keepExisting;
     /** @type {Set<string>} the files (paths under root) this run wrote */
     this.written = new Set();
     this.log = log;
@@ -64,7 +73,7 @@ export class Downloader {
     this.network = mirrorPolicy ?? new MirrorPolicy({ source, proxyPrefix, log });
     this.backoffMs = Math.max(0, Number(backoffMs) || 0);
     this.ledger = { files: {} };
-    this.totals = { ok: 0, skip: 0, miss: 0, error: 0, bytesDownloaded: 0, sizeChanged: 0 };
+    this.totals = { ok: 0, skip: 0, miss: 0, error: 0, bytesDownloaded: 0, sizeChanged: 0, adopted: 0, unmatched: 0 };
     this.dirty = 0;
     this.saving = false;
   }
@@ -158,7 +167,10 @@ export class Downloader {
    */
   async runJob(job) {
     const kept = await this.existingSize(job);
-    if (kept >= 0) return { status: 'skip', bytes: kept };
+    if (kept >= 0) {
+      if (this.adopt && !job.mutable && !this.ledger.files[job.rel]) await this.adoptExisting(job, kept);
+      return { status: 'skip', bytes: kept };
+    }
     let lastError = null;
     for (const url of job.urls) {
       const sources = this.network.urls(url);
@@ -185,6 +197,35 @@ export class Downloader {
     }
     if (lastError) this.network.directFailureHint();
     return lastError ? { status: 'error', bytes: 0, error: lastError } : { status: 'miss', bytes: 0, error: 'not found (404) on all sources' };
+  }
+
+  /**
+   * The ledger entry of a kept file that has none (header: `adopt`).
+   * @param {Job} job
+   * @param {number} size the kept file's size
+   */
+  async adoptExisting(job, size) {
+    let disk;
+    try { disk = await readFile(join(this.root, job.rel)); } catch { return; }
+    let failed = false;
+    for (const url of job.urls) {
+      for (const src of this.network.urls(url)) {
+        const r = await this.fetchWithRetries(src, job.kind);
+        if (r.skipped) { failed = true; continue; }
+        if (r.notFound) continue;
+        if (r.error) { failed = true; continue; }
+        if (r.buf.equals(disk)) {
+          this.ledger.files[job.rel] = { url: src, bytes: size };
+          this.totals.adopted++;
+          this.dirty++;
+          return;
+        }
+      }
+    }
+    if (failed) return;
+    this.ledger.files[job.rel] = { bytes: size, unmatched: true };
+    this.totals.unmatched++;
+    this.dirty++;
   }
 
   /**

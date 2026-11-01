@@ -61,6 +61,13 @@ The script is **idempotent**. A file on disk is kept, not re-downloaded, when an
 - its size matches the byte count recorded in research;
 - no size is known, but the file passes format validation. Validation checks the PNG signature and `IEND`, the MP3 header, the sfnt header, the atlas page line, and that a skel is not an HTML error page.
 
+A file kept by the second or third rule has no ledger entry, and the browser resource list (`tools/build-browser-resources.mjs`)
+lets players fetch only ledger files from jsDelivr / GitHub (everything else comes from this server). So an online run
+fetches such a file once from its sources: when one serves the same bytes, that source becomes its ledger entry, as if
+the run had downloaded it; when every source answers with other bytes or a 404, it is recorded without a URL and not
+checked again (a network failure records nothing). Atlases are never adopted (the pipeline rewrites them), and
+`--add-only` adopts nothing.
+
 Every download is written to a temp file, then renamed into place. A partial download therefore never reaches its final path.
 
 How downloads are fetched:

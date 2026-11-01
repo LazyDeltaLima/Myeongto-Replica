@@ -435,6 +435,8 @@ async function main() {
   const dl = new Downloader({
     root: ASSETS, ledgerPath: join(CACHE, 'assets-ledger.json'),
     concurrency: opts.concurrency, force: opts.force, keepExisting: opts.addOnly, log, ...network,
+    // a kept file without a ledger entry gets one when its source serves the same bytes (browser-resources `u`)
+    adopt: true,
   });
   await dl.loadLedger();
   const downloadErrors = opts.offline ? [] : await downloadLeaves(leaves, dl, ASSETS, 'files');
@@ -516,6 +518,9 @@ async function main() {
   log('=== fetch-assets summary ===');
   log(`downloaded this run : ${mb(dl.totals.bytesDownloaded)} (ok ${dl.totals.ok}, skipped ${dl.totals.skip}, missing ${dl.totals.miss}, errors ${dl.totals.error}` +
     `${dl.totals.sizeChanged ? `, ${dl.totals.sizeChanged} changed upstream` : ''})`);
+  if (dl.totals.adopted || dl.totals.unmatched) {
+    log(`ledger              : ${dl.totals.adopted} kept files matched their source (now offered from jsDelivr / GitHub), ${dl.totals.unmatched} did not (served by this server)`);
+  }
   log(`on disk (manifest)  : ${mb(s.bytes)} in ${s.files} files`);
   log(`chars ${s.chars} (Back model ${s.charsWithBack}) · enemies ${s.enemies} (Spine ${s.enemiesWithSpine}) · tokens ${s.tokens} (Spine ${s.tokensWithSpine}) · Spine models ${s.spineModels}`);
   log(`bonds ${s.bonds} · items ${s.items} · bands ${s.bands} · skill icons ${s.skills} · UI ${s.ui} · units with SFX ${s.sfxUnits}`);

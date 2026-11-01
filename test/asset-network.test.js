@@ -368,3 +368,44 @@ test('setup and asset CLI document and validate source options before doing work
     assert.match(invalid.stderr, /unknown asset source/);
   }
 });
+
+test('adopt: a kept file without a ledger entry gets the source that serves the same bytes, once', async (t) => {
+  const dir = await fixture(t);
+  const body = { a: '{"same":1}', b: '{"local":2}', c: '{"gone":3}', d: '{"flaky":4}', m: '{"mutable":5}' };
+  for (const [k, v] of Object.entries(body)) await writeFile(join(dir, `${k}.json`), v);
+  const upstream = { a: '{"same":1}', b: '{"upstream":2}' };
+  const calls = [];
+  const fetchImpl = async (url) => {
+    calls.push(url);
+    const k = url.match(/\/([a-z])\.json$/)?.[1];
+    if (k === 'd') return url.startsWith('https://raw.githubusercontent.com/') ? new Response('', { status: 503 }) : new Response('', { status: 404 });
+    return upstream[k] ? new Response(upstream[k]) : new Response('', { status: 404 });
+  };
+  const base = 'https://raw.githubusercontent.com/o/r/main/';
+  const jobs = Object.keys(body).map((k) => ({ rel: `${k}.json`, urls: [`${base}${k}.json`], kind: 'json', mutable: k === 'm' }));
+  // off by default, and never under keepExisting: kept files are not fetched
+  for (const opts of [{}, { adopt: true, keepExisting: true }]) {
+    const dl = new Downloader({ root: dir, ledgerPath: join(dir, 'off.json'), retries: 1, backoffMs: 0, log: quiet, fetchImpl, ...opts });
+    await dl.run(jobs);
+    assert.equal(calls.length, 0);
+    assert.deepEqual(dl.ledger.files, {});
+  }
+  const dl = new Downloader({ root: dir, ledgerPath: join(dir, 'ledger.json'), retries: 1, backoffMs: 0, log: quiet, fetchImpl, adopt: true });
+  const res = await dl.run(jobs);
+  assert.ok([...res.values()].every((r) => r.status === 'skip'), 'every file is kept as it is');
+  assert.deepEqual(dl.ledger.files['a.json'], { url: base + 'a.json', bytes: body.a.length });
+  assert.deepEqual(dl.ledger.files['b.json'], { bytes: body.b.length, unmatched: true });
+  assert.deepEqual(dl.ledger.files['c.json'], { bytes: body.c.length, unmatched: true });
+  assert.equal(dl.ledger.files['d.json'], undefined, 'a network failure records nothing (checked again next run)');
+  assert.equal(dl.ledger.files['m.json'], undefined, 'a post-processed file is never adopted');
+  assert.ok(!calls.some((u) => u.endsWith('/m.json')));
+  assert.equal(dl.totals.adopted, 1);
+  assert.equal(dl.totals.unmatched, 2);
+  for (const k of Object.keys(body)) assert.equal(await readFile(join(dir, `${k}.json`), 'utf8'), body[k]);
+  // the next run fetches only the file whose check failed
+  calls.length = 0;
+  const again = new Downloader({ root: dir, ledgerPath: join(dir, 'ledger.json'), retries: 1, backoffMs: 0, log: quiet, fetchImpl, adopt: true });
+  await again.loadLedger();
+  await again.run(jobs);
+  assert.ok(calls.length > 0 && calls.every((u) => u.endsWith('/d.json')));
+});
