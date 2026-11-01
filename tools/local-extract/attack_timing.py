@@ -28,7 +28,8 @@ its first mode used while blocked / unblocked (either may be missing).
 Usage (from the repo root; --client = an Arknights_Data folder, repeatable: the first client that has an operator's pack
 or an enemy decides it — by default the EN client, then the CN one for what the EN one lacks (client_path.py); an
 operator or enemy neither client has keeps the row of the earlier run):
-  .venv-extract/bin/python tools/local-extract/attack_timing.py [--client <EN …/Arknights_Data>] [--client <CN …/Arknights_Data>]
+  .venv-extract/bin/python tools/local-extract/attack_timing.py [--client <EN …/Arknights_Data>] [--client <CN …/Arknights_Data>] [--id char_…]…
+--id reads only those operators (no enemies): every other row stays as the earlier run wrote it.
 Everything read is (c) Hypergryph; only these numbers are kept.
 """
 import argparse
@@ -40,7 +41,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from char_modes import load_tree, pool_char_ids  # noqa: E402
-from client_path import clients, earlier, kept  # noqa: E402
+from client_path import clients, earlier, kept, kept_all  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'tools/assets/local-attack-timing.json'
@@ -253,8 +254,9 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     ap.add_argument('--client', action='append', help='an Arknights_Data folder (repeatable; default: EN, then CN — client_path.py)')
     ap.add_argument('--out', default=str(OUT))
+    ap.add_argument('--id', action='append', default=[], help='only this operator (repeatable): every other row, the enemies too, stays as the earlier run wrote it')
     args = ap.parse_args()
-    cids = all_char_ids()
+    cids = args.id or all_char_ids()
     enemies_json = json.loads((ROOT / 'data/enemies.json').read_text(encoding='utf-8'))
     recs = enemies_json.get('enemies', enemies_json)
     wanted = set(recs)
@@ -275,20 +277,21 @@ def main():
             if e:
                 ops[cid] = e
         # an enemy's prefab key is its own: a later client adds only the enemies the earlier ones lack
-        for f in enemy_bundles(client).values():
+        for f in ([] if args.id else enemy_bundles(client).values()):
             enemies.update({k: v for k, v in enemy_entries(f, wanted).items() if k not in enemies})
         print(f'{client}: {len(ops) - n_ops} operators, {len(enemies) - n_enemies} enemies')
     for cid in sorted(set(cids) - read):
         print('missing', cid, file=sys.stderr)
     prev = earlier(args.out)
-    old_ops = kept(prev.get('ops') or {}, read, cids)
-    old_enemies = kept(prev.get('enemies') or {}, enemies, wanted)
+    old_ops = kept_all(prev.get('ops') or {}, read) if args.id else kept(prev.get('ops') or {}, read, cids)
+    old_enemies = kept_all(prev.get('enemies') or {}, enemies) if args.id else kept(prev.get('enemies') or {}, enemies, wanted)
     ops.update(old_ops)
     enemies.update(old_enemies)
     out = {'ops': dict(sorted(ops.items())), 'enemies': dict(sorted(enemies.items()))}
     Path(args.out).write_text(json.dumps(out, ensure_ascii=False, separators=(',', ':'), sort_keys=False) + '\n', encoding='utf-8')
     old = [*old_ops, *old_enemies]
-    print(f'{len(ops)} operators, {len(enemies)} enemies → {args.out}' + (f'; kept from the earlier run: {", ".join(old)}' if old else ''))
+    print(f'{len(ops)} operators, {len(enemies)} enemies → {args.out}'
+          + (f'; read {", ".join(sorted(read))}, the other {len(old)} rows kept' if args.id else f'; kept from the earlier run: {", ".join(old)}' if old else ''))
 
 
 if __name__ == '__main__':

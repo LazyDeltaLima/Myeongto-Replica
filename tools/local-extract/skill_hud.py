@@ -21,7 +21,8 @@ Usage (from the repo root; --client = an Arknights_Data folder, repeatable: the 
 by default the EN client, then the CN client for the operators the EN one lacks (client_path.py); the hot-update copy
 of the bundle under PersistentData/Bundles is read before the installed one; a skill neither client has keeps the row
 of the earlier run):
-  .venv-extract/bin/python tools/local-extract/skill_hud.py [--client <EN …/Arknights_Data>] [--client <CN …/Arknights_Data>]
+  .venv-extract/bin/python tools/local-extract/skill_hud.py [--client <EN …/Arknights_Data>] [--client <CN …/Arknights_Data>] [--id char_…]…
+--id reads only those operators' skills: every other row stays as the earlier run wrote it.
 Everything read is (c) Hypergryph; only these flags are kept.
 """
 import argparse
@@ -32,7 +33,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from char_modes import char_skill_prefabs, load_tree, skill_bundle  # noqa: E402
-from client_path import clients, earlier, kept  # noqa: E402
+from client_path import clients, earlier, kept, kept_all, skills_of  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'tools/assets/local-skill-hud.json'
@@ -55,10 +56,13 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     ap.add_argument('--client', action='append', help='an Arknights_Data folder (repeatable; default: EN, then CN — client_path.py)')
     ap.add_argument('--out', default=str(OUT))
+    ap.add_argument('--id', action='append', default=[], help='only the skills of this operator (repeatable): every other row stays as the earlier run wrote it')
     args = ap.parse_args()
     want = set()
     for prefabs in char_skill_prefabs().values():
         want.update(p for p in prefabs if p)
+    if args.id:
+        want = skills_of(args.id, char_skill_prefabs())
     out, over = {}, {}
     for client in clients(args.client):
         path = skill_bundle(client)
@@ -72,12 +76,13 @@ def main():
     if not out:
         sys.exit('no skill read')
     prev = earlier(args.out)
-    old = kept(prev.get('skills') or {}, out, want)
+    old = kept_all(prev.get('skills') or {}, out) if args.id else kept(prev.get('skills') or {}, out, want)
     out.update(old)
     over.update({k: v for k, v in (prev.get('overload') or {}).items() if k in old})
     Path(args.out).write_text(json.dumps({'skills': dict(sorted(out.items())), 'overload': dict(sorted(over.items()))}, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     missing = sorted(want - set(out))
-    print(f'{len(out)} of {len(want)} skills -> {args.out}' + (f'; kept from the earlier run: {", ".join(old)}' if old else '')
+    print(f'{len(out) - len(old)} of {len(want)} skills read -> {args.out}'
+          + (f'; the other {len(old)} rows kept' if args.id else f'; kept from the earlier run: {", ".join(old)}' if old else '')
           + (f'; not found: {", ".join(missing)}' if missing else ''))
 
 

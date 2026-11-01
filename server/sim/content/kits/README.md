@@ -214,6 +214,12 @@ scenarios; no other family moves), and commit it with the kit (`test/golden/READ
 
 **Art** comes with the data: `tools/fetch-assets.mjs` plans every unit of `data/backups.json` (ASSETS.md) — nothing to do.
 
+**From the local client** (effects, attack modes, mount points, sound cues, attack timing, projectiles, skill casts, the
+skill HUD, the effect bindings, clip keys, card art — only on a machine with the client, docs/ASSETS.md): once the operator
+is in the data, `.venv-extract/bin/python tools/local-extract/add_operator.py --id <charId>` runs every extraction step for
+that operator alone (the EN client first, the CN one for what it lacks), names any other operator's row that moved, and
+prints what is left by hand (summon effects and models, the rebuilds).
+
 ## Testing a kit
 
 - The harness is `test/helpers/battleHarness.js` (`makeBattle`, `runUntil`, `hooksOf`, `eventsOf`, `checkInvariants`;

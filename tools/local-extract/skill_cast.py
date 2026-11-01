@@ -33,7 +33,8 @@ tools/assets/local-skill-cast.json:
 Usage (from the repo root; ~1 min to read a bundle; --client = an Arknights_Data folder, repeatable: the first client
 that has a skill decides it — by default the EN client, then the CN one for the operators the EN one lacks
 (client_path.py); a skill neither client has keeps the row of the earlier run):
-  .venv-extract/bin/python tools/local-extract/skill_cast.py [--client <EN …/Arknights_Data>] [--client <CN …/Arknights_Data>]
+  .venv-extract/bin/python tools/local-extract/skill_cast.py [--client <EN …/Arknights_Data>] [--client <CN …/Arknights_Data>] [--id char_…]…
+--id reads only those operators' skills: every other row stays as the earlier run wrote it.
 Everything read is (c) Hypergryph; only these flags and numbers are kept.
 """
 import argparse
@@ -44,7 +45,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from char_modes import char_skill_prefabs, skills_tree  # noqa: E402
-from client_path import clients, earlier, kept  # noqa: E402
+from client_path import clients, earlier, kept, kept_all, skills_of  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'tools/assets/local-skill-cast.json'
@@ -145,10 +146,13 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     ap.add_argument('--client', action='append', help='an Arknights_Data folder (repeatable; default: EN, then CN — client_path.py)')
     ap.add_argument('--out', default=str(OUT))
+    ap.add_argument('--id', action='append', default=[], help='only the skills of this operator (repeatable): every other row stays as the earlier run wrote it')
     args = ap.parse_args()
     want = set()
     for prefabs in char_skill_prefabs().values():
         want.update(p for p in prefabs if p)
+    if args.id:
+        want = skills_of(args.id, char_skill_prefabs())
     comps = {}
     for client in clients(args.client):
         tree = skills_tree(client)
@@ -169,10 +173,12 @@ def main():
         e = skill_entry(sid, comps[sid])
         if e:
             out[sid] = e
-    old = kept(earlier(args.out).get('skills') or {}, comps, want)
+    prev = earlier(args.out).get('skills') or {}
+    old = kept_all(prev, comps) if args.id else kept(prev, comps, want)
     out.update(old)
     Path(args.out).write_text(json.dumps({'skills': out}, ensure_ascii=False, indent=1, sort_keys=True) + '\n', encoding='utf-8')
-    print(f'{len(out)} of {len(want)} skills -> {args.out}' + (f'; kept from the earlier run: {", ".join(old)}' if old else ''))
+    print(f'{len(out) - len(old)} of {len(want)} skills read -> {args.out}'
+          + (f'; the other {len(old)} rows kept' if args.id else f'; kept from the earlier run: {", ".join(old)}' if old else ''))
 
 
 if __name__ == '__main__':

@@ -13,6 +13,7 @@ an earlier run that neither client has (`kept`), so a run on the EN client alone
 """
 import json
 import os
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -75,3 +76,20 @@ def earlier(path):
 def kept(old, read, wanted):
     """{id: row} of `old` (the table an earlier run wrote) for the ids in `wanted` that no client read this run, sorted."""
     return {k: old[k] for k in sorted(set(old) & set(wanted) - set(read))}
+
+
+def kept_all(old, read):
+    """{id: row} of `old` for every id not read this run, sorted: an --id run reads only its operators and leaves every
+    other row as the earlier run wrote it (even one no data names any more)."""
+    return {k: old[k] for k in sorted(set(old) - set(read))}
+
+
+def skills_of(ids, prefabs):
+    """The skill prefab ids of the operators `ids` ({charId: [prefabId, …]}: char_modes.py char_skill_prefabs); an
+    operator no data names has none (told on stderr)."""
+    out = set()
+    for cid in ids:
+        if cid not in prefabs:
+            print(f'{cid}: in no chess / 선발 data — its skills are not read', file=sys.stderr)
+        out.update(p for p in prefabs.get(cid) or [] if isinstance(p, str) and p)
+    return out

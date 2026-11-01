@@ -26,7 +26,9 @@ of its own and no table duration fires it (能天使 S1's projectile_angel).
 Usage (from the repo root; --client = an Arknights_Data folder, repeatable: the first client that has an operator's pack,
 a skill or a projectile prefab decides it — by default the EN client, then the CN one for what the EN one lacks
 (client_path.py); an operator or skill neither client has keeps the row of the earlier run, with its projectiles):
-  .venv-extract/bin/python tools/local-extract/op_projectiles.py [--client <EN …/Arknights_Data>] [--client <CN …/Arknights_Data>]
+  .venv-extract/bin/python tools/local-extract/op_projectiles.py [--client <EN …/Arknights_Data>] [--client <CN …/Arknights_Data>] [--id char_…]…
+--id reads only those operators and their skills (and the projectiles they fire): every other row stays as the earlier run
+wrote it.
 Everything read is (c) Hypergryph; only these names and numbers are kept.
 """
 import argparse
@@ -38,7 +40,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from char_modes import load_tree, skills_tree, char_skill_prefabs, END_ABILITY  # noqa: E402
-from client_path import clients, earlier, kept  # noqa: E402
+from client_path import clients, earlier, kept, kept_all, skills_of  # noqa: E402
 from attack_timing import mode_paths, all_char_ids, charpack, NOT_ATTACK  # noqa: E402
 import enemy_projectiles as ep  # noqa: E402
 
@@ -151,9 +153,11 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     ap.add_argument('--client', action='append', help='an Arknights_Data folder (repeatable; default: EN, then CN — client_path.py)')
     ap.add_argument('--out', default=str(OUT))
+    ap.add_argument('--id', action='append', default=[], help='only this operator (repeatable): every other row stays as the earlier run wrote it')
     args = ap.parse_args()
-    cids = all_char_ids()
-    wanted = {sid for lst in char_skill_prefabs().values() for sid in lst if isinstance(sid, str)}
+    cids = args.id or all_char_ids()
+    prefabs = char_skill_prefabs()
+    wanted = skills_of(cids, prefabs) if args.id else {sid for lst in prefabs.values() for sid in lst if isinstance(sid, str)}
     order = clients(args.client)
     ops, read, skills, skills_read = {}, set(), {}, set()
     for client in order:
@@ -180,22 +184,29 @@ def main():
         if not any(e['combat']):
             del e['combat']
     prev = earlier(args.out)
-    old_ops = kept(prev.get('ops') or {}, read, cids)
-    old_skills = kept(prev.get('skills') or {}, skills_read, wanted)
+    shot_keys = lambda o, s: {a['key'] for e in o.values() for a in e['attack'] if isinstance(a, dict)} | {v['key'] for v in s.values()}
+    fresh = shot_keys(ops, skills)  # the projectiles of the rows read this run
+    if args.id:
+        old_ops, old_skills = kept_all(prev.get('ops') or {}, read), kept_all(prev.get('skills') or {}, skills_read)
+    else:
+        old_ops, old_skills = kept(prev.get('ops') or {}, read, cids), kept(prev.get('skills') or {}, skills_read, wanted)
     ops.update(old_ops)
     skills.update(old_skills)
-    keys = {a['key'] for e in ops.values() for a in e['attack'] if isinstance(a, dict)} | {v['key'] for v in skills.values()}
-    projectiles = {}
-    for client in order:
-        projectiles.update(client_projectiles(Path(client), keys - set(projectiles)))
-    # a key no client has: the earlier run's record (a kept row's), else no movement
+    keys = shot_keys(ops, skills)
     old_p = prev.get('projectiles') or {}
+    # an --id run reads only its rows' projectiles again; the others keep the earlier run's records
+    projectiles = {k: v for k, v in old_p.items() if k in keys and k not in fresh} if args.id else {}
+    read_p = {}
+    for client in order:
+        read_p.update(client_projectiles(Path(client), (fresh if args.id else keys) - set(read_p)))
+    projectiles.update(read_p)
+    # a key no client has: the earlier run's record (a kept row's), else no movement
     projectiles.update({k: old_p.get(k, {'move': 'NONE', 'speed': 0}) for k in keys - set(projectiles)})
     out = {'projectiles': dict(sorted(projectiles.items())), 'ops': dict(sorted(ops.items())), 'skills': dict(sorted(skills.items()))}
     Path(args.out).write_text(json.dumps(out, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     old = [*old_ops, *old_skills]
     print(f'{len(ops)} operators, {len(skills)} skill shots, {len(projectiles)} projectiles → {args.out}'
-          + (f'; kept from the earlier run: {", ".join(old)}' if old else ''))
+          + (f'; read {", ".join(sorted(read))}, the other {len(old)} rows kept' if args.id else f'; kept from the earlier run: {", ".join(old)}' if old else ''))
 
 
 if __name__ == '__main__':

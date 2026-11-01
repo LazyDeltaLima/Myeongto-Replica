@@ -15,7 +15,8 @@ keys each mode's attack fires (`_projectileKey` under Modes/<name>/: a ranged mo
 
 Usage (from the repo root; --client = the EN client's Arknights_Data folder):
   .venv-extract/bin/python tools/local-extract/char_modes.py [--client <…/Arknights_Data>] [--id char_…]…
-Without --id every operator of data/chess.json + the 선발 picks of data/backups.json. Everything is (c) Hypergryph; private fan use only.
+Without --id every operator of data/chess.json (and of every other season's data/seasons/<id>/chess.json) + the 선발 picks of
+data/backups.json. Everything is (c) Hypergryph; private fan use only.
 """
 import argparse
 import json
@@ -54,23 +55,31 @@ def diy_operators():
     return out
 
 
+def chess_records():
+    """The chess records of data/chess.json, then of every other 卫戍协议 season's data/seasons/<id>/chess.json
+    (tools/build-data.mjs --season: a season's own file, written only when it differs) — a chess only a season being
+    built has is extracted like the current season's. The current season's come first (its skill order wins)."""
+    for path in [ROOT / 'data/chess.json', *sorted((ROOT / 'data/seasons').glob('*/chess.json'))]:
+        if not path.exists():
+            continue
+        d = json.loads(path.read_text(encoding='utf-8'))
+        recs = d.get('chess', d) if isinstance(d, dict) else d
+        yield from (c for c in (recs.values() if isinstance(recs, dict) else recs) if isinstance(c, dict))
+
+
 def pool_char_ids():
     ids = set(diy_operators())
-    chess = json.loads((ROOT / 'data/chess.json').read_text(encoding='utf-8'))
-    recs = chess.get('chess', chess)
-    for c in (recs.values() if isinstance(recs, dict) else recs):
-        if isinstance(c, dict) and isinstance(c.get('charId'), str) and c['charId'].startswith('char_'):
+    for c in chess_records():
+        if isinstance(c.get('charId'), str) and c['charId'].startswith('char_'):
             ids.add(c['charId'])
     return sorted(ids)
 
 
 def skill_durations():
-    """{skill prefabId: table duration} (data/chess.json, then the 自选 picks' forms of data/backups.json): > 0 a timed skill,
+    """{skill prefabId: table duration} (every season's chess, then the 自选 picks' forms of data/backups.json): > 0 a timed skill,
     0 / -1 none (an instant cast, charges, the next attack)."""
     out = {}
-    d = json.loads((ROOT / 'data/chess.json').read_text(encoding='utf-8'))
-    recs = d.get('chess', d) if isinstance(d, dict) else d
-    skills = [s for c in (recs.values() if isinstance(recs, dict) else recs) if isinstance(c, dict) for s in c.get('skills') or []]
+    skills = [s for c in chess_records() for s in c.get('skills') or []]
     path = ROOT / 'data/backups.json'
     if path.exists():
         for u in (json.loads(path.read_text(encoding='utf-8')).get('units') or {}).values():
@@ -83,12 +92,10 @@ def skill_durations():
 
 
 def char_skill_prefabs():
-    """{charId: [skill prefabId, …]} in skill order (data/chess.json, then the 선발 picks of data/backups.json)."""
+    """{charId: [skill prefabId, …]} in skill order (every season's chess — chess_records —, then the 선발 picks of data/backups.json)."""
     out = {}
-    d = json.loads((ROOT / 'data/chess.json').read_text(encoding='utf-8'))
-    recs = d.get('chess', d) if isinstance(d, dict) else d
-    for c in (recs.values() if isinstance(recs, dict) else recs):
-        if not isinstance(c, dict) or not isinstance(c.get('charId'), str) or c['charId'] in out:
+    for c in chess_records():
+        if not isinstance(c.get('charId'), str) or c['charId'] in out:
             continue
         sk = c.get('skills')
         if isinstance(sk, list) and sk:

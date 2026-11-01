@@ -8,9 +8,10 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -402,6 +403,37 @@ describe('client_path.py: EN first, CN for what it lacks, earlier rows kept (no 
     const out = cp(`old = {'char_a': 1, 'char_b': 2, 'char_gone': 3}
 print(json.dumps([c.kept(old, {'char_a'}, {'char_a', 'char_b', 'char_new'}), c.earlier('/nonexistent/t.json')]))`);
     assert.deepEqual(out, [{ char_b: 2 }, {}]);
+  });
+  test('an --id run: kept_all leaves every row it did not read (even one no data names); skills_of = those operators\' skills', () => {
+    const out = cp(`old = {'char_a': 1, 'char_b': 2, 'char_gone': 3}
+print(json.dumps([c.kept_all(old, {'char_a'}), sorted(c.skills_of(['char_a', 'char_x'], {'char_a': ['sk_a1', None, 'sk_a2'], 'char_b': ['sk_b']}))]))`);
+    assert.deepEqual(out, [{ char_b: 2, char_gone: 3 }, ['sk_a1', 'sk_a2']]);
+  });
+  test('char_modes.py: the operator pool and skills include every other season\'s chess (data/seasons/<id>/chess.json), the current season first', () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'sp-extract-seasons-'));
+    try {
+      const write = (rel, doc) => { mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true }); writeFileSync(path.join(dir, rel), JSON.stringify(doc)); };
+      write('data/chess.json', { c1: { chessId: 'c1', charId: 'char_1_a', skills: [{ prefabId: 'sk_a', duration: 10 }] } });
+      write('data/seasons/act9autochess/chess.json', {
+        c1: { chessId: 'c1', charId: 'char_1_a', skills: [{ prefabId: 'sk_other' }] },
+        c9: { chessId: 'c9', charId: 'char_9_new', skills: [{ prefabId: 'sk_new', duration: 0 }] },
+      });
+      const src = `import sys, json\nfrom pathlib import Path\nsys.path.insert(0, ${JSON.stringify(TOOL)})\nimport char_modes as m\nm.ROOT = Path(${JSON.stringify(dir)})\n`
+        + 'print(json.dumps([m.pool_char_ids(), m.char_skill_prefabs(), m.skill_durations()]))';
+      const r = spawnSync(PY, ['-c', src], { encoding: 'utf8', env: ENV });
+      assert.equal(r.status, 0, r.stderr);
+      assert.deepEqual(JSON.parse(r.stdout), [['char_1_a', 'char_9_new'], { char_1_a: ['sk_a'], char_9_new: ['sk_new'] }, { sk_a: 10, sk_new: 0 }]);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+  test('add_operator.py: codenames, and only a row that names none of the added operators counts as moved', () => {
+    const src = `import sys, json\nsys.path.insert(0, ${JSON.stringify(TOOL)})\nimport add_operator as a\n`
+      + `before = {t: {} for t in a.TABLES}\nafter = {t: {} for t in a.TABLES}\n`
+      + `before[a.TABLES[0]] = a.flat({'char_1_new': {'x': 1}, 'char_2_old': {'x': 1}, 'ops': {'char_2_old': 1}})\n`
+      + `after[a.TABLES[0]] = a.flat({'char_1_new': {'x': 2}, 'char_2_old': {'x': 2}, 'ops': {'char_2_old': 1, 'sk_new_1': 3}})\n`
+      + `print(json.dumps([a.codename('char_1042_phatm2'), a.codename('x'), a.moved(before, after, {'char_1_new', 'new'})]))`;
+    const r = spawnSync(PY, ['-c', src], { encoding: 'utf8', env: ENV });
+    assert.equal(r.status, 0, r.stderr);
+    assert.deepEqual(JSON.parse(r.stdout), ['phatm2', 'x', { 'tools/assets/local-char-modes.json': ['char_2_old/x'] }]);
   });
   test('the tracked whole-operator tables have a row for every 自选 pick (an EN-only run dropped the CN-only ones before)', async () => {
     const { LOCAL_DIY_PICKS } = await import('../shared/local-diy.js');
