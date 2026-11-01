@@ -10,7 +10,7 @@ import {
   avatarUrl, portraitUrl, enemyIconUrl, tokenAvatarUrl, bondIconUrl, bandIconUrl, itemIconUrl, skillIconUrl, uiUrl,
   profIconUrl, subProfIconUrl, spineEntry, hasBackSpine, unitPictureUrl, bgmEntry, sfxUrl, unitSfxUrl, baseCharId,
   validSpine, RefLru, createAssets, unloadSpineData, spinePages, spineDataWeight, SPINE_WEIGHT_MIN, SPINE_IDLE_BYTES,
-  SPINE_IDLE_GRACE_MS, SPINE_EVICT_DELAY_MS, SPINE_QUIET_DELAY_MS, loadSpineData, PMA_PAGE_PARSER,
+  SPINE_IDLE_GRACE_MS, SPINE_EVICT_DELAY_MS, SPINE_QUIET_DELAY_MS, loadSpineData, PMA_PAGE_PARSER, localPagesEntry,
 } from '../../public/js/assets.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -553,24 +553,72 @@ describe('premultiplied Spine pages are decoded as they are', () => {
       await loadSpineData({ skel: '/s/b.skel', pma: true });
       await loadSpineData({ skel: '/s/c.skel' });
       assert.deepEqual(f.loads, [
-        { src: '/s/a.skel', data: { imageMetadata: { [PMA_PAGE_PARSER]: true } } },
-        { src: '/s/b.skel', data: { imageMetadata: { [PMA_PAGE_PARSER]: true } } },
+        { src: '/s/a.skel', data: { imageMetadata: { [PMA_PAGE_PARSER]: {} } } },
+        { src: '/s/b.skel', data: { imageMetadata: { [PMA_PAGE_PARSER]: {} } } },
         '/s/c.skel',
       ]);
       assert.equal(f.parsers.length, 1);
       const p = f.parsers[0];
       assert.ok(p.extension.priority > 2, 'ahead of PIXI loadTextures (High)');
-      assert.equal(p.test('/s/a.png', { src: '/s/a.png', data: { [PMA_PAGE_PARSER]: true } }), true);
+      assert.equal(p.test('/s/a.png', { src: '/s/a.png', data: { [PMA_PAGE_PARSER]: {} } }), true);
       assert.equal(p.test('/s/c.png', { src: '/s/c.png' }), false);
       assert.equal(p.test('/s/c.png', { src: '/s/c.png', data: {} }), false);
-      const tex = await p.load('/s/a.png', { src: '/s/a.png' }, 'LOADER');
+      const tex = await p.load('/s/a.png', { src: '/s/a.png', data: { [PMA_PAGE_PARSER]: {} } }, { parsers: [] });
       // decoded without premultiplying (ImageBitmapResource: alphaMode PMA → createImageBitmap premultiplyAlpha 'none')
       assert.equal(tex.base.resource.opts.alphaMode, 2);
       assert.equal(tex.base.resource.loaded, true);
       assert.equal(tex.base.opts.alphaMode, 2);
       assert.equal(tex.url, '/s/a.png');
-      assert.equal(tex.loader, 'LOADER');
     } finally { f.restore(); }
+  });
+
+  test('local operator pages: the client page premultiplied; a page that fails loads the web one as its own kind', async () => {
+    const f = fakePixi();
+    try {
+      const fail = new Set();
+      globalThis.PIXI.ImageBitmapResource = class {
+        constructor(url, opts) { this.url = url; this.opts = opts; }
+        async load() { if (fail.has(this.url)) throw new Error('404'); }
+      };
+      const web = { skel: '/assets/spine/op/c/front/c.skel', textures: ['/assets/spine/op/c/front/c.png'], pma: false };
+      const entry = { ...web, pma: true, webPma: false, pages: { '/assets/spine/op/c/front/c.png': '/assets/local/spine/op/c/front/c.png' } };
+      await loadSpineData(entry);
+      const meta = f.loads[0].data.imageMetadata[PMA_PAGE_PARSER];
+      assert.deepEqual(meta, { pages: entry.pages, straight: true });
+      const p = f.parsers[0];
+      const plain = { name: 'loadTextures', load: async (url, asset) => ({ plain: url, data: asset.data }) };
+      const loader = { parsers: [plain, p] };
+      // the loader asks for the page by its absolute URL
+      const abs = 'http://host:3011/assets/spine/op/c/front/c.png';
+      const tex = await p.load(abs, { src: abs, data: { [PMA_PAGE_PARSER]: meta } }, loader);
+      assert.equal(tex.base.resource.url, '/assets/local/spine/op/c/front/c.png');
+      assert.equal(tex.base.opts.alphaMode, 2);
+      assert.equal(tex.url, abs, 'cached under the web page URL (unloadSpineData unloads the web pages)');
+      fail.add('/assets/local/spine/op/c/front/c.png');
+      assert.deepEqual(await p.load(abs, { src: abs, data: { [PMA_PAGE_PARSER]: meta } }, loader), { plain: abs, data: {} }, 'straight web page: PIXI\'s own loader');
+      const pmaWeb = await p.load(abs, { src: abs, data: { [PMA_PAGE_PARSER]: { ...meta, straight: false } } }, loader);
+      assert.equal(pmaWeb.base.resource.url, abs, 'premultiplied web page: decoded as it is');
+    } finally { f.restore(); }
+  });
+
+  test('localPagesEntry: every page listed → the web entry with pages, pma and webPma; else null; one object per pair', () => {
+    const sp = { skel: '/assets/spine/op/char_1_x/back/x.skel', atlas: '/assets/spine/op/char_1_x/back/x.atlas', anims: {},
+      textures: ['/assets/spine/op/char_1_x/back/x.png', '/assets/spine/op/char_1_x/back/x2.png'], pma: false };
+    const g = (names) => ({ groups: { 'spine/op/char_1_x/back': Object.fromEntries(names.map((n) => [n, { path: `/assets/local/spine/op/char_1_x/back/${n}` }])) } });
+    const local = g(['x.png', 'x2.png']);
+    const e = localPagesEntry(sp, local);
+    assert.equal(e.skel, sp.skel);
+    assert.equal(e.pma, true);
+    assert.equal(e.webPma, false);
+    assert.deepEqual(e.pages, { [sp.textures[0]]: '/assets/local/spine/op/char_1_x/back/x.png', [sp.textures[1]]: '/assets/local/spine/op/char_1_x/back/x2.png' });
+    assert.ok(localPagesEntry(sp, local) === e, 'cached');
+    assert.equal(localPagesEntry(sp, g(['x.png'])), null, 'a page missing: the web model as it is');
+    assert.equal(localPagesEntry({ ...sp, skel: '/assets/spine/enemy/e/e.skel' }, local), null);
+    assert.equal(localPagesEntry(sp, null), null);
+    const m = { chars: { char_1_x: { spine: { front: { ...sp, skel: '/assets/spine/op/char_1_x/front/x.skel', textures: ['/assets/spine/op/char_1_x/front/x.png'] }, back: sp } } } };
+    assert.ok(spineEntry(m, 'char_1_x', { back: true, local }).pages);
+    assert.ok(spineEntry(m, 'char_1_x', { back: true, local: null }) === sp);
+    assert.ok(spineEntry(m, 'char_1_x', { local }) === m.chars.char_1_x.spine.front, 'front pages not listed: web');
   });
 
   test('a PIXI without the loader parts loads a pma model by its URL', async () => {

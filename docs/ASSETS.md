@@ -429,6 +429,23 @@ Other renderer rules from research 07 §5.4–5.5:
     either install's asset index either): 乌尔比安's 从不混淆的方向, 圣聆初雪's 保护目标（冻结状态）, 酒神's 迷狂牢笼, 贝洛内's
     牵绊 and 予愿安洁莉娜's “一会儿见！” — the last three keep the token fallback picture (`tokenAvatarUrl`: no avatar, no
     owner in the manifest → the 召唤物 battle-card icon).
+- **Operator page textures from the local client** (2026-11-01, docs/rules/render.md, the operator battle texture
+  section): the web operator models carry a re-compressed copy of the page textures whose soft edges drift from the
+  client's (a light seam round the skin patches that shape 铃兰's and 史尔特尔's eyes). Their skeleton and atlas regions
+  are the client's, so only the pages are replaced:
+  - `tools/local-extract/extract.py OP_PAGE_SUB` (`--only spine/op`, or `spine/op/<charId>`; the AB root must hold
+    `chararts/`, e.g. the merged tree of DEPLOY/ops notes) reads every operator of `data/assets.json chars` with a web
+    model from its battle bundle (`chararts/<charId>.ab`, `defaultskin.prefab`: the Front and Back renderers, or the one
+    `Spine` renderer of a model without directions), builds each side's pages as the enemy models get them
+    (premultiplied: the `[alpha]` texture merged in, a `_USEBLEED_ON` page multiplied by its alpha) and writes them to
+    `public/assets/local/spine/op/{charId}/{front|back}/` under the web atlas's page names — only when the client atlas
+    has the same pages and regions as the web atlas on disk (run it after fetch-assets) and the page sizes match.
+  - `assets.js spineEntry` (`localPagesEntry`) keeps the web skeleton and atlas and loads those pages instead when
+    `data/local-assets.json` lists every page of the side (`entry.pages`, `pma: true`); a page that fails to load falls
+    back to its web page, decoded as its own kind. A model the extraction skipped keeps its web pages.
+  - First run (EN client, 2026-11-01): 145 of the 149 operators, 289 pages, 32.8 MB (the web pages were 42.0 MB);
+    `char_1015_aglna2`, `char_4231_clemnt`, 塔露拉 (`char_4247_oxi`) and 托斯卡 (`char_4244_tocka`) have no battle
+    bundle in the EN client and keep the web pages.
 
 ### Other fallbacks
 

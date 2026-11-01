@@ -36,7 +36,8 @@
 //   assets.localUrl('map/autochess', 'TX_autochessi_D')   DESIGN §13) → URL or null (never required)
 //   assets.spineEntry('enemy_1305_mhslim')          // its official model from the local client once local() listed
 //                                                   // it (manifest spineLocal; enemies and tokens), else the web
-//                                                   // model; `.fallback`
+//                                                   // model; `.fallback`; an operator's web model with the
+//                                                   // client's page textures (`.pages`, localPagesEntry)
 //
 // Every URL helper is also exported as a pure function taking the manifest first (`avatarUrl(manifest, …)`),
 // so it can be unit tested without a browser. Helpers never throw on unknown ids — they return null and the
@@ -146,7 +147,8 @@ export function subProfIconUrl(m, sub) {
  * (`spineLocal`, e.g. 灼热源石虫 — user feedback after 0.1.0, D3 — and most 自选 summons) gets that model when the
  * manifest lists every one of its files; the returned entry's `fallback` is the web model (an enemy's alias; a token's
  * web model, mostly none — its view then keeps the avatar diamond), for a load failure (DESIGN §13: local art is
- * optional, everything works without it).
+ * optional, everything works without it). An operator keeps its web model but takes the client's page textures when
+ * `opts.local` lists them (localPagesEntry; a missing local page loads the web one).
  */
 export function spineEntry(m, id, opts) {
   const s = str(id);
@@ -154,7 +156,8 @@ export function spineEntry(m, id, opts) {
   const ch = get(get(m, 'chars'), s) || get(get(m, 'chars'), baseCharId(s));
   if (ch && isObj(ch.spine)) {
     const sp = (opts && opts.back && isObj(ch.spine.back)) ? ch.spine.back : ch.spine.front;
-    return validSpine(sp) ? sp : null;
+    if (!validSpine(sp)) return null;
+    return (opts && opts.local && localPagesEntry(sp, opts.local)) || sp;
   }
   const tk = get(get(m, 'tokens'), s);
   if (tk) {
@@ -557,7 +560,10 @@ export function loadImageElement(url) {
  * flags for an ImageBitmap — so the atlas's `pma: true` (pixi-spine: `ALPHA_MODES.PMA`) only changed the blending, and
  * a premultiplied page was multiplied by its alpha a second time: its soft edges darkened (a dark ring round 铃兰's and
  * 史尔特尔's eyes). Here the page is decoded as it is (`premultiplyAlpha: 'none'`). The atlas parser hands pixi-spine's
- * `imageMetadata` to each page load as its `data`, which is how loadSpineData picks this parser.
+ * `imageMetadata` to each page load as its `data`, which is how loadSpineData picks this parser: `data[PMA_PAGE_PARSER]`
+ * = {} for a premultiplied model, or `{ pages, straight }` for an operator model whose pages the local client extraction
+ * replaces (localPagesEntry): a page in `pages` (web page path → local page URL) loads from there, premultiplied; when it
+ * cannot (a checkout without the extraction), the web page loads instead, as its own kind (`straight`: PIXI's loader).
  */
 export const PMA_PAGE_PARSER = 'spPremultipliedSpinePage';
 /** Adds the parser once; false when this PIXI lacks what it needs (then pages load as before). */
@@ -565,20 +571,57 @@ function installPmaPageParser(PIXI) {
   const parsers = PIXI.Assets.loader && PIXI.Assets.loader.parsers;
   if (!Array.isArray(parsers) || !PIXI.extensions || !PIXI.ImageBitmapResource || !PIXI.createTexture) return false;
   if (parsers.some((p) => p.name === PMA_PAGE_PARSER)) return true;
+  const premultiplied = async (src, url, loader) => {
+    const resource = new PIXI.ImageBitmapResource(src, { alphaMode: PIXI.ALPHA_MODES.PMA, ownsImageBitmap: true, autoLoad: false });
+    await resource.load();
+    const base = new PIXI.BaseTexture(resource, { alphaMode: PIXI.ALPHA_MODES.PMA, resolution: PIXI.utils.getResolutionOfUrl(url) });
+    base.resource.src = url;
+    return PIXI.createTexture(base, loader, url);
+  };
   PIXI.extensions.add({
     extension: { type: PIXI.ExtensionType.LoadParser, priority: PIXI.LoaderParserPriority.High + 1 },
     name: PMA_PAGE_PARSER,
     test: (url, asset) => !!(asset && asset.data && asset.data[PMA_PAGE_PARSER]),
     async load(url, asset, loader) {
-      const resource = new PIXI.ImageBitmapResource(url, { alphaMode: PIXI.ALPHA_MODES.PMA, ownsImageBitmap: true, autoLoad: false });
-      await resource.load();
-      const base = new PIXI.BaseTexture(resource, { alphaMode: PIXI.ALPHA_MODES.PMA, resolution: PIXI.utils.getResolutionOfUrl(url) });
-      base.resource.src = url;
-      return PIXI.createTexture(base, loader, url);
+      const o = asset.data[PMA_PAGE_PARSER];
+      const local = isObj(o.pages) ? o.pages[String(url).replace(/^[a-z][a-z0-9+.-]*:\/\/[^/]+/i, '')] : null;
+      if (local) {
+        try { return await premultiplied(local, url, loader); } catch { /* the web page below */ }
+      }
+      const plain = o.straight && loader.parsers.find((p) => p.name === 'loadTextures');
+      return plain ? plain.load(url, { ...asset, data: {} }, loader) : premultiplied(url, url, loader);
     },
     unload(texture) { texture.destroy(true); },
   });
   return true;
+}
+
+const localPages = new WeakMap(); // web operator Spine entry → { local, entry } (one entry object per manifest pair)
+
+/**
+ * A web operator model whose page textures the local client extraction replaces (data/local-assets.json group
+ * `spine/op/<charId>/<front|back>`, tools/local-extract/extract.py OP_PAGE_SUB; docs/rules/render.md 「오퍼레이터 전투
+ * 텍스처는 로컬 클라이언트 것」): the same entry with `pages` (web page URL → local page URL), `pma: true` (the local pages
+ * are premultiplied) and `webPma` (the web pages' kind, for a page that falls back), when the group lists every page;
+ * else null. The skeleton and atlas stay the web ones.
+ */
+export function localPagesEntry(sp, local) {
+  if (!isObj(sp) || !isObj(local)) return null;
+  const c = localPages.get(sp);
+  if (c && c.local === local) return c.entry;
+  const m = /^\/assets\/spine\/op\/([^/]+)\/(front|back)\//.exec(str(sp.skel) || '');
+  let entry = null;
+  if (m) {
+    const pages = {};
+    for (const u of spinePages(sp)) {
+      const l = localAssetUrl(local, `spine/op/${m[1]}/${m[2]}`, u.slice(u.lastIndexOf('/') + 1));
+      if (!l) { entry = false; break; }
+      pages[u] = l;
+    }
+    if (entry !== false && Object.keys(pages).length) entry = { ...sp, pma: true, webPma: !!sp.pma, pages };
+  }
+  localPages.set(sp, { local, entry: entry || null });
+  return entry || null;
 }
 
 /** Default Spine loader: PIXI.Assets.load(skel) → spineData (needs globalThis.PIXI + PIXI.spine). */
@@ -586,8 +629,10 @@ export async function loadSpineData(entry, opts) {
   const PIXI = globalThis.PIXI;
   if (!PIXI || !PIXI.Assets || !PIXI.spine) throw new Error('PIXI / pixi-spine not loaded');
   if (opts && opts.fresh) forgetPendingSpine(entry, opts.keep);
-  const pma = !!entry.pma && installPmaPageParser(PIXI);
-  const res = await PIXI.Assets.load(pma ? { src: entry.skel, data: { imageMetadata: { [PMA_PAGE_PARSER]: true } } } : entry.skel);
+  const pages = isObj(entry.pages) ? entry.pages : null;
+  const pma = (!!entry.pma || !!pages) && installPmaPageParser(PIXI);
+  const meta = pages ? { pages, straight: !entry.webPma } : {};
+  const res = await PIXI.Assets.load(pma ? { src: entry.skel, data: { imageMetadata: { [PMA_PAGE_PARSER]: meta } } } : entry.skel);
   const data = res && (res.spineData || res);
   if (!data || !Array.isArray(data.animations)) throw new Error(`bad spine data: ${entry.skel}`);
   return data;

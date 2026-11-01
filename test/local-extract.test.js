@@ -94,6 +94,41 @@ print(json.dumps({
     assert.deepEqual(out.pages, ['token_x.png', 'token_x2.png']);
   });
 
+  test('operator pages: atlas_regions ignores the page header fields, not the regions; atlas_page_sizes; the job is listed', () => {
+    const web = 'char_x.png\nsize: 512,512\nformat: RGBA8888\nfilter: Linear,Linear\nrepeat: none\npma: true\nF_Head\n  rotate: false\n  xy: 2, 2\n  size: 63, 63\n';
+    const client = '\nchar_x.png\nformat: RGBA8888\nfilter: Linear,Linear\nrepeat: none\nF_Head\n  rotate: false\n  xy: 2, 2\n  size: 63, 63  \n';
+    const moved = client.replace('xy: 2, 2', 'xy: 3, 2');
+    const out = py(`print(json.dumps({
+  'same': e.atlas_regions(${JSON.stringify(web)}) == e.atlas_regions(${JSON.stringify(client)}),
+  'moved': e.atlas_regions(${JSON.stringify(web)}) == e.atlas_regions(${JSON.stringify(moved)}),
+  'regions': e.atlas_regions(${JSON.stringify(web)}),
+  'sizes': e.atlas_page_sizes(${JSON.stringify(web)} + '\\nchar_x2.png\\nsize: 256,128\\nB\\n  xy: 0, 0\\n'),
+}))`);
+    assert.equal(out.same, true, 'size / format / filter / repeat / pma and blank lines do not count');
+    assert.equal(out.moved, false, 'a region moved on the page does');
+    assert.deepEqual(out.regions, ['char_x.png', 'F_Head', '  rotate: false', '  xy: 2, 2', '  size: 63, 63']);
+    assert.deepEqual(out.sizes, { 'char_x.png': [512, 512], 'char_x2.png': [256, 128] });
+    const r = spawnSync(PY, [path.join(TOOL, 'extract.py'), '--print-jobs'], { encoding: 'utf8', env: ENV });
+    assert.equal(r.status, 0, r.stderr);
+    assert.deepEqual(JSON.parse(r.stdout).opPages, { bundles: 'chararts/<charId>.ab', sub: 'spine/op' });
+  });
+
+  test('operator pages on this machine: every listed group is a web operator model side, its pages its web atlas pages, same sizes', { skip: !manifest?.groups?.['spine/op/char_358_lisa/front'] && 'no extracted operator pages' }, () => {
+    const assets = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8'));
+    const groups = Object.entries(manifest.groups).filter(([g]) => g.startsWith('spine/op/'));
+    assert.ok(groups.length > 100);
+    for (const [g, files] of groups) {
+      const [, , cid, side] = g.split('/');
+      const web = assets.chars[cid]?.spine?.[side];
+      assert.ok(web, g);
+      assert.deepEqual(Object.keys(files).sort(), web.textures.map((u) => u.slice(u.lastIndexOf('/') + 1)).sort(), g);
+      for (const [name, f] of Object.entries(files)) {
+        assert.equal(f.path, `/assets/local/${g}/${name}`);
+        assert.ok(existsSync(path.join(ROOT, 'public', f.path)), f.path);
+      }
+    }
+  });
+
   test('prefab_spine_nodes: the SkeletonAnimation renderers of a prefab tree, depth first, inactive branches marked', () => {
     // a directional token prefab: Graphic / DefaultSkin / FaceSwitcher / {Front, Back} (each with its own skeleton), an
     // inactive Spare renderer, a component in another bundle (m_FileID ≠ 0) and a MonoBehaviour without a type tree

@@ -176,6 +176,20 @@ TOKEN_SPINES = [
 TOKEN_PACKS = 'pkgrps/btl_pfb_tokens_*.ab'
 TOKEN_SPINE_SUB = 'spine/token'
 
+# Operator battle Spine pages (2026-11-01, maintainer report 「스즈란·수르트 얼굴 눈 주변에 외곽선이 보인다」; docs/rules/render.md
+# 「오퍼레이터 전투 텍스처는 로컬 클라이언트 것」): the web operator models (fexli/ArknightsResource, tools/fetch-assets.mjs) carry
+# their own, re-compressed copy of the page textures — at the soft edges colour and alpha drift from the client's (RGB
+# above A, alpha off by up to ~80/255), and the skin patches that shape 铃兰's and 史尔特尔's eyes show a light seam. Their
+# skeleton and atlas regions are the client's, so only the pages are replaced: for every operator of data/assets.json
+# chars with a web model, the battle bundle (chararts/<id>.ab, dyn/battle/prefabs/skins/character/<id>/defaultskin.prefab:
+# its Front and Back renderers) → each side's SkeletonDataAsset → its pages as the enemy models get them
+# (spine_atlas_pages: premultiplied, whatever the material), saved under the web atlas's page names when the two atlases
+# have the same pages and regions and the page sizes match (the web atlas on disk: run after tools/fetch-assets.mjs).
+# Output: spine/op/<id>/<front|back>/<page>.png (manifest group spine/op/<id>/<side>); the client draws them in place of
+# the web pages (public/js/assets.js spineEntry `pages`), and a page that fails to load falls back to the web one.
+OP_ART = 'chararts'
+OP_PAGE_SUB = 'spine/op'
+
 # Derived three.js maps: (output subdir, source texture, kind, output name). 'normal_rg' rebuilds Z of a two-channel
 # (BC5) normal map into an RGB tangent-space map; 'rough_from_gloss' turns Unity's metallic/gloss map (smoothness in
 # A) into a roughness (G) / metalness (B) map. Written after the job that exported the source texture.
@@ -705,20 +719,12 @@ def normalize_atlas(text, sizes):
     return '\n'.join(out)
 
 
-def write_spine(objects, sda, sub, name, out_root, manifest, log):
-    """Write one Spine model of a SkeletonDataAsset type tree — its skeleton TextAsset, its atlas TextAsset(s) (sized,
-    `pma: true`: normalize_atlas) and the page textures of the atlas materials (_MainTex with its _AlphaTex merged in,
-    merge_alpha) — to <out_root>/<sub>/ as <stem>.skel, <stem>.atlas (one stem: pixi-spine finds the atlas by the
-    skeleton's name) and <page>.png, and list them in the manifest group `sub`. Returns the file count; 0 when a part
-    is missing or the textures do not match the atlas pages (nothing is written then). `name` labels the log lines and
-    names a skeleton without a name."""
+def spine_atlas_pages(objects, sda, name, log):
+    """The atlas text of a SkeletonDataAsset type tree (its atlas TextAsset(s), joined) and its page textures — the
+    atlas materials' _MainTex with its _AlphaTex merged in (merge_alpha: premultiplied) — as {page file name: image},
+    named as the atlas names its pages. (None, None) when a part is missing or the textures do not match the atlas
+    pages. `name` labels the log lines."""
     get = lambda pptr: objects.get(pptr['m_PathID']) if pptr and not pptr.get('m_FileID') else None  # noqa: E731
-    skel = get(sda.get('skeletonJSON'))
-    if skel is None:
-        log(f'  warn {name}: skeleton TextAsset not in this bundle')
-        return 0
-    ta = skel.read()
-    stem = safe_name(getattr(ta, 'm_Name', '') or name).removesuffix('.skel')
     texts, pages = [], {}
     for aref in sda.get('atlasAssets') or []:
         aa = get(aref)
@@ -743,14 +749,34 @@ def write_spine(objects, sda, sub, name, out_root, manifest, log):
                                                                straight)
     if not texts or not pages:
         log(f'  warn {name}: atlas or page textures missing')
-        return 0
+        return None, None
     atlas = texts[0] if len(texts) == 1 else '\n\n'.join(t.strip('\n') for t in texts) + '\n'
     names = atlas_pages(atlas)
     if set(names) != set(pages):
         if len(names) != 1 or len(pages) != 1:
             log(f'  warn {name}: atlas pages {names} do not match the textures {sorted(pages)}')
-            return 0
+            return None, None
         pages = {names[0]: next(iter(pages.values()))}  # one page under another name: saved as the atlas names it
+    return atlas, pages
+
+
+def write_spine(objects, sda, sub, name, out_root, manifest, log):
+    """Write one Spine model of a SkeletonDataAsset type tree — its skeleton TextAsset, its atlas TextAsset(s) (sized,
+    `pma: true`: normalize_atlas) and the page textures of the atlas materials (spine_atlas_pages) — to
+    <out_root>/<sub>/ as <stem>.skel, <stem>.atlas (one stem: pixi-spine finds the atlas by the skeleton's name) and
+    <page>.png, and list them in the manifest group `sub`. Returns the file count; 0 when a part is missing or the
+    textures do not match the atlas pages (nothing is written then). `name` labels the log lines and names a skeleton
+    without a name."""
+    get = lambda pptr: objects.get(pptr['m_PathID']) if pptr and not pptr.get('m_FileID') else None  # noqa: E731
+    skel = get(sda.get('skeletonJSON'))
+    if skel is None:
+        log(f'  warn {name}: skeleton TextAsset not in this bundle')
+        return 0
+    ta = skel.read()
+    stem = safe_name(getattr(ta, 'm_Name', '') or name).removesuffix('.skel')
+    atlas, pages = spine_atlas_pages(objects, sda, name, log)
+    if atlas is None:
+        return 0
     files = {f'{stem}.skel': _text_bytes(ta),
              f'{stem}.atlas': normalize_atlas(atlas, {p: img.size for p, img in pages.items()}).encode('utf-8')}
     out_dir = Path(out_root) / sub
@@ -838,6 +864,129 @@ def export_token_spines(ab_root, out_root, manifest, log, ids=None):
     return n
 
 
+def atlas_regions(text):
+    """A Spine atlas text without its page header fields (size / format / filter / repeat / pma, which tools/assets and
+    normalize_atlas rewrite): the page names and every region with its fields, blank lines and trailing spaces dropped —
+    two atlases with the same regions place every attachment on the same pixels."""
+    lines = text.replace('\r\n', '\n').replace('\r', '\n').lstrip('﻿').split('\n')
+    out, header = [], False
+    for i, line in enumerate(lines):
+        if _is_page_line(lines, i):
+            out.append(line.strip())
+            header = True
+            continue
+        if header and line.strip() and not line[:1].isspace() and ':' in line:
+            continue
+        header = False
+        if line.strip():
+            out.append(line.rstrip())
+    return out
+
+
+def atlas_page_sizes(text):
+    """{page name: (w, h)} from the `size:` fields of a Spine atlas text's page headers."""
+    lines = text.replace('\r\n', '\n').replace('\r', '\n').lstrip('﻿').split('\n')
+    sizes, page = {}, None
+    for i, line in enumerate(lines):
+        if _is_page_line(lines, i):
+            page = line.strip()
+        elif page and line.startswith('size:'):
+            w, h = (int(v) for v in line.split(':', 1)[1].split(','))
+            sizes[page] = (w, h)
+        elif not line.strip() or line[:1].isspace():
+            page = None
+    return sizes
+
+
+def op_page_ids():
+    """The operators with a web battle model (data/assets.json chars[id].spine), sorted."""
+    try:
+        chars = json.loads((ROOT / 'data/assets.json').read_text(encoding='utf-8')).get('chars') or {}
+    except (OSError, ValueError):
+        return []
+    return sorted(cid for cid, c in chars.items() if isinstance(c, dict) and isinstance(c.get('spine'), dict))
+
+
+def write_op_pages(objects, sda, cid, side, web_atlas, out_root, manifest, log):
+    """The client pages of one operator model side (spine_atlas_pages) in place of the web pages: written to
+    <out_root>/spine/op/<cid>/<side>/<page> under the web atlas's page names and listed in that manifest group, when the
+    two atlases have the same regions (atlas_regions) and the page sizes match the web atlas's `size:`. Returns the page
+    count; 0 (nothing written) otherwise."""
+    label = f'{cid} {side}'
+    atlas, pages = spine_atlas_pages(objects, sda, label, log)
+    if atlas is None:
+        return 0
+    if atlas_regions(atlas) != atlas_regions(web_atlas):
+        log(f'  warn {label}: the client atlas has other regions than the web one; web pages kept')
+        return 0
+    sizes = atlas_page_sizes(web_atlas)
+    bad = [p for p, img in pages.items() if sizes.get(p) and sizes[p] != img.size]
+    if bad:
+        log(f'  warn {label}: page size differs from the web atlas ({bad}); web pages kept')
+        return 0
+    sub = f'{OP_PAGE_SUB}/{cid}/{side}'
+    out_dir = Path(out_root) / sub
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for fname, img in pages.items():
+        img.save(out_dir / fname, optimize=True)
+        manifest.setdefault(sub, {})[fname] = {'path': f'/assets/local/{sub}/{fname}', 'w': img.width, 'h': img.height,
+                                               'kind': 'Texture2D'}
+    return len(pages)
+
+
+def export_operator_pages(ab_root, out_root, manifest, log, ids):
+    """OP_PAGE_SUB: the client pages of each operator in `ids` (op_page_ids), both sides of its web model, from its
+    battle bundle (one bundle loaded at a time)."""
+    import aklz4  # noqa: F401  (registers the LZ4AK decoder)
+    import UnityPy
+    chars = json.loads((ROOT / 'data/assets.json').read_text(encoding='utf-8')).get('chars') or {}
+    n, done = 0, 0
+    for cid in ids:
+        f = Path(ab_root) / OP_ART / f'{cid}.ab'
+        if not f.exists():
+            log(f'skip (no battle bundle) operator pages {cid}')
+            continue
+        try:
+            env = UnityPy.load(str(f))
+        except Exception as e:  # corrupt or unsupported bundle: report and continue
+            log(f'FAIL load {f.name}: {e}')
+            continue
+        objects = {o.path_id: o for o in env.objects}
+        prefab = next((ref for name, ref in env.container.items()
+                       if name.endswith(f'/character/{cid}/defaultskin.prefab')), None)
+        if prefab is None:
+            log(f'  warn {cid}: no defaultskin prefab in {f.name}')
+            continue
+        nodes = prefab_spine_nodes(prefab.read_typetree(), objects)
+        k = 0
+        for side in ('front', 'back'):
+            web = (chars.get(cid, {}).get('spine') or {}).get(side)
+            if not isinstance(web, dict) or not isinstance(web.get('atlas'), str):
+                continue
+            web_path = ROOT / 'public' / web['atlas'].lstrip('/')
+            if not web_path.exists():
+                log(f'  warn {cid} {side}: web atlas {web["atlas"]} not on disk (run tools/fetch-assets.mjs first)')
+                continue
+            # a directional model has Front / Back renderers; one without (斯卡蒂 the 浊心 skin: one `Spine`) is its front
+            want = ('Front', 'Spine') if side == 'front' else ('Back',)
+            node = next((nd for w in want for nd in nodes if nd[0] == w and nd[1]), None) \
+                or next((nd for w in want for nd in nodes if nd[0] == w), None)
+            sda = objects.get(node[2]['m_PathID']) if node and not node[2].get('m_FileID') else None
+            if sda is None:
+                log(f'  warn {cid} {side}: no {"/".join(want)} renderer in its prefab')
+                continue
+            try:
+                k += write_op_pages(objects, sda.read_typetree(), cid, side, web_path.read_text(encoding='utf-8', errors='replace'),
+                                    out_root, manifest, log)
+            except Exception as e:
+                log(f'  warn {cid} {side}: {e}')
+        if k:
+            n += k
+            done += 1
+    log(f'operator pages: {done} of {len(ids)} operators, {n} pages -> {OP_PAGE_SUB}')
+    return n
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--game', help='AssetBundle root (…/StreamingAssets/AB/Windows or …/Documents/Bundles)')
@@ -859,7 +1008,8 @@ def main():
         print(json.dumps({'emoteThemes': [{'themeId': t, 'dir': d} for t, d in EMOTE_THEMES], 'jobs': jobs,
                           'derived': derived, 'webp': webp,
                           'enemySpines': {'bundles': ENEMY_ART, 'sub': ENEMY_SPINE_SUB, 'ids': ENEMY_SPINES},
-                          'tokenSpines': {'bundles': TOKEN_PACKS, 'sub': TOKEN_SPINE_SUB, 'ids': TOKEN_SPINES}},
+                          'tokenSpines': {'bundles': TOKEN_PACKS, 'sub': TOKEN_SPINE_SUB, 'ids': TOKEN_SPINES},
+                          'opPages': {'bundles': f'{OP_ART}/<charId>.ab', 'sub': OP_PAGE_SUB}},
                          ensure_ascii=False))
         return 0
     if args.webp:
@@ -872,7 +1022,8 @@ def main():
     jobs = select_jobs(args.only)
     enemy_ids = spine_ids(args.only, ENEMY_SPINE_SUB, ENEMY_SPINES)
     token_ids = spine_ids(args.only, TOKEN_SPINE_SUB, TOKEN_SPINES)
-    if not jobs and not enemy_ids and not token_ids:
+    op_ids = spine_ids(args.only, OP_PAGE_SUB, op_page_ids())
+    if not jobs and not enemy_ids and not token_ids and not op_ids:
         print(f'--only {args.only}: no job matches', file=sys.stderr)
         return 2
     out_root = Path(args.out)
@@ -885,6 +1036,8 @@ def main():
         total += export_enemy_spines(ab_root, out_root, manifest, print, enemy_ids)
     if token_ids:
         total += export_token_spines(ab_root, out_root, manifest, print, token_ids)
+    if op_ids:
+        total += export_operator_pages(ab_root, out_root, manifest, print, op_ids)
     old = {}
     if args.only and Path(args.manifest).exists():
         try:

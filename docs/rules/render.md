@@ -255,6 +255,28 @@
   1520이 8 넘게 다름(눈·볼 둘레 어두운 선이 사라짐), 원석충은 1픽셀. `RENDER_E2E` `eyemask.browser.test.js`(에이야퍄들라 더 크비트 아스카, `pma`
   모델을 실제 서버 페이지에서) 통과. [화면 미확인: 실제 판에서 스즈란·수르트 눈 둘레, 적과 다른 오퍼레이터·소환물의 반투명 가장자리]
 
+## 오퍼레이터 전투 텍스처는 로컬 클라이언트 것 (2026-11-01, 관리자 재제보 「파이어폭스로 보는데 여전히 똑같다」 → 관리자 결정 「클라이언트 텍스처로 바꾼다」)
+- 증상: 앞 절의 로더 수정 뒤에도 스즈란·수르트 눈 둘레에 옅은 외곽선이 남았다 — 어두운 고리는 사라졌지만, 눈 모양을 만드는 피부 조각
+  (`F_Face_Default_h`·`i`) 테두리를 따라 밝은 선과 점.
+- 원인: 웹 오퍼레이터 모델(fexli/ArknightsResource)의 페이지는 클라이언트 텍스처를 따로 다시 압축한 사본이라, 반투명 가장자리의 색·알파가
+  클라와 어긋난다(스즈란 앞면: 반투명 텍셀 중 RGB > A + 12가 웹 78 / 클라 11, 피부 조각 가장자리 알파가 클라 86에 웹 107처럼 최대 ~80 차이).
+  공식 클라에서 확인: 스즈란의 전투 머티리얼은 `_UseAlphaTex 1`·`_UseBleed 0`(색 텍스처 + `[alpha]` 텍스처, 이미 premultiplied), 셰이더는
+  RGB × 정점색, A는 `[alpha]`에서 — 다시 곱하지 않고 알파 컷오프도 없다(`discard`는 `_UseDither`일 때의 화면 디더뿐). 즉 앞 절 수정 뒤 우리 그리기는
+  공식과 같고, 차이는 데이터뿐이다. 같은 얼굴을 클라 텍스처로 그리면 외곽선이 없다(Windows Firefox, 8배·1.2배). 웹 페이지의 RGB를 A로
+  깎아 봐도(`min(RGB, A)`) 점만 줄고 선은 남았다. skel은 클라와 바이트까지 같고 atlas는 우리가 붙이는 머리 줄만 다르다.
+- 적용: 페이지만 클라 것으로 — `tools/local-extract/extract.py OP_PAGE_SUB`가 `data/assets.json` chars의 웹 모델마다 전투 번들
+  (`chararts/<charId>.ab` `defaultskin.prefab`의 Front·Back 렌더러, 방향이 없는 모델은 `Spine` 하나)에서 페이지를 적 모델처럼 합쳐(premultiplied)
+  `public/assets/local/spine/op/<charId>/<side>/`에 웹 atlas의 페이지 이름으로 쓴다 — 두 atlas의 페이지·영역이 같고 크기가 맞을 때만.
+  `assets.js spineEntry`(`localPagesEntry`)는 웹 skel·atlas를 그대로 쓰고 페이지만 그것으로(`pages`, 전용 로드 파서가 premultiplied로 디코드), 한
+  페이지가 안 오면 그 페이지만 웹 것으로. 첫 추출(EN 클라): 149명 중 145명·289쪽·32.8 MB(웹 42.0 MB). 탈룰라(`char_4247_oxi`)·토스카
+  (`char_4244_tocka`)·`char_1015_aglna2`·`char_4231_clemnt`는 EN 클라에 전투 번들이 없어 웹 페이지 그대로.
+- 소재 경로: 클라 페이지는 로컬 추출물이라 늘 이 서버가 내준다(배포 때 `deploy.sh`가 복사). 같은 날 함께 고친 다운로드 기록(fetch-assets가 디스크에
+  있던 파일의 원천을 기록하지 않아 GitHub 소재 대부분도 이 서버가 내주던 것)은 docs/ASSETS.md(유지되는 파일의 기록) 참고.
+- 확인: `test/render/assets.test.js`(`localPagesEntry`, 로컬 페이지·실패 시 웹 페이지 종류별 디코드), `test/local-extract.test.js`(`atlas_regions`·
+  `atlas_page_sizes`·작업 목록, 이 컴퓨터의 추출물이 웹 모델 페이지와 이름·개수가 같은지). Windows Firefox 디버그 아레나(직접 띄운 서버): 스즈란·수르트
+  페이지가 `/assets/local/spine/op/…`에서 전용 파서로 올라오고, 스즈란 눈·볼 둘레 선이 고치기 전 코드보다 사라짐. [화면 미확인: 실제 판에서
+  스즈란·수르트 눈 둘레와 다른 오퍼레이터의 얼굴·반투명 가장자리]
+
 ## 적 경로 미리보기 (2026-10-10, 관리자 결정 「공식 卫戍协议에서는 라운드 작전이 시작될 때 적 경로가 실제로 표시됐다」 → 공식대로)
 - 공식(EN 공식 클라 — 레벨 데이터 액션이 아니라 SPAWN 액션의 플래그):
   - `Scheduler._DealAction`: SPAWN 액션에 `autoPreviewRoute`(ActionData)가 있으면 PREVIEW_CURSOR(ActionType 1) 액션을 새로 만들어
