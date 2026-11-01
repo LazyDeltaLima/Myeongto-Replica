@@ -41,7 +41,8 @@ export default {
     const fieldDuration = num(t1.field_duration, 4), fieldCap = Math.max(0, num(t1.max_count, 25));
     const fieldStep = num(t1.field_interval, 0.3), fieldScale = num(t1.field_atk_scale);
     const lease = (battle, unit, f, key) => {
-      if (f.tiles.has(key)) { f.tiles.set(key, battle.time + fieldDuration); return; } // [ASSUMED] a re-lease restarts its time
+      // a re-lease restarts its time [ASSUMED·no source: the maintainer's memory of the official game, "probably" (2026-11-01)]
+      if (f.tiles.has(key)) { f.tiles.set(key, battle.time + fieldDuration); return; }
       if (f.tiles.size >= fieldCap) return;                                            // `_rejectNewWhenFull`
       f.tiles.set(key, battle.time + fieldDuration);
       battle.fx('zone', { x: key % COLS, y: Math.floor(key / COLS), r: 0.5, dur: fieldDuration, id: unit.id });
@@ -126,8 +127,9 @@ export default {
       if (a < lo) { z += lo - a; a = lo; }
       if (z > hi) { a -= z - hi; z = hi; }
       a = Math.max(a, lo);
-      // along her facing: from the map edge behind her, at most WAVE_MAX_BACK behind, to wave_exit_distance past the far edge
-      // [ASSUMED] the client's exact start / end points (EmitDirectionalMapEdgeProjectileVolley is CN-only)
+      // along her facing: from the map edge behind her (the maintainer, from the official game, 2026-11-01), at most
+      // WAVE_MAX_BACK behind, to wave_exit_distance past the far edge [ASSUMED·CN: the end point —
+      // EmitDirectionalMapEdgeProjectileVolley is CN-only]
       const along = horizontal ? c : r, back = sign > 0 ? (horizontal ? R.c0 : R.r0) : (horizontal ? R.c1 : R.r1);
       const ahead = sign > 0 ? (horizontal ? R.c1 : R.r1) : (horizontal ? R.c0 : R.r0);
       const from = sign > 0 ? Math.max(back, along - WAVE_MAX_BACK) : Math.min(back, along + WAVE_MAX_BACK);
@@ -138,7 +140,7 @@ export default {
     const explode = (battle, unit, p, x, y) => {
       const radius = num(b3.range_radius, 1.5), scale = num(b3.heatwave_atk_scale), repeat = num(b3.same_wave_repeat_damage_scale, 1);
       battle.fx('blast', { x, y, r: radius, id: unit.id, element: 'burn' });
-      // [ASSUMED] flyers too: the text names no 地面 (S1's does), and the projectile prefab is not read
+      // flyers too (the maintainer, from the official game, 2026-11-01; the text names no 地面, S1's does)
       for (const e of battle.foesInRadius(x, y, radius)) {
         const m = p.wave.hit.has(e) ? repeat : 1;
         p.wave.hit.add(e);
