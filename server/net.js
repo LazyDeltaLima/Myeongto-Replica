@@ -138,6 +138,8 @@ export class Session {
     this.notOwned = null;
     /** @type {Readonly<Record<string, { charId: string, skillIndex: number, uniEquipId: string|null }>> | null} checked 自选 picks (lobby-owned, 0.2.0 自选编队) */
     this.diy = null;
+    /** @type {Record<string, { loadout: any, ops: any, notOwned: any, diy: any }> | null} the four above of the other 卫戍协议 seasons, by season (lobby-owned, settingsOf) */
+    this.seasonal = null;
     /** @type {string} client address of the latest connection (logging) */
     this.addr = '?';
     /** @type {string | null} per-network limit key of the latest connection (null = not limited), see clientAddress */

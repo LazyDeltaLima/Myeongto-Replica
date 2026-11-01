@@ -20,6 +20,7 @@ import { COLS } from '../server/sim/constants.js';
 import { diyPool, diyRecord, validateDiyPicks, isPrototypePick } from '../shared/diy.js';
 import { LOCAL_DIY_PICKS, isLocalDiyPick } from '../shared/local-diy.js';
 import { checkDiyPicks } from '../shared/protocol.js';
+import { DEFAULT_SEASON } from '../shared/seasons.js';
 import { KITTED_CHARS, OPERATOR_KITS } from '../server/sim/content/kits/index.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -72,7 +73,7 @@ describe('선발 picks on upstream 自选 (shared/local-diy.js, server/lobby.js 
   test('accepted: room.diy keeps the five and drops anyone else (another owned 6★, a prototype, a reserve) — the seat never holds one', async () => {
     const { Lobby } = await import('../server/lobby.js');
     const session = {};
-    const lobby = { safeData: () => DATA, roomOf: () => null };
+    const lobby = { safeData: () => DATA, roomOf: () => null, seasons: new Set([DEFAULT_SEASON]) };
     const res = Lobby.prototype.diy.call(lobby, session, { picks: {
       chess_char_5_diy1_a: { charId: 'char_112_siege', skillIndex: 0 }, chess_char_5_diy2_a: { charId: 'char_601_cguard' },
       chess_char_6_diy1_a: pickOf('wang', false, 0), chess_char_6_diy2_a: { charId: 'char_609_acguad' } } });

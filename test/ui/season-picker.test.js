@@ -13,7 +13,7 @@ import {
   installSeasons, pickSeason, loadPickedSeason,
 } from '../../public/js/ui/season.js';
 import { inviteLink } from '../../public/js/screens/room.js';
-import { seasonPref, setLoadoutSeason } from '../../public/js/ui/loadoutSync.js';
+import { seasonPref, setLoadoutSeason, installOwnershipSync } from '../../public/js/ui/loadoutSync.js';
 import { buildRecord, normalizeRecord, recordSeason } from '../../public/js/ui/stats.js';
 
 const NEXT = 'next';
@@ -106,6 +106,30 @@ test('loadout settings per season: the default keeps the old keys, another seaso
   assert.deepEqual(target.get().entries, {});
   assert.equal(target.get().sel, null);
   setLoadoutSeason(DEFAULT_SEASON, target);
+}));
+
+test('the settings syncs name a season other than the default, and resend the same content for another season', () => withStorage(async () => {
+  const sent = [];
+  const handlers = new Map();
+  const net = {
+    status: 'online',
+    on: (t, fn) => { handlers.set(t, fn); return () => handlers.delete(t); },
+    request: async (t, fields) => { sent.push({ t, ...fields }); return { t: 'ok' }; },
+  };
+  let pending = [];
+  const timers = { setTimeout: (fn) => { pending.push(fn); return pending.length; }, clearTimeout: () => {} };
+  const run = async () => { const fns = pending; pending = []; for (const fn of fns) fn(); for (let i = 0; i < 5; i++) await Promise.resolve(); };
+  const target = createStore({ notOwned: [], ownSync: 'idle', open: false });
+  const sync = installOwnershipSync({ net, timers, target, notify: () => {} });
+  try {
+    handlers.get('welcome')({});
+    await run();
+    assert.deepEqual(sent.at(-1), { t: 'room.ownership', notOwned: [] });
+    setLoadoutSeason(NEXT, target); // the same (empty) list, another season: sent again under it
+    await run();
+    assert.deepEqual(sent.at(-1), { t: 'room.ownership', notOwned: [], season: NEXT });
+    assert.equal(sent.length, 2);
+  } finally { setLoadoutSeason(DEFAULT_SEASON, target); sync.dispose(); }
 }));
 
 test('statistics records carry a season other than the default; older records are the default season', () => {

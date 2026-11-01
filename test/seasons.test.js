@@ -262,9 +262,72 @@ test('a season the server does not offer is refused', async () => {
     assert.equal(r.code, ERR.BAD_MSG);
     const q = await c.request({ t: 'room.queue', difficulty: 'NORMAL', season: NEXT });
     assert.deepEqual([q.t, q.code], ['error', ERR.BAD_MSG]);
+    const o = await c.request({ t: 'room.ownership', notOwned: [], season: NEXT });
+    assert.deepEqual([o.t, o.code], ['error', ERR.BAD_MSG]);
     c.send({ t: 'ping', c: 7 });
     assert.equal('seasons' in (await c.waitFor('pong', (m) => m.c === 7)), false); // one season: no picker
   } finally { await c.terminate().catch(() => {}); await srv.close(); undo(); }
+});
+
+describe('the loadout / ownership / 自选 settings per season (lobby)', () => {
+  const started = [];
+  class RecordingMatch extends StubMatch {
+    constructor(opts) { super(opts); started.push(opts); }
+  }
+  /** A droppable NORMAL chess (shared/standIn.js isDroppableChess). */
+  const droppable = (chessId) => ({ chessId, chessType: 'NORMAL', charId: `char_${chessId}`, backup: { charId: `char_${chessId}_b` } });
+  let srv;
+  let dir;
+  let undo;
+  const open = new Set();
+  const player = async (name) => {
+    const c = await TestClient.connect(`ws://127.0.0.1:${srv.port}/ws`);
+    open.add(c);
+    await c.hello(name);
+    return c;
+  };
+  const ok = async (c, msg) => assert.equal((await c.request(msg)).t, 'ok', JSON.stringify(msg));
+  /** The not-owned list the match of a new solo room of `season` receives. */
+  const startedWith = async (c, season) => {
+    await ok(c, { t: 'room.create', mode: 'solo', difficulty: 'NORMAL', ...(season ? { season } : {}) });
+    const n = started.length;
+    await ok(c, { t: 'room.start' });
+    await c.waitFor('room.state', (st) => st.inMatch);
+    return started[n].seats[0].notOwned;
+  };
+  before(async () => {
+    // the default season has chess d1, the next one n1 only
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-seasons-'));
+    fs.writeFileSync(path.join(dir, 'chess.json'), JSON.stringify({ d1: droppable('d1') }));
+    fs.mkdirSync(path.join(dir, 'seasons', NEXT), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'seasons', NEXT, 'chess.json'), JSON.stringify({ n1: droppable('n1') }));
+    undo = defineSeason(NEXT);
+    srv = await startServer({ port: 0, host: '127.0.0.1', log: quiet, MatchClass: RecordingMatch, dataDir: dir, seasons: [DEFAULT_SEASON, NEXT] });
+  });
+  afterEach(async () => { await Promise.all([...open].map((c) => c.terminate().catch(() => {}))); open.clear(); });
+  after(async () => { await srv?.close(); undo?.(); fs.rmSync(dir, { recursive: true, force: true }); });
+
+  test('each season\'s settings are checked against its data and kept apart; a room takes its season\'s', async () => {
+    const c = await player('Per');
+    await ok(c, { t: 'room.ownership', notOwned: ['d1', 'n1'] });
+    await ok(c, { t: 'room.ownership', notOwned: ['d1', 'n1'], season: NEXT });
+    assert.deepEqual(await startedWith(c, NEXT), ['n1'], 'the next season\'s list, checked against its chess');
+    assert.equal((await c.request({ t: 'room.leave' })).t, 'ok');
+    assert.deepEqual(await startedWith(c), ['d1'], 'the default season\'s list, untouched by the other');
+  });
+
+  test('in a room, a message of another season is stored on the session only', async () => {
+    const c = await player('Room');
+    await ok(c, { t: 'room.create', mode: 'solo', difficulty: 'NORMAL', season: NEXT });
+    await ok(c, { t: 'room.ownership', notOwned: ['n1'], season: NEXT });
+    await ok(c, { t: 'room.ownership', notOwned: ['d1'] }); // the default season's: not this room's seat
+    await ok(c, { t: 'room.loadout', entries: {}, season: NEXT });
+    await ok(c, { t: 'room.diy', picks: {}, season: NEXT });
+    const n = started.length;
+    await ok(c, { t: 'room.start' });
+    await c.waitFor('room.state', (st) => st.inMatch);
+    assert.deepEqual(started[n].seats[0].notOwned, ['n1']);
+  });
 });
 
 // ---------------------------------------------------------------------------------------------------------------------

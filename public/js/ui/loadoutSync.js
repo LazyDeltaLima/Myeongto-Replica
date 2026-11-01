@@ -19,7 +19,7 @@
 // The three settings are kept per 卫戍协议 season (maintainer decision 2026-11-01; shared/seasons.js): the default season's
 // under their old pref keys, another season's under `<key>@<season>` (seasonPref). setLoadoutSeason (main.js: the season
 // on screen — the room's, else the one picked, ui/season.js) loads that season's into `loadoutStore`, and the syncs send
-// them like an edit.
+// them like an edit, naming the season (`season`, absent = the default).
 
 import { createStore, loadPref, savePref } from '../store.js';
 import { DEFAULT_SEASON, seasonOf } from '../../../shared/seasons.js';
@@ -230,7 +230,10 @@ function installPrefSync({ net, timers, target, notify, key, stateKey, msgType, 
       if (disposed || preparing !== revision) return;
       // never sanitise against missing data: every entry would be dropped and the server's copy cleared
       if (payload == null) { setState('error'); return; }
-      const json = JSON.stringify(payload);
+      // the season these settings belong to (setLoadoutSeason), named unless it is the default: the server checks and
+      // keeps them under it, and only a room of that season takes them (server/lobby.js settingsOf)
+      const body = { ...(field ? { [field]: payload } : payload), ...(prefSeason !== DEFAULT_SEASON ? { season: prefSeason } : {}) };
+      const json = JSON.stringify(body);
       if (json === pendingJson) return; // the same content is already on its way
       if (json === lastSent && pendingJson == null) { edited = false; setState('synced'); return; }
       const my = ++seq;
@@ -240,7 +243,7 @@ function installPrefSync({ net, timers, target, notify, key, stateKey, msgType, 
       pendingJson = json;
       setState('sending');
       try {
-        await net.request(msgType, field ? { [field]: payload } : payload);
+        await net.request(msgType, body);
         if (my !== seq) return;
         pendingJson = null;
         lastSent = json;

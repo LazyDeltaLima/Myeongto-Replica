@@ -104,6 +104,12 @@
 // maintainer decision 2026-10-09), else is stored for the next match (ROOM_STARTED 'stored for the next match'). Every
 //     `welcome` carries `diyKitted` (welcomeInfo): the operators a DIY slot may field, so the client's picker offers
 //     exactly what the server accepts.
+//   * These three settings are kept per 卫戍协议 season (maintainer decision 2026-11-01, shared/seasons.js): room.loadout /
+//     room.ownership / room.diy name the season they belong to (`season`, absent = the default; one the server does not
+//     offer → BAD_MSG), are checked against that season's data and stored on the session under it (settingsOf: the
+//     default season's in the session's own fields, another's in session.seasonal). A seat takes those of its room's
+//     season (humanSeat); a message of another season than the room's is only stored on the session (OK), never on the
+//     seat or the match.
 //   * Spectator seats (community report #26, owner's decision 2026-10-04 — a remake feature, the official room has none):
 //     room.spectate { code } takes one of a co-op room's MAX_SPECTATORS (2) spectator seats, in its lobby or while its
 //     match runs (▸ solo rooms: ROOM_FULL). A spectator is not a player: never in `seats`, never counted for the 1–4 players
@@ -203,6 +209,16 @@ function freezeDiy(picks) {
   const out = {};
   for (const [id, p] of Object.entries(picks || {})) out[id] = Object.freeze({ charId: p.charId, skillIndex: p.skillIndex, uniEquipId: p.uniEquipId ?? null });
   return Object.freeze(out);
+}
+
+/**
+ * Where a session keeps its loadout / ops / notOwned / diy of a season (header): the default season's in the session's
+ * own fields (they predate seasons), another's in session.seasonal[season].
+ */
+function settingsOf(session, season) {
+  if (season === DEFAULT_SEASON) return session;
+  session.seasonal ??= {};
+  return (session.seasonal[season] ??= { loadout: null, ops: null, notOwned: null, diy: null });
 }
 
 /** One room: 4 seat slots (8 in the 8-player mode), host, difficulty, optional running match. */
@@ -502,7 +518,7 @@ export class Lobby {
     room.ruleset = resolveRuleset({ preset: ruleset, custom });
     room.season = season;
     room.ownerKey = key;
-    room.seats[0] = this.humanSeat(0, session);
+    room.seats[0] = this.humanSeat(0, session, season);
     room.hostId = session.playerId;
     this.rooms.set(code, room);
     session.roomCode = code;
@@ -527,7 +543,7 @@ export class Lobby {
     const idx = room.freeSeat();
     if (idx < 0) return fail(ERR.ROOM_FULL);
     if (cur) this.removeMember(cur, session.playerId);
-    room.seats[idx] = this.humanSeat(idx, session);
+    room.seats[idx] = this.humanSeat(idx, session, room.season);
     session.roomCode = room.code;
     session.notice = null;
     session.pendingResult = null;
@@ -760,8 +776,9 @@ export class Lobby {
    * game data, store both on the session and the seat, and — while a match runs — hand them to the match (accepted
    * during its briefing and strategy draft, see the header). Either part refused: nothing is stored.
    */
-  loadout(session, { entries, ops }) {
-    const data = this.safeData();
+  loadout(session, { entries, ops, season = DEFAULT_SEASON }) {
+    if (!this.seasons.has(season)) return fail(ERR.BAD_MSG, 'season not offered');
+    const data = this.safeData(season);
     const res = checkLoadout(entries, (id) => lookup('chess', id, data));
     if (!res || res.error) return fail(res && isErrCode(res.error) ? res.error : ERR.BAD_MSG, res && res.detail);
     const ids = opsCharIds(data);
@@ -769,10 +786,11 @@ export class Lobby {
     if (!resOps || resOps.error) return fail(resOps && isErrCode(resOps.error) ? resOps.error : ERR.BAD_MSG, resOps && resOps.detail);
     const loadout = freezeLoadout(res.loadout);
     const opsSet = freezeOps(resOps.ops);
-    session.loadout = loadout;
-    session.ops = opsSet;
+    const kept = settingsOf(session, season);
+    kept.loadout = loadout;
+    kept.ops = opsSet;
     const room = this.roomOf(session);
-    if (!room) return OK;
+    if (!room || room.season !== season) return OK;
     const seat = room.seatOf(session.playerId);
     if (seat) { seat.loadout = loadout; seat.ops = opsSet; }
     if (!room.match || !seat) return OK; // a spectator's loadout stays on its session, never reaching the match
@@ -794,14 +812,15 @@ export class Lobby {
    * room.ownership (0.2.0 补位): keep the droppable chess of the not-owned list, store it on the session and the seat
    * (see the header). A running match never takes it: it keeps the list its seat had at its start.
    */
-  ownership(session, { notOwned }) {
-    const data = this.safeData();
+  ownership(session, { notOwned, season = DEFAULT_SEASON }) {
+    if (!this.seasons.has(season)) return fail(ERR.BAD_MSG, 'season not offered');
+    const data = this.safeData(season);
     const res = checkNotOwned(notOwned, (id) => lookup('chess', id, data));
     if (!res || res.error) return fail(ERR.BAD_MSG, res && res.detail);
     const list = Object.freeze(res.notOwned.slice());
-    session.notOwned = list;
+    settingsOf(session, season).notOwned = list;
     const room = this.roomOf(session);
-    if (!room) return OK;
+    if (!room || room.season !== season) return OK;
     const seat = room.seatOf(session.playerId);
     if (seat) seat.notOwned = list;
     if (room.match && seat) return fail(ERR.ROOM_STARTED, 'stored for the next match');
@@ -814,13 +833,14 @@ export class Lobby {
    * (match.setDiy, 맹약별 선발 프리셋 — maintainer decision 2026-10-09); otherwise it keeps the picks its seat had at its start
    * and these wait for the next match (ROOM_STARTED).
    */
-  diy(session, { picks }) {
-    const res = checkDiyPicks(picks, { data: this.safeData(), kitted: KITTED_CHARS.filter(isLocalDiyPick) }); // local patch: our picks only
+  diy(session, { picks, season = DEFAULT_SEASON }) {
+    if (!this.seasons.has(season)) return fail(ERR.BAD_MSG, 'season not offered');
+    const res = checkDiyPicks(picks, { data: this.safeData(season), kitted: KITTED_CHARS.filter(isLocalDiyPick) }); // local patch: our picks only
     if (!res || !('ok' in res)) return fail(ERR.BAD_MSG, res && res.detail);
     const kept = freezeDiy(res.picks);
-    session.diy = kept;
+    settingsOf(session, season).diy = kept;
     const room = this.roomOf(session);
-    if (!room) return OK;
+    if (!room || room.season !== season) return OK;
     const seat = room.seatOf(session.playerId);
     if (seat) seat.diy = kept;
     if (room.match && seat) {
@@ -1159,14 +1179,15 @@ export class Lobby {
     return playerId;
   }
 
-  /** @returns {Seat} */
-  humanSeat(idx, session) {
+  /** A human's seat with the session's settings of the room's season (header). @returns {Seat} */
+  humanSeat(idx, session, season = DEFAULT_SEASON) {
+    const kept = season === DEFAULT_SEASON ? session : session.seasonal?.[season] || {};
     return {
       seat: idx, playerId: session.playerId, name: session.name, isBot: false, ready: false, connected: session.connected, left: false,
-      loadout: session.loadout || null,
-      ops: session.ops || null,
-      notOwned: session.notOwned || null,
-      diy: session.diy || null,
+      loadout: kept.loadout || null,
+      ops: kept.ops || null,
+      notOwned: kept.notOwned || null,
+      diy: kept.diy || null,
     };
   }
 
@@ -1345,7 +1366,7 @@ export class Lobby {
       }
       if (mode === 'solo' && room.activeHumans().length) continue;
       const session = take(s);
-      if (session) room.seats[s.seat] = { ...this.humanSeat(s.seat, session), awayAt: now };
+      if (session) room.seats[s.seat] = { ...this.humanSeat(s.seat, session, room.season), awayAt: now };
     }
     if (!room.activeHumans().length) return null;
     for (const p of Array.isArray(snap.spectators) ? snap.spectators : []) {

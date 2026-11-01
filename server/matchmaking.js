@@ -486,7 +486,7 @@ export class Matchmaker {
       const idx = room.freeSeat();
       if (idx < 0) break;
       if (cur) lobby.removeMember(cur, playerId);
-      room.seats[idx] = lobby.humanSeat(idx, session);
+      room.seats[idx] = lobby.humanSeat(idx, session, room.season);
       session.roomCode = code;
       session.notice = null;
       session.pendingResult = null;

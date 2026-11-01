@@ -434,13 +434,14 @@ export const C2S = {
   'room.start': {},
   // operator loadout (DESIGN §16): stored per session/seat; accepted until the match leaves INFO_CHECK — `ops` (0.2.2):
   // the per-operator 潜能 / 练度 (absent = none set: every operator at 潜能 6, 精英2 Lv.60)
-  'room.loadout': { entries: isLoadoutEntries, ops: isLoadoutOps, $optional: ['ops'] },
+  // (`season` on these three: the 卫戍协议 season whose settings they are, absent = the default — server/lobby.js settingsOf)
+  'room.loadout': { entries: isLoadoutEntries, ops: isLoadoutOps, season: isSeasonId, $optional: ['ops', 'season'] },
   // operator ownership (干员持有, 0.2.0 补位): stored per session / seat; a match takes the list its seat had when it
   // started (an out-of-match setting — during a match it is stored for the next one: ROOM_STARTED)
-  'room.ownership': { notOwned: isNotOwnedList },
+  'room.ownership': { notOwned: isNotOwnedList, season: isSeasonId, $optional: ['season'] },
   // 自选编队 (0.2.0 DIY): the player's DIY slot picks; stored per session / seat like room.ownership (a match takes the
   // picks its seat had when it started; during a match they are stored for the next one: ROOM_STARTED)
-  'room.diy': { picks: isDiyPicks },
+  'room.diy': { picks: isDiyPicks, season: isSeasonId, $optional: ['season'] },
   // spectator seats (remake feature, community report #26; MAX_SPECTATORS): take one of a co-op room's spectator seats —
   // in its lobby or while its match runs — never a player seat; the host frees one by playerId (the spectator gets
   // room.closed { reason: 'kicked' }). room.leave / g.leave leave a spectator seat like a player seat.
