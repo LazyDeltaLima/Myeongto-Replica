@@ -4,15 +4,16 @@
 // 만든다. 대상은 선발 오퍼레이터(shared/local-diy.js LOCAL_DIY_PICKS)의 unit·소환물·operators 항목이고, 잠재 1–6 전부를 짝짓는다
 // (낮은 잠재의 재능 문구도 data에 실린다). 숫자·태그는 빌더가 채우므로 원문과 정확히 같다.
 //
-// 한국어 원천 (원천 문자열마다, 같은 JSON 경로로):
-//   1. KR 공식 테이블 (Kengxxiao/ArknightsGameData_YoStar ko_KR: character / skill / uniequip / battle_equip) — 한국 서버에 있는
-//      오퍼레이터(위셔델, 아스카론)와 공통 문구
-//   2. tools/i18n/diy-ko-manual.json { "중국어 원천 문자열": "한국어" } — 한국 서버에 없는 오퍼레이터(望, 赤刃明霄陈, 丰川祥子, 凯尔希·思衡托, 克莱门莎, 予愿安洁莉娜).
-//      자리표시자({atk:0%} 등)와 <@ba.vup> 태그는 원문 그대로 둔다. 번역은 KR 공식 문체에 맞춘 수동 번역 [비공식]:
-//      방법은 docs/I18N.md 「CN-only texts in Korean」, 표현 대조는 tools/i18n/kr-style.mjs.
+// 한국어 원천 (원천 문자열마다, 같은 JSON 경로로, 앞의 것이 이김):
+//   1. KR 공식 테이블 (ArknightsAssets/ArknightsGamedata kr: character / skill / uniequip / battle_equip, 캐시 .cache/gamedata-ko-diy)
+//      — 한국 서버에 있는 오퍼레이터와 공통 문구. KR 출시가 우리 번역을 저절로 대신한다(KO_DIY_REFRESH=1로 새로 받기).
+//   2. tools/i18n/diy-ko-manual.json { "중국어 원천 문자열": "한국어" } — 아직 CN에만 있는 오퍼레이터(2026-11-01: 予愿安洁莉娜, 克莱门莎,
+//      冻河, 塔露拉). 자리표시자({atk:0%} 등)와 <@ba.vup> 태그는 원문 그대로 둔다. 번역은 KR 공식 문체에 맞춘 수동 번역 [비공식]:
+//      방법은 docs/I18N.md 「CN-only texts in Korean」, 표현 대조는 tools/i18n/kr-style.mjs. KR 표가 덮은 줄은 지운다.
 //
 // 사용:
 //   KO_DIY_TRACE=1 node tools/i18n/build-ko-diy.mjs   빌드 결과에 쓰이는 원천 문자열 중 KR 테이블에도 수동 사전에도 없는 것을 출력
+//   KO_DIY_REFRESH=1 node tools/i18n/build-ko-diy.mjs KR 테이블을 새로 받고 생성
 //   node tools/i18n/build-ko-diy.mjs           public/i18n/ko/diy.json 생성
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
@@ -25,15 +26,16 @@ import { FULL_RANK } from '../../shared/potential.js';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const KR_CACHE = join(ROOT, '.cache', 'gamedata-ko-diy');
-const KR_BASE = 'https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData_YoStar/main/ko_KR/gamedata/excel/';
+const KR_BASE = 'https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/master/kr/gamedata/excel/';
 const MANUAL = join(ROOT, 'tools', 'i18n', 'diy-ko-manual.json');
 const OUT = join(ROOT, 'public', 'i18n', 'ko', 'diy.json');
 const ZH = /[一-鿿]/;
 const TRACE = process.env.KO_DIY_TRACE === '1'; // (build-data parses argv at import: no options here)
+const REFRESH = process.env.KO_DIY_REFRESH === '1';
 
 async function krTable(name) {
   const p = join(KR_CACHE, `${name}.json`);
-  if (!existsSync(p)) {
+  if (REFRESH || !existsSync(p)) {
     await mkdir(KR_CACHE, { recursive: true });
     const r = await fetch(KR_BASE + name + '.json');
     if (!r.ok) throw new Error(`${name}: HTTP ${r.status}`);
@@ -128,9 +130,9 @@ async function main() {
   let n = 0;
   for (const src of sources(ctx, kr)) {
     src.set(mapStrings(src.cn, src.ko, (zh, ko, path) => {
+      if (ko && !ZH.test(ko)) return ko; // the KR client's text wins: a KR release replaces our translation by itself
       const man = manualFor(zh);
       if (man) return man;
-      if (ko && !ZH.test(ko)) return ko;
       const m = `⟦${n++}⟧`;
       markers.set(m, { zh, where: `${src.label}${path}` });
       return m;
