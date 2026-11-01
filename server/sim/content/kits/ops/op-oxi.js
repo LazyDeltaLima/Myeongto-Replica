@@ -124,7 +124,8 @@ export default {
       const R = battle.grid.rect, [dr, dc] = dirVec(unit.dir), [r, c] = [unit.tileR, unit.tileC];
       const half = Math.max(0, Math.floor(num(overload ? b3.overload_half_width : b3.normal_half_width, 2)));
       const horizontal = dc !== 0, sign = horizontal ? dc : dr;
-      // the lanes across her facing, centred on her, shifted back inside the map at an edge (`_shiftLaneWindowAtMapEdge`)
+      // the lanes across her facing, centred on her, shifted back inside the map at an edge [ASSUMED·CN: the field
+      // `_shiftLaneWindowAtMapEdge` read by its name; the maintainer remembers "probably shifted" (2026-11-01)]
       const lo = horizontal ? R.r0 : R.c0, hi = horizontal ? R.r1 : R.c1, mid = horizontal ? r : c;
       let a = mid - half, z = mid + half;
       if (a < lo) { z += lo - a; a = lo; }

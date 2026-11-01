@@ -623,8 +623,8 @@
   `_switchToState` 1) — CN 스킬 시전 표(`tools/assets/local-skill-cast.json`)가 들어오면 엔진이 처리, 지금은 안 멈춤]
 - **S3 「코로나의 맹렬」**(MANUAL 36초, 과부하 스킬): 공격력 + `atk`, 공격하지 않음(모드 `S3NoAttack` → `disarm`, 저지는 함). 시작에 `normal_interval`(2.67초)마다,
   과부하(진행 절반)부터 `overload_interval`(2초)마다 물결 — 각 물결 버프는 시작하자마자 한 번 쏜다(`waitFirstTriggerInterval` 꺼짐). 물결: 배치 방향을
-  가로지르는 줄 `normal_half_width` 2 → 5줄(과부하 `overload_half_width` 6 → 13줄), 그녀 줄 가운데, 전장 끝에서는 창을 안으로 민다
-  (`_shiftLaneWindowAtMapEdge`), 줄마다 簇火 하나(`_emitSingleTileLane`), 속도 `wave_speed` 2.3칸/초. 簇火는 판정 반경 `projectile_range` 0.5 안에 적이
+  가로지르는 줄 `normal_half_width` 2 → 5줄(과부하 `overload_half_width` 6 → 13줄), 그녀 줄 가운데, 전장 끝에서는 묶음을 안으로 민다
+  [추정·CN: 필드 `_shiftLaneWindowAtMapEdge` 켜짐을 이름대로 읽음, 관리자 기억 「아마 밀림」(2026-11-01)과 같음], 줄마다 簇火 하나(`_emitSingleTileLane`), 속도 `wave_speed` 2.3칸/초. 簇火는 판정 반경 `projectile_range` 0.5 안에 적이
   들어오면 터져 반경 `range_radius` 1.5의 적에게 `heatwave_atk_scale` 마법 대미지(대상이 소각 손상 폭발 냉각 중이면 원소 대미지), 같은 물결에 이미 맞은 적은
   `same_wave_repeat_damage_scale`(15%); 터진 簇火는 사라진다. 피해의 공격력은 그 물결을 쏜 때의 값. 「언제든 끌 수 있음」은 위수협의에 수동 종료가 없어
   옮기지 않는다. [추정·CN: 簇火는 배치 방향 반대쪽 맵 끝에서 출발(클래스 이름 `EmitDirectionalMapEdgeProjectileVolley`, 관리자 기억 2026-11-01과 같음),
