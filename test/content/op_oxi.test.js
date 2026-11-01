@@ -104,6 +104,10 @@ test('我即火焰: a 灼燃 burst of any enemy while she is deployed leaves 4 s
     approx(ticks[0].dmg.amount, u.s.atk * (potential >= 3 ? 0.15 : 0.12));
     assert.ok(!fly.s.flags.fear);
     // the trail re-leases every 0.5 s until 5 s after the burst (the last at 4.5 s); a footprint lasts field_duration after it
+    // its 'zone' carries n 1 on the newly leased tile only (the lease's castedTimeThreshold 1 sound — audio.js)
+    const zones = h.eventsOf('fx').filter((x) => x[1] === 'zone' && x[4]?.id === u.id);
+    assert.ok(zones.length >= 2, 're-leased');
+    assert.deepEqual(zones.map((x) => x[4].n ?? 0), [1, ...zones.slice(1).map(() => 0)]);
     const last = tb + 4.5 + (potential >= 3 ? 4 : 3);
     h.run(last - 0.2 - h.b.time);
     assert.equal(f.tiles.size, 1, 'still there');

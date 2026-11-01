@@ -43,13 +43,14 @@ export default {
     const lease = (battle, unit, f, key) => {
       // a re-lease restarts its time [ASSUMED·no source: the maintainer's memory of the official game, "probably" (2026-11-01)]
       // (its 'zone' again: the footprint's effect is held the new time — render/fx/kitofficial.js 'zone')
-      const show = () => battle.fx('zone', { x: key % COLS, y: Math.floor(key / COLS), r: 0.5, dur: fieldDuration, id: unit.id, tile: key });
-      if (f.tiles.has(key)) { f.tiles.set(key, battle.time + fieldDuration); show(); return; }
+      // (`n` 1 on a new tile: its `_effectSettings` castedTimeThreshold 1 sounds oxi_fire_field_create — audio.js)
+      const show = (n) => battle.fx('zone', { x: key % COLS, y: Math.floor(key / COLS), r: 0.5, dur: fieldDuration, id: unit.id, tile: key, ...(n ? { n } : {}) });
+      if (f.tiles.has(key)) { f.tiles.set(key, battle.time + fieldDuration); show(0); return; }
       // full: a new tile is refused (`_rejectNewWhenFull`, kept over the maintainer's memory of the oldest one going —
       // maintainer decision 2026-11-01) [ASSUMED·CN: the field read by its name]
       if (f.tiles.size >= fieldCap) return;
       f.tiles.set(key, battle.time + fieldDuration);
-      show();
+      show(1);
     };
     const tickField = (battle, unit) => {
       const f = unit.mem.oxiField;

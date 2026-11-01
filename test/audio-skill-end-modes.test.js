@@ -62,6 +62,15 @@ describe('the end mode of a skill (local-char-modes.json skillEnd)', () => {
     assert.equal(CM.char_4191_tippi.modes[6], 'S2_Landing');
     for (const id of ['char_4193_lemuen', 'char_1032_excu2', 'char_1033_swire2']) assert.equal(CM[id].modes[CM[id].skillEnd[2]], 'S3_End', id);
     assert.equal(CM.char_1035_wisdel.skillEnd, undefined, 'her S2 switch ends back on the Default');
+    // CN client buff templates (she is not in the EN ones): S1 / S3 land in S1_Landing / S3_Landing, S2 switches none
+    assert.deepEqual(CM.char_1015_aglna2.skillEnd, [6, null, 9]);
+    assert.deepEqual([6, 9].map((i) => CM.char_1015_aglna2.modes[i]), ['S1_Landing', 'S3_Landing']);
+  });
+
+  test('安洁莉娜 (char_1015_aglna2) S1 / S3 end with the landing\'s START (p_atk_arstrnstfld), S2 with none', () => {
+    const ends = JSON.parse(readFileSync(path.join(ROOT, 'data', 'assets.json'), 'utf8')).audio.sfx.units.char_1015_aglna2.ends;
+    assert.deepEqual(Object.keys(ends), ['0', '2']);
+    for (const k of ['0', '2']) assert.deepEqual([file(ends[k].url), ends[k].mode], ['p_atk_arstrnstfld.mp3', 1]);
   });
 
   test('its START bank is the skill\'s end sound (no ON_SKILL_FINISH of its own)', { skip }, () => {

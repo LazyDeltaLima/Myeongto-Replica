@@ -132,7 +132,10 @@ export function kitHitKey(fx, ex, unitOf) {
     // wang_stone1_t[damage_audio]); the pop itself sounds through kitStartKey
     case 'zone': return ex.token === 'token_10064_wang_stone1' && [2, 3].includes(ex.skill) ? `wang:${ex.skill}`
       // 2026-10-29: 引星棘刺 S3's alchemy unit thrown at an operator (its projectile_chr_thorn2_s3 stopping there)
-      : ex.thrown && def(ex.id) === 'char_1039_thorn2' ? 'thorn2:s3' : null;
+      : ex.thrown && def(ex.id) === 'char_1039_thorn2' ? 'thorn2:s3'
+      // 2026-11-01: 塔露拉's footprint on a newly leased tile (castedTimeThreshold 1: not a re-lease) [추정·CN: whether a
+      // re-lease counts as another cast — TimedTileLeaseAbility is CN-only]
+      : ex.n === 1 && def(ex.id) === 'char_4247_oxi' ? 'oxi:field' : null;
     case 'wangLink': return ex.first ? 'wang:link' : null;
     case 'swordStorm': return ex.id != null && def(ex.id) === 'char_1050_chen3' ? 'chen3:s2' : null;
     // local patch (maintainer report 2026-10-07): 蕾缪安 S3 — the bombardment's start (first shell), each landing, the lock
@@ -145,7 +148,8 @@ export function kitHitKey(fx, ex, unitOf) {
     // 2026-10-29: 克莱门莎 S2 — the carriage fired, the vortex fired where it stops; S3 — each shell's impact (its audio behaviour)
     case 'anchor': return def(ex.id) === 'char_4231_clemnt' ? 'clemnt:s2cab' : null;
     case 'tide': return def(ex.id) === 'char_4231_clemnt' ? 'clemnt:s2tide' : null;
-    case 'blast': return def(ex.id) === 'char_4231_clemnt' ? 'clemnt:s3hit' : null;
+    // 2026-11-01: 塔露拉 S3 — a 簇火 exploding (its projectile's HIT; the blast names its wave `w`, S2's retaliation does not)
+    case 'blast': return def(ex.id) === 'char_4231_clemnt' ? 'clemnt:s3hit' : ex.w != null && def(ex.id) === 'char_4247_oxi' ? 'oxi:s3hit' : null;
     case 'explode': return def(ex.by) === 'char_1035_wisdel' ? 'wisdel:bomb' : null;
     case 'burst': return def(ex.id) === 'token_10035_wisdel_wward' ? 'wisdel:token' : null;
     case 'oblvnsNote': return ex.e === 'hit' && typeof ex.m === 'string' ? `oblvns:${ex.m}` : null;
@@ -304,6 +308,7 @@ export function signalFxKey(fx, ex, unitOf) {
   if (fx === 'overload') {
     if (u?.def === 'char_4039_horn' && (u.skillIndex === 1 || u.skillIndex === 2)) return `horn:${u.skillIndex + 1}:ovs`;
     if (u?.def === 'char_4040_rockr') return 'rockr:ovs';
+    if (u?.def === 'char_4247_oxi') return 'oxi:s3ovs';   // 2026-11-01: 塔露拉 S3 (AudioOnEventBehaviour oxi_s_3_overload)
   }
   if (fx === 'wake' && u?.side === 'enemy') return 'titi:awake';
   if (fx === 'charges' && u?.def === 'char_426_billro' && Number.isInteger(u.skillIndex)) return billroChargeKey(u, Number(ex.n) || 0);
@@ -2106,6 +2111,11 @@ export class AudioManager {
           // 2026-10-29: 荒芜拉普兰德 S3's wolves released (each cruise projectile's BORN), 溯光星源 S3's newly linked enemies
           if (e[1] === 'drones' && e[4]?.id != null && unitOf(e[4].id)?.def === 'char_1038_whitw2' && unitOf(e[4].id)?.skillIndex === 2) {
             for (let i = 0; i < Math.max(1, Number(e[4].n) || 1); i++) if (!this._kitSound('whitw2:s3born')) break;
+          }
+          // 2026-11-01: 塔露拉 S3's wave — each lane's 簇火 fired at once (its BORN), at most the bank's own limit
+          if (e[1] === 'oxiWave' && e[4]?.id != null && unitOf(e[4].id)?.def === 'char_4247_oxi') {
+            const max = this.getManifest()?.audio?.sfx?.kitLimit?.['oxi:s3fire']?.max ?? 2;
+            for (let i = 0; i < Math.min(Math.max(1, (Number(e[4].z) - Number(e[4].a) + 1) || 1), max); i++) if (!this._kitSound('oxi:s3fire')) break;
           }
           if (e[1] === 'link' && e[4]?.id != null) for (let i = haloLinkCount(unitOf(e[4].id), e[4].ids); i > 0; i--) this._kitSound('halo2:s3link');
           // 2026-10-22: a kitHit for `n` units at once (圣聆初雪 S2's tick) — one per unit, at most the bank's own limit

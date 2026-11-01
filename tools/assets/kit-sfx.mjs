@@ -165,6 +165,13 @@ export const KIT_HIT_BANKS = Object.freeze({
   'clemnt:s3fall': 'battle.ON_CUSTOM_TRIGGER.clemnt_s3_projectile_tick_fall_audio',
   'clemnt:s3hit': 'battle.ON_CUSTOM_TRIGGER.clemnt_s3_projectile_tick_reach_audio',
   'clemnt:t1': 'battle.ON_CUSTOM_TRIGGER.clemnt_t1_power_attack_audio',
+  // 2026-11-01 塔露拉 (CN client prefabs): S3's 簇火 — each lane's projectile_chr_oxi_s_3_heatwave fired (BORN) and exploding
+  // (HIT); S3's 过载 (the skill prefab's AudioOnEventBehaviour on event 8, once); a footprint tile leased (oxi_fire_field_lease
+  // `_effectSettings` castedTimeThreshold 1 audioSignal)
+  'oxi:s3fire': 'battle.ON_PROJECTILE_BORN.projectile_chr_oxi_s_3_heatwave',
+  'oxi:s3hit': 'battle.ON_PROJECTILE_HIT.projectile_chr_oxi_s_3_heatwave',
+  'oxi:s3ovs': 'battle.ON_CUSTOM_TRIGGER.oxi_s_3_overload',
+  'oxi:field': 'battle.ON_CUSTOM_TRIGGER.oxi_fire_field_create',
   // 2026-10-30 (public/js/audio.js kitHitKey): 叙拉古 [ex]'s proc on the target (act2autochess_bond_eff_siracusa[ex][buff]
   // PlayAudio); a hit a block layer stops whole (BlockDamage.Execute plays ON_DAMAGE_BLOCK at the holder: fx 'parry')
   'siracusa:ex': 'battle.ON_CUSTOM_TRIGGER.siracusa_ex_attack',

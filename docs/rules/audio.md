@@ -148,8 +148,10 @@
       `p_atk_lmwlcrstrst_s`; 이 모드 기물이 안 쓰는 스킬도 같이 실림(이그제큐터 디 엑스 포에데레 S3 `attack.4` `p_atk_bngel` — HIT `p_imp_bngel`은 안 냄,
       스와이어 더 엘리건트 위트 S3 `attack.4`). 추출: `char_modes.py skill_end_modes`(`config/buff_template_holder.ab`) → `local-char-modes.json`
       `skillEnd[스킬]`; 생성: `skillEnds`(자기 `ON_SKILL_FINISH`/`ON_ABILITY_END`가 없을 때만, `ends[i].mode` 1). 재생: 같은 이벤트 묶음에 그 유닛의
-      `'die'`(쓰러짐·퇴장)가 있으면 안 낸다(죽은 유닛은 그 모드의 능력을 못 씀). EN 템플릿에 없는 안젤리나 더 멜로우 위시(`S1/S2/S3_Landing`
-      `attack.6/7/9` `p_atk_arstrnstfld`)는 안 실림. 확인: `test/audio-skill-end-modes.test.js`. [화면 미확인]
+      `'die'`(쓰러짐·퇴장)가 있으면 안 낸다(죽은 유닛은 그 모드의 능력을 못 씀). EN 템플릿에 없는 안젤리나 더 멜로우 위시는 CN 템플릿으로 뽑음
+      (2026-11-01, `char_modes.py --client <CN> --id char_1015_aglna2`): `skillEnd` [6, null, 9] — S1·S3 끝에 착지 모드 `S1_Landing`·`S3_Landing`의
+      START `p_atk_arstrnstfld`(`attack.6`/`.9`), S2는 스킬 버프 끝의 모드 바꾸기가 없어 안 냄(`S2_Landing` `attack.7`에 들어가는 다른 길은 아직 안 봄 — 관리자 노트의 열린 항목).
+      [추정·CN: S3가 처음 자리에서 떨어져 끝나면 공식은 돌아가는 이동 뒤에 내릴 수 있음 — 우리는 스킬이 끝날 때 냄] 확인: `test/audio-skill-end-modes.test.js`. [화면 미확인]
   - 확인: `test/local-patch-audio.test.js` 8개, 전 오퍼레이터×스킬 시뮬+AudioManager 일괄(강제 시전 시 207개 중 185개에서 전용 소리 — 나머지 22개는
     피해를 키트가 직접 주는 스킬: 드론·음표·늑대·치유), 디버그 아레나(阿斯卡纶 S1/S3, 维什戴尔 S3, 赤刃明霄陈 S3 — 검기 타격 `p_imp_hljdswdlng_s`).
     새 효과음 220개(2.4MB)는 `npm run assets`(`fetch-assets`)가 받는다.
@@ -434,6 +436,12 @@
     전에는 S3 모드 착탄음이 났다). 우리: 착탄음은 키트 폭발 fx `blast`마다, 낙하음은 각 폭발 0.5초 전(`lock`의 `dur` − 0.5 + k초, `n`번) — 포탄은 그녀가 쓰러지거나 퇴각하면
     멈추므로(`_stopWhenSourceInvalid`) 그녀의 'die'에 아직 안 난 낙하음을 취소(2026-10-29; 착탄음은 sim의 `blast`가 안 와서 저절로). 재능 1 굴림이
     이기면 `clemnt_t1[dice_damage]` ON_AFTER_OUTPUT_DAMAGE의 PlayAudio `clemnt_t1_power_attack_audio`(`p_imp_wtsdrvrtl`) — 'dmg' 9번째 칸 moment.
+  - 탈룰라(선발, 2026-11-01, CN 클라 스킬·투사체·전투 프리팹): S3 물결마다 줄별 簇火 `projectile_chr_oxi_s_3_heatwave`의 BORN `p_atk_xtlfgbwfb_s`
+    (키트 fx `oxiWave` — 줄 수만큼 내되 뱅크 상한 1이라 한 번), 簇火가 터질 때 HIT `p_imp_xtlfgbwfb_s`(물결 번호 `w`가 있는 `blast`마다 — S2 반격의
+    `blast`에는 `w`가 없어 안 남), 과부하에 스킬 프리팹 `AudioOnEventBehaviour`(이벤트 8, 한 번) `oxi_s_3_overload` `p_skill_xtlfgbwvl_s`(fx `overload`),
+    발자국 칸을 새로 잡을 때 `oxi_fire_field_lease` `_effectSettings`(castedTimeThreshold 1)의 audioSignal `oxi_fire_field_create` `p_atk_xtlfgfcbrn`
+    (fx `zone`의 `n` 1) [추정·CN: 이미 잡힌 칸을 다시 잡는 것이 「시전 횟수」를 늘리는지 — 클래스가 CN에만 있어 다시 잡을 때는 안 냄]. 처음 데이터를
+    만들 때 넷이 빠져 있었다(그녀 항목만 옛 표에 옮길 때 이름에 `char_4247`·`skchr_oxi`가 없는 뱅크를 못 골랐음) — 그래서 簇火 착탄이 무음이었다.
   - 할 것 없음: 혼 S2 `…_horn_s2_full*`(수동 종료 `Full Burst`의 탄 — 위 「공격 소리 신호」; 이 모드 기물은 S3). 남김(§11 ③ 소리): 실버애쉬 더 레인프로스트 S3
     새(`svash2_s_3[bird_on_self]`/`[bird_on_target]` — 이 모드에서 어느 쪽이 도는지 미조사).
 - 확인: `test/audio-skill-projectiles.test.js`(뱅크·매니페스트, 키, AudioManager 재생, 실제 매치 경로: 쉐라 드론 피해의 7번째 칸 2와 S2 드론 `i`; 클레멘티아 2026-10-29 같은 날 추가). [화면 미확인]

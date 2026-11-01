@@ -1,7 +1,8 @@
 // Skill and talent projectile sounds (docs/rules/audio.md 「스킬·재능 투사체 소리」, 2026-10-29): the banks of skill / talent
 // projectiles and drones the sim has a moment for — 寒芒克洛丝 S2's four shots (S2_Sub), 至简 S2's second shot, 耶拉 S2's released
 // drone, a 驭械术师's unreleased drone (the 'dmg' 7th field 2), 荒芜拉普兰德 S3's wolves, 引星棘刺 S3's throw, 维什戴尔 S3's mark,
-// 溯光星源 S3's links, 新约能天使's 火力电台 bombing, 克莱门莎's carriage, vortex, shells and T1 roll. The manifest under test is the committed one.
+// 溯光星源 S3's links, 新约能天使's 火力电台 bombing, 克莱门莎's carriage, vortex, shells and T1 roll, 塔露拉's S3 fires, 过载 and
+// footprints. The manifest under test is the committed one.
 
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -27,6 +28,8 @@ const NEW_KEYS = {
   'angel2:t1': 'p_imp_tlsrhgns_n.mp3',
   'clemnt:s2cab': 'p_atk_wtfyswrsp.mp3', 'clemnt:s2tide': 'p_imp_wtfyswrsp.mp3', 'clemnt:s3reach': 'p_atk_wtrbmcn.mp3',
   'clemnt:s3fall': 'p_atk_wtrbmsl.mp3', 'clemnt:s3hit': 'p_imp_wtrbmsl.mp3', 'clemnt:t1': 'p_imp_wtsdrvrtl.mp3',
+  'oxi:s3fire': 'p_atk_xtlfgbwfb_s.mp3', 'oxi:s3hit': 'p_imp_xtlfgbwfb_s.mp3', 'oxi:s3ovs': 'p_skill_xtlfgbwvl_s.mp3',
+  'oxi:field': 'p_atk_xtlfgfcbrn.mp3',
 };
 
 function manager() {
@@ -146,6 +149,23 @@ describe('skill and talent projectile sounds wired 2026-10-29', () => {
     field(t, 'char_4231_clemnt', 0);
     t.handleBattleEvents([['dmg', 2, 50, 'phys', 0, 1, 0, 0, [['clemnt_t1[dice_damage]', 1]]]]);
     assert.ok(files(t).includes('p_imp_wtsdrvrtl.mp3'), files(t).join());
+  });
+
+  test('AudioManager: 塔露拉 S3 — a wave fires its 簇火 (BORN, one at once: the bank keeps 1), each explosion sounds its HIT, the 过载 its trigger; a footprint sounds on a new tile only; S2\'s retaliation blast is not a 簇火', () => {
+    const a = manager();
+    field(a, 'char_4247_oxi', 2);
+    a.handleBattleEvents([['skill', 1, 1]]);
+    a.played.length = 0;
+    a.handleBattleEvents([['fx', 'oxiWave', 3, 0, { id: 1, w: 1, h: 1, a: 8, z: 12, s: 0, to: 20, v: 2.3 }]]);
+    assert.deepEqual(files(a), ['p_atk_xtlfgbwfb_s.mp3']);
+    a.played.length = 0;
+    a.handleBattleEvents([['fx', 'blast', 5, 10, { id: 1, r: 1.5, element: 'burn', w: 1, lane: 10 }], ['fx', 'overload', 3, 0, { id: 1 }]]);
+    assert.deepEqual(files(a), ['p_imp_xtlfgbwfb_s.mp3', 'p_skill_xtlfgbwvl_s.mp3']);
+    const b = manager();
+    field(b, 'char_4247_oxi', 1);
+    b.handleBattleEvents([['fx', 'blast', 5, 10, { id: 1, r: 1 }], ['fx', 'zone', 5, 10, { id: 1, r: 0.5, dur: 4, tile: 5, n: 1 }],
+      ['fx', 'zone', 5, 10, { id: 1, r: 0.5, dur: 4, tile: 5 }]]);
+    assert.deepEqual(files(b).filter((f) => f.includes('xtlfg')), ['p_atk_xtlfgfcbrn.mp3']);
   });
 
   // CN client projectile_chr_clemnt_s3 `_stopWhenSourceInvalid`: her 'die' stops the shells, so their falls still due

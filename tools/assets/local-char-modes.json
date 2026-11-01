@@ -463,6 +463,11 @@
    null,
    null
   ],
+  "skillEnd": [
+   6,
+   null,
+   9
+  ],
   "skills": [
    {
     "cast": [],
