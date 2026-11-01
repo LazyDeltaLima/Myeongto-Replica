@@ -43,7 +43,9 @@ export default {
     const lease = (battle, unit, f, key) => {
       // a re-lease restarts its time [ASSUMED·no source: the maintainer's memory of the official game, "probably" (2026-11-01)]
       if (f.tiles.has(key)) { f.tiles.set(key, battle.time + fieldDuration); return; }
-      if (f.tiles.size >= fieldCap) return;                                            // `_rejectNewWhenFull`
+      // full: a new tile is refused (`_rejectNewWhenFull`, kept over the maintainer's memory of the oldest one going —
+      // maintainer decision 2026-11-01) [ASSUMED·CN: the field read by its name]
+      if (f.tiles.size >= fieldCap) return;
       f.tiles.set(key, battle.time + fieldDuration);
       battle.fx('zone', { x: key % COLS, y: Math.floor(key / COLS), r: 0.5, dur: fieldDuration, id: unit.id });
     };
