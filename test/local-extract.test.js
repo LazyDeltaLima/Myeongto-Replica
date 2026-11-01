@@ -129,6 +129,20 @@ print(json.dumps({
     }
   });
 
+  // without its entry the unit card (ui/detailArt.js cardArt) falls back to the 180×360 half-body portrait, cut square
+  // at the card's edge: 冻河 and 塔露拉 joined the 선발 picks without one (chararts_extract.py was not run for them)
+  test('chararts on this machine: every operator of chess.json and every 선발 pick has its art, the file present', { skip: !manifest?.groups?.chararts && 'no extracted chararts' }, () => {
+    const arts = manifest.groups.chararts;
+    const chess = JSON.parse(readFileSync(path.join(ROOT, 'data/chess.json'), 'utf8'));
+    const backups = JSON.parse(readFileSync(path.join(ROOT, 'data/backups.json'), 'utf8'));
+    const ids = new Set(Object.values(chess.chess || chess).map((r) => r?.charId).filter((id) => typeof id === 'string' && id.startsWith('char_')));
+    for (const id of backups.diy?.ownedPool || []) ids.add(id);
+    assert.ok(ids.size > 100);
+    const missing = [...ids].filter((id) => !arts[id]);
+    assert.deepEqual(missing, [], 'run tools/local-extract/chararts_extract.py --id <charId> (the CN client for a CN-only operator)');
+    for (const id of ids) assert.ok(existsSync(path.join(ROOT, 'public', arts[id].path)), arts[id].path);
+  });
+
   test('prefab_spine_nodes: the SkeletonAnimation renderers of a prefab tree, depth first, inactive branches marked', () => {
     // a directional token prefab: Graphic / DefaultSkin / FaceSwitcher / {Front, Back} (each with its own skeleton), an
     // inactive Spare renderer, a component in another bundle (m_FileID ≠ 0) and a MonoBehaviour without a type tree
