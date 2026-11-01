@@ -2,7 +2,7 @@
 // projectiles and drones the sim has a moment for — 寒芒克洛丝 S2's four shots (S2_Sub), 至简 S2's second shot, 耶拉 S2's released
 // drone, a 驭械术师's unreleased drone (the 'dmg' 7th field 2), 荒芜拉普兰德 S3's wolves, 引星棘刺 S3's throw, 维什戴尔 S3's mark,
 // 溯光星源 S3's links, 新约能天使's 火力电台 bombing, 克莱门莎's carriage, vortex, shells and T1 roll, 塔露拉's S3 fires, 过载 and
-// footprints. The manifest under test is the committed one.
+// footprints, 冻河's buff signals and S2 shot. The manifest under test is the committed one.
 
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -30,6 +30,8 @@ const NEW_KEYS = {
   'clemnt:s3fall': 'p_atk_wtrbmsl.mp3', 'clemnt:s3hit': 'p_imp_wtrbmsl.mp3', 'clemnt:t1': 'p_imp_wtsdrvrtl.mp3',
   'oxi:s3fire': 'p_atk_xtlfgbwfb_s.mp3', 'oxi:s3hit': 'p_imp_xtlfgbwfb_s.mp3', 'oxi:s3ovs': 'p_skill_xtlfgbwvl_s.mp3',
   'oxi:field': 'p_atk_xtlfgfcbrn.mp3',
+  'tocka:s1shield': 'p_atk_rylntbwshld.mp3', 'tocka:s2auto': 'p_atk_rylntbwbf_h.mp3', 'tocka:s3bonus': 'p_atk_rylntbwbf_s.mp3',
+  'tocka:s3trigger': 'p_imp_rylntbwflt.mp3', 'tocka:s2hit': 'p_imp_rylntbw_h.mp3',
 };
 
 function manager() {
@@ -166,6 +168,19 @@ describe('skill and talent projectile sounds wired 2026-10-29', () => {
     b.handleBattleEvents([['fx', 'blast', 5, 10, { id: 1, r: 1 }], ['fx', 'zone', 5, 10, { id: 1, r: 0.5, dur: 4, tile: 5, n: 1 }],
       ['fx', 'zone', 5, 10, { id: 1, r: 0.5, dur: 4, tile: 5 }]]);
     assert.deepEqual(files(b).filter((f) => f.includes('xtlfg')), ['p_atk_xtlfgfcbrn.mp3']);
+  });
+
+  test('AudioManager: 冻河 — her buffs\' audio signals as they start on an ally (S1 屏障, S2 attack speed, S3 ATK), S3\'s triggered effect put, S2\'s projectile reaching its ally; not S1 / S2 effects put, nor a buff ending', () => {
+    const a = manager();
+    a.setFieldUnits([{ id: 1, kind: 'op', side: 'ally', spine: 'char_4244_tocka', defId: 'chess_x', skillIndex: 0 },
+      { id: 4, kind: 'op', side: 'ally', spine: 'char_1012_skadi2', defId: 'chess_y', skillIndex: 0 }]);
+    a.handleBattleEvents([['status', 4, 'tocka:shield:1', 1, 1], ['status', 4, 'tocka:auto:1', 1, 1], ['status', 4, 'tocka:bonus:1', 1, 1],
+      ['status', 4, 'tocka:shield:1', 0]]);
+    assert.deepEqual(files(a), ['p_atk_rylntbwshld.mp3', 'p_atk_rylntbwbf_h.mp3', 'p_atk_rylntbwbf_s.mp3']);
+    a.played.length = 0;
+    a.handleBattleEvents([['fx', 'tockaFx', 3, 0, { id: 4, src: 1, s: 3 }], ['fx', 'tockaFx', 3, 0, { id: 4, src: 1, s: 2, shot: 1 }],
+      ['fx', 'tockaFx', 3, 0, { id: 4, src: 1, s: 1 }], ['fx', 'tockaFx', 3, 0, { id: 1, src: 1, s: 2 }]]);
+    assert.deepEqual(files(a), ['p_imp_rylntbwflt.mp3', 'p_imp_rylntbw_h.mp3']);
   });
 
   // CN client projectile_chr_clemnt_s3 `_stopWhenSourceInvalid`: her 'die' stops the shells, so their falls still due

@@ -172,6 +172,13 @@ export const KIT_HIT_BANKS = Object.freeze({
   'oxi:s3hit': 'battle.ON_PROJECTILE_HIT.projectile_chr_oxi_s_3_heatwave',
   'oxi:s3ovs': 'battle.ON_CUSTOM_TRIGGER.oxi_s_3_overload',
   'oxi:field': 'battle.ON_CUSTOM_TRIGGER.oxi_fire_field_create',
+  // 2026-11-01 冻河 (CN buff templates: the audioSignal of the buffs they create; public/js/audio.js statusSoundKey / kitHitKey):
+  // S1 屏障, S2 attack speed, S3 ATK bonus (SHOW_EFFECT), S3 triggered effect (START); S2's projectile reaching its ally
+  'tocka:s1shield': 'battle.ON_BUFF_SHOW_EFFECT.tocka_s1_shield_start_audio',
+  'tocka:s2auto': 'battle.ON_BUFF_SHOW_EFFECT.tocka_s2_auto_skill_audio',
+  'tocka:s3bonus': 'battle.ON_BUFF_SHOW_EFFECT.tocka_s3_bonus_start_audio',
+  'tocka:s3trigger': 'battle.ON_BUFF_START.tocka_s3_trigger_start_audio',
+  'tocka:s2hit': 'battle.ON_PROJECTILE_HIT.projectile_chr_tocka_s2',
   // 2026-10-30 (public/js/audio.js kitHitKey): 叙拉古 [ex]'s proc on the target (act2autochess_bond_eff_siracusa[ex][buff]
   // PlayAudio); a hit a block layer stops whole (BlockDamage.Execute plays ON_DAMAGE_BLOCK at the holder: fx 'parry')
   'siracusa:ex': 'battle.ON_CUSTOM_TRIGGER.siracusa_ex_attack',

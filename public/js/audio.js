@@ -116,6 +116,17 @@ const SPINE_AUDIO_EVENT = /^OnPlayAudio(?:_[1-3])?$/;
  * as it starts (bank battle.ON_BUFF_START.<signal>). The mode's templates have one: 卡西米尔 [ex]'s [ex_damage_effect].
  */
 export const TPL_FX_SOUNDS = Object.freeze({ common_071_bond_kazimierz_hit_01_new: 'kazimierz:ex' });
+/**
+ * 2026-11-01: the `sfx.kit` key of a kit buff (sim 'status' key, `<base>:<source id>` for one per applier) whose client buff
+ * carries an `audioSignal` — Entity.OnBuffStart / OnBuffShowEffect sound it on the holder as it starts. 冻河 (CN buff
+ * templates): her S1 屏障 tocka_s1[shield], S2 attack speed tocka_s2[auto_skill], S3 ATK tocka_s3[bonus] (on the ally and
+ * on her) [ASSUMED·engine: the SHOW_EFFECT banks at the buff's start, as the other ones here].
+ */
+const STATUS_SOUNDS = Object.freeze({ 'tocka:shield': 'tocka:s1shield', 'tocka:auto': 'tocka:s2auto', 'tocka:bonus': 'tocka:s3bonus' });
+export function statusSoundKey(key) {
+  if (typeof key !== 'string') return null;
+  return STATUS_SOUNDS[key] ?? STATUS_SOUNDS[key.replace(/:\d+$/, '')] ?? null;
+}
 
 /**
  * local patch: the `sfx.kit` key of a kit's skill hit (tools/assets/kit-sfx.mjs) for a battle.fx event, or null.
@@ -150,6 +161,9 @@ export function kitHitKey(fx, ex, unitOf) {
     case 'tide': return def(ex.id) === 'char_4231_clemnt' ? 'clemnt:s2tide' : null;
     // 2026-11-01: 塔露拉 S3 — a 簇火 exploding (its projectile's HIT; the blast names its wave `w`, S2's retaliation does not)
     case 'blast': return def(ex.id) === 'char_4231_clemnt' ? 'clemnt:s3hit' : ex.w != null && def(ex.id) === 'char_4247_oxi' ? 'oxi:s3hit' : null;
+    // 2026-11-01: 冻河 — S3's triggered effect put on an ally (tocka_s3[trigger], audioSignal tocka_s3_trigger_start_audio), S2's
+    // projectile reaching its ally (projectile_chr_tocka_s2 HIT)
+    case 'tockaFx': return def(ex.src) !== 'char_4244_tocka' ? null : ex.s === 3 ? 'tocka:s3trigger' : ex.s === 2 && ex.shot ? 'tocka:s2hit' : null;
     case 'explode': return def(ex.by) === 'char_1035_wisdel' ? 'wisdel:bomb' : null;
     case 'burst': return def(ex.id) === 'token_10035_wisdel_wward' ? 'wisdel:token' : null;
     case 'oblvnsNote': return ex.e === 'hit' && typeof ex.m === 'string' ? `oblvns:${ex.m}` : null;
@@ -2135,6 +2149,9 @@ export class AudioManager {
         } else if (kind === 'tplfx') {
           // 2026-11-01: a template effect whose buff also carries an audio signal (['tplfx', target, effectKey, source])
           this._kitSound(TPL_FX_SOUNDS[e[2]] ?? null);
+        } else if (kind === 'status' && e[3]) {
+          // 2026-11-01: a kit buff whose client buff carries an audio signal, as it starts on its holder (statusSoundKey)
+          this._kitSound(statusSoundKey(e[2]));
         } else if (kind === 'bounty') {
           this.battle('killCoin');
         } else if (kind === 'layer') {

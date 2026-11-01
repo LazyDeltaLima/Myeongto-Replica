@@ -405,7 +405,7 @@
 - 파일 단위로 보므로 같은 파일을 다른 뱅크가 이미 내면 「남」으로 친다(순간이 무음이어도) — 무음을 다 잡지는 못하는 하한이다. 캐시 표에 뱅크가
   아예 없으면(옮길 때 빠짐) 이 시험에도 안 보인다 — 옮긴 쪽에서 원본과 이름 대조(관리자 노트의 병합 도구가 한다).
 - 첫 목록(2026-11-01): 선발 11명의 뱅크 243개 중 25개 — 토스카 6, 안젤리나 더 멜로우 위시 8, 트라고디아 4, 켈시 에스페란타 3, 토가와 사키코 2,
-  첸 더 던스트릭 1, 위셔델 1. 모두 `todo`(아직 하나도 안 봄).
+  첸 더 던스트릭 1, 위셔델 1. 모두 `todo`(아직 하나도 안 봄). 같은 날 토스카 5개를 이어 20개(아래 「스킬·재능 투사체 소리」 토스카 줄).
 
 ## 스킬·재능 투사체 소리 (2026-10-29, 공식 클라 — 캐릭터·스킬·투사체 프리팹)
 - 공식: 스킬·재능·드론이 쏘는 투사체도 자기 뱅크를 낸다 — BORN(발사)·HIT(맞힌 대상마다)·REACH(도착)·STOP(멈춤)·
@@ -452,6 +452,14 @@
     발자국 칸을 새로 잡을 때 `oxi_fire_field_lease` `_effectSettings`(castedTimeThreshold 1)의 audioSignal `oxi_fire_field_create` `p_atk_xtlfgfcbrn`
     (fx `zone`의 `n` 1) [추정·CN: 이미 잡힌 칸을 다시 잡는 것이 「시전 횟수」를 늘리는지 — 클래스가 CN에만 있어 다시 잡을 때는 안 냄]. 처음 데이터를
     만들 때 넷이 빠져 있었다(그녀 항목만 옛 표에 옮길 때 이름에 `char_4247`·`skchr_oxi`가 없는 뱅크를 못 골랐음) — 그래서 簇火 착탄이 무음이었다.
+  - 토스카(선발, 2026-11-01, CN 클라 버프 템플릿 — 그녀 템플릿이 만드는 버프의 `audioSignal`): 아군에게 S1 屏障 `tocka_s1[shield]`
+    (SHOW_EFFECT `p_atk_rylntbwshld`), S2 공격 속도 `tocka_s2[auto_skill]`(SHOW_EFFECT `p_atk_rylntbwbf_h`), S3 공격력 `tocka_s3[bonus]`(SHOW_EFFECT
+    `p_atk_rylntbwbf_s`, 아군과 그녀 둘 다)이 붙을 때 — 키트의 보이는 버프가 시작될 때의 sim `status`(`audio.js statusSoundKey`)
+    [추정·엔진: SHOW_EFFECT를 버프 시작 순간으로 봄, 위 다른 SHOW_EFFECT 뱅크와 같음]; S3 발동형 효과를 걸 때 `tocka_s3[trigger]`(START
+    `p_imp_rylntbwflt`, fx `tockaFx` `s` 3 — 옮겨 갈 때도), S2 투사체가 아군에 닿을 때 `projectile_chr_tocka_s2` HIT `p_imp_rylntbw_h`(`tockaFx` `s` 2
+    `shot`; 자기에게 걸 때는 투사체 없음). 남은 하나: 재능 2 공격 `projectile_chr_tocka_t2` HIT — 공격 묶음(AbilityFirstSucceedGroup)을 추출기가
+    묶음 종류 없이 읽어(`char_audio.py ability_info`) 빌더가 자식 `attack.0.1`/`0.2`를 번갈아 내고 T2 투사체를 안 붙인다(평타 둘 중 하나가 T2 소리로
+    나는 것도 이것). 르무엔 `Modes/S2/Body/M2Attack`과 필드로는 못 가름 — 스크립트 클래스 이름을 읽어야 함(관리자 노트의 열린 항목).
   - 할 것 없음: 혼 S2 `…_horn_s2_full*`(수동 종료 `Full Burst`의 탄 — 위 「공격 소리 신호」; 이 모드 기물은 S3). 남김(§11 ③ 소리): 실버애쉬 더 레인프로스트 S3
     새(`svash2_s_3[bird_on_self]`/`[bird_on_target]` — 이 모드에서 어느 쪽이 도는지 미조사).
 - 확인: `test/audio-skill-projectiles.test.js`(뱅크·매니페스트, 키, AudioManager 재생, 실제 매치 경로: 쉐라 드론 피해의 7번째 칸 2와 S2 드론 `i`; 클레멘티아 2026-10-29 같은 날 추가). [화면 미확인]

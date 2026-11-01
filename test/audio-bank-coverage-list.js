@@ -41,11 +41,9 @@ export const UNSOUNDED = {
     'ON_CUSTOM_TRIGGER.phatm2_s2_boom_damage': 'todo: S2 burst damage (a custom trigger)',
   },
   char_4244_tocka: {
-    'ON_PROJECTILE_HIT.projectile_chr_tocka_t2': 'todo: T2 attack projectile HIT',
-    'ON_BUFF_SHOW_EFFECT.tocka_s1_shield_start_audio': 'todo: S1 屏障 starting on an ally',
-    'ON_PROJECTILE_HIT.projectile_chr_tocka_s2': 'todo: S2 projectile reaching its ally',
-    'ON_BUFF_SHOW_EFFECT.tocka_s2_auto_skill_audio': 'todo: S2 attack speed buff on an ally',
-    'ON_BUFF_START.tocka_s3_trigger_start_audio': 'todo: S3 triggered effect starting on an ally',
-    'ON_BUFF_SHOW_EFFECT.tocka_s3_bonus_start_audio': 'todo: S3 ATK bonus starting',
+    // her attack group (AbilityFirstSucceedGroup: T2Attack while she holds T2's mark, else NormalAttack) is read without its
+    // group kind (tools/local-extract/char_audio.py ability_info), so the builder takes attack.0.1 / 0.2 in turn and never
+    // attaches T2Attack's projectile; the same shape as 蕾缪安's Modes/S2/Body/M2Attack, which the fields alone cannot tell apart
+    'ON_PROJECTILE_HIT.projectile_chr_tocka_t2': 'todo: T2Attack\'s hit — the attack group kind (char_audio.py), then the swing signal T2Attack picks the child',
   },
 };
