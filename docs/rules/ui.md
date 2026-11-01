@@ -555,7 +555,7 @@
     `hud-bars.js` `AllyBars`(`OVERLOAD_RATIO`)가 비율로 나눠 그린다. 시뮬레이션의 과부하 효과도 다섯 키트 모두 절반에서 시작한다(락락 S2 40초 중 20초,
     `test/render/overload-bar.test.js`). 그리기 호출은 그대로(바 20개 1회, `bench/draw` 장면 `overload`).
   - [화면 미확인] 실제 판에서 위 다섯의 바를 아직 못 봤다(그림 비교만). 같은 머티리얼의 보통 탄환 색 `_BulletColor`는 `#ebaa2d`인데 우리는 캡처로 잰
-    `#ffa800`([추정], 위 「탄환형 스킬」)을 쓴다 — 셰이더가 색을 바꾸는지 안 봐서 그대로 둠.
+    `#ffa800`(위 「탄환형 스킬」의 추정값)을 쓴다 — 셰이더가 색을 바꾸는지 안 봐서 그대로 둠.
 - 배리어(屏障·护盾, 관리자 요청 2026-10-10 「배리어도 HP 바처럼」): 공식 클라 `UIHudCharHpSlider.UpdatePlugin`이 유닛의 `shieldUIController.shieldToShow`(s)를
   읽어 HP 바를 (HP + s) / (최대 HP + s)로 채우고, 채운 부분 중 끝쪽 s / (HP + s)(`UIHpFillImage.splitValue`)를 바 머티리얼 `ui_battle_ally_hp_bar`(셰이더
   `Torappu/UI/Hp`, 클라 셰이더: uv.x > 1.003 − split이면 `_Color2`)의 `#bcdbdf` 불투명으로 그린다 — 따로 막대가 있는 게 아니라 HP 바가 배리어만큼 늘어난다. 아군만
