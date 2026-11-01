@@ -65,8 +65,8 @@ export function maxBotsSetting(env = process.env) {
 
 /**
  * AI teammates in an 8-player room (local debug mode only, for testing the mode without eight browsers): the room takes
- * them like a 4-seat co-op room and starts once every seat is taken, humans and AI together. A deployed server keeps
- * the rule of server/lobby.js (eight Doctors, no AI seat).
+ * them like a 4-seat co-op room and starts with LARGE_MIN_PLAYERS seats or more taken, humans and AI together. A deployed
+ * server keeps the rule of server/lobby.js (that many Doctors, no AI seat).
  */
 export function largeBots(env = process.env) {
   return debugMode(env);

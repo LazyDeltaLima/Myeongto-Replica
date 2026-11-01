@@ -47,17 +47,21 @@ test('matchQueue: joinQueue adds size only for an 8-player queue; counts8 and si
   assert.match(read('public/js/store.js'), /queueCounts8: null/);
 });
 
-test('room: an 8-seat room has 8 seats, no AI seats, and starts only full; 匹配补位 needs only the ready rule', async () => {
+test('room: an 8-seat room has 8 seats, no AI seats, and starts with five Doctors or more; 匹配补位 needs only the ready rule', async () => {
   const { normalizeSeats, roomFacts, aiLastOption } = await load('public/js/screens/room.js');
   assert.equal(normalizeSeats(room8(3)).length, 8);
   assert.equal(normalizeSeats({ mode: 'coop', seats: [] }).length, 4, 'a room without size: 4');
   assert.equal(normalizeSeats({ mode: 'solo', size: 8, seats: [] }).length, 1);
-  const seven = roomFacts(room8(7), 'p0');
-  assert.equal(seven.large, true);
-  assert.equal(seven.seatsOpen, true);
-  assert.equal(seven.canAddBot, false, 'the 8-player mode has no AI teammates');
-  assert.equal(seven.canStart, false);
-  assert.equal(seven.canQueue, true, 'the open seats can be filled by matchmaking');
+  const four8 = roomFacts(room8(4), 'p0');
+  assert.equal(four8.large, true);
+  assert.equal(four8.seatsOpen, true);
+  assert.equal(four8.canAddBot, false, 'the 8-player mode has no AI teammates');
+  assert.equal(four8.canStart, false);
+  assert.equal(four8.canQueue, true, 'the open seats can be filled by matchmaking');
+  for (const n of [5, 7]) {
+    const f = roomFacts(room8(n), 'p0');
+    assert.deepEqual([f.seatsOpen, f.canStart, f.canQueue], [false, true, true], `${n} Doctors`);
+  }
   const full = roomFacts(room8(8), 'p0');
   assert.equal(full.seatsOpen, false);
   assert.equal(full.canStart, true);
@@ -71,7 +75,7 @@ test('room: an 8-seat room has 8 seats, no AI seats, and starts only full; 匹�
   assert.equal(aiLastOption(room8(8), 'p0'), null);
   const src = read('public/js/screens/room.js');
   assert.match(src, /seats--8/);
-  assert.match(src, /t\('八人同盟需坐满 8 名博士后才能开始'\)/);
+  assert.match(src, /t\('八人同盟需至少 5 名博士才能开始'\)/);
 });
 
 test('seat colours: eight distinct hues for the 8-player seats, the first four unchanged; both avatars use them', async () => {
@@ -130,8 +134,9 @@ test('in-match UI: the 8-row player list, the compact draft order, the 12-card �
 });
 
 test('the 8-player texts go through t() and have English and Korean', () => {
-  const ids = ['与另外 {n} 名博士组成同盟，共享干员池，联防协作抵御敌潮。', '{n} 名博士坐满后开始 · 没有 AI 队友', '仅匹配真人 · 满 {n} 人后开始', '人数',
-    '八人同盟：{n} 名博士坐满后开始，没有 AI 队友；联防最多 4 名博士同时迎战', '{n} 人同盟', '创建后邀请好友坐满 {n} 个席位', '排队中的博士：{count}/{n}',
+  const ids = ['与至多 {n} 名博士组成同盟，共享干员池，联防协作抵御敌潮。', '{n}–{max} 名博士即可开始 · 没有 AI 队友', '仅匹配真人 · 满 {n} 人后开始', '人数',
+    '八人同盟：{n}–{max} 名博士即可开始，没有 AI 队友；卡池、敌方数值和联防人数随开局人数调整', '{n} 人同盟', '创建后邀请好友加入（{n}–{max} 名博士）', '排队中的博士：{count}/{n}',
+    '八人同盟需至少 5 名博士才能开始',
     '凑齐 {n} 名博士后开始', '用随机匹配的博士补满空位', '{n}人'];
   for (const zh of ids) {
     for (const [name, pack] of [['en', EN], ['ko', KO]]) {

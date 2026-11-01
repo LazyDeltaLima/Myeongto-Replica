@@ -20,12 +20,15 @@
 // An 8-player co-op match (shared/constants.js LARGE_SEATS; the constructor's `seats`) reads config.eightPlayer over the
 // 4-player values: the shop pool and item stock multipliers, the bond ban counts, the overtime drain, the 隐秘核心
 // threshold, the leader HP head count, the 机变 card count and the 联防 helpers (`large`; null in every other match).
+// The room starts with 5–8 players (shared/constants.js LARGE_MIN_PLAYERS; maintainer decision 2026-11-01): each of those
+// numbers is the 4-player value at 4 players, config.eightPlayer's at 8 and linear between, by the players the match
+// started with (the constructor's `players`; `largeAt`) — the bans have no 8-player key and stay the 4-player table.
 
 import { getConfig, getMode } from '../data.js';
 import { isShopItem } from '../sim/simdata.js';
 import { standInRecord } from '../../shared/standIn.js';
 import { customRoundPlan, customPrepSeconds, keepUnbanned, curveScale, customPoolCount } from '../../shared/ruleset.js';
-import { BOND_LAYER_CAP, LARGE_SEATS } from '../../shared/constants.js';
+import { BOND_LAYER_CAP, LARGE_SEATS, MAX_SEATS } from '../../shared/constants.js';
 
 const own = (map, id) => (map && typeof map === 'object' && typeof id === 'string' && Object.hasOwn(map, id) && map[id] && typeof map[id] === 'object' ? map[id] : null);
 const numOr = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -104,9 +107,10 @@ export class GameData {
    * @param {string} modeId e.g. 'mode_multi_hard'
    * @param {Readonly<import('../../shared/ruleset.js').CustomSettings> | null} [custom] a custom ruleset's settings
    *   (sanitizeCustom), null = the official rules
-   * @param {{ seats?: number }} [opts] `seats`: the co-op room size (LARGE_SEATS = the 8-player mode, header)
+   * @param {{ seats?: number, players?: number }} [opts] `seats`: the co-op room size (LARGE_SEATS = the 8-player mode,
+   *   header); `players`: the seats the match started with (an 8-player room's numbers follow it; missing = full)
    */
-  constructor(data, modeId, custom = null, { seats } = {}) {
+  constructor(data, modeId, custom = null, { seats, players } = {}) {
     this.raw = data && typeof data === 'object' ? data : {};
     this.config = getConfig(this.raw) || {};
     this.modeId = modeId;
@@ -115,6 +119,9 @@ export class GameData {
     const big = this.config.eightPlayer;
     /** config.eightPlayer in an 8-player co-op match (header), else null */
     this.large = seats === LARGE_SEATS && !this.isSolo && big && typeof big === 'object' ? big : null;
+    /** the 8-player numbers' share in this match (largeAt): 0 at 4 players or fewer, 1 at 8 (and when `players` is missing) */
+    this.largeShare = !this.large ? 0 : Number.isInteger(players) && players > 0
+      ? Math.min(1, Math.max(0, (players - MAX_SEATS) / (LARGE_SEATS - MAX_SEATS))) : 1;
     const chess = this.raw.chess && typeof this.raw.chess === 'object' ? this.raw.chess : {};
     this._chess = chess;
     this._items = this.raw.items && typeof this.raw.items === 'object' ? this.raw.items : {};
@@ -212,7 +219,7 @@ export class GameData {
    * @param {number} [aliveCount]
    */
   bossPoolShare(aliveCount) {
-    const full = this.large ? posIntOr(this.large.aliveFull, LARGE_SEATS) : null;
+    const full = this.large ? Math.round(this.largeAt(MAX_SEATS, posIntOr(this.large.aliveFull, LARGE_SEATS))) : null;
     const modeScale = full ? { ...(this.mode.bossHpScale || {}), aliveFull: full } : this.mode.bossHpScale;
     return bossPoolShareOf(modeScale, this.config.bossHpScale, this.isSolo, aliveCount);
   }
@@ -351,7 +358,8 @@ export class GameData {
    * whatever the team size (路标月报#2, bilibili BV1eLXXBqEgF; GitHub #430, upstream PR #477 / 6bfc0827). A 自选 slot's
    * private stock (player/diy.js) doubles with it (16 / 10), so a 自选 piece keeps its solo share of a co-op roll
    * [ASSUMED: the measured table has no 自选 row; maintainer decision 2026-10-11, as upstream PR #477]. A config
-   * without the multiplier keeps the solo table. An 8-player match: config.eightPlayer.coopPoolMultiplier (4).
+   * without the multiplier keeps the solo table. An 8-player match: config.eightPlayer.coopPoolMultiplier (4) at 8
+   * players, linear from the 4-player 2 (largeAt: 5 → × 2.5, 6 → × 3, 7 → × 3.5), rounded per operator.
    * A custom ruleset's pool.chess percent scales the result (shared/ruleset.js customPoolCount), the 自选 stock with it.
    */
   poolCopies(baseId) {
@@ -360,21 +368,24 @@ export class GameData {
     const pc = this.economy.poolCopies;
     const v = ov && typeof ov === 'object' && Number.isInteger(ov[baseId]) && ov[baseId] >= 0 ? ov[baseId] : (pc && typeof pc === 'object' ? pc[tier] : undefined);
     const base = Number.isInteger(v) && v >= 0 ? v : (DEFAULTS.poolCopies[tier] ?? 10);
-    const multiplier = this.isSolo ? 1 : posIntOr(this.large?.coopPoolMultiplier, 0) || posIntOr(this.economy.coopPoolMultiplier, 1);
-    return customPoolCount(base * multiplier, this.custom?.pool?.chess);
+    const coop = posIntOr(this.economy.coopPoolMultiplier, 1);
+    const multiplier = this.isSolo ? 1 : this.large ? this.largeAt(coop, posIntOr(this.large.coopPoolMultiplier, coop)) : coop;
+    return customPoolCount(Math.round(base * multiplier), this.custom?.pool?.chess);
   }
 
   /**
    * Shared stock of a shop item (pool.js SharedItemPool, upstream 6bfc0827): `economy.itemPoolCopiesOverrides[base]`,
    * else `economy.itemPoolCopies[tier]` — the 路标月报#2 table (bilibili BV1eLXXBqEgF, ~1:30), the same in solo and co-op.
    * Null (uncapped) for an item that is not a shop item (effect-only special equipment) or a config without the table.
-   * An 8-player match: × config.eightPlayer.itemPoolMultiplier (2). A custom ruleset's pool.items percent scales the result.
+   * An 8-player match: × config.eightPlayer.itemPoolMultiplier (2) at 8 players, linear from × 1 at 4 (largeAt), rounded.
+   * A custom ruleset's pool.items percent scales the result.
    */
   itemPoolCopies(id) {
     const base = this.baseIdOf(id), rec = this.item(base);
     if (!rec || !isShopItem(rec)) return null;
     const count = this.economy.itemPoolCopiesOverrides?.[base] ?? this.economy.itemPoolCopies?.[rec.tier];
-    return Number.isInteger(count) && count >= 0 ? customPoolCount(count * posIntOr(this.large?.itemPoolMultiplier, 1), this.custom?.pool?.items) : null;
+    const multiplier = this.large ? this.largeAt(1, posIntOr(this.large.itemPoolMultiplier, 1)) : 1;
+    return Number.isInteger(count) && count >= 0 ? customPoolCount(Math.round(count * multiplier), this.custom?.pool?.items) : null;
   }
 
   /**
@@ -591,9 +602,10 @@ export class GameData {
    * start at 75 real s (45 s before the countdown ends) at 2 LP per real second.
    */
   get bossOvertimeAfterReal() { return Math.max(0, numOr(this.config.bossOvertimeAfter, DEFAULTS.bossOvertimeAfter)); }
-  /** Team LP drained per REAL second of overtime (an 8-player match: config.eightPlayer's, 2). */
+  /** Team LP drained per REAL second of overtime (an 8-player match: config.eightPlayer's 2 at 8 players, largeAt rounded). */
   get bossOvertimeDrainReal() {
-    return Math.max(0, numOr(this.large?.bossOvertimeDrainPerSec, numOr(this.config.bossOvertimeDrainPerSec, DEFAULTS.bossOvertimeDrainPerSec)));
+    const v = Math.max(0, numOr(this.config.bossOvertimeDrainPerSec, DEFAULTS.bossOvertimeDrainPerSec));
+    return this.large ? Math.max(0, Math.round(this.largeAt(v, numOr(this.large.bossOvertimeDrainPerSec, v)))) : v;
   }
   /** Overtime start in GAME seconds of a boss field clock (150 real s × the forced 2× = 300). */
   get bossOvertimeAfter() { return this.bossOvertimeAfterReal * this.combatTimeScale; }
@@ -634,7 +646,8 @@ export class GameData {
     return { dpInit: numOr(d.init, 10), dpPerSec: numOr(d.perSec, 1), dpMax: numOr(d.max, 99) };
   }
   /**
-   * 联防: `maxHelpers` (an 8-player match: config.eightPlayer.unite's, 4), `templates` (the escaped levels of 1 / 2
+   * 联防: `maxHelpers` (an 8-player match: config.eightPlayer.unite's 4 at 8 players, largeAt rounded down — 5 → 2,
+   * 6–7 → 3), `templates` (the escaped levels of 1 / 2
    * helpers), `wideFrom` (the helper count from which the field is a wide one, a half per helper — 3 in an 8-player
    * match, never in the others; server/sim/wideStage.js) and `wideTimePerHalf` (its time limit ÷ the round's, per half:
    * 0.5, so × 1.5 for 3 halves and × 2 for 4).
@@ -642,25 +655,35 @@ export class GameData {
   get unite() {
     const u = this.config.unite && typeof this.config.unite === 'object' ? this.config.unite : {};
     const lu = this.large?.unite && typeof this.large.unite === 'object' ? this.large.unite : null;
+    const max = posIntOr(u.maxHelpers, DEFAULTS.unite.maxHelpers);
     return {
-      maxHelpers: posIntOr(lu?.maxHelpers, 0) || posIntOr(u.maxHelpers, DEFAULTS.unite.maxHelpers),
+      maxHelpers: lu ? Math.max(1, Math.floor(this.largeAt(max, posIntOr(lu.maxHelpers, max)))) : max,
       templates: u.templates && typeof u.templates === 'object' ? u.templates : DEFAULTS.unite.templates,
       wideFrom: lu ? posIntOr(lu.wideFrom, Infinity) : Infinity,
       wideTimePerHalf: lu ? numOr(lu.wideTimePerHalf, 0.5) : 0.5,
     };
   }
 
-  /** 机变 cards of a co-op draft whose schedule says `cards` (6): an 8-player match draws config.eightPlayer.spDraftCards (12). */
+  /**
+   * 机变 cards of a co-op draft whose schedule says `cards` (6): an 8-player match draws config.eightPlayer.spDraftCards
+   * (12) at 8 players, largeAt rounded (5 → 8, 6 → 9, 7 → 11).
+   */
   spDraftCards(cards) {
     const n = Number.isInteger(cards) && cards > 0 ? cards : 6;
-    return this.large ? posIntOr(this.large.spDraftCards, n) : Math.min(n, 6);
+    return this.large ? Math.round(this.largeAt(Math.min(n, 6), posIntOr(this.large.spDraftCards, n))) : Math.min(n, 6);
   }
-  /** 隐秘核心 conditions (`multi`: an 8-player match's is config.eightPlayer.hiddenCoreMulti, 2400). */
+  /**
+   * A number of the 8-player mode for this match's players (header): `v4` (the 4-player value) at 4 players or fewer,
+   * `v8` (config.eightPlayer's) at 8, linear between. Callers round where the number must be whole.
+   */
+  largeAt(v4, v8) { return v4 + (v8 - v4) * this.largeShare; }
+  /** 隐秘核心 conditions (`multi`: an 8-player match's is config.eightPlayer.hiddenCoreMulti, 2400 at 8 players, largeAt). */
   get hiddenCore() {
     const h = this.config.hiddenCore && typeof this.config.hiddenCore === 'object' ? this.config.hiddenCore : {};
+    const multi = numOr(h.multi, DEFAULTS.hiddenCore.multi);
     return {
       single: numOr(h.single, DEFAULTS.hiddenCore.single),
-      multi: numOr(this.large?.hiddenCoreMulti, numOr(h.multi, DEFAULTS.hiddenCore.multi)),
+      multi: this.large ? Math.round(this.largeAt(multi, numOr(this.large.hiddenCoreMulti, multi))) : multi,
       minTeamLpExclusive: numOr(h.minTeamLpExclusive, DEFAULTS.hiddenCore.minTeamLpExclusive),
       difficulties: Array.isArray(h.difficulties) ? h.difficulties : DEFAULTS.hiddenCore.difficulties,
     };

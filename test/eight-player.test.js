@@ -1,6 +1,6 @@
 // test/eight-player.test.js — the 8-player co-op mode (maintainer decisions 2026-10-16, 2026-10-19; a remake feature):
-// its numbers (config.eightPlayer read by server/match/gamedata.js), the 8-seat room (server/lobby.js: humans only, eight
-// to start), its own matchmaking queues (server/matchmaking.js) and a whole match through the real match path.
+// its numbers (config.eightPlayer read by server/match/gamedata.js, scaled by the 5–8 players a match starts with —
+// maintainer decision 2026-11-01), the 8-seat room (server/lobby.js: humans only, five or more to start), its own matchmaking queues (server/matchmaking.js) and a whole match through the real match path.
 import { describe, test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -10,7 +10,7 @@ import { GameData } from '../server/match/gamedata.js';
 import { generateDraft } from '../server/match/choices.js';
 import { createRng } from '../server/sim/rng.js';
 import { TestClient } from './helpers/wsClient.js';
-import { ERR, LARGE_SEATS, MAX_SEATS, DIFFICULTIES } from '../shared/constants.js';
+import { ERR, LARGE_MIN_PLAYERS, LARGE_SEATS, MAX_SEATS, DIFFICULTIES } from '../shared/constants.js';
 import { validateC2S, RESULT_LIMITS } from '../shared/protocol.js';
 import { DATA, makeMatch } from './match/harness.js';
 import { GEO } from '../shared/constants.js';
@@ -21,6 +21,8 @@ import { buildUniteWave } from '../server/match/waves.js';
 
 const big = (diff = 'HARD') => new GameData(DATA, `mode_multi_${diff.toLowerCase()}`, null, { seats: LARGE_SEATS });
 const four = (diff = 'HARD') => new GameData(DATA, `mode_multi_${diff.toLowerCase()}`);
+/** an 8-seat match that started with `players` */
+const at = (players, diff = 'HARD') => new GameData(DATA, `mode_multi_${diff.toLowerCase()}`, null, { seats: LARGE_SEATS, players });
 
 describe('8-player numbers (config.eightPlayer)', () => {
   test('one player\'s share is the 4-player one: shop pool × 4, item stock × 2', () => {
@@ -67,6 +69,26 @@ describe('8-player numbers (config.eightPlayer)', () => {
     assert.ok(seen.has('shop'), 'the seeds reach a 机密商店');
   });
 
+  test('5–7 players: every 8-player number linear between the 4-player and the 8-player value (largeAt)', () => {
+    const g4 = four(), solo = new GameData(DATA, 'mode_single_hard');
+    const id = g4.visibleChess.find((c) => g4.tierOf(c) === 6);
+    const item = Object.values(g4.shopItemsByTier).flat().find((x) => g4.itemPoolCopies(x) % 4 !== 0) ?? g4.shopItemsByTier[1][0];
+    const row = (g) => [g.bossOvertimeDrainReal, g.hiddenCore.multi, g.unite.maxHelpers, g.spDraftCards(6), g.bossPoolShare(), g.bossPoolShare(3)];
+    // overtime LP / s (rounded), 隐秘核心, 联防 helpers (rounded down), 机变 cards (rounded), leader HP head cap, 3 alive
+    assert.deepEqual(row(at(5)), [1, 1500, 2, 8, 5, 3]);
+    assert.deepEqual(row(at(6)), [2, 1800, 3, 9, 6, 3]);
+    assert.deepEqual(row(at(7)), [2, 2100, 3, 11, 7, 3]);
+    assert.deepEqual(row(at(8)), row(big()));
+    for (const [n, mul] of [[5, 2.5], [6, 3], [7, 3.5], [8, 4]]) {
+      const g = at(n);
+      assert.equal(g.poolCopies(id), Math.round(solo.poolCopies(id) * mul), `${n} players: tier 6 copies`);
+      assert.equal(g.itemPoolCopies(item), Math.round((g4.itemPoolCopies(item) * n) / 4), `${n} players: ${item}`);
+    }
+    // fewer than the room's minimum (a test match) or more than eight: clamped to the 4- / 8-player values
+    assert.deepEqual([at(3).hiddenCore.multi, at(3).unite.maxHelpers, at(9).hiddenCore.multi], [1200, 2, 2400]);
+    for (const r of [3, 9, 11]) assert.equal(generateDraft(at(5), createRng(r), r).cards.length, 8, `R${r}`);
+  });
+
   test('a solo match and a 4-seat co-op match keep their numbers whatever `seats` says', () => {
     const solo = new GameData(DATA, 'mode_single_hard', null, { seats: LARGE_SEATS });
     assert.equal(solo.large, null);
@@ -88,6 +110,31 @@ describe('8-player match (real match path)', () => {
     const id = m.gd.visibleChess[0];
     assert.equal(m.pool.cap(id), m.gd.poolCopies(id));
     h.runToEnd();
+    assert.equal(h.lastBc('m.public').size, LARGE_SEATS);
+    assert.deepEqual(h.logs.error, []);
+  });
+
+  test('five seats in an 8-seat match: the numbers of 5 players, fixed for the match when a Doctor quits', () => {
+    const seats = Array.from({ length: 5 }, (_, i) => ({ seat: i, playerId: `ai_${i}`, name: `AI${i}`, isBot: true, connected: true }));
+    seats[3] = { seat: 3, playerId: 'p_stays', name: 'Stays', isBot: false, connected: true };
+    seats[4] = { seat: 4, playerId: 'p_leaver', name: 'Leaver', isBot: false, connected: true };
+    const h = makeMatch({ seats, size: LARGE_SEATS, difficulty: 'HARD', seed: 5 }).start();
+    const m = h.m;
+    assert.equal(m.size, LARGE_SEATS);
+    assert.equal(m.gd.largeShare, 0.25);
+    const id = m.gd.visibleChess[0];
+    const row = () => [m.pool.cap(id), m.gd.hiddenCore.multi, m.gd.unite.maxHelpers, m.gd.spDraftCards(6), m.gd.bossOvertimeDrainReal];
+    const start = row();
+    assert.deepEqual(start.slice(1), [1500, 2, 8, 1]);
+    assert.equal(start[0], at(5).poolCopies(id));
+    // a Doctor quits at R3 (中途退出 = eliminated): the numbers stay the starting ones, as in a 4-player match
+    h.toPrep(3);
+    m.onLeave('p_leaver');
+    assert.equal(m.players.get('p_leaver').alive, false);
+    assert.deepEqual(row(), start);
+    h.autoHumans();
+    h.runToEnd();
+    assert.deepEqual(row(), start);
     assert.equal(h.lastBc('m.public').size, LARGE_SEATS);
     assert.deepEqual(h.logs.error, []);
   });
@@ -155,7 +202,7 @@ describe('8-player room and queue (server/lobby.js, server/matchmaking.js)', () 
     assert.notEqual(validateC2S({ t: 'g.choice', idx: n }), null);
   });
 
-  test('an 8-seat room: no AI seat, a solo room is never 8, the start waits for all eight Doctors', async () => {
+  test('an 8-seat room: no AI seat, a solo room is never 8, the start waits for five Doctors', async () => {
     const ps = await players(pool, 8);
     await err(ps[0], { t: 'room.create', mode: 'solo', difficulty: 'HARD', size: 8 }, ERR.BAD_MSG);
     await ok(ps[0], { t: 'room.create', mode: 'coop', difficulty: 'HARD', size: 8 });
@@ -163,19 +210,22 @@ describe('8-player room and queue (server/lobby.js, server/matchmaking.js)', () 
     assert.equal(room.size, 8);
     assert.equal(room.seats.length, 8);
     await err(ps[0], { t: 'room.addBot' }, ERR.ROOM_FULL);
-    for (const [i, c] of ps.slice(1, 7).entries()) {
+    assert.equal(LARGE_MIN_PLAYERS, 5);
+    for (const [i, c] of ps.slice(1, 4).entries()) {
       await ok(c, { t: 'room.join', code: room.code });
       await ok(c, { t: 'room.ready', ready: true });
       await ps[0].waitFor('room.state', (s) => s.seats[i + 1]?.playerId === c.id && s.seats[i + 1].ready);
     }
     await err(ps[0], { t: 'room.start' }, ERR.SEATS_OPEN);
-    await ok(ps[7], { t: 'room.join', code: room.code });
-    await ok(ps[7], { t: 'room.ready', ready: true });
-    await ps[0].waitFor('room.state', (s) => s.seats[7]?.ready);
+    await ok(ps[4], { t: 'room.join', code: room.code });
+    await ok(ps[4], { t: 'room.ready', ready: true });
+    await ps[0].waitFor('room.state', (s) => s.seats[4]?.ready);
     await ok(ps[0], { t: 'room.start' });
     const st = await ps[0].waitFor('room.state', (s) => s.inMatch);
     assert.equal(st.size, 8);
-    assert.equal(srv.lobby.rooms.get(room.code).size, 8);
+    const r = srv.lobby.rooms.get(room.code);
+    assert.equal(r.size, 8);
+    assert.equal(r.match.players.size, 5, 'the match gets the five seats (its numbers: the real match path test above)');
   });
 
   test('a 4-seat room is unchanged: size 4, AI seats allowed', async () => {
@@ -186,7 +236,7 @@ describe('8-player room and queue (server/lobby.js, server/matchmaking.js)', () 
     await ok(a, { t: 'room.addBot' });
   });
 
-  test('local debug mode lets AI seats fill an 8-seat room; the start waits for every seat', async () => {
+  test('local debug mode lets AI seats fill an 8-seat room; they count toward the five', async () => {
     const saved = process.env.SP_DEBUG_PAGE;
     process.env.SP_DEBUG_PAGE = '1';
     try {
@@ -197,13 +247,12 @@ describe('8-player room and queue (server/lobby.js, server/matchmaking.js)', () 
       await ok(b, { t: 'room.join', code: room.code });
       await ok(b, { t: 'room.ready', ready: true });
       await a.waitFor('room.state', (s) => s.seats[1]?.ready);
-      for (let i = 0; i < 5; i++) await ok(a, { t: 'room.addBot' });
+      for (let i = 0; i < 2; i++) await ok(a, { t: 'room.addBot' });
       await err(a, { t: 'room.start' }, ERR.SEATS_OPEN);
       await ok(a, { t: 'room.addBot' });
-      await err(a, { t: 'room.addBot' }, ERR.ROOM_FULL);
       await ok(a, { t: 'room.start' });
       const st = await a.waitFor('room.state', (s) => s.inMatch);
-      assert.deepEqual([st.size, st.seats.filter((s) => s?.isBot).length], [8, 6]);
+      assert.deepEqual([st.size, st.seats.filter((s) => s?.isBot).length], [8, 3]);
     } finally {
       if (saved === undefined) delete process.env.SP_DEBUG_PAGE; else process.env.SP_DEBUG_PAGE = saved;
     }

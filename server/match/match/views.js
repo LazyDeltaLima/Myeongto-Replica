@@ -144,8 +144,12 @@ export class MatchViews {
       const by = this.rerollProposer();
       if (by) v.rerollBy = by;
     }
-    // 最终攻势 / 隐秘核心: when the overtime drain starts (ms epoch; `deadline` is the level's 120 s countdown)
-    if ((this.phase === PHASE.FINAL_ASSAULT || this.phase === PHASE.HIDDEN_CORE) && this.overtimeAt) v.overtimeAt = this.overtimeAt;
+    // 最终攻势 / 隐秘核心: when the overtime drain starts (ms epoch; `deadline` is the level's 120 s countdown), and in an
+    // 8-player match its team LP per real second (gamedata.js bossOvertimeDrainReal: the head count's, not config's 1)
+    if ((this.phase === PHASE.FINAL_ASSAULT || this.phase === PHASE.HIDDEN_CORE) && this.overtimeAt) {
+      v.overtimeAt = this.overtimeAt;
+      if (this.gd.large) v.overtimeDrain = this.gd.bossOvertimeDrainReal;
+    }
     if (this.bossPool) v.bossHp = { hp: Math.max(0, Math.round(this.bossPool.hp)), max: Math.round(this.bossPool.maxHp) };
     if (this.phase === PHASE.BAND_DRAFT && this.draft) {
       const d = this.draft;

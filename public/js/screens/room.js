@@ -21,12 +21,12 @@
 // them (ui/customRules.js: the host edits them — room.setRuleset { preset: 'custom', custom } —, anybody else sees the
 // room's read-only); a custom room has no 匹配补位 (the server refuses room.queueRoom, maintainer decision 2026-10-18).
 // The 8-player mode (maintainer decisions 2026-10-16, 2026-10-19): a room of `size` 8 shows its 8 seats in two rows, has no
-// AI teammates (no add button, no 「AI 队友最后选择」), starts only with every seat a Doctor (SEATS_OPEN: 开始模拟 stays
-// locked and says so) and fills its empty seats from the 8-player queues (匹配补位 under the ready rule alone).
+// AI teammates (no add button, no 「AI 队友最后选择」), starts with LARGE_MIN_PLAYERS Doctors or more (SEATS_OPEN: 开始模拟
+// stays locked below that and says so; maintainer decision 2026-11-01) and fills its empty seats from the 8-player queues (匹配补位 under the ready rule alone).
 // Texts go through t() (docs/I18N.md).
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SEATS, MAX_SPECTATORS, seatsOf, modeIdFor } from '../../../shared/constants.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, LARGE_MIN_PLAYERS, MAX_SEATS, MAX_SPECTATORS, seatsOf, modeIdFor } from '../../../shared/constants.js';
 import { SeatMark } from '../ui/faction.js'; // local patch
 import {
   html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyTag, DifficultyIcon, Tooltip, confirmDialog, doctorNo, useTicker,
@@ -91,11 +91,11 @@ export function roomFacts(room, myId) {
   // SP_MAX_BOTS (local patch): room.state maxBots, null = only the seats limit the AI teammates
   const maxBots = Number.isInteger(room?.maxBots) && room.maxBots >= 0 ? room.maxBots : null;
   const botCount = occupied.filter((s) => s.isBot).length;
-  // the 8-player mode: no AI teammates, and the match starts only with every seat a Doctor (server/lobby.js SEATS_OPEN)
+  // the 8-player mode: no AI teammates, and the match starts with LARGE_MIN_PLAYERS Doctors or more (server/lobby.js SEATS_OPEN)
   const large = room?.mode !== 'solo' && seatsOf(room?.size) > MAX_SEATS;
   // room.state largeBots: a local debug server lets AI seats fill the 8-player room (server/local-patch.js largeBots)
   const largeBots = large && room?.largeBots === true;
-  const seatsOpen = large && (largeBots ? occupied.length < seats.length : humans.length < seats.length || botCount > 0);
+  const seatsOpen = large && (largeBots ? occupied.length < LARGE_MIN_PLAYERS : humans.length < LARGE_MIN_PLAYERS || botCount > 0);
   return {
     seats, occupied, humans, mine, isHost, readyHumans, isReady, maxBots, botCount, large, seatsOpen,
     canAddBot: room?.mode !== 'solo' && (!large || largeBots) && isHost && (maxBots == null || botCount < maxBots),
@@ -430,7 +430,7 @@ export function RoomScreen() {
       ? facts.canStart
         ? html`<span class="t-mint">${t('*同盟人数达标，准许进入模拟')}</span>`
         : facts.seatsOpen
-        ? html`<span class="t-lo">${t('八人同盟需坐满 8 名博士后才能开始')}</span>`
+        ? html`<span class="t-lo">${t('八人同盟需至少 5 名博士才能开始')}</span>`
         : html`<span class="t-lo">${t('等待所有博士准备就绪')}</span>`
       : myReady
         ? html`<span class="t-mint">${t('已就绪 · 等待创建者开始模拟')}</span>`
@@ -512,7 +512,7 @@ export function RoomScreen() {
         ${matching && !facts.spectating
           ? html`<${Button} variant="secondary" size="xl" icon="close" loading=${busy === 'unfill'} disabled=${!online} onClick=${unfill}>${t('取消匹配')}<//>`
           : facts.isHost
-          ? html`<${Tooltip} text=${facts.canStart ? null : facts.seatsOpen && facts.othersReady ? t('八人同盟需坐满 8 名博士后才能开始') : t('仍有博士未准备就绪')}>
+          ? html`<${Tooltip} text=${facts.canStart ? null : facts.seatsOpen && facts.othersReady ? t('八人同盟需至少 5 名博士才能开始') : t('仍有博士未准备就绪')}>
               <${Button} variant="primary" size="xl" icon="play" loading=${busy === 'start'} disabled=${!facts.canStart || !online} onClick=${start}>${t('开始模拟')}<//>
             <//>`
           : facts.spectating

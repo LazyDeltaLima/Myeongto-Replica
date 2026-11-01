@@ -16,7 +16,8 @@
 //                                              classic): which remake conveniences the match turns on (this.ruleset.options);
 //                                              a custom one carries its settings (this.ruleset.custom)
 //   opts.size        4 | 8 (optional)            a co-op room's size (shared/constants.js ROOM_SIZES; missing = 4): 8 = the
-//                                              8-player mode, whose numbers come from config.eightPlayer (gamedata.js)
+//                                              8-player mode, whose numbers come from config.eightPlayer (gamedata.js),
+//                                              scaled by opts.seats.length (5–8 players)
 //   opts.aiPicksLast boolean (optional)         the co-op room option 「AI 队友最后选择」 (room.setAiPicksLast, GitHub #338):
 //                                              the strategy and 机变 drafts put every human seat before every AI seat
 //                                              (MatchPhases.humansFirst); only `true` turns it on; ignored in solo
@@ -270,8 +271,10 @@ export class Match {
     /** the co-op room size (opts.size): 4, or 8 for the 8-player mode; 1 in solo */
     this.size = this.mode === 'solo' ? 1 : seatsOf(opts.size);
     // a custom ruleset's settings shape the match's tables (gamedata.js: rounds, bans, prep, 目标生命值), the size its
-    // 8-player numbers
-    this.gd = new GameData(this.data, this.modeId, this.ruleset.custom ?? null, { seats: this.size });
+    // 8-player numbers — scaled by the seats the match starts with and fixed for it: a player eliminated or gone later
+    // changes them no more than in a 4-player match (maintainer decision 2026-11-01)
+    this.gd = new GameData(this.data, this.modeId, this.ruleset.custom ?? null,
+      { seats: this.size, players: opts.seats.length });
     if (!this.difficulty) this.difficulty = this.gd.difficulty;
     this.isSolo = this.mode === 'solo' || this.gd.isSolo;
     /** 「AI 队友最后选择」 (opts.aiPicksLast, GitHub #338): humans draft before AI seats (MatchPhases.humansFirst) */

@@ -2158,21 +2158,28 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
   `aceffect_band_29`(`lvlist` "2,4,6", `cnt`·`price` 0)도 중첩을 적지 않는다. upstream에는 중첩을 다룬 이슈가 없다(#200 #508 #589는 모두 유료 여부).
 - 테스트 `test/local-patch.test.js` 「佩佩 博学多通: special refreshes do not stack …」.
 
-## 8인 협동 모드 (관리자 결정 2026-10-16·2026-10-19, 공식에 없는 기능)
+## 8인 협동 모드 (관리자 결정 2026-10-16·2026-10-19·2026-11-01, 공식에 없는 기능)
 
 공식 방은 1–4명이고 8인용 데이터는 없다(`act2autochess`에는 난이도별 `bloodPoint*`와 단일·멀티 연합 방어 템플릿뿐). 아래 수치·규칙은 모두
 **[ASSUMED]** — 원칙은 「1인당 체감을 4인 협동과 같게」(관리자 결정 2026-10-16).
 - **방·매칭** (`server/lobby.js`, `server/matchmaking.js`): 별도 방 크기 — `room.create { mode: 'coop', size: 8 }`, `room.state.size`. 사람만 앉고(AI 좌석
-  거부, 넘겨받은 AI 좌석은 버림) 8자리가 다 차야 시작(`ERR.SEATS_OPEN`, 코드 방 포함 — 관리자 결정 2026-10-19). 예외는 시험용 로컬
-  디버그 모드(`SP_DEBUG_PAGE=1`이나 `SP_DEBUG_FUNDS`, `server/local-patch.js largeBots`): 8석 방에도 AI 좌석을 받고 사람·AI 합쳐 8자리면 시작
+  거부, 넘겨받은 AI 좌석은 버림) 박사 5명 이상이면 시작(`shared/constants.js LARGE_MIN_PLAYERS`, 모자라면 `ERR.SEATS_OPEN`, 코드 방 포함 —
+  관리자 결정 2026-11-01; 그 전엔 8자리가 다 차야 시작, 2026-10-19). 예외는 시험용 로컬
+  디버그 모드(`SP_DEBUG_PAGE=1`이나 `SP_DEBUG_FUNDS`, `server/local-patch.js largeBots`): 8석 방에도 AI 좌석을 받고 사람·AI 합쳐 5자리 이상이면 시작
   (`room.state.largeBots`, 방 화면의 「添加 AI 队友」). 배포 서버는 둘 다 꺼져 있어 위 규칙 그대로. 8인 전용 대기열(`room.queue { size: 8 }`,
-  8석 방의 `room.queueRoom`)은 정확히 8명으로만 묶이고, 대기열 메시지에 `size: 8`, `lobby.queueCounts`에 `counts8`. 끊긴 사람은 4인처럼 AI 托管 없이
+  8석 방의 `room.queueRoom`)은 정확히 8명으로만 묶이고(5명부터 시작은 방장이 「시뮬레이션 시작」을 누를 때만), 대기열 메시지에 `size: 8`, `lobby.queueCounts`에 `counts8`. 끊긴 사람은 4인처럼 AI 托管 없이
   전투만 서버가 이어 돌림(관리자 확인 2026-10-19, `server/match/match/platform.js onDisconnect`).
 - **수치** (`data/config.json eightPlayer` ← `tools/build-data.mjs`, `server/match/gamedata.js` `large`): 상점 풀 솔로 ×4(4인 ×2), 장비 재고 ×2,
   맹약 밴은 4인과 같이 난이도별 표(NORMAL 이상 핵심 3·부가 4, FUNNY 0/1; 풀이 2배라 맹약마다 확률이 같음 — 관리자 결정 2026-10-22, 전엔 핵심 1·부가 2),
   보스 초과 시간 팀 LP 초당 2(4인 1), 숨겨진 핵심 조건 활성 층수 합 > 2400 고정(관리자 결정
   2026-10-19; 처음 안은 생존자 1인당 300), 리더 HP 인원 상한 8, 机变 카드 12장(R11 机密商店은 공식 6칸을 두 번 뽑아
-  12장 — 6장이면 7·8번째가 못 고름, 관리자 결정 2026-10-22). 최종 공세 120초·팀 LP(생존자 합)·턴 시간(전략 50초, 机变 30 + 16초)은
+  12장 — 6장이면 7·8번째가 못 고름, 관리자 결정 2026-10-22). 위 값은 8명일 때이고, **시작 인원 n(5–8)에 맞춰 4인 값과 8인 값 사이를
+  직선으로** 잡는다(관리자 결정 2026-11-01; `gd.largeAt`, n이 정해지는 곳은 `Match`가 넘기는 좌석 수): 상점 풀 솔로 × n/2(오퍼레이터마다 반올림),
+  장비 재고 × n/4(반올림), 숨겨진 핵심 300 × n, 보스 초과 시간 초당 n/4 반올림(5명 1, 6–8명 2), 연합 방어 도우미 n/2 내림(5명 2, 6–7명 3), 机变 카드
+  1.5n 반올림(5명 8, 6명 9, 7명 11), 리더 HP 인원 상한 n. 이 값은 판 시작 때 정해져 **중간 탈락·퇴장으로 바뀌지 않는다** — 4인 판의 상점 풀 ×2가
+  인원과 상관없이 그대로인 것과 같다(관리자 결정 2026-11-01). 리더 HP는 4인처럼 그 전투 시작 때 산 사람 수를 따른다. 맹약 밴은 인원과 상관없이
+  4인 표. 보스 초과 시간의 초당 LP는 8석 판에서 `m.public.overtimeDrain`으로 보내 HUD 경고가 서버와 같은 값을 보인다(그 전엔 8인 판에서도 1로
+  보였음). 최종 공세 120초·팀 LP(생존자 합)·턴 시간(전략 50초, 机变 30 + 16초)은
   4인 그대로(관리자 결정 2026-10-16). 근거와 비교표(맹약 밴 시뮬레이션 2000판 포함): 관리자 노트.
 - **연합 방어 3–4인** (관리자 결정 2026-10-19 — 10-16의 「도우미 2명 유지」를 바꿈; `server/sim/wideStage.js`, `server/match/unite.js`,
   `server/match/waves.js buildUniteWave`): 도우미 최대 4명(순서 기준은 2명 때와 같음). 1명 = 자기 필드, 2명 = 지금 2인 필드, 3–4명 = **넓은 필드, 도우미
@@ -2204,7 +2211,7 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
 - **화면**: 29·37열 필드 그리기(넓힌 무대 기록 `shared/wideField.js`, 공식 3D 씬 사본, 카메라, ‹ › H0–H3)는 `render.md` 「8인 넓은 연합 방어 필드
   그리기」(화면 확인은 그쪽), 로비·방·본판 화면은 `ui.md` 「8인 협동 모드 화면」. 열 함수(`wideCols`·`widenRow`…)는 `shared/wideField.js`에 있고
   `server/sim/wideStage.js`가 다시 내보냄.
-- 테스트 `test/eight-player.test.js`(수치, 8석 방·대기열, 실제 매치 경로 8인 한 판, 넓은 필드의 열·장치·경로, 걷는 적이 네 절반을 지나 2배 시간, 3–4명일 때만
+- 테스트 `test/eight-player.test.js`(수치, 5–7명의 직선 배율, 8석 방 5명 시작·대기열, 실제 매치 경로 5석 판(R3에 한 명 퇴장해도 수치 그대로), 실제 매치 경로 8인 한 판, 넓은 필드의 열·장치·경로, 걷는 적이 네 절반을 지나 2배 시간, 3–4명일 때만
   넓은 필드·시간 ×1.5 / ×2·오프셋, 8석 방의 공식 밴 기준·AI 옵션 숨김). golden: matches `coop8-HARD-3`, fields `unite-4-wide`·`unite-3-wide` 추가(다른
   시나리오는 그대로).
 

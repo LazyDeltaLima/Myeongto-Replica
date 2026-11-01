@@ -36,8 +36,13 @@ export function bossLevelSeconds(pub, config) {
   return Number.isFinite(v) && v > 0 ? v : BOSS_LEVEL_SECONDS;
 }
 
-/** Team LP lost per real second of overtime (config.bossOvertimeDrainPerSec, default 1). */
-export function overtimeDrainPerSec(config) {
+/**
+ * Team LP lost per real second of overtime: m.public.overtimeDrain (an 8-player match's, by its head count), else
+ * config.bossOvertimeDrainPerSec, default 1.
+ */
+export function overtimeDrainPerSec(config, pub = null) {
+  const own = pub?.overtimeDrain;
+  if (Number.isFinite(own) && own >= 0) return own;
   const v = config?.bossOvertimeDrainPerSec;
   return Number.isFinite(v) && v >= 0 ? v : 1;
 }

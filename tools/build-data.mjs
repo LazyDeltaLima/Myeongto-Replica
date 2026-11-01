@@ -3984,7 +3984,9 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
     finalAssault: { pairing: 'seatOrderPairs', oddPlayerAlone: true, movableBossPerAlivePlayerSide: true, layerGainsEnabled: false },
     // the 8-player co-op mode (a remake feature, maintainer decisions 2026-10-16 and 2026-10-19; no official data — every
     // value [ASSUMED], chosen so one player's share matches the 4-player co-op): server/match/gamedata.js reads it for a
-    // match of `seats` players, every other key of this file stays the 4-player value
+    // match of `seats` players, every other key of this file stays the 4-player value. These are the values at 8 players;
+    // a match that starts with 5–7 takes each linearly between the 4-player value and this one (GameData.largeAt;
+    // maintainer decision 2026-11-01)
     eightPlayer: {
       seats: 8,
       // shop pool: the solo table × 4 (4 players: × 2) — the same copies per player and the same odds of one operator

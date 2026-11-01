@@ -26,7 +26,7 @@
 // config.json mode texts come localized from data.js.
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, LARGE_SEATS, ROOM_SIZES, MAX_SPECTATORS, modeIdFor, ERR } from '../../../shared/constants.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, LARGE_SEATS, LARGE_MIN_PLAYERS, ROOM_SIZES, MAX_SPECTATORS, modeIdFor, ERR } from '../../../shared/constants.js';
 import { html, Button, Icon, MicroLabel, Panel, TextField, PingPill, OnlinePill, AvatarFrame, Tooltip, Spinner, DifficultyIcon, doctorNo } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { GuideButton } from '../ui/guide.js';
@@ -106,9 +106,9 @@ const MODE_CARDS = [
     id: 'coop', name: N_('同盟模拟'), en: 'ALLIANCE SIMULATION', icon: 'users',
     desc: N_('与至多 {n} 名博士组成同盟，共享干员池，联防协作抵御敌潮。'), params: { n: MAX_SEATS - 1 },
     points: [N_('1–{n} 名博士 · 可由 AI 队友补位'), N_('联防阶段 · 最终攻势合并生命值')], pointParams: { n: MAX_SEATS },
-    // the 8-seat alliance: every seat a Doctor
-    big: { desc: N_('与另外 {n} 名博士组成同盟，共享干员池，联防协作抵御敌潮。'), params: { n: LARGE_SEATS - 1 },
-      points: [N_('{n} 名博士坐满后开始 · 没有 AI 队友'), N_('联防阶段 · 最终攻势合并生命值')], pointParams: { n: LARGE_SEATS } },
+    // the 8-seat alliance: LARGE_MIN_PLAYERS–8 Doctors, no AI seat
+    big: { desc: N_('与至多 {n} 名博士组成同盟，共享干员池，联防协作抵御敌潮。'), params: { n: LARGE_SEATS - 1 },
+      points: [N_('{n}–{max} 名博士即可开始 · 没有 AI 队友'), N_('联防阶段 · 最终攻势合并生命值')], pointParams: { n: LARGE_MIN_PLAYERS, max: LARGE_SEATS } },
   },
   {
     id: 'match', name: N_('同盟匹配'), en: 'ALLIANCE MATCHMAKING', icon: 'signal',
@@ -343,7 +343,7 @@ function DifficultyCard({ roomMode, difficulty, selected, onSelect, waiting = nu
  * shows the Doctors waiting in the queues of each size (同盟匹配).
  */
 function SizeSwitch({ value, onPick, counts = null, hidden = false }) {
-  const tip = t('八人同盟：{n} 名博士坐满后开始，没有 AI 队友；联防最多 4 名博士同时迎战', { n: LARGE_SEATS });
+  const tip = t('八人同盟：{n}–{max} 名博士即可开始，没有 AI 队友；卡池、敌方数值和联防人数随开局人数调整', { n: LARGE_MIN_PLAYERS, max: LARGE_SEATS });
   return html`<div class=${`lobby-rules lobby-size${hidden ? ' is-hidden' : ''}`} aria-hidden=${hidden ? 'true' : null} inert=${hidden}>
     <span class="lobby-rules__k">${t('人数')}</span>
     <${Tooltip} text=${tip}>
@@ -526,7 +526,7 @@ export function LobbyScreen() {
           <//>
           <div class="create-box__hint">
             ${online
-              ? html`<span>${roomMode === 'solo' ? t('创建后即可开始模拟') : roomMode === 'match' ? t('与选择同一难度和规则的博士组成同盟') : big ? t('创建后邀请好友坐满 {n} 个席位', { n: LARGE_SEATS }) : t('创建后可邀请好友或添加 AI 队友')}</span>`
+              ? html`<span>${roomMode === 'solo' ? t('创建后即可开始模拟') : roomMode === 'match' ? t('与选择同一难度和规则的博士组成同盟') : big ? t('创建后邀请好友加入（{n}–{max} 名博士）', { n: LARGE_MIN_PLAYERS, max: LARGE_SEATS }) : t('创建后可邀请好友或添加 AI 队友')}</span>`
               : html`<${Spinner} size="sm" label="CONNECTING" />`}
           </div>
         </div>
