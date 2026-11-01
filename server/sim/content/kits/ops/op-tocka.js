@@ -24,7 +24,9 @@
 //   validator her own mark) — the shot projectile_chr_tocka_t2 hits every enemy within attack@projectile_range of where it
 //   lands (HitBehaviour + CircleRange, ground and air) for her attack's damage, and each takes 虚弱 |attack@t2_atk| and, every
 //   second for attack@t2_buff_duration s, attack@t2_magic_atk_scale × her ATK arts (tocka_mx_a[t2_dot], 持续伤害; one per 冻河
-//   per enemy: a new one restarts it with the larger value [ASSUMED·미조사: how the same-source buff is overridden]). The
+//   per enemy, overrideType EXTEND: the one there stays and its time refills to the new one's — confirmed in the official
+//   client; it keeps the larger value [ASSUMED·CN: the template's MAX assignment (_assignMode, _includeDisableBuffs) is a
+//   CN-only node field]). The
 //   attack spends the mark. In S3's mode her attack is S3's (no T2Attack): the mark waits for the next attack after it.
 // - S1 一无所有之人 (AUTO, time SP): cast once its SP is full and an ally operator of her range holds no S1 effect (any 冻河's;
 //   SelectorTrigger `_minTargetNum` 1 — with none it waits, full) on up to max_target of them — herself too —, the lowest HP
