@@ -468,7 +468,7 @@
       ],
       "enemies": {"enemy_2021_syfish":[99,99,0,330,380160],"enemy_2025_syufo":[45,45,0,10538,864000]},
       "hooks": [1,161,5866,484,484,1239,1312,0,148,148,24,21,129,16874,45,25,144,0,1,148,0,10,0],
-      "events": {"atk":715,"deploy":15,"die":148,"dmg":1312,"engage":10,"face":88,"fx":57,"skill":45,"spawn":158,"status":387,"swing":530},
+      "events": {"atk":715,"deploy":15,"die":148,"dmg":1312,"engage":10,"face":95,"fx":57,"skill":45,"spawn":158,"status":387,"swing":530},
       "fx": {"burst":10,"dash":12,"phase":11,"takeoff":24},
       "snaps": "d2667c6e 022a957b 3e911d09 c19fb1db b4f1f7ae 6eba529c 1b2de099 f6d1681e 7d3c723a ee17e55c e4fe5e71 1d9b4879 fbec3b9d f5b9302b a59adc0e e3725b4a e8ef9e49 db2a6847 042a35b0 0d164cc4"
     },

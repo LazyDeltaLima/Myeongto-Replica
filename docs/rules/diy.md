@@ -524,6 +524,10 @@
     (`public/js/render/fxgame.js`). upstream 공용 폭발 자리표시 `blast`(`public/js/render/fx/kinds.js`)는 그녀의 이펙트 번들이 없을 때만 나온다.
 - 공식 이펙트·소리·공격 타이밍·소환물 모델: EN 클라이언트에 없어 CN 클라이언트에서 뽑았다(2026-10-11, `fx.md` 「선발 추가 3명 — CN 클라이언트」).
   공격 타이밍(`tools/assets/local-attack-timing.json`)이 들어가며 세 명의 타격 시점이 공식대로 바뀌었다(golden `diy-009`…`diy-011`만 움직임).
+  스킬 시전(`cast`, `skill_cast.py`)과 투사체(`shot`, `op_projectiles.py`)는 그때 손 합치기에서 빠져 클레멘티아·안젤리나 더 멜로우 위시는
+  2026-11-01에야 받았다(네 도구가 EN 다음 CN을 읽게 된 뒤, `fx.md` 「선발 추가 토스카·탈룰라」): 클레멘티아 S1 `replace`(다음 공격을 대신함)·
+  S2 `state`·S3 `state`(방향 안 바꿈), 안젤리나 더 멜로우 위시 S1 `free`·S2 `state`·S3 `free`(이륙 클립 `Skill_3_Restart_Begin`)와 평타·S1~S3 공식
+  투사체(`projectile_chr_aglna2*`; 클레멘티아는 근접이라 투사체 없음). golden은 `diy-011`(안젤리나 더 멜로우 위시) 방향 사건 수만 움직였다(피해·처치 같음).
   클레멘티아 일본어 음성: 우리 음성 색인(`charword_table`, 10-06)이 그녀보다 오래돼 계획에 없었다 → `fetch-assets --refresh-index`로 12칸 모두 들어옴
   (한국어 음성은 셋 다 없음 — 한국 서버 출시 전).
 - 키트 사건 이펙트는 2026-10-11 연결(`fx.md` 「선발 추가 3명 — CN 클라이언트」). 그때 CN 추출기 버그(이펙트 컴포넌트 구조 차이)를 고쳐 클레멘티아 S3 범위가

@@ -3,7 +3,8 @@
 // board, the token Spine models (TOKEN_SPINES: the Front renderer of each battle token prefab, the merged pages), and
 // enemy_scales.py's table of the official enemy model sizes (build-data MODEL_SCALES). The Python helpers run without
 // UnityPy (duck-typed fakes; merge_alpha needs Pillow); the real-output checks skip when nothing was extracted on this
-// machine. The token models' manifest side: test/local-token-models.test.js.
+// machine. The token models' manifest side: test/local-token-models.test.js. client_path.py: the EN client first, the CN
+// one for what it lacks, and the rows of an earlier run kept, for the tools that write one table for all operators.
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -379,5 +380,52 @@ print(json.dumps([m.place(n([0, 0, 0]), n([0, 0, 0], 0.2), m.shadow_of(fly))['sh
 t = {'children': {'Graphic': {'children': {'Spine': {'children': {}, 'pos': [0, -0.15, -0.1]}}}}}
 print(json.dumps([m.child(t, 'Graphic/Spine')['pos'], m.child(t, 'Graphic/FaceSwitcher'), list(m.TOKEN_MODEL_NODES)]))`);
     assert.deepEqual(out, [[0, -0.15, -0.1], null, ['DefaultSkin/FaceSwitcher', 'FaceSwitcher', 'Spine', 'Front', 'EmptyAnimator']]);
+  });
+});
+
+describe('client_path.py: EN first, CN for what it lacks, earlier rows kept (no UnityPy needed)', { skip: !PY && 'no python3' }, () => {
+  /** Run python code with `client_path` imported as `c` (no .env, no .client-cn link); returns the parsed JSON it prints. */
+  const cp = (code, env = {}) => {
+    const src = `import sys, json\nfrom pathlib import Path\nsys.path.insert(0, ${JSON.stringify(TOOL)})\nimport client_path as c\n`
+      + `c._from_dotenv = lambda path=None, name=None: None\nc.ROOT = Path('/nonexistent')\n${code}`;
+    const r = spawnSync(PY, ['-c', src], { encoding: 'utf8', env: { ...ENV, SP_CLIENT: '', SP_CLIENT_CN: '', ...env } });
+    assert.equal(r.status, 0, r.stderr);
+    return JSON.parse(r.stdout);
+  };
+  test('clients: --client as given, else the EN client then the CN one (once, when it is set up and another folder)', () => {
+    const both = cp('print(json.dumps([c.clients(), c.clients(["/x"]), c.client_data_cn("a")]))', { SP_CLIENT: '/en', SP_CLIENT_CN: '/cn' });
+    assert.deepEqual(both, [['/en', '/cn'], ['/x'], '/cn/a']);
+    assert.deepEqual(cp('print(json.dumps([c.clients(), c.client_data_cn()]))', { SP_CLIENT: '/en' }), [['/en'], null]);
+    assert.deepEqual(cp('print(json.dumps(c.clients()))', { SP_CLIENT: '/en', SP_CLIENT_CN: '/en/' }), ['/en']);
+  });
+  test('kept: the earlier rows of wanted ids no client read; earlier: {} without a table', () => {
+    const out = cp(`old = {'char_a': 1, 'char_b': 2, 'char_gone': 3}
+print(json.dumps([c.kept(old, {'char_a'}, {'char_a', 'char_b', 'char_new'}), c.earlier('/nonexistent/t.json')]))`);
+    assert.deepEqual(out, [{ char_b: 2 }, {}]);
+  });
+  test('the tracked whole-operator tables have a row for every 自选 pick (an EN-only run dropped the CN-only ones before)', async () => {
+    const { LOCAL_DIY_PICKS } = await import('../shared/local-diy.js');
+    const read = (n) => JSON.parse(readFileSync(path.join(ROOT, `tools/assets/local-${n}.json`), 'utf8'));
+    const timing = read('attack-timing').ops;
+    const shots = read('op-projectiles').ops;
+    const cast = read('skill-cast').skills;
+    const hud = read('skill-hud').skills;
+    const units = JSON.parse(readFileSync(path.join(ROOT, 'data/backups.json'), 'utf8')).units;
+    /** The skill ids of every form record under `o` (`forms` nests them by phase, level, potential). */
+    const skillIds = (o, out = new Set()) => {
+      if (Array.isArray(o?.skills)) for (const sk of o.skills) out.add(sk.skillId);
+      else if (o && typeof o === 'object') for (const v of Object.values(o)) skillIds(v, out);
+      return out;
+    };
+    for (const cid of LOCAL_DIY_PICKS) {
+      assert.ok(timing[cid], `attack timing: ${cid}`);
+      assert.ok(shots[cid], `projectiles: ${cid}`);
+      const ids = skillIds(units[cid]?.forms);
+      assert.ok(ids.size >= 2, `${cid} has its skills in data/backups.json`);
+      for (const sid of ids) {
+        assert.ok(cast[sid], `skill cast: ${cid} ${sid}`);
+        assert.ok(sid in hud, `skill HUD: ${cid} ${sid}`);
+      }
+    }
   });
 });

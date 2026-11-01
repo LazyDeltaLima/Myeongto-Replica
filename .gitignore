@@ -16,6 +16,7 @@ data/local-assets.json
 # --- Python (optional local-client extraction) ----------------------------------------------------
 # the local client for tools/local-extract/*: a link to the install (…/Arknights_EN), no trailing slash so a symlink matches
 /.client
+/.client-cn
 .venv*/
 venv/
 __pycache__/

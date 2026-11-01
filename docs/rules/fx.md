@@ -1479,6 +1479,12 @@
     먼저, 그다음 `fx_bindings.py --cn`·`build-fx-plays.mjs` — 바인딩 표는 템플릿 표의 키로 투사체를 찾으므로 순서가 바뀌면 템플릿이 쏘는 투사체
     (`projectile_tocka_s3_effect`, `projectile_chr_oxi_s_3_heatwave`)가 빠진다.
   - 데이터를 다시 만들어(`build-data --offline`) 두 사람이 공식 공격 타이밍(`attackAnim`)·투사체(`shot`)를 얻음 — golden `diy-013`~`015`만 이동.
+  - 같은 날 뒤: 표 하나에 모든 오퍼레이터를 쓰는 네 도구(`attack_timing.py`·`op_projectiles.py`·`skill_cast.py`·`skill_hud.py`)가 EN 클라를 먼저,
+    EN에 없는 것은 CN 클라(`SP_CLIENT_CN`, `client_path.py clients`)를 읽고, 두 클라 어디에도 없는 항목은 앞 실행의 줄을 남긴다(`kept`) —
+    EN만으로 다시 돌리면 CN에만 있는 오퍼레이터 줄이 지워지던 것(시뮬은 golden이 잡지만 이펙트·소리 쪽은 못 잡음). 이제 위처럼 손으로 합치지 않는다.
+    스킬 번들도 다른 번들처럼 `PersistentData`(핫업데이트) 쪽을 먼저 읽는다(`char_modes.py skill_bundle`). `test/local-extract.test.js`가 모든 선발의
+    네 표 줄을 확인한다. 그렇게 다시 뽑자 손 합치기 때 빠졌던 안젤리나 더 멜로우 위시·클레멘티아의 스킬 시전 6개·투사체 줄이 들어왔다(`diy.md`
+    「선발 추가 3명」).
 - **CN 클라 10-23 갱신에서 바뀐 것**(추출 누락 보고가 처음 보인 줄, 모두 공식 클라에서 확인):
   - 셰이더 `Particles/AlphaBlend`·`Ram/Disturb(CustomData)`(Particles-L2D 사본도)·새 셰이더 `Ram/VertexDisturb(CustomData)`의 패스가 원본 혼합
     계수를 재질의 `_PremultiplyAlpha`에서 읽는다(기본 5 SrcAlpha; EN은 고정 SrcAlpha). 1(One)이면 픽셀 단계가 「`_PremultiplyAlpha` < 1.5」

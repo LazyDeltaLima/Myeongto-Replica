@@ -18,8 +18,9 @@ Output tools/assets/local-skill-hud.json (tools/build-data.mjs folds it into eve
     "overload": { "skchr_horn_2": 1, … } }                        (the skills whose `_isOverloadSkill` is on)
 
 Usage (from the repo root; --client = an Arknights_Data folder, repeatable: the first client that has a skill decides it —
-the EN client first, then the CN client for the operators the EN one lacks; the hot-update copy of the bundle under
-PersistentData/Bundles is read before the installed one):
+by default the EN client, then the CN client for the operators the EN one lacks (client_path.py); the hot-update copy
+of the bundle under PersistentData/Bundles is read before the installed one; a skill neither client has keeps the row
+of the earlier run):
   .venv-extract/bin/python tools/local-extract/skill_hud.py [--client <EN …/Arknights_Data>] [--client <CN …/Arknights_Data>]
 Everything read is (c) Hypergryph; only these flags are kept.
 """
@@ -30,20 +31,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from char_modes import char_skill_prefabs, load_tree  # noqa: E402
-from client_path import client_data  # noqa: E402
+from char_modes import char_skill_prefabs, load_tree, skill_bundle  # noqa: E402
+from client_path import clients, earlier, kept  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'tools/assets/local-skill-hud.json'
-BUNDLE = 'battle/prefabs/[uc]skills.ab'
-
-
-def skill_bundle(client):
-    """The skill bundle of an Arknights_Data folder (the hot-update copy first), or None."""
-    for p in (Path(client) / 'PersistentData/Bundles' / BUNDLE, Path(client) / 'StreamingAssets/AB/Windows' / BUNDLE):
-        if p.exists():
-            return p
-    return None
 
 
 def bullet_flags(path, want):
@@ -61,14 +53,14 @@ def bullet_flags(path, want):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
-    ap.add_argument('--client', action='append', help='an Arknights_Data folder (repeatable; default: client_path.py)')
+    ap.add_argument('--client', action='append', help='an Arknights_Data folder (repeatable; default: EN, then CN — client_path.py)')
     ap.add_argument('--out', default=str(OUT))
     args = ap.parse_args()
     want = set()
     for prefabs in char_skill_prefabs().values():
         want.update(p for p in prefabs if p)
     out, over = {}, {}
-    for client in args.client or [client_data()]:
+    for client in clients(args.client):
         path = skill_bundle(client)
         if path is None:
             print(f'no skill bundle under {client}', file=sys.stderr)
@@ -79,9 +71,14 @@ def main():
         print(f'{client}: {len(found)} skills ({sum(found.values())} with bullets, {len(ovl)} overload)')
     if not out:
         sys.exit('no skill read')
+    prev = earlier(args.out)
+    old = kept(prev.get('skills') or {}, out, want)
+    out.update(old)
+    over.update({k: v for k, v in (prev.get('overload') or {}).items() if k in old})
     Path(args.out).write_text(json.dumps({'skills': dict(sorted(out.items())), 'overload': dict(sorted(over.items()))}, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     missing = sorted(want - set(out))
-    print(f'{len(out)} of {len(want)} skills -> {args.out}' + (f'; not found: {", ".join(missing)}' if missing else ''))
+    print(f'{len(out)} of {len(want)} skills -> {args.out}' + (f'; kept from the earlier run: {", ".join(old)}' if old else '')
+          + (f'; not found: {", ".join(missing)}' if missing else ''))
 
 
 if __name__ == '__main__':

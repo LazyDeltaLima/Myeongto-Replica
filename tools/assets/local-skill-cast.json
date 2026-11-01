@@ -18,6 +18,44 @@
    "reset": 0,
    "state": 0
   },
+  "skchr_aglna2_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_aglna2_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_aglna2_3": {
+   "ability": {
+    "anim": "Skill_3_Restart_Begin",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": -1,
+    "pre": 0,
+    "time": 1,
+    "wait": 0
+   },
+   "cls": "cast",
+   "group": "par",
+   "reset": 1,
+   "state": 0,
+   "subs": [
+    {
+     "anim": 0,
+     "wait": 0
+    },
+    {
+     "anim": 0,
+     "wait": 1
+    }
+   ]
+  },
   "skchr_agoat2_1": {
    "ability": null,
    "cls": "cast",
@@ -633,6 +671,40 @@
      "wait": 1
     }
    ]
+  },
+  "skchr_clemnt_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_clemnt_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_clemnt_3": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 0,
+    "max": -1,
+    "pre": 0,
+    "time": 2,
+    "wait": 0
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
   },
   "skchr_demkni_1": {
    "ability": {

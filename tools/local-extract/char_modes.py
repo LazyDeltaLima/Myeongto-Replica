@@ -102,10 +102,19 @@ def char_skill_prefabs():
 SKILL_MODE_NAME = re.compile(r'^Sk?\d')
 
 
+def skill_bundle(client):
+    """battle/prefabs/[uc]skills.ab of an Arknights_Data folder (the hot-update copy under PersistentData first), or None."""
+    for d in ('PersistentData/Bundles', 'StreamingAssets/AB/Windows'):
+        path = Path(client) / d / 'battle/prefabs/[uc]skills.ab'
+        if path.exists():
+            return path
+    return None
+
+
 def skills_tree(client):
-    """[(GameObject path, MonoBehaviour)] of battle/prefabs/[uc]skills.ab (the skill prefabs; ~1 min to read), [] without it."""
-    path = Path(client) / 'StreamingAssets/AB/Windows/battle/prefabs/[uc]skills.ab'
-    return load_tree(str(path))[0] if path.exists() else []
+    """[(GameObject path, MonoBehaviour)] of the skill bundle (the skill prefabs; ~1 min to read), [] without it."""
+    path = skill_bundle(client)
+    return load_tree(str(path))[0] if path else []
 
 
 def skill_switch_modes(tree):

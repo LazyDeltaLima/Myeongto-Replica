@@ -30,8 +30,10 @@ tools/assets/local-skill-cast.json:
                 "skchr_texas_2": { "cls": "cast", "state": 1, "reset": 0, "ability": { … } },
                 "skchr_vendla_2": { …, "group": "seq", "subs": [{ "anim": 1, "wait": 1 }, { "anim": 0, "wait": 0 }] }, … } }
 
-Usage (from the repo root; --client = the EN client's Arknights_Data folder; ~1 min to read the bundle):
-  .venv-extract/bin/python tools/local-extract/skill_cast.py [--client <…/Arknights_Data>]
+Usage (from the repo root; ~1 min to read a bundle; --client = an Arknights_Data folder, repeatable: the first client
+that has a skill decides it — by default the EN client, then the CN one for the operators the EN one lacks
+(client_path.py); a skill neither client has keeps the row of the earlier run):
+  .venv-extract/bin/python tools/local-extract/skill_cast.py [--client <EN …/Arknights_Data>] [--client <CN …/Arknights_Data>]
 Everything read is (c) Hypergryph; only these flags and numbers are kept.
 """
 import argparse
@@ -42,7 +44,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from char_modes import char_skill_prefabs, skills_tree  # noqa: E402
-from client_path import client_data  # noqa: E402
+from client_path import clients, earlier, kept  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'tools/assets/local-skill-cast.json'
@@ -141,27 +143,36 @@ def skill_entry(sid, comps3):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
-    ap.add_argument('--client', default=client_data())
+    ap.add_argument('--client', action='append', help='an Arknights_Data folder (repeatable; default: EN, then CN — client_path.py)')
     ap.add_argument('--out', default=str(OUT))
     args = ap.parse_args()
     want = set()
     for prefabs in char_skill_prefabs().values():
         want.update(p for p in prefabs if p)
-    tree = skills_tree(args.client)
-    if not tree:
-        sys.exit(f'no skill bundle under {args.client}')
     comps = {}
-    for gp, d, _pid in tree:
-        root = gp.split('/')[0]
-        if root in want:
-            comps.setdefault(root, []).append((gp, d, _pid))
+    for client in clients(args.client):
+        tree = skills_tree(client)
+        if not tree:
+            print(f'no skill bundle under {client}', file=sys.stderr)
+            continue
+        found = {}
+        for gp, d, _pid in tree:
+            root = gp.split('/')[0]
+            if root in want and root not in comps:
+                found.setdefault(root, []).append((gp, d, _pid))
+        comps.update(found)
+        print(f'{client}: {len(found)} skills')
+    if not comps:
+        sys.exit('no skill read')
     out = {}
     for sid in sorted(comps):
         e = skill_entry(sid, comps[sid])
         if e:
             out[sid] = e
+    old = kept(earlier(args.out).get('skills') or {}, comps, want)
+    out.update(old)
     Path(args.out).write_text(json.dumps({'skills': out}, ensure_ascii=False, indent=1, sort_keys=True) + '\n', encoding='utf-8')
-    print(f'{len(out)} of {len(want)} skills -> {args.out}')
+    print(f'{len(out)} of {len(want)} skills -> {args.out}' + (f'; kept from the earlier run: {", ".join(old)}' if old else ''))
 
 
 if __name__ == '__main__':
