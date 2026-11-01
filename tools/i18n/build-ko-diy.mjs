@@ -8,7 +8,8 @@
 //   1. KR 공식 테이블 (Kengxxiao/ArknightsGameData_YoStar ko_KR: character / skill / uniequip / battle_equip) — 한국 서버에 있는
 //      오퍼레이터(위셔델, 아스카론)와 공통 문구
 //   2. tools/i18n/diy-ko-manual.json { "중국어 원천 문자열": "한국어" } — 한국 서버에 없는 오퍼레이터(望, 赤刃明霄陈, 丰川祥子, 凯尔希·思衡托, 克莱门莎, 予愿安洁莉娜).
-//      자리표시자({atk:0%} 등)와 <@ba.vup> 태그는 원문 그대로 둔다. 번역은 KR 공식 문체에 맞춘 수동 번역 [비공식].
+//      자리표시자({atk:0%} 등)와 <@ba.vup> 태그는 원문 그대로 둔다. 번역은 KR 공식 문체에 맞춘 수동 번역 [비공식]:
+//      방법은 docs/I18N.md 「CN-only texts in Korean」, 표현 대조는 tools/i18n/kr-style.mjs.
 //
 // 사용:
 //   KO_DIY_TRACE=1 node tools/i18n/build-ko-diy.mjs   빌드 결과에 쓰이는 원천 문자열 중 KR 테이블에도 수동 사전에도 없는 것을 출력

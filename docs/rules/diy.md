@@ -435,6 +435,10 @@
 - 자료에 없는 종료·정지 조건을 만들지 않는다(왕 S3 「놓을 칸 없으면 종료」 → 일찍 끝나는 버그). 추정은 코드와 이 문서에 [추정]으로 남긴다.
 - 위수협약에 없는 원작 조작(수동 배치, 수동 스킬 종료)을 옮길 때는 대체 규칙을 [추정]으로 적는다.
 
+**한국어 문구**
+- KR 서버에 없는 오퍼레이터의 이름·스킬·재능·특성은 `tools/i18n/diy-ko-manual.json`에 KR 서버 문체로 옮긴다(관리자 결정 2026-11-01) — 방법과
+  자주 쓰는 표현은 `docs/I18N.md` 「CN-only texts in Korean」, 대조는 `node tools/i18n/kr-style.mjs <중국어 표현>`. 그 뒤 `build-ko-diy.mjs`·`build-ko-pack.mjs --offline`.
+
 **소환물·표시**
 - 토큰 모델은 미러에 없을 수 있다 → `tools/local-extract/extract.py TOKEN_SPINES`에 추가해 클라이언트에서 뽑고 `fetch-assets --local-spines`로 매니페스트에 싣는다.
 - 함정·방향 없는 소환물은 `shared/trap-tokens.js`(`noHpBar`, `facingless`)에 등록한다.

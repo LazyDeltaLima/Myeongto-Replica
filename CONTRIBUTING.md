@@ -137,6 +137,10 @@ This is a remake of the official mode; the official game decides.
   `public/i18n/ko/*.json` (then rebuild the pack, section 2); server messages travel as ids ([docs/I18N.md](docs/I18N.md)).
   A new language is one file in `public/i18n/` and no code: `node tools/i18n.mjs template <code>`, translate,
   `node tools/i18n.mjs check <code>` (docs/I18N.md "Adding a language"; packs in general: [docs/PACKS.md](docs/PACKS.md)).
+- Korean game texts: content the KR server has uses the KR client's text; content only the CN server has yet (a new
+  operator, a new season) is translated by hand in the KR server's own wording, phrase by phrase as the KR tables word
+  the same Chinese (`node tools/i18n/kr-style.mjs`), until the KR release replaces it (maintainer decision 2026-11-01;
+  docs/I18N.md "CN-only texts in Korean").
 - The code is GPL-3.0-or-later. The project stays non-commercial: no advertising, payment or donation features.
 
 ## 6. Pitfalls that cost us before
