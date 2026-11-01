@@ -3901,6 +3901,32 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const names = withGroup(boundFor(src, mode, 'hit', kind).names, c?.group?.hit).filter((n) => shotHit(src, mode, n));
     if (names.length) hitFx(src, tgt, names.slice(0, MAX_HIT_FX), c);
   }
+  // 2026-11-01 (maintainer report 「애쉬락·혼의 투사체도 날아가는 도중에 적이 죽으면 사라진다」, official client): every shell of the
+  // 要塞 operators (projectile_chr_ashlok / _s2, projectile_chr_horn / _s2 / _s3: ParacurveMovement) carries its blast as
+  // `_effectsWhenReached` alone (`_effectsWhenHit` empty, `_forceReachTargetGround` 1) — the client plays it where the shell
+  // reaches the ground (EffectBehaviour.OnProjectileReached), whether its target still lives or not, and the sim lands the
+  // splash there (ai.js `hitDead`). The blast played at the target's 'dmg' (attackHit), so a target that died in flight left
+  // the shell to vanish without it. Other splash shots keep that path: their hits are `_effectsWhenHit` (格雷伊 projectile_greyy),
+  // which the client plays on a live target only.
+  /**
+   * The shot ('atk' of kind `kind` on `tgt`, its record `a` on lastAtk) of a 要塞 `src`: at its flight's end, its hits on the
+   * ground where `tgt` was when `tgt` died in flight and nothing played them on it meanwhile.
+   */
+  function reachFx(src, tgt, kind, a) {
+    if (!a || !tgt || tgt.info?.side !== 'enemy' || !PROJ[kind] || kind === 'boomerang') return;
+    let def;
+    try { def = unitDef(src.info) ?? null; } catch { def = null; }
+    if (def?.subProfessionId !== 'fortress') return;
+    const dist = Math.hypot(tgt.x - src.x, tgt.y - src.y);
+    const v = shotSpeedOf({ lookupDef: unitDef }, src, tgt, dist);
+    if (v === 0) return;
+    const tid = ownerOf(tgt), key = `${ownerOf(a.src)}:${tid}`;
+    castsDelayed.push({ t: clockS + Math.max(0.04, dist / (v || projSpeed(kind))), run: () => {
+      if (tgt.alive !== false && !tgt.remove && !gone.has(tid)) return;   // a live target: its 'dmg' plays them
+      if ((lastHit.get(key) ?? -9) >= a.t) return;   // already played on it (the shell that killed it)
+      attackHit(a, { x: tgt.x, y: tgt.y, z: tgt.z || 0 }, tid, lastAtk);
+    } });
+  }
   /** The swing-start cast-target effects of cast `c` (mode `mode`, attack kind `kind`) on `tgt`, or at the strike without one. */
   function castTgtFx(v, c, mode, kind, tgt, strike = false) {
     if (c.skip) return;
@@ -5558,6 +5584,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // throttle (ATTACK_GAP_S) and load level 3 skip them as before (beginCast)
           strikeFx(src, mode, e[3], tgt, sig);
           shotHitFx(src, mode, e[3], tgt);   // 2026-10-31: the hits that start at the shot
+          reachFx(src, tgt, e[3], tgt && lastAtk.get(tgt.id ?? tgt.info?.id));   // 2026-11-01: a 要塞 shell's blast where it lands
           svashBird(src, tgt);   // 2026-10-21: 凛御银灰 S3's eagle
           chargeRelease(src);    // 2026-10-21: a 秘术师's stored energies leave with it
           if (part !== 'body') droneShot(src, tgt, mode, lockByFx(src) ? 'free' : null);   // 2026-10-16: its drones (2026-10-21: the locks by 'drone')

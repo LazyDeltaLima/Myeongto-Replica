@@ -854,6 +854,20 @@
   빼고 (그것뿐이면 이름 대응 대체도 안 틂). 대상이 그 뒤 죽어도 이펙트는 이미 났다. 테스트 `test/render/shot-hit-fx.test.js`, `fx-round2.test.js`.
   [화면 미확인: 실제 판에서 烛煌 S3 불길이 쏠 때 떨어지기 시작하는지, 레코드키퍼 치료·엑시아 연사의 타격 시점]
 
+### 포트리스 포탄의 폭발은 떨어진 자리에 — 대상이 날아가는 도중에 죽어도 (2026-11-01, 관리자 제보 「애쉬락·혼 같은 포트리스 디펜더의 투사체도 날아가는 도중에 적이 죽으면 사라진다」)
+
+- **증상**: 애쉬락(灰毫)·혼(号角)의 포탄이 날아가는 사이 대상이 죽으면, 포탄 꼬리만 끝나고 폭발이 없어 공중에서 사라진 것처럼 보였다. sim은 맞았다 — 확산 공격의
+  투사체는 대상이 죽어도 마지막 자리로 떨어져 그 둘레 적을 친다(`ai.js` `hitDead`). 렌더가 폭발을 주 대상의 'dmg'에만(`attackHit`) 틀었다.
+- **공식**(투사체 프리팹 원본 값 + 공식 클라에서 확인): 포트리스 투사체 다섯(`projectile_chr_ashlok`·`_s2`, `projectile_chr_horn`·`_s2`·`_s3`, ParacurveMovement)은
+  폭발(`ashlok_attack_01_hit`·`ashlok_skill_02_hit`·`horn_attack_01_hit_02`·`horn_skill_02_hit_02`·`horn_skill_03_hit_02`)을 `_effectsWhenReached`에만 갖고
+  `_effectsWhenHit`은 비어 있다(`_forceReachTargetGround` 1). 닿음 이펙트는 투사체가 닿은 자리에서 대상 생사와 무관하게 난다(`EffectBehaviour.OnProjectileReached`;
+  명중 이펙트 `EffectBehaviour.OnHitTarget`만 살아 있는 대상에). 다른 확산 투사체는 다르다 — 그레이(格雷伊) `projectile_greyy`는 `_effectsWhenHit`뿐이라 공식도
+  죽은 대상에는 안 튼다. 그래서 포트리스 분과(`subProfessionId` `fortress`)에만 적용.
+- **고친 것**: `fxgame.js reachFx` — 포트리스의 원거리 샷('atk' 종류가 `none`이 아님: 저지 중 근접은 해당 없음)은 sim 비행 시간(거리 ÷ `shot` 속도) 뒤, 대상이 그새
+  죽었고 그 대상에 아직 타격이 안 났으면 모드의 원거리 타격 목록을 대상이 있던 지면 자리에 튼다. 살아 있는 대상은 전처럼 'dmg' 때 그 대상에. 테스트
+  `test/render/fortress-reach-fx.test.js`(고치기 전 렌더면 도중 사망 두 건 실패 확인). fx 골든은 그대로.
+  [화면 미확인: 실제 판에서 대상이 도중에 죽은 포탄이 그 자리에서 터지는지]
+
 ### 입력 대상·루프 타격·클립별 이펙트·배치 이펙트 — 공식 클라 확인 (2026-10-11, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 근거: 공식 클라(아래 메서드는 켜진 Lua 핫픽스 목록에 없음)와 charpack·`[uc]skills.ab`·이펙트 번들 프리팹 값. 조사 기록은 관리자 노트.
 - **① 입력 대상 이펙트(`_inputTargetEffects`)** — `InputTargetEffectOptions`는 `CastEffectOptions`의 하위(켜는 때 `_startEvent`, `_oneshot`/`_endEvent`/`_onlyOnce`/
