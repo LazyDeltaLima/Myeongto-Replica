@@ -619,11 +619,10 @@ export class Lobby {
 
   /**
    * lobby.queueCounts (server/matchmaking.js header) to every connected session outside a running match.
-   * @param {Record<string, Record<string, number>>} counts the 4-player queues
-   * @param {Record<string, Record<string, number>>} [counts8] the 8-player queues
+   * @param {object} [counts] Matchmaker.countsMsg(): `counts` / `counts8` (+ `seasons`)
    */
-  broadcastQueueCounts(counts, counts8 = this.queue.counts(LARGE_SEATS)) {
-    const frame = encode({ t: 'lobby.queueCounts', counts, counts8 });
+  broadcastQueueCounts(counts = this.queue.countsMsg()) {
+    const frame = encode({ t: 'lobby.queueCounts', ...counts });
     for (const session of this.registry.all()) {
       if (!session.connected || this.roomOf(session)?.match) continue;
       sendRaw(session.ws, frame);
@@ -632,7 +631,7 @@ export class Lobby {
 
   /** lobby.queueCounts to one session (hello, back from a match). @param {any} session */
   sendQueueCounts(session) {
-    if (session && session.connected) sendSession(session, { t: 'lobby.queueCounts', counts: this.queue.counts(), counts8: this.queue.counts(LARGE_SEATS) });
+    if (session && session.connected) sendSession(session, { t: 'lobby.queueCounts', ...this.queue.countsMsg() });
   }
 
   /** 규칙 모드 (header): host-only, before the match; a queued room keeps its ruleset (its queue is the ruleset's). */
@@ -830,6 +829,14 @@ export class Lobby {
   }
 
   /** Extra fields of every `welcome` (net.js): the operators a 自选 slot may field (shared/diy.js `kitted`). */
+  /**
+   * The first pong of every socket (net.js connectInfo, before any hello): `seasons` = the 卫戍协议 seasons rooms may name
+   * (shared/seasons.js), only when there are several — the title and the lobby then show the season picker.
+   */
+  connectInfo() {
+    return this.seasons.size > 1 ? { seasons: [...this.seasons] } : null;
+  }
+
   welcomeInfo() {
     // + a running restart countdown (local-restart.js, set by server/index.js)
     return { diyKitted: KITTED_CHARS.filter(isLocalDiyPick), ...this.restartNotice?.welcomeInfo(), ...this.generation?.welcomeInfo(), ...localPatch.welcomeInfo(this) }; // local patch: the picker offers our picks only; feedback

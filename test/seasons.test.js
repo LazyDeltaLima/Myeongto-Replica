@@ -3,8 +3,9 @@
 // files with its own in their place (server/data.js seasonData, the /data/s/<id>/ URLs of http/static.js, the browser's
 // data store), room.create `season` (refused unless the server offers it; room.state and the match get it), and the
 // browser runner loading the sim again for another season, the content modules reading a battle's / prep ctx's own data,
-// another season's prep registry, and the kit of another season's chess id. With one season nothing changes:
-// room.state has no `season`.
+// another season's prep registry, and the kit of another season's chess id; the offered seasons in a socket's first pong
+// and the per-season 랜덤 매칭 queues (maintainer decision 2026-11-01). With one season nothing changes: room.state has no
+// `season`, the pong no `seasons`.
 import { test, describe, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -210,6 +211,44 @@ describe('room.create season (lobby)', () => {
     assert.equal(started[n].data.bonds.b1.n, 2);
     assert.equal(started[n].data.chess.c1.name, 'base');
   });
+
+  test('the first pong of a socket names the offered seasons, before any hello; later pongs do not', async () => {
+    const c = await TestClient.connect(`ws://127.0.0.1:${srv.port}/ws`);
+    open.add(c);
+    c.send({ t: 'ping', c: 1 });
+    assert.deepEqual((await c.waitFor('pong', (m) => m.c === 1)).seasons, [DEFAULT_SEASON, NEXT]);
+    c.send({ t: 'ping', c: 2 });
+    assert.equal('seasons' in (await c.waitFor('pong', (m) => m.c === 2)), false);
+  });
+
+  test('랜덤 매칭: every season has queues of its own; the counts name the other season apart', async () => {
+    const a = await player('QA');
+    const b = await player('QB');
+    assert.equal((await a.request({ t: 'room.queue', difficulty: 'HARD', season: NEXT })).t, 'ok');
+    const qa = await a.waitFor('room.queueState', (m) => m.queued);
+    assert.deepEqual([qa.season, qa.count], [NEXT, 1]);
+    assert.equal((await b.request({ t: 'room.queue', difficulty: 'HARD' })).t, 'ok');
+    const qb = await b.waitFor('room.queueState', (m) => m.queued);
+    assert.deepEqual(['season' in qb, qb.count], [false, 1]); // not the same queue
+    const counts = await b.waitFor('lobby.queueCounts', (m) => m.counts.classic.HARD === 1 && m.seasons?.[NEXT]?.counts.classic.HARD === 1, 3000);
+    assert.equal(counts.seasons[NEXT].counts8.classic.HARD, 0);
+    assert.equal((await a.request({ t: 'room.unqueue' })).t, 'ok');
+    assert.equal((await b.request({ t: 'room.unqueue' })).t, 'ok');
+  });
+
+  test('랜덤 매칭: four Doctors of another season are matched into a room of that season', async () => {
+    const cs = await Promise.all(['M1', 'M2', 'M3', 'M4'].map(player));
+    for (const c of cs) assert.equal((await c.request({ t: 'room.queue', difficulty: 'NORMAL', season: NEXT })).t, 'ok');
+    for (const c of cs) {
+      const found = await c.waitFor('room.matchFound');
+      assert.equal(found.season, NEXT);
+    }
+    const n = started.length;
+    for (const c of cs) assert.equal((await c.request({ t: 'room.queueAccept', accept: true })).t, 'ok');
+    const st = await cs[0].waitFor('room.state', (s) => s.inMatch);
+    assert.equal(st.season, NEXT);
+    assert.equal(started[n].season, NEXT);
+  });
 });
 
 test('a season the server does not offer is refused', async () => {
@@ -221,6 +260,10 @@ test('a season the server does not offer is refused', async () => {
     const r = await c.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', season: NEXT });
     assert.equal(r.t, 'error');
     assert.equal(r.code, ERR.BAD_MSG);
+    const q = await c.request({ t: 'room.queue', difficulty: 'NORMAL', season: NEXT });
+    assert.deepEqual([q.t, q.code], ['error', ERR.BAD_MSG]);
+    c.send({ t: 'ping', c: 7 });
+    assert.equal('seasons' in (await c.waitFor('pong', (m) => m.c === 7)), false); // one season: no picker
   } finally { await c.terminate().catch(() => {}); await srv.close(); undo(); }
 });
 

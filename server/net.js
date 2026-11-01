@@ -39,6 +39,8 @@
 //   onHello(session, { resumed, repeat })  after `welcome` was sent
 //   welcomeInfo() → object (optional)      extra fields of every `welcome` (never one of its own keys): the lobby's
 //                                          `diyKitted` (0.2.0 自选编队 — which operators a DIY slot may field)
+//   connectInfo() → object | null (optional) extra fields of a socket's first `pong` (never one of its own keys) —
+//                                          before any hello, so the title screen has them: the lobby's `seasons`
 //   onMessage(session, msg) → { ok: true } | { error: ERR code, detail?: string } | undefined
 //   routeGame(session, msg) → same (optional): client-side combat reports `b.progress` / `b.result` (DESIGN §14) go
 //                                          straight to the running match through it; without it they reach onMessage
@@ -531,6 +533,8 @@ class Connection {
     this.drops = 0;
     /** true once the server initiated the close; frames still in flight are ignored */
     this.closing = false;
+    /** whether a pong went out already (the first carries the handler's connectInfo) */
+    this.ponged = false;
   }
 
   /** Server-initiated close (never throws). Later frames from this socket are ignored. */
@@ -548,7 +552,7 @@ export class Network {
   /**
    * @param {{
    *   registry: SessionRegistry,
-   *   handler: { onHello?: Function, onMessage: Function, onDisconnect?: Function, onExpire?: Function, welcomeInfo?: Function, adoptSession?: Function },
+   *   handler: { onHello?: Function, onMessage: Function, onDisconnect?: Function, onExpire?: Function, welcomeInfo?: Function, connectInfo?: Function, adoptSession?: Function },
    *   log?: { info: Function, warn: Function, error: Function, debug?: Function },
    *   now?: () => number,
    *   options?: Partial<typeof NET_DEFAULTS>,
@@ -646,7 +650,12 @@ export class Network {
     if (reason) { this.reply(conn, errorMsg(ERR.BAD_MSG, rid, reason)); return; }
 
     if (msg.t === 'ping') {
-      const pong = { t: 'pong', c: msg.c, s: now, n: this.onlineCount(now) };
+      let extra = null;
+      if (!conn.ponged) {
+        conn.ponged = true;
+        try { extra = this.handler.connectInfo?.() ?? null; } catch (e) { this.log.error('[net] connectInfo crashed', e); }
+      }
+      const pong = { ...(extra && typeof extra === 'object' ? extra : null), t: 'pong', c: msg.c, s: now, n: this.onlineCount(now) };
       if (validRid(rid)) pong.rid = rid;
       this.reply(conn, pong);
       return;

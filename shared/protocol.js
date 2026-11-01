@@ -449,8 +449,9 @@ export const C2S = {
   // 랜덤 매칭 (server/matchmaking.js): the per-difficulty co-op queue of four (`size` 8: of eight); queue = alone, queueRoom = the host queues
   // the co-op room's humans for its empty seats, unqueue leaves (a room: the whole room), queueAccept answers room.matchFound.
   // The custom 규칙 모드 never queues (maintainer decision 2026-10-18): room.queue takes the queue presets only, and the
-  // server refuses room.queueRoom of a custom room (server/matchmaking.js)
-  'room.queue': { difficulty: (v) => DIFFICULTIES.includes(v), ruleset: isQueuePreset, size: isRoomSize, $optional: ['ruleset', 'size'] },
+  // server refuses room.queueRoom of a custom room (server/matchmaking.js). `season`: the 卫戍协议 season's queue (absent =
+  // the default; maintainer decision 2026-11-01: every season has queues of its own)
+  'room.queue': { difficulty: (v) => DIFFICULTIES.includes(v), ruleset: isQueuePreset, size: isRoomSize, season: isSeasonId, $optional: ['ruleset', 'size', 'season'] },
   'room.queueRoom': {},
   'room.unqueue': {},
   'room.queueAccept': { accept: isBool },
@@ -518,11 +519,14 @@ export const C2S = {
 
 // Server → client message types (documentation + client dispatch table keys).
 export const S2C = [
+  // pong { c, s, n }: a socket's first pong also carries `seasons` (the season ids rooms may name) when the server offers
+  // several (Lobby.connectInfo: before any hello, for the title's season picker)
   'welcome', 'ok', 'error', 'pong',
   'room.state', 'room.closed',
-  // 랜덤 매칭: room.queueState { queued, difficulty, ruleset, size, count?, waitedMs?, party?, reason?, by? } · room.matchFound
-  // { difficulty, ruleset, size, players, accepted, mine, inMs } · lobby.queueCounts { counts: { [ruleset]: { [difficulty]: n } },
-  // counts8: the same for the 8-player queues } (the waiting Doctors of every queue, server/matchmaking.js)
+  // 랜덤 매칭: room.queueState { queued, difficulty, ruleset, size, season, count?, waitedMs?, party?, reason?, by? } · room.matchFound
+  // { difficulty, ruleset, size, season, players, accepted, mine, inMs } · lobby.queueCounts { counts: { [ruleset]: { [difficulty]: n } },
+  // counts8: the same for the 8-player queues, seasons?: { [season]: { counts, counts8 } } of the other offered seasons }
+  // (the waiting Doctors of every queue, server/matchmaking.js)
   'room.queueState', 'room.matchFound', 'lobby.queueCounts',
   // m.public: a broadcast after the match's first is a delta (`delta: true`, mergePublic); a one-to-one m.public (a
   // reconnect / resync, a spectator taking a seat) and the match's final broadcast are whole

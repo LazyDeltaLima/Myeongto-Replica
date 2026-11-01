@@ -5,9 +5,13 @@
 // another season keeps only the files that differ in data/seasons/<id>/ (a file it lacks is the default's —
 // server/data.js getData({ season }), the browser through /data/s/<id>/<file>.json). `public: false` = only a server
 // that lists it in SP_SEASONS offers it (local / debug). `features` are the season's rule switches; the default season
-// has every one off, so a season-aware branch keeps today's behaviour.
+// has every one off, so a season-aware branch keeps today's behaviour. `name` is the season's own word of the title
+// (卫戍协议：<name>, a msgid the page translates) and `mark` its Latin wordmark: the season picker of the title and the
+// lobby shows them.
 //
 // Imported by the server and the browser: no Node APIs.
+
+import { N_ } from './i18n.js';
 
 /** The season of data/*.json and of every room that names none. */
 export const DEFAULT_SEASON = 'act2autochess';
@@ -18,20 +22,27 @@ export const SEASON_FEATURES = Object.freeze({
   watchWhileFighting: false,
 });
 
-/** @type {Record<string, Readonly<{ id: string, public: boolean, features: Readonly<Record<string, boolean>> }>>} */
+/**
+ * @typedef {Readonly<{ id: string, public: boolean, name: string, mark: string, features: Readonly<Record<string, boolean>> }>} Season
+ * @type {Record<string, Season>}
+ */
 export const SEASONS = {
-  act2autochess: Object.freeze({ id: 'act2autochess', public: true, features: SEASON_FEATURES }),
+  // 卫戍协议：盟约 下半 (the tables name both halves 盟约; this server runs the second only, so the page says 盟约)
+  act2autochess: Object.freeze({ id: 'act2autochess', public: true, name: N_('盟约'), mark: 'ALLIANCE', features: SEASON_FEATURES }),
+  // The next season, 卫戍协议【规程】 (announced for CN), before its data and activity id: the default season's data under
+  // its name, so the season picker can be built and checked (SP_SEASONS=next). Its data replaces this entry.
+  next: Object.freeze({ id: 'next', public: false, name: N_('规程'), mark: 'REGULATION', features: SEASON_FEATURES }),
 };
 
 /**
  * Tests only: register a season (never public unless asked) and return the function that removes it again. A real
  * season is an entry of SEASONS above.
  * @param {string} id
- * @param {{ public?: boolean, features?: Partial<typeof SEASON_FEATURES> }} [opts]
+ * @param {{ public?: boolean, name?: string, mark?: string, features?: Partial<typeof SEASON_FEATURES> }} [opts]
  */
-export function defineSeason(id, { public: open = false, features = {} } = {}) {
+export function defineSeason(id, { public: open = false, name = id, mark = String(id).toUpperCase(), features = {} } = {}) {
   if (typeof id !== 'string' || !/^[a-z0-9]+$/.test(id) || Object.hasOwn(SEASONS, id)) throw new Error(`bad or taken season id ${id}`);
-  SEASONS[id] = Object.freeze({ id, public: open, features: Object.freeze({ ...SEASON_FEATURES, ...features }) });
+  SEASONS[id] = Object.freeze({ id, public: open, name, mark, features: Object.freeze({ ...SEASON_FEATURES, ...features }) });
   return () => { delete SEASONS[id]; };
 }
 
@@ -40,6 +51,9 @@ export const isSeasonId = (v) => typeof v === 'string' && Object.hasOwn(SEASONS,
 
 /** The season of a room / match value: a registry id, else the default. @param {unknown} v @returns {string} */
 export const seasonOf = (v) => (isSeasonId(v) ? /** @type {string} */ (v) : DEFAULT_SEASON);
+
+/** The registry entry of a season (unknown: the default's). @param {unknown} v @returns {Season} */
+export const seasonInfo = (v) => SEASONS[seasonOf(v)];
 
 /**
  * Data directory of a season relative to data/: '' for the default season, else `seasons/<id>`.
