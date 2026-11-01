@@ -137,6 +137,10 @@ export class MatchViews {
     }
     // the briefing's vote ended the match: 'reroll' (a new match follows at once)
     if (this.infoOutcome) v.infoOutcome = this.infoOutcome;
+    // the in-match 重新开始 vote (restart.js): the open vote — its proposer, the seats agreeing, its end (ms epoch) and
+    // length (ms, the banner's bar) — and `restarted` once it passed (a new match follows at once)
+    if (this.restartVote) v.restartVote = { by: this.restartVote.by, yes: [...this.restartVote.yes], deadline: this.restartVote.deadline, ms: this.restartVote.ms };
+    if (this.restartOutcome) v.restarted = true;
     // the briefing: its length (the countdown gauge's total; 0 when untimed) and the first seat still voting 重新抽取
     // (phases.js rerollProposer) — the 「…提议重新抽取」 banner
     if (this.phase === PHASE.INFO_CHECK) {

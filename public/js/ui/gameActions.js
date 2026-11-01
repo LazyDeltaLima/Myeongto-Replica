@@ -4,7 +4,8 @@
 // `net.request` is looked up at call time so the dev mock harness can stub it.
 
 import { net } from '../net.js';
-import { matchToastError } from './matchToast.js';
+import { matchToast, matchToastError } from './matchToast.js';
+import { t } from '../../../shared/i18n.js';
 import { audio } from '../audio.js';
 
 const SUCCESS_SFX = {
@@ -43,7 +44,8 @@ export function onRefreshBusy(fn) {
  * Send an intent. Resolves true on `ok`, false on error (already toasted).
  * @param {string} t
  * @param {object} [fields]
- * @param {{ sfx?: string|false, quiet?: boolean }} [opts]
+ * @param {{ sfx?: string|false, quiet?: boolean, errorText?: Record<string, string> }} [opts] errorText: the line an
+ *   error code shows in place of its ERR_TEXT
  * @returns {Promise<boolean>}
  */
 export async function act(t, fields = {}, opts = {}) {
@@ -56,7 +58,9 @@ export async function act(t, fields = {}, opts = {}) {
     return true;
   } catch (err) {
     if (!opts.quiet) {
-      matchToastError(err); // (none with settings → 「对局通知」 off)
+      const own = opts.errorText?.[err?.code];
+      if (own) matchToast(own, 'warn');
+      else matchToastError(err); // (none with settings → 「对局通知」 off)
       audio.sfx('error', { volume: 0.6 });
     }
     return false;
@@ -72,6 +76,9 @@ export const actions = {
   infoReroll: () => act('g.infoReroll'),
   // ... and its withdrawal while the vote is open
   infoRerollCancel: () => act('g.infoReroll', { cancel: true }, { sfx: 'back' }),
+  // the in-match 重新开始 vote (server restart.js): propose / yes / no / cancel; a proposal within a minute of the
+  // proposer's last failed vote is refused (RATE) with its own line
+  restartVote: (op) => act('g.restart', { op }, { sfx: op === 'no' || op === 'cancel' ? 'back' : 'confirm', errorText: { RATE: t('稍后才能再次发起重新开始') } }),
   band: (bandId) => act('g.band', { bandId }),
   bandSkip: () => act('g.bandSkip'),
   // the strategy draft's 编队确认 (after the last pick): done

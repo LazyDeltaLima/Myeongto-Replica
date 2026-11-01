@@ -21,6 +21,8 @@ export class MatchIntents {
         return OK;
       // the briefing's reroll vote (MatchPhases.maybeEndInfo), separate from ready (`cancel` takes it back)
       case 'g.infoReroll': return this.voteReroll(ps, msg.cancel === true);
+      // the in-match 重新开始 vote (MatchRestart.voteRestart): propose / yes / no / cancel
+      case 'g.restart': return this.voteRestart(ps, msg.op);
       case 'g.band': return this.pickBand(ps, msg.bandId);
       case 'g.bandSkip': return this.skipBand(ps);
       // the strategy highlighted in the draft screen (what a timed-out turn takes, timeoutBand)
@@ -73,6 +75,8 @@ export class MatchIntents {
     ps.autoplay = on;
     this.markPublic();
     if (on) this.kickBot(ps);
+    // a seat under AI 托管 has no say in a restart vote (restart.js restartVoters)
+    if (on) this.maybeEndRestart();
     return OK;
   }
 

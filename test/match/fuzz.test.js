@@ -36,6 +36,8 @@ function randomIntent(rng, m, ps) {
     case 'g.watch': return { t, fieldId: rng.pick(['n:p_0', 'n:p_1', 'n:ai_0', 'u', 'b1', 'b2', 'zz', '']) };
     case 'g.autoplay': return { t, on: rng() < 0.05 };
     case 'g.pause': return { t, on: rng() < 0.5 };
+    // a proposal can end the match at once (a single human): rare, so the matches still run long
+    case 'g.restart': return { t, op: rng() < 0.02 ? 'propose' : rng.pick(['yes', 'no', 'cancel']) };
     default: return { t };
   }
 }

@@ -187,6 +187,7 @@ export class MatchPlatform {
    */
   _quit(ps) {
     this.maybeEndInfo();
+    this.maybeEndRestart();
     if (!ps.alive) return;
     const phase = this.phase;
     const d = this.draft;

@@ -606,6 +606,31 @@
 
 /* ---- exit / away ------------------------------------------------------------------------------------------------------ */
 .exitm { display: flex; flex-direction: column; gap: .1rem; font-size: .17rem; line-height: 1.7; }
+/* 重新开始 (ui/matchChrome.js ExitModal): the vote's gold on the secondary button */
+.btn.exitm__restart:not(:disabled) { border-color: rgba(255, 198, 0, .55); color: var(--gold); }
+
+/* ---- the in-match 重新开始 vote (ui/restartVote.js): one line under the bond strip, the briefing's 「…提议重新抽取」 gold;
+   a person per voter in the official stage-info icons painted gold (masks of img_player_bg / img_player_confirmed) -- */
+.gm__hud > .rvote { position: absolute; z-index: 6; top: 1.98rem; left: 50%; transform: translateX(-50%); display: flex; align-items: center;
+  gap: .12rem; height: max(.46rem, 30px); max-width: calc(100% - .4rem); padding: 0 .06rem 0 .14rem; overflow: hidden;
+  background: linear-gradient(var(--gold-a20), var(--gold-a20)), rgba(12, 15, 14, .94); border: 1px solid rgba(255, 198, 0, .45);
+  color: var(--text-hi); box-shadow: 0 .06rem .24rem rgba(0, 0, 0, .55); white-space: nowrap; }
+.rvote > .icon { flex: none; width: .24rem; height: .24rem; color: var(--gold); }
+.rvote__title { font-size: max(.17rem, 12px); color: var(--gold); overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.rvote__note { font-size: max(.15rem, 11px); color: var(--text-md); }
+.rvote__pips { display: flex; gap: .02rem; margin-left: .04rem; }
+.rvote__pips i { display: block; height: max(.24rem, 16px); aspect-ratio: 17 / 42; background: var(--text-dim); opacity: .55;
+  -webkit-mask: var(--rv-off) center / contain no-repeat; mask: var(--rv-off) center / contain no-repeat; }
+.rvote__pips i.on { background: var(--gold); opacity: 1; filter: drop-shadow(0 0 .05rem var(--gold-a20));
+  -webkit-mask-image: var(--rv-on); mask-image: var(--rv-on); }
+/* without the local art: plain pips */
+.rvote__pips.no-art i { -webkit-mask: none; mask: none; aspect-ratio: auto; width: .1rem; height: .1rem; border-radius: 50%; }
+.rvote__n { font-size: max(.16rem, 11px); color: var(--text-md); }
+.rvote__n b { color: var(--gold); }
+.rvote__secs { font-size: max(.18rem, 12px); font-weight: 800; min-width: .44rem; text-align: right; }
+.rvote__acts { display: flex; gap: .08rem; margin-left: .06rem; }
+.rvote__bar { position: absolute; left: 0; bottom: 0; height: 2px; width: var(--rv-p, 100%); background: var(--gold); transition: width 1s linear; }
+@media (max-height: 600px) and (pointer: coarse), (max-height: 600px) and (any-pointer: coarse) { .rvote__note { display: none; } }
 .awayov { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: rgba(4, 7, 6, .78); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: screen-in var(--t-slow) var(--ease-out); }
 .awayov__box { display: flex; flex-direction: column; align-items: center; gap: .12rem; padding: .44rem .7rem; background: rgba(12, 16, 14, .96); border: 1px solid var(--line-2); }
 .awayov__icon { width: .8rem; height: .8rem; color: var(--ice); filter: drop-shadow(0 0 .2rem rgba(159, 212, 255, .5)); }

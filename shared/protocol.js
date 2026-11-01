@@ -463,6 +463,8 @@ export const C2S = {
   'g.infoReroll': { cancel: isBool, $optional: ['cancel'] },
   'g.band': { bandId: isId },
   'g.bandSkip': {},
+  // the in-match 重新开始 vote (server/match/match/restart.js): propose it, answer it, or the proposer takes it back
+  'g.restart': { op: (v) => v === 'propose' || v === 'yes' || v === 'no' || v === 'cancel' },
   // the strategy highlighted in the draft screen (user playtest #4 item 4): a turn that runs out takes it while it is
   // free (Match.timeoutBand); absent / null clears it
   'g.bandFocus': { bandId: nullable(isId), $optional: ['bandId'] },

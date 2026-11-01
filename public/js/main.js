@@ -55,7 +55,7 @@ import { installDeviceSupport } from './ui/device.js';
 import { installPerfHud } from './ui/perfHud.js'; // `?perf=1`: frame / sim / render readout + the report's perf: lines
 import { LoadoutHost } from './screens/loadout.js';
 import { StatsHost } from './screens/stats.js';
-import { recordResult, installStatsRecorder } from './ui/stats.js';
+import { recordResult, recordQuit, installStatsRecorder } from './ui/stats.js';
 import { installLoadoutSync, installOwnershipSync, installDiySync, setLoadoutSeason } from './ui/loadoutSync.js';
 import { installSeasons, activeSeason, loadPickedSeason, parseSeasonParam } from './ui/season.js';
 import { installDiyPresets } from './ui/diyPresets.js'; // 맹약별 선발 프리셋
@@ -215,13 +215,19 @@ function onRoomState(msg) {
   }
   const prevRoom = store.get().room;
   const sameRoom = !!prevRoom && prevRoom.code === room.code;
-  // the briefing's vote ended the match (server phases.js maybeEndInfo): 'reroll'
-  const outcome = sameRoom && prevRoom.inMatch ? store.get().match.public?.infoOutcome : null;
+  // the briefing's vote ended the match (server phases.js maybeEndInfo): 'reroll'; the in-match vote (restart.js):
+  // 'restart' — recorded as 中途退出 (本机统计, ui/stats.js recordQuit; maintainer decision 2026-10-31) before the state goes
+  const lastPub = sameRoom && prevRoom.inMatch ? store.get().match.public : null;
+  const outcome = lastPub?.restarted ? 'restart' : lastPub?.infoOutcome ?? null;
+  if (outcome === 'restart' && !store.get().match.result) {
+    try { recordQuit(store.get()); } catch (err) { console.warn('[stats] restart record failed', err); }
+  }
   // A (new) match starts: forget the previous match's state so stale results never show — also when a briefing reroll
   // replaced the match while inMatch stayed true (a new matchNo).
   if (room.inMatch && !(sameRoom && prevRoom.inMatch && prevRoom.matchNo === room.matchNo)) {
     store.set({ match: emptyMatch() });
     if (outcome === 'reroll' && room.mode === 'coop') toast(t('已重新抽取本局信息'), 'info');
+    if (outcome === 'restart' && room.mode === 'coop') toast(t('全员同意，从头开始'), 'success');
   } else if (!room.inMatch && outcome) {
     // a reroll the server could not start (the deploy's restart countdown): straight back to the room (there is no
     // result to show)

@@ -190,6 +190,7 @@
 //   bossRounds.js    FINAL_ASSAULT / HIDDEN_CORE: boss fields, the shared pool, plausibility budgets, the boss clock,
 //                    b.pool, the merged team LP, overtime, bounties after a boss field
 //   settle.js        SETTLE and RESULT
+//   restart.js       the in-match 重新开始 vote and the match's end for a new one
 //   common.js        what the modules share (FLOW_TICKER_PRIORITY, DELAYS, BAND_TURN_SECONDS — re-exported here, OK,
 //                    fail, BOSS_CLOCK_MS)
 
@@ -220,6 +221,7 @@ import { MatchReports } from './match/reports.js';
 import { MatchUnite } from './match/unitePhase.js';
 import { MatchBoss } from './match/bossRounds.js';
 import { MatchSettle } from './match/settle.js';
+import { MatchRestart } from './match/restart.js';
 import { resolveRuleset } from '../../shared/ruleset.js';
 import { DEFAULT_SEASON, seasonOf } from '../../shared/seasons.js';
 
@@ -378,6 +380,12 @@ export class Match {
     this.infoOutcome = null;
     /** INFO_CHECK: the seats voting 重新抽取, in vote order (phases.js voteReroll / rerollProposer) */
     this.infoRerollers = [];
+    /** the in-match 重新开始 vote (restart.js): the open vote, its outcome, the seats' next allowed proposal (sched ms) */
+    this.restartVote = null;
+    /** @type {'restart' | null} */
+    this.restartOutcome = null;
+    /** @type {Map<string, number>} */
+    this.restartRetryAt = new Map();
     this.round = 0;
     this.deadline = 0;
     /** Final Assault / Hidden Core: ms epoch when the overtime drain starts (m.public.overtimeAt) */
@@ -439,7 +447,7 @@ export class Match {
 }
 
 // the method modules, in this order (a name defined twice is an error, never a silent override)
-for (const part of [MatchPlatform, MatchInfra, MatchMessaging, MatchViews, MatchWatch, MatchIntents, MatchPause, MatchPhases, MatchSpDraft, MatchPrep, MatchCombat, MatchClientCombat, MatchReports, MatchUnite, MatchBoss, MatchSettle]) {
+for (const part of [MatchPlatform, MatchInfra, MatchMessaging, MatchViews, MatchWatch, MatchIntents, MatchPause, MatchPhases, MatchSpDraft, MatchPrep, MatchCombat, MatchClientCombat, MatchReports, MatchUnite, MatchBoss, MatchSettle, MatchRestart]) {
   for (const key of Reflect.ownKeys(part.prototype)) {
     if (key === 'constructor') continue;
     if (Object.prototype.hasOwnProperty.call(Match.prototype, key)) throw new Error(`Match.${String(key)} is defined twice`);

@@ -915,15 +915,17 @@ export class Lobby {
 
   /**
    * onEnd callback: return the room to LOBBY and dispose the match on the next macrotask. The briefing's vote
-   * (Match phases.js maybeEndInfo) ends a match before its first round with reason 'reroll' — a new match with a new seed
-   * starts at once, without room.start's ready check (the vote was the agreement; back to the room only when the restart
-   * countdown refuses new matches); nothing was played, so no lastSummary ([stats] line) and no replay. The chat factions are cleared either way (players pick
+   * (Match phases.js maybeEndInfo) ends a match before its first round with reason 'reroll', the in-match 重新开始 vote
+   * (Match restart.js) any time after with reason 'restart' — a new match with a new seed starts at once, without
+   * room.start's ready check (the vote was the agreement; back to the room only when the restart countdown refuses new
+   * matches); neither was settled, so no lastSummary ([stats] line) and no replay (a restarted match is the page's
+   * 中途退出 record, public/js/main.js). The chat factions are cleared either way (players pick
    * one after seeing the banned bonds, maintainer 2026-10-09).
    */
   onMatchEnd(room, ctx, summary) {
     if (ctx.ended || !ctx.live || room.matchCtx !== ctx || room.disposed) return;
     ctx.ended = true;
-    const vote = summary?.reason === 'reroll';
+    const vote = summary?.reason === 'reroll' || summary?.reason === 'restart';
     const key = room.matchKey;
     room.lastSummary = vote ? null : summary ?? null;
     room.match = null;
@@ -931,7 +933,7 @@ export class Lobby {
     room.matchKey = null;
     room.replay = vote ? null : this.buildReplay(room, ctx);
     setImmediate(() => this.disposeMatchCtx(ctx));
-    this.log.info(`[lobby] ${room.code} match #${room.matchCount} ended`);
+    this.log.info(`[lobby] ${room.code} match #${room.matchCount} ended${summary?.reason === 'restart' ? ` (restart vote, round ${summary.round})` : ''}`);
     localPatch.onMatchEnd(this, room); // local patch: chat factions last one match
     // back outside a match: the matchmaking counts they missed while playing (matchmaking.js header)
     if (!vote) for (const s of room.activeHumans()) this.sendQueueCounts(this.registry.byId(s.playerId));
@@ -947,7 +949,7 @@ export class Lobby {
     const host = room.hostId ? room.seatOf(room.hostId) : null;
     if (!host || host.isBot || host.left) this.migrateHost(room);
     if (room.activeHumans().length === 0) this.disposeRoom(room, 'empty');
-    else if (summary?.reason === 'reroll' && !this.restartNotice?.startRefusal()) {
+    else if (vote && !this.restartNotice?.startRefusal()) {
       // the old match goes now: the new one may reuse nothing of it (startMatch broadcasts the room.state)
       this.disposeMatchCtx(ctx);
       this.startMatch(room, key);

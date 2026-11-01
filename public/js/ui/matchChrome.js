@@ -2,7 +2,9 @@
 // difficulty | "1/2 确认本局信息" | countdown) and the exit flow (confirm with 暂离 / 放弃, AI 托管 overlay).
 //
 // 暂离 (co-op): turns on AI 托管 (g.autoplay on) so the seat keeps playing; the overlay's 返回模拟 turns it
-// off. 放弃模拟: g.leave then room.leave (the platform treats it as a quit), back to the lobby.
+// off. 放弃模拟: g.leave then room.leave (the platform treats it as a quit), back to the lobby. 重新开始 (from the first
+// round on, any 规则 mode — maintainer decisions 2026-10-31): a single human restarts at once, co-op opens the vote
+// (发起重新开始投票; ui/restartVote.js, server/match/match/restart.js).
 
 import { useState } from '../../vendor/hooks.module.js';
 import { html, Button, Modal, PingPill, DifficultyTag, Countdown, MicroLabel } from './components.js';
@@ -15,6 +17,7 @@ import { GuideButton } from './guide.js';
 import { countdownWarnAt } from './gameLogic.js';
 import { audio } from '../audio.js';
 import { recordQuit } from './stats.js';
+import { canProposeRestart, restartVoters } from './restartVote.js';
 import { t, tParts, N_ } from '../../../shared/i18n.js';
 import { resolveRuleset, PRESET_LABELS } from '../../../shared/ruleset.js';
 
@@ -25,6 +28,8 @@ import { resolveRuleset, PRESET_LABELS } from '../../../shared/ruleset.js';
 export const EXIT_TEXT = Object.freeze({
   soloRest: N_('独立模拟的休整期没有时间限制，你可以随时继续。'),
   soloQuit: N_('放弃模拟将立即结束本局并返回大厅，本局进度不会保留，也不会进行结算。'),
+  restartAlone: N_('{restart}：结束本局并从头开始，重新抽取首领、战场、特训敌人与禁用盟约。'),
+  restartVote: N_('{restart}：全员同意后结束本局并从头开始，重新抽取首领、战场、特训敌人与禁用盟约。'),
 });
 
 /** Local patch: no 暂离（AI 托管） in the exit dialog — a player who leaves gives up the seat (放弃模拟 only). */
@@ -77,6 +82,18 @@ export function ExitModal({ open, onClose, solo, onAway }) {
   const [busy, setBusy] = useState(null);
   // a spectator seat (community report #26) only leaves its seat: nothing of the match is given up
   const spectator = useStore((s) => isSpectating(s.room, s.me.playerId));
+  const pub = useStore((s) => s.match.public);
+  const myId = useStore((s) => s.me.playerId);
+  const restartOn = !spectator && canProposeRestart(pub, myId);
+  // a single human (solo, or AI teammates only) restarts at once; co-op proposes the vote
+  const alone = restartVoters(pub).length <= 1;
+  const voteOpen = !!pub?.restartVote;
+  const restart = async () => {
+    setBusy('restart');
+    const ok = await actions.restartVote('propose');
+    setBusy(null);
+    if (ok) onClose();
+  };
   const quit = async () => {
     setBusy('quit');
     await quitMatch();
@@ -101,11 +118,16 @@ export function ExitModal({ open, onClose, solo, onAway }) {
     actions=${html`
       <${Button} variant="secondary" onClick=${onClose}>${t('取消')}<//>
       ${!solo && AWAY_OPTION ? html`<${Button} variant="ice" icon="robot" loading=${busy === 'away'} onClick=${away}>${t('暂离（AI 托管）')}<//>` : null}
+      ${restartOn ? html`<${Button} variant="secondary" icon="refresh" class="exitm__restart" data-testid="restart-propose" loading=${busy === 'restart'}
+        disabled=${voteOpen} title=${voteOpen ? t('重新开始投票进行中') : null} onClick=${restart}>${alone ? t('重新开始') : t('发起重新开始投票')}<//>` : null}
       <${Button} variant="danger" icon="exit" loading=${busy === 'quit'} onClick=${quit}>${t('放弃模拟')}<//>`}>
     <div class="exitm">
       ${solo
-        ? html`<p>${t(EXIT_TEXT.soloRest)}</p><p class="t-lo">${t(EXIT_TEXT.soloQuit)}</p>`
-        : html`${AWAY_OPTION ? html`<p>${tParts('{away}：由 AI 托管你的席位（自动部署、准备与选择），随时可以返回。', { away: html`<b class="t-ice">${t('暂离')}</b>` })}</p>` : null /* local patch: AWAY_OPTION */}
+        ? html`<p>${t(EXIT_TEXT.soloRest)}</p>
+               ${restartOn ? html`<p>${tParts(EXIT_TEXT.restartAlone, { restart: html`<b class="t-gold">${t('重新开始')}</b>` })}</p>` : null}
+               <p class="t-lo">${t(EXIT_TEXT.soloQuit)}</p>`
+        : html`${restartOn ? html`<p>${tParts(alone ? EXIT_TEXT.restartAlone : EXIT_TEXT.restartVote, { restart: html`<b class="t-gold">${alone ? t('重新开始') : t('发起重新开始投票')}</b>` })}</p>` : null}
+               ${AWAY_OPTION ? html`<p>${tParts('{away}：由 AI 托管你的席位（自动部署、准备与选择），随时可以返回。', { away: html`<b class="t-ice">${t('暂离')}</b>` })}</p>` : null /* local patch: AWAY_OPTION */}
                <p>${tParts('{quit}：离开后无法返回本局，你的干员将回到共享卡池。', { quit: html`<b class="t-red">${t('放弃模拟')}</b>` })}</p>`}
     </div>
   <//>`;
