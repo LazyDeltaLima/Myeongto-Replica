@@ -230,9 +230,9 @@ test('DIY: no prototype picks on this server — prototypes / locked empty at bo
 
 test('DIY: the 9 owned 6★ picks (shared/local-diy.js) — a form at every slot status with all three skills, every module at stage 1 and 3, their summons', () => {
   const { ownedPool } = backups.diy;
-  assert.deepEqual(ownedPool, [...LOCAL_DIY_PICKS], 'exactly our nine, in the picker\'s order');
+  assert.deepEqual(ownedPool, [...LOCAL_DIY_PICKS], 'exactly our ten, in the picker\'s order');
   assert.deepEqual(Object.keys(backups.units), [...ELITES.concat(RESERVES).sort((a, b) => a.localeCompare(b, 'en', { numeric: true })), ...LOCAL_DIY_PICKS],
-    'the 17 stand-ins, then our nine — no unit for anyone else');
+    'the 17 stand-ins, then our ten — no unit for anyone else');
   let summoners = 0;
   for (const id of ownedPool) {
     const u = backups.units[id];
@@ -288,13 +288,13 @@ test('DIY: the 9 owned 6★ picks (shared/local-diy.js) — a form at every slot
 test('DIY: the owned-6★ pool and the faction → bond rule (mainPower + every subPower vs powerIdList, else 协防干员)', () => {
   const { ownedPool, operators } = backups.diy;
   const roster = new Set(base.map((c) => c.charId).filter(Boolean));
-  assert.equal(ownedPool.length, 9);
+  assert.equal(ownedPool.length, 10);
   for (const id of ownedPool) {
     assert.ok(!roster.has(id), `${id}: a roster operator is never a pick`);
     assert.deepEqual([operators[id].rarity, operators[id].obtainable], [6, true], id);
   }
   assert.deepEqual(Object.keys(operators), ownedPool, 'an operators entry for every pick and no one else');
-  assert.equal(backups.diy.excluded, undefined, 'no collab exclusion list: the pool is our nine');
+  assert.equal(backups.diy.excluded, undefined, 'no collab exclusion list: the pool is our ten');
   const core = Object.values(bonds).filter((b) => b.isCore && b.powerIdList.length);
   assert.equal(core.length, 8);
   for (const [id, o] of Object.entries(operators)) {
@@ -304,7 +304,8 @@ test('DIY: the owned-6★ pool and the faction → bond rule (mainPower + every 
   assert.deepEqual(Object.fromEntries(ownedPool.map((id) => [id, operators[id].bonds])), {
     char_2027_wang: ['yanShip'], char_1050_chen3: ['yanShip'], char_1035_wisdel: ['emptyShip'], char_4182_oblvns: ['emptyShip'], char_4132_ascln: ['emptyShip'],
     char_1052_kalts2: ['emptyShip'], char_4231_clemnt: ['egirShip'], char_1015_aglna2: ['siracusaShip'], char_1042_phatm2: ['victoriaShip'],
-  }, '望 / 赤刃明霄陈 炎, 克莱门莎 阿戈尔, 予愿安洁莉娜 叙拉古, 酒神 维多利亚, the others 协防干员');
+    char_4244_tocka: ['emptyShip'],
+  }, '望 / 赤刃明霄陈 炎, 克莱门莎 阿戈尔, 予愿安洁莉娜 叙拉古, 酒神 维多利亚, the others 协防干员 (冻河: 乌萨斯 has no core bond)');
 });
 
 test('DIY: powers and the owned pool re-derived from character_table', { skip: !HAS_CACHE && 'no .cache/gamedata' }, () => {
