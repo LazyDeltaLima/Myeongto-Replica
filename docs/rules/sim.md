@@ -2167,7 +2167,13 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
   관리자 결정 2026-11-01; 그 전엔 8자리가 다 차야 시작, 2026-10-19). 예외는 시험용 로컬
   디버그 모드(`SP_DEBUG_PAGE=1`이나 `SP_DEBUG_FUNDS`, `server/local-patch.js largeBots`): 8석 방에도 AI 좌석을 받고 사람·AI 합쳐 5자리 이상이면 시작
   (`room.state.largeBots`, 방 화면의 「添加 AI 队友」). 배포 서버는 둘 다 꺼져 있어 위 규칙 그대로. 8인 전용 대기열(`room.queue { size: 8 }`,
-  8석 방의 `room.queueRoom`)은 정확히 8명으로만 묶이고(5명부터 시작은 방장이 「시뮬레이션 시작」을 누를 때만), 대기열 메시지에 `size: 8`, `lobby.queueCounts`에 `counts8`. 끊긴 사람은 4인처럼 AI 托管 없이
+  8석 방의 `room.queueRoom`)은 8명이 모이면 묶이고, 5명 이상 기다릴 때는 **바로 시작 투표**로 먼저 시작할 수 있다(관리자 결정 2026-11-02;
+  `server/matchmaking.js` 머리말): 대기자 누구든 제안(`room.queueVote`, 4인 대기열은 `BAD_TARGET`) → 그 대기열의 대기자 전원이 15초 투표
+  (`room.matchFound { vote, need, declined, no, by }`, 답은 `room.queueAccept`, 제안자는 찬성으로 셈) → 모두 답하거나 시간이 끝나면 찬성한 항목(방 항목은
+  방 사람 모두 찬성일 때만)의 사람이 5명 이상이면 그 사람끼리 8석 방에서 시작(그룹 8명과 같은 `launch`), 나머지는 원래 순서로 대기열 앞에 남아 계속 8명을
+  기다림(`room.queueState { vote: 'started', started }`). 찬성이 5명 미만이면 모두 남고(`vote: 'failed'`) 그 대기열은 30초 동안 새 제안을 안 받음
+  (`ERR.RATE`). 반대·무응답은 대기열에서 빠지지 않고, 투표 중 나가는 사람(취소·방 인원 변동·재접속 창 만료)만 빠지며 투표는 그 사람 없이 계속.
+  투표 중 새로 들어온 사람은 투표 밖에서 기다림. 화면은 `ui.md` 「8인 협동 모드 화면」. 시작 인원에 맞춘 수치는 아래 「수치」 그대로. 대기열 메시지에 `size: 8`, `lobby.queueCounts`에 `counts8`. 끊긴 사람은 4인처럼 AI 托管 없이
   전투만 서버가 이어 돌림(관리자 확인 2026-10-19, `server/match/match/platform.js onDisconnect`).
 - **수치** (`data/config.json eightPlayer` ← `tools/build-data.mjs`, `server/match/gamedata.js` `large`): 상점 풀 솔로 ×4(4인 ×2), 장비 재고 ×2,
   맹약 밴은 4인과 같이 난이도별 표(NORMAL 이상 핵심 3·부가 4, FUNNY 0/1; 풀이 2배라 맹약마다 확률이 같음 — 관리자 결정 2026-10-22, 전엔 핵심 1·부가 2),
@@ -2211,7 +2217,8 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
 - **화면**: 29·37열 필드 그리기(넓힌 무대 기록 `shared/wideField.js`, 공식 3D 씬 사본, 카메라, ‹ › H0–H3)는 `render.md` 「8인 넓은 연합 방어 필드
   그리기」(화면 확인은 그쪽), 로비·방·본판 화면은 `ui.md` 「8인 협동 모드 화면」. 열 함수(`wideCols`·`widenRow`…)는 `shared/wideField.js`에 있고
   `server/sim/wideStage.js`가 다시 내보냄.
-- 테스트 `test/eight-player.test.js`(수치, 5–7명의 직선 배율, 8석 방 5명 시작·대기열, 실제 매치 경로 5석 판(R3에 한 명 퇴장해도 수치 그대로), 실제 매치 경로 8인 한 판, 넓은 필드의 열·장치·경로, 걷는 적이 네 절반을 지나 2배 시간, 3–4명일 때만
+- 테스트 `test/queue-vote.test.js`(바로 시작 투표: 4인·5명 미만 거부, 6명 중 5명 찬성 시작·1명 남음, 실패·재제안 막힘, 무응답은 시간 끝에 찬성자끼리,
+  투표 중 취소, 방 항목은 방 사람 모두 찬성일 때만), `test/eight-player.test.js`(수치, 5–7명의 직선 배율, 8석 방 5명 시작·대기열, 실제 매치 경로 5석 판(R3에 한 명 퇴장해도 수치 그대로), 실제 매치 경로 8인 한 판, 넓은 필드의 열·장치·경로, 걷는 적이 네 절반을 지나 2배 시간, 3–4명일 때만
   넓은 필드·시간 ×1.5 / ×2·오프셋, 8석 방의 공식 밴 기준·AI 옵션 숨김). golden: matches `coop8-HARD-3`, fields `unite-4-wide`·`unite-3-wide` 추가(다른
   시나리오는 그대로).
 

@@ -117,7 +117,7 @@
 //     code; a player never switches to spectating in place (ALREADY). Disconnect / grace / reconnect / expiry work as for
 //     a player seat (the seat is kept and given back on resume).
 //   * 랜덤 매칭 (maintainer decisions 2026-10-13, a remake feature): room.queue / room.queueRoom / room.unqueue /
-//     room.queueAccept go to the Matchmaker (server/matchmaking.js, its header has the rules): a per-difficulty co-op
+//     room.queueAccept / room.queueVote go to the Matchmaker (server/matchmaking.js, its header has the rules): a per-difficulty co-op
 //     queue of single players and co-op rooms with empty seats; a confirmed group of four gets the oldest queued room
 //     of the group (or a room of its own: queue order = seat order, the first is host) and a match started at once.
 //     While a room is queued (room.state `matching`) room.join of it, room.setDifficulty, room.addBot and room.start are
@@ -164,7 +164,7 @@ export { BOT_NAMES };
 const OK = Object.freeze({ ok: true });
 const fail = (code, detail) => (detail ? { error: code, detail } : { error: code });
 /** What a draining generation refuses (server/local-generation.js): everything that would bring a player into a room. */
-const DRAIN_REFUSED = new Set(['room.create', 'room.join', 'room.spectate', 'room.queue', 'room.queueRoom', 'room.queueAccept']);
+const DRAIN_REFUSED = new Set(['room.create', 'room.join', 'room.spectate', 'room.queue', 'room.queueRoom', 'room.queueAccept', 'room.queueVote']);
 const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
 
 /**
@@ -424,6 +424,7 @@ export class Lobby {
       case 'room.queueRoom': return this.queue.queueRoom(session);
       case 'room.unqueue': return this.queue.unqueue(session);
       case 'room.queueAccept': return this.queue.accept(session, msg);
+      case 'room.queueVote': return this.queue.vote(session);
       default:
         if (typeof msg.t === 'string' && msg.t.startsWith('g.')) return this.routeGame(session, msg);
         return fail(ERR.BAD_MSG, `unhandled type ${String(msg.t).slice(0, 32)}`);

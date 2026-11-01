@@ -133,11 +133,38 @@ test('in-match UI: the 8-row player list, the compact draft order, the 12-card �
   assert.match(read('public/css/battle-art.css'), /@keyframes bbp-team8/);
 });
 
+test('matchQueue: 「바로 시작」 is offered in an 8-player queue of five or more; a vote reaches the store and its outcome toasts', async () => {
+  const { canProposeStart, installMatchQueue } = await load('public/js/ui/matchQueue.js');
+  const { store } = await load('public/js/store.js');
+  const q = (o) => ({ difficulty: 'HARD', ruleset: 'classic', size: 8, count: 5, since: 0, party: false, found: null, ...o });
+  assert.equal(canProposeStart(q()), true);
+  assert.equal(canProposeStart(q({ count: 4 })), false);
+  assert.equal(canProposeStart(q({ size: 4, count: 4 })), false, 'a 4-player queue never votes');
+  assert.equal(canProposeStart(q({ found: { players: 5 } })), false);
+  assert.equal(canProposeStart(null), false);
+  const handlers = {};
+  installMatchQueue({ net: { on: (t, fn) => { handlers[t] = fn; } } });
+  handlers['room.queueState']({ queued: true, difficulty: 'HARD', ruleset: 'classic', size: 8, count: 6, waitedMs: 0, party: false });
+  handlers['room.matchFound']({ difficulty: 'HARD', ruleset: 'classic', size: 8, players: 6, accepted: 1, mine: false, inMs: 15000,
+    vote: true, need: 5, declined: 2, no: true, by: 'P3' });
+  assert.deepEqual(store.get().ui.queue.found.vote, { need: 5, declined: 2, no: true, by: 'P3' });
+  handlers['room.queueState']({ queued: true, difficulty: 'HARD', ruleset: 'classic', size: 8, count: 1, waitedMs: 0, party: false, vote: 'started', started: 5 });
+  assert.equal(store.get().ui.queue.found, null);
+  const src = read('public/js/ui/matchQueue.js');
+  assert.match(src, /t\('赞成的 \{n\} 名博士已先行开始，继续匹配', \{ n: msg\.started \?\? 0 \}\)/);
+  assert.match(src, /run\('vote', \{ t: 'room\.queueVote' \}\)/);
+  assert.match(read('public/js/screens/room.js'), /canProposeStart\(waiting\)/);
+});
+
 test('the 8-player texts go through t() and have English and Korean', () => {
   const ids = ['与至多 {n} 名博士组成同盟，共享干员池，联防协作抵御敌潮。', '{n}–{max} 名博士即可开始 · 没有 AI 队友', '仅匹配真人 · 满 {n} 人后开始', '人数',
     '八人同盟：{n}–{max} 名博士即可开始，没有 AI 队友；卡池、敌方数值和联防人数随开局人数调整', '{n} 人同盟', '创建后邀请好友加入（{n}–{max} 名博士）', '排队中的博士：{count}/{n}',
     '八人同盟需至少 5 名博士才能开始',
-    '凑齐 {n} 名博士后开始', '用随机匹配的博士补满空位', '{n}人'];
+    '凑齐 {n} 名博士后开始', '用随机匹配的博士补满空位', '{n}人',
+    // the 「바로 시작」 vote of the 8-player queue
+    '提前开始投票', '赞成的 {n} 名博士已先行开始，继续匹配', '赞成未满 {n} 名，继续匹配', '已赞成 · 等待其他博士投票…', '已反对 · 等待其他博士投票…',
+    '继续等待', '赞成开始', '{name} 提议以当前人数开始', '有博士提议以当前人数开始', '赞成 {yes} · 反对 {no} / {players}',
+    '满 {n} 名赞成即由赞成的博士开始，其余博士继续匹配', '提议提前开始', '满 {n} 名可投票提前开始'];
   for (const zh of ids) {
     for (const [name, pack] of [['en', EN], ['ko', KO]]) {
       assert.equal(typeof pack[zh], 'string', `${name}: ${zh}`);

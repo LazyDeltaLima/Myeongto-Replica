@@ -12,18 +12,21 @@
 //
 // The 8-player mode (maintainer decisions 2026-10-16, 2026-10-19) has queues of its own: room.queue { size: 8 }, every
 // message about such a queue carries `size: 8` (kept as ui.queue.size) and lobby.queueCounts their counts as `counts8`
-// (store ui.queueCounts8); the dialogs count to the queue's size.
+// (store ui.queueCounts8); the dialogs count to the queue's size. With LARGE_MIN_PLAYERS (5) or more waiting in an 8-player
+// queue, the waiting dialog (and a queued room's bar, screens/room.js) offers 「바로 시작」 (room.queueVote, maintainer decision
+// 2026-11-02): every waiting Doctor gets the vote (room.matchFound `vote`) in the confirmation's place, a no keeps the
+// place in the queue, and the room.queueState that follows a vote says how it ended (`vote`: 'failed' / 'started').
 //
 // store ui.queue: null, or { difficulty, ruleset, size, count, since, party, found } — since in this page's clock; party = queued with
-// the room; found: null or { players, accepted, mine, deadline, total } (deadline in server time for components.js
-// Countdown, total = the window's seconds for its gauge).
+// the room; found: null or { players, accepted, mine, deadline, total, vote } (deadline in server time for components.js
+// Countdown, total = the window's seconds for its gauge; vote: null, or { need, declined, no, by } of a 「바로 시작」 vote).
 //
 // Sounds (maintainer decision 2026-10-14, docs/rules/audio.md 「랜덤 매칭·방 알림음」): the official matching sounds
 // (queueCue), and while ui.queue is set the page keeps its audio running in a hidden tab (audio.keepAwake) and a group
 // that forms while the tab is hidden blinks the tab title until the player comes back (flashTitle).
 
 import { useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTY_NAMES, MAX_SEATS, seatsOf } from '../../../shared/constants.js';
+import { DIFFICULTY_NAMES, LARGE_MIN_PLAYERS, MAX_SEATS, seatsOf } from '../../../shared/constants.js';
 import { html, Button, Countdown, Modal, Spinner, useTicker } from './components.js';
 import { toast, toastError } from './toasts.js';
 import { net } from '../net.js';
@@ -112,18 +115,21 @@ export function installMatchQueue({ net: n = net } = {}) {
       if (text) toast(text, 'warn');
       return;
     }
-    // back in the queue from a group: someone did not accept
-    if (prev?.found) toast(t('有博士未接受，继续匹配'), 'info');
+    // back in the queue from a group: someone did not accept; from a 「바로 시작」 vote: how it ended
+    if (msg.vote === 'started') toast(t('赞成的 {n} 名博士已先行开始，继续匹配', { n: msg.started ?? 0 }), 'info');
+    else if (msg.vote === 'failed') toast(t('赞成未满 {n} 名，继续匹配', { n: LARGE_MIN_PLAYERS }), 'info');
+    else if (prev?.found) toast(t('有博士未接受，继续匹配'), 'info');
     setQueue({ difficulty: msg.difficulty, ruleset: msg.ruleset ?? null, size: seatsOf(msg.size), count: msg.count ?? 1, since: Date.now() - (msg.waitedMs ?? 0), party: !!msg.party, found: null });
   });
   n.on('room.matchFound', (msg) => {
     const prev = store.get().ui.queue;
     cue(queueCue('room.matchFound', prev, msg));
-    if (!prev?.found) flashTitle(t('匹配成功'));
+    if (!prev?.found) flashTitle(msg.vote ? t('提前开始投票') : t('匹配成功'));
     setQueue({
       ...(prev || { difficulty: msg.difficulty, ruleset: msg.ruleset ?? null, size: seatsOf(msg.size), count: msg.players, since: Date.now(), party: false }),
       found: { players: msg.players, accepted: msg.accepted, mine: !!msg.mine, deadline: serverNow() + msg.inMs,
-        total: prev?.found?.total ?? Math.max(1, Math.ceil(msg.inMs / 1000)) },
+        total: prev?.found?.total ?? Math.max(1, Math.ceil(msg.inMs / 1000)),
+        vote: msg.vote ? { need: msg.need ?? LARGE_MIN_PLAYERS, declined: msg.declined ?? 0, no: !!msg.no, by: typeof msg.by === 'string' ? msg.by : null } : null },
     });
   });
   // a queued room keeps receiving room.state while it waits: only its match (or the end of `matching`) closes the queue
@@ -154,6 +160,12 @@ export function installMatchQueue({ net: n = net } = {}) {
 export const joinQueue = (difficulty, ruleset, size = MAX_SEATS, season = null) =>
   net.request('room.queue', { difficulty, ...(ruleset ? { ruleset } : {}), ...(size !== MAX_SEATS ? { size } : {}), ...(season ? seasonFields(season) : {}) });
 
+/** room.queueVote: propose 「바로 시작」 in the 8-player queue the player waits in (header). @returns {Promise<any>} */
+export const proposeStart = () => net.request('room.queueVote', {});
+
+/** Whether a queue offers 「바로 시작」: an 8-player queue with LARGE_MIN_PLAYERS or more waiting, no group pending. */
+export const canProposeStart = (queue) => !!queue && !queue.found && seatsOf(queue.size) > MAX_SEATS && (queue.count ?? 0) >= LARGE_MIN_PLAYERS;
+
 /** m:ss of a waiting time. */
 export const mmss = (ms) => {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -179,6 +191,26 @@ export function MatchQueueDialog() {
   const name = t(DIFFICULTY_NAMES[queue.difficulty] || queue.difficulty) + (queue.ruleset ? ` · ${presetName(queue.ruleset)}` : '')
     + (cap !== MAX_SEATS ? ` · ${t('{n} 人同盟', { n: cap })}` : '');
 
+  if (queue.found?.vote) {
+    const f = queue.found, v = f.vote;
+    const answered = f.mine || v.no;
+    return html`<${Modal} open=${true} tone="amber" micro="START NOW" title=${t('提前开始投票')} closeOnBackdrop=${false} class="queue-dialog"
+      actions=${answered
+        ? html`<span class="queue-dialog__wait"><${Spinner} size="sm" />${f.mine ? t('已赞成 · 等待其他博士投票…') : t('已反对 · 等待其他博士投票…')}</span>`
+        : html`<${Button} variant="secondary" loading=${busy === 'decline'} onClick=${() => run('decline', { t: 'room.queueAccept', accept: false })}>${t('继续等待')}<//>
+          <${Button} variant="primary" icon="play" loading=${busy === 'accept'} onClick=${() => run('accept', { t: 'room.queueAccept', accept: true })}>${t('赞成开始')}<//>`}>
+      <div class="queue-dialog__body">
+        <${Countdown} deadline=${f.deadline} total=${f.total} warnAt=${5} label="VOTE" onWarn=${answered ? null : timerCue} />
+        <div class="queue-dialog__lines">
+          <span class="queue-dialog__mode">${t('同盟模拟')} · ${name}</span>
+          <span>${v.by ? t('{name} 提议以当前人数开始', { name: v.by }) : t('有博士提议以当前人数开始')}</span>
+          <span class="t-lo">${t('赞成 {yes} · 反对 {no} / {players}', { yes: f.accepted, no: v.declined, players: f.players })}</span>
+          <span class="t-lo">${t('满 {n} 名赞成即由赞成的博士开始，其余博士继续匹配', { n: v.need })}</span>
+        </div>
+      </div>
+    <//>`;
+  }
+
   if (queue.found) {
     const f = queue.found;
     return html`<${Modal} open=${true} tone="amber" micro="MATCH FOUND" title=${t('匹配成功')} closeOnBackdrop=${false} class="queue-dialog"
@@ -198,13 +230,15 @@ export function MatchQueueDialog() {
   }
 
   return html`<${Modal} open=${true} micro="MATCHMAKING" title=${t('正在匹配同盟…')} closeOnBackdrop=${false} onClose=${cancel} class="queue-dialog"
-    actions=${html`<${Button} variant="secondary" icon="close" loading=${busy === 'cancel'} onClick=${cancel}>${t('取消匹配')}<//>`}>
+    actions=${html`<${Button} variant="secondary" icon="close" loading=${busy === 'cancel'} onClick=${cancel}>${t('取消匹配')}<//>
+      ${canProposeStart(queue) ? html`<${Button} variant="primary" icon="play" loading=${busy === 'vote'} onClick=${() => run('vote', { t: 'room.queueVote' })}>${t('提议提前开始')}<//>` : null}`}>
     <div class="queue-dialog__body">
       <div class="queue-dialog__clock num">${mmss(Date.now() - queue.since)}</div>
       <div class="queue-dialog__lines">
         <span class="queue-dialog__mode">${t('同盟模拟')} · ${name}</span>
         <span>${t('排队中的博士：{count}/{n}', { count: Math.min(cap, queue.count), n: cap })}</span>
         <span class="t-lo">${t('凑齐 {n} 名博士后开始', { n: cap })}</span>
+        ${cap > MAX_SEATS ? html`<span class="t-lo">${t('满 {n} 名可投票提前开始', { n: LARGE_MIN_PLAYERS })}</span>` : null}
       </div>
     </div>
   <//>`;

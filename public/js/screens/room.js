@@ -13,7 +13,8 @@
 // Doctors gets 匹配补位 (room.queueRoom, under the start rule: every other Doctor ready; the AI seats are freed). While the
 // room waits (room.state `matching`) the bar shows the waiting time and the queue, every Doctor's main button is
 // 取消匹配 (room.unqueue: the whole room leaves the queue), and the difficulty, AI seats and start are locked; the
-// confirmation of a formed group is ui/matchQueue.js's dialog.
+// confirmation of a formed group is ui/matchQueue.js's dialog. An 8-seat room waiting in a queue of five or more gets
+// 提议提前开始 in the bar (room.queueVote, maintainer decision 2026-11-02; its vote is the same dialog).
 // 규칙 모드 (shared/ruleset.js, maintainer decisions 2026-10-15, 2026-10-18): the bar's 规则 picker (经典 / 休闲 / 自定义,
 // host only, locked while matchmaking like the difficulty; its tooltip lists what 休闲 turns on) spans the row under the
 // difficulty, the 「AI 队友最后选择」 switch sits under the ready count (maintainer decision 2026-10-18), and the
@@ -42,7 +43,7 @@ import { useDocClass } from '../ui/device.js';
 import { store, useStore, shallowEqual, emptyMatch, isSpectating } from '../store.js';
 import { difficultyInfo } from './lobby.js';
 import { RoomChat } from '../ui/chat.js';
-import { MatchQueueDialog, mmss } from '../ui/matchQueue.js';
+import { MatchQueueDialog, mmss, canProposeStart, proposeStart } from '../ui/matchQueue.js';
 import { audio } from '../audio.js';
 import { t, tc } from '../../../shared/i18n.js';
 import { playerName } from '../../../shared/botNames.js';
@@ -421,7 +422,9 @@ export function RoomScreen() {
     ? html`<span class="t-orange"><${Icon} name="wifiOff" />${t('连接中断，正在重连…')}</span>`
     : matching
       ? html`<span class="t-amber room-bar__match"><${Icon} name="signal" />${t('正在匹配空位')}${waiting
-        ? html` · <b class="num">${mmss(Date.now() - waiting.since)}</b> · ${t('排队中的博士：{count}/{n}', { count: Math.min(facts.seats.length, waiting.count), n: facts.seats.length })}` : null}</span>`
+        ? html` · <b class="num">${mmss(Date.now() - waiting.since)}</b> · ${t('排队中的博士：{count}/{n}', { count: Math.min(facts.seats.length, waiting.count), n: facts.seats.length })}` : null}${waiting && !facts.spectating && canProposeStart(waiting)
+        // the 8-player queue's 「바로 시작」 (ui/matchQueue.js): any queued Doctor of the room may propose it
+        ? html` <${Button} variant="primary" size="sm" icon="play" loading=${busy === 'vote'} disabled=${!online} onClick=${() => run('vote', proposeStart)}>${t('提议提前开始')}<//>` : null}</span>`
     : facts.spectating
       ? html`<span class="t-lo"><${Icon} name="eye" />${t('观战中 · 不占博士席位，模拟开始后可切换观看各位博士')}</span>`
     : !coop

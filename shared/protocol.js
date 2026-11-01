@@ -447,7 +447,8 @@ export const C2S = {
   'room.spectate': { code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v) },
   'room.removeSpectator': { playerId: isId },
   // 랜덤 매칭 (server/matchmaking.js): the per-difficulty co-op queue of four (`size` 8: of eight); queue = alone, queueRoom = the host queues
-  // the co-op room's humans for its empty seats, unqueue leaves (a room: the whole room), queueAccept answers room.matchFound.
+  // the co-op room's humans for its empty seats, unqueue leaves (a room: the whole room), queueAccept answers room.matchFound,
+  // queueVote proposes 「바로 시작」 in an 8-player queue of five or more (its vote is answered with queueAccept).
   // The custom 규칙 모드 never queues (maintainer decision 2026-10-18): room.queue takes the queue presets only, and the
   // server refuses room.queueRoom of a custom room (server/matchmaking.js). `season`: the 卫戍协议 season's queue (absent =
   // the default; maintainer decision 2026-11-01: every season has queues of its own)
@@ -455,16 +456,17 @@ export const C2S = {
   'room.queueRoom': {},
   'room.unqueue': {},
   'room.queueAccept': { accept: isBool },
+  'room.queueVote': {},
 
   // match
   'g.infoReady': {},
   // the briefing's 重新抽取 vote (server/match/match/phases.js maybeEndInfo): ready OR reroll; `cancel: true` takes a
   // reroll vote back while the vote is open
   'g.infoReroll': { cancel: isBool, $optional: ['cancel'] },
-  'g.band': { bandId: isId },
-  'g.bandSkip': {},
   // the in-match 重新开始 vote (server/match/match/restart.js): propose it, answer it, or the proposer takes it back
   'g.restart': { op: (v) => v === 'propose' || v === 'yes' || v === 'no' || v === 'cancel' },
+  'g.band': { bandId: isId },
+  'g.bandSkip': {},
   // the strategy highlighted in the draft screen (user playtest #4 item 4): a turn that runs out takes it while it is
   // free (Match.timeoutBand); absent / null clears it
   'g.bandFocus': { bandId: nullable(isId), $optional: ['bandId'] },
