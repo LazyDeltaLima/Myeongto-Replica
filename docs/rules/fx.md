@@ -1530,7 +1530,9 @@
   - 이름 규칙이 틀던 것을 `KIT_OWNED`로 막음: 위 프리팹 전부, 바인딩 없는 `tocka_skill_03_buff_start_01`·`_03`·`oxi_skill_02_buff_02`.
   - 확인: `fx-bindings.test.js`(UNPLAYED에서 다섯 줄 빠짐 — 이제 틂), `kit-event-fx.test.js`, 이펙트 이벤트 골든 diy-013~015만 이동(위 줄들이 아군·적·땅에
     생김, 그녀에게 틀던 skillBuff·skillStart 줄 빠짐).
-- **아직 안 한 것**: 클립 키 todo J(`.cache/anim-keys.json`에 뽑았고 `data/assets.json` 반영 전), 탈룰라 S2 시전 동안 평타 멈춤(`_switchToState` 1,
+- 클립 키 todo J는 2026-11-01에 `data/assets.json`에 반영(`diy.md` 두 절의 자산 줄). 같은 재생성이 eea296146에서 뽑아 둔 두 사람의 CN 소리 신호도
+  처음 매니페스트에 실음(토스카 모드별 신호, 탈룰라 타격 `p_imp_xtlfgbw_h` 등 — 소리 규칙은 `audio.md`).
+- **아직 안 한 것**: 탈룰라 S2 시전 동안 평타 멈춤(`_switchToState` 1,
   `[추정·미조사]`, 시뮬 규칙). [화면 미확인: 전부]
 
 ### 투사체 꼬리 끝내기 — 착탄 뒤 늦게 사라짐 (2026-10-11, 사용자 제보 「언더플로우·애쉬락 투사체가 적에 닿은 뒤 늦게 사라짐」)

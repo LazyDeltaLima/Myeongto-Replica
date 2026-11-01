@@ -639,7 +639,8 @@
   제한으로 보임)은 옮기지 않음]
 - 자산: 미러에 모델(앞·뒤)·그림·스킬 아이콘·효과음·CN 음성이 있어 `tools/fetch-assets.mjs`가 그대로 받는다. S2의 클립은 프리팹이 정한
   `Skill_2_Cambat`(`skchr_oxi_2` `TargetCenteredAreaMeleeAttack` `_animKey` — 이름 추측의 `Skill_2_Attack`이 아님; `tools/assets/anim-overrides.mjs`),
-  `Skill_2_Attack`은 `todo: J`(CN 클라 키는 2026-11-01에 뽑았고 메타데이터 반영 전, `test/render/clip-coverage-list.js`). 이펙트·공격 타이밍·
+  `Skill_2_Attack`은 어느 클라 키도 부르지 않아 `none`(CN 클라 키를 2026-11-01에 메타데이터에 반영, `test/render/clip-coverage-list.js`).
+  같은 반영으로 토스카는 아래 방향 평타(`Attack_Down_*`)와 첫 공격 시작 클립을 얻음. 이펙트·공격 타이밍·
   스킬 시전 데이터는 CN 클라에서 뽑음(2026-11-01, `fx.md` 「선발 추가 토스카·탈룰라」 — 공격 타이밍 공식 값, golden `diy-014`·`015` 이동);
   발자국(`zone`, 다시 잡을 때도 보냄)·S3 簇火(`oxiWave`, 폭발 `blast`에 물결·줄 번호)·奥术 중첩(`stacks`에 `max`)·S2 중첩(보이는 버프
   `oxi_s_2_stack`)은 2026-11-01에 공식 이펙트로 이음(같은 절 「손으로 이은 것」).

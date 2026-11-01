@@ -95,13 +95,8 @@ export const UNPLAYED = {
     Attack_Down: 'none: only an entry of the skin key table (SpineAnimator._animations: animKey = its name); no ability (`_downAnimKey`, a ThreePart / channel `_down` bundle), mode pair, skill `_beginAnimDown` or mix calls it; client keys 2026-10-23; the Default attack has no facing-down key',
     Skill_Down_3_End: 'none: only an entry of the skin key table (SpineAnimator._animations: animKey = its name); no ability (`_downAnimKey`, a ThreePart / channel `_down` bundle), mode pair, skill `_beginAnimDown` or mix calls it; client keys 2026-10-23; the skin mixes mode S3[Down] into Idle with Skill_3_End',
   },
-  char_4244_tocka: {
-    Attack_Down_Begin: 'todo: J — the Default attack (T2Attack and NormalAttack) plays it facing down (ThreePartOneshotAnimation `_down`); her client keys (CN client only) are not read yet, so the role has no down map',
-    Attack_Down_End: 'todo: J — the Default attack plays it facing down (RangedAttack `_downEndAnimKey`); her client keys (CN client only) are not read yet, so the role has no down map',
-    Attack_Down_Loop: 'todo: J — the Default attack plays it facing down (ThreePartOneshotAnimation `_down`); her client keys (CN client only) are not read yet, so the role has no down map',
-  },
   char_4247_oxi: {
-    Skill_2_Attack: 'todo: J — no ability of her CN prefabs names it (Attack, Skill_1, Skill_2_Cambat, Skill_3_* — the S3NoAttack mode maps Idle → Skill_3_Loop); her client keys (CN client only) are not read yet',
+    Skill_2_Attack: 'none: no client key names it (abilities Attack / BuffedAttack → Attack, skchr_oxi_2 → Skill_2_Cambat, mode pair S3NoAttack Idle → Skill_3_Loop, skin key table Born → Start, mixes to / from Skill_3_Loop); CN client keys 2026-11-01',
   },
   char_426_billro: {
     Skill_2_Begin: 'none: no client key names it (abilities, mode pairs, skin key table, mix — the mixes go to Idle only), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; a skill switches to its mode SN / SN_Enhance (Skill_Idle / Skill_2_Idle) without an opening clip',
