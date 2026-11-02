@@ -2655,8 +2655,10 @@
   본 한 번, 3 RepeatPerSegment = 칸마다. 예전엔 Stretch를 점 순번으로, Tile을 순번 × `minVertexDistance`로 폈다(2는 우연히 맞음 — 뮤엘시스 평타·S2·S3, 리드 더 플레임 섀도우
   S3, 울피아누스 S1·S3, 왕 평타). 폭·색은 예전처럼 점 순번 [추정·엔진]. `alignment` 1 TransformZ(블레이즈 디 이그나이팅 스파크 평타 꼬리 `blaze2_attack_01_trail`, 공용 감속 `buff_slowdown`) =
   띠가 카메라 대신 노드의 z축을 향함(셰이더 `uStripZ`) [추정·엔진: 모든 점에 지금의 축 — 점을 찍을 때의 축이 아니라].
-- 남긴 것: 다른 층(`m_Layer` 0)의 노드 4(엑시아 더 뉴 커버넌트 S3 시작 `angel2_skill_3_begin_start_001`, 이그제큐터 디 엑스 포에데레 `excu2_common_fx01` — 나머지 둘은 안 틂): 전투 카메라의
-  컬링 마스크가 그 층을 그리는지는 장면 자료가 필요 [추정·미조사: 지금은 그림].
+- **다른 층**(`m_Layer` 0)의 노드 4(엑시아 더 뉴 커버넌트 S3 시작 `angel2_skill_3_begin_start_001`, 이그제큐터 디 엑스 포에데레 `excu2_common_fx01` — 나머지 둘은 안 틂): 그린다
+  (2026-11-02, 공식 클라에서 확인). 전투 카메라(`CameraController._camera`, `battle/[pack]common`의 `Camera`)의 `m_CullingMask`는 UI(5)·UI_AVG(16) 두 층만
+  빼고 전부 — 이펙트 층 EFFECT(15)와 Default(0)를 똑같이 그리고, 전투 코드는 그 마스크를 바꾸지 않는다(`cullingMask`를 쓰는 곳은 반사·UI 렌더 텍스처·
+  모션 블러의 따로 쓰는 카메라뿐). `fx_coverage.py`는 `m_Layer`를 더 보고하지 않는다.
 - 확인: 아래 「W2d 끝」 기록(재추출 전후 JSON, 픽셀 비교) — research 쪽.
 
 ### 타격별 명중 — MultiHitUberEffectEmitter `_hitGroups` (2026-10-16, 이펙트 연결 전수, 공식 클라에서 확인)

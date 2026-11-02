@@ -416,7 +416,9 @@ _BUFF_PROGRESS = ('hand-written: the kit fx \'buffProgress\' hands the progress 
                   '(`animSrc[].max` / `prog` are carried for it)')
 COMP_FIELDS = {
     'GameObject': {'m_Name': _K('nodes[].name'), 'm_IsActive': _K('nodes[].active'),
-                   'm_Layer': _A(15, 'another layer: drawn by another camera, or by none [ASSUMED]'),
+                   # (2026-11-02) the battle camera (CameraController's, in battle/[pack]common) culls only UI (5) and UI_AVG
+                   # (16), and no battle code changes its mask: the effects' layer 15 and the few nodes on 0 are drawn alike
+                   'm_Layer': _N('the battle camera draws every layer but UI and UI_AVG'),
                    'm_Tag': _N('a tag: scripts look it up'), 'm_StaticEditorFlags': _N('an editor setting')},
     'Transform': _TRANSFORM,
     'RectTransform': {**_TRANSFORM, **{f'{f}.{a}': _N('only under a RectTransform parent (fx_extract walk: placed as a Transform)')
@@ -839,7 +841,6 @@ KNOWN = {
     # (2026-10-26, effect bundle W1) the other components, the read scripts and the materials, from the first field-level run
     # over the operators' prefabs (EN + CN clients) and the enemies' (EN): what the pipeline does not do yet
     **{f'field:{w}': (_TODO, f'components and scripts (open): {n}') for w, n in (
-        ('GameObject.m_Layer ≠ 15', 'a node on another layer (0): whether the battle camera draws it [ASSUMED]'),
         ('LineEffectEmitterDynamic._fetchStartEndViaBuff ≠ 0', 'the two ends from a buff\'s owner and source: only 隐德来希 S3\'s '
          'etlchi_skill_03_line_01_end, which no table names (its maker is not known here)'),
         ('LineEffectEmitterDynamic._pauseWhenDisappear ≠ 0', 'paused while an end has disappeared: 隐德来希 S3\'s line — the view '
