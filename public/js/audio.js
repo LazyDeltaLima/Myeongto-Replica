@@ -303,8 +303,9 @@ export function signalAttackKey(su, at, melee) {
   // (2026-10-21, official client) the start at her strike: rockr_s_2[attack_start_audio] is the S2 Attack's
   // BuffToOwnerDuringAbility (OnEvent) with _startEvent ON_SPELL_ON (4); the hit is its `_activeBuffs` on the target
   if (su.def === 'char_4040_rockr' && su.skillIndex === 1 && (at === 'a' || at === 'd')) return `rockr:${at === 'a' ? 'atk' : 'hit'}${su.over ? 'o' : ''}`;
-  // 2026-10-11: 실버애쉬 더 레인프로스트 S3 — every strike fires projectile_chr_svash2_s3 (skill prefab projectile): its BORN
-  if (su.def === 'char_1045_svash2' && su.skillIndex === 2 && at === 'a') return 'svash2:s3born';
+  // 2026-11-02: 실버애쉬 더 레인프로스트 S3 — the S3 mode's attack sends his bird (svash2_s_3[trigger_self] → BirdAttack →
+  // svash2_s_3[bird_on_self]): projectile_chr_svash2_s3_bird_self's HIT at the impact (the aura's BORN: the skill's start)
+  if (su.def === 'char_1045_svash2' && su.skillIndex === 2 && at === 'd') return 'svash2:s3hit';
   // 2026-10-29: 维什戴尔 S3 — the attack's AimEff (a child of its all-children group, no clip) marks the target as the attack
   // starts: wisdel_s_3_mark[target]'s audioSignal WISDEL_S3_MARK [추정·엔진: a clip-less child's buff lands at the cast]
   if (su.def === 'char_1035_wisdel' && su.skillIndex === 2 && at === 's') return 'wisdel:s3mark';
@@ -2031,6 +2032,9 @@ export class AudioManager {
             // 2026-11-01: 予愿安洁莉娜 S1 opens on Skill_1_Begin (AudioWhenPlayAnimation aglna2_born, CN client) [추정·CN: S1's
             // take-off plays that clip at the cast — the S1 mode turns Born into it]
             if (u.def === 'char_1015_aglna2' && u.skillIndex === 0) this._kitSound('aglna2:born');
+            // 2026-11-02: 凛御银灰 S3's own buff svash2_s_3[self_bird_onuse] casts BirdAura_Self as it starts — the aura
+            // projectile_chr_svash2_s3's BORN [추정·엔진: the cast at the skill's start — the ability's own delay is not read]
+            if (u.def === 'char_1045_svash2' && u.skillIndex === 2) this._kitSound('svash2:s3born');
             // 作战中N: the equipped skill's own slot (0-based; 作战中4 is the fallback of a 4th slot)
             if (unitSoundClass(u) === 'char') {
               const n = Number.isInteger(u.skillIndex) ? Math.min(4, u.skillIndex + 1) : 1;

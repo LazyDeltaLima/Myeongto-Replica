@@ -2,7 +2,8 @@
 // docs/rules/audio.md 「재능·소환물 능력 소리」): 크루스 더 킨 글린트 中的 (sim 'swing' / 'atk' `signal` 'T.1' → T.1 START at the swing,
 // ON at the strike; 2026-10-30 — her crit mark itself is silent), 이그제큐터 디 엑스 포에데레
 // 受选之人 (sim 'atk' `signal` 'T.1' → T.1 START instead of the normal attack), 노시스 殊途同归 (kitHit gnosis:t2 once per deployment),
-// 실버애쉬 더 레인프로스트 (S2 slash → its ability ON, S3 strike → projectile_chr_svash2_s3 BORN), 뮤엘시스's 流形 (fx 'copy' `mode` →
+// 실버애쉬 더 레인프로스트 (S2 slash → its ability ON; S3: projectile_chr_svash2_s3 BORN as it starts, 2026-11-02 the bird's
+// projectile_chr_svash2_s3_bird_self HIT at each impact), 뮤엘시스's 流形 (fx 'copy' `mode` →
 // its prefab mode's cues, Range_S2 / Melee_S3 while her S2 / S3 runs; the copy / pull buff sounds).
 // The committed data/assets.json predates these keys: the manifest here is it plus the keys built from the official
 // audio_data.json by the same generator functions (tools/assets/kit-sfx.mjs kitHitSfx, skill-mode-sfx.mjs tokenModeSets).
@@ -22,7 +23,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OFFICIAL = path.join(ROOT, '.cache', 'gamedata', 'excel', 'audio_data.json');
 const NO_DATA = !existsSync(OFFICIAL) && 'no .cache/gamedata';
 const file = (u) => String(u).split('/').pop();
-const NEW_KEYS = ['kroos2:t1s', 'kroos2:t1', 'excu2:t1', 'gnosis:t2', 'svash2:s2', 'svash2:s3born', 'mlyss:melee', 'mlyss:range', 'mlyss:pull'];
+const NEW_KEYS = ['kroos2:t1s', 'kroos2:t1', 'excu2:t1', 'gnosis:t2', 'svash2:s2', 'svash2:s3born', 'svash2:s3hit', 'mlyss:melee', 'mlyss:range', 'mlyss:pull'];
 const TOKEN = 'token_10030_mlyss_wtrman';
 
 let built = null;
@@ -58,6 +59,7 @@ describe('the banks (EN / zh_CN audio_data.json)', { skip: NO_DATA }, () => {
     assert.equal(file(out['excu2:t1'][0]), 'p_atk_shotgunxdouble.mp3');
     assert.equal(file(out['gnosis:t2'][0]), 'p_skill_iceprickbuff.mp3');
     assert.equal(file(out['svash2:s3born'][0]), 'p_skill_snwfld_s.mp3');
+    assert.equal(file(out['svash2:s3hit'][0]), 'p_imp_snwlprdg_s.mp3');
     assert.equal(file(out['mlyss:pull'][0]), 'p_atk_wtrlimepull.mp3');
   });
 
@@ -86,13 +88,13 @@ describe('the keys of the moments (pure)', () => {
     assert.equal(kitStartKey('crit', { id: 2, by: 1 }), null);
     assert.equal(kitHitKey('crit', { id: 2, by: 1 }, unitOf), null);
   });
-  test('실버애쉬 더 레인프로스트: S2 slash (aoe svash2) → its ability ON; S3 strike → the projectile BORN', () => {
+  test('실버애쉬 더 레인프로스트: S2 slash (aoe svash2) → its ability ON; S3 impact → the bird projectile HIT', () => {
     assert.equal(kitHitKey('aoe', { id: 3, skill: 'svash2' }, unitOf), 'svash2:s2');
     assert.equal(kitHitKey('aoe', { id: 5, skill: 'svash2' }, unitOf), null, 'a waiting op\'s slash on redeploy');
     assert.equal(kitHitKey('aoe', { id: 3, skill: 'svash2Plan' }, unitOf), null);
-    assert.equal(signalAttackKey({ def: 'char_1045_svash2', skillOn: true, skillIndex: 2 }, 'a', false), 'svash2:s3born');
-    assert.equal(signalAttackKey({ def: 'char_1045_svash2', skillOn: true, skillIndex: 2 }, 's', false), null);
-    assert.equal(signalAttackKey({ def: 'char_1045_svash2', skillOn: false, skillIndex: 2 }, 'a', false), null);
+    assert.equal(signalAttackKey({ def: 'char_1045_svash2', skillOn: true, skillIndex: 2 }, 'd', false), 'svash2:s3hit');
+    for (const at of ['s', 'a']) assert.equal(signalAttackKey({ def: 'char_1045_svash2', skillOn: true, skillIndex: 2 }, at, false), null, at);
+    assert.equal(signalAttackKey({ def: 'char_1045_svash2', skillOn: false, skillIndex: 2 }, 'd', false), null);
   });
   test('이그제큐터 디 엑스 포에데레 T.1; 流形 mode names and copy / pull sounds', () => {
     assert.deepEqual(talentAttackKeys('char_1032_excu2', 'T.1'), ['excu2:t1']);
@@ -121,7 +123,7 @@ describe('the audio manager', { skip: NO_DATA }, () => {
     assert.deepEqual(names(a), ['p_atk_shotgunx_n.mp3']);
   });
 
-  test('크루스 더 킨 글린트: a T.1 shot sounds START at the swing, ON at the strike, no normal cue or impact; 노시스 kitHit; 실버애쉬 S2 slash / S3 strike', () => {
+  test('크루스 더 킨 글린트: a T.1 shot sounds START at the swing, ON at the strike, no normal cue or impact; 노시스 kitHit; 실버애쉬 S2 slash / S3 start and impact', () => {
     const a = manager();
     a.setFieldUnits([{ id: 1, kind: 'op', side: 'ally', spine: 'char_1021_kroos2', defId: 'x' },
       { id: 2, kind: 'enemy', side: 'enemy', spine: 'enemy_1006_shield' },
@@ -141,10 +143,50 @@ describe('the audio manager', { skip: NO_DATA }, () => {
     a.played.length = 0;
     a.handleBattleEvents([['fx', 'aoe', 0, 0, { id: 4, r: 2, skill: 'svash2' }]]);
     assert.deepEqual(names(a), ['p_atk_snwlprdg_h.mp3']);
-    a.handleBattleEvents([['skill', 4, 1]]);
     a.played.length = 0;
-    a.handleBattleEvents([['swing', 4, 0.3, 'none'], ['atk', 4, 2, 'none'], ['atk', 4, 2, 'none']]);
-    assert.equal(names(a).filter((f) => f === 'p_skill_snwfld_s.mp3').length, 1, 'one BORN per strike');
+    a.handleBattleEvents([['skill', 4, 1]]);
+    assert.equal(names(a).filter((f) => f === 'p_skill_snwfld_s.mp3').length, 1, 'the aura\'s BORN as S3 starts');
+    a.played.length = 0;
+    a.handleBattleEvents([['swing', 4, 0.3, 'none'], ['atk', 4, 2, 'none'], ['dmg', 2, 50, 'phys', 0, 4]]);
+    assert.ok(!names(a).includes('p_skill_snwfld_s.mp3'), 'no aura BORN at a strike');
+    assert.equal(names(a).filter((f) => f === 'p_imp_snwlprdg_s.mp3').length, 1, 'the bird\'s HIT at the impact');
+  });
+
+  test('real match path: 실버애쉬 더 레인프로스트 with S3 equipped — the aura BORN once as it starts, the bird HIT at each impact', async () => {
+    const { makeMatch, give, legalTileFor } = await import('./match/harness.js');
+    const { buildBattleSpec, createBattleFromSpec } = await import('../server/sim/spec.js');
+    const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }];
+    const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed: 11 }).start();
+    h.toPrep(4);
+    const m = h.m, ps = h.ps('p_0');
+    for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+    ps.board.clear(); ps.hand.fill(null); ps.recompute();
+    give(m, ps, 'chess_char_5_14_a', 'board', legalTileFor(m, ps, 'chess_char_5_14_a'));
+    const spec = JSON.parse(JSON.stringify(buildBattleSpec({ ...m._normalOpts(ps), battleId: 'lp', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent })));
+    const equip = (o) => { // the loadout's S3 on his spec unit
+      if (!o || typeof o !== 'object') return;
+      if (o.chessId === 'chess_char_5_14_a') o.skillIndex = 2;
+      for (const v of Object.values(o)) equip(v);
+    };
+    equip(spec);
+    const b = createBattleFromSpec(spec, m.ds);
+    b.start();
+    const u = b.allyUnits.find((x) => x.kind === 'op');
+    m.dispose?.();
+    assert.equal(u.skill?.id, 'skchr_svash2_3');
+    const a = manager();
+    a.setFieldUnits([{ id: u.id, kind: 'op', side: 'ally', spine: 'char_1045_svash2', defId: 'chess_char_5_14_a', skillIndex: 2 },
+      ...b.units.filter((x) => x.side === 'enemy').map((x) => ({ id: x.id, kind: 'enemy', side: 'enemy', spine: x.def?.key ?? 'enemy_1006_shield' }))]);
+    let hits = 0;
+    while (b.time < 60 && hits < 3) {
+      b.step();
+      const ev = b.drainEvents();
+      a.handleBattleEvents(ev);
+      hits += ev.filter((e) => e[0] === 'dmg' && e[5] === u.id).length;
+    }
+    assert.ok(hits >= 3, 'S3 strikes landed');
+    assert.equal(names(a).filter((f) => f === 'p_skill_snwfld_s.mp3').length, 1);
+    assert.ok(names(a).filter((f) => f === 'p_imp_snwlprdg_s.mp3').length >= 2);
   });
 
   test('流形: its copy names its mode — Range, Range_S2 while her S2 runs; the split copy keeps it; the copy sound', () => {

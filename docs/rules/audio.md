@@ -150,8 +150,10 @@
       스와이어 더 엘리건트 위트 S3 `attack.4`). 추출: `char_modes.py skill_end_modes`(`config/buff_template_holder.ab`) → `local-char-modes.json`
       `skillEnd[스킬]`; 생성: `skillEnds`(자기 `ON_SKILL_FINISH`/`ON_ABILITY_END`가 없을 때만, `ends[i].mode` 1). 재생: 같은 이벤트 묶음에 그 유닛의
       `'die'`(쓰러짐·퇴장)가 있으면 안 낸다(죽은 유닛은 그 모드의 능력을 못 씀). EN 템플릿에 없는 안젤리나 더 멜로우 위시는 CN 템플릿으로 뽑음
-      (2026-11-01, `char_modes.py --client <CN> --id char_1015_aglna2`): `skillEnd` [6, null, 9] — S1·S3 끝에 착지 모드 `S1_Landing`·`S3_Landing`의
-      START `p_atk_arstrnstfld`(`attack.6`/`.9`), S2는 스킬 버프 끝의 모드 바꾸기가 없어 안 냄(`S2_Landing` `attack.7`에 들어가는 다른 길은 아직 안 봄 — 관리자 노트의 열린 항목).
+      (2026-11-01, `char_modes.py --client <CN> --id char_1015_aglna2`): `skillEnd` [6, 7, 9] — S1·S2·S3 끝에 착지 모드 `S1_Landing`·`S2_Landing`·`S3_Landing`의
+      START `p_atk_arstrnstfld`(`attack.6`/`.7`/`.9`). S2는 2026-11-02에 더함: 스킬 프리팹 `skchr_aglna2_2`의 자기 버프(`_buffs`) `aglna2_s_2[mode]`(지속
+      `duration`)가 끝날 때 살아 있으면 모드 7로 바꾼다(공식 클라 CN 버프 템플릿). 같은 프리팹의 吟唱 끝 버프 `_buffOnAfterEndAnim`
+      `aglna2_s_2[chant_end]`가 끝날 때 S2 모드(2)로 바꾸는 것까지 세어 값이 둘이라 빠져 있었다 → 추출은 스킬 자기 버프에 값이 하나면 그것을 쓴다.
       [추정·CN: S3가 처음 자리에서 떨어져 끝나면 공식은 돌아가는 이동 뒤에 내릴 수 있음 — 우리는 스킬이 끝날 때 냄] 확인: `test/audio-skill-end-modes.test.js`. [화면 미확인]
   - 확인: `test/local-patch-audio.test.js` 8개, 전 오퍼레이터×스킬 시뮬+AudioManager 일괄(강제 시전 시 207개 중 185개에서 전용 소리 — 나머지 22개는
     피해를 키트가 직접 주는 스킬: 드론·음표·늑대·치유), 디버그 아레나(阿斯卡纶 S1/S3, 维什戴尔 S3, 赤刃明霄陈 S3 — 검기 타격 `p_imp_hljdswdlng_s`).
@@ -361,9 +363,15 @@
   - 노시스 재능 「殊途同归」(T.2, 배치 10초 뒤): START p_skill_iceprickbuff. sim이 배치마다 한 번 `['fx', 'kitHit', x, y, { id, k: 'gnosis:t2' }]`
     (`chess_char_4_13-gnosis.js`, 조건이 처음 참이 되는 틱 — `unit.mem.gnosisT2`에 그 배치 시각).
   - 실버애쉬 더 레인프로스트: S2(기본 스킬 `skchr_svash2_2`)의 베기는 kit 피해라 공격 이벤트가 없다 → 기존 fx `aoe`(`skill: 'svash2'`, 그가 벤 것만 — 대기 오퍼의
-    재배치 베기는 아님)에 그 능력의 ON p_atk_snwlprdg_h(START는 스킬 시작음, HIT는 `kd`로 이미 남). S3(`skchr_svash2_3`)는 공격마다 스킬 프리팹 투사체
-    `projectile_chr_svash2_s3`를 쏜다 → 그 BORN p_skill_snwfld_s를 S3 중 타격 순간마다(`signalAttackKey`, sim 변경 없음). 조사 보고의 「S3 베기 = aoe」는 틀림 —
-    `aoe` svash2는 S2 베기다.
+    재배치 베기는 아님)에 그 능력의 ON p_atk_snwlprdg_h(START는 스킬 시작음, HIT는 `kd`로 이미 남). S3(`skchr_svash2_3`)
+    (2026-11-02 고침, 공식 클라 — 스킬·charpack 프리팹과 EN 버프 템플릿): S3 모드(`Modes/S3/Body/Attack`)의 공격이 그에게 `svash2_s_3[trigger_self]`를 걸고 →
+    스킬 능력 `BirdAttack`(그의 새) → `svash2_s_3[bird_on_self]`가 `projectile_chr_svash2_s3_bird_self`를 적에게 쏜다(`bird_atk_scale` 물리 + `weak[limit]` —
+    키트의 S3 공격 그대로). 그 HIT p_imp_snwlprdg_s를 S3 공격의 착탄마다(`signalAttackKey` 'd' → kit `svash2:s3hit`, 자기 대상만 — 같은 줄의 다른 적은
+    소리 없음, 하한). 휘두름의 `attack.1` START는 전부터 남. `projectile_chr_svash2_s3`는 새의 오라(`BirdAura_Self` — 스킬 자기 버프
+    `svash2_s_3[self_bird_onuse]`가 시작할 때 한 번 시전)라 그 BORN p_skill_snwfld_s는 S3 시작에 한 번(`audio.js` 'skill' 켜짐)
+    [추정·엔진: 능력 시전을 스킬 시작 순간으로 봄 — 능력의 전딜은 안 읽음]. 2026-10-11부터 그 BORN을 타격마다 냈고 새 HIT는 없었다.
+    아군 새(`BirdAttack_Ally`·`[bird_on_target]`, 카드 UID로 다음에 배치한 아군에게 옮겨 감 — `[1f_delay_create]`·`[summon_bird]`)는 키트에 없어
+    소리도 없다(키트 머리 주석 「风雪之眼变为可部署」 안 만듦과 같은 범위). 조사 보고의 「S3 베기 = aoe」는 틀림 — `aoe` svash2는 S2 베기다.
   - 뮤엘시스의 유동체(流形, `token_10030_mlyss_wtrman`, 모드 Recharge·Default·Melee·Range·Range_S2·Melee_S3): 버프 템플릿 `mlyss_wtrman_switch_melee`/`_range`가
     복제할 때 주인이 `mlyss_s_3[buff]`/`mlyss_s_2[buff]`를 가지고 있으면 모드 5/4(Melee_S3/Range_S2), 아니면 2/3(Melee/Range)으로 `SwitchMode`; 스킬이 끝나면
     `mlyss_s_3[token_buff_melee_finish]`/`mlyss_s_2[token_buff_range_finish]`가 2/3으로 되돌림. sim fx `copy`에 **`mode`('Melee'|'Range')·`by`(그녀 id)**
@@ -502,8 +510,8 @@
     `shot`; 자기에게 걸 때는 투사체 없음). 재능 2 공격(표식을 쓰는 평타 `T2Attack`)은 공격 묶음의 첫 자식 `attack.0.1`(ON `p_atk_rylntbwmfr`)과
     `projectile_chr_tocka_t2` HIT `p_imp_rylntbwm` — 키트의 휘두름 신호로 고른다(위 「공격 소리 신호」 FirstSucceed, 2026-11-01). 그 전에는 묶음 종류
     없이 읽혀 평타가 두 자식을 번갈아 냈고 T2 착탄음이 없었다.
-  - 할 것 없음: 혼 S2 `…_horn_s2_full*`(수동 종료 `Full Burst`의 탄 — 위 「공격 소리 신호」; 이 모드 기물은 S3). 남김(§11 ③ 소리): 실버애쉬 더 레인프로스트 S3
-    새(`svash2_s_3[bird_on_self]`/`[bird_on_target]` — 이 모드에서 어느 쪽이 도는지 미조사).
+  - 할 것 없음: 혼 S2 `…_horn_s2_full*`(수동 종료 `Full Burst`의 탄 — 위 「공격 소리 신호」; 이 모드 기물은 S3). 실버애쉬 더 레인프로스트 S3 새는 2026-11-02에
+    가림: 자기 새(`[bird_on_self]`)가 S3 공격마다 돈다 — 위 「재능·소환물 능력 소리」의 실버애쉬 줄.
 - 확인: `test/audio-skill-projectiles.test.js`(뱅크·매니페스트, 키, AudioManager 재생, 실제 매치 경로: 쉐라 드론 피해의 7번째 칸 2와 S2 드론 `i`; 클레멘티아 2026-10-29 같은 날 추가). [화면 미확인]
 
 ## 버프·커스텀 트리거 소리 (2026-10-10 저녁, 공식 클라 + EN 클라 버프 템플릿)

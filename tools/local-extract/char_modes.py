@@ -182,8 +182,10 @@ def skill_end_modes(tree, templates):
     """{skill prefabId: mode index} — 2026-10-29, official client: the mode a skill's own buff switches its owner to as
     it ends (a SwitchMode node with a fixed `_modeIndex` > 0 in the ON_BUFF_FINISH actions of a template its prefab names):
     蒂比 tippi_s_2[switch_mode] → S2_Landing, 蕾缪安 lemuen_s_3 → S3_End. That mode's attack runs at once (its landing / closing
-    clip), so its START bank is the skill's end sound (tools/assets/skill-mode-sfx.mjs skillEnds). Only skills with one value."""
-    found = {}
+    clip), so its START bank is the skill's end sound (tools/assets/skill-mode-sfx.mjs skillEnds). Only skills with one value.
+    The skill's own buffs (`_buffs`) decide when they name one: 安洁莉娜·见遇 S2's own buff aglna2_s_2[mode] → S2_Landing,
+    while its chant's end buff (`_buffOnAfterEndAnim` aglna2_s_2[chant_end]) switches to the S2 mode as the chant ends."""
+    found, own = {}, {}
 
     def switches(o, acc):
         if isinstance(o, dict):
@@ -197,20 +199,23 @@ def skill_end_modes(tree, templates):
             for v in o:
                 switches(v, acc)
 
-    def walk(o, sid):
+    def walk(o, sid, mine=False):
         if isinstance(o, dict):
             tk = o.get('templateKey')
             if isinstance(tk, str) and tk in templates:
                 switches(templates[tk].get(BUFF_FINISH) or [], found.setdefault(sid, set()))
-            for v in o.values():
-                walk(v, sid)
+                if mine:
+                    switches(templates[tk].get(BUFF_FINISH) or [], own.setdefault(sid, set()))
+            for k, v in o.items():
+                walk(v, sid, mine or k == '_buffs')
         elif isinstance(o, list):
             for v in o:
-                walk(v, sid)
+                walk(v, sid, mine)
 
     for gp, d, _pid in tree:
         walk(d, gp.split('/')[0])
-    return {k: next(iter(v)) for k, v in found.items() if len(v) == 1}
+    return {k: next(iter(own[k] if len(own.get(k) or ()) == 1 else v)) for k, v in found.items()
+            if len(own.get(k) or ()) == 1 or len(v) == 1}
 
 
 def skill_modes_of(modes, prefabs, switch):

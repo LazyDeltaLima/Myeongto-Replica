@@ -84,10 +84,13 @@ export const KIT_HIT_BANKS = Object.freeze({
   'kroos2:t1': 'battle.ON_ABILITY_ON.char_1021_kroos2.T.1',
   'excu2:t1': 'battle.ON_ABILITY_START.char_1032_excu2.T.1',
   'gnosis:t2': 'battle.ON_ABILITY_START.char_206_gnosis.T.2',
-  // 실버애쉬 더 레인프로스트: S2's slash (its ability skchr_svash2_2's ON — the kit's slash has no attack event), S3's attacks
-  // fire projectile_chr_svash2_s3 (its BORN at each strike)
+  // 실버애쉬 더 레인프로스트: S2's slash (its ability skchr_svash2_2's ON — the kit's slash has no attack event); S3: the bird's
+  // aura projectile_chr_svash2_s3 (BirdAura_Self, cast once as the skill starts: its own buff svash2_s_3[self_bird_onuse]) and
+  // 2026-11-02 the bird's strike — the S3 mode's attack puts svash2_s_3[trigger_self] on him → BirdAttack → svash2_s_3[bird_on_self]
+  // shoots projectile_chr_svash2_s3_bird_self at the enemies, its HIT
   'svash2:s2': 'battle.ON_ABILITY_ON.skchr_svash2_2',
   'svash2:s3born': 'battle.ON_PROJECTILE_BORN.projectile_chr_svash2_s3',
+  'svash2:s3hit': 'battle.ON_PROJECTILE_HIT.projectile_chr_svash2_s3_bird_self',
   // 2026-10-29: 薄绿 S2's end — her skill ability's ON_ABILITY_ATTACK_FINISH as the end clip starts (audio.js on the 'skill' off)
   'mint:s2end': 'battle.ON_ABILITY_ATTACK_FINISH.skchr_mint_2',
   // 2026-10-29: 歌蕾蒂娅 S3's tornado as it forms (its Chant, the sequence's 2nd child — kit fx 'tornado')
