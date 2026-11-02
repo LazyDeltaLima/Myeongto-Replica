@@ -3,10 +3,10 @@
 
 import { COLS } from '../../../constants.js';
 import {
-  AURA_IV, AURA_DUR, RING1, num, on, talent, mods, dist, inFaction, isOp, selectedId, lazySkills, whileOn,
+  AURA_IV, AURA_DUR, RING1, num, on, talent, mods, dist, hasPower, isOp, selectedId, lazySkills, whileOn,
 } from '../shared/tier5.js';
 
-const isSargonMinos = (u) => inFaction(u, 'sargonShip', ['sargon', 'minos']);
+const isSargonMinos = (u) => hasPower(u, 'sargon', 'minos');
 
 /** Enemy not moving along its route (blocked, stunned, rooted, waiting…). */
 const isStill = (e) => !!(e.blockedBy || !e.moving || e.s.flags.stun || e.s.flags.noMove || !(e.s.moveSpeed > 0));

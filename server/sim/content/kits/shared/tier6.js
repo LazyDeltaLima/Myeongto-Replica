@@ -113,6 +113,7 @@ import { absoluteRangeKeys } from '../../../targeting.js';
 import { COLS, ROWS, PULL_STOP_RADIUS } from '../../../constants.js';
 import { hasHp } from '../../../damage.js';
 import { hypot } from '../../../detmath.js';
+import { hasPower } from './powers.js';
 
 // ------------------------------------------------------------------------------------------------------------------
 // helpers
@@ -146,7 +147,6 @@ function moduleBb(chess) {
 const parseN = (text, re, d) => { const m = String(text ?? '').match(re); return m ? +m[1] : d; };
 const live = (u) => !!u && u.alive && u.deployed && !u.removed && !u.hidden;
 const isElite = (e) => !!e && (e.isBoss || e.def?.rank === 'ELITE' || e.def?.rank === 'BOSS');
-const hasBond = (u, id) => !!(u && u.def && Array.isArray(u.def.bonds) && u.def.bonds.includes(id));
 const keyOf = (u) => Math.round(u.y) * COLS + Math.round(u.x);
 const opsOf = (battle, ownerId) => battle.allies(ownerId).filter((a) => a.kind === 'op');
 const ANY = Object.freeze({ canHitFly: true });
@@ -281,7 +281,7 @@ function aura(battle, unit, period, fn) {
 }
 
 export {
-  num, bv, tbb, tdesc, moduleBb, parseN, live, isElite, hasBond, keyOf, opsOf, ANY, enemiesIn, isTok, onDefaultSkill,
+  num, bv, tbb, tdesc, moduleBb, parseN, live, isElite, hasPower, keyOf, opsOf, ANY, enemiesIn, isTok, onDefaultSkill,
   selectedSkill, batOf, instantKind, skillGridOf, ABNORMAL, hasAbnormal, cleanseAbnormal, AROUND8, N4, WHOLE_FIELD,
   bstate, freeTiles, bestTile, onElementHit, elementDmg, pullToward, aura,
 };

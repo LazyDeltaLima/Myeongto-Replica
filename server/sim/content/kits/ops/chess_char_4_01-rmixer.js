@@ -4,7 +4,7 @@
 import { isHpLoss } from '../../../damage.js';
 import { holdsUndying } from '../../items/battle.js';
 import {
-  AURA, num, tbb, grid, nationOf, enemiesOnRange, targetsInRange, whileDeployed, reveal, skillActive, isSel, alt,
+  AURA, num, tbb, grid, hasPower, enemiesOnRange, targetsInRange, whileDeployed, reveal, skillActive, isSel, alt,
   instantKind, withDefaults,
 } from '../shared/tier4.js';
 
@@ -40,7 +40,7 @@ export default withDefaults({
             onHit({ battle, unit }) {
               const n = num(bb.charge, 1);
               const cand = battle.alliesInRadius(unit.x, unit.y, 1.5, unit.ownerId)
-                .filter((a) => a !== unit && a.kind === 'op' && nationOf(a) === 'laterano' && a.skill && a.skill.active && a.skill.kind === 'ammo')
+                .filter((a) => a !== unit && a.kind === 'op' && hasPower(a, 'laterano') && a.skill && a.skill.active && a.skill.kind === 'ammo')
                 .sort((a, b) => b.deploySeq - a.deploySeq || a.id - b.id);
               if (!cand[0] || !(n > 0)) return;
               cand[0].skill.addAmmo(n);
@@ -64,7 +64,7 @@ export default withDefaults({
         onStart({ battle, unit }) {
           unit.mem.counterReady = -Infinity;
           for (const a of battle.allies(unit.ownerId)) {
-            if (a === unit || a.kind !== 'op' || nationOf(a) !== 'laterano') continue;
+            if (a === unit || a.kind !== 'op' || !hasPower(a, 'laterano')) continue;
             if (a.skill && a.skill.active && a.skill.kind === 'ammo') { a.skill.addAmmo(num(bb.ammo, 0)); battle.fx('reload', { x: a.x, y: a.y, id: a.id, n: num(bb.ammo, 0) }); }
           }
           battle.fx('sermon', { x: unit.x, y: unit.y, id: unit.id });

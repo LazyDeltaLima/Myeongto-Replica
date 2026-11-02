@@ -877,7 +877,7 @@ function buildChess(ctx) {
       shopSortId: shop.shopLevelSortId,
       charId: shop.charId || null,
       name: null, appellation: null, rarity: null, profession: null, subProfessionId: null, subProfessionName: null,
-      position: null, nationId: null,
+      position: null, nationId: null, powers: [],
       bonds: [...(cd.bondIds || [])],
       garrisonIds: [...(cd.garrisonIds || [])],
       price: priceRow.purchasePrice ?? null,
@@ -907,6 +907,7 @@ function buildChess(ctx) {
     rec.subProfessionName = uniequip.subProfDict?.[char.subProfessionId]?.subProfessionName || null;
     rec.position = char.position;
     rec.nationId = char.nationId || null;
+    rec.powers = powersOf(char);
     // 高台 is not a data flag: a MELEE chess whose trait (no module: `traitBase` / `trait`) reads 「可以放置于远程位」
     // — the 钩索师 / 推击手 branch trait — may stand there, read at place time (shared/highGround.js; the owner's
     // decision of 2026-10-05, following PRTS).
@@ -1114,6 +1115,19 @@ function buildChess(ctx) {
 const DIY_OWNED_PICKS = LOCAL_DIY_PICKS;
 
 const rarityOf = (char) => Number(String(char?.rarity).replace('TIER_', '')) || null;
+/**
+ * The group tags of a character (`powers`): nationId, groupId and teamId of `mainPower` and of every `subPower`, in that
+ * order, without repeats. Operator talents name factions by these tags, never by bonds (the client's
+ * `BattleCharacterData.CheckGroupTag`; server/sim/content/kits/shared/powers.js), and the 甄选 pick's core bonds are
+ * the bonds whose `powerIdList` meets them (buildBackups).
+ */
+function powersOf(char) {
+  const out = [];
+  for (const p of [char?.mainPower ?? { nationId: char?.nationId, groupId: char?.groupId, teamId: char?.teamId }, ...(char?.subPower || [])]) {
+    for (const k of ['nationId', 'groupId', 'teamId']) if (p?.[k] && !out.includes(p[k])) out.push(p[k]);
+  }
+  return out;
+}
 const statusCmp = (a, b) => a.phase - b.phase || a.level - b.level || a.skillLevel - b.skillLevel || a.equipLevel - b.equipLevel;
 
 /**
@@ -1132,7 +1146,7 @@ function buildUnitHead(ctx, charId) {
   return {
     charId, name: char.name, appellation: char.appellation, rarity: rarityOf(char), profession: char.profession,
     subProfessionId: char.subProfessionId, subProfessionName: uniequip.subProfDict?.[char.subProfessionId]?.subProfessionName || null,
-    position: char.position, nationId: char.nationId || null, isNotObtainable: !!char.isNotObtainable,
+    position: char.position, nationId: char.nationId || null, powers: powersOf(char), isNotObtainable: !!char.isNotObtainable,
     assets: {
       avatar: charId, avatarGolden: hasE2Art(ctx, charId, 'avatar') ? `${charId}_2` : charId,
       portrait: `${charId}_1`, portraitGolden: `${charId}_${hasE2Art(ctx, charId, 'portrait') ? 2 : 1}`,
@@ -1306,10 +1320,7 @@ function buildBackups(ctx, chess) {
   const operators = {};
   for (const id of ownedPool) {
     const ch = charTable[id];
-    const powers = [];
-    for (const p of [ch.mainPower ?? { nationId: ch.nationId, groupId: ch.groupId, teamId: ch.teamId }, ...(ch.subPower || [])]) {
-      for (const k of ['nationId', 'groupId', 'teamId']) if (p?.[k] && !powers.includes(p[k])) powers.push(p[k]);
-    }
+    const powers = powersOf(ch);
     const hit = coreBonds.filter((b) => b.powerIdList.some((x) => powers.includes(x))).map((b) => b.bondId);
     operators[id] = {
       name: ch.name, rarity: rarityOf(ch), profession: ch.profession, subProfessionId: ch.subProfessionId,

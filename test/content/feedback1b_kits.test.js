@@ -274,8 +274,9 @@ test('B4 玛恩纳: a kill by the damage his attack carries (卡西米尔 bond t
 
 test('B4 玛恩纳: a kill outside his attack does not count, even of an enemy his attack hit — 无动于衷 reflection, a mark another operator set off (PRTS 备注 exclusions)', () => {
   const tough = enemyRec({ key: 'enemy_tough', hp: 1e9, def: 0, speed: 0, atk: 0 });
-  // a Kazimierz teammate without attacks of its own here: the reflection's target and the mark's trigger
-  const kaz = chessRec({ id: 'test_kaz_a', bonds: ['kazimierzShip'], skill: null, stats: { atk: 1 }, rangeGrid: [[0, 0]] });
+  // a Kazimierz teammate without attacks of its own here: the reflection's target and the mark's trigger (卡西米尔 is its
+  // group tag — the bond alone would not make it one, docs/rules/sim.md 「진영 판정은 소속 태그」)
+  const kaz = { ...chessRec({ id: 'test_kaz_a', bonds: ['kazimierzShip'], skill: null, stats: { atk: 1 }, rangeGrid: [[0, 0]] }), nationId: 'kazimierz', powers: ['kazimierz'] };
   const setup = (skillIndex) => {
     const h = makeBattle({
       defs: { enemies: { enemy_tough: tough }, chess: { test_kaz_a: kaz } },

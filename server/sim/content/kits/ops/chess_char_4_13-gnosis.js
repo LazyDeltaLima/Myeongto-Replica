@@ -3,7 +3,7 @@
 
 import { sortEnemyTargets } from '../../../targeting.js';
 import {
-  AURA, AURA_DUR, num, tbb, nationOf, enemiesOnRange, targetsInRange, whileDeployed, toggleBuff, skillActive, isSel,
+  AURA, AURA_DUR, num, tbb, hasPower, enemiesOnRange, targetsInRange, whileDeployed, toggleBuff, skillActive, isSel,
   alt, instantKind, withDefaults,
 } from '../shared/tier4.js';
 
@@ -129,7 +129,7 @@ export default withDefaults({
               unit.mem.gnosisT2 = unit.deployedAt;
               battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, k: 'gnosis:t2' });
             }
-            for (const a of battle.allies(unit.ownerId)) if (a.kind === 'op' && nationOf(a) === 'kjerag') battle.applyStatus(a, 'resist', { duration: AURA_DUR, value, source: unit });
+            for (const a of battle.allies(unit.ownerId)) if (a.kind === 'op' && hasPower(a, 'kjerag')) battle.applyStatus(a, 'resist', { duration: AURA_DUR, value, source: unit });
           });
         } },
       ],

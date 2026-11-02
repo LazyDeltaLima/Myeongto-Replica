@@ -5,11 +5,11 @@ import { COLS } from '../../../constants.js';
 import { bodyKeys } from '../../../body.js';
 import { toLocal } from '../../../dir.js';
 import {
-  AURA_IV, AURA_DUR, num, on, talent, talentRec, skillGrid, mods, inFaction, isOp, selectedId, lazySkills, instantKind,
+  AURA_IV, AURA_DUR, num, on, talent, talentRec, skillGrid, mods, hasPower, isOp, selectedId, lazySkills, instantKind,
   skillRange, whileOn, enemiesInGrid,
 } from '../shared/tier5.js';
 
-const isKjerag = (u) => inFaction(u, 'kjeragShip', ['kjerag']);
+const isKjerag = (u) => hasPower(u, 'kjerag');
 /** S3's line targets: his profile + flying enemies (PRTS 备注 "可对空"). */
 const S3_PROFILE = (u) => ({ ...u.profile, canHitFly: true });
 

@@ -33,7 +33,7 @@ test('tier-5 registry: all 23 non-DIY tier-5 chess have a hand-authored kit', ()
 // ------------------------------------------------------------------------------------------------------------------
 test('圣约送葬人 S2: ATK/DEF +45 %, block +1, 12 ammo +1 per Laterano op on the field; 受选之人 extra attacks', () => {
   const h = makeBattle({
-    defs: { enemies: { enemy_dummy: dummy() }, chess: { t_lat: ally('t_lat', { bonds: ['lateranoShip'] }) } },
+    defs: { enemies: { enemy_dummy: dummy() }, chess: { t_lat: { ...ally('t_lat', { bonds: ['lateranoShip'] }), nationId: 'laterano', powers: ['laterano'] } } },
     units: [{ chessId: 'chess_char_5_01_a', row: 9, col: 5 }, { chessId: 't_lat', row: 12, col: 3 }],
     enemies: [{ key: 'enemy_dummy', pos: [9, 6] }], hooks: ['ammoUsed', 'skillEnd'], seed: 5, autoFinish: false, timeLimit: 120,
   });
@@ -113,7 +113,7 @@ test('缇缇 S3: ATK +110 %, 2 targets, sleep on hit, wake-up burst (×max scale
 
 test('缇缇 T2 勇气的报偿: Sargon/Minos ops above 50 % HP get +20 ASPD', () => {
   const h = makeBattle({
-    defs: { chess: { t_sar: ally('t_sar', { bonds: ['sargonShip'] }), t_other: ally('t_other') } },
+    defs: { chess: { t_sar: { ...ally('t_sar', { bonds: ['sargonShip'] }), nationId: 'sargon', powers: ['sargon'] }, t_other: ally('t_other') } },
     units: [{ chessId: 'chess_char_5_02_a', row: 10, col: 4 }, { chessId: 't_sar', row: 12, col: 4 }, { chessId: 't_other', row: 12, col: 5 }],
     autoFinish: false, timeLimit: 10,
   });
@@ -668,7 +668,7 @@ test('凛御银灰 S2: 6 front enemies in the skill range take 260 % ATK phys + 
     defs: {
       enemies: { enemy_dummy: dummy() },
       chess: {
-        t_kj: ally('t_kj', { bonds: ['kjeragShip'], profession: 'TANK', stats: { def: 100 } }),
+        t_kj: { ...ally('t_kj', { bonds: ['kjeragShip'], profession: 'TANK', stats: { def: 100 } }), nationId: 'kjerag', powers: ['kjerag'] },
         t_cheap: chessRec({ id: 't_cheap', stats: { cost: 10, atk: 0 }, skill: { spCost: 100, initSp: 0 } }),
       },
     },
@@ -860,7 +860,7 @@ test('百炼嘉维尔 S2: drags unblocked enemies in front of her; T1 ATK/DEF +1
 test('玛恩纳 S3: trait ×2, 5 targets at 125 % ATK (×1.1 游侠), Kazimierz attacks add 10 % ATK true; T2 taunt +1 and reflect 15 % ATK', () => {
   const tiles = [[9, 5], [9, 6], [10, 5], [10, 6], [11, 5], [11, 4]];
   const h = makeBattle({
-    defs: { enemies: { enemy_dummy: dummy() }, chess: { t_kaz: ally('t_kaz', { bonds: ['kazimierzShip'], stats: { atk: 100 } }) } },
+    defs: { enemies: { enemy_dummy: dummy() }, chess: { t_kaz: { ...ally('t_kaz', { bonds: ['kazimierzShip'], stats: { atk: 100 } }), nationId: 'kazimierz', powers: ['kazimierz'] } } },
     units: [{ chessId: 'chess_char_5_19_a', row: 9, col: 4 }, { chessId: 't_kaz', row: 12, col: 3 }],
     hooks: ['damaged'], captureNoisy: true, autoFinish: false, timeLimit: 60,
   });

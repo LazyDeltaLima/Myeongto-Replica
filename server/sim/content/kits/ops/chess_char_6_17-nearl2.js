@@ -4,7 +4,7 @@
 import { absoluteRangeKeys } from '../../../targeting.js';
 import { bodyInRange } from '../../../body.js';
 import {
-  num, tbb, live, hasBond, onDefaultSkill, selectedSkill, N4, bstate, freeTiles, bestTile,
+  num, tbb, live, hasPower, onDefaultSkill, selectedSkill, N4, bstate, freeTiles, bestTile,
 } from '../shared/tier6.js';
 
 /** Deploy-order tracker: last op deployed per owner (read before the update by priority-0 deploy handlers). */
@@ -52,7 +52,7 @@ function nearl2(bb, chess, def) {
         const dur = num(skill.duration, num(def?.skill?.duration, 22));
         if (!(dur > 0)) return;
         const prev = lastOps.map?.get(unit.ownerId);
-        unit.mem.nearl2Combo = !!prev && prev !== unit && hasBond(prev, 'kazimierzShip');
+        unit.mem.nearl2Combo = !!prev && prev !== unit && hasPower(prev, 'kazimierz');
         const hits = Math.floor(num(bb.times));
         if (hits > 0) battle.addBuff(unit, { key: 'nearl2:shield', shieldHits: hits, duration: dur, visible: true });
       },
@@ -128,7 +128,7 @@ function nearl2(bb, chess, def) {
             if (stun > 0 && e.alive) battle.applyStatus(e, 'stun', { duration: stun, source: unit });
           }
         };
-        const kazTimes = () => { const prev = last.get(unit.ownerId); return prev && prev !== unit && hasBond(prev, 'kazimierzShip') ? 2 : 1; };
+        const kazTimes = () => { const prev = last.get(unit.ownerId); return prev && prev !== unit && hasPower(prev, 'kazimierz') ? 2 : 1; };
         battle.on('deploy', ({ unit: u }) => {
           if (u !== unit || !(sc > 0)) return;
           unit.mem.nearlDawnTimes = kazTimes();

@@ -98,6 +98,7 @@ import { SKILL_SUMMON_START_DEPLOY } from '../../../shared/constants.js';
 import { wideSpan, wideCols } from '../wideStage.js';
 import { hypot } from '../detmath.js';
 import { atPotential } from '../../../shared/potential.js';
+import { hasPower } from './kits/shared/powers.js';
 
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : (typeof v === 'string' && v.trim() !== '' && Number.isFinite(+v) ? +v : d));
 const GRID_3X3 = Object.freeze([[1, -1], [1, 0], [1, 1], [0, -1], [0, 0], [0, 1], [-1, -1], [-1, 0], [-1, 1]]);
@@ -642,7 +643,7 @@ function radiantSword(bb, raw, def) {
       bindToOwnerSkill(battle, unit);
       onDeploy(battle, unit, () => {
         const last = stateOf(battle).lastOp.get(unit.ownerId);
-        const kaz = !!(last && (last.def?.bonds || []).includes('kazimierzShip'));
+        const kaz = !!last && hasPower(last, 'kazimierz'); // the group tag, not the bond (kits/shared/powers.js)
         burst(battle, unit, { grid, amount: ownerAtk(unit) * num(bb.atk_scale, 0), type: 'true', stun: num(bb.stun, 0), hits: kaz ? 2 : 1, source: unit, fx: 'radiantSword' });
       });
     },

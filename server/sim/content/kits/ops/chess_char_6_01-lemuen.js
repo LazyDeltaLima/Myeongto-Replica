@@ -4,7 +4,7 @@
 import { sortEnemyTargets, canTargetEnemy } from '../../../targeting.js';
 import { rotateOffset } from '../../../dir.js';
 import { bodyDist, bodyKeys, bodyInRange } from '../../../body.js';
-import { num, tbb, live, isElite, hasBond, ANY, bstate } from '../shared/tier6.js';
+import { num, tbb, live, isElite, hasPower, ANY, bstate } from '../shared/tier6.js';
 
 // ------------------------------------------------------------------------------------------------------------------
 // 蕾缪安 chess_char_6_01 (神射手) — S3 礼炮·强制追思; 跨境追缉许可; 逃犯引渡手续
@@ -42,7 +42,7 @@ function ensureWanted(battle) {
   battle.every(0.25, () => {
     const lems = activeLem();
     for (const u of W.sources.keys()) if (!lems.includes(u)) W.sources.delete(u);
-    const lat = battle.allyUnits.filter((a) => live(a) && a.kind === 'op' && hasBond(a, 'lateranoShip'));
+    const lat = battle.allyUnits.filter((a) => live(a) && a.kind === 'op' && hasPower(a, 'laterano'));
     for (const u of lems) {
       let state = W.sources.get(u);
       if (!state) W.sources.set(u, state = { time: new WeakMap(), marks: new Set() });
@@ -61,7 +61,7 @@ function ensureWanted(battle) {
   });
   battle.on('hit', (ctx) => {
     const s = ctx.source, t = ctx.target;
-    if (!s || !t || s.side !== 'ally' || t.side !== 'enemy' || !hasBond(s, 'lateranoShip')) return;
+    if (!s || !t || s.side !== 'ally' || t.side !== 'enemy' || !hasPower(s, 'laterano')) return;
     if (!ctx.dmg.isAttack && !ctx.dmg.isSkill) return;
     if (!t.findBuff('lemuen:wanted')) return;
     const lems = activeLem();
@@ -258,7 +258,7 @@ function lemuen(bb, chess, def) {
         battle.on('skillStart', ({ unit: u, skill }) => {
           if (!ready() || !skill || skill.kind !== 'ammo') return;
           if (u === unit) { if (add > 0) skill.addAmmo(add); }
-          else if (exAdd > 0 && u.side === 'ally' && u.kind === 'op' && hasBond(u, 'lateranoShip')) skill.addAmmo(exAdd);
+          else if (exAdd > 0 && u.side === 'ally' && u.kind === 'op' && hasPower(u, 'laterano')) skill.addAmmo(exAdd);
         }, { owner: unit });
       } },
     ],

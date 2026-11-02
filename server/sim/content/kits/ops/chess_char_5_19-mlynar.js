@@ -2,14 +2,14 @@
 // Conventions of the tier-5 kits: ../shared/tier5.js; kit contract and rules: ../README.md.
 
 import {
-  num, on, inRange, talent, skillGrid, batPct, mods, inFaction, isOp, selectedId, lazySkills, skillRange, leaderOf,
+  num, on, inRange, talent, skillGrid, batPct, mods, hasPower, isOp, selectedId, lazySkills, skillRange, leaderOf,
   whileOn, permBuff,
 } from '../shared/tier5.js';
 import { byEnemyAttack } from '../shared/tier1.js';
 
 /** 玛恩纳 游侠 "周围存在3名及以上敌人" radius (8-neighbourhood). */
 const AROUND_RADIUS = 1.5;
-const isKazimierz = (u) => inFaction(u, 'kazimierzShip', ['kazimierz']);
+const isKazimierz = (u) => hasPower(u, 'kazimierz');
 
 export default {
   // ---------------------------------------------------------------------------------------------------------------

@@ -2,10 +2,10 @@
 // Conventions of the tier-5 kits: ../shared/tier5.js; kit contract and rules: ../README.md.
 
 import {
-  num, on, talent, batPct, mods, inFaction, isOp, selectedId, lazySkills, skillRange, crowdAspd,
+  num, on, talent, batPct, mods, hasPower, isOp, selectedId, lazySkills, skillRange, crowdAspd,
 } from '../shared/tier5.js';
 
-const isLaterano = (u) => inFaction(u, 'lateranoShip', ['laterano']);
+const isLaterano = (u) => hasPower(u, 'laterano');
 
 /** Enemy `e` attacks `t` in melee (not a ranged shot), mirroring ai.js enemyAttack. */
 function meleeAttacker(e, t) {

@@ -72,6 +72,7 @@ test('1_01 隐现 elite: +self_ammo after `duration` s on field; a random other 
     id: 't_lat', profession: 'SNIPER', subProfessionId: 'fastshot', bonds: ['lateranoShip'], rangeGrid: raw(id).rangeGrid,
     skill: { durationType: 'AMMO', duration: 0, spCost: 10, initSp: 0, bb: { 'attack@trigger_time': 5 } },
   });
+  Object.assign(lat, { nationId: 'laterano', powers: ['laterano'] }); // 【拉特兰】 is the group tag, not the bond
   const starts = [];
   const h = run({
     defs: { enemies: { e: dummy('e') }, chess: { t_lat: lat } },
@@ -1308,6 +1309,7 @@ test('1_01 隐现 elite: the ally magazine bonus is one grant per deployment (ne
     id: 't_lat', profession: 'SNIPER', subProfessionId: 'fastshot', bonds: ['lateranoShip'], rangeGrid: raw(id).rangeGrid,
     skill: { durationType: 'AMMO', duration: 0, spCost: 999, initSp: 0, bb: { 'attack@trigger_time': 5 } },
   });
+  Object.assign(lat, { nationId: 'laterano', powers: ['laterano'] });
   const h = run({ defs: { enemies: { e: dummy('e') }, chess: { t_lat: lat } }, units: [{ chessId: id, row: 10, col: 4 }, { chessId: 't_lat', row: 11, col: 4 }], enemies: [{ key: 'e', pos: [10, 6] }] });
   const u = h.unit(id), l = h.unit('t_lat');
   const magazine = () => {

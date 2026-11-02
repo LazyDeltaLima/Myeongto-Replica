@@ -139,7 +139,7 @@ test('6_01 蕾缪安 S2 归乡邀约: ASPD/ATK +; a wanted enemy is aimed at for
     assert.ok(u.skill.ammoLeft <= ammo, 'the aim spent its bullet when it began');
     assert.equal(snipe.length, 1);
     assert.equal(snipe[0].dmg.canDodge, false);
-    const wanted = u.def.bonds.includes('lateranoShip') ? tal(id).damage_scale : 1;
+    const wanted = u.def.raw.powers.includes('laterano') ? tal(id).damage_scale : 1;
     approx(snipe[0].amount, aimingAtk * bb['attack@fin_atk_scale'] * wanted, `${id} fin × wanted`);
     done(h);
   }
@@ -1077,7 +1077,7 @@ test('6_17 耀骑士临光 S2 逐夜烁光: on deploy ATK + and 3 护盾 layers 
     assert.deepEqual(h.hooksOf('skillEnd').filter((c) => c.unit === u).map((c) => c.reason), ['duration']);
     done(h);
 
-    const k = run({ defs: { chess: { kaz: plain('kaz', { bonds: ['kazimierzShip'] }) } }, units: [U(id, sid, 10, 4), { chessId: 'kaz', row: 12, col: 4 }] });
+    const k = run({ defs: { chess: { kaz: { ...plain('kaz', { bonds: ['kazimierzShip'] }), nationId: 'kazimierz', powers: ['kazimierz'] } } }, units: [U(id, sid, 10, 4), { chessId: 'kaz', row: 12, col: 4 }] });
     const ku = k.unit(id);
     k.step(2);
     assert.ok(ku.alive && ku.skill.active);

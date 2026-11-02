@@ -12,7 +12,8 @@
 //   缩短) is a multiplier (×0.7) and 信仰搅拌机's 0.6 is the counter interval ratio — both handled in their kits.
 // - "技力光环 (同类效果取最高)" (莫斯提马, 白面鸮) share the buff key `aura:spRecovery`; a unit keeps the highest one.
 // - Auras refresh short buffs every AURA s so they lapse within a few ticks after the source leaves.
-// - Talents that name a faction use data fields: nationId (拉特兰 laterano, 卡西米尔 kazimierz, 谢拉格 kjerag),
+// - Talents that name a faction test the group tags (shared/powers.js hasPower: 拉特兰 laterano, 卡西米尔 kazimierz,
+//   谢拉格 kjerag — nationId, groupId, teamId and subPower, never the bonds); other talents use data fields:
 //   profession (术师 CASTER, 重装 TANK, 先锋 PIONEER), enemy tags (萨卡兹 sarkaz, 海怪 seamonster); 深海猎人 = research
 //   groupId `abyssal` (data/chess.json has no groupId: charIds from docs/research/03-operators.json).
 // - "友方干员" effects touch operators only (summons/devices excluded); SP gifts skip units whose timed skill runs
@@ -30,6 +31,7 @@
 import { bodyInRange } from '../../../body.js';
 import { canTargetEnemy, sortEnemyTargets } from '../../../targeting.js';
 import { normalizeChess } from '../../../simdata.js';
+import { hasPower } from './powers.js';
 
 const AURA = 0.2;          // aura refresh period (s)
 const AURA_DUR = 0.25;     // aura buff lifetime (s): lapses ~1 tick after the source stops refreshing it
@@ -44,7 +46,6 @@ const moduleBb = (def) => (def?.talents || []).filter((t) => !t.name && t.bb && 
 const grid = (g) => (Array.isArray(g) && g.length ? g.map((p) => [p[0], p[1]]) : null);
 /** Flat BAT change (s) → batPct. */
 const batFlat = (def, v) => { const b = num(def?.stats?.bat, 1) || 1; return Math.max(-0.9, num(v, 0) / b); };
-const nationOf = (u) => u?.def?.raw?.nationId ?? null;
 const enemyHasTag = (e, tag) => !!e && e.side === 'enemy' && Array.isArray(e.def?.tags) && e.def.tags.includes(tag);
 const keySet = (unit) => unit.rangeKeySet || new Set(unit.rangeKeys || []);
 /** Every living, visible enemy standing on the unit's range (ignores stealth/untargetable: auras, reveals). */
@@ -162,7 +163,7 @@ function installLowHpHealBonus(battle, unit, tb, { atOrBelow = false } = {}) {
 const withDefaults = (kits) => Object.fromEntries(Object.entries(kits).map(([id, f]) => [id, (bb, chess, def) => f(bb || {}, chess, def || normalizeChess(chess))]));
 
 export {
-  AURA, AURA_DUR, num, tbb, moduleBb, grid, batFlat, nationOf, enemyHasTag, keySet, enemiesOnRange, targetsInRange,
+  AURA, AURA_DUR, num, tbb, moduleBb, grid, batFlat, hasPower, enemyHasTag, keySet, enemiesOnRange, targetsInRange,
   targetsInGrid, whileDeployed, pulse, toggleBuff, spAura, resCut, reveal, skillActive, isSel, alt, instantKind, lonely,
   applyModuleRange, pullToFront, installLowHpHealBonus, withDefaults,
 };

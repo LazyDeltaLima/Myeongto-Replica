@@ -3,7 +3,7 @@
 
 import { canTargetEnemy, sortEnemyTargets } from '../../../targeting.js';
 import {
-  AURA, num, tbb, grid, nationOf, targetsInGrid, whileDeployed, pulse, toggleBuff, skillActive, isSel, alt,
+  AURA, num, tbb, grid, hasPower, targetsInGrid, whileDeployed, pulse, toggleBuff, skillActive, isSel, alt,
   withDefaults,
 } from '../shared/tier4.js';
 
@@ -112,7 +112,7 @@ export default withDefaults({
           }, { owner: unit });
         } },
         { install(battle, unit) { // 红松骑士团团长: 卡西米尔 operators +22 % physical dodge
-          whileDeployed(battle, unit, AURA, () => { for (const a of battle.allies(unit.ownerId)) if (nationOf(a) === 'kazimierz') pulse(battle, a, 'flamtl:dodge', { dodgePhys: num(t1.prob, 0.22) }); });
+          whileDeployed(battle, unit, AURA, () => { for (const a of battle.allies(unit.ownerId)) if (hasPower(a, 'kazimierz')) pulse(battle, a, 'flamtl:dodge', { dodgePhys: num(t1.prob, 0.22) }); });
         } },
       ],
     };

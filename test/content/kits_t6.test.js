@@ -20,10 +20,10 @@ const DEFS = {
   chess: {
     // synthetic allies (no skill) used as buff/heal/copy targets
     test_guard_a: chessRec({ id: 'test_guard_a', profession: 'WARRIOR', stats: { maxHp: 3000, atk: 800, def: 100 }, skill: null }),
-    test_lat_a: chessRec({
+    test_lat_a: { ...chessRec({
       id: 'test_lat_a', profession: 'SNIPER', bonds: ['lateranoShip'], skill: null, stats: { atk: 1 },
       rangeGrid: Array.from({ length: 11 }, (_, c) => [0, c]).concat(Array.from({ length: 11 }, (_, c) => [-2, c]), Array.from({ length: 11 }, (_, c) => [2, c])),
-    }),
+    }), nationId: 'laterano', powers: ['laterano'] }, // 【拉特兰】 = group tag (docs/rules/sim.md 「진영 판정은 소속 태그」)
     test_short_a: chessRec({ id: 'test_short_a', profession: 'SNIPER', skill: null, stats: { atk: 1 }, rangeGrid: [[0, 0], [0, 1]] }),
     test_skill_a: chessRec({ id: 'test_skill_a', profession: 'SNIPER', stats: { atk: 1 }, rangeGrid: [[0, 0], [0, 1]], skill: { spCost: 999 } }),
   },

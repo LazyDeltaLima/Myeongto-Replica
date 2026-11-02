@@ -2484,3 +2484,23 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
   수정치마다 재배치 시간 × `SharedUtils.ProcessFinalScaler(값)`(값 < 0이면 1 + 값). 엠퍼러(大帝) 「긴급 파견」(加急调派, `band16`) −0.5는 배치마다 ×0.5로
   **곱해 쌓인다** — 시뮬 0.5ⁿ과 같음, 코드 변경 없음.
 - 테스트 `test/content/buff-node-items.test.js`.
+
+## 진영 판정은 소속 태그 (2026-11-02)
+
+오퍼레이터 재능·스킬의 「○○ 진영 오퍼레이터」(【拉特兰】干员, 卡西米尔干员 …)는 **맹약이 아니라 캐릭터의 소속 태그**로 판정한다(공식 클라에서 확인).
+
+- 공식: 오퍼레이터 자신의 템플릿 `CheckCharacterGroupTag`, 프리팹 `FilterGroupTagTargetValidator`, 덱 선택기 `DeckSelector.filterTag`가 모두
+  `BattleCharacterData.CheckGroupTag`로 거르고, 이것은 character_table의 `nationId`·`groupId`·`teamId`와 `subPower` 각 항목의 셋(텍사스:
+  lungmen·penguin·siracusa)만 본다. 위수협의 기물 데이터는 일반 변환기로 만들어지고 태그를 더하는 룬도 위수협의 데이터에 없다 → 시즌이 맹약 구성을
+  바꿔도 진영은 그대로다. 맹약 필터(`AutoChessFilterCharacterBondIds`)는 모드 자신의 템플릿(맹약 효과·장비·악단)만 쓴다.
+- 해당 키트와 태그: 인사이더(`chess_char_1_01`)·이그제큐터 디 엑스 포에데레(`5_01`)·르무엔(`6_01`)·엑시아 더 뉴 커버넌트(`6_13`)·산크타
+  믹사파라토(`4_01`) `laterano`, 티티(`5_02`) `sargon`·`minos`, 실버애쉬 더 레인프로스트(`5_14`)·노시스(`4_13`) `kjerag`, 무에나(`5_19`)·니어 더
+  래디언트 나이트(`6_17`, 소환물 「耀阳」의 추가 타격도)·플레임테일(`4_19`) `kazimierz`, 라플란드 더 데카덴차(`6_18`) `siracusa`. 전에는 앞의 다섯 6티어·1티어 키트가 맹약만,
+  5티어 넷이 맹약 또는 국적, 4티어 셋이 국적만 봤다.
+- 구현: 데이터 `powers`(`tools/build-data.mjs powersOf` — `chess.json`·`backups.json units`, 선발 기물은 `shared/standIn.js`로 같이 옴)와
+  `server/sim/content/kits/shared/powers.js hasPower`. 선발 오퍼레이터의 핵심 맹약도 같은 `powers`로 고른다(`diy.operators[].powers`).
+- 지금 시즌에서 바뀐 것: 티티 재능2(精力充沛)가 퍼퓨머(`chess_char_2_14`, 국적 로도스·복수 소속 미노스, 사르곤 맹약 없음)에게도 붙는다. 노시스 재능2는
+  해럴드(`chess_char_2_05`, 복수 소속 쉐라그), 플레임테일 재능1은 데겐블레허(`chess_char_6_19`, 복수 소속 카시미어)에게도 — 전에 국적만 봐서
+  빠졌다. 장비가 주는
+  맹약(`unitBonds`)은 전에도 지금도 진영을 바꾸지 않는다(공식과 같음).
+- 테스트 `test/content/kit-factions.test.js`(데이터·도우미·하네스·실제 매치 경로).

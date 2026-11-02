@@ -3,7 +3,7 @@
 
 import { sortEnemyTargets, aggroCmp, absoluteRangeKeys } from '../../../targeting.js';
 import { summonToken, TOKEN_IDS } from '../../tokens.js';
-import { num, bv, tbb, live, hasBond, ANY, isTok, selectedSkill, batOf, aura } from '../shared/tier6.js';
+import { num, bv, tbb, live, hasPower, ANY, isTok, selectedSkill, batOf, aura } from '../shared/tier6.js';
 
 /** Barrier of `total` HP decaying linearly to 0 over `dur` seconds. */
 function decayingShield(battle, u, key, total, dur) {
@@ -203,7 +203,7 @@ function angel2(bb, chess, def) {
         if (atk) aura(battle, unit, 0.5, () => {
           for (const a of battle.allyUnits) {
             if (!live(a) || a.kind !== 'op' || !a.skill || a.skill.kind !== 'ammo') continue;
-            battle.addBuff(a, { key: 'angel2:covenant', mods: { atkPct: atk * (hasBond(a, 'lateranoShip') ? mult : 1) }, duration: 0.75, refresh: 'replace', visible: true });
+            battle.addBuff(a, { key: 'angel2:covenant', mods: { atkPct: atk * (hasPower(a, 'laterano') ? mult : 1) }, duration: 0.75, refresh: 'replace', visible: true });
           }
         });
       } },

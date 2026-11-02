@@ -4,7 +4,7 @@
 import { sortEnemyTargets, canTargetEnemy } from '../../../targeting.js';
 import { rotateOffset } from '../../../dir.js';
 import { bodyDist } from '../../../body.js';
-import { num, tbb, hasBond, ANY, selectedSkill, skillGridOf, WHOLE_FIELD, bstate, aura } from '../shared/tier6.js';
+import { num, tbb, hasPower, ANY, selectedSkill, skillGridOf, WHOLE_FIELD, bstate, aura } from '../shared/tier6.js';
 import { hypot, sin, cos, atan2 } from '../../../detmath.js';
 
 // ------------------------------------------------------------------------------------------------------------------
@@ -306,7 +306,7 @@ function whitw2(bb, chess, def) {
         if (cur) { cur.sp = Math.max(cur.sp, sp); cur.as = Math.max(cur.as, as); return; }
         const cfg = { sp, as };
         S.siracusa.set(unit.ownerId, cfg);
-        const sira = (u) => u && u.kind === 'op' && u.ownerId === unit.ownerId && hasBond(u, 'siracusaShip');
+        const sira = (u) => u && u.kind === 'op' && u.ownerId === unit.ownerId && hasPower(u, 'siracusa');
         // 初始技力+5: every (re)deployment starts with +5 SP (not on top of the SP a unite helper carries over)
         battle.on('deploy', ({ unit: u, initial }) => {
           if (!(cfg.sp > 0) || !sira(u) || !u.skill) return;

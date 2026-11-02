@@ -78,6 +78,7 @@ export function composeUnitRecord(identity, unit, form, { skillIndex, moduleId =
     charId: unit.charId, name: unit.name, appellation: unit.appellation, rarity: unit.rarity, profession: unit.profession,
     subProfessionId: unit.subProfessionId, subProfessionName: unit.subProfessionName, position: unit.position,
     nationId: unit.nationId,
+    powers: unit.powers ? [...unit.powers] : [],
     stats: mod ? composeStats(form.stats, mod.attr) : form.stats,
     immunities: form.immunities, rangeId: form.rangeId, rangeGrid: form.rangeGrid,
     dmgType: form.dmgType, attackKind: form.attackKind, projectile: form.projectile, canHitFly: form.canHitFly,

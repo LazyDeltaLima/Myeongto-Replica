@@ -2,6 +2,7 @@
 // Conventions of the tier-1 kits: ../shared/tier1.js; kit contract and rules: ../README.md.
 
 import { num, talentBb, up, once, skillBbOf, batMod } from '../shared/tier1.js';
+import { hasPower } from '../shared/powers.js';
 
 export default {
   // ---------------------------------------------------------------------------------------------------------------
@@ -38,7 +39,7 @@ export default {
             // (the larger magazine applies from the next activation: a running skill keeps its rounds)
             if (!up(unit) || unit.deploySeq !== seq) return;
             const pool = battle.allyUnits.filter((a) => a !== unit && a.kind === 'op' && a.ownerId === unit.ownerId && a.alive
-              && (a.def.bonds || []).includes('lateranoShip') && a.skill && a.skill.kind === 'ammo');
+              && hasPower(a, 'laterano') && a.skill && a.skill.kind === 'ammo');
             const pick = battle.rng.pick(pool);
             if (!pick) return;
             (pick.mem.insiderAmmo ??= new Map()).set(unit.id, { src: unit, seq, n: allyAmmo });

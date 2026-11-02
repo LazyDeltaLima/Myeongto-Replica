@@ -649,8 +649,8 @@
         ["p1","~1","token","token_10015_dusk_drgn",null,null,0,0,13,0,1910,1997,0,6,null]
       ],
       "enemies": {"enemy_1267_nhpbr_2":[11,11,0,2676,69696],"enemy_1270_nhstlk_2":[4,4,0,0,73728],"enemy_1272_nhtank_2":[2,2,0,1212,34560]},
-      "hooks": [1,26,2141,51,51,114,114,13,18,18,25,24,0,7407,1537,4,17,0,1,18,0,0,0],
-      "events": {"atk":51,"deploy":9,"die":18,"dmg":114,"engage":4,"face":28,"fx":97,"heal":12,"skill":49,"spawn":26,"status":24,"swing":70,"tplfx":2},
+      "hooks": [1,26,2141,51,51,114,114,13,18,18,25,24,0,7407,1842,4,17,0,1,18,0,0,0],
+      "events": {"atk":51,"deploy":9,"die":18,"dmg":114,"engage":4,"face":28,"fx":97,"heal":12,"skill":49,"spawn":26,"status":25,"swing":70,"tplfx":2},
       "fx": {"charges":11,"coldWind":2,"drone":10,"frostNova":3,"healAoe":3,"hunterReload":32,"kitHit":1,"stacks":6,"strike":8,"summon":1,"volley":8,"zone":12},
       "snaps": "83241a53 baa1e86a 3e2f11a6 7edf1d10 626719cc d68baa45 02e2bbb0 31120c7b"
     },
@@ -1665,8 +1665,8 @@
         ["-","~3","device","trap_1105_accrate",null,null,100,1,3,0,0,0,0,0,null]
       ],
       "enemies": {"enemy_1005_yokai_2":[4,4,0,1068,15428],"enemy_1041_lazerd_2":[3,3,0,2609,44790],"enemy_1042_frostd":[5,5,0,0,80870]},
-      "hooks": [1,25,1496,44,44,62,62,8,12,12,6,5,0,3502,198,0,12,0,1,12,0,0,0],
-      "events": {"atk":44,"deploy":10,"die":12,"dmg":62,"engage":2,"face":19,"fx":80,"heal":8,"skill":11,"spawn":25,"status":22,"swing":45},
+      "hooks": [1,25,1496,44,44,62,62,8,12,12,6,5,0,3502,396,0,12,0,1,12,0,0,0],
+      "events": {"atk":44,"deploy":10,"die":12,"dmg":62,"engage":2,"face":19,"fx":80,"heal":8,"skill":11,"spawn":25,"status":23,"swing":45},
       "fx": {"charges":2,"drone":24,"explosion":4,"kitHit":1,"overload":1,"stacks":48},
       "snaps": "6824afb2 deade983 89dfdecd adab9a9e 593ebdc1"
     },
