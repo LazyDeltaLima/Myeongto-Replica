@@ -92,6 +92,7 @@ export const OPERATOR_KIT_FILES = Object.freeze([
   'op-tocka.js',
   'op-oxi.js',
   'op-pallas.js',
+  'op-helage.js',
 ]);
 
 /**

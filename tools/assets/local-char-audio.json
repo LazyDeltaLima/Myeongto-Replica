@@ -41,6 +41,7 @@
  "char_174_slbell": {"modes":["Default","S1-2"],"sig":[[0,0],[1,0]],"ab":[{"attack":{"proj":["projectile_slbell"]}},{"attack":{}}],"proj":[["projectile_slbell"],[]],"talentProj":[],"skillProj":[[],[]]},
  "char_181_flower": {"modes":["Default"],"sig":[[0,0]],"ab":[{"attack":{}}],"proj":[[]],"talentProj":[],"skillProj":[[],[]]},
  "char_183_skgoat": {"modes":["Default","S2"],"sig":[[0,0],[0,0]],"ab":[{"attack":{"proj":["projectile_skgoat"]}},{"attack":{"proj":["projectile_skgoat"]}}],"proj":[["projectile_skgoat"],["projectile_skgoat"]],"talentProj":[],"skillProj":[[],[]]},
+ "char_188_helage": {"modes":["Default","S2","S3"],"sig":[[0,0],[1,0],[1,0]],"ab":[{"attack":{}},{"attack":{"times":1}},{"attack":{}}],"proj":[[],[],[]],"talentProj":[],"skillProj":[[],[],[]]},
  "char_196_sunbr": {"modes":["Default","S2"],"sig":[[0,0],[1,0]],"ab":[{"attack":{}},{"attack":{"proj":["projectile_sunbr"]}}],"proj":[[],["projectile_sunbr"]],"talentProj":[],"skillProj":[[],[]]},
  "char_199_yak": {"modes":["Default"],"sig":[[0,0]],"ab":[{"attack":{}}],"proj":[[]],"talentProj":[],"skillProj":[[],[]]},
  "char_2015_dusk": {"modes":["Default","S2","S3"],"sig":[[0,0],[1,0],[1,0]],"ab":[{"attack":{}},{"attack":{}},{"attack":{}}],"proj":[[],[],[]],"talentProj":[],"skillProj":[[],[],[]]},

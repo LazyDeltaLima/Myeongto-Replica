@@ -9,11 +9,11 @@
   정규 맹약이다 — `activity_table` `autoChessData.bondInfoDict`의 `isPower` 맹약 8개의 `powerIdList`에 叙拉古 [siracusa, chiave]·卡西米尔
   [kazimierz, pinus]가 있다(2026-10-10 대조, 그 전엔 「확장은 [추정]」; `tools/build-data.mjs buildBackups`가 이 표로 정함).
 - 지금 구현(0.2.0부터): upstream 「自选」 틀이 선발 칸·재고·상점·보상·밴을 맡는다(`server/match/player/diy.js initDiyStock`, `shared/diy.js`, 데이터
-  `data/backups.json` `diy`). 맹약이 전부 꺼진 픽은 그 판 재고가 없다(`m.private.diyBanned`). 이 포크는 후보를 구현·대조한 12명으로 줄인다:
+  `data/backups.json` `diy`). 맹약이 전부 꺼진 픽은 그 판 재고가 없다(`m.private.diyBanned`). 이 포크는 후보를 구현·대조한 13명으로 줄인다:
   `shared/local-diy.js LOCAL_DIY_PICKS`(왕·첸 더 던스트릭·위셔델·토가와 사키코·아스카론, 2026-10-11부터 켈시 에스페란타·클레멘티아·안젤리나 더 멜로우 위시 — 아래
   「선발 추가 3명 (2026-10-11)」, 2026-10-26부터 트라고디아 — 아래 「선발 추가 酒神 (2026-10-26)」, 2026-11-01부터 토스카·탈룰라 — 아래 「선발 추가 토스카
-  (2026-11-01)」·「선발 추가 탈룰라 (2026-11-01)」, 2026-11-02부터 팔라스 — 아래 「선발 추가 팔라스 (2026-11-02)」) — `tools/build-data.mjs`가 이것으로 `diy.ownedPool`을 만들고, `server/lobby.js`가 다른 픽을 거부한다.
-  키트는 `server/sim/content/kits/ops/op-{wang,chen3,wisdel,oblvns,ascln,kalts2,clemnt,aglna2,phatm2,tocka,oxi,pallas}.js`(등록 `kits/index.js OPERATOR_KIT_FILES`).
+  (2026-11-01)」·「선발 추가 탈룰라 (2026-11-01)」, 2026-11-02부터 팔라스·헬라그 — 아래 「선발 추가 팔라스 (2026-11-02)」·「선발 추가 헬라그 (2026-11-02)」) — `tools/build-data.mjs`가 이것으로 `diy.ownedPool`을 만들고, `server/lobby.js`가 다른 픽을 거부한다.
+  키트는 `server/sim/content/kits/ops/op-{wang,chen3,wisdel,oblvns,ascln,kalts2,clemnt,aglna2,phatm2,tocka,oxi,pallas,helage}.js`(등록 `kits/index.js OPERATOR_KIT_FILES`).
   틀의 자세한 규칙은 `server/sim/content/kits/README.md`, 병합 경위는 `upstream.md` 「0.2.0 병합」.
 - 0.2.0 전(2026-10-05 ~ 10-07)에는 전용 데이터·풀·UI를 직접 만들었다. 그 구현은 지웠고, 그때 정한 키트 동작과 관리자 결정은 `op-*.js`로 옮겨져 아래에 남는다.
 - 키트:
@@ -687,6 +687,33 @@
 - 이펙트·공격 타이밍·투사체·스킬 시전 데이터: EN 클라에서 뽑음(2026-11-02, `tools/local-extract/add_operator.py --id char_485_pallas`). 화면 확인 전.
 - 테스트: `test/content/op_pallas.test.js`(10 — 모든 폼, 세 스킬, 두 재능, 특성, 두 모듈, 실제 매치 경로 하나), 선발 수를 세는 테스트 11 → 12명, golden
   `diy-015`(그녀의 5티어 일반 칸이 함께 실림)·`diy-016`·`diy-017`(새 시나리오), 다른 가족 변화 없음.
+
+## 선발 추가 헬라그 (2026-11-02, 관리자 결정)
+- 관리자 결정 2026-11-02: 선발에 헬라그(赫拉格 `char_188_helage`, 6성 가드 솔로블레이드)를 넣는다(`LOCAL_DIY_PICKS` 끝). 팔라스에 이어 다음 위수협의 시즌에
+  나올 오퍼레이터를 upstream 선발 키트로 미리 넣는 둘째이고, 지금 시즌 선발에도 공개한다. 한국 서버에 있어 이름·문구는 KR 공식 표 그대로(헬라그 · 솔로블레이드 ·
+  초승달 · 그믐달 · 보름달, 재능 달이 차면 별이 진다 · 운주유악, 모듈 '드러내지 않은 칼'(SBL-X) · '뜨거운 눈'(SBL-Y); `tools/i18n/build-ko-diy.mjs`).
+- 데이터: CN 표 그대로. 모듈 둘, 소환물 없음. 맹약: 소속 태그는 우르수스(`powers`)인데 이번 시즌 우르수스 핵심 맹약이 없어 협방(`emptyShip`).
+- 키트·테스트: upstream 순서형 피해 판정 커널 직전 판(`9a3a12ee9^`)의 `op-helage.js`·`test/content/op_helage.test.js`. 그 뒤 upstream이 두 파일을 바꾼 커밋은
+  없다. 바꾼 것:
+  - S3 자동 발동은 `sim.md` 「스킬 범위 발동」: S3 레벨에 rangeId가 없어 공격·저지 상태일 때 켜진다. upstream 테스트의 `ACTIVE_RANGE` 단언(늘어난 범위에만
+    적이 있어도 켜짐)을 `DEFAULT` + `triggerGrid` 없음으로 고치고, 늘어난 칸에만 적이 있으면 켜지지 않음을 확인한다.
+  - S1·S2의 둘째 타격: upstream은 두 타격을 한 순간에 넣었다. 공식 클라에서 둘 다 `MultiMeleeAttack`(S1 `skchr_helage_1`, S2 모드의 공격)이고
+    `_additionalTimes` 1·`_waitAttackEventForAllAttacks` 켜짐, 클립에 OnAttack 이벤트가 둘씩 있다(`Skill` 0.567·0.7초, `Skill_2` 0.6·0.667초) → 둘째
+    타격을 둘째 이벤트 때(S1 0.133초, S2 0.067초 뒤) 같은 공격(`attackId`)으로, 그때 대상이 살아 있고 그가 행동할 수 있을 때만 넣는다(팔라스 S1과 같은 틀)
+    [추정·미조사: 플래그는 이름과 클립의 이벤트 수로 읽음 — 플래그를 읽는 코드는 안 읽음].
+  - 재능 2 운주유악의 회복은 공식 클라에서 확인: 재능 2가 `ToggleablePassiveBuffAbility`, 검사기 `BlockedToggleChecker`(저지 수 0~0일 때 켜짐 — `_CheckCondition`
+    `LoadData`), 버프 `helage_t_2[a]` 하나가 블랙보드 값으로 속성 `HP_RECOVERY_PER_SEC`(13)를 올린다 → 치료가 아니라 생명 회복 속도(`SIM.md` §4). upstream의
+    [ASSUMED]를 지움.
+  - SBL-Y 3단계 「적을 저지하지 않거나 HP 30% 미만일 때」: 둘이 동시에 성립해도 90/초 한 번 [추정·미조사: 이 부분은 모듈이 더하는 재능 index 2(프리팹 키 `10`)인데
+    그 프리팹이 그의 charpack에도 장비 프리팹(`[uc]equips` `uniequip_003_helage` — `BattleUniEquipSetting` 이펙트만)에도 없어 `helage_t_2[a]`와 같은 버프
+    키인지 못 봄].
+  - 화면용: S2 버프의 공식 이펙트 `common_ignite_attack`(공용 번들, `overrideEffectKey`)을 그의 이펙트 묶음에 넣음(`fx_extract.py --pack`). S2와 S3는 공식에서 같은 버프
+    키 `helage_s_2`를 쓰고 이펙트만 다르다(S3 `helage_skill_03_buff`).
+- 이펙트·공격 타이밍·투사체·스킬 시전 데이터: EN 클라에서 뽑음(2026-11-02, `tools/local-extract/add_operator.py --id char_188_helage`). SBL-Y 「쓰러지지 않음」의
+  공식 이펙트(`helage_trait_e[heal]` → `uniequip_002_musha_02`)와 모듈 장비 이펙트(`equipment_system_musha_buff_x`·`_y`)는 그리지 않는다(키트의 `undying`
+  사건을 그리는 곳이 없음). 화면 확인 전.
+- 테스트: `test/content/op_helage.test.js`(11 — 모든 폼, 세 스킬, 두 재능, 특성, 두 모듈, 실제 매치 경로 하나), 선발 수를 세는 테스트 12 → 13명, golden
+  `diy-017`(그의 5티어 칸이 함께 실림)·`diy-018`·`diy-019`(새 시나리오), 다른 가족 변화 없음.
 
 ## 안젤리나 더 멜로우 위시 S3 이동 · 「이따 봐!」 표식 (2026-10-11, 관리자 제보)
 - 제보 2건: ① S3로 공중 적에게 갈 때 처음 칸에 남는 「이따 봐!」(“一会儿见！”)가 대체 마름모로 보임, ② 공식은 공중 적에게 **직접 날아가는데** 우리는 그 칸에

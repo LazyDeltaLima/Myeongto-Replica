@@ -72,7 +72,10 @@ const VERDICT = {
   split: { mlyss: ['standIn', 'sent by the 流形 token (summons)'] },
   sword: { qiubai: ['skill', 2] },
   truesilver: { svrash: ['skill', 3] },
-  undying: { nearl2: ['none', 'module 骑士家族 nearl2_e_003_tr creates no effect (nearl2_buff_01_start is S3 combo_effect)'] },
+  undying: {
+    nearl2: ['none', 'module 骑士家族 nearl2_e_003_tr creates no effect (nearl2_buff_01_start is S3 combo_effect)'],
+    helage: ['pending', 'module SBL-Y helage_trait_e[heal] creates uniequip_002_musha_02 on the revive: not extracted yet'],
+  },
   wake: { glady: ['skill', 2] },
 };
 
