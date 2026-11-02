@@ -804,6 +804,24 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   아직 대조 안 함(템플릿 목록은 `autochess_templates_summary.tsv`, 조사 노트): 적 디버프(`act1autochess_debuff_*` 일부), 不屈 3명 SP(`AutochessCreateBuffToSpecifiedChar _filterByMinSp`·`_excludeOwner` — 자기 빼고 SP 가장 낮은 한 명일 수 있음, 미확정). act2 맹약·이 시즌 장비는 아래 「act2 맹약·장비 템플릿 대조」.
 
 
+## 저지된 적의 자리 (2026-11-02, 공식 클라에서 확인)
+출처: 공식 클라(EN 판) `Character._AddBlockee` → `BlockBalancer.CalculateBlockOffset` → `Enemy.RegisterBlocker` → `Enemy._MoveToBlockPosition`.
+코드 `server/sim/battle/blocking.js` `blockOffset`·`_moveToBlockPosition`·`_tickBlockMove`, 상수 `constants.js` `BLOCK_MIN_DIST`·`BLOCK_MOVE_TIME`.
+- **자리**: 막힌 적은 저지자 중심에서 닿을 때의 offset(적 위치 − 저지자 위치) 그대로 붙잡힌다 — 다가온 쪽에 남고 저지자 앞으로 끌려오지 않는다.
+  offset이 0.5(`Character.minBlockDistToTarget`, 이 모드의 저지자 전부 — 장치도 `Trap` → `Token` → `Character`라 같음)보다 짧으면 같은 방향으로 0.5까지
+  늘인다(정확히 중심이면 영벡터라 그 자리). 걸어와 닿은 적(접촉 ≈ 0.71)은 움직이지 않는다. 0.5까지 밀려나는 경우: 적 위에 배치·재배치·기습 착지,
+  기절·빙결로 멈춘 적 옆에 놓음, 장치 저지(반경 0.4472). 0.5는 칸 경계라 그 적의 칸·사거리·스플래시·기습 `1-1` 상자가 바뀐다.
+- **둘 이상 막을 때**: 새 자리가 그 저지자가 이미 막은 적 하나와 0.1 안(거리² < 0.01)이면, 막은 적마다 거리 d < 0.1 → (그 적 − 저지자)에 수직인 단위
+  벡터, 0.1 ≤ d < 0.4 → 그 적에서 멀어지는 단위 벡터 × (0.4 − d) × 50을 더해 정규화하고, offset 방향 + 0.2 × 그것의 방향으로 꺾는다(길이는 그대로).
+  막은 적의 자리는 `Enemy.stableBlockPosition` = 미끄러지는 중이면 그 목표, 아니면 지금 위치. 한 길로 차례로 걸어오는 적은 같은 접촉점에 닿으므로
+  둘째부터는 늘 이렇게 꺾인다(같은 칸에서 옆으로 약 0.19칸).
+- **옮김**: 지금 위치에서 목표로 0.2초 동안 직선 보간(`BattleTweenMgr`, 감속 없음). 저지가 풀려도 클라의 트윈은 멈추지 않는다(`Enemy.UnregisterBlocker`는
+  저지자만 비움). 우리는 미끄러지는 동안 다른 것이 적을 옮기면(밀기·당기기·재배치·풀린 뒤 제 걸음) 그 자리에서 끝낸다
+  **[추정·미조사: `m_blockTween`을 일찍 끝내는 클라 동작을 아직 확인 안 함]**.
+- 풀릴 때 남은 적의 자리는 다시 계산하지 않는다(공식도 같음).
+- 바뀐 것: 전에는 닿은 그 자리에 바로 두었다(0.5 미만이어도, 여럿이 겹쳐도). golden 이동은 커밋 메시지.
+- 테스트 `test/sim/block-position.test.js`(offset 계산, 걸어온 적 그대로, 0.5까지 0.2초 직선, 같은 자리 둘 분리, 미끄러지는 중 밀기, 실제 대전 경로에서 마터호른(`chess_char_1_02_a`) 칸 위 원석충 둘), 옛 위치를 가정하던 시험 5개(`playtest5_blocking`·`feedback5-frozen-reblock`·`combat`·`feedback1d-push`·`feedback4-sleep-unblock`)를 새 자리에 맞춤.
+
 ## 盟约·특질·장비·생성기 2라운드 (2026-10-11, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 그래프와 공식 클라(EN 판; 레포에는 클래스·메서드 이름만). 핫픽스(DefinedFix.lua en/zh)에 아래 클래스 없음.
 이때 관리자 결정이 필요했던 세 가지(阿戈尔 吞噬가 팀원 오퍼를 먹는가, 특질 `attrByBond`의 배치 때 고정, 桑葚 미러 판 「가장 오른쪽」)는 관리자 결정 2026-10-11로 정했다(아래 「阿戈尔 吞噬 팀원」·「特质 attrByBond」·「桑葚」).

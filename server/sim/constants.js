@@ -61,6 +61,14 @@ export const ENEMY_COLLIDER_RADIUS = 0.1;
 export const BLOCK_RADIUS = Object.freeze({ ground: 0.70709997, fly: 0.8944, device: 0.4472 });
 export const BLOCK_RADIUS_SQ = Object.freeze({ ground: 0.49999037, fly: 0.79995137, device: 0.4472 * 0.4472 });
 /**
+ * Where a newly blocked enemy is put (official client, BlockBalancer.CalculateBlockOffset → Enemy._MoveToBlockPosition;
+ * Battle._checkBlock): it keeps its offset from the blocker, lengthened to BLOCK_MIN_DIST (Character.minBlockDistToTarget
+ * — every blocker of this mode, devices included: they are Trap → Token → Character) and turned a little away from the
+ * blocker's other enemies, and slides there linearly over BLOCK_MOVE_TIME s (BattleTweenMgr, no ease).
+ */
+export const BLOCK_MIN_DIST = 0.5;
+export const BLOCK_MOVE_TIME = 0.2;
+/**
  * An enemy's 隐匿 after a block ends (s): PRTS 作战机制 §隐匿 "对于绝大部分可隐匿的敌人而言，在被我方单位阻挡后会解除隐匿，不被
  * 阻挡的3秒后重新进入隐匿" / §隐匿与Buff的关系 "阻挡状态解除后3s开关重新被开启而恢复隐匿". An enemy page's "（解除阻挡N秒后
  * 恢复）" overrides it per 隐匿 source (buff `data.stealthRestore`: content/enemies/helpers.js STEALTH_RESTORE_BY_KEY). Battle._stealthSwitch; our

@@ -936,8 +936,9 @@ export function updateEnemy(b, e, dt) {
   // (battle/status.js) releases it at once, this catches a sleep added as a plain buff (`flags.sleep` makes it `stun` too,
   // units.js) — and it stays where it is until it wakes (DESIGN §24.9). 晕眩 / 冻结 hold no 不可阻挡 (PRTS 异常效果: the
   // STUN / FROZEN state machines stop the enemy's moves and attacks, not its being blocked; 术语释义 冻结 names no block):
-  // it is still blocked by contact where it stands, like a standing enemy — an operator redeployed or deployed onto it,
-  // another one taking it over or one whose capacity frees up blocks it, and the block lifts its 隐匿 (GitHub #232; until
+  // it is still blocked by contact, like a standing enemy — an operator redeployed or deployed onto it (which slides it
+  // out to 0.5: Battle._checkBlock), another one taking it over or one whose capacity frees up blocks it, and the block
+  // lifts its 隐匿 (GitHub #232; until
   // 0.2.0 the check waited for the status to end). The contact rule of a moving enemy (Battle._checkBlock, which still
   // refuses 沉睡 / 浮空 / 恐惧 / 不可阻挡): one stunned short of its blocker is blocked once it walks into contact
   if (stunned && !e.hidden) {

@@ -123,9 +123,12 @@ for (const status of ['bind', 'stun', 'freeze']) {
     h.b.loseHp(A(), 1e12);
     h.step(2);
     assert.ok(!A().alive, 'A falls: the slot frees');
-    assert.equal(b.blockedBy, u, `B is blocked where it stands (${status})`);
+    assert.equal(b.blockedBy, u, `B is blocked (${status})`);
     assert.ok(b.findBuff(status), `the ${status} goes on`);
-    assert.equal(b.x, x, 'it never moved');
+    // it was 0.2 from the blocker's centre: held at the minimum block distance 0.5 on its own side, held or not
+    // (BlockBalancer.CalculateBlockOffset — the client's slide is a tween, not a move of the enemy's own)
+    h.run(0.3);
+    assert.ok(Math.abs(dist(b, u) - 0.5) < 1e-9 && b.x > x && b.y === u.tileR, `held at 0.5 (${dist(b, u)})`);
     checkInvariants(h.b);
   });
 }

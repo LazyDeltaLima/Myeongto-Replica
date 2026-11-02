@@ -280,8 +280,11 @@ blocked again only by a blocker with room, else it walks on — DESIGN §24.9). 
 unblocked enemy, moving or not: an enemy that overlaps an operator when its blocker dies / is withdrawn / is stunned, or when the operator's
 blocked enemy dies, is taken over at once; an enemy that finds no room walks on (pass-through). A stunned or frozen
 enemy is checked too — 晕眩 / 冻结 hold no 不可阻挡 (PRTS 异常效果: the STUN / FROZEN state machines stop its moves and
-attacks) —, so an operator redeployed beside a held enemy blocks it where it stands and lifts its 隐匿; one held short of
+attacks) —, so an operator redeployed beside a held enemy blocks it and lifts its 隐匿; one held short of
 contact is blocked once it walks in after the status (GitHub #232; until 0.2.0 the check waited for the status to end).
+A newly blocked enemy keeps its offset from the blocker, lengthened to 0.5 and turned a little off the blocker's other
+enemies when it would land within 0.1 of one, and slides there over 0.2 s (official `BlockBalancer.CalculateBlockOffset`,
+`Enemy._MoveToBlockPosition`; `blockOffset`, docs/rules/sim.md 「저지된 적의 자리」): one walking into contact is not moved.
 Several blockers in contact → the nearest [ASSUMED]. A head-on enemy therefore stops at contact, ~0.71 tile from the blocker's centre, on the
 tile in front of it (PRTS 作战机制: a blocked enemy's collider does not enter the blocker's tile; the official few
 hundredths of a tile of deceleration are not modelled; the exception is 假想敌：淤困, which on attaching blinks onto its

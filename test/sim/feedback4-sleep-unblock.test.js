@@ -137,7 +137,9 @@ test('#140: 瑕光 S2 puts the 3 enemies she blocks to sleep and still blocks th
   u.skill.gainSp(u.skill.spCost * u.skill.maxCharges + 1, 'test');
   assert.ok(h.runUntil(() => u.skill.active, 5), 'S2 cast');
   h.step();
-  const pos = new Map(xs().map((e) => [e, e.x]));
+  // (one blocked a moment ago may still be sliding to its block position: the slide runs on after the release, as the
+  // client's tween does — Battle._moveToBlockPosition)
+  const pos = new Map(xs().map((e) => [e, e.blockMove ? e.blockMove.x1 : e.x]));
   assert.ok(xs().every((e) => e.s.flags.sleep && !e.blockedBy), 'the three sleep and are let go');
   assert.equal(u.blocking.length, 0, 'all three slots free');
   // the next three walk in during S2 and are blocked

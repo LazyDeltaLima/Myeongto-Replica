@@ -115,6 +115,7 @@ export class BattleLifecycle {
         for (let i = 0, n = list.length; i < n && !this._endReq; i++) {
           const e = list[i];
           if (!e.alive) continue;
+          if (e.blockMove) this._tickBlockMove(e, dt);
           try { updateEnemy(this, e, dt); } catch (err) { this._internalError('updateEnemy', err); }
           this._clampPos(e);
         }

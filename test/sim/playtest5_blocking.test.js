@@ -55,7 +55,9 @@ test('#4: the enemy between two operators is taken over by the front one when it
   assert.equal(e().blockedBy, front, 'the front operator takes E over');
   h.run(5);
   assert.equal(e().blockedBy, front);
-  assert.ok(Math.abs(e().x - ex) < 1e-6, 'E did not walk on');
+  // E was 0.29 from the front operator: it is held at the minimum block distance 0.5, on the side it stood
+  // (BlockBalancer.CalculateBlockOffset; test/sim/block-position.test.js), and did not walk on
+  assert.ok(ex > 5.5 && Math.abs(e().x - 5.5) < 1e-6 && Math.abs(e().y - 9) < 1e-6, `E held at 0.5 (x=${e().x})`);
   checkInvariants(h.b);
 });
 

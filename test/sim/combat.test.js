@@ -359,8 +359,9 @@ test('statuses (official terms): tremble only stops attacks while blocked; fear 
   assert.ok(Math.abs(e.x - tc) <= 0.5 && Math.round(e.x) === Math.round(x0), `stays on its tile (${x0} → ${e.x})`);
   assert.equal(e.blockedBy, null);
   assert.equal(e.stats.attacks, a1);
+  const xf = e.x;
   h.run(0.5);
-  assert.ok(e.blockedBy === u || e.x < x0, 'walks / is blocked again after the fear');
+  assert.ok(e.blockedBy === u || e.x < xf, 'walks / is blocked again after the fear');
 });
 
 test('statuses: sleep = invulnerable except `hitSleep` attackers; levitate halves on heavy units; frozen RES cut only on enemies', () => {

@@ -2,8 +2,62 @@
 // 起飞), the blocked targets of a blocker, block release and the 隐匿 switch-off after a block ends.
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
-import { ROWS, COLS, BLOCK_RADIUS_SQ, STEALTH_RESTORE } from '../constants.js';
+import { ROWS, COLS, BLOCK_RADIUS_SQ, BLOCK_MIN_DIST, BLOCK_MOVE_TIME, STEALTH_RESTORE } from '../constants.js';
 import { canTargetEnemy, stealthOffKey } from '../targeting.js';
+import { hypot } from '../detmath.js';
+
+// BlockBalancer: a new enemy within 0.1 of an enemy its blocker already holds (squared 0.01) is turned away from them —
+// each held enemy within 0.4 (squared 0.16) pushes by (0.4 − d) × 50, one within 0.1 sideways — by 0.2 of the sum's direction
+const MIN_DIST_BTW_BLOCKEES_SQR = 0.010000001;
+const CLOSE_DIST_BTW_BLOCKEES_SQR = 0.16000001;
+const MERGE_FACTOR_OF_SEPARATION = 0.2;
+
+/** Unity's Vector2.normalized: the zero vector below a length of 1e-5. */
+function normalized(x, y) {
+  const l = hypot(x, y);
+  return l > 1e-5 ? { x: x / l, y: y / l } : { x: 0, y: 0 };
+}
+
+/** Enemy.stableBlockPosition: where a held enemy is going while its block slide runs, else where it stands. */
+function stableBlockPosition(x) {
+  const m = x.blockMove;
+  return m ? { x: m.x1, y: m.y1 } : { x: x.x, y: x.y };
+}
+
+/**
+ * BlockBalancer.CalculateBlockOffset: the offset from the blocker's centre (bx, by) at which enemy `e` is held, given the
+ * enemies the blocker already holds (`held`, before `e` is added).
+ */
+export function blockOffset(held, e, bx, by) {
+  let ox = e.x - bx, oy = e.y - by;
+  if (ox * ox + oy * oy < BLOCK_MIN_DIST * BLOCK_MIN_DIST) {
+    const n = normalized(ox, oy);   // (an enemy exactly on the centre stays there: the zero vector)
+    ox = n.x * BLOCK_MIN_DIST; oy = n.y * BLOCK_MIN_DIST;
+  }
+  const px = bx + ox, py = by + oy;
+  if (!held.some((h) => {
+    const p = stableBlockPosition(h), dx = px - p.x, dy = py - p.y;
+    return dx * dx + dy * dy < MIN_DIST_BTW_BLOCKEES_SQR;
+  })) {
+    return { x: ox, y: oy };
+  }
+  let sx = 0, sy = 0;
+  for (const h of held) {
+    const p = stableBlockPosition(h);
+    const dx = px - p.x, dy = py - p.y, d2 = dx * dx + dy * dy;
+    if (d2 < MIN_DIST_BTW_BLOCKEES_SQR) {
+      const n = normalized(p.y - by, -(p.x - bx));   // perpendicular to that enemy's own offset
+      sx += n.x; sy += n.y;
+    } else if (d2 < CLOSE_DIST_BTW_BLOCKEES_SQR) {
+      const n = normalized(dx, dy), k = (0.4 - Math.sqrt(d2)) * 50;
+      sx += n.x * k; sy += n.y * k;
+    }
+  }
+  const s = normalized(sx, sy);
+  const dir = normalized(ox + s.x * MERGE_FACTOR_OF_SEPARATION, oy + s.y * MERGE_FACTOR_OF_SEPARATION);
+  const len = hypot(ox, oy);
+  return { x: dir.x * len, y: dir.y * len };
+}
 
 export class BattleBlocking {
   /**
@@ -22,6 +76,10 @@ export class BattleBlocking {
    * Never blocked: an enemy holding 不可阻挡 (PRTS 异常效果 BLOCK_FREE 「无法阻挡/被阻挡，自动解除阻挡」) — the flag itself
    * (恐惧 / 诱导 carry it), 浮空, and 沉睡 (SLEEPING = 无法行动+无敌+不可阻挡: a sleeper takes no block slot, DESIGN §24.9);
    * once it wakes it is blocked again only by a blocker with room.
+   * The blocked enemy keeps the side it came from: it slides to the blocker's centre plus its offset at contact,
+   * lengthened to 0.5 and turned off the blocker's other enemies (blockOffset, _moveToBlockPosition; official client
+   * Character._AddBlockee → BlockBalancer.CalculateBlockOffset → Enemy.RegisterBlocker) — an enemy blocked by contact
+   * while walking in is already ≈ 0.71 away and stays put; one an operator lands or is deployed on is pushed out.
    */
   _checkBlock(e) {
     if (e.blockedBy || e.hidden || !e.alive) return !!e.blockedBy;
@@ -29,7 +87,7 @@ export class BattleBlocking {
     if (f.unblockable || f.levitate || f.fear || f.sleep) return false;
     const r0 = Math.round(e.y), c0 = Math.round(e.x);
     const w = e.blockWeight ?? 1;
-    let u = null, bd = Infinity;
+    let u = null, bd = Infinity, ur = 0, uc = 0;
     const fly = e.isFlying;
     for (let r = r0 - 1; r <= r0 + 1; r++) {
       if (r < 0 || r >= ROWS) continue;
@@ -41,15 +99,45 @@ export class BattleBlocking {
         const d2 = (e.x - c) * (e.x - c) + (e.y - r) * (e.y - r);
         const k = fly ? 1 + (o.s.blockRadiusScale || 0) : 1;
         const r2 = o.kind === 'device' ? BLOCK_RADIUS_SQ.device : fly ? BLOCK_RADIUS_SQ.fly * k * k : BLOCK_RADIUS_SQ.ground;
-        if (d2 < r2 && d2 < bd) { u = o; bd = d2; }
+        if (d2 < r2 && d2 < bd) { u = o; bd = d2; ur = r; uc = c; }
       }
     }
     if (!u) return false;
+    const off = blockOffset(u.blocking.filter((x) => x.blockedBy === u), e, uc, ur);
     e.blockedBy = u;
     u.blocking.push(e);
     e.moving = false;
+    this._moveToBlockPosition(e, uc + off.x, ur + off.y);
     if (this._hooks.blocked) this.emit('blocked', { blocker: u, enemy: e });
     return true;
+  }
+
+  /**
+   * Enemy._MoveToBlockPosition: slide enemy `e` from where it stands to (x, y) over BLOCK_MOVE_TIME s, linearly
+   * (_tickBlockMove). The client's tween is not stopped when the block ends (Enemy.UnregisterBlocker only clears the
+   * blocker) — it runs on after a release too.
+   */
+  _moveToBlockPosition(e, x, y) {
+    if (x === e.x && y === e.y) { e.blockMove = null; return; }
+    e.blockMove = { x0: e.x, y0: e.y, x1: x, y1: y, t: 0, px: e.x, py: e.y };
+  }
+
+  /**
+   * One tick of enemy `e`'s block slide (before its own update, the enemy loop of battle/lifecycle.js). Anything else that
+   * moved it since the last step — a push / pull, a relocation, its own walk after a release — or its leaving the field
+   * ends the slide where it stands [ASSUMED·미조사: what ends the client's `m_blockTween` early is not checked yet].
+   */
+  _tickBlockMove(e, dt) {
+    const m = e.blockMove;
+    if (!m) return;
+    if (e.hidden || e.x !== m.px || e.y !== m.py) { e.blockMove = null; return; }
+    m.t += dt;
+    const k = m.t >= BLOCK_MOVE_TIME - 1e-9 ? 1 : m.t / BLOCK_MOVE_TIME;
+    e.x = m.x0 + (m.x1 - m.x0) * k;
+    e.y = m.y0 + (m.y1 - m.y0) * k;
+    if (e.route) e.route.pts = null;   // a walk after a release re-plans from where it now stands
+    if (k >= 1) e.blockMove = null;
+    else { m.px = e.x; m.py = e.y; }
   }
 
   /**
