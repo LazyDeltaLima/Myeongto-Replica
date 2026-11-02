@@ -10,7 +10,8 @@
 //     { mode: 'coop', size: 8 } (or room.setSize, below) makes a co-op room of 8 seats (room.state `size`; every other room is 4). It holds humans
 //     only — room.addBot is refused (ROOM_FULL) and a handed-over AI seat is dropped — and room.start needs at least
 //     LARGE_MIN_PLAYERS (5) Doctors seated (SEATS_OPEN; maintainer decision 2026-11-01, until then all eight), connected and
-//     ready like any start. Local debug mode (server/local-patch.js largeBots) lets AI seats count toward it for testing
+//     ready like any start. The new match of a passed vote (the briefing's reroll, the in-match restart) needs them too:
+//     short of five — someone left the match — the room goes back to LOBBY instead (maintainer decision 2026-11-02). Local debug mode (server/local-patch.js largeBots) lets AI seats count toward it for testing
 //     (room.state `largeBots`). The match gets `size` 8 and its seats (its numbers: config.eightPlayer, scaled by the head
 //     count — server/match/gamedata.js largeAt).
 //   * ▸ Being in a LOBBY room and sending room.create / room.join implicitly leaves it. While your room is
@@ -289,6 +290,17 @@ export class Room {
 
   /** Humans that have not departed, in seat order. @returns {Seat[]} */
   activeHumans() { return this.seats.filter((s) => s && !s.isBot && !s.left); }
+
+  /**
+   * An 8-seat room that may not start yet: fewer than LARGE_MIN_PLAYERS Doctors, or an AI seat (header; local debug
+   * mode: AI seats count toward the five — server/local-patch.js largeBots). room.start, and the new match of a vote.
+   */
+  seatsOpen() {
+    if (this.size <= MAX_SEATS) return false;
+    const humans = this.activeHumans().length;
+    const bots = this.seats.filter((s) => s && s.isBot).length;
+    return localPatch.largeBots() ? humans + bots < LARGE_MIN_PLAYERS : humans < LARGE_MIN_PLAYERS || bots > 0;
+  }
 
   /** `room.state` frame (DESIGN §8.1) plus `inMatch`. */
   toState() {
@@ -789,9 +801,7 @@ export class Lobby {
       return fail(ERR.BAD_MSG, 'invalid seat configuration');
     }
     // the 8-player mode starts with LARGE_MIN_PLAYERS Doctors or more (header)
-    // (local debug mode: AI seats count — server/local-patch.js largeBots)
-    const enough = localPatch.largeBots() ? humans.length + bots.length >= LARGE_MIN_PLAYERS : humans.length >= LARGE_MIN_PLAYERS && bots.length === 0;
-    if (room.size > MAX_SEATS && !enough) return fail(ERR.SEATS_OPEN, `${humans.length}/${LARGE_MIN_PLAYERS}+ Doctors`);
+    if (room.seatsOpen()) return fail(ERR.SEATS_OPEN, `${humans.length}/${LARGE_MIN_PLAYERS}+ Doctors`);
     const key = session.limitKey || null;
     if (key && this.opts.maxMatchesPerAddr > 0 && this.countRooms((r) => !!r.match && r.matchKey === key) >= this.opts.maxMatchesPerAddr) {
       this.limitWarn(`match limit (${this.opts.maxMatchesPerAddr}) reached for ${session.addr}`);
@@ -970,7 +980,8 @@ export class Lobby {
    * (Match phases.js maybeEndInfo) ends a match before its first round with reason 'reroll', the in-match 重新开始 vote
    * (Match restart.js) any time after with reason 'restart' — a new match with a new seed starts at once, without
    * room.start's ready check (the vote was the agreement; back to the room only when the restart countdown refuses new
-   * matches); neither was settled, so no lastSummary ([stats] line) and no replay (a restarted match is the page's
+   * matches, or when an 8-seat room is left with fewer than LARGE_MIN_PLAYERS Doctors because someone left the match —
+   * Room.seatsOpen, maintainer decision 2026-11-02); neither was settled, so no lastSummary ([stats] line) and no replay (a restarted match is the page's
    * 中途退出 record, public/js/main.js). The chat factions are cleared either way (players pick
    * one after seeing the banned bonds, maintainer 2026-10-09).
    */
@@ -1001,7 +1012,10 @@ export class Lobby {
     const host = room.hostId ? room.seatOf(room.hostId) : null;
     if (!host || host.isBot || host.left) this.migrateHost(room);
     if (room.activeHumans().length === 0) this.disposeRoom(room, 'empty');
-    else if (vote && !this.restartNotice?.startRefusal()) {
+    else if (vote && room.seatsOpen()) {
+      this.log.info(`[lobby] ${room.code} back to the room: ${room.activeHumans().length}/${LARGE_MIN_PLAYERS}+ Doctors for an 8-seat match`);
+      this.broadcastState(room);
+    } else if (vote && !this.restartNotice?.startRefusal()) {
       // the old match goes now: the new one may reuse nothing of it (startMatch broadcasts the room.state)
       this.disposeMatchCtx(ctx);
       this.startMatch(room, key);

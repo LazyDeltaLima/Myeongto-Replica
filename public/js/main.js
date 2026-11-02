@@ -45,7 +45,7 @@ import { SIM_DATA_FILES } from './battle/runner.js';
 import { preloadMatchCode } from './preload.js';
 import { TitleScreen, sanitizeName } from './screens/title.js';
 import { LobbyScreen, rememberRoom, parseRoomParam } from './screens/lobby.js';
-import { RoomScreen } from './screens/room.js';
+import { RoomScreen, roomFacts } from './screens/room.js';
 import { GameScreen } from './screens/game.js';
 import { audio, installAudio } from './audio.js';
 import { settingsStore } from './ui/settings.js';
@@ -229,10 +229,10 @@ function onRoomState(msg) {
     if (outcome === 'reroll' && room.mode === 'coop') toast(t('已重新抽取本局信息'), 'info');
     if (outcome === 'restart' && room.mode === 'coop') toast(t('全员同意，从头开始'), 'success');
   } else if (!room.inMatch && outcome) {
-    // a reroll the server could not start (the deploy's restart countdown): straight back to the room (there is no
-    // result to show)
+    // a reroll the server could not start (the deploy's restart countdown, or an 8-seat room left with fewer than five
+    // Doctors — server/lobby.js Room.seatsOpen): straight back to the room (there is no result to show)
     store.set({ match: emptyMatch() });
-    toast(t('无法开始新的模拟，已返回等待室'), 'warn', { ttl: 6000 });
+    toast(roomFacts(room, myId).seatsOpen ? t('八人同盟需至少 5 名博士才能开始，已返回等待室') : t('无法开始新的模拟，已返回等待室'), 'warn', { ttl: 6000 });
   }
   store.set({ room });
   identity.rememberMatch(room.inMatch && seats.some((seat) => seat?.playerId === myId)

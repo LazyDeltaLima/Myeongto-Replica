@@ -69,4 +69,42 @@ describe('in-match restart vote', () => {
     assert.equal(room.lastSummary, null);
     assert.equal(stats.length, 0);
   });
+
+  test('8 seats: the new match needs five Doctors too — with four left the room goes back to the waiting room', async () => {
+    const ps = [];
+    for (let i = 0; i < 6; i++) ps.push(await player(`E${i + 1}`));
+    const [host] = ps;
+    await ok(host, { t: 'room.create', mode: 'coop', difficulty: 'NORMAL', ruleset: 'classic', size: 8 });
+    const st = await host.waitFor('room.state', (s) => s.hostId === host.id, W);
+    for (const c of ps.slice(1)) {
+      await ok(c, { t: 'room.join', code: st.code });
+      await ok(c, { t: 'room.ready', ready: true });
+    }
+    await host.waitFor('room.state', (s) => s.seats.filter((x) => x?.ready).length === 5, W);
+    await ok(host, { t: 'room.start' });
+    await briefing(host);
+    const room = srv.lobby.getRoom(st.code);
+    const restart = async (left) => {
+      room.match.phase = PHASE.PREP; // (the phase gate only)
+      await ok(host, { t: 'g.restart', op: 'propose' });
+      for (const c of left.slice(1)) {
+        await c.waitFor('m.public', (p) => p.restartVote?.by === host.id, W);
+        await ok(c, { t: 'g.restart', op: 'yes' });
+      }
+      await host.waitFor('m.public', (p) => p.restarted === true, W);
+    };
+    // one leaves: five stay, the vote starts the new match
+    await ok(ps[5], { t: 'room.leave' });
+    await restart(ps.slice(0, 5));
+    await host.waitFor('room.state', (s) => s.inMatch && s.matchNo === 2, W);
+    await briefing(host);
+    // another leaves: four stay, the vote passes but the room goes back to the waiting room
+    await ok(ps[4], { t: 'room.leave' });
+    await restart(ps.slice(0, 4));
+    const back = await host.waitFor('room.state', (s) => !s.inMatch && s.matchNo === 2, W); // (the inbox still holds the pre-start states)
+    assert.equal(back.seats.filter(Boolean).length, 4);
+    assert.equal(room.match, null);
+    assert.equal(room.replay, null);
+    assert.equal(stats.length, 0);
+  });
 });
