@@ -11,7 +11,7 @@
 /** The 自选 picks offered and accepted, in the picker's order. */
 export const LOCAL_DIY_PICKS = Object.freeze(['char_2027_wang', 'char_1050_chen3', 'char_1035_wisdel', 'char_4182_oblvns', 'char_4132_ascln',
   'char_1052_kalts2', 'char_4231_clemnt', 'char_1015_aglna2', 'char_1042_phatm2',
-  'char_4244_tocka', 'char_4247_oxi']);
+  'char_4244_tocka', 'char_4247_oxi', 'char_485_pallas']);
 
 /** Whether `charId` may be picked for a 自选 slot here. @param {string} charId */
 export function isLocalDiyPick(charId) {

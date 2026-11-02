@@ -91,6 +91,7 @@ export const OPERATOR_KIT_FILES = Object.freeze([
   'op-phatm2.js',
   'op-tocka.js',
   'op-oxi.js',
+  'op-pallas.js',
 ]);
 
 /**

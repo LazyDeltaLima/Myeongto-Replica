@@ -231,6 +231,9 @@ export const KEY_FX = Object.freeze({
   'tocka:shield': keyedAll('tocka_s1[shield]', 'tocka', OWN),
   'tocka:auto': keyedAll('tocka_s2[auto_skill]', 'tocka', OWN),
   'tocka:bonus': keyedAll('tocka_s3[bonus]', 'tocka', OWN),
+  // 2026-11-02: 帕拉斯 S3 英勇的祝福's holder (the sim's 'pallas:blessing': the operator on the low-ground tile in front, else
+  // her) — pallas_s_3[peak] holds pallas_s_3[effect] (ON_BUFF_ENABLE, pallas_skill_03_buff_02) on it while it holds the buff
+  'pallas:blessing': keyed('pallas_s_3[effect]', 'pallas', OWN),
   // 塔露拉 S2's stacks (the sim's oxi_s_2_stack, refreshed by each cast): their buff's oxi_skill_02_buff_01 while they last
   oxi_s_2_stack: keyed('oxi_s_2_stack', 'oxi', OWN),
   'tocka:visit': cite(['tocka_s3[trigger_effect_a]', 'tocka_s3[trigger_effect_b]', 'tocka_s3[trigger_effect_c]'],

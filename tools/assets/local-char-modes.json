@@ -16219,6 +16219,113 @@
    }
   ]
  },
+ "char_485_pallas": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ],
+  "cast": [
+   [
+    "pallas_attack_01_start"
+   ],
+   [
+    "pallas_skill_02_range"
+   ],
+   [
+    "pallas_skill_03_range"
+   ]
+  ],
+  "hit": [
+   [
+    "pallas_attack_01_hit"
+   ],
+   [
+    "pallas_skill_02_hit"
+   ],
+   []
+  ],
+  "trail": [
+   [],
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "pallas_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "pallas_skill_02_range": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "pallas_skill_03_range": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "turn": [
+   "pallas_skill_03_range",
+   "pallas_skill_02_range",
+   "pallas_skill_01_range"
+  ],
+  "skillMode": [
+   null,
+   1,
+   2
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [
+     "pallas_attack_01_start",
+     "pallas_skill_01_range"
+    ],
+    "buff": [],
+    "target": [
+     "pallas_skill_01_hit"
+    ],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "pallas_skill_02_buff"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "pallas_skill_03_buff"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_491_humus": {
   "modes": [
    "Default",

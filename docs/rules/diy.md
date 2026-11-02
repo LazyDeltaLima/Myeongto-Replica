@@ -9,11 +9,11 @@
   정규 맹약이다 — `activity_table` `autoChessData.bondInfoDict`의 `isPower` 맹약 8개의 `powerIdList`에 叙拉古 [siracusa, chiave]·卡西米尔
   [kazimierz, pinus]가 있다(2026-10-10 대조, 그 전엔 「확장은 [추정]」; `tools/build-data.mjs buildBackups`가 이 표로 정함).
 - 지금 구현(0.2.0부터): upstream 「自选」 틀이 선발 칸·재고·상점·보상·밴을 맡는다(`server/match/player/diy.js initDiyStock`, `shared/diy.js`, 데이터
-  `data/backups.json` `diy`). 맹약이 전부 꺼진 픽은 그 판 재고가 없다(`m.private.diyBanned`). 이 포크는 후보를 구현·대조한 10명으로 줄인다:
+  `data/backups.json` `diy`). 맹약이 전부 꺼진 픽은 그 판 재고가 없다(`m.private.diyBanned`). 이 포크는 후보를 구현·대조한 12명으로 줄인다:
   `shared/local-diy.js LOCAL_DIY_PICKS`(왕·첸 더 던스트릭·위셔델·토가와 사키코·아스카론, 2026-10-11부터 켈시 에스페란타·클레멘티아·안젤리나 더 멜로우 위시 — 아래
   「선발 추가 3명 (2026-10-11)」, 2026-10-26부터 트라고디아 — 아래 「선발 추가 酒神 (2026-10-26)」, 2026-11-01부터 토스카·탈룰라 — 아래 「선발 추가 토스카
-  (2026-11-01)」·「선발 추가 탈룰라 (2026-11-01)」) — `tools/build-data.mjs`가 이것으로 `diy.ownedPool`을 만들고, `server/lobby.js`가 다른 픽을 거부한다.
-  키트는 `server/sim/content/kits/ops/op-{wang,chen3,wisdel,oblvns,ascln,kalts2,clemnt,aglna2,phatm2,tocka,oxi}.js`(등록 `kits/index.js OPERATOR_KIT_FILES`).
+  (2026-11-01)」·「선발 추가 탈룰라 (2026-11-01)」, 2026-11-02부터 팔라스 — 아래 「선발 추가 팔라스 (2026-11-02)」) — `tools/build-data.mjs`가 이것으로 `diy.ownedPool`을 만들고, `server/lobby.js`가 다른 픽을 거부한다.
+  키트는 `server/sim/content/kits/ops/op-{wang,chen3,wisdel,oblvns,ascln,kalts2,clemnt,aglna2,phatm2,tocka,oxi,pallas}.js`(등록 `kits/index.js OPERATOR_KIT_FILES`).
   틀의 자세한 규칙은 `server/sim/content/kits/README.md`, 병합 경위는 `upstream.md` 「0.2.0 병합」.
 - 0.2.0 전(2026-10-05 ~ 10-07)에는 전용 데이터·풀·UI를 직접 만들었다. 그 구현은 지웠고, 그때 정한 키트 동작과 관리자 결정은 `op-*.js`로 옮겨져 아래에 남는다.
 - 키트:
@@ -666,6 +666,27 @@
   `oxi_s_2_stack`)은 2026-11-01에 공식 이펙트로 이음(같은 절 「손으로 이은 것」).
 - 테스트: `test/content/op_oxi.test.js`(12: 모든 폼·잠재, 재능 둘, 세 스킬, 은신 적, 실제 경기 경로 S2), 선발 수를 세는 테스트 10 → 11명, golden
   `diy-014`(토스카 다음 칸들과 다시 묶임)·`diy-015`(새 시나리오). 화면·공식 화면 대조는 아직 — 관리자 노트의 열린 항목.
+
+## 선발 추가 팔라스 (2026-11-02, 관리자 결정)
+- 관리자 결정 2026-11-02: 선발에 팔라스(帕拉斯 `char_485_pallas`, 6성 가드 교관)를 넣는다(`LOCAL_DIY_PICKS` 끝). 다음 위수협의 시즌에 나올 오퍼레이터를
+  upstream 선발 키트로 미리 넣는 첫 시험이고, 지금 시즌 선발에도 공개한다. 한국 서버에 있어 이름·문구는 KR 공식 표 그대로(팔라스 · 교관 · 승리의 연타 ·
+  신념의 채찍 · 용감의 축복, 재능 영웅의 탄생 · 여신의 진작, 모듈 '고향의 바위'(INS-X) · '헬리아의 빛'(INS-Y); `tools/i18n/build-ko-diy.mjs`).
+- 데이터: CN 표 그대로. 모듈 둘, 소환물 없음. 맹약: 미노스는 이번 시즌 어느 핵심 맹약에도 없어 협방(`emptyShip`).
+- 키트·테스트: upstream의 순서형 피해 판정 커널 직전 판(`9a3a12ee9^`, 2026-10-21)의 `op-pallas.js`·`test/content/op_pallas.test.js`. 그 뒤 upstream이
+  이 두 파일을 바꾼 커밋은 없다. 바꾼 것:
+  - S2 자동 발동은 `sim.md` 「스킬 범위 발동」: S2 레벨에 rangeId가 없어 공격·저지 상태일 때 켜진다. upstream 테스트의 `ACTIVE_RANGE` 단언(늘어난 범위에만
+    적이 있어도 켜짐)을 `DEFAULT` + `triggerGrid` 없음으로 고치고, 늘어난 범위에만 적이 있으면 켜지지 않음을 확인한다.
+  - S1 둘째 타격: upstream은 두 타격을 한 공격 안에 함께 넣고 0.1초를 [추정]으로 두었다. 공식 클라에서 확인된 `MultiMeleeAttack` 구조(1 + `_additionalTimes`번,
+    `_triggerDelta` 간격)대로 둘째 타격을 0.1초 뒤 같은 공격(`attackId`)으로 넣는다 — 그때 대상이 죽었거나 그녀가 행동할 수 없으면 없음. [추정] 표시는 없어졌다.
+  - 모듈 INS-Y 「원거리 위치에 추가로 배치 가능」: 배치 효과라 위수협의가 끈다(`shared/highGround.js`, PRTS 卫戍协议/帮助 §战斗部署). 키트 주석의 upstream 쪽
+    결정 인용을 이 근거로 바꿈. 동작은 같다(근접 칸만).
+  - 화면용: S3 효과를 가진 아군의 버프에 상태 키 `pallas:blessing`을 붙여 공식 이펙트(`pallas_s_3[effect]` → `pallas_skill_03_buff_02`)를 그 아군에게 그린다
+    (`public/js/render/fxstatus.js`). 시뮬 결과 그대로.
+- 맹약과 다른 「미노스」 판정: 재능 1·INS-Y 추가 치유의 대상은 키트가 `nationId`로 센다. 공식은 소속 태그(국적·그룹·팀·하위 세력) 판정이라 하위 세력에만 미노스가
+  있는 오퍼레이터(퍼퓨머 `char_181_flower`)가 빠진다 — 소속 태그 도우미가 들어오면 그것으로 바꾼다.
+- 이펙트·공격 타이밍·투사체·스킬 시전 데이터: EN 클라에서 뽑음(2026-11-02, `tools/local-extract/add_operator.py --id char_485_pallas`). 화면 확인 전.
+- 테스트: `test/content/op_pallas.test.js`(10 — 모든 폼, 세 스킬, 두 재능, 특성, 두 모듈, 실제 매치 경로 하나), 선발 수를 세는 테스트 11 → 12명, golden
+  `diy-015`(그녀의 5티어 일반 칸이 함께 실림)·`diy-016`·`diy-017`(새 시나리오), 다른 가족 변화 없음.
 
 ## 안젤리나 더 멜로우 위시 S3 이동 · 「이따 봐!」 표식 (2026-10-11, 관리자 제보)
 - 제보 2건: ① S3로 공중 적에게 갈 때 처음 칸에 남는 「이따 봐!」(“一会儿见！”)가 대체 마름모로 보임, ② 공식은 공중 적에게 **직접 날아가는데** 우리는 그 칸에

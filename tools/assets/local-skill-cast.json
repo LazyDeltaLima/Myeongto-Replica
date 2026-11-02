@@ -1793,6 +1793,31 @@
    "reset": 0,
    "state": 0
   },
+  "skchr_pallas_1": {
+   "ability": {
+    "anim": "Attack",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 0,
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_pallas_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_pallas_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
   "skchr_papyrs_1": {
    "ability": {
     "anim": "Skill_1",
