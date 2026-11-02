@@ -703,7 +703,7 @@
     [추정·미조사: 플래그는 이름과 클립의 이벤트 수로 읽음 — 플래그를 읽는 코드는 안 읽음].
   - 재능 2 운주유악의 회복은 공식 클라에서 확인: 재능 2가 `ToggleablePassiveBuffAbility`, 검사기 `BlockedToggleChecker`(저지 수 0~0일 때 켜짐 — `_CheckCondition`
     `LoadData`), 버프 `helage_t_2[a]` 하나가 블랙보드 값으로 속성 `HP_RECOVERY_PER_SEC`(13)를 올린다 → 치료가 아니라 생명 회복 속도(`SIM.md` §4). upstream의
-    [ASSUMED]를 지움.
+    추정 표시를 지움.
   - SBL-Y 3단계 「적을 저지하지 않거나 HP 30% 미만일 때」: 둘이 동시에 성립해도 90/초 한 번 [추정·미조사: 이 부분은 모듈이 더하는 재능 index 2(프리팹 키 `10`)인데
     그 프리팹이 그의 charpack에도 장비 프리팹(`[uc]equips` `uniequip_003_helage` — `BattleUniEquipSetting` 이펙트만)에도 없어 `helage_t_2[a]`와 같은 버프
     키인지 못 봄].
