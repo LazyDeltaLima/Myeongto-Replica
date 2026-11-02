@@ -7,7 +7,7 @@
 //   * 'solo' rooms hold exactly one human and never bots. 'coop' rooms have 4 seats (humans + AI bots).
 //     Humans and bots take the lowest free seat index; seat indexes never compact.
 //   * The 8-player mode (maintainer decisions 2026-10-16, 2026-10-19; shared/constants.js LARGE_SEATS): room.create
-//     { mode: 'coop', size: 8 } makes a co-op room of 8 seats (room.state `size`; every other room is 4). It holds humans
+//     { mode: 'coop', size: 8 } (or room.setSize, below) makes a co-op room of 8 seats (room.state `size`; every other room is 4). It holds humans
 //     only — room.addBot is refused (ROOM_FULL) and a handed-over AI seat is dropped — and room.start needs at least
 //     LARGE_MIN_PLAYERS (5) Doctors seated (SEATS_OPEN; maintainer decision 2026-11-01, until then all eight), connected and
 //     ready like any start. Local debug mode (server/local-patch.js largeBots) lets AI seats count toward it for testing
@@ -15,8 +15,13 @@
 //     count — server/match/gamedata.js largeAt).
 //   * ▸ Being in a LOBBY room and sending room.create / room.join implicitly leaves it. While your room is
 //     in a match, create/join of another room fails with ROOM_STARTED (send g.leave or room.leave first).
-//   * Host-only: room.setDifficulty, room.setRuleset, room.setAiPicksLast, room.addBot, room.removeBot, room.kick, room.start.
-//     ▸ Changing the difficulty, the ruleset or the AI-picks-last option (co-op only) un-readies the other humans.
+//   * Host-only: room.setDifficulty, room.setRuleset, room.setAiPicksLast, room.setSize, room.addBot, room.removeBot, room.kick,
+//     room.start. ▸ Changing the difficulty, the ruleset, the AI-picks-last option (co-op only) or the size un-readies the
+//     other humans.
+//   * room.setSize { size } (maintainer decision 2026-11-02): the host of a co-op room switches it between 4 and 8 seats
+//     before the match (refused while matchmaking: ERR.MATCHING, the queue is the size's). 4 → 8 frees the AI seats (the
+//     8-player mode has none; local debug mode keeps them); 8 → 4 is refused while more than four seats are taken
+//     (ROOM_FULL) and moves the seated players into the first four seats in seat order. Spectators stay.
 //   * 규칙 모드 (shared/ruleset.js, maintainer decisions 2026-10-15, 2026-10-18): every room has a ruleset — classic
 //     (the official rules), casual (this remake's conveniences) or custom (the host's settings, `custom`). room.create
 //     { ruleset?, custom? } picks it (default classic), the host changes it before the match with room.setRuleset
@@ -427,6 +432,7 @@ export class Lobby {
       case 'room.setDifficulty': return this.setDifficulty(session, msg);
       case 'room.setRuleset': return this.setRuleset(session, msg);
       case 'room.setAiPicksLast': return this.setAiPicksLast(session, msg);
+      case 'room.setSize': return this.setSize(session, msg);
       case 'room.addBot': return this.addBot(session);
       case 'room.removeBot': return this.removeBot(session, msg);
       case 'room.kick': return this.kick(session, msg);
@@ -684,6 +690,31 @@ export class Lobby {
       for (const s of room.seats) if (s && !s.isBot && s.playerId !== room.hostId) s.ready = false;
       this.broadcastState(room);
     }
+    return OK;
+  }
+
+  /** The room's size (header: room.setSize): host-only, before the match, co-op rooms only. */
+  setSize(session, { size }) {
+    const room = this.roomOf(session);
+    if (!room) return fail(ERR.NOT_IN_ROOM);
+    if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
+    if (room.match) return fail(ERR.ROOM_STARTED);
+    if (room.mode === 'solo') return fail(ERR.BAD_TARGET, 'a solo room has one seat');
+    if (room.matching && room.size !== size) return fail(ERR.MATCHING, 'cancel the matchmaking first');
+    this.dropReplay(room, session.playerId);
+    if (room.size === size) return OK;
+    const taken = room.seats.filter(Boolean);
+    // the 8-player mode has no AI teammates (local debug mode aside: server/local-patch.js largeBots)
+    const keep = size > MAX_SEATS && !localPatch.largeBots() ? taken.filter((s) => !s.isBot) : taken;
+    if (keep.length > size) return fail(ERR.ROOM_FULL, `${keep.length} seats taken`);
+    // seat indexes stay unless a seat is beyond the new size: then everybody moves up, in seat order
+    const fits = keep.every((s) => s.seat < size);
+    room.size = size;
+    room.seats = new Array(size).fill(null);
+    keep.forEach((s, i) => { s.seat = fits ? s.seat : i; room.seats[s.seat] = s; });
+    for (const s of keep) if (!s.isBot && s.playerId !== room.hostId) s.ready = false;
+    this.log.info(`[lobby] ${room.code} size → ${size}${keep.length < taken.length ? ` (${taken.length - keep.length} AI seat(s) freed)` : ''}`);
+    this.broadcastState(room);
     return OK;
   }
 

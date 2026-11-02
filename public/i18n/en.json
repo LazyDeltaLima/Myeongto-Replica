@@ -1761,5 +1761,9 @@
   "该同盟属于「{season}」赛季，已切换到该赛季": "This alliance plays the {season} season: switched to it",
   "该同盟属于「{season}」赛季，将以该赛季加入": "This alliance plays the {season} season: you join it there",
   "干员调配与统计按赛季分开保存；作战提示与更新公告共用": "Operator Loadout and stats are kept per season; Combat Tips and update news are shared",
-  "{name}邀请你加入卫戍协议：{season}【{difficulty}】": "{name} invites you to Stronghold Protocol: {season} [{difficulty}]"
+  "{name}邀请你加入卫戍协议：{season}【{difficulty}】": "{name} invites you to Stronghold Protocol: {season} [{difficulty}]",
+  "已有 5 名以上成员入座，无法改为 4 人同盟": "5 or more seats are taken: the Alliance cannot go back to 4 Doctors",
+  "改为 8 人同盟": "Switch to an 8-Doctor Alliance",
+  "八人同盟没有 AI 队友，{n} 名 AI 队友将被移出。确定改为 8 人同盟吗？": "An 8-Doctor Alliance has no AI teammates: {n} AI teammate(s) will be removed. Switch to 8 Doctors?",
+  "改为 8 人": "Switch"
 }

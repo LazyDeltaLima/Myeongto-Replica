@@ -2162,7 +2162,10 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
 
 공식 방은 1–4명이고 8인용 데이터는 없다(`act2autochess`에는 난이도별 `bloodPoint*`와 단일·멀티 연합 방어 템플릿뿐). 아래 수치·규칙은 모두
 **[ASSUMED]** — 원칙은 「1인당 체감을 4인 협동과 같게」(관리자 결정 2026-10-16).
-- **방·매칭** (`server/lobby.js`, `server/matchmaking.js`): 별도 방 크기 — `room.create { mode: 'coop', size: 8 }`, `room.state.size`. 사람만 앉고(AI 좌석
+- **방·매칭** (`server/lobby.js`, `server/matchmaking.js`): 별도 방 크기 — `room.create { mode: 'coop', size: 8 }`, `room.state.size`. 대기실에서 방장이
+  `room.setSize { size }`로 4인 ↔ 8인을 바꿀 수 있다(관리자 결정 2026-11-02; 판 시작 전만, 매칭 중이면 `ERR.MATCHING`): 8인으로 바꾸면 AI 좌석은 비우고
+  사람은 자리 그대로, 4인으로는 앉은 사람(로컬 디버그의 AI 좌석 포함, 관전석 제외)이 5명 이상이면 거부(`ERR.ROOM_FULL`)하고 4명 이하면 자리 순서대로
+  앞 네 자리로 옮긴다. 바꾸면 다른 박사의 준비가 풀린다(난이도·규칙 변경과 같음). 사람만 앉고(AI 좌석
   거부, 넘겨받은 AI 좌석은 버림) 박사 5명 이상이면 시작(`shared/constants.js LARGE_MIN_PLAYERS`, 모자라면 `ERR.SEATS_OPEN`, 코드 방 포함 —
   관리자 결정 2026-11-01; 그 전엔 8자리가 다 차야 시작, 2026-10-19). 예외는 시험용 로컬
   디버그 모드(`SP_DEBUG_PAGE=1`이나 `SP_DEBUG_FUNDS`, `server/local-patch.js largeBots`): 8석 방에도 AI 좌석을 받고 사람·AI 합쳐 5자리 이상이면 시작

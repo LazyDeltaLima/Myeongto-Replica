@@ -323,6 +323,9 @@
 .room-bar__row > :only-child { grid-column: 1 / -1; }
 .room-bar__row > .tt-anchor, .room-bar__row .ailast > .tt-anchor { display: flex; flex: 1; min-width: 0; }
 .room-bar__row .rpick, .room-bar__row .rpick__opt, .room-bar__row .ailast__opt { flex: 1; justify-content: center; }
+/* the 人数 switch (room.setSize) beside the 规则 picker: its two short options take their own width */
+.room-bar__row--size { grid-template-columns: minmax(0, 1fr) auto; }
+.room-bar__row .roomsize .rpick__opt { min-width: .56rem; }
 .rpick__opt { height: .36rem; padding: 0 .16rem; font-size: .15rem; letter-spacing: .04em; }
 .rpick__opt[data-ruleset='classic'] { --d-color: var(--amber); }
 .rpick__opt[data-ruleset='casual'] { --d-color: var(--mint-400); }

@@ -24,10 +24,12 @@
 // The 8-player mode (maintainer decisions 2026-10-16, 2026-10-19): a room of `size` 8 shows its 8 seats in two rows, has no
 // AI teammates (no add button, no 「AI 队友最后选择」), starts with LARGE_MIN_PLAYERS Doctors or more (SEATS_OPEN: 开始模拟
 // stays locked below that and says so; maintainer decision 2026-11-01) and fills its empty seats from the 8-player queues (匹配补位 under the ready rule alone).
+// The 人数 switch (room.setSize, maintainer decision 2026-11-02) sits beside the 规则 picker of a co-op room: the host switches
+// 4 ↔ 8 (locked while matchmaking; 4 is locked while more than four seats are taken; 8 asks first when AI seats would go).
 // Texts go through t() (docs/I18N.md).
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, LARGE_MIN_PLAYERS, MAX_SEATS, MAX_SPECTATORS, seatsOf, modeIdFor } from '../../../shared/constants.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, LARGE_MIN_PLAYERS, LARGE_SEATS, MAX_SEATS, MAX_SPECTATORS, ROOM_SIZES, seatsOf, modeIdFor } from '../../../shared/constants.js';
 import { SeatMark } from '../ui/faction.js'; // local patch
 import {
   html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyTag, DifficultyIcon, Tooltip, confirmDialog, doctorNo, useTicker,
@@ -135,6 +137,25 @@ export function joinedDoctors(prev, room, myId) {
 export function aiLastOption(room, myId) {
   if (!room || room.mode === 'solo' || room.size > 4) return null;
   return { on: room.aiPicksLast === true, editable: room.hostId != null && room.hostId === myId };
+}
+
+/**
+ * The 人数 switch of a co-op room (room.setSize; header): its size, whether this player may switch it — the host, while
+ * the room is not matchmaking —, whether 4 seats can hold everybody seated (spectators do not count) and how many AI
+ * seats switching to 8 would free (none in local debug mode, room.state largeBots). null in a solo room.
+ * @param {any} room room.state payload
+ * @param {any} myId
+ * @returns {{ size: number, editable: boolean, shrinkable: boolean, bots: number } | null}
+ */
+export function sizeOption(room, myId) {
+  if (!room || room.mode === 'solo') return null;
+  const taken = normalizeSeats(room).filter(Boolean);
+  return {
+    size: seatsOf(room.size),
+    editable: room.hostId != null && room.hostId === myId && !room.matching,
+    shrinkable: taken.length <= MAX_SEATS,
+    bots: room.largeBots === true ? 0 : taken.filter((s) => s.isBot).length,
+  };
 }
 
 /**
@@ -321,6 +342,25 @@ function AiLastToggle({ option, busy, onToggle }) {
   </div>`;
 }
 
+/** The room's 人数 switch (sizeOption), beside the 规则 picker; the lobby's 4人 / 8人 look (screens/lobby.js SizeSwitch). */
+function RoomSizeSwitch({ option, busy, onPick }) {
+  if (!option) return null;
+  const tips = [t('八人同盟：{n}–{max} 名博士即可开始，没有 AI 队友；卡池、敌方数值和联防人数随开局人数调整', { n: LARGE_MIN_PLAYERS, max: LARGE_SEATS })];
+  if (option.size > MAX_SEATS && !option.shrinkable) tips.push(t('已有 5 名以上成员入座，无法改为 4 人同盟'));
+  if (!option.editable) tips.push(t('由创建者设置'));
+  return html`<${Tooltip} text=${tips.join('\n')}>
+    <div class="dpick rpick roomsize" role="radiogroup" aria-label=${t('人数')}>
+      ${ROOM_SIZES.map((n) => {
+        const on = option.size === n;
+        const locked = !on && n === MAX_SEATS && !option.shrinkable;
+        return html`<button key=${n} type="button" role="radio" aria-checked=${on ? 'true' : 'false'} data-size=${n}
+            class=${`dpick__opt rpick__opt${on ? ' is-active' : ''}${locked ? ' is-locked' : ''}`} disabled=${!option.editable || !!busy || locked}
+            onClick=${() => option.editable && !on && !locked && onPick(n)}>${t('{n}人', { n })}</button>`;
+      })}
+    </div>
+  <//>`;
+}
+
 /** Room screen component. */
 export function RoomScreen() {
   useDocClass('sp-topbar-tall'); // toasts sit under the (taller) top bar instead of over its title (components.css)
@@ -374,6 +414,16 @@ export function RoomScreen() {
   };
   const setDifficulty = (difficulty) => run('diff', () => net.request('room.setDifficulty', { difficulty }));
   const setAiLast = (on) => run('ailast', () => net.request('room.setAiPicksLast', { on }));
+  const sizeOpt = sizeOption(room, me.playerId);
+  // 4 → 8 frees the AI seats (the 8-player mode has none): asked first
+  const setSize = async (size) => {
+    if (inFlight.current) return;
+    if (size > MAX_SEATS && sizeOpt?.bots > 0) {
+      const ok = await confirmDialog({ title: t('改为 8 人同盟'), text: t('八人同盟没有 AI 队友，{n} 名 AI 队友将被移出。确定改为 8 人同盟吗？', { n: sizeOpt.bots }), okText: t('改为 8 人') });
+      if (!ok) return;
+    }
+    run('size', () => net.request('room.setSize', { size }));
+  };
   const setRuleset = (preset) => run('rules', () => net.request('room.setRuleset', preset === 'custom' ? { preset, custom: customDraft() } : { preset }));
   const roomRules = resolveRuleset(room.ruleset);
   const isCustom = roomRules.preset === 'custom';
@@ -486,8 +536,9 @@ export function RoomScreen() {
         <span class="room-bar__label">${t('模拟难度')}<${MicroLabel}>DIFFICULTY<//></span>
         <div class="room-bar__opts">
           <${DifficultyPicker} room=${room} isHost=${facts.isHost} busy=${busy} onPick=${setDifficulty} />
-          <div class="room-bar__row">
+          <div class=${`room-bar__row${sizeOpt ? ' room-bar__row--size' : ''}`}>
             <${RulesetSwitch} value=${roomRules} editable=${rulesEditable} busy=${busy} onPick=${setRuleset} onGear=${customGear} />
+            <${RoomSizeSwitch} option=${sizeOpt} busy=${busy} onPick=${setSize} />
           </div>
         </div>
       </div>
