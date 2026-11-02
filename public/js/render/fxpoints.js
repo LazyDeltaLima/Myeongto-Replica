@@ -128,6 +128,24 @@ export function pointScale(entry, sk, back) {
 export const GRAPHIC_TILT = Object.freeze([-0.25881905, 0, 0, 0.96592583]);
 
 /**
+ * 2026-11-02 (official client): the board direction [x, y] (not normalised) of point `entry`'s `Transform.up` — what the
+ * client's `MountPoint.get_faceTo` gives: that up in the map's frame, its height dropped. A BoneFollower under the skeleton
+ * turns with its bone (pointTurn t, or π − t on a skeleton flipped to face left — the flip itself is a negative y scale,
+ * which `up` does not see), inside the model's `Graphic` (GRAPHIC_TILT: the board takes its up's y × cos 30°). A point that
+ * does not turn keeps the Graphic's up. `facing`: the unit's side (< 0 left).
+ * @param {{F?: {bone?: string, rot?: number}, B?: {bone?: string, rot?: number}}|null|undefined} entry
+ * @param {{findBone: (name: string) => ({getWorldRotationX: () => number}|null)}|null|undefined} sk
+ * @param {boolean} back
+ * @param {number} facing
+ * @returns {number[]}
+ */
+export function pointUp(entry, sk, back, facing) {
+  const t = pointTurn(entry, sk, back);
+  const a = t == null ? 0 : facing < 0 ? Math.PI - t : t;
+  return [-Math.sin(a), Math.cos(a) * (1 - 2 * GRAPHIC_TILT[0] ** 2)];
+}
+
+/**
  * Where an operator's or token's model and shadow sit in its battle prefab (maintainer decision 2026-10-17: 望's placed
  * 棋子 first, then every operator and token). `face`: the localPosition of the skeleton's node under `Graphic` (an
  * operator's `DefaultSkin/FaceSwitcher`, a token's FaceSwitcher or `Spine`; Unity units = tiles) in the Graphic's frame,

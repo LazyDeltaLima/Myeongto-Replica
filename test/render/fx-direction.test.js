@@ -9,7 +9,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirCopies } from '../../public/js/render/fxgame.js';
-import { pointScale, pointTurn } from '../../public/js/render/fxpoints.js';
+import { pointScale, pointTurn, pointUp } from '../../public/js/render/fxpoints.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SRC = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
@@ -68,6 +68,20 @@ test('pointTurn: the bone\'s world rotation (radians, y up) when the point turns
   assert.equal(pointTurn({ F: { bone: 'F_Muzzle', rot: 0 } }, sk, false), null, 'a point that does not turn');
   assert.equal(pointTurn({ F: { at: [0, 400] } }, sk, false), null, 'a fixed spot');
   assert.equal(pointTurn(entry, null, false), null);
+});
+
+test('pointUp (2026-11-02, MountPoint.get_faceTo): the point Transform\'s up on the board — the bone\'s turn, π − t when flipped, y × cos 30°', () => {
+  const near = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 1e-6);
+  const c30 = Math.cos(Math.PI / 6);
+  const at = (deg) => ({ findBone: (n) => (n === 'F_Muzzle' ? { getWorldRotationX: () => deg } : null) });
+  const entry = { F: { bone: 'F_Muzzle', rot: 1 } };
+  assert.ok(near(pointUp(entry, at(0), false, 1), [0, c30]), 'an unturned gun: the board\'s y axis');
+  assert.ok(near(pointUp(entry, at(-90), false, 1), [-1, 0]), 'turned +90° (Unity): its up points left');
+  // facing left the client's bone reads π − t and the flip is a negative y scale, which Transform.up ignores
+  assert.ok(near(pointUp(entry, at(-90), false, -1), [-1, 0]));
+  assert.ok(near(pointUp(entry, at(0), false, -1), [0, -c30]));
+  assert.ok(near(pointUp({ F: { at: [0, 400] } }, at(-90), false, -1), [0, c30]), 'a point that does not turn: the Graphic\'s up');
+  assert.ok(near(pointUp(entry, null, false, 1), [0, c30]));
 });
 
 test('pointScale (2026-10-27, BoneFollower.DoLateUpdate): the bone\'s local scale with `ls` 1, its world scale with 2, else 1; null without the bone', () => {

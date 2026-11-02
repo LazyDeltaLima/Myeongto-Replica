@@ -282,7 +282,12 @@
     (`fxgame.js upwardMajor`; 예전엔 대상 칸에 돌림 없이). 방향(2026-10-30 관리자 제보 「원이 기울었다」, 공식 클라에서 확인): 조준 투사체의 방향 필드가
     모두 0(`_useStartToTarget` 0 포함)이라 `BasicMovement._InitDirectionByStart`가 시작점의 2D `faceTo`에 z = 0을 쓰고, `DoUpdateRotation`이 매 틱
     그 방향으로 돌린다 — 높이 성분이 없다. 우리는 총구 → 대상 GROUND 점의 3D 선을 넘겨 총구 높이만큼 원이 기울었다 → 그 선의 판 위 성분만.
-    [추정·미조사: 시작점(MountPoint·Entity)의 `faceTo`가 4방향인지 안 읽음 — 원의 가시 넷(+자)이 판 축에 맞는지가 달림; 지금은 그녀 → 대상 판 위 방향]
+    그 시작점(2026-11-02, 공식 클라에서 확인)은 그녀의 총구 점이다(S3 모드 `RangedAttack`의 `_mountPointType` 기본값 MUZZLE, `_GetMountPoint`).
+    `MountPoint.get_faceTo`는 대상 쪽이 아니라 그 점 Transform의 `up`을 맵 좌표로 바꾼 x·y다. 총구 점은 `F_Muzzle`/`B_Muzzle` 본을 회전까지
+    따르는 BoneFollower(스켈레톤 자식: localRotation = 본의 월드 각, 왼쪽을 보면 스켈레톤이 뒤집혀 π − 각, 뒤집힘 자체는 y 크기 −1이라 `up`에
+    안 잡힘)이고 그 위가 `Graphic`의 X −30°다. 그래서 원의 +y = 잠글 때 총의 기울기를 판에 눕힌 방향(x = −sin a, y = cos a × cos 30°) —
+    총이 수평이면 판의 y축이라 가시 넷(+자)이 판 축에 선다(`fxpoints.js pointUp`; 예전엔 그녀 → 대상). 그녀 자신의 `Entity.faceTo`도
+    4방향이 아니다(`FaceToTarget`이 대상 − 자기 위치를 그대로 넣음) — 쓰이지 않을 뿐. [화면 미확인]
     ⑤ 데겐블레허: 늘인 빌보드(stretched)의 길이를 size.y(3D 시작 크기), 폭을 size.x로 — 베기 줄이 길고 가늘게; 天生的武者 165% 발동분은 기대 피해에서
     뺌(`dmg.lpExpectDiv`, damage.js 1줄·`chess_char_6_19-blkkgt.js` 1줄) → S3 베기가 전부 빨간 숫자(영상); 스킬 End 클립(마무리 `Skill_3_End`)은 다음 평타가 끊지 않음
     (`spine.js _endPlaying`). ⑥ 리드 S3: charpack 모드가 Attack→`Skill_3_Attack`, Idle→`Skill_3_Loop` — 공격 클립을 `Skill_3_Attack`, 대기를

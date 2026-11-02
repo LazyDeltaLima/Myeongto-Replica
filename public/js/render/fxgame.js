@@ -74,7 +74,7 @@ import { bodyZ, bodyPoint, liftX } from './fx.js'; // local patch: status effect
 import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
 import { fxSpec } from './fx.js'; // local patch: the stand-in archetype of a kit fx event (standInOff)
 import { SHOT_HEIGHT } from './fx.js'; // local patch: a trail's start without a muzzle point
-import { boneMissing, heldAt, liftedPoint, loadPoints, mountSpawn, onModelPlane, planePoint, pointKey, pointOn, pointScale, pointTurn, screenOffset } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
+import { boneMissing, heldAt, liftedPoint, loadPoints, mountSpawn, onModelPlane, planePoint, pointKey, pointOn, pointScale, pointTurn, pointUp, screenOffset } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
 import { GRAPHIC_TILT, takesGraphicTurn } from './fxpoints.js'; // 2026-10-22: an effect on a unit takes its Graphic's X −30°
 import { STANDARD_PLACE, modelOffset } from './fxpoints.js'; // 2026-10-22: 望's 棋子 model stands at its prefab's place (the ball)
 import { enemyProjSpeed, enemyShot } from './fx/speeds.js'; // 2026-10-10: an enemy shot's record / flight time (data/enemies.json `proj`)
@@ -3544,10 +3544,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // online mode MapUtil.FaceTo3dUpwardMajor(direction, Vector3.forward) — its +y along `direction`, its plane the board's.
       // 2026-10-30 (maintainer report: the ring was tilted): none of the aim's direction flags is set (`_useStartToTarget` 0), so
       // BasicMovement._InitDirectionByStart takes its start's 2D `faceTo` with z = 0 — the muzzle → ground line tilted the ring by
-      // the muzzle's height. Ours keeps that line on the board [추정·미조사: the start's faceTo (MountPoint / Entity) not read]
+      // the muzzle's height. 2026-11-02 (official client): that start is her muzzle point (RangedAttack `_mountPointType` MUZZLE),
+      // whose `faceTo` is its Transform's up on the board — the gun bone's turn at the lock, not the line to the target
+      // (fxpoints.js pointUp)
       const ground = tgt && { get x() { return mx(tgt); }, get y() { return tgt.y; }, get z() { return (tgt.z || 0) + (tgt.hover || 0); },
         get alive() { return tgt.alive; }, get remove() { return tgt.remove; }, id: tgt.id };
-      const from = tgt && shotFrom(src);
+      const up = tgt && pointUp(ptsOf(src)?.muzzle, src.actor?.spine?.skeleton, !!src.entryBack, src.visFacing ?? src.facing ?? 1);
       for (const n of ['lemuen_skill_03_crosshair_01', 'lemuen_skill_03_trail_01', 'lemuen_skill_03_crosshair_range', 'lemuen_skill_03_crosshair_02']) {
         const aimFx = n.endsWith('crosshair_range');
         // 2026-10-27 (maintainer report, video: a target locked again kept a brighter glow): the mark is the effect of buff
@@ -3585,7 +3587,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         }
         spawn(bundleOf(src).bundle, n, (aimFx ? ground : tgt) || { x, y, z: 0 }, { owner: o.id, buff: true, on: o.id, until: clockS + 30, skyward: n.endsWith('trail_01') }).then((l) => {
           if (!l) return;
-          if (aimFx && from) upwardMajor(l.inst.object, mod.THREE, ground.x - from.x, ground.y - from.y, 0);
+          if (aimFx && up) upwardMajor(l.inst.object, mod.THREE, up[0], up[1], 0);
           if (mark.done) l.inst.stop(); else mark.push(l);
         });
       }
