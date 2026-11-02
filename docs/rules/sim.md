@@ -785,6 +785,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   - PASSIVE 스킬 멤버: `[spawn]` 표시가 없으면(아무 점프나 붙임) 범위와 상관없이 → 배치마다 한 번(缄默德克萨斯의 배치 후 스킬은 표에서 PASSIVE).
     `[spawn]`은 durable 버프라 점프 자체(MoveLikeRespawnSelf)에서는 남고, 멤버가 다른 이유로 필드를 떠나면 지움 **[ASSUMED]**(2026-10-06 제보 44 「부활하면 바로 突袭」과 맞춤).
   - MANUAL·AUTO 스킬: 스킬 준비됨(CheckCharSkillAvailable)·안 켜짐·자기 칸과 앞 칸에 적 없음(`CheckHasEnemyInRange`: `_useAttackRange` false면 범위 `1-1`, 적이면 은신·비행 가리지 않고 셈). `[spawn]`과 무관해 적이 그 칸을 벗어나면 또 뜀. AUTO는 2026-10-19부터(아래 「突袭 AUTO 스킬도 준비되면 점프」).
+    **저지 중에도 뜀**(2026-11-02, 제보 「기습이 적을 저지하는 중에도 점프시킨다」, 공식 클라에서 확인 — 동작 변경 없음): 저지를 보는 경로는 AUTO 스킬 시작의 `CheckBlocked`뿐이다. 이 경로·PASSIVE·10초 무공격에는 저지 조건이 없다(10초 무공격의 `IfTarget`은 `_checkTargetUnitType`이 꺼져 있어 주인이 살아 있는지만 봄). 저지된 적은 다가온 쪽에 남는다 — `BlockBalancer.CalculateBlockOffset`이 저지자까지의 offset을 그대로 두고(최소 저지 거리보다 가까울 때만 늘림) `Enemy.RegisterBlocker`가 적을 저지자 + offset에 둔다. 그래서 뒤·옆에서 막은 적은 `1-1` 상자 밖이고, 스킬이 준비되면 막은 채로 그 적의 칸으로 뛴다(블레미샤인 S1 `skchr_blemsh_1`, 아래 방향 배치 + 등 뒤에서 온 적으로 재현; 앞에서 막은 적은 상자 안이라 안 뜀).
   - AUTO 스킬: 스킬 시작 때 `[spawn]` 없음·저지 중 아님(CheckBlocked = 지금 막는 적 있음 [추정: 노드 이름])이면 0.3초 뒤(그 뒤 0.3초마다, 스킬 동안) 점프.
   - 10초 무공격(`[attack]`): 범위·스킬 조건 없음(범위에 적이 있어도 10초 동안 공격하지 않았으면 뜀 — 커뮤니티 16.1의 「범위에 적이 있으면 안 뜀」을 되돌린 것, 관리자 결정 2026-10-10 「공식대로, 필요하면 나중에 수정」), SP 비율 유지. 착지 후 10초를 다시 셈 **[ASSUMED]**. 스킬 세 경우는 SP 가득(`[spawn]` = `modify_sp[ratio]` sp 1.0, `ModifySp`: RoundToInt(maxSp×비율)).
   - 후보: 진영 ENEMY·WALK_ONLY, 고급 옵션 꺼짐(`TargetOptions._VerifyAdvanced`가 바로 true) → 은신·잠듦·선택 불가·기절 지상 적 모두 후보, 비행만 빠짐. 순서 `FilterUtil` HATRED_DES, 128명까지:
