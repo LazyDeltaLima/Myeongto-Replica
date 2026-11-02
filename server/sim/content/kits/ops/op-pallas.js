@@ -14,11 +14,11 @@
 //   instructor: ×atk_scale on a target she does not block, her attacks only; range 2-2). Module INS-X “故乡的山岩” raises
 //   it to 130% (its traitOverride bb atk_scale, read by the profile through the composed record).
 // - T1 英雄的诞生 "在场时，所有【米诺斯】干员生命值高于80%时获得+25%攻击力的精力充沛" (bb peak_performance.hp_ratio / .atk):
-//   while she is deployed, every allied operator of nation minos (her included — the aura has no self exclusion) gets ATK
+//   while she is deployed, every allied operator tagged minos (her included — the aura has no self exclusion) gets ATK
 //   +atk while its HP ratio is above hp_ratio. INS-X stage 3: above 50 %, +30 % (the module's talent change). 精力充沛 of
 //   several sources is "同类属性取最高": one buff per ally carrying the highest ATK bonus whose HP condition holds (her T1
-//   and her S3 alike, several 帕拉斯 of a shared field too), re-evaluated every tick. 帕拉斯 is the only minos operator of
-//   the data (chess.json and backups.json), so in practice the talent is hers.
+//   and her S3 alike, several 帕拉斯 of a shared field too), re-evaluated every tick. 【米诺斯】 is the client's group tag
+//   test, not a bond (shared/powers.js hasPower): her nation, and 调香师 (rhodes) and 蒂蒂 (sargon) by a subPower.
 // - T2 女神的振奋 "每攻击一名敌人时为自身与身前一格的我方干员恢复40点生命值" (full potential: 45; bb value): pallas_t_2 is
 //   ON_OUTPUT_DAMAGE — every damage instance she deals (S1's two strikes, each S3 target) heals every ally on her 1-1 (her tile and
 //   the tile in front, rotated with her) `value` HP, a heal that ignores 禁疗 (FixedValueHeal _ignoreHealFree; PRTS 备注) but not
@@ -47,6 +47,7 @@
 
 import { num, talentBb, skillRec, up, alliesInGridOf } from '../shared/tier1.js';
 import { frontOf } from '../../../dir.js';
+import { hasPower } from '../shared/powers.js';
 import { resolveHit } from '../../../ai.js';
 
 const S1 = 'skchr_pallas_1';
@@ -54,7 +55,7 @@ const S2 = 'skchr_pallas_2';
 const S3 = 'skchr_pallas_3';
 /** 胜利的连击's second strike after the first (skchr_pallas_1 `_triggerDelta`, s). */
 const S1_TRIGGER_DELTA = 0.1;
-/** The nation of 英雄的诞生 / pallas_e_heal (the client's `minos` tag = character_table nationId minos). */
+/** The group tag of 英雄的诞生 / pallas_e_heal (the client's `minos`: a nationId or a subPower of character_table). */
 const MINOS = 'minos';
 /** T2's heal area: her 1-1 (pallas_t_2 `_rangeId` 1-1) — her tile and the tile in front. */
 const RANGE_1_1 = Object.freeze([[0, 0], [0, 1]]);
@@ -66,7 +67,7 @@ export const holderKey = (unit) => `skill:pallas:blessing#${unit.id}`;
 export const BLESSING = 'pallas:blessing';
 
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
-const isMinos = (a) => !!a && a.kind === 'op' && (a.def?.raw?.nationId ?? a.def?.nationId) === MINOS;
+const isMinos = (a) => !!a && a.kind === 'op' && hasPower(a, MINOS);
 
 /**
  * The 精力充沛 sources of a battle (a Set of `(ally) => ATK bonus`, 0 when one does not apply); the first registration

@@ -32,7 +32,7 @@ const approx = (a, b, msg, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps * Mat
 const dummy = (key, o = {}) => enemyRec({ key, hp: 1e9, speed: 0, mass: 0, ...o });
 const ENEMIES = { enemy_dummy: dummy('enemy_dummy'), enemy_fly: dummy('enemy_fly', { motion: 'FLY' }), enemy_walk: enemyRec({ key: 'enemy_walk', hp: 1e9, speed: 0.6, mass: 0 }) };
 /** A 米诺斯 operator of no kit (帕拉斯 is the only one of the data): a plain melee record with nationId minos. */
-const MINOS_OP = { ...chessRec({ id: 'test_minos_a', name: '米诺斯测试', stats: { maxHp: 2000, atk: 500, def: 200, blockCnt: 1 }, skill: null }), nationId: 'minos' };
+const MINOS_OP = { ...chessRec({ id: 'test_minos_a', name: '米诺斯测试', stats: { maxHp: 2000, atk: 500, def: 200, blockCnt: 1 }, skill: null }), nationId: 'minos', powers: ['minos'] };
 /** Every 自选 form: [tier, elite, module]. */
 const FORMS_ALL = [[5, false, null], [6, false, null], ...[5, 6].flatMap((t) => [null, INSX, INSY].map((m) => [t, true, m]))];
 
@@ -126,17 +126,19 @@ test('trait 教官: her attack ×1.2 (INS-X ×1.3) on an enemy she does not bloc
 });
 
 test('T1 英雄的诞生: while she is deployed, every 米诺斯 operator (her too) ATK +25 % above 80 % HP (INS-X stage 3: above 50 %, +30 %) — one 精力充沛, not for others, gone when she leaves', () => {
-  const others = [{ uid: 2, chessId: 'test_minos_a', row: 11, col: 3 }, { uid: 3, chessId: 'chess_char_1_02_a', row: 12, col: 7 }];
+  // 调香师 (chess_char_2_14_a, nation rhodes): 米诺斯 by a subPower only — the client's group tag test, not the nation
+  const others = [{ uid: 2, chessId: 'test_minos_a', row: 11, col: 3 }, { uid: 3, chessId: 'chess_char_1_02_a', row: 12, col: 7 }, { uid: 4, chessId: 'chess_char_2_14_a', row: 12, col: 3 }];
   for (const f of FORMS_ALL) {
     const [tier, elite, mod] = f;
     const { h, u } = field({ tier, elite, mod, skill: 2, others });
     h.step();
-    const minos = h.unit(2), yak = h.unit(3);
+    const minos = h.unit(2), yak = h.unit(3), flower = h.unit(4);
     const t = talentOf(u, 0);
     const x3 = elite && mod === INSX && tier === 6;
     assert.deepEqual([t['peak_performance.hp_ratio'], t['peak_performance.atk']], x3 ? [0.5, 0.3] : [0.8, 0.25], `${label(f)}: the talent of the form`);
     const v = t['peak_performance.atk'], thr = t['peak_performance.hp_ratio'];
-    for (const a of [u, minos]) {
+    assert.deepEqual([flower.def.raw.nationId, flower.def.raw.powers], ['rhodes', ['rhodes', 'minos']], '调香师: minos by a subPower');
+    for (const a of [u, minos, flower]) {
       assert.deepEqual(a.findBuff(PEAK_KEY)?.mods, { atkPct: v }, `${label(f)}: ${a.name}`);
       approx(a.s.atk, a.base.atk * (1 + v), `${label(f)}: ${a.name} ATK`);
     }
