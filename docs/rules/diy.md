@@ -676,8 +676,8 @@
   이 두 파일을 바꾼 커밋은 없다. 바꾼 것:
   - S2 자동 발동은 `sim.md` 「스킬 범위 발동」: S2 레벨에 rangeId가 없어 공격·저지 상태일 때 켜진다. upstream 테스트의 `ACTIVE_RANGE` 단언(늘어난 범위에만
     적이 있어도 켜짐)을 `DEFAULT` + `triggerGrid` 없음으로 고치고, 늘어난 범위에만 적이 있으면 켜지지 않음을 확인한다.
-  - S1 둘째 타격: upstream은 두 타격을 한 공격 안에 함께 넣고 0.1초를 [추정]으로 두었다. 공식 클라에서 확인된 `MultiMeleeAttack` 구조(1 + `_additionalTimes`번,
-    `_triggerDelta` 간격)대로 둘째 타격을 0.1초 뒤 같은 공격(`attackId`)으로 넣는다 — 그때 대상이 죽었거나 그녀가 행동할 수 없으면 없음. [추정] 표시는 없어졌다.
+  - S1 둘째 타격: upstream은 두 타격을 한 공격 안에 함께 넣고 0.1초를 추정으로 남겼다. 공식 클라에서 확인된 `MultiMeleeAttack` 구조(1 + `_additionalTimes`번,
+    `_triggerDelta` 간격)대로 둘째 타격을 0.1초 뒤 같은 공격(`attackId`)으로 넣는다 — 그때 대상이 죽었거나 그녀가 행동할 수 없으면 없음. 이 키트에 남은 추정은 없다.
   - 모듈 INS-Y 「원거리 위치에 추가로 배치 가능」: 배치 효과라 위수협의가 끈다(`shared/highGround.js`, PRTS 卫戍协议/帮助 §战斗部署). 키트 주석의 upstream 쪽
     결정 인용을 이 근거로 바꿈. 동작은 같다(근접 칸만).
   - 화면용: S3 효과를 가진 아군의 버프에 상태 키 `pallas:blessing`을 붙여 공식 이펙트(`pallas_s_3[effect]` → `pallas_skill_03_buff_02`)를 그 아군에게 그린다
