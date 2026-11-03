@@ -44,6 +44,57 @@
         "height": 357
       }
     },
+    "token_10024_ebnhlz_rcube": {
+      "skel": "token_10024_ebnhlz_rcube.skel",
+      "atlas": "token_10024_ebnhlz_rcube.atlas",
+      "textures": [
+        "token_10024_ebnhlz_rcube.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Idle",
+        "deploy": "Start",
+        "attack": {
+          "begin": null,
+          "loop": "Attack",
+          "end": null
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Attack",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": "Die",
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Attack": 0.933,
+        "Default": 0,
+        "Die": 0.167,
+        "Idle": 1,
+        "Start": 1
+      },
+      "events": [
+        "OnAttack",
+        "OnStart"
+      ],
+      "hits": {
+        "Attack": [
+          0.433
+        ]
+      },
+      "bounds": {
+        "x": -114.083,
+        "y": -0.231,
+        "width": 400.735,
+        "height": 385.999
+      }
+    },
     "token_10027_ironmn_pile1": {
       "skel": "token_10027_ironmn_pile1.skel",
       "atlas": "token_10027_ironmn_pile1.atlas",

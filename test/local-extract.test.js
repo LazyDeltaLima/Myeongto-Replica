@@ -55,7 +55,7 @@ describe('extract.py helpers (no UnityPy needed)', { skip: !PY && 'no python3' }
     // (data/assets.json tokens[id].spine), sorted, unique — except 香槟炸弹, whose web model is only a skin variant
     // (upstream 6bfc0827, 0.2.4): its original model is the overlay
     const ids = tokenSpines.ids;
-    assert.equal(ids.length, 16);
+    assert.equal(ids.length, 17);
     assert.deepEqual([...ids].sort(), ids);
     assert.equal(new Set(ids).size, ids.length);
     const tokens = JSON.parse(readFileSync(path.join(ROOT, 'data/tokens.json'), 'utf8'));
@@ -444,9 +444,13 @@ print(json.dumps([c.kept_all(old, {'char_a'}), sorted(c.skills_of(['char_a', 'ch
     const hud = read('skill-hud').skills;
     const units = JSON.parse(readFileSync(path.join(ROOT, 'data/backups.json'), 'utf8')).units;
     /** The skill ids of every form record under `o` (`forms` nests them by phase, level, potential). */
+    const passive = new Set();
     const skillIds = (o, out = new Set()) => {
       // (by its skill prefab: a common skill such as 夜莺's skcom_heal_up[3] is read as skcom_heal_up)
-      if (Array.isArray(o?.skills)) for (const sk of o.skills) out.add(sk.prefabId ?? sk.skillId);
+      if (Array.isArray(o?.skills)) for (const sk of o.skills) {
+        out.add(sk.prefabId ?? sk.skillId);
+        if (sk.skillType === 'PASSIVE') passive.add(sk.prefabId ?? sk.skillId);
+      }
       else if (o && typeof o === 'object') for (const v of Object.values(o)) skillIds(v, out);
       return out;
     };
@@ -456,7 +460,8 @@ print(json.dumps([c.kept_all(old, {'char_a'}), sorted(c.skills_of(['char_a', 'ch
       const ids = skillIds(units[cid]?.forms);
       assert.ok(ids.size >= 2, `${cid} has its skills in data/backups.json`);
       for (const sid of ids) {
-        assert.ok(cast[sid], `skill cast: ${cid} ${sid}`);
+        // (a PASSIVE skill — 森蚺 S1 — is never cast: its prefab has no cast class, so no row)
+        assert.ok(cast[sid] || passive.has(sid), `skill cast: ${cid} ${sid}`);
         assert.ok(sid in hud, `skill HUD: ${cid} ${sid}`);
       }
     }

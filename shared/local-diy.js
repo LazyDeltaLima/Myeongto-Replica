@@ -13,7 +13,8 @@ export const LOCAL_DIY_PICKS = Object.freeze(['char_2027_wang', 'char_1050_chen3
   'char_1052_kalts2', 'char_4231_clemnt', 'char_1015_aglna2', 'char_1042_phatm2',
   'char_4244_tocka', 'char_4247_oxi', 'char_485_pallas', 'char_188_helage', 'char_4204_mantra',
   'char_4072_ironmn', 'char_4202_haruka', 'char_179_cgbird', 'char_4065_judge', 'char_4133_logos', 'char_4098_vvana',
-  'char_4037_demetr', 'char_4226_veen', 'char_1051_headb2', 'char_4179_monstr']);
+  'char_4037_demetr', 'char_4226_veen', 'char_1051_headb2', 'char_4179_monstr', 'char_2025_shu', 'char_322_lmlee', 'char_416_zumama',
+  'char_4046_ebnhlz']);
 
 /** Whether `charId` may be picked for a 自选 slot here. @param {string} charId */
 export function isLocalDiyPick(charId) {

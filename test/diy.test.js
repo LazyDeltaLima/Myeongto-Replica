@@ -84,16 +84,22 @@ test('checkDiyPick: an owned 6★ chooses any of its 3 skills and any module of 
 });
 
 test('validateDiyPicks: a roster never carries a module of another game mode — 集成战略 ISW-A / SO-A / SO-B, 生息演算 RA-A [ASSUMED, the owner\'s decision of 2026-10-05 for ISW-A]; the record still composes it', () => {
-  // our picks have none: every module of theirs is a legal roster pick
+  // our picks: every module of theirs is a legal roster pick but 森蚺's RA-A (生息演算), which is refused
+  const modeOnly = [];
   for (const charId of ownedPool) {
     for (const [slot, key] of [[T5, '2/60/7/1'], [T6, '2/60/7/3']]) {
       for (const mod of backups.units[charId].forms[key]?.modules ?? []) {
-        assert.ok(isDiyModule(mod), `${charId} ${mod.uniEquipId} (${mod.typeName})`);
         const v = validateDiyPicks({ [slot]: { charId, skillIndex: 0, uniEquipId: mod.uniEquipId } }, { data: DATA });
+        if (!isDiyModule(mod)) {
+          modeOnly.push(`${charId} ${mod.typeName}`);
+          assert.match(v.detail || '', /module of another game mode/, `${charId} ${mod.uniEquipId}`);
+          continue;
+        }
         assert.ok(v.ok, `${charId} ${mod.uniEquipId}: ${v.detail}`);
       }
     }
   }
+  assert.deepEqual([...new Set(modeOnly)], ['char_416_zumama RA-A']);
   // the rule on synthetic data: 阿斯卡纶's AMB-Y relabelled as each mode-only type
   for (const [typeName, mode] of [['ISW-A', '集成战略'], ['SO-A', '集成战略'], ['SO-B', '集成战略'], ['RA-A', '生息演算']]) {
     const b2 = structuredClone(backups);

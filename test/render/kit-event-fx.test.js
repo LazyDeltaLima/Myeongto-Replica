@@ -50,7 +50,7 @@ const VERDICT = {
   extraAttack: { excu2: ['attack', "the T1 shot's 'atk' (signal T.1): charpack Modes/*/Body/Talents/1's cast / hit are in the mode's bindings"] },
   flame: { flamtl: ['skill', 3] },
   frostNova: { gnosis: ['skill', 2], sbell2: ['skill', 1, 'its cast; the snow tiles it lays are the open snow-tile item (snow)'] },
-  healField: { plosis: ['skill', 2] },
+  healField: { plosis: ['skill', 2], shu: ['pending', 'T1 百谷长青: the tiles her heal sows (shu_t_1 / shu_farm_buff[char] rows, not compared yet)'] },
   iceSpike: { gnosis: ['skill', 3] },
   jungleSoul: { gvial2: ['skill', 3] },
   knack: { reckpr: ['skill', 2] },

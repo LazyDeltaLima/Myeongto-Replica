@@ -445,7 +445,8 @@ const installFunnel = (battle, unit) => {
  * valid target is attacked at once). The energies leave with the next attack that happens (`releaseEnergy`, called by
  * performAttack after `beforeAttack`: "攻击被打断且弹道未能成功生成的情况下，储存的能量不会被消耗") with its main target and land
  * with its main hit, one damage instance each (`hitsFn`; "由储存能量形成的弹道造成攻击力100%的法术普通伤害" — each as the
- * main hit). [ASSUMED] a redeployment holds no energy (a free move — 乌尔比安 S3 — keeps them). Kits with their own store
+ * main hit). A redeployment holds no energy — each deployment is a new unit in the official client (docs/rules/diy.md
+ * 「선발 추가 벨로네·비이·지마 더 레이징 타이드·Mon3tr」) — while a free move (乌尔比안 S3) keeps them. Kits with their own store
  * (维伊's 转置能量, 黑键's elite energies) replace `storeEnergy` and release theirs from an `attack` hook.
  */
 const installMystic = (battle, unit) => {

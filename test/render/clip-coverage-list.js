@@ -129,4 +129,23 @@ export const UNPLAYED = {
     Skill_3_Loop: 'todo: S3 策略：熔毁 attack (mode S3_Reborn)',
     Skill_3_ReStart: 'todo: S3 策略：熔毁 the 【移动】 onto the 重构体 tile',
   },
+  // 黍 / 老鲤 / 森蚺 / 黑键 (2026-11-04)
+  char_2025_shu: {
+    Skill_3_Attack_2: 'todo: S3 离离枯荣 the heal-only attack with no enemy (mode S3)',
+  },
+  char_322_lmlee: {
+    Skill_2_Attack: 'todo: S2 驱凶辟邪 the marking attack',
+    Skill_2_start: 'todo: S2 驱凶辟邪 cast (the Back model\'s spelling of Skill_2_Start)',
+    Skill_3_End: 'todo: S3 贵客盈门 end',
+  },
+  char_4046_ebnhlz: {
+    Attack_Charge: 'todo: an energy stored (default mode)',
+    Skill_1_Charge: 'todo: an energy stored during S1',
+    Skill_3_Charge: 'todo: an energy stored during S3',
+  },
+  char_416_zumama: {
+    Attack_Down: 'todo: the attack on a target below her (高台下 clip)',
+    Skill_2_Loop: 'todo: S2 震慑劈砍 attack (mode S2)',
+    Skill_2_End: 'todo: S2 震慑劈砍 end',
+  },
 };

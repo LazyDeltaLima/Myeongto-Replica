@@ -818,6 +818,31 @@
    "reset": 0,
    "state": 0
   },
+  "skchr_ebnhlz_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_ebnhlz_2": {
+   "ability": {
+    "anim": "Skill_2",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": -1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_ebnhlz_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
   "skchr_estell_2": {
    "ability": null,
    "cls": "cast",
@@ -1659,6 +1684,34 @@
    "state": 0
   },
   "skchr_liskam_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_lmlee_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0,
+   "word": 0
+  },
+  "skchr_lmlee_2": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": -1,
+    "pre": 0,
+    "time": 2,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_lmlee_3": {
    "ability": null,
    "cls": "cast",
    "reset": 0,
@@ -2535,6 +2588,31 @@
     "time": 0,
     "wait": 1
    },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_shu_1": {
+   "ability": {
+    "anim": "Attack_2",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_shu_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_shu_3": {
+   "ability": null,
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -3553,6 +3631,38 @@
     "cd": 0,
     "cdKey": "duration",
     "face": 2,
+    "max": -1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "group": "seq",
+   "reset": 0,
+   "state": 1,
+   "subs": [
+    {
+     "anim": 1,
+     "wait": 1
+    },
+    {
+     "anim": 0,
+     "wait": 0
+    }
+   ]
+  },
+  "skchr_zumama_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_zumama_3": {
+   "ability": {
+    "anim": "Skill_2_Begin",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 3,
     "max": -1,
     "pre": 0,
     "time": 1,

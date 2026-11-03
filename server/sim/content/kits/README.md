@@ -139,7 +139,7 @@ every active backup skill is cast).
 The 自选 (self-select) slots — two at tier 5, two at tier 6 — field a 6★ the player owns that is not in the chess pool
 (DATA.md §18, `shared/diy.js`; upstream also offers prototypes, this server none). This server offers the owner's picks
 (`shared/local-diy.js LOCAL_DIY_PICKS`: 望, 赤刃明霄陈, 维什戴尔, 丰川祥子, 阿斯卡纶, since 2026-10-11 凯尔希·思衡托, 克莱门莎,
-予愿安洁莉娜, since 2026-10-26 酒神 — upstream's kits brought back — since 2026-11-01 冻河 and 塔露拉, kits of our own, and since 2026-11-02 帕拉斯 and 赫拉格 and since 2026-11-03 真言, 白铁, 遥, 夜莺, 斥罪, 逻各斯, 薇薇安娜, 贝洛内, 维伊, 怒潮凛冬 and Mon3tr, upstream's kits again, `docs/rules/diy.md`); upstream's other owned-6★ picks and their kits are gone
+予愿安洁莉娜, since 2026-10-26 酒神 — upstream's kits brought back — since 2026-11-01 冻河 and 塔露拉, kits of our own, and since 2026-11-02 帕拉斯 and 赫拉格 and since 2026-11-03 真言, 白铁, 遥, 夜莺, 斥罪, 逻各斯, 薇薇安娜, 贝洛内, 维伊, 怒潮凛冬 and Mon3tr and since 2026-11-04 黍, 老鲤, 森蚺 and 黑键, upstream's kits again, `docs/rules/diy.md`); upstream's other owned-6★ picks and their kits are gone
 with the hard fork from 0.2.0 (2026-10-07). Another operator needs the owner's decision, then:
 `LOCAL_DIY_PICKS` (`tools/build-data.mjs` builds `diy.ownedPool` from it), the data rebuild and a kit of its own — one
 file per operator, the same rules as every kit above.

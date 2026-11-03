@@ -24,4 +24,22 @@ export const UNSOUNDED = {
     'ON_SKILL_START.skchr_oblvns_2.1': 'none: an untoggled cast from mode 1 (S2_AttackSpeed) — her only cast here is from mode 2, the skill\'s _defaultModeIndex',
     'ON_SKILL_FINISH.skchr_oblvns_2.1': 'none: a toggled cast — the automatic battle never casts a toggled skill (AutoChessBattleTrigger._CheckToggleSkill)',
   },
+  // 黍 / 老鲤 / 森蚺 / 黑键 (2026-11-04): listed as they joined, not wired yet
+  char_2025_shu: {
+    'ON_BUFF_START.shu_s_3[enemy][mark]': 'todo: S3 离离枯荣 an enemy marked on a sown tile (the kit\'s mark buff)',
+    'ON_BUFF_TRIGGER.shu_s_3[enemy][mark]': 'todo: S3 离离枯荣 the marked enemy put back (the kit\'s teleport)',
+    'ON_ABILITY_ON.char_2025_shu.T.1': 'todo: T1 百谷长青 her heal sowing tiles',
+  },
+  char_322_lmlee: {
+    'ON_PROJECTILE_REACH.projectile_chr_lmlee_s2': 'todo: S2 驱凶辟邪 the mark\'s burst',
+    'ON_BUFF_START.lmlee_skill_3_knockback': 'todo: S3 贵客盈门 an enemy pushed by his attack',
+    'ON_BUFF_START.lmlee_telent_2_start': 'todo: T2 有备无患 the guard taken (merchantPay)',
+  },
+  char_4046_ebnhlz: {
+    'ON_ABILITY_ON.Charge.char_4046_ebnhlz.attack.ExChargeAttackDefault.0': 'todo: an energy stored (default mode)',
+    'ON_ABILITY_ON.Charge.char_4046_ebnhlz.attack.1.ExChargeAttackS1.0': 'todo: an energy stored (S1 mode)',
+    'ON_ABILITY_ON.Charge.char_4046_ebnhlz.attack.2.ExChargeAttackS3.0': 'todo: an energy stored (S3 mode)',
+    'ON_ABILITY_ON.sktok_ebnhlz_token': 'todo: 旧日残影 activated (its 闪回)',
+    'ON_BUFF_START.buff_ebnhlz[audio]': 'todo: the elite energy (T1) stored',
+  },
 };

@@ -70,6 +70,10 @@ test('the derived bonds of the data: each pick its core bonds or 协防 — 望 
     char_4226_veen: ['emptyShip'],        // 维伊 协防 (乌萨斯: no core bond)
     char_1051_headb2: ['emptyShip'],      // 怒潮凛冬 协防 (乌萨斯)
     char_4179_monstr: ['emptyShip'],      // Mon3tr 协防 (罗德岛: in no core bond)
+    char_2025_shu: ['yanShip'],           // 黍 炎
+    char_322_lmlee: ['yanShip'],          // 老鲤 炎 (龙门)
+    char_416_zumama: ['sargonShip'],      // 森蚺 萨尔贡
+    char_4046_ebnhlz: ['emptyShip'],      // 黑键 协防 (莱塔尼亚: no core bond)
   });
   assert.deepEqual(DATA.backups.diy.prototypes, { 5: [], 6: [] });
 });
