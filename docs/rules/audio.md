@@ -601,8 +601,8 @@
     (`skill: 'philae_2'`, 새 `n` = 맞은 적 수) — 그녀에게 한 번, 적마다 한 번씩 뱅크 상한(2, popOldest)까지(`aoeHitKey`).
   - 티티 S3 수면 전파: 깨어난 적이 재우는 적마다 `titi_s_3[effect_line]` ON_BUFF_START PlayAudio `titi_s_3[spread_from]`(뱅크 있음; `[spread_to]`는 뱅크
     없음) → fx `wake`의 `to` 수만큼. 잠든 적이 죽어 전파할 때도(`titi_s_3[dmg_ticker]` ON_OWNER_FINISH가 같은 `[effect_line]`을 검) → **새 sim fx**
-    `kitHit` { k `titi:spread`, n }(키트 `kill` 훅; 렌더의 선은 아직 없음). 재능 1(c) 잠든 적 틱: `titi_t_1[enemy_sleeping]` ON_BUFF_TRIGGER(1초, 잠든 동안)가 피해·이펙트와 함께 PlayAudio `titi_t_1` →
-    **새 sim fx** `kitHit` { k `titi:t1`, n 맞은 적 수 }(틱마다 하나, `chess_char_5_02-titi.js`) — 이펙트 `titi_attack_hit_01`은 렌더가 아직 안 그림.
+    `kitHit` { k `titi:spread`, n }(키트 `kill` 훅; 렌더의 선: docs/rules/fx.md 「모듈 장비 배치 이펙트·선발 키트 순간 이펙트」). 재능 1(c) 잠든 적 틱: `titi_t_1[enemy_sleeping]` ON_BUFF_TRIGGER(1초, 잠든 동안)가 피해·이펙트와 함께 PlayAudio `titi_t_1` →
+    **새 sim fx** `kitHit` { k `titi:t1`, n 맞은 적 수 }(틱마다 하나, `chess_char_5_02-titi.js`; 이펙트 `titi_attack_hit_01`: docs/rules/fx.md 같은 절).
   - 르무엔: 평소·S2 일반 공격(charpack `Modes/Default/Body/Attack`·`Modes/S2/Body/M2Attack/Normal`)의 `BuffToOwner`가 ON_SPELL_END(5)에 그녀에게
     `lemuen_attack_end_audio`(0.76초)를 걸고, 뱅크는 그 ON_BUFF_FINISH → 'atk' 타격 0.76초(게임 시간) 뒤 `lemuen:atkend`(`strikeAfterKey`). S3 모드
     공격엔 없음, S2 조준 사격은 'atk'가 아님. 템플릿 `lemuen_attack_end_audio_s`(탄약 남음 조건)는 만드는 곳을 못 찾음 — 안 냄.
@@ -620,7 +620,7 @@
     [화면 미확인]
 - 선발 스테인리스·하루카·만트라 (2026-11-03, 키트가 들어온 날의 커버리지 목록 `todo` 13개; EN 클라 버프 템플릿·charpack·스킬 프리팹; 새 sfx 13키·파일
   13개). 새 sim 이벤트는 `kitHit` 셋(만트라 S1·S2 타격, S3 튕김 착탄, 하루카 띄우기 틱; 하루카 비눗방울 깨짐 `haruka:break`는 이펙트 쪽이 같은 날
-  넣음), 나머지는 있던 fx에 소리·필드만:
+  넣음 — 9ac38e05e), 나머지는 있던 fx에 소리·필드만:
   - 스테인리스(`char_4072_ironmn`)의 글룸핀서호 - 프로토타입(`token_10027_ironmn_pile3`): 스킬 `sktok_ironmn_pile3` START = 그 'skill' 켜짐(소환물이라 자기
     유닛 항목이 없어 `sfx.kit` `ironmn:pile3s`), 투사체 `projectile_chr_ironmn_pile3` REACH = 키트 착탄 폭발(fx `aoe` `ironmn:crab`).
   - 하루카(`char_4202_haruka`) 재능1 비눗방울: 줄 때 `haruka_t_1` ON_BUFF_START PlayAudio `haruka_shield_start_ally`(가진 유닛; fx `shield` `kind:

@@ -134,6 +134,10 @@ describe('선발 白铁 / 遥 / 真言 custom-trigger sounds (2026-11-03)', () =
       const dmg = h.hooksOf('damaged').filter((c) => c.target === e && c.dmg?.tags?.includes('haruka:float')).length;
       assert.ok(ticks.length >= 2 && ticks.every((x) => x[4].id === u.id), `a kitHit per tick (${ticks.length})`);
       assert.equal(ticks.length, dmg, 'one per damage tick');
+      // the bubble the hit set off breaks 0.5 s later: haruka_t_1_delay's PlayAudio (the kit's kitHit, heal 0 too)
+      const br = kitHits(h, 'haruka:break');
+      assert.equal(br.length, 1, 'its break');
+      assert.deepEqual([br[0][4].id, br[0][4].src], [u.id, u.id], 'at its holder, from her');
     }
     {
       const { h, u } = run(1);
