@@ -278,6 +278,9 @@ export function kitHitKey(fx, ex, unitOf) {
       : ex.skill === 'ironmn:crab' && def(ex.id) === 'token_10027_ironmn_pile3' ? 'ironmn:pile3hit'
       // 2026-11-03: 遥 S2's extra damage at a healed unit, enemies or none (haruka_s_2 ON_AFTER_OUTPUT_HEAL PlayAudio)
       : ex.skill === 'haruka:s2' && def(ex.id) === 'char_4202_haruka' ? 'haruka:s2'
+      // 2026-11-03: 怒潮凛冬's 高台 splash — Headb2AttackHighlandAOEBase._TriggerAOEFromTile plays `_aoeAudioSignal` at every
+      // 高台 tile it takes effect on, enemies or none (Default / S1 / S2 attacks and S3's spread alike)
+      : ex.skill === 'headb2:highland' && def(ex.id) === 'char_1051_headb2' ? 'headb2:highland'
       : null;
     // 2026-11-03: 魔王's 微尘 reaching an operator (an enemy under S2) — its projectile's HIT (cetsyrMoteKey)
     case 'mote': return ex.src !== ex.id ? cetsyrMoteKey(unitOf(ex.src), 'hit') : null;
@@ -392,6 +395,9 @@ export function signalAttackKey(su, at, melee) {
   // 2026-10-29: 维什戴尔 S3 — the attack's AimEff (a child of its all-children group, no clip) marks the target as the attack
   // starts: wisdel_s_3_mark[target]'s audioSignal WISDEL_S3_MARK [추정·엔진: a clip-less child's buff lands at the cast]
   if (su.def === 'char_1035_wisdel' && su.skillIndex === 2 && at === 's') return 'wisdel:s3mark';
+  // 2026-11-03: 贝洛内 S2 — the S2 mode's Attack BuffToOwner (`_runActionOnEvent` ON_SPELL_ON) gives him demetr_s2[audio]
+  // (audioSignal demetr_s2_attack_spell_on_audio) at each shot; the mode has no attack bank of its own
+  if (su.def === 'char_4037_demetr' && su.skillIndex === 1 && at === 'a') return 'demetr:s2atk';
   return null;
 }
 /**
@@ -452,6 +458,14 @@ export function signalFxKey(fx, ex, unitOf) {
   // 2026-11-03: 逻各斯 S1's execution (logos_s_1 PlayAudio logos_s1_kill at the enemy) and T1's shot landing (its HIT)
   if (fx === 'logosExecute' && u?.def === 'char_4133_logos') return 'logos:s1kill';
   if (fx === 'logosLexicon' && u?.def === 'char_4133_logos') return 'logos:t1hit';
+  // 2026-11-03: 贝洛内 S3 — a FlyToTargetSecond 【移动】 (`second`) and the RespawnEnd 【返回】 (`back`) sound their ability
+  // START; the first move, FlyToTarget, has no bank. Mon3tr S3 — the move onto her 重构体 (monstr_s_3[respawn]) and the
+  // return (RespawnEnd, `back`). Their attacks in between: shared/skill-modes.js SKILL_SUB_MODES
+  if (fx === 'teleport' && u?.def === 'char_4037_demetr') return ex.back ? 'demetr:s3back' : ex.second ? 'demetr:s3fly' : null;
+  if (fx === 'teleport' && u?.def === 'char_4179_monstr') return ex.back ? 'monstr:s3back' : 'monstr:s3move';
+  // 2026-11-03: 维伊's store — MergeableChargeUberEffectEmitter sounds the merge signal for the store that makes a 转置能量
+  // (`merged`), the normal one for the others
+  if (fx === 'mysticStore' && u?.def === 'char_4226_veen') return ex.merged ? 'veen:merge' : 'veen:store';
   if (fx === 'charges' && u?.def === 'char_426_billro' && Number.isInteger(u.skillIndex)) return billroChargeKey(u, Number(ex.n) || 0);
   if (fx === 'charges' && (u?.def === 'char_206_gnosis' || u?.def === 'char_4042_lumen')) return chargeStageKey(u, Number(ex.n) || 0);
   // 2026-10-22: 刺玫 S2's counter on the attacker of her protégé (vendla_s_2[extra_damage]'s audioSignal, on the attacker)

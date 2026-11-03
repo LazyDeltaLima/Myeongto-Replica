@@ -138,6 +138,13 @@ export default {
       };
       step(n);
     }
+    /**
+     * A stored energy / 转置能量 of the volley landing: its projectile's HIT sound — her ChargeAttack ability's
+     * projectile_chr_veen / _merged, under S2 ChargeAttackS2's _s2 / _s2_merged (public/js/audio.js kitHit).
+     */
+    function landSound(battle, unit, victim, p) {
+      battle.fx('kitHit', { x: victim.x, y: victim.y, id: unit.id, k: `veen:${p.s2 ? 's2' : ''}${p.m ? 'm' : ''}hit` });
+    }
     /** The main bolt of an attack lands on `victim`: every hit of its volley (released in order), then the S3 bounces. */
     function land(battle, unit, victim, attackId, isSkill) {
       const v = stateOf(unit);
@@ -145,11 +152,11 @@ export default {
       const rec = list ? list.shift() : null;
       if (list && !list.length) v.q.delete(victim.id);
       if (!rec) { hitOnce(battle, unit, victim, unit.s.atk, 1, 1, attackId, isSkill); return; }
-      for (const p of rec.pre) { if (!victim.alive) return; hitOnce(battle, unit, victim, p.atk, p.scale, p.stacks, attackId, isSkill); }
+      for (const p of rec.pre) { if (!victim.alive) return; landSound(battle, unit, victim, p); hitOnce(battle, unit, victim, p.atk, p.scale, p.stacks, attackId, isSkill); }
       if (!victim.alive) return;
       hitOnce(battle, unit, victim, rec.main.atk, rec.main.scale, 1, attackId, isSkill);
       if (rec.main.bounces > 0) bounces(battle, unit, victim, rec.main.bounces, rec.main.atk, attackId);
-      for (const p of rec.post) { if (!victim.alive) return; hitOnce(battle, unit, victim, p.atk, p.scale, p.stacks, attackId, isSkill); }
+      for (const p of rec.post) { if (!victim.alive) return; landSound(battle, unit, victim, p); hitOnce(battle, unit, victim, p.atk, p.scale, p.stacks, attackId, isSkill); }
     }
 
     return {
@@ -164,11 +171,13 @@ export default {
         storeEnergy(battle, unit) {
           const v = stateOf(unit);
           if (v.t >= tMax) return false;
-          if (++v.s >= merge) { v.s -= merge; v.t++; }
+          const merged = ++v.s >= merge;
+          if (merged) { v.s -= merge; v.t++; }
           // the store is her attack ability's charge behaviour (`_chargeAnimKey` Charge — render/units.js: the fx `signal` →
           // the role's `signals` clip); `n` the energies stored now, a 转置能量 counting merge_cnt (the shared 秘术师 rule's
-          // charge effects, fxgame.js chargeStore)
-          battle.fx('mysticStore', { x: unit.x, y: unit.y, id: unit.id, signal: 'store', n: v.s + merge * v.t });
+          // charge effects, fxgame.js chargeStore); `merged`: this store made a 转置能量 — its sound is the merge's instead of
+          // the store's (MergeableChargeUberEffectEmitter, public/js/audio.js)
+          battle.fx('mysticStore', { x: unit.x, y: unit.y, id: unit.id, signal: 'store', n: v.s + merge * v.t, ...(merged ? { merged: 1 } : null) });
           return true;
         },
         install(battle, unit) {
@@ -231,10 +240,11 @@ export default {
           v.t = 0; v.s = 0;
           const s3 = skillOn(unit, S3);
           const pre = [], post = [];
-          for (let i = 0; i < t; i++) { if (!s3) pre.push({ atk: unit.s.atk, scale: merge, stacks: merge }); s2Stack(battle, unit, merge); }
+          const s2on = skillOn(unit, S2);
+          for (let i = 0; i < t; i++) { if (!s3) pre.push({ atk: unit.s.atk, scale: merge, stacks: merge, s2: s2on, m: true }); s2Stack(battle, unit, merge); }
           const main = { atk: unit.s.atk, scale: s3 ? num(b3['attack@base_atk_scale'], 1) : 1, bounces: s3 ? s + merge * t : 0 };
           s2Stack(battle, unit, 1);
-          for (let i = 0; i < s; i++) { if (!s3) post.push({ atk: unit.s.atk, scale: 1, stacks: 1 }); s2Stack(battle, unit, 1); }
+          for (let i = 0; i < s; i++) { if (!s3) post.push({ atk: unit.s.atk, scale: 1, stacks: 1, s2: s2on }); s2Stack(battle, unit, 1); }
           v.use = s3 ? s + merge * t : 0;
           ctx.targets.forEach((tg, i) => {
             const list = v.q.get(tg.id) ?? [];

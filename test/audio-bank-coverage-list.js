@@ -7,7 +7,7 @@
 // Status (one string, the reason after the colon):
 //   'none: <evidence>' — the official client does not sound it in this mode (cite the prefab field / client method);
 //   'todo: <where>' — the client sounds it and we do not yet (where it fires, as far as known).
-// The first listing (2026-11-01) had 25; all its `todo` entries were wired the same day. The 白铁 / 遥 / 真言 ones (2026-11-03) too.
+// The first listing (2026-11-01) had 25; all its `todo` entries were wired the same day. The 白铁 / 遥 / 真言 ones (2026-11-03) too, and the 贝洛内 / 维伊 / 怒潮凛冬 / Mon3tr ones the same day.
 
 export const UNSOUNDED = {
   char_4202_haruka: {
@@ -23,34 +23,5 @@ export const UNSOUNDED = {
     // ON_SKILL_FINISH once toggled, at skchr_oblvns_2.<current mode index>; here her one cast comes from mode 2 (S2_Atk)
     'ON_SKILL_START.skchr_oblvns_2.1': 'none: an untoggled cast from mode 1 (S2_AttackSpeed) — her only cast here is from mode 2, the skill\'s _defaultModeIndex',
     'ON_SKILL_FINISH.skchr_oblvns_2.1': 'none: a toggled cast — the automatic battle never casts a toggled skill (AutoChessBattleTrigger._CheckToggleSkill)',
-  },
-  char_4037_demetr: {
-    // 贝洛内, 维伊, 怒潮凛冬 and Mon3tr joined 2026-11-03; their sounds are not wired yet (the next sound session)
-    'ON_BUFF_START.demetr_s2_attack_spell_on_audio': 'todo: S2 军师的手段 as it starts',
-    'ON_ABILITY_START.skchr_demetr_3.extra.1': 'todo: S3 清算 a 【移动】 (FlyToTarget)',
-    'ON_ABILITY_START.skchr_demetr_3.extra.2': 'todo: S3 清算 the return (RespawnEnd)',
-    'ON_ABILITY_START.char_4037_demetr.attack.3.1': 'todo: S3 attack (mode 3, Loop_A)',
-    'ON_ABILITY_HIT.char_4037_demetr.attack.3.1': 'todo: S3 hit (mode 3, Loop_A)',
-    'ON_ABILITY_START.char_4037_demetr.attack.3.2': 'todo: S3 attack (mode 3, Loop_B)',
-    'ON_ABILITY_HIT.char_4037_demetr.attack.3.2': 'todo: S3 hit (mode 3, Loop_B)',
-  },
-  char_4226_veen: {
-    'ON_CUSTOM_TRIGGER.veen_charge_normal': 'todo: trait an energy stored (kit storeEnergy)',
-    'ON_CUSTOM_TRIGGER.veen_charge_merge': 'todo: T1 three energies merge into a 转置能量',
-    'ON_PROJECTILE_HIT.projectile_chr_veen': 'todo: a stored energy landing (kit veenVolley)',
-    'ON_PROJECTILE_HIT.projectile_chr_veen_merged': 'todo: a 转置能量 landing (kit veenVolley)',
-    'ON_PROJECTILE_HIT.projectile_chr_veen_s2': 'todo: S2 a stored energy landing',
-    'ON_PROJECTILE_HIT.projectile_chr_veen_s2_merged': 'todo: S2 a 转置能量 landing',
-  },
-  char_1051_headb2: {
-    'ON_CUSTOM_TRIGGER.headb2_highland_aoe': 'todo: T1 汹涌怒火 a 高台 splash (kit highland round)',
-  },
-  char_4179_monstr: {
-    'ON_BUFF_START.monstr_s_3[respawn]': 'todo: S3 策略：熔毁 the 【移动】 onto the 重构体 tile',
-    'ON_ABILITY_START.char_4179_monstr.attack.4': 'todo: S3 attack (mode 4, S3_Reborn)',
-    'ON_ABILITY_HIT.char_4179_monstr.attack.4': 'todo: S3 hit (mode 4)',
-    'ON_ABILITY_START.char_4179_monstr.combat.4': 'todo: S3 attack on a blocked enemy (mode 4 Combat)',
-    'ON_ABILITY_HIT.char_4179_monstr.combat.4': 'todo: S3 hit on a blocked enemy (mode 4 Combat)',
-    'ON_ABILITY_START.skchr_monstr_3.extra.0': 'todo: S3 the return (Respawn)',
   },
 };

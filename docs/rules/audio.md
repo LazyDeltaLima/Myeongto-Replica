@@ -330,6 +330,8 @@
   SKILL_SUB_MODES`(오퍼레이터 → sim fx 종류 → 모드 이름: 'wisdelOverload'·'anchor') → 생성 `modes[스킬].sub[fx] = { cues, sel? }` → 재생: 그 스킬 중
   그 fx가 오면 스킬이 끝날 때까지 `cueSetOf(entry, 스킬, sub)`. sim 이벤트는 그대로(golden 무변화). 확인: `test/audio-skill-end-modes.test.js`. [화면 미확인]
   2026-11-03: 같은 스킬의 형제 시전 모드도(비비아나 S3 두 번째부터 `S3_1` → `S3_2`, fx `vvanaS3Later` — 아래 「버프·커스텀 트리거 소리」 비비아나 줄).
+  2026-11-03: 벨로네 S3(`S3` → `S3_Resapwn`)·Mon3tr S3(`S3` → `S3_Reborn`)는 첫 【이동】 fx `teleport`부터 — 이름이 맞는 모드 `S3`가 그 스킬의 공격
+  모드가 아니다(아래 「버프·커스텀 트리거 소리」 「선발 벨로네·비이·지마 더 레이징 타이드·Mon3tr」).
 - 묶음 E(2026-10-29, 「모드 공격 뱅크 미사용」 7명) 중 할 것 없음: 이그제큐터 디 엑스 포에데레 `attack.4`(S3_End — 이 모드 기물은 S2), 그의
   `ON_BUFF_START.excu2_multi_attack[audio]`/`[s3][audio]`(그 버프 키를 만드는 곳이 EN 클라 캐릭터·스킬 프리팹·버프 템플릿 어디에도 없음 — 재능 추가 사격은
   `T.1` `p_atk_shotgunxdouble`로 이미 남, 아래 「재능·소환물 능력 소리」), 미니멀리스트 `attack.1`(`_d`: 그녀의 `_modes`는 Default 하나이고 그 신호는
@@ -456,7 +458,8 @@
     모드 2 `S2_Atk`(스킬 `_defaultModeIndex`)에서 → 시작음은 `.2`(h1)인데 `skill-sfx.mjs`가 먼저 찾은 `.1`(h2)을 내고 있었다 → `START_BANKS`로 `.2`.
     `.1` START·FINISH는 목록에 `none`(켜진 토글 스킬은 자동 전투가 안 씀 — `_CheckToggleSkill`). 키트는 시전마다 음색을 바꾸므로(공식은 한 번 —
     diy.md 「사키코 S2」의 보류) 둘째 시전도 `.2`가 난다.
-- 지금 목록: 토가와 사키코 `none` 2개뿐(`todo` 0).
+- 지금 목록(2026-11-03): `none`만 — 하루카 1·나이팅게일 2·토가와 사키코 2(`todo` 0; 벨로네·비이·지마 더 레이징 타이드·Mon3tr의 20개는 아래
+  「버프·커스텀 트리거 소리」).
 
 ## 스킬·재능 투사체 소리 (2026-10-29, 공식 클라 — 캐릭터·스킬·투사체 프리팹)
 - 공식: 스킬·재능·드론이 쏘는 투사체도 자기 뱅크를 낸다 — BORN(발사)·HIT(맞힌 대상마다)·REACH(도착)·STOP(멈춤)·
@@ -657,6 +660,27 @@
   `p_imp_shdswrd_s`) — 키트가 그 시전을 fx `vvanaS3Later`로 알리고 `SKILL_SUB_MODES`가 그 스킬의 형제 모드(`S3_1` → `S3_2`)도 받게 했다. S3는
   시작 뱅크가 없어(`ON_SKILL_START`는 S2만) 시작음이 없다 — 예전에는 S1의 시작음이 났다(아래 「배치 효과음」 절 끝 「시작음이 없는 스킬」).
   - 확인: `test/audio-diy-pick-sounds.test.js` 「선발 薇薇安娜」(빌더, battleHarness → AudioManager로 보통·蓄力 S1·첫·두 번째 S3). [화면 미확인]
+- 선발 벨로네·비이·지마 더 레이징 타이드·Mon3tr (2026-11-03, 같은 날 들어온 키트의 커버리지 `todo` 20개; 새 sfx 12키·파일 15개, 공식 클라에서 확인):
+  - 벨로네(`char_4037_demetr`) S2 참모의 수단: S2 모드 `Attack`의 `BuffToOwner`(`_runActionOnEvent` ON_SPELL_ON, `_maxTarget` 1)가 사격마다 그에게
+    `demetr_s2[audio]`(audioSignal `demetr_s2_attack_spell_on_audio`)를 건다 → 'atk' 타격 순간 `demetr:s2atk`(`signalAttackKey`; 그 모드엔 공격 뱅크가 없다).
+  - 벨로네 S3 청산: `demetr_s3[switch_mode]` ON_BUFF_START가 블랙보드의 모드(3 `S3_Resapwn`)로 바꾸고 FlyToTarget을 시전한다 — 그래서 S3 공격은 처음부터
+    `attack.3.1`/`.2`(Skill_3_Loop_A·B, `_diffFromLastOneIfNotFirst`). 프리팹 모드 2 `S3`는 【복귀】 뒤 `demetr_s3[restore]`가 두는 모드(평타와 같은 `_n`)라
+    이름 규칙이 고르던 그것은 S3의 소리가 아니었다 → `SKILL_SUB_MODES` `teleport`. 【이동】: 첫 이동 FlyToTarget(`_extraAbilities[0]`)은 뱅크가 없고, 그 뒤
+    이동(`demetr_s3[target_timer]`·`[finish_listener]`·`[elite_finish_listener_core]`의 FlyToTargetSecond, `[1]`)은 START `p_atk_rdbrknclsflh` → 키트
+    fx `teleport`에 새 `second`; 【복귀】 RespawnEnd(`[2]`) START `p_imp_rdbrknclsflh` → 새 `back`.
+  - 비이(`char_4226_veen`) 특성 저장: `Trait/ChargeableGroup`의 `MergeableChargeUberEffectEmitter.CreateChargeEffects`가 저장마다 소리 하나 —
+    `_CheckNextNeedMerged`(배치 뒤 셋째 저장마다)면 `_audioSignalMerge` `veen_charge_merge`, 아니면 `_audioSignalNormal` `veen_charge_normal`(합칠 때 일반음은
+    안 남) → fx `mysticStore`에 새 `merged`. 상한이 차 저장이 없으면 소리도 없다(`CheckChargeIndexValid`). 일제 사격의 저장 에너지·치환 에너지 착탄:
+    ChargeAttack 능력의 투사체 HIT(`projectile_chr_veen`/`_merged`, S2는 `ChargeAttackS2`의 `_s2`/`_s2_merged`) → 키트가 그 타격마다 새 kitHit
+    `veen:[s2]hit`/`veen:[s2]mhit`(맞은 적 자리). S3의 것(`_s3`)은 전부터 남.
+  - 지마 더 레이징 타이드(`char_1051_headb2`) 재능 소용돌이 치는 분노의 고지대 스플래시: `Headb2AttackHighlandAOEBase._TriggerAOEFromTile`이 효과가 나는
+    고지대 칸마다 피해 뒤 `_aoeAudioSignal` `headb2_highland_aoe`를 그 칸에서 낸다 — 적이 없어도(`_TryGetEntities_DISPOSE`의 실패는 능력 선택자를 못 찾을
+    때뿐). 평타·S1·S2 모드와 S3 퍼짐(`Headb2S3HighlandAOE`, 같은 신호) 모두 → 키트 fx `aoe` `headb2:highland`.
+  - Mon3tr(`char_4179_monstr`) S3 책략: 용해: `monstr_s_3_buff[respawn]` ON_BUFF_START의 RespawnCharacter가 그녀를 재구성체 자리에 모드 4 `S3_Reborn`으로
+    놓은 뒤 `monstr_s_3[audio]`(audioSignal `monstr_s_3[respawn]`)를 건다 → fx `teleport`에 `monstr:s3move`, 그 뒤 공격은 `attack.4`/`combat.4`
+    (`SKILL_SUB_MODES` `teleport`; 막은 적엔 Combat), 【복귀】 RespawnEnd(`_extraAbilities[0]`) START → `back`에 `monstr:s3back`.
+  - 확인: `test/audio-diy-pick-sounds.test.js` 「선발 贝洛内 / 维伊 / 怒潮凛冬 / Mon3tr」(뱅크, 빌더의 두 `sub`, battleHarness → AudioManager로 벨로네 S2·S3 이동
+    셋, 비이 저장·합침·착탄·S2 착탄, 지마 적 없는 고지대, Mon3tr S3 이동·공격·복귀). [화면 미확인]
 
 - 안 한 것: 쏜즈 더 로드스타 `thorn2_t_2_start`(`thorn2_t_2[audio]`를 만드는 템플릿·프리팹을 못 찾음), 실버애쉬 더 레인프로스트 `svash2_s_2[show]`(EN 클라에
   그 신호를 내는 PlayAudio 없음)·`svash2_eagle_token[locate]`(독수리 토큰이 키트에 없음), 유동체 재능 T.1 `p_skill_wtrlimereborn`(가짜 죽음·부활이

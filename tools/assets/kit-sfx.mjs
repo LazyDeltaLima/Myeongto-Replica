@@ -280,6 +280,25 @@ export const KIT_HIT_BANKS = Object.freeze({
   'logos:s1shot': 'battle.ON_PROJECTILE_BORN.projectile_chr_logos_s1_2',
   'logos:t1shot': 'battle.ON_PROJECTILE_BORN.projectile_chr_logos_t',
   'logos:t1hit': 'battle.ON_PROJECTILE_HIT.projectile_chr_logos_t',
+  // 贝洛内 S2's shot (the S2 mode's Attack BuffToOwner, `_runActionOnEvent` ON_SPELL_ON: demetr_s2[audio] with this
+  // audioSignal), S3's FlyToTargetSecond and RespawnEnd (skchr_demetr_3 `_extraAbilities` 1 / 2; FlyToTarget, 0, has no bank);
+  // 维伊's store (MergeableChargeUberEffectEmitter.CreateChargeEffects: the normal signal, or the merge one for the store that
+  // makes a 转置能量) and her stored energies landing (the ChargeAttack abilities' projectiles, S2 ChargeAttackS2's);
+  // 怒潮凛冬's 高台 splash (Headb2AttackHighlandAOEBase._TriggerAOEFromTile: `_aoeAudioSignal` at every 高台 tile, enemies or
+  // none); Mon3tr S3's move onto her 重构体 (monstr_s_3_buff[respawn] creates monstr_s_3[audio] after RespawnCharacter) and its
+  // return (skchr_monstr_3 `_extraAbilities` 0, RespawnEnd)
+  'demetr:s2atk': 'battle.ON_BUFF_START.demetr_s2_attack_spell_on_audio',
+  'demetr:s3fly': 'battle.ON_ABILITY_START.skchr_demetr_3.extra.1',
+  'demetr:s3back': 'battle.ON_ABILITY_START.skchr_demetr_3.extra.2',
+  'veen:store': 'battle.ON_CUSTOM_TRIGGER.veen_charge_normal',
+  'veen:merge': 'battle.ON_CUSTOM_TRIGGER.veen_charge_merge',
+  'veen:hit': 'battle.ON_PROJECTILE_HIT.projectile_chr_veen',
+  'veen:mhit': 'battle.ON_PROJECTILE_HIT.projectile_chr_veen_merged',
+  'veen:s2hit': 'battle.ON_PROJECTILE_HIT.projectile_chr_veen_s2',
+  'veen:s2mhit': 'battle.ON_PROJECTILE_HIT.projectile_chr_veen_s2_merged',
+  'headb2:highland': 'battle.ON_CUSTOM_TRIGGER.headb2_highland_aoe',
+  'monstr:s3move': 'battle.ON_BUFF_START.monstr_s_3[respawn]',
+  'monstr:s3back': 'battle.ON_ABILITY_START.skchr_monstr_3.extra.0',
   // 2026-11-03, docs/rules/audio.md 「적 버프·커스텀 트리거 소리」 (EN client enemy prefabs and buff templates; public/js/audio.js
   // enemyBuffSounds): a prisoner freed (its Liberty mode's enemy_liberty[state]) and freed by another (LibertyOthersAbility's
   // enemy_liberty_force); 阿利斯泰尔's piece picked up (enemy_vtmstr_equip_*[char] PlayAudio) and its vest taken

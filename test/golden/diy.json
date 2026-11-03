@@ -1453,8 +1453,8 @@
       ],
       "enemies": {"enemy_1148_dssbr":[63,6,57,8907,320528],"enemy_1148_dssbr_2":[60,1,59,6234,275411],"enemy_1439_dslntf":[12,0,12,11316,27773]},
       "hooks": [1,158,6167,407,407,1997,2512,0,25,153,13,13,1,18413,12,16,135,128,1,25,0,12,0],
-      "events": {"atk":407,"deploy":20,"die":25,"dmg":2512,"engage":12,"face":6,"fx":101,"leak":128,"skill":26,"spawn":150,"status":687,"swing":414},
-      "fx": {"burst":12,"kitHit":12,"mysticStore":62,"veenBounce":1,"veenVolley":14},
+      "events": {"atk":407,"deploy":20,"die":25,"dmg":2512,"engage":12,"face":6,"fx":127,"leak":128,"skill":26,"spawn":150,"status":687,"swing":414},
+      "fx": {"burst":12,"kitHit":38,"mysticStore":62,"veenBounce":1,"veenVolley":14},
       "snaps": "bb5c5291 c93d6320 53a568a0 fdf7be10 42d71589 ae3bc812 e19bb84e e9bbbba3 17436982 71296481 24632b64 68a8581f 23accc41 8a6dd90c f8c91d8d c6d83fe5 6b367cb7 cb095cc9 2c0a9deb 95bcd6db f4c0c58f"
     },
     "diy-035": {
@@ -1492,8 +1492,8 @@
       ],
       "enemies": {"enemy_1249_lysdb_2":[60,60,0,2584,345600],"enemy_1251_lysyta":[51,51,0,14,134640],"enemy_1329_cbshld":[39,34,5,5018,359603]},
       "hooks": [1,164,6080,473,471,1543,1483,0,148,153,26,23,73,31472,129,26,150,5,1,148,0,0,0],
-      "events": {"atk":471,"deploy":14,"die":148,"dmg":1483,"engage":8,"face":93,"fx":490,"leak":5,"skill":49,"spawn":162,"status":557,"swing":511},
-      "fx": {"aoe":119,"mysticStore":193,"shieldBreak":60,"veenBounce":64,"veenVolley":54},
+      "events": {"atk":471,"deploy":14,"die":148,"dmg":1483,"engage":8,"face":93,"fx":519,"leak":5,"skill":49,"spawn":162,"status":557,"swing":511},
+      "fx": {"aoe":119,"kitHit":29,"mysticStore":193,"shieldBreak":60,"veenBounce":64,"veenVolley":54},
       "snaps": "3898c470 836b4d18 1679b810 a014e063 df71b7e8 c7566581 f80078d4 f7a8481d 24936fe3 94b06a2d f3e05075 6f6c5e79 6fca7f9f db39b32e fb933bec 69834611 71334875 72bea3ad 7657c760 99b5446d d1fed834"
     },
     "diy-036": {

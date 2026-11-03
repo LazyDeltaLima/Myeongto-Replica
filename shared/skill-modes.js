@@ -29,6 +29,13 @@ export const SKILL_SUB_MODES = Object.freeze({
   char_1021_kroos2: Object.freeze({ quadShot: 'S2_Sub' }),
   // 2026-11-03: 薇薇安娜 S3 from her second cast of a deployment (vvana_s_3[check]: mode 4 instead of 3; kit fx 'vvanaS3Later')
   char_4098_vvana: Object.freeze({ vvanaS3Later: 'S3_2' }),
+  // 2026-11-03: 贝洛内 S3 — demetr_s3[switch_mode] (ON_BUFF_START) switches him to the mode its blackboard names, S3_Resapwn,
+  // and triggers FlyToTarget (its first 【移动】, in place without a target; kit fx 'teleport'): the prefab's `S3` mode is
+  // the one demetr_s3[restore] puts him in after the 【返回】
+  char_4037_demetr: Object.freeze({ teleport: 'S3_Resapwn' }),
+  // 2026-11-03: Mon3tr S3 — monstr_s_3_buff[respawn]'s RespawnCharacter puts her on her 重构体's tile in S3_Reborn (the
+  // melee mode; kit fx 'teleport')
+  char_4179_monstr: Object.freeze({ teleport: 'S3_Reborn' }),
 });
 
 /**

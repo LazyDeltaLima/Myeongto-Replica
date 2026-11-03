@@ -318,3 +318,136 @@ describe('선발 薇薇安娜: S1\'s two casts, S3 from the second cast (2026-11
     assert.deepEqual(a.played, ['s1.mp3', 'y.mp3']);
   });
 });
+
+describe('선발 贝洛内 / 维伊 / 怒潮凛冬 / Mon3tr: buff, custom-trigger and mode sounds (2026-11-03)', () => {
+  const DEMETR = 'char_4037_demetr', VEEN = 'char_4226_veen', ZIMA = 'char_1051_headb2', MONSTR = 'char_4179_monstr';
+  const PROSTS = 'token_10050_monstr_prosts';
+  const bare = (u) => file(u).replace(/\.\w+$/, '');
+  const skillsOf = (code) => [1, 2, 3].map((n, index) => ({ index, skillId: `skchr_${code}_${n}` }));
+  /** A battle of `units`, then `prep`, then `secs` of steps fed to the audio manager as they come. */
+  const hear = ({ units, rows = null, prep, secs, until = null }) => {
+    const skill = units[0].diy.skillIndex;
+    const h = makeBattle({ defs: { enemies: { e_d: dummy('e_d'), e_weak: dummy('e_weak', { hp: 1 }) } }, timeLimit: 900, autoFinish: false, seed: 5,
+      flags: { dpPerSec: 0, dpMax: 999 }, captureNoisy: true, ...(rows ? { flat: { rows } } : {}), units });
+    h.step();
+    const a = manager();
+    const field = () => a.setFieldUnits([...h.b.allyUnits, ...h.b.enemies].filter((x) => x.alive || x === h.unit(1)).map((x) => (x.side === 'enemy'
+      ? { id: x.id, kind: 'enemy', side: 'enemy', spine: 'enemy_1007_slime' }
+      : { id: x.id, kind: x.kind === 'token' ? 'token' : 'op', side: 'ally', spine: x.def?.charId ?? x.defId, ...(x === h.unit(1) ? { skillIndex: skill } : null) })));
+    prep(h, h.unit(1));
+    field();
+    h.events.length = 0;
+    const all = [];
+    let t = 0;
+    for (let i = 0, n = Math.round(secs / h.b.dt); i < n && !(until && until(h)); i++) {
+      h.step();
+      a.ctx.currentTime = (t += h.b.dt);
+      const ev = h.events.splice(0);
+      all.push(...ev);
+      a.handleBattleEvents(ev);
+    }
+    assert.equal(h.b.errors.length, 0, JSON.stringify(h.b.errors[0]));
+    return { h, u: h.unit(1), fx: (k) => all.filter((x) => x[0] === 'fx' && x[1] === k).map((x) => x[4]), played: a.played.map((f) => f.replace(/\.\w+$/, '')) };
+  };
+  const count = (list, f) => list.filter((x) => x === f).length;
+
+  test('the banks', { skip: NO_DATA }, () => {
+    const out = kitHitSfx(indexAudio(JSON.parse(readFileSync(OFFICIAL, 'utf8'))), (p) => p);
+    const want = {
+      'demetr:s2atk': 'p_atk_rdbrknclsfr_h', 'demetr:s3fly': 'p_atk_rdbrknclsflh', 'demetr:s3back': 'p_imp_rdbrknclsflh',
+      'veen:store': 'p_skill_ergblb', 'veen:merge': 'p_skill_ergblr', 'veen:hit': 'p_imp_ergblb', 'veen:mhit': 'p_imp_ergblr',
+      'veen:s2hit': 'p_imp_ergblb', 'veen:s2mhit': 'p_imp_ergblr', 'headb2:highland': 'p_imp_brhmxsprd',
+      'monstr:s3move': 'p_atk_kxdtctmpr_s', 'monstr:s3back': 'p_atk_kxdtctmnd_s',
+    };
+    for (const [k, f] of Object.entries(want)) {
+      assert.ok(KIT_HIT_BANKS[k], k);
+      assert.equal(bare(out[k]?.[0]), f, k);
+    }
+  });
+
+  test('the builder: 贝洛内 S3 and Mon3tr S3 attack in the mode their skill switches to (S3_Resapwn / S3_Reborn) from the first 【移动】', { skip: NO_DATA }, () => {
+    const audio = indexAudio(JSON.parse(readFileSync(OFFICIAL, 'utf8')));
+    const CM = loadCharModes(ROOT), CA = loadCharAudio(ROOT);
+    const cues = (set) => set.cues.map((c) => `${c.at}:${c.ab ?? '-'}:${c.k ?? '-'}:${bare(c.u)}`).sort();
+    const d = skillModes(audio, DEMETR, skillsOf('demetr'), CM[DEMETR], (p) => `/assets/audio/${p[0]}`, () => false, CA[DEMETR]);
+    assert.deepEqual(cues(d[2].sub.teleport), ['d:-:1:p_imp_rdbrkncls_s1', 'd:-:2:p_imp_rdbrkncls_s2', 's:-:1:p_atk_rdbrkncls_s', 's:-:2:p_atk_rdbrkncls_s'], 'attack.3.1 / .2');
+    const m = skillModes(audio, MONSTR, skillsOf('monstr'), CM[MONSTR], (p) => `/assets/audio/${p[0]}`, () => false, CA[MONSTR]);
+    assert.deepEqual([...new Set(m[2].sub.teleport.cues.map((c) => bare(c.u)))].sort(), ['p_atk_kxdtctm_s', 'p_imp_kxdtctm_s'], 'attack.4 / combat.4');
+  });
+
+  test('a battle: 贝洛内 S2 shots, S3 — the first 【移动】 silent, a FlyToTargetSecond and the 【返回】 sounding, S3_Resapwn attacks', { skip: NO_DATA }, () => {
+    const unit = (skill) => [{ uid: 1, diy: { slot: SLOT5, charId: DEMETR, skillIndex: skill, uniEquipId: null }, row: 10, col: 5 }];
+    const s2 = hear({ units: unit(1), secs: 3, prep: (h, u) => { h.spawn('e_d', { pos: [10, 8] }); u.skill.gainSp(999); } });
+    assert.ok(s2.u.skill.activations >= 1, 'S2 cast');
+    assert.ok(count(s2.played, 'p_atk_rdbrknclsfr_h') >= 2, `a sound each shot (${s2.played})`);
+    let e1;
+    const s3 = hear({ units: unit(2), secs: 40, until: (h) => h.unit(1).skill.activations && !h.unit(1).skill.active,
+      prep: (h, u) => {
+        e1 = h.spawn('e_d', { pos: [11, 7] });
+        u.skill.gainSp(999);
+        h.b.after(2, () => { h.b.kill(e1, null); h.spawn('e_d', { pos: [9, 6] }); });
+      } });
+    const tp = s3.fx('teleport').filter((o) => o.id === s3.u.id).map((o) => (o.back ? 'back' : o.second ? 'second' : 'first'));
+    assert.deepEqual(tp, ['first', 'second', 'back']);
+    assert.equal(count(s3.played, 'p_atk_rdbrknclsflh'), 1, 'FlyToTargetSecond');
+    assert.equal(count(s3.played, 'p_imp_rdbrknclsflh'), 1, 'RespawnEnd');
+    assert.ok(s3.played.includes('p_atk_rdbrkncls_s') && s3.played.some((f) => /^p_imp_rdbrkncls_s[12]$/.test(f)), `S3_Resapwn attacks (${s3.played})`);
+    assert.ok(!s3.played.includes("p_atk_rdbrkncls_n"), `not the S3 / Default mode's (${s3.played})`);
+  });
+
+  test('a battle: 维伊 stores (the third a merge), her stored energies landing; under S2 its projectiles', { skip: NO_DATA }, () => {
+    const unit = (skill) => [{ uid: 1, diy: { slot: SLOT5, charId: VEEN, skillIndex: skill, uniEquipId: null }, row: 10, col: 5 }];
+    const stored = (u) => ({ s: u.trait.veen?.s ?? 0, t: u.trait.veen?.t ?? 0 });
+    const plain = hear({ units: unit(0), secs: 30, until: (h) => stored(h.unit(1)).t === 1 && stored(h.unit(1)).s === 1, prep: (h, u) => { u.skill.sp = 0; } });
+    // (her first store came with the first step, before the manager listened)
+    const st = plain.fx('mysticStore');
+    assert.deepEqual(st.map((o) => o.merged ?? 0), [0, 1, 0], 'the third store of a deployment merges');
+    assert.deepEqual([count(plain.played, 'p_skill_ergblb'), count(plain.played, 'p_skill_ergblr')], [2, 1], 'the normal signal, or the merge one instead');
+    const shoot = hear({ units: unit(0), secs: 34, until: (h) => h.eventsOf('fx').some((x) => x[1] === 'veenVolley') && h.b.time > h.eventsOf('fx').find((x) => x[1] === 'veenVolley')[0] + 1,
+      prep: (h, u) => { u.skill.sp = 0; h.b.after(25, () => h.spawn('e_d', { pos: [10, 7] })); } });
+    const vs = shoot.fx('veenVolley'), sum = (k) => vs.reduce((n, v) => n + v[k], 0);
+    assert.ok(sum('stored') > 0 && sum('merged') > 0, `volleys with both (${JSON.stringify(vs)})`);
+    assert.equal(shoot.fx('kitHit').filter((o) => o.k === 'veen:hit').length, sum('stored'), 'one landing each stored energy');
+    assert.equal(shoot.fx('kitHit').filter((o) => o.k === 'veen:mhit').length, sum('merged'), 'one landing each 转置能量');
+    assert.ok(shoot.played.includes('p_imp_ergblb') && shoot.played.includes('p_imp_ergblr'), 'projectile_chr_veen / _merged HIT');
+    // under S2: ChargeAttackS2's projectiles
+    const s2 = hear({ units: unit(1), secs: 40, until: (h) => h.eventsOf('fx').some((x) => x[1] === 'veenVolley' && x[4]?.s2) && h.eventsOf('fx').some((x) => x[1] === 'kitHit' && /^veen:s2/.test(x[4]?.k)),
+      prep: (h, u) => { u.skill.sp = 0; h.b.after(25, () => { u.skill.gainSp(999); h.spawn('e_d', { pos: [10, 7] }); }); } });
+    assert.ok(s2.fx('kitHit').some((o) => /^veen:s2m?hit$/.test(o.k)) && !s2.fx('kitHit').some((o) => /^veen:m?hit$/.test(o.k)), 'S2 keys only');
+  });
+
+  test('a battle: 怒潮凛冬\'s 高台 splash sounds at the 高台 tile, with or without an enemy there', { skip: NO_DATA }, () => {
+    const units = [{ uid: 1, diy: { slot: SLOT5, charId: ZIMA, skillIndex: 0, uniEquipId: null }, row: 10, col: 5 }];
+    const r = hear({ units, rows: { 11: '##hrrrr#rrfrrrrrrrf##' }, secs: 3, until: (h) => h.eventsOf('fx').some((x) => x[1] === 'aoe' && x[4]?.skill === 'headb2:highland'),
+      prep: (h, u) => { u.skill.sp = 0; h.spawn('e_d', { pos: [10, 6] }); } });
+    const a = r.fx('aoe').filter((o) => o.skill === 'headb2:highland');
+    assert.ok(a.length >= 1 && r.h.enemies().every((e) => Math.round(e.y) !== 11 && Math.round(e.y) !== 12), 'a 高台 taking effect with nobody on its x-5');
+    assert.equal(count(r.played, 'p_imp_brhmxsprd'), a.length, 'each one sounds, enemies or none');
+  });
+
+  test('a battle: Mon3tr S3 — the move onto her 重构体, S3_Reborn attacks on the enemy she blocks, the return', { skip: NO_DATA }, () => {
+    const units = [{ uid: 1, diy: { slot: SLOT5, charId: MONSTR, skillIndex: 2, uniEquipId: null }, row: 10, col: 4 },
+      { uid: 2, kind: 'token', tokenId: PROSTS, ownerUid: 1, row: 10, col: 6 }];
+    const r = hear({ units, secs: 40, until: (h) => h.unit(1).skill.activations && !h.unit(1).skill.active,
+      prep: (h, u) => { h.spawn('e_d', { pos: [10, 5] }); u.skill.gainSp(999); } });
+    assert.deepEqual(r.fx('teleport').filter((o) => o.id === r.u.id).map((o) => o.back ?? 0), [0, 1]);
+    assert.equal(count(r.played, 'p_atk_kxdtctmpr_s'), 1, 'monstr_s_3[respawn]');
+    assert.equal(count(r.played, 'p_atk_kxdtctmnd_s'), 1, 'RespawnEnd');
+    assert.ok(r.played.includes('p_atk_kxdtctm_s') && r.played.includes('p_imp_kxdtctm_s'), `S3_Reborn attacks (${r.played})`);
+  });
+
+  test('the fx events they follow (pure)', () => {
+    const units = { 1: { def: DEMETR }, 2: { def: VEEN }, 3: { def: ZIMA }, 4: { def: MONSTR }, 5: { def: 'char_1052_kalts2' } };
+    const of = (id) => units[id];
+    assert.equal(signalFxKey('teleport', { id: 1 }, of), null, 'FlyToTarget: no bank');
+    assert.equal(signalFxKey('teleport', { id: 1, second: 1 }, of), 'demetr:s3fly');
+    assert.equal(signalFxKey('teleport', { id: 1, back: 1 }, of), 'demetr:s3back');
+    assert.equal(signalFxKey('teleport', { id: 4 }, of), 'monstr:s3move');
+    assert.equal(signalFxKey('teleport', { id: 4, back: 1 }, of), 'monstr:s3back');
+    assert.equal(signalFxKey('mysticStore', { id: 2, n: 1 }, of), 'veen:store');
+    assert.equal(signalFxKey('mysticStore', { id: 2, n: 3, merged: 1 }, of), 'veen:merge');
+    assert.equal(signalFxKey('mysticStore', { id: 5, n: 1 }, of), null, 'another 秘术师');
+    assert.equal(kitHitKey('aoe', { id: 3, skill: 'headb2:highland' }, of), 'headb2:highland');
+    assert.equal(kitHitKey('aoe', { id: 3, skill: 'headb2:hammer' }, of), null);
+  });
+});

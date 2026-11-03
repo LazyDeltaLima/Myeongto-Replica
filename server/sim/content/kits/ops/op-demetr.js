@@ -201,22 +201,29 @@ export default {
       if (st.bond && st.bond.alive) battle.retreat(st.bond, { reason: 'expired', permanent: true });
       st.bond = null;
     };
-    /** One 【移动】 of S3 onto (r, c): 牵绊 retreated first when it is his located tile, left there when he leaves it. */
-    const moveTo = (battle, unit, st, r, c) => {
+    /**
+     * One 【移动】 of S3 onto (r, c): 牵绊 retreated first when it is his located tile, left there when he leaves it.
+     * `second`: a FlyToTargetSecond move (the timer, a fallen elite) — its ability START sounds, FlyToTarget's has no bank
+     * (fx `second`, public/js/audio.js).
+     */
+    const moveTo = (battle, unit, st, r, c, second = false) => {
       const [hr, hc] = st.home;
       const home = r === hr && c === hc;
       if (home && (unit.tileR !== hr || unit.tileC !== hc)) retreatBond(battle, st);
       const fromX = unit.x, fromY = unit.y;
       if (!battle.moveRedeploy(unit, r, c)) return false;
-      battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
+      battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY, ...(second ? { second: 1 } : null) });
       if (!home && !(st.bond && st.bond.alive)) st.bond = battle.spawnToken(unit, BOND, hr, hc, { untargetable: true, kit: bondKit() });
       return true;
     };
-    /** FlyToTarget(Second): move onto the next target's tile; false without one (or when he cannot act). */
-    const flyTo = (battle, unit, st) => {
+    /**
+     * FlyToTarget(Second): move onto the next target's tile; false without one (or when he cannot act). FlyToTarget at the
+     * skill's start (demetr_s3[switch_mode]), FlyToTargetSecond after (`second`: demetr_s3[target_timer], the listeners).
+     */
+    const flyTo = (battle, unit, st, second = true) => {
       if (!up(unit) || !unit.canAct || st.undead) return false;
       const t = pickTarget(battle, unit, st);
-      if (!t || !moveTo(battle, unit, st, Math.round(t.y), Math.round(t.x))) return false;
+      if (!t || !moveTo(battle, unit, st, Math.round(t.y), Math.round(t.x), second)) return false;
       st.next = battle.time + idle;
       return true;
     };
@@ -238,7 +245,7 @@ export default {
             const st = { home: [unit.tileR, unit.tileC], bond: null, next: battle.time + idle, act: skill.activations, lastHit: null, lastHitAt: -Infinity, retarget: false, undead: false };
             unit.mem.demetrS3 = st;
             // "若技能开启时，若存在目标则会立刻尝试移动；否则会尝试原地移动一次"
-            if (!flyTo(battle, unit, st) && up(unit)) moveTo(battle, unit, st, unit.tileR, unit.tileC);
+            if (!flyTo(battle, unit, st, false) && up(unit)) moveTo(battle, unit, st, unit.tileR, unit.tileC);
           },
           onTick({ battle, unit }) {
             const st = unit.mem.demetrS3;
@@ -268,9 +275,10 @@ export default {
             retreatBond(battle, st);
             const fromX = unit.x, fromY = unit.y;
             // 【返回】: a 【移动】 onto the located tile (in place when he stands on it) that empties the SP (demetr_s3[restore]);
-            // its RespawnEnd ability carries demetr_s3[effect_1] as FlyToTarget's does (fx 'teleport', in place too)
+            // its RespawnEnd ability carries demetr_s3[effect_1] as FlyToTarget's does (fx 'teleport', in place too; `back`: its
+            // own START sound, public/js/audio.js)
             if ((atHome || bondUp) && battle.moveRedeploy(unit, hr, hc, { clearSp: true })) {
-              battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
+              battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY, back: 1 });
               battle.addBuff(unit, { key: RETURN_GUARD_KEY, duration: RETURN_GUARD, refresh: 'replace', flags: { invulnerable: true, noBlock: true, noSp: true }, tags: ['skill'] });
               battle.releaseBlocked(unit);
               return;
