@@ -1423,6 +1423,31 @@
    "reset": 0,
    "state": 0
   },
+  "skchr_judge_1": {
+   "ability": {
+    "anim": "Attack",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_judge_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_judge_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
   "skchr_kalts2_1": {
    "ability": null,
    "cls": "cast",
@@ -1571,6 +1596,24 @@
    "state": 0
   },
   "skchr_liskam_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_logos_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_logos_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_logos_3": {
    "ability": null,
    "cls": "cast",
    "reset": 0,
@@ -3168,6 +3211,31 @@
    "state": 1
   },
   "skchr_vulpis_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_vvana_1": {
+   "ability": {
+    "anim": "Skill_1_Attack",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_vvana_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_vvana_3": {
    "ability": null,
    "cls": "cast",
    "reset": 0,

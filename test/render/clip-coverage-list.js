@@ -81,6 +81,12 @@ export const UNPLAYED = {
   char_4087_ines: {
     Start_Skill: 'todo: G — on hold (maintainer 2026-10-14: the client logic is not certain): skchr_ines_3/First _animKey; S3 is cast only as she deploys (ON_DEPLOY) and the official game shows no Start_Skill after the deployment, so the renderer does not play it — when the client plays it, if ever, is open',
   },
+  char_4098_vvana: {
+    Skill_3_Attack_B: 'todo: D — her S3 from the second cast of a deployment runs mode S3_2 (vvana_s_3 mode 4) whose pairs are the _B clips; the renderer keeps the first cast\'s _A pairs',
+    Skill_3_Begin_B: 'todo: D — her S3 from the second cast of a deployment runs mode S3_2 (vvana_s_3 mode 4) whose pairs are the _B clips; the renderer keeps the first cast\'s _A pairs',
+    Skill_3_Idle_B: 'todo: D — her S3 from the second cast of a deployment runs mode S3_2 (vvana_s_3 mode 4) whose pairs are the _B clips; the renderer keeps the first cast\'s _A pairs',
+    Skill_3_End_B: 'todo: D — her S3 from the second cast of a deployment runs mode S3_2 (vvana_s_3 mode 4) whose pairs are the _B clips; the renderer keeps the first cast\'s _A pairs',
+  },
   char_4114_harold: {
     Skill_2_End: 'none: no client key names it (abilities, mode pairs, skin key table, mix), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; S2 attacks with its mode',
   },
@@ -90,9 +96,6 @@ export const UNPLAYED = {
   },
   char_4148_philae: {
     Skill_2_Start: 'none: back-only clip; no client key names it (abilities, mode pairs, skin key table, mix), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; S2 is its channel',
-  },
-  char_4202_haruka: {
-    Skill_3_Loop_B: 'todo: B — S3 mode attacks alternate Skill_3_Loop_A / Skill_3_Loop_B (charpack S3 mode clip groups, tools/assets/local-char-modes.json clipFx); the renderer plays Loop_A only',
   },
   char_4231_clemnt: {
     Attack_Down: 'none: only an entry of the skin key table (SpineAnimator._animations: animKey = its name); no ability (`_downAnimKey`, a ThreePart / channel `_down` bundle), mode pair, skill `_beginAnimDown` or mix calls it; client keys 2026-10-23; the Default attack has no facing-down key',

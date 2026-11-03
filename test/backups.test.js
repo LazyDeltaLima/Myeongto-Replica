@@ -228,11 +228,11 @@ test('DIY: no prototype picks on this server — prototypes / locked empty at bo
   assert.equal(diyRecordOf(chess.chess_char_5_01_a, { charId: 'char_2027_wang', skillIndex: 0 }, data), null, 'not a DIY slot');
 });
 
-test('DIY: the 17 owned 6★ picks (shared/local-diy.js) — a form at every slot status with all three skills, every module at stage 1 and 3, their summons', () => {
+test('DIY: the 20 owned 6★ picks (shared/local-diy.js) — a form at every slot status with all three skills, every module at stage 1 and 3, their summons', () => {
   const { ownedPool } = backups.diy;
-  assert.deepEqual(ownedPool, [...LOCAL_DIY_PICKS], 'exactly our seventeen, in the picker\'s order');
+  assert.deepEqual(ownedPool, [...LOCAL_DIY_PICKS], 'exactly our twenty, in the picker\'s order');
   assert.deepEqual(Object.keys(backups.units), [...ELITES.concat(RESERVES).sort((a, b) => a.localeCompare(b, 'en', { numeric: true })), ...LOCAL_DIY_PICKS],
-    'the 17 stand-ins, then our seventeen — no unit for anyone else');
+    'the 17 stand-ins, then our twenty — no unit for anyone else');
   let summoners = 0;
   for (const id of ownedPool) {
     const u = backups.units[id];
@@ -289,13 +289,13 @@ test('DIY: the 17 owned 6★ picks (shared/local-diy.js) — a form at every slo
 test('DIY: the owned-6★ pool and the faction → bond rule (mainPower + every subPower vs powerIdList, else 协防干员)', () => {
   const { ownedPool, operators } = backups.diy;
   const roster = new Set(base.map((c) => c.charId).filter(Boolean));
-  assert.equal(ownedPool.length, 17);
+  assert.equal(ownedPool.length, 20);
   for (const id of ownedPool) {
     assert.ok(!roster.has(id), `${id}: a roster operator is never a pick`);
     assert.deepEqual([operators[id].rarity, operators[id].obtainable], [6, true], id);
   }
   assert.deepEqual(Object.keys(operators), ownedPool, 'an operators entry for every pick and no one else');
-  assert.equal(backups.diy.excluded, undefined, 'no collab exclusion list: the pool is our seventeen');
+  assert.equal(backups.diy.excluded, undefined, 'no collab exclusion list: the pool is our twenty');
   const core = Object.values(bonds).filter((b) => b.isCore && b.powerIdList.length);
   assert.equal(core.length, 8);
   for (const [id, o] of Object.entries(operators)) {
@@ -307,7 +307,8 @@ test('DIY: the owned-6★ pool and the faction → bond rule (mainPower + every 
     char_1052_kalts2: ['emptyShip'], char_4231_clemnt: ['egirShip'], char_1015_aglna2: ['siracusaShip'], char_1042_phatm2: ['victoriaShip'],
     char_4244_tocka: ['emptyShip'], char_4247_oxi: ['emptyShip'], char_485_pallas: ['emptyShip'], char_188_helage: ['emptyShip'], char_4204_mantra: ['sargonShip'],
     char_4072_ironmn: ['victoriaShip'], char_4202_haruka: ['emptyShip'], char_179_cgbird: ['emptyShip'],
-  }, '望 / 赤刃明霄陈 炎, 克莱门莎 阿戈尔, 予愿安洁莉娜 叙拉古, 酒神 维多利亚, the others 协防干员 (冻河, 塔露拉: 乌萨斯 has no core bond; 帕拉斯: 米诺斯 is in no core bond; 赫拉格: 乌萨斯; 真言 萨尔贡; 白铁 维多利亚; 遥: 东国 and 夜莺 are in no core bond)');
+    char_4065_judge: ['siracusaShip'], char_4133_logos: ['emptyShip'], char_4098_vvana: ['kazimierzShip'],
+  }, '望 / 赤刃明霄陈 炎, 克莱门莎 阿戈尔, 予愿安洁莉娜 叙拉古, 酒神 维多利亚, the others 协防干员 (冻河, 塔露拉: 乌萨斯 has no core bond; 帕拉斯: 米诺斯 is in no core bond; 赫拉格: 乌萨斯; 真言 萨尔贡; 白铁 维多利亚; 遥: 东国 and 夜莺 are in no core bond; 斥罪 叙拉古; 逻各斯: 罗德岛 / 精英干员 / 巴别塔 are in no core bond; 薇薇安娜 卡西米尔)');
 });
 
 test('DIY: powers and the owned pool re-derived from character_table', { skip: !HAS_CACHE && 'no .cache/gamedata' }, () => {

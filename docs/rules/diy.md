@@ -9,11 +9,11 @@
   정규 맹약이다 — `activity_table` `autoChessData.bondInfoDict`의 `isPower` 맹약 8개의 `powerIdList`에 叙拉古 [siracusa, chiave]·卡西米尔
   [kazimierz, pinus]가 있다(2026-10-10 대조, 그 전엔 「확장은 [추정]」; `tools/build-data.mjs buildBackups`가 이 표로 정함).
 - 지금 구현(0.2.0부터): upstream 「自选」 틀이 선발 칸·재고·상점·보상·밴을 맡는다(`server/match/player/diy.js initDiyStock`, `shared/diy.js`, 데이터
-  `data/backups.json` `diy`). 맹약이 전부 꺼진 픽은 그 판 재고가 없다(`m.private.diyBanned`). 이 포크는 후보를 구현·대조한 13명으로 줄인다:
+  `data/backups.json` `diy`). 맹약이 전부 꺼진 픽은 그 판 재고가 없다(`m.private.diyBanned`). 이 포크는 후보를 구현·대조한 20명으로 줄인다:
   `shared/local-diy.js LOCAL_DIY_PICKS`(왕·첸 더 던스트릭·위셔델·토가와 사키코·아스카론, 2026-10-11부터 켈시 에스페란타·클레멘티아·안젤리나 더 멜로우 위시 — 아래
   「선발 추가 3명 (2026-10-11)」, 2026-10-26부터 트라고디아 — 아래 「선발 추가 酒神 (2026-10-26)」, 2026-11-01부터 토스카·탈룰라 — 아래 「선발 추가 토스카
-  (2026-11-01)」·「선발 추가 탈룰라 (2026-11-01)」, 2026-11-02부터 팔라스·헬라그, 2026-11-03부터 만트라·스테인리스·하루카·나이팅게일 — 아래 「선발 추가 팔라스 (2026-11-02)」·「선발 추가 헬라그 (2026-11-02)」·「선발 추가 만트라 (2026-11-03)」·「선발 추가 스테인리스·하루카·나이팅게일 (2026-11-03)」) — `tools/build-data.mjs`가 이것으로 `diy.ownedPool`을 만들고, `server/lobby.js`가 다른 픽을 거부한다.
-  키트는 `server/sim/content/kits/ops/op-{wang,chen3,wisdel,oblvns,ascln,kalts2,clemnt,aglna2,phatm2,tocka,oxi,pallas,helage,mantra,ironmn,haruka,cgbird}.js`(등록 `kits/index.js OPERATOR_KIT_FILES`).
+  (2026-11-01)」·「선발 추가 탈룰라 (2026-11-01)」, 2026-11-02부터 팔라스·헬라그, 2026-11-03부터 만트라·스테인리스·하루카·나이팅게일·페넌스·로고스·비비아나 — 아래 「선발 추가 팔라스 (2026-11-02)」·「선발 추가 헬라그 (2026-11-02)」·「선발 추가 만트라 (2026-11-03)」·「선발 추가 스테인리스·하루카·나이팅게일 (2026-11-03)」·「선발 추가 페넌스·로고스·비비아나 (2026-11-03)」) — `tools/build-data.mjs`가 이것으로 `diy.ownedPool`을 만들고, `server/lobby.js`가 다른 픽을 거부한다.
+  키트는 `server/sim/content/kits/ops/op-{wang,chen3,wisdel,oblvns,ascln,kalts2,clemnt,aglna2,phatm2,tocka,oxi,pallas,helage,mantra,ironmn,haruka,cgbird,judge,logos,vvana}.js`(등록 `kits/index.js OPERATOR_KIT_FILES`).
   틀의 자세한 규칙은 `server/sim/content/kits/README.md`, 병합 경위는 `upstream.md` 「0.2.0 병합」.
 - 0.2.0 전(2026-10-05 ~ 10-07)에는 전용 데이터·풀·UI를 직접 만들었다. 그 구현은 지웠고, 그때 정한 키트 동작과 관리자 결정은 `op-*.js`로 옮겨져 아래에 남는다.
 - 키트:
@@ -787,6 +787,53 @@
   순간 이펙트」 — 회수 사건은 `spGift`에서 `kitHit` `ironmn_t_2`로).
 - 테스트: `test/content/op_ironmn.test.js`(13)·`op_haruka.test.js`(10)·`op_cgbird.test.js`(11) — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 소환물, 실제 매치 경로 하나씩(upstream 테스트에 없어 더함);
   선발 수를 세는 테스트 14 → 17명(소환물 6 → 10, 폼 85 → 94), golden `diy-021`~`diy-026`(새 시나리오), 다른 가족 변화 없음.
+
+## 선발 추가 페넌스·로고스·비비아나 (2026-11-03, 관리자 결정)
+- 관리자 결정 2026-11-02(새 시즌 알려진 명단의 upstream 선발 키트를 차례로 넣고 지금 시즌에도 공개)·2026-11-03(될 수 있으면 묶어서): 선발에 페넌스(斥罪
+  `char_4065_judge`, 6성 디펜더 불굴자)·로고스(逻各斯 `char_4133_logos`, 6성 캐스터 코어 캐스터)·비비아나(薇薇安娜 `char_4098_vvana`, 6성 가드 아츠 파이터)를
+  넣는다(`LOCAL_DIY_PICKS` 끝). 한 묶음으로 넣은 까닭: upstream의 순서형 피해 판정 커널에 묶인 7명 중 셋 — 커널 직전 판을 우리 `damage.js`로 돌릴 때 같은 덫·같은
+  피해 경로를 한 번에 대조. 셋 다 한국 서버에 있어 이름·문구는 KR 공식 표 그대로(`tools/i18n/build-ko-diy.mjs`): 페넌스 · 최종 판결 · 결의에 찬 고행 · 고난 극복,
+  재능 율법 수호자 · 가시의 고리, 모듈 계속되는 가시밭길(UNY-X) · '무죄'(UNY-Y) / 로고스 · 몰망 · 제유 · 확장 시야, 재능 어휘의 진화 · 영혼을 도려내는 말, 모듈
+  협곡에서 온 필통(CCR-Δ) · 《의미 범주 백과사전》(CCR-Y) / 비비아나 · 찰나의 그림자 칼날 · 촛불의 그림자 · '명멸', 재능 캔들라이트 · 노바, 모듈 눈이 닿지 않는
+  곳(AFT-D) · '마지막 한 줄'(AFT-Y).
+- 데이터: CN 표 그대로. 맹약: 페넌스 시라쿠사(`siracusaShip`), 비비아나 카시미어(`kazimierzShip`), 로고스(소속 태그 로도스·엘리트·바벨)는 이번 시즌 핵심 맹약이
+  없어 협방(`emptyShip`). 소환물 없음.
+- 키트·테스트: upstream 커널 직전 판(`9a3a12ee9^`)의 `op-judge.js`·`op-logos.js`·`op-vvana.js`와 테스트 셋. 커널 직전 판은 우리 `damage.js`의 `dealDamage`로
+  돌고, 실패한 6개는 모두 우리 규칙·엔진과 다른 테스트 쪽이었다(피해 경로 차이 없음). 바꾼 것:
+  - **자동 발동**(`sim.md` 「스킬 범위 발동」·「중장 스킬 공식 TAKE_DAMAGE」): 페넌스 S2·S3는 중장 TANK 행 `TAKE_DAMAGE`(upstream 테스트의 「중장 예외 →
+    DEFAULT」는 그쪽 관리자 규칙 — 관리자 결정 2026-10-28로 예외 없음). S3는 SP를 채우는 피격이 바로 켬(사거리 무관). 로고스 S3는 데이터 `DEFAULT` + rangeId
+    3-4 상자(upstream 테스트의 `ACTIVE_RANGE`). 비비아나 S3는 **모든 시전이** 데이터 `DEFAULT` + rangeId 1-1 상자: 공식 `_DefaultTriggerSkill`은 스킬 데이터의
+    rangeId를 보고(공식 클라에서 확인), 둘째 시전부터의 3-2는 모드 4의 범위라 상자를 바꾸지 않는다 → upstream의 「첫 시전 뒤 3-2에서 `ACTIVE_RANGE`」(그쪽 관리자
+    규칙)를 지움.
+  - 페넌스 재능 1 보호막은 **다른 보호막을 다 쓴 뒤에** 깎인다: PRTS 「生效优先级为-1000」, 공식 클라는 버프를 우선순위 내림차순·같으면 얻은 순으로 돌린다
+    (`Buff.CompareTo`, 공식 클라에서 확인). 엔진에 버프 `shieldLast`(`buffs.js`, `damage.js absorbShields`의 둘째 차례)를 더함 — 다른 보호막은 그대로 먼저 얻은 순.
+    upstream은 엔진 순서(먼저 얻은 순)로 두고 추정 표시.
+  - 페넌스 재능 2 가시의 고리의 반사 피해는 **적의 회피에 걸린다**: 공식 `InverseDamage`가 만드는 조정값은 `ignoreMissFlag`·`ignoreCancelReasonMask`가 0(공식
+    클라에서 확인 — 레이드 「碎铳之簧」 반격과 같은 결론, `sim.md`). upstream은 「호시구마 반격처럼 회피 불가」 추정.
+  - 페넌스 S1 대상이 사라진 시전: 엔진 규칙 그대로(`ai.js dropNextAttack` — 헛친 휘두름은 소모, 다시 고르는 공격이 아무도 못 찾으면 충전 반환). upstream 주석의
+    「근접 시전과 공격이 한 틱에 끝나 반환 미구현」은 휘두름 모델 이전 이야기라 지움.
+  - **로고스 재능 1 어휘의 진화의 추가 타격은 투사체**: charpack 재능 버프 `logos_t_1`의 블랙보드가 투사체 `projectile_chr_logos_t`(PARACURVE, 초당 8칸)와 능력
+    `LogosT1Attack`을 이름으로 주고, 그 능력의 선택기는 `RandomSelector`(적, 지상·공중, 하나)·`_excludeTarget` 꺼짐 → 사거리 안 선택 가능한 적 중 무작위,
+    방금 공격한 적도 뽑힘(upstream 추정 표시를 지움). 피해는 쏠 때의 공격력(`_cacheAtkToActions`), 맞을 때 법술 피해 + 정지. upstream은 즉시 타격.
+  - **로고스 S1 몰망의 후속 타격**: 버프 `logos_s_1[kill]` 순서 = 처형 → 적이 **쓰러졌을 때만**(`CheckUnitAlive` → `IfNot`) 재능 1 굴림(`TriggerBuffsByKeys`) →
+    쓰러진 적의 자리에서 투사체 `projectile_chr_logos_s1_2`(PARACURVE, 초당 3칸)가 사거리 안 무작위 적(`LogosS1KillAttack`, `RandomSelector`)에게 남은 HP만큼
+    법술 피해. upstream은 버틴 적(불사·횟수 제한)에게도 후속 타격을 즉시 쐈다.
+  - 로고스 S2 제유의 고정 공격은 투사체 없는 즉시 타격: S2 모드 공격 능력에 투사체 키가 없다(upstream 「조준 광선」 추정 → 확인).
+  - 로고스 S2의 휘두름 시점: S2 모드 공격 능력은 클립이 없고 `_preDelay` 0.466초뿐 — 공식 `UpdatePlaybackSpeed`는 클립 없는 능력을 공격 간격에 맞춰 늘이지 않는다
+    (공식 클라에서 확인). 엔진은 그 자리 기록(길이 1)을 간격 1.6초로 늘여 타격이 0.75초 뒤·휘두름 1.6초가 되어 「간격
+    0.5초 고정」이 깨진다 → 키트가 S2 휘두름마다 타격을 0.466초 뒤, 길이를 0.5초로 고정하고, 다음 휘두름을 앞 휘두름 시작 0.5초 뒤에(공격 속도 무관). 클립 없는 공격
+    능력은 다른 오퍼레이터에도 29개(만트라 S2 등) — 엔진 전반으로 바꾸면 golden이 움직여 관리자 결정 거리로 남김.
+  - 로고스 S3 확장 시야가 늦추는 투사체는 적 쪽 투사체 전부: 스킬 프리팹 `ProjectileAura` 검사기가 적 쪽만 보고 종류·키를 거르지 않는다(upstream 추정 → 확인).
+  - 비비아나 재능 2 노바의 근접 전용 보호막: 적 콘텐츠가 직접 쏘는 투사체(가상적 비행기 폭탄·리더 곡사 등)도 원거리 경로로 셈 — 엔진이 투사체가 맞을 때 준
+    피해에 `isProjectile`을 붙인다(`projectiles.js landing`, `damage.js`; PRTS 작전 기제 「有弹道的攻击固定为10，无弹道的攻击固定为01」). upstream은 엔진 사격만
+    표시하고 나머지는 근접 추정. `isProjectile`을 읽는 곳은 이 보호막뿐이라 다른 전투는 그대로.
+  - 테스트 쪽: 비비아나 테스트의 칸 번호를 열 수 21 고정 → `COLS`(우리 넓은 판), 로고스의 枯朽之种 시험을 우리 모델(자폭이 일반 공격 — 휘두름 동안은 표적이 되는
+    적)로 다시 씀. 셋 다 실제 매치 경로 시험을 더함(upstream 테스트에 없음).
+- 남은 추정: 로고스 S3 [추정·엔진: 그가 쓰러질 때 늦춘 투사체를 지우는지 — 스킬 버프의 끝(`CheckCanUseAtkOrCbt` 갈래)이 쓰러짐에서 어느 쪽을 타는지 안 읽음;
+  지금은 지우지 않음(무장 해제와 같음)].
+- 이펙트·공격 타이밍·투사체·스킬 시전·모드·HUD 데이터: EN 클라에서 뽑음(2026-11-03, `tools/local-extract/add_operator.py --id …` 세 명 한 번). 화면 확인 전.
+- 테스트: `test/content/op_judge.test.js`(10)·`op_logos.test.js`(15)·`op_vvana.test.js`(14) — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 실제 매치 경로 하나씩(추출한 공격
+  타이밍 뒤에는 「시전 뒤 N틱」이 아니라 「타격이 들어올 때까지」 기다림); 선발 수를 세는 테스트 17 → 20명(폼 94 → 103), 방향 슬롯 오퍼레이터 17 → 20.
 
 ## 안젤리나 더 멜로우 위시 S3 이동 · 「이따 봐!」 표식 (2026-10-11, 관리자 제보)
 - 제보 2건: ① S3로 공중 적에게 갈 때 처음 칸에 남는 「이따 봐!」(“一会儿见！”)가 대체 마름모로 보임, ② 공식은 공중 적에게 **직접 날아가는데** 우리는 그 칸에

@@ -11055,6 +11055,174 @@
    }
   ]
  },
+ "char_4065_judge": {
+  "modes": [
+   "Default",
+   "S1_Charge",
+   "S3",
+   "S2"
+  ],
+  "proj": [
+   [],
+   [],
+   [],
+   []
+  ],
+  "cast": [
+   [
+    "judge_attack_start_01",
+    "judge_attack_start_02"
+   ],
+   [
+    "judge_attack_start_01",
+    "judge_attack_start_02"
+   ],
+   [
+    "judge_skill_03_start_01",
+    "judge_skill_03_start_02"
+   ],
+   []
+  ],
+  "hit": [
+   [
+    "judge_attack_hit_01"
+   ],
+   [
+    "judge_attack_hit_01"
+   ],
+   [
+    "judge_skill_03_hit_01"
+   ],
+   []
+  ],
+  "trail": [
+   [],
+   [],
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   [],
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "judge_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "judge_attack_start_01_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "judge_attack_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "judge_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "judge_attack_start_01_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "judge_attack_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "judge_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "judge_skill_03_start_01_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "judge_skill_03_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {}
+  ],
+  "dirs": [
+   {
+    "t": 3,
+    "s": [
+     "judge_attack_start_01",
+     "judge_attack_start_01",
+     "judge_attack_start_01_down",
+     "judge_attack_start_01"
+    ]
+   },
+   {
+    "t": 3,
+    "s": [
+     "judge_skill_03_start_01",
+     "judge_skill_03_start_01",
+     "judge_skill_03_start_01_down",
+     "judge_skill_03_start_01"
+    ]
+   }
+  ],
+  "skillMode": [
+   null,
+   null,
+   2
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [
+     "judge_attack_start_01",
+     "judge_attack_start_02",
+     "judge_skill_01_start_01"
+    ],
+    "buff": [],
+    "target": [
+     "judge_skill_01_hit_01",
+     "judge_skill_01_hit_02"
+    ],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "judge_skill_02_buff_01",
+     "judge_skill_02_range_01",
+     "judge_skill_02_weapon_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "judge_skill_03_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_4072_ironmn": {
   "modes": [
    "Default",
@@ -11683,6 +11851,310 @@
    }
   ]
  },
+ "char_4098_vvana": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S3_1",
+   "S3_2"
+  ],
+  "proj": [
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "cast": [
+   [
+    "vvana_attack_01_start"
+   ],
+   [
+    "vvana_attack_01_start"
+   ],
+   [
+    "vvana_skill_02_start_01",
+    "vvana_skill_02_start_02"
+   ],
+   [
+    "vvana_skill_03_L_start_02",
+    "vvana_skill_03_L_start_03"
+   ],
+   [
+    "vvana_skill_03_S_start_01",
+    "vvana_skill_03_S_start_02"
+   ]
+  ],
+  "hit": [
+   [
+    "vvana_attack_01_hit"
+   ],
+   [
+    "vvana_attack_01_hit"
+   ],
+   [],
+   [],
+   []
+  ],
+  "trail": [
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   [],
+   [],
+   [
+    "vvana_skill_03_L_buff_01"
+   ],
+   [
+    "vvana_skill_03_S_buff_01",
+    "vvana_skill_03_S_buff_02"
+   ]
+  ],
+  "castOpt": [
+   {
+    "vvana_attack_01_start_up": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "vvana_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "vvana_attack_01_start_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "vvana_attack_01_start_up": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "vvana_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "vvana_attack_01_start_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "vvana_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "vvana_skill_02_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "vvana_skill_03_L_start_02_up": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "vvana_skill_03_L_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "vvana_skill_03_L_start_02_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "vvana_skill_03_L_start_03_up": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "vvana_skill_03_L_start_03": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "vvana_skill_03_L_start_03_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "vvana_skill_03_S_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "vvana_skill_03_S_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "hitGroups": [
+   null,
+   null,
+   {
+    "g": [
+     [],
+     [
+      "vvana_skill_02_hit_02"
+     ]
+    ]
+   },
+   {
+    "g": [
+     [
+      "vvana_skill_03_L_hit_01"
+     ],
+     [
+      "vvana_skill_03_L_hit_02"
+     ]
+    ]
+   },
+   {
+    "g": [
+     [
+      "vvana_skill_03_S_hit_01"
+     ],
+     [
+      "vvana_skill_03_S_hit_02"
+     ],
+     [
+      "vvana_skill_03_S_hit_03"
+     ]
+    ]
+   }
+  ],
+  "altFx": [
+   null,
+   null,
+   {
+    "pick": "random",
+    "groups": [
+     {
+      "anim": "Attack",
+      "hit": [
+       "vvana_skill_02_hit_01"
+      ]
+     },
+     {
+      "anim": "Attack"
+     }
+    ]
+   },
+   null,
+   null
+  ],
+  "dirs": [
+   {
+    "t": 3,
+    "s": [
+     "vvana_attack_01_start_up",
+     "vvana_attack_01_start",
+     "vvana_attack_01_start_down",
+     "vvana_attack_01_start"
+    ]
+   },
+   {
+    "t": 3,
+    "s": [
+     "vvana_skill_03_L_start_02_up",
+     "vvana_skill_03_L_start_02",
+     "vvana_skill_03_L_start_02_down",
+     "vvana_skill_03_L_start_02"
+    ]
+   },
+   {
+    "t": 3,
+    "s": [
+     "vvana_skill_03_L_start_03_up",
+     "vvana_skill_03_L_start_03",
+     "vvana_skill_03_L_start_03_down",
+     "vvana_skill_03_L_start_03"
+    ]
+   },
+   {
+    "t": 3,
+    "s": [
+     "vvana_skill_01_L_start_01_up",
+     "vvana_skill_01_L_start_01",
+     "vvana_skill_01_L_start_01_down",
+     "vvana_skill_01_L_start_01"
+    ]
+   },
+   {
+    "t": 3,
+    "s": [
+     "vvana_skill_01_L_start_02_up",
+     "vvana_skill_01_L_start_02",
+     "vvana_skill_01_L_start_02_down",
+     "vvana_skill_01_L_start_02"
+    ]
+   }
+  ],
+  "skillMode": [
+   null,
+   2,
+   null
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [
+     "vvana_skill_01_L_start_01",
+     "vvana_skill_01_L_start_02",
+     "vvana_skill_01_S_start_01"
+    ],
+    "buff": [],
+    "target": [],
+    "targetBuff": [],
+    "hitGroups": {
+     "g": [
+      [
+       "vvana_skill_01_L_hit_01"
+      ],
+      [
+       "vvana_skill_01_L_hit_02"
+      ]
+     ]
+    }
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "vvana_skill_02_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_4100_caper": {
   "modes": [
    "Default",
@@ -12284,6 +12756,208 @@
     "buff": [
      "ascln_skill_03_buff_01"
     ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_4133_logos": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S3",
+   "S3_End"
+  ],
+  "proj": [
+   [
+    "projectile_chr_logos"
+   ],
+   [
+    "projectile_chr_logos_s1"
+   ],
+   [],
+   [
+    "projectile_chr_logos_s3"
+   ],
+   []
+  ],
+  "cast": [
+   [],
+   [
+    "logos_skill1_start_01"
+   ],
+   [
+    "logos_skill2_start_01"
+   ],
+   [
+    "logos_skill3_start_01_R",
+    "logos_skill3_start_01_L"
+   ],
+   [
+    "logos_skill3_range_end_01"
+   ]
+  ],
+  "hit": [
+   [
+    "logos_attack_hit_01"
+   ],
+   [
+    "logos_skill1_hit_01"
+   ],
+   [
+    "logos_skill2_hitloop_01"
+   ],
+   [
+    "logos_skill3_hit_01"
+   ],
+   []
+  ],
+  "trail": [
+   [
+    "logos_attack_trail_01"
+   ],
+   [
+    "logos_skill1_trail_01"
+   ],
+   [],
+   [
+    "logos_skill3_trail_01"
+   ],
+   []
+  ],
+  "attach": [
+   [],
+   [
+    "logos_skill1_range_01"
+   ],
+   [],
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "logos_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "logos_attack_start_02_F": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "logos_attack_start_03": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "logos_skill1_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "logos_skill2_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "logos_skill3_start_01_R": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "logos_skill3_start_01_L": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "logos_skill3_range_end_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
+  "clipFx": [
+   {
+    "src": "Attack",
+    "loop": 0,
+    "groups": [
+     {
+      "anim": "Attack",
+      "cast": [
+       "logos_attack_start_01"
+      ],
+      "hit": []
+     },
+     {
+      "anim": "Attack_2",
+      "cast": [
+       "logos_attack_start_02_F",
+       "logos_attack_start_03"
+      ],
+      "hit": []
+     }
+    ]
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  "dirs": [
+   {
+    "t": 1,
+    "s": [
+     "",
+     "logos_skill3_start_01_R",
+     "",
+     "logos_skill3_start_01_L"
+    ]
+   }
+  ],
+  "skillMode": [
+   1,
+   2,
+   null
+  ],
+  "skillEnd": [
+   null,
+   null,
+   4
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "logos_skill1_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "logos_skill2_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [],
     "target": [],
     "targetBuff": []
    }

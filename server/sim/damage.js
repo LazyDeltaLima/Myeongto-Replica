@@ -276,7 +276,8 @@ export function leaderHitLimit(battle, target, amount) {
  * `shieldType` absorbs only that type (夜莺 S2 "屏障能吸收…法术伤害") — or, a list of types, only those (机械师's 屏障:
  * BlockDamage PHYSICAL_AND_MAGICAL, buff_template_data mcnist_t_2 / mcnist_s_2_shield: ['phys', 'arts']); one without
  * absorbs every type (PRTS 术语释义 屏障 "若无特殊说明，屏障可吸收全种类伤害"). Older shields first (buff order:
- * "优先消耗先生成的屏障").
+ * "优先消耗先生成的屏障"); a `shieldLast` one after all the others — the client runs buffs by priority, then by the order
+ * they were gained (`Buff.CompareTo`), and such a barrier's priority is below theirs (斥罪's judge_t_1, −1000).
  */
 export function absorbShields(battle, target, amount, type = null, info = null) { // local patch: `info` gets the absorbing buff's key
   if (amount <= 0) return 0;
@@ -297,8 +298,10 @@ export function absorbShields(battle, target, amount, type = null, info = null) 
       break;
     }
   }
-  for (let i = 0; i < target.buffs.length && rest > 0; i++) {
+  const passes = target.buffs.some((b) => b.shieldLast && b.shield > 0) ? 2 : 1;
+  for (let pass = 0; pass < passes; pass++) for (let i = 0; i < target.buffs.length && rest > 0; i++) {
     const b = target.buffs[i];
+    if (passes === 2 && !!b.shieldLast !== (pass === 1)) continue;   // the late barriers in the second pass
     if (b.shield > 0 && absorbs(b)) {
       const take = Math.min(b.shield, rest);
       if (info) info.key = b.key; // local patch
@@ -328,6 +331,8 @@ export function absorbShields(battle, target, amount, type = null, info = null) 
 export function dealDamage(battle, source, target, dmgIn) {
   if (!target || !target.alive || target.removed || target.hidden || !target.deployed) return 0;
   const dmg = dmgIn && dmgIn._norm ? dmgIn : makeDamageInfo(dmgIn);
+  // 远程途径: damage dealt as a projectile lands (an engine shot or a content one) flew (PRTS 作战机制 远近途径 "有弹道的攻击固定为10")
+  if (battle.projectiles?.landing > 0) dmg.isProjectile = true;
   if (dmg.type === 'element') return applyElement(battle, source, target, dmg);
   // 无来源 (dmg.sourceless, element bursts): hooks see no source — nothing keyed on "damage dealt by X" (ATK-up vs a
   // tag, 伤害提升 items / bonds / modules, reflect, "受到来自…的伤害") can recognise it; `credit` names the unit that still

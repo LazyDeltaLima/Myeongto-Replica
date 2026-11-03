@@ -18,6 +18,8 @@ export class ProjectileSystem {
     this.battle = battle;
     /** @type {object[]} */
     this.list = [];
+    /** > 0 while an `onHit` runs: the damage dealt then flew as a projectile (damage.js dealDamage `isProjectile`). */
+    this.landing = 0;
   }
 
   add(p) {
@@ -93,7 +95,10 @@ export class ProjectileSystem {
     for (const p of arrived) {
       if (!p.onHit) continue;
       const t = p.target && p.target.alive && p.target.deploySeq === p.tseq ? p.target : null;
-      this.battle._safe(() => p.onHit({ battle: this.battle, projectile: p, target: t, x: p.x, y: p.y }), 'projectile.onHit', p.source);
+      this.battle._safe(() => {
+        this.landing++;
+        try { p.onHit({ battle: this.battle, projectile: p, target: t, x: p.x, y: p.y }); } finally { this.landing--; }
+      }, 'projectile.onHit', p.source);
     }
     for (const p of expired) {
       if (p.onExpire) this.battle._safe(() => p.onExpire({ battle: this.battle, projectile: p, target: null, x: p.x, y: p.y }), 'projectile.onExpire', p.source);

@@ -177,6 +177,8 @@ export function makeBuff(b) {
     // of them (机械师's 屏障: ['phys', 'arts']); null = every type (PRTS 术语释义 屏障 "若无特殊说明，屏障可吸收全种类伤害") —
     // 夜莺 S2 法术护盾 "能吸收…法术伤害"
     shieldType: b.shieldType ?? null,
+    // a barrier the client runs after the others (its buff priority below theirs: 斥罪's judge_t_1, −1000; damage.js absorbShields)
+    shieldLast: !!b.shieldLast,
     // an amount layer that is the client's BlockDamage `_useDynamicVar`: its whole-hit blocks and its break are sent as
     // fx 'parry' (damage.js absorbShields); no rule
     blockFx: !!b.blockFx,

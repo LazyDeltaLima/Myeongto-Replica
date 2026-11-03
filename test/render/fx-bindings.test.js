@@ -119,6 +119,16 @@ const KNOWN = {
 
 /** The template rows whose prefab nothing in render/ plays: 'key|prefab' → reason (test/helpers/fxBindings.js unplayed). */
 const UNPLAYED = {
+  // 선발 (2026-11-03): kit events that are not wired to the template yet (the maintainer's open items)
+  'judge_t_1[effect]|judge_shield_start_01': 'cond',       // 斥罪 T1 律法卫士: the barrier as it is gained (kit fx 'shield')
+  'judge_t_1[effect]|judge_shield_break_01': 'cond',       // 斥罪 T1: the barrier as it runs out
+  'judge_t_2|judge_reboun_hit_01': 'cond',                 // 斥罪 T2 荆棘环身: the reflected hit (kit fx 'thorns')
+  'judge_s_2[aoe]|judge_skill_02_weapon_hit_01': 'unconditional',   // 斥罪 S2 坚心苦修: each pulse (kit fx 'aoe', judge:atonement)
+  'logos_s_1|logos_skill1_hit_03': 'condOther',            // 逻各斯 S1 殁亡: on the executed enemy (kit fx 'logosExecute')
+  'logos_s_2[lock]|logos_skill2_line_01': 'unconditional', // 逻各斯 S2 提喻: the lock line to its target
+  'logos_s_2[effect_2]|logos_skill2_buff_03_F': 'unconditional',   // 逻各斯 S2: the locked target's buff
+  'logos_t_2[core]|logos_talent_debuff_01': 'unconditional',       // 逻各斯 T2 剜魂具辞: the debuff on an enemy (kit logos:soulRend)
+  'vvana_t_2[block_melee]|vvana_buff_01': 'condOther',     // 薇薇安娜 T2 散华: the melee-only shield layer (kit talent:vvana:shield)
   // 묶음 S6 (2026-10-24) — condition rows left: a condition no sim event tells
   'nearl2_s_3[combo_effect]|nearl2_buff_01_start': 'condOther',   // 耀骑士临光 S3: CheckContainsCardBuff (a card's buff nearl2_t_1)
   'ines_t_2[effect2]|ines_range_02': 'cond',   // 伊内丝 T2 by her mode as the talent buff starts (S2's mode 1) [추정: its S2 talent re-creates it]

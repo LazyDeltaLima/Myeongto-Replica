@@ -42,6 +42,7 @@ const STAND_IN = new Set(/const STAND_IN = new Set\(\[([^\]]+)\]/.exec(GAME)[1].
 const VERDICT = {
   appear: { angel2: ['covered', "the redeployed operator's own 'deploy' effect [추정]"] },
   bloodBattle: { bldsk: ['skill', 2] },
+  bulletClear: { logos: ['pending', 'S3 延异视阈 clears the held shots as it ends: which effect the client plays (S3_End mode / logos_s_3[end]) not judged'] },
   burst: { oblvns: ['covered', "the note's 'oblvnsNote' hit (noteFx: projectile_chr_oblvns_s1_N `_effectsWhenHit`)"], wisdel: ['standIn', 'sent by her 残影 token'] },
   cleanse: { '*': ['covered', "流明's cleansing heal: its S2 hit / S3 attack hit (lumen_s_2 / lumen_s_3[ammo] create no effect of their own)"] },
   dilemma: { mizuki: ['skill', 2] },
@@ -54,6 +55,7 @@ const VERDICT = {
   iceSpike: { gnosis: ['skill', 3] },
   jungleSoul: { gvial2: ['skill', 3] },
   knack: { reckpr: ['skill', 2] },
+  logosExecute: { logos: ['pending', 'S1 殁亡: logos_s_1 creates logos_skill1_hit_03 on the executed enemy — not wired yet'] },
   meltdown: { blaze2: ['standIn', "sent on the enemy (the burn burst's own effect; blaze2_t_1 creates none)"] },
   obelisk: { beewax: ['standIn', 'sent by her token'] },
   overclock: { cathy: ['skill', 2], hsguma: ['skill', 3] },
