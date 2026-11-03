@@ -182,7 +182,7 @@ test('a 3D-rotated Velocity quad turns by -x, -y, -z in the velocity frame (蕾�
   // the engine's 3D-rotation quad, v = +x, rotX 90°: corners (−1,−1,0) (−1,1,0) (1,1,0) (1,−1,0) for the unit quad — the
   // corner (x, y, 0) turned by Ry(−y)·Rx(−x)·Rz(−z) in the frame (right, up, normal = v̂)
   const sh = v.material.vertexShader, at = sh.indexOf('uAlign == 4');
-  assert.ok(at > 0 && /vec3 lc = rotZXY\(-iRot\) \* vec3\(c, 0\.0\);/.test(sh.slice(at, at + 2000)), 'the Velocity branch turns the corner in 3D');
+  assert.ok(at > 0 && /vec3 lc = uSysS \* \(rotZXY\(-iRot\) \* vec3\(c, 0\.0\)\);/.test(sh.slice(at, at + 2000)), 'the Velocity branch turns the corner in 3D');
   assert.match(sh.slice(at, at + 2000), /rt \* lc\.x \+ cross\(nw, rt\) \* \(uHand \* lc\.y\) \+ nw \* lc\.z/);
   inst.dispose();
 });
@@ -197,5 +197,39 @@ test('oldest in front: the engine key max(0, 100 − age fraction) × start life
   o.draw(0.02);
   // keys: 99.5 × 1, 99.9 × 1, 99.95 × 2 → drawn first the largest: the long-lived (z 2), then the young (z 1), the old last
   assert.deepEqual(rows(o, IV_POS + 2, 3), [2, 1, 0]);
+  inst.dispose();
+});
+
+// (2026-11-04, the official engine's billboard dispatchers — rules/fx.md 「그리기 순서·시트」 변환 크기)
+test('the system\'s transform scale reaches its View, stretched, Velocity and world-space aligned quads, by scaling mode', async () => {
+  const { inst } = await make([node('t', -1), node('p', 0, { scale: [2, 2, 2] }),
+    node('v', 1, { ps: ps({}, { n: 2, scaling: 0 }) }),
+    node('l', 1, { scale: [1, 3, 1], ps: ps({}, { n: 2, scaling: 1 }) }),
+    node('s', 1, { ps: ps({}, { n: 2, scaling: 2 }) }),
+    node('a', 1, { ps: ps({}, { n: 2, scaling: 0, render: { align: 2 } }) }),
+    node('w', 1, { ps: ps({}, { n: 2, scaling: 0, space: 1, render: { align: 2 } }) }),
+    node('h', 1, { ps: ps({}, { n: 2, scaling: 0, render: { mode: 2 } }) }),
+    node('r', 1, { ps: ps({}, { n: 2, scaling: 0, render: { mode: 1 } }) })]);
+  inst.update(0.02);
+  const [v, l, s, a, w, h, r] = inst.systems;
+  const S = (x) => (x.material.uniforms.uSysOn.value ? x.material.uniforms.uSys.value.elements.slice(12, 15) : null);
+  assert.deepEqual(S(v), [2, 2, 2], 'Hierarchy: its parents\' scale');
+  assert.deepEqual(S(l), [1, 3, 1], 'Local: its own scale only');
+  assert.equal(S(s), null, 'Shape: none on the particles');
+  assert.equal(S(a), null, 'a local-space aligned quad takes it from its model matrix');
+  assert.deepEqual(S(w), [2, 2, 2], 'a world-space aligned quad here');
+  assert.equal(S(h), null, 'horizontal billboards: not read');
+  assert.deepEqual(S(r), [2, 2, 2], 'stretched');
+  const sh = r.material.vertexShader;
+  assert.match(sh, /vec3 L = vh \* \(uLengthScale \* uSysS\.x \* iSize\.y\) \+ vv \* uVelScale;/, 'lengthScale × S.x, velocityScale not');
+  assert.match(sh, /vec3 W = sysView\(/, 'the width through the scaled camera basis');
+  assert.match(sh, /vec3 off = uMode == 0 && uAlign == 0 \? sysView\(vec3\(rc, 0\.0\)\)/, 'a View quad');
+  // the Unity frame → scene turn: the effect root's (z = −height), without its length
+  const e = v.material.uniforms.uSys.value.elements;
+  assert.deepEqual([...e.slice(0, 3), ...e.slice(4, 7), ...e.slice(8, 11)], [1, 0, 0, 0, 1, 0, 0, 0, -1]);
+  // a clip-driven scale is followed, sent when it changes
+  inst.nodes[1].scale.set(3, 3, 3);
+  inst.update(0.02);
+  assert.deepEqual(S(v), [3, 3, 3]);
   inst.dispose();
 });

@@ -286,7 +286,7 @@ const BLEND = { 0: THREE.ZeroFactor, 1: THREE.OneFactor, 2: THREE.DstColorFactor
 // defines), so its code is unchanged and it gets the same values. On the material the old names stay as accessors
 // (PackedFlag / PackedNum): code, clips and tests read and write `uniforms.uOpacity.value` as before.
 const PACKED_FLAGS = ['uFracUV', 'uHasAdd', 'uHasDisturb', 'uHasDisturb2', 'uHasWeight', 'uHasDissolve', 'uVCMajor', 'uHasDissolve2', 'uVCol',
-  'uRim', 'uPremul', 'uZFlat', 'uHasRam', 'uCustom', 'uAdditive', 'uUVRot', 'uFree', 'uRotW', 'uPremulX2'];
+  'uRim', 'uPremul', 'uZFlat', 'uHasRam', 'uCustom', 'uAdditive', 'uUVRot', 'uFree', 'uRotW', 'uPremulX2', 'uSysOn'];
 const PACKED_INTS = ['uMode', 'uAlign', 'uDisMode', 'uMulti'];
 const PACKED_FLOATS = ['uAddFactor', 'uOpacity', 'uACtrl', 'uDisturbMain', 'uDisturbDissolve', 'uAmount', 'uBorder', 'uAmount2', 'uBorder2',
   'uRimPower', 'uFloor', 'uBaseH', 'uTime', 'uLengthScale', 'uVelScale', 'uHand', 'uWSign', 'uDisChan'];
@@ -326,6 +326,10 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
   attribute vec4 iUV; attribute vec3 iVel;
   attribute vec4 vcol;
   uniform vec3 uPivot; uniform vec3 uStripZ; uniform vec3 uUX;   // the scalars: PACKED_GLSL
+  // (2026-11-04) the system's transform scale (uSysOn, ParticleSystem.sysScale), one uniform: its 3×3 the effect root's turn
+  // (Unity frame → scene), its last column S per Unity world axis
+  uniform mat4 uSys;
+  #define uSysS uSys[3].xyz
   varying vec2 vUv; varying vec4 vColor; varying vec4 vC1; varying vec4 vC2;
   // local patch: vH = the board height (scene z) of the fragment — what lies under the floor is cut (FRAG uFloor; the
   // official map's opaque ground hides it by depth); vN / vVP = view-space normal / position of a mesh (the Rim shaders)
@@ -340,6 +344,13 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
     mat3 ry = mat3(cy, 0., -sy, 0., 1., 0., sy, 0., cy);
     mat3 rz = mat3(cz, sz, 0., -sz, cz, 0., 0., 0., 1.);
     return ry * rx * rz;
+  }
+  // (2026-11-04, official engine: the geometry job's billboard dispatchers) a view-space quad offset with its camera axes
+  // scaled per Unity world axis by the system's transform scale (diag(S) · the camera basis)
+  vec3 sysView(vec3 off) {
+    if (!uSysOn) return off;
+    mat3 a = mat3(viewMatrix) * mat3(uSys);
+    return a * (uSysS * (transpose(a) * off));
   }
   void fxMain() {
     vUv = iUV.xy + uv * iUV.zw; vColor = iColor * (uVCol ? vcol : vec4(1.0)); vC1 = iC1; vC2 = iC2;  // local patch: mesh vertex colours
@@ -412,12 +423,14 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       // size y + across · pivot x × half the width back to the tail H − L, L = v̂ · lengthScale × size y + v · velocityScale
       // (seen head-on it shortens and thins); across = the screen part of view ray × L (zero head-on); u runs 0 at the head
       // to 1 at the tail, v across. No velocity draws nothing. The engine also takes off the camera's velocity × its
-      // cameraVelocityScale — the board camera does not move
+      // cameraVelocityScale — the board camera does not move. (2026-11-04) The system's transform scale: the dispatcher hands
+      // lengthScale × its x (uSysS.x) and draws the width through the scaled camera basis (sysView); velocityScale and the
+      // size are not scaled
       float vl = dot(vv, vv);
       vec3 vh = vl > 1e-30 ? vv * inversesqrt(vl) : vec3(0.0);
-      vec3 L = vh * (uLengthScale * iSize.y) + vv * uVelScale;
+      vec3 L = vh * (uLengthScale * uSysS.x * iSize.y) + vv * uVelScale;
       vec2 a = cross(cv.xyz, L).xy;          // this view space has −z ahead: the engine's camera-space cross, negated
-      vec3 W = vec3(dot(a, a) > 1e-30 ? -normalize(a) : vec2(0.0), 0.0) * (0.5 * iSize.x);
+      vec3 W = sysView(vec3(dot(a, a) > 1e-30 ? -normalize(a) : vec2(0.0), 0.0) * (0.5 * iSize.x));
       vec3 p = cv.xyz + vh * (uPivot.y * iSize.y) + W * uPivot.x - L * (position.x + 0.5) + W * (2.0 * position.y);
       vH = (modelMatrix * vec4(iPos, 1.0)).z + hOfView(p - cv.xyz);
       gl_Position = projectionMatrix * vec4(p, 1.0);
@@ -437,22 +450,26 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       vec3 nw = normalize(m3 * vh);
       vec3 w = m3 * vec3(-vh.y, vh.x, 0.0) * uWSign;
       vec3 rt = dot(w, w) > 1e-30 ? normalize(w) : uUX;
-      vec3 lc = rotZXY(-iRot) * vec3(c, 0.0);
+      // (2026-11-04) the system's transform scale on the turned corner, per axis of that frame (the engine's scale ⊙)
+      vec3 lc = uSysS * (rotZXY(-iRot) * vec3(c, 0.0));
       vec3 wp = (modelMatrix * vec4(iPos, 1.0)).xyz + rt * lc.x + cross(nw, rt) * (uHand * lc.y) + nw * lc.z;
       vH = wp.z;
       gl_Position = projectionMatrix * viewMatrix * vec4(wp, 1.0);
       return;
     }
     if (uMode == 2 || (uMode == 0 && (uAlign == 1 || uAlign == 2))) {
-      // horizontal billboard (Unity: in the world XZ plane) / world- or local-aligned quad (XY plane of that space)
-      vec3 p = uMode == 2 ? vec3(rc.x, 0.0, rc.y) : vec3(rc, 0.0);
+      // horizontal billboard (Unity: in the world XZ plane) / world- or local-aligned quad (XY plane of that space). (2026-11-04)
+      // An aligned quad takes the system's transform scale (the engine's diag(S) basis): a local-space system's through its
+      // model matrix, a world-space one's here (sysScale leaves uSysS at 1 for the former)
+      vec3 p = uMode == 2 ? vec3(rc.x, 0.0, rc.y) : vec3(rc, 0.0) * uSysS;
       vH = (modelMatrix * vec4(iPos + p, 1.0)).z;
       gl_Position = projectionMatrix * modelViewMatrix * vec4(iPos + p, 1.0);
       return;
     }
     vec4 cv = modelViewMatrix * vec4(iPos, 1.0);   // camera-facing (vertical billboards approximated)
     // (2026-10-27, effect bundle V) Facing alignment (3): the quad faces the camera's position, not its plane (Unity manual)
-    vec3 off = vec3(rc, 0.0);
+    // (2026-11-04) a View quad's camera axes scaled by the system's transform scale (sysView; Facing's dispatcher is not read)
+    vec3 off = uMode == 0 && uAlign == 0 ? sysView(vec3(rc, 0.0)) : vec3(rc, 0.0);
     if (uMode == 0 && uAlign == 3 && length(cv.xyz) > 1e-6) {
       vec3 f = normalize(-cv.xyz);
       vec3 rt = cross(vec3(0.0, 1.0, 0.0), f);
@@ -751,6 +768,7 @@ function makeMaterial(m, lib) {
       uRot0: { value: rot[0] }, uRot1: { value: rot[1] }, uRot2: { value: rot[2] }, uRot3: { value: rot[3] },
       uMode: { value: 0 }, uLengthScale: { value: 2 }, uVelScale: { value: 0 }, uAlign: { value: 0 }, uPivot: { value: new THREE.Vector3() }, uStripZ: { value: new THREE.Vector3() },
       uFree: { value: false }, uRotW: { value: false }, uUX: { value: new THREE.Vector3(1, 0, 0) }, uHand: { value: -1 }, uWSign: { value: 1 },
+      uSysOn: { value: false }, uSys: { value: new THREE.Matrix4().setPosition(1, 1, 1) },   // S = 1 until sysScale
     }),
   });
   mat.userData.order = m?.queue ?? 3000;
@@ -1525,6 +1543,13 @@ class ParticleSystem {
     mat.uniforms.uFree.value = !!ps.render.free;
     mat.uniforms.uRotW.value = !!ps.render.rotw;
     this.velAlign = ps.render.mode === 0 && ps.render.align === 4;
+    // (2026-11-04) the quads that take the system's transform scale (sysScale): View, Velocity and stretched billboards
+    // (freeform aside), and a world-space system's World / Local-aligned ones (a local-space system's take it from their
+    // model matrix); horizontal, vertical, Facing and mesh renderers do not here (their dispatchers are not read)
+    const r = ps.render;
+    this.quadScaled = (r.mode === 0 && (r.align === 0 || r.align === 4 || (this.world && (r.align === 1 || r.align === 2)))) || (r.mode === 1 && !r.free);
+    this.scalePath = null;   // the nodes whose scale it takes (FxInstance), null for none
+    this.sysS = null;        // the scale last sent
     if (opts.pivot && Array.isArray(ps.render.pivot)) mat.uniforms.uPivot.value.set(+ps.render.pivot[0] || 0, +ps.render.pivot[1] || 0, +ps.render.pivot[2] || 0); // local patch (FxInstance opts.pivot, default on)
     if (geomSrc !== QUAD) { useMeshAttrs(g, geomSrc, mat); meshSide(mat); } // local patch
     this.material = mat;
@@ -2163,6 +2188,7 @@ class ParticleSystem {
   draw(sinceStart) {
     const m = this.ps.mods;
     if (this.velAlign && this.n) this.velFrame();
+    if (this.scalePath && this.n) this.sysScale();
     // instance data, uploaded by the used range in one call
     const n = this.n, D = this.ib.array;
     for (let i = 0; i < n; i++) {
@@ -2261,6 +2287,33 @@ class ParticleSystem {
     u.uUX.value.copy(velAx.set(e[0], e[1], e[2]).normalize());
     u.uHand.value = obj.matrixWorld.determinant() < 0 ? 1 : -1;
     u.uWSign.value = this.world && this.root.scale.x < 0 ? -1 : 1;
+  }
+
+  /**
+   * (2026-11-04, official engine: the geometry job's billboard dispatchers) the system's transform scale S on its quads —
+   * a View quad's camera axes are multiplied per Unity world axis by S (diag(S) · the camera basis), a stretched one's width
+   * the same way and its lengthScale by S.x (its velocityScale and the size not), a Velocity quad's turned corner per axis of
+   * its frame, a World / Local-aligned quad's basis by S. S = the product of `scalePath`'s scales (FxInstance: Hierarchy its
+   * node's and parents', Local its own), per axis and without sign [추정·엔진: whether the job's scale keeps the sign of a
+   * mirrored transform — unread; the facing mirror stays off the quads as before]. Sent only when it changes.
+   */
+  sysScale() {
+    let x = 1, y = 1, z = 1;
+    for (const o of this.scalePath) { x *= Math.abs(o.scale.x); y *= Math.abs(o.scale.y); z *= Math.abs(o.scale.z); }
+    const u = this.material.uniforms, M = u.uSys.value.elements, S = (this.sysS ||= new THREE.Vector3(NaN, 0, 0));
+    if (S.x !== x || S.y !== y || S.z !== z) {
+      S.set(x, y, z);
+      M[12] = x; M[13] = y; M[14] = z;
+      u.uSysOn.value = Math.abs(x - 1) > 1e-4 || Math.abs(y - 1) > 1e-4 || Math.abs(z - 1) > 1e-4;
+    }
+    if (!u.uSysOn.value) return;
+    // the root's turn, Unity frame → scene (its columns without their length; the facing mirror keeps its sign)
+    this.root.updateWorldMatrix(true, false);
+    const e = this.root.matrixWorld.elements;
+    for (let c = 0; c < 3; c++) {
+      const l = Math.hypot(e[c * 4], e[c * 4 + 1], e[c * 4 + 2]) || 1;
+      M[c * 4] = e[c * 4] / l; M[c * 4 + 1] = e[c * 4 + 1] / l; M[c * 4 + 2] = e[c * 4 + 2] / l;
+    }
   }
 
   /** setSubs: particle i (age a0 → a1 this frame) runs each sub emitter's emission module. */
@@ -3069,6 +3122,12 @@ export class FxInstance {
       if (mode === 1) for (let p = s.node.parent; p && p !== tilt; p = p.parent) if (scaled(p)) { s.useLocalScale(tilt); break; }
       // (2026-10-27) Shape (2): a system scaled itself or by a parent (引星棘刺 S2 range: its node × 0.53)
       if (mode === 2) for (let p = s.node; p && p !== tilt; p = p.parent) if (scaled(p)) { s.useLocalScale(tilt, true); break; }
+      // (2026-11-04) the transform scale its quads take (sysScale): Hierarchy (0) its node's and its parents', Local (1) its
+      // node's own; Shape (2) none
+      const path = [];
+      if (mode === 0) for (let p = s.node; p && p !== tilt; p = p.parent) path.push(p);
+      else if (mode === 1) path.push(s.node);
+      if (s.quadScaled && path.some(scaled)) s.scalePath = path;
     }
     this.clipV = [];
     live.push(this);
