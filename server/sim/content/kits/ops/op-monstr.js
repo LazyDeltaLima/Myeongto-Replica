@@ -33,9 +33,11 @@
 //   attack@chain.atk_scale (0.75; XAH-X 0.85), up to attack@chain.max_target units healed (3). A 重构体 (and she herself while S3
 //   runs: monstr[free_jump]) is a free link: healing it uses no target of the count and the next jump does not decay (XAH-X
 //   stage 3: the next attack@chain.extra_cnt jumps after that neither). Her heals pass 禁疗 ("治疗效果无视禁疗"); her selection
-//   takes her own 重构体 through its 禁疗 (`healThrough`), no other 禁疗 unit (PRTS "对象选取受禁疗制约"), the jumps neither
-//   [ASSUMED·not checked: every jump selector of her heal projectiles (ChainedSelectorWithFilter) has `_ignoreHealFree` and
-//   `_ignoreAllyTargetFree` on, which by their names take 禁疗 / untargetable allies too; the code reading them is not read].
+//   takes her own 重构体 through its 禁疗 (`healThrough`), no other 禁疗 unit (PRTS "对象选取受禁疗制约"). The jumps do take
+//   them: every jump selector of her heal projectiles (ChainedSelectorWithFilter) has `_ignoreHealFree` and
+//   `_ignoreAllyTargetFree` on, and the official client's target check then lets a 禁疗 and a 孤立 ally through — here a 孤立
+//   one (JUMP_OPTS) and a `healFree` one; a summon's 禁疗 is the engine's `noHeal` flag, which also means 不成为治疗目标, so
+//   it stays out of the jumps for now (docs/rules/diy.md).
 // - Module XAH-X 记忆存档: the trait's 0.85 per jump (traitOverride); stage 3 changes T1 (below); ATK / DEF from the attributes.
 // - T1 自我修复 (cnt 1): her 重构体 is a hand piece the player places (the talent's summon) on a ground tile of her attack
 //   range — "可以在攻击范围内的地面使用": the data's `ownerRange` from that talent text (tools/build-data.mjs summonRecord,
@@ -101,6 +103,8 @@ const TAG_PROSTS_BLEED = 'monstr:prostsBleed';
 const TAG_S3_BLEED = 'monstr:meltdownBleed';
 /** Her heals "无视禁疗" (every heal ability of hers: `_ignoreHealFree`). */
 const HEAL_OPTS = Object.freeze({ ignoreHealFree: true });
+/** Her jump selectors' options (ChainedSelectorWithFilter `_ignoreHealFree`, `_ignoreAllyTargetFree`): ai.js chainHealNext. */
+const JUMP_OPTS = Object.freeze({ ignoreAllyTargetFree: true });
 
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 const skillOn = (unit, id) => !!(unit.skill && unit.skill.active && unit.skill.id === id);
@@ -115,7 +119,7 @@ const nearX4 = (a, b) => Math.abs(a.tileR - b.tileR) <= 1 && Math.abs(a.tileC - 
  * A chain heal of hers from `main` (already healed by her attack when `mainDone`): up to `count` units healed, × `step` per
  * jump; a free link (her 重构体; herself with `selfFree`) uses no target of the count and the next 1 + `extra` jumps keep the
  * amount. Each link is the 链愈师 one (ai.js chainHealNext — the 3×3 around the last one healed, the lowest HP ratio a
- * full-HP ally included, then the latest deployed; no 禁疗 unit but her 重构体, her `healThrough`).
+ * full-HP ally included, then the latest deployed; a 孤立 ally too — JUMP_OPTS — and a `healFree` one, no `noHeal` one).
  */
 function chainFrom(battle, unit, main, base, { count, step, extra, mainDone = false, selfFree = false }) {
   const free = (t) => isProstsOf(t, unit) || (selfFree && t === unit);
@@ -126,7 +130,7 @@ function chainFrom(battle, unit, main, base, { count, step, extra, mainDone = fa
   const seen = new Set([main.id]);
   let cur = main;
   while (counted < count) { // loop-cap: chain stops when the next ally is missing
-    const next = chainHealNext(battle, unit, cur, seen);
+    const next = chainHealNext(battle, unit, cur, seen, JUMP_OPTS);
     if (!next) break;
     seen.add(next.id);
     if (calm > 0) calm--; else amount *= step;

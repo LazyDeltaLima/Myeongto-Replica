@@ -151,6 +151,20 @@ test('T1 自我修复 free link: her 重构体 in a chain uses no target of the 
   }
 });
 
+test('the jumps take a 孤立 ally (her jump selectors: `_ignoreAllyTargetFree`) and heal it', () => {
+  const others = [{ uid: 3, chessId: YAK, row: 10, col: 5 }, { uid: 4, chessId: ESTELLE, row: 11, col: 6 }, { uid: 5, chessId: SILENCE, row: 12, col: 7 }];
+  const { h, u, log } = field({ others });
+  const [A, C, B] = [3, 4, 5].map((i) => h.unit(i));
+  h.b.addBuff(C, { key: 't:isolated', flags: { isolated: true }, persist: true });
+  setHp(A, 0.1); setHp(C, 0.3); setHp(B, 0.5);
+  const n0 = log.length;
+  assert.ok(h.runUntil(() => healsOf(log, u, n0).length > 0, 4));
+  const hs = healsOf(log, u, n0).filter((c) => c.t === healsOf(log, u, n0)[0].t);
+  assert.deepEqual(hs.map((c) => c.target.id), [A, C, B].map((x) => x.id), 'main A, then the 孤立 C, then B next to it');
+  assert.ok(hs[1].amount > 0, 'the 孤立 ally is healed');
+  done(h);
+});
+
 test('T1 自我修复 — the 重构体: only her heals reach it (禁疗), it loses 8 HP every 0.1 s from 1 s after it lands, every ally of its 3×3 ATK +20 % (XAH-X stage 3 +30 %; not 2 tiles away); gone ⇒ back 15 s later for 3 DP while she stands; withdrawn when she leaves, her redeployment readies it', () => {
   for (const f of [[5, false, null], [6, true, XAHX], [5, true, XAHX]]) {
     const [tier, elite, mod] = f;

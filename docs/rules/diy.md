@@ -886,9 +886,11 @@
     [추정·미조사: RespawnEnd 능력의 길이를 두 클립 0.5초로 읽음, 끝나는 조건은 안 읽음].
   - 지마 S3 거침없는 기세 [추정·미조사: 망치 스플래시 몫이 `atk_scale_2`에 `atk_scale`까지 곱하는지, 그 타격이 일반 공격으로 세는지 — 능력 클래스의 코드]·
     [추정·미조사: 확산의 「인접」 = 상하좌우 4칸 — 고지대 AoE 클래스(`_aoeSelector`)의 코드]·[추정·미조사: 행동할 수 없을 때 망치를 잃는지 — 능력 중단은 엔진 코드].
-  - Mon3tr [추정·미조사: 연쇄 튕김이 치료 금지(禁疗) 아군도 고르는지 — 그녀 치료 투사체의 튕김 선택기 `ChainedSelectorWithFilter`는 `_ignoreHealFree`·
-    `_ignoreAllyTargetFree`가 켜져 있어 이름대로면 고름, 그 값을 읽는 코드는 안 읽음; 지금은 재구성체 말고는 안 고름 — 고르게 하려면 엔진 `heal`의 `noHeal` 갈래도
-    바꿔야 함].
+- Mon3tr의 연쇄 튕김은 치료 금지(禁疗)·고립(孤立) 아군도 고르고 치료한다(2026-11-03, 공식 클라에서 확인): 그녀 치료 투사체의 튕김 선택기
+  `ChainedSelectorWithFilter`는 `_ignoreHealFree`·`_ignoreAllyTargetFree`가 켜져 있고, 대상 검사(`TargetOptions`)는 그 옵션이 켜지면 禁疗(치료 목적일 때)·
+  아군 대상 불가(이상 상태 `ALLY_TARGET_FREE`) 거름을 건너뛴다 → 엔진 `ai.js chainHealNext`의 옵션 `ignoreAllyTargetFree`(키트 `JUMP_OPTS`)로 孤立 아군을
+  고른다. 禁疗 쪽은 아직: 엔진의 `noHeal` 깃발이 禁疗 소환물과 「다른 유닛의 치료 대상이 안 됨」(팔라스 재능 2 시험 등)을 함께 뜻해, 그 깃발을 둘로 나눠야
+  튕김이 禁疗 아군을 고르고 치료할 수 있다(`healFree`만 단 유닛은 지금도 고름).
 - 이펙트·공격 타이밍·투사체·스킬 시전·모드·HUD·모듈 배치 이펙트 데이터: EN 클라에서 뽑음(2026-11-03, `tools/local-extract/add_operator.py --id …` 네 명 한 번,
   `fx_extract.py --equips`). 화면 확인 전. 미연결 이펙트 11줄·비이 저장 탄·`Charge` 클립은 2026-11-03에 이음(`fx.md` 「선발 벨로네·비이·Mon3tr 키트 순간 이펙트」); 소리(20)·클립(14)은 목록 시험의 todo.
 - 테스트: `test/content/op_demetr.test.js`(12)·`op_veen.test.js`(9)·`op_headb2.test.js`(11)·`op_monstr.test.js`(11) — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 실제 매치

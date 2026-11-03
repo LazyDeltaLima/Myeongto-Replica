@@ -737,16 +737,20 @@ export function resolveHit(b, u, prof, target, info, x, y) {
  * 禁疗制约": an ally on the 3×3 of tiles around prev's (range x-4), not yet in this chain (`seen` ids), no device, no hidden
  * or 孤立 unit, no 禁疗 / 无法被治疗 one (as Battle.injuredAlliesInKeys: the healer's `healThrough` lets its own summon in —
  * 凯尔希 / Mon3tr); the lowest HP ratio first — a full-HP ally too, healed for nothing, and the chain jumps on from it —,
- * then the latest deployed (aggroSeq). Null when none. Shared by the profession (doHeal) and Mon3tr's kit.
+ * then the latest deployed (aggroSeq). Null when none. Shared by the profession (doHeal) and Mon3tr's kit. `opts`: a jump
+ * selector's options (the client's TargetOptions) — `ignoreAllyTargetFree` takes a 孤立 ally (Mon3tr's
+ * ChainedSelectorWithFilter). A 禁疗 ally (flag `healFree`) is never skipped here — the heal decides (its `ignoreHealFree`);
+ * the `noHeal` flag (a 禁疗 summon, and 不成为治疗目标) and a profile's `noHeal` always are.
  */
-export function chainHealNext(b, healer, prev, seen) {
+export function chainHealNext(b, healer, prev, seen, opts = null) {
   const through = healer && healer.profile && typeof healer.profile.healThrough === 'function' ? healer.profile.healThrough : null;
   const r0 = prev.tileR, c0 = prev.tileC;
   let best = null;
   for (const a of b.allyUnits) {
     if (!a.alive || !a.deployed || a.hidden || a.kind === 'device' || seen.has(a.id)) continue;
     if (Math.abs(a.tileR - r0) > 1 || Math.abs(a.tileC - c0) > 1) continue;
-    if (a !== healer && (a.s.flags.isolated || (a.s.flags.noHeal && !(through && through(healer, a))) || (a.profile && a.profile.noHeal))) continue;
+    if (a !== healer && ((a.s.flags.isolated && !(opts && opts.ignoreAllyTargetFree))
+      || (a.s.flags.noHeal && !(through && through(healer, a))) || (a.profile && a.profile.noHeal))) continue;
     if (!best || a.hpRatio < best.hpRatio - 1e-12 || (Math.abs(a.hpRatio - best.hpRatio) <= 1e-12 && a.aggroSeq > best.aggroSeq)) best = a;
   }
   return best;

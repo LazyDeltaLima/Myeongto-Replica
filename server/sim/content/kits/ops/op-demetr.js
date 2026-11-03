@@ -36,8 +36,8 @@
 // - S1 家主的余裕 (AUTO, attack SP 4; data DEFAULT): the next attack strikes its target twice for atk_scale × ATK physical
 //   (skchr_demetr_1: MultiMeleeAttack, `_additionalTimes` 1, `_waitAttackEventForAllAttacks` on; its clip Skill_1 carries two
 //   OnAttack events, 0.233 / 0.433 s): the second strike lands SECOND_STRIKE after the first, one hit of the same attack, at
-//   the same target while it lives and he can act (as 赫拉格 S1) [ASSUMED·not checked: the flag read by its name and the clip's
-//   event count; the code that reads it is not read]; each strike adds a 【手段】 stack.
+//   the same target while it lives and he can act (as 赫拉格 S1 — official client: with the flag on, the wait between strikes is
+//   the clip's next attack event); each strike adds a 【手段】 stack.
 // - S2 军师的手段 (MANUAL, 15 / 18 s; data DEFAULT: an enemy in its 3-13 box): range 3-13, ASPD +attack_speed, every attack strikes
 //   attack@max_target targets for attack@atk_scale × ATK physical; 【手段】 up to s2_limited_stack_cnt and 停顿 at the cap. Its
 //   attack is a projectile (projectile_chr_demetr_s2, TRACE_TARGET 10 — the extracted shot): each hit lands as it arrives (as
