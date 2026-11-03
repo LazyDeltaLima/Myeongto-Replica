@@ -272,6 +272,55 @@ test('S3 “用赤铁铭记” (MANUAL, data DEFAULT): 18 / 21 bullets, ASPD +11
   }
 });
 
+test('her kit moments for the official effects: each store (fx mysticStore, its clip signal and the energies held), the volley by skill mode, the S3 bounces from the enemy they leave, 战争技艺 and the S2 cap shown', () => {
+  const fx = (h, n) => h.eventsOf('fx').filter((x) => x[1] === n).map((x) => x[4]);
+  const shown = (h, id, key) => h.eventsOf('status').filter((x) => x[1] === id && x[2] === key).map((x) => x[3]);
+  {
+    const { h, u } = field({ tier: 6, elite: true, skill: 0 });
+    u.skill.sp = 0;
+    storeUp(h, u, 1, 1);
+    // a 转置能量 counts merge_cnt: 1, 2, then 3 (the third merged), 4
+    assert.deepEqual(fx(h, 'mysticStore').map((o) => [o.id, o.signal, o.n]), [[u.id, 'store', 1], [u.id, 'store', 2], [u.id, 'store', 3], [u.id, 'store', 4]]);
+    const e = h.spawn('enemy_dummy', { pos: [10, 7] });
+    assert.ok(h.runUntil(() => fx(h, 'veenVolley').length, 4), 'her attack releases them');
+    const v = fx(h, 'veenVolley')[0];
+    assert.deepEqual([v.id, v.target, v.stored, v.merged, v.s2 ?? 0, v.s3 ?? 0], [u.id, e.id, 1, 1, 0, 0]);
+    h.run(0.5);
+    assert.deepEqual(shown(h, e.id, `veen:war:${u.id}`), [1], '战争技艺 reaches the renderer');
+    assert.equal(e.findBuff(`veen:war:${u.id}`).status ?? null, null, 'still no status of the catalogue');
+    done(h);
+  }
+  {
+    const { h, u } = field({ tier: 5, elite: false, skill: 1 });
+    u.skill.sp = 0;
+    storeUp(h, u, 3, 0);
+    u.skill.gainSp(999);
+    h.spawn('enemy_dummy', { pos: [10, 7] });
+    assert.ok(h.runUntil(() => u.skill.active, 4));
+    assert.ok(h.runUntil(() => fx(h, 'veenVolley').length, 4));
+    assert.equal(fx(h, 'veenVolley')[0].s2, 1, 'under S2');
+    // 3 转置能量 (9 stacks) + the main shot: past the cap of 8 at once
+    h.step();
+    assert.deepEqual(shown(h, u.id, 'veen:s2full'), [1], 'the cap shown');
+    h.runUntil(() => !u.skill.active, 40);
+    h.step();
+    assert.deepEqual(shown(h, u.id, 'veen:s2full'), [1, 0], 'gone with the skill');
+    done(h);
+  }
+  {
+    const { h, u } = field({ tier: 5, elite: false, skill: 2 });
+    u.skill.sp = 0;
+    storeUp(h, u, 0, 2);
+    u.skill.gainSp(999);
+    const e = h.spawn('enemy_dummy', { pos: [10, 7] });
+    const near = h.spawn('enemy_fly', { pos: [10, 8.2] });
+    assert.ok(h.runUntil(() => fx(h, 'veenBounce').length >= 2, 6));
+    assert.equal(fx(h, 'veenVolley')[0].s3, 1, 'under S3');
+    assert.deepEqual(fx(h, 'veenBounce').slice(0, 2).map((o) => [o.from, o.target]), [[e.id, near.id], [near.id, e.id]]);
+    done(h);
+  }
+});
+
 test('维伊 through the real match path (seats[].diy → Match board → battleInput → BattleSpec → createBattleFromSpec): her kit, energy stored before the wave, arts shots with 战争技艺', async () => {
   const { makeMatch } = await import('../match/harness.js');
   const { buildBattleSpec, createBattleFromSpec } = await import('../../server/sim/spec.js');

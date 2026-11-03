@@ -409,6 +409,41 @@ test('S3 清算: a lethal hit while it runs ⇒ 不死 / untargetable / no block
   }
 });
 
+test('his kit moments for the official effects: the acting 【手段】 shown on the enemy (demetr_t1[def_dec_core]), every S3 【移动】 and the 【返回】 — in place too — as fx teleport (demetr_s3[effect_1])', () => {
+  const tps = (h, u) => h.eventsOf('fx').filter((x) => x[1] === 'teleport' && x[4]?.id === u.id).map((x) => [Math.round(x[2]), Math.round(x[3])]);
+  {
+    const { h } = field({ tier: 5, skill: 0 });
+    const e = h.spawn('enemy_dummy', { pos: [10, 6] });
+    assert.ok(h.runUntil(() => meansOf(e) > 0, 4));
+    assert.deepEqual(h.eventsOf('status').filter((x) => x[1] === e.id && x[2] === MEANS_KEY).map((x) => x[3]), [1], 'shown');
+    assert.equal(e.findBuff(MEANS_KEY).status ?? null, null, 'still no status of the catalogue');
+    done(h);
+  }
+  {
+    // a cast with no target: one 【移动】 in place, then the 【返回】 in place
+    const { h, u } = field({ tier: 5, skill: 2 });
+    u.skill.gainSp(999);
+    h.spawn('enemy_dummy', { pos: [11, 7] });
+    assert.ok(h.runUntil(() => u.skill.active, 1));
+    assert.deepEqual(tps(h, u), [[7, 11]], 'onto the target');
+    u.skill.end('test');
+    h.step();
+    assert.deepEqual(tps(h, u), [[7, 11], [5, 10]], 'back to his tile');
+    done(h);
+  }
+  {
+    const { h, u } = field({ tier: 5, skill: 2 });
+    u.skill.gainSp(999);
+    u.skill.activate('manual');
+    h.step();
+    assert.ok(u.skill.active);
+    u.skill.end('test');
+    h.step();
+    assert.deepEqual(tps(h, u), [[5, 10], [5, 10]], 'no target: a 【移动】 in place, and the 【返回】 in place');
+    done(h);
+  }
+});
+
 test('贝洛内 through the real match path (seats[].diy → Match board → battleInput → BattleSpec → createBattleFromSpec): his kit, S2 cast with an enemy in its 3-13, its shots land with 【手段】', async () => {
   const { makeMatch } = await import('../match/harness.js');
   const { buildBattleSpec, createBattleFromSpec } = await import('../../server/sim/spec.js');

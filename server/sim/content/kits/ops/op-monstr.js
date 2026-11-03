@@ -246,7 +246,8 @@ export default {
             // 【返回】 to the tile she left: SP emptied (S3_Restore ModifySp −100 %), 1 s 不死
             const fromX = unit.x, fromY = unit.y, dir0 = unit.dir;
             unit.dir = h.dir;
-            if (battle.moveRedeploy(unit, h.r, h.c, { clearSp: true })) battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
+            // (`back`: the return — the 路标形态 marker's mode ends there, render/fx/kitofficial.js)
+            if (battle.moveRedeploy(unit, h.r, h.c, { clearSp: true })) battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY, back: 1 });
             else unit.dir = dir0;
             unit.mem.mUndeadUntil = battle.time + RETURN_UNDEAD;
           },
@@ -273,8 +274,11 @@ export default {
           if (!(d > 0) || !(v0 > 0)) return;
           battle.on('heal', (c) => {
             if (c.source !== unit || c.opts?.regen || !c.target || c.target.side !== 'ally' || !(c.amount > 0)) return;
-            const v = v0 * (skillOn(unit, S2) ? num(b2.talent_scale, 1) : 1);
-            const give = (x) => battle.applyStrongest(x, T2_KEY, { duration: d, value: v, mods: (a) => ({ aspd: a }), source: unit });
+            const s2 = skillOn(unit, S2), v = v0 * (s2 ? num(b2.talent_scale, 1) : 1);
+            // shown (`visible`) on an ally neither a Mon3tr nor a 重构体 (monstr_t_2[atk_spd] filters them by id; only the others get
+            // monstr_t_2[atk_spd_up][effect]); `fxTag` 2: given under S2 ([m2], its eff_2 prefabs), 1: eff_1 (render/fxstatus.js KEY_FX)
+            const give = (x) => battle.applyStrongest(x, T2_KEY, { duration: d, value: v, mods: (a) => ({ aspd: a }), source: unit,
+              visible: x.defId !== PROSTS && x.defId !== unit.defId, fxTag: s2 ? 2 : 1 });
             give(c.target);
             if (c.target !== unit && unit.alive) give(unit);
           }, { owner: unit });

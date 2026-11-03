@@ -142,7 +142,8 @@ function syncMeans(battle, e) {
   }
   if (!best) { battle.removeBuff(e, MEANS_KEY); battle.removeBuff(e, MEANS_SLUG_KEY); return; }
   const d = best.data;
-  battle.addBuff(e, { key: MEANS_KEY, refresh: 'replace', source: d.src, mods: { defMul: Math.max(0, 1 - d.pct * d.stacks) }, data: { stacks: d.stacks, pct: d.pct, src: d.src }, tags: ['talent'] });
+  // shown (`visible`): demetr_t1[def_dec_core]'s overrideEffectKey demetr_buff_01 on the enemy (render/fxstatus.js KEY_FX)
+  battle.addBuff(e, { key: MEANS_KEY, refresh: 'replace', source: d.src, mods: { defMul: Math.max(0, 1 - d.pct * d.stacks) }, data: { stacks: d.stacks, pct: d.pct, src: d.src }, tags: ['talent'], visible: true });
   if (slug) battle.addBuff(e, { key: MEANS_SLUG_KEY, duration: slug.timeLeft, refresh: 'replace', source: slug.data.src, status: 'sluggish', mods: { moveMul: 0.2 }, visible: true, tags: ['talent'] });
   else battle.removeBuff(e, MEANS_SLUG_KEY);
 }
@@ -266,9 +267,10 @@ export default {
             const bondUp = !!(st.bond && st.bond.alive);
             retreatBond(battle, st);
             const fromX = unit.x, fromY = unit.y;
-            // 【返回】: a 【移动】 onto the located tile (in place when he stands on it) that empties the SP (demetr_s3[restore])
+            // 【返回】: a 【移动】 onto the located tile (in place when he stands on it) that empties the SP (demetr_s3[restore]);
+            // its RespawnEnd ability carries demetr_s3[effect_1] as FlyToTarget's does (fx 'teleport', in place too)
             if ((atHome || bondUp) && battle.moveRedeploy(unit, hr, hc, { clearSp: true })) {
-              if (!atHome) battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
+              battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
               battle.addBuff(unit, { key: RETURN_GUARD_KEY, duration: RETURN_GUARD, refresh: 'replace', flags: { invulnerable: true, noBlock: true, noSp: true }, tags: ['skill'] });
               battle.releaseBlocked(unit);
               return;

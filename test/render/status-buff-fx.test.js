@@ -121,6 +121,19 @@ describe('client: status → the official buff effect', () => {
     assert.notEqual(accel(3)[0][0], accel(4)[0][0], 'the next stack ends the effect and starts it again');
   });
 
+  test('2026-11-03: Mon3tr T2 on an ally by its tag (2: given under her S2) and the side it faces; 贝洛内\'s 【手段】, 维伊\'s mark and S2 cap', () => {
+    const tpl = (v) => [...F.wantedStatusFx(v, undefined, null, keyPlays()).values()].map((s) => `${s[0]}/${s[1]}`).sort();
+    const aspd = (fx, visFacing) => tpl(unit('char_1_02_yak', { visFacing, statuses: new Set(['talent:monstr:aspd']), statusFrom: new Map([['talent:monstr:aspd', { src: null, fx, n: 0 }]]) }));
+    assert.deepEqual(aspd(1, 1), ['monstr_token/token_monstr_prosts_buff_01'], '[eff_1][r] facing right');
+    assert.deepEqual(aspd(1, -1), ['monstr_token/token_monstr_prosts_buff_01_2'], '[eff_1] facing left');
+    assert.deepEqual(aspd(2, 1), ['monstr_token/token_monstr_prosts_buff_02']);
+    assert.deepEqual(aspd(2, -1), ['monstr_token/token_monstr_prosts_buff_02_2']);
+    if (!keyPlays().keys['demetr_t1[def_dec_core]']) return;   // (the keyed ones need the extracted plays.json)
+    assert.deepEqual(tpl(unit('enemy_1007_slime', { isEnemy: true, statuses: new Set(['talent:demetr:means']) })), ['demetr/demetr_buff_01']);
+    assert.deepEqual(tpl(unit('enemy_1007_slime', { isEnemy: true, statuses: new Set(['veen:war:12']) })), ['veen/veen_talent_02_debuff_01']);
+    assert.deepEqual(tpl(unit('char_4226_veen', { statuses: new Set(['veen:s2full']) })), ['veen/veen_skill_02_buff_03']);
+  });
+
   test('束缚: the applier\'s buff effect; an applier without one (or none) draws nothing — no common badge', () => {
     assert.deepEqual(names(enemy(['bind'], [['bind', { src: 'indigo' }]])), ['indigo_buff_01_start']);
     assert.deepEqual(names(enemy(['bind'], [['bind', { src: 'ines' }]])), ['ines_imprison_01']);

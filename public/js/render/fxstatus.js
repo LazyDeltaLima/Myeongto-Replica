@@ -146,6 +146,13 @@ const CETSYR_HEAL = Object.freeze(['cetsyr', 'cetsyr_buff_02', OWN]);
 const TOCKA_VISIT = Object.freeze(['tocka_skill_03_buff_01', 'tocka_skill_03_buff_02', 'tocka_skill_03_buff_03'].map((n) => Object.freeze(['tocka', n, OWN])));
 const HUMUS_PEAK = Object.freeze([Object.freeze(['humus', 'humus_buff_01', OWN]), Object.freeze(['humus', 'humus_buff_02', OWN])]);
 /**
+ * Mon3tr T2 战术协同 on an ally (2026-11-03): monstr_t_2[atk_spd_up][effect] holds [eff_1] token_monstr_prosts_buff_01_2 /
+ * [eff_1][r] _01 (the ASPD buff monstr_t_2[atk_spd_up]) or, while her S2 one [m2] holds, [eff_2] _02_2 / [eff_2][r] _02 —
+ * the [r] ones while the ally faces right (CheckFaceLOrR RIGHT). [given under S1 / other, under S2][right, left].
+ */
+const MONSTR_T2 = Object.freeze([['token_monstr_prosts_buff_01', 'token_monstr_prosts_buff_01_2'], ['token_monstr_prosts_buff_02', 'token_monstr_prosts_buff_02_2']]
+  .map((p) => Object.freeze(p.map((n) => Object.freeze(['monstr_token', n, OWN])))));
+/**
  * A kit buff → the official buff's effect: by its key; a list of specs when the buff stands for several; a function picks by
  * the holder (`view`) and its statusSource() (`from`) or returns null for none.
  */
@@ -162,6 +169,17 @@ export const KEY_FX = Object.freeze({
   // (2026-11-03) 薇薇安娜 T2 散华: her melee-only 护盾 layer vvana_t_2[block_melee] (vvana_buff_01 while she holds one) — the
   // sim's layer buff (its elite-enemy filter and dice held)
   'talent:vvana:shield': keyedAll('vvana_t_2[block_melee]', 'vvana', OWN),
+  // (2026-11-03) 贝洛内 T1 家族手段: the acting 【手段】 on an enemy — demetr_t1[def_dec] creates demetr_t1[def_dec_core]
+  // (overrideEffectKey demetr_buff_01), one per enemy whichever 贝洛内 gives it (the sim's 'talent:demetr:means')
+  'talent:demetr:means': keyed('demetr_t1[def_dec_core]', 'demetr', OWN),
+  // (2026-11-03) 维伊 T2 战争技艺: veen_t_2[damage] on the enemy (veen_talent_02_debuff_01; the sim's 'veen:war:<her id>');
+  // S2 “以鲜血洗去” at its stack cap: veen_s_2_buff_full[effect] (veen_skill_02_buff_03) on her till the skill ends
+  'veen:war': keyed('veen_t_2[damage]', 'veen', OWN),
+  'veen:s2full': keyedAll('veen_s_2_buff_full[effect]', 'veen', OWN),
+  // (2026-11-03) Mon3tr T2 战术协同 on an ally neither a Mon3tr nor a 重构体 (the sim's 'talent:monstr:aspd', `fxTag` 2 = given
+  // under her S2), by the side the ally faces
+  'talent:monstr:aspd': cite(['monstr_t_2[eff_1]', 'monstr_t_2[eff_1][r]', 'monstr_t_2[eff_2]', 'monstr_t_2[eff_2][r]'],
+    (v, from) => MONSTR_T2[Number(from?.fx) === 2 ? 1 : 0][(v.visFacing ?? v.facing ?? 1) < 0 ? 1 : 0]),
   // 休谟斯 S2 精力充沛 (2026-10-24, 묶음 S11): humus_s_2[peak_1] / [peak_2] each run peak_performance with their blackboard
   // `peak_performance.effect` humus_buff_01 / _02 (CreateBuffWithOverrideEffect peak_performance[effect]) above their HP ratio;
   // the sim's buff is the highest peak (`fxTag` 1 / 2) — above peak_2 both hold [추정: disableOverride keeps both derived buffs]

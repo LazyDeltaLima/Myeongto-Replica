@@ -283,14 +283,15 @@ export class BattleStatus {
    * strongest `value` applies, a weaker application only extends past the stronger one's end (it then resumes), an
    * equal one refreshes to the longer duration. `mods(value)` builds the buff's mods. The engine's default for two
    * same-named buffs (PRTS 作战机制 "同名buff的默认叠加策略buff只能表现出一个"). `visible`: the buff is shown to the
-   * renderer (a 'status' by its key — an official buff effect, render/fxstatus.js KEY_FX), still no status. Returns true when applied.
+   * renderer (a 'status' by its key — an official buff effect, render/fxstatus.js KEY_FX), still no status; `fxTag`: its
+   * display tag (sent as the status's `fx`; a waiting weaker one resumes with its own). Returns true when applied.
    * @param {object} target
    * @param {string} key
-   * @param {{ duration: number, value: number, mods: (v: number) => object, source?: object|null, visible?: boolean }} opts
+   * @param {{ duration: number, value: number, mods: (v: number) => object, source?: object|null, visible?: boolean, fxTag?: string|number|null }} opts
    */
-  applyStrongest(target, key, { duration, value, mods, source = null, visible = false } = {}) {
+  applyStrongest(target, key, { duration, value, mods, source = null, visible = false, fxTag = null } = {}) {
     if (!target || !target.alive || !(Number(duration) > 0) || !Number.isFinite(value) || typeof mods !== 'function') return false;
-    this._applyValuedStatus(target, key, { mods, valued: value, plain: true, visible: !!visible }, Number(duration), value, source);
+    this._applyValuedStatus(target, key, { mods, valued: value, plain: true, visible: !!visible }, Number(duration), value, source, null, fxTag);
     return true;
   }
 
@@ -342,7 +343,7 @@ export class BattleStatus {
       const tail = after(entry(oldV, oldAs, { until: oldEnd, tail: oldTail, fx: old.fxTag ?? null }), newEnd);
       const b = this.addBuff(target, make(value, duration, tail, as, fxTag));
       // a replaced buff sends no 'status': a new display tag is sent as one (display only — render/fxstatus.js)
-      if (b && !tpl.plain && (old.fxTag ?? null) !== fxTag) this._ev(statusOnEvent(target, key, b));
+      if (b && (!tpl.plain || tpl.visible) && (old.fxTag ?? null) !== fxTag) this._ev(statusOnEvent(target, key, b));
     } else if (strength(value, as) < strength(oldV, oldAs) - 1e-12) {
       // Weaker: insert among the waiting effects instead of replacing the one with the latest expiry.
       if (newEnd > oldEnd) old.data = { ...old.data, value: oldV, tail: insertTail(oldTail, entry(value, as, { until: newEnd, fx: fxTag })) };

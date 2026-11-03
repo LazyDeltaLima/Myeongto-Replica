@@ -527,6 +527,23 @@ export const KIT_OFFICIAL = {
   logosExecute: { logos: cite('logos_s_1', () => ({ play: [once('logos_skill1_hit_03', 'target')] })) },
   logosLexicon: { logos: cite('projectile_chr_logos_t', () => ({ play: [once('logos_talent_hit_01', 'target')] })) },
   bulletClear: { logos: cite('char_4133_logos/Modes/S3_End/Body/Attack', () => ({ play: [once('logos_skill3_range_end_01')] })) },
+  // (2026-11-03) 维伊: the stored energies and 转置能量 leaving with an attack — her ChargeableGroup's ChargeAttackDefault /
+  // ChargeAttackS2 fire projectile_chr_veen / _merged (under S2 projectile_chr_veen_s2 / _s2_merged: the same effects; TRACE,
+  // `_speed` 10 all): `_mainEffect` veen_trail_01 / veen_trail_02 to the attack's `target`, `_effectsWhenHit`
+  // veen_attack_rank_01_hit_02 / veen_attack_rank_02_hit_02 — from her muzzle (the client spreads them over its
+  // `_mountPointForProjectiles` SpecialPoints 5 / 6 / 8 / 9 / 10). Under S3 (ChargeAttackS3's projectile_chr_veen_s3) not drawn
+  veenVolley: {
+    veen: cite(['projectile_chr_veen', 'projectile_chr_veen_merged', 'projectile_chr_veen_s2', 'projectile_chr_veen_s2_merged'], (o) => (Number(o.s3) ? null : {
+      play: [
+        ...Array.from({ length: Math.min(9, Number(o.merged) || 0) }, () => ({ n: 'veen_trail_02', fly: 10, to: 'target', hit: ['veen_attack_rank_02_hit_02'] })),
+        ...Array.from({ length: Math.min(9, Number(o.stored) || 0) }, () => ({ n: 'veen_trail_01', fly: 10, to: 'target', hit: ['veen_attack_rank_01_hit_02'] })),
+      ],
+    })),
+  },
+  // (2026-11-03) 维伊 S3 用赤铁铭记: each bounce of projectile_chr_veen_s3 — after its first hit its
+  // `_overwritedMainEffectAfterFirstHit` veen_skill_03_trail_02 flies on from the enemy it leaves (`from`) to the next
+  // (`target`), `_repalceEffectsWhenHit` veen_skill_03_hit_02 as it lands (the sim deals the bounce as it leaves)
+  veenBounce: { veen: cite('projectile_chr_veen_s3', () => ({ play: [{ n: 'veen_skill_03_trail_02', fly: 10, to: 'target', from: 'from', fromDead: true, hit: ['veen_skill_03_hit_02'] }] })) },
   // (2026-11-03) 赫拉格 SBL-Y 热的雪: the revive (helage_trait_e → helage_trait_e[heal], ON_BUFF_FINISH: HealViaMaxHpRatio and
   // CreateEffect uniequip_002_musha_02 on him) — a prefab of the shared module effects (bundle `uniequip`)
   undying: { helage: cite('helage_trait_e[heal]', () => ({ play: [{ n: 'uniequip_002_musha_02', bundle: 'uniequip', on: 'op', life: 'once' }] })) },
@@ -551,7 +568,19 @@ export const KIT_OFFICIAL = {
   // glady_skill_03_range_04 on the head coming back [추정: the moving effect rides the head]
   // (2026-10-24, 묶음 S11) 余 S2 厚礼上宾: yu_s_2[try_tp] puts each reachable ground enemy on his tile (ForceSetToTilePosition)
   // and creates yu_skill2_teleport_02 on it
-  teleport: { yu: cite('yu_s_2[try_tp]', () => ({ play: [once('yu_skill2_teleport_02', 'id')] })) },
+  // (2026-11-03) 贝洛内 S3 清算: each 【移动】 (FlyToTarget / FlyToTargetSecond) and the 【返回】 (RespawnEnd, in place too) carry
+  // demetr_s3[effect_1] — ON_BUFF_START CreateEffect demetr_skill3_restart_begin_01 on him (`_constDirection` UP).
+  // Mon3tr S3 策略：熔毁: the 【移动】 onto her 重构体's tile — the S3_Reborn mode's monstr_s_3[reborned_passive] creates
+  // monstr_skill_03_begin_02 on her; the 路标形态 marker on the tile she left (a 重构体 switched to its mode 2: prosts_s_3[mode]
+  // holds prost_s_3[[effect] monstr_skill_03_begin_03, its model hidden by common_spine_hide) until the skill ends; the 【返回】
+  // (`back`): that mode ends where she lands — ON_BUFF_FINISH CreateEffect monstr_skill_03_end_02
+  teleport: {
+    yu: cite('yu_s_2[try_tp]', () => ({ play: [once('yu_skill2_teleport_02', 'id')] })),
+    demetr: cite('demetr_s3[effect_1]', () => ({ play: [once('demetr_skill3_restart_begin_01')] })),
+    monstr: cite(['monstr_s_3[reborned_passive]', 'prost_s_3[[effect]', 'prosts_s_3[mode]'], (o) => (Number(o.back)
+      ? { play: [once('monstr_skill_03_end_02', 'point')] }
+      : { play: [once('monstr_skill_03_begin_02'), { n: 'monstr_skill_03_begin_03', on: 'point', at: [Number(o.fromX), Number(o.fromY)], life: 'skill' }] })),
+  },
   // 引星棘刺 T2 视界: Talent/2 tiles_ally (CharacterSharedTileAuraAbility `_showEffectWhenAttach`, `_tileEffectKey` thorn2_buff)
   // on each tile her card chose, until she leaves — `cells` [[x, y]…] (sim kit chess_char_5_15-thorn2.js). The client lays them
   // `_effectInterval` 0.06 s apart; here all at once

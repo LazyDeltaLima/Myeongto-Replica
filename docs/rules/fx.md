@@ -3664,3 +3664,42 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - 남은 것: 비비아나 S3의 스킬 모드가 없다(`modes.json` `skillMode` S3 = null) — 스킬 이름 규칙이 첫 시전(모드 S3_1, `vvana_skill_03_L_*`)과 둘째
   시전부터(모드 S3_2, `_S_*`)의 시전·버프 이펙트를 함께 튼다. 둘째부터의 `_B` 클립(`clip-coverage-list.js` todo D)과 함께 키트 사건 `vvanaS3Later`로
   가를 일; S1의 `castLoop`에 섞인 `_L`·`_S`도 蓄力 여부(소리 신호 `vvanaCharged`)로 갈리는지 같이 볼 것.
+
+### 선발 벨로네·비이·Mon3tr 키트 순간 이펙트 (2026-11-03, 공식 클라에서 확인)
+
+버프 템플릿·캐릭터 팩·투사체 프리팹 그대로. 전에는 템플릿 열한 줄(`fx-bindings` `UNPLAYED`)을 아무것도 그리지 않았고, 비이의 저장 에너지 탄·S3 튕김과
+저장 클립 `Charge`도 없었다.
+
+- 벨로네(`char_4037_demetr`) 재능 1 패밀리의 수법: `demetr_t1[def_dec]`가 적에 파생 버프 `demetr_t1[def_dec_core]`(overrideEffectKey
+  `demetr_buff_01`)를 만든다 — 적마다 하나(가장 큰 감소, 어느 벨로네가 줬든). 시뮬의 그 버프 `talent:demetr:means`를 렌더에 보이게(`visible`) →
+  `fxstatus.js` `KEY_FX`.
+- 벨로네 S3 청산: 【이동】 능력 `FlyToTarget`·`FlyToTargetSecond`와 【복귀】 능력 `RespawnEnd`가 모두 `_buffs`에 `demetr_s3[effect_1]`을 갖고, 그
+  `ON_BUFF_START`가 그에게 `demetr_skill3_restart_begin_01`(`_constDirection` UP). 사건 `teleport` — 복귀는 제자리여도 보낸다(전에는 자리가 바뀔
+  때만).
+- 벨로네·Mon3tr S3 치명타(사건 `undying`): `demetr_s3[undeadable]`·`monstr_s_3[undead]`의 `ON_BEFORE_TRY_SET_HP_ZERO`는 빈 템플릿 버프
+  (`demetr_s3[undeadable_core]`·`monstr_s_3[undeadable]`)를 만들고 스킬을 끊을 뿐 이펙트가 없다 → `VERDICT` none.
+- Mon3tr(`char_4179_monstr`) 재능 2 전술 협동: `monstr_t_2[atk_spd]` `ON_OUTPUT_MODIFIER`(치료)가 대상이 재구성체나 Mon3tr이면(`_filterId`) 공격 속도
+  버프만, 다른 아군이면 거기에 `monstr_t_2[atk_spd_up][effect]`도 — 그 `ON_BUFF_TRIGGER`가 S2 때 준 `[m2]`가 있으면 `[eff_2]`
+  `token_monstr_prosts_buff_02_2`/`[eff_2][r]` `_02`, 아니면 `[eff_1]` `_01_2`/`[eff_1][r]` `_01`(`[r]`은 그 아군이 오른쪽을 볼 때 —
+  `CheckFaceLOrR` RIGHT; 묶음은 재구성체 이펙트 `monstr_token`). 시뮬 `applyStrongest`가 그 아군에게만 `visible`, `fxTag` 2(S2)·1을 붙이고(새
+  `fxTag` 인자 — 더 센 것이 덮을 때 새 태그를 다시 보냄), `KEY_FX`가 태그와 뷰의 `visFacing`으로 고른다.
+- Mon3tr S3 책략: 용해: 재구성체 칸으로 【이동】하면 S3_Reborn 모드의 `monstr_s_3[reborned_passive]`가 그녀에게 `monstr_skill_03_begin_02`. 떠난 칸의
+  路标形态 표식(모드 2로 바뀐 재구성체: `prosts_s_3[mode]`가 `prost_s_3[[effect]` `monstr_skill_03_begin_03`을 들고 `common_spine_hide`로 모델을 숨김)은
+  시뮬에 없어 렌더가 그 칸(사건의 `fromX`·`fromY`)에 스킬이 끝날 때까지 그린다. 【복귀】(`teleport`의 새 `back` 1) 때 그 모드가 끝나며
+  `ON_BUFF_FINISH` `monstr_skill_03_end_02`를 그 자리에.
+- 비이(`char_4226_veen`) 재능 2 전쟁 기술: `veen_t_2[damage]`의 `veen_talent_02_debuff_01` — 시뮬 표식 `veen:war:<그녀 id>`를 `visible`로 → `KEY_FX`.
+  S2 '선혈로 정화하라' 상한: `veen_s_2_buff[stack]`이 `max_stack_cnt`에 닿으면 `veen_s_2_buff_full[effect]`(`veen_skill_02_buff_03`)를 스킬이 끝날 때까지
+  — 시뮬 `veen:s2full`.
+- 비이 저장: 모든 모드의 공격 능력이 `_chargeAnimKey` Charge로 저장한다(S1·S2·S3 모드는 짝으로 `Skill_n_Charge`). 그녀 키트의 `storeEnergy`가 공용
+  秘术师 사건 `mysticStore` { signal 'store', n }을 보내게 함(전에는 키트가 공용 저장을 갈아 끼우며 사건이 없었음) → 클립은
+  `tools/assets/anim-overrides.mjs` `SIGNAL_CLIPS`, 저장 구슬 `_chargeEffectGroups` 다섯 단계는 공용 규칙(`fxgame.js` `chargeStore`, 색인 = 저장 수 − 1 —
+  위 「秘术师 저장 에너지」의 [추정: 색인 = 저장 전 개수]와 같은 규칙; 전환 에너지 하나는 `merge_cnt`(3)로 셈, 다섯을 넘으면 새 단계 없음).
+- 비이 저장 탄: `ChargeableGroup`의 `ChargeAttackDefault`·`ChargeAttackS2`가 `projectile_chr_veen`/`_merged`(S2 `_s2`/`_s2_merged`, 이펙트 같음; 넷 다
+  TRACE `_speed` 10 — 클라 프리팹 표 조회)를 쏜다: `_mainEffect` `veen_trail_01`/`veen_trail_02`, `_effectsWhenHit` `veen_attack_rank_01_hit_02`/
+  `veen_attack_rank_02_hit_02`. 사건 `veenVolley`(새 `s2`·`s3`)로 공격 대상에게 날린다 — 그녀 총구에서(클라는 `_mountPointForProjectiles` 특수점
+  5·6·8·9·10에 나눔, 아직 안 따름). S3(`ChargeAttackS3` `projectile_chr_veen_s3`, 전환 탄 없음)의 저장 탄은 안 그림.
+- 비이 S3 튕김: `projectile_chr_veen_s3`가 첫 명중 뒤 `_overwritedMainEffectAfterFirstHit` `veen_skill_03_trail_02`로 날고 `_repalceEffectsWhenHit`
+  `veen_skill_03_hit_02` — 사건 `veenBounce`의 새 `from`(떠나는 적)에서 다음 적으로(`planShots` `fromDead`). 시뮬은 튕김 피해를 떠날 때 준다.
+- 확인: `test/render/kit-event-fx.test.js`(계획 + 층), `status-buff-fx.test.js`(Mon3tr 태그·방향, 표식들), `fx-bindings` `UNPLAYED` 11줄·`VERDICT` pending
+  3줄 지움, `clip-coverage-list.js` 비이 `Charge` 넷 지움, `test/content/op_demetr`·`op_monstr`·`op_veen.test.js`(사건·표시). 시뮬 골든: diy-032~035·
+  037·038 사건 수만(전투 결과 같음). [화면 미확인: 위 전부 — 특히 Mon3tr 표식의 자리·비이 저장 탄이 한 점에서 겹쳐 나는 모습·저장 구슬 단계]

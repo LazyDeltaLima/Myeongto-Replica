@@ -55,6 +55,8 @@ const ANY = Object.freeze({ canHitFly: true });
 const BOUNCE_IV = 0.5;
 const BOUNCE_R = 1.7;
 const S2_STACK = 'veen:s2stack';
+/** S2 at its stack cap: veen_s_2_buff_full[effect] (veen_skill_02_buff_03) on her until the skill ends (render/fxstatus.js KEY_FX). */
+const S2_FULL = 'veen:s2full';
 
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 const warKey = (unit) => `veen:war:${unit.id}`;
@@ -90,7 +92,8 @@ export default {
       if (!e || !e.alive || !(war.value > 0) || !(war.dur > 0) || !(n > 0)) return;
       battle.addBuff(e, {
         key: warKey(unit), duration: war.dur, refresh: 'stack', stacks: Math.min(n, war.max), maxStacks: war.max, source: unit,
-        interval: 1, data: { value: war.value },
+        // shown (`visible`): veen_t_2[damage]'s veen_talent_02_debuff_01 on the enemy (render/fxstatus.js KEY_FX)
+        interval: 1, data: { value: war.value }, visible: true,
         onTick: ({ battle: b, unit: t, buff }) => { b.dealDamage(unit, t, { amount: buff.data.value * buff.stacks, type: 'arts', canDodge: false, tags: ['talent', 'dot', 'veenWar'] }); },
       });
     }
@@ -100,6 +103,8 @@ export default {
       const v = stateOf(unit);
       v.k = Math.min(s2.max, v.k + n);
       battle.addBuff(unit, { key: S2_STACK, mods: { atkPct: s2.atk * v.k, aspd: s2.aspd * v.k }, tags: ['skill'] });
+      // veen_s_2_buff[stack] at max_stack_cnt: FilterByBuffStackCount → veen_s_2_buff_full[effect] (once: !CheckContainsBuff)
+      if (v.k >= s2.max && !unit.findBuff(S2_FULL)) battle.addBuff(unit, { key: S2_FULL, tags: ['skill'], visible: true });
     }
     /** One hit of the volley: `atk` (cached at release) × `scale` arts, then `stacks` of 战争技艺. */
     function hitOnce(battle, unit, t, atk, scale, stacks, attackId, isSkill) {
@@ -122,7 +127,8 @@ export default {
             if (n < bn || (n === bn && (d < bd - 1e-9 || (Math.abs(d - bd) <= 1e-9 && next && e.spawnSeq < next.spawnSeq)))) { bn = n; bd = d; next = e; }
           }
           if (!next) return;   // nobody within reach: the bounces left are lost
-          battle.fx('veenBounce', { x: cur.x, y: cur.y, id: unit.id, target: next.id });
+          // `from`: the enemy it leaves (projectile_chr_veen_s3's flight on, render/fx/kitofficial.js)
+          battle.fx('veenBounce', { x: cur.x, y: cur.y, id: unit.id, target: next.id, from: cur.id });
           hit.set(next, (hit.get(next) ?? 0) + 1);
           cur = next;
           battle.dealDamage(unit, next, { amount: atk * num(b3['attack@bounce_atk_scale'], 1) * unit.s.atkScaleMul, type: 'arts', isAttack: true, attackId, tags: ['veen', 'veenBounce'] });
@@ -159,6 +165,10 @@ export default {
           const v = stateOf(unit);
           if (v.t >= tMax) return false;
           if (++v.s >= merge) { v.s -= merge; v.t++; }
+          // the store is her attack ability's charge behaviour (`_chargeAnimKey` Charge — render/units.js: the fx `signal` →
+          // the role's `signals` clip); `n` the energies stored now, a 转置能量 counting merge_cnt (the shared 秘术师 rule's
+          // charge effects, fxgame.js chargeStore)
+          battle.fx('mysticStore', { x: unit.x, y: unit.y, id: unit.id, signal: 'store', n: v.s + merge * v.t });
           return true;
         },
         install(battle, unit) {
@@ -171,8 +181,8 @@ export default {
         [S2]: {
           kind: 'duration',
           mods: { batPct: batMod(b2.base_attack_time, chess) },
-          onStart({ battle, unit }) { stateOf(unit).k = 0; battle.removeBuff(unit, S2_STACK); },
-          onEnd({ battle, unit }) { stateOf(unit).k = 0; battle.removeBuff(unit, S2_STACK); },
+          onStart({ battle, unit }) { stateOf(unit).k = 0; battle.removeBuff(unit, S2_STACK); battle.removeBuff(unit, S2_FULL); },
+          onEnd({ battle, unit }) { stateOf(unit).k = 0; battle.removeBuff(unit, S2_STACK); battle.removeBuff(unit, S2_FULL); },
         },
         [S3]: {
           kind: 'ammo',
@@ -231,7 +241,8 @@ export default {
             list.push(i === 0 ? { pre, main, post } : { pre: [], main: { atk: main.atk, scale: main.scale, bounces: 0 }, post: [] });
             v.q.set(tg.id, list);
           });
-          if (t || s) battle.fx('veenVolley', { x: unit.x, y: unit.y, id: unit.id, target: ctx.targets[0].id, stored: s, merged: t });
+          // (`s2` / `s3`: the skill mode — its ChargeAttack ability's projectiles, render/fx/kitofficial.js)
+          if (t || s) battle.fx('veenVolley', { x: unit.x, y: unit.y, id: unit.id, target: ctx.targets[0].id, stored: s, merged: t, ...(s3 ? { s3: 1 } : skillOn(unit, S2) ? { s2: 1 } : null) });
         }, { owner: unit });
       },
     };

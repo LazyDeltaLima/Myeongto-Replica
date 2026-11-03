@@ -74,10 +74,9 @@ const VERDICT = {
   truesilver: { svrash: ['skill', 3] },
   undying: {
     nearl2: ['none', 'module 骑士家族 nearl2_e_003_tr creates no effect (nearl2_buff_01_start is S3 combo_effect)'],
-    demetr: ['pending', 'S3 清算 demetr_s3[undeadable]: which effect the client plays as the lethal hit is held not judged'],
-    monstr: ['pending', 'S3 策略：熔毁 monstr_s_3[undead]: which effect the client plays as the lethal hit is held not judged'],
+    demetr: ['none', 'S3 清算 demetr_s3[undeadable] ON_BEFORE_TRY_SET_HP_ZERO: demetr_s3[undeadable_core] (template empty) and the skill interrupted'],
+    monstr: ['none', 'S3 策略：熔毁 monstr_s_3[undead] ON_BEFORE_TRY_SET_HP_ZERO: monstr_s_3[undeadable] (template empty), the HP ratio kept, the skill interrupted'],
   },
-  veenVolley: { veen: ['pending', 'the stored energies / 转置能量 leaving with an attack: their projectiles (projectile_chr_veen / _merged) not wired yet'] },
   wake: { glady: ['skill', 2] },
 };
 
@@ -424,6 +423,9 @@ Object.assign(files['/assets/local/fx/index.json'].bundles, {
   judge: ['judge_shield_start_01', 'judge_shield_break_01', 'judge_reboun_hit_01', 'judge_skill_02_weapon_hit_01'],
   logos: ['logos_skill1_hit_03', 'logos_talent_start_01', 'logos_talent_trail_01', 'logos_talent_hit_01', 'logos_skill1_trail_02',
     'logos_skill1_hit_02', 'logos_skill2_line_01', 'logos_skill3_range_end_01'],
+  // 贝洛内's, Mon3tr's and 维伊's
+  demetr: ['demetr_skill3_restart_begin_01'], monstr: ['monstr_skill_03_begin_02', 'monstr_skill_03_begin_03', 'monstr_skill_03_end_02'],
+  veen: ['veen_trail_01', 'veen_trail_02', 'veen_attack_rank_01_hit_02', 'veen_attack_rank_02_hit_02', 'veen_skill_03_trail_02', 'veen_skill_03_hit_02'],
 });
 files['/assets/local/fx/index.json'].equips = { uniequip_003_helage: ['equipment_system_musha_buff_y'] };
 files['/assets/local/fx/index.json'].bundles.reed2.push('reed2_skill_02_fireball_01', 'reed2_skill_02_fireball_02', 'reed2_skill_02_fireball_hit');
@@ -804,5 +806,41 @@ test('fxgame.js (2026-11-03): 斥罪\'s and 逻各斯\'s kit moments play on the
     views.delete(8);
     ev('kitHit', { x: 8, y: 0, id: 2, src: 2, target: 9, from: 8, k: 'logos:s1shot' });
     assert.deepEqual(got(), ['logos_skill1_trail_02@null']);
+  } finally { globalThis.fetch = fetch0; }
+});
+
+test('kitOfficialPlan (2026-11-03): 贝洛内\'s S3 moves and return; Mon3tr\'s S3 move, its marker and return; 维伊\'s volley by skill mode and S3 bounces', () => {
+  const p = (ev, o, b) => kitOfficialPlan(ev, o, b)?.play;
+  assert.deepEqual(p('teleport', { id: 1, fromX: 5, fromY: 10 }, 'demetr'), [{ n: 'demetr_skill3_restart_begin_01', on: 'op', life: 'once' }]);
+  assert.deepEqual(p('teleport', { id: 1, fromX: 4, fromY: 10 }, 'monstr'),
+    [{ n: 'monstr_skill_03_begin_02', on: 'op', life: 'once' }, { n: 'monstr_skill_03_begin_03', on: 'point', at: [4, 10], life: 'skill' }]);
+  assert.deepEqual(p('teleport', { id: 1, fromX: 6, fromY: 10, back: 1 }, 'monstr'), [{ n: 'monstr_skill_03_end_02', on: 'point', life: 'once' }]);
+  const shot = (n, hit) => ({ n, fly: 10, to: 'target', hit: [hit] });
+  assert.deepEqual(p('veenVolley', { id: 1, target: 8, stored: 2, merged: 1 }, 'veen'),
+    [shot('veen_trail_02', 'veen_attack_rank_02_hit_02'), shot('veen_trail_01', 'veen_attack_rank_01_hit_02'), shot('veen_trail_01', 'veen_attack_rank_01_hit_02')]);
+  assert.deepEqual(p('veenVolley', { id: 1, target: 8, stored: 1, merged: 0, s2: 1 }, 'veen'), [shot('veen_trail_01', 'veen_attack_rank_01_hit_02')]);
+  assert.equal(p('veenVolley', { id: 1, target: 8, stored: 1, merged: 1, s3: 1 }, 'veen'), undefined, 'under S3 not drawn');
+  assert.deepEqual(p('veenBounce', { id: 1, target: 9, from: 8 }, 'veen'),
+    [{ n: 'veen_skill_03_trail_02', fly: 10, to: 'target', from: 'from', fromDead: true, hit: ['veen_skill_03_hit_02'] }]);
+});
+
+test('fxgame.js (2026-11-03): 贝洛内\'s and Mon3tr\'s moves play on them, Mon3tr\'s marker where she left; 维伊\'s volley flies to its target', async () => {
+  const fetch0 = globalThis.fetch;
+  globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
+  try {
+    const plays = [];
+    const layer = createFxLayer({ host: null, above: null, quality: () => 'high', trace: (q) => plays.push(q), dry: true });
+    await settle();
+    const op = (id, defId) => ({ id, x: id, y: 0, alive: true, info: { id, side: 'ally', kind: 'op', defId, spine: defId, skillIndex: 2 } });
+    const foe = (id) => ({ id, x: id, y: 0, alive: true, info: { id, side: 'enemy', defId: 'enemy_1007_slime' } });
+    const views = new Map([[1, op(1, 'char_4037_demetr')], [2, op(2, 'char_4179_monstr')], [3, op(3, 'char_4226_veen')], [9, foe(9)]]);
+    const got = () => plays.splice(0).filter((q) => q.kind === 'spawn').map((q) => `${q.names[0]}@${q.on}`).sort();
+    const ev = (name, o) => layer.onEvent(['fx', name, o.x ?? 0, o.y ?? 0, { ...o }], views);
+    ev('teleport', { id: 1, fromX: 1, fromY: 0 });
+    ev('teleport', { id: 2, x: 2, y: 0, fromX: 4, fromY: 1 });
+    ev('teleport', { id: 2, x: 4, y: 1, fromX: 2, fromY: 0, back: 1 });
+    ev('veenVolley', { id: 3, target: 9, stored: 1, merged: 1 });
+    assert.deepEqual(got(), ['demetr_skill3_restart_begin_01@1', 'monstr_skill_03_begin_02@2', 'monstr_skill_03_begin_03@null', 'monstr_skill_03_end_02@null',
+      'veen_trail_01@null', 'veen_trail_02@null'].sort());
   } finally { globalThis.fetch = fetch0; }
 });

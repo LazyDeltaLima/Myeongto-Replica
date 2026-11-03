@@ -135,10 +135,4 @@ export const UNPLAYED = {
     Skill_3_Loop: 'todo: S3 策略：熔毁 attack (mode S3_Reborn)',
     Skill_3_ReStart: 'todo: S3 策略：熔毁 the 【移动】 onto the 重构体 tile',
   },
-  char_4226_veen: {
-    Charge: 'todo: trait storing an energy (the attack check with no target, kit storeEnergy)',
-    Skill_1_Charge: 'todo: storing an energy under S1',
-    Skill_2_Charge: 'todo: storing an energy under S2',
-    Skill_3_Charge: 'todo: storing an energy under S3',
-  },
 };

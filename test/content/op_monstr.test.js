@@ -387,6 +387,42 @@ test('S3 不死: a fatal blow leaves her at 1 HP (untargetable, blocking nothing
   done(h);
 });
 
+test('her kit moments for the official effects: T2 shown on an ally but not on her or her 重构体 (its tag: given under S2 or not), the S3 move and return as fx teleport (`back` on the return)', () => {
+  const shown = (h, id) => h.eventsOf('status').filter((x) => x[1] === id && x[2] === 'talent:monstr:aspd').map((x) => [x[3], x[5]?.fx ?? null]);
+  {
+    const { h, u, p, log } = field({ tier: 5, skill: 1, prosts: { row: 10, col: 5 }, others: [{ uid: 3, chessId: YAK, row: 11, col: 4 }] });
+    const yak = h.unit(3);
+    setHp(yak, 0.3);
+    setHp(p, 0.3);
+    const n0 = log.length;
+    assert.ok(h.runUntil(() => healsOf(log, u, n0).some((c) => c.target === yak) && healsOf(log, u, n0).some((c) => c.target === p), 6));
+    assert.deepEqual(shown(h, yak.id), [[1, 1]], 'on the ally, tag 1');
+    assert.deepEqual([shown(h, u.id), shown(h, p.id)], [[], []], 'not on her nor her 重构体');
+    assert.ok(u.findBuff('talent:monstr:aspd') && p.findBuff('talent:monstr:aspd'), 'which still hold it');
+    // under S2 the stronger one takes over: its tag goes out
+    h.spawn('enemy_dummy', { pos: [11, 6] });
+    u.skill.gainSp(999);
+    assert.ok(h.runUntil(() => u.skill.active, 2));
+    setHp(yak, 0.3);
+    const n1 = log.length;
+    assert.ok(h.runUntil(() => healsOf(log, u, n1).some((c) => c.target === yak), 6));
+    assert.deepEqual(shown(h, yak.id), [[1, 1], [1, 2]], 'tag 2');
+    done(h);
+  }
+  {
+    const { h, u } = field({ tier: 5, skill: 2, prosts: { row: 10, col: 6 } });
+    u.skill.gainSp(999);
+    const e = h.spawn('enemy_dummy', { pos: [10, 5] });
+    assert.ok(h.runUntil(() => u.skill.active, 1));
+    h.b.kill(e, null);
+    assert.ok(h.runUntil(() => !u.skill.active, 30));
+    h.step();
+    const tp = h.eventsOf('fx').filter((x) => x[1] === 'teleport' && x[4]?.id === u.id);
+    assert.deepEqual(tp.map((x) => [Math.round(x[4].fromX), Math.round(x[4].fromY), Math.round(x[2]), Math.round(x[3]), x[4].back ?? 0]), [[4, 10, 6, 10, 0], [6, 10, 4, 10, 1]]);
+    done(h);
+  }
+});
+
 test('Mon3tr through the real match path (seats[].diy → Match board → battleInput → BattleSpec → createBattleFromSpec): her kit; her 重构体 piece placed in her range fights with its kit (禁疗, 流失) and she heals it', async () => {
   const { makeMatch } = await import('../match/harness.js');
   const { buildBattleSpec, createBattleFromSpec } = await import('../../server/sim/spec.js');
