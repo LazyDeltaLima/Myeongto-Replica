@@ -2478,8 +2478,10 @@
   디버그 아레나에서 艾丝黛尔 S1·S2·地灵 S2를 SP 없이 12초 — `common_ignite_attack` 0회, SP를 채운 S1은 발동 버프로 1회.
 - 넣지 않은 것: `buff_*`(공용 `buff` 묶음 — 상태 이상 층 `fxstatus.js`가 모든 유닛에 그리므로 자기 묶음에 넣으면 두 번), `common_empty`(빈 프리팹),
   塞雷娅 S3 모드 명중 `common_heal_hit_01` — 클라 S3 모드의 공격은 **아군**을 고른다(charpack `Modes/S3/Body/Attack/Trigger._targetSide` 1:
-  치료 펄스가 그 모드의 공격)인데 시뮬은 S3 중에도 적을 쳐서, 넣으면 적 위에 치료 십자가 뜬다. 2026-11-03부터 시뮬은 S3 중 적을 치지 않지만(rules/sim.md
-  「오퍼레이터 공격 형태」) 펄스는 공격 사건이 아니라 키트의 'heal'이라, 넣으려면 그 치료에 명중 이펙트를 잇는 길이 따로 필요하다.
+  치료 펄스가 그 모드의 공격)인데 시뮬은 S3 중에도 적을 쳐서, 넣으면 적 위에 치료 십자가 뜬다. 2026-11-03부터 시뮬은 S3 중 적을 치지 않고(rules/sim.md
+  「오퍼레이터 공격 형태」), 2026-11-04 넣음: 펄스는 공격 사건이 아니라 키트의 'heal'이라 `fxgame.js healHit`이 공격 기록 없는 치료를 `PULSE_HEAL`
+  (스킬 모드의 공격이 키트 치료 펄스인 스킬: 塞雷娅 S3)로 보고, 그 스킬이 켜져 있으면 모드 명중을 치료받은 아군에 튼다(바인딩이 추출돼 있을 때만 —
+  이름 규칙 대역은 안 씀). 확인: `heal-hit-fx.test.js`. [화면 미확인]
 - 추출 보고에 새로 나온 것: `RandomEmitter`(`common_charge_cost_start_01`이 0.1 s 뒤 `common_charge_cost_01` 3개를 상자 안 무작위 자리에 틂 —
   아래 「RandomEmitter · FlyToPredefinedLocation」에서 구현), 셰이더 `Torappu/Particles-L2D/AlphaBlend`(盟约·辅助干员 명중: 선언 속성·태그·블렌드가 `Particles/AlphaBlend`와 같음 —
   확인 목록에 넣음), 클립 `rateOverTime.minScalar`(todo).

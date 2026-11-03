@@ -15,8 +15,9 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const MODES = JSON.parse(readFileSync(path.join(ROOT, 'tools/assets/local-char-modes.json'), 'utf8'));
 const BIND = (id) => ({ modes: MODES[id].modes, cast: MODES[id].cast, hit: MODES[id].hit, trail: MODES[id].trail, chain: MODES[id].chain, chainHit: MODES[id].chainHit });
 const files = {
-  '/assets/local/fx/index.json': { bundles: { papyrs: ['papyrs_line_01', 'papyrs_hit_01'], silent: ['myrrh_attack_01_hit'] } },
-  '/assets/local/fx/modes.json': { char_4139_papyrs: BIND('char_4139_papyrs'), char_108_silent: BIND('char_108_silent') },
+  '/assets/local/fx/index.json': { bundles: { papyrs: ['papyrs_line_01', 'papyrs_hit_01'], silent: ['myrrh_attack_01_hit'], demkni: ['common_heal_hit_01'] } },
+  '/assets/local/fx/modes.json': { char_4139_papyrs: BIND('char_4139_papyrs'), char_108_silent: BIND('char_108_silent'),
+    char_202_demkni: { ...BIND('char_202_demkni'), skillMode: MODES.char_202_demkni.skillMode } },
   '/assets/local/fx/enemy-index.json': { bundles: {} },
   '/assets/local/fx/enemy-modes.json': { $fx: {} },
 };
@@ -56,6 +57,30 @@ test('fxgame.js healHit: the heal names its healer — the hit of that healer\'s
     plays.length = 0;
     layer.onEvent(['heal', 4, 80, 2], views);
     layer.onEvent(['heal', 4, 80, null], views);
+    assert.deepEqual(hits(), []);
+  } finally { globalThis.fetch = fetch0; }
+});
+
+test('fxgame.js healHit: 塞雷娅 S3\'s heal pulse (her kit\'s heal, the S3 mode\'s attack officially) plays that mode\'s hit on each ally', async () => {
+  assert.deepEqual(MODES.char_202_demkni.hit, [['demkni_attack_01_hit'], ['common_heal_hit_01']], 'Modes/S3/Body/Attack binds the heal hit');
+  const fetch0 = globalThis.fetch;
+  globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
+  try {
+    const plays = [];
+    const layer = createFxLayer({ host: null, above: null, quality: () => 'high', trace: (p) => plays.push(p) });
+    await settle();
+    const ally = (id, defId, x, skillIndex = 0) => ({ id, x, y: 1, alive: true, info: { id, side: 'ally', defId, skillIndex } });
+    const saria = ally(7, 'char_202_demkni', 0, 2), a1 = ally(8, 'char_4139_papyrs', 1);
+    const views = new Map([[7, saria], [8, a1]]);
+    const hits = () => plays.filter((p) => p.kind === 'attackHit').map((p) => [p.by, p.at, ...p.names]);
+    layer.onEvent(['heal', 8, 100, 7], views);
+    assert.deepEqual(hits(), [], 'no skill running: nothing');
+    layer.onEvent(['skill', 7, 1], views);
+    layer.onEvent(['heal', 8, 100, 7], views);
+    assert.deepEqual(hits(), [[7, 8, 'common_heal_hit_01']]);
+    plays.length = 0;
+    saria.info.skillIndex = 1;   // her S2's heal (no pulse mode)
+    layer.onEvent(['heal', 8, 100, 7], views);
     assert.deepEqual(hits(), []);
   } finally { globalThis.fetch = fetch0; }
 });

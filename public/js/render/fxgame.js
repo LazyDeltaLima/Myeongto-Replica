@@ -4369,10 +4369,23 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function healHit(e, views) {
     const tid = e[1], by = e[3] ?? null;
     const a = healAtk.get(tid);
-    if (!a || clockS - a.t > 2.5) { if (a) healAtk.delete(tid); return; }
+    if (!a || clockS - a.t > 2.5) { if (a) healAtk.delete(tid); pulseHit(tid, by, views); return; }
     if (by != null && ownerOf(a.src) !== by) return; // another unit's heal (a regen, a talent): not that shot's
     const tgt = views.get(tid);
     if (tgt) attackHit(a, tgt, tid, healAtk);
+  }
+  /**
+   * (2026-11-04, official client) the skills whose mode's attack is a heal pulse that the sim's kit runs (a 'heal' with no
+   * attack before it): charId → skill index. 塞雷娅 S3 钙质化: Modes/S3/Body/Attack picks allies (`_targetSide` 1, no target
+   * limit, `_cooldown` 1) and binds the mode's hit common_heal_hit_01 — her kit heals the area's allies each second.
+   */
+  const PULSE_HEAL = Object.freeze({ char_202_demkni: 2 });
+  const pulseAtk = new Map();   // attackHit's record map for those hits (each played at once)
+  function pulseHit(tid, by, views) {
+    const src = by != null ? views.get(by) : null, tgt = views.get(tid);
+    if (!tgt || !isOp(src) || !src._fxSkillOn || PULSE_HEAL[src.info.spine || src.info.defId] !== skillIdx(src) || !bundleOf(src)) return;
+    const mode = modeNow(src);
+    if (bound(src, mode, 'hit').length) attackHit({ src, t: clockS, mode, kind: null, shot: false }, tgt, tid, pulseAtk);   // never a name-mapped stand-in
   }
   function stepZones(g) {
     for (const [k, rec] of zones) {
