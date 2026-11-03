@@ -13,6 +13,10 @@ import { hypot } from '../../detmath.js';
 /** 假想敌：骨刺's targets at once while its 隐匿 holds: 3 — the level's own description 「隐匿；隐匿状态下同时攻击3个目标。」
  *  (enemy_database; the handbook line says 「数个目标」) and PRTS 天赋 「隐匿期间可同时攻击3个目标」 (GitHub #365). */
 const ACBUNN_TARGETS = 3;
+/** 假想敌：骨刺's mode check (2026-11-03, EN client prefab): the passive of each mode — enemy_acbunn[horror] in Horror (0, its
+ *  隐匿 one), [cute] in Cute (1) — triggers every 0.3 s (its BuffData blackboard `interval`) and switches to the other mode
+ *  when the INVISIBLE flag says so; entering a mode starts its passive, whose audioSignal sounds (ON_BUFF_START). */
+const ACBUNN_SWITCH_IV = 0.3;
 
 /** 重弩突袭者 直击 reach along a row/column [ASSUMED]; the skill's length and its charge before the bolt (PRTS 直击 "蓄力1.4s后
  *  向目标方向发射1支弩箭…※技能持续2.5s"). */
@@ -148,9 +152,21 @@ function kitShadowBlade(ab) {
  */
 function kitBoneSpike() {
   return [stealth(), {
-    spawn(b, e) {
+    spawn(b, e, a) {
       e.profile.blockFree = true;
       e.profile.canTarget = (u) => !u.isFlying;
+      // its Horror mode is attached as it spawns (sound only, docs/rules/audio.md 「적 버프·커스텀 트리거 소리」)
+      a.mode = 0;
+      a.next = b.time + ACBUNN_SWITCH_IV;
+      b.fx('kitHit', { x: e.x, y: e.y, id: e.id, k: 'acbunn:horror' });
+    },
+    tick(b, e, a) {
+      if (b.time + 1e-9 < a.next) return;
+      a.next = b.time + ACBUNN_SWITCH_IV;
+      const m = enemyStealthed(e) ? 0 : 1;
+      if (m === a.mode) return;
+      a.mode = m;
+      b.fx('kitHit', { x: e.x, y: e.y, id: e.id, k: m ? 'acbunn:cute' : 'acbunn:horror' });
     },
     before(c, b, e) {
       if (!enemyStealthed(e)) return;

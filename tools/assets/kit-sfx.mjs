@@ -333,6 +333,15 @@ export const KIT_HIT_BANKS = Object.freeze({
   'smgrd:hit': 'battle.ON_CUSTOM_TRIGGER.smgrd_damage',
   'smgrd:fog': 'battle.ON_CUSTOM_TRIGGER.smgrd_t_blackfog',
   'parrot:fly': 'battle.ON_CUSTOM_TRIGGER.parrot_fly',
+  // 2026-11-03: 假想敌：骨刺 entering its Horror / Cute mode (each mode's passive audioSignal), 元核孽生者 waking
+  // (dslntf_tr_1 PlayAudio `Awake`), 灼藤's first-attack burst (enemy_ftsjc[aoe]), “萨科塔之眼” taking a bullet
+  // (hlegle_a[steal]), “帝国的甲胄”'s barrage range (enemy_vtsk_skillRange's end)
+  'acbunn:horror': 'battle.ON_BUFF_START.enemy_acbunn[horror]',
+  'acbunn:cute': 'battle.ON_BUFF_START.enemy_acbunn[cute]',
+  'dslntf:awake': 'battle.ON_CUSTOM_TRIGGER.Awake',
+  'ftsjc:aoe': 'battle.ON_CUSTOM_TRIGGER.enemy_ftsjc.aoe',
+  'hlegle:steal': 'battle.ON_CUSTOM_TRIGGER.hlegle_steal_bullet_audio',
+  'vtsk:range': 'battle.ON_CUSTOM_TRIGGER.enemy_vtsk_skillRange',
 });
 
 /**

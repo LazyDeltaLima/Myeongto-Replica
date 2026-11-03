@@ -1,7 +1,8 @@
 // test/audio-enemy-buff-sounds.test.js — enemy buff / custom-trigger sounds of 2026-11-03 (docs/rules/audio.md 「적 버프·커스텀
 // 트리거 소리」, EN client enemy prefabs and buff templates): a prisoner's 【解放】 (and freed by another), 阿利斯泰尔's piece
 // picked up and vest taken, 绯红歌伶's war song, a hand of 假想敌：胄 shot down, “余音”'s ensembles · pulse · hit switch, 昆图斯's
-// and “萨米的意志”'s dooms. The committed data/assets.json may predate these keys: the manifest here is it plus the keys built
+// and “萨米的意志”'s dooms; 假想敌：骨刺's Horror / Cute modes, 元核孽生者 waking, 灼藤's burst, “萨科塔之眼”'s theft and “帝国的甲胄”'s
+// barrage range. The committed data/assets.json may predate these keys: the manifest here is it plus the keys built
 // from the official audio_data.json (tools/assets/kit-sfx.mjs kitHitSfx).
 
 import { describe, test } from 'node:test';
@@ -145,5 +146,63 @@ describe('enemy buff / custom-trigger sounds (2026-11-03)', () => {
     assert.equal(lib.length, 3, 'the 重犯 and both others');
     assert.ok(lib.find((x) => x[4].id === boss.id && !x[4].forced), 'its own liberation is not forced');
     assert.equal(lib.filter((x) => x[4].forced).length, 2);
+  });
+});
+
+describe('enemy buff / custom-trigger sounds: 骨刺 · 元核孽生者 · 灼藤 · 萨科塔之眼 · 帝国的甲胄 (2026-11-03)', () => {
+  test('the banks', { skip: NO_DATA }, () => {
+    const out = kitHitSfx(indexAudio(JSON.parse(readFileSync(OFFICIAL, 'utf8'))), (p) => p);
+    const want = { 'acbunn:horror': 'e_imp_trnkrtbsch', 'acbunn:cute': 'e_atk_trnkrtbsch', 'dslntf:awake': 'e_atk_monster_n',
+      'ftsjc:aoe': 'e_atk_trftsdbrn', 'hlegle:steal': 'e_imp_hlegleb', 'vtsk:range': 'e_skill_stmblock_u' };
+    for (const [k, f] of Object.entries(want)) assert.equal(file(out[k]?.[0]).replace(/\.\w+$/, ''), f, k);
+  });
+
+  test('the events (pure)', () => {
+    const units = { 1: { def: 'enemy_10027_vtsk' }, 2: { def: 'enemy_10084_hlegle' }, 3: { def: 'enemy_10084_hlegle_2' }, 4: { def: 'enemy_1007_slime' } };
+    const keys = (fx, ex) => enemyBuffSounds(fx, ex, (id) => units[id]);
+    assert.deepEqual(keys('telegraph', { id: 1, kind: 'barrage' }), [['vtsk:range', 0.8]], 'the range 0.8 s after the zone');
+    assert.deepEqual(keys('telegraph', { id: 4, kind: 'barrage' }), []);
+    assert.deepEqual(keys('explode', { kind: 'flameVine' }), [['ftsjc:aoe', null]]);
+    assert.deepEqual(keys('steal', { id: 9, from: 2 }), [['hlegle:steal', null]]);
+    assert.deepEqual(keys('steal', { id: 9, from: 3 }), [['hlegle:steal', null]]);
+    assert.deepEqual(keys('steal', { id: 9, src: 5 }), [], 'another steal (an operator kit\'s)');
+  });
+
+  test('a battle: 骨刺 sounds Horror as it spawns, Cute ≤ 0.3 s after its 隐匿 drops, Horror again; 元核孽生者 wakes once', () => {
+    const h = makeBattle({
+      units: [{ chessId: 'chess_char_1_01_a', row: 2, col: 2 }],
+      enemies: [{ key: 'enemy_9008_acbunn', pos: [6, 6] }, { key: 'enemy_1439_dslntf', pos: [6, 7] }],
+      timeLimit: 999, autoFinish: false, captureNoisy: true,
+    });
+    h.step(0.1);
+    const bun = h.b.enemies.find((e) => e.defId === 'enemy_9008_acbunn');
+    const nuc = h.b.enemies.find((e) => e.defId === 'enemy_1439_dslntf');
+    for (const e of h.b.enemies) { e.hp = e.s.maxHp = 1e9; e.s.moveSpeed = 0; }
+    const modes = () => h.eventsOf('fx').filter((x) => x[1] === 'kitHit' && x[4]?.id === bun.id).map((x) => x[4].k);
+    assert.deepEqual(modes(), ['acbunn:horror'], 'its Horror mode at the spawn');
+    h.run(1);
+    assert.deepEqual(modes(), ['acbunn:horror'], 'no switch while its 隐匿 holds');
+    h.b.addBuff(bun, { key: 'test:reveal', flags: { reveal: true }, persist: true });
+    const t0 = h.b.time;
+    assert.ok(h.runUntil(() => modes().length === 2, 1), 'Cute');
+    assert.ok(h.b.time - t0 <= 0.3 + 1e-6, `at the next 0.3 s check (${h.b.time - t0})`);
+    assert.equal(modes()[1], 'acbunn:cute');
+    h.b.removeBuff(bun, 'test:reveal');
+    assert.ok(h.runUntil(() => modes().length === 3, 1), 'Horror again');
+    assert.equal(modes()[2], 'acbunn:horror');
+    h.b.dealDamage(null, nuc, { amount: 1, type: 'true' });
+    h.b.dealDamage(null, nuc, { amount: 1, type: 'true' });
+    h.step(0.1);
+    assert.equal(h.eventsOf('fx').filter((x) => x[1] === 'kitHit' && x[4]?.k === 'dslntf:awake' && x[4].id === nuc.id).length, 1, 'awake once');
+  });
+
+  test('the audio manager plays them', { skip: NO_DATA }, () => {
+    const a = manager();
+    a.setFieldUnits([{ id: 1, kind: 'enemy', side: 'enemy', spine: 'enemy_10027_vtsk' }, { id: 2, kind: 'enemy', side: 'enemy', spine: 'enemy_10084_hlegle' }]);
+    const heard = (ev) => { a.played.length = 0; a.handleBattleEvents(ev); return [...a.played]; };
+    assert.ok(heard([['fx', 'telegraph', 0, 0, { id: 1, kind: 'barrage', r: 1 }]]).some((f) => f.startsWith('e_skill_stmblock_u') && f.includes('@')), 'later');
+    assert.ok(heard([['fx', 'steal', 0, 0, { id: 9, from: 2 }]]).some((f) => f.startsWith('e_imp_hlegleb')));
+    assert.ok(heard([['fx', 'explode', 0, 0, { kind: 'flameVine', r: 1.5 }]]).some((f) => f.startsWith('e_atk_trftsdbrn')));
+    assert.ok(heard([['fx', 'kitHit', 0, 0, { id: 1, k: 'acbunn:cute' }]]).some((f) => f.startsWith('e_atk_trnkrtbsch')));
   });
 });

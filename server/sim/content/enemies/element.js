@@ -219,7 +219,13 @@ function kitFlameVine(ab) {
 
 function kitNucleus(ab) {
   return [{
-    taken(c, b, e, a) { if (a.on) return; a.on = true; b.addBuff(e, { key: 'ab:combat', persist: true, visible: true, mods: { moveMul: T(ab, '0.move_speed') ?? 1 } }); },
+    taken(c, b, e, a) {
+      if (a.on) return;
+      a.on = true;
+      b.addBuff(e, { key: 'ab:combat', persist: true, visible: true, mods: { moveMul: T(ab, '0.move_speed') ?? 1 } });
+      // dslntf_tr_1's PlayAudio `Awake` as it switches to mode 1 (sound only)
+      b.fx('kitHit', { x: e.x, y: e.y, id: e.id, k: 'dslntf:awake' });
+    },
     iv: T(ab, '1.interval') ?? 1,
     // 【孽生者的神经毒素】 "（无视迷彩，同名效果不叠加…）": an area selection (no unblocking 隐匿 ally)
     tick(b, e, a) { if (!a.on) return; for (const u of areaAllies(b, e, e.x, e.y, T(ab, '1.range_radius') ?? 0)) elem(b, e, u, 'neural', e.s.atk * (T(ab, '1.ep_damage_ratio') ?? 0)); },

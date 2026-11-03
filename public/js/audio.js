@@ -120,6 +120,9 @@ export const TPL_FX_SOUNDS = Object.freeze({ common_071_bond_kazimierz_hit_01_ne
 const DSLILY_DOOM_TICKS = Object.freeze([1, 2, 3]);
 /** “萨米的意志”'s Doom: enemy_smdeer_doom[audio] (1.8 s from ON_CAST_START) plays its sound as it ends. */
 const SMDEER_DOOM_AFTER = 1.8;
+/** “帝国的甲胄”'s barrage: Skills/Appear/effect puts enemy_vtsk_skillRange on its target, whose 0.8 s inner buff ends into the
+ *  range tile effect and its sound (2026-11-03, EN client prefab + buff templates). */
+const VTSK_RANGE_AFTER = 0.8;
 const REBORN_SOUNDS = Object.freeze({ enemy_1512_mcmstr: 'mcmstr:reborn' });
 const STATUE_SOUNDS = Object.freeze({ enemy_1172_dugago: 'dugago:reborn', enemy_1172_dugago_2: 'dugago:reborn' });
 const REVIVE_SOUNDS = Object.freeze({
@@ -132,7 +135,8 @@ export function enemyStatusOffSound(key, holderDef) { return ENEMY_STATUS_OFF_SO
  * 2026-11-03, docs/rules/audio.md 「적 버프·커스텀 트리거 소리」: the `sfx.kit` keys (with a delay in game seconds, or null) an
  * enemy's buff or custom-trigger sound plays on for a sim fx event, from the EN client's enemy prefabs and buff templates —
  * a prisoner's 【解放】 (fx 'liberate', `forced` when another freed it), 阿利斯泰尔's piece picked up and vest taken, 绯红歌伶's
- * war song, a hand of 假想敌：胄 shot down, “余音”'s ensembles · pulse · hit switch, 昆图斯's and “萨米的意志”'s dooms.
+ * war song, a hand of 假想敌：胄 shot down, “余音”'s ensembles · pulse · hit switch, 昆图斯's and “萨米的意志”'s dooms; 灼藤's
+ * first burst, “萨科塔之眼”'s bullet theft, “帝国的甲胄”'s barrage range.
  * @returns {([string, number|null]|[string, null, number])[]} a third field: once per unit, `n` units
  */
 export function enemyBuffSounds(fx, ex, unitOf) {
@@ -146,6 +150,7 @@ export function enemyBuffSounds(fx, ex, unitOf) {
       if (ex.kind === 'songOfWar') return [['csdcr:skill', null]];
       if (ex.kind === 'speciesBurst') return DSLILY_DOOM_TICKS.map((t) => ['dslily:doom', t]);
       if (ex.kind === 'reborn') return def(ex.id) === 'enemy_1535_wlfmster' ? [['wlfmster:reborn', null]] : [];
+      if (ex.kind === 'barrage') return def(ex.id) === 'enemy_10027_vtsk' ? [['vtsk:range', VTSK_RANGE_AFTER]] : [];
       return ex.kind === 'samiDoom' ? [['smdeer:doom', SMDEER_DOOM_AFTER]] : [];
     case 'phase': {
       if (ex.kind === 'float') return def(ex.id) === 'enemy_10045_parrot' ? [['parrot:fly', null]] : [];   // floating again
@@ -154,7 +159,9 @@ export function enemyBuffSounds(fx, ex, unitOf) {
       if (ex.hit && (ex.kind === 'echo_gold' || ex.kind === 'echo_dark')) return [[ex.kind === 'echo_gold' ? 'acdums:switcha' : 'acdums:switchb', null]];
       return [];
     }
-    case 'explode': return ex.kind === 'echoPulse' ? [['acdums:aoe', null]] : ex.kind === 'boil' && ex.n > 0 ? [['cjhot:hit', null, ex.n]] : [];
+    case 'explode': return ex.kind === 'echoPulse' ? [['acdums:aoe', null]] : ex.kind === 'boil' && ex.n > 0 ? [['cjhot:hit', null, ex.n]]
+      : ex.kind === 'flameVine' ? [['ftsjc:aoe', null]] : [];
+    case 'steal': return /^enemy_10084_hlegle/.test(def(ex.from)) ? [['hlegle:steal', null]] : [];
     case 'pulse': return ex.n > 0 && /^enemy_1234_dsubrl/.test(def(ex.id)) ? [['dsubrl:hit', null, ex.n]] : [];
     case 'link': return ex.kind === 'faithLink' && ex.n > 0 ? [['achunt:chain', null, ex.n]] : [];
     case 'revive': { // the end of a 重生 (archetypes.js reborn / statue / husk)

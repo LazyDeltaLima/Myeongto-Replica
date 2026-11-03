@@ -1354,8 +1354,8 @@
       ],
       "enemies": {"enemy_10031_cnvsld":[39,9,30,2486,138935],"enemy_1019_jshoot_2":[57,10,47,15193,133700],"enemy_9008_acbunn":[21,1,20,35764,44160]},
       "hooks": [1,136,6481,491,491,618,831,0,36,133,17,17,0,7658,275,37,117,97,1,36,0,7,0],
-      "events": {"atk":511,"deploy":16,"die":36,"dmg":831,"engage":6,"face":12,"fx":13,"leak":97,"skill":34,"spawn":126,"status":32,"swing":514},
-      "fx": {"burst":7,"shield":2,"shieldBreak":2,"vvanaS3Later":2},
+      "events": {"atk":511,"deploy":16,"die":36,"dmg":831,"engage":6,"face":12,"fx":37,"leak":97,"skill":34,"spawn":126,"status":32,"swing":514},
+      "fx": {"burst":7,"kitHit":24,"shield":2,"shieldBreak":2,"vvanaS3Later":2},
       "snaps": "4e96f15a 2009cdbb 411b15c4 b860aaba ac296366 ba812486 0e60de73 fb21b976 90524651 22e4bce9 aac51bee c85ac100 15f42956 98cea2bb e151dcf2 3d58905d ed000db4 6d20da1f b1e529ae 0dbbcb9a 7760fe6b 599a6457"
     }
   }

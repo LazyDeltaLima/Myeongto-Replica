@@ -740,12 +740,27 @@
   (`enemy_lrrook[audio]`, `lrrook:share`); '데몬의 칼날' 공격마다 대상에게 — [국가] 안이면 `smgrd_damage_up`, 밖이면 `smgrd_damage`(`enemy_smgrd_damage_up`
   ON_CALCULATE_DAMAGE) — 와 칸을 옮길 때 `smgrd_t_blackfog`(ON_OWNER_ROOT_TILE_CHANGED) [추정·엔진: 첫 칸(등장)은 바뀜으로 안 셈]; 길조의 비린이 다시
   떠오를 때(`parrot_a[fly]` ON_BUFF_ENABLE — 처음 켜질 때는 `[takeoff_effect]`만 만들고 무음, fx `phase` `float`). golden: fx 수만(`kitHit`).
-- 안 한 것: '제국의 갑옷' `enemy_vtsk_skillRange`(등장 사격 범위 버프의 끝 — 그 버프 길이 미확인), 변종 맹글러비스트 α `rkmbst_stone_disappear_audio`
-  (방패를 깨는 것은 `enemy_mcreep_self_mark`를 가진 쪽의 피해뿐 — sim에 없음), 가상적: 골극 `enemy_acbunn[cute]`/`[horror]`(隐匿 켜짐·꺼짐의 모드
-  전환), 불타는 덩굴 `enemy_ftsjc.aoe`, 원핵의 악생자 `Awake`, '산크타의 눈' `hlegle_steal_bullet_audio`, '갑주를 베는 검'·'갑주를 부수는 해머' `Back_End`
-  (위). 이 모드에 그 순간이 없는 것: '월장진' `ymtro_t[audio]`(계단 칸), 자로 M2 `enemy_wlfmster_m2_calling`(WildCalling), 모험을 찾는 선원 `sailor_speed_up`
-  (대포·밧줄), 블러드 앰버 `collect_enemy_dseed`(채집하는 적). PlayAudio 없이 뱅크 이름만 이펙트 키와 같은 것(눈의 아이 `enemy_xdsnow_die_01`·불안해하는
-  디자이너 `enemy_crshd_tip_01[audio]`)은 [추정·미조사: 이펙트 프리팹 쪽 소리 부품은 안 읽음] 내는 곳을 못 찾음.
+- 묶음 다 (2026-11-03, 버프 템플릿 + EN 클라 적 프리팹; 새 sfx 6키):
+  - '제국의 갑옷' 등장 사격: `Skills/Appear/effect`가 대상에게 붙이는 `enemy_vtsk_skillRange`(템플릿 `…_start`, 표시 이펙트 `…marker_01`, 5.8초)의
+    ON_BUFF_START가 0.8초짜리 `enemy_vtsk_skillRange`를 만들고, 그것이 끝날 때 범위 칸 이펙트와 PlayAudio `enemy_vtsk_skillRange` → fx `telegraph`
+    `barrage`(그 자리 표시)에서 0.8초 뒤(`vtsk:range`).
+  - 가상적: 골극: 모드 0 `Horror`(은신)·1 `Cute`(드러남)에 모드마다 패시브(`GeneralAbilities/Ability0`) `enemy_acbunn[horror]`/`[cute]` — audioSignal
+    이 그 이름, 블랙보드 `interval` 0.3초마다 ON_BUFF_TRIGGER가 INVISIBLE 플래그를 보고 다른 모드로 `SwitchMode`(+ `enemy_acbunn_switch`). 모드가
+    붙을 때 그 패시브가 시작해 ON_BUFF_START 소리(모드 능력은 그 모드 동안만 붙음 — 등장 때 첫 모드도, fx.md 「기본 모드 attach」). sim은 은신 여부를
+    0.3초마다 보고 바뀌면(등장 때 Horror도) 소리 전용 kitHit `acbunn:horror`/`acbunn:cute`(`content/enemies/invisible.js kitBoneSpike`; 공격 대상
+    수 같은 sim 규칙은 그대로 은신 여부를 바로 봄).
+  - 원핵의 악생자: 첫 피해에(`dslntf_tr_1` ON_TAKE_DAMAGE → 모드 1, PlayAudio `Awake`) kitHit `dslntf:awake`(`kitNucleus`). 원핵 껍데기
+    (`trap_156_dsshell`)에 저지될 때의 같은 길은 이 모드에 그 장치가 없어 없음.
+  - 불타는 덩굴: 첫 공격의 폭발(`enemy_ftsjc[aoe]` — 근원에 `[first_attack]`이 있을 때 AOE 뒤 PlayAudio `enemy_ftsjc.aoe`) → fx `explode` `flameVine`.
+  - '산크타의 눈': 탄을 빼앗을 때(`hlegle_a[steal]` — 대상 탄약 스킬 남은 수가 0이 아니면 빼앗고 PlayAudio `hlegle_steal_bullet_audio`) → fx `steal`
+    (`from` = 그 적). 공식은 탄약 스킬의 탄만 본다(sim은 특성 탄도 빼앗음 — sim 규칙, 소리는 sim 사건을 따름).
+  - 확인: `test/audio-enemy-buff-sounds.test.js` 「골극 · 원핵의 악생자 …」(뱅크, 순수 함수, battleHarness 골극 모드 전환 0.3초·악생자 한 번,
+    AudioManager). golden: roster 다섯·diy 하나 fx 수만(kitHit). [화면 미확인]
+- 안 한 것: 변종 맹글러비스트 α `rkmbst_stone_disappear_audio`(방패를 깨는 것은 `enemy_mcreep_self_mark`를 가진 쪽의 피해뿐 — sim에 없음),
+  '갑주를 베는 검'·'갑주를 부수는 해머' `Back_End`(위). 이 모드에 그 순간이 없는 것: '월장진' `ymtro_t[audio]`(계단 칸), 자로 M2
+  `enemy_wlfmster_m2_calling`(WildCalling), 모험을 찾는 선원 `sailor_speed_up`(대포·밧줄), 블러드 앰버 `collect_enemy_dseed`(채집하는 적). PlayAudio
+  없이 뱅크 이름만 이펙트 키와 같은 것(눈의 아이 `enemy_xdsnow_die_01`·불안해하는 디자이너 `enemy_crshd_tip_01[audio]`)은 공식도 안 낸다 — 그
+  이펙트 프리팹(`btl_pfb_fx_enemy_16`·`_2`)에 소리 부품이 없고 그 신호를 내는 템플릿·적 프리팹도 없음(2026-11-03 EN 클라에서 확인).
 
 ## 지속 피해 틱 (2026-10-11, 사용자 제보 「아스카론 S2 지속 피해 소리가 공격 소리와 같음」)
 - 원인: 아스카론 재능 「死亡拘审」의 틱(`op-ascln.js` `battle.dealDamage(unit, t, { tags: ['dot', …] })`)은 'dmg'에 공격자(그녀 id)가 실리고 'atk'가 없어,
