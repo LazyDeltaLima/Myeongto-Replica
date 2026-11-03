@@ -131,9 +131,11 @@ export default {
             while (unit.mem.judgeS2Next <= 1e-9 && up(unit)) { // loop-cap: constant S2_EVERY added each pass
               unit.mem.judgeS2Next += S2_EVERY;
               const foes = enemiesInGrid(battle, unit, s2?.rangeGrid?.length ? s2.rangeGrid : X4, { canHitFly: false });
-              battle.fx('aoe', { x: unit.x, y: unit.y, radius: 1.5, id: unit.id, skill: 'judge:atonement' });
+              const hit = foes.filter((e) => e.alive);
+              // `n`: the enemies hit — judge_s_2[aoe]'s AOEDamage gives each its `_buffs` judge_s_2[audio] (audio.js aoeHitKey)
+              battle.fx('aoe', { x: unit.x, y: unit.y, radius: 1.5, id: unit.id, skill: 'judge:atonement', n: hit.length });
               const amount = unit.s.atk * num(b2.atk_scale) * unit.s.atkScaleMul;
-              for (const e of foes) if (e.alive) battle.dealDamage(unit, e, { amount, type: 'arts', isSkill: true, tags: ['skill', 'judge:atonement'] });
+              for (const e of hit) if (e.alive) battle.dealDamage(unit, e, { amount, type: 'arts', isSkill: true, tags: ['skill', 'judge:atonement'] });
             }
           },
           onEnd({ battle, unit }) { if (unit.findBuff(PROTECT)?.source === unit) battle.removeBuff(unit, PROTECT); },

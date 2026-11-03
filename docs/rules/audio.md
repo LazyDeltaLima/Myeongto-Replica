@@ -640,6 +640,20 @@
     착탄은 새 kitHit `mantra:s3`.
   - 확인: `test/audio-diy-pick-sounds.test.js`(뱅크·키·AudioManager 재생, battleHarness 글룸핀서호 스킬·착탄, 하루카 띄우기 틱·적 없는 S2, 만트라 S1
     두 갈래, 실제 매치 경로 만트라 침입 포인트). [화면 미확인]
+- 선발 페넌스·로고스 (2026-11-03, 같은 날 들어온 키트의 커버리지 `todo` 5개; 새 sfx 5키·파일 5개):
+  - 페넌스(`char_4065_judge`) S2 「결의에 찬 고행」 맥동: `judge_s_2[aoe]` ON_BUFF_TRIGGER의 AOEDamage가 맞은 적마다 `_buffs` `judge_s_2[audio]`를 건다 →
+    그 ON_BUFF_START가 적마다(뱅크 상한 2) — 키트 fx `aoe` `judge:atonement`에 새 `n`(맞은 적 수, 지상만 WALK_ONLY), `aoeHitKey`.
+  - 로고스(`char_4133_logos`) S1 「몰망」 처형: `logos_s_1` ON_BUFF_TRIGGER가 처형 피해 뒤 AlwaysNext로 PlayAudio `logos_s1_kill`(그 적) → fx
+    `logosExecute`. 쓰러진 적에서 나가는 후속 탄 `projectile_chr_logos_s1_2` BORN → 새 kitHit `logos:s1shot`(그 적 자리, `id`·`src` 로고스, `target`;
+    HIT은 전부터 남). 재능1 「어휘의 진화」 탄 `projectile_chr_logos_t`: 쏠 때 BORN 새 kitHit `logos:t1shot`, 닿을 때 HIT → fx `logosLexicon`.
+  - 확인: `test/audio-diy-pick-sounds.test.js`(뱅크·키·AudioManager, battleHarness 페넌스 맥동 `n`·로고스 처형 후속 탄). [화면 미확인]
+- 비비아나(`char_4098_vvana`) 남은 셋 — `todo`, 공식 클라 자료로 본 것: S1 「찰나의 그림자 칼날」 보통 시전은 스킬 능력 `skchr_vvana_1.1`(START
+  `p_atk_shdswrd_dcast`, 스파인 `Audio_Attack_S1`, HIT `p_imp_shdswrd_d`), 蓄力 시전(충전 둘)은 `skchr_vvana_1.2`(START `p_atk_lghtnswrd_n`, ON
+  `p_atk_lghtnswrd_d`, HIT `p_imp_lghtnswrd_d`)인데, 우리는 蓄力 시전도 보통 시전의 소리를 낸다(`modes['0']`이 둘을 가르지 않음). S3은 첫 시전이
+  모드 3 `S3_1`(`attack.3` ON·HIT), 두 번째부터 모드 4 `S3_2`(`attack.4` START `p_atk_shdswrd_s`·HIT `p_imp_shdswrd_s`)인데, 소리 계획은 스킬마다 모드
+  하나뿐이고 「도중에 바뀌는 모드」(`SKILL_SUB_MODES`)는 이름이 `<스킬 모드>_`로 시작하는 것만 받는다(`S3_2`는 `S3_1_…`이 아님). 할 일: 키트가
+  蓄力 시전·두 번째 이후 S3를 시전 순간에 알리고(키트 `vvanaCast`·`vvanaS3Later`), 소리 계획이 그 시전의 모드를 고르게.
+
 - 안 한 것: 쏜즈 더 로드스타 `thorn2_t_2_start`(`thorn2_t_2[audio]`를 만드는 템플릿·프리팹을 못 찾음), 실버애쉬 더 레인프로스트 `svash2_s_2[show]`(EN 클라에
   그 신호를 내는 PlayAudio 없음)·`svash2_eagle_token[locate]`(독수리 토큰이 키트에 없음), 유동체 재능 T.1 `p_skill_wtrlimereborn`(가짜 죽음·부활이
   키트에 없음), 카넬리안·노시스·루멘 `[eff_cond]` 외의 단계 버프, 뮤엘시스·비질 가짜 죽음

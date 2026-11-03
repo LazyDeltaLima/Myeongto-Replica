@@ -1,7 +1,8 @@
 // test/audio-diy-pick-sounds.test.js — the custom-trigger and buff sounds of the 선발 picks 白铁 / 遥 / 真言 (2026-11-03,
 // docs/rules/audio.md 「버프·커스텀 트리거 소리」; EN client buff templates and prefabs): 铁钳号·原型机's skill START and its
 // projectile REACH, 遥's bubble given / breaking, S3's levitation and its ticks, S2's extra damage at each healed unit
-// (enemies or none), 真言's 侵入点 mark, each S1 / S2 hit by its 神经 burst branch and each S3 溢出麻痹 bounce hit. The committed
+// (enemies or none), 真言's 侵入点 mark, each S1 / S2 hit by its 神经 burst branch and each S3 溢出麻痹 bounce hit; 斥罪 S2's
+// pulse on each enemy, 逻各斯 S1's execution and follow-up shot, T1's shot leaving and landing. The committed
 // data/assets.json may predate these keys: the manifest here is it plus the keys built from the official audio_data.json
 // (tools/assets/kit-sfx.mjs kitHitSfx).
 
@@ -21,6 +22,7 @@ const OFFICIAL = path.join(ROOT, '.cache', 'gamedata', 'excel', 'audio_data.json
 const NO_DATA = !existsSync(OFFICIAL) && 'no .cache/gamedata';
 const file = (u) => String(u).split('/').pop();
 const IRON = 'char_4072_ironmn', CRAB = 'token_10027_ironmn_pile3', HARUKA = 'char_4202_haruka', MANTRA = 'char_4204_mantra';
+const JUDGE = 'char_4065_judge', LOGOS = 'char_4133_logos';
 const SLOT5 = 'chess_char_5_diy1_a';
 const dummy = (key, o = {}) => enemyRec({ key, hp: 1e9, speed: 0, mass: 0, def: 0, res: 0, ...o });
 
@@ -167,6 +169,54 @@ describe('선발 白铁 / 遥 / 真言 custom-trigger sounds (2026-11-03)', () =
     const n0 = kitHits(h, 'mantra:s1el').length;
     u.skill.gainSp(999);
     assert.ok(h.runUntil(() => kitHits(h, 'mantra:s1el').length > n0, 10), 'in its burst: the element branch');
+  });
+
+  test('斥罪 S2\'s pulse on each enemy hit, 逻各斯\'s execution and shots: banks, keys, the audio manager', { skip: NO_DATA }, () => {
+    const out = kitHitSfx(indexAudio(JSON.parse(readFileSync(OFFICIAL, 'utf8'))), (p) => p);
+    const want = { 'judge:s2hit': 'p_imp_gavel_h', 'logos:s1kill': 'p_imp_mgcqilpnfrc', 'logos:s1shot': 'p_atk_mgcqilpnfrcr', 'logos:t1shot': 'p_atk_exrmgcsht', 'logos:t1hit': 'p_imp_exrmgcsht' };
+    for (const [k, f] of Object.entries(want)) assert.equal(file(out[k]?.[0]).replace(/\.\w+$/, ''), f, k);
+    const a = manager();
+    a.setFieldUnits([{ id: 1, kind: 'op', side: 'ally', spine: JUDGE }, { id: 2, kind: 'op', side: 'ally', spine: LOGOS }, { id: 20, kind: 'enemy', side: 'enemy', spine: 'enemy_1007_slime' }]);
+    const heard = (ev) => { a.played.length = 0; a.handleBattleEvents(ev); return [...a.played]; };
+    assert.equal(heard([['fx', 'aoe', 0, 0, { id: 1, skill: 'judge:atonement', n: 3 }]]).filter((f) => f === 'p_imp_gavel_h.mp3').length, 2, 'each enemy, at most the bank\'s 2');
+    assert.deepEqual(heard([['fx', 'aoe', 0, 0, { id: 1, skill: 'judge:atonement', n: 0 }]]), [], 'none hit: silent');
+    assert.ok(heard([['fx', 'logosExecute', 0, 0, { id: 2, target: 20 }]]).includes('p_imp_mgcqilpnfrc.mp3'));
+    assert.ok(heard([['fx', 'kitHit', 0, 0, { id: 2, src: 2, target: 20, k: 'logos:s1shot' }]]).includes('p_atk_mgcqilpnfrcr.mp3'));
+    assert.ok(heard([['fx', 'kitHit', 0, 0, { id: 2, src: 2, target: 20, k: 'logos:t1shot' }]]).includes('p_atk_exrmgcsht.mp3'));
+    assert.ok(heard([['fx', 'logosLexicon', 0, 0, { id: 2, target: 20 }]]).includes('p_imp_exrmgcsht.mp3'));
+  });
+
+  test('a battle: 斥罪 S2\'s pulse counts the enemies it hits; 逻各斯\'s follow-up shot leaves the executed enemy', () => {
+    const enemies = { e_d: dummy('e_d') };
+    {
+      const h = makeBattle({ defs: { enemies }, timeLimit: 900, autoFinish: false, seed: 5, flags: { dpPerSec: 0 }, captureNoisy: true,
+        units: [{ uid: 1, diy: { slot: SLOT5, charId: JUDGE, skillIndex: 1, uniEquipId: null }, row: 10, col: 5 }] });
+      h.step();
+      const u = h.unit(1);
+      h.spawn('e_d', { pos: [10, 6] }); h.spawn('e_d', { pos: [9, 5] });
+      u.skill.gainSp(999, 'init');
+      assert.ok(h.runUntil(() => u.skill.active, 3), 'S2 on');
+      h.run(2.5);
+      const p = h.eventsOf('fx').filter((x) => x[1] === 'aoe' && x[4]?.skill === 'judge:atonement');
+      assert.ok(p.length >= 1 && p.every((x) => x[4].n === 2), `each pulse: both enemies (${p.map((x) => x[4].n)})`);
+    }
+    {
+      const h = makeBattle({ defs: { enemies }, timeLimit: 900, autoFinish: false, seed: 5, flags: { dpPerSec: 0 }, captureNoisy: true,
+        units: [{ uid: 1, diy: { slot: SLOT5, charId: LOGOS, skillIndex: 0, uniEquipId: null }, row: 10, col: 5 }] });
+      h.step();
+      const u = h.unit(1);
+      u.skill.gainSp(999);
+      assert.ok(u.skill.activate('test'));
+      const low = h.spawn('e_d', { pos: [10, 7] });
+      low.hp = 1;
+      const other = h.spawn('e_d', { pos: [9, 6] });
+      h.step();
+      assert.ok(!low.alive, 'executed');
+      assert.equal(h.eventsOf('fx').filter((x) => x[1] === 'logosExecute' && x[4]?.target === low.id).length, 1);
+      const shot = kitHits(h, 'logos:s1shot');
+      assert.equal(shot.length, 1, 'its follow-up shot');
+      assert.deepEqual([shot[0][4].id, shot[0][4].src, shot[0][4].target], [u.id, u.id, other.id]);
+    }
   });
 
   test('real match path (Match → buildBattleSpec → createBattleFromSpec): 真言\'s 侵入点 mark sounds as she deploys', { skip: NO_DATA }, async () => {

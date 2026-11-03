@@ -24,17 +24,9 @@ export const UNSOUNDED = {
     'ON_SKILL_START.skchr_oblvns_2.1': 'none: an untoggled cast from mode 1 (S2_AttackSpeed) — her only cast here is from mode 2, the skill\'s _defaultModeIndex',
     'ON_SKILL_FINISH.skchr_oblvns_2.1': 'none: a toggled cast — the automatic battle never casts a toggled skill (AutoChessBattleTrigger._CheckToggleSkill)',
   },
-  char_4065_judge: {
-    // 斥罪, 逻各斯, 薇薇安娜 joined 2026-11-03; these sounds are not wired yet
-    'ON_BUFF_START.judge_s_2[audio]': 'todo: S2 坚心苦修 as it starts (its pulses: kit judge:atonement)',
-  },
-  char_4133_logos: {
-    'ON_CUSTOM_TRIGGER.logos_s1_kill': 'todo: S1 殁亡 execution (logos_s_1 PlayAudio; kit fx logosExecute)',
-    'ON_PROJECTILE_BORN.projectile_chr_logos_s1_2': 'todo: S1 the follow-up shot leaving the fallen enemy (kit logosPerish projectile)',
-    'ON_PROJECTILE_BORN.projectile_chr_logos_t': 'todo: T1 语汇演化 shot leaving (kit lexicon projectile)',
-    'ON_PROJECTILE_HIT.projectile_chr_logos_t': 'todo: T1 语汇演化 shot landing (kit logosLexicon)',
-  },
   char_4098_vvana: {
+    // 斥罪, 逻各斯, 薇薇安娜 joined 2026-11-03; 斥罪's and 逻各斯's were wired the same day. These need the sim to mark the cast
+    // (S1 蓄力 / S3 from the second cast) and the audio plan a mode its skill casts in instead of its own (docs/rules/audio.md)
     'ON_ABILITY_ON.skchr_vvana_1.2': 'todo: S1 cast in 蓄力 mode (mode 2, both charges)',
     'ON_ABILITY_START.char_4098_vvana.attack.4': 'todo: S3 attack from the second cast (mode 4: S3_2)',
     'ON_ABILITY_HIT.char_4098_vvana.attack.4': 'todo: S3 hit from the second cast (mode 4: S3_2)',

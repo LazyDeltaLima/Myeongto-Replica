@@ -133,6 +133,8 @@ export default {
         const t = battle.rng.pick(battle.enemiesInKeys(unit.rangeKeys, unit, ANY));
         if (!t) continue;
         const atk = unit.s.atk;   // the ATK at the launch (_cacheAtkToActions)
+        // its projectile_chr_logos_t leaving (BORN; audio.js — its HIT: fx 'logosLexicon')
+        battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, src: unit.id, target: t.id, k: 'logos:t1shot' });
         battle.addProjectile({
           from: unit, target: t, speed: T1_SHOT, visual: 'bolt', source: unit,
           onHit: ({ target }) => {
@@ -158,6 +160,8 @@ export default {
       lexicon(battle, unit);
       const t = battle.rng.pick(battle.enemiesInKeys(unit.rangeKeys, unit, ANY));
       if (!t || !(left > 0)) return;
+      // projectile_chr_logos_s1_2 leaving the fallen enemy (BORN; audio.js)
+      battle.fx('kitHit', { x: e.x, y: e.y, id: unit.id, src: unit.id, target: t.id, k: 'logos:s1shot' });
       battle.addProjectile({
         from: { x: e.x, y: e.y }, target: t, speed: S1_SHOT, visual: 'bolt', source: unit,
         onHit: ({ target }) => { if (target && target.alive) battle.dealDamage(unit, target, { amount: left, type: 'arts', isSkill: true, tags: ['skill', 'logosPerish'] }); },

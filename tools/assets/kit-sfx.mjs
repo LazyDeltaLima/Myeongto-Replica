@@ -272,6 +272,14 @@ export const KIT_HIT_BANKS = Object.freeze({
   'haruka:lev': 'battle.ON_BUFF_START.haruka_shield_start_enemy',
   'haruka:float': 'battle.ON_BUFF_TRIGGER.haruka_shield_start_enemy',
   'haruka:s2': 'battle.ON_CUSTOM_TRIGGER.haruka_s2_damage',
+  // 斥罪 S2's pulse on each enemy it hits (judge_s_2[aoe] AOEDamage `_buffs` judge_s_2[audio]); 逻各斯 S1's execution
+  // (logos_s_1 PlayAudio after the kill damage, fx 'logosExecute'), its follow-up shot leaving the fallen enemy and T1 语汇演化's
+  // shot leaving / landing (kit kitHit, fx 'logosLexicon')
+  'judge:s2hit': 'battle.ON_BUFF_START.judge_s_2[audio]',
+  'logos:s1kill': 'battle.ON_CUSTOM_TRIGGER.logos_s1_kill',
+  'logos:s1shot': 'battle.ON_PROJECTILE_BORN.projectile_chr_logos_s1_2',
+  'logos:t1shot': 'battle.ON_PROJECTILE_BORN.projectile_chr_logos_t',
+  'logos:t1hit': 'battle.ON_PROJECTILE_HIT.projectile_chr_logos_t',
   // 2026-11-03, docs/rules/audio.md 「적 버프·커스텀 트리거 소리」 (EN client enemy prefabs and buff templates; public/js/audio.js
   // enemyBuffSounds): a prisoner freed (its Liberty mode's enemy_liberty[state]) and freed by another (LibertyOthersAbility's
   // enemy_liberty_force); 阿利斯泰尔's piece picked up (enemy_vtmstr_equip_*[char] PlayAudio) and its vest taken

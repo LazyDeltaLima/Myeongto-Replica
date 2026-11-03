@@ -442,6 +442,9 @@ export function signalFxKey(fx, ex, unitOf) {
   // levitated by S3 (haruka_s_3_debuff's ON_BUFF_START, audioSignal haruka_shield_start_enemy; its ticks: kitHit)
   if (fx === 'shield' && ex.kind === 'bubble') return 'haruka:t1';
   if (fx === 'levitate' && ex.src != null && unitOf(ex.src)?.def === 'char_4202_haruka') return 'haruka:lev';
+  // 2026-11-03: 逻各斯 S1's execution (logos_s_1 PlayAudio logos_s1_kill at the enemy) and T1's shot landing (its HIT)
+  if (fx === 'logosExecute' && u?.def === 'char_4133_logos') return 'logos:s1kill';
+  if (fx === 'logosLexicon' && u?.def === 'char_4133_logos') return 'logos:t1hit';
   if (fx === 'charges' && u?.def === 'char_426_billro' && Number.isInteger(u.skillIndex)) return billroChargeKey(u, Number(ex.n) || 0);
   if (fx === 'charges' && (u?.def === 'char_206_gnosis' || u?.def === 'char_4042_lumen')) return chargeStageKey(u, Number(ex.n) || 0);
   // 2026-10-22: 刺玫 S2's counter on the attacker of her protégé (vendla_s_2[extra_damage]'s audioSignal, on the attacker)
@@ -526,13 +529,14 @@ export function motesBack(u, ex) {
 /**
  * 2026-11-03: the per-enemy sound of a kit blast (fx 'aoe' with `n` = the enemies it hit) — 菲莱 S2's philae_s_2[ep] on each
  * enemy (audioSignal philae_aoe_hit), a redeployed operator's 凛御银灰 S2 slash: its AOEDamage `_buffs` svash2_s_2[signal]
- * (audioSignal svash2_s_2[hit]) on each enemy — or null.
+ * (audioSignal svash2_s_2[hit]) on each enemy, 斥罪 S2's pulse: judge_s_2[audio] on each enemy — or null.
  */
 export function aoeHitKey(ex, unitOf) {
   if (!ex || !(Number(ex.n) > 0)) return null;
   const d = unitOf(ex.id)?.def;
   if (ex.skill === 'philae_2' && d === 'char_4148_philae') return 'philae:aoehit';
   if (ex.skill === 'svash2' && d && d !== 'char_1045_svash2') return 'svash2:s2redhit';
+  if (ex.skill === 'judge:atonement' && d === 'char_4065_judge') return 'judge:s2hit'; // 2026-11-03: judge_s_2[aoe]'s `_buffs`
   return null;
 }
 /**
