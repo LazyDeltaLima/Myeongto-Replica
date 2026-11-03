@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 
 import { AudioManager, kitHitKey, signalFxKey } from '../public/js/audio.js';
 import { KIT_HIT_BANKS, kitHitSfx } from '../tools/assets/kit-sfx.mjs';
-import { skillModes, loadCharModes, loadCharAudio } from '../tools/assets/skill-mode-sfx.mjs';
+import { skillModes, loadCharModes, loadCharAudio, tokenSkillModes, soundSet } from '../tools/assets/skill-mode-sfx.mjs';
 import { indexAudio } from '../tools/assets/audio.mjs';
 import { makeBattle, enemyRec } from './helpers/battleHarness.js';
 
@@ -330,7 +330,9 @@ const hear = ({ units, rows = null, prep, secs, until = null }) => {
   const a = manager();
   const field = () => a.setFieldUnits([...h.b.allyUnits, ...h.b.enemies].filter((x) => x.alive || x === h.unit(1)).map((x) => (x.side === 'enemy'
     ? { id: x.id, kind: 'enemy', side: 'enemy', spine: 'enemy_1007_slime' }
-    : { id: x.id, kind: x.kind === 'token' ? 'token' : 'op', side: 'ally', spine: x.def?.charId ?? x.defId, ...(x === h.unit(1) ? { skillIndex: skill } : null) })));
+    : { id: x.id, kind: x.kind === 'token' ? 'token' : 'op', side: 'ally', spine: x.def?.charId ?? x.defId, ...(x === h.unit(1) ? { skillIndex: skill } : null),
+      // a summon's own skill index (the spawn info's, server/sim/snapshot.js)
+      ...(x.kind === 'token' && Number.isInteger(x.def?.skill?.index) ? { skillIndex: x.def.skill.index } : null) })));
   prep(h, h.unit(1));
   field();
   h.events.length = 0;
@@ -549,5 +551,70 @@ describe('선발 黍 / 老鲤 / 黑键: buff, custom-trigger and charge sounds (
     const flash = s2.fx('kitHit').filter((o) => o.k === 'ebnhlz:flash');
     assert.ok(flash.length >= 1, 'a 闪回');
     assert.equal(count(s2.played, 'p_skill_darkholespelltoken'), flash.length);
+  });
+});
+
+describe('선발 涤火杰西卡 / 鸿雪: S3 shell, the turn to a 机动盾牌, the 打字机\'s attacks by its skill (2026-11-04)', () => {
+  const JESCA = 'char_1034_jesca2', SHIELD = 'token_10032_jesca2_jckshd', SNOW = 'char_4055_bgsnow', TW = 'token_10026_bgsnow_subbow';
+
+  test('the banks and the 打字机\'s sets by skill (its S2 copy\'s own projectile, its S3 copy\'s prefab mode)', { skip: NO_DATA }, () => {
+    const audio = indexAudio(JSON.parse(readFileSync(OFFICIAL, 'utf8')));
+    const out = kitHitSfx(audio, (p) => p);
+    assert.equal(bare(out['jesca2:s3bomb']?.[0]), 'p_imp_navalgun_n');
+    assert.equal(bare(out['jesca2:turn']?.[0]), 'p_atk_jsshldturn');
+    const entry = loadCharAudio(ROOT)[TW];
+    assert.ok(entry, 'its local-char-audio.json entry');
+    const leaf = (p) => `/assets/audio/${p[0]}`;
+    const cues = (set) => set.cues.map((c) => `${c.at}:${bare(c.u)}`);
+    assert.deepEqual(cues(soundSet(audio, TW, entry, 0, leaf)), ['s:p_atk_pencrossbow_d', 'd:p_imp_pencrossbow_d'], 'Default');
+    const m = tokenSkillModes(audio, TW, entry, leaf);
+    assert.deepEqual(Object.keys(m), ['1', '2']);
+    assert.deepEqual(cues(m[1]), ['d:p_imp_pencrossbow_h'], 'S2 copy: no START bank (sktok_bgsnow_2), its projectile HIT');
+    assert.deepEqual(cues(m[2]), ['s:p_atk_pencrossbow_d', 'd:p_imp_pencrossbow_s'], 'S3 copy: mode S3');
+    assert.equal(tokenSkillModes(audio, 'token_10022_kazema_shadow', loadCharAudio(ROOT).token_10022_kazema_shadow, leaf), null);
+  });
+
+  test('the fx events they follow (pure)', () => {
+    const units = { 1: { def: JESCA }, 2: { def: 'char_4193_lemuen' }, 3: { def: 'char_102_texas' } };
+    const of = (id) => units[id];
+    assert.equal(kitHitKey('bombard', { id: 1 }, of), 'jesca2:s3bomb');
+    assert.equal(kitHitKey('bombard', { id: 2 }, of), 'lemuen:shell');
+    assert.equal(signalFxKey('buff', { id: 1, kind: 'turn' }, of), 'jesca2:turn');
+    assert.equal(signalFxKey('buff', { id: 3, kind: 'turn' }, of), null);
+  });
+
+  test('a battle: 涤火杰西卡 turns to the shield deployed beside her; S3 cast with it there fires a shell that explodes', { skip: NO_DATA }, () => {
+    const units = [{ uid: 1, diy: { slot: SLOT5, charId: JESCA, skillIndex: 2, uniEquipId: null }, row: 10, col: 4 },
+      { uid: 2, kind: 'token', tokenId: SHIELD, ownerUid: 1, row: 10, col: 5 }];
+    // the opening deployment: read its own events (hear listens after it)
+    const h = makeBattle({ defs: { enemies: { e_d: dummy('e_d') } }, timeLimit: 900, autoFinish: false, seed: 5, flags: { dpPerSec: 0, dpMax: 999 }, captureNoisy: true, units });
+    h.step();
+    const a = manager();
+    a.setFieldUnits([{ id: h.unit(1).id, kind: 'op', side: 'ally', spine: JESCA, skillIndex: 2 }]);
+    const ev = h.events.splice(0);
+    const turns = ev.filter((x) => x[0] === 'fx' && x[1] === 'buff' && x[4]?.kind === 'turn' && x[4].id === h.unit(1).id);
+    assert.equal(turns.length, 1, 'she turns to it');
+    a.handleBattleEvents(ev);
+    assert.equal(count(a.played.map((f) => f.replace(/\.\w+$/, '')), 'p_atk_jsshldturn'), 1);
+    const r = hear({ units, secs: 6, prep: (hh, u) => { hh.spawn('e_d', { pos: [10, 7] }); u.skill.gainSp(999); assert.ok(u.skill.activate('test')); } });
+    const shells = r.fx('bombard').filter((o) => o.id === r.u.id);
+    assert.ok(shells.length >= 1, `a shell (${r.u.skill.activations} casts)`);
+    assert.equal(count(r.played, 'p_imp_navalgun_n'), shells.length);
+  });
+
+  test('a battle: the 打字机 sounds its own impact, its S2 copy\'s and its S3 copy\'s mode', { skip: NO_DATA }, () => {
+    const run = (skill) => hear({ secs: 8,
+      units: [{ uid: 1, diy: { slot: SLOT5, charId: SNOW, skillIndex: skill, uniEquipId: null }, row: 10, col: 3 },
+        { uid: 2, kind: 'token', tokenId: TW, ownerUid: 1, row: 9, col: 3 }],
+      prep: (h) => { h.spawn('e_d', { pos: [9, 5] }); } });
+    const tw = (r) => r.h.b.allyUnits.find((a) => a.defId === TW);
+    const s1 = run(0);
+    assert.ok(s1.played.includes('p_imp_pencrossbow_d'), `its Default impact (${s1.played})`);
+    const s2 = run(1);
+    assert.ok(tw(s2).skill.activations >= 1, 'its S2 copy cast');
+    assert.equal(count(s2.played, 'p_imp_pencrossbow_h'), 1, `the S2 copy's shot (${s2.played})`);
+    const s3 = run(2);
+    assert.ok(tw(s3).skill.activations >= 1, 'its S3 copy cast');
+    assert.ok(s3.played.includes('p_imp_pencrossbow_s'), `the S3 mode's impact (${s3.played})`);
   });
 });

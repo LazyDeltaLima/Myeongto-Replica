@@ -458,8 +458,8 @@
     모드 2 `S2_Atk`(스킬 `_defaultModeIndex`)에서 → 시작음은 `.2`(h1)인데 `skill-sfx.mjs`가 먼저 찾은 `.1`(h2)을 내고 있었다 → `START_BANKS`로 `.2`.
     `.1` START·FINISH는 목록에 `none`(켜진 토글 스킬은 자동 전투가 안 씀 — `_CheckToggleSkill`). 키트는 시전마다 음색을 바꾸므로(공식은 한 번 —
     diy.md 「사키코 S2」의 보류) 둘째 시전도 `.2`가 난다.
-- 지금 목록(2026-11-04): `none`만 — 하루카 1·나이팅게일 2·토가와 사키코 2(`todo` 0; 벨로네·비이·지마 더 레이징 타이드·Mon3tr의 20개와 슈·리·
-  에벤홀츠의 11개는 아래 「버프·커스텀 트리거 소리」. 유넥티스는 처음부터 다 남).
+- 지금 목록(2026-11-04): `none`만 — 하루카 1·나이팅게일 2·토가와 사키코 2·파죰카 2·에이야퍄들라 7(`todo` 0; 벨로네·비이·지마 더 레이징 타이드·Mon3tr의 20개와 슈·리·
+  에벤홀츠의 11개, 제시카 더 리버레이티드·파죰카의 5개는 아래 「버프·커스텀 트리거 소리」. 유넥티스는 처음부터 다 남; 파죰카 둘·에이야퍄들라 일곱은 `none`).
 
 ## 스킬·재능 투사체 소리 (2026-10-29, 공식 클라 — 캐릭터·스킬·투사체 프리팹)
 - 공식: 스킬·재능·드론이 쏘는 투사체도 자기 뱅크를 낸다 — BORN(발사)·HIT(맞힌 대상마다)·REACH(도착)·STOP(멈춤)·
@@ -706,6 +706,21 @@
     (예전 안젤리나 더 멜로우 위시 `aglna2:born`과 같은 자리).
   - 확인: `test/audio-diy-pick-sounds.test.js` 「선발 黍 / 老鲤 / 黑键」(뱅크, 순수 키, AudioManager 배치, battleHarness → AudioManager로 슈 씨뿌림 한 번·
     재치유 무음·표식·되돌리기, 리 보호·폭발·S3 밀기, 에벤홀츠 저장(마지막이 정예)·플래시백). golden은 diy-038~041·045~047의 fx 수만. [화면 미확인]
+- 선발 제시카 더 리버레이티드·파죰카·에이야퍄들라 (2026-11-04, 같은 날 들어온 키트의 커버리지 `todo` 8개 — 5개 연결·3개 `none`; 새 sfx 2키 + 소환물 소리 계획, 공식 클라에서 확인):
+  - 제시카 더 리버레이티드(`char_1034_jesca2`) S3: `ExtraBomb`(ProjectileToTileAbility)의 `projectile_chr_jesca2_s3_bomb`이 처음 닿은 적이나 끝점에서 멈출 때
+    STOP `p_imp_navalgun_n` → 키트 폭발 fx `bombard`에 `jesca2:s3bomb`. 기동 방패를 곁에 놓으면 `jesca2_jckshd_dir_set`이 그녀에게
+    `jesca2_jckshd_dir_set[effect]`(audioSignal `jesca2_jckshd_turnaround`)를 건다 → 키트 fx `buff` `turn`(그녀 id)에 `jesca2:turn`.
+  - 파죰카(`char_4055_bgsnow`)의 소환물 타자기(`token_10026_bgsnow_subbow`): `local-char-audio.json`에 항목이 없어 착탄음이 없었다 →
+    `char_audio.py --id`로 넣음(모드 Default·Default[D]·S3·S3[D]). 평타 HIT `p_imp_pencrossbow_d`; 그녀의 스킬을 따라가는 타자기 스킬은 소환물
+    자신의 스킬 번호로 — S2 사본 `sktok_bgsnow_2`(RangedAttackWithExtraActions)의 투사체 `_s2` HIT `p_imp_pencrossbow_h`, S3 사본 `sktok_bgsnow_3`
+    (`_attackBlackboardModeIndex` 2 = 모드 `S3`)의 공격은 `_s3` HIT `p_imp_pencrossbow_s` → `skill-mode-sfx.mjs TOKEN_SKILL_MODES`가 소환물의
+    `sfx.units[…].modes`를 만들고(오퍼레이터의 스킬 모드와 같은 `cueSetOf` 길). 시작 뱅크 `sktok_bgsnow_subbow_2`/`_3`은 목록에 `none`: 스킬 신호는
+    `BasicSkill._GenerateSignalId` = 스킬 id(`prefabKey`를 덮어쓴 때만 그것; character_table에 덮어쓰기 없음, 공식 클라에서 확인)라 `sktok_bgsnow_2`/`_3`
+    을 내고, 그 이름의 뱅크는 없다 — 타자기의 S2 사본은 휘두를 때 소리가 없다.
+  - 에이야퍄들라(`char_180_amgoat`) `projectile_amgoat_s2_b`(REACH `p_skill_radiocall_post`)는 `none`: EN·CN 클라 어디에도 그 투사체 프리팹·참조가
+    없다(S2는 `projectile_amgoat_s2`만 쏘고 그 HIT는 전부터 남). `sanrio#2` 의상 뱅크 여섯은 이 모드가 기본 모델을 그려 `none`.
+  - 확인: `test/audio-diy-pick-sounds.test.js` 「선발 涤火杰西卡 / 鸿雪」(뱅크, 타자기 스킬별 세트, 순수 키, battleHarness → AudioManager로 방향 전환·
+    S3 포탄, 타자기 평타·S2·S3 사본 착탄). sim 사건은 그대로라 golden 무변화. [화면 미확인]
 
 - 안 한 것: 쏜즈 더 로드스타 `thorn2_t_2_start`(`thorn2_t_2[audio]`를 만드는 템플릿·프리팹을 못 찾음), 실버애쉬 더 레인프로스트 `svash2_s_2[show]`(EN 클라에
   그 신호를 내는 PlayAudio 없음)·`svash2_eagle_token[locate]`(독수리 토큰이 키트에 없음), 유동체 재능 T.1 `p_skill_wtrlimereborn`(가짜 죽음·부활이

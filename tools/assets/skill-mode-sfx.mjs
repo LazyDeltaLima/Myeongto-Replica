@@ -874,6 +874,39 @@ export function tokenModeSets(audio, owner, entry, soundLeaf, base = null) {
 }
 
 /**
+ * 2026-11-04, docs/rules/audio.md 「재능·소환물 능력 소리」: summons whose skill changes what their attacks sound, by the
+ * summon's skill index (its owner's pick — data/backups.json `bySkill`): `mode` = the prefab mode the skill attacks in (the
+ * skill prefab's `_attackBlackboardModeIndex`), `proj` = the projectiles of the skill's own attack ability. 鸿雪's 打字机:
+ * sktok_bgsnow_2 (RangedAttackWithExtraActions → projectile_chr_bgsnow_subbow_s2; its START signal is the skill id
+ * sktok_bgsnow_2 — BasicSkill._GenerateSignalId, no prefab key override — which has no bank) and sktok_bgsnow_3 (mode 2, S3).
+ */
+export const TOKEN_SKILL_MODES = Object.freeze({
+  token_10026_bgsnow_subbow: Object.freeze({
+    1: Object.freeze({ proj: Object.freeze(['projectile_chr_bgsnow_subbow_s2']) }),
+    2: Object.freeze({ mode: 'S3' }),
+  }),
+});
+
+/**
+ * sfx.units[token].modes of TOKEN_SKILL_MODES — { [skill index]: { cues, sel? } } (public/js/audioOfficial.js cueSetOf, as
+ * an operator's skill modes) — or null. `entry` is the summon's local-char-audio.json entry.
+ */
+export function tokenSkillModes(audio, owner, entry, soundLeaf) {
+  const t = TOKEN_SKILL_MODES[owner];
+  if (!t) return null;
+  const out = {};
+  for (const [i, s] of Object.entries(t)) {
+    if (s.mode) {
+      const n = (entry?.modes || []).indexOf(s.mode);
+      if (n < 0) continue;
+      const set = soundSet(audio, owner, entry, n, soundLeaf);
+      out[i] = set.sel ? { cues: set.cues, sel: set.sel } : { cues: set.cues };
+    } else if (s.proj) out[i] = { cues: skillHitCues(audio, null, s.proj, soundLeaf) };
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/**
  * An enemy's attack sound sets of its prefab modes after mode 0 (`_modes` order, local-char-audio.json `modes`): { [n]: { cues,
  * sel? } } for the modes whose set differs from mode 0's (`cues: []` = that mode attacks in silence — its signal has no bank,
  * as for an operator's skill mode), null when none differs. The client switches modes in `Unit.SwitchMode` (:

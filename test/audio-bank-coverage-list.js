@@ -9,7 +9,7 @@
 //   'todo: <where>' — the client sounds it and we do not yet (where it fires, as far as known).
 // The first listing (2026-11-01) had 25; all its `todo` entries were wired the same day. The 白铁 / 遥 / 真言 ones
 // (2026-11-03) too, the 贝洛内 / 维伊 / 怒潮凛冬 / Mon3tr ones the same day, and the 黍 / 老鲤 / 黑键 ones (2026-11-04) the day
-// after they joined.
+// after they joined; the 涤火杰西卡 / 鸿雪 ones (2026-11-04) the same day.
 
 export const UNSOUNDED = {
   char_4202_haruka: {
@@ -26,20 +26,14 @@ export const UNSOUNDED = {
     'ON_SKILL_START.skchr_oblvns_2.1': 'none: an untoggled cast from mode 1 (S2_AttackSpeed) — her only cast here is from mode 2, the skill\'s _defaultModeIndex',
     'ON_SKILL_FINISH.skchr_oblvns_2.1': 'none: a toggled cast — the automatic battle never casts a toggled skill (AutoChessBattleTrigger._CheckToggleSkill)',
   },
-  // 제시카 더 리버레이티드 / 파죰카 / 에이야퍄들라 (2026-11-04): listed as they joined, not wired yet
-  char_1034_jesca2: {
-    'ON_PROJECTILE_STOP.projectile_chr_jesca2_s3_bomb': 'todo: S3 shell burst (kit explode, TAG_BOMB)',
-    'ON_BUFF_START.jesca2_jckshd_turnaround': 'todo: she turns to her 机动盾牌 (jesca2_jckshd_dir_set)',
-  },
+  // 鸿雪's 打字机: its skill's START signal is its skill id (BasicSkill._GenerateSignalId: sktok_bgsnow_<n>, no prefab key
+  // override in character_table) — these banks name the token instead and nothing sounds them
   char_4055_bgsnow: {
-    'ON_PROJECTILE_HIT.projectile_chr_bgsnow_subbow': 'todo: the typewriter\'s shot hits',
-    'ON_ABILITY_START.sktok_bgsnow_subbow_2': 'todo: the typewriter\'s S2 copy cast',
-    'ON_PROJECTILE_HIT.projectile_chr_bgsnow_subbow_s2': 'todo: the typewriter\'s S2 copy hits',
-    'ON_ABILITY_START.sktok_bgsnow_subbow_3': 'todo: the typewriter\'s S3 copy cast',
-    'ON_PROJECTILE_HIT.projectile_chr_bgsnow_subbow_s3': 'todo: the typewriter\'s S3 copy hits',
+    'ON_ABILITY_START.sktok_bgsnow_subbow_2': 'none: the typewriter\'s S2 copy signals sktok_bgsnow_2 (its skill id), which has no bank',
+    'ON_ABILITY_START.sktok_bgsnow_subbow_3': 'none: the typewriter\'s S3 copy signals sktok_bgsnow_3 (its skill id), which has no bank',
   },
   char_180_amgoat: {
-    'ON_PROJECTILE_REACH.projectile_amgoat_s2_b': 'todo: S2 explosion (kit explosion)',
+    'ON_PROJECTILE_REACH.projectile_amgoat_s2_b': 'none: no projectile prefab or node of the EN or CN client carries it (S2 fires projectile_amgoat_s2 only, whose HIT sounds)',
     'ON_ABILITY_START.char_180_amgoat_sanrio#2.attack': 'none: her \'sanrio#2\' outfit\'s bank — this mode draws the default model',
     'ON_PROJECTILE_REACH.projectile_amgoat_sanrio#2': 'none: her \'sanrio#2\' outfit\'s bank — this mode draws the default model',
     'ON_ABILITY_START.skchr_amgoat_2_sanrio#2': 'none: her \'sanrio#2\' outfit\'s bank — this mode draws the default model',

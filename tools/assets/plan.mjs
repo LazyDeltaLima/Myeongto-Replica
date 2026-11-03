@@ -28,7 +28,7 @@ import { literal } from './manifest.mjs';
 import { EMOTE_CATALOG } from '../../shared/constants.js';
 import { voiceTwin, VOICE_TWINS } from './voice.mjs'; // local patch
 import { skillStartSounds, skillStartIsFallback } from './skill-sfx.mjs'; // local patch
-import { loadCharModes, loadSkillCast, castCues, skillModeIndex, skillModes, unitGroups, skillLoops, skillExtras, defaultModeBanks, snapshotSfx, dubbedSfx, skillEnds, bankPlayTable, loadCharAudio, soundSet, skillHitCues, spineCues, enemySkillCues, enemyModeSets, tokenModeSets, loadTokenSkills } from './skill-mode-sfx.mjs'; // local patch
+import { loadCharModes, loadSkillCast, castCues, skillModeIndex, skillModes, unitGroups, skillLoops, skillExtras, defaultModeBanks, snapshotSfx, dubbedSfx, skillEnds, bankPlayTable, loadCharAudio, soundSet, skillHitCues, spineCues, enemySkillCues, enemyModeSets, tokenModeSets, tokenSkillModes, loadTokenSkills } from './skill-mode-sfx.mjs'; // local patch
 import { kitHitSfx, kitHitGroups, kitHitLimits } from './kit-sfx.mjs'; // local patch
 
 /**
@@ -523,6 +523,9 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
       // 2026-10-11: its other modes by name (`tm`, 유동체's Melee / Range / Range_S2 / Melee_S3 — public/js/audio.js)
       const tm = tokenModeSets(audio, id, ta, soundLeaf, set);
       if (tm) u.tm = tm;
+      // 2026-11-04: its skill's own attack sounds, by its skill index (鸿雪's 打字机: the copy of her S2 / S3)
+      const tsm = tokenSkillModes(audio, id, ta, soundLeaf);
+      if (tsm) u.modes = tsm;
     }
     const tsk = (tokenSkills && tokenSkills[id]) || null;
     const tss = tsk ? skillStartSounds(audio, tsk) : null;

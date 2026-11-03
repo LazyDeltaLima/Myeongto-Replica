@@ -218,7 +218,8 @@ export function kitHitKey(fx, ex, unitOf) {
     // mark (S2's aim lock sends the same fx: only while her S3 is equipped)
     case 'bombardShell': return def(ex.id) === 'char_1035_wisdel' ? 'wisdel:s2' : def(ex.id) === 'char_4193_lemuen' && ex.i === 0 ? 'lemuen:s3end'
       : emppnt(unitOf(ex.id)) ? 'emppnt:aim' : null;
-    case 'bombard': return def(ex.id) === 'char_4193_lemuen' ? 'lemuen:shell' : null;
+    // 2026-11-04: 涤火杰西卡 S3's shell exploding (its projectile's STOP)
+    case 'bombard': return def(ex.id) === 'char_4193_lemuen' ? 'lemuen:shell' : def(ex.id) === 'char_1034_jesca2' ? 'jesca2:s3bomb' : null;
     // 2026-11-01: 蕾缪安 S2's aimed shot (its Aim ability's projectile_chr_lemuen_s2 HIT; the ON: signalFxKey)
     case 'crit': { const u = unitOf(ex.src); return u?.def === 'char_4193_lemuen' && u.skillIndex === 1 ? 'lemuen:s2hit' : null; }
     case 'lock': { const u = unitOf(ex.src); return u?.def === 'char_4193_lemuen' && u.skillIndex === 2 ? 'lemuen:mark'
@@ -477,6 +478,8 @@ export function signalFxKey(fx, ex, unitOf) {
   // taken (lmlee_tr → lmlee_t_2[bounce], audioSignal lmlee_telent_2_start)
   if (fx === 'explode' && ex.skill === 'lmlee_2' && u?.def === 'char_322_lmlee') return 'lmlee:s2burst';
   if (fx === 'shield' && ex.kind === 'lmlee' && u?.def === 'char_322_lmlee') return 'lmlee:t2';
+  // 2026-11-04: 涤火杰西卡 turning to a 机动盾牌 placed beside her (jesca2_jckshd_dir_set → [effect] on her, its audioSignal)
+  if (fx === 'buff' && ex.kind === 'turn' && u?.def === 'char_1034_jesca2') return 'jesca2:turn';
   if (fx === 'charges' && u?.def === 'char_426_billro' && Number.isInteger(u.skillIndex)) return billroChargeKey(u, Number(ex.n) || 0);
   if (fx === 'charges' && (u?.def === 'char_206_gnosis' || u?.def === 'char_4042_lumen')) return chargeStageKey(u, Number(ex.n) || 0);
   // 2026-10-22: 刺玫 S2's counter on the attacker of her protégé (vendla_s_2[extra_damage]'s audioSignal, on the attacker)
