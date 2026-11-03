@@ -139,4 +139,11 @@ export const UNPLAYED = {
     Skill_2_Loop: 'todo: S2 震慑劈砍 attack (mode S2)',
     Skill_2_End: 'todo: S2 震慑劈砍 end',
   },
+  // 涤火杰西卡 / 鸿雪 (2026-11-04)
+  char_1034_jesca2: {
+    Skill_3_Skill: 'todo: S3 饱和迸射 the shell launch',
+  },
+  char_4055_bgsnow: {
+    Skill_1_End: 'todo: S1 抑扬格 end',
+  },
 };

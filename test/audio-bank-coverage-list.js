@@ -26,4 +26,25 @@ export const UNSOUNDED = {
     'ON_SKILL_START.skchr_oblvns_2.1': 'none: an untoggled cast from mode 1 (S2_AttackSpeed) — her only cast here is from mode 2, the skill\'s _defaultModeIndex',
     'ON_SKILL_FINISH.skchr_oblvns_2.1': 'none: a toggled cast — the automatic battle never casts a toggled skill (AutoChessBattleTrigger._CheckToggleSkill)',
   },
+  // 제시카 더 리버레이티드 / 파죰카 / 에이야퍄들라 (2026-11-04): listed as they joined, not wired yet
+  char_1034_jesca2: {
+    'ON_PROJECTILE_STOP.projectile_chr_jesca2_s3_bomb': 'todo: S3 shell burst (kit explode, TAG_BOMB)',
+    'ON_BUFF_START.jesca2_jckshd_turnaround': 'todo: she turns to her 机动盾牌 (jesca2_jckshd_dir_set)',
+  },
+  char_4055_bgsnow: {
+    'ON_PROJECTILE_HIT.projectile_chr_bgsnow_subbow': 'todo: the typewriter\'s shot hits',
+    'ON_ABILITY_START.sktok_bgsnow_subbow_2': 'todo: the typewriter\'s S2 copy cast',
+    'ON_PROJECTILE_HIT.projectile_chr_bgsnow_subbow_s2': 'todo: the typewriter\'s S2 copy hits',
+    'ON_ABILITY_START.sktok_bgsnow_subbow_3': 'todo: the typewriter\'s S3 copy cast',
+    'ON_PROJECTILE_HIT.projectile_chr_bgsnow_subbow_s3': 'todo: the typewriter\'s S3 copy hits',
+  },
+  char_180_amgoat: {
+    'ON_PROJECTILE_REACH.projectile_amgoat_s2_b': 'todo: S2 explosion (kit explosion)',
+    'ON_ABILITY_START.char_180_amgoat_sanrio#2.attack': 'none: her \'sanrio#2\' outfit\'s bank — this mode draws the default model',
+    'ON_PROJECTILE_REACH.projectile_amgoat_sanrio#2': 'none: her \'sanrio#2\' outfit\'s bank — this mode draws the default model',
+    'ON_ABILITY_START.skchr_amgoat_2_sanrio#2': 'none: her \'sanrio#2\' outfit\'s bank — this mode draws the default model',
+    'ON_PROJECTILE_REACH.projectile_amgoat_s2_sanrio#2': 'none: her \'sanrio#2\' outfit\'s bank — this mode draws the default model',
+    'ON_SKILL_START.skchr_amgoat_3_sanrio#2': 'none: her \'sanrio#2\' outfit\'s bank — this mode draws the default model',
+    'ON_PROJECTILE_REACH.projectile_amgoat_s3_sanrio#2': 'none: her \'sanrio#2\' outfit\'s bank — this mode draws the default model',
+  },
 };

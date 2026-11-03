@@ -108,6 +108,9 @@ export const OPERATOR_KIT_FILES = Object.freeze([
   'op-lmlee.js',
   'op-zumama.js',
   'op-ebnhlz.js',
+  'op-jesca2.js',
+  'op-bgsnow.js',
+  'op-amgoat.js',
 ]);
 
 /**

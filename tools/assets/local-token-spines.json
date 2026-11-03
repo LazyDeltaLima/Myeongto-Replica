@@ -95,6 +95,67 @@
         "height": 385.999
       }
     },
+    "token_10026_bgsnow_subbow": {
+      "skel": "token_10026_bgsnow_subbow.skel",
+      "atlas": "token_10026_bgsnow_subbow.atlas",
+      "textures": [
+        "token_10026_bgsnow_subbow.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Idle",
+        "deploy": "Start",
+        "attack": {
+          "begin": null,
+          "loop": "Attack",
+          "end": null
+        },
+        "attackDown": {
+          "begin": null,
+          "loop": "Attack_Down",
+          "end": null
+        },
+        "skill": {
+          "begin": null,
+          "loop": "Attack",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Attack": 1.6,
+        "Attack_Down": 1.6,
+        "Default": 0,
+        "Default_Down": 0,
+        "Idle": 0.333,
+        "Idle_Down": 0.333,
+        "Start": 0.667,
+        "Start_Down": 0.667
+      },
+      "events": [
+        "OnAttack",
+        "OnStart"
+      ],
+      "hits": {
+        "Attack": [
+          0.067
+        ],
+        "Attack_Down": [
+          0.067
+        ]
+      },
+      "bounds": {
+        "x": -155.441,
+        "y": -133.505,
+        "width": 362.987,
+        "height": 319
+      }
+    },
     "token_10027_ironmn_pile1": {
       "skel": "token_10027_ironmn_pile1.skel",
       "atlas": "token_10027_ironmn_pile1.atlas",
@@ -287,6 +348,50 @@
         "y": -8.563,
         "width": 152,
         "height": 225.923
+      }
+    },
+    "token_10032_jesca2_jckshd": {
+      "skel": "token_10032_jesca2_jckshd.skel",
+      "atlas": "token_10032_jesca2_jckshd.atlas",
+      "textures": [
+        "token_10032_jesca2_jckshd.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Idle",
+        "deploy": "Start",
+        "attack": {
+          "begin": null,
+          "loop": "Idle",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Idle",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": "Die",
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0,
+        "Die": 1,
+        "Idle": 1,
+        "Start": 1
+      },
+      "events": [],
+      "hits": {},
+      "bounds": {
+        "x": -95.509,
+        "y": -1.252,
+        "width": 372.723,
+        "height": 308.75
       }
     },
     "token_10035_wisdel_wward": {

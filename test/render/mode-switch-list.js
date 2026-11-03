@@ -10,6 +10,7 @@
 
 export const MODE_SWITCH_STATUS = Object.freeze({
   char_1016_agoat2: { 'S3 S3_End': 'ok: the closing mode (`skillEnd`: its START bank is the end sound); no effects of its own' },
+  char_1034_jesca2: { 'S3 S3[D]': 'todo: S3 饱和迸射 facing down — its _down start effects (modes.json dirs) not compared yet' },
   char_1023_ghost2: { 'S1 Empty': 'ok: the 替身\'s mode (render/units.js FORMS doll); no attack effects of its own' },
   char_1032_excu2: { 'S3 S3_End': 'todo: the closing mode\'s cast excu2_skill_03_end_01 / _end_02 as S3 ends' },
   char_1033_swire2: { 'S3 S3_End': 'ok: the kit plan draws the closing cast (render/fx/kitofficial.js, Skill_3_End)' },

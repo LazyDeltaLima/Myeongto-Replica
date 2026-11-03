@@ -2149,6 +2149,312 @@
    }
   ]
  },
+ "char_1034_jesca2": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S3",
+   "S3[D]"
+  ],
+  "proj": [
+   [
+    "projectile_chr_jesca2"
+   ],
+   [
+    "projectile_chr_jesca2_s1"
+   ],
+   [
+    "projectile_chr_jesca2_s2"
+   ],
+   [
+    "projectile_chr_jesca2_s3",
+    "projectile_chr_jesca2_s3_bomb"
+   ],
+   [
+    "projectile_chr_jesca2_s3",
+    "projectile_chr_jesca2_s3_bomb"
+   ]
+  ],
+  "cast": [
+   [
+    "jesca2_attack_start_01"
+   ],
+   [
+    "jesca2_skill_01_start_01"
+   ],
+   [
+    "jesca2_skill_02_start_01_02",
+    "jesca2_skill_02_start_02"
+   ],
+   [
+    "jesca2_skill_03_start_01",
+    "jesca2_skill_03_start_01_02",
+    "jesca2_skill_03_start_02"
+   ],
+   [
+    "jesca2_skill_03_start_01",
+    "jesca2_skill_03_start_01_02",
+    "jesca2_skill_03_start_02"
+   ]
+  ],
+  "hit": [
+   [
+    "jesca2_attack_start_01_02",
+    "jesca2_attack_hit_01"
+   ],
+   [
+    "jesca2_skill_01_start_01_02",
+    "jesca2_skill_01_hit_01"
+   ],
+   [
+    "jesca2_skill_02_hit_01"
+   ],
+   [
+    "jesca2_skill_03_hit_01"
+   ],
+   [
+    "jesca2_skill_03_hit_01"
+   ]
+  ],
+  "trail": [
+   [
+    "jesca2_attack_trail_01"
+   ],
+   [
+    "jesca2_skill_01_trail_01"
+   ],
+   [
+    "jesca2_skill_02_trail_01"
+   ],
+   [
+    "jesca2_skill_03_trail_01"
+   ],
+   [
+    "jesca2_skill_03_trail_01"
+   ]
+  ],
+  "attach": [
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "jesca2_attack_start_01_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0,
+     "t": 2
+    },
+    "jesca2_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "jesca2_attack_start_01_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "jesca2_skill_01_start_01_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0,
+     "t": 2
+    },
+    "jesca2_skill_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "jesca2_skill_01_start_01_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "jesca2_skill_02_start_01_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "jesca2_skill_02_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "jesca2_skill_02_start_02_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "jesca2_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "jesca2_skill_03_start_01_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "jesca2_skill_03_start_01_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "jesca2_skill_03_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "jesca2_skill_03_start_02_down": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "jesca2_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "jesca2_skill_03_start_01_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "jesca2_skill_03_start_01_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "jesca2_skill_03_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "jesca2_skill_03_start_02_down": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
+  "hitLoop": {
+   "jesca2_attack_start_01_02": 3,
+   "jesca2_skill_01_start_01_02": 3
+  },
+  "castTgt": [
+   "jesca2_attack_start_01_02",
+   "jesca2_skill_01_start_01_02"
+  ],
+  "start": "jesca2_birth_01",
+  "dirs": [
+   {
+    "t": 3,
+    "s": [
+     "jesca2_attack_start_01",
+     "jesca2_attack_start_01",
+     "jesca2_attack_start_01_down",
+     "jesca2_attack_start_01"
+    ]
+   },
+   {
+    "t": 3,
+    "s": [
+     "jesca2_skill_01_start_01",
+     "jesca2_skill_01_start_01",
+     "jesca2_skill_01_start_01_down",
+     "jesca2_skill_01_start_01"
+    ]
+   },
+   {
+    "t": 3,
+    "s": [
+     "jesca2_skill_03_start_01",
+     "jesca2_skill_03_start_01",
+     "jesca2_skill_03_start_01_down",
+     "jesca2_skill_03_start_01"
+    ]
+   },
+   {
+    "t": 3,
+    "s": [
+     "jesca2_skill_03_start_02",
+     "jesca2_skill_03_start_02",
+     "jesca2_skill_03_start_02_down",
+     "jesca2_skill_03_start_02"
+    ]
+   },
+   {
+    "t": 3,
+    "s": [
+     "jesca2_skill_02_start_02",
+     "jesca2_skill_02_start_02",
+     "jesca2_skill_02_start_02_down",
+     "jesca2_skill_02_start_02"
+    ]
+   }
+  ],
+  "skillMode": [
+   1,
+   2,
+   null
+  ],
+  "switchTo": [
+   [
+    1
+   ],
+   [
+    2
+   ],
+   [
+    3,
+    4
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "jesca2_skill_01_buff_01",
+     "token_jesca2_jckshd_skill_01_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "jesca2_skill_02_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "token_jesca2_jckshd_skill_03_buff_01",
+     "jesca2_skill_03_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_1035_wisdel": {
   "modes": [
    "Default",
@@ -5992,6 +6298,107 @@
     "buff": [
      "cgbird_skill_03_range"
     ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_180_amgoat": {
+  "modes": [
+   "Default",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_amgoat"
+   ],
+   [
+    "projectile_amgoat_s3"
+   ]
+  ],
+  "cast": [
+   [
+    "amgoat_attack_01_start"
+   ],
+   []
+  ],
+  "hit": [
+   [
+    "amgoat_attack_01_hit"
+   ],
+   [
+    "amgoat_skill_03_hit"
+   ]
+  ],
+  "trail": [
+   [
+    "amgoat_attack_01_trail"
+   ],
+   [
+    "amgoat_skill_03_trail"
+   ]
+  ],
+  "attach": [
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "amgoat_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {}
+  ],
+  "skillMode": [
+   null,
+   null,
+   1
+  ],
+  "switchTo": [
+   [],
+   [],
+   [
+    1
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "common_ignite_attack"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [
+     "amgoat_skill_02_start"
+    ],
+    "castLoop": [],
+    "buff": [],
+    "target": [
+     "amgoat_skill_02_hit",
+     "amgoat_skill_02_range"
+    ],
+    "targetBuff": [],
+    "shot": [
+     "amgoat_skill_02_trail"
+    ],
+    "shotHit": [
+     "amgoat_skill_02_hit",
+     "amgoat_skill_02_range"
+    ]
+   },
+   {
+    "cast": [],
+    "castLoop": [
+     "amgoat_skill_03_buff"
+    ],
+    "buff": [],
     "target": [],
     "targetBuff": []
    }
@@ -12031,6 +12438,152 @@
     "shotHit": [
      "malist_skill_hit"
     ]
+   }
+  ]
+ },
+ "char_4055_bgsnow": {
+  "modes": [
+   "Default",
+   "S1",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_bgsnow"
+   ],
+   [
+    "projectile_chr_bgsnow"
+   ],
+   [
+    "projectile_chr_bgsnow_s3"
+   ]
+  ],
+  "cast": [
+   [
+    "bgsnow_attack_start_01"
+   ],
+   [
+    "bgsnow_attack_start_01"
+   ],
+   [
+    "bgsnow_skill_03_start_01",
+    "bgsnow_skill_03_start_weapon_01",
+    "bgsnow_skill_03_start_weapon_02"
+   ]
+  ],
+  "hit": [
+   [
+    "bgsnow_attack_hit_01"
+   ],
+   [
+    "bgsnow_attack_hit_01"
+   ],
+   [
+    "bgsnow_skill_03_hit_01"
+   ]
+  ],
+  "trail": [
+   [
+    "bgsnow_attack_trail_01"
+   ],
+   [
+    "bgsnow_attack_trail_01"
+   ],
+   [
+    "bgsnow_skill_03_trail_01"
+   ]
+  ],
+  "attach": [
+   [],
+   [
+    "token_bgsnow_subbow_skill_01_buff_01"
+   ],
+   []
+  ],
+  "castOpt": [
+   {
+    "bgsnow_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "bgsnow_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "bgsnow_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "bgsnow_skill_03_start_weapon_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "bgsnow_skill_03_start_weapon_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "start": "bgsnow_birth_01",
+  "skillMode": [
+   1,
+   null,
+   2
+  ],
+  "switchTo": [
+   [
+    1
+   ],
+   [],
+   [
+    2
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "bgsnow_skill_01_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [
+     "bgsnow_skill_02_start_01",
+     "bgsnow_skill_02_start_weapon_01"
+    ],
+    "buff": [],
+    "target": [
+     "bgsnow_skill_02_hit_01"
+    ],
+    "targetBuff": [],
+    "shot": [
+     "bgsnow_skill_02_trail_01"
+    ],
+    "shotHit": [
+     "bgsnow_skill_02_hit_01"
+    ]
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "bgsnow_skill_03_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
    }
   ]
  },

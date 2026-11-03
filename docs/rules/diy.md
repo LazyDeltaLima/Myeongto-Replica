@@ -12,8 +12,8 @@
   `data/backups.json` `diy`). 맹약이 전부 꺼진 픽은 그 판 재고가 없다(`m.private.diyBanned`). 이 포크는 후보를 구현·대조한 24명으로 줄인다:
   `shared/local-diy.js LOCAL_DIY_PICKS`(왕·첸 더 던스트릭·위셔델·토가와 사키코·아스카론, 2026-10-11부터 켈시 에스페란타·클레멘티아·안젤리나 더 멜로우 위시 — 아래
   「선발 추가 3명 (2026-10-11)」, 2026-10-26부터 트라고디아 — 아래 「선발 추가 酒神 (2026-10-26)」, 2026-11-01부터 토스카·탈룰라 — 아래 「선발 추가 토스카
-  (2026-11-01)」·「선발 추가 탈룰라 (2026-11-01)」, 2026-11-02부터 팔라스·헬라그, 2026-11-03부터 만트라·스테인리스·하루카·나이팅게일·페넌스·로고스·비비아나·벨로네·비이·지마 더 레이징 타이드·Mon3tr, 2026-11-04부터 슈·리·유넥티스·에벤홀츠 — 아래 「선발 추가 팔라스 (2026-11-02)」·「선발 추가 헬라그 (2026-11-02)」·「선발 추가 만트라 (2026-11-03)」·「선발 추가 스테인리스·하루카·나이팅게일 (2026-11-03)」·「선발 추가 페넌스·로고스·비비아나 (2026-11-03)」·「선발 추가 벨로네·비이·지마 더 레이징 타이드·Mon3tr (2026-11-03)」·「선발 추가 슈·리·유넥티스·에벤홀츠 (2026-11-04)」) — `tools/build-data.mjs`가 이것으로 `diy.ownedPool`을 만들고, `server/lobby.js`가 다른 픽을 거부한다.
-  키트는 `server/sim/content/kits/ops/op-{wang,chen3,wisdel,oblvns,ascln,kalts2,clemnt,aglna2,phatm2,tocka,oxi,pallas,helage,mantra,ironmn,haruka,cgbird,judge,logos,vvana,demetr,veen,headb2,monstr,shu,lmlee,zumama,ebnhlz}.js`(등록 `kits/index.js OPERATOR_KIT_FILES`).
+  (2026-11-01)」·「선발 추가 탈룰라 (2026-11-01)」, 2026-11-02부터 팔라스·헬라그, 2026-11-03부터 만트라·스테인리스·하루카·나이팅게일·페넌스·로고스·비비아나·벨로네·비이·지마 더 레이징 타이드·Mon3tr, 2026-11-04부터 슈·리·유넥티스·에벤홀츠·제시카 더 리버레이티드·파죰카·에이야퍄들라 — 아래 「선발 추가 팔라스 (2026-11-02)」·「선발 추가 헬라그 (2026-11-02)」·「선발 추가 만트라 (2026-11-03)」·「선발 추가 스테인리스·하루카·나이팅게일 (2026-11-03)」·「선발 추가 페넌스·로고스·비비아나 (2026-11-03)」·「선발 추가 벨로네·비이·지마 더 레이징 타이드·Mon3tr (2026-11-03)」·「선발 추가 슈·리·유넥티스·에벤홀츠 (2026-11-04)」·「선발 추가 제시카 더 리버레이티드·파죰카·에이야퍄들라 (2026-11-04)」) — `tools/build-data.mjs`가 이것으로 `diy.ownedPool`을 만들고, `server/lobby.js`가 다른 픽을 거부한다.
+  키트는 `server/sim/content/kits/ops/op-{wang,chen3,wisdel,oblvns,ascln,kalts2,clemnt,aglna2,phatm2,tocka,oxi,pallas,helage,mantra,ironmn,haruka,cgbird,judge,logos,vvana,demetr,veen,headb2,monstr,shu,lmlee,zumama,ebnhlz,jesca2,bgsnow,amgoat}.js`(등록 `kits/index.js OPERATOR_KIT_FILES`).
   틀의 자세한 규칙은 `server/sim/content/kits/README.md`, 병합 경위는 `upstream.md` 「0.2.0 병합」.
 - 0.2.0 전(2026-10-05 ~ 10-07)에는 전용 데이터·풀·UI를 직접 만들었다. 그 구현은 지웠고, 그때 정한 키트 동작과 관리자 결정은 `op-*.js`로 옮겨져 아래에 남는다.
 - 키트:
@@ -941,6 +941,45 @@
 - 테스트: `test/content/op_shu.test.js`(10)·`op_lmlee.test.js`(9)·`op_zumama.test.js`(9)·`op_ebnhlz.test.js`(11) — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 소환물,
   실제 매치 경로 하나씩(upstream 테스트에 없어 더함); 선발 수를 세는 테스트 24 → 28명(폼 115 → 127), 소환사 9 → 10, 토큰 모델 16 → 17. 유넥티스의 RA-A(생식 연산
   전용)는 편성에서 거부된다(`shared/diy.js validateDiyPicks`: 다른 게임 모드에서만 듣는 ISW·SO·RA 모듈, upstream 0.2.0의 그쪽 관리자 결정 — 우리 선발에서 처음). golden `diy-039`~`diy-047`(새 시나리오), 다른 가족 변화 없음.
+
+## 선발 추가 제시카 더 리버레이티드·파죰카·에이야퍄들라 (2026-11-04, 관리자 결정)
+- 관리자 결정 2026-11-02·2026-11-03·2026-11-04(새 시즌 핵심 맹약 명단의 upstream 선발 키트 열 명을 묶음으로): 선발에 제시카 더 리버레이티드(涤火杰西卡
+  `char_1034_jesca2`, 6성 디펜더 센티넬 프로텍터)·파죰카(鸿雪 `char_4055_bgsnow`, 6성 스나이퍼 헤비슈터)·에이야퍄들라(艾雅法拉 `char_180_amgoat`, 6성 캐스터
+  코어 캐스터)를 넣는다(`LOCAL_DIY_PICKS` 끝). 한 묶음으로 넣은 까닭: 셋 다 손볼 곳이 자동 발동(업스트림 키트·테스트의 `ACTIVE_RANGE`·`SKILL_RANGE`)이라 고치는
+  방식이 같다. 이름·문구는 KR 공식 표 그대로(`tools/i18n/build-ko-diy.mjs`, 손 번역 없음): 제시카 더 리버레이티드 · 전선 고수 · 엄폐 호위 · 집중 사격, 재능 유연한
+  대응 · 저장 및 방출, 모듈 '나만의 영웅'(SPT-X) · 풍화되지 않은(SPT-Y), 소환물 기동 방패 / 파죰카 · 약강격 · 요약 · 날카로운 스케치, 재능 자동 타자기 · 약점
+  속기, 모듈 타자기 리본(ARC-Y) · 의식감(ARC-X), 소환물 '타자기' / 에이야퍄들라 · 듀엣 아리아 · 이그니션 · 볼케이노, 재능 플레임 브레스 · 카오스 플레임, 모듈
+  '놓친 소리'(CCR-X) · 애완동물 대회 1위(CCR-Y).
+- 데이터: CN 표 그대로. 맹약: 제시카(콜롬비아·블랙스틸·빅토리아) 빅토리아(`victoriaShip`), 파죰카(로도스·사르곤) 사르곤(`sargonShip`), 에이야퍄들라(라이타니엔)는 이번
+  시즌 핵심 맹약이 없어 협방(`emptyShip`). 소환물: 기동 방패(`token_10032_jesca2_jckshd`)·'타자기'(`token_10026_bgsnow_subbow`) — 둘 다 손패 소환물(배치 1),
+  웹 모델이 없어 EN 클라에서 뽑음(`extract.py TOKEN_SPINES`).
+- 키트·테스트: upstream 순서형 피해 판정 커널 직전 판(`9a3a12ee9^`)의 `op-jesca2.js`·`op-bgsnow.js`·`op-amgoat.js`와 테스트 셋. 바꾼 것:
+  - 자동 발동: 제시카 S2·S3는 중장 행 `TAKE_DAMAGE`(`sim.md` 「중장 스킬 공식 TAKE_DAMAGE」, 관리자 결정 2026-10-28) — 스킬 범위에만 있는 적으로는 안 켜지고 피격(또는
+    자기 사거리의 공격 대상)으로 켜진다. 파죰카 S2·S3·에이야퍄들라 S3는 자기 행이 없어 `DEFAULT` + 스킬 범위 상자(3-1·x-3; `_DefaultTriggerSkill`). upstream
+    테스트의 `ACTIVE_RANGE`·`SKILL_RANGE` 단언을 고침. 제시카 S1(AUTO, 자신·방패 강화)은 키트의 `SP_FULL` 그대로(kits/README 체크리스트 5).
+  - 제시카 S3 포탄: 공식 템플릿 `jesca2_s_3[bomb]`의 `InterruptCharacterAttack`(`_resetCD` 뒤 `_resetAndClearCD`)는 그녀의 공격을 끊고 공격 쿨다운을 **비운다**
+    (`Ability.ResetCooldown(false)` → `PeriodicTimer.Reset(waitFirstPeriod false)` = 남은 시간 0, 공식 클라에서 확인) — 포탄 뒤 바로 공격한다. upstream은 「쿨다운
+    다시 시작」 추정이었다. 테스트가 포탄 순간의 쿨다운 0을 본다.
+  - 파죰카 '타자기'의 요약(복사본 S2): 그녀의 S2처럼 「즉시」(시전이 다음 공격을 바로 낸다) — 복사본에 없던 `atkCd = 0` 시작을 더함. `DEFAULT` 시전(0.2초 회차)이
+    공격 사이에 오면 한 공격 간격을 기다리던 것.
+  - 에이야퍄들라 재능 2 카오스 플레임 CCR-Y 3단계: 공속 버프는 배치 동안 계속(템플릿 `amgoat_e_t_2`: `ON_OWNER_LOCATE`에 `amgoat_e_t_2[attack_speed]`, 수명
+    INFINITY), 범위에 정예·보스 적이 있으면 SP·공속 = `|최댓값 − factor|`(`CalculateBlackboardValueViaParams` `_finalAbs`) — 19·15, 공식 클라에서 확인. 키트가
+    `factor`를 읽게 고침(결과 같음).
+  - 파죰카 ARC-Y 특성의 공격력 증가는 그녀의 모든 피해(요약의 지속 피해 두 번 포함)에 걸린다 — 템플릿 `bgsnow_e_trait`가 `ON_CALCULATE_DAMAGE`에서 대상의
+    `bgsnow_focus[mark]`만 본다. 재능 2 약점 속기의 「옆 칸」 강화는 타자기가 그녀의 `bgsnow_t[def_down]`을 가질 때(`bgsnow_subbow_token[debuff]`) — 그녀가 필드에
+    있을 때만. 제시카의 방패 재배치(PRTS 卫戍协议/帮助 소환물 재배치)·방패 禁疗(PRTS 「持有禁疗」·토큰 프리팹 `jckshd_t`) 추정 표시도 지움.
+  - 에이야퍄들라 S3 시험: 그녀가 이미 자기 3-1을 공격하던 중에 켜지므로(`DEFAULT`) 시전 순간 돌던 쿨다운(엔진은 남은 초 그대로 — `sim.md` 「일반 공격 타이밍」
+    「아직 공식과 다른 것」)을 지나 첫 용암부터 공격 수를 센다.
+- 키트 주석에 남은 추정(이유 태그 `[ASSUMED·not checked: …]`):
+  - 제시카 S3 [추정·미조사: 회피한 폭발에도 기절이 붙는지 — 폭발 투사체의 명중 동작].
+  - 파죰카 [추정·미조사: 「정면」 칸(`bgsnow_focus[mark]`의 칸)에 자기 칸이 드는지 — ARC-Y 특성과 S3 날카로운 스케치 둘 다]·[추정·미조사: '타자기'가 그녀가 필드에
+    있을 때만 재배치되는지(이베리아 해사와 같다고 봄)]·[추정·미조사: '타자기'의 禁疗 — 토큰 프리팹].
+  - 에이야퍄들라 [추정·미조사: CCR-Y 특성 SP가 S2 폭발의 범위 피해·둘째 ½에는 안 붙는지 — 모듈 특성 버프]·S2 [추정·미조사: 주 대상 밖 적의 마법 저항 감소가
+    그 적의 피해 뒤인지 — `skchr_amgoat_2` 능력]·S3 [추정·미조사: 용암에 범위 피해가 없는지 — 용암 투사체 프리팹].
+- 이펙트·공격 타이밍·투사체·스킬 시전·모드·HUD 데이터: EN 클라에서 뽑음(2026-11-04, `tools/local-extract/add_operator.py --id …` 셋 한 번). 소환물 이펙트
+  (`token_jesca2_*` 6개·`token_bgsnow_*` 17개)는 공용 토큰 팩 `pkgrps/btl_pfb_fx_token_1.ab`·`_0.ab`에서 따로. 화면 확인 전.
+- 테스트: `test/content/op_jesca2.test.js`(10)·`op_bgsnow.test.js`(8)·`op_amgoat.test.js`(8) — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 소환물; 선발 수를 세는 테스트
+  28 → 31명(폼 127 → 136), 소환사 10 → 12, 손패 소환물 검사 94 → 142, 토큰 모델 17 → 19. golden `diy-048`~`diy-053`(새 시나리오; `diy-047`은 덜 찬 마지막 판에 제시카가 들어와 바뀜 — 동작 변화 아님), 다른 가족 변화 없음.
 
 ## 안젤리나 더 멜로우 위시 S3 이동 · 「이따 봐!」 표식 (2026-10-11, 관리자 제보)
 - 제보 2건: ① S3로 공중 적에게 갈 때 처음 칸에 남는 「이따 봐!」(“一会儿见！”)가 대체 마름모로 보임, ② 공식은 공중 적에게 **직접 날아가는데** 우리는 그 칸에

@@ -46,7 +46,7 @@ const VERDICT = {
   cleanse: { '*': ['covered', "流明's cleansing heal: its S2 hit / S3 attack hit (lumen_s_2 / lumen_s_3[ammo] create no effect of their own)"] },
   dilemma: { mizuki: ['skill', 2] },
   ember: { surtr: ['covered', "the 'healFree' status of her 余烬 buff (fxstatus.js SOURCE_FX: surtr_t_2 surtr_buff_01_start)"] },
-  explosion: { lionhd: ['skill', 2] },
+  explosion: { lionhd: ['skill', 2], amgoat: ['pending', 'S2 点燃: the explosion (amgoat_s_2 / projectile_amgoat_s2_b rows, not compared yet)'] },
   extraAttack: { excu2: ['attack', "the T1 shot's 'atk' (signal T.1): charpack Modes/*/Body/Talents/1's cast / hit are in the mode's bindings"] },
   flame: { flamtl: ['skill', 3] },
   frostNova: { gnosis: ['skill', 2], sbell2: ['skill', 1, 'its cast; the snow tiles it lays are the open snow-tile item (snow)'] },

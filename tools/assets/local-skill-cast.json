@@ -113,6 +113,31 @@
    "reset": 0,
    "state": 0
   },
+  "skchr_amgoat_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_amgoat_2": {
+   "ability": {
+    "anim": "Attack",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_amgoat_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
   "skchr_angel2_1": {
    "ability": null,
    "cls": "cast",
@@ -327,6 +352,33 @@
      "wait": 0
     }
    ]
+  },
+  "skchr_bgsnow_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_bgsnow_2": {
+   "ability": {
+    "anim": "Skill_2",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_bgsnow_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
   },
   "skchr_billro_1": {
    "ability": null,
@@ -1510,6 +1562,24 @@
    "cls": "cast",
    "reset": 0,
    "state": 0
+  },
+  "skchr_jesca2_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_jesca2_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_jesca2_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
   },
   "skchr_judge_1": {
    "ability": {

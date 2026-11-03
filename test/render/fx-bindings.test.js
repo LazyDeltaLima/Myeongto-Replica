@@ -139,6 +139,9 @@ const UNPLAYED = {
   'ebnhlz_t_2|ebnhlz_beidong_hit': 'condOther',                 // 黑键 T2 装饰音 hit
   'ebnhlz_e_003_t_2|ebnhlz_beidong_hit': 'condOther',
   'ebnhlz_e_003_t_2|ebnhlz_mozu_hit': 'condOther',
+  'jesca2_jckshd_dir_set[effect]|token_jesca2_jckshd_turnaround_01': 'unconditional', // 涤火杰西卡 she turns to her shield
+  'bgsnow_s3[eff_up]|token_bgsnow_subbow_skill_03_buff_01_up': 'directional',          // 鸿雪 the typewriter's S3 copy
+  'bgsnow_s3[eff_down]|token_bgsnow_subbow_skill_03_buff_01_down': 'directional',
 };
 
 const entries = () => [
