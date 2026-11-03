@@ -1113,7 +1113,7 @@
         "enemy_9016_acstmr": [6,5,0,0,57]
       },
       "hooks": [1,82,6000,1010,1015,3058,3281,10141,55,57,102,98,8,35128,1108,14,33,0,1,46,0,3,16],
-      "events": {"atk":1204,"deploy":49,"die":57,"dmg":3274,"engage":17,"face":89,"fx":887,"heal":29,"skill":200,"spawn":55,"status":910,"swing":1074,"tplfx":7},
+      "events": {"atk":1204,"deploy":49,"die":57,"dmg":3274,"engage":17,"face":89,"fx":893,"heal":29,"skill":200,"spawn":55,"status":910,"swing":1074,"tplfx":7},
       "fx": {
         "aoe": 30,
         "appear": 4,
@@ -1133,7 +1133,7 @@
         "explosion": 5,
         "frostNova": 15,
         "iceSpike": 18,
-        "kitHit": 2,
+        "kitHit": 8,
         "overclock": 1,
         "palsy": 1,
         "phase": 4,
@@ -1210,7 +1210,7 @@
         "enemy_9016_acstmr": [6,6,0,0,34]
       },
       "hooks": [1,61,6000,472,472,941,945,4996,44,52,27,28,0,7916,246,14,33,8,1,37,0,0,2],
-      "events": {"atk":631,"deploy":24,"die":44,"dmg":930,"engage":7,"face":12,"fx":369,"heal":116,"leak":8,"skill":56,"spawn":47,"status":404,"swing":486},
+      "events": {"atk":631,"deploy":24,"die":44,"dmg":930,"engage":7,"face":12,"fx":374,"heal":116,"leak":8,"skill":56,"spawn":47,"status":404,"swing":486},
       "fx": {
         "appear": 11,
         "bandage": 2,
@@ -1228,6 +1228,7 @@
         "garrisonGrant": 1,
         "healField": 4,
         "jungleSoul": 2,
+        "kitHit": 5,
         "mote": 14,
         "motes": 20,
         "parry": 15,

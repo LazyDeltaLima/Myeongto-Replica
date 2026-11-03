@@ -155,6 +155,7 @@ describe('enemy buff / custom-trigger sounds: 骨刺 · 元核孽生者 · 灼�
     const want = { 'acbunn:horror': 'e_imp_trnkrtbsch', 'acbunn:cute': 'e_atk_trnkrtbsch', 'dslntf:awake': 'e_atk_monster_n',
       'ftsjc:aoe': 'e_atk_trftsdbrn', 'hlegle:steal': 'e_imp_hlegleb', 'vtsk:range': 'e_skill_stmblock_u' };
     for (const [k, f] of Object.entries(want)) assert.equal(file(out[k]?.[0]).replace(/\.\w+$/, ''), f, k);
+    for (const k of ['acstma:back', 'acstmb:back']) assert.ok(out[k]?.length, `${k}: a sound in ${KIT_HIT_BANKS[k]}`);
   });
 
   test('the events (pure)', () => {

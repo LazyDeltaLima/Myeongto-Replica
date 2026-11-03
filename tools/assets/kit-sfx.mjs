@@ -342,6 +342,9 @@ export const KIT_HIT_BANKS = Object.freeze({
   'ftsjc:aoe': 'battle.ON_CUSTOM_TRIGGER.enemy_ftsjc.aoe',
   'hlegle:steal': 'battle.ON_CUSTOM_TRIGGER.hlegle_steal_bullet_audio',
   'vtsk:range': 'battle.ON_CUSTOM_TRIGGER.enemy_vtsk_skillRange',
+  // a hand of 假想敌：胄 back as its copy (acstma_s_1[copy_health] → mode 2 Back_End, passive acstma/acstmb_passive[unmovable])
+  'acstma:back': 'battle.ON_BUFF_START.enemy_acstma_back',
+  'acstmb:back': 'battle.ON_BUFF_START.enemy_acstmb_back',
 });
 
 /**

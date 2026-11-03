@@ -648,7 +648,12 @@ function kitBlade(ab, e, b, tpl) {
       route: origin || { motion: 'FLY', start: home, end: home, steps: [{ t: 'wait', s: 99999 }] }, pos: origin ? undefined : home,
       tag: e2.tag, countInTotal: false, mods: e2.mods, ownerPlayerId: e2.ownerId,
     });
-    if (n) { n.hp = Math.min(n.s.maxHp, e2.hp); b2.fx('blink', { x: n.x, y: n.y, id: n.id, fx: e2.x, fy: e2.y }); }
+    if (n) {
+      n.hp = Math.min(n.s.maxHp, e2.hp);
+      b2.fx('blink', { x: n.x, y: n.y, id: n.id, fx: e2.x, fy: e2.y });
+      // its [copy_health] switches it to Back_End (mode 2), whose passive [unmovable] sounds as it attaches (sound only)
+      b2.fx('kitHit', { x: n.x, y: n.y, id: n.id, k: n.defId === 'enemy_9015_acstmb' ? 'acstmb:back' : 'acstma:back' });
+    }
     b2.kill(e2, null);
   };
   const shotDown = (b2, e2) => { // 【瘫痪】

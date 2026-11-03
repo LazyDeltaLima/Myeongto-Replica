@@ -713,8 +713,10 @@
     `[enemy]` 쪽(적이 줍기)은 이 sim에 없다.
   - 스칼릿 싱어: 피격 20회째 `csdcr_t`가 만드는 `csdcr_skill[audio]` → fx `telegraph` `songOfWar`.
   - '갑주를 베는 검'·'갑주를 부수는 해머': 【瘫痪】 `acstma_s_1[special_stun]`/`acstmb_s_1[special_stun]`이 거는 버프의 audioSignal(뱅크 지연 0.27초) →
-    fx `phase` `shotDown`. 하강 끝 모드 `Back_End`의 `enemy_acstma_back`/`_acstmb_back`은 [추정·미조사: 어느 손이 언제 그 모드에 드는지 sim과
-    맞춰 보지 않음] 안 냄.
+    fx `phase` `shotDown`. 하강 끝 모드 `Back_End`의 `enemy_acstma_back`/`_acstmb_back`(2026-11-03): 【瘫痪】이 끝날 때
+    `acstma_s_1[special_stun]` ON_BUFF_FINISH의 `SummonEnemiesFollowBranchRoute`가 `[copy_health]`를 단 복제를 부르고, 그 버프가 HP를 옮긴 뒤 모드 2
+    `Back_End`로 바꿔 그 모드의 패시브 `acstma/acstmb_passive[unmovable]`(INVINCIBLE)이 붙을 때 그 audioSignal → 복제가 나타날 때 kitHit
+    `acstma:back`/`acstmb:back`(`bosses.js kitBlade replace`). 착지 폭발 뒤 집에서 나는 복제도 같은 길.
   - '단현지음'/'열관지음'(가상적: 관·현의 余音): 합주 `PassionSkill`/`DepassionSkill`의 `acdums_audio[passion]`/`[depassion]`과 각 `[delay]`(뱅크 지연
     0.7초) → fx `enemySkill`; 맥동(`CommonAbilities/AOE`) `acdums_audio[aoe]` → fx `explode` `echoPulse`; 피격 횟수로 모드를 바꿀 때 `acdums_t_1`이
     바꾼 모드가 0(Passion = 금)이면 `switch_a`, 아니면 `switch_b` — 자기 피격으로 바뀐 것만(fx `phase` `echo_*`에 새 필드 `hit` 1, `bosses.js
@@ -757,7 +759,7 @@
   - 확인: `test/audio-enemy-buff-sounds.test.js` 「골극 · 원핵의 악생자 …」(뱅크, 순수 함수, battleHarness 골극 모드 전환 0.3초·악생자 한 번,
     AudioManager). golden: roster 다섯·diy 하나 fx 수만(kitHit). [화면 미확인]
 - 안 한 것: 변종 맹글러비스트 α `rkmbst_stone_disappear_audio`(방패를 깨는 것은 `enemy_mcreep_self_mark`를 가진 쪽의 피해뿐 — sim에 없음),
-  '갑주를 베는 검'·'갑주를 부수는 해머' `Back_End`(위). 이 모드에 그 순간이 없는 것: '월장진' `ymtro_t[audio]`(계단 칸), 자로 M2
+  이 모드에 그 순간이 없는 것: '월장진' `ymtro_t[audio]`(계단 칸), 자로 M2
   `enemy_wlfmster_m2_calling`(WildCalling), 모험을 찾는 선원 `sailor_speed_up`(대포·밧줄), 블러드 앰버 `collect_enemy_dseed`(채집하는 적). PlayAudio
   없이 뱅크 이름만 이펙트 키와 같은 것(눈의 아이 `enemy_xdsnow_die_01`·불안해하는 디자이너 `enemy_crshd_tip_01[audio]`)은 공식도 안 낸다 — 그
   이펙트 프리팹(`btl_pfb_fx_enemy_16`·`_2`)에 소리 부품이 없고 그 신호를 내는 템플릿·적 프리팹도 없음(2026-11-03 EN 클라에서 확인).

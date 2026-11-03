@@ -3097,6 +3097,8 @@ for (const key of ['enemy_9014_acstma', 'enemy_9015_acstmb']) {
     approx(n[0].hp, hp, 1e-9, 'inherits the HP');
     assert.ok(n[0].s.flags.invulnerable && n[0].motion === 'FLY' && n[0].tag === 'part');
     assert.equal(h.b.killed, killed0, 'a part: not counted');
+    assert.equal(h.eventsOf('fx').filter((x) => x[1] === 'kitHit' && x[4]?.id === n[0].id && x[4].k === `${key === 'enemy_9015_acstmb' ? 'acstmb' : 'acstma'}:back`).length, 1,
+      'its Back_End passive sounds as the copy appears (audio)');
     h.run(s.initCooldown - 0.2);
     assert.ok(n[0].s.flags.invulnerable, 'a new unit: 掷 waits for its initial cooldown');
     h.run(0.3);
