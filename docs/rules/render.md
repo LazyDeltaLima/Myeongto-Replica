@@ -580,6 +580,10 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
 - 구현: `tools/assets/anim-overrides.mjs applyModeAttacks`(fetch-assets가 `data/assets.json` 스킬 역할에 `stance` / `plainAttack`을 닮;
   `MODE_ATTACK_KEEP` 뺄 것, `PLAIN_ATTACK` 모드 없는 것) → `render/spine.js _stance` / `_attackClip`. 테스트 `test/render/stance-skill.test.js`.
   [실제 판 이상 없음 2026-10-28]
+- 평타 클립으로 치는 스킬이 공격 중에 끝날 때(2026-11-03, 관리자 제보 「엑시아 S1 사용 시 스탠딩 모션으로 돌아간다」): 엑시아 S1은 다음 공격 한 번이
+  스킬인 즉발 스킬이라 그 공격의 타격과 같은 묶음에서 스킬이 꺼진다. 스킬 역할이 평타 `Attack`(`via: 'attack'`)이고 End 클립이 없는데도 `setSkill(false)`가
+  기본 클립을 틀어 공격이 타격 순간 Idle로 잘렸다. 지금은 공격 클립을 끝까지 틀고 쉰다(`render/spine.js setSkill`); 자기 End가 있는 스킬은 그대로 End로 닫는다.
+  테스트 `test/render/plain-attack-skill-end.test.js`.
 
 ## 가상적: 관(假想敌：管) 숨겨진 핵심 모델 위치 (2026-10-10, 사용자 제보 「일반 관은 맞는데 숨겨진 핵심의 관은 왼쪽으로 치우쳐 보인다」, 공식 캡처 없음)
 - 찾은 것: 숨겨진 핵심 레벨(act1autochess_h08_03 / _s)은 관(`enemy_9021_acduml_2`)과 가상적: 현을 둘 다 (행 3, 열 9)에 세운다 — 일반 관(h07_03)은 열 10(필드 가운데).
@@ -906,6 +910,11 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
 - 위를 보는 오퍼레이터는 쓰러진 오퍼레이터(「Front/Back」, `_wantsBack`)와 같이 기절 동안 앞모습 모델로 눕고 일어나면 뒷모습으로 돌아온다
   [추정: 뒷모습 모델에서 공식이 무엇을 트는지는 안 읽음 — 뒷모습 스켈레톤 대부분에 Die가 없다].
 - 기절해 누운 채 쓰러지면 Die를 처음부터 다시 틀지 않고 이어 간다, 누운 채 빙결·수면이 겹치면 누운 자세로 멈추고 풀리면 다시 넘어지지 않는다 [추정].
+- 자기 `Stun` 클립의 반복(2026-11-03, 관리자 제보 「버블이 기절하면 특정 모션을 반복한다」): `Unit.PlayAnimation`은 반복 여부를 인자로 받지 않고
+  모델 프리팹 `SpineAnimator._animations`의 클립 항목 `loop`을 따른다. 공식 클라에서 확인한 값: `Stun_Begin`이 없는 `Stun`은 `loop` 0 — 버블·위셔델·
+  쏜즈 더 로드스타·켈시 에스페란타·로즈몬티스(`Stun`·`Stun_Skill_3`), `Stun_Begin` 뒤의 `Stun`은 `loop` 1 — 스카디 더 커럽팅 하트·시빌라이트 에테르나.
+  이전에는 오퍼레이터의 `Stun`을 늘 반복해 버블은 0.87초짜리 쓰러지는 동작을 되풀이했다. 지금 오퍼레이터의 기절은 Begin 없는 `Stun`을 한 번 틀고
+  마지막 프레임에 머문다(`spine.js _stunLoops`). 적의 기절 클립은 그대로 반복한다(적 프리팹 값은 안 읽음).
 - 테스트: `test/render/stun-fall.test.js`(가짜 PIXI). 화면: 렌더 데모(Windows Chrome)에서 오른쪽을 보는 오퍼레이터 3명이 기절 동안 Die 끝 자세로
   눕고 풀리면 Idle로 섬. 위를 보는 오퍼레이터(앞모습 모델로 바꿈)와 실제 판의 기절은 [실제 판 이상 없음 2026-10-28].
 

@@ -422,7 +422,7 @@ export class SpineActor {
     }
     if (change && this._changeClips(change).length) this._change(change, hold);
     else if (this.mode === 'base' || this.mode === 'held') { this.mode = 'base'; this._play(this._baseName(), true); }
-    else if (this.mode === 'stun' && this.has(this.roles.stun?.loop)) this._play(this.roles.stun.loop, true);
+    else if (this.mode === 'stun' && this.has(this.roles.stun?.loop)) this._play(this.roles.stun.loop, this._stunLoops());
   }
 
   /**
@@ -596,7 +596,7 @@ export class SpineActor {
     this.frozen = false;
     if (how === 'clip') {
       if (this.has(s.begin)) { this._play(s.begin, false); this._queue(s.loop, true); }
-      else this._play(s.loop, true);
+      else this._play(s.loop, this._stunLoops());
     } else if (how === 'fall') {
       // back from a freeze / sleep over the fall: it is still down (the frozen Die clip goes on)
       const d = this.dieClip(this.skillOn);
@@ -605,6 +605,15 @@ export class SpineActor {
       // a freeze / sleep over a stun holds the pose it is in (a fallen operator stays down)
       this.frozen = true;
     }
+  }
+
+  /**
+   * Whether the stun clip in force loops. An operator's Stun clip without a Stun_Begin plays once and holds its last
+   * frame — its prefab's `_animations` entry is `loop` 0 (泡泡, 维什戴尔, 引星棘刺, 凯尔希·思衡托, 迷迭香 Stun and
+   * Stun_Skill_3); the Stun after a Stun_Begin is `loop` 1 (浊心斯卡蒂, 魔王). An enemy's stun clip loops as before.
+   */
+  _stunLoops() {
+    return !this.stunFall || this.has(this.roles.stun?.begin);
   }
 
   _leaveStun() {
@@ -1037,6 +1046,9 @@ export class SpineActor {
         return;
       }
       this.skillClipOnce = false;
+      // a skill that attacks with the plain attack clip and has no end of its own ends with the strike of its last
+      // attack (能天使 S1: the 'skill' off comes in the same batch as the 'atk' events): that attack plays out
+      if (this.mode === 'attack' && sk.via === 'attack' && !this._castOf(sk, 'end')) return;
       if (!this._skillEnd(sk)) {
         this.mode = 'base';
         this._play(this._baseName(), true);

@@ -18,6 +18,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const M = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8'));
 const CAPER = 'char_4100_caper';   // 跃跃: no Stun clip, no Die clip in its Back skeleton
 const ROSMON = 'char_391_rosmon';  // 迷迭香: a Stun clip of its own
+const BUBBLE = 'char_381_bubble';  // 泡泡: a Stun clip played once (prefab loop 0)
+const SKADI2 = 'char_1012_skadi2'; // 浊心斯卡蒂: Stun_Begin, then a looping Stun
 
 let fake, UnitView, SpineActor;
 before(async () => {
@@ -74,6 +76,26 @@ describe('an operator stunned (snapshot UF.STUNNED)', () => {
     const v = await op(ROSMON, 'RIGHT');
     v.sync(STUNNED, 1);
     assert.equal(v.actor.current, 'Stun');
+  });
+
+  test('an operator\'s Stun clip without a Stun_Begin plays once and holds (泡泡: prefab loop 0); after a Begin it loops', async () => {
+    const v = await op(BUBBLE, 'RIGHT');
+    const a = v.actor;
+    v.sync(STUNNED, 1);
+    assert.equal(a.current, 'Stun');
+    assert.equal(a.spine.state.tracks[0].loop, false, 'played once: its last frame holds');
+    frames(v, 120);
+    v.sync(STUNNED, 3);
+    assert.equal(a.current, 'Stun', 'still the same pose, not replayed');
+    v.sync(sample(ANIM.IDLE), 4);
+    assert.equal(a.current, 'Idle');
+    const s = actor(front(SKADI2));
+    const queued = [];
+    const add = s.spine.state.addAnimation;
+    s.spine.state.addAnimation = (i, name, loop) => { queued.push([name, !!loop]); return add(i, name, loop); };
+    s.setBase('stun', true);
+    assert.equal(s.current, 'Stun_Begin');
+    assert.deepEqual(queued, [['Stun', true]], 'the Stun after its Begin loops (prefab loop 1)');
   });
 
   test('facing UP: it lies on the Front model\'s Die and stands up on its Back model', async () => {
