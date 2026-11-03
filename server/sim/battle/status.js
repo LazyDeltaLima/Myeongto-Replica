@@ -97,47 +97,48 @@ export class BattleStatus {
     if (callRemove && b.onRemove) this._safe(() => b.onRemove({ battle: this, unit, buff: b }), 'buff.onRemove', unit);
   }
 
-  _tickBuffs(dt) {
-    const units = this.units;
-    for (let i = 0, n = units.length; i < n; i++) { // units created by onTick handlers start ticking next tick
-      const u = units[i];
-      if (!u.alive || u.removed) continue;
-      if (u.buffs.length) {
-        const arr = u.buffs.slice();
-        for (const b of arr) {
-          if (!u.alive) break;
-          if (u.buffs.indexOf(b) < 0) continue;
-          if (b.onTick) {
-            if (b.interval > 0) {
-              b._acc += dt;
-              let n = 0;
-              while (b._acc >= b.interval - 1e-9 && n++ < 8) {
-                b._acc -= b.interval;
-                this._safe(() => b.onTick({ battle: this, unit: u, buff: b, dt: b.interval }), 'buff.onTick', u);
-              }
-            } else this._safe(() => b.onTick({ battle: this, unit: u, buff: b, dt }), 'buff.onTick', u);
-          }
-          if (b.timeLeft !== Infinity) {
-            b.timeLeft -= dt;
-            if (b.timeLeft <= 1e-9) {
-              const i = u.buffs.indexOf(b);
-              if (i >= 0) {
-                this._removeBuffAt(u, i, false);
-                if (b.onExpire) this._safe(() => b.onExpire({ battle: this, unit: u, buff: b }), 'buff.onExpire', u);
-              }
+  /**
+   * Unit `u`'s buffs for one tick (BuffContainer.Tick in the unit's own tick, after its state machine: battle/lifecycle.js
+   * _tickUnits), then its natural HP regeneration (Entity._UpdateHpRecovery). A buff added by an onTick handler starts
+   * ticking next tick.
+   */
+  _tickUnitBuffs(u, dt) {
+    if (u.removed) return;
+    if (u.buffs.length) {
+      const arr = u.buffs.slice();
+      for (const b of arr) {
+        if (!u.alive) break;
+        if (u.buffs.indexOf(b) < 0) continue;
+        if (b.onTick) {
+          if (b.interval > 0) {
+            b._acc += dt;
+            let n = 0;
+            while (b._acc >= b.interval - 1e-9 && n++ < 8) {
+              b._acc -= b.interval;
+              this._safe(() => b.onTick({ battle: this, unit: u, buff: b, dt: b.interval }), 'buff.onTick', u);
+            }
+          } else this._safe(() => b.onTick({ battle: this, unit: u, buff: b, dt }), 'buff.onTick', u);
+        }
+        if (b.timeLeft !== Infinity) {
+          b.timeLeft -= dt;
+          if (b.timeLeft <= 1e-9) {
+            const i = u.buffs.indexOf(b);
+            if (i >= 0) {
+              this._removeBuffAt(u, i, false);
+              if (b.onExpire) this._safe(() => b.onExpire({ battle: this, unit: u, buff: b }), 'buff.onExpire', u);
             }
           }
         }
       }
-      // natural HP regeneration
-      if (u.alive && u.deployed && !u.bossPool) {
-        const regen = u.s.hpRegen;
-        if (regen > 0 && u.hp < u.s.maxHp) {
-          u._regenAcc = (u._regenAcc ?? 0) + regen * dt;
-          if (u._regenAcc >= 1 || u.hp + u._regenAcc >= u.s.maxHp) {
-            this.heal(u, u, u._regenAcc, { self: true, silent: true, regen: true });
-            u._regenAcc = 0;
-          }
+    }
+    // natural HP regeneration
+    if (u.alive && u.deployed && !u.bossPool) {
+      const regen = u.s.hpRegen;
+      if (regen > 0 && u.hp < u.s.maxHp) {
+        u._regenAcc = (u._regenAcc ?? 0) + regen * dt;
+        if (u._regenAcc >= 1 || u.hp + u._regenAcc >= u.s.maxHp) {
+          this.heal(u, u, u._regenAcc, { self: true, silent: true, regen: true });
+          u._regenAcc = 0;
         }
       }
     }

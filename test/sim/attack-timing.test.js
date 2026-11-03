@@ -183,10 +183,12 @@ test('the swing marks a blocked main target (7th field 1); an enemy out of block
       content: 'none', autoFinish: false, timeLimit: 60, captureNoisy: true,
     });
     const u = h.unit('t_op');
-    h.run(0.5);
+    // its first swing comes before its first block search (Character.OnTick: the attack, then _SearchBlockee): the
+    // second swing carries the block
+    h.run(BAT + 0.5);
     const sw = h.eventsOf('swing').filter((e) => e[1] === u.id);
-    assert.ok(sw.length >= 1, `col ${col}: a swing`);
-    assert.equal(sw[0][6], want, `col ${col}: ${JSON.stringify(sw[0])}`);
+    assert.ok(sw.length >= 2, `col ${col}: two swings`);
+    assert.equal(sw[1][6], want, `col ${col}: ${JSON.stringify(sw[1])}`);
     if (want) assert.ok(u.blocking.length === 1, 'it blocks the enemy');
     done(h);
   }

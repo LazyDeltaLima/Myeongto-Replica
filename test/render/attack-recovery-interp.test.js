@@ -340,14 +340,20 @@ for (const status of ['stun', 'freeze', 'sleep', 'levitate']) {
 
 test('真实隐形弩手：刚被阻挡的最新帧不继续滑动，阻挡者离场后恢复移动', () => {
   const h = arena('enemy_1019_jshoot', 9);
-  let prev, pair;
+  // the wall ticks before the enemy (deploySeq): it blocks the enemy before the enemy's move of that step, and the
+  // enemy would shoot in that same step — its attack waits until the pair is found, and the frames are three steps
+  // apart whatever step the block falls on (a frame every step, the pair three back)
+  const frames = [];
+  let pair;
   for (let i = 0; i < 1200 && !pair; i++) {
+    const w = h.b.enemies.find((x) => x.defId === 'enemy_1019_jshoot');
+    if (w && !w.blockedBy) w.atkCd = Math.max(w.atkCd, 1);
     h.step();
-    if (i % 3 !== 2) continue;
     const next = h.b.snapshot(), e = h.enemy('enemy_1019_jshoot');
+    const prev = frames.length >= 3 ? frames[frames.length - 3] : null;
+    frames.push(next);
     const a = prev?.units.find((u) => u[0] === e.id), z = next.units.find((u) => u[0] === e.id);
     if (a && z && (z[7] & UF.BLOCKED) && a[1] !== z[1] && !next.stand?.some((s) => s[0] === e.id)) pair = { A: prev, B: next, e, z };
-    prev = next;
   }
   assert.ok(pair, '移动与首次阻挡发生于同一个快照间隔，且没有后摇元数据');
   const { A, B, e, z } = pair;

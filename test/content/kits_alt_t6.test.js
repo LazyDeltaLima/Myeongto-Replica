@@ -1052,8 +1052,9 @@ test('6_17 耀骑士临光 S2 逐夜烁光: on deploy ATK + and 3 护盾 layers 
   for (const id of both('chess_char_6_17')) {
     const sid = 'skchr_nearl2_2', bb = bbOf(id, sid), dur = rec(id, sid).duration;
     const h = run({
+      // (the enemy comes a moment later: one she blocks hits her in that same step)
       defs: { enemies: { hit: enemyRec({ key: 'hit', hp: 1e7, speed: 0, atk: 500, bat: 1 }) } },
-      units: [U(id, sid, 10, 4)], enemies: [{ key: 'hit', pos: [10, 4] }],
+      units: [U(id, sid, 10, 4)], enemies: [{ key: 'hit', pos: [10, 4], time: 0.1 }],
     });
     const u = h.unit(id);
     usesSkill(u, sid);

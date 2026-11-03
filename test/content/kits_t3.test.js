@@ -729,12 +729,13 @@ test('3_19 伺夜: wolf pack (2 → 3 wolves, block/bites, lose a wolf instead o
   h.run(3);
   const e = h.enemy('enemy_d');
   assert.equal(e.blockedBy, w);
+  // (her first shot and the pack's first bite come before the pack's block search of that step: the last ones)
   const mine = h.hooksOf('damaged').filter((c) => c.source === u && c.target === e && c.dmg?.isAttack);
-  approx(mine[0].amount, u.s.atk * tb.atk_scale - (300 - t1.def_penetrate_fixed), 1e-6, 'trait × and 狼群天性');
+  approx(mine.at(-1).amount, u.s.atk * tb.atk_scale - (300 - t1.def_penetrate_fixed), 1e-6, 'trait × and 狼群天性');
   const bites = h.hooksOf('attack').filter((c) => c.attacker === w).length;
   const wd = h.hooksOf('damaged').filter((c) => c.source === w && c.dmg?.isAttack);
   assert.equal(wd.length, bites * 2, 'one bite per wolf');
-  approx(wd[0].amount, w.s.atk - (300 - t1.def_penetrate_fixed));
+  approx(wd.at(-1).amount, w.s.atk - (300 - t1.def_penetrate_fixed));
   approx(h.b.dealDamage(u, e, { amount: 1000, type: 'phys' }), 1000 - 300, 1e-6, '狼群天性: attacks only (a non-attack hit keeps the full DEF)');
   const p = h.b.getPlayer('p1');
   const dp0 = p.dp;
@@ -1117,7 +1118,8 @@ test('3_19 伺夜: the pack never takes a later board unit’s tile; a 狼群 pi
   h.run(3);
   const e = h.enemy('enemy_d');
   assert.equal(e.blockedBy, piece);
-  const bite = h.hooksOf('damaged').find((c) => c.source === piece && c.dmg?.isAttack);
+  // (its first bite comes before its block search of that step: the last one)
+  const bite = h.hooksOf('damaged').filter((c) => c.source === piece && c.dmg?.isAttack).at(-1);
   approx(bite.amount, piece.s.atk - (300 - t1.def_penetrate_fixed), 1e-6, '狼群天性 applied once');
   fill(u);
   assert.ok(h.runUntil(() => u.skill.active, 5));

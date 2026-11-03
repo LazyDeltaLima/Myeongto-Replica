@@ -884,7 +884,9 @@ test('2_06 莎草: 巧思乍现 next heal heal_scale × ATK; 博览古卷 barrie
 
 test('2_07 幽灵鲨: 肉斩骨断 HP ≥ 1 while active, stun `stun` s afterwards; HP talent; elite regen and ×1.1 vs blocked', () => {
   const id = 'chess_char_2_07_a', bb = bbOf(id), t = tal(id);
-  const h = run({ defs: { enemies: { e: dummy('e', { atk: 3000, bat: 0.5 }) } }, units: [{ chessId: id, row: 9, col: 5, carryState: READY }], enemies: [{ key: 'e', pos: [9, 5] }] });
+  // (the enemy she blocks hits her in that same step — it ticks after her — before the automatic pass casts: a first
+  // hit she survives)
+  const h = run({ defs: { enemies: { e: dummy('e', { atk: 1500, bat: 0.5 }) } }, units: [{ chessId: id, row: 9, col: 5, carryState: READY }], enemies: [{ key: 'e', pos: [9, 5] }] });
   const u = h.unit(id);
   approx(u.s.maxHp, u.base.maxHp * (1 + t.max_hp), 'HP +10 %');
   h.step();
@@ -1108,9 +1110,12 @@ test('2_13 蒂比: an incoming attack triggers 紧急赶场通知 and is dodged;
     units: [{ chessId: id, row: 9, col: 5, carryState: READY }], enemies: [{ key: 'e', pos: [9, 5] }],
   });
   const u = h.unit(id);
+  // (she blocks it in her tick and its hit, later in the same step, lifts her off: watch the block itself)
+  let blocked = null;
+  h.b.on('blocked', ({ blocker, enemy }) => { if (blocker === u) blocked = enemy; });
   h.step();
   const e = h.enemies()[0];
-  assert.equal(e.blockedBy, u, 'ground enemy blocked before takeoff');
+  assert.equal(blocked, e, 'ground enemy blocked before takeoff');
   h.runUntil(() => u.skill.active, 3);
   assert.equal(h.hooksOf('skillStart').find((c) => c.unit === u).reason, 'TAKE_DAMAGE');
   assert.equal(u.stats.taken, 0, 'the triggering hit was dodged');
@@ -1120,7 +1125,7 @@ test('2_13 蒂比: an incoming attack triggers 紧急赶场通知 and is dodged;
   h.step();
   assert.equal(e.blockedBy, null, 'airborne: ground enemies are released');
   const fl = h.spawn('f', { pos: [9, 5] });
-  h.step();
+  h.runUntil(() => fl.blockedBy === u, 0.1);   // her next search (every BLOCK_SEARCH_TICKS)
   assert.equal(fl.blockedBy, u, 'airborne: flyers are blocked');
   h.run(3);
   const atk = h.hooksOf('attack').filter((c) => c.attacker === u && c.isSkill);
@@ -1290,11 +1295,12 @@ test('2_18 灰毫: 炮术研习 ATK +atk (ground surroundings: ashlok_t_1.atk); 
   const inner = h.unit(id), edge = h.unit('chess_char_2_18_b');
   approx(inner.s.atk, inner.base.atk * (1 + t['ashlok_t_1.atk']), 'all four neighbours are ground');
   approx(edge.s.atk, edge.base.atk * (1 + tal('chess_char_2_18_b').atk), 'a high tile next to it');
-  const h2 = run({ defs: { enemies: { e: dummy('e', { atk: 400 }) } }, units: [{ chessId: id, row: 10, col: 5, carryState: READY }], enemies: [{ key: 'e', pos: [10, 5] }] });
+  // (an enemy that never attacks: the one she blocks would hit her in that same step, before the 0.2 s pass)
+  const h2 = run({ defs: { enemies: { e: dummy('e', { atk: 400, dmgType: 'none' }) } }, units: [{ chessId: id, row: 10, col: 5, carryState: READY }], enemies: [{ key: 'e', pos: [10, 5] }] });
   const u = h2.unit(id);
   h2.runUntil(() => u.skill.active, 5);
-  // the 重装 row TAKE_DAMAGE (maintainer decision 2026-10-28): no hit needed — she casts before the enemy she holds has
-  // hit her (a target of her attack at the 0.2 s pass)
+  // the 重装 row TAKE_DAMAGE (maintainer decision 2026-10-28): no hit needed — she casts with the enemy she holds as a
+  // target of her attack at the 0.2 s pass
   assert.equal(u.skill.rule, 'TAKE_DAMAGE');
   assert.equal(h2.hooksOf('skillStart').find((c) => c.unit === u).reason, 'TAKE_DAMAGE');
   assert.ok(!h2.hooksOf('damaged').some((c) => c.target === u), 'not hit before the cast');

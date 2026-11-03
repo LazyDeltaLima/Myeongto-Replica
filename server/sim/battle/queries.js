@@ -45,9 +45,12 @@ export class BattleQueries {
 
   /** File enemy `e` in the tile buckets where it stands now (none when it is down or hidden). */
   _indexEnemy(e) {
+    const on = e.alive && !e.hidden;
+    if (e._ixT !== null && on === (e._ixT.length > 0 || e._ixB.length > 0) && e.x === e._ixX && e.y === e._ixY && !e.hitArea) return;
+    e._ixX = e.x; e._ixY = e.y;
     const tk = this._ixTs, bk = this._ixBs;   // scratch: the tiles it is on now
     tk.length = 0; bk.length = 0;
-    if (e.alive && !e.hidden) {
+    if (on) {
       if (e.hitArea) {
         for (const k of bodyKeys(e)) { tk.push(k); bk.push(k); }
       } else {

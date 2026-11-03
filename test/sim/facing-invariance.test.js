@@ -29,8 +29,10 @@ const HELP = [[1, 1], [0, -1], [-1, 0]];
 const helpers = Object.fromEntries(HELP.map((_, i) => [`t_help${i}`, chessRec({ id: `t_help${i}`, profession: 'SNIPER', rangeGrid: [[0, 0]], skill: null, stats: { maxHp: 4000 + 500 * i, atk: 0, blockCnt: 0 } })]));
 // 凯瑟琳 hands out her devices front-most operator first by board column — a board position (DESIGN), not a facing;
 // 缪尔赛思's 流形 copies the board operator of the lowest client priority by board row / column from its tile
-// (content/tokens.js manifoldCopyTarget, `_GetMlyssTokenToGridPosPriority`)
-const BOARD_POSITION_RULES = new Set(['chess_char_4_11_a', 'chess_char_4_11_b', 'chess_char_6_11_a', 'chess_char_6_11_b']);
+// (content/tokens.js manifoldCopyTarget, `_GetMlyssTokenToGridPosPriority`); the units tick in deploySeq order, which is
+// the board's deployment order (battle/lifecycle.js _tickUnits): 纯烬艾雅法拉's heals race her helpers' own ticks, so
+// turning the field reorders them
+const BOARD_POSITION_RULES = new Set(['chess_char_4_11_a', 'chess_char_4_11_b', 'chess_char_6_11_a', 'chess_char_6_11_b', 'chess_char_6_20_a']);
 const walkRoute = (pos) => ({ motion: 'WALK', start: pos, checkpoints: [{ type: 'WAIT', time: 1e4 }], end: pos });
 
 function scenario(chessId, dir, secs) {

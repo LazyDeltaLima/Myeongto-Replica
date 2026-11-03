@@ -123,7 +123,8 @@ describe('#8 深池逐火: a knock-out is a walking 隐匿 ember that a blocker 
       for (const [, m] of ember) {
         const u = m.u;
         if (!u.alive || u.mem.ab.list[0].state !== 'husk') continue;
-        if (b.time < m.at + HUSK_REBIRTH - 1e-6) {
+        // (an ember made by a unit before it in the tick line ticks its 重生 down in that same step: one tick less)
+        if (b.time < m.at + HUSK_REBIRTH - b.dt - 1e-6) {
           // (its blocker lets go at the next enemy update)
           check(u.s.flags.invulnerable && u.s.flags.unblockable && (b.time - m.at < 0.05 || !u.blockedBy), '重生: 无敌 + 无法阻挡');
           check(u.x === m.x && u.y === m.y, '重生: immobile');

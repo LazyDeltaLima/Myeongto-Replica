@@ -248,7 +248,9 @@ test('2_06 莎草 S2 临考发挥: "无法可选单位时无法开启技能" —
 test('2_07 幽灵鲨 S1 攻击力强化·γ型: ATK +atk; no undying and no self-stun (肉斩骨断 only)', () => {
   for (const id of both('chess_char_2_07')) {
     const bb = bbAlt(id);
-    const h = run({ defs: { enemies: { e: dummy('e', { atk: 4000, bat: 0.5 }) } }, units: [U(id, 9, 5, { carryState: READY })], enemies: [{ key: 'e', pos: [9, 5] }] });
+    // (the enemy she blocks hits her in that same step — it ticks after her — before the automatic pass casts: a first
+    // hit she survives)
+    const h = run({ defs: { enemies: { e: dummy('e', { atk: 1500, bat: 0.5 }) } }, units: [U(id, 9, 5, { carryState: READY })], enemies: [{ key: 'e', pos: [9, 5] }] });
     const u = h.unit(id);
     usesAlt(u, id);
     h.step();

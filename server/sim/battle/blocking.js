@@ -62,10 +62,9 @@ export function blockOffset(held, e, bx, by) {
 export class BattleBlocking {
   /**
    * Ally / device `u`'s search for enemies to block — the blocker's side of the contact rule, as the official client does
-   * it (Character.OnTick → `m_findBlockeeTicker.Tick()` → _SearchBlockee). Every blocker searches after the enemies moved
-   * and before any ally acts (battle/lifecycle.js, the `blockSearch` phase) [추정·미조사: the client's search follows
-   * Unit.OnTick inside Character.OnTick; whether the attacks run there is not read], when its ticker is due
-   * (_blockSearchDue): it takes the enemies in contact that it may block, nearest first, while its capacity lasts. Contact (constants.js BLOCK_RADIUS, PRTS 游戏数据基础 §阻挡半径; Character
+   * it (Character.OnTick → `m_findBlockeeTicker.Tick()` → _SearchBlockee). Every blocker searches in its own tick, after
+   * its attack and its buffs and before its skill (battle/lifecycle.js _tickUnits: Unit.OnTick, then the search, then
+   * BasicSkill.Tick), when its ticker is due (_blockSearchDue): it takes the enemies in contact that it may block, nearest first, while its capacity lasts. Contact (constants.js BLOCK_RADIUS, PRTS 游戏数据基础 §阻挡半径; Character
    * .CheckInBlockRange): the enemy's position within the blocker's block radius of the blocker's centre (ground 0.7071 —
    * the tile's circumscribed circle, reaching 0.21 tile into the side neighbours; air 0.8944; devices 0.4472). The air
    * radius grows with the blocker's 阻挡半径倍率 (PRTS 游戏数据基础 "飞行阻挡半径 = 0.8944 × 阻挡半径倍率"; mod
@@ -78,7 +77,7 @@ export class BattleBlocking {
    * numbers from one counter as each unit is taken from the pool). Two blockers in reach of one enemy: the first to
    * search takes it — the units tick in `instanceUid` order (ObjectManager.OnFixedUpdate over BObject.CompareTo: every
    * battle unit has the base `priority`), so of two blockers searching in one tick the one deployed first goes first
-   * (battle/lifecycle.js sorts the ready ones by `deploySeq`; a redeployment or 【移动】 is a new unit, numbered anew).
+   * (battle/lifecycle.js _tickUnits: the units by `deploySeq`; a redeployment or 【移动】 is a new unit, numbered anew).
    * Every enemy that has no blocker is a candidate, moving or not, so an enemy overlapping an operator is taken over as
    * soon as its blocker is gone or the operator's capacity frees up (user playtest #5 item 4) — a stunned or frozen one
    * too, an operator redeployed onto it included (晕眩 / 冻结 hold no 不可阻挡: ai.js updateEnemy, GitHub #232).

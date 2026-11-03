@@ -1113,7 +1113,8 @@ test('3_19 伺夜 精锐 module TAC-Y: ×165 % on pack-blocked enemies; "援军�
     assert.equal(v.trait.reinforcement, piece);
     assert.equal(eh.blockedBy, piece);
     assert.ok(g.b.remainingDistance(eo) < g.b.remainingDistance(eh), 'the other enemy is nearer to the goal');
-    const shots = g.hooksOf('attack').filter((c) => c.attacker === v);
+    // (her first shot comes before the pack's block search of that step: the ones after it)
+    const shots = g.hooksOf('attack').filter((c) => c.attacker === v).slice(1);
     assert.ok(shots.length >= 2);
     const want = m ? eh : eo;
     assert.ok(shots.every((c) => c.targets[0] === want), `${m ?? 'TAC-X'}: 伺夜 shoots ${want.defId}`);

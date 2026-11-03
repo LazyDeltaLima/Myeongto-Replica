@@ -91,9 +91,14 @@ the players' fields deploy side by side: the i-th operators of all players come 
 the summons the same way, and the summons rank after the operators of all players **[ASSUMED]** (PRTS describes one
 field — units deploy one after another with a fixed delay from the battle start — and "两处阵地将前后拼接为一处阵地"). Register hooks before the first step (e.g. `opts.setup(battle)` or right after `new Battle`).
 
-**Tick order:** scheduled callbacks → spawns → DP → buffs (+HP regen) → enemies (attack, move, block) →
-enemy tile index → allies (skill tick, attack) → projectiles → auto-redeploys → boss pool sync → `tick` hook →
-release hooks/timers of units removed this tick (§1.4) → `time += TICK` → end checks.
+**Tick order:** scheduled callbacks → spawns → DP → units → auto-trigger pass → projectiles → auto-redeploys →
+boss pool sync → `tick` hook → release hooks/timers of units removed this tick (§1.4) → `time += TICK` → end checks.
+The units phase is the official client's object tick (`BattleController.OnTick`: the tweens, then
+`ObjectManager.OnFixedUpdate`): first every enemy's block slide, then every unit alive as the pass starts — enemies,
+operators, summons, devices — in one line by `deploySeq` (the client's `instanceUid` order), each doing its own tick: an
+enemy attacks or moves, then its buffs (+HP regen) tick; an ally attacks, then its buffs tick, it searches for enemies
+to block when due, then its skill ticks (SP, duration, automatic casts). A unit made during the pass ticks from the next
+step; the enemy tile index follows each enemy after its own tick.
 
 **Knocked-out operators** (PRTS 卫戍协议/帮助 §作战阶段 单位部署; player report F5 after 0.1.0): "干员退场后…原地留下一个
 “倒地干员”…满足再部署条件时，移除场上的该倒地干员并自动部署至该位置" — an operator knocked out (`isDown`) lies on the tile it
@@ -280,7 +285,7 @@ blocked again only by a blocker with room, else it walks on — DESIGN §24.9). 
 `Character._SearchBlockee`): every 3 ticks from its deployment (`BLOCK_SEARCH_TICKS`, `Character.FIND_BLOCKEE_TICK`)
 each blocker with room takes the unblocked enemies in reach, nearest first (squared distance in 0.01 steps,
 `BLOCK_WEIGHT_GAP`; equal steps by field order [ASSUMED·미조사]), each if its block weight still fits; of two blockers in
-reach the first to search takes it (the allies' tick order [ASSUMED·미조사]). Every unblocked enemy is a candidate, moving
+reach the first to search takes it (the units' tick order: the one deployed first). Every unblocked enemy is a candidate, moving
 or not: an enemy that overlaps an operator when its blocker dies / is withdrawn / is stunned, or when the operator's
 blocked enemy dies, is taken over at that operator's next search; an enemy that finds no room walks on
 (pass-through). A stunned or frozen enemy is a candidate too — 晕眩 / 冻结 hold no 不可阻挡 (PRTS 异常效果: the STUN / FROZEN state machines stop its moves and

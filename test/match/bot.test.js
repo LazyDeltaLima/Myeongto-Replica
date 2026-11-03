@@ -556,9 +556,9 @@ test('user: Given normal battle-start effects, When rehearsing candidate layouts
   };
   const cases = [
     // (upstream used 9,4 → 9,8 and 9,9 → 9,7; this fork's rules give other counts, so each pair starts from 12,6, which
-    // leaks six since 灰毫's blocked blow has no blast, against 9,7's one and 9,5's four)
+    // leaks five since 灰毫's blocked blow has no blast and the units tick in one line, against 9,7's one and 9,8's four)
     { effect: 'in-battle layer gains', keys: ['12,6', '9,7'] },
-    { effect: 'duck replacements and a teammate medic', keys: ['12,6', '9,5'] },
+    { effect: 'duck replacements and a teammate medic', keys: ['12,6', '9,8'] },
   ];
   for (const { effect, keys } of cases) {
     await t.test(`user: Given ${effect}, When comparing two layouts, Then prefer the second layout's lower leak count`, () => {

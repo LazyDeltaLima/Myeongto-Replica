@@ -83,8 +83,11 @@ test('pathing: enemies walk around crates and re-path when a crate is destroyed'
   assert.ok(crate && crate.obstacle, 'crate spawned from stage devices');
   assert.ok(h.b.grid.isObstacle(9, 6));
   const e = h.enemy('enemy_walker');
-  h.runUntil(() => e.blockedBy === crate, 20);
-  assert.equal(e.blockedBy, crate, 'no way around: blocked by the crate');
+  // the crate ticks before the enemy (deploySeq), so the enemy it takes may break it within the same step
+  let blocked = false;
+  h.b.on('blocked', ({ blocker, enemy }) => { if (blocker === crate && enemy === e) blocked = true; });
+  h.runUntil(() => blocked, 20);
+  assert.ok(blocked, 'no way around: blocked by the crate');
   h.runUntil(() => !crate.alive, 10);
   assert.equal(crate.alive, false, 'enemy destroyed the crate');
   assert.equal(h.b.grid.isObstacle(9, 6), false);

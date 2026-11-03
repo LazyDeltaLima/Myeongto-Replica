@@ -6,6 +6,8 @@
 import { BLOCK_SKILL_TICK, FORCED_EXIT, MAX_BATTLE_TIME } from '../constants.js';
 import { updateAlly, updateEnemy } from '../ai.js';
 
+const byDeploySeq = (a, b) => a.deploySeq - b.deploySeq;
+
 export class BattleLifecycle {
   start() {
     if (this.started) return;
@@ -107,48 +109,9 @@ export class BattleLifecycle {
       this._phase('dp', () => {
         for (const ps of this.players) ps.dp = Math.min(this.flags.dpMax, ps.dp + this.flags.dpPerSec * dt);
       });
-      this._phase('buffs', () => this._tickBuffs(dt));
-      this._phase('enemies', () => {
-        // enemies spawned by hooks during this loop start moving next tick (a leak hook that spawns an enemy which
-        // leaks at once would otherwise loop forever inside a single tick)
-        const list = this.enemies;
-        for (let i = 0, n = list.length; i < n && !this._endReq; i++) {
-          const e = list[i];
-          if (!e.alive) continue;
-          if (e.blockMove) this._tickBlockMove(e, dt);
-          try { updateEnemy(this, e, dt); } catch (err) { this._internalError('updateEnemy', err); }
-          this._clampPos(e);
-        }
-      });
+      this._phase('units', () => this._tickUnits(dt));
       this._compactEnemies();
-      this._phase('enemyIndex', () => this._buildEnemyIndex());
-      // the blockers' searches for enemies to block, before any ally acts (battle/blocking.js _searchBlockees): those due
-      // this tick in the order they were deployed, as the client ticks its units in instanceUid order
-      this._phase('blockSearch', () => {
-        const list = this.allyUnits, due = this._dueBlockers;
-        due.length = 0;
-        for (let i = 0; i < list.length; i++) {
-          const u = list[i];
-          if (u.alive && u.deployed && this._blockSearchDue(u)) due.push(u);
-        }
-        if (due.length > 1) due.sort((a, b) => a.deploySeq - b.deploySeq);
-        for (let i = 0; i < due.length && !this._endReq; i++) {
-          try { this._searchBlockees(due[i]); } catch (err) { this._internalError('searchBlockees', err); }
-        }
-        due.length = 0;
-      });
-      this._phase('allies', () => {
-        const list = this.allyUnits;
-        for (let i = 0; i < list.length && !this._endReq; i++) {
-          const u = list[i];
-          if (!u.alive || !u.deployed) continue;
-          try {
-            if (u.skill) u.skill.tick(dt);
-            if (u.alive && u.kind !== 'device') updateAlly(this, u, dt);
-          } catch (err) { this._internalError('updateAlly', err); }
-        }
-      });
-      // the automatic skill operations, one pass every AUTO_TRIGGER_INTERVAL s after the allies' own tick (skills.js
+      // the automatic skill operations, one pass every AUTO_TRIGGER_INTERVAL s after the units' own ticks (skills.js
       // autoTrigger; a cast there acts from the next tick, as a tick-rule cast did)
       if (this.tickCount % this._autoTriggerTicks === 0) this._phase('autoTrigger', () => this._autoTriggerPass());
       this._phase('projectiles', () => this.projectiles.update(dt));
@@ -167,6 +130,84 @@ export class BattleLifecycle {
     }
     if (this._endReq && !this.finished) {
       try { this.forceEnd(this._endReq); } catch (e) { this._handlerError('internal:forceEnd', null, e); this._hardFinish(this._endReq); }
+    }
+  }
+
+  /**
+   * The units' own ticks (the client's BattleController.OnTick: BattleTweenMgr.Tick, then ObjectManager.OnFixedUpdate).
+   * First every enemy's block slide (_tickBlockMove: the tweens run before any object), then every living unit — enemies,
+   * operators, summons and devices alike — in one line by `deploySeq`, the order they came onto the field: the client
+   * ticks its objects by `instanceUid` (BObject.CompareTo: `priority` first, which no battle object changes), numbered
+   * from one counter as each is taken from the pool (BObject.OnAllocate) — a redeployment or 【移动】 is a new one. The
+   * line is the units alive as the pass starts (the client copies the `validAndBorned` objects into `m_cachedList`
+   * first): one made, spawned or redeployed during the pass ticks from the next step, one that went down before its turn
+   * is passed over.
+   * An enemy (Enemy.OnTick → Entity.OnTick: its state machine — attack, move —, then BuffContainer.Tick and the HP
+   * recovery): updateEnemy, then its buffs. An ally (Character.OnTick: Unit.OnTick, then `_SearchBlockee`, then
+   * BasicSkill.Tick — the SP recovery and the skill's own tick): updateAlly (a device has no attack), its buffs, its
+   * search for enemies to block when due (battle/blocking.js), then its skill (skills.js tick: SP, the duration [추정·미조사:
+   * where the client counts a skill's duration down is not read], the automatic casts).
+   * The enemy tile index (queries.js _indexEnemy) is filed anew as the pass starts and refiles each enemy after its own
+   * tick, so a unit sees the enemies before it in the line where they went this step and those after it where they
+   * stood [추정·엔진: the client's physics queries read the colliders where they are; an enemy pushed, pulled or moved by
+   * another unit's tick is refiled at its own turn or the next step].
+   */
+  _tickUnits(dt) {
+    const enemies = this.enemies;
+    for (let i = 0, n = enemies.length; i < n; i++) {   // the slides, then each enemy filed where it stands
+      const e = enemies[i];
+      if (e.alive && e.blockMove) this._tickBlockMove(e, dt);
+      this._indexEnemy(e);
+    }
+    // the line: the deployed allies by deploySeq merged with the enemies (already in that order: spawns.js); `kinds`
+    // keeps which list each came from (the loop then reads one unit shape per branch)
+    const allies = this._lineAllies, line = this._line, seqs = this._lineSeq, kinds = this._lineKind;
+    allies.length = 0; line.length = 0; seqs.length = 0; kinds.length = 0;
+    for (const u of this.allyUnits) if (u.alive && u.deployed) allies.push(u);
+    if (allies.length > 1) allies.sort(byDeploySeq);
+    let ai = 0, ei = 0;
+    const na = allies.length, ne = enemies.length;
+    while (ai < na || ei < ne) {
+      if (ei < ne && !enemies[ei].alive) { ei++; continue; }
+      if (ei < ne && (ai >= na || enemies[ei].deploySeq < allies[ai].deploySeq)) {
+        const e = enemies[ei++];
+        line.push(e); seqs.push(e.deploySeq); kinds.push(0);
+      } else {
+        const u = allies[ai++];
+        line.push(u); seqs.push(u.deploySeq); kinds.push(1);
+      }
+    }
+    for (let i = 0, n = line.length; i < n && !this._endReq; i++) {
+      if (kinds[i] === 0) this._tickEnemy(line[i], dt);
+      else this._tickAlly(line[i], seqs[i], dt);
+    }
+    line.length = 0; seqs.length = 0; kinds.length = 0; allies.length = 0;
+  }
+
+  /** Enemy `e`'s own tick in the line (_tickUnits): its attack / move, then its buffs. */
+  _tickEnemy(e, dt) {
+    if (!e.alive) return;
+    try { updateEnemy(this, e, dt); } catch (err) { this._internalError('updateEnemy', err); }
+    this._clampPos(e);
+    this._indexEnemy(e);
+    if (e.alive) this._tickUnitBuffs(e, dt);
+  }
+
+  /**
+   * Ally `u`'s own tick in the line (_tickUnits): its attack, its buffs, its block search when due, its skill. `seq`: its
+   * deploySeq as the pass started (a unit redeployed since is a new one: it waits for the next step).
+   */
+  _tickAlly(u, seq, dt) {
+    if (!u.alive || !u.deployed || u.deploySeq !== seq) return;
+    if (u.kind !== 'device') {
+      try { updateAlly(this, u, dt); } catch (err) { this._internalError('updateAlly', err); }
+    }
+    if (u.alive) this._tickUnitBuffs(u, dt);
+    if (u.alive && u.deployed && this._blockSearchDue(u)) {
+      try { this._searchBlockees(u); } catch (err) { this._internalError('searchBlockees', err); }
+    }
+    if (u.alive && u.deployed && u.skill) {
+      try { u.skill.tick(dt); } catch (err) { this._internalError('updateAlly', err); }
     }
   }
 

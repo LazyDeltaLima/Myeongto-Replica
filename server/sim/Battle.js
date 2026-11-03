@@ -16,8 +16,9 @@
 // on its `body` tile — where it fell, or its own home when it fell on another board piece's home — and redeploys there;
 // no ally deploys or moves onto that tile meanwhile (PRTS 卫戍协议/帮助 §作战阶段 单位部署; `isDown`, `_layBody`, `downOn`,
 // `restTile`, `isReservedTile`; docs/SIM.md §1).
-// Tick order: scheduled callbacks → spawns → DP → buffs → enemies (attack, move, block) → enemy index →
-//   allies (skill tick, attack) → projectiles → redeploys → boss sync → `tick` hook → release hooks of removed units →
+// Tick order: scheduled callbacks → spawns → DP → units (block slides, then every enemy and ally in one line by
+//   deploySeq: an enemy attacks / moves, then its buffs; an ally attacks, then its buffs, block search and skill tick) →
+//   auto-trigger pass → projectiles → redeploys → boss sync → `tick` hook → release hooks of removed units →
 //   time += TICK → end checks. A forceEnd() requested mid-step ends the step after the current phase (docs/SIM.md §1.4).
 // Board → field coordinates: units are given in board coordinates (rows 9–12, cols 2–10). Normal/unite:
 //   (row, col + colOffset). Boss/hidden: row − 7 when row ≥ 7 (board rows → boss rows 2–5); side 'R' mirrors
@@ -167,7 +168,10 @@ export class Battle {
     this._castAbility = null;   // { id, ability } while an enemy skill is cast (content/enemies.js onTick; battle/events.js fx)
     this._deploySeq = 0;
     this._spawnSeq = 0;
-    this._dueBlockers = [];   // the blockSearch phase's scratch list (battle/lifecycle.js)
+    this._line = [];   // battle/lifecycle.js _tickUnits: the units in tick order, their deploySeq then, which list, the allies sorted
+    this._lineSeq = [];
+    this._lineKind = [];
+    this._lineAllies = [];
     this._enemiesDirty = false;
     this.killed = 0;
     this.total = 0;

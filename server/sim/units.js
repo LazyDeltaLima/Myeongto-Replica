@@ -76,6 +76,8 @@ export class Unit {
     this._ebMulti = false;
     this._ixT = null;
     this._ixB = null;
+    this._ixX = 0;   // the position it was filed at
+    this._ixY = 0;
     this.motion = init.motion ?? 'GROUND'; // enemies: 'WALK' | 'FLY'
     this.profile = null;        // resolved profession/attack profile
     this.skill = null;          // SkillRuntime

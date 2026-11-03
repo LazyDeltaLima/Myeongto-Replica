@@ -180,7 +180,10 @@ test('crates in battle: detour when one exists; otherwise the enemy walks into t
   const crate = h2.b.allyUnits.find((u) => u.kind === 'device');
   assert.ok(crate && h2.b.grid.isCrate(9, 6));
   const e = h2.enemy('enemy_walker');
-  assert.ok(h2.runUntil(() => e.blockedBy === crate, 20), 'blocked by the crate');
+  // the crate ticks before the enemy (deploySeq): the enemy it takes may break it within the same step
+  let blocked = false;
+  h2.b.on('blocked', ({ blocker, enemy }) => { if (blocker === crate && enemy === e) blocked = true; });
+  assert.ok(h2.runUntil(() => blocked, 20), 'blocked by the crate');
   assert.ok(h2.runUntil(() => !crate.alive, 10), 'breaks it');
   assert.equal(h2.b.grid.isObstacle(9, 6), false);
   h2.runUntil(() => !e.alive, 30);

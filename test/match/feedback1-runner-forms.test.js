@@ -159,7 +159,7 @@ test('a hidden tab across the change: nothing rendered meanwhile, the first fram
   const spawnMsg = r.feed.evs.find((m) => m.ev.some((x) => x[0] === 'spawn' && x[1].id === tr.id));
   const formMsg = r.feed.evs.find((m) => formsOf(m.ev, tr.id).length);
   const frameGt = r.feed.evs[r.feed.evs.length - 1].gt;
-  assert.ok(spawnMsg.gt < formMsg.gt && formMsg.gt < frameGt - 1.5, `stamps: spawn ${spawnMsg.gt}, form ${formMsg.gt}, frame ${frameGt}`);
+  assert.ok(spawnMsg.gt < formMsg.gt && formMsg.gt <= frameGt - 1.5 + 1e-9, `stamps: spawn ${spawnMsg.gt}, form ${formMsg.gt}, frame ${frameGt}`);
   assert.ok(r.feed.evs.every((m, i) => i === 0 || m.gt >= r.feed.evs[i - 1].gt), 'in game-time order');
   assert.equal(e.held.length, 0);
   assert.equal(r.feed.fields.length, 1, 'no re-entry needed');

@@ -851,7 +851,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
 출처: 공식 클라(EN 판) `Character.OnTick` → `m_findBlockeeTicker.Tick()` → `Character._SearchBlockee` → `FilterUtil.FilterWithVolume`(`Character._CheckBlockable`, `WeightedTarget.CompareTo`, `PriorityQueue.Add`) → `_AddBlockee`.
 코드 `server/sim/battle/blocking.js` `_searchBlockees`·`_addBlockee`(아군 틱 `battle/lifecycle.js`), 상수 `constants.js` `BLOCK_SEARCH_TICKS`·`BLOCK_WEIGHT_GAP`.
 - **찾는 쪽은 저지자**: 적이 저지자를 고르지 않고, 저지자가 자기 원 안의 적을 찾는다. `Character.OnTick`이 자기 차례(`Unit.OnTick` 뒤)에 티커를 한 칸 돌리고
-  `_SearchBlockee`를 부른다 — 우리는 아군 틱에서 그 아군의 차례 끝(`updateAlly` 뒤).
+  `_SearchBlockee`를 부른다 — 우리도 그 아군의 차례에서 공격·버프 뒤, 스킬 틱 앞(아래 「유닛 틱 차례」).
 - **주기**: `Character.FIND_BLOCKEE_TICK` 3 — 생성자가 `PeriodicTicker(3, false)`를 만들어 처음 틱에 바로 찾고, 그 뒤 3틱마다(우리 틱 1/30초라 0.1초).
   배치마다 처음부터: 유닛은 풀에서 꺼낼 때 `BObject.OnAllocate` → `Character.OnReset` → 티커 `Reset(false)`(다음 틱에 바로 찾음). 재배치도, 【이동】도
   새 유닛이다(울피아누스 S3의 이동은 `ulpia_s3_switch_mode[born]`의 `ON_OWNER_BORN`이 다시 오고 진행을 공유 블랙보드 `ulpia_respawn`으로 넘김) — 우리
@@ -862,7 +862,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   `BObject.OnAllocate`가 전역 카운터로 매김(아군·적·투사체 한 줄) — 우리 `deploySeq`(같은 카운터로 적·아군에 매김).
 - **저지자 둘이 한 적에 닿을 때**: 먼저 찾은 저지자가 막는다(가까운 쪽이 아님). 탐색 위상은 저지자마다 배치 시각에 따르고, 같은 틱이면 **먼저 배치된 쪽**:
   유닛은 `ObjectManager.OnFixedUpdate`가 `BObject.CompareTo` 차례로 틱한다 — `priority` 큰 것 먼저, 같으면 `instanceUid` 작은 것 먼저이고, 전투 유닛은 아무도
-  `priority`를 재정의하지 않는다. 우리는 그 틱에 찾을 차례인 저지자를 `deploySeq` 순으로(`lifecycle.js` `blockSearch`, `_blockSearchDue`). 재배치하면 번호가 새로라 뒤로 간다.
+  `priority`를 재정의하지 않는다. 우리도 모든 유닛을 `deploySeq` 한 줄로 틱한다(`lifecycle.js` `_tickUnits`, 아래 「유닛 틱 차례」). 재배치하면 번호가 새로라 뒤로 간다.
 - **저지자가 기절·不可阻挡이면** 그 틱에 막은 적을 모두 풂(`OnTick` → `_ClearAllBlockees`) — 우리는 적 쪽에서 `noBlock`·`sleep`을 보고 품(전과 같음).
 - **즉시 탐색**(`Character.SearchBlockeeImmediate` = 살아 있으면 `_SearchBlockee(true)`: 티커를 기다리지 않고, 마침 차례였으면 티커를 새로 돌림) — 우리
   `searchBlockeeImmediate`(틱 전의 칸 색인이 낡아 필드의 적 전부를 훑음). 부르는 곳:
@@ -888,6 +888,27 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   0.5 밀림 뒤 「余 S2로 끌려온 卢西恩이 余에게 막혀 영영 못 뜀」으로 드러남(`feedback2-whitw2-yu` 실제 보스 판).
 - 테스트 `test/sim/block-search.test.js`(3틱 주기, 가까운 적 먼저, 무거운 적 건너뜀, 같은 단위면 필드 차례, 즉시 탐색), `playtest5_blocking`의 「먼저 찾은 저지자」(재배치로 위상을
   어긋나게)·「같은 틱이면 먼저 배치된 쪽」, `op_phatm2`의 牢笼 저지 원·끌어당김·갱신, 다음 탐색을 기다리게 바꾼 시험들(`block-position`·`playtest5_blocking`·`feedback5-frozen-reblock`·`feedback4-sleep-unblock`).
+
+## 유닛 틱 차례 (2026-11-03, 공식 클라에서 확인, 관리자 결정 2026-11-03 「공식대로 바꿈」)
+출처: 공식 클라(EN 판) `BattleController.OnTick`(맨 앞 `BattleTweenMgr.Tick`, 그 뒤 `ObjectManager.OnFixedUpdate`), `ObjectManager.OnFixedUpdate`·`Register`, `BObject.CompareTo`·
+`get_validAndBorned`·`OnAllocate`, `Entity.OnTick`, `Unit.OnTick`, `Character.OnTick`, `BasicSkill.Tick`·`OnTick`, `Buff.BuffContainer.Tick`(목록은 `DoubleBufferedList`, `isInLoop`).
+코드 `server/sim/battle/lifecycle.js` `_tickUnits`, `battle/status.js` `_tickUnitBuffs`, `battle/queries.js` `_indexEnemy`.
+- **한 줄**: 전투 객체는 모두(적·오퍼레이터·소환물·장치, 투사체도 `BObject`) `ObjectManager`의 한 줄에서 `BObject.CompareTo` 차례로 각자 틱한다 — `priority`(전투 객체는 아무도
+  바꾸지 않음) 다음 `instanceUid` 작은 것 먼저. 번호는 풀에서 꺼낼 때(`BObject.OnAllocate`) 하나의 카운터로 — 재배치·【이동】은 새 번호. 우리 `deploySeq`(같은 카운터로 적·아군에 매김).
+  틱을 시작할 때 `validAndBorned`(태어났고 번호가 있음)인 것만 `m_cachedList`에 옮겨 그 차례로 돈다 → 그 틱 안에 생긴 것(배치·출현·소환)은 다음 틱부터, 차례 전에 쓰러진 것은 건너뜀.
+- **트윈 먼저**: 저지 자리 미끄러짐(「저지된 적의 자리」의 0.2초 트윈)은 어느 객체보다 먼저 — 우리는 줄을 돌기 전에 모든 적의 `_tickBlockMove`.
+- **적의 틱**(`Enemy.OnTick` → `Unit.OnTick` → `Entity.OnTick`): 상태 기계(이동·공격) → `BuffContainer.Tick` → HP 회복 → SP → 능력들. 우리 `updateEnemy` → `_tickUnitBuffs`(버프, HP 회복).
+- **아군의 틱**(`Character.OnTick`): `Unit.OnTick`(위와 같이 공격 → 버프 → HP 회복) → 저지 불가·기절이면 막던 적을 풂 → 저지 탐색(「누가 막나」) → `BasicSkill.Tick`
+  (`OnTick`: SP 회복 `UpdateSpRecovery`, 스킬 끝 기다림·침묵·과부하; 그 뒤 스킬 동작들). 우리 `updateAlly`(장치는 공격 없음) → `_tickUnitBuffs` → `_searchBlockees` → `skill.tick`
+  (SP, 지속시간, 자동 시전). **[추정·미조사: 스킬 지속시간을 클라가 어디서 세는지 안 읽음 — `skill.tick`에 둠]**
+- **버프**: 주인의 틱 안에서. 목록을 도는 동안 붙은 버프만 다음 틱부터 돌고(`DoubleBufferedList`의 `isInLoop`), 앞 차례 유닛이 붙인 버프는 주인 차례인 그 틱에 바로 한 번 준다.
+- **칸 색인**: 줄을 돌기 전에 모든 적을 지금 자리에 두고, 적마다 자기 틱 뒤에 다시 둔다 → 앞 차례 적은 이번 틱에 간 자리, 뒤 차례 적은 서 있던 자리로 보인다
+  **[추정·엔진: 클라의 물리 질의는 충돌체의 지금 자리를 본다고 둠; 다른 유닛이 밀거나 당긴 적은 자기 차례나 다음 틱에 다시 둠]**.
+- 그대로 둔 것: `battle.after` 타이머·출현·DP는 줄 앞, 자동 발동(`AutoChessBattleTrigger`, 코루틴)·재배치는 줄 뒤.
+- 바뀐 것: 전에는 단계로 — 버프(전원) → 적(전원) → 칸 색인 → 저지 탐색 → 아군(전원, 스킬 틱 → 공격). 보이는 차이: 배치 차례(보드 위치, 「작전 시작 차례 배치」)가 틱 차례라서
+  보드를 돌리면 같은 틱의 경쟁 차례가 바뀐다(에이야퍄들라 더 크비트 아스카 `char_1016_agoat2`의 치료가 도우미들 틱과 겨룸 — `facing-invariance` 예외); 아군의 첫 휘두름은 첫 저지
+  탐색보다 먼저; 앞 차례 저지자가 막은 적은 그 틱 자기 차례에 바로 공격(상자를 막힌 그 틱에 부숨); 다른 유닛 차례에 생긴 버프는 그 틱에 한 번 줄어듦. golden 이동은 커밋 메시지.
+- 테스트 `test/sim/tick-order.test.js`, 고친 시험 `battle`·`pathing`(상자: `blocked` 이벤트로 봄)·`attack-timing`(둘째 휘두름)·`feedback1-transform`(重生 한 틱)·`facing-invariance`.
 
 ## 盟约·특질·장비·생성기 2라운드 (2026-10-11, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 그래프와 공식 클라(EN 판; 레포에는 클래스·메서드 이름만). 핫픽스(DefinedFix.lua en/zh)에 아래 클래스 없음.

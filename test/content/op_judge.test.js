@@ -202,7 +202,8 @@ test('S1 一锤定音 (AUTO, data DEFAULT): the next attack adds 160 % / 180 % A
     assert.equal(u.skill.charges, 1);
     const e = h.spawn('enemy_dummy', { pos: [u.tileR, u.tileC + 1] });
     assert.ok(h.runUntil(() => u.skill.activations === 1, 3), `T${tier}: cast at her attack`);
-    assert.deepEqual([u.skill.charges, u.skill.sp], [0, 0], `T${tier}: all SP spent`);
+    // (her skill ticks after her attack: one tick of SP comes back in that step)
+    assert.ok(u.skill.charges === 0 && u.skill.sp <= u.s.spRecovery * h.b.dt + 1e-9, `T${tier}: all SP spent (${u.skill.sp})`);
     const hits = () => h.hooksOf('damaged').filter((c) => c.source === u && c.target === e);
     const gavelOf = () => hits().filter((c) => (c.dmg?.tags ?? []).includes('judge:gavel'));
     assert.ok(h.runUntil(() => gavelOf().length > 0, 2), `T${tier}: the strike lands (her clip's OnAttack)`);
@@ -224,7 +225,8 @@ test('S1 一锤定音 (AUTO, data DEFAULT): the next attack adds 160 % / 180 % A
     const e2 = h.spawn('enemy_dummy', { pos: [u.tileR, u.tileC + 1] });
     probe = { u, e: e2, done: false };
     assert.ok(h.runUntil(() => u.skill.activations === 2, 1), `T${tier}: 蓄力 cast`);
-    assert.deepEqual([u.skill.charges, u.skill.sp], [0, 0], `T${tier}: all SP spent`);
+    // (her skill ticks after her attack: one tick of SP comes back in that step)
+    assert.ok(u.skill.charges === 0 && u.skill.sp <= u.s.spRecovery * h.b.dt + 1e-9, `T${tier}: all SP spent (${u.skill.sp})`);
     const gavel2 = () => h.hooksOf('damaged').some((c) => c.source === u && c.target === e2 && (c.dmg?.tags ?? []).includes('judge:gavel'));
     assert.ok(h.runUntil(gavel2, 2), `T${tier}: the 蓄力 strike lands`);
     h.step(2);
