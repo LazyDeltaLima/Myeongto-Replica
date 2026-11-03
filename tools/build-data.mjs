@@ -2423,11 +2423,14 @@ function withSkillProjectiles(skills, P) {
 
 /**
  * How an enemy's skills are cast (tools/assets/local-attack-timing.json `enemies[…].skills`, tools/local-extract/
- * attack_timing.py) → enemies.json `skillCast` {skill name in lower case: { family, dur?, clip?, max?, resetMain?, waitFirst? }}.
+ * attack_timing.py) → enemies.json `skillCast` {skill name in lower case: { family, dur?, clip?, max?, time?, cd?, cdKey?,
+ * resetMain?, waitFirst? }}.
  * The client casts an enemy skill in place of a normal attack — at an attack slot, the skills first (the client's
  * `Enemy.AttackWrapper.SearchTarget` / `Cast`; `family` = its `_familyMask`, every skill of the mode has ATTACK and / or
  * COMBAT) — and restarts its cooldown as the cast ends (`EnemySkill._OnCastFinish`): `dur` = the clip of its animated
- * ability (data/assets.json, the same model as the attack; absent when it plays none), `max` its `_maxAnimScale`;
+ * ability (data/assets.json, the same model as the attack; absent when it plays none), `max` its `_maxAnimScale`, `time`
+ * its `_timeMode` (the attack time it plays to — `AbstractAnimatedAbility.get_cooldown`: 0 the enemy's, 1 the clip, 2
+ * `cd` = `_cooldown`, 3 the skill blackboard's `cdKey`; absent when the skill has no animated ability);
  * `resetMain` (+ `waitFirst`) = `_resetMainAbilityCdWhenCastEnd`, the main attack's cooldown restarted as the cast ends
  * (`ResetCooldown(_resetCdWaitFirstPeriod)`). Keyed by the skill's GameObject name, matched to the table's prefabKey case
  * aside (as the projectiles); a template's `overrides.skills` use the same keys. Server/sim/content/enemies.js.
@@ -2443,15 +2446,22 @@ function enemySkillCast(ctx, manifest, spineId, key) {
     out[name.toLowerCase()] = {
       family: s.family,
       ...(dur > 0 ? { clip: s.anim, dur, ...(Number.isFinite(s.max) ? { max: s.max } : {}) } : {}),
+      ...(Number.isFinite(s.time) ? { time: s.time } : {}),
+      ...(s.time === 2 ? { cd: s.cd || 0 } : s.time === 3 ? { cdKey: s.cdKey || 'duration' } : {}),
       ...(s.resetMain ? { resetMain: 1, waitFirst: s.waitFirst ? 1 : 0 } : {}),
     };
   }
   return Object.keys(out).length ? out : null;
 }
 
+/** An enemy's row of local-attack-timing.json `enemies` (by its prefab, else its key), or undefined. */
+function enemyTiming(ctx, spineId, key) {
+  return ctx.attackTiming?.enemies?.[spineId] ?? ctx.attackTiming?.enemies?.[key];
+}
+
 /** An enemy's attack ability (local-attack-timing.json `enemies`): the blocked one (Combat) for a melee enemy, else Attack. */
 function enemyAbility(ctx, spineId, key, applyWay) {
-  const e = ctx.attackTiming?.enemies?.[spineId] ?? ctx.attackTiming?.enemies?.[key];
+  const e = enemyTiming(ctx, spineId, key);
   if (!e) return null;
   return applyWay === 'MELEE' ? (e.combat ?? e.attack ?? null) : (e.attack ?? e.combat ?? null);
 }
@@ -2726,6 +2736,10 @@ function buildEnemies(ctx) {
       talents: { bb: talents.bb, bbStr: talents.bbStr },
       skills: withSkillProjectiles(enemySkills(data.skills, `enemy ${key}`), shots),
       ...(skillCast ? { skillCast } : {}),
+      // an enemy without a normal attack of its own (applyWay NONE / ATK 0) whose prefab's mode still has an Attack ability:
+      // its attack slot comes round for its skills (the client's `Enemy.AttackWrapper.SearchTarget` asks `Unit.hasAttack`
+      // = the mode's `_attack`, not the table) — content/enemies.js skillSlot
+      ...(skillCast && (applyWay === 'NONE' || !(stats.atk > 0)) && enemyTiming(ctx, mv(data.prefabKey) || key, key)?.attack ? { attackAbility: true } : {}),
       // SP pool of SP-cost skills (e.g. 假想敌：黑云 技力上限 3 = 全弹发射 hits); only when the database has one
       ...(data.spData ? { sp: { type: data.spData.spType ?? null, maxSp: data.spData.maxSp ?? 0, initSp: data.spData.initSp ?? 0, increment: data.spData.increment ?? 0 } } : {}),
       notCountInTotal: !!mv(data.notCountInTotal, false),

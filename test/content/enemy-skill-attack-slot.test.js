@@ -54,6 +54,10 @@ test('the mode\'s enemy skills carry how the client casts them (data/enemies.jso
   const q = E.enemy_1521_dslily.skillCast;
   assert.deepEqual([q.tidewaterg2.clip, q.tidewaterg2.dur, q.rockfallg2.dur, q.summontentacg2.dur], ['Skill_02', 1.667, 3, 2]);
   assert.deepEqual([E.enemy_1513_dekght.skillCast.chargeattack.resetMain, E.enemy_1513_dekght.skillCast.chargeattack.waitFirst], [1, 1]);
+  // the attack time each plays to (`_timeMode`): 【末日】 its clip, 直击 its `_cooldown`, 冲锋 the blackboard's
+  assert.deepEqual([q.doom.time, q.doom.dur, q.tidewaterg2.time], [1, 4.467, 0]);
+  assert.deepEqual([E.enemy_1404_msnip.skillCast.crossattack.time, E.enemy_1404_msnip.skillCast.crossattack.cd], [2, 2.5]);
+  assert.deepEqual([E.enemy_1513_dekght.skillCast.chargeattack.time, E.enemy_1513_dekght.skillCast.chargeattack.cdKey], [3, 'duration']);
 });
 
 test('a skill is cast at the attack slot in place of the normal attack, and the attack\'s cooldown restarts from it', () => {
@@ -84,6 +88,29 @@ test('an unarmed enemy\'s skill keeps its own cooldown (no attack slot)', () => 
   h.run(s.initCooldown + 0.2);
   const cast = slots.find((x) => x.skill === 'DeathEye');
   assert.ok(cast && Math.abs(cast.t - h.TICK - s.initCooldown) < h.TICK * 2, `at its initial cooldown (${cast && cast.t})`);
+});
+
+test('an unarmed enemy whose prefab has an Attack ability casts at its attack slot (Unit.hasAttack): “萨科塔昂首” 祈祷邀约, cast for its clip', () => {
+  // ATK 0 · dmgType none, but its mode has an Attack ability (data/enemies.json attackAbility); 祈祷邀约 Roar plays to its
+  // own clip (_timeMode 1): 2.167 s, not its 1 s attack interval — the next cast its 40 s cooldown after that
+  const raw = E.enemy_10085_hllevi_2;
+  assert.ok(raw.attackAbility && raw.stats.atk === 0, 'unarmed, with an Attack ability');
+  assert.deepEqual([raw.skillCast.roar.time, raw.skillCast.roar.dur], [1, 2.167]);
+  const h = arena({ units: [{ chessId: 't_wall', row: 9, col: 5 }] });
+  h.step();
+  const e = put(h, 'enemy_10085_hllevi_2', [9, 7]);
+  const slots = watchSlots(h, e);
+  const s = raw.skills.find((x) => x.prefabKey === 'Roar');
+  h.run(s.initCooldown + 0.2);
+  const first = slots.find((x) => x.skill === 'Roar');
+  assert.ok(first, 'cast');
+  h.step();
+  assert.ok(Math.abs(e.castLeft - (raw.skillCast.roar.dur - (h.b.time - first.t))) < h.TICK * 1.5, `cast for the clip (${e.castLeft})`);
+  assert.ok(Math.abs(e.atkCd - Math.max(0, e.s.interval - (h.b.time - first.t))) < h.TICK * 1.5, `the attack slot restarted (${e.atkCd})`);
+  h.run(s.cooldown + raw.skillCast.roar.dur);
+  const second = slots.filter((x) => x.skill === 'Roar')[1];
+  assert.ok(second && Math.abs(second.t - first.t - raw.skillCast.roar.dur - s.cooldown) < 0.1, `again cooldown + cast later (${second && second.t})`);
+  assert.ok(!slots.some((x) => x.skill === null), 'never a normal attack');
 });
 
 test('ready skills at one slot: the highest priority is cast (假想敌：胄 灭顶之灾 priority 1 over 死亡集群 0), the other waits for a later slot', () => {

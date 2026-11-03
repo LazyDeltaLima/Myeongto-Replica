@@ -198,7 +198,8 @@ SKILL_FIELDS = {'_familyMask': 'family', '_resetMainAbilityCdWhenCastEnd': 'rese
 def enemy_skills(sub, modes):
     """{skill GameObject name: fields} of an enemy prefab's EnemySkill components (the MonoBehaviour with `_familyMask`,
     `<root>/Modes/<mode>/Skills/<name>`): its family mask and main-attack reset flags, and the clip of the animated ability
-    on the same GameObject (`anim`, `max`, `wait`, `pre` as for the attack; none when the ability plays no clip). The
+    on the same GameObject (`anim`, `max`, `wait`, `pre` as for the attack; none when the ability plays no clip) and its
+    `_timeMode` (`time`; with `cd` = `_cooldown` for 2, `cdKey` = `_cooldownKey` for 3). The
     client casts such a skill in place of a normal attack (the client's `Enemy.AttackWrapper.SearchTarget` / `Cast`) and
     restarts its cooldown when the cast ends (`EnemySkill._OnCastFinish`). A name in several modes: the first mode's
     (the prefab's `_modes` order), the others only when they differ (`alt`)."""
@@ -215,6 +216,15 @@ def enemy_skills(sub, modes):
         a = next((x for x in (ability(d) for d in ds) if x is not None), None)
         if a and a.get('anim'):
             rec.update({k: a[k] for k in ('anim', 'max', 'wait', 'pre') if k in a})
+        # the attack time the cast plays to (the client's `AbstractAnimatedAbility.get_cooldown` by `_timeMode`: 0 the
+        # enemy's attack time, 1 the clip, 2 `_cooldown`, 3 the blackboard's `_cooldownKey`)
+        raw = next((d for d in ds if isinstance(d, dict) and '_timeMode' in d), None)
+        if raw is not None:
+            rec['time'] = num(raw['_timeMode'])
+            if rec['time'] == 2:
+                rec['cd'] = num(raw.get('_cooldown') or 0)
+            elif rec['time'] == 3:
+                rec['cdKey'] = raw.get('_cooldownKey') or 'duration'
         name = gp.rsplit('/', 1)[-1]
         if name not in out:
             out[name] = rec

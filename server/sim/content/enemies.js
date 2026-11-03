@@ -299,25 +299,35 @@ function castSkill(b, e, a) {
  * (`ab.sk[name].cast`, data/enemies.json `skillCast` — every one of the mode has the ATTACK and / or COMBAT family), on
  * an enemy that makes normal attacks — through the engine (ai.js enemyHasAttack) or through its kit's own attack loop
  * (`ab.ownAttack`: 假想敌：管 / 弦, “萨米的意志”, bosses.js ownAttackTurn — the loop offers its turn through the same hook).
- * An unarmed enemy (noAttack, 'none', ATK 0) and the kits' own timers keep their own cooldown [ASSUMED: the client gives
- * such an enemy a combat or attack ability we do not model].
+ * An unarmed enemy (applyWay NONE / ATK 0) whose prefab's mode has an Attack ability (enemies.json `attackAbility`) has
+ * the slot too, without swinging: the client's `AttackWrapper.SearchTarget` asks `Unit.hasAttack` (= the mode's `_attack`
+ * ability), not the table. One without (only a Combat ability, or none) casts no skill at the attack slot, and like the
+ * kits' own timers keeps its own cooldown [ASSUMED·미조사: what triggers those skills in the client — talents, triggers or
+ * the Combat wrapper while blocked — was not read].
  */
 function slotSkill(e, ab, a) {
   const s = a.name != null ? ab.sk[a.name] : null;
-  return !!(s && s.cast) && (enemyHasAttack(e) || !!ab.ownAttack);
+  const slot = enemyHasAttack(e) || !!ab.ownAttack || !!(e.def && e.def.raw && e.def.raw.attackAbility && !(e.profile && e.profile.noAttack));
+  return !!(s && s.cast) && slot;
 }
 
 /**
- * The length of a skill's cast (its `skillCast` clip): played at the speed of an attack ability — the clip × clamp(attack
- * interval / clip, 0.1, `max`), `max` −1 = no bound (the client's `AbstractAnimatedAbility.UpdatePlaybackSpeed`, as
- * ai.js attackTiming) [ASSUMED: the skill's ability reads the enemy's attack interval as its attack time]; 0 for a skill
- * whose ability plays no clip.
+ * The length of a skill's cast, from the attack time its animated ability plays to — the client's
+ * `AbstractAnimatedAbility.get_cooldown` by `_timeMode` (`skillCast.time`): 0 the enemy's attack interval, 1 its clip
+ * (`DoAttach` writes the clip's length into `_cooldown`), 2 its `_cooldown` (`cd`), 3 the skill blackboard's
+ * `_cooldownKey` (`cdKey`, read at attach). With a clip the cast is the clip × clamp(attack time / clip, 0.1, `max`),
+ * `max` −1 = no bound (`UpdatePlaybackSpeed`, as ai.js attackTiming) — so `_timeMode` 1 plays the clip as it is. 0 for a
+ * skill whose ability plays no clip [ASSUMED·미조사: its length is the ability class's — an EasyToStartAbility waits out
+ * the attack time (`m_cachedDuration`), a channel its own duration; the classes were not read one by one].
  */
-function castLength(e, cast) {
+function castLength(e, cast, bb) {
   const dur = cast && cast.dur > 0 ? cast.dur : 0;
   if (!dur) return 0;
+  const time = cast.time ?? 0;
+  const at = time === 1 ? dur : time === 2 ? (cast.cd > 0 ? cast.cd : 0)
+    : time === 3 ? Math.max(0, Number((bb && bb[cast.cdKey || 'duration']) ?? 0) || 0) : e.s.interval;
   const hi = cast.max > 0 ? cast.max : cast.max < 0 ? Infinity : 1;
-  const k = Math.min(hi, Math.max(0.1, e.s.interval / dur));
+  const k = Math.min(hi, Math.max(0.1, at / dur));
   return dur * k;
 }
 
@@ -354,7 +364,7 @@ function onSkillSlot(b, c) {
   const best = ready.filter((a) => ab.sk[a.name].pri === top);
   const a = best.length > 1 ? b.rng.pick(best) : best[0];
   const cast = ab.sk[a.name].cast;
-  const dur = castLength(e, cast);
+  const dur = castLength(e, cast, ab.sk[a.name].bb);
   a.left = Math.max(TICK, a.cd + dur);
   c.cast = { dur, atkCd: cast.resetMain ? dur + (cast.waitFirst ? e.s.interval : 0) : e.s.interval };
   castSkill(b, e, a);

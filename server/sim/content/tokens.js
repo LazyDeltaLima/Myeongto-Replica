@@ -1432,7 +1432,8 @@ function airTile(battle, playerId, taken) {
  * ±0.5 (`spawnRandom`) on the two-helper 联防 one, (4, 10) on the boss levels ((4, 9) / (4, 8) on two solo ones). Both
  * sides of a field take the same point (the buff only keeps one summon per side, `side_a_dragon` / `side_b_dragon`); the
  * mirrored right half of a boss pair takes it mirrored. Returns { r, c, dx, dy } (dx / dy: the random offset drawn from
- * the battle rng, uniform within ±spawnRandom [ASSUMED: the client's spread]) or null without a template / branch.
+ * the battle rng, x and y each uniform within ±spawnRandom — the client's `Route.GetSpawnOffset`, `RandomVector2`) or
+ * null without a template / branch.
  */
 function yanyouSpawnPoint(battle, ps) {
   const o = battle.opts || {};

@@ -148,8 +148,9 @@ export class BattleSpawns {
     e.castLeft = 0;                // the rest of that swing after its strike (ai.js)
     // every enemy profile starts with the same fields (stable object shapes keep the hot loop's property reads fast);
     // `dmgType` null = the data's (content may arm a data-unarmed enemy: ai.js enemyAttack); `blockFree` = its 索敌不受阻挡
-    // 影响 (content: 自制投石机 — targeting.js canTargetAlly / sortAllyTargets, ai.js attackTargets)
-    e.profile = { noAttack: def.dmgType === 'none', maxTargets: 1, atkScale: 1, dmgType: null, blockFree: false };
+    // 影响 (content: 自制投石机 — targeting.js canTargetAlly / sortAllyTargets, ai.js attackTargets); a data-unarmed enemy
+    // whose prefab has an Attack ability (`attackAbility`) keeps its attack slot for its skills — it still never swings
+    e.profile = { noAttack: def.dmgType === 'none' && !(def.raw && def.raw.attackAbility), maxTargets: 1, atkScale: 1, dmgType: null, blockFree: false };
     e.route = { legs: route ? compileRoute(route, this.rect) : [], legIdx: 0, pts: null, ptIdx: 0, suffix: null, version: -1, waitLeft: null };
     if (!e.route.legs.length) {
       const end = this.grid.specialTiles('end')[0];

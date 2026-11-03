@@ -1218,7 +1218,10 @@ function enemyAttack(b, e, dt) {
   const def = e.def;
   if (e.profile && e.profile.noAttack) return cutSwing(e), false;
   const dmgType = (e.profile && e.profile.dmgType) || def.dmgType;
-  if (dmgType === 'none' || e.s.atk <= 0) return cutSwing(e), false;
+  const unarmed = dmgType === 'none' || e.s.atk <= 0;
+  // no normal attack — but an Attack ability in its prefab's mode (enemies.json `attackAbility`: the client's
+  // `Unit.hasAttack`) still brings its attack slot round for its skills; it never swings
+  if (unarmed && !(def.raw && def.raw.attackAbility)) return cutSwing(e), false;
   // 恐惧 / 缴械 / 战栗 (被阻挡后无法进行普通攻击): no normal attack, and the one swung is interrupted
   if (e.s.flags.fear || e.s.flags.disarm || (e.s.flags.tremble && e.blockedBy)) return cutSwing(e), false;
   const moves = !!(e.profile?.attackMoves ?? def.attackMoves);
@@ -1227,6 +1230,7 @@ function enemyAttack(b, e, dt) {
   if (!e.swing && e.atkCd <= 0 && e.castLeft <= 0 && !(b.time < e.palsyUntil - 1e-9) && enemySkillSlot(b, e)) {
     return e.castLeft > 0 && !moves;
   }
+  if (unarmed) return false;   // it never swings (a cast it started plays out: castLeft, atkStandUntil)
   if (dmgType === 'heal') { if (e.atkCd <= 0) enemyHeal(b, e, e.base.rangeRadius); return false; }
   // applyWay MELEE enemies only ever hit their blocker, even when their data carries a rangeRadius (粉碎攻坚手 2.5,
   // 宿主士兵 2.5, 深池伙友卫队 1.4 … — that radius belongs to their abilities/splash, handled by content).
@@ -1259,8 +1263,9 @@ function enemyAttack(b, e, dt) {
 }
 
 /**
- * Whether enemy `e` makes normal attacks (enemyAttack): an armed profile, a damage type and ATK. Only such an enemy has
- * an attack slot for its skills (content/enemies.js skillSlot); an unarmed one casts them on their own cooldown.
+ * Whether enemy `e` makes normal attacks (enemyAttack): an armed profile, a damage type and ATK. Such an enemy has an
+ * attack slot for its skills (content/enemies.js skillSlot); so does an unarmed one whose prefab has an Attack ability
+ * (enemies.json `attackAbility`); any other casts them on their own cooldown.
  */
 export function enemyHasAttack(e) {
   if (e.profile && e.profile.noAttack) return false;

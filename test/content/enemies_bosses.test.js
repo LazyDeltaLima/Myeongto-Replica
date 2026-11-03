@@ -3353,7 +3353,7 @@ test('“碎铳之簧” (all three): never blockable, shield up or down (BLOCK_
   assert.equal(w.stats.taken, 0);
 });
 
-test('“碎铳之簧” 法术护盾 (9018): barrier absorbs arts, an attack\'s own physical hit ×0.1 with a counter, other physical damage in full; damage passes to 铳', () => {
+test('“碎铳之簧” 法术护盾 (9018): barrier absorbs arts, a 普通伤害 physical hit (attack or skill) ×0.1 with a counter, other physical damage in full; damage passes to 铳', () => {
   const h = bossArena({ units: [{ chessId: 't_gun', row: 12, col: 3 }] });
   h.step();
   put(h, 'enemy_9017_achunt_2', [3, 18], { tag: 'boss' }).profile.noAttack = true;
@@ -3367,9 +3367,14 @@ test('“碎铳之簧” 法术护盾 (9018): barrier absorbs arts, an attack\'s
   approx(dealt, (10000 - sp.s.def) * tb('enemy_9018_actrpa', '1.damage_scale'));
   approx(pool0 - h.b.sharedBoss.hp, dealt * PART_TRANSFER);
   assert.ok(g.stats.taken > 0 && g.elem[EROSION] > 0, 'counter');
-  // actrpa_t_1 filters SourceAttackType NORMAL: a splash or a kit's own physical damage is neither reduced nor countered
+  // actrpa_t_1 filters SourceAttackType NORMAL (the bonds' 普通伤害, damage.js isNormalDamage): a skill hit is reduced
+  // and countered too; a splash, an addition or a status tick is neither
+  const taken1 = g.stats.taken;
+  const skillHit = h.b.dealDamage(g, sp, { amount: 10000, type: 'phys', isSkill: true, tags: ['skill'] });
+  approx(skillHit, (10000 - sp.s.def) * tb('enemy_9018_actrpa', '1.damage_scale'));
+  assert.ok(g.stats.taken > taken1, 'a skill hit is countered');
   const taken0 = g.stats.taken;
-  for (const d of [{ isAttack: true, isSplash: true }, {}]) {
+  for (const d of [{ isAttack: true, isSplash: true }, { tags: ['addition'] }, { tags: ['dot'] }]) {
     const hp0 = sp.hp;
     const full = h.b.dealDamage(g, sp, { amount: 10000, type: 'phys', ...d });
     approx(full, 10000 - sp.s.def);

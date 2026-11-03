@@ -1195,15 +1195,27 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
 - **우리**: `server/sim/ai.js` `enemyAttack`이 공격 차례(쿨 끝·지난 휘두름/시전 끝·麻痹震颤 아님, 恐惧·缴械·战栗(막힘) 아님)에 대상을 찾기 **전에** 훅
   `enemySkillSlot`을 내고(docs/SIM.md 훅 표), `server/sim/content/enemies.js` `onSkillSlot`이 준비된 스킬(`cond` = 대상 조건, `canCast`)을 위 규칙대로 하나 골라 시전한다:
   일반 공격 쿨 = 간격 전체(또는 `resetMain`이면 시전 끝 + 간격/0), `castLeft` = 시전 길이(그동안 일반 공격 없음, 「不停止移动」이 아니면 서 있음), 스킬 쿨 =
-  쿨 + 시전 길이. 시전 길이 = 스킬 능력 클립 × clamp(공격 간격 ÷ 클립, 0.1, `_maxAnimScale`) **[ASSUMED: 스킬 능력도 적의 공격 간격을 공격 시간으로 읽음]**.
-  데이터: `tools/local-extract/attack_timing.py`가 적 프리팹 `EnemySkill`(`_familyMask` 있는 MonoBehaviour)과 같은 GameObject의 애니메이션 능력(`_animKey`·`_maxAnimScale`)을
-  `tools/assets/local-attack-timing.json` `enemies[…].skills`에 쓰고, `tools/build-data.mjs` `enemySkillCast`가 `data/enemies.json` `skillCast`(스킬 이름 소문자 →
-  `family`·`clip`·`dur`·`max`·`resetMain`·`waitFirst`, 클립 길이는 `data/assets.json`)로 싣는다. 템플릿 `overrides.skills`도 같은 이름으로 찾는다.
+  쿨 + 시전 길이.
+- **시전 길이** (2026-11-03, 공식 클라에서 확인): 스킬 능력이 클립을 맞추는 「공격 시간」은 그 능력의 `_timeMode`로 정해진다
+  (`AbstractAnimatedAbility.get_cooldown`: 0 = 적의 공격 시간, 1 = 자기 클립 길이(`DoAttach`가 클립 길이를 `_cooldown`에 넣음), 2 = 프리팹 `_cooldown`,
+  3 = 붙을 때 스킬 블랙보드의 `_cooldownKey`) → 시전 길이 = 클립 × clamp(공격 시간 ÷ 클립, 0.1, `_maxAnimScale`, −1이면 상한 없음; `UpdatePlaybackSpeed`).
+  모드 적 스킬 능력은 1이 53개·0이 39개·2가 6개·3이 10개라, 대부분(1)은 **클립 그대로** 시전한다(이전: 모두 0으로 보고 적의 공격 간격에 맞춰 늘이거나 줄였음
+  (가정이었음) — 살비엔토 주교 퀸투스 【末日】 3.5 → 4.467 s, '래트킹' 沙暴 3.4 → 1.333 s, 루시안, '블러드 다이아몬드' aoe 3.0 → 1.8 s 등 약 30개가 바뀜).
+  클립이 없는 스킬은 시전 길이 0 그대로 [ASSUMED·미조사: 클립 없는 능력의 길이는 능력 클래스가 정한다 — `EasyToStartAbility` 계열은 공격 시간을 기다리지만
+  (`m_cachedDuration`), 채널 계열은 제 길이 — 클래스별로 읽지 않음; 해당 `_timeMode` 2·3 스킬: 重弩突袭者 直击 `_cooldown` 2.5 등]. 적에게는 시간 늦추기
+  (`SLOW_DOWN` 속성)가 이 모드에 없어(버프 템플릿·스킬 프리팹 어디에도 없음) `animSlowDown` 갈래는 해당 없음.
+  데이터: `tools/local-extract/attack_timing.py`가 적 프리팹 `EnemySkill`(`_familyMask` 있는 MonoBehaviour)과 같은 GameObject의 애니메이션 능력(`_animKey`·`_maxAnimScale`·`_timeMode`
+  ·`_cooldown`·`_cooldownKey`)을 `tools/assets/local-attack-timing.json` `enemies[…].skills`에 쓰고, `tools/build-data.mjs` `enemySkillCast`가 `data/enemies.json`
+  `skillCast`(스킬 이름 소문자 → `family`·`clip`·`dur`·`max`·`time`·`cd`·`cdKey`·`resetMain`·`waitFirst`, 클립 길이는 `data/assets.json`)로 싣는다(`content/enemies.js castLength`).
+  템플릿 `overrides.skills`도 같은 이름으로 찾는다.
   자기 공격 루프로 일반 공격을 하는 키트(가상적: 관·현, '사미의 의지' — `ab.ownAttack`)는 그 루프의 공격 차례에 같은 훅을 낸다(2026-10-29, 아래 「upstream 0.3.2–0.3.4
   대조 이식 — 적·보스」).
-  **[ASSUMED]**: 일반 공격이 없는 적(`noAttack`·`none`·ATK 0)과 키트 자체 타이머(표에 없는 이름)는 예전처럼 제 쿨로 쏜다(공식은 그런 적에게도 공격·전투 능력이
-  있다 — 우리가 그리지 않을 뿐); 스킬 쿨에 `slowDown`을 곱하지 않음
-  (`OnTick`은 곱함); 형태가 바뀌어도 일반 공격 쿨은 이어짐; 클립이 매니페스트에 없는 스킬 3개(`enemy_9014_acstma` `2`·`enemy_10065_ftzlc` `onfire`·
+- **일반 공격이 없는 적** (2026-11-03, 공식 클라에서 확인): `AttackWrapper.SearchTarget`은 표가 아니라 `Unit.hasAttack`(= 지금 모드의 `_attack` 능력이 있는지)을
+  묻는다. 그래서 ATK 0·`applyWay` NONE이어도 프리팹 모드에 공격 능력이 있는 적('산크타의 긍지' 祈祷邀约, 길조의 비린 — `data/enemies.json` `attackAbility`)은
+  휘두르지 않고 공격 차례에만 스킬을 쓴다(`battle/spawns.js`가 그 적의 `profile.noAttack`을 켜지 않고, `ai.js enemyAttack`은 훅만 낸다). 공격 능력이 없는 적
+  (문드러진 응집 사도·동글이·변형의 베이스 α, 전투 능력만 있는 '갑주를 꿰뚫는 탄환')은 공격 차례로 스킬을 쓰지 않으므로 키트 자체 타이머와 함께 예전처럼 제 쿨로 쏜다
+  [ASSUMED·미조사: 클라에서 그 스킬을 무엇이 켜는지(재능·트리거·막혔을 때의 전투 래퍼)는 안 읽음]. 이전: 일반 공격이 없는 적은 모두 제 쿨(가정이었음).
+  **[ASSUMED·미조사]**: 형태가 바뀌어도 일반 공격 쿨은 이어짐. **[ASSUMED·자료 없음]**: 클립이 매니페스트에 없는 스킬 3개(`enemy_9014_acstma` `2`·`enemy_10065_ftzlc` `onfire`·
   `enemy_10141_xdpeng_2` `switch`)는 시전 길이 0.
 - **막힘이 가족을 고른다** (2026-10-22, 제보 「강화 석궁 기습자가 저지됐을 때도 아군을 기절시킨다」, EN 공식 클라에서 직접 확인):
   `Enemy.States.MoveState.OnTick`은 `Enemy.get_blocker`가 있으면 `_SearchAttackTarget`을 부르기 **전에** COMBAT 상태(3)로 바꾼다 → 막힌 적은
@@ -1334,7 +1346,9 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
   `Skill_3_Attack`, `attackAnim`)이 된다(스킬 모드 이펙트·효과음 바인딩도 같은 함수). 다른 오퍼레이터는 해당 없음(소문자 모드는 그녀와 예비 오퍼레이터 Pith `char_612_accast`뿐,
   후자는 클립이 같아 동작 그대로).
 - **치료**: 치료 모드의 shot이 날면(赫默 PARACURVE 5, 哈洛德·纯烬艾雅法拉 PARACURVE 7, 流明 PARACURVE 8, 莎草·录武官 TRACE 10) 닿을 때 회복, 그사이 대상이
-  쓰러지면 회복 없음. 투사체 없는 치료(白面鸮·华法琳·调香师·瑰盐)는 예전처럼 즉시. 연쇄 치료의 튕김은 예전처럼 즉시 [추정]. 닿을 때의 처리는 공격 순간의 상태를
+  쓰러지면 회복 없음. 투사체 없는 치료(白面鸮·华法琳·调香师·瑰盐)는 예전처럼 즉시. 연쇄 치료의 튕김은 즉시 — 공식 클라에서 확인(2026-11-03): 파피루스(오퍼레이터) `projectile_chr_papyrs`의
+  `ChainLightningHitBehaviour`(`_onlyCheckHitWhenReachTarget` 1·`_interval` 0, `ChainedSelector` `x-4`·최대 3)가 도착 때 한 번에 사슬 대상 전부를 치고 튕김마다
+  `_atkScale` 0.75를 곱한다(= 감쇠 0.25), 그림은 선 이펙트뿐. 닿을 때의 처리는 공격 순간의 상태를
   따른다: 스킬의 `onHit`은 공격 때 스킬이 켜져 있었으면 부르고(`ai.js doHeal` `skillOn` — 流明 S1 沐雨의 비가 다음 치료 스킬이 끝난 뒤 닿아도 생김), 치료에
   `opts.isSkill`(스킬 프로필의 치료)을 실어 莎草 博览古卷 보호막의 스킬 배율이 붙는다. 流明 S3는 닿을 때 대상이 아직 이상 상태면 해제(공격의 플래그는 그때 이미 지워짐).
 - **바뀐 값** (기본 모드, 3칸 기준): 투사체 없음 → 즉시 — 能天使(Default)·夕·莫斯提马·寒檀·莱恩哈特·雷蛇·送葬人·松果, 银灰 `projectile_svrash` NONE, 迷迭香
@@ -1377,7 +1391,8 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
   ±0.5(`spawnRandom`); 보스·숨은 핵심 (4, 10)(솔로 `h07_01_s` (4, 9), `h08_01_s` (4, 8); `h07_03`·`h08_03`은 routeIndex 1, 같은 (4, 10)). 관리자가
   기억한 아래 적 출입구 (9, 10)와는 다르다 — 등장 직후 위협도 높은 적을 쫓아가므로 아래 출입구로 들어오는 적 곁에 곧 가 있는 모습일 수 있다.
 - 지금(`content/tokens.js yanyouSpawnPoint`): 전투의 웨이브 템플릿(`opts.waveId` — 매치가 넘김; 하네스는 `waveTemplate`)에서 위 점을 읽어 모든 炎佑를 거기에
-  (두 번째는 옆에 떠 있음 `hoverDy`), 보스 짝의 반전된 오른쪽은 열을 뒤집음, `spawnRandom`은 전투 난수로 ±범위 균등 [ASSUMED: 클라의 분포].
+  (두 번째는 옆에 떠 있음 `hoverDy`), 보스 짝의 반전된 오른쪽은 열을 뒤집음, `spawnRandom`은 전투 난수로 x·y 따로 ±범위 균등 — 공식 클라에서 확인(2026-11-03):
+  모든 적의 `Enemy.Init`이 `Route.GetSpawnOffset` = `IBattleRandom.RandomVector2(spawnRandomRange)`(x·y 따로 `[−r, r]` 균등) + `spawnOffset`.
   템플릿이 없으면 예전 규칙(`airTile`: 반쪽 중앙의 배치 불가 칸, 대개 (10, 6)).
 - 그 점에 오퍼레이터·소환물이 서 있어도 나온다(2026-10-12 관리자 제보 「모델이 아예 안 보여」): (11, 7)은 배치 칸이라 자주 차 있는데,
   `spawnToken`이 키트가 비행(`FLY`)으로 바꾸기 전에 빈 칸만 받아, 그 칸에 누가 서 있으면 炎佑가 통째로 빠졌다. 이제
@@ -1603,10 +1618,12 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
   첫 발 15, 튕김 6 칸/s. 다음 대상은 선택기 `_postFilter` 0 ALL(정렬 없음)·최대 1 → 범위 조회의 첫 후보(2026-10-15, 옛 [ASSUMED] 가까운 순). [ASSUMED] 조회
   순서 = 필드의 아군 순서(`areaAllies` — 배치 순, 클라 범위 조회 순서는 못 읽음). 테스트 「“碎铳之簧” 元素护盾 bullet…」.
 - **法术护盾 물리 감쇠·반격** (2026-10-15): 반격 템플릿 `actrpa_t_1` ON_TAKE_DAMAGE가 `FilterDamageModifer`(`_attackTypeFilter` NORMAL·`_damageMask`
-  PHYSICAL)로 거른다 — 공격의 주 대상 물리 피해만 ×`damage_scale` 0.1 + 그 출처에 무출처 물리 附加 `atk_scale`·침식 `ep_damage_ratio`. 스플래시(SPLASH 2)·
-  附加(ADDITION 8)·상태 틱(BUFF 4)·키트 자체 피해의 물리는 그대로 들어가고 반격도 없다(클라 `Modifier.SourceAttackType`). 법술 흡수(`BlockDamage` MAGICAL)는
-  공격 종류를 안 거른다. [ASSUMED] 엔진 대응: NORMAL = `isAttack`이면서 `isSplash` 아님(일반 공격·공격형 스킬의 주 대상, 연쇄 튕김 포함) — 공격이 아닌 스킬
-  피해 중 클라가 NORMAL로 내는 것도 있으나 우리 엔진은 구분하지 않는다. 옛 동작: 모든 물리 피해 ×0.1 + 반격. 테스트 「“碎铳之簧” 法术护盾 (9018)…」.
+  PHYSICAL)로 거른다 — 普通伤害 물리 피해만 ×`damage_scale` 0.1 + 그 출처에 무출처 물리 附加 `atk_scale`·침식 `ep_damage_ratio`. 스플래시(SPLASH 2)·
+  附加(ADDITION 8)·상태 틱(BUFF 4)·무출처 피해의 물리는 그대로 들어가고 반격도 없다(클라 `Modifier.SourceAttackType`). 법술 흡수(`BlockDamage` MAGICAL)는
+  공격 종류를 안 거른다. 엔진 대응은 맹약의 普通伤害와 같은 `damage.js isNormalDamage`(아래 「act2 맹약·장비 템플릿 대조」 공격 종류 거르기) — 일반 공격도
+  스킬 타격도(공식 클라에서 확인 2026-11-03: 스킬 프리팹의 피해 노드 `_attackType`은 NORMAL 433·NONE 18·SPLASH 4·BUFF 3 — 공격이 아닌 스킬 피해도 NORMAL).
+  이전(2026-11-03까지): `isAttack`이면서 `isSplash` 아님(가정) — 공격이 아닌 스킬의 물리 피해가 감쇠·반격 없이 들어갔다. 옛 동작: 모든 물리 피해 ×0.1 + 반격.
+  테스트 「“碎铳之簧” 法术护盾 (9018)…」.
 - **频次护盾은 모든 피해를 막는다** (2026-10-17): `actrpc_t_1`의 `BlockDamage`는 `_filterDamageType` false라 `_damageMask` PHYSICAL_AND_MAGICAL을 읽지
   않는다(`BlockDamage.Execute`: 취소되지 않은 피해 모디파이어면 종류 무관) → 물리·법술·진실·元素伤害를 가리지 않고 다섯 번 막고(막은 것마다 한 번) 깨진다.
   막힌 피해는 총에게 넘어가지 않는다. [ASSUMED] 원소 게이지 피해(元素损伤)는 피해 모디파이어가 아니라 세지 않는다(우리 엔진도 `hit` 전에 갈라짐).
@@ -1644,7 +1661,8 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
   (character_table 「可以受到我方攻击」), 받은 피해는 보스에게 넘어가지 않는다.
 - **摄食**: GrowUp에서 SP +1/s, 1이 차면(성장 끝 1 s 뒤) 자기 둘레 반경 1.0(스킬 Trigger CircleCollider2D — 자기 칸과 상하좌우, PRTS 「周围四格」) 안에서
   가장 가까운 오퍼레이터 1명(`DIST_TO_SOURCE_ASC`, 도발 무시)을 붙잡는다. 공격 이벤트를 기다려(`_waitForAttackEvent`: Attack_Begin 0.833 s + Attack_Loop
-  0.1 s) 첫 타, 그 뒤 1 s마다(`_triggerDelta`) ATK 100 % 물리 + ATK × 1.0 신경 + 1 s 기절(`trap_tentac_s[stun]`). 능력이 `ChannelingMeleeAttack`이고
+  0.1 s) 첫 타, 그 뒤 1 s마다(`_triggerDelta`) ATK 100 % 물리 + ATK × 1.0 신경 + 1 s 기절(`trap_tentac_s[stun]` — 그 `durationKey` `#duration`은 어느 블랙보드에도 없는 키라 버프 `lifeTime` 1 s, 공식 클라에서 확인 2026-11-03: 블랙보드
+  조회는 키를 글자 그대로 비교). 능력이 `ChannelingMeleeAttack`이고
   `_selectTargetTiming` 1 = BEFORE_SPELL_START라 **매 타 전에 원 안 가장 가까운 오퍼레이터를 다시 고른다** — 더 가까운 오퍼레이터가 오면 갈아타고, 대상이
   떠나면 다음 타에 원 안의 다른 오퍼레이터(2026-10-15, 옛 [ASSUMED]: 처음 대상만, 반경 밖이면 끝). 대상이 죽거나(`_interuptIfTargetDead` 1, 철수 포함)
   子代가 기절·침묵되면(`_canSilenced`) 끝나고, [ASSUMED] 타 순간 원 안에 아무도 없어도 끝난다(기본 경로라 안 읽음) — SP 0부터 → 1 s 뒤 다시 고른다.
