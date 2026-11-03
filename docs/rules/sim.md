@@ -1175,8 +1175,8 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   같은 꼴) — SwitchBegin이 보호 버프(`*_switchbegin`: 무적·불사 등, INFINITY)를 걸고, 죽는 클립과 나오는 클립이 각각 제 길이(`_timeMode` 1, `_maxAnimScale` 1;
   风丸 `Die_2`→`Start_B`, 돌아올 때 `Die_B`→`Born`(=`Start`), 归溟幽灵鲨 `Die`→`Start_B`, `Die_B`→`Start_2`, 모두 1 s), 나오는 단계의 `BuffAfterAffecting`(OnEvent
   2 = 시전 시작에 표시, `OnTick`이 능력이 끝난 뒤 `AddBuff`)이 그 클립이 끝난 뒤 `*_switchend`(보호 버프를 지우는 ClearAllBuffs + SwitchMode)를 건다 →
-  `professions.js DOLL_SWITCH` 2(전엔 1 s [ASSUMED]). 몸을 바꾸는 오퍼레이터는 풀(선발 포함)에 이 둘(카제마루·스펙터 디 언체인드)뿐이고 둘 다 위 클립을 읽었다 — 파투스(远牙)의 주둔지 `garrison_108_a/b`는
-  맹약 층만 주고 특질을 주지 않는다(2026-11-03 확인, 그 전 「远牙가 준 특질로 바뀌는 다른 오퍼레이터」 [ASSUMED] 줄은 해당 없음).
+  `professions.js DOLL_SWITCH` 2(전엔 추정 1 s). 몸을 바꾸는 오퍼레이터는 풀(선발 포함)에 이 둘(카제마루·스펙터 디 언체인드)뿐이고 둘 다 위 클립을 읽었다 — 파투스(远牙)의 주둔지 `garrison_108_a/b`는
+  맹약 층만 주고 특질을 주지 않는다(2026-11-03 확인, 그 전에 추정으로 적었던 「远牙가 준 특질로 바뀌는 다른 오퍼레이터」는 해당 없음).
 - **迷迭香 感知稳定은 오라** (2026-10-16, charpack `char_391_rosmon/Talents/2`): `_checker`(professionMask 32 = 术师, minCount 1)가 맞는 동안 붙는 Aura —
   术师 하나(`_maxNum` 1)와 그녀(`_selfOption`)가 `rosmon_t_2`를 지니고, 그 术师가 떠나면 빠지고 다른 术师가 받으며(`_removeBuffWhenTargetLeave`), 그녀가
   떠나면 모두 빠짐(`_removeBuffWhenAbilityDetached`); 그녀 뒤에 배치된 术师도 받는다. 그 전엔 배치 순간 한 번 골라 붙인 뒤 지우지 않아, 그녀가 떠나도
