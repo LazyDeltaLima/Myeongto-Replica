@@ -304,7 +304,7 @@ test('假想敌：淤困: its host\'s burst deals 1000 of the same element to th
   const h = arena({ units: [{ chessId: 't_wall', row: 10, col: 5 }, { chessId: 't_wall2', row: 11, col: 5 }, { chessId: 't_wall3', row: 10, col: 6 }, { chessId: 't_wall4', row: 11, col: 6 }] });
   h.step();
   put(h, 'enemy_9007_acelem', [10, 5]);
-  h.run(0.5);
+  h.run(1.5);   // its Combat cast (the 1.2 s clip Parasitic) lands on its blocker
   const host = h.unit('t_wall');
   assert.ok(host.findBuff('ab:parasite'), 'parasitised');
   h.b.dealDamage(null, host, { type: 'element', element: 'neural', amount: 1000 });

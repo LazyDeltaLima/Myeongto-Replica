@@ -3,7 +3,7 @@
 
 import { periodicDamage } from '../../damage.js';
 import {
-  stOf, T, elem, hurt, targetsNear, areaAllies, areaAlliesInTiles, targetAndArea, byPriority, setForm, onTerrain,
+  stOf, T, elem, hurt, targetsNear, areaAllies, areaAlliesInTiles, targetAndArea, byPriority, setForm, onTerrain, canCast,
 } from './helpers.js';
 import { taunt, ep, deathSpawn, deathBoom, setFloat, float, skill, kitEp, kitStun3 } from './archetypes.js';
 
@@ -13,6 +13,10 @@ import { taunt, ep, deathSpawn, deathBoom, setFloat, float, skill, kitEp, kitStu
 /** 假想敌：淤困: element damage its host's burst spreads to the allies of the 4 tiles around (PRTS 假想敌：淤困 "附着对象元素爆发时
  *  …对附着对象及周围4格内的所有我方单位…造成1000同类型元素损伤"; the host itself is in its 爆发冷却). */
 const PARASITE_SPREAD = 1000;
+/** 假想敌：淤困: how often its host must still block it — `enemy_acelem[check_block]` triggerInterval 0.2, from the attachment. */
+const CHECK_BLOCK_INTERVAL = 0.2;
+/** 假想敌：淤困: its Combat cast — the length of its clip Parasitic (enemy_9007_acelem.skel), which has no OnAttack event. */
+const PARASITIC_CLIP = 1.2;
 
 // ---------------------------------------------------------------------------------------------------------------
 // kits
@@ -115,45 +119,65 @@ function ensureParasiteHook(b) {
 }
 
 /**
- * 假想敌：淤困 附着: blocked, it attaches to its blocker — blinks onto the blocker's tile centre with 自缚 (`ab:parasiteAttached`
- * noMove + selfBound) and the host takes arts damage every second and element damage ×; both end with the block
- * (PRTS "附着效果在解除阻挡时解除") or its death.
+ * 假想敌：淤困 附着: blocked, it casts its mode Default's Combat ability on its blocker — the clip Parasitic (1.2 s, `_timeMode`
+ * FROM_ANIMATION) has no OnAttack event, so the cast waits the whole clip (EasyToStartAbility `_waitForAttackEvent` up to
+ * the cached duration) and then lands (AbilityStandard.OnCastOnTarget → AbilityAttachment.Apply: Talents/1's
+ * PassiveAttachmentAbility gives the target `enemy_acelem[to_parasitic]`). The enemy has no Attack ability (applyWay NONE):
+ * this is all it does. Attached it switches to mode Parasitic, blinks onto the host's tile centre and is 自缚
+ * (`ab:parasiteAttached` noMove + selfBound); the host takes arts damage every second and element damage ×. Every 0.2 s from
+ * the attachment (`enemy_acelem[check_block]`) the host must still block it, else the attachment ends (PRTS "附着效果在解除阻挡时
+ * 解除"); its death ends it too. [추정·미조사: when the Combat cast starts after the block and whether losing the block or a
+ * stun cuts it — taken as: from the block, cut by either]
  */
 function kitParasite(ab) {
   const scale = T(ab, '1.atk_scale') ?? 0, elMul = T(ab, '1.ep_damage_scale') ?? 1;
-  return [taunt(-1), {
-    iv: 0.2,
-    tick(b, e, a) {
-      const host = e.blockedBy && e.blockedBy.alive ? e.blockedBy : null;
-      if (a.host && a.host !== host) {
-        b.removeBuff(a.host, 'ab:parasite');
-        b.removeBuff(e, 'ab:parasiteAttached');
-        a.host = null;
-        // back to the prefab's mode Default (the mode follows the attachment [ASSUMED]); a silent 'phase' (render/fx/kinds.js)
-        e.form = null;
-        b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'detached', form: null });
-      }
-      if (!host || a.host === host) return;
-      a.host = host;
-      ensureParasiteHook(b);
-      // PRTS 假想敌：淤困 "附着开始时闪现至阻挡者所在地块中心，附着期间持有自缚": blink from the contact point onto the blocker's
-      // tile centre, 自缚 until the block ends (the route re-plans from there); fx 'teleport' kind 'parasite' makes the
-      // client cut this short move instead of sliding it (render/interp.js). The client prefab has no effect for the blink:
-      // its talent switches the enemy to mode Parasitic (enemy_acelem[to_parasitic]), which plays Parasitic once and then
-      // Idle_2 for Idle (`_replaceAnimPairs`) — form 'parasitic' (render/units.js FORMS), no stand-in puff (fx/kinds.js)
-      const fromX = e.x, fromY = e.y;
+  const attach = (b, e, a, host) => {
+    a.host = host;
+    a.next = b.time + CHECK_BLOCK_INTERVAL;
+    ensureParasiteHook(b);
+    // to_parasitic's BlinkNode (`_forceToMapPosition`, the host's grid from AssignGridPositionToBlackboard) → Enemy.Blink(grid):
+    // onto a tile its motion can pass, it is let go by its blocker (ReleaseFromBlocker — the block slide ends) and set on the
+    // tile centre at once; the host's next search (≤ 3 ticks, battle/blocking.js) blocks it again there, at its own centre.
+    // fx 'teleport' kind 'parasite' makes the client cut this short move instead of sliding it (render/interp.js). The client
+    // prefab has no effect for the blink: mode Parasitic plays Parasitic once and then Idle_2 for Idle (`_replaceAnimPairs`) —
+    // form 'parasitic' (render/units.js FORMS), no stand-in puff (fx/kinds.js)
+    const fromX = e.x, fromY = e.y;
+    // [추정·엔진: when the blink fails (a tile it cannot pass) whether the buff's next node — the block check — still runs is
+    // not read; it attaches where it stands]
+    if (e.isFlying || b.grid.groundPassable(host.tileR, host.tileC)) {
+      b._unblock(e);
       e.x = host.tileC; e.y = host.tileR;
-      e.blockMove = null;   // the blink ends a block slide still running [추정·미조사: how the client moves it — a blink would release it]
       if (e.route) e.route.pts = null;
-      b.addBuff(e, { key: 'ab:parasiteAttached', flags: { noMove: true, selfBound: true } });
-      e.form = 'parasitic';
-      b.fx('teleport', { x: e.x, y: e.y, fromX, fromY, id: e.id, kind: 'parasite', form: 'parasitic' });
-      b.fx('beam', { x: e.x, y: e.y, from: e.id, to: host.id, kind: 'parasite' });
-      b.addBuff(host, {
-        // "受到的元素损伤提高至130%": a 元素损伤 multiplier on the element hit (ensureParasiteHook), not 元素伤害
-        key: 'ab:parasite', visible: true, interval: 1, data: { src: e, spread: PARASITE_SPREAD, epMul: elMul },
-        onTick: ({ battle, unit }) => { if (e.alive) battle.dealDamage(e, unit, { amount: e.s.atk * scale, type: 'arts', canDodge: false, ignoreSelect: true, tags: ['enemyAbility', 'parasite'] }); },
-      });
+    }
+    b.addBuff(e, { key: 'ab:parasiteAttached', flags: { noMove: true, selfBound: true } });
+    e.form = 'parasitic';
+    b.fx('teleport', { x: e.x, y: e.y, fromX, fromY, id: e.id, kind: 'parasite', form: 'parasitic' });
+    b.fx('beam', { x: e.x, y: e.y, from: e.id, to: host.id, kind: 'parasite' });
+    b.addBuff(host, {
+      // "受到的元素损伤提高至130%": a 元素损伤 multiplier on the element hit (ensureParasiteHook), not 元素伤害
+      key: 'ab:parasite', visible: true, interval: 1, data: { src: e, spread: PARASITE_SPREAD, epMul: elMul },
+      onTick: ({ battle, unit }) => { if (e.alive) battle.dealDamage(e, unit, { amount: e.s.atk * scale, type: 'arts', canDodge: false, ignoreSelect: true, tags: ['enemyAbility', 'parasite'] }); },
+    });
+  };
+  const detach = (b, e, a) => {
+    b.removeBuff(a.host, 'ab:parasite');
+    b.removeBuff(e, 'ab:parasiteAttached');
+    a.host = null;
+    // back to the prefab's mode Default (to_parasitic's ON_BUFF_FINISH SwitchMode 0); a silent 'phase' (render/fx/kinds.js)
+    e.form = null;
+    b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'detached', form: null });
+  };
+  return [taunt(-1), {
+    tick(b, e, a) {
+      while (a.host && b.time >= a.next - 1e-9) {
+        a.next += CHECK_BLOCK_INTERVAL;
+        if (!a.host.alive || e.blockedBy !== a.host) detach(b, e, a);
+      }
+      if (a.host) return;
+      const bl = e.blockedBy && e.blockedBy.alive && canCast(e, false, b) ? e.blockedBy : null;
+      if (!bl) { a.castOn = null; return; }
+      if (a.castOn !== bl) { a.castOn = bl; a.castEnd = b.time + PARASITIC_CLIP; return; }
+      if (b.time >= a.castEnd - 1e-9) { a.castOn = null; attach(b, e, a, bl); }
     },
     death(c, b, e, a) { if (a.host) b.removeBuff(a.host, 'ab:parasite'); b.removeBuff(e, 'ab:parasiteAttached'); },
   }];

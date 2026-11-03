@@ -740,9 +740,13 @@ test(`${nm('enemy_9007_acelem')}: harder to target (taunt −1); parasitises its
   h.step();
   const e = put(h, 'enemy_9007_acelem', [9, 5]);
   assert.equal(e.s.taunt, -1);
-  h.run(2.6);
   const w = h.unit('t_wall');
-  assert.ok(w.findBuff('ab:parasite'));
+  // its Combat cast plays the 1.2 s clip Parasitic, which has no OnAttack event: it lands at the clip's end
+  h.run(1.1);
+  assert.ok(e.blockedBy === w && !w.findBuff('ab:parasite'), 'blocked, still casting');
+  h.run(0.2);
+  assert.ok(w.findBuff('ab:parasite'), 'the cast lands');
+  h.run(2.4);
   // "受到的元素损伤提高至130%": an elementHit multiplier on the host's gauge fills (SIM.md §7.2), not the elemTakenMul mod
   assert.equal(w.s.elemTakenMul, 1);
   const n0 = w.elem.neural;
@@ -760,8 +764,14 @@ test(`${nm('enemy_9007_acelem')}: attaching from contact blinks to the blocker's
     move: true, route: { motion: 'WALK', start: [9, 7], end: [9, 2], checkpoints: [] },
   });
   const host = h.unit('t_wall');
-  assert.ok(h.runUntil(() => !!host.findBuff('ab:parasite'), 15), 'the approaching enemy attaches');
-  assert.equal(e.blockedBy, host);
+  let blockedAt = null;
+  assert.ok(h.runUntil(() => { if (blockedAt == null && e.blockedBy === host) blockedAt = h.b.time; return !!host.findBuff('ab:parasite'); }, 15), 'the approaching enemy attaches');
+  approx(h.b.time - blockedAt, 1.2, 0.03, 'a clip Parasitic after the block');
+  // the blink (Enemy.Blink) lets it go — the block slide ends — and its host's next search blocks it again on its centre
+  assert.equal(e.blockedBy, null, 'the blink releases the block');
+  assert.equal(e.blockMove, null, 'and ends the block slide');
+  h.run(0.15);
+  assert.equal(e.blockedBy, host, 'blocked again by the host');
   assert.equal(e.x, host.tileC, 'enemy moves to the host tile centre on attachment');
   assert.equal(e.y, host.tileR);
   assert.ok(e.s.flags.selfBound && e.s.flags.noMove, 'attachment holds 自缚');
@@ -799,6 +809,7 @@ test(`${nm('enemy_9007_acelem')} through the real match path (Match board → bu
   const u = b.allyUnits.find((x) => x.kind === 'op');
   const fx = [];
   for (let i = 0; i < 600 && !u.findBuff('ab:parasite'); i++) { b.step(); fx.push(...b.drainEvents().filter((x) => x[0] === 'fx')); }
+  for (let i = 0; i < 4; i++) { b.step(); fx.push(...b.drainEvents().filter((x) => x[0] === 'fx')); }   // the host's next search
   const e = b.units.find((x) => x.defId === 'enemy_9007_acelem' && x.alive);
   assert.ok(u.findBuff('ab:parasite') && e.blockedBy === u, 'blocked by 角峰, it attaches');
   assert.ok(e.x === u.tileC && e.y === u.tileR, `on its blocker's tile centre (${e.x}, ${e.y})`);

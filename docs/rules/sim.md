@@ -720,8 +720,18 @@ upstream 새 버그 이슈와 거기 붙은 수정 PR 중 이식한 sim 쪽(관�
   (저지자 퇴각·사망·저지 해제 — 키트 틱 0.2초 안) 적이 죽으면 자박도 지운다 — 경로는 그 칸에서 다시 짠다. 자박라 余 S2 등 「자박 불가」 규칙도 그동안 따른다.
   클라는 `kind: 'parasite'`인 teleport만 짧은 거리라도 미끄러지지 않게 끊어 그린다(`render.md`). 부착 동안 폼 `parasitic`(클라 프리팹 모드 Parasitic, 관리자 결정
   2026-10-15 「공식대로」), 풀리면 폼 null — 모습만이고 판정은 그대로(`render.md` 같은 절).
-- 테스트 `test/content/enemies_bosses.test.js`(PR 테스트: 접촉 지점 → 저지자 칸 중심·자박·teleport fx·퇴각 뒤 다시 걸음; + 실제 경기 경로 Match 판 → `buildBattleSpec` →
-  `createBattleFromSpec`, 角峰이 저지 → 칸 중심·3초 동안 그 자리에서 피해·퇴각 뒤 걸음 — 고치기 전에는 칸 중심 확인이 실패).
+- **부착 시점과 闪现**(2026-11-03, 공식 클라에서 확인 — 프리팹 `enemy_9007_acelem`·버프 템플릿): 가상적: 정체는 일반 공격이 없고(applyWay NONE, 기본 모드 `_attack` 없음)
+  저지되면 기본 모드의 `Combat` 능력을 저지자에게 시전한다 — 클립 `Parasitic`(1.2초, `_timeMode` FROM_ANIMATION)에 공격 이벤트가 없어 시전은 클립 끝까지 기다린 뒤
+  닿고(`_waitForAttackEvent`), 그때 천부 `Talents/1`(`PassiveAttachmentAbility`, 대상에게 `enemy_acelem[to_parasitic]`; `AbilityStandard.OnCastOnTarget` →
+  `AbilityAttachment.Apply`)이 저지자를 숙주로 만든다. 그 버프 시작: 적을 모드 Parasitic으로(그 모드에도 공격 없음), 숙주에 `enemy_acelem[parasitic]`(1초마다 법술 피해),
+  숙주 칸을 블랙보드에 두고 `BlinkNode`(`_forceToMapPosition`) → `Enemy.Blink(GridPosition)`: 갈 수 있는 칸이면 저지에서 풀고(`ReleaseFromBlocker` — 미끄러짐도 끝)
+  칸 가운데에 바로 놓음 → 저지자의 다음 탐색이 거리 0에서 다시 막음(offset 0이라 그 자리). 그리고 `enemy_acelem[check_block]`이 부착 0.2초 뒤부터 0.2초마다 숙주가
+  아직 막고 있는지 보고 아니면 부착을 끝냄(모드 Default로, `Reborn` 능력 = 클립 `Start`). 우리: `kitParasite`가 저지된 뒤 1.2초(`PARASITIC_CLIP`)에 부착,
+  `_unblock` 뒤 칸 가운데, 부착 시각부터 0.2초(`CHECK_BLOCK_INTERVAL`)마다 확인. 전에는 저지 뒤 키트 틱(0.2초) 안에 부착하고 저지를 그대로 두었다.
+  **[추정·미조사: `Combat` 시전이 저지 뒤 언제 시작하는지, 저지가 풀리거나 기절하면 끊기는지 — 저지 순간부터, 둘 다 끊는 것으로 둠]**
+  **[추정·엔진: 闪现이 실패할 때(갈 수 없는 칸) 버프의 다음 노드(저지 확인)가 도는지 안 읽음 — 그 자리에서 부착]**. 렌더는 시전 중 클립 `Parasitic`을 아직 틀지 않음(부착 때 한 번).
+- 테스트 `test/content/enemies_bosses.test.js`(PR 테스트: 접촉 지점 → 저지 1.2초 뒤 부착·闪现이 저지를 풂·다음 탐색에 다시 막음·저지자 칸 중심·자박·teleport fx·퇴각 뒤 다시 걸음;
+  + 실제 경기 경로 Match 판 → `buildBattleSpec` → `createBattleFromSpec`, 角峰이 저지 → 칸 중심·3초 동안 그 자리에서 피해·퇴각 뒤 걸음 — 고치기 전에는 칸 중심 확인이 실패).
 
 ## upstream 0.2.5–0.3.1 버그 수정 이식 — 매치 (2026-10-17)
 
@@ -829,8 +839,9 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   그리고 `Enemy.OnTick`이 매 틱 저지 불가(`isBlockFree` — 不可阻挡·恐惧·诱导·沉睡)를 보면. 우리 `_unblock`이 이것이고(막혀 있지 않아도 미끄러짐을 끝냄),
   `_tickBlockMove`도 그 플래그·숨음을 보면 멈춘다. 저지자 쪽 해제(`Character.RemoveBlockee` → `Enemy.UnregisterBlocker`: 저지자 사망·퇴각·기절, 저지 수 감소)는
   트윈을 두므로 **미끄러짐이 계속된다** — 풀린 적이 걸어도 다음 틱의 미끄러짐이 덮어써 목표까지 간 뒤(끝나는 그 틱에 한 걸음) 걷는다. 우리 `_unregisterBlocker`
-  (`releaseBlocked`·`enforceBlockCapacity`·`ai.js` 저지자 쪽 조건). 예외 하나: 가상적: 정체(`enemy_9007_acelem`, `element.js` 기생)가 저지자 칸 가운데로 闪现할 때 미끄러짐을 끝냄
-  **[추정·미조사: 클라가 그 적을 어떻게 옮기는지 안 읽음 — 블링크면 저지도 풀림]**.
+  (`releaseBlocked`·`enforceBlockCapacity`·`ai.js` 저지자 쪽 조건). 가상적: 정체(`enemy_9007_acelem`)가 부착하며 저지자 칸 가운데로 闪现하는 것은 적 쪽 해제다
+  (2026-11-03, 공식 클라에서 확인: 버프 `enemy_acelem[to_parasitic]`의 `BlinkNode` → `Enemy.Blink(GridPosition)` → `ReleaseFromBlocker`) — 미끄러짐이 끝나고 저지도
+  풀리며, 저지자가 다음 탐색(3틱 안)에서 칸 가운데의 그 적을 다시 막는다(아래 「假想敌：淤困」 절).
   이전: 밀기·재배치·풀린 뒤 제 걸음 등 다른 것이 적을 옮기면 그 자리에서 끝냄(옛 추정) — 풀린 뒤 걸음만 달라짐.
 - 풀릴 때 남은 적의 자리는 다시 계산하지 않는다(공식도 같음).
 - 바뀐 것: 전에는 닿은 그 자리에 바로 두었다(0.5 미만이어도, 여럿이 겹쳐도). golden 이동은 커밋 메시지.

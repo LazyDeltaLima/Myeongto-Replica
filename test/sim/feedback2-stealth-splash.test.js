@@ -214,7 +214,7 @@ test('#32.6 ignoreSelect: 萨卡兹悖谬暴虐兵长\'s 暴击 ("无视无法�
     const jf = h.unit(JF), gm = h.unit(GM), hd = h.unit(HD);
     stealth(h, gm);
     h.b.addBuff(hd, { key: 'test:liftoff', persist: true, flags: { liftoff: true, blockFly: true } }); // 起飞 (蒂比's flag)
-    h.run(1.5);
+    h.run(2.8);   // spawned at 1 s; its Combat cast (the 1.2 s clip Parasitic) lands on its blocker
     assert.ok(jf.findBuff('ab:parasite'), '淤困 parasitises its blocker 角峰');
     const src = h.b.enemies.find((e) => e.defId === PARASITE);
     h.b.dealDamage(src, jf, { type: 'element', element: 'burn', amount: 5000, tags: ['test'] });
