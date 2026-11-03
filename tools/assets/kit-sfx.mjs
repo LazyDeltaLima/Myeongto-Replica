@@ -251,6 +251,27 @@ export const KIT_HIT_BANKS = Object.freeze({
   'mlyss:s3range': 'battle.ON_BUFF_START.mlyss_s_3[range_audio]',
   'svash2:range': 'battle.ON_CUSTOM_TRIGGER.svash2_s_2[range]',
   'svash2:s2redhit': 'battle.ON_BUFF_START.svash2_s_2[hit]',
+  // 2026-11-03, docs/rules/audio.md 「버프·커스텀 트리거 소리」 (EN client templates and prefabs; public/js/audio.js): 真言's
+  // 侵入点 mark (Talents/2 TileListener AttachListenerToTileAbility `_effectSettings` audioSignal, played at the tile as its
+  // mark effect is made), each S1 / S2 hit by its IsTargetInEPBreakRecovery branch (PlayProjectileAudio, kit kitHit), each
+  // object an S3 溢出麻痹 bounce hits (mantra_s_3[enemy_trigger]); 铁钳号·原型机's skill (its ability START) and its projectile
+  // reaching (the kit's blast, fx 'aoe' ironmn:crab);
+  'mantra:t2': 'battle.ON_CUSTOM_TRIGGER.mantra_t_tile',
+  'mantra:s1': 'battle.ON_CUSTOM_TRIGGER.mantra_s_1_proj_normal',
+  'mantra:s1el': 'battle.ON_CUSTOM_TRIGGER.mantra_s_1_proj_element',
+  'mantra:s2': 'battle.ON_CUSTOM_TRIGGER.mantra_s_2_proj_normal',
+  'mantra:s2el': 'battle.ON_CUSTOM_TRIGGER.mantra_s_2_proj_element',
+  'mantra:s3': 'battle.ON_CUSTOM_TRIGGER.mantra_s_3_element',
+  'ironmn:pile3s': 'battle.ON_ABILITY_START.sktok_ironmn_pile3',
+  'ironmn:pile3hit': 'battle.ON_PROJECTILE_REACH.projectile_chr_ironmn_pile3',
+  // 遥: a bubble given (haruka_t_1 ON_BUFF_START PlayAudio) and breaking (haruka_t_1_delay ON_BUFF_TRIGGER), S3's levitation
+  // (haruka_s_3_debuff, created with audioSignal haruka_shield_start_enemy: its START and each damage TRIGGER), S2's extra
+  // damage at a healed unit (haruka_s_2 ON_AFTER_OUTPUT_HEAL PlayAudio, enemies or none)
+  'haruka:t1': 'battle.ON_CUSTOM_TRIGGER.haruka_shield_start_ally',
+  'haruka:break': 'battle.ON_CUSTOM_TRIGGER.haruka_shield_break_ally',
+  'haruka:lev': 'battle.ON_BUFF_START.haruka_shield_start_enemy',
+  'haruka:float': 'battle.ON_BUFF_TRIGGER.haruka_shield_start_enemy',
+  'haruka:s2': 'battle.ON_CUSTOM_TRIGGER.haruka_s2_damage',
   // 2026-11-03, docs/rules/audio.md 「적 버프·커스텀 트리거 소리」 (EN client enemy prefabs and buff templates; public/js/audio.js
   // enemyBuffSounds): a prisoner freed (its Liberty mode's enemy_liberty[state]) and freed by another (LibertyOthersAbility's
   // enemy_liberty_force); 阿利斯泰尔's piece picked up (enemy_vtmstr_equip_*[char] PlayAudio) and its vest taken

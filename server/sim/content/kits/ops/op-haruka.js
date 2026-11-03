@@ -145,9 +145,11 @@ export default {
           const here = up(u);
           if (here) lastAtk = u.s.atk;
           b.dealDamage(u, tgt, { amount: lastAtk * scale, type: 'arts', canDodge: false, isSkill: true, sourceless: !here, tags: ['skill', 'dot', 'haruka:float'] });
+          // its ON_BUFF_TRIGGER: the debuff carries audioSignal haruka_shield_start_enemy (haruka_s_3_debuff_delay CreateBuff)
+          b.fx('kitHit', { x: tgt.x, y: tgt.y, id: u.id, k: 'haruka:float' });
         },
       });
-      battle.fx('levitate', { x: e.x, y: e.y, id: e.id });
+      battle.fx('levitate', { x: e.x, y: e.y, id: e.id, src: u.id }); // `src`: her (audio.js, its ON_BUFF_START sound)
     }
     /** A bubble of `u` on `a` breaks (the delay is over): T2's heal and SP, S1's next bubble. */
     function burst(battle, u, a, buff) {
@@ -221,8 +223,11 @@ export default {
             // the skill's ExtraSelect selector: `_postFilter` HATRED_DES — taunt level × k − the remaining route (Enemy.get_hatred)
             foes.sort((x, y) => (y.s.taunt || 0) - (x.s.taunt || 0) || battle.remainingDistance(x) - battle.remainingDistance(y) || x.spawnSeq - y.spawnSeq);
             const amount = c.amount * scale;
-            for (const e of foes.slice(0, n)) battle.dealDamage(unit, e, { amount, type: 'arts', isSkill: true, tags: ['skill', 'haruka:s2'] });
-            if (foes.length) battle.fx('aoe', { x: t.x, y: t.y, radius: r, id: unit.id, skill: 'haruka:s2' });
+            const hit = foes.slice(0, n);
+            for (const e of hit) battle.dealDamage(unit, e, { amount, type: 'arts', isSkill: true, tags: ['skill', 'haruka:s2'] });
+            // haruka_s_2's ON_AFTER_OUTPUT_HEAL: after its selector (AlwaysNext) the range effect and PlayAudio haruka_s2_damage
+            // at the healed unit, enemies or none (`n` = the enemies hit)
+            battle.fx('aoe', { x: t.x, y: t.y, radius: r, id: unit.id, skill: 'haruka:s2', n: hit.length });
           }, { owner: unit, priority: -1000 });
         } },
       ],

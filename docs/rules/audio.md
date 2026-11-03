@@ -618,6 +618,28 @@
     `svash2:range` + 적마다 `svash2:s2redhit`. 그 자신의 베기는 전과 같음.
   - 확인: `test/audio-buff-trigger-sounds.test.js`(뱅크·키·AudioManager 재생, battleHarness 티티 틱, 실제 매치 경로 시빌라이트 에테르나 미진 HIT·복귀).
     [화면 미확인]
+- 선발 스테인리스·하루카·만트라 (2026-11-03, 키트가 들어온 날의 커버리지 목록 `todo` 13개; EN 클라 버프 템플릿·charpack·스킬 프리팹; 새 sfx 13키·파일
+  13개). 새 sim 이벤트는 `kitHit` 셋(만트라 S1·S2 타격, S3 튕김 착탄, 하루카 띄우기 틱; 하루카 비눗방울 깨짐 `haruka:break`는 이펙트 쪽이 같은 날
+  넣음), 나머지는 있던 fx에 소리·필드만:
+  - 스테인리스(`char_4072_ironmn`)의 글룸핀서호 - 프로토타입(`token_10027_ironmn_pile3`): 스킬 `sktok_ironmn_pile3` START = 그 'skill' 켜짐(소환물이라 자기
+    유닛 항목이 없어 `sfx.kit` `ironmn:pile3s`), 투사체 `projectile_chr_ironmn_pile3` REACH = 키트 착탄 폭발(fx `aoe` `ironmn:crab`).
+  - 하루카(`char_4202_haruka`) 재능1 비눗방울: 줄 때 `haruka_t_1` ON_BUFF_START PlayAudio `haruka_shield_start_ally`(가진 유닛; fx `shield` `kind:
+    'bubble'`), 깨질 때 `haruka_t_1_delay` ON_BUFF_TRIGGER PlayAudio `haruka_shield_break_ally`(조건 없이 맨 앞 — 치유 0이어도; kitHit
+    `haruka:break`). S3 띄우기: `haruka_s_3_debuff_delay`가 `haruka_s_3_debuff`를 audioSignal `haruka_shield_start_enemy`로 만들어 그 START(fx
+    `levitate`에 새 `src` 그녀 — 아로마 것과 가름)와 피해 틱마다 TRIGGER(새 kitHit `haruka:float`, 틱마다 하나). `haruka_shield_break_enemy`는 EN 클라의
+    어느 템플릿·프리팹·능력도 내지 않아 목록에 `none`. S2: `haruka_s_2` ON_AFTER_OUTPUT_HEAL(85)이 치유값 > 0이면 추가 피해 선택(ExtraSelect) 뒤
+    AlwaysNext로 범위 이펙트 `haruka_skill_02_hit_range`와 PlayAudio `haruka_s2_damage`를 치유받은 유닛에서 — 적이 없어도 낸다. 그래서 키트 fx
+    `aoe` `haruka:s2`가 이제 적이 없어도 나가고(새 `n` = 맞은 적 수), 그 소리 `haruka:s2`.
+  - 만트라(`char_4204_mantra`) 재능2 「전반적 통찰」의 침입 포인트: `Talents/2/TileListener`(AttachListenerToTileAbility)의 `_effectSettings`(castedTimeThreshold 1,
+    이펙트 `mantra_mark_01`, audioSignal `mantra_t_tile`) — `_HoldCastedEffectOnTile`이 그 칸에 표시 이펙트를 만들 때 그 신호를 칸 자리에서 낸다(공식
+    클라에서 확인; `_playAudioWhenEffectChanged`는 0) → 배치 때 고르는 fx `mantraGate`. S1(스킬 프리팹 `skchr_mantra_1`)·S2(`Modes/S2/Body/Attack`)
+    타격: 법술 피해 → 신경 손상 뒤 `IsTargetInEPBreakRecovery`(신경 폭발 중) IfElse — 참이면 원소 피해 + `mantra_s_<n>_proj_element`, 아니면
+    `_proj_normal`(PlayProjectileAudio). S2는 그 투사체가 튕길 때마다 같은 동작 → 키트 `riders`가 맞을 때마다 새 kitHit `mantra:s1`/`s1el`/`s2`/`s2el`
+    (판정은 신경 손상 뒤의 `neuralBurst`, 원소 피해 배율과 상관없이). S3 넘친 마비(溢出麻痹): `mantra_s_3[enemy_trigger]`의 EmitProjectile(`projectile_chr_mantra_s3_2`)
+    ON_HIT_OBJECT 동작이 피해 뒤 AlwaysNext로 PlayProjectileAudio `mantra_s_3_element` — 맞힌 대상마다: 가진 적은 fx `mantraArc`, 다음 적으로 튄
+    착탄은 새 kitHit `mantra:s3`.
+  - 확인: `test/audio-diy-pick-sounds.test.js`(뱅크·키·AudioManager 재생, battleHarness 글룸핀서호 스킬·착탄, 하루카 띄우기 틱·적 없는 S2, 만트라 S1
+    두 갈래, 실제 매치 경로 만트라 침입 포인트). [화면 미확인]
 - 안 한 것: 쏜즈 더 로드스타 `thorn2_t_2_start`(`thorn2_t_2[audio]`를 만드는 템플릿·프리팹을 못 찾음), 실버애쉬 더 레인프로스트 `svash2_s_2[show]`(EN 클라에
   그 신호를 내는 PlayAudio 없음)·`svash2_eagle_token[locate]`(독수리 토큰이 키트에 없음), 유동체 재능 T.1 `p_skill_wtrlimereborn`(가짜 죽음·부활이
   키트에 없음), 카넬리안·노시스·루멘 `[eff_cond]` 외의 단계 버프, 뮤엘시스·비질 가짜 죽음

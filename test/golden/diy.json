@@ -830,8 +830,8 @@
       ],
       "enemies": {"enemy_1019_jshoot_2":[57,57,0,10367,441161],"enemy_1299_ymkilr_2":[27,27,0,11775,851364],"enemy_1422_lrsldr_2":[39,39,0,0,614874]},
       "hooks": [1,137,6093,675,675,1569,1680,2647,126,126,34,33,0,23547,6141,71,123,0,1,127,0,1,16],
-      "events": {"atk":772,"deploy":14,"die":126,"dmg":1680,"engage":12,"face":79,"fx":850,"heal":158,"skill":67,"spawn":135,"status":212,"swing":938},
-      "fx": {"burst":1,"dodge":16,"mantraArc":148,"mantraGate":8,"mantraGrant":13,"palsy":173,"stacks":490,"undying":1},
+      "events": {"atk":772,"deploy":14,"die":126,"dmg":1680,"engage":12,"face":79,"fx":1080,"heal":158,"skill":67,"spawn":135,"status":212,"swing":938},
+      "fx": {"burst":1,"dodge":16,"kitHit":230,"mantraArc":148,"mantraGate":8,"mantraGrant":13,"palsy":173,"stacks":490,"undying":1},
       "snaps": "eacca353 ed4d0132 552eb6c5 1ee08262 12441f7c 1efc2e64 71ed70ba 5342e0fd e873059b 85f35dcc 3903fbbf bc9e93c2 6c7dc16e dfcd50e6 1d0fea7e b924c069 a9033da4 f3fe34bb 9e9767da 3f379b8e 9187919a"
     },
     "diy-020": {
@@ -871,8 +871,8 @@
       ],
       "enemies": {"enemy_1019_jshoot_2":[57,17,40,11835,171773],"enemy_1381_winman":[27,12,15,0,260061],"enemy_1389_winbab_2":[48,17,31,21577,426399]},
       "hooks": [1,157,6474,272,272,600,681,0,68,154,18,18,0,9275,3352,14,132,86,1,68,0,2,0],
-      "events": {"atk":299,"deploy":23,"die":68,"dmg":681,"engage":12,"face":42,"fx":487,"leak":86,"skill":36,"spawn":146,"status":137,"swing":458},
-      "fx": {"burst":2,"mantraArc":50,"mantraGate":23,"mantraGrant":5,"palsy":113,"stacks":294},
+      "events": {"atk":299,"deploy":23,"die":68,"dmg":681,"engage":12,"face":42,"fx":611,"leak":86,"skill":36,"spawn":146,"status":137,"swing":458},
+      "fx": {"burst":2,"kitHit":124,"mantraArc":50,"mantraGate":23,"mantraGrant":5,"palsy":113,"stacks":294},
       "snaps": "e5b4c0fe f0ac11c6 454a4afa 3f9ce7a6 0a68d9cb 6b718410 f0dc0c77 edebe117 50771bbe 93f6c5d9 13f1b721 9a3f9e9d 66a96932 4165cb68 645598bb 4797beee 5c05439c cde68477 a5209155 e6f503b2 9ed6dbdb a0ad67d0"
     },
     "diy-021": {
@@ -996,8 +996,8 @@
       ],
       "enemies": {"enemy_1116_liprr_2":[27,18,9,6643,165717],"enemy_1119_vofsd":[39,25,14,50423,368242],"enemy_1121_lifbos_2":[24,10,14,34384,352580]},
       "hooks": [1,106,6332,1380,1380,1869,1869,11606,54,91,34,28,0,32514,24,69,90,37,1,54,0,0,0],
-      "events": {"atk":1538,"deploy":13,"die":54,"dmg":1869,"engage":12,"face":237,"fx":920,"heal":403,"leak":37,"skill":62,"spawn":105,"status":676,"swing":1408},
-      "fx": {"aoe":365,"heal":232,"levitate":24,"liberate":31,"phase":23,"shield":245},
+      "events": {"atk":1538,"deploy":13,"die":54,"dmg":1869,"engage":12,"face":237,"fx":981,"heal":403,"leak":37,"skill":62,"spawn":105,"status":676,"swing":1408},
+      "fx": {"aoe":365,"heal":232,"kitHit":61,"levitate":24,"liberate":31,"phase":23,"shield":245},
       "snaps": "906f1891 95529969 754af569 a520f2af 89537288 af778b31 6d406d64 e1d76111 f2851843 94cfb228 f64d31ee b4e82c58 18ed6090 0b0b4682 6622bb5d 59070c3f 867072c9 94a8c35c 4835b159 a3eb1848 3c1ad465 38dfc516"
     },
     "diy-024": {
@@ -1035,8 +1035,8 @@
       ],
       "enemies": {"enemy_1249_lysdb_2":[60,19,41,56258,338287],"enemy_1251_lysyta":[51,6,45,6915,89509],"enemy_1329_cbshld":[39,7,32,69086,206266]},
       "hooks": [1,162,6810,1480,1480,1779,1720,1326,32,150,70,63,0,44858,52,76,150,118,1,32,0,0,0],
-      "events": {"atk":1807,"deploy":12,"die":32,"dmg":1720,"engage":6,"face":252,"fx":1055,"heal":593,"leak":118,"skill":133,"spawn":162,"status":790,"swing":1487},
-      "fx": {"aoe":298,"heal":291,"levitate":52,"shield":355,"shieldBreak":59},
+      "events": {"atk":1807,"deploy":12,"die":32,"dmg":1720,"engage":6,"face":252,"fx":1251,"heal":593,"leak":118,"skill":133,"spawn":162,"status":790,"swing":1487},
+      "fx": {"aoe":299,"heal":291,"kitHit":195,"levitate":52,"shield":355,"shieldBreak":59},
       "snaps": "41cdaf18 4bd590d4 f01908b2 4b88f0ee f7efb65a d70e32a3 114b421b 190b44ba 85468d44 f4f2bd2c 00ca3b12 469a4230 845d4d6e dea01a81 436329e0 80c807cd 7dc60a3f 95bd8212 6bea671b 3e8c5ddb 7d58e5f8 58d1841d c92c1572"
     },
     "diy-025": {

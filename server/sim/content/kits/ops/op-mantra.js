@@ -84,13 +84,17 @@ function setPalsy(battle, e, n) {
 // 【麻痹付与】 takes the enemy's tile (PRTS 备注: 格子判定), unlike the reveal and the overflow (碰撞判定: bodyInRange)
 const tileIn = (e, set) => set.has(Math.round(e.y) * COLS + Math.round(e.x));
 
-/** The S1 / S2 riders: share × the damage dealt as 神经 损伤, then elemScale × ATK 元素伤害 on a target in its 神经 burst. */
-function riders(battle, unit, t, dealt, share, elemScale) {
+/** The S1 / S2 riders: share × the damage dealt as 神经 损伤, then elemScale × ATK 元素伤害 on a target in its 神经 burst.
+ *  Every hit sounds its branch (`sk` 's1' / 's2'; the attack's IsTargetInEPBreakRecovery IfElse: PlayProjectileAudio
+ *  mantra_<sk>_proj_element or _normal — audio.js, kitHit 'mantra:<sk>el' / 'mantra:<sk>'). */
+function riders(battle, unit, t, dealt, share, elemScale, sk) {
   if (!t || t.side !== 'enemy') return;
   if (share > 0 && dealt > 0) elementDmg(battle, unit, t, 'neural', dealt * share, ['skill', 'mantra']);
-  if (elemScale > 0 && hasHp(t) && t.findBuff('neuralBurst')) {
+  const burst = !!t.findBuff('neuralBurst');
+  if (elemScale > 0 && hasHp(t) && burst) {
     battle.dealDamage(unit, t, { amount: unit.s.atk * elemScale, type: 'elemental', element: 'neural', canDodge: false, isSkill: true, tags: ['skill', 'mantra'] });
   }
+  battle.fx('kitHit', { x: t.x, y: t.y, id: unit.id, k: `mantra:${sk}${burst ? 'el' : ''}` });
 }
 
 /** The nearest enemy within `r` of (x, y) that `unit` can select, none of `skip`. */
@@ -123,7 +127,7 @@ export default {
         onHit: ({ target, x, y }) => {
           if (target && target.alive) {
             const d = battle.dealDamage(unit, target, { amount: unit.s.atk * num(b2['attack@chain.atk_scale'], 1), type: 'arts', isAttack: true, isSkill: true, tags: ['chain'], attackId });
-            riders(battle, unit, target, d, num(b2['attack@ep_damage_ratio']), num(b2['attack@element_atk_scale']));
+            riders(battle, unit, target, d, num(b2['attack@ep_damage_ratio']), num(b2['attack@element_atk_scale']), 's2');
           }
           chain(battle, unit, target && target.alive ? target : { x, y }, hit, left - 1, attackId);
         },
@@ -147,7 +151,12 @@ export default {
         left--;
         battle.addProjectile({
           from: { x: from.x, y: from.y }, target: next, speed: JUMP_SPEED, visual: 'bolt', source: unit,
-          onHit: ({ target }) => { if (target && target.alive) elem(target); if (target) jump(target, jumps - 1); },
+          onHit: ({ target }) => {
+            if (target && target.alive) elem(target);
+            // each object it hits sounds mantra_s_3_element (mantra_s_3[enemy_trigger] EmitProjectile ON_HIT_OBJECT actions:
+            // PlayProjectileAudio; the holder's: fx 'mantraArc' — audio.js)
+            if (target) { battle.fx('kitHit', { x: target.x, y: target.y, id: unit.id, k: 'mantra:s3' }); jump(target, jumps - 1); }
+          },
         });
       };
       jump(holder, Math.max(0, Math.floor(num(b3.chain_times, 1))));
@@ -198,7 +207,7 @@ export default {
           kind: num(skillRec(chess, S1)?.maxChargeTime, 1) > 1 ? 'charges' : 'instant',
           attack: {
             atkScale: num(b1.atk_scale, 1),
-            onHit({ battle, unit, target, dealt }) { riders(battle, unit, target, dealt, num(b1.ep_damage_ratio), num(b1.element_atk_scale)); },
+            onHit({ battle, unit, target, dealt }) { riders(battle, unit, target, dealt, num(b1.ep_damage_ratio), num(b1.element_atk_scale), 's1'); },
           },
         },
         [S2]: {
@@ -208,7 +217,7 @@ export default {
             atkScale: num(b2['attack@atk_scale'], 1),
             onEachHit({ battle, unit, target, dealt, kind, attackId }) {
               if (kind !== 'main' || !target) return;
-              riders(battle, unit, target, dealt, num(b2['attack@ep_damage_ratio']), num(b2['attack@element_atk_scale']));
+              riders(battle, unit, target, dealt, num(b2['attack@ep_damage_ratio']), num(b2['attack@element_atk_scale']), 's2');
               chain(battle, unit, target, new Set([target]), Math.max(0, Math.floor(num(b2.chain_times))), attackId);
             },
           },

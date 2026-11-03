@@ -267,6 +267,10 @@ export function kitHitKey(fx, ex, unitOf) {
     case 'aoe': return ex.skill === 'svash2' ? (def(ex.id) === 'char_1045_svash2' ? 'svash2:s2' : 'svash2:range')
       : ex.skill === 'philae_2' && def(ex.id) === 'char_4148_philae' ? 'philae:aoe'
       : ex.skill === 'origami' ? (def(ex.id) === 'char_4016_kazema' ? 'kazema:t1' : def(ex.id) === 'token_10022_kazema_shadow' ? 'kazema:t1token' : null)
+      // 2026-11-03: 铁钳号·原型机's projectile reaching its target (projectile_chr_ironmn_pile3 REACH; the kit's blast there)
+      : ex.skill === 'ironmn:crab' && def(ex.id) === 'token_10027_ironmn_pile3' ? 'ironmn:pile3hit'
+      // 2026-11-03: 遥 S2's extra damage at a healed unit, enemies or none (haruka_s_2 ON_AFTER_OUTPUT_HEAL PlayAudio)
+      : ex.skill === 'haruka:s2' && def(ex.id) === 'char_4202_haruka' ? 'haruka:s2'
       : null;
     // 2026-11-03: 魔王's 微尘 reaching an operator (an enemy under S2) — its projectile's HIT (cetsyrMoteKey)
     case 'mote': return ex.src !== ex.id ? cetsyrMoteKey(unitOf(ex.src), 'hit') : null;
@@ -429,6 +433,15 @@ export function signalFxKey(fx, ex, unitOf) {
   // 2026-11-03: 维什戴尔 S2's 过载 (wisdel_s_2[overload_start] ON_BUFF_START PlayAudio WISDEL_S_OVERLOAD)
   if (fx === 'wisdelOverload' && u?.def === 'char_1035_wisdel') return 'wisdel:s2ovs';
   if (fx === 'wake' && u?.side === 'enemy') return 'titi:awake';
+  // 2026-11-03: 真言's 侵入点 mark (Talents/2 TileListener: AttachListenerToTileAbility._HoldCastedEffectOnTile plays its
+  // `_effectSettings` audioSignal mantra_t_tile at the tile with the mark effect) and an S3 溢出麻痹 bounce on its holder
+  // (mantra_s_3[enemy_trigger]'s projectile ON_HIT_OBJECT PlayProjectileAudio mantra_s_3_element; the jumps: kitHit)
+  if (fx === 'mantraGate' && u?.def === 'char_4204_mantra') return 'mantra:t2';
+  if (fx === 'mantraArc' && u?.def === 'char_4204_mantra') return 'mantra:s3';
+  // 2026-11-03: 遥 — a bubble given (haruka_t_1 ON_BUFF_START PlayAudio haruka_shield_start_ally at its holder), an enemy
+  // levitated by S3 (haruka_s_3_debuff's ON_BUFF_START, audioSignal haruka_shield_start_enemy; its ticks: kitHit)
+  if (fx === 'shield' && ex.kind === 'bubble') return 'haruka:t1';
+  if (fx === 'levitate' && ex.src != null && unitOf(ex.src)?.def === 'char_4202_haruka') return 'haruka:lev';
   if (fx === 'charges' && u?.def === 'char_426_billro' && Number.isInteger(u.skillIndex)) return billroChargeKey(u, Number(ex.n) || 0);
   if (fx === 'charges' && (u?.def === 'char_206_gnosis' || u?.def === 'char_4042_lumen')) return chargeStageKey(u, Number(ex.n) || 0);
   // 2026-10-22: 刺玫 S2's counter on the attacker of her protégé (vendla_s_2[extra_damage]'s audioSignal, on the attacker)
@@ -2162,6 +2175,8 @@ export class AudioManager {
             // 2026-11-02: 凛御银灰 S3's own buff svash2_s_3[self_bird_onuse] casts BirdAura_Self as it starts — the aura
             // projectile_chr_svash2_s3's BORN [추정·엔진: the cast at the skill's start — the ability's own delay is not read]
             if (u.def === 'char_1045_svash2' && u.skillIndex === 2) this._kitSound('svash2:s3born');
+            // 2026-11-03: 铁钳号·原型机's skill — its sktok_ironmn_pile3 ability START (a summon: no unit entry of its own)
+            if (u.def === 'token_10027_ironmn_pile3') this._kitSound('ironmn:pile3s');
             // 作战中N: the equipped skill's own slot (0-based; 作战中4 is the fallback of a 4th slot)
             if (unitSoundClass(u) === 'char') {
               const n = Number.isInteger(u.skillIndex) ? Math.min(4, u.skillIndex + 1) : 1;
