@@ -757,6 +757,35 @@ test(`${nm('enemy_9007_acelem')}: harder to target (taunt −1); parasitises its
   assert.ok(!w.findBuff('ab:parasite'));
 });
 
+test(`${nm('enemy_9007_acelem')}: the Combat cast runs on when the block is lost (the COMBAT state waits while it casts); a stun interrupts it`, () => {
+  let h = arena({ units: [{ chessId: 't_wall', row: 9, col: 5 }] });
+  h.step();
+  let e = put(h, 'enemy_9007_acelem', [9, 5]);
+  let w = h.unit('t_wall');
+  h.run(0.6);
+  assert.ok(e.blockedBy === w && !w.findBuff('ab:parasite'), 'blocked, casting');
+  h.b.addBuff(w, { key: 't:noBlock', flags: { noBlock: true } });
+  h.b._unblock(e);
+  h.run(0.2);
+  assert.equal(e.blockedBy, null, 'no longer blocked');
+  h.run(0.5);
+  assert.ok(w.findBuff('ab:parasite'), 'the cast lands on the operator it started on, 1.2 s after the block');
+  h.run(0.3);
+  assert.ok(!w.findBuff('ab:parasite'), 'the block check ends the attachment');
+  // a stun mid-cast: the state switches and the cast is interrupted; blocked again after it, a new cast takes the whole clip
+  h = arena({ units: [{ chessId: 't_wall', row: 9, col: 5 }] });
+  h.step();
+  e = put(h, 'enemy_9007_acelem', [9, 5]);
+  w = h.unit('t_wall');
+  h.run(0.6);
+  h.b.applyStatus(e, 'stun', { duration: 0.5 });
+  h.run(1.0);
+  assert.ok(e.blockedBy === w && !w.findBuff('ab:parasite'), 'no attachment at the first clip\'s end');
+  h.run(1.0);
+  assert.ok(w.findBuff('ab:parasite'), 'the new cast lands');
+  checkInvariants(h.b);
+});
+
 test(`${nm('enemy_9007_acelem')}: attaching from contact blinks to the blocker's tile centre`, () => {
   const h = arena({ units: [{ chessId: 't_wall', row: 9, col: 5 }] });
   h.step();

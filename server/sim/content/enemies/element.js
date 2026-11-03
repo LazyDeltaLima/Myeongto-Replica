@@ -126,8 +126,10 @@ function ensureParasiteHook(b) {
  * this is all it does. Attached it switches to mode Parasitic, blinks onto the host's tile centre and is 自缚
  * (`ab:parasiteAttached` noMove + selfBound); the host takes arts damage every second and element damage ×. Every 0.2 s from
  * the attachment (`enemy_acelem[check_block]`) the host must still block it, else the attachment ends (PRTS "附着效果在解除阻挡时
- * 解除"); its death ends it too. [추정·미조사: when the Combat cast starts after the block and whether losing the block or a
- * stun cuts it — taken as: from the block, cut by either]
+ * 解除"); its death ends it too. The cast follows the client's COMBAT state: it starts as the enemy enters it on being blocked
+ * (`CombatState.OnEnter`); while it runs the state waits (`OnTick` returns while the ability casts), so losing the block does
+ * not cut it — it lands on the operator it started on, who must still be on the field; a stun switches the state and
+ * `OnExit` interrupts it (so does a freeze, a levitation or the palsy halt).
  */
 function kitParasite(ab) {
   const scale = T(ab, '1.atk_scale') ?? 0, elMul = T(ab, '1.ep_damage_scale') ?? 1;
@@ -174,10 +176,17 @@ function kitParasite(ab) {
         if (!a.host.alive || e.blockedBy !== a.host) detach(b, e, a);
       }
       if (a.host) return;
+      if (a.castOn) {
+        const t = a.castOn;
+        // (stun covers freeze and levitate — their statuses set it —; the palsy halt is the other state that interrupts)
+        if (!canCast(e, false, b) || b.time < e.palsyUntil - 1e-9 || !t.alive || !t.deployed) a.castOn = null;
+        else {
+          if (b.time >= a.castEnd - 1e-9) { a.castOn = null; attach(b, e, a, t); }
+          return;
+        }
+      }
       const bl = e.blockedBy && e.blockedBy.alive && canCast(e, false, b) ? e.blockedBy : null;
-      if (!bl) { a.castOn = null; return; }
-      if (a.castOn !== bl) { a.castOn = bl; a.castEnd = b.time + PARASITIC_CLIP; return; }
-      if (b.time >= a.castEnd - 1e-9) { a.castOn = null; attach(b, e, a, bl); }
+      if (bl) { a.castOn = bl; a.castEnd = b.time + PARASITIC_CLIP; }
     },
     death(c, b, e, a) { if (a.host) b.removeBuff(a.host, 'ab:parasite'); b.removeBuff(e, 'ab:parasiteAttached'); },
   }];

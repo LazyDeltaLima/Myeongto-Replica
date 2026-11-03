@@ -1392,17 +1392,17 @@
       "bossHpLeft": null,
       "rngDraws": 234,
       "errors": {"count":0,"kinds":[]},
-      "players": {"p1":{"killed":96,"total":96,"perfect":true,"leaks":0,"leaksUncounted":0,"coins":0,"dmg":1592794,"bossDmg":0,"heal":0,"deaths":12,"layerGains":{}}},
+      "players": {"p1":{"killed":96,"total":96,"perfect":true,"leaks":0,"leaksUncounted":0,"coins":0,"dmg":1592714,"bossDmg":0,"heal":0,"deaths":12,"layerGains":{}}},
       "units": [
         ["p1",1,"op","chess_char_5_diy1_b",0,"uniequip_002_demetr",0,0,5,2,85302,2867,0,65,13],
-        ["p1",2,"op","chess_char_5_diy2_b",1,"uniequip_002_demetr",2054.9,1,6,20,391090,812,0,144,4],
+        ["p1",2,"op","chess_char_5_diy2_b",1,"uniequip_002_demetr",2054.9,1,6,20,391017,812,0,144,4],
         ["p1",3,"op","chess_char_5_diy1_b",2,"uniequip_002_demetr",2866.6,1,731,0,0,0,0,0,1],
         ["p1",4,"op","chess_char_6_diy1_a",0,null,2367.2,1,7,0,0,0,0,0,0],
-        ["p1",5,"op","chess_char_6_diy2_a",1,null,1938.8,1,841,14,127024,2796,0,100,3],
-        ["p1",6,"op","chess_char_6_diy1_a",2,null,0,0,842,11,107968,4734,0,100,2],
+        ["p1",5,"op","chess_char_6_diy2_a",1,null,1938.8,1,841,14,127577,2796,0,101,3],
+        ["p1",6,"op","chess_char_6_diy1_a",2,null,0,0,842,11,107409,4734,0,99,2],
         ["p1",7,"op","chess_char_6_diy2_b",0,"none",0,0,581,3,66554,5425,0,71,14],
-        ["p1",8,"op","chess_char_6_diy1_b",1,"none",2712.6,1,979,9,191526,5425,0,106,2],
-        ["p1",9,"op","chess_char_6_diy2_b",2,"none",2284.2,1,956,8,109122,5854,0,98,2],
+        ["p1",8,"op","chess_char_6_diy1_b",1,"none",2712.6,1,980,9,191526,5425,0,106,2],
+        ["p1",9,"op","chess_char_6_diy2_b",2,"none",2284.2,1,957,8,109122,5854,0,98,2],
         ["p1",10,"op","chess_char_6_diy1_b",0,"uniequip_002_demetr",1725.51,1,4,4,53414,1240,0,40,8],
         ["p1",11,"op","chess_char_6_diy2_b",1,"uniequip_002_demetr",0,0,8,23,337742,2966,0,163,4],
         ["p1",12,"op","chess_char_6_diy1_b",2,"uniequip_002_demetr",2965.6,1,885,2,123050,2966,0,76,3],
@@ -1410,10 +1410,10 @@
         ["-","~2","device","trap_1105_accrate",null,null,100,1,2,0,0,0,0,0,null]
       ],
       "enemies": {"enemy_1229_darmy":[27,27,0,2435,211632],"enemy_1229_darmy_2":[57,57,0,9454,585066],"enemy_9007_acelem":[12,12,0,23194,806216]},
-      "hooks": [1,133,6308,1040,1040,1903,1889,0,108,108,56,55,0,16601,0,95,96,0,1,111,0,0,45],
-      "events": {"atk":1501,"deploy":35,"die":108,"dmg":1889,"engage":10,"face":50,"fx":127,"skill":111,"spawn":110,"status":199,"swing":1078},
+      "hooks": [1,133,6308,1040,1040,1905,1891,0,108,108,56,55,0,16575,0,95,96,0,1,111,0,0,45],
+      "events": {"atk":1501,"deploy":35,"die":108,"dmg":1891,"engage":10,"face":50,"fx":127,"skill":111,"spawn":110,"status":199,"swing":1078},
       "fx": {"beam":24,"dodge":45,"phase":16,"teleport":39,"undying":3},
-      "snaps": "d2d6b8af e0efcff2 7da3c81a 9c6efd49 03879531 3c34195e ae641f0f 5e71f970 57245198 c691f323 62936c02 3a8006db 332307e4 5070d8d2 ebd3b483 f66857db 17e4723b b5d76242 d022479f 319de0a6 e10bb688"
+      "snaps": "d2d6b8af e0efcff2 7da3c81a 9c6efd49 03879531 3c34195e ae641f0f 5e71f970 57245198 c691f323 62936c02 3a8006db 332307e4 5070d8d2 ebd3b483 f66857db 17e4723b 79c0200e 118ba631 ffdf2f45 03b33676"
     },
     "diy-034": {
       "about": "5_diy1_a=veen/S1 5_diy2_a=veen/S2 5_diy1_a=veen/S3 5_diy2_b=veen/S1 5_diy1_b=veen/S2 5_diy2_b=veen/S3 5_diy1_b=veen/S1/002_veen 5_diy2_b=veen/S2/002_veen 5_diy1_b=veen/S3/002_veen 6_diy1_a=veen/S1 6_diy2_a=veen/S2 6_diy1_a=veen/S3",
