@@ -218,6 +218,69 @@ def skill_end_modes(tree, templates):
             if len(own.get(k) or ()) == 1 or len(v) == 1}
 
 
+def _switch_modes(o, acc):
+    """Add to `acc` the fixed `_modeIndex` (> 0) of every SwitchMode node under `o` (not one read from a blackboard, not a
+    restore to the default mode)."""
+    if isinstance(o, dict):
+        if str(o.get('$type', '')).endswith('+SwitchMode') and not o.get('_loadModeFromBlackboard') and not o.get('_restoreDefault'):
+            n = o.get('_modeIndex')
+            if isinstance(n, int) and n > 0:
+                acc.add(n)
+        for v in o.values():
+            _switch_modes(v, acc)
+    elif isinstance(o, list):
+        for v in o:
+            _switch_modes(v, acc)
+
+
+def _template_refs(o, templates, acc):
+    """Add to `acc` every buff template key named under `o` (a `templateKey`, or a string field that is one)."""
+    if isinstance(o, dict):
+        for k, v in o.items():
+            if isinstance(v, str) and v in templates and 'key' in k.lower():
+                acc.add(v)
+            else:
+                _template_refs(v, templates, acc)
+    elif isinstance(o, list):
+        for v in o:
+            _template_refs(v, templates, acc)
+
+
+def skill_switches(cid, prefabs, stree, templates):
+    """[[mode index, …] per skill] — 2026-11-04, official client: every mode a skill's buffs switch the operator to (SwitchMode
+    with a fixed `_modeIndex` > 0), its prefab's own switch_mode included, from the buff templates its prefab names and the
+    templates named after it (`<codename>_s_3…` / `_s3…` / `_skill_3…` — the charpack's own, which the skill's events reach:
+    Mon3tr's monstr_s_3[route] → 4 S3_Reborn as she lands, 3 S3_Restore as she returns), each followed through the templates
+    it names in turn. The render must follow each one or list it (test/render/mode-switch-list.js). None when no skill
+    switches any."""
+    code = cid.split('_', 2)[-1]
+    if getattr(skill_switches, '_tree', None) is not stree:   # the skills' MonoBehaviours by prefab, once per run
+        skill_switches._tree, skill_switches._by = stree, {}
+        for gp, d, _pid in stree:
+            skill_switches._by.setdefault(gp.split('/')[0], []).append(d)
+    out = []
+    for i, pid in enumerate(prefabs):
+        start = set()
+        for d in skill_switches._by.get(pid, []) if pid else []:
+            _template_refs(d, templates, start)
+        own = re.compile(rf'^{re.escape(code)}_(s_?|skill_?){i + 1}(\D|$)')
+        start |= {k for k in templates if own.match(k)}
+        seen, todo = set(), list(start)
+        while todo:
+            k = todo.pop()
+            if k in seen:
+                continue
+            seen.add(k)
+            nxt = set()
+            _template_refs(templates[k], templates, nxt)
+            todo += [x for x in nxt if x not in seen]
+        acc = set()
+        for k in seen:
+            _switch_modes(templates[k], acc)
+        out.append(sorted(acc))
+    return out if any(out) else None
+
+
 def skill_modes_of(modes, prefabs, switch):
     """[mode index | None] per skill: its prefab's switch_mode value when that names a skill mode (`S…`); 莫斯提马
     [Default, S2] — S3 switches to mode 1, her S2 none. None = the name rule (shared/skill-modes.js)."""
@@ -1371,7 +1434,8 @@ def main():
     prefabs = char_skill_prefabs()
     stree = skills_tree(a.client)
     switch = skill_switch_modes(stree)
-    end = skill_end_modes(stree, buff_templates(a.client))
+    templates = buff_templates(a.client)
+    end = skill_end_modes(stree, templates)
     sk_fx = skill_effects(stree, projectiles)
     durations = skill_durations()
     for cid in ids:
@@ -1391,6 +1455,12 @@ def main():
             se = [end.get(pid) if isinstance(end.get(pid), int) and end[pid] < len(m['modes']) else None for pid in prefabs.get(cid) or []]
             if any(x is not None for x in se):
                 m['skillEnd'] = se
+            # (with the mode the prefab's own switch_mode loads from its blackboard: skill_switch_modes)
+            pids = prefabs.get(cid) or []
+            sw = [sorted({*x, *([switch[p]] if isinstance(switch.get(p), int) and switch[p] > 0 else [])})
+                  for x, p in zip(skill_switches(cid, pids, stree, templates) or [[] for _ in pids], pids)]
+            if any(sw):
+                m['switchTo'] = [[n for n in x if n < len(m['modes'])] for x in sw]
             # local patch: the skills' own effects (skills.ab), in skill order; a skill's turned effects join the operator's
             # a skill's shot (skill_effects) flies with its first attack after the cast (render/fxgame.js trailShot): a skill
             # without duration only — a timed one's projectile is an ability of its own (焰影苇草 S2's fireballs, the kit's 'strike')

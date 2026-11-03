@@ -3693,6 +3693,16 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
   路标形态 표식(모드 2로 바뀐 재구성체: `prosts_s_3[mode]`가 `prost_s_3[[effect]` `monstr_skill_03_begin_03`을 들고 `common_spine_hide`로 모델을 숨김)은
   시뮬에 없어 렌더가 그 칸(사건의 `fromX`·`fromY`)에 스킬이 끝날 때까지 그린다. 【복귀】(`teleport`의 새 `back` 1) 때 그 모드가 끝나며
   `ON_BUFF_FINISH` `monstr_skill_03_end_02`를 그 자리에.
+- Mon3tr·벨로네 S3 공격 이펙트의 모드 (2026-11-04, 관리자 제보 「Mon3tr S3가 치유 이펙트로 공격」): 이펙트 층은 스킬 공격을 이름 규칙의 모드(`S3`)로 그려
+  Mon3tr S3가 S3 모드의 치료탄(`monstr_skill_03_heal`)으로 공격했다. 공식은 【이동】 착지 때 `monstr_s_3[route]`가 `SwitchMode` 4 `S3_Reborn`(벨로네는 모드 3
+  `S3_Resapwn`)으로 바꾼다 → `fxgame.js teleportMode`: 사건 `teleport`(복귀 아님)에서 `SKILL_SUB_MODES` `teleport`의 모드를 스킬이 끝날 때까지
+  `attackMode`의 `sub`로(시전·타격·탄, 그 모드 `attach`는 스킬 루프에 더함, 첫 공격부터 다시). 착지의 배치 이펙트도 그 모드의 `_overrideStartEffect`
+  (Mon3tr `common_empty` — 전엔 S3 모드의 `monstr_skill_03_start`). 【복귀】는 같은 버프가 모드 `<스킬 모드>_Restore`로 바꾸며 들어오므로(Mon3tr 3,
+  벨로네 `demetr_s3_t[born_sync]` 4, 울피아누스 `ulpia_s3_switch_mode[born]` 4) 그 배치 이펙트는 그 모드 것(`returnMode`: 사건 `teleport` `back` 또는 시뮬
+  배치 키 `back` — `monstr_skill_03_end_01`·`demetr_skill3_back_01`·`ulpia_skill_03_bith_01`; 전엔 스킬 끝 사건이 같은 프레임에 와 기본 배치 이펙트).
+  시험 `test/render/teleport-mode-fx.test.js`. 같은 종류가 다시 빠지지 않게 `test/render/mode-switch-coverage.test.js`가 스킬 버프가 바꾸는 모든 모드
+  (`char_modes.py skill_switches` → `local-char-modes.json` `switchTo`, 공식 클라 버프 템플릿)를 이펙트 층이 따르는지, 아니면
+  `test/render/mode-switch-list.js`에 `ok`/`todo` 사유와 함께 있는지 본다(첫 목록 2026-11-04: 32줄, `todo` 12). [화면 미확인]
 - 비이(`char_4226_veen`) 재능 2 전쟁 기술: `veen_t_2[damage]`의 `veen_talent_02_debuff_01` — 시뮬 표식 `veen:war:<그녀 id>`를 `visible`로 → `KEY_FX`.
   S2 '선혈로 정화하라' 상한: `veen_s_2_buff[stack]`이 `max_stack_cnt`에 닿으면 `veen_s_2_buff_full[effect]`(`veen_skill_02_buff_03`)를 스킬이 끝날 때까지
   — 시뮬 `veen:s2full`.
