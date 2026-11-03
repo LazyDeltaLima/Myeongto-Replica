@@ -4,7 +4,8 @@
 // hidden "TOKEN数" talent max_deploy_count / max_deck_stack_cnt on top of the attribute frame). On this server the 自选
 // summoners with a placeable summon are 望 ("可以使用6枚棋子" — 7 at full potential (望's 潜能 3 「第一天赋效果增强」, the
 // owner's decision of 2026-10-07, upstream 806a0477) —, TRP-X +1), 凯尔希·思衡托 (S3's one 战术锚点), 酒神, 夜莺 (3 幻影) and
-// 白铁 (his picked skill's <支援装置>, 2); upstream's other summoners are gone.
+// 白铁 (his picked skill's <支援装置>, 2) and Mon3tr (自我修复's one 重构体); upstream's other summoners are gone. 贝洛内's 牵绊 is his
+// S3's own object (not placeable).
 // #24: a summon no owner shows (displayTokenDict: the variants' `display` source) is its skill's own object, never a hand
 // card — 予愿安洁莉娜 S3's “一会儿见！” (PRTS 予愿安洁莉娜 S3 备注: the skill deploys it at her initial tile).
 // Run: node --test test/content/feedback5-we2-summon-hand.test.js
@@ -47,7 +48,7 @@ test('every 自选 summoner: the hand count of each placeable summon in every fo
       owners.get(cid).add(tid);
     }
   }
-  assert.deepEqual([...owners.keys()].sort(), ['char_1042_phatm2', 'char_1052_kalts2', 'char_179_cgbird', 'char_2027_wang', 'char_4072_ironmn']);
+  assert.deepEqual([...owners.keys()].sort(), ['char_1042_phatm2', 'char_1052_kalts2', 'char_179_cgbird', 'char_2027_wang', 'char_4072_ironmn', 'char_4179_monstr']);
   let checked = 0;
   for (const [charId] of owners) {
     if (!BACKUPS.diy.ownedPool.includes(charId)) continue;
@@ -71,7 +72,7 @@ test('every 自选 summoner: the hand count of each placeable summon in every fo
       }
     }
   }
-  assert.equal(checked, 76, "望: 2 tiers × (3 normal + 3 skills × (no module, TRP-X) elite); 凯尔希·思衡托: 2 tiers × S3 (normal, elite); 酒神: 2 tiers × S2 (normal + elite × (no module, RIT-X)); 夜莺 and 白铁: 2 tiers × 3 skills × (normal + elite × (no module, X, Y)) each");
+  assert.equal(checked, 94, "望: 2 tiers × (3 normal + 3 skills × (no module, TRP-X) elite); 凯尔希·思衡托: 2 tiers × S3 (normal, elite); 酒神: 2 tiers × S2 (normal + elite × (no module, RIT-X)); 夜莺 and 白铁: 2 tiers × 3 skills × (normal + elite × (no module, X, Y)) each; Mon3tr: 2 tiers × 3 skills × (normal + elite × (no module, XAH-X))");
 });
 
 test('the data: deploy limit / holding = the attribute frame + the token talents\' max_deploy_count / max_deck_stack_cnt (a module token part of the same talent replaces it)', () => {

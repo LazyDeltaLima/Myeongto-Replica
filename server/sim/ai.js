@@ -771,6 +771,7 @@ function doHeal(b, u, prof, t, skillOn = !!(u.skill && u.skill.active)) {
       prev = best;
     }
   }
+  if (prof.afterHeal) b._safe(() => prof.afterHeal(b, u, t, { amount }), 'profile.afterHeal', u);
   // the skill on at the attack (`skillOn`): a heal shot lands after a next-heal skill ended (流明 S1 沐雨's rain)
   if (skillOn && u.skill && u.skill.spec.onHit) {
     const fn = u.skill.spec.onHit;

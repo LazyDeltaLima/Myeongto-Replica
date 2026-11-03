@@ -21,6 +21,7 @@
 //   noAttack bool (never attacks)   noAttackUnlessSkill bool (attacks only while its skill is active)
 //   noHeal bool (cannot be healed by others)   blockFly bool   onHitStatus {key, duration, value}
 //   dmgMul(battle, unit, target) → number      afterHit(battle, unit, target, {dealt,x,y})
+//   afterHeal(battle, unit, target, {amount}) (a heal attack's heal has reached `target`, its own chain done — Mon3tr)
 //   funnelMul(battle, unit, target, info) → number (drone ramp, separate from the caster's attack multiplier; info: the
 //                     hit's { isSkill, index, attackId } as hitsFn — `index` = the target's place in the attack)
 //   funnelBodyHits n (body hits kept beside that ramp. Omit it for one. 0: drone-only, ramp folded into the hits,

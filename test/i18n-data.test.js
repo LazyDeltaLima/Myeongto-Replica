@@ -122,7 +122,8 @@ test('data/i18n/ko.json is built with our dictionaries (tools/i18n/build-ko-pack
     assert.ok(ko && !HAN.test(ko), `stage ${id} ${r.name}: ${ko}`);
   }
   for (const [charId, r] of Object.entries(diyOps)) {
-    const ko = KO.files.backups?.diy?.operators?.[charId]?.name;
+    // (a name with no Chinese in it — Mon3tr — has nothing to translate: the overlay leaves it out)
+    const ko = KO.files.backups?.diy?.operators?.[charId]?.name ?? (HAN.test(r.name) ? undefined : r.name);
     assert.ok(ko && !HAN.test(ko), `自选 ${charId} ${r.name}: ${ko}`);
   }
 });

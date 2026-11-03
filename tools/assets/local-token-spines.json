@@ -329,6 +329,54 @@
         "height": 335.376
       }
     },
+    "token_10050_monstr_prosts": {
+      "skel": "token_10050_monstr_prosts.skel",
+      "atlas": "token_10050_monstr_prosts.atlas",
+      "textures": [
+        "token_10050_monstr_prosts.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Idle",
+        "deploy": "Start",
+        "attack": {
+          "begin": null,
+          "loop": "Attack",
+          "end": null
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Attack",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": "Die",
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Attack": 1.333,
+        "Default": 0,
+        "Die": 1,
+        "Idle": 2,
+        "Skill_3": 0,
+        "Skill_3_Begin": 0.667,
+        "Start": 1
+      },
+      "events": [
+        "OnAttack",
+        "OnStart"
+      ],
+      "hits": {
+        "Attack": [
+          0.033
+        ]
+      },
+      "bounds": null
+    },
     "token_10054_phatm2_encdool": {
       "skel": "token_10054_phatm2_encdool.skel",
       "atlas": "token_10054_phatm2_encdool.atlas",

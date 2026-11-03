@@ -725,6 +725,40 @@
    "reset": 0,
    "state": 1
   },
+  "skchr_demetr_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_demetr_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_demetr_3": {
+   "ability": {
+    "anim": "Skill_3_ReStart_Begin",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": -1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
   "skchr_demkni_1": {
    "ability": {
     "anim": "Attack",
@@ -1244,6 +1278,35 @@
    "ability": null,
    "cls": "cast",
    "reset": 0,
+   "state": 1
+  },
+  "skchr_headb2_1": {
+   "ability": null,
+   "born": 0,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_headb2_2": {
+   "ability": null,
+   "born": 0,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_headb2_3": {
+   "ability": {
+    "anim": "Skill_3",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 2,
+    "max": -1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 1,
    "state": 1
   },
   "skchr_helage_1": {
@@ -1779,6 +1842,52 @@
    "cls": "cast",
    "reset": 0,
    "state": 1
+  },
+  "skchr_monstr_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_monstr_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_monstr_3": {
+   "ability": {
+    "anim": "Skill_3_Begin",
+    "cd": 1,
+    "cdKey": "duration",
+    "face": 1,
+    "max": 1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "group": "seq",
+   "range": 0,
+   "reset": 0,
+   "state": 1,
+   "subs": [
+    {
+     "anim": 0,
+     "wait": 0
+    },
+    {
+     "anim": 1,
+     "wait": 1
+    }
+   ]
   },
   "skchr_mostma_2": {
    "ability": {
@@ -3099,6 +3208,24 @@
    "cls": "cast",
    "reset": 0,
    "state": 0
+  },
+  "skchr_veen_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_veen_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_veen_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
   },
   "skchr_vendla_2": {
    "ability": {

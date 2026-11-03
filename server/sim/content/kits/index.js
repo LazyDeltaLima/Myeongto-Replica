@@ -100,6 +100,10 @@ export const OPERATOR_KIT_FILES = Object.freeze([
   'op-judge.js',
   'op-logos.js',
   'op-vvana.js',
+  'op-demetr.js',
+  'op-veen.js',
+  'op-headb2.js',
+  'op-monstr.js',
 ]);
 
 /**

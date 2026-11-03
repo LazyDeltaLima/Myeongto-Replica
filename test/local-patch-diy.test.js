@@ -31,9 +31,10 @@ const DATA = { chess: CHESS, backups: BACKUPS };
 
 const ENEMY = 'enemy_1422_lrsldr';
 const CHAR = { wang: 'char_2027_wang', chen3: 'char_1050_chen3', wisdel: 'char_1035_wisdel', oblvns: 'char_4182_oblvns', ascln: 'char_4132_ascln' };
-/** Every pick offered, in the picker's order: the first five (CHAR, tested here), the three of 2026-10-11, 酒神 (2026-10-26), 冻河 and 塔露拉 (2026-11-01), 帕拉斯 and 赫拉格 (2026-11-02), 真言, 白铁, 遥 and 夜莺 (2026-11-03), 斥罪, 逻各斯 and 薇薇安娜 (2026-11-03). */
+/** Every pick offered, in the picker's order: the first five (CHAR, tested here), the three of 2026-10-11, 酒神 (2026-10-26), 冻河 and 塔露拉 (2026-11-01), 帕拉斯 and 赫拉格 (2026-11-02), 真言, 白铁, 遥 and 夜莺 (2026-11-03), 斥罪, 逻各斯 and 薇薇安娜 (2026-11-03), 贝洛内, 维伊, 怒潮凛冬 and Mon3tr (2026-11-03). */
 const PICKS = [...Object.values(CHAR), 'char_1052_kalts2', 'char_4231_clemnt', 'char_1015_aglna2', 'char_1042_phatm2', 'char_4244_tocka', 'char_4247_oxi', 'char_485_pallas', 'char_188_helage', 'char_4204_mantra',
-  'char_4072_ironmn', 'char_4202_haruka', 'char_179_cgbird', 'char_4065_judge', 'char_4133_logos', 'char_4098_vvana'];
+  'char_4072_ironmn', 'char_4202_haruka', 'char_179_cgbird', 'char_4065_judge', 'char_4133_logos', 'char_4098_vvana',
+  'char_4037_demetr', 'char_4226_veen', 'char_1051_headb2', 'char_4179_monstr'];
 const STONE = 'token_10064_wang_stone1';
 const SHADE = 'token_10035_wisdel_wward';
 const MOD = (key) => `uniequip_002_${key}`;
@@ -56,19 +57,19 @@ const battle = (key, sk, r, c, extra = [], secs = 25) => {
 const POS = { wang: [11, 3], chen3: [10, 4], wisdel: [11, 4], oblvns: [10, 4], ascln: [10, 4] };
 
 describe('선발 picks on upstream 自选 (shared/local-diy.js, server/lobby.js welcome / room.diy, tools/build-data.mjs)', () => {
-  test('offered: the welcome\'s diyKitted is exactly the owner\'s twenty in that order — the client picker (diyPool kitted) shows them only', async () => {
+  test('offered: the welcome\'s diyKitted is exactly the owner\'s twenty-four in that order — the client picker (diyPool kitted) shows them only', async () => {
     const { Lobby } = await import('../server/lobby.js');
     assert.deepEqual([...LOCAL_DIY_PICKS], PICKS);
     const kitted = Lobby.prototype.welcomeInfo.call({}).diyKitted;
     assert.deepEqual([...kitted].sort(), [...PICKS].sort());
     for (const tier of [5, 6]) assert.deepEqual(diyPool(tier, { data: DATA, kitted }).sort(), [...PICKS].sort(), `tier ${tier}`);
-    // the data is our twenty (hard fork 2026-10-07, tools/build-data.mjs): upstream's other owned picks and the prototypes are gone
+    // the data is our twenty-four (hard fork 2026-10-07, tools/build-data.mjs): upstream's other owned picks and the prototypes are gone
     assert.deepEqual(BACKUPS.diy.ownedPool, [...LOCAL_DIY_PICKS]);
     assert.deepEqual(BACKUPS.diy.prototypes, { 5: [], 6: [] });
     assert.equal(isPrototypePick(DATA, 6, 'char_609_acguad'), false, 'a stand-in is no 自选 prototype here');
-    assert.deepEqual(diyPool(6, { data: DATA, kitted: KITTED_CHARS }), [...LOCAL_DIY_PICKS], 'diyPool with the whole kit list: still the twenty');
+    assert.deepEqual(diyPool(6, { data: DATA, kitted: KITTED_CHARS }), [...LOCAL_DIY_PICKS], 'diyPool with the whole kit list: still the twenty-four');
     assert.equal(isLocalDiyPick('char_112_siege'), false);
-    assert.deepEqual(Object.keys(OPERATOR_KITS).sort(), [...PICKS].sort(), 'a kit (ops/op-<codename>.js) for each of the twenty, no other');
+    assert.deepEqual(Object.keys(OPERATOR_KITS).sort(), [...PICKS].sort(), 'a kit (ops/op-<codename>.js) for each of the twenty-four, no other');
   });
 
   test('accepted: room.diy keeps the five and drops anyone else (another owned 6★, a prototype, a reserve) — the seat never holds one', async () => {

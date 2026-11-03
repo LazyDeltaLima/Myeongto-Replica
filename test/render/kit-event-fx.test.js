@@ -74,7 +74,10 @@ const VERDICT = {
   truesilver: { svrash: ['skill', 3] },
   undying: {
     nearl2: ['none', 'module 骑士家族 nearl2_e_003_tr creates no effect (nearl2_buff_01_start is S3 combo_effect)'],
+    demetr: ['pending', 'S3 清算 demetr_s3[undeadable]: which effect the client plays as the lethal hit is held not judged'],
+    monstr: ['pending', 'S3 策略：熔毁 monstr_s_3[undead]: which effect the client plays as the lethal hit is held not judged'],
   },
+  veenVolley: { veen: ['pending', 'the stored energies / 转置能量 leaving with an attack: their projectiles (projectile_chr_veen / _merged) not wired yet'] },
   wake: { glady: ['skill', 2] },
 };
 

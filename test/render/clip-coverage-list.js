@@ -115,4 +115,30 @@ export const UNPLAYED = {
   char_498_inside: {
     Attack_Idle: 'none: no ability, mode pair, buff, mix or code string names it (EN/CN); attack is Attack_Begin/Loop/End',
   },
+  char_4037_demetr: {
+    Skill_3_Back: 'todo: S3 清算 the return clip (RespawnEnd); the sim moves him at once',
+    Skill_3_End: 'todo: S3 清算 end (mode S3_Restore)',
+    Skill_3_Idle: 'todo: S3 清算 idle between moves (mode S3_Resapwn)',
+    Skill_3_Loop_A: 'todo: S3 清算 attacks alternate Loop_A / Loop_B (mode S3_Resapwn)',
+    Skill_3_Loop_B: 'todo: S3 清算 attacks alternate Loop_A / Loop_B (mode S3_Resapwn)',
+    Skill_3_ReStart_End: 'todo: S3 清算 a 【移动】\'s landing (FlyToTarget after Skill_3_ReStart_Begin)',
+    Skill_3_Restart_Begin: 'todo: S3 清算 a 【移动】 (the Back model\'s spelling of Skill_3_ReStart_Begin)',
+    Skill_3_Restart_End: 'todo: S3 清算 a 【移动】\'s landing (the Back model\'s spelling)',
+  },
+  char_1051_headb2: {
+    Skill_2_Die: 'todo: the knock-out while S2 绝不罢休 runs (mode s2)',
+  },
+  char_4179_monstr: {
+    Skill_2_End: 'todo: S2 策略：超负荷 end',
+    Skill_3_Back: 'todo: S3 策略：熔毁 the 【返回】 clip; the sim moves her at once',
+    Skill_3_Idle: 'todo: S3 策略：熔毁 idle (mode S3_Reborn)',
+    Skill_3_Loop: 'todo: S3 策略：熔毁 attack (mode S3_Reborn)',
+    Skill_3_ReStart: 'todo: S3 策略：熔毁 the 【移动】 onto the 重构体 tile',
+  },
+  char_4226_veen: {
+    Charge: 'todo: trait storing an energy (the attack check with no target, kit storeEnergy)',
+    Skill_1_Charge: 'todo: storing an energy under S1',
+    Skill_2_Charge: 'todo: storing an energy under S2',
+    Skill_3_Charge: 'todo: storing an energy under S3',
+  },
 };

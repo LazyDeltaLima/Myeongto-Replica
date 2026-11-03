@@ -453,7 +453,8 @@ test('kits: an operator with only a 自选 kit, fielded as another season\'s che
   const enemies = [{ key: 'enemy_1422_lrsldr', time: 0, route: 0, count: 8, interval: 1.2 }, { key: 'enemy_1422_lrsldr', time: 1, route: 1, count: 6, interval: 1.6 }];
   const POS = { char_2027_wang: [11, 3] };
   // 望 acts through his placed stones (test/local-patch-diy.test.js); 凯尔希·思衡托's S1 / S3 are heal skills, cast as she
-  // is about to heal (a wounded ally in her range), and S3 deploys her placed 战术锚点 (test/content/op_kalts2.test.js)
+  // is about to heal (a wounded ally in her range), and S3 deploys her placed 战术锚点 (test/content/op_kalts2.test.js); Mon3tr's
+  // S3 needs her placed 重构体 on the field (test/content/op_monstr.test.js)
   const stone = (row, col, uid) => ({ kind: 'token', tokenId: 'token_10064_wang_stone1', ownerUid: 1, row, col, uid });
   const PLACED = {
     char_2027_wang: [stone(10, 6, 50), stone(10, 7, 51)],
@@ -461,6 +462,7 @@ test('kits: an operator with only a 自选 kit, fielded as another season\'s che
       { kind: 'token', tokenId: 'token_10068_kalts2_mtship', ownerUid: 1, row: 10, col: 9, dir: 'RIGHT', uid: 50 },
       { chessId: 'chess_char_1_02_a', row: 10, col: 5, uid: 51, carryState: { hpPct: 0.3 } },
     ],
+    char_4179_monstr: [{ kind: 'token', tokenId: 'token_10050_monstr_prosts', ownerUid: 1, row: 10, col: 5, uid: 50 }],
   };
   /** Fight 25 s with SP full: the casts, the damage the enemies took and the healing (the unit's and its summons'). */
   const run = (charId, unit, defs) => {

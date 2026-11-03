@@ -4265,6 +4265,178 @@
    }
   ]
  },
+ "char_1051_headb2": {
+  "modes": [
+   "Default",
+   "S1",
+   "s2"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ],
+  "cast": [
+   [
+    "headb2_attack_start_01",
+    "headb2_attack_start_02"
+   ],
+   [
+    "headb2_skill_01_start_01",
+    "headb2_skill_01_start_02"
+   ],
+   [
+    "headb2_skill_02_start_01",
+    "headb2_skill_02_start_03"
+   ]
+  ],
+  "hit": [
+   [
+    "headb2_attack_hit"
+   ],
+   [
+    "headb2_skill_01_hit"
+   ],
+   [
+    "headb2_skill_01_hit"
+   ]
+  ],
+  "trail": [
+   [],
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "headb2_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "headb2_attack_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "headb2_skill_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "headb2_skill_01_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "headb2_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "headb2_skill_02_start_03": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "headb2_skill_02_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0,
+     "t": 1
+    }
+   }
+  ],
+  "input": [
+   [],
+   [],
+   [
+    "headb2_skill_02_start_02"
+   ]
+  ],
+  "turn": [
+   "headb2_skill_01_start_02",
+   "headb2_attack_start_02",
+   "headb2_skill_02_start_03",
+   "headb2_skill_03_blow_4",
+   "headb2_skill_03_blow_1",
+   "headb2_skill_03_blow_2",
+   "headb2_skill_03_blow_3"
+  ],
+  "skillMode": [
+   1,
+   null,
+   null
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "headb2_skill_01_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "headb2_skill_02_buff_01",
+     "headb2_skill_02_buff_02"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [
+     "headb2_skill_03_dg_1",
+     "headb2_skill_03_dg_2",
+     "headb2_skill_03_dg_3",
+     "headb2_skill_03_dg_4",
+     "headb2_skill_03_dg_5",
+     "headb2_skill_03_dg_5_start",
+     "headb2_skill_03_blow_4",
+     "headb2_skill_03_blow_1",
+     "headb2_skill_03_blow_2",
+     "headb2_skill_03_blow_3",
+     "headb2_skill_03_blow_5_2",
+     "headb2_skill_03_blow_5_1",
+     "headb2_skill_03_blow_5_3",
+     "headb2_skill_03_blow_5_4"
+    ],
+    "buff": [
+     "headb2_skill_03_buff_01",
+     "headb2_skill_03_buff_02",
+     "common_unmovable_01"
+    ],
+    "target": [
+     "headb2_skill_01_hit"
+    ],
+    "targetBuff": []
+   }
+  ],
+  "dirs": [
+   {
+    "t": 5,
+    "s": [
+     "headb2_skill_03_blow_5_2",
+     "headb2_skill_03_blow_5_1",
+     "headb2_skill_03_blow_5_3",
+     "headb2_skill_03_blow_5_4"
+    ]
+   }
+  ]
+ },
  "char_1052_kalts2": {
   "modes": [
    "default",
@@ -9964,6 +10136,213 @@
    }
   ]
  },
+ "char_4037_demetr": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3",
+   "S3_Resapwn",
+   "S3_Restore"
+  ],
+  "proj": [
+   [],
+   [
+    "projectile_chr_demetr_s2"
+   ],
+   [],
+   [],
+   []
+  ],
+  "cast": [
+   [],
+   [
+    "demetr_skill2_start_01"
+   ],
+   [],
+   [],
+   []
+  ],
+  "hit": [
+   [
+    "demetr_attack_hit_01"
+   ],
+   [
+    "demetr_skill2_hit_01"
+   ],
+   [
+    "demetr_attack_hit_01"
+   ],
+   [],
+   []
+  ],
+  "trail": [
+   [],
+   [
+    "demetr_skill2_start_trail_01"
+   ],
+   [],
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   [],
+   [],
+   [
+    "demetr_skill3_buff_01"
+   ],
+   []
+  ],
+  "castOpt": [
+   {
+    "demetr_attack_A_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "demetr_attack_B_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "demetr_skill2_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "demetr_attack_A_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "demetr_attack_B_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "demetr_skill3_A_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "demetr_skill3_B_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {}
+  ],
+  "altFx": [
+   {
+    "pick": "other",
+    "groups": [
+     {
+      "anim": "Attack_A",
+      "cast": [
+       "demetr_attack_A_start_01"
+      ]
+     },
+     {
+      "anim": "Attack_B",
+      "cast": [
+       "demetr_attack_B_start_01"
+      ]
+     }
+    ]
+   },
+   null,
+   {
+    "pick": "other",
+    "groups": [
+     {
+      "anim": "Attack_A",
+      "cast": [
+       "demetr_attack_A_start_01"
+      ]
+     },
+     {
+      "anim": "Attack_B",
+      "cast": [
+       "demetr_attack_B_start_01"
+      ]
+     }
+    ]
+   },
+   {
+    "pick": "other",
+    "groups": [
+     {
+      "anim": "Skill_3_Loop_A",
+      "cast": [
+       "demetr_skill3_A_start_01"
+      ],
+      "hit": [
+       "demetr_skill3_A_hit_01"
+      ]
+     },
+     {
+      "anim": "Skill_3_Loop_B",
+      "cast": [
+       "demetr_skill3_B_start_01"
+      ],
+      "hit": [
+       "demetr_skill3_B_hit_01"
+      ]
+     }
+    ]
+   },
+   null
+  ],
+  "startOnce": 1,
+  "modeStart": [
+   null,
+   null,
+   null,
+   "demetr_skill3_restart_end_01",
+   "demetr_skill3_back_01"
+  ],
+  "skillMode": [
+   null,
+   1,
+   3
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [
+     "demetr_skill1_start_01"
+    ],
+    "buff": [],
+    "target": [
+     "demetr_skill1_hit_01"
+    ],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "demetr_skill2_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_4039_horn": {
   "modes": [
    "Default",
@@ -13884,6 +14263,227 @@
    }
   ]
  },
+ "char_4179_monstr": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3",
+   "S3_Restore",
+   "S3_Reborn"
+  ],
+  "proj": [
+   [
+    "projectile_chr_monstr"
+   ],
+   [
+    "projectile_chr_monstr_s2"
+   ],
+   [
+    "projectile_chr_monstr"
+   ],
+   [
+    "projectile_chr_monstr"
+   ],
+   [
+    "projectile_chr_monstr_s3"
+   ]
+  ],
+  "cast": [
+   [
+    "monstr_attack_start_01"
+   ],
+   [
+    "monstr_skill_02_start_01",
+    "monstr_skill_02_start_02"
+   ],
+   [
+    "monstr_skill_03_heal"
+   ],
+   [
+    "monstr_attack_start_01"
+   ],
+   [
+    "monstr_skill_03_start_01"
+   ]
+  ],
+  "hit": [
+   [
+    "monstr_attack_hit_01"
+   ],
+   [
+    "monstr_attack_hit_02"
+   ],
+   [
+    "monstr_attack_hit_01"
+   ],
+   [
+    "monstr_attack_hit_01"
+   ],
+   [
+    "monstr_skill_03_hit",
+    "monstr_skill_03_heal"
+   ]
+  ],
+  "trail": [
+   [
+    "monstr_attack_trail"
+   ],
+   [
+    "monstr_skill_01_trail"
+   ],
+   [
+    "monstr_attack_trail"
+   ],
+   [
+    "monstr_attack_trail"
+   ],
+   []
+  ],
+  "attach": [
+   [],
+   [],
+   [],
+   [],
+   [
+    "monstr_skill_03_buff_01_root"
+   ]
+  ],
+  "castOpt": [
+   {
+    "monstr_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "monstr_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "monstr_skill_02_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "monstr_skill_03_heal": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "monstr_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "monstr_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "chain": [
+   [
+    "monstr_heal_line_01"
+   ],
+   [
+    "monstr_heal_line_02"
+   ],
+   [
+    "monstr_heal_line_01"
+   ],
+   [
+    "monstr_heal_line_01"
+   ],
+   [
+    "monstr_heal_line_02"
+   ]
+  ],
+  "chainHit": [
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "combatSplit": [
+   null,
+   null,
+   null,
+   null,
+   {
+    "attack": {
+     "cast": [
+      "monstr_skill_03_start_01"
+     ],
+     "hit": [
+      "monstr_skill_03_hit"
+     ]
+    },
+    "combat": {
+     "cast": [
+      "monstr_skill_03_start_01"
+     ],
+     "hit": [
+      "monstr_skill_03_hit"
+     ]
+    }
+   }
+  ],
+  "modeStart": [
+   null,
+   null,
+   "monstr_skill_03_start",
+   "monstr_skill_03_end_01",
+   "common_empty"
+  ],
+  "skills": [
+   {
+    "cast": [
+     "monstr_skill_01_start_01"
+    ],
+    "castLoop": [],
+    "buff": [],
+    "target": [
+     "monstr_attack_hit_02"
+    ],
+    "targetBuff": [],
+    "shot": [
+     "monstr_skill_01_trail"
+    ],
+    "shotHit": [
+     "monstr_attack_hit_02"
+    ]
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "monstr_skill_02_buff_01_F",
+     "monstr_skill_02_buff_02"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [
+     "monstr_skill_03_begin_01"
+    ],
+    "castLoop": [],
+    "buff": [],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_4182_oblvns": {
   "modes": [
    "Default",
@@ -15480,6 +16080,174 @@
     "shotHit": [
      "snhunt_skill_02_hit"
     ]
+   }
+  ]
+ },
+ "char_4226_veen": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_veen_base",
+    "projectile_chr_veen_merged_base"
+   ],
+   [
+    "projectile_chr_veen_base",
+    "projectile_chr_veen_merged_base"
+   ],
+   [
+    "projectile_chr_veen_s2_merged_base",
+    "projectile_chr_veen_s2_base"
+   ],
+   [
+    "projectile_chr_veen_s3"
+   ]
+  ],
+  "cast": [
+   [
+    "veen_attack_start_01"
+   ],
+   [
+    "veen_skill_01_start_01"
+   ],
+   [
+    "veen_skill_02_start_01"
+   ],
+   [
+    "veen_skill_03_start_01"
+   ]
+  ],
+  "hit": [
+   [
+    "veen_attack_rank_01_hit_01"
+   ],
+   [
+    "veen_attack_rank_01_hit_01"
+   ],
+   [
+    "veen_attack_rank_02_hit_01"
+   ],
+   [
+    "veen_skill_03_hit_01"
+   ]
+  ],
+  "trail": [
+   [
+    "veen_trail_01"
+   ],
+   [
+    "veen_trail_01"
+   ],
+   [
+    "veen_trail_01"
+   ],
+   [
+    "veen_skill_03_trail_01"
+   ]
+  ],
+  "attach": [
+   [],
+   [],
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "veen_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "veen_skill_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "veen_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "veen_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "shotFrom": [
+   10,
+   10,
+   9,
+   10
+  ],
+  "charge": {
+   "hold": [
+    [
+     "veen_telent_01_rank_01",
+     "veen_telent_01_rank_01_change"
+    ],
+    [
+     "veen_telent_01_rank_01_2",
+     "veen_telent_01_rank_01_change_2"
+    ],
+    [
+     "veen_telent_01_rank_01_3",
+     "veen_telent_01_rank_01_change_3"
+    ],
+    [
+     "veen_telent_01_rank_01_4",
+     "veen_telent_01_rank_01_change_4"
+    ],
+    [
+     "veen_telent_01_rank_01_5",
+     "veen_telent_01_rank_01_change_5"
+    ]
+   ],
+   "cast": []
+  },
+  "skillMode": [
+   1,
+   2,
+   3
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "veen_skill_01_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "veen_skill_02_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "veen_skill_03_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
    }
   ]
  },

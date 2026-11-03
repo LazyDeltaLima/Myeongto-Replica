@@ -9,11 +9,11 @@
   정규 맹약이다 — `activity_table` `autoChessData.bondInfoDict`의 `isPower` 맹약 8개의 `powerIdList`에 叙拉古 [siracusa, chiave]·卡西米尔
   [kazimierz, pinus]가 있다(2026-10-10 대조, 그 전엔 「확장은 [추정]」; `tools/build-data.mjs buildBackups`가 이 표로 정함).
 - 지금 구현(0.2.0부터): upstream 「自选」 틀이 선발 칸·재고·상점·보상·밴을 맡는다(`server/match/player/diy.js initDiyStock`, `shared/diy.js`, 데이터
-  `data/backups.json` `diy`). 맹약이 전부 꺼진 픽은 그 판 재고가 없다(`m.private.diyBanned`). 이 포크는 후보를 구현·대조한 20명으로 줄인다:
+  `data/backups.json` `diy`). 맹약이 전부 꺼진 픽은 그 판 재고가 없다(`m.private.diyBanned`). 이 포크는 후보를 구현·대조한 24명으로 줄인다:
   `shared/local-diy.js LOCAL_DIY_PICKS`(왕·첸 더 던스트릭·위셔델·토가와 사키코·아스카론, 2026-10-11부터 켈시 에스페란타·클레멘티아·안젤리나 더 멜로우 위시 — 아래
   「선발 추가 3명 (2026-10-11)」, 2026-10-26부터 트라고디아 — 아래 「선발 추가 酒神 (2026-10-26)」, 2026-11-01부터 토스카·탈룰라 — 아래 「선발 추가 토스카
-  (2026-11-01)」·「선발 추가 탈룰라 (2026-11-01)」, 2026-11-02부터 팔라스·헬라그, 2026-11-03부터 만트라·스테인리스·하루카·나이팅게일·페넌스·로고스·비비아나 — 아래 「선발 추가 팔라스 (2026-11-02)」·「선발 추가 헬라그 (2026-11-02)」·「선발 추가 만트라 (2026-11-03)」·「선발 추가 스테인리스·하루카·나이팅게일 (2026-11-03)」·「선발 추가 페넌스·로고스·비비아나 (2026-11-03)」) — `tools/build-data.mjs`가 이것으로 `diy.ownedPool`을 만들고, `server/lobby.js`가 다른 픽을 거부한다.
-  키트는 `server/sim/content/kits/ops/op-{wang,chen3,wisdel,oblvns,ascln,kalts2,clemnt,aglna2,phatm2,tocka,oxi,pallas,helage,mantra,ironmn,haruka,cgbird,judge,logos,vvana}.js`(등록 `kits/index.js OPERATOR_KIT_FILES`).
+  (2026-11-01)」·「선발 추가 탈룰라 (2026-11-01)」, 2026-11-02부터 팔라스·헬라그, 2026-11-03부터 만트라·스테인리스·하루카·나이팅게일·페넌스·로고스·비비아나·벨로네·비이·지마 더 레이징 타이드·Mon3tr — 아래 「선발 추가 팔라스 (2026-11-02)」·「선발 추가 헬라그 (2026-11-02)」·「선발 추가 만트라 (2026-11-03)」·「선발 추가 스테인리스·하루카·나이팅게일 (2026-11-03)」·「선발 추가 페넌스·로고스·비비아나 (2026-11-03)」·「선발 추가 벨로네·비이·지마 더 레이징 타이드·Mon3tr (2026-11-03)」) — `tools/build-data.mjs`가 이것으로 `diy.ownedPool`을 만들고, `server/lobby.js`가 다른 픽을 거부한다.
+  키트는 `server/sim/content/kits/ops/op-{wang,chen3,wisdel,oblvns,ascln,kalts2,clemnt,aglna2,phatm2,tocka,oxi,pallas,helage,mantra,ironmn,haruka,cgbird,judge,logos,vvana,demetr,veen,headb2,monstr}.js`(등록 `kits/index.js OPERATOR_KIT_FILES`).
   틀의 자세한 규칙은 `server/sim/content/kits/README.md`, 병합 경위는 `upstream.md` 「0.2.0 병합」.
 - 0.2.0 전(2026-10-05 ~ 10-07)에는 전용 데이터·풀·UI를 직접 만들었다. 그 구현은 지웠고, 그때 정한 키트 동작과 관리자 결정은 `op-*.js`로 옮겨져 아래에 남는다.
 - 키트:
@@ -835,6 +835,63 @@
   키트 순간 이펙트(장벽 시작·깨짐, 반사, S2 펄스, 처형, 두 투사체, 고정 선, 디버프, S3 끝, 근접 보호막)는 `fx.md` 「선발 페넌스·로고스·비비아나 키트 순간 이펙트」.
 - 테스트: `test/content/op_judge.test.js`(10)·`op_logos.test.js`(15)·`op_vvana.test.js`(14) — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 실제 매치 경로 하나씩(추출한 공격
   타이밍 뒤에는 「시전 뒤 N틱」이 아니라 「타격이 들어올 때까지」 기다림); 선발 수를 세는 테스트 17 → 20명(폼 94 → 103), 방향 슬롯 오퍼레이터 17 → 20.
+
+## 선발 추가 벨로네·비이·지마 더 레이징 타이드·Mon3tr (2026-11-03, 관리자 결정)
+- 관리자 결정 2026-11-02(새 시즌 알려진 명단의 upstream 선발 키트를 차례로 넣고 지금 시즌에도 공개)·2026-11-03(될 수 있으면 묶어서): 선발에 벨로네(贝洛内
+  `char_4037_demetr`, 6성 가드 파이터)·비이(维伊 `char_4226_veen`, 6성 캐스터 미스틱 캐스터)·지마 더 레이징 타이드(怒潮凛冬 `char_1051_headb2`, 6성 가드
+  어스셰이커)·Mon3tr(`char_4179_monstr`, 6성 메딕 체인 메딕)를 넣는다(`LOCAL_DIY_PICKS` 끝). 알려진 명단의 남은 upstream 선발 키트 넷을 한 묶음으로(같은 생성
+  사슬·golden·선발 수 세는 곳). 넷 다 한국 서버에 있어 이름·문구는 KR 공식 표 그대로(`tools/i18n/build-ko-diy.mjs`): 벨로네 · 가주의 여유 · 참모의 수단 · 청산,
+  재능 패밀리의 수법 · 거리의 직감, 모듈 실용적인 도구(FGT-Y) / 비이 · '부르짖음에서 탄생하라' · '선혈로 정화하라' · '적철에 새겨라', 재능 '칼을 휘두르기 전에' ·
+  전쟁 기술, 모듈 무기고(MSC-Y) / 지마 더 레이징 타이드 · 굽힘 없는 긍지 · 꺾임 없는 집념 · 거침없는 기세, 재능 소용돌이 치는 분노 · 만인의 해일, 모듈 언이슈드
+  메달(HAM-X) / Mon3tr · 책략: 초연결 · 책략: 과부하 · 책략: 용해, 재능 자가 복구 · 전술 협동, 모듈 기억 파일(XAH-X).
+- 데이터: CN 표 그대로. 맹약: 벨로네 시라쿠사(`siracusaShip`), 비이·지마(우르수스)·Mon3tr(로도스)는 이번 시즌 핵심 맹약이 없어 협방(`emptyShip`). 소환물:
+  벨로네의 결속(`token_10065_demetr_dmtpos`, S3가 두는 자기 물건 — 손패 아님, Spine 없음·이펙트 `demetr_skill3_token_01`), Mon3tr의 재구성체(`token_10050_monstr_prosts`,
+  손패 1, 모델은 EN 클라 토큰 팩 `btl_pfb_tokens_0`, 이펙트는 `btl_pfb_fx_token_1`).
+- 키트·테스트: upstream 커널 직전 판(`9a3a12ee9^`)의 `op-demetr.js`·`op-veen.js`·`op-headb2.js`·`op-monstr.js`와 테스트 넷. 실패 6개(1·2·0·3)는 모두 우리 자동 발동·
+  시전 시점과 다른 테스트 쪽이었다. 바꾼 것:
+  - **자동 발동**(`sim.md` 「스킬 범위 발동」): 벨로네 S2는 데이터 `DEFAULT` + rangeId 3-13 상자(upstream 테스트의 `ACTIVE_RANGE`), Mon3tr S2는 `DEFAULT` + y-2
+    상자(upstream `SKILL_RANGE`), S3는 `DEFAULT` + x-4 상자 — 치료 스킬도 상자 안 **적**을 센다 → 적이 그녀 주변 3×3에 들어와야 켬(upstream 테스트는 적 없이 켬).
+    비이 S2·S3는 rangeId 없는 `DEFAULT` → 공격 상태가 되는 순간(적이 사거리에 들어올 때), 그녀의 공격과 저장 에너지 발사 **앞**이다(테스트의 시점을 그에 맞춤).
+    비이 S1·지마 S2는 자기에게 거는 AUTO 스킬이라 SP가 차면 바로(키트 README 체크리스트 5) — 두 스킬 프리팹 모두 `_trigger` 탐색이 없다(공식 클라에서 확인).
+  - **벨로네 패밀리의 수법은 벨로네마다 따로 쌓인다**: 버프 템플릿 `demetr_t1[def_dec]`가 층·남은 시간을 출처별로 읽고(`CheckContainsBuff`·
+    `AssignBuffBlackboardFromOthers`의 출처 거르기), 방어력 감소인 파생 버프 `demetr_t1[def_dec_core]`는 적마다 하나(`priorityBBKeys` def)라 가장 큰 감소만 듣는다
+    (PRTS 「多个贝洛内之间的【手段】间仅防御减少量最高者生效」, 공식 클라에서 확인). 정지(停顿)는 누구든 S2 상한에 닿아 있는 동안. upstream은 층을 함께 쌓고
+    큰 쪽 값으로 [추정] 표시. 같은 판에 벨로네 둘은 공유 필드에서만.
+  - 벨로네 S1 가주의 여유의 둘째 타격은 첫 타격 0.2초 뒤(스킬 프리팹 `MultiMeleeAttack` `_additionalTimes` 1·`_waitAttackEventForAllAttacks`, 클립 Skill_1의
+    OnAttack 0.233·0.433초 — 헬라그 S1과 같은 꼴). upstream은 두 타격을 한 번에.
+  - 벨로네 S2 참모의 수단의 공격은 투사체(`projectile_chr_demetr_s2`, 초당 10칸 — 추출한 S2 모드 사격)로 날아가 닿을 때 맞힌다(티피와 같은 꼴, `sim.md` 「오퍼레이터
+    공격 형태」). upstream은 즉시 타격 [추정].
+  - 벨로네 S3 청산이 끝나 돌아올 때: 버프 `demetr_s3[respawn_end]`(RespawnEnd 능력)의 무적·저지 없음·SP 회복 정지·스킬 사용 불가 0.5초(upstream은 0.5초 불사).
+  - 비이 S3 '적철에 새겨라'의 튕김: 이 탄이 **맞힌 횟수가 가장 적은** 적부터, 지금 맞은 적은 다른 적이 닿는 곳에 없을 때만, 같으면 가까운 순
+    (투사체 `projectile_chr_veen_s3` `_sortTargetsByHitCountAsc`·`_allowRepetitionIfNoTarget`, 공식 클라에서 확인). upstream은 「아직 안 맞은 적 → 다른 적 → 같은 적」
+    [추정 순서].
+  - 비이 재능 2 전쟁 기술의 5초는 중첩마다 새로(`veen_t_2[damage]` overrideType STACK·`clearAllStackCntWhenTimeUp`·`refreshRemainingTimeWhenStackMax`, `Buff._AddStack`은
+    남은 시간을 큰 쪽으로 — 공식 클라에서 확인). 그녀는 자기 표식이 있는 적을 고르지 않는다(모든 모드 공격 선택기의 `_buffKeyExcluded` `veen_t_2[damage]`, 출처 거르기).
+  - 비이의 저장 에너지와 지마 S2 꺾임 없는 집념의 「둘째 시전부터」는 배치마다 처음부터: 공식은 배치마다 새 유닛(`sim.md` 「누가 막나」 주기 — `OnAllocate` →
+    `Character.OnReset`)이고, 지마 S2는 능력 `ActiveOneOfBuffAbility`가 시전 수(`m_spellCnt`)를 센다(공식 클라에서 확인). upstream은 둘 다 [추정].
+  - **Mon3tr 치료 연쇄는 치료가 닿을 때 이어진다**: 그녀의 치료는 투사체(`projectile_chr_monstr`, 초당 10칸)라 연쇄도 그 착탄에서 — 엔진에 프로필 `afterHeal`(공격
+    치료가 대상에 닿고 그 직군 연쇄가 끝난 뒤, `ai.js doHeal`)을 더하고 키트가 거기서 연쇄를 시작. upstream은 공격 순간(투사체 비행 전)에 연쇄.
+  - Mon3tr 재구성체: 퇴장하면 재배치 시간 뒤 자기 칸에 DP를 내고 다시 놓인다 — 이 모드의 놓은 소환물 복귀(위 「선발 오퍼레이터」의 망 바둑돌 복귀, 0.2초 루프
+    `AUTO_TRIGGER_INTERVAL`; upstream은 0.1초 [추정]). 주변 아군 공격력 오라는 매 틱(재구성체 Talents/1 `AuraAbility`에 간격 필드 없음, `AuraAbility.OnTick`;
+    upstream 0.1초 [추정]).
+  - Mon3tr S3 책략: 용해의 路标形态 표식(그녀 원래 칸을 지키는 재구성체)은 두지 않는다: 그 칸에 다른 유닛이 서 있으면 그녀는 제자리 — 공식도 표식을 못 두면
+    「技能结束时不能返回」(PRTS S3 비고). upstream 주석의 「공식은 쓰러짐」은 근거가 없어 지움.
+  - 테스트 쪽: 넷의 upstream 테스트가 살아 있는 유닛을 `assert.deepEqual`/`equal`에 넘기던 곳을 id·`===` 비교로(CONTRIBUTING §6), 추출한 공격 타이밍·투사체 뒤에는
+    「N초 뒤」가 아니라 「타격·치료가 들어올 때까지」 기다림. 넷 다 실제 매치 경로 시험을 더함(upstream 테스트에 없음).
+- 남은 추정:
+  - 벨로네 S1 [추정·미조사: 둘째 타격 시점 — 헬라그와 같은 `_waitAttackEventForAllAttacks`를 읽는 코드는 안 읽음]; S3 [추정·미조사: 이동 능력 `FlyToTarget`이
+    클립 `Skill_3_ReStart_Begin`(0.2초, 이벤트 없음)·`_End`(0.3초, OnAttack 0.1초) 가운데 언제 옮기는지와 그동안 공격하는지 — 지금은 즉시 이동]; 복귀 보호 길이
+    [추정·미조사: RespawnEnd 능력의 길이를 두 클립 0.5초로 읽음, 끝나는 조건은 안 읽음].
+  - 지마 S3 거침없는 기세 [추정·미조사: 망치 스플래시 몫이 `atk_scale_2`에 `atk_scale`까지 곱하는지, 그 타격이 일반 공격으로 세는지 — 능력 클래스의 코드]·
+    [추정·미조사: 확산의 「인접」 = 상하좌우 4칸 — 고지대 AoE 클래스(`_aoeSelector`)의 코드]·[추정·미조사: 행동할 수 없을 때 망치를 잃는지 — 능력 중단은 엔진 코드].
+  - Mon3tr [추정·미조사: 연쇄 튕김이 치료 금지(禁疗) 아군도 고르는지 — 그녀 치료 투사체의 튕김 선택기 `ChainedSelectorWithFilter`는 `_ignoreHealFree`·
+    `_ignoreAllyTargetFree`가 켜져 있어 이름대로면 고름, 그 값을 읽는 코드는 안 읽음; 지금은 재구성체 말고는 안 고름 — 고르게 하려면 엔진 `heal`의 `noHeal` 갈래도
+    바꿔야 함].
+- 이펙트·공격 타이밍·투사체·스킬 시전·모드·HUD·모듈 배치 이펙트 데이터: EN 클라에서 뽑음(2026-11-03, `tools/local-extract/add_operator.py --id …` 네 명 한 번,
+  `fx_extract.py --equips`). 화면 확인 전. 미연결 이펙트(템플릿 행 11)·소리(20)·클립(18)은 목록 시험의 todo.
+- 테스트: `test/content/op_demetr.test.js`(12)·`op_veen.test.js`(9)·`op_headb2.test.js`(11)·`op_monstr.test.js`(11) — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 실제 매치
+  경로 하나씩, 벨로네 둘의 패밀리의 수법; 선발 수를 세는 테스트 20 → 24명(폼 103 → 115), 소환사 7 → 9(손패 시험에 Mon3tr), 토큰 모델 15 → 16, 방향 슬롯
+  오퍼레이터 20 → 21(지마 S3 다섯째 망치).
 
 ## 안젤리나 더 멜로우 위시 S3 이동 · 「이따 봐!」 표식 (2026-10-11, 관리자 제보)
 - 제보 2건: ① S3로 공중 적에게 갈 때 처음 칸에 남는 「이따 봐!」(“一会儿见！”)가 대체 마름모로 보임, ② 공식은 공중 적에게 **직접 날아가는데** 우리는 그 칸에

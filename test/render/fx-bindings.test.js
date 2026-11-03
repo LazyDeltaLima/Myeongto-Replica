@@ -128,6 +128,18 @@ const UNPLAYED = {
   'pepe_e_003_t[aoe][finish]|pepe_skill_01_hit_01_optimize': 'unconditional',
   // not reached (2026-10-24, 묶음 S5): the 战鹰 on another operator — 风雪之眼 deployed onto its card, which no one does in the auto battle
   'svash2_s_3[target_bird_onuse]|svash2_eagle_fly_01': 'unconditional',
+  // 선발 贝洛内, 维伊, 怒潮凛冬 and Mon3tr (2026-11-03): kit events that are not wired to the template yet
+  'demetr_t1[def_dec_core]|demetr_buff_01': 'unconditional',       // 贝洛内 T1 家族手段: the acting 【手段】 (kit talent:demetr:means)
+  'demetr_s3[effect_1]|demetr_skill3_restart_begin_01': 'unconditional',   // 贝洛内 S3 清算: a 【移动】 (kit fx 'teleport')
+  'monstr_t_2[eff_1]|token_monstr_prosts_buff_01_2': 'cond',       // Mon3tr T2 战术协同: the ASPD buff (kit talent:monstr:aspd)
+  'monstr_t_2[eff_1][r]|token_monstr_prosts_buff_01': 'cond',      // Mon3tr T2: on her 重构体
+  'monstr_t_2[eff_2]|token_monstr_prosts_buff_02_2': 'cond',       // Mon3tr T2: the S2 (×talent_scale) one
+  'monstr_t_2[eff_2][r]|token_monstr_prosts_buff_02': 'cond',      // Mon3tr T2: the S2 one on her 重构体
+  'monstr_s_3[reborned_passive]|monstr_skill_03_begin_02': 'unconditional',   // Mon3tr S3 策略：熔毁: her 【移动】 (kit fx 'teleport')
+  'prost_s_3[[effect]|monstr_skill_03_begin_03': 'unconditional',  // Mon3tr S3: the 重构体 withdrawn
+  'prosts_s_3[mode]|monstr_skill_03_end_02': 'unconditional',      // Mon3tr S3: the 路标形态 marker / the return
+  'veen_s_2_buff_full[effect]|veen_skill_02_buff_03': 'cond',      // 维伊 S2 “以鲜血洗去”: the stacks at their cap (kit veen:s2stack)
+  'veen_t_2[damage]|veen_talent_02_debuff_01': 'unconditional',    // 维伊 T2 战争技艺: the mark on an enemy (kit veen:war)
 };
 
 const entries = () => [
