@@ -567,6 +567,11 @@ export function performAttack(b, u, prof, targets, opts = null) {
       // projectiles land even if the shooter died meanwhile (damage is credited to it)
       b.addProjectile({ from: u, target: t, speed, visual: prof.projectile, source: u, hitDead: prof.splashRadius > 0,
         onHit: (c) => resolveHit(b, u, prof, c.target, c.projectile?.cachedAtk ? { ...info, cachedAtk: c.projectile.cachedAtk } : info, c.x, c.y) });
+    } else if (prof._fortressMelee && prof.splashRadius > 0 && opShot(u, t) === NO_FLIGHT) {
+      // a 要塞's blow at the enemy it blocks, where its mode's blocked attack fires no projectile (the official
+      // MeleeAttack / BlockedMeleeAttack of 号角's Default and S3, 灰毫's Default: shot `combat`): a plain melee hit, no
+      // explosion (until 2026-11-03 it burst at radius 1.0 too). 号角 S2's BlockedRangedAttack shoots one and keeps it.
+      resolveHit(b, u, { ...prof, splashRadius: 0 }, t, info, t.x, t.y);
     } else {
       resolveHit(b, u, prof, t, info, t.x, t.y);
     }

@@ -1206,8 +1206,11 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   - **혼(号角) S2 폭풍의 호령 중 저지한 적** (확인만, 코드 그대로): S2 모드에는 근접 능력이 없고 저지 중엔 `BlockedRangedAttack`(`Blocked Selector` 1명,
     클립 `Skill_2_A_Loop`, 신호 버프 `horn_s_2[signal_melee]`)이 `projectile_chr_horn_s2_melee`를 쏜다 — 이 투사체는 ATTACH·즉시(비행 없음)라 타격 순간
     맞고 폭발한다. 시뮬은 포트리스 규칙(저지 중 그 적 한 명, 'none' kind, 타격 순간, 폭발 포함)으로 이미 같다(렌더 A 클립·소리 근접 신호도). 저지 안 할 때는
-    `RangedAttack`(`projectile_chr_horn_s2`, PARACURVE 5, 클립 `Skill_2_B_Loop`). 테스트 `attack-forms.test.js`(고정). 따로 찾은 차이: 기본 모드
-    `MeleeAttack`·`BlockedMeleeAttack`은 투사체·폭발 없는 근접 능력인데 시뮬은 포트리스의 저지 중 근접 타격에도 폭발(반경 1.0)을 붙인다 — §11 줄.
+    `RangedAttack`(`projectile_chr_horn_s2`, PARACURVE 5, 클립 `Skill_2_B_Loop`). 테스트 `attack-forms.test.js`(고정).
+  - **포트리스(要塞)의 저지 중 근접 타격엔 폭발 없음** (2026-11-03): 혼 기본·S3 모드와 애쉬락(灰毫) 기본 모드의 저지 공격은 `MeleeAttack`·`BlockedMeleeAttack` —
+    투사체·폭발 없는 근접 능력(생성 데이터 `shot.combat` 1, 위 「오퍼레이터 투사체」). 그래서 막은 적 한 명만 맞고 옆 적은 안 맞는다 → `ai.js performAttack`이
+    그 타격만 폭발 반경 0으로 친다. 혼 S2(`combat` 0, 위 줄)는 투사체라 폭발 그대로; 혼 S1의 「원거리면 폭발 범위 확대」는 원래 막지 않을 때만(`hornFlare`).
+    전에는 저지 중 근접 타격에도 반경 1.0 폭발이 붙었다. 테스트 `attack-forms.test.js` 「号角 (要塞) Default…」·「灰毫 (要塞) Default…」.
   - **위(余) S3 화염벽의 적 투사체 차단선은 그의 칸 앞 모서리**: `skchr_yu_3/Aura/EnemyAura` 범위는 줄 전체(`_isHorizontalInfinite`)·앞으로 `_horizonOffsetFront` 0.5칸·
     두께 `_horizonSize` 0.3, 들어온 적 투사체를 지운다(`_eliminateOnEnter`, `yu_skill3_annex_01`). 시뮬은 그의 칸 가운데 줄로 판정해, 그 줄 위에 선 그 자신을
     노린 원거리 공격은 막지 못했다 → 적 공격 판정만 앞 모서리(`yuWall.front`); 차단 이펙트 'firewallBlock'도 그 줄에. 아군 마법 피해에 붙는 화상(`AllyAura`,

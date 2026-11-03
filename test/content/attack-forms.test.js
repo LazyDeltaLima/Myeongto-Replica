@@ -1,6 +1,6 @@
 // Operator attack forms that follow the official client's skill modes (charpack `Modes/<mode>/Body/Attack`):
 // 塞雷娅 S3 钙质化's mode attacks allies only — its heal pulse — so she strikes no enemy while it runs; 号角 S2's blocked
-// attack is an instant shell with its blast; a 领主's blocked attack (`Body/Combat`) strikes the enemy it blocks alone in the
+// attack is an instant shell with its blast, the Default mode's a plain melee hit (no blast; 灰毫 too); a 领主's blocked attack (`Body/Combat`) strikes the enemy it blocks alone in the
 // Default mode and, in 拉普兰德 S2's mode, that one plus one more in range (both pinned: the sim already strikes so).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -55,6 +55,23 @@ test('号角 S2 暴风号令: the enemy she blocks takes the S2 shell at the str
   assert.ok(swings.length && swings.every((e) => e[3] === 'none'), 'its attack event is the melee kind (the A clip, horn_s_2[signal_melee])');
   checkInvariants(h.b); assert.deepEqual(h.b.errors, []);
 });
+
+for (const [name, chessId] of [['号角', 'chess_char_5_08_b'], ['灰毫', 'chess_char_2_18_b']]) {
+  test(`${name} (要塞) Default: the enemy she blocks takes a plain melee hit (MeleeAttack / BlockedMeleeAttack, no projectile) — no blast on the one beside it`, () => {
+    const h = makeBattle({ autoFinish: false, captureNoisy: true, hooks: ['damaged'],
+      defs: { enemies: { dummy: enemyRec({ key: 'dummy', hp: 1e8, atk: 0, speed: 0 }) } },
+      units: [{ uid: 1, chessId, skillIndex: null, row: 10, col: 4 }] });
+    h.step();
+    const u = h.unit(1);
+    const a = h.spawn('dummy', { pos: [10, 4] }), c = h.spawn('dummy', { pos: [10, 4.9] });
+    assert.ok(h.runUntil(() => a.blockedBy === u, 1), 'she blocks the first');
+    assert.ok(c.blockedBy !== u, 'the second stands beside it, unblocked (block count 1 would hold both otherwise)');
+    const on = (t) => h.hooksOf('damaged').filter((x) => x.source === u && x.target === t).length;
+    assert.ok(h.runUntil(() => on(a) >= 3, 12), 'she strikes the blocked one');
+    assert.equal(on(c), 0, 'no blast on the other enemy');
+    checkInvariants(h.b); assert.deepEqual(h.b.errors, []);
+  });
+}
 
 test('拉普兰德: the blocked attack (Combat) strikes the blocked enemy alone in the Default mode; in S2 狼魂 it and one more in range (the S2 attack selector, 2), never a third', () => {
   const h = makeBattle({ autoFinish: false, captureNoisy: true, hooks: ['damaged'],
