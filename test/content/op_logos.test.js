@@ -378,6 +378,49 @@ test('T2 剜魂具辞: each of his attack hits gives the target RES −10 and +1
   }
 });
 
+test('his kit moments for the official effects: S2\'s lock on / off (logos_s_2[lock]), S1\'s follow-up from the executed enemy, S3\'s clearing end shots or not, T2\'s debuff shown', () => {
+  const kit = (h, k) => h.eventsOf('fx').filter((x) => x[1] === 'kitHit' && x[4]?.k === k).map((x) => x[4]);
+  {
+    const { h, u } = field({ tier: 6, elite: true, skill: 1, seed: 7 });
+    const e = h.spawn('enemy_dummy', { pos: [10, 7] });
+    cast(u);
+    h.run(2);
+    assert.deepEqual(kit(h, 'logos:lock').map((o) => [o.src, o.id, o.on]), [[u.id, e.id, 1]], 'one lock on the target');
+    h.b.applyStatus(u, 'stun', { duration: 1, source: e });
+    h.step();
+    assert.deepEqual(kit(h, 'logos:lock').map((o) => o.on), [1, 0], 'a stun ends it');
+    h.run(1.6);
+    assert.deepEqual(kit(h, 'logos:lock').map((o) => o.on), [1, 0, 1], 'locked anew');
+    // T2: the debuff reaches the renderer ('status' by its key), still no status of the catalogue
+    const st = h.eventsOf('status').filter((x) => x[1] === e.id && x[2] === 'logos:soulRend');
+    assert.equal(st[0]?.[3], 1, 'shown');
+    assert.equal(e.findBuff('logos:soulRend').status ?? null, null);
+    done(h);
+  }
+  {
+    const { h, u } = field({ tier: 6, elite: true, skill: 0, seed: 3 });
+    const low = h.spawn('enemy_low', { pos: [10, 7] }), far = h.spawn('enemy_dummy', { pos: [10, 6] });
+    cast(u);
+    h.run(0.5);
+    assert.ok(!low.alive, 'executed');
+    const s1 = kit(h, 'logos:s1shot');
+    assert.equal(s1.length, 1);
+    assert.deepEqual([s1[0].src, s1[0].from], [u.id, low.id], 'leaves the executed enemy');
+    assert.equal(s1[0].target, far.id, 'for the enemy still standing');
+    done(h);
+  }
+  {
+    const { h, u } = field({ tier: 6, elite: true, skill: 2 });
+    h.spawn('enemy_dummy', { pos: [10, 7] });
+    cast(u);
+    h.runUntil(() => !u.skill.active, 40);
+    h.step();
+    const end = h.eventsOf('fx').filter((x) => x[1] === 'bulletClear');
+    assert.deepEqual(end.map((x) => [x[4].id, x[4].n]), [[u.id, 0]], 'the S3_End cast with no shot to clear');
+    done(h);
+  }
+});
+
 test('CCR-Δ “来自河谷的笔盒” (stages 1 and 3): 8 % of every arts damage he deals as 凋亡 损伤; none without it', () => {
   for (const f of [[5, false, null], [5, true, null], [5, true, CCRD], [6, true, CCRD], [6, true, CCRY]]) {
     const [tier, elite, mod] = f;

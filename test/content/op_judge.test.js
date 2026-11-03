@@ -160,6 +160,30 @@ test('T2 荆棘环身: while she holds barrier, every damage from an enemy deals
   }
 });
 
+test('T1 律法卫士\'s effect (judge_t_1[effect]): start below 100 % max HP, start again at 100 % or more, break back below (start on the next change), break at 0; T2\'s reflect names the enemy', () => {
+  const { h, u } = field({ skill: 2 });
+  const on = () => h.eventsOf('fx').filter((x) => x[1] === 'kitHit' && x[4]?.k === 'judge:barrier').map((x) => x[4].on);
+  const max = u.s.maxHp;
+  assert.deepEqual(on(), [1], 'the deployment: 55 % — the start, stack 1');
+  for (let i = 0; i < 5; i++) killOne(h, u);   // 55 % + 5 × 10 % = 105 %
+  assert.deepEqual(on(), [1, 1], 'at 100 %: the start again, stack 2');
+  const e = h.spawn('enemy_dummy', { pos: [12, 9] });
+  h.b.dealDamage(e, u, { amount: max * 0.1, type: 'true' });   // 95 %
+  assert.deepEqual(on(), [1, 1, 0], 'below 100 % from stack 2: the break, stack 0');
+  h.b.dealDamage(e, u, { amount: 1, type: 'true' });
+  assert.deepEqual(on(), [1, 1, 0, 1], 'the next change below: the start, stack 1');
+  h.b.dealDamage(e, u, { amount: 1, type: 'true' });
+  assert.deepEqual(on(), [1, 1, 0, 1], 'stack 1 below: nothing');
+  h.b.dealDamage(e, u, { amount: max * 5, type: 'true' });
+  assert.equal(barrier(u), 0);
+  assert.deepEqual(on(), [1, 1, 0, 1, 0], 'spent: the break');
+  h.b.dealDamage(e, u, { amount: 1, type: 'true' });
+  assert.deepEqual(on(), [1, 1, 0, 1, 0], 'no barrier: nothing');
+  const t = h.eventsOf('fx').filter((x) => x[1] === 'thorns');
+  assert.ok(t.length >= 1 && t.every((x) => x[4].id === u.id && x[4].target === e.id), 'thorns: her id, the enemy struck back');
+  done(h);
+});
+
 test('S1 一锤定音 (AUTO, data DEFAULT): the next attack adds 160 % / 180 % ATK arts; every cast spends all the SP; 蓄力 (twice the cost) also stuns 3 s and raises all her damage ×1.8 (thorns included), and reaching it restarts her attack cycle', () => {
   for (const [tier, elite] of [[5, false], [6, true]]) {
     const sk = skillOf(tier, elite, S1);

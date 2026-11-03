@@ -281,14 +281,15 @@ export class BattleStatus {
    * `statusApplied` hooks or status icon): ONE instance of `key` per target whatever the number of sources — the
    * strongest `value` applies, a weaker application only extends past the stronger one's end (it then resumes), an
    * equal one refreshes to the longer duration. `mods(value)` builds the buff's mods. The engine's default for two
-   * same-named buffs (PRTS 作战机制 "同名buff的默认叠加策略buff只能表现出一个"). Returns true when applied.
+   * same-named buffs (PRTS 作战机制 "同名buff的默认叠加策略buff只能表现出一个"). `visible`: the buff is shown to the
+   * renderer (a 'status' by its key — an official buff effect, render/fxstatus.js KEY_FX), still no status. Returns true when applied.
    * @param {object} target
    * @param {string} key
-   * @param {{ duration: number, value: number, mods: (v: number) => object, source?: object|null }} opts
+   * @param {{ duration: number, value: number, mods: (v: number) => object, source?: object|null, visible?: boolean }} opts
    */
-  applyStrongest(target, key, { duration, value, mods, source = null } = {}) {
+  applyStrongest(target, key, { duration, value, mods, source = null, visible = false } = {}) {
     if (!target || !target.alive || !(Number(duration) > 0) || !Number.isFinite(value) || typeof mods !== 'function') return false;
-    this._applyValuedStatus(target, key, { mods, valued: value, plain: true }, Number(duration), value, source);
+    this._applyValuedStatus(target, key, { mods, valued: value, plain: true, visible: !!visible }, Number(duration), value, source);
     return true;
   }
 
@@ -322,7 +323,7 @@ export class BattleStatus {
     const make = (v, dur, tail, s = null, fx = null) => ({
       ...(tpl.buff || null),   // extra buff fields of the status (抵抗: the 麻痹 decay tick)
       key, duration: dur, refresh: 'replace', mods: tpl.mods(v), flags: tpl.flags || null, status: tpl.plain ? null : key,
-      visible: !tpl.plain, source, fxTag: fx,
+      visible: !tpl.plain || !!tpl.visible, source, fxTag: fx,
       data: entry(v, s, { tail }),
       onExpire: ({ battle, unit, buff }) => {
         const t = after(buff.data.tail, battle.time + 1e-6);

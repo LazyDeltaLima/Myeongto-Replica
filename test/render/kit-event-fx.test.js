@@ -42,7 +42,6 @@ const STAND_IN = new Set(/const STAND_IN = new Set\(\[([^\]]+)\]/.exec(GAME)[1].
 const VERDICT = {
   appear: { angel2: ['covered', "the redeployed operator's own 'deploy' effect [추정]"] },
   bloodBattle: { bldsk: ['skill', 2] },
-  bulletClear: { logos: ['pending', 'S3 延异视阈 clears the held shots as it ends: which effect the client plays (S3_End mode / logos_s_3[end]) not judged'] },
   burst: { oblvns: ['covered', "the note's 'oblvnsNote' hit (noteFx: projectile_chr_oblvns_s1_N `_effectsWhenHit`)"], wisdel: ['standIn', 'sent by her 残影 token'] },
   cleanse: { '*': ['covered', "流明's cleansing heal: its S2 hit / S3 attack hit (lumen_s_2 / lumen_s_3[ammo] create no effect of their own)"] },
   dilemma: { mizuki: ['skill', 2] },
@@ -55,7 +54,6 @@ const VERDICT = {
   iceSpike: { gnosis: ['skill', 3] },
   jungleSoul: { gvial2: ['skill', 3] },
   knack: { reckpr: ['skill', 2] },
-  logosExecute: { logos: ['pending', 'S1 殁亡: logos_s_1 creates logos_skill1_hit_03 on the executed enemy — not wired yet'] },
   meltdown: { blaze2: ['standIn', "sent on the enemy (the burn burst's own effect; blaze2_t_1 creates none)"] },
   obelisk: { beewax: ['standIn', 'sent by her token'] },
   overclock: { cathy: ['skill', 2], hsguma: ['skill', 3] },
@@ -132,7 +130,7 @@ test("a 'skill' verdict names a skill whose activation draws something", () => {
 });
 
 /** The 'kitHit' moment keys the rules answer (`k`; undefined: 灵知's, which reads none). */
-const KIT_HIT_KEYS = [undefined, 'haruka:break', 'ironmn_t_2', 'titi:t1', 'titi:spread'];
+const KIT_HIT_KEYS = [undefined, 'haruka:break', 'ironmn_t_2', 'titi:t1', 'titi:spread', 'judge:barrier', 'logos:lock', 'logos:t1shot', 'logos:s1shot'];
 test('the rules name prefabs the client binds for that operator', () => {
   // each rule's prefab belongs to its operator's bundle (a typo plays nothing); the names come from the buff templates
   for (const [n, by] of Object.entries(KIT_OFFICIAL)) {
@@ -141,6 +139,7 @@ test('the rules name prefabs the client binds for that operator', () => {
       const o = { left: 0, t: 2, id: 1, of: 2, n: 2, cap: 3, name: 'extradition', cells: [[1, 1, 1], [2, 1, 3], [3, 1, 5], [4, 1, 0]], skill: 'swire2_3', targets: [2], token: 'token_10058_sbell2_icetgt', ids: [2], off: [3], picks: [2], src: 2, cd: 1.5 };
       if (n === 'whitw2Drones') o.t = [[2, 0], [3, 1]];
       if (n === 'tockaFx') Object.assign(o, { s: 2, shot: 1 });
+      if (n === 'aoe') o.skill = 'judge:atonement';   // 斥罪's S2 pulse (the shared 'aoe' event: her skill only)
       // ('hit' rules answer their own moment keys)
       const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((c) => ({ ...c, plays: PLAYS }))
         .flatMap((ctx) => (n === 'hit' ? HIT_KEYS : n === 'kitHit' ? KIT_HIT_KEYS : [undefined]).map((k) => kitOfficialPlan(n, { ...o, k, heal: 1 }, b, ctx))).filter(Boolean);
@@ -418,6 +417,10 @@ Object.assign(files['/assets/local/fx/index.json'].bundles, {
 Object.assign(files['/assets/local/fx/index.json'].bundles, {
   haruka: ['haruka_talent_02_hit'], ironmn: ['ironmn_beidong_buff'], titi: ['titi_attack_hit_01', 'titi_skill_03_line_01'],
   helage: ['helage_attack_01_hit'], uniequip: ['equipment_system_musha_buff_y', 'uniequip_002_musha_02'],
+  // 斥罪's and 逻各斯's kit moments
+  judge: ['judge_shield_start_01', 'judge_shield_break_01', 'judge_reboun_hit_01', 'judge_skill_02_weapon_hit_01'],
+  logos: ['logos_skill1_hit_03', 'logos_talent_start_01', 'logos_talent_trail_01', 'logos_talent_hit_01', 'logos_skill1_trail_02',
+    'logos_skill1_hit_02', 'logos_skill2_line_01', 'logos_skill3_range_end_01'],
 });
 files['/assets/local/fx/index.json'].equips = { uniequip_003_helage: ['equipment_system_musha_buff_y'] };
 files['/assets/local/fx/index.json'].bundles.reed2.push('reed2_skill_02_fireball_01', 'reed2_skill_02_fireball_02', 'reed2_skill_02_fireball_hit');
@@ -748,5 +751,55 @@ test('fxgame.js (2026-11-03): a module\'s deploy effects (_PlayUniEquipEffect) o
     ev('kitHit', { id: 3, src: 3, from: 7, k: 'ironmn_t_2' });
     ev('kitHit', { id: 4, k: 'titi:t1', n: 2, ids: [8, 9] });
     assert.deepEqual(got(), ['haruka_talent_02_hit@8', 'ironmn_beidong_buff@3', 'titi_attack_hit_01@8', 'titi_attack_hit_01@9', 'uniequip_002_musha_02@1']);
+  } finally { globalThis.fetch = fetch0; }
+});
+
+test('kitOfficialPlan (2026-11-03): 斥罪\'s barrier start / break, reflect and S2 pulse; 逻各斯\'s lock, shots, execution, S3 end', () => {
+  const p = (ev, o, b) => kitOfficialPlan(ev, o, b)?.play;
+  // 斥罪: judge_t_1[effect]'s start / break by the kit's stack count; judge_t_2 on the enemy struck back; each S2 pulse on her
+  assert.deepEqual(p('kitHit', { id: 1, src: 1, k: 'judge:barrier', on: 1 }, 'judge'), [{ n: 'judge_shield_start_01', on: 'op', life: 'once' }]);
+  assert.deepEqual(p('kitHit', { id: 1, src: 1, k: 'judge:barrier', on: 0 }, 'judge'), [{ n: 'judge_shield_break_01', on: 'op', life: 'once' }]);
+  assert.deepEqual(p('thorns', { id: 1, target: 8 }, 'judge'), [{ n: 'judge_reboun_hit_01', on: 'target', life: 'once' }]);
+  assert.deepEqual(p('aoe', { id: 1, skill: 'judge:atonement', n: 0 }, 'judge'), [{ n: 'judge_skill_02_weapon_hit_01', on: 'op', life: 'once' }]);
+  assert.equal(p('aoe', { id: 1, skill: 'other' }, 'judge'), undefined);
+  // 逻各斯: the lock line until the lock ends; the T1 / S1 shots (PARACURVE, their `_raiseHeight`); the executed enemy; S3_End's cast
+  const lock = kitOfficialPlan('kitHit', { id: 8, src: 1, k: 'logos:lock', on: 1 }, 'logos');
+  assert.deepEqual(lock.stop, ['logosLock']);
+  assert.deepEqual(lock.play, [{ n: 'logos_skill2_line_01', line: ['src', 'id'], tag: 'logosLock' }]);
+  assert.deepEqual(kitOfficialPlan('kitHit', { id: 8, src: 1, k: 'logos:lock', on: 0 }, 'logos'), { stop: ['logosLock'], play: [], pass: false });
+  assert.deepEqual(p('kitHit', { id: 1, src: 1, target: 8, k: 'logos:t1shot' }, 'logos'),
+    [{ n: 'logos_talent_start_01', on: 'op', life: 'once' }, { n: 'logos_talent_trail_01', fly: 8, to: 'target', arc: 0.3 }]);
+  assert.deepEqual(p('logosLexicon', { id: 1, target: 8 }, 'logos'), [{ n: 'logos_talent_hit_01', on: 'target', life: 'once' }]);
+  assert.deepEqual(p('logosExecute', { id: 1, target: 8 }, 'logos'), [{ n: 'logos_skill1_hit_03', on: 'target', life: 'once' }]);
+  assert.deepEqual(p('bulletClear', { id: 1, n: 0 }, 'logos'), [{ n: 'logos_skill3_range_end_01', on: 'op', life: 'once' }]);
+  assert.deepEqual(p('kitHit', { id: 1, src: 1, target: 9, from: 8, k: 'logos:s1shot' }, 'logos'),
+    [{ n: 'logos_skill1_trail_02', fly: 3, to: 'target', from: 'from', fromDead: true, arc: 0.5, hit: ['logos_skill1_hit_02'] }]);
+});
+
+test('fxgame.js (2026-11-03): 斥罪\'s and 逻各斯\'s kit moments play on their units; the S1 follow-up leaves the fallen enemy', async () => {
+  const fetch0 = globalThis.fetch;
+  globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
+  try {
+    const plays = [];
+    const layer = createFxLayer({ host: null, above: null, quality: () => 'high', trace: (q) => plays.push(q), dry: true });
+    await settle();
+    const op = (id, defId) => ({ id, x: id, y: 0, alive: true, info: { id, side: 'ally', kind: 'op', defId, spine: defId, skillIndex: 0 } });
+    const foe = (id, alive = true) => ({ id, x: id, y: 0, alive, info: { id, side: 'enemy', defId: 'enemy_1007_slime' } });
+    const views = new Map([[1, op(1, 'char_4065_judge')], [2, op(2, 'char_4133_logos')], [8, foe(8, false)], [9, foe(9)]]);
+    const got = () => plays.splice(0).filter((q) => q.kind === 'spawn').map((q) => `${q.names[0]}@${q.on}`).sort();
+    const ev = (name, o) => layer.onEvent(['fx', name, 0, 0, { x: 0, y: 0, ...o }], views);
+    ev('kitHit', { id: 1, src: 1, k: 'judge:barrier', on: 1 });
+    ev('kitHit', { id: 1, src: 1, k: 'judge:barrier', on: 0 });
+    ev('thorns', { id: 1, target: 9 });
+    ev('aoe', { id: 1, skill: 'judge:atonement', n: 0 });
+    ev('logosExecute', { id: 2, target: 9 });
+    ev('bulletClear', { id: 2, n: 0 });
+    ev('kitHit', { x: 8, y: 0, id: 2, src: 2, target: 9, from: 8, k: 'logos:s1shot' });
+    assert.deepEqual(got(), ['judge_reboun_hit_01@9', 'judge_shield_break_01@1', 'judge_shield_start_01@1', 'judge_skill_02_weapon_hit_01@1',
+      'logos_skill1_hit_03@9', 'logos_skill1_trail_02@null', 'logos_skill3_range_end_01@2'].sort());
+    // the S1 follow-up needs the unit it leaves only while it may be dead (`fromDead`): without its view, the event's point
+    views.delete(8);
+    ev('kitHit', { x: 8, y: 0, id: 2, src: 2, target: 9, from: 8, k: 'logos:s1shot' });
+    assert.deepEqual(got(), ['logos_skill1_trail_02@null']);
   } finally { globalThis.fetch = fetch0; }
 });

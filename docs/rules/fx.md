@@ -3632,3 +3632,35 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
     S3 처치 전파: 잠든 채 쓰러진 적이 재운 적마다 `titi_s_3[effect_line]` → 선 `titi_skill_03_line_01`(쓰러진 적 → 새로 재운 적, `titi:spread`의 `from`·`to`).
 - 확인: `test/render/kit-event-fx.test.js`(계획 + 층 — 모듈 이펙트가 배치마다·【이동】 뒤엔 없음·퇴장 뒤 다시), `fx-bindings` `UNPLAYED` 2줄 지움. 시뮬 골든:
   하루카의 `kitHit`만(diy-023·024). [화면 미확인: 모듈 장비 이펙트의 크기·위치(배치 이펙트와 겹침), 헬라그 부활·하루카 깨짐·스테인리스 회수·티티 틱·전파 선]
+
+### 선발 페넌스·로고스·비비아나 키트 순간 이펙트 (2026-11-03, 공식 클라에서 확인)
+
+버프 템플릿·스킬 프리팹·투사체 프리팹 그대로. 전에는 아홉 줄(`fx-bindings` `UNPLAYED`)을 아무것도 그리지 않았고 로고스의 두 투사체는 그림이 없었다.
+
+- 페넌스(`char_4065_judge`) 재능 1 장벽: 장벽이 바뀔 때마다 `judge_t_1[effect]` `ON_BUFF_TRIGGER`가 돈다 — 스택 0·1·2(없음 / 최대 체력 ×
+  `higher_effect_hp_ratio`(1) 아래 / 그 이상)를 들고, 0이 되면 스택이 있을 때 `judge_shield_break_01`, 그 이상이 되면 스택 2 미만일 때
+  `judge_shield_start_01`(→ 2), 아래로 내려오면 스택 2에서 깨짐(→ 0, 다음 변화에서 시작 → 1), 스택 0에서 시작(→ 1). 키트가 같은 계산을 해
+  `kitHit` `judge:barrier` { on 1 시작 / 0 깨짐 }을 보낸다(얻을 때와 맞을 때마다 — 흡수 뒤). 장벽 고리 `judge_shield_all_01`은 전부터.
+- 페넌스 재능 2 반사: `judge_t_2` `ON_TAKE_DAMAGE` → `InverseDamage` 뒤 `judge_reboun_hit_01`을 MODIFIER_SOURCE(반사 맞는 적)에 — 사건 `thorns`에
+  `target`을 더함. S2 펄스: `judge_s_2[aoe]` 틱마다 `AOEDamage` 뒤 `judge_skill_02_weapon_hit_01`을 그녀에게(맞은 적이 없어도) — 사건 `aoe`.
+- 로고스(`char_4133_logos`) S1 처형: `logos_s_1`이 처형한 적에 `logos_skill1_hit_03`(사건 `logosExecute`). 처형 뒤 후속 탄
+  `projectile_chr_logos_s1_2`(PARACURVE `_speed` 3·`_raiseHeight` 0.5)는 쓰러진 적에서(`kitHit` `logos:s1shot`의 `from` — 렌더 `planShots`
+  `fromDead`: 그 뷰가 없으면 사건 자리) 대상에게, 맞을 때 `logos_skill1_hit_02`.
+- 로고스 재능 1 탄 `projectile_chr_logos_t`(PARACURVE `_speed` 8·`_raiseHeight` 0.3; EN·CN 프리팹 같음): 쏠 때 `_effectsWhenStart`
+  `logos_talent_start_01`, 비행 `logos_talent_trail_01`(`kitHit` `logos:t1shot`), 맞을 때 `logos_talent_hit_01`(시뮬 `logosLexicon`). 렌더
+  `planShots`가 `arc`(올림 높이)를 받는다.
+- 로고스 S2 고정: 대상의 `logos_s_2[lock]` `ON_BUFF_ENABLE` → 선 `logos_skill2_line_01`(그 → 대상), 고정이 끝날 때까지(`kitHit` `logos:lock` on 1 / 0).
+  S2 모드 `Ability0`의 `_buffs` `logos_s_2[effect]`가 그에게 [effect_1] `logos_skill2_buff_02`(스킬 버프 이름 규칙이 전부터 그림)와 [effect_2]
+  `logos_skill2_buff_03_F`(이름 규칙이 `_F`를 빼서 안 그렸음 → `fxmap.js` `SKILL_HELD`)를 만든다.
+- 로고스 재능 2 디버프: `logos_t_2`가 대상에 `logos_t_2[core]`(`logos_talent_debuff_01`, `duration` 동안) — 시뮬 `logos:soulRend`를 렌더에 보이게
+  (`applyStrongest`의 새 `visible`: 'status' 사건만, 상태 목록·면역과는 무관) → `fxstatus.js` `KEY_FX`.
+- 로고스 S3 끝: `logos_s_3` `ON_BUFF_FINISH`가 `CheckCanUseAtkOrCbt`를 통과하면 S3_End 모드로 — 그 공격의 시전 `logos_skill3_range_end_01`. 투사체를
+  지웠든 안 지웠든 그 끝마다 사건 `bulletClear`(n은 지운 수, 0일 수 있음; 전에는 지운 것이 있을 때만).
+- 비비아나(`char_4098_vvana`) 재능 2 근접 전용 보호막: `vvana_t_2[block_melee]`가 `vvana_buff_01`을 들고 있음 — 시뮬 층 버프 `talent:vvana:shield`를
+  `KEY_FX`로(정예 적·주사위 조건은 시뮬이 정함).
+- 확인: `test/render/kit-event-fx.test.js`(계획 + 층 — 장벽 시작·깨짐, 반사, 펄스, 처형, S3 끝, 쓰러진 적에서 나는 후속 탄), `fx-bindings` `UNPLAYED` 9줄·
+  `VERDICT` pending 2줄 지움, `test/content/op_judge.test.js`(장벽 이펙트 순서)·`op_logos.test.js`(고정 켬·끔, 후속 탄 `from`, 투사체 없는 S3 끝, 디버프
+  'status'). 시뮬 골든: diy-026~030 사건 수만(전투 결과 같음). [화면 미확인: 위 전부 — 특히 두 투사체의 높이·장벽 시작/깨짐의 크기]
+- 남은 것: 비비아나 S3의 스킬 모드가 없다(`modes.json` `skillMode` S3 = null) — 스킬 이름 규칙이 첫 시전(모드 S3_1, `vvana_skill_03_L_*`)과 둘째
+  시전부터(모드 S3_2, `_S_*`)의 시전·버프 이펙트를 함께 튼다. 둘째부터의 `_B` 클립(`clip-coverage-list.js` todo D)과 함께 키트 사건 `vvanaS3Later`로
+  가를 일; S1의 `castLoop`에 섞인 `_L`·`_S`도 蓄力 여부(소리 신호 `vvanaCharged`)로 갈리는지 같이 볼 것.

@@ -3005,8 +3005,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * the operator (伊内丝 S3's recalled 影哨). On landing `hit` plays on its unit; `rope` runs from the operator to the head
    * (ropeLine — the guard_back projectile's line, `_useEndPointAsStartPos`); `pass` { n, on } plays on each unit of the
    * event's field `on` as the head passes it (its projection on the flight). (2026-11-01) `from` naming another field: from
-   * that unit's HIT point instead of the operator's muzzle (冻河 S3's effect moving on from the ally it leaves). The
-   * longest flight's time (s).
+   * that unit's HIT point instead of the operator's muzzle (冻河 S3's effect moving on from the ally it leaves); with
+   * `fromDead` that unit may have just fallen (逻各斯 S1's follow-up from the enemy it executed — the event's point when its
+   * view is gone). (2026-11-03) `arc`: a PARACURVE projectile's `_raiseHeight` (tiles). The longest flight's time (s).
    */
   function planShots(pb, name, op, p, o, x, y, views) {
     const speed = Number(p.fly) > 0 ? Number(p.fly) : 10;
@@ -3014,16 +3015,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const rope = p.rope ? pickName(pb, p.rope) : null;
     const back = p.from === 'point';
     const fromU = p.from && !back ? views.get(o[p.from]) : null;
-    if (p.from && !back && (!fromU || fromU.alive === false || fromU.remove)) return 0;
+    const fromPt = !!(p.from && !back && !fromU && p.fromDead);
+    if (p.from && !back && !fromPt && (!fromU || (!p.fromDead && (fromU.alive === false || fromU.remove)))) return 0;
+    const arc = Number(p.arc) > 0 ? Number(p.arc) : 0;
     const tos = back ? [op] : [o[p.to]].flat().map((id) => views.get(id)).filter((u) => u && u.alive !== false && !u.remove);
     let longest = 0;
     tos.forEach((u, k) => {
       const go = () => {
         if (level() >= 3 || trailFull() || (!back && (u.alive === false || u.remove))) return;
-        const from = back ? { x, y, z: shotTo(op).z } : fromU ? shotTo(fromU) : shotFrom(op, null);
-        const ox = back ? x : fromU ? fromU.x : op.x, oy = back ? y : fromU ? fromU.y : op.y;
+        const from = back || fromPt ? { x, y, z: shotTo(op).z } : fromU ? shotTo(fromU) : shotFrom(op, null);
+        const ox = back || fromPt ? x : fromU ? fromU.x : op.x, oy = back || fromPt ? y : fromU ? fromU.y : op.y;
         const tx = mx(u), ty = u.y, dur = Math.max(0.04, Math.hypot(tx - ox, ty - oy) / speed);
-        const rec = { inst: null, tgt: u, x0: from.x, y0: from.y, z0: from.z, ...aimOf(u), k: 0, dur, arc: 0 };
+        const rec = { inst: null, tgt: u, x0: from.x, y0: from.y, z0: from.z, ...aimOf(u), k: 0, dur, arc };
         trails.push(rec);
         spawn(pb.bundle, name, { x: from.x, y: from.y, z: from.z }, { owner: null, buff: false, until: clockS + dur + 5 }, { drop: rec })
           .then((l) => { if (!l) { const i = trails.indexOf(rec); if (i >= 0) trails.splice(i, 1); } });

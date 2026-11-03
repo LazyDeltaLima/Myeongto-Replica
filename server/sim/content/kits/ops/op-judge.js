@@ -25,7 +25,10 @@
 //   an empty buff; nothing else depends on it here). Among several barriers it is spent last (`shieldLast`: PRTS
 //   "生效优先级为-1000" — the client runs buffs by priority, then by the order gained, `Buff.CompareTo`); damage reductions
 //   (庇护, UNY-X) act before it as the client's LOW_PRIORITY. UNY-X stage 3: 75 % / 12 % (module talent change; full potential). higher_effect_hp_ratio only sizes the
-//   barrier's effect (judge_t_1[effect]) — no gameplay.
+//   barrier's effect (judge_t_1[effect]) — no gameplay: every change of the barrier triggers it, and its graph keeps a
+//   stack count 0 / 1 / 2 (none / a barrier below higher_effect_hp_ratio × max HP / one at or above it) — 0 left with a
+//   stack: judge_shield_break_01; at or above from below 2: judge_shield_start_01, 2; below from 2: the break, 0 (the next
+//   change below plays the start, 1); below from 0: the start, 1 (the kit's fx 'kitHit' 'judge:barrier', `on` 1 / 0).
 // - T2 荆棘环身 (judge_t_2, ON_TAKE_DAMAGE): every damage instance an enemy source deals her while she holds barrier (its
 //   judge_shield[mark]: the absorb before that hit — the hit that breaks it still counts, t_1 runs LOW_PRIORITY) deals
 //   atk_scale × her ATK arts back to that source (a 普通伤害, InverseDamage `attackType` NORMAL; × the 蓄力 攻击力倍率 while S1's
@@ -91,7 +94,16 @@ export default {
       const next = Math.min(cap, have + amount);
       if (cur) { cur.shield = next; unit.markDirty(); } else battle.addBuff(unit, { key: BARRIER, shield: next, shieldLast: true, visible: true, tags: ['talent'] });
       battle.fx('shield', { x: unit.x, y: unit.y, id: unit.id });
+      barrierFx(battle, unit);
       return next - have;
+    };
+    /** judge_t_1[effect] ON_BUFF_TRIGGER (header): the barrier's start / break effect from its stack count. */
+    const barrierFx = (battle, unit) => {
+      const v = barrierOf(unit), div = unit.s.maxHp * num(t0.higher_effect_hp_ratio, 1), n = unit.mem.judgeFxStack || 0;
+      const to = v <= 1e-9 ? 0 : v >= div ? 2 : n > 1 ? 0 : n < 1 ? 1 : n;
+      if (to === n) return;
+      unit.mem.judgeFxStack = to;
+      battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, src: unit.id, k: 'judge:barrier', on: to > n ? 1 : 0 });
     };
     return {
       skills: {
@@ -149,8 +161,12 @@ export default {
       talents: [
         { install(battle, unit) { // 律法卫士: barrier at every deployment and per enemy she knocks out (≤ max_hp_ratio × max HP)
           battle.on('deploy', (ctx) => {
-            if (ctx.unit === unit) gain(battle, unit, unit.s.maxHp * num(t0.born_hp_ratio) * shieldScale(unit));
+            if (ctx.unit !== unit) return;
+            unit.mem.judgeFxStack = 0;
+            gain(battle, unit, unit.s.maxHp * num(t0.born_hp_ratio) * shieldScale(unit));
           }, { owner: unit });
+          // every hit she takes runs the barrier's effect graph again (the absorb has happened: judge_t_1 ON_TAKE_DAMAGE)
+          battle.on('damaged', (c) => { if (c.target === unit && up(unit)) barrierFx(battle, unit); }, { owner: unit });
           battle.on('kill', ({ killer, victim }) => {
             if (killer === unit && victim && victim.side === 'enemy') gain(battle, unit, unit.s.maxHp * num(t0.kill_hp_ratio) * shieldScale(unit));
           }, { owner: unit });
@@ -165,7 +181,8 @@ export default {
             if (c.target !== unit || !d || !armed.has(d) || !src || src.side !== 'enemy' || !src.alive) return;
             if (isHpLoss(d) || c.type === 'element' || tagged(d, 'counter')) return;
             battle.dealDamage(unit, src, { amount: unit.s.atk * scale * unit.s.atkScaleMul, type: 'arts', tags: ['talent', 'counter', 'judge:thorns'] });
-            battle.fx('thorns', { x: unit.x, y: unit.y, id: unit.id });
+            // judge_t_2: CreateEffect judge_reboun_hit_01 on the MODIFIER_SOURCE, the enemy it strikes back (`target`)
+            battle.fx('thorns', { x: unit.x, y: unit.y, id: unit.id, target: src.id });
           }, { owner: unit });
         } },
       ],

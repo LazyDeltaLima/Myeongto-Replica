@@ -390,6 +390,9 @@ export const SKILL_HELD = Object.freeze({
   // 洛洛 S1 / S2 (2026-10-24, 묶음 S4): the skill prefab's `_passiveBuffs` rockr_s_effect, whose ON_BUFF_START creates the derived
   // INFINITY buffs rockr_s_effetct_1 / _2 (rockr_skill_buff_01 / _02) on her [추정: they end with the skill's rockr_s_effect]
   char_4040_rockr: Object.freeze({ 0: ROCKR_HELD, 1: ROCKR_HELD }),
+  // 逻各斯 S2 (2026-11-03): the S2 mode's Ability0 `_buffs` logos_s_2[effect] creates [effect_1] logos_skill2_buff_02 (the `_buff`
+  // name rule plays it) and [effect_2] logos_skill2_buff_03_F (the name rule leaves a `_F` out) on him while it is enabled
+  char_4133_logos: Object.freeze({ 1: heldKeys(['logos_s_2[effect_2]']) }),
 });
 
 /** The SKILL_HELD prefabs of `charId`'s skill `skillIndex` that are extracted (`prefabs`), from `plays`; `back`: deployed facing UP. */

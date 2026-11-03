@@ -501,7 +501,32 @@ export const KIT_OFFICIAL = {
     // (titi_s_3[effect_line] on each enemy it puts to sleep: CreateLineEffect titi_skill_03_line_01 from that enemy, BUFF_SOURCE)
     titi: cite(['titi_t_1[enemy_sleeping]', 'titi_s_3[effect_line]'], (o) => (o.k === 'titi:t1' ? { play: [once('titi_attack_hit_01', 'ids')] }
       : o.k === 'titi:spread' ? { play: [{ n: 'titi_skill_03_line_01', line: ['from', 'to'], life: 'once' }] } : null)),
+    // (2026-11-03) 斥罪 T1 律法卫士: judge_t_1[effect] on each change of her barrier — its start judge_shield_start_01 / break
+    // judge_shield_break_01 by the stack count the kit keeps (`on` 1 / 0, kits/ops/op-judge.js barrierFx: the conditions
+    // are the sim's). Her barrier's loop is judge_t_1's judge_shield_all_01 (the talent's buff)
+    judge: cite('judge_t_1[effect]', (o) => (o.k === 'judge:barrier' ? { play: [once(Number(o.on) ? 'judge_shield_start_01' : 'judge_shield_break_01')] } : null)),
+    // (2026-11-03) 逻各斯: S2 提喻's lock — logos_s_2[lock] on the target, its ON_BUFF_ENABLE line logos_skill2_line_01 from him
+    // (BUFF_SOURCE) until the lock ends (`on` 0); T1 语汇演化's shot projectile_chr_logos_t (PARACURVE `_speed` 8,
+    // `_raiseHeight` 0.3: its `_effectsWhenStart` logos_talent_start_01, its flight — its hit lands with the sim's
+    // 'logosLexicon'); S1 殁亡's follow-up projectile_chr_logos_s1_2 (`_speed` 3, `_raiseHeight` 0.5) from the enemy it
+    // executed (`from`) to `target`, its `_effectsWhenHit` as it lands
+    logos: cite(['logos_s_2[lock]', 'projectile_chr_logos_t', 'projectile_chr_logos_s1_2'], (o) => (o.k === 'logos:lock'
+      ? { stop: ['logosLock'], play: Number(o.on) ? [{ n: 'logos_skill2_line_01', line: ['src', 'id'], tag: 'logosLock' }] : [] }
+      : o.k === 'logos:t1shot' ? { play: [once('logos_talent_start_01'), { n: 'logos_talent_trail_01', fly: 8, to: 'target', arc: 0.3 }] }
+        : o.k === 'logos:s1shot' ? { play: [{ n: 'logos_skill1_trail_02', fly: 3, to: 'target', from: 'from', fromDead: true, arc: 0.5, hit: ['logos_skill1_hit_02'] }] } : null)),
   },
+  // (2026-11-03) 斥罪 T2 荆棘环身: judge_t_2 ON_TAKE_DAMAGE — InverseDamage, then judge_reboun_hit_01 on the MODIFIER_SOURCE (`target`)
+  thorns: { judge: cite('judge_t_2', () => ({ play: [once('judge_reboun_hit_01', 'target')] })) },
+  // (2026-11-03) 斥罪 S2 坚心苦修: each pulse (judge_s_2[aoe] ON_BUFF_TRIGGER: AOEDamage, then CreateEffect
+  // judge_skill_02_weapon_hit_01 on her — enemies hit or not)
+  aoe: { judge: cite('judge_s_2[aoe]', (o) => (o.skill === 'judge:atonement' ? { play: [once('judge_skill_02_weapon_hit_01')] } : null)) },
+  // (2026-11-03) 逻各斯 S1 殁亡: logos_s_1 on the enemy it executes — CreateEffect logos_skill1_hit_03 there (the HP check is the
+  // sim's); T1's shot landing: projectile_chr_logos_t `_effectsWhenHit` logos_talent_hit_01; S3 延异视阈's clearing end: the
+  // S3_End mode's cast logos_skill3_range_end_01 (logos_s_3 ON_BUFF_FINISH CheckCanUseAtkOrCbt → SwitchMode; the kit sends
+  // it on every such end, shots cleared or not)
+  logosExecute: { logos: cite('logos_s_1', () => ({ play: [once('logos_skill1_hit_03', 'target')] })) },
+  logosLexicon: { logos: cite('projectile_chr_logos_t', () => ({ play: [once('logos_talent_hit_01', 'target')] })) },
+  bulletClear: { logos: cite('char_4133_logos/Modes/S3_End/Body/Attack', () => ({ play: [once('logos_skill3_range_end_01')] })) },
   // (2026-11-03) 赫拉格 SBL-Y 热的雪: the revive (helage_trait_e → helage_trait_e[heal], ON_BUFF_FINISH: HealViaMaxHpRatio and
   // CreateEffect uniequip_002_musha_02 on him) — a prefab of the shared module effects (bundle `uniequip`)
   undying: { helage: cite('helage_trait_e[heal]', () => ({ play: [{ n: 'uniequip_002_musha_02', bundle: 'uniequip', on: 'op', life: 'once' }] })) },

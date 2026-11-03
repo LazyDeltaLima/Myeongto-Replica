@@ -156,6 +156,12 @@ export const KEY_FX = Object.freeze({
   // 休谟斯 再回收 (2026-10-24, 묶음 S6): humus_t_1[effect] holds humus_t_1[effect_holder] (humus_buff_03) while her barrier's
   // `dynamic` is above 0 — the sim's barrier buff, gone when spent
   'humus:recycle': keyedAll('humus_t_1[effect_holder]', 'humus', 0),
+  // (2026-11-03) 逻各斯 T2 剜魂具辞: logos_t_2 ON_CALCULATE_DAMAGE gives the target logos_t_2[core] (logos_talent_debuff_01 for
+  // its `duration`) — the sim's 'logos:soulRend', one per enemy whoever gives it
+  'logos:soulRend': keyed('logos_t_2[core]', 'logos', OWN),
+  // (2026-11-03) 薇薇安娜 T2 散华: her melee-only 护盾 layer vvana_t_2[block_melee] (vvana_buff_01 while she holds one) — the
+  // sim's layer buff (its elite-enemy filter and dice held)
+  'talent:vvana:shield': keyedAll('vvana_t_2[block_melee]', 'vvana', OWN),
   // 休谟斯 S2 精力充沛 (2026-10-24, 묶음 S11): humus_s_2[peak_1] / [peak_2] each run peak_performance with their blackboard
   // `peak_performance.effect` humus_buff_01 / _02 (CreateBuffWithOverrideEffect peak_performance[effect]) above their HP ratio;
   // the sim's buff is the highest peak (`fxTag` 1 / 2) — above peak_2 both hold [추정: disableOverride keeps both derived buffs]

@@ -109,7 +109,8 @@ function endShots(battle, unit, clear) {
     const s = SLOWED.get(p);
     if (s && s.by.delete(unit.id) && !s.by.size) { p.speed = s.orig; SLOWED.delete(p); }
   }
-  if (n) battle.fx('bulletClear', { x: unit.x, y: unit.y, id: unit.id, n });
+  // the clearing end is the S3_End mode's cast (logos_s_3 ON_BUFF_FINISH: CheckCanUseAtkOrCbt → SwitchMode), shots or not
+  if (clear) battle.fx('bulletClear', { x: unit.x, y: unit.y, id: unit.id, n });
 }
 
 export default {
@@ -161,17 +162,20 @@ export default {
       const t = battle.rng.pick(battle.enemiesInKeys(unit.rangeKeys, unit, ANY));
       if (!t || !(left > 0)) return;
       // projectile_chr_logos_s1_2 leaving the fallen enemy (BORN; audio.js)
-      battle.fx('kitHit', { x: e.x, y: e.y, id: unit.id, src: unit.id, target: t.id, k: 'logos:s1shot' });
+      battle.fx('kitHit', { x: e.x, y: e.y, id: unit.id, src: unit.id, target: t.id, from: e.id, k: 'logos:s1shot' });
       battle.addProjectile({
         from: { x: e.x, y: e.y }, target: t, speed: S1_SHOT, visual: 'bolt', source: unit,
         onHit: ({ target }) => { if (target && target.alive) battle.dealDamage(unit, target, { amount: left, type: 'arts', isSkill: true, tags: ['skill', 'logosPerish'] }); },
       });
     }
 
-    /** 提喻: end the lock (its slow leaves the target). */
+    /** 提喻: end the lock (its slow leaves the target; logos_s_2[lock] ends — its line with it: fx 'kitHit' 'logos:lock' `on` 0). */
     function unlock(battle, unit) {
       const L = unit.mem.logosLock;
-      if (L && L.target) battle.removeBuff(L.target, `logos:lockSlow:${unit.id}`);
+      if (L && L.target) {
+        battle.removeBuff(L.target, `logos:lockSlow:${unit.id}`);
+        battle.fx('kitHit', { x: unit.x, y: unit.y, id: L.target.id, src: unit.id, k: 'logos:lock', on: 0 });
+      }
       unit.mem.logosLock = null;
     }
     const lockIv = num(b2['attack@cooldown'], 0.5);
@@ -267,7 +271,8 @@ export default {
           if (!(dur > 0) || !(add > 0 || res)) return;
           battle.on('hit', (ctx) => {
             if (ctx.source !== unit || !ctx.dmg?.isAttack || !ctx.target || ctx.target.side !== 'enemy') return;
-            battle.applyStrongest(ctx.target, T2_KEY, { duration: dur, value: add, source: unit, mods: () => (res ? { resFlat: res } : {}) });
+            // shown (`visible`): its buff logos_t_2[core] carries logos_talent_debuff_01 (render/fxstatus.js KEY_FX)
+            battle.applyStrongest(ctx.target, T2_KEY, { duration: dur, value: add, source: unit, visible: true, mods: () => (res ? { resFlat: res } : {}) });
           }, { owner: unit, priority: 10 });
           // "受到的法术伤害提高N点": every arts damage on a marked enemy, after the attack multiplier, before its RES
           once(battle, 'logos:artsAddition', () => battle.on('hit', (ctx) => {
@@ -290,6 +295,8 @@ export default {
           }
           unlock(battle, unit);
           unit.mem.logosLock = { target: ctx.targets[0], n: 0 };
+          // logos_s_2[lock] on the target: ON_BUFF_ENABLE CreateLineEffect logos_skill2_line_01 from him to it
+          battle.fx('kitHit', { x: unit.x, y: unit.y, id: ctx.targets[0].id, src: unit.id, k: 'logos:lock', on: 1 });
           ctx.targets = [ctx.targets[0]];
         }, { owner: unit });
         // CCR-Δ: 8 % of every arts damage as 凋亡 损伤
