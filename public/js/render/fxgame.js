@@ -826,7 +826,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   /** The module variant of `def` for its owner `owner` (a view), loaded: { def, pause } or null. */
   async function equipVariant(def, owner, bundle) {
-    const e = def?.equipFx, mid = owner?.info?.moduleId || owner?.info?.diy?.uniEquipId;
+    const e = def?.equipFx, mid = owner?.info?.equip;   // (2026-11-03) the module in effect (a 自选 pick's on its elite form only)
     const h = e && mid ? (e.hooks || []).find((x) => x[0] === mid) : null;
     const d = h && index?.bundles?.[bundle]?.includes(h[2]) ? await lib.load(bundle, h[2]) : null;
     return d ? { def: d, pause: !!e.pause } : null;
@@ -5029,6 +5029,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // operator / token whose prefab is extracted (its own bundle, else the shared `common` one), and on its 'die' when knocked
   // out ('killed'; a retreat / expiry plays none [추정]). 望's stones keep their own (stoneFx).
   const deployed = new Map();   // unit id → battle clock of its 'deploy' (its view may be built right after the event)
+  // (2026-11-03) the units deployed and not gone since ('die'): a 'deploy' of one of them is a 【移动】 (moved)
+  const onField = new Set(), moved = new Set();
   const startedOnce = new Set();
   const opDead = new Set();     // units whose dead effect played (ownsDeath)
   const isAlly = (v) => !!(v?.info && v.info.side !== 'enemy' && (v.info.kind === 'op' || v.info.kind === 'token') && !isStone(v));
@@ -5088,6 +5090,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const v = views.get(id);
       if (!v) { if (clockS - t > 2) deployed.delete(id); continue; }
       deployed.delete(id);
+      const wasMoved = moved.delete(id);
       if (!isAlly(v) || v.alive === false || failed || q() === 'low') continue;
       const bind = bindOf(v);
       alwaysOn(v, id);
@@ -5096,6 +5099,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       droneIdle(v, true);   // 2026-10-16: the Default mode's drones
       warmShot(v);   // 2026-10-23: its skill's own shot, ready for the skill's first throw
       if (isPack(v)) packDeploy(v, id, t);   // 2026-10-16: 伺夜's wolf pack
+      if (!wasMoved) moduleFx(v, id);   // 2026-11-03: its module's deploy effects
       const fx = deployEffect(bind, v.info.kind === 'token', v._fxSkillOn ? modeNow(v) ?? 0 : 0);
       // `_onlyPlayStartEffectOnce`: the root's effect on the first deploy only [추정: a mode's override still plays]
       if (bind?.startOnce && !fx.override) { if (startedOnce.has(id)) continue; startedOnce.add(id); }
@@ -5104,6 +5108,20 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const r = fx.name === 'common_empty' ? null
         : allyFx(v, fx.name) ?? (v.info.kind === 'token' && !fx.override ? allyFx(v, deployEffect(null, true).name) : null);
       if (r) spawn(r[0], r[1], v, { owner: id, buff: false, onCaster: true, tag: 'born' }, { over: false, facing: efacing(v) });
+    }
+  }
+  /**
+   * (2026-11-03, official client) the module's deploy effects: Character.PlayBornAnimationAndEffect ends with
+   * _PlayUniEquipEffect — each BattleUniEquipSetting `_effects` prefab of the modules the operator carries, created on it
+   * with its deploy effect (also when the deploy effect is off), on an operator only (not a token) and not after a 【移动】
+   * (its finish reason MOVE_LIKE_RESPAWN_SELF). `info.equip` the module in effect (sim/snapshot.js); the prefabs per module
+   * are the extracted index's `equips` (fx_extract.py --equips: the shared bundle `uniequip`).
+   */
+  function moduleFx(v, id) {
+    const names = v.info.kind === 'op' && v.info.equip ? index?.equips?.[v.info.equip] ?? [] : [];
+    const have = index?.bundles?.uniequip;
+    for (const n of names) {
+      if (have?.includes(n)) spawn('uniequip', n, v, { owner: id, buff: false, onCaster: true, tag: 'born' }, { over: false, facing: efacing(v) });
     }
   }
   /**
@@ -5498,8 +5516,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     onEvent(e, views) {
       lastViews = views;
       if (Array.isArray(e)) {
-        if (e[0] === 'die') gone.add(e[1]);
+        if (e[0] === 'die') { gone.add(e[1]); onField.delete(e[1]); }
         else if (e[0] === 'deploy') { gone.delete(e[1]); opDead.delete(e[1]); if (e[2] !== 1) deployed.set(e[1], clockS);   // (e[2] 1: a flight's landing, no deploy effect)
+          if (onField.has(e[1])) moved.add(e[1]); else { onField.add(e[1]); moved.delete(e[1]); }
           const v = views?.get?.(e[1]); if (v) { v._fxFirstDone = null; v._fxCast = null; } } // 2026-10-10: its first attack again; 2026-10-11: its deploy effect (flushDeploys)
         else if (e[0] === 'spawn') { gone.delete(e[1]?.id ?? e[1]); if (e[1]?.side === 'enemy' && e[1].id != null) eborn.set(e[1].id, clockS); } // 2026-10-10: its start effect (flushEnemyBirths)
         else if (e[0] === 'fx' && e[1] === 'summon' && e[4]) gone.delete(e[4].id);
@@ -5896,7 +5915,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       for (const r of trails) if (r.back) boomerangCaught(r.src); // local patch: back in hand for the next battle
       trails.length = 0; pending.length = 0; // local patch
       castsDelayed.length = 0; zones.clear(); eborn.clear(); eskillSeen.clear(); elines.clear(); ebreath.clear(); eshotLand.clear(); emortars.length = 0;
-      deployed.clear(); startedOnce.clear(); opDead.clear(); ebuffs.clear(); // 2026-10-11
+      deployed.clear(); onField.clear(); moved.clear(); startedOnce.clear(); opDead.clear(); ebuffs.clear(); // 2026-10-11
       linkAxes.clear(); linkRuns.clear(); // 2026-10-22
       brokeOwn.clear(); // 2026-10-23
       if (mod) showLayers();

@@ -488,7 +488,23 @@ export const KIT_OFFICIAL = {
   // gnosis_beidong_buff from ON_CAST_START to ON_CAST_END, and the wrapper is `_isInfinity` (ActiveAbilityWrapper._GetLifeTime
   // returns no end): its cast never ends, but the prefab's own `_maxLifetime` 2 s ends it (2026-10-27, official client:
   // ParticleEffect._CheckIfAlive; render/fxgame.js `maxLife`) — a burst with a glow that loops for those 2 s
-  kitHit: { gnosis: cite('char_206_gnosis/Others/Direction/Talents/2', () => ({ play: [{ n: 'gnosis_beidong_buff', on: 'op', life: 'deployed' }] })) },
+  kitHit: {
+    gnosis: cite('char_206_gnosis/Others/Direction/Talents/2', () => ({ play: [{ n: 'gnosis_beidong_buff', on: 'op', life: 'deployed' }] })),
+    // (2026-11-03) 遥 T1 浮光泡影: a bubble breaking (haruka_t_1_delay ON_BUFF_TRIGGER) creates haruka_talent_02_hit on its holder
+    // with the T2 heal only (FilterByBlackboardValue heal_scale > 0 — the sim's `heal`); its S1's next bubble is the 'shield'
+    haruka: cite('haruka_t_1_delay', (o) => (o.k === 'haruka:break' ? { play: Number(o.heal) ? [once('haruka_talent_02_hit', 'id')] : [] } : null)),
+    // (2026-11-03) 白铁 T2 节约经费: a device of his recovered (ironmn_t_2 ON_OWNER_FINISH, a won Dice: RechargeToken) creates
+    // ironmn_beidong_buff on him (BUFF_SOURCE)
+    ironmn: cite('ironmn_t_2', (o) => (o.k === 'ironmn_t_2' ? { play: [once('ironmn_beidong_buff')] } : null)),
+    // (2026-11-03) 缇缇 T1 凝固的时光: each tick on a sleeping enemy (titi_t_1[enemy_sleeping] ON_BUFF_TRIGGER, CheckAbnormalCombo
+    // SLEEPING) creates titi_attack_hit_01 on it with the damage (`ids`); her S3's spread from a sleeper knocked out
+    // (titi_s_3[effect_line] on each enemy it puts to sleep: CreateLineEffect titi_skill_03_line_01 from that enemy, BUFF_SOURCE)
+    titi: cite(['titi_t_1[enemy_sleeping]', 'titi_s_3[effect_line]'], (o) => (o.k === 'titi:t1' ? { play: [once('titi_attack_hit_01', 'ids')] }
+      : o.k === 'titi:spread' ? { play: [{ n: 'titi_skill_03_line_01', line: ['from', 'to'], life: 'once' }] } : null)),
+  },
+  // (2026-11-03) 赫拉格 SBL-Y 热的雪: the revive (helage_trait_e → helage_trait_e[heal], ON_BUFF_FINISH: HealViaMaxHpRatio and
+  // CreateEffect uniequip_002_musha_02 on him) — a prefab of the shared module effects (bundle `uniequip`)
+  undying: { helage: cite('helage_trait_e[heal]', () => ({ play: [{ n: 'uniequip_002_musha_02', bundle: 'uniequip', on: 'op', life: 'once' }] })) },
   // 烛煌 S2: the burning tiles (charpack Modes/S2/Body/Talents/3 DoTile, an AttachListenerToTileAbility: `_effectSettings`
   // blaze2_skill_02_hit_plot from the first cast on a tile, castedTimeThreshold 1, ended with the ability at the skill's end
   // — OnDetached → _ClearEffects). `cells` [[x, y, 1 on / 0 off]…] (sim kit chess_char_5_03-blaze2.js)

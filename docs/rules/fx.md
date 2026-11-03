@@ -3609,3 +3609,26 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
   `m_MaxParticleSize`(화면 비율 상한)는 커버리지 `_N` 그대로.
 - 확인: `test/render/fx-drawing.test.js`. 재추출 전후 JSON·픽셀 비교·`--coverage` 수치는 관리자 노트. 엔진의 사각형(2026-10-27): 같은 시험 +3, 픽셀 비교 1,074 프리팹이 바뀜(모두 늘인 빌보드·Velocity·나이 정렬을 씀). 묶음 X(2026-10-27): 같은 시험 +1·고침 1, 3D 회전 Velocity 45 프리팹·freeform 18 프리팹만 바뀜. [화면 미확인: 늘인 빌보드의 머리 기준·정면에서 얇아짐·무늬 방향(酒神 S3 타격·蜜蜡 S2 범위 연기 등), 3D 회전 Velocity 사각형(蕾缪安 S3 표식 쐐기·타격 불꽃), freeform(halo2·tippi·branch)] [화면 미확인: 星熊 S2 버프 바닥이 캐릭터 뒤, 新约能天使 평타
   무늬, 烛煌 S2·S3 연기 겹침]
+
+### 모듈 장비 배치 이펙트·선발 키트 순간 이펙트 (2026-11-03, 공식 클라에서 확인)
+
+- 모듈 장비 이펙트: 공식 클라는 오퍼레이터가 배치될 때 배치 이펙트와 함께(배치 이펙트를 끈 배치에도) 장착한 모듈의 `BattleUniEquipSetting._effects`
+  프리팹을 그 오퍼레이터에 만든다(`Character.PlayBornAnimationAndEffect` → `_PlayUniEquipEffect`, 배치 이펙트와 같은 재생 속도). 소환물(`isToken`)과
+  【이동】 뒤(종료 사유 `MOVE_LIKE_RESPAWN_SELF`)에는 없다. 모듈마다 이름은 `battle/prefabs/[uc]equips.ab`의 `uniequip_*` 프리팹이 들고(대부분
+  `equipment_system_<세부 직군>_buff_<x|y|a|d>`, 몇몇은 전용 `uniequip_002_<코드명>_01`, 없는 모듈도 있어 이름 규칙이 아니라 표), 프리팹은 공용 번들
+  `battle/prefabs/effects/uniequip.ab`에 있다(한 번 약 3초). 전에는 아무 모듈도 이 이펙트를 그리지 않았다.
+- 고친 것: `fx_extract.py --equips`가 `data/chess.json`·`data/backups.json`의 모듈(200개 중 이펙트 있는 189개)의 표를 추출 색인 `equips`(git 밖)에 쓰고
+  그 프리팹을 묶음 `uniequip`에 뽑는다(127개 — 헬라그의 `uniequip_002_musha_02`는 `--prefab`으로 같이). 스냅샷 `equip` = 그 유닛이 실제로 쓰는 모듈
+  (정예 칸의 선택·보충 오퍼레이터의 것·선발 정예 폼의 것; 일반 폼 선발은 없음 — 정의의 `module.active`). 렌더 `flushDeploys` → `moduleFx`; 【이동】은
+  사건이 같아서 퇴장(`die`) 없이 다시 온 `deploy`로 가린다. 모스티마 S2 범위의 모듈 변형(`equipVariant`)도 `equip`으로(전에는 일반 폼 선발이 고른
+  모듈도 셈).
+- 선발 키트 순간(`render/fx/kitofficial.js`, 버프 템플릿 그대로):
+  - 헬라그 SBL-Y 「쓰러지지 않음」: `helage_trait_e[heal]`(0.01초 버프) `ON_BUFF_FINISH`의 회복과 `uniequip_002_musha_02`(그에게, 묶음 `uniequip`) — 키트 `undying`.
+  - 하루카 비눗방울 깨짐: `haruka_t_1_delay` `ON_BUFF_TRIGGER` — 소리(조건 없음)와 `haruka_talent_02_hit`(보유자에게, 재능 2 치유 `heal_scale` > 0일 때만).
+    새 키트 사건 `kitHit` `haruka:break` { id 보유자, src 하루카, heal } — 소리도 이 사건을 읽는다. 터질 때(`ON_BUFF_START`)의 `common_buff_parry_01`은 전부터.
+  - 스테인리스 재능 2: 그의 장치가 그의 x-4에서 나갈 때 `ironmn_t_2` `ON_OWNER_FINISH` → 주사위 → `RechargeToken`·`ironmn_beidong_buff`(그에게,
+    BUFF_SOURCE). 전의 `spGift` 사건(SP 절차 그림)을 `kitHit` `ironmn_t_2`로 바꿈.
+  - 티티 재능 1 틱: `titi_t_1[enemy_sleeping]` `ON_BUFF_TRIGGER`(잠든 적) → 피해와 `titi_attack_hit_01`(그 적마다 — `kitHit` `titi:t1`의 `ids`).
+    S3 처치 전파: 잠든 채 쓰러진 적이 재운 적마다 `titi_s_3[effect_line]` → 선 `titi_skill_03_line_01`(쓰러진 적 → 새로 재운 적, `titi:spread`의 `from`·`to`).
+- 확인: `test/render/kit-event-fx.test.js`(계획 + 층 — 모듈 이펙트가 배치마다·【이동】 뒤엔 없음·퇴장 뒤 다시), `fx-bindings` `UNPLAYED` 2줄 지움. 시뮬 골든:
+  하루카의 `kitHit`만(diy-023·024). [화면 미확인: 모듈 장비 이펙트의 크기·위치(배치 이펙트와 겹침), 헬라그 부활·하루카 깨짐·스테인리스 회수·티티 틱·전파 선]

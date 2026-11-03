@@ -155,6 +155,9 @@ export default {
     function burst(battle, u, a, buff) {
       battle.removeBuff(a, buff);
       const d = buff.data;
+      // haruka_t_1_delay ON_BUFF_TRIGGER: the break's sound on the holder, its haruka_talent_02_hit only with the T2 heal
+      // (FilterByBlackboardValue heal_scale > 0) — `heal` (public/js/render/fx/kitofficial.js, public/js/audio.js)
+      battle.fx('kitHit', { x: a.x, y: a.y, id: a.id, src: u.id, k: 'haruka:break', heal: d.heal > 0 ? 1 : 0 });
       if (d.heal > 0) {
         battle.heal(u, a, d.atk * d.heal);
         battle.fx('heal', { x: a.x, y: a.y, id: a.id });

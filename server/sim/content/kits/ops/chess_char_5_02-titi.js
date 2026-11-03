@@ -117,14 +117,15 @@ export default {
             battle.dealDamage(unit, e, { amount: unit.s.atk * num(t0.extra_atk_scale) * t0Scale(unit), type: 'arts', tags: ['talent', 'titiStill'] });
           }, { owner: unit });
           // (c) sleeping enemies take damage_atk_scale × ATK arts per second; each one's titi_t_1[enemy_sleeping] plays
-          // titi_t_1 with its damage — one kitHit per tick, `n` the enemies (public/js/audio.js)
+          // titi_t_1 and creates titi_attack_hit_01 with its damage — one kitHit per tick, `n` the enemies (public/js/audio.js),
+          // `ids` them (public/js/render/fx/kitofficial.js)
           whileOn(battle, unit, 1, () => {
             const amount = unit.s.atk * num(t0.damage_atk_scale) * t0Scale(unit);
-            let n = 0;
+            const ids = [];
             for (const e of battle.enemies) {
-              if (e.alive && !e.hidden && e.s.flags.sleep) { battle.dealDamage(unit, e, { amount, type: 'arts', tags: ['talent', 'titiDream'] }); n++; }
+              if (e.alive && !e.hidden && e.s.flags.sleep) { battle.dealDamage(unit, e, { amount, type: 'arts', tags: ['talent', 'titiDream'] }); ids.push(e.id); }
             }
-            if (n) battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, k: 'titi:t1', n });
+            if (ids.length) battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, k: 'titi:t1', n: ids.length, ids });
           });
         } },
         { install(battle, unit) { // 勇气的报偿: 精力充沛
@@ -173,10 +174,11 @@ export default {
           asleep.delete(v);
           if (!unit.skill?.active || !on(unit)) return;
           // titi_s_3[dmg_ticker] ON_OWNER_FINISH puts titi_s_3[effect_line] on the enemy it sleeps too: its spread sound
-          // (public/js/audio.js — no 'wake' here: a dead enemy bursts nothing)
+          // (public/js/audio.js — no 'wake' here: a dead enemy bursts nothing) and its line titi_skill_03_line_01 from the dead
+          // enemy (`from`, BUFF_SOURCE) to each (`to`; public/js/render/fx/kitofficial.js)
           const to = [];
           sleepOthers(v, to);
-          if (to.length) battle.fx('kitHit', { x: v.x, y: v.y, id: unit.id, k: 'titi:spread', n: to.length });
+          if (to.length) battle.fx('kitHit', { x: v.x, y: v.y, id: unit.id, k: 'titi:spread', n: to.length, from: v.id, to });
         }, { owner: unit });
         // S3: other allies in range fall asleep instead of dying, until healed to full or the skill ends
         battle.on('fatal', (c) => {

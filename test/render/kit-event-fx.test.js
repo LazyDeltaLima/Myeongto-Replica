@@ -74,7 +74,6 @@ const VERDICT = {
   truesilver: { svrash: ['skill', 3] },
   undying: {
     nearl2: ['none', 'module 骑士家族 nearl2_e_003_tr creates no effect (nearl2_buff_01_start is S3 combo_effect)'],
-    helage: ['pending', 'module SBL-Y helage_trait_e[heal] creates uniequip_002_musha_02 on the revive: not extracted yet'],
   },
   wake: { glady: ['skill', 2] },
 };
@@ -130,6 +129,8 @@ test("a 'skill' verdict names a skill whose activation draws something", () => {
   }
 });
 
+/** The 'kitHit' moment keys the rules answer (`k`; undefined: 灵知's, which reads none). */
+const KIT_HIT_KEYS = [undefined, 'haruka:break', 'ironmn_t_2', 'titi:t1', 'titi:spread'];
 test('the rules name prefabs the client binds for that operator', () => {
   // each rule's prefab belongs to its operator's bundle (a typo plays nothing); the names come from the buff templates
   for (const [n, by] of Object.entries(KIT_OFFICIAL)) {
@@ -140,11 +141,12 @@ test('the rules name prefabs the client binds for that operator', () => {
       if (n === 'tockaFx') Object.assign(o, { s: 2, shot: 1 });
       // ('hit' rules answer their own moment keys)
       const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((c) => ({ ...c, plays: PLAYS }))
-        .flatMap((ctx) => (n === 'hit' ? HIT_KEYS : [undefined]).map((k) => kitOfficialPlan(n, { ...o, k }, b, ctx))).filter(Boolean);
+        .flatMap((ctx) => (n === 'hit' ? HIT_KEYS : n === 'kitHit' ? KIT_HIT_KEYS : [undefined]).map((k) => kitOfficialPlan(n, { ...o, k, heal: 1 }, b, ctx))).filter(Boolean);
       assert.ok(plans.length, `${n} (${b}) plans nothing`);
       for (const plan of plans) {
         for (const p of plan.play) {
-          if (!p.off) assert.ok(p.bundle ? p.n.includes(`_${b}_`) : p.n.startsWith(`${b}_`), `${n} (${b}): ${p.n}`);
+          // (the shared module effects, bundle uniequip, are named by the module's sub-profession or its own number)
+          if (!p.off) assert.ok(p.bundle === 'uniequip' ? p.n.startsWith('uniequip_') : p.bundle ? p.n.includes(`_${b}_`) : p.n.startsWith(`${b}_`), `${n} (${b}): ${p.n}`);
           if (p.ready) assert.ok(p.ready.startsWith(`${b}_`), `${n} (${b}): ${p.ready}`);
           for (const x of [p.rope, p.pass?.n, p.harpoon?.moving, p.end, ...(p.hit || [])].filter(Boolean)) assert.ok(x.startsWith(`${b}_`), `${n} (${b}): ${x}`);
         }
@@ -410,6 +412,12 @@ const files = { '/assets/local/fx/index.json': { bundles: {
 Object.assign(files['/assets/local/fx/index.json'].bundles, {
   chen3: [1, 2, 3, 4, 5, 6].map((i) => `chen3_skill_02_hit_0${i}`), oblvns: ['oblvns_combat_01_start'],
 });
+// 2026-11-03: 遥's, 白铁's, 缇缇's kit moments, 赫拉格's revive and module (the index loads once per module: the layer tests share it)
+Object.assign(files['/assets/local/fx/index.json'].bundles, {
+  haruka: ['haruka_talent_02_hit'], ironmn: ['ironmn_beidong_buff'], titi: ['titi_attack_hit_01', 'titi_skill_03_line_01'],
+  helage: ['helage_attack_01_hit'], uniequip: ['equipment_system_musha_buff_y', 'uniequip_002_musha_02'],
+});
+files['/assets/local/fx/index.json'].equips = { uniequip_003_helage: ['equipment_system_musha_buff_y'] };
 files['/assets/local/fx/index.json'].bundles.reed2.push('reed2_skill_02_fireball_01', 'reed2_skill_02_fireball_02', 'reed2_skill_02_fireball_hit');
 const settle = () => new Promise((r) => setTimeout(r, 5));
 
@@ -692,4 +700,51 @@ test('fxgame.js (2026-10-31): 赤刃明霄陈 S2 counts her slashes from _hit_01
 test('fxgame.js (2026-10-31): 卡西米尔\'s [ex] wave lasts its buff [ex_damage_effect] (LIMITED 0.5 s), then its _delayToFinish', () => {
   assert.match(GAME, /const TPL_BUFF_S = \{ common_071_bond_kazimierz_hit_01_new: 0\.5 \};/);
   assert.match(GAME, /if \(life > 0\) p\.then\(\(l\) => \{ if \(l\) zoneEnd\(l, Math\.max\(clockS, t0 \+ life\), true\); \}\);/);
+});
+
+test('kitOfficialPlan (2026-11-03): 遥\'s breaking bubble, 白铁\'s recovered device, 缇缇\'s sleep ticks and spread, 赫拉格\'s revive', () => {
+  const p = (ev, o, b) => kitOfficialPlan(ev, o, b)?.play;
+  // 遥: haruka_talent_02_hit on the holder only with the T2 heal (FilterByBlackboardValue heal_scale > 0)
+  assert.deepEqual(p('kitHit', { id: 5, src: 1, k: 'haruka:break', heal: 1 }, 'haruka'), [{ n: 'haruka_talent_02_hit', on: 'id', life: 'once' }]);
+  assert.deepEqual(p('kitHit', { id: 5, src: 1, k: 'haruka:break', heal: 0 }, 'haruka'), []);
+  assert.equal(p('kitHit', { id: 5, src: 1, k: 'haruka:float' }, 'haruka'), undefined, 'another key of hers: no rule');
+  assert.deepEqual(p('kitHit', { id: 1, src: 1, from: 7, k: 'ironmn_t_2' }, 'ironmn'), [{ n: 'ironmn_beidong_buff', on: 'op', life: 'once' }]);
+  // 缇缇: each sleeping enemy of the tick; the spread's line from the knocked-out sleeper to each new one
+  assert.deepEqual(p('kitHit', { id: 1, k: 'titi:t1', n: 2, ids: [8, 9] }, 'titi'), [{ n: 'titi_attack_hit_01', on: 'ids', life: 'once' }]);
+  assert.deepEqual(p('kitHit', { id: 1, k: 'titi:spread', n: 1, from: 8, to: [9] }, 'titi'), [{ n: 'titi_skill_03_line_01', line: ['from', 'to'], life: 'once' }]);
+  assert.deepEqual(p('undying', { id: 1 }, 'helage'), [{ n: 'uniequip_002_musha_02', bundle: 'uniequip', on: 'op', life: 'once' }]);
+});
+
+test('fxgame.js (2026-11-03): a module\'s deploy effects (_PlayUniEquipEffect) on each deploy, not after a 【移动】; the kit moments above', async () => {
+  const fetch0 = globalThis.fetch;
+  globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
+  try {
+    const plays = [];
+    const layer = createFxLayer({ host: null, above: null, quality: () => 'high', trace: (q) => plays.push(q), dry: true });
+    await settle();
+    const op = (id, defId, equip) => ({ id, x: id, y: 0, alive: true, info: { id, side: 'ally', kind: 'op', defId, spine: defId, skillIndex: 0, ...(equip ? { equip } : {}) } });
+    const views = new Map([[1, op(1, 'char_188_helage', 'uniequip_003_helage')], [2, op(2, 'char_4202_haruka')], [3, op(3, 'char_4072_ironmn')],
+      [4, op(4, 'char_4155_titi')], [5, op(5, 'char_188_helage')],
+      [8, { id: 8, x: 8, y: 0, alive: true, info: { id: 8, side: 'enemy', defId: 'enemy_1007_slime' } }],
+      [9, { id: 9, x: 9, y: 0, alive: true, info: { id: 9, side: 'enemy', defId: 'enemy_1007_slime' } }]]);
+    const cam = { liftFor: () => 0, scaleAt: () => 64, dist: 10 };
+    const mod = () => plays.splice(0).filter((q) => q.kind === 'spawn' && q.tag === 'born').map((q) => q.names[0]).filter((n) => !/^common_/.test(n));
+    const got = () => plays.splice(0).filter((q) => q.kind === 'spawn').map((q) => `${q.names[0]}@${q.on}`).sort();
+    for (const id of [1, 5]) layer.onEvent(['deploy', id], views);
+    layer.update(0.016, cam, { width: 10, height: 10 });
+    assert.deepEqual(mod(), ['equipment_system_musha_buff_y'], 'the one with the module, once');
+    layer.onEvent(['deploy', 1], views);   // a 【移动】: deployed again without leaving
+    layer.update(0.016, cam, { width: 10, height: 10 });
+    assert.deepEqual(mod(), []);
+    layer.onEvent(['die', 1, 'withdraw'], views);
+    layer.onEvent(['deploy', 1], views);
+    layer.update(0.016, cam, { width: 10, height: 10 });
+    assert.deepEqual(mod(), ['equipment_system_musha_buff_y'], 'a new deployment after a retreat');
+    const ev = (name, o) => layer.onEvent(['fx', name, 0, 0, { x: 0, y: 0, ...o }], views);
+    ev('undying', { id: 1 });
+    ev('kitHit', { id: 8, src: 2, k: 'haruka:break', heal: 1 });
+    ev('kitHit', { id: 3, src: 3, from: 7, k: 'ironmn_t_2' });
+    ev('kitHit', { id: 4, k: 'titi:t1', n: 2, ids: [8, 9] });
+    assert.deepEqual(got(), ['haruka_talent_02_hit@8', 'ironmn_beidong_buff@3', 'titi_attack_hit_01@8', 'titi_attack_hit_01@9', 'uniequip_002_musha_02@1']);
+  } finally { globalThis.fetch = fetch0; }
 });

@@ -704,14 +704,14 @@
   - 재능 2 운주유악의 회복은 공식 클라에서 확인: 재능 2가 `ToggleablePassiveBuffAbility`, 검사기 `BlockedToggleChecker`(저지 수 0~0일 때 켜짐 — `_CheckCondition`
     `LoadData`), 버프 `helage_t_2[a]` 하나가 블랙보드 값으로 속성 `HP_RECOVERY_PER_SEC`(13)를 올린다 → 치료가 아니라 생명 회복 속도(`SIM.md` §4). upstream의
     추정 표시를 지움.
-  - SBL-Y 3단계 「적을 저지하지 않거나 HP 30% 미만일 때」: 둘이 동시에 성립해도 90/초 한 번 [추정·미조사: 이 부분은 모듈이 더하는 재능 index 2(프리팹 키 `10`)인데
-    그 프리팹이 그의 charpack에도 장비 프리팹(`[uc]equips` `uniequip_003_helage` — `BattleUniEquipSetting` 이펙트만)에도 없어 `helage_t_2[a]`와 같은 버프
-    키인지 못 봄].
+  - SBL-Y 3단계 「적을 저지하지 않거나 HP 30% 미만일 때」: 둘이 동시에 성립해도 90/초 한 번 — 공식 클라에서 확인(2026-11-03): 모듈이 재능 키 `10`을
+    덮어쓰는 장비 프리팹 `helage_equip_2_2_p2`·`_2_3_p2`(`[uc]equips`)가 재능 2와 같은 버프 `helage_t_2[a]`(속성 `HP_RECOVERY_PER_SEC`, 최대 1중첩) 하나를
+    검사기 하나로 켜고 끈다 — 두 조건이 한 버프.
   - 화면용: S2 버프의 공식 이펙트 `common_ignite_attack`(공용 번들, `overrideEffectKey`)을 그의 이펙트 묶음에 넣음(`fx_extract.py --pack`). S2와 S3는 공식에서 같은 버프
     키 `helage_s_2`를 쓰고 이펙트만 다르다(S3 `helage_skill_03_buff`).
 - 이펙트·공격 타이밍·투사체·스킬 시전 데이터: EN 클라에서 뽑음(2026-11-02, `tools/local-extract/add_operator.py --id char_188_helage`). SBL-Y 「쓰러지지 않음」의
-  공식 이펙트(`helage_trait_e[heal]` → `uniequip_002_musha_02`)와 모듈 장비 이펙트(`equipment_system_musha_buff_x`·`_y`)는 그리지 않는다(키트의 `undying`
-  사건을 그리는 곳이 없음). 화면 확인 전.
+  공식 이펙트(`helage_trait_e[heal]` → `uniequip_002_musha_02`)와 모듈 장비 배치 이펙트(`equipment_system_musha_buff_x`·`_y`)는 2026-11-03부터 그린다
+  (`fx.md` 「모듈 장비 배치 이펙트·선발 키트 순간 이펙트」). 화면 확인 전.
 - 테스트: `test/content/op_helage.test.js`(11 — 모든 폼, 세 스킬, 두 재능, 특성, 두 모듈, 실제 매치 경로 하나), 선발 수를 세는 테스트 12 → 13명, golden
   `diy-017`(그의 5티어 칸이 함께 실림)·`diy-018`·`diy-019`(새 시나리오), 다른 가족 변화 없음.
 
@@ -783,6 +783,8 @@
   떠나서 카드가 돌아오는지가 다르다 [추정·미조사: 토큰 철수 때 카드 장수가 돌아오는 코드는 안 읽음] — 그대로 둠.
 - 이펙트·공격 타이밍·투사체·스킬 시전·모드·HUD 데이터: EN 클라에서 뽑음(2026-11-03, `tools/local-extract/add_operator.py --id …` 세 명 한 번). 장치 이펙트
   (`token_ironmn_pile*`)는 공용 토큰 팩에서, 나이팅게일 S1의 `common_ignite_support`는 공용 번들에서 따로(`fx_extract.py --pack`). 화면 확인 전.
+  하루카 비눗방울 깨짐의 `haruka_talent_02_hit`·스테인리스 장치 회수의 `ironmn_beidong_buff`는 2026-11-03부터 그린다(`fx.md` 「모듈 장비 배치 이펙트·선발 키트
+  순간 이펙트」 — 회수 사건은 `spGift`에서 `kitHit` `ironmn_t_2`로).
 - 테스트: `test/content/op_ironmn.test.js`(13)·`op_haruka.test.js`(10)·`op_cgbird.test.js`(11) — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 소환물, 실제 매치 경로 하나씩(upstream 테스트에 없어 더함);
   선발 수를 세는 테스트 14 → 17명(소환물 6 → 10, 폼 85 → 94), golden `diy-021`~`diy-026`(새 시나리오), 다른 가족 변화 없음.
 

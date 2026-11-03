@@ -119,9 +119,6 @@ const KNOWN = {
 
 /** The template rows whose prefab nothing in render/ plays: 'key|prefab' → reason (test/helpers/fxBindings.js unplayed). */
 const UNPLAYED = {
-  // 선발 (2026-11-03): kit events that are not wired to the template yet (the maintainer's open items)
-  'haruka_t_1_delay|haruka_talent_02_hit': 'condOther',   // 遥 S1: a breaking bubble gives a new one at once (kit bubble → shield_s1)
-  'ironmn_t_2|ironmn_beidong_buff': 'condOther',          // 白铁 T2 节约经费: the roll that recovers a device (kit stock +cnt)
   // 묶음 S6 (2026-10-24) — condition rows left: a condition no sim event tells
   'nearl2_s_3[combo_effect]|nearl2_buff_01_start': 'condOther',   // 耀骑士临光 S3: CheckContainsCardBuff (a card's buff nearl2_t_1)
   'ines_t_2[effect2]|ines_range_02': 'cond',   // 伊内丝 T2 by her mode as the talent buff starts (S2's mode 1) [추정: its S2 talent re-creates it]

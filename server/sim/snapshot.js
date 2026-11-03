@@ -53,6 +53,9 @@ export function unitInfo(u) {
     // DESIGN §16: an elite ally's equipped module (uniEquipId | 'none'; display only — a teammate's unit in a shared
     // field shows its owner's module in the detail card)
     moduleId: u.side === 'ally' && d.golden && typeof d.loadout?.moduleId === 'string' ? d.loadout.moduleId : undefined,
+    // (2026-11-03) the module the unit fights with (its def's record `module` when active: an elite's choice, a 补位 stand-in's
+    // or a 自选 pick's on the elite form) — its effects (render/fxgame.js: the module's deploy effects, equipVariant)
+    equip: u.side === 'ally' && u.kind === 'op' && d.raw?.module?.active && typeof d.raw.module.id === 'string' ? d.raw.module.id : undefined,
     // an ally operator's equipped item ids (display: a 变形同构体 wearer counts for the bond it grants — the bond popup's
     // member list and the detail card's bond chips of a teammate's unit)
     items: u.side === 'ally' && u.kind === 'op' && Array.isArray(u.items) && u.items.length ? [...u.items] : undefined,

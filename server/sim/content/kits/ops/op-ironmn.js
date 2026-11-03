@@ -377,7 +377,8 @@ export default {
             if (!up(unit) || !absoluteRangeKeys(grid1, unit.tileR, unit.tileC, unit.dir, 0).includes(dev.tileR * COLS + dev.tileC)) return;
             if (!(prob > 0) || !battle.rng.chance(prob)) return;
             rechargeDevices(unit, gain);
-            battle.fx('spGift', { x: unit.x, y: unit.y, id: unit.id, from: dev.id });
+            // ironmn_t_2's RechargeToken and its ironmn_beidong_buff on him (BUFF_SOURCE) — public/js/render/fx/kitofficial.js
+            battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, src: unit.id, from: dev.id, k: 'ironmn_t_2' });
           };
           for (const t of battle.allyUnits) {
             if (t.kind !== 'token' || !DEVICES.has(t.defId) || t.ownerUnit !== unit || t.alive || t.deployed) continue;

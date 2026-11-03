@@ -24,6 +24,7 @@ Usage:
     python fx_extract.py --game <Arknights_Data> --cab-index .cache/fx-cab-index.json --bundle chen3 [--prefab NAME ...]
                          [--match REGEX] [--list] [--all-skins] [--prune]
     python fx_extract.py … --bundle wang_token --pack pkgrps/btl_pfb_fx_token_3.ab --match '^token_wang_'   (望's 棋子)
+    python fx_extract.py … --equips --prefab uniequip_002_musha_02   (the modules' deploy effects, bundle uniequip, 2026-11-03)
     python fx_extract.py … --coverage .cache/fx-coverage.json [--bundle chen3]   (what the pipeline leaves out, fx_coverage.py)
                          [--other-game <CN Arknights_Data> --other-cab-index .cache/fx-cab-index-cn.json] [--index enemy-index.json]
 Default skin only unless --all-skins; --prune deletes textures / meshes no effect uses any more. Every extraction ends with
@@ -46,6 +47,8 @@ from fx_coverage import COMP_FIELDS, Coverage  # noqa: E402
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'public' / 'assets' / 'local' / 'fx'
 BUNDLE_DIRS = ('PersistentData/Bundles', 'StreamingAssets/AB/Windows')  # PersistentData (hot updates) first
+EQUIPS_PACK = 'battle/prefabs/[uc]equips.ab'   # the modules' BattleUniEquipSetting prefabs (module_effects, --equips)
+EQUIP_BUNDLE = 'uniequip'   # the shared module effects (battle/prefabs/effects/uniequip.ab)
 # skin / collab variants of a prefab (the remake draws the default skin only; keep in sync with render/fxmap.js isVariant)
 WEBP_QUALITY = 85
 WIDTH_ATTR = zlib.crc32(b'm_Parameters.widthMultiplier')   # local patch: the clip binding of a line / trail's width
@@ -3406,6 +3409,32 @@ class Extractor:
         print(f'[fx] {bundle}: {found} mount prefab(s), {changed} file(s) changed')
         return found, changed
 
+    def module_effects(self):
+        """(2026-11-03) { uniEquipId: [prefab…] }: each module's BattleUniEquipSetting `_effects` (the `uniequip_*` prefabs of
+        battle/prefabs/[uc]equips.ab). The official client creates them on an operator as it is deployed, with its deploy
+        effect (Character.PlayBornAnimationAndEffect → _PlayUniEquipEffect; not on a token, not after a 【移动】 —
+        MOVE_LIKE_RESPAWN_SELF): render/fxgame.js flushDeploys. The prefabs live in battle/prefabs/effects/uniequip.ab."""
+        env = self.load(EQUIPS_PACK)
+        out = {}
+        for o in env.objects:
+            if o.type.name != 'GameObject':
+                continue
+            go = o.read()
+            if not go.m_Name.startswith('uniequip_'):
+                continue
+            effects = []
+            for c in go.m_Components:
+                co = c.read()
+                if co.object_reader.type.name != 'MonoBehaviour':
+                    continue
+                try:
+                    t = co.object_reader.read_typetree()
+                except Exception:   # a script whose type tree the bundle lacks: no BattleUniEquipSetting
+                    continue
+                effects += [n for n in t.get('_effects') or [] if isinstance(n, str) and n]
+            out[go.m_Name] = effects
+        return out
+
     def run(self, bundle, prefabs=None, all_skins=False, match=None, list_only=False, pack=None, index='index.json', write=True):
         # pack: a shared battle pack instead (e.g. pkgrps/btl_pfb_fx_token_3.ab, the summons' effects), its roots written
         # as `bundle` — pick them with --match / --prefab. `prefabs` match without case (the enemy
@@ -3545,6 +3574,9 @@ def main():
                     '--other-cab-index; 2026-10-22)')
     ap.add_argument('--emitted-only', action='store_true', help='only rewrite the index\'s `emitted` lists (the prefabs another '
                     'prefab of the bundle creates, from the already extracted files; every bundle of --index without --bundle; 2026-10-21)')
+    ap.add_argument('--equips', action='store_true', help='the modules\' deploy effects (2026-11-03): extract the prefabs of the '
+                    'modules data/chess.json and data/backups.json offer into the bundle `uniequip` (and --prefab ones) and write '
+                    'the index\'s `equips` { uniEquipId: [prefab…] } (module_effects)')
     a = ap.parse_args()
     if a.wrap_only:
         ex = Extractor(a.game, a.cab_index, png=a.png, client=a.client)
@@ -3616,6 +3648,20 @@ def main():
         bundles = a.bundle or sorted(json.loads((OUT / 'index.json').read_text())['bundles'])
         tot = [ex.mount_only(b, pack=a.pack) for b in bundles]
         print(f'[fx] mount: {sum(x[0] for x in tot)} prefab(s) with a mount, {sum(x[1] for x in tot)} file(s) changed')
+        return
+    if a.equips:
+        offered = set()
+        for f in ('chess.json', 'backups.json'):
+            offered |= set(re.findall(r'"uniEquipId":\s*"(uniequip_[^"]+)"', (ROOT / 'data' / f).read_text(encoding='utf-8')))
+        equips = {k: v for k, v in sorted(ex.module_effects().items()) if k in offered and v}
+        ex.run(EQUIP_BUNDLE, {n for v in equips.values() for n in v} | set(a.prefab), index=a.index)
+        index_p = OUT / a.index
+        index = json.loads(index_p.read_text())
+        index['equips'] = equips
+        index_p.write_text(json.dumps(index, ensure_ascii=False, indent=1))
+        print('\n'.join(ex.cov.summary()))
+        merge_wraps(ex.wraps)
+        print(f'[fx] equips: {len(equips)} module(s) of {len(offered)} offered')
         return
     if a.coverage:
         coverage_walk(ex, a)
