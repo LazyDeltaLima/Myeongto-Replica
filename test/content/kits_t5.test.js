@@ -701,6 +701,38 @@ test('凛御银灰 S2: 6 front enemies in the skill range take 260 % ATK phys + 
 });
 
 // ------------------------------------------------------------------------------------------------------------------
+test('凛御银灰 S2: a waiting op left of the eye slashes with its own ATK once it redeploys — 1.1 s and 1.6 s after it stands for two casts (official deck buff svash2_s_2[build]: 0.1 s triggers, first 1.0, next 0.4)', () => {
+  const h = makeBattle({
+    defs: {
+      enemies: { enemy_dummy: dummy() },
+      chess: { t_cheap: chessRec({ id: 't_cheap', stats: { cost: 10, atk: 500, maxHp: 1000, respawnTime: 3 }, skill: null }) },
+    },
+    units: [{ chessId: 'chess_char_5_14_a', row: 9, col: 3 }, { chessId: 't_cheap', row: 12, col: 5 }],
+    hooks: ['damaged'], captureNoisy: true, autoFinish: false, timeLimit: 120,
+  });
+  const u = h.unit('chess_char_5_14_a');
+  h.step();
+  const op = h.unit('t_cheap');
+  h.b.dealDamage(null, op, { amount: 1e6, type: 'true' });
+  assert.ok(!op.alive, 'knocked out: waiting');
+  h.spawn('enemy_dummy', { pos: [9, 4] });
+  h.spawn('enemy_dummy', { pos: [11, 5] });                 // in the redeployed op's skill box (3-7 on its tile, facing right)
+  for (let i = 0; i < 2; i++) {
+    const n = u.skill.activations;
+    u.skill.gainSp(1000);
+    assert.ok(h.runUntil(() => u.skill.activations > n, 3), `cast ${i + 1}`);
+  }
+  assert.equal(op.mem.svashCasts, 2, 'two casts stacked on the waiting op');
+  assert.ok(h.runUntil(() => op.alive && op.deployed, 60), 'it redeploys');
+  const t0 = h.b.time;
+  h.run(3);
+  const mine = tagged(h, 'svash2').filter((c) => c.source === op);
+  const at = [...new Set(mine.map((c) => Math.round((c.t - t0) * 10) / 10))];
+  assert.deepEqual(at, [1.1, 1.6], `its slashes ${at}`);
+  for (const c of mine) approx(c.amount, op.s.atk * bbOf(u).atk_scale, 1e-6);
+  clean(h);
+});
+
 test('凛御银灰 S2 auto-cast: rangeId box — an enemy inside the skill range casts it, no attack needed (PRTS 技能策略, AutoChessBattleTrigger)', () => {
   // PRTS 卫戍协议/帮助 技能操作: "携带拥有技能范围的技能（非攻击距离增加）的干员：不通过普通攻击/治疗触发技能，仅在技能范围内存在敌人
   // （无视其不可选中）时释放技能" (it used to wait for an enemy in his melee range — user playtest #6 report 15)

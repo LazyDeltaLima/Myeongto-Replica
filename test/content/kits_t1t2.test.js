@@ -1043,6 +1043,10 @@ test('2_11 风丸: the trait\'s <替身> hits air units, her 本体 and S2\'s su
   assert.ok(fl2, 'the flyer is on the field');
   assert.equal(canTargetEnemy(doll, fl2, doll.profile), false, 'summoned <替身>: no air target');
   assert.equal(canTargetEnemy(h2.unit(id), fl2, h2.unit(id).profile), false, '本体: no air target either');
+  // 折纸生花 of the summoned <替身> burst on the ground enemy beside it and spared the flyer (kazema_standin[damage] WALK_ONLY)
+  const burst = dealt(h2, doll, tagged('talent'));
+  assert.ok(burst.some((c) => c.target && !c.target.isFlying), '折纸生花 hits the ground enemy');
+  assert.ok(!burst.some((c) => c.target === fl2), '折纸生花 spares the flyer');
   done(h2);
 });
 

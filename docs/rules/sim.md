@@ -1225,6 +1225,15 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
     `Ability.DoSetData` → 선택자 `AdvancedSelector.SetData`가 그 키를 읽으므로 저지 중에도 `attack@max_target`(2)명. 치우바이 S3·실버애쉬 S3 모드에는 `Combat`이 없어
     (`Character.get_hasCombat` = 지금 모드의 `_combat`이 있고 전율이 아님) 전투 상태에 안 들어가고, 티피처럼 막은 적도 공격 선택자(치우바이 `_maxNum` 3, 실버애쉬
     `max_target`)로 친다. 켜진 Lua 핫픽스에 이 메서드들 없음. 테스트 `attack-forms.test.js` 「拉普兰德」(고정).
+- **카제마루(风丸) 재능 「折纸生花」은 지상 적만** (2026-11-03, 버프 템플릿 `kazema_standin[damage]`): <替身>이 나타날 때 붙는 이 버프는 `lifeTimeType` 0(즉시) —
+  붙자마자 끝나며 ON_BUFF_FINISH `AOEDamage`(범위 `x-4` = 제 칸과 둘레 8칸, 마법, 버프 출처의 공격력 × `damage_scale`)를 낸다. 그 대상 옵션이
+  `targetMotion` WALK_ONLY라 공중 적은 안 맞는다. 시점은 전과 같고(나타나는 순간), 전에는 공중 적도 맞혔다([ASSUMED] 「备注 없음」이던 것). 테스트
+  `kits_t1t2.test.js` 「2_11 风丸: the trait's <替身> hits air units…」의 소환 替身 부분.
+- **실버애쉬 더 레인프로스트(凛御银灰) S2의 대기 오퍼 재배치 베기 시점** (2026-11-03, 덱 버프 `svash2_s_2[build]`): 재배치한 오퍼에 붙는 이 버프는 0.1초마다
+  돌며(`triggerInterval` 0.1) `time` ≥ `first`면 벤다(스택 하나 줄고 `first` += `next`), 아니면 `time` += `interval` — `svash2_s_2[build_set]` 기본값
+  `first` 1.0·`next` 0.4·`interval` 0.1. 그래서 두 번 쌓였으면 선 뒤 1.1초·1.6초에 벤다(그 사이 쓰러지거나 퇴각하면 남은 베기 없음). 전에는 서자마자
+  한꺼번에 벴다. 베기 범위는 그대로: `AOEDamage`는 블랙보드 `range_id`가 있으면 `_rangeId`(여기 '0-1') 대신 그것을 쓰고(공식 클라에서 확인), 버프
+  블랙보드는 스킬의 것이라 `range_id` 3-7(그 오퍼 칸·방향 기준). 테스트 `kits_t5.test.js` 「凛御银灰 S2: a waiting op left of the eye slashes…」.
 
 ## 적 스킬 = 일반 공격 차례 (2026-10-21, 관리자 제보 「퀸투스가 HP가 낮아지면 기억보다 너무 셈」, 관리자 결정 2026-10-21 「엔진 전체로」)
 적 스킬(enemy_database `skills`)을 EN 공식 클라대로 일반 공격 **자리에서** 쓴다. 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 클래스 없음.

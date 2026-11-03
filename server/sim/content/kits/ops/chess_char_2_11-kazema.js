@@ -7,8 +7,9 @@ export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 2_11 风丸 纸艺·双影: lose hp_ratio of current HP, ATK +atk, summon the <替身> (overrideTokenKey) on a free melee tile
   // around her for the skill's duration [ASSUMED lifetime]. 折纸生花: whenever a <替身> appears (the summon, and the
-  // dollkeeper substitution) enemies on the 8 surrounding tiles take damage_scale × its ATK arts — air units too [ASSUMED:
-  // no 对空 note on PRTS; the <替身> itself "可对空"].
+  // dollkeeper substitution) ground enemies on its tile and the 8 around take damage_scale × its ATK arts at once (official
+  // kazema_standin[damage]: an IMMEDIATELY buff whose ON_BUFF_FINISH AOEDamage, range x-4, selects WALK_ONLY targets —
+  // never air units; until 2026-11-03 air units too).
   // Trait substitution: she fights with the <替身>'s stats (the engine already swaps in its HP; the kit swaps ATK/DEF
   // with flat deltas so %-buffs still apply). Elite module (PUM-X, trait atk): while substituted, ATK +atk.
   // S1 纸艺·迅击 (alt, attack SP): the next attack hits at atk_scale × ATK and she loses hp_ratio of her MAX HP (PRTS:
@@ -22,7 +23,7 @@ export default {
       battle.fx('aoe', { x: src.x, y: src.y, radius: 1.5, id: src.id, skill: 'origami' });
       if (!(ds > 0)) return;
       for (const e of battle.enemies) {
-        if (!e.alive || e.hidden || e.s.flags.untargetable || cheb(src, e) > 1) continue;
+        if (!e.alive || e.hidden || e.isFlying || e.s.flags.untargetable || cheb(src, e) > 1) continue;
         battle.dealDamage(src, e, { amount: atk * ds, type: 'arts', isSkill: true, canDodge: false, tags: ['talent'] });
       }
     };

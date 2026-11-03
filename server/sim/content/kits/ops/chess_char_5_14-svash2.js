@@ -10,6 +10,8 @@ import {
 } from '../shared/tier5.js';
 
 const isKjerag = (u) => hasPower(u, 'kjerag');
+/** S2's redeploy slash clock (official svash2_s_2[build_set] blackboard defaults, svash2_s_2[build] trigger interval). */
+const REDEPLOY_SLASH = Object.freeze({ first: 1.0, next: 0.4, interval: 0.1 });
 /** S3's line targets: his profile + flying enemies (PRTS 备注 "可对空"). */
 const S3_PROFILE = (u) => ({ ...u.profile, canHitFly: true });
 
@@ -17,8 +19,8 @@ export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 凛御银灰 — S2 御敌的锋锐 (2 charges; PRTS 备注 "可对空"): the 6 front-most enemies in the skill range take 260 % ATK
   // phys, cold + reveal for 4 s; the waiting (knocked-out) op nearest to 风雪之眼 by cost gets −11 redeploy cost (right
-  // side guard/caster/sniper first); waiting ops left of the eye (cost < eye cost) cast the AoE with their own ATK when
-  // they redeploy (≤2).
+  // side guard/caster/sniper first); waiting ops left of the eye (cost < eye cost) cast the AoE with their own ATK once
+  // they redeploy (≤2: 1.1 s and 1.6 s after it, the official deck buff's clock).
   // T1 开放性开局: ops left of the eye and himself: +4 SP at deployment, redeploy time −20 %.
   // T2 雪境先驱: Kjerag ops freeze-immune, DEF +60, 1.5 % max HP/s regen; doubled after 15 s on the field.
   // The eye follows the selected skill (its overrideTokenKey: S1 eagle1 cost 16, S2 eagle2 14, S3 eagle3 19).
@@ -189,7 +191,19 @@ export default {
           const casts = num(a.mem.svashCasts);
           if (casts > 0 && !c.initial) {
             a.mem.svashCasts = 0;
-            for (let i = 0; i < casts; i++) slash(battle, a, a.s.atk);
+            // the official deck buff svash2_s_2[build]: it triggers every 0.1 s from its deployment; a trigger with
+            // `time` ≥ `first` slashes (its stacks one fewer, `first` + `next`), any other adds `interval` to `time`
+            // (svash2_s_2[build_set] defaults first 1.0, next 0.4, interval 0.1) — the slashes 1.1 s and 1.6 s after it
+            // stands (until 2026-11-03 all at once); one gone meanwhile (knocked out, withdrawn) slashes no more
+            const seq = a.deploySeq;
+            const st = { time: 0, first: REDEPLOY_SLASH.first, left: casts };
+            const loop = battle.every(REDEPLOY_SLASH.interval, () => {
+              if (!a.alive || !a.deployed || a.deploySeq !== seq) { loop.cancel(); return; }
+              if (st.time < st.first - 1e-9) { st.time += REDEPLOY_SLASH.interval; return; }
+              slash(battle, a, a.s.atk);
+              st.first = Math.abs(st.first + REDEPLOY_SLASH.next);
+              if (--st.left <= 0) loop.cancel();
+            }, { owner: unit });
           }
         }, { owner: unit });
       },
