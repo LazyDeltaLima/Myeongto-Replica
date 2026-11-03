@@ -759,19 +759,25 @@ test('2_03 崖心 (hidden): 束缚链 drags max_target enemies to the front tile
   const h = run({ defs: { enemies: { e: dummy('e') } }, units: [{ chessId: id, row: 10, col: 4, carryState: READY }], enemies: [{ key: 'e', pos: [10, 7] }, { key: 'e', pos: [11, 7] }, { key: 'e', pos: [9, 7] }] });
   const u = h.unit(id);
   h.step();
-  approx(u.s.atk, u.base.atk * (1 + t.atk), 'not blocking: ATK +6 %');
   const pulled = h.enemies().filter((e) => e.x < 6);
   assert.equal(pulled.length, bb.max_target);
+  // her harpoon stopping on a living target makes her search at once (Character.SearchBlockeeImmediate): the pulled
+  // enemies, 0.6708 from her (inside 0.7071), are blocked in the same tick, as many as she blocks
+  assert.equal(u.blocking.length, Math.min(pulled.length, u.s.blockCnt), 'blocks the pulled enemies at once');
+  assert.ok(u.blocking.every((e) => pulled.includes(e)));
   for (const e of pulled) {
     // 中力 vs weight 1 (受力等级 0): "必定拉至身前" — to the 急停 radius 0.6708 around her centre (PRTS 推与拉)
     approx(Math.hypot(e.x - 4, e.y - 10), 0.6708, `at her front (${e.x},${e.y})`, 1e-6);
     const tr = dealt(h, u, (c) => c.target === e && c.type === 'true');
     assert.equal(tr.length, 1);
-    approx(tr[0].amount, u.s.atk * bb.atk_scale);
+    approx(tr[0].amount, u.base.atk * (1 + t.atk) * bb.atk_scale, 'dealt before she blocks (雪境猎手 still on)');
     assert.ok(statuses(h, 'stun', (c) => c.target === e && c.duration === bb.stun).length === 1);
   }
   done(h);
-  // blocking an enemy removes the talent buff
+  // 雪境猎手: ATK + while she blocks nobody; blocking an enemy removes the talent buff
+  const h1 = run({ defs: { enemies: { e: dummy('e') } }, units: [{ chessId: id, row: 10, col: 4 }], enemies: [] });
+  h1.step();
+  approx(h1.unit(id).s.atk, h1.unit(id).base.atk * (1 + t.atk), 'not blocking: ATK +6 %');
   const h2 = run({ defs: { enemies: { e: dummy('e') } }, units: [{ chessId: id, row: 10, col: 4 }], enemies: [{ key: 'e', pos: [10, 4] }] });
   h2.run(0.5);
   approx(h2.unit(id).s.atk, h2.unit(id).base.atk, 'blocking');

@@ -29,6 +29,8 @@ export default {
             battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale), type: 'true', isSkill: true, tags: ['skill'] });
             if (e.alive) battle.applyStatus(e, 'stun', { duration: num(bb.stun), source: unit });
           }
+          // her harpoon (projectile_slchan_s2, a HarpoonProjectile) stopping on a living target: she searches at once
+          if (foes.some((e) => e.alive)) battle.searchBlockeeImmediate(unit);
         },
       },
       talents: [{ install(battle, unit) {

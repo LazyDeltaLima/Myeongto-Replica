@@ -57,6 +57,8 @@ export default {
               battle.pullToFront(e, unit, force);
               if (e.alive) battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale), type: 'phys', isSkill: true, tags: ['skill', 'anchorPull'] });
             }
+            // the anchor (projectile_chr_ulpia_s1, a NetCatcherProjectile) stopping on its living target: he searches at once
+            if (main.alive) battle.searchBlockeeImmediate(unit);
           },
         }),
         skchr_ulpia_2: () => ({

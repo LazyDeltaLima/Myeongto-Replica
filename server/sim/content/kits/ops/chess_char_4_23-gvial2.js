@@ -28,7 +28,12 @@ export default withDefaults({
           kind: 'duration',
           mods: { atkPct: num(bb.atk), defPct: num(bb.def) },
           targeting: g ? { rangeGrid: g } : undefined,
-          attack: { onEachHit({ battle, unit, target }) { if (target && target.alive && !target.blockedBy) pullToFront(battle, unit, target, num(bb['attack@force'], 1)); } },
+          // the hook (projectile_chr_gvial2_s2, a HarpoonProjectile) stopping on a living target: she searches at once
+          attack: { onEachHit({ battle, unit, target }) {
+            if (!target || !target.alive || target.blockedBy) return;
+            pullToFront(battle, unit, target, num(bb['attack@force'], 1));
+            if (target.alive) battle.searchBlockeeImmediate(unit);
+          } },
           onStart({ battle, unit }) { battle.fx('overload', { x: unit.x, y: unit.y, id: unit.id }); },
         }),
       }),

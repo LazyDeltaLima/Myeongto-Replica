@@ -34,7 +34,13 @@ export default withDefaults({
     // module HOK-Y: "向自身拖拽较远的敌人时力度提升一个等级"
     const farR = num(mb['skill@range_radius'], num(mb['attack@range_radius'], 0)), farF = num(mb['skill@delta_force'], num(mb['attack@delta_force'], 0));
     const selfForce = (unit, e, f) => (farR > 0 && farF > 0 && hypot(e.x - unit.x, e.y - unit.y) > farR + 1e-9 ? f + farF : f);
-    const pullSelf = (battle, unit, e, f) => { if (e && e.alive) dragDmg(battle, unit, e, pullToFront(battle, unit, e, selfForce(unit, e, f))); };
+    // her pulls toward herself ride projectiles (HarpoonProjectile projectile_chr_glady_s1 / _s2, the S3 捕网
+    // NetCatcherProjectile projectile_chr_glady_s3_3): one stopping on a living target makes her search at once
+    const pullSelf = (battle, unit, e, f) => {
+      if (!e || !e.alive) return;
+      dragDmg(battle, unit, e, pullToFront(battle, unit, e, selfForce(unit, e, f)));
+      if (e.alive) battle.searchBlockeeImmediate(unit);
+    };
     return {
       skills: alt(def, {
         skchr_glady_1: () => ({

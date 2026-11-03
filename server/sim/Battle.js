@@ -167,6 +167,7 @@ export class Battle {
     this._castAbility = null;   // { id, ability } while an enemy skill is cast (content/enemies.js onTick; battle/events.js fx)
     this._deploySeq = 0;
     this._spawnSeq = 0;
+    this._dueBlockers = [];   // the blockSearch phase's scratch list (battle/lifecycle.js)
     this._enemiesDirty = false;
     this.killed = 0;
     this.total = 0;

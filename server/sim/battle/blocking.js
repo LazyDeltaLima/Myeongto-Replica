@@ -61,12 +61,11 @@ export function blockOffset(held, e, bx, by) {
 
 export class BattleBlocking {
   /**
-   * One tick of ally / device `u`'s search for enemies to block — the blocker's side of the contact rule, as the official
-   * client does it (Character.OnTick → `m_findBlockeeTicker.Tick()` → _SearchBlockee). Every blocker searches after the
-   * enemies moved and before any ally acts (battle/lifecycle.js, the `blockSearch` phase) [추정·미조사: the client's
-   * search follows Unit.OnTick inside Character.OnTick; whether the attacks run there is not read]. Every BLOCK_SEARCH_TICKS ticks,
-   * the first on its first tick after a deployment (deploy.js), it takes the enemies in contact that it may block, nearest
-   * first, while its capacity lasts. Contact (constants.js BLOCK_RADIUS, PRTS 游戏数据基础 §阻挡半径; Character
+   * Ally / device `u`'s search for enemies to block — the blocker's side of the contact rule, as the official client does
+   * it (Character.OnTick → `m_findBlockeeTicker.Tick()` → _SearchBlockee). Every blocker searches after the enemies moved
+   * and before any ally acts (battle/lifecycle.js, the `blockSearch` phase) [추정·미조사: the client's search follows
+   * Unit.OnTick inside Character.OnTick; whether the attacks run there is not read], when its ticker is due
+   * (_blockSearchDue): it takes the enemies in contact that it may block, nearest first, while its capacity lasts. Contact (constants.js BLOCK_RADIUS, PRTS 游戏数据基础 §阻挡半径; Character
    * .CheckInBlockRange): the enemy's position within the blocker's block radius of the blocker's centre (ground 0.7071 —
    * the tile's circumscribed circle, reaching 0.21 tile into the side neighbours; air 0.8944; devices 0.4472). The air
    * radius grows with the blocker's 阻挡半径倍率 (PRTS 游戏数据基础 "飞行阻挡半径 = 0.8944 × 阻挡半径倍率"; mod
@@ -75,24 +74,21 @@ export class BattleBlocking {
    * Order (FilterUtil.FilterWithVolume over Character._CheckBlockable): the candidates by their squared distance to the
    * blocker in steps of BLOCK_WEIGHT_GAP (WeightedTarget.CompareTo), each taken if its block weight (Enemy.blockVolume)
    * still fits — a heavy one that does not is passed over for a lighter one behind it. Equal steps go by the enemies'
-   * order on the field [추정·미조사: the client then compares the entities themselves, not read]. Two blockers in reach of
-   * one enemy: the first to search takes it — the allies' order of the tick loop [추정·미조사: the client's unit update
-   * order is not read].
+   * `deploySeq`, the order they came onto the field (Entity.CompareTo compares `instanceUid`, which BObject.OnAllocate
+   * numbers from one counter as each unit is taken from the pool). Two blockers in reach of one enemy: the first to
+   * search takes it — the units tick in `instanceUid` order (ObjectManager.OnFixedUpdate over BObject.CompareTo: every
+   * battle unit has the base `priority`), so of two blockers searching in one tick the one deployed first goes first
+   * (battle/lifecycle.js sorts the ready ones by `deploySeq`; a redeployment or 【移动】 is a new unit, numbered anew).
    * Every enemy that has no blocker is a candidate, moving or not, so an enemy overlapping an operator is taken over as
    * soon as its blocker is gone or the operator's capacity frees up (user playtest #5 item 4) — a stunned or frozen one
    * too, an operator redeployed onto it included (晕眩 / 冻结 hold no 不可阻挡: ai.js updateEnemy, GitHub #232).
    * Never blocked: an enemy holding 不可阻挡 (PRTS 异常效果 BLOCK_FREE 「无法阻挡/被阻挡，自动解除阻挡」) — the flag itself
    * (恐惧 / 诱导 carry it), 浮空, and 沉睡 (SLEEPING = 无法行动+无敌+不可阻挡: a sleeper takes no block slot, DESIGN §24.9);
    * once it wakes it is blocked again only by a blocker with room.
-   * Not done: the client's immediate search after a pull (Character.SearchBlockeeImmediate from NetCatcherProjectile /
-   * HarpoonProjectile / PullHitTargetBehaviour .OnProjectileStop and the CharSearchBlockeeImmediate node) — a pulled enemy
-   * waits for the next search here [추정·미조사: which unit those calls search for is not read]; devices search like
-   * operators [추정·미조사: PropLikeStaticBlockToken overrides _SearchBlockee, not read].
+   * Out of turn: searchBlockeeImmediate. The 迷狂牢笼 (PropLikeStaticBlockToken) does not search this way: its kit
+   * (op-phatm2.js cageBlock) — every other device searches like an operator (Trap → Token → Character).
    */
-  _searchBlockees(u) {
-    if (u.blockSearchTick > 0) u.blockSearchTick--;
-    if (u.blockSearchTick > 0) return;
-    u.blockSearchTick = BLOCK_SEARCH_TICKS;
+  _searchBlockees(u, all = false) {
     if (!u.alive || !u.deployed || u.hidden || u.s.flags.noBlock || u.s.flags.sleep || u.s.flags.noNewBlock) return;
     // only a unit standing on its field tile blocks (a flying ally — 炎佑 — holds none: deploy.js)
     if (this._occ[u.tileR * COLS + u.tileC] !== u) return;
@@ -103,20 +99,25 @@ export class BattleBlocking {
     const ur = u.tileR, uc = u.tileC, et = this._et;
     const k = 1 + (u.s.blockRadiusScale || 0);
     const cands = [];
-    for (let r = ur - 1; r <= ur + 1; r++) {
-      if (r < 0 || r >= ROWS) continue;
-      for (let c = uc - 1; c <= uc + 1; c++) {
-        if (c < 0 || c >= COLS) continue;
-        for (const e of et[r * COLS + c]) {
-          if (e.blockedBy || e.hidden || !e.alive) continue;
-          const f = e.s.flags;
-          if (f.unblockable || f.levitate || f.fear || f.sleep) continue;
-          const w = e.blockWeight ?? 1;
-          if (!this._blockerFor(u, e, w)) continue;
-          const d2 = (e.x - uc) * (e.x - uc) + (e.y - ur) * (e.y - ur);
-          const r2 = u.kind === 'device' ? BLOCK_RADIUS_SQ.device : e.isFlying ? BLOCK_RADIUS_SQ.fly * k * k : BLOCK_RADIUS_SQ.ground;
-          if (d2 >= r2 || cands.some((x) => x.e === e)) continue;   // (a large enemy is listed on each tile of its body)
-          cands.push({ e, w, step: Math.floor(d2 / BLOCK_WEIGHT_GAP), i: this.enemies.indexOf(e) });
+    const consider = (e) => {
+      if (e.blockedBy || e.hidden || !e.alive) return;
+      const f = e.s.flags;
+      if (f.unblockable || f.levitate || f.fear || f.sleep) return;
+      const w = e.blockWeight ?? 1;
+      if (!this._blockerFor(u, e, w)) return;
+      const d2 = (e.x - uc) * (e.x - uc) + (e.y - ur) * (e.y - ur);
+      const r2 = u.kind === 'device' ? BLOCK_RADIUS_SQ.device : e.isFlying ? BLOCK_RADIUS_SQ.fly * k * k : BLOCK_RADIUS_SQ.ground;
+      if (d2 >= r2 || cands.some((x) => x.e === e)) return;   // (a large enemy is listed on each tile of its body)
+      cands.push({ e, w, step: Math.floor(d2 / BLOCK_WEIGHT_GAP), i: e.deploySeq });
+    };
+    // `all`: out of turn the tile index is a tick old (pulls moved enemies since): every enemy on the field
+    if (all) for (const e of this.enemies) consider(e);
+    else {
+      for (let r = ur - 1; r <= ur + 1; r++) {
+        if (r < 0 || r >= ROWS) continue;
+        for (let c = uc - 1; c <= uc + 1; c++) {
+          if (c < 0 || c >= COLS) continue;
+          for (const e of et[r * COLS + c]) consider(e);
         }
       }
     }
@@ -127,6 +128,32 @@ export class BattleBlocking {
       used += w;
       this._addBlockee(u, e);
     }
+  }
+
+  /**
+   * One tick of `u`'s search ticker (PeriodicTicker(BLOCK_SEARCH_TICKS) — `Tick` counts down, `Next` restarts it once it
+   * is due): true every BLOCK_SEARCH_TICKS ticks, the first on its first tick as a new unit — BObject.OnAllocate →
+   * Character.OnReset → `Reset(false)` for every deployment, a redeployment and a 【移动】 too (deploy.js, tiles.js
+   * moveRedeploy: the client's mover is born again, ulpia_s3_switch_mode[born] ON_OWNER_BORN).
+   */
+  _blockSearchDue(u) {
+    if (u.blockSearchTick > 0) u.blockSearchTick--;
+    if (u.blockSearchTick > 0) return false;
+    u.blockSearchTick = BLOCK_SEARCH_TICKS;
+    return true;
+  }
+
+  /**
+   * Character.SearchBlockeeImmediate: `u` searches now, out of turn (`_SearchBlockee(true)`: the ticker is not waited
+   * for; one that is due starts again). The client calls it for the shooter as a pulling projectile stops on a living
+   * target (HarpoonProjectile / NetCatcherProjectile / PullHitTargetBehaviour .OnProjectileStop — the pulls of 崖心 S2,
+   * 歌蕾蒂娅, 百炼嘉维尔 S2, 乌尔比安 S1, 锏 S3 in this mode: their kits call this after the pull) and from the
+   * CharSearchBlockeeImmediate node (玛恩纳's mlynar_s_cast at his skill's start: professions.js installLibrator).
+   */
+  searchBlockeeImmediate(u) {
+    if (!u || !u.alive) return;
+    if (u.blockSearchTick === 0) u.blockSearchTick = BLOCK_SEARCH_TICKS;
+    this._searchBlockees(u, true);
   }
 
   /**
@@ -147,30 +174,34 @@ export class BattleBlocking {
 
   /**
    * Enemy._MoveToBlockPosition: slide enemy `e` from where it stands to (x, y) over BLOCK_MOVE_TIME s, linearly
-   * (_tickBlockMove). The client's tween is not stopped when the block ends (Enemy.UnregisterBlocker only clears the
-   * blocker) — it runs on after a release too.
+   * (_tickBlockMove). What ends it early is the enemy's own release, `_unblock` (Enemy.ReleaseFromBlocker kills
+   * `m_blockTween` where it stands: a push / pull, a blink, a relocation, 浮空, 不可阻挡, leaving the field); a release by
+   * the blocker's side does not (Character.RemoveBlockee → Enemy.UnregisterBlocker only clears the blocker), so the slide
+   * runs on after its blocker died, left or let go.
    */
   _moveToBlockPosition(e, x, y) {
     if (x === e.x && y === e.y) { e.blockMove = null; return; }
-    e.blockMove = { x0: e.x, y0: e.y, x1: x, y1: y, t: 0, px: e.x, py: e.y };
+    e.blockMove = { x0: e.x, y0: e.y, x1: x, y1: y, t: 0 };
   }
 
   /**
-   * One tick of enemy `e`'s block slide (before its own update, the enemy loop of battle/lifecycle.js). Anything else that
-   * moved it since the last step — a push / pull, a relocation, its own walk after a release — or its leaving the field
-   * ends the slide where it stands [ASSUMED·미조사: what ends the client's `m_blockTween` early is not checked yet].
+   * One tick of enemy `e`'s block slide, before its own update (battle/lifecycle.js) as the client's BattleTweenMgr.Tick
+   * runs first in BattleController.OnTick: the slide sets the position outright, so an enemy its blocker let go walks
+   * from where the slide put it and the slide wins again on the next tick, until it ends at its target (then it walks
+   * on from there that same tick). An enemy holding 不可阻挡 / 浮空 / 恐惧 / 沉睡 (Enemy.OnTick: isBlockFree →
+   * ReleaseFromBlocker) or off the field stops where it stands.
    */
   _tickBlockMove(e, dt) {
     const m = e.blockMove;
     if (!m) return;
-    if (e.hidden || e.x !== m.px || e.y !== m.py) { e.blockMove = null; return; }
+    const f = e.s.flags;
+    if (e.hidden || f.unblockable || f.levitate || f.fear || f.sleep) { e.blockMove = null; return; }
     m.t += dt;
     const k = m.t >= BLOCK_MOVE_TIME - 1e-9 ? 1 : m.t / BLOCK_MOVE_TIME;
     e.x = m.x0 + (m.x1 - m.x0) * k;
     e.y = m.y0 + (m.y1 - m.y0) * k;
     if (e.route) e.route.pts = null;   // a walk after a release re-plans from where it now stands
     if (k >= 1) e.blockMove = null;
-    else { m.px = e.x; m.py = e.y; }
   }
 
   /**
@@ -214,7 +245,21 @@ export class BattleBlocking {
     return used + w <= cap;
   }
 
+  /**
+   * Enemy.ReleaseFromBlocker — enemy `e` is let go for its own reason (a push / pull, a blink or relocation, 不可阻挡 /
+   * 浮空 / 恐惧 / 沉睡, leaving the field, death): its blocker drops it and its block slide stops where it stands, blocked
+   * or not.
+   */
   _unblock(e) {
+    e.blockMove = null;
+    this._unregisterBlocker(e);
+  }
+
+  /**
+   * Enemy.UnregisterBlocker — enemy `e`'s blocker drops it (the blocker died, left, was stunned or lost the capacity):
+   * the block slide runs on (_moveToBlockPosition).
+   */
+  _unregisterBlocker(e) {
     const bl = e.blockedBy;
     if (!bl) return;
     const i = bl.blocking.indexOf(e);

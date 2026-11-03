@@ -75,3 +75,15 @@ test('distances within the same 0.01 step count as equal: the order on the field
   assert.ok(first.blockedBy === u && second.blockedBy === null, 'the first on the field');
   checkInvariants(h.b);
 });
+
+test('an out-of-turn search (Character.SearchBlockeeImmediate — a pulling projectile stopping, 玛恩纳\'s skill start) blocks at once and leaves the ticker as it was', () => {
+  const h = lane(1);
+  const u = h.unit(OP);
+  h.step(2);   // searched at tick 1; the next turn is tick 4
+  const e = h.spawn('enemy_still', { pos: [9, 6.6] });
+  const left = u.blockSearchTick;
+  h.b.searchBlockeeImmediate(u);
+  assert.ok(e.blockedBy === u, 'blocked at once');
+  assert.equal(u.blockSearchTick, left, 'not due: the ticker runs on');
+  checkInvariants(h.b);
+});

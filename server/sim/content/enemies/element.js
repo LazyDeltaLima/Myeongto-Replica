@@ -143,6 +143,7 @@ function kitParasite(ab) {
       // Idle_2 for Idle (`_replaceAnimPairs`) — form 'parasitic' (render/units.js FORMS), no stand-in puff (fx/kinds.js)
       const fromX = e.x, fromY = e.y;
       e.x = host.tileC; e.y = host.tileR;
+      e.blockMove = null;   // the blink ends a block slide still running [추정·미조사: how the client moves it — a blink would release it]
       if (e.route) e.route.pts = null;
       b.addBuff(e, { key: 'ab:parasiteAttached', flags: { noMove: true, selfBound: true } });
       e.form = 'parasitic';

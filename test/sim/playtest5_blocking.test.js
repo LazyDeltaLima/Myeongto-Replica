@@ -168,6 +168,23 @@ test('#4: of two free operators in contact the first to search blocks, the neare
   }
 });
 
+test('#4: two operators searching on the same tick: the one deployed first goes first (the client ticks units in instanceUid order)', () => {
+  // the front operator is redeployed after tick 3, so both search at 4: the rear one (1, 4, 7 …) and the front one (its
+  // first tick, 4, 7 …). The redeployment numbers it after the rear one (BObject.OnAllocate), so the rear one searches
+  // first — though the front one is listed first and nearer
+  const h = lane([{ chessId: FRONT, row: 9, col: 6 }, { chessId: BACK, row: 9, col: 5 }], [],
+    { enemies: { enemy_still: foe('enemy_still', { speed: 0 }) } });
+  const front = h.unit(FRONT), back = h.unit(BACK);
+  h.step(3);
+  h.b.retreat(front);
+  assert.ok(h.b.redeploy(front));
+  assert.ok(front.deploySeq > back.deploySeq);
+  const e = h.spawn('enemy_still', { pos: [9, 5.6] });
+  h.step(1);
+  assert.ok(e.blockedBy === back, 'the rear operator, deployed earlier');
+  checkInvariants(h.b);
+});
+
 test('#4: a blocker attacks the enemy it blocks even when it stands outside its range (可以选择且优先选择阻挡单位)', () => {
   // facing LEFT (away from the gate): its range (9,6),(9,5) never holds the enemy blocked at x ≈ 6.71 (tile (9,7))
   const h = makeBattle({

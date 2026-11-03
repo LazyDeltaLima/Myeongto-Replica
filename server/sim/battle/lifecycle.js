@@ -122,14 +122,20 @@ export class BattleLifecycle {
       });
       this._compactEnemies();
       this._phase('enemyIndex', () => this._buildEnemyIndex());
-      // the blockers' searches for enemies to block, before any ally acts (battle/blocking.js _searchBlockees)
+      // the blockers' searches for enemies to block, before any ally acts (battle/blocking.js _searchBlockees): those due
+      // this tick in the order they were deployed, as the client ticks its units in instanceUid order
       this._phase('blockSearch', () => {
-        const list = this.allyUnits;
-        for (let i = 0; i < list.length && !this._endReq; i++) {
+        const list = this.allyUnits, due = this._dueBlockers;
+        due.length = 0;
+        for (let i = 0; i < list.length; i++) {
           const u = list[i];
-          if (!u.alive || !u.deployed) continue;
-          try { this._searchBlockees(u); } catch (err) { this._internalError('searchBlockees', err); }
+          if (u.alive && u.deployed && this._blockSearchDue(u)) due.push(u);
         }
+        if (due.length > 1) due.sort((a, b) => a.deploySeq - b.deploySeq);
+        for (let i = 0; i < due.length && !this._endReq; i++) {
+          try { this._searchBlockees(due[i]); } catch (err) { this._internalError('searchBlockees', err); }
+        }
+        due.length = 0;
       });
       this._phase('allies', () => {
         const list = this.allyUnits;

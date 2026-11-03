@@ -948,10 +948,12 @@ export function updateEnemy(b, e, dt) {
   }
   if (e.blockedBy) {
     const bl = e.blockedBy;
-    // (unblockable/levitate/fear may also arrive through a plain addBuff, which does not unblock by itself; a
-    // stunned/sleeping blocker — noBlock — lets go)
+    // (unblockable/levitate/fear may also arrive through a plain addBuff, which does not unblock by itself — the enemy's
+    // own release, which stops its block slide; a stunned/sleeping blocker — noBlock — or one gone lets go, and the
+    // slide runs on: battle/blocking.js _unblock / _unregisterBlocker)
     const ef = e.s.flags;
-    if (!bl.alive || !bl.deployed || bl.hidden || bl.s.flags.noBlock || bl.s.flags.sleep || ef.unblockable || ef.levitate || ef.fear) b._unblock(e);
+    if (ef.unblockable || ef.levitate || ef.fear) b._unblock(e);
+    else if (!bl.alive || !bl.deployed || bl.hidden || bl.s.flags.noBlock || bl.s.flags.sleep) b._unregisterBlocker(e);
     else return;
   }
   if (b.time < e.pauseUntil) return;

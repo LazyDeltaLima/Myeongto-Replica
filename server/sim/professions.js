@@ -334,7 +334,9 @@ const installLibrator = (battle, unit) => {
     else battle.removeBuff(unit, 'trait:libratorRamp');
   };
   battle.on('deploy', (ctx) => { if (ctx.unit === unit) { unit.trait.ramp = rampInit; applyRamp(); applyBlock(); } }, { owner: unit });
-  battle.on('skillStart', (ctx) => { if (ctx.unit === unit) applyBlock(); }, { owner: unit });
+  // the skill's buff starts with an immediate block search (mlynar_s_cast ON_BUFF_START CharSearchBlockeeImmediate — 玛恩纳,
+  // the mode's only 解放者): he blocks what stands at him at once, not at his ticker's next turn
+  battle.on('skillStart', (ctx) => { if (ctx.unit === unit) { applyBlock(); battle.searchBlockeeImmediate(unit); } }, { owner: unit });
   battle.on('skillEnd', (ctx) => {
     if (ctx.unit !== unit) return;
     unit.trait.ramp = 0;

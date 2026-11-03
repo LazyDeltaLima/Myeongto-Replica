@@ -67,7 +67,7 @@ import { releaseSkillSummon, startCountdown } from '../../tokens.js';
 import { absoluteRangeKeys } from '../../../targeting.js';
 import { bodyInRange } from '../../../body.js';
 import { hasHp, burstLocked } from '../../../damage.js';
-import { MIN_DAMAGE_RATIO } from '../../../constants.js';
+import { MIN_DAMAGE_RATIO, BLOCK_RADIUS_SQ } from '../../../constants.js';
 import { hypot } from '../../../detmath.js';
 
 const S1 = 'skchr_phatm2_1';
@@ -84,6 +84,8 @@ const IV = 0.1;
 const HOLD = IV + 0.05;
 /** 本能的召唤 / 迷狂牢笼 numbers the token records may lack (PRTS 本能的召唤: 10 s, 0.4; the S3 cooldown 30 s). */
 const CALL_LIFE = 10, CALL_ARRIVE = 0.4, CAGE_AFTER = 30;
+// PropLikeStaticBlockToken.DIST_MAX: how far from its centre a 牢笼 holds what it blocks
+const CAGE_HOLD = 0.2;
 /** 本能的召唤's area when its record carries no grid: x-1 (range_table: the 13-tile diamond). */
 const X1 = Object.freeze([[2, 0], [1, -1], [1, 0], [1, 1], [0, -2], [0, -1], [0, 0], [0, 1], [0, 2], [-1, -1], [-1, 0], [-1, 1], [-2, 0]]);
 /** Selection profile of her effects on enemies: ground and air. */
@@ -206,29 +208,41 @@ function cageKit() {
 }
 
 /**
- * A 牢笼 blocks every unblocked enemy on its tile (spawn / refresh): full HP again, block count = their weight. Never one
- * holding 不可阻挡 — as Battle._searchBlockees: the flag (恐惧 / 诱导 carry it), 浮空, 沉睡 (SLEEPING = 无法行动+无敌+不可阻挡, DESIGN
- * §24.9: a sleeper on its tile stays free and is not counted).
+ * A 牢笼 blocks at its spawn / refresh (the client's PropLikeStaticBlockToken: `_SearchBlockee` runs once, again only when
+ * forced — the refresh buff and token_phatm2_mndclv[passive] call CharSearchBlockeeImmediate; it takes no enemy by contact
+ * otherwise, flag `noNewBlock`). Each search lets go of what it holds (`_ClearAllBlockees`: their slides run on), refills
+ * its HP and blocks every enemy, in the order they came onto the field (`_CheckBlockable` gives each weight and volume
+ * 0), that Enemy.CheckBlockable allows: no blocker, within its block radius — the ground one, 0.7071 from its centre,
+ * so the text's 「本格」 reaches 0.21 into the side tiles — ground or air (prefab `_ignoreBlockMode` 1), none holding
+ * 不可阻挡 (恐惧, 诱导, 浮空, 沉睡: DESIGN §24.9). Block count = their weight. Each slides (0.2 s, Battle._moveToBlockPosition) to
+ * `BlockeeOffsetPosSet`: an enemy over 0.2 (DIST_MAX) from its centre to a random distance in [0, 0.2) the same way,
+ * one within 0.2 stays. The client searches at the token's first tick, here at its spawn (the same tick).
  */
-function cageBlock(battle, cage) {
-  let added = 0;
+function cageBlock(battle, cage, refresh = false) {
+  if (refresh) for (const e of cage.blocking.slice()) if (e.blockedBy === cage) battle._unregisterBlocker(e);
+  const cands = [];
   for (const e of battle.enemies) {
-    if (!e.alive || e.hidden || e.blockedBy || Math.round(e.y) !== cage.tileR || Math.round(e.x) !== cage.tileC) continue;
+    if (!e.alive || e.hidden || e.blockedBy) continue;
     const f = e.s.flags;
     if (f.unblockable || f.levitate || f.fear || f.sleep) continue;
+    const dx = e.x - cage.tileC, dy = e.y - cage.tileR;
+    if (dx * dx + dy * dy <= BLOCK_RADIUS_SQ.ground) cands.push(e);
+  }
+  cands.sort((a, b) => a.deploySeq - b.deploySeq);
+  for (const e of cands) {
     e.blockedBy = cage;
     cage.blocking.push(e);
     e.moving = false;
-    added++;
+    const dx = e.x - cage.tileC, dy = e.y - cage.tileR, d = hypot(dx, dy);
+    const k = d > CAGE_HOLD ? battle.rng.range(0, CAGE_HOLD) / d : 1;
+    battle._moveToBlockPosition(e, cage.tileC + dx * k, cage.tileR + dy * k);
     if (battle.hasHook('blocked')) battle.emit('blocked', { blocker: cage, enemy: e });
   }
-  if (added) {
-    let w = 0;
-    for (const e of cage.blocking) w += e.blockWeight ?? 1;
-    battle.addBuff(cage, { key: 'cage:block', mods: { blockCnt: w }, persist: true, allowDead: true });
-    cage.hp = cage.s.maxHp;
-  }
-  return added;
+  let w = 0;
+  for (const e of cage.blocking) w += e.blockWeight ?? 1;
+  battle.addBuff(cage, { key: 'cage:block', mods: { blockCnt: w }, persist: true, allowDead: true });
+  cage.hp = cage.s.maxHp;
+  return cands.length;
 }
 
 /** 空剧场: a 牢笼 on enemy `e`'s ground tile — or the one already there refreshed (`refresh`). */
@@ -236,7 +250,7 @@ function cageAt(battle, owner, e, refresh) {
   const r = Math.round(e.y), c = Math.round(e.x);
   if (!battle.grid.inRect(r, c)) return null;
   const there = battle.allyUnits.find((t) => t.alive && t.deployed && t.kind === 'token' && t.defId === CAGE && t.tileR === r && t.tileC === c);
-  if (there) { if (refresh) cageBlock(battle, there); return there; }
+  if (there) { if (refresh) cageBlock(battle, there, true); return there; }
   if (!battle.grid.isLow(r, c) || battle.unitAt(r, c)) return null;
   const cage = battle.spawnToken(owner, CAGE, r, c, { kit: cageKit() });
   if (!cage) return null;

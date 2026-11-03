@@ -30,10 +30,15 @@ function blkkgt(bb, chess, def) {
   };
   // "持续将敌人中等力度地拖拽至自身中心，之后…较大力地拖拽至自身": the official 力度 − 重量 pulls (PRTS 推与拉: the last one
   // aims at her own tile centre, the others at the usual 拉力起点 half a tile ahead; 急停 0.6708 around her)
+  // each pull rides a projectile (HarpoonProjectile projectile_chr_blkkgt_s3 / _s3[end]): one stopping on a living target
+  // makes her search for enemies to block at once
   const pull = (battle, unit, force, last = false) => {
+    let held = false;
     for (const e of enemiesIn(battle, unit, skillKeys(unit))) {
       if (last) pullToward(battle, unit, e, force); else battle.pullToFront(e, unit, force);
+      if (e.alive) held = true;
     }
+    if (held) battle.searchBlockeeImmediate(unit);
   };
   const skills = {
     // S1 纯粹的武力 (attack SP): the next attack hits up to max_target ground enemies of the 3×3 around her, each twice

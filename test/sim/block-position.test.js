@@ -97,7 +97,44 @@ test('two enemies blocked at the same spot are spread apart', () => {
   checkInvariants(h.b);
 });
 
-test('a push during the slide ends it where the push left the enemy [ASSUMED]', () => {
+test('a blocker that leaves during the slide does not end it: the enemy reaches its block position, then walks on', () => {
+  // Enemy.UnregisterBlocker leaves m_blockTween running, and BattleTweenMgr.Tick sets the position before the units tick:
+  // the walk the released enemy makes is undone by the slide's next step until the slide ends
+  const h = lane(1);
+  h.step(1);
+  const e = h.spawn('enemy_walk', { pos: [9.16, 6.12] });   // [row, col]: inside 0.5, so it slides out
+  untilBlocked(h, e);
+  assert.ok(e.blockMove, 'a slide');
+  const tx = e.blockMove.x1, ty = e.blockMove.y1, t0 = h.b.time;
+  h.step(1);
+  h.b.retreat(h.unit(OP));
+  assert.equal(e.blockedBy, null);
+  assert.ok(e.blockMove, 'still sliding');
+  while (e.blockMove) h.step(1);
+  assert.ok(near(h.b.time - t0, BLOCK_MOVE_TIME, 1 / 30 + 1e-9), `ended after 0.2 s (${h.b.time - t0})`);
+  assert.ok(Math.hypot(e.x - tx, e.y - ty) <= 1 / 30 + 1e-6, `at its block position, one step of walk at most: ${e.x}, ${e.y}`);
+  const x = e.x;
+  h.run(1);
+  assert.ok(e.x < x - 0.3, 'walking on');
+  checkInvariants(h.b);
+});
+
+test('a status that makes it unblockable during the slide ends it where it stands (Enemy.OnTick → ReleaseFromBlocker)', () => {
+  const h = lane(1);
+  h.step(1);
+  const e = h.spawn('enemy_still', { pos: [9.16, 6.12] });
+  untilBlocked(h, e);
+  h.step(1);
+  h.b.addBuff(e, { key: 'test:free', duration: 5, flags: { unblockable: true } });
+  const x = e.x, y = e.y;
+  h.step(2);
+  assert.equal(e.blockMove, null);
+  assert.equal(e.blockedBy, null);
+  assert.ok(near(e.x, x) && near(e.y, y), 'stopped where it stood');
+  checkInvariants(h.b);
+});
+
+test('a push during the slide ends it where the push left the enemy (失衡 → Enemy.ReleaseFromBlocker)', () => {
   const h = lane(1);
   h.step(1);
   const e = h.spawn('enemy_still', { pos: [9, 6.1] });

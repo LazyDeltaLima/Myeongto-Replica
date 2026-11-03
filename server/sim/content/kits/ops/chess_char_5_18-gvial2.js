@@ -21,6 +21,8 @@ export default {
           onHit({ battle, unit, target }) {
             if (!target || !target.alive || target.side !== 'enemy' || target.blockedBy) return;
             battle.pullToFront(target, unit, force); // the official 力度 − 重量 pull (Battle.pullToFront)
+            // the hook (projectile_chr_gvial2_s2, a HarpoonProjectile) stopping on a living target: she searches at once
+            if (target.alive) battle.searchBlockeeImmediate(unit);
           },
         },
       },

@@ -392,6 +392,35 @@ test('S3 迷狂牢笼: a 神经损伤 burst of an enemy in her range puts a 牢�
   done(h);
 });
 
+test('S3 迷狂牢笼 holds what it blocks: every enemy within its ground block radius (0.7071, into the side tiles), drawn within 0.2 of its centre; a refresh lets go and takes them again', () => {
+  // the client's PropLikeStaticBlockToken: Enemy.CheckBlockable (Character.CheckInBlockRange), BlockeeOffsetPosSet
+  // (DIST_MAX 0.2, a random distance below it), _SearchBlockee(force) → _ClearAllBlockees first
+  const { h, u } = field({ skill: 2 });
+  h.spawn('enemy_dummy', { pos: [10, 8] });
+  u.skill.gainSp(999);
+  assert.ok(h.runUntil(() => u.skill.active, 3));
+  quiet(h, u);
+  const a = h.spawn('enemy_dummy', { pos: [11, 7] });
+  const side = h.spawn('enemy_dummy', { pos: [11, 7.65] });   // tile (11,8), 0.65 from the 牢笼's centre
+  const out = h.spawn('enemy_dummy', { pos: [11, 7.75] });    // 0.75: outside
+  a.elem.neural = 990;
+  h.b.dealDamage(u, a, { type: 'element', element: 'neural', amount: 20 });
+  const cage = cagesOf(h)[0];
+  assert.ok(cage && a.blockedBy === cage && side.blockedBy === cage, 'the enemy on the side tile too');
+  assert.equal(out.blockedBy, null, 'not the one 0.75 away');
+  h.run(0.3);
+  const d = Math.hypot(side.x - 7, side.y - 11);
+  assert.ok(d < 0.2 && side.y === 11 && side.x >= 7, `drawn in along its own side, below 0.2: ${side.x}, ${side.y}`);
+  const at = { x: side.x, y: side.y };
+  // a refresh (a burst on its tile): released and blocked again, a new random hold
+  a.elem.neural = 999;
+  h.b.dealDamage(u, a, { type: 'element', element: 'neural', amount: 10 });
+  assert.ok(a.blockedBy === cage && side.blockedBy === cage && cage.blocking.length === 2, 'both again');
+  h.run(0.3);
+  assert.ok(Math.hypot(side.x - 7, side.y - 11) <= Math.hypot(at.x - 7, at.y - 11) + 1e-9, 'held no farther out');
+  done(h);
+});
+
 test('S3 迷狂牢笼: no 牢笼 on a tile with a unit or on high ground; at the skill start the enemies of her range already in a burst set T1\'s splash off once and get one; 牢笼 last 30 s after the skill; her leaving withdraws them', () => {
   const { h, u } = field({ skill: 2, others: [{ uid: 2, chessId: 'chess_char_1_02_a', row: 11, col: 6 }] });
   quiet(h, u);
