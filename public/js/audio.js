@@ -466,6 +466,17 @@ export function signalFxKey(fx, ex, unitOf) {
   // 2026-11-03: 维伊's store — MergeableChargeUberEffectEmitter sounds the merge signal for the store that makes a 转置能量
   // (`merged`), the normal one for the others
   if (fx === 'mysticStore' && u?.def === 'char_4226_veen') return ex.merged ? 'veen:merge' : 'veen:store';
+  // 2026-11-04: 黑键's store — the Charge ON of the running mode's ExChargeAttack (S1 / S3 their own, else Default)
+  if (fx === 'mysticStore' && u?.def === 'char_4046_ebnhlz') return u.skillOn && u.skillIndex === 0 ? 'ebnhlz:charge1' : u.skillOn && u.skillIndex === 2 ? 'ebnhlz:charge3' : 'ebnhlz:charge';
+  // 2026-11-04: 黍 — T1's DoFarm sowing new tiles (AttachListenerToTileAbility.AttachToTile sounds its spell-on signal only for
+  // a tile not cast on before: the kit's 'healField' carries new tiles only; the bank keeps one at a time), S3's put-back of a
+  // marked enemy (shu_s_3[enemy][mark] ON_BUFF_TRIGGER; `ex.id` is the enemy)
+  if (fx === 'healField' && u?.def === 'char_2025_shu') return 'shu:t1';
+  if (fx === 'teleport' && ex.src != null && unitOf(ex.src)?.def === 'char_2025_shu') return 'shu:back';
+  // 2026-11-04: 老鲤 — S2's mark bursting (lmlee_s_2[paper]'s finish emits projectile_chr_lmlee_s2: its REACH), T2's guard
+  // taken (lmlee_tr → lmlee_t_2[bounce], audioSignal lmlee_telent_2_start)
+  if (fx === 'explode' && ex.skill === 'lmlee_2' && u?.def === 'char_322_lmlee') return 'lmlee:s2burst';
+  if (fx === 'shield' && ex.kind === 'lmlee' && u?.def === 'char_322_lmlee') return 'lmlee:t2';
   if (fx === 'charges' && u?.def === 'char_426_billro' && Number.isInteger(u.skillIndex)) return billroChargeKey(u, Number(ex.n) || 0);
   if (fx === 'charges' && (u?.def === 'char_206_gnosis' || u?.def === 'char_4042_lumen')) return chargeStageKey(u, Number(ex.n) || 0);
   // 2026-10-22: 刺玫 S2's counter on the attacker of her protégé (vendla_s_2[extra_damage]'s audioSignal, on the attacker)
@@ -2291,6 +2302,9 @@ export class AudioManager {
           this.playDeploySfx(u, e[1]);
           // 2026-11-01: 予愿安洁莉娜's Born clip (AudioWhenPlayAnimation aglna2_born, CN client) beside the deploy sound
           if (u.def === 'char_1015_aglna2') this._kitSound('aglna2:born');
+          // 2026-11-04: 黑键's passive ebnhlz_c (CommonAbilities/Passive PassiveBuffAbility, audioSignal buff_ebnhlz[audio]) starts
+          // on him as he enters the field
+          if (u.def === 'char_4046_ebnhlz') this._kitSound('ebnhlz:born');
         } else if (kind === 'fx') {
           if (e[1] === 'bombard' && e[4]?.kind === 'emppnt') this._shellAt = now;   // 2026-10-22: its hits follow in this batch (dmg)
           // 2026-10-10, docs/rules/audio.md 「적 소리」: an enemy skill's cast (sim fx 'enemySkill' { id, ability }) —

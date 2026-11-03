@@ -458,8 +458,8 @@
     모드 2 `S2_Atk`(스킬 `_defaultModeIndex`)에서 → 시작음은 `.2`(h1)인데 `skill-sfx.mjs`가 먼저 찾은 `.1`(h2)을 내고 있었다 → `START_BANKS`로 `.2`.
     `.1` START·FINISH는 목록에 `none`(켜진 토글 스킬은 자동 전투가 안 씀 — `_CheckToggleSkill`). 키트는 시전마다 음색을 바꾸므로(공식은 한 번 —
     diy.md 「사키코 S2」의 보류) 둘째 시전도 `.2`가 난다.
-- 지금 목록(2026-11-03): `none`만 — 하루카 1·나이팅게일 2·토가와 사키코 2(`todo` 0; 벨로네·비이·지마 더 레이징 타이드·Mon3tr의 20개는 아래
-  「버프·커스텀 트리거 소리」).
+- 지금 목록(2026-11-04): `none`만 — 하루카 1·나이팅게일 2·토가와 사키코 2(`todo` 0; 벨로네·비이·지마 더 레이징 타이드·Mon3tr의 20개와 슈·리·
+  에벤홀츠의 11개는 아래 「버프·커스텀 트리거 소리」. 유넥티스는 처음부터 다 남).
 
 ## 스킬·재능 투사체 소리 (2026-10-29, 공식 클라 — 캐릭터·스킬·투사체 프리팹)
 - 공식: 스킬·재능·드론이 쏘는 투사체도 자기 뱅크를 낸다 — BORN(발사)·HIT(맞힌 대상마다)·REACH(도착)·STOP(멈춤)·
@@ -681,6 +681,31 @@
     (`SKILL_SUB_MODES` `teleport`; 막은 적엔 Combat), 【복귀】 RespawnEnd(`_extraAbilities[0]`) START → `back`에 `monstr:s3back`.
   - 확인: `test/audio-diy-pick-sounds.test.js` 「선발 贝洛内 / 维伊 / 怒潮凛冬 / Mon3tr」(뱅크, 빌더의 두 `sub`, battleHarness → AudioManager로 벨로네 S2·S3 이동
     셋, 비이 저장·합침·착탄·S2 착탄, 지마 적 없는 고지대, Mon3tr S3 이동·공격·복귀). [화면 미확인]
+- 선발 슈·리·에벤홀츠 (2026-11-04, 전날 들어온 키트의 커버리지 `todo` 11개; 새 sfx 11키·파일 9개, 공식 클라에서 확인 — EN 클라 버프 템플릿·charpack):
+  - 슈(`char_2025_shu`) 재능 백곡장청: `shu_t_1`이 치유를 낼 때마다(ON_OUTPUT_MODIFIER `IsHeal`) `TriggerAttachListenerToTileAbility`로 DoFarm(`Talents/1`,
+    AttachListenerToTileAbility)의 `AttachToTile`을 x-5 칸마다 직접 부른다(능력 시전이 아님). `AttachToTile`은 선택자를 통과한 칸이 `m_tileCastedStatus`에
+    **없을 때만** 리스너를 달고 `DoEmitAudioSignalForSpellOn`(그 능력의 ON 뱅크 `p_atk_drgndfmrgrs`)을 낸다 — 이미 씨 뿌린 칸만 치유하면 무음. 뱅크 한도
+    1·popOldest라 한 번의 치유에 새 칸이 여럿이어도 한 번 들린다 → 새 칸이 있을 때만 나는 키트 fx `healField`에 `shu:t1`(GUA-X 3단계 배치 때 씨뿌림도 같음).
+  - 슈 S3 우거진 성쇠: 파종 표식 — `shu_s_3[enemy][enter]`가 표식 없는 적에게 `shu_s_3[enemy][mark]`(audioSignal 같은 이름)를 건다 → 키트가 표식을 거는
+    순간 새 kitHit `shu:mark`(그 적 자리, 슈마다 따로 — 템플릿의 `CheckContainsBuff`가 BUFF_SOURCE 기준); 되돌리기 — 그 표식의 ON_BUFF_TRIGGER
+    (`FilterRootTileOffset` ≥ max_distance → `ForceSetToTilePosition`) → 키트 fx `teleport`(`src` 슈)에 `shu:back`.
+  - 리(`char_322_lmlee`) S2 축귀벽사: 표식 `lmlee_s_2[paper]`가 끝날 때 `EmitProjectile`(`projectile_chr_lmlee_s2`, 발밑·ON_HIT_OBJECT) — 그 REACH
+    `p_skill_paperexplo` → 키트 폭발 fx `explode` `lmlee_2`. 사라지기만 하는 표식(폭발 없음)은 무음.
+  - 리 S3 귀빈내방: S3 모드 `Attack`의 BuffToCastTargets(`_runActionOnEvent` ON_SPELL_ON, `_onlyRunOnce`)가 공격마다 대상에게 `lmlee_s_3[knockback]`을
+    건다 — `Dice`(prob_knockback)를 넘으면 범위 이펙트와 `lmlee_skill_3_audio[knockback]`(audioSignal `lmlee_skill_3_knockback`)을 그 적에게, 밀 적이
+    없어도 → 키트가 굴림을 넘긴 자리에 새 kitHit `lmlee:s3push`. 우리 키트는 밀기를 착탄에 해서 소리도 착탄 순간이다(공식은 쏘는 순간 — §11 [sim] 줄).
+  - 리 재능 유비무환: `lmlee_tr`가 특성 지불을 `extra_cost`로 바꾸고 `lmlee_t_2[bounce]`(audioSignal `lmlee_telent_2_start`)를 건다 → 키트 fx `shield`
+    `lmlee`에 `lmlee:t2`.
+  - 에벤홀츠(`char_4046_ebnhlz`) 특성 저장: 저장마다 그 모드의 `ExChargeAttack` 능력의 Charge ON(`ON_ABILITY_ON.Charge.char_4046_ebnhlz.attack[.1|.2]
+    .ExChargeAttack{Default|S1|S3}.0`, 파일은 셋 다 `p_atk_darkholecharge_n`, S3 것만 한도 없음) — 키트의 저장이 공용 fx `mysticStore`를 내지 않았다 →
+    키트가 저장마다 `mysticStore`(`n` 지금 저장 수, 정예 에너지면 `elite`)를 내고 소리는 켜진 스킬로 `ebnhlz:charge`/`charge1`(S1)/`charge3`(S3).
+  - 에벤홀츠 S2 소환물 지난날의 잔상의 플래시백: `sktok_ebnhlz_token` ON(ON_SPELL_ON = `_preDelay` 0.93초 뒤 타격 순간) → 키트가 타격 순간 새 kitHit
+    `ebnhlz:flash`.
+  - 에벤홀츠 배치: `CommonAbilities/Passive`(PassiveBuffAbility)가 그에게 거는 `ebnhlz_c`(템플릿 `die_to_kill_token`, audioSignal `buff_ebnhlz[audio]`,
+    `p_skill_darkholeborn`) — 목록의 「정예 에너지 저장」 추측은 틀렸다. 패시브 버프는 붙는 순간(전장에 들어설 때) 시작 → 배치음 곁에 `ebnhlz:born`
+    (예전 안젤리나 더 멜로우 위시 `aglna2:born`과 같은 자리).
+  - 확인: `test/audio-diy-pick-sounds.test.js` 「선발 黍 / 老鲤 / 黑键」(뱅크, 순수 키, AudioManager 배치, battleHarness → AudioManager로 슈 씨뿌림 한 번·
+    재치유 무음·표식·되돌리기, 리 보호·폭발·S3 밀기, 에벤홀츠 저장(마지막이 정예)·플래시백). golden은 diy-038~041·045~047의 fx 수만. [화면 미확인]
 
 - 안 한 것: 쏜즈 더 로드스타 `thorn2_t_2_start`(`thorn2_t_2[audio]`를 만드는 템플릿·프리팹을 못 찾음), 실버애쉬 더 레인프로스트 `svash2_s_2[show]`(EN 클라에
   그 신호를 내는 PlayAudio 없음)·`svash2_eagle_token[locate]`(독수리 토큰이 키트에 없음), 유동체 재능 T.1 `p_skill_wtrlimereborn`(가짜 죽음·부활이

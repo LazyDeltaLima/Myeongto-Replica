@@ -319,37 +319,38 @@ describe('선발 薇薇安娜: S1\'s two casts, S3 from the second cast (2026-11
   });
 });
 
+const bare = (u) => file(u).replace(/\.\w+$/, '');
+const skillsOf = (code) => [1, 2, 3].map((n, index) => ({ index, skillId: `skchr_${code}_${n}` }));
+/** A battle of `units`, then `prep`, then `secs` of steps fed to the audio manager as they come. */
+const hear = ({ units, rows = null, prep, secs, until = null }) => {
+  const skill = units[0].diy.skillIndex;
+  const h = makeBattle({ defs: { enemies: { e_d: dummy('e_d'), e_weak: dummy('e_weak', { hp: 1 }) } }, timeLimit: 900, autoFinish: false, seed: 5,
+    flags: { dpPerSec: 0, dpMax: 999 }, captureNoisy: true, ...(rows ? { flat: { rows } } : {}), units });
+  h.step();
+  const a = manager();
+  const field = () => a.setFieldUnits([...h.b.allyUnits, ...h.b.enemies].filter((x) => x.alive || x === h.unit(1)).map((x) => (x.side === 'enemy'
+    ? { id: x.id, kind: 'enemy', side: 'enemy', spine: 'enemy_1007_slime' }
+    : { id: x.id, kind: x.kind === 'token' ? 'token' : 'op', side: 'ally', spine: x.def?.charId ?? x.defId, ...(x === h.unit(1) ? { skillIndex: skill } : null) })));
+  prep(h, h.unit(1));
+  field();
+  h.events.length = 0;
+  const all = [];
+  let t = 0;
+  for (let i = 0, n = Math.round(secs / h.b.dt); i < n && !(until && until(h)); i++) {
+    h.step();
+    a.ctx.currentTime = (t += h.b.dt);
+    const ev = h.events.splice(0);
+    all.push(...ev);
+    a.handleBattleEvents(ev);
+  }
+  assert.equal(h.b.errors.length, 0, JSON.stringify(h.b.errors[0]));
+  return { h, u: h.unit(1), fx: (k) => all.filter((x) => x[0] === 'fx' && x[1] === k).map((x) => x[4]), played: a.played.map((f) => f.replace(/\.\w+$/, '')) };
+};
+const count = (list, f) => list.filter((x) => x === f).length;
+
 describe('선발 贝洛内 / 维伊 / 怒潮凛冬 / Mon3tr: buff, custom-trigger and mode sounds (2026-11-03)', () => {
   const DEMETR = 'char_4037_demetr', VEEN = 'char_4226_veen', ZIMA = 'char_1051_headb2', MONSTR = 'char_4179_monstr';
   const PROSTS = 'token_10050_monstr_prosts';
-  const bare = (u) => file(u).replace(/\.\w+$/, '');
-  const skillsOf = (code) => [1, 2, 3].map((n, index) => ({ index, skillId: `skchr_${code}_${n}` }));
-  /** A battle of `units`, then `prep`, then `secs` of steps fed to the audio manager as they come. */
-  const hear = ({ units, rows = null, prep, secs, until = null }) => {
-    const skill = units[0].diy.skillIndex;
-    const h = makeBattle({ defs: { enemies: { e_d: dummy('e_d'), e_weak: dummy('e_weak', { hp: 1 }) } }, timeLimit: 900, autoFinish: false, seed: 5,
-      flags: { dpPerSec: 0, dpMax: 999 }, captureNoisy: true, ...(rows ? { flat: { rows } } : {}), units });
-    h.step();
-    const a = manager();
-    const field = () => a.setFieldUnits([...h.b.allyUnits, ...h.b.enemies].filter((x) => x.alive || x === h.unit(1)).map((x) => (x.side === 'enemy'
-      ? { id: x.id, kind: 'enemy', side: 'enemy', spine: 'enemy_1007_slime' }
-      : { id: x.id, kind: x.kind === 'token' ? 'token' : 'op', side: 'ally', spine: x.def?.charId ?? x.defId, ...(x === h.unit(1) ? { skillIndex: skill } : null) })));
-    prep(h, h.unit(1));
-    field();
-    h.events.length = 0;
-    const all = [];
-    let t = 0;
-    for (let i = 0, n = Math.round(secs / h.b.dt); i < n && !(until && until(h)); i++) {
-      h.step();
-      a.ctx.currentTime = (t += h.b.dt);
-      const ev = h.events.splice(0);
-      all.push(...ev);
-      a.handleBattleEvents(ev);
-    }
-    assert.equal(h.b.errors.length, 0, JSON.stringify(h.b.errors[0]));
-    return { h, u: h.unit(1), fx: (k) => all.filter((x) => x[0] === 'fx' && x[1] === k).map((x) => x[4]), played: a.played.map((f) => f.replace(/\.\w+$/, '')) };
-  };
-  const count = (list, f) => list.filter((x) => x === f).length;
 
   test('the banks', { skip: NO_DATA }, () => {
     const out = kitHitSfx(indexAudio(JSON.parse(readFileSync(OFFICIAL, 'utf8'))), (p) => p);
@@ -449,5 +450,104 @@ describe('선발 贝洛内 / 维伊 / 怒潮凛冬 / Mon3tr: buff, custom-trigge
     assert.equal(signalFxKey('mysticStore', { id: 5, n: 1 }, of), null, 'another 秘术师');
     assert.equal(kitHitKey('aoe', { id: 3, skill: 'headb2:highland' }, of), 'headb2:highland');
     assert.equal(kitHitKey('aoe', { id: 3, skill: 'headb2:hammer' }, of), null);
+  });
+});
+
+describe('선발 黍 / 老鲤 / 黑键: buff, custom-trigger and charge sounds (2026-11-04)', () => {
+  const SHU = 'char_2025_shu', LMLEE = 'char_322_lmlee', EBNHLZ = 'char_4046_ebnhlz';
+  const unit = (charId, skill) => [{ uid: 1, diy: { slot: SLOT5, charId, skillIndex: skill, uniEquipId: null }, row: 10, col: 5 }];
+
+  test('the banks', { skip: NO_DATA }, () => {
+    const out = kitHitSfx(indexAudio(JSON.parse(readFileSync(OFFICIAL, 'utf8'))), (p) => p);
+    const want = {
+      'shu:t1': 'p_atk_drgndfmrgrs', 'shu:mark': 'p_atk_drgndfmrk', 'shu:back': 'p_atk_drgndfmrtel',
+      'lmlee:s2burst': 'p_skill_paperexplo', 'lmlee:s3push': 'p_imp_paperknockback_s', 'lmlee:t2': 'p_skill_papercircle',
+      'ebnhlz:charge': 'p_atk_darkholecharge_n', 'ebnhlz:charge1': 'p_atk_darkholecharge_n', 'ebnhlz:charge3': 'p_atk_darkholecharge_n',
+      'ebnhlz:flash': 'p_skill_darkholespelltoken', 'ebnhlz:born': 'p_skill_darkholeborn',
+    };
+    for (const [k, f] of Object.entries(want)) {
+      assert.ok(KIT_HIT_BANKS[k], k);
+      assert.equal(bare(out[k]?.[0]), f, k);
+    }
+  });
+
+  test('the fx events they follow (pure)', () => {
+    const units = { 1: { def: SHU }, 2: { def: LMLEE }, 3: { def: EBNHLZ }, 4: { def: 'char_4226_veen' }, 20: { def: 'enemy_1007_slime', side: 'enemy' } };
+    const of = (id) => units[id];
+    assert.equal(signalFxKey('healField', { id: 1 }, of), 'shu:t1');
+    assert.equal(signalFxKey('healField', { id: 2 }, of), null, 'another operator\'s field');
+    assert.equal(signalFxKey('teleport', { id: 20, src: 1 }, of), 'shu:back', 'the put-back names the enemy, from her');
+    assert.equal(signalFxKey('teleport', { id: 20, src: 2 }, of), null);
+    assert.equal(signalFxKey('explode', { id: 2, skill: 'lmlee_2', n: 3 }, of), 'lmlee:s2burst');
+    assert.equal(signalFxKey('explode', { id: 2 }, of), null);
+    assert.equal(signalFxKey('shield', { id: 2, kind: 'lmlee' }, of), 'lmlee:t2');
+    assert.equal(signalFxKey('shield', { id: 2, kind: 'bubble' }, of), 'haruka:t1', '(遥\'s, by kind)');
+    assert.equal(signalFxKey('mysticStore', { id: 3, n: 1 }, of), 'ebnhlz:charge');
+    units[3] = { def: EBNHLZ, skillOn: true, skillIndex: 0 };
+    assert.equal(signalFxKey('mysticStore', { id: 3, n: 2 }, of), 'ebnhlz:charge1', 'S1 mode');
+    units[3] = { def: EBNHLZ, skillOn: true, skillIndex: 2 };
+    assert.equal(signalFxKey('mysticStore', { id: 3, n: 2, elite: 1 }, of), 'ebnhlz:charge3', 'S3 mode');
+    units[3] = { def: EBNHLZ, skillOn: true, skillIndex: 1 };
+    assert.equal(signalFxKey('mysticStore', { id: 3, n: 1 }, of), 'ebnhlz:charge', 'S2 (instant) keeps the Default mode');
+    assert.equal(signalFxKey('mysticStore', { id: 4, n: 1 }, of), 'veen:store');
+    assert.equal(kitHitKey('kitHit', { id: 1, k: 'shu:mark' }, of), 'shu:mark');
+  });
+
+  test('the audio manager: 黑键 entering the field sounds his passive buff beside the deploy sound', { skip: NO_DATA }, () => {
+    const a = manager();
+    a.setFieldUnits([{ id: 3, kind: 'op', side: 'ally', spine: EBNHLZ }, { id: 5, kind: 'op', side: 'ally', spine: 'char_102_texas' }]);
+    a.handleBattleEvents([['deploy', 3]]);
+    assert.ok(a.played.includes('p_skill_darkholeborn.mp3'), `${a.played}`);
+    a.played.length = 0;
+    a.handleBattleEvents([['deploy', 5]]);
+    assert.ok(!a.played.includes('p_skill_darkholeborn.mp3'), 'not another operator');
+  });
+
+  test('a battle: 黍 — a heal sowing new tiles sounds DoFarm once (a heal on sown tiles none); S3 marks an enemy on a sown tile and sounds its put-back', { skip: NO_DATA }, () => {
+    let e;
+    const r = hear({ units: unit(SHU, 2), secs: 2.5, prep: (h, u) => {
+      u.hp = u.s.maxHp * 0.5;
+      h.b.after(0.2, () => h.b.heal(u, u, 10));
+      h.b.after(0.3, () => h.b.heal(u, u, 10));   // the same five tiles: nothing new
+      h.b.after(0.5, () => { u.skill.gainSp(999); assert.ok(u.skill.activate('test')); e = h.spawn('e_d', { pos: [10, 6] }); });
+      h.b.after(1.5, () => { e.x = 13; h.b._indexEnemy(e); });
+    } });
+    assert.equal(r.fx('healField').length, 1, 'one sowing');
+    assert.equal(count(r.played, 'p_atk_drgndfmrgrs'), 1);
+    const marks = r.fx('kitHit').filter((o) => o.k === 'shu:mark');
+    assert.equal(marks.length, 1, 'marked once');
+    assert.equal(count(r.played, 'p_atk_drgndfmrk'), 1);
+    const back = r.fx('teleport').filter((o) => o.src === r.u.id);
+    assert.equal(back.length, 1, 'put back once');
+    assert.equal(count(r.played, 'p_atk_drgndfmrtel'), 1);
+  });
+
+  test('a battle: 老鲤 — T2\'s guard as a payment takes it, S2\'s mark bursting; S3\'s pushes past their roll', { skip: NO_DATA }, () => {
+    const s2 = hear({ units: unit(LMLEE, 1), secs: 9, prep: (h, u) => { h.b.players[0].dp = 999; h.spawn('e_d', { pos: [10, 6] }); u.skill.gainSp(999); } });
+    assert.ok(s2.fx('shield').some((o) => o.kind === 'lmlee'), 'the guard');
+    assert.equal(count(s2.played, 'p_skill_papercircle'), s2.fx('shield').filter((o) => o.kind === 'lmlee').length);
+    const bursts = s2.fx('explode').filter((o) => o.skill === 'lmlee_2');
+    assert.ok(bursts.length >= 1, 'a burst');
+    assert.equal(count(s2.played, 'p_skill_paperexplo'), bursts.length);
+    const s3 = hear({ units: unit(LMLEE, 2), secs: 8, prep: (h, u) => {
+      h.b.players[0].dp = 999;
+      h.spawn('e_d', { pos: [10, 6] });
+      h.spawn('e_d', { pos: [9, 5] });
+      u.skill.gainSp(999);
+    } });
+    const push = s3.fx('kitHit').filter((o) => o.k === 'lmlee:s3push');
+    assert.ok(push.length >= 1 && push.every((o) => o.id === s3.u.id), `a push sound (${push.length})`);
+    assert.equal(count(s3.played, 'p_imp_paperknockback_s'), push.length);
+  });
+
+  test('a battle: 黑键 — each store sounds its charge (the elite one too), 旧日残影\'s 闪回 its strike', { skip: NO_DATA }, () => {
+    const st = hear({ units: unit(EBNHLZ, 0), secs: 12, prep: (h, u) => { u.skill.sp = 0; } });
+    const stores = st.fx('mysticStore').filter((o) => o.id === st.u.id);
+    assert.ok(stores.length >= 2 && stores.at(-1).elite === 1 && stores.slice(0, -1).every((o) => !o.elite), `stores, the elite one last (${JSON.stringify(stores)})`);
+    assert.equal(count(st.played, 'p_atk_darkholecharge_n'), stores.length);
+    const s2 = hear({ units: unit(EBNHLZ, 1), secs: 5, prep: (h, u) => { u.skill.gainSp(999); h.spawn('e_d', { pos: [10, 7] }); } });
+    const flash = s2.fx('kitHit').filter((o) => o.k === 'ebnhlz:flash');
+    assert.ok(flash.length >= 1, 'a 闪回');
+    assert.equal(count(s2.played, 'p_skill_darkholespelltoken'), flash.length);
   });
 });

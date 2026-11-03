@@ -150,6 +150,8 @@ function remnantKit(owner) {
         battle.fx('aoe', { x: t.x, y: t.y, radius: REMNANT_RADIUS, id: t.id, dmgType: 'arts', skill: 'ebnhlz:flashback', t: REMNANT_DELAY });
         battle.after(REMNANT_DELAY, () => {
           if (!t.alive || t.deploySeq !== seq) return;
+          // 闪回's strike: sktok_ebnhlz_token's ON (after its _preDelay; public/js/audio.js)
+          battle.fx('kitHit', { x: t.x, y: t.y, id: t.id, k: 'ebnhlz:flash' });
           const atk = owner && owner.s ? owner.s.atk : t.s.atk;
           for (const e of battle.foesInRadius(t.x, t.y, REMNANT_RADIUS, true)) {
             if (e.isFlying || !canTargetEnemy(t, e, GROUND)) continue;
@@ -218,13 +220,17 @@ export default {
         onEachHit(battle, unit, victim, hc) { if (hc.kind === 'main' && victim && victim.side === 'enemy') land(battle, unit, victim, hc); },
         // the store (the shared profile calls it at his attack check with no valid target — professions.js installMystic:
         // an attack action, the interval restarts): the trait's energies first, then the elite one; during S3 elite ones
-        // only (false = a full store: he idles)
+        // only (false = a full store: he idles). Each store is his ExChargeAttack ability's charge, as the shared profile's
+        // (fx 'mysticStore': its clip, its charge effects, its ON_ABILITY_ON.Charge.… sound); `n` the energies stored now,
+        // `elite` this one an elite energy (the ex emitter)
         storeEnergy(battle, unit) {
           const v = stateOf(unit);
+          let elite = true;
           if (skillOn(unit, S3)) { if (v.n + v.e >= N + E) return false; v.e++; }
-          else if (v.n < N) v.n++;
+          else if (v.n < N) { v.n++; elite = false; }
           else if (v.e < E) v.e++;
           else return false;
+          battle.fx('mysticStore', { x: unit.x, y: unit.y, id: unit.id, signal: 'store', n: v.n + v.e, ...(elite ? { elite: 1 } : null) });
           return true;
         },
         install(battle, unit) {

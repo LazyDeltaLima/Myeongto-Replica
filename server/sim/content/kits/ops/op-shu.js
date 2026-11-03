@@ -220,6 +220,8 @@ export default {
               const m = { r: Math.round(e.y), c: Math.round(e.x), last: k };
               marks.set(e.id, m);
               battle.addBuff(e, { key: markKey(unit), source: unit, tags: ['skill'], onTick: ({ battle: b, unit: x }) => putBack(b, unit, x, m) });
+              // the mark's audioSignal as it starts on the enemy (public/js/audio.js; its put-back sounds with the 'teleport')
+              battle.fx('kitHit', { x: e.x, y: e.y, id: unit.id, k: 'shu:mark' });
             }
             // no enemy to attack: her attack heals the most injured allied unit of her range (herself included)
             if (unit.atkCd > 0 || !unit.canAct || unit.s.flags.disarm || !unit.profile) return;

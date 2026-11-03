@@ -299,6 +299,23 @@ export const KIT_HIT_BANKS = Object.freeze({
   'headb2:highland': 'battle.ON_CUSTOM_TRIGGER.headb2_highland_aoe',
   'monstr:s3move': 'battle.ON_BUFF_START.monstr_s_3[respawn]',
   'monstr:s3back': 'battle.ON_ABILITY_START.skchr_monstr_3.extra.0',
+  // 2026-11-04: 黍 — T1's DoFarm (AttachListenerToTileAbility.AttachToTile: its spell-on signal for each newly sown tile),
+  // S3's 【播种标记】 on an enemy (shu_s_3[enemy][enter] CreateBuff audioSignal) and its put-back (the mark's ON_BUFF_TRIGGER);
+  // 老鲤 — S2's mark bursting (lmlee_s_2[paper] ON_BUFF_FINISH EmitProjectile projectile_chr_lmlee_s2), S3's push past its
+  // Dice (lmlee_s_3[knockback] → lmlee_skill_3_audio[knockback]), T2's guard (lmlee_tr → lmlee_t_2[bounce]); 黑键 — a stored
+  // energy (his ExChargeAttack abilities' Charge ON, one per mode: Default / S1 / S3), 旧日残影's 闪回 (sktok_ebnhlz_token ON),
+  // the passive ebnhlz_c buff on him as he deploys (CommonAbilities/Passive audioSignal buff_ebnhlz[audio])
+  'shu:t1': 'battle.ON_ABILITY_ON.char_2025_shu.T.1',
+  'shu:mark': 'battle.ON_BUFF_START.shu_s_3[enemy][mark]',
+  'shu:back': 'battle.ON_BUFF_TRIGGER.shu_s_3[enemy][mark]',
+  'lmlee:s2burst': 'battle.ON_PROJECTILE_REACH.projectile_chr_lmlee_s2',
+  'lmlee:s3push': 'battle.ON_BUFF_START.lmlee_skill_3_knockback',
+  'lmlee:t2': 'battle.ON_BUFF_START.lmlee_telent_2_start',
+  'ebnhlz:charge': 'battle.ON_ABILITY_ON.Charge.char_4046_ebnhlz.attack.ExChargeAttackDefault.0',
+  'ebnhlz:charge1': 'battle.ON_ABILITY_ON.Charge.char_4046_ebnhlz.attack.1.ExChargeAttackS1.0',
+  'ebnhlz:charge3': 'battle.ON_ABILITY_ON.Charge.char_4046_ebnhlz.attack.2.ExChargeAttackS3.0',
+  'ebnhlz:flash': 'battle.ON_ABILITY_ON.sktok_ebnhlz_token',
+  'ebnhlz:born': 'battle.ON_BUFF_START.buff_ebnhlz[audio]',
   // 2026-11-03, docs/rules/audio.md 「적 버프·커스텀 트리거 소리」 (EN client enemy prefabs and buff templates; public/js/audio.js
   // enemyBuffSounds): a prisoner freed (its Liberty mode's enemy_liberty[state]) and freed by another (LibertyOthersAbility's
   // enemy_liberty_force); 阿利斯泰尔's piece picked up (enemy_vtmstr_equip_*[char] PlayAudio) and its vest taken

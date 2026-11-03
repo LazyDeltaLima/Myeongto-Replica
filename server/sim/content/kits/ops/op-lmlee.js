@@ -119,6 +119,8 @@ export default {
             onHit({ battle, unit, target }) {
               const p = num(b3['attack@prob_knockback'], 1), force = num(b3['attack@force'], 0);
               if (!(p > 0) || (p < 1 && !battle.rng.chance(p))) return;
+              // lmlee_s_3[knockback] past its Dice: the push sound at the struck enemy, pushed ones or none (public/js/audio.js)
+              battle.fx('kitHit', { x: target.x, y: target.y, id: unit.id, k: 'lmlee:s3push' });
               for (const e of battle.enemiesInKeys(unit.rangeKeys, unit, { canHitFly: true })) {
                 if (e !== target && e.alive) battle.push(e, force, { from: unit });
               }
