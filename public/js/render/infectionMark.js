@@ -26,6 +26,26 @@ export function markPhase(t) {
   return { red: Math.min(1, 2 * r), alpha: Math.min(1, 2 * a), scale: s };
 }
 
+/**
+ * Who has touched the tile in the battle on screen. `see(battle, key, onTile)` → whether the unit carries the mark;
+ * `battle` is the battle view's identity (render/app.js battleMeta): a new one — the next battle, the 联防 field, another
+ * player's field — starts over, as every battle numbers its units from 1 again (sim Battle `_idSeq`), so the keys a
+ * battle marked would otherwise mark the next one's units (maintainer report 2026-11-03: an enemy that crossed the tile
+ * in battle was marked in the 联防 battle too). `clear()` outside a battle.
+ */
+export function createInfectionTouches() {
+  const touched = new Set();
+  let current = null;
+  return {
+    see(battle, key, onTile) {
+      if (battle !== current) { current = battle; touched.clear(); }
+      if (onTile) touched.add(key);
+      return touched.has(key);
+    },
+    clear() { current = null; touched.clear(); },
+  };
+}
+
 /** Size of the client textures (px) — the sprites are scaled from it, also while they still load. */
 const TEX = 128;
 const hexRed = (v) => (Math.round(Math.max(0, Math.min(1, v)) * 255) << 16);

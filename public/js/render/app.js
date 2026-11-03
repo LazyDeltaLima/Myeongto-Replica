@@ -129,7 +129,7 @@ import { Camera, presetCamera, lerpCamera, easeInOutCubic, pickTile, normRect } 
 import { SnapshotBuffer, frameTime } from './interp.js';
 import { TileField } from './tiles.js';
 import { UnitView, ItemView, DeviceView, FORMS, SKIN_FORMS, syncView } from './units.js';
-import { createInfectionMarks } from './infectionMark.js'; // local patch: the red 「!!!」 over units on 活性源石
+import { createInfectionMarks, createInfectionTouches } from './infectionMark.js'; // local patch: the red 「!!!」 over units on 活性源石
 import { FxSystem, ensureDamageFonts } from './fx.js';
 import { createDragController, pieceTile, dragStandTile } from './drag.js';
 import { backdropTextures, shadowTexture, refreshTierChips, refreshDownLabels, silhouetteTexture } from './textures.js';
@@ -2271,10 +2271,10 @@ export async function createFieldView(host, options = {}) {
     };
   }
   // local patch (LOCAL-PATCH.md 「공식 맵 렌더링」): the red 「!!!」 of the 活性源石 buff (render/infectionMark.js) — in prep
-  // over the board pieces standing on the tile, in battle over every ground unit that has touched one this battle (the
-  // buff outlasts the battle: duration 300 s after the last contact; the sim does not report it)
+  // over the board pieces standing on the tile, in battle over every ground unit that has touched one in the battle on
+  // screen (the buff outlasts the battle: duration 300 s after the last contact; the sim does not report it)
   let infMarks = null;
-  const infTouched = new Set();
+  const infTouched = createInfectionTouches();
   function updateInfectionMarks() {
     if (!infMarks) {
       if (frameNo % 60 !== 1) return;
@@ -2288,8 +2288,8 @@ export async function createFieldView(host, options = {}) {
     if (mode === 'battle') {
       for (const [key, v] of views) {
         if (!(v instanceof UnitView) || !v.alive || v.flying) continue;
-        if (onTile(v)) infTouched.add(key);
-        if (infTouched.has(key)) mark(v);
+        // a scouted board (a teammate's, or a spectator's seat during prep) is a prep: the pieces standing on the tile now
+        if (battleMeta?.prep ? onTile(v) : infTouched.see(battleMeta, key, onTile(v))) mark(v);
       }
     } else {
       infTouched.clear();

@@ -12,6 +12,10 @@
   - 버프 표시 `common_acute_infection_buff_01`(타일 버프의 overrideEffectKey): 머리 위 붉은 「!!!」(`kuangre_01` + `star_02` 빛, 0.667초 맥동) →
     `render/infectionMark.js`(Pixi, 유닛 위 `layers.bars`). 관리자 제보. 시뮬레이션은 이 버프를 클라이언트에 알리지
     않으므로 화면이 위치로 정한다: 정비 = 그 칸에 놓인 기물, 전투 = 이번 전투에 그 칸을 밟은 지상 유닛(버프가 마지막 접촉 뒤 300초 — 전투 끝까지).
+    전투 화면이 바뀌면(다음 전투·연합 방어·다른 플레이어 필드) 밟은 유닛 목록을 비운다(2026-11-03, 관리자 제보 「전투 중에 칸을 지나간 적이 연합 방어에서도
+    계속 표시」 — 전투마다 유닛 번호가 1부터 다시 매겨져, 정비 없이 이어진 다음 전투의 같은 번호 유닛에 표시가 붙었음; `createInfectionTouches`,
+    테스트 `test/render/infection-touches.test.js`). 관전석·다른 플레이어 보드 정찰의 정비 시간(전투 화면 `prep: true`)은 정비와 같이 지금 그 칸에 선 기물만
+    (같은 날 관리자 제보 「관전으로 볼 때 한 번이라도 장판 위에 있었던 오퍼레이터는 계속 표식」 — 전투 규칙을 따랐음).
     [추정] `_spawnLocation 4` = 유닛 머리 위, 크리스탈 같은 반짝임은 데이터에 없어 오퍼레이터 스킬로 봄.
   - 텍스처 추출: `.venv-extract/bin/python -I tools/local-extract/boardfx_extract.py` → `public/assets/local/board/fx/`(4장) + manifest `board/fx`.
 - **외곽 하늘색 점선**(`_buildEdges`): 클라이언트에 해당 오브젝트가 없고 캡처에도 없다 → 공식 씬에서는 그리지 않는다(절차 보드는 원본 그대로).
