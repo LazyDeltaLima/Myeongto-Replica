@@ -499,8 +499,9 @@ test('kits: an operator with only a 自选 kit, fielded as another season\'s che
       assert.equal(skillSpecSource(def), 'skills', `${label}: its 自选 kit's own skill spec`);
       assert.deepEqual(as.errors, [], `${label}: no handler error`);
       const diy = run(charId, { diy: { slot, ...pick }, elite: true });
-      // the comparison is not empty: the skill starts and the enemies take damage
-      assert.ok(as.play.casts > 0 && as.play.dealt > 0, `${label}: the skill starts and hits (${JSON.stringify(as.play)})`);
+      // the comparison is not empty: the skill starts and the enemies take damage — or, for a skill that turns the attacks
+      // into heals (遥 S1), allies are healed
+      assert.ok(as.play.casts > 0 && (as.play.dealt > 0 || as.play.healed > 0), `${label}: the skill starts and hits (${JSON.stringify(as.play)})`);
       assert.deepEqual(as.play, diy.play, `${label}: the same battle as the 自选 piece`);
     }
   }

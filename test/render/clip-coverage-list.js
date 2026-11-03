@@ -91,6 +91,9 @@ export const UNPLAYED = {
   char_4148_philae: {
     Skill_2_Start: 'none: back-only clip; no client key names it (abilities, mode pairs, skin key table, mix), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; S2 is its channel',
   },
+  char_4202_haruka: {
+    Skill_3_Loop_B: 'todo: B — S3 mode attacks alternate Skill_3_Loop_A / Skill_3_Loop_B (charpack S3 mode clip groups, tools/assets/local-char-modes.json clipFx); the renderer plays Loop_A only',
+  },
   char_4231_clemnt: {
     Attack_Down: 'none: only an entry of the skin key table (SpineAnimator._animations: animKey = its name); no ability (`_downAnimKey`, a ThreePart / channel `_down` bundle), mode pair, skill `_beginAnimDown` or mix calls it; client keys 2026-10-23; the Default attack has no facing-down key',
     Skill_Down_3_End: 'none: only an entry of the skin key table (SpineAnimator._animations: animKey = its name); no ability (`_downAnimKey`, a ThreePart / channel `_down` bundle), mode pair, skill `_beginAnimDown` or mix calls it; client keys 2026-10-23; the skin mixes mode S3[Down] into Idle with Skill_3_End',

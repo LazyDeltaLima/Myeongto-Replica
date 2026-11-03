@@ -442,14 +442,14 @@ export class SkillRuntime {
    * (`LitePhysicsUtil.FindTargetsInBox`, the trigger's ALL-motion options; no 攻击距离 added); none — the unit attacking
    * (`Character.isInAttackState || isInCombatState`): a target of its attack in its initial range — a heal skill an
    * injured ally — or an enemy it blocks (_defaultCondition). Content trigger ranges count too; `trigger.allies` adds the
-   * ally condition.
+   * ally condition. A registered ally target counts like an enemy in the box, a heal skill's too (_allyTargetIn).
    */
   _autoDefault() {
     const b = this.battle;
     const u = this.unit;
     let ok;
     // the rangeId tiles take an enemy by its position's tile (`LitePhysicsUtil._CheckContainsPosition`), not its collider
-    if (this.triggerGrid) ok = b.enemiesOnTiles(this._triggerKeys(), u, TRIGGER_PROFILE).length > 0 || (this.triggerRanges.length > 0 && this._extraTriggerSatisfied());
+    if (this.triggerGrid) ok = b.enemiesOnTiles(this._triggerKeys(), u, TRIGGER_PROFILE).length > 0 || this._allyTargetIn(this._trigSet) || (this.triggerRanges.length > 0 && this._extraTriggerSatisfied());
     else ok = this._defaultCondition();
     return ok && (!this.triggerAllies || this._allyTriggerSatisfied());
   }
@@ -509,7 +509,7 @@ export class SkillRuntime {
     // enemy there, ground or air (the trigger's ALL-motion options); a skill missing from the dict casts once not running
     if (this.rule === 'CUSTOM_RANGE') {
       if (!this.triggerGrid) return !this.active;
-      return b.enemiesOnTiles(this._triggerKeys(), u, { canHitFly: true }).length > 0;
+      return b.enemiesOnTiles(this._triggerKeys(), u, { canHitFly: true }).length > 0 || this._allyTargetIn(this._trigSet);
     }
     if (this.rule === 'SKILL_RANGE') {
       if (this.triggerAllies) return this._allyTriggerSatisfied();
@@ -524,8 +524,20 @@ export class SkillRuntime {
   }
 
   /**
+   * A registered ally target (Battle.setAllyTarget: 白铁's 铁钳号·原型机) on `keys` (tile keys or a Set). The client's
+   * trigger boxes (`FindTargetsInBox` with the trigger's enemy options: side ENEMY, category DEFAULT) take it — its token
+   * prefab is `_sideType` ENEMY, `_category` DEFAULT —, a heal skill's box too; without a box a unit attacking it is in
+   * its attack state (_defaultCondition). Not in enemiesInKeys / canTargetEnemy: the kits' own selectors keep to enemies.
+   */
+  _allyTargetIn(keys) {
+    const b = this.battle;
+    return !!(keys && b._allyTargets && b._allyTargets.size) && b.allyTargetsInKeys(keys, this.unit).length > 0;
+  }
+
+  /**
    * DEFAULT rule condition: an enemy (or injured ally for heal skills) inside the initial range (baseRangeKeys: own
-   * grid + permanent rangeExtend), or an enemy inside a content trigger range (addTriggerRange; not for heal skills).
+   * grid + permanent rangeExtend) — a registered ally target there too, which the unit's attack selects (ai.js
+   * acquireTargets; not for heal skills: 禁疗, no patient) —, or an enemy inside a content trigger range (addTriggerRange; not for heal skills).
    * `range` (ACTIVE_RANGE): those absolute tile keys instead of the initial range.
    */
   _defaultCondition(range = null) {
@@ -538,7 +550,7 @@ export class SkillRuntime {
       if (this.healSkill) return b.injuredAlliesInKeys(keys, u, !!u.profile?.heal?.elementHealRatio).length > 0;
       // the unit's own attack range: its attack search (colliders, enemiesInKeys); a trigger grid (`range`, ACTIVE_RANGE):
       // the auto-trigger's tile check (the point, enemiesOnTiles)
-      if ((range ? b.enemiesOnTiles(keys, u, u.profile) : b.enemiesInKeys(keys, u, u.profile)).length > 0) return true;
+      if ((range ? b.enemiesOnTiles(keys, u, u.profile) : b.enemiesInKeys(keys, u, u.profile)).length > 0 || this._allyTargetIn(keys)) return true;
     }
     // the enemies a unit blocks are always its targets (Battle.blockedTargets), in range or not — PRTS 卫戍协议/帮助
     // "敌人被近战干员自身阻挡" satisfies the target condition of the basic strategy (a ranged blocker too: user playtest #6)

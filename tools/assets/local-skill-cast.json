@@ -634,6 +634,25 @@
    "reset": 0,
    "state": 0
   },
+  "skchr_cgbird_2": {
+   "ability": {
+    "anim": "Attack_B",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_cgbird_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
   "skchr_chen3_1": {
    "ability": null,
    "cls": "cast",
@@ -1191,6 +1210,42 @@
    "reset": 0,
    "state": 1
   },
+  "skchr_haruka_1": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": -1,
+    "pre": 0,
+    "time": 2,
+    "wait": 0
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_haruka_2": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": -1,
+    "pre": 0,
+    "time": 2,
+    "wait": 0
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_haruka_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
   "skchr_helage_1": {
    "ability": {
     "anim": "Skill",
@@ -1349,6 +1404,24 @@
    "cls": "cast",
    "reset": 0,
    "state": 1
+  },
+  "skchr_ironmn_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_ironmn_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_ironmn_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
   },
   "skchr_kalts2_1": {
    "ability": null,

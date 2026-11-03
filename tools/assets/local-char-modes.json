@@ -5460,6 +5460,99 @@
    }
   ]
  },
+ "char_179_cgbird": {
+  "modes": [
+   "Default",
+   "S3"
+  ],
+  "proj": [
+   [],
+   []
+  ],
+  "cast": [
+   [
+    "cgbird_attack_01_start"
+   ],
+   [
+    "cgbird_attack_01_start"
+   ]
+  ],
+  "hit": [
+   [
+    "cgbird_attack_01_hit"
+   ],
+   [
+    "cgbird_attack_01_hit"
+   ]
+  ],
+  "trail": [
+   [],
+   []
+  ],
+  "attach": [
+   [
+    "cgbird_buff_01_start"
+   ],
+   [
+    "cgbird_buff_01_start"
+   ]
+  ],
+  "castOpt": [
+   {
+    "cgbird_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "cgbird_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1,
+     "once": 1
+    }
+   }
+  ],
+  "skillMode": [
+   null,
+   null,
+   1
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "common_ignite_support"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [
+     "cgbird_attack_01_start"
+    ],
+    "castLoop": [],
+    "buff": [],
+    "target": [
+     "cgbird_attack_01_hit"
+    ],
+    "targetBuff": [
+     "cgbird_skill_02_buff"
+    ]
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "cgbird_skill_03_range"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_181_flower": {
   "modes": [
    "Default"
@@ -10962,6 +11055,139 @@
    }
   ]
  },
+ "char_4072_ironmn": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [],
+   [],
+   [],
+   []
+  ],
+  "cast": [
+   [
+    "ironmn_attack_01_start"
+   ],
+   [
+    "ironmn_skill_01_start_01",
+    "ironmn_skill_01_start_02"
+   ],
+   [
+    "ironmn_skill_02_start_01",
+    "ironmn_skill_02_start_02"
+   ],
+   [
+    "ironmn_skill_03_start"
+   ]
+  ],
+  "hit": [
+   [
+    "ironmn_attack_01_hit"
+   ],
+   [
+    "ironmn_skill_01_hit"
+   ],
+   [
+    "ironmn_skill_02_hit"
+   ],
+   [
+    "ironmn_skill_03_hit"
+   ]
+  ],
+  "trail": [
+   [],
+   [],
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   [],
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "ironmn_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "ironmn_skill_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "ironmn_skill_01_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "ironmn_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "ironmn_skill_02_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "ironmn_skill_03_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "skillMode": [
+   1,
+   1,
+   null
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "ironmn_skill_01_buff"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "ironmn_skill_02_buff"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "token_ironmn_pile3_skill_03_buff_02_01",
+     "token_ironmn_pile3_skill_03_buff_02_02",
+     "ironmn_skill_03_buff_01",
+     "ironmn_skill_03_buff_02"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_4079_haini": {
   "modes": [
    "Default",
@@ -14032,6 +14258,163 @@
     "castLoop": [],
     "buff": [
      "reckpr_skill2_buff"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_4202_haruka": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_haruka"
+   ],
+   [
+    "projectile_chr_haruka_s1"
+   ],
+   [
+    "projectile_chr_haruka_s2"
+   ],
+   [
+    "projectile_chr_haruka_s3"
+   ]
+  ],
+  "cast": [
+   [
+    "haruka_attack_start_01"
+   ],
+   [
+    "haruka_skill_01_start"
+   ],
+   [
+    "haruka_skill_02_start"
+   ],
+   []
+  ],
+  "hit": [
+   [
+    "haruka_attack_hit_01"
+   ],
+   [
+    "haruka_attack_hit_01"
+   ],
+   [
+    "haruka_attack_hit_01"
+   ],
+   [
+    "haruka_attack_hit_01"
+   ]
+  ],
+  "trail": [
+   [
+    "haruka_attack_trail_01"
+   ],
+   [
+    "haruka_attack_trail_01"
+   ],
+   [
+    "haruka_attack_trail_01"
+   ],
+   [
+    "haruka_attack_trail_01"
+   ]
+  ],
+  "attach": [
+   [],
+   [],
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "haruka_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "haruka_skill_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "haruka_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "haruka_skill_03_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "clipFx": [
+   null,
+   null,
+   null,
+   {
+    "src": "Skill_3_Loop_A",
+    "loop": 1,
+    "groups": [
+     {
+      "anim": "Skill_3_Loop_A",
+      "cast": [
+       "haruka_skill_03_start"
+      ],
+      "hit": []
+     },
+     {
+      "anim": "Skill_3_Loop_B",
+      "cast": [
+       "haruka_skill_03_start"
+      ],
+      "hit": []
+     }
+    ]
+   }
+  ],
+  "skillMode": [
+   1,
+   null,
+   3
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "haruka_skill_01_buff"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "haruka_skill_02_buff"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "haruka_skill_03_buff"
     ],
     "target": [],
     "targetBuff": []

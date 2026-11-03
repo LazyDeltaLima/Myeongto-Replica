@@ -16,7 +16,7 @@ aklz4.py registers a decoder for it. This script pulls the art the web sources l
     the atlas gets `size:` / `pma: true` like the fetched enemies); the client draws them instead of the web alias once
     this manifest lists them (data/assets.json enemies[id].spineLocal, docs/ASSETS.md "Enemy aliases")
   - the token (summon) battle Spine models no community dump carries (TOKEN_SPINES: our 自选 picks' summons — 望's 棋子,
-    维什戴尔's 魂灵之影, 凯尔希·思衡托's 战术锚点 —, 凯瑟琳's 爬行号·防护单元, 凛御银灰's 风雪之眼), from the battle token prefabs (pkgrps/btl_pfb_tokens_*.ab: the skeleton
+    维什戴尔's 魂灵之影, 凯尔希·思衡托's 战术锚点, 夜莺's 幻影, 白铁's <支援装置> —, 凯瑟琳's 爬行号·防护单元, 凛御银灰's 风雪之眼), from the battle token prefabs (pkgrps/btl_pfb_tokens_*.ab: the skeleton
     the prefab's Front / only Spine renderer draws) → spine/token/<tokenId>/<stem>.skel|.atlas + merged page PNGs, the
     same format; drawn instead of the avatar diamond once this manifest lists them (data/assets.json
     tokens[id].spineLocal)
@@ -169,6 +169,7 @@ ENEMY_SPINE_SUB = 'spine/enemy'
 # trap_039_dstnta (子代) is an enemy-side stage token: 盐风主教昆图斯's 断裂生殖 switches it on (pkgrps/btl_pfb_tokens_0);
 # trap_185_vtlntw (黄金回响) the device 阿利斯泰尔's 莫非王土 puts on a 冲击式施术单元's tile (pkgrps/btl_pfb_tokens_1).
 TOKEN_SPINES = [
+    'token_10003_cgbird_bird', 'token_10027_ironmn_pile1', 'token_10027_ironmn_pile2', 'token_10027_ironmn_pile3',
     'token_10031_swire2_gdtrap', 'token_10035_wisdel_wward', 'token_10041_cathy_catsld', 'token_10054_phatm2_encdool',
     'token_10057_svash2_eagle1', 'token_10057_svash2_eagle2', 'token_10057_svash2_eagle3', 'token_10064_wang_stone1',
     'token_10068_kalts2_mtship', 'trap_039_dstnta', 'trap_185_vtlntw',

@@ -1,6 +1,192 @@
 {
   "about": "Spine metadata of the token (summon) models only the local client has (tools/local-extract/extract.py TOKEN_SPINES); data/assets.json tokens[id].spineLocal. Written by node tools/fetch-assets.mjs --local-spines (docs/ASSETS.md \"Token models from the local client\").",
   "models": {
+    "token_10003_cgbird_bird": {
+      "skel": "token_10003_cgbird_bird.skel",
+      "atlas": "token_10003_cgbird_bird.atlas",
+      "textures": [
+        "token_10003_cgbird_bird.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Idle",
+        "deploy": "Start",
+        "attack": {
+          "begin": null,
+          "loop": "Idle",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Idle",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0,
+        "Idle": 0,
+        "Start": 1.333
+      },
+      "events": [],
+      "hits": {},
+      "bounds": {
+        "x": -234.162,
+        "y": -25.869,
+        "width": 383.475,
+        "height": 357
+      }
+    },
+    "token_10027_ironmn_pile1": {
+      "skel": "token_10027_ironmn_pile1.skel",
+      "atlas": "token_10027_ironmn_pile1.atlas",
+      "textures": [
+        "token_10027_ironmn_pile1.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Idle",
+        "deploy": "Start",
+        "attack": {
+          "begin": null,
+          "loop": "Idle",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Idle",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0,
+        "End": 1,
+        "Idle": 2.8,
+        "Start": 1
+      },
+      "events": [
+        "OnStart"
+      ],
+      "hits": {},
+      "bounds": {
+        "x": -125.131,
+        "y": -1.127,
+        "width": 215.5,
+        "height": 287
+      }
+    },
+    "token_10027_ironmn_pile2": {
+      "skel": "token_10027_ironmn_pile2.skel",
+      "atlas": "token_10027_ironmn_pile2.atlas",
+      "textures": [
+        "token_10027_ironmn_pile2.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Idle",
+        "deploy": "Start",
+        "attack": {
+          "begin": null,
+          "loop": "Idle",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Idle",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0,
+        "End": 1,
+        "Idle": 2.8,
+        "Start": 1
+      },
+      "events": [
+        "OnStart"
+      ],
+      "hits": {},
+      "bounds": {
+        "x": -125.131,
+        "y": -1.127,
+        "width": 215.5,
+        "height": 287
+      }
+    },
+    "token_10027_ironmn_pile3": {
+      "skel": "token_10027_ironmn_pile3.skel",
+      "atlas": "token_10027_ironmn_pile3.atlas",
+      "textures": [
+        "token_10027_ironmn_pile3.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Idle",
+        "deploy": "Start",
+        "attack": {
+          "begin": null,
+          "loop": "Attack",
+          "end": null
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Attack",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": "Die",
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Attack": 0.333,
+        "Default": 0,
+        "Die": 1,
+        "Idle": 1,
+        "Start": 1
+      },
+      "events": [
+        "OnAttack",
+        "OnStart"
+      ],
+      "hits": {
+        "Attack": [
+          0.067
+        ]
+      },
+      "bounds": {
+        "x": -144.444,
+        "y": -6.815,
+        "width": 307.5,
+        "height": 358.952
+      }
+    },
     "token_10031_swire2_gdtrap": {
       "skel": "token_10031_swire2_gdtrap.skel",
       "atlas": "token_10031_swire2_gdtrap.atlas",

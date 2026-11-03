@@ -12,8 +12,8 @@
   `data/backups.json` `diy`). 맹약이 전부 꺼진 픽은 그 판 재고가 없다(`m.private.diyBanned`). 이 포크는 후보를 구현·대조한 13명으로 줄인다:
   `shared/local-diy.js LOCAL_DIY_PICKS`(왕·첸 더 던스트릭·위셔델·토가와 사키코·아스카론, 2026-10-11부터 켈시 에스페란타·클레멘티아·안젤리나 더 멜로우 위시 — 아래
   「선발 추가 3명 (2026-10-11)」, 2026-10-26부터 트라고디아 — 아래 「선발 추가 酒神 (2026-10-26)」, 2026-11-01부터 토스카·탈룰라 — 아래 「선발 추가 토스카
-  (2026-11-01)」·「선발 추가 탈룰라 (2026-11-01)」, 2026-11-02부터 팔라스·헬라그, 2026-11-03부터 만트라 — 아래 「선발 추가 팔라스 (2026-11-02)」·「선발 추가 헬라그 (2026-11-02)」·「선발 추가 만트라 (2026-11-03)」) — `tools/build-data.mjs`가 이것으로 `diy.ownedPool`을 만들고, `server/lobby.js`가 다른 픽을 거부한다.
-  키트는 `server/sim/content/kits/ops/op-{wang,chen3,wisdel,oblvns,ascln,kalts2,clemnt,aglna2,phatm2,tocka,oxi,pallas,helage,mantra}.js`(등록 `kits/index.js OPERATOR_KIT_FILES`).
+  (2026-11-01)」·「선발 추가 탈룰라 (2026-11-01)」, 2026-11-02부터 팔라스·헬라그, 2026-11-03부터 만트라·스테인리스·하루카·나이팅게일 — 아래 「선발 추가 팔라스 (2026-11-02)」·「선발 추가 헬라그 (2026-11-02)」·「선발 추가 만트라 (2026-11-03)」·「선발 추가 스테인리스·하루카·나이팅게일 (2026-11-03)」) — `tools/build-data.mjs`가 이것으로 `diy.ownedPool`을 만들고, `server/lobby.js`가 다른 픽을 거부한다.
+  키트는 `server/sim/content/kits/ops/op-{wang,chen3,wisdel,oblvns,ascln,kalts2,clemnt,aglna2,phatm2,tocka,oxi,pallas,helage,mantra,ironmn,haruka,cgbird}.js`(등록 `kits/index.js OPERATOR_KIT_FILES`).
   틀의 자세한 규칙은 `server/sim/content/kits/README.md`, 병합 경위는 `upstream.md` 「0.2.0 병합」.
 - 0.2.0 전(2026-10-05 ~ 10-07)에는 전용 데이터·풀·UI를 직접 만들었다. 그 구현은 지웠고, 그때 정한 키트 동작과 관리자 결정은 `op-*.js`로 옮겨져 아래에 남는다.
 - 키트:
@@ -742,6 +742,44 @@
   `mantra_s_2_proj_*`·`mantra_s_3_element`)는 아직 안 울린다(`test/audio-bank-coverage-list.js` `todo`). 화면 확인 전.
 - 테스트: `test/content/op_mantra.test.js`(11 — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 실제 매치 경로 하나), 선발 수를 세는 테스트 13 → 14명(설정 가능한 오퍼레이터 수의 범위 `test/match/potential.test.js` 110~135), golden
   `diy-019`(그녀의 칸이 함께 실림)·`diy-020`(새 시나리오), 다른 가족 변화 없음.
+
+## 선발 추가 스테인리스·하루카·나이팅게일 (2026-11-03, 관리자 결정)
+- 관리자 결정 2026-11-02(새 시즌 알려진 명단의 upstream 선발 키트를 차례로 넣고 지금 시즌에도 공개)·2026-11-03(될 수 있으면 묶어서): 선발에 스테인리스(白铁
+  `char_4072_ironmn`, 6성 서포터 기능공)·하루카(遥 `char_4202_haruka`, 6성 서포터 비호자)·나이팅게일(夜莺 `char_179_cgbird`, 6성 메딕 멀티 타겟 메딕)을 넣는다
+  (`LOCAL_DIY_PICKS` 끝). 한 묶음으로 넣은 까닭: 스테인리스 S3의 게(글룸핀서호 - 프로토타입)를 자동 발동이 적으로 세는지 한 번에 확인(하루카 키트에 그 표시가
+  있었음), 나이팅게일은 단순해서 얹음. 셋 다 한국 서버에 있어 이름·문구는 KR 공식 표 그대로(`tools/i18n/build-ko-diy.mjs`): 스테인리스 · 극한 화력 · 고효율 보급 ·
+  글룸핀서호 - 프로토타입, 재능 전장 엔지니어 · 경비 절약, 모듈 글룸핀서호 - 크롤러(CRA-X) · 하이버리의 낙인(CRA-Y), 소환물 스테인리스™ 멀티 플랫폼 ·
+  글룸핀서호 - 프로토타입 / 하루카 · 밤의 파울비스트 · 틈새의 반딧불 · 늦여름의 린수, 재능 빛나는 비눗방울 · 솟구치는 불꽃, 모듈 뒤늦은 기념(BLS-Y) /
+  나이팅게일 · 치료 강화 γ · 아츠 실드 · 성역, 재능 하얀 악마의 가호 · 덧없는 환상, 모듈 '갇혀버린 희망'(RIN-X) · '밤의 노래'(RIN-Y), 소환물 환영.
+- 데이터: CN 표 그대로. 맹약: 스테인리스 빅토리아(`victoriaShip`), 하루카(소속 태그 `higashi`)·나이팅게일(국적 없음)은 이번 시즌 핵심 맹약이 없어 협방(`emptyShip`).
+  소환물 4(환영, 장치 셋) — 웹 모델이 없어 EN 클라에서 뽑음(`tools/local-extract/extract.py TOKEN_SPINES`).
+- 키트·테스트: upstream 순서형 피해 판정 커널 직전 판(`9a3a12ee9^`)의 `op-ironmn.js`·`op-haruka.js`·`op-cgbird.js`와 테스트 셋. 그 뒤 upstream이 이 파일들을
+  바꾼 커밋은 없다. 나이팅게일 키트는 upstream 샤이닝 키트(`op-shining.js`, 우리 선발 아님)의 도우미 둘(사거리 오라·보호막)을 가져다 써서 그 둘만
+  `kits/shared/barrier.js`로 옮겼다. 바꾼 것:
+  - **게를 적처럼 세는 자동 발동**(공식 클라에서 확인 — `sim.md` 「스킬 범위 발동」의 게 줄): 게 토큰 프리팹이 `_sideType` ENEMY·`_category` DEFAULT라 자동
+    조작 상자의 적 옵션에 걸린다 → rangeId 상자는 치유 스킬도 게를 세고, rangeId가 없으면 게를 치는 유닛(공격 상태)이 켠다. 엔진 `skills.js _allyTargetIn`.
+    upstream의 「치유 스킬·자기 공격 아닌 스킬은 빼고 키트가 `allyTargets`로 고름」(그쪽 관리자 규칙)과 하루카 키트의 `allyTargets: false` 셋은 받지 않음.
+    시험은 스테인리스 테스트의 새 줄(백철 S3·나이팅게일 S3 y-4 상자·하루카 S1은 켜지고, 나이팅게일 S1은 환자가 없어 안 켜짐 — 엔진 변경 없이 실패하는 것 확인).
+  - 하루카 S3(rangeId y-8)·나이팅게일 S3(y-4)의 자동 발동: 데이터 `DEFAULT` + 그 상자. upstream 테스트의 `ACTIVE_RANGE`(그쪽 관리자 규칙 — 나이팅게일 S3는 「상자
+    안 다친 아군」)를 고침: 나이팅게일 S3도 상자 안 **선택 가능한 적**이 있어야 켜진다(치유 스킬도 적을 셈 — 위 규칙). 하루카 S1·S2, 나이팅게일 S1·S2(AUTO)는
+    그대로.
+  - 하루카 S2 틈새의 반딧불의 추가 아츠 피해 대상 순서: 스킬 프리팹 `skchr_haruka_2`의 능력 `ExtraSelect` 선택기가 `_postFilter` HATRED_DES(4)라
+    도발 높은 적, 그다음 출구에 가까운 적(`Enemy.get_hatred` — `sim.md`에 이미 있는 정의). upstream은 「치유 대상에 가까운 순」 추정이었다. 테스트에 도발이
+    높은 먼 적을 하나 더해 확인. 같은 위협도의 순서(출현 순)는 그 정의대로 [추정·엔진].
+  - 나이팅게일 S2 아츠 실드: 보호막마다 버프 `cgbird_s_2` 하나(템플릿 `shield_magic` — 아츠 피해 `BlockDamage`, 0이 되면 `FinishBuff`)에 마법 저항 속성
+    (`attributeType` 3, 블랙보드 값)이 함께 들어 있고 덮어쓰기 그룹은 DEFAULT(`maxStackCnt` 1) — 그룹에서 큐 순서로 끝나지 않은 첫 버프만 켜지므로
+    (`Buff.OverrideGroup._DoUpdateInternal`, 위 「선발 추가 만트라」와 같은 근거) 저항 보너스는 보호막이 하나라도 남아 있는 동안 하나: 공식 클라에서 확인 → upstream의 추정 표시를 지움(동작 같음).
+- 키트 주석에 남은 추정:
+  - 스테인리스 [추정·미조사: 장치 재고 — 배치마다 +cnt, 상한 cnt + CRA-X 1, 상한을 넘는 `RechargeToken`은 버림; 게가 SP를 받는 것은 게를 고른 공격뿐(적 쪽
+    선택자를 쓰는 범위 스킬도 게를 고르는지는 안 봄); 소환물도 게를 침 — 덱 `RechargeToken`(`Deck.RechargeToken`·`Card.RechargeToken`, 색인에 없음)과
+    위수협의 손패 규칙을 읽어야 함].
+  - 하루카 [추정·미조사: 비눗방울은 그녀가 떠나도 남음 — 능력이 준 버프가 주인 퇴장 때 남는지].
+  - 나이팅게일 [추정·미조사: 쓰러진 환영이 돌아오는 조건 = 재고 1·재배치 시간·DP. 망의 바둑돌은 돌아올 때 재고를 쓰지 않는다(위 「망」, 관리자 결정
+    2026-10-08) — 스테인리스 장치와 함께 같은 규칙으로 맞출지는 관리자 결정 대기].
+- 이펙트·공격 타이밍·투사체·스킬 시전·모드·HUD 데이터: EN 클라에서 뽑음(2026-11-03, `tools/local-extract/add_operator.py --id …` 세 명 한 번). 장치 이펙트
+  (`token_ironmn_pile*`)는 공용 토큰 팩에서, 나이팅게일 S1의 `common_ignite_support`는 공용 번들에서 따로(`fx_extract.py --pack`). 화면 확인 전.
+- 테스트: `test/content/op_ironmn.test.js`(13)·`op_haruka.test.js`(10)·`op_cgbird.test.js`(11) — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 소환물, 실제 매치 경로 하나씩(upstream 테스트에 없어 더함);
+  선발 수를 세는 테스트 14 → 17명(소환물 6 → 10, 폼 85 → 94), golden `diy-021`~`diy-026`(새 시나리오), 다른 가족 변화 없음.
 
 ## 안젤리나 더 멜로우 위시 S3 이동 · 「이따 봐!」 표식 (2026-10-11, 관리자 제보)
 - 제보 2건: ① S3로 공중 적에게 갈 때 처음 칸에 남는 「이따 봐!」(“一会儿见！”)가 대체 마름모로 보임, ② 공식은 공중 적에게 **직접 날아가는데** 우리는 그 칸에

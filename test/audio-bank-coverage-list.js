@@ -10,6 +10,22 @@
 // The first listing (2026-11-01) had 25; all its `todo` entries were wired the same day.
 
 export const UNSOUNDED = {
+  char_4072_ironmn: {
+    'ON_ABILITY_START.sktok_ironmn_pile3': 'todo: 铁钳号·原型机\'s skill (its projectile shot, kit pile3 skill)',
+    'ON_PROJECTILE_REACH.projectile_chr_ironmn_pile3': 'todo: that projectile landing on its first enemy',
+  },
+  char_4202_haruka: {
+    'ON_CUSTOM_TRIGGER.haruka_shield_start_ally': 'todo: T1 a bubble given (kit bubble)',
+    'ON_CUSTOM_TRIGGER.haruka_shield_break_ally': 'todo: T1 a bubble breaking (kit burst)',
+    'ON_BUFF_START.haruka_shield_start_enemy': 'todo: S3 an enemy set off a bubble and is levitated (kit levitate)',
+    'ON_BUFF_TRIGGER.haruka_shield_start_enemy': 'todo: S3 its levitation damage tick',
+    'ON_CUSTOM_TRIGGER.haruka_shield_break_enemy': 'todo: S3 the levitation ending',
+    'ON_CUSTOM_TRIGGER.haruka_s2_damage': 'todo: S2 the extra arts damage around a healed unit (haruka_s_2 ON_AFTER_OUTPUT_HEAL PlayAudio)',
+  },
+  char_179_cgbird: {
+    'ON_BUFF_START.mstrfd_bird_crash[audio]': 'none: not hers — an mstrfd_ bank (no unit of this mode); "bird" is also her 幻影\'s code',
+    'ON_PROJECTILE_BORN.projectile_chr_svash2_s3_bird': 'none: not hers — 凛御银灰 S3\'s bird; "bird" is also her 幻影\'s code',
+  },
   char_4182_oblvns: {
     // S2 is a ToggleSkillWithEndAnimation (`_appendModeIndexToBeginAudioSignal`): PlayBeginAudio sounds ON_SKILL_START, or
     // ON_SKILL_FINISH once toggled, at skchr_oblvns_2.<current mode index>; here her one cast comes from mode 2 (S2_Atk)
