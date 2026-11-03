@@ -116,6 +116,55 @@ const SPINE_AUDIO_EVENT = /^OnPlayAudio(?:_[1-3])?$/;
  * as it starts (bank battle.ON_BUFF_START.<signal>). The mode's templates have one: 卡西米尔 [ex]'s [ex_damage_effect].
  */
 export const TPL_FX_SOUNDS = Object.freeze({ common_071_bond_kazimierz_hit_01_new: 'kazimierz:ex' });
+/** 昆图斯's 物种爆发: dslily_doom[effect] lasts 3.2 s from the Doom's ON_SPELL_ON and triggers every 1 s (its BuffData). */
+const DSLILY_DOOM_TICKS = Object.freeze([1, 2, 3]);
+/** “萨米的意志”'s Doom: enemy_smdeer_doom[audio] (1.8 s from ON_CAST_START) plays its sound as it ends. */
+const SMDEER_DOOM_AFTER = 1.8;
+const REBORN_SOUNDS = Object.freeze({ enemy_1512_mcmstr: 'mcmstr:reborn' });
+const STATUE_SOUNDS = Object.freeze({ enemy_1172_dugago: 'dugago:reborn', enemy_1172_dugago_2: 'dugago:reborn' });
+const REVIVE_SOUNDS = Object.freeze({
+  enemy_1288_duskls: 'duskls:revive', enemy_1288_duskls_2: 'duskls:revive', enemy_1292_duskld: 'duskld:revive', enemy_9010_acpupp: 'acpupp:revive',
+});
+/** An enemy's kit buff whose end sounds: 喷气人's flight (ab:takeoff) ends into balloon_s[land] (its audioSignal). */
+const ENEMY_STATUS_OFF_SOUNDS = Object.freeze({ enemy_2004_balloon: Object.freeze({ 'ab:takeoff': 'balloon:land' }) });
+export function enemyStatusOffSound(key, holderDef) { return ENEMY_STATUS_OFF_SOUNDS[holderDef]?.[key] ?? null; }
+/**
+ * 2026-11-03, docs/rules/audio.md 「적 버프·커스텀 트리거 소리」: the `sfx.kit` keys (with a delay in game seconds, or null) an
+ * enemy's buff or custom-trigger sound plays on for a sim fx event, from the EN client's enemy prefabs and buff templates —
+ * a prisoner's 【解放】 (fx 'liberate', `forced` when another freed it), 阿利斯泰尔's piece picked up and vest taken, 绯红歌伶's
+ * war song, a hand of 假想敌：胄 shot down, “余音”'s ensembles · pulse · hit switch, 昆图斯's and “萨米的意志”'s dooms.
+ * @returns {[string, number|null][]}
+ */
+export function enemyBuffSounds(fx, ex, unitOf) {
+  if (!ex || typeof ex !== 'object') return [];
+  const def = (id) => unitOf(id)?.def || '';
+  switch (fx) {
+    case 'liberate': return ex.forced ? [['liberty:force', null], ['liberty:state', null]] : [['liberty:state', null]];
+    case 'equip': return ex.kind === 'pickup' ? [['vtmstr:equip', null]] : [];
+    case 'vest': return def(ex.id) === 'enemy_9032_aclionk' ? [['vtlionk:shld', null]] : [];
+    case 'telegraph':
+      if (ex.kind === 'songOfWar') return [['csdcr:skill', null]];
+      if (ex.kind === 'speciesBurst') return DSLILY_DOOM_TICKS.map((t) => ['dslily:doom', t]);
+      if (ex.kind === 'reborn') return def(ex.id) === 'enemy_1535_wlfmster' ? [['wlfmster:reborn', null]] : [];
+      return ex.kind === 'samiDoom' ? [['smdeer:doom', SMDEER_DOOM_AFTER]] : [];
+    case 'phase': {
+      if (ex.kind === 'shotDown') { const d = def(ex.id); return d === 'enemy_9014_acstma' ? [['acstma:stun', null]] : d === 'enemy_9015_acstmb' ? [['acstmb:stun', null]] : []; }
+      // acdums_t_1's switch after its hits (not the form a summon starts in or a 管 / 弦 hands it): to Passion switch_a
+      if (ex.hit && (ex.kind === 'echo_gold' || ex.kind === 'echo_dark')) return [[ex.kind === 'echo_gold' ? 'acdums:switcha' : 'acdums:switchb', null]];
+      return [];
+    }
+    case 'explode': return ex.kind === 'echoPulse' ? [['acdums:aoe', null]] : [];
+    case 'revive': { // the end of a 重生 (archetypes.js reborn / statue / husk)
+      const k = ex.kind === 'reborn' ? REBORN_SOUNDS[def(ex.id)] : ex.kind === 'fly' ? STATUE_SOUNDS[def(ex.id)] : ex.form === 'revived' ? REVIVE_SOUNDS[def(ex.id)] : null;
+      return k ? [[k, null]] : [];
+    }
+    case 'enemySkill':
+      if (def(ex.id) !== 'enemy_9023_acdums') return [];
+      return ex.ability === 'PassionSkill' ? [['acdums:passion', null], ['acdums:passion2', null]]
+        : ex.ability === 'DepassionSkill' ? [['acdums:depassion', null], ['acdums:depassion2', null]] : [];
+    default: return [];
+  }
+}
 /**
  * 2026-11-01: the `sfx.kit` key of a kit buff (sim 'status' key, `<base>:<source id>` for one per applier) whose client buff
  * carries an `audioSignal` — Entity.OnBuffStart / OnBuffShowEffect sound it on the holder as it starts. 冻河 (CN buff
@@ -2254,6 +2303,7 @@ export class AudioManager {
             for (let i = 0; i < Math.min(Math.max(1, (Number(e[4].z) - Number(e[4].a) + 1) || 1), max); i++) if (!this._kitSound('oxi:s3fire')) break;
           }
           if (e[1] === 'link' && e[4]?.id != null) for (let i = haloLinkCount(unitOf(e[4].id), e[4].ids); i > 0; i--) this._kitSound('halo2:s3link');
+          for (const [k, d] of enemyBuffSounds(e[1], e[4], unitOf)) this._kitSound(k, d);
           // 2026-11-03, docs/rules/audio.md 「버프·커스텀 트리거 소리」: one sound per unit, at most the bank's own limit — a blast's
           // enemies (aoeHitKey), the enemies a waking one puts to sleep (缇缇 S3: titi_s_3[effect_line] PlayAudio
           // titi_s_3[spread_from] on each), 魔王's 微尘 back in her orbit (motesBack)
@@ -2291,6 +2341,9 @@ export class AudioManager {
         } else if (kind === 'status' && e[3]) {
           // 2026-11-01: a kit buff whose client buff carries an audio signal, as it starts on its holder (statusSoundKey)
           this._kitSound(statusSoundKey(e[2], e.length > 4 && e[4] != null ? this.units.get(e[4])?.def : null));
+        } else if (kind === 'status') {
+          // 2026-11-03: an enemy's kit buff whose end sounds (enemyStatusOffSound)
+          this._kitSound(enemyStatusOffSound(e[2], this.units.get(e[1])?.def));
         } else if (kind === 'bounty') {
           this.battle('killCoin');
         } else if (kind === 'layer') {

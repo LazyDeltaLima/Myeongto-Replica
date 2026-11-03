@@ -621,7 +621,7 @@
 - 안 한 것: 쏜즈 더 로드스타 `thorn2_t_2_start`(`thorn2_t_2[audio]`를 만드는 템플릿·프리팹을 못 찾음), 실버애쉬 더 레인프로스트 `svash2_s_2[show]`(EN 클라에
   그 신호를 내는 PlayAudio 없음)·`svash2_eagle_token[locate]`(독수리 토큰이 키트에 없음), 유동체 재능 T.1 `p_skill_wtrlimereborn`(가짜 죽음·부활이
   키트에 없음), 카넬리안·노시스·루멘 `[eff_cond]` 외의 단계 버프, 뮤엘시스·비질 가짜 죽음
-  (관리자 메모 「오퍼레이터 효과음」 조사의 H·I 묶음), 적 버프·커스텀 트리거(적 91·122개 뱅크 — 적 스킬처럼 sim이 그 순간을 알려야 함).
+  (관리자 메모 「오퍼레이터 효과음」 조사의 H·I 묶음), 적 버프·커스텀 트리거(→ 아래 「적 버프·커스텀 트리거 소리」).
 - 확인: `test/local-patch-attack-signals.test.js` 「buff and custom-trigger sounds」(표·혼 S3·락락 S2·티티·프라마닉스 더 프레리타 눈 타일·실제 매치 경로 아스카론 S2).
   [브라우저 미확인 — 혼 S3 과부하 후 공격음이 바뀌는지 들어 볼 것]
 
@@ -658,7 +658,46 @@
   음량은 공식 믹서 그룹(`Battle_E_NImp` 0.205). 'mortar' 공격에는 대체 `enemyHit`를 안 내고 `lastAttacker`도 안 남김(남기면 배속이 빨라 3초가
   실제 2.5초 안에 지날 때 무출처 착탄 피해가 그 공격의 'd' 큐를 또 냈다). `_2`의 뱅크도 같은 파일. 확인:
   `test/local-patch-audio.test.js` 「帝国炮火先兆者」.
-- 안 한 것: 적 버프·커스텀 트리거 소리(위 「버프·커스텀 트리거 소리」), `ON_BOSS_ENTER`(우리 보스엔 뱅크 없음). 적 스파인 이벤트는 위 「공격 소리 신호」의 스파인 이벤트로 남.
+- 안 한 것: 적 버프·커스텀 트리거 소리(아래 「적 버프·커스텀 트리거 소리」), `ON_BOSS_ENTER`(우리 보스엔 뱅크 없음). 적 스파인 이벤트는 위 「공격 소리 신호」의 스파인 이벤트로 남.
+
+## 적 버프·커스텀 트리거 소리 (2026-11-03, EN 클라 적 프리팹 + 버프 템플릿)
+- 공식: 오퍼레이터와 같은 길 — 적에게 버프가 붙을 때 그 버프의 `audioSignal`로 `ON_BUFF_START`(`ON_BUFF_TRIGGER`·`ON_BUFF_FINISH`도),
+  버프 그래프의 `PlayAudio`가 `ON_CUSTOM_TRIGGER.<신호>`(위 「버프·커스텀 트리거 소리」). 이 모드 적에서 뱅크가 있는 것은 적 약 35종·뱅크 약 55개
+  (프리팹 버프 → 템플릿을 따라가 모음; 주기·수명은 프리팹 BuffData `triggerInterval`·`lifeTime`). 소리는 `sfx.kit` 키(`tools/assets/kit-sfx.mjs`),
+  sim fx → 키는 `public/js/audio.js enemyBuffSounds`, 끝날 때 나는 것은 `enemyStatusOffSound`. 묶음 가(sim이 이미 그 순간을 알리는 것) — 새 sfx 23키:
+  - 해방(평범한 죄수·노련한 죄수·복서 죄수 리더·건장한 죄수·중범죄수·전설의 중범죄수): 해방 모드 L의 패시브 `enemy_liberty[state]` → fx `liberate`.
+    남의 해방으로 풀린 죄수(중범죄수의 첫 해방·제셀톤 윌리엄스 킬러 형태 — `LibertyOthersAbility`의 `enemy_liberty_force`는 아직 禁锢인 적에게만)는
+    그 소리가 먼저 — fx `liberate`에 새 필드 `forced` 1(`archetypes.js prisoner`).
+  - 알리스테어, 제국의 여광: 부품(미장착 칼날·방호 조끼·충격식 아츠 유닛)을 오퍼레이터가 주울 때 `enemy_vtmstr_equip_*[char]`의 PlayAudio
+    `enemy_vtmstr_getEquip`(fx `equip` kind `pickup`), 조끼를 입을 때 `enemy_vtlionk_s2`의 PlayAudio `enemy_vtlionk_skill_shld`(보스 자리, fx `vest`).
+    `[enemy]` 쪽(적이 줍기)은 이 sim에 없다.
+  - 스칼릿 싱어: 피격 20회째 `csdcr_t`가 만드는 `csdcr_skill[audio]` → fx `telegraph` `songOfWar`.
+  - '갑주를 베는 검'·'갑주를 부수는 해머': 【瘫痪】 `acstma_s_1[special_stun]`/`acstmb_s_1[special_stun]`이 거는 버프의 audioSignal(뱅크 지연 0.27초) →
+    fx `phase` `shotDown`. 하강 끝 모드 `Back_End`의 `enemy_acstma_back`/`_acstmb_back`은 [추정·미조사: 어느 손이 언제 그 모드에 드는지 sim과
+    맞춰 보지 않음] 안 냄.
+  - '단현지음'/'열관지음'(가상적: 관·현의 余音): 합주 `PassionSkill`/`DepassionSkill`의 `acdums_audio[passion]`/`[depassion]`과 각 `[delay]`(뱅크 지연
+    0.7초) → fx `enemySkill`; 맥동(`CommonAbilities/AOE`) `acdums_audio[aoe]` → fx `explode` `echoPulse`; 피격 횟수로 모드를 바꿀 때 `acdums_t_1`이
+    바꾼 모드가 0(Passion = 금)이면 `switch_a`, 아니면 `switch_b` — 자기 피격으로 바뀐 것만(fx `phase` `echo_*`에 새 필드 `hit` 1, `bosses.js
+    setEchoForm`; 소환 때 모드·관/현이 정해 주는 모드는 무음).
+  - 살비엔토 주교 퀸투스 【物种爆发】: `dslily_doom[effect]`(ON_SPELL_ON부터 3.2초, 1초마다 ON_BUFF_TRIGGER) → fx `telegraph` `speciesBurst`에서 1·2·3초
+    뒤 세 번. '사미의 의지' 멸망: ON_CAST_START에 거는 1.8초 `enemy_smdeer_doom[audio]`의 끝 PlayAudio → fx `telegraph` `samiDoom` 1.8초 뒤.
+    [추정·엔진: sim의 시전 순간을 그 능력 사건(ON_SPELL_ON·ON_CAST_START)으로 봄]
+  - 재생: 자로, '늑대 군주' 쓰러질 때(M1 `Talents/Reborn` BuffToOwner ON_CAST_START `enemy_wlfmster_trigger_fear`의 audioSignal
+    `enemy_wlfmster_reborn_start`) → fx `telegraph` `reborn`; '거대하고 못생긴 것' 다시 일어설 때(RebornTalent 버프 `mcmstr_t_state_1[reborn]`,
+    `Unit.DoReborn`이 붙임) → fx `revive` `reborn`; 무덤지기 석상·성난 무덤지기 석상 날아오를 때(`Switch2Fly/Born2Fly` `dugago_reborn`) → fx `revive`
+    `fly`; 더블린 불꽃 전사·정예 불꽃 전사·불꽃 가디언이 일어설 때(Prop 모드 `Revive[Trigger]`, 5초 한 번 ON_BUFF_TRIGGER), 가상적: 재생이 일어설 때
+    (`enemy_acpupp_revive_listener` 트리거의 PlayAudio `acpupp_revive_1`) → fx `revive` `revived`.
+  - 제트맨 착지: `enemy_balloon_s[fly]`가 끝날 때 만드는 `balloon_s[land]`의 audioSignal → 상태 `ab:takeoff`가 꺼질 때(`enemyStatusOffSound`).
+  - 확인: `test/audio-enemy-buff-sounds.test.js`(뱅크·키·AudioManager 재생, battleHarness 중범죄수 해방의 `forced`). golden 그대로(새 fx 종류 없음).
+    [화면 미확인]
+- 안 한 것(묶음 나 — sim이 그 순간을 새로 알려야 함): 덕로드 `duckmi_speed_up`, 후회하는 영혼의 성배 `enemy_lrrook_take_dmg`, 가상적: 총 돌진
+  `achunt_s_1[damage].hit_target`·사슬 `achunt_line_damage.chain_hit`, '총을 부수는 리드' 돌진 `achunt_summonee.hit`·방패 반사 `actrpa_t_1.shield_hit`,
+  '데몬의 칼날' `smgrd_damage(_up)`·`smgrd_t_blackfog`, 수둔 닌자 `ymgtop_(2_)hit_audio`, 변종 맹글러비스트 α `rkmbst_stone_disappear_audio`, '제국의 갑옷'
+  `enemy_vtsk_skillRange`, 일리온의 나무 버든비스트 `enemy_mntrjn_add`, 길조의 비린 `parrot_fly`, 가상적: 골극 `enemy_acbunn[cute]`/`[horror]`, 심해의 소용자
+  `enemy_dsubrl_aoe[hit]`·딩페이 `enemy_cjhot_hit[audio]`, 불타는 덩굴 `enemy_ftsjc.aoe`, 원핵의 악생자 `Awake`, '산크타의 눈' `hlegle_steal_bullet_audio`.
+  이 모드에 그 순간이 없는 것: '월장진' `ymtro_t[audio]`(계단 칸), 자로 M2 `enemy_wlfmster_m2_calling`(WildCalling), 모험을 찾는 선원 `sailor_speed_up`
+  (대포·밧줄), 블러드 앰버 `collect_enemy_dseed`(채집하는 적). PlayAudio 없이 뱅크 이름만 이펙트 키와 같은 것(눈의 아이 `enemy_xdsnow_die_01`·불안해하는
+  디자이너 `enemy_crshd_tip_01[audio]`)은 [추정·미조사: 이펙트 프리팹 쪽 소리 부품은 안 읽음] 내는 곳을 못 찾음.
 
 ## 지속 피해 틱 (2026-10-11, 사용자 제보 「아스카론 S2 지속 피해 소리가 공격 소리와 같음」)
 - 원인: 아스카론 재능 「死亡拘审」의 틱(`op-ascln.js` `battle.dealDamage(unit, t, { tags: ['dot', …] })`)은 'dmg'에 공격자(그녀 id)가 실리고 'atk'가 없어,

@@ -283,17 +283,18 @@ const selfFear = (ab) => ({
 function prisoner(ab, { freeAll = false } = {}) {
   const t = (k) => T(ab, k) ?? 0;
   const times = Math.max(1, Math.round(T(ab, 'confinement.times') ?? 4));
-  const liberate = (b, e, a) => {
+  // `forced`: freed by another's LibertyOthersAbility (重犯, 杰斯顿) — its enemy_liberty_force (the 'liberate' fx, audio)
+  const liberate = (b, e, a, forced = false) => {
     if (a.free || !e.alive) return;
     a.free = true;
     b.removeBuff(e, 'ab:confined');
     b.addBuff(e, { key: 'ab:liberty', persist: true, visible: true, mods: {
       atkPct: t('liberty.atk'), defIgnorePct: t('liberty.def_penetrate'), resFlat: t('liberty.magic_resistance'), hpRegen: t('liberty.hp_recovery_per_sec') } });
-    setForm(b, e, 'liberty', 'liberate');
+    setForm(b, e, 'liberty', 'liberate', forced ? { forced: 1 } : null);
     if (freeAll && !stOf(b).freedAll) {
       // "第一次解放时同时解放全场敌人"
       stOf(b).freedAll = true;
-      for (const o of b.aliveEnemies()) for (const x of (o.mem.ab ? o.mem.ab.list : [])) if (x.liberate && !x.free) x.liberate(b, o, x);
+      for (const o of b.aliveEnemies()) for (const x of (o.mem.ab ? o.mem.ab.list : [])) if (x.liberate && !x.free) x.liberate(b, o, x, true);
     }
   };
   return {
@@ -312,7 +313,7 @@ function prisoner(ab, { freeAll = false } = {}) {
 
 /** Free every confined prisoner on the field (重犯's first liberation, 杰斯顿's killer form). */
 function freeAllPrisoners(b) {
-  for (const o of b.aliveEnemies()) for (const x of (o.mem.ab ? o.mem.ab.list : [])) if (x.liberate && !x.free) x.liberate(b, o, x);
+  for (const o of b.aliveEnemies()) for (const x of (o.mem.ab ? o.mem.ab.list : [])) if (x.liberate && !x.free) x.liberate(b, o, x, true);
 }
 
 /**

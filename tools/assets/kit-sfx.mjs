@@ -251,6 +251,39 @@ export const KIT_HIT_BANKS = Object.freeze({
   'mlyss:s3range': 'battle.ON_BUFF_START.mlyss_s_3[range_audio]',
   'svash2:range': 'battle.ON_CUSTOM_TRIGGER.svash2_s_2[range]',
   'svash2:s2redhit': 'battle.ON_BUFF_START.svash2_s_2[hit]',
+  // 2026-11-03, docs/rules/audio.md 「적 버프·커스텀 트리거 소리」 (EN client enemy prefabs and buff templates; public/js/audio.js
+  // enemyBuffSounds): a prisoner freed (its Liberty mode's enemy_liberty[state]) and freed by another (LibertyOthersAbility's
+  // enemy_liberty_force); 阿利斯泰尔's piece picked up (enemy_vtmstr_equip_*[char] PlayAudio) and its vest taken
+  // (enemy_vtlionk_s2 PlayAudio at the boss); 绯红歌伶's war song (csdcr_t → csdcr_skill[audio]); a hand of 假想敌：胄 shot
+  // down (acstma / acstmb_s_1[special_stun]); “余音”'s ensembles, pulse and form switch (acdums_audio[…], acdums_t_1);
+  // 昆图斯's 物种爆发 (dslily_doom[effect], 1 s triggers) and “萨米的意志”'s doom (enemy_smdeer_doom[audio] ends after 1.8 s)
+  'liberty:state': 'battle.ON_BUFF_START.enemy_liberty[state]',
+  'liberty:force': 'battle.ON_BUFF_START.enemy_liberty_force',
+  'vtmstr:equip': 'battle.ON_CUSTOM_TRIGGER.enemy_vtmstr_getEquip',
+  'vtlionk:shld': 'battle.ON_CUSTOM_TRIGGER.enemy_vtlionk_skill_shld',
+  'csdcr:skill': 'battle.ON_BUFF_START.csdcr_skill[audio]',
+  'acstma:stun': 'battle.ON_BUFF_START.acstma_s_1[special_stun]',
+  'acstmb:stun': 'battle.ON_BUFF_START.acstmb_s_1[special_stun]',
+  'acdums:passion': 'battle.ON_CUSTOM_TRIGGER.acdums_audio[passion]',
+  'acdums:passion2': 'battle.ON_CUSTOM_TRIGGER.acdums_audio[passion][delay]',
+  'acdums:depassion': 'battle.ON_CUSTOM_TRIGGER.acdums_audio[depassion]',
+  'acdums:depassion2': 'battle.ON_CUSTOM_TRIGGER.acdums_audio[depassion][delay]',
+  'acdums:aoe': 'battle.ON_CUSTOM_TRIGGER.acdums_audio[aoe]',
+  'acdums:switcha': 'battle.ON_CUSTOM_TRIGGER.enemy_9023_acdums.switch_a',
+  'acdums:switchb': 'battle.ON_CUSTOM_TRIGGER.enemy_9023_acdums.switch_b',
+  'dslily:doom': 'battle.ON_BUFF_TRIGGER.dslily_doom[audio]',
+  'smdeer:doom': 'battle.ON_CUSTOM_TRIGGER.enemy_smdeer_doom[audio]',
+  // the 重生 ones: 扎罗's knock-out (M1 Talents/Reborn BuffToOwner ON_CAST_START enemy_wlfmster_trigger_fear), “巨大的丑东西”
+  // up again (its RebornTalent's buff mcmstr_t_state_1[reborn]), a 守墓石像 taking wing (Switch2Fly/Born2Fly dugago_reborn),
+  // an ember / 假想敌：再生 standing up (Prop mode Revive[Trigger] / enemy_acpupp_revive_listener's trigger), 喷气人 landing
+  // (enemy_balloon_s[fly]'s end → balloon_s[land])
+  'wlfmster:reborn': 'battle.ON_BUFF_START.enemy_wlfmster_reborn_start',
+  'mcmstr:reborn': 'battle.ON_BUFF_START.mcmstr_t_state_1[reborn]',
+  'dugago:reborn': 'battle.ON_BUFF_START.dugago_reborn',
+  'duskls:revive': 'battle.ON_BUFF_TRIGGER.enemy_duskls_revive',
+  'duskld:revive': 'battle.ON_BUFF_TRIGGER.enemy_duskld_revive',
+  'acpupp:revive': 'battle.ON_CUSTOM_TRIGGER.acpupp_revive_1',
+  'balloon:land': 'battle.ON_BUFF_START.balloon_s[land]',
 });
 
 /**

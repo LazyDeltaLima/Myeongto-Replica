@@ -434,7 +434,7 @@ unit keeps it (`e.form`, published as UnitInfo `form`, so a view built mid-battl
 teammate's field, 联防 observers, a reconnect — starts in it: `render/app/info.js renderInfo` hands it to the view) and the
 fx announces it as its `form`: a 'phase' fx (crawl, translator_*, a prisoner's 'warning' — also its `kind`), 'ember'
 ('husk'), 'revive' ('revived' / 'form2' / 'fly'), 'telegraph' ('reborn'), 'stone' ('stone') or 'liberate' (a prisoner's
-'liberty') — render/units.js FORMS. An operator has one
+'liberty'; `forced` 1 when another's liberation freed it — 重犯, 杰斯顿) — render/units.js FORMS. An operator has one
 form too: a 傀儡师's <替身> (`professions.js installDollkeeper`: `u.form` 'doll' from the switch to it — fx 'substitute'
 `{ form: 'doll', dur }` — until the switch back, fx 'swap' `{ form: null }`, or its knock-out, fx 'dollEnd' `{ form: null }`
 after the 'die' event). Barrier / charge
@@ -1472,7 +1472,8 @@ Unknown subprofessions fall back to the profession default (test `professions.te
   `kitHit` `{ id, k }`: a sound-only moment of a kit — `k` names the official bank (`sfx.kit[k]`, tools/assets/kit-sfx.mjs:
   望 S1's DoT tick `wang:1`, 赤刃明霄陈 S3's 剑气 `chen3:s3`, 阿斯卡纶 S2's 死亡拘审 kill `ascln:s2bomb`, 灵知's 殊途同归 going off 10 s after
   each deployment `gnosis:t2`, 缇缇 T1's tick on the sleeping enemies `titi:t1` and S3's sleep spreading from a sleeping enemy killed `titi:spread`, with `n` = how many — `id` = the operator; `aoe` of 菲莱 S2
-  and of a 凛御银灰 S2 slash carries `n`, the enemies it hit, for their per-enemy sound); `crit` `{ id, by? }`: a crit mark on target `id` — 寒芒克洛丝's 中的 adds `by` (her id; the
+  and of a 凛御银灰 S2 slash carries `n`, the enemies it hit, for their per-enemy sound; a “余音”'s 'phase' `echo_gold` /
+  `echo_dark` carries `hit` 1 when its own hits switched it — its switch sound, docs/rules/audio.md 「적 버프·커스텀 트리거 소리」); `crit` `{ id, by? }`: a crit mark on target `id` — 寒芒克洛丝's 中的 adds `by` (her id; the
   sound of her T.1 shot rides on its 'swing' / 'atk' `signal`, not on this mark); `copy` `{ id, src, mode, by }`: 缪尔赛思's 流形 `id` copies operator `src` — `mode` its
   prefab mode from then on (`'Melee'` / `'Range'`; the client's `_S3` / `_S2` variants while her S3 / S2 runs follow from `by`'s 'skill');
   `enemySkill` `{ id, ability, n }`: an enemy's content skill is cast (`content/enemies.js onTick`, before its effects) — `ability` = the official

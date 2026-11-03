@@ -1047,8 +1047,8 @@ function kitSpring(ab, e) {
 
 const echoesOf = (b, form) => b.enemies.filter((o) => o.alive && o.defId === ECHO_KEY && o.mem.ab && o.mem.ab.form === form);
 
-/** Switch an echo's form. */
-export function setEchoForm(b, echo, form) {
+/** Switch an echo's form (`hit`: its own switch after its hits, acdums_t_1 — the fx `hit` its switch sound, audio). */
+export function setEchoForm(b, echo, form, hit = false) {
   const ab = echo.mem.ab;
   if (!ab) return;
   ab.form = form;
@@ -1057,7 +1057,7 @@ export function setEchoForm(b, echo, form) {
   // Modes/Depression Talents/2: MOVE_SPEED, MULTIPLIER +0.2 — until 2026-10-14 it was −20 %)
   const mods = form === 'gold' ? { aspd: T(ab, '1.attack_speed') ?? 0 } : { atkPct: T(ab, '2.atk') ?? 0, moveMul: 1 + (T(ab, '2.move_speed') ?? 0) };
   b.addBuff(echo, { key: 'boss:echoForm', persist: true, visible: true, mods });
-  b.fx('phase', { x: echo.x, y: echo.y, id: echo.id, kind: `echo_${form}` });
+  b.fx('phase', hit ? { x: echo.x, y: echo.y, id: echo.id, kind: `echo_${form}`, hit: 1 } : { x: echo.x, y: echo.y, id: echo.id, kind: `echo_${form}` });
 }
 
 /** An echo takes a strike/hit: pulse around it (PRTS “余音” "受到伤害时对半径1.6范围内的我方单位造成…": an area selection of the
@@ -1081,7 +1081,7 @@ export function echoHit(b, echo) {
       }
       const need = ab.form === 'gold' ? T(ab, '1.hit_times_to_switch') : T(ab, '2.hit_times_to_switch');
       ab.strikes = (ab.strikes ?? 0) + 1;
-      if (echo.alive && need > 0 && ab.strikes >= need) setEchoForm(b, echo, ab.form === 'gold' ? 'dark' : 'gold');
+      if (echo.alive && need > 0 && ab.strikes >= need) setEchoForm(b, echo, ab.form === 'gold' ? 'dark' : 'gold', true);
     }
   } finally { ab.pulses.length = 0; ab.pulsing = false; }
 }

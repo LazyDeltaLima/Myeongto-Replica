@@ -1,0 +1,121 @@
+// test/audio-enemy-buff-sounds.test.js — enemy buff / custom-trigger sounds of 2026-11-03 (docs/rules/audio.md 「적 버프·커스텀
+// 트리거 소리」, EN client enemy prefabs and buff templates): a prisoner's 【解放】 (and freed by another), 阿利斯泰尔's piece
+// picked up and vest taken, 绯红歌伶's war song, a hand of 假想敌：胄 shot down, “余音”'s ensembles · pulse · hit switch, 昆图斯's
+// and “萨米的意志”'s dooms. The committed data/assets.json may predate these keys: the manifest here is it plus the keys built
+// from the official audio_data.json (tools/assets/kit-sfx.mjs kitHitSfx).
+
+import { describe, test } from 'node:test';
+import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { AudioManager, enemyBuffSounds, enemyStatusOffSound } from '../public/js/audio.js';
+import { KIT_HIT_BANKS, kitHitSfx } from '../tools/assets/kit-sfx.mjs';
+import { indexAudio } from '../tools/assets/audio.mjs';
+import { makeBattle } from './helpers/battleHarness.js';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const OFFICIAL = path.join(ROOT, '.cache', 'gamedata', 'excel', 'audio_data.json');
+const NO_DATA = !existsSync(OFFICIAL) && 'no .cache/gamedata';
+const file = (u) => String(u).split('/').pop();
+
+let built = null;
+function manifest() {
+  if (built) return built;
+  const m = JSON.parse(readFileSync(path.join(ROOT, 'data', 'assets.json'), 'utf8'));
+  const audio = indexAudio(JSON.parse(readFileSync(OFFICIAL, 'utf8')));
+  Object.assign(m.audio.sfx.kit, kitHitSfx(audio, (p) => `/assets/audio/sfx/${file(p[0])}`));
+  return (built = m);
+}
+function manager() {
+  const a = new AudioManager({ win: null, getManifest: manifest, random: () => 0 });
+  a.ctx = { currentTime: 0 };
+  a.played = [];
+  a._play = (url, o) => { a.played.push(o?.delay ? `${file(url)}@${o.delay}` : file(url)); };
+  a.voice = () => false;
+  return a;
+}
+
+describe('enemy buff / custom-trigger sounds (2026-11-03)', () => {
+  test('the banks', { skip: NO_DATA }, () => {
+    const out = kitHitSfx(indexAudio(JSON.parse(readFileSync(OFFICIAL, 'utf8'))), (p) => p);
+    const want = [
+      'liberty:state', 'liberty:force', 'vtmstr:equip', 'vtlionk:shld', 'csdcr:skill', 'acstma:stun', 'acstmb:stun',
+      'acdums:passion', 'acdums:passion2', 'acdums:depassion', 'acdums:depassion2', 'acdums:aoe', 'acdums:switcha',
+      'acdums:switchb', 'dslily:doom', 'smdeer:doom', 'wlfmster:reborn', 'mcmstr:reborn', 'dugago:reborn', 'duskls:revive',
+      'duskld:revive', 'acpupp:revive', 'balloon:land',
+    ];
+    for (const k of want) {
+      assert.ok(KIT_HIT_BANKS[k], k);
+      assert.ok(out[k]?.length, `${k}: a sound in ${KIT_HIT_BANKS[k]}`);
+    }
+  });
+
+  test('the events (pure)', () => {
+    const units = { 1: { def: 'enemy_9014_acstma' }, 2: { def: 'enemy_9015_acstmb' }, 3: { def: 'enemy_9023_acdums' }, 4: { def: 'enemy_9032_aclionk' }, 5: { def: 'enemy_1007_slime' } };
+    const of = (id) => units[id];
+    const keys = (fx, ex) => enemyBuffSounds(fx, ex, of);
+    assert.deepEqual(keys('liberate', { id: 5, form: 'liberty' }), [['liberty:state', null]]);
+    assert.deepEqual(keys('liberate', { id: 5, form: 'liberty', forced: 1 }), [['liberty:force', null], ['liberty:state', null]]);
+    assert.deepEqual(keys('equip', { id: 9, kind: 'pickup' }), [['vtmstr:equip', null]]);
+    assert.deepEqual(keys('equip', { id: 9 }), [], 'a piece dropped on the field');
+    assert.deepEqual(keys('vest', { id: 4, side: 1 }), [['vtlionk:shld', null]]);
+    assert.deepEqual(keys('telegraph', { id: 5, kind: 'songOfWar' }), [['csdcr:skill', null]]);
+    assert.deepEqual(keys('telegraph', { id: 5, kind: 'speciesBurst' }), [['dslily:doom', 1], ['dslily:doom', 2], ['dslily:doom', 3]]);
+    assert.deepEqual(keys('telegraph', { id: 5, kind: 'samiDoom' }), [['smdeer:doom', 1.8]]);
+    assert.deepEqual(keys('phase', { id: 1, kind: 'shotDown' }), [['acstma:stun', null]]);
+    assert.deepEqual(keys('phase', { id: 2, kind: 'shotDown' }), [['acstmb:stun', null]]);
+    assert.deepEqual(keys('phase', { id: 3, kind: 'echo_gold', hit: 1 }), [['acdums:switcha', null]]);
+    assert.deepEqual(keys('phase', { id: 3, kind: 'echo_dark', hit: 1 }), [['acdums:switchb', null]]);
+    assert.deepEqual(keys('phase', { id: 3, kind: 'echo_dark' }), [], 'the form it starts in, or one a 管 / 弦 gives');
+    assert.deepEqual(keys('explode', { kind: 'echoPulse' }), [['acdums:aoe', null]]);
+    assert.deepEqual(keys('enemySkill', { id: 3, ability: 'PassionSkill' }), [['acdums:passion', null], ['acdums:passion2', null]]);
+    assert.deepEqual(keys('enemySkill', { id: 3, ability: 'DepassionSkill' }), [['acdums:depassion', null], ['acdums:depassion2', null]]);
+    assert.deepEqual(keys('enemySkill', { id: 5, ability: 'PassionSkill' }), []);
+    // the 重生 ones
+    const of2 = (id) => ({ 1: { def: 'enemy_1535_wlfmster' }, 2: { def: 'enemy_1512_mcmstr' }, 3: { def: 'enemy_1172_dugago_2' }, 4: { def: 'enemy_1288_duskls' }, 5: { def: 'enemy_9010_acpupp' }, 6: { def: 'enemy_1007_slime' } })[id];
+    const k2 = (fx, ex) => enemyBuffSounds(fx, ex, of2).map(([k]) => k);
+    assert.deepEqual(k2('telegraph', { id: 1, kind: 'reborn', form: 'reborn' }), ['wlfmster:reborn'], 'its knock-out');
+    assert.deepEqual(k2('revive', { id: 1, kind: 'reborn', form: 'form2' }), [], 'not at its end');
+    assert.deepEqual(k2('revive', { id: 2, kind: 'reborn', form: 'form2' }), ['mcmstr:reborn']);
+    assert.deepEqual(k2('revive', { id: 3, kind: 'fly', form: 'fly' }), ['dugago:reborn']);
+    assert.deepEqual(k2('revive', { id: 4, form: 'revived' }), ['duskls:revive']);
+    assert.deepEqual(k2('revive', { id: 5, form: 'revived' }), ['acpupp:revive']);
+    assert.deepEqual(k2('revive', { id: 6, kind: 'reborn' }), []);
+    assert.equal(enemyStatusOffSound('ab:takeoff', 'enemy_2004_balloon'), 'balloon:land');
+    assert.equal(enemyStatusOffSound('ab:takeoff', 'enemy_1007_slime'), null);
+  });
+
+  test('the audio manager plays them', { skip: NO_DATA }, () => {
+    const a = manager();
+    a.setFieldUnits([{ id: 3, kind: 'enemy', side: 'enemy', spine: 'enemy_9023_acdums' }, { id: 5, kind: 'enemy', side: 'enemy', spine: 'enemy_1121_lifbos' }]);
+    const heard = (ev) => { a.played.length = 0; a.handleBattleEvents(ev); return [...a.played]; };
+    assert.equal(heard([['fx', 'liberate', 0, 0, { id: 5, form: 'liberty', forced: 1 }]]).length, 2);
+    // the [delay] bank's own 0.7 s (audio_data `delay`), the doom's 1 s triggers
+    assert.ok(heard([['fx', 'enemySkill', 0, 0, { id: 3, ability: 'PassionSkill', n: 1 }]]).some((f) => f.startsWith('e_imp_slstrmnhg_d_u')));
+    assert.deepEqual(heard([['fx', 'telegraph', 0, 0, { id: 5, kind: 'speciesBurst', r: 99 }]]).map((f) => f.replace(/^.*@/, '')), ['1', '2', '3']);
+    a.setFieldUnits([{ id: 8, kind: 'enemy', side: 'enemy', spine: 'enemy_2004_balloon' }]);
+    assert.equal(heard([['status', 8, 'ab:takeoff', 1]]).length, 0);
+    assert.equal(heard([['status', 8, 'ab:takeoff', 0]]).length, 1, 'its landing');
+  });
+
+  test('a battle: 重犯 freed frees the other prisoners — `forced` on theirs only', () => {
+    const h = makeBattle({
+      units: [{ chessId: 'chess_char_1_01_a', row: 2, col: 2 }],
+      enemies: [{ key: 'enemy_1121_lifbos', pos: [2, 3] }, { key: 'enemy_1116_liprr', pos: [2, 8] }, { key: 'enemy_1116_liprr', pos: [2, 9] }],
+      timeLimit: 999, autoFinish: false, captureNoisy: true,
+    });
+    h.step(0.5);
+    const boss = h.b.enemies.find((e) => e.defId === 'enemy_1121_lifbos');
+    assert.ok(boss && h.b.enemies.length === 3, 'all three on the field');
+    // its 4th attack frees it (archetypes.js prisoner `before`): the kit's own liberate, as that attack calls it
+    const x = boss.mem.ab.list.find((k) => k.liberate);
+    x.liberate(h.b, boss, x);
+    h.step(0.1);
+    const lib = h.eventsOf('fx').filter((x) => x[1] === 'liberate');
+    assert.equal(lib.length, 3, 'the 重犯 and both others');
+    assert.ok(lib.find((x) => x[4].id === boss.id && !x[4].forced), 'its own liberation is not forced');
+    assert.equal(lib.filter((x) => x[4].forced).length, 2);
+  });
+});
