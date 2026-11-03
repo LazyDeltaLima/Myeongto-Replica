@@ -774,8 +774,13 @@
     선택자를 쓰는 범위 스킬도 게를 고르는지는 안 봄); 소환물도 게를 침 — 덱 `RechargeToken`(`Deck.RechargeToken`·`Card.RechargeToken`, 색인에 없음)과
     위수협의 손패 규칙을 읽어야 함].
   - 하루카 [추정·미조사: 비눗방울은 그녀가 떠나도 남음 — 능력이 준 버프가 주인 퇴장 때 남는지].
-  - 나이팅게일 [추정·미조사: 쓰러진 환영이 돌아오는 조건 = 재고 1·재배치 시간·DP. 망의 바둑돌은 돌아올 때 재고를 쓰지 않는다(위 「망」, 관리자 결정
-    2026-10-08) — 스테인리스 장치와 함께 같은 규칙으로 맞출지는 관리자 결정 대기].
+- 쓰러진 소환물의 복귀(관리자 결정 2026-11-03 「공식대로」, 공식 클라에서 확인): 위수협의 자동 배치(`AutoChessBattleTrigger._TryDeployAvailableCharacter`)는
+  정비 때 놓인 말마다 그 카드의 `readyToSpawn`을 묻는다 — 토큰 카드(`Deck.TokenCard`)는 최대 배치 수 미만, 그리고 기본 카드 검사: 숨김 아님(남은 장수
+  `remainingCnt` > 0, 주인 생존 `m_hostIsAlive`), 상태 READY·QUEUING(재배치 시간이 지남), DP 충분 — 이면 `_AutoDeploy`가 `freely: false`로 한 장을 쓴다.
+  장치 셋·환영·사일런스 드론·망의 바둑돌 모두 카드 정책 `DEFAULT`(토큰 프리팹 `_cardPolicy` 0). 그래서 스테인리스 장치·나이팅게일 환영은 **재고 하나를 쓰고
+  DP를 내며 재배치 시간 뒤, 주인이 서 있을 때만** 자기 칸에 돌아온다. 바꾼 것: 나이팅게일 환영이 그녀가 쓰러져 있어도 돌아오던 것(upstream) → 그녀가
+  다시 설 때까지 기다림(사일런스 드론·스테인리스 장치와 같음). 망의 바둑돌(재고를 쓰지 않음, 위 「망」 관리자 결정 2026-10-08)은 발동 때 철수(`Withdraw`)로
+  떠나서 카드가 돌아오는지가 다르다 [추정·미조사: 토큰 철수 때 카드 장수가 돌아오는 코드는 안 읽음] — 그대로 둠.
 - 이펙트·공격 타이밍·투사체·스킬 시전·모드·HUD 데이터: EN 클라에서 뽑음(2026-11-03, `tools/local-extract/add_operator.py --id …` 세 명 한 번). 장치 이펙트
   (`token_ironmn_pile*`)는 공용 토큰 팩에서, 나이팅게일 S1의 `common_ignite_support`는 공용 번들에서 따로(`fx_extract.py --pack`). 화면 확인 전.
 - 테스트: `test/content/op_ironmn.test.js`(13)·`op_haruka.test.js`(10)·`op_cgbird.test.js`(11) — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 소환물, 실제 매치 경로 하나씩(upstream 테스트에 없어 더함);

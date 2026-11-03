@@ -251,7 +251,7 @@ test('幻影 (T2): the token of her form — HP 3000 / 4989, RES 75, blocks noth
   }
 });
 
-test('幻影: each 夜莺 deployment adds 2 (RIN-Y stage 3: 3) to her stock, at most 3; a fallen 幻影 comes back on its tile 20 s later using one and paying 5 DP; it stays when she leaves', () => {
+test('幻影: each 夜莺 deployment adds 2 (RIN-Y stage 3: 3) to her stock, at most 3; a fallen 幻影 comes back on its tile 20 s later using one and paying 5 DP, only while she stands; it stays when she leaves', () => {
   for (const f of [[5, true, RINY], [6, true, RINY], [6, false, null]]) {
     const [tier, elite, mod] = f;
     const { h, u, bird } = field({ tier, elite, mod, skill: 0, phantom: [12, 8], dp: 50 });
@@ -283,6 +283,15 @@ test('幻影: each 夜莺 deployment adds 2 (RIN-Y stage 3: 3) to her stock, at 
     u.mem.phantomStock = 1;
     assert.ok(h.runUntil(() => bird.alive, 1), `${label(f)}: comes as soon as one is held`);
     assert.equal(u.mem.phantomStock, 0);
+    // she is down: a fallen 幻影 waits for her (the token card is hidden while its host is not alive); back with her
+    h.b.kill(bird, null);
+    h.b.retreat(u);
+    h.step();
+    u.mem.phantomStock = 1;
+    h.run(30);
+    assert.ok(!bird.alive, `${label(f)}: not while she is off the field`);
+    h.b.redeploy(u, { free: true });
+    assert.ok(h.runUntil(() => bird.alive, 1), `${label(f)}: back once she stands again`);
     done(h);
   }
 });

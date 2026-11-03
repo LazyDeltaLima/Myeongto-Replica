@@ -35,7 +35,8 @@
 //   start for free (the mode's rule). His 持有 (stock) is cnt (T1, 3) + CRA-X's trait cnt (1) after each of his deployments
 //   (charge_token[born] + trigger_charge_token), capped there (持有上限). A device that leaves the field comes back on its own
 //   tile — after its redeploy time (data respawnTime, CRA-Y less), paying its cost (data, CRA-X less) and spending one of the
-//   stock — while he stands; when he leaves, his devices go with him (die_to_kill_token) and come back the same way after his
+//   stock — while he stands (the official automatic deployment: the token card's readyToSpawn wants remainingCnt > 0 and
+//   its host alive, and _AutoDeploy draws one; as 夜莺's 幻影, op-cgbird.js); when he leaves, his devices go with him (die_to_kill_token) and come back the same way after his
 //   return (stock refilled). The devices never attack, block nobody, are 禁疗; 白铁™多功能平台 is untargetable and invulnerable
 //   ("不会受到攻击"; PRTS 持有无敌).
 // - T1 战地工程师 "可以携带3个<支援装置>(最多可部署2个)": the stock above; the 2 deployable are the hand pieces. CRA-Y stage 2+

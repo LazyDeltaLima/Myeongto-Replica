@@ -22,9 +22,11 @@
 //   stage 3 "40%的物理闪避": the module variant's talent). The 幻影 is a hand piece (the match's per-player shop): a placed
 //   one deploys with the board at the battle start for free and without using her stock. Each deployment of 夜莺 adds
 //   cnt (2; RIN-Y stage 2+: 3) to her stock, at most PHANTOM_HOLD_CAP; a placed 幻影 that falls comes back on its own tile
-//   once its redeploy time (respawnTime) has passed and she holds one — using one, paying its DP cost as a deployment
-//   does [ASSUMED: "满足条件" = a 幻影 held, its redeploy time, the DP], whether 夜莺 is on the field or not (deployed
-//   幻影 stay when she leaves: PRTS 备注). No tokens.js kit: its talent and its return are this kit's (owner-coupled,
+//   once its redeploy time (respawnTime) has passed, she holds one and she stands — using one, paying its DP cost as a
+//   deployment does. That is the official client's automatic deployment (AutoChessBattleTrigger._TryDeployAvailableCharacter
+//   → the token card's readyToSpawn: not hidden — remainingCnt > 0 and m_hostIsAlive —, its state READY / QUEUING — the
+//   redeploy time over —, not at its deploy limit, the DP; _AutoDeploy draws it not freely, one used); deployed 幻影 stay
+//   when she leaves (PRTS 备注). No tokens.js kit: its talent and its return are this kit's (owner-coupled,
 //   as tokens.js "Managed mode"), applied at each of its deployments.
 // - S1 治疗强化·γ型 (MANUAL, 30 s, data DEFAULT — heal skill): ATK +atk.
 // - S2 法术护盾 (AUTO, 2 charges, data DEFAULT — a "next heal" waits for her heal, as 闪灵's S2): "下次治疗使所有目标获得一个
@@ -41,7 +43,7 @@
 //   ("获得20%的法术闪避"), refreshed every 0.2 s.
 // Medic: heals only (dmgType heal), ranged, no anti-air question; ground enemies target her normally (no 起飞 / 迷彩 / 隐匿).
 
-import { num, talentBb, moduleBb, moduleOn, skillRec } from '../shared/tier1.js';
+import { num, up, talentBb, moduleBb, moduleOn, skillRec } from '../shared/tier1.js';
 import { rangeAura, grantBarrier } from '../shared/barrier.js';
 
 const S1 = 'skcom_heal_up[3]';
@@ -142,7 +144,7 @@ export default {
             const at = battle.time + Math.max(0, num(t.base.respawnTime));
             battle.every(RETRY, (b, sched) => {
               if (t.alive || t.removed || b.finished) { sched.cancel(); return; }
-              if (b.time + 1e-9 < at || !((unit.mem.phantomStock ?? 0) > 0)) return;
+              if (b.time + 1e-9 < at || !((unit.mem.phantomStock ?? 0) > 0) || !up(unit)) return;
               if (b.redeploy(t, { free: false })) { unit.mem.phantomStock--; sched.cancel(); }
             }, { owner: unit });
           }, { owner: unit });
