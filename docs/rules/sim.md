@@ -1614,7 +1614,10 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
 
 ### 阿利斯泰尔 防护背心 방향 (`kitLion` 【莫非王土】)
 - **규칙**: 조끼를 활성화할 때마다 막는 면이 번갈아 바뀐다(클라 버프 템플릿 `enemy_vtlionk_shld`의 `front` 토글) — 알리스테어 유닛마다 첫 조끼는 **앞면**(보스가
-  바라보는 쪽), 그다음은 직전의 반대쪽. 5000 보호막이 남아 있는 동안 그 면(공격자의 칸 위치)에서 온 피해 ×(1 − `damage_resistance`).
+  바라보는 쪽), 그다음은 직전의 반대쪽. 5000 보호막이 남아 있는 동안 그 면에서 온 **물리·법술** 피해 ×(1 − `damage_resistance`).
+- **면은 격자 열로** (2026-11-03): 공격자 칸의 열과 보스가 선 칸의 열을 비교하고, 같은 열이면 어느 면도 아니라 감쇠 없음. 진실 피해는 줄지 않는다(보호막은 그대로 깎임).
+  근거: 템플릿 `enemy_vtlionk_shld` ON_TAKE_DAMAGE `CheckIfSourceGridPosFaceTargetGridPos`(`_targetColOffset` 0, `_faceIfSameCol` NONE) → `DamageScale`
+  `_damageMask` PHYSICAL_AND_MAGICAL; 보호막 `BlockDamage`는 `_filterDamageType` false(모든 피해). 전에는 연속 x·모든 피해 종류였다. 테스트 「阿利斯泰尔 防护背心: the guarded side is by grid column…」.
 - **첫 면 = 앞면** (관리자 결정 2026-10-15, 관리자 노트의 공식 대조): 보스 `CommonAbilities/Ability0`의 `enemy_vtlionk_unmove`에
   블랙보드가 없어 `front`가 0에서 시작 → 첫 조끼의 ON_BUFF_START가 1로 바꿈 → FRONT. 노드 `Execute`는 보스 `get_faceTo`를 4방향으로 맞춰 열을
   비교한다. 우리는 앞면 = 보스 경로가 처음 열을 바꾸는 쪽(`frontSide`): 공식 경로 (3,10) → (2,2)는 −x(열 번호가 작은 쪽). [ASSUMED] 출발점에서 기다리는
@@ -2412,7 +2415,7 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
   아니어서 감쇠 없음. 전에는 연속 x로 봐서 같은 칸 안의 오프셋도 앞뒤가 갈렸다. 방향 규칙(디자이너는 이동으로만, 동글이는 오퍼레이터가 많은 쪽)은 그대로.
 - 근거: 공식 템플릿 `enemy_crshd_t[shield]`·`skzjxd_t[shield]` ON_TAKE_DAMAGE `CheckIfSourceGridPosFaceTargetGridPos` — `_faceType` FRONT, `_targetColOffset` 0,
   `_faceIfSameCol` NONE(둘 다 같음). upstream 대조 중 우리 쪽에서 찾은 차이(관리자 결정 2026-10-29).
-- 그대로 둔 것: 알리스테어의 조끼 방향 감쇠(`kitLion hitIn`, 템플릿 `enemy_vtlionk_shld`도 같은 노드, `_faceType` BACK)는 아직 연속 x다 — 이번 범위 밖, 관리자의 열린 일 목록에 둠.
+- 알리스테어의 조끼 방향 감쇠(`kitLion hitIn`, 템플릿 `enemy_vtlionk_shld`도 같은 노드)도 2026-11-03부터 같은 열 비교 — 「阿利斯泰尔 防护背心 방향」 절.
 - 테스트 「心虚设计师: front by grid column…」.
 
 

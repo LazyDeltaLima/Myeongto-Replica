@@ -4066,7 +4066,7 @@ for (const key of ['enemy_10028_vtswd', 'enemy_10029_vtshld', 'enemy_10030_vtwan
   });
 }
 
-test('阿利斯泰尔 防护背心: an animated vest gives a barrier and −80 % damage from the guarded side — first its front (its route\'s way, −x here), then the other side with each vest (wherever the vest lay)', () => {
+test('阿利斯泰尔 防护背心: an animated vest gives a barrier and −80 % physical / arts damage from the guarded side — first its front (its route\'s way, −x here), then the other side with each vest (wherever the vest lay)', () => {
   const h = bossArena({ units: [{ chessId: 't_gun', row: 10, col: 4 }, { chessId: 't_mage', row: 10, col: 16 }], kits: { t_gun: NOATK, t_mage: NOATK } });
   h.step();
   const e = put(h, 'enemy_9032_aclionk', [3, 10], { tag: 'boss' });
@@ -4079,18 +4079,42 @@ test('阿利斯泰尔 防护背心: an animated vest gives a barrier and −80 %
   const st = skb('enemy_9032_aclionk', 'store').bb;
   assert.equal(v.shield, st.dynamic);
   assert.equal(v.data.side, -1, 'the first vest guards the FRONT (official `front` toggle from 0), the side it faces: −x');
-  h.b.dealDamage(h.unit('t_gun'), e, { amount: 1000, type: 'true' });      // from the guarded side (−x)
-  approx(v.shield, st.dynamic - 1000 * (1 - st.damage_resistance));
-  h.b.dealDamage(h.unit('t_mage'), e, { amount: 1000, type: 'true' });     // from the other side
-  approx(v.shield, st.dynamic - 1000 * (1 - st.damage_resistance) - 1000);
+  const drop = (u, type) => { const s0 = v.shield; h.b.dealDamage(h.unit(u), e, { amount: 1000, type }); return s0 - v.shield; };
+  for (const type of ['phys', 'arts']) {
+    const cut = drop('t_gun', type), open = drop('t_mage', type);    // from the guarded side (−x), then the other side
+    assert.ok(open > 0);
+    approx(cut, open * (1 - st.damage_resistance));
+  }
+  approx(drop('t_gun', 'true'), drop('t_mage', 'true'), 1e-6, 'true damage is never cut (DamageScale PHYSICAL_AND_MAGICAL)');
   // the next vest, lying on the left this time, guards the other side (+x)
   const vest2 = put(h, 'enemy_10029_vtshld', [3, 8], { tag: 'part' });
   h.runUntil(() => !vest2.alive, skb('enemy_9032_aclionk', 'equip').spCost + 3);
   const v2 = e.findBuff('boss:vest');
   assert.equal(v2.data.side, 1);
   const s0 = v2.shield;
-  h.b.dealDamage(h.unit('t_mage'), e, { amount: 1000, type: 'true' });
-  approx(v2.shield, s0 - 1000 * (1 - st.damage_resistance));
+  h.b.dealDamage(h.unit('t_mage'), e, { amount: 1000, type: 'phys' });
+  const cut = s0 - v2.shield, s1 = v2.shield;
+  h.b.dealDamage(h.unit('t_gun'), e, { amount: 1000, type: 'phys' });
+  approx(cut, (s1 - v2.shield) * (1 - st.damage_resistance));
+});
+
+test('阿利斯泰尔 防护背心: the guarded side is by grid column — an attacker in the boss\'s column, even off its centre, is on neither side (official enemy_vtlionk_shld _faceIfSameCol NONE)', () => {
+  const h = bossArena({ units: [{ chessId: 't_gun', row: 10, col: 4 }, { chessId: 't_mage', row: 10, col: 10 }], kits: { t_gun: NOATK, t_mage: NOATK } });
+  h.step();
+  const e = put(h, 'enemy_9032_aclionk', [3, 10], { tag: 'boss' });
+  e.profile.noAttack = true;
+  put(h, 'enemy_10029_vtshld', [3, 12], { tag: 'part' });
+  h.run(2.2);
+  const v = e.findBuff('boss:vest');
+  assert.equal(v.data.side, -1);
+  e.x = 10.3;                                                               // inside its own column, right of the centre
+  const mage = h.unit('t_mage');
+  mage.x = 9.8;                                                             // left of the boss's x, same column
+  const drop = (u) => { const s0 = v.shield; h.b.dealDamage(u, e, { amount: 1000, type: 'phys' }); return s0 - v.shield; };
+  const same = drop(mage);
+  mage.x = 16;                                                              // the open side, for the full amount
+  approx(same, drop(mage), 1e-6, 'no cut from the same column');
+  assert.ok(drop(h.unit('t_gun')) < same, 'the guarded side (another column) is cut');
 });
 
 test('阿利斯泰尔 未装配刀片: 莫非王土 on a sword strikes an operator for ATK×2', () => {

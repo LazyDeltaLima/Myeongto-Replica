@@ -1671,9 +1671,14 @@ function kitLion(ab, e, b) {
         if (P.nextAnim == null) P.nextAnim = b2.time + ANIMATE_DELAY;
         if (b2.time >= P.nextAnim && animate(b2, e2)) P.nextAnim = b2.time + (Number.isFinite(cost) ? cost : ANIMATE_DELAY);
       },
-      hitIn(c, b2, e2) { // vest: damage from its side ×(1 − damage_resistance) while the barrier holds
-        const v = e2.findBuff('boss:vest');
-        if (v && v.shield > 0 && c.source && Math.sign(c.source.x - e2.x) === v.data.side) c.dmg.mul *= 1 - v.data.cut;
+      // vest: physical / arts damage from its side ×(1 − damage_resistance) while the barrier holds. The side is by grid
+      // column, as the official template enemy_vtlionk_shld (ON_TAKE_DAMAGE CheckIfSourceGridPosFaceTargetGridPos,
+      // `_targetColOffset` 0, `_faceIfSameCol` NONE; DamageScale PHYSICAL_AND_MAGICAL): an attacker in the boss's column
+      // is on neither side, and true damage is never cut (until 2026-11-03 the exact x and every damage type)
+      hitIn(c, b2, e2) {
+        const v = e2.findBuff('boss:vest'), s = c.source, ty = c.dmg.type;
+        if (!v || !(v.shield > 0) || !s || (ty !== 'phys' && ty !== 'arts')) return;
+        if (Math.sign(Math.round(s.x) - Math.round(e2.x)) === v.data.side) c.dmg.mul *= 1 - v.data.cut;
       },
     },
     // 【王权号令】 (equip, ≤50 % equipA; its cooldown 0): with full SP it waits for the attack's turn and is cast in place of
