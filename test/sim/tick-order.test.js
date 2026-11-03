@@ -85,6 +85,27 @@ test('the enemy tile index follows each enemy as it moves', () => {
   checkInvariants(h.b);
 });
 
+test("an ally's skill duration runs out after its buffs and before its block search", () => {
+  const op = chessRec({ id: 't_dur', stats: { atk: 0, blockCnt: 1, maxHp: 1e6 }, skill: { spCost: 2, initSp: 2, duration: 1 } });
+  const h = makeBattle({
+    defs: { chess: { t_dur: op }, enemies: {} },
+    units: [{ chessId: 't_dur', row: 9, col: 3 }], enemies: [], timeLimit: 100, content: 'generic', autoFinish: false,
+    kits: { t_dur: () => ({ skill: { kind: 'duration', trigger: 'NEVER', mods: { blockCnt: 1 } } }) },
+  });
+  h.step(1);
+  const u = h.unit('t_dur');
+  const log = [];
+  // every tick a search is due (its ticker set to run out in this tick, before the search)
+  h.b.addBuff(u, marker(log, { onTick: () => { log.push('buffs'); u.blockSearchTick = 0; } }));
+  const search = h.b._searchBlockees;
+  h.b._searchBlockees = function (x) { if (x === u) log.push('search'); return search.call(this, x); };
+  h.b.on('skillEnd', (c) => { if (c.unit === u) log.push('end'); });
+  assert.equal(u.skill.activate('manual'), true);
+  h.runUntil(() => log.includes('end'), 2);
+  assert.deepEqual(log.slice(log.lastIndexOf('buffs')), ['buffs', 'end', 'search'], 'its buffs, the end, then the search');
+  checkInvariants(h.b);
+});
+
 test('a projectile flies in the line too: first in the step after it was fired, by its own number', () => {
   const h = field();
   h.step(1);

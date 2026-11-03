@@ -11897,6 +11897,7 @@
    "- spawn:dead common_enemy_die_01 → enemy",
    "- spawn:dead duckmi_die_01_start → enemy",
    "- spawn:debuff enemy_nhstlk_attack_buff_01 → ally",
+   "- spawn:elemBurst common_firedamage_hit → enemy",
    "- status agoat2_recover_01 → ally",
    "- status buff_silence → enemy",
    "- status buff_sleep → ally",

@@ -63,7 +63,7 @@ export class BattleBlocking {
   /**
    * Ally / device `u`'s search for enemies to block — the blocker's side of the contact rule, as the official client does
    * it (Character.OnTick → `m_findBlockeeTicker.Tick()` → _SearchBlockee). Every blocker searches in its own tick, after
-   * its attack and its buffs and before its skill (battle/lifecycle.js _tickUnits: Unit.OnTick, then the search, then
+   * its attack, its buffs and its skill's duration and before its skill (battle/lifecycle.js _tickUnits: Unit.OnTick, then the search, then
    * BasicSkill.Tick), when its ticker is due (_blockSearchDue): it takes the enemies in contact that it may block, nearest first, while its capacity lasts. Contact (constants.js BLOCK_RADIUS, PRTS 游戏数据基础 §阻挡半径; Character
    * .CheckInBlockRange): the enemy's position within the blocker's block radius of the blocker's centre (ground 0.7071 —
    * the tile's circumscribed circle, reaching 0.21 tile into the side neighbours; air 0.8944; devices 0.4472). The air

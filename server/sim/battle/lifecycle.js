@@ -143,10 +143,10 @@ export class BattleLifecycle {
    * first): one made, spawned or redeployed during the pass ticks from the next step, one that went down before its turn
    * is passed over.
    * An enemy (Enemy.OnTick → Entity.OnTick: its state machine — attack, move —, then BuffContainer.Tick and the HP
-   * recovery): updateEnemy, then its buffs. An ally (Character.OnTick: Unit.OnTick, then `_SearchBlockee`, then
-   * BasicSkill.Tick — the SP recovery and the skill's own tick): updateAlly (a device has no attack), its buffs, its
-   * search for enemies to block when due (battle/blocking.js), then its skill (skills.js tick: SP, the duration [추정·미조사:
-   * where the client counts a skill's duration down is not read], the automatic casts).
+   * recovery): updateEnemy, then its buffs. An ally (Character.OnTick: Unit.OnTick — its abilities, the skill's timer
+   * among them, last —, then `_SearchBlockee`, then BasicSkill.Tick — the SP recovery and the skill's own tick):
+   * updateAlly (a device has no attack), its buffs, its running skill's duration (skills.js tickActive), its search for
+   * enemies to block when due (battle/blocking.js), then its skill (skills.js tick: SP, the automatic casts).
    * The enemy tile index (queries.js _indexEnemy) is filed anew as the pass starts and refiles each enemy after its own
    * tick, so a unit sees the enemies before it in the line where they went this step and those after it where they
    * stood [추정·엔진: the client's physics queries read the colliders where they are; an enemy pushed, pulled or moved by
@@ -208,7 +208,8 @@ export class BattleLifecycle {
   }
 
   /**
-   * Ally `u`'s own tick in the line (_tickUnits): its attack, its buffs, its block search when due, its skill. `seq`: its
+   * Ally `u`'s own tick in the line (_tickUnits): its attack, its buffs, its skill's duration, its block search when due,
+   * its skill. `seq`: its
    * deploySeq as the pass started (a unit redeployed since is a new one: it waits for the next step).
    */
   _tickAlly(u, seq, dt) {
@@ -217,6 +218,9 @@ export class BattleLifecycle {
       try { updateAlly(this, u, dt); } catch (err) { this._internalError('updateAlly', err); }
     }
     if (u.alive) this._tickUnitBuffs(u, dt);
+    if (u.alive && u.deployed && u.skill) {
+      try { u.skill.tickActive(dt); } catch (err) { this._internalError('updateAlly', err); }
+    }
     if (u.alive && u.deployed && this._blockSearchDue(u)) {
       try { this._searchBlockees(u); } catch (err) { this._internalError('searchBlockees', err); }
     }

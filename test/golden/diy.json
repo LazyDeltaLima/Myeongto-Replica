@@ -1150,11 +1150,11 @@
       "bossHpLeft": null,
       "rngDraws": 0,
       "errors": {"count":0,"kinds":[]},
-      "players": {"p1":{"killed":82,"total":111,"perfect":false,"leaks":29,"leaksUncounted":0,"coins":0,"dmg":1489040,"bossDmg":0,"heal":0,"deaths":7,"layerGains":{}}},
+      "players": {"p1":{"killed":82,"total":111,"perfect":false,"leaks":29,"leaksUncounted":0,"coins":0,"dmg":1477196,"bossDmg":0,"heal":0,"deaths":7,"layerGains":{}}},
       "units": [
         ["p1",1,"op","chess_char_5_diy1_b",0,"uniequip_002_judge",1701.99,1,115,0,49985,6737,0,72,25],
-        ["p1",2,"op","chess_char_5_diy2_b",1,"uniequip_002_judge",0,0,4,12,256214,4220,0,63,4],
-        ["p1",3,"op","chess_char_5_diy1_b",2,"uniequip_002_judge",4219.6,1,116,5,39515,4220,0,80,0],
+        ["p1",2,"op","chess_char_5_diy2_b",1,"uniequip_002_judge",0,0,4,12,243962,4220,0,63,4],
+        ["p1",3,"op","chess_char_5_diy1_b",2,"uniequip_002_judge",4219.6,1,116,5,39923,4220,0,80,0],
         ["p1",4,"op","chess_char_5_diy2_b",0,"uniequip_003_judge",4054.6,1,128,5,58974,4055,0,71,24],
         ["p1",5,"op","chess_char_5_diy1_b",1,"uniequip_003_judge",4054.6,1,10,25,670895,0,0,81,4],
         ["p1",6,"op","chess_char_5_diy2_b",2,"uniequip_003_judge",4054.6,1,11,30,384139,0,0,105,4],
@@ -1165,11 +1165,11 @@
         ["p1",11,"op","chess_char_6_diy1_b",1,"none",4054.6,1,7,0,0,0,0,0,0],
         ["p1",12,"op","chess_char_6_diy2_b",2,"none",4054.6,1,9,0,0,0,0,0,0]
       ],
-      "enemies": {"enemy_1010_demon":[54,41,11,3138,677060],"enemy_1320_wdrrl_2":[18,4,11,25743,504569],"enemy_1422_lrsldr_2":[39,37,2,118,388523]},
-      "hooks": [1,128,6900,992,992,4795,4795,0,89,113,71,70,0,19567,2,86,111,24,1,89,0,0,0],
-      "events": {"atk":992,"deploy":17,"die":89,"dmg":4375,"engage":7,"fx":738,"leak":24,"skill":141,"spawn":123,"status":37,"swing":1025},
-      "fx": {"aoe":154,"crit":2,"explode":11,"kitHit":40,"shield":99,"thorns":432},
-      "snaps": "a1e77e91 5740d0fb 7db56e15 d19296d0 59a6f0b7 d34af2ce edebcfc3 8dfa6b2e 741a2d01 2feb183e b75f21d7 55d3ebac a1a316f3 65cd3803 a265f620 def1bf09 55e1aad3 b04dd460 3bd09f09 face9d6c db9a1974 24831371 71c149b1"
+      "enemies": {"enemy_1010_demon":[54,41,11,3138,677060],"enemy_1320_wdrrl_2":[18,4,11,25743,492724],"enemy_1422_lrsldr_2":[39,37,2,118,388523]},
+      "hooks": [1,128,6900,992,992,4781,4781,0,89,113,71,70,0,19568,2,86,111,24,1,89,0,0,0],
+      "events": {"atk":992,"deploy":17,"die":89,"dmg":4361,"engage":7,"fx":731,"leak":24,"skill":141,"spawn":123,"status":37,"swing":1026},
+      "fx": {"aoe":147,"crit":2,"explode":11,"kitHit":40,"shield":99,"thorns":432},
+      "snaps": "a1e77e91 5740d0fb 7db56e15 2b8fa47a 4086781d 259ac1a1 ec521ef4 4efed8b5 bb0d2055 6db2fd98 b070f2bf edb73475 7a2d3082 2f1c71fa 5e16a5a4 b8216ed1 7dd53d3b e52673c8 f2a66081 bda2e2c4 d3ceb6d8 40c9b6c2 3500814c"
     },
     "diy-028": {
       "about": "6_diy1_b=judge/S1/002_judge 6_diy2_b=judge/S2/002_judge 6_diy1_b=judge/S3/002_judge 6_diy2_b=judge/S1/003_judge 6_diy1_b=judge/S2/003_judge 6_diy2_b=judge/S3/003_judge 5_diy1_a=logos/S1 5_diy2_a=logos/S2 5_diy1_a=logos/S3 5_diy2_b=logos/S1 5_diy1_b=logos/S2 5_diy2_b=logos/S3",
@@ -1370,9 +1370,9 @@
       ],
       "enemies": {"enemy_10031_cnvsld":[39,9,30,4130,153032],"enemy_1019_jshoot_2":[57,22,35,25690,245473],"enemy_9008_acbunn":[21,3,18,47825,137179]},
       "hooks": [1,156,6668,938,938,1021,1046,0,59,143,35,35,0,17011,333,58,117,83,1,60,0,1,108],
-      "events": {"atk":968,"deploy":36,"die":60,"dmg":1046,"engage":12,"face":33,"fx":148,"leak":83,"skill":70,"spawn":133,"status":35,"swing":978},
+      "events": {"atk":968,"deploy":36,"die":60,"dmg":1046,"engage":12,"face":34,"fx":148,"leak":83,"skill":70,"spawn":133,"status":35,"swing":978},
       "fx": {"burst":1,"dodge":108,"kitHit":28,"shield":2,"shieldBreak":1,"teleport":5,"undying":1,"vvanaS3Later":2},
-      "snaps": "87cff7e3 d5482b0e c2768ba8 e0ba073f b44e4250 ce9df354 8f9da8fa d409521a 4266d4c4 9318c6ac 5ed889c0 40af9ae2 b638d1e7 3a09f3e9 bf344691 d2caf0fe f01617c9 c8577519 741fdb43 0fd72e7d c5aeaedd 6b5ee7e9 ea4c2cb2"
+      "snaps": "87cff7e3 d5482b0e 19577318 958806af f26bb040 9baaa624 a25df5ea 734dce6a d3941894 da2a089c 581b94f0 52477212 fc9000f7 d88a7439 b8c48981 648e174e 9d98a799 8528cb49 ec39d7b3 69304b0d 7ad4402d d24677b9 bf951a02"
     },
     "diy-033": {
       "about": "5_diy1_b=demetr/S1/002_demetr 5_diy2_b=demetr/S2/002_demetr 5_diy1_b=demetr/S3/002_demetr 6_diy1_a=demetr/S1 6_diy2_a=demetr/S2 6_diy1_a=demetr/S3 6_diy2_b=demetr/S1 6_diy1_b=demetr/S2 6_diy2_b=demetr/S3 6_diy1_b=demetr/S1/002_demetr 6_diy2_b=demetr/S2/002_demetr 6_diy1_b=demetr/S3/002_demetr",
@@ -1410,10 +1410,10 @@
         ["-","~2","device","trap_1105_accrate",null,null,100,1,2,0,0,0,0,0,null]
       ],
       "enemies": {"enemy_1229_darmy":[27,27,0,2435,211632],"enemy_1229_darmy_2":[57,57,0,9454,585066],"enemy_9007_acelem":[12,12,0,23194,806216]},
-      "hooks": [1,133,6308,1040,1040,1903,1889,0,108,108,56,55,0,16603,0,95,96,0,1,111,0,0,45],
+      "hooks": [1,133,6308,1040,1040,1903,1889,0,108,108,56,55,0,16601,0,95,96,0,1,111,0,0,45],
       "events": {"atk":1501,"deploy":35,"die":108,"dmg":1889,"engage":10,"face":50,"fx":120,"skill":111,"spawn":110,"status":101,"swing":1078},
       "fx": {"beam":24,"dodge":45,"phase":16,"teleport":32,"undying":3},
-      "snaps": "d2d6b8af e0efcff2 7da3c81a 9c6efd49 03879531 d5edf151 bf2c9c7c 4377f82c 8903b66d 85292b26 5ed625d7 fbc28047 26fb7c33 ec044731 545a8395 af7f2eb1 549adbcd d9eee604 2f333eb6 2dbb399e 9c2364a2"
+      "snaps": "d2d6b8af e0efcff2 7da3c81a 9c6efd49 03879531 3c34195e ae641f0f 5e71f970 57245198 c691f323 62936c02 3a8006db 332307e4 5070d8d2 ebd3b483 f66857db 17e4723b b5d76242 d022479f 319de0a6 e10bb688"
     },
     "diy-034": {
       "about": "5_diy1_a=veen/S1 5_diy2_a=veen/S2 5_diy1_a=veen/S3 5_diy2_b=veen/S1 5_diy1_b=veen/S2 5_diy2_b=veen/S3 5_diy1_b=veen/S1/002_veen 5_diy2_b=veen/S2/002_veen 5_diy1_b=veen/S3/002_veen 6_diy1_a=veen/S1 6_diy2_a=veen/S2 6_diy1_a=veen/S3",

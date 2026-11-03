@@ -146,15 +146,15 @@
       "errors": {"count":0,"kinds":[]},
       "players": {"p1":{"killed":38,"total":74,"perfect":false,"leaks":36,"leaksUncounted":0,"coins":8,"dmg":280354,"bossDmg":0,"heal":42703,"deaths":9,"layerGains":{}}},
       "units": [
-        ["p1",1,"op","chess_char_5_08_a",2,null,63.6,1,6,2,11813,6894,0,135,2],
-        ["p1",2,"op","chess_char_5_14_a",2,null,0,0,481,12,83229,8222,0,67,5],
+        ["p1",1,"op","chess_char_5_08_a",2,null,63.6,1,6,2,11712,6894,0,135,2],
+        ["p1",2,"op","chess_char_5_14_a",2,null,0,0,481,12,83297,8222,0,67,5],
         ["p1",3,"op","chess_char_5_19_a",0,null,126.2,1,525,5,37676,15928,0,96,3],
         ["p1",4,"op","chess_char_5_07_a",2,null,1212,1,548,2,5815,5596,0,33,1],
         ["p1",5,"op","chess_char_5_13_a",2,null,902,1,11,6,67601,11463,0,123,4],
         ["p1",6,"op","chess_char_5_17_a",2,null,983,1,452,2,9290,3531,0,62,0],
         ["p1",7,"op","chess_char_5_10_a",2,null,932,1,2,0,10191,0,0,80,3],
         ["p1",8,"op","chess_char_5_11_a",2,null,1224,1,3,0,0,0,42703,70,2],
-        ["p1",9,"op","chess_char_5_12_a",2,null,1160,1,4,2,20183,0,0,79,2],
+        ["p1",9,"op","chess_char_5_12_a",2,null,1160,1,4,2,20217,0,0,79,2],
         ["p1",10,"op","chess_char_5_15_a",2,null,0,0,476,3,8047,11282,0,84,2],
         ["p1",11,"op","chess_char_5_18_a",2,null,1272,1,545,4,19773,1272,0,29,1],
         ["p1",12,"op","chess_char_5_20_a",2,null,1972,1,543,0,6736,1972,0,41,1]
@@ -172,10 +172,10 @@
         "enemy_1170_dushld_2": [12,2,6,34553,53171],
         "enemy_9011_acrefr": [12,2,6,16039,92250]
       },
-      "hooks": [1,93,5700,1240,1240,1693,1680,131,47,74,26,25,0,30726,3469,58,74,27,1,48,0,0,9],
-      "events": {"atk":1359,"bounty":4,"deploy":19,"die":47,"dmg":1678,"engage":11,"face":10,"fx":125,"heal":120,"leak":27,"skill":54,"spawn":86,"status":606,"swing":1263,"tplfx":4},
-      "fx": {"aoe":44,"dodge":16,"dp":17,"phase":1,"slash":40,"spGain":7},
-      "snaps": "c0e69c7c d136ead9 d151c553 19691954 e191f8df af05deea e91a870c e766e9e4 b0d5ce41 513bd9e2 a8a9f047 02b95963 d84720ea d4b3747f 52bf1220 4d82646e aa16bb52 ef3e7eca 1c646d3f"
+      "hooks": [1,93,5700,1240,1240,1689,1676,131,47,74,26,25,0,30726,3469,58,74,27,1,48,0,0,9],
+      "events": {"atk":1359,"bounty":4,"deploy":19,"die":47,"dmg":1674,"engage":11,"face":10,"fx":124,"heal":120,"leak":27,"skill":54,"spawn":86,"status":606,"swing":1263,"tplfx":4},
+      "fx": {"aoe":43,"dodge":16,"dp":17,"phase":1,"slash":40,"spGain":7},
+      "snaps": "c0e69c7c d136ead9 d151c553 19691954 e191f8df af05deea 7de1d02d 06633611 0076bbcf 5e48ff05 694ea145 a5f285ec 8de680ad 8aaf7f26 7d102326 616cdb38 35c8fc80 47604c6c b36564ad"
     },
     "standin-04": {
       "about": "normal band 6 as stand-ins: chess_char_6_03_a→char_610_acfend chess_char_6_02_a→char_608_acpion chess_char_6_07_a→char_617_sharp2 chess_char_6_10_a→char_617_sharp2 chess_char_6_11_a→char_608_acpion chess_char_6_06_a→char_609_acguad chess_char_5_22_a→char_611_acnipe chess_char_6_01_a→char_611_acnipe chess_char_6_04_a→char_614_acsupo chess_char_6_05_a→char_611_acnipe chess_char_6_08_a→char_612_accast chess_char_6_09_a→char_613_acmedc",

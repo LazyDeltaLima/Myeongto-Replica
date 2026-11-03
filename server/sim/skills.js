@@ -341,10 +341,15 @@ export class SkillRuntime {
     if (this.sp > cost) this.sp = cost;
   }
 
-  /** Per-tick update: durations, SP regen, tick-based triggers. */
-  tick(dt) {
+  /**
+   * The running skill's part of its unit's tick, after the unit's buffs and before its block search (battle/lifecycle.js
+   * _tickAlly): its onTick and its duration. The client counts a skill's duration in its unit's `Entity.OnTick` — the
+   * skill ability's timer (`ActiveBuffAbility`: the lifetime is its cooldown, the longest of its buffs' durations;
+   * `Ability.OnTick`) and the skill's buffs (`BuffContainer.Tick`), both before `_SearchBlockee`; `BasicSkill.OnTick`
+   * then sees the ability no longer affecting and calls `OnSkillEnd`. Here the end comes with the duration.
+   */
+  tickActive(dt) {
     if (this.noSkill) return;
-    const u = this.unit;
     if (this.kind !== 'passive' && this.sp > this.spCost) this._normalize();
     if (this.active && this.kind !== 'passive') {
       if (this.spec.onTick) this._call('onTick', { dt });
@@ -355,6 +360,12 @@ export class SkillRuntime {
     } else if (this.active && this.kind === 'passive' && this.spec.onTick) {
       this._call('onTick', { dt });
     }
+  }
+
+  /** The skill's tick after its unit's block search (`BasicSkill.Tick`): SP regen, tick-based triggers. */
+  tick(dt) {
+    if (this.noSkill) return;
+    const u = this.unit;
     // natural SP recovery stops only under 阻回 (noSp; a running timed skill holds it too) — not while 晕眩 / 冻结 / 浮空
     // keep the unit from acting: PRTS 技能 "在阻回状态或技力条已满时，保留剩余冷却时间，计时暂停"; PRTS 异常效果 STUNNED
     // "无法攻击、释放技能、阻挡敌人类单位" says nothing of SP (community report #18: 洛洛's S2 self-stun froze her SP)

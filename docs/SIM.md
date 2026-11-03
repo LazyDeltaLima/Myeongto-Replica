@@ -97,10 +97,10 @@ The units phase is the official client's object tick (`BattleController.OnTick`:
 `ObjectManager.OnFixedUpdate`): first every enemy's block slide, then every unit alive as the pass starts — enemies,
 operators, summons, devices — and every projectile in flight in one line by `deploySeq` (the client's `instanceUid`
 order; a projectile takes its number when fired), each doing its own tick: an enemy attacks or moves, then its buffs
-(+HP regen) tick; an ally attacks, then its buffs tick, it searches for enemies to block when due, then its skill ticks
-(SP, duration, automatic casts); a projectile flies, then hits or ends. A unit made during the pass ticks from the next
-step, a projectile from the step after the one it was fired in; the enemy tile index follows each enemy after its own
-tick.
+(+HP regen) tick; an ally attacks, then its buffs and its running skill's duration tick, it searches for enemies to
+block when due, then its skill ticks (SP, automatic casts); a projectile flies, then hits or ends. A unit made during the
+pass ticks from the next step, a projectile from the step after the one it was fired in; the enemy tile index follows
+each enemy after its own tick.
 
 **Knocked-out operators** (PRTS 卫戍协议/帮助 §作战阶段 单位部署; player report F5 after 0.1.0): "干员退场后…原地留下一个
 “倒地干员”…满足再部署条件时，移除场上的该倒地干员并自动部署至该位置" — an operator knocked out (`isDown`) lies on the tile it
