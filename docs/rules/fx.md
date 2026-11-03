@@ -1045,7 +1045,8 @@
   모드에 `fortress[mode] = { melee: {cast, hit}, ranged: {cast, hit} }`를 쓰고(号角·灰毫 2명, 다시 만든 `local-char-modes.json`·`modes.json`은 이 두 줄만
   늘어남), `fxgame.js boundFor`(`fxmap.js fortressEffects`)가 'swing'·'atk'의 kind(sim `ai.js`: 저지 중 'none')로 고른다 — 근접은 근접 목록만, 나눔이 있으면
   이름 규칙 대역도 없음. 테스트 `test/render/fortress-fx.test.js`. **배포 때 추출 이펙트(`modes.json`) 함께.** [실제 판 이상 없음 2026-10-28]
-  - 참고(sim 담당): 공식 S2는 저지 중에도 원거리(BlockedRangedAttack)인데 sim은 S2 중 저지하면 근접('none')으로 친다 — 렌더는 S2에 나눔이 없어 영향 없음.
+  - 참고(sim 담당): 공식 S2의 저지 중 BlockedRangedAttack 투사체 `projectile_chr_horn_s2_melee`는 ATTACH·즉시라 sim의 저지 중 'none'(타격 순간·폭발)과 같다
+    (2026-11-03 확인, rules/sim.md 「오퍼레이터 공격 형태」).
 - **위(余) S3 화염벽 배치** (제보: 불꽃이 타일 모서리에 붙어야 함 — → 보면 위의 오른쪽 모서리): 칸 가운데에 행 조각을 놓고 열 벽은 90° 돌렸었다.
   공식 클라: 스킬 버프 이펙트 `yu_skill3_range_01_source`(YuS3EffectBehaviour `_effectEachGrid`, OnPlay)가 그의 줄(맵 전체 높이/너비)의
   칸마다 가운데에 `yu_skill3_range_01_root`를 만들고, root(YuS3EffectWithEdgeBehaviour `_InitPlayersIfNot`)가 조각을 칸 가운데
@@ -1055,8 +1056,8 @@
   고친 것: `fxgame.js yuWallPieces`(순수 함수) + `kitFx` 'firewall'(이름은 대소문자 무시 — 추출본은 `_R`). [추정] ① `FOUR_WAYS` 순서 = Direction(UP·RIGHT·
   DOWN·LEFT, 정적 생성자 값은 안 읽음 — 이름 순서와 제보가 맞음), ② 카메라 x = 필드 가운데 열, ③ 끝 = 필드 사각형 끝(빈 칸 모름). 테스트
   `test/render/yu-wall.test.js`. [실제 판 이상 없음 2026-10-28]
-  - 참고(sim 담당): 공식 투사체 차단선 `skchr_yu_3/Aura/EnemyAura`는 `_horizonOffsetFront` 0.5, `_horizonSize` 0.3(그의 칸 앞 모서리)인데 sim
-    `crosses`는 그의 칸 가운데 줄로 판정한다.
+  - 참고(sim 담당): 공식 투사체 차단선 `skchr_yu_3/Aura/EnemyAura`는 `_horizonOffsetFront` 0.5, `_horizonSize` 0.3(그의 칸 앞 모서리) — sim도 2026-11-03부터
+    그 줄로 판정하고 'firewallBlock'을 그 줄에 낸다(rules/sim.md 「오퍼레이터 공격 형태」).
 - **오래 남아야 할 이펙트가 사라지거나 안 나옴** (제보: 첸 S3 자기 버프, 위 S3 화염벽 등): `fxgame.js`가 살아 있는 이펙트를 한 목록에서 24개
   (`fxplayer.js MAX_INSTANCES`)로 자르며 가장 오래된 것을 끝냈다 — 가장 오래된 것은 거의 늘 스킬과 함께 시작한 버프 루프·벽 조각이고, 공격자 몇 명의
   타격·시전이 1초 안에 24개를 채운다(로컬 아레나처럼 유닛이 적으면 안 보이던 이유). 입자 예산(6000)은 원인 아님. 고친 것: 짧은 것(타격·시전·궤적)
@@ -2472,7 +2473,8 @@
   디버그 아레나에서 艾丝黛尔 S1·S2·地灵 S2를 SP 없이 12초 — `common_ignite_attack` 0회, SP를 채운 S1은 발동 버프로 1회.
 - 넣지 않은 것: `buff_*`(공용 `buff` 묶음 — 상태 이상 층 `fxstatus.js`가 모든 유닛에 그리므로 자기 묶음에 넣으면 두 번), `common_empty`(빈 프리팹),
   塞雷娅 S3 모드 명중 `common_heal_hit_01` — 클라 S3 모드의 공격은 **아군**을 고른다(charpack `Modes/S3/Body/Attack/Trigger._targetSide` 1:
-  치료 펄스가 그 모드의 공격)인데 시뮬은 S3 중에도 적을 쳐서, 넣으면 적 위에 치료 십자가 뜬다. 시뮬이 맞춰지면 넣는다.
+  치료 펄스가 그 모드의 공격)인데 시뮬은 S3 중에도 적을 쳐서, 넣으면 적 위에 치료 십자가 뜬다. 2026-11-03부터 시뮬은 S3 중 적을 치지 않지만(rules/sim.md
+  「오퍼레이터 공격 형태」) 펄스는 공격 사건이 아니라 키트의 'heal'이라, 넣으려면 그 치료에 명중 이펙트를 잇는 길이 따로 필요하다.
 - 추출 보고에 새로 나온 것: `RandomEmitter`(`common_charge_cost_start_01`이 0.1 s 뒤 `common_charge_cost_01` 3개를 상자 안 무작위 자리에 틂 —
   아래 「RandomEmitter · FlyToPredefinedLocation」에서 구현), 셰이더 `Torappu/Particles-L2D/AlphaBlend`(盟约·辅助干员 명중: 선언 속성·태그·블렌드가 `Particles/AlphaBlend`와 같음 —
   확인 목록에 넣음), 클립 `rateOverTime.minScalar`(todo).

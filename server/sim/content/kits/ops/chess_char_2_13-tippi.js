@@ -43,7 +43,9 @@ export default {
     const t = talentBb(chess, 0);
     const s2 = onDefaultSkill(chess);
     return {
-      trait: { blockFly: false },
+      // the official client's attacks are shots in every mode (charpack `Modes/Default|S1|S2/Body/Attack` `_projectileKey`
+      // projectile_chr_tippi(_s1|_s2), TRACE 10; no `Body/Combat`, so a blocked enemy is shot too), not the 特种 melee default
+      trait: { blockFly: false, attack: 'ranged', projectile: 'arrow' },
       skill: {
         kind: 'duration', trigger: { rule: 'CUSTOM_RANGE', grid: [] }, // never by the engine: the hit handler below
         mods: { atkPct: num(bb.atk) }, flags: LIFTOFF_FLAGS,

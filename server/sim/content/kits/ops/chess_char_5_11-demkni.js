@@ -60,6 +60,10 @@ export default {
         }),
         skchr_demkni_3: () => ({
           kind: 'duration',
+          // the S3 mode's only attack ability (Modes/S3/Body/Attack, `_targetSide` 1, no target limit, `_cooldown` 1) is
+          // the heal pulse below: no attack on enemies while it runs (the official client's S3 mode; docs/rules/sim.md
+          // 「오퍼레이터 키트 — 공식 클라·프리팹대로」)
+          attack: { noAttack: true },
           onStart({ unit }) { unit.mem.calcAcc = 0; unit.mem.calcAura = AURA_IV; },
           onTick({ battle, unit, dt }) {
             unit.mem.calcAura += dt;

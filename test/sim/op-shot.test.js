@@ -24,6 +24,7 @@ const ANGEL = 'chess_char_3_01_a';    // 能天使: no projectile in her Default
 const METEOR = 'chess_char_3_17_a';   // 流星: projectile_arrow PARACURVE 6
 const SILENT = 'chess_char_2_02_a';   // 赫默: projectile_silent PARACURVE 5
 const LAPPLAND = 'chess_char_2_16_a'; // 拉普兰德: projectile_whitew_atk TRACE 10, Body/Combat without one
+const TIPPI = 'chess_char_2_13_a';    // 蒂比 (巡空者, a melee position): projectile_chr_tippi TRACE 10, no Body/Combat
 
 /** Seconds from each of the first attacks of the arena operator to its damage on a sandbag `d` tiles in front. */
 function delays(chessId, d, n = 3) {
@@ -59,6 +60,7 @@ describe('operator shots (data/chess.json `shot`)', () => {
     for (const d of delays(INSIDE, 3)) assert.ok(near(d, 3 / 10), `隐现 3 tiles at 10/s: ${d}`);
     for (const d of delays(METEOR, 3)) assert.ok(near(d, 3 / 6), `流星 PARACURVE 6 (horizontal): ${d}`);
     for (const d of delays(ANGEL, 3)) assert.equal(d, 0, '能天使: no flight');
+    for (const d of delays(TIPPI, 2)) assert.ok(near(d, 2 / 10), `蒂比 shoots (not the 特种 melee default), 2 tiles at 10/s: ${d}`);
   });
 
   test('opShot: the running skill\'s mode, else the Default; an enemy the unit blocks gets the blocked attack (none)', () => {

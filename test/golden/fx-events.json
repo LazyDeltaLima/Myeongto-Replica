@@ -7104,7 +7104,6 @@
    "- status buff_silence → enemy",
    "- status buff_sluggish → enemy",
    "- status buff_weak[limit] → enemy",
-   "- status common_invisible → enemy",
    "- status enemy_mdrock_skill_buff_01 → enemy",
    "- status enemy_mdrock_skill_buff_02 → enemy",
    "- status enemy_mdrock_skill_buff_03 → enemy",
@@ -7156,6 +7155,7 @@
    "char_4151_tinman attackStart tinman_attack_start_01",
    "char_4151_tinman skillStart tinman_skill_02_start_03+tinman_skill_02_start_04",
    "char_4151_tinman spawn:born common_char_birth_01 → self",
+   "char_4151_tinman status tinman_skill_02_heal_01",
    "char_4191_tippi attackHit tippi_attack_01_hit → foe",
    "char_4191_tippi attackHit tippi_skill_02_attack_01_hit → foe",
    "char_4191_tippi attackStart tippi_attack_01_start",
@@ -9490,7 +9490,8 @@
    "enemy_1207_sfji_2 spawn:castLoop enemy_sfji_02_attack_02_weapon_02 → self",
    "enemy_1288_duskls spawn:castLoop enemy_duskls_attack_start → self",
    "enemy_1288_duskls_2 spawn:castLoop enemy_duskls_attack_start → self",
-   "enemy_1299_ymkilr spawn:cast enemy_ymkilr_attack_start_01 → self"
+   "enemy_1299_ymkilr spawn:cast enemy_ymkilr_attack_start_01 → self",
+   "enemy_2021_syfish spawn:cast enemy_syfish_attack_start → self"
   ],
   "roster-026": [
    "- spawn blemsh_skill_01_hit → enemy",

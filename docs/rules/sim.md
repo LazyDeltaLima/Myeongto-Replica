@@ -1175,7 +1175,8 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   같은 꼴) — SwitchBegin이 보호 버프(`*_switchbegin`: 무적·불사 등, INFINITY)를 걸고, 죽는 클립과 나오는 클립이 각각 제 길이(`_timeMode` 1, `_maxAnimScale` 1;
   风丸 `Die_2`→`Start_B`, 돌아올 때 `Die_B`→`Born`(=`Start`), 归溟幽灵鲨 `Die`→`Start_B`, `Die_B`→`Start_2`, 모두 1 s), 나오는 단계의 `BuffAfterAffecting`(OnEvent
   2 = 시전 시작에 표시, `OnTick`이 능력이 끝난 뒤 `AddBuff`)이 그 클립이 끝난 뒤 `*_switchend`(보호 버프를 지우는 ClearAllBuffs + SwitchMode)를 건다 →
-  `professions.js DOLL_SWITCH` 2(전엔 1 s [ASSUMED]). 远牙가 준 특질로 바뀌는 다른 오퍼레이터도 같은 2 s([ASSUMED]: 그들의 클립은 안 봄).
+  `professions.js DOLL_SWITCH` 2(전엔 1 s [ASSUMED]). 몸을 바꾸는 오퍼레이터는 풀(선발 포함)에 이 둘(카제마루·스펙터 디 언체인드)뿐이고 둘 다 위 클립을 읽었다 — 파투스(远牙)의 주둔지 `garrison_108_a/b`는
+  맹약 층만 주고 특질을 주지 않는다(2026-11-03 확인, 그 전 「远牙가 준 특질로 바뀌는 다른 오퍼레이터」 [ASSUMED] 줄은 해당 없음).
 - **迷迭香 感知稳定은 오라** (2026-10-16, charpack `char_391_rosmon/Talents/2`): `_checker`(professionMask 32 = 术师, minCount 1)가 맞는 동안 붙는 Aura —
   术师 하나(`_maxNum` 1)와 그녀(`_selfOption`)가 `rosmon_t_2`를 지니고, 그 术师가 떠나면 빠지고 다른 术师가 받으며(`_removeBuffWhenTargetLeave`), 그녀가
   떠나면 모두 빠짐(`_removeBuffWhenAbilityDetached`); 그녀 뒤에 배치된 术师도 받는다. 그 전엔 배치 순간 한 번 골라 붙인 뒤 지우지 않아, 그녀가 떠나도
@@ -1192,6 +1193,29 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   `[cooldown]`이 없을 때만 그 동료의 체력 비율이 `hp_ratio` 1.0 미만이면(가득 찬 동료는 안 침) 치유·`lumen_buff_01_hit`·`[enable]` 끝 → `[enable]`의 끝이
   `[cooldown]`을 다시 건다. 시뮬: 보이는 버프 `'lumen:ready'`(재배치·이동 배치마다 다시 대기). 그 전엔 배치 직후부터 치유했고 가득 찬 동료에게도 쿨다운을
   썼다 → `chess_char_6_14-lumen.js`. 골든 `roster-017`의 应急处理 9 → 8. 테스트 `kits_t6.test.js` 「流明 应急处理」.
+- **오퍼레이터 공격 형태 — 스킬 모드의 공격 능력대로** (2026-11-03, 공식 클라 charpack `Modes/<모드>/Body/Attack`·`Body/Combat`):
+  - **사리아(塞雷娅) S3 칼슘화(钙质化) 중 적 공격 없음**: S3 모드의 공격 능력은 하나뿐이고 그것이 치료 펄스다 — `Modes/S3/Body/Attack/Trigger._targetSide` 1(아군),
+    대상 수 제한 없음(`_limitTargetNum` 0), `_timeMode` 2·`_cooldown` 1초, 명중 `common_heal_hit_01`. `Body/Combat`도 없다. 그래서 S3 동안 그녀는 막은 적도 치지
+    않고, 범위 아군 치료(`attack@heal_scale` × 공격력, 1초마다)와 적 석회화(받는 마법 피해·이동 속도)만 한다 → `chess_char_5_11-demkni.js` S3 `attack: { noAttack: true }`.
+    그 전엔 S3 중에도 기본 모드 공격으로 적을 쳤다. 렌더는 S3 중 공격 클립을 원래 안 튼다(render.md 「스킬 중 공격 클립」). 펄스의 첫 치료 시점은 그대로
+    (시작 1초 뒤 — 모드 공격의 `_preDelay` 0.533초·쿨다운 시작값은 안 읽음 [추정·미조사: 치료 횟수가 한 번 다를 수 있음]). 테스트 `test/content/attack-forms.test.js`.
+  - **티피(蒂比) 일반 공격은 원거리**: 모든 모드의 공격이 투사체를 쏜다(`Modes/Default|S1|S2/Body/Attack` `_projectileKey` `projectile_chr_tippi`·`_s1`·`_s2`,
+    TRACE 10), `Body/Combat`이 없어 막은 적에게도 쏜다. 시뮬은 특수 직군 기본값(근접, 투사체 없음)으로 쳐 「오퍼레이터 투사체」의 `shot`이 안 들어갔다 →
+    키트 trait `attack: 'ranged', projectile: 'arrow'`(생성 데이터 `attackKind`는 그대로 melee — 배치 위치 MELEE). 피해는 투사체가 닿을 때, 'swing'·'atk'의
+    kind가 'arrow'(소리는 착탄 신호가 도착 때). 테스트 `test/sim/op-shot.test.js`.
+  - **혼(号角) S2 폭풍의 호령 중 저지한 적** (확인만, 코드 그대로): S2 모드에는 근접 능력이 없고 저지 중엔 `BlockedRangedAttack`(`Blocked Selector` 1명,
+    클립 `Skill_2_A_Loop`, 신호 버프 `horn_s_2[signal_melee]`)이 `projectile_chr_horn_s2_melee`를 쏜다 — 이 투사체는 ATTACH·즉시(비행 없음)라 타격 순간
+    맞고 폭발한다. 시뮬은 포트리스 규칙(저지 중 그 적 한 명, 'none' kind, 타격 순간, 폭발 포함)으로 이미 같다(렌더 A 클립·소리 근접 신호도). 저지 안 할 때는
+    `RangedAttack`(`projectile_chr_horn_s2`, PARACURVE 5, 클립 `Skill_2_B_Loop`). 테스트 `attack-forms.test.js`(고정). 따로 찾은 차이: 기본 모드
+    `MeleeAttack`·`BlockedMeleeAttack`은 투사체·폭발 없는 근접 능력인데 시뮬은 포트리스의 저지 중 근접 타격에도 폭발(반경 1.0)을 붙인다 — §11 줄.
+  - **위(余) S3 화염벽의 적 투사체 차단선은 그의 칸 앞 모서리**: `skchr_yu_3/Aura/EnemyAura` 범위는 줄 전체(`_isHorizontalInfinite`)·앞으로 `_horizonOffsetFront` 0.5칸·
+    두께 `_horizonSize` 0.3, 들어온 적 투사체를 지운다(`_eliminateOnEnter`, `yu_skill3_annex_01`). 시뮬은 그의 칸 가운데 줄로 판정해, 그 줄 위에 선 그 자신을
+    노린 원거리 공격은 막지 못했다 → 적 공격 판정만 앞 모서리(`yuWall.front`); 차단 이펙트 'firewallBlock'도 그 줄에. 아군 마법 피해에 붙는 화상(`AllyAura`,
+    `yu_s_3[ally]`)은 칸 가운데 줄 그대로 [추정·미조사: `AllyAura`의 범위를 안 읽음]. 두께 0.3 안에 선 적은 따로 다루지 않음. 테스트 `kits_t6.test.js` 「余: S3 stops」.
+  - **로드(领主) 분과의 저지 중 공격** (`Body/Combat`, 확인만): 기본 모드는 이미 같다 — `Combat`은 `_atkScale` 1(로드 원거리 0.8 감쇠 없음 = `professions.js lord`
+    `dmgMul`의 저지 대상 1), 투사체 없음(`shot.combat` 1 → 즉시), 대상은 저지한 첫 적 한 명(`maxTargets` 1). 다중 대상 스킬 모드(라플란드 S2 `maxTargets` 2,
+    로드·샤프 S1 `max_target`, 치우바이)의 저지 중 대상 수는 그 `Combat`의 `_selectTargetSource`(1/2)·선택자에 달렸고, 시뮬은 저지한 적 + 범위의 다른 적을 친다
+    [추정·미조사: 선택자 출처의 뜻은 INDEX에 없음 — 큰 확인, §11 ①].
 
 ## 적 스킬 = 일반 공격 차례 (2026-10-21, 관리자 제보 「퀸투스가 HP가 낮아지면 기억보다 너무 셈」, 관리자 결정 2026-10-21 「엔진 전체로」)
 적 스킬(enemy_database `skills`)을 EN 공식 클라대로 일반 공격 **자리에서** 쓴다. 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 클래스 없음.
@@ -1372,7 +1396,7 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
   Chrome 디버그 아레나, 샌드백 3칸): 隐现 절차 0.297 s·공식 꼬리 ≈ 0.29 s, 能天使 투사체 없음, 流星 0.50 s, 深靛 0.15 s, 오류 0. 실제 판 [화면 미확인].
 - 로즈몬티스 S2·산탈라 S2의 AttachToTarget(`_immediatelyReach` 0)은 2026-10-31부터 공식 시점에 닿는다 — 아래 「오퍼레이터 시점·차례 묶음 B」 투사체. 시뮬 틱(1/30 s) 때문에 비행은 한 틱 일찍 닿을 수 있다
   (적 투사체와 같음).
-- 안 한 것: 蒂比(스카이레인저)는 시뮬이 근접(투사체 없음)으로 다뤄 클라 TRACE 10이 안 들어감. 키트가 직접 쏘는 투사체(스킬 'strike' 등)는 키트 값 그대로.
+- 키트가 직접 쏘는 투사체(스킬 'strike' 등)는 키트 값 그대로. 티피(스카이레인저)는 2026-11-03부터 원거리 — 「오퍼레이터 공격 형태」.
 - 테스트 `test/sim/op-shot.test.js`(데이터·비행 시간·저지·렌더 짝·실제 판 경로의 치료 지연). 원거리 오퍼레이터 피해 시각이 바뀌어 golden이 움직인다.
 
 ## 작전 시작 차례 배치 (2026-10-10, 관리자 결정 「공식처럼 한 개씩, 部署 대사는 한 번」)

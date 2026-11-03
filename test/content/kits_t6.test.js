@@ -357,6 +357,22 @@ test('余: S3 fire wall adds burn to allied arts damage crossing it and clears c
   assert.ok(marks.length > 0 && marks.length <= wall.length, `the wall's moments (${marks.length} / ${wall.length} burns)`);
 });
 
+test('余: S3 stops enemy shots on his tile\'s front edge (Aura/EnemyAura `_horizonOffsetFront` 0.5) — a shot at him too', () => {
+  const h = battle({
+    units: [{ chessId: 'chess_char_6_03_a', row: 10, col: 5, carryState: { sp: 54 } }],
+    enemies: [{ key: 'enemy_dummy', pos: [10, 6] }, { key: 'enemy_shooter', pos: [11, 8] }],
+    seed: 11,
+  });
+  const u = h.unit('chess_char_6_03_a');
+  assert.ok(h.runUntil(() => u.skill.active, 10));
+  assert.equal(u.mem.yuWall.front, u.tileC + 0.5, 'facing RIGHT: the line one half tile ahead of his column');
+  h.run(15);
+  const blocked = h.eventsOf('fx').filter((e) => e[1] === 'firewallBlock');
+  assert.ok(blocked.length > 0, 'shots at 余 himself are cleared');
+  assert.ok(blocked.every((e) => e[2] === u.tileC + 0.5), 'on the front edge');
+  checkInvariants(h.b);
+});
+
 test('浊心斯卡蒂: heals as a bard, S3 = true damage in her + 海嗣 ranges, 鼓舞 +65 % of her ATK, no death from drain', () => {
   const h = battle({
     units: [

@@ -84,7 +84,10 @@ function yu(bb, chess, def) {
       // it turns with the deploy direction like a range) [ASSUMED orientation for UP / DOWN]
       onStart({ battle, unit }) {
         const vertical = unit.fwd[0] === 0;
-        unit.mem.yuWall = vertical ? { axis: 'x', v: unit.tileC } : { axis: 'y', v: unit.tileR };
+        // `front`: the line enemy shots are stopped on — the official Aura/EnemyAura strip (`_isHorizontalInfinite`,
+        // `_horizonOffsetFront` 0.5, `_horizonSize` 0.3) runs along his tile's front edge, so a shot at him is stopped too
+        unit.mem.yuWall = vertical ? { axis: 'x', v: unit.tileC, front: unit.tileC + unit.fwd[1] * 0.5 }
+          : { axis: 'y', v: unit.tileR, front: unit.tileR + unit.fwd[0] * 0.5 };
         battle.fx('firewall', { x: unit.tileC, y: unit.tileR, id: unit.id, dir: unit.dir, axis: vertical ? 'col' : 'row' });
       },
       onEnd({ unit }) { unit.mem.yuWall = null; },
@@ -124,10 +127,11 @@ function yu(bb, chess, def) {
         });
       } },
       { install(battle, unit) { // S3 fire wall
-        const crosses = (a, b) => {
+        const crosses = (a, b, front = false) => {
           const w = unit.mem.yuWall;
           if (w == null) return false;
-          return w.axis === 'y' ? (a.y - w.v) * (b.y - w.v) < 0 : (a.x - w.v) * (b.x - w.v) < 0;
+          const v = front ? w.front : w.v;
+          return w.axis === 'y' ? (a.y - v) * (b.y - v) < 0 : (a.x - v) * (b.x - v) < 0;
         };
         battle.on('damaged', (ctx) => {
           const s = ctx.source, t = ctx.target;
@@ -139,11 +143,11 @@ function yu(bb, chess, def) {
         battle.on('hit', (ctx) => {
           const s = ctx.source, t = ctx.target;
           if (!(wallProb > 0) || unit.mem.yuWall == null || !live(unit) || !s || s.side !== 'enemy' || !t || t.side !== 'ally') return;
-          if (!ctx.dmg.isAttack || !(s.base.rangeRadius > 0) || s.blockedBy === t || !crosses(s, t)) return;
+          if (!ctx.dmg.isAttack || !(s.base.rangeRadius > 0) || s.blockedBy === t || !crosses(s, t, true)) return;
           if (battle.rng() < wallProb) {
             ctx.dmg.cancel = true;
             const w = unit.mem.yuWall;
-            battle.fx('firewallBlock', w.axis === 'y' ? { x: t.x, y: w.v, id: unit.id } : { x: w.v, y: t.y, id: unit.id });
+            battle.fx('firewallBlock', w.axis === 'y' ? { x: t.x, y: w.front, id: unit.id } : { x: w.front, y: t.y, id: unit.id });
           }
         }, { owner: unit });
       } },
