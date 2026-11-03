@@ -5,7 +5,7 @@
 // Non-default modules ('none' — every tier-1 elite has one module) are checked where the module changes behaviour.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeBattle, enemyRec, chessRec, checkInvariants } from '../helpers/battleHarness.js';
+import { makeBattle, enemyRec, chessRec, checkInvariants, trackCarried } from '../helpers/battleHarness.js';
 import { getDefaultSource } from '../../server/sim/simdata.js';
 import { absoluteRangeKeys } from '../../server/sim/targeting.js';
 import { loadoutOptions } from '../../shared/protocol.js';
@@ -361,7 +361,7 @@ test('1_13 波登可 S1 花香疗法: a heal skill — ATK +atk, attacks heal th
     const defs = { enemies: { e: dummy('e') }, chess: { ...noGarrison(id), t_ally: ally } };
     // (a) enemy and injured ally in range: heals only, for ATK
     const h = run({ defs, units: [entry(id, s.skillId, { row: 10, col: 4, carryState: READY }), { chessId: 't_ally', row: 10, col: 5 }], enemies: [{ key: 'e', pos: [10, 6] }] });
-    const u = sel(h, id, s.skillId), a = h.unit('t_ally');
+    const u = sel(h, id, s.skillId), a = h.unit('t_ally'), carried = trackCarried(h, u);
     h.step();
     a.hp = a.s.maxHp * 0.3;
     assert.ok(h.runUntil(() => heals(h, u).length >= 2, 10));
@@ -371,7 +371,8 @@ test('1_13 波登可 S1 花香疗法: a heal skill — ATK +atk, attacks heal th
     const st = started(h, u)[0].t;
     h.runUntil(() => !u.skill.active, 40);
     within(ended(h, u)[0].t - st, s.duration, 0.05, 'duration');
-    assert.equal(attacks(h, u, (c) => c.t > st && c.t < ended(h, u)[0].t && c.targets.some((x) => x.side === 'enemy')).length, 0, 'no attack on enemies');
+    // (a Default swing running as the skill switched her mode plays on to its strike: ai.js `swingOff`)
+    assert.equal(attacks(h, u, (c) => c.t > st && c.t < ended(h, u)[0].t && c.targets.some((x) => x.side === 'enemy') && !carried.skipAttack(c)).length, 0, 'no attack on enemies');
     done(h);
     // (b) no enemy on the field: an injured ally in range is enough
     const h2 = run({ defs, units: [entry(id, s.skillId, { row: 10, col: 4, carryState: READY }), { chessId: 't_ally', row: 10, col: 5 }] });

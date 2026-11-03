@@ -94,11 +94,16 @@ test('item 46 — 荒芜拉普兰德 S3: she attacks while her drones are out (t
   const u = () => h.unit('chess_char_6_18_a');
   assert.ok(h.runUntil(() => u().skill.active, 60), 'S3 cast');
   const t0 = h.b.time;
+  // a Default swing the switch to the S3 mode caught plays on to its strike, drone addition included (its ability does not
+  // interrupt on detach — ai.js updateAlly `swingOff`)
+  h.step();
+  const carried = !!u().swingOff;
   const attacks = () => h.hooksOf('attack').filter((c) => c.attacker === u()).length;
   assert.ok(h.runUntil(() => !u().skill.active, 45), 'S3 over');
   const t1 = h.hooksOf('skillEnd').filter((c) => c.unit === u()).at(-1).t;
   const n0 = attacks();
-  const inS3 = (c) => c.source === u() && c.t > t0 + 1e-9 && c.t < t1 - 1e-9;
+  const offId = carried ? h.hooksOf('damaged').find((c) => c.source === u() && c.t >= t0 && c.dmg?.attackId != null)?.dmg.attackId : undefined;
+  const inS3 = (c) => c.source === u() && c.t > t0 + 1e-9 && c.t < t1 - 1e-9 && c.dmg?.attackId !== offId;
   const funnel = (c) => (c.dmg.tags || []).includes('funnel');
   assert.ok(h.hooksOf('attack').filter((c) => c.attacker === u() && c.t > t0 + 1e-9 && c.t < t1 - 1e-9).length >= 20, 'she attacks during S3');
   assert.ok(h.hooksOf('damaged').some((c) => inS3(c) && c.dmg.isAttack), 'her body hits land');

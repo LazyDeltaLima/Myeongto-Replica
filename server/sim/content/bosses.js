@@ -782,13 +782,11 @@ function kitGun(ab, e, b) {
       // keeping its progress ratio (OnAttackTimeChanged, docs/rules/sim.md 「일반 공격 타이밍」): the interval becomes
       // t + (1 − t/T_old)·T_new, t the time since the swing began (until 2026-10-15 the cooldown re-ran from the swing's
       // start at the new ASPD — the same only at t = 0)
-      attack(c, b2, e2) {
+      attack(c, b2) {
         const t = c.targets[0];
         if (t !== P.last) { P.last = t; P.n = 0; }
         P.n = Math.min(maxN, P.n + 1);
-        const was = e2.s.interval;
-        setAspd(b2);
-        if (e2.atkCd > 0 && was > 0) e2.atkCd *= e2.s.interval / was;
+        setAspd(b2);   // (the engine re-times the running cooldown: units.js _recalc)
       },
       dealt(c, b2, e2) { elem(b2, e2, c.target, 'erosion', e2.s.atk * (T(ab, '1.ep_damage_ratio') ?? 0)); }, // 攻击时附带侵蚀损伤
       // 【最终之罚】 (client prefab Modes/S1 + its TraceEnemy, SimpleTraceTargetAbility.OnTick): the gun walks through the

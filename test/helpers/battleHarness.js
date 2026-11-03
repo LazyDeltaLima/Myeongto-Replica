@@ -329,6 +329,44 @@ function quietLogger(verbose) {
   return { warn() {}, error() {}, info() {}, log() {} };
 }
 
+/**
+ * The swings of `u` that a mode switch carried over (a skill with an attack mode of its own started or ended during a swing
+ * whose ability does not interrupt on detach: it plays on to its strike — server/sim/ai.js `swingOff`). Call before the
+ * switch. `skip(c)` — a 'damaged' hook of such an attack; `skipAttack(c)` — its 'attack' hook (both need those hooks
+ * captured); `count` — how many struck so far. Such a swing is seen at the end of a tick (the 'tick' hook) and claims the
+ * unit's first attack once its wind-up has run out (updateAlly strikes it before the attached mode's swing); one whose
+ * wind-up ran out with no attack (a whiff) is dropped there.
+ */
+export function trackCarried(h, u) {
+  const watched = new Set(), ks = new Set();
+  let n = 0;
+  h.b.on('tick', () => {
+    for (const o of watched) if (!(o.left > 0)) watched.delete(o);
+    if (u.swingOff) watched.add(u.swingOff);
+  });
+  h.b.on('attack', (c) => {
+    if (c.attacker !== u) return;
+    for (const o of watched) if (!(o.left > 0)) { watched.delete(o); ks.add(n); break; }
+    n++;
+  });
+  // attack ids rise with each strike: the k-th attack's damage carries the k-th smallest id of the unit
+  const ids = () => [...new Set(h.hooksOf('damaged').filter((c) => c.source === u).map((c) => c.dmg?.attackId))].sort((a, b) => a - b);
+  return {
+    get count() { return ks.size; },
+    skip(c) { if (!ks.size || c.source !== u) return false; const all = ids(); return [...ks].some((k) => all[k] === c.dmg?.attackId); },
+    skipAttack(c) { if (!ks.size || c.attacker !== u) return false; const mine = h.hooksOf('attack').filter((x) => x.attacker === u); return [...ks].some((k) => mine[k] === c); },
+  };
+}
+
+/** A unit that casts its skill on the first tick (carryState SP full; docs/rules/sim.md 「유닛 틱 차례」: the attack state
+ * starts a Default swing before the skill tick casts): trackCarried, stepped past the switch (2 ticks); `carried` = one. */
+export function pastSwitch(h, u) {
+  const t = trackCarried(h, u);
+  h.step(); h.step();
+  const carried = !!u.swingOff || t.count > 0;
+  return { carried, skip: (c) => t.skip(c), skipAttack: (c) => t.skipAttack(c) };
+}
+
 /** Throws on any invariant violation (no NaN/Infinity, hp ∈ [0,maxHp], positions inside rect, DP bounds). */
 export function checkInvariants(b) {
   const R = b.rect;

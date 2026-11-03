@@ -2,7 +2,7 @@
 // through the harness. Numbers are read back from the data blackboards so the tests follow data changes.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
+import { makeBattle, enemyRec, checkInvariants, trackCarried } from '../helpers/battleHarness.js';
 import { getDefaultSource } from '../../server/sim/simdata.js';
 import { TIER_KITS } from '../../server/sim/content/kits/index.js';
 import { absoluteRangeKeys } from '../../server/sim/targeting.js';
@@ -233,12 +233,13 @@ test('寒芒克洛丝 S2: 2-shot, 4-shot after 40 hits; 中的 crits ×1.5 + 0.2
   const id = 'chess_char_4_06_a', bb = D(id).skill.bb, t0 = D(id).talents[0].bb;
   const h = makeBattle({ defs: { enemies: { enemy_dummy: dummy() } }, units: [{ chessId: id, row: 10, col: 3 }], enemies: [{ key: 'enemy_dummy', pos: [10, 5] }],
     timeLimit: 200, hooks: ['damaged', 'statusApplied'], captureNoisy: true, seed: 3 });
-  const u = h.unit(id);
+  const u = h.unit(id), carried = trackCarried(h, u);
   assert.ok(h.runUntil(() => u.skill.active, 60));
   approx(u.s.interval, u.base.bat + bb.base_attack_time, 1e-9, 'flat BAT reduction');
   const n0 = dmgBy(h, u).length;
   h.runUntil(() => !u.skill.active, 40);
-  const hits = dmgBy(h, u).slice(n0);
+  // (a Default swing running as the S2 mode came plays on to its own single shot: ai.js `swingOff`)
+  const hits = dmgBy(h, u).slice(n0).filter((c) => !carried.skip(c));
   const groups = new Map();
   for (const c of hits) groups.set(c.t, (groups.get(c.t) ?? 0) + 1);
   const sizes = [...groups.values()];

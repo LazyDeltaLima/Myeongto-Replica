@@ -2486,7 +2486,8 @@ function opAttackAnim(ctx, charId, skillCount) {
       if (typeof dur === 'number' && dur > 0) {
         const h = sp.hits?.[n];
         const hit = Array.isArray(h) && Number.isFinite(h[0]) ? Math.min(dur, Math.max(0, h[0])) : null;
-        return { clip: n, dur, ...(hit != null ? { hit } : {}), ...abilityTiming(ab), ...firstBegin(ab), ...abilityFace(ab) };
+        // (`det` 1: a mode switch that detaches this ability cuts its swing — `_interruptAbilityOnDetach`, ai.js updateAlly)
+        return { clip: n, dur, ...(hit != null ? { hit } : {}), ...abilityTiming(ab), ...firstBegin(ab), ...abilityFace(ab), ...(ab?.det === 1 ? { det: 1 } : {}) };
       }
     }
     return null;

@@ -694,6 +694,9 @@ test('迷迭香 S2 (client projectile_chr_rosmon_s2, AttachToTarget reached at t
   const land = u.def.shot.skills[u.def.skill.index].land;
   assert.equal(land, 1.2);
   assert.ok(h.runUntil(() => u.skill.active, 10));
+  // (the S2 mode's attack is ready at the cast, so its last attack lands 0.13 s before the skill ends: 0.3 s shorter puts
+  // that one in flight as the skill ends)
+  u.skill.timeLeft -= 0.3;
   assert.ok(h.runUntil(() => atkT.some((a) => a.s2), 10));
   const a0 = atkT.find((a) => a.s2).t;
   h.run(land + 1);
@@ -710,7 +713,7 @@ test('迷迭香 S2 (client projectile_chr_rosmon_s2, AttachToTarget reached at t
   const end = h.b.time;
   h.run(land + 1);
   const lateMain = h.dmg.find((d) => d.src === u.id && d.attack && !d.splash && !d.tags.includes('aftershock') && Math.abs(d.t - (last + land)) <= tick);
-  assert.ok(lateMain && lateMain.t > end, 'this seed: the last S2 attack lands after the skill');
+  assert.ok(lateMain && lateMain.t > end, 'the last S2 attack lands after the skill');
   const late = h.dmg.filter((d) => d.src === u.id && d.tags.includes('aftershock') && d.t > lateMain.t - 1e-9 && d.t <= lateMain.t + 0.5);
   assert.equal(late.length, per, 'an S2 attack landing after the skill keeps its after-shocks');
   assert.ok(late.every((d) => d.tags.includes('rosmon:s2')), 'and its stun chance');

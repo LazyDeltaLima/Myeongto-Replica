@@ -249,3 +249,73 @@ test('a target lost within _escapeTime keeps the spell: the next swing has no be
   assert.equal(sw[1][7], undefined, `no begin: ${JSON.stringify(sw[1])}`);
   done(h);
 });
+
+test('a new attack interval re-times the running cooldown keeping its progress (OnAttackTimeChanged → ResetButKeepProgress)', () => {
+  const { h, u } = field();
+  h.step();
+  const t0 = h.b.time - TICK;
+  h.run(0.5 - TICK);   // 0.5 s into a 2 s cooldown: 1.5 s (75 %) left
+  h.b.addBuff(u, { key: 'test:aspd', duration: Infinity, mods: { aspd: 100 } });   // interval 2 → 1
+  approx(u.s.interval, 1, 'ASPD 200');
+  h.run(1.5);
+  const s = strikes(h, u);
+  // 75 % of the new 1 s is left: the next swing 0.75 s later (not the 1.5 s left of the old interval)
+  near(s[1], t0 + 0.5 + 0.75 + HIT, 'the second strike', 1);
+  done(h);
+});
+
+/** A test operator whose skill (index 1, 3 s) switches it to an attack mode of its own: S clip 0.5 s, strike at 0.1. */
+function modeField({ det = false, baseDet = false } = {}) {
+  const op = { ...chessRec({ id: 't_op', stats: { atk: 100, bat: BAT }, skill: { duration: 3 }, rangeGrid: [[0, 0], [0, 1], [0, 2]] }),
+    attackAnim: { base: { clip: 'Attack', dur: 1, hit: HIT, max: 1, ...(baseDet ? { det: 1 } : {}) },
+      skills: [null, { clip: 'Skill_1', dur: 0.5, hit: 0.1, max: 1, ...(det ? { det: 1 } : {}) }] } };
+  const h = makeBattle({
+    defs: { chess: { t_op: op }, enemies: { e: enemyRec({ key: 'e', hp: 1e9, speed: 0 }) } },
+    units: [{ chessId: 't_op', row: 10, col: 4 }], enemies: [{ key: 'e', pos: [10, 5] }],
+    content: 'generic', kits: { t_op: () => ({ skill: { kind: 'duration', duration: 3, trigger: 'NEVER' } }) },
+    autoFinish: false, timeLimit: 60, hooks: ['attack'], captureNoisy: true,
+  });
+  return { h, u: h.unit('t_op') };
+}
+const approx = (a, b, msg) => assert.ok(Math.abs(a - b) < 1e-9, `${msg}: ${a} vs ${b}`);
+
+test('a skill that switches the attack mode: its mode\'s attack is ready at once (its own cooldown); at the skill\'s end the Default attack is too', () => {
+  const { h, u } = modeField();
+  h.run(1.2);   // the first Default swing struck at HIT; its cooldown runs to 2 s
+  assert.equal(strikes(h, u).length, 1);
+  assert.ok(u.atkCd > 0.5, `the Default cooldown is running: ${u.atkCd}`);
+  assert.ok(u.skill.activate('manual', { free: true }));
+  const cast = h.b.time;
+  h.run(0.3);
+  const s = strikes(h, u);
+  assert.equal(s.length, 2, 'the skill mode swings without waiting for the Default cooldown');
+  near(s[1], cast + 0.1, 'its strike frame after the switch', 2);
+  // the skill ends 3 s after the cast, inside a skill-mode cooldown: the Default attack swings at once
+  h.runUntil(() => !u.skill.active, 4);
+  const end = h.b.time, n = strikes(h, u).length;
+  h.run(HIT + 3 * TICK);
+  assert.equal(strikes(h, u).length, n + 1, 'the Default attack right after the skill');
+  near(strikes(h, u).at(-1), end + HIT, 'its strike frame after the switch', 2);
+  done(h);
+});
+
+test('a mode switch during a swing: the old swing\'s recovery is not waited for; it strikes beside the new swing, or is cut when its ability interrupts on detach (_interruptAbilityOnDetach)', () => {
+  for (const baseDet of [false, true]) {
+    const { h, u } = modeField({ baseDet });
+    h.step();   // a Default swing from the first tick: its strike at HIT, the swing 1 s long
+    const t0 = h.b.time - TICK;
+    h.run(0.2);
+    assert.ok(u.swing, 'mid wind-up');
+    assert.ok(u.skill.activate('manual', { free: true }));
+    h.run(HIT + 0.3);
+    const s = strikes(h, u);
+    if (baseDet) {
+      assert.equal(s.length, 1, 'the cut Default swing never struck; the skill mode swung');
+      assert.ok(s[0] < t0 + HIT - 1e-9, 'the strike is the skill mode\'s (0.1 s in), before the Default one\'s frame');
+    } else {
+      assert.equal(s.length, 2, `both strike: ${s.map((x) => x.toFixed(3))}`);
+      assert.ok(s.some((x) => Math.abs(x - (t0 + HIT)) <= TICK + 1e-9), 'the Default swing at its own frame');
+    }
+    done(h);
+  }
+});

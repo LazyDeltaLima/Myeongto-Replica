@@ -555,10 +555,10 @@ test('user: Given normal battle-start effects, When rehearsing candidate layouts
     return { h, m, ps, pieces };
   };
   const cases = [
-    // (upstream used 9,4 → 9,8 and 9,9 → 9,7; this fork's rules give other counts, so each pair starts from 12,6, which
-    // leaks five since 灰毫's blocked blow has no blast and the units tick in one line, against 9,7's one and 9,8's four)
-    { effect: 'in-battle layer gains', keys: ['12,6', '9,7'] },
-    { effect: 'duck replacements and a teammate medic', keys: ['12,6', '9,8'] },
+    // (upstream used 9,4 → 9,8 and 9,9 → 9,7; this fork's rules give other counts: since a skill's attack mode comes with its
+    // own cooldown (2026-11-04) 12,6 leaks four and 9,7 five, against 9,8's one and 11,7's one)
+    { effect: 'in-battle layer gains', keys: ['12,6', '9,8'] },
+    { effect: 'duck replacements and a teammate medic', keys: ['9,7', '11,7'] },
   ];
   for (const { effect, keys } of cases) {
     await t.test(`user: Given ${effect}, When comparing two layouts, Then prefer the second layout's lower leak count`, () => {

@@ -2,7 +2,7 @@
 // signature effect is asserted with numbers taken from its own blackboards (normal Lv4 / elite Lv7).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeBattle, enemyRec, chessRec, checkInvariants } from '../helpers/battleHarness.js';
+import { makeBattle, enemyRec, chessRec, checkInvariants, trackCarried } from '../helpers/battleHarness.js';
 import { TIER_KITS } from '../../server/sim/content/kits/index.js';
 import { DOLL_SWITCH } from '../../server/sim/professions.js';
 import { COLS } from '../../server/sim/constants.js';
@@ -1092,19 +1092,22 @@ test('圣约送葬人 T1 受选之人: the extra attack consumes no ammo and nev
   const h = makeBattle({
     defs: { enemies: { enemy_dummy: dummy() } },
     units: [{ chessId: 'chess_char_5_01_a', row: 9, col: 5 }],
-    enemies: [{ key: 'enemy_dummy', pos: [9, 6] }], hooks: ['ammoUsed'], seed: 5, autoFinish: false, timeLimit: 120,
+    enemies: [{ key: 'enemy_dummy', pos: [9, 6] }], hooks: ['ammoUsed', 'attack'], captureNoisy: true, seed: 5, autoFinish: false, timeLimit: 120,
     setup(b) {
       b.on('attack', (c) => { if (c.attacker.defId === 'chess_char_5_01_a') log.push({ extra: !!c.attacker.mem.extraAttack, active: c.attacker.skill.active }); });
     },
   });
   const u = h.unit('chess_char_5_01_a');
   const bb = bbOf(u);
+  // (a Default swing running at the cast plays on to its strike and spends no bullet: ai.js `swingOff`)
+  const carried = trackCarried(h, u);
   h.step();
   u.skill.gainSp(1000);
   assert.ok(h.runUntil(() => u.skill.active, 10));
   assert.ok(h.runUntil(() => !u.skill.active, 60));
   const ammo = bb['attack@trigger_time'] + 1; // + himself (Laterano)
-  const normal = log.filter((x) => x.active && !x.extra).length, extra = log.filter((x) => x.active && x.extra).length;
+  const mine = h.hooksOf('attack').filter((c) => c.attacker === u);
+  const normal = log.filter((x, i) => x.active && !x.extra && !carried.skipAttack(mine[i])).length, extra = log.filter((x) => x.active && x.extra).length;
   assert.ok(extra > 0, 'extra attacks happened during the skill');
   assert.equal(normal, ammo, 'every bullet is one normal attack');
   assert.equal(h.hooksOf('ammoUsed').length, ammo, 'extra attacks are invisible to ammoUsed listeners');

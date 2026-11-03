@@ -95,7 +95,9 @@ test('trait + T1: with no target her attack check stores one energy (an attack a
     approx(u.s.atk, u.base.atk, `${label(f)}: no ATK bonus`);
     const t1 = h.b.time;
     h.runUntil(() => stored(u).s === 2, 10);
-    approx(h.b.time - t1, 3 * 100 / 115, `${label(f)}: the next one an attack interval later (set at the store, before MSC-Y)`, 0.03);
+    // (set at the store at ASPD 115; the MSC-Y +30 that comes with the energy re-times it keeping its progress —
+    // docs/rules/sim.md 「일반 공격 타이밍」)
+    approx(h.b.time - t1, 3 * 100 / (115 + msc), `${label(f)}: the next one an attack interval later`, 0.03);
     const t2 = h.b.time;
     h.runUntil(() => stored(u).t === 1, 10);
     approx(h.b.time - t2, 3 * 100 / (115 + msc), `${label(f)}: then at the interval of ASPD ${115 + msc}`, 0.03);

@@ -183,8 +183,8 @@ test('S3 火山 (MANUAL, DEFAULT on its x-3 box — no row of its own, _DefaultT
     assert.deepEqual(u.liveRangeGrid, sk.rangeGrid, `T${tier}: x-3 while on`);
     approx(u.s.interval, 0.5, `T${tier}: 0.5 s`);
     approx(u.s.atk, atk0 + u.base.atk * sk.bb.atk, `T${tier}: ATK +${sk.bb.atk * 100} %`);
-    // she was already attacking her own 3-1 at 1.6 s: count from the second lava attack (the cooldown running at the
-    // cast is the engine's, ai.js — not this skill's)
+    // she was already attacking her own 3-1 at 1.6 s: count from the second lava attack (the Default swing running at
+    // the cast plays on beside the S3 mode's first one — ai.js `swingOff`)
     const lava = () => hitsBy(h, u).filter((c) => c.dmg.isAttack && c.dmg.isSkill);
     assert.ok(h.runUntil(() => new Set(lava().map((c) => c.dmg.attackId)).size > 1, 4), `T${tier}: two lava attacks`);
     const before = new Set(lava().map((c) => c.dmg.attackId));

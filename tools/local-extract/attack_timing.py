@@ -18,7 +18,7 @@ tools/assets/local-attack-timing.json, which tools/build-data.mjs folds into dat
 
   { "ops": { "char_4100_caper": { "modes": ["Default", "S2", "S2[Down]"],
                                   "attack": [ { "anim": "Attack", "max": 1, "pre": 0, "wait": 1, "sel": 0, "dead": 0,
-                                                "time": 0, "face": 1 }, … ] } },   (+ "begin", "esc": a ThreePart attack)
+                                                "time": 0, "face": 1, "det": 0 }, … ] } },   (+ "begin", "esc": a ThreePart attack)
     "enemies": { "enemy_1001_bigbo": { "combat": { … }, "attack": { … } } } }
 
 `attack[i]` = the attack ability of mode i (null when the mode has none), its clip renamed by the mode's
@@ -50,6 +50,8 @@ OUT = ROOT / 'tools/assets/local-attack-timing.json'
 FIELDS = {
     '_animKey': 'anim', '_maxAnimScale': 'max', '_preDelay': 'pre', '_waitForAttackEvent': 'wait',
     '_selectTargetTiming': 'sel', '_interuptIfTargetDead': 'dead', '_timeMode': 'time',
+    # 1: a mode switch that detaches the ability cuts its swing (`Ability.DoDetach`); 0: the swing plays out
+    '_interruptAbilityOnDetach': 'det',
 }
 # the ability that makes a mode's normal attack, by its path under the mode (first match wins); then the first child of
 # Body/Attack, Body/Combat (alternatives such as 维什戴尔 Attack_A/B/C: the first by name stands for all)

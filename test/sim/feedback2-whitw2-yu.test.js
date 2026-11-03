@@ -95,16 +95,21 @@ test('荒芜拉普兰德 S3 ③: a drone on its target attacks every attack inte
     const log = watchDrones(h, u);
     assert.ok(h.runUntil(() => u.skill.active, 5));
     const t0 = h.b.time;
-    h.run(6);
+    // (a Default swing the switch to the S3 mode caught plays on to its strike, drone addition included: ai.js `swingOff`)
+    h.step();
+    const carried = !!u.swingOff;
+    h.run(6 - TICK);
     h.b.applyStatus(u, 'disarm', { duration: 3, source: null });
     assert.ok(u.s.flags.disarm, 'disarmed');
     const td = h.b.time;
     h.run(8);
     assert.ok(u.skill.active);
     const f = u.profile.funnel, e = h.enemies()[0];
+    const offId = carried ? h.hooksOf('damaged').find((c) => c.source === u && c.t >= t0 && c.dmg?.attackId != null)?.dmg.attackId : undefined;
+    const sinceS3 = (c) => c.source === u && c.t >= t0 && c.dmg?.attackId !== offId;
     // her own attack goes on (the client's S3 mode `Body/Attack`): one ATK × 1.0 arts body hit per attack, no drone
     // additions; 缴械 stops it
-    const own = h.hooksOf('damaged').filter((c) => c.source === u && c.t >= t0 && c.dmg?.isAttack);
+    const own = h.hooksOf('damaged').filter((c) => sinceS3(c) && c.dmg?.isAttack);
     assert.ok(own.length >= 5, `${own.length} attacks of hers during S3`);
     for (const c of own) {
       assert.equal(c.type, 'arts');
@@ -112,7 +117,7 @@ test('荒芜拉普兰德 S3 ③: a drone on its target attacks every attack inte
       approx(c.amount, u.s.atk * u.s.dmgDealtMul, 'body hit = ATK × 1.0', 1e-9);
     }
     assert.equal(new Set(own.map((c) => c.dmg.attackId)).size, own.length, 'one body hit per attack');
-    assert.equal(h.hooksOf('damaged').filter((c) => c.source === u && c.t >= t0 && (c.dmg?.tags || []).includes('funnel')).length, 0, 'no unreleased-drone addition');
+    assert.equal(h.hooksOf('damaged').filter((c) => sinceS3(c) && (c.dmg?.tags || []).includes('funnel')).length, 0, 'no unreleased-drone addition');
     assert.equal(own.filter((c) => c.t > td + 0.5 && c.t < td + 3).length, 0, '缴械 stops her own attack');
     const hits = droneHits(h, u);
     assert.ok(hits.length >= 3 * 8, `${hits.length} drone hits in 14 s`);

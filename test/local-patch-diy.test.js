@@ -465,7 +465,7 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     });
 
     test('S2 满月的舞会: organ attacks deal arts damage; in Fever every attack hits twice', () => {
-      const h = solo({}, 1, { secs: 160, enemies: [{ key: ENEMY, time: 0, route: 0, count: 120, interval: 1 }, { key: ENEMY, time: 0.5, route: 1, count: 120, interval: 1 }] });
+      const h = solo({}, 1, { secs: 200, enemies: [{ key: ENEMY, time: 0, route: 0, count: 160, interval: 1 }, { key: ENEMY, time: 0.5, route: 1, count: 160, interval: 1 }] });
       const u = h.unit(1);
       assert.equal(h.b.errors.length, 0);
       const atk = h.hooksOf('damaged').filter((x) => x.source === u && x.dmg?.isAttack && !x.dmg.tags?.includes('note'));

@@ -8,7 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { makeBattle, enemyRec, chessRec, checkInvariants } from '../helpers/battleHarness.js';
+import { makeBattle, enemyRec, chessRec, checkInvariants, trackCarried } from '../helpers/battleHarness.js';
 import { KITTED_CHARS, OPERATOR_KITS, KITS } from '../../server/sim/content/kits/index.js';
 import { PEAK_KEY, holderKey } from '../../server/sim/content/kits/ops/op-pallas.js';
 import { diyPool, validateDiyPicks, diyRecord } from '../../shared/diy.js';
@@ -265,6 +265,8 @@ test('S3 英勇的祝福 (MANUAL, data DEFAULT): 30 s, ATK +55 / 70 %, three tar
       const yak = h.unit(2);
       assert.equal(u.skill.rule, 'DEFAULT', `T${tier}: data DEFAULT`);
       for (const pos of [[10, 5], [10, 6], [10, 7]]) h.spawn('enemy_dummy', { pos });   // three enemies on her 2-2
+      // (a Default swing running at the cast plays on to its own single target: ai.js `swingOff`)
+      const carried = trackCarried(h, u);
       u.skill.gainSp(999);
       assert.ok(h.runUntil(() => u.skill.active, 3), `T${tier}: cast`);
       h.step();
@@ -283,7 +285,7 @@ test('S3 英勇的祝福 (MANUAL, data DEFAULT): 30 s, ATK +55 / 70 %, three tar
       const t0 = h.b.time;
       h.run(4);
       const per = new Map();
-      for (const c of atkHits(h, u).filter((x) => x.t > t0)) per.set(c.dmg.attackId, (per.get(c.dmg.attackId) ?? new Set()).add(c.target));
+      for (const c of atkHits(h, u).filter((x) => x.t > t0 && !carried.skip(x))) per.set(c.dmg.attackId, (per.get(c.dmg.attackId) ?? new Set()).add(c.target));
       assert.ok(per.size >= 2 && [...per.values()].every((s) => s.size === 3), `T${tier}: three targets per attack`);
       // 角峰 leaves ⇒ she holds at once (同类取最高: her 精力充沛 is the higher of T1 and S3); a new operator in front takes it back
       h.b.retreat(yak);

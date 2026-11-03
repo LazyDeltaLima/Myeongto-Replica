@@ -180,9 +180,10 @@ export default {
             if (d.isAttack && d.isSkill && !d.isSplash && !tagged(d, IGNITE_TAG)) resCut(battle, unit, ctx.target);
           }, 50);
         } else if (sid === S3) {
-          // 火山: "随机对攻击范围内至多N个敌人发射熔岩" — a random draw among every enemy of the range
+          // 火山: "随机对攻击范围内至多N个敌人发射熔岩" — a random draw among every enemy of the range (an attack of the S3
+          // profile: also the S3 swing the skill's end leaves playing on — ai.js `swingOff`)
           battle.on('beforeAttack', (ctx) => {
-            if (ctx.attacker !== unit || !unit.skill?.active || ctx.targets.length <= maxLava) return;
+            if (ctx.attacker !== unit || !ctx.isSkill || ctx.targets.length <= maxLava) return;
             ctx.targets = battle.rng.shuffle(ctx.targets.slice()).slice(0, maxLava);
           }, { owner: unit });
         }

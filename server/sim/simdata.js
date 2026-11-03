@@ -313,6 +313,8 @@ export function normAttackAnim(a) {
     // a ThreePart attack's first-attack begin clip (s) and its ability's `_escapeTime` (ai.js attackTiming / endSpell)
     begin: Number.isFinite(begin) && begin > 0 ? begin : 0,
     esc: Number.isFinite(esc) && esc > 0 ? esc : 0,
+    // a mode switch detaching the ability cuts its swing (`_interruptAbilityOnDetach`; ai.js updateAlly)
+    det: a.det === 1,
   };
 }
 

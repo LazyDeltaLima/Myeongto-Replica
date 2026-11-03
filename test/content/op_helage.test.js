@@ -8,7 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
+import { makeBattle, enemyRec, checkInvariants, trackCarried } from '../helpers/battleHarness.js';
 import { KITTED_CHARS, OPERATOR_KITS, KITS } from '../../server/sim/content/kits/index.js';
 import { diyPool, validateDiyPicks } from '../../shared/diy.js';
 
@@ -122,6 +122,8 @@ test('S2 弦月 (MANUAL, time SP 32 / 29 from 5 / 10, data DEFAULT): 11 / 12 s o
   for (const [tier, elite, mod] of [[5, false, null], [6, true, null], [5, true, SBLX]]) {
     const sk = skillOf(tier, elite, S2), lb = `T${tier} ${elite ? 'elite' : 'normal'} ${mod ?? 'none'}`;
     const { h, u } = field({ tier, elite, mod, skill: 1 });
+    // (a Default swing running at the cast plays on to its own single strike: ai.js `swingOff`)
+    const carried = trackCarried(h, u);
     assert.deepEqual([u.skill.rule, u.skill.spType, u.skill.spCost, sk.initSp, sk.duration, sk.bb.atk, sk.bb.prob],
       ['DEFAULT', 'time', elite ? 29 : 32, elite ? 10 : 5, elite ? 12 : 11, elite ? 0.5 : 0.35, 0.75], lb);
     u.skill.gainSp(999);
@@ -134,7 +136,7 @@ test('S2 弦月 (MANUAL, time SP 32 / 29 from 5 / 10, data DEFAULT): 11 / 12 s o
     approx(u.s.dodgePhys, sk.bb.prob, `${lb}: 物理闪避`);
     const n0 = hitsBy(h, u).length, h0 = selfHeals(h, u).length;
     h.run(4);
-    const hits = hitsBy(h, u).slice(n0);
+    const hits = hitsBy(h, u).slice(n0).filter((c) => !carried.skip(c));
     const ids = [...new Set(hits.map((c) => c.dmg.attackId))];
     assert.ok(ids.length >= 2, `${lb}: attacks`);
     for (const id of ids.slice(0, -1)) assert.equal(hits.filter((c) => c.dmg.attackId === id).length, 2, `${lb}: 二连击`);
@@ -149,7 +151,8 @@ test('S2 弦月 (MANUAL, time SP 32 / 29 from 5 / 10, data DEFAULT): 11 / 12 s o
     approx(u.s.dodgePhys, 0, `${lb}: no dodge after`);
     const n1 = hitsBy(h, u).length;
     h.run(3);
-    const after = hitsBy(h, u).slice(n1);
+    // (an S2 swing running as the skill ended plays on with its two strikes)
+    const after = hitsBy(h, u).slice(n1).filter((c) => !carried.skip(c));
     assert.equal(after.length, new Set(after.map((c) => c.dmg.attackId)).size, `${lb}: one hit per attack again`);
     assert.ok(e.alive);
     done(h);
@@ -160,6 +163,7 @@ test('S3 满月 (MANUAL, time SP 43 / 41 from 15, data DEFAULT, no rangeId): no 
   for (const [tier, elite, mod] of [[5, false, null], [6, true, null], [6, true, SBLX]]) {
     const sk = skillOf(tier, elite, S3), lb = `T${tier} ${elite ? 'elite' : 'normal'} ${mod ?? 'none'}`;
     const { h, u } = field({ tier, elite, mod, skill: 2 });
+    const carried = trackCarried(h, u);
     assert.deepEqual([u.skill.rule, u.skill.triggerGrid, sk.trigger.rawRule, u.skill.spType, u.skill.spCost, sk.initSp, sk.duration, sk.bb.atk, sk.bb.ability_range_forward_extend, sk.bb['attack@max_target']],
       ['DEFAULT', null, 'DEFAULT', 'time', elite ? 41 : 43, 15, elite ? 14 : 13, elite ? 0.7 : 0.55, 1, 3], lb);
     u.skill.gainSp(999);
@@ -176,7 +180,7 @@ test('S3 满月 (MANUAL, time SP 43 / 41 from 15, data DEFAULT, no rangeId): no 
     const fly = h.spawn('enemy_fly', { pos: [10, 7] });
     const n0 = hitsBy(h, u).length;
     h.run(2);
-    const hits = hitsBy(h, u).slice(n0);
+    const hits = hitsBy(h, u).slice(n0).filter((c) => !carried.skip(c));
     const id = hits[0].dmg.attackId;
     assert.equal(hits.filter((c) => c.dmg.attackId === id).length, 3, `${lb}: three targets per attack`);
     assert.ok(hits.every((c) => [far, near, third, fourth].includes(c.target)), `${lb}: ground enemies only (the flyer is never struck)`);

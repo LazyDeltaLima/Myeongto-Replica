@@ -3,7 +3,7 @@
 // asserts its signature effect with numbers taken from the chess blackboards (data/chess.json).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeBattle, enemyRec, chessRec, checkInvariants } from '../helpers/battleHarness.js';
+import { makeBattle, enemyRec, chessRec, checkInvariants, pastSwitch } from '../helpers/battleHarness.js';
 import { getDefaultSource } from '../../server/sim/simdata.js';
 import { ELEMENT_GAUGE_MAX, PROJECTILE_SPEEDS, BOOMERANG_RETURN_SPEED } from '../../server/sim/constants.js';
 import { sortEnemyTargets, canTargetEnemy } from '../../server/sim/targeting.js';
@@ -133,10 +133,10 @@ test('1_03 惊蛰: chain jumps lose no damage during 初雷 (ATK +atk); 通流�
   assert.equal(hops[1][1], hops[0][2], 'the next one leaves the unit the last one struck');
   // skill: every jump at full damage, ATK +80 %
   const h2 = mk(READY);
-  const u2 = h2.unit(id);
-  h2.runUntil(() => dealt(h2, u2).length >= 3, 10);
+  const u2 = h2.unit(id), { skip } = pastSwitch(h2, u2);
+  h2.runUntil(() => dealt(h2, u2, (c) => !skip(c)).length >= 3, 10);
   approx(u2.s.atk, u2.base.atk * (1 + bb.atk));
-  for (const c of dealt(h2, u2).slice(0, 3)) approx(c.amount, u2.s.atk * t.atk_scale, 'no falloff');
+  for (const c of dealt(h2, u2, (c) => !skip(c)).slice(0, 3)) approx(c.amount, u2.s.atk * t.atk_scale, 'no falloff');
   done(h1); done(h2);
 });
 
@@ -503,11 +503,12 @@ test('1_14 格雷伊: 静电场 停顿 on the attacked target, ×talent_scale du
   h1.run(1);
   approx(statuses(h1, 'sluggish', (c) => c.source === h1.unit(id))[0].duration, t.sluggish);
   const h2 = run({ defs: { enemies: { e: dummy('e') } }, units: [{ chessId: id, row: 10, col: 4, carryState: READY }], enemies: [{ key: 'e', pos: [10, 6] }] });
+  const u = h2.unit(id), { carried } = pastSwitch(h2, u);
   h2.run(1);
-  const u = h2.unit(id);
   assert.ok(u.skill.active);
   approx(u.s.aspd - u.base.aspd, bb.attack_speed);
-  approx(statuses(h2, 'sluggish', (c) => c.source === u)[0].duration, t.sluggish * bb.talent_scale);
+  // (the carried Default attack's 停顿 is the Default one's)
+  approx(statuses(h2, 'sluggish', (c) => c.source === u)[carried ? 1 : 0].duration, t.sluggish * bb.talent_scale);
   done(h1); done(h2);
 });
 
@@ -712,12 +713,12 @@ test('1_20 雷蛇: 反击电弧 arts on up to 3 enemies, self-stun `stun` s afte
 test('2_01 送葬人: 最终旅程 double hits and shorter interval; 终结改装 ignores def_penetrate_fixed DEF', () => {
   const id = 'chess_char_2_01_a', bb = bbOf(id), t = tal(id), tb = tbOf(id);
   const h = run({ defs: { enemies: { e: dummy('e', { def: 100 }) } }, units: [{ chessId: id, row: 10, col: 4, carryState: READY }], enemies: [{ key: 'e', pos: [10, 5] }] });
-  const u = h.unit(id);
-  h.run(3);
+  const u = h.unit(id), { carried, skip } = pastSwitch(h, u);
+  h.run(3 - 2 * h.TICK);
   assert.ok(u.skill.active);
   approx(u.s.interval, (u.base.bat + bb.base_attack_time) * 100 / u.s.aspd, 'base attack time −0.5 s (flat seconds)');
-  const atks = h.hooksOf('attack').filter((c) => c.attacker === u && c.t < 2.5).length;
-  const hits = dealt(h, u, (c) => c.t < 2.5);
+  const atks = h.hooksOf('attack').filter((c) => c.attacker === u && c.t < 2.5).length - (carried ? 1 : 0);
+  const hits = dealt(h, u, (c) => c.t < 2.5 && !skip(c));
   assert.equal(hits.length, 2 * atks);
   for (const c of hits) approx(c.amount, u.s.atk * tb.atk_scale - Math.max(0, 100 - t.def_penetrate_fixed), 'front column ×1.5, DEF ignored');
   done(h);
@@ -1356,9 +1357,9 @@ test('1_03 惊蛰 elite: module chain (attack@max_target targets, −10 % per ju
   h1.runUntil(() => dealt(h1, u1).length >= tb['attack@max_target'], 10);
   const a1 = dealt(h1, u1).slice(0, tb['attack@max_target']).map((c) => c.amount);
   a1.forEach((a, k) => approx(a, u1.s.atk * t.atk_scale * tb['attack@chain.atk_scale'] ** k, `jump ${k}`));
-  const h2 = mk(READY), u2 = h2.unit(id);
-  h2.runUntil(() => dealt(h2, u2).length >= tb['attack@max_target'], 10);
-  for (const c of dealt(h2, u2).slice(0, tb['attack@max_target'])) approx(c.amount, u2.s.atk * t.atk_scale, 'no falloff');
+  const h2 = mk(READY), u2 = h2.unit(id), { skip } = pastSwitch(h2, u2);
+  h2.runUntil(() => dealt(h2, u2, (c) => !skip(c)).length >= tb['attack@max_target'], 10);
+  for (const c of dealt(h2, u2, (c) => !skip(c)).slice(0, tb['attack@max_target'])) approx(c.amount, u2.s.atk * t.atk_scale, 'no falloff');
   done(h1); done(h2);
 });
 
@@ -1489,7 +1490,8 @@ test('2_10 洛洛: 自负此轭 drones stay locked on their target while the ski
   assert.equal(normal[0], other, 'without the lock the newcomer would be the target');
   const t0 = h.b.time;
   h.run(4);
-  const atks = h.hooksOf('attack').filter((c) => c.attacker === u && c.t > t0);
+  // (a swing already running at t0 took its target before the newcomer came: from one wind-up on)
+  const atks = h.hooksOf('attack').filter((c) => c.attacker === u && c.t > t0 + attackTiming(u).strike);
   assert.ok(atks.length > 0 && atks.every((c) => c.targets.length === 1 && c.targets[0] === other), 'body keeps normal targeting');
   const drones = h.hooksOf('damaged').filter((c) => c.source === u && c.t > t0 && c.dmg.tags?.includes(ROCKROCK_DRONE));
   assert.ok(drones.length > 0 && drones.every((c) => c.target === first && c.dmg.isSkill && !c.dmg.isAttack), 'drone stays locked');

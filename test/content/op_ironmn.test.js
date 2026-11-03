@@ -9,7 +9,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
+import { makeBattle, enemyRec, checkInvariants, trackCarried } from '../helpers/battleHarness.js';
 import { KITTED_CHARS, OPERATOR_KITS, KITS } from '../../server/sim/content/kits/index.js';
 import { diyPool, validateDiyPicks, diyRecordOf } from '../../shared/diy.js';
 
@@ -215,6 +215,8 @@ test('S1 极致火力 + 白铁™多功能平台: ATK +12 % on the operator it f
     st(u).stock = 1;
     forceChance(h, false);
     u.skill.gainSp(999);
+    // (a Default swing running at the cast plays on to its own strike: ai.js `swingOff`)
+    const carried = trackCarried(h, u);
     const e = h.spawn('enemy_dummy', { pos: [10, 6] });
     assert.ok(h.runUntil(() => u.skill.active, 3), `T${tier}: cast with an enemy in his range`);
     assert.equal(st(u).stock, 2, `T${tier}: +1 stock at the start`);
@@ -223,7 +225,7 @@ test('S1 极致火力 + 白铁™多功能平台: ATK +12 % on the operator it f
     approx(tx.s.atk, tx.base.atk * (1 + 0.12 * sk.bb.fake_scale), `T${tier}: ×${sk.bb.fake_scale} while S1 runs`);
     const n0 = h.hooksOf('damaged').filter((c) => c.source === u && c.target === e).length;
     h.run(3);
-    const hits = h.hooksOf('damaged').filter((c) => c.source === u && c.target === e).slice(n0);
+    const hits = h.hooksOf('damaged').filter((c) => c.source === u && c.target === e).slice(n0).filter((c) => !carried.skip(c));
     assert.ok(hits.length >= 1);
     for (const c of hits) approx(c.amount, u.s.atk * sk.bb['attack@atk_scale'], `T${tier}: ${sk.bb['attack@atk_scale'] * 100} % ATK`);
     const alive0 = devs.filter((x) => x.alive).length;

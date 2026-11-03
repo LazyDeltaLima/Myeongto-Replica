@@ -4,7 +4,7 @@
 // and the elite's module choice ('none' instead of the default module) changes what the kit / profile does.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeBattle, enemyRec, chessRec, checkInvariants } from '../helpers/battleHarness.js';
+import { makeBattle, enemyRec, chessRec, checkInvariants, pastSwitch } from '../helpers/battleHarness.js';
 import { getDefaultSource } from '../../server/sim/simdata.js';
 import { KITS, skillSpecSource } from '../../server/sim/content/index.js';
 import { kitCoverage } from '../../tools/kit-coverage.mjs';
@@ -98,15 +98,17 @@ test('2_01 送葬人 S1 铳口收束: ATK +atk; the trait multiplier hits every 
     const h = setup(READY);
     const u = h.unit(id);
     usesAlt(u, id);
-    h.run(3);
+    // (the Default swing the first-tick cast caught plays on: its own shape — ai.js `swingOff`)
+    const { skip, skipAttack } = pastSwitch(h, u);
+    h.run(3 - 2 * h.TICK);
     assert.ok(u.skill.active);
     approx(u.s.atk, u.base.atk * (1 + bb.atk), 'ATK');
     approx(u.s.interval, u.base.bat * 100 / u.s.aspd, 'attack interval unchanged (最终旅程 only)');
     const [front, off] = h.enemies();
     // (every shot fired has landed — the strikes come at the clip's damage frame, ai.js attackTiming)
     assert.ok(h.runUntil(() => !h.b.projectiles.list.some((p) => p.source === u), 2));
-    const hits = dealt(h, u, (x) => x.dmg.isAttack);
-    const atks = h.hooksOf('attack').filter((x) => x.attacker === u).length;
+    const hits = dealt(h, u, (x) => x.dmg.isAttack && !skip(x));
+    const atks = h.hooksOf('attack').filter((x) => x.attacker === u && !skipAttack(x)).length;
     assert.equal(hits.length, 2 * atks, 'one hit per enemy and attack');
     for (const x of hits.filter((y) => y.target === off)) approx(x.amount, u.s.atk * fs, `${id} off-row ×${fs}`);
     for (const x of hits.filter((y) => y.target === front)) approx(x.amount, u.s.atk * fs, `${id} front ×${fs}`);

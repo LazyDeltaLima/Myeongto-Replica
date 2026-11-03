@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { KITTED_CHARS, OPERATOR_KITS, KITS } from '../../server/sim/content/kits/index.js';
 import { diyPool, validateDiyPicks } from '../../shared/diy.js';
+import { attackTiming } from '../../server/sim/ai.js';
 
 const load = (f) => JSON.parse(readFileSync(new URL(`../../data/${f}.json`, import.meta.url), 'utf8'));
 const CHESS = load('chess');
@@ -129,8 +130,11 @@ test('trait + T1 强弱法: no target ⇒ one energy per attack interval (an att
     approx(first[1], u.base.bat * 100 / u.base.aspd, `${label(f)}: then a full interval`, 1e-6);
     const log = [first, ...storeUp(h, u, N, E)];
     assert.equal(log.length, N + E, `${label(f)}: ${N} + ${E} stores`);
-    for (let i = 1; i < log.length; i++) approx(log[i][0] - log[i - 1][0], log[i - 1][1], `${label(f)}: store ${i + 1} one interval after the last`, 0.02);
     const aspd = hiddenOf(tier, mod).attack_speed ?? 0;
+    // (MSC-Y: the ASPD the first energy brings re-times the cooldown it left, keeping its progress — docs/rules/sim.md
+    // 「일반 공격 타이밍」; the gap ends on the tick that crosses it)
+    const held = u.base.aspd / (u.base.aspd + aspd);
+    for (let i = 1; i < log.length; i++) approx(log[i][0] - log[i - 1][0], log[i - 1][1] * (i === 1 ? held : 1), `${label(f)}: store ${i + 1} one interval after the last`, 1 / 30 + 1e-6);
     assert.equal(aspd, mod === MY ? 30 : 0, `${label(f)}: MSC-Y attack_speed`);
     approx(u.s.aspd, u.base.aspd + aspd, `${label(f)}: ASPD while holding energy`);
     const before = h.b.time;
@@ -278,9 +282,13 @@ test('S1 渐快急板 (MANUAL, data DEFAULT): 5 s, range 4-1, attack interval ×
     assert.deepEqual(u.liveRangeGrid, sk.rangeGrid, `${label(f)}: 4-1`);
     approx(u.skill.timeLeft, 5, `${label(f)}: 5 s`, 0.02);
     approx(u.s.interval, own() * 0.2, `${label(f)}: ×0.2`, 1e-6);
-    // the attack cooldown running as the skill starts is kept (one cooldown per unit; the client gives the S1 mode's attack
-    // ability its own — docs/rules/sim.md 「일반 공격 타이밍」, not yet modelled): the first S1 attack waits for it
-    assert.ok(h.runUntil(() => mainHits(h, u).length > 0, 3.2));
+    // the S1 mode's attack ability comes with its own cooldown, ready (docs/rules/sim.md 「일반 공격 타이밍」): the first
+    // S1 attack does not wait for the cooldown the Default attack was running — its swing starts at once
+    const cast = h.b.time, strike = attackTiming(u).strike;
+    const swung = () => h.hooksOf('attack').some((c) => c.attacker === u && c.t > cast - 1e-9);
+    assert.ok(h.runUntil(swung, 1), `${label(f)}: an S1 strike`);
+    assert.ok(h.b.time - cast <= strike + 2 / 30 + 1e-9, `${label(f)}: the S1 strike ${(h.b.time - cast).toFixed(3)} s after the cast (its wind-up ${strike.toFixed(3)} s)`);
+    assert.ok(h.runUntil(() => mainHits(h, u).length > 0, 1));
     const main = mainHits(h, u)[0];
     approx(main.amount, u.s.atk * sk.bb['attack@atk_scale'], `${label(f)}: ${sk.bb['attack@atk_scale']} ATK`, 1e-3);
     const en = energyHits(h, u).filter((c) => c.dmg.attackId === main.dmg.attackId);
