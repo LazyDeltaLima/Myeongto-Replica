@@ -223,6 +223,34 @@ export const KIT_HIT_BANKS = Object.freeze({
   // 2026-11-01 (public/js/audio.js TPL_FX_SOUNDS): 卡西米尔 [ex]'s pulse on each enemy it hits — the AOEDamage `_buffs`
   // [ex_damage_effect] carries audioSignal kazimierz_ex_attack beside its effect, sounded as the buff starts
   'kazimierz:ex': 'battle.ON_BUFF_START.kazimierz_ex_attack',
+  // 2026-11-03, docs/rules/audio.md 「버프·커스텀 트리거 소리」 (EN client buff templates and charpack prefabs; public/js/audio.js):
+  // 魔王's 微尘 reaching its unit (the running skill's projectile HIT) and back in her orbit (its cooldown_ready custom
+  // trigger; S3's never leave) — cetsyrMoteKey
+  'cetsyr:hit': 'battle.ON_PROJECTILE_HIT.projectile_chr_cetsyr_talent',
+  'cetsyr:hit1': 'battle.ON_PROJECTILE_HIT.projectile_chr_cetsyr_talent_s1',
+  'cetsyr:hit2': 'battle.ON_PROJECTILE_HIT.projectile_chr_cetsyr_talent_s2',
+  'cetsyr:hit3': 'battle.ON_PROJECTILE_HIT.projectile_chr_cetsyr_talent_s3',
+  'cetsyr:ready': 'battle.ON_CUSTOM_TRIGGER.projectile_chr_cetsyr_talent_cooldown_ready',
+  'cetsyr:ready1': 'battle.ON_CUSTOM_TRIGGER.projectile_chr_cetsyr_talent_s1_cooldown_ready',
+  'cetsyr:ready2': 'battle.ON_CUSTOM_TRIGGER.projectile_chr_cetsyr_talent_s2_cooldown_ready',
+  // 维什戴尔 S2's 过载 (wisdel_s_2[overload_start] PlayAudio); 菲莱 S2's blast at her (philae_s_2[cd]) and on each enemy
+  // (philae_s_2[ep]); 缇缇 S3's sleep spreading to an enemy (titi_s_3[effect_line]) and T1's tick on a sleeping enemy
+  // (titi_t_1[enemy_sleeping], kit kitHit)
+  'wisdel:s2ovs': 'battle.ON_CUSTOM_TRIGGER.WISDEL_S_OVERLOAD',
+  'philae:aoe': 'battle.ON_BUFF_START.philae_aoe',
+  'philae:aoehit': 'battle.ON_BUFF_START.philae_aoe_hit',
+  'titi:spread': 'battle.ON_CUSTOM_TRIGGER.titi_s_3[spread_from]',
+  'titi:t1': 'battle.ON_CUSTOM_TRIGGER.titi_t_1',
+  // 蕾缪安's attack ending (its BuffToOwner lemuen_attack_end_audio's ON_BUFF_FINISH, 0.76 s after the strike); 风丸's 折纸生花
+  // (Talents/1 START: her stand-in state, the summoned <替身>); 缪尔赛思 S3 on a ranged 流形 (mlyss_s_3[token_range_trigger]);
+  // a waiting operator's 凛御银灰 S2 slash as it redeploys — the range (svash2_s_2[build][effect]) and each enemy it hits
+  // (svash2_s_2[signal])
+  'lemuen:atkend': 'battle.ON_BUFF_FINISH.lemuen_attack_end_audio',
+  'kazema:t1': 'battle.ON_ABILITY_START.char_4016_kazema.T.1',
+  'kazema:t1token': 'battle.ON_ABILITY_START.token_10022_kazema_shadow.T.1',
+  'mlyss:s3range': 'battle.ON_BUFF_START.mlyss_s_3[range_audio]',
+  'svash2:range': 'battle.ON_CUSTOM_TRIGGER.svash2_s_2[range]',
+  'svash2:s2redhit': 'battle.ON_BUFF_START.svash2_s_2[hit]',
 });
 
 /**

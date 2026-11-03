@@ -1265,8 +1265,8 @@
       ],
       "enemies": {"enemy_1116_liprr_2":[10,10,0,0,86400],"enemy_1119_vofsd":[5,5,0,0,63360],"enemy_1121_lifbos_2":[3,3,0,0,86400]},
       "hooks": [1,26,2453,140,140,229,323,87,19,19,8,6,14,4977,737,0,18,0,1,24,0,0,0],
-      "events": {"atk":140,"deploy":8,"die":19,"dmg":263,"engage":5,"face":15,"fx":23,"skill":14,"spawn":26,"status":124,"swing":145},
-      "fx": {"anchor":2,"downed":1,"overload":1,"splash":14,"wake":5},
+      "events": {"atk":140,"deploy":8,"die":19,"dmg":263,"engage":5,"face":15,"fx":55,"skill":14,"spawn":26,"status":124,"swing":145},
+      "fx": {"anchor":2,"downed":1,"kitHit":32,"overload":1,"splash":14,"wake":5},
       "snaps": "6db2b540 a52e9ef4 5b9781cd bc85578a 82eaac91 17c491e9 2c06e415 153d003e ee2db80e"
     },
     "bond-soloShip-low": {

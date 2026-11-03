@@ -207,8 +207,17 @@ export function kitHitKey(fx, ex, unitOf) {
     // 2026-10-22: 协律 S2's sonic boom at each other operator in range (akkord_s_2[aoe_damage] PlayAudio akkord_aoe_audio at
     // that operator, whether or not an enemy is caught)
     case 'sonic': return def(ex.id) === 'char_4051_akkord' ? 'akkord:s2' : null;
-    // 2026-10-11, docs/rules/audio.md 「재능·소환물 능력 소리」: 실버애쉬 더 레인프로스트 S2's slash — its ability's ON (no attack event)
-    case 'aoe': return ex.skill === 'svash2' && def(ex.id) === 'char_1045_svash2' ? 'svash2:s2' : null;
+    // 2026-10-11, docs/rules/audio.md 「재능·소환물 능력 소리」: 실버애쉬 더 레인프로스트 S2's slash — its ability's ON (no attack event);
+    // 2026-11-03: a waiting operator's slash as it redeploys (svash2_s_2[build][effect] PlayAudio svash2_s_2[range] at it — the
+    // hits: aoeHitKey); 菲莱 S2's blast at her (philae_s_2[cd] audioSignal philae_aoe); 风丸's 折纸生花 as a <替身> appears —
+    // the talent ability Talents/1 (ActiveBuffAbility kazema_standin[damage]) of the summoned <替身> (its AppearTalent) or of
+    // her stand-in state [추정·엔진: her own Talents/1 is a plain Talent — what casts it as she switches was not read]
+    case 'aoe': return ex.skill === 'svash2' ? (def(ex.id) === 'char_1045_svash2' ? 'svash2:s2' : 'svash2:range')
+      : ex.skill === 'philae_2' && def(ex.id) === 'char_4148_philae' ? 'philae:aoe'
+      : ex.skill === 'origami' ? (def(ex.id) === 'char_4016_kazema' ? 'kazema:t1' : def(ex.id) === 'token_10022_kazema_shadow' ? 'kazema:t1token' : null)
+      : null;
+    // 2026-11-03: 魔王's 微尘 reaching an operator (an enemy under S2) — its projectile's HIT (cetsyrMoteKey)
+    case 'mote': return ex.src !== ex.id ? cetsyrMoteKey(unitOf(ex.src), 'hit') : null;
     // 2026-10-29: 歌蕾蒂娅 S3's tornado forming — its Chant's ON (docs/rules/audio.md 「스킬 시전 능력 소리」)
     case 'tornado': return def(ex.id) === 'char_474_glady' ? 'glady:s3' : null;
     // 2026-10-30: 叙拉古 [ex]'s proc — act2autochess_bond_eff_siracusa[ex][buff] PlayAudio siracusa_ex_attack on the target
@@ -289,6 +298,17 @@ export function tokenModeName(su, owner) {
   return m;
 }
 /**
+ * 2026-11-03, docs/rules/audio.md 「재능·소환물 능력 소리」: whether 뮤엘시스's S3 starting (tracked unit `su`, id `id`) sounds
+ * mlyss_s_3[range_audio] — mlyss_s_3[buff] gives each of her 流形 mlyss_s_3[token_range_trigger], which creates that audio buff
+ * on a ranged copy (mlyss_wtrman_range[mark]) that is no split one (mlyss_wtrman_summon[override]); the bank sounds once
+ * at a time (maxSoundAllowed 1, no popOldest). `units` are the tracked units (`tby` her id, `tmode`, `split`, `gone`).
+ */
+export function mlyssS3Range(su, id, units) {
+  if (su?.def !== 'char_249_mlyss' || su.skillIndex !== 2) return false;
+  for (const t of units.values()) if (t.tby === id && t.tmode === 'Range' && !t.split && !t.gone) return true;
+  return false;
+}
+/**
  * 2026-10-10, docs/rules/audio.md 「버프·커스텀 트리거 소리」: the buff sound of tracked unit `su`'s attack moment `at` ('s' swing,
  * 'a' strike, 'd' its impact; `melee` = a melee strike) — an sfx.kit key (tools/assets/kit-sfx.mjs) or null. 혼 S2 / S3: every
  * strike sounds horn_s_<n>[overload|normal][melee|ranged].attack (buff template horn_s_<n>[signal_melee|signal_ranged], event
@@ -354,6 +374,8 @@ export function signalFxKey(fx, ex, unitOf) {
     if (u?.def === 'char_4040_rockr') return 'rockr:ovs';
     if (u?.def === 'char_4247_oxi') return 'oxi:s3ovs';   // 2026-11-01: 塔露拉 S3 (AudioOnEventBehaviour oxi_s_3_overload)
   }
+  // 2026-11-03: 维什戴尔 S2's 过载 (wisdel_s_2[overload_start] ON_BUFF_START PlayAudio WISDEL_S_OVERLOAD)
+  if (fx === 'wisdelOverload' && u?.def === 'char_1035_wisdel') return 'wisdel:s2ovs';
   if (fx === 'wake' && u?.side === 'enemy') return 'titi:awake';
   if (fx === 'charges' && u?.def === 'char_426_billro' && Number.isInteger(u.skillIndex)) return billroChargeKey(u, Number(ex.n) || 0);
   if (fx === 'charges' && (u?.def === 'char_206_gnosis' || u?.def === 'char_4042_lumen')) return chargeStageKey(u, Number(ex.n) || 0);
@@ -414,6 +436,50 @@ export function chargeStageKey(u, n) {
   u.cstage = k;
   return `${s}:s2:${k}`;
 }
+/**
+ * 2026-11-03, docs/rules/audio.md 「버프·커스텀 트리거 소리」: the sfx.kit key of 魔王's 微尘 (`at` 'hit': one reaching its unit; 'ready':
+ * one back in her orbit, CoolDownAfterHitBehaviour's ON_CUSTOM_TRIGGER <projectile>_cooldown_ready) — the projectile of the
+ * running skill: projectile_chr_cetsyr_talent_s1 / _s2 / _s3 under S1 / S2 / S3, else projectile_chr_cetsyr_talent (S3's
+ * has no cooldown_ready bank: its motes never leave). `u` is her tracked unit.
+ */
+export function cetsyrMoteKey(u, at) {
+  if (u?.def !== 'char_4134_cetsyr') return null;
+  const s = u.skillOn && Number.isInteger(u.skillIndex) ? u.skillIndex + 1 : 0;
+  if (at === 'ready') return s === 3 ? null : `cetsyr:ready${s || ''}`;
+  return `cetsyr:hit${s || ''}`;
+}
+/**
+ * 2026-11-03: how many of 魔王's 微尘 came back since her last 'motes' (`n` of `cap`, skill look `sk`), remembered on her
+ * tracked unit `u` (a new deployment starts over: 'deploy' clears it); a change of cap or look is no return.
+ */
+export function motesBack(u, ex) {
+  if (u?.def !== 'char_4134_cetsyr' || !ex) return 0;
+  const prev = u.motes, n = Number(ex.n) || 0;
+  u.motes = { n, cap: ex.cap, sk: ex.sk };
+  return prev && prev.cap === ex.cap && prev.sk === ex.sk && n > prev.n ? n - prev.n : 0;
+}
+/**
+ * 2026-11-03: the per-enemy sound of a kit blast (fx 'aoe' with `n` = the enemies it hit) — 菲莱 S2's philae_s_2[ep] on each
+ * enemy (audioSignal philae_aoe_hit), a redeployed operator's 凛御银灰 S2 slash: its AOEDamage `_buffs` svash2_s_2[signal]
+ * (audioSignal svash2_s_2[hit]) on each enemy — or null.
+ */
+export function aoeHitKey(ex, unitOf) {
+  if (!ex || !(Number(ex.n) > 0)) return null;
+  const d = unitOf(ex.id)?.def;
+  if (ex.skill === 'philae_2' && d === 'char_4148_philae') return 'philae:aoehit';
+  if (ex.skill === 'svash2' && d && d !== 'char_1045_svash2') return 'svash2:s2redhit';
+  return null;
+}
+/**
+ * 2026-11-03: the sound tracked unit `su`'s strike starts that sounds later — 蕾缪安's attacks outside her S3 (charpack
+ * Modes/Default/Body/Attack and Modes/S2/Body/M2Attack/Normal: BuffToOwner on ON_SPELL_END of lemuen_attack_end_audio, 0.76 s,
+ * whose bank is its ON_BUFF_FINISH) — { key, after } (s) or null. Her S2 aim is no 'atk' (its own channel).
+ */
+export function strikeAfterKey(su) {
+  if (su?.def === 'char_4193_lemuen' && (!su.skillOn || su.skillIndex === 1)) return LEMUEN_ATTACK_END;
+  return null;
+}
+const LEMUEN_ATTACK_END = Object.freeze({ key: 'lemuen:atkend', after: 0.76 });
 /** 圣聆初雪's tile effect by snow layers (render/fx/kitofficial.js SNOW_GROUND: 1 → _01, 2–4 → _02, 5 → _03; 0 none). */
 const snowBand = (L) => (L >= 5 ? 3 : L >= 2 ? 2 : L >= 1 ? 1 : 0);
 /**
@@ -1836,6 +1902,12 @@ export class AudioManager {
     return true;
   }
 
+  /** 2026-11-03: sfx.kit key `hk` `n` times at once, at most its bank's own limit (sfx.kitLimit, else 2). */
+  _kitSounds(hk, n) {
+    const max = this.getManifest()?.audio?.sfx?.kitLimit?.[hk]?.max ?? 2;
+    for (let i = 0; i < Math.min(n, max); i++) if (!this._kitSound(hk)) break;
+  }
+
   /** local patch (maintainer report): play a dollkeeper switch's sounds (audioOfficial.js dollSwitchSfx) as sfx.kit keys. */
   _dollSwitch(id, ds) {
     const sfx = this.getManifest()?.audio?.sfx;
@@ -1895,6 +1967,7 @@ export class AudioManager {
             // 2026-10-29, docs/rules/audio.md 「스킬 시전 능력 소리」: its skill ability's own START / ON / HIT (the sim's
             // [strike, end] in e[4])
             if (e[2]) for (const { cue, after } of castCuesOf(ue, su.skillIndex, e[4])) this._playCue(su.def, cue, true, after);
+            if (e[2] && mlyssS3Range(su, e[1], this.units)) this._kitSound('mlyss:s3range');
             // modes[i].deferStart: a fallback start sound — it plays only for a skill that ended without an attack (its
             // attacks sound the skill's own attack sound, as the official ability signals do)
             if (!e[2] && su.startHeld) this.unit(su.def, 'skill', e[1], su.skillIndex ?? undefined);
@@ -1960,6 +2033,8 @@ export class AudioManager {
               this._swingCues(src, sw, 'a', sw.n++);
               this._spineStrike(src);
               this._kitSound(signalAttackKey(src, 'a', e[3] === 'none' || e[3] == null)); // 2026-10-10: its buff's strike sound
+              const later = strikeAfterKey(src); // 2026-11-03: a buff its strike starts that sounds as it ends
+              if (later) this._kitSound(later.key, later.after);
             }
             src.lastAtkAt = now;
             // 2026-10-22: a shell fired at a spot (kind 'mortar') hits by itself 3 s later as 无来源 damage, sounding its own banks
@@ -2055,6 +2130,7 @@ export class AudioManager {
           this._shellFalls?.delete(e[1]);
           const u = this.units.get(e[1]);
           if (!u) continue;
+          u.gone = true; // 2026-11-03 (mlyssS3Range)
           if (u.side === 'enemy') this._enemyOut(e[1], now);
           const consumed = this.consumed.delete(e[1]);
           const m = this.getManifest();
@@ -2078,6 +2154,7 @@ export class AudioManager {
           this.battle('leak', { volume: 0.85 });
         } else if (kind === 'deploy') {
           const u = this.units.get(e[1]);
+          if (u) { u.motes = null; u.gone = false; } // 2026-11-03: a new deployment (motesBack, mlyssS3Range)
           if (!u || u.side === 'enemy' || e[2] === 1) continue;   // (e[2] 1: a flight's landing, sim moveRedeploy inPlace — silent)
           // the opening deployment (OPENING_SLACK_MS): the sim brings it in one piece group per PREBUILT_INTERVAL, each
           // piece sounds with its own 'deploy'
@@ -2152,6 +2229,7 @@ export class AudioManager {
             const from = e[1] === 'split' ? unitOf(e[4].src) : null;
             const tmode = e[1] === 'copy' ? e[4].mode : from?.tmode;
             if (tu && (tmode === 'Melee' || tmode === 'Range')) { tu.tmode = tmode; tu.tby = e[1] === 'copy' ? e[4].by ?? null : from.tby; tu.sw = null; tu.vm = null; }
+            if (tu && e[1] === 'split') tu.split = true; // 2026-11-03: a split copy (mlyssS3Range)
           }
           for (const hk of [kitStartKey(e[1], e[4], unitOf), kitHitKey(e[1], e[4], unitOf), signalFxKey(e[1], e[4], unitOf)]) {
             this._kitSound(hk);
@@ -2176,6 +2254,12 @@ export class AudioManager {
             for (let i = 0; i < Math.min(Math.max(1, (Number(e[4].z) - Number(e[4].a) + 1) || 1), max); i++) if (!this._kitSound('oxi:s3fire')) break;
           }
           if (e[1] === 'link' && e[4]?.id != null) for (let i = haloLinkCount(unitOf(e[4].id), e[4].ids); i > 0; i--) this._kitSound('halo2:s3link');
+          // 2026-11-03, docs/rules/audio.md 「버프·커스텀 트리거 소리」: one sound per unit, at most the bank's own limit — a blast's
+          // enemies (aoeHitKey), the enemies a waking one puts to sleep (缇缇 S3: titi_s_3[effect_line] PlayAudio
+          // titi_s_3[spread_from] on each), 魔王's 微尘 back in her orbit (motesBack)
+          if (e[1] === 'aoe') this._kitSounds(aoeHitKey(e[4], unitOf), Number(e[4]?.n) || 0);
+          if (e[1] === 'wake' && e[4]?.id != null && unitOf(e[4].id)?.side === 'enemy' && Array.isArray(e[4].to)) this._kitSounds('titi:spread', e[4].to.length);
+          if (e[1] === 'motes' && e[4]?.id != null) { const mu = unitOf(e[4].id); this._kitSounds(cetsyrMoteKey(mu, 'ready'), motesBack(mu, e[4])); }
           // 2026-11-01: 予愿安洁莉娜 S2 — Skill_2_Begin (ChantWithProjectileBeforeSkill `_afterEndAnim`) plays as the glide's
           // 吟唱 ends, `chant` s on: its AudioWhenPlayAnimation signal [추정·CN: at the clip's start — the class is CN-only]
           if (e[1] === 'dash' && e[4]?.id != null && unitOf(e[4].id)?.def === 'char_1015_aglna2') this._kitSound('aglna2:s2begin', Math.max(0, Number(e[4].chant) || 0));

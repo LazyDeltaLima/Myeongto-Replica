@@ -97,12 +97,15 @@ export default {
           // "周围的地面敌人" = range x-4, the 3×3 tiles around her (PRTS 备注). Each enemy's philae_s_2[ep] picks its effect by her
           // philae_s_2[atk] (the rage, 'skill:philae_rage') as it triggers: the hit's moment (render/fx/kitofficial.js 'hit')
           const moment = unit.findBuff('skill:philae_rage') ? 'philae:blast:rage' : 'philae:blast';
+          let n = 0;
           for (const e of battle.unitsInGrid(unit, NINE, { side: 'enemy' })) {
             if (e.isFlying) continue;
+            n++;
             battle.dealDamage(unit, e, { amount: unit.s.atk * scale, type: 'arts', canDodge: false, isSkill: true, tags: ['skill', 'counter'], moment });
             if (ep > 0 && e.alive) battle.dealDamage(unit, e, { type: 'element', element: 'apoptosis', amount: unit.s.atk * ep, tags: ['skill'] });
           }
-          fx(battle, 'aoe', unit, { radius: 1.5, tiles: 'box', dmgType: 'arts', skill: 'philae_2' }); // box: the 3×3 tiles
+          // box: the 3×3 tiles; `n` the enemies it hit (each one's philae_s_2[ep] sounds: public/js/audio.js aoeHitKey)
+          fx(battle, 'aoe', unit, { radius: 1.5, tiles: 'box', dmgType: 'arts', skill: 'philae_2', n });
         }, { owner: unit });
       },
     };

@@ -90,7 +90,8 @@ describe('the keys of the moments (pure)', () => {
   });
   test('실버애쉬 더 레인프로스트: S2 slash (aoe svash2) → its ability ON; S3 impact → the bird projectile HIT', () => {
     assert.equal(kitHitKey('aoe', { id: 3, skill: 'svash2' }, unitOf), 'svash2:s2');
-    assert.equal(kitHitKey('aoe', { id: 5, skill: 'svash2' }, unitOf), null, 'a waiting op\'s slash on redeploy');
+    // 2026-11-03: a waiting op's slash on redeploy sounds svash2_s_2[build][effect]'s range (test/audio-buff-trigger-sounds.test.js)
+    assert.equal(kitHitKey('aoe', { id: 5, skill: 'svash2' }, unitOf), 'svash2:range', 'a waiting op\'s slash on redeploy');
     assert.equal(kitHitKey('aoe', { id: 3, skill: 'svash2Plan' }, unitOf), null);
     assert.equal(signalAttackKey({ def: 'char_1045_svash2', skillOn: true, skillIndex: 2 }, 'd', false), 'svash2:s3hit');
     for (const at of ['s', 'a']) assert.equal(signalAttackKey({ def: 'char_1045_svash2', skillOn: true, skillIndex: 2 }, at, false), null, at);

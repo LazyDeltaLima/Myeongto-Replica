@@ -52,13 +52,15 @@ export default {
     };
     const slash = (battle, caster, atk) => {
       // PRTS 备注: the slash ignores 隐匿 and hits flying enemies (and its reveal makes them targetable afterwards)
-      for (const e of enemiesInGrid(battle, caster, grid, n, { ignoreStealth: true })) {
+      const hit = enemiesInGrid(battle, caster, grid, n, { ignoreStealth: true });
+      for (const e of hit) {
         battle.dealDamage(caster, e, { amount: atk * num(bb.atk_scale, 1), type: 'phys', isSkill: true, tags: ['skill', 'svash2'] });
         if (!e.alive) continue;
         battle.applyStatus(e, 'cold', { duration: num(bb.cold), source: caster });
         battle.applyStatus(e, 'reveal', { duration: num(bb.cold), source: caster });
       }
-      battle.fx('aoe', { x: caster.x + caster.fwd[1] * 1.5, y: caster.y + caster.fwd[0] * 1.5, id: caster.id, r: 2, skill: 'svash2' });
+      // `n`: the enemies it hit (a redeployed operator's slash sounds each one's svash2_s_2[signal]: public/js/audio.js aoeHitKey)
+      battle.fx('aoe', { x: caster.x + caster.fwd[1] * 1.5, y: caster.y + caster.fwd[0] * 1.5, id: caster.id, r: 2, skill: 'svash2', n: hit.length });
     };
     return {
       skills: lazySkills({

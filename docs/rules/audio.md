@@ -378,8 +378,8 @@
     (`chess_char_6_11-mlyss.js`) → `audio.js tokenModeName`: 그녀 S3(번호 2)/S2(번호 1)가 켜져 있으면 `_S3`/`_S2`, 분열 복제(fx `split`)는 원본 모드.
     그 모드 큐(`tm`): Melee·Range_S2·Melee_S3 = START p_atk_wtrlime_n·HIT p_imp_wtrlime_remote, Range = attack/combat 둘(근접 combat.3은 p_imp_wtrlime_n).
     복제 순간 `mlyss_wtrman_s_begin`의 소리 버프 `mlyss_wtrman_s_melee_audio`/`_range_audio`(p_skill_wtrlimetrans_melee/range, fx `copy`), S3 근접 복제의
-    끌어당김마다 `mlyss_s_3[melee_audio]`(ON_BUFF_TRIGGER, p_atk_wtrlimepull, fx `pulse`). 안 한 것: S3 원거리 복제 `mlyss_s_3[range_audio]`(p_skill_wtrlimesplit,
-    `token_range_trigger` — 그 순간을 sim에서 못 얻음), 가짜 죽음·부활(`mlyss_wtrman_t_1`).
+    끌어당김마다 `mlyss_s_3[melee_audio]`(ON_BUFF_TRIGGER, p_atk_wtrlimepull, fx `pulse`). S3 원거리 복제 `mlyss_s_3[range_audio]`(p_skill_wtrlimesplit)는 2026-11-03부터 S3 시작에 — 아래
+    「버프·커스텀 트리거 소리」. 안 한 것: 가짜 죽음·부활(`mlyss_wtrman_t_1`, 재능 T.1 p_skill_wtrlimereborn).
 - 소리 파일: 새 키의 파일 대부분이 아직 없다 → 메인이 `node tools/fetch-assets.mjs --add-only`(매니페스트 `sfx.kit`·`tm` 재생성 + 새 파일만 받음).
 - 확인: `test/local-patch-talent-sounds.test.js`(공식 데이터 위 키·모드 표, 순간별 키, AudioManager 재생, 실제 매치 경로: 크루스 中的 휘두름·타격의 T.1·이그제큐터 'atk' T.1·
   노시스 kitHit 한 번·뮤엘시스 `copy.mode`). [브라우저 미확인]
@@ -590,10 +590,37 @@
     새 sfx 1개(예전엔 이 소리가 없었음 — 관리자 제보).
   - 확인: `test/audio-bond-block-sounds.test.js`(뱅크·키·AudioManager 재생, 시라쿠사 6 전투의 발동마다 소리 한 번, 카시미어 6 전투의 맞은 적마다
     소리 한 번 — battleHarness). [화면 미확인]
-- 안 한 것 [시점·조건을 sim에서 못 얻음]: 티티 `titi_s_3[spread_from]`(연쇄 수면 선 — sim 이벤트 없음)·재능 `titi_t_1`(잠든 적 틱), 시빌라이트 에테르나
-  재능 미진 재생성 `projectile_chr_cetsyr_talent[_s1|_s2]_cooldown_ready`(재생성 순간 이벤트가 없음 — 로스터 kit라 이벤트를 넣으면 golden이 넓게 바뀜),
-  위셔델 `WISDEL_S_OVERLOAD`(S3 표식은 위 「스킬·재능 투사체 소리」), 필라에 `philae_aoe`, 카넬리안·노시스·루멘 `[eff_cond]` 단계 버프, 뮤엘시스·비질 가짜 죽음, 실버애쉬 더 레인프로스트
-  S2·S3의 버프 소리(`svash2_s_2[show]`·`[range]`·`[hit]`, `svash2_eagle_token[locate]`), 쏜즈 더 로드스타, 르무엔 `lemuen_attack_end_audio` 등
+- 남은 버프·커스텀 트리거 소리 (2026-11-03, EN 클라 버프 템플릿 + charpack·소환물 프리팹; `public/js/audio.js`, 새 sfx 18키·파일 15개). 새 sim 이벤트는
+  티티의 `kitHit` 둘뿐(golden은 그 fx 수만), 나머지는 있던 fx에 소리만 또는 `n`(맞은 적 수) 필드만 더함:
+  - 시빌라이트 에테르나(`char_4134_cetsyr`) 재능 미진: 오퍼레이터(S2면 적)에 닿을 때 그때 스킬의 투사체 HIT — 스킬 밖 `projectile_chr_cetsyr_talent`,
+    S1·S2·S3 중 `_talent_s1`/`_s2`/`_s3`(fx `mote`, `src` 그녀; S1 시작의 그녀 자신 `mote`는 아님) → `cetsyrMoteKey`; 미진이 궤도로 돌아올 때
+    `CoolDownAfterHitBehaviour`의 `<투사체>_cooldown_ready`(S3 투사체는 사라지지 않아 뱅크도 없음) — fx `motes`의 `n`이 같은 `cap`·`sk`에서 늘어난
+    만큼(`motesBack`, 그녀 오디오 기록 — 배치마다 새로).
+  - 위셔델 S2 과부하: `wisdel_s_2[overload_start]` ON_BUFF_START PlayAudio `WISDEL_S_OVERLOAD` → fx `wisdelOverload`(`signalFxKey` `wisdel:s2ovs`).
+  - 필라에 S2: `philae_s_2` ON_TAKE_DAMAGE가 `[cd]`(audioSignal `philae_aoe`, 그녀)와 범위 x-4 적마다 `[ep]`(`philae_aoe_hit`)를 만든다 → fx `aoe`
+    (`skill: 'philae_2'`, 새 `n` = 맞은 적 수) — 그녀에게 한 번, 적마다 한 번씩 뱅크 상한(2, popOldest)까지(`aoeHitKey`).
+  - 티티 S3 수면 전파: 깨어난 적이 재우는 적마다 `titi_s_3[effect_line]` ON_BUFF_START PlayAudio `titi_s_3[spread_from]`(뱅크 있음; `[spread_to]`는 뱅크
+    없음) → fx `wake`의 `to` 수만큼. 잠든 적이 죽어 전파할 때도(`titi_s_3[dmg_ticker]` ON_OWNER_FINISH가 같은 `[effect_line]`을 검) → **새 sim fx**
+    `kitHit` { k `titi:spread`, n }(키트 `kill` 훅; 렌더의 선은 아직 없음). 재능 1(c) 잠든 적 틱: `titi_t_1[enemy_sleeping]` ON_BUFF_TRIGGER(1초, 잠든 동안)가 피해·이펙트와 함께 PlayAudio `titi_t_1` →
+    **새 sim fx** `kitHit` { k `titi:t1`, n 맞은 적 수 }(틱마다 하나, `chess_char_5_02-titi.js`) — 이펙트 `titi_attack_hit_01`은 렌더가 아직 안 그림.
+  - 르무엔: 평소·S2 일반 공격(charpack `Modes/Default/Body/Attack`·`Modes/S2/Body/M2Attack/Normal`)의 `BuffToOwner`가 ON_SPELL_END(5)에 그녀에게
+    `lemuen_attack_end_audio`(0.76초)를 걸고, 뱅크는 그 ON_BUFF_FINISH → 'atk' 타격 0.76초(게임 시간) 뒤 `lemuen:atkend`(`strikeAfterKey`). S3 모드
+    공격엔 없음, S2 조준 사격은 'atk'가 아님. 템플릿 `lemuen_attack_end_audio_s`(탄약 남음 조건)는 만드는 곳을 못 찾음 — 안 냄.
+  - 카제마루 재능 「折纸生花」(T.1): 소환한 <替身>(`token_10022_kazema_shadow`)은 `Talents/1` `AppearTalent` → ActiveBuffAbility
+    `kazema_standin[damage]` — 나타날 때 그 START(`p_skill_brightenswordborn_token`); 그녀의 替身 상태는 자기 `Talents/1`(같은 버프)의 START
+    `p_skill_brightenswordborn` → fx `aoe` `origami`(`id` = 터진 쪽) [추정·엔진: 그녀 쪽 Talents/1은 보통 Talent라 무엇이 시전하는지 안 읽음 — 替身 전환
+    순간으로 봄].
+  - 뮤엘시스 S3: `mlyss_s_3[buff]`가 유동체마다 `[token_range_trigger]`를 걸어, 원거리 복제(`mlyss_wtrman_range[mark]`)이고 분열 복제
+    (`mlyss_wtrman_summon[override]`)가 아니면 audioSignal `mlyss_s_3[range_audio]` → 그녀 S3 'skill' 켜짐에, 살아 있는 원거리 복제(fx `copy` `Range`·
+    `by` 그녀, fx `split`이 아닌 것)가 있으면 한 번(뱅크 1개·popOldest 없음; `mlyssS3Range`).
+  - 실버애쉬 더 레인프로스트 S2의 대기 오퍼 재배치 베기: 덱 버프 `svash2_s_2[build][effect]`가 범위 이펙트와 PlayAudio `svash2_s_2[range]`(그 오퍼),
+    `[build]`의 AOEDamage `_buffs` `svash2_s_2[signal]`(audioSignal `svash2_s_2[hit]`)이 맞은 적마다 → fx `aoe` `svash2`(그가 아닌 `id`, 새 `n`)에
+    `svash2:range` + 적마다 `svash2:s2redhit`. 그 자신의 베기는 전과 같음.
+  - 확인: `test/audio-buff-trigger-sounds.test.js`(뱅크·키·AudioManager 재생, battleHarness 티티 틱, 실제 매치 경로 시빌라이트 에테르나 미진 HIT·복귀).
+    [화면 미확인]
+- 안 한 것: 쏜즈 더 로드스타 `thorn2_t_2_start`(`thorn2_t_2[audio]`를 만드는 템플릿·프리팹을 못 찾음), 실버애쉬 더 레인프로스트 `svash2_s_2[show]`(EN 클라에
+  그 신호를 내는 PlayAudio 없음)·`svash2_eagle_token[locate]`(독수리 토큰이 키트에 없음), 유동체 재능 T.1 `p_skill_wtrlimereborn`(가짜 죽음·부활이
+  키트에 없음), 카넬리안·노시스·루멘 `[eff_cond]` 외의 단계 버프, 뮤엘시스·비질 가짜 죽음
   (관리자 메모 「오퍼레이터 효과음」 조사의 H·I 묶음), 적 버프·커스텀 트리거(적 91·122개 뱅크 — 적 스킬처럼 sim이 그 순간을 알려야 함).
 - 확인: `test/local-patch-attack-signals.test.js` 「buff and custom-trigger sounds」(표·혼 S3·락락 S2·티티·프라마닉스 더 프레리타 눈 타일·실제 매치 경로 아스카론 S2).
   [브라우저 미확인 — 혼 S3 과부하 후 공격음이 바뀌는지 들어 볼 것]
