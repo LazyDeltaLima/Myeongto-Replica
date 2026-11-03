@@ -1031,7 +1031,7 @@ instance) and skip `'counter'` / `'reflect'` damage. When the guard trips, the l
   `CUSTOM_RANGE` — an enemy inside `trigger.customRangeGrid` (rotated by the unit direction like every grid); `SEARCH` — an
   enemy inside the INITIAL range, checked every tick (no attack needed: "不受基础策略影响，在初始攻击范围内存在敌人时释放技能");
   `GDGLOW_SKILL_2` — "全场存在可选目标时释放技能": any enemy on the field (the client's `UnitManager.enemyCnt > 0`, targetable
-  or not), every tick; `NEVER` (alias `MANUAL`) — never auto-casts: the kit calls `unit.skill.activate(reason)` itself;
+  or not, and an ally target such as 白铁's 铁钳号·原型机, whose token side is ENEMY), every tick; `NEVER` (alias `MANUAL`) — never auto-casts: the kit calls `unit.skill.activate(reason)` itself;
   `MLYSS_WTRMAN` (缪尔赛思's own skills: the attack / combat state, no trigger grid) and any unknown rule behave like DEFAULT. Units that never attack (bard, phalanx, librator) check
   DEFAULT every tick. Silence blocks activation. MANUAL skills are cast by the automatic operations only (official client
   `AutoChessBattleTrigger`, maintainer decision 2026-10-11): every `AUTO_TRIGGER_INTERVAL` 0.2 s one pass over the units in

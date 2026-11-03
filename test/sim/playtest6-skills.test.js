@@ -270,6 +270,21 @@ test('#15 GDGLOW_SKILL_2 "全场存在可选目标时释放技能" (client _Gdgl
   done(h);
 });
 
+test('#15 GDGLOW_SKILL_2 counts a registered ally target (白铁\'s 铁钳号·原型机: token `_sideType` ENEMY, so the client\'s UnitManager files it under _enemies)', () => {
+  const w = 'chess_char_6_18_a';
+  const mate = chessRec({ id: 't_mate', profession: 'WARRIOR', skill: null, stats: { maxHp: 10000 } });
+  const h = run({ defs: { enemies: { enemy_d: dummy('enemy_d') }, chess: { ...noGarrison(w), t_mate: mate } }, units: [{ chessId: w, row: 12, col: 2 }, { chessId: 't_mate', row: 9, col: 10 }] });
+  const u = h.unit(w);
+  h.step();
+  fill(u);
+  h.run(1);
+  assert.equal(u.skill.activations, 0, 'no enemy, no ally target');
+  assert.ok(h.b.setAllyTarget(h.unit('t_mate'), true));
+  h.run(0.25);
+  assert.equal(u.skill.activations, 1, 'an ally target anywhere');
+  done(h);
+});
+
 // =================================================================================================================
 // #16 古米 / 塞雷娅 heal skills
 

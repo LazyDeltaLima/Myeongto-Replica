@@ -529,8 +529,10 @@ export class SkillRuntime {
     }
     if (this.rule === 'ACTIVE_RANGE') return this._defaultCondition(this.triggerGrid ? this._triggerKeys() : null);
     // GDGLOW_SKILL_2 "全场存在可选目标时释放技能" (`_GdglowSearchEnemy`): `UnitManager.enemyCnt > 0` — any enemy on the
-    // field, stealthed or untargetable included; no ally variant
-    if (this.rule === 'GDGLOW_SKILL_2') return b.enemies.some((e) => e.alive);
+    // field, stealthed or untargetable included; no ally variant. The client files a unit under `_enemies` by its side, and a
+    // token's side is its prefab's `_sideType` (`initSideType`), so a registered ally target (白铁's 铁钳号·原型机,
+    // `_sideType` ENEMY) counts too
+    if (this.rule === 'GDGLOW_SKILL_2') return b.enemies.some((e) => e.alive) || this._anyAllyTarget();
     return false;
   }
 
@@ -543,6 +545,14 @@ export class SkillRuntime {
   _allyTargetIn(keys) {
     const b = this.battle;
     return !!(keys && b._allyTargets && b._allyTargets.size) && b.allyTargetsInKeys(keys, this.unit).length > 0;
+  }
+
+  /** A registered ally target anywhere on the field (GDGLOW_SKILL_2's `enemyCnt`), never the unit itself. */
+  _anyAllyTarget() {
+    const set = this.battle._allyTargets;
+    if (!set || !set.size || set.has(this.unit)) return false;
+    for (const a of set) if (a.alive && a.deployed) return true;
+    return false;
   }
 
   /**

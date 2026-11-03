@@ -294,7 +294,9 @@
   rangeId 없는 갈래는 공격 상태 — 우리 공격은 게를 고르므로(적이 다 빠진 뒤, 도발 −2) 게를 치는 유닛은 시전, 치유 공격만 하는 유닛은 아님(禁疗라 환자가
   아님). CUSTOM_RANGE 상자도 같다. 엔진 `skills.js _allyTargetIn`(`Battle.setAllyTarget`으로 등록한 유닛; 지금은 게뿐). upstream(2026-10-08 그쪽 관리자
   규칙)은 치유 스킬과 「자기 공격으로 작용하지 않는 스킬」을 빼고 키트가 `allyTargets`로 고르게 했으나 공식 상자에는 그런 구분이 없어 받지 않음.
-  GDGLOW_SKILL_2(`enemyCnt`)는 그대로 [추정·미조사: `UnitManager.enemyCnt`가 적 진영 토큰을 세는지].
+  GDGLOW_SKILL_2(`enemyCnt`)도 게를 센다(2026-11-03 공식 클라에서 확인): `UnitManager.Register`가 유닛을 쪽(`side`)으로 나눠 ENEMY면 `_enemies`에
+  넣고 `enemyCnt`는 그 수이며, 카드로 놓는 말의 쪽은 `Character.BuildAt`이 `initSideType`(토큰은 프리팹 `_sideType`)으로 정한다 → 게만 있어도
+  필드 전체 조건이 참(엔진 `skills.js _anyAllyTarget`).
 - 알려진 결과: 패스가 휘두름 시작 뒤에 오면 그 휘두름은 원래 쿨다운을 그대로 지닌다(`AbilityStandard.CastToTarget`이 휘두름 시작에 타이머를 다시 검) —
   공속 스킬의 첫 몇 타가 느리다. 결정 1(즉발 시전)의 `cast` 모드(replace/state/free)는 「즉발 스킬의 시전」 절.
 - 근거 기록: 비공개 조사 기록 round2 §7, upstream 0.2.3 대조(스킬 발동). 테스트 `test/sim/skills.test.js`, `test/sim/instant-cast.test.js`, `test/local-patch-diy-chen3.test.js`(첸 S3 3-12 공중).
