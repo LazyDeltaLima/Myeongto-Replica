@@ -1227,7 +1227,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
     `max_target`)로 친다. 켜진 Lua 핫픽스에 이 메서드들 없음. 테스트 `attack-forms.test.js` 「拉普兰德」(고정).
 - **카제마루(风丸) 재능 「折纸生花」은 지상 적만** (2026-11-03, 버프 템플릿 `kazema_standin[damage]`): <替身>이 나타날 때 붙는 이 버프는 `lifeTimeType` 0(즉시) —
   붙자마자 끝나며 ON_BUFF_FINISH `AOEDamage`(범위 `x-4` = 제 칸과 둘레 8칸, 마법, 버프 출처의 공격력 × `damage_scale`)를 낸다. 그 대상 옵션이
-  `targetMotion` WALK_ONLY라 공중 적은 안 맞는다. 시점은 전과 같고(나타나는 순간), 전에는 공중 적도 맞혔다([ASSUMED] 「备注 없음」이던 것). 테스트
+  `targetMotion` WALK_ONLY라 공중 적은 안 맞는다. 시점은 전과 같고(나타나는 순간), 전에는 공중 적도 맞혔다(PRTS에 대공 비고가 없어 그렇게 짐작했던 것). 테스트
   `kits_t1t2.test.js` 「2_11 风丸: the trait's <替身> hits air units…」의 소환 替身 부분.
 - **실버애쉬 더 레인프로스트(凛御银灰) S2의 대기 오퍼 재배치 베기 시점** (2026-11-03, 덱 버프 `svash2_s_2[build]`): 재배치한 오퍼에 붙는 이 버프는 0.1초마다
   돌며(`triggerInterval` 0.1) `time` ≥ `first`면 벤다(스택 하나 줄고 `first` += `next`), 아니면 `time` += `interval` — `svash2_s_2[build_set]` 기본값
