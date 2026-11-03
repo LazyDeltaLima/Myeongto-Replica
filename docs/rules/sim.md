@@ -734,9 +734,15 @@ upstream 새 버그 이슈와 거기 붙은 수정 PR 중 이식한 sim 쪽(관�
   시작하고, 시전 중에는 상태가 기다리기만 해서(`OnTick`이 능력이 시전 중이면 돌아감) 저지가 풀려도 끊기지 않고 시작한 오퍼레이터에게 닿는다(그가 필드에 있어야 함 —
   쓰러지거나 퇴각하면 끝) — 닿은 뒤 0.2초 저지 확인이 부착을 끝낸다. 기절(빙결·공중에 뜸·마비도)은 상태를 바꾸고 `OnExit`이 시전을 끊는다(`InterruptIfNot`) →
   다시 막히면 클립 하나를 처음부터. 우리도 같게(전에는 저지가 풀리면 끊고, 다른 저지자로 바뀌면 다시 시작).
-  **[추정·엔진: 闪现이 실패할 때(갈 수 없는 칸) 버프의 다음 노드(저지 확인)가 도는지 안 읽음 — 그 자리에서 부착]**. 렌더는 시전 중 클립 `Parasitic`을 아직 틀지 않음(부착 때 한 번).
+  闪现이 실패하면(숙주 칸이 갈 수 없는 칸 — 우리 `groundPassable` 거짓, 2026-11-03 확인): `BlinkNode`가 `Enemy.Blink`의 거짓을 그대로 돌려주고 버프 동작 목록은
+  앞 노드가 실패하면 멈추므로(`ActionUtil.RunActions`) `check_block`이 생기지 않는다 — 모드 Parasitic·숙주 피해는 이미 걸렸고, 적은 그 자리에서 막힌 채 붙는다.
+  그 부착은 저지가 풀려도 이어지고, 숙주가 필드를 떠나거나(아래) 가상적: 정체가 죽을 때만 끝난다(`to_parasitic`은 `lifeTimeType` INFINITY, 0.03초마다 출처 생존 확인).
+  숙주가 필드를 떠나면(퇴각·사망, 闪现 성공·실패 모두) 그 순간 끝난다: `Entity.OnFinish` → `BuffContainer.Clear`가 버프마다 `_FinishBuff` → `to_parasitic`의
+  `ON_BUFF_FINISH`(모드 Default·`Reborn`). 우리 `kitParasite`: 闪现 실패면 0.2초 확인 없음, 숙주가 떠난 것은 매 틱 확인(전에는 闪现 실패도 0.2초 확인으로 떼고,
+  퇴각한 숙주는 다음 0.2초 확인까지 붙어 있었다). 렌더는 시전 중 클립 `Parasitic`을 아직 틀지 않음(부착 때 한 번).
 - 테스트 `test/content/enemies_bosses.test.js`(PR 테스트: 접촉 지점 → 저지 1.2초 뒤 부착·闪现이 저지를 풂·다음 탐색에 다시 막음·저지자 칸 중심·자박·teleport fx·퇴각 뒤 다시 걸음;
-  + 실제 경기 경로 Match 판 → `buildBattleSpec` → `createBattleFromSpec`, 角峰이 저지 → 칸 중심·3초 동안 그 자리에서 피해·퇴각 뒤 걸음 — 고치기 전에는 칸 중심 확인이 실패).
+  + 실제 경기 경로 Match 판 → `buildBattleSpec` → `createBattleFromSpec`, 角峰이 저지 → 칸 중심·3초 동안 그 자리에서 피해·퇴각 뒤 걸음 — 고치기 전에는 칸 중심 확인이 실패;
+  闪现 실패 = 저지 확인 없이 붙어 있다 숙주가 떠날 때 끝, 퇴각한 숙주는 그 틱에 떨어짐).
 
 ## upstream 0.2.5–0.3.1 버그 수정 이식 — 매치 (2026-10-17)
 
@@ -869,6 +875,9 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   유닛은 `ObjectManager.OnFixedUpdate`가 `BObject.CompareTo` 차례로 틱한다 — `priority` 큰 것 먼저, 같으면 `instanceUid` 작은 것 먼저이고, 전투 유닛은 아무도
   `priority`를 재정의하지 않는다. 우리도 모든 유닛을 `deploySeq` 한 줄로 틱한다(`lifecycle.js` `_tickUnits`, 아래 「유닛 틱 차례」). 재배치하면 번호가 새로라 뒤로 간다.
 - **저지자가 기절·不可阻挡이면** 그 틱에 막은 적을 모두 풂(`OnTick` → `_ClearAllBlockees`) — 우리는 적 쪽에서 `noBlock`·`sleep`을 보고 품(전과 같음).
+- **저지 수가 줄면**(2026-11-03 확인) `Character.UpdateBlockees`가 무게 합이 새 저지 수에 들어갈 때까지 하나씩 푼다 — `BlockedEnemyManager.TryPickOneToRemoveIfVolumeExceeded`는
+  목록의 **마지막**(목록은 `Add` 차례 = 막은 차례, `Remove`가 차례를 지킴) = 가장 나중에 막은 적을 고르고, `RemoveBlockee`꼴(`Enemy.UnregisterBlocker`, 저지자 쪽 해제)로
+  풀어 미끄러짐은 계속. 우리 `ai.js enforceBlockCapacity`(`blocking.pop()`, `blockMove`를 안 건드림)가 같음 — 시험만 더함(`block-position` 「block count drop」).
 - **즉시 탐색**(`Character.SearchBlockeeImmediate` = 살아 있으면 `_SearchBlockee(true)`: 티커를 기다리지 않고, 마침 차례였으면 티커를 새로 돌림) — 우리
   `searchBlockeeImmediate`(틱 전의 칸 색인이 낡아 필드의 적 전부를 훑음). 부르는 곳:
   - 당기는 투사체가 살아 있는 대상에 붙은 채 멈출 때(`HarpoonProjectile`·`NetCatcherProjectile`·`PullHitTargetBehaviour` `.OnProjectileStop`) **쏜 유닛**이 찾는다.

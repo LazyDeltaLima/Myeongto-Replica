@@ -97,6 +97,25 @@ test('two enemies blocked at the same spot are spread apart', () => {
   checkInvariants(h.b);
 });
 
+test('a block count drop lets go of the last blocked enemy first, and its slide runs on', () => {
+  // Character.UpdateBlockees: TryPickOneToRemoveIfVolumeExceeded picks the list's last entry (List.Add order) until the
+  // volume fits, each released as RemoveBlockee → Enemy.UnregisterBlocker (the blocker's side: the slide is not killed)
+  const h = lane(2);
+  h.step(1);
+  const a = h.spawn('enemy_still', { pos: [9, 6.7] });
+  untilBlocked(h, a);
+  const b = h.spawn('enemy_still', { pos: [9.16, 6.12] });   // inside 0.5: it slides out
+  untilBlocked(h, b);
+  const u = h.unit(OP);
+  assert.ok(b.blockMove, 'the second is sliding');
+  u.s.blockCnt = 1;
+  h.step(1);
+  assert.equal(a.blockedBy, u, 'the first is kept');
+  assert.equal(b.blockedBy, null, 'the last blocked goes');
+  assert.ok(b.blockMove, 'its slide runs on');
+  checkInvariants(h.b);
+});
+
 test('a blocker that leaves during the slide does not end it: the enemy reaches its block position, then walks on', () => {
   // Enemy.UnregisterBlocker leaves m_blockTween running, and BattleTweenMgr.Tick sets the position before the units tick:
   // the walk the released enemy makes is undone by the slide's next step until the slide ends

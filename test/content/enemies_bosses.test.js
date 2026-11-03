@@ -819,6 +819,42 @@ test(`${nm('enemy_9007_acelem')}: attaching from contact blinks to the blocker's
   checkInvariants(h.b);
 });
 
+test(`${nm('enemy_9007_acelem')}: a failed blink creates no block check — the attachment outlives the block and ends as the host leaves`, () => {
+  const h = arena({ units: [{ chessId: 't_wall', row: 9, col: 5 }] });
+  h.step();
+  const e = put(h, 'enemy_9007_acelem', [9, 5]);
+  const host = h.unit('t_wall');
+  e.x = 5.6;
+  // a tile its motion cannot pass: Enemy.Blink returns false and to_parasitic's action list stops before check_block
+  h.b.grid.setObstacle(host.tileR, host.tileC, true);
+  h.run(1.3);
+  assert.ok(host.findBuff('ab:parasite'), 'attached');
+  approx(e.x, 5.6, 1e-9, 'where it stands');
+  assert.equal(e.blockedBy, host, 'still blocked: no blink released it');
+  h.b.addBuff(host, { key: 't:noBlock', flags: { noBlock: true } });
+  h.b._unblock(e);
+  h.run(1);
+  assert.equal(e.blockedBy, null);
+  assert.ok(host.findBuff('ab:parasite') && e.s.flags.noMove, 'no block check: the attachment and 自缚 stay');
+  h.b.retreat(host, { reason: 'test' });
+  h.step();
+  assert.ok(!e.s.flags.noMove && e.form === null, 'the host leaving the field ends it on the spot');
+  checkInvariants(h.b);
+});
+
+test(`${nm('enemy_9007_acelem')}: the host retreating ends the attachment on the spot, not at the next block check`, () => {
+  const h = arena({ units: [{ chessId: 't_wall', row: 9, col: 5 }] });
+  h.step();
+  const e = put(h, 'enemy_9007_acelem', [9, 5]);
+  const host = h.unit('t_wall');
+  h.run(1.5);
+  assert.ok(host.findBuff('ab:parasite') && e.s.flags.selfBound, 'attached');
+  h.b.retreat(host, { reason: 'test' });
+  h.step();
+  assert.ok(!e.s.flags.selfBound && e.form === null, 'Entity.OnFinish clears the host\'s buffs: to_parasitic finishes at once');
+  checkInvariants(h.b);
+});
+
 test(`${nm('enemy_9007_acelem')} through the real match path (Match board → buildBattleSpec → createBattleFromSpec): it attaches on its blocker's tile centre and stays there`, async () => {
   const { makeMatch, give } = await import('../match/harness.js');
   const { buildBattleSpec, createBattleFromSpec } = await import('../../server/sim/spec.js');

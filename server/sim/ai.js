@@ -409,7 +409,11 @@ function storeEnergy(b, u, prof) {
   if (prof.storeEnergy && prof.storeEnergy(b, u)) u.atkCd = Math.max(u.atkCd, u.s.interval);
 }
 
-/** Release blocked enemies beyond the current block capacity (latest blocked first). */
+/**
+ * Release blocked enemies beyond the current block capacity, latest blocked first — the official `Character.UpdateBlockees`:
+ * `TryPickOneToRemoveIfVolumeExceeded` picks the list's last entry (blocked order) until the volume fits, each let go by
+ * the blocker's side (`Enemy.UnregisterBlocker`: the block slide runs on, so `blockMove` stays).
+ */
 export function enforceBlockCapacity(b, u) {
   const cap = u.alive && u.deployed ? u.s.blockCnt : 0;
   let used = 0;

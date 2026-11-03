@@ -144,9 +144,11 @@ function kitParasite(ab) {
     // prefab has no effect for the blink: mode Parasitic plays Parasitic once and then Idle_2 for Idle (`_replaceAnimPairs`) —
     // form 'parasitic' (render/units.js FORMS), no stand-in puff (fx/kinds.js)
     const fromX = e.x, fromY = e.y;
-    // [추정·엔진: when the blink fails (a tile it cannot pass) whether the buff's next node — the block check — still runs is
-    // not read; it attaches where it stands]
-    if (e.isFlying || b.grid.groundPassable(host.tileR, host.tileC)) {
+    // the buff's action list stops at a failed node (ActionUtil.RunActions): a blink onto a tile it cannot pass returns false
+    // and the next node, the check_block buff, is never created — it attaches where it stands, still blocked, and the
+    // attachment outlives the block: it ends only as the host leaves the field or this enemy dies
+    a.checkBlock = e.isFlying || b.grid.groundPassable(host.tileR, host.tileC);
+    if (a.checkBlock) {
       b._unblock(e);
       e.x = host.tileC; e.y = host.tileR;
       if (e.route) e.route.pts = null;
@@ -171,9 +173,12 @@ function kitParasite(ab) {
   };
   return [taunt(-1), {
     tick(b, e, a) {
-      while (a.host && b.time >= a.next - 1e-9) {
+      // the host leaving the field ends to_parasitic (INFINITY, on the host) at once: Entity.OnFinish → BuffContainer.Clear
+      // finishes each of its buffs, and the finish switches this enemy back
+      if (a.host && !(a.host.alive && a.host.deployed)) detach(b, e, a);
+      while (a.host && a.checkBlock && b.time >= a.next - 1e-9) {
         a.next += CHECK_BLOCK_INTERVAL;
-        if (!a.host.alive || e.blockedBy !== a.host) detach(b, e, a);
+        if (e.blockedBy !== a.host) detach(b, e, a);
       }
       if (a.host) return;
       if (a.castOn) {
