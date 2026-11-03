@@ -625,6 +625,8 @@ function kitShell(ab, e) {
  *   Replaced: a new 初始模式 copy with its current HP is summoned on its `<hand>_origin` route (at home without a template),
  *     then it is killed (强制击杀自身; a part: no kill count, no bounty). The copy is a new unit [ASSUMED: only its HP is
  *     inherited] — its 掷剑 starts from the initial cooldown again, so the data's cooldown (80 s) never comes into play.
+ *     The copy's mode in the client is Back_End (mode 2): the same passive [unmovable], attack and 掷剑 (cooldowns too) as
+ *     the first mode — only its entrance clip (Back_End, facing its default way) and effect differ — so it plays as 初始模式.
  *   Every damage it takes is lost by 假想敌：胄 too (BLADE_TRANSFER = PART_TRANSFER 1, 无来源, credited to the attacker).
  */
 function kitBlade(ab, e, b, tpl) {

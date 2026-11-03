@@ -33,8 +33,8 @@
 //   Both are the client's MultiMeleeAttack (skchr_helage_1, and the S2 mode's attack of his charpack) with `_additionalTimes` 1
 //   and `_waitAttackEventForAllAttacks` on, and their clips carry two OnAttack events each (Skill 0.567 / 0.7 s, Skill_2
 //   0.6 / 0.667 s): the second strike lands at the second event — SECOND_STRIKE after the first, one hit of the same
-//   attack, at the same target while it lives and he can act (as 帕拉斯 S1) [ASSUMED·not checked: the flag read by its name
-//   and the clips' event count; the code that reads it is not read].
+//   attack, at the same target while it lives and he can act (as 帕拉斯 S1). Checked against the official client: with the
+//   flag on, the wait between strikes is not `_triggerDelta` but the clip's next attack event (capped at the clip's length).
 // - S3 满月 (MANUAL, time SP, DEFAULT with no rangeId: cast while he attacks or blocks, docs/rules/sim.md 「스킬 범위 발동」): `duration` s — ATK +atk, attack range +1 tile
 //   forward (ability_range_forward_extend), up to attack@max_target targets at once; back to 1-1 after.
 

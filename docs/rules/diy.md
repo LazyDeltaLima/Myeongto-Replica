@@ -700,7 +700,8 @@
   - S1·S2의 둘째 타격: upstream은 두 타격을 한 순간에 넣었다. 공식 클라에서 둘 다 `MultiMeleeAttack`(S1 `skchr_helage_1`, S2 모드의 공격)이고
     `_additionalTimes` 1·`_waitAttackEventForAllAttacks` 켜짐, 클립에 OnAttack 이벤트가 둘씩 있다(`Skill` 0.567·0.7초, `Skill_2` 0.6·0.667초) → 둘째
     타격을 둘째 이벤트 때(S1 0.133초, S2 0.067초 뒤) 같은 공격(`attackId`)으로, 그때 대상이 살아 있고 그가 행동할 수 있을 때만 넣는다(팔라스 S1과 같은 틀)
-    [추정·미조사: 플래그는 이름과 클립의 이벤트 수로 읽음 — 플래그를 읽는 코드는 안 읽음].
+    — 공식 클라에서 확인(2026-11-03): 플래그가 켜지면 타격 사이 대기는 `_triggerDelta`가 아니라 클립의 다음 공격 이벤트(`MultiMeleeAttack`의
+    전딜·타격 간격 대기, 상한 클립 길이).
   - 재능 2 운주유악의 회복은 공식 클라에서 확인: 재능 2가 `ToggleablePassiveBuffAbility`, 검사기 `BlockedToggleChecker`(저지 수 0~0일 때 켜짐 — `_CheckCondition`
     `LoadData`), 버프 `helage_t_2[a]` 하나가 블랙보드 값으로 속성 `HP_RECOVERY_PER_SEC`(13)를 올린다 → 치료가 아니라 생명 회복 속도(`SIM.md` §4). upstream의
     추정 표시를 지움.
@@ -769,11 +770,12 @@
   - 나이팅게일 S2 아츠 실드: 보호막마다 버프 `cgbird_s_2` 하나(템플릿 `shield_magic` — 아츠 피해 `BlockDamage`, 0이 되면 `FinishBuff`)에 마법 저항 속성
     (`attributeType` 3, 블랙보드 값)이 함께 들어 있고 덮어쓰기 그룹은 DEFAULT(`maxStackCnt` 1) — 그룹에서 큐 순서로 끝나지 않은 첫 버프만 켜지므로
     (`Buff.OverrideGroup._DoUpdateInternal`, 위 「선발 추가 만트라」와 같은 근거) 저항 보너스는 보호막이 하나라도 남아 있는 동안 하나: 공식 클라에서 확인 → upstream의 추정 표시를 지움(동작 같음).
+- 하루카의 비눗방울은 그녀가 떠나도 남는다(공식 클라에서 확인, 2026-11-03): 재능 능력(`Talents/1`)의 버프 `haruka_t_1`는 수명 `INFINITY`, 버프 템플릿에
+  주인 쪽 이벤트가 없고, 능력은 제 주인에게 건 패시브 버프만 들고 있어(`Ability.m_passiveBuffUids`) 남에게 준 버프를 주인 퇴장 때 걷는 길이 없다.
 - 키트 주석에 남은 추정:
   - 스테인리스 [추정·미조사: 장치 재고 — 배치마다 +cnt, 상한 cnt + CRA-X 1, 상한을 넘는 `RechargeToken`은 버림; 게가 SP를 받는 것은 게를 고른 공격뿐(적 쪽
     선택자를 쓰는 범위 스킬도 게를 고르는지는 안 봄); 소환물도 게를 침 — 덱 `RechargeToken`(`Deck.RechargeToken`·`Card.RechargeToken`, 색인에 없음)과
     위수협의 손패 규칙을 읽어야 함].
-  - 하루카 [추정·미조사: 비눗방울은 그녀가 떠나도 남음 — 능력이 준 버프가 주인 퇴장 때 남는지].
 - 쓰러진 소환물의 복귀(관리자 결정 2026-11-03 「공식대로」, 공식 클라에서 확인): 위수협의 자동 배치(`AutoChessBattleTrigger._TryDeployAvailableCharacter`)는
   정비 때 놓인 말마다 그 카드의 `readyToSpawn`을 묻는다 — 토큰 카드(`Deck.TokenCard`)는 최대 배치 수 미만, 그리고 기본 카드 검사: 숨김 아님(남은 장수
   `remainingCnt` > 0, 주인 생존 `m_hostIsAlive`), 상태 READY·QUEUING(재배치 시간이 지남), DP 충분 — 이면 `_AutoDeploy`가 `freely: false`로 한 장을 쓴다.
@@ -879,7 +881,7 @@
   - 테스트 쪽: 넷의 upstream 테스트가 살아 있는 유닛을 `assert.deepEqual`/`equal`에 넘기던 곳을 id·`===` 비교로(CONTRIBUTING §6), 추출한 공격 타이밍·투사체 뒤에는
     「N초 뒤」가 아니라 「타격·치료가 들어올 때까지」 기다림. 넷 다 실제 매치 경로 시험을 더함(upstream 테스트에 없음).
 - 남은 추정:
-  - 벨로네 S1 [추정·미조사: 둘째 타격 시점 — 헬라그와 같은 `_waitAttackEventForAllAttacks`를 읽는 코드는 안 읽음]; S3 [추정·미조사: 이동 능력 `FlyToTarget`이
+  - 벨로네 S1 둘째 타격 시점은 공식 클라에서 확인(2026-11-03, 위 「선발 추가 헬라그」와 같은 `_waitAttackEventForAllAttacks` — 클립의 다음 공격 이벤트); S3 [추정·미조사: 이동 능력 `FlyToTarget`이
     클립 `Skill_3_ReStart_Begin`(0.2초, 이벤트 없음)·`_End`(0.3초, OnAttack 0.1초) 가운데 언제 옮기는지와 그동안 공격하는지 — 지금은 즉시 이동]; 복귀 보호 길이
     [추정·미조사: RespawnEnd 능력의 길이를 두 클립 0.5초로 읽음, 끝나는 조건은 안 읽음].
   - 지마 S3 거침없는 기세 [추정·미조사: 망치 스플래시 몫이 `atk_scale_2`에 `atk_scale`까지 곱하는지, 그 타격이 일반 공격으로 세는지 — 능력 클래스의 코드]·

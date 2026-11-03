@@ -25,7 +25,8 @@
 //   attack or heal she gives a bubble to max_target_shield allies of her current range that hold none (operators and summons,
 //   禁疗 ones too — ignoreHealFree; never a 孤立 one; herself included), the lowest HP share first; with no target to attack
 //   or heal but such an ally, the attack itself becomes the bubble (it takes the attack interval); with neither she waits.
-//   A bubble (no time limit, it outlasts her [ASSUMED: the ability's buff, not removed on her leaving]) gives 庇护
+//   A bubble (no time limit, it outlasts her — official client: the talent ability's buff haruka_t_1 lives INFINITY, and nothing
+//   takes a buff an ability gave another unit off when its owner leaves) gives 庇护
 //   damage_resistance (phys / arts taken ×(1 − v); the client's override key damage_resistance[bonus] — not the common 庇护
 //   damage_resistance[inf] of other operators, so it multiplies with those) — while her S3 runs ×damage_resistance_scale
 //   (haruka_s_3_scale re-reads every bubble of hers at its start and end). Damage from an enemy (a `source` on the enemy side)

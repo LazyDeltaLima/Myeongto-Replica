@@ -1660,6 +1660,9 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
 - **옛 동작**: 도착 순간 3×3에 있던 유닛만 `killed.duration` 10 s 기절 + 10회 DoT(`boss:helmShellDot`). 그 자리 유닛 기준 총 피해는 같았다.
 - 斩胄之剑·破胄之锤의 돌진 폭발(`acstma_s_1[reach_target]`)은 공식도 도착 순간 스냅샷이라 그대로(`stunBlast`). 테스트 `enemies_bosses.test.js`
   「假想敌：胄 + 刺胄之弹…」.
+- 【瘫痪】 뒤 '갑주를 베는 검'·'갑주를 부수는 해머' 복제는 공식에서 모드 2 `Back_End`(2026-11-03 프리팹 `enemy_9014_acstma`·`enemy_9015_acstmb`로 확인):
+  첫 모드와 판정이 같다 — 패시브 `[unmovable]`(같은 이상 상태 플래그)·공격·掷剑(쿨다운 포함) 모두 같고, 등장 클립(`Back_End`, 대상 아닌 기본 방향)·시전 이펙트
+  (`enemy_acstma_back_end`/`enemy_acstmb_back_end`)·소리만 다르다 → 시뮬은 복제를 첫 모드로 그대로 둔다(`bosses.js kitBlade`).
 
 ### 阿利斯泰尔 防护背心 방향 (`kitLion` 【莫非王土】)
 - **규칙**: 조끼를 활성화할 때마다 막는 면이 번갈아 바뀐다(클라 버프 템플릿 `enemy_vtlionk_shld`의 `front` 토글) — 알리스테어 유닛마다 첫 조끼는 **앞면**(보스가
