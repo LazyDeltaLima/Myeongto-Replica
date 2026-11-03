@@ -856,24 +856,24 @@
   - **벨로네 패밀리의 수법은 벨로네마다 따로 쌓인다**: 버프 템플릿 `demetr_t1[def_dec]`가 층·남은 시간을 출처별로 읽고(`CheckContainsBuff`·
     `AssignBuffBlackboardFromOthers`의 출처 거르기), 방어력 감소인 파생 버프 `demetr_t1[def_dec_core]`는 적마다 하나(`priorityBBKeys` def)라 가장 큰 감소만 듣는다
     (PRTS 「多个贝洛内之间的【手段】间仅防御减少量最高者生效」, 공식 클라에서 확인). 정지(停顿)는 누구든 S2 상한에 닿아 있는 동안. upstream은 층을 함께 쌓고
-    큰 쪽 값으로 [추정] 표시. 같은 판에 벨로네 둘은 공유 필드에서만.
+    큰 쪽 값으로 두고 추정 표시. 같은 판에 벨로네 둘은 공유 필드에서만.
   - 벨로네 S1 가주의 여유의 둘째 타격은 첫 타격 0.2초 뒤(스킬 프리팹 `MultiMeleeAttack` `_additionalTimes` 1·`_waitAttackEventForAllAttacks`, 클립 Skill_1의
     OnAttack 0.233·0.433초 — 헬라그 S1과 같은 꼴). upstream은 두 타격을 한 번에.
   - 벨로네 S2 참모의 수단의 공격은 투사체(`projectile_chr_demetr_s2`, 초당 10칸 — 추출한 S2 모드 사격)로 날아가 닿을 때 맞힌다(티피와 같은 꼴, `sim.md` 「오퍼레이터
-    공격 형태」). upstream은 즉시 타격 [추정].
+    공격 형태」). upstream은 즉시 타격(추정 표시).
   - 벨로네 S3 청산이 끝나 돌아올 때: 버프 `demetr_s3[respawn_end]`(RespawnEnd 능력)의 무적·저지 없음·SP 회복 정지·스킬 사용 불가 0.5초(upstream은 0.5초 불사).
   - 비이 S3 '적철에 새겨라'의 튕김: 이 탄이 **맞힌 횟수가 가장 적은** 적부터, 지금 맞은 적은 다른 적이 닿는 곳에 없을 때만, 같으면 가까운 순
     (투사체 `projectile_chr_veen_s3` `_sortTargetsByHitCountAsc`·`_allowRepetitionIfNoTarget`, 공식 클라에서 확인). upstream은 「아직 안 맞은 적 → 다른 적 → 같은 적」
-    [추정 순서].
+    (순서를 추정 표시).
   - 비이 재능 2 전쟁 기술의 5초는 중첩마다 새로(`veen_t_2[damage]` overrideType STACK·`clearAllStackCntWhenTimeUp`·`refreshRemainingTimeWhenStackMax`, `Buff._AddStack`은
     남은 시간을 큰 쪽으로 — 공식 클라에서 확인). 그녀는 자기 표식이 있는 적을 고르지 않는다(모든 모드 공격 선택기의 `_buffKeyExcluded` `veen_t_2[damage]`, 출처 거르기).
   - 비이의 저장 에너지와 지마 S2 꺾임 없는 집념의 「둘째 시전부터」는 배치마다 처음부터: 공식은 배치마다 새 유닛(`sim.md` 「누가 막나」 주기 — `OnAllocate` →
-    `Character.OnReset`)이고, 지마 S2는 능력 `ActiveOneOfBuffAbility`가 시전 수(`m_spellCnt`)를 센다(공식 클라에서 확인). upstream은 둘 다 [추정].
+    `Character.OnReset`)이고, 지마 S2는 능력 `ActiveOneOfBuffAbility`가 시전 수(`m_spellCnt`)를 센다(공식 클라에서 확인). upstream은 둘 다 추정 표시.
   - **Mon3tr 치료 연쇄는 치료가 닿을 때 이어진다**: 그녀의 치료는 투사체(`projectile_chr_monstr`, 초당 10칸)라 연쇄도 그 착탄에서 — 엔진에 프로필 `afterHeal`(공격
     치료가 대상에 닿고 그 직군 연쇄가 끝난 뒤, `ai.js doHeal`)을 더하고 키트가 거기서 연쇄를 시작. upstream은 공격 순간(투사체 비행 전)에 연쇄.
   - Mon3tr 재구성체: 퇴장하면 재배치 시간 뒤 자기 칸에 DP를 내고 다시 놓인다 — 이 모드의 놓은 소환물 복귀(위 「선발 오퍼레이터」의 망 바둑돌 복귀, 0.2초 루프
-    `AUTO_TRIGGER_INTERVAL`; upstream은 0.1초 [추정]). 주변 아군 공격력 오라는 매 틱(재구성체 Talents/1 `AuraAbility`에 간격 필드 없음, `AuraAbility.OnTick`;
-    upstream 0.1초 [추정]).
+    `AUTO_TRIGGER_INTERVAL`; upstream은 0.1초, 추정 표시). 주변 아군 공격력 오라는 매 틱(재구성체 Talents/1 `AuraAbility`에 간격 필드 없음, `AuraAbility.OnTick`;
+    upstream 0.1초, 추정 표시).
   - Mon3tr S3 책략: 용해의 路标形态 표식(그녀 원래 칸을 지키는 재구성체)은 두지 않는다: 그 칸에 다른 유닛이 서 있으면 그녀는 제자리 — 공식도 표식을 못 두면
     「技能结束时不能返回」(PRTS S3 비고). upstream 주석의 「공식은 쓰러짐」은 근거가 없어 지움.
   - 테스트 쪽: 넷의 upstream 테스트가 살아 있는 유닛을 `assert.deepEqual`/`equal`에 넘기던 곳을 id·`===` 비교로(CONTRIBUTING §6), 추출한 공격 타이밍·투사체 뒤에는
