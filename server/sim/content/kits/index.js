@@ -111,6 +111,9 @@ export const OPERATOR_KIT_FILES = Object.freeze([
   'op-jesca2.js',
   'op-bgsnow.js',
   'op-amgoat.js',
+  'op-thorns.js',
+  'op-irene.js',
+  'op-weedy.js',
 ]);
 
 /**

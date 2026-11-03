@@ -49,7 +49,7 @@ const VERDICT = {
   explosion: { lionhd: ['skill', 2], amgoat: ['pending', 'S2 点燃: the explosion (amgoat_s_2 / projectile_amgoat_s2_b rows, not compared yet)'] },
   extraAttack: { excu2: ['attack', "the T1 shot's 'atk' (signal T.1): charpack Modes/*/Body/Talents/1's cast / hit are in the mode's bindings"] },
   flame: { flamtl: ['skill', 3] },
-  frostNova: { gnosis: ['skill', 2], sbell2: ['skill', 1, 'its cast; the snow tiles it lays are the open snow-tile item (snow)'] },
+  frostNova: { gnosis: ['skill', 2], sbell2: ['skill', 1, 'its cast; the snow tiles it lays are the open snow-tile item (snow)'], weedy: ['pending', 'S3 液氮大炮: the nitrogen shot (weedy_s_3 rows, not compared yet)'] },
   healField: { plosis: ['skill', 2], shu: ['pending', 'T1 百谷长青: the tiles her heal sows (shu_t_1 / shu_farm_buff[char] rows, not compared yet)'] },
   iceSpike: { gnosis: ['skill', 3] },
   jungleSoul: { gvial2: ['skill', 3] },

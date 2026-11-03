@@ -35,7 +35,7 @@ test('dataExtras: every backups.json unit (skills by index, once), the 自选 su
   assert.deepEqual(PLANNED.filter((id) => !BACKUPS.units[id].standsIn.length), [...LOCAL_DIY_PICKS], 'the picks: our nine');
   assert.equal(x.extraOperators.char_112_siege, undefined, '推进之王 is not offered here');
   assert.deepEqual(x.extraOperators.char_2027_wang.skills.map((s) => s.skillId), ['skchr_wang_1', 'skchr_wang_2', 'skchr_wang_3']);
-  assert.deepEqual(x.tokenIds, ['token_10003_cgbird_bird', 'token_10024_ebnhlz_rcube', 'token_10026_bgsnow_subbow', 'token_10027_ironmn_pile1', 'token_10027_ironmn_pile2', 'token_10027_ironmn_pile3',
+  assert.deepEqual(x.tokenIds, ['token_10003_cgbird_bird', 'token_10009_weedy_cannon', 'token_10024_ebnhlz_rcube', 'token_10026_bgsnow_subbow', 'token_10027_ironmn_pile1', 'token_10027_ironmn_pile2', 'token_10027_ironmn_pile3',
     'token_10032_jesca2_jckshd', 'token_10035_wisdel_wward', 'token_10050_monstr_prosts', 'token_10054_phatm2_encdool', 'token_10055_phatm2_mndclv', 'token_10064_wang_stone1', 'token_10065_demetr_dmtpos',
     'token_10068_kalts2_mtship', 'token_10071_aglna2_agairp'], 'the summons of our picks');
   const types = new Set();

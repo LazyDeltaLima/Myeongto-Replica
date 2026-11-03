@@ -44,6 +44,78 @@
         "height": 357
       }
     },
+    "token_10009_weedy_cannon": {
+      "skel": "token_10009_weedy_cannon.skel",
+      "atlas": "token_10009_weedy_cannon.atlas",
+      "textures": [
+        "token_10009_weedy_cannon.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Idle",
+        "deploy": "Start",
+        "attack": {
+          "begin": "Attack_Begin",
+          "loop": "Attack_Loop",
+          "end": "Attack_End"
+        },
+        "attackDown": {
+          "begin": "Attack_Down_Begin",
+          "loop": "Attack_Down_Loop",
+          "end": "Attack_Down_End"
+        },
+        "skill": {
+          "begin": null,
+          "loop": "Skill",
+          "end": null,
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Attack_Begin": 0.167,
+        "Attack_Down_Begin": 0.167,
+        "Attack_Down_End": 0.167,
+        "Attack_Down_Loop": 3.967,
+        "Attack_End": 0.167,
+        "Attack_Loop": 3.967,
+        "Default": 0,
+        "Idle": 5.4,
+        "Skill": 0.867,
+        "Skill_Down": 0.867,
+        "Start": 1
+      },
+      "events": [
+        "OnAttack",
+        "OnStart"
+      ],
+      "hits": {
+        "Attack_Down_Loop": [
+          0.033
+        ],
+        "Attack_Loop": [
+          0.033
+        ],
+        "Skill": [
+          0.333
+        ],
+        "Skill_Down": [
+          0.333
+        ],
+        "Start": [
+          0.133
+        ]
+      },
+      "bounds": {
+        "x": -171.668,
+        "y": -2.412,
+        "width": 330.705,
+        "height": 229.504
+      }
+    },
     "token_10024_ebnhlz_rcube": {
       "skel": "token_10024_ebnhlz_rcube.skel",
       "atlas": "token_10024_ebnhlz_rcube.atlas",

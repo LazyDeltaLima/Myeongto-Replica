@@ -169,7 +169,7 @@ ENEMY_SPINE_SUB = 'spine/enemy'
 # trap_039_dstnta (子代) is an enemy-side stage token: 盐风主教昆图斯's 断裂生殖 switches it on (pkgrps/btl_pfb_tokens_0);
 # trap_185_vtlntw (黄金回响) the device 阿利斯泰尔's 莫非王土 puts on a 冲击式施术单元's tile (pkgrps/btl_pfb_tokens_1).
 TOKEN_SPINES = [
-    'token_10003_cgbird_bird', 'token_10024_ebnhlz_rcube', 'token_10026_bgsnow_subbow', 'token_10027_ironmn_pile1',
+    'token_10003_cgbird_bird', 'token_10009_weedy_cannon', 'token_10024_ebnhlz_rcube', 'token_10026_bgsnow_subbow', 'token_10027_ironmn_pile1',
     'token_10027_ironmn_pile2', 'token_10027_ironmn_pile3', 'token_10031_swire2_gdtrap', 'token_10032_jesca2_jckshd',
     'token_10035_wisdel_wward', 'token_10041_cathy_catsld',
     'token_10050_monstr_prosts', 'token_10054_phatm2_encdool', 'token_10057_svash2_eagle1', 'token_10057_svash2_eagle2',

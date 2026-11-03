@@ -8931,6 +8931,178 @@
    }
   ]
  },
+ "char_293_thorns": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_thorns"
+   ],
+   [
+    "projectile_chr_thorns"
+   ],
+   [
+    "projectile_chr_thorns_s3"
+   ]
+  ],
+  "cast": [
+   [
+    "thorns_attack_01_start",
+    "thorns_attack_02_start"
+   ],
+   [
+    "whitew_skill_02_start"
+   ],
+   [
+    "thorns_skill_03_start"
+   ]
+  ],
+  "hit": [
+   [
+    "thorns_attack_01_hit",
+    "thorns_attack_02_hit"
+   ],
+   [
+    "thorns_attack_02_hit"
+   ],
+   [
+    "thorns_skill_03_hit"
+   ]
+  ],
+  "trail": [
+   [
+    "thorns_attack_02_trail"
+   ],
+   [
+    "thorns_attack_02_trail"
+   ],
+   [
+    "thorns_skill_03_trail"
+   ]
+  ],
+  "attach": [
+   [],
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "thorns_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "thorns_attack_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "whitew_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "thorns_skill_03_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "combatSplit": [
+   {
+    "attack": {
+     "cast": [
+      "thorns_attack_02_start"
+     ],
+     "hit": [
+      "thorns_attack_02_hit"
+     ]
+    },
+    "combat": {
+     "cast": [
+      "thorns_attack_01_start"
+     ],
+     "hit": [
+      "thorns_attack_01_hit"
+     ]
+    }
+   },
+   null,
+   {
+    "attack": {
+     "cast": [
+      "thorns_skill_03_start"
+     ],
+     "hit": [
+      "thorns_skill_03_hit"
+     ]
+    },
+    "combat": {
+     "cast": [
+      "thorns_skill_03_start"
+     ],
+     "hit": [
+      "thorns_skill_03_hit"
+     ]
+    }
+   }
+  ],
+  "skillMode": [
+   null,
+   1,
+   2
+  ],
+  "switchTo": [
+   [],
+   [
+    1
+   ],
+   [
+    2
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "common_ignite_attack"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [
+     "thorns_skill_02_range",
+     "thorns_skill_02_start"
+    ],
+    "castLoop": [],
+    "buff": [
+     "thorns_skill_02_buff"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "thorns_skill_03_buff",
+     "thorns_skill_03_buff_02"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_294_ayer": {
   "modes": [
    "Default",
@@ -10682,6 +10854,217 @@
     ],
     "target": [],
     "targetBuff": []
+   }
+  ]
+ },
+ "char_4009_irene": {
+  "modes": [
+   "Default"
+  ],
+  "proj": [
+   []
+  ],
+  "cast": [
+   [
+    "irene_attack_start_front_01"
+   ]
+  ],
+  "hit": [
+   []
+  ],
+  "trail": [
+   []
+  ],
+  "attach": [
+   []
+  ],
+  "castOpt": [
+   {
+    "irene_attack_start_front_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "hitGroups": [
+   {
+    "g": [
+     [
+      "irene_attack_hit_01"
+     ],
+     [
+      "irene_attack_hit_02"
+     ]
+    ]
+   }
+  ],
+  "skills": [
+   {
+    "cast": [
+     "irene_skill_01_type1_start_01",
+     "irene_skill_01_type2_start_01"
+    ],
+    "castLoop": [],
+    "buff": [],
+    "target": [],
+    "targetBuff": [
+     "irene_wind_01"
+    ],
+    "hitGroups": {
+     "g": [
+      [
+       "irene_skill_01_type1_hit_01"
+      ],
+      [
+       "irene_skill_01_type2_hit_01"
+      ]
+     ]
+    }
+   },
+   {
+    "cast": [
+     "irene_skill_02_range_01",
+     "irene_skill_02_start_01"
+    ],
+    "castLoop": [],
+    "buff": [],
+    "target": [
+     "irene_skill_02_hit_01"
+    ],
+    "targetBuff": []
+   },
+   {
+    "cast": [
+     "irene_skill_03_range_01",
+     "irene_skill_03_range_03"
+    ],
+    "castLoop": [
+     "irene_skill_03_start_03",
+     "irene_skill_03_start_02",
+     "irene_skill_03_range_02",
+     "irene_skill_03_range_04",
+     "irene_skill_03_start_01"
+    ],
+    "buff": [],
+    "target": [
+     "irene_skill_03_type1_hit_01",
+     "irene_skill_03_type2_hit_01"
+    ],
+    "targetBuff": [
+     "irene_wind_01"
+    ]
+   }
+  ]
+ },
+ "char_400_weedy": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [],
+   [
+    "projectile_weedy_s2"
+   ]
+  ],
+  "cast": [
+   [
+    "weedy_attack_01_start"
+   ],
+   [
+    "weedy_skill_02_start"
+   ]
+  ],
+  "hit": [
+   [
+    "weedy_attack_01_hit"
+   ],
+   [
+    "weedy_skill_01_hit",
+    "weedy_skill_02_hit"
+   ]
+  ],
+  "trail": [
+   [],
+   [
+    "weedy_skill_02_trail"
+   ]
+  ],
+  "attach": [
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "weedy_attack_01_start": {
+     "s": 2,
+     "e": 6,
+     "o": 0
+    }
+   },
+   {
+    "weedy_skill_02_start": {
+     "s": 2,
+     "e": 6,
+     "o": 0
+    }
+   }
+  ],
+  "skillMode": [
+   null,
+   1,
+   null
+  ],
+  "switchTo": [
+   [],
+   [
+    1
+   ],
+   []
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [
+     "weedy_skill_01_start",
+     "weedy_skill_01_start_02"
+    ],
+    "buff": [],
+    "target": [
+     "weedy_skill_01_hit"
+    ],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "weedy_skill_02_buff"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [
+     "weedy_skill_03_start"
+    ],
+    "buff": [],
+    "target": [
+     "weedy_skill_01_hit",
+     "weedy_skill_03_hit"
+    ],
+    "targetBuff": [
+     "weedy_skill_03_buff"
+    ],
+    "shot": [
+     "weedy_skill_03_trail"
+    ],
+    "shotHit": [
+     "weedy_skill_01_hit",
+     "weedy_skill_03_hit"
+    ]
    }
   ]
  },

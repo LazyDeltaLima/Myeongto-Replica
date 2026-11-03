@@ -41,4 +41,13 @@ export const UNSOUNDED = {
     'ON_SKILL_START.skchr_amgoat_3_sanrio#2': 'none: her \'sanrio#2\' outfit\'s bank — this mode draws the default model',
     'ON_PROJECTILE_REACH.projectile_amgoat_s3_sanrio#2': 'none: her \'sanrio#2\' outfit\'s bank — this mode draws the default model',
   },
+  // 쏜즈 / 아이린 / 위디 (2026-11-04): listed as they joined, not wired yet
+  char_293_thorns: {
+    'ON_BUFF_START.thorns_s_2[audio]': 'todo: S2 护身尖刺 on',
+  },
+  char_400_weedy: {
+    'ON_ABILITY_ON.sktok_cannon_1': 'todo: the 工程蓄水炮\'s forced skill (S1 copy)',
+    'ON_ABILITY_ON.sktok_cannon_2': 'todo: the 工程蓄水炮\'s forced skill (S2 copy)',
+    'ON_OPERA_TRIGGER.cannon_hit': 'todo: the 工程蓄水炮\'s shot hits',
+  },
 };

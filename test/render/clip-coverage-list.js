@@ -146,4 +146,12 @@ export const UNPLAYED = {
   char_4055_bgsnow: {
     Skill_1_End: 'todo: S1 抑扬格 end',
   },
+  // 棘刺 / 艾丽妮 (2026-11-04)
+  char_293_thorns: {
+    Attack_2: 'todo: his Attack_2 clip (where the client plays it: not checked yet)',
+    Skill2_1: 'todo: S2 护身尖刺 the spikes',
+  },
+  char_4009_irene: {
+    Skill_3_Start: 'todo: S3 判决 start',
+  },
 };
