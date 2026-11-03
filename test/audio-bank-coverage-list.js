@@ -9,7 +9,7 @@
 //   'todo: <where>' — the client sounds it and we do not yet (where it fires, as far as known).
 // The first listing (2026-11-01) had 25; all its `todo` entries were wired the same day. The 白铁 / 遥 / 真言 ones
 // (2026-11-03) too, the 贝洛内 / 维伊 / 怒潮凛冬 / Mon3tr ones the same day, and the 黍 / 老鲤 / 黑键 ones (2026-11-04) the day
-// after they joined; the 涤火杰西卡 / 鸿雪 ones (2026-11-04) the same day.
+// after they joined; the 涤火杰西卡 / 鸿雪 and 棘刺 ones (2026-11-04) the same day.
 
 export const UNSOUNDED = {
   char_4202_haruka: {
@@ -41,13 +41,10 @@ export const UNSOUNDED = {
     'ON_SKILL_START.skchr_amgoat_3_sanrio#2': 'none: her \'sanrio#2\' outfit\'s bank — this mode draws the default model',
     'ON_PROJECTILE_REACH.projectile_amgoat_s3_sanrio#2': 'none: her \'sanrio#2\' outfit\'s bank — this mode draws the default model',
   },
-  // 쏜즈 / 아이린 / 위디 (2026-11-04): listed as they joined, not wired yet
-  char_293_thorns: {
-    'ON_BUFF_START.thorns_s_2[audio]': 'todo: S2 护身尖刺 on',
-  },
   char_400_weedy: {
-    'ON_ABILITY_ON.sktok_cannon_1': 'todo: the 工程蓄水炮\'s forced skill (S1 copy)',
-    'ON_ABILITY_ON.sktok_cannon_2': 'todo: the 工程蓄水炮\'s forced skill (S2 copy)',
-    'ON_OPERA_TRIGGER.cannon_hit': 'todo: the 工程蓄水炮\'s shot hits',
+    // "cannon" is also her 工程蓄水炮's code (token_10009_weedy_cannon, whose skill is sktok_weedy_token)
+    'ON_ABILITY_ON.sktok_cannon_1': 'none: not hers — 脉冲防御模组 (trap_028_cannon, a stage device)\'s skill',
+    'ON_ABILITY_ON.sktok_cannon_2': 'none: not hers — 脉冲防御模组 (trap_028_cannon, a stage device)\'s skill',
+    'ON_OPERA_TRIGGER.cannon_hit': 'none: not hers — a stage script\'s (ON_OPERA_TRIGGER) bank',
   },
 };

@@ -458,8 +458,8 @@
     모드 2 `S2_Atk`(스킬 `_defaultModeIndex`)에서 → 시작음은 `.2`(h1)인데 `skill-sfx.mjs`가 먼저 찾은 `.1`(h2)을 내고 있었다 → `START_BANKS`로 `.2`.
     `.1` START·FINISH는 목록에 `none`(켜진 토글 스킬은 자동 전투가 안 씀 — `_CheckToggleSkill`). 키트는 시전마다 음색을 바꾸므로(공식은 한 번 —
     diy.md 「사키코 S2」의 보류) 둘째 시전도 `.2`가 난다.
-- 지금 목록(2026-11-04): `none`만 — 하루카 1·나이팅게일 2·토가와 사키코 2·파죰카 2·에이야퍄들라 7(`todo` 0; 벨로네·비이·지마 더 레이징 타이드·Mon3tr의 20개와 슈·리·
-  에벤홀츠의 11개, 제시카 더 리버레이티드·파죰카의 5개는 아래 「버프·커스텀 트리거 소리」. 유넥티스는 처음부터 다 남; 파죰카 둘·에이야퍄들라 일곱은 `none`).
+- 지금 목록(2026-11-04): `none`만 — 하루카 1·나이팅게일 2·토가와 사키코 2·파죰카 2·에이야퍄들라 7·위디 3(`todo` 0; 벨로네·비이·지마 더 레이징 타이드·Mon3tr의 20개와 슈·리·
+  에벤홀츠의 11개, 제시카 더 리버레이티드·파죰카의 5개, 쏜즈 1개는 아래 「버프·커스텀 트리거 소리」. 유넥티스는 처음부터 다 남; 파죰카 둘·에이야퍄들라 일곱은 `none`).
 
 ## 스킬·재능 투사체 소리 (2026-10-29, 공식 클라 — 캐릭터·스킬·투사체 프리팹)
 - 공식: 스킬·재능·드론이 쏘는 투사체도 자기 뱅크를 낸다 — BORN(발사)·HIT(맞힌 대상마다)·REACH(도착)·STOP(멈춤)·
@@ -721,6 +721,13 @@
     없다(S2는 `projectile_amgoat_s2`만 쏘고 그 HIT는 전부터 남). `sanrio#2` 의상 뱅크 여섯은 이 모드가 기본 모델을 그려 `none`.
   - 확인: `test/audio-diy-pick-sounds.test.js` 「선발 涤火杰西卡 / 鸿雪」(뱅크, 타자기 스킬별 세트, 순수 키, battleHarness → AudioManager로 방향 전환·
     S3 포탄, 타자기 평타·S2·S3 사본 착탄). sim 사건은 그대로라 golden 무변화. [화면 미확인]
+- 선발 쏜즈·위디 (2026-11-04, 같은 날 들어온 키트의 커버리지 `todo` 4개 — 1개 연결·3개 `none`; 새 sfx 1키, 공식 클라에서 확인):
+  - 쏜즈(`char_293_thorns`) S2: 스킬의 `Thorn` 능력이 시전을 시작할 때 `BuffDuringCasting`(`OnCastStart`)이 그에게 `thorns_s_2[audio]`를 건다 →
+    키트가 가시를 일으키는 순간(그를 친 普通伤害, 쿨다운 안이면 없음) 새 kitHit `thorns:s2` `p_skill_prick`.
+  - 위디(`char_400_weedy`): `sktok_cannon_1`/`_2`·`ON_OPERA_TRIGGER.cannon_hit`은 그녀 것이 아님 — 무대 장치 펄스 방어 모듈(`trap_028_cannon`)의 스킬과 무대
+    스크립트 뱅크이고, 그녀 저수포(`token_10009_weedy_cannon`, 스킬 `sktok_weedy_token`)의 코드 「cannon」 때문에 목록에 잡혔다 → `none`.
+  - 확인: `test/audio-diy-pick-sounds.test.js` 「선발 棘刺」(뱅크, battleHarness → AudioManager로 쿨다운 안의 두 번째 피격은 무음). golden은 diy-053~055 fx 수만.
+    [화면 미확인]
 
 - 안 한 것: 쏜즈 더 로드스타 `thorn2_t_2_start`(`thorn2_t_2[audio]`를 만드는 템플릿·프리팹을 못 찾음), 실버애쉬 더 레인프로스트 `svash2_s_2[show]`(EN 클라에
   그 신호를 내는 PlayAudio 없음)·`svash2_eagle_token[locate]`(독수리 토큰이 키트에 없음), 유동체 재능 T.1 `p_skill_wtrlimereborn`(가짜 죽음·부활이

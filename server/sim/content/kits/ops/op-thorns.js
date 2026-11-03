@@ -208,6 +208,8 @@ export default {
           if (c.target !== unit || !sk || !sk.active || !up(unit) || !unit.canAct || !normalHitFromEnemy(c)) return;
           if (battle.time < unit.mem.thornsSpikeAt + cd - 1e-9) return;
           unit.mem.thornsSpikeAt = battle.time;
+          // the Thorn cast's BuffDuringCasting (OnCastStart) gives him thorns_s_2[audio]: its sound now (public/js/audio.js)
+          battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, k: 'thorns:s2' });
           const seq = unit.deploySeq, act = sk.activations;
           battle.after(SPIKE_DELAY, () => {
             if (!up(unit) || unit.deploySeq !== seq || !unit.canAct || !unit.skill?.active || unit.skill.activations !== act) return;

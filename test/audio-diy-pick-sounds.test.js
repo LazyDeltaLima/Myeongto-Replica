@@ -618,3 +618,19 @@ describe('선발 涤火杰西卡 / 鸿雪: S3 shell, the turn to a 机动盾牌,
     assert.ok(s3.played.includes('p_imp_pencrossbow_s'), `the S3 mode's impact (${s3.played})`);
   });
 });
+
+describe('선발 棘刺: S2\'s Thorn cast sounds as the hit sets it off (2026-11-04)', () => {
+  test('the bank, and a battle: each cast of the spikes sounds once', { skip: NO_DATA }, () => {
+    assert.equal(bare(kitHitSfx(indexAudio(JSON.parse(readFileSync(OFFICIAL, 'utf8'))), (p) => p)['thorns:s2']?.[0]), 'p_skill_prick');
+    const units = [{ uid: 1, diy: { slot: SLOT5, charId: 'char_293_thorns', skillIndex: 1, uniEquipId: null }, row: 10, col: 5 }];
+    const r = hear({ units, secs: 4, prep: (h, u) => {
+      const e = h.spawn('e_d', { pos: [10, 6] });
+      u.skill.gainSp(999);
+      assert.ok(u.skill.activate('test'));
+      for (const t of [0.2, 0.4, 1.5]) h.b.after(t, () => h.b.dealDamage(e, u, { amount: 1, type: 'phys', isAttack: true }));
+    } });
+    const casts = r.fx('kitHit').filter((o) => o.k === 'thorns:s2');
+    assert.equal(casts.length, 2, 'two casts (the second hit falls in the cooldown)');
+    assert.equal(count(r.played, 'p_skill_prick'), 2);
+  });
+});

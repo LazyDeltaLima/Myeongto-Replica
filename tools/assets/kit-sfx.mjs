@@ -321,6 +321,8 @@ export const KIT_HIT_BANKS = Object.freeze({
   // jesca2_jckshd_dir_set[effect], audioSignal jesca2_jckshd_turnaround)
   'jesca2:s3bomb': 'battle.ON_PROJECTILE_STOP.projectile_chr_jesca2_s3_bomb',
   'jesca2:turn': 'battle.ON_BUFF_START.jesca2_jckshd_turnaround',
+  // 棘刺 S2: each Thorn cast (its BuffDuringCasting gives him thorns_s_2[audio] as the cast starts)
+  'thorns:s2': 'battle.ON_BUFF_START.thorns_s_2[audio]',
   // 2026-11-03, docs/rules/audio.md 「적 버프·커스텀 트리거 소리」 (EN client enemy prefabs and buff templates; public/js/audio.js
   // enemyBuffSounds): a prisoner freed (its Liberty mode's enemy_liberty[state]) and freed by another (LibertyOthersAbility's
   // enemy_liberty_force); 阿利斯泰尔's piece picked up (enemy_vtmstr_equip_*[char] PlayAudio) and its vest taken
