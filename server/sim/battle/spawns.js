@@ -195,6 +195,7 @@ export class BattleSpawns {
   _setHidden(e, on, { fx = true } = {}) {
     if (e.hidden === on) return;
     e.hidden = on;
+    this._indexEnemy(e);
     if (on) this._unblock(e);
     if (fx) this.fx(on ? 'disappear' : 'appear', { x: e.x, y: e.y, id: e.id });
   }

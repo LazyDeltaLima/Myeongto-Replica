@@ -106,6 +106,19 @@ test("an ally's skill duration runs out after its buffs and before its block sea
   checkInvariants(h.b);
 });
 
+test('an enemy pushed in another unit\'s turn is refiled where it went at once', () => {
+  const h = field();
+  h.step(1);
+  const e = h.spawn('enemy_still', { pos: [9, 6] });
+  h.step(1);
+  const moved = h.b.displace(e, { x: 1, y: 0 }, 2);
+  assert.ok(moved > 1.9, 'fixture: it moved two tiles');
+  const k = roundHalfEven(e.y) * COLS + roundHalfEven(e.x);
+  assert.ok(h.b._et[k].includes(e), 'filed on the tile it was pushed onto');
+  assert.equal(h.b._et.reduce((a, b) => a + (b.includes(e) ? 1 : 0), 0), 1, 'and only there');
+  checkInvariants(h.b);
+});
+
 test('a projectile flies in the line too: first in the step after it was fired, by its own number', () => {
   const h = field();
   h.step(1);

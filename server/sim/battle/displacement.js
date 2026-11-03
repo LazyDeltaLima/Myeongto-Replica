@@ -219,6 +219,7 @@ export class BattleDisplacement {
     }
     if (moved > 0) {
       const dur = typeof durOpt === 'function' ? durOpt(moved) : durOpt;
+      this._indexEnemy(e);   // the next query sees it where it went (battle/lifecycle.js _tickUnits)
       this._unblock(e);
       // 失衡 ends the attack clip it stood for (PRTS 状态机: the states are exclusive — UNBALANCE, then DEFAULT → MOVE)
       this._cutAttackStand(e);

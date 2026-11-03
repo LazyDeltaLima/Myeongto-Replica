@@ -148,9 +148,9 @@ export class BattleLifecycle {
    * updateAlly (a device has no attack), its buffs, its running skill's duration (skills.js tickActive), its search for
    * enemies to block when due (battle/blocking.js), then its skill (skills.js tick: SP, the automatic casts).
    * The enemy tile index (queries.js _indexEnemy) is filed anew as the pass starts and refiles each enemy after its own
-   * tick, so a unit sees the enemies before it in the line where they went this step and those after it where they
-   * stood [추정·엔진: the client's physics queries read the colliders where they are; an enemy pushed, pulled or moved by
-   * another unit's tick is refiled at its own turn or the next step].
+   * tick and as another unit moves it (battle/displacement.js displace, a teleport), so a unit sees every enemy where it
+   * is now — the client's `LitePhysicsUtil.FindTargetsInBox` goes over the side's units (`UnitManager
+   * .GetUnitsBySingleSide`) and reads each one's position (`_CheckContainsPosition`); it keeps no index.
    */
   _tickUnits(dt) {
     const enemies = this.enemies;

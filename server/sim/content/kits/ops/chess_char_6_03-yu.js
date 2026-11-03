@@ -24,6 +24,7 @@ function teleportEnemy(battle, unit, e) {
   const er = Math.round(e.y), ec = Math.round(e.x);
   if ((er !== r || ec !== c) && !battle.grid.findPath(er, ec, r, c)) return false;
   e.x = c; e.y = r;
+  battle._indexEnemy(e);
   battle._unblock(e);
   if (e.route) e.route.pts = null;
   battle.fx('teleport', { x: c, y: r, id: e.id, src: unit.id });

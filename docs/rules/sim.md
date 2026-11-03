@@ -893,7 +893,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
 출처: 공식 클라(EN 판) `BattleController.OnTick`(맨 앞 `BattleTweenMgr.Tick`, 그 뒤 `ObjectManager.OnFixedUpdate`), `ObjectManager.OnFixedUpdate`·`Register`, `BObject.CompareTo`·
 `get_validAndBorned`·`OnAllocate`, `Entity.OnTick`, `Unit.OnTick`, `Character.OnTick`, `BasicSkill.Tick`·`OnTick`·`UpdateSpRecovery`·`get_isAffecting`·`OnSkillEnd`, `CastSkill.OnTick`·`OnCastFinish`,
 `Abilities.ActiveBuffAbility.OnTick`·`<OnWaitForPostDelay>`·`_ResetCooldownTimerIfNeeded`·`_CheckNotAllFinished`, `Buff.BuffContainer.Tick`, `DoubleBufferedList.GetEnumerator`·`Add`,
-`Buff.SortedDoubleBufferedBuffList.Add`.
+`Buff.SortedDoubleBufferedBuffList.Add`, `LitePhysicsUtil.FindTargetsInBox`.
 코드 `server/sim/battle/lifecycle.js` `_tickUnits`·`_tickAlly`, `skills.js` `tickActive`·`tick`, `battle/status.js` `_tickUnitBuffs`, `battle/queries.js` `_indexEnemy`.
 - **한 줄**: 전투 객체는 모두(적·오퍼레이터·소환물·장치, 투사체도 `BObject`) `ObjectManager`의 한 줄에서 `BObject.CompareTo` 차례로 각자 틱한다 — `priority`(전투 객체는 아무도
   바꾸지 않음) 다음 `instanceUid` 작은 것 먼저. 번호는 풀에서 꺼낼 때(`BObject.OnAllocate`) 하나의 카운터로 — 재배치·【이동】은 새 번호. 우리 `deploySeq`(같은 카운터로 적·아군에 매김).
@@ -912,13 +912,14 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   (공식은 쏘는 쪽이 자기 틱 안에서 쏨). 전에는 아군 단계 뒤 투사체 단계에서 전부 옮긴 뒤 몰아서 맞혔고, 아군이 그 틱에 쏜 것도 그 틱에 한 칸 날았다.
 - **버프**: 주인의 틱 안에서. 목록을 도는 동안 붙은 버프만 다음 틱부터 돌고(`DoubleBufferedList.GetEnumerator`가 바깥 순회를 시작할 때 목록을 `m_cachedBuffer`로 베껴 그것을
   돌고, `Add`는 원래 목록에 — 버프 목록은 `onEventPriority` 자리에 끼움), 앞 차례 유닛이 붙인 버프는 주인 차례인 그 틱에 바로 한 번 준다.
-- **칸 색인**: 줄을 돌기 전에 모든 적을 지금 자리에 두고, 적마다 자기 틱 뒤에 다시 둔다 → 앞 차례 적은 이번 틱에 간 자리, 뒤 차례 적은 서 있던 자리로 보인다
-  **[추정·엔진: 클라의 물리 질의는 충돌체의 지금 자리를 본다고 둠; 다른 유닛이 밀거나 당긴 적은 자기 차례나 다음 틱에 다시 둠]**.
+- **칸 색인**: 공식 범위 질의(`LitePhysicsUtil.FindTargetsInBox`)는 색인 없이 그 진영 유닛(`UnitManager.GetUnitsBySingleSide`)마다 지금 자리를 본다(`_CheckContainsPosition`).
+  우리 칸 색인은 그와 같게 — 줄을 돌기 전에 모든 적을 지금 자리에 두고, 적마다 자기 틱 뒤에, 다른 유닛이 옮기면 그 자리에서(`displacement.js displace`의 밀기·당기기, 위 `char_2026_yu`의
+  순간 이동, 숨김·드러남 `_setHidden`) 다시 둔다 → 앞 차례 적은 이번 틱에 간 자리, 뒤 차례 적은 서 있던 자리로 보인다.
 - 그대로 둔 것: `battle.after` 타이머·출현·DP는 줄 앞, 자동 발동(`AutoChessBattleTrigger`, 코루틴)·재배치는 줄 뒤.
 - 바뀐 것: 전에는 단계로 — 버프(전원) → 적(전원) → 칸 색인 → 저지 탐색 → 아군(전원, 스킬 틱 → 공격) → 자동 발동 → 투사체(전부). 보이는 차이: 배치 차례(보드 위치, 「작전 시작 차례 배치」)가 틱 차례라서
   보드를 돌리면 같은 틱의 경쟁 차례가 바뀐다(에이야퍄들라 더 크비트 아스카 `char_1016_agoat2`의 치료가 도우미들 틱과 겨룸 — `facing-invariance` 예외); 아군의 첫 휘두름은 첫 저지
   탐색보다 먼저; 앞 차례 저지자가 막은 적은 그 틱 자기 차례에 바로 공격(상자를 막힌 그 틱에 부숨); 다른 유닛 차례에 생긴 버프는 그 틱에 한 번 줄어듦. golden 이동은 커밋 메시지.
-- 테스트 `test/sim/tick-order.test.js`(한 줄 차례, 그 틱에 생긴 유닛, 칸 색인, 스킬 지속시간 → 저지 탐색, 투사체), 고친 시험 `battle`·`pathing`(상자: `blocked` 이벤트로 봄)·`attack-timing`(둘째 휘두름)·`feedback1-transform`(重生 한 틱)·`facing-invariance`·`robustness`(강제 종료 시각), 투사체가 한 틱 늦게 떨어져 세는 창을 늘린 시험(`attack-forms` 라플란드 S2, `kits_alt_t4` 산크타 믹사파라토, `kits_t4` 그노시스 坚冰(오라 0.1초 주기), `standin_acsupo` 三形, `standin_sharp2` 샤프 S1).
+- 테스트 `test/sim/tick-order.test.js`(한 줄 차례, 그 틱에 생긴 유닛, 칸 색인·밀린 적, 스킬 지속시간 → 저지 탐색, 투사체), 고친 시험 `battle`·`pathing`(상자: `blocked` 이벤트로 봄)·`attack-timing`(둘째 휘두름)·`feedback1-transform`(重生 한 틱)·`facing-invariance`·`robustness`(강제 종료 시각), 투사체가 한 틱 늦게 떨어져 세는 창을 늘린 시험(`attack-forms` 라플란드 S2, `kits_alt_t4` 산크타 믹사파라토, `kits_t4` 그노시스 坚冰(오라 0.1초 주기), `standin_acsupo` 三形, `standin_sharp2` 샤프 S1).
 
 ## 盟约·특질·장비·생성기 2라운드 (2026-10-11, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 그래프와 공식 클라(EN 판; 레포에는 클래스·메서드 이름만). 핫픽스(DefinedFix.lua en/zh)에 아래 클래스 없음.
