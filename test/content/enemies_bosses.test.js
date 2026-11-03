@@ -2262,7 +2262,9 @@ test(`${nm('enemy_1513_dekght')} + ${nm('enemy_1513_dekght_2')}: plus-shaped hit
   const b = put(h, 'enemy_1513_dekght_2', [11, 8]);
   assert.equal(b.profile.maxTargets, 2);
   h.runUntil(() => a.stats.attacks >= 1, 10);
-  assert.ok(h.unit('t_wall2').stats.taken > 0);
+  // one target: the cross is the attack's splash (溅射伤害 at the talent's aoe atk_scale), not an attack on each unit
+  assert.equal(h.eventsOf('atk').filter((x) => x[1] === a.id).length, 1, 'one attack event per attack');
+  approx(h.unit('t_wall2').stats.taken, a.s.atk * tb('enemy_1513_dekght', 'aoe.attack@dekght[aoe].atk_scale'));
   killed(h, b, null);
   approx(a.s.atk, E.enemy_1513_dekght.stats.atk * (1 + tb('enemy_1513_dekght', 'triggerrage.atk')));
 });
@@ -2448,7 +2450,7 @@ test(`${nm('enemy_1513_dekght')}: 蓄力攻击 — ${skb('enemy_1513_dekght', 'C
   h.run(s.bb.duration - 0.2);
   assert.equal(e.stats.attacks, n0, 'disarmed while charging');
   h.run(0.3);
-  const blow = (id) => h.hooksOf('damaged').filter((c) => c.source === e && !c.dmg.isAttack && c.target.id === h.unit(id).id);
+  const blow = (id) => h.hooksOf('damaged').filter((c) => c.source === e && !c.dmg.isAttack && !c.dmg.tags.includes('splash') && c.target.id === h.unit(id).id);
   approx(blow('t_wall2')[0].amount, e.s.atk * s.bb.atk_scale);
   approx(blow('t_wall')[0].amount, e.s.atk * s.bb.atk_scale);
   assert.equal(blow('t_wall3').length, 0, 'two tiles away');

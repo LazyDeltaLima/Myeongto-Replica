@@ -187,8 +187,18 @@ function kitLeaderMisc(key, ab, e) {
     case 'enemy_1513_dekght': {
       // 攻击时使目标与周围四格的单位受到物理伤害; 【蓄力攻击】 charge `duration` s, then ATK×atk_scale on the target's cross
       const s = ab.sk.ChargeAttack;
-      // the 周围四格 of every attack (PRTS "对溅射目标造成物理溅射伤害") and 【蓄力锤】's cross: area selections
-      return [kitDekght(ab), { before(c, b, e2) { const t = c.targets[0]; if (t) for (const u of areaAlliesInTiles(b, e2, t.tileR, t.tileC, 'plus', 1)) if (!c.targets.includes(u)) c.targets.push(u); } },
+      // the 周围四格 of every attack (PRTS "对溅射目标造成物理溅射伤害") and 【蓄力锤】's cross: area selections. The attack
+      // has one target (the client's max target count 1, its hit effects dekght_attack_01_hit / _range once there); as
+      // it strikes, the attack's dekght[aoe] (talent aoe: atk_scale, range x-5) splashes the others of the target's cross —
+      // 溅射伤害, never dodged. Until 2026-11-03 each of them was an attack target of its own (the range effect on each).
+      const aoe = T(ab, 'aoe.attack@dekght[aoe].atk_scale') ?? 1;
+      return [kitDekght(ab), {
+        hitOut(c, b, e2) {
+          const t = c.target;
+          if (!c.dmg.isAttack || !t) return;
+          for (const u of areaAlliesInTiles(b, e2, t.tileR, t.tileC, 'plus', 1)) if (u !== t) hurt(b, e2, u, e2.s.atk * aoe, 'phys', { tags: ['splash'] });
+        },
+      },
         skill(s, (b, e2) => {
           const t = e2.blockedBy;
           const dur = s.bb.duration ?? 0, r = t.tileR, cc = t.tileC;
