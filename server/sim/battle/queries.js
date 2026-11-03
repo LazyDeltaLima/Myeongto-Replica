@@ -48,6 +48,12 @@ export class BattleQueries {
     const on = e.alive && !e.hidden;
     if (e._ixT !== null && on === (e._ixT.length > 0 || e._ixB.length > 0) && e.x === e._ixX && e.y === e._ixY && !e.hitArea) return;
     e._ixX = e.x; e._ixY = e.y;
+    // the common case: a regular enemy well inside one tile, filed on that tile alone already — nothing to move
+    if (on && !e.hitArea && e._ixT !== null && e._ixT.length === 1 && e._ixB.length === 1) {
+      const tr = roundHalfEven(e.y), tc = roundHalfEven(e.x), k = tr * COLS + tc;
+      const inner = 0.5 - ENEMY_COLLIDER_RADIUS - 1e-6;
+      if (k === e._ixT[0] && k === e._ixB[0] && Math.abs(e.x - tc) < inner && Math.abs(e.y - tr) < inner) return;
+    }
     const tk = this._ixTs, bk = this._ixBs;   // scratch: the tiles it is on now
     tk.length = 0; bk.length = 0;
     if (on) {

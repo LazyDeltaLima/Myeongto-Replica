@@ -163,6 +163,8 @@ export class Battle {
     for (let i = 0; i < this._et.length; i++) this._et[i] = [];
     this._ixTs = [];   // _indexEnemy's scratch lists
     this._ixBs = [];
+    this._buffTickCopies = [];   // battle/status.js _tickUnitBuffs: the buff list copies, one per nesting depth
+    this._buffTickDepth = 0;
     this._idSeq = 0;
     this._attackSeq = 0;   // DamageInfo.attackId of normal attacks (one id per attack, all its damage instances)
     this._castAbility = null;   // { id, ability } while an enemy skill is cast (content/enemies.js onTick; battle/events.js fx)

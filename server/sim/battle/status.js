@@ -105,30 +105,19 @@ export class BattleStatus {
   _tickUnitBuffs(u, dt) {
     if (u.removed) return;
     if (u.buffs.length) {
-      const arr = u.buffs.slice();
-      for (const b of arr) {
-        if (!u.alive) break;
-        if (u.buffs.indexOf(b) < 0) continue;
-        if (b.onTick) {
-          if (b.interval > 0) {
-            b._acc += dt;
-            let n = 0;
-            while (b._acc >= b.interval - 1e-9 && n++ < 8) {
-              b._acc -= b.interval;
-              this._safe(() => b.onTick({ battle: this, unit: u, buff: b, dt: b.interval }), 'buff.onTick', u);
-            }
-          } else this._safe(() => b.onTick({ battle: this, unit: u, buff: b, dt }), 'buff.onTick', u);
-        }
-        if (b.timeLeft !== Infinity) {
-          b.timeLeft -= dt;
-          if (b.timeLeft <= 1e-9) {
-            const i = u.buffs.indexOf(b);
-            if (i >= 0) {
-              this._removeBuffAt(u, i, false);
-              if (b.onExpire) this._safe(() => b.onExpire({ battle: this, unit: u, buff: b }), 'buff.onExpire', u);
-            }
-          }
-        }
+      // the list as it stood (DoubleBufferedList: the loop walks a copy); the copies are kept for reuse — a handler may
+      // tick another unit's buffs meanwhile, hence one per depth
+      const depth = ++this._buffTickDepth;
+      const pool = this._buffTickCopies;
+      const arr = pool[depth - 1] ?? (pool[depth - 1] = []);
+      const n0 = u.buffs.length;
+      for (let i = 0; i < n0; i++) arr[i] = u.buffs[i];
+      arr.length = n0;
+      try {
+        this._tickBuffList(u, arr, dt);
+      } finally {
+        arr.length = 0;
+        this._buffTickDepth = depth - 1;
       }
     }
     // natural HP regeneration
@@ -139,6 +128,34 @@ export class BattleStatus {
         if (u._regenAcc >= 1 || u.hp + u._regenAcc >= u.s.maxHp) {
           this.heal(u, u, u._regenAcc, { self: true, silent: true, regen: true });
           u._regenAcc = 0;
+        }
+      }
+    }
+  }
+
+  /** _tickUnitBuffs: one tick of the buffs `arr` (a copy of `u.buffs`), skipping those removed meanwhile. */
+  _tickBuffList(u, arr, dt) {
+    for (const b of arr) {
+      if (!u.alive) break;
+      if (u.buffs.indexOf(b) < 0) continue;
+      if (b.onTick) {
+        if (b.interval > 0) {
+          b._acc += dt;
+          let n = 0;
+          while (b._acc >= b.interval - 1e-9 && n++ < 8) {
+            b._acc -= b.interval;
+            this._safe(() => b.onTick({ battle: this, unit: u, buff: b, dt: b.interval }), 'buff.onTick', u);
+          }
+        } else this._safe(() => b.onTick({ battle: this, unit: u, buff: b, dt }), 'buff.onTick', u);
+      }
+      if (b.timeLeft !== Infinity) {
+        b.timeLeft -= dt;
+        if (b.timeLeft <= 1e-9) {
+          const i = u.buffs.indexOf(b);
+          if (i >= 0) {
+            this._removeBuffAt(u, i, false);
+            if (b.onExpire) this._safe(() => b.onExpire({ battle: this, unit: u, buff: b }), 'buff.onExpire', u);
+          }
         }
       }
     }
