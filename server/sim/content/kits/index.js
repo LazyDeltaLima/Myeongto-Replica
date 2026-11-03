@@ -93,6 +93,7 @@ export const OPERATOR_KIT_FILES = Object.freeze([
   'op-oxi.js',
   'op-pallas.js',
   'op-helage.js',
+  'op-mantra.js',
 ]);
 
 /**

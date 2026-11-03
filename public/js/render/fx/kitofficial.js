@@ -231,6 +231,8 @@ export const KIT_OFFICIAL = {
       : o.k === 'philae:blast' ? { play: [once('philae_skill_02_hit_01', 'id')] } : null)),
     // 至简 T1 忽有所悟: a won roll (Dice) — malist_hit_extra on the target of that damage
     malist: cite('malist_t_1', (o) => (o.k === 'malist_t_1' ? { play: [once('malist_hit_extra', 'id')] } : null)),
+    // 真言 T1 噤声限域: mantra_t_1 ON_TRIGGER_PALSY — the talent's 元素伤害 and mantra_bounce_hit_01 on the enemy whose attack 麻痹 cut
+    mantra: cite('mantra_t_1', (o) => (o.k === 'mantra_t_1' ? { play: [once('mantra_bounce_hit_01', 'id')] } : null)),
     // 深靛 S2: indigo_s_2[aura] holds indigo_s_2[damage] (indigo_skill_02_buff_03) on each bound enemy of her range — renewed by
     // each damage tick for `life` s, one slot per enemy
     indigo: cite('indigo_s_2[damage]', (o) => (o.k === 'indigo_s_2[damage]'

@@ -16,4 +16,13 @@ export const UNSOUNDED = {
     'ON_SKILL_START.skchr_oblvns_2.1': 'none: an untoggled cast from mode 1 (S2_AttackSpeed) — her only cast here is from mode 2, the skill\'s _defaultModeIndex',
     'ON_SKILL_FINISH.skchr_oblvns_2.1': 'none: a toggled cast — the automatic battle never casts a toggled skill (AutoChessBattleTrigger._CheckToggleSkill)',
   },
+  char_4204_mantra: {
+    // 真言 joined 2026-11-03; her custom-trigger sounds are not wired yet
+    'ON_CUSTOM_TRIGGER.mantra_t_tile': 'todo: T2 全局洞悉 picking her 侵入点 (kit fx mantraGate)',
+    'ON_CUSTOM_TRIGGER.mantra_s_1_proj_normal': 'todo: S1 hit on a target not in its 神经 burst (the attack\'s fail branch)',
+    'ON_CUSTOM_TRIGGER.mantra_s_1_proj_element': 'todo: S1 hit on a target in its 神经 burst (IsTargetInEPBreakRecovery branch)',
+    'ON_CUSTOM_TRIGGER.mantra_s_2_proj_normal': 'todo: S2 hit or jump on a target not in its 神经 burst (the attack\'s fail branch)',
+    'ON_CUSTOM_TRIGGER.mantra_s_2_proj_element': 'todo: S2 hit or jump on a target in its 神经 burst (PlayProjectileAudio of projectile_chr_mantra_s2)',
+    'ON_CUSTOM_TRIGGER.mantra_s_3_element': 'todo: S3 溢出麻痹 bounce (kit fx mantraArc)',
+  },
 };

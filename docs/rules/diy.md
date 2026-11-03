@@ -12,8 +12,8 @@
   `data/backups.json` `diy`). 맹약이 전부 꺼진 픽은 그 판 재고가 없다(`m.private.diyBanned`). 이 포크는 후보를 구현·대조한 13명으로 줄인다:
   `shared/local-diy.js LOCAL_DIY_PICKS`(왕·첸 더 던스트릭·위셔델·토가와 사키코·아스카론, 2026-10-11부터 켈시 에스페란타·클레멘티아·안젤리나 더 멜로우 위시 — 아래
   「선발 추가 3명 (2026-10-11)」, 2026-10-26부터 트라고디아 — 아래 「선발 추가 酒神 (2026-10-26)」, 2026-11-01부터 토스카·탈룰라 — 아래 「선발 추가 토스카
-  (2026-11-01)」·「선발 추가 탈룰라 (2026-11-01)」, 2026-11-02부터 팔라스·헬라그 — 아래 「선발 추가 팔라스 (2026-11-02)」·「선발 추가 헬라그 (2026-11-02)」) — `tools/build-data.mjs`가 이것으로 `diy.ownedPool`을 만들고, `server/lobby.js`가 다른 픽을 거부한다.
-  키트는 `server/sim/content/kits/ops/op-{wang,chen3,wisdel,oblvns,ascln,kalts2,clemnt,aglna2,phatm2,tocka,oxi,pallas,helage}.js`(등록 `kits/index.js OPERATOR_KIT_FILES`).
+  (2026-11-01)」·「선발 추가 탈룰라 (2026-11-01)」, 2026-11-02부터 팔라스·헬라그, 2026-11-03부터 만트라 — 아래 「선발 추가 팔라스 (2026-11-02)」·「선발 추가 헬라그 (2026-11-02)」·「선발 추가 만트라 (2026-11-03)」) — `tools/build-data.mjs`가 이것으로 `diy.ownedPool`을 만들고, `server/lobby.js`가 다른 픽을 거부한다.
+  키트는 `server/sim/content/kits/ops/op-{wang,chen3,wisdel,oblvns,ascln,kalts2,clemnt,aglna2,phatm2,tocka,oxi,pallas,helage,mantra}.js`(등록 `kits/index.js OPERATOR_KIT_FILES`).
   틀의 자세한 규칙은 `server/sim/content/kits/README.md`, 병합 경위는 `upstream.md` 「0.2.0 병합」.
 - 0.2.0 전(2026-10-05 ~ 10-07)에는 전용 데이터·풀·UI를 직접 만들었다. 그 구현은 지웠고, 그때 정한 키트 동작과 관리자 결정은 `op-*.js`로 옮겨져 아래에 남는다.
 - 키트:
@@ -714,6 +714,34 @@
   사건을 그리는 곳이 없음). 화면 확인 전.
 - 테스트: `test/content/op_helage.test.js`(11 — 모든 폼, 세 스킬, 두 재능, 특성, 두 모듈, 실제 매치 경로 하나), 선발 수를 세는 테스트 12 → 13명, golden
   `diy-017`(그의 5티어 칸이 함께 실림)·`diy-018`·`diy-019`(새 시나리오), 다른 가족 변화 없음.
+
+## 선발 추가 만트라 (2026-11-03, 관리자 결정)
+- 관리자 결정 2026-11-02(새 시즌 알려진 명단의 upstream 선발 키트를 차례로 넣고 지금 시즌에도 공개): 선발에 만트라(真言 `char_4204_mantra`, 6성 캐스터
+  프라이멀 캐스터)를 넣는다(`LOCAL_DIY_PICKS` 끝). 팔라스·헬라그에 이은 셋째. 한국 서버에 있어 이름·문구는 KR 공식 표 그대로(만트라 · 공명붕괴 · 의식 연계 ·
+  침묵이 곧 진실, 재능 묵음의 속박 · 전반적 통찰, 모듈 '중추신경 탐지 모듈'(PRI-X); `tools/i18n/build-ko-diy.mjs`).
+- 데이터: CN 표 그대로. 모듈 하나, 소환물 없음. 맹약: 사르곤(`sargonShip`, 소속 태그 `sargon`).
+- 키트·테스트: upstream 순서형 피해 판정 커널 직전 판(`9a3a12ee9^`)의 `op-mantra.js`·`test/content/op_mantra.test.js`. 그 뒤 upstream이 두 파일을 바꾼 커밋은
+  없다. 바꾼 것:
+  - S3 자동 발동은 `sim.md` 「스킬 범위 발동」: S3 레벨의 rangeId `3-17` 상자에 선택 가능한 적이 있으면 켜진다(데이터 `DEFAULT` + `customRangeGrid`). 동작은
+    upstream과 같고, 테스트의 `ACTIVE_RANGE` 단언을 `DEFAULT` + `triggerGrid` = 그 상자로 고쳤다.
+  - S3 【마비 부여】(麻痹付与)는 그녀가 **선택할 수 있는** 적만 받는다: PRTS 비고 「在范围内不存在可选敌方单位时保留可付与次数」, 이 문서 체크리스트 「대상
+    선택」(`canTargetEnemy`). upstream은 범위 칸의 숨지 않은 적 모두(선택 불가·수면 포함)에게 주었다. 은신 적은 S3 중 범위에서 드러나므로(【反隐】) 받는다.
+    테스트에 선택 불가 적 하나를 더해 확인.
+  - 재능 1 묵음의 속박 「麻痹不消耗效果在同类效果中取概率最高」 — 만트라 둘이 한 적에게 걸면 한 번만, 높은 확률로 굴리고 피해는 각자: 공식 클라에서 확인 →
+    upstream의 추정 표시를 지움. 마비 템플릿 `palsy[stack]`이 끊긴 공격마다 `DiceByBuffKeys`(`palsy_prob_retain`, `prob`, 반전) 하나를 굴린다
+    (`Entity.GetBuffValueMultiplierByKeyFromAllBuffs` — 켜진 버프만 곱함). 그녀의 `palsy_prob_retain`은 덮어쓰기 그룹 DEFAULT(`overrideType` 0)라 한 그룹에 켜진
+    버프가 하나(`Buff.OverrideGroup._DoUpdateInternal`: 큐 순서로 끝나지 않은 첫 버프만 켬)이고 `priorityBBKeys` `prob`로 줄을 세운다(그 정렬은 확인 안 함 —
+    PRTS 「取概率最高」와 같음). 피해 버프 `mantra_t_1`(`ON_TRIGGER_PALSY` → `AdvancedApplyDamage` ELEMENT)은 `disableOverride`라 만트라마다 하나씩 켜진다.
+  - S2 의식 연계의 첫 탄은 S2 모드의 공식 투사체(`projectile_chr_mantra_s2`, 초당 10칸 — 추출 데이터 `shot`, 비고와 같음). upstream은 엔진 기본 탄(11)이었다.
+  - S2 튕김의 다음 대상 = 2.0칸 안에서 아직 안 맞은 가장 가까운 적: 공식 클라에서 확인 → upstream의 추정 표시를 지움. 투사체 `projectile_chr_mantra_s2`의
+    `BounceHitBehaviour.DoSelectTargetToHit`가 마지막 대상 자리에서 자기 선택기를 부르고, 그 선택기는 `NearestRangeSelector`(적·지상공중)로
+    `DoFindTargets_DISPOSE`가 범위의 적을 그 자리와의 거리로 정렬(`LegacySort`, 자리를 잡은 비교 — 비교 함수 본문은 안 읽음)한 뒤 수를 자른다. 이 키트에 남은 추정은 없다.
+- 이펙트·공격 타이밍·투사체·스킬 시전 데이터: EN 클라에서 뽑음(2026-11-03, `tools/local-extract/add_operator.py --id char_4204_mantra`). 재능 1 피해는
+  공식 이펙트를 그린다: 템플릿 `mantra_t_1`(ON_TRIGGER_PALSY)의 `mantra_bounce_hit_01`을 마비가 끊은 적에게(키트 피해 `moment` → `render/fx/kitofficial.js` `hit`).
+  키트 사건 `mantraGate`·`mantraGrant`·`mantraArc`는 지금 절차 이펙트(`render/fx/kinds.js`). 그녀의 맞춤 트리거 소리 6개(`mantra_t_tile`·`mantra_s_1_proj_*`·
+  `mantra_s_2_proj_*`·`mantra_s_3_element`)는 아직 안 울린다(`test/audio-bank-coverage-list.js` `todo`). 화면 확인 전.
+- 테스트: `test/content/op_mantra.test.js`(11 — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 실제 매치 경로 하나), 선발 수를 세는 테스트 13 → 14명(설정 가능한 오퍼레이터 수의 범위 `test/match/potential.test.js` 110~135), golden
+  `diy-019`(그녀의 칸이 함께 실림)·`diy-020`(새 시나리오), 다른 가족 변화 없음.
 
 ## 안젤리나 더 멜로우 위시 S3 이동 · 「이따 봐!」 표식 (2026-10-11, 관리자 제보)
 - 제보 2건: ① S3로 공중 적에게 갈 때 처음 칸에 남는 「이따 봐!」(“一会儿见！”)가 대체 마름모로 보임, ② 공식은 공중 적에게 **직접 날아가는데** 우리는 그 칸에

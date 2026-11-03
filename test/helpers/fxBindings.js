@@ -46,7 +46,9 @@ export const HIT_KEYS = Object.freeze(['bubble_t_1[atk_down]', 'skadi2_s_1[prote
   // 酒神 (2026-10-26)
   'phatm2_s_2[damage]',
   // 冻河 (2026-11-01)
-  'tocka_t1[heal_core]']);
+  'tocka_t1[heal_core]',
+  // 真言 (2026-11-03)
+  'mantra_t_1']);
 
 /** The sample inputs a kit plan is called with (every branch of the plans in KIT_OFFICIAL). */
 const KIT_O = [

@@ -1550,6 +1550,38 @@
    },
    "cls": "replace"
   },
+  "skchr_mantra_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_mantra_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_mantra_3": {
+   "ability": null,
+   "cls": "cast",
+   "group": "par",
+   "reset": 0,
+   "state": 1,
+   "subs": [
+    {
+     "anim": 0,
+     "wait": 0
+    }
+   ]
+  },
   "skchr_mint_1": {
    "ability": null,
    "cls": "cast",

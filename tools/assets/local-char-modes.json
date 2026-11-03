@@ -14038,6 +14038,121 @@
    }
   ]
  },
+ "char_4204_mantra": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_mantra"
+   ],
+   [
+    "projectile_chr_mantra_s2"
+   ],
+   [
+    "projectile_chr_mantra_s3"
+   ]
+  ],
+  "cast": [
+   [
+    "mantra_attack_start_01"
+   ],
+   [
+    "mantra_skill_02_start_01"
+   ],
+   [
+    "mantra_skill_03_start_01"
+   ]
+  ],
+  "hit": [
+   [
+    "mantra_attack_hit_01"
+   ],
+   [],
+   [
+    "mantra_skill_03_hit_01"
+   ]
+  ],
+  "trail": [
+   [
+    "mantra_attack_trail_01"
+   ],
+   [
+    "mantra_skill_02_trail_01"
+   ],
+   [
+    "mantra_skill_03_trail_01"
+   ]
+  ],
+  "attach": [
+   [],
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "mantra_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "mantra_skill_02_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "mantra_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "skillMode": [
+   null,
+   1,
+   2
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [
+     "mantra_skill_01_start_01"
+    ],
+    "buff": [],
+    "target": [],
+    "targetBuff": [],
+    "shot": [
+     "mantra_skill_01_trail_01"
+    ]
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "mantra_skill_02_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "mantra_skill_03_buff_02",
+     "mantra_skill_03_range_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_4207_branch": {
   "modes": [
    "Default",
