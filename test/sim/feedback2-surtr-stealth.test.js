@@ -157,7 +157,7 @@ describe('#43: a blocked 隐匿 enemy hides again only 3 s after the block ends 
     h.step();
     const wall = h.unit('t_wall');
     const e = put(h, 'enemy_1009_lurker', [9, 5]);
-    h.step(2);
+    h.step(3);   // the blocker's next search (every 3 ticks)
     assert.ok(e.blockedBy === wall && !hidden(h, e), 'blocked: revealed');
     stun(h, wall, 30);                                  // a stunned blocker lets go and blocks nobody
     assert.ok(!e.blockedBy);
@@ -185,7 +185,7 @@ describe('#43: a blocked 隐匿 enemy hides again only 3 s after the block ends 
     h.step();
     const wall = h.unit('t_wall');
     const e = put(h, 'enemy_1009_lurker', [9, 5]);
-    h.step(2);
+    h.step(3);   // the blocker's next search (every 3 ticks)
     stun(h, wall, 1.5);                                 // let go at t0 …
     const t0 = h.b.time;
     h.run(1.6);
@@ -208,7 +208,7 @@ describe('#43: a blocked 隐匿 enemy hides again only 3 s after the block ends 
     h.step();
     const wall = h.unit('t_wall');
     const e = put(h, 'enemy_1009_lurker', [9, 5]);
-    h.step(2);
+    h.step(3);   // the blocker's next search (every 3 ticks)
     h.b.addBuff(e, { key: 'test:reveal', duration: 1, flags: { reveal: true } });
     h.b.addBuff(wall, { key: 'test:noblock', mods: { blockCnt: -99 } });
     h.step(1);
@@ -233,7 +233,7 @@ describe('#43: a blocked 隐匿 enemy hides again only 3 s after the block ends 
     const thief = put(h, 'enemy_10031_cnvsld', [9, 5]);
     const killer = put(h, 'enemy_1283_sgkill', [11, 5]);
     const lurker = put(h, 'enemy_1009_lurker', [12, 7]);
-    h.step(2);
+    h.step(3);   // the blocker's next search (every 3 ticks)
     assert.ok(thief.blockedBy && killer.blockedBy && lurker.blockedBy);
     assert.equal(thief.findBuff('ab:stealth').data.stealthRestore, 0);
     assert.equal(killer.findBuff('ab:stealth').data.stealthRestore, 1);
@@ -277,7 +277,7 @@ describe('#43: a blocked 隐匿 enemy hides again only 3 s after the block ends 
     const wall = h.unit('t_wall');
     h.b.applyStatus(wall, 'stealth', { duration: 99 });
     const e = put(h, 'enemy_1007_slime', [9, 5]);
-    h.step(2);
+    h.step(3);   // the blocker's next search (every 3 ticks)
     assert.ok(e.blockedBy === wall && flagsOf(wall) & UF.STEALTH, 'blocking and still 隐匿');
     assert.ok(canTargetAlly(e, wall, true), 'the enemy it blocks attacks it');
     h.b.releaseBlocked(wall);
@@ -324,13 +324,13 @@ describe('深池逐火: a fresh ember starts 隐匿 independently of the warrior
       const wall = h.unit('t_wall1'), gun = h.unit('t_gun');
       const a = put(h, key, [9, 5]);
       const b = put(h, key, [9, 5.3]);                   // queued right behind it, in contact
-      h.step(2);
+      h.step(3);   // the wall's next search (every 3 ticks)
       assert.ok(a.blockedBy === wall && !b.blockedBy, 'block 1: the first warrior is blocked');
       h.b.kill(a, gun);
       const t0 = h.b.time;
       assert.ok(a.alive && a.form === 'husk' && !a.blockedBy, 'the knock-out: 重生, its block ends at once');
       assert.ok(!a.findBuff(stealthOffKey('ab:ember')), 'the old warrior\'s block cannot switch off the new 隐匿 source');
-      h.step();
+      h.step(3);
       assert.equal(b.blockedBy, wall, 'the blocker takes the next warrior');
       h.run(HUSK_REBIRTH - 0.2);
       assert.ok(a.s.flags.invulnerable && !canTargetEnemy(gun, a, gun.profile), '重生: 无敌 + untargetable');
@@ -363,7 +363,7 @@ describe('深池逐火: a fresh ember starts 隐匿 independently of the warrior
       h.step();
       const wall = h.unit('t_wall1'), gun = h.unit('t_gun');
       const a = put(h, key, [9, 5]);
-      h.step(2);
+      h.step(3);   // the blocker's next search (every 3 ticks)
       assert.equal(a.blockedBy, wall);
       h.b.kill(a, gun);
       h.run(HUSK_REBIRTH + 0.1);

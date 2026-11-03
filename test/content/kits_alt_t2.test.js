@@ -392,7 +392,7 @@ test('2_13 蒂比 S1 专业喷绘技巧: rangeId trigger (an enemy in its 2-3 on
     approx(u.s.atk, u.base.atk * (1 + bb.atk));
     assert.ok(u.rangeKeys.length > range0, 'skill range');
     const fl = h.spawn('f', { pos: [9, 5] });
-    h.step();
+    h.step(3);   // her next search for enemies to block (every 3 ticks)
     assert.equal(fl.blockedBy, u, 'blocks flyers while airborne');
     h.run(3);
     const atk = h.hooksOf('attack').filter((c) => c.attacker === u);

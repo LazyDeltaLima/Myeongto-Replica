@@ -9,6 +9,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { BLOCK_SEARCH_TICKS } from '../../server/sim/constants.js';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { getDefaultSource } from '../../server/sim/simdata.js';
 
@@ -69,12 +70,15 @@ test('沉睡: never blocked while asleep, even beside a blocker with room — bl
   assert.equal(A().blockedBy, null, 'a sleeper is not blocked although the operator has room');
   assert.equal(u.blocking.length, 0);
   assert.ok(h.runUntil(() => !A().s.flags.sleep, 10), 'A wakes');
-  h.step();
-  assert.equal(A().blockedBy, u, 'blocked again the moment it wakes (a free slot, still in contact)');
-  assert.equal(A().x, ax, 'it never moved');
+  // blocked again at the operator's next search (every BLOCK_SEARCH_TICKS ticks, Battle._searchBlockees): a free slot,
+  // still in contact — meanwhile it may walk on for up to two ticks
+  h.step(BLOCK_SEARCH_TICKS);
+  assert.ok(A().blockedBy === u, 'blocked again at the next search after it wakes');
+  const bx = A().x;
+  assert.ok(Math.abs(bx - ax) < 0.1, `hardly moved (${ax} → ${bx})`);
   h.run(2);
-  assert.equal(A().blockedBy, u);
-  assert.equal(A().x, ax);
+  assert.ok(A().blockedBy === u);
+  assert.equal(A().x, bx);
   checkInvariants(h.b);
 });
 

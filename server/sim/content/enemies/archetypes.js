@@ -10,6 +10,7 @@ import {
   unbalancedNow,
 } from './helpers.js';
 import { hypot } from '../../detmath.js';
+import { planLeg } from '../../ai.js';
 import { expectedFinal } from './helpers.js'; // local patch: blocked numbers
 import { mitigate } from '../../damage.js'; // local patch: blocked numbers
 import { damageNumberFlag, blockedEvent } from '../../local-hud.js'; // local patch: blocked numbers
@@ -675,6 +676,10 @@ export function blinkForward(b, e, dist) {
   const from = { x: e.x, y: e.y };
   const R = e.route;
   let left = dist;
+  // a route whose path was dropped (a displacement, the block slide: route.pts = null) is re-planned from where the
+  // enemy stands, so the blink follows the path round the walls instead of a straight line to the checkpoint
+  const L0 = R && R.legs && R.legs[R.legIdx];
+  if (R && !R.pts && L0 && L0.t === 'move' && L0.r != null) planLeg(b, e, L0);
   if (R && R.pts && R.ptIdx < R.pts.length) {
     let i = R.ptIdx;
     while (left > 1e-9 && i < R.pts.length) {

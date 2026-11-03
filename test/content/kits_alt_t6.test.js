@@ -307,7 +307,7 @@ test('6_03 余 S2 厚礼上宾: the official 重装 row TAKE_DAMAGE (an enemy on
     assert.equal(burst.length, 3);
     for (const x of burst) { assert.equal(x.type, 'arts'); approx(x.amount, u.s.atk * bb.atk_scale, 'atk_scale × ATK'); }
     for (const e of h.enemies()) assert.deepEqual([Math.round(e.y), Math.round(e.x)], [10, 4], 'teleported');
-    h.step();
+    h.step(3);   // his next search for enemies to block (every 3 ticks)
     assert.equal(u.s.blockCnt, u.base.blockCnt + bb.block_cnt);
     assert.ok(h.enemies().every((e) => e.blockedBy === u), 'all blocked by him');
     approx(skillBuff(u).mods.atkPct, bb.atk);

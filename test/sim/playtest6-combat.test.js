@@ -306,7 +306,7 @@ test('#17 the user\'s case under heavy slows: the front blocker that took the en
   assert.ok(h.runUntil(() => x()?.blockedBy === F && E()?.blockedBy === R, 40), 'held between the two');
   h.b.loseHp(x(), 1e12);
   h.b.loseHp(R, 1e12);
-  h.step(2);
+  h.step(3);   // the front blocker's next search (every 3 ticks)
   assert.equal(E().blockedBy, F, 'taken over');
   h.b.addBuff(F, { key: 'terrain:mire', persist: true, mods: { aspd: -50 } });
   h.b.addBuff(F, { key: 'ab:frost', persist: true, mods: { aspd: -50 } });

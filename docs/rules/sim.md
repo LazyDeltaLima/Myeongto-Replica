@@ -822,6 +822,31 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
 - 바뀐 것: 전에는 닿은 그 자리에 바로 두었다(0.5 미만이어도, 여럿이 겹쳐도). golden 이동은 커밋 메시지.
 - 테스트 `test/sim/block-position.test.js`(offset 계산, 걸어온 적 그대로, 0.5까지 0.2초 직선, 같은 자리 둘 분리, 미끄러지는 중 밀기, 실제 대전 경로에서 마터호른(`chess_char_1_02_a`) 칸 위 원석충 둘), 옛 위치를 가정하던 시험 5개(`playtest5_blocking`·`feedback5-frozen-reblock`·`combat`·`feedback1d-push`·`feedback4-sleep-unblock`)를 새 자리에 맞춤.
 
+## 누가 막나 (2026-11-03, 공식 클라에서 확인, 관리자 결정 2026-11-03 「전부 공식대로」)
+출처: 공식 클라(EN 판) `Character.OnTick` → `m_findBlockeeTicker.Tick()` → `Character._SearchBlockee` → `FilterUtil.FilterWithVolume`(`Character._CheckBlockable`, `WeightedTarget.CompareTo`, `PriorityQueue.Add`) → `_AddBlockee`.
+코드 `server/sim/battle/blocking.js` `_searchBlockees`·`_addBlockee`(아군 틱 `battle/lifecycle.js`), 상수 `constants.js` `BLOCK_SEARCH_TICKS`·`BLOCK_WEIGHT_GAP`.
+- **찾는 쪽은 저지자**: 적이 저지자를 고르지 않고, 저지자가 자기 원 안의 적을 찾는다. `Character.OnTick`이 자기 차례(`Unit.OnTick` 뒤)에 티커를 한 칸 돌리고
+  `_SearchBlockee`를 부른다 — 우리는 아군 틱에서 그 아군의 차례 끝(`updateAlly` 뒤).
+- **주기**: `Character.FIND_BLOCKEE_TICK` 3 — 생성자가 `PeriodicTicker(3, false)`를 만들어 처음 틱에 바로 찾고, 그 뒤 3틱마다(우리 틱 1/30초라 0.1초). 우리는 배치할 때마다
+  처음부터(`deploy.js`) — 클라는 `Character` 생성 때 한 번 만들고, 재배치·【이동】 때 새로 시작하는지는 안 읽음 **[추정·미조사: 재배치 때 `Character`를 새로 만드는지]**.
+  걸어오는 적은 닿은 뒤 다음 탐색까지 최대 두 틱을 더 걷는다(속도 1이면 약 0.07칸).
+- **차례**: 원 안의 후보 중 `Enemy.CheckBlockable`(저지자 없음·不可阻挡/浮空/恐惧/沉睡 아님 등)과 남은 저지 수를 통과한 적을, 저지자와의 거리²를 0.01 단위로 내림한
+  값(`FilterUtil.DEFAULT_SMALL_ENOUGH_GAP` = 0.01, `CompareTo`의 `floor(무게 / 간격)`) 작은 순으로 — 가까운 적 먼저. 차례대로 그 적의 저지 무게(`Enemy.blockVolume`)가
+  남은 수에 들어가면 막고, 안 들어가면 건너뛰고 다음 적. 같은 단위끼리는 필드에 나온 차례 **[추정·미조사: 클라는 그다음 엔티티끼리 비교 — 안 읽음]**.
+- **저지자 둘이 한 적에 닿을 때**: 먼저 찾은 저지자가 막는다(가까운 쪽이 아님). 탐색 위상은 저지자마다 배치 시각에 따르고, 같은 틱이면 아군 틱 차례
+  **[추정·미조사: 클라 유닛 업데이트 차례 안 읽음]**.
+- **저지자가 기절·不可阻挡이면** 그 틱에 막은 적을 모두 풂(`OnTick` → `_ClearAllBlockees`) — 우리는 적 쪽에서 `noBlock`·`sleep`을 보고 품(전과 같음).
+- **안 한 것**: 당기는 투사체가 멈출 때(`NetCatcherProjectile`·`HarpoonProjectile`·`PullHitTargetBehaviour` `.OnProjectileStop`)와 `CharSearchBlockeeImmediate` 노드의
+  즉시 탐색(`Character.SearchBlockeeImmediate` = `_SearchBlockee(true)`) — 당겨진 적은 다음 탐색을 기다린다 **[추정·미조사: 그 호출이 어느 유닛을 찾게 하는지]**.
+  장치(아군 쪽 `device`)도 오퍼레이터와 같이 찾는다 **[추정·미조사: `PropLikeStaticBlockToken`이 `_SearchBlockee`를 따로 둠, 안 읽음]**.
+- 바뀐 것: 전에는 적마다 매 틱, 닿은 저지자 중 가장 가까운 저지자(옛 추정)가 막았고, 한 저지자에 여럿이 같은 틱에 닿으면 적 업데이트 차례가 먼저인 적이 들어갔다.
+  golden 이동은 커밋 메시지.
+- 함께 고친 것: 앞으로 뛰는 적 스킬(`blinkForward`, 卢西恩 `enemy_2016_csphtm`의 블링크 등)이 경로가 비어 있으면(밀기·저지 자리 미끄러짐 뒤 `route.pts` = null)
+  다음 체크포인트로 곧장 뛰다 벽 칸에 떨어져 매번 취소되던 것 — 이제 그 자리에서 경로를 다시 짜고 길을 따라 뛴다(`archetypes.js blinkForward` → `ai.js planLeg`).
+  0.5 밀림 뒤 「余 S2로 끌려온 卢西恩이 余에게 막혀 영영 못 뜀」으로 드러남(`feedback2-whitw2-yu` 실제 보스 판).
+- 테스트 `test/sim/block-search.test.js`(3틱 주기, 가까운 적 먼저, 무거운 적 건너뜀, 같은 단위면 필드 차례), `playtest5_blocking`의 「먼저 찾은 저지자」(재배치로 위상을
+  어긋나게), 다음 탐색을 기다리게 바꾼 시험들(`block-position`·`playtest5_blocking`·`feedback5-frozen-reblock`·`feedback4-sleep-unblock`).
+
 ## 盟约·특질·장비·생성기 2라운드 (2026-10-11, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 그래프와 공식 클라(EN 판; 레포에는 클래스·메서드 이름만). 핫픽스(DefinedFix.lua en/zh)에 아래 클래스 없음.
 이때 관리자 결정이 필요했던 세 가지(阿戈尔 吞噬가 팀원 오퍼를 먹는가, 특질 `attrByBond`의 배치 때 고정, 桑葚 미러 판 「가장 오른쪽」)는 관리자 결정 2026-10-11로 정했다(아래 「阿戈尔 吞噬 팀원」·「特质 attrByBond」·「桑葚」).

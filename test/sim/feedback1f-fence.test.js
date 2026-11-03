@@ -164,7 +164,7 @@ test('fix: air blocking stays — a blockFly unit on a fenced tile blocks a flye
   const u = h.unit(UDFLOW);
   h.b.addBuff(u, { key: 'test:blockFly', duration: Infinity, flags: { blockFly: true } });
   const e = h.spawn('enemy_1005_yokai', { pos: [11, 7], routeIndex: 2 });
-  h.step(2);
+  h.step(3);   // its next search for enemies to block (every 3 ticks)
   assert.ok(e.isFlying);
   assert.equal(e.blockedBy, u, 'the flyer over the fenced tile is blocked by the air blocker standing on it');
 });

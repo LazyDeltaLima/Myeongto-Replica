@@ -39,6 +39,7 @@ export class BattleDeploy {
     u.downAtHome = false; // a new deployment: a later knock-out lies where it falls again (Battle._layBody)
     u.x = C0; u.y = R0; u.tileR = R0; u.tileC = C0;
     u.blocking = [];
+    u.blockSearchTick = 0;   // a new deployment searches for enemies to block on its first tick (Battle._searchBlockees)
     u.deploySeq = ++this._deploySeq;
     u.aggroSeq = u.deploySeq;
     u.deployedAt = this.time;

@@ -23,7 +23,7 @@ export const ADD_KEYS = Object.freeze([
   'atkFlat', 'atkPct', 'atkFinal', 'defFlat', 'defPct', 'hpFlat', 'hpPct', 'resFlat', 'aspd', 'batPct', 'blockCnt',
   'rangeExtend', 'defIgnoreFlat', 'defIgnorePct', 'resIgnoreFlat', 'resIgnorePct', 'dodgePhys', 'dodgeArts',
   'spRecoveryFlat', 'maxTargets', 'taunt', 'hpRegen', 'hpRegenRatio', 'spCostFlat', 'moveFlat', 'massFlat',
-  // 阻挡半径倍率 (PRTS 数值范围 BLOCK_RADIUS_SCALE, default 1): the air-block radius 0.8944 × (1 + Σ) — Battle._checkBlock
+  // 阻挡半径倍率 (PRTS 数值范围 BLOCK_RADIUS_SCALE, default 1): the air-block radius 0.8944 × (1 + Σ) — Battle._searchBlockees
   'blockRadiusScale',
 ]);
 /** Multiplicative mod keys (product; ^ stacks). */
@@ -66,7 +66,7 @@ export const STATUS = Object.freeze({
   cold: { flags: { cold: true }, mods: { aspd: COLD_ASPD } },
   // 沉睡: 无敌且无法行动 (untargetable, takes no damage — except from `hitSleep` attackers — and blocks nothing); PRTS 异常效果
   // SLEEPING = 无法行动+无敌+不可阻挡: an enemy asleep is not blocked either — its blocker lets go and the slot frees, it
-  // stays put until it wakes (the `sleep` flag: Battle._checkBlock / applyStatus, ai.js updateEnemy; DESIGN §24.9)
+  // stays put until it wakes (the `sleep` flag: Battle._searchBlockees / applyStatus, ai.js updateEnemy; DESIGN §24.9)
   sleep: { flags: { sleep: true, noBlock: true }, immune: 'sleep' },
   // value = fraction of speed removed (0.8 ⇒ moveMul 0.2). Default 0.5.
   slow: { mods: (v) => ({ moveMul: 1 - clamp01(v ?? 0.5) }), valued: 0.5 },

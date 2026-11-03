@@ -70,6 +70,7 @@ export class Unit {
     this.blocking = [];         // ops: enemies currently blocked
     this.blockedBy = null;      // enemies: blocker unit
     this.blockMove = null;      // enemies: the slide to the block position (Battle._moveToBlockPosition)
+    this.blockSearchTick = 0;   // allies: ticks to the next search for enemies to block (Battle._searchBlockees)
     // enemies: listed on more than one tile of the per-tick range index (their 0.1 collider straddles an edge —
     // battle/queries.js _buildEnemyIndex); declared here so the index writing it never changes a unit's shape
     this._ebMulti = false;
@@ -165,7 +166,7 @@ export class Unit {
       blockCnt: Math.max(0, fin(Math.round(b.blockCnt + a('blockCnt')), 0)),
       moveSpeed: moveSpeedOf(b, fin((b.moveSpeed + a('moveFlat')) * m('moveMul'), fin(b.moveSpeed, 0)), flags),
       rangeExtend: Math.max(0, Math.round(a('rangeExtend'))),
-      // 阻挡半径倍率 − 1 (PRTS 数值范围 BLOCK_RADIUS_SCALE "影响阻挡模式为飞行阻挡的单位的阻挡半径"): Battle._checkBlock
+      // 阻挡半径倍率 − 1 (PRTS 数值范围 BLOCK_RADIUS_SCALE "影响阻挡模式为飞行阻挡的单位的阻挡半径"): Battle._searchBlockees
       blockRadiusScale: Math.max(0, fin(a('blockRadiusScale'), 0)),
       baseRangeExtend: Math.max(0, fin(Math.round(permRangeExtend), 0)),   // permanent part (initial range)
       massLevel: Math.max(0, fin(fin(b.massLevel, 0) + a('massFlat'), 0)),

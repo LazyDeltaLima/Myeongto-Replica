@@ -293,7 +293,7 @@ test('余 S2 (the official 重装 row TAKE_DAMAGE, maintainer decision 2026-10-2
     assert.ok(yu.skill.active, 'the hit casts it at once');
     assert.equal(castOf(h, yu).reason, 'TAKE_DAMAGE');
     assert.deepEqual([e.y, e.x], [yu.tileR, yu.tileC], 'pulled onto his tile');
-    h.step(1);
+    h.step(3);   // his next search for enemies to block (every 3 ticks)
     assert.equal(e.blockedBy, yu, 'and blocked there');
     done(h);
   }
@@ -331,7 +331,7 @@ test('余 S2: a leader inside x-1 is teleported onto his tile like any ground en
     const fx = h.eventsOf('fx').slice(fx0);
     assert.deepEqual(fx.filter((e) => e[1] === 'teleport').map((e) => e[4].id).sort(), [lucien.id, gun.id].sort());
     assert.deepEqual(fx.filter((e) => e[1] === 'pull').map((e) => e[4].n), [2], 'one pull fx: two teleported');
-    h.step(1);
+    h.step(3);   // his next search for enemies to block (every 3 ticks)
     assert.equal(lucien.blockedBy, yu, '卢西恩 (blockable) is blocked on his tile; 铳 is 不可阻挡');
     assert.equal(gun.blockedBy, null);
     done(h);

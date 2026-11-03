@@ -83,7 +83,7 @@ for (const status of ['freeze', 'stun']) {
   }
 }
 
-test('contact only: an enemy stunned on its way, short of the blocker, is not blocked meanwhile; afterwards it walks in and is blocked at the same point as one never stunned', () => {
+test('contact only: an enemy stunned on its way, short of the blocker, is not blocked meanwhile; afterwards it walks in and is blocked at contact like one never stunned', () => {
   const blockedAt = (stunAt) => {
     const h = lane();
     const u = h.unit(OP);
@@ -103,7 +103,8 @@ test('contact only: an enemy stunned on its way, short of the blocker, is not bl
   const free = blockedAt(null);
   const stunned = blockedAt(7.0);
   assert.ok(free.d < BLOCK_RADIUS.ground && free.d > BLOCK_RADIUS.ground - 0.05, `stops at contact (${free.d.toFixed(3)} tile)`);
-  assert.ok(Math.abs(stunned.x - free.x) < 1e-9, `the same contact point (${stunned.x} vs ${free.x})`);
+  // (the blocker finds it at its next search, every 3 ticks: the walk-in point varies by up to two ticks' walk)
+  assert.ok(stunned.d < BLOCK_RADIUS.ground && stunned.d > BLOCK_RADIUS.ground - 0.05, `stops at contact too (${stunned.d.toFixed(3)} tile)`);
 });
 
 for (const status of ['bind', 'stun', 'freeze']) {

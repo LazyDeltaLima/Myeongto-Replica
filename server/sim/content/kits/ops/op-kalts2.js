@@ -30,7 +30,7 @@
 //   other 禁疗 units stay out of the selection, and "治疗效果无视禁疗" changes nothing else here (no heal of hers reaches an
 //   unselected 禁疗 unit). 起飞 itself is T1's.
 // - T1 遗尘守望: max HP / DEF +max_hp / +def (0.3), block +block_cnt, 阻挡半径倍率 +block_radius_scale (mod
-//   `blockRadiusScale`: her air-block radius 0.8944 × 1.23, Battle._checkBlock), and 起飞 from her deployment (flags
+//   `blockRadiusScale`: her air-block radius 0.8944 × 1.23, Battle._searchBlockees), and 起飞 from her deployment (flags
 //   `liftoff` + `blockFly`: no ground enemy selects or is blocked by her, she blocks flyers — kalts2_t_1 ChangeCharBlockMode
 //   FLY, from a ranged tile too). The 生命修复单元 is her model.
 // - T2 医者丰碑: every other friendly OPERATOR (no summon: professionMask 639; 孤立 ones too) that enters her attack range —

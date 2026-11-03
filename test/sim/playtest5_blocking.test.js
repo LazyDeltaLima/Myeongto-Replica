@@ -11,7 +11,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
-import { BLOCK_RADIUS } from '../../server/sim/constants.js';
+import { BLOCK_RADIUS, BLOCK_SEARCH_TICKS } from '../../server/sim/constants.js';
 import { getDefaultSource } from '../../server/sim/simdata.js';
 import { COLS } from '../../server/sim/constants.js';
 
@@ -71,7 +71,7 @@ test('#4: a withdrawn or stunned blocker hands its enemy to the operator it stil
     assert.ok(h.runUntil(() => x()?.blockedBy === front && e()?.blockedBy === back, 30));
     kill(h, x());
     if (how === 'retreat') h.b.retreat(back); else h.b.applyStatus(back, 'stun', { duration: 5 });
-    h.step(2);
+    h.step(BLOCK_SEARCH_TICKS);   // the front operator's next search (Battle._searchBlockees)
     assert.equal(e().blockedBy, front, how);
     checkInvariants(h.b);
   }
@@ -104,8 +104,8 @@ test('#4: an operator whose capacity frees up blocks an enemy that still overlap
   assert.ok(h.runUntil(() => e() && e().x < 5.42, 30));
   assert.equal(e().blockedBy, null, 'passing through while full');
   kill(h, x());
-  h.step(1);
-  assert.equal(e().blockedBy, front, 'taken as soon as the operator has room');
+  h.step(BLOCK_SEARCH_TICKS);
+  assert.equal(e().blockedBy, front, 'taken at the operator\'s next search once it has room');
   checkInvariants(h.b);
 });
 
@@ -145,15 +145,27 @@ test('#4: block weight — a 2-weight enemy needs 2 free block', () => {
   assert.ok(h2.runUntil(() => h2.b.enemies[0]?.blockedBy === h2.unit(FRONT), 30), 'block 2 holds it');
 });
 
-test('#4: of two free operators in contact the nearer one blocks', () => {
-  // an enemy standing still between (9,6) and (9,5), nearer to (9,5)
-  const h = lane([{ chessId: FRONT, row: 9, col: 6 }, { chessId: BACK, row: 9, col: 5 }], [],
-    { enemies: { enemy_still: foe('enemy_still', { speed: 0 }) } });
-  h.step(1);
-  const e = h.spawn('enemy_still', { pos: [9, 5.4] });
-  h.step(1);
-  assert.equal(e.blockedBy, h.unit(BACK));
-  checkInvariants(h.b);
+test('#4: of two free operators in contact the first to search blocks, the nearer one or not', () => {
+  // official client: each blocker searches every 3 ticks from its deployment (Character._SearchBlockee) — not the
+  // enemy choosing its nearest blocker. The rear operator is redeployed after the first tick, so the two search on
+  // different ticks: the front one at 1, 4, 7 …, the rear one at 2, 5, 8 … An enemy standing still between (9,6) and
+  // (9,5), put there after tick `at`: the next one to search takes it — after 2 the front one at 4 (3 is quiet), after 4
+  // the rear one at 5
+  for (const [col, at, wait, who] of [[5.4, 2, 2, FRONT], [5.6, 4, 1, BACK]]) {
+    const h = lane([{ chessId: FRONT, row: 9, col: 6 }, { chessId: BACK, row: 9, col: 5 }], [],
+      { enemies: { enemy_still: foe('enemy_still', { speed: 0 }) } });
+    const back = h.unit(BACK);
+    h.step(1);
+    h.b.retreat(back);
+    assert.ok(h.b.redeploy(back));
+    h.step(at - 1);
+    const e = h.spawn('enemy_still', { pos: [9, col] });
+    h.step(wait - 1);
+    assert.ok(e.blockedBy === null, 'nobody searches meanwhile');
+    h.step(1);
+    assert.ok(e.blockedBy === h.unit(who), `at ${col}: ${who}, which searches first, though the other is nearer`);
+    checkInvariants(h.b);
+  }
 });
 
 test('#4: a blocker attacks the enemy it blocks even when it stands outside its range (可以选择且优先选择阻挡单位)', () => {

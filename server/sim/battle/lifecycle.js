@@ -122,6 +122,15 @@ export class BattleLifecycle {
       });
       this._compactEnemies();
       this._phase('enemyIndex', () => this._buildEnemyIndex());
+      // the blockers' searches for enemies to block, before any ally acts (battle/blocking.js _searchBlockees)
+      this._phase('blockSearch', () => {
+        const list = this.allyUnits;
+        for (let i = 0; i < list.length && !this._endReq; i++) {
+          const u = list[i];
+          if (!u.alive || !u.deployed) continue;
+          try { this._searchBlockees(u); } catch (err) { this._internalError('searchBlockees', err); }
+        }
+      });
       this._phase('allies', () => {
         const list = this.allyUnits;
         for (let i = 0; i < list.length && !this._endReq; i++) {

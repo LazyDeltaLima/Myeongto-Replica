@@ -12,8 +12,9 @@
 // changes (obstacles) or content displaces the enemy (route.pts = null). FLY legs fly straight between checkpoints; the
 // path always follows `motion` — a hovering (近地悬浮) enemy is an air unit for targeting and blocking (Unit.isFlying)
 // but walks the ground. An unblocked enemy touching an ally with free block capacity — within its block radius (0.7071
-// ground, 0.8944 air, devices 0.4472; Battle._checkBlock) — is blocked, moving or not (stunned or frozen too: GitHub
-// #232), so an enemy overlapping an operator is taken over once its blocker is gone; never one holding 不可阻挡 (恐惧,
+// ground, 0.8944 air, devices 0.4472) — is blocked when that ally next searches (every 3 ticks, nearest first:
+// Battle._searchBlockees, the allies' tick), moving or not (stunned or frozen too: GitHub #232), so an enemy
+// overlapping an operator is taken over once its blocker is gone; never one holding 不可阻挡 (恐惧,
 // 诱导, 浮空, 沉睡): an enemy falling asleep is let go by its blocker, whose slot frees, and stays where it is until it
 // wakes (DESIGN §24.9). Blocked enemies fight their blocker (ranged ones may pick anyone in
 // range, blocker first); every blocker whose attack hits enemies — a ranged operator on a melee tile included — may
@@ -821,7 +822,7 @@ const tileKey = (b, e) => {
  * Build the waypoint list (world points) for the current move leg. Ground legs: the smoothed flow-field chain from
  * the enemy's tile (next[tile], next[next[tile]], …, the target) — straight to the target when no field reaches it.
  */
-function planLeg(b, e, leg) {
+export function planLeg(b, e, leg) {
   const R = e.route;
   let pts;
   if (e.motion === 'FLY') {
@@ -937,14 +938,12 @@ export function updateEnemy(b, e, dt) {
   // units.js) — and it stays where it is until it wakes (DESIGN §24.9). 晕眩 / 冻结 hold no 不可阻挡 (PRTS 异常效果: the
   // STUN / FROZEN state machines stop the enemy's moves and attacks, not its being blocked; 术语释义 冻结 names no block):
   // it is still blocked by contact, like a standing enemy — an operator redeployed or deployed onto it (which slides it
-  // out to 0.5: Battle._checkBlock), another one taking it over or one whose capacity frees up blocks it, and the block
-  // lifts its 隐匿 (GitHub #232; until
-  // 0.2.0 the check waited for the status to end). The contact rule of a moving enemy (Battle._checkBlock, which still
-  // refuses 沉睡 / 浮空 / 恐惧 / 不可阻挡): one stunned short of its blocker is blocked once it walks into contact
+  // out to 0.5), another one taking it over or one whose capacity frees up blocks it, and the block lifts its 隐匿
+  // (GitHub #232; until 0.2.0 the check waited for the status to end). The blockers find it (Battle._searchBlockees,
+  // which still refuses 沉睡 / 浮空 / 恐惧 / 不可阻挡): one stunned short of its blocker is blocked once it walks into contact
   if (stunned && !e.hidden) {
     e.atkStandUntil = -Infinity;
     if (e.blockedBy && e.s.flags.sleep) b._unblock(e);
-    b._checkBlock(e);
     return;
   }
   if (e.blockedBy) {
@@ -955,7 +954,6 @@ export function updateEnemy(b, e, dt) {
     if (!bl.alive || !bl.deployed || bl.hidden || bl.s.flags.noBlock || bl.s.flags.sleep || ef.unblockable || ef.levitate || ef.fear) b._unblock(e);
     else return;
   }
-  if (!e.hidden && b._checkBlock(e)) return;
   if (b.time < e.pauseUntil) return;
   // standing for an attack clip (attackStand, GitHub #58): only the walking waits — a checkpoint's WAIT keeps running
   // and DISAPPEAR / APPEAR legs still happen (advanceRoute); drawn idle (the client plays the clip, then Move again);
@@ -1090,7 +1088,6 @@ function advanceRoute(b, e, dt, R, standing = false) {
         e.y += (dy / d) * dist;
         dist = 0;
       }
-      if (b._checkBlock(e)) return;
     }
     budget = dist / speed;
     if (R.pts && R.ptIdx >= R.pts.length) {

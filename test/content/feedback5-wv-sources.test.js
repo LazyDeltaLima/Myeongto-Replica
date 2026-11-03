@@ -30,7 +30,7 @@ test('#4 忍冬 S2 坠刃拷问 (PRTS 备注 "无法选中被自身阻挡而没�
     const u = h.unit(id);
     const behind = h.spawn('e', { pos: [10, 4] });
     behind.x = 4.4;   // in contact (0.6 < 0.71) but on the tile behind her: off the 3-12
-    h.step();
+    h.step(3);   // her next search for enemies to block (every 3 ticks, Battle._searchBlockees)
     assert.equal(behind.blockedBy, u, `${id}: she blocks it`);
     const inside = h.spawn('e', { pos: [10, 7] });
     h.step();

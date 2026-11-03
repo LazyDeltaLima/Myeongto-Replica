@@ -1036,7 +1036,7 @@ test('elite modules: 泥岩 −15 % from blocked enemies, 百炼嘉维尔 ×1.1 
     h.step();
     const u = h.unit(id);
     const e = h.spawn('enemy_dummy', { pos: [10, 5] });
-    h.step();
+    h.step(3);   // its next search for enemies to block (every 3 ticks)
     assert.equal(e.blockedBy, u);
     u.findBuff('mudrok:layers') && h.b.removeBuff(u, 'mudrok:layers');
     u.mem.layers = 0;

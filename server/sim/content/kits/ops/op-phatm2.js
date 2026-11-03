@@ -207,7 +207,7 @@ function cageKit() {
 
 /**
  * A 牢笼 blocks every unblocked enemy on its tile (spawn / refresh): full HP again, block count = their weight. Never one
- * holding 不可阻挡 — as Battle._checkBlock: the flag (恐惧 / 诱导 carry it), 浮空, 沉睡 (SLEEPING = 无法行动+无敌+不可阻挡, DESIGN
+ * holding 不可阻挡 — as Battle._searchBlockees: the flag (恐惧 / 诱导 carry it), 浮空, 沉睡 (SLEEPING = 无法行动+无敌+不可阻挡, DESIGN
  * §24.9: a sleeper on its tile stays free and is not counted).
  */
 function cageBlock(battle, cage) {

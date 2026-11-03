@@ -393,7 +393,7 @@ test('守墓石像 (PRTS 天赋): the statue (无法被阻挡，自缚，失衡�
     });
     h.step();
     const e = h.spawn(key, { pos: [10, 6], routeIndex: 0, mods: { speedMul: 0, atkMul: 0 } });
-    h.step();
+    h.step(3);   // the wall's next search for enemies to block (every 3 ticks)
     assert.ok(e.blockedBy && !e.def.staticBody && e.s.massLevel === 4, `${key}: blocked, a dynamic body of weight 4`);
     const dur = e.def.talent['stone.duration'];
     h.b.kill(e, null);

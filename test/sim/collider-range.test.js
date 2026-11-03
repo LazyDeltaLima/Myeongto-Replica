@@ -72,8 +72,9 @@ test('a blocker on the last tile of a ranged range: the enemy it blocks stands o
   h.step();
   const sn = h.unit(1), gd = h.unit(2), e = h.b.enemies[0];
   assert.ok(h.runUntil(() => e.blockedBy === gd, 20), 'the guard blocks the walker');
-  // blocked at the contact distance (中点判定, unchanged): its centre about 0.71 past the guard's centre
-  assert.ok(e.x - gd.x > 0.69 && e.x - gd.x <= BLOCK_RADIUS.ground + 1e-9, `blocked at ${(e.x - gd.x).toFixed(3)}`);
+  // blocked at the contact distance (中点判定, unchanged): its centre about 0.71 past the guard's centre — less up to two
+  // ticks' walk, the guard finding it at its next search (every 3 ticks)
+  assert.ok(e.x - gd.x > 0.6 && e.x - gd.x <= BLOCK_RADIUS.ground + 1e-9, `blocked at ${(e.x - gd.x).toFixed(3)}`);
   assert.ok(e.x - ENEMY_COLLIDER_RADIUS > 5.5, 'its collider stays outside the guard\'s tile, the range\'s last');
   h.run(6);
   assert.equal(e.blockedBy, gd);

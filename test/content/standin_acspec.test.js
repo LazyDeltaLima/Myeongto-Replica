@@ -198,7 +198,7 @@ test('Misery S3 空间的归依 (山 / 锏): nothing at the battle start; knocke
     assert.equal(tagged(h, u, 'acspec:burst').length, 0, `${id}: the battle-start deployment meets no enemy`);
     const at = (pos, key = 'enemy_dummy') => h.spawn(key, { pos, ...(key === 'enemy_fly' ? { route: 2 } : {}) });
     const diag = at([11, 5]), above = at([9, 4]), held = at([11, 4]), far = at([10, 6]), fly = at([9, 3], 'enemy_fly');
-    h.step();
+    h.step(3);   // the operators' next search for enemies to block (every 3 ticks)
     assert.equal(held.blockedBy?.defId, ALLY, `${id}: one enemy held by the operator below her`);
     const start = new Map([diag, above, held, far, fly].map((e) => [e, [e.x, e.y]]));
     h.b.players[0].dp = 99;

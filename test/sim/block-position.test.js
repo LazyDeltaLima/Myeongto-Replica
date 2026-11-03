@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { blockOffset } from '../../server/sim/battle/blocking.js';
-import { BLOCK_MIN_DIST, BLOCK_MOVE_TIME } from '../../server/sim/constants.js';
+import { BLOCK_MIN_DIST, BLOCK_MOVE_TIME, BLOCK_SEARCH_TICKS } from '../../server/sim/constants.js';
 import { hasGeneratedData } from '../../server/sim/simdata.js';
 
 const OP = 'test_block_pos';
@@ -23,6 +23,11 @@ function lane(blockCnt = 1, enemies = []) {
   });
 }
 const near = (a, b, eps = 1e-9) => Math.abs(a - b) < eps;
+// the blocker finds a new enemy at its next search, every BLOCK_SEARCH_TICKS ticks (Battle._searchBlockees)
+function untilBlocked(h, e) {
+  for (let i = 0; i < BLOCK_SEARCH_TICKS && !e.blockedBy; i++) h.step(1);
+  assert.ok(e.blockedBy, 'blocked within one search period');
+}
 
 test('blockOffset: kept as it is from 0.5 out, lengthened to 0.5 inside, the zero vector stays', () => {
   assert.deepEqual(blockOffset([], { x: 6.7, y: 9 }, 6, 9), { x: 0.7000000000000002, y: 0 });
@@ -63,7 +68,7 @@ test('an enemy inside 0.5 of its new blocker slides out to 0.5 over 0.2 s, linea
   const h = lane(1);
   h.step(1);
   const e = h.spawn('enemy_still', { pos: [9.16, 6.12] });   // [row, col]: offset (0.12, 0.16) from the operator
-  h.step(1);
+  untilBlocked(h, e);
   assert.equal(e.blockedBy, h.unit(OP));
   const x0 = 6.12, y0 = 9.16, x1 = 6 + 0.3, y1 = 9 + 0.4;
   const t0 = h.b.time;
@@ -96,13 +101,17 @@ test('a push during the slide ends it where the push left the enemy [ASSUMED]', 
   const h = lane(1);
   h.step(1);
   const e = h.spawn('enemy_still', { pos: [9, 6.1] });
-  h.step(2);
+  untilBlocked(h, e);
+  h.step(1);
   assert.ok(e.blockMove, 'sliding');
   assert.ok(h.b.displace(e, { x: 0, y: -1 }, 0.3) > 0);
   const x = e.x, y = e.y;
   h.step(1);
   assert.ok(near(e.x, x) && near(e.y, y), 'not pulled back to the old block position');
-  // (still within its operator's reach: blocked again, a new slide from where the push left it)
+  // (still within its operator's reach: blocked again at its next search, a new slide from where the push left it)
+  if (e.blockedBy && !e.blockMove) assert.fail('blocked without a slide');
+  untilBlocked(h, e);
+  assert.ok(near(e.x, x) && near(e.y, y), 'standing where the push left it until the new block');
   assert.ok(e.blockMove && near(e.blockMove.x0, x) && near(e.blockMove.y0, y));
   checkInvariants(h.b);
 });

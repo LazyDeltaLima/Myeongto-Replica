@@ -2,7 +2,7 @@
 // 起飞), the blocked targets of a blocker, block release and the 隐匿 switch-off after a block ends.
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
-import { ROWS, COLS, BLOCK_RADIUS_SQ, BLOCK_MIN_DIST, BLOCK_MOVE_TIME, STEALTH_RESTORE } from '../constants.js';
+import { ROWS, COLS, BLOCK_RADIUS_SQ, BLOCK_MIN_DIST, BLOCK_MOVE_TIME, BLOCK_SEARCH_TICKS, BLOCK_WEIGHT_GAP, STEALTH_RESTORE } from '../constants.js';
 import { canTargetEnemy, stealthOffKey } from '../targeting.js';
 import { hypot } from '../detmath.js';
 
@@ -61,55 +61,88 @@ export function blockOffset(held, e, bx, by) {
 
 export class BattleBlocking {
   /**
-   * Try to block enemy `e` where it stands. Returns true if it is (now) blocked. Official contact rule (constants.js
-   * BLOCK_RADIUS, PRTS 游戏数据基础 §阻挡半径): the enemy's position within the blocker's block radius of the blocker's
-   * centre (ground 0.7071 — the tile's circumscribed circle, reaching 0.21 tile into the side neighbours; air 0.8944;
-   * devices 0.4472), and the blocker has free capacity for the enemy's block weight (and may block it at all: a unit on
-   * a fenced tile blocks no ground enemy, _blockerFor). Checked every tick for every
-   * unblocked enemy, moving or not, so an enemy overlapping an operator is taken over as soon as its blocker is gone or
-   * the operator's capacity frees up (user playtest #5 item 4) — a stunned or frozen one too, an operator redeployed
-   * onto it included (晕眩 / 冻结 hold no 不可阻挡: ai.js updateEnemy, GitHub #232). Several blockers in contact → the
-   * nearest [ASSUMED], ties → the first in row-then-column scan order. The air radius grows with the blocker's
-   * 阻挡半径倍率 (PRTS 游戏数据基础 "飞行阻挡半径 = 0.8944 × 阻挡半径倍率"; mod `blockRadiusScale` = 倍率 − 1: 凯尔希·思衡托's
-   * 遗尘守望 / S1, +0.23); ground blocking ignores it (PRTS 数值范围 "对地面阻挡的单位不生效"). Below 1.5 tiles the 3×3 scan
-   * still finds every blocker.
+   * One tick of ally / device `u`'s search for enemies to block — the blocker's side of the contact rule, as the official
+   * client does it (Character.OnTick → `m_findBlockeeTicker.Tick()` → _SearchBlockee). Every blocker searches after the
+   * enemies moved and before any ally acts (battle/lifecycle.js, the `blockSearch` phase) [추정·미조사: the client's
+   * search follows Unit.OnTick inside Character.OnTick; whether the attacks run there is not read]. Every BLOCK_SEARCH_TICKS ticks,
+   * the first on its first tick after a deployment (deploy.js), it takes the enemies in contact that it may block, nearest
+   * first, while its capacity lasts. Contact (constants.js BLOCK_RADIUS, PRTS 游戏数据基础 §阻挡半径; Character
+   * .CheckInBlockRange): the enemy's position within the blocker's block radius of the blocker's centre (ground 0.7071 —
+   * the tile's circumscribed circle, reaching 0.21 tile into the side neighbours; air 0.8944; devices 0.4472). The air
+   * radius grows with the blocker's 阻挡半径倍率 (PRTS 游戏数据基础 "飞行阻挡半径 = 0.8944 × 阻挡半径倍率"; mod
+   * `blockRadiusScale` = 倍率 − 1: 凯尔希·思衡托's 遗尘守望 / S1, +0.23); ground blocking ignores it (PRTS 数值范围 "对地面阻挡
+   * 的单位不生效"). Below 1.5 tiles the 3×3 tile scan finds every enemy in reach.
+   * Order (FilterUtil.FilterWithVolume over Character._CheckBlockable): the candidates by their squared distance to the
+   * blocker in steps of BLOCK_WEIGHT_GAP (WeightedTarget.CompareTo), each taken if its block weight (Enemy.blockVolume)
+   * still fits — a heavy one that does not is passed over for a lighter one behind it. Equal steps go by the enemies'
+   * order on the field [추정·미조사: the client then compares the entities themselves, not read]. Two blockers in reach of
+   * one enemy: the first to search takes it — the allies' order of the tick loop [추정·미조사: the client's unit update
+   * order is not read].
+   * Every enemy that has no blocker is a candidate, moving or not, so an enemy overlapping an operator is taken over as
+   * soon as its blocker is gone or the operator's capacity frees up (user playtest #5 item 4) — a stunned or frozen one
+   * too, an operator redeployed onto it included (晕眩 / 冻结 hold no 不可阻挡: ai.js updateEnemy, GitHub #232).
    * Never blocked: an enemy holding 不可阻挡 (PRTS 异常效果 BLOCK_FREE 「无法阻挡/被阻挡，自动解除阻挡」) — the flag itself
    * (恐惧 / 诱导 carry it), 浮空, and 沉睡 (SLEEPING = 无法行动+无敌+不可阻挡: a sleeper takes no block slot, DESIGN §24.9);
    * once it wakes it is blocked again only by a blocker with room.
-   * The blocked enemy keeps the side it came from: it slides to the blocker's centre plus its offset at contact,
-   * lengthened to 0.5 and turned off the blocker's other enemies (blockOffset, _moveToBlockPosition; official client
-   * Character._AddBlockee → BlockBalancer.CalculateBlockOffset → Enemy.RegisterBlocker) — an enemy blocked by contact
-   * while walking in is already ≈ 0.71 away and stays put; one an operator lands or is deployed on is pushed out.
+   * Not done: the client's immediate search after a pull (Character.SearchBlockeeImmediate from NetCatcherProjectile /
+   * HarpoonProjectile / PullHitTargetBehaviour .OnProjectileStop and the CharSearchBlockeeImmediate node) — a pulled enemy
+   * waits for the next search here [추정·미조사: which unit those calls search for is not read]; devices search like
+   * operators [추정·미조사: PropLikeStaticBlockToken overrides _SearchBlockee, not read].
    */
-  _checkBlock(e) {
-    if (e.blockedBy || e.hidden || !e.alive) return !!e.blockedBy;
-    const f = e.s.flags;
-    if (f.unblockable || f.levitate || f.fear || f.sleep) return false;
-    const r0 = Math.round(e.y), c0 = Math.round(e.x);
-    const w = e.blockWeight ?? 1;
-    let u = null, bd = Infinity, ur = 0, uc = 0;
-    const fly = e.isFlying;
-    for (let r = r0 - 1; r <= r0 + 1; r++) {
+  _searchBlockees(u) {
+    if (u.blockSearchTick > 0) u.blockSearchTick--;
+    if (u.blockSearchTick > 0) return;
+    u.blockSearchTick = BLOCK_SEARCH_TICKS;
+    if (!u.alive || !u.deployed || u.hidden || u.s.flags.noBlock || u.s.flags.sleep || u.s.flags.noNewBlock) return;
+    // only a unit standing on its field tile blocks (a flying ally — 炎佑 — holds none: deploy.js)
+    if (this._occ[u.tileR * COLS + u.tileC] !== u) return;
+    const cap = u.s.blockCnt;
+    let used = 0;
+    for (const x of u.blocking) used += x.blockWeight ?? 1;
+    if (used >= cap) return;
+    const ur = u.tileR, uc = u.tileC, et = this._et;
+    const k = 1 + (u.s.blockRadiusScale || 0);
+    const cands = [];
+    for (let r = ur - 1; r <= ur + 1; r++) {
       if (r < 0 || r >= ROWS) continue;
-      for (let c = c0 - 1; c <= c0 + 1; c++) {
-        // a diagonal neighbour's centre is ≥ √0.5 away: out of reach of the ground (and device) radius
-        if (c < 0 || c >= COLS || (!fly && r !== r0 && c !== c0)) continue;
-        const o = this._occ[r * COLS + c];
-        if (!o || !this._blockerFor(o, e, w)) continue;
-        const d2 = (e.x - c) * (e.x - c) + (e.y - r) * (e.y - r);
-        const k = fly ? 1 + (o.s.blockRadiusScale || 0) : 1;
-        const r2 = o.kind === 'device' ? BLOCK_RADIUS_SQ.device : fly ? BLOCK_RADIUS_SQ.fly * k * k : BLOCK_RADIUS_SQ.ground;
-        if (d2 < r2 && d2 < bd) { u = o; bd = d2; ur = r; uc = c; }
+      for (let c = uc - 1; c <= uc + 1; c++) {
+        if (c < 0 || c >= COLS) continue;
+        for (const e of et[r * COLS + c]) {
+          if (e.blockedBy || e.hidden || !e.alive) continue;
+          const f = e.s.flags;
+          if (f.unblockable || f.levitate || f.fear || f.sleep) continue;
+          const w = e.blockWeight ?? 1;
+          if (!this._blockerFor(u, e, w)) continue;
+          const d2 = (e.x - uc) * (e.x - uc) + (e.y - ur) * (e.y - ur);
+          const r2 = u.kind === 'device' ? BLOCK_RADIUS_SQ.device : e.isFlying ? BLOCK_RADIUS_SQ.fly * k * k : BLOCK_RADIUS_SQ.ground;
+          if (d2 >= r2 || cands.some((x) => x.e === e)) continue;   // (a large enemy is listed on each tile of its body)
+          cands.push({ e, w, step: Math.floor(d2 / BLOCK_WEIGHT_GAP), i: this.enemies.indexOf(e) });
+        }
       }
     }
-    if (!u) return false;
+    if (!cands.length) return;
+    cands.sort((a, b) => a.step - b.step || a.i - b.i);
+    for (const { e, w } of cands) {
+      if (used + w > cap) continue;
+      used += w;
+      this._addBlockee(u, e);
+    }
+  }
+
+  /**
+   * Character._AddBlockee: ally `u` blocks enemy `e`. The blocked enemy keeps the side it came from: it slides to the
+   * blocker's centre plus its offset at contact, lengthened to 0.5 and turned off the blocker's other enemies (blockOffset,
+   * _moveToBlockPosition; BlockBalancer.CalculateBlockOffset → Enemy.RegisterBlocker) — an enemy blocked by contact
+   * while walking in is already ≈ 0.71 away and stays put; one an operator lands or is deployed on is pushed out.
+   */
+  _addBlockee(u, e) {
+    const ur = u.tileR, uc = u.tileC;
     const off = blockOffset(u.blocking.filter((x) => x.blockedBy === u), e, uc, ur);
     e.blockedBy = u;
     u.blocking.push(e);
     e.moving = false;
     this._moveToBlockPosition(e, uc + off.x, ur + off.y);
     if (this._hooks.blocked) this.emit('blocked', { blocker: u, enemy: e });
-    return true;
   }
 
   /**

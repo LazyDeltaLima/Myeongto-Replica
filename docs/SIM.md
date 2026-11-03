@@ -259,7 +259,7 @@ their tile centre first when an off-centre straight line would clip a wall, as r
 obstacle change, that walk re-plans from where the unit stands — to the same checkpoint while it stays reachable, else
 to a new pick. A `wait` leg keeps counting; when the fear ends the route re-plans from where it stands. 恐惧 outranks 诱导.
 
-**Blocking** (`Battle._checkBlock`, official contact rule — PRTS 游戏数据基础 §阻挡半径, 作战机制 "中点判定 … 案例: 阻挡";
+**Blocking** (`Battle._searchBlockees`, official contact rule — PRTS 游戏数据基础 §阻挡半径, 作战机制 "中点判定 … 案例: 阻挡";
 user playtest #5 item 4): an unblocked, blockable enemy is blocked by an ally (or device) whose centre is within its
 block radius of the enemy's position — `constants.js BLOCK_RADIUS`: ground 0.7071 (compared as d² < 0.49999037, the
 tile's circumscribed circle), air 0.8944 × the blocker's 阻挡半径倍率 (blockFly units against flyers; an airborne 起飞
@@ -276,16 +276,20 @@ stays [ASSUMED: PRTS restricts the rule to 地面阻挡], and a unit on a fenced
 range tiles. Never blocked: an enemy holding 不可阻挡 (PRTS 异常效果 BLOCK_FREE 「无法阻挡/被阻挡，自动解除阻挡」) —
 the `unblockable` flag (恐惧, 诱导 and many enemy abilities carry it), 浮空, and 沉睡 (SLEEPING = 无法行动+无敌+不可阻挡: an
 enemy falling asleep is released at once, its slot freeing for the next enemy, and stays where it is; once awake it is
-blocked again only by a blocker with room, else it walks on — DESIGN §24.9). It is checked every tick for every
-unblocked enemy, moving or not: an enemy that overlaps an operator when its blocker dies / is withdrawn / is stunned, or when the operator's
-blocked enemy dies, is taken over at once; an enemy that finds no room walks on (pass-through). A stunned or frozen
-enemy is checked too — 晕眩 / 冻结 hold no 不可阻挡 (PRTS 异常效果: the STUN / FROZEN state machines stop its moves and
+blocked again only by a blocker with room, else it walks on — DESIGN §24.9). The blocker looks, not the enemy (official
+`Character._SearchBlockee`): every 3 ticks from its deployment (`BLOCK_SEARCH_TICKS`, `Character.FIND_BLOCKEE_TICK`)
+each blocker with room takes the unblocked enemies in reach, nearest first (squared distance in 0.01 steps,
+`BLOCK_WEIGHT_GAP`; equal steps by field order [ASSUMED·미조사]), each if its block weight still fits; of two blockers in
+reach the first to search takes it (the allies' tick order [ASSUMED·미조사]). Every unblocked enemy is a candidate, moving
+or not: an enemy that overlaps an operator when its blocker dies / is withdrawn / is stunned, or when the operator's
+blocked enemy dies, is taken over at that operator's next search; an enemy that finds no room walks on
+(pass-through). A stunned or frozen enemy is a candidate too — 晕眩 / 冻结 hold no 不可阻挡 (PRTS 异常效果: the STUN / FROZEN state machines stop its moves and
 attacks) —, so an operator redeployed beside a held enemy blocks it and lifts its 隐匿; one held short of
 contact is blocked once it walks in after the status (GitHub #232; until 0.2.0 the check waited for the status to end).
 A newly blocked enemy keeps its offset from the blocker, lengthened to 0.5 and turned a little off the blocker's other
 enemies when it would land within 0.1 of one, and slides there over 0.2 s (official `BlockBalancer.CalculateBlockOffset`,
-`Enemy._MoveToBlockPosition`; `blockOffset`, docs/rules/sim.md 「저지된 적의 자리」): one walking into contact is not moved.
-Several blockers in contact → the nearest [ASSUMED]. A head-on enemy therefore stops at contact, ~0.71 tile from the blocker's centre, on the
+`Enemy._MoveToBlockPosition`; `blockOffset`, docs/rules/sim.md 「저지된 적의 자리」): one walking into contact is not moved
+(docs/rules/sim.md 「누가 막나」). A head-on enemy therefore stops at contact, ~0.71 tile from the blocker's centre, on the
 tile in front of it (PRTS 作战机制: a blocked enemy's collider does not enter the blocker's tile; the official few
 hundredths of a tile of deceleration are not modelled; the exception is 假想敌：淤困, which on attaching blinks onto its
 blocker's tile centre with 自缚 until the block ends — PRTS 假想敌：淤困, `enemies/element.js kitParasite`), and **every blocker** — melee units (要塞 / 领主 / 哨戒铁卫

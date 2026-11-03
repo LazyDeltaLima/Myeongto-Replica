@@ -166,7 +166,7 @@ describe('骨刺 effective stealth drives A/B clips', () => {
     const v = await enemy(BONE);
     try {
       pose(v, h, e, true);
-      h.step(2); assert.equal(e.blockedBy, wall); pose(v, h, e, false);
+      h.step(3); assert.equal(e.blockedBy, wall);   // the wall's next search (every 3 ticks) pose(v, h, e, false);
       h.b.applyStatus(wall, 'stun', { duration: 30, force: true });
       h.step(2); assert.equal(e.blockedBy, null); pose(v, h, e, true);
       h.b.addBuff(e, { key: 'test:reveal', duration: 1, flags: { reveal: true } });
@@ -179,7 +179,7 @@ describe('骨刺 effective stealth drives A/B clips', () => {
     const { h, e, wall } = arena();
     const v = await enemy(BONE);
     try {
-      h.step(2); assert.equal(e.blockedBy, wall);
+      h.step(3); assert.equal(e.blockedBy, wall);   // the wall's next search (every 3 ticks)
       h.b.addBuff(e, { key: 'test:reveal', duration: 0.1, flags: { reveal: true } });
       pose(v, h, e, false);
       h.run(0.2); assert.equal(e.blockedBy, wall); pose(v, h, e, false);

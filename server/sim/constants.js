@@ -56,18 +56,26 @@ export const ENEMY_COLLIDER_RADIUS = 0.1;
  * Block contact (PRTS 游戏数据基础 §阻挡半径; 作战机制 §碰撞体积与位置识别 "中点判定 … 案例: 阻挡"): an unblocked enemy whose
  * position lies within the blocker's radius of the blocker's centre touches it — compared on squared distances, as the
  * official client does. Ground blocking 0.70709997 (² 0.49999037); air blocking (起飞 / blockFly units against flyers)
- * 0.8944 (² 0.79995137); devices override it (阻隔工事 / 障碍物 0.4472). Used by Battle._checkBlock (user playtest #5).
+ * 0.8944 (² 0.79995137); devices override it (阻隔工事 / 障碍物 0.4472). Used by Battle._searchBlockees (user playtest #5).
  */
 export const BLOCK_RADIUS = Object.freeze({ ground: 0.70709997, fly: 0.8944, device: 0.4472 });
 export const BLOCK_RADIUS_SQ = Object.freeze({ ground: 0.49999037, fly: 0.79995137, device: 0.4472 * 0.4472 });
 /**
  * Where a newly blocked enemy is put (official client, BlockBalancer.CalculateBlockOffset → Enemy._MoveToBlockPosition;
- * Battle._checkBlock): it keeps its offset from the blocker, lengthened to BLOCK_MIN_DIST (Character.minBlockDistToTarget
+ * Battle._addBlockee): it keeps its offset from the blocker, lengthened to BLOCK_MIN_DIST (Character.minBlockDistToTarget
  * — every blocker of this mode, devices included: they are Trap → Token → Character) and turned a little away from the
  * blocker's other enemies, and slides there linearly over BLOCK_MOVE_TIME s (BattleTweenMgr, no ease).
  */
 export const BLOCK_MIN_DIST = 0.5;
 export const BLOCK_MOVE_TIME = 0.2;
+/**
+ * Who blocks whom (official client, Character.OnTick → _SearchBlockee; Battle._searchBlockees): the blocker looks for
+ * new enemies every BLOCK_SEARCH_TICKS ticks (Character.FIND_BLOCKEE_TICK 3, its `m_findBlockeeTicker` = PeriodicTicker(3)
+ * — the first search on its first tick) and takes them nearest first, its squared distance to each counted in steps of
+ * BLOCK_WEIGHT_GAP (FilterUtil.DEFAULT_SMALL_ENOUGH_GAP, FP 0.01: WeightedTarget.CompareTo compares floor(d² / gap)).
+ */
+export const BLOCK_SEARCH_TICKS = 3;
+export const BLOCK_WEIGHT_GAP = 0.01;
 /**
  * An enemy's 隐匿 after a block ends (s): PRTS 作战机制 §隐匿 "对于绝大部分可隐匿的敌人而言，在被我方单位阻挡后会解除隐匿，不被
  * 阻挡的3秒后重新进入隐匿" / §隐匿与Buff的关系 "阻挡状态解除后3s开关重新被开启而恢复隐匿". An enemy page's "（解除阻挡N秒后

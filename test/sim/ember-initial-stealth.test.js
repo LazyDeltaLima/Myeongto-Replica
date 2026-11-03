@@ -24,11 +24,11 @@ for (const key of KEYS) {
   test(`${key}: repeated knock-outs renew the husk's initial 隐匿, not its previous block's restore timer`, () => {
     const h = arena(), wall = h.unit('t_ember_wall');
     const e = put(h, key), next = put(h, 'enemy_1007_slime', 5.3);
-    h.step(2); assert.equal(e.blockedBy, wall);
+    h.step(3); assert.equal(e.blockedBy, wall);   // the wall's next search (every 3 ticks)
     h.b.kill(e, null); h.run(enemies.HUSK_REBIRTH + 0.1);
     assert.equal(next.blockedBy, wall); assert.equal(enemyStealthed(e), true);
     // Reveal by a new block, then release the husk's own block and let it stand up.
-    h.b.kill(next, null); h.step(2); assert.equal(e.blockedBy, wall);
+    h.b.kill(next, null); h.step(3); assert.equal(e.blockedBy, wall);   // the wall's next search (every 3 ticks)
     h.b.applyStatus(wall, 'stun', { duration: 30, force: true }); h.step();
     assert.ok(e.findBuff(stealthOffKey('ab:ember')));
     assert.equal(enemyStealthed(e), false);
@@ -44,7 +44,7 @@ for (const key of KEYS) {
   test(`${key}: 反隐 still reveals a fresh unblocked husk; it hides immediately when 反隐 ends`, () => {
     const h = arena(), wall = h.unit('t_ember_wall');
     const e = put(h, key), next = put(h, 'enemy_1007_slime', 5.3);
-    h.step(2); assert.equal(e.blockedBy, wall);
+    h.step(3); assert.equal(e.blockedBy, wall);   // the wall's next search (every 3 ticks)
     h.b.kill(e, null);
     h.b.addBuff(e, { key: 'test:reveal', flags: { reveal: true } });
     h.run(enemies.HUSK_REBIRTH + 0.1);
@@ -61,7 +61,7 @@ for (const key of KEYS) {
 test('假想敌：再生 uses the same husk helper but gains no 隐匿 and remains targetable and unblockable', () => {
   const h = arena(), wall = h.unit('t_ember_wall');
   const e = put(h, 'enemy_9010_acpupp'), next = put(h, 'enemy_1007_slime', 5.3);
-  h.step(2); assert.equal(e.blockedBy, wall);
+  h.step(3); assert.equal(e.blockedBy, wall);   // the wall's next search (every 3 ticks)
   h.b.kill(e, null);
   assert.equal(e.blockedBy, null);
   h.run(enemies.HUSK_REBIRTH + 0.1);
