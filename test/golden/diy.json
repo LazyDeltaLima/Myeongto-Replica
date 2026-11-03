@@ -1277,8 +1277,8 @@
       ],
       "enemies": {"enemy_1288_duskls":[27,6,21,6833,164223],"enemy_1288_duskls_2":[57,14,42,13036,352541],"enemy_1292_duskld":[51,6,44,20080,635553]},
       "hooks": [1,158,6900,1422,1422,2332,3122,0,41,148,77,76,0,33455,535,105,135,107,1,109,0,3,0],
-      "events": {"atk":1646,"deploy":23,"die":41,"dmg":3122,"engage":12,"face":15,"fx":1356,"leak":107,"skill":153,"spawn":147,"status":1334,"swing":1453},
-      "fx": {"burst":3,"ember":68,"kitHit":560,"logosExecute":13,"logosLexicon":553,"revive":28,"shield":67,"shieldBreak":64},
+      "events": {"atk":1646,"deploy":23,"die":41,"dmg":3122,"engage":12,"face":15,"fx":1358,"leak":107,"skill":153,"spawn":147,"status":1334,"swing":1453},
+      "fx": {"burst":3,"ember":68,"kitHit":560,"logosExecute":13,"logosLexicon":553,"revive":28,"shield":67,"shieldBreak":64,"vvanaS3Later":2},
       "snaps": "10952fbc 28f89ed9 22df221b 333d6659 cfded110 826bcdc3 a1a776e4 57d9ee38 35848c11 bbb6282c 20aa9b20 5bf35991 49a729c7 97b40bbe 5adcc3e4 64c21563 27ac40f6 7b270e89 8f12fbf3 506df0f9 c3bbd5ec 7be34b4b e1e6e0dc"
     },
     "diy-031": {
@@ -1354,8 +1354,8 @@
       ],
       "enemies": {"enemy_10031_cnvsld":[39,9,30,2486,138935],"enemy_1019_jshoot_2":[57,10,47,15193,133700],"enemy_9008_acbunn":[21,1,20,35764,44160]},
       "hooks": [1,136,6481,491,491,618,831,0,36,133,17,17,0,7658,275,37,117,97,1,36,0,7,0],
-      "events": {"atk":511,"deploy":16,"die":36,"dmg":831,"engage":6,"face":12,"fx":11,"leak":97,"skill":34,"spawn":126,"status":32,"swing":514},
-      "fx": {"burst":7,"shield":2,"shieldBreak":2},
+      "events": {"atk":511,"deploy":16,"die":36,"dmg":831,"engage":6,"face":12,"fx":13,"leak":97,"skill":34,"spawn":126,"status":32,"swing":514},
+      "fx": {"burst":7,"shield":2,"shieldBreak":2,"vvanaS3Later":2},
       "snaps": "4e96f15a 2009cdbb 411b15c4 b860aaba ac296366 ba812486 0e60de73 fb21b976 90524651 22e4bce9 aac51bee c85ac100 15f42956 98cea2bb e151dcf2 3d58905d ed000db4 6d20da1f b1e529ae 0dbbcb9a 7760fe6b 599a6457"
     }
   }

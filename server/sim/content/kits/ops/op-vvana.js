@@ -167,6 +167,7 @@ export default {
             unit.mem.vvanaS3Casts = (unit.mem.vvanaS3Casts ?? 0) + 1;
             unit.mem.vvanaS3Later = later;
             if (!later) return;
+            battle.fx('vvanaS3Later', { x: unit.x, y: unit.y, id: unit.id }); // its attacks sound mode 4 S3_2 (audio)
             skill.timeLeft = Math.max(0.01, num(b3.enhance_duration, skill.duration));
             setGrid(battle, unit, RANGE_3_2);
           },
@@ -242,6 +243,8 @@ export default {
             setGrid(battle, unit, RANGE_3_2);
           }, { owner: unit });
           battle.on('skillEnd', (c) => { if (c.unit === unit && c.skill.id === S1 && unit.mem.vvanaCharged) leave(); }, { owner: unit });
+          // a 蓄力 cast is the skill ability's second child (skchr_vvana_1.2): the swing names it (sound only)
+          battle.on('swing', (c) => { if (c.unit === unit && c.isSkill && unit.mem.vvanaCast === 'charged') c.signal = 'vvanaCharged'; }, { owner: unit });
           battle.on('deploy', (c) => { if (c.unit === unit) leave(); }, { owner: unit });
         }
         // S2: one Attack_Once / Attack_Twice pick per attack while it runs

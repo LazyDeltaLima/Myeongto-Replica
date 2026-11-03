@@ -19,13 +19,27 @@ export const enemyRecordMode = (id) => (typeof id === 'string' && Object.hasOwn(
  * the sim fx that marks that moment — 维什戴尔 S2's 过载 (wisdel_s_2[overload_start] → S2_Overload; fx 'wisdelOverload'),
  * 乌尔比安 S3 once the anchor lands (ulpia_s3_switch_mode[born]: his redeploy there, moved or in place, → S3_Respawn_A;
  * fx 'anchor'). From then until the skill ends its attacks sound that mode's signals (tools/assets/skill-mode-sfx.mjs
- * `modes[i].sub`, public/js/audio.js). A name is a `_modes` entry of the skill's own mode (`<its name>_…`).
+ * `modes[i].sub`, public/js/audio.js). A name is a `_modes` entry of the skill's own mode (`<its name>_…`), or a sibling
+ * cast mode of the same skill (`S3_1` → `S3_2`).
  */
 export const SKILL_SUB_MODES = Object.freeze({
   char_1035_wisdel: Object.freeze({ wisdelOverload: 'S2_Overload' }),
   char_4145_ulpia: Object.freeze({ anchor: 'S3_Respawn_A' }),
   // 寒芒克洛丝 S2 after attack@max_stack_count hits: four shots of S2_Sub (projectile_chr_kroos2_s2_2; kit fx 'quadShot')
   char_1021_kroos2: Object.freeze({ quadShot: 'S2_Sub' }),
+  // 2026-11-03: 薇薇安娜 S3 from her second cast of a deployment (vvana_s_3[check]: mode 4 instead of 3; kit fx 'vvanaS3Later')
+  char_4098_vvana: Object.freeze({ vvanaS3Later: 'S3_2' }),
+});
+
+/**
+ * 2026-11-03, official client: a skill whose own attack ability is a group of casts (`ON_ABILITY_*.<skillId>.<k>`), the
+ * child each cast sounds picked by the sim's swing signal (the 'swing' hook's `signal`, ai.js) — `def` without one. Such a
+ * skill sounds its ability, not the `_modes` entry its name matches: 薇薇安娜 S1's `S1` mode is her 蓄力 state
+ * (vvana_s_1[mode]), not the cast's; skchr_vvana_1.1 is the plain cast, .2 the 蓄力 one (kit signal 'vvanaCharged').
+ * skill index → { def, sig: { [signal]: child } }.
+ */
+export const SKILL_CAST_KIDS = Object.freeze({
+  char_4098_vvana: Object.freeze({ 0: Object.freeze({ def: 1, sig: Object.freeze({ vvanaCharged: 2 }) }) }),
 });
 
 /**

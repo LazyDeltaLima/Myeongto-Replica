@@ -2,7 +2,8 @@
 // docs/rules/audio.md 「버프·커스텀 트리거 소리」; EN client buff templates and prefabs): 铁钳号·原型机's skill START and its
 // projectile REACH, 遥's bubble given / breaking, S3's levitation and its ticks, S2's extra damage at each healed unit
 // (enemies or none), 真言's 侵入点 mark, each S1 / S2 hit by its 神经 burst branch and each S3 溢出麻痹 bounce hit; 斥罪 S2's
-// pulse on each enemy, 逻各斯 S1's execution and follow-up shot, T1's shot leaving and landing. The committed
+// pulse on each enemy, 逻各斯 S1's execution and follow-up shot, T1's shot leaving and landing; 薇薇安娜 S1's plain and 蓄力
+// casts (skchr_vvana_1.1 / .2 by the swing signal), S3 from the second cast (mode 4 S3_2) and no start sound S3 lacks. The committed
 // data/assets.json may predate these keys: the manifest here is it plus the keys built from the official audio_data.json
 // (tools/assets/kit-sfx.mjs kitHitSfx).
 
@@ -14,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 
 import { AudioManager, kitHitKey, signalFxKey } from '../public/js/audio.js';
 import { KIT_HIT_BANKS, kitHitSfx } from '../tools/assets/kit-sfx.mjs';
+import { skillModes, loadCharModes, loadCharAudio } from '../tools/assets/skill-mode-sfx.mjs';
 import { indexAudio } from '../tools/assets/audio.mjs';
 import { makeBattle, enemyRec } from './helpers/battleHarness.js';
 
@@ -22,7 +24,7 @@ const OFFICIAL = path.join(ROOT, '.cache', 'gamedata', 'excel', 'audio_data.json
 const NO_DATA = !existsSync(OFFICIAL) && 'no .cache/gamedata';
 const file = (u) => String(u).split('/').pop();
 const IRON = 'char_4072_ironmn', CRAB = 'token_10027_ironmn_pile3', HARUKA = 'char_4202_haruka', MANTRA = 'char_4204_mantra';
-const JUDGE = 'char_4065_judge', LOGOS = 'char_4133_logos';
+const JUDGE = 'char_4065_judge', LOGOS = 'char_4133_logos', VVANA = 'char_4098_vvana';
 const SLOT5 = 'chess_char_5_diy1_a';
 const dummy = (key, o = {}) => enemyRec({ key, hp: 1e9, speed: 0, mass: 0, def: 0, res: 0, ...o });
 
@@ -247,5 +249,72 @@ describe('선발 白铁 / 遥 / 真言 custom-trigger sounds (2026-11-03)', () =
     a.handleBattleEvents(ev.filter((x) => x[0] === 'fx'));
     assert.ok(a.played.includes('p_skill_mtlscn.mp3'), 'mantra_t_tile');
     assert.equal(b.errors.length, 0, JSON.stringify(b.errors[0]));
+  });
+});
+
+describe('선발 薇薇安娜: S1\'s two casts, S3 from the second cast (2026-11-03)', () => {
+  const VSKILLS = ['skchr_vvana_1', 'skchr_vvana_2', 'skchr_vvana_3'].map((skillId, index) => ({ index, skillId }));
+  const bare = (u) => file(u).replace(/\.\w+$/, '');
+  const cues = (set) => set.cues.map((c) => `${c.at}:${c.k ?? '-'}:${bare(c.u)}`);
+
+  test('the builder: S1 sounds its ability\'s children (not the 蓄力 S1 mode), S3 its S3_2 from the second cast', { skip: NO_DATA }, () => {
+    const audio = indexAudio(JSON.parse(readFileSync(OFFICIAL, 'utf8')));
+    const CM = loadCharModes(ROOT), CA = loadCharAudio(ROOT);
+    const m = skillModes(audio, VVANA, VSKILLS, CM[VVANA], (p) => `/assets/audio/${p[0]}`, () => false, CA[VVANA]);
+    assert.deepEqual(cues(m[0]), ['s:1:p_atk_shdswrd_dcast', 's:2:p_atk_lghtnswrd_n', 'a:2:p_atk_lghtnswrd_d', 'd:1:p_imp_shdswrd_d', 'd:2:p_imp_lghtnswrd_d'],
+      'skchr_vvana_1.1 / .2');
+    assert.deepEqual(m[0].sel, { attack: { n: 2, how: 'first', def: 1, sig: { vvanaCharged: 2 } } });
+    assert.deepEqual(m[2].sub.vvanaS3Later.cues.map((c) => `${c.at}:${bare(c.u)}`), ['s:p_atk_shdswrd_s', 'd:p_imp_shdswrd_s'], 'attack.4');
+  });
+
+  test('a battle → the audio manager: plain S1, 蓄力 S1, the first and a later S3', { skip: NO_DATA }, () => {
+    const enemies = { e_d: dummy('e_d') };
+    const hear = (skill, prep, secs) => {
+      const h = makeBattle({ defs: { enemies }, timeLimit: 900, autoFinish: false, seed: 5, flags: { dpPerSec: 0 }, captureNoisy: true,
+        units: [{ uid: 1, diy: { slot: SLOT5, charId: VVANA, skillIndex: skill, uniEquipId: null }, row: 10, col: 5 }] });
+      h.step();
+      const u = h.unit(1);
+      prep(h, u);
+      const a = manager();
+      a.setFieldUnits([{ id: u.id, kind: 'op', side: 'ally', spine: VVANA, skillIndex: skill },
+        ...h.enemies().map((e) => ({ id: e.id, kind: 'enemy', side: 'enemy', spine: 'enemy_1007_slime' }))]);
+      h.events.length = 0;
+      const all = [];
+      let t = 0;
+      for (let i = 0, n = Math.round(secs / h.b.dt); i < n; i++) {
+        h.step();
+        a.ctx.currentTime = (t += h.b.dt);
+        const ev = h.events.splice(0);
+        all.push(...ev);
+        a.handleBattleEvents(ev);
+      }
+      return { u, of: (k) => all.filter((x) => x[0] === k), played: a.played.map((f) => f.replace(/\.\w+$/, '')) };
+    };
+    // plain: one charge — its first child
+    const plain = hear(0, (h, u) => { u.skill.gainSp(u.skill.spCost); h.spawn('e_d', { pos: [10, 6] }); }, 0.6);
+    assert.deepEqual(plain.played, ['p_atk_shdswrd_dcast', 'p_imp_shdswrd_d', 'p_imp_shdswrd_d'], 'plain cast: skchr_vvana_1.1, two hits');
+    // 蓄力: both charges, the enemy 2 tiles ahead (the 3-2 range) — the swing names the second child
+    const charged = hear(0, (h, u) => { u.skill.gainSp(999); h.step(); h.spawn('e_d', { pos: [10, 7] }); }, 0.6);
+    assert.ok(charged.of('swing').some((x) => x[1] === charged.u.id && x[8] === 'vvanaCharged'), 'the swing signal');
+    assert.deepEqual(charged.played, ['p_atk_lghtnswrd_n', 'p_atk_lghtnswrd_d', 'p_imp_lghtnswrd_d', 'p_imp_lghtnswrd_d', 'p_imp_lghtnswrd_d'],
+      '蓄力 cast: skchr_vvana_1.2, three hits');
+    // S3: no start bank of its own (not S1's), mode 3 the first time, mode 4 from the second
+    const s3 = (later) => hear(2, (h, u) => { h.spawn('e_d', { pos: [10, 6] }); if (later) u.mem.vvanaS3Casts = 1; u.skill.gainSp(999); }, 2);
+    const first = s3(false), again = s3(true);
+    assert.ok(!first.played.includes('p_atk_shdswrd_dcast') && !again.played.includes('p_atk_shdswrd_dcast'), 'no S1 start at S3');
+    assert.ok(first.played.includes('p_atk_lghtnswrd_s') && !first.played.includes('p_atk_shdswrd_s'), `first S3: S3_1 (${first.played})`);
+    assert.equal(first.of('fx').filter((x) => x[1] === 'vvanaS3Later').length, 0);
+    assert.equal(again.of('fx').filter((x) => x[1] === 'vvanaS3Later' && x[4]?.id === again.u.id).length, 1, 'the fx');
+    assert.ok(again.played.includes('p_atk_shdswrd_s') && again.played.includes('p_imp_shdswrd_s') && !again.played.includes('p_atk_lghtnswrd_s'),
+      `later S3: S3_2 (${again.played})`);
+  });
+
+  test('a listed skill with no start sound of its own sounds none, not the first skill\'s', () => {
+    const a = new AudioManager({ win: null, getManifest: () => ({ audio: { sfx: { units: { x: { skill: '/a/s1.mp3', skills: { 0: '/a/s1.mp3' } }, y: { skill: '/a/y.mp3' } } } } }), random: () => 0 });
+    a.ctx = { currentTime: 0 }; a.played = []; a._play = (url) => { a.played.push(file(url)); }; a.voice = () => false;
+    assert.equal(a.unit('x', 'skill', 1, 2), false);
+    assert.ok(a.unit('x', 'skill', 1, 0));
+    assert.ok(a.unit('y', 'skill', 2, 2), 'no list: the unit\'s one skill sound');
+    assert.deepEqual(a.played, ['s1.mp3', 'y.mp3']);
   });
 });

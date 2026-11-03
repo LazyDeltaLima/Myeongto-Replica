@@ -24,11 +24,4 @@ export const UNSOUNDED = {
     'ON_SKILL_START.skchr_oblvns_2.1': 'none: an untoggled cast from mode 1 (S2_AttackSpeed) — her only cast here is from mode 2, the skill\'s _defaultModeIndex',
     'ON_SKILL_FINISH.skchr_oblvns_2.1': 'none: a toggled cast — the automatic battle never casts a toggled skill (AutoChessBattleTrigger._CheckToggleSkill)',
   },
-  char_4098_vvana: {
-    // 斥罪, 逻各斯, 薇薇安娜 joined 2026-11-03; 斥罪's and 逻各斯's were wired the same day. These need the sim to mark the cast
-    // (S1 蓄力 / S3 from the second cast) and the audio plan a mode its skill casts in instead of its own (docs/rules/audio.md)
-    'ON_ABILITY_ON.skchr_vvana_1.2': 'todo: S1 cast in 蓄力 mode (mode 2, both charges)',
-    'ON_ABILITY_START.char_4098_vvana.attack.4': 'todo: S3 attack from the second cast (mode 4: S3_2)',
-    'ON_ABILITY_HIT.char_4098_vvana.attack.4': 'todo: S3 hit from the second cast (mode 4: S3_2)',
-  },
 };

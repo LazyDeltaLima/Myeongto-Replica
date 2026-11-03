@@ -1542,6 +1542,8 @@ export class AudioManager {
       const own = kind === 'skill' && Number.isInteger(skillIndex) && u?.skills ? u.skills[skillIndex] : null;
       // docs/rules/audio.md 「더빙 효과음」: the chosen dub's copy of the skill start (浊心斯卡蒂: the tide with her line)
       const dub = kind === 'skill' && !m ? unitDub(u, 'skill', skillIndex, this.voiceLang?.(), this.random) : null;
+      // 2026-11-03: a listed skill without a start sound of its own sounds none (not the unit's first skill's)
+      if (kind === 'skill' && Number.isInteger(skillIndex) && u?.skills && typeof own !== 'string' && dub == null) return false;
       const url = m ? m[kind] : dub ?? (typeof own === 'string' ? own : u?.[kind]);
       if (typeof url !== 'string') return false;
       if (!m && (kind === 'attack' || kind === 'hit') && !normalAttackSfx(defId, url)) return false;

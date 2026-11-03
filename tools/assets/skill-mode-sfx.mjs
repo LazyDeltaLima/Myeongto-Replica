@@ -37,7 +37,7 @@ export function loadCharModes(root = process.cwd()) {
 }
 
 export { skillModeIndex } from '../../shared/skill-modes.js'; // the same rule as the effect layer (render/fxgame.js)
-import { skillModeIndex, SKILL_SUB_MODES } from '../../shared/skill-modes.js';
+import { skillModeIndex, SKILL_SUB_MODES, SKILL_CAST_KIDS } from '../../shared/skill-modes.js';
 
 /** Sub-ability order: the plain key first, then deeper keys with numeric parts ascending (audio.mjs abilityOrder). */
 const order = (a, b) => (a.split('.').length - b.split('.').length) || a.localeCompare(b, 'en', { numeric: true });
@@ -132,13 +132,16 @@ export function skillModes(audio, charId, skills, info, soundLeaf, startIsFallba
   const out = {};
   for (const s of Array.isArray(skills) ? skills : []) {
     if (!s || !Number.isInteger(s.index)) continue;
-    const n = info ? skillModeIndex(info.modes, s.index, info.skillMode) : -1;
+    // 2026-11-03: a skill whose ability is a group of casts sounds that ability, never a mode its name matches (SKILL_CAST_KIDS)
+    const kids = SKILL_CAST_KIDS[charId]?.[s.index] ?? null;
+    const n = info && !kids ? skillModeIndex(info.modes, s.index, info.skillMode) : -1;
     const found = n > 0 ? modeSounds(audio, charId, n, info.proj?.[n]) : s.skillId ? abilitySounds(audio, s.skillId) : {};
     // 2026-10-10, docs/rules/audio.md 「공격 소리 신호」: the mode's attack signals as cues (soundSet) — a skill mode
     // whose signal has no bank and fires no sounding projectile attacks in silence (`cues: []`, the client's middleware has no
     // fallback; 안젤리나 S2 / S3, 사리아 S3 … used to sound the Default); a skill without a mode: its own ability's banks, every
     // sub-key (abilityCues — 혼 S1 skchr_horn_1.2.1, 데겐블레허 S3 .1.1 / .2 / .extra.0)
-    const set = ca && n > 0 ? soundSet(audio, charId, ca, n, soundLeaf) : ca && s.skillId ? { cues: abilityCues(audio, s.skillId, soundLeaf) } : null;
+    const set = ca && n > 0 ? soundSet(audio, charId, ca, n, soundLeaf)
+      : ca && s.skillId ? (kids ? castKidCues(audio, s.skillId, kids, soundLeaf) : { cues: abilityCues(audio, s.skillId, soundLeaf) }) : null;
     if (!found.attack && !found.hit && !(set && (n > 0 || set.cues.length))) continue;
     const e = {};
     if (set && (n > 0 || set.cues.length)) { e.cues = set.cues; if (set.sel) e.sel = set.sel; }
@@ -147,7 +150,9 @@ export function skillModes(audio, charId, skills, info, soundLeaf, startIsFallba
       const sub = {};
       for (const [fx, name] of Object.entries(SKILL_SUB_MODES[charId] || {})) {
         const m = info.modes.indexOf(name);
-        if (m <= 0 || !name.startsWith(`${info.modes[n]}_`)) continue;
+        // its own mode's (`S2` → `S2_Overload`) or a sibling cast mode of the skill (2026-11-03: `S3_1` → `S3_2`)
+        const root = /^(Sk?\d+)_/i.exec(info.modes[n])?.[1];
+        if (m <= 0 || m === n || !(name.startsWith(`${info.modes[n]}_`) || (root && name.startsWith(`${root}_`)))) continue;
         const ss = soundSet(audio, charId, ca, m, soundLeaf);
         sub[fx] = ss.sel ? { cues: ss.cues, sel: ss.sel } : { cues: ss.cues };
       }
@@ -757,6 +762,26 @@ export function abilityCues(audio, skillId, soundLeaf) {
     }
   }
   return out;
+}
+
+/**
+ * 2026-11-03, shared/skill-modes.js SKILL_CAST_KIDS: abilityCues of a skill whose ability is a group of casts — each child's
+ * cues (`<skillId>.<k>`) tagged `k`, the pick `first` by the swing signal ({ def, sig }).
+ */
+export function castKidCues(audio, skillId, kids, soundLeaf) {
+  const n = Math.max(kids.def, ...Object.values(kids.sig || {}));
+  const cues = [];
+  for (const [ev, at] of Object.entries(EV_AT)) {
+    const ok = at === 's' ? ATTACK_GROUPS : at === 'a' ? new Set([...ATTACK_GROUPS, ...IMPACT_GROUPS]) : IMPACT_GROUPS;
+    for (let j = 0; j <= n; j++) {
+      const name = j ? `battle.${ev}.${skillId}.${j}` : `battle.${ev}.${skillId}`;
+      const p = audio.bank(name);
+      if (!p?.length || !ok.has(audio.groupOf?.(p))) continue;
+      const c = bankCue(audio, name, at, soundLeaf, j ? { k: j } : {});
+      if (c) cues.push(c);
+    }
+  }
+  return { cues, sel: { attack: { n, how: 'first', def: kids.def, ...(kids.sig ? { sig: { ...kids.sig } } : null) } } };
 }
 
 /**

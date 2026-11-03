@@ -329,6 +329,7 @@
   `p_atk_wtrbatnchr`·HIT `p_imp_wtrbatnchr`, Battle_P_SAtk/SImp; 모드 2 `S3`의 `attack.2`는 평타와 같은 `_n`). 표 `shared/skill-modes.js
   SKILL_SUB_MODES`(오퍼레이터 → sim fx 종류 → 모드 이름: 'wisdelOverload'·'anchor') → 생성 `modes[스킬].sub[fx] = { cues, sel? }` → 재생: 그 스킬 중
   그 fx가 오면 스킬이 끝날 때까지 `cueSetOf(entry, 스킬, sub)`. sim 이벤트는 그대로(golden 무변화). 확인: `test/audio-skill-end-modes.test.js`. [화면 미확인]
+  2026-11-03: 같은 스킬의 형제 시전 모드도(비비아나 S3 두 번째부터 `S3_1` → `S3_2`, fx `vvanaS3Later` — 아래 「버프·커스텀 트리거 소리」 비비아나 줄).
 - 묶음 E(2026-10-29, 「모드 공격 뱅크 미사용」 7명) 중 할 것 없음: 이그제큐터 디 엑스 포에데레 `attack.4`(S3_End — 이 모드 기물은 S2), 그의
   `ON_BUFF_START.excu2_multi_attack[audio]`/`[s3][audio]`(그 버프 키를 만드는 곳이 EN 클라 캐릭터·스킬 프리팹·버프 템플릿 어디에도 없음 — 재능 추가 사격은
   `T.1` `p_atk_shotgunxdouble`로 이미 남, 아래 「재능·소환물 능력 소리」), 미니멀리스트 `attack.1`(`_d`: 그녀의 `_modes`는 Default 하나이고 그 신호는
@@ -647,12 +648,15 @@
     `logosExecute`. 쓰러진 적에서 나가는 후속 탄 `projectile_chr_logos_s1_2` BORN → 새 kitHit `logos:s1shot`(그 적 자리, `id`·`src` 로고스, `target`;
     HIT은 전부터 남). 재능1 「어휘의 진화」 탄 `projectile_chr_logos_t`: 쏠 때 BORN 새 kitHit `logos:t1shot`, 닿을 때 HIT → fx `logosLexicon`.
   - 확인: `test/audio-diy-pick-sounds.test.js`(뱅크·키·AudioManager, battleHarness 페넌스 맥동 `n`·로고스 처형 후속 탄). [화면 미확인]
-- 비비아나(`char_4098_vvana`) 남은 셋 — `todo`, 공식 클라 자료로 본 것: S1 「찰나의 그림자 칼날」 보통 시전은 스킬 능력 `skchr_vvana_1.1`(START
-  `p_atk_shdswrd_dcast`, 스파인 `Audio_Attack_S1`, HIT `p_imp_shdswrd_d`), 蓄力 시전(충전 둘)은 `skchr_vvana_1.2`(START `p_atk_lghtnswrd_n`, ON
-  `p_atk_lghtnswrd_d`, HIT `p_imp_lghtnswrd_d`)인데, 우리는 蓄力 시전도 보통 시전의 소리를 낸다(`modes['0']`이 둘을 가르지 않음). S3은 첫 시전이
-  모드 3 `S3_1`(`attack.3` ON·HIT), 두 번째부터 모드 4 `S3_2`(`attack.4` START `p_atk_shdswrd_s`·HIT `p_imp_shdswrd_s`)인데, 소리 계획은 스킬마다 모드
-  하나뿐이고 「도중에 바뀌는 모드」(`SKILL_SUB_MODES`)는 이름이 `<스킬 모드>_`로 시작하는 것만 받는다(`S3_2`는 `S3_1_…`이 아님). 할 일: 키트가
-  蓄力 시전·두 번째 이후 S3를 시전 순간에 알리고(키트 `vvanaCast`·`vvanaS3Later`), 소리 계획이 그 시전의 모드를 고르게.
+- 비비아나(`char_4098_vvana`, 2026-11-03): S1 「찰나의 그림자 칼날」은 스킬 능력 `skchr_vvana_1`의 두 자식 — 보통 시전 `.1`(START
+  `p_atk_shdswrd_dcast`, HIT `p_imp_shdswrd_d`; 스파인 `Audio_Attack_S1`은 따로), 蓄力 시전(충전 둘) `.2`(START `p_atk_lghtnswrd_n`, ON
+  `p_atk_lghtnswrd_d`, HIT `p_imp_lghtnswrd_d`). 프리팹 모드 `S1`은 蓄力 상태(`vvana_s_1[mode]`)라 시전의 모드가 아니다 — 예전에는 이름이 맞는 그
+  모드(공격 뱅크 없음)를 골라 보통·蓄力 시전 모두 무음이었다. 이제 S1은 모드 없이 능력 뱅크를 자식별로(`shared/skill-modes.js SKILL_CAST_KIDS`,
+  `skill-mode-sfx.mjs castKidCues`), 어느 자식인지는 키트가 蓄力 시전의 휘두름에 붙이는 신호 `vvanaCharged`(sim 'swing' 9번째 칸, 소리 전용)로 고른다.
+  S3 「명멸」은 첫 시전이 모드 3 `S3_1`(`attack.3` ON·HIT), 배치 뒤 두 번째부터 모드 4 `S3_2`(`attack.4` START `p_atk_shdswrd_s`·HIT
+  `p_imp_shdswrd_s`) — 키트가 그 시전을 fx `vvanaS3Later`로 알리고 `SKILL_SUB_MODES`가 그 스킬의 형제 모드(`S3_1` → `S3_2`)도 받게 했다. S3는
+  시작 뱅크가 없어(`ON_SKILL_START`는 S2만) 시작음이 없다 — 예전에는 S1의 시작음이 났다(아래 「배치 효과음」 절 끝 「시작음이 없는 스킬」).
+  - 확인: `test/audio-diy-pick-sounds.test.js` 「선발 薇薇安娜」(빌더, battleHarness → AudioManager로 보통·蓄力 S1·첫·두 번째 S3). [화면 미확인]
 
 - 안 한 것: 쏜즈 더 로드스타 `thorn2_t_2_start`(`thorn2_t_2[audio]`를 만드는 템플릿·프리팹을 못 찾음), 실버애쉬 더 레인프로스트 `svash2_s_2[show]`(EN 클라에
   그 신호를 내는 PlayAudio 없음)·`svash2_eagle_token[locate]`(독수리 토큰이 키트에 없음), 유동체 재능 T.1 `p_skill_wtrlimereborn`(가짜 죽음·부활이
@@ -852,6 +856,9 @@
   안 넣어 통째로 빠졌다 → 그 경우도 `skills`에 넣음. 같은 이유로 무음이던 琳琅诗怀雅 S3·普罗旺斯 S2·华法琳 S2(b_char_atkboost / healboost)도 같이 생김.
   매니페스트 재생성(fetch-assets)으로 바뀐 것은 이 4명 + 파일 1개(p_skill_stwctp_s.mp3). 디버그 아레나에서 S3 발동 때 p_skill_stwctp_s 재생 확인
   (아레나는 샌드백이 범위 밖이라 S3가 저절로 안 켜져서 `skill.activate`로 켬). 테스트 `test/local-patch-audio.test.js`.
+- 시작음이 없는 스킬 (2026-11-03): 공식은 그 스킬의 `ON_SKILL_START`(또는 그 대신의 능력 뱅크)가 없으면 시작음을 안 낸다. 우리는 `skills`에 그 번호가
+  없으면 유닛의 `skill`(풀 기본 스킬의 시작음)을 냈다 → `public/js/audio.js unit()`이 `skills`가 있는 유닛에서는 내지 않고, plan은 스킬이 여럿인
+  오퍼레이터에 늘 `skills`를 쓴다. 지금 데이터에서 바뀐 것은 비비아나 S3뿐(나머지는 이미 무음).
 
 ## 랜덤 매칭·방 알림음 (관리자 결정 2026-10-14)
 - 공식(EN 공식 클라): 매칭 화면 `AutoChessMatchingView.Render`가 결과(`AutoChessMultiMatchResult` NONE·CANCEL·SUCCESS·TIMEOUT)로 연출을 켜고,
