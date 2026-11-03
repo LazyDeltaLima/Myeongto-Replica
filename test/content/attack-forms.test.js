@@ -1,9 +1,11 @@
 // Operator attack forms that follow the official client's skill modes (charpack `Modes/<mode>/Body/Attack`):
 // 塞雷娅 S3 钙质化's mode attacks allies only — its heal pulse — so she strikes no enemy while it runs; 号角 S2's blocked
-// attack is an instant shell with its blast (pinned: the sim already strikes so).
+// attack is an instant shell with its blast; a 领主's blocked attack (`Body/Combat`) strikes the enemy it blocks alone in the
+// Default mode and, in 拉普兰德 S2's mode, that one plus one more in range (both pinned: the sim already strikes so).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
+import { tileKeyOf } from '../../server/sim/targeting.js';
 
 test('塞雷娅 S3 钙质化: no attack on the enemy she blocks while it runs, the 1 s heal pulse goes on; she attacks again after it', () => {
   const h = makeBattle({ autoFinish: false, captureNoisy: true, hooks: ['heal', 'damaged'],
@@ -51,5 +53,31 @@ test('号角 S2 暴风号令: the enemy she blocks takes the S2 shell at the str
   assert.equal(flying, 0, 'no shell in flight: the blocked one is hit at the strike');
   const swings = h.eventsOf('atk').filter((e) => e[1] === u.id && e[2] === a.id);
   assert.ok(swings.length && swings.every((e) => e[3] === 'none'), 'its attack event is the melee kind (the A clip, horn_s_2[signal_melee])');
+  checkInvariants(h.b); assert.deepEqual(h.b.errors, []);
+});
+
+test('拉普兰德: the blocked attack (Combat) strikes the blocked enemy alone in the Default mode; in S2 狼魂 it and one more in range (the S2 attack selector, 2), never a third', () => {
+  const h = makeBattle({ autoFinish: false, captureNoisy: true, hooks: ['damaged'],
+    defs: { enemies: { dummy: enemyRec({ key: 'dummy', hp: 1e8, atk: 0, speed: 0 }) } },
+    units: [{ uid: 1, chessId: 'chess_char_2_16_b', skillIndex: 1, row: 10, col: 4 }] });
+  h.step();
+  const u = h.unit(1);
+  const a = h.spawn('dummy', { pos: [10, 4] }), b = h.spawn('dummy', { pos: [10, 5] }), c = h.spawn('dummy', { pos: [10, 6] });
+  assert.ok(h.runUntil(() => a.blockedBy === u, 1), 'she blocks the first');
+  assert.ok(b.blockedBy !== u && c.blockedBy !== u, 'the other two are not blocked');
+  for (const e of [b, c]) assert.ok(u.rangeKeys.includes(tileKeyOf(e)), 'the other two stand in her range');
+  const hitsSince = (t0) => [a, b, c].map((e) => h.hooksOf('damaged').filter((x) => x.source === u && x.target === e && x.t > t0).length);
+  let t0 = h.b.time;
+  h.run(4);
+  const [da, db, dc] = hitsSince(t0);
+  assert.ok(da > 0 && db === 0 && dc === 0, `Default mode: the blocked enemy only (${da}/${db}/${dc})`);
+  u.skill.gainSp(999);
+  assert.ok(h.runUntil(() => u.skill.active, 3), 'S2 opens');
+  h.run(1);   // a swing begun before the cast is the Default mode's
+  t0 = h.b.time;
+  h.run(6);
+  const [sa, sb, sc] = hitsSince(t0);
+  assert.ok(sa > 0 && sa === sb + sc, `S2: every strike hits the blocked enemy and one other (${sa}/${sb}/${sc})`);
+  assert.ok(sb > 0, 'the other one is the nearer (b)');
   checkInvariants(h.b); assert.deepEqual(h.b.errors, []);
 });

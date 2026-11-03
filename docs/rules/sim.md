@@ -1213,9 +1213,15 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
     노린 원거리 공격은 막지 못했다 → 적 공격 판정만 앞 모서리(`yuWall.front`); 차단 이펙트 'firewallBlock'도 그 줄에. 아군 마법 피해에 붙는 화상(`AllyAura`,
     `yu_s_3[ally]`)은 칸 가운데 줄 그대로 [추정·미조사: `AllyAura`의 범위를 안 읽음]. 두께 0.3 안에 선 적은 따로 다루지 않음. 테스트 `kits_t6.test.js` 「余: S3 stops」.
   - **로드(领主) 분과의 저지 중 공격** (`Body/Combat`, 확인만): 기본 모드는 이미 같다 — `Combat`은 `_atkScale` 1(로드 원거리 0.8 감쇠 없음 = `professions.js lord`
-    `dmgMul`의 저지 대상 1), 투사체 없음(`shot.combat` 1 → 즉시), 대상은 저지한 첫 적 한 명(`maxTargets` 1). 다중 대상 스킬 모드(라플란드 S2 `maxTargets` 2,
-    로드·샤프 S1 `max_target`, 치우바이)의 저지 중 대상 수는 그 `Combat`의 `_selectTargetSource`(1/2)·선택자에 달렸고, 시뮬은 저지한 적 + 범위의 다른 적을 친다
-    [추정·미조사: 선택자 출처의 뜻은 INDEX에 없음 — 큰 확인, §11 ①].
+    `dmgMul`의 저지 대상 1), 투사체 없음(`shot.combat` 1 → 즉시), 대상은 저지한 첫 적 한 명(`maxTargets` 1). 다중 대상 스킬 모드도 시뮬(저지한 적 + 범위의 다른 적,
+    합쳐 스킬의 대상 수)과 같다 — 공식 클라에서 확인(2026-11-03): 능력의 대상은 `AbilityStandard.UpdateTargets`가 `_selectTargetSource`대로 고른다 — `INPUT_TARGET`(2)은
+    입력 대상 자리에서 선택자로(선택자가 없으면 아무도 안 고름), `FROM_OWNER`(1)는 주인 자리에서 선택자로, 그 뒤 `_alwaysIncludeTarget`이면 입력 대상(전투 상태에선 저지한
+    적)이 빠졌을 때 마지막 자리를 그것으로 바꾼다. 기본 모드 `Combat`(라플란드·로드·샤프·치우바이·실버애쉬)과 치우바이 S2 `Combat`은 선택자 없는 `INPUT_TARGET` → 저지한 적 하나.
+    라플란드 S2 `Combat`은 S2 공격의 선택자(`_maxNum` 2)를 함께 쓰는 `FROM_OWNER`, 로드·샤프 S1 `Combat`은 자기 선택자(`_maxTargetKey` `max_target`)의 `FROM_OWNER` —
+    `UnitMode.OnInit`이 모드의 `_combat`·`_attack`·공격 트리거에 같은 공격 블랙보드(스킬 블랙보드의 `attack@` 키, `BasicSkill.GetAttackBlackboard`)를 넣고
+    `Ability.DoSetData` → 선택자 `AdvancedSelector.SetData`가 그 키를 읽으므로 저지 중에도 `attack@max_target`(2)명. 치우바이 S3·실버애쉬 S3 모드에는 `Combat`이 없어
+    (`Character.get_hasCombat` = 지금 모드의 `_combat`이 있고 전율이 아님) 전투 상태에 안 들어가고, 티피처럼 막은 적도 공격 선택자(치우바이 `_maxNum` 3, 실버애쉬
+    `max_target`)로 친다. 켜진 Lua 핫픽스에 이 메서드들 없음. 테스트 `attack-forms.test.js` 「拉普兰德」(고정).
 
 ## 적 스킬 = 일반 공격 차례 (2026-10-21, 관리자 제보 「퀸투스가 HP가 낮아지면 기억보다 너무 셈」, 관리자 결정 2026-10-21 「엔진 전체로」)
 적 스킬(enemy_database `skills`)을 EN 공식 클라대로 일반 공격 **자리에서** 쓴다. 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 클래스 없음.
