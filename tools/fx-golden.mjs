@@ -10,7 +10,7 @@
 // prefab's JSON what that prefab creates once it plays (`spawn:emit` OnPlayEmitter / OnFinishEmitter, `spawn:random`
 // RandomEmitter copies — fxgame.js dryFollow). Each frame render/fxstatus.js syncStatusFx asks the layer for the status
 // effects the views' flags and statuses call for (`<unit> status <prefab>`, 2026-10-21), and as the battle opens the board's
-// own effects (render/app.js enterBattle → fxgame.js setStorm: 战场#06's 沙尘暴, `- storm <prefab>`). A scenario's digest is the
+// own effects (render/app.js enterBattle → fxgame.js setStorm / strengthenMounds: 战场#06's 沙尘暴 and 土石结构, `- storm <prefab>`). A scenario's digest is the
 // SET of distinct lines `<unit> <kind> <prefabs>[ → self | ally | foe]` (`-`: an effect with no owner, its target by side) — the bindings (fxgame.js, fxmap.js, the extracted modes.json /
 // index.json), not how often or when they fire, so a gameplay change that moves the golden digests rarely moves this one,
 // while a binding change shows as the lines it adds and drops: the list to check on screen.
@@ -47,10 +47,14 @@ export function fxAvailable() {
 const quiet = { warn() {}, error() {}, info() {}, debug() {} };
 let gameData = null;
 const enemyDef = (id) => (gameData ||= getData({ log: quiet })).enemies?.[id] ?? null;
-/** The stage's active 土石结构 { r, c, z } as render/app.js enterBattle hands them to setStorm (z: the tile height, unused here). */
-function moundsOf(stageId) {
+/**
+ * The stage's active 土石结构 { r, c, z } as render/app.js enterBattle hands them to setStorm (z: the tile height, unused here);
+ * `strong`: only those strengthened as the battle starts (风沙掩体 level 2 — strengthenMounds).
+ */
+function moundsOf(stageId, strong = false) {
   const devices = (gameData ||= getData({ log: quiet })).stages?.[stageId]?.devices || [];
   return devices.filter((d) => d?.role === 'mound' && Array.isArray(d.pos) && (typeof d.active === 'boolean' ? d.active : !d.hidden))
+    .filter((d) => !strong || (d.skill?.skillId === 'sktok_mound' && d.skill.level >= 2))
     .map((d) => ({ r: d.pos[0], c: d.pos[1], z: 0 }));
 }
 
@@ -193,6 +197,7 @@ async function traceBattle(sc) {
       rect = f.rect;
       for (const u of f.units) add(u);
       if (Array.isArray(f.storm) && f.storm.length) await layer.setStorm(f.storm, moundsOf(f.stageId ?? sc.stageId));
+      await layer.strengthenMounds(moundsOf(f.stageId ?? sc.stageId, true));
     }
     if (b.finished) break;
     if (b.time >= cap - 1e-9) { b.forceEnd('forced'); break; }

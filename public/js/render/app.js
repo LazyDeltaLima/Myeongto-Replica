@@ -1639,12 +1639,12 @@ export async function createFieldView(host, options = {}) {
     board3d?.setBattleRect(rect);
     for (const u of Array.isArray(meta.units) ? meta.units : []) addInfo(u);
     // 2026-10-18: 战场#06's 沙尘暴 (the camera's sand, the 土石结构's marks — fxgame.js setStorm): the meta's storm spans and
-    // the stage's active mounds
-    if (!battleMeta.prep && Array.isArray(meta.storm) && meta.storm.length) {
-      const mounds = (stageRec?.devices || []).filter((d) => d?.role === 'mound' && Array.isArray(d.pos) && (typeof d.active === 'boolean' ? d.active : !d.hidden))
-        .map((d) => ({ r: d.pos[0], c: d.pos[1], z: tiles.grid[d.pos[0]]?.[d.pos[1]]?.h || 0 }));
-      fxGame.setStorm(meta.storm, mounds);
-    }
+    // the stage's active mounds; 2026-11-04: those whose 风沙掩体 starts with full SP (level 2) strengthen as the battle
+    // starts (fxgame.js strengthenMounds)
+    const mounds = battleMeta.prep ? [] : (stageRec?.devices || []).filter((d) => d?.role === 'mound' && Array.isArray(d.pos) && (typeof d.active === 'boolean' ? d.active : !d.hidden));
+    const moundAt = (d) => ({ r: d.pos[0], c: d.pos[1], z: tiles.grid[d.pos[0]]?.[d.pos[1]]?.h || 0 });
+    if (mounds.length) fxGame.strengthenMounds(mounds.filter((d) => d.skill?.skillId === 'sktok_mound' && d.skill.level >= 2).map(moundAt));
+    if (!battleMeta.prep && Array.isArray(meta.storm) && meta.storm.length) fxGame.setStorm(meta.storm, mounds.map(moundAt));
     return true;
   }
 

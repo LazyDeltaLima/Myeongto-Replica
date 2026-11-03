@@ -448,6 +448,21 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const notes = new Map();           // 丰川祥子's notes: sim note id → { pos, dx, dy, mode, state, … } (noteFx)
   let clockS = 0;
   let stormGen = 0;                  // 2026-10-18: setStorm's battle (clear() ends it; a load finishing after drops its effect)
+  /**
+   * An effect of the board itself at `at` (no owner) on the upper layer, for battle `gen` (setStorm / strengthenMounds):
+   * `extra` its live entry's options (`camera`: on the camera), `turn` the point's turn (Unity frame) on its root.
+   */
+  async function boardFx(gen, bundle, name, at, extra, turn = null) {
+    if (!index?.bundles?.[bundle]?.includes(name)) return;
+    if (trace) trace({ kind: 'storm', names: [name], by: null, at: null }); // tests: the board's effects (no owner)
+    if (dry) { dryFollow(bundle, name, null, null); return; }
+    const def = await lib.load(bundle, name);
+    if (!mod || !def || gen !== stormGen) return;
+    const inst = new mod.fxp.FxInstance(def, { quality: q() });
+    inst.object.position.set(at.x, at.y, at.z || 0);
+    if (turn) inst.nodes[0]?.quaternion.set(turn[0], turn[1], turn[2], turn[3]);
+    addLive(inst, { view: extra?.camera ? null : at, owner: null, tag: 'storm', ...extra }, layers.over);
+  }
   let lastViews = null;               // the views map of the last event (the notes trace their targets' views)
   const perf = { updateMs: 0, renderMs: 0, calls: 0 };
   // 2026-10-30 (the perf HUD, perfSkips): since the last call — the normal attacks of units with official effects that
@@ -5515,21 +5530,25 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const gen = stormGen;
       if (!Array.isArray(storm) || !storm.length || q() === 'low' || failed || !(dry || await ensure()) || gen !== stormGen) return;
       const dir = storm[0].dir;
-      const play = async (bundle, name, at, extra, turn = null) => {
-        if (!index?.bundles?.[bundle]?.includes(name)) return;
-        if (trace) trace({ kind: 'storm', names: [name], by: null, at: null }); // tests: the board's effects (no owner)
-        if (dry) { dryFollow(bundle, name, null, null); return; }
-        const def = await lib.load(bundle, name);
-        if (!mod || !def || gen !== stormGen) return;
-        const inst = new mod.fxp.FxInstance(def, { quality: q() });
-        inst.object.position.set(at.x, at.y, at.z || 0);
-        if (turn) inst.nodes[0]?.quaternion.set(turn[0], turn[1], turn[2], turn[3]);   // the point's turn (Unity frame)
-        addLive(inst, { view: extra?.camera ? null : at, owner: null, buff: true, keep: true, pinned: true, tag: 'storm', ...extra }, layers.over);   // pinned: never ended by the caps
-      };
+      // pinned: never ended by the caps
+      const play = (bundle, name, at, extra, turn = null) => boardFx(gen, bundle, name, at, { buff: true, keep: true, pinned: true, ...extra }, turn);
       const jobs = [];
       if (STORM_SCREEN[dir]) jobs.push(play('screen', STORM_SCREEN[dir], { x: 0, y: 0, z: 0 }, { camera: true }));
       for (const m of stormMarks(storm, mounds)) jobs.push(play('map', m.name, { x: m.c, y: m.r, z: m.z }, null, MOUND_SP0_TURN));
       await Promise.all(jobs);
+    },
+    /**
+     * 2026-11-04 (official client): the 土石结构 strengthened as the battle starts (render/app.js enterBattle: the stage's
+     * active mounds whose 风沙掩体 starts with full SP — level 2 on 战场#06, sim.md 「战场#06(上半) 沙尘暴 · 土石结构」). Its
+     * strengthening buff mound_s_1[strengthened] (sktok_mound `_buffs`, overrideEffectKey) plays S_desert_wall_02_start once
+     * at SpecialPoint0 (`_spawnLocation` 8) with the point's turn, as the sand marks: the effect's wall meshes have no turn
+     * of their own and stand only under it (the permanent mound_s_1[mesh_effect] wall, whose mesh turns itself, is baked
+     * into the device model). Until the next clear().
+     */
+    async strengthenMounds(mounds) {
+      const gen = stormGen;
+      if (!Array.isArray(mounds) || !mounds.length || q() === 'low' || failed || !(dry || await ensure()) || gen !== stormGen) return;
+      await Promise.all(mounds.map((m) => boardFx(gen, 's', 'S_desert_wall_02_start', { x: m.c, y: m.r, z: m.z }, { buff: false }, MOUND_SP0_TURN)));
     },
     /**
      * 2026-10-10: whether an enemy's death is drawn here with its official dead effect (edeathFx) — render/app.js then skips

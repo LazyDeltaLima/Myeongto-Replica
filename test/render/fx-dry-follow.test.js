@@ -13,7 +13,7 @@ const macrotask = () => new Promise((r) => setImmediate(r));
 
 test('a dry layer traces the prefabs a started prefab creates', async () => {
   const files = {
-    '/assets/local/fx/index.json': { bundles: { bond: ['p', 'kid', 'end', 'copy', 'grand'], screen: ['screen_desert_up_to_down'], map: ['map_desert_02_down'], whitw2: ['whitw2_skill_03_token_trail_01'] } },
+    '/assets/local/fx/index.json': { bundles: { bond: ['p', 'kid', 'end', 'copy', 'grand'], screen: ['screen_desert_up_to_down'], map: ['map_desert_02_down'], s: ['S_desert_wall_02_start'], whitw2: ['whitw2_skill_03_token_trail_01'] } },
     '/assets/local/fx/bond/p.json': { nodes: [{ onPlay: { effects: ['kid', 'absent'] }, onFinish: { effects: ['end'] } }, { emit: { effect: 'copy', count: 3 } }] },
     '/assets/local/fx/bond/kid.json': { nodes: [{ onFinish: { effects: ['grand', 'p'] } }] },
   };
@@ -64,6 +64,9 @@ test('a dry layer traces the 沙尘暴 board effects and the S3 wolves (no load)
     await macrotask(); // the index (the first test's, cached for the process)
     await layer.setStorm([{ c0: 0, c1: 12, dir: 'DOWN' }], [{ r: 12, c: 3, z: 0 }]);
     assert.deepEqual(seen.splice(0), ['storm: screen_desert_up_to_down by null', 'storm: map_desert_02_down by null']);
+    // 2026-11-04: the 土石结构 strengthened as the battle starts (mound_s_1[strengthened]'s effect, once a mound)
+    await layer.strengthenMounds([{ r: 12, c: 3, z: 0 }, { r: 12, c: 4, z: 0 }]);
+    assert.deepEqual(seen.splice(0), ['storm: S_desert_wall_02_start by null', 'storm: S_desert_wall_02_start by null']);
     const views = new Map([[5, { id: 5, info: { id: 5, side: 'player' }, x: 3, y: 10, z: 0, alive: true, facing: 1 }]]);
     layer.onEvent(['fx', 'whitw2Drones', 3, 10, { id: 5, d: [4, 10, 2, 10] }], views);
     layer.onEvent(['fx', 'whitw2Drones', 3, 10, { id: 5, d: [4.1, 10, 2, 10] }], views); // the same two wolves move on

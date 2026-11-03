@@ -1022,16 +1022,21 @@
   장치 모델 하나로 구움(`scene_extract.py --devices`, `DEVICE_EFFECT_MESHES`; 효과 묶음의 의존 번들은 `.cache/fx-cab-index.json`). 텍스처가 나무 틀·파란 마름모·모래 덩어리라
   얼핏 阻隔工事와 비슷하다. `official.js`는 Unity 내장 Unlit/Texture를 불투명·조명 없음·뒷면 컬링으로(특制水上平台 배도 같은 셰이더 — 전에는 셰이더를 못 찾아 조명 받는
   표준으로 그려짐). 2D 보드는 예전 모래 더미 그림 그대로.
-- 안 한 것: 강화 시작 이펙트 `S_desert_wall_02_start`(한 번, 2.5 s — 클라는 구조물이 강화될 때, m06은 전투 시작 — 레벨 데이터: 구조물 모두 시작 SP = 필요 SP, `sim.md` 「战场#06(上半) 沙尘暴 · 土石结构」), `S_desert_wall_die`(m06 구조물은 안 죽음),
+- 강화 시작(2026-11-04, 공식 클라에서 확인): 토석 구조물 스킬 `sktok_mound`의 `_buffs` `mound_s_1[strengthened]`(템플릿 `mound_strenghthened`,
+  `overrideEffectKey` `S_desert_wall_02_start`)가 강화될 때 붙어 그 이펙트를 한 번(2.5 s) 튼다. m06 구조물은 모두 「风沙掩体」 2레벨(시작 SP = 필요 SP)이라
+  전투 시작에(`sim.md` 「战场#06(上半) 沙尘暴 · 土石结构」) → `render/app.js enterBattle`이 스킬 2레벨 이상인 활성 구조물을 `fxgame.js strengthenMounds`로,
+  폭풍이 멈춘 판에도. 자리는 모래 표시처럼 SpecialPoint0 + 그 점의 회전(`MOUND_SP0_TURN`): 이 이펙트의 벽 메시(`S_desert_wall_02`·`_add`, 0.01)는
+  자기 회전이 없어 그 회전 아래에서만 선다(계속 붙는 `mound_s_1[mesh_effect]`의 `_Mesh`는 메시 노드가 스스로 세워 장치 모델로 구움).
+  [화면 미확인: 벽이 솟는 방향·크기 — 공식 녹화와 대조]
+- 안 한 것: `S_desert_wall_die`(m06 구조물은 안 죽음),
   `map_desert_01_line`·방향 없는 `map_desert_02`/`_03`(템플릿이 안 씀), `screen_sandstorm_01/02`(m06 아님).
   fx_coverage는 `shader:Unlit/Texture`를 `hand`로 둔다(2026-10-20): 그 셰이더를 쓰는 효과 프리팹은 `S_desert_wall_02_start_Mesh` 하나이고 효과
   플레이어는 그것을 틀지 않는다(장치 모델로 구워 `official.js`가 그림). 플레이어에는 이 셰이더 규칙이 없어 틀면 재질에 남은 Standard의
-  `_Color`(1,1,1,1)를 ×2 색으로 쓰고 텍스처 알파를 그대로 쓴다 — 강화 시작 이펙트 `S_desert_wall_02_start`를 플레이어로 틀게 되면 먼저 불투명·×1
-  규칙을 넣을 것.
+  `_Color`(1,1,1,1)를 ×2 색으로 쓰고 텍스처 알파를 그대로 쓴다. 강화 시작 `S_desert_wall_02_start`의 메시 재질은 Dissolve 둘(Add·AB)이라 이 규칙과 무관.
 - 추출: `fx_extract.py --bundle map --match '^map_desert_0[23]'` · `--bundle buff --match '^buff_desert_01$'` · `--bundle screen --match '^screen_desert_[a-z]+_to_[a-z]+$'` ·
   `--bundle s --match '^S_desert_wall'`(EN 클라) → `scene_extract.py --devices` → `node tools/build-browser-resources.mjs`(서비스 워커 목록).
 - 커스텀 설정 창·브리핑의 전장 #06 미리보기(`stage/preview`, git 밖)는 구조물 모델이 바뀐 뒤 `node tools/map-previews.mjs --only act1autochess_m06`으로 다시 찍음.
-- 확인: `test/render/sandstorm-fx.test.js`(구조물 표시 선정·SP0 회전 아래 네 사본의 흐름 방향·방향별 이름·MultiTex 유니폼·장치 모델), `status-buff-fx.test.js`(오퍼레이터 둘·적 없음),
+- 확인: `test/render/sandstorm-fx.test.js`(구조물 표시 선정·SP0 회전 아래 네 사본의 흐름 방향·방향별 이름·MultiTex 유니폼·장치 모델), `status-buff-fx.test.js`(오퍼레이터 둘·적 없음), `fx-dry-follow.test.js`(강화 시작 — 구조물마다 한 번),
   `test/content/tokens_devices.test.js` 「沙尘暴」(상태 `fx`·`fieldMeta().storm`·카드로 꺼짐), `test/match/custom-first-half.test.js`(실제 판 경로·보스 필드 두 절반).
   화면: Windows Chrome 커스텀 단독 m06 판(3D·2D 보드) — 바람 맞는 구조물 위 모래, 오퍼레이터 머리 위 아이콘, 위쪽에 구조물이 있는 칸은 없음, 적 감속 이펙트 없음.
   [화면 미확인] 화면 모래 판의 진하기·먼지 위치, 오퍼레이터 몸 모래 소용돌이 크기 — 공식 녹화와 대조 전.
