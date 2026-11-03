@@ -141,6 +141,7 @@ test('S2 三形: base attack time 1.9 → 1.8 / 1.7 s, 3 targets, 停顿 1.1 / 1
     // targets before the skill — docs/rules/sim.md 「스킬 범위 발동」 known result)
     const atks = h.hooksOf('attack').filter((c) => c.attacker === u && c.t > start + 1e-9);
     assert.ok(atks.length >= 3 && atks.every((c) => c.targets.length === 3), `${id}: 3 targets`);
+    h.run(0.3);   // (the last swing's shots land)
     const during = slow(atks[0].t, h.b.time);   // (from the first swing of the skill: the earlier one carries the trait's)
     assert.ok(during.length >= 9 && during.every((d) => d === sk.bb['attack@sluggish']), `${id}: 停顿 ${sk.bb['attack@sluggish']} s`);
     assert.ok(h.runUntil(() => !u.skill.active, 30));

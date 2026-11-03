@@ -99,8 +99,9 @@ test('领主·Sharp S1 沉默的爆发 (水月): ATK +130 % / +180 %, ASPD +35 /
     approx(u.s.atk, u.base.atk * (1 + t0.atk + bb.atk), `${id}: ATK +${bb.atk}`);
     assert.equal(u.s.aspd, 100 + bb.attack_speed + t1.attack_speed, `${id}: ASPD +${bb.attack_speed} (and 陷阵勇气 with two enemies)`);
     assert.deepEqual(u.liveRangeGrid, formOf(id).rangeGrid, `${id}: the range stays 3-12`);
-    h.run(10);
-    const hits = atkHits(h, u).filter((c) => c.dmg.isSkill && c.t < t + 10);
+    h.run(10.5);   // (the attacks begun in the first 10 s, their shots landed)
+    const begun = new Set(atkHits(h, u).filter((c) => c.dmg.isSkill && c.t < t + 10).map((c) => c.dmg.attackId));
+    const hits = atkHits(h, u).filter((c) => c.dmg.isSkill && begun.has(c.dmg.attackId));
     const per = new Map();
     for (const c of hits) per.set(c.dmg.attackId, [...(per.get(c.dmg.attackId) ?? []), c.target]);
     assert.ok(per.size >= 5, `${id}: ${per.size} attacks`);

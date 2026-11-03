@@ -901,14 +901,17 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
 - **아군의 틱**(`Character.OnTick`): `Unit.OnTick`(위와 같이 공격 → 버프 → HP 회복) → 저지 불가·기절이면 막던 적을 풂 → 저지 탐색(「누가 막나」) → `BasicSkill.Tick`
   (`OnTick`: SP 회복 `UpdateSpRecovery`, 스킬 끝 기다림·침묵·과부하; 그 뒤 스킬 동작들). 우리 `updateAlly`(장치는 공격 없음) → `_tickUnitBuffs` → `_searchBlockees` → `skill.tick`
   (SP, 지속시간, 자동 시전). **[추정·미조사: 스킬 지속시간을 클라가 어디서 세는지 안 읽음 — `skill.tick`에 둠]**
+- **투사체**: `Projectile`도 `BObject`라 쏠 때 같은 카운터로 번호를 받아 같은 줄에서 자기 차례에 날고 맞힌다(`ObjectManager.Register`가 `projectiles` 목록에도 넣음).
+  쏜 틱에는 줄에 없어 다음 틱부터 난다. 우리 `projectiles.js` `seq`·`firedAt`·`step` — 줄 앞의 타이머(`battle.after`)나 줄 뒤의 자동 발동에서 쏜 것도 쏜 다음 틱부터
+  (공식은 쏘는 쪽이 자기 틱 안에서 쏨). 전에는 아군 단계 뒤 투사체 단계에서 전부 옮긴 뒤 몰아서 맞혔고, 아군이 그 틱에 쏜 것도 그 틱에 한 칸 날았다.
 - **버프**: 주인의 틱 안에서. 목록을 도는 동안 붙은 버프만 다음 틱부터 돌고(`DoubleBufferedList`의 `isInLoop`), 앞 차례 유닛이 붙인 버프는 주인 차례인 그 틱에 바로 한 번 준다.
 - **칸 색인**: 줄을 돌기 전에 모든 적을 지금 자리에 두고, 적마다 자기 틱 뒤에 다시 둔다 → 앞 차례 적은 이번 틱에 간 자리, 뒤 차례 적은 서 있던 자리로 보인다
   **[추정·엔진: 클라의 물리 질의는 충돌체의 지금 자리를 본다고 둠; 다른 유닛이 밀거나 당긴 적은 자기 차례나 다음 틱에 다시 둠]**.
 - 그대로 둔 것: `battle.after` 타이머·출현·DP는 줄 앞, 자동 발동(`AutoChessBattleTrigger`, 코루틴)·재배치는 줄 뒤.
-- 바뀐 것: 전에는 단계로 — 버프(전원) → 적(전원) → 칸 색인 → 저지 탐색 → 아군(전원, 스킬 틱 → 공격). 보이는 차이: 배치 차례(보드 위치, 「작전 시작 차례 배치」)가 틱 차례라서
+- 바뀐 것: 전에는 단계로 — 버프(전원) → 적(전원) → 칸 색인 → 저지 탐색 → 아군(전원, 스킬 틱 → 공격) → 자동 발동 → 투사체(전부). 보이는 차이: 배치 차례(보드 위치, 「작전 시작 차례 배치」)가 틱 차례라서
   보드를 돌리면 같은 틱의 경쟁 차례가 바뀐다(에이야퍄들라 더 크비트 아스카 `char_1016_agoat2`의 치료가 도우미들 틱과 겨룸 — `facing-invariance` 예외); 아군의 첫 휘두름은 첫 저지
   탐색보다 먼저; 앞 차례 저지자가 막은 적은 그 틱 자기 차례에 바로 공격(상자를 막힌 그 틱에 부숨); 다른 유닛 차례에 생긴 버프는 그 틱에 한 번 줄어듦. golden 이동은 커밋 메시지.
-- 테스트 `test/sim/tick-order.test.js`, 고친 시험 `battle`·`pathing`(상자: `blocked` 이벤트로 봄)·`attack-timing`(둘째 휘두름)·`feedback1-transform`(重生 한 틱)·`facing-invariance`.
+- 테스트 `test/sim/tick-order.test.js`(한 줄 차례, 그 틱에 생긴 유닛, 칸 색인, 투사체), 고친 시험 `battle`·`pathing`(상자: `blocked` 이벤트로 봄)·`attack-timing`(둘째 휘두름)·`feedback1-transform`(重生 한 틱)·`facing-invariance`·`robustness`(강제 종료 시각), 투사체가 한 틱 늦게 떨어져 세는 창을 늘린 시험(`attack-forms` 라플란드 S2, `kits_alt_t4` 산크타 믹사파라토, `kits_t4` 그노시스 坚冰(오라 0.1초 주기), `standin_acsupo` 三形, `standin_sharp2` 샤프 S1).
 
 ## 盟约·특질·장비·생성기 2라운드 (2026-10-11, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 그래프와 공식 클라(EN 판; 레포에는 클래스·메서드 이름만). 핫픽스(DefinedFix.lua en/zh)에 아래 클래스 없음.

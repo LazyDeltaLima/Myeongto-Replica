@@ -114,7 +114,6 @@ export class BattleLifecycle {
       // the automatic skill operations, one pass every AUTO_TRIGGER_INTERVAL s after the units' own ticks (skills.js
       // autoTrigger; a cast there acts from the next tick, as a tick-rule cast did)
       if (this.tickCount % this._autoTriggerTicks === 0) this._phase('autoTrigger', () => this._autoTriggerPass());
-      this._phase('projectiles', () => this.projectiles.update(dt));
       this._phase('redeploy', () => this._checkRedeploys());
       this._phase('boss', () => this._bossSync());
       if (this._hooks.tick) this._phase('tickHook', () => this.emit('tick', { dt }));
@@ -136,7 +135,8 @@ export class BattleLifecycle {
   /**
    * The units' own ticks (the client's BattleController.OnTick: BattleTweenMgr.Tick, then ObjectManager.OnFixedUpdate).
    * First every enemy's block slide (_tickBlockMove: the tweens run before any object), then every living unit — enemies,
-   * operators, summons and devices alike — in one line by `deploySeq`, the order they came onto the field: the client
+   * operators, summons and devices alike — and every projectile in flight (the client's Projectile is a BObject too:
+   * projectiles.js step) in one line by `deploySeq`, the order they came onto the field or were fired: the client
    * ticks its objects by `instanceUid` (BObject.CompareTo: `priority` first, which no battle object changes), numbered
    * from one counter as each is taken from the pool (BObject.OnAllocate) — a redeployment or 【移动】 is a new one. The
    * line is the units alive as the pass starts (the client copies the `validAndBorned` objects into `m_cachedList`
@@ -159,29 +159,43 @@ export class BattleLifecycle {
       if (e.alive && e.blockMove) this._tickBlockMove(e, dt);
       this._indexEnemy(e);
     }
-    // the line: the deployed allies by deploySeq merged with the enemies (already in that order: spawns.js); `kinds`
-    // keeps which list each came from (the loop then reads one unit shape per branch)
+    // the line: the deployed allies by deploySeq merged with the enemies (already in that order: spawns.js) and the
+    // projectiles in flight (numbered on the same counter as they are fired: projectiles.js); `kinds` keeps which list
+    // each came from (the loop then reads one shape per branch)
     const allies = this._lineAllies, line = this._line, seqs = this._lineSeq, kinds = this._lineKind;
     allies.length = 0; line.length = 0; seqs.length = 0; kinds.length = 0;
     for (const u of this.allyUnits) if (u.alive && u.deployed) allies.push(u);
     if (allies.length > 1) allies.sort(byDeploySeq);
-    let ai = 0, ei = 0;
-    const na = allies.length, ne = enemies.length;
-    while (ai < na || ei < ne) {
-      if (ei < ne && !enemies[ei].alive) { ei++; continue; }
-      if (ei < ne && (ai >= na || enemies[ei].deploySeq < allies[ai].deploySeq)) {
-        const e = enemies[ei++];
-        line.push(e); seqs.push(e.deploySeq); kinds.push(0);
-      } else {
-        const u = allies[ai++];
-        line.push(u); seqs.push(u.deploySeq); kinds.push(1);
+    const pl = this.projectiles, shots = pl.list;
+    let ai = 0, ei = 0, pi = 0;
+    const na = allies.length, ne = enemies.length, np = shots.length;
+    for (;;) {
+      while (ei < ne && !enemies[ei].alive) ei++;
+      while (pi < np && (shots[pi].done || shots[pi].firedAt === this.tickCount)) pi++;
+      const as = ai < na ? allies[ai].deploySeq : Infinity;
+      const es = ei < ne ? enemies[ei].deploySeq : Infinity;
+      const ps = pi < np ? shots[pi].seq : Infinity;
+      if (es < as && es < ps) { line.push(enemies[ei++]); seqs.push(es); kinds.push(0); }
+      else if (as < ps) { line.push(allies[ai++]); seqs.push(as); kinds.push(1); }
+      else if (ps < Infinity) { line.push(shots[pi++]); seqs.push(ps); kinds.push(2); }
+      else break;
+    }
+    let shotList = shots, live = null;
+    for (let i = 0, n = line.length; i < n && !this._endReq; i++) {
+      const k = kinds[i];
+      if (k === 0) this._tickEnemy(line[i], dt);
+      else if (k === 1) this._tickAlly(line[i], seqs[i], dt);
+      else {
+        const p = line[i];
+        if (p.done) continue;
+        // content may replace the list (op-logos.js clears the enemy shots on its range): the ones it dropped are gone
+        if (pl.list !== shotList) { shotList = pl.list; live = new Set(shotList); }
+        if (live && !live.has(p)) continue;
+        try { pl.step(p, dt); } catch (err) { this._internalError('projectiles', err); }
       }
     }
-    for (let i = 0, n = line.length; i < n && !this._endReq; i++) {
-      if (kinds[i] === 0) this._tickEnemy(line[i], dt);
-      else this._tickAlly(line[i], seqs[i], dt);
-    }
     line.length = 0; seqs.length = 0; kinds.length = 0; allies.length = 0;
+    pl.compact();
   }
 
   /** Enemy `e`'s own tick in the line (_tickUnits): its attack / move, then its buffs. */

@@ -41,7 +41,7 @@ test('forceEnd from a hook mid-step: the step stops there and the result is neve
   assert.equal(r.reason, 'forced');
   assert.equal(r.killed, r.perPlayer.p1.killed, 'top-level and per-player kill counters agree');
   assert.equal(r.killed, 1, 'the in-flight kill completes, nothing after it');
-  assert.equal(r.time, h.b.time, 'time does not advance past the forced end');
+  assert.equal(r.time, Math.round(h.b.time * 1000) / 1000, 'time does not advance past the forced end');
   const snap = JSON.stringify(r);
   h.b.step(); h.b.forceEnd('timeout');
   assert.equal(JSON.stringify(h.result()), snap, 'finished battles are frozen');

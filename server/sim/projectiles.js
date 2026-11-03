@@ -6,6 +6,11 @@
 // A straight shot (`dir` {x,y}, an official FIXED_DIRECTION projectile) flies that way at `speed` without a target and
 // asks `sweep(projectile)` after each step for a unit it touches: the first one ends it there (`onHit` with that target);
 // none within `maxAge` s and it ends unseen (`onExpire(ctx)` if given).
+// A projectile is a battle object of its own (the client's Projectile is a BObject): it takes a `seq` from the units'
+// counter (Battle._deploySeq) when fired and flies in the units' tick line (battle/lifecycle.js _tickUnits, step()),
+// first in the step after the one it was fired in — fired in a unit's turn, by a timer before the line or by the
+// automatic pass after it (the client's objects fire theirs in their own tick, which the copied line of that step no
+// longer holds); it hits or ends in its own turn.
 
 import { PROJECTILE_SPEED } from './constants.js';
 import { hypot } from './detmath.js';
@@ -29,6 +34,11 @@ export class ProjectileSystem {
     const target = p.target && typeof p.target === 'object' ? p.target : null;
     const proj = {
       id: ++seq,
+      isProjectile: true,
+      seq: ++this.battle._deploySeq,   // its place in the tick line
+      // the step it was fired in: it first flies in the next one (one fired between steps, in the next step)
+      firedAt: this.battle._stepping ? this.battle.tickCount : this.battle.tickCount - 1,
+      done: false,                     // hit, ended or fizzled: dropped from `list` after the pass
       x: fx,
       y: fy,
       target,
@@ -58,51 +68,58 @@ export class ProjectileSystem {
     return proj;
   }
 
+  /** Every projectile in flight, one step each in their order (the units' tick runs them in its line instead). */
   update(dt) {
-    if (!this.list.length) return;
-    const keep = [];
-    const arrived = [];
-    const expired = [];
-    for (const p of this.list) {
-      p.age += dt;
-      if (p.dir) {
-        p.x += p.dir.x * p.speed * dt;
-        p.y += p.dir.y * p.speed * dt;
-        const hit = p.sweep ? this.battle._safe(() => p.sweep(p), 'projectile.sweep', p.source) : null;
-        if (hit) { p.target = hit; p.tseq = hit.deploySeq; arrived.push(p); }
-        else if (p.age >= p.maxAge) expired.push(p);
-        else keep.push(p);
-        continue;
+    const list = this.list;
+    for (let i = 0, n = list.length; i < n; i++) if (!list[i].done && this.list === list) this.step(list[i], dt);
+    this.compact();
+  }
+
+  /** Drop the projectiles that ended. */
+  compact() {
+    if (this.list.some((p) => p.done)) this.list = this.list.filter((p) => !p.done);
+  }
+
+  /** One step of projectile `p`: it flies, then hits (onHit), ends unseen (onExpire) or fizzles in this same turn. */
+  step(p, dt) {
+    if (p.done) return;
+    p.age += dt;
+    if (p.dir) {
+      p.x += p.dir.x * p.speed * dt;
+      p.y += p.dir.y * p.speed * dt;
+      const hit = p.sweep ? this.battle._safe(() => p.sweep(p), 'projectile.sweep', p.source) : null;
+      if (hit) { p.target = hit; p.tseq = hit.deploySeq; this._land(p); }
+      else if (p.age >= p.maxAge) {
+        p.done = true;
+        if (p.onExpire) this.battle._safe(() => p.onExpire({ battle: this.battle, projectile: p, target: null, x: p.x, y: p.y }), 'projectile.onExpire', p.source);
       }
-      if (p.target) {
-        if (p.target.alive && !p.target.hidden && p.target.deploySeq === p.tseq) { p.tx = fin(p.target.x, p.tx); p.ty = fin(p.target.y, p.ty); }
-        else if (!p.hitDead) continue; // fizzle
-        else p.target = null;
-      }
-      const dx = p.tx - p.x, dy = p.ty - p.y;
-      const d = hypot(dx, dy);
-      const step = p.speed * dt;
-      if (d <= step || p.age >= p.maxAge) {
-        p.x = p.tx; p.y = p.ty;
-        arrived.push(p);
-      } else {
-        p.x += (dx / d) * step;
-        p.y += (dy / d) * step;
-        keep.push(p);
-      }
+      return;
     }
-    this.list = keep;
-    for (const p of arrived) {
-      if (!p.onHit) continue;
-      const t = p.target && p.target.alive && p.target.deploySeq === p.tseq ? p.target : null;
-      this.battle._safe(() => {
-        this.landing++;
-        try { p.onHit({ battle: this.battle, projectile: p, target: t, x: p.x, y: p.y }); } finally { this.landing--; }
-      }, 'projectile.onHit', p.source);
+    if (p.target) {
+      if (p.target.alive && !p.target.hidden && p.target.deploySeq === p.tseq) { p.tx = fin(p.target.x, p.tx); p.ty = fin(p.target.y, p.ty); }
+      else if (!p.hitDead) { p.done = true; return; } // fizzle
+      else p.target = null;
     }
-    for (const p of expired) {
-      if (p.onExpire) this.battle._safe(() => p.onExpire({ battle: this.battle, projectile: p, target: null, x: p.x, y: p.y }), 'projectile.onExpire', p.source);
+    const dx = p.tx - p.x, dy = p.ty - p.y;
+    const d = hypot(dx, dy);
+    const step = p.speed * dt;
+    if (d <= step || p.age >= p.maxAge) {
+      p.x = p.tx; p.y = p.ty;
+      this._land(p);
+    } else {
+      p.x += (dx / d) * step;
+      p.y += (dy / d) * step;
     }
+  }
+
+  _land(p) {
+    p.done = true;
+    if (!p.onHit) return;
+    const t = p.target && p.target.alive && p.target.deploySeq === p.tseq ? p.target : null;
+    this.battle._safe(() => {
+      this.landing++;
+      try { p.onHit({ battle: this.battle, projectile: p, target: t, x: p.x, y: p.y }); } finally { this.landing--; }
+    }, 'projectile.onHit', p.source);
   }
 
   clear() { this.list = []; }

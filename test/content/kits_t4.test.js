@@ -633,16 +633,19 @@ test('同名效果取最高: two 灵知 never compound 坚冰, two 莱恩哈特 
   const both = g.b.allyUnits.filter((u) => u.def.id === gn);
   assert.equal(both.length, 2, 'two 灵知 on the board');
   const e = g.spawn('enemy_dummy', { pos: [10, 4] });
-  let seen = 0;
+  let seen = 0, frozen = false, since = 0;
   for (let i = 0; i < 120; i++) { // 4 s: chilled / frozen by both
     g.step();
+    if (!!e.s.flags.freeze !== frozen) { frozen = !!e.s.flags.freeze; since = g.b.time; }
     const fr = e.buffs.filter((b) => String(b.key).startsWith('gnosis:fragile'));
     assert.ok(fr.length <= 1, `one 坚冰 instance (${fr.map((b) => b.key)})`);
     if (!fr.length) continue;
     seen++;
-    const want = e.s.flags.freeze ? t0.damage_scale_freeze : t0.damage_scale_cold;
     approx(e.s.dmgTakenMul, fr[0].mods.dmgTakenMul, 1e-9, 'the only damage-taken modifier');
-    assert.ok(e.s.dmgTakenMul <= t0.damage_scale_freeze + 1e-9 && fr[0].mods.dmgTakenMul >= want - 1e-9, `never ${t0.damage_scale_cold}² / ${t0.damage_scale_freeze}² (${e.s.dmgTakenMul})`);
+    assert.ok(e.s.dmgTakenMul <= t0.damage_scale_freeze + 1e-9, `never ${t0.damage_scale_cold}² / ${t0.damage_scale_freeze}² (${e.s.dmgTakenMul})`);
+    // the strongest once the aura looked again (every 0.1 s) since the enemy froze or thawed
+    const want = frozen ? t0.damage_scale_freeze : t0.damage_scale_cold;
+    if (g.b.time - since > 0.1 + 1e-9) assert.ok(fr[0].mods.dmgTakenMul >= want - 1e-9, `the strongest (${fr[0].mods.dmgTakenMul})`);
   }
   assert.ok(seen > 30, `坚冰 was up (${seen})`);
   const lh = 'chess_char_4_14_a', bb = D(lh).skill.bb;

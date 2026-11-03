@@ -84,3 +84,31 @@ test('the enemy tile index follows each enemy as it moves', () => {
   }
   checkInvariants(h.b);
 });
+
+test('a projectile flies in the line too: first in the step after it was fired, by its own number', () => {
+  const h = field();
+  h.step(1);
+  const op = h.b.allyUnits.find((u) => u.defId === OP);
+  const log = [];
+  let shot = null;
+  h.b.addBuff(op, marker(log, {
+    onTick: ({ unit }) => {
+      log.push(unit);
+      if (shot) return;
+      shot = h.b.projectiles.add({ from: { x: unit.x, y: unit.y }, to: { x: unit.x + 5, y: unit.y }, speed: 3, onHit: () => log.push('hit') });
+    },
+  }));
+  h.step(1);
+  assert.ok(shot && shot.x === op.x, 'fired in her turn: it stays put this step');
+  const e = h.spawn('enemy_still', { pos: [11, 8] });   // numbered after the shot
+  assert.ok(shot.seq < e.deploySeq);
+  const seen = [];
+  const at = shot.x;
+  h.b.addBuff(e, marker([], { onTick: () => seen.push(shot.x) }));
+  h.step(1);
+  assert.ok(shot.x > at, 'it flies from the next step');
+  assert.deepEqual(seen, [shot.x], 'before the enemy numbered after it');
+  h.runUntil(() => log.includes('hit'), 3);
+  assert.ok(log.includes('hit') && !h.b.projectiles.list.includes(shot), 'hit in its own turn, then dropped');
+  checkInvariants(h.b);
+});

@@ -91,14 +91,16 @@ the players' fields deploy side by side: the i-th operators of all players come 
 the summons the same way, and the summons rank after the operators of all players **[ASSUMED]** (PRTS describes one
 field — units deploy one after another with a fixed delay from the battle start — and "两处阵地将前后拼接为一处阵地"). Register hooks before the first step (e.g. `opts.setup(battle)` or right after `new Battle`).
 
-**Tick order:** scheduled callbacks → spawns → DP → units → auto-trigger pass → projectiles → auto-redeploys →
+**Tick order:** scheduled callbacks → spawns → DP → units → auto-trigger pass → auto-redeploys →
 boss pool sync → `tick` hook → release hooks/timers of units removed this tick (§1.4) → `time += TICK` → end checks.
 The units phase is the official client's object tick (`BattleController.OnTick`: the tweens, then
 `ObjectManager.OnFixedUpdate`): first every enemy's block slide, then every unit alive as the pass starts — enemies,
-operators, summons, devices — in one line by `deploySeq` (the client's `instanceUid` order), each doing its own tick: an
-enemy attacks or moves, then its buffs (+HP regen) tick; an ally attacks, then its buffs tick, it searches for enemies
-to block when due, then its skill ticks (SP, duration, automatic casts). A unit made during the pass ticks from the next
-step; the enemy tile index follows each enemy after its own tick.
+operators, summons, devices — and every projectile in flight in one line by `deploySeq` (the client's `instanceUid`
+order; a projectile takes its number when fired), each doing its own tick: an enemy attacks or moves, then its buffs
+(+HP regen) tick; an ally attacks, then its buffs tick, it searches for enemies to block when due, then its skill ticks
+(SP, duration, automatic casts); a projectile flies, then hits or ends. A unit made during the pass ticks from the next
+step, a projectile from the step after the one it was fired in; the enemy tile index follows each enemy after its own
+tick.
 
 **Knocked-out operators** (PRTS 卫戍协议/帮助 §作战阶段 单位部署; player report F5 after 0.1.0): "干员退场后…原地留下一个
 “倒地干员”…满足再部署条件时，移除场上的该倒地干员并自动部署至该位置" — an operator knocked out (`isDown`) lies on the tile it

@@ -104,6 +104,7 @@ test('信仰搅拌机 S1 铳骑主考官 (自动触发 ⇒ DEFAULT: hurt SP, fir
     h.spawn('enemy_hitter', { pos: [9, 5] });
     assert.ok(h.runUntil(() => h.hooksOf('skillStart').some((c) => c.unit === u), 10), `${id} S1 cast with the next attack`);
     assert.ok(h.runUntil(() => h.hooksOf('skillEnd').some((c) => c.unit === u), 10), 'the armed attack happened');
+    h.runUntil(() => dmgBy(h, u, (c) => c.dmg.isAttack && c.dmg.isSkill).length >= 3, 1);   // its shots land as they fly
     const skillHits = dmgBy(h, u, (c) => c.dmg.isAttack && c.dmg.isSkill);
     assert.equal(skillHits.length, 3, `${id}: triple hit`);
     assert.equal(new Set(skillHits.map((c) => c.dmg.attackId)).size, 1, 'one attack');

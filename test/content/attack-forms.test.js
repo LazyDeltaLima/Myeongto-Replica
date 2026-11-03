@@ -93,7 +93,9 @@ test('拉普兰德: the blocked attack (Combat) strikes the blocked enemy alone 
   h.run(1);   // a swing begun before the cast is the Default mode's
   t0 = h.b.time;
   h.run(6);
-  const [sa, sb, sc] = hitsSince(t0);
+  const [sa] = hitsSince(t0);
+  h.run(0.5);   // the other one's hit flies: the last strike's lands after the window
+  const [, sb, sc] = hitsSince(t0);
   assert.ok(sa > 0 && sa === sb + sc, `S2: every strike hits the blocked enemy and one other (${sa}/${sb}/${sc})`);
   assert.ok(sb > 0, 'the other one is the nearer (b)');
   checkInvariants(h.b); assert.deepEqual(h.b.errors, []);
