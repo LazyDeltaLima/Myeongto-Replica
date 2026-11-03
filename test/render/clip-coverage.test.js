@@ -44,7 +44,8 @@ function rolePlayed(anims) {
     ...equip.map((r) => r.attack)];
   for (const c of clips) {
     if (!c || typeof c !== 'object') continue;
-    for (const k of ['begin', 'loop', 'end', 'idle', 'die', 'stun', 'attackBegin', 'attackEnd', 'firstAttackBegin', 'up']) for (const n of [c[k]].flat()) if (typeof n === 'string') out.add(n);
+    // (`deploy`: the skill mode's Born pair, its deploy clip while it runs — spine.js deploy)
+    for (const k of ['begin', 'loop', 'end', 'idle', 'die', 'stun', 'deploy', 'attackBegin', 'attackEnd', 'firstAttackBegin', 'up']) for (const n of [c[k]].flat()) if (typeof n === 'string') out.add(n);
     if (Array.isArray(c.alts)) for (const a of c.alts) out.add(a);   // clips taking turns (spine.js _nextAlt)
     if (c.combat) for (const a of [c.combat.loop, ...(c.combat.alts || [])]) out.add(a);   // on a blocked enemy (_swingClip)
     for (const v of Object.values(c.variants || {})) for (const n of Object.values(v)) out.add(n);   // a cast's variant (setSkill)

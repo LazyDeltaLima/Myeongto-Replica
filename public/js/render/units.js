@@ -495,6 +495,13 @@ export const FORTRESS_CLIPS = Object.freeze({
  * box (col 10). 假想敌：弦 (its partner on the same tile) has no such offsets and stays.
  */
 export const MODEL_SHIFT = Object.freeze({ enemy_9021_acduml_2: 1 });
+/**
+ * A skill's 【移动】 after which the operator shows its Front model until the skill ends or another deployment, whatever its
+ * direction: charId → the deploy key (the sim's 'deploy' event 4th field). Mon3tr S3 — monstr_s_3[route] runs
+ * ForceCharacterAnimatorFaceFront with its SwitchMode to S3_Reborn as she lands on her 重构体's tile (official client; her
+ * Back model has none of that mode's clips).
+ */
+export const FACE_FRONT_DEPLOYS = Object.freeze({ char_4179_monstr: 'reborn' });
 const loop =(name, via = null) => Object.freeze(via ? { begin: null, loop: name, end: null, via } : { begin: null, loop: name, end: null });
 const clipSet = (idle, move, die, attack = null) => Object.freeze({
   idle, deploy: idle, die, move: loop(move),
@@ -782,6 +789,7 @@ export class UnitView {
     this.destroyed = false;
     this.form = typeof info.form === 'string' ? info.form : null;   // the unit's model form: an enemy's mode, a 傀儡师's 替身 (setForm, FORMS)
     this._deployKey = null;       // the latest deploy clip key (onDeploy): a model swapped mid-deploy plays the same clip
+    this._faceFront = false;      // the Front model whatever the direction, until the skill ends (FACE_FRONT_DEPLOYS)
     this._dieSkill = false;       // it died in a skill's mode (die): a model built while it lies down plays that skill's death
     this._dieForm = null;         // the form it died in (die): a model built while it lies down shows that form's death
 
@@ -1317,7 +1325,7 @@ export class UnitView {
   _wantsBack() {
     const a = this.ctx.assets;
     const id = this.info.spine || this.info.defId;
-    if (this.isEnemy || (this.face ? this.faceUd : this.dir) !== 'UP' || !id || !a || typeof a.hasBack !== 'function' || !a.hasBack(id)) return false;
+    if (this.isEnemy || this._faceFront || (this.face ? this.faceUd : this.dir) !== 'UP' || !id || !a || typeof a.hasBack !== 'function' || !a.hasBack(id)) return false;
     return (this.alive && !this._stunFalls()) || dieClipDur(typeof a.spineEntry === 'function' ? a.spineEntry(id, { back: true }) : null) > 0;
   }
 
@@ -1507,6 +1515,7 @@ export class UnitView {
   setSkill(on, variant = null) {
     if (on) this.statuses.add('skill'); else this.statuses.delete('skill');
     if (this.actor) this.actor.setSkill(on, variant);
+    if (!on && this._faceFront) { this._faceFront = false; this._syncModel(); }
     // a skill's sub-mode (FORMS `endsWithSkill`) ends with it — its End clip was chosen in that mode just above
     if (!on && this._formSpec()?.endsWithSkill) {
       this.form = null;
@@ -1521,6 +1530,8 @@ export class UnitView {
     this.bornOfficial = official;
     this.fadeIn = official ? 1 : 0;
     this._deployKey = typeof key === 'string' ? key : null;
+    const front = !this.isEnemy && !!this._deployKey && FACE_FRONT_DEPLOYS[this.info.spine || this.info.defId] === this._deployKey;
+    if (front !== this._faceFront) { this._faceFront = front; this._modelDirty = true; }
     if (!this.alive) this.revive();
     this._resetFace();
     this._bornStart(official);

@@ -159,9 +159,13 @@ export function keyRoles(op, durations) {
     const castPath = Object.hasOwn(abs, '') && withClip('') ? ''
       : Object.keys(abs).filter((p) => withClip(p) && p !== endPath).sort((x, y) => x.split('/').length - y.split('/').length || (x < y ? -1 : 1))[0];
     const cast = castPath != null ? abClip(abs[castPath], m > 0 ? m : 0) : null;
-    // a respawn mode beside the skill's own (乌尔比安 S3 `S3_Respawn_A`, which the skill's 【移动】 puts him in; no skill names
-    // it): the skill attacks and rests in it
-    const respawn = m > 0 ? names.findIndex((n) => n.startsWith(`${names[m]}_Respawn`)) : -1;
+    // a respawn mode beside the skill's own (乌尔比安 S3 `S3_Respawn_A`, Mon3tr S3 `S3_Reborn` — monstr_s_3[route] SwitchMode 4
+    // as she lands —, which the skill's 【移动】 puts the unit in; no skill names it): the skill attacks and rests in it
+    // — or the `<mode>_…` mode its prefab's own switch_mode names when the name rule picked `<mode>` (贝洛内 S3: demetr_s3
+    // [switch_mode] → 3 `S3_Resapwn`, the client's spelling)
+    const own = Number.isInteger(s?.mode) && s.mode !== m && m > 0 && String(names[s.mode] || '').startsWith(`${names[m]}_`)
+      && !/_(TakeOff|Landing|End|Restore|Down)$/.test(names[s.mode]) ? s.mode : -1;
+    const respawn = own > 0 ? own : m > 0 ? names.findIndex((n) => n.startsWith(`${names[m]}_Respawn`) || n.startsWith(`${names[m]}_Reborn`)) : -1;
     const work = respawn > 0 ? respawn : held ? -1 : m;
     const ma = work > 0 ? abClip(attackAbility(modes[work]?.abilities), work) : null;
     // the mode's first-attack ability beside its attack (折桠 S2 `FirstAttack`)
@@ -189,6 +193,9 @@ export function keyRoles(op, durations) {
       // a one-shot cast before a mode that attacks with a clip of its own (余 S3 `CastAnimation`): the cast is the begin
       if (!cast.begin && !cast.end && !c.begin && sIdle && (J(abs[castPath].end, m) === sIdle || respawn > 0) && ma?.loop && !ma.stance && ma.loop !== out.attack?.loop && ma.loop !== cast.loop) {
         c.begin = cast.loop; c.loop = null; loopAb = null; why.push('cast = begin');
+      } else if (respawn > 0 && c.begin && !cast.begin && !cast.end && ma?.loop && !ma.stance && ma.loop !== cast.loop) {
+        // the 【移动】's own clip beside the prefab's begin (贝洛内 S3 FlyToTarget Skill_3_ReStart_Begin): no attack — the mode attacks
+        c.loop = null; loopAb = null; why.push('cast = move');
       }
     }
     // the mode attacks with no clip: the skill's clip stays on as the stance (薄绿 S2 / 小满 S2 beside their own channel)
@@ -245,11 +252,11 @@ export function keyRoles(op, durations) {
     if (!s?.begin && !endPath && castPlain && modePlain && !Object.values(abs).some((a) => a?.emit?.length)) c.clipless = true;
     const dn = downOf([abs, m > 0 ? m : 0], ...(work > 0 ? [[modes[work]?.abilities, work]] : []));
     if (dn) c.down = dn;
-    return { c, why: why.join(', ') || '-', m, held, loopAb: c.loop ? loopAb : null };
+    return { c, why: why.join(', ') || '-', m, held, respawn, loopAb: c.loop ? loopAb : null };
   };
   (op?.skills || []).forEach((s, i) => {
     const r = skillRole(s, i);
-    const { c, m, held, loopAb } = r;
+    const { c, m, held, respawn, loopAb } = r;
     let why = r.why;
     // the skill prefab's begin when the unit was deployed facing down (BasicSkill.get_beginAnim: `_beginAnimDown`)
     const bd = J(s?.beginDown);
@@ -277,7 +284,7 @@ export function keyRoles(op, durations) {
     }
     out.skills[i] = c;
     out.why[i] = why;
-    meta[i] = { m, held, loopAb };
+    meta[i] = { m, held, respawn, loopAb };
   });
   out.tables = keyTables(op, out, meta, { J, pairs, abClip });
   return out;
@@ -292,6 +299,7 @@ export function keyRoles(op, durations) {
  */
 function keyTables(op, out, meta, { J, pairs, abClip }) {
   const modes = op?.modes || [];
+  const names = modes.map((md) => md.name);
   const tables = { alts: {}, combat: {}, up: {}, equip: {}, states: {}, first: {} };
   // the turns of an ability: its emitter's `_replaceGroup`, else the group it is a child of
   const turnsOf = (abs, path, m) => {
@@ -341,7 +349,7 @@ function keyTables(op, out, meta, { J, pairs, abClip }) {
   }
   (op?.skills || []).forEach((s, i) => {
     const c = out.skills[i];
-    const { m, held, loopAb } = meta[i] || {};
+    const { m, held, respawn, loopAb } = meta[i] || {};
     const mm = m > 0 ? m : 0;
     for (const p of Object.keys(s?.abilities || {})) if (s.abilities[p]?.turns) addAlts(s.abilities, p, mm);
     if (c?.loop && !c.via && !c.plain) {
@@ -372,14 +380,20 @@ function keyTables(op, out, meta, { J, pairs, abClip }) {
       }
       if (Object.keys(e).length) tables.equip[i] = e;
     }
-    // the skill's mode pairs Die / Stun / Born with clips of its own
-    if (m > 0 && !held) {
+    // the skill's mode pairs Die / Stun / Born with clips of its own — its respawn mode's pairs first, the mode the skill
+    // spends its time in (Mon3tr S3 `S3_Reborn`: Born → Skill_3_ReStart as she lands, Die → Skill_3_End; her S3 mode is
+    // also the prefab's default one, `held`)
+    if (m > 0 && (!held || respawn > 0)) {
       const st = {};
       for (const [f, key, base] of [['die', 'Die', out.die], ['stun', 'Stun', null], ['deploy', 'Born', out.deploy]]) {
+        const pm = respawn > 0 && pairs(respawn)[key] ? respawn : held ? -1 : m;
         // (a Stun→Die pair, 耀骑士临光 S2, is not drawn: a stun keeps the Stun clip)
-        const v = pairs(m)[key] && !(key === 'Stun' && pairs(m)[key] === 'Die') ? J(key, m) : null;
+        const v = pm > 0 && pairs(pm)[key] && !(key === 'Stun' && pairs(pm)[key] === 'Die') ? J(key, pm) : null;
         if (v && v !== base && v !== key) st[f] = v;
       }
+      // the 【返回】 comes back in the skill mode's `<mode>_Restore` (乌尔比安 / 贝洛内 S3): its Born pair, the sim's deploy key 'back'
+      const back = names.indexOf(`${names[m]}_Restore`);
+      if (back > 0 && pairs(back).Born) st.deploys = { back: J('Born', back) };
       if (Object.keys(st).length) tables.states[i] = st;
     }
   });

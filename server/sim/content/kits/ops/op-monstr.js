@@ -236,7 +236,8 @@ export default {
             const to = [r.tileR, r.tileC];
             battle.retreat(r, { reason: 'retreat', permanent: true });   // 撤退场上的重构体（返回待部署区）
             const fromX = unit.x, fromY = unit.y;
-            if (!battle.moveRedeploy(unit, to[0], to[1])) { skill.end('blocked'); skill.addCharge(1); return; }   // 强制结束技能并返还技力
+            // (clip 'reborn': she lands in mode S3_Reborn — render/units.js FACE_FRONT_DEPLOYS)
+            if (!battle.moveRedeploy(unit, to[0], to[1], { clip: 'reborn' })) { skill.end('blocked'); skill.addCharge(1); return; }   // 强制结束技能并返还技力
             unit.mem.mHome = home;
             battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
           },
@@ -251,7 +252,7 @@ export default {
             const fromX = unit.x, fromY = unit.y, dir0 = unit.dir;
             unit.dir = h.dir;
             // (`back`: the return — the 路标形态 marker's mode ends there, render/fx/kitofficial.js)
-            if (battle.moveRedeploy(unit, h.r, h.c, { clearSp: true })) battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY, back: 1 });
+            if (battle.moveRedeploy(unit, h.r, h.c, { clearSp: true, clip: 'back' })) battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY, back: 1 });
             else unit.dir = dir0;
             unit.mem.mUndeadUntil = battle.time + RETURN_UNDEAD;
           },

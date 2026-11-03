@@ -277,7 +277,7 @@ export default {
             // 【返回】: a 【移动】 onto the located tile (in place when he stands on it) that empties the SP (demetr_s3[restore]);
             // its RespawnEnd ability carries demetr_s3[effect_1] as FlyToTarget's does (fx 'teleport', in place too; `back`: its
             // own START sound, public/js/audio.js)
-            if ((atHome || bondUp) && battle.moveRedeploy(unit, hr, hc, { clearSp: true })) {
+            if ((atHome || bondUp) && battle.moveRedeploy(unit, hr, hc, { clearSp: true, clip: 'back' })) {   // (clip: mode S3_Restore's Born pair)
               battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY, back: 1 });
               battle.addBuff(unit, { key: RETURN_GUARD_KEY, duration: RETURN_GUARD, refresh: 'replace', flags: { invulnerable: true, noBlock: true, noSp: true }, tags: ['skill'] });
               battle.releaseBlocked(unit);

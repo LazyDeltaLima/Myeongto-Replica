@@ -86,7 +86,7 @@ import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2: when her
 import { bodyTurn, faceSwitchCopy, faceTurn, followDir, playSpeed, upwardMajor } from './fx/face.js'; // 2026-10-11 (maintainer decision 15): `_usePlaybackSpeed` / `_limitedPlaybackSpeed`; 2026-10-22 FollowDirection, SwitchableEffectByFaceDirection; 2026-10-27 a projectile body's turn
 import { kitOfficialPlan, kitOperator } from './fx/kitofficial.js'; // 2026-10-16: kit events the buff templates draw
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
-import { enemyRecordMode } from '../../../shared/skill-modes.js'; // 2026-10-23: an ally from an enemy record (炎佑)
+import { enemyRecordMode, SKILL_SUB_MODES, skillModeIndex } from '../../../shared/skill-modes.js'; // 2026-10-23: an ally from an enemy record (炎佑)
 import { animPause, clipOf, facesBack, idlePause, immuneTo, movePause, pauseIfNow } from './fx/pause.js'; // 2026-10-21: the client's pause / finish behaviours
 
 /**
@@ -3803,6 +3803,36 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     for (const l of live) if (l.tag === 'castLoop' && l.owner === id && !l.inst.stopping) l.inst.stop();
     v._fxCast = null;
   }
+  /**
+   * (2026-11-04, official client) a running skill's 【移动】 that switches her mode on the way (shared/skill-modes.js
+   * SKILL_SUB_MODES `teleport`: 贝洛内 S3 → S3_Resapwn, Mon3tr S3 → S3_Reborn — monstr_s_3[route] SwitchMode 4 as she lands):
+   * from then until the skill ends her attacks draw that mode's cast / hit / trail (attackMode `sub`) and its buffs
+   * (`attach`) join the skill's loops; the old mode's abilities detach (endCast, its first attack again). Her landing's
+   * deploy effect is that mode's too (flushDeploys runs after the events of the frame: S3_Reborn's `_overrideStartEffect`
+   * common_empty, not the S3 mode's monstr_skill_03_start).
+   */
+  function teleportMode(v) {
+    const name = v?._fxSkillOn ? SKILL_SUB_MODES[v.info?.spine || v.info?.defId]?.teleport ?? null : null;
+    if (!name || v._fxSub === name) return;
+    const before = activation(v).loops;
+    endCast(v); v._fxFirstDone = null;
+    v._fxSub = name;
+    const added = activation(v).loops.filter((n) => !before.includes(n));
+    if (added.length) play(v, 'skillBuff', skillIdx(v), { buff: true, names: added });
+  }
+  /**
+   * (2026-11-04, official client) the mode a skill's 【返回】 brings the operator back in: its mode's `<name>_Restore` (Mon3tr
+   * S3 monstr_s_3[route], 贝洛内 S3 demetr_s3_t[born_sync], 乌尔比安 S3 ulpia_s3_switch_mode[born]: SwitchMode to it as they
+   * land), whose `_overrideStartEffect` is the return's deploy effect — the skill's off event of the same frame would leave
+   * the Default one (flushDeploys). Mode index, or null.
+   */
+  function returnMode(v) {
+    const b = bindOf(v);
+    if (!Array.isArray(b?.modes)) return null;
+    const base = skillModeIndex(b.modes, skillIdx(v), b.skillMode);
+    const k = base > 0 ? b.modes.indexOf(`${b.modes[base]}_Restore`) : -1;
+    return k > 0 ? k : null;
+  }
   /** The phase ('swing' / 'strike') of mode `mode`'s cast effect `n`; an older modes.json without timings: the strike. */
   const phaseOf = (v, mode, n) => (bindOf(v)?.castOpt ? castPhase(castTiming(bindOf(v), mode, n)) : 'strike');
   /** A new cast (swing) of `v`: its record { t, hitAt, end, speed, mode, fired, skip }. */
@@ -5106,7 +5136,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       warmShot(v);   // 2026-10-23: its skill's own shot, ready for the skill's first throw
       if (isPack(v)) packDeploy(v, id, t);   // 2026-10-16: 伺夜's wolf pack
       if (!wasMoved) moduleFx(v, id);   // 2026-11-03: its module's deploy effects
-      const fx = deployEffect(bind, v.info.kind === 'token', v._fxSkillOn ? modeNow(v) ?? 0 : 0);
+      const back = v._fxReturn ? returnMode(v) : null;   // (2026-11-04) a skill's 【返回】: its `_Restore` mode
+      v._fxReturn = false;
+      const fx = deployEffect(bind, v.info.kind === 'token', back ?? (v._fxSkillOn ? modeNow(v) ?? 0 : 0));
       // `_onlyPlayStartEffectOnce`: the root's effect on the first deploy only [추정: a mode's override still plays]
       if (bind?.startOnce && !fx.override) { if (startedOnce.has(id)) continue; startedOnce.add(id); }
       // 2026-10-24 (묶음 S4): a summon's own start effect (modes.json `start`: 凯尔希·思衡托's 战术锚点) — 'common_empty' is
@@ -5525,7 +5557,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (e[0] === 'die') { gone.add(e[1]); onField.delete(e[1]); }
         else if (e[0] === 'deploy') { gone.delete(e[1]); opDead.delete(e[1]); if (e[2] !== 1) deployed.set(e[1], clockS);   // (e[2] 1: a flight's landing, no deploy effect)
           if (onField.has(e[1])) moved.add(e[1]); else { onField.add(e[1]); moved.delete(e[1]); }
-          const v = views?.get?.(e[1]); if (v) { v._fxFirstDone = null; v._fxCast = null; } } // 2026-10-10: its first attack again; 2026-10-11: its deploy effect (flushDeploys)
+          const v = views?.get?.(e[1]); if (v) { v._fxFirstDone = null; v._fxCast = null; if (e[3] === 'back') v._fxReturn = true; } } // 2026-10-10: its first attack again; 2026-10-11: its deploy effect (flushDeploys); 2026-11-04: a 【返回】 (the sim's deploy key 'back': returnMode)
         else if (e[0] === 'spawn') { gone.delete(e[1]?.id ?? e[1]); if (e[1]?.side === 'enemy' && e[1].id != null) eborn.set(e[1].id, clockS); } // 2026-10-10: its start effect (flushEnemyBirths)
         else if (e[0] === 'fx' && e[1] === 'summon' && e[4]) gone.delete(e[4].id);
         // local patch: a stone spawned (its 'summon' fx of the same moment, if any, takes it off — stoneFx)
@@ -5668,6 +5700,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         // kit effect moments (5th field)
         case 'heal': healHit(e, views); if (Array.isArray(e[4])) hitMoments(e[4], e[1], e[3] ?? null, views); return;
         case 'fx': { // a kit's moving effect: 赤刃明霄陈 S3 剑气 (kits/ops/op-chen3.js) carries her official trail along its path
+          if (e[1] === 'teleport' && e[4]?.id != null && e[4].src == null) {
+            const tv = views.get(e[4].id);
+            if (!e[4].back) teleportMode(tv); else if (tv) tv._fxReturn = true;   // (the 【返回】: flushDeploys, returnMode)
+          }
           if (e[1] === 'palsy' && e[4]?.id != null) { // 2026-10-11: 麻痹 cut its cast; 2026-10-31: its official effect, no 2D mark
             const v = views.get(e[4].id);
             if (v) cutCast(v);

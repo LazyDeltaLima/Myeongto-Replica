@@ -223,3 +223,21 @@ test('facing down: ability down keys and ThreePart / channel `_down` bundles by 
   assert.deepEqual([a.skills[1].beginDown, a.skills[1].downMode], [s2.beginDown, s2.downMode]);
   assert.deepEqual(a.skills[0].down, r.skills[0].down);
 });
+
+test('a respawn mode named `<mode>_Reborn` (Mon3tr S3): the skill attacks, rests, lands and falls in it, the prefab\'s default mode or not', () => {
+  const op = {
+    skin: { keys: { Born: 'Start' }, mix: [] },
+    modes: [
+      { name: 'Default', pairs: {}, abilities: { 'Body/Attack': { key: 'Attack', end: 'Idle' } } },
+      { name: 'S3', pairs: {}, abilities: { 'Body/Attack': { key: 'Attack', end: 'Idle' } } },
+      { name: 'S3_Restore', pairs: {}, abilities: { 'Body/Attack': { key: 'Attack', end: 'Idle' } } },
+      { name: 'S3_Reborn', pairs: { Born: 'Skill_3_ReStart', Idle: 'Skill_3_Idle', Die: 'Skill_3_End', Stun: 'Die' }, combat: 'Body/Combat',
+        abilities: { 'Body/Attack': { key: 'Skill_3_Loop', end: 'Idle' }, 'Body/Combat': { key: 'Skill_3_Loop', end: 'Idle' } } },
+    ],
+    skills: [{ id: 's1', abilities: {} }, { id: 's2', abilities: {} },
+      { id: 's3', defaultMode: 1, abilities: { Respawn: { key: 'Skill_3_Begin' }, RespawnEnd: { key: '', emit: ['Skill_3_End'] } } }],
+  };
+  const r = keyRoles(op, clips('Idle', 'Die', 'Start', 'Attack', 'Skill_3_Begin', 'Skill_3_Loop', 'Skill_3_Idle', 'Skill_3_End', 'Skill_3_ReStart'));
+  assert.deepEqual([r.skills[2].begin, r.skills[2].loop, r.skills[2].idle], ['Skill_3_Begin', 'Skill_3_Loop', 'Skill_3_Idle'], r.why[2]);
+  assert.deepEqual(r.tables.states[2], { die: 'Skill_3_End', deploy: 'Skill_3_ReStart' }, 'the respawn mode\'s Born / Die pairs; Stun→Die not drawn');
+});

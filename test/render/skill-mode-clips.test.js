@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { installFakePixi, fakeViewCtx } from './fakepixi.js';
 import { presetCamera } from '../../public/js/render/projection.js';
 import { spineEntry, hasBackSpine } from '../../public/js/assets.js';
+import { UF } from '../../shared/constants.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const assets = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8'));
@@ -303,6 +304,45 @@ test('乌尔比安 S3: the 【移动】 to the anchor restarts on Skill_3_ReStar
   const w = await view('char_4145_ulpia', { skillIndex: 2 });
   w.onDeploy();
   assert.equal(w.actor.current, 'Start', 'a plain deployment');
+});
+
+test('Mon3tr S3: she lands on Skill_3_ReStart in the Front model whatever her facing, rests on Skill_3_Idle, attacks on Skill_3_Loop, returns on Skill_3_Back', async () => {
+  const v = await view('char_4179_monstr', { skillIndex: 2, dir: 'UP' });
+  assert.equal(v.entryBack, true, 'facing UP: the Back model');
+  v.flags |= UF.SKILL;   // (the snapshot's flag: a model rebuilt meanwhile replays the skill)
+  v.setSkill(true);
+  v.onDeploy('reborn');   // monstr_s_3[route]: ForceCharacterAnimatorFaceFront with the switch to S3_Reborn
+  secs(v, 0.05); await tick(); await tick();
+  assert.equal(v.entryBack, false, 'the Front model while S3_Reborn holds');
+  assert.equal(v.actor.current, 'Skill_3_ReStart');
+  secs(v, 1.2);
+  assert.equal(v.actor.current, 'Skill_3_Idle');
+  v.actor.attack();
+  assert.equal(v.actor.current, 'Skill_3_Loop');
+  secs(v, 2);
+  v.onDeploy('back');   // the 【返回】 comes in onEnd, before the skill's off event
+  v.flags &= ~UF.SKILL;
+  v.setSkill(false);
+  assert.equal(v.actor.current, 'Skill_3_Back');
+  secs(v, 0.05); await tick(); await tick();
+  assert.equal(v.entryBack, true, 'back on her tile facing UP: the Back model again');
+});
+
+test('贝洛内 S3: lands on Skill_3_ReStart_End (mode S3_Resapwn), rests on Skill_3_Idle, attacks Loop_A / Loop_B in turn, returns on Skill_3_Back', async () => {
+  const v = await view('char_4037_demetr', { skillIndex: 2 });
+  v.flags |= UF.SKILL;
+  v.setSkill(true);
+  v.onDeploy();   // the sim's 【移动】 (no key): the skill mode's Born pair
+  assert.equal(v.actor.current, 'Skill_3_ReStart_End');
+  secs(v, 1.5);
+  assert.equal(v.actor.current, 'Skill_3_Idle');
+  const seen = [];
+  for (let i = 0; i < 2; i++) { v.actor.attack(); seen.push(v.actor.current); secs(v, 2); }
+  assert.deepEqual(seen.sort(), ['Skill_3_Loop_A', 'Skill_3_Loop_B'], 'never the same clip twice (`_diffFromLastOneIfNotFirst`)');
+  v.onDeploy('back');   // its 【返回】 in mode S3_Restore (Born → Skill_3_Back)
+  v.flags &= ~UF.SKILL;
+  v.setSkill(false);
+  assert.equal(v.actor.current, 'Skill_3_Back');
 });
 
 test('圣约送葬人 受选之人: the talent shot (the atk event\'s signal T.1) plays Attack_B — Skill_n_Attack_B in S2 / S3 — over the swing', async () => {

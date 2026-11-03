@@ -268,6 +268,10 @@ export const SKILL_STATE_CLIPS = Object.freeze({
   },
   // 凯尔希·思衡托 (CN client) S3: she lands from the transport on Skill_3_Restart_End (the 【移动】's key 'land')
   'op:char_1052_kalts2:': { 2: { deploys: { land: 'Skill_3_Restart_End' } } },
+  // Mon3tr S3: her 【返回】 comes in on Skill_3_Back (monstr_s_3[route]: ModifyAnimatorHookerReplacePair Born → Skill_3_Back on
+  // mode 3 S3_Restore before its SwitchMode — a buff's pair, not in the keys; the 【移动】's key 'back'). Her landing in mode
+  // S3_Reborn (Born → Skill_3_ReStart) is the keys' `deploy` (anim-keys.mjs: the respawn mode's pairs)
+  'op:char_4179_monstr:': { 2: { deploys: { back: 'Skill_3_Back' } } },
 });
 
 // The appliers of the tables below SKILL_CLIP_OVERRIDES, one row each (mutate `anims`; `names` = the skeleton's clips, null =

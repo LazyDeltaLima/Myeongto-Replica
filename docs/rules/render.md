@@ -680,6 +680,19 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     `downs()`(`units.js`: 배치 방향 `dir`, 지금 `face.dir4` — 휘두름 전에 돈 방향)로 바꾸고, `setSkill`이 시전 순간 `downMode` 조건을 보고 역할에 겹친다(다음 시전까지).
     클라 데이터가 그대로라 그대로 따른 것: 엑시아 더 뉴 커버넌트 S2 아래 모드의 끝은 스킨 믹스가 `Skill_Down_3_End`(`Skill_Down_2_End`는 안 틂), 클레멘티아 S3 아래
     모드의 끝은 `Skill_3_End`. 아무 키도 안 부르는 12개는 목록 `none`(스킨 키 표에 이름만 있거나 그마저 없음). 뒷모델(위를 볼 때)엔 아래 클립이 없어 그대로. [화면 미확인]
+- 도중 모드 전환 (2026-11-04, 관리자 제보 「Mon3tr S3는 모델이 바뀌는데 그대로」): Mon3tr S3는 【이동】 착지 때 `monstr_s_3[route]`가 모드 4 `S3_Reborn`
+  (`_replaceAnimPairs` Born → `Skill_3_ReStart`, Idle → `Skill_3_Idle`, Die → `Skill_3_End`; 공격·`_combat` `Skill_3_Loop`)으로 바꾸고
+  `ForceCharacterAnimatorFaceFront`로 앞모델을 쓴다(뒷모델엔 그 클립이 없음). 키 해석(`anim-keys.mjs`)은 `<모드>_Respawn…`만 이동 뒤 모드로 알아 S3 역할이
+  `Skill_3_End`(시작)·`Skill_3_Begin`(공격)이었다 → `<모드>_Reborn…`도 같은 규칙, 이동 뒤 모드의 Born·Die·Stun 짝이 스킬 `deploy`·`die`(스킬 모드가 프리팹
+  기본 모드라 `held`여도). 복귀는 같은 버프의 `ModifyAnimatorHookerReplacePair` Born → `Skill_3_Back`(모드 3 `S3_Restore`, 키에 없음 → `SKILL_STATE_CLIPS`
+  `deploys.back`). 시뮬은 두 이동에 배치 키 `reborn`·`back`을 붙이고, `units.js FACE_FRONT_DEPLOYS`가 `reborn` 배치부터 스킬이 끝날 때까지 앞모델.
+  같은 점검에서 벨로네 S3도: 프리팹 `demetr_s3[switch_mode]`가 모드 3 `S3_Resapwn`(클라 철자)을 고르는데 이름 규칙은 `S3`라 공격이 FlyToTarget의
+  `Skill_3_ReStart_Begin`이었다 → 스킬 프리팹의 모드가 `<이름 규칙 모드>_…`(끝·착지·복귀·아래 모드 말고)이면 그것이 이동 뒤 모드, 스킬 능력 클립이
+  이동 동작이면 공격 아님(`cast = move`) → 착지 `Skill_3_ReStart_End`, 공격 `Skill_3_Loop_A`/`_B`(직전과 다르게), 대기 `Skill_3_Idle`. 【복귀】 클립은 키의
+  `<모드>_Restore` Born 짝이 스킬 `deploys.back`(벨로네·울피아누스 `Skill_3_Back`; 시뮬 배치 키 `back` — 벨로네에 새로).
+  시험 `anim-keys.test.js`·`skill-mode-clips.test.js` Mon3tr·벨로네 줄, 목록에서 Mon3tr `Skill_3_Back`·`_Idle`·`_Loop`·`_ReStart`, 벨로네 `Skill_3_Back`·
+  `_Idle`·`_Loop_A`·`_Loop_B`·`_ReStart_End` 지움(이 검사는 스킬 역할의 `deploy`도 트는 것으로 셈). 이펙트 쪽과 재발 방지 검사는 fx.md 「선발 벨로네·비이·
+  Mon3tr 키트 순간 이펙트」. [화면 미확인]
 - 첫 목록(2026-10-12): 46명·105개 `todo`. 힌트는 10-07 EN 클라 추출(스킬 프리팹 anim 컴포넌트·`_animKey`, charpack 모드별 클립 — 관리자 노트)로 붙였다:
   `official <스킬 id | 모드>` 58개(공식이 그 클립을 가리킴 — 누락 가능성 높음, 먼저 볼 것), `no official reference` 38개(버프 템플릿·공식 클라로 찾을 것),
   `CN only` 9개(EN에 없는 오퍼레이터 — CN 필드만, [추정]). 처음부터 `none`으로 확정한 것은 없다.
