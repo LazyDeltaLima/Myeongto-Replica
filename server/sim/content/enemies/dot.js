@@ -54,7 +54,7 @@ function kitDsubrl(ab, e) {
       const r = e2.base.rangeRadius || 1.6;
       const l = areaAllies(b, e2, e2.x, e2.y, r);
       if (!l.length) return;
-      b.fx('pulse', { x: e2.x, y: e2.y, r, id: e2.id, element: 'neural' });
+      b.fx('pulse', { x: e2.x, y: e2.y, r, id: e2.id, element: 'neural', n: l.length });   // `n`: enemy_dsubrl_aoe[hit] on each (audio)
       for (const u of l) hurt(b, e2, u, e2.s.atk, 'arts', { canDodge: true, tags: [NEST_PULSE_TAG] });
     },
   }];
@@ -155,11 +155,11 @@ export const DOT_KITS = Object.freeze({
     iv: e.base.bat || 1,
     tick(b, e2) {
       const r = (e2.def.raw.stats && e2.def.raw.stats.rawRangeRadius) || 1.6;
-      b.fx('explode', { x: e2.x, y: e2.y, r, kind: 'boil' });
       // PRTS 鼎沸 "攻击范围内的所有我方单位每秒受到…法术持续伤害与…灼燃损伤（不可对空）": never a flying ally (the 炎佑 dragon;
-      // until 0.2.1 it burned)
-      for (const u of areaAllies(b, e2, e2.x, e2.y, r)) {
-        if (u.isFlying) continue;
+      // until 0.2.1 it burned). `n`: enemy_cjhot_t[aoe]'s PlayAudio on each (audio)
+      const on = areaAllies(b, e2, e2.x, e2.y, r).filter((u) => !u.isFlying);
+      b.fx('explode', { x: e2.x, y: e2.y, r, kind: 'boil', n: on.length });
+      for (const u of on) {
         hurt(b, e2, u, e2.s.atk * (T(ab, 'aoe.atk_scale') ?? 1), 'arts');
         elem(b, e2, u, 'burn', e2.s.atk * (T(ab, 'aoe.ep_damage_ratio') ?? 0));
       }

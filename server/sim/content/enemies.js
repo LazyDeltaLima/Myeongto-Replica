@@ -406,6 +406,8 @@ function chaliceShare(b, c) {
     c.dmg.amount -= part;
     // a 无来源 burst's share stays 无来源, credited like the burst (damage.js)
     b.dealDamage(c.dmg.sourceless ? c.credit : c.source, o, { amount: part, type: c.dmg.type, canDodge: false, sourceless: c.dmg.sourceless, tags: [...(c.dmg.tags || []), 'chalice'] });
+    // enemy_lrrook[dmgCore] gives the hurt enemy enemy_lrrook[audio] (audioSignal enemy_lrrook_take_dmg) — a sound only
+    b.fx('kitHit', { x: t.x, y: t.y, id: o.id, k: 'lrrook:share' });
     break;
   }
 }

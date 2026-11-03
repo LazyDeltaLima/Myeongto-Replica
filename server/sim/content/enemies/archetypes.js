@@ -38,7 +38,13 @@ const unblockable = () => ({ spawn(b, e) { b.addBuff(e, { key: 'ab:unblockable',
  * "受到伤害时开始奔跑，移动速度+N%" (鸭爵 `run.attack@move_speed`): the first damage it takes ⇒ move speed ×(1 + v) for good —
  * PRTS 鸭爵 天赋 "移动速度+400%" for v 4, PRTS 卫戍协议：盟约 下半/PRTS盟约记录 鸭爵 备注 "受伤后移动速度+300%" for the act2 v 3.
  */
-const runWhenHit = (v) => ({ taken(c, b, e, a) { if (a.on || !(v > 0)) return; a.on = true; b.addBuff(e, { key: 'ab:duckRun', persist: true, mods: { moveMul: 1 + v } }); } });
+// (鸭爵's Run mode: its passive duckmi_speed_up carries an audioSignal — a sound-only kitHit as it starts)
+const runWhenHit = (v) => ({ taken(c, b, e, a) {
+  if (a.on || !(v > 0)) return;
+  a.on = true;
+  b.addBuff(e, { key: 'ab:duckRun', persist: true, mods: { moveMul: 1 + v } });
+  b.fx('kitHit', { x: e.x, y: e.y, id: e.id, k: 'duckmi:run' });
+} });
 
 /**
  * 频次 (the 14 器物 keys, kitTimes): maxHp = hits = the data's max HP × the spawn's HP multiplier. The round effects reach

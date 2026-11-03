@@ -312,10 +312,19 @@ function kitLeaderMisc(key, ab, e) {
       // 【国度】 is a tile effect ("将该地块及其周围8格范围内的可部署位生成【国度】"): every ally on it, 隐匿 ones too [ASSUMED]
       return [{
         iv: 0.5,
-        tick(b, e2) { for (const u of alliesInTiles(b, Math.round(e2.y), Math.round(e2.x), 'box', 1)) auraBuff(b, u, 'ab:blackFog', 0.5, { aspd: T(ab, 'BlackFog.attack_speed') ?? 0 }, null, true); },
+        tick(b, e2, a) {
+          const r = Math.round(e2.y), cc = Math.round(e2.x);
+          // enemy_smgrd_t_blackfog (ON_OWNER_ROOT_TILE_CHANGED): the 国度 moves with it, PlayAudio smgrd_t_blackfog (audio)
+          if (a.tile != null && a.tile !== `${r},${cc}`) b.fx('kitHit', { x: e2.x, y: e2.y, id: e2.id, k: 'smgrd:fog' });
+          a.tile = `${r},${cc}`;
+          for (const u of alliesInTiles(b, r, cc, 'box', 1)) auraBuff(b, u, 'ab:blackFog', 0.5, { aspd: T(ab, 'BlackFog.attack_speed') ?? 0 }, null, true);
+        },
         hitOut(c, b, e2) {
           const t = c.target;
-          if (c.dmg.isAttack && t.side === 'ally' && Math.max(Math.abs(t.tileR - Math.round(e2.y)), Math.abs(t.tileC - Math.round(e2.x))) <= 1) c.dmg.amount *= T(ab, 'DamageUp.atk_scale') ?? 1;
+          const fog = t.side === 'ally' && Math.max(Math.abs(t.tileR - Math.round(e2.y)), Math.abs(t.tileC - Math.round(e2.x))) <= 1;
+          if (c.dmg.isAttack && fog) c.dmg.amount *= T(ab, 'DamageUp.atk_scale') ?? 1;
+          // enemy_smgrd_damage_up (ON_CALCULATE_DAMAGE): PlayAudio on the target — smgrd_damage_up inside the 国度, else smgrd_damage
+          if (c.dmg.isAttack) b.fx('kitHit', { x: t.x, y: t.y, id: e2.id, k: fog ? 'smgrd:up' : 'smgrd:hit' });
         },
       }];
     case 'enemy_2050_smsha': {

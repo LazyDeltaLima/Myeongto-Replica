@@ -284,6 +284,26 @@ export const KIT_HIT_BANKS = Object.freeze({
   'duskld:revive': 'battle.ON_BUFF_TRIGGER.enemy_duskld_revive',
   'acpupp:revive': 'battle.ON_CUSTOM_TRIGGER.acpupp_revive_1',
   'balloon:land': 'battle.ON_BUFF_START.balloon_s[land]',
+  // the sim's own sound moments of them (fx 'kitHit', or `n` on the fx of that moment): 假想敌：铳's charge on each unit
+  // (achunt_s_1[damage]) and its 【盲信之誓】 link on each unit (achunt_line_damage); “碎铳之簧”'s chase on each unit
+  // (actrp*_s_1[damage]) and 法术护盾's counter on the attacker (actrpa_t_1); 深溟巢涌者's pulse (enemy_dsubrl_aoe[hit]) and
+  // 鼎沸's (enemy_cjhot_t[aoe]) on each unit; 水遁忍者's spin (ymgtop_m1_t[rotate_attack]); 伊利昂的木驮兽 taking a passenger on
+  // (enemy_mntrjn_add); 鸭爵 starting to run (duckmi_speed_up); a 愧悔魂灵圣杯 taking its share (enemy_lrrook[audio]);
+  // “邪魔的利刃”'s hits (enemy_smgrd_damage_up) and its 国度 moving (enemy_smgrd_t_blackfog); 吉兆飞鳞 floating again (parrot_a[fly])
+  'achunt:charge': 'battle.ON_BUFF_START.achunt_s_1[damage].hit_target',
+  'achunt:chain': 'battle.ON_CUSTOM_TRIGGER.achunt_line_damage.chain_hit',
+  'actrp:dash': 'battle.ON_BUFF_START.achunt_summonee.hit',
+  'actrpa:shieldhit': 'battle.ON_CUSTOM_TRIGGER.actrpa_t_1.shield_hit',
+  'dsubrl:hit': 'battle.ON_BUFF_TRIGGER.enemy_dsubrl_aoe[hit]',
+  'cjhot:hit': 'battle.ON_CUSTOM_TRIGGER.enemy_cjhot_hit[audio]',
+  'ymgtop:hit': 'battle.ON_CUSTOM_TRIGGER.ymgtop_hit_audio',
+  'mntrjn:add': 'battle.ON_CUSTOM_TRIGGER.enemy_mntrjn_add',
+  'duckmi:run': 'battle.ON_BUFF_START.duckmi_speed_up',
+  'lrrook:share': 'battle.ON_BUFF_START.enemy_lrrook_take_dmg',
+  'smgrd:up': 'battle.ON_CUSTOM_TRIGGER.smgrd_damage_up',
+  'smgrd:hit': 'battle.ON_CUSTOM_TRIGGER.smgrd_damage',
+  'smgrd:fog': 'battle.ON_CUSTOM_TRIGGER.smgrd_t_blackfog',
+  'parrot:fly': 'battle.ON_CUSTOM_TRIGGER.parrot_fly',
 });
 
 /**

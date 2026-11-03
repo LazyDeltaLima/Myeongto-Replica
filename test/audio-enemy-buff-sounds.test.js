@@ -44,7 +44,9 @@ describe('enemy buff / custom-trigger sounds (2026-11-03)', () => {
       'liberty:state', 'liberty:force', 'vtmstr:equip', 'vtlionk:shld', 'csdcr:skill', 'acstma:stun', 'acstmb:stun',
       'acdums:passion', 'acdums:passion2', 'acdums:depassion', 'acdums:depassion2', 'acdums:aoe', 'acdums:switcha',
       'acdums:switchb', 'dslily:doom', 'smdeer:doom', 'wlfmster:reborn', 'mcmstr:reborn', 'dugago:reborn', 'duskls:revive',
-      'duskld:revive', 'acpupp:revive', 'balloon:land',
+      'duskld:revive', 'acpupp:revive', 'balloon:land', 'achunt:charge', 'achunt:chain', 'actrp:dash', 'actrpa:shieldhit',
+      'dsubrl:hit', 'cjhot:hit', 'ymgtop:hit', 'mntrjn:add', 'duckmi:run', 'lrrook:share', 'smgrd:up', 'smgrd:hit', 'smgrd:fog',
+      'parrot:fly',
     ];
     for (const k of want) {
       assert.ok(KIT_HIT_BANKS[k], k);
@@ -85,6 +87,32 @@ describe('enemy buff / custom-trigger sounds (2026-11-03)', () => {
     assert.deepEqual(k2('revive', { id: 6, kind: 'reborn' }), []);
     assert.equal(enemyStatusOffSound('ab:takeoff', 'enemy_2004_balloon'), 'balloon:land');
     assert.equal(enemyStatusOffSound('ab:takeoff', 'enemy_1007_slime'), null);
+    // the counts the sim puts on its own fx (once per unit)
+    const of3 = (id) => ({ 1: { def: 'enemy_1234_dsubrl_2' }, 2: { def: 'enemy_10045_parrot' }, 3: { def: 'enemy_1007_slime' } })[id];
+    assert.deepEqual(enemyBuffSounds('pulse', { id: 1, n: 3 }, of3), [['dsubrl:hit', null, 3]]);
+    assert.deepEqual(enemyBuffSounds('pulse', { id: 3, n: 3 }, of3), []);
+    assert.deepEqual(enemyBuffSounds('explode', { kind: 'boil', n: 2 }, of3), [['cjhot:hit', null, 2]]);
+    assert.deepEqual(enemyBuffSounds('explode', { kind: 'boil', n: 0 }, of3), [], 'nobody in range');
+    assert.deepEqual(enemyBuffSounds('link', { kind: 'faithLink', n: 1 }, of3), [['achunt:chain', null, 1]]);
+    assert.deepEqual(enemyBuffSounds('phase', { id: 2, kind: 'float' }, of3), [['parrot:fly', null]]);
+  });
+
+  test('a battle: the sim\'s own moments — 鸭爵 runs once, 鼎沸\'s pulse counts its units', () => {
+    const h = makeBattle({
+      units: [{ chessId: 'chess_char_1_01_a', row: 2, col: 2 }],
+      enemies: [{ key: 'enemy_2001_duckmi', pos: [2, 3] }, { key: 'enemy_10054_cjhot', pos: [2, 3] }],
+      timeLimit: 999, autoFinish: false, captureNoisy: true,
+    });
+    h.step(0.5);
+    const duck = h.b.enemies.find((e) => e.defId === 'enemy_2001_duckmi');
+    for (const e of h.b.enemies) { e.hp = e.s.maxHp = 1e9; e.s.moveSpeed = 0; }
+    h.b.dealDamage(null, duck, { amount: 1, type: 'true' });
+    h.b.dealDamage(null, duck, { amount: 1, type: 'true' });
+    h.run(3);
+    const fx = h.eventsOf('fx');
+    assert.equal(fx.filter((x) => x[1] === 'kitHit' && x[4]?.k === 'duckmi:run').length, 1, 'its Run mode once');
+    const boil = fx.filter((x) => x[1] === 'explode' && x[4]?.kind === 'boil');
+    assert.ok(boil.length >= 2 && boil.every((x) => Number.isInteger(x[4].n)), 'each pulse carries its count');
   });
 
   test('the audio manager plays them', { skip: NO_DATA }, () => {

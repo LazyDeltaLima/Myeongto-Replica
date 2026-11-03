@@ -133,7 +133,7 @@ export function enemyStatusOffSound(key, holderDef) { return ENEMY_STATUS_OFF_SO
  * enemy's buff or custom-trigger sound plays on for a sim fx event, from the EN client's enemy prefabs and buff templates —
  * a prisoner's 【解放】 (fx 'liberate', `forced` when another freed it), 阿利斯泰尔's piece picked up and vest taken, 绯红歌伶's
  * war song, a hand of 假想敌：胄 shot down, “余音”'s ensembles · pulse · hit switch, 昆图斯's and “萨米的意志”'s dooms.
- * @returns {[string, number|null][]}
+ * @returns {([string, number|null]|[string, null, number])[]} a third field: once per unit, `n` units
  */
 export function enemyBuffSounds(fx, ex, unitOf) {
   if (!ex || typeof ex !== 'object') return [];
@@ -148,12 +148,15 @@ export function enemyBuffSounds(fx, ex, unitOf) {
       if (ex.kind === 'reborn') return def(ex.id) === 'enemy_1535_wlfmster' ? [['wlfmster:reborn', null]] : [];
       return ex.kind === 'samiDoom' ? [['smdeer:doom', SMDEER_DOOM_AFTER]] : [];
     case 'phase': {
+      if (ex.kind === 'float') return def(ex.id) === 'enemy_10045_parrot' ? [['parrot:fly', null]] : [];   // floating again
       if (ex.kind === 'shotDown') { const d = def(ex.id); return d === 'enemy_9014_acstma' ? [['acstma:stun', null]] : d === 'enemy_9015_acstmb' ? [['acstmb:stun', null]] : []; }
       // acdums_t_1's switch after its hits (not the form a summon starts in or a 管 / 弦 hands it): to Passion switch_a
       if (ex.hit && (ex.kind === 'echo_gold' || ex.kind === 'echo_dark')) return [[ex.kind === 'echo_gold' ? 'acdums:switcha' : 'acdums:switchb', null]];
       return [];
     }
-    case 'explode': return ex.kind === 'echoPulse' ? [['acdums:aoe', null]] : [];
+    case 'explode': return ex.kind === 'echoPulse' ? [['acdums:aoe', null]] : ex.kind === 'boil' && ex.n > 0 ? [['cjhot:hit', null, ex.n]] : [];
+    case 'pulse': return ex.n > 0 && /^enemy_1234_dsubrl/.test(def(ex.id)) ? [['dsubrl:hit', null, ex.n]] : [];
+    case 'link': return ex.kind === 'faithLink' && ex.n > 0 ? [['achunt:chain', null, ex.n]] : [];
     case 'revive': { // the end of a 重生 (archetypes.js reborn / statue / husk)
       const k = ex.kind === 'reborn' ? REBORN_SOUNDS[def(ex.id)] : ex.kind === 'fly' ? STATUE_SOUNDS[def(ex.id)] : ex.form === 'revived' ? REVIVE_SOUNDS[def(ex.id)] : null;
       return k ? [[k, null]] : [];
@@ -2303,7 +2306,7 @@ export class AudioManager {
             for (let i = 0; i < Math.min(Math.max(1, (Number(e[4].z) - Number(e[4].a) + 1) || 1), max); i++) if (!this._kitSound('oxi:s3fire')) break;
           }
           if (e[1] === 'link' && e[4]?.id != null) for (let i = haloLinkCount(unitOf(e[4].id), e[4].ids); i > 0; i--) this._kitSound('halo2:s3link');
-          for (const [k, d] of enemyBuffSounds(e[1], e[4], unitOf)) this._kitSound(k, d);
+          for (const [k, d, n] of enemyBuffSounds(e[1], e[4], unitOf)) if (n) this._kitSounds(k, n); else this._kitSound(k, d);
           // 2026-11-03, docs/rules/audio.md 「버프·커스텀 트리거 소리」: one sound per unit, at most the bank's own limit — a blast's
           // enemies (aoeHitKey), the enemies a waking one puts to sleep (缇缇 S3: titi_s_3[effect_line] PlayAudio
           // titi_s_3[spread_from] on each), 魔王's 微尘 back in her orbit (motesBack)

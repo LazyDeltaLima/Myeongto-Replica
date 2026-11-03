@@ -1471,7 +1471,12 @@ Unknown subprofessions fall back to the profession default (test `professions.te
   `['fx', kind, x, y, extra]` (`hitCap` `{ id, n }`: a leader's hit cancelled by 限伤 — the renderer draws nothing;
   `kitHit` `{ id, k }`: a sound-only moment of a kit — `k` names the official bank (`sfx.kit[k]`, tools/assets/kit-sfx.mjs:
   望 S1's DoT tick `wang:1`, 赤刃明霄陈 S3's 剑气 `chen3:s3`, 阿斯卡纶 S2's 死亡拘审 kill `ascln:s2bomb`, 灵知's 殊途同归 going off 10 s after
-  each deployment `gnosis:t2`, 缇缇 T1's tick on the sleeping enemies `titi:t1` and S3's sleep spreading from a sleeping enemy killed `titi:spread`, with `n` = how many — `id` = the operator; `aoe` of 菲莱 S2
+  each deployment `gnosis:t2`, 缇缇 T1's tick on the sleeping enemies `titi:t1` and S3's sleep spreading from a sleeping enemy killed `titi:spread`, with `n` = how many — `id` = the operator;
+  an enemy's buff sound (docs/rules/audio.md 「적 버프·커스텀 트리거 소리」, `id` = the enemy): 假想敌：铳's charge `achunt:charge` and “碎铳之簧”'s
+  chase `actrp:dash` (`n` units), the 法术护盾 counter `actrpa:shieldhit`, 水遁忍者's spin `ymgtop:hit` (`n`), 伊利昂的木驮兽 boarding `mntrjn:add`
+  (`n`), 鸭爵's run `duckmi:run`, a 愧悔魂灵圣杯 share `lrrook:share` (at the hurt enemy), “邪魔的利刃”'s hits `smgrd:up` / `smgrd:hit` (at the
+  target) and its tile change `smgrd:fog`; 深溟巢涌者's 'pulse', 鼎沸's 'explode' `boil` and 假想敌：铳's 'link' `faithLink` carry `n`, the units they
+  reach; `aoe` of 菲莱 S2
   and of a 凛御银灰 S2 slash carries `n`, the enemies it hit, for their per-enemy sound; a “余音”'s 'phase' `echo_gold` /
   `echo_dark` carries `hit` 1 when its own hits switched it — its switch sound, docs/rules/audio.md 「적 버프·커스텀 트리거 소리」); `crit` `{ id, by? }`: a crit mark on target `id` — 寒芒克洛丝's 中的 adds `by` (her id; the
   sound of her T.1 shot rides on its 'swing' / 'atk' `signal`, not on this mark); `copy` `{ id, src, mode, by }`: 缪尔赛思's 流形 `id` copies operator `src` — `mode` its

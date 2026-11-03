@@ -272,6 +272,8 @@ function kitBus(ab, { camel = true } = {}) {
         n++;
       }
       if (n) slow(b, e, a);
+      // enemy_mntrjn_add's PlayAudio for each passenger taken on (audio; “越长尘”'s bus has none)
+      if (n && camel) b.fx('kitHit', { x: e.x, y: e.y, id: e.id, k: 'mntrjn:add', n });
     },
     death(c, b, e, a) {
       for (const p of a.pax) {
@@ -535,7 +537,10 @@ export const SPECIAL_KITS = Object.freeze({
       // 不可对空: never a flying ally (the 炎佑 dragon — until 0.2.1 it was hit)
       tick(b, e, a) {
         if (!(a.until > b.time) || e.s.flags.stun || e.s.flags.sleep || e.s.flags.disarm) return;
-        for (const u of areaAllies(b, e, e.x, e.y, T(ab, 'RotateDamage.attack@range_radius') ?? 1)) if (!u.isFlying) hurt(b, e, u, e.s.atk * (T(ab, 'RotateDamage.attack@atk_scale') ?? 1), 'phys');
+        let n = 0;
+        for (const u of areaAllies(b, e, e.x, e.y, T(ab, 'RotateDamage.attack@range_radius') ?? 1)) if (!u.isFlying) { hurt(b, e, u, e.s.atk * (T(ab, 'RotateDamage.attack@atk_scale') ?? 1), 'phys'); n++; }
+        // ymgtop_m1_t[rotate_attack]'s PlayAudio on each unit it hits (audio)
+        if (n) b.fx('kitHit', { x: e.x, y: e.y, id: e.id, k: 'ymgtop:hit', n });
       },
     };
     // 漩涡形态 "不进行普通攻击" (PRTS 天赋): no blocked attack while it spins (until 0.1.3 its blocker took both)

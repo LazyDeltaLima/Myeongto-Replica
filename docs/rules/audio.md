@@ -688,14 +688,22 @@
     `fly`; 더블린 불꽃 전사·정예 불꽃 전사·불꽃 가디언이 일어설 때(Prop 모드 `Revive[Trigger]`, 5초 한 번 ON_BUFF_TRIGGER), 가상적: 재생이 일어설 때
     (`enemy_acpupp_revive_listener` 트리거의 PlayAudio `acpupp_revive_1`) → fx `revive` `revived`.
   - 제트맨 착지: `enemy_balloon_s[fly]`가 끝날 때 만드는 `balloon_s[land]`의 audioSignal → 상태 `ab:takeoff`가 꺼질 때(`enemyStatusOffSound`).
-  - 확인: `test/audio-enemy-buff-sounds.test.js`(뱅크·키·AudioManager 재생, battleHarness 중범죄수 해방의 `forced`). golden 그대로(새 fx 종류 없음).
-    [화면 미확인]
-- 안 한 것(묶음 나 — sim이 그 순간을 새로 알려야 함): 덕로드 `duckmi_speed_up`, 후회하는 영혼의 성배 `enemy_lrrook_take_dmg`, 가상적: 총 돌진
-  `achunt_s_1[damage].hit_target`·사슬 `achunt_line_damage.chain_hit`, '총을 부수는 리드' 돌진 `achunt_summonee.hit`·방패 반사 `actrpa_t_1.shield_hit`,
-  '데몬의 칼날' `smgrd_damage(_up)`·`smgrd_t_blackfog`, 수둔 닌자 `ymgtop_(2_)hit_audio`, 변종 맹글러비스트 α `rkmbst_stone_disappear_audio`, '제국의 갑옷'
-  `enemy_vtsk_skillRange`, 일리온의 나무 버든비스트 `enemy_mntrjn_add`, 길조의 비린 `parrot_fly`, 가상적: 골극 `enemy_acbunn[cute]`/`[horror]`, 심해의 소용자
-  `enemy_dsubrl_aoe[hit]`·딩페이 `enemy_cjhot_hit[audio]`, 불타는 덩굴 `enemy_ftsjc.aoe`, 원핵의 악생자 `Awake`, '산크타의 눈' `hlegle_steal_bullet_audio`.
-  이 모드에 그 순간이 없는 것: '월장진' `ymtro_t[audio]`(계단 칸), 자로 M2 `enemy_wlfmster_m2_calling`(WildCalling), 모험을 찾는 선원 `sailor_speed_up`
+  - 확인: `test/audio-enemy-buff-sounds.test.js`(뱅크·키·AudioManager 재생, battleHarness 중범죄수 해방의 `forced`·덕로드 한 번·딩페이 `n`). 묶음 가는
+    golden 그대로(새 fx 종류 없음). [화면 미확인]
+- 묶음 나 (sim이 그 순간을 새로 알림 — 소리 전용 fx `kitHit` { id, k, n? } 또는 그 순간의 fx에 맞은 수 `n`; 새 sfx 14키, `_kitSounds`로 유닛마다
+  뱅크 상한까지): 가상적: 총 [최종 처벌] 돌진에 닿은 유닛마다(`achunt_s_1[damage]` audioSignal `…hit_target`, kitHit `achunt:charge`)·[맹신의 서약] 사슬 위
+  유닛마다(`achunt_line_damage` PlayAudio `chain_hit`, fx `link` `faithLink`의 `n`); '총을 부수는 리드' 추적 모드 돌진(`actrp*_s_1[damage]`, `actrp:dash`)·
+  아츠 실드 반격이 들어간 공격자에게(`actrpa_t_1` PlayAudio `shield_hit`, 반격 피해가 0보다 클 때 — 공식은 앞 노드 성공일 때만); 심해의 소용자 맥동
+  (`enemy_dsubrl_aoe[hit]`, 1초 ON_BUFF_TRIGGER, fx `pulse`의 `n`)·딩페이 맥동(`enemy_cjhot_t[aoe]` PlayAudio, fx `explode` `boil`의 `n` — 날지 않는 유닛);
+  수둔 닌자 회전 피해(`ymgtop_m1_t[rotate_attack]`, `ymgtop:hit`); 일리온의 나무 버든비스트가 승객을 태울 때(`enemy_mntrjn_add`, `mntrjn:add`; '월장진'의
+  승차는 소리 없음); 덕로드가 처음 맞고 Run 모드로(`duckmi_speed_up`, `duckmi:run`); 후회하는 영혼의 성배가 피해를 나눠 받을 때 맞은 적에게
+  (`enemy_lrrook[audio]`, `lrrook:share`); '데몬의 칼날' 공격마다 대상에게 — [국가] 안이면 `smgrd_damage_up`, 밖이면 `smgrd_damage`(`enemy_smgrd_damage_up`
+  ON_CALCULATE_DAMAGE) — 와 칸을 옮길 때 `smgrd_t_blackfog`(ON_OWNER_ROOT_TILE_CHANGED) [추정·엔진: 첫 칸(등장)은 바뀜으로 안 셈]; 길조의 비린이 다시
+  떠오를 때(`parrot_a[fly]` ON_BUFF_ENABLE — 처음 켜질 때는 `[takeoff_effect]`만 만들고 무음, fx `phase` `float`). golden: fx 수만(`kitHit`).
+- 안 한 것: '제국의 갑옷' `enemy_vtsk_skillRange`(등장 사격 범위 버프의 끝 — 그 버프 길이 미확인), 변종 맹글러비스트 α `rkmbst_stone_disappear_audio`
+  (방패를 깨는 것은 `enemy_mcreep_self_mark`를 가진 쪽의 피해뿐 — sim에 없음), 가상적: 골극 `enemy_acbunn[cute]`/`[horror]`(隐匿 켜짐·꺼짐의 모드
+  전환), 불타는 덩굴 `enemy_ftsjc.aoe`, 원핵의 악생자 `Awake`, '산크타의 눈' `hlegle_steal_bullet_audio`, '갑주를 베는 검'·'갑주를 부수는 해머' `Back_End`
+  (위). 이 모드에 그 순간이 없는 것: '월장진' `ymtro_t[audio]`(계단 칸), 자로 M2 `enemy_wlfmster_m2_calling`(WildCalling), 모험을 찾는 선원 `sailor_speed_up`
   (대포·밧줄), 블러드 앰버 `collect_enemy_dseed`(채집하는 적). PlayAudio 없이 뱅크 이름만 이펙트 키와 같은 것(눈의 아이 `enemy_xdsnow_die_01`·불안해하는
   디자이너 `enemy_crshd_tip_01[audio]`)은 [추정·미조사: 이펙트 프리팹 쪽 소리 부품은 안 읽음] 내는 곳을 못 찾음.
 

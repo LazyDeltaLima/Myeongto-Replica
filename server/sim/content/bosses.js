@@ -795,7 +795,10 @@ function kitGun(ab, e, b) {
         if (!ch) return;
         if (b2.time >= ch.until - 1e-9 || !e2.findBuff('boss:charge')) { endCharge(b2, e2); return; }
         // Talents/3 of the mode: "对进入自身0.35半径范围内的我方单位（包括飞行单位）造成一次…" — an area selection (areaAllies)
-        for (const u of areaAllies(b2, e2, e2.x, e2.y, CHARGE_RADIUS)) if (!ch.hit.has(u)) { ch.hit.add(u); hurt(b2, e2, u, e2.s.atk * (T(ab, '3.atk_scale') ?? 1), 'phys'); }
+        let n = 0;
+        for (const u of areaAllies(b2, e2, e2.x, e2.y, CHARGE_RADIUS)) if (!ch.hit.has(u)) { ch.hit.add(u); hurt(b2, e2, u, e2.s.atk * (T(ab, '3.atk_scale') ?? 1), 'phys'); n++; }
+        // each unit's achunt_s_1[damage] (audioSignal …hit_target) — a sound only (docs/rules/audio.md 「적 버프·커스텀 트리거 소리」)
+        if (n) b2.fx('kitHit', { x: e2.x, y: e2.y, id: e2.id, k: 'achunt:charge', n });
         if (b2.time < ch.next - 1e-9) return;
         ch.next += TRACE_SEARCH;
         const t = ch.target;
@@ -860,8 +863,10 @@ function kitGun(ab, e, b) {
       tick(b2, e2) { // 【盲信之誓】 links: phys per second on operators standing on a line ("无视无法选择、迷彩": 起飞 too)
         for (const sp of b2.enemies) {
           if (!sp.alive || !isSpring(sp)) continue;
-          b2.fx('link', { x: e2.x, y: e2.y, from: e2.id, to: sp.id, kind: 'faithLink', dur: s3.bb.interval ?? 1 });
-          for (const u of b2.allies()) if (segDist(u.x, u.y, e2.x, e2.y, sp.x, sp.y) <= LINK_WIDTH) hurt(b2, e2, u, s3.bb.value ?? 0, 'phys', { ignoreSelect: true, tags: ['faithLink'] });
+          const on = b2.allies().filter((u) => segDist(u.x, u.y, e2.x, e2.y, sp.x, sp.y) <= LINK_WIDTH);
+          // `n`: the units on it — achunt_line_damage's chain_hit on each (audio)
+          b2.fx('link', { x: e2.x, y: e2.y, from: e2.id, to: sp.id, kind: 'faithLink', dur: s3.bb.interval ?? 1, n: on.length });
+          for (const u of on) hurt(b2, e2, u, s3.bb.value ?? 0, 'phys', { ignoreSelect: true, tags: ['faithLink'] });
         }
       },
     });
@@ -1000,6 +1005,7 @@ function kitSpring(ab, e) {
             // blocked or fully absorbed counter brings no erosion (official client; upstream 0.3.2 reached the same)
             const s = c.source, o = { ignoreSelect: true, tags: ['springCounter'] };
             if (s && s.side === 'ally' && s.alive && hurt(b, e2, s, e2.s.atk * (T(ab, '1.atk_scale') ?? 0), 'phys', { ...o, canDodge: true }) > 0) {
+              b.fx('kitHit', { x: s.x, y: s.y, id: e2.id, k: 'actrpa:shieldhit' });   // its PlayAudio on the attacker (audio)
               elem(b, e2, s, 'erosion', e2.s.atk * (T(ab, '1.ep_damage_ratio') ?? 0), o);
             }
           }
@@ -1035,7 +1041,9 @@ function kitSpring(ab, e) {
         const g = d.gun && d.gun.alive ? d.gun : nearGun(b);
         if (g) stepToward(e2, g.x, g.y, e2.s.moveSpeed * d.mul * MOVE_SCALE * dt);
         // 追逐模式 "对进入自身0.35半径范围内的我方单位（包括飞行单位）造成一次攻击力100%的物理普通伤害" (until 0.1.3: radius 0.5)
-        for (const u of areaAllies(b, e2, e2.x, e2.y, CHARGE_RADIUS)) if (!d.hit.has(u)) { d.hit.add(u); hurt(b, e2, u, e2.s.atk, 'phys'); }
+        let n = 0;
+        for (const u of areaAllies(b, e2, e2.x, e2.y, CHARGE_RADIUS)) if (!d.hit.has(u)) { d.hit.add(u); hurt(b, e2, u, e2.s.atk, 'phys'); n++; }
+        if (n) b.fx('kitHit', { x: e2.x, y: e2.y, id: e2.id, k: 'actrp:dash', n });   // actrp*_s_1[damage] (audioSignal achunt_summonee.hit)
         if (b.time >= d.until) { e2.mem.ab.dash = null; b.removeBuff(e2, 'boss:dash'); if (e2.route) e2.route.pts = null; }
       },
     },
