@@ -62,7 +62,7 @@ import { syncThreeCamera, OFFICIAL } from './projection.js';
 import { fxBundleOf, effectsFor } from './fxmap.js';
 import { noteEffects, NOTE_FLIGHT } from './fxmap.js';
 import { attackMode, boundEffects, fortressEffects, modelessTrail } from './fxmap.js'; // local patch: the mode bindings (modes.json)
-import { activationEffects } from './fxmap.js'; // local patch: a skill activation's effects
+import { activationEffects, VARIANT_MODES, variantModes } from './fxmap.js'; // local patch: a skill activation's effects (2026-11-03: a cast's mode by its variant)
 import { foeEffects, castTiming, castPhase, CAST_EVENT } from './fxmap.js'; // 2026-10-10: enemy-held mode buffs, cast timings
 import { clipGroup, hitLoopEnd, deployEffect, deadEffect } from './fxmap.js'; // 2026-10-11: clip variants, looping hits, deploy / dead effects
 import { castEnd, commonEffects, skillEdge, skillHeld } from './fxmap.js'; // 2026-10-16: the always-on effects of the common abilities (2026-10-24: a skill's own held buffs, its start / end effects)
@@ -3640,7 +3640,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // Default 0) — null when the operator is not listed, -1 for a running skill that switches no mode (the name mapping)
   const bindOf = (v) => { const id = v?.info?.spine || v?.info?.defId; return (id && modes?.[id]) || null; };
   const bound = (v, n, role) => boundEffects(bindOf(v), bundleOf(v)?.prefabs, n, role);
-  const skillMode = (v) => attackMode(bindOf(v), true, skillIdx(v)) ?? -1;
+  // (2026-11-03) the mode the running cast's variant picked (fxmap.js VARIANT_MODES; set by its 'skill' event), or null
+  const subOf = (v) => (v?._fxSkillOn ? v._fxSub ?? null : null);
+  const skillMode = (v) => attackMode(bindOf(v), true, skillIdx(v), subOf(v)) ?? -1;
   /**
    * local patch (maintainer report 2026-10-07: 缄默德克萨斯 S2 / S3 drew her normal attacks): a deploy-time passive with a duration
    * runs with no 'skill' event (server/sim/skills.js) — its view's UF.SKILL flag is the only sign. Its start / loops / mode
@@ -3654,7 +3656,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (on && !v._fxSkillOn) { v._fxSkillFlag = true; api.onEvent(['skill', v.id ?? v.info?.id, 1, 'flag'], views); }
     else if (!on && v._fxSkillOn && v._fxSkillFlag) { v._fxSkillFlag = false; api.onEvent(['skill', v.id ?? v.info?.id, 0], views); }
   }
-  const modeNow = (v) => attackMode(bindOf(v), !!v._fxSkillOn, skillIdx(v));
+  const modeNow = (v) => attackMode(bindOf(v), !!v._fxSkillOn, skillIdx(v), subOf(v));
   // local patch (maintainer report 2026-10-07, 11 items): the skill's own effects (modes.json `skills[i]`, char_modes.py from
   // [uc]skills.ab: cast / castLoop / buff on the caster, target / targetBuff on its targets, end = a finishing ability's)
   const skillBind = (v) => bindOf(v)?.skills?.[skillIdx(v)] || null;
@@ -3736,7 +3738,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /** What a skill activation plays on the caster (fxmap.js activationEffects: { start, loops }). */
   const activation = (v) => {
     const b = bundleOf(v), em = emittedIn(b.bundle);
-    const a = activationEffects(bindOf(v), b.prefabs, skillIdx(v), em.size ? new Set([...KIT_OWNED, ...em]) : KIT_OWNED);
+    const id = v?.info?.spine || v?.info?.defId;
+    const a = activationEffects(bindOf(v), b.prefabs, skillIdx(v), em.size ? new Set([...KIT_OWNED, ...em]) : KIT_OWNED, subOf(v), variantModes(id, skillIdx(v)));
     // 2026-10-24 (묶음 S2): the skill's own template buffs on the operator (fxmap.js SKILL_HELD)
     const held = skillHeld(v?.info?.spine || v?.info?.defId, skillIdx(v), b.prefabs, plays, faceBack(v)).filter((n) => !a.loops.includes(n));
     // 2026-10-24 (묶음 S5): what its template creates once as it starts (fxmap.js SKILL_EDGE `start`)
@@ -5549,7 +5552,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[2]) {
             v._fxSkillOn = true;
             v._fxMarked = null;   // local patch: the targets its marks sit on (pendingHit)
-            const fm = attackMode(bindOf(v), true, skillIdx(v)) ?? -1; // 2026-10-10: its mode's enemy-held buff effects
+            // (2026-11-03) the cast's variant may pick another of its modes (fxmap.js VARIANT_MODES: 薇薇安娜 S3's second cast on)
+            const vid = v.info.spine || v.info.defId;
+            v._fxSub = typeof e[3] === 'string' ? VARIANT_MODES[vid]?.[skillIdx(v)]?.[e[3]] ?? null : null;
+            const fm = attackMode(bindOf(v), true, skillIdx(v), subOf(v)) ?? -1; // 2026-10-10: its mode's enemy-held buff effects
             const foe = foeEffects(bindOf(v), bundleOf(v).prefabs, fm);
             if (foe.length) v._fxFoe = { mode: fm, names: foe, on: new Set() };
             // local patch: the activation's effects (activation(): name mapping + the skill's own, minus the attacks' / targets')
@@ -5562,7 +5568,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // (and the marks it left on its targets: 戴菲恩 S3's hit_1)
           else {
             const flags = v._fxSkillFlags?.size ? new Set(v._fxSkillFlags) : null;   // (묶음 S8: SKILL_EDGE `if`)
-            v._fxSkillOn = false; v._fxSkillFlags?.clear(); endWolves(v.id ?? v.info.id); stopBuffs(v.id ?? v.info.id, true); skillEnd(v, flags);
+            v._fxSkillOn = false; v._fxSub = null; v._fxSkillFlags?.clear(); endWolves(v.id ?? v.info.id); stopBuffs(v.id ?? v.info.id, true); skillEnd(v, flags);
             for (const l of elines.values()) if (l.skill && l.owner === (v.id ?? v.info.id)) l.until = Math.min(l.until, clockS);   // a plan's `life: 'skill'` lines
           }
           droneIdle(v);   // 2026-10-16: the drones of the mode now

@@ -81,12 +81,6 @@ export const UNPLAYED = {
   char_4087_ines: {
     Start_Skill: 'todo: G — on hold (maintainer 2026-10-14: the client logic is not certain): skchr_ines_3/First _animKey; S3 is cast only as she deploys (ON_DEPLOY) and the official game shows no Start_Skill after the deployment, so the renderer does not play it — when the client plays it, if ever, is open',
   },
-  char_4098_vvana: {
-    Skill_3_Attack_B: 'todo: D — her S3 from the second cast of a deployment runs mode S3_2 (vvana_s_3 mode 4) whose pairs are the _B clips; the renderer keeps the first cast\'s _A pairs',
-    Skill_3_Begin_B: 'todo: D — her S3 from the second cast of a deployment runs mode S3_2 (vvana_s_3 mode 4) whose pairs are the _B clips; the renderer keeps the first cast\'s _A pairs',
-    Skill_3_Idle_B: 'todo: D — her S3 from the second cast of a deployment runs mode S3_2 (vvana_s_3 mode 4) whose pairs are the _B clips; the renderer keeps the first cast\'s _A pairs',
-    Skill_3_End_B: 'todo: D — her S3 from the second cast of a deployment runs mode S3_2 (vvana_s_3 mode 4) whose pairs are the _B clips; the renderer keeps the first cast\'s _A pairs',
-  },
   char_4114_harold: {
     Skill_2_End: 'none: no client key names it (abilities, mode pairs, skin key table, mix), and no buff template plays it (PlayUnitAnimation plays only Idle / Default); client keys 2026-10-23; S2 attacks with its mode',
   },

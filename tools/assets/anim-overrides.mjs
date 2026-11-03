@@ -243,6 +243,9 @@ export const SKILL_VARIANTS = Object.freeze({
   // Attack Skill_2_Loop; the skin mix Skill_2_Loop / _Idle → Idle is Skill_2_End) when she carries billro_talent_enhance_mark
   // (billro_talent_enhance_judge: ≥ 2 charges available), else to SN (Skill_Idle / Skill_Loop / Skill_End — the keys)
   'op:char_426_billro:': Object.fromEntries([0, 1, 2].map((i) => [i, { charged: { loop: 'Skill_2_Loop', idle: 'Skill_2_Idle', end: 'Skill_2_End' } }])),
+  // 薇薇安娜 S3 from her second cast of a deployment (vvana_s_3[check] → mode 4 S3_2: Attack→Skill_3_Attack_B, Idle→Skill_3_Idle_B;
+  // the replace pair Skill_3_Begin_A→Skill_3_Begin_B; the skin mix Skill_3_Attack_B / _Idle_B → Idle is Skill_3_End_B)
+  'op:char_4098_vvana:': { 2: { later: { begin: 'Skill_3_Begin_B', loop: 'Skill_3_Attack_B', idle: 'Skill_3_Idle_B', end: 'Skill_3_End_B' } } },
 });
 
 /**

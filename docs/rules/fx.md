@@ -3661,9 +3661,15 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - 확인: `test/render/kit-event-fx.test.js`(계획 + 층 — 장벽 시작·깨짐, 반사, 펄스, 처형, S3 끝, 쓰러진 적에서 나는 후속 탄), `fx-bindings` `UNPLAYED` 9줄·
   `VERDICT` pending 2줄 지움, `test/content/op_judge.test.js`(장벽 이펙트 순서)·`op_logos.test.js`(고정 켬·끔, 후속 탄 `from`, 투사체 없는 S3 끝, 디버프
   'status'). 시뮬 골든: diy-026~030 사건 수만(전투 결과 같음). [화면 미확인: 위 전부 — 특히 두 투사체의 높이·장벽 시작/깨짐의 크기]
-- 남은 것: 비비아나 S3의 스킬 모드가 없다(`modes.json` `skillMode` S3 = null) — 스킬 이름 규칙이 첫 시전(모드 S3_1, `vvana_skill_03_L_*`)과 둘째
-  시전부터(모드 S3_2, `_S_*`)의 시전·버프 이펙트를 함께 튼다. 둘째부터의 `_B` 클립(`clip-coverage-list.js` todo D)과 함께 키트 사건 `vvanaS3Later`로
-  가를 일; S1의 `castLoop`에 섞인 `_L`·`_S`도 蓄力 여부(소리 신호 `vvanaCharged`)로 갈리는지 같이 볼 것.
+- 비비아나 S3 첫 시전과 둘째부터(2026-11-03): `vvana_s_3` `ON_BUFF_START`가 `vvana_s_3_enhance_mark`(배치 뒤 둘째 시전부터, `vvana_s_3[check]`)가 있으면 모드 4
+  S3_2, 없으면 3 S3_1로 바꾼다. S3_1: 시전 `vvana_skill_03_L_start_02`·`_03`, 명중 `_L_hit_01`·`_02`, 모드 버프 `vvana_s_3[eff_1]` `_L_buff_01`; S3_2: 시전
+  `_S_start_01`·`_02`, 명중 `_S_hit_01`~`_03`, 모드 버프 `[eff_2]` `_S_buff_01`·`[eff_3]` `_S_buff_02`. 전에는 이름 규칙이 두 모드의 버프(`_L_buff_01`·`_S_buff_01`)를
+  함께 틀고 공격은 늘 S3_1이었다. 이제 시뮬이 둘째부터의 시전에 'skill' 변형 `later`(`castVariant`, 그 판의 클립 `_B`: `render.md` 「Spine 클립 커버리지」 G)를
+  내고, 렌더 `fxmap.js` `VARIANT_MODES`가 그 변형을 모드 S3_2로 — `attackMode`의 새 `sub`(그 시전 동안의 공격·모드 버프), `activationEffects`는 같은 스킬의 다른
+  모드 버프를 이름 규칙에서 뺀다. [화면 미확인]
+- 남은 것: S1의 `castLoop`에 섞인 `_L`·`_S`(`vvana_skill_01_L_start_01`·`_02`·`_S_start_01`, 버프 `_L_buff`·`_S_buff`)가 蓄力 여부(소리 신호
+  `vvanaCharged`)로 갈리는지. 렌더는 스킬 도중 바뀌는 모드(`shared/skill-modes.js` `SKILL_SUB_MODES` — 위셔델 S2 과부하·울피아누스 S3·크루스 더 킨 글린트 S2)를 아직 안
+  따른다(소리만).
 
 ### 선발 벨로네·비이·Mon3tr 키트 순간 이펙트 (2026-11-03, 공식 클라에서 확인)
 
@@ -3693,7 +3699,7 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - 비이 저장: 모든 모드의 공격 능력이 `_chargeAnimKey` Charge로 저장한다(S1·S2·S3 모드는 짝으로 `Skill_n_Charge`). 그녀 키트의 `storeEnergy`가 공용
   秘术师 사건 `mysticStore` { signal 'store', n }을 보내게 함(전에는 키트가 공용 저장을 갈아 끼우며 사건이 없었음) → 클립은
   `tools/assets/anim-overrides.mjs` `SIGNAL_CLIPS`, 저장 구슬 `_chargeEffectGroups` 다섯 단계는 공용 규칙(`fxgame.js` `chargeStore`, 색인 = 저장 수 − 1 —
-  위 「秘术师 저장 에너지」의 [추정: 색인 = 저장 전 개수]와 같은 규칙; 전환 에너지 하나는 `merge_cnt`(3)로 셈, 다섯을 넘으면 새 단계 없음).
+  위 「秘术师 저장 에너지」와 같은 규칙, 색인의 추정도 그곳 그대로; 전환 에너지 하나는 `merge_cnt`(3)로 셈, 다섯을 넘으면 새 단계 없음).
 - 비이 저장 탄: `ChargeableGroup`의 `ChargeAttackDefault`·`ChargeAttackS2`가 `projectile_chr_veen`/`_merged`(S2 `_s2`/`_s2_merged`, 이펙트 같음; 넷 다
   TRACE `_speed` 10 — 클라 프리팹 표 조회)를 쏜다: `_mainEffect` `veen_trail_01`/`veen_trail_02`, `_effectsWhenHit` `veen_attack_rank_01_hit_02`/
   `veen_attack_rank_02_hit_02`. 사건 `veenVolley`(새 `s2`·`s3`)로 공격 대상에게 날린다 — 그녀 총구에서(클라는 `_mountPointForProjectiles` 특수점

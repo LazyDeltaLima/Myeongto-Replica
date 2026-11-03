@@ -9,7 +9,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createFxLayer } from '../../public/js/render/fxgame.js';
-import { activationEffects, castPhase, castTiming, clipGroup, deadEffect, DEPLOY_FX, deployEffect, hitLoopEnd } from '../../public/js/render/fxmap.js';
+import { activationEffects, attackMode, VARIANT_MODES, variantModes, castPhase, castTiming, clipGroup, deadEffect, DEPLOY_FX, deployEffect, hitLoopEnd } from '../../public/js/render/fxmap.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SRC = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
@@ -173,4 +173,20 @@ const tx = existsSync(TX) && JSON.parse(readFileSync(TX, 'utf8'));
 test('the extracted 텍사스 디 오메르토사 S2 start has its spawn (after fx_extract.py --root-only)', { skip: !(tx && tx.face) && 'not re-extracted' }, () => {
   assert.equal(tx.spawn, 1);
   assert.deepEqual(tx.face, { rot: 1, limit: -1, fxDelay: 0.17 });
+});
+
+test('2026-11-03: a cast\'s variant picks another mode of its skill (VARIANT_MODES — 薇薇安娜 S3 from her second cast: S3_2); each mode keeps its own buffs', () => {
+  const bind = {
+    modes: ['Default', 'S1', 'S2', 'S3_1', 'S3_2'], skillMode: [null, 2, null],
+    cast: [[], [], [], ['vvana_skill_03_L_start_02'], ['vvana_skill_03_S_start_01']],
+    attach: [[], [], [], ['vvana_skill_03_L_buff_01'], ['vvana_skill_03_S_buff_01', 'vvana_skill_03_S_buff_02']],
+  };
+  const pre = ['vvana_skill_03_L_start_02', 'vvana_skill_03_S_start_01', 'vvana_skill_03_L_buff_01', 'vvana_skill_03_S_buff_01', 'vvana_skill_03_S_buff_02'];
+  assert.deepEqual(variantModes('char_4098_vvana', 2), ['S3_2']);
+  assert.equal(attackMode(bind, true, 2), 3, 'the first cast: S3_1 by its name');
+  assert.equal(attackMode(bind, true, 2, VARIANT_MODES.char_4098_vvana[2].later), 4, 'a later cast: S3_2');
+  assert.equal(attackMode(bind, false, 2, 'S3_2'), 0, 'no skill: Default');
+  const others = variantModes('char_4098_vvana', 2);
+  assert.deepEqual(activationEffects(bind, pre, 2, new Set(), null, others).loops, ['vvana_skill_03_L_buff_01'], 'the first cast: S3_1\'s buff only');
+  assert.deepEqual(activationEffects(bind, pre, 2, new Set(), 'S3_2', others).loops.sort(), ['vvana_skill_03_S_buff_01', 'vvana_skill_03_S_buff_02'], 'a later one: S3_2\'s');
 });

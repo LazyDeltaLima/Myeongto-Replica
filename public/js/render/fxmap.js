@@ -119,10 +119,22 @@ export function noteEffects(mode, fan = 0, plays = null) {
  * @param {boolean} skillOn
  * @param {number} skillIndex 0-based
  */
-export function attackMode(bind, skillOn, skillIndex) {
+export function attackMode(bind, skillOn, skillIndex, sub = null) {
   if (!bind || !Array.isArray(bind.modes)) return null;
-  return skillOn ? skillModeIndex(bind.modes, skillIndex, bind.skillMode) : 0;
+  if (!skillOn) return 0;
+  const k = typeof sub === 'string' ? bind.modes.indexOf(sub) : -1;
+  return k > 0 ? k : skillModeIndex(bind.modes, skillIndex, bind.skillMode);
 }
+
+/**
+ * (2026-11-03, official client) A skill whose cast picks one of its modes, by the cast's variant (the 'skill' event's 4th
+ * field, a kit's `castVariant`): charId → { skill index → { variant: mode name } } — attackMode's `sub` for that cast.
+ * 薇薇安娜 S3: vvana_s_3 switches to mode 4 S3_2 while vvana_s_3[check] left vvana_s_3_enhance_mark (from her second cast
+ * of a deployment), else to 3 S3_1.
+ */
+export const VARIANT_MODES = Object.freeze({ char_4098_vvana: Object.freeze({ 2: Object.freeze({ later: 'S3_2' }) }) });
+/** The mode names VARIANT_MODES gives skill `skillIndex` of `charId` (its casts' other modes), or []. */
+export const variantModes = (charId, skillIndex) => Object.values(VARIANT_MODES[charId]?.[skillIndex] || {});
 
 /**
  * The extracted prefabs mode `n` binds for `role` ('cast' on the attacker, 'hit' on the target, 'trail'), in order; [] for
@@ -497,9 +509,9 @@ export function defaultModeEffects(bind, prefabs, kitOwned = null) {
  * @param {number} skillIndex 0-based
  * @param {Set<string>} [kitOwned]
  */
-export function activationEffects(bind, prefabs, skillIndex, kitOwned = new Set()) {
+export function activationEffects(bind, prefabs, skillIndex, kitOwned = new Set(), sub = null, others = []) {
   const pre = prefabs || [];
-  const n = attackMode(bind, true, skillIndex) ?? -1;
+  const n = attackMode(bind, true, skillIndex, sub) ?? -1;
   const sk = bind?.skills?.[skillIndex] || null;
   const has = (list) => (Array.isArray(list) ? list.filter((x) => pre.includes(x)) : []);
   // (2026-10-16: `tgtStart`, a shot's effects on its target as it leaves — 迷迭香 S2's rosmon_skill_02_range looped on her)
@@ -514,6 +526,15 @@ export function activationEffects(bind, prefabs, skillIndex, kitOwned = new Set(
     ...(sk?.zone?.fx || []), ...(sk?.zone?.aura || [])]);
   // (2026-10-10) a mode buff whose ability selects enemies (`attachFoe`: 아스트젠 더 라이트체이서 S3's link) is on the enemy, not here
   const foe = new Set(foeEffects(bind, pre, n));
+  // (2026-11-03) `others`: the modes another cast of this skill picks (VARIANT_MODES) — their mode buffs are theirs
+  for (const name of others) {
+    const k = Array.isArray(bind?.modes) ? bind.modes.indexOf(name) : -1;
+    if (k > 0 && k !== n) for (const x of boundEffects(bind, pre, k, 'attach')) modeOwn.add(x);
+  }
+  if (others.length && n > 0 && Array.isArray(bind?.modes)) {   // and the cast's own base mode when a variant picked another
+    const base = skillModeIndex(bind.modes, skillIndex, bind.skillMode);
+    if (base > 0 && base !== n) for (const x of boundEffects(bind, pre, base, 'attach')) modeOwn.add(x);
+  }
   const keep = (x) => !modeOwn.has(x) && !notCaster.has(x) && !kitOwned.has(x) && !foe.has(x);
   // a prefab the skill casts (`_castEffects`, ending with its cast) is not a loop for the whole skill even if named _buff / _range
   const cast = new Set([...(sk?.cast || []), ...(sk?.castLoop || [])]);

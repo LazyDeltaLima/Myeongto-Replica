@@ -253,6 +253,8 @@ test('S3 “明灭” (MANUAL, DEFAULT on its rangeId 1-1 box, every cast): 15 s
     u.skill.gainSp(999);
     u.skill.activate('test');
     assert.deepEqual([Math.round(u.skill.timeLeft), u.liveRangeGrid], [15, [[0, 0], [0, 1]]], `T${tier}: the first cast of the new deployment`);
+    // the 'skill' on events name the cast's variant (render: mode S3_2 and the _B clips): only the second cast's
+    assert.deepEqual(h.eventsOf('skill').filter((x) => x[1] === u.id && x[2] === 1).map((x) => x[3] ?? null), [null, 'later', null], `T${tier}: variants`);
     done(h);
   }
 });

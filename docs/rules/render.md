@@ -816,6 +816,9 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     다 모아 시전」(키트 `isCharged`). 키트가 그 시전에 `castVariant` `'charged'`를 내고(이벤트 칸만 — 골든 그대로), 역할은 키의 `SN`(`Skill_Idle`·`Skill_Loop`·
     `Skill_End`) + `anim-overrides.mjs SKILL_VARIANTS` `charged`(`Skill_2_Idle`·`_Loop`·`_End`). 그동안은 S1·S3 = `Skill_*`, S2 = `Skill_2_*`로 충전과 상관없었고,
     `Skill_Begin`·`Skill_2_Begin`(어떤 키도 안 부름, 믹스는 Idle로 가는 것뿐)을 시전에 틀었다 — 이제 목록 `none`. [화면 미확인]
+    비비아나(선발, 2026-11-03): S3의 `vvana_s_3`가 배치 뒤 둘째 시전부터(`vvana_s_3[check]`의 `vvana_s_3_enhance_mark`) 모드 4 S3_2(Attack→`Skill_3_Attack_B`,
+    Idle→`Skill_3_Idle_B`, 스킨 믹스로 끝 `Skill_3_End_B`)로, 그 시전은 교체 짝 `Skill_3_Begin_A`→`Skill_3_Begin_B` — 키트 `castVariant` `'later'` + `SKILL_VARIANTS`
+    `later`(D의 `_B` 넷 todo를 지움). 이펙트는 `fx.md` 「선발 페넌스·로고스·비비아나 키트 순간 이펙트」. [화면 미확인]
   - **G** 蕾缪安 S2 조준(2026-10-23, 클라 `skchr_lemuen_2` `_playSkillBeginAnim` 0·charpack `Modes/S2/Body/M2Attack` = `Normal` ThreePart `Attack_Begin`/`Attack_Loop` +
     `Aim` 채널 `_default {Skill_2_Begin, Skill_2_Idle, Skill_2_End}`): 시전 클립 없음, 공격은 평소 클립(`'attack'`), 조준 동안만 채널 — 키트가 조준 시작·끝(사격이든 대상을
     잃었든)에 그리지 않는 fx 'lemuenAim' `{ signal: 'aim', on: 1 | 0 }`(골든 fx 개수만 움직임) → `units.js onSignal` → `spine.js holdSignal`(켜면 begin 뒤 loop 유지, 끄면

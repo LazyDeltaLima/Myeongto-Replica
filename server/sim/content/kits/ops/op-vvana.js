@@ -162,6 +162,9 @@ export default {
           mods: { batPct: batMod(b3.base_attack_time, chess), atkPct: num(b3.atk), defPct: num(b3.def), resFlat: num(b3.magic_resistance) },
           targeting: { priority: 'elite' },
           attack: { hitsFn: (b, u) => (u.mem.vvanaS3Later ? S3_LATER_HITS : S3_HITS) },
+          // the cast's variant on its 'skill' event (before onStart): vvana_s_3[check] from the second cast of a deployment —
+          // mode 4 S3_2 and the Skill_3_Begin_B clip pair (render: its effects and clips, a display field)
+          castVariant: ({ unit }) => ((unit.mem.vvanaS3Casts ?? 0) >= 1 ? 'later' : null),
           onStart({ battle, unit, skill }) {
             const later = (unit.mem.vvanaS3Casts ?? 0) >= 1;
             unit.mem.vvanaS3Casts = (unit.mem.vvanaS3Casts ?? 0) + 1;
