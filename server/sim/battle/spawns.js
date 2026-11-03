@@ -226,6 +226,7 @@ export class BattleSpawns {
 
   _compactEnemies() {
     if (!this._enemiesDirty) return;
+    for (const e of this.enemies) if (!e.alive) this._unindexEnemy(e);
     this.enemies = this.enemies.filter((e) => e.alive);
     this._enemiesDirty = false;
   }

@@ -1,4 +1,4 @@
-// server/sim/battle/queries.js — Battle methods: queries: the per-tick enemy tile index, enemies / allies by tile keys,
+// server/sim/battle/queries.js — Battle methods: queries: the enemy tile index, enemies / allies by tile keys,
 // grid, radius and selectability, the ally targets (allies our attacks select like enemies), players, and the range
 // rebuild of an ally (current, base and extra range keys).
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
@@ -9,54 +9,81 @@ import { absoluteRangeKeys, canTargetEnemy, extendedGrid, enemyStealthed } from 
 import { bodyKeys, bodyInRadius, bodyInRange } from '../body.js';
 import { roundHalfEven } from '../detmath.js';
 
+function sameKeys(a, b) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+/** Add enemy `e` to bucket `b`, keeping it in `deploySeq` order. */
+function fileBySeq(b, e) {
+  let i = b.length;
+  b.push(e);
+  while (i > 0 && b[i - 1].deploySeq > e.deploySeq) { b[i] = b[i - 1]; i--; }
+  b[i] = e;
+}
+
+function unfile(b, e) {
+  const i = b.indexOf(e);
+  if (i >= 0) b.splice(i, 1);
+}
+
 export class BattleQueries {
   /**
-   * The per-tick tile buckets of the living enemies. Range buckets (`_eb`, body.js colliderKeys): a regular enemy on every
-   * tile its 0.1 collider overlaps — the tile of its position and, within 0.1 of an edge, the neighbours —, a huge one
-   * on every tile its rectangle occupies; `_ebMulti` marks an enemy listed on more than one (enemiesInKeys lists it
-   * once). Tile buckets (`_et`, body.js bodyKeys — the point): a regular enemy on the tile of its position, a huge one on
-   * its rectangle's tiles.
+   * The tile buckets of the living enemies. Range buckets (`_eb`, body.js colliderKeys): a regular enemy on every tile its
+   * 0.1 collider overlaps — the tile of its position and, within 0.1 of an edge, the neighbours —, a huge one on every
+   * tile its rectangle occupies; `_ebMulti` marks an enemy listed on more than one (enemiesInKeys lists it once). Tile
+   * buckets (`_et`, body.js bodyKeys — the point): a regular enemy on the tile of its position, a huge one on its
+   * rectangle's tiles. Each enemy is filed on its own (_indexEnemy: its tiles kept in `_ixT` / `_ixB`, refiled only when
+   * they changed), so the index can follow an enemy as soon as it moved; a bucket lists its enemies in `deploySeq`
+   * order. This files every enemy of the field.
    */
   _buildEnemyIndex() {
-    const eb = this._eb, et = this._et, ebUsed = this._ebUsed, etUsed = this._etUsed;
-    for (const k of ebUsed) eb[k].length = 0;
-    ebUsed.length = 0;
-    for (const k of etUsed) et[k].length = 0;
-    etUsed.length = 0;
-    const rho = ENEMY_COLLIDER_RADIUS, rho2 = rho * rho;
-    for (const e of this.enemies) {
-      if (!e.alive || e.hidden) continue;
+    const list = this.enemies;
+    for (let i = 0, n = list.length; i < n; i++) this._indexEnemy(list[i]);
+  }
+
+  /** File enemy `e` in the tile buckets where it stands now (none when it is down or hidden). */
+  _indexEnemy(e) {
+    const tk = this._ixTs, bk = this._ixBs;   // scratch: the tiles it is on now
+    tk.length = 0; bk.length = 0;
+    if (e.alive && !e.hidden) {
       if (e.hitArea) {
-        const keys = bodyKeys(e);
-        e._ebMulti = keys.length > 1;
-        for (const k of keys) {
-          if (!eb[k].length) ebUsed.push(k);
-          eb[k].push(e);
-          if (!et[k].length) etUsed.push(k);
-          et[k].push(e);
-        }
-        continue;
-      }
-      // every tick for every enemy: colliderKeys / bodyKeys inlined without their arrays (the same tiles, same order)
-      const x = e.x, y = e.y;
-      const tr = roundHalfEven(y), tc = roundHalfEven(x);
-      if (tr >= 0 && tr < ROWS && tc >= 0 && tc < COLS) { const k = tr * COLS + tc; if (!et[k].length) etUsed.push(k); et[k].push(e); }
-      const r0 = Math.max(0, Math.floor(y - rho + 0.5 + 1e-9)), r1 = Math.min(ROWS - 1, Math.ceil(y + rho - 0.5 - 1e-9));
-      const c0 = Math.max(0, Math.floor(x - rho + 0.5 + 1e-9)), c1 = Math.min(COLS - 1, Math.ceil(x + rho - 0.5 - 1e-9));
-      let n = 0;
-      for (let r = r0; r <= r1; r++) {
-        const dy = y < r - 0.5 ? r - 0.5 - y : y > r + 0.5 ? y - r - 0.5 : 0;
-        for (let c = c0; c <= c1; c++) {
-          const dx = x < c - 0.5 ? c - 0.5 - x : x > c + 0.5 ? x - c - 0.5 : 0;
-          if (dx > 0 && dy > 0 && dx * dx + dy * dy >= rho2) continue;
-          const k = r * COLS + c;
-          if (!eb[k].length) ebUsed.push(k);
-          eb[k].push(e);
-          n++;
+        for (const k of bodyKeys(e)) { tk.push(k); bk.push(k); }
+      } else {
+        // every tick for every enemy: colliderKeys / bodyKeys inlined without their arrays (the same tiles, same order)
+        const rho = ENEMY_COLLIDER_RADIUS, rho2 = rho * rho;
+        const x = e.x, y = e.y;
+        const tr = roundHalfEven(y), tc = roundHalfEven(x);
+        if (tr >= 0 && tr < ROWS && tc >= 0 && tc < COLS) tk.push(tr * COLS + tc);
+        const r0 = Math.max(0, Math.floor(y - rho + 0.5 + 1e-9)), r1 = Math.min(ROWS - 1, Math.ceil(y + rho - 0.5 - 1e-9));
+        const c0 = Math.max(0, Math.floor(x - rho + 0.5 + 1e-9)), c1 = Math.min(COLS - 1, Math.ceil(x + rho - 0.5 - 1e-9));
+        for (let r = r0; r <= r1; r++) {
+          const dy = y < r - 0.5 ? r - 0.5 - y : y > r + 0.5 ? y - r - 0.5 : 0;
+          for (let c = c0; c <= c1; c++) {
+            const dx = x < c - 0.5 ? c - 0.5 - x : x > c + 0.5 ? x - c - 0.5 : 0;
+            if (dx > 0 && dy > 0 && dx * dx + dy * dy >= rho2) continue;
+            bk.push(r * COLS + c);
+          }
         }
       }
-      e._ebMulti = n > 1;
     }
+    let ot = e._ixT, ob = e._ixB;
+    if (ot === null) { ot = e._ixT = []; ob = e._ixB = []; }
+    else if (sameKeys(ot, tk) && sameKeys(ob, bk)) return;
+    else this._unindexEnemy(e);
+    for (let i = 0; i < tk.length; i++) { fileBySeq(this._et[tk[i]], e); ot.push(tk[i]); }
+    for (let i = 0; i < bk.length; i++) { fileBySeq(this._eb[bk[i]], e); ob.push(bk[i]); }
+    e._ebMulti = bk.length > 1;
+  }
+
+  /** Take enemy `e` out of the tile buckets. */
+  _unindexEnemy(e) {
+    const ot = e._ixT, ob = e._ixB;
+    if (ot === null) return;
+    for (let i = 0; i < ot.length; i++) unfile(this._et[ot[i]], e);
+    for (let i = 0; i < ob.length; i++) unfile(this._eb[ob[i]], e);
+    ot.length = 0; ob.length = 0;
   }
 
   /**

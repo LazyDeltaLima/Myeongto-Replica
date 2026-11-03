@@ -71,9 +71,11 @@ export class Unit {
     this.blockedBy = null;      // enemies: blocker unit
     this.blockMove = null;      // enemies: the slide to the block position (Battle._moveToBlockPosition)
     this.blockSearchTick = 0;   // allies: ticks to the next search for enemies to block (Battle._searchBlockees)
-    // enemies: listed on more than one tile of the per-tick range index (their 0.1 collider straddles an edge —
-    // battle/queries.js _buildEnemyIndex); declared here so the index writing it never changes a unit's shape
+    // enemies: listed on more than one tile of the range index (their 0.1 collider straddles an edge), and the tiles
+    // they are filed on (battle/queries.js _indexEnemy); declared here so the index writing them never changes a unit's shape
     this._ebMulti = false;
+    this._ixT = null;
+    this._ixB = null;
     this.motion = init.motion ?? 'GROUND'; // enemies: 'WALK' | 'FLY'
     this.profile = null;        // resolved profession/attack profile
     this.skill = null;          // SkillRuntime
