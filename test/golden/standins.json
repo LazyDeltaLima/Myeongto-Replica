@@ -544,11 +544,11 @@
         "p1": {"killed":33,"total":131,"perfect":false,"leaks":98,"leaksUncounted":0,"coins":0,"dmg":532913,"bossDmg":0,"heal":12244,"deaths":24,"layerGains":{"raidShip":12}}
       },
       "units": [
-        ["p1",1,"op","chess_char_6_17_b",2,"uniequip_002_acpion",0,0,343,9,104447,13908,0,67,9],
-        ["p1",2,"op","chess_char_6_13_b",2,"uniequip_002_acspec",0,0,344,6,54053,11872,0,94,0],
-        ["p1",3,"op","chess_char_6_19_b",2,"uniequip_002_acspec",1484,1,346,10,94006,14840,0,142,0],
+        ["p1",1,"op","chess_char_6_17_b",2,"uniequip_002_acpion",0,0,341,9,104447,13908,0,67,9],
+        ["p1",2,"op","chess_char_6_13_b",2,"uniequip_002_acspec",0,0,342,6,54053,11872,0,94,0],
+        ["p1",3,"op","chess_char_6_19_b",2,"uniequip_002_acspec",1484,1,344,10,94006,14840,0,142,0],
         ["p1",4,"op","chess_char_6_12_b",2,"uniequip_002_accast",1553.35,1,4,5,94052,993,0,39,2],
-        ["p1",5,"op","chess_char_6_15_b",2,"uniequip_002_acsupo",0,0,312,2,88816,10940,0,45,3],
+        ["p1",5,"op","chess_char_6_15_b",2,"uniequip_002_acsupo",0,0,310,2,88816,10940,0,45,3],
         ["p1",6,"op","chess_char_6_18_b",2,"uniequip_002_accast",1819,1,8,1,97540,675,0,53,2],
         ["p1",7,"op","chess_char_6_20_b",2,"uniequip_002_acmedc",1464,1,9,0,0,3373,12244,18,2],
         ["-","~1","device","trap_1105_accrate",null,null,100,1,1,0,0,0,0,0,null],
@@ -568,7 +568,7 @@
         "enemy_1402_tgshd_2": [36,4,32,23488,196217]
       },
       "hooks": [1,164,6733,603,603,963,979,7078,57,158,18,36,0,10167,1450,60,131,98,1,57,2,1,0],
-      "events": {"atk":614,"deploy":31,"die":60,"dmg":906,"engage":6,"face":23,"fx":523,"heal":25,"layer":2,"leak":98,"skill":74,"spawn":140,"status":424,"swing":625},
+      "events": {"atk":608,"deploy":31,"die":60,"dmg":906,"engage":6,"face":23,"fx":523,"heal":25,"layer":2,"leak":98,"skill":74,"spawn":140,"status":424,"swing":625},
       "fx": {"aoe":4,"blink":3,"burst":1,"displace":20,"dodge":2,"dp":18,"expose":398,"garrison":2,"garrisonGrant":3,"slash":72},
       "snaps": "31ca342a b1ffe5e8 901e429a 3f5fbe66 c830af49 22271763 19a7024d 94dcadcf 5b5768bc 6d213f25 36fa3ce2 652f81ea cba023ef 6b40d90a 2637e0b4 842742bc 1e160fed 6914a46d b533dc08 ed383ff9 1bc490b4 e93a334c faece2fb"
     }

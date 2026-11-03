@@ -44,14 +44,18 @@ function kitDeepsea(ab, { swim = false, drown = false }) {
 
 function kitTidmag(ab) {
   return [ep('erosion', T(ab, 'EpDamage.attack@ep_damage_ratio') ?? 0), {
-    before(c, b, e) {
-      // PRTS 控潮术师 "对目标所在地块及周围四格内的所有我方单位造成法术普通伤害": the 周围四格 are an area selection (格子判定:
-      // a 迷彩 ally is hit; an unblocking 隐匿 or an airborne 起飞 one is not — areaAlliesInTiles)
-      const t0 = c.targets[0];
-      if (!t0) return;
-      const l = c.targets.slice();
-      for (const u of areaAlliesInTiles(b, e, t0.tileR, t0.tileC, 'plus', 1)) if (!l.includes(u)) l.push(u);
-      c.targets = l;
+    // PRTS 控潮术师 "对目标所在地块及周围四格内的所有我方单位造成法术普通伤害": one shot at its target (the client attack's
+    // max target count 1, one projectile_enemy_tidmag whose hit effect draws the cross); as it lands the others of the
+    // target's 周围四格 take the same attack (on-hit erosion included). An area selection (格子判定: a 迷彩 ally is hit; an
+    // unblocking 隐匿 or an airborne 起飞 one is not — areaAlliesInTiles). Until 2026-11-03 each of them drew a shot of its own.
+    hitOut(c, b, e) {
+      const t = c.target;
+      if (!c.dmg.isAttack || !t || c.dmg.tags?.includes('splash')) return;
+      for (const u of areaAlliesInTiles(b, e, t.tileR, t.tileC, 'plus', 1)) {
+        if (u === t) continue;
+        b.dealDamage(e, u, { amount: e.s.atk * (e.profile?.atkScale ?? 1), type: c.dmg.type, isAttack: true,
+          attackId: c.dmg.attackId, isProjectile: c.dmg.isProjectile, tags: ['splash'] });
+      }
     },
   }];
 }

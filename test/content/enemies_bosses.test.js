@@ -689,6 +689,9 @@ for (const key of ['enemy_1161_tidmag', 'enemy_1161_tidmag_2', 'enemy_1162_magmo
     const e = put(h, key, [9, 5]);
     h.runUntil(() => e.stats.attacks >= 1, 20);
     h.run(0.6);
+    // one shot at its target: the neighbours are hit where it lands, not shot at (their own 'atk' drew the cross hit on each)
+    assert.equal(h.eventsOf('atk').filter((x) => x[1] === e.id).length, 1, 'one attack event per attack');
+    assert.ok(h.unit('t_wall2').stats.taken > 0, 'the neighbour takes the attack');
     const ratio = tb(key, 'EpDamage.attack@ep_damage_ratio');
     approx(h.unit('t_wall2').elem[EROSION], e.s.atk * ratio);
     assert.equal(h.unit('t_wall3').stats.taken, 0, 'two tiles away: not hit');
