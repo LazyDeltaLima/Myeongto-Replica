@@ -6,7 +6,7 @@
 
 import { ERR } from '../../../shared/constants.js';
 import { msg, dn } from '../../../shared/i18n.js';
-import { tileKey, parseKey, inField, canPlace, placeClass, freeSlot, pieceDir, parseDir, ownerRangeKeys } from '../board.js';
+import { tileKey, parseKey, inField, canPlace, placeClass, freeSlot, pieceDir, parseDir, ownerRangeKeys, ownerBesideKeys } from '../board.js';
 import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../../shared/loadoutRecord.js';
 import { OK, fail } from './common.js';
 
@@ -63,13 +63,22 @@ export class PlayerPlacement {
    * point could be placed anywhere; PRTS 狼群 特性 "只能部署在召唤者攻击范围内"): the owner's loadout-resolved range grid
    * (shared/loadoutRecord.js attackRangeGrid — what the deploy wheel previews) rotated by its facing around its board
    * tile (board.js ownerRangeKeys). Null when the piece is not range-bound or its owner is not on the board (the other
-   * rules refuse such a placement).
+   * rules refuse such a placement). An `ownerBeside` summon (涤火杰西卡's 机动盾牌, T1 "只能放置于涤火杰西卡四周"): the four tiles
+   * next to its owner instead.
    * @param {any} piece
    * @param {{ key: string, piece: any, dir: string } | null} [owner] the owner's position to use instead of its current one
    * @returns {Set<string> | null}
    */
   summonRange(piece, owner = null) {
-    if (!piece || piece.kind !== 'token' || this.gd.token(piece.id)?.ownerRange !== true) return null;
+    if (!piece || piece.kind !== 'token') return null;
+    const tok = this.gd.token(piece.id);
+    if (tok?.ownerBeside === true) {
+      const at = this._summonOwnerAt(piece, owner);
+      if (!at) return null;
+      const [r, c] = parseKey(at.key);
+      return ownerBesideKeys(r, c);
+    }
+    if (tok?.ownerRange !== true) return null;
     return this._ownerRangeOf(piece, owner);
   }
 
@@ -86,10 +95,16 @@ export class PlayerPlacement {
     return this._ownerRangeOf(piece, owner);
   }
 
+  /** Where a summon piece's owner stands: `owner` if given, else its board tile; null when it is off the board. */
+  _summonOwnerAt(piece, owner = null) {
+    if (owner) return owner;
+    for (const [key, p] of this.board) if (p.uid === piece.ownerUid && p.kind === 'chess') return { key, piece: p, dir: pieceDir(p) };
+    return null;
+  }
+
   /** The owner's attack-range keys of a summon piece (summonRange / summonExcluded), or null when its owner is off the board. */
   _ownerRangeOf(piece, owner = null) {
-    let at = owner;
-    if (!at) for (const [key, p] of this.board) if (p.uid === piece.ownerUid && p.kind === 'chess') { at = { key, piece: p, dir: pieceDir(p) }; break; }
+    const at = this._summonOwnerAt(piece, owner);
     const chess = at && this.gd.chess(at.piece.id);
     if (!chess) return null;
     const rec = this.fieldRecord(chess); // 0.2.0 补位: a stand-in's own range (its backup selection)

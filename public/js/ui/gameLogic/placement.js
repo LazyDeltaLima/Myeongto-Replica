@@ -273,12 +273,19 @@ export function tileAllows(ctx, piece, row, col) {
  * 伺夜's 狼群, 缪尔赛思's 流形 — the tactical point; player report #9 after 0.1.0): its owner's attack range (the
  * loadout's grid, shared/loadoutRecord.js attackRangeGrid, rotated by the owner's facing around its tile). Null when
  * the piece is not range-bound or its owner is not on the board. `owner` ({ row, col, piece }) replaces the owner's
- * current position (a summon swapped with its own owner). Mirror of server/match/PlayerState.js summonRange.
+ * current position (a summon swapped with its own owner). An `ownerBeside` summon (涤火杰西卡's 机动盾牌): the four tiles
+ * next to its owner instead. Mirror of server/match/PlayerState.js summonRange.
  * @param {ReturnType<typeof placementContext>} ctx
  * @returns {Set<string> | null}
  */
 export function summonRange(ctx, piece, owner = null) {
-  if (!isObj(piece) || piece.kind !== 'token' || ctx?.getToken?.(piece.id)?.ownerRange !== true) return null;
+  if (!isObj(piece) || piece.kind !== 'token') return null;
+  const tok = ctx?.getToken?.(piece.id);
+  if (tok?.ownerBeside === true) {
+    const at = summonOwnerAt(ctx, piece, owner);
+    return at ? new Set([tileKey(at.row + 1, at.col), tileKey(at.row - 1, at.col), tileKey(at.row, at.col + 1), tileKey(at.row, at.col - 1)]) : null;
+  }
+  if (tok?.ownerRange !== true) return null;
   return ownerRangeOf(ctx, piece, owner);
 }
 
@@ -294,10 +301,16 @@ export function summonExcluded(ctx, piece, owner = null) {
   return ownerRangeOf(ctx, piece, owner);
 }
 
+/** Where a summon piece's owner stands: `owner` if given, else its board entry; null when it is off the board. */
+function summonOwnerAt(ctx, piece, owner = null) {
+  if (owner) return owner;
+  for (const e of ctx.boardAt.values()) if (e.piece.uid === piece.ownerUid && e.piece.kind === 'chess') return e;
+  return null;
+}
+
 /** The attack-range tiles of a summon piece's owner on the board (summonRange / summonExcluded), or null. */
 function ownerRangeOf(ctx, piece, owner = null) {
-  let at = owner;
-  if (!at) for (const e of ctx.boardAt.values()) if (e.piece.uid === piece.ownerUid && e.piece.kind === 'chess') { at = e; break; }
+  const at = summonOwnerAt(ctx, piece, owner);
   const rec = at && ctx.getChess(at.piece.id);
   if (!rec) return null;
   let grid = null;
@@ -388,7 +401,7 @@ export function canPlace(ctx, uid, target) {
     // dropped onto its own owner (the two swap); an outside-bound one (战术锚点) outside it
     const ownerSwap = src.area === 'board' && occ && occ.piece.uid === piece.ownerUid ? { row: src.row, col: src.col, piece: occ.piece } : null;
     const range = summonRange(ctx, piece, ownerSwap);
-    if (range && !range.has(tileKey(row, col))) return no('BAD_TILE', t('只能部署在召唤者攻击范围内'));
+    if (range && !range.has(tileKey(row, col))) return no('BAD_TILE', ctx?.getToken?.(piece.id)?.ownerBeside === true ? t('只能放置于召唤者四周') : t('只能部署在召唤者攻击范围内'));
     const out = summonExcluded(ctx, piece, ownerSwap);
     if (out && out.has(tileKey(row, col))) return no('BAD_TILE', t('只能部署在召唤者攻击范围外'));
     if (src.area === 'board') {

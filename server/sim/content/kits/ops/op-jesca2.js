@@ -25,7 +25,8 @@
 // - Module SPT-Y 未曾风化: "攻击距离+1（部分技能不受此影响）" — a permanent forward range extension (jesca2_e_003[extend]); S2's
 //   2-5 ignores it (its 备注), S3 grows on it. Stage 3 changes T2 (below). Stats: the module attributes.
 // - T1 灵活应变: her 机动盾牌 is a hand piece the player places next to her ("只能放置于涤火杰西卡四周" — the prep's placement
-//   rule; a piece on any other tile gets no turn, mark or aura here) and deploys with the board. Each deployment: it lasts
+//   rule, tokens `ownerBeside`, server/match/player/placement.js summonRange; a piece on any other tile gets no turn, mark
+//   or aura here) and deploys with the board. Each deployment: it lasts
 //   the token talent's `duration` (50 s; SPT-X stage 3: 60 s), holds 禁疗 and taunt level `taunt_level` (its hidden talent:
 //   "更容易受到攻击"), makes no attack and blocks 2 (its stats); she turns to face it (her range turns with her) and turns
 //   back to the direction she had when it came, once it leaves — whatever the reason, stunned or not (PRTS 备注; the

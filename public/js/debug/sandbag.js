@@ -252,7 +252,7 @@ export function rangeTiles(u, rotateOffset) {
  */
 export function ownTokens(chessId, tokens) {
   return (Array.isArray(tokens) ? tokens : []).filter((t) => t && t.placeable && Array.isArray(t.owners) && t.owners.includes(chessId))
-    .map((t) => ({ tokenId: t.tokenId, name: t.name, limit: Math.max(1, Number(t.deployLimit) || 1), ownerRange: !!t.ownerRange }));
+    .map((t) => ({ tokenId: t.tokenId, name: t.name, limit: Math.max(1, Number(t.deployLimit) || 1), ownerRange: !!t.ownerRange, ownerBeside: !!t.ownerBeside }));
 }
 
 /** The island tiles of an operator's attack range (its grid, authored facing RIGHT, turned to `dir`). */
@@ -262,9 +262,13 @@ export function rangeOf(op, dir, grid) {
     .filter((t) => inArena(t.row, t.col));
 }
 
+/** Whether tile `t` is one of the four tiles next to the operator (an `ownerBeside` piece's tiles). */
+export const besideOp = (op, t) => Math.abs(t.row - op.row) + Math.abs(t.col - op.col) === 1;
+
 /**
  * A default placement of an operator's pieces: up to each one's limit, on free island tiles nearest the operator
- * (its attack range only for an `ownerRange` piece), the tiles in front of it first.
+ * (its attack range only for an `ownerRange` piece, the four tiles next to it only for an `ownerBeside` one), the tiles in
+ * front of it first.
  * @param {{ row: number, col: number }} op
  * @param {string} dir
  * @param {any[]} grid the operator's range grid
@@ -280,7 +284,7 @@ export function autoTokens(op, dir, grid, own, taken = []) {
   const inRange = new Set(rangeOf(op, dir, grid).map((t) => `${t.row},${t.col}`));
   const out = [];
   for (const t of own) {
-    const pool = all.filter((x) => !used.has(`${x.row},${x.col}`) && (!t.ownerRange || inRange.has(`${x.row},${x.col}`))).sort((a, b) => score(a) - score(b));
+    const pool = all.filter((x) => !used.has(`${x.row},${x.col}`) && (!t.ownerRange || inRange.has(`${x.row},${x.col}`)) && (!t.ownerBeside || besideOp(op, x))).sort((a, b) => score(a) - score(b));
     for (const x of pool.slice(0, t.limit)) { used.add(`${x.row},${x.col}`); out.push({ tokenId: t.tokenId, row: x.row, col: x.col }); }
   }
   return out;

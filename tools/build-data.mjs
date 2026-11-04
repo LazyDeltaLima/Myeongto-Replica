@@ -1526,7 +1526,8 @@ const TOKEN_POSITION_CORRECTIONS = Object.freeze({
  * tactical point could go anywhere). `ownerRangeOutside` (present when true): the token text "部署在…攻击范围外" — the
  * piece may only stand OUTSIDE its owner's attack range; `rangedTilesOnly` (present when true): "仅可以部署在…远程位" — only
  * on a ranged (高台) tile, the mode's "所有行动内远程干员可部署在近战位" being an operators' rule: 凯尔希·思衡托's 战术锚点
- * "仅可以部署在凯尔希·思衡托攻击范围外的远程位" (PRTS 战术锚点 特性; 0.2.0 WE2, O24).
+ * "仅可以部署在凯尔希·思衡托攻击范围外的远程位" (PRTS 战术锚点 特性; 0.2.0 WE2, O24). `ownerBeside` (present when true): an owner's
+ * talent reads "…只能放置于…四周" — the piece may only stand on one of the four tiles next to its owner: 涤火杰西卡's 机动盾牌.
  * `abnormal` = TOKEN_ABNORMAL (PRTS); `position` = TOKEN_POSITION_CORRECTIONS (PRTS) or the token row's.
  */
 function summonRecord(ctx, tokenId, char, variants, produced, ownerTexts = []) {
@@ -1537,6 +1538,7 @@ function summonRecord(ctx, tokenId, char, variants, produced, ownerTexts = []) {
   const ownerRange = /只能部署在\S*攻击范围内/.test(text) || ownerTexts.some((d) => /可以在攻击范围内(?:的[^，。；]*?)?(?:部署|使用)/.test(stripRich(d) || ''));
   const ownerRangeOutside = /部署在[^，。；]*攻击范围外/.test(text);
   const rangedTilesOnly = /仅可以部署在[^，。；]*远程位/.test(text);
+  const ownerBeside = ownerTexts.some((d) => /只能放置于[^，。；]*四周/.test(stripRich(d) || ''));
   const shows = (list) => Array.isArray(list) && list.includes('display');
   const displayed = Object.values(variants).some((v) => shows(v.sources) || Object.values(v.bySkill || {}).some((a) => shows(a.sources)));
   return {
@@ -1545,6 +1547,7 @@ function summonRecord(ctx, tokenId, char, variants, produced, ownerTexts = []) {
     profession: char.profession, subProfessionId: char.subProfessionId, position: TOKEN_POSITION_CORRECTIONS[tokenId] ?? char.position,
     displayType, placeable: displayType !== 'HIDDEN' && produced && displayed, ownerRange,
     ...(ownerRangeOutside ? { ownerRangeOutside: true } : null), ...(rangedTilesOnly ? { rangedTilesOnly: true } : null),
+    ...(ownerBeside ? { ownerBeside: true } : null),
     owners,
     // Defaults = first owner's variant; per-owner data in variants[owner].
     stats: first.stats, rangeGrid: first.rangeGrid, dmgType: first.dmgType, attackKind: first.attackKind,

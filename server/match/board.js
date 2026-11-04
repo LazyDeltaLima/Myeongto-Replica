@@ -208,6 +208,15 @@ export function ownerRangeKeys(grid, r, c, dir) {
   return out;
 }
 
+/**
+ * Board tiles ('r,c' keys) of the four tiles next to (r, c) — where a summon whose owner's talent reads "只能放置于…四周"
+ * (tokens `ownerBeside`: 涤火杰西卡's 机动盾牌) may stand; its owner's facing does not matter.
+ * @returns {Set<string>}
+ */
+export function ownerBesideKeys(r, c) {
+  return new Set([tileKey(r + 1, c), tileKey(r - 1, c), tileKey(r, c + 1), tileKey(r, c - 1)]);
+}
+
 /** Legal tiles for a placement class, in reading order (top→bottom, left→right). */
 export function legalTiles(map, pos) {
   const out = [];

@@ -963,6 +963,11 @@
   - 제시카가 기동 방패 쪽으로 돌아설 때(재능 1, 방패가 사라져 돌아올 때도)와 방패 자신의 방향: 키트가 `unit.dir`만 바꾸면 사거리만 돌고 모델·방향 원 표시는 처음 방향에
     남았다(관리자 제보 2026-11-04). `b.snap`에는 방향이 없으므로 fx `turnDir`(`shared/protocol.js fxDir`, `stateFx`라 숨은 탭·늦은 입장에도 남음)로 알리고 뷰가
     `setDir`로 따른다. 판정은 그대로, golden 변화 없음. 아레나에서 네 방향과 복귀를 화면으로 확인.
+  - 기동 방패 배치: 재능 1 문구 「只能放置于涤火杰西卡四周」대로 그녀의 상하좌우 칸에만 놓는다(관리자 결정 2026-11-04). 토큰 필드 `ownerBeside`(`tools/build-data.mjs`가 재능 문구에서),
+    서버 `summonRange`·클라 `gameLogic` 같은 규칙, 그녀의 방향과 무관. 준비 화면의 방향·사거리는 방패를 따라 돌리지 않고 전투 시작 때 돈다(관리자 결정 2026-11-04).
+  - S3 포탄 그림: 키트 사건 `bombardShell`·`bombard`에 공식 이펙트 연결(`kitofficial.js`). `ExtraBomb`의 `_castEffects` `jesca2_skill_03_start_02`(바라보는 방향 사본), 투사체
+    `projectile_chr_jesca2_s3_bomb`의 `_mainEffect` `jesca2_skill_03_trail_02`가 초당 5칸으로 끝점까지 날고, 먼저 터지면 그 자리에서 끝나며 `_effectsWhenStop` `jesca2_skill_03_hit_02`.
+    전엔 범용 포탄이 어느 방향이든 하늘에서 떨어졌다(관리자 제보 2026-11-04). `start_02`는 일반 공격 때 안 튼다(`fxmap.js KIT_CAST`). golden `fx-events` 제시카 세 줄만 변함.
   - 파죰카 '타자기'의 요약(복사본 S2): 그녀의 S2처럼 「즉시」(시전이 다음 공격을 바로 낸다) — 복사본에 없던 `atkCd = 0` 시작을 더함. `DEFAULT` 시전(0.2초 회차)이
     공격 사이에 오면 한 공격 간격을 기다리던 것.
   - 에이야퍄들라 재능 2 카오스 플레임 CCR-Y 3단계: 공속 버프는 배치 동안 계속(템플릿 `amgoat_e_t_2`: `ON_OWNER_LOCATE`에 `amgoat_e_t_2[attack_speed]`, 수명

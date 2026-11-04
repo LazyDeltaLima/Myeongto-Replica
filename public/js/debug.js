@@ -18,7 +18,7 @@ import { loadoutOptions } from '../../shared/protocol.js';
 import { diyRecord, diyTokenOwner } from '../../shared/diy.js';
 import { localDiyPool } from '../../shared/local-diy.js';
 import { createArena } from './debug/arena.js';
-import { TERRAINS, SANDBAG_DEFAULT, DEFAULT_OP, SANDBAG_HP, HURT, KEEP_OP, inArena, defaultBags, ownTokens, autoTokens, rangeOf } from './debug/sandbag.js';
+import { TERRAINS, SANDBAG_DEFAULT, DEFAULT_OP, SANDBAG_HP, HURT, KEEP_OP, inArena, defaultBags, ownTokens, autoTokens, rangeOf, besideOp } from './debug/sandbag.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, attrs = {}, ...kids) => {
@@ -515,8 +515,9 @@ function placeToken(row, col) {
   if (tileEq(st.opTile, row, col)) return;
   const grid = (cfgRecord(cfg) || st.op.chess).rangeGrid;
   const inRange = rangeOf(st.opTile, st.dir, grid).some((t) => t.row === row && t.col === col);
-  const t = own.find((o) => st.tokens.filter((x) => x.tokenId === o.tokenId).length < o.limit && (!o.ownerRange || inRange));
-  if (!t) { $('now').textContent = own.some((o) => o.ownerRange) && !inRange ? '이 기물은 오퍼레이터 공격 범위 안에만 놓을 수 있습니다' : '기물을 더 놓을 수 없습니다 (한도)'; return; }
+  const beside = besideOp(st.opTile, { row, col });
+  const t = own.find((o) => st.tokens.filter((x) => x.tokenId === o.tokenId).length < o.limit && (!o.ownerRange || inRange) && (!o.ownerBeside || beside));
+  if (!t) { $('now').textContent = own.some((o) => o.ownerBeside) && !beside ? '이 기물은 오퍼레이터의 상하좌우 칸에만 놓을 수 있습니다' : own.some((o) => o.ownerRange) && !inRange ? '이 기물은 오퍼레이터 공격 범위 안에만 놓을 수 있습니다' : '기물을 더 놓을 수 없습니다 (한도)'; return; }
   st.tokens = [...st.tokens, { tokenId: t.tokenId, row, col }];
   renderDetail();
   restart();
