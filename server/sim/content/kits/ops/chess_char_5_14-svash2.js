@@ -70,7 +70,7 @@ export default {
         skchr_svash2_1: () => ({
           kind: instantKind(chess, def),
           trigger: 'SP_FULL',
-          onStart({ battle, unit }) {
+          onStrike({ battle, unit }) {   // (periodic_cost, svash2_s_1[deck] on ON_SPELL_END)
             battle.addDp(unit.ownerId, num(bb.cost));
             const { pick } = waitingArea(battle, unit);
             cutCost(pick, num(bb['svash2_s_1[deck].cost']));
@@ -123,7 +123,7 @@ export default {
       }),
       skill: {
         kind: 'charges', // DEFAULT (data): cast right before an attack on an enemy in his initial (melee) range
-        onStart({ battle, unit }) {
+        onStrike({ battle, unit }) {   // (`_selectTargetTiming` 1)
           slash(battle, unit, unit.s.atk);
           // cost cut: nearest to the eye, right side guard/caster/sniper preferred
           const { left, pick } = waitingArea(battle, unit);

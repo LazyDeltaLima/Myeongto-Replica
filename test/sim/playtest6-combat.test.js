@@ -390,7 +390,12 @@ test('#14 见行者 S2 惊爆射击: angle waived, a target nearer than 0.25 til
       enemies: [{ key: 'enemy_t', pos }], autoFinish: false, timeLimit: 30, hooks: ['statusApplied'], captureNoisy: true,
     });
     const u = h.unit(id);
-    assert.ok(h.runUntil(() => h.hooksOf('statusApplied').some((c) => c.source === u && c.status === 'stun'), 6), 'cast');
+    // (it stays where it was put until the strike: she would otherwise block it, out to her block radius)
+    assert.ok(h.runUntil(() => {
+      const e0 = h.b.enemies[0];
+      if (e0 && u.skill.activations && u.skill._castStage) { e0.x = pos[1]; e0.y = pos[0]; }
+      return h.hooksOf('statusApplied').some((c) => c.source === u && c.status === 'stun');
+    }, 6), 'cast');
     const st = h.hooksOf('statusApplied').find((c) => c.source === u && c.status === 'stun');
     return { e: h.b.enemies[0], stun: st.duration };
   };

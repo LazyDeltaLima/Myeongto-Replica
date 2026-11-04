@@ -91,10 +91,12 @@ test('S1 一无所有之人 (AUTO, 18 / 15 SP): at full SP it puts its effect on
     const atk = u.s.atk;
     assert.ok(h.runUntil(() => u.skill.activations === 1, 30), 'cast');
     approx(h.b.time, sk.spCost - sk.initSp, `${elite}: at full SP`, 0.05);
+    h.strike(u);
     assert.deepEqual([u, a, b, far].map((x) => !!fxOf(x, 'tocka:s1', u)), [true, false, true, false], `${elite}: 2 picks, lowest HP ratio first, none out of range`);
     approx(fxOf(b, 'tocka:s1', u).data.atk, atk, 'her ATK at the cast');
     assert.ok(u.buffs.some((x) => x.key === 'tocka:mark'), 'T2 mark');
     assert.ok(h.runUntil(() => u.skill.activations === 2, sk.spCost + 2), 'the next cast takes the one left');
+    h.strike(u);
     assert.ok(fxOf(a, 'tocka:s1', u));
     h.run(sk.spCost + 5);
     assert.equal(u.skill.activations, 2, 'nobody without the effect: no cast');
@@ -113,6 +115,7 @@ test('S1: the first damage an ally with the effect takes (not 元素伤害, not 
     a.hp = a.s.maxHp * 0.4;
     b.hp = b.s.maxHp * 0.6;
     assert.ok(h.runUntil(() => u.skill.activations === 1, 30));
+    h.strike(u);
     assert.ok(fxOf(a, 'tocka:s1', u) && fxOf(b, 'tocka:s1', u), 'both allies');
     const atk = fxOf(a, 'tocka:s1', u).data.atk;
     // 元素伤害 and 持续伤害 leave it
@@ -297,6 +300,7 @@ test('冻河 through the real match path (seats[].diy → Match board → battle
   assert.ok(u && !u.kit.generic && u.skill.id === S1, 'her kit, S1');
   for (let i = 0; i < 30 * 40 && u.skill.activations === 0; i++) b.step();
   assert.equal(u.skill.activations, 1, 'S1 cast');
+  for (let i = 0; i < 60 && u.skill._castStage; i++) b.step();
   assert.ok(u.buffs.some((x) => x.key === `tocka:s1:${u.id}`), 'on herself (alone)');
   assert.equal(b.errors.length, 0, JSON.stringify(b.errors[0]));
 });

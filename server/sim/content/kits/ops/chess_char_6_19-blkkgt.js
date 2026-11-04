@@ -53,7 +53,7 @@ function blkkgt(bb, chess, def) {
     // (3 when blocked) of dot_scale × ATK; the talent procs at 100 % meanwhile (skill active + bb.prob)
     skchr_blkkgt_2: {
       kind: instantKind(def),
-      onStart({ battle, unit }) {
+      onStrike({ battle, unit }) {   // (`_selectTargetTiming` 1)
         const grid = skillGrid || [[0, 0], [0, 1]];
         const c = battle.unitsInGrid(unit, grid, { side: 'enemy' }).filter((e) => !e.isFlying && canTargetEnemy(unit, e, unit.profile));
         sortEnemyTargets(battle, unit, c, null);

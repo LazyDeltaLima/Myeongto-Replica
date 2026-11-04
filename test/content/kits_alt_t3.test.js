@@ -752,6 +752,7 @@ test('3_18 忍冬 S1 小施惩戒: next attack + extra arts and +DP; S2 坠刃�
     assert.equal(v.skill.rule, 'DEFAULT');
     assert.ok(g.runUntil(() => v.skill.activations === 1, 1), 'rangeId 3-12: an enemy on the skill range (_DefaultTriggerSkill)');
     const first = g.b.time;
+    g.strike(v);
     approx(gp.dp, gdp + b2.cost);
     const e1 = g.enemy('enemy_e1');
     const hit = tagged(g, 'vulpisTorture', v);
@@ -763,6 +764,7 @@ test('3_18 忍冬 S1 小施惩戒: next attack + extra arts and +DP; S2 坠刃�
     v.skill.gainSp(v.skill.spCost + 0.01, 'test');
     assert.ok(g.runUntil(() => v.skill.activations === 2, 4));
     assert.ok(g.b.time - first >= 2.2 - 1e-6, 'the next automatic cast waits the 10-pass block (≈ 2.2 s)');
+    g.strike(v);
     const second = tagged(g, 'vulpisTorture', v).slice(1);
     assert.equal(second.length, b2.max_target, '≤ max_target enemies');
     if (second.some((c) => c.target === e1)) assert.ok(e1.s.flags.stun, 'already 停顿 ⇒ stunned');

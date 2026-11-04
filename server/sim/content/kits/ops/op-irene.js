@@ -102,10 +102,13 @@ export default {
           kind: num(s2?.maxChargeTime, 1) > 1 ? 'charges' : 'instant',
           // [ASSUMED·not checked] its strike and its guard (guardActivation) take ground enemies only: 白铁's 铁钳号 alone does not open
           // it (the strategy counts it in the box — skills.js _allyTargetIn — and the guard refuses the cast)
-          onStart({ battle, unit }) {
+          onStart({ battle, unit, skill }) {   // (`_selectTargetTiming` 0)
             const list = battle.enemiesInKeys(keysOf(unit, grid2), unit, GROUND);
             sortEnemyTargets(battle, unit, list, null);
-            const v = list.slice(0, Math.max(1, Math.floor(num(b2.max_target, 1))));
+            skill.castPick = list.slice(0, Math.max(1, Math.floor(num(b2.max_target, 1))));
+          },
+          onStrike({ battle, unit, skill }) {
+            const v = skill.castPick.filter((e) => e.alive);
             battle.fx('slash', { x: unit.x, y: unit.y, id: unit.id, n: v.length, skill: 'irene:tide' });
             for (const e of v) {
               battle.dealDamage(unit, e, { amount: unit.s.atk * num(b2.atk_scale, 1), type: 'phys', isSkill: true, tags: ['skill'] });
@@ -118,10 +121,12 @@ export default {
           kind: 'duration',
           duration: S3_DURATION,
           attack: { noAttack: true },
+          castHolds: true,   // the first strike is on Skill_3_Start's OnAttack
           // 白铁's 铁钳号·原型机 (a registered ally target) is struck like an enemy — the owner's rule of 2026-10-08; its kit
           // cancels the hits [ASSUMED·not checked: its strikes take it like a ground enemy of the skill range]
-          onStart({ battle, unit }) {
-            unit.mem.ireneS3 = { t: 0, n: 0 };
+          onStart({ unit }) { unit.mem.ireneS3 = { t: 0, n: 0 }; },
+          onStrike({ battle, unit, skill }) {
+            skill.castHit();
             const v = [...battle.enemiesInKeys(keysOf(unit, grid3), unit, GROUND), ...battle.allyTargetsInKeys(keysOf(unit, grid3), unit)];
             battle.fx('aoe', { x: unit.x, y: unit.y, radius: 1.5, id: unit.id, skill: 'irene:judgment' });
             for (const e of v) {

@@ -55,7 +55,8 @@
 //   the engine does not hold the cast for the next attack), castHolds (bool: a timed skill's 'state' cast holds the unit's
 //   attacks through its skill clip's action), durationAfterCast (bool: its `duration` starts as that action ends), endHolds (bool: that clip comes
 //   last in its sequence group, so its action holds the attacks from the end of the skill's `duration`; a number: those seconds), onStart(ctx), onEnd(ctx), onHit(ctx), onAttack(ctx), onTick(ctx),
-//   onStrike(ctx) / onCastEnd(ctx) (a `castHolds` skill: its skill clip's OnAttack frame and that clip's end; a stun before them loses them; no client cast known: at once),
+//   onStrike(ctx) / onCastEnd(ctx) (a `castHolds` skill: its skill clip's OnAttack frame and that clip's end; a stun before them loses them; no client cast known: at once;
+//   an instant / charge skill's onStrike: the same frame of its 'state' cast, onStart then being what comes as the cast starts, as picking targets for `_selectTargetTiming` 0: skill.castPick),
 //   castCarriesOn (bool: its sequence group does not interrupt the clip's ability, `_alsoInterruptCurrentSubAbility` 0: a stun loses no stage, the OnAttack frame is then the clip's end),
 //   modsAfterCast (bool: mods / attack come from the ability after the clip, so a stun that loses that ability loses them),
 //   durationFromCastWhenCut (bool: the group's time is its longest ability's, `_useLongestAbilityCooldown`: a stun that loses the buff leaves `duration` from the cast).
@@ -258,6 +259,8 @@ export class SkillRuntime {
     this._castStage = null;
     this._durationFrom = 0;
     this._castLost = false;
+    this._offPending = false;
+    this.castPick = null;
     if (this.unit) this.unit.skillStateUntil = 0;
     if (this.noSkill) return;
     if (this.kind === 'passive') {
@@ -360,6 +363,7 @@ export class SkillRuntime {
   tickActive(dt) {
     if (this.noSkill) return;
     if (this.kind !== 'passive' && this.sp > this.spCost) this._normalize();
+    if (this._castStage?.instant) this._tickCast();   // (the instant skill itself has ended)
     if (this.active && this.kind !== 'passive') {
       if (this._castStage) {
         this._tickCast();
@@ -707,11 +711,37 @@ export class SkillRuntime {
       if (this.active) this._call('onCastEnd');
     }
     if (!this.isTimed && !this.pending) {
+      const n = this.activations;
       this.end('instant');
       // (a cast onEnd opened again owns its own gap)
       if (!this.active && !this.spec.attack && u.alive) this._paceInstant();
+      if (this.spec.onStrike && this.activations === n && u.alive) this._instantStrike();
+      else this._sendOff();
     }
     return true;
+  }
+
+  /**
+   * The effect of an instant / charge skill's cast (`onStrike`): a 'state' cast with a clip waits for its OnAttack frame, in `_tickCast` — the
+   * client casts the skill ability at once and that ability waits for the frame (`_waitForAttackEvent`, or `_preDelay` without it). Otherwise at once.
+   */
+  _instantStrike() {
+    const b = this.battle;
+    if (this.cast?.mode === 'state' && this.cast.dur > 0 && this.unit.skillStateUntil > b.time) {
+      const t = this.castTiming();
+      this._castStage = { strikeAt: b.time + t.strike, endAt: b.time + t.action, instant: true };
+      this._tickCast();
+    } else {
+      this._call('onStrike');
+      this._sendOff();
+    }
+  }
+
+  /** The view's skill off of an instant cast whose effect has come or been lost. */
+  _sendOff() {
+    if (!this._offPending) return;
+    this._offPending = false;
+    this.battle._ev(['skill', this.unit.id, 0]);
   }
 
   /** A 'replace' cast of this unit: an instant / charge skill with no attack override, cast by a unit that attacks. */
@@ -807,6 +837,7 @@ export class SkillRuntime {
       c.cut = true;
       if (!this.spec.castCarriesOn) {
         this._castStage = null;
+        this._sendOff();
         if (this.spec.modsAfterCast) {
           this._castLost = true;
           this._removeMods();
@@ -818,6 +849,16 @@ export class SkillRuntime {
     }
     if (c.strikeAt != null && now >= c.strikeAt) {
       c.strikeAt = null;
+      if (c.instant) {
+        this._castStage = null;
+        this.castHit();   // the damage after it is the skill ability's (the view's effects on its targets)
+        // (its effect is the skill's: `skill.active` for the talents that ask, as in onStart)
+        this.active = true;
+        this._call('onStrike');
+        this.active = false;
+        this._sendOff();
+        return;
+      }
       this._call('onStrike');
       if (!this.active || this._castStage !== c) return;
     }
@@ -859,6 +900,7 @@ export class SkillRuntime {
     const b = this.battle;
     const u = this.unit;
     this._call('onStart', { reason: r.reason });
+    if (this.spec.onStrike) this._call('onStrike', { reason: r.reason });
     if (b._hooks.skillStart) b.emit('skillStart', { unit: u, skill: this, reason: r.reason });
     if (this.active && !this.isTimed && !this.pending) this.end('instant');
     return true;
@@ -910,6 +952,7 @@ export class SkillRuntime {
     this.ammoLeft = 0;
     this.ammoMax = 0;
     const n = this.activations;
+    this._castStage = null;
     this._call('onEnd', { reason });
     // onEnd started the next cast (耀骑士临光 S2 retreats on its duration end and 不屈 redeploys her inside that call; the
     // deploy-timed skill starts again, PR #109): that cast owns the mods and its events — a trailing skillEnd would make
@@ -921,7 +964,9 @@ export class SkillRuntime {
     const hold = this.spec.endHolds;
     if (hold && reason === 'duration' && u.alive && this.cast?.mode === 'state' && this.cast.dur > 0) this._enterSkillState(typeof hold === 'number' ? { action: hold } : this.castTiming());
     if (b._hooks.skillEnd) b.emit('skillEnd', { unit: u, skill: this, reason });
-    if (this.kind !== 'passive') b._ev(['skill', u.id, 0]);
+    // (an instant cast with its effect still to come: the view's skill stays on until then — the impact of its hit is the skill's; _instantStrike)
+    if (reason === 'instant' && this.spec.onStrike && this.cast?.mode === 'state' && this.cast.dur > 0) this._offPending = true;
+    else if (this.kind !== 'passive') b._ev(['skill', u.id, 0]);
   }
 
   /** The attack override to use for the next attack, or null. */

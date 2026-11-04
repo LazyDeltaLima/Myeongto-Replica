@@ -201,12 +201,17 @@ export default {
           onStart({ battle, unit }) {
             const from = unit.mem.oxiGuardFrom ?? null;
             unit.mem.oxiGuardFrom = null;
+            unit.mem.oxiRetaliate = from;
             guardOpen(battle, unit);
             // oxi_s_2_stack, given as the ability starts (`_runActionOnEvent` 2) — before its strike, so the retaliation has it:
             // ATK / DEF +atk / +def per stack, max_stack_cnt stacks, stack_duration s refreshed by each cast (a STACK override
             // group: `_AddStack` keeps the longer time, a full group refreshes it)
             battle.addBuff(unit, { key: 'oxi_s_2_stack', refresh: 'stack', stacks: 1, maxStacks: num(b2.max_stack_cnt, 5),
               duration: num(b2.stack_duration, 5), mods: { atkPct: num(b2.atk), defPct: num(b2.def) }, visible: true, tags: ['skill'] });
+          },
+          onStrike({ battle, unit }) {   // (`_selectTargetTiming` 1)
+            const from = unit.mem.oxiRetaliate ?? null;
+            unit.mem.oxiRetaliate = null;
             retaliate(battle, unit, from);
           },
         },

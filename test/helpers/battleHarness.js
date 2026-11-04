@@ -42,7 +42,7 @@
 //   autoFinish    end when all enemies are dead (default: true when any spawn is scheduled, else false so a
 //                 battle without enemies keeps running until its time limit)
 //   hooks         list of hook names to capture (default: all DESIGN events)
-// Returned harness: { battle, b, step(n), run(seconds), runUntil(pred|seconds, maxSeconds), runToEnd(maxSeconds),
+// Returned harness: { battle, b, step(n), run(seconds), runUntil(pred|seconds, maxSeconds), strike(unit), runToEnd(maxSeconds),
 //   unit(idOrChessIdOrUid), allies(), enemies(), enemy(key), spawn(key, opts), events, eventsOf(kind),
 //   hooks, hooksOf(name), invariants(), result(), snapshot() }
 
@@ -301,6 +301,8 @@ export function makeBattle(opts = {}) {
       return h;
     },
     /** Step until pred() is true (or `pred` seconds elapsed when a number). Returns true if pred became true. */
+    /** Steps until `u`'s skill cast has reached its OnAttack frame or was cut (skills.js `_tickCast`); nothing to wait for: no step. */
+    strike(u, maxSeconds = 5) { return h.runUntil(() => !u.skill?._castStage?.instant && (u.skill?._castStage?.strikeAt ?? null) == null, maxSeconds); },
     runUntil(pred, maxSeconds = 300) {
       if (typeof pred === 'number') { h.run(pred); return true; }
       const limit = battle.time + maxSeconds;

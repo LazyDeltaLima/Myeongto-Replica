@@ -68,7 +68,7 @@ export default {
           const sc = num(s.bb.atk_scale, 1);
           return {
             kind: instantKindOf(s),
-            onStart({ battle, unit }) {
+            onStrike({ battle, unit }) {   // (`_selectTargetTiming` 1)
               const first = enemiesOn(battle, unit, unit.rangeKeys, 1, unit.profile)[0];
               if (!first) return;
               const seen = new Set();

@@ -25,9 +25,12 @@ export default {
     const kit = {
       skill: {
         kind: 'instant',
-        onStart({ battle, unit }) {
+        onStart({ battle, unit, skill }) {   // (knock_back `_selectTargetTiming` 0)
           const keys = new Set(gridKeys(skillGrid ?? unit.rangeGrid, unit));
-          const victims = battle.enemies.filter((e) => e.alive && !e.hidden && !e.s.flags.untargetable && onTiles(e, keys));
+          skill.castPick = battle.enemies.filter((e) => e.alive && !e.hidden && !e.s.flags.untargetable && onTiles(e, keys));
+        },
+        onStrike({ battle, unit, skill }) {
+          const victims = (skill.castPick ?? []).filter((e) => e.alive);
           const pushed = new Set(victims);
           for (const e of victims) {
             // "往身前方向…推开": a directional push whose angle is fixed — PRTS 备注 "不会因为角度过大而改变推动的方向或削减力度"

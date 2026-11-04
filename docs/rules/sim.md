@@ -1580,8 +1580,12 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
     - 벨로네 S3·Mon3tr S3의 이동은 시전 순간이 아니라 클립 끝이다(2026-11-05, 공식 클라에서 확인): `FlyToTarget`·`Respawn`은 `_waitForAttackEvent` 1이고 클립(`Skill_3_ReStart_Begin` 0.2초·`Skill_3_Begin` 0.667초)에 `OnAttack`이 없으니, 대기는 상한 `m_cachedDuration`에서 끝난다. `_End` 클립을 이어 트는지와 무관하다. 대상은 벨로네는 그 순간(`_selectTargetTiming` 1), Mon3tr은 시전 시작(0). Mon3tr은 끊기면(`_interruptableSubAbilityIndice` 1) 제자리에서 스킬만 흐른다. 유실은 착지부터라 끊기면 없다. 벨로네의 `FlyToTargetSecond`도 같은 클립·대기라 0.2초 뒤 이동한다 [추정·엔진: 그 0.2초 동안 휘두름을 끊는지 안 읽음. 지금은 안 끊고, 이동이 끊는다].
     - `moveRedeploy`는 진행 중 휘두름을 없앤다(새 배치와 같음, 위 벨로네·Mon3tr·울피아누스 S3). 클립 끝 틱에는 공격을 시작하지 않는다: 스킬 틱이 공격 뒤라, 옛 칸에서 시작한 휘두름이 끼어들었다.
     - 시점이 옮겨진 피해의 대상 이펙트는 표시 사건 `['castHit', id, part?]`가 붙인다(render: `fxgame.js` `castHit` → `expect`).
-  - [추정·미조사: 위 목록 밖 `state` 스킬은 아직 옮기지 않음] 키트 `onStart`의 효과는 시전 순간에 둔다 — 클라는 스킬 클립의 OnAttack 프레임(`_waitForAttackEvent` 1)에 낸다. 클립에 없는
-    FROM_ANIMATION 키(패신저 S3 `Skill_3` — 골격은 `Skill3`)는 공격 간격으로 셈.
+  - **즉발·충전 `state` 스킬의 효과가 나는 시점**(2026-11-05, 공식 클라 프리팹): Skill 상태·SP·다음 시전 간격은 시전 순간 그대로이고, 효과만 스킬 능력이 기다리는 프레임에 난다(키트 `onStrike`, `skills.js _instantStrike`·`_tickCast`). 클립의 `OnAttack`이고, 텍사스 S2처럼 `_waitForAttackEvent` 0이면 `_preDelay`(0.5초)다. 대상은 `_selectTargetTiming`대로: 0이면 시전 시작에 골라 두고(`onStart`, `skill.castPick`) 그사이 범위를 벗어나도 맞으며 죽은 대상만 빠진다, 1이면 그 프레임에 고른다.
+    - 대상 0: 블레이즈 디 이그나이팅 스파크 S1·인포서 S2(`knock_back`)·노시스 S2·아이린 S2·레온하르트 S2·루멘 S2·포덴코 S2·토스카 S1·불피스폴리아 S2·위디 S3, 쏜즈 더 로드스타 S2의 적(`Mark`; 적이 없으면 칸은 `Token`이 그 프레임에). 대상 1: 나머지(아르케토 S2·데겐블레허 S2·메테오 S2·프라마닉스 더 프레리타 S1·실버애쉬 더 레인프로스트 S2·에이야퍄들라 더 크비트 아스카 S2·토스카 S2·토가와 사키코 S1 등, 값은 각 키트 주석).
+    - 시전 시작에 나는 것(`_runActionOnEvent` 2 ON_CAST_START): 플레임테일 S2의 DP(`flamtl_s_2[cost]`), 탈룰라 S2의 스택과 방어 구간. 텍사스 S2·불피스폴리아 S2의 DP는 ON_SPELL_ON(타격), 실버애쉬 더 레인프로스트 S1의 DP·덱은 ON_SPELL_END(타격 끝)이라 프레임에 난다.
+    - 기절·빙결·수면이 그 전에 오면 효과는 사라지고 SP는 돌려받지 않는다(지속 스킬의 끊김과 같음, 스킬 능력이 그룹이 아니라 끊긴다). 화면의 스킬 켜짐(`['skill', id, 0]`)은 프레임까지 유지한다(타격음이 스킬의 것이다, `audio.js`). 프레임 동안 `skill.active`는 참이다(재능이 스킬 중인지 묻는다).
+    - 안 옮김 [추정·미조사: `OnAttack`도 클립도 없는 능력이 언제 닿는지 — 대기 상한 `m_cachedDuration`의 값을 안 읽음]: `_animKey`가 빈 클리프하트 S2(`skchr_slchan_2`)·스노우헌터 S2·울피아누스 S1·모스티마 S2·호시구마 S3·로즈몬티스 S3·비즈왁스 S2, 클립이 골격에 없는 패신저 S3(`Skill_3` — 골격은 `Skill3`)·사리아 S2(`Heal`). 공격 간격으로 세는 시전 잠금은 그대로다.
+    - 안 옮김(이미 맞음): 첸 더 던스트릭 S2(공격 없고 사라지는 동작이 키트에 있음), 지마 더 레이징 타이드 S3(망치 프레임을 키트가 셈). 아이린 S3 첫 타는 `Skill_3_Start`의 `OnAttack` 0.133초로 옮김.
   - 데이터에 `cast`가 없는 스킬(클라 프리팹을 못 읽은 것)은 옛 규칙(틱 시전 뒤 공격 간격 한 번)을 쓴다.
   - 범위 밖: `spec.attack`이 있는 `CastSkill` sw1 4개(솔방울 S1·첼로 S1·머드락 S2·님프 S2)는 지금처럼 「다음 공격에 스킬 공격」.
   - **옛 동작**(2026-10-09 upstream #298 이식, [ASSUMED]): 모든 공격 없는 즉발이 틱 시전 뒤 `nextCastAt = now + 공격 간격`, 시전은 공격이 아니고 공격 리듬은

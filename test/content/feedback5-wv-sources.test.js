@@ -35,6 +35,7 @@ test('#4 忍冬 S2 坠刃拷问 (PRTS 备注 "无法选中被自身阻挡而没�
     const inside = h.spawn('e', { pos: [10, 7] });
     h.step();
     assert.ok(u.skill.activate('test', { free: true }), `${id}: cast`);
+    h.strike(u);
     h.step();
     const hit = h.hooksOf('damaged').filter((c) => c.source === u && c.dmg?.tags?.includes('vulpisTorture'));
     assert.ok(hit.some((c) => c.target === inside), `${id}: the enemy inside the 3-12`);

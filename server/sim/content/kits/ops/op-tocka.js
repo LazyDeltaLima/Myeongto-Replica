@@ -297,9 +297,11 @@ export default {
       skills: {
         [S1]: {
           kind: 'instant', trigger: 'NEVER',
-          onStart({ battle, unit }) {
+          onStart({ battle, unit, skill }) { skill.castPick = s1Targets(battle, unit, b1); },   // (`_selectTargetTiming` 0)
+          onStrike({ battle, unit, skill }) {
             const atk = unit.s.atk * num(b1.atk_scale, 1);
-            for (const a of s1Targets(battle, unit, b1)) {
+            for (const a of skill.castPick ?? []) {
+              if (!a.alive) continue;
               battle.addBuff(a, { key: keyOf(S1_FX, unit), data: { atk }, tags: ['tocka'] });
               putFx(battle, unit, a, 1);
               mark(battle, unit, hasT2);
@@ -308,7 +310,7 @@ export default {
         },
         [S2]: {
           kind: 'instant', trigger: 'NEVER',
-          onStart({ battle, unit }) {
+          onStrike({ battle, unit }) {   // (`_selectTargetTiming` 1)
             const t = s2Target(battle, unit);
             if (!t) return;
             if (t === unit) { s2Apply(battle, unit, t, b2, t1, hasT2); return; }

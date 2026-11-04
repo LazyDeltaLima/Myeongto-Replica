@@ -163,6 +163,7 @@ test('S3 液氮大炮 (MANUAL, DEFAULT on its 4-1 box): 290 % / 320 % ATK arts o
     const fly = h.spawn('enemy_fly', { pos: [11, 7] });
     const out = h.spawn('enemy_dummy', { pos: [12, 7] });
     assert.ok(h.runUntil(() => u.skill.activations === 1, 1), `T${tier}: cast`);
+    h.strike(u);
     const shot = from(h, u, 'weedy:nitro');
     assert.deepEqual(shot.map((c) => c.target.id).sort((a, b) => a - b), [t.id, fly.id].sort((a, b) => a - b), `T${tier}: within ${NITRO_SPLASH}`);
     for (const c of shot) { assert.equal(c.type, 'arts'); approx(c.amount, u.s.atk * sk.bb.atk_scale, `T${tier}: arts`); }
@@ -297,6 +298,7 @@ test('S3 with the cannon beside her: it fires its own 液氮炮 too (its nearest
     const b = h.spawn('enemy_dummy', { pos: [tile[0], 7] });
     u.skill.gainSp(999);
     assert.ok(h.runUntil(() => u.skill.activations === 1, 1));
+    h.strike(u);
     const shot = from(h, u, 'weedy:nitro');
     assert.ok(shot.some((x) => x.target === a), 'hers');
     assert.equal(shot.some((x) => x.target === b), fires, `the cannon at ${tile}`);

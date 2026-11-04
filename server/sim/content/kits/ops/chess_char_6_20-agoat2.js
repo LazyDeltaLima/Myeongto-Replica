@@ -37,7 +37,7 @@ function agoat2(bb, chess, def) {
     skchr_agoat2_2: {
       kind: 'instant',
       heal: true,
-      onStart({ battle, unit }) {
+      onStrike({ battle, unit }) {   // (`_selectTargetTiming` 1; skchr_agoat2_2 agoat2_s_2[activate] on ON_SPELL_ON)
         const er = num(unit.profile?.heal?.elementHealRatio, num(tb.ep_heal_ratio, 0.5));
         const allies = battle.alliesInGrid(unit);
         for (const a of allies) {

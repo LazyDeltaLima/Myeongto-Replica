@@ -41,11 +41,15 @@ function lumen(bb, chess, def) {
     skchr_lumen_2: {
       kind: instantKind(def),
       heal: true,
-      onStart({ battle, unit, skill }) {
+      onStart({ battle, unit, skill }) {   // (`_selectTargetTiming` 0)
         const full = skill.maxCharges > 1 && skill.charges >= skill.maxCharges - 1; // (this cast already spent one)
         const inj = battle.injuredAlliesInKeys(unit.rangeKeys, unit);
         const abn = full ? abnormalAllies(battle, unit).filter((a) => !inj.includes(a)) : [];
-        const tgts = inj.concat(abn).slice(0, Math.max(1, Math.floor(num(bb.max_target, 2))));
+        skill.castPick = { full, tgts: inj.concat(abn).slice(0, Math.max(1, Math.floor(num(bb.max_target, 2)))) };
+      },
+      onStrike({ battle, unit, skill }) {
+        const { full } = skill.castPick;
+        const tgts = skill.castPick.tgts.filter((t) => t.alive);
         for (const t of tgts) {
           battle.heal(unit, t, unit.s.atk * num(bb.heal_scale, 1), { skillHeal: true });
           if (full) cleanse(battle, t);

@@ -93,9 +93,14 @@ export default withDefaults({
         kind: (def.skill?.maxCharges ?? 1) > 1 ? 'charges' : 'instant',
         // a cast with every charge stored is the charged mode S2+ (charpack Skill_2→Skill_3): its clip (render)
         castVariant: ({ skill }) => (skill.maxCharges > 1 && skill.charges + 1 >= skill.maxCharges ? 'charged' : null),
-        onStart({ battle, unit, skill }) {
-          const charged = skill.maxCharges > 1 && skill.charges + 1 >= skill.maxCharges; // cast with every charge stored
-          for (const e of targetsInRange(battle, unit)) {
+        onStart({ battle, unit, skill }) {   // (`_selectTargetTiming` 0)
+          // cast with every charge stored
+          skill.castPick = { charged: skill.maxCharges > 1 && skill.charges + 1 >= skill.maxCharges, foes: targetsInRange(battle, unit) };
+        },
+        onStrike({ battle, unit, skill }) {
+          const { charged, foes } = skill.castPick;
+          for (const e of foes) {
+            if (!e.alive) continue;
             battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale, 1.3), type: 'arts', isSkill: true, tags: ['skill', 'burst'] });
             if (!e.alive) continue;
             battle.applyStatus(e, 'cold', { duration: num(bb.cold, 2.5), source: unit });

@@ -985,6 +985,7 @@ test('焰尾 S2 “红松林”: +11/12 DP; ≤ 6 enemies around: 2 × atk_scale
     for (let i = 0; i < 7; i++) h.spawn('enemy_dummy', { pos: [10, 6] });
     const dp0 = h.b.getPlayer('p1').dp;
     assert.ok(u.skill.activate('test', { free: true }));
+    h.strike(u);
     assert.equal(h.b.getPlayer('p1').dp, dp0 + bb.cost);
     const hits = dmgBy(h, u, tagged('redPine'));
     const victims = new Set(hits.map((c) => c.target));

@@ -248,6 +248,7 @@ test('3_07 见行者: 惊爆射击 pushes enemies forward + stun (wall / collisi
   const a = h.enemy('enemy_a'), c = h.enemy('enemy_c');
   fill(u);
   assert.ok(h.runUntil(() => u.skill.activations === 1, 5));
+  h.strike(u);
   assert.ok(a.x > 5.9, `pushed forward (${a.x})`);
   const stun = (x) => h.hooksOf('statusApplied').find((s) => s.target === x && s.status === 'stun');
   approx(stun(a).duration, bb['forcer_s_2[hit_directly].stun']);
@@ -262,6 +263,7 @@ test('3_07 见行者: 惊爆射击 pushes enemies forward + stun (wall / collisi
   w.step();
   fill(v);
   assert.ok(w.runUntil(() => v.skill.activations === 1, 5));
+  w.strike(v);
   approx(w.hooksOf('statusApplied').find((s) => s.status === 'stun').duration, bb.stun, 1e-6, 'slammed into the edge');
   done(w);
 
@@ -636,6 +638,7 @@ test('3_17 流星: 碎甲击·扩散 hits ≤5 enemies for ATK% + DEF shred; 空
     approx(fly.amount, u.s.atk * t0.atk_scale * (tb.atk_scale ?? 1), 1e-6, 'flying target');
     fill(u);
     assert.ok(h.runUntil(() => u.skill.activations === 1, 5));
+    h.strike(u);
     const burst = tagged(h, 'burst', u);
     assert.equal(burst.length, 5, 'at most 5 enemies');
     const g = burst.find((c) => c.target.defId === 'enemy_g');
@@ -804,6 +807,7 @@ test('3_17 流星 / 3_19 伺夜 with their 特质 弱点伤害: kit damage is re
   h.step();
   fill(u);
   assert.ok(h.runUntil(() => u.skill.activations === 1, 5));
+  h.strike(u);
   const b0 = tagged(h, 'burst', u)[0];
   assert.equal(b0.type, 'arts');
   approx(b0.amount, u.s.atk * sbb.atk_scale, 1e-6, 'weakness burst');
@@ -1021,6 +1025,7 @@ test('3_07 见行者: 惊爆射击 fires on an enemy inside the skill range only
   assert.equal(h.b.enemiesInKeys(u.baseRangeKeys, u, u.profile).length, 0, 'outside her attack range');
   fill(u);
   assert.ok(h.runUntil(() => u.skill.activations === 1, 2), 'skill range (3 tiles ahead) triggers it');
+  h.strike(u);
   assert.ok(e.x > 6.9, `pushed (${e.x})`);
   approx(h.hooksOf('statusApplied').find((s) => s.target === e && s.status === 'stun').duration, bb['forcer_s_2[hit_directly].stun']);
   done(h);

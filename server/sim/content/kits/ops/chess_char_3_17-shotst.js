@@ -15,7 +15,7 @@ export default {
       trait: { dmgMul: (battle, unit, target) => flyMul(unit, target) },
       skill: {
         kind: 'instant',
-        onStart({ battle, unit }) {
+        onStrike({ battle, unit }) {   // (`_selectTargetTiming` 1)
           const list = enemiesOn(battle, unit, unit.rangeKeys, n, unit.profile);
           // before the damage: the renderer flies the skill's arrows and holds their hits for the landing
           if (list.length) fx(battle, 'volley', unit, { targets: list.map((e) => e.id), skill: 'shotst_2' });

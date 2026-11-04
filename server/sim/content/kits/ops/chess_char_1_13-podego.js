@@ -38,8 +38,9 @@ export default {
       },
       skill: {
         kind: 'instant',
-        onStart({ battle, unit }) {
-          const tgt = enemiesInGrid(battle, unit, null, { n: 1 })[0];
+        onStart({ battle, unit, skill }) { skill.castPick = enemiesInGrid(battle, unit, null, { n: 1 })[0] ?? null; },   // (`_selectTargetTiming` 0)
+        onStrike({ battle, unit, skill }) {
+          const tgt = skill.castPick?.alive ? skill.castPick : null;
           const x = tgt ? tgt.x : unit.x + unit.fwd[1], y = tgt ? tgt.y : unit.y + unit.fwd[0];
           const atk = unit.s.atk;
           makeZone(battle, unit, {

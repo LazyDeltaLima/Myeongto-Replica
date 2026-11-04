@@ -556,9 +556,9 @@ test('user: Given normal battle-start effects, When rehearsing candidate layouts
   };
   const cases = [
     // (upstream used 9,4 → 9,8 and 9,9 → 9,7; this fork's rules give other counts: since enemies walk as the client's
-    // cursor does (2026-11-04) 12,6 and 9,7 leak six, against 11,5's one and 12,7's three)
+    // cursor does and instant skills strike on their clips' OnAttack (2026-11-05) 12,6 leaks six against 11,5's five, 12,7 seven against 9,7's six)
     { effect: 'in-battle layer gains', keys: ['12,6', '11,5'] },
-    { effect: 'duck replacements and a teammate medic', keys: ['9,7', '12,7'] },
+    { effect: 'duck replacements and a teammate medic', keys: ['12,7', '9,7'] },
   ];
   for (const { effect, keys } of cases) {
     await t.test(`user: Given ${effect}, When comparing two layouts, Then prefer the second layout's lower leak count`, () => {

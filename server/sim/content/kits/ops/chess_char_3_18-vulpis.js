@@ -70,10 +70,11 @@ export default {
           const n = Math.max(1, Math.floor(num(s.bb.max_target, 6)));
           return {
             kind: instantKindOf(s),
-            onStart({ battle, unit }) {
+            onStart({ battle, unit, skill }) { skill.castPick = enemiesOn(battle, unit, gridKeys(grid ?? unit.rangeGrid, unit), n); },   // (`_selectTargetTiming` 0)
+            onStrike({ battle, unit, skill }) {   // (vulpis_s_2[cost] on ON_SPELL_ON)
               const dp = num(s.bb.cost, 0);
               if (dp > 0) { battle.addDp(unit.ownerId, dp); fx(battle, 'dp', unit, { n: dp }); }
-              const list = enemiesOn(battle, unit, gridKeys(grid ?? unit.rangeGrid, unit), n);
+              const list = skill.castPick.filter((e) => e.alive);
               for (const e of list) {
                 const was = !!e.findBuff('sluggish'); // "若敌人已经处于停顿状态" (before this cast)
                 battle.dealDamage(unit, e, { amount: unit.s.atk * num(s.bb.atk_scale, 1), type: 'arts', isSkill: true, tags: ['skill', 'vulpisTorture'] });

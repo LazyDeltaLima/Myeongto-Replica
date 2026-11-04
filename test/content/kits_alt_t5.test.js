@@ -277,6 +277,7 @@ test('烛煌 S1 炙手之援: the highest-max-HP op in range carries a fire aura
     const big = h.unit('t_big'), small = h.unit('t_small');
     h.step();
     cast(h, u);
+    h.strike(u);
     const aura = big.findBuff(`blaze2:aid:${u.id}`);
     assert.ok(aura, 'on the highest max HP op');
     approx(aura.timeLeft, bb.max_duration, 'duration', 0.02);
@@ -977,6 +978,7 @@ test('凛御银灰 S1 周旋的谋略: +10 DP; the waiting op nearest to the eye
     for (const a of [g, c]) h.b.dealDamage(null, a, { amount: 1e9, type: 'true' });
     const dp0 = h.b.getPlayer(u.ownerId).dp;
     cast(h, u);
+    h.strike(u);
     assert.equal(h.b.getPlayer(u.ownerId).dp, Math.min(h.b.flags.dpMax, dp0 + bb.cost), '+cost DP');
     assert.equal(g.base.cost, 20 - bb['svash2_s_1[deck].cost'], 'right of the eye, guard');
     assert.equal(c.base.cost, 8);
@@ -1191,6 +1193,7 @@ test('引星棘刺 S3 “我的海疆”: passive skill range; alchemy units on 
     h.step();
     assert.ok(u.rangeKeySet.has(10 * COLS + 7) && u.baseRangeKeys.includes(10 * COLS + 7), 'passive: the skill range is her range (and trigger range)');
     cast(h, u);
+    h.strike(u);
     const anchors = u.mem.zones.map((z) => z.anchor.defId).sort();
     const ownBlk = u.s.blockCnt;
     assert.deepEqual(anchors, (ownBlk <= 1 ? [u.defId, 't_b0', 't_b1'] : ['t_b0', 't_b1', 't_b2']).sort(), 'the 3 lowest block counts');

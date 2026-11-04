@@ -33,8 +33,8 @@ export default withDefaults({
         }),
         skchr_flamtl_2: () => ({
           kind: 'instant',
-          onStart({ battle, unit }) {
-            battle.addDp(unit.ownerId, num(bb.cost, 11));
+          onStart({ battle, unit }) { battle.addDp(unit.ownerId, num(bb.cost, 11)); },   // flamtl_s_2[cost] on ON_CAST_START
+          onStrike({ battle, unit }) {   // (`_selectTargetTiming` 1)
             const area = g || [[0, 0], [0, 1]];
             const foes = targetsInGrid(battle, unit, area);
             sortEnemyTargets(battle, unit, foes, null);

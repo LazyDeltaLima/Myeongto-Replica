@@ -691,6 +691,7 @@ test('凛御银灰 S2: 6 front enemies in the skill range take 260 % ATK phys + 
   for (const p of tiles) h.spawn('enemy_dummy', { pos: p });
   u.skill.gainSp(1000);
   assert.ok(h.runUntil(() => u.skill.activations > 0, 2));
+  h.strike(u);
   const hits = tagged(h, 'svash2');
   assert.equal(hits.length, bb.max_target);
   for (const c of hits) {
@@ -707,7 +708,7 @@ test('凛御银灰 S2: a waiting op left of the eye slashes with its own ATK onc
   const h = makeBattle({
     defs: {
       enemies: { enemy_dummy: dummy() },
-      chess: { t_cheap: chessRec({ id: 't_cheap', stats: { cost: 10, atk: 500, maxHp: 1000, respawnTime: 3 }, skill: null }) },
+      chess: { t_cheap: chessRec({ id: 't_cheap', stats: { cost: 10, atk: 500, maxHp: 1000, respawnTime: 6 }, skill: null }) },
     },
     units: [{ chessId: 'chess_char_5_14_a', row: 9, col: 3 }, { chessId: 't_cheap', row: 12, col: 5 }],
     hooks: ['damaged'], captureNoisy: true, autoFinish: false, timeLimit: 120,
@@ -723,6 +724,7 @@ test('凛御银灰 S2: a waiting op left of the eye slashes with its own ATK onc
     const n = u.skill.activations;
     u.skill.gainSp(1000);
     assert.ok(h.runUntil(() => u.skill.activations > n, 3), `cast ${i + 1}`);
+    h.strike(u);
   }
   assert.equal(op.mem.svashCasts, 2, 'two casts stacked on the waiting op');
   assert.ok(h.runUntil(() => op.alive && op.deployed, 60), 'it redeploys');
@@ -752,6 +754,7 @@ test('凛御银灰 S2 auto-cast: rangeId box — an enemy inside the skill range
   u.skill.gainSp(1000);
   h.run(0.2);
   assert.equal(u.skill.activations, 1, 'enemies only in the skill range: cast');
+  h.strike(u);
   assert.equal(h.hooksOf('damaged').filter((c) => c.source === u && c.dmg?.isAttack && !c.dmg.isSkill).length, 0, 'no attack needed');
   const hits = tagged(h, 'svash2');
   assert.equal(new Set(hits.map((c) => c.target.id)).size, 2, 'the burst covers the skill range');
@@ -1282,6 +1285,7 @@ test('引星棘刺 S2: with no enemy in range the unit is thrown at the farthest
   h.step();
   u.skill.gainSp(1000);
   assert.ok(u.skill.activate('test'));
+  h.strike(u);
   const z = u.mem.zones[0];
   assert.ok(z, 'a unit was thrown');
   assert.deepEqual([z.y, z.x], [10, 5]);
@@ -1347,6 +1351,7 @@ test('凛御银灰 S2: the slash ignores 隐匿 (PRTS) and reveals the stealthed
   h.b.applyStatus(hid, 'stealth', { duration: 99 });
   u.skill.gainSp(1000);
   assert.ok(h.runUntil(() => u.skill.activations > 0, 3));
+  h.strike(u);
   assert.equal(tagged(h, 'svash2', hid).length, 1, 'the stealthed enemy is slashed');
   assert.ok(hid.findBuff('reveal'), '… and revealed');
   clean(h);

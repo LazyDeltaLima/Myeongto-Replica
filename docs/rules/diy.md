@@ -396,6 +396,9 @@
 ### 새 선발 오퍼레이터 키트 체크리스트 (2026-10-06)
 선발 키트는 전부 로컬 코드라 원본 테스트가 잡아 주지 않는다. 처음 5명에서 실제로 난 버그를 정리했다. 키트를 추가하거나 고칠 때 하나씩 확인한다.
 
+**시전 시점**
+- 프리팹이 `_switchToState` 1이고 클립이 있는 즉발·충전 스킬의 효과는 `onStrike`에 둔다(공격 없는 스킬; `sim.md` 「즉발 스킬의 시전」, `test/sim/skill-strike.test.js`가 전수로 잡음). `_selectTargetTiming` 0이면 대상은 `onStart`에서 `skill.castPick`에 골라 둔다. 지속 스킬은 `castHolds`와 묶음 값(`castCarriesOn`·`modsAfterCast`·`durationAfterCast`)을 프리팹대로 본다.
+
 **대상 선택**
 - 범위 피해·범위 효과는 선택 가능한 적만 고른다: `battle.foesInRadius`, `battle.enemiesInKeys`, `canTargetEnemy`(targeting.js).
   PRTS 「AOE的判定是对攻击范围内的每个可以被选中的敌人进行判定」 — 미노출 은신(隐匿)·선택 불가는 빠진다.

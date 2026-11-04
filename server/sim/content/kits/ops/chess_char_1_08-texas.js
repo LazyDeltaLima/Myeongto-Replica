@@ -23,7 +23,7 @@ export default {
     },
     skill: {
       kind: 'instant',
-      onStart({ battle, unit }) {
+      onStrike({ battle, unit }) {   // `_preDelay` 0.5 s, no wait for an OnAttack; charge_cost on ON_SPELL_ON; `_selectTargetTiming` 1
         battle.addDp(unit.ownerId, num(bb.cost));
         battle.fx('dp', { x: unit.x, y: unit.y, n: num(bb.cost), id: unit.id });
         const grid = def?.skill?.rangeGrid;

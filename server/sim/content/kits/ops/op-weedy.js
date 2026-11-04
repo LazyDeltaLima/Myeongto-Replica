@@ -119,16 +119,20 @@ export function rupture(battle, src, e, { duration, perTile, interval }) {
  * NITRO_SPLASH of it: atk_scale × 温蒂's ATK arts from `src`, the 移动创伤, a push of `force` along the shooter's facing.
  * Returns false when no enemy can be selected there (nothing fires).
  */
-export function liquidNitrogen(battle, { shooter, src, atk, sbb, grid, force, pick }) {
+export function nitroTarget(battle, { shooter, grid, pick }) {
   const keys = absoluteRangeKeys(grid ?? GRID_4_1, shooter.tileR, shooter.tileC, shooter.dir, 0);
   const cands = battle.enemiesInKeys(keys, shooter, { canHitFly: true });
-  if (!cands.length) return false;
   const key = pick === 'nearest' ? (e) => hypot(e.x - shooter.x, e.y - shooter.y) : (e) => battle.remainingDistance(e);
   let target = null, best = Infinity;
   for (const e of cands) {
     const v = key(e);
     if (v < best - 1e-9 || (Math.abs(v - best) <= 1e-9 && target && e.spawnSeq < target.spawnSeq)) { best = v; target = e; }
   }
+  return target;
+}
+
+export function liquidNitrogen(battle, { shooter, src, atk, sbb, grid, force, pick, target = nitroTarget(battle, { shooter, grid, pick }) }) {
+  if (!target) return false;
   const x = target.x, y = target.y;
   battle.fx('frostNova', { x, y, r: NITRO_SPLASH, id: shooter.id, src: shooter.id, target: target.id, dmgType: 'arts', skill: 'weedy_3' });
   const amount = atk * num(sbb.atk_scale, 1);
@@ -261,8 +265,9 @@ export default {
         },
         [S3]: {
           kind: 'instant',
-          onStart({ battle, unit }) {
-            liquidNitrogen(battle, { shooter: unit, src: unit, atk: unit.s.atk, sbb: b3, grid: s3?.rangeGrid ?? GRID_4_1, force: num(b3.force) + bonus(unit, unit.blocking.length), pick: 'path' });
+          onStart({ battle, unit, skill }) { skill.castPick = nitroTarget(battle, { shooter: unit, grid: s3?.rangeGrid ?? GRID_4_1 }); },   // (`_selectTargetTiming` 0)
+          onStrike({ battle, unit, skill }) {
+            if (skill.castPick?.alive) liquidNitrogen(battle, { target: skill.castPick, shooter: unit, src: unit, atk: unit.s.atk, sbb: b3, grid: s3?.rangeGrid ?? GRID_4_1, force: num(b3.force) + bonus(unit, unit.blocking.length), pick: 'path' });
             // "如果蓄水炮在周围4格内的话也会同样进行发射" (its own skill numbers and force, her ATK)
             for (const c of cannonsOf(battle, unit)) {
               if (!beside(c, unit)) continue;

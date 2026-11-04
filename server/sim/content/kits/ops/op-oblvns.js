@@ -211,8 +211,8 @@ function sakiko(bb, chess, def) {
       // 新月的苏醒 (charges 2): 8 notes, arts, decreasing scales, fanned over the enemies of her range
       skchr_oblvns_1: {
         kind: instantKind(def),
-        onStart({ battle, unit }) {
-          startFeverIfFull(battle, unit);
+        onStart({ battle, unit }) { startFeverIfFull(battle, unit); },
+        onStrike({ battle, unit }) {   // (RangedAlways / RangedMulti `_selectTargetTiming` 1)
           const scales = [bb.atk_scale, bb.atk_scale_2, bb.atk_scale_3, bb.atk_scale_4, bb.atk_scale_5, bb.atk_scale_6, bb.atk_scale_7, bb.atk_scale_8].map((v) => num(v));
           const seq = unit.deploySeq, fanAngle = num(bb.angle, 15);
           // local patch 2026-10-06: 8 notes (client projectile_chr_oblvns_s1_1…8), each at an enemy of her range, the

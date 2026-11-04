@@ -183,7 +183,7 @@ function sbell2(bb, chess, def) {
       kind: instantKind(def),
       // the data's trigger SEARCH (the 阵法术师 row: "在初始攻击范围内存在敌人时释放技能") = an enemy her attack
       // finds in her initial range (skills.js `_TrySearchTarget`)
-      onStart({ battle, unit }) {
+      onStrike({ battle, unit }) {   // (`_selectTargetTiming` 1)
         const [fr, fc] = unit.fwd;
         const force = num(bb.force);
         for (const e of enemiesIn(battle, unit)) {

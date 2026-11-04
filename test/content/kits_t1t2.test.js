@@ -310,7 +310,8 @@ test('1_08 德克萨斯: 战术快递 +DP at start; 剑雨 +cost DP, 2×atk_scal
   });
   const u = h.unit(id);
   h.step();
-  approx(h.b.players[0].dp, 10 + t.cost + bb.cost + h.b.dt, 'DP after 剑雨');
+  h.strike(u);
+  approx(h.b.players[0].dp, 10 + t.cost + bb.cost + h.b.time, 'DP after 剑雨');
   const [near1, near2, far] = h.enemies();
   for (const e of [near1, near2]) {
     const d = dealt(h, u, (c) => c.target === e && c.dmg.isSkill);
@@ -581,6 +582,7 @@ for (const [idA, idB] of [['chess_char_1_16_a', 'chess_char_1_16_b'], ['chess_ch
     const h2 = run({ defs: { enemies: { e: dummy('e') } }, units: [{ chessId: idB, row: 10, col: 4 }], enemies: [{ key: 'e', pos: [10, 5] }] });
     const u2 = h2.unit(idB);
     h2.runUntil(() => u2.skill.activations === 1, 30);
+    h2.strike(u2);
     const sp0 = u2.skill.sp, t0 = h2.b.time;
     h2.run(4);
     approx((u2.skill.sp - sp0) / (h2.b.time - t0), u2.s.spRecovery + mb.sp_recovery_per_sec, 'SP rate with a unit on the field', 1e-3);

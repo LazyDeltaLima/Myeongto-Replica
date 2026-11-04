@@ -112,7 +112,7 @@ export default {
         }),
         skchr_thorn2_3: () => ({
           kind: instantKind(chess, def),
-          onStart({ battle, unit }) {
+          onStrike({ battle, unit }) {   // (`_selectTargetTiming` 1)
             const ops = battle.allies(unit.ownerId).filter((a) => isOp(a) && a.hp > 0)
               .sort((a, b) => a.s.blockCnt - b.s.blockCnt || dist(a, unit) - dist(b, unit) || a.id - b.id)
               .slice(0, Math.max(1, num(bb.max_target_token, 3)));
@@ -127,10 +127,14 @@ export default {
       }),
       skill: {
         kind: maxCharges(chess, def) > 1 ? 'charges' : 'instant',
-        onStart({ battle, unit }) {
+        // Mark picks its enemy as the cast starts (`_selectTargetTiming` 0); without one Token looks for a tile as it strikes (1)
+        onStart({ battle, unit, skill }) {
           const list = battle.enemiesInKeys(unit.rangeKeys, unit, unit.profile);
           sortEnemyTargets(battle, unit, list, null);
-          let t = list.find((e) => !e.isFlying) ?? list[0];
+          skill.castPick = list.find((e) => !e.isFlying) ?? list[0] ?? null;
+        },
+        onStrike({ battle, unit, skill }) {
+          let t = skill.castPick?.alive ? skill.castPick : null;
           if (!t) {
             // PRTS 备注: no enemy in range → thrown at the farthest tile straight ahead inside her range
             let best = null;

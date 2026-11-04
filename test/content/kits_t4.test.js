@@ -553,6 +553,7 @@ test('灵知 S2: 130 % ATK arts + 2.5 s cold to all in range; fully charged cast
   assert.ok(h.runUntil(() => u.skill.charges === u.skill.maxCharges, 30));
   const a = h.spawn('enemy_dummy', { pos: [10, 4] }), b = h.spawn('enemy_dummy', { pos: [11, 5] });
   assert.ok(h.runUntil(() => u.skill.activations >= 1, 5));
+  h.strike(u);
   const burst = dmgBy(h, u, (c) => c.dmg?.tags?.includes('burst'));
   assert.equal(burst.length, 2, 'both enemies');
   approx(burst[0].amount, u.s.atk * bb.atk_scale, 1e-6);
@@ -563,15 +564,16 @@ test('灵知 S2: 130 % ATK arts + 2.5 s cold to all in range; fully charged cast
   approx(a.findBuff('gnosis:fragile').mods.dmgTakenMul, t0.damage_scale_freeze, 1e-9, 'frozen ×2 fragile');
   // next (single-charge) cast only chills once per enemy
   assert.ok(h.runUntil(() => u.skill.activations >= 2, 20));
+  h.strike(u);
   const starts = noisy(h, 'skillStart').filter((c) => c.unit === u).map((c) => c.t);
-  const colds = (T) => noisy(h, 'statusApplied').filter((c) => c.source === u && c.status === 'cold' && c.duration === bb.cold && c.t === T).length;
-  const freezes = (T) => noisy(h, 'statusApplied').filter((c) => c.source === u && c.status === 'freeze' && c.t === T).length;
+  const colds = (T) => noisy(h, 'statusApplied').filter((c) => c.source === u && c.status === 'cold' && c.duration === bb.cold && c.t >= T && c.t < T + 1).length;
+  const freezes = (T) => noisy(h, 'statusApplied').filter((c) => c.source === u && c.status === 'freeze' && c.t >= T && c.t < T + 1).length;
   // charged: two colds on each of the two enemies — each enemy's pair becomes one freeze (友方寒冷 「两两一对」, since 0.2.0)
   assert.equal(colds(starts[0]), 2, 'charged: the first cold on each enemy lands as a cold');
   assert.equal(freezes(starts[0]), 2, 'charged: the second cold on each enemy turns the pair into a freeze');
   // (≈ 2.2 s later — the automatic operations' block: an enemy still cold from her normal attack freezes instead)
   // (a normal attack's shot may land in the same tick — projectile_chr_gnosis TRACE 9, ai.js opShot —: each enemy once)
-  const chilled = (T) => new Set(noisy(h, 'statusApplied').filter((c) => c.source === u && c.t === T
+  const chilled = (T) => new Set(noisy(h, 'statusApplied').filter((c) => c.source === u && c.t >= T && c.t < T + 1
     && ((c.status === 'cold' && c.duration === bb.cold) || c.status === 'freeze')).map((c) => c.target));
   assert.equal(chilled(starts[1]).size, 2, 'single charge: one cold each');
   assert.ok(colds(starts[1]) <= 2, 'single charge: one cold each');
@@ -617,6 +619,7 @@ test('莱恩哈特 S2: 170 % ATK arts to all enemies in the wider skill range + 
   h.run(0.2);
   assert.equal(u.findBuff('lionhd:t1').mods.atkPct, t0.atk * 1, 'one enemy in the normal range');
   assert.ok(h.runUntil(() => u.skill.activations >= 1, 30));
+  h.strike(u);
   const burst = dmgBy(h, u, (c) => c.dmg?.tags?.includes('burst'));
   assert.ok(burst.some((c) => c.target === outR), 'reaches the wider range');
   approx(burst[0].amount, u.s.atk * bb.atk_scale * 0.5, 1e-6);
@@ -658,6 +661,7 @@ test('同名效果取最高: two 灵知 never compound 坚冰, two 莱恩哈特 
   const x = h.spawn('enemy_dummy', { pos: [10, 5] });
   h.step();
   for (const u of two) assert.ok(u.skill.activate('test', { free: true }), 'S2 cast');
+  for (const u of two) h.strike(u);
   assert.equal(x.buffs.filter((b) => String(b.key).startsWith('lionhd:res')).length, 1, 'one RES cut');
   approx(x.s.res, 50 * (1 + bb.magic_resistance), 1e-9, 'RES −8 % once, not twice');
   h.run(bb.duration + 0.1);
@@ -1230,6 +1234,7 @@ test('elite (精锐) kits read the Lv7 blackboard: skill magnitudes differ from 
     const [h, u, bb] = mk(id);
     assert.notDeepEqual(bb, D(id.replace(/_b$/, '_a')).skill.bb, `${id}: Lv7 blackboard differs`);
     assert.ok(u.skill.activate('test', { free: true }), id);
+    h.strike(u);
     check(u, bb);
     checkInvariants(h.b);
   }
@@ -1241,17 +1246,19 @@ test('elite (精锐) kits read the Lv7 blackboard: skill magnitudes differ from 
     const [h, u, bb] = mk('chess_char_4_13_b');
     const e = h.spawn('enemy_dummy', { pos: [10, 4] });
     assert.ok(h.runUntil(() => u.skill.activations >= 1, 20));
+    h.strike(u);
     // (cast as a swing starts — her earlier strike may have chilled the enemy: 坚冰 ×damage_scale_cold on a cold one)
     const t0b = D('chess_char_4_13_b').talents[0].bb;
     const k = dmgBy(h, u, (c) => c.dmg?.tags?.includes('burst'))[0].amount / (u.s.atk * bb.atk_scale);
     assert.ok([1, t0b.damage_scale_cold, t0b.damage_scale_freeze].some((m) => Math.abs(k - m) < 1e-6), `burst ×${k}`);
-    assert.ok(noisy(h, 'statusApplied').some((c) => c.target === e && c.status === 'cold' && c.duration === bb.cold));
+    assert.ok(noisy(h, 'statusApplied').some((c) => c.target === e && (c.status === 'freeze' || (c.status === 'cold' && c.duration === bb.cold))));
   }
   // 莱恩哈特: 200 % and RES −12 %
   {
     const [h, u, bb] = mk('chess_char_4_14_b', { defs: { enemies: { enemy_dummy: dummy({ res: 50 }) } } });
     const e = h.spawn('enemy_dummy', { pos: [10, 5] });
     assert.ok(h.runUntil(() => u.skill.activations >= 1, 30));
+    h.strike(u);
     approx(e.s.res, 50 * (1 + bb.magic_resistance));
   }
   // 录武官: 120 HP per hit taken

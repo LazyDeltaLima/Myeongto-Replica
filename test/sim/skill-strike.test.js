@@ -317,3 +317,95 @@ for (const [name, charId, extra] of [['贝洛内', 'char_4037_demetr', []], ['Mo
     checkInvariants(h.b);
   });
 }
+
+// An instant / charge skill's cast (skills.js `_instantStrike`): the Skill state starts at once, the effect waits for the clip's OnAttack frame
+// (`_preDelay` for 德克萨斯 S2, whose ability does not wait for one). What the prefab gives ON_CAST_START, or picks at `_selectTargetTiming` 0, comes as the cast starts.
+const castInstant = (chessId, skillIndex, enemies, units = []) => {
+  const h = makeBattle({ seed: 3, autoFinish: false, timeLimit: 90, defs: { enemies: dummy }, captureNoisy: true, hooks: ['damaged', 'statusApplied', 'heal'], flags: { dpPerSec: 0 },
+    units: [{ chessId, skillIndex, row: 9, col: 5 }, ...units], enemies: enemies.map((pos) => ({ key: 'd', pos })) });
+  h.run(1);
+  const u = h.unit(chessId);
+  assert.ok(u.skill.activate('test', { free: true }), 'cast');
+  return { h, u, t0: h.b.time, t: u.skill.castTiming() };
+};
+
+test('莱恩哈特 S2: the burst on the clip\'s OnAttack, the skill bar spent at the cast; the same enemy even after it left the range (`_selectTargetTiming` 0)', REAL, () => {
+  const { h, u, t0, t } = castInstant('chess_char_4_14_a', 1, [[9, 6]]);
+  assert.equal(u.skill.active, false, 'the skill itself has ended');
+  assert.equal(skillDmg(h, u).length, 0, 'nothing as the cast starts');
+  const e = h.b.enemies[0];
+  e.x = 20;   // out of the range before the frame: picked as the cast started
+  at(until(h, () => skillDmg(h, u).length > 0, t0), t.strike, 'the burst');
+  assert.ok(skillDmg(h, u).every((c) => c.target === e));
+  checkInvariants(h.b);
+});
+
+test('流星 S2 picks its targets on the frame (`_selectTargetTiming` 1): an enemy that arrives during the clip is hit', REAL, () => {
+  const { h, u, t0, t } = castInstant('chess_char_3_17_a', 1, [[9, 6]]);
+  const late = h.spawn('d', { pos: [9, 7] });
+  at(until(h, () => skillDmg(h, u).length > 0, t0), t.strike, 'the arrows');
+  assert.ok(skillDmg(h, u).some((c) => c.target === late));
+  checkInvariants(h.b);
+});
+
+test('焰尾 S2: its DP as the cast starts (flamtl_s_2[cost], ON_CAST_START), its strike on the OnAttack; 德克萨斯 S2: both after its `_preDelay`', REAL, () => {
+  {
+    const dp = (h) => h.b.getPlayer('p1').dp;
+    const h0 = makeBattle({ seed: 3, autoFinish: false, timeLimit: 90, defs: { enemies: dummy }, flags: { dpPerSec: 0 }, units: [{ chessId: 'chess_char_4_19_a', skillIndex: 1, row: 9, col: 5 }], enemies: [{ key: 'd', pos: [9, 6] }], captureNoisy: true, hooks: ['damaged'] });
+    h0.run(1);
+    const u = h0.unit('chess_char_4_19_a');
+    const dp0 = dp(h0);
+    assert.ok(u.skill.activate('test', { free: true }));
+    const t0 = h0.b.time;
+    assert.ok(dp(h0) > dp0, 'the DP at once');
+    assert.equal(skillDmg(h0, u).length, 0);
+    at(until(h0, () => skillDmg(h0, u).length > 0, t0), u.skill.castTiming().strike, 'the strike');
+    checkInvariants(h0.b);
+  }
+  {
+    const h1 = makeBattle({ seed: 3, autoFinish: false, timeLimit: 90, defs: { enemies: dummy }, flags: { dpPerSec: 0 }, units: [{ chessId: 'chess_char_1_08_a', skillIndex: 1, row: 9, col: 5 }], enemies: [{ key: 'd', pos: [9, 6] }], captureNoisy: true, hooks: ['damaged'] });
+    h1.run(1);
+    const u = h1.unit('chess_char_1_08_a');
+    const dp0 = h1.b.getPlayer('p1').dp;
+    assert.ok(u.skill.activate('test', { free: true }));
+    const t0 = h1.b.time;
+    assert.equal(h1.b.getPlayer('p1').dp, dp0, 'charge_cost is its ON_SPELL_ON');
+    at(until(h1, () => skillDmg(h1, u).length > 0, t0), 0.5, 'the swords');
+    assert.ok(h1.b.getPlayer('p1').dp > dp0);
+    checkInvariants(h1.b);
+  }
+});
+
+test('a stun before the frame loses an instant skill\'s effect, and the SP stays spent', REAL, () => {
+  const { h, u } = castInstant('chess_char_4_14_a', 1, [[9, 6]]);
+  const sp = u.skill.sp;
+  stun(h, u);
+  h.run(1.5);
+  assert.equal(skillDmg(h, u).length, 0, 'no burst');
+  assert.equal(u.skill._castStage, null);
+  assert.ok(u.skill.sp >= sp && u.skill.activations === 1, 'not refunded');
+  assert.ok(h.eventsOf('skill').some((e) => e[1] === u.id && e[2] === 0), 'the view\'s skill is off');
+  checkInvariants(h.b);
+});
+
+test('the view\'s skill stays on until an instant skill\'s effect, then goes off', REAL, () => {
+  const { h, u, t0, t } = castInstant('chess_char_4_14_a', 1, [[9, 6]]);
+  const off = () => h.eventsOf('skill').some((e) => e[1] === u.id && e[2] === 0);
+  assert.equal(off(), false);
+  at(until(h, off, t0), t.strike, 'its end');
+  assert.ok(h.eventsOf('castHit').some((e) => e[1] === u.id), 'the view\'s hit effects of the ability');
+  checkInvariants(h.b);
+});
+
+test('every instant / charge \'state\' skill whose clip has an OnAttack, with no attack of its own, strikes on it', REAL, async () => {
+  const { sweepCases, sweepBattle, readData } = await import('../helpers/audio-sweep.js');
+  const manifest = readData('assets.json');
+  const late = [];
+  for (const c of sweepCases()) {
+    const { u } = sweepBattle(c, manifest);
+    const s = u.skill;
+    if (!s?.cast || s.cast.mode !== 'state' || !s.cast.dur || s.isTimed || s.spec.attack || s.kind === 'passive') continue;
+    if (!s.spec.onStrike) late.push(c.label);
+  }
+  assert.deepEqual(late, [], 'their effect would come as the cast starts');
+});

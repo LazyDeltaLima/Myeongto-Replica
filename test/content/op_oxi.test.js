@@ -190,6 +190,7 @@ test('S2 阂断骤雪: an enemy attack casts it (a charge) at the attacker — 1
     const hp0 = u.hp;
     const took = h.b.dealDamage(src, u, { amount: 1000, type: 'arts', isAttack: true });
     assert.equal(u.skill.activations, 1); assert.equal(u.skill.charges, 4);
+    h.strike(u);
     approx(took, 1000 * 0.1 * (1 - u.s.res / 100), 'the hit cut to damage_remaining_scale, the shelter not yet');
     const back = hits(h, 'oxi:guard');
     assert.deepEqual(new Set(back.map((c) => c.target)), new Set([src, near]), 'within ability_range_radius of the attacker');
@@ -198,8 +199,7 @@ test('S2 阂断骤雪: an enemy attack casts it (a charge) at the attacker — 1
     approx(healed, back.reduce((s, c) => s + c.amount, 0) * bb.heal_ratio, 'heal_ratio of the damage');
     approx(u.hp, hp0 - took + healed, 'hp');
     assert.ok(!back.some((c) => c.target === far));
-    // within the window: no recast, and the shelter (庇护) now takes 90 % of the next hit's arts damage
-    h.step(2);
+    // within the window: no recast, and the shelter (庇护) now takes 90 % of the next hit's arts damage (its 0.2 s: the strike took 0.155 s of them)
     approx(h.b.dealDamage(src, u, { amount: 1000, type: 'arts', isAttack: true }), 1000 * 0.1 * (1 - u.s.res / 100), 'sheltered, not cut again');
     assert.equal(u.skill.activations, 1, 'window');
     h.run(1.4);

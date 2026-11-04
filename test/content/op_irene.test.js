@@ -218,6 +218,7 @@ test('S2 裂潮 (MANUAL, 2 charges, DEFAULT on its 3-12 box): not opened with on
     const light = h.spawn('enemy_dummy', { pos: [10, 8] }), heavy = h.spawn('enemy_heavy', { pos: [9, 6] });
     const out = h.spawn('enemy_dummy', { pos: [10, 9] });
     assert.ok(h.runUntil(() => u.skill.activations === 1, 1), `${lb}: opened`);
+    h.strike(u);
     const hit = hitsBy(h, u);
     assert.deepEqual([...new Set(hit.map((c) => c.target.id))].sort((a, b) => a - b), [light.id, heavy.id].sort((a, b) => a - b), `${lb}: the ground enemies of 3-12`);
     for (const c of hit) { approx(c.amount, u.s.atk * sk.bb.atk_scale * mul, `${lb}: ${sk.bb.atk_scale * 100} %`); assert.deepEqual([c.type, c.dmg.isSkill], ['phys', true]); }
@@ -237,6 +238,7 @@ test('S2 裂潮 (MANUAL, 2 charges, DEFAULT on its 3-12 box): not opened with on
   u.skill.gainSp(999);
   for (const pos of [[11, 5], [11, 6], [10, 6], [10, 7], [10, 8], [9, 5], [9, 6]]) h.spawn('enemy_dummy', { pos });
   assert.ok(h.runUntil(() => u.skill.activations === 1, 1));
+  h.strike(u);
   assert.equal(new Set(hitsBy(h, u).filter((c) => c.dmg.isSkill).map((c) => c.target)).size, sk.bb.max_target, `${sk.bb.max_target} of 7`);
   done(h);
 });
@@ -257,12 +259,12 @@ test('S3 判决 (MANUAL, DEFAULT on its x-1 box): every ground enemy of x-1 take
     h.runUntil(() => !u.skill.active, 5);
     approx(h.b.time - t0, 3.5, `${lb}: 3.5 s`, 0.02);
     const hit = hitsBy(h, u);
-    const opening = hit.filter((x) => Math.abs(x.t - t0) < 1e-6);
+    const opening = hit.filter((x) => x.t - t0 < 0.2);   // (on Skill_3_Start's OnAttack, 0.133 s)
     assert.deepEqual(opening.map((x) => x.target.id), [a.id], `${lb}: the opening strike on x-1's ground enemies only`);
     approx(opening[0].amount, u.s.atk * sk.bb.atk_scale * mul, `${lb}: 250 %`);
     const lev = h.hooksOf('statusApplied').find((x) => x.source === u && x.status === 'levitate');
     assert.deepEqual([lev.target.id, lev.duration], [a.id, sk.bb.levitate], `${lb}: floats`);
-    const bomb = hit.filter((x) => x.t > t0 + 1e-6);
+    const bomb = hit.filter((x) => x.t - t0 >= 0.2);
     assert.equal(bomb.filter((x) => x.target === a).length, 10, `${lb}: 10 bombardments on the only enemy of x-1 (an air unit by then)`);
     assert.equal(bomb.filter((x) => x.target === b).length, 10, `${lb}: each also hits within 1.1 (outside x-1 too)`);
     assert.ok(!bomb.some((x) => x.target === c), `${lb}: nothing farther than 1.1`);
@@ -324,6 +326,7 @@ test('modules: SWO-X skill damage ×1.1, normal attacks unchanged; SWO-Y ignores
     u.skill.gainSp(999);
     const n0 = hitsBy(h, u).length;
     assert.ok(h.runUntil(() => u.skill.activations === 1, 4));
+    h.strike(u);
     const cut = hitsBy(h, u).slice(n0).find((c) => c.dmg.isSkill && c.target === e);
     approx(cut.amount, u.s.atk * skillOf(tier, elite, S2).bb.atk_scale * skillMulOf(elite, mod), `${label(f)}: S2`);
     done(h);

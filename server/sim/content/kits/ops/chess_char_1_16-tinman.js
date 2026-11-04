@@ -28,7 +28,7 @@ export function tinmanKit(bb, chess, def) {
   return {
     skill: {
       kind: instantKind(def),
-      onStart({ battle, unit }) {
+      onStrike({ battle, unit }) {   // (HitEnemy `_selectTargetTiming` 1)
         const tgt = enemiesInGrid(battle, unit, null, { n: 1, groundOnly: true })[0] ?? enemiesInGrid(battle, unit, null, { n: 1 })[0];
         const x = tgt ? tgt.x : unit.x + unit.fwd[1], y = tgt ? tgt.y : unit.y + unit.fwd[0];
         const atk = unit.s.atk;

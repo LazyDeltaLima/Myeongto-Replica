@@ -175,12 +175,13 @@ test('6_02 圣聆初雪 S1 铃音吹雪: 2 charges (cast with enemies in range);
     assert.equal(u.skill.maxCharges, rec(id, sid).maxChargeTime);
     h.step(2);
     const s = started(h, u);
+    h.strike(u);
     assert.ok(s.length >= 1, 'cast at once (enemies in range)');
     const t0 = s[0].t;
-    const burst = dealt(h, u, (c) => c.t === t0 && c.dmg.isSkill && c.type === 'arts');
+    const burst = dealt(h, u, (c) => c.t >= t0 && c.dmg.isSkill && c.type === 'arts');
     assert.equal(burst.length, 2);
     for (const x of burst) approx(x.amount, u.s.atk * bb.atk_scale * u.s.dmgDealtMul, 'atk_scale × ATK');
-    const colds = statuses(h, 'cold', (c) => c.source === u && c.t === t0);
+    const colds = statuses(h, 'cold', (c) => c.source === u && c.t >= t0);
     assert.equal(colds.length, 2);
     for (const c of colds) approx(c.duration, bb.cold, 'cold');
     const [e1] = h.enemies();
@@ -188,7 +189,7 @@ test('6_02 圣聆初雪 S1 铃音吹雪: 2 charges (cast with enemies in range);
     approx(e1.y, 10, 'no sideways push');
     // (the pushed enemies clear the snow of the tiles they leave: "首个敌人离开该地块时积雪消失")
     for (let d = 3; d <= bb.trig_cnt; d++) assert.ok((u.mem.snow.get(10 * COLS + 4 + d) ?? 0) >= 1, `snow ${d} tiles ahead`);
-    h.run(2);
+    h.run(1.2);   // (2 s from the cast: the strike came 0.77 s after it)
     assert.equal(started(h, u).length, 1, 'the next automatic cast waits the 10-pass block (BLOCK_SKILL_TICK, ≈ 2.2 s)');
     h.run(1);
     assert.equal(started(h, u).length, 2, 'the second charge fires too');
@@ -923,7 +924,8 @@ test('6_14 流明 S2 沛霖: 2 charges; heals 2 allies for heal_scale × ATK; wi
     h.b.applyStatus(a1, 'stun', { duration: 30, force: true });
     assert.ok(h.runUntil(() => started(h, u).length > 0, 5));
     const t0 = started(h, u)[0].t;
-    const hh = heals(h, u, (c) => c.t === t0 && c.opts?.skillHeal);
+    h.strike(u);
+    const hh = heals(h, u, (c) => c.t >= t0 && c.opts?.skillHeal);
     assert.equal(hh.length, bb.max_target, 'two allies');
     assert.deepEqual(hh.map((c) => c.target).sort((a, b) => a.id - b.id), [a1, a2].sort((a, b) => a.id - b.id), 'the most injured');
     for (const c of hh) approx(c.amount, u.s.atk * bb.heal_scale, 'heal_scale × ATK');
@@ -1193,7 +1195,8 @@ test('6_19 锏 S2 无声的嘲笑: 2 slashes (3 on blocked enemies) of dot_scale
     usesSkill(u, sid);
     assert.ok(h.runUntil(() => started(h, u).length > 0, 5));
     const t0 = started(h, u)[0].t;
-    const sl = dealt(h, u, (c) => c.t === t0 && (c.dmg.tags || []).includes('slash'));
+    h.strike(u);
+    const sl = dealt(h, u, (c) => c.t >= t0 && (c.dmg.tags || []).includes('slash'));
     const blocked = h.enemies().filter((e) => e.blockedBy === u);
     assert.ok(blocked.length >= 1);
     for (const e of h.enemies()) {
@@ -1202,7 +1205,7 @@ test('6_19 锏 S2 无声的嘲笑: 2 slashes (3 on blocked enemies) of dot_scale
     }
     const sc = tal(id).atk_scale, mul = tbOf(id).damage_scale ?? 1;
     for (const x of sl) approx(x.amount, u.s.atk * bb.dot_scale * sc * mul, 'dot_scale × ATK × talent (100 %)');
-    assert.ok(statuses(h, 'tremble', (c) => c.source === u && c.t === t0).length > 0, 'talent 战栗');
+    assert.ok(statuses(h, 'tremble', (c) => c.source === u && c.t >= t0).length > 0, 'talent 战栗');
     done(h);
   }
 });
@@ -1268,13 +1271,15 @@ test('6_20 纯烬艾雅法拉 S2 云霭荫佑: one heal on every ally of her ran
     a1.hp = a1.s.maxHp * 0.3; a2.hp = a2.s.maxHp * 0.4;
     assert.ok(h.runUntil(() => started(h, u).length > 0, 5));
     const t0 = started(h, u)[0].t;
-    const hh = heals(h, u, (c) => c.t === t0);
+    h.strike(u);
+    const hh = heals(h, u, (c) => c.t >= t0);
     assert.equal(new Set(hh.map((c) => c.target)).size, 2, 'every ally of her range');
     const pool = u.s.atk * bb['agoat2_s_2[shield].atk_scale'];
     h.b.dealDamage(null, a1, { type: 'element', element: 'burn', amount: pool * 0.6 });
     assert.equal(a1.elem.burn, 0, 'absorbed');
     h.b.dealDamage(null, a2, { type: 'element', element: 'burn', amount: pool * 0.6 });
-    approx(a2.elem.burn, pool * 0.2 * (a2.s.elemTakenMul ?? 1), 'the rest of the pool absorbed, the excess lands', 1e-3);
+    // (her 火山灰疗愈 is on by the OnAttack frame: both hits reach the barrier after its element resistance)
+    approx(a2.elem.burn, pool * (1.2 * (1 - (a2.findBuff('agoat2:ash')?.data.epCut ?? 0)) - 1), 'the rest of the pool absorbed, the excess lands', 1e-3);
     h.run(bb.duration + 0.5);
     h.b.dealDamage(null, a1, { type: 'element', element: 'burn', amount: 100 });
     assert.ok(a1.elem.burn > 0, 'gone after its duration');
@@ -1708,7 +1713,8 @@ test('6_02 圣聆初雪 S1: the charges are not dumped on an enemy far outside h
     assert.equal(u.skill.charges, u.skill.maxCharges, 'charges kept');
     assert.ok(h.runUntil(() => started(h, u).length > 0, 40), 'casts once it walks into range');
     const t0 = started(h, u)[0].t;
-    assert.ok(dealt(h, u, (c) => c.t === t0 && c.dmg.isSkill && c.type === 'arts').length >= 1, 'the burst hits it');
+    h.strike(u);
+    assert.ok(dealt(h, u, (c) => c.t >= t0 && c.dmg.isSkill && c.type === 'arts').length >= 1, 'the burst hits it');
     done(h);
   }
 });

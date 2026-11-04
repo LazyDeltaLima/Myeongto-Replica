@@ -55,9 +55,12 @@ export default {
       skills: lazySkills({
         skchr_blaze2_1: () => ({
           kind: instantKind(chess, def),
-          onStart({ battle, unit }) {
-            const t = battle.alliesInGrid(unit).filter((a) => isOp(a)).sort((a, b) => b.s.maxHp - a.s.maxHp || a.id - b.id)[0];
-            if (!t) return;
+          onStart({ battle, unit, skill }) {   // (`_selectTargetTiming` 0)
+            skill.castPick = battle.alliesInGrid(unit).filter((a) => isOp(a)).sort((a, b) => b.s.maxHp - a.s.maxHp || a.id - b.id)[0] ?? null;
+          },
+          onStrike({ battle, unit, skill }) {
+            const t = skill.castPick;
+            if (!t?.alive) return;
             const r = num(bb.range_radius, 1.5);
             battle.addBuff(t, {
               key: `blaze2:aid:${unit.id}`, duration: num(bb.max_duration, 20), interval: Math.max(0.1, num(bb.interval, 1)), visible: true, data: { src: unit },
