@@ -315,6 +315,8 @@ export function normAttackAnim(a) {
     esc: Number.isFinite(esc) && esc > 0 ? esc : 0,
     // a mode switch detaching the ability cuts its swing (`_interruptAbilityOnDetach`; ai.js updateAlly)
     det: a.det === 1,
+    // a 要塞's ranged swing, when its clip times differently from the melee one (ai.js attackTiming)
+    ...(a.ranged ? { ranged: normAttackAnim(a.ranged) } : null),
   };
 }
 

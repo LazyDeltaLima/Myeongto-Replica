@@ -1111,6 +1111,10 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
 오퍼레이터·적의 일반 공격을 EN 공식 클라(관리자 노트)대로 맞췄다. 코드 `server/sim/ai.js` `attackTiming`·`updateAlly`·`enemyAttack`,
 데이터 `tools/local-extract/attack_timing.py` → `tools/assets/local-attack-timing.json` → `tools/build-data.mjs` `opAttackAnim`·`enemyAttackAnim` →
 `data/chess.json`·`data/backups.json`(오퍼레이터) / `data/enemies.json`(적) `attackAnim`. 아래 메서드는 모두 켜진 Lua 핫픽스 목록(en_US·zh_CN `DefinedFix.lua`)에 없다.
+- **어느 자식·어느 모드의 클립인가** (2026-11-05, 공식 클라 프리팹에서 확인 — 시뮬·화면 클립 비교를 상점 기물·예비까지 넓혀 찾음): 공격 묶음은 자식마다 클립이 다른데 추출은 하나만 읽었다. 세 경우를 고침.
+  베토치키 S2: `FirstAttack`(`branch_s_2[first]`가 있을 때만) `Skill_2_Begin` 1초/0.6 → 나머지 공격의 `AbilityName` `Skill_2_Loop` 1.533초/0.8, `_selectTargetTiming` 1(첫 공격도 지금은 이 값: 첫 공격을 따로 치지 않는 것은 `render.md` 「Spine 클립 커버리지」의 [추정] 그대로).
+  요새(애쉬락·혼): `pick`이 근접 자식을 골라 원거리 공격도 근접 클립으로 쟀다 → `attackAnim.base.ranged`(`Body/Attack/RangedAttack`, 클립 길이나 타격이 다를 때만). 저지 중이 아니면 애쉬락 `Attack01` 1.167초/0.533, 혼 `Attack_B` 1.2초/0.3; 저지 중이면 `Attack02` 1.467초/0.7, `Attack_A` 1.067초/0.3. 공격 쿨다운·모드 판정은 그대로 한 기록이다(`attackTiming` 네 번째 인자).
+  울피아누스 S3: 닻 뒤 다시 태어나는 모드 `S3_Respawn_A`의 `Skill_3_Loop` 2.5초/0.633(`S3` 모드 `Attack`은 타격 0.533, 그 모드에서는 공격하지 않음) — `attackModeIndex`가 `SKILL_SUB_MODES` `anchor`도 본다. 시험: `test/sim/attack-clip-view.test.js`. [화면 미확인: 공식과 나란히]
 - **클립 배율**: 공식 클라 `AbstractAnimatedAbility.UpdatePlaybackSpeed` — 배율 = 공격 간격 ÷ 클립 길이를 [0.1(상수 `MIN_ANIM_SCALE`),
   `_maxAnimScale`]로 자름(−1 = 상한 없음), 휘두름 길이 = 배율 × 클립, 재생 속도 = 1/배율. 상한 1(오퍼 공격 능력의 다수, 적 대부분)이면 느린 공격자는 클립을
   제 속도로 휘두르고 남은 간격은 대기. 값은 공격 능력 프리팹(`<id>/Modes/<mode>/Body/Attack` 등)의 `_maxAnimScale`·`_preDelay`·`_waitForAttackEvent`·

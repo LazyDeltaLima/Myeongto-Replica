@@ -2471,12 +2471,13 @@ function enemyAbility(ctx, spineId, key, applyWay) {
 
 /**
  * The mode skill `i`'s attacks run in: the one it switches to (skillModeIndex), or the one its 【移动】 lands it in when the skill
- * moves it as it starts (SKILL_SUB_MODES `teleport`: Mon3tr S3 S3_Reborn, 贝洛内 S3 S3_Resapwn) — the prefab's `S3` mode then only
- * starts the skill, and its Attack clip gave Mon3tr's S3 swings half their official length.
+ * moves it as it starts (SKILL_SUB_MODES `teleport`: Mon3tr S3 S3_Reborn, 贝洛内 S3 S3_Resapwn; `anchor`: 乌尔比安 S3 S3_Respawn_A,
+ * his redeploy where the anchor landed, which ends the cast) — the prefab's `S3` mode then only starts the skill, and its Attack
+ * clip gave Mon3tr's S3 swings half their official length.
  */
 function attackModeIndex(charId, modes, i, skillMode) {
   const m = skillModeIndex(modes, i, skillMode);
-  const sub = SKILL_SUB_MODES[charId]?.teleport;
+  const sub = SKILL_SUB_MODES[charId]?.teleport ?? SKILL_SUB_MODES[charId]?.anchor;
   return m > 0 && sub && sub.startsWith(`${modes[m]}_`) && modes.includes(sub) ? modes.indexOf(sub) : m;
 }
 
@@ -2514,13 +2515,18 @@ function opAttackAnim(ctx, charId, skillCount) {
     const dur = [ab.begin, role?.firstBegin ? role.begin : null].map((n) => (n ? sp.animations[n] : null)).find((d) => typeof d === 'number' && d > 0);
     return dur ? { begin: dur, ...(ab.esc > 0 ? { esc: ab.esc } : {}) } : {};
   };
-  const base = t.attack?.[0] ? clipOf(t.attack[0], sp.anims?.attack?.loop) : null;
+  // a 要塞's ranged swing where its clip times differently from the melee one (`ranged`, ai.js attackTiming)
+  const withRanged = (ab, clip) => {
+    const r = clip && ab?.ranged ? clipOf(ab.ranged, null) : null;
+    return r && (r.dur !== clip.dur || r.hit !== clip.hit) ? { ...clip, ranged: r } : clip;
+  };
+  const base = t.attack?.[0] ? withRanged(t.attack[0], clipOf(t.attack[0], sp.anims?.attack?.loop)) : null;
   const skillMode = ctx.charModes?.[charId]?.skillMode ?? null;
   const skills = [];
   for (let i = 0; i < skillCount; i++) {
     const m = attackModeIndex(charId, t.modes, i, skillMode);
     const ab = m > 0 ? t.attack?.[m] : null;
-    skills.push(ab ? clipOf(ab, sp.anims?.skills?.[String(i)]?.loop ?? sp.anims?.skill?.loop) : null);
+    skills.push(ab ? withRanged(ab, clipOf(ab, sp.anims?.skills?.[String(i)]?.loop ?? sp.anims?.skill?.loop)) : null);
   }
   return base || skills.some(Boolean) ? { base, skills } : null;
 }

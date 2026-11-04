@@ -179,7 +179,7 @@ export function updateAlly(b, u, dt) {
   const combat = targets[0] && u.blocking?.includes(targets[0]) ? 1 : 0;
   // the first swing since the unit entered its attack (1) or combat (2) state (attackTiming `first`)
   const state = combat ? 2 : 1;
-  const t = attackTiming(u, TIMING, u.atkSpell !== state);
+  const t = attackTiming(u, TIMING, u.atkSpell !== state, prof._fortressMelee === false);
   u.atkSpell = state;
   u.atkMode = attackModeOf(u);   // (a skill cast at this check switched it: the cooldown is this mode's)
   u.atkSpellExit = b.time + t.action + (attackClipOf(u)?.esc ?? 0);
@@ -413,12 +413,13 @@ function attackModeOf(u) {
  * and `CombatState.OnEnter` cast with firstAttack, the following swings without) and scales the two together
  * (`InitAnimation`: scale = attack time ÷ (begin + clip), bounded by its own `_maxAnimScale`), so that swing's strike
  * waits for the clip's OnAttack frame after the begin — (begin + OnAttack) × scale (`begun` true); its swings last the
- * attack interval.
+ * attack interval. A 要塞's `ranged` swing times from `Body/Attack/RangedAttack`'s clip, the record's own from its melee child's.
  * @returns {{ strike: number, action: number, sel: number, begun: boolean }} game seconds into `out`; `sel` =
  *   `_selectTargetTiming`
  */
-export function attackTiming(u, out = { strike: 0, action: 0, sel: 0, begun: false }, first = false) {
-  const a = attackClipOf(u);
+export function attackTiming(u, out = { strike: 0, action: 0, sel: 0, begun: false }, first = false, ranged = false) {
+  let a = attackClipOf(u);
+  if (ranged && a?.ranged) a = a.ranged;
   out.begun = false;
   if (!a) { out.strike = 0; out.action = 0; out.sel = 0; return out; }
   // (a raw record — content, tests — may leave the ability fields out: no bound beyond 1, the strike on the OnAttack frame)

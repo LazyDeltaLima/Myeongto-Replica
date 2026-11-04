@@ -94,7 +94,8 @@ def pick(cands):
         return direct
     for pre in NESTED:
         sub = [r for r in cands if r.startswith(pre) and cands[r].get('anim')]
-        sub.sort(key=lambda r: (r.count('/'), not re.search(r'attack|combat', r.rsplit('/', 1)[-1], re.I), r))
+        # (`FirstAttack`: only while its buff holds, branch_s_2[first] — the mode's other attacks are the child beside it)
+        sub.sort(key=lambda r: (r.count('/'), r.rsplit('/', 1)[-1] == 'FirstAttack', not re.search(r'attack|combat', r.rsplit('/', 1)[-1], re.I), r))
         if sub:
             return cands[sub[0]]
     other = sorted((r for r in cands if cands[r].get('anim') and re.search(r'attack|combat', r, re.I) and not NOT_ATTACK.search(r)),
@@ -152,7 +153,12 @@ def op_entry(path):
         return None
     attack = []
     for p in modes:
-        a = pick(under(tree, p)) if p else None
+        cands = under(tree, p) if p else {}
+        a = pick(cands) if p else None
+        # a 要塞's group: `pick` takes its melee child, a ranged swing plays `Body/Attack/RangedAttack`'s clip
+        ranged = cands.get('Body/Attack/RangedAttack')
+        if a and ranged and ranged.get('anim') and ranged.get('anim') != a.get('anim'):
+            a = {**a, 'ranged': ranged}
         # the mode's `_replaceAnimPairs` (维什戴尔 S2: Attack → Skill_2_Loop) rename the clip it plays
         rep = next((d.get('_replaceAnimPairs') for gp, d, _ in tree if gp == p and isinstance(d.get('_replaceAnimPairs'), list)), None)
         if a and a.get('anim') and rep:

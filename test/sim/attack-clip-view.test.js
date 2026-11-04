@@ -2,7 +2,8 @@
 // from data/backups.json `attackAnim` (tools/build-data.mjs), the view's from the model's roles (render/spine.js _attackClip).
 // Mon3tr S3 had the sim on `Attack` (2.83 s, the `S3` mode by the name rule) under the view's `Skill_3_Loop` (1.5 s, the mode she
 // lands in), so her swing and strike ran at half their time in real battles and her cast effect could not show (2026-11-04,
-// docs/rules/fx.md 「Mon3tr·벨로네 S3 공격 타이밍」). Nothing reported it, and no golden battle placed her 重构体.
+// docs/rules/fx.md 「Mon3tr·벨로네 S3 공격 타이밍」). Nothing reported it, and no golden battle placed her 重构体. The shop's chess and
+// the reserves joined on 2026-11-05 and found four more (docs/rules/sim.md 「일반 공격 타이밍」).
 
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -20,10 +21,11 @@ const read = (f) => JSON.parse(readFileSync(path.join(ROOT, f), 'utf8'));
 const units = read('data/backups.json').units;
 const chars = read('data/assets.json').chars;
 
-let fake, SpineActor;
+let fake, SpineActor, FORTRESS_CLIPS;
 before(async () => {
   fake = installFakePixi();
   ({ SpineActor } = await import('../../public/js/render/spine.js'));
+  ({ FORTRESS_CLIPS } = await import('../../public/js/render/units.js'));
 });
 after(() => fake.restore());
 
@@ -72,6 +74,91 @@ test('a skill\'s attack is timed from the clip the view plays', () => {
   assert.equal(seen.get('char_4182_oblvns S2'), 'Skill_2_Loop_A', '丰川祥子 S2: the piano mode; its cast clip Trans_A is no attack');
   assert.equal(seen.get('char_4098_vvana S1'), 'Attack', '薇薇安娜 S1: the plain cast S1_Attack2');
   assert.equal(seen.get('char_416_zumama S3'), 'Skill_2_Loop', '森蚺 S3: mode S3, not the cast Hensin');
+});
+
+/** The clip the view plays for an attack of `a`, and what the sim's record `rec` says of it; a mismatch's line, or null. */
+const compare = (label, charId, a, rec) => {
+  const e = chars[charId].spine.front;
+  const role = a._attackClip();
+  if (!role) return a._stance() ? null : `${label} attacks with no clip`;
+  const clip = a._loopOf(role);
+  const hit = e.hits?.[clip]?.[0] ?? null;
+  return e.animations[clip] !== rec.dur || hit !== (rec.hit ?? null) ? `${label}: sim ${rec.clip} ${rec.dur}/${rec.hit}, view ${clip} ${e.animations[clip]}/${hit}` : null;
+};
+
+/** Whether a chess's skill is still on when it attacks (attacksInSkill's question, for a shop chess). */
+function attacksInChessSkill(chessId) {
+  const h = makeBattle({ timeLimit: 900, autoFinish: false, seed: 5, flags: { dpPerSec: 0, dpMax: 999 }, units: [{ uid: 1, chessId, row: 9, col: 5 }] });
+  h.step();
+  return h.unit(1).skill?.kind !== 'instant';
+}
+
+/** Default mode with no attack on the field: 무에나's `Idle_2` ability deals nothing and his model stands still (docs/rules/render.md H). */
+const NO_DEFAULT_ATTACK = new Set(['char_4064_mlynar']);
+
+test('every operator\'s attack, shop chess and reserves too: the sim times the clip the view plays, in each mode', () => {
+  const chess = read('data/chess.json');
+  const found = [];
+  let read_ = 0;
+  const check = (label, charId, anim, skills, inSkill) => {
+    const e = chars[charId]?.spine?.front;
+    if (!e) { found.push(`${label}: no model`); return; }
+    const mode = (rec, i, tag) => {
+      if (!rec) return;
+      for (const ranged of FORTRESS_CLIPS[charId] ? [false, true] : [null]) {
+        const v = actor(charId, i ?? 0);
+        if (ranged != null) { v.fortressClips = FORTRESS_CLIPS[charId]; v.atkRanged = ranged; }
+        if (i != null && inSkill(i)) v.setSkill(true);
+        run(v, 5);
+        read_++;
+        const bad = compare(`${label} ${tag}${ranged == null ? '' : ranged ? ' ranged' : ' melee'}`, charId, v, ranged && rec.ranged ? rec.ranged : rec);
+        if (bad) found.push(bad);
+      }
+    };
+    if (anim?.base?.hit != null || !NO_DEFAULT_ATTACK.has(charId)) mode(anim?.base, null, 'Default');
+    (anim?.skills ?? []).forEach((rec, i) => { if (skills == null || skills === i) mode(rec, i, `S${i + 1}`); });
+  };
+  for (const [id, c] of Object.entries(chess)) {
+    if (c.charId) check(id, c.charId, c.attackAnim, c.skill?.index ?? null, () => attacksInChessSkill(id));
+  }
+  // the picks and the reserves (预备干员 …, which a diy slot can't place: their skills count as timed), at every skill they have
+  for (const [id, c] of Object.entries(units)) check(id, id, c.attackAnim, null, (i) => (LOCAL_DIY_PICKS.includes(id) ? attacksInSkill(id, i) : true));
+  assert.ok(read_ > 500, `only ${read_} attacks read`);
+  assert.deepEqual(found, [], 'the sim\'s clip is not the view\'s (build-data opAttackAnim, tools/local-extract/attack_timing.py pick)');
+});
+
+test('three attacks the sweep found timed from another child or mode, by what their prefabs name', () => {
+  const chess = read('data/chess.json');
+  const ulpia = chess.chess_char_5_05_a.attackAnim.skills[2];
+  assert.deepEqual([ulpia.clip, ulpia.dur, ulpia.hit], ['Skill_3_Loop', 2.5, 0.633], '울피아누스 S3: S3_Respawn_A, his redeploy after the anchor; `S3` only casts');
+  const branch = chess.chess_char_2_17_a.attackAnim.skills[1];
+  assert.deepEqual([branch.clip, branch.dur, branch.hit, branch.sel], ['Skill_2_Loop', 1.533, 0.8, 1], '베토치키 S2: `AbilityName`, not `FirstAttack` on branch_s_2[first]');
+  const ash = chess.chess_char_2_18_a.attackAnim.base;
+  assert.deepEqual([ash.clip, ash.dur, ash.hit, ash.ranged.clip, ash.ranged.dur, ash.ranged.hit], ['Attack02', 1.467, 0.7, 'Attack01', 1.167, 0.533], '애쉬락: MeleeAttack, RangedAttack');
+  const horn = chess.chess_char_5_08_a.attackAnim.base;
+  assert.deepEqual([horn.clip, horn.dur, horn.ranged.clip, horn.ranged.dur], ['Attack_A', 1.067, 'Attack_B', 1.2], '혼');
+});
+
+test('a 要塞 in a battle: its strike is the ranged clip\'s out of a block, the melee clip\'s in one', () => {
+  const strikes = (pos) => {
+    const dummy = enemyRec({ key: 'e_d', hp: 1e9, speed: 0, mass: 0, def: 0, res: 0 });
+    const h = makeBattle({ defs: { enemies: { e_d: dummy } }, timeLimit: 900, autoFinish: false, seed: 5, flags: { dpPerSec: 0, dpMax: 999 }, captureNoisy: true,
+      units: [{ uid: 1, chessId: 'chess_char_2_18_a', row: 9, col: 5 }] });
+    h.step();
+    const u = h.unit(1);
+    h.spawn('e_d', { pos });
+    const out = [];
+    for (let i = 0; i < Math.round(8 / h.b.dt); i++) {
+      h.step();
+      for (const x of h.events.splice(0)) if (x[0] === 'swing' && x[1] === u.id) out.push([x[2], x[3]]);
+    }
+    return out;
+  };
+  // (interval 2.8 s: both clips play at their own speed, `max` 1)
+  const ranged = strikes([9, 8]), melee = strikes([9, 5]);
+  assert.ok(ranged.length >= 2 && melee.length >= 2, `${ranged.length} ranged, ${melee.length} melee swings`);
+  for (const [t, kind] of ranged) { assert.equal(t, 0.533, 'Attack01'); assert.notEqual(kind, 'none'); }
+  for (const [t, kind] of melee) { assert.equal(t, 0.7, 'Attack02'); assert.equal(kind, 'none'); }
 });
 
 test('森蚺: S3 casts Skill_2_Begin once and attacks with Skill_2_Loop; S2 rests on the plain Idle', () => {

@@ -405,7 +405,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   MeleeAttack·BlockedMeleeAttack·BlockedRangedAttack과 RangedAttack은 다른 클립 — 号角 Default `Attack_A`/`Attack_B`, S2 `Skill_2_A_Loop`/`Skill_2_B_Loop`,
   S3 `Skill_3_A_Loop`/`Skill_3_B_Loop`(아래로 배치하면 S3(D) 모드의 원거리 `Skill_Down_3_Loop` — 아래 「아래 방향」), 灰毫 Default `Attack02`/`Attack01`
   (반대로 저지 중에도 원거리 Attack01이었음). 역할 추출(`anim-roles.mjs`)은 첫 클립 하나만 고르므로 `units.js FORTRESS_CLIPS`([근접, 원거리] 쌍)를
-  두고, 'swing'·'atk'의 kind(sim `ai.js`: 저지 중이면 'none')로 `spine.js _loopOf`가 고른다. 号角 `Skill_1_A`/`_B`는 쓰는 능력이 프리팹에 없음 [추정: 같은 나눔].
+  두고, 'swing'·'atk'의 kind(sim `ai.js`: 저지 중이면 'none')로 `spine.js _loopOf`가 고른다. 시뮬의 타격 시점도 같은 구분을 따른다(2026-11-05, `sim.md` 「일반 공격 타이밍」). 号角 `Skill_1_A`/`_B`는 쓰는 능력이 프리팹에 없음 [추정: 같은 나눔].
   테스트 `test/render/fortress-clips.test.js`. [실제 판 이상 없음 2026-10-28]
 
 ## 모바일 3D 보드 복구 (2026-10-10, 관리자 제보 「모바일에서 간헐적으로 3D 렌더링이 안 된다」 → 관리자 요청 「진단 정보에 3D 상태를 넣고 1·2번부터」)
