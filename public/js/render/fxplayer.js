@@ -3560,5 +3560,229 @@ export class FxInstance {
   }
 }
 
+// ---- 2026-11-04: flights of one prefab drawn together --------------------------------------------------------------------
+const SCROLL_UNIFORMS = ['uMainSpeed', 'uDisturbSpeed', 'uDissolveSpeed', 'uSpeedB', 'uSpeedC'];
+/** A material that looks the same at any effect time: no uniform of it depends on which instance it belongs to (clips aside). */
+function timeless(mat) {
+  if (mat.userData.uvt || mat.userData.zflat) return false;
+  for (const k of SCROLL_UNIFORMS) {
+    const v = mat.uniforms[k]?.value;
+    if (v && (v.x !== 0 || v.y !== 0)) return false;
+  }
+  return true;
+}
+const ORDER_FAR_FIRST = (a, b) => b.flightDepth - a.flightDepth;
+const NODE_TRACKS = new Set(['pos', 'scale', 'quat', 'euler', 'active', 'visible']);   // clip tracks a merge keeps: transforms are baked per frame
+const FLIGHT_STRIP_CAP = 32000;   // points of a merged ribbon draw: two vertices each, in 16-bit indices
+
+/** Is `o` drawn as far as the nodes of its instance go? */
+function shown(o, top) {
+  for (let p = o; p && p !== top; p = p.parent) if (!p.visible) return false;
+  return true;
+}
+
+/** A merged draw shows what was added, with the material and order of the renderers it stands for, at the group's origin. */
+function showMerged(mesh, on, material, order, x, y, z) {
+  mesh.visible = on;
+  if (!on) return;
+  mesh.material = material;
+  mesh.renderOrder = order;
+  mesh.position.set(x, y, z);
+}
+
+/** Particle rows of several systems in one instanced draw, positions baked to the scene. */
+class RowBatch {
+  constructor(scene) {
+    this.room = PS_ROOM0;
+    ({ g: this.g, ib: this.ib } = instanced(QUAD, this.room));
+    this.mesh = new THREE.Mesh(this.g);
+    this.mesh.frustumCulled = false;
+    this.mesh.visible = false;
+    scene.add(this.mesh);
+    this.n = 0;
+  }
+
+  begin() { this.n = 0; }
+
+  add(s, ox, oy, oz) {
+    const count = s.geometry.instanceCount, n = this.n;
+    if (n + count > this.room) {
+      const room = Math.max(n + count, this.room * 2);
+      besideRandom(() => { ({ g: this.g, ib: this.ib } = regrow(this.mesh, this.g, this.ib, QUAD, room)); });
+      this.room = room;
+    }
+    const D = this.ib.array, e = s.mesh.matrixWorld.elements, stretched = s.material.uniforms.uMode.value === 1;
+    D.set(s.ib.array.subarray(0, count * IV), n * IV);
+    for (let i = n * IV, end = (n + count) * IV; i < end; i += IV) {
+      const x = D[i + IV_POS], y = D[i + IV_POS + 1], z = D[i + IV_POS + 2];
+      D[i + IV_POS] = e[0] * x + e[4] * y + e[8] * z + e[12] - ox;
+      D[i + IV_POS + 1] = e[1] * x + e[5] * y + e[9] * z + e[13] - oy;
+      D[i + IV_POS + 2] = e[2] * x + e[6] * y + e[10] * z + e[14] - oz;
+      if (!stretched) continue;   // only a stretched quad reads its velocity here
+      const vx = D[i + IV_VEL], vy = D[i + IV_VEL + 1], vz = D[i + IV_VEL + 2];
+      D[i + IV_VEL] = e[0] * vx + e[4] * vy + e[8] * vz;
+      D[i + IV_VEL + 1] = e[1] * vx + e[5] * vy + e[9] * vz;
+      D[i + IV_VEL + 2] = e[2] * vx + e[6] * vy + e[10] * vz;
+    }
+    this.n = n + count;
+    return true;
+  }
+
+  end(material, order, x, y, z) {
+    if (this.n) { this.ib.clearUpdateRanges(); this.ib.addUpdateRange(0, this.n * IV); this.ib.needsUpdate = true; }
+    this.g.instanceCount = this.n;
+    showMerged(this.mesh, this.n > 0, material, order, x, y, z);
+  }
+
+  dispose() { this.mesh.removeFromParent(); disposeOwn(this.g, QUAD); }
+}
+
+/** Ribbons of several renderers in one strip draw (a StripBatch of its own), points baked to the scene. */
+class StripRows {
+  constructor(scene, material) {
+    this.b = new StripBatch(material, FLIGHT_STRIP_CAP);
+    this.b.geometry.boundingSphere = new THREE.Sphere();   // its origin sets the draw order, as a particle system's
+    this.mesh = this.b.mesh;
+    this.mesh.visible = false;
+    scene.add(this.mesh);
+  }
+
+  begin() { this.b.begin(); }
+
+  /** @returns false when the cap leaves no room: the renderer keeps its own draw. */
+  add(src, ox, oy, oz) {
+    const b = this.b, base = b.n, need = base + src.n;
+    if (need > b.cap) return false;
+    if (need > b.room) besideRandom(() => b.build(Math.min(b.cap, Math.max(need, b.room * 2))));
+    const D = b.vb.array, e = src.mesh.matrixWorld.elements, floats = src.n * 2 * SV;
+    D.set(src.vb.array.subarray(0, floats), base * 2 * SV);
+    for (let i = base * 2 * SV, end = i + floats; i < end; i += SV) {
+      const x = D[i], y = D[i + 1], z = D[i + 2], tx = D[i + SV_TAN], ty = D[i + SV_TAN + 1], tz = D[i + SV_TAN + 2];
+      D[i] = e[0] * x + e[4] * y + e[8] * z + e[12] - ox;
+      D[i + 1] = e[1] * x + e[5] * y + e[9] * z + e[13] - oy;
+      D[i + 2] = e[2] * x + e[6] * y + e[10] * z + e[14] - oz;
+      D[i + SV_TAN] = e[0] * tx + e[4] * ty + e[8] * tz;
+      D[i + SV_TAN + 1] = e[1] * tx + e[5] * ty + e[9] * tz;
+      D[i + SV_TAN + 2] = e[2] * tx + e[6] * ty + e[10] * tz;
+    }
+    const I = b.index.array, S = src.index.array, off = base * 2;
+    for (let k = 0; k < src.ni; k++) I[b.ni + k] = S[k] + off;
+    b.ni += src.ni;
+    b.n = need;
+    return true;
+  }
+
+  end(material, order, x, y, z) {
+    this.b.end();
+    showMerged(this.mesh, this.b.ni > 0, material, order, x, y, z);
+  }
+
+  dispose() { this.mesh.removeFromParent(); this.b.drop(this.b.geometry); }
+}
+
+/**
+ * Every shot 逻各斯 S3 holds stays in the air many times longer, so a pile of the same projectile cost a draw call per renderer
+ * of each (7 for a caster's bolt). The renderers that can move to the scene's frame without changing their look (view-facing,
+ * stretched and ribbon ones whose material ignores the effect's clock) go into one draw per renderer of the prefab: same rows,
+ * positions baked to the scene, the farthest instance first as three.js sorts them. The particles still simulate in their own
+ * systems; a renderer that cannot (a mesh, an aligned quad, a scrolling material) keeps its own draw. Call right before the
+ * render, after the instances' update; their `draw` shows their own meshes again in the next update.
+ * The look is compared pixel by pixel with the separate draws: test/render/flight-batch.browser.test.js.
+ */
+export class FlightBatch {
+  constructor(scene) {
+    this.scene = scene;
+    this.groups = new Map();   // def → { sig, slots: [{ pick, batch }], members }
+    this.fw = new THREE.Vector3();
+    this.cp = new THREE.Vector3();
+  }
+
+  /**
+   * Which renderers of this prefab merge: read from the first instance, the same for every instance of a prefab and size. Merging
+   * moves a renderer's draw past the other instances' renderers of the same sorting order, which only additive ones do not see:
+   * a renderer sharing its order merges only when all of that order are additive (the frame's sum is the same in any order).
+   */
+  slotsOf(inst) {
+    const allAdd = new Map(), seen = new Map();   // per renderOrder: every renderer of it additive? how many?
+    inst.object.traverse((o) => {
+      if (!o.isMesh) return;
+      const add = !!o.material?.uniforms?.uAdditive?.value;
+      allAdd.set(o.renderOrder, (allAdd.get(o.renderOrder) ?? true) && add);
+      seen.set(o.renderOrder, (seen.get(o.renderOrder) ?? 0) + 1);
+    });
+    const free = (mesh) => seen.get(mesh.renderOrder) === 1 || allAdd.get(mesh.renderOrder);
+    const slots = [];
+    inst.systems.forEach((s, i) => {
+      const u = s.material.uniforms, mode = u.uMode.value, al = u.uAlign.value;
+      if (s.draws && !s.more.length && !s.sortMode && free(s.mesh) && timeless(s.material) && (mode === 1 || (mode === 0 && (al === 0 || al === 3)))) {
+        slots.push({ pick: (x) => x.systems[i], id: s.mesh.id, strip: false, batch: null, material: s.material });
+      }
+      if (s.trailBatch && free(s.trailBatch.mesh) && timeless(s.trailBatch.material)) {
+        slots.push({ pick: (x) => x.systems[i].trailBatch, id: s.trailBatch.mesh.id, strip: true, batch: null, material: s.trailBatch.material });
+      }
+    });
+    inst.trails.forEach((t, i) => {
+      if (t.tr.align !== 1 && free(t.batch.mesh) && timeless(t.batch.material)) {
+        slots.push({ pick: (x) => x.trails[i].batch, id: t.batch.mesh.id, strip: true, batch: null, material: t.batch.material });
+      }
+    });
+    return slots.sort((a, b) => a.id - b.id);   // three.js's last tie-break between renderers of one depth and order
+  }
+
+  /** `flights`: the live instances to draw together, whichever of them are in this scene. @returns the instances merged. */
+  sync(flights, camera) {
+    const groups = this.groups;
+    if (!flights.length) { if (groups.size) this.dispose(); return 0; }
+    for (const g of groups.values()) g.members.length = 0;
+    camera.getWorldDirection(this.fw);
+    this.cp.setFromMatrixPosition(camera.matrixWorld);
+    for (const inst of flights) {
+      if (inst.empty || inst.disposed || inst.stopping || inst.wait > 0 || inst.kids || inst.sms.length || inst.object.parent !== this.scene) continue;
+      if (inst.clipTracks.some((b) => !NODE_TRACKS.has(b.kind))) continue;   // a clip on a material: its look is its own instance's
+      let g = groups.get(inst.def);
+      const sig = inst.systems.length * 1024 + inst.trails.length;
+      if (!g) { g = { sig, slots: this.slotsOf(inst), members: [] }; groups.set(inst.def, g); }
+      if (g.sig !== sig) continue;
+      const p = inst.object.position;
+      inst.flightDepth = (p.x - this.cp.x) * this.fw.x + (p.y - this.cp.y) * this.fw.y + (p.z - this.cp.z) * this.fw.z;
+      inst.object.updateMatrixWorld(true);
+      g.members.push(inst);
+    }
+    let merged = 0;
+    for (const g of groups.values()) {
+      const M = g.members;
+      if (M.length < 2) { for (const sl of g.slots) if (sl.batch) sl.batch.mesh.visible = false; continue; }
+      merged += M.length;
+      M.sort(ORDER_FAR_FIRST);
+      let ox = 0, oy = 0, oz = 0;
+      for (const m of M) { ox += m.object.position.x; oy += m.object.position.y; oz += m.object.position.z; }
+      ox /= M.length; oy /= M.length; oz /= M.length;
+      for (const sl of g.slots) this.merge(sl, M, ox, oy, oz);
+    }
+    return merged;
+  }
+
+  merge(sl, M, ox, oy, oz) {
+    sl.batch ||= besideRandom(() => (sl.strip ? new StripRows(this.scene, sl.material) : new RowBatch(this.scene)));
+    const b = sl.batch;
+    b.begin();
+    let lead = null;
+    for (const m of M) {
+      const x = sl.pick(m);
+      if (!x.mesh.visible || !shown(x.mesh, m.object)) continue;
+      const u = x.material.uniforms;
+      if (u.uSysOn.value || (lead && u.uFloor.value !== lead.material.uniforms.uFloor.value)) continue;
+      if (sl.strip && !x.ni) continue;
+      if (b.add(x, ox, oy, oz)) { x.mesh.visible = false; lead ||= x; }
+    }
+    b.end(lead?.material, lead?.mesh.renderOrder, ox, oy, oz);
+  }
+
+  dispose() {
+    for (const g of this.groups.values()) for (const sl of g.slots) sl.batch?.dispose();
+    this.groups.clear();
+  }
+}
+
 /** Live particle count (diagnostics / tests). */
 export const fxStats = () => ({ particles: liveParticles, instances: live.length });

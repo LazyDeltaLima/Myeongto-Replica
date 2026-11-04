@@ -649,6 +649,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   function teardown() {
     api.clear();
+    flightBatch?.dispose(); flightBatch = null;
     gen++;
     loading = null; variants = null; warmNext = 2;
     clearTimeout(warmTimer); warmTimer = 0;
@@ -1909,6 +1910,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
 
   // ---- official projectile trails (local patch 2026-10-07, see the header) ----
   const trails = [];               // { inst, tgt view, x0, y0, tx, ty, k, dur, arc }
+  const heldFlights = [];          // this frame's held trails' effects (FlightBatch), reused
+  let flightBatch = null;
   /** MAX_TRAILS in flight: the shot stays procedural (counted for the perf HUD, perfSkips). */
   // (2026-11-04) a shot 逻各斯 S3 holds stays in the air many times longer: those have their own allowance (MAX_SLOWED)
   const trailFull = () => {
@@ -5983,6 +5986,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       showLayers();
       const t1 = performance.now();
       let calls = 0;
+      // 2026-11-04: the shots 逻各斯 S3 holds pile up in the air: those of one prefab are drawn together (fxplayer.js FlightBatch)
+      heldFlights.length = 0;
+      for (const r of trails) if (r.rate < 1 && r.inst) heldFlights.push(r.inst);
+      if (heldFlights.length || flightBatch) perf.merged = (flightBatch ||= new mod.fxp.FlightBatch(layers.over.scene)).sync(heldFlights, camera);
       // local patch: the split scene's back renderers after the lower canvas's own, its front ones before the upper's
       const S = layers.split, { FX_BACK, FX_FRONT } = mod.fxp;
       const draw = (L, scene, mask, clear) => {
@@ -6115,7 +6122,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         gl: mod ? [layers.under, layers.over].reduce((a, L) => [a[0] + (L.renderer.info.memory?.textures ?? 0), a[1] + (L.renderer.info.memory?.geometries ?? 0)], [0, 0]) : null,
         lib: lib ? { tex: lib.textures.size, mesh: lib.meshes.size, defs: lib.defs.size } : null,
         updateMs: Math.round(perf.updateMs * 100) / 100, renderMs: Math.round(perf.renderMs * 100) / 100,
-        calls: perf.calls, particles: mod ? mod.fxp.fxStats().particles : 0, notes: notes.size,
+        calls: perf.calls, merged: perf.merged ?? 0, particles: mod ? mod.fxp.fxStats().particles : 0, notes: notes.size,
         recent: recent.slice(), trails: trails.length, preload: preQueue.length, // local patch; 2026-10-30: effect files still queued (preload)
         buffs: live.filter((l) => l.buff && !l.inst.done).map((l) => l.inst.def?.name ?? '?'), // local patch: the looping effects on now
         paused: live.filter((l) => l.paused && !l.inst.done).map((l) => l.inst.def?.name ?? '?'), // 2026-10-21: held by a pause behaviour (stepPauses)
