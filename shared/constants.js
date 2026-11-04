@@ -31,9 +31,12 @@ export const seatsOf = (size) => (size === LARGE_SEATS ? LARGE_SEATS : MAX_SEATS
  * Spectator seats of a co-op room (community report #26, owner's decision 2026-10-04) — a remake feature: the official
  * room has 1–4 players and no spectator seat (there only eliminated players and 联防 bystanders watch, research 09 §3.1).
  * A spectator never counts as a player, may not act, and watches like an eliminated player (server/lobby.js spectate,
- * server/match/match/watch.js addSpectator). Four seats since maintainer decision 2026-11-05, two until then.
+ * server/match/match/watch.js addSpectator). The host picks how many, SPECTATOR_SEATS, two by default (room.setSpectatorSeats,
+ * maintainer decision 2026-11-05).
  */
-export const MAX_SPECTATORS = 4;
+export const MIN_SPECTATORS = 2;
+export const MAX_SPECTATORS = 6;
+export const SPECTATOR_SEATS = Object.freeze([2, 3, 4, 5, 6]);
 export const ROOM_CODE_LEN = 4;
 export const NAME_MAX_LEN = 12;
 

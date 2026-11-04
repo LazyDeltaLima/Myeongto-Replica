@@ -476,7 +476,7 @@
 .gm__dead .icon { width: .22rem; height: .22rem; }
 /* a spectator seat (community report #26): the same place, the watching pill's amber — nobody was eliminated */
 .gm__dead--spectator { background: rgba(24, 16, 4, .92); border-color: rgba(246, 163, 41, .6); color: var(--amber); }
-.gm__dead--spectator .seat-reserve { margin-left: .08rem; }
+.gm__corner .seat-reserve { height: .56rem; white-space: nowrap; }
 
 .chud { position: absolute; inset: 0; pointer-events: none; }
 .chud > * { pointer-events: auto; }

@@ -117,7 +117,7 @@
 //     season (humanSeat); a message of another season than the room's is only stored on the session (OK), never on the
 //     seat or the match.
 //   * Spectator seats (community report #26, owner's decision 2026-10-04 — a remake feature, the official room has none):
-//     room.spectate { code } takes one of a co-op room's MAX_SPECTATORS (4) spectator seats, in its lobby or while its
+//     room.spectate { code } takes one of a co-op room's spectator seats (`spectatorSeats`, below), in its lobby or while its
 //     match runs (▸ solo rooms: ROOM_FULL). A spectator is not a player: never in `seats`, never counted for the 1–4 players
 //     or the start gate, never host, never keeps a room alive (a room whose last human leaves closes with room.closed
 //     {empty} for its spectators). It receives room.state (`spectators: [{ playerId, name, connected }]`) and every match
@@ -128,6 +128,9 @@
 //     time → room.closed {kicked} to it. A spectator in a LOBBY room may take a free player seat with room.join of the same
 //     code; a player never switches to spectating in place (ALREADY). Disconnect / grace / reconnect / expiry work as for
 //     a player seat (the seat is kept and given back on resume).
+//   * room.setSpectatorSeats { seats } (maintainer decision 2026-11-05): the host of a co-op room picks SPECTATOR_SEATS (2–6,
+//     default MIN_SPECTATORS) before the match, kept across its matches and the drain hand-over (room.state `spectatorSeats`).
+//     Refused below the spectators already seated (ROOM_FULL); nobody's ready changes: it is no rule of the match.
 //   * Seat reservation (maintainer decision 2026-11-04, a remake feature): room.reserveSeat { on } — a spectator asks for
 //     the next free player seat, or takes the request back; first asked, first seated, kept until it is taken back or its
 //     spectator seat goes (room.state `spectators[].reserved`: the place in that order). Refused while the room is
@@ -149,7 +152,7 @@
 //     A resume whose room is gone says why (the room.closed notice). Players outside rooms are not logged.
 
 import { randomBytes, randomInt } from 'node:crypto';
-import { DIFFICULTIES, ERR, LARGE_MIN_PLAYERS, LARGE_SEATS, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor, seatsOf } from '../shared/constants.js';
+import { DIFFICULTIES, ERR, LARGE_MIN_PLAYERS, LARGE_SEATS, MAX_SEATS, MIN_SPECTATORS, ROOM_CODE_LEN, SPECTATOR_SEATS, modeIdFor, seatsOf } from '../shared/constants.js';
 import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks } from '../shared/protocol.js';
 import { encode, isDroppable, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
@@ -262,8 +265,10 @@ export class Room {
     this.hostId = null;
     /** @type {(Seat | null)[]} */
     this.seats = new Array(this.size).fill(null);
-    /** @type {{ playerId: string, name: string, connected: boolean, reservedSeq?: number }[]} spectator seats, ≤ MAX_SPECTATORS (header) */
+    /** @type {{ playerId: string, name: string, connected: boolean, reservedSeq?: number }[]} spectator seats, ≤ spectatorSeats (header) */
     this.spectators = [];
+    /** how many spectator seats the room has (room.setSpectatorSeats, header) */
+    this.spectatorSeats = MIN_SPECTATORS;
     /** the last seat reservation's number: `reservedSeq` orders them (header) */
     this.reserveSeq = 0;
     /** @type {any} running Match instance */
@@ -338,6 +343,7 @@ export class Room {
       seats: this.seats.map((s) => (s
         ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left }
         : null)),
+      spectatorSeats: this.spectatorSeats,
       spectators: this.spectators.map((s) => ({ playerId: s.playerId, name: s.name, connected: s.connected,
         ...(s.reservedSeq ? { reserved: reserved.indexOf(s) + 1 } : {}) })),
     };
@@ -470,6 +476,7 @@ export class Lobby {
       case 'room.spectate': return this.spectate(session, msg);
       case 'room.removeSpectator': return this.removeSpectator(session, msg);
       case 'room.reserveSeat': return this.reserveSeat(session, msg);
+      case 'room.setSpectatorSeats': return this.setSpectatorSeats(session, msg);
       case 'room.queue': return this.queue.queue(session, msg);
       case 'room.queueRoom': return this.queue.queueRoom(session);
       case 'room.unqueue': return this.queue.unqueue(session);
@@ -596,7 +603,7 @@ export class Lobby {
   }
 
   /**
-   * room.spectate: one of a co-op room's MAX_SPECTATORS spectator seats, in its lobby or during its match (header). In a
+   * room.spectate: one of a co-op room's spectator seats, in its lobby or during its match (header). In a
    * running match the match registers the spectator and resends what it may see (Match.addSpectator).
    */
   spectate(session, { code }) {
@@ -611,7 +618,7 @@ export class Lobby {
     }
     if (cur && cur.match) return fail(ERR.ROOM_STARTED, 'leave your running match first');
     if (room.mode === 'solo') return fail(ERR.ROOM_FULL, 'solo room');
-    if (room.spectators.length >= MAX_SPECTATORS) return fail(ERR.ROOM_FULL, 'no free spectator seat');
+    if (room.spectators.length >= room.spectatorSeats) return fail(ERR.ROOM_FULL, 'no free spectator seat');
     if (cur) this.removeMember(cur, session.playerId);
     room.spectators.push({ playerId: session.playerId, name: session.name, connected: session.connected });
     session.roomCode = room.code;
@@ -637,6 +644,22 @@ export class Lobby {
       // like room.kick: now, or on the next resume (with the result replay, as after the grace timeout)
       if (target.connected) sendSession(target, { t: 'room.closed', reason: 'kicked' });
       else { target.notice = 'kicked'; target.pendingResult = replay; }
+    }
+    return OK;
+  }
+
+  /** room.setSpectatorSeats (host, before the match): how many spectator seats the room has (header). */
+  setSpectatorSeats(session, { seats }) {
+    const room = this.roomOf(session);
+    if (!room) return fail(ERR.NOT_IN_ROOM);
+    if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
+    if (room.match) return fail(ERR.ROOM_STARTED);
+    if (room.mode === 'solo') return fail(ERR.BAD_TARGET, 'solo rooms have no spectator seats');
+    if (seats < room.spectators.length) return fail(ERR.ROOM_FULL, `${room.spectators.length} spectators seated`);
+    this.dropReplay(room, session.playerId);
+    if (room.spectatorSeats !== seats) {
+      room.spectatorSeats = seats;
+      this.broadcastState(room);
     }
     return OK;
   }
@@ -1424,6 +1447,7 @@ export class Lobby {
       code: room.code, mode: room.mode, size: room.size, difficulty: room.difficulty, ruleset: rulesetWire(room.ruleset), aiPicksLast: room.aiPicksLast,
       ...(room.season !== DEFAULT_SEASON ? { season: room.season } : {}),
       hostId: room.hostId,
+      spectatorSeats: room.spectatorSeats,
       seats: room.seats.map((s) => {
         if (!s || s.left) return null;
         if (s.isBot) return { seat: s.seat, playerId: s.playerId, name: s.name, isBot: true };
@@ -1453,6 +1477,7 @@ export class Lobby {
     const room = new Room(code, mode, snap.difficulty, now, snap.size);
     room.ruleset = resolveRuleset(snap.ruleset);
     room.aiPicksLast = mode === 'coop' && snap.aiPicksLast === true;
+    if (SPECTATOR_SEATS.includes(snap.spectatorSeats)) room.spectatorSeats = snap.spectatorSeats;
     // a season this server does not offer: the room goes on in the default one
     room.season = this.seasons.has(seasonOf(snap.season)) ? seasonOf(snap.season) : DEFAULT_SEASON;
     const ids = new Map(); // the previous server's playerId → this one's
@@ -1477,7 +1502,7 @@ export class Lobby {
     }
     if (!room.activeHumans().length) return null;
     for (const p of Array.isArray(snap.spectators) ? snap.spectators : []) {
-      if (mode !== 'coop' || room.spectators.length >= MAX_SPECTATORS) break;
+      if (mode !== 'coop' || room.spectators.length >= room.spectatorSeats) break;
       const session = p && take(p);
       if (!session) continue;
       const reservedSeq = Number.isInteger(p.reservedSeq) && p.reservedSeq > 0 ? p.reservedSeq : 0;

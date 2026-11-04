@@ -67,8 +67,8 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
         status: document.querySelector('.room-bar__status')?.textContent || '',
         seats: [...document.querySelectorAll('.seat__name')].map((e) => e.textContent),
       }));
-      assert.match(roomView.bar, /观战中/);
-      assert.equal(roomView.barDisabled, true);
+      assert.match(roomView.bar, /入座/, 'two player seats are free');
+      assert.equal(roomView.barDisabled, false);
       assert.match(roomView.status, /观战中/);
       assert.ok(!roomView.seats.includes('阿米娅'), 'never in a player seat');
       await spec.shot('room-spectator');
@@ -224,7 +224,13 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
     let guest = null;
     try {
       guest = await fullRoom(host, spec, srv);
-      // the room: no free seat, so the toggle stands where 观战中 stood
+      // the host's seat count: only the host has the pick, the others read it in the strip
+      await host.click('.specseats__btn');
+      await host.click('.specseats__menu [data-seats="3"]');
+      await host.page.waitForFunction(() => !document.querySelector('.specseats__menu'), { timeout: 8000 });
+      await spec.page.waitForFunction(() => /\/3/.test(document.querySelector('.specbar__label')?.textContent || ''), { timeout: 8000 });
+      assert.equal(await spec.page.evaluate(() => !!document.querySelector('.specseats')), false);
+      // the room: no free seat, so the toggle stands where 入座 stands while one is free
       await spec.click(`.room-bar__right ${SP}`, '预约座位');
       await spec.page.waitForFunction(() => /已预约座位/.test(document.querySelector('.room-bar__status')?.textContent || ''), { timeout: 8000 });
       assert.equal(await reservedOf(spec), 1);
@@ -241,9 +247,9 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
       await spec.waitFor((s) => s.phase === 'PREP', 'spectator in prep', 30000);
       assert.equal(await seatedNow(spec), false);
 
-      // the pill's toggle takes it back and asks again; the exit dialog has the same one (the pill hides in battle)
-      await spec.click(`.gm__dead--spectator ${SP}`, '取消预约');
-      await spec.page.waitForFunction((sel) => document.querySelector(sel)?.textContent.includes('预约座位'), { timeout: 8000 }, `.gm__dead--spectator ${SP}`);
+      // the corner's toggle takes it back and asks again; the exit dialog has the same one (for the briefing and the draft)
+      await spec.click(`.gm__corner ${SP}`, '取消预约');
+      await spec.page.waitForFunction((sel) => document.querySelector(sel)?.textContent.includes('预约座位'), { timeout: 8000 }, `.gm__corner ${SP}`);
       assert.equal(await reservedOf(spec), 0);
       await spec.click('.gtop__exit', null, { timeout: 15000 });
       await spec.click(`.modal ${SP}`, '预约座位');
@@ -275,6 +281,73 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
     } finally {
       await guest?.terminate().catch(() => {});
       for (const c of [host, spec]) await c.close();
+      await srv.stop();
+    }
+  });
+
+  test('six spectators with the longest names keep the 观战席 strip on one line, the host\'s ✕ and 预约 n in view', { timeout: 3 * 60 * 1000 }, async () => {
+    const srv = await startRealServer({ fast: { timerScale: 1 } });
+    const P = (await import('puppeteer-core')).default;
+    const host = new Client(P, srv.base, 'host', { prefix: 'seat-reserve' });
+    const socks = [];
+    try {
+      await host.open('?lang=zh');
+      await enter(host, '凯尔希');
+      await host.click('.mode-card', '同盟模拟');
+      await host.click('.diff-card', '标准模拟');
+      await host.click('.create-box button', '创建同盟');
+      const room = (await host.waitFor((s) => !!s.room?.code, 'room created')).room;
+      for (let i = 0; i < 3; i++) await host.click('.seat--empty button', '添加 AI 队友');
+      await host.click('.specseats__btn');
+      await host.click('.specseats__menu [data-seats="6"]');
+      await host.page.waitForFunction(() => globalThis.__SP__.store.get().room?.spectatorSeats === 6, { timeout: 8000 });
+      for (let i = 0; i < 6; i++) {
+        const c = await TestClient.connect(`ws://127.0.0.1:${srv.port}/ws`);
+        socks.push(c);
+        await c.hello(`아주긴이름을가진박사님${i}`); // NAME_MAX_LEN characters, as wide as they come
+        assert.equal((await c.request({ t: 'room.spectate', code: room.code })).t, 'ok');
+        assert.equal((await c.request({ t: 'room.reserveSeat', on: true })).t, 'ok');
+      }
+      await host.page.waitForFunction(() => document.querySelectorAll('.specbar__who').length === 6, { timeout: 8000 });
+      // the desktop, then a real touch phone: its 交流 panel is wider, so the seats' column is narrower (css/chat.css)
+      for (const vp of [{ width: 1920, height: 1080 }, { width: 844, height: 390, deviceScaleFactor: 3, isMobile: true, hasTouch: true, isLandscape: true },
+        { width: 640, height: 360, deviceScaleFactor: 2, isMobile: true, hasTouch: true, isLandscape: true }]) {
+        await host.page.setViewport(vp);
+        await host.page.waitForFunction(() => document.querySelectorAll('.specbar__who').length === 6, { timeout: 30000 });
+        await sleep(800);
+        const v = await host.page.evaluate(() => {
+          const mid = (e) => { const r = e.getBoundingClientRect(); return r.top + r.height / 2; };
+          const parts = [...document.querySelectorAll('.specbar__label, .specseats, .specbar__who')];
+          const chat = document.querySelector('.chat--room').getBoundingClientRect();
+          const clear = [...document.querySelectorAll('.specbar__label, .specseats, .specbar__list')].every((e) => e.getBoundingClientRect().left >= chat.right);
+          const list = document.querySelector('.specbar__list');
+          const end = list?.getBoundingClientRect().right ?? Infinity;
+          let reach = false;
+          if (list) { list.scrollLeft = list.scrollWidth; const last = [...list.children].pop().getBoundingClientRect(); reach = last.right <= end + 1; list.scrollLeft = 0; }
+          // a press lands on it: no neighbour's widened touch area lies over it (css/devices.css)
+          const mine = (e) => { const r = e.getBoundingClientRect(); const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!top && (e === top || e.contains(top)); };
+          const taken = [...document.querySelectorAll('.specseats__btn, .specbar__who button')].filter((e) => e.getBoundingClientRect().right <= end && !mine(e)).length;
+          return {
+            taken,
+            spread: Math.max(...parts.map(mid)) - Math.min(...parts.map(mid)),
+            clear, inView: end <= innerWidth, reach,
+            scrolls: list ? list.scrollWidth > list.clientWidth + 1 : null,
+            marks: document.querySelectorAll('.specbar__res').length,
+            removes: document.querySelectorAll('.specbar__who button').length,
+            title: document.querySelector('.specbar__who [title*="아주긴이름"]')?.title ?? null,
+          };
+        });
+        assert.equal(v.clear, true, `${vp.width}: under the 交流 panel`);
+        assert.equal(v.taken, 0, `${vp.width}: a neighbour takes the press`);
+        assert.ok(v.spread < 8, `${vp.width}: the strip wrapped (${v.spread} px between its rows)`);
+        assert.deepEqual([v.inView, v.reach, v.marks, v.removes], [true, true, 6, 6], `${vp.width}`);
+        if (vp.width === 1920) assert.equal(v.scrolls, false, 'all six fit on a desktop');
+        assert.equal(v.title, '아주긴이름을가진박사님0', 'the whole name stays readable on hover');
+      }
+      assert.deepEqual(problemsOf([host]).filter((p) => !p.includes('net::ERR_ABORTED')), []); // (the phone's reload drops what was loading)
+    } finally {
+      for (const c of socks) await c.terminate().catch(() => {});
+      await host.close();
       await srv.stop();
     }
   });

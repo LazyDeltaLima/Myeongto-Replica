@@ -8,7 +8,8 @@
 // Solo rooms show a single seat.
 // Spectator seats (community report #26, a remake feature): a co-op room with spectators shows the 观战席 strip under
 // the seats — names, offline marks, the host's ✕ (room.removeSpectator) — and a spectator's own view swaps the ready
-// button for 观战中 and offers 入座 (room.join of the room) while a player seat is free.
+// button for 入座 (room.join of the room) while a player seat is free, else 预约座位 / 取消预约 (room.reserveSeat). In that
+// strip the host picks how many spectator seats the room has (room.setSpectatorSeats).
 // 랜덤 매칭 for the empty seats (server/matchmaking.js, maintainer decision 2026-10-13): a co-op host with fewer than four
 // Doctors gets 匹配补位 (room.queueRoom, under the start rule: every other Doctor ready; the AI seats are freed). While the
 // room waits (room.state `matching`) the bar shows the waiting time and the queue, every Doctor's main button is
@@ -29,7 +30,7 @@
 // Texts go through t() (docs/I18N.md).
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, LARGE_MIN_PLAYERS, LARGE_SEATS, MAX_SEATS, MAX_SPECTATORS, ROOM_SIZES, seatsOf, modeIdFor } from '../../../shared/constants.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, LARGE_MIN_PLAYERS, LARGE_SEATS, MAX_SEATS, MIN_SPECTATORS, ROOM_SIZES, SPECTATOR_SEATS, seatsOf, modeIdFor } from '../../../shared/constants.js';
 import { SeatMark } from '../ui/faction.js'; // local patch
 import {
   html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyTag, DifficultyIcon, Tooltip, confirmDialog, doctorNo, useTicker,
@@ -109,6 +110,7 @@ export function roomFacts(room, myId) {
     othersReady,
     // spectator seats (never players: not in `humans`, never counted for ready / start)
     spectators: Array.isArray(room?.spectators) ? room.spectators.filter((s) => s && typeof s === 'object') : [],
+    spectatorSeats: SPECTATOR_SEATS.includes(room?.spectatorSeats) ? room.spectatorSeats : MIN_SPECTATORS,
     spectating: isSpectating(room, myId),
   };
 }
@@ -280,18 +282,22 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
   </article>`;
 }
 
-/** 观战席: the room's spectators (host: ✕ frees a seat), and 入座 for a spectator while a player seat is free. */
-function SpectatorBar({ facts, myId, busy, onRemove, onSit }) {
-  if (!facts.spectators.length) return null;
+/**
+ * 观战席: the room's spectators (host: ✕ frees a seat). The host of a co-op room always has this strip: its seat count is
+ * picked here (room.setSpectatorSeats, server/lobby.js header).
+ */
+function SpectatorBar({ facts, coop, myId, busy, onRemove, onSeats }) {
+  const picks = coop && facts.isHost;
+  if (!facts.spectators.length && !picks) return null;
   return html`<section class="specbar" aria-label=${t('观战席')}>
-    <span class="specbar__label"><${Icon} name="eye" />${t('观战席')}<b class="num">${facts.spectators.length}</b><span class="num t-dim">/${MAX_SPECTATORS}</span></span>
-    ${facts.spectators.map((s) => html`<span key=${s.playerId} class=${`specbar__who${s.playerId === myId ? ' is-me' : ''}${s.connected === false ? ' is-offline' : ''}`}>
-      ${s.connected === false ? html`<${Icon} name="wifiOff" />` : null}${s.name || t('博士')}${s.playerId === myId ? html`<span class="seat__you">${t('你')}</span>` : null}
+    <span class="specbar__label"><${Icon} name="eye" />${t('观战席')}<b class="num">${facts.spectators.length}</b><span class="num t-dim">/${picks ? '' : facts.spectatorSeats}</span></span>
+    ${picks ? html`<${SpectatorSeatsSelect} facts=${facts} busy=${busy} onPick=${onSeats} />` : null}
+    <div class="specbar__list">${facts.spectators.map((s) => html`<span key=${s.playerId} class=${`specbar__who${s.playerId === myId ? ' is-me' : ''}${s.connected === false ? ' is-offline' : ''}`}>
+      ${s.connected === false ? html`<${Icon} name="wifiOff" />` : null}<span class="specbar__name" title=${s.name || null}>${s.name || t('博士')}</span>${s.playerId === myId ? html`<span class="seat__you">${t('你')}</span>` : null}
       ${s.reserved ? html`<span class="specbar__res num" title=${t('模拟结束或重新开始时，有空位就自动入座')}>${t('预约 {n}', { n: s.reserved })}</span>` : null}
       ${facts.isHost ? html`<${Button} variant="ghost" size="sm" square=${true} icon="close" loading=${busy === `rs${s.playerId}`}
         onClick=${() => onRemove(s.playerId)} aria-label=${t('移出观战者 {name}', { name: s.name || '' })} title=${t('移出该观战者')} />` : null}
-    </span>`)}
-    ${facts.spectating && facts.emptySeats > 0 ? html`<${Button} size="sm" icon="user" loading=${busy === 'sit'} onClick=${onSit}>${t('入座')}<//>` : null}
+    </span>`)}</div>
   </section>`;
 }
 
@@ -360,6 +366,42 @@ function RoomSizeSwitch({ option, busy, onPick }) {
       })}
     </div>
   <//>`;
+}
+
+/**
+ * The host's pick of the room's 观战席 count, in the SpectatorBar: a menu opening upwards (the room's bottom bar is under
+ * it, and on a phone the screen's edge). Never below the spectators seated. Escape or a press outside closes it.
+ */
+function SpectatorSeatsSelect({ facts, busy, onPick }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = (e) => { if (!ref.current?.contains(e.target)) setOpen(false); };
+    const esc = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('pointerdown', close, true);
+    document.addEventListener('keydown', esc, true);
+    return () => { document.removeEventListener('pointerdown', close, true); document.removeEventListener('keydown', esc, true); };
+  }, [open]);
+  const pick = (n) => {
+    setOpen(false);
+    if (n !== facts.spectatorSeats) onPick(n);
+  };
+  return html`<span class="specseats" ref=${ref}>
+    <button type="button" class=${`specseats__btn tapx${open ? ' is-open' : ''}`} aria-haspopup="true" aria-expanded=${open ? 'true' : 'false'}
+      aria-label=${t('观战席数量')} title=${t('观战席数量')} disabled=${!!busy} onClick=${() => setOpen(!open)}>
+      <span class="num">${t('{n}席', { n: facts.spectatorSeats })}</span><span class="specseats__caret" aria-hidden="true">▾</span>
+    </button>
+    ${open ? html`<div class="specseats__menu" role="menu" aria-label=${t('观战席数量')}>
+      ${SPECTATOR_SEATS.map((n) => {
+        const on = facts.spectatorSeats === n;
+        const locked = n < facts.spectators.length;
+        return html`<button key=${n} type="button" role="menuitemradio" aria-checked=${on ? 'true' : 'false'} data-seats=${n}
+          class=${`specseats__row num${on ? ' is-on' : ''}`} disabled=${locked} title=${locked ? t('不能少于已入座的观战者') : null}
+          onClick=${() => pick(n)}><span>${t('{n}席', { n })}</span><span aria-hidden="true">${on ? '✓' : ''}</span></button>`;
+      })}
+    </div>` : null}
+  </span>`;
 }
 
 /** Room screen component. */
@@ -438,6 +480,7 @@ export function RoomScreen() {
   // spectator seats: the host frees one; a spectator takes a free player seat with room.join of this room
   const removeSpectator = (playerId) => run(`rs${playerId}`, () => net.request('room.removeSpectator', { playerId }));
   const sit = () => run('sit', () => net.request('room.join', { code: room.code }));
+  const setSpectatorSeats = (seats) => run('specseats', () => net.request('room.setSpectatorSeats', { seats }));
   // the next free seat (server/lobby.js header 「Seat reservation」): the toggle while none is free or one is reserved
   const myReserved = reservedRank(room, me.playerId);
   const reserve = () => run('reserve', () => net.request('room.reserveSeat', { on: !myReserved }));
@@ -531,7 +574,7 @@ export function RoomScreen() {
         </ul>
       </aside>`}
     </main>
-    <${SpectatorBar} facts=${facts} myId=${me.playerId} busy=${busy} onRemove=${removeSpectator} onSit=${sit} />
+    <${SpectatorBar} facts=${facts} coop=${coop} myId=${me.playerId} busy=${busy} onRemove=${removeSpectator} onSeats=${setSpectatorSeats} />
 
     ${coop ? html`<${RoomChat} />` : null}
 
@@ -574,7 +617,9 @@ export function RoomScreen() {
               <${Button} variant="primary" size="xl" icon="play" loading=${busy === 'start'} disabled=${!facts.canStart || !online} onClick=${start}>${t('开始模拟')}<//>
             <//>`
           : facts.spectating
-            ? (myReserved || facts.emptySeats === 0
+            ? (facts.emptySeats > 0 && !matching
+              ? html`<${Button} variant="primary" size="xl" icon="user" data-testid="seat-sit" loading=${busy === 'sit'} disabled=${!online} onClick=${sit}>${t('入座')}<//>`
+              : myReserved || !matching
               ? html`<${Tooltip} text=${t('模拟结束或重新开始时，有空位就自动入座')}>
                   <${Button} variant=${myReserved ? 'primary' : 'secondary'} size="xl" icon=${myReserved ? 'check' : 'user'} active=${!!myReserved} data-testid="seat-reserve"
                     loading=${busy === 'reserve'} disabled=${!online} onClick=${reserve}>${myReserved ? t('取消预约') : t('预约座位')}<//>

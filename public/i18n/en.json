@@ -1773,5 +1773,8 @@
   "预约 {n}": "Reserved #{n}",
   "已按预约入座": "You took your reserved seat",
   "已预约座位（第 {n} 位）· 有空位时自动入座": "Seat reserved (#{n}) · you sit down when a seat is free",
-  "模拟结束或重新开始时，有空位就自动入座": "When the simulation ends or restarts, you sit down if a seat is free"
+  "模拟结束或重新开始时，有空位就自动入座": "When the simulation ends or restarts, you sit down if a seat is free",
+  "观战席数量": "Spectator seats",
+  "{n}席": "{n} seats",
+  "不能少于已入座的观战者": "Cannot be fewer than the spectators already seated"
 }

@@ -1,7 +1,7 @@
 // Normative message catalogue (DESIGN §8). Used by server (validation) and client (building requests).
 // Every client→server message is `{ t, rid?, ...fields }`. Unknown `t` or invalid fields ⇒ ERR.BAD_MSG.
 
-import { DIFFICULTIES, NAME_MAX_LEN, ROOM_CODE_LEN, LARGE_SEATS, ROOM_SIZES, EMOTES, GEO } from './constants.js';
+import { DIFFICULTIES, NAME_MAX_LEN, ROOM_CODE_LEN, LARGE_SEATS, ROOM_SIZES, SPECTATOR_SEATS, EMOTES, GEO } from './constants.js';
 import { isDroppableChess } from './standIn.js';
 import { diySlotIds, validateDiyPicks } from './diy.js';
 import { extendProtocol } from './local.js'; // local patch: room chat, chat factions, emote sets
@@ -449,6 +449,8 @@ export const C2S = {
   // room.closed { reason: 'kicked' }). room.leave / g.leave leave a spectator seat like a player seat.
   'room.spectate': { code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v) },
   'room.removeSpectator': { playerId: isId },
+  // the host picks how many spectator seats the room has (server/lobby.js header)
+  'room.setSpectatorSeats': { seats: (v) => SPECTATOR_SEATS.includes(v) },
   // a spectator asks for the next free player seat, or takes that back (server/lobby.js header 「Seat reservation」)
   'room.reserveSeat': { on: isBool },
   // 랜덤 매칭 (server/matchmaking.js): the per-difficulty co-op queue of four (`size` 8: of eight); queue = alone, queueRoom = the host queues

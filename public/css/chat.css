@@ -56,7 +56,7 @@
 }
 
 /* ---- room screen: a column left of the seats (the seat cards give up the width, never overlapped) ---------------- */
-.room-screen.has-chat .seats { padding-left: 4.2rem; }
+.room-screen.has-chat :is(.seats, .specbar) { padding-left: 4.2rem; }
 .chat--room { position: absolute; left: .3rem; top: 1.66rem; bottom: 1.74rem; z-index: 6; width: 3.7rem; }
 .chat-fold {
   position: absolute; left: .3rem; bottom: 1.74rem; z-index: 6;
@@ -115,7 +115,7 @@
   .chat--game { height: max(2.7rem, 200px); }
   .gchat__pop { font-size: max(.17rem, 13px); }
   .chat--room { width: max(3.7rem, 230px); }
-  .room-screen.has-chat .seats { padding-left: calc(max(3.7rem, 230px) + .5rem); }
+  .room-screen.has-chat :is(.seats, .specbar) { padding-left: calc(max(3.7rem, 230px) + .5rem); }
 }
 @media (prefers-reduced-motion: reduce) {
   .chat--game { animation: none; }

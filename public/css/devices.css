@@ -117,6 +117,7 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
   .readybtn { height: max(.56rem, 34px); }
   .toolbtn { min-height: max(.5rem, 30px); }
   .gm__gear { width: max(.56rem, 34px); height: max(.56rem, 34px); }
+  .gm__corner .seat-reserve { height: max(.56rem, 34px); }
   /* ⚙ / 📖 / ⛶ keep their desktop proportion (half the button) instead of an 11 px glyph in the grown button */
   .gm__corner .gm__gear .icon { width: max(.28rem, 17px); height: max(.28rem, 17px); }
   .gtop__exit { min-width: max(.56rem, 34px); min-height: max(.56rem, 34px); }

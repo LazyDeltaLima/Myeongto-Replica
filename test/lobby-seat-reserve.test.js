@@ -270,8 +270,24 @@ describe('seat reservation', () => {
     assert.equal((await s.waitFor('room.closed', () => true, W)).reason, 'empty');
   });
 
-  test('the drain hand-over keeps the reservations and their order', async () => {
+  test('the host picks the spectator seats before the match, not during it, kept by the next match', async () => {
+    const ctx = await room({ humans: 2, spectators: 1 });
+    const { code, host, ps: [, b] } = ctx;
+    await ok(host, { t: 'room.setSpectatorSeats', seats: 3 });
+    assert.equal(roomOf(code).spectatorSeats, 3);
+    const solo = await player('Solo');
+    await ok(solo, { t: 'room.create', mode: 'solo', difficulty: 'NORMAL' });
+    await refused(solo, { t: 'room.setSpectatorSeats', seats: 3 }, ERR.BAD_TARGET);
+    const r = await startMatch(ctx);
+    await refused(host, { t: 'room.setSpectatorSeats', seats: 4 }, ERR.ROOM_STARTED);
+    await passRestart(r, [host, b]);
+    const st = await host.waitFor('room.state', (x) => x.inMatch && x.matchNo === 2, W);
+    assert.equal(st.spectatorSeats, 3);
+  });
+
+  test('the drain hand-over keeps the seat count, the reservations and their order', async () => {
     const { code, host, ss: [s1, s2] } = await room({ humans: 2, spectators: 2 });
+    await ok(host, { t: 'room.setSpectatorSeats', seats: 3 });
     await ok(host, { t: 'room.addBot' });
     await ok(host, { t: 'room.addBot' });
     await ok(s2, { t: 'room.reserveSeat', on: true });
@@ -288,6 +304,7 @@ describe('seat reservation', () => {
     const state = copy.toState();
     assert.deepEqual(state.spectators.map((x) => [x.name, x.reserved]), [['H2', 2], ['H3', 1]]);
     assert.equal(copy.reserveSeq, 2);
+    assert.equal(copy.spectatorSeats, 3);
     lobby.disposeRoom(copy, 'empty');
   });
 });

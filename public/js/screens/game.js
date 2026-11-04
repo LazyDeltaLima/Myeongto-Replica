@@ -1840,7 +1840,7 @@ function MatchScreen() {
           own: watchingOther && alive ? ownProgress(pub, myId, { localDone }) : null } : null} />` : null}
 
       ${showDeadPill(alive, phase) ? (spectator
-        ? html`<div class="gm__dead gm__dead--spectator" role="status"><${GIcon} name="eye" />${t('观战中 · 点击左侧成员头像切换查看')}${spectatorSeat ? html`<${SeatReserveButton} reserved=${reserved} size="sm" />` : null}</div>`
+        ? html`<div class="gm__dead gm__dead--spectator" role="status"><${GIcon} name="eye" />${t('观战中 · 点击左侧成员头像切换查看')}</div>`
         : html`<div class="gm__dead" role="status"><${Icon} name="close" />${t('你已被淘汰 · 可继续观战队友')}</div>`) : null}
 
       <${Ticker} />
@@ -1893,6 +1893,8 @@ function MatchScreen() {
         <button type="button" class="gm__gear gm__guide" aria-label=${t('玩法说明')} title=${t('玩法说明')} onClick=${() => { setToolsOpen(false); openGuide(0); }}><${Icon} name="book" /></button>
         <${FullscreenButton} class="gm__gear gm__fs" />
       </span>
+      ${/* a spectator seat's reservation, in every phase of this screen (the 观战中 pill hides in battle) */ ''}
+      ${spectatorSeat ? html`<${SeatReserveButton} reserved=${reserved} size="sm" />` : null}
     </div>
 
     ${loadArt ? html`<${LoadingScreen} show=${phase === PHASE.BATTLE_CHECK || (fieldLoading && phase !== PHASE.RESULT)} art=${loadArt} tips=${gd.config?.tips} />` : null}

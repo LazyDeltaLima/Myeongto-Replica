@@ -222,31 +222,40 @@
 
 /* ---- spectator seats (观战席, community report #26) -------------------------------------------------------------- */
 .specbar {
+  /* over the room bar and its widened touch areas (css/devices.css), which reach up to this strip on a phone */
+  position: relative;
+  z-index: 2;
   flex: none;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: .14rem;
+  gap: .12rem;
   padding: 0 .6rem .16rem;
   font-size: .15rem;
   color: var(--text-lo);
 }
-.specbar__label { display: flex; align-items: baseline; gap: .06rem; font-weight: 700; color: var(--text-md); }
+/* one row, whatever the names and the screen: what does not fit scrolls, the label and the seat count stay */
+/* a ✕'s touch area grows left, over its own chip, never over the next chip's */
+.specbar__list { display: flex; align-items: center; gap: .1rem; min-width: 0; overflow-x: auto; scrollbar-width: none; --tap-left: 100%; --tap-tx: -100%; }
+.specbar__list::-webkit-scrollbar { display: none; }
+.specbar__label { flex: none; display: flex; align-items: baseline; gap: .06rem; font-weight: 700; color: var(--text-md); }
 .specbar__label .icon { width: .18rem; height: .18rem; align-self: center; color: var(--mint-500); }
 .specbar__label b { color: var(--mint-400); }
 .specbar__who {
+  flex: none;
   display: inline-flex;
   align-items: center;
   gap: .06rem;
   min-height: .36rem;
-  padding: 0 .14rem;
+  padding: 0 .1rem;
   border: 1px solid var(--line-2);
   background: rgba(0, 0, 0, .32);
   color: var(--text-hi);
 }
 .specbar__who.is-me { border-color: var(--mint-600); }
 .specbar__who.is-offline { color: var(--text-dim); }
+/* the longest name would wrap six chips into two rows and shrink the seats */
+.specbar__name { max-width: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .specbar__res { color: var(--amber); font-size: .9em; white-space: nowrap; }
 .specbar__who > .icon { width: .16rem; height: .16rem; }
 
@@ -327,6 +336,19 @@
 /* the 人数 switch (room.setSize) beside the 规则 picker: its two short options take their own width */
 .room-bar__row--size { grid-template-columns: minmax(0, 1fr) auto; }
 .room-bar__row .roomsize .rpick__opt { min-width: .56rem; }
+/* the host's 观战席 count, in the strip under the seats. On a phone the button stays small: .tapx gives it the touch area */
+.specseats { flex: none; position: relative; display: inline-flex; --tap-w: 100%; }
+.specseats__btn { display: inline-flex; align-items: center; justify-content: space-between; gap: .08rem; height: max(.3rem, 20px); min-width: max(.72rem, 46px);
+  padding: 0 max(.08rem, 5px) 0 max(.12rem, 7px); background: #0a0d0c; border: 1px solid var(--line-3); color: var(--text-hi); font-size: max(.14rem, 10px); font-weight: 700; cursor: pointer; }
+.specseats__btn:hover, .specseats__btn.is-open { border-color: var(--mint-600); }
+.specseats__caret { color: var(--mint-400); font-size: .8em; }
+.specseats__menu { position: absolute; z-index: 60; left: 0; bottom: calc(100% + 3px); min-width: 100%; background: rgba(10, 14, 13, .97); border: 1px solid var(--line-2); box-shadow: 0 .06rem .2rem rgba(0, 0, 0, .6); }
+.specseats__row { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: .12rem; min-height: max(.3rem, 24px); padding: 0 max(.1rem, 7px);
+  border: 0; background: transparent; color: var(--text-md); font-size: max(.14rem, 10px); white-space: nowrap; cursor: pointer; }
+.specseats__row + .specseats__row { border-top: 1px solid var(--line); }
+.specseats__row:hover:not(:disabled) { background: var(--mint-a10); }
+.specseats__row.is-on { background: var(--mint-a10); color: var(--mint-400); font-weight: 700; }
+.specseats__row:disabled { color: var(--text-dim); cursor: default; }
 .rpick__opt { height: .36rem; padding: 0 .16rem; font-size: .15rem; letter-spacing: .04em; }
 .rpick__opt[data-ruleset='classic'] { --d-color: var(--amber); }
 .rpick__opt[data-ruleset='casual'] { --d-color: var(--mint-400); }

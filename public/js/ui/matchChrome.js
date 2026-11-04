@@ -75,8 +75,8 @@ export async function quitMatch() {
 }
 
 /**
- * A spectator seat's 预约座位 / 取消预约 (server/lobby.js header 「Seat reservation」), on the match screen: the seat comes
- * when the match ends or restarts with a free one.
+ * A spectator seat's 预约座位 / 取消预约 (server/lobby.js header 「Seat reservation」), in the match screen's corner and the
+ * exit dialog (the briefing and the draft have only that one): the seat comes when the match ends or restarts with a free one.
  * @param {{ reserved: number, size?: string }} props reserved: reservedRank, 0 = none
  */
 export function SeatReserveButton({ reserved, size }) {
