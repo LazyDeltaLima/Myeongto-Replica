@@ -23,7 +23,7 @@ export const COND_GROUPS = Object.freeze({
   'char_4202_haruka|AttackAndShield,ShieldOnly': { plain: ['AttackAndShield'], others: { ShieldOnly: 'signal: nothing to attack or heal, the attack is the bubble (fx shield `only`, audio.js)' } },
   'char_4207_branch|FirstAttack,AbilityName': { plain: ['AbilityName'], others: { FirstAttack: 'same: `first` picks it on the mode\'s first attack' } },
   'char_420_flamtl|Attack_T1+,Attack_T1,Attack': { plain: ['Attack'], others: { 'Attack_T1+': 'same: the sounds of Attack_T1, the swing names that one', Attack_T1: 'signal: on flamtl_t_1[evade], after a dodge (kit swing hook)' } },
-  'char_4211_snhunt|Attack,ReloadAttack,Reload': { plain: ['Attack'], others: { ReloadAttack: 'same: the same banks as Attack', Reload: 'none: the kit has no reload moment' } },
+  'char_4211_snhunt|Attack,ReloadAttack,Reload': { plain: ['Attack'], others: { ReloadAttack: 'same: the same banks as Attack', Reload: 'signal: no round or no target — the 猎手 reload\'s fx hunterReload / hunterRound `cast`, one START per round (audio.js _reloadCue)' } },
   'char_4226_veen|AttackWithMergeBall,AttackBase': { plain: ['AttackWithMergeBall', 'AttackBase'], others: {} },
   'char_4247_oxi|BuffedAttack,Attack': { plain: ['Attack'], others: { BuffedAttack: 'signal: on oxi_s_2_stack (kit swing hook)' } },
   'char_427_vigil|Attack_A,Attack_B,Attack_C': { plain: ['Attack_A', 'Attack_B', 'Attack_C'], others: {} },

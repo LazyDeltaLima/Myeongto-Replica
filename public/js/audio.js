@@ -633,6 +633,8 @@ const KIT_SOUND_DEF = /^(char_\d+_(wang|chen3|wisdel|oblvns|whitw2|lemuen|ghost2
  * not per damage tick]. A DoT tick credited to its applier never gets here (2026-10-11: the 'dmg' 7th field, skipped first).
  */
 const SKILL_HIT_GAP_MS = 120;
+/** The attack child of a 猎手 that loads a round (AbilitySelectableGroup `_abilityConfigs`). */
+const RELOAD_CHILD = 'Reload';
 /**
  * 2026-10-22: the sfx.kit key of a skill's own damage (_skillImpact) whose client sound is a buff's audio signal on each enemy
  * it hits, not an ability's HIT — 隐德来希 S2's blood sickles (etlchi_s_2's AOEDamage gives each enemy etlchi_s_2[audio]).
@@ -1723,6 +1725,17 @@ export class AudioManager {
   }
 
   /**
+   * 2026-11-05, docs/rules/audio.md 「공격 소리 신호」: the START of unit `su`'s `Reload` attack child, if it has one (雪猎: its only bank,
+   * p_atk_sncrbwrld). That child is an attack group's, so a swing never picks it (test/audio-cond-group-list.js).
+   */
+  _reloadCue(su) {
+    const ue = su ? this.getManifest()?.audio?.sfx?.units?.[su.def] : null;
+    const k = ue?.sel?.attack?.sig?.[RELOAD_CHILD];
+    const c = k != null ? ue.cues?.find((x) => x.at === 's' && x.k === k) : null;
+    return c ? this._playCue(su.def, c, false) : false;
+  }
+
+  /**
    * A unit whose model reports no Spine clip events (spineEvent: no model drawn — the fallback diamond, a crowded low-quality
    * field, a renderer that does not report them; the client always has its model) gets a strike in their place (the event sits in the attack clip, so it
    * sounds near the strike]: during skill k the unit's `Skill_<k>_<n>` events in turn (마운틴 S2 / S3 punches — their mode
@@ -2456,6 +2469,8 @@ export class AudioManager {
           if (e[1] === 'drones' && e[4]?.id != null && unitOf(e[4].id)?.def === 'char_1038_whitw2' && unitOf(e[4].id)?.skillIndex === 2) {
             for (let i = 0; i < Math.max(1, Number(e[4].n) || 1); i++) if (!this._kitSound('whitw2:s3born')) break;
           }
+          // 2026-11-05: 雪猎's Reload child casts once per round, with no round or no target (the sim's 猎手 reload says so: `cast`)
+          if ((e[1] === 'hunterReload' || e[1] === 'hunterRound') && e[4]?.cast && e[4].id != null) this._reloadCue(unitOf(e[4].id));
           // 2026-11-01: 塔露拉 S3's wave — each lane's 簇火 fired at once (its BORN), at most the bank's own limit
           if (e[1] === 'oxiWave' && e[4]?.id != null && unitOf(e[4].id)?.def === 'char_4247_oxi') {
             const max = this.getManifest()?.audio?.sfx?.kitLimit?.['oxi:s3fire']?.max ?? 2;

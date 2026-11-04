@@ -372,19 +372,26 @@ const installHunter = (battle, unit) => {
   const max = unit.profile.ammoMax ?? 8;
   unit.trait.ammo = max;
   unit.trait.reloadAcc = 0;
+  // `cast`: the client's Reload child casts now (HunterBulletTrigger: the Attack child comes first, so only with no round or no
+  // target — this sim also reloads between attacks, which sounds nothing: audio.js).
+  const casts = () => (unit.trait.ammo === 0 || !battle.enemiesInKeys(unit.rangeKeys, unit, unit.profile).length ? { cast: 1 } : null);
   battle.on('tick', (ctx) => {
     if (!unit.alive || !unit.deployed) return;
     const reloading = battle.time - unit.lastAttackAt >= 1 && unit.trait.ammo < max;
+    let round = false;
     if (reloading) {
       unit.trait.reloadAcc += ctx.dt;
-      if (unit.trait.reloadAcc >= 1) { unit.trait.reloadAcc -= 1; unit.trait.ammo++; }
+      if (unit.trait.reloadAcc >= 1) { unit.trait.reloadAcc -= 1; unit.trait.ammo++; round = true; }
     } else unit.trait.reloadAcc = 0;
     // the reload is a model form (雪猎's Reload ability: render/units.js FORMS) — fx 'hunterReload' { form } on each change;
     // `cut` 1: an attack ended it (the client's ReloadAttack opens on Reload_Break, no Reload_End). Display only.
     const form = reloading && unit.trait.ammo < max && !unit.swing ? 'reload' : null;
     if ((unit.form ?? null) !== form) {
       unit.form = form;
-      battle.fx('hunterReload', { x: unit.x, y: unit.y, id: unit.id, form, ...(form == null && unit.trait.ammo < max ? { cut: 1 } : null) });
+      battle.fx('hunterReload', { x: unit.x, y: unit.y, id: unit.id, form, ...(form == null && unit.trait.ammo < max ? { cut: 1 } : null), ...(form ? casts() : null) });
+    } else if (round && form) { // the reload goes on: its next cast. Display only.
+      const cast = casts();
+      if (cast) battle.fx('hunterRound', { x: unit.x, y: unit.y, id: unit.id, ...cast });
     }
   }, { owner: unit });
   battle.on('deploy', (ctx) => { if (ctx.unit === unit) unit.trait.ammo = max; }, { owner: unit });
