@@ -63,3 +63,28 @@ test('the 重构体\'s ATK aura is announced to the view on the allies it covers
   assert.ok(!on.some((e) => e[1] === h.unit(2).id), 'not on itself (`_selfOption` EXCLUDE)');
   assert.equal(on.filter((e) => e[1] === h.unit(1).id && e[3] !== 0).length, 1, 'announced once, not on every aura tick');
 });
+
+test('the 重构体\'s and her S3\'s 流失 take HP without a \'dmg\' event: each draws the white hit flash and sparks of 真实 damage', () => {
+  const dummy = enemyRec({ key: 'e_d', hp: 1e9, speed: 0, mass: 0, def: 0, res: 0 });
+  const h = makeBattle({ defs: { enemies: { e_d: dummy } }, timeLimit: 60, autoFinish: false, seed: 5, flags: { dpPerSec: 0, dpMax: 999 }, captureNoisy: true,
+    units: [{ uid: 1, diy: { slot: 'chess_char_5_diy1_a', charId: 'char_4179_monstr', skillIndex: 2, uniEquipId: null }, row: 10, col: 4 },
+      { uid: 2, kind: 'token', tokenId: PROSTS, ownerUid: 1, row: 9, col: 4 }] });
+  const steps = (s) => Math.round(s / h.b.dt);
+  const r = h.unit(2), u = h.unit(1);
+  for (let i = 0; i < steps(1.5); i++) h.step();
+  const hp0 = r.hp;
+  h.events.length = 0;
+  for (let i = 0; i < steps(1); i++) h.step();
+  assert.ok(r.hp < hp0, `it keeps losing HP: ${hp0} → ${r.hp}`);
+  assert.equal(h.events.filter((e) => e[0] === 'dmg' && e[1] === r.id).length, 0, 'no \'dmg\' on the 重构体');
+  h.spawn('e_d', { pos: [10, 5] });   // S3's trigger: an enemy in her x-4
+  u.skill.gainSp(999);
+  assert.ok(h.runUntil(() => u.skill.active, 2), 'S3 on');
+  for (let i = 0; i < steps(0.2); i++) h.step();
+  const hp1 = u.hp;
+  h.events.length = 0;
+  for (let i = 0; i < steps(0.5); i++) h.step();
+  assert.ok(u.hp < hp1, `S3 流失: ${hp1} → ${u.hp}`);
+  assert.equal(h.events.filter((e) => e[0] === 'dmg' && e[1] === u.id && e[5] === u.id).length, 0, 'no \'dmg\' of her own');
+});
+

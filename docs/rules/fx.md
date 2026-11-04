@@ -3713,6 +3713,9 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
   `talent:monstr:prostsAtk`를 알리고 `KEY_FX`가 그린다. ③ S3 시전: `monstr_s_3_buff[self]`의 `token_monstr_prosts[eff]`가 그녀가 내려앉는 재구성체 칸에
   `token_monstr_prosts_skill_03_start`(`teleport` 계획, 묶음 `monstr_token`). ④ 이 이펙트의 결정 조각(메시 입자 16계, 방출 0.125/s·수명 8초·주기 1초)은 재생기의 두 오류로 안
   보였다: 미리 데우기가 한 주기뿐이라 8초 뒤에야 나오고(「방출·입자 운동」 미리 데우기), 메시 pivot을 입자 크기 단위로 읽어 2.6칸 밖에 놓였다(아래 「메시 입자 pivot」). [화면 미확인: 공식과 나란히]
+- 재구성체·Mon3tr S3의 유실(2026-11-04, 관리자 제보 「흰색 이펙트가 계속 나옴」): `prosts_t_1[born_charge]`·`monstr_s_3[bleeding]`의 `FixedValueDamage`는 0.1초마다 체력을 깎을 뿐 이펙트를
+  안 만든다. 시뮬이 `'dmg'`를 내면 렌더 `fx/numbers.js damage`가 진짜 피해의 흰 발광·입자를 그려 초당 10번 흰빛이 났다 → `loseHp`의 `silent`(수르트·혼의 유실과 같음). 체력은 그대로 깎이고
+  소리 쪽 처리(`audio.js`)도 그대로. 아레나에서 재구성체 곁 공용 입자 수: 평균 17(0이 된 적 없음) → 0.9(그녀의 공격 때만). 시험 `test/render/token-held-fx.test.js`.
 - 리(`char_322_lmlee`) 재능 1(2026-11-04): 저지하는 동안 `lmlee_t_1[self]` `lmlee_buff_01_start`가 그에게, `lmlee_t_1[enemy]` `lmlee_debuff_01_start`가 저지당한 적에게 — 시뮬
   `talent:lmlee:self`·`talent:lmlee:foe:<그의 id>`를 `visible`로 알리고 `KEY_FX`가 그린다(공격 속도 값은 그대로, 효과만 추가). [화면 미확인: 실제 판]
 - **메시 입자 pivot**(2026-11-04, 공식 클라에서 확인 — 메시 지오메트리 잡): `m_Pivot` × 메시 경계 크기(max − min), z는 뒤집어(x, y, −z), 그 뒤 입자 크기·회전. 쿼드의 「입자 크기 단위」와

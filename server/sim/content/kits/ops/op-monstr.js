@@ -158,7 +158,9 @@ function prostsKit(owner, { atk }) {
           if (t.deploySeq !== seq || !up(t)) return;
           battle.every(PROSTS_BLEED_IV, (b, sched) => {
             if (t.deploySeq !== seq || !up(t)) { sched.cancel(); return; }
-            b.loseHp(t, dps * PROSTS_BLEED_IV, { source: t, tags: [TAG_PROSTS_BLEED] });
+            // (silent: a 'dmg' event draws the white hit flash and sparks of 真实 damage on the view, here ten times a second;
+            // the client's FixedValueDamage of the template creates no effect)
+            b.loseHp(t, dps * PROSTS_BLEED_IV, { source: t, silent: true, tags: [TAG_PROSTS_BLEED] });
           }, { owner: t, immediate: true });
         }, { owner: t });
       }, { owner: t });
@@ -332,7 +334,7 @@ export default {
         // S3's 流失
         battle.every(S3_BLEED_IV, () => {
           if (!skillOn(unit, S3) || !unit.mem.mHome || unit.mem.mFatal || !up(unit)) return;
-          battle.loseHp(unit, num(b3.damage_per_second) * S3_BLEED_IV, { source: unit, tags: [TAG_S3_BLEED] });
+          battle.loseHp(unit, num(b3.damage_per_second) * S3_BLEED_IV, { source: unit, silent: true, tags: [TAG_S3_BLEED] });   // (silent: as the 重构体's)
         }, { owner: unit });
         // S3 不死; the 1 s 不死 after the return
         battle.on('fatal', (c) => {
