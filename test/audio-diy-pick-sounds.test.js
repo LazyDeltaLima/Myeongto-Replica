@@ -360,6 +360,7 @@ describe('선발 贝洛内 / 维伊 / 怒潮凛冬 / Mon3tr: buff, custom-trigge
       'demetr:s2atk': 'p_atk_rdbrknclsfr_h', 'demetr:s3fly': 'p_atk_rdbrknclsflh', 'demetr:s3back': 'p_imp_rdbrknclsflh',
       'veen:store': 'p_skill_ergblb', 'veen:merge': 'p_skill_ergblr', 'veen:hit': 'p_imp_ergblb', 'veen:mhit': 'p_imp_ergblr',
       'veen:s2hit': 'p_imp_ergblb', 'veen:s2mhit': 'p_imp_ergblr', 'headb2:highland': 'p_imp_brhmxsprd',
+      'headb2:s3hit0': 'p_imp_brhmx_s1', 'headb2:s3hit1': 'p_imp_brhmx_s2', 'headb2:s3hit2': 'p_imp_brhmx_s3', 'headb2:s3hit3': 'p_imp_brhmx_s4', 'headb2:s3hit4': 'p_imp_brhmx_s5',
       'monstr:s3move': 'p_atk_kxdtctmpr_s', 'monstr:s3back': 'p_atk_kxdtctmnd_s',
     };
     for (const [k, f] of Object.entries(want)) {
@@ -428,6 +429,19 @@ describe('선발 贝洛内 / 维伊 / 怒潮凛冬 / Mon3tr: buff, custom-trigge
     assert.equal(count(r.played, 'p_imp_brhmxsprd'), a.length, 'each one sounds, enemies or none');
   });
 
+  test('a battle: 怒潮凛冬 S3 — each of the five hammers sounds its own ON bank once, enemies or none', { skip: NO_DATA }, () => {
+    const units = [{ uid: 1, diy: { slot: SLOT5, charId: ZIMA, skillIndex: 2, uniEquipId: null }, row: 10, col: 5 }];
+    // it needs an enemy to start (CUSTOM_RANGE): e_weak falls to the first hammer, and the other four strike nobody
+    for (const foe of ['e_d', 'e_weak']) {
+      const r = hear({ units, secs: 12, until: (h) => h.unit(1).skill.activations && !h.unit(1).skill.active,
+        prep: (h, u) => { h.spawn(foe, { pos: [10, 6] }); u.skill.gainSp(999, 'init'); } });
+      if (foe === 'e_weak') assert.equal(r.h.enemies().filter((e) => e.alive).length, 0, 'nobody left for the later hammers');
+      assert.equal(r.fx('aoe').filter((o) => o.skill === 'headb2:hammer').length, 5, 'five hammers');
+      assert.deepEqual(r.played.filter((f) => /^p_imp_brhmx_s\d$/.test(f)), ['s1', 's2', 's3', 's4', 's5'].map((x) => `p_imp_brhmx_${x}`), 'in order, once each');
+      assert.equal(r.played.filter((f) => /^p_imp_brhmx_[ndh]$/.test(f)).length, 0, 'no other mode\'s impact');
+    }
+  });
+
   test('a battle: Mon3tr S3 — the move onto her 重构体, S3_Reborn attacks on the enemy she blocks, the return', { skip: NO_DATA }, () => {
     const units = [{ uid: 1, diy: { slot: SLOT5, charId: MONSTR, skillIndex: 2, uniEquipId: null }, row: 10, col: 4 },
       { uid: 2, kind: 'token', tokenId: PROSTS, ownerUid: 1, row: 10, col: 6 }];
@@ -453,6 +467,8 @@ describe('선발 贝洛内 / 维伊 / 怒潮凛冬 / Mon3tr: buff, custom-trigge
     assert.equal(signalFxKey('mysticStore', { id: 5, n: 1 }, of), null, 'another 秘术师');
     assert.equal(kitHitKey('aoe', { id: 3, skill: 'headb2:highland' }, of), 'headb2:highland');
     assert.equal(kitHitKey('aoe', { id: 3, skill: 'headb2:hammer' }, of), null);
+    assert.equal(kitHitKey('aoe', { id: 3, skill: 'headb2:hammer', spell: 0 }, of), 'headb2:s3hit0');
+    assert.equal(kitHitKey('aoe', { id: 3, skill: 'headb2:hammer', spell: 4 }, of), 'headb2:s3hit4');
   });
 });
 

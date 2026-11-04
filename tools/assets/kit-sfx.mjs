@@ -298,6 +298,12 @@ export const KIT_HIT_BANKS = Object.freeze({
   'veen:s2hit': 'battle.ON_PROJECTILE_HIT.projectile_chr_veen_s2',
   'veen:s2mhit': 'battle.ON_PROJECTILE_HIT.projectile_chr_veen_s2_merged',
   'headb2:highland': 'battle.ON_CUSTOM_TRIGGER.headb2_highland_aoe',
+  // 2026-11-04: 怒潮凛冬 S3's hammers — the ability's ON at each spell, the spell count at the end of the signal
+  'headb2:s3hit0': 'battle.ON_ABILITY_ON.skchr_headb2_3.0',
+  'headb2:s3hit1': 'battle.ON_ABILITY_ON.skchr_headb2_3.1',
+  'headb2:s3hit2': 'battle.ON_ABILITY_ON.skchr_headb2_3.2',
+  'headb2:s3hit3': 'battle.ON_ABILITY_ON.skchr_headb2_3.3',
+  'headb2:s3hit4': 'battle.ON_ABILITY_ON.skchr_headb2_3.4',
   'monstr:s3move': 'battle.ON_BUFF_START.monstr_s_3[respawn]',
   'monstr:s3back': 'battle.ON_ABILITY_START.skchr_monstr_3.extra.0',
   // 2026-11-04: 黍 — T1's DoFarm (AttachListenerToTileAbility.AttachToTile: its spell-on signal for each newly sown tile),

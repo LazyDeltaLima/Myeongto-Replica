@@ -179,7 +179,7 @@ export default {
       }
       const around = battle.foesInRadius(cx, cy, HAMMER_SPLASH, true).filter((e) => e !== main && !e.isFlying);
       const atk = unit.s.atk, scale = num(b3.atk_scale, 1) * hamx((main ? 1 : 0) + around.length);
-      battle.fx('aoe', { x: cx, y: cy, radius: HAMMER_SPLASH, id: unit.id, skill: 'headb2:hammer' });
+      battle.fx('aoe', { x: cx, y: cy, radius: HAMMER_SPLASH, id: unit.id, skill: 'headb2:hammer', spell: k - 1 });
       if (main && main.alive) battle.dealDamage(unit, main, { amount: atk * scale, type: 'phys', isSkill: true, tags: ['skill', HAMMER_TAG] });
       for (const e of around) {
         if (!e.alive) continue;

@@ -282,6 +282,9 @@ export function kitHitKey(fx, ex, unitOf) {
       // 2026-11-03: 怒潮凛冬's 高台 splash — Headb2AttackHighlandAOEBase._TriggerAOEFromTile plays `_aoeAudioSignal` at every
       // 高台 tile it takes effect on, enemies or none (Default / S1 / S2 attacks and S3's spread alike)
       : ex.skill === 'headb2:highland' && def(ex.id) === 'char_1051_headb2' ? 'headb2:highland'
+      // 2026-11-04 (maintainer report: no impact on 怒潮凛冬 S3): each hammer is one spell of skchr_headb2_3 — its ON bank, by spell
+      // count from 0 (`.0`–`.4`), once per hammer, enemies or none. S3 makes no normal attack, so the mode's cues never run
+      : ex.skill === 'headb2:hammer' && def(ex.id) === 'char_1051_headb2' && Number.isInteger(ex.spell) ? `headb2:s3hit${ex.spell}`
       : null;
     // 2026-11-03: 魔王's 微尘 reaching an operator (an enemy under S2) — its projectile's HIT (cetsyrMoteKey)
     case 'mote': return ex.src !== ex.id ? cetsyrMoteKey(unitOf(ex.src), 'hit') : null;

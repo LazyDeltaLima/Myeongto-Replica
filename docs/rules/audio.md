@@ -685,6 +685,8 @@
   - 지마 더 레이징 타이드(`char_1051_headb2`) 재능 소용돌이 치는 분노의 고지대 스플래시: `Headb2AttackHighlandAOEBase._TriggerAOEFromTile`이 효과가 나는
     고지대 칸마다 피해 뒤 `_aoeAudioSignal` `headb2_highland_aoe`를 그 칸에서 낸다 — 적이 없어도(`_TryGetEntities_DISPOSE`의 실패는 능력 선택자를 못 찾을
     때뿐). 평타·S1·S2 모드와 S3 퍼짐(`Headb2S3HighlandAOE`, 같은 신호) 모두 → 키트 fx `aoe` `headb2:highland`.
+    S3 망치(2026-11-04, 관리자 제보 「타격음이 안 남」): 망치마다 능력의 ON `ON_ABILITY_ON.skchr_headb2_3.<회차>`(0부터, `p_imp_brhmx_s1`~`s5`, 주문마다 한 번) → 키트
+    fx `aoe` `headb2:hammer`의 `spell` → `headb2:s3hit0`~`4`. S3는 평타가 없어 모드 소리(휘두름 경로)가 나지 않았다. 공격음 `p_atk_brhmx_s1`~`s5`는 클립의 스파인 이벤트 `s3_attack_audio_<n>`.
   - Mon3tr(`char_4179_monstr`) S3 책략: 용해: `monstr_s_3_buff[respawn]` ON_BUFF_START의 RespawnCharacter가 그녀를 재구성체 자리에 모드 4 `S3_Reborn`으로
     놓은 뒤 `monstr_s_3[audio]`(audioSignal `monstr_s_3[respawn]`)를 건다 → fx `teleport`에 `monstr:s3move`, 그 뒤 공격은 `attack.4`/`combat.4`
     (`SKILL_SUB_MODES` `teleport`; 막은 적엔 Combat), 【복귀】 RespawnEnd(`_extraAbilities[0]`) START → `back`에 `monstr:s3back`.
