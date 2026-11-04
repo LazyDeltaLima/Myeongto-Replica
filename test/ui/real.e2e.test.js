@@ -432,9 +432,12 @@ class Client {
     await sleep(250);
     const asked = await this.page.evaluate(() => {
       const t = document.querySelector('.modal__title');
-      return !!(t && t.textContent.includes('剩余资金'));
+      if (t && t.textContent.includes('剩余资金')) return 'modal';
+      // with the extracted art it is the official confirm dialog (ui/battleArt.js)
+      return document.querySelector('.bcd .bcd__btn.is-ok') ? 'art' : null;
     });
-    if (asked) await this.click('.modal__actions button', '准备就绪', { timeout: 4000 });
+    if (asked === 'art') await this.click('.bcd .bcd__btn.is-ok', null, { timeout: 4000 });
+    else if (asked) await this.click('.modal__actions button', '准备就绪', { timeout: 4000 });
   }
 }
 
@@ -467,18 +470,19 @@ describe('real server + real browsers', { skip: !ENABLED && 'set SP_REAL_E2E=1 (
     const both = [host, guest];
     try {
       // ---- lobby & room --------------------------------------------------------------------------------------------
-      await host.open();
+      await host.open('?lang=zh');
       await host.enter('凯尔希');
       await host.click('.mode-card', '同盟模拟');
       await host.click('.diff-card', '险境模拟');
       await host.click('.create-box button', '创建同盟');
       const room = (await host.waitFor((s) => !!s.room?.code, 'room created')).room;
       await host.click('button', '添加 AI 队友');
-      await guest.open(`?room=${room.code}`);
+      await guest.open(`?room=${room.code}&lang=zh`);
       await guest.enter('阿米娅');
       await guest.waitFor((s) => s.room?.code === room.code, 'guest joined via invite link');
       await guest.click('.room-bar__right button', '准备就绪');
       await host.shot('room');
+      await host.click('button', '以后再说', { optional: true, timeout: 4000 }); // the 资源下载 offer covers the room bar on a first visit
       await host.click('.room-bar__right button', '开始模拟', { timeout: 20000 });
 
       // ---- briefing ---------------------------------------------------------------------------------------------------
@@ -649,12 +653,13 @@ describe('real server + real browsers', { skip: !ENABLED && 'set SP_REAL_E2E=1 (
   test('solo: 独立模拟 through two rounds, then 放弃模拟 back to the lobby', { timeout: 10 * 60 * 1000 }, async () => {
     const solo = new Client(puppeteer, base, 'solo');
     try {
-      await solo.open();
+      await solo.open('?lang=zh');
       await solo.enter('杜宾');
       await solo.click('.mode-card', '独立模拟');
       await solo.click('.diff-card', '标准模拟');
       await solo.click('.create-box button', '开始独立模拟');
       await solo.waitFor((s) => !!s.room, 'solo room');
+      await solo.click('button', '以后再说', { optional: true, timeout: 4000 }); // the 资源下载 offer covers the room bar on a first visit
       if (!(await solo.st()).phase) await solo.click('.room-bar__right button', '开始模拟', { timeout: 20000 });
       await solo.waitFor((s) => s.phase === 'INFO_CHECK', 'briefing', 30000);
       await solo.click('.brief__foot .btn--primary', '准备就绪');

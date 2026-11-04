@@ -717,6 +717,17 @@ async function mockRequest(t, f = {}) {
       }
       pushPublic(); return {};
     }
+    case 'g.restart': {
+      // the vote's own rules are the server's (server/match/match/restart.js): here it opens, gathers this seat's answer and closes
+      const v = pub.restartVote;
+      if (f.op === 'propose') {
+        if (v) fail('WRONG_PHASE');
+        pub.restartVote = { by: ME, yes: [ME], deadline: Date.now() + 30_000, ms: 30_000 };
+      } else if (!v) fail('WRONG_PHASE');
+      else if (f.op === 'yes') v.yes = [...new Set([...v.yes, ME])];
+      else delete pub.restartVote;
+      pushPublic(); return {};
+    }
     case 'g.art': {
       prepOnly(); const it = findPiece(f.itemUid); if (!it) fail('BAD_TARGET');
       if (it.piece.id === 'chess_item_6_03_m') {
