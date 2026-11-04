@@ -178,6 +178,9 @@ This is a remake of the official mode; the official game decides.
   from an ability's or a projectile's HIT, not from damage: damage that is no hit carries it in the 'dmg' 7th field
   (`test/audio-impact-sweep.test.js` runs every operator × skill). An attack group whose children have conditions
   (`_abilityConfigs`) is read from the client, never picked by name (`test/audio-cond-group-list.js`, worksheet `link_sheet.py`).
+- The official client's engine is not stock Unity 2021.3 everywhere: a mesh particle's pivot differs (`docs/rules/fx.md` 「메시 입자 pivot」). A formula from Unity's manual or the stock player is checked against an official screen before it is called official, and code alone never says what the official game shows.
+- A periodic HP loss with no effect of its own is `silent` (`Battle.loseHp`): each 'dmg' event draws the white glow and sparks of 真实 damage, ten times a second for Mon3tr's 重构体 (`test/render/op-sweep-fx.test.js`). The sim's attack clip and the view's are read from two places and must be the same clip, or the swing, the strike and the cast effects run on different clocks (`test/sim/attack-clip-view.test.js`).
+- After extracting effects run `node tools/build-browser-resources.mjs`: a resource worker answers a listed file from its cache as long as the list's hash is the cached copy's, so a browser that had the page keeps the old file through server restarts and hard reloads while a fresh one shows the change (`test/render/browser-resources-current.test.js`).
 - Before adding or editing a 自选 operator kit, walk the checklist in `docs/rules/diy.md`
   (「새 선발 오퍼레이터 키트 체크리스트」): targetable-only AoE through `canTargetEnemy`, the `dealDamage` options, no invented
   stop conditions.

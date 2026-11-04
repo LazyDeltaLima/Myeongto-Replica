@@ -190,6 +190,12 @@ async function main() {
   const fonts = fs.existsSync(path.join(ROOT, 'public', 'fonts', 'fonts.css'));
   row(fonts ? 'ok' : 'warn', '字体 public/fonts', fonts ? '' : '未生成（随素材下载一起生成；缺失时用系统字体）');
   const local = checkLocal();
+  // the resource worker keeps answering a file by the list's hash: a list older than the effects hides them from a browser that has the old ones
+  const resList = path.join(ROOT, 'public', 'assets', 'browser-resources.json');
+  const resModes = path.join(ROOT, 'public', 'assets', 'local', 'fx', 'modes.json');
+  if (fs.existsSync(resList) && fs.existsSync(resModes) && fs.statSync(resModes).mtimeMs > fs.statSync(resList).mtimeMs) {
+    row('warn', '浏览器资源清单', '比提取的特效旧 → node tools/build-browser-resources.mjs（否则已打开过的浏览器继续用旧文件）');
+  }
   const client = findClient(null);
   row(local.manifest ? 'ok' : 'skip', '本地客户端美术（可选）', local.manifest
     ? `${local.count} 项${local.board3d ? '，3D 棋盘可用' : '，无棋盘贴图（2D 棋盘）'}${local.board3d && !local.tiles ? '；缺 tiles.json → node tools/setup.mjs' : ''}`

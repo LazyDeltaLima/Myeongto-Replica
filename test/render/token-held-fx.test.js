@@ -12,6 +12,7 @@ import { makeBattle, enemyRec } from '../helpers/battleHarness.js';
 
 const PROSTS = 'token_10050_monstr_prosts';
 const MODES = 'public/assets/local/fx/modes.json';
+const IDLE = 'public/assets/local/fx/monstr_token/token_monstr_prosts_idle.json';
 const settle = () => new Promise((r) => setTimeout(r, 5));
 
 test('char_modes.py keeps a summon\'s passive buff effects, its default mode\'s only, and leaves the hand-drawn looks out', () => {
@@ -26,6 +27,28 @@ test('the extract holds the 重构体\'s idle effect under every skill of hers',
   assert.equal(m.start, 'token_monstr_prosts_start');
   assert.deepEqual(Object.keys(m.aura), ['0', '1', '2']);
   for (const list of Object.values(m.aura)) assert.deepEqual(list, ['token_monstr_prosts_idle']);
+});
+
+test('the 重构体\'s crystals make a ring: 8 turns of 45° about one axis, 0.39 out along their long axis, as the official screen', { skip: !existsSync(IDLE) && 'needs the extracted effects' }, () => {
+  const { nodes } = JSON.parse(readFileSync(IDLE, 'utf8'));
+  const crystals = nodes.filter((n) => n.ps?.render?.mode === 4 && n.ps.render.trailMat?.includes('crystal'));
+  assert.equal(crystals.length, 8);
+  const yaws = new Set();
+  for (const n of crystals) {
+    assert.ok(Math.abs(n.rot[0]) < 1e-3 && Math.abs(n.rot[2]) < 1e-3, `${n.name} turns about y only`);
+    yaws.add(Math.round((2 * Math.atan2(n.rot[1], n.rot[3]) * 180 / Math.PI + 720) % 360));
+    // the shader's offset (fxplayer.js `piv`): (x, -z, y) × size, then × size again
+    const [px, py, pz] = n.ps.render.pivot;
+    const { x, y, z } = n.ps.mods.sizeOL;
+    const s = [x.s, y.s, z.s].map((v) => v * n.ps.size.s);
+    const off = [px * s[0] * s[0], -pz * s[1] * s[1], py * s[2] * s[2]];
+    assert.deepEqual(off.slice(0, 2).map(Math.abs), [0, 0], 'along the mesh\'s z, its long axis: radial');
+    assert.ok(Math.abs(off[2] - 0.39) < 0.002, `radius ${off[2]}`);
+  }
+  assert.deepEqual([...yaws].sort((a, b) => a - b), [0, 45, 90, 135, 180, 225, 270, 315]);
+  const mesh = JSON.parse(readFileSync(`public/assets/local/fx/mesh/${crystals[0].ps.render.mesh}.json`, 'utf8')).pos;
+  const ext = [0, 1, 2].map((c) => { const v = mesh.filter((_, i) => i % 3 === c); return Math.max(...v) - Math.min(...v); });
+  assert.ok(ext[2] > ext[0] * 2 && ext[2] > ext[1] * 2, `the crystal's long axis is z: ${ext}`);
 });
 
 test('fxgame.js: the 重构体 holds its idle effect while it stands, in its owner\'s effect bundle, and drops it as it leaves', async () => {

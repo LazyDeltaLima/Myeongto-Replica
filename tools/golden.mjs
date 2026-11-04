@@ -1064,6 +1064,9 @@ export function diyScenarios() {
       about: `${units.map((u) => `${u.chessId.replace(/^chess_char_/, '')}=${u.diy.charId.replace(/^char_\d+_/, '')}${u.diy.skillIndex != null ? `/S${u.diy.skillIndex + 1}` : ''}${u.diy.uniEquipId ? `/${u.diy.uniEquipId.replace(/^uniequip_/, '')}` : ''}`).join(' ')}`,
     });
   }
+  // (2026-11-04) the picks with a hand-placed summon, placed by its rules: 12 pieces leave no room for them above, and so Mon3tr S3 on
+  // her 重构体 fought in no digest (her swing's clock moved with no golden scenario telling)
+  for (const s of fxPathScenarios()) if (s.id.startsWith('fxpath-summon-')) scenarios.push({ ...s, id: s.id.replace('fxpath-summon-', 'diy-summon-'), family: 'diy', pass: 1 });
   return scenarios;
 }
 
