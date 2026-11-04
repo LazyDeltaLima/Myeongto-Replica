@@ -310,3 +310,40 @@ test('森蚺 through the real match path (seats[].diy → Match board → battle
   assert.ok(hits.length && hits.every((x) => x.type === 'phys'), 'her attacks: physical');
   assert.equal(b.errors.length, 0, JSON.stringify(b.errors[0]));
 });
+
+test('森蚺 S3 through the real match path: no attack through Hensin (1.5 s), then the attack clip; its 31 s run from the end of the cast', async () => {
+  const { makeMatch } = await import('../match/harness.js');
+  const { buildBattleSpec, createBattleFromSpec } = await import('../../server/sim/spec.js');
+  const T6 = SLOT[6];
+  const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, diy: { [T6]: { charId: ZUMAMA, skillIndex: 2, uniEquipId: null } } }];
+  const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed: 11 }).start();
+  h.toPrep(1);
+  h.setStage('act2autochess_m04');
+  const m = h.m, ps = h.ps('p_0');
+  ps.initDiyStock?.(new Set());
+  for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+  ps.board.clear(); ps.hand.fill(null); ps.recompute();
+  const t = ps.acquireChess(T6, { source: 'buy' });
+  assert.ok(t, 'the piece');
+  assert.ok(m.handle('p_0', { t: 'g.move', uid: t.uid, to: { area: 'board', row: 9, col: 4 }, dir: 'RIGHT' }).ok, 'on the road, facing the spawn');
+  const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'lp', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent });
+  const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+  b.start();
+  while (b.waveT0 == null) b.step();
+  const u = b.allyUnits.find((x) => x.kind === 'op' && x.def.charId === ZUMAMA);
+  assert.ok(u && !u.kit.generic && u.skill.id === S3, 'her kit, S3');
+  assert.ok(u.skill.activate('test', { free: true }));
+  const t0 = b.time;
+  const clip = u.def.attackAnim.skills[2];
+  assert.deepEqual([clip.dur, clip.hit], [1.5, 0.567], 'Skill_2_Loop');
+  assert.ok(Math.abs(u.skillStateUntil - (t0 + 1.5)) < 1e-9, 'the Skill state');
+  let held = true;
+  let ended = null;
+  for (let i = 0; i < Math.round(34 / b.dt) && ended == null; i++) {
+    b.step();
+    if (b.time < t0 + 1.5 - 1e-9 && u.swing) held = false;
+    if (!u.skill.active) ended = b.time - t0;
+  }
+  assert.ok(held, 'no swing during the cast');
+  assert.ok(Math.abs(ended - 32.5) <= 2 * b.dt, `S3 ended after ${ended} s`);
+});
