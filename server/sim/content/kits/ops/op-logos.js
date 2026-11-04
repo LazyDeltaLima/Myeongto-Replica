@@ -47,7 +47,8 @@
 //   "受缴械类效果制约"; logos_s_3's finish: CheckCanUseAtkOrCbt, else the aura only stops) nor when he is knocked out
 //   [ASSUMED: which branch of that finish a knock-out takes is not read]. Every enemy projectile counts (the skill
 //   prefab's ProjectileAura validator: enemy side, no projectile type or key filter). The sim's projectiles live in
-//   `battle.projectiles.list` (ProjectileSystem, server/sim/projectiles.js): the kit adjusts `speed` / `maxAge` there.
+//   `battle.projectiles.list` (ProjectileSystem, server/sim/projectiles.js): the kit adjusts `speed` / `maxAge` there, and
+//   tells the view each change (fx 'shotSlow', shotFx below; docs/rules/fx.md).
 
 import { num, talentBb, moduleBb, traitBb, skillRec, up, giveSp, once } from '../shared/tier1.js';
 import { isElite, elementDmg } from '../shared/tier6.js';
@@ -77,19 +78,26 @@ const tileOf = (p) => {
 /** Enemy projectiles on the field (ProjectileSystem list: the sim's only projectile store). */
 const enemyShots = (battle) => (battle.projectiles?.list ?? []).filter((p) => p && p.source && p.source.side === 'enemy');
 
+/**
+ * A shot's change for the view, which flies its own copy from the 'atk' / 'enemyShot' moment and cannot see `speed`: fx
+ * 'shotSlow' { from: its shooter, tgt: its target, rate: the speed share now | clear: 1 it is gone } (render/fx/shotslow.js).
+ */
+const shotFx = (battle, unit, p, change) => battle.fx('shotSlow', { x: p.x, y: p.y, id: unit.id, from: p.source.id, tgt: p.target?.id ?? null, ...change });
+
 /** 延异视阈: slow the enemy projectiles on `unit`'s range, restore those that left it. */
 function slowShots(battle, unit, scale) {
   const set = unit.rangeKeySet;
   for (const p of enemyShots(battle)) {
     let s = SLOWED.get(p);
     if (set && set.has(tileOf(p))) {
-      if (!s) { s = { orig: p.speed, by: new Set() }; SLOWED.set(p, s); }
+      if (!s) { s = { orig: p.speed, by: new Set() }; SLOWED.set(p, s); shotFx(battle, unit, p, { rate: scale }); }
       s.by.add(unit.id);
       p.speed = s.orig * scale;
       p.maxAge = Math.max(p.maxAge, p.age + 1);   // a slowed shot never lands by age while it is held
     } else if (s && s.by.delete(unit.id) && !s.by.size) {
       p.speed = s.orig;
       SLOWED.delete(p);
+      shotFx(battle, unit, p, { rate: 1 });
     }
   }
 }
@@ -101,13 +109,13 @@ function endShots(battle, unit, clear) {
   if (clear && set && battle.projectiles) {
     const keep = [];
     for (const p of battle.projectiles.list) {
-      if (p && p.source && p.source.side === 'enemy' && set.has(tileOf(p))) { n++; SLOWED.delete(p); } else keep.push(p);
+      if (p && p.source && p.source.side === 'enemy' && set.has(tileOf(p))) { n++; SLOWED.delete(p); shotFx(battle, unit, p, { clear: 1 }); } else keep.push(p);
     }
     battle.projectiles.list = keep;
   }
   for (const p of enemyShots(battle)) {
     const s = SLOWED.get(p);
-    if (s && s.by.delete(unit.id) && !s.by.size) { p.speed = s.orig; SLOWED.delete(p); }
+    if (s && s.by.delete(unit.id) && !s.by.size) { p.speed = s.orig; SLOWED.delete(p); shotFx(battle, unit, p, { rate: 1 }); }
   }
   // the clearing end is the S3_End mode's cast (logos_s_3 ON_BUFF_FINISH: CheckCanUseAtkOrCbt → SwitchMode), shots or not
   if (clear) battle.fx('bulletClear', { x: unit.x, y: unit.y, id: unit.id, n });

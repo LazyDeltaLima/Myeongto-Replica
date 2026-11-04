@@ -1938,6 +1938,7 @@ export async function createFieldView(host, options = {}) {
           views.get(e[4].id)?.setForm?.(form, x);
         }
         if (fxGame.ownsFx(e)) break; // local patch: drawn with its official effect (render/fxgame.js)
+        if (late > 0 && e[1] === 'shotSlow' && e[4]) fx.shotSlow(e[4]);   // late, it still changes the shots in the air
         if (!(late > 0)) fx.simFx(e[1], Number(e[2]), Number(e[3]), e[4]);
         break;
       }

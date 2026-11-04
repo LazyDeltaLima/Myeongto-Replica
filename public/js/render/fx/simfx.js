@@ -62,6 +62,7 @@ export class FxSim {
       if (s && t) this.attack(s, t, 'boomerang', { inverse: true });
       return;
     }
+    if (kind === 'shotSlow') { this.shotSlow(ex); return; }
     const spec = fxSpec(kind, ex);
     if (spec.a === 'none') return; // an event the screen does not show (hitCap)
     const at = spec.pt ? this._point(Number(x), Number(y)) : this._where(Number(x), Number(y), ex);

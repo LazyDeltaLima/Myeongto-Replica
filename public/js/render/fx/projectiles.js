@@ -5,6 +5,7 @@ import { PROJ } from '../style.js';
 import { SHOT_HEIGHT, bodyZ, feetZ, liftX } from './camera.js';
 import { clamp } from './limits.js';
 import { projSpeed, enemyProjSpeed, opProjSpeed, opShot } from './speeds.js';
+import { shotOf } from './shotslow.js';
 import { UF } from '../../../../shared/constants.js';
 import { boomerangThrown, boomerangCaught } from '../heldWheel.js'; // local patch: the 回环射手's held boomerang
 
@@ -159,7 +160,8 @@ export class FxProjectiles {
     const ux = dist > 1e-6 ? dx / dist : (src.facing || 1) >= 0 ? 1 : -1, uy = dist > 1e-6 ? dy / dist : 0;
     const hand = Math.min(0.28, dist * 0.3);   // the weapon is in front of the body
     const look = spec.look;
-    pr.kind = kind; pr.spec = spec; pr.src = src; pr.tgt = tgt; pr.rise = 0;
+    pr.kind = kind; pr.spec = spec; pr.src = src; pr.tgt = tgt; pr.rise = 0; pr.rate = 1; pr.gone = false;
+    pr.esrc = src.isEnemy ? src.id : null; pr.etgt = tgt.id;
     pr.x0 = src.x + ux * hand; pr.y0 = src.y + uy * hand; pr.z0 = bodyZ(cam, src, SHOT_HEIGHT.launch);
     pr.tx = tgt.x; pr.ty = tgt.y; pr.tz = look === 'shell' ? feetZ(tgt) : bodyZ(cam, tgt, SHOT_HEIGHT.aim);
     pr.ox0 = liftDX(cam, src, pr.x0, pr.y0, pr.z0); pr.otx = look === 'shell' ? 0 : liftDX(cam, tgt, pr.tx, pr.ty, pr.tz);
@@ -249,6 +251,17 @@ export class FxProjectiles {
     this.projFree.push(pr);
   }
 
+  /**
+   * Sim fx 'shotSlow' (render/fx/shotslow.js): the shot it names flies at `rate` of its speed from now, or is gone without
+   * landing (`clear`). The official trails take the same event (render/fxgame.js).
+   */
+  shotSlow(o) {
+    const pr = shotOf(this.projs, o);
+    if (!pr) return;
+    if (o.clear) pr.gone = true;
+    else pr.rate = Number(o.rate);
+  }
+
   _updateProjs(dt) {
     if (!this.projs.length) return;
     const cam = this.ctx.cam();
@@ -257,7 +270,7 @@ export class FxProjectiles {
     for (let i = 0; i < this.projs.length; i++) {
       const pr = this.projs[i];
       const look = pr.spec.look;
-      const live = look === 'boomerang' ? this._stepBoomerang(pr, dt, cam, rich)
+      const live = pr.gone ? false : look === 'boomerang' ? this._stepBoomerang(pr, dt, cam, rich)
         : look === 'mortar' ? this._stepMortar(pr, dt, cam, rich) : this._stepShot(pr, dt, cam, rich);
       if (!live) { this._releaseProj(pr); continue; }
       this.projs[w++] = pr;
@@ -278,8 +291,10 @@ export class FxProjectiles {
    */
   _stepShot(pr, dt, cam, rich) {
     const spec = pr.spec, look = spec.look;
-    pr.t += dt;
+    pr.t += dt * pr.rate;
     const tg = pr.tgt;
+    // a slowed shot whose target fell: the sim's fizzled (the view would crawl on to the empty spot)
+    if (pr.rate < 1 && !pr.hit && (!tg || tg.destroyed || tg.alive === false)) return false;
     if (tg && !tg.destroyed && tg.alive !== false) {
       pr.tx = tg.x; pr.ty = tg.y; pr.tz = look === 'shell' ? feetZ(tg) : bodyZ(cam, tg, SHOT_HEIGHT.aim);
       if (look !== 'shell') pr.otx = liftDX(cam, tg, pr.tx, pr.ty, pr.tz);
@@ -333,7 +348,7 @@ export class FxProjectiles {
       sh.alpha = (0.32 + 0.3 * near) * (1 - fk);
     }
     if (rich && !pr.hit && !thin && look !== 'sprite') {
-      pr.emit += dt * TRAIL_HZ;
+      pr.emit += dt * pr.rate * TRAIL_HZ;   // by its flight: a held shot leaves no pile of motes
       for (let n = 0; pr.emit >= 1 && n < 2; n++) {
         pr.emit -= 1;
         if (!this._room()) { pr.emit = 0; break; }

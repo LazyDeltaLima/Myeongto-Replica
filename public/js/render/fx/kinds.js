@@ -110,6 +110,7 @@ export const FX_KINDS = Object.freeze({
   // drawn by the official-effect layer when it knows `key`; nothing procedural (the kit's own fx stay)
   enemyShot: { a: 'none', c: 0xffffff },
   // 自选 operator kits (0.2.0): 逻各斯, 真言, 维伊 (O3); 早露, 提丰, 娜仁图亚 (O7); 嵯峨's 重伤 (O8)
+  shotSlow: { a: 'none', c: 0xd8b0ff }, // a flying shot's speed changed or it was cleared: changes the flights already drawn (render/fx/shotslow.js)
   bulletClear: { a: 'wave', c: 0xd8b0ff }, logosLexicon: { a: 'mark', c: 0xc9a2ff }, logosExecute: { a: 'strike', c: 0xb07dff },
   mantraArc: { a: 'bolt', c: 0xc77dff }, mantraGrant: { a: 'mark', c: 0xc77dff }, mantraGate: { a: 'reticle', c: 0xc77dff },
   veenBounce: { a: 'counter', c: 0xffd27a }, veenVolley: { a: 'volley', c: 0xffd27a },

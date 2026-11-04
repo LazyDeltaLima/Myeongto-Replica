@@ -78,6 +78,7 @@ import { boneMissing, heldAt, liftedPoint, loadPoints, mountSpawn, onModelPlane,
 import { GRAPHIC_TILT, takesGraphicTurn } from './fxpoints.js'; // 2026-10-22: an effect on a unit takes its Graphic's X −30°
 import { STANDARD_PLACE, modelOffset } from './fxpoints.js'; // 2026-10-22: 望's 棋子 model stands at its prefab's place (the ball)
 import { enemyProjSpeed, enemyShot } from './fx/speeds.js'; // 2026-10-10: an enemy shot's record / flight time (data/enemies.json `proj`)
+import { shotOf, MAX_SLOWED } from './fx/shotslow.js';
 import { shotSpeedOf, shotArcOf, shotKeyOf, lobZ } from './fx/projectiles.js'; // 2026-10-16: an operator shot's flight time (data/chess.json `shot`); 2026-10-27 its key (bodyTurn)
 import { opShot } from './fx/speeds.js'; // 2026-10-21: a skill's own shot record (skillShotOut)
 import { boomerangThrown, boomerangCaught } from './heldWheel.js'; // local patch: a 回环射手's boomerang leaves / is back in her hand
@@ -1909,7 +1910,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // ---- official projectile trails (local patch 2026-10-07, see the header) ----
   const trails = [];               // { inst, tgt view, x0, y0, tx, ty, k, dur, arc }
   /** MAX_TRAILS in flight: the shot stays procedural (counted for the perf HUD, perfSkips). */
-  const trailFull = () => { if (trails.length < MAX_TRAILS) return false; skips.trail++; return true; };
+  // (2026-11-04) a shot 逻各斯 S3 holds stays in the air many times longer: those have their own allowance (MAX_SLOWED)
+  const trailFull = () => {
+    let held = 0;
+    for (const r of trails) if (r.rate < 1) held++;
+    if (trails.length - Math.min(held, MAX_SLOWED) < MAX_TRAILS) return false;
+    skips.trail++;
+    return true;
+  };
   const trailReady = new Set();    // `bundle/prefab` loaded once: its shots draw the official trail from then on
   const trailAtks = new WeakSet(); // 'atk' tuples drawn here (fx.js skips its shot: arrowKind)
   /**
@@ -2093,6 +2101,37 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     ownFx.add(e);
     return true;
   }
+  /** The battle clock a flying trail's effect may last to, at its speed now. */
+  const trailEnd = (rec, def) => clockS + rec.dur * (1 - rec.k) / (rec.rate ?? 1) + (def?.duration || 2) + 0.5;
+  /**
+   * 2026-11-04 (maintainer report: 逻各斯 S3 slowed the enemy shots in the sim, their effects flew on at full speed): sim fx
+   * 'shotSlow' (render/fx/shotslow.js, the client's Projectile.RegisterMoveScale) on the official trails — the shot it names
+   * flies at `rate` of its speed from now, and the hit effects timed for its landing (eshotFx) move with it; `clear`: the
+   * skill's end removed it, no landing (its `_mainEffect` ends as a stopped projectile's does).
+   */
+  function shotSlowFx(o) {
+    const rec = shotOf(trails, o);
+    if (rec && o.clear) {
+      finishShot(rec.inst);
+      trails.splice(trails.indexOf(rec), 1);
+    } else if (rec) {
+      rec.rate = Number(o.rate);
+      const l = live.find((x) => x.flight === rec);
+      if (l) l.until = trailEnd(rec, l.inst.def);
+    }
+    const land = shotOf(castsDelayed, o);
+    if (!land) return;
+    const key = `${land.esrc}:${land.etgt}`;
+    if (o.clear) {
+      castsDelayed.splice(castsDelayed.indexOf(land), 1);
+      eshotLand.delete(key);
+      return;
+    }
+    const rate = Number(o.rate);
+    land.t = clockS + (land.t - clockS) * (land.rate ?? 1) / rate;
+    land.rate = rate;
+    eshotLand.set(key, land.t);
+  }
   /** A trail record `rec` on its way (stepTrails flies it); the prefab `bundle`/`name` joins it once loaded. */
   function launchTrail(rec, bundle, name) {
     trails.push(rec);
@@ -2101,7 +2140,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const inst = new mod.fxp.FxInstance(def, { quality: q() });
       rec.inst = inst;
       placeTrail(rec);
-      addLive(inst, { view: null, owner: null, buff: false, until: clockS + rec.dur + (rec.back || 0) + (def.duration || 2) + 0.5, flight: rec }, layers.over);
+      addLive(inst, { view: null, owner: null, buff: false, until: trailEnd(rec, def) + (rec.back || 0), flight: rec }, layers.over);
       trimLive();
     }, () => {});
   }
@@ -2220,7 +2259,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         placeTrail(rec);
         continue;
       }
-      rec.k += g / rec.dur;
+      // a slowed shot whose target fell: the sim's fizzled (the view would crawl on to the empty spot)
+      if (rec.rate < 1 && rec.tgt && (rec.tgt.alive === false || rec.tgt.remove)) { finishShot(rec.inst); trails.splice(i, 1); continue; }
+      rec.k += g * (rec.rate ?? 1) / rec.dur;
       placeTrail(rec);
       if (rec.k >= 1 && rec.back) { rec.phase = 1; rec.k = 1; rec.tgt = null; continue; } // local patch: turns back at the hit point
       if (rec.k >= 1) { finishShot(rec.inst); trails.splice(i, 1); }
@@ -4548,7 +4589,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     trailAtks.add(e);
     const dist = Math.hypot(tgt.x - src.x, tgt.y - src.y);
     const from = eshotFrom(src, pr.mount);
-    launchTrail({ inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, ...aimOf(tgt), k: 0,
+    launchTrail({ inst: null, esrc: src.id, etgt: tgt.id, tgt, x0: from.x, y0: from.y, z0: from.z, ...aimOf(tgt), k: 0,
       // (an enemy-record ally flies the sim's shot of its kind: the sim gives it an ally's speed)
       dur: Math.max(0.04, dist / (erec(src) ? projSpeed(e[3]) : eshotSpeed(src))), arc: Number(shot?.height ?? pr.raise) > 0 && (shot?.move ?? 'PARACURVE') === 'PARACURVE' ? Number(shot?.height ?? pr.raise) : 0 }, r[0], r[1]);
     return true;
@@ -4673,10 +4714,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         // straight along `dir` (board axes: +x the next column, +y the next row up) to the predicted first hit, `range` tiles
         // out — the sim's own sweep decides the hit; level at its start height [추정]
         const range = Number(o.range) > 0 ? Number(o.range) : t * (Number(o.speed) || Number(pr.speed) || 5);
-        rec = { inst: null, tgt: null, x0: p0.x, y0: p0.y, z0: p0.z, tx: p0.x + dir[0] * range, ty: p0.y + dir[1] * range, tz: p0.z, k: 0, dur: Math.max(0.04, t), arc: 0 };
+        rec = { inst: null, esrc: o.id ?? o.from, etgt: null, tgt: null, x0: p0.x, y0: p0.y, z0: p0.z, tx: p0.x + dir[0] * range, ty: p0.y + dir[1] * range, tz: p0.z, k: 0, dur: Math.max(0.04, t), arc: 0 };
       } else {
         const arc = (o.move ?? pr.move) === 'PARACURVE' || (o.move == null && Number(pr.raise) > 0) ? Math.max(0, Number(pr.raise) || 0) : 0;
-        rec = { inst: null, tgt, x0: p0.x, y0: p0.y, z0: p0.z, ...aimOf(tgt), k: 0, dur: Math.max(0.04, t), arc };
+        rec = { inst: null, esrc: o.id ?? o.from, etgt: o.tgt, tgt, x0: p0.x, y0: p0.y, z0: p0.z, ...aimOf(tgt), k: 0, dur: Math.max(0.04, t), arc };
       }
       ensure().then((ok) => { if (ok && lib) launchTrail(rec, r[0], r[1]); }, () => {});
     }
@@ -4686,7 +4727,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const land = [...new Set([...(pr.hit || []), ...(o.zone ? [] : pr.reached || [])])].filter((n) => efx(n)).slice(0, MAX_HIT_FX);
     eshotLand.set(`${o.id ?? o.from}:${o.tgt}`, clockS + t);
     const go = () => { if (land.length && tgt.alive !== false && !tgt.remove && level() < 3) eplay(owner, land, { at: tgt }); };
-    if (t > 0) castsDelayed.push({ t: clockS + t, run: go }); else go();
+    if (t > 0) castsDelayed.push({ t: clockS + t, run: go, esrc: o.id ?? o.from, etgt: o.tgt }); else go();   // esrc, etgt: shotSlowFx
     return true;
   }
   /**
@@ -5042,7 +5083,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const dist = Math.hypot(target.x - v.x, target.y - v.y);
         if (dist / speed <= 6) {
           const from = eshotFrom(v, pr.mount);
-          launchTrail({ inst: null, tgt: target, x0: from.x, y0: from.y, z0: from.z, ...aimOf(target), k: 0,
+          launchTrail({ inst: null, esrc: v.id, etgt: target.id, tgt: target, x0: from.x, y0: from.y, z0: from.z, ...aimOf(target), k: 0,
             dur: Math.max(0.04, dist / speed), arc: Number(pr.raise) > 0 ? Number(pr.raise) : 0 }, r[0], r[1]);
         }
       }
@@ -5747,6 +5788,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'caperBoomerang2' && e[4]) { caperSecond(e, views); return; } // 2026-10-10: 跃跃 S2's second boomerang
           // 2026-10-10: an enemy content skill's official projectile (eshotFx), and no stand-in beam for a shot drawn so
           if (e[1] === 'enemyShot' && e[4]) { eshotFx(e[4], views); return; }
+          if (e[1] === 'shotSlow' && e[4]) { shotSlowFx(e[4]); return; }
           // 2026-10-31: 刺胄之弹's flight — its boss skill's projectile trail rides the shell (then the cast's effects below)
           if (e[1] === 'shell' && e[4]?.caster != null && e[4].id != null && typeof e[4].ability === 'string' && eshellRide(e, views)) ownFx.add(e);
           // 2026-10-31: an enemy ability's area (【污染秽蚀】, 毒雾, 刺胄之弹's landing) or death burst — its projectile's

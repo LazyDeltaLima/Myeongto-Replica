@@ -3671,6 +3671,14 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
   (`applyStrongest`의 새 `visible`: 'status' 사건만, 상태 목록·면역과는 무관) → `fxstatus.js` `KEY_FX`.
 - 로고스 S3 끝: `logos_s_3` `ON_BUFF_FINISH`가 `CheckCanUseAtkOrCbt`를 통과하면 S3_End 모드로 — 그 공격의 시전 `logos_skill3_range_end_01`. 투사체를
   지웠든 안 지웠든 그 끝마다 사건 `bulletClear`(n은 지운 수, 0일 수 있음; 전에는 지운 것이 있을 때만).
+- 로고스 S3가 늦춘 적 투사체의 그림(2026-11-04, 관리자 제보: 시뮬만 늦고 이펙트는 원래 속도로 날아감): 렌더는 탄을 발사 순간의 비행 시간으로 따로 날리고 시뮬의
+  투사체를 읽지 않아 늦춘 것을 몰랐다. 시뮬이 탄마다 바뀌는 순간을 사건 `shotSlow` { from: 쏜 적, tgt: 대상, rate: 속도 배율 | clear: 1 }로 알린다(늦어질 때·범위를
+  벗어나거나 스킬이 끝나 풀릴 때·지워질 때 한 번씩; 공식 클라의 `Projectile.RegisterMoveScale`은 움직임만 바꾸므로 탄의 `_mainEffect` 자체의 재생 속도는 그대로).
+  `render/fx/shotslow.js` `shotOf`가 쏜 적·대상이 같은 탄 중 오래된 것을 고르고, 공식 궤적(`fxgame.js` `shotSlowFx`, `stepTrails`)과 대체 탄(`fx/projectiles.js`
+  `shotSlow`)이 그 배율로 날며, 착탄에 맞춰 예약한 맞음 이펙트(`eshotFx`)도 같이 밀린다. 지워진 탄은 맞음 이펙트 없이 사라지고, 늦춰진 탄의 대상이 쓰러지면 탄도
+  사라진다(시뮬에서 소멸). 늦춘 궤적은 12개 상한(`MAX_TRAILS`)과 별도로 24개(`MAX_SLOWED`)까지 공식 궤적으로 그린다: 궤적 하나가 그리기 호출 약 6.5회(은신 캐스터
+  8명 아레나: 탄 없을 때 28회·0.6 ms → 궤적 12개일 때 157회·2.2 ms, GPU). 확인: `test/render/shot-slow.test.js`, `logos-shot-slow.browser.test.js`(아레나 2배속,
+  수정 전 판에서 실패), `test/content/op_logos.test.js`.
 - 비비아나(`char_4098_vvana`) 재능 2 근접 전용 보호막: `vvana_t_2[block_melee]`가 `vvana_buff_01`을 들고 있음 — 시뮬 층 버프 `talent:vvana:shield`를
   `KEY_FX`로(정예 적·주사위 조건은 시뮬이 정함).
 - 확인: `test/render/kit-event-fx.test.js`(계획 + 층 — 장벽 시작·깨짐, 반사, 펄스, 처형, S3 끝, 쓰러진 적에서 나는 후속 탄), `fx-bindings` `UNPLAYED` 9줄·

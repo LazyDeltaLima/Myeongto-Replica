@@ -270,6 +270,37 @@ test('S3 延异视阈: enemy shots on his range fly at 5 % of their speed (back 
   }
 });
 
+test('S3 延异视阈 tells the view each shot it changes (fx shotSlow): slowed once as it comes on the range, cleared or released as the skill ends', () => {
+  for (const disarm of [false, true]) {
+    const { h, u } = field({ tier: 6, elite: true, skill: 2 });
+    const gun = h.spawn('enemy_gun', { pos: [10, 7] });
+    h.run(1.5);
+    const seen = () => h.eventsOf('fx').filter((x) => x[1] === 'shotSlow').map((x) => x[4]);
+    cast(u);
+    h.run(3.2);
+    const slowed = seen().filter((o) => o.rate != null);
+    const held = h.b.projectiles.list.filter((p) => p.source === gun);
+    assert.ok(held.length >= 2, `${held.length} shots held`);
+    assert.ok(slowed.length >= held.length, `${slowed.length} events for ${held.length} shots`);
+    assert.ok(slowed.every((o) => o.rate === 0.05 && o.from === gun.id && o.tgt === u.id && o.id === u.id), JSON.stringify(slowed[0]));
+    const n = slowed.length;
+    h.run(0.2);
+    assert.ok(seen().filter((o) => o.rate != null).length - n <= 1, 'a shot already slowed is not told again each tick');
+    if (disarm) h.b.applyStatus(u, 'disarm', { duration: 40, source: null });
+    h.runUntil(() => u.skill.timeLeft < 0.5, 40);
+    for (const g of h.enemies()) h.b.applyStatus(g, 'stun', { duration: 99, source: null });   // no new shot
+    h.runUntil(() => !u.skill.active, 2);
+    h.step();
+    const all = seen();
+    if (!disarm) assert.ok(all.some((o) => o.clear === 1 && o.from === gun.id), 'the clearing end names the shots it removes');
+    else {
+      assert.ok(!all.some((o) => o.clear), 'disarmed: nothing is removed');
+      assert.ok(all.some((o) => o.rate === 1 && o.from === gun.id), 'disarmed: the shots are back at full speed');
+    }
+    done(h);
+  }
+});
+
 test('S3 延异视阈 slows the shot a self-destructing 枯朽之种 leaves (its 自毁 is its normal attack) and clears it when the skill ends', () => {
   const { h, u } = field({ tier: 6, elite: true, skill: 2 });
   cast(u);
