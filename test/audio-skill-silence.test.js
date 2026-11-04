@@ -11,7 +11,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { readData, sweepCases, sweepBattle } from './helpers/audio-sweep.js';
+import { readData, sweepCases, sweepBattle, onBattleClock } from './helpers/audio-sweep.js';
 import { SILENT_SKILLS } from './audio-skill-silence-list.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -19,8 +19,6 @@ const NO_DATA = !existsSync(path.join(ROOT, 'data', 'assets.json')) && 'no data/
 const SECS = 12;
 /** A skill's window: while it runs, and this long after its cast (an instant skill's strike comes after it ended). */
 const AFTER_CAST = 1.5;
-/** The real ms per game second at the game's usual 2× (audio.js DEFAULT_GAME_SPEED): the manager's windows are real time. */
-const MS_PER_S = 500;
 const IMPACT_GROUP = /Imp$/;
 
 /** url → its mixer group, wherever the manifest names one. */
@@ -47,17 +45,15 @@ const urlsOf = (c) => (Array.isArray(c.or) ? c.or.map((x) => x.u) : [c.u]).filte
 /** What case `c` sounds during its skill, on a clock that runs with the battle. */
 function listen(c, manifest, groups) {
   const { h, u, a, castOnce, skillIndex } = sweepBattle(c, manifest, seeded());
-  const clock = performance.now;
-  let t = 0;
-  performance.now = () => t * MS_PER_S;
-  try {
+  return onBattleClock((tick) => {
     const played = [];
-    let inWindow = false, castAt = null, hits = 0;
+    let t = 0, inWindow = false, castAt = null, hits = 0;
     a._play = (url) => { if (inWindow) played.push(url); };
     for (let i = 0, n = Math.round(SECS / h.b.dt); i < n; i++) {
       castOnce();
       h.step();
-      a.ctx.currentTime = (t += h.b.dt);
+      tick(t += h.b.dt);
+      a.ctx.currentTime = t;
       const ev = h.events.splice(0);
       if (castAt == null && u.skill?.activations) castAt = t;
       inWindow = castAt != null && (!!u.skill?.active || t - castAt <= AFTER_CAST);
@@ -70,9 +66,7 @@ function listen(c, manifest, groups) {
       .filter((q) => IMPACT_GROUP.test(q.g ?? '')).flatMap(urlsOf);
     const impacts = played.filter((url) => IMPACT_GROUP.test(groups.get(url) ?? '') || url.includes('/p_imp/'));
     return { hits, impacts: impacts.map(leaf), declared: [...new Set(declared)].map(leaf), declaredPlayed: declared.some((url) => played.includes(url)) };
-  } finally {
-    performance.now = clock;
-  }
+  });
 }
 
 /** Why case result `r` counts as silent, or null: no impact at all, or none of the impacts its skill's own banks name. */

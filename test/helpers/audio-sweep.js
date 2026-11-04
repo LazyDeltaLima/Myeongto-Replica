@@ -12,11 +12,25 @@ import { makeBattle, enemyRec } from './battleHarness.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const readData = (f) => JSON.parse(readFileSync(path.join(ROOT, 'data', f), 'utf8'));
+/** The real ms per game second at the game's usual 2×. */
+const MS_PER_S = 500;
 const dummy = (key) => enemyRec({ key, hp: 1e9, speed: 0, mass: 0, def: 0, res: 0 });
 /** No cast to make here: passive skills (狼眼, 荆棘, 琳琅诗怀雅's coin skill), and 森蚺 gains no SP while she blocks nobody. */
 export const PASSIVE = new Set(['chess_char_1_07_b', 'chess_char_3_04_b', 'chess_char_4_17_b', 'char_416_zumama S1', 'char_416_zumama S2', 'char_416_zumama S3']);
 /** Summons a skill needs on the field to be cast at all (the cast is refused otherwise). */
 const NEEDS = Object.freeze({ char_4179_monstr: { kind: 'token', tokenId: 'token_10050_monstr_prosts', ownerUid: 1, row: 10, col: 3 } });
+
+/**
+ * Runs `fn(tick)` on a clock that follows the battle: the manager's windows are real time, and a battle run flat out would
+ * squeeze 12 game seconds into milliseconds, so `SKILL_HIT_GAP_MS` and the like would swallow what they should let through.
+ * `tick(seconds)` sets it, at the game's usual 2× (audio.js DEFAULT_GAME_SPEED).
+ */
+export function onBattleClock(fn) {
+  const real = performance.now;
+  let t = 0;
+  performance.now = () => t * MS_PER_S;
+  try { return fn((s) => { t = s; }); } finally { performance.now = real; }
+}
 
 /** Every 自选 backup chess and every 선발 pick × skill. */
 export function sweepCases() {

@@ -333,10 +333,12 @@ const hear = ({ units, rows = null, prep, secs, until = null }) => {
     : { id: x.id, kind: x.kind === 'token' ? 'token' : 'op', side: 'ally', spine: x.def?.charId ?? x.defId, ...(x === h.unit(1) ? { skillIndex: skill } : null),
       // a summon's own skill index (the spawn info's, server/sim/snapshot.js)
       ...(x.kind === 'token' && Number.isInteger(x.def?.skill?.index) ? { skillIndex: x.def.skill.index } : null) })));
-  prep(h, h.unit(1));
+  // as game.js enters a new field: the units once, then the opening's own spawns, deployments and deploy-time skills; `prep`'s
+  // events come with the first tick, as a battle's later ones do ('spawn' tracks a unit it adds, setFieldUnits would forget a skill)
   field();
-  h.events.length = 0;
-  const all = [];
+  const all = h.events.splice(0).filter((e) => e[0] === 'spawn' || e[0] === 'deploy' || e[0] === 'skill');
+  a.handleBattleEvents(all);
+  prep(h, h.unit(1));
   let t = 0;
   for (let i = 0, n = Math.round(secs / h.b.dt); i < n && !(until && until(h)); i++) {
     h.step();
@@ -568,6 +570,14 @@ describe('선발 黍 / 老鲤 / 黑键: buff, custom-trigger and charge sounds (
     const flash = s2.fx('kitHit').filter((o) => o.k === 'ebnhlz:flash');
     assert.ok(flash.length >= 1, 'a 闪回');
     assert.equal(count(s2.played, 'p_skill_darkholespelltoken'), flash.length);
+  });
+});
+
+describe('hear listens from the opening, as the game does', () => {
+  test('a skill on from the deployment sounds its mode: 予愿安洁莉娜 S1', { skip: NO_DATA }, () => {
+    const r = hear({ units: [{ uid: 1, diy: { slot: SLOT5, charId: 'char_1015_aglna2', skillIndex: 0, uniEquipId: null }, row: 10, col: 5 }], secs: 4, prep: (h) => { h.spawn('e_d', { pos: [10, 7] }); } });
+    assert.ok(r.u.skill.active, 'its skill runs from the deployment');
+    assert.ok(r.played.includes('p_imp_arstrnstf_d'), `its S1 impact (${[...new Set(r.played)]})`);
   });
 });
 
