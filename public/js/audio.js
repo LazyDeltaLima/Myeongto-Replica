@@ -209,6 +209,8 @@ export function kitHitKey(fx, ex, unitOf) {
     case 'zone': return ex.token === 'token_10064_wang_stone1' && [2, 3].includes(ex.skill) ? `wang:${ex.skill}`
       // 2026-10-29: 引星棘刺 S3's alchemy unit thrown at an operator (its projectile_chr_thorn2_s3 stopping there)
       : ex.thrown && def(ex.id) === 'char_1039_thorn2' ? 'thorn2:s3'
+      // 2026-11-04: 引星棘刺 S2's alchemy unit landing (projectile_chr_thorn2_s2 REACH), not the zone's per-second updates
+      : ex.reach && def(ex.id) === 'char_1039_thorn2' ? 'thorn2:s2'
       // 2026-11-01: 塔露拉's footprint on a newly leased tile (castedTimeThreshold 1: not a re-lease) [추정·CN: whether a
       // re-lease counts as another cast — TimedTileLeaseAbility is CN-only]
       : ex.n === 1 && def(ex.id) === 'char_4247_oxi' ? 'oxi:field' : null;
@@ -407,10 +409,13 @@ export function signalAttackKey(su, at, melee) {
 /**
  * 2026-10-29, docs/rules/audio.md 「스킬·재능 투사체 소리」: the sfx.kit key of impact `h` (0, 1 … of the swing) of tracked unit
  * `su`'s attack that a skill prefab shoots with another projectile — 至简 S2's second shot (skchr_malist_2
- * `_additionalProjectile` projectile_chr_malist_s2_2; the first, …_s1s2, has no bank) — or null.
+ * `_additionalProjectile` projectile_chr_malist_s2_2; the first, …_s1s2, has no bank) — or null. `skill`: the skill the swing
+ * was cast under (a charge skill ends on its strike, before the shot lands).
  */
-export function strikeImpactKey(su, h) {
-  if (su?.def === 'char_4054_malist' && su.skillOn && su.skillIndex === 1 && h === 1) return 'malist:s2';
+export function strikeImpactKey(su, h, skill = su?.skillOn ? su.skillIndex : null) {
+  if (su?.def === 'char_4054_malist' && skill === 1 && h === 1) return 'malist:s2';
+  // 2026-11-04: 维什戴尔 S1's shot — S1_Common's projectile_chr_wisdel_s1 HIT, on each target (its aftershocks: 'wisdel:bomb', the kit)
+  if (su?.def === 'char_1035_wisdel' && skill === 0) return 'wisdel:s1';
   return null;
 }
 /**
@@ -636,7 +641,9 @@ const SKILL_HIT_GAP_MS = 120;
  */
 const SKILL_DAMAGE_KEYS = Object.freeze({ char_4010_etlchi: Object.freeze({ 1: 'etlchi:s2' }), char_1046_sbell2: Object.freeze({ 1: '' }),
   // 2026-10-29: 克莱门莎 S3's shells — clemnt_s3[rocket_damage]'s buff damage (no ability HIT; their sound is 'clemnt:s3hit')
-  char_4231_clemnt: Object.freeze({ 2: '' }) });
+  char_4231_clemnt: Object.freeze({ 2: '' }),
+  // 2026-11-04: 引星棘刺 S2's ticks sound thorn2_s2_damage's PlayAudio (the 'dmg' 9th field), 乌尔比安 S3's anchor its REACH (the kit's kitHit)
+  char_1039_thorn2: Object.freeze({ 1: '' }), char_4145_ulpia: Object.freeze({ 2: '' }) });
 /** The sfx.kit key of unit model `def`'s skill damage during skill `skillIndex` (SKILL_DAMAGE_KEYS: '' silent), or null. */
 export function skillDamageKey(def, skillIndex) {
   return SKILL_DAMAGE_KEYS[def]?.[skillIndex] ?? null;
@@ -2061,7 +2068,12 @@ export class AudioManager {
         if (!Array.isArray(e)) continue;
         const kind = e[0];
         if (kind === 'spawn') {
+          // 2026-11-04, docs/rules/audio.md 「스킬 타격음 전수」: the opening's units are already tracked (field.units), so a skill that
+          // starts on deployment arrives first and this 'spawn' must not forget it (宴 S2, 予愿安洁莉娜 S1 sounded their normal attack)
+          const was = this.units.get(e[1]?.id);
+          const started = was?.skillOn && ev.some((x) => Array.isArray(x) && x[0] === 'skill' && x[1] === e[1]?.id && x[2]);
           this._track(e[1]);
+          if (started) this.units.get(e[1].id).skillOn = true;
           // local patch (maintainer report): a skill that starts on deployment (缄默德克萨斯 S1–S3, Skill.reset activateOnDeploy)
           // sends its 'skill' before the unit's 'spawn' — held until then; with a 'deploy' in this batch, until that sounds
           const id = e[1]?.id;
@@ -2184,6 +2196,8 @@ export class AudioManager {
           if (Array.isArray(e[8]) && e[8].some((m) => Array.isArray(m) && m[0] === 'clemnt_t1[dice_damage]')) this._kitSound('clemnt:t1');
           // 2026-11-01: 酒神 S2 — each tick of 本能的召唤's phatm2_s_2[damage] on an enemy (its ON_BUFF_TRIGGER PlayAudio)
           if (Array.isArray(e[8]) && e[8].some((m) => Array.isArray(m) && m[0] === 'phatm2_s_2[damage]')) this._kitSound('phatm2:s2dmg');
+          // 2026-11-04: 引星棘刺 S2 — each tick on an enemy (thorn2_s2_damage ON_BUFF_TRIGGER PlayAudio thorn2_s2_projectile_hit)
+          if (Array.isArray(e[8]) && e[8].some((m) => Array.isArray(m) && m[0] === 'thorn2_s2_damage')) this._kitSound('thorn2:s2hit');
           if (!IMPACT_TYPES.has(e[3])) continue;
           // 2026-10-11 (user report: 아스카론's 死亡拘审 ticks sounded as her attack, docs/rules/audio.md 「지속 피해 틱」): a damage-over-time
           // tick (the sim's 7th field, damage.js dotFlag) is a buff's damage in the client — no ability HIT, no sound — and
@@ -2209,19 +2223,23 @@ export class AudioManager {
             const own = by && by.id === aid && now - by.at <= IMPACT_WINDOW_MS ? by : null;
             if (own) this.lastAttacker.delete(e[1]);
             if (own?.talent) continue; // 2026-10-11: a talent attack's impact (its ability has no HIT bank)
-            const splash = !own && au.sw && (now - (au.lastAtkAt ?? -Infinity) <= 100 || now - (au.lastImpactAt ?? -Infinity) <= 100);
+            // 2026-11-04 (docs/rules/audio.md 「스킬 타격음 전수」): a charge skill ends on its strike and takes the open swing with it, so
+            // the strike's other hits take the swing of its first impact (至简 S2's second shot, 艾雅法拉 S2's splash)
+            const heir = !own && !au.sw && Number.isInteger(au.impactSw?.mode) && now - (au.lastImpactAt ?? -Infinity) <= 100 ? au.impactSw : null;
+            const splash = !own && (au.sw || heir) && (now - (au.lastAtkAt ?? -Infinity) <= 100 || now - (au.lastImpactAt ?? -Infinity) <= 100);
             // 2026-10-16 (docs/rules/audio.md 「연쇄 공격 소리」): a chain bounce's unit — the shot's per-target HIT sounds
             // only (its REACH sounded at the first unit), and its chain sound once per moment
             const bounce = this.chainStruck.get(e[1]) === now;
             if (bounce) this.chainStruck.delete(e[1]);
             if (own || splash) {
-              const sw = own ? own.sw : au.sw;
+              const sw = own ? own.sw : au.sw || heir;
               au.lastImpactAt = now;
+              au.impactSw = sw;
               if (sw && bounce) {
                 this._swingCues(au, sw, 'd', sw.h++, (c) => !c.r);
                 if (au.lastChainAt !== now) { au.lastChainAt = now; this._swingCues(au, sw, 'c'); }
               } else if (sw) {
-                this._kitSound(strikeImpactKey(au, sw.h));
+                this._kitSound(strikeImpactKey(au, sw.h, sw.mode));
                 if (!this._swingCues(au, sw, 'd', sw.h++)) this._strikeSkillImpact(au, sw, e[1], now);
               }
               else this.unit(au.def, 'hit', `h${e[1]}`, undefined, own.mode);

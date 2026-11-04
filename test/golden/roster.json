@@ -936,8 +936,8 @@
         "enemy_5601_entlec": [6,6,0,0,93422]
       },
       "hooks": [1,124,5700,593,593,1786,2846,19639,110,113,25,23,18,27792,658,21,110,2,1,167,29,2,0],
-      "events": {"atk":1001,"bounty":5,"castHit":3,"deploy":14,"die":111,"dmg":2208,"engage":8,"face":51,"fx":474,"heal":26,"layer":29,"leak":2,"skill":48,"spawn":122,"status":654,"swing":621},
-      "fx": {"anchor":3,"aoe":2,"burst":2,"candle":6,"charges":12,"downed":2,"ember":1,"explode":1,"garrison":29,"garrisonGrant":1,"jungleSoul":2,"kitHit":95,"mote":96,"motes":68,"overload":2,"redistribute":43,"revive":2,"reweave":3,"sandChains":3,"sandChainsCharged":1,"spGift":39,"splash":18,"summon":1,"talent":4,"telegraph":1,"wake":37},
+      "events": {"atk":1001,"bounty":5,"castHit":3,"deploy":14,"die":111,"dmg":2208,"engage":8,"face":51,"fx":477,"heal":26,"layer":29,"leak":2,"skill":48,"spawn":122,"status":654,"swing":621},
+      "fx": {"anchor":3,"aoe":2,"burst":2,"candle":6,"charges":12,"downed":2,"ember":1,"explode":1,"garrison":29,"garrisonGrant":1,"jungleSoul":2,"kitHit":98,"mote":96,"motes":68,"overload":2,"redistribute":43,"revive":2,"reweave":3,"sandChains":3,"sandChainsCharged":1,"spGift":39,"splash":18,"summon":1,"talent":4,"telegraph":1,"wake":37},
       "snaps": "2620f03e 1c5e4235 70bafea1 4e8004a4 ec4bec04 45d68ecc 3b61b1c1 de383c04 49209f00 57842812 3e88fc0a 4557affb 490fb201 3f22cdef 3f78888a e284cb09 1548b21b 064bfc98 742143f6"
     },
     "roster-014": {
@@ -1076,8 +1076,8 @@
         "enemy_9006_actoxi": [30,30,0,9839,699840]
       },
       "hooks": [1,141,5508,306,306,1845,2523,5116,109,119,151,147,0,15404,4621,55,109,0,1,213,0,0,0],
-      "events": {"atk":345,"bounty":6,"castHit":6,"deploy":29,"die":119,"dmg":1854,"engage":8,"face":152,"fx":404,"heal":1447,"skill":298,"spawn":130,"status":730,"swing":342,"tplfx":138},
-      "fx": {"anchor":6,"aoe":57,"candle":2,"ember":2,"enemyShot":30,"enemySkill":1,"healAoe":75,"kitHit":1,"overload":4,"revive":1,"roadTiles":1,"sp":99,"stacks":5,"summon":3,"telegraph":1,"teleport":9,"zone":107},
+      "events": {"atk":345,"bounty":6,"castHit":6,"deploy":29,"die":119,"dmg":1854,"engage":8,"face":152,"fx":410,"heal":1447,"skill":298,"spawn":130,"status":730,"swing":342,"tplfx":138},
+      "fx": {"anchor":6,"aoe":57,"candle":2,"ember":2,"enemyShot":30,"enemySkill":1,"healAoe":75,"kitHit":7,"overload":4,"revive":1,"roadTiles":1,"sp":99,"stacks":5,"summon":3,"telegraph":1,"teleport":9,"zone":107},
       "snaps": "6cf4c357 ccd25d8f ed1d6e0d ccca587b a6c1ccfa c9294e85 16eacfff 8bae866a 173544c1 4031d799 15f0908b 0ee1d7d7 1f23587b 8da632a5 532c0c18 512fcfb7 6fba2e99 88dc81c9 a63b6856"
     },
     "roster-016": {

@@ -61,11 +61,9 @@ function listen(c, manifest, groups) {
       const ev = h.events.splice(0);
       if (castAt == null && u.skill?.activations) castAt = t;
       inWindow = castAt != null && (!!u.skill?.active || t - castAt <= AFTER_CAST);
-      for (const e of ev) {
-        // the unit's hit on another: not a damage-over-time tick, a drone's addition or an HP loss (the 'dmg' 7th field)
-        if (inWindow && e[0] === 'dmg' && e[5] === u.id && e[1] !== u.id && !e[6]) hits++;
-        a.handleBattleEvents([e]);
-      }
+      // the unit's hit on another: not a damage-over-time tick, a drone's addition or an HP loss (the 'dmg' 7th field)
+      if (inWindow) hits += ev.filter((e) => e[0] === 'dmg' && e[5] === u.id && e[1] !== u.id && !e[6]).length;
+      a.handleBattleEvents(ev);
     }
     const entry = manifest.audio.sfx.units[u.def?.charId ?? u.defId];
     const declared = [...(entry?.modes?.[skillIndex]?.cues ?? []), ...(entry?.kd?.[skillIndex] ?? [])]
@@ -105,6 +103,18 @@ describe('a skill whose hits land sounds an impact, across every operator and sk
     };
     one('char_4065_judge S1', 'p_imp_gavel_d');     // phys + arts on one target: one HIT
     one('char_4055_bgsnow S2', 'p_imp_penarrow_h'); // lands after the skill ended on the strike
+  });
+
+  test('what the sweep found on 2026-11-04 sounds what its banks say, and the sound it replaced does not', () => {
+    const run = (label) => listen(sweepCases().find((x) => x.label === label), manifest, groups).impacts;
+    const only = (label, want) => assert.deepEqual([...new Set(run(label))].sort(), [...want].sort(), label);
+    only('char_2025_shu S3', ['p_imp_drgndfmr_s']);          // the group's Attack child on an enemy, not the Heal child's silence
+    only('chess_char_1_18_b', ['p_imp_darksword_n', 'p_imp_heal_n']); // a skill on from deployment keeps its mode
+    only('char_1015_aglna2 S1', ['p_imp_arstrnstf_d']);
+    only('chess_char_3_13_b', ['p_imp_staffcannon_h']);      // the second shot, though the charge skill ended on the strike
+    only('char_1035_wisdel S1', ['p_imp_dkmrcaygn_d', 'p_imp_dkmrcaybm']); // the shot, then its aftershocks
+    only('chess_char_5_15_b', ['p_imp_trshldacy_h', 'p_imp_trshldacy_n']); // the unit landing, then its ticks
+    assert.equal(run('chess_char_5_05_b').filter((f) => f === 'p_imp_wtrbatnchr_s').length, 1, '乌尔比安 S3: the anchor lands once');
   });
 
   test('the list names only cases that exist', () => {

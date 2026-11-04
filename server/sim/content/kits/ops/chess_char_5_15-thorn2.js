@@ -152,7 +152,7 @@ export default {
           const key = `thorn2:${unit.id}:${unit.mem.zoneSeq = (unit.mem.zoneSeq ?? 0) + 1}`;
           const z = { x: t.x, y: t.y, vx: (dx / len) * speed, vy: (dy / len) * speed, t: 0, acc: 0, dur: baseDur + extra, key };
           (unit.mem.zones ??= []).push(z);
-          battle.fx('zone', { x: z.x, y: z.y, id: unit.id, r: r0, duration: z.dur, key });
+          battle.fx('zone', { x: z.x, y: z.y, id: unit.id, r: r0, duration: z.dur, key, reach: 1 });
         },
       },
       talents: [

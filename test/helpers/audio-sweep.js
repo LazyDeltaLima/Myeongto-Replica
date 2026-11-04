@@ -40,10 +40,10 @@ export function sweepBattle(c, manifest, random = () => 0) {
   for (const pos of [[10, 6], [10, 7], [9, 6]]) h.spawn('e_d', { pos });
   const skillIndex = c.skill ?? u.def?.skill?.index;
   // once, as the game does for a new field: a 'spawn' event tracks a later unit, and setFieldUnits would forget a running skill
+  // (the first step's events stay queued: a skill that starts on deployment sends its 'skill' there)
   a.setFieldUnits([...h.b.allyUnits, ...h.b.enemies].filter((x) => x.alive).map((x) => (x.side === 'enemy'
     ? { id: x.id, kind: 'enemy', side: 'enemy', spine: 'enemy_1007_slime' }
     : { id: x.id, kind: x.kind === 'token' ? 'token' : 'op', side: 'ally', spine: x.def?.charId ?? x.defId, ...(x === u ? { skillIndex } : null) })));
-  h.events.length = 0;
   /** Cast it once, as soon as the kit allows (a charge skill or a born state can refuse the first tries). */
   const castOnce = () => { if (u.skill && !u.skill.activations && !u.skill.active && u.alive) { u.skill.gainSp?.(999); try { u.skill.activate?.('test'); } catch { /* refused */ } } };
   return { h, u, a, castOnce, skillIndex };

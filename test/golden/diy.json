@@ -54,8 +54,8 @@
       ],
       "enemies": {"enemy_1267_nhpbr_2":[36,36,0,27502,472980],"enemy_1270_nhstlk_2":[27,24,3,3283,966753],"enemy_9006_actoxi":[30,29,1,5646,1059208]},
       "hooks": [1,124,6471,480,480,5312,5312,0,106,110,221,220,29,37491,1220,14,93,4,1,106,0,0,0],
-      "events": {"atk":537,"deploy":28,"die":106,"dmg":5312,"engage":12,"face":31,"fx":579,"leak":4,"skill":441,"spawn":116,"status":1492,"swing":504},
-      "fx": {"bombardShell":99,"burst":172,"enemyShot":28,"explode":202,"summon":8,"wisdelOverload":5,"zone":65},
+      "events": {"atk":537,"deploy":28,"die":106,"dmg":5312,"engage":12,"face":31,"fx":687,"leak":4,"skill":441,"spawn":116,"status":1492,"swing":504},
+      "fx": {"bombardShell":99,"burst":172,"enemyShot":28,"explode":202,"kitHit":108,"summon":8,"wisdelOverload":5,"zone":65},
       "snaps": "15124cd4 678d0817 1e1091b5 02ae7d85 694516b9 837fa20b a9323dba 634f0d2d 3e636033 44691c44 293d41fb 4d690819 320a0bda 5b4d2a69 9c811e03 aade45f2 f2c1aea7 a8bea8cb 6f21b0ca 0a27d638 1740a884 3ca6f076"
     },
     "diy-002": {
@@ -101,8 +101,8 @@
       ],
       "enemies": {"enemy_1006_shield_3":[21,7,12,15088,1923350],"enemy_1043_zomsbr":[66,66,0,0,610372],"enemy_1402_tgshd_2":[36,22,11,11783,1417572]},
       "hooks": [1,153,6900,678,678,10246,10228,7301,105,128,413,411,23,66377,3614,14,123,23,1,105,0,0,18],
-      "events": {"atk":804,"deploy":30,"die":105,"dmg":10228,"engage":12,"face":21,"fx":7168,"heal":2,"leak":23,"skill":824,"spawn":143,"status":3125,"swing":699},
-      "fx": {"bombardShell":135,"burst":341,"chen3Qi":593,"chen3Respawn":6,"chen3Vanish":6,"dodge":18,"evadeReady":121,"explode":354,"expose":5192,"kitHit":133,"summon":8,"swordStorm":256,"wisdelOverload":5},
+      "events": {"atk":804,"deploy":30,"die":105,"dmg":10228,"engage":12,"face":21,"fx":7332,"heal":2,"leak":23,"skill":824,"spawn":143,"status":3125,"swing":699},
+      "fx": {"bombardShell":135,"burst":341,"chen3Qi":593,"chen3Respawn":6,"chen3Vanish":6,"dodge":18,"evadeReady":121,"explode":354,"expose":5192,"kitHit":297,"summon":8,"swordStorm":256,"wisdelOverload":5},
       "snaps": "ae48a699 61503d30 311ae5a6 cfa12721 42b2a31e c5288eb4 9583cac3 0a0134b5 3f2d6996 473f763e d7afc01f 024dd3a3 4879d44b c98a6fb1 10668e11 7e4a8283 c3f3f457 dd60c94e 81f08bee b564a0c1 3cc06bcf a99d4e62 ef64b254"
     },
     "diy-003": {

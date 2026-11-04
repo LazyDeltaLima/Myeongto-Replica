@@ -482,8 +482,8 @@
       ],
       "enemies": {"enemy_1229_darmy":[10,10,0,0,48384],"enemy_1229_darmy_2":[7,7,0,0,44352],"enemy_1275_dwlock_2":[3,3,0,2145,48384],"enemy_5601_entlec":[2,2,0,0,6479]},
       "hooks": [1,33,2191,98,98,136,336,262,22,23,7,5,42,4273,0,1,22,0,1,68,0,0,0],
-      "events": {"atk":108,"castHit":1,"deploy":8,"die":23,"dmg":175,"engage":4,"face":16,"fx":63,"skill":14,"spawn":33,"status":4,"swing":102},
-      "fx": {"anchor":1,"aoe":1,"beam":1,"candle":2,"coin":4,"downed":1,"ember":1,"enemySkill":1,"splash":42,"stacks":9},
+      "events": {"atk":108,"castHit":1,"deploy":8,"die":23,"dmg":175,"engage":4,"face":16,"fx":64,"skill":14,"spawn":33,"status":4,"swing":102},
+      "fx": {"anchor":1,"aoe":1,"beam":1,"candle":2,"coin":4,"downed":1,"ember":1,"enemySkill":1,"kitHit":1,"splash":42,"stacks":9},
       "snaps": "a9813f54 3928fab0 3dd6dd5a 7cc62e2e 5eb9c277 5afe4d74 39440663 11335c7f"
     },
     "bond-kazimierzShip-low": {
@@ -1263,8 +1263,8 @@
       ],
       "enemies": {"enemy_1116_liprr_2":[10,10,0,0,86400],"enemy_1119_vofsd":[5,5,0,0,63360],"enemy_1121_lifbos_2":[3,3,0,0,86400]},
       "hooks": [1,26,2464,141,141,234,328,98,19,19,8,6,14,5010,739,0,18,0,1,24,0,0,0],
-      "events": {"atk":141,"castHit":2,"deploy":8,"die":19,"dmg":268,"engage":5,"face":16,"fx":56,"skill":14,"spawn":26,"status":123,"swing":149},
-      "fx": {"anchor":2,"downed":1,"kitHit":33,"overload":1,"splash":14,"wake":5},
+      "events": {"atk":141,"castHit":2,"deploy":8,"die":19,"dmg":268,"engage":5,"face":16,"fx":58,"skill":14,"spawn":26,"status":123,"swing":149},
+      "fx": {"anchor":2,"downed":1,"kitHit":35,"overload":1,"splash":14,"wake":5},
       "snaps": "26066860 cc240cda ba72d33b 8a34524f e3257829 db21edad 4f864a8e dcf62acb c4e9ff25"
     },
     "bond-soloShip-low": {

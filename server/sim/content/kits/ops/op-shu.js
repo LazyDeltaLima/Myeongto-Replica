@@ -294,6 +294,8 @@ export default {
         } },
       ],
       install(battle, unit) {
+        // S3's attack group: FirstSucceed tries Attack, then Heal — an attack with an enemy to strike sounds the Attack child (attack.2.1)
+        battle.on('swing', (c) => { if (c.unit === unit && unit.skill?.active && unit.skill.id === S3 && c.targets?.some((t) => t.side === 'enemy')) c.signal = 'Attack'; }, { owner: unit });
         // GUA-Y: damage reduction, independent of the sown tile's 庇护 (official trait damage_resistance).
         const dr = num(tb.damage_resistance);
         if (dr > 0) battle.on('deploy', ({ unit: u }) => {

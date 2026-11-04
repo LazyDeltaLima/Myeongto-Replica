@@ -147,7 +147,7 @@ function wisdel(bb, chess, def) {
    * on the main target). `stun` stuns every enemy the blast hits; `prob` = the 残影 explosion chance of the aftershocks;
    * `air` = air units are hit too (S3). `primary` = the engine already dealt the main hit and its splash.
    */
-  const blast = (battle, unit, main, { x, y, scale = 1, radius = WIS_SPLASH, n = shocks, after = append, stun = 0, prob = markProb, air = false, primary = false }) => {
+  const blast = (battle, unit, main, { x, y, scale = 1, radius = WIS_SPLASH, n = shocks, after = append, stun = 0, prob = markProb, air = false, primary = false, shockKey = null }) => {
     if (!primary) {
       for (const e of battle.foesInRadius(x, y, radius, true)) {
         if (e.isFlying && !air) continue;
@@ -160,8 +160,10 @@ function wisdel(bb, chess, def) {
     for (let i = 1; i <= n; i++) {
       battle.after(0.3 * i, () => {
         if (unit.deploySeq !== seq) return;
-        for (const e of battle.foesInRadius(x, y, radius, true)) {
-          if (e.isFlying && !air) continue;
+        const foes = battle.foesInRadius(x, y, radius, true).filter((e) => !e.isFlying || air);
+        if (shockKey && foes.length) battle.fx('kitHit', { x, y, id: unit.id, k: shockKey, n: foes.length }); // the aftershock's projectile HIT, on each
+        for (const e of foes) {
+          if (!e.alive) continue;
           battle.dealDamage(unit, e, { amount: unit.s.atk * after * (e === main ? mainScale : 1), type: 'phys', isSplash: true, tags: ['aftershock'] });
           if (stun && e.alive) battle.applyStatus(e, 'stun', { duration: stun, source: unit });
           tryBomb(battle, unit, e, prob);
@@ -214,7 +216,7 @@ function wisdel(bb, chess, def) {
           onEachHit({ battle, unit, target }) { // the main target and every splash victim (the aftershocks stun in blast)
             if (target?.alive && target.side === 'enemy') battle.applyStatus(target, 'stun', { duration: s1Stun, source: unit });
           },
-          afterHit: afterHitOf({ n: shocks + 2, after: num(bb.append_atk_scale, 0.9), radius: WIS_S1_SPLASH, stun: s1Stun }),
+          afterHit: afterHitOf({ n: shocks + 2, after: num(bb.append_atk_scale, 0.9), radius: WIS_S1_SPLASH, stun: s1Stun, shockKey: 'wisdel:bomb' }),
         },
       },
       // 饱和复仇: ATK +atk, base attack time −0.7 s, 3 targets; 过载 (second half): 4 shots at random targets

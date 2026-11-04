@@ -100,6 +100,7 @@ export default {
           battle.fx('anchor', { x: sc, y: sr, id: unit.id, fromX: unit.x, fromY: unit.y, r: radius, ...(stop === 0 ? { redeploy: 'here' } : null) });
           const land = () => {
             skill.castHit();
+            battle.fx('kitHit', { x: sc, y: sr, id: unit.id, k: 'ulpia:s3reach' }); // its projectile's REACH, enemies or none
             for (const e of battle.foesInRadius(sc, sr, radius)) {
               battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale), type: 'phys', isSkill: true, tags: ['skill', 'anchor'] });
               if (e.alive) battle.applyStatus(e, 'stun', { duration: num(bb.stun), source: unit });

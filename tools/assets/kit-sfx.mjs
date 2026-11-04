@@ -158,6 +158,12 @@ export const KIT_HIT_BANKS = Object.freeze({
   'whitw2:s3lock': 'battle.ON_PROJECTILE_HIT.projectile_chr_whitw2_funnel_s3_attach',
   // 引星棘刺 S3: each alchemy unit thrown at an operator (skill prefab Token → projectile_chr_thorn2_s3, STOP)
   'thorn2:s3': 'battle.ON_PROJECTILE_STOP.projectile_chr_thorn2_s3',
+  // 2026-11-04: 引星棘刺 S2's unit landing and each tick on an enemy (thorn2_s2_damage PlayAudio); 维什戴尔 S1's shot; 乌尔比安 S3's
+  // anchor landing, enemies or none (the skill's AOEAttack projectile)
+  'thorn2:s2': 'battle.ON_PROJECTILE_REACH.projectile_chr_thorn2_s2',
+  'thorn2:s2hit': 'battle.ON_CUSTOM_TRIGGER.thorn2_s2_projectile_hit',
+  'wisdel:s1': 'battle.ON_PROJECTILE_HIT.projectile_chr_wisdel_s1',
+  'ulpia:s3reach': 'battle.ON_PROJECTILE_REACH.projectile_chr_ulpia_s3',
   // 维什戴尔 S3: each attack's AimEff marks its target (wisdel_s_3_mark[target], audioSignal WISDEL_S3_MARK)
   'wisdel:s3mark': 'battle.ON_BUFF_START.WISDEL_S3_MARK',
   // 溯光星源 S3: LinkEnemy links one more enemy (halo2_s_3_link, audioSignal the same name)

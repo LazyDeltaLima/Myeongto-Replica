@@ -441,7 +441,14 @@
 - 공격 이벤트가 있는 타격의 스킬 타격음 (2026-11-04, 이 시험으로 찾음, 공식 뱅크 표): 모드에 타격음이 없는데 스킬에 `kd`(투사체 HIT·REACH 또는 능력 HIT)가 있으면, 그 공격의 타격마다 대상당 한 번 `kd`를 낸다
   (`_strikeSkillImpact`). 전에는 `kd`를 `_skillImpact`(공격 없는 피해)에서만 읽어 무음이었다: 페넌스 S1·파죰카 S2·에이야퍄들라 S2·비르투오사 S1·님프 S2. 스킬이 타격 전에 끝나도(`charges`) 휘두를 때의 스킬로 낸다.
   전 오퍼레이터 × 스킬 재생 목록을 앞뒤로 비교해 바뀐 것은 이 다섯(님프는 슬롯 둘, 6건)뿐. [화면 미확인]
-- 목록 지금 17건(`none` 10·`todo` 7). `none`의 근거는 뱅크 이름 대조이고 프리팹까지 읽지는 않았다. `todo`는 공식과 들어 비교하지 않았다.
+- 이 시험으로 찾아 고친 것 (2026-11-04, 공식 뱅크 표·프리팹 필드, 공식 판과 들어 비교하지는 않음). [화면 미확인]
+  - 판 시작에 켜지는 스킬: 첫 전장은 `field.units`로 유닛이 이미 등록된 채 'skill' → 'spawn' 순서로 와서, 'spawn'의 재등록이 `skillOn`을 지워 평타 소리가 났다. 같은 묶음에 켜짐이 있으면 유지한다(우타게 S2·텍사스 디 오메르토사 S2·안젤리나 더 멜로우 위시 S1).
+  - 스킬이 타격에 끝나면(`charges`) 열린 스윙이 지워져 같은 타격의 둘째 발·스플래시가 무음이었다 → 첫 착탄의 스윙(스킬 중 휘두른 것만)을 이어받는다: 미니멀리스트 S2 둘째 발 `strikeImpactKey`, 에이야퍄들라 S2·벨로네 S1·헬라그 S1·님프 S2의 다른 대상.
+  - 슈 S3: 공격 묶음은 FirstSucceed(Attack → Heal) — 적을 치면 키트 'swing' 신호 `Attack`으로 자식 1(START·HIT `attack.2.1`), 적 없이 치유하면 자식 2.
+  - 위셔델 S1: 사격 `wisdel:s1`(`projectile_chr_wisdel_s1` HIT, 대상마다), 여진은 라운드마다 kitHit `wisdel:bomb`(`projectile_chr_wisdel_s1_shock` HIT, 대상 수 `n`).
+  - 쏜즈 더 로드스타 S2: 연금 유닛 착지 `thorn2:s2`(`projectile_chr_thorn2_s2` REACH, 첫 fx `zone`의 `reach`), 틱은 적마다 `thorn2:s2hit`(`thorn2_s2_damage` ON_BUFF_TRIGGER PlayAudio, 'dmg' 9번째 칸). 그 투사체의 STOP은 안 이음.
+  - 울피아누스 S3: 닻 착지 kitHit `ulpia:s3reach`(`projectile_chr_ulpia_s3` REACH, 적이 없어도).
+- 목록 지금 10건(모두 `none`). 근거는 뱅크 이름 대조이고 프리팹까지 읽지는 않았다.
 - 확인: 지마·페페 수정을 각각 되돌리면 `char_1051_headb2 S3`·`chess_char_6_06_b`가 실패하고, 목록에 낡은 항목을 넣어도 실패한다.
 
 ## 선발 소리 뱅크 커버리지 (2026-11-01, 탈룰라 S3 簇火 무음)
