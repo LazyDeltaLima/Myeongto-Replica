@@ -205,3 +205,57 @@ test('a skill ability turns its unit as it is cast: [face, unit, turn] at a repl
   assert.deepEqual(faces(buff.h, buff.u), [], 'a buff-only cast turns nowhere');
   checkInvariants(r.h.b);
 });
+
+test("a timed skill's 'state' cast holds its unit's attacks as well, through the skill ability's action (森蚺 S3 on the real kit: first swing after Hensin, 1.5 s)", () => {
+  const dummy = enemyRec({ key: 'e_d', hp: 1e9, atk: 0, speed: 0, mass: 0, def: 0, res: 0 });
+  const h = makeBattle({ defs: { enemies: { e_d: dummy } }, timeLimit: 900, autoFinish: false, seed: 5, flags: { dpPerSec: 0, dpMax: 999 }, captureNoisy: true,
+    units: [{ uid: 1, diy: { slot: 'chess_char_5_diy1_a', charId: 'char_416_zumama', skillIndex: 2, uniEquipId: null }, row: 9, col: 5 }] });
+  h.step();
+  const u = h.unit(1);
+  h.spawn('e_d', { pos: [9, 6] });
+  assert.ok(h.runUntil(() => u.swing, 8), 'she attacks before the skill');
+  h.events.splice(0);
+  assert.ok(u.skill.activate('test', { free: true }));
+  const t0 = h.b.time;
+  assert.equal(u.swing, null, 'the swing in progress is cut');
+  close(u.skillStateUntil, t0 + 1.5, 1e-9, 'the Skill state: Skill_2_Begin');
+  const swings = [];
+  let ended = null;
+  for (let i = 0; i < Math.round(36 / h.b.dt); i++) {
+    h.step();
+    for (const e of h.events.splice(0)) if (e[0] === 'swing' && e[1] === u.id) swings.push(h.b.time - t0);
+    if (ended == null && !u.skill.active) ended = h.b.time - t0;
+  }
+  assert.ok(swings[0] >= 1.5 - 1e-9, `first swing ${swings[0]}`);
+  assert.ok(swings[0] < 1.5 + 0.1, `first swing ${swings[0]}: the cooldown ran on meanwhile`);
+  close(ended, 32.5, 2 * h.b.dt, 'the 31 s run from the end of the cast');
+  checkInvariants(h.b);
+});
+
+test('贝洛内 S3 and Mon3tr S3 hold their attacks through their skill clips too', () => {
+  const dummy = enemyRec({ key: 'e_d', hp: 1e9, atk: 0, speed: 0, mass: 0, def: 0, res: 0 });
+  const cases = [
+    { charId: 'char_4037_demetr', hold: 0.2, extra: [] },
+    { charId: 'char_4179_monstr', hold: 0.667, extra: [{ uid: 2, kind: 'token', tokenId: 'token_10050_monstr_prosts', ownerUid: 1, row: 9, col: 6 }] },
+  ];
+  for (const { charId, hold, extra } of cases) {
+    const h = makeBattle({ defs: { enemies: { e_d: dummy } }, timeLimit: 900, autoFinish: false, seed: 5, flags: { dpPerSec: 0, dpMax: 999 }, captureNoisy: true,
+      units: [{ uid: 1, diy: { slot: 'chess_char_5_diy1_a', charId, skillIndex: 2, uniEquipId: null }, row: 10, col: 5 }, ...extra] });
+    h.step();
+    const u = h.unit(1);
+    h.spawn('e_d', { pos: [9, 7] });
+    for (let i = 0; i < Math.round(3 / h.b.dt); i++) h.step();
+    h.events.splice(0);
+    u.skill.gainSp(999);
+    assert.ok(u.skill.activate('test'), charId);
+    const t0 = h.b.time;
+    close(u.skillStateUntil, t0 + hold, 1e-9, `${charId}: the Skill state`);
+    let first = null;
+    for (let i = 0; i < Math.round(8 / h.b.dt) && first == null; i++) {
+      h.step();
+      for (const e of h.events.splice(0)) if (e[0] === 'swing' && e[1] === u.id && first == null) first = h.b.time - t0;
+    }
+    assert.ok(first != null, `${charId}: she attacks`);
+    assert.ok(first >= hold - 1e-9, `${charId}: first swing ${first}`);
+  }
+});

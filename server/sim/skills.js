@@ -52,7 +52,8 @@
 //   attack {dmgType, atkScale, splashRadius, splashScale, hits, projectile, maxTargets, dmgMul, onHit, heal…},
 //   heal (bool: heal-type skill for the trigger rule), inAttack (bool: the kit casts the skill inside the attack about to
 //   land and makes that attack the skill's — a ReplacementSkill whose replaced attack the kit models itself, 华法琳 S1:
-//   the engine does not hold the cast for the next attack), onStart(ctx), onEnd(ctx), onHit(ctx), onAttack(ctx), onTick(ctx).
+//   the engine does not hold the cast for the next attack), castHolds (bool: a timed skill's 'state' cast holds the unit's
+//   attacks through its skill clip's action), durationAfterCast (bool: its `duration` starts as that action ends), onStart(ctx), onEnd(ctx), onHit(ctx), onAttack(ctx), onTick(ctx).
 // ctx passed to spec callbacks: { battle, unit, skill, bb, target?, dealt?, targets?, dt?, reason? }; onAttack's ctx
 //   also carries `noAmmo` (set it to true: this attack spends no ammo). onEnd runs while the skill's mods / range are
 //   still applied (`active` is already false); they are removed right after it (unless onEnd re-activated the skill).
@@ -353,6 +354,8 @@ export class SkillRuntime {
     if (this.kind !== 'passive' && this.sp > this.spCost) this._normalize();
     if (this.active && this.kind !== 'passive') {
       if (this.spec.onTick) this._call('onTick', { dt });
+      // (`durationAfterCast`: the skill's buff comes after its cast in a sequence group, 森蚺 S3: its time starts as the Skill state ends)
+      if (this.spec.durationAfterCast && this.unit.skillStateUntil > this.battle.time + 1e-9) return;
       if (this.kind === 'duration' || (this.kind === 'ammo' && Number.isFinite(this.timeLeft))) {
         this.timeLeft -= dt;
         if (this.timeLeft <= 1e-9) { this.end('duration'); }
@@ -675,6 +678,9 @@ export class SkillRuntime {
     // bullets added in skillStart (拉特兰's round(ammo × (0.05 + 0.015 × layers)), 逃犯引渡手续, talents): the bar's full mark
     // (community report #35: the extra bullets sat above a full bar until fewer than the base count were left)
     if (this.active && this.ammoLeft > this.ammoMax) this.ammoMax = this.ammoLeft;
+    // a timed skill whose kit says so enters the Skill state of its CastSkill the same way: no attack until its skill clip's
+    // action ends (森蚺 S3's Hensin; `_paceInstant` below, docs/rules/sim.md 「즉발 스킬의 시전」)
+    if (this.spec.castHolds && this.isTimed && this.active && this.cast?.mode === 'state' && this.cast.time != null && this.cast.dur > 0) this._enterSkillState(this.castTiming());
     if (!this.isTimed && !this.pending) {
       this.end('instant');
       // (a cast onEnd opened again owns its own gap)
@@ -744,12 +750,19 @@ export class SkillRuntime {
     if (c.time == null) return;
     const t = this.castTiming();
     if (c.mode === 'state') {
-      u.swing = null;
-      u.castLeft = 0;
-      u.skillStateUntil = b.time + t.action;
-      if (t.action > SKILL_ANIM_WINDOW) u.skillAnimUntil = b.time + t.action;
+      this._enterSkillState(t);
       this.nextCastAt = b.time + (c.resetCd ? t.action : Math.max(t.action, t.cooldown));
     } else this.nextCastAt = b.time + t.cooldown;
+  }
+
+  /** The Skill state of a `_switchToState` 1 cast for its action `t.action`: the swing in progress is cut, no attack until it ends (ai.js updateAlly). */
+  _enterSkillState(t) {
+    const b = this.battle;
+    const u = this.unit;
+    u.swing = null;
+    u.castLeft = 0;
+    u.skillStateUntil = b.time + t.action;
+    if (t.action > SKILL_ANIM_WINDOW) u.skillAnimUntil = b.time + t.action;
   }
 
   /** A 'replace' cast's attack starts (ai.js startReplacement): the skill clip plays for its action. */

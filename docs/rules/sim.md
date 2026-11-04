@@ -1533,6 +1533,7 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
   - `state` = `CastSkill` `_switchToState` 1(풀 149개; 공격 없는 즉발 약 20개): 곧바로 시전하고 Skill 상태 — 진행 중 휘두름은 끊기고(쿨다운 유지,
     계속 흐름) 스킬 능력이 끝날 때까지(`unit.skillStateUntil`) 공격하지 않는다. 기절·빙결·수면은 상태를 끝낸다.
     공식 클라 `Character.States.SkillState._StartSkill`(`BasicSkill.Cast`의 끝 콜백 = 상태 끝), `SkillState.OnTick`.
+    지속 스킬도 프리팹은 같다(2026-11-04): 유넥티스 S3(`Hensin` `Skill_2_Begin` 1.5초, 그 뒤 `SwitchMode` — 지속시간 31초는 시전 뒤부터, 끝은 32.5초 뒤)·벨로네 S3(`Skill_3_ReStart_Begin` 0.2초)·Mon3tr S3(`Skill_3_Begin` 0.667초)는 키트의 `castHolds`로 시전 동안 휘두름을 끊고 공격하지 않는다(유넥티스만 `durationAfterCast`). 유넥티스의 능력치 버프 `zumama_s_3[buff]`는 `Hensin`이 들고 있는데 언제 붙는지 안 읽어 시전 순간에 둔다 [추정·미조사: 능력치 버프가 붙는 시점]. 같은 꼴의 다른 지속 스킬은 아직 안 바꿈(골든 대부분이 움직임) → 관리자 노트.
   - `free` = `_switchToState` 0(사일런스 S2·플레임테일 S1·와파린 S2·텍사스 S1 `skcom_charge_cost`): 곧바로 시전, 공격과 무관.
   - **다음 시전**: 스킬 능력이 다시 준비돼야 한다 — `CastSkill.IsAvailable` → `Ability.get_isReady`(쿨다운 타이머 + 시전 중 아님).
     능력 시간(`SkillRuntime.castTiming`): `AbstractAnimatedAbility.get_cooldown` — `_timeMode` 0 FROM_ATTACK_SPEED = 주인의 공격 간격,

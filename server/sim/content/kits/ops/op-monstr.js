@@ -228,6 +228,7 @@ export default {
         [S2]: { kind: 'duration', attack: { canAttack: (battle, unit) => s2CanAttack(battle, unit) } },
         [S3]: {
           kind: 'duration',
+          castHolds: true,   // Skill_3_Begin: no attack before it ends (skchr_monstr_3 `_switchToState` 1)
           mods: { atkPct: num(b3.atk), batPct: batMod(b3.base_attack_time, chess), blockCnt: num(b3.block_cnt), hpFlat: num(b3.max_hp) },
           targeting: s3?.rangeGrid ? { rangeGrid: s3.rangeGrid } : undefined,
           attack: { dmgType: 'true', attack: 'melee', projectile: 'none', canHitFly: false, groundOnly: true, hitAllBlocked: true },

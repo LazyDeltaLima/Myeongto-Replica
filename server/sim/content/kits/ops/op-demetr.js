@@ -240,6 +240,7 @@ export default {
         },
         [S3]: {
           kind: 'duration',
+          castHolds: true,   // FlyToTarget Skill_3_ReStart_Begin: no attack before it ends (skchr_demetr_3 `_switchToState` 1)
           mods: { atkPct: num(b3['attack@demetr_s3[bonus].atk']), aspd: num(b3['attack@demetr_s3[bonus].attack_speed']) },
           onStart({ battle, unit, skill }) {
             const st = { home: [unit.tileR, unit.tileC], bond: null, next: battle.time + idle, act: skill.activations, lastHit: null, lastHitAt: -Infinity, retarget: false, undead: false };
