@@ -42,7 +42,7 @@ import { bandBondIds } from '../shared/bandBonds.js';
 import { statusKey, composeUnitRecord, standInRecord, unitForm } from '../shared/standIn.js';
 import { LOCAL_DIY_PICKS } from '../shared/local-diy.js';
 import { FULL_RANK, atRank, stripPotential } from '../shared/potential.js';
-import { skillModeIndex } from '../shared/skill-modes.js';
+import { skillModeIndex, SKILL_SUB_MODES } from '../shared/skill-modes.js';
 import { DEFAULT_SEASON, SEASONS, isSeasonId, seasonDataDir } from '../shared/seasons.js';
 
 // ===== CLI & IO ==================================================================================
@@ -2470,6 +2470,17 @@ function enemyAbility(ctx, spineId, key, applyWay) {
 }
 
 /**
+ * The mode skill `i`'s attacks run in: the one it switches to (skillModeIndex), or the one its 【移动】 lands it in when the skill
+ * moves it as it starts (SKILL_SUB_MODES `teleport`: Mon3tr S3 S3_Reborn, 贝洛内 S3 S3_Resapwn) — the prefab's `S3` mode then only
+ * starts the skill, and its Attack clip gave Mon3tr's S3 swings half their official length.
+ */
+function attackModeIndex(charId, modes, i, skillMode) {
+  const m = skillModeIndex(modes, i, skillMode);
+  const sub = SKILL_SUB_MODES[charId]?.teleport;
+  return m > 0 && sub && sub.startsWith(`${modes[m]}_`) && modes.includes(sub) ? modes.indexOf(sub) : m;
+}
+
+/**
  * An operator's attack clips → chess.json / backups.json `attackAnim` { base, skills }: per attack mode (`base` = its
  * Default mode, `skills[i]` = the mode skill i switches to — shared/skill-modes.js skillModeIndex over the prefab's
  * `_modes`, null when the skill keeps the Default one) the clip its attack ability plays (`_animKey`, renamed by the
@@ -2507,7 +2518,7 @@ function opAttackAnim(ctx, charId, skillCount) {
   const skillMode = ctx.charModes?.[charId]?.skillMode ?? null;
   const skills = [];
   for (let i = 0; i < skillCount; i++) {
-    const m = skillModeIndex(t.modes, i, skillMode);
+    const m = attackModeIndex(charId, t.modes, i, skillMode);
     const ab = m > 0 ? t.attack?.[m] : null;
     skills.push(ab ? clipOf(ab, sp.anims?.skills?.[String(i)]?.loop ?? sp.anims?.skill?.loop) : null);
   }
@@ -2552,7 +2563,7 @@ function opShot(ctx, charId, charSkills) {
   const skillMode = ctx.charModes?.[charId]?.skillMode ?? null;
   const skills = [];
   for (let i = 0; i < charSkills.length; i++) {
-    const m = skillModeIndex(t.modes, i, skillMode);
+    const m = attackModeIndex(charId, t.modes, i, skillMode);
     skills.push(m > 0 ? rec(m) : ownShot(charSkills[i]));
   }
   return base || skills.some(Boolean) ? { base, skills } : null;

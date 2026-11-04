@@ -62,3 +62,10 @@ test('Mon3tr S3: lands in S3_Reborn (its start effect, buff and strike), comes b
     assert.ok(after.includes('monstr_attack_start_01') && !after.includes('monstr_skill_03_start_01'), `the Default mode again (${after})`);
   } finally { globalThis.fetch = fetch0; }
 });
+
+test('a skill that lands in another mode times its attacks by that mode\'s clip (attackAnim): Mon3tr S3 Skill_3_Loop, 贝洛内 S3 Skill_3_Loop_A', () => {
+  const units = JSON.parse(readFileSync('data/backups.json', 'utf8')).units;
+  assert.equal(units.char_4179_monstr.attackAnim.skills[2].clip, 'Skill_3_Loop');
+  assert.equal(units.char_4037_demetr.attackAnim.skills[2].clip, 'Skill_3_Loop_A');
+});
+

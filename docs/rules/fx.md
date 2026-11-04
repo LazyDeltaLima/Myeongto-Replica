@@ -3716,6 +3716,9 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - 재구성체·Mon3tr S3의 유실(2026-11-04, 관리자 제보 「흰색 이펙트가 계속 나옴」): `prosts_t_1[born_charge]`·`monstr_s_3[bleeding]`의 `FixedValueDamage`는 0.1초마다 체력을 깎을 뿐 이펙트를
   안 만든다. 시뮬이 `'dmg'`를 내면 렌더 `fx/numbers.js damage`가 진짜 피해의 흰 발광·입자를 그려 초당 10번 흰빛이 났다 → `loseHp`의 `silent`(수르트·혼의 유실과 같음). 체력은 그대로 깎이고
   소리 쪽 처리(`audio.js`)도 그대로. 아레나에서 재구성체 곁 공용 입자 수: 평균 17(0이 된 적 없음) → 0.9(그녀의 공격 때만). 시험 `test/render/token-held-fx.test.js`.
+- Mon3tr·벨로네 S3 공격 타이밍(2026-11-04, 관리자 제보 「아레나 2배속에서 S3 공격 이펙트가 첫 1~2회만」): 이 모드의 전투는 공식도 `timeScale` 2라 아레나 2배속이 실제 판 속도다. `build-data.mjs`가 스킬의
+  공격 클립을 이름 규칙의 `S3` 모드에서 읽어 Mon3tr은 `Attack`(2.83초)으로 재서 시전이 0.51게임초뿐이었고, 재생 속도 상한(2 ÷ 2)으로 `FxDelay` 0.6게임초가 끝나기 전에 시전이 끝나 `monstr_skill_03_start_01`이
+  그려지지 않았다. 공식은 착지 모드 `S3_Reborn`의 `Skill_3_Loop`(1.5초, 타격 0.667) → 시전 1.13게임초. `attackModeIndex`가 `SKILL_SUB_MODES` `teleport`의 모드를 쓴다(벨로네 `Skill_3_Loop_A`도 같은 길, 길이는 같음).
 - 리(`char_322_lmlee`) 재능 1(2026-11-04): 저지하는 동안 `lmlee_t_1[self]` `lmlee_buff_01_start`가 그에게, `lmlee_t_1[enemy]` `lmlee_debuff_01_start`가 저지당한 적에게 — 시뮬
   `talent:lmlee:self`·`talent:lmlee:foe:<그의 id>`를 `visible`로 알리고 `KEY_FX`가 그린다(공격 속도 값은 그대로, 효과만 추가). [화면 미확인: 실제 판]
 - **메시 입자 pivot**(2026-11-04, 공식 클라에서 확인 — 메시 지오메트리 잡): `m_Pivot` × 메시 경계 크기(max − min), z는 뒤집어(x, y, −z), 그 뒤 입자 크기·회전. 쿼드의 「입자 크기 단위」와
