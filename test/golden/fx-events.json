@@ -6131,7 +6131,6 @@
    "char_4037_demetr spawn:born demetr_skill3_restart_end_01 → self",
    "char_4098_vvana attackHit vvana_attack_01_hit → foe",
    "char_4098_vvana attackHit vvana_skill_02_hit_01 → foe",
-   "char_4098_vvana attackHit vvana_skill_02_hit_02 → foe",
    "char_4098_vvana attackHit vvana_skill_03_L_hit_01 → foe",
    "char_4098_vvana attackHit vvana_skill_03_L_hit_02 → foe",
    "char_4098_vvana attackHit vvana_skill_03_S_hit_01 → foe",
@@ -14397,6 +14396,7 @@
    "enemy_1525_blkswb spawn:cast enemy_blkswb_skill_02_A_start_01 → self",
    "enemy_1525_blkswb spawn:cast enemy_blkswb_skill_02_A_start_02 → self",
    "enemy_1525_blkswb spawn:cast enemy_blkswb_skill_02_A_weapon_01 → self",
+   "enemy_1525_blkswb spawn:castLoop enemy_blkswb_attack_A_start_01 → self",
    "token_10012_rosmon_shield spawn:born token_rosmon_skill_03_start → self",
    "token_10030_mlyss_wtrman spawn:born common_call_start_01 → self",
    "token_10056_angel2_target spawn:born common_call_start_01 → self"

@@ -55,7 +55,10 @@
 //   the engine does not hold the cast for the next attack), castHolds (bool: a timed skill's 'state' cast holds the unit's
 //   attacks through its skill clip's action), durationAfterCast (bool: its `duration` starts as that action ends), endHolds (bool: that clip comes
 //   last in its sequence group, so its action holds the attacks from the end of the skill's `duration`; a number: those seconds), onStart(ctx), onEnd(ctx), onHit(ctx), onAttack(ctx), onTick(ctx),
-//   onStrike(ctx) / onCastEnd(ctx) (a `castHolds` skill: its skill clip's OnAttack frame and that clip's end; a stun before them loses them; no client cast known: at once).
+//   onStrike(ctx) / onCastEnd(ctx) (a `castHolds` skill: its skill clip's OnAttack frame and that clip's end; a stun before them loses them; no client cast known: at once),
+//   castCarriesOn (bool: its sequence group does not interrupt the clip's ability, `_alsoInterruptCurrentSubAbility` 0: a stun loses no stage, the OnAttack frame is then the clip's end),
+//   modsAfterCast (bool: mods / attack come from the ability after the clip, so a stun that loses that ability loses them),
+//   durationFromCastWhenCut (bool: the group's time is its longest ability's, `_useLongestAbilityCooldown`: a stun that loses the buff leaves `duration` from the cast).
 // ctx passed to spec callbacks: { battle, unit, skill, bb, target?, dealt?, targets?, dt?, reason? }; onAttack's ctx
 //   also carries `noAmmo` (set it to true: this attack spends no ammo). onEnd runs while the skill's mods / range are
 //   still applied (`active` is already false); they are removed right after it (unless onEnd re-activated the skill).
@@ -253,6 +256,8 @@ export class SkillRuntime {
     this.nextCastAt = -Infinity;
     this._replace = null;
     this._castStage = null;
+    this._durationFrom = 0;
+    this._castLost = false;
     if (this.unit) this.unit.skillStateUntil = 0;
     if (this.noSkill) return;
     if (this.kind === 'passive') {
@@ -361,8 +366,9 @@ export class SkillRuntime {
         if (!this.active) return;
       }
       if (this.spec.onTick) this._call('onTick', { dt });
-      // (`durationAfterCast`: the skill's buff comes after its cast in a sequence group, 森蚺 S3: its time starts as the Skill state ends)
-      if (this.spec.durationAfterCast && this.unit.skillStateUntil > this.battle.time + 1e-9) return;
+      // (`durationAfterCast`: the skill's buff comes after its cast in a sequence group, 森蚺 S3: its time starts as that clip's action ends. The
+      // group's cooldown timer runs from the cast and a stun leaves it alone, so a stun does not bring the end forward: `Ability.FinishIfNot`)
+      if (this.spec.durationAfterCast && this._durationFrom > this.battle.time + 1e-9) return;
       if (this.kind === 'duration' || (this.kind === 'ammo' && Number.isFinite(this.timeLeft))) {
         this.timeLeft -= dt;
         if (this.timeLeft <= 1e-9) { this.end('duration'); }
@@ -690,6 +696,8 @@ export class SkillRuntime {
     if (this.spec.castHolds && this.isTimed && this.active && this.cast?.mode === 'state' && this.cast.time != null && this.cast.dur > 0) {
       const t = this.castTiming();
       this._enterSkillState(t);
+      this._durationFrom = b.time + t.action;
+      this._castLost = false;
       if (this.spec.onStrike || this.spec.onCastEnd) {
         this._castStage = { strikeAt: b.time + t.strike, endAt: b.time + t.action };
         this._tickCast();
@@ -786,13 +794,28 @@ export class SkillRuntime {
    * The stages of a `castHolds` cast, in its unit's tick: the skill clip's OnAttack frame (`AbstractAnimatedAbility` waits for it,
    * `_waitForAttackEvent`), then the clip's end (the next ability of a sequence group, `_extraActionEvent` ON_CAST_END). A stun, freeze
    * or sleep ends the Skill state (`SkillState.OnTick` → `OnExit` → `BasicSkill.InterruptIfNot` → `Ability.InterruptIfNot`): what has
-   * not come yet is lost, as an interrupted swing's strike is.
+   * not come yet is lost, as an interrupted swing's strike is — and the skill runs on: `BasicSkill.OnTick` ends it when the ability stops
+   * affecting, and a sequence group affects while its cooldown timer runs, from the cast, untouched by the interrupt.
+   * `castCarriesOn`: the group's `AbilitySequenceGroup.OnCastEnd` leaves the clip's ability running and `_DoCast` does not ask about its
+   * owner, so the stages come anyway; the stun cut the clip, so the wait for its OnAttack runs out at the clip's end.
    */
   _tickCast() {
     const c = this._castStage;
     const u = this.unit;
     const now = this.battle.time + 1e-9;
-    if (!u.canAct || u.skillStateUntil < c.endAt - 1e-9) { this._castStage = null; return; }
+    if (!c.cut && (!u.canAct || u.skillStateUntil < c.endAt - 1e-9)) {
+      c.cut = true;
+      if (!this.spec.castCarriesOn) {
+        this._castStage = null;
+        if (this.spec.modsAfterCast) {
+          this._castLost = true;
+          this._removeMods();
+        }
+        if (this.spec.durationFromCastWhenCut) this._durationFrom = 0;
+        return;
+      }
+      if (c.strikeAt != null) c.strikeAt = c.endAt;
+    }
     if (c.strikeAt != null && now >= c.strikeAt) {
       c.strikeAt = null;
       this._call('onStrike');
@@ -903,7 +926,7 @@ export class SkillRuntime {
 
   /** The attack override to use for the next attack, or null. */
   attackOverride() {
-    if (!this.active) return null;
+    if (!this.active || this._castLost) return null;
     if (this.isTimed || this.kind === 'passive') return this.spec.attack || null;
     return this.pending ? (this.spec.attack || null) : null;
   }

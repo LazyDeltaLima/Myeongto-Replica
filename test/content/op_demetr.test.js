@@ -21,6 +21,8 @@ const FORMS = BACKUPS.units[DEMETR].forms;
 const SLOT = { 5: 'chess_char_5_diy1_a', 6: 'chess_char_6_diy1_a' };
 const FGTY = 'uniequip_002_demetr';
 const S1 = 'skchr_demetr_1', S2 = 'skchr_demetr_2', S3 = 'skchr_demetr_3';
+/** Past the clip of FlyToTarget: he moves as its wait for an OnAttack runs out (skills.js castTiming). */
+const land = (h, u) => h.run(u.skill.castTiming().action + 0.04);
 const formOf = (tier, elite) => FORMS[elite ? (tier === 5 ? '2/60/7/1' : '2/60/7/3') : '2/1/4/0'];
 const skillOf = (tier, elite, id) => formOf(tier, elite).skills.find((s) => s.skillId === id);
 const modOf = (tier, mod) => (mod ? formOf(tier, true).modules.find((m) => m.uniEquipId === mod) : null);
@@ -285,6 +287,7 @@ test('S3 清算 (MANUAL, data CUSTOM_RANGE on x-2): 30 s, ATK +110 / 140 %, ASPD
     assert.ok(u.s.dodgePhys < 0.8, 'his dodge decayed');
     const e = h.spawn('enemy_dummy', { pos: [11, 7] });   // [1, 2] of his x-2
     assert.ok(h.runUntil(() => u.skill.active, 1), `T${tier}: cast`);
+    land(h, u);
     assert.deepEqual([u.tileR, u.tileC], [11, 7], `T${tier}: moved onto its tile`);
     assert.equal(moves(h, u).length, 1, `T${tier}: one 【移动】`);
     approx(u.s.dodgePhys, 0.8, `T${tier}: 街头直觉 restarts with the 【移动】`);
@@ -319,6 +322,7 @@ test('S3 清算 targets: ground enemies only, on a tile he may take (melee-build
     const onFloor = h.spawn('enemy_dummy', { pos: [11, 6] });
     u.skill.gainSp(999);
     assert.ok(h.runUntil(() => u.skill.active, 1), 'cast (the flyer counts for CUSTOM_RANGE)');
+    land(h, u);
     assert.deepEqual([u.tileR, u.tileC, moves(h, u).length, !!bondOf(h)], [10, 5, 1, false], 'an in-place 【移动】, no 牵绊');
     assert.ok(onFloor.alive);
     done(h);
@@ -329,25 +333,26 @@ test('S3 清算 targets: ground enemies only, on a tile he may take (melee-build
     const e1 = h.spawn('enemy_dummy', { pos: [11, 7] });
     u.skill.gainSp(999);
     assert.ok(h.runUntil(() => u.skill.active, 1));
+    land(h, u);
     assert.deepEqual([u.tileR, u.tileC], [11, 7]);
     h.run(2);
     h.b.kill(e1, null);
     const last = Math.max(...atkHits(h, u).map((c) => c.t));
     const e2 = h.spawn('enemy_dummy', { pos: [9, 6] });
     assert.ok(h.runUntil(() => u.tileR === 9 && u.tileC === 6, 3), 'the next target');
-    assert.ok(h.b.time >= last + 1 - 1e-6 && h.b.time <= last + 1 + 0.1, `1 s after his last damage (${h.b.time} vs ${last})`);
+    assert.ok(h.b.time >= last + 1 - 1e-6 && h.b.time <= last + 1 + 0.2 + 0.1, `1 s after his last damage, plus the clip of FlyToTargetSecond (${h.b.time} vs ${last})`);
     assert.equal(moves(h, u).length, 2);
     assert.deepEqual([bondOf(h).tileR, bondOf(h).tileC], [10, 5], 'one 牵绊, still on his tile');
     assert.equal(h.b.allyUnits.filter((a) => a.kind === 'token' && a.alive).length, 1);
-    // the elite he attacks falls ⇒ at once (the next tick), not 1 s later
+    // the elite he attacks falls ⇒ FlyToTargetSecond at once (the next tick), not 1 s later: he moves as its clip ends
     h.b.kill(e2, null);
     const el = h.spawn('enemy_elite', { pos: [9, 6] });   // on his tile
     h.runUntil(() => atkHits(h, u).some((c) => c.target === el), 2);
     const home = h.spawn('enemy_dummy', { pos: [10, 5] });   // on 牵绊's tile: his located tile
     h.b.kill(el, null);
     const tk = h.b.time;
-    assert.ok(h.runUntil(() => u.tileR === 10 && u.tileC === 5, 0.2), 'back home on the next tick');
-    assert.ok(h.b.time - tk < 0.05, 'at once');
+    assert.ok(h.runUntil(() => u.tileR === 10 && u.tileC === 5, 0.4), 'back home after the clip');
+    assert.ok(h.b.time - tk < 0.2 + 0.05, 'at once');
     assert.equal(bondOf(h), null, '牵绊 retreated first (his located tile)');
     assert.ok(home.alive);
     // the end: a 【返回】 in place, the SP emptied, a short 不死
@@ -365,6 +370,7 @@ test('S3 清算: a lethal hit while it runs ⇒ 不死 / untargetable / no block
     const e = h.spawn('enemy_dummy', { pos: [11, 7] });
     u.skill.gainSp(999);
     assert.ok(h.runUntil(() => u.skill.active, 1));
+    land(h, u);
     assert.deepEqual([u.tileR, u.tileC], [11, 7]);
     h.b.dealDamage(e, u, { amount: 1e7, type: 'true' });
     assert.ok(u.alive, 'not knocked out');
@@ -391,6 +397,7 @@ test('S3 清算: a lethal hit while it runs ⇒ 不死 / untargetable / no block
     h.spawn('enemy_dummy', { pos: [9, 6] });
     u.skill.gainSp(999);
     assert.ok(h.runUntil(() => u.skill.active, 1));
+    land(h, u);
     h.b.retreat(bondOf(h), { reason: 'expired', permanent: true });
     h.runUntil(() => !u.skill.active, 40);
     assert.ok(!u.alive && u.removeReason === 'retreat', 'forced retreat');
@@ -425,6 +432,7 @@ test('his kit moments for the official effects: the acting 【手段】 shown on
     u.skill.gainSp(999);
     h.spawn('enemy_dummy', { pos: [11, 7] });
     assert.ok(h.runUntil(() => u.skill.active, 1));
+    land(h, u);
     assert.deepEqual(tps(h, u), [[7, 11]], 'onto the target');
     u.skill.end('test');
     h.step();
@@ -435,7 +443,7 @@ test('his kit moments for the official effects: the acting 【手段】 shown on
     const { h, u } = field({ tier: 5, skill: 2 });
     u.skill.gainSp(999);
     u.skill.activate('manual');
-    h.step();
+    land(h, u);
     assert.ok(u.skill.active);
     u.skill.end('test');
     h.step();

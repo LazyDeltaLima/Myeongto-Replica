@@ -50,6 +50,7 @@ function qiubai(bb, chess, def) {
       // skchr_qiubai_2 is the sequence sword_split (Skill_2) → switch_mode: no attack before the clip ends, `duration` runs from its end
       castHolds: true,
       durationAfterCast: true,
+      castCarriesOn: true,   // `_alsoInterruptCurrentSubAbility` 0: a stun does not stop the sword
       mods: { atkPct: num(bb.atk) },
       ...(skillGridQ ? { targeting: { rangeGrid: skillGridQ } } : {}),
       // sword_split picks its targets as the cast starts (`_selectTargetTiming` 0) and strikes on the clip's OnAttack, with its own 停顿

@@ -228,16 +228,22 @@ export default {
         [S2]: { kind: 'duration', attack: { canAttack: (battle, unit) => s2CanAttack(battle, unit) } },
         [S3]: {
           kind: 'duration',
-          castHolds: true,   // Skill_3_Begin: no attack before it ends (skchr_monstr_3 `_switchToState` 1)
+          castHolds: true,   // BuffAbility (the mods, from the cast) → Respawn (Skill_3_Begin): no attack before it ends (skchr_monstr_3 `_switchToState` 1)
           mods: { atkPct: num(b3.atk), batPct: batMod(b3.base_attack_time, chess), blockCnt: num(b3.block_cnt), hpFlat: num(b3.max_hp) },
           targeting: s3?.rangeGrid ? { rangeGrid: s3.rangeGrid } : undefined,
           attack: { dmgType: 'true', attack: 'melee', projectile: 'none', canHitFly: false, groundOnly: true, hitAllBlocked: true },
           onStart({ battle, unit, skill }) {
             const r = prostsOf(battle, unit).find(up);
             if (!r) { skill.end('noToken'); skill.addCharge(1); return; }   // (refused before: the activate guard)
+            unit.mem.mS3To = { r, tile: [r.tileR, r.tileC] };
+          },
+          // Respawn's `_waitForAttackEvent` runs out at the end of Skill_3_Begin, which has no OnAttack; it picked her target as the cast
+          // started (`_selectTargetTiming` 0). A stun before that interrupts it (`_interruptableSubAbilityIndice` 1): she stays, S3 runs on there
+          onStrike({ battle, unit, skill }) {
+            const { r, tile: to } = unit.mem.mS3To;
+            unit.mem.mS3To = null;
             const home = { r: unit.tileR, c: unit.tileC, dir: unit.dir };
-            const to = [r.tileR, r.tileC];
-            battle.retreat(r, { reason: 'retreat', permanent: true });   // 撤退场上的重构体（返回待部署区）
+            if (up(r)) battle.retreat(r, { reason: 'retreat', permanent: true });   // 撤退场上的重构体（返回待部署区）
             const fromX = unit.x, fromY = unit.y;
             // (clip 'reborn': she lands in mode S3_Reborn — render/units.js FACE_FRONT_DEPLOYS)
             if (!battle.moveRedeploy(unit, to[0], to[1], { clip: 'reborn' })) { skill.end('blocked'); skill.addCharge(1); return; }   // 强制结束技能并返还技力

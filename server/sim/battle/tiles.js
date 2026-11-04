@@ -52,6 +52,7 @@ export class BattleTiles {
     unit.deploySeq = ++this._deploySeq;
     unit.aggroSeq = unit.deploySeq;
     unit.blockSearchTick = 0;   // a new unit for the client too: its block search starts again (Battle._blockSearchDue)
+    unit.swing = null;          // ... and it has no swing under way (battle/deploy.js: a new deployment swings anew)
     unit.deployedAt = this.time;
     unit.quietDeployAt = inPlace ? this.time : null;
     const sk = unit.skill;

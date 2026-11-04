@@ -103,6 +103,7 @@ test('the 重构体\'s and her S3\'s 流失 take HP without a \'dmg\' event: eac
   h.spawn('e_d', { pos: [10, 5] });   // S3's trigger: an enemy in her x-4
   u.skill.gainSp(999);
   assert.ok(h.runUntil(() => u.skill.active, 2), 'S3 on');
+  for (let i = 0; i < steps(u.skill.castTiming().action + 0.04); i++) h.step();   // (it runs from where she lands, as Skill_3_Begin ends)
   h.events.length = 0;
   // step by step: her attacks' 治疗 tops her up inside the window (her first strike lands 0.5 s in)
   let lost = 0;

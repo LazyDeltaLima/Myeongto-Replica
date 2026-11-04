@@ -34,6 +34,7 @@ function reed2(bb, chess, def) {
       // skchr_reed2_2 is the sequence Skill_2_FireBall (Skill_2) → ActiveBuff: no attack before the clip ends, `duration` runs from its end
       castHolds: true,
       durationAfterCast: true,
+      castCarriesOn: true,   // `_alsoInterruptCurrentSubAbility` 0: a stun does not stop the fireballs
       duration: num(bb.projectile_life_time) > 0 ? num(bb.projectile_life_time) : undefined,
       // Skill_2_FireBall picks its carriers and fires on the clip's OnAttack (`_selectTargetTiming` 1); the fireballs live their time from there
       onStrike({ battle, unit, skill }) {

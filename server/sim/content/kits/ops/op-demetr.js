@@ -227,6 +227,12 @@ export default {
       st.next = battle.time + idle;
       return true;
     };
+    /** FlyToTargetSecond is cast when there is a target: true then, the move comes at the end of its clip. */
+    const startFly = (battle, unit, st, skill) => {
+      if (!up(unit) || !unit.canAct || st.undead || !pickTarget(battle, unit, st)) return false;
+      st.flyAt = battle.time + skill.castTiming().action;
+      return true;
+    };
 
     return {
       skills: {
@@ -241,24 +247,36 @@ export default {
         [S3]: {
           kind: 'duration',
           castHolds: true,   // FlyToTarget Skill_3_ReStart_Begin: no attack before it ends (skchr_demetr_3 `_switchToState` 1)
+          // FlyToTarget picks its target and moves him as its wait for an OnAttack runs out, at the end of Skill_3_ReStart_Begin (no OnAttack; `_selectTargetTiming` 1)
           mods: { atkPct: num(b3['attack@demetr_s3[bonus].atk']), aspd: num(b3['attack@demetr_s3[bonus].attack_speed']) },
           onStart({ battle, unit, skill }) {
             const st = { home: [unit.tileR, unit.tileC], bond: null, next: battle.time + idle, act: skill.activations, lastHit: null, lastHitAt: -Infinity, retarget: false, undead: false };
             unit.mem.demetrS3 = st;
-            // "若技能开启时，若存在目标则会立刻尝试移动；否则会尝试原地移动一次"
+          },
+          // "若技能开启时，若存在目标则会立刻尝试移动；否则会尝试原地移动一次"
+          onStrike({ battle, unit }) {
+            const st = unit.mem.demetrS3;
             if (!flyTo(battle, unit, st, false) && up(unit)) moveTo(battle, unit, st, unit.tileR, unit.tileC);
           },
-          onTick({ battle, unit }) {
+          onTick({ battle, unit, skill }) {
             const st = unit.mem.demetrS3;
             if (!st) return;
+            // FlyToTargetSecond under way: the same clip and wait as FlyToTarget, its target picked as they run out
+            // [ASSUMED·엔진: not read whether this cast, outside the Skill state, cuts his swing meanwhile; here it does not]
+            if (st.flyAt != null) {
+              if (battle.time + 1e-9 < st.flyAt) return;
+              st.flyAt = null;
+              flyTo(battle, unit, st);
+              return;
+            }
             // the elite / leader he attacked last fell: FlyToTargetSecond at once (one try; the idle timer runs on)
             if (st.retarget) {
               st.retarget = false;
-              if (flyTo(battle, unit, st)) return;
+              if (startFly(battle, unit, st, skill)) return;
             }
             if (battle.time + 1e-9 < st.next) return;
             // no target (or he cannot act): the timer keeps counting — the next try at its next interval
-            if (!flyTo(battle, unit, st)) {
+            if (!startFly(battle, unit, st, skill)) {
               const step = stepOf('attack@demetr_s3[target_timer].interval', iv, 0.5);
               let guard = 0;
               while (st.next <= battle.time + 1e-9 && guard++ < STEP_PER_TICK) st.next += step; // loop-cap: stepOf interval

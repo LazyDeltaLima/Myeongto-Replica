@@ -131,19 +131,7 @@ test('歌蕾蒂娅 S3: the closing 捕网 on its FinalAttack\'s OnAttack, 0.367 
 
 // ---- a stun ends the Skill state (`SkillState.OnTick`): what has not come yet is lost
 
-test('a stun before the OnAttack loses the strike and what follows it: 仇白 S2, 瑕光 S2, 余 S3', REAL, () => {
-  {
-    const { h, u, e } = cast('chess_char_6_15_a', 1, { pos: [9, 6] });
-    h.run(0.2);
-    stun(h, u);
-    h.run(2);
-    assert.equal(skillDmg(h, u).length, 0, '仇白: no burst');
-    assert.ok(!e.findBuff('sluggish'), '仇白: no 停顿');
-    assert.ok(h.runUntil(() => !u.skill.active, 30));
-    h.step();
-    assert.equal(skillDmg(h, u).length, 0, '仇白: no closing burst, the mode never came');
-    checkInvariants(h.b);
-  }
+test('a stun before the OnAttack loses the strike and what follows it: 瑕光 S2, 余 S3', REAL, () => {
   {
     const { h, u, e } = cast('chess_char_3_12_a', 1, { pos: [9, 5], units: [{ chessId: 'chess_char_1_04_a', row: 9, col: 6 }] });
     h.run(0.2);
@@ -229,5 +217,103 @@ for (const [name, chessId, skillId, reached] of [
     for (let i = 0; i < 4; i++) b.step();
     assert.ok(reached(u), `at the clip's end, ${action} s`);
     assert.equal(b.errors.length, 0, b.errors[0]?.error?.message);
+  });
+}
+
+// A stun in the clip: the sequence group's cooldown timer runs from the cast and the interrupt leaves it alone (`Ability.FinishIfNot`), so the
+// skill stays on for its whole time (`BasicSkill.OnTick` ends it when the ability stops affecting), without what has not come yet.
+const secondsOn = (h, u, t0, max = 60) => until(h, () => !u.skill.active, t0, max);
+
+test('刺玫 S2 stunned in the clip: no ATK buff, no protégé, and the skill still ends clip + duration after the cast', REAL, () => {
+  const { h, u, t0, t } = cast('chess_char_1_06_a', 1, { units: [{ chessId: 'chess_char_1_04_a', row: 9, col: 6 }] });
+  const atk = u.s.atk;
+  assert.ok(atk > 0);
+  stun(h, u, 0.05);
+  h.step();
+  assert.equal(u.skill.active, true, 'the skill runs on');
+  assert.ok(!u.findBuff(u.skill._buffKey), 'ActiveBuff never came');
+  assert.equal(u.mem.protege ?? null, null);
+  at(secondsOn(h, u, t0), t.action + u.skill.duration, 'the end');
+  checkInvariants(h.b);
+});
+
+test('瑕光 S2 stunned in the clip: no sleep, no regeneration, no ATK, and it still runs its whole time', REAL, () => {
+  const { h, u, t0, e, t } = cast('chess_char_3_12_a', 1, { pos: [9, 5], units: [{ chessId: 'chess_char_1_04_a', row: 9, col: 6 }] });
+  const ally = h.unit('chess_char_1_04_a');
+  stun(h, u, 0.05);
+  h.step();
+  assert.ok(!u.findBuff(u.skill._buffKey), 'Switch never came');
+  until(h, () => h.b.time - t0 > 1.5, t0);
+  assert.ok(!e.s.flags.sleep, 'no sleep');
+  assert.ok(!ally.findBuff(`blemsh:regen:${u.id}`), 'no regeneration');
+  assert.equal(u.skill.active, true);
+  at(secondsOn(h, u, t0), t.action + u.skill.duration, 'the end');
+  checkInvariants(h.b);
+});
+
+test('余 S2 stunned in the clip: Mode is lost (no ATK, normal attacks) and the group\'s own time, its longest ability, ends it `duration` after the cast', REAL, () => {
+  const { h, u, t0 } = cast('chess_char_6_03_a', 1, { pos: [9, 6] });
+  stun(h, u, 0.05);
+  h.step();
+  assert.ok(!u.findBuff(u.skill._buffKey));
+  assert.equal(u.skill.attackOverride(), null, 'its arts attacks are Mode\'s');
+  at(secondsOn(h, u, t0), u.skill.duration, 'the end');
+  checkInvariants(h.b);
+});
+
+test('森蚺 S3 stunned in the clip: Hensin is not interrupted, so SwitchMode still comes and the skill still lasts 1.5 + duration', REAL, () => {
+  const h = makeBattle({ seed: 3, autoFinish: false, timeLimit: 90, defs: { enemies: dummy }, enemies: [{ key: 'd', pos: [9, 6] }],
+    units: [{ uid: 1, diy: { slot: 'chess_char_5_diy1_a', charId: 'char_416_zumama', skillIndex: 2 }, elite: true, row: 9, col: 5 }] });
+  h.run(1);
+  const u = h.unit(1);
+  assert.ok(u.skill.activate('test', { free: true }), 'cast');
+  const t0 = h.b.time;
+  const dur = u.skill.duration;
+  stun(h, u, 0.05);
+  at(until(h, () => !u.skill.active, t0, 60), 1.5 + dur, 'the end');
+  checkInvariants(h.b);
+});
+
+test('焰影苇草 S2 stunned before the OnAttack: the fireballs still go, as the clip would have ended', REAL, () => {
+  const { h, u, t0, t } = cast('chess_char_6_08_a', 1, { units: [{ chessId: 'chess_char_1_04_a', row: 9, col: 6 }] });
+  assert.ok(t.strike < t.action);
+  stun(h, u, 0.05);
+  h.step();
+  assert.ok(!u.mem.reedFire?.length, 'nothing yet: the stun cut the OnAttack');
+  at(until(h, () => u.mem.reedFire?.length, t0), t.action, 'the fireballs');
+  checkInvariants(h.b);
+});
+
+test('仇白 S2 stunned before the OnAttack: the sword still strikes at the clip\'s end, and its mode comes', REAL, () => {
+  const { h, u, t0, t } = cast('chess_char_6_15_a', 1, { pos: [9, 6] });
+  stun(h, u, 0.05);
+  at(until(h, () => skillDmg(h, u).length > 0, t0), t.action, 'the strike');
+  assert.equal(u.mem.qbMode, true, 'switch_mode');
+  checkInvariants(h.b);
+});
+
+for (const [name, charId, extra] of [['贝洛内', 'char_4037_demetr', []], ['Mon3tr', 'char_4179_monstr', [{ kind: 'token', tokenId: 'token_10050_monstr_prosts', ownerUid: 1, row: 9, col: 3 }]]]) {
+  const setup = () => {
+    const h = makeBattle({ seed: 3, autoFinish: false, timeLimit: 90, defs: { enemies: dummy }, enemies: [{ key: 'd', pos: [9, 7] }], flags: { dpPerSec: 0, dpMax: 999 },
+      units: [{ uid: 1, diy: { slot: 'chess_char_6_diy1_a', charId, skillIndex: 2 }, elite: true, row: 10, col: 5 }, ...extra.map((x) => ({ uid: 2, ...x }))] });
+    h.run(1);
+    const u = h.unit(1);
+    assert.ok(u.skill.activate('test', { free: true }), 'cast');
+    return { h, u, t0: h.b.time, tile: [u.tileR, u.tileC], t: u.skill.castTiming() };
+  };
+  test(`${name} S3 moves as its clip with no OnAttack ends, not as the cast starts`, REAL, () => {
+    const { h, u, t0, tile, t } = setup();
+    assert.ok(t.action > 0);
+    assert.deepEqual([u.tileR, u.tileC], tile, 'still there as the cast starts');
+    at(until(h, () => u.tileR !== tile[0] || u.tileC !== tile[1], t0), t.action, 'the move');
+    checkInvariants(h.b);
+  });
+  test(`${name} S3 stunned in the clip: no move, and the skill runs on`, REAL, () => {
+    const { h, u, t0, tile, t } = setup();
+    stun(h, u, 0.05);
+    until(h, () => h.b.time - t0 > t.action + 0.02, t0);
+    if (charId === 'char_4179_monstr') assert.deepEqual([u.tileR, u.tileC], tile, 'Respawn is interrupted');
+    assert.equal(u.skill.active, true);
+    checkInvariants(h.b);
   });
 }

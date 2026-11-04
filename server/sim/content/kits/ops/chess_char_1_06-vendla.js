@@ -44,6 +44,7 @@ export default {
         // skchr_vendla_2 is the sequence MaxHpMark (Skill) → ActiveBuff: no attack before the clip ends, `duration` runs from its end
         castHolds: true,
         durationAfterCast: true,
+        modsAfterCast: true,   // the ATK is ActiveBuff's: a stun in the clip interrupts the sequence before it (`_interruptableSubAbilityIndice` 0)
         // MaxHpMark's vendla_s_2[self] comes on its ON_SPELL_ON, the clip's OnAttack: it picks the ally then and holds `duration` s from there,
         // so the taunt and the counter end a little before the skill does
         onStrike({ battle, unit, skill }) {

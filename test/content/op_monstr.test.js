@@ -332,6 +332,7 @@ test('S3 策略：熔毁 (MANUAL, data DEFAULT: an enemy in its x-4 box, 25 s): 
     setHp(u, hpRatio);   // (after her heals of the wait)
     const trig = h.spawn('enemy_dummy', { pos: [10, 5] });
     assert.ok(h.runUntil(() => u.skill.active, 0.5), `${label(f)}: an enemy in the x-4 box`);
+    h.run(u.skill.castTiming().action + 0.04);   // Respawn moves her as Skill_3_Begin ends
     h.b.kill(trig, null);
     assert.ok(!p.alive && !p.removed, `${label(f)}: the 重构体 withdrawn (its piece waits)`);
     assert.deepEqual([u.tileR, u.tileC, u.ground], [10, 6, true], `${label(f)}: on its tile (a ground tile)`);
@@ -349,8 +350,7 @@ test('S3 策略：熔毁 (MANUAL, data DEFAULT: an enemy in its x-4 box, 25 s): 
     const g1 = h.spawn('enemy_dummy', { pos: [10, 6] });
     const g2 = h.spawn('enemy_dummy', { pos: [10, 6] });
     const fly = h.spawn('enemy_fly', { pos: [10, 7] });
-    h.step();
-    assert.ok(g1.blockedBy === u && g2.blockedBy === u, `${label(f)}: blocked`);
+    assert.ok(h.runUntil(() => g1.blockedBy === u && g2.blockedBy === u, 0.5), `${label(f)}: blocked`);
     const n0 = log.length;
     assert.ok(h.runUntil(() => log.slice(n0).some((c) => c.name === 'damaged' && c.source === u && c.target.side === 'enemy'), 3), label(f));
     h.step();
@@ -383,6 +383,7 @@ test('S3 不死: a fatal blow leaves her at 1 HP (untargetable, blocking nothing
   setHp(h.unit(3), 0.3);
   const trig = h.spawn('enemy_dummy', { pos: [10, 5] });   // in the x-4 box around her
   assert.ok(h.runUntil(() => u.skill.active, 0.5));
+  h.run(u.skill.castTiming().action + 0.04);   // Respawn moves her as Skill_3_Begin ends
   h.b.kill(trig, null);
   assert.deepEqual([u.tileR, u.tileC], [10, 6]);
   h.b.dealDamage(null, u, { amount: 1e7, type: 'true', sourceless: true });

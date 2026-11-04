@@ -83,6 +83,7 @@ export default {
             // skchr_blemsh_2 is the sequence Sleep (Skill_2) → Switch: no attack before the clip ends, `duration` runs from its end
             castHolds: true,
             durationAfterCast: true,
+            modsAfterCast: true,   // the ATK is Switch's mode: a stun in the clip interrupts the sequence before it (`_interruptableSubAbilityIndice` 0)
             heal: false,
             mods: { atkPct: num(s.bb.atk) },
             // Sleep picks its targets and strikes on the clip's OnAttack (`_selectTargetTiming` 1)

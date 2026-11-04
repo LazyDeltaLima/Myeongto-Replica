@@ -55,6 +55,8 @@ function yu(bb, chess, def) {
       // skchr_yu_2 is the sequence Tel (Skill_2) → Mode (yu_s_2): no attack before the clip ends, `duration` runs from its end
       castHolds: true,
       durationAfterCast: true,
+      modsAfterCast: true,   // all of it is Mode's: a stun in the clip interrupts the sequence before it (`_interruptableSubAbilityIndice` 0, 1) ...
+      durationFromCastWhenCut: true,   // ... and leaves the group's own time, the longest of its abilities (`_useLongestAbilityCooldown`)
       mods: { hpPct: num(bb.max_hp), atkPct: num(bb.atk), blockCnt: num(bb.block_cnt) },
       attack: { dmgType: 'arts' },
       // Tel picks its targets and strikes on the clip's OnAttack (`_selectTargetTiming` 1)
