@@ -803,9 +803,16 @@ describe('websocket lobby', () => {
     // the cap; spectators never count toward the players: two player seats still free
     const s2 = await pool.player('Watcher2');
     await expectOk(s2, { t: 'room.spectate', code: st.code });
-    assert.equal(MAX_SPECTATORS, 2);
+    assert.equal(MAX_SPECTATORS, 4);
+    const more = [];
+    for (let i = 2; i < MAX_SPECTATORS; i++) {
+      const m = await pool.player(`More${i}`);
+      await expectOk(m, { t: 'room.spectate', code: st.code });
+      more.push(m);
+    }
     const s3 = await pool.player('Watcher3');
     await expectError(s3, { t: 'room.spectate', code: st.code }, ERR.ROOM_FULL);
+    for (const m of more) await expectOk(m, { t: 'room.leave' });
     await joinRoom(s3, st.code);
     await expectOk(host, { t: 'room.addBot' });
     const full = await host.waitFor('room.state', (s) => s.seats.every(Boolean));
