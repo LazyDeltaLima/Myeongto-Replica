@@ -85,6 +85,12 @@ export const byEnemyAttack = (ctx) => {
  * (`noSp`, Battle.loseHp), not an element 损伤), whatever its source: an attack, a zone, the 无来源 源石溶剂 tick.
  */
 export const hurtSpDamage = (ctx) => !!ctx.dmg && !ctx.dmg.noSp && ctx.type !== 'element' && ctx.amount > 0;
+/**
+ * Tell the view a unit's deploy direction changed in mid-battle: its model and facing ring follow (shared/protocol.js fxDir).
+ * b.snap carries no direction, so a kit setting `unit.dir` without this turns only the range
+ * (test/content/kit-facing.test.js).
+ */
+export const tellDir = (battle, u) => battle.fx('turnDir', { x: u.x, y: u.y, id: u.id, dir: u.dir });
 /** A timed skill is running (no SP may be gained). */
 export const skillBusy = (u) => !!(u.skill && u.skill.active && u.skill.isTimed);
 /** Give SP unless a timed skill is running (AK: no SP gain during a skill). */

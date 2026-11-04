@@ -330,6 +330,7 @@ test('S3 with her anchor: 0.1 s after the cast she takes off (Skill_3_Restart_Be
     approx(h.b.time - t0, 0.1 + PRE + T, `${label(f)}: after ${T.toFixed(2)} s of flight`, 0.1);
     assert.ok(h.eventsOf('deploy').some((x) => x[1] === u.id && x[3] === 'land'), `${label(f)}: lands on Skill_3_Restart_End`);
     assert.deepEqual([u.tileR, u.tileC, u.dir], [10, 9, 'UP'], `${label(f)}: on the anchor's tile, facing its way`);
+    assert.deepEqual(h.eventsOf('fx').filter((e) => e[1] === 'turnDir' && e[4].id === u.id).map((e) => e[4].dir), ['UP'], `${label(f)}: the view is told (her model and facing ring)`);
     assert.ok(!a.alive && !a.removed && a.mem.docked, `${label(f)}: the anchor withdrawn (its piece kept)`);
     assert.equal(u.mem.summonStock[ANCHOR], 0, `${label(f)}: stock emptied`);
     assert.ok(u.skill.active, label(f));

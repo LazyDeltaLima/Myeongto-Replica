@@ -79,7 +79,7 @@
 //   A placed piece is docked by content/tokens.js (a skill's summon: deployed for free at the battle start, then only when
 //   her S3 gives one and its 70 s redeploy time has passed, on its own tile).
 
-import { num, talentBb, skillRec, batMod, up } from '../shared/tier1.js';
+import { num, talentBb, skillRec, batMod, up, tellDir } from '../shared/tier1.js';
 import { releaseSkillSummon } from '../../tokens.js';
 import { COLS } from '../../../constants.js';
 import { hypot } from '../../../detmath.js';
@@ -223,7 +223,7 @@ function land(battle, unit) {
   if (!battle.moveRedeploy(unit, f.r, f.c, { clip: 'land' })) {
     unit.dir = dir0;
     battle.refreshRange(unit);
-  }
+  } else if (unit.dir !== dir0) tellDir(battle, unit);
   battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX: f.from.x, fromY: f.from.y });
 }
 

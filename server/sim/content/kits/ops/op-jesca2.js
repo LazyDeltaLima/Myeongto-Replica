@@ -58,7 +58,7 @@
 //   and is stunned attack@extrabomb.stun s (not when it dodged the hit [ASSUMED·not checked: the explosion projectile's
 //   hit behaviour]). The skill's end drops a pending shell.
 
-import { num, talentBb, traitBb, moduleOn, skillRec, batMod, up, giveSp, installReveal } from '../shared/tier1.js';
+import { num, talentBb, traitBb, moduleOn, skillRec, batMod, up, giveSp, installReveal, tellDir } from '../shared/tier1.js';
 import { offsetTile, dirFromDelta, dirVec } from '../../../dir.js';
 import { isHpLoss } from '../../../damage.js';
 import { hypot } from '../../../detmath.js';
@@ -92,9 +92,6 @@ const besideOf = (unit, t) => Math.abs(t.tileR - unit.tileR) + Math.abs(t.tileC 
 /** The shield of hers standing next to her (the mark jesca2_jckshd_s_3[mark]: its HostMark b-1 holds her), or null. */
 const markOf = (battle, unit) => shieldsOf(battle, unit).find((t) => up(t) && besideOf(unit, t)) ?? null;
 const skillOn = (unit, id) => !!(unit.skill && unit.skill.active && unit.skill.id === id);
-
-/** Tell the view a unit's deploy direction changed: its model and facing ring follow (shared/protocol.js fxDir). */
-const tellDir = (battle, u) => battle.fx('turnDir', { x: u.x, y: u.y, id: u.id, dir: u.dir });
 
 /** Face `dir` (the range turns with her: Battle.refreshRange; a SkillRuntime trigger grid follows `unit.dir`). */
 function turnTo(battle, unit, dir) {
