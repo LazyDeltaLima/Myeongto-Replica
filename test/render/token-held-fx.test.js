@@ -80,11 +80,11 @@ test('the 重构体\'s and her S3\'s 流失 take HP without a \'dmg\' event: eac
   h.spawn('e_d', { pos: [10, 5] });   // S3's trigger: an enemy in her x-4
   u.skill.gainSp(999);
   assert.ok(h.runUntil(() => u.skill.active, 2), 'S3 on');
-  for (let i = 0; i < steps(0.2); i++) h.step();
-  const hp1 = u.hp;
   h.events.length = 0;
-  for (let i = 0; i < steps(0.5); i++) h.step();
-  assert.ok(u.hp < hp1, `S3 流失: ${hp1} → ${u.hp}`);
+  // step by step: her attacks' 治疗 tops her up inside the window (her first strike lands 0.5 s in)
+  let lost = 0;
+  for (let i = 0; i < steps(0.7); i++) { const hp1 = u.hp; h.step(); lost = Math.max(lost, hp1 - u.hp); }
+  assert.ok(lost > 0, 'S3 流失');
   assert.equal(h.events.filter((e) => e[0] === 'dmg' && e[1] === u.id && e[5] === u.id).length, 0, 'no \'dmg\' of her own');
 });
 

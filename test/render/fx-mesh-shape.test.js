@@ -78,16 +78,23 @@ test('a Mesh shape without m_UseMeshColors keeps the start colour; one whose mes
   for (let i = 0; i < b.n; i++) assert.ok(b.pos[i * 3] === 0 && b.pos[i * 3 + 1] === 0);
 });
 
-test('mesh particles take their renderer\'s pivot in the size of the mesh\'s bounds, z turned over (official mesh job)', async () => {
+test('mesh particles move by their renderer\'s pivot as (x, -z, y) × the particle\'s size, in the mesh\'s units; their rotation keeps its sign (official client)', async () => {
   const ps = sys({ type: 4 });
   ps.render = { ...ps.render, mode: 4, mesh: 'r', pivot: [0.2, 0.5, -0.3] };
   const inst = await play([node('m', 0, ps)], { r: await rect() });
-  const m = await rect();
-  m.computeBoundingBox();
-  const { min, max } = m.boundingBox;
-  assert.deepEqual(inst.systems[0].material.uniforms.uPivot.value.toArray().map((x) => +x.toFixed(4)),
-    [0.2 * (max.x - min.x), 0.5 * (max.y - min.y), 0.3 * (max.z - min.z)].map((x) => +x.toFixed(4)));
-  assert.match(PLAYER, /vec3 p = rm \* \(\(transformed \+ uPivot\) \* iSize\);/);
+  // the shader rearranges and sizes it: the mesh's bounds play no part
+  assert.deepEqual(inst.systems[0].material.uniforms.uPivot.value.toArray(), [0.2, 0.5, -0.3]);
+  assert.match(PLAYER, /vec3 piv = vec3\(uPivot\.x, -uPivot\.z, uPivot\.y\) \* abs\(iSize\);/);
+  assert.match(PLAYER, /vec3 p = rm \* \(\(transformed \+ piv\) \* iSize\);/);
+  assert.match(PLAYER, /mat3 rm = rotZXY\(iRot\);/);
+  assert.equal(inst.systems[0].meshRotSign, 1);
+  const sep = sys({ type: 4 });
+  sep.render = { ...sep.render, mode: 4, mesh: 'r' };
+  sep.mods = { rotOL: { z: mm(1), x: mm(1), y: mm(0) } };
+  const quad = sys({ type: 4 });
+  quad.mods = { rotOL: { z: mm(1), x: mm(1), y: mm(0) } };
+  const inst2 = await play([node('m', 0, sep), node('q', 0, quad)], { r: await rect() });
+  assert.deepEqual(inst2.systems.map((x) => x.meshRotSign), [-1, 1], 'rotation over lifetime by separate axes turns a mesh particle by all three the other way');
   // freeform (2026-10-27, the engine's freeform quad): the pivot moves the corner before the turn and the stretch, as a billboard's
   assert.match(PLAYER, /vec2 c = \(position\.xy \+ uPivot\.xy\) \* iSize\.xy;/);
 });

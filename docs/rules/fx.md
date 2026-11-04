@@ -1873,7 +1873,7 @@
 - **늘인 빌보드(mode 1)·메시 입자(mode 4)의 pivot** (`fxplayer.js` 셰이더 `uPivot` vec3): 늘인 빌보드 1,669 시스템·메시 입자 179 시스템이 pivot을 갖는데
   2026-10-08 전체 적용 때 빌보드·정렬·수평 쿼드만 했다. 늘인 빌보드의 pivot은 2026-10-27 공식 엔진대로 고쳤다(아래 「그리기 순서·시트」의
   「늘인 빌보드」 — 머리를 속도 쪽으로 pivot y × 크기 y, 가로로 pivot x × 폭의 반; 이 줄의 「y = 늘인 방향, 길이 단위」 추정은 틀렸음). 메시: 빌보드와
-  같은 + 부호로 메시 축의 pivot × 크기를 회전 전에 더함. [화면 미확인]
+  같은 + 부호로 메시 축의 pivot × 크기를 회전 전에 더함 → 2026-11-04 공식 클라 식으로 바뀜(「메시 입자 pivot」).
 - **메시 방출** (Shape type 6, 클라 79 시스템·운영자 36·적 4 프리팹 — 대부분 범위 윤곽 메시 `general_range_08`·`FX_m_range_03_*`·`lap_s2range02` 위의
   반짝임): 추출 `shape.mesh`(메시 파일)·`place`(placementMode 0 꼭짓점·1 변·2 삼각형)·`meshCol`(m_UseMeshColors); 클라는 모두 m_MeshSpawn mode 0
   (무작위)·법선 오프셋 0 — 다른 값이면 `fx_coverage`가 알림. 플레이어 `meshShape`/`meshSample`: 꼭짓점 균등, 변은 길이·삼각형은 넓이 가중 [추정],
@@ -3712,7 +3712,7 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
   `AuraAbility` `prosts[atk_up]`(`overrideEffectKey` `token_monstr_prosts_buff_03`, `_selfOption` EXCLUDE)은 오라를 받는 아군마다 — 시뮬 `installAura`의 새 `visible`로
   `talent:monstr:prostsAtk`를 알리고 `KEY_FX`가 그린다. ③ S3 시전: `monstr_s_3_buff[self]`의 `token_monstr_prosts[eff]`가 그녀가 내려앉는 재구성체 칸에
   `token_monstr_prosts_skill_03_start`(`teleport` 계획, 묶음 `monstr_token`). ④ 이 이펙트의 결정 조각(메시 입자 16계, 방출 0.125/s·수명 8초·주기 1초)은 재생기의 두 오류로 안
-  보였다: 미리 데우기가 한 주기뿐이라 8초 뒤에야 나오고(「방출·입자 운동」 미리 데우기), 메시 pivot을 입자 크기 단위로 읽어 2.6칸 밖에 놓였다(아래 「메시 입자 pivot」). [화면 미확인: 공식과 나란히]
+  보였다: 미리 데우기가 한 주기뿐이라 8초 뒤에야 나오고(「방출·입자 운동」 미리 데우기), 메시 pivot을 입자 크기 단위로 읽어 축이 다른 2.6칸 밖에 놓였다(아래 「메시 입자 pivot」). [화면 미확인: 공식과 나란히]
 - 재구성체·Mon3tr S3의 유실(2026-11-04, 관리자 제보 「흰색 이펙트가 계속 나옴」): `prosts_t_1[born_charge]`·`monstr_s_3[bleeding]`의 `FixedValueDamage`는 0.1초마다 체력을 깎을 뿐 이펙트를
   안 만든다. 시뮬이 `'dmg'`를 내면 렌더 `fx/numbers.js damage`가 진짜 피해의 흰 발광·입자를 그려 초당 10번 흰빛이 났다 → `loseHp`의 `silent`(수르트·혼의 유실과 같음). 체력은 그대로 깎이고
   소리 쪽 처리(`audio.js`)도 그대로. 아레나에서 재구성체 곁 공용 입자 수: 평균 17(0이 된 적 없음) → 0.9(그녀의 공격 때만). 시험 `test/render/token-held-fx.test.js`.
@@ -3721,8 +3721,10 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
   그려지지 않았다. 공식은 착지 모드 `S3_Reborn`의 `Skill_3_Loop`(1.5초, 타격 0.667) → 시전 1.13게임초. `attackModeIndex`가 `SKILL_SUB_MODES` `teleport`의 모드를 쓴다(벨로네 `Skill_3_Loop_A`도 같은 길, 길이는 같음).
 - 리(`char_322_lmlee`) 재능 1(2026-11-04): 저지하는 동안 `lmlee_t_1[self]` `lmlee_buff_01_start`가 그에게, `lmlee_t_1[enemy]` `lmlee_debuff_01_start`가 저지당한 적에게 — 시뮬
   `talent:lmlee:self`·`talent:lmlee:foe:<그의 id>`를 `visible`로 알리고 `KEY_FX`가 그린다(공격 속도 값은 그대로, 효과만 추가). [화면 미확인: 실제 판]
-- **메시 입자 pivot**(2026-11-04, 공식 클라에서 확인 — 메시 지오메트리 잡): `m_Pivot` × 메시 경계 크기(max − min), z는 뒤집어(x, y, −z), 그 뒤 입자 크기·회전. 쿼드의 「입자 크기 단위」와
-  다르다(2026-10-22의 추정을 이것으로 끝냄). `fxplayer.js pivotOf`. pivot이 큰 메시 입자 97계(재구성체 27·32, 탈룰라 `snow_flow_03` 등)의 위치가 바뀐다. 재구성체는 27 × 0.6 × 0.096 = 1.55칸. [추정·화면: 엔진 판과 메시 경계는 확인했으나 관리자 확인(2026-11-04)에서 재구성체의 원형 수정 고리가 보이지 않음 — 조각이 몸에서 멀리 세로로 긴 궤적을 그린다; `snow_flow_03` 294칸·만트라 표식 5칸도 이상함. 공식 화면 대조 전까지 미해결]
+- **메시 입자 pivot**(2026-11-04, 공식 클라에서 확인 — 클라 자체 엔진 빌드의 메시 지오메트리 잡. 같은 판 Unity 기본 플레이어와 다르다): 메시 좌표에 (pivot.x × 크기.x, −pivot.z × 크기.y, pivot.y × 크기.z)를 더한 뒤 입자 크기·회전. 곧 메시 축으로 (x·sx², −z·sy², y·sz²)이고 메시 경계는 안 쓴다(경계 × (x, y, −z)는 기본 플레이어와 GPU 인스턴싱 길의 식 — 앞서 2026-11-04에 이것을 넣었다가 사진과 달라 뺐다). `fxplayer.js` 셰이더 `piv`.
+  y가 메시 z로 가므로 재구성체 조각(pivot y 27, 크기 z 0.12)은 27 × 0.12 × 0.12 = 0.39칸 밖에 놓이고 긴 축(메시 z)이 바깥을 향한다: 8계가 노드 요 45°씩이라 `spin` 축을 둘러싼 고리가 되고, 시작 회전·수명 중 회전은 긴 축을 도는 자전이다. 공식 사진(관리자 2026-11-04)과 대조: 고리 폭 0.96칸 같음, 방사형·왼쪽이 높음 같음, 위아래 반지름은 공식 약 0.24칸·우리 약 0.18칸(카메라 차이인지 안 봄).
+  pivot 있는 메시 입자 425계(133프리팹)가 움직인다. 메시 중심이 치우친 114계 중 78계에서 이 식이 네 후보(이 식·기본 플레이어 식·크기 단위·pivot 없음) 중 메시 중심을 입자에 가장 가깝게 놓고, 기본 플레이어 식이 만들던 수백 칸 밖 위치가 없어진다. [추정·엔진: 이 모드의 셰이더는 GPU 인스턴싱 길을 안 탄다고 봄 — 재구성체 사진은 안 타는 쪽과 맞지만 조건은 안 읽음] [화면 미확인: 재구성체 외 공식 대조]
+- **메시 입자 회전 부호**(2026-11-04, 공식 클라에서 확인): 3D 회전 입자는 오일러 (+x, +y, +z)를 Z-X-Y 순서로, 2D 회전 입자는 낼 때 넣는 축 (0, 0, 1)로 +각도만큼 돈다(`axisOfRotation`의 배열 기본값 (0, 1, 0)은 입자를 낼 때 덮인다). 수명 중 회전이 축별(`rotOL` x·y)이면 세 축 모두 반대. 전 셰이더의 (x, y, −z)는 근거 없는 첫 판이었다. `fxplayer.js meshRotSign`. z 각도가 있는 메시 입자 1,003계의 도는 방향·시작 각이 뒤집히고, 축별 254계는 x·y 쪽이 뒤집힌다. 공용 버프 `common_ignite_attack`의 띠는 그대로 몸을 가로지르는 열린 호(공식 녹화 설명과 같음). 정렬이 Local이 아닌 메시 입자(View 300·Velocity 28·World 8계)는 정렬을 안 그려 여기 포함되지 않는다. [화면 미확인: 공식 대조]
 - Mon3tr S3 책략: 용해: 재구성체 칸으로 【이동】하면 S3_Reborn 모드의 `monstr_s_3[reborned_passive]`가 그녀에게 `monstr_skill_03_begin_02`. 떠난 칸의
   路标形态 표식(모드 2로 바뀐 재구성체: `prosts_s_3[mode]`가 `prost_s_3[[effect]` `monstr_skill_03_begin_03`을 들고 `common_spine_hide`로 모델을 숨김)은
   시뮬에 없어 렌더가 그 칸(사건의 `fromX`·`fromY`)에 스킬이 끝날 때까지 그린다. 【복귀】(`teleport`의 새 `back` 1) 때 그 모드가 끝나며

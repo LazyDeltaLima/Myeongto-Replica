@@ -373,13 +373,15 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       gl_Position = projectionMatrix * cv;
       return;
     }
-    if (uMode == 4) {                       // mesh particle (Unity rotates by -angle around z for 2D rotation)
-      mat3 rm = rotZXY(vec3(iRot.x, iRot.y, -iRot.z));
+    if (uMode == 4) {                       // mesh particle: iRot arrives with its sign (ParticleSystem meshRotSign)
+      mat3 rm = rotZXY(iRot);
       vec3 transformed = position;
       #include <skinbase_vertex>
       #include <skinning_vertex>
-      // + the renderer's pivot before the turn (uPivot: already in the mesh's units — ParticleSystem pivotOf)
-      vec3 p = rm * ((transformed + uPivot) * iSize);
+      // + the renderer's pivot before the turn: the official client's mesh job moves the mesh by (x, -z, y) × the particle's size,
+      // in the mesh's own units, so that y runs along the mesh's z (the 重构体's crystals sit 27 × 0.12 × 0.12 = 0.39 out, their long axis outward)
+      vec3 piv = vec3(uPivot.x, -uPivot.z, uPivot.y) * abs(iSize);
+      vec3 p = rm * ((transformed + piv) * iSize);
       vH = (modelMatrix * vec4(iPos + p, 1.0)).z;
       if (uRim) { vN = normalMatrix * (rm * (normal / max(abs(iSize), vec3(1e-4)))); vVP = (modelViewMatrix * vec4(iPos + p, 1.0)).xyz; }
       gl_Position = projectionMatrix * modelViewMatrix * vec4(iPos + p, 1.0);
@@ -1400,19 +1402,6 @@ const INSTANCE_ATTRS = [['iPos', 3, IV_POS], ['iSize', 3, IV_SIZE], ['iRot', 3, 
   ['iC2', 4, IV_C2], ['iUV', 4, IV_UV], ['iVel', 3, IV_VEL]];
 
 /** An instanced geometry over `src` (its index, positions, uvs) with its own instance buffer of `max` rows. */
-/**
- * The renderer's pivot (m_Pivot) as the shader's offset. A quad's is in particle sizes. A mesh particle's is in the size of
- * the mesh's bounds, z turned over (Unity's mesh job: (max − min) · pivot, (x, y, −z), then the particle's scale and turn):
- * the 重构体's crystals (pivot y 27, a mesh 0.6 tall, size 0.096) circle 1.55 units out, not 2.6. (official client)
- */
-function pivotOf(pivot, mesh, out) {
-  const x = +pivot[0] || 0, y = +pivot[1] || 0, z = +pivot[2] || 0;
-  if (!mesh) return out.set(x, y, z);
-  if (!mesh.boundingBox) mesh.computeBoundingBox();
-  const { min, max } = mesh.boundingBox;
-  return out.set(x * (max.x - min.x), y * (max.y - min.y), -z * (max.z - min.z));
-}
-
 /** The largest value of a MinMax curve (Unity MinMaxCurve's max: a prewarm's window). */
 function mmMax(mm) {
   if (!mm) return 0;
@@ -1572,8 +1561,10 @@ class ParticleSystem {
     const r = ps.render;
     this.quadScaled = (r.mode === 0 && (r.align === 0 || r.align === 4 || (this.world && (r.align === 1 || r.align === 2)))) || (r.mode === 1 && !r.free);
     this.scalePath = null;   // the nodes whose scale it takes (FxInstance), null for none
+    // (official client) a mesh particle turns by its rotation as it is, by all three axes the other way with `rotOL`'s separate axes
+    this.meshRotSign = r.mode === 4 && ps.mods?.rotOL?.x ? -1 : 1;
     this.sysS = null;        // the scale last sent
-    if (opts.pivot && Array.isArray(ps.render.pivot)) pivotOf(ps.render.pivot, geomSrc === QUAD ? null : geomSrc, mat.uniforms.uPivot.value); // local patch (FxInstance opts.pivot, default on)
+    if (opts.pivot && Array.isArray(ps.render.pivot)) mat.uniforms.uPivot.value.set(+ps.render.pivot[0] || 0, +ps.render.pivot[1] || 0, +ps.render.pivot[2] || 0); // local patch (FxInstance opts.pivot, default on)
     if (geomSrc !== QUAD) { useMeshAttrs(g, geomSrc, mat); meshSide(mat); } // local patch
     this.material = mat;
     this.mesh = new THREE.Mesh(g, mat);
@@ -2216,7 +2207,7 @@ class ParticleSystem {
     if (this.velAlign && this.n) this.velFrame();
     if (this.scalePath && this.n) this.sysScale();
     // instance data, uploaded by the used range in one call
-    const n = this.n, D = this.ib.array;
+    const n = this.n, D = this.ib.array, rotSign = this.meshRotSign;
     for (let i = 0; i < n; i++) {
       const a = this.age[i] / this.life[i], r = this.rnd[i * 4 + 2], o = i * IV;
       D[o + IV_POS] = this.pos[i * 3]; D[o + IV_POS + 1] = this.pos[i * 3 + 1]; D[o + IV_POS + 2] = this.pos[i * 3 + 2];
@@ -2224,7 +2215,7 @@ class ParticleSystem {
       D[o + IV_VEL + 2] = this.vel[i * 3 + 2] + this.avel[i * 3 + 2];
       const sk = this.sizeOf(i, a, r, sizeK);
       D[o + IV_SIZE] = this.size0[i * 3] * sk[0]; D[o + IV_SIZE + 1] = this.size0[i * 3 + 1] * sk[1]; D[o + IV_SIZE + 2] = this.size0[i * 3 + 2] * sk[2];
-      D[o + IV_ROT] = this.rot[i * 3]; D[o + IV_ROT + 1] = this.rot[i * 3 + 1]; D[o + IV_ROT + 2] = this.rot[i * 3 + 2];
+      D[o + IV_ROT] = this.rot[i * 3] * rotSign; D[o + IV_ROT + 1] = this.rot[i * 3 + 1] * rotSign; D[o + IV_ROT + 2] = this.rot[i * 3 + 2] * rotSign;
       for (let k = 0; k < 4; k++) D[o + IV_COL + k] = this.col0[i * 4 + k];
       if (m.colorOL) { evalMG(m.colorOL, a, this.rnd[i * 4 + 3], tmpC2); for (let k = 0; k < 4; k++) D[o + IV_COL + k] *= tmpC2[k]; }
       const cd = m.custom;
