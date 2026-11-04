@@ -1,6 +1,7 @@
 // Every official sound bank of a 선발 operator is played or listed (docs/rules/audio.md 「선발 소리 뱅크 커버리지」,
 // 2026-11-01): 塔露拉's S3 fires exploded in silence because four of her banks never reached the data, and nothing said so.
 // A bank counts as played when one of its sound files is in the asset manifest; the rest are in audio-bank-coverage-list.js.
+// That says the file can play, not that it plays at its moment: test/audio-impact-sweep.test.js and audio-cond-group.test.js.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

@@ -14,7 +14,9 @@ when that node runs. This prints, for each charId:
                .<field>`, or for an ability's signal (`<unit or skill>.<path>`) the GameObjects whose path matches
                (`T` = Talents, `extra.<n>` = the n-th of the skill's `_extraAbilities`). Nothing found = the signal is built at
                run time from names the sheet does not follow.
-  2. emitters — every node of the same sources with an audio signal (`audioSignal`, `_audioSignal`,
+  2. attack groups — the charpack's `_abilityConfigs`: each child with its trigger and selector values (2026-11-04: picking a
+     child by its name alone sounded conditional children on every attack).
+  3. emitters — every node of the same sources with an audio signal (`audioSignal`, `_audioSignal`,
      `_overrideAudioSignal`), a projectile key or an effect key, and the banks of that name (projectile keys: the
      ON_PROJECTILE_* banks), so a signal no bank carries and a projectile nobody wired stand out.
 
@@ -296,6 +298,36 @@ def ability_paths(signal, paths, extras):
     return []
 
 
+GROUP_CONDITION_KEYS = ('_buffKey', '_buffKeys', '_checkContainBuffs', '_checkReloadFlag', '_reloadFlag', '_targetSide', '_rangeId',
+                        '_filterType', '_triggers', '_alwaysUseTrigger')
+
+
+def attack_groups(client, cid):
+    """Rows (group, child, condition) of the charpack's attack groups with a condition per child (`_abilityConfigs`, the official
+    AbilitySelectableGroup): each child's trigger and selector values under its GameObject. A group needs a line in
+    test/audio-cond-group-list.js: an attack sounds the child with no condition, the others only as the sim picks them."""
+    path = bundle(client, f'charpack/{cid}.ab')
+    if not path:
+        return []
+    tree = load_tree(str(path))[0]
+    at = {pid: gp for gp, _d, pid in tree}
+    rows = []
+    for gp, d, _pid in tree:
+        for c in d.get('_abilityConfigs') or []:
+            child = at.get((c.get('_ability') or {}).get('m_PathID'))
+            if not child:
+                continue
+            cond = {}
+            for sub, sd, _p in tree:
+                if sub == child or sub.startswith(child + '/'):
+                    for k in GROUP_CONDITION_KEYS:
+                        v = sd.get(k)
+                        if v not in (None, '', [], 0, False):
+                            cond[k] = 'list' if k == '_triggers' else v
+            rows.append((gp.split('Modes/')[-1], child.split('/')[-1], json.dumps(cond, ensure_ascii=False)))
+    return rows
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--client', default=client_data())
@@ -348,6 +380,11 @@ def main():
                 base = re.sub(r'(\[[^\]]*\])+$', '', signal)
                 where = [f'~{n}' for n in by_value.get(base, [])] if base != signal else []
             out.append(f"| `{name}` | {state} | {wired} | {'<br>'.join(sorted(set(where))[:6]) or '—'} |")
+        groups = attack_groups(a.client, cid)
+        if groups:
+            out.append('\n### attack groups\n\nThe child with no condition is what an attack sounds; list each group in test/audio-cond-group-list.js.\n')
+            out.append('| group | child | condition |\n|---|---|---|')
+            out.extend(f'| {g} | {c} | `{cond}` |' for g, c, cond in groups)
         out.append('\n### emitters\n\n| node | value | banks |\n|---|---|---|')
         rows = set()
         for n in nodes:

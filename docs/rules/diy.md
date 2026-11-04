@@ -417,6 +417,11 @@
 - 고정 저항 무시는 피해 정보의 `resIgnoreFlat`, 피해 증가는 배율로. 피해 출처(공격자)가 누구인지 PRTS 비고로 확인한다(예: 바둑돌 폭발은 돌,
   跟子는 망).
 
+**소리** (2026-11-04, 소리 오류 원인 정리 — `audio.md` 「공격 소리 신호」 「재발 방지」)
+- 공격 묶음(`_abilityConfigs`)이 있으면 `link_sheet.py --id`의 「attack groups」로 자식의 조건을 읽고 `test/audio-cond-group-list.js`에 한 줄: 조건 없는 자식이 평소 소리, 조건 자식은 키트 `swing` 훅의 `c.signal`·`forceAttack`의 `signal`·키트 사건 중 하나로 낸다. 이름으로 넘겨짚지 않는다.
+- 맞지 않는 피해는 `battle.loseHp`로(사건 7번째 칸 3, 착탄음 없음)·틱은 `dot` 태그로. 소리·이펙트가 다 필요 없으면 `silent`.
+- 소리 시험은 `includes`만 보지 않고 횟수·안 나야 할 소리를 함께 본다. 스킬 시전에 소환물 등 조건이 필요하면 `test/audio-impact-sweep.test.js` `NEEDS`에 넣는다(시전 안 되면 시험이 실패한다).
+
 **엔진 함정** (원본 엔진은 고치지 않고 키트에서 피한다)
 - 키트 `install`은 배치 전에 돈다. 아직 살아 있지 않은 유닛에 건 버프는 `Battle.addBuff`가 버린다 → 영구 버프는 `persist: true, allowDead: true`.
 - `unit.rangeKeys`는 배열이다. 포함 검사는 `unit.rangeKeySet`(없으면 `new Set(rangeKeys)`). `.has?.()`는 조용히 항상 실패한다(아스카론 S2).

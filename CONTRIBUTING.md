@@ -173,6 +173,11 @@ This is a remake of the official mode; the official game decides.
     frame and ms, on a GPU), and a change meant to keep the picture is compared pixel by pixel with the previous
     version; the numbers go in the commit message (a redeploy countdown drawn with a stencil mask cost 36 draw calls
     for 12 operators, the batched mesh 1).
+- A sound test asks how many and which ones didn't play, not only whether one played (`assert.ok(played.includes(…))` passed while
+  an operator's impact sounded ten times a second, or her attack played a child ability it should not). The client sounds an impact
+  from an ability's or a projectile's HIT, not from damage: damage that is no hit carries it in the 'dmg' 7th field
+  (`test/audio-impact-sweep.test.js` runs every operator × skill). An attack group whose children have conditions
+  (`_abilityConfigs`) is read from the client, never picked by name (`test/audio-cond-group-list.js`, worksheet `link_sheet.py`).
 - Before adding or editing a 自选 operator kit, walk the checklist in `docs/rules/diy.md`
   (「새 선발 오퍼레이터 키트 체크리스트」): targetable-only AoE through `canTargetEnemy`, the `dealDamage` options, no invented
   stop conditions.
