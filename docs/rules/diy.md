@@ -960,6 +960,9 @@
   - 제시카 S3 포탄: 공식 템플릿 `jesca2_s_3[bomb]`의 `InterruptCharacterAttack`(`_resetCD` 뒤 `_resetAndClearCD`)는 그녀의 공격을 끊고 공격 쿨다운을 **비운다**
     (`Ability.ResetCooldown(false)` → `PeriodicTimer.Reset(waitFirstPeriod false)` = 남은 시간 0, 공식 클라에서 확인) — 포탄 뒤 바로 공격한다. upstream은 「쿨다운
     다시 시작」 추정이었다. 테스트가 포탄 순간의 쿨다운 0을 본다.
+  - 제시카가 기동 방패 쪽으로 돌아설 때(재능 1, 방패가 사라져 돌아올 때도)와 방패 자신의 방향: 키트가 `unit.dir`만 바꾸면 사거리만 돌고 모델·방향 원 표시는 처음 방향에
+    남았다(관리자 제보 2026-11-04). `b.snap`에는 방향이 없으므로 fx `turnDir`(`shared/protocol.js fxDir`, `stateFx`라 숨은 탭·늦은 입장에도 남음)로 알리고 뷰가
+    `setDir`로 따른다. 판정은 그대로, golden 변화 없음. 아레나에서 네 방향과 복귀를 화면으로 확인.
   - 파죰카 '타자기'의 요약(복사본 S2): 그녀의 S2처럼 「즉시」(시전이 다음 공격을 바로 낸다) — 복사본에 없던 `atkCd = 0` 시작을 더함. `DEFAULT` 시전(0.2초 회차)이
     공격 사이에 오면 한 공격 간격을 기다리던 것.
   - 에이야퍄들라 재능 2 카오스 플레임 CCR-Y 3단계: 공속 버프는 배치 동안 계속(템플릿 `amgoat_e_t_2`: `ON_OWNER_LOCATE`에 `amgoat_e_t_2[attack_speed]`, 수명

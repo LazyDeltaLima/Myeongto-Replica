@@ -92,11 +92,15 @@ const besideOf = (unit, t) => Math.abs(t.tileR - unit.tileR) + Math.abs(t.tileC 
 const markOf = (battle, unit) => shieldsOf(battle, unit).find((t) => up(t) && besideOf(unit, t)) ?? null;
 const skillOn = (unit, id) => !!(unit.skill && unit.skill.active && unit.skill.id === id);
 
+/** Tell the view a unit's deploy direction changed: its model and facing ring follow (shared/protocol.js fxDir). */
+const tellDir = (battle, u) => battle.fx('turnDir', { x: u.x, y: u.y, id: u.id, dir: u.dir });
+
 /** Face `dir` (the range turns with her: Battle.refreshRange; a SkillRuntime trigger grid follows `unit.dir`). */
 function turnTo(battle, unit, dir) {
   if (unit.dir === dir) return;
   unit.dir = dir;
   if (unit.alive && unit.deployed) battle.refreshRange(unit);
+  tellDir(battle, unit);
 }
 
 /** The farthest local column straight ahead (local row 0) of a relative grid (her current range). */
@@ -130,7 +134,7 @@ function shieldKit(owner, { s1Ext }) {
         if (up(owner) && besideOf(owner, t)) {
           const dir = dirFromDelta(t.tileR - owner.tileR, t.tileC - owner.tileC, owner.dir);
           if (owner.mem.jescaOldDir == null) owner.mem.jescaOldDir = owner.dir;
-          t.dir = dir;
+          if (t.dir !== dir) { t.dir = dir; tellDir(battle, t); }
           turnTo(battle, owner, dir);
           battle.fx('buff', { x: owner.x, y: owner.y, id: owner.id, kind: 'turn' });
           // S3: a shield taking the field during the skill fires a shell (at most one pending)

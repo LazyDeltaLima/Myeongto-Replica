@@ -640,13 +640,24 @@ export function fxForm(ev) {
 }
 
 /**
- * Whether a `b.ev` 'fx' tuple is kept like state: one that sets a model form (fxForm), or 望's 'wangLink' — a stone's
- * 激活 effect shows for as long as it stands (render/fxgame.js STONE_ON). The four places that keep state keep these:
+ * The deploy direction a `b.ev` 'fx' tuple ['fx', 'turnDir', x, y, { id, dir }] gives its unit in mid-battle (a kit setting
+ * `unit.dir`: 涤火杰西卡 turning to her 机动盾牌), undefined for any other tuple. State like a form: b.snap tuples carry no
+ * direction, and a view that misses it keeps the old model and the old facing ring (render/units.js setDir).
+ */
+export function fxDir(ev) {
+  if (!Array.isArray(ev) || ev[0] !== EV.FX || ev[1] !== 'turnDir') return undefined;
+  const x = ev[4];
+  return x && typeof x === 'object' && x.id != null && typeof x.dir === 'string' ? x.dir : undefined;
+}
+
+/**
+ * Whether a `b.ev` 'fx' tuple is kept like state: one that sets a model form (fxForm) or a deploy direction (fxDir), or 望's
+ * 'wangLink' — a stone's 激活 effect shows for as long as it stands (render/fxgame.js STONE_ON). The four places that keep state keep these:
  * battle/runner.js keepsState, screens/game/early.js keepEarly, render/interp.js isCosmeticEvent (2026-10-22: the first
  * and the last had no 'wangLink', so a hidden tab or a long stall dropped the stone's activation).
  */
 export function stateFx(ev) {
-  return fxForm(ev) !== undefined || (Array.isArray(ev) && ev[0] === EV.FX && ev[1] === 'wangLink');
+  return fxForm(ev) !== undefined || fxDir(ev) !== undefined || (Array.isArray(ev) && ev[0] === EV.FX && ev[1] === 'wangLink');
 }
 
 extendProtocol(C2S, S2C); // local patch (shared/local.js)

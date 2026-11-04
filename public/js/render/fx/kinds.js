@@ -31,6 +31,7 @@ export const FX_KINDS = Object.freeze({
   spGift: { a: 'sp', c: 0x6fd3ff }, spGain: { a: 'sp', c: 0x6fd3ff }, reload: { a: 'sp', c: 0xffe066 },
   shield: { a: 'shield', c: 0xdfe8ff }, catShield: { a: 'shield', c: 0xffe0a8 }, saltWard: { a: 'shield', c: 0xbfeeff }, shell: { a: 'shield', c: 0xc8b890 },
   vest: { a: 'shield', c: 0xdfe8ff }, sleepGuard: { a: 'shield', c: 0xa8b6ff }, truesilver: { a: 'shield', c: 0xfff3b8 }, shieldBreak: { a: 'shatter', c: 0xdfe8ff },
+  turnDir: { a: 'none', c: 0xdfe8ff }, // a kit's mid-battle turn: state for the view, nothing drawn (shared/protocol.js fxDir)
   parry: { a: 'none', c: 0xdfe8ff }, // a 护盾 layer's block: the official common_buff_parry_01 only (render/fxgame.js parryFx)
   evadeReady: { a: 'none', c: 0xdfe8ff }, // a held dodge again (赤刃明霄陈 T2): its official effects only (render/fx/kitofficial.js)
   // (2026-10-21) marks only the official effects draw: 凯尔希·思衡托 S3's 待投放 head marks, 克莱门莎 S2's full carriage

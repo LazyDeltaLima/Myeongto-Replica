@@ -124,7 +124,7 @@
 
 import { GEO, ANIM } from '../../../shared/constants.js';
 import { wideHalves, widenStageData } from '../../../shared/wideField.js';
-import { fxForm } from '../../../shared/protocol.js';
+import { fxDir, fxForm } from '../../../shared/protocol.js';
 import { Camera, presetCamera, lerpCamera, easeInOutCubic, pickTile, normRect } from './projection.js';
 import { SnapshotBuffer, frameTime } from './interp.js';
 import { TileField } from './tiles.js';
@@ -1920,6 +1920,15 @@ export async function createFieldView(host, options = {}) {
         // keepsState (catch-up frames, hidden-tab backlog), screens/game.js keepEarly (the pre-entry buffer) and
         // render/interp.js isCosmeticEvent (stale-event drop, full-queue shed). One handed out late switches the model
         // without its telegraph, its closing clip shortened by the lateness.
+        // a kit's mid-battle turn (shared/protocol.js fxDir): the view's model and facing ring follow the unit's deploy
+        // direction; the info keeps it for a view built later. It draws nothing itself.
+        const turned = fxDir(e);
+        if (turned !== undefined) {
+          const inf = infos.get(e[4].id);
+          if (inf) inf.dir = turned;
+          views.get(e[4].id)?.setDir?.(turned);
+          break;
+        }
         const form = fxForm(e);
         const late = form !== undefined ? LATE.get(e) || 0 : 0;
         if (form !== undefined) {

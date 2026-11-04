@@ -13,6 +13,7 @@ import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.
 import { KITTED_CHARS, OPERATOR_KITS, KITS } from '../../server/sim/content/kits/index.js';
 import { diyPool, validateDiyPicks } from '../../shared/diy.js';
 import { COLS } from '../../server/sim/constants.js';
+import { fxDir, stateFx } from '../../shared/protocol.js';
 
 const load = (f) => JSON.parse(readFileSync(new URL(`../../data/${f}.json`, import.meta.url), 'utf8'));
 const CHESS = load('chess');
@@ -139,6 +140,20 @@ test('T1 灵活应变: she turns to face her shield (her range turns with her) a
   const far = field({ shield: { row: 12, col: 4 } });
   assert.deepEqual([far.u.dir, !!far.u.findBuff('talent:jesca2:def')], ['RIGHT', false], 'a shield two tiles away');
   done(far.h);
+});
+
+test('T1 灵活应变: each mid-battle turn tells the view her deploy direction and her shield\'s, as state (her model and facing ring follow)', () => {
+  const { h, u, t } = field({ shield: ABOVE });
+  const told = (id) => h.events.filter((e) => fxDir(e) !== undefined && e[4].id === id).map(fxDir);
+  assert.deepEqual([told(u.id), told(t.id)], [['UP'], ['UP']], 'she turned to the shield above her, it faces away from her');
+  assert.ok(h.events.filter((e) => fxDir(e) !== undefined).every(stateFx), 'a catch-up frame or a hidden tab keeps it');
+  h.b.retreat(t, { reason: 'expired', permanent: true });
+  h.run(0.5);
+  assert.deepEqual(told(u.id), ['UP', 'RIGHT'], 'she turned back once it left');
+  done(h);
+  const front = field({ shield: FRONT });
+  assert.deepEqual(front.h.events.filter((e) => fxDir(e) !== undefined), [], 'a shield in front of her turns nobody');
+  done(front.h);
 });
 
 test('T1 灵活应变: the shield lasts 50 s (SPT-X stage 3: 60 s), comes back on its tile 30 s after it left paying 5 DP — only while she stands; it falls with her and her redeployment readies it at once', () => {

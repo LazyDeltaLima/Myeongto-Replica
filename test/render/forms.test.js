@@ -558,6 +558,11 @@ test('render/app.js renderInfo keeps UnitInfo `form` (it used to drop it: views 
   assert.equal(renderInfo({ kind: 'enemy' }), null, 'no id: no info');
 });
 
+test('render/app.js hands the `dir` of a sim \'turnDir\' fx (shared/protocol.js fxDir) to the view and keeps it on the unit info', () => {
+  const src = readFileSync(new URL('../../public/js/render/app.js', import.meta.url), 'utf8');
+  assert.match(src, /const turned = fxDir\(e\);[\s\S]{0,200}inf\.dir = turned[\s\S]{0,120}setDir\?\.\(turned\)/);
+});
+
 test('render/app.js hands the `form` of a sim fx (shared/protocol.js fxForm) with the fx to the view and keeps the mode on the unit info', () => {
   const src = readFileSync(path.join(ROOT, 'public/js/render/app.js'), 'utf8');
   assert.match(src, /const form = fxForm\(e\);[\s\S]{0,350}inf\.form = form[\s\S]{0,250}setForm\?\.\(form, x\)/);
