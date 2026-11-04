@@ -52,7 +52,7 @@
 // `bgmKeyFor(route, pub)` picks the track for the current screen/phase (main.js calls `audio.install()`,
 // which follows the store).
 
-import { PHASE, PREBUILT_INTERVAL } from '../../shared/constants.js';
+import { PHASE, PREBUILT_INTERVAL, UF } from '../../shared/constants.js';
 import { enemyRecordMode } from '../../shared/skill-modes.js'; // 2026-10-23: an ally from an enemy record (炎佑)
 import { mediaUrl } from './media.js';
 import { officialGain, groupGain, battleGain, modeEntry, BATTLE_GROUP, VOICE_GAIN, startSkillLoop, stopSkillLoop, stopSkillLoops, skillLoopOf, loopGain, stopUnitLoops, skillExtrasOf, castCuesOf, dollSwitchSfx, bankPlayOf, playPitch, skillEndOf, modeOn, roleGroup, cueSetOf, cueAbility, pickVariant, cuesAt, cueFile } from './audioOfficial.js'; // local patch: official mix + skill-mode sounds + skill loops / extras + bank play values
@@ -1941,10 +1941,50 @@ export class AudioManager {
     try { this.voiceGate.reset(); this._stopVoice(); this.voicePolicy?.reset(); } catch { /* ignore */ } // local patch: voicePolicy
     stopSkillLoops(this); // local patch: no skill loop carries into a new field
     this._skillEarly = null; // local patch: nor a skill event held for its unit's spawn
+    this._skillSeen = new Set(); // 2026-11-05: the units whose skill state its events said since this field (syncRunningSkills)
+    this._skillsUnsynced = true;
     const hadEnemy = !!this._enemies?.size; // 2026-10-10: the new field's enemies (noEnemyMs)
     this._enemies = new Set();
     for (const u of Array.isArray(units) ? units : []) this._track(u);
     if (hadEnemy && !this._enemies.size) this._noEnemySince = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  }
+
+  /**
+   * 2026-11-05, docs/rules/audio.md 「스킬 타격음 전수」: a field entered late (watching another field, a reconnect, a tab brought back)
+   * replays no 'skill' event, so a skill that runs already would sound its unit's normal attack until it ends. `early`: the events
+   * buffered before the entry; the last of each unit's says whether its skill runs. Silent: that start sounded for nobody here, only
+   * a looping bank is picked up.
+   */
+  resumeSkills(early) {
+    const on = new Map();
+    for (const e of Array.isArray(early) ? early : []) {
+      if (!Array.isArray(e)) continue;
+      if (e[0] === 'skill') on.set(e[1], !!e[2]);
+      else if (e[0] === 'die') on.set(e[1], false);
+    }
+    for (const [id, running] of on) {
+      this._skillSeen?.add(id);
+      if (running) this._resumeSkill(id);
+    }
+  }
+
+  /**
+   * 2026-11-05: the same from a field's first snapshot (`units`: its tuples), for the skills cast before the buffer began. UF.SKILL
+   * leaves out passives, which sound the same either way (test/audio-late-entry.test.js). Once per field: later, the events say it,
+   * and right after an 'off' the flag can still be set.
+   */
+  syncRunningSkills(units) {
+    if (!this._skillsUnsynced || !Array.isArray(units)) return;
+    this._skillsUnsynced = false;
+    for (const t of units) if (Array.isArray(t) && ((t[7] | 0) & UF.SKILL) && !this._skillSeen?.has(t[0])) this._resumeSkill(t[0]);
+  }
+
+  _resumeSkill(id) {
+    const su = this.units.get(id);
+    if (!su || su.side === 'enemy' || su.skillOn) return;
+    su.skillOn = true;
+    const loop = skillLoopOf(this.getManifest()?.audio?.sfx?.units?.[su.def], su.skillIndex);
+    if (loop) startSkillLoop(this, id, loop.url, loopGain(loop));
   }
 
   /** 2026-10-10: an enemy is on the field. */
@@ -2086,6 +2126,7 @@ export class AudioManager {
           continue;
         }
         if (kind === 'skill') { // local patch: the running skill (its mode sounds, audioOfficial.js)
+          this._skillSeen?.add(e[1]);
           const su = this.units.get(e[1]);
           if (su) {
             su.skillOn = !!e[2];

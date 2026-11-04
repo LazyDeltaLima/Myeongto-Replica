@@ -616,6 +616,7 @@ function MatchScreen() {
       const opening = combat && !watchingOther && !(earlySnap && Number(earlySnap.gt) > 2);
       // + its deploy-time skills (缄默德克萨斯 S2's mode sounds, maintainer report — audio.js holds them for the unit's deploy)
       audio.handleBattleEvents(early.filter((e) => e[0] === 'spawn' || (opening && (e[0] === 'deploy' || e[0] === 'skill'))));
+      if (!opening) audio.resumeSkills(early); // a late entry: the skills that run keep their sounds, without their starts
     }
     if (!earlySnap && (field.prep || !combat) && Array.isArray(field.units)) {
       // prep scouting: no battle snapshots follow. A later m.field for this board (the teammate moved) re-enters
@@ -626,6 +627,7 @@ function MatchScreen() {
       });
     }
     if (earlySnap) {
+      audio.syncRunningSkills(earlySnap.units);
       view.pushSnapshot(earlySnap);
       if (Array.isArray(earlySnap.units)) {
         snapUnitsRef.current = new Map(earlySnap.units.filter(Array.isArray).map((t) => [t[0], t]));
@@ -657,6 +659,7 @@ function MatchScreen() {
         if (typeof snap.fieldId === 'string') snapBufRef.current.set(snap.fieldId, snap);
         return;
       }
+      audio.syncRunningSkills(snap.units);
       view?.pushSnapshot(snap);
       if (Array.isArray(snap.units)) {
         const mp = new Map();

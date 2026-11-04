@@ -450,6 +450,10 @@
   - 울피아누스 S3: 닻 착지 kitHit `ulpia:s3reach`(`projectile_chr_ulpia_s3` REACH, 적이 없어도).
 - 목록 지금 10건(모두 `none`). 근거는 뱅크 이름 대조이고 프리팹까지 읽지는 않았다.
 - 확인: 지마·페페 수정을 각각 되돌리면 `char_1051_headb2 S3`·`chess_char_6_06_b`가 실패하고, 목록에 낡은 항목을 넣어도 실패한다.
+- 늦게 들어온 전장 (2026-11-05, `test/audio-late-entry.test.js`): 다른 전장 관전·재접속·탭 복귀처럼 판 시작이 아닌 입장은 `screens/game.js`가 'skill' 사건을 다시 틀지 않아(시작음이 뒤늦게 나면 안 되므로), 이미 도는 스킬이 끝날 때까지 평타 소리가 났다.
+  이제 입장 때 쌓인 사건에서 유닛별 마지막 'skill'(`die`는 꺼짐)을 읽고(`resumeSkills`), 그 뒤 첫 스냅숏의 `UF.SKILL`로 나머지를 채운다(`syncRunningSkills`, 전장마다 한 번 — 'off' 직후 한 프레임은 표시가 남을 수 있음). 시작음·대사는 내지 않고 반복 뱅크만 잇는다.
+  `passive` 스킬은 `UF.SKILL`이 없어 입장 때 알 수 없지만, 지금 넷(프로방스 S1·스와이어 디 엘리건트 위트 S2·호시구마 S2·유넥티스 S1) 모두 알든 모르든 소리가 같다 — 시험이 전수로 고정하므로, 전용 소리를 가진 패시브가 생기면 실패한다. 공식 게임에는 이 경로가 없어(이 포크의 관전·재접속) 공식 대조 대상이 아니다. [화면 미확인]
+- 탈룰라 S2 반격 (2026-11-05 확인, 코드 변경 없음, `test/audio-kit-moments.test.js`): `kd[1]` `p_imp_xtlfgbwfb_h`는 공식 뱅크 `ON_ABILITY_HIT.skchr_oxi_2`이고, 반격마다 한 번 난다 — 적이 여럿이어도(`SKILL_HIT_GAP_MS`), 자기 휘두름을 끊고 반격해도(그 휘두름의 착탄음은 안 남). 이 전수 시험은 적이 공격하지 않아 이 순간을 못 지나므로 따로 둔다. [화면 미확인]
 
 ## 선발 소리 뱅크 커버리지 (2026-11-01, 탈룰라 S3 簇火 무음)
 - 시험 `test/audio-bank-coverage.test.js`: 선발 오퍼레이터(`LOCAL_DIY_PICKS`)마다 공식 `audio_data.json`의 `battle.` 뱅크 중 이름에 코드네임이 단어로
@@ -708,7 +712,7 @@
     고지대 칸마다 피해 뒤 `_aoeAudioSignal` `headb2_highland_aoe`를 그 칸에서 낸다 — 적이 없어도(`_TryGetEntities_DISPOSE`의 실패는 능력 선택자를 못 찾을
     때뿐). 평타·S1·S2 모드와 S3 퍼짐(`Headb2S3HighlandAOE`, 같은 신호) 모두 → 키트 fx `aoe` `headb2:highland`.
     S3 망치(2026-11-04, 관리자 제보 「타격음이 안 남」): 망치마다 능력의 ON `ON_ABILITY_ON.skchr_headb2_3.<회차>`(0부터, `p_imp_brhmx_s1`~`s5`, 주문마다 한 번) → 키트
-    fx `aoe` `headb2:hammer`의 `spell` → `headb2:s3hit0`~`4`. S3는 평타가 없어 모드 소리(휘두름 경로)가 나지 않았다. 공격음 `p_atk_brhmx_s1`~`s5`는 클립의 스파인 이벤트 `s3_attack_audio_<n>`.
+    fx `aoe` `headb2:hammer`의 `spell` → `headb2:s3hit0`~`4`. S3는 평타가 없어 모드 소리(휘두름 경로)가 나지 않았다. 공격음 `p_atk_brhmx_s1`~`s5`는 클립의 스파인 이벤트 `s3_attack_audio_<n>`. 회차는 비지 않는다(2026-11-05): 기절하면 스킬이 끝나 뒤 망치가 없다(`rules/diy.md` 지마 S3).
   - Mon3tr(`char_4179_monstr`) S3 책략: 용해: `monstr_s_3_buff[respawn]` ON_BUFF_START의 RespawnCharacter가 그녀를 재구성체 자리에 모드 4 `S3_Reborn`으로
     놓은 뒤 `monstr_s_3[audio]`(audioSignal `monstr_s_3[respawn]`)를 건다 → fx `teleport`에 `monstr:s3move`, 그 뒤 공격은 `attack.4`/`combat.4`
     (`SKILL_SUB_MODES` `teleport`; 막은 적엔 Combat), 【복귀】 RespawnEnd(`_extraAbilities[0]`) START → `back`에 `monstr:s3back`.
