@@ -40,8 +40,8 @@
 // - S3 钢铁意志 (MANUAL; 重装 TAKE_DAMAGE): `duration` s, ATK / DEF +atk / +def, block +block_cnt,
 //   生命回复速度 +hp_recovery_per_sec_by_max_hp_ratio × max HP (hpRegenRatio — checklist 11: no heal, 禁疗-proof); when it ends
 //   she is stunned `stun` s (zumama_s_3 ON_BUFF_FINISH 'stun'; a stunned operator blocks nobody). The sequence Hensin → SwitchMode
-//   holds her attacks through the 1.5 s cast and starts `duration` after it. [ASSUMED·미조사: the ATK / DEF buff zumama_s_3[buff] is
-//   held by Hensin; it takes effect as the cast starts here — when the client attaches it was not read]
+//   holds her attacks through the 1.5 s cast and starts `duration` after it. The ATK / DEF buff comes as the cast starts: Hensin's
+//   BuffDuringCasting zumama_s_3[hensin] creates zumama_s_3[buff], which zumama_s_3's end finishes.
 // - Melee physical, ground-only (data canHitFly false), block 1, range 1-1; ground enemies target her (no 起飞 / 迷彩).
 
 import { num, traitBb, skillRec, toggleBuff, batMod, up, holdProtect } from '../shared/tier1.js';

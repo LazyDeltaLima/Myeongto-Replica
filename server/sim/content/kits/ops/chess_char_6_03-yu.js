@@ -52,6 +52,9 @@ function yu(bb, chess, def) {
     // 'teleport' fx). PRTS's 0.13 s between the damage and the teleport is not modelled (same tick).
     skchr_yu_2: {
       kind: 'duration',
+      // skchr_yu_2 is the sequence Tel (Skill_2) → Mode (yu_s_2): no attack before the clip ends, `duration` runs from its end
+      castHolds: true,
+      durationAfterCast: true,
       mods: { hpPct: num(bb.max_hp), atkPct: num(bb.atk), blockCnt: num(bb.block_cnt) },
       attack: { dmgType: 'arts' },
       onStart({ battle, unit }) {
@@ -80,6 +83,9 @@ function yu(bb, chess, def) {
     },
     skill: {
       kind: 'duration',
+      // skchr_yu_3 is the sequence CastAnimation (Skill_3_Begin) → Aura: no attack before the clip ends; yu_s_3[switch_mode], on the
+      // skill from its start, ends the Aura as its `duration` ends, so that time runs from the cast
+      castHolds: true,
       mods: { hpPct: num(bb.max_hp), atkPct: num(bb.atk), defPct: num(bb.def) },
       // the wall runs through his tile perpendicular to his direction (RIGHT / LEFT: his column; UP / DOWN: his row —
       // it turns with the deploy direction like a range) [ASSUMED orientation for UP / DOWN]

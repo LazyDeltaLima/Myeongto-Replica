@@ -93,6 +93,7 @@ function blkkgt(bb, chess, def) {
     skill: {
       kind: 'duration',
       duration: slashes * iv,
+      endHolds: true,   // skchr_blkkgt_3 is the sequence MultiAttack → EndAttack (Skill_3_End): no attack before that clip ends
       ...(skillGrid ? { targeting: { rangeGrid: skillGrid } } : {}),
       attack: { noAttack: true },
       // PRTS 备注 "※多段斩击期间，自身获得无敌，晕眩免疫，冻结免疫": invulnerable while the slashes run (removed in onEnd,

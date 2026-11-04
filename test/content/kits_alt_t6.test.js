@@ -975,7 +975,7 @@ test('6_15 仇白 S2 承影: begin arts burst, skill range + ATK +, ground enemi
     const end = dealt(h, u, (c) => c.dmg.isSkill && c.type === 'phys' && !c.dmg.isAttack);
     assert.equal(end.length, 2);
     for (const x of end) approx(x.amount, atkEnd * bb.sword_end_atk_scale, 'end');
-    approx(end[0].t - t0, rec(id, sid).duration, 'at the end', 0.05);
+    approx(end[0].t - t0, rec(id, sid).duration + u.skill.castTiming().action, 'at the end: its time runs from the end of the Skill_2 clip', 0.05);
     done(h);
   }
 });

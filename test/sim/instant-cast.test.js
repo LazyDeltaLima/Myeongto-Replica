@@ -259,3 +259,100 @@ test('贝洛内 S3 and Mon3tr S3 hold their attacks through their skill clips to
     assert.ok(first >= hold - 1e-9, `${charId}: first swing ${first}`);
   }
 });
+
+// Every other timed skill whose CastSkill has `_switchToState` 1 and a skill clip (docs/rules/sim.md 「즉발 스킬의 시전」). `after`: the
+// skill's time comes from a buff after the clip in its sequence group; without it the time runs from the cast.
+const TIMED_HOLDS = [
+  { name: '刺玫 S2', chessId: 'chess_char_1_06_a', skillIndex: 1, hold: 0.5, after: true },
+  { name: '菲莱 S1', chessId: 'chess_char_3_06_a', skillIndex: 0, hold: 1.667, after: false, pos: [9, 5] },
+  { name: '瑕光 S2', chessId: 'chess_char_3_12_a', skillIndex: 1, hold: 1, after: true },
+  { name: '乌尔比安 S3', chessId: 'chess_char_5_05_a', skillIndex: 2, hold: 1, after: false },
+  { name: '归溟幽灵鲨 S1', chessId: 'chess_char_5_13_a', skillIndex: 0, hold: 1, after: false },
+  { name: '余 S2', chessId: 'chess_char_6_03_a', skillIndex: 1, hold: 1.6, after: true, pos: [9, 5] },
+  { name: '余 S3', chessId: 'chess_char_6_03_a', skillIndex: 2, hold: 1.6, after: false, pos: [9, 5] },
+  { name: '焰影苇草 S2', chessId: 'chess_char_6_08_a', skillIndex: 1, hold: 0.5, after: true },
+  { name: '仇白 S2', chessId: 'chess_char_6_15_a', skillIndex: 1, hold: 1.167, after: true },
+];
+
+for (const { name, chessId, skillIndex, hold, after, pos = [9, 6] } of TIMED_HOLDS) {
+  test(`${name}: the swing is cut, no attack through its skill clip (${hold} s), its time runs from ${after ? 'the end of the clip' : 'the cast'}`, () => {
+    const dummy = enemyRec({ key: 'e_d', hp: 1e9, atk: 0, speed: 0, mass: 0, def: 0, res: 0 });
+    const h = makeBattle({ defs: { enemies: { e_d: dummy } }, timeLimit: 900, autoFinish: false, seed: 5, flags: { dpPerSec: 0, dpMax: 999 }, captureNoisy: true,
+      units: [{ uid: 1, chessId, skillIndex, row: 9, col: 5 }] });
+    h.step();
+    const u = h.unit(1);
+    h.spawn('e_d', { pos });   // (菲莱 and 余 reach their own tile only)
+    assert.ok(h.runUntil(() => u.swing, 8), 'an attack before the skill');
+    h.events.splice(0);
+    const d = u.skill.duration;
+    assert.ok(d > 0, 'a timed skill');
+    assert.ok(u.skill.activate('test', { free: true }));
+    const t0 = h.b.time;
+    assert.equal(u.swing, null, 'the swing in progress is cut');
+    close(u.skillStateUntil, t0 + hold, 1e-3, 'the Skill state');
+    const swings = [];
+    let ended = null;
+    for (let i = 0; i < Math.round((d + hold + 1) / h.b.dt) && ended == null; i++) {
+      h.step();
+      for (const e of h.events.splice(0)) if (e[0] === 'swing' && e[1] === u.id) swings.push(h.b.time - t0);
+      if (!u.skill.active) ended = h.b.time - t0;
+    }
+    assert.ok(!swings.some((t) => t < hold - 1e-3), `no swing before ${hold}: ${swings[0]}`);
+    close(ended, after ? d + hold : d, 2 * h.b.dt, 'the skill ends');
+    checkInvariants(h.b);
+  });
+}
+
+test('锏 S3: no attack through Skill_3_End after her slashes, 1.567 s from the end of the skill', () => {
+  const dummy = enemyRec({ key: 'e_d', hp: 1e9, atk: 0, speed: 0, mass: 0, def: 0, res: 0 });
+  const h = makeBattle({ defs: { enemies: { e_d: dummy } }, timeLimit: 900, autoFinish: false, seed: 5, flags: { dpPerSec: 0, dpMax: 999 }, captureNoisy: true,
+    units: [{ uid: 1, chessId: 'chess_char_6_19_a', skillIndex: 2, row: 9, col: 5 }] });
+  h.step();
+  const u = h.unit(1);
+  h.spawn('e_d', { pos: [9, 6] });
+  assert.ok(u.skill.activate('test', { free: true }));
+  assert.ok(h.runUntil(() => !u.skill.active, 8), 'the slashes end');
+  const t1 = h.b.time;
+  close(u.skillStateUntil, t1 + 1.567, 2 * h.b.dt, 'the Skill state of EndAttack');
+  h.events.splice(0);
+  const swings = [];
+  for (let i = 0; i < Math.round(4 / h.b.dt); i++) {
+    h.step();
+    for (const e of h.events.splice(0)) if (e[0] === 'swing' && e[1] === u.id) swings.push(h.b.time - t1);
+  }
+  assert.ok(swings.length, 'she attacks again');
+  assert.ok(swings[0] >= 1.567 - 2 * h.b.dt, `first swing ${swings[0]}`);
+  checkInvariants(h.b);
+});
+
+test('刺玫 S2 through the real match path: no attack through her clip, its time from the end of the clip', async () => {
+  const { makeMatch, give } = await import('../match/harness.js');
+  const { buildBattleSpec, createBattleFromSpec } = await import('../../server/sim/spec.js');
+  const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }];
+  const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed: 11 }).start();
+  h.toPrep(1);
+  h.setStage('act2autochess_m04');
+  const m = h.m, ps = h.ps('p_0');
+  for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+  ps.board.clear(); ps.hand.fill(null); ps.recompute();
+  const p = give(m, ps, 'chess_char_1_06_a', 'hand');
+  assert.ok(m.handle('p_0', { t: 'g.move', uid: p.uid, to: { area: 'board', row: 9, col: 4 }, dir: 'RIGHT' }).ok, 'on the board');
+  const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'lp', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent });
+  const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+  b.start();
+  while (b.waveT0 == null) b.step();
+  const u = b.allyUnits.find((x) => x.kind === 'op' && x.def.charId === 'char_494_vendla');
+  assert.ok(u && u.skill.id === 'skchr_vendla_2', 'her S2');
+  assert.ok(u.skill.activate('test', { free: true }));
+  const t0 = b.time;
+  close(u.skillStateUntil, t0 + 0.5, 1e-3, 'the Skill state');
+  let held = true, ended = null;
+  for (let i = 0; i < Math.round(17 / b.dt) && ended == null; i++) {
+    b.step();
+    if (b.time < t0 + 0.5 - 1e-3 && u.swing) held = false;
+    if (!u.skill.active) ended = b.time - t0;
+  }
+  assert.ok(held, 'no swing during the cast');
+  close(ended, u.skill.duration + 0.5, 2 * b.dt, 'the skill ends');
+  assert.equal(b.errors.length, 0, JSON.stringify(b.errors[0]));
+});

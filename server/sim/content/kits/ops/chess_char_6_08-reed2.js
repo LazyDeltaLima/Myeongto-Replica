@@ -31,6 +31,9 @@ function reed2(bb, chess, def) {
     // arts, and her trait heals only that carrier (trait scale × the damage)
     skchr_reed2_2: {
       kind: 'duration',
+      // skchr_reed2_2 is the sequence Skill_2_FireBall (Skill_2) → ActiveBuff: no attack before the clip ends, `duration` runs from its end
+      castHolds: true,
+      durationAfterCast: true,
       duration: num(bb.projectile_life_time) > 0 ? num(bb.projectile_life_time) : undefined,
       onStart({ battle, unit, skill }) {
         const n = Math.max(1, Math.floor(num(bb.max_target, 1)));

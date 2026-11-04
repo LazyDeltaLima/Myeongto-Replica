@@ -26,6 +26,7 @@ export default {
       skills: lazySkills({
         skchr_ghost2_1: () => ({
           kind: 'duration', mods: mods({ atkPct: num(bb.atk) }),
+          castHolds: true,   // ghost2_s_1 holds her in the mode Empty with ExchangeHp's Skill_1 for 1 s, then the mode S1; `duration` runs from the cast
           onStart({ battle, unit }) {
             const t = battle.unitsInGrid(unit, skillGrid(chess, def) ?? aroundGrid, { side: 'ally' }).filter((a) => a !== unit && isOp(a) && a.hp > 0)
               .sort((a, b) => a.hpRatio - b.hpRatio || a.id - b.id)[0];

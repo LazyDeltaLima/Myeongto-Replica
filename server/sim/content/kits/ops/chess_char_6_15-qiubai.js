@@ -44,6 +44,9 @@ function qiubai(bb, chess, def) {
     // skill range + ATK +atk, ground enemies in range 停顿, sword_end_atk_scale × ATK physical on them at the end
     skchr_qiubai_2: {
       kind: 'duration',
+      // skchr_qiubai_2 is the sequence sword_split (Skill_2) → switch_mode: no attack before the clip ends, `duration` runs from its end
+      castHolds: true,
+      durationAfterCast: true,
       mods: { atkPct: num(bb.atk) },
       ...(skillGridQ ? { targeting: { rangeGrid: skillGridQ } } : {}),
       onStart({ battle, unit }) {

@@ -81,6 +81,9 @@ export default {
           };
           return {
             kind: 'duration',
+            // skchr_blemsh_2 is the sequence Sleep (Skill_2) → Switch: no attack before the clip ends, `duration` runs from its end
+            castHolds: true,
+            durationAfterCast: true,
             heal: false,
             mods: { atkPct: num(s.bb.atk) },
             onStart({ battle, unit, skill }) {

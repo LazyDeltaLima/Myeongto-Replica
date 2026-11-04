@@ -68,6 +68,7 @@ export default {
       }),
       skill: {
         kind: 'duration',
+        castHolds: true,   // skchr_ulpia_3 is BuffAbility (`duration` from the cast) → AOEAttack (Skill_3_Begin): no attack before the clip ends
         mods: mods({ hpPct: num(bb.max_hp), atkPct: num(bb.atk) }),
         onStart({ battle, unit }) {
           // PRTS 备注 ② — the anchor's target: his own tile while he blocks an enemy (e.g. just after a 突袭 landing),

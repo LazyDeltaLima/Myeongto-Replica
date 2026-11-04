@@ -54,6 +54,7 @@ export default {
       skills: altSkills(chess, d, bb, {
         [S1]: (s) => ({
           kind: 'duration',
+          castHolds: true,   // philae_s_1 triggers SkillAnimation (Skill_1), whose philae_s_1[animation] disarms her until the clip ends; `duration` runs from the cast
           mods: { hpPct: num(s.bb.max_hp) },
           onStart({ battle, unit }) {
             battle.reduceElement(unit, 1e12); // "立刻清除自身的元素损伤" (a gauge locked by a running burst stays)

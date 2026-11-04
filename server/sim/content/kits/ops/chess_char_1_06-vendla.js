@@ -41,6 +41,9 @@ export default {
       },
       skill: {
         kind: 'duration', mods: { atkPct: num(bb.atk) },
+        // skchr_vendla_2 is the sequence MaxHpMark (Skill) → ActiveBuff: no attack before the clip ends, `duration` runs from its end
+        castHolds: true,
+        durationAfterCast: true,
         onStart({ battle, unit, skill }) {
           const cands = alliesInGridOf(battle, unit).sort((a, b) => b.s.maxHp - a.s.maxHp || a.deploySeq - b.deploySeq);
           const p = cands[0] ?? null;
