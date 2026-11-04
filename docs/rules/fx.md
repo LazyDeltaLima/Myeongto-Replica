@@ -3504,9 +3504,10 @@
   (공식 클라 `EmitOverDistance`). 이미터 속도는 Transform의 움직임(이펙트 루트 틀 = Unity 단위, `emitterVelocity`). 그 개수를 프레임 안 1/개수 간격으로
   시작해(`StartParticles`) 월드 공간 계는 그 프레임의 이동 선을 따라 고르게 뒤로 놓인다. 클라의 FxLODSetting은 시간당 방출과 버스트만 줄이므로 품질
   배율만 곱한다. 예전엔 이것만 쓰는 계(클라 418개 — 투사체·돌진 꼬리의 별·잎·불꽃)가 아예 안 나왔다.
-- **미리 데우기**(`prewarm`, 반복 계만 — 추출본 2045개 모두 시작 지연 0): 첫 프레임 전에 한 주기를 1/30초 이하 걸음(최대 60)으로 돌려 둔다
-  (Unity 매뉴얼: 한 주기를 이미 돈 것처럼; 걸음 크기는 우리 것). 예전엔 반복 범위·버프·오라가 빈 채 시작해 한 주기 동안 차올랐다. 입자 꼬리는 그 자리에서
-  새로 시작.
+- **미리 데우기**(`prewarm`, 반복 계만 — 추출본 2045개 모두 시작 지연 0): 첫 프레임 전에 입자의 가장 긴 수명만큼을 1/30초 이하 걸음(최대 60)으로 돌려 둔다
+  (공식 클라에서 확인: `ParticleSystem.Play` → `Simulate(0)` → `ComputePrewarmStartParameters`의 창이 수명 최대값 — 매뉴얼의 「한 주기」가 아니다, 2026-11-04;
+  부 방출기 수명을 더하는 쪽은 안 읽음 [추정·엔진]; 걸음 크기는 우리 것). 끝은 주기의 처음에 맞춘다. 예전엔 반복 범위·버프·오라가 빈 채 시작해 한 주기 동안
+  차올랐다. 입자 꼬리는 그 자리에서 새로 시작.
 - **속도 모듈**(공식 클라 `UpdateOrbitalAndRadialTpl`·`SimulateParticles`): 궤도(`orbitalX/Y/Z` → `orbX`·`orbY`·`orbZ`)는 초당 라디안, 계의 축으로
   중심(계 원점 + `orbitalOffset` → `orbOff`) 둘레의 위치 회전이고 +z는 x를 y 쪽으로 돌린다. 방사(`radial`)는 중심에서 밖으로 더하는 초당 거리. 적분은
   `위치 += (속도 + 애니메이션 속도) × 속도 배율 × dt` — 속도 배율(`speedModifier` → `speedMul`)이 시작 속도·궤도·방사·노이즈까지 곱한다(궤도는 회전각이
@@ -3703,6 +3704,17 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
   `token_monstr_prosts_buff_02_2`/`[eff_2][r]` `_02`, 아니면 `[eff_1]` `_01_2`/`[eff_1][r]` `_01`(`[r]`은 그 아군이 오른쪽을 볼 때 —
   `CheckFaceLOrR` RIGHT; 묶음은 재구성체 이펙트 `monstr_token`). 시뮬 `applyStrongest`가 그 아군에게만 `visible`, `fxTag` 2(S2)·1을 붙이고(새
   `fxTag` 인자 — 더 센 것이 덮을 때 새 태그를 다시 보냄), `KEY_FX`가 태그와 뷰의 `visFacing`으로 고른다.
+- Mon3tr(`char_4179_monstr`) 재구성체(`token_10050_monstr_prosts`, 2026-11-04 관리자 제보 「재구성체 이펙트가 잘못 나옴」): 기본 모드의 지속 이펙트와 오라 이펙트가
+  공식 표에 있는데 아무것도 틀지 않았다. ① `Modes/Default/Body/GeneralAbilities/Ability0`(패시브)의 `monstr[free_jump]` → `token_monstr_prosts_idle`이 서 있는 동안.
+  `char_modes.py token_auras`가 소환물의 패시브 능력(`_selfOption` 없음) 중 기본 모드·공용 능력의 INFINITY 버프 `overrideEffectKey`를 `aura`로 모으고 `fxgame.js tokenAura`가
+  튼다 — 추출된 프리팹만이라 지금 켜지는 것은 재구성체·벨로네의 결속 `demetr_skill3_token_01`·에벤홀츠의 소환물 `token_ebnhlz_buff_02`. 이펙트로 모습을 그리는 소환물은
+  `TOKEN_FX_BY_HAND`로 뺀다(`SUMMON_LOOK`·키트 계획이 그림). 같은 함수가 뿌리 `_deadEffect`도 `dead`로 넘긴다(에벤홀츠 소환물 `token_ebnhlz_die`). ② `Talents/1`의
+  `AuraAbility` `prosts[atk_up]`(`overrideEffectKey` `token_monstr_prosts_buff_03`, `_selfOption` EXCLUDE)은 오라를 받는 아군마다 — 시뮬 `installAura`의 새 `visible`로
+  `talent:monstr:prostsAtk`를 알리고 `KEY_FX`가 그린다. ③ S3 시전: `monstr_s_3_buff[self]`의 `token_monstr_prosts[eff]`가 그녀가 내려앉는 재구성체 칸에
+  `token_monstr_prosts_skill_03_start`(`teleport` 계획, 묶음 `monstr_token`). ④ 이 이펙트의 결정 조각(메시 입자 16계, 방출 0.125/s·수명 8초·주기 1초)은 재생기의 두 오류로 안
+  보였다: 미리 데우기가 한 주기뿐이라 8초 뒤에야 나오고(「방출·입자 운동」 미리 데우기), 메시 pivot을 입자 크기 단위로 읽어 2.6칸 밖에 놓였다(아래 「메시 입자 pivot」). [화면 미확인: 공식과 나란히]
+- **메시 입자 pivot**(2026-11-04, 공식 클라에서 확인 — 메시 지오메트리 잡): `m_Pivot` × 메시 경계 크기(max − min), z는 뒤집어(x, y, −z), 그 뒤 입자 크기·회전. 쿼드의 「입자 크기 단위」와
+  다르다(2026-10-22의 추정을 이것으로 끝냄). `fxplayer.js pivotOf`. pivot이 큰 메시 입자 97계(재구성체 27·32, 탈룰라 `snow_flow_03` 등)의 위치가 바뀐다. 재구성체는 27 × 0.6 × 0.096 = 1.55칸.
 - Mon3tr S3 책략: 용해: 재구성체 칸으로 【이동】하면 S3_Reborn 모드의 `monstr_s_3[reborned_passive]`가 그녀에게 `monstr_skill_03_begin_02`. 떠난 칸의
   路标形态 표식(모드 2로 바뀐 재구성체: `prosts_s_3[mode]`가 `prost_s_3[[effect]` `monstr_skill_03_begin_03`을 들고 `common_spine_hide`로 모델을 숨김)은
   시뮬에 없어 렌더가 그 칸(사건의 `fromX`·`fromY`)에 스킬이 끝날 때까지 그린다. 【복귀】(`teleport`의 새 `back` 1) 때 그 모드가 끝나며

@@ -78,11 +78,15 @@ test('a Mesh shape without m_UseMeshColors keeps the start colour; one whose mes
   for (let i = 0; i < b.n; i++) assert.ok(b.pos[i * 3] === 0 && b.pos[i * 3 + 1] === 0);
 });
 
-test('stretched billboards and mesh particles take their renderer\'s pivot (uPivot x / y / z)', async () => {
+test('mesh particles take their renderer\'s pivot in the size of the mesh\'s bounds, z turned over (official mesh job)', async () => {
   const ps = sys({ type: 4 });
   ps.render = { ...ps.render, mode: 4, mesh: 'r', pivot: [0.2, 0.5, -0.3] };
   const inst = await play([node('m', 0, ps)], { r: await rect() });
-  assert.deepEqual(inst.systems[0].material.uniforms.uPivot.value.toArray().map((x) => +x.toFixed(4)), [0.2, 0.5, -0.3]);
+  const m = await rect();
+  m.computeBoundingBox();
+  const { min, max } = m.boundingBox;
+  assert.deepEqual(inst.systems[0].material.uniforms.uPivot.value.toArray().map((x) => +x.toFixed(4)),
+    [0.2 * (max.x - min.x), 0.5 * (max.y - min.y), 0.3 * (max.z - min.z)].map((x) => +x.toFixed(4)));
   assert.match(PLAYER, /vec3 p = rm \* \(\(transformed \+ uPivot\) \* iSize\);/);
   // freeform (2026-10-27, the engine's freeform quad): the pivot moves the corner before the turn and the stretch, as a billboard's
   assert.match(PLAYER, /vec2 c = \(position\.xy \+ uPivot\.xy\) \* iSize\.xy;/);

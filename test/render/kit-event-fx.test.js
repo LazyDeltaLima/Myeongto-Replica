@@ -425,6 +425,7 @@ Object.assign(files['/assets/local/fx/index.json'].bundles, {
     'logos_skill1_hit_02', 'logos_skill2_line_01', 'logos_skill3_range_end_01'],
   // 贝洛内's, Mon3tr's and 维伊's
   demetr: ['demetr_skill3_restart_begin_01'], monstr: ['monstr_skill_03_begin_02', 'monstr_skill_03_begin_03', 'monstr_skill_03_end_02'],
+  monstr_token: ['token_monstr_prosts_skill_03_start'],
   veen: ['veen_trail_01', 'veen_trail_02', 'veen_attack_rank_01_hit_02', 'veen_attack_rank_02_hit_02', 'veen_skill_03_trail_02', 'veen_skill_03_hit_02'],
 });
 files['/assets/local/fx/index.json'].equips = { uniequip_003_helage: ['equipment_system_musha_buff_y'] };
@@ -813,7 +814,7 @@ test('kitOfficialPlan (2026-11-03): 贝洛内\'s S3 moves and return; Mon3tr\'s 
   const p = (ev, o, b) => kitOfficialPlan(ev, o, b)?.play;
   assert.deepEqual(p('teleport', { id: 1, fromX: 5, fromY: 10 }, 'demetr'), [{ n: 'demetr_skill3_restart_begin_01', on: 'op', life: 'once' }]);
   assert.deepEqual(p('teleport', { id: 1, fromX: 4, fromY: 10 }, 'monstr'),
-    [{ n: 'monstr_skill_03_begin_02', on: 'op', life: 'once' }, { n: 'monstr_skill_03_begin_03', on: 'point', at: [4, 10], life: 'skill' }]);
+    [{ n: 'token_monstr_prosts_skill_03_start', on: 'point', life: 'once', bundle: 'monstr_token' }, { n: 'monstr_skill_03_begin_02', on: 'op', life: 'once' }, { n: 'monstr_skill_03_begin_03', on: 'point', at: [4, 10], life: 'skill' }]);
   assert.deepEqual(p('teleport', { id: 1, fromX: 6, fromY: 10, back: 1 }, 'monstr'), [{ n: 'monstr_skill_03_end_02', on: 'point', life: 'once' }]);
   const shot = (n, hit) => ({ n, fly: 10, to: 'target', hit: [hit] });
   assert.deepEqual(p('veenVolley', { id: 1, target: 8, stored: 2, merged: 1 }, 'veen'),
@@ -841,6 +842,6 @@ test('fxgame.js (2026-11-03): 贝洛内\'s and Mon3tr\'s moves play on them, Mon
     ev('teleport', { id: 2, x: 4, y: 1, fromX: 2, fromY: 0, back: 1 });
     ev('veenVolley', { id: 3, target: 9, stored: 1, merged: 1 });
     assert.deepEqual(got(), ['demetr_skill3_restart_begin_01@1', 'monstr_skill_03_begin_02@2', 'monstr_skill_03_begin_03@null', 'monstr_skill_03_end_02@null',
-      'veen_trail_01@null', 'veen_trail_02@null'].sort());
+      'token_monstr_prosts_skill_03_start@null', 'veen_trail_01@null', 'veen_trail_02@null'].sort());
   } finally { globalThis.fetch = fetch0; }
 });

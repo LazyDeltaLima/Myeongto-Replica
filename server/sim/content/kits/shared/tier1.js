@@ -171,16 +171,17 @@ export function toggleBuff(battle, unit, key, cond, mods, extra = {}) {
 
 /**
  * Aura while `unit` is on the field: every `interval` s, allies passing `select(a)` get buff `key` for slightly longer
- * than the interval. Several sources of the same aura never stack: the strongest `value` wins.
+ * than the interval. Several sources of the same aura never stack: the strongest `value` wins. `visible`: the buff is
+ * announced to the view (its official buff carries an effect).
  */
-export function installAura(battle, unit, { key, select, mods, value = 0, interval = 0.5 }) {
+export function installAura(battle, unit, { key, select, mods, value = 0, interval = 0.5, visible = false }) {
   battle.every(interval, () => {
     if (!up(unit)) return;
     for (const a of battle.alliesFor(unit)) {
       if (!select(a)) continue;
       const cur = a.findBuff(key);
       if (cur && cur.source !== unit && (cur.data?.v ?? 0) > value && cur.timeLeft > 0.05) continue;
-      battle.addBuff(a, { key, duration: interval + 0.1, mods: typeof mods === 'function' ? mods(a) : mods, source: unit, data: { v: value }, tags: ['aura'] });
+      battle.addBuff(a, { key, duration: interval + 0.1, mods: typeof mods === 'function' ? mods(a) : mods, source: unit, data: { v: value }, tags: ['aura'], ...(visible ? { visible } : null) });
     }
   }, { owner: unit, immediate: true });
 }

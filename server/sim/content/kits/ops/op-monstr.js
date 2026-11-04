@@ -150,7 +150,7 @@ function prostsKit(owner, { atk }) {
     install(battle, t) {
       const dps = num(t.def?.traitBb?.damage_per_second, 80);
       battle.addBuff(t, { key: PROSTS_ABN_KEY, flags: { noHeal: true, noBlock: true }, mods: { taunt: -1 }, persist: true, allowDead: true });
-      if (atk > 0) installAura(battle, t, { key: PROSTS_ATK_KEY, select: (a) => a !== t && nearX4(a, t), mods: { atkPct: atk }, value: atk, interval: PROSTS_AURA_IV });
+      if (atk > 0) installAura(battle, t, { key: PROSTS_ATK_KEY, select: (a) => a !== t && nearX4(a, t), mods: { atkPct: atk }, value: atk, interval: PROSTS_AURA_IV, visible: true });
       battle.on('deploy', (c) => {
         if (c.unit !== t) return;
         const seq = t.deploySeq;

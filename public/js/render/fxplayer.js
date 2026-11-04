@@ -378,7 +378,7 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       vec3 transformed = position;
       #include <skinbase_vertex>
       #include <skinning_vertex>
-      // 2026-10-22: + the renderer's pivot (in particle sizes, the mesh's own axes) before the turn, as a quad's [추정]
+      // + the renderer's pivot before the turn (uPivot: already in the mesh's units — ParticleSystem pivotOf)
       vec3 p = rm * ((transformed + uPivot) * iSize);
       vH = (modelMatrix * vec4(iPos + p, 1.0)).z;
       if (uRim) { vN = normalMatrix * (rm * (normal / max(abs(iSize), vec3(1e-4)))); vVP = (modelViewMatrix * vec4(iPos + p, 1.0)).xyz; }
@@ -1400,6 +1400,29 @@ const INSTANCE_ATTRS = [['iPos', 3, IV_POS], ['iSize', 3, IV_SIZE], ['iRot', 3, 
   ['iC2', 4, IV_C2], ['iUV', 4, IV_UV], ['iVel', 3, IV_VEL]];
 
 /** An instanced geometry over `src` (its index, positions, uvs) with its own instance buffer of `max` rows. */
+/**
+ * The renderer's pivot (m_Pivot) as the shader's offset. A quad's is in particle sizes. A mesh particle's is in the size of
+ * the mesh's bounds, z turned over (Unity's mesh job: (max − min) · pivot, (x, y, −z), then the particle's scale and turn):
+ * the 重构体's crystals (pivot y 27, a mesh 0.6 tall, size 0.096) circle 1.55 units out, not 2.6. (official client)
+ */
+function pivotOf(pivot, mesh, out) {
+  const x = +pivot[0] || 0, y = +pivot[1] || 0, z = +pivot[2] || 0;
+  if (!mesh) return out.set(x, y, z);
+  if (!mesh.boundingBox) mesh.computeBoundingBox();
+  const { min, max } = mesh.boundingBox;
+  return out.set(x * (max.x - min.x), y * (max.y - min.y), -z * (max.z - min.z));
+}
+
+/** The largest value of a MinMax curve (Unity MinMaxCurve's max: a prewarm's window). */
+function mmMax(mm) {
+  if (!mm) return 0;
+  if (mm.m === 3) return Math.max(mm.s, mm.n);
+  if (mm.m !== 1 && mm.m !== 2) return mm.s;
+  let a = 0;
+  for (let i = 0; i <= 16; i++) a = Math.max(a, evalMM(mm, i / 16, 0), evalMM(mm, i / 16, 1));
+  return a;
+}
+
 function instanced(src, max) {
   const g = new THREE.InstancedBufferGeometry();
   g.index = src.index;
@@ -1550,7 +1573,7 @@ class ParticleSystem {
     this.quadScaled = (r.mode === 0 && (r.align === 0 || r.align === 4 || (this.world && (r.align === 1 || r.align === 2)))) || (r.mode === 1 && !r.free);
     this.scalePath = null;   // the nodes whose scale it takes (FxInstance), null for none
     this.sysS = null;        // the scale last sent
-    if (opts.pivot && Array.isArray(ps.render.pivot)) mat.uniforms.uPivot.value.set(+ps.render.pivot[0] || 0, +ps.render.pivot[1] || 0, +ps.render.pivot[2] || 0); // local patch (FxInstance opts.pivot, default on)
+    if (opts.pivot && Array.isArray(ps.render.pivot)) pivotOf(ps.render.pivot, geomSrc === QUAD ? null : geomSrc, mat.uniforms.uPivot.value); // local patch (FxInstance opts.pivot, default on)
     if (geomSrc !== QUAD) { useMeshAttrs(g, geomSrc, mat); meshSide(mat); } // local patch
     this.material = mat;
     this.mesh = new THREE.Mesh(g, mat);
@@ -2029,16 +2052,19 @@ class ParticleSystem {
 
   /**
    * (2026-10-26, effect bundle U) Unity's prewarm (`prewarm`, looping systems only — all 2045 extracted have no start delay):
-   * the system starts as if it had already run one whole cycle — here that cycle in steps of at most 1/30 s (60 at most)
-   * before its first frame. A range, buff or aura was empty at first and filled up over one cycle; the official one is full
-   * from the start. Trails (TrailModule) start from the particles' places then.
+   * the system starts as if it had already run for its particles' longest life (official client: Play → Simulate(0) →
+   * ComputePrewarmStartParameters, the sub-emitters' lifetimes aside) — here that window in steps of at most 1/30 s (60 at
+   * most) before its first frame, ending on a whole cycle. A range, buff or aura was empty at first and filled up over one
+   * cycle; the official one is full from the start. 2026-11-04: not one cycle, as the manual says — the 重构体's crystals
+   * (rate 0.125 / s, life 8 s, cycle 1 s) each stand from the first frame, not from the eighth second. Trails (TrailModule)
+   * start from the particles' places then.
    */
   prewarm() {
     this.warm = false;
-    const dur = this.ps.dur, steps = Math.min(60, Math.max(1, Math.ceil(dur * 30))), h = dur / steps;
-    this.time = 0;
+    const dur = this.ps.dur, win = Math.max(mmMax(this.ps.life), 1e-3), steps = Math.min(60, Math.max(1, Math.ceil(win * 30))), h = win / steps;
+    this.time = (dur - (win % dur)) % dur;
     for (let k = 0; k < steps; k++) this.advance(h, null);
-    this.time -= h;   // advance() of this frame adds its own step: the cycle ends where this frame begins
+    this.time -= h;   // advance() of this frame adds its own step: the window ends where this frame begins
   }
 
   /**

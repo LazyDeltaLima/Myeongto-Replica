@@ -6130,7 +6130,8 @@
    "char_4098_vvana spawn:born equipment_system_artsfghter_buff_y → self",
    "char_4098_vvana status vvana_buff_01",
    "enemy_9008_acbunn spawn:cast enemy_acbunn_attack_1_start → self",
-   "token_10065_demetr_dmtpos spawn:born common_call_start_01 → self"
+   "token_10065_demetr_dmtpos spawn:born common_call_start_01 → self",
+   "token_10065_demetr_dmtpos spawn:tokAura demetr_skill3_token_01 → self"
   ],
   "diy-033": [
    "- spawn demetr_skill1_hit_01 → enemy",
@@ -6506,6 +6507,7 @@
    "- spawn enemy_lrsldr_attack_hit_01 → ally",
    "- spawn:dead common_char_die_01",
    "- spawn:dead common_enemy_die_01 → enemy",
+   "- spawn:dead token_ebnhlz_die",
    "- status common_invisible → enemy",
    "- status enemy_ymkilr_buff_01 → enemy",
    "char_4046_ebnhlz attackHit ebnhlz_attack_hit_orange → foe",
@@ -6522,7 +6524,8 @@
    "char_4046_ebnhlz skillStart ebnhlz_skill_03_start_A+ebnhlz_skill_03_start_B+ebnhlz_skill_03_start_C",
    "char_4046_ebnhlz spawn:born ebnhlz_birth_01 → self",
    "enemy_1422_lrsldr_2 spawn:castLoop enemy_lrsldr_attack_start_01 → self",
-   "token_10024_ebnhlz_rcube spawn:born token_ebnhlz_birth_01_start → self"
+   "token_10024_ebnhlz_rcube spawn:born token_ebnhlz_birth_01_start → self",
+   "token_10024_ebnhlz_rcube spawn:tokAura token_ebnhlz_buff_02 → self"
   ],
   "diy-046": [
    "- spawn common_enemy_hit_01 → ally",
@@ -6530,6 +6533,7 @@
    "- spawn enemy_msnip_skill_hit → ally",
    "- spawn:dead common_char_die_01",
    "- spawn:dead common_enemy_die_01 → enemy",
+   "- spawn:dead token_ebnhlz_die",
    "- status buff_stun → ally",
    "- status common_invisible → enemy",
    "char_4046_ebnhlz attackHit ebnhlz_attack_hit_orange → foe",
@@ -6544,7 +6548,8 @@
    "char_4046_ebnhlz skillStart ebnhlz_skill_03_start_A+ebnhlz_skill_03_start_B+ebnhlz_skill_03_start_C",
    "char_4046_ebnhlz spawn:born ebnhlz_birth_01 → self",
    "enemy_1404_msnip spawn:cast enemy_msnip_skill_start → self",
-   "token_10024_ebnhlz_rcube spawn:born token_ebnhlz_birth_01_start → self"
+   "token_10024_ebnhlz_rcube spawn:born token_ebnhlz_birth_01_start → self",
+   "token_10024_ebnhlz_rcube spawn:tokAura token_ebnhlz_buff_02 → self"
   ],
   "diy-047": [
    "- spawn common_enemy_hit_01 → ally",
@@ -6587,7 +6592,8 @@
    "char_4046_ebnhlz spawn:born ebnhlz_birth_01 → self",
    "enemy_10124_uashld_2 spawn:cast enemy_uashld_attack_start_A_01 → self",
    "enemy_1061_zomshd spawn:castLoop laxe_attack_01_start → self",
-   "token_10024_ebnhlz_rcube spawn:born token_ebnhlz_birth_01_start → self"
+   "token_10024_ebnhlz_rcube spawn:born token_ebnhlz_birth_01_start → self",
+   "token_10024_ebnhlz_rcube spawn:tokAura token_ebnhlz_buff_02 → self"
   ],
   "diy-048": [
    "- spawn common_enemy_hit_01 → ally",

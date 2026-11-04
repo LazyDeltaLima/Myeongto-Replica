@@ -14,6 +14,7 @@ import { buildPlays, PLAYS_FILE } from '../../tools/build-fx-plays.mjs';
 import { KIT_OFFICIAL } from '../../public/js/render/fx/kitofficial.js';
 import { KEY_FX, HINT_FX, SOURCE_FX, LAYER_FX, STACK_FX, END_FX, STATUS_FX } from '../../public/js/render/fxstatus.js';
 import { PLAYS as FIXED } from '../helpers/fxPlays.js';
+import { UNPLAYED_LOCAL } from './fx-unplayed-local-list.js';
 import { TALENT_ALWAYS, SKILL_HELD, SKILL_EDGE, NOTE_FX } from '../../public/js/render/fxmap.js';
 
 const T = loadTables();
@@ -190,6 +191,14 @@ test('the fxgame.js names are still in fxgame.js', () => {
   const src = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
   const { patterns } = renderNames();
   for (const n of Object.keys(FXGAME)) assert.ok(src.includes(`'${n}'`) || patterns.some((r) => r.test(n)), n);
+});
+
+test('the client-only rows nothing plays are exactly UNPLAYED_LOCAL', { skip: !(T.index && LOCAL) && 'needs the extracted effects and client-only rows' }, () => {
+  const got = new Set(unplayed(T).filter((x) => x.src !== 'template').map((x) => `${x.key}|${x.fx}`));
+  const diff = [...new Set([...got, ...Object.keys(UNPLAYED_LOCAL)])].filter((k) => got.has(k) !== k in UNPLAYED_LOCAL)
+    .map((k) => `${k}: ${got.has(k) ? '(new: list it)' : '(played now: drop it)'}`);
+  assert.deepEqual(diff, []);
+  for (const [k, v] of Object.entries(UNPLAYED_LOCAL)) assert.match(v, /^(ok|todo): \S/, k);
 });
 
 test('the template rows nothing plays are exactly UNPLAYED', { skip: !T.index && 'needs the extracted effects (public/assets/local/fx/index.json)' }, () => {

@@ -180,6 +180,9 @@ export const KEY_FX = Object.freeze({
   // under her S2), by the side the ally faces
   'talent:monstr:aspd': cite(['monstr_t_2[eff_1]', 'monstr_t_2[eff_1][r]', 'monstr_t_2[eff_2]', 'monstr_t_2[eff_2][r]'],
     (v, from) => MONSTR_T2[Number(from?.fx) === 2 ? 1 : 0][(v.visFacing ?? v.facing ?? 1) < 0 ? 1 : 0]),
+  // (2026-11-04) the 重构体's ATK aura (its Talents/1 AuraAbility prosts[atk_up], overrideEffectKey token_monstr_prosts_buff_03,
+  // `_selfOption` EXCLUDE) on each ally it covers — the sim's aura buff
+  'talent:monstr:prostsAtk': keyed('prosts[atk_up]', 'monstr_token', OWN),
   // 休谟斯 S2 精力充沛 (2026-10-24, 묶음 S11): humus_s_2[peak_1] / [peak_2] each run peak_performance with their blackboard
   // `peak_performance.effect` humus_buff_01 / _02 (CreateBuffWithOverrideEffect peak_performance[effect]) above their HP ratio;
   // the sim's buff is the highest peak (`fxTag` 1 / 2) — above peak_2 both hold [추정: disableOverride keeps both derived buffs]

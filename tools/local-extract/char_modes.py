@@ -1359,6 +1359,17 @@ def funnel_entries(abilities, emitters, idle, projectiles):
     return out
 
 
+LIFE_INFINITY = 2   # Buff lifeTimeType (fx_bindings.py prints it INFINITY)
+# Drawn by hand as the summon's look or a kit event: fxgame.js SUMMON_LOOK, kitofficial.js (小火龙's 冰靶子 sbell2_tile_frozen)
+TOKEN_FX_BY_HAND = frozenset({'token_aglna2_agairp_01', 'phatm2_skill_03_prison_01', 'sbell2_tile_frozen'})
+
+
+def token_default_mode_path(rel):
+    """A token prefab's path (below its root) of an ability it holds in its default mode: under Modes/Default, or outside
+    Modes altogether (Others/…/CommonAbilities, a token with no modes' Talents). Another mode attaches it only there."""
+    return not rel.startswith('Modes/') or rel.startswith('Modes/Default/')
+
+
 def token_auras(tree, client):
     """2026-10-22 (upstream 5209873f's symptom, docs/rules/fx.md 「소환물 스킬 오라」): the effects a summon's skill keeps on it
     while it stands — the `_effects` of its skill prefab's auras (battle/prefabs/[uc]skills.ab AuraAbility: sktok_vodfox_token/Aura
@@ -1400,6 +1411,14 @@ def token_auras(tree, client):
         for gp, d, *_ in load_tree(str(f))[0]:
             if gp == tid and isinstance(d.get('_startEffect'), str) and d['_startEffect']:
                 out.setdefault(tid, {'owner': owners[tid]})['start'] = d['_startEffect']
+            if gp == tid and isinstance(d.get('_deadEffect'), str) and d['_deadEffect']:
+                out.setdefault(tid, {'owner': owners[tid]})['dead'] = d['_deadEffect']
+            # 2026-11-04: a passive ability's INFINITY buff with its own effect (`overrideEffectKey`), held on the token while it
+            # stands in its default mode — the 重构体's monstr[free_jump] token_monstr_prosts_idle (PassiveBuffAbility: no
+            # `_selfOption`; an AuraAbility's `_buffs` go on the units it covers, not on the token)
+            if gp.startswith(f'{tid}/') and '_selfOption' not in d and isinstance(d.get('_buffs'), list) and token_default_mode_path(gp[len(tid) + 1:]):
+                held.extend(b['overrideEffectKey'] for b in d['_buffs'] if isinstance(b, dict) and b.get('lifeTimeType') == LIFE_INFINITY
+                            and isinstance(b.get('overrideEffectKey'), str) and b['overrideEffectKey'] and b['overrideEffectKey'] not in TOKEN_FX_BY_HAND)
             # 2026-10-26: a talent ability of the token prefab that holds `_attachEffects` while it casts — 酒神's 本能的召唤
             # (Others/Direction/Talents/1, its 诱导: token_encdool_skill_02_range_01) casts for as long as it stands
             # [추정: the cast lasts its life]; held like a skill aura, under every owner skill that makes the token
@@ -1414,7 +1433,8 @@ def token_auras(tree, client):
                     idx.add(v['skill']['index'])
                 idx.update(int(k) for k in (v.get('bySkill') or {}))
             aura = out.setdefault(tid, {'owner': owners[tid]}).setdefault('aura', {})
-            for i in sorted(idx):
+            # (a summon no skill of its owner picks — a backups.json token has no `variants`: fxgame.js tokenAura takes the first list)
+            for i in sorted(idx or {0}):
                 aura[str(i)] = list(dict.fromkeys((aura.get(str(i)) or []) + held))
             out[tid]['aura'] = dict(sorted(aura.items()))
     return {k: out[k] for k in sorted(out)}

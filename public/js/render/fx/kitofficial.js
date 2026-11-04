@@ -573,13 +573,15 @@ export const KIT_OFFICIAL = {
   // Mon3tr S3 策略：熔毁: the 【移动】 onto her 重构体's tile — the S3_Reborn mode's monstr_s_3[reborned_passive] creates
   // monstr_skill_03_begin_02 on her; the 路标形态 marker on the tile she left (a 重构体 switched to its mode 2: prosts_s_3[mode]
   // holds prost_s_3[[effect] monstr_skill_03_begin_03, its model hidden by common_spine_hide) until the skill ends; the 【返回】
-  // (`back`): that mode ends where she lands — ON_BUFF_FINISH CreateEffect monstr_skill_03_end_02
+  // (`back`): that mode ends where she lands — ON_BUFF_FINISH CreateEffect monstr_skill_03_end_02. (2026-11-04) the 重构体 she
+  // lands on is withdrawn with token_monstr_prosts[eff] token_monstr_prosts_skill_03_start (monstr_s_3_buff[self] ON_BUFF_START)
   teleport: {
     yu: cite('yu_s_2[try_tp]', () => ({ play: [once('yu_skill2_teleport_02', 'id')] })),
     demetr: cite('demetr_s3[effect_1]', () => ({ play: [once('demetr_skill3_restart_begin_01')] })),
-    monstr: cite(['monstr_s_3[reborned_passive]', 'prost_s_3[[effect]', 'prosts_s_3[mode]'], (o) => (Number(o.back)
+    monstr: cite(['monstr_s_3[reborned_passive]', 'prost_s_3[[effect]', 'prosts_s_3[mode]', 'token_monstr_prosts[eff]'], (o) => (Number(o.back)
       ? { play: [once('monstr_skill_03_end_02', 'point')] }
-      : { play: [once('monstr_skill_03_begin_02'), { n: 'monstr_skill_03_begin_03', on: 'point', at: [Number(o.fromX), Number(o.fromY)], life: 'skill' }] })),
+      : { play: [{ ...once('token_monstr_prosts_skill_03_start', 'point'), bundle: 'monstr_token' }, once('monstr_skill_03_begin_02'),
+        { n: 'monstr_skill_03_begin_03', on: 'point', at: [Number(o.fromX), Number(o.fromY)], life: 'skill' }] })),
   },
   // 引星棘刺 T2 视界: Talent/2 tiles_ally (CharacterSharedTileAuraAbility `_showEffectWhenAttach`, `_tileEffectKey` thorn2_buff)
   // on each tile her card chose, until she leaves — `cells` [[x, y]…] (sim kit chess_char_5_15-thorn2.js). The client lays them

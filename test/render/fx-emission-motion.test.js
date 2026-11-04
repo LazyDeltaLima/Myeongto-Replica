@@ -46,16 +46,22 @@ test('rate over distance: a world-space system emits per unit the effect moves, 
   inst.dispose();
 });
 
-test('prewarm: a looping system starts one cycle in; without it, empty', async () => {
+test('prewarm: a looping system starts its particles\' longest life in, not one cycle (official Simulate window); without it, empty', async () => {
   const inst = await make([node('t', -1), node('p', 0, { ps: ps({}, { n: 0, rate: 10, dur: 1, loop: true, life: 2, prewarm: true }) }),
-    node('c', 0, { ps: ps({}, { n: 0, rate: 10, dur: 1, loop: true, life: 2 }) })]);
+    node('c', 0, { ps: ps({}, { n: 0, rate: 10, dur: 1, loop: true, life: 2 }) }),
+    // the 重构体's crystals: one particle per life, far longer than the cycle — standing from the first frame
+    node('s', 0, { ps: ps({}, { n: 0, rate: 0.125, dur: 1, loop: true, life: 8, prewarm: true }) }),
+    // a life shorter than the cycle: the window is that life
+    node('q', 0, { ps: ps({}, { n: 0, rate: 10, dur: 5, loop: true, life: 1, prewarm: true }) })]);
   inst.update(0.01);
-  const [p, c] = inst.systems;
-  assert.ok(p.n >= 9 && p.n <= 11, `one cycle of 10 / s: ${p.n}`);
+  const [p, c, s, q] = inst.systems;
+  assert.ok(p.n >= 19 && p.n <= 21, `two seconds of 10 / s: ${p.n}`);
   assert.ok(c.n <= 1, `cold: ${c.n}`);
+  assert.equal(s.n, 1, 'rate x life = 1 stands at once');
+  assert.ok(q.n >= 9 && q.n <= 11, `its one-second life: ${q.n}`);
   let older = 0;
-  for (let i = 0; i < p.n; i++) if (p.age[i] > 0.5) older++;
-  assert.ok(older >= 4, `aged through the cycle: ${older}`);
+  for (let i = 0; i < p.n; i++) if (p.age[i] > 1.5) older++;
+  assert.ok(older >= 4, `aged through the window: ${older}`);
   inst.dispose();
 });
 
