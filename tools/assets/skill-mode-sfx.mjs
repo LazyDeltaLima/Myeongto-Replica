@@ -627,7 +627,7 @@ function condPick(names) {
   const at = (re, not = null) => { const i = names.findIndex((x) => re.test(x) && !(not && not.test(x))); return i >= 0 ? i + 1 : null; };
   // 2026-11-04, official client: a child with a condition (its trigger's buff or target check, e.g. 涤火杰西卡's ExtraBomb on
   // jesca2_s_3_trigger[extra_bomb]) is not the attack's plain sound; the sim names it by `sig` when it takes the swing
-  const SPECIAL = /blocked|self|special|first|reload|token|fire_?to|extra|bomb|heal_?ally|buffed|_t\d/i;
+  const SPECIAL = /blocked|self|special|first|reload|token|fire_?to|extra|bomb|heal_?ally|buffed|_t\d|shield_?only/i;
   const out = {};
   const melee = at(/melee/i, /blocked/i) ?? at(/melee/i);
   if (melee) out.melee = melee;

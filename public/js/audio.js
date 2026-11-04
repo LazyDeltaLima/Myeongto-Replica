@@ -486,6 +486,9 @@ export function signalFxKey(fx, ex, unitOf) {
   // 2026-11-04: 琳琅诗怀雅 S1's HealAlly child of her attack group — as it starts and as its heal lands
   if (fx === 'swire2Heal' && u?.def === 'char_1033_swire2') return 'swire2:heal';
   if (fx === 'coin' && ex.heal != null && ex.skill === 'swire2_1' && u?.def === 'char_1033_swire2') return 'swire2:healhit';
+  // 2026-11-04: the throw of her S2 (SpawnToken child), 新约能天使 S3's opening strike at her 浮空炮台 (S3FireToToken child)
+  if (fx === 'swire2Throw' && u?.def === 'char_1033_swire2') return 'swire2:throw';
+  if (fx === 'airstrike' && ex.signal === 'fireToToken' && u?.def === 'char_1041_angel2') return 'angel2:s3fire';
   if (fx === 'charges' && u?.def === 'char_426_billro' && Number.isInteger(u.skillIndex)) return billroChargeKey(u, Number(ex.n) || 0, !!ex.full);
   if (fx === 'charges' && (u?.def === 'char_206_gnosis' || u?.def === 'char_4042_lumen')) return chargeStageKey(u, Number(ex.n) || 0);
   // 2026-10-22: 刺玫 S2's counter on the attacker of her protégé (vendla_s_2[extra_damage]'s audioSignal, on the attacker)
@@ -2172,9 +2175,9 @@ export class AudioManager {
           // 2026-10-29 (docs/rules/audio.md 「스킬·재능 투사체 소리」): an unreleased drone's additional damage — its own Funnel
           // projectile's HIT, not one of the attack's impacts
           if (e[6] === 2) { if (e.length > 5 && e[5] != null) this._kitSound(funnelHitKey(this.units.get(e[5]))); continue; }
-          // 2026-11-04 (maintainer report: Mon3tr S3's impact sound over and over): a unit's loss on itself is no hit — her 流失
-          // (monstr_s_3[bleeding], every 0.1 s, a buff with no audio signal) and the like (Battle.loseHp, source = the unit)
-          if (e.length > 5 && e[5] != null && e[5] === e[1]) continue;
+          // 2026-11-04 (maintainer report: Mon3tr S3's impact sound over and over): an HP loss (the 7th field 3, Battle.loseHp) and
+          // a unit's damage to itself are no hit — they must not sound one, nor take the impact of a real one (lastAttacker)
+          if (e[6] === 3 || (e.length > 5 && e[5] != null && e[5] === e[1])) continue;
           // 2026-10-22: a unit 帝国炮火先兆者's shell hit as it landed (the 'bombard' of this moment; its damage has no source)
           if (e.length > 5 && e[5] == null && this._shellAt === now) { this._kitSound('emppnt:hit'); this._kitSound('emppnt:shell'); continue; }
           const by = this.lastAttacker.get(e[1]);
@@ -2334,6 +2337,12 @@ export class AudioManager {
           // local patch: a kit's skill hit — its official hit sound (sfx.kit, tools/assets/kit-sfx.mjs), one at a time per key
           // local patch (maintainer report 2026-10-07): the skill's going-off sound first (kitStartKey), then its impact
           const unitOf = (id) => this.units.get(id);
+          // 2026-11-04: 遥's ShieldOnly child (nothing to attack or heal: the attack is the bubble) — its START in the running mode
+          if (e[1] === 'shield' && e[4]?.only != null) {
+            const hu = unitOf(e[4].only);
+            const hs = hu ? this._swingOf(hu, 'bullet', now, 0, 'ShieldOnly') : null;
+            if (hs) this._swingCues(hu, hs, 's');
+          }
           // 2026-10-10: a 过载 starts — the running skill's attacks sound its overloaded buff banks from now (signalAttackKey)
           if (e[1] === 'overload' && e[4]?.id != null) { const ou = unitOf(e[4].id); if (ou) ou.over = true; }
           // 2026-10-29: the running skill switches its owner's mode on the way (维什戴尔's 过载, 乌尔比安 S3's anchor —

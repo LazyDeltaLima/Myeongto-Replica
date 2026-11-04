@@ -325,6 +325,9 @@ export const KIT_HIT_BANKS = Object.freeze({
   'jesca2:s3shell': 'battle.ON_ABILITY_START.char_1034_jesca2.attack.3.1',
   'swire2:heal': 'battle.ON_ABILITY_START.char_1033_swire2.attack.1.1',
   'swire2:healhit': 'battle.ON_ABILITY_HIT.char_1033_swire2.attack.1.1',
+  // (2026-11-04) 琳琅诗怀雅 S2's SpawnToken child, 新约能天使 S3's S3FireToToken child: START (their attack groups' other children)
+  'swire2:throw': 'battle.ON_ABILITY_START.char_1033_swire2.attack.2.1',
+  'angel2:s3fire': 'battle.ON_ABILITY_START.char_1041_angel2.attack.3.1',
   'jesca2:turn': 'battle.ON_BUFF_START.jesca2_jckshd_turnaround',
   // 棘刺 S2: each Thorn cast (its BuffDuringCasting gives him thorns_s_2[audio] as the cast starts)
   'thorns:s2': 'battle.ON_BUFF_START.thorns_s_2[audio]',

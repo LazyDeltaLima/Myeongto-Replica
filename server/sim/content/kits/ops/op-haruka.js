@@ -103,19 +103,19 @@ export default {
     const shelterNow = (u) => shelter * (skillOn(u, S3) ? s3Scale : 1);
 
     /** Give `a` a bubble from `u` (its 庇护, her ATK of now for the T2 heal). */
-    function bubble(battle, u, a) {
+    function bubble(battle, u, a, only = false) {
       const v = shelterNow(u);
       battle.addBuff(a, {
         key: BUBBLE, source: u, visible: true, mods: protectMods(v), tags: ['talent'],
         data: { v, atk: u.s.atk, heal: t2Heal, prob: t2Prob, sp: t2Sp, boom: false },
       });
-      battle.fx('shield', { x: a.x, y: a.y, id: a.id, kind: 'bubble' });
+      battle.fx('shield', { x: a.x, y: a.y, id: a.id, kind: 'bubble', ...(only ? { only: u.id } : null) });
     }
     /** One bubble grant of `u` on her current range: up to grantCount allies. Returns how many got one. */
-    function grant(battle, u) {
+    function grant(battle, u, only = false) {
       const list = bubbleCands(battle, u, u.rangeKeySet || new Set(u.rangeKeys || []));
       const n = Math.min(grantCount(u), list.length);
-      for (let i = 0; i < n; i++) bubble(battle, u, list[i]);
+      for (let i = 0; i < n; i++) bubble(battle, u, list[i], only && i === 0);
       return n;
     }
     /** Re-read the 庇护 of every bubble of `u` (S3's start / end). */
@@ -202,7 +202,7 @@ export default {
           // no target to attack or heal but an ally to bubble: the attack becomes the bubble (ShieldOnly)
           battle.on('tick', () => {
             if (!up(unit) || !unit.canAct || unit.s.flags.disarm || unit.atkCd > 0 || unit.trait.hadTarget !== false) return;
-            if (grant(battle, unit) > 0) unit.atkCd = Math.max(unit.atkCd, unit.s.interval);
+            if (grant(battle, unit, true) > 0) unit.atkCd = Math.max(unit.atkCd, unit.s.interval);
           }, { owner: unit });
           battle.on('damaged', (c) => {
             const a = c.target, src = c.source;
