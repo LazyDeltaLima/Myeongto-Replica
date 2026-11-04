@@ -219,10 +219,12 @@ export class Client {
     await sleep(250);
     const open = await this.page.evaluate(() => {
       const t = document.querySelector('.modal__title');
-      return !!(t && t.textContent.includes('剩余资金'));
+      if (t && t.textContent.includes('剩余资金')) return 'modal';
+      // with the extracted art it is the official confirm dialog (ui/battleArt.js)
+      return document.querySelector('.bcd .bcd__btn.is-ok') ? 'art' : null;
     });
     if (!open) return false;
-    return this.click('.modal__actions button', '准备就绪', { timeout: 4000 });
+    return open === 'art' ? this.click('.bcd .bcd__btn.is-ok', null, { timeout: 4000 }) : this.click('.modal__actions button', '准备就绪', { timeout: 4000 });
   }
 
   /** Centre of the nth visible, enabled (unless `any`), uncovered match (or null). */

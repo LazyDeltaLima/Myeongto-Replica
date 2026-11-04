@@ -86,6 +86,7 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
       // the match: a spectator is no player to wait for
       await host.click('.room-bar__right button', '开始模拟', { timeout: 20000 });
       for (const c of [host, spec]) await c.waitFor((s) => s.phase === 'INFO_CHECK', 'briefing', 30000);
+      await spec.page.waitForSelector('.brief__foot .btn--primary', { timeout: 30000 }); // (the phase comes before its screen)
       assert.match(await spec.page.evaluate(() => document.querySelector('.brief__foot .btn--primary')?.textContent || ''), /观战中/);
       await host.click('.brief__foot .btn--primary', '准备就绪');
       const t0 = Date.now();
@@ -130,7 +131,7 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
       const sp2 = await specState(spec);
       assert.deepEqual([sp2.priv, sp2.battle.watch, sp2.battle.authoritative], [false, true, false]);
       // the auto-observed field reads "👁 name" (as for an eliminated player), with no 返回战场 — never "你已被淘汰"
-      await spec.page.waitForSelector('.chud__observe', { timeout: 10000 });
+      await spec.page.waitForSelector('.chud__observe, .chud .obinfo', { timeout: 10000 }); // (.obinfo: with the extracted art)
       const hud = await spec.page.evaluate(() => ({
         text: document.querySelector('.chud')?.textContent || '',
         back: !!document.querySelector('.team__back'),
