@@ -1701,6 +1701,21 @@ export class AudioManager {
   }
 
   /**
+   * 2026-11-04, docs/rules/audio.md 「스킬 타격음 전수」: a strike whose mode has no impact of its own, cast during skill `sw.mode`,
+   * sounds the skill's (`kd`: its projectile's HIT / REACH or its ability's HIT — 斥罪 S1, 鸿雪 S2, 艾雅法拉 S2, 塑心 S1, 妮芙 S2,
+   * whose skill can end before the shot lands, so the swing says which skill). Once per target: a strike's second damage
+   * instance is the same HIT. Not for the kits whose damage sounds through sfx.kit.
+   */
+  _strikeSkillImpact(au, sw, target, now) {
+    if (!sw.set?.mode || !Number.isInteger(sw.mode) || KIT_SOUND_DEF.test(String(au.def)) || skillDamageKey(au.def, sw.mode) != null) return false;
+    const c = this.getManifest()?.audio?.sfx?.units?.[au.def]?.kd?.[sw.mode]?.[0];
+    if (!c || (au.kdTarget === target && au.kdTargetAt === now)) return false;
+    au.kdTarget = target;
+    au.kdTargetAt = now;
+    return this._playCue(au.def, c, true);
+  }
+
+  /**
    * A unit whose model reports no Spine clip events (spineEvent: no model drawn — the fallback diamond, a crowded low-quality
    * field, a renderer that does not report them; the client always has its model) gets a strike in their place (the event sits in the attack clip, so it
    * sounds near the strike]: during skill k the unit's `Skill_<k>_<n>` events in turn (마운틴 S2 / S3 punches — their mode
@@ -2205,7 +2220,10 @@ export class AudioManager {
               if (sw && bounce) {
                 this._swingCues(au, sw, 'd', sw.h++, (c) => !c.r);
                 if (au.lastChainAt !== now) { au.lastChainAt = now; this._swingCues(au, sw, 'c'); }
-              } else if (sw) { this._kitSound(strikeImpactKey(au, sw.h)); this._swingCues(au, sw, 'd', sw.h++); }
+              } else if (sw) {
+                this._kitSound(strikeImpactKey(au, sw.h));
+                if (!this._swingCues(au, sw, 'd', sw.h++)) this._strikeSkillImpact(au, sw, e[1], now);
+              }
               else this.unit(au.def, 'hit', `h${e[1]}`, undefined, own.mode);
               if (own) this._kitSound(signalAttackKey(au, 'd', false)); // 2026-10-10: its buff's impact sound (its own target)
             } else this._skillImpact(au, now);

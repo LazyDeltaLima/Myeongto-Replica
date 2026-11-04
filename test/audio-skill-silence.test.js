@@ -46,7 +46,7 @@ const urlsOf = (c) => (Array.isArray(c.or) ? c.or.map((x) => x.u) : [c.u]).filte
 
 /** What case `c` sounds during its skill, on a clock that runs with the battle. */
 function listen(c, manifest, groups) {
-  const { h, u, a, field, castOnce, skillIndex } = sweepBattle(c, manifest, seeded());
+  const { h, u, a, castOnce, skillIndex } = sweepBattle(c, manifest, seeded());
   const clock = performance.now;
   let t = 0;
   performance.now = () => t * MS_PER_S;
@@ -59,7 +59,6 @@ function listen(c, manifest, groups) {
       h.step();
       a.ctx.currentTime = (t += h.b.dt);
       const ev = h.events.splice(0);
-      if (ev.some((e) => e[0] === 'spawn' || e[0] === 'deploy')) field();
       if (castAt == null && u.skill?.activations) castAt = t;
       inWindow = castAt != null && (!!u.skill?.active || t - castAt <= AFTER_CAST);
       for (const e of ev) {
@@ -99,6 +98,15 @@ describe('a skill whose hits land sounds an impact, across every operator and sk
       assert.ok(listed.startsWith(`${got} `), `the entry says "${listed.split(' ')[0]}", the run says "${got}"`);
     });
   }
+  test('a strike\'s skill impact (`kd`) sounds once, not its normal impact and not once per damage instance', () => {
+    const one = (label, file) => {
+      const c = sweepCases().find((x) => x.label === label);
+      assert.deepEqual(listen(c, manifest, groups).impacts, [file], label);
+    };
+    one('char_4065_judge S1', 'p_imp_gavel_d');     // phys + arts on one target: one HIT
+    one('char_4055_bgsnow S2', 'p_imp_penarrow_h'); // lands after the skill ended on the strike
+  });
+
   test('the list names only cases that exist', () => {
     assert.deepEqual(Object.keys(SILENT_SKILLS).filter((k) => !seen.has(k)), []);
   });

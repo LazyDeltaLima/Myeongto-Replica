@@ -8,8 +8,6 @@
 // A new operator's silent skill does not belong here until its banks are read: `node tools/local-extract/link_sheet.py`.
 
 const NO_BANK = 'no impact bank carries its code for this mode (audio_data.json; modes[i].noHit)';
-/** An attack of the sim during the skill goes through the mode's cues, which never look at the skill's own impact (`kd`). */
-const KD = 'its impact is the skill\'s own (sfx.units[def].kd), which an attack with a swing never reaches (audio.js \'dmg\': only _skillImpact reads it)';
 
 export const SILENT_SKILLS = {
   chess_char_2_01_b: `silent none: 送葬人 S2 — ${NO_BANK}`,
@@ -25,16 +23,9 @@ export const SILENT_SKILLS = {
 
   chess_char_3_13_b: 'silent todo: 至简 S2 — ON_PROJECTILE_HIT.projectile_chr_malist_s2_2 (p_imp_staffcannon_h)',
   chess_char_5_15_b: 'silent todo: 引星棘刺 S2 — ON_PROJECTILE_REACH.projectile_chr_thorn2_s2 (p_imp_trshldacy_h) for the zone\'s first hits',
-  chess_char_6_09_b: `silent todo: 塑心 S1 — ON_PROJECTILE_HIT.projectile_chr_cello_s1; ${KD}`,
   'char_1035_wisdel S1': 'silent todo: 维什戴尔 S1 — ON_PROJECTILE_HIT.projectile_chr_wisdel_s1 (p_imp_dkmrcaygn_d)',
-  'char_4065_judge S1': `silent todo: 斥罪 S1 — ON_ABILITY_HIT.skchr_judge_1; ${KD}`,
   'char_2025_shu S3': 'silent todo: 黍 S3 — its attack group falls to child 2 (no HIT bank); ON_ABILITY_HIT attack.2.1 is child 1 (signal Attack), which the sim does not name',
-  'char_4055_bgsnow S2': `silent todo: 鸿雪 S2 — ON_PROJECTILE_HIT.projectile_chr_bgsnow_s2; ${KD}`,
-  'char_180_amgoat S2': `silent todo: 艾雅法拉 S2 — ON_PROJECTILE_HIT.projectile_amgoat_s2 (p_skill_firebuff); ${KD}`,
   chess_char_1_18_b: 'other todo: 宴 S2 — its attacks sound the Default bank, not ON_ABILITY_HIT attack.2 (p_imp_darksword_n)',
   chess_char_5_05_b: 'other todo: 乌尔比安 S3 — ON_PROJECTILE_REACH.projectile_chr_ulpia_s3 (p_imp_wtrbatnchr_s) is not reached; attack.3 HIT plays',
-  chess_char_5_12_b: `other todo: 夕 S1 — ON_ABILITY_ON.skchr_dusk_1; ${KD}`,
-  chess_char_5_22_b: `other todo: 妮芙 S2 — ON_PROJECTILE_HIT.projectile_chr_nymph_s2; ${KD}`,
-  chess_char_6_10_b: `other todo: 妮芙 S2 — ON_PROJECTILE_HIT.projectile_chr_nymph_s2; ${KD}`,
   'char_1015_aglna2 S1': 'other todo: 予愿安洁莉娜 S1 — its attacks sound the Default banks, not the S1 mode\'s (p_imp_arstrnstf_d)',
 };

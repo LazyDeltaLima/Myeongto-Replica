@@ -19,7 +19,7 @@ const SECS = 12;
 const FALLBACK_MAX = 6;
 
 function hear(c, manifest) {
-  const { h, u, a, field, castOnce } = sweepBattle(c, manifest);
+  const { h, u, a, castOnce } = sweepBattle(c, manifest);
   let plays = 0, fallback = 0;
   a._play = () => { plays++; };
   const skillImpact = a._skillImpact.bind(a);
@@ -31,7 +31,6 @@ function hear(c, manifest) {
     h.step();
     a.ctx.currentTime = (t += h.b.dt);
     const ev = h.events.splice(0);
-    if (ev.some((e) => e[0] === 'spawn' || e[0] === 'deploy')) field();
     for (const e of ev) {
       const before = plays;
       a.handleBattleEvents([e]);
