@@ -4,6 +4,7 @@
 // no ready toggle, no emote wheel and reads 观战中 (never "你已被淘汰"), is shown the first player's board in 休整期 by
 // itself and the first field in battle, never holds an m.private, sends nothing but g.watch (plus its own room.spectate /
 // room.loadout), gets its seat back after a reload, and 离开观战 returns it to the lobby.
+// A spectator's seat reservation: asked in the room or the match, taken on a restart vote or a match's end.
 // Server side: test/lobby.test.js, test/match/spectator.test.js, test/match/lobby-integration.test.js.
 //
 //   SP_E2E=1 node --test test/ui/spectator.e2e.test.js
@@ -18,6 +19,12 @@ import { TestClient } from '../helpers/wsClient.js';
 
 const ENABLED = process.env.SP_E2E === '1' && hasChrome() && existsSync(path.join(ROOT, 'public/assets'));
 const ALLOWED = new Set(['room.spectate', 'room.loadout', 'g.watch', 'g.leave', 'room.leave']);
+
+/** Past the title; the offer to download the game's resources covers the room's bar buttons, so it is declined. */
+const enter = async (c, name) => {
+  await c.enter(name);
+  await c.click('button', '以后再说', { optional: true, timeout: 4000 });
+};
 
 /** The spectator's own view of the store: still a spectator, never a private view. */
 const specState = (c) => c.page.evaluate(() => {
@@ -38,8 +45,8 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
     const spec = new Client(P, srv.base, 'spec', { prefix: 'spectator', w: 1280, h: 720 });
     let extra = null;
     try {
-      await host.open();
-      await host.enter('凯尔希');
+      await host.open('?lang=zh');
+      await enter(host, '凯尔希');
       await host.click('.mode-card', '同盟模拟');
       await host.click('.diff-card', '标准模拟');
       await host.click('.create-box button', '创建同盟');
@@ -47,9 +54,9 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
       await host.click('.seat--empty button', '添加 AI 队友');
 
       // the lobby's 观战 entry
-      await spec.open();
+      await spec.open('?lang=zh');
       await spec.hookRequests();
-      await spec.enter('阿米娅');
+      await enter(spec, '阿米娅');
       await spec.click('.join-row input');
       await spec.page.keyboard.type(room.code);
       await spec.click('.join-row button', '观战');
@@ -151,6 +158,167 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
       assert.deepEqual(problemsOf([host, spec]), []);
     } finally {
       await extra?.terminate().catch(() => {});
+      for (const c of [host, spec]) await c.close();
+      await srv.stop();
+    }
+  });
+
+  // Seat reservation (server/lobby.js header, maintainer decision 2026-11-04; server side: test/lobby-seat-reserve.test.js).
+  const SP = '[data-testid="seat-reserve"]';
+  const reservedOf = (c) => c.page.evaluate(() => {
+    const s = globalThis.__SP__.store.get();
+    return s.room?.spectators?.find((x) => x.playerId === s.me.playerId)?.reserved ?? 0;
+  });
+  const seatedNow = (c) => c.page.evaluate(() => {
+    const s = globalThis.__SP__.store.get();
+    return !!s.room?.seats?.some((x) => x && x.playerId === s.me.playerId);
+  });
+  /** A full room: the host's page, a guest on a bare socket and two AI seats, the spectator's page in the 观战席. */
+  const fullRoom = async (host, spec, srv) => {
+    await host.open('?lang=zh');
+    await enter(host, '凯尔希');
+    await host.click('.mode-card', '同盟模拟');
+    await host.click('.diff-card', '标准模拟');
+    await host.click('.create-box button', '创建同盟');
+    const room = (await host.waitFor((s) => !!s.room?.code, 'room created')).room;
+    await host.click('.seat--empty button', '添加 AI 队友');
+    await host.click('.seat--empty button', '添加 AI 队友');
+    const guest = await TestClient.connect(`ws://127.0.0.1:${srv.port}/ws`);
+    await guest.hello('华法琳');
+    assert.equal((await guest.request({ t: 'room.join', code: room.code })).t, 'ok');
+    assert.equal((await guest.request({ t: 'room.ready', ready: true })).t, 'ok');
+    await spec.open('?lang=zh');
+    await spec.hookRequests();
+    await enter(spec, '阿米娅');
+    await spec.click('.join-row input');
+    await spec.page.keyboard.type(room.code);
+    await spec.click('.join-row button', '观战');
+    await spec.page.waitForSelector('.room-screen .specbar__who.is-me', { timeout: 10000 });
+    return guest;
+  };
+  /** Through the briefing and the strategy draft to the first 休整期, for every page that plays. */
+  const toPrep = async (players) => {
+    for (const c of players) await c.waitFor((s) => s.phase === 'INFO_CHECK', 'briefing', 30000);
+    for (const c of players) await c.click('.brief__foot .btn--primary', '准备就绪');
+    const t0 = Date.now();
+    for (;;) {
+      const all = await Promise.all(players.map((c) => c.st()));
+      if (all.every((s) => s.phase === 'PREP')) return;
+      assert.ok(Date.now() - t0 < 120000, `stuck in ${all.map((s) => s.phase).join(', ')}`);
+      for (let i = 0; i < players.length; i++) {
+        if (all[i].phase !== 'BAND_DRAFT' || all[i].draft?.turn !== all[i].me) continue;
+        await players[i].click('.dband:not(.is-taken)', null, { nth: i + 1, optional: true, timeout: 2000 });
+        await sleep(200);
+        await players[i].click('.draft-detail__btns .btn--primary', '确认选择', { optional: true, timeout: 2000 });
+      }
+      await sleep(300);
+    }
+  };
+
+  test('reserve from the room and the match; a restart vote seats the spectator, who then plays', { timeout: 6 * 60 * 1000 }, async () => {
+    const srv = await startRealServer({ fast: { timerScale: 1, combatSpeed: 4, startRound: 1, kit: 3, autoPlace: true } });
+    const P = (await import('puppeteer-core')).default;
+    const host = new Client(P, srv.base, 'host', { prefix: 'seat-reserve' });
+    const spec = new Client(P, srv.base, 'spec', { prefix: 'seat-reserve', w: 1280, h: 720 });
+    let guest = null;
+    try {
+      guest = await fullRoom(host, spec, srv);
+      // the room: no free seat, so the toggle stands where 观战中 stood
+      await spec.click(`.room-bar__right ${SP}`, '预约座位');
+      await spec.page.waitForFunction(() => /已预约座位/.test(document.querySelector('.room-bar__status')?.textContent || ''), { timeout: 8000 });
+      assert.equal(await reservedOf(spec), 1);
+      await host.page.waitForSelector('.specbar__res', { timeout: 8000 });
+      assert.match(await host.page.evaluate(() => document.querySelector('.specbar__res').textContent), /预约 1/);
+      await spec.shot('room-reserved');
+      await host.shot('room-host-sees');
+
+      // the match: the guest leaves, its seat stays taken until the match ends
+      await host.click('.room-bar__right button', '开始模拟', { timeout: 20000 });
+      await guest.waitFor('m.public', (p) => p.phase === 'INFO_CHECK', 30000);
+      assert.equal((await guest.request({ t: 'room.leave' })).t, 'ok');
+      await toPrep([host]);
+      await spec.waitFor((s) => s.phase === 'PREP', 'spectator in prep', 30000);
+      assert.equal(await seatedNow(spec), false);
+
+      // the pill's toggle takes it back and asks again; the exit dialog has the same one (the pill hides in battle)
+      await spec.click(`.gm__dead--spectator ${SP}`, '取消预约');
+      await spec.page.waitForFunction((sel) => document.querySelector(sel)?.textContent.includes('预约座位'), { timeout: 8000 }, `.gm__dead--spectator ${SP}`);
+      assert.equal(await reservedOf(spec), 0);
+      await spec.click('.gtop__exit', null, { timeout: 15000 });
+      await spec.click(`.modal ${SP}`, '预约座位');
+      await spec.page.waitForSelector('.modal [data-testid="seat-reserved"]', { timeout: 8000 });
+      assert.equal(await reservedOf(spec), 1);
+      await spec.shot('exit-modal-reserved');
+      await spec.click('.modal button', '取消');
+      await sleep(600);
+      await spec.shot('prep-pill-reserved');
+
+      // the host, alone among the voters, restarts: the spectator is in the new match
+      await host.click('.gtop__exit', null, { timeout: 15000 });
+      await host.click('[data-testid="restart-propose"]');
+      await spec.page.waitForFunction(() => {
+        const s = globalThis.__SP__.store.get();
+        return s.room?.matchNo === 2 && s.room.seats.some((x) => x && x.playerId === s.me.playerId);
+      }, { timeout: 20000 });
+      assert.equal((await specState(spec)).spectating, false);
+      await toPrep([host, spec]);
+      await spec.page.waitForSelector('.readybtn', { timeout: 15000 });
+      const played = await spec.page.evaluate(() => {
+        const s = globalThis.__SP__.store.get();
+        return { priv: !!s.match.private, pill: !!document.querySelector('.gm__dead'), shop: !!document.querySelector('.shopbar, .shopbar-tab'), toggle: !!document.querySelector('[data-testid="seat-reserve"]') };
+      });
+      assert.deepEqual(played, { priv: true, pill: false, shop: true, toggle: false });
+      await sleep(1200);
+      await spec.shot('playing-after-restart');
+      assert.deepEqual(problemsOf([host, spec]), []);
+    } finally {
+      await guest?.terminate().catch(() => {});
+      for (const c of [host, spec]) await c.close();
+      await srv.stop();
+    }
+  });
+
+  test('a match that ends: the result screen first, then the seat in the room, not ready', { timeout: 6 * 60 * 1000 }, async () => {
+    const srv = await startRealServer({ fast: { timerScale: 0.25, combatSpeed: 8, startRound: 1, kit: 3, autoPlace: true, finishAfter: 1 } });
+    const P = (await import('puppeteer-core')).default;
+    const host = new Client(P, srv.base, 'host', { prefix: 'seat-reserve' });
+    const spec = new Client(P, srv.base, 'spec', { prefix: 'seat-reserve', w: 1280, h: 720 });
+    let guest = null;
+    try {
+      guest = await fullRoom(host, spec, srv);
+      await spec.click(`.room-bar__right ${SP}`, '预约座位');
+      await spec.page.waitForFunction(() => /已预约座位/.test(document.querySelector('.room-bar__status')?.textContent || ''), { timeout: 8000 });
+      await host.click('.room-bar__right button', '开始模拟', { timeout: 20000 });
+      await guest.waitFor('m.public', (p) => p.phase === 'INFO_CHECK', 30000);
+      assert.equal((await guest.request({ t: 'room.leave' })).t, 'ok');
+      await toPrep([host]);
+      await host.click('.readybtn', null, { timeout: 10000 });
+
+      await spec.waitFor((s) => s.result, 'the result', 120000);
+      await spec.page.waitForFunction(() => {
+        const s = globalThis.__SP__.store.get();
+        return !s.room?.inMatch && s.room?.seats.some((x) => x && x.playerId === s.me.playerId);
+      }, { timeout: 20000 });
+      // the result screen stays until the player moves on
+      await spec.click('button', '返回同盟', { timeout: 60000 });
+      await spec.page.waitForSelector('.room-screen', { timeout: 10000 });
+      const view = await spec.page.evaluate(() => ({
+        specbar: !!document.querySelector('.specbar__who.is-me'),
+        seats: [...document.querySelectorAll('.seat__name')].map((e) => e.textContent),
+        bar: document.querySelector('.room-bar__right .btn--xl')?.textContent || '',
+      }));
+      assert.equal(view.specbar, false);
+      assert.ok(view.seats.includes('阿米娅'), view.seats.join());
+      assert.match(view.bar, /准备就绪/);
+      await spec.shot('room-seated-after-end');
+      // the host waits for the new player's ready, like any seated Doctor's
+      await host.click('button', '返回同盟', { timeout: 60000 });
+      await host.page.waitForSelector('.room-screen', { timeout: 10000 });
+      assert.equal(await host.page.evaluate(() => [...document.querySelectorAll('.room-bar__right .btn--xl')].some((b) => b.textContent.includes('开始模拟') && b.disabled)), true);
+      // (at a quarter of the timers the screens change while their images still load: those are dropped, not faults)
+      assert.deepEqual(problemsOf([host, spec]).filter((p) => !p.includes('net::ERR_ABORTED')), []);
+    } finally {
+      await guest?.terminate().catch(() => {});
       for (const c of [host, spec]) await c.close();
       await srv.stop();
     }

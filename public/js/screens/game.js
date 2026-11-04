@@ -92,7 +92,7 @@ import { EffectsList } from '../ui/effectsList.js';
 import { RoundDamage } from '../ui/roundDamage.js';
 import { CombatHud } from '../ui/combatHud.js';
 import { SettingsModal, settingsStore } from '../ui/settings.js';
-import { ExitModal, AwayOverlay, awayStore } from '../ui/matchChrome.js';
+import { ExitModal, AwayOverlay, awayStore, SeatReserveButton } from '../ui/matchChrome.js';
 import { RestartVoteBanner } from '../ui/restartVote.js';
 import { openGuide } from '../ui/guide.js';
 import { actions } from '../ui/gameActions.js';
@@ -119,7 +119,7 @@ import { BriefingScreen } from './briefing.js';
 import { BandDraftScreen } from './bandDraft.js';
 import { ResultScreen } from './result.js';
 import { net } from '../net.js';
-import { store, useStore, shallowEqual, serverNow, isSpectating } from '../store.js';
+import { store, useStore, shallowEqual, serverNow, isSpectating, reservedRank } from '../store.js';
 import { battleRunner } from '../battle/runner.js';
 import { isClientCombat, observeTarget, teammateProgress, ownProgress, cameraLayers, layerCamera, sidesOf, resumedWatch, followedScout } from '../battle/observe.js';
 import { screenStrip, playerBonds, playerLayer, detailBondOwner, toggleBond, popupView } from '../ui/watchBonds.js';
@@ -219,7 +219,8 @@ function MatchScreen() {
   const online = useStore((s) => s.connection.status === 'online'); // the ping itself: ui/hud.js TopBar
   const emotes = useStore((s) => s.emotes);
   const roomSolo = useStore((s) => s.room?.mode === 'solo');
-  const spectator = useStore((s) => isSpectating(s.room, s.me.playerId));
+  const spectatorSeat = useStore((s) => isSpectating(s.room, s.me.playerId));
+  const reserved = useStore((s) => reservedRank(s.room, s.me.playerId));
   const gd = useGameData();
 
   const hostRef = useRef(null);
@@ -298,6 +299,9 @@ function MatchScreen() {
   const solo = roomSolo || String(pub?.modeId || '').includes('single');
   const players = sortedPlayers(pub);
   const meP = players.find((p) => p.playerId === myId) || null;
+  // a reserved seat comes at the match's end, while its ending still plays here: that match has no row and no m.private
+  // for the new player, who goes on watching it (server/lobby.js fillReservedSeats)
+  const spectator = spectatorSeat || (!!pub && !priv && !meP);
   // a spectator seat watches like an eliminated player (it has no m.private and no row in m.public)
   const alive = spectator ? false : priv ? priv.alive !== false : meP?.alive !== false;
   const home = homeFieldId(pub, myId);
@@ -1836,7 +1840,7 @@ function MatchScreen() {
           own: watchingOther && alive ? ownProgress(pub, myId, { localDone }) : null } : null} />` : null}
 
       ${showDeadPill(alive, phase) ? (spectator
-        ? html`<div class="gm__dead gm__dead--spectator" role="status"><${GIcon} name="eye" />${t('观战中 · 点击左侧成员头像切换查看')}</div>`
+        ? html`<div class="gm__dead gm__dead--spectator" role="status"><${GIcon} name="eye" />${t('观战中 · 点击左侧成员头像切换查看')}${spectatorSeat ? html`<${SeatReserveButton} reserved=${reserved} size="sm" />` : null}</div>`
         : html`<div class="gm__dead" role="status"><${Icon} name="close" />${t('你已被淘汰 · 可继续观战队友')}</div>`) : null}
 
       <${Ticker} />

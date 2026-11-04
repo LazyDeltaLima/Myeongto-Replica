@@ -11,7 +11,7 @@ import { html, Button, Modal, PingPill, DifficultyTag, Countdown, MicroLabel } f
 import { actions } from './gameActions.js';
 import { toastError } from './toasts.js';
 import { net } from '../net.js';
-import { store, useStore, shallowEqual, emptyMatch, createStore, isSpectating } from '../store.js';
+import { store, useStore, shallowEqual, emptyMatch, createStore, isSpectating, reservedRank } from '../store.js';
 import { GIcon } from './gameComponents.js';
 import { GuideButton } from './guide.js';
 import { countdownWarnAt } from './gameLogic.js';
@@ -75,6 +75,22 @@ export async function quitMatch() {
 }
 
 /**
+ * A spectator seat's 预约座位 / 取消预约 (server/lobby.js header 「Seat reservation」), on the match screen: the seat comes
+ * when the match ends or restarts with a free one.
+ * @param {{ reserved: number, size?: string }} props reserved: reservedRank, 0 = none
+ */
+export function SeatReserveButton({ reserved, size }) {
+  const [busy, setBusy] = useState(false);
+  const toggle = async () => {
+    setBusy(true);
+    await actions.reserveSeat(!reserved);
+    setBusy(false);
+  };
+  return html`<${Button} variant=${reserved ? 'primary' : 'secondary'} size=${size} icon=${reserved ? 'check' : 'user'} active=${!!reserved}
+    class="seat-reserve" data-testid="seat-reserve" loading=${busy} title=${t('模拟结束或重新开始时，有空位就自动入座')} onClick=${toggle}>${reserved ? t('取消预约') : t('预约座位')}<//>`;
+}
+
+/**
  * Exit confirmation modal.
  * @param {{ open: boolean, onClose: Function, solo: boolean, onAway?: Function }} props
  */
@@ -82,6 +98,7 @@ export function ExitModal({ open, onClose, solo, onAway }) {
   const [busy, setBusy] = useState(null);
   // a spectator seat (community report #26) only leaves its seat: nothing of the match is given up
   const spectator = useStore((s) => isSpectating(s.room, s.me.playerId));
+  const reserved = useStore((s) => reservedRank(s.room, s.me.playerId));
   const pub = useStore((s) => s.match.public);
   const myId = useStore((s) => s.me.playerId);
   const restartOn = !spectator && canProposeRestart(pub, myId);
@@ -103,8 +120,10 @@ export function ExitModal({ open, onClose, solo, onAway }) {
   if (spectator) {
     return html`<${Modal} open=${open} onClose=${onClose} tone="red" title=${t('离开观战')} micro="LEAVE SPECTATING" width="6.8rem"
       actions=${html`<${Button} variant="secondary" onClick=${onClose}>${t('取消')}<//>
+        <${SeatReserveButton} reserved=${reserved} />
         <${Button} variant="danger" icon="exit" loading=${busy === 'quit'} onClick=${quit}>${t('离开观战')}<//>`}>
-      <div class="exitm"><p>${t('离开观战席并返回大厅，本局模拟不受影响；观战席空着时可以凭同盟密钥再次观战。')}</p></div>
+      <div class="exitm"><p>${t('离开观战席并返回大厅，本局模拟不受影响；观战席空着时可以凭同盟密钥再次观战。')}</p>
+        ${reserved ? html`<p class="t-amber" data-testid="seat-reserved">${t('已预约座位（第 {n} 位）· 有空位时自动入座', { n: reserved })}</p>` : null}</div>
     <//>`;
   }
   const away = async () => {

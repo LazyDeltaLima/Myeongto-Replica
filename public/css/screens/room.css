@@ -247,6 +247,7 @@
 }
 .specbar__who.is-me { border-color: var(--mint-600); }
 .specbar__who.is-offline { color: var(--text-dim); }
+.specbar__res { color: var(--amber); font-size: .9em; white-space: nowrap; }
 .specbar__who > .icon { width: .16rem; height: .16rem; }
 
 /* ---- bottom bar ----------------------------------------------------------------------------------------- */

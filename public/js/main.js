@@ -38,7 +38,7 @@ import { html, UiHosts, Button, MicroLabel, closeAllDialogs } from './ui/compone
 import { ConnectionBanner } from './ui/connBanner.js';
 import { ToastHost, toast, toastError, describeError } from './ui/toasts.js';
 import { net, identity, NetError, defaultWsUrl } from './net.js';
-import { store, useStore, emptyMatch, selectRoute, sessionResetNotice, isSpectating } from './store.js';
+import { store, useStore, emptyMatch, selectRoute, sessionResetNotice, isSpectating, reservedRank } from './store.js';
 import { data } from './data.js';
 import { GAME_FILES } from './ui/gameComponents.js';
 import { SIM_DATA_FILES } from './battle/runner.js';
@@ -234,6 +234,7 @@ function onRoomState(msg) {
     store.set({ match: emptyMatch() });
     toast(roomFacts(room, myId).seatsOpen ? t('八人同盟需至少 5 名博士才能开始，已返回等待室') : t('无法开始新的模拟，已返回等待室'), 'warn', { ttl: 6000 });
   }
+  if (sameRoom && reservedRank(prevRoom, myId) && seats.some((seat) => seat?.playerId === myId)) toast(t('已按预约入座'), 'success');
   store.set({ room });
   identity.rememberMatch(room.inMatch && seats.some((seat) => seat?.playerId === myId)
     ? { name: store.get().me.name, code: room.code || '' } : null);

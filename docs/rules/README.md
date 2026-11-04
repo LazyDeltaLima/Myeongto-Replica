@@ -49,6 +49,7 @@
 | 서버 재시작 예고 (배포 전 카운트다운, 마지막 5분 판 시작 거부) | `server/local-restart.js`, `public/js/ui/restartNotice.js`, `test/local-restart.test.js` | `ui.md` 「서버 재시작 예고」 |
 | 무중단 배포: 서버 세대(`SP_GEN`, accept·drain·standby, `sp_gen` 쿠키, `/healthz/accept`), 드레인 중 새 방·참가·판 시작 거부, 옛 서버 스스로 종료(최대 3시간), 페이지 옮겨 가기(3초·판 끝·다른 탭) | `server/local-generation.js`, `public/js/ui/generation.js`, `test/local-generation.test.js` | `ui.md` 「무중단 배포 — 서버 세대」 |
 | `SP_MAX_BOTS` (방마다 AI 팀원 한도), `SP_MAX_BOTS_TOTAL`·`SP_MAX_BOTS_PER_ADDR` (서버 전체·네트워크별 AI 팀원 한도, 연결된 사람이 앉은 방의 AI만 셈, 거절은 `BOT_LIMIT`) | `server/local-patch.js` `botCap` | — |
+| 관전자의 자리 예약 (판이 끝나거나 재시작될 때 빈자리에 자동 착석) | `server/lobby.js` `fillReservedSeats`, `public/js/screens/room.js`, `public/js/ui/matchChrome.js`, `test/lobby-seat-reserve.test.js` | `ui.md` 「관전자의 자리 예약」 |
 | AI 팀원 표정 반응 (`SP_BOT_EMOTES=0`이면 끔, upstream 0.2.3) | `server/match/botEmotes.js` | `ui.md` 「upstream 0.2.3 이식 — UI」 |
 | 닫은 창의 판 복구 (타이틀·로비 「이 기기의 판 복구」, 같은 브라우저 토큰, upstream 0.2.3) | `public/js/net.js` `createIdentity`, `public/js/ui/resumeMatch.js`, `server/net.js` (`SESSION_IN_USE`) | `ui.md` 「upstream 0.2.3 이식 — UI」 |
 | 이모티콘 공식/유저 탭 | `shared/emote-art.js`, `public/img/emotes/*`, `public/js/ui/emotes.js` | — |

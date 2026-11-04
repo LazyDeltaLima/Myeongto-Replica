@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1544 of 1762 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1550 of 1768 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false,
@@ -1781,5 +1781,11 @@
   "改为 8 人同盟": "8인 연합으로 변경",
   "八人同盟没有 AI 队友，{n} 名 AI 队友将被移出。确定改为 8 人同盟吗？": "8인 연합에는 AI 팀원이 없어 AI 팀원 {n}명이 빠집니다. 8인 연합으로 바꿀까요?",
   "改为 8 人": "8인으로 변경",
-  "八人同盟需至少 5 名博士才能开始，已返回等待室": "8인 연합은 박사 5명 이상이어야 시작할 수 있어 대기실로 돌아왔습니다"
+  "八人同盟需至少 5 名博士才能开始，已返回等待室": "8인 연합은 박사 5명 이상이어야 시작할 수 있어 대기실로 돌아왔습니다",
+  "预约座位": "자리 예약",
+  "取消预约": "예약 취소",
+  "预约 {n}": "예약 {n}",
+  "已按预约入座": "예약한 자리에 앉았습니다",
+  "已预约座位（第 {n} 位）· 有空位时自动入座": "자리 예약 중({n}번째) · 빈자리가 나면 자동으로 앉습니다",
+  "模拟结束或重新开始时，有空位就自动入座": "시뮬레이션이 끝나거나 다시 시작될 때 빈자리가 있으면 자동으로 앉습니다"
 }

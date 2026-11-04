@@ -42,7 +42,7 @@ import { SettingsButton } from '../ui/settings.js';
 import { LoadoutButton } from './loadout.js';
 import { net } from '../net.js';
 import { useDocClass } from '../ui/device.js';
-import { store, useStore, shallowEqual, emptyMatch, isSpectating } from '../store.js';
+import { store, useStore, shallowEqual, emptyMatch, isSpectating, reservedRank } from '../store.js';
 import { difficultyInfo } from './lobby.js';
 import { RoomChat } from '../ui/chat.js';
 import { MatchQueueDialog, mmss, canProposeStart, proposeStart } from '../ui/matchQueue.js';
@@ -287,6 +287,7 @@ function SpectatorBar({ facts, myId, busy, onRemove, onSit }) {
     <span class="specbar__label"><${Icon} name="eye" />${t('观战席')}<b class="num">${facts.spectators.length}</b><span class="num t-dim">/${MAX_SPECTATORS}</span></span>
     ${facts.spectators.map((s) => html`<span key=${s.playerId} class=${`specbar__who${s.playerId === myId ? ' is-me' : ''}${s.connected === false ? ' is-offline' : ''}`}>
       ${s.connected === false ? html`<${Icon} name="wifiOff" />` : null}${s.name || t('博士')}${s.playerId === myId ? html`<span class="seat__you">${t('你')}</span>` : null}
+      ${s.reserved ? html`<span class="specbar__res num" title=${t('模拟结束或重新开始时，有空位就自动入座')}>${t('预约 {n}', { n: s.reserved })}</span>` : null}
       ${facts.isHost ? html`<${Button} variant="ghost" size="sm" square=${true} icon="close" loading=${busy === `rs${s.playerId}`}
         onClick=${() => onRemove(s.playerId)} aria-label=${t('移出观战者 {name}', { name: s.name || '' })} title=${t('移出该观战者')} />` : null}
     </span>`)}
@@ -437,6 +438,9 @@ export function RoomScreen() {
   // spectator seats: the host frees one; a spectator takes a free player seat with room.join of this room
   const removeSpectator = (playerId) => run(`rs${playerId}`, () => net.request('room.removeSpectator', { playerId }));
   const sit = () => run('sit', () => net.request('room.join', { code: room.code }));
+  // the next free seat (server/lobby.js header 「Seat reservation」): the toggle while none is free or one is reserved
+  const myReserved = reservedRank(room, me.playerId);
+  const reserve = () => run('reserve', () => net.request('room.reserveSeat', { on: !myReserved }));
   // 랜덤 매칭 for the empty seats (header): the host queues the room, any Doctor of it cancels
   const matching = coop && !!room.matching;
   const canFill = coop && facts.isHost && facts.humans.length < facts.seats.length && !matching;
@@ -476,7 +480,7 @@ export function RoomScreen() {
         // the 8-player queue's 「바로 시작」 (ui/matchQueue.js): any queued Doctor of the room may propose it
         ? html` <${Button} variant="primary" size="sm" icon="play" loading=${busy === 'vote'} disabled=${!online} onClick=${() => run('vote', proposeStart)}>${t('提议提前开始')}<//>` : null}</span>`
     : facts.spectating
-      ? html`<span class="t-lo"><${Icon} name="eye" />${t('观战中 · 不占博士席位，模拟开始后可切换观看各位博士')}</span>`
+      ? html`<span class="t-lo"><${Icon} name="eye" />${myReserved ? t('已预约座位（第 {n} 位）· 有空位时自动入座', { n: myReserved }) : t('观战中 · 不占博士席位，模拟开始后可切换观看各位博士')}</span>`
     : !coop
       ? html`<span class="t-mint">${t('*模拟协议已就绪，准许进入模拟')}</span>`
     : facts.isHost
@@ -570,7 +574,12 @@ export function RoomScreen() {
               <${Button} variant="primary" size="xl" icon="play" loading=${busy === 'start'} disabled=${!facts.canStart || !online} onClick=${start}>${t('开始模拟')}<//>
             <//>`
           : facts.spectating
-            ? html`<${Button} variant="secondary" size="xl" icon="eye" disabled=${true}>${t('观战中')}<//>`
+            ? (myReserved || facts.emptySeats === 0
+              ? html`<${Tooltip} text=${t('模拟结束或重新开始时，有空位就自动入座')}>
+                  <${Button} variant=${myReserved ? 'primary' : 'secondary'} size="xl" icon=${myReserved ? 'check' : 'user'} active=${!!myReserved} data-testid="seat-reserve"
+                    loading=${busy === 'reserve'} disabled=${!online} onClick=${reserve}>${myReserved ? t('取消预约') : t('预约座位')}<//>
+                <//>`
+              : html`<${Button} variant="secondary" size="xl" icon="eye" disabled=${true}>${t('观战中')}<//>`)
           : html`<${Button} variant=${myReady ? 'primary' : 'secondary'} size="xl" icon=${myReady ? 'check' : 'hourglass'} active=${myReady}
               loading=${busy === 'ready'} disabled=${!online || !facts.mine} onClick=${toggleReady}>${myReady ? t('已就绪') : t('准备就绪')}<//>`}
       </div>

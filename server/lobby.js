@@ -128,6 +128,14 @@
 //     time → room.closed {kicked} to it. A spectator in a LOBBY room may take a free player seat with room.join of the same
 //     code; a player never switches to spectating in place (ALREADY). Disconnect / grace / reconnect / expiry work as for
 //     a player seat (the seat is kept and given back on resume).
+//   * Seat reservation (maintainer decision 2026-11-04, a remake feature): room.reserveSeat { on } — a spectator asks for
+//     the next free player seat, or takes the request back; first asked, first seated, kept until it is taken back or its
+//     spectator seat goes (room.state `spectators[].reserved`: the place in that order). Refused while the room is
+//     matchmaking (ERR.MATCHING), as room.join is; a player gets ALREADY. fillReservedSeats seats the connected ones
+//     whenever seats are free outside a match: a match's end (before a vote's new match and its seat count, so the
+//     spectator plays it without room.start's ready check — the reservation was the agreement) and a seat freed in LOBBY
+//     (a human gone, an AI removed, the size raised). Only free seats: an AI seat stays the host's to remove. A dropped
+//     spectator is skipped and keeps the place. Being seated keeps the session's replay (a result screen still owed).
 //   * 랜덤 매칭 (maintainer decisions 2026-10-13, a remake feature): room.queue / room.queueRoom / room.unqueue /
 //     room.queueAccept / room.queueVote go to the Matchmaker (server/matchmaking.js, its header has the rules): a per-difficulty co-op
 //     queue of single players and co-op rooms with empty seats; a confirmed group of four gets the oldest queued room
@@ -254,8 +262,10 @@ export class Room {
     this.hostId = null;
     /** @type {(Seat | null)[]} */
     this.seats = new Array(this.size).fill(null);
-    /** @type {{ playerId: string, name: string, connected: boolean }[]} spectator seats, ≤ MAX_SPECTATORS (header) */
+    /** @type {{ playerId: string, name: string, connected: boolean, reservedSeq?: number }[]} spectator seats, ≤ MAX_SPECTATORS (header) */
     this.spectators = [];
+    /** the last seat reservation's number: `reservedSeq` orders them (header) */
+    this.reserveSeq = 0;
     /** @type {any} running Match instance */
     this.match = null;
     /** @type {{ live: boolean, ended: boolean, disposed: boolean, match: any } | null} */
@@ -285,6 +295,9 @@ export class Room {
   /** @param {string} playerId @returns {{ playerId: string, name: string, connected: boolean } | null} */
   spectatorOf(playerId) { return this.spectators.find((s) => s.playerId === playerId) || null; }
 
+  /** The spectators with a seat reservation, first asked first (header). */
+  reservedSpectators() { return this.spectators.filter((s) => s.reservedSeq).sort((a, b) => a.reservedSeq - b.reservedSeq); }
+
   /** Lowest free seat index, or -1. */
   freeSeat() { return this.seats.indexOf(null); }
 
@@ -304,6 +317,7 @@ export class Room {
 
   /** `room.state` frame (DESIGN §8.1) plus `inMatch`. */
   toState() {
+    const reserved = this.reservedSpectators();
     return {
       t: 'room.state',
       code: this.code,
@@ -324,7 +338,8 @@ export class Room {
       seats: this.seats.map((s) => (s
         ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left }
         : null)),
-      spectators: this.spectators.map((s) => ({ playerId: s.playerId, name: s.name, connected: s.connected })),
+      spectators: this.spectators.map((s) => ({ playerId: s.playerId, name: s.name, connected: s.connected,
+        ...(s.reservedSeq ? { reserved: reserved.indexOf(s) + 1 } : {}) })),
     };
   }
 }
@@ -454,6 +469,7 @@ export class Lobby {
       case 'room.diy': return this.diy(session, msg);
       case 'room.spectate': return this.spectate(session, msg);
       case 'room.removeSpectator': return this.removeSpectator(session, msg);
+      case 'room.reserveSeat': return this.reserveSeat(session, msg);
       case 'room.queue': return this.queue.queue(session, msg);
       case 'room.queueRoom': return this.queue.queueRoom(session);
       case 'room.unqueue': return this.queue.unqueue(session);
@@ -625,6 +641,39 @@ export class Lobby {
     return OK;
   }
 
+  /** room.reserveSeat: a spectator asks for the next free player seat, or takes that back (header). */
+  reserveSeat(session, { on }) {
+    const room = this.roomOf(session);
+    if (!room) return fail(ERR.NOT_IN_ROOM);
+    const s = room.spectatorOf(session.playerId);
+    if (!s) return fail(ERR.ALREADY, 'seated as a player');
+    if (on === !!s.reservedSeq) return OK;
+    if (on) {
+      if (room.matching) return fail(ERR.MATCHING, 'the room is matchmaking');
+      s.reservedSeq = ++room.reserveSeq;
+      this.fillReservedSeats(room);
+    } else delete s.reservedSeq;
+    this.broadcastState(room);
+    return OK;
+  }
+
+  /**
+   * Seat the connected spectators with a reservation on the free seats, first asked first (header). The caller
+   * broadcasts the state (startMatch does). Not removeMember + room.join: that would drop the replay of the result screen.
+   */
+  fillReservedSeats(room) {
+    if (room.match || room.matching || room.disposed) return;
+    for (const s of room.reservedSpectators()) {
+      const idx = room.freeSeat();
+      if (idx < 0) return;
+      const session = this.registry.byId(s.playerId);
+      if (!s.connected || !session || session.roomCode !== room.code) continue;
+      room.spectators.splice(room.spectators.indexOf(s), 1);
+      room.seats[idx] = this.humanSeat(idx, session, room.season);
+      this.seatLog(room, session, 'took a reserved seat');
+    }
+  }
+
   ready(session, { ready }) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -726,6 +775,7 @@ export class Lobby {
     keep.forEach((s, i) => { s.seat = fits ? s.seat : i; room.seats[s.seat] = s; });
     for (const s of keep) if (!s.isBot && s.playerId !== room.hostId) s.ready = false;
     this.log.info(`[lobby] ${room.code} size → ${size}${keep.length < taken.length ? ` (${taken.length - keep.length} AI seat(s) freed)` : ''}`);
+    this.fillReservedSeats(room);
     this.broadcastState(room);
     return OK;
   }
@@ -758,6 +808,7 @@ export class Lobby {
     const target = room.seats[seat];
     if (!target || !target.isBot) return fail(ERR.BAD_TARGET, 'seat does not hold an AI');
     room.seats[seat] = null;
+    this.fillReservedSeats(room);
     this.broadcastState(room);
     return OK;
   }
@@ -1011,8 +1062,13 @@ export class Lobby {
     for (const s of room.spectators) if (!s.connected) this.startGrace(room, s);
     const host = room.hostId ? room.seatOf(room.hostId) : null;
     if (!host || host.isBot || host.left) this.migrateHost(room);
-    if (room.activeHumans().length === 0) this.disposeRoom(room, 'empty');
-    else if (vote && room.seatsOpen()) {
+    if (room.activeHumans().length === 0) {
+      this.disposeRoom(room, 'empty');
+      return;
+    }
+    // after the departed seats went, before the new match of a vote counts them (header)
+    this.fillReservedSeats(room);
+    if (vote && room.seatsOpen()) {
       this.log.info(`[lobby] ${room.code} back to the room: ${room.activeHumans().length}/${LARGE_MIN_PLAYERS}+ Doctors for an 8-seat match`);
       this.broadcastState(room);
     } else if (vote && !this.restartNotice?.startRefusal()) {
@@ -1261,7 +1317,10 @@ export class Lobby {
     if (room.disposed) return; // onLeave may have ended the match and emptied the room
     if (room.hostId === playerId) this.migrateHost(room);
     if (room.activeHumans().length === 0) this.disposeRoom(room, 'empty');
-    else this.broadcastState(room);
+    else {
+      this.fillReservedSeats(room); // no-op during a match: the seat stays the departed player's until it ends
+      this.broadcastState(room);
+    }
   }
 
   /**
@@ -1371,7 +1430,10 @@ export class Lobby {
         const p = person(s);
         return p ? { seat: s.seat, isBot: false, ...p } : null;
       }),
-      spectators: room.spectators.map(person).filter(Boolean),
+      spectators: room.spectators.map((s) => {
+        const p = person(s);
+        return p && s.reservedSeq ? { ...p, reservedSeq: s.reservedSeq } : p;
+      }).filter(Boolean),
     };
   }
 
@@ -1417,7 +1479,10 @@ export class Lobby {
     for (const p of Array.isArray(snap.spectators) ? snap.spectators : []) {
       if (mode !== 'coop' || room.spectators.length >= MAX_SPECTATORS) break;
       const session = p && take(p);
-      if (session) room.spectators.push({ playerId: session.playerId, name: session.name, connected: false, awayAt: now });
+      if (!session) continue;
+      const reservedSeq = Number.isInteger(p.reservedSeq) && p.reservedSeq > 0 ? p.reservedSeq : 0;
+      room.spectators.push({ playerId: session.playerId, name: session.name, connected: false, awayAt: now, ...(reservedSeq ? { reservedSeq } : {}) });
+      room.reserveSeq = Math.max(room.reserveSeq, reservedSeq);
     }
     room.hostId = ids.get(snap.hostId) ?? null;
     if (!room.hostId || !room.seatOf(room.hostId)) this.migrateHost(room);

@@ -449,6 +449,8 @@ export const C2S = {
   // room.closed { reason: 'kicked' }). room.leave / g.leave leave a spectator seat like a player seat.
   'room.spectate': { code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v) },
   'room.removeSpectator': { playerId: isId },
+  // a spectator asks for the next free player seat, or takes that back (server/lobby.js header 「Seat reservation」)
+  'room.reserveSeat': { on: isBool },
   // 랜덤 매칭 (server/matchmaking.js): the per-difficulty co-op queue of four (`size` 8: of eight); queue = alone, queueRoom = the host queues
   // the co-op room's humans for its empty seats, unqueue leaves (a room: the whole room), queueAccept answers room.matchFound,
   // queueVote proposes 「바로 시작」 in an 8-player queue of five or more (its vote is answered with queueAccept).
