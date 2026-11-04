@@ -435,6 +435,14 @@
   `DEFAULT` + `customRangeGrid`(그 상자 안의 적, 치유 스킬도 적), rangeId 없으면 `DEFAULT`(공격 중) — `sim.md` 「스킬 범위 발동」.
   공식 표의 행은 그대로 따른다(중장은 `TAKE_DAMAGE`; 2026-10-28 관리자 결정으로 예외 없음).
 
+**화면·배치** (관리자 제보 2026-11-04, 제시카 더 리버레이티드에서 난 문제. 앞의 넷은 시험이 잡는다)
+- 전투 중 `unit.dir`을 바꾸면 `tellDir(battle, unit)`을 부른다(`kits/shared/tier1.js`). `b.snap`에 방향이 없어 안 부르면 사거리만 돌고 모델·방향 원은 처음 방향에 남는다(`test/content/kit-facing.test.js`).
+- 문구의 배치 제한(「只能部署…」·「只能放置于…」)은 주석이 아니라 규칙이다: 토큰 필드와 서버 `_legal`·클라 `gameLogic` 둘 다에 넣는다. 새 문구는 시험이 실패한다(같은 파일).
+- 다른 오퍼레이터의 fx 사건을 빌려 쓰면 그 사람의 대체 그림이 나온다: `kitofficial.js`에 계획을 넣거나 `test/render/pick-event-list.js`에 무엇이 그리는지 적는다. 투사체 `_mainEffect`·`_effectsWhenStop`은 `fx-unplayed-local-list.js`의 `todo`로 두면 안 보이는 채 남으니 묶음 안에서 잇거나 관리자의 할 일 목록에 올린다.
+- 조건이 붙은 자식 능력의 시전 이펙트는 공격마다 틀면 안 된다: `fxmap.js KIT_CAST` + 키트 순간(`test/render/cond-cast-fx.test.js`).
+- golden·키트 시험은 소환물을 규칙대로 놓는다(`tools/golden.mjs`의 `ownerBeside`·`ownerRange`). 먼 칸에 놓으면 돌아서기·표식·오라·포탄을 아무 시험도 지나지 않는다.
+- 화면 확인은 아레나에서 네 방향으로: 샌드백을 사거리 밖에 두고 모델·방향 원을 본 뒤, 앞에 두고 투사체를 본다(공격 때 몸을 돌리는 동작이 방향 전달 누락을 가린다). 비행 시각은 1배속에서 판단한다.
+
 **동작 근거**
 - 출처 순서: 공식 테이블(skill_table blackboard, character_table 재능, battle_equip_table 모듈) → PRTS 비고 → 나무위키 평가.
   PRTS·나무위키는 요약·기계 번역이 틀릴 수 있다(사키코 공격 속도 「자신 제외」 오독). 원문 문장을 인용한다.

@@ -15,6 +15,7 @@ import { createFxLayer, buffProgressOn } from '../../public/js/render/fxgame.js'
 import { activationEffects, KIT_CAST } from '../../public/js/render/fxmap.js';
 // the fixed plays of the client keys the cases assert (they run without the client-only rows)
 import { PLAYS as FIXED } from '../helpers/fxPlays.js';
+import { PICK_EVENTS, UNJUDGED, UNJUDGED_MAX } from './pick-event-list.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const GAME = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
@@ -114,6 +115,21 @@ test('every kit event whose stand-in an operator with official effects drops has
       assert.ok(!KIT_OFFICIAL[n]?.[b], `${n} (${b}) has a rule and a verdict`);
     }
   }
+});
+
+test('every event a 自选 kit sends with a visual has a plan or says what draws it (no event borrowed from another operator unseen)', () => {
+  const seen = new Set();
+  const missing = [];
+  for (const [n, b] of kitEvents()) {
+    if (!readdirSync(path.join(KITS, 'ops')).includes(`op-${b}.js`)) continue;
+    if (fxSpec(n, {}).a === 'none' || KIT_OFFICIAL[n]?.[b]) continue;
+    seen.add(`${b}|${n}`);
+    if (!PICK_EVENTS[`${b}|${n}`]) missing.push(`${b}|${n}`);
+  }
+  assert.deepEqual(missing, [], 'a plan in render/fx/kitofficial.js, or an entry in test/render/pick-event-list.js');
+  assert.deepEqual(Object.keys(PICK_EVENTS).filter((k) => !seen.has(k)), [], 'no stale entry');
+  const unjudged = Object.values(PICK_EVENTS).filter((v) => v === UNJUDGED).length;
+  assert.ok(unjudged <= UNJUDGED_MAX, `${unjudged} unjudged, at most ${UNJUDGED_MAX}: a new pair says what draws it`);
 });
 
 test("a 'skill' verdict names a skill whose activation draws something", () => {

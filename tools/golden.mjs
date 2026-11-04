@@ -76,7 +76,8 @@ import { buildBattleSpec, createBattleFromSpec } from '../server/sim/spec.js';
 import { createRng, deriveSeed } from '../server/sim/rng.js';
 import { GameData } from '../server/match/gamedata.js';
 import { setupMatchWaves, buildNormalWave, buildBossWave, buildUniteWave, isFlyKey, routeByMotion, roundMods } from '../server/match/waves.js';
-import { buildDeployMap, positionClass, canPlace, ownerRangeKeys, tileKey } from '../server/match/board.js';
+import { buildDeployMap, positionClass, canPlace, ownerRangeKeys, ownerBesideKeys, tileKey } from '../server/match/board.js';
+import { LOCAL_DIY_PICKS } from '../shared/local-diy.js';
 import { computeBonds, bondSnapshot } from '../server/match/bondsMeta.js';
 import { Match } from '../server/match/Match.js';
 import { VirtualScheduler } from '../server/match/scheduler.js';
@@ -384,6 +385,7 @@ function layout(gd, stageId, wanted, { field = 'normal', colOffset = 0, max = 12
     for (const { tokenId, count } of gd.placeableTokens(u.chessId, { skillIndex: u.skillIndex ?? null })) {
       const trec = data.tokens[tokenId];
       let allowed = null;
+      if (trec && trec.ownerBeside) allowed = ownerBesideKeys(u.row, u.col);
       if (trec && trec.ownerRange) {
         const rec = data.chess[u.chessId];
         const lo = resolveRecordLoadout(rec, { skillIndex: u.skillIndex, moduleId: u.moduleId });
@@ -1068,6 +1070,26 @@ export function diyScenarios() {
 // ---------------------------------------------------------------------------------------------------------------
 // family: fxpaths (the effect event golden's own battles, tools/fx-golden.mjs — not in FAMILY_NAMES: no battle digest)
 
+/** The free tiles a summon piece of `owner` may take by its rules (as PlayerState._legal), nearest to the owner first. */
+export function summonTiles(trec, owner, ownerRec, stageId, units) {
+  const map = buildDeployMap(data.stages[stageId], { field: 'normal' });
+  const used = new Set(units.map((x) => tileKey(x.row, x.col)));
+  const range = trec.ownerRange || trec.ownerRangeOutside
+    ? ownerRangeKeys(attackRangeGrid(loadoutRecord(ownerRec, resolveRecordLoadout(ownerRec, { skillIndex: owner.diy?.skillIndex }))), owner.row, owner.col, owner.dir) : null;
+  const beside = trec.ownerBeside ? ownerBesideKeys(owner.row, owner.col) : null;
+  const cls = trec.rangedTilesOnly ? 'high' : positionClass(trec);
+  const free = [];
+  for (let r = 12; r >= 9; r--) for (let c = 2; c <= 10; c++) {   // the board rows and columns of layout()
+    const k = tileKey(r, c);
+    if (used.has(k) || !canPlace(map, cls, r, c)) continue;
+    if (trec.ownerRange && !range.has(k)) continue;
+    if (trec.ownerRangeOutside && range.has(k)) continue;
+    if (beside && !beside.has(k)) continue;
+    free.push([r, c]);
+  }
+  return free.sort((a, b) => Math.hypot(a[0] - owner.row, a[1] - owner.col) - Math.hypot(b[0] - owner.row, b[1] - owner.col));
+}
+
 /**
  * Battles for the effect paths no golden battle takes (2026-10-21): 凯尔希·思衡托 S3's flight to her 战术锚点 (the diy
  * family places no summons), 予愿安洁莉娜 S2's glide up and down (the layouts face right) and her S3 flight (it needs an
@@ -1075,6 +1097,9 @@ export function diyScenarios() {
  * given, against the round's real wave twice over (+ `flyers`: flying kinds, one every 4 s from 12 s); `at` pins a piece's tile;
  * a `anchor` piece adds her 战术锚点 on the nearest ranged tile outside her attack range ("仅可以部署在凯尔希·思衡托攻击
  * 范围外的远程位"). Only tools/fx-golden.mjs runs them: a change here moves no battle digest.
+ * `fxpath-summon-<code>` (2026-11-04): every 自选 pick with a hand-placed summon, generated from the data so a new pick joins by
+ * itself, with its pieces placed by their rules (summonTiles) — the diy family places none, so a kit's turn to its piece, its
+ * mark, its auras and what they fire ran in no golden battle (涤火杰西卡's shell).
  */
 export function fxPathScenarios() {
   const FXP_FLYERS = ['enemy_1005_yokai', 'enemy_1269_nhfly', 'enemy_1355_mrfly', 'enemy_1407_hummbd'].flatMap((k) => [k, k]);
@@ -1093,6 +1118,15 @@ export function fxPathScenarios() {
       { chessId: 'chess_char_6_diy2_b', pick: { charId: 'char_1050_chen3', skillIndex: 0 } },
     ] },
   ];
+  for (const charId of LOCAL_DIY_PICKS) {
+    const summons = Object.values(data.backups.tokens).filter((t) => t.placeable && (t.owners || []).some((o) => o.split('@')[0] === charId)).map((t) => t.tokenId);
+    if (!summons.length || charId === 'char_1052_kalts2') continue;   // fxpath-kalts2-s3 above is hers
+    const skillIndex = data.backups.units[charId].forms[Object.keys(data.backups.units[charId].forms)[0]].skills.length - 1;
+    FXP.push({ id: `fxpath-summon-${charId.replace(/^char_\d+_/, '')}`, stageId: 'act1autochess_m01', modeId: 'mode_multi_normal', summons, pieces: [
+      { chessId: 'chess_char_6_diy1_b', pick: { charId, skillIndex } },
+      { chessId: 'chess_char_6_diy2_b', pick: { charId: charId === 'char_1050_chen3' ? 'char_2027_wang' : 'char_1050_chen3', skillIndex: 0 } },
+    ] });
+  }
   return FXP.map((f) => {
     const gd = gdFor(f.modeId);
     const wanted = f.pieces.map((p) => ({ chessId: p.chessId, diy: p.pick, rec: diyRecordOf(data.chess[p.chessId], p.pick, data) }));
@@ -1118,6 +1152,13 @@ export function fxPathScenarios() {
       free.sort((a, b) => Math.hypot(a[0] - u.row, a[1] - u.col) - Math.hypot(b[0] - u.row, b[1] - u.col));
       if (!free.length) throw new Error(`fxpaths: no tile for ${f.anchor} on ${f.stageId}`);
       units.push({ uid: units.length + 1, kind: 'token', tokenId: f.anchor, ownerUid: u.uid, row: free[0][0], col: free[0][1], dir: u.dir });
+    }
+    for (const tokenId of f.summons ?? []) {
+      const u = units[units.findIndex((x) => x.chessId === f.pieces[0].chessId)];
+      const trec = data.backups.tokens[tokenId];
+      const [r, c] = summonTiles(trec, u, wanted[0].rec, f.stageId, units)[0] ?? [];
+      if (r == null) throw new Error(`fxpaths: no tile for ${tokenId} on ${f.stageId}`);
+      units.push({ uid: units.length + 1, kind: 'token', tokenId, ownerUid: u.uid, row: r, col: c, dir: u.dir });
     }
     const round = f.round ?? BAND_ROUND[7];
     const seed = deriveSeed(20261021, f.id);

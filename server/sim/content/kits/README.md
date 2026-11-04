@@ -329,6 +329,12 @@ Each item is a mistake this project already made once. Tick every one for every 
   `battle.heal`: 禁疗 and 无法被友方治疗 (`noHeal`) do not stop it and no 治疗加成 scales it (damage.js heal `regen`).
   Examples: 安洁莉娜 兼职工作, the 吟游者 trait (professions.js `bardRegen`), 调香师, 瑕光 S2, 铃兰 S3, 锡人;
   `test/content/feedback5-regen.test.js` (GitHub #96 / #137). A per-second 「恢复…生命」 without such a note stays a heal.
+- [ ] **11b. Facing, placement and borrowed events** (docs/rules/diy.md 「화면·배치」, maintainer report 2026-11-04) — a kit setting
+  `unit.dir` calls `tellDir` (`test/content/kit-facing.test.js`); a placement restriction in the text is a rule of the piece,
+  enforced in the prep (same test); an event another operator's kit also sends has its own plan in
+  `render/fx/kitofficial.js` or says what draws it (`test/render/pick-event-list.js`); a cast effect of a conditional
+  child goes in `fxmap.js KIT_CAST` (`test/render/cond-cast-fx.test.js`). Checked on screen in `/debug.html`: the shield or summon on each side, the
+  model and facing ring with the sandbag out of range, then the projectile at 1× speed.
 - [ ] **12. Presentation (clips, body movement, height)** — for every operator, not only 自选 (maintainer decision
   2026-10-12): also when a pool chess's kit, model or clips change. The rules come from the tables and PRTS, the motion only
   from the client prefabs; the renderer knows one begin / loop / end / idle set per skill and plays nothing else unless
