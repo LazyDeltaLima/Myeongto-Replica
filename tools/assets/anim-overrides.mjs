@@ -52,6 +52,9 @@ export const SKILL_CLIP_OVERRIDES = Object.freeze({
   'op:char_4182_oblvns:': Object.freeze({
     1: clips({ loop: 'Skill_2_Trans_A' }),
   }),
+  // 薇薇安娜 (char_4098_vvana): skchr_vvana_1 plays no begin; its plain cast S1_Attack2 is the attack clip (`Attack` / `Attack_Down`),
+  // its 蓄力 cast S1_Attack `Skill_1_Attack` (SKILL_VARIANTS). The `S1` mode's Idle→Skill_1_Idle is the 蓄力 state (render/units.js FORMS)
+  'op:char_4098_vvana:': Object.freeze({ 0: 'attack' }),
   // 蕾缪安 (char_4193_lemuen): skchr_lemuen_2 casts no clip (`_playSkillBeginAnim` 0); its mode S2 attacks with `Normal`, the
   // plain Attack_Begin / Attack_Loop, and aims with `Aim`, a channel `_default {Skill_2_Begin, Skill_2_Idle, Skill_2_End}` —
   // the aim is the S2 skill clip's `aim` signal (SIGNAL_CLIPS)
@@ -245,7 +248,8 @@ export const SKILL_VARIANTS = Object.freeze({
   'op:char_426_billro:': Object.fromEntries([0, 1, 2].map((i) => [i, { charged: { loop: 'Skill_2_Loop', idle: 'Skill_2_Idle', end: 'Skill_2_End' } }])),
   // 薇薇安娜 S3 from her second cast of a deployment (vvana_s_3[check] → mode 4 S3_2: Attack→Skill_3_Attack_B, Idle→Skill_3_Idle_B;
   // the replace pair Skill_3_Begin_A→Skill_3_Begin_B; the skin mix Skill_3_Attack_B / _Idle_B → Idle is Skill_3_End_B)
-  'op:char_4098_vvana:': { 2: { later: { begin: 'Skill_3_Begin_B', loop: 'Skill_3_Attack_B', idle: 'Skill_3_Idle_B', end: 'Skill_3_End_B' } } },
+  // 薇薇安娜 S1 cast with every charge stored: S1_Attack `Skill_1_Attack`, played by the attack it replaces (`strike`, not at the cast)
+  'op:char_4098_vvana:': { 0: { charged: { loop: 'Skill_1_Attack', via: null, strike: true } }, 2: { later: { begin: 'Skill_3_Begin_B', loop: 'Skill_3_Attack_B', idle: 'Skill_3_Idle_B', end: 'Skill_3_End_B' } } },
 });
 
 /**
@@ -419,8 +423,9 @@ export function applyAnimOverrides(key, anims, names = null) {
       for (const clip of new Set([anims.skills?.[i], anims.skill?.index === Number(i) ? anims.skill : null])) {
         if (!clip) continue;
         for (const [name, v] of Object.entries(vars)) {
-          const o = Object.fromEntries(Object.entries(v).filter(([, n]) => !names || names.includes(n)));
-          if (Object.keys(o).length) (clip.variants ||= {})[name] = o;
+          // (a clip the skeleton lacks is dropped; a variant's other fields — `via`, `strike` — stay with its clips)
+          const o = Object.fromEntries(Object.entries(v).filter(([, n]) => typeof n !== 'string' || !names || names.includes(n)));
+          if (Object.values(o).some((n) => typeof n === 'string')) (clip.variants ||= {})[name] = o;
         }
       }
     }

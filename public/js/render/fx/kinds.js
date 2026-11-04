@@ -114,6 +114,7 @@ export const FX_KINDS = Object.freeze({
   mantraArc: { a: 'bolt', c: 0xc77dff }, mantraGrant: { a: 'mark', c: 0xc77dff }, mantraGate: { a: 'reticle', c: 0xc77dff },
   veenBounce: { a: 'counter', c: 0xffd27a }, veenVolley: { a: 'volley', c: 0xffd27a },
   vvanaS3Later: { a: 'none', c: 0xffd27a }, // 薇薇安娜 S3 from her second cast: its sound mode only (shared/skill-modes.js SKILL_SUB_MODES)
+  vvanaCharge: { a: 'none', c: 0xffd27a }, // 薇薇安娜 S1 蓄力: its model form only (render/units.js FORMS)
   harpoon: { a: 'beam', c: 0xd0c0a0 }, arrowRain: { a: 'volley', c: 0xfff2d0 }, mark: { a: 'reticle', c: 0xff7b8a },
   bounce: { a: 'counter', c: 0xffd9a0 }, dying: { a: 'mark', c: 0xff5a4a },
   // beams

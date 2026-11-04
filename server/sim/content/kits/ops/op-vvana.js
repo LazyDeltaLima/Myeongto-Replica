@@ -72,6 +72,8 @@ const RANGE_3_2 = Object.freeze([[0, 0], [0, 1], [0, 2], [0, 3]].map((p) => Obje
 const S1_HITS = 2, S1_CHARGED_HITS = 3, S2_TWICE_HITS = 2, S3_HITS = 2, S3_LATER_HITS = 3;
 /** AFT-Y: the 法术脆弱 renewal (as 史尔特尔's AFT-Y, kits/ops/chess_char_5_07-surtr.js). */
 const FRAGILE_IV = 0.2, FRAGILE_DUR = 0.3;
+/** After activate's one charge: still ≥ max − 1 ⇒ every charge was stored (蓄力) — a charged cast spends them all. */
+const s1Charged = (unit, skill) => !!unit.mem.vvanaCharged || (skill.maxCharges > 1 && skill.charges >= skill.maxCharges - 1);
 const AFTD_TAG = 'vvanaAftD';
 const CANDLE_KEY = 'talent:vvana:candle';
 const SHIELD_KEY = 'talent:vvana:shield';
@@ -135,9 +137,10 @@ export default {
         [S1]: {
           kind: 'charges',
           attack: { atkScale: num(b1.atk_scale, 1), hitsFn: (b, u) => (u.mem.vvanaCast === 'charged' ? S1_CHARGED_HITS : S1_HITS) },
+          // the cast's clip (render): the plain cast is the attack clip, the 蓄力 one Skill_1_Attack
+          castVariant: ({ unit, skill }) => (s1Charged(unit, skill) ? 'charged' : null),
           onStart({ unit, skill }) {
-            // after activate's one charge: still ≥ max − 1 ⇒ every charge was stored (蓄力) — a charged cast spends them all
-            const charged = !!unit.mem.vvanaCharged || (skill.maxCharges > 1 && skill.charges >= skill.maxCharges - 1);
+            const charged = s1Charged(unit, skill);
             unit.mem.vvanaCast = charged ? 'charged' : 'plain';
             if (charged) { skill.charges = 0; skill.sp = 0; }
           },
@@ -238,11 +241,18 @@ export default {
         const own = unit.def?.rangeGrid;
         // S1's 蓄力 mode: both charges stored ⇒ her range is 3-2 until the next end of the skill
         if (unit.skill?.id === S1) {
-          const leave = () => { unit.mem.vvanaCharged = false; setGrid(battle, unit, own); };
+          // the 蓄力 mode's model (vvana_s_1[mode]: render/units.js FORMS). Display only.
+          const showCharged = (form) => {
+            if ((unit.form ?? null) === form) return;
+            unit.form = form;
+            battle.fx('vvanaCharge', { x: unit.x, y: unit.y, id: unit.id, form });
+          };
+          const leave = () => { unit.mem.vvanaCharged = false; showCharged(null); setGrid(battle, unit, own); };
           battle.on('tick', () => {
             const sk = unit.skill;
             if (!up(unit) || unit.mem.vvanaCharged || !sk || !(sk.maxCharges > 1) || sk.charges < sk.maxCharges) return;
             unit.mem.vvanaCharged = true;
+            showCharged('charged');
             setGrid(battle, unit, RANGE_3_2);
           }, { owner: unit });
           battle.on('skillEnd', (c) => { if (c.unit === unit && c.skill.id === S1 && unit.mem.vvanaCharged) leave(); }, { owner: unit });

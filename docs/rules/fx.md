@@ -3719,6 +3719,7 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - Mon3tr·벨로네 S3 공격 타이밍(2026-11-04, 관리자 제보 「아레나 2배속에서 S3 공격 이펙트가 첫 1~2회만」): 이 모드의 전투는 공식도 `timeScale` 2라 아레나 2배속이 실제 판 속도다. `build-data.mjs`가 스킬의
   공격 클립을 이름 규칙의 `S3` 모드에서 읽어 Mon3tr은 `Attack`(2.83초)으로 재서 시전이 0.51게임초뿐이었고, 재생 속도 상한(2 ÷ 2)으로 `FxDelay` 0.6게임초가 끝나기 전에 시전이 끝나 `monstr_skill_03_start_01`이
   그려지지 않았다. 공식은 착지 모드 `S3_Reborn`의 `Skill_3_Loop`(1.5초, 타격 0.667) → 시전 1.13게임초. `attackModeIndex`가 `SKILL_SUB_MODES` `teleport`의 모드를 쓴다(벨로네 `Skill_3_Loop_A`도 같은 길, 길이는 같음). 재발 방지(2026-11-04): 시뮬 클립과 화면 클립이 같은지 전 오퍼레이터(`test/sim/attack-clip-view.test.js`, 다른 4건은 목록으로 대기), 시전이 끝나기 전에 이펙트가 시작되는지 선발 전 스킬(`test/render/op-sweep-fx.test.js`), 소환물을 놓은 golden 전투 `diy-summon-*`.
+  같은 날 전 선발을 다시 봄: 시뮬 공격 클립과 화면이 실제로 트는 클립의 길이·타격이 모두 같다(`test/sim/attack-clip-view.test.js`, 스탠스 스킬은 클립 없음). 왕 S2·토가와 사키코 S2는 이름만 달랐고, 비비아나 S1·유넥티스 S3은 화면 클립이 틀렸다 → `render.md` 「Spine 클립 커버리지」.
 - 리(`char_322_lmlee`) 재능 1(2026-11-04): 저지하는 동안 `lmlee_t_1[self]` `lmlee_buff_01_start`가 그에게, `lmlee_t_1[enemy]` `lmlee_debuff_01_start`가 저지당한 적에게 — 시뮬
   `talent:lmlee:self`·`talent:lmlee:foe:<그의 id>`를 `visible`로 알리고 `KEY_FX`가 그린다(공격 속도 값은 그대로, 효과만 추가). [화면 미확인: 실제 판]
 - **메시 입자 pivot**(2026-11-04, 공식 클라에서 확인 — 클라 자체 엔진 빌드의 메시 지오메트리 잡. 같은 판 Unity 기본 플레이어와 다르다): 메시 좌표에 (pivot.x × 크기.x, −pivot.z × 크기.y, pivot.y × 크기.z)를 더한 뒤 입자 크기·회전. 곧 메시 축으로 (x·sx², −z·sy², y·sz²)이고 메시 경계는 안 쓴다(경계 × (x, y, −z)는 기본 플레이어와 GPU 인스턴싱 길의 식 — 앞서 2026-11-04에 이것을 넣었다가 사진과 달라 뺐다). `fxplayer.js` 셰이더 `piv`.

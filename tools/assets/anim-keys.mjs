@@ -170,7 +170,9 @@ export function keyRoles(op, durations) {
     const ma = work > 0 ? abClip(attackAbility(modes[work]?.abilities), work) : null;
     // the mode's first-attack ability beside its attack (折桠 S2 `FirstAttack`)
     const firstPath = m > 0 && !held ? Object.keys(modes[m]?.abilities || {}).find((p) => FIRST.test(p) && modes[m].abilities[p]?.key) : null;
-    const sIdle = work > 0 && pairs(work).Idle ? J('Idle', work) : null;
+    // (a mode without an Idle pair rests on the plain Idle, also where the Default mode pairs it away: 森蚺 Default Idle→Skill_2_Idle,
+    // S2 no pair)
+    const sIdle = work > 0 && (pairs(work).Idle || pairs(0).Idle) ? J('Idle', work) : null;
     const c = { begin: force == null ? J(s?.begin) : null, loop: null, end: endPath ? J(abs[endPath].key, m > 0 ? m : 0) : null, idle: sIdle !== idle ? sIdle : null, index: i };
     let why = [];
     let loopAb = null;
@@ -191,7 +193,8 @@ export function keyRoles(op, durations) {
       if (cast.begin) c.begin ??= cast.begin;
       if (cast.end) c.end ??= cast.end;
       // a one-shot cast before a mode that attacks with a clip of its own (余 S3 `CastAnimation`): the cast is the begin
-      if (!cast.begin && !cast.end && !c.begin && sIdle && (J(abs[castPath].end, m) === sIdle || respawn > 0) && ma?.loop && !ma.stance && ma.loop !== out.attack?.loop && ma.loop !== cast.loop) {
+      // (no `_endAnimKey` either: 森蚺 S3 `Hensin`, whose mode rests on the Idle pair the Default mode has too)
+      if (!cast.begin && !cast.end && !c.begin && sIdle && (J(abs[castPath].end, m) === sIdle || respawn > 0 || !abs[castPath].end) && ma?.loop && !ma.stance && ma.loop !== out.attack?.loop && ma.loop !== cast.loop) {
         c.begin = cast.loop; c.loop = null; loopAb = null; why.push('cast = begin');
       } else if (respawn > 0 && c.begin && !cast.begin && !cast.end && ma?.loop && !ma.stance && ma.loop !== cast.loop) {
         // the 【移动】's own clip beside the prefab's begin (贝洛内 S3 FlyToTarget Skill_3_ReStart_Begin): no attack — the mode attacks

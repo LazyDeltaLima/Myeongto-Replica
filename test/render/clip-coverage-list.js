@@ -136,8 +136,6 @@ export const UNPLAYED = {
   },
   char_416_zumama: {
     Attack_Down: 'todo: the attack on a target below her (高台下 clip)',
-    Skill_2_Loop: 'todo: S2 震慑劈砍 attack (mode S2)',
-    Skill_2_End: 'todo: S2 震慑劈砍 end',
   },
   // 涤火杰西卡 / 鸿雪 (2026-11-04)
   char_1034_jesca2: {

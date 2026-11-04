@@ -454,6 +454,8 @@ export function headTilesForUnit(o) {
  *   Reload_Break, then Attack_Loop (the form's attack role, its first-attack begin).
  * - 丰川祥子 S2's organ timbre (her kit's 'spGain' fx → form 'organ', null back to the piano): charpack S2_AttackSpeed
  *   Idle→Skill_2_Idle_B, Attack→Skill_2_Loop_B over the piano that S2 sets from the deployment (anims `equip`).
+ * - 薇薇安娜 S1's 蓄力 (her kit's 'vvanaCharge' fx → form 'charged', null as the skill ends; vvana_s_1[mode] → mode S1): Idle→Skill_1_Idle,
+ *   entered on the skin's mix Idle→Skill_1_Idle = Skill_1_Begin; no mix back.
  * - 泥岩 (char_311_mudrok) S3's 10 s sleep (her kit: fx 'stone' → form 'dormant', 'rockfall' → null; skchr_mudrok_3
  *   SleepAura `_default`): Skill_2_Begin, asleep on Skill_2_Sleep, Skill_2_Awake as she wakes (`leave`), then the S3 mode's
  *   Skill_2_Idle / Skill_2_Attack. Her Back skeleton has none of the three: asleep on Skill_2_Idle (a role `idle` may list
@@ -592,6 +594,9 @@ export const FORMS = Object.freeze({
   }),
   char_4182_oblvns: Object.freeze({
     organ: Object.freeze({ change: null, roles: Object.freeze({ idle: 'Skill_2_Idle_B', attack: loop('Skill_2_Loop_B') }) }),
+  }),
+  char_4098_vvana: Object.freeze({
+    charged: Object.freeze({ change: 'Skill_1_Begin', roles: Object.freeze({ idle: 'Skill_1_Idle' }) }),
   }),
   char_311_mudrok: Object.freeze({
     dormant: Object.freeze({ change: 'Skill_2_Begin', leave: 'Skill_2_Awake', endsOnDeath: true, roles: Object.freeze({ idle: Object.freeze(['Skill_2_Sleep', 'Skill_2_Idle']), deploy: 'Skill_2_Sleep', stun: loop('Skill_2_Sleep'), attack: null, skill: null }) }),

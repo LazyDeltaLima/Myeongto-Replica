@@ -1279,8 +1279,8 @@
       ],
       "enemies": {"enemy_1288_duskls":[27,7,20,3469,145105],"enemy_1288_duskls_2":[57,12,44,14651,406129],"enemy_1292_duskld":[51,6,45,20322,642761]},
       "hooks": [1,158,6900,1409,1409,2367,3186,0,40,149,73,72,0,33699,551,103,135,109,1,106,0,2,0],
-      "events": {"atk":1639,"deploy":23,"die":40,"dmg":3186,"engage":12,"face":23,"fx":1481,"leak":109,"skill":145,"spawn":147,"status":1730,"swing":1439},
-      "fx": {"bulletClear":4,"burst":2,"ember":66,"kitHit":667,"logosExecute":13,"logosLexicon":563,"revive":32,"shield":66,"shieldBreak":66,"vvanaS3Later":2},
+      "events": {"atk":1639,"deploy":23,"die":40,"dmg":3186,"engage":12,"face":23,"fx":1498,"leak":109,"skill":145,"spawn":147,"status":1730,"swing":1439},
+      "fx": {"bulletClear":4,"burst":2,"ember":66,"kitHit":667,"logosExecute":13,"logosLexicon":563,"revive":32,"shield":66,"shieldBreak":66,"vvanaCharge":17,"vvanaS3Later":2},
       "snaps": "2028efb6 7a4d9c2e b2f155a8 20f094cb 2551ebf7 a7da5e9b f6b20ba3 78788ff7 ecc0a491 a9ea53e0 20334bd4 12334ccb b6a2faaa 052f338b 7268cf2e 694ca847 f379a64b c90ffede b0663509 65fe630a acd70d03 1969ca4a f47f3ca1"
     },
     "diy-031": {
@@ -1320,8 +1320,8 @@
       ],
       "enemies": {"enemy_1005_yokai_2":[12,12,0,92,0],"enemy_1005_yokai_3":[12,0,11,32751,0],"enemy_9009_acfort":[12,0,12,35161,0]},
       "hooks": [1,62,6900,226,226,225,225,0,35,58,3,3,0,8789,0,0,36,23,1,23,0,0,0],
-      "events": {"atk":226,"deploy":24,"die":35,"dmg":225,"fx":76,"leak":23,"skill":6,"spawn":50,"status":23,"swing":238},
-      "fx": {"beam":32,"enemyShot":12,"enemySkill":32},
+      "events": {"atk":226,"deploy":24,"die":35,"dmg":225,"fx":84,"leak":23,"skill":6,"spawn":50,"status":23,"swing":238},
+      "fx": {"beam":32,"enemyShot":12,"enemySkill":32,"vvanaCharge":8},
       "snaps": "723651d8 8667f7cc 177aecf3 a860a8b0 f2b5ca49 17bec1be 6dfc3be3 4e0605aa 1226cd4b 2348317c 74cebcbc 2f159831 cc94c8d7 b33b17fc 6c96a866 e7c08319 8a046abe 3d92ae66 c7fbbcc1 99b69a44 9fa4c70d 2bd53f88 11b088bc"
     },
     "diy-032": {
@@ -1363,8 +1363,8 @@
       ],
       "enemies": {"enemy_10031_cnvsld":[39,10,29,4108,165936],"enemy_1019_jshoot_2":[57,19,38,20078,202076],"enemy_9008_acbunn":[21,6,14,50370,298538]},
       "hooks": [1,155,6900,981,981,1192,1251,0,59,141,36,35,0,16970,264,58,117,81,1,61,0,11,137],
-      "events": {"atk":1013,"deploy":35,"die":60,"dmg":1251,"engage":12,"face":34,"fx":195,"leak":81,"skill":71,"spawn":133,"status":77,"swing":1016},
-      "fx": {"burst":11,"dodge":137,"kitHit":34,"shield":2,"shieldBreak":1,"teleport":5,"undying":1,"vvanaS3Later":4},
+      "events": {"atk":1013,"deploy":35,"die":60,"dmg":1251,"engage":12,"face":34,"fx":203,"leak":81,"skill":71,"spawn":133,"status":77,"swing":1016},
+      "fx": {"burst":11,"dodge":137,"kitHit":34,"shield":2,"shieldBreak":1,"teleport":5,"undying":1,"vvanaCharge":8,"vvanaS3Later":4},
       "snaps": "87cff7e3 fc7a0556 8debb419 629ba617 456b354a fd568e0e d25cbde9 1865b7fd 6c84c878 2bc84b10 9f9cefa7 30fc974e 20a73964 bb71f491 6c9c7f61 11042009 7974e863 af5d50fb 05488a25 47e16935 604c3f8d 592471b1 0cb1ec22"
     },
     "diy-033": {
