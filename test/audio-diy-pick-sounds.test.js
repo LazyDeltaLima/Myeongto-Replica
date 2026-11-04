@@ -437,6 +437,7 @@ describe('선발 贝洛内 / 维伊 / 怒潮凛冬 / Mon3tr: buff, custom-trigge
     assert.equal(count(r.played, 'p_atk_kxdtctmpr_s'), 1, 'monstr_s_3[respawn]');
     assert.equal(count(r.played, 'p_atk_kxdtctmnd_s'), 1, 'RespawnEnd');
     assert.ok(r.played.includes('p_atk_kxdtctm_s') && r.played.includes('p_imp_kxdtctm_s'), `S3_Reborn attacks (${r.played})`);
+    assert.ok(count(r.played, 'p_imp_kxdtctm_s') <= count(r.played, 'p_atk_kxdtctm_s'), `one impact a swing, her 流失 ticks silent (${r.played})`);
   });
 
   test('the fx events they follow (pure)', () => {

@@ -2167,6 +2167,9 @@ export class AudioManager {
           // 2026-10-29 (docs/rules/audio.md 「스킬·재능 투사체 소리」): an unreleased drone's additional damage — its own Funnel
           // projectile's HIT, not one of the attack's impacts
           if (e[6] === 2) { if (e.length > 5 && e[5] != null) this._kitSound(funnelHitKey(this.units.get(e[5]))); continue; }
+          // 2026-11-04 (maintainer report: Mon3tr S3's impact sound over and over): a unit's loss on itself is no hit — her 流失
+          // (monstr_s_3[bleeding], every 0.1 s, a buff with no audio signal) and the like (Battle.loseHp, source = the unit)
+          if (e.length > 5 && e[5] != null && e[5] === e[1]) continue;
           // 2026-10-22: a unit 帝国炮火先兆者's shell hit as it landed (the 'bombard' of this moment; its damage has no source)
           if (e.length > 5 && e[5] == null && this._shellAt === now) { this._kitSound('emppnt:hit'); this._kitSound('emppnt:shell'); continue; }
           const by = this.lastAttacker.get(e[1]);
