@@ -1196,6 +1196,7 @@ class TrailRenderer {
   constructor(tr, node, root, def) {
     this.tr = tr; this.node = node; this.root = root;
     this.def0 = tr;   // 2026-10-22: the shared definition (a clip's `trail:time` drives an own copy)
+    this.minDistK = 1;   // FxInstance.setMoveScale
     this.batch = new StripBatch(makeMaterial(def.materials[tr.mat], def.lib), TRAIL_PTS);
     this.batch.mesh.renderOrder = sortingOrder(tr);
     root.add(this.batch.mesh);
@@ -1215,7 +1216,7 @@ class TrailRenderer {
     tmpM.copy(this.root.matrixWorld).invert().multiply(this.node.matrixWorld);
     const p = tmpV.set(0, 0, 0).applyMatrix4(tmpM);
     const last = ((this.head + this.count - 1) % TRAIL_KEEP) * 4;
-    if (this.node.visible && (!this.count || Math.hypot(p.x - R[last], p.y - R[last + 1], p.z - R[last + 2]) >= tr.minDist)) {
+    if (this.node.visible && (!this.count || Math.hypot(p.x - R[last], p.y - R[last + 1], p.z - R[last + 2]) >= tr.minDist * this.minDistK)) {
       if (this.count === TRAIL_KEEP) { this.head = (this.head + 1) % TRAIL_KEEP; this.count--; }
       const w = ((this.head + this.count) % TRAIL_KEEP) * 4;
       R[w] = p.x; R[w + 1] = p.y; R[w + 2] = p.z; R[w + 3] = this.time;
@@ -2849,6 +2850,7 @@ export class FxInstance {
    */
   constructor(def, opts = {}) {
     this.def = def;
+    this.moveScale = 1; this.shaderAhead = 0;   // setMoveScale
     this.hold = opts.hold ?? null; // local patch: freeze the effect at this time (s) — a mark that stays once shown
     this.q = QUALITY[opts.quality] || QUALITY.high;
     this.time = 0;
@@ -3325,6 +3327,7 @@ export class FxInstance {
       this.wait = 0;
       this.unity.visible = true;
     }
+    if (this.moveScale !== 1) { const d = dt * this.moveScale; this.shaderAhead += dt - d; dt = d; }   // setMoveScale
     if (this.hold != null && !this.stopping && this.time + dt > this.hold) dt = Math.max(0, this.hold - this.time); // local patch
     this.time += dt;
     if (this.clipTracks.length) this.applyClip(this.time);
@@ -3349,6 +3352,30 @@ export class FxInstance {
     for (const t of this.trails) t.update(dt, this.time - (t.node.userData.t0 || 0));
     for (const t of this.lines) t.update(dt, this.time - (t.node.userData.t0 || 0)); // local patch
     for (const m of this.meshMatList) setTime(m, this.time - (m.userData.t0 || 0));
+    if (this.shaderAhead) this.shaderClock();
+  }
+
+  /**
+   * 2026-11-04 (official client: `Projectile._UpdateEffectTimeScale` → `ProjectileEffect.ForceApplyPlaybackSpeedMultiplier` →
+   * `UpdatePlaybackSpeed`): a projectile's move scale is its main effect's too. Each particle system's `simulationSpeed` and
+   * Animator's `speed` take it, each TrailRenderer's `time` and `minVertexDistance` are divided by it. So the whole effect runs at
+   * that share of the time here (the ribbons' ages with it), its ribbons record their points that much farther apart, and only
+   * what runs on the engine's clock stays as it was: the shaders' `_Time` and the tweens' scrolls (shaderClock).
+   */
+  setMoveScale(k) {
+    if (this.empty) return;
+    this.moveScale = k;
+    for (const t of this.trails) t.minDistK = 1 / k;
+  }
+
+  /** The materials' clock goes on at full rate (setMoveScale): ahead of the effect's by `shaderAhead`. */
+  shaderClock() {
+    const k = this.shaderAhead;
+    const set = (m, n) => setTime(m, this.time - (n.userData.t0 || 0) + k);
+    for (const s of this.systems) { set(s.material, s.node); if (s.trailBatch) set(s.trailBatch.material, s.node); }
+    for (const t of this.trails) set(t.batch.material, t.node);
+    for (const t of this.lines) set(t.batch.material, t.node);
+    for (const m of this.meshMatList) set(m, m);
   }
 
   /**

@@ -118,3 +118,28 @@ test('the hit effects timed for a content shot wait for it while it is slowed, a
     assert.equal(hits(), 2, 'an untouched shot lands on time');
   } finally { globalThis.fetch = fetch0; }
 });
+
+test('a held shot\'s main effect: particles and its ribbon at the move scale, the shader clock on, all back when released', async () => {
+  const { FxInstance } = await import('../../public/js/render/fxplayer.js');
+  const mm = (v) => ({ m: 0, s: v });
+  const ps = { dur: 1, loop: true, delay: mm(0), speedMul: 1, space: 0, scaling: 1, prewarm: false, life: mm(1), speed: mm(0), color: { m: 0, a: [1, 1, 1, 1] }, size: mm(0.1), rot: mm(0), max: 1000, gravity: mm(0), flipRot: 0, rate: mm(100), bursts: [], mods: {},
+    shape: { type: 10, radius: 1, angle: 0, arc: 360, thick: 1, length: 1, pos: [0, 0, 0], rotE: [0, 0, 0], scale: [1, 1, 1], box: [1, 1, 1] }, render: { mode: 0, mat: 'm', mesh: null, align: 0, pivot: [0, 0, 0], order: 0 } };
+  const node = (name, parent, extra = {}) => ({ name, parent, active: true, pos: [0, 0, 0], rot: [0, 0, 0, 1], scale: [1, 1, 1], ...extra });
+  const def = { name: 'shot', duration: 1, geoms: {}, lib: { texture: () => null }, clips: [], mainRot: [0, 0, 0, 1],
+    nodes: [node('root', -1), node('p', 0, { ps }), node('r', 0, { trailR: { mat: 'm', time: 1, width: 0.1, widthCurve: [[0, 1, 0, 0]], minDist: 0.1, align: 0, texMode: 0, grad: { c: [[0, 1, 1, 1], [1, 1, 1, 1]], a: [[0, 1], [1, 1]], mode: 0 } } })],
+    materials: { m: { shader: 'Torappu/Particles/Additive', tex: { _MainTex: { img: 't', tiling: [1, 1], offset: [0, 0] } }, floats: {}, colors: {} } } };
+  const run = (inst, secs) => { for (let i = 0; i < secs * 60; i++) inst.update(1 / 60); };
+  const free = new FxInstance(def, { quality: 'high' }), held = new FxInstance(def, { quality: 'high' });
+  held.setMoveScale(0.05);
+  run(free, 1); run(held, 1);
+  assert.ok(Math.abs(free.time - 1) < 1e-6 && Math.abs(held.time - 0.05) < 1e-6, `effect time ${free.time} / ${held.time}`);
+  assert.ok(held.systems[0].n <= free.systems[0].n / 10, `particles at 5 %: ${held.systems[0].n} of ${free.systems[0].n}`);
+  assert.ok(Math.abs(held.trails[0].minDistK - 20) < 1e-9, 'the ribbon\'s points 20 × farther apart');
+  const uTime = (x) => x.systems[0].material.uniforms.uTime.value;
+  assert.ok(Math.abs(uTime(held) - 1) < 1e-6, `the shader clock runs on at full rate: ${uTime(held)}`);
+  held.setMoveScale(1);
+  run(held, 1);
+  assert.ok(Math.abs(held.time - 1.05) < 1e-6 && Math.abs(uTime(held) - 2) < 1e-6, `released: ${held.time}, ${uTime(held)}`);
+  assert.equal(held.trails[0].minDistK, 1);
+  free.dispose(); held.dispose();
+});

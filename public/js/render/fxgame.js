@@ -2104,6 +2104,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     ownFx.add(e);
     return true;
   }
+  /** A held shot's main effect plays at its move scale, when it is a ProjectileEffect (`mainRot`: fx_extract.py projectile_turn). */
+  const effectRate = (rec) => { if (rec.inst?.def?.mainRot) rec.inst.setMoveScale(rec.rate ?? 1); };
   /** The battle clock a flying trail's effect may last to, at its speed now. */
   const trailEnd = (rec, def) => clockS + rec.dur * (1 - rec.k) / (rec.rate ?? 1) + (def?.duration || 2) + 0.5;
   /**
@@ -2119,6 +2121,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       trails.splice(trails.indexOf(rec), 1);
     } else if (rec) {
       rec.rate = Number(o.rate);
+      effectRate(rec);
       const l = live.find((x) => x.flight === rec);
       if (l) l.until = trailEnd(rec, l.inst.def);
     }
@@ -2142,6 +2145,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (!mod || !def || !trails.includes(rec)) { const i = trails.indexOf(rec); if (i >= 0) { trails.splice(i, 1); if (rec.back) boomerangCaught(rec.src); } return; }
       const inst = new mod.fxp.FxInstance(def, { quality: q() });
       rec.inst = inst;
+      effectRate(rec);   // slowed while its file loaded
       placeTrail(rec);
       addLive(inst, { view: null, owner: null, buff: false, until: trailEnd(rec, def) + (rec.back || 0), flight: rec }, layers.over);
       trimLive();
@@ -6128,6 +6132,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         paused: live.filter((l) => l.paused && !l.inst.done).map((l) => l.inst.def?.name ?? '?'), // 2026-10-21: held by a pause behaviour (stepPauses)
         mode0: live.filter((l) => l.tag === 'mode0' && !l.inst.done && !l.inst.stopping).map((l) => l.inst.def?.name ?? '?'), // 2026-10-21: the Default mode's (defaultModeFx)
         trailAt: trails.map((r) => (r.inst ? [+r.inst.object.position.x.toFixed(2), +r.inst.object.position.y.toFixed(2), +r.k.toFixed(2)] : [r.k])), // local patch
+        trailClocks: trails.map((r) => (r.inst ? { k: r.k, moveScale: r.inst.moveScale, time: r.inst.time } : null)), // 2026-11-04: FxInstance.setMoveScale
       };
     },
   };

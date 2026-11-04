@@ -48,7 +48,7 @@ describe('逻各斯 S3: the enemy shots drawn fly with the sim', { skip }, () =>
     await page.evaluate(() => globalThis.__debug.arena.castNow());
     const read = () => page.evaluate(() => {
       const d = globalThis.__debug, bt = d.arena.battle(), g = d.arena.stats().view.fxGame;
-      return { t: bt.time, on: !!d.arena.op().skill?.active, ks: g.trailAt.map((a) => a[a.length - 1]), sim: bt.projectiles.list.filter((x) => x.source?.side === 'enemy').length };
+      return { t: bt.time, on: !!d.arena.op().skill?.active, ks: g.trailAt.map((a) => a[a.length - 1]), clocks: g.trailClocks, sim: bt.projectiles.list.filter((x) => x.source?.side === 'enemy').length };
     });
     await sleep(3000);
     const a = await read();
@@ -61,6 +61,12 @@ describe('逻各斯 S3: the enemy shots drawn fly with the sim', { skip }, () =>
     const ka = Math.min(...a.ks), kb = Math.min(...b.ks.filter((k) => k > ka));
     const rate = (kb - ka) / (b.t - a.t);
     assert.ok(Math.abs(rate - 1 / 6) < 0.05, `flight per game s ${rate} (${JSON.stringify([a, b])})`);
+    // its main effect plays at the same 5 % (the client's ForceApplyPlaybackSpeedMultiplier); the same shot by its k
+    const of = (r, k) => r.clocks.find((c) => c && Math.abs(c.k - k) < 0.011);
+    const ca = of(a, ka), cb = of(b, kb);
+    assert.ok(ca && cb && ca.moveScale === 0.05 && cb.moveScale === 0.05, `held effects: ${JSON.stringify([ca, cb])}`);
+    const play = (cb.time - ca.time) / (b.t - a.t);
+    assert.ok(Math.abs(play - 0.05) < 0.02, `effect time per game s ${play}`);
     // no new shot near the end; the view plays the sim's events a moment later
     await page.waitForFunction(() => globalThis.__debug.arena.op().skill.timeLeft < 1, { timeout: 40000, polling: 50 });
     await page.evaluate(() => { const d = globalThis.__debug; for (const e of d.arena.bags()) d.arena.battle().applyStatus(e, 'stun', { duration: 99, source: null }); });
