@@ -27,7 +27,8 @@ import { whenPlays } from './conds.js';
  * line prefab's own duration with `life: 'once'` (2026-10-24: a line with `tag` also ends when a later plan's `stop` names
  * it, one with `life: 'skill'` as the operator's skill ends; `line: [field]` with one field naming a list runs through its
  * units in order); or a flight `fly` (tiles / s) from the operator to the event's point —
- * a play with `after: 'fly'` starts when it lands. A 'point' play may name its own ground point `at: [x, y]`.
+ * a play with `after: 'fly'` starts when it lands; with `tag`, a later plan's `stop` ends it in the air. A 'point' play may
+ * name its own ground point `at: [x, y]`.
  * 2026-10-21: a flight with `to` (the event's field naming units) is a projectile at each unit from the operator's muzzle,
  * `gap` s apart, followed, playing `hit` [names] on it as it lands; one with `from: 'point'` flies from the event's point
  * back to the operator; either may carry `rope` (a line from the operator to the flying head) and `pass` { n, on } (`n` on
@@ -389,6 +390,17 @@ export const KIT_OFFICIAL = {
   // with billro_talent_enhance_mark, else 1), whose `_generalAbilities` keep the trait's Trait_Eff buff billro_trait_eff →
   // billro_beidong_buff_03 (modes.json attach[2]): her Default mode's look stays through that skill (fxgame.js
   // defaultModeFx ends it at the start, this plays it again until the end)
+  // 涤火杰西卡 S3's shell (kits/ops/op-jesca2.js): ExtraBomb's `_castEffects` as it fires, projectile_chr_jesca2_s3_bomb's
+  // `_mainEffect` along its flight to the end point of her range ('bombardShell' x / y; speed 5), and its `_effectsWhenStop`
+  // where it stops — the first enemy it touches, often before that end point ('bombard' x / y), which ends the flight
+  bombardShell: {
+    jesca2: cite(['char_1034_jesca2/Modes/S3/Body/Attack/ExtraBomb', 'projectile_chr_jesca2_s3_bomb'], () => ({
+      play: [{ n: 'jesca2_skill_03_start_02', life: 'once', cast: true }, { n: 'jesca2_skill_03_trail_02', fly: 5, tag: 'jesca2Shell' }],
+    })),
+  },
+  bombard: {
+    jesca2: cite('projectile_chr_jesca2_s3_bomb', () => ({ stop: ['jesca2Shell'], play: [once('jesca2_skill_03_hit_02', 'point')] })),
+  },
   shell: {
     billro: cite(['billro_s_1[eff_cond]', 'billro_trait_eff'], (o) => {
       const p = billro(0, o.charged);

@@ -66,8 +66,6 @@ export const UNPLAYED_LOCAL = Object.freeze({
   "projectile_chr_horn_s2_full_03|horn_skill_02_trail_02_03": "todo: 号角 S2's stored shots by stage (projectile_chr_horn_s2_full_* / melee_*)",
   "projectile_chr_horn_s2_full_04|horn_skill_02_trail_02_04": "todo: 号角 S2's stored shots by stage (projectile_chr_horn_s2_full_* / melee_*)",
   "projectile_chr_horn_s2_full_05|horn_skill_02_trail_02_05": "todo: 号角 S2's stored shots by stage (projectile_chr_horn_s2_full_* / melee_*)",
-  "projectile_chr_jesca2_s3_bomb|jesca2_skill_03_hit_02": "todo: 涤火杰西卡 S3's shell (projectile_chr_jesca2_s3_bomb: the kit's event draws no flight)",
-  "projectile_chr_jesca2_s3_bomb|jesca2_skill_03_trail_02": "todo: 涤火杰西卡 S3's shell (projectile_chr_jesca2_s3_bomb: the kit's event draws no flight)",
   "judge_t_1|judge_shield_all_01": "todo: 斥罪 T1's held shield effect beside its start and break",
   "projectile_chr_mantra_s2|mantra_bounce_trail_01": "todo: 真言's bounce trail and T2 tile mark (AttachListenerToTileAbility effectKey)",
   "projectile_chr_mantra_s3_2|mantra_bounce_trail_01": "todo: 真言's bounce trail and T2 tile mark (AttachListenerToTileAbility effectKey)",

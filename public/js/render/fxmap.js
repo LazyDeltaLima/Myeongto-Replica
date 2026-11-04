@@ -137,6 +137,12 @@ export const VARIANT_MODES = Object.freeze({ char_4098_vvana: Object.freeze({ 2:
 export const variantModes = (charId, skillIndex) => Object.values(VARIANT_MODES[charId]?.[skillIndex] || {});
 
 /**
+ * Cast effects a mode's list holds for a child ability that fires only on a condition and is the kit's event, not every
+ * attack: 涤火杰西卡 S3's ExtraBomb (kitofficial.js 'bombardShell'). Their swings skip them (fxgame.js boundFor).
+ */
+export const KIT_CAST = Object.freeze(new Set(['jesca2_skill_03_start_02']));
+
+/**
  * The extracted prefabs mode `n` binds for `role` ('cast' on the attacker, 'hit' on the target, 'trail'), in order; [] for
  * no mode / nothing extracted.
  * @param {any} bind modes.json entry

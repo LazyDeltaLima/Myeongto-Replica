@@ -12,7 +12,7 @@ import { fxSpec } from '../../public/js/render/fx/kinds.js';
 import { KIT_OFFICIAL, kitOfficialPlan, kitOperator, tplPlays } from '../../public/js/render/fx/kitofficial.js';
 import { keyPlays, HIT_KEYS } from '../helpers/fxBindings.js';
 import { createFxLayer, buffProgressOn } from '../../public/js/render/fxgame.js';
-import { activationEffects } from '../../public/js/render/fxmap.js';
+import { activationEffects, KIT_CAST } from '../../public/js/render/fxmap.js';
 // the fixed plays of the client keys the cases assert (they run without the client-only rows)
 import { PLAYS as FIXED } from '../helpers/fxPlays.js';
 
@@ -156,6 +156,22 @@ test('the rules name prefabs the client binds for that operator', () => {
       }
     }
   }
+});
+
+test('涤火杰西卡 S3\'s shell: the bomb\'s cast and flight as it fires, its stop effect where it stops; her other attacks do not cast it', () => {
+  const ctx = { skill: 2 };
+  const fire = kitOfficialPlan('bombardShell', { id: 1, t: 0.6 }, 'jesca2', ctx);
+  assert.deepEqual(fire.play.map((p) => p.n), ['jesca2_skill_03_start_02', 'jesca2_skill_03_trail_02']);
+  assert.equal(fire.play[0].cast, true, 'played as her cast: the facing picks its _up / _down copy');
+  assert.deepEqual([fire.play[1].fly, fire.play[1].tag], [5, 'jesca2Shell'], 'speed 5, as the sim (op-jesca2.js BOMB_SPEED)');
+  const stop = kitOfficialPlan('bombard', { id: 1, r: 1.7 }, 'jesca2', ctx);
+  assert.deepEqual(stop.stop, ['jesca2Shell'], 'a shell bursting early ends its flight there');
+  assert.deepEqual(stop.play.map((p) => [p.n, p.on]), [['jesca2_skill_03_hit_02', 'point']]);
+  assert.equal(kitOfficialPlan('bombardShell', { id: 1 }, 'lemuen', ctx), null, '蕾缪安\'s shell stays hers');
+  assert.ok(KIT_CAST.has('jesca2_skill_03_start_02'));
+  const fxgame = readFileSync(new URL('../../public/js/render/fxgame.js', import.meta.url), 'utf8');
+  assert.ok(fxgame.includes("role === 'cast' ? names.filter((n) => !KIT_CAST.has(n)) : names"), 'a swing skips it (fxgame.js boundFor)');
+  assert.ok(fxgame.includes('owner: p.tag ? opId : null') && fxgame.includes('...(p.tag ? { tag: p.tag } : {})'), 'a tagged flight can be stopped');
 });
 
 test('kitOfficialPlan: the moments and lifetimes of the templates', () => {

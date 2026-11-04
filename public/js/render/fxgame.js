@@ -61,7 +61,7 @@
 import { syncThreeCamera, OFFICIAL } from './projection.js';
 import { fxBundleOf, effectsFor } from './fxmap.js';
 import { noteEffects, NOTE_FLIGHT } from './fxmap.js';
-import { attackMode, boundEffects, fortressEffects, modelessTrail } from './fxmap.js'; // local patch: the mode bindings (modes.json)
+import { attackMode, boundEffects, fortressEffects, KIT_CAST, modelessTrail } from './fxmap.js'; // local patch: the mode bindings (modes.json)
 import { activationEffects, VARIANT_MODES, variantModes } from './fxmap.js'; // local patch: a skill activation's effects (2026-11-03: a cast's mode by its variant)
 import { foeEffects, castTiming, castPhase, CAST_EVENT } from './fxmap.js'; // 2026-10-10: enemy-held mode buffs, cast timings
 import { clipGroup, hitLoopEnd, deployEffect, deadEffect } from './fxmap.js'; // 2026-10-11: clip variants, looping hits, deploy / dead effects
@@ -2969,7 +2969,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const dur = Math.hypot(x - op.x, y - op.y) / p.fly, z = camRef ? bodyZ(camRef, op, SPAWN_FRAC[2]) - (op.z || 0) : 0.5;
         flight = Math.max(flight, dur);
         const z0 = op.z || 0;   // both ends drawn over their points (fx/camera.js liftX)
-        spawn(pb.bundle, name, glider(liftX(camRef, op.x, op.y, z0, z0 + z), op.y, liftX(camRef, x, y, z0, z0 + z), y, dur, z0 + z), { owner: null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur })
+        spawn(pb.bundle, name, glider(liftX(camRef, op.x, op.y, z0, z0 + z), op.y, liftX(camRef, x, y, z0, z0 + z), y, dur, z0 + z), { owner: p.tag ? opId : null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur, ...(p.tag ? { tag: p.tag } : {}) })
           .then((l) => { if (l) bodyTurn(l.inst, mod.THREE, Math.atan2(y - op.y, x - op.x)); });
         n++;
         continue;
@@ -4079,7 +4079,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const cs = combatEffects(bindOf(v), bundleOf(v)?.prefabs, mode, role, combat);
     if (cs) return { names: cs, split: true };
     const f = fortressEffects(bindOf(v), bundleOf(v)?.prefabs, mode, role, kind);
-    return f ? { names: f, split: true } : { names: mode != null ? bound(v, mode, role) : [], split: false };
+    if (f) return { names: f, split: true };
+    const names = mode != null ? bound(v, mode, role) : [];
+    return { names: role === 'cast' ? names.filter((n) => !KIT_CAST.has(n)) : names, split: false };
   }
   /** A swing starts: the cast effects of ON_CAST_START (the mode's, or the name mapping's attack start without bindings). */
   function swingFx(src, windup, views, kind = null, sig = null, faceId = null) {
