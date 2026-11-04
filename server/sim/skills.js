@@ -54,7 +54,7 @@
 //   land and makes that attack the skill's — a ReplacementSkill whose replaced attack the kit models itself, 华法琳 S1:
 //   the engine does not hold the cast for the next attack), castHolds (bool: a timed skill's 'state' cast holds the unit's
 //   attacks through its skill clip's action), durationAfterCast (bool: its `duration` starts as that action ends), endHolds (bool: that clip comes
-//   last in its sequence group, so its action holds the attacks from the end of the skill's `duration`), onStart(ctx), onEnd(ctx), onHit(ctx), onAttack(ctx), onTick(ctx).
+//   last in its sequence group, so its action holds the attacks from the end of the skill's `duration`; a number: those seconds), onStart(ctx), onEnd(ctx), onHit(ctx), onAttack(ctx), onTick(ctx).
 // ctx passed to spec callbacks: { battle, unit, skill, bb, target?, dealt?, targets?, dt?, reason? }; onAttack's ctx
 //   also carries `noAmmo` (set it to true: this attack spends no ammo). onEnd runs while the skill's mods / range are
 //   still applied (`active` is already false); they are removed right after it (unless onEnd re-activated the skill).
@@ -844,8 +844,10 @@ export class SkillRuntime {
     // listeners (骑士戒律) clear the new cast and the client would see the skill off while it runs
     if (this.active || this.activations !== n) return;
     this._removeMods();
-    // the rest of a sequence group after the skill's time: the unit stays in the Skill state of its CastSkill (锏 S3's EndAttack)
-    if (this.spec.endHolds && reason === 'duration' && u.alive && this.cast?.mode === 'state' && this.cast.dur > 0) this._enterSkillState(this.castTiming());
+    // the rest of a sequence group after the skill's time: the unit stays in the Skill state of its CastSkill (锏 S3's EndAttack,
+    // 歌蕾蒂娅 S3's closing FinalAttack)
+    const hold = this.spec.endHolds;
+    if (hold && reason === 'duration' && u.alive && this.cast?.mode === 'state' && this.cast.dur > 0) this._enterSkillState(typeof hold === 'number' ? { action: hold } : this.castTiming());
     if (b._hooks.skillEnd) b.emit('skillEnd', { unit: u, skill: this, reason });
     if (this.kind !== 'passive') b._ev(['skill', u.id, 0]);
   }

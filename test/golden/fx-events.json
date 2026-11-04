@@ -142,7 +142,6 @@
    "char_446_aroma skillBuff aroma_skill_02_buff_01+aroma_skill_02_range_01",
    "char_446_aroma spawn:born common_char_birth_01 → self",
    "char_446_aroma spawn:born equipment_system_blastcaster_buff_x → self",
-   "char_474_glady attackHit glady_attack_01_hit → foe",
    "char_474_glady attackStart glady_attack_01_start",
    "char_474_glady attackStart glady_attack_01_start_02",
    "char_474_glady skillStart glady_skill_03_start",
@@ -1499,7 +1498,9 @@
    "char_446_aroma attackStart aroma_skill_02_start_03",
    "char_446_aroma skillBuff aroma_skill_02_buff_01+aroma_skill_02_range_01",
    "char_446_aroma spawn:born common_char_birth_01 → self",
+   "char_469_indigo attackHit indigo_skill_01_hit → foe",
    "char_469_indigo attackStart indigo_attack_charge_01_start",
+   "char_469_indigo attackStart indigo_skill_01_start",
    "char_469_indigo skillBuff indigo_skill_02_buff_01+indigo_skill_02_buff_02+indigo_skill_02_buff_04",
    "char_469_indigo spawn:born common_char_birth_01 → self",
    "char_469_indigo spawn:charge indigo_attack_charge_02 → self",
@@ -1513,7 +1514,6 @@
    "char_474_glady spawn:born common_char_birth_01 → self",
    "char_474_glady spawn:emit glady_skill_03_buff_02 → foe",
    "enemy_1249_lysdb_2 spawn:castLoop enemy_lysdb_attack_start → self",
-   "enemy_1328_cbjedi spawn:cast enemy_cbjedi_attack_01_start → self",
    "token_10041_cathy_catsld spawn:born common_call_start_01 → self"
   ],
   "bond-raidShip-high": [

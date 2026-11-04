@@ -179,3 +179,25 @@ test('Mon3tr S3 on her 重构体: the swing and the strike of her real clip', ()
   // the strike by her real clip's hit (0.667 of 1.5); `Attack`'s (0.567 of 2.833) lands it at 0.22 s
   for (const x of swings.slice(1)) assert.ok(x.strike > 0.4 && x.strike < 0.6, `strike ${x.strike}`);
 });
+
+test('歌蕾蒂娅 S3: the closing clips play through the sim\'s hold and the first attack cuts the last one; 锏\'s single End clip is not cut', () => {
+  const g = actor('char_474_glady', 2);
+  g.setSkill(true);
+  run(g, 3);
+  g.setSkill(false);
+  assert.equal(g.current, 'Skill_3_Begin');
+  run(g, 1);
+  assert.equal(g.swing(0.5), false, 'no attack clip inside the row');
+  run(g, 1.667);
+  assert.equal(g.current, 'Skill_3_End');
+  assert.ok(g.swing(0.5), 'the attack after the hold (2.667 s) shows');
+  assert.equal(g.current, 'Attack');
+
+  const k = actor('char_4116_blkkgt', 2);
+  k.setSkill(true);
+  run(k, 3);
+  k.setSkill(false);
+  assert.equal(k.current, 'Skill_3_End');
+  run(k, 1);
+  assert.equal(k.swing(0.5), false, 'her finisher plays out');
+});

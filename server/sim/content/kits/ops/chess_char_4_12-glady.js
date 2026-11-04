@@ -61,6 +61,10 @@ export default withDefaults({
         // no normal attack while it runs: she holds the S3 mode's Skill_3_Chant (charpack skchr_glady_3 `_switchToState` 1,
         // the unit's Skill state; maintainer decision 2026-10-14)
         attack: { noAttack: true },
+        // The closing FinalAttack keeps her in the Skill state: Skill_3_Begin's OnAttack 0.367 s, its pull projectile's life 1.3 s, then
+        // `_minPostDelayWhenProjectileInvalid` 1 s. [ASSUMED·화면: the maintainer saw a short rest in the official game (2026-11-04), its
+        // length not measured; these client values sum to 2.667 s, though the same ability's opening was seen to take far less]
+        endHolds: 0.367 + 1.3 + 1,
         // 2026-10-29, official client (docs/rules/sim.md 「글래디아 S3 시작 순서」): the skill ability is a sequence group —
         // FinalAttack (a clip-less ranged pull that waits for an OnAttack event), then Chant (the tornado: ChantAttack1 / 2 at
         // once), the S3 mode, FinalAttack again (the 捕网 at the end) — so the tornado forms a little after the cast, pulling

@@ -727,9 +727,10 @@ export class SpineActor {
 
   /**
    * local patch (maintainer report 2026-10-07, video: 锏 S3's finisher is her Skill_3_End): a skill's End clip plays out — the
-   * next normal attack does not cut it (it cut it at once: she struck with the plain Attack)
+   * next normal attack does not cut it (it cut it at once: she struck with the plain Attack). The last clip of a row can be cut: the
+   * sim holds the attacks for that row's ability (歌蕾蒂娅 S3's FinalAttack ends before its Skill_3_End does)
    */
-  _endPlaying() { return this.mode === 'skillEnd' && this.clock < this.skillEndUntil; }
+  _endPlaying() { return this.mode === 'skillEnd' && this.clock < this.skillEndUntil && !(this.endRow && !this.endNext?.length); }
 
   /**
    * An attack happened now. `interval` = seconds between attacks (game time already scaled to real); `once` = a one-off
@@ -1092,6 +1093,7 @@ export class SpineActor {
     this.mode = 'skillEnd';
     this._play(clips[0], false, { mix: 0.08 });
     this.endNext = clips.slice(1);
+    this.endRow = clips.length > 1;
     this.endNextAt = this.clock + this.dur(clips[0]);
     this.skillEndUntil = this.clock + this.dur(clips);
     return true;

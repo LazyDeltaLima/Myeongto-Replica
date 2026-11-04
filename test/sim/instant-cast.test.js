@@ -356,3 +356,25 @@ test('刺玫 S2 through the real match path: no attack through her clip, its tim
   close(ended, u.skill.duration + 0.5, 2 * b.dt, 'the skill ends');
   assert.equal(b.errors.length, 0, JSON.stringify(b.errors[0]));
 });
+
+test('歌蕾蒂娅 S3: no attack through the closing FinalAttack, 2.667 s from the end of the skill', () => {
+  const dummy = enemyRec({ key: 'e_d', hp: 1e9, atk: 0, speed: 0, mass: 0, def: 0, res: 0 });
+  const h = makeBattle({ defs: { enemies: { e_d: dummy } }, timeLimit: 900, autoFinish: false, seed: 5, flags: { dpPerSec: 0, dpMax: 999 }, captureNoisy: true,
+    units: [{ uid: 1, chessId: 'chess_char_4_12_a', skillIndex: 2, row: 9, col: 5 }] });
+  h.step();
+  const u = h.unit(1);
+  h.spawn('e_d', { pos: [9, 6] });
+  assert.ok(u.skill.activate('test', { free: true }));
+  assert.ok(h.runUntil(() => !u.skill.active, 12), 'the skill ends');
+  const t1 = h.b.time;
+  close(u.skillStateUntil, t1 + 2.667, 2 * h.b.dt, 'the Skill state of FinalAttack');
+  h.events.splice(0);
+  const swings = [];
+  for (let i = 0; i < Math.round(6 / h.b.dt); i++) {
+    h.step();
+    for (const e of h.events.splice(0)) if (e[0] === 'swing' && e[1] === u.id) swings.push(h.b.time - t1);
+  }
+  assert.ok(swings.length, 'an attack after it');
+  assert.ok(swings[0] >= 2.667 - 2 * h.b.dt, `first swing ${swings[0]}`);
+  checkInvariants(h.b);
+});
