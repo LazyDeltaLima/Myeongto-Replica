@@ -11,6 +11,9 @@
 // first in the step after the one it was fired in — fired in a unit's turn, by a timer before the line or by the
 // automatic pass after it (the client's objects fire theirs in their own tick, which the copied line of that step no
 // longer holds); it hits or ends in its own turn.
+// `moveScale` (default 1) is the share of each step it lives: its flight and its age both run at it (the client's
+// Projectile.OnTick multiplies its clock and its behaviours' step by the movement's GetTimeScale, which is the move scale;
+// 逻各斯 S3's aura sets it, docs/rules/sim.md 「moveScale」).
 
 import { PROJECTILE_SPEED } from './constants.js';
 import { hypot } from './detmath.js';
@@ -57,6 +60,7 @@ export class ProjectileSystem {
       onExpire: p.onExpire ?? null,
       age: 0,
       maxAge: p.maxAge > 0 ? p.maxAge : 10,
+      moveScale: 1,
     };
     if (p.dir) {
       const dx = fin(p.dir.x, 0), dy = fin(p.dir.y, 0), n = hypot(dx, dy);
@@ -83,10 +87,11 @@ export class ProjectileSystem {
   /** One step of projectile `p`: it flies, then hits (onHit), ends unseen (onExpire) or fizzles in this same turn. */
   step(p, dt) {
     if (p.done) return;
-    p.age += dt;
+    const t = dt * p.moveScale;
+    p.age += t;
     if (p.dir) {
-      p.x += p.dir.x * p.speed * dt;
-      p.y += p.dir.y * p.speed * dt;
+      p.x += p.dir.x * p.speed * t;
+      p.y += p.dir.y * p.speed * t;
       const hit = p.sweep ? this.battle._safe(() => p.sweep(p), 'projectile.sweep', p.source) : null;
       if (hit) { p.target = hit; p.tseq = hit.deploySeq; this._land(p); }
       else if (p.age >= p.maxAge) {
@@ -102,7 +107,7 @@ export class ProjectileSystem {
     }
     const dx = p.tx - p.x, dy = p.ty - p.y;
     const d = hypot(dx, dy);
-    const step = p.speed * dt;
+    const step = p.speed * t;
     if (d <= step || p.age >= p.maxAge) {
       p.x = p.tx; p.y = p.ty;
       this._land(p);

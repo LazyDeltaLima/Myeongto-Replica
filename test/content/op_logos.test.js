@@ -248,7 +248,7 @@ test('S3 延异视阈: enemy shots on his range fly at 5 % of their speed (back 
     h.run(3);
     const shots = h.b.projectiles.list.filter((p) => p.source && p.source.side === 'enemy');
     assert.ok(shots.length >= 2, `${shots.length} enemy shots held`);
-    for (const p of shots) approx(p.speed, 10 * 0.05, 'slowed to 0.05×');
+    for (const p of shots) { approx(p.moveScale, 0.05, 'slowed to 0.05×'); approx(p.speed, 10, 'its own speed kept'); }
     if (disarm) h.b.applyStatus(u, 'disarm', { duration: 40, source: null });
     h.runUntil(() => u.skill.timeLeft < 0.5, 40);
     for (const g of h.enemies()) h.b.applyStatus(g, 'stun', { duration: 99, source: null });   // no new shot
@@ -264,10 +264,38 @@ test('S3 延异视阈: enemy shots on his range fly at 5 % of their speed (back 
       h.run(5);
       assert.equal(u.stats.taken, taken, 'none of the held shots hit him');
     } else {
-      assert.ok(left.length > 0 && left.every((p) => Math.abs(p.speed - 10) < 1e-9), 'disarmed: kept, at full speed again');
+      assert.ok(left.length > 0 && left.every((p) => p.moveScale === 1), 'disarmed: kept, at full speed again');
     }
     done(h);
   }
+});
+
+test('S3 延异视阈: a held shot lives at the same 5 % as it flies (the client\'s Projectile.OnTick), so after a long hold it still flies the rest of its way', () => {
+  const { h, u } = field({ tier: 6, elite: true, skill: 2 });
+  const gun = h.spawn('enemy_gun', { pos: [10, 7] });
+  h.b.applyStatus(gun, 'stun', { duration: 99, source: null });   // only the two shots below
+  cast(u);
+  h.step();
+  const hits = [];
+  const homing = h.b.addProjectile({ from: { x: 7, y: 10 }, target: u, speed: 0.25, source: gun, onHit: () => hits.push(h.b.time) });
+  const straight = h.b.addProjectile({ from: { x: 7, y: 10 }, dir: { x: 1, y: 0 }, speed: 0.25, maxAge: 4, source: gun, onExpire: () => hits.push(-h.b.time) });
+  h.run(12);
+  for (const p of [homing, straight]) {
+    assert.equal(p.moveScale, 0.05, 'held');
+    approx(p.age, 12 * 0.05, 'its life runs at the move scale', 0.05);
+  }
+  assert.equal(hits.length, 0, 'neither ended while held, 12 s past the straight one\'s 4 s of life');
+  h.b.applyStatus(u, 'disarm', { duration: 40, source: null });
+  u.skill.end('test');   // disarmed: kept, at full speed again
+  const left = (homing.x - u.x) / homing.speed, life = straight.maxAge - straight.age, t0 = h.b.time;
+  assert.ok(left > 3 && life > 3, `${left} s of flight and ${life} s of life left`);
+  h.run(Math.min(left, life) - 0.5);
+  assert.equal(hits.length, 0, 'still in the air well after 1 s');
+  h.run(Math.abs(left - life) + 1);
+  assert.equal(hits.length, 2, 'both end');
+  approx(hits.find((t) => t > 0) - t0, left, 'the homing shot lands after the flight it had left', 0.05);
+  approx(-hits.find((t) => t < 0) - t0, life, 'the straight shot ends after the life it had left', 0.05);
+  done(h);
 });
 
 test('S3 延异视阈 tells the view each shot it changes (fx shotSlow): slowed once as it comes on the range, cleared or released as the skill ends', () => {
@@ -313,7 +341,7 @@ test('S3 延异视阈 slows the shot a self-destructing 枯朽之种 leaves (its
   const attacksAtLaunch = h.hooksOf('attack').length;
   const dummyTarget = h.spawn('enemy_dummy', { pos: [10, 8], routeIndex: 2 });
   h.step();
-  approx(shot.speed, 10 * 0.05, 'Logos S3 slows the seed\'s shot');
+  approx(shot.moveScale, 0.05, 'Logos S3 slows the seed\'s shot');
   h.run(2);
   const attacks = h.hooksOf('attack').slice(attacksAtLaunch).filter((c) => c.attacker === u);
   assert.ok(attacks.length > 0 && attacks.some((c) => c.targets.includes(dummyTarget)), 'Logos keeps attacking another enemy');

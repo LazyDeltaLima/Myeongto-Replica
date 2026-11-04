@@ -1412,8 +1412,11 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   `projectile_enemy_actoxi`(1 s) — 둘 다 이미 콘텐츠 구역(`enemies/dot.js` pollution·dmgZone, 1 s 간격)으로 구현. `projectile_enemy_actrpb`(0.7 s)는 stay
   0.01이라 한 번. 나머지(acstmk·acstmr·lrnazg·wintun_range)는 −1 → 반복 없음. 고칠 것 없음.
 - **`moveScale`**(투사체 속도 배율): `Projectile.RegisterMoveScale`을 부르는 것은 `ProjectileMoveScaleBehaviour`(ProjectileAuraAbility)와
-  이벤트 전용 `Act43sideMoveScaleBehaviour`뿐. 클라 묶음(charpack·enm_pfb·skills·traps·tokens) 중 그 오라는 逻各斯 S3(`skchr_logos_3`)뿐이고 우리
-  명단에 없음 → 우리 적 투사체에 걸리는 것 없음.
+  이벤트 전용 `Act43sideMoveScaleBehaviour`뿐. 클라 묶음(charpack·enm_pfb·skills·traps·tokens) 중 그 오라는 로고스(`char_4133_logos`) S3(`skchr_logos_3`)뿐이다.
+  - 엔진 `ProjectileSystem`의 투사체 필드 `moveScale`(기본 1): 공식 `Projectile.OnTick`은 수명 시계와 움직임 단계 모두 `movement.GetTimeScale()`(= 이동 배율) × dt로 흘린다(2026-11-04, 공식 클라에서 확인).
+    그래서 늦춰진 탄은 비행뿐 아니라 수명도 같은 배율로 흐른다. 예전 키트는 `speed`와 `maxAge`를 고쳐 수명이 그대로 흘렀고, 약 9초 넘게 잡혔다 풀린 탄은 남은 거리와 상관없이 1초 뒤 착탄·소멸했다. 시험 `op_logos.test.js` 「a held shot lives」.
+  - [추정·미조사: 이동 배율 둘의 합성 `BasicMovement._CalculateFinalMoveScale` 안 읽음] 두 로고스가 같은 탄을 잡으면 배율은 하나만 걸린다.
+  - [추정·미조사: `Projectile._InitOuterAdjustableSettings`와 이동 종류별 `movementAdjustable` 안 읽음] 적 탄 모두를 늦춘다. 공식 `RegisterMoveScale`은 `movementAdjustable`이 거짓이면 아무것도 안 하는데, 우리 적 투사체 83개의 프리팹 값 `_movementAdjustableStatus`·`_eliminatableStatus`는 모두 AUTOMATIC이라 프리팹만으로는 갈리지 않는다(종류: 추적·포물선·작살·부착·직진).
 - **콘텐츠 스킬 투사체 2차** (`enemies/helpers.js shoot(b, from, t, shot, onHit)`: 위와 같은 비행 시간으로 `addProjectile`, 날지 않는 shot은 즉시; fx
   `enemyShot` { id, from?, tgt, key, move, speed, t }를 냄 — `kinds.js` 'none'): 데이터 `skills[i].proj`대로, 효과는 투사체가 닿을 때(이전: 시전 순간).
   - 假想敌：黑云 FireWeapon(`projectile_enemy_acfort_skill` 10): 연타마다 한 발, 닿을 때 피해. [추정] 연타 사이 간격은 안 읽음 — 모두 시전 때 출발.

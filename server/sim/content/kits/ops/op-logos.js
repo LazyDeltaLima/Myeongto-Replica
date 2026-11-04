@@ -47,8 +47,10 @@
 //   "受缴械类效果制约"; logos_s_3's finish: CheckCanUseAtkOrCbt, else the aura only stops) nor when he is knocked out
 //   [ASSUMED: which branch of that finish a knock-out takes is not read]. Every enemy projectile counts (the skill
 //   prefab's ProjectileAura validator: enemy side, no projectile type or key filter). The sim's projectiles live in
-//   `battle.projectiles.list` (ProjectileSystem, server/sim/projectiles.js): the kit adjusts `speed` / `maxAge` there, and
-//   tells the view each change (fx 'shotSlow', shotFx below; docs/rules/fx.md).
+//   `battle.projectiles.list` (ProjectileSystem, server/sim/projectiles.js): the kit sets their `moveScale` there (their flight
+//   and their age both run at it, as the client's Projectile.OnTick), and tells the view each change (fx 'shotSlow', shotFx
+//   below; docs/rules/fx.md). [ASSUMED·not yet checked: two 逻各斯 on one shot apply one scale; every enemy shot's movement is
+//   adjustable — docs/rules/sim.md 「moveScale」]
 
 import { num, talentBb, moduleBb, traitBb, skillRec, up, giveSp, once } from '../shared/tier1.js';
 import { isElite, elementDmg } from '../shared/tier6.js';
@@ -67,7 +69,7 @@ const LOCK_IDLE = 0.1;
  *  projectile_chr_logos_s1_2 — the keys the charpack's logos_t_1 / logos_s_1[kill] blackboards name. */
 const T1_SHOT = 8;
 const S1_SHOT = 3;
-/** Enemy projectiles slowed by a running 延异视阈 (projectile → { orig speed, by: Set of unit ids }); per projectile. */
+/** Enemy projectiles slowed by a running 延异视阈 (projectile → Set of the unit ids holding it). */
 const SLOWED = new WeakMap();
 
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
@@ -75,8 +77,8 @@ const tileOf = (p) => {
   const r = Math.round(p.y), c = Math.round(p.x);
   return r >= 0 && r < ROWS && c >= 0 && c < COLS ? r * COLS + c : -1;
 };
-/** Enemy projectiles on the field (ProjectileSystem list: the sim's only projectile store). */
-const enemyShots = (battle) => (battle.projectiles?.list ?? []).filter((p) => p && p.source && p.source.side === 'enemy');
+/** Is `p` an enemy projectile (the ProjectileSystem list is the sim's only projectile store)? */
+const enemyShot = (p) => p && p.source && p.source.side === 'enemy';
 
 /**
  * A shot's change for the view, which flies its own copy from the 'atk' / 'enemyShot' moment and cannot see `speed`: fx
@@ -84,22 +86,26 @@ const enemyShots = (battle) => (battle.projectiles?.list ?? []).filter((p) => p 
  */
 const shotFx = (battle, unit, p, change) => battle.fx('shotSlow', { x: p.x, y: p.y, id: unit.id, from: p.source.id, tgt: p.target?.id ?? null, ...change });
 
-/** 延异视阈: slow the enemy projectiles on `unit`'s range, restore those that left it. */
+/** 延异视阈: slow the enemy projectiles on `unit`'s range, restore those that left it. Runs every tick: no allocation. */
 function slowShots(battle, unit, scale) {
-  const set = unit.rangeKeySet;
-  for (const p of enemyShots(battle)) {
-    let s = SLOWED.get(p);
+  const set = unit.rangeKeySet, list = battle.projectiles?.list;
+  if (!list) return;
+  for (const p of list) {
+    if (!enemyShot(p)) continue;
+    let by = SLOWED.get(p);
     if (set && set.has(tileOf(p))) {
-      if (!s) { s = { orig: p.speed, by: new Set() }; SLOWED.set(p, s); shotFx(battle, unit, p, { rate: scale }); }
-      s.by.add(unit.id);
-      p.speed = s.orig * scale;
-      p.maxAge = Math.max(p.maxAge, p.age + 1);   // a slowed shot never lands by age while it is held
-    } else if (s && s.by.delete(unit.id) && !s.by.size) {
-      p.speed = s.orig;
-      SLOWED.delete(p);
-      shotFx(battle, unit, p, { rate: 1 });
-    }
+      if (!by) { by = new Set(); SLOWED.set(p, by); p.moveScale = scale; shotFx(battle, unit, p, { rate: scale }); }
+      by.add(unit.id);
+    } else if (by) release(battle, unit, p, by);
   }
+}
+
+/** `unit` stops holding `p`; held by nobody, it flies at its own speed again. */
+function release(battle, unit, p, by) {
+  if (!by.delete(unit.id) || by.size) return;
+  p.moveScale = 1;
+  SLOWED.delete(p);
+  shotFx(battle, unit, p, { rate: 1 });
 }
 
 /** 延异视阈 ends: clear the enemy projectiles on the range (unless disarmed / knocked out), release the rest. */
@@ -109,13 +115,13 @@ function endShots(battle, unit, clear) {
   if (clear && set && battle.projectiles) {
     const keep = [];
     for (const p of battle.projectiles.list) {
-      if (p && p.source && p.source.side === 'enemy' && set.has(tileOf(p))) { n++; SLOWED.delete(p); shotFx(battle, unit, p, { clear: 1 }); } else keep.push(p);
+      if (enemyShot(p) && set.has(tileOf(p))) { n++; SLOWED.delete(p); shotFx(battle, unit, p, { clear: 1 }); } else keep.push(p);
     }
     battle.projectiles.list = keep;
   }
-  for (const p of enemyShots(battle)) {
-    const s = SLOWED.get(p);
-    if (s && s.by.delete(unit.id) && !s.by.size) { p.speed = s.orig; SLOWED.delete(p); shotFx(battle, unit, p, { rate: 1 }); }
+  for (const p of battle.projectiles?.list ?? []) {
+    const by = enemyShot(p) && SLOWED.get(p);
+    if (by) release(battle, unit, p, by);
   }
   // the clearing end is the S3_End mode's cast (logos_s_3 ON_BUFF_FINISH: CheckCanUseAtkOrCbt → SwitchMode), shots or not
   if (clear) battle.fx('bulletClear', { x: unit.x, y: unit.y, id: unit.id, n });
