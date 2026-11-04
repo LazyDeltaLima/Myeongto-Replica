@@ -3719,7 +3719,7 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - 리(`char_322_lmlee`) 재능 1(2026-11-04): 저지하는 동안 `lmlee_t_1[self]` `lmlee_buff_01_start`가 그에게, `lmlee_t_1[enemy]` `lmlee_debuff_01_start`가 저지당한 적에게 — 시뮬
   `talent:lmlee:self`·`talent:lmlee:foe:<그의 id>`를 `visible`로 알리고 `KEY_FX`가 그린다(공격 속도 값은 그대로, 효과만 추가). [화면 미확인: 실제 판]
 - **메시 입자 pivot**(2026-11-04, 공식 클라에서 확인 — 메시 지오메트리 잡): `m_Pivot` × 메시 경계 크기(max − min), z는 뒤집어(x, y, −z), 그 뒤 입자 크기·회전. 쿼드의 「입자 크기 단위」와
-  다르다(2026-10-22의 추정을 이것으로 끝냄). `fxplayer.js pivotOf`. pivot이 큰 메시 입자 97계(재구성체 27·32, 탈룰라 `snow_flow_03` 등)의 위치가 바뀐다. 재구성체는 27 × 0.6 × 0.096 = 1.55칸.
+  다르다(2026-10-22의 추정을 이것으로 끝냄). `fxplayer.js pivotOf`. pivot이 큰 메시 입자 97계(재구성체 27·32, 탈룰라 `snow_flow_03` 등)의 위치가 바뀐다. 재구성체는 27 × 0.6 × 0.096 = 1.55칸. [추정·화면: 엔진 판과 메시 경계는 확인했으나 관리자 확인(2026-11-04)에서 재구성체의 원형 수정 고리가 보이지 않음 — 조각이 몸에서 멀리 세로로 긴 궤적을 그린다; `snow_flow_03` 294칸·만트라 표식 5칸도 이상함. 공식 화면 대조 전까지 미해결]
 - Mon3tr S3 책략: 용해: 재구성체 칸으로 【이동】하면 S3_Reborn 모드의 `monstr_s_3[reborned_passive]`가 그녀에게 `monstr_skill_03_begin_02`. 떠난 칸의
   路标形态 표식(모드 2로 바뀐 재구성체: `prosts_s_3[mode]`가 `prost_s_3[[effect]` `monstr_skill_03_begin_03`을 들고 `common_spine_hide`로 모델을 숨김)은
   시뮬에 없어 렌더가 그 칸(사건의 `fromX`·`fromY`)에 스킬이 끝날 때까지 그린다. 【복귀】(`teleport`의 새 `back` 1) 때 그 모드가 끝나며
