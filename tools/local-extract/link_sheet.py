@@ -7,7 +7,7 @@ when that node runs. This prints, for each charId:
 
   1. banks — every `battle.` bank of zh_CN audio_data.json whose name carries the codename or one of her summons' own
      codes as a word (the same set as test/audio-bank-coverage.test.js), with
-       state   'played' (a file of it is in the asset manifest), 'none' / 'todo' (its test/audio-bank-coverage-list.js
+       state   'played' (a file of it is in the asset manifest, not proof that this moment reaches it: test/audio-skill-silence.test.js), 'none' / 'todo' (its test/audio-bank-coverage-list.js
                entry) or 'MISSING' (neither: the coverage test fails on it);
        wired   the tools/assets/*.mjs files that name the bank (kit-sfx.mjs KIT_HIT_BANKS etc.);
        where   the client nodes that carry the bank's signal id as a value: `<source>:<GameObject or template> <class>
