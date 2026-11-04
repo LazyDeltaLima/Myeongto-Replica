@@ -248,11 +248,13 @@ since it refuses deployment — the sim does not model the canoes over it); test
 re-path whenever
 an obstacle changes (`grid.version`), after a displacement and when 诱导 / 恐惧 ends (the 恐惧 and 诱导 walks likewise
 re-plan from where the enemy stands after an obstacle change or when something else moved it — a push, or for 诱导 an
-outranking 恐惧); the smoothed chain is only line-of-sight
-clear from a tile centre, so an enemy re-planning off-centre first steps back to its tile centre when the straight line
-to its first waypoint would cut a tile it cannot walk or a crate (a pushed enemy never clips a fence corner or breaks
-the decorative crate on it — act1 m03 (11,5); test/sim/pathing.test.js). If crates cut every path the enemy walks through them, gets blocked by the crate
-and destroys it. FLY legs fly straight between checkpoints. `disappear` hides
+outranking 恐惧). A route walk is the client's `Enemy._MoveByCursor` (`ai.js walkRoute`, test/sim/enemy-walk.test.js): each tick
+the enemy heads for `next[its current tile]`, never the centres on the way; within 0.05 of a checkpoint it turns to the next
+leg (0.05 of the end: it arrives); within one step of the leg's target it lands on it. The step comes from `MoveController`:
+the velocity (from zero at the spawn, kept through a stand or a block) follows the direction by steering, and walls push from
+within 0.25 of a tile's centre past the 0.2 half body (`obstacleAvoidForce`); a step into a tile it cannot pass bounces off.
+If crates cut every path the enemy walks through them, gets blocked by the crate
+and destroys it. FLY legs fly straight between checkpoints, with the same steering. `disappear` hides
 the enemy (untargetable, not in snapshots), `wait` pauses, `appear` teleports.
 
 **恐惧 movement** (`fear.js`, user playtest #6; PRTS 诱发移动 §恐惧): a feared enemy leaves its route. Each application

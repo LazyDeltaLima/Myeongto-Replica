@@ -555,10 +555,10 @@ test('user: Given normal battle-start effects, When rehearsing candidate layouts
     return { h, m, ps, pieces };
   };
   const cases = [
-    // (upstream used 9,4 → 9,8 and 9,9 → 9,7; this fork's rules give other counts: since a skill's attack mode comes with its
-    // own cooldown (2026-11-04) 12,6 leaks four and 9,7 five, against 9,8's one and 11,7's one)
-    { effect: 'in-battle layer gains', keys: ['12,6', '9,8'] },
-    { effect: 'duck replacements and a teammate medic', keys: ['9,7', '11,7'] },
+    // (upstream used 9,4 → 9,8 and 9,9 → 9,7; this fork's rules give other counts: since enemies walk as the client's
+    // cursor does (2026-11-04) 12,6 and 9,7 leak six, against 11,5's one and 12,7's three)
+    { effect: 'in-battle layer gains', keys: ['12,6', '11,5'] },
+    { effect: 'duck replacements and a teammate medic', keys: ['9,7', '12,7'] },
   ];
   for (const { effect, keys } of cases) {
     await t.test(`user: Given ${effect}, When comparing two layouts, Then prefer the second layout's lower leak count`, () => {

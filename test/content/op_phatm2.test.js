@@ -281,7 +281,7 @@ test('S2 + 本能的召唤: the placed piece deploys at the battle start (untarg
     assert.equal(lured[0].target, w[4], 'the elite first');
     assert.equal(new Set(lured.map((c) => c.target)).size, 4);
     const exitT = h.hooksOf('death').filter((c) => c.unit === call).at(-1).t;
-    assert.ok(exitT - t0 < 10 - 0.5, `left on an arrival, before its 10 s (${(exitT - t0).toFixed(2)} s)`);
+    assert.ok(exitT - t0 < 10 - 0.2, `left on an arrival, before its 10 s (${(exitT - t0).toFixed(2)} s)`);
     assert.ok(lured.some((c) => Math.hypot(c.target.x - 6, c.target.y - 10) <= 0.4 + 1e-6), 'one of them within 0.4 of it');
     assert.ok(w.every((e) => !e.findBuff('attract') || e.findBuff('attract').source !== call), 'the 诱导 ends with it');
     // 25 s later it is back (S2 still runs)

@@ -935,6 +935,20 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   탐색보다 먼저; 앞 차례 저지자가 막은 적은 그 틱 자기 차례에 바로 공격(상자를 막힌 그 틱에 부숨); 다른 유닛 차례에 생긴 버프는 그 틱에 한 번 줄어듦. golden 이동은 커밋 메시지.
 - 테스트 `test/sim/tick-order.test.js`(한 줄 차례, 그 틱에 생긴 유닛, 칸 색인·밀린 적, 스킬 지속시간 → 저지 탐색, 투사체), 고친 시험 `battle`·`pathing`(상자: `blocked` 이벤트로 봄)·`attack-timing`(둘째 휘두름)·`feedback1-transform`(重生 한 틱)·`facing-invariance`·`robustness`(강제 종료 시각), 투사체가 한 틱 늦게 떨어져 세는 창을 늘린 시험(`attack-forms` 라플란드 S2, `kits_alt_t4` 산크타 믹사파라토, `kits_t4` 그노시스 坚冰(오라 0.1초 주기), `standin_acsupo` 三形, `standin_sharp2` 샤프 S1).
 
+## 적이 걷는 법 (2026-11-04, 공식 클라에서 확인, 관리자 결정 2026-11-04)
+제보: 전장#04 활성 오리지늄(`act1autochess_m04`), 아래쪽 침입 포인트 (9,10), (9,8)·(10,8)에 오퍼레이터, (9,9)는 비었음. 위쪽이 쓰러지면 아래쪽이 살카즈 대검사(`enemy_1010_demon`)를 막지 못하고 통과시켰다.
+원인: 8~13라운드 웨이브(`act1autochess_h01`~`h06`)의 이 침입 포인트 경로는 체크포인트 (9,9)를 거친다. 우리 적은 칸 중심에서 칸 중심으로 걸어 (9,9) → (10,8)을 정확히 대각선으로 갔고, (9,8)까지 거리²가 0.50005라 저지 원(0.49999)에 닿지 않았다. 체크포인트 없는 1~7라운드 경로는 막혔다.
+출처: 공식 클라(EN 판) `Enemy._MoveByCursor`, `DirectionCursor`(`PredictReached`·`GetNextDirection`·`OnTick`·`CheckReached`), `BasicCursor.MoveCheckpoint`(`GetNextDirection`·`CheckReached`), `Route.CheckReached`, `MoveController`(`CalculateMoveDelta`·`CalculateTotalForce`·`_CalculateSteeringForce`·`CalculateIsHanging`·`_CalculateObstacleAvoidForce`·`Reset`), 레벨 파일 `options.steeringEnabled`·경로 `visitEvery*`, 적 프리팹 `MoveController`. 코드 `server/sim/ai.js` `walkRoute`·`obstacleAvoidForce`·`advanceRoute`.
+- **방향**: 매 틱 지금 칸의 `next[칸]` 중심을 향한다(이 모드의 모든 경로 `visitEveryTileCenter`·`visitEveryNodeCenter`·`visitEveryCheckPoint` false). 칸에 들어서는 순간 꺾고, 칸 중심을 거치지 않는다. 그래서 위 경로의 적은 (10,8) 칸에 들어서며 (10,4)로 꺾어 (9,8)의 저지 원을 지난다. 우리 `next`는 그대로(바닥을 덜 지나는 선호 포함, 「`grid.js`」 머리말).
+- **체크포인트·도착**: 목표까지 0.05 안이면 다음 다리로(`reachDistance`는 이 모드 전부 0, 공식은 max(0.05, 값)), 경로 끝도 그 칸 안 0.05면 도착. 다음 체크포인트·끝이 한 걸음 안이면 그 자리에 놓는다(속도는 그대로). 끝난 다리는 그 틱에 다음 다리가 이어 받는다(WAIT 하나가 한 틱).
+- **속도(조향)**: 모든 레벨 `steeringEnabled` true. 힘 = 벽의 힘 + (방향 × 속력 − 속도) × 조향 계수, 크기 최대 `_maxSteeringForce`. 새 속도 = 속도 + 힘 × dt, 크기 최대 속력. 이 모드 프리팹은 계수 8·최대 10이 기본, 비행 적 10종(`enemy_1005_yokai`·`_2`·`_3`, `enemy_1017_defdrn`, `enemy_1040_bombd`, `enemy_1041_lazerd`·`_2`, `enemy_1042_frostd`, `enemy_1112_emppnt`·`_2`)은 20·100, `enemy_2050_smsha`는 8·100. 속도는 출현 때(`Enemy.OnReset` → `MoveController.Reset`) 0이고, 저지·공격으로 서도 지워지지 않는다. `SeparateMoveController`(적끼리 밀어내기)를 쓰는 적은 이 모드에 없다.
+- **벽의 힘**: 이동하는 틱 3번마다 읽어(첫 이동 틱에 바로) 방향에 수직인 성분만 남기고, 매 틱 max(0.5, 속도/속력)배로 더한다. 이웃 8칸 중 걸을 수 없거나 상자(지상만)인 칸에 대해, 몸 가장자리(좌우로 `_halfBodyWidth` 0.2, 상하로 0)가 칸 중심에서 그쪽으로 0.25를 넘으면 민다. 옆 칸은 그 축으로, 모서리 칸은 두 축이 다 넘을 때. 합을 길이 1로. 걸을 수 없는 칸에 서 있으면 가장 가까운 걸을 수 있는 이웃 쪽으로. [추정·미조사: 발 위치(`footMapPosition`) 오프셋은 0으로 둠]
+- **튕김**: 한 걸음이 걸을 수 없는 칸으로 넘어가면 그 칸 중심 방향을 기준으로 걸음을 반사한다. 전에 있던 「칸 중심으로 돌아갔다 가기」는 공식에 없어 지웠다.
+- **저지 원 경계**: `Character.CheckInBlockRange`는 거리² ≤ 반경²(우리 `<`를 `≤`로).
+- 그대로 둔 것: 恐惧·诱导·추적(`fear.js`·`walkTo`)은 공식도 같은 `_MoveByCursor`지만 아직 예전 걸음(직선, 조향 없음)이다. 체크포인트 `reachOffset`(이탈 경로·`act2autochess_h07_05`)은 `tools/build-data.mjs`가 버린다. 경로 미리보기(`routePreview.js`)는 칸 사슬 그대로. 화면으로는 아직 확인하지 않았다 [화면 미확인].
+- 예전 판: v0.1.0은 이 경로에서 9행을 따라 걸어 막혔고, v0.2.5부터 대각선 경로로 못 막았다(표본 태그만 돌림).
+- 테스트 `test/sim/enemy-walk.test.js`(제보 재현 + 실제 판 경로, 칸 재계산, 조향, 벽의 힘, 전 스테이지 경로 도착). 제보 재현 네 건은 고치기 전에 실패함을 확인.
+
 ## 盟约·특질·장비·생성기 2라운드 (2026-10-11, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 그래프와 공식 클라(EN 판; 레포에는 클래스·메서드 이름만). 핫픽스(DefinedFix.lua en/zh)에 아래 클래스 없음.
 이때 관리자 결정이 필요했던 세 가지(阿戈尔 吞噬가 팀원 오퍼를 먹는가, 특질 `attrByBond`의 배치 때 고정, 桑葚 미러 판 「가장 오른쪽」)는 관리자 결정 2026-10-11로 정했다(아래 「阿戈尔 吞噬 팀원」·「特质 attrByBond」·「桑葚」).

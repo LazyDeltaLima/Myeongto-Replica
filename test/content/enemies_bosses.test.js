@@ -251,7 +251,7 @@ test(`${nm('enemy_10034_cnvsax')}: revealed (反隐) and not blocked it makes no
   const x0 = e.x;
   h.run(4);
   assert.equal(e.stats.attacks, 0, 'no ranged attack (until 0.1.3 it shot the wall and stood still)');
-  approx(x0 - e.x, 4 * e.s.moveSpeed * 0.5, 0.02, 'walked the whole 4 s');
+  approx(x0 - e.x, 4 * e.s.moveSpeed * 0.5 - e.s.moveSpeed * 0.5 * (1 / 8 - 1 / 30), 0.02, 'walked the whole 4 s, less its steering from rest');
 });
 
 test(`${nm('enemy_9008_acbunn')}: attacks several targets at once while stealthed`, () => {
@@ -944,7 +944,7 @@ for (const key of ['enemy_1234_dsubrl', 'enemy_1234_dsubrl_2']) {
     const x0 = e.x;
     h.run(4);
     assert.ok(e.profile.noAttack && e.stats.attacks === 0, 'never attacks');
-    approx(x0 - e.x, 4 * e.s.moveSpeed * 0.5, 0.02, 'walked the whole 4 s (MOVE_SCALE 0.5) with the operator in range');
+    approx(x0 - e.x, 4 * e.s.moveSpeed * 0.5 - e.s.moveSpeed * 0.5 * (1 / 8 - 1 / 30), 0.02, 'walked the whole 4 s (MOVE_SCALE 0.5, less its steering from rest) with the operator in range');
     const mine = h.hooksOf('damaged').filter((c) => c.source === e && c.target === g);
     const arts = mine.filter((c) => c.dmg.type === 'arts');
     assert.ok(arts.length >= 3 && arts.every((c) => !c.dmg.isAttack && c.dmg.tags.includes('nestPulse')), `pulses, not attacks (${arts.length})`);
@@ -970,11 +970,11 @@ test('GitHub #93: 深溟巢涌者 keeps walking with the 炎佑 dragon in range;
   const [y] = spawnYanyou(h.b, 'p1', { atk: 0, hp: 50000 });
   assert.ok(y && y.isFlying, 'a flying ally');
   const e = h.spawn('enemy_1234_dsubrl', { pos: [Math.round(y.y), Math.round(y.x) + 2], routeIndex: 0, mods: { speedMul: 1 },
-    route: { motion: 'WALK', start: [Math.round(y.y), Math.round(y.x) + 2], end: [Math.round(y.y), 0], checkpoints: [] } });
+    route: { motion: 'WALK', start: [Math.round(y.y), Math.round(y.x) + 2], end: [Math.round(y.y), 9], checkpoints: [] } });
   const x0 = e.x;
   h.run(5);
   assert.equal(e.stats.attacks, 0, 'no normal attack');
-  assert.ok(x0 - e.x >= 5 * e.s.moveSpeed * 0.5 - 0.05, `walked on (${(x0 - e.x).toFixed(2)} tiles in 5 s)`);
+  assert.ok(e.x - x0 >= 5 * e.s.moveSpeed * 0.5 - 0.1, `walked on (${(e.x - x0).toFixed(2)} tiles in 5 s)`);
   const onDragon = h.hooksOf('damaged').filter((c) => c.source === e && c.target === y);
   assert.ok(onDragon.length > 0, 'the dragon in range is pulsed');
   assert.ok(onDragon.every((c) => !c.dmg.isAttack && (c.dmg.type === 'element' || c.dmg.tags.includes('nestPulse'))), 'pulse and its 神经 only');

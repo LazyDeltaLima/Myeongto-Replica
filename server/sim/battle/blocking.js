@@ -106,7 +106,7 @@ export class BattleBlocking {
       if (!this._blockerFor(u, e, w)) return;
       const d2 = (e.x - uc) * (e.x - uc) + (e.y - ur) * (e.y - ur);
       const r2 = u.kind === 'device' ? BLOCK_RADIUS_SQ.device : e.isFlying ? BLOCK_RADIUS_SQ.fly * k * k : BLOCK_RADIUS_SQ.ground;
-      if (d2 >= r2 || cands.some((x) => x.e === e)) return;   // (a large enemy is listed on each tile of its body)
+      if (d2 > r2 || cands.some((x) => x.e === e)) return;   // (a large enemy is listed on each tile of its body)
       cands.push({ e, w, step: Math.floor(d2 / BLOCK_WEIGHT_GAP), i: e.deploySeq });
     };
     // `all`: out of turn the tile index is a tick old (pulls moved enemies since): every enemy on the field

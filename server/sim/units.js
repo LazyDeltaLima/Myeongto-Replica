@@ -71,6 +71,12 @@ export class Unit {
     this.blockedBy = null;      // enemies: blocker unit
     this.blockMove = null;      // enemies: the slide to the block position (Battle._moveToBlockPosition)
     this.blockSearchTick = 0;   // allies: ticks to the next search for enemies to block (Battle._searchBlockees)
+    // enemies: the walk's velocity and the wall's force, read every few ticks (ai.js walkRoute: the client's MoveController)
+    this.moveVx = 0;
+    this.moveVy = 0;
+    this.avoidX = 0;
+    this.avoidY = 0;
+    this.avoidTick = 0;
     // enemies: listed on more than one tile of the range index (their 0.1 collider straddles an edge), and the tiles
     // they are filed on (battle/queries.js _indexEnemy); declared here so the index writing them never changes a unit's shape
     this._ebMulti = false;

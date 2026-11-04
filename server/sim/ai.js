@@ -6,10 +6,9 @@
 // overrides) — the client's attack ability, attackTiming (docs/rules/sim.md 「일반 공격 타이밍」). Ranged profiles fire
 // projectiles; damage applies on impact.
 // Enemies: follow compiled route legs (move / wait / disappear / appear). WALK legs follow the official flow field
-// of the leg's target (grid.js, research 08 §3.4): from the tile it stands on the enemy walks straight to the centre
-// of `next[tile]`, then on to `next[next[tile]]` … (tile centre to tile centre, so the Bresenham line-of-sight check
-// of the smoothing guarantees it never clips a wall or crate corner); the plan is re-read when the grid version
-// changes (obstacles) or content displaces the enemy (route.pts = null). FLY legs fly straight between checkpoints; the
+// of the leg's target (grid.js, research 08 §3.4): each tick the enemy heads for the centre of `next[its current tile]`,
+// so it turns as it enters a tile, short of any centre (walkRoute: the client's Enemy._MoveByCursor); the plan is re-read
+// when its tile or the grid version changes (obstacles) or content displaces it (route.pts = null). FLY legs fly straight between checkpoints; the
 // path always follows `motion` — a hovering (近地悬浮) enemy is an air unit for targeting and blocking (Unit.isFlying)
 // but walks the ground. An unblocked enemy touching an ally with free block capacity — within its block radius (0.7071
 // ground, 0.8944 air, devices 0.4472) — is blocked when that ally next searches (every 3 ticks, nearest first:
@@ -40,7 +39,6 @@
 import { ATTACK_PAUSE, PALSY_STOP, MIN_ANIM_SCALE, ALLY_COLLIDER_RADIUS, MOVE_SCALE, PROJECTILE_SPEEDS, PROJECTILE_SPEED, BOOMERANG_RETURN_SPEED, COLS, CHAIN_RADIUS } from './constants.js';
 import { sortEnemyTargets, sortAllyTargets, canTargetEnemy, canTargetAlly, tileKeyOf } from './targeting.js';
 import { reduceElement } from './damage.js';
-import { straightClear } from './grid.js';
 import { moveFeared, endFear } from './fear.js';
 import { hypot, powi } from './detmath.js';
 import { bodyInRange } from './body.js';
@@ -884,6 +882,8 @@ const tileKey = (b, e) => {
 /**
  * Build the waypoint list (world points) for the current move leg. Ground legs: the smoothed flow-field chain from
  * the enemy's tile (next[tile], next[next[tile]], …, the target) — straight to the target when no field reaches it.
+ * The walk uses the first point and re-plans at the next tile (walkRoute); the rest is the remaining distance and what
+ * a blink follows.
  */
 export function planLeg(b, e, leg) {
   const R = e.route;
@@ -905,12 +905,7 @@ export function planLeg(b, e, leg) {
     }
     const last = pts[pts.length - 1];
     if (!last || last.x !== leg.c || last.y !== leg.r) pts.push({ x: leg.c, y: leg.r });
-    // The smoothed chain is line-of-sight clear from the tile CENTRE only. An enemy re-planning off-centre (pushed,
-    // released by 诱导, an obstacle change mid-segment) first steps back to its tile centre when the straight line to
-    // the first waypoint would cut a tile it cannot walk (a fence corner, a crate) — else it would walk inside it.
-    if (f && (e.x !== k % COLS || e.y !== ((k / COLS) | 0)) && !straightClear(b.grid, e.x, e.y, pts[0])) {
-      pts.unshift({ x: k % COLS, y: (k / COLS) | 0 });
-    }
+    R.tile = k;
   }
   R.pts = pts;
   R.ptIdx = 0;
@@ -1093,26 +1088,142 @@ function walkTo(b, e, A, dt) {
   if (moved && e.route) e.route.pts = null;
 }
 
+// MoveController (the client's enemy movement). Most enemies of this mode: `_steeringFactor` 8, `_maxSteeringForce` 10;
+// STEER_BY_ENEMY the others of their prefabs. Every one has `_halfBodyWidth` 0.2. Every level of the mode sets
+// `steeringEnabled` (BattleOptions.STEERING_ENABLED, MoveController._CalculateSteeringForce).
+const STEER_DEFAULT = Object.freeze({ factor: 8, maxForce: 10 });
+const STEER_DRONE = Object.freeze({ factor: 20, maxForce: 100 });
+const STEER_BY_ENEMY = Object.freeze({
+  enemy_1005_yokai: STEER_DRONE, enemy_1005_yokai_2: STEER_DRONE, enemy_1005_yokai_3: STEER_DRONE, enemy_1017_defdrn: STEER_DRONE,
+  enemy_1040_bombd: STEER_DRONE, enemy_1041_lazerd: STEER_DRONE, enemy_1041_lazerd_2: STEER_DRONE, enemy_1042_frostd: STEER_DRONE,
+  enemy_1112_emppnt: STEER_DRONE, enemy_1112_emppnt_2: STEER_DRONE, enemy_2050_smsha: Object.freeze({ factor: 8, maxForce: 100 }),
+});
+const HALF_BODY_WIDTH = 0.2;
+const TILE_NEAR_THRESHOLD = 0.25;          // MoveController.TILE_NEAR_THRESHOLD: how far from a tile's centre a wall starts to push
+const OBSTACLE_AVOID_TICK_PERIOD = 3;      // MoveController.OBSTACLE_AVOID_TICK_PERIOD (first on the first moving tick)
+const MIN_OBSTACLE_AVOID_INFLUENCE = 0.5;  // MoveController.MIN_OBSTACLE_AVOID_INFLUENCE_FACTOR
+const REACH_SQ = 0.05 * 0.05;              // MoveCheckpoint.CheckReached (reachDistance at least 0.05), Route.CheckReached
+const EIGHT_WAYS = Object.freeze([[1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]);
+
+/** Map.CheckPassable for an enemy's way of moving (the whole map, not only the battle's rect). */
+function motionPassable(g, fly, r, c) {
+  if (!g.inBounds(r, c)) return false;
+  const k = r * COLS + c;
+  return fly ? g.tiles[k].pass !== 'NONE' : g.tiles[k].pass === 'ALL' && !g.isBlocked(r, c);
+}
+
+/**
+ * MoveController._CalculateObstacleAvoidForce at (x, y), the force of unit length (or zero) that keeps a walker off what
+ * it cannot walk on (Map.CheckObstacleLikeOrUnpassable: a crate counts for a walker). From a tile it cannot stand on: toward
+ * the nearest neighbour it can. Else from the 8 neighbours: its body edge, 0.2 to the neighbour's side, more than
+ * TILE_NEAR_THRESHOLD past the tile's centre pushes it back, a side neighbour along its axis, a corner one only when both
+ * axes are that near. [ASSUMED·미조사: the foot mount point's offset from the position is taken as zero; docs/rules/sim.md 「적이 걷는 법」]
+ */
+export function obstacleAvoidForce(g, x, y, fly) {
+  const r0 = Math.round(y), c0 = Math.round(x);
+  if (!g.inBounds(r0, c0)) return { x: 0, y: 0 };
+  if (!motionPassable(g, fly, r0, c0)) {
+    let best = Infinity, fx = 0, fy = 0;
+    for (const [dr, dc] of EIGHT_WAYS) {
+      const r = r0 + dr, c = c0 + dc;
+      if (!motionPassable(g, fly, r, c)) continue;
+      const d2 = (x - c) * (x - c) + (y - r) * (y - r);
+      if (d2 < best) { best = d2; fx = dc; fy = dr; }
+    }
+    return { x: fx, y: fy };
+  }
+  let sx = 0, sy = 0;
+  for (const [dr, dc] of EIGHT_WAYS) {
+    const r = r0 + dr, c = c0 + dc;
+    if (!g.inBounds(r, c)) continue;
+    if (motionPassable(g, fly, r, c) && (fly || !g.isCrate(r, c))) continue;
+    const px = Math.abs(dc) * (Math.max(0, (x + dc * HALF_BODY_WIDTH - c0) * dc) - TILE_NEAR_THRESHOLD);
+    const py = Math.abs(dr) * (Math.max(0, (y - r0) * dr) - TILE_NEAR_THRESHOLD);
+    if (px > 0 && py > 0) {
+      const a = -(px + py);
+      sx += dc * a; sy += dr * a;
+    } else if (Math.abs(dr) + Math.abs(dc) === 1 && (px > 0 || py > 0)) {
+      sx -= 2 * px * dc; sy -= 2 * py * dr;
+    }
+  }
+  const l = hypot(sx, sy);
+  return l > 1e-5 ? { x: sx / l, y: sy / l } : { x: 0, y: 0 };
+}
+
+/**
+ * One tick of an enemy's walk on a move leg — Enemy._MoveByCursor. Within one step of the leg's target it lands on it
+ * (DirectionCursor.PredictReached; the velocity stays). Else it heads for the first point of its plan, next[its tile]
+ * (MoveCheckpoint.GetNextDirection), and MoveController.CalculateMoveDelta gives the step: the force is the wall's
+ * (below) plus (direction × speed − velocity) × steering factor, at most the maximum force, and the velocity, at most the
+ * speed, changes by it. The velocity starts at zero (MoveController.Reset, from Enemy.OnReset) and nothing else resets
+ * it: it outlives a block or a stand. The wall's force is read every OBSTACLE_AVOID_TICK_PERIOD moving ticks, keeps only its part across
+ * the direction, and counts for the velocity's share of the speed, at least 0.5. A step into a tile it cannot pass bounces
+ * off the line to that tile's centre (the end of Enemy._MoveByCursor).
+ */
+function walkRoute(b, e, R, leg, speed, dt) {
+  const fly = e.motion === 'FLY';
+  if (!R.pts || R.version !== b.grid.version || (!fly && R.tile !== tileKey(b, e))) planLeg(b, e, leg);
+  e.moving = true;
+  const step = speed * dt;
+  const tx = leg.c - e.x, ty = leg.r - e.y;
+  if (tx * tx + ty * ty <= step * step) { e.x = leg.c; e.y = leg.r; return; }
+  const p = R.pts[0];
+  let dx = p.x - e.x, dy = p.y - e.y;
+  const d = hypot(dx, dy);
+  if (d > 1e-5) { dx /= d; dy /= d; } else { dx = 0; dy = 0; }
+  if (--e.avoidTick <= 0) {
+    e.avoidTick = OBSTACLE_AVOID_TICK_PERIOD;
+    const f = obstacleAvoidForce(b.grid, e.x, e.y, fly);
+    const along = f.x * dx + f.y * dy;
+    e.avoidX = f.x - dx * along;
+    e.avoidY = f.y - dy * along;
+  }
+  const share = Math.max(MIN_OBSTACLE_AVOID_INFLUENCE, hypot(e.moveVx, e.moveVy) / speed);
+  const S = STEER_BY_ENEMY[e.defId] ?? STEER_DEFAULT;
+  let fx = e.avoidX * share + (dx * speed - e.moveVx) * S.factor;
+  let fy = e.avoidY * share + (dy * speed - e.moveVy) * S.factor;
+  const fl = hypot(fx, fy);
+  if (fl > S.maxForce) { fx *= S.maxForce / fl; fy *= S.maxForce / fl; }
+  let vx = e.moveVx + fx * dt, vy = e.moveVy + fy * dt;
+  const vl = hypot(vx, vy);
+  if (vl > speed) { vx *= speed / vl; vy *= speed / vl; }
+  e.moveVx = vx; e.moveVy = vy;
+  let mx = vx * dt, my = vy * dt;
+  const r1 = Math.round(e.y + my), c1 = Math.round(e.x + mx);
+  if ((r1 !== Math.round(e.y) || c1 !== Math.round(e.x)) && !motionPassable(b.grid, fly, r1, c1)) {
+    let nx = c1 - e.x, ny = r1 - e.y;
+    const nl = hypot(nx, ny);
+    if (nl > 1e-5) { nx /= nl; ny /= nl; } else { nx = 0; ny = 0; }
+    const dot = mx * nx + my * ny;
+    mx -= 2 * dot * nx; my -= 2 * dot * ny;
+  }
+  e.x += mx;
+  e.y += my;
+}
+
 /**
  * One tick along the route legs. `standing` (an attack clip, attackStand): the time-based legs go on — a WAIT runs
- * down, DISAPPEAR / APPEAR happen (leaving the field ends the clip) — and a MOVE leg holds (GitHub #58 review).
+ * down, DISAPPEAR / APPEAR happen (leaving the field ends the clip) — and a MOVE leg holds (GitHub #58 review). A leg
+ * that ends lets the next one act in the same tick (DirectionCursor.OnTick, then GetNextDirection's walk over the
+ * checkpoints), a WAIT counting one tick.
  */
 function advanceRoute(b, e, dt, R, standing = false) {
-  let budget = dt;
   let guard = 16;
-  while (budget > 1e-9 && guard-- > 0 && e.alive) {
+  let waited = false;
+  while (guard-- > 0 && e.alive) {
     const leg = R.legs[R.legIdx];
     if (!leg) {
       if (!portalPickup(b, e)) { b.leak(e); return; }
       continue;
     }
     if (leg.t === 'wait') {
+      if (waited) return;
+      waited = true;
       if (R.waitLeft == null) R.waitLeft = leg.time;
-      const use = Math.min(budget, R.waitLeft);
-      R.waitLeft -= use;
-      budget -= use;
+      R.waitLeft -= dt;
       e.moving = false;
-      if (R.waitLeft <= 1e-9) { R.waitLeft = null; R.legIdx++; R.pts = null; }
+      if (R.waitLeft > 1e-9) return;
+      R.waitLeft = null; R.legIdx++; R.pts = null;
       continue;
     }
     if (leg.t === 'disappear') {
@@ -1130,38 +1241,20 @@ function advanceRoute(b, e, dt, R, standing = false) {
       R.legIdx++; R.pts = null;
       continue;
     }
-    // move
-    if (standing) { e.moving = false; return; }   // the walking waits for the attack clip
-    if (!R.pts || R.version !== b.grid.version) planLeg(b, e, leg);
+    // move. The cursor checks its target every tick, standing or not (DirectionCursor.OnTick). An enemy with no speed stays
+    // even on its target: the tests' dummies, on routes from a tile to itself (in the data only the unused E_NUM placeholders)
     const speed = e.s.moveSpeed * MOVE_SCALE;
     if (speed <= 0) { e.moving = false; return; }
-    let dist = speed * budget;
-    e.moving = true;
-    let steps = 64;
-    while (dist > 1e-9 && steps-- > 0) {
-      if (!R.pts || R.version !== b.grid.version) planLeg(b, e, leg);
-      if (R.ptIdx >= R.pts.length) break;
-      const p = R.pts[R.ptIdx];
-      const dx = p.x - e.x, dy = p.y - e.y;
-      const d = hypot(dx, dy);
-      if (d <= dist) {
-        e.x = p.x; e.y = p.y;
-        dist -= d;
-        R.ptIdx++;
-      } else {
-        e.x += (dx / d) * dist;
-        e.y += (dy / d) * dist;
-        dist = 0;
-      }
-    }
-    budget = dist / speed;
-    if (R.pts && R.ptIdx >= R.pts.length) {
-      if (leg.final) {
-        if (!portalPickup(b, e)) { b.leak(e); return; }
-      }
+    const tx = leg.c - e.x, ty = leg.r - e.y;
+    if (tx * tx + ty * ty <= REACH_SQ) {
+      if (leg.final && !portalPickup(b, e)) { b.leak(e); return; }
       R.legIdx++;
       R.pts = null;
+      continue;
     }
+    if (standing) { e.moving = false; return; }   // the walking waits for the attack clip
+    walkRoute(b, e, R, leg, speed, dt);
+    return;
   }
 }
 

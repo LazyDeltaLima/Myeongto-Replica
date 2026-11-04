@@ -26,6 +26,7 @@
 
 import { COLS } from './constants.js';
 import { compileRoute } from './ai.js';
+import { hypot } from './detmath.js';
 import { normalizeRoute } from './simdata.js';
 
 /** Scheduler PREVIEW_CURSOR_COUNT: cursors per preview. */
@@ -65,10 +66,13 @@ export function cursorTimes(spawnTime) {
   return out;
 }
 
+const REACH = 0.05;        // ai.js REACH_SQ: a leg ends this near its target
+const TRACE_STEP = 0.05;   // the line's step
+
 /**
  * The line an enemy of `route` walks on this battle's grid as it stands now, as [row, col] points: from the spawn
- * point, WALK legs along the flow field of each target exactly like ai.js planLeg (the live field, else the
- * obstacle-free one, else straight), FLY legs straight; WAIT legs add nothing; a DISAPPEAR ends the line (the cursor's
+ * point, WALK legs along the flow field of each target like ai.js walkRoute (the live field, else the
+ * obstacle-free one, else straight; turns as it enters a tile, the steering left out), FLY legs straight; WAIT legs add nothing; a DISAPPEAR ends the line (the cursor's
  * run) [추정]. Read-only: flow fields are cached per grid version and pure.
  * @param {object} b Battle
  * @param {object} route RouteSpec (normalizeRoute)
@@ -95,13 +99,19 @@ export function routePolyline(b, route) {
         f = g.flowField(leg.r, leg.c, { ignoreObstacles: true });
         if (!(f.dist[k] >= 0)) f = null;
       }
+      // as ai.js walkRoute, without its steering: each step toward next[the tile it is on], a turn as it enters a tile
       if (f) {
-        let x = k;
-        let guard = COLS * 32;
-        while (x !== f.dest && guard-- > 0) {
-          x = f.next[x];
-          if (x < 0) break;
-          push((x / COLS) | 0, x % COLS);
+        let y = at[0], x = at[1], tile = k;
+        for (let guard = 4000; guard > 0 && hypot(leg.c - x, leg.r - y) > REACH; guard--) {
+          const n = f.next[tile];
+          const nx = n < 0 ? leg.c : n % COLS, ny = n < 0 ? leg.r : (n / COLS) | 0;
+          const d = hypot(nx - x, ny - y);
+          if (d < 1e-5) break;
+          x += ((nx - x) / d) * TRACE_STEP;
+          y += ((ny - y) / d) * TRACE_STEP;
+          const t = g.inBounds(Math.round(y), Math.round(x)) ? Math.round(y) * COLS + Math.round(x) : -1;
+          if (t < 0 || !(f.dist[t] >= 0)) break;
+          if (t !== tile) { tile = t; push(y, x); }
         }
       }
     }

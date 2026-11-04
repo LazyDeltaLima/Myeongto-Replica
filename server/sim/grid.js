@@ -19,7 +19,7 @@
 // crate), strict-improvement relaxation (a tile keeps the first parent that reached it); then the parents are
 // smoothed row-major in place — each tile's parent jumps to the farthest ancestor in Bresenham line of sight (every
 // tile on the line walkable and not a crate; a diagonal step needs both orthogonal neighbours clear). A ground enemy
-// walks straight toward `next[tile]` of its current tile (ai.js). Fields are cached per (destination, grid version).
+// heads each tick for `next[tile]` of its current tile (ai.js walkRoute). Fields are cached per (destination, grid version).
 //
 // Blockable-ground preference (user playtest #2: "the lower-gate enemies of 战场#01 walk up the col-9 floor lane where
 // no operator can block them"), kept to where the official route really walks over more floor (community report after

@@ -230,7 +230,7 @@ test('真实隐形弩手：失衡跨帧打断时不按旧后摇时间冻结和�
   const h = arena('enemy_1019_jshoot');
   assert.ok(h.runUntil(() => {
     const e = h.enemy('enemy_1019_jshoot');
-    return e && e.atkStandUntil - h.b.time > TICK && e.atkStandUntil - h.b.time < 3 * TICK;
+    return e && e.atkStandUntil - h.b.time > TICK && e.atkStandUntil - h.b.time < 2.5 * TICK;
   }, 10));
   const e = h.enemy('enemy_1019_jshoot'), A = h.b.snapshot();
   const until = A.stand.find((s) => s[0] === e.id)[1];
@@ -255,7 +255,7 @@ test('真实隐形弩手：后摇中击退并被移动创伤击杀，死亡帧�
   const h = arena('enemy_1019_jshoot');
   assert.ok(h.runUntil(() => {
     const e = h.enemy('enemy_1019_jshoot');
-    return e && e.atkStandUntil - h.b.time > TICK && e.atkStandUntil - h.b.time < 3 * TICK;
+    return e && e.atkStandUntil - h.b.time > TICK && e.atkStandUntil - h.b.time < 2.5 * TICK;
   }, 10));
   const e = h.enemy('enemy_1019_jshoot'), A = h.b.snapshot();
   const until = A.stand.find((s) => s[0] === e.id)[1];

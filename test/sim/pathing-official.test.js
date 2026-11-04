@@ -57,10 +57,11 @@ test('D5 real battle (act1 m04, round-1 template act1autochess_01): the 源石�
   });
   h.run(30);
   assert.equal(defId, 'enemy_1007_slime', 'the round-1 源石虫 of the lower gate');
-  assert.deepEqual(tiles.slice(0, 5), ['9,10', '9,9', '10,8', '10,7', '10,6'], `tiles: ${tiles.join(' ')}`);
+  // each tick it heads for next[its tile] (ai.js walkRoute): (10,7) from the gate, (10,8) from (9,9), (10,4) once on row 10
+  assert.deepEqual(tiles.slice(0, 5), ['9,10', '9,9', '10,9', '10,8', '10,7'], `tiles: ${tiles.join(' ')}`);
   assert.ok(!tiles.includes('9,8'), `never on (9,8): ${tiles.join(' ')}`);
-  // on the official segment (9,10) → (10,7) the walker is a third of a row up when it passes the col-9 centre line
-  assert.ok(Math.abs(atCol9 - (9 + 1 / 3)) < 0.02, `row ${atCol9} at col 9 (straight along row 9 would be 9.00)`);
+  // it turned to (10,8) as it entered (9,9), a sixth of a row up, by steering: at the col-9 centre line it is over a third up
+  assert.ok(Math.abs(atCol9 - 9.37) < 0.03, `row ${atCol9} at col 9 (straight along row 9 would be 9.00)`);
 });
 
 // Routes that differ from the official one (ours, as waypoints): each crosses fewer non-blockable tiles — user playtest
