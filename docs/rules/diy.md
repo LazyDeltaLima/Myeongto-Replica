@@ -901,7 +901,8 @@
   - 벨로네 S1 둘째 타격 시점은 공식 클라에서 확인(2026-11-03, 위 「선발 추가 헬라그」와 같은 `_waitAttackEventForAllAttacks` — 클립의 다음 공격 이벤트); S3 이동은 클립 `Skill_3_ReStart_Begin` 끝(0.2초, `sim.md` 「즉발 스킬의 시전」, 2026-11-05 공식 클라에서 확인); 복귀 보호 길이
     [추정·미조사: RespawnEnd 능력의 길이를 두 클립 0.5초로 읽음, 끝나는 조건은 안 읽음].
   - 지마 S3 거침없는 기세 [추정·미조사: 망치 스플래시 몫이 `atk_scale_2`에 `atk_scale`까지 곱하는지, 그 타격이 일반 공격으로 세는지 — 능력 클래스의 코드]·
-    [추정·미조사: 확산의 「인접」 = 상하좌우 4칸 — 고지대 AoE 클래스(`_aoeSelector`)의 코드]·[추정·미조사: 행동할 수 없을 때 망치를 잃는지 — 능력 중단은 엔진 코드].
+    [추정·미조사: 확산의 「인접」 = 상하좌우 4칸 — 고지대 AoE 클래스(`_aoeSelector`)의 코드]
+    기절·빙결·수면은 스킬을 끝내고 남은 망치도 사라진다(2026-11-05, 공식 클라에서 확인): 망치 다섯은 묶음이 아니라 능력 하나(`headb2_s3`, `_additionalTimes` 4)라, `SkillState.OnTick` → `BasicSkill.InterruptIfNot`이 그 능력을 끊으면 다음 망치가 없고, 능력이 시전 중이 아니니 `BasicSkill.OnTick`이 스킬을 끝낸다(`rules/sim.md` 「즉발 스킬의 시전」의 순차 묶음과 다름). 끊겼을 때 표시·동작은 공식 화면과 대조 안 함.
 - Mon3tr의 연쇄 튕김은 치료 금지(禁疗)·고립(孤立) 아군도 고르고 치료한다(2026-11-03, 공식 클라에서 확인): 그녀 치료 투사체의 튕김 선택기
   `ChainedSelectorWithFilter`는 `_ignoreHealFree`·`_ignoreAllyTargetFree`가 켜져 있고, 대상 검사(`TargetOptions`)는 그 옵션이 켜지면 禁疗(치료 목적일 때)·
   아군 대상 불가(이상 상태 `ALLY_TARGET_FREE`) 거름을 건너뛴다 → 엔진 `ai.js chainHealNext`의 옵션 `ignoreAllyTargetFree`(키트 `JUMP_OPTS`)로 孤立 아군을

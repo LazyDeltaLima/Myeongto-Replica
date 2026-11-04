@@ -299,7 +299,7 @@ test('S3 无可抵挡 (MANUAL, data CUSTOM_RANGE): five hammers on the Skill_3 c
   }
 });
 
-test('S3: leaving the field stops the 高台 spread at once; a hammer due while she is stunned is lost', () => {
+test('S3: leaving the field stops the 高台 spread at once; a stun ends the skill and the hammers not yet come', () => {
   const { h, u } = field({ tier: 6, elite: true, skill: 2, rows: FOUR_HIGH, seed: 17 });
   const under = [7, 8, 9, 10].map((c) => h.spawn('enemy_dummy', { pos: [12, c] }));
   h.spawn('enemy_dummy', { pos: [10, 6] });
@@ -312,15 +312,23 @@ test('S3: leaving the field stops the 高台 spread at once; a hammer due while 
   const counts = under.map((e) => dmgOn(h, e, (c) => c.t >= t0 && highland(c)).length);
   assert.deepEqual(counts, [4, 2, 1, 0], 'the 4th round stopped after its first step: (11, 8) / (11, 9) / (11, 10) keep the earlier rounds only');
   done(h);
-  // stunned through the 1st hammer (1.1 s)
+  // stunned after the 2nd hammer: the ability is interrupted, so the 3rd to 5th never come and the skill is over (its mods with it)
   const s = field({ tier: 5, skill: 2, seed: 17 });
   const main = s.h.spawn('enemy_dummy', { pos: [10, 6] });
+  const atk0 = s.u.s.atk;
   s.u.skill.gainSp(999);
   assert.ok(s.h.runUntil(() => s.u.skill.active, 1));
-  s.h.run(1.0);
+  const s0 = s.h.hooksOf('skillStart').find((c) => c.unit === s.u).t;
+  s.h.run(HAMMER_T[1] + 0.1 - (s.h.b.time - s0));
+  assert.equal(dmgOn(s.h, main, hammerHit).length, 2, 'two hammers before the stun');
+  assert.ok(s.u.s.atk > atk0, 'the skill\'s ATK while it runs');
   s.h.b.applyStatus(s.u, 'stun', { duration: 1.5, source: null });
-  s.h.runUntil(() => !s.u.skill.active, 12);
-  assert.equal(dmgOn(s.h, main, hammerHit).length, 4, 'four hammers landed');
+  s.h.step();
+  assert.equal(s.u.skill.active, false, 'the stun ended the skill');
+  assert.equal(s.u.s.atk, atk0, 'its ATK with it');
+  s.h.run(12);
+  assert.equal(dmgOn(s.h, main, hammerHit).length, 2, 'no hammer after the stun');
+  assert.ok(dmgOn(s.h, main, (c) => !hammerHit(c) && c.t > s0 + HAMMER_T[1] + 1.6).length > 0, 'she attacks normally once the stun is over');
   done(s.h);
 });
 

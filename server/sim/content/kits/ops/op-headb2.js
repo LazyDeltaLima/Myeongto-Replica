@@ -56,7 +56,8 @@
 //   影响的高台触发第一天赋（即扩散），最大扩散次数等同于当前已完成锤击次数；不论如何，一轮锤击中每个高台只会触发一次天赋效果" / "离场时，
 //   未完成的天赋效果扩散将立刻终止"): hammer k spreads up to k − 1 steps to the four tiles next to each affected 高台 [ASSUMED·not
 //   checked: "相邻" = the 4 neighbours — the spread is the highland AoE class's code (skchr_headb2_3 `_aoeSelector`), not
-//   read]. A hammer due while she cannot act is lost [ASSUMED·not checked: the ability's interruption is engine code, not read].
+//   read]. A stun, freeze or sleep ends it, the hammers not yet come with it (official client: headb2_s3 is one ability, no sequence
+//   group, `_additionalTimes` 4: SkillState.OnTick interrupts it, and BasicSkill.OnTick ends a skill whose ability stopped casting).
 
 import { num, talentBb, traitBb, skillRec, up, giveSp } from '../shared/tier1.js';
 import { COLS } from '../../../constants.js';
@@ -221,13 +222,14 @@ export default {
             for (const f of HAMMER_FRAMES) {
               battle.after(f / FPS, () => {
                 if (!(unit.alive && unit.deployed && unit.deploySeq === seq && skill.active && skill.activations === n0)) return;
-                if (!unit.canAct) return;   // a hammer due while she cannot act is lost [ASSUMED·not checked]
+                if (!unit.canAct) return;   // the stun of this very tick: onTick below ends the skill
                 hammer(battle, unit, done + 1);
                 done++;
                 if (step) battle.addBuff(unit, { key: STEP_KEY, mods: { atkPct: step * done }, tags: ['skill'] });
               }, { owner: unit });
             }
           },
+          onTick({ unit, skill }) { if (!unit.canAct) skill.end('interrupted'); },
           onEnd({ battle, unit }) { battle.removeBuff(unit, STEP_KEY); },
         },
       },
