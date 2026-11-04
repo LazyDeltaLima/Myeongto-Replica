@@ -111,7 +111,9 @@ export default withDefaults({
             const n = !unit.skill ? 0 : skillActive(unit) ? -1 : Math.min(2, unit.skill.charges);
             if (n !== (unit.mem.billroShown ?? 0)) {
               unit.mem.billroShown = n;
-              battle.fx('charges', { x: unit.x, y: unit.y, id: unit.id, n });
+              // `full`: a charged cast keeps [full] too while the skill runs (billro_s_N[eff_cond])
+              if (n < 0 && unit.mem.billroCharged) battle.fx('charges', { x: unit.x, y: unit.y, id: unit.id, n, full: 1 });
+              else battle.fx('charges', { x: unit.x, y: unit.y, id: unit.id, n });
             }
           });
         } },

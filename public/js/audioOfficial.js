@@ -23,7 +23,7 @@ export const GROUP_GAIN = Object.freeze({
 });
 /** The Voice group (the voice channel's gain). */
 export const VOICE_GAIN = 0.978;
-/** A bank without a group (e.g. ON_MODIFIER_HEAL): the battle SFX bus [ASSUMED]. */
+/** A bank without a group (e.g. ON_MODIFIER_HEAL): the battle SFX bus (SoundFXBank.ParseMixer: a `battle` name is FX_BATTLE; AudioOptions.SelectMixerGroup: battleFxGroup). */
 const NO_GROUP = GROUP_GAIN.SFX_Battle;
 
 /** The group a role uses in the official banks when the manifest has none (by the unit's model id prefix). */
@@ -219,8 +219,8 @@ export const loopGain = (loop) => groupGain(loop?.grp) * (Number.isFinite(loop?.
  * local patch (maintainer report 2026-10-08 「이격 스펙터 S2 종료 후 대역 전환」): the sounds of a dollkeeper's form switch (sim
  * professions.js installDollkeeper: fx 'substitute' = to the <替身>, 'swap' = back to the 本体, 'dollEnd' = the 替身 knocked
  * out) as sfx.kit keys (tools/assets/kit-sfx.mjs): `play` one-shots, `hold` a one-shot held so the switch back cuts it
- * (`fade` s: its ctrlStop bank ghost2_stand_effect_end 0.8 s), `stop` = cut the held one. [추정] the stand-in's show
- * effect sounds with the switch (the buff's own timing is native code) and stops when she leaves the 替身.
+ * (`fade` s: its ctrlStop bank ghost2_stand_effect_end 0.8 s), `stop` = cut the held one. The stand-in's show effect sounds
+ * with the switch (Entity.OnBuffStart → AddBuffEffect) and stops as ghost2_standin[switch] finishes, when she leaves the 替身.
  * @param {string} def the unit's model id
  * @param {string} fx the fx kind
  * @returns {{ play: string[], hold: { key: string, fade: number }|null, stop: boolean }|null}
@@ -260,7 +260,7 @@ export function battleLossOf(pp, cap = 10) {
  * client's AutoChessBattleUIRoundResultDialog.OnRender. Leak counts and `perfect` play no part: a solo
  * battle with uncounted leaks only costs 0 ⇒ 'perfect'.
  * Who is in the result: the viewer alone when its own battle ends in a solo match (`{ [me]: battleLossOf(pp) }`), every
- * alive player's settlement charge at SETTLE (m.public.roundLosses) [추정: the client reads the dict from the server
+ * alive player's settlement charge at SETTLE (m.public.roundLosses) [추정·서버: the client reads the dict from the server
  * packet; ours holds every alive player of the match].
  * @param {Record<string, number>|null|undefined} losses playerId → LP lost in this result
  * @param {string|null|undefined} selfId the viewer's playerId

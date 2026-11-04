@@ -8,7 +8,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { AudioManager, signalFxKey } from '../public/js/audio.js';
+import { AudioManager, billroChargeKey, signalFxKey } from '../public/js/audio.js';
 import { pickVariant } from '../public/js/audioOfficial.js';
 import { makeBattle, enemyRec } from './helpers/battleHarness.js';
 
@@ -62,6 +62,12 @@ describe('attack groups with a condition per child', () => {
     assert.deepEqual(heard([swing(4)]), ['p_atk_richfan_n'], '琳琅诗怀雅 S1: the plain attack');
     assert.deepEqual(heard([['fx', 'swire2Heal', 0, 0, { id: 4 }]]), ['p_atk_richfan_d']);
     assert.deepEqual(heard([['fx', 'coin', 0, 0, { id: 4, heal: 2, skill: 'swire2_1' }]]), ['p_imp_richfan_d']);
+  });
+
+  test('卡涅利安: a charged cast keeps [full], so 2 charges right after it are silent; an uncharged one sounds them', () => {
+    const on = (full) => { const u = { skillIndex: 1 }; billroChargeKey(u, -1, full); return billroChargeKey(u, 2); };
+    assert.equal(on(true), null);
+    assert.equal(on(false), 'billro:s2:full');
   });
 
   test('a battle: 塔露拉\'s BuffedAttack and 凯尔希·思衡托 S2\'s HealAlly are named', () => {

@@ -47,7 +47,7 @@ export function sfxOut(mgr, url, ui = false) {
   return (ui || outsideBus(mgr, url)) && mgr?.sfxOutside ? mgr.sfxOutside : mgr?.sfxGain;
 }
 
-/** A decaying stereo noise tail: the SFX Reverb's late reverb [추정: no early reflections, flat in frequency]. */
+/** A decaying stereo noise tail: the SFX Reverb's late reverb [추정·엔진: no early reflections, flat in frequency]. */
 function impulse(ctx, s) {
   const rate = ctx.sampleRate || 48000;
   const pre = Math.round(s.preDelay * rate);

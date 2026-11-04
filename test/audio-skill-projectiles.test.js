@@ -87,6 +87,10 @@ describe('skill and talent projectile sounds wired 2026-10-29', () => {
     assert.equal(strikeImpactKey({ def: 'char_4054_malist', skillOn: true, skillIndex: 1 }, 0), null);
     assert.equal(funnelHitKey({ def: 'char_4013_kjera', skillOn: false }), 'kjera:funnel');
     assert.equal(funnelHitKey({ def: 'char_4054_malist', skillOn: false }), null, '至简\'s drone has no bank');
+    assert.equal(funnelHitKey({ def: 'char_4013_kjera', skillOn: true, skillIndex: 0 }), 'kjera:funnel', 'S1 runs in the Default mode');
+    assert.equal(funnelHitKey({ def: 'char_1038_whitw2', skillOn: true, skillIndex: 0 }), 'whitw2:funnelS1', 'her S1 mode\'s S1Funnel1');
+    assert.equal(funnelHitKey({ def: 'char_1038_whitw2', skillOn: true, skillIndex: 1 }), null, 'her S2 mode\'s drones have no HIT bank');
+    assert.equal(funnelHitKey({ def: 'char_4040_rockr', skillOn: true, skillIndex: 1 }), null, 'S2Funnel has no HIT bank');
     const halo = { def: 'char_1047_halo2', skillIndex: 2, skillOn: true };
     assert.equal(haloLinkCount(halo, [5, 6]), 2);
     assert.equal(haloLinkCount(halo, [5, 6, 7]), 1, 'only the newly linked');

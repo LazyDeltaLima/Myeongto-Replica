@@ -142,6 +142,7 @@ export const KIT_HIT_BANKS = Object.freeze({
   // Funnel1–3 fire …_funnel_1–3, whose `_overrideAudioSignal` is projectile_chr_whitw2_funnel; 至简's has no bank)
   'kjera:funnel': 'battle.ON_PROJECTILE_HIT.projectile_chr_kjera_funnel',
   'whitw2:funnel': 'battle.ON_PROJECTILE_HIT.projectile_chr_whitw2_funnel',
+  'whitw2:funnelS1': 'battle.ON_PROJECTILE_HIT.projectile_chr_whitw2_funnel_s1_1',
   'rockr:funnelN': 'battle.ON_PROJECTILE_HIT.projectile_chr_rockr_funnel',
   // 耶拉 S2's released drone Funnel_0 (projectile_chr_kjera_funnel_s2_1; Funnel_1's …_s2_2 has none): each hit, and its
   // TriggerAudioSignalBehaviour (OnHitTarget: `_preDelay` 0.6 s ÷ the ability's playback speed after each hit)

@@ -59,8 +59,8 @@ import { officialGain, groupGain, battleGain, modeEntry, BATTLE_GROUP, VOICE_GAI
 import { holdSnapshot, sfxOut, snapshotHookOf } from './audioSnapshot.js'; // local patch: mixer snapshots (归溟幽灵鲨's 替身 switch)
 
 /**
- * 2026-10-10: concurrent battle sounds at most [추정: Unity's default real voice count 32 — the client's own
- * setting is not in its data]; the old 8 + 160 ms per unit + 45 ms per URL + 2 per URL had no official basis.
+ * 2026-10-10: concurrent battle sounds at most the client's real voice count (its AudioManager setting m_RealVoiceCount, 32);
+ * the old 8 + 160 ms per unit + 45 ms per URL + 2 per URL had no official basis.
  */
 const MAX_VOICES = 32;
 /** A bank the manifest has no values for: the official majority (maxSoundAllowed 2, popOldest — 9,950 of 13,000 banks). */
@@ -179,7 +179,7 @@ export function enemyBuffSounds(fx, ex, unitOf) {
  * 2026-11-01: the `sfx.kit` key of a kit buff (sim 'status' key, `<base>:<source id>` for one per applier) whose client buff
  * carries an `audioSignal` — Entity.OnBuffStart / OnBuffShowEffect sound it on the holder as it starts. 冻河 (CN buff
  * templates): her S1 屏障 tocka_s1[shield], S2 attack speed tocka_s2[auto_skill], S3 ATK tocka_s3[bonus] (on the ally and
- * on her) [ASSUMED·engine: the SHOW_EFFECT banks at the buff's start, as the other ones here].
+ * on her) — the SHOW_EFFECT banks too: Entity.OnBuffStart → AddBuffEffect sounds them at the buff's start.
  */
 const STATUS_SOUNDS = Object.freeze({ 'tocka:shield': 'tocka:s1shield', 'tocka:auto': 'tocka:s2auto', 'tocka:bonus': 'tocka:s3bonus' });
 /**
@@ -319,7 +319,7 @@ export function kitStartKey(fx, ex, unitOf = () => undefined) {
 /**
  * 2026-10-22 (maintainer request): 帝国炮火先兆者 / 中枢先兆者 (enemy_1112_emppnt / _2) — their shell attack's own banks, which
  * their unit cues cannot play (the shell lands 3 s later as 无来源 damage, content/enemies/fly.js kitShell): the attack's
- * ON_ABILITY_END (e_atk_aim) as it fires [추정: at the shot — the client sounds it at the cast's end], and for each unit
+ * ON_ABILITY_END (e_atk_aim) as it fires [추정·엔진: at the shot — the client sounds it at the cast's end, a moment the sim lacks], and for each unit
  * the landing hits (the 无来源 'dmg' of the 'bombard' moment: AudioManager `_shellAt`) its ON_ABILITY_HIT (e_atk_energyshotcast)
  * and the projectile's ON_PROJECTILE_HIT (e_imp_grenade_n) — the client's HIT signals are per unit hit (each bank keeps 2 at
  * once, popOldest); a shell that hits nobody is silent (the projectile has no REACH bank).
@@ -394,7 +394,7 @@ export function signalAttackKey(su, at, melee) {
   // svash2_s_3[bird_on_self]): projectile_chr_svash2_s3_bird_self's HIT at the impact (the aura's BORN: the skill's start)
   if (su.def === 'char_1045_svash2' && su.skillIndex === 2 && at === 'd') return 'svash2:s3hit';
   // 2026-10-29: 维什戴尔 S3 — the attack's AimEff (a child of its all-children group, no clip) marks the target as the attack
-  // starts: wisdel_s_3_mark[target]'s audioSignal WISDEL_S3_MARK [추정·엔진: a clip-less child's buff lands at the cast]
+  // starts (AimEff has no _waitForAttackEvent, MainAttack does): wisdel_s_3_mark[target]'s audioSignal WISDEL_S3_MARK
   if (su.def === 'char_1035_wisdel' && su.skillIndex === 2 && at === 's') return 'wisdel:s3mark';
   // 2026-11-03: 贝洛内 S2 — the S2 mode's Attack BuffToOwner (`_runActionOnEvent` ON_SPELL_ON) gives him demetr_s2[audio]
   // (audioSignal demetr_s2_attack_spell_on_audio) at each shot; the mode has no attack bank of its own
@@ -412,13 +412,16 @@ export function strikeImpactKey(su, h) {
 }
 /**
  * 2026-10-29: the sfx.kit key of an unreleased drone's additional damage ('dmg' 7th field 2, server/sim/damage.js dotFlag) of a
- * 驭械术师 `su` — the Default mode's Funnel projectile HIT (至简's has no bank), outside its skills [추정·자료 없음: a skill that
- * keeps the drone attached is taken to shoot the same projectile] — or null.
+ * 驭械术师 `su` — the Default mode's Funnel projectile HIT (至简's has no bank), or null. During a skill: the mode the skill runs
+ * in (2026-11-04, official client): 耶拉 and 洛洛's S1 have no mode of their own, the Default's Funnel; 荒芜拉普兰德's S1 mode has
+ * S1Funnel1–3, of which only _s1_1 has a bank; her S2 (_s2_1–6) and 洛洛's S2 (S2Funnel) have no HIT bank.
  */
 export function funnelHitKey(su) {
-  return su && !su.skillOn ? FUNNEL_HIT_KEYS[su.def] ?? null : null;
+  if (!su) return null;
+  return su.skillOn ? FUNNEL_SKILL_HIT_KEYS[su.def]?.[su.skillIndex] ?? null : FUNNEL_HIT_KEYS[su.def] ?? null;
 }
 const FUNNEL_HIT_KEYS = Object.freeze({ char_4013_kjera: 'kjera:funnel', char_1038_whitw2: 'whitw2:funnel', char_4040_rockr: 'rockr:funnelN' });
+const FUNNEL_SKILL_HIT_KEYS = Object.freeze({ char_4013_kjera: Object.freeze({ 0: 'kjera:funnel' }), char_1038_whitw2: Object.freeze({ 0: 'whitw2:funnelS1' }), char_4040_rockr: Object.freeze({ 0: 'rockr:funnelN' }) });
 /**
  * 2026-10-29: 溯光星源 S3's LinkEnemy — each enemy newly linked this skill run (fx 'link' `ids`) takes halo2_s_3_link, whose
  * audioSignal sounds (ON_BUFF_START): how many plays, remembered on her tracked unit (`haloLinked`, cleared as the skill starts).
@@ -483,12 +486,12 @@ export function signalFxKey(fx, ex, unitOf) {
   // 2026-11-04: 琳琅诗怀雅 S1's HealAlly child of her attack group — as it starts and as its heal lands
   if (fx === 'swire2Heal' && u?.def === 'char_1033_swire2') return 'swire2:heal';
   if (fx === 'coin' && ex.heal != null && ex.skill === 'swire2_1' && u?.def === 'char_1033_swire2') return 'swire2:healhit';
-  if (fx === 'charges' && u?.def === 'char_426_billro' && Number.isInteger(u.skillIndex)) return billroChargeKey(u, Number(ex.n) || 0);
+  if (fx === 'charges' && u?.def === 'char_426_billro' && Number.isInteger(u.skillIndex)) return billroChargeKey(u, Number(ex.n) || 0, !!ex.full);
   if (fx === 'charges' && (u?.def === 'char_206_gnosis' || u?.def === 'char_4042_lumen')) return chargeStageKey(u, Number(ex.n) || 0);
   // 2026-10-22: 刺玫 S2's counter on the attacker of her protégé (vendla_s_2[extra_damage]'s audioSignal, on the attacker)
   if (fx === 'counter' && u?.def === 'char_494_vendla') return 'vendla:s2';
   // 2026-10-22: 蕾缪安 S3's lock — its cast on a target puts lemuen_s3_audio_triggered there (UNIQUE, INFINITY: once per
-  // enemy, a second lock on it is silent [추정: the buff outlives the skill]); `ex.id` is the enemy
+  // enemy, a second lock on it is silent: UNIQUE adds only to an empty group, INFINITY outlives the skill); `ex.id` is the enemy
   if (fx === 'lock' && ex.hold && ex.src != null && unitOf(ex.src)?.def === 'char_4193_lemuen' && u && !u.lemS3) {
     u.lemS3 = true;
     return 'lemuen:s3lock';
@@ -514,14 +517,13 @@ export function signalFxKey(fx, ex, unitOf) {
  * 2026-10-22, docs/rules/audio.md 「버프·커스텀 트리거 소리」: 卡涅利安's charge stages — billro_s_N[eff_cond] (every 0.1 s) keeps
  * derived buffs on her: outside the skill, 2 charges create [full] (audioSignal billro_s_N_reach_enhance) + [half] unless
  * [full] is there, 1 charge creates [half] (billro_s_N_reach_half) unless [half] is there, 0 finishes them; while the skill
- * runs it keeps [half] (and with every charge stored [full]) without a sound. `n` is the kit's 'charges' (-1 while it runs);
- * which buffs she holds is kept on her audio record `u` [추정: a skill start counts as uncharged — the event carries no
- * charge, so a stage reached right after a charged cast sounds].
+ * runs it keeps [half] (and with every charge stored [full]) without a sound. `n` is the kit's 'charges' (-1 while it runs,
+ * `full` = a charged cast); which buffs she holds is kept on her audio record `u`.
  */
-export function billroChargeKey(u, n) {
+export function billroChargeKey(u, n, full = false) {
   const st = (u.bstage ||= { full: false, half: false });
   const s = `billro:s${u.skillIndex + 1}`;
-  if (n < 0) { st.half = true; st.full = false; return null; }
+  if (n < 0) { st.half = true; st.full = !!full; return null; }
   if (n === 0) { st.half = st.full = false; return null; }
   if (n >= 2) { if (st.full) return null; st.full = st.half = true; return `${s}:full`; }
   if (st.half) return null;
@@ -616,7 +618,7 @@ const IMPACT_WINDOW_MS = 2500;
 const KIT_SOUND_DEF = /^(char_\d+_(wang|chen3|wisdel|oblvns|whitw2|lemuen|ghost2)|token_\d+_(wang|wisdel|oblvns|whitw2|lemuen|ghost2)\w*)$/;
 /**
  * 2026-10-10: a skill-damage impact (a 'dmg' carrying its attacker with no attack of its own, docs/SIM.md) of one
- * attacker at most this often (real ms) [추정: the client sounds a skill's own impacts through its projectiles / abilities,
+ * attacker at most this often (real ms) [추정·자료 없음: the client sounds a skill's own impacts through its projectiles / abilities,
  * not per damage tick]. A DoT tick credited to its applier never gets here (2026-10-11: the 'dmg' 7th field, skipped first).
  */
 const SKILL_HIT_GAP_MS = 120;
@@ -1694,7 +1696,7 @@ export class AudioManager {
 
   /**
    * A unit whose model reports no Spine clip events (spineEvent: no model drawn — the fallback diamond, a crowded low-quality
-   * field, a renderer that does not report them) gets a strike in their place [추정: the event sits in the attack clip, so it
+   * field, a renderer that does not report them; the client always has its model) gets a strike in their place (the event sits in the attack clip, so it
    * sounds near the strike]: during skill k the unit's `Skill_<k>_<n>` events in turn (마운틴 S2 / S3 punches — their mode
    * signals have no bank), otherwise its `Attack_<n>` / `Attact_<n>` ones (파투스's reload).
    */
