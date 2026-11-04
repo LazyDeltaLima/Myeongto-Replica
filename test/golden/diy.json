@@ -1701,7 +1701,7 @@
         "enemy_1207_sfji": [12,0,11,277606,67466]
       },
       "hooks": [1,159,6900,2221,2221,2116,2116,16608,15,150,65,65,0,16906,0,37,117,104,1,15,0,0,0],
-      "events": {"atk":2286,"deploy":40,"die":46,"dmg":2116,"engage":8,"face":5,"fx":203,"heal":247,"leak":104,"skill":130,"spawn":131,"status":16,"swing":2248},
+      "events": {"atk":2286,"deploy":40,"die":46,"dmg":2116,"engage":8,"face":5,"fx":203,"heal":247,"leak":104,"skill":130,"spawn":131,"status":47,"swing":2248},
       "fx": {"explode":3,"healField":18,"kitHit":79,"mark":3,"shield":2,"summon":7,"teleport":91},
       "snaps": "58b1bf92 7d369294 b78a8db6 e412171a 775548a8 4c710ff6 a23688d6 dd9384cf b41a3038 9c05470a b5e10ec2 07d7e034 9716bce0 e8358f81 a7cb3b6a a47271e3 15a344bf 32e4ef7c 4dff29c1 6fb29cc9 087ae74a 22a17686 c4da540d"
     },
@@ -1740,7 +1740,7 @@
       ],
       "enemies": {"enemy_1045_hammer_2":[18,0,18,4136,456],"enemy_1061_zomshd":[60,0,59,1066,24638]},
       "hooks": [1,115,6900,105,105,110,110,3484,0,114,5,5,0,3153,1,16,78,77,1,0,0,0,0],
-      "events": {"atk":105,"deploy":37,"die":37,"dmg":110,"engage":4,"face":2,"fx":13,"leak":77,"skill":10,"spawn":90,"status":2,"swing":120},
+      "events": {"atk":105,"deploy":37,"die":37,"dmg":110,"engage":4,"face":2,"fx":13,"leak":77,"skill":10,"spawn":90,"status":66,"swing":120},
       "fx": {"explode":2,"kitHit":2,"mark":2,"shield":7},
       "snaps": "39a0ff9f 80ec218e 943642dc 46306c6f 558faca0 84f86d58 6c4d1aa7 5f46738b 7981befc 9e253c26 69aa25bb d3e4849b 1b72b021 f0e9ad8f 2699d3c4 5b194c3a eea71827 6d72b0ca 7f7d25ef 405b1a6a d3a1e091 ce9b44c2 0ce4a7d0"
     },
@@ -1781,7 +1781,7 @@
       ],
       "enemies": {"enemy_1165_duhond":[51,9,42,545,47042],"enemy_1174_duholy_2":[24,0,24,14689,9817],"enemy_1175_dushdo_2":[30,0,30,25809,24317]},
       "hooks": [1,140,6428,265,265,265,263,0,17,137,1,3,0,4600,0,26,105,96,1,17,0,0,2],
-      "events": {"atk":265,"deploy":33,"die":41,"dmg":263,"engage":10,"face":6,"fx":12,"leak":96,"skill":6,"spawn":119,"status":111,"swing":277},
+      "events": {"atk":265,"deploy":33,"die":41,"dmg":263,"engage":10,"face":6,"fx":12,"leak":96,"skill":6,"spawn":119,"status":181,"swing":277},
       "fx": {"dodge":2,"shield":10},
       "snaps": "77bded37 e95dffca 263fff4b e48d0efb f7b61691 027cdfba 496ac76c 99255673 f43b7f50 bd827f7d e9b3aa08 b263f3ab 585f594b 2b6dadd4 3b70f9d5 c91f794d 2b863a23 c52297a0 09aa1c97 ec131898 6e18402f 9317ebb7"
     },

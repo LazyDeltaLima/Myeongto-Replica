@@ -145,8 +145,8 @@ export default {
             for (const e of battle.enemies) if (e.alive && !e.hidden && bodyInRange(e, around)) n++;
             const k = n === alone ? 2 : 1;
             const cur = unit.findBuff(selfKey);
-            if (self && (!cur || cur.mods?.aspd !== self * k)) battle.addBuff(unit, { key: selfKey, mods: { aspd: self * k }, tags: ['talent'] });
-            if (foe) for (const e of blocked) battle.addBuff(e, { key: foeKey, duration: 0.1, mods: { aspd: foe * k }, source: unit, tags: ['talent'] });
+            if (self && (!cur || cur.mods?.aspd !== self * k)) battle.addBuff(unit, { key: selfKey, mods: { aspd: self * k }, tags: ['talent'], visible: true });
+            if (foe) for (const e of blocked) battle.addBuff(e, { key: foeKey, duration: 0.1, mods: { aspd: foe * k }, source: unit, tags: ['talent'], visible: true });
           }, { owner: unit });
         } },
         { install(battle, unit) { // 有备无患: pay |extra_cost| for the guard; the guard cancels the next 晕眩 / 冻结

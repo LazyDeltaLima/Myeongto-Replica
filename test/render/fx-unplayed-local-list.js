@@ -69,8 +69,6 @@ export const UNPLAYED_LOCAL = Object.freeze({
   "projectile_chr_jesca2_s3_bomb|jesca2_skill_03_hit_02": "todo: 涤火杰西卡 S3's shell (projectile_chr_jesca2_s3_bomb: the kit's event draws no flight)",
   "projectile_chr_jesca2_s3_bomb|jesca2_skill_03_trail_02": "todo: 涤火杰西卡 S3's shell (projectile_chr_jesca2_s3_bomb: the kit's event draws no flight)",
   "judge_t_1|judge_shield_all_01": "todo: 斥罪 T1's held shield effect beside its start and break",
-  "lmlee_t_1[self]|lmlee_buff_01_start": "todo: 老鲤 T1's ASPD buffs: the sim's talent:lmlee:* are not announced to the view",
-  "lmlee_t_1[enemy]|lmlee_debuff_01_start": "todo: 老鲤 T1's ASPD buffs: the sim's talent:lmlee:* are not announced to the view",
   "projectile_chr_mantra_s2|mantra_bounce_trail_01": "todo: 真言's bounce trail and T2 tile mark (AttachListenerToTileAbility effectKey)",
   "projectile_chr_mantra_s3_2|mantra_bounce_trail_01": "todo: 真言's bounce trail and T2 tile mark (AttachListenerToTileAbility effectKey)",
   "char_4204_mantra/Others/Direction/Talents/2/TileListener|mantra_mark_01": "todo: 真言's bounce trail and T2 tile mark (AttachListenerToTileAbility effectKey)",

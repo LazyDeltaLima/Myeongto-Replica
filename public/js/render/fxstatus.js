@@ -180,6 +180,10 @@ export const KEY_FX = Object.freeze({
   // under her S2), by the side the ally faces
   'talent:monstr:aspd': cite(['monstr_t_2[eff_1]', 'monstr_t_2[eff_1][r]', 'monstr_t_2[eff_2]', 'monstr_t_2[eff_2][r]'],
     (v, from) => MONSTR_T2[Number(from?.fx) === 2 ? 1 : 0][(v.visFacing ?? v.facing ?? 1) < 0 ? 1 : 0]),
+  // (2026-11-04) 老鲤 T1 (Talents/1): lmlee_t_1[self] lmlee_buff_01_start on him and lmlee_t_1[enemy] lmlee_debuff_01_start on the
+  // enemy he blocks, while he blocks (ToggleablePassiveBuffAbility, BlockedToggleChecker)
+  'talent:lmlee:self': keyed('lmlee_t_1[self]', 'lmlee', OWN),
+  'talent:lmlee:foe': keyed('lmlee_t_1[enemy]', 'lmlee', OWN),
   // (2026-11-04) the 重构体's ATK aura (its Talents/1 AuraAbility prosts[atk_up], overrideEffectKey token_monstr_prosts_buff_03,
   // `_selfOption` EXCLUDE) on each ally it covers — the sim's aura buff
   'talent:monstr:prostsAtk': keyed('prosts[atk_up]', 'monstr_token', OWN),

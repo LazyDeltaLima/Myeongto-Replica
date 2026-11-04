@@ -128,6 +128,10 @@ describe('client: status → the official buff effect', () => {
     assert.deepEqual(aspd(1, -1), ['monstr_token/token_monstr_prosts_buff_01_2'], '[eff_1] facing left');
     assert.deepEqual(aspd(2, 1), ['monstr_token/token_monstr_prosts_buff_02']);
     assert.deepEqual(aspd(2, -1), ['monstr_token/token_monstr_prosts_buff_02_2']);
+    // 老鲤 T1 while he blocks, and the 重构体's ATK aura on an ally it covers (2026-11-04)
+    assert.deepEqual(tpl(unit('char_322_lmlee', { statuses: new Set(['talent:lmlee:self']) })), ['lmlee/lmlee_buff_01_start']);
+    assert.deepEqual(tpl(unit('enemy_1007_slime', { statuses: new Set(['talent:lmlee:foe:7']) })), ['lmlee/lmlee_debuff_01_start']);
+    assert.deepEqual(tpl(unit('char_1_02_yak', { statuses: new Set(['talent:monstr:prostsAtk']) })), ['monstr_token/token_monstr_prosts_buff_03']);
     if (!keyPlays().keys['demetr_t1[def_dec_core]']) return;   // (the keyed ones need the extracted plays.json)
     assert.deepEqual(tpl(unit('enemy_1007_slime', { isEnemy: true, statuses: new Set(['talent:demetr:means']) })), ['demetr/demetr_buff_01']);
     assert.deepEqual(tpl(unit('enemy_1007_slime', { isEnemy: true, statuses: new Set(['veen:war:12']) })), ['veen/veen_talent_02_debuff_01']);
