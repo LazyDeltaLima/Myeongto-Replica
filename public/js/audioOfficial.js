@@ -317,7 +317,7 @@ export function pickVariant(sel, ab, o) {
   mem.used = true;
   let k;
   if (s.how === 'loop') k = (mem.loop ?? 0) % s.n + 1;
-  else if (s.how === 'cond') k = first && s.first ? s.first : o.melee ? (s.melee ?? s.ranged ?? 1) : (s.ranged ?? 1);
+  else if (s.how === 'cond') k = (typeof o.signal === 'string' && s.sig?.[o.signal]) || (first && s.first ? s.first : o.melee ? (s.melee ?? s.ranged ?? 1) : (s.ranged ?? 1));
   else if (s.how === 'first') k = (typeof o.signal === 'string' && s.sig?.[o.signal]) || s.def || s.n;
   else if (s.how === 'rand') {
     if (s.once) {

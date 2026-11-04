@@ -279,7 +279,10 @@
   공식 클라 `UnitMode.GenerateSignalId`). 그래서 텍사스 디 오메르토사 S1·S3, 마운틴 S3 등은 Default와 같은 `.attack` 뱅크를 쓴다.
   - 묶음 능력의 자식은 `.<i+1>`(`AbilityRandomGroup.DoSetData`): **Random**(`_selectMethod` 0)은 공격마다 하나를 고르고
     (`_diffFromLastOneIfNotFirst` = 직전과 다르게, `_selectAllAtLeastOnce` = 한 바퀴 다 돈 뒤 반복), **Loop**(1)는 차례로, 조건 묶음(`_abilityConfigs`)은 조건이
-    맞는 첫 자식(우리: 이름으로 — 근접 타격이면 `Melee…`, 원거리면 `Common`/`Ranged…`, 모드 첫 공격이면 `First…` [추정: 조건 자체는 안 읽음]),
+    맞는 첫 자식(공식 클라에서 확인: `AbilitySelectableGroup`, 조건은 자식의 트리거·선택기. 우리: 근접 타격이면 `Melee…`, 원거리면 `Common`/`Ranged…`, 모드 첫 공격이면 `First…`,
+    조건이 붙은 자식 — 제시카 더 리버레이티드 `ExtraBomb`, 스와이어 디 엘리건트 위트 `HealAlly`, 플레임테일 `Attack_T1`·`Attack_T1+`, 탈룰라 `BuffedAttack`, 루멘 `Special` 등 — 은 평소 소리가 아니고
+    sim이 그 자식을 고른 순간에만 낸다: 'swing' 9번째 칸(플레임테일 회피 뒤, 탈룰라 `oxi_s_2_stack`, 루멘 이상 상태 아군), 'atk' 5번째 칸(켈시 에스페란타 S2 `HealAlly`), 키트 사건(제시카 포탄 fx `bombardShell`,
+    스와이어 치유 fx `swire2Heal`·`coin`). 2026-11-04 전에는 이름으로만 골라 조건 자식의 소리가 매 공격 났다 — 제시카 S3 사격이 함포 소리, 플레임테일 평타가 쌍검 착탄, 탈룰라 평타가 강화 착탄, 스와이어 S1 평타가 치유 소리),
     `_mainAbility` 묶음은 자식 모두. **FirstSucceed**(`AbilityFirstSucceedGroup`, 2026-11-01 공식 클라에서 확인: `CastToTarget`이 `_abilities` 차례로
     준비된(`isReady`) 첫 자식을 시전, `DoSetData`가 자식 i에 `{신호}.{i+1}`)는 시뮬레이션이 휘두름에 이름을 단 자식(sim `'swing'` 9번째 칸 —
     토스카 `T2Attack`), 없으면 마지막 자식(평타; `soundSet` `sel` `{ how: 'first', def, sig }`, `pickVariant`). 필드만으로는 이 묶음을 못 가르므로

@@ -216,7 +216,7 @@ export function kitHitKey(fx, ex, unitOf) {
     case 'swordStorm': return ex.id != null && def(ex.id) === 'char_1050_chen3' ? 'chen3:s2' : null;
     // local patch (maintainer report 2026-10-07): 蕾缪安 S3 — the bombardment's start (first shell), each landing, the lock
     // mark (S2's aim lock sends the same fx: only while her S3 is equipped)
-    case 'bombardShell': return def(ex.id) === 'char_1035_wisdel' ? 'wisdel:s2' : def(ex.id) === 'char_4193_lemuen' && ex.i === 0 ? 'lemuen:s3end'
+    case 'bombardShell': return def(ex.id) === 'char_1035_wisdel' ? 'wisdel:s2' : def(ex.id) === 'char_1034_jesca2' ? 'jesca2:s3shell' : def(ex.id) === 'char_4193_lemuen' && ex.i === 0 ? 'lemuen:s3end'
       : emppnt(unitOf(ex.id)) ? 'emppnt:aim' : null;
     // 2026-11-04: 涤火杰西卡 S3's shell exploding (its projectile's STOP)
     case 'bombard': return def(ex.id) === 'char_4193_lemuen' ? 'lemuen:shell' : def(ex.id) === 'char_1034_jesca2' ? 'jesca2:s3bomb' : null;
@@ -480,6 +480,9 @@ export function signalFxKey(fx, ex, unitOf) {
   if (fx === 'shield' && ex.kind === 'lmlee' && u?.def === 'char_322_lmlee') return 'lmlee:t2';
   // 2026-11-04: 涤火杰西卡 turning to a 机动盾牌 placed beside her (jesca2_jckshd_dir_set → [effect] on her, its audioSignal)
   if (fx === 'buff' && ex.kind === 'turn' && u?.def === 'char_1034_jesca2') return 'jesca2:turn';
+  // 2026-11-04: 琳琅诗怀雅 S1's HealAlly child of her attack group — as it starts and as its heal lands
+  if (fx === 'swire2Heal' && u?.def === 'char_1033_swire2') return 'swire2:heal';
+  if (fx === 'coin' && ex.heal != null && ex.skill === 'swire2_1' && u?.def === 'char_1033_swire2') return 'swire2:healhit';
   if (fx === 'charges' && u?.def === 'char_426_billro' && Number.isInteger(u.skillIndex)) return billroChargeKey(u, Number(ex.n) || 0);
   if (fx === 'charges' && (u?.def === 'char_206_gnosis' || u?.def === 'char_4042_lumen')) return chargeStageKey(u, Number(ex.n) || 0);
   // 2026-10-22: 刺玫 S2's counter on the attacker of her protégé (vendla_s_2[extra_damage]'s audioSignal, on the attacker)

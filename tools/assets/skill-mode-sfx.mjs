@@ -625,13 +625,18 @@ export function bankCue(audio, name, at, soundLeaf, extra = {}) {
 /** The pick rule of a conditional group's children by name (public/js/audio.js: melee strike / ranged / the mode's first attack). */
 function condPick(names) {
   const at = (re, not = null) => { const i = names.findIndex((x) => re.test(x) && !(not && not.test(x))); return i >= 0 ? i + 1 : null; };
-  const SPECIAL = /blocked|self|special|first|reload|token|fire_?to/i;
+  // 2026-11-04, official client: a child with a condition (its trigger's buff or target check, e.g. 涤火杰西卡's ExtraBomb on
+  // jesca2_s_3_trigger[extra_bomb]) is not the attack's plain sound; the sim names it by `sig` when it takes the swing
+  const SPECIAL = /blocked|self|special|first|reload|token|fire_?to|extra|bomb|heal_?ally|buffed|_t\d/i;
   const out = {};
   const melee = at(/melee/i, /blocked/i) ?? at(/melee/i);
   if (melee) out.melee = melee;
   out.ranged = at(/^common$/i) ?? at(/ranged/i, SPECIAL) ?? (names.findIndex((x) => !SPECIAL.test(x) && !/melee/i.test(x)) + 1 || 1);
   const first = at(/^first/i);
   if (first) out.first = first;
+  const sig = {};
+  names.forEach((x, i) => { if (typeof x === 'string' && x !== '?' && SPECIAL.test(x)) sig[x] = i + 1; });
+  if (Object.keys(sig).length) out.sig = sig;
   return out;
 }
 

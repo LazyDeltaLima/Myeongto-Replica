@@ -320,6 +320,10 @@ export const KIT_HIT_BANKS = Object.freeze({
   // projectile_chr_jesca2_s3_bomb STOP), her turn to a 机动盾牌 placed beside her (jesca2_jckshd_dir_set gives her
   // jesca2_jckshd_dir_set[effect], audioSignal jesca2_jckshd_turnaround)
   'jesca2:s3bomb': 'battle.ON_PROJECTILE_STOP.projectile_chr_jesca2_s3_bomb',
+  // (2026-11-04) the shot: the S3 attack group's ExtraBomb child; 琳琅诗怀雅 S1's HealAlly child (start, heal landing)
+  'jesca2:s3shell': 'battle.ON_ABILITY_START.char_1034_jesca2.attack.3.1',
+  'swire2:heal': 'battle.ON_ABILITY_START.char_1033_swire2.attack.1.1',
+  'swire2:healhit': 'battle.ON_ABILITY_HIT.char_1033_swire2.attack.1.1',
   'jesca2:turn': 'battle.ON_BUFF_START.jesca2_jckshd_turnaround',
   // 棘刺 S2: each Thorn cast (its BuffDuringCasting gives him thorns_s_2[audio] as the cast starts)
   'thorns:s2': 'battle.ON_BUFF_START.thorns_s_2[audio]',

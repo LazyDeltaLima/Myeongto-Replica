@@ -72,6 +72,8 @@ function lumen(bb, chess, def) {
     },
     talents: [
       { install(battle, unit) { // S3 targeting / bullet bookkeeping
+        // the attack group's Special child (an ally with an abnormal status), for its sound
+        battle.on('swing', (c) => { if (c.unit === unit && c.isSkill && unit.skill?.active && abnormalAllies(battle, unit).length) c.signal = 'Special'; }, { owner: unit });
         if (!isDef) return;
         battle.on('beforeAttack', (ctx) => {
           if (ctx.attacker !== unit || !unit.skill?.active) return;

@@ -70,7 +70,7 @@ describe('the prefab facts (local-char-audio.json)', () => {
     assert.deepEqual(svash.sel, { attack: { n: 3, how: 'rand' } });
     // 혼's Default: the ranged child (attack.2 + its projectile), the melee one (attack.3) — attack.1 is a child's bank too
     const horn = soundSet(audio, 'char_4039_horn', CA.char_4039_horn, 0, leaf);
-    assert.deepEqual(horn.sel, { attack: { n: 3, how: 'cond', melee: 3, ranged: 2 } });
+    assert.deepEqual(horn.sel, { attack: { n: 3, how: 'cond', melee: 3, ranged: 2, sig: { BlockedMeleeAttack: 1 } } });
     assert.deepEqual(files(horn.cues), ['a:p_imp_blackshield_n.mp3#1', 'a:p_atk_heavygun_n.mp3#2', 'd:p_imp_heavygun_n.mp3#2', 'a:p_imp_blackshield_n.mp3#3']);
     // 이네스: the ranged `attack` and the melee `combat` ability both
     const ines = soundSet(audio, 'char_4087_ines', CA.char_4087_ines, 0, leaf);

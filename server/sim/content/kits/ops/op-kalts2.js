@@ -183,7 +183,7 @@ function s2CanAttack(battle, unit) {
   const prof = { canHitFly: true };
   if (battle.enemiesInKeys(unit.rangeKeys, unit, prof).length || battle.blockedTargets(unit, prof).length) return true;
   const ally = battle.injuredAlliesInKeys(unit.rangeKeys, unit)[0];
-  if (ally && battle.forceAttack(unit, [ally])) unit.atkCd = Math.max(unit.atkCd, unit.s.interval);
+  if (ally && battle.forceAttack(unit, [ally], { signal: 'HealAlly' })) unit.atkCd = Math.max(unit.atkCd, unit.s.interval);
   return false;
 }
 

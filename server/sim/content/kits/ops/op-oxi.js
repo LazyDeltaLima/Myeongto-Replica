@@ -284,7 +284,9 @@ export default {
             if (!sk.activate('TAKE_DAMAGE')) { unit.mem.oxiGuardFrom = null; return; }
             if (dmg.type === 'phys' || dmg.type === 'arts') dmg.mul *= num(b2.damage_remaining_scale, 1);
           }, { owner: unit, priority: 50 });
-          // with a stack her normal attack is the BuffedAttack: every enemy she blocks (`_limitedMaxTargetNumToBlockedCnt`)
+          // with a stack her normal attack is the BuffedAttack: every enemy she blocks (`_limitedMaxTargetNumToBlockedCnt`);
+          // the swing names that child, for its sound
+          battle.on('swing', (c) => { if (c.unit === unit && !c.isSkill && unit.findBuff('oxi_s_2_stack')) c.signal = 'BuffedAttack'; }, { owner: unit });
           battle.every(battle.dt, () => {
             if (!unit.alive || !unit.profile) return;
             const buffed = !!unit.findBuff('oxi_s_2_stack');

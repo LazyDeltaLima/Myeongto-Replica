@@ -94,6 +94,8 @@ export default withDefaults({
       talents: [
         { install(battle, unit) { // 前锋剑术: after a dodge the next attack hits twice and every blocked enemy
           battle.on('dodge', (c) => { if (c.target === unit) unit.mem.riposte = true; }, { owner: unit });
+          // its child in the attack group (Attack_T1, on flamtl_t_1[evade]), for its sound
+          battle.on('swing', (c) => { if (c.unit === unit && unit.mem.riposte) c.signal = 'Attack_T1'; }, { owner: unit });
           battle.on('death', (c) => { if (c.unit === unit) unit.mem.riposte = unit.mem.riposteNow = false; }, { owner: unit });
           battle.on('beforeAttack', (c) => {
             if (c.attacker !== unit || !unit.mem.riposte) return;
