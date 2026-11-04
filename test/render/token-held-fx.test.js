@@ -29,6 +29,17 @@ test('the extract holds the 重构体\'s idle effect under every skill of hers',
   for (const list of Object.values(m.aura)) assert.deepEqual(list, ['token_monstr_prosts_idle']);
 });
 
+/**
+ * The mesh particle's pivot offset of the shader itself, per unit of size: `vec3 piv = vec3(±uPivot.<axis>, …) * abs(iSize)`. The
+ * first version of the ring test wrote the formula out, and passed with the old one back in the shader.
+ */
+function shaderPivot(pivot) {
+  const src = readFileSync('public/js/render/fxplayer.js', 'utf8');
+  const m = /vec3 piv = vec3\((-?uPivot\.[xyz]), (-?uPivot\.[xyz]), (-?uPivot\.[xyz])\) \* abs\(iSize\);/.exec(src);
+  assert.ok(m, 'fxplayer.js: the mesh particle pivot line changed form');
+  return m.slice(1, 4).map((c) => (c[0] === '-' ? -1 : 1) * pivot[c.at(-1)]);
+}
+
 test('the 重构体\'s crystals make a ring: 8 turns of 45° about one axis, 0.39 out along their long axis, as the official screen', { skip: !existsSync(IDLE) && 'needs the extracted effects' }, () => {
   const { nodes } = JSON.parse(readFileSync(IDLE, 'utf8'));
   const crystals = nodes.filter((n) => n.ps?.render?.mode === 4 && n.ps.render.trailMat?.includes('crystal'));
@@ -37,11 +48,11 @@ test('the 重构体\'s crystals make a ring: 8 turns of 45° about one axis, 0.3
   for (const n of crystals) {
     assert.ok(Math.abs(n.rot[0]) < 1e-3 && Math.abs(n.rot[2]) < 1e-3, `${n.name} turns about y only`);
     yaws.add(Math.round((2 * Math.atan2(n.rot[1], n.rot[3]) * 180 / Math.PI + 720) % 360));
-    // the shader's offset (fxplayer.js `piv`): (x, -z, y) × size, then × size again
+    // the shader's offset, as fxplayer.js has it (`piv`), × size again
     const [px, py, pz] = n.ps.render.pivot;
     const { x, y, z } = n.ps.mods.sizeOL;
     const s = [x.s, y.s, z.s].map((v) => v * n.ps.size.s);
-    const off = [px * s[0] * s[0], -pz * s[1] * s[1], py * s[2] * s[2]];
+    const off = shaderPivot({ x: px, y: py, z: pz }).map((v, i) => v * s[i] * s[i]);
     assert.deepEqual(off.slice(0, 2).map(Math.abs), [0, 0], 'along the mesh\'s z, its long axis: radial');
     assert.ok(Math.abs(off[2] - 0.39) < 0.002, `radius ${off[2]}`);
   }
