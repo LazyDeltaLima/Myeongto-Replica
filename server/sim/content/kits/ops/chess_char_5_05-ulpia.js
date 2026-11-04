@@ -9,6 +9,9 @@ import {
   permBuff, enemiesInGrid,
 } from '../shared/tier5.js';
 
+/** projectile_chr_ulpia_s3 (TRACE_TARGET_WITH_SPEED): tiles per second. */
+const ANCHOR_SPEED = 15;
+
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 乌尔比安 — S3 必须开辟的通路 (25 s, CUSTOM_RANGE row ahead): max HP/ATK +, throws an anchor forward that stops on the
@@ -70,6 +73,8 @@ export default {
         kind: 'duration',
         castHolds: true,   // skchr_ulpia_3 is BuffAbility (`duration` from the cast) → AOEAttack (Skill_3_Begin): no attack before the clip ends
         mods: mods({ hpPct: num(bb.max_hp), atkPct: num(bb.atk) }),
+        // AOEAttack picks the anchor's tile as the cast starts (`_selectTargetTiming` 0), throws it on the clip's OnAttack and hits where it lands
+        // (projectile_chr_ulpia_s3, ANCHOR_SPEED tiles/s [ASSUMED·엔진: from his tile, not its mount point]); he moves as the clip ends (`_extraActionEvent` ON_CAST_END)
         onStart({ battle, unit }) {
           // PRTS 备注 ② — the anchor's target: his own tile while he blocks an enemy (e.g. just after a 突袭 landing),
           // else the nearest tile ahead in the skill range (straight along his direction) with an enemy on it, else the
@@ -86,14 +91,27 @@ export default {
               if (battle.enemiesOnTiles([r * COLS + c], unit, { canHitFly: true }).length) break;
             }
           }
+          unit.mem.anchorStop = stop;
+        },
+        onStrike({ battle, unit, skill }) {
+          const stop = unit.mem.anchorStop;
+          const [sr, sc] = frontOf(unit.tileR, unit.tileC, unit.dir, stop);
+          // (`redeploy`: an anchor on his own tile — the client restarts him where he stands on Skill_3_ReStart_B [ASSUMED])
+          battle.fx('anchor', { x: sc, y: sr, id: unit.id, fromX: unit.x, fromY: unit.y, r: radius, ...(stop === 0 ? { redeploy: 'here' } : null) });
+          const land = () => {
+            skill.castHit();
+            for (const e of battle.foesInRadius(sc, sr, radius)) {
+              battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale), type: 'phys', isSkill: true, tags: ['skill', 'anchor'] });
+              if (e.alive) battle.applyStatus(e, 'stun', { duration: num(bb.stun), source: unit });
+            }
+          };
+          if (stop > 0) battle.after(stop / ANCHOR_SPEED, land, { owner: unit });
+          else land();
+        },
+        onCastEnd({ battle, unit }) {
+          const stop = unit.mem.anchorStop;
           const [sr, sc] = frontOf(unit.tileR, unit.tileC, unit.dir, stop);
           const fromX = unit.x, fromY = unit.y;
-          // (`redeploy`: an anchor on his own tile — the client restarts him where he stands on Skill_3_ReStart_B [ASSUMED])
-          battle.fx('anchor', { x: sc, y: sr, id: unit.id, fromX, fromY, r: radius, ...(stop === 0 ? { redeploy: 'here' } : null) });
-          for (const e of battle.foesInRadius(sc, sr, radius)) {
-            battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale), type: 'phys', isSkill: true, tags: ['skill', 'anchor'] });
-            if (e.alive) battle.applyStatus(e, 'stun', { duration: num(bb.stun), source: unit });
-          }
           // ③ 【移动】 — only a change of tile moves him and leaves the 从不混淆的方向 ("若目标地块不为当前地块，会在原地部署"): an
           // anchor on his own tile leaves him where he stands, no marker, nothing to return from [ASSUMED: the "tile one
           // beyond the landing" is not tried when the landing is his own tile]

@@ -2651,8 +2651,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     let claimed = false;
     for (const p of pending) {
       // not another unit's hit of the same moment: an attack on it by someone else, or a target out of the skill's reach
+      // (a 'dmg' naming the caster is the caster's, whoever else is shooting at that target: 锏 S3's finisher in a crowd)
       const a = lastAtk.get(tid);
-      if (a && a.src !== p.src && clockS - a.t < 1) continue;
+      if (a && a.src !== p.src && clockS - a.t < 1 && by !== (p.src.id ?? p.src.info?.id)) continue;
       if (Math.hypot(tgt.x - p.src.x, tgt.y - p.src.y) > PENDING_REACH) continue;
       // (2026-10-21) nor damage on the caster's side (an enemy's hit on an operator), nor another operator's — the 'dmg'
       // attacker (6th field) is the caster, its summon (维什戴尔's shade token_10035_wisdel_wward), or none (无来源); the
@@ -3690,7 +3691,6 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (e[1] === 'slash') { expect(src, extracted(src, sk.targetBuff), true); return false; }   // its 2D slash stays
       if (!sk.end) return false;
       play(src, 'skillStart', skillIdx(src), { names: extracted(src, sk.end.cast) });
-      expect(src, extracted(src, sk.end.hit));
       return false;
     }
     return false;
@@ -5687,6 +5687,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           }
           droneIdle(v);   // 2026-10-16: the drones of the mode now
           defaultModeFx(v);   // 2026-10-21: the Default mode's own effects, off while a skill switched her mode
+          return;
+        }
+        // a skill ability's hit after its cast (server/sim/skills.js castHit): the damage of this moment is its targets'
+        case 'castHit': {
+          const v = views.get(e[1]);
+          if (!v || !bundleOf(v)) return;
+          const sk = skillBind(v);
+          expect(v, extracted(v, e[2] === 'end' ? sk?.end?.hit : sk?.target));
           return;
         }
         case 'atk': {

@@ -288,6 +288,18 @@ export function makeBattle(opts = {}) {
       drain();
       return h;
     },
+    /** Step until `unit`'s running `castHolds` cast has struck (its skill clip's OnAttack frame: the spec's onStrike). */
+    castStrike(unit) {
+      while (!battle.finished && unit.skill?._castStage?.strikeAt != null) battle.step();
+      drain();
+      return h;
+    },
+    /** Step until `unit`'s running `castHolds` cast has ended (its skill clip's end: the spec's onCastEnd). */
+    castDone(unit) {
+      while (!battle.finished && unit.skill?._castStage) battle.step();
+      drain();
+      return h;
+    },
     /** Step until pred() is true (or `pred` seconds elapsed when a number). Returns true if pred became true. */
     runUntil(pred, maxSeconds = 300) {
       if (typeof pred === 'number') { h.run(pred); return true; }

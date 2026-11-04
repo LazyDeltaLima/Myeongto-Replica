@@ -54,7 +54,8 @@
 //   land and makes that attack the skill's — a ReplacementSkill whose replaced attack the kit models itself, 华法琳 S1:
 //   the engine does not hold the cast for the next attack), castHolds (bool: a timed skill's 'state' cast holds the unit's
 //   attacks through its skill clip's action), durationAfterCast (bool: its `duration` starts as that action ends), endHolds (bool: that clip comes
-//   last in its sequence group, so its action holds the attacks from the end of the skill's `duration`; a number: those seconds), onStart(ctx), onEnd(ctx), onHit(ctx), onAttack(ctx), onTick(ctx).
+//   last in its sequence group, so its action holds the attacks from the end of the skill's `duration`; a number: those seconds), onStart(ctx), onEnd(ctx), onHit(ctx), onAttack(ctx), onTick(ctx),
+//   onStrike(ctx) / onCastEnd(ctx) (a `castHolds` skill: its skill clip's OnAttack frame and that clip's end; a stun before them loses them; no client cast known: at once).
 // ctx passed to spec callbacks: { battle, unit, skill, bb, target?, dealt?, targets?, dt?, reason? }; onAttack's ctx
 //   also carries `noAmmo` (set it to true: this attack spends no ammo). onEnd runs while the skill's mods / range are
 //   still applied (`active` is already false); they are removed right after it (unless onEnd re-activated the skill).
@@ -251,6 +252,7 @@ export class SkillRuntime {
     this._hurt = false;
     this.nextCastAt = -Infinity;
     this._replace = null;
+    this._castStage = null;
     if (this.unit) this.unit.skillStateUntil = 0;
     if (this.noSkill) return;
     if (this.kind === 'passive') {
@@ -354,6 +356,10 @@ export class SkillRuntime {
     if (this.noSkill) return;
     if (this.kind !== 'passive' && this.sp > this.spCost) this._normalize();
     if (this.active && this.kind !== 'passive') {
+      if (this._castStage) {
+        this._tickCast();
+        if (!this.active) return;
+      }
       if (this.spec.onTick) this._call('onTick', { dt });
       // (`durationAfterCast`: the skill's buff comes after its cast in a sequence group, 森蚺 S3: its time starts as the Skill state ends)
       if (this.spec.durationAfterCast && this.unit.skillStateUntil > this.battle.time + 1e-9) return;
@@ -681,7 +687,17 @@ export class SkillRuntime {
     if (this.active && this.ammoLeft > this.ammoMax) this.ammoMax = this.ammoLeft;
     // a timed skill whose kit says so enters the Skill state of its CastSkill the same way: no attack until its skill clip's
     // action ends (森蚺 S3's Hensin; `_paceInstant` below, docs/rules/sim.md 「즉발 스킬의 시전」)
-    if (this.spec.castHolds && this.isTimed && this.active && this.cast?.mode === 'state' && this.cast.time != null && this.cast.dur > 0) this._enterSkillState(this.castTiming());
+    if (this.spec.castHolds && this.isTimed && this.active && this.cast?.mode === 'state' && this.cast.time != null && this.cast.dur > 0) {
+      const t = this.castTiming();
+      this._enterSkillState(t);
+      if (this.spec.onStrike || this.spec.onCastEnd) {
+        this._castStage = { strikeAt: b.time + t.strike, endAt: b.time + t.action };
+        this._tickCast();
+      }
+    } else if (this.isTimed && this.active) {
+      this._call('onStrike');
+      if (this.active) this._call('onCastEnd');
+    }
     if (!this.isTimed && !this.pending) {
       this.end('instant');
       // (a cast onEnd opened again owns its own gap)
@@ -766,6 +782,38 @@ export class SkillRuntime {
     if (t.action > SKILL_ANIM_WINDOW) u.skillAnimUntil = b.time + t.action;
   }
 
+  /**
+   * The stages of a `castHolds` cast, in its unit's tick: the skill clip's OnAttack frame (`AbstractAnimatedAbility` waits for it,
+   * `_waitForAttackEvent`), then the clip's end (the next ability of a sequence group, `_extraActionEvent` ON_CAST_END). A stun, freeze
+   * or sleep ends the Skill state (`SkillState.OnTick` → `OnExit` → `BasicSkill.InterruptIfNot` → `Ability.InterruptIfNot`): what has
+   * not come yet is lost, as an interrupted swing's strike is.
+   */
+  _tickCast() {
+    const c = this._castStage;
+    const u = this.unit;
+    const now = this.battle.time + 1e-9;
+    if (!u.canAct || u.skillStateUntil < c.endAt - 1e-9) { this._castStage = null; return; }
+    if (c.strikeAt != null && now >= c.strikeAt) {
+      c.strikeAt = null;
+      this._call('onStrike');
+      if (!this.active || this._castStage !== c) return;
+    }
+    if (now >= c.endAt) {
+      this._castStage = null;
+      this._call('onCastEnd');
+    }
+  }
+
+  /**
+   * The event of a cast's hit that comes after its cast: the damage right after it is the skill ability's, so the view puts that ability's
+   * effects on the targets (`part` 'end': its closing ability's, as 锏 S3's EndAttack). A display event: no rule reads it.
+   */
+  castHit(part = null) {
+    const ev = ['castHit', this.unit.id];
+    if (part) ev.push(part);
+    this.battle._ev(ev);
+  }
+
   /** A 'replace' cast's attack starts (ai.js startReplacement): the skill clip plays for its action. */
   beginReplacement(action) {
     const b = this.battle;
@@ -834,6 +882,7 @@ export class SkillRuntime {
     this.active = false;
     this.pending = false;
     this._replace = null;
+    this._castStage = null;
     this.timeLeft = 0;
     this.ammoLeft = 0;
     this.ammoMax = 0;

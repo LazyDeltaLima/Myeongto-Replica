@@ -261,6 +261,7 @@ test('余 (6_03) S3 fire wall runs through his tile perpendicular to his directi
     assert.ok(e && e.alive && c.deployed && yu.deployed);
     yu.skill.activate('test', { free: true });
     assert.ok(yu.skill.active, 'S3 on');
+    h.castDone(yu);
     const wall = h.eventsOf('fx').find((f) => f[1] === 'firewall');
     const n = tagged(h, 'firewall').length;
     h.b.dealDamage(c, e, { amount: 1000, type: 'arts' });

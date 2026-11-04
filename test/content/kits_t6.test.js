@@ -346,7 +346,7 @@ test('余: S3 fire wall adds burn to allied arts damage crossing it and clears c
   h.b.addBuff(h.unit('chess_char_1_15_a'), { key: 'test:taunt', mods: { taunt: 1 }, persist: true });
   const u = h.unit('chess_char_6_03_a');
   assert.ok(h.runUntil(() => u.skill.active, 10));
-  h.run(15);
+  h.run(30);   // (a shot is stopped at 10 %: enough of them)
   const wall = h.dmg.filter((d) => d.src === u.id && d.tags.includes('firewall'));
   assert.ok(wall.length > 0, 'burn from the wall');
   assert.ok(near(wall[0].amount, u.s.atk * u.def.skill.bb.ep_damage_ratio, 1e-3));
@@ -365,6 +365,7 @@ test('余: S3 stops enemy shots on his tile\'s front edge (Aura/EnemyAura `_hori
   });
   const u = h.unit('chess_char_6_03_a');
   assert.ok(h.runUntil(() => u.skill.active, 10));
+  h.castDone(u);
   assert.equal(u.mem.yuWall.front, u.tileC + 0.5, 'facing RIGHT: the line one half tile ahead of his column');
   h.run(15);
   const blocked = h.eventsOf('fx').filter((e) => e[1] === 'firewallBlock');
@@ -1014,11 +1015,13 @@ test('锏: S3 = 10 slashes (180 % ×1.6 talent) on ≤5 enemies + a 300 % finish
   assert.ok(h.runUntil(() => u.skill.active, 10));
   const t = h.hooksOf('skillStart').find((c) => c.unit === u).t;
   h.runUntil(() => !u.skill.active, 10);
+  const end = h.b.time;
+  h.run(0.4);   // the finisher: Skill_3_End's OnAttack, 0.333 s after the skill's time
   const slashes = h.dmg.filter((d) => d.src === u.id && d.tags.includes('slash'));
   assert.equal(slashes.length, 11 * 2, '10 slashes + finisher on 2 enemies');
   assert.ok(near(slashes[0].amount, u.s.atk * bb.d_atk_scale * t0.atk_scale, 1e-3));
   assert.ok(near(slashes.at(-1).amount, u.s.atk * bb.e_atk_scale_end * t0.atk_scale, 1e-3));
-  assert.ok(near(h.b.time - t, 10 * bb.d_hit_interval, 0.05));
+  assert.ok(near(end - t, 10 * bb.d_hit_interval, 0.05));
   const far = enemyAt(h, 'enemy_dummy2');
   assert.ok(far.x < 7 - 0.4, 'pulled toward her');
   assert.ok(h.hooksOf('statusApplied').some((c) => c.status === 'tremble'), '战栗');
@@ -1260,7 +1263,7 @@ test('锏: the S3 finisher (and its pull) uses the skill range, not her normal 1
   const u = h.unit('chess_char_6_19_a');
   assert.ok(h.runUntil(() => u.skill.active, 10));
   h.runUntil(() => !u.skill.active, 10);
-  h.step();
+  h.run(0.4);   // the finisher: Skill_3_End's OnAttack, 0.333 s after the skill's time
   const heavy = enemyAt(h, 'enemy_heavy');
   assert.ok(near(heavy.y, 12) && near(heavy.x, 5), 'too heavy to be pulled (mass 10)');
   const hits = h.dmg.filter((d) => d.src === u.id && d.tgt === heavy.id && d.tags.includes('slash'));

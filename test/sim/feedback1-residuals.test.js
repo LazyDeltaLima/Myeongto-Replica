@@ -38,7 +38,7 @@ test('余 S2: a 守墓石像 in its statue form (自缚) stays put; in its groun
     h.b.on('tick', () => { if (cast == null && yu.skill && !yu.skill.active) yu.skill.sp = yu.skill.spCost; st.hp = st.s.maxHp; });
     const x0 = st.x, y0 = st.y;
     assert.ok(h.runUntil(() => cast != null, 12), 'S2 fires');
-    h.step(3);
+    h.castStrike(yu);
     const moved = Math.hypot(st.x - x0, st.y - y0);
     if (statue) assert.ok(moved < 1e-9, `the statue stays (moved ${moved.toFixed(2)})`);
     else assert.ok(Math.abs(st.x - yu.tileC) < 1e-9 && Math.abs(st.y - yu.tileR) < 1e-9, `teleported onto 余 (at ${st.x}, ${st.y})`);

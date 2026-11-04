@@ -12,6 +12,7 @@ for (const chessId of ['chess_char_1_06_b', 'chess_char_2_08_a']) {
     u.hp = u.s.maxHp;
     u.skill.sp = u.skill.spCost; u.skill.charges = 1;
     assert.ok(u.skill.activate('manual'));
+    h.castStrike(u);
     const echo = h.spawn(ECHO, { pos: [10, 5], mods: { hpMul: 6.7, speedMul: 0 } });
     assert.equal(echo.s.maxHp, 67);
     const t = h.eventsOf('fx').length;

@@ -1541,7 +1541,7 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
     `castHolds` + `durationAfterCast`(지속시간을 내는 버프가 순차 묶음의 클립 뒤): 벤델라 S2(`MaxHpMark` `Skill` 0.5초 → `ActiveBuff`)·블레미샤인 S2(`Sleep` `Skill_2` 1초 → `Switch`)·위 S2(`Tel` `Skill_2` 1.6초 → `Mode`)·리드 더 플레임 섀도우 S2(`Skill_2_FireBall` `Skill_2` 0.5초 → `ActiveBuff`)·치우바이 S2(`sword_split` `Skill_2` 1.167초 → `switch_mode`).
     `endHolds`: 데겐블레허 S3은 묶음이 `MultiAttack` → `EndAttack`(`Skill_3_End` 1.567초)이라 키트 지속시간이 끝난 뒤 그 클립 동안 공격하지 않는다.
     안 바꿈: 지마 더 레이징 타이드 S3은 스킬 시간이 곧 클립이고 내내 공격하지 않는다. 아이린 S3도 내내 공격하지 않고 PRTS 「고정 3.5초」대로 둔다: 클립 합계(`Skill_3_Start` 0.267초 + `Skill_3_Attack` 3.833초 = 4.1초)와 다르지만 관리자가 그대로 두기로 함(관리자 결정 2026-11-04).
-    글래디아 S3은 내내 공격하지 않고, 끝난 뒤에도 끝의 `FinalAttack` 동안 2.667초 쉰다(`endHolds`, 관리자가 공식 게임에서 끝난 뒤 잠깐 쉬는 것을 봄 2026-11-04): `Skill_3_Begin`의 `OnAttack` 0.367초 + 끌어당김 투사체 수명 1.3초 + `_minPostDelayWhenProjectileInvalid` 1초 [추정·화면: 쉬는 길이는 재지 않았고 클라 값의 합이다. 같은 능력의 시작 쪽은 관찰상 훨씬 짧다(「글래디아 S3 시작 순서」)]. 화면은 끝 동작 세 클립(3.133초)의 마지막 `Skill_3_End`를 공격이 끊는다. 스킬 효과를 내는 시점(`_waitForAttackEvent`의 `OnAttack` 프레임)은 키트대로 시전 순간에 두었다.
+    글래디아 S3은 내내 공격하지 않고, 끝난 뒤에도 끝의 `FinalAttack` 동안 2.667초 쉰다(`endHolds`, 관리자가 공식 게임에서 끝난 뒤 잠깐 쉬는 것을 봄 2026-11-04): `Skill_3_Begin`의 `OnAttack` 0.367초 + 끌어당김 투사체 수명 1.3초 + `_minPostDelayWhenProjectileInvalid` 1초 [추정·화면: 쉬는 길이는 재지 않았고 클라 값의 합이다. 같은 능력의 시작 쪽은 관찰상 훨씬 짧다(「글래디아 S3 시작 순서」)]. 화면은 끝 동작 세 클립(3.133초)의 마지막 `Skill_3_End`를 공격이 끊는다. 효과가 나는 시점은 아래 「지속 스킬의 효과가 나는 시점」.
   - `free` = `_switchToState` 0(사일런스 S2·플레임테일 S1·와파린 S2·텍사스 S1 `skcom_charge_cost`): 곧바로 시전, 공격과 무관.
   - **다음 시전**: 스킬 능력이 다시 준비돼야 한다 — `CastSkill.IsAvailable` → `Ability.get_isReady`(쿨다운 타이머 + 시전 중 아님).
     능력 시간(`SkillRuntime.castTiming`): `AbstractAnimatedAbility.get_cooldown` — `_timeMode` 0 FROM_ATTACK_SPEED = 주인의 공격 간격,
@@ -1550,7 +1550,19 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
     `state`는 행동 끝과 쿨다운 둘 다(`_resetAbilityCooldownWhenCastEnd` 1이면 `CastSkill.OnCastFinish`가 능력을 되돌려 행동 끝만), `free`는 쿨다운만.
     버프만 거는 능력(`ActiveBuffAbility`: 쿨다운 = `SetLifeTime`의 버프 수명, 여기 해당 스킬은 즉시형)은 SP만 기다린다.
   - 텍사스 S1(`skcom_charge_cost[3]`)은 프리팹 추출에서 찾음: `CastSkill` sw0 + `ActiveBuffAbility`(`charge_cost` 즉시 버프) → `free`, 간격 = SP뿐.
-  - [ASSUMED] `state` 스킬의 효과(키트 `onStart`)는 시전 순간에 둔다 — 클라는 스킬 클립의 OnAttack 프레임(`_waitForAttackEvent` 1)에 낸다. 클립에 없는
+  - **지속 스킬의 효과가 나는 시점**(2026-11-04, 공식 클라 프리팹·버프 템플릿): 스킬 능력은 클립의 `OnAttack`을 기다리고(`_waitForAttackEvent`), 순차 묶음의 다음 능력은 클립 끝에 시작한다 → 키트 `onStrike`·`onCastEnd`(`skills.js _tickCast`). 대상은 `_selectTargetTiming`대로 고른다(0 = 시전 시작, 1 = 그 순간).
+    - 벤델라 S2: 대상 고르기·도발·반격은 `OnAttack` 0.167초(`MaxHpMark`의 ON_SPELL_ON → `vendla_s_2[self]`). 그때부터 `duration`이라 스킬 끝보다 약 0.33초 먼저 끝난다.
+    - 블레미샤인 S2: 수면은 `OnAttack` 0.5초(대상은 그 순간), 생명 회복은 클립 끝 1초(모드 S2의 `Body/Heal`, `Switch` 뒤).
+    - 위 S2: 피해·이동은 `OnAttack` 0.5초(대상은 그 순간). 위 S3: 화염벽 그림은 시전 시작(`yu_s_3[effect]`, ON_CAST_START), 효과는 클립 끝 1.6초(`Aura`).
+    - 리드 더 플레임 섀도우 S2: 불덩이는 `OnAttack` 0.167초(대상은 그 순간), 수명도 그때부터.
+    - 치우바이 S2: 대상은 시전 시작, 피해 + 정지 1.2초(`sword_split` `_activeBuffs`)는 `OnAttack` 0.5초. 지속 정지와 끝의 물리 피해는 클립 끝 1.167초의 `switch_mode`에서 온다.
+    - 울피아누스 S3: 닻 칸은 시전 시작, 던지기는 `OnAttack` 0.433초, 피해·기절은 닻이 닿을 때(`projectile_chr_ulpia_s3` 초속 15칸) [추정·엔진: 출발점을 탑재 위치가 아니라 그의 칸으로 셈], 【이동】은 클립 끝 1초(`_extraActionEvent` ON_CAST_END).
+    - 데겐블레허 S3: 마무리 타격은 `Skill_3_End`의 `OnAttack`, 스킬 시간 끝 0.333초 뒤(대상은 그 순간, 스킬 범위). 글래디아 S3: 끝의 捕网은 스킬 시간 끝 0.367초 뒤 [추정·화면: `endHolds`와 같은 이유로 길이를 재지 않음].
+    - 안 옮김: 필라에 S1(시전 시작에 붙는 `philae_s_1`의 템플릿이 정화·방벽을 낸다), 스펙터 디 언체인드 S1(`_waitForAttackEvent` 0), 유넥티스 S3(옮길 효과 없음). 벨로네·Mon3tr S3은 아래.
+    - 기절·빙결·수면은 Skill 상태를 끝내고(`SkillState.OnTick` → `OnExit` → `BasicSkill.InterruptIfNot` → `Ability.InterruptIfNot`) 아직 안 온 단계는 사라진다 — SP는 돌려받지 않음. [추정·미조사: 순차 묶음이 끊겨 지속 버프가 안 붙었을 때 스킬 자체도 끝나는지. 지금은 스킬 시간이 그대로 흐르고 능력치 `mods`도 유지]
+    - 벨로네 S3·Mon3tr S3의 이동은 시전 순간 그대로다 [추정·미조사: `OnAttack` 없는 클립의 어느 시점에 닿는지].
+    - 시점이 옮겨진 피해의 대상 이펙트는 표시 사건 `['castHit', id, part?]`가 붙인다(render: `fxgame.js` `castHit` → `expect`).
+  - [추정·미조사: 위 목록 밖 `state` 스킬은 아직 옮기지 않음] 키트 `onStart`의 효과는 시전 순간에 둔다 — 클라는 스킬 클립의 OnAttack 프레임(`_waitForAttackEvent` 1)에 낸다. 클립에 없는
     FROM_ANIMATION 키(패신저 S3 `Skill_3` — 골격은 `Skill3`)는 공격 간격으로 셈.
   - 데이터에 `cast`가 없는 스킬(클라 프리팹을 못 읽은 것)은 옛 규칙(틱 시전 뒤 공격 간격 한 번)을 쓴다.
   - 범위 밖: `spec.attack`이 있는 `CastSkill` sw1 4개(솔방울 S1·첼로 S1·머드락 S2·님프 S2)는 지금처럼 「다음 공격에 스킬 공격」.

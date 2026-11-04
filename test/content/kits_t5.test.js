@@ -230,6 +230,7 @@ test('乌尔比安 S3: anchor 135 % ATK + stun on the first enemy ahead, moves t
   const hp0 = u.s.maxHp, atk0 = u.s.atk;
   u.skill.gainSp(1000);
   assert.ok(h.runUntil(() => u.skill.active, 2), 'CUSTOM_RANGE: enemy 4 tiles ahead');
+  h.castDone(u);
   approx(u.s.maxHp, hp0 * (1 + bb.max_hp));
   approx(u.s.atk, atk0 * (1 + bb.atk));
   const hit = tagged(h, 'anchor', e);
@@ -262,6 +263,7 @@ test('乌尔比安 S3 while he blocks (e.g. after a 突袭 landing): the anchor 
     const blocked = e0.blockedBy === u;
     u.skill.gainSp(1000);
     assert.ok(h.runUntil(() => u.skill.active, 2), near);
+    h.castDone(u);
     return { h, u, e0, far, blocked, anchor: fxOf(h, 'anchor')[0] };
   };
   { // blocking the enemy on his tile: the anchor on his own tile, he stays
@@ -1252,6 +1254,7 @@ test('乌尔比安 S3: lands one tile beyond an occupied anchor tile; the anchor
   h.step();
   u.skill.gainSp(1000);
   assert.ok(h.runUntil(() => u.skill.active, 2));
+  h.castDone(u);
   assert.deepEqual([u.tileR, u.tileC], [9, 7], 'anchor tile taken by an ally → the tile beyond');
   assert.ok(h.runUntil(() => !u.skill.active, 30));
   assert.deepEqual([u.tileR, u.tileC], [9, 3], 'back home');
@@ -1265,6 +1268,7 @@ test('乌尔比安 S3: lands one tile beyond an occupied anchor tile; the anchor
   g.step();
   v.skill.gainSp(1000);
   assert.ok(g.runUntil(() => v.skill.active, 2));
+  g.castDone(v);
   const anchor = fxOf(g, 'anchor')[0];
   assert.equal(anchor[2], 4, 'stopped in front of the crate');
   assert.deepEqual([v.tileR, v.tileC], [9, 4]);

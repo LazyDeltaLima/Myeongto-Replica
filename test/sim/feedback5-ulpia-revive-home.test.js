@@ -28,7 +28,7 @@ function movedByS3({ items } = {}) {
   h.step();
   u.skill.gainSp(999, 'test');
   if (!u.skill.active) assert.ok(u.skill.activate('test'), 'S3 cast');
-  h.run(0.2);
+  h.castDone(u);
   assert.ok(u.alive && u.skill.active, 'S3 runs');
   const landed = [u.tileR, u.tileC];
   assert.deepEqual(home, [10, 3]);

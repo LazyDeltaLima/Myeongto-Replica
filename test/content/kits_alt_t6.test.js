@@ -303,7 +303,8 @@ test('6_03 余 S2 厚礼上宾: the official 重装 row TAKE_DAMAGE (an enemy on
     assert.ok(h.runUntil(() => u.skill.active, 10));
     assert.equal(started(h, u)[0].reason, 'TAKE_DAMAGE');
     const t0 = started(h, u)[0].t;
-    const burst = dealt(h, u, (c) => c.t === t0 && c.dmg.isSkill && !c.dmg.isAttack);
+    h.castStrike(u);
+    const burst = dealt(h, u, (c) => c.t > t0 && c.dmg.isSkill && !c.dmg.isAttack);
     assert.equal(burst.length, 3);
     for (const x of burst) { assert.equal(x.type, 'arts'); approx(x.amount, u.s.atk * bb.atk_scale, 'atk_scale × ATK'); }
     for (const e of h.enemies()) assert.deepEqual([Math.round(e.y), Math.round(e.x)], [10, 4], 'teleported');
@@ -577,6 +578,7 @@ test('6_08 焰影苇草 S2 枯荣共息: fireballs on ground operators of her ra
     h.step();
     g1.hp = g1.s.maxHp * 0.5; g2.hp = g2.s.maxHp * 0.5;
     assert.ok(h.runUntil(() => u.skill.active, 5));
+    h.castStrike(u);
     const carriers = u.mem.reedFire.map((f) => f.a);
     assert.equal(carriers.length, bb.max_target, `${bb.max_target} carrier(s)`);
     const t0 = h.b.time;
@@ -965,7 +967,8 @@ test('6_15 仇白 S2 承影: begin arts burst, skill range + ATK +, ground enemi
     assert.ok(h.runUntil(() => u.skill.active, 10));
     const t0 = started(h, u)[0].t;
     approx(skillBuff(u).mods.atkPct, bb.atk);
-    const begin = dealt(h, u, (c) => c.t === t0 && c.dmg.isSkill && c.type === 'arts');
+    h.castStrike(u);
+    const begin = dealt(h, u, (c) => c.t > t0 && c.dmg.isSkill && c.type === 'arts');
     assert.equal(begin.length, 2, 'both ground enemies of the 5-tile line');
     for (const x of begin) approx(x.amount, u.s.atk * bb.sword_begin_atk_scale, 'begin');
     h.run(1);

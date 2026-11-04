@@ -302,6 +302,6 @@ test('#4: 瑕光 S2 puts the enemy she blocks to sleep although it stands outsid
   assert.notEqual(Math.round(x().x), 6, 'the blocked enemy is on the tile in front of her');
   u.skill.gainSp(u.skill.spCost * u.skill.maxCharges + 1, 'test');
   assert.ok(h.runUntil(() => u.skill.active, 5));
-  h.step();
+  h.castStrike(u);
   assert.ok(x().s.flags.sleep, 'asleep');
 });

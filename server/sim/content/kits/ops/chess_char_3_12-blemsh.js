@@ -67,8 +67,7 @@ export default {
           const grid = copyGrid(s.rangeGrid) ?? NINE;
           const ratio = num(s.bb['attack@atk_to_hp_recovery_ratio'], num(s.bb.atk_to_hp_recovery_ratio, 0));
           // "周围的所有友方单位每秒恢复相当于攻击力N%的生命值": an hpRegen buff on every ally on the skill range's tiles (no
-          // device, no 孤立 unit), refreshed every REGEN_IV while the skill runs and removed at its end [ASSUMED: from the
-          // start of the skill — unlike 铃兰's, the note names no delay]
+          // device, no 孤立 unit), refreshed every REGEN_IV while the skill's S2 mode holds and removed at its end
           const regenKey = (unit) => `blemsh:regen:${unit.id}`;
           const regen = (battle, unit) => {
             if (!(ratio > 0)) return;
@@ -86,7 +85,8 @@ export default {
             durationAfterCast: true,
             heal: false,
             mods: { atkPct: num(s.bb.atk) },
-            onStart({ battle, unit, skill }) {
+            // Sleep picks its targets and strikes on the clip's OnAttack (`_selectTargetTiming` 1)
+            onStrike({ battle, unit, skill }) {
               const dur = skill.timeLeft > 0 ? skill.timeLeft : Math.max(0.1, num(s.duration, 10));
               let n = 0;
               // PRTS 备注: "技能生效对象实际为“自身这格内的所有地面敌人及自身阻挡的敌人”，即使阻挡的是飞行敌人" — a blocked
@@ -100,16 +100,21 @@ export default {
                 if (battle.applyStatus(e, 'sleep', { duration: dur, source: unit })) n++;
               }
               fx(battle, 'aoe', unit, { radius: 0.5, skill: 'blemsh_2', status: 'sleep', n });
+            },
+            // the regeneration is the S2 mode's (Modes/S2/Body/Heal, buff atk_to_hp_recovery): it starts with Switch, as the clip ends
+            onCastEnd({ battle, unit }) {
               unit.mem.blemshRegen = 0;
               regen(battle, unit);
             },
             onTick({ battle, unit, dt }) {
-              unit.mem.blemshRegen = (unit.mem.blemshRegen ?? 0) + dt;
+              if (unit.mem.blemshRegen == null) return;
+              unit.mem.blemshRegen += dt;
               if (unit.mem.blemshRegen < REGEN_IV - 1e-9) return;
               unit.mem.blemshRegen = 0;
               regen(battle, unit);
             },
             onEnd({ battle, unit }) {
+              unit.mem.blemshRegen = null;
               for (const a of battle.allyUnits) if (a.findBuff(regenKey(unit))) battle.removeBuff(a, regenKey(unit));
             },
           };

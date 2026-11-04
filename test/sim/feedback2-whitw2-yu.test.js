@@ -297,6 +297,7 @@ test('余 S2 (the official 重装 row TAKE_DAMAGE, maintainer decision 2026-10-2
     hitYu(h, e, yu);
     assert.ok(yu.skill.active, 'the hit casts it at once');
     assert.equal(castOf(h, yu).reason, 'TAKE_DAMAGE');
+    h.castStrike(yu);
     assert.deepEqual([e.y, e.x], [yu.tileR, yu.tileC], 'pulled onto his tile');
     h.step(3);   // his next search for enemies to block (every 3 ticks)
     assert.equal(e.blockedBy, yu, 'and blocked there');
@@ -331,6 +332,7 @@ test('余 S2: a leader inside x-1 is teleported onto his tile like any ground en
     yu.skill.gainSp(yu.skill.spCost, 'init', true);
     hitYu(h, lucien, yu);
     assert.ok(yu.skill.active && yu.skill.id === 'skchr_yu_2' && castOf(h, yu).reason === 'TAKE_DAMAGE', 'S2 cast (TAKE_DAMAGE: the hit)');
+    h.castStrike(yu);
     for (const e of [lucien, gun]) assert.deepEqual([e.y, e.x], [yu.tileR, yu.tileC], `${e.name} teleported onto 余`);
     assert.deepEqual([sami.x, sami.y], samiAt, '自缚: not a reachable target (PRTS 余 S2 备注)');
     const fx = h.eventsOf('fx').slice(fx0);
@@ -349,6 +351,7 @@ test('余 S2 with nobody to pull (a flyer on x-1 hits him): the burst hits it, n
   const fly = h.b.enemies[0];
   hitYu(h, fly, yu);
   assert.ok(fly.isFlying && yu.skill.active, 'cast by its hit');
+  h.castStrike(yu);
   assert.ok(fly.hp < fly.s.maxHp, 'the burst hits air units [ASSUMED]');
   const fx = h.eventsOf('fx').filter((e) => e[1] === 'teleport' || e[1] === 'pull');
   assert.deepEqual(fx, [], 'a flyer is no 地面可达目标: no teleport, no pull fx');
@@ -379,8 +382,9 @@ test('余 S2 on the real leader rounds: 假想敌：铳 teleported onto 余 walk
     yu.skill.gainSp(yu.skill.spCost, 'init', true);
     hitYu(h, e, yu);
     assert.ok(yu.skill.active, 'S2 (TAKE_DAMAGE: the hit)');
-    assert.deepEqual([e.y, e.x], [yu.tileR, yu.tileC], 'teleported onto 余');
-    assert.equal(e.route.pts, null, 'its path is re-planned from there');
+    h.castStrike(yu);
+    assert.ok(Math.hypot(e.y - yu.tileR, e.x - yu.tileC) < 0.1, `teleported onto 余 (one tick of its walk from there): ${e.y}, ${e.x}`);
+    assert.ok(h.eventsOf('fx').some((f) => f[1] === 'teleport' && f[4].id === e.id), 'its teleport');
     if (key === 'enemy_9017_achunt') {
       // it stands through its swings at 余 (ai.js attackStand) — at the official ASPD stacks (+80 per attack on the same
       // target, content/bosses.js kitGun) that is most of the time while 余 is in range — but nothing blocks it

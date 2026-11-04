@@ -621,6 +621,7 @@ test('#18 孤立 in every ally selection: 刺玫\'s 荆藤庇荫 picks the opera
   assert.ok(y.s.maxHp > op.s.maxHp);
   assert.deepEqual(alliesInGridOf(h.b, cm).filter((a) => a !== cm), [op], 'the range selection skips 炎佑');
   assert.ok(cm.skill.activate('test', { free: true }), 'skill on');
+  h.castStrike(cm);
   assert.equal(cm.mem.protege, op, 'protégé = the operator');
   assert.ok(!y.buffs.some((b) => b.key.startsWith('vendla')), '炎佑 not taunted');
   assert.equal(h.b.allySelectable(y, cm), false);

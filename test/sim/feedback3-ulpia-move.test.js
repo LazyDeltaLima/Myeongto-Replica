@@ -48,6 +48,8 @@ test('乌尔比安 S3: the 【移动】 and the 【返回】 are free redeploys 
   u.skill.gainSp(1000);
   assert.ok(h.runUntil(() => u.skill.active, 2));
   const castT = u.skill.lastStart;
+  h.castDone(u);
+  const landT = b.time;
   // the 【移动】: a new deployment on the anchor tile, flagged as a move, while the skill keeps running
   assert.deepEqual([u.tileR, u.tileC], [10, 6], 'moved onto the anchor tile');
   const mv = deploysOf(h, u);
@@ -55,7 +57,8 @@ test('乌尔比安 S3: the 【移动】 and the 【返回】 are free redeploys 
   assert.equal(mv[1].move, true, 'deploy { move: true }');
   assert.equal(mv[1].initial, false);
   assert.ok(u.deploySeq > seq0, 'a new deployment');
-  close(u.deployedAt, castT, 1e-9, 'deployedAt = the move');
+  close(u.deployedAt, landT, 1 / 30 + 1e-9, 'deployedAt = the move, as his skill clip ends');
+  close(landT - castT, u.skill.castTiming().action, 1 / 30 + 1e-9, 'his skill clip');
   assert.ok(u.skill.active, '技能进度 carries: the skill runs on');
   assert.ok(b.getPlayer('p1').dp >= dp0 - 1e-9, 'free (no DP paid)');
   assert.equal(u.respawnAt, respawn0, 'no redeploy timer');
@@ -64,7 +67,7 @@ test('乌尔比安 S3: the 【移动】 and the 【返回】 are free redeploys 
   assert.equal(ev.length, 2, "the client's deploy event");
   const tup = b.snapshot().units.find((t) => t[0] === u.id);
   assert.equal(tup[8], ANIM.DEPLOY, 'the snapshot plays the deploy');
-  // 突袭手雷: its window starts again at the landing (castT + duration), past the battle-start one (0 + duration)
+  // 突袭手雷: its window starts again at the landing (landT + duration), past the battle-start one (0 + duration)
   // leftover SP while the skill runs (gifts of 'init' kind reach a running skill): the return must empty it
   u.skill.sp = 7;
   assert.ok(h.runUntil(() => !u.skill.active, 30));
@@ -77,8 +80,8 @@ test('乌尔比安 S3: the 【移动】 and the 【返回】 are free redeploys 
   close(u.deployedAt, endT, 1e-9);
   close(u.skill.sp, gift, 0.1, 'the SP after the return = the ration only (7 cleared)');
   const late = stuns.filter((s) => Math.abs(s.d - grenade.stun) < 1e-9 && s.t > grenade.duration + 0.05);
-  assert.ok(late.length > 0, `grenade stuns after ${grenade.duration} s (window from the landing at ${castT.toFixed(2)})`);
-  assert.ok(late.every((s) => s.t <= castT + grenade.duration + 1e-6), 'and none past it');
+  assert.ok(late.length > 0, `grenade stuns after ${grenade.duration} s (window from the landing at ${landT.toFixed(2)})`);
+  assert.ok(late.every((s) => s.t <= landT + grenade.duration + 1e-6), 'and none past it');
   assert.equal(h.hooksOf('death').filter((c) => c.unit === u).length, 0, 'never an exit');
   assert.equal(h.eventsOf('die').filter((e) => e[1] === u.id).length, 0, 'no die, so no FORCED_EXIT and no knock-out');
   assert.equal(b._perPlayer.p1.deaths, 0, 'the redeploy count (knock-outs) stays 0');
@@ -117,6 +120,7 @@ test('乌尔比安 S3 with 不屈 at 100 %: the moves roll nothing (a 【移动�
   h.step();
   u.skill.gainSp(1000);
   assert.ok(h.runUntil(() => u.skill.active, 2));
+  h.castDone(u);
   assert.equal(deploysOf(h, u).at(-1).move, true);
   assert.ok(h.runUntil(() => !u.skill.active, 30));
   assert.equal(deploysOf(h, u).length, 3, 'start + move + return');
@@ -145,6 +149,7 @@ test('乌尔比安 S3: the 阿戈尔 devour gains stay through the 【移动】 
   assert.equal(mods.atkFinal, 1000);
   u.skill.gainSp(1000);
   assert.ok(h.runUntil(() => u.skill.active, 2));
+  h.castDone(u);
   assert.deepEqual([u.tileR, u.tileC], [10, 7], 'moved');
   assert.equal(deploysOf(h, u).at(-1).move, true);
   assert.deepEqual({ ...gain().mods }, mods, 'kept through the 【移动】');
@@ -221,6 +226,7 @@ test('乌尔比安 S3 out and back: a 替身 stays up, 不屈 and the 阿戈尔 
   const respawn0 = u.respawnAt;
   u.skill.gainSp(1000);
   assert.ok(h.runUntil(() => u.skill.active, 2));
+  h.castDone(u);
   assert.equal(deploysOf(h, u).at(-1).move, true);
   assert.ok(h.runUntil(() => !u.skill.active, 30));
   assert.equal(deploysOf(h, u).length, 3, 'start + move + return');
@@ -282,6 +288,7 @@ test('a 【移动】 fires each deploy effect once: 卡西米尔 +20 % per move,
   close(kz.s.atk, 1000 * 2.2, 1e-6, 'her move counted once');
   u.skill.gainSp(1000);
   assert.ok(h.runUntil(() => u.skill.active, 2));
+  h.castDone(u);
   close(kz.s.atk, 1000 * 2.4, 1e-6, 'his 【移动】 counts once');
   assert.equal(sr.findBuff('bond:siracusa').stacks, 1, 'he is not 叙拉古: his move does not stack her buff');
   assert.ok(h.runUntil(() => !u.skill.active, 30));

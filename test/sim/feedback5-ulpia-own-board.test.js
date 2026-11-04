@@ -27,7 +27,7 @@ function cast({ kind = 'unite', stageId = 'act1autochess_escaped_single', tile =
   u.skill.gainSp(999, 'test');
   // (its CUSTOM_RANGE trigger waits for an enemy on the line: with none the cast is made by hand, as a player's would be)
   if (!u.skill.active) assert.ok(u.skill.activate('test'), 'S3 cast');
-  h.run(0.2);
+  h.castDone(u);
   const at = [u.tileR, u.tileC];
   checkInvariants(h.b);
   return { h, u, home, at };

@@ -32,7 +32,7 @@ test('瑕光 S2: an enemy whose collider overlaps her tile sleeps (0.05 past the
   const outside = place(h, h.spawn('enemy_n', { pos: [11, 4] }), 4, 10.65);
   u.skill.gainSp(u.skill.spCost * u.skill.maxCharges + 1, 'test');
   assert.ok(h.runUntil(() => u.skill.active, 3), 'TAKE_DAMAGE from the blocked enemy');
-  h.step();
+  h.castStrike(u);
   assert.ok(h.enemy('enemy_d').s.flags.sleep, 'the blocked enemy');
   assert.ok(inside.s.flags.sleep, '0.05 past the edge: asleep');
   assert.ok(!outside.s.flags.sleep, '0.15 past the edge: awake');

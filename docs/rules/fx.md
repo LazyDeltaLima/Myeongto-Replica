@@ -205,8 +205,8 @@
     `_activeBuffs`(`targetBuff`, 대상 표식), `_hitEffects` + 능력 투사체의 `_effectsToTargetWhenStart`/`_effectsWhenHit`/`_effectsWhenReached`(`target`),
     이름이 `End…`인 능력은 `end: { cast, hit }`(풀에서 데겐블레허 S3 하나). 텍사스 S2는 파일 이름이 `_skill_01_`이라 이름 매핑으로는 0개였다.
     공격 이벤트 없이 피해를 주는 순간은 `fxgame.js expect()`/`pendingHit()`: 발동 틱의 'dmg'(텍사스 S2 검 2발 — 대상당 한 번)에 `target`,
-    키트 fx 'slash'(데겐블레허 연속 베기)의 'dmg'에 `targetBuff`(대상당 한 번, 스킬 끝·대상 사망에 멈춤), 'finale'(마무리 일격, 시뮬레이션이 onEnd에서
-    'skill' off 전에 냄)에 `end.cast`(시전자) + 그 틱 'dmg'에 `end.hit`. 다른 유닛이 1초 안에 공격한 대상, 4.5칸 밖 대상은 가로채지 않는다.
+    키트 fx 'slash'(데겐블레허 연속 베기)의 'dmg'에 `targetBuff`(대상당 한 번, 스킬 끝·대상 사망에 멈춤), 'finale'(시뮬레이션이 onEnd에서
+    'skill' off 전에 냄)에 `end.cast`(시전자), 0.333초 뒤 마무리 일격의 사건 `['castHit', id, 'end']` + 그 틱 'dmg'에 `end.hit`. 시전 뒤에 맞는 스킬(위 S2·치우바이 S2·울피아누스 S3, `rules/sim.md` 「지속 스킬의 효과가 나는 시점」)은 `['castHit', id]` + 그 틱 'dmg'에 `target`. 다른 유닛이 1초 안에 공격한 대상은 그 'dmg'가 시전자의 것일 때만, 4.5칸 밖 대상은 가로채지 않는다.
     (2026-10-21) 시전자와 같은 편 대상(적이 오퍼레이터에게 준 피해), 'dmg' 6번째 칸(공격자)이 시전자 아닌 다른 오퍼레이터인 피해도 가로채지 않는다 —
     공격자가 시전자·그 소환물(维什戴尔 그림자 `token_10035_wisdel_wward` 등: 소환 관계는 스냅숏에 없어 오퍼레이터만 거름)·무출처(null)면 받는다. 골든 전
     수에서 가로챈 피해의 대부분이 다른 오퍼레이터·적의 것이었다(이벤트 골든의 `- spawn … → ally` 줄, 塑心 S1·夕 S1 등의 `→ enemy` 일부가 빠짐). 공격자를

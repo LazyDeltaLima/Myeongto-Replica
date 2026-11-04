@@ -600,11 +600,12 @@ test('3_12 瑕光 S2 慑敌辉光: ATK +, ground enemies on her tile sleep for t
     fill(u);
     assert.ok(h.runUntil(() => u.skill.active, 3));
     assert.equal(h.hooksOf('skillStart').find((c) => c.unit === u).reason, 'TAKE_DAMAGE');
-    h.step();
+    h.castStrike(u);
     approx(u.s.atk, u.base.atk * (1 + b.atk));
     assert.ok(e.s.flags.sleep, 'her tile: asleep');
     approx(e.findBuff('sleep').timeLeft, dur - h.b.dt, 0.05, 'for the skill duration');
     assert.ok(!n.s.flags.sleep, 'next tile: awake');
+    h.castDone(u);
     const v = u.s.atk * b['attack@atk_to_hp_recovery_ratio'];
     approx(ally.findBuff(`blemsh:regen:${u.id}`)?.mods.hpRegen ?? 0, v, 1e-6, '生命回复速度 +ATK × ratio');
     const n0 = h.hooksOf('damaged').length, hp0 = ally.hp, t1s = h.b.time, own = ally.s.hpRegen - v;

@@ -35,11 +35,13 @@ function reed2(bb, chess, def) {
       castHolds: true,
       durationAfterCast: true,
       duration: num(bb.projectile_life_time) > 0 ? num(bb.projectile_life_time) : undefined,
-      onStart({ battle, unit, skill }) {
+      // Skill_2_FireBall picks its carriers and fires on the clip's OnAttack (`_selectTargetTiming` 1); the fireballs live their time from there
+      onStrike({ battle, unit, skill }) {
         const n = Math.max(1, Math.floor(num(bb.max_target, 1)));
         const cands = battle.alliesInGrid(unit).filter((a) => a.kind === 'op' && live(a));
         cands.sort((a, b) => (a === unit) - (b === unit) || (b.ground ? 1 : 0) - (a.ground ? 1 : 0) || a.hpRatio - b.hpRatio || a.deploySeq - b.deploySeq);
         unit.mem.reedFire = cands.slice(0, n).map((a) => ({ a, acc: 0 }));
+        unit.mem.reedFireUntil = battle.time + skill.timeLeft;
         for (const F of unit.mem.reedFire) {
           battle.addBuff(F.a, { key: `reed2:fireball:${unit.id}`, duration: skill.timeLeft, visible: true, source: unit });
           battle.fx('ember', { x: F.a.x, y: F.a.y, id: F.a.id, src: unit.id, n: 3 });
@@ -47,6 +49,7 @@ function reed2(bb, chess, def) {
       },
       onTick({ battle, unit, dt }) {
         const cd = Math.max(0.1, num(bb.cooldown, 1.5));
+        if (battle.time > unit.mem.reedFireUntil + 1e-9) return;
         for (const F of unit.mem.reedFire || []) {
           if (!live(F.a)) continue;
           F.acc += dt;

@@ -28,6 +28,7 @@ function field({ enemyAtk = 0, hits = null } = {}) {
   const sk = v.skill;
   sk.sp = sk.spCost; sk.charges = Math.max(1, sk.charges);
   assert.ok(sk.activate('manual'), 'S2 starts');
+  h.castStrike(v);
   assert.equal(v.mem.protege, tk, 'the protégé is the highest-max-HP ally in range');
   return { h, v, tk, t0: h.b.time };
 }

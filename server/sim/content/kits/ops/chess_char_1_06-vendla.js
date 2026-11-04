@@ -21,7 +21,7 @@ export default {
     const hs = num(talentBb(chess, 0).heal_scale, 1);
     const tauntKey = 'vendla:taunt';
     // the protégé only exists while 荆藤庇荫 runs (mem.protege is set by its onStart only)
-    const protege = (u) => (u.skill?.active && up(u.mem.protege) ? u.mem.protege : null);
+    const protege = (u) => (u.skill?.active && up(u.mem.protege) && u.mem.protege.findBuff(tauntKey) ? u.mem.protege : null);
     return {
       skills: { 'skcom_magic_rage[3]': { kind: 'duration', mods: { aspd: num(skillBbOf(chess, 'skcom_magic_rage[3]').attack_speed) } } },
       trait: {
@@ -44,12 +44,14 @@ export default {
         // skchr_vendla_2 is the sequence MaxHpMark (Skill) → ActiveBuff: no attack before the clip ends, `duration` runs from its end
         castHolds: true,
         durationAfterCast: true,
-        onStart({ battle, unit, skill }) {
+        // MaxHpMark's vendla_s_2[self] comes on its ON_SPELL_ON, the clip's OnAttack: it picks the ally then and holds `duration` s from there,
+        // so the taunt and the counter end a little before the skill does
+        onStrike({ battle, unit, skill }) {
           const cands = alliesInGridOf(battle, unit).sort((a, b) => b.s.maxHp - a.s.maxHp || a.deploySeq - b.deploySeq);
           const p = cands[0] ?? null;
           unit.mem.protege = p;
           if (!p) return;
-          battle.addBuff(p, { key: tauntKey, duration: skill.duration + 0.1, mods: { taunt: num(bb.taunt_level, 1) }, visible: true, source: unit });
+          battle.addBuff(p, { key: tauntKey, duration: skill.duration, mods: { taunt: num(bb.taunt_level, 1) }, visible: true, source: unit });
           battle.fx('taunt', { x: p.x, y: p.y, id: p.id });
         },
         onEnd({ battle, unit }) {

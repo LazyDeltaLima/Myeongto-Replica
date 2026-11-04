@@ -108,8 +108,17 @@ export default withDefaults({
           const T = unit.mem.tornado;
           unit.mem.tornado = null;
           if (!T || reason === 'death' || !unit.alive) return;
-          for (const e of battle.foesInRadius(T.x, T.y, NET_R)) pullSelf(battle, unit, e, force);   // the 捕网
-          battle.fx('pull', { x: T.x, y: T.y, id: unit.id });
+          const net = () => {
+            for (const e of battle.foesInRadius(T.x, T.y, NET_R)) pullSelf(battle, unit, e, force);   // the 捕网
+            battle.fx('pull', { x: T.x, y: T.y, id: unit.id });
+          };
+          if (reason !== 'duration') { net(); return; }
+          // the closing FinalAttack throws it on Skill_3_Begin's OnAttack; a stun meanwhile ends the Skill state and loses it
+          // [ASSUMED·화면: as `endHolds` above, this length was not measured]
+          const seq = unit.deploySeq;
+          battle.after(0.367, () => {
+            if (unit.alive && unit.deploySeq === seq && unit.canAct && unit.skillStateUntil > battle.time + 1e-9) net();
+          }, { owner: unit });
         },
       },
       talents: [

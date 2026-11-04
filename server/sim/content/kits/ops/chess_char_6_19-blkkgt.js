@@ -16,15 +16,16 @@ function blkkgt(bb, chess, def) {
   // the skill range (x-1): her range while S3 runs — also for the finisher, since onEnd runs before the engine
   // removes the skill's range
   const skillKeys = (unit) => unit.rangeKeys || [];
+  // (the finisher strikes after the skill's range is gone: `keys` are the ones it had)
   // S3 hits and pulls air units too — PRTS 锏 S3 备注 "※可对空。不会拖拽自身中心半径0.6708范围内的敌人" (her attacks and S1 /
   // S2 stay ground-only: "地面敌人"); the air units of the mode are 静态刚体, so the pull leaves them in place (Battle.pull)
-  const victims = (battle, unit) => {
-    const c = battle.enemiesInKeys(skillKeys(unit), unit, { ...unit.profile, canHitFly: true, groundOnly: false });
+  const victims = (battle, unit, keys = skillKeys(unit)) => {
+    const c = battle.enemiesInKeys(keys, unit, { ...unit.profile, canHitFly: true, groundOnly: false });
     sortEnemyTargets(battle, unit, c, null);
     return c.slice(0, maxT);
   };
-  const slash = (battle, unit, scale) => {
-    const v = victims(battle, unit);
+  const slash = (battle, unit, scale, keys) => {
+    const v = victims(battle, unit, keys);
     if (v.length) battle.fx('slash', { x: unit.x, y: unit.y, id: unit.id, n: v.length });
     for (const e of v) battle.dealDamage(unit, e, { amount: unit.s.atk * scale, type: 'phys', isSkill: true, tags: ['skill', 'slash'] });
   };
@@ -32,9 +33,9 @@ function blkkgt(bb, chess, def) {
   // aims at her own tile centre, the others at the usual 拉力起点 half a tile ahead; 急停 0.6708 around her)
   // each pull rides a projectile (HarpoonProjectile projectile_chr_blkkgt_s3 / _s3[end]): one stopping on a living target
   // makes her search for enemies to block at once
-  const pull = (battle, unit, force, last = false) => {
+  const pull = (battle, unit, force, last = false, keys = skillKeys(unit)) => {
     let held = false;
-    for (const e of enemiesIn(battle, unit, skillKeys(unit))) {
+    for (const e of enemiesIn(battle, unit, keys)) {
       if (last) pullToward(battle, unit, e, force); else battle.pullToFront(e, unit, force);
       if (e.alive) held = true;
     }
@@ -111,14 +112,25 @@ function blkkgt(bb, chess, def) {
         while (m.acc + 1e-9 >= iv && m.n < slashes) { m.acc -= iv; m.n++; slash(battle, unit, num(bb.d_atk_scale, 1)); }
         if (m.pacc + 1e-9 >= pullIv) { m.pacc -= pullIv; pull(battle, unit, num(bb.p_force)); }
       },
-      onEnd({ battle, unit, reason }) {
+      onEnd({ battle, unit, skill, reason }) {
         unit.mem.dgb = null;
         battle.removeBuff(unit, 'blkkgt:slashes');
         if (reason === 'death' || !unit.alive) return;
         battle.fx('finale', { x: unit.x, y: unit.y, id: unit.id });
-        unit.mem.dgbFinale = true; // the finisher is part of the skill (talent at 100 %, module +10 %)
-        try { slash(battle, unit, num(bb.e_atk_scale_end, 1)); } finally { unit.mem.dgbFinale = false; }
-        pull(battle, unit, num(bb.e_force), true);
+        const keys = [...skillKeys(unit)];
+        const strike = () => {
+          skill.castHit('end');
+          unit.mem.dgbFinale = true; // the finisher is part of the skill (talent at 100 %, module +10 %)
+          try { slash(battle, unit, num(bb.e_atk_scale_end, 1), keys); } finally { unit.mem.dgbFinale = false; }
+          pull(battle, unit, num(bb.e_force), true, keys);
+        };
+        // EndAttack strikes on Skill_3_End's OnAttack (`_selectTargetTiming` 1); a stun meanwhile ends the Skill state and loses it
+        const at = reason === 'duration' && skill.cast?.dur > 0 ? skill.castTiming().strike : 0;
+        if (!(at > 0)) { strike(); return; }
+        const seq = unit.deploySeq;
+        battle.after(at, () => {
+          if (unit.alive && unit.deploySeq === seq && unit.canAct && unit.skillStateUntil > battle.time + 1e-9) strike();
+        }, { owner: unit });
       },
     },
     talents: [

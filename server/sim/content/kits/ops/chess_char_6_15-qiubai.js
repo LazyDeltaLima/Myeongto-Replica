@@ -6,6 +6,9 @@ import { num, tbb, parseN, enemiesIn, skillGridOf, aura } from '../shared/tier6.
 // ------------------------------------------------------------------------------------------------------------------
 // 仇白 chess_char_6_15 (领主) — S3 问雪; 入隙; 落英; module 雪浸过的斗笠
 
+/** skchr_qiubai_2/sword_split's own 停顿 on what it hits (its `_activeBuffs` blackboard). */
+const SPLIT_SLUGGISH = 1.2;
+
 function qiubai(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1), tb = def?.traitBb || {};
   const extraTargets = parseN(def?.skill?.description, /额外攻击(\d+)个目标/, 0);
@@ -49,13 +52,29 @@ function qiubai(bb, chess, def) {
       durationAfterCast: true,
       mods: { atkPct: num(bb.atk) },
       ...(skillGridQ ? { targeting: { rangeGrid: skillGridQ } } : {}),
-      onStart({ battle, unit }) {
+      // sword_split picks its targets as the cast starts (`_selectTargetTiming` 0) and strikes on the clip's OnAttack, with its own 停顿
+      onStart({ battle, unit }) { unit.mem.qbSplit = groundIn(battle, unit); unit.mem.qbMode = false; },
+      onStrike({ battle, unit, skill }) {
+        skill.castHit();
         battle.fx('sword', { x: unit.x, y: unit.y, id: unit.id });
-        for (const e of groundIn(battle, unit)) battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.sword_begin_atk_scale, 1), type: 'arts', isSkill: true, tags: ['skill'] });
+        for (const e of unit.mem.qbSplit ?? []) {
+          if (!e.alive) continue;
+          battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.sword_begin_atk_scale, 1), type: 'arts', isSkill: true, tags: ['skill'] });
+          if (e.alive) battle.applyStatus(e, 'sluggish', { duration: SPLIT_SLUGGISH, source: unit });
+        }
+        unit.mem.qbSplit = null;
       },
-      onTick({ battle, unit }) { for (const e of groundIn(battle, unit)) battle.applyStatus(e, 'sluggish', { duration: 0.25, source: unit }); },
+      // switch_mode comes as the clip ends: the S2 mode's 停顿 (Body/GeneralAbilities) and the closing qiubai_s_2[end_sword_wind] are that buff's
+      onCastEnd({ unit }) { unit.mem.qbMode = true; },
+      onTick({ battle, unit }) {
+        if (!unit.mem.qbMode) return;
+        for (const e of groundIn(battle, unit)) battle.applyStatus(e, 'sluggish', { duration: 0.25, source: unit });
+      },
       onEnd({ battle, unit, reason }) {
-        if (reason === 'death' || !unit.alive) return;
+        const mode = unit.mem.qbMode;
+        unit.mem.qbMode = false;
+        unit.mem.qbSplit = null;
+        if (reason === 'death' || !unit.alive || !mode) return;
         for (const e of groundIn(battle, unit)) battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.sword_end_atk_scale, 1), type: 'phys', isSkill: true, tags: ['skill'] });
       },
     },

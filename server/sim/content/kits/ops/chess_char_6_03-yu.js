@@ -57,7 +57,9 @@ function yu(bb, chess, def) {
       durationAfterCast: true,
       mods: { hpPct: num(bb.max_hp), atkPct: num(bb.atk), blockCnt: num(bb.block_cnt) },
       attack: { dmgType: 'arts' },
-      onStart({ battle, unit }) {
+      // Tel picks its targets and strikes on the clip's OnAttack (`_selectTargetTiming` 1)
+      onStrike({ battle, unit, skill }) {
+        skill.castHit();
         const grid = skillGridOf(def) || AROUND8;
         const foes = battle.unitsInGrid(unit, grid, { side: 'enemy' }).filter((e) => canTargetEnemy(unit, e, ANY));
         for (const e of foes) battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale, 1), type: 'arts', isSkill: true, tags: ['skill'] });
@@ -89,13 +91,18 @@ function yu(bb, chess, def) {
       mods: { hpPct: num(bb.max_hp), atkPct: num(bb.atk), defPct: num(bb.def) },
       // the wall runs through his tile perpendicular to his direction (RIGHT / LEFT: his column; UP / DOWN: his row —
       // it turns with the deploy direction like a range) [ASSUMED orientation for UP / DOWN]
+      // Its picture comes as the cast starts (CastAnimation's yu_s_3[effect], ON_CAST_START) ...
       onStart({ battle, unit }) {
+        const vertical = unit.fwd[0] === 0;
+        battle.fx('firewall', { x: unit.tileC, y: unit.tileR, id: unit.id, dir: unit.dir, axis: vertical ? 'col' : 'row' });
+      },
+      // ... and what it does as the clip ends: Aura is the sequence's next ability
+      onCastEnd({ unit }) {
         const vertical = unit.fwd[0] === 0;
         // `front`: the line enemy shots are stopped on — the official Aura/EnemyAura strip (`_isHorizontalInfinite`,
         // `_horizonOffsetFront` 0.5, `_horizonSize` 0.3) runs along his tile's front edge, so a shot at him is stopped too
         unit.mem.yuWall = vertical ? { axis: 'x', v: unit.tileC, front: unit.tileC + unit.fwd[1] * 0.5 }
           : { axis: 'y', v: unit.tileR, front: unit.tileR + unit.fwd[0] * 0.5 };
-        battle.fx('firewall', { x: unit.tileC, y: unit.tileR, id: unit.id, dir: unit.dir, axis: vertical ? 'col' : 'row' });
       },
       onEnd({ unit }) { unit.mem.yuWall = null; },
     },
