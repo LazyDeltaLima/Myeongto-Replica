@@ -3545,6 +3545,10 @@
 - 확인: `test/render/fx-emission-motion.test.js`(Perlin 값은 공식 값 4점). 운영자·적 전체 재추출 전후 JSON은 새 키만 늘었다(776 / 4022 파일). 픽셀 비교와
   이벤트 골든·`--coverage` 수치는 관리자 노트. [화면 미확인: 공식 녹화 대조 — 거리당 방출 꼬리, 미리 데운 범위, 노이즈 흐름]
 
+### 메시 입자 정렬 (2026-11-05, 공식 클라에서 확인 — 클라 자체 엔진 빌드의 정렬별 메시 잡)
+
+`m_RenderAlignment`가 잡을 고르고 잡마다 행렬 도우미에 넘기는 기저만 다르다. Local(2)은 계의 회전, World(1)는 항등(Unity 세계 축), View(0)는 카메라의 오른쪽·위·앞(메시 z가 카메라 앞), Velocity(4)는 z = 입자 속도 + 애니메이션 속도 방향, x = normalize(세계 위 × z)(멈췄으면 z = 세계 z, 위와 나란하면 세계 x), y = z × x. 계의 변환 크기는 기저 안쪽에서 곱한다. 수명 중 회전이 축별이면 Local로 강제(12계). 예전엔 전부 Local로 그려 View 296·Velocity 20·World 8계(추출본)가 노드 회전을 따랐다. Facing(3) 잡은 안 읽음 — 추출본에 없고 나오면 `fx_coverage`가 알린다, Local로 그림. 렌더러의 `m_AllowRoll`이 꺼지면 View 잡에 카메라 롤 보정이 붙는다(안 넣음: 보드 카메라는 안 돈다). `fxplayer.js` `meshAlign`·`uMode == 4`. 확인: `test/render/fx-drawing.test.js` 「a mesh particle's alignment」, Windows Chrome에서 표본 12개 전후 비교(깨지지 않음). [화면 미확인: 공식과 나란히 — Mon3tr S1 시작·토스카 타격 고리(View, `monstr_skill_01_start_01`·`tocka_attack_01_hit_01`), 쉐라 얼음(Velocity, `kjera_attack_start_01`), 위 S3 범위(World, `yu_skill3_range_01_root`)]
+
 ### 그리기 순서·시트 — 정렬·무작위 줄·여러 메시·사용자 스트림 (2026-10-27, 입자 필드 전수의 todo 「drawing」, 공식 클라에서 확인)
 
 입자 필드 전수(위 「추출 누락 보고」 입자 필드)가 남긴 그리기 항목. Unity 매뉴얼로 정해지는 것은 그대로, 정렬·메시 고르기는 공식 클라(엔진 2021.3.39f1 —
@@ -3734,7 +3738,6 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
   같은 날 전 선발을 다시 봄: 시뮬 공격 클립과 화면이 실제로 트는 클립의 길이·타격이 모두 같다(`test/sim/attack-clip-view.test.js`, 스탠스 스킬은 클립 없음). 왕 S2·토가와 사키코 S2는 이름만 달랐고, 비비아나 S1·유넥티스 S3은 화면 클립이 틀렸다 → `render.md` 「Spine 클립 커버리지」. 2026-11-05 상점 기물·예비와 기본 모드까지 넓힘: 시뮬 쪽이 틀린 넷 → `sim.md` 「일반 공격 타이밍」.
 - 리(`char_322_lmlee`) 재능 1(2026-11-04): 저지하는 동안 `lmlee_t_1[self]` `lmlee_buff_01_start`가 그에게, `lmlee_t_1[enemy]` `lmlee_debuff_01_start`가 저지당한 적에게 — 시뮬
   `talent:lmlee:self`·`talent:lmlee:foe:<그의 id>`를 `visible`로 알리고 `KEY_FX`가 그린다(공격 속도 값은 그대로, 효과만 추가). [화면 미확인: 실제 판]
-- **메시 입자 정렬**(2026-11-05, 공식 클라에서 확인 — 클라 자체 엔진 빌드의 정렬별 메시 잡): `m_RenderAlignment`가 잡을 고르고 잡마다 행렬 도우미에 넘기는 기저만 다르다. Local(2)은 계의 회전, World(1)는 항등(Unity 세계 축), View(0)는 카메라의 오른쪽·위·앞(메시 z가 카메라 앞), Velocity(4)는 z = 입자 속도 + 애니메이션 속도 방향, x = normalize(세계 위 × z)(멈췄으면 z = 세계 z, 위와 나란하면 세계 x), y = z × x. 계의 변환 크기는 기저 안쪽에서 곱한다. 수명 중 회전이 축별이면 Local로 강제(12계). 예전엔 전부 Local로 그려 View 296·Velocity 20·World 8계(추출본)가 노드 회전을 따랐다. Facing(3) 잡은 안 읽음 — 추출본에 없고 나오면 `fx_coverage`가 알린다, Local로 그림. 렌더러의 `m_AllowRoll`이 꺼지면 View 잡에 카메라 롤 보정이 붙는다(안 넣음: 보드 카메라는 안 돈다). `fxplayer.js` `meshAlign`·`uMode == 4`. 확인: `test/render/fx-drawing.test.js` 「a mesh particle's alignment」, Windows Chrome에서 표본 12개 전후 비교(깨지지 않음). [화면 미확인: 공식과 나란히 — Mon3tr S1 시작·토스카 타격 고리(View, `monstr_skill_01_start_01`·`tocka_attack_01_hit_01`), 쉐라 얼음(Velocity, `kjera_attack_start_01`), 위 S3 범위(World, `yu_skill3_range_01_root`)]
 - **메시 입자 pivot**(2026-11-04, 공식 클라에서 확인 — 클라 자체 엔진 빌드의 메시 지오메트리 잡. 같은 판 Unity 기본 플레이어와 다르다): 메시 좌표에 (pivot.x × 크기.x, −pivot.z × 크기.y, pivot.y × 크기.z)를 더한 뒤 입자 크기·회전. 곧 메시 축으로 (x·sx², −z·sy², y·sz²)이고 메시 경계는 안 쓴다(경계 × (x, y, −z)는 기본 플레이어와 GPU 인스턴싱 길의 식 — 앞서 2026-11-04에 이것을 넣었다가 사진과 달라 뺐다). `fxplayer.js` 셰이더 `piv`.
   y가 메시 z로 가므로 재구성체 조각(pivot y 27, 크기 z 0.12)은 27 × 0.12 × 0.12 = 0.39칸 밖에 놓이고 긴 축(메시 z)이 바깥을 향한다: 8계가 노드 요 45°씩이라 `spin` 축을 둘러싼 고리가 되고, 시작 회전·수명 중 회전은 긴 축을 도는 자전이다. 공식 사진(관리자 2026-11-04)과 대조: 고리 폭 0.96칸 같음, 방사형·왼쪽이 높음 같음, 위아래 반지름은 공식 약 0.24칸·우리 약 0.18칸(카메라 차이인지 안 봄).
   pivot 있는 메시 입자 425계(133프리팹)가 움직인다. 메시 중심이 치우친 114계 중 78계에서 이 식이 네 후보(이 식·기본 플레이어 식·크기 단위·pivot 없음) 중 메시 중심을 입자에 가장 가깝게 놓고, 기본 플레이어 식이 만들던 수백 칸 밖 위치가 없어진다. [추정·엔진: 이 모드의 셰이더는 GPU 인스턴싱 길을 안 탄다고 봄 — 재구성체 사진은 안 타는 쪽과 맞지만 조건은 안 읽음] [화면 미확인: 재구성체 외 공식 대조]
