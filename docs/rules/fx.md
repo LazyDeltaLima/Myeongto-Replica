@@ -253,7 +253,7 @@
     섬광·빔·조준 원은 잠금마다 하나(CreateEffect·투사체 이펙트). 빔·조준 원의 「포탄 때까지」는 공식 녹화로 확인(2026-10-27 재대조: 다른 대상 포탄이
     떨어진 뒤에도 빔·붉은 빛이 그 대상 포탄까지 남고, 두 번 잠근 대상은 두 번째 포탄까지; 표식 쐐기는 폭격 시작에 멈춤 — 버프 사슬대로).
     S3 도중 쓰러짐·강제 퇴각('die')이면 포탄이 안 오므로(킷 onEnd 'death') 이때 시전자와 함께 끝난다(관리자 제보 2026-10-10: 대상이 죽거나 30초까지 남았음; 2026-11-05, 공식 클라에서 확인): 스킬 버프 `lemuen_s_3`의
-    `ON_OWNER_FINISH` → `FinishManagedProjectiles`가 조준 투사체(`projectile_chr_lemuen_s3_aim` `_managedBySource` 1)를 끊으므로 빔·조준 원은 포탄 때처럼 바로 지우고, 표식은 갈라진 버프가 부모와 함께 끝나 폭격 시작 때처럼 `_delayToFinish` 뒤 사라진다(`endLemMark`). 2D 대체 조준 원(`fx/locks.js`)은 원래 그렇게 함.
+    `ON_OWNER_FINISH` → `FinishManagedProjectiles`가 조준 투사체(`projectile_chr_lemuen_s3_aim` `_managedBySource` 1)를 `Projectile.Interrupt`로 끊는다. `StopMe` → `OnProjectileStop`이 조준 원(`_mainEffect`, `ClearMainEffectIfNot`)과 빔(`_effectsToTargetWhenStart`, `EffectBehaviour.m_effects`)을 `Effect.FinishMe(false)`로 끝내고, 두 프리팹은 `_delayToFinish`가 없어 바로 회수되므로 포탄 때처럼 바로 지운다. 표식은 갈라진 버프가 부모와 함께 끝나 폭격 시작 때처럼 `_delayToFinish` 뒤 사라진다(`endLemMark`). 2D 대체 조준 원(`fx/locks.js`)은 원래 그렇게 함.
     재능 通缉 'lemuen:wanted' → 상태 이펙트 `lemuen_talent_buff_01`(char_lemuen_range_aim[effect], 머리 — 프리팹 `_spawnLocation` 4, 공식 클라에서 확인).
   - **Ram 계열 셰이더** (클라 셰이더): `_RamTex`는 디졸브 경계 색 램프가 아니라 렌더러 uv × `_RamTex_ST`로 샘플해 rgba에 **곱하는** 텍스처 → 첸 S3 범위 벽이
     흰색 → 황갈색(모래 바닥에서는 거의 안 보임). **디졸브** = sat((d − amount + border·(1 − roundEven(amount + .5))) / border) — amount 0이면 아무것도
