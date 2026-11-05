@@ -3012,6 +3012,9 @@ export class FxInstance {
         const draw = (key, j) => {
           const mat = meshSide(makeMaterial(def.materials[key], def.lib));
           mat.uniforms.uMode.value = 4;
+          // Local: this mesh is placed by its node's matrix. The shader's other alignments are a mesh particle's, drawn by the
+          // camera with the particle's size, which here is 1: 락락's and 쉐라's drones lost their node's scale and came out a tile wide
+          mat.uniforms.uAlign.value = 2;
           const g = new THREE.InstancedBufferGeometry();
           g.index = src.index;
           if (sub) g.setDrawRange(...sub[Math.min(j, sub.length - 1)]);

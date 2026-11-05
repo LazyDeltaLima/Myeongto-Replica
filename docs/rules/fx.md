@@ -3549,6 +3549,8 @@
 
 `m_RenderAlignment`가 잡을 고르고 잡마다 행렬 도우미에 넘기는 기저만 다르다. Local(2)은 계의 회전, World(1)는 항등(Unity 세계 축), View(0)는 카메라의 오른쪽·위·앞(메시 z가 카메라 앞), Velocity(4)는 z = 입자 속도 + 애니메이션 속도 방향, x = normalize(세계 위 × z)(멈췄으면 z = 세계 z, 위와 나란하면 세계 x), y = z × x. 계의 변환 크기는 기저 안쪽에서 곱한다. 수명 중 회전이 축별이면 Local로 강제(12계). 예전엔 전부 Local로 그려 View 296·Velocity 20·World 8계(추출본)가 노드 회전을 따랐다. Facing(3) 잡은 안 읽음 — 추출본에 없고 나오면 `fx_coverage`가 알린다, Local로 그림. 렌더러의 `m_AllowRoll`이 꺼지면 View 잡에 카메라 롤 보정이 붙는다(안 넣음: 보드 카메라는 안 돈다). `fxplayer.js` `meshAlign`·`uMode == 4`. 확인: `test/render/fx-drawing.test.js` 「a mesh particle's alignment」, Windows Chrome에서 표본 12개 전후 비교(깨지지 않음). [화면 미확인: 공식과 나란히 — Mon3tr S1 시작·토스카 타격 고리(View, `monstr_skill_01_start_01`·`tocka_attack_01_hit_01`), 쉐라 얼음(Velocity, `kjera_attack_start_01`), 위 S3 범위(World, `yu_skill3_range_01_root`)]
 
+이 정렬은 메시 입자에만 쓴다. MeshRenderer·스킨 메시 노드는 같은 셰이더 갈래(`uMode` 4)로 그리지만 자기 노드 행렬로 놓이므로 `uAlign` 2로 고정한다(`FxInstance`의 `draw`). 2026-11-05 관리자 제보 「락락·쉐라 드론이 지나치게 커짐」: 정렬을 넣으면서 이 노드들이 기본값 0(View)으로 입자 갈래에 들어가, 노드 크기·회전을 잃고 카메라를 향한 1칸 크기로 그려졌다. 추출 프리팹 1,561개에 이런 노드가 있고, 드론은 락락·쉐라·미니멀리스트·라플란드 더 데카덴차 모두 해당했다. 확인: `test/render/fx-drawing.test.js` 「a MeshRenderer node keeps its node's transform」. 전체 3,098개 × 2프레임에서 그림이 바뀐 프리팹 1,140개는 모두 메시 노드가 있고, 락락·쉐라·미니멀리스트 드론은 정렬을 넣기 전 그림과 픽셀까지 같다(라플란드 더 데카덴차는 수십 픽셀 차이가 남아 있다). 공식 화면과 나란히 보지는 않았다.
+
 ### 그리기 순서·시트 — 정렬·무작위 줄·여러 메시·사용자 스트림 (2026-10-27, 입자 필드 전수의 todo 「drawing」, 공식 클라에서 확인)
 
 입자 필드 전수(위 「추출 누락 보고」 입자 필드)가 남긴 그리기 항목. Unity 매뉴얼로 정해지는 것은 그대로, 정렬·메시 고르기는 공식 클라(엔진 2021.3.39f1 —

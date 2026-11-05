@@ -226,6 +226,16 @@ test('a mesh particle\'s alignment reaches the shader: View, World and Velocity 
   inst.dispose();
 });
 
+test('a MeshRenderer node keeps its node\'s transform: it never takes a mesh particle\'s alignment path (락락\'s and 쉐라\'s drones came out a whole tile wide)', async () => {
+  const THREE = await import('../../public/vendor/three.module.js');
+  const { inst } = await make([node('t', -1), node('m', 0, { scale: [0.3, 0.2, 0.3], mesh: { mesh: 'b', mat: 'm', order: 0, more: ['m'] } })], { b: new THREE.PlaneGeometry(1, 1) });
+  const main = inst.meshMats[1], more = inst.meshMore[1][0];
+  assert.equal(main.uniforms.uMode.value, 4);
+  assert.equal(main.uniforms.uAlign.value, 2, 'Local: the shader\'s other alignments draw the mesh by the camera, without the node\'s scale or turn');
+  assert.equal(more.uniforms.uAlign.value, 2, 'a further material of the renderer too');
+  inst.dispose();
+});
+
 test('a 3D-rotated Velocity quad turns by -x, -y, -z in the velocity frame (蕾缪安 S3 mark wedges: rotX 90° lays it along the velocity)', async () => {
   const IV_ROT = 6;
   const { inst } = await make([node('t', -1),
