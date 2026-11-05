@@ -220,6 +220,12 @@ is in the data, `.venv-extract/bin/python tools/local-extract/add_operator.py --
 that operator alone (the EN client first, the CN one for what it lacks), names any other operator's row that moved, and
 prints what is left by hand (summon effects and models, the rebuilds).
 
+What a kit names needs no render row (`docs/rules/fx.md` 「클라 키로 재생」): a `moment` of the client key plays that key's one
+effect on the unit hit, and a buff shown to the renderer whose status key is the client key (`:<id>` aside) draws what that
+buff holds. `node tools/build-fx-plays.mjs` picks both up from the kit's code. Write a row in `render/fx/kitofficial.js` or
+`render/fxstatus.js` only for what the key's rows leave open. Then `node tools/fx-wiring-report.mjs --id <charId>` lists what is
+left: rows nothing plays, prefabs nothing reaches, and a prefab drawn twice by a table and the skill's name rule.
+
 ## Testing a kit
 
 - The harness is `test/helpers/battleHarness.js` (`makeBattle`, `runUntil`, `hooksOf`, `eventsOf`, `checkInvariants`;

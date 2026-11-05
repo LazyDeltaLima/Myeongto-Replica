@@ -485,6 +485,26 @@ function stackedSpecs(e, n, from, plays) {
   return out;
 }
 
+const NAMED = new WeakMap();   // plays document → client key → its spec
+/**
+ * 2026-11-05: a status named after its client key, `:<id>` aside (a kit's buff, tools/build-fx-plays.mjs `b`), needs no KEY_FX
+ * row: what that buff holds, from the prefab's own `_spawnLocation`, in the key's bundle. A key that only holds behind
+ * conditions stands for them, as `keyedAll`: the sim gave the buff. null for every other status.
+ */
+function namedSpec(status, plays) {
+  const keys = plays?.keys;
+  if (!keys) return null;
+  const last = status.charCodeAt(status.length - 1);   // (per frame: no regular expression for a key that ends in no digit)
+  const key = !keys[status] && last >= 48 && last <= 57 ? status.replace(/:\d+$/, '') : status;
+  const k = keys[key];
+  if (!k?.b) return null;
+  let memo = NAMED.get(plays);
+  if (!memo) NAMED.set(plays, (memo = new Map()));
+  let spec = memo.get(key);
+  if (!spec) memo.set(key, (spec = Object.freeze([k.b, Object.freeze(k.held?.length ? { tpl: key } : { tpl: key, when: ALL }), OWN])));
+  return spec;
+}
+
 function put(out, k, spec) { if (spec && !out.has(k)) out.set(k, spec); }
 let playsNow = null;   // wantedStatusFx's `plays` (byName, keyed specs)
 const byName = (out, spec) => {
@@ -563,6 +583,8 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null) {
       }
       const hinted = typeof from?.fx === 'string' ? HINT_FX[from.fx] : null;
       if (hinted) { byName(out, hinted); continue; }
+      const named = namedSpec(k, plays);
+      if (named) { byName(out, named); continue; }
       const s = statusFxKey(k);
       if (s === 'stealth' || s === 'camou') continue; // by the flags above (side, 迷彩)
       if (s === 'freeze') { put(out, s, frozenFx(v)); continue; }

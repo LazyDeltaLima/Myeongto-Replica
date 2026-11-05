@@ -3420,6 +3420,16 @@
   `_mainEffect`·`reach` `_effectsWhenReached`·`hit` `_effectsWhenHit`(있을 때만). 다른 시점의 행(공격 명중, 투사체의 다른 필드, ON_TAKE_DAMAGE …)은 키의
   재생이 아니다. 파일이 없으면 그 재생은 없고 이벤트는 대체 그림으로 남는다(상태 이펙트·상시 재능은 안 그려지고, 토가와 사키코 음표는 화살로 남는다).
   범위는 손 표 전부가 인용한 키(`citedKeys`: `KIT_OFFICIAL`·`fxstatus.js` 표·`TALENT_ALWAYS`·`NOTE_FX`).
+  - 키트가 코드에 적은 키(2026-11-05): 키트의 문자열(주석 제외) 중 행의 키인 것(`kitNamedKeys`, `char_`·`skchr_`·`sktok_`·`token_`·`projectile_`로 시작하는 것 제외)도
+    `plays.json`에 들어가고 `b`(번들)가 붙는다. 손 표 줄 없이 재생된다 — 손 표가 있으면 그쪽이 먼저. 시뮬 동작은 그대로이고, 새 키트가 키를 이름으로 쓸 뿐이다.
+    ① 피해·치료의 `moment`: 그 키의 효과 행이 맞은 유닛에 프리팹 하나를 말하면 `moment`(`momentOf`)로 적히고 `kitofficial.js momentPlan`이 맞은 유닛에 한 번 튼다.
+    번들이 그 오퍼레이터 것일 때만. 행이 정하지 못하면 손 계획을 쓴다: 프리팹이 둘 이상, 주는 쪽(`BUFF_SOURCE`·`MODIFIER_SOURCE`) 행, 주는 버프의 ON_*OUTPUT* `BUFF_OWNER`, 버프 자체의
+    이펙트가 따로 있음. 지금 손 계획이 있는 15개 키는 모두 같은 프리팹을 말한다(`test/render/kit-named-keys.test.js`).
+    ② 상태: 상태 키가 클라 키(`:<id>` 제외)면 `fxstatus.js namedSpec`이 `KEY_FX` 줄 없이 그 버프가 쥐는 이펙트를 프리팹 자신의 `_spawnLocation`으로 그린다. 조건 뒤에만 쥐면
+    `keyedAll`처럼 조건이 성립한 것으로 본다. 이름 규칙으로 풀 수 없는 것(방향·중첩·적/아군 갈림)은 손 표에 둔다.
+- 연결 보고(2026-11-05): `node tools/fx-wiring-report.mjs --id <charId>` — 오퍼레이터를 더한 뒤 남은 연결을 읽기만 해서 보여 준다. `unplayed` 아무도 안 트는 행과 목록의 상태(없으면 NEW),
+  `nameless` 행·표·모드·이름 규칙 어디에도 안 걸리는 프리팹, `overlap` 손 표가 그리는 프리팹을 스킬 발동의 이름 규칙도 시전자에게 트는 경우. `KIT_OWNED`는 자동으로 만들지 않는다:
+  인용 키로 만들면 그 키의 다른 행 프리팹까지 꺼진다(가비알 디 인빈서블 S2 `gvial2_skill_2_buff_02`·페넌스 S2 `judge_skill_02_buff_01` 등 2026-11-05 대조). 그래서 겹침은 보고하고 사람이 판단한다.
   - 계획: 투사체 키 `tpl`에 `fly`가 있으면 비행 = 그 투사체의 `_mainEffect` 하나(둘 이상이면 재생 없음), `to`로 유닛에 날면 `_effectsWhenHit`가 `hit`,
     `_effectsWhenReached`는 착지점에 한 번(`after: 'fly'`); `fly`가 없으면 그것들을 `on`에 한 번.
   - 상태 스펙(`fxstatus.js keyed`): 프리팹 자리에 `{ tpl: 키 }` — 그 키의 `held` 프리팹을 버프가 있는 동안, 키의 `end`는 그 이펙트가 끝날 때 한 번

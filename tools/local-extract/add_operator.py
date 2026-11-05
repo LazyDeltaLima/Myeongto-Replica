@@ -183,6 +183,7 @@ def main():
           '    fx_extract.py --bundle <codename>_token --pack pkgrps/btl_pfb_fx_token_<n>.ab --match \'^token_…\'')
     print('  - summon models no dump carries: extract.py TOKEN_SPINES + --only spine/token/<id> (--game = the bundle root)')
     print('  - node tools/build-fx-templates.mjs --offline && node tools/build-fx-plays.mjs')
+    print('  - node tools/fx-wiring-report.mjs --id <charId> (what is left to connect), once the kit is written')
     print('  - node tools/build-data.mjs --offline (and --season <id>), then node tools/fetch-assets.mjs ONLINE (new sound cues)')
     print('  - node tools/i18n/build-ko-diy.mjs (not with KO_DIY_TRACE), node tools/fx-golden.mjs --update, '
           'node tools/build-browser-resources.mjs')

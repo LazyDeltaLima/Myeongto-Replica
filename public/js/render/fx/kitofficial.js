@@ -669,11 +669,21 @@ export const kitOperator = (o, name) => (o ? (OPERATOR_FIELD[name] ? o[OPERATOR_
  * @param {{ skill?: number, back?: boolean, foe?: boolean }} [ctx]
  */
 export function kitOfficialPlan(name, o, bundle, ctx = {}) {
+  if (!o || typeof o !== 'object') return null;
   const rule = bundle ? KIT_OFFICIAL[name]?.[bundle] : null;
-  if (typeof rule !== 'function' || !o || typeof o !== 'object') return null;
-  const r = rule(o, { skill: Number.isInteger(ctx.skill) ? ctx.skill : 0, back: !!ctx.back, foe: !!ctx.foe });
+  const r = typeof rule === 'function' ? rule(o, { skill: Number.isInteger(ctx.skill) ? ctx.skill : 0, back: !!ctx.back, foe: !!ctx.foe }) : null;
+  if (!r) return name === 'hit' ? momentPlan(o, bundle, ctx.plays) : null;
   const play = (r?.play || []).flatMap((p) => (p.tpl ? tplPlays(p, ctx.plays) : [p]));
   return r ? { stop: r.stop || [], play, pass: !!r.pass, ...(r.skillFlag ? { skillFlag: r.skillFlag } : {}) } : null;
+}
+
+/**
+ * 2026-11-05: a 'hit' moment with no rule: the one prefab the binding rows say its key plays on the unit hit, when that key belongs
+ * to the operator's bundle (tools/build-fx-plays.mjs `moment`, `b`). A rule above comes first; a key the rows leave open has one.
+ */
+function momentPlan(o, bundle, plays) {
+  const k = plays?.keys?.[o.k];
+  return k?.moment && k.b === bundle ? { stop: [], play: [once(k.moment, 'id')], pass: false } : null;
 }
 
 /**
