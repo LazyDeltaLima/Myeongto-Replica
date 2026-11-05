@@ -18,6 +18,7 @@ import { createFieldView } from '../render/app.js';
 import { data } from '../data.js';
 import { assets } from '../assets.js';
 import { audio, installAudio } from '../audio.js';
+import { DEFAULT_SEASON } from '../../../shared/seasons.js';
 import { ARENA, SIM_DATA_FILES, HURT, arenaStage, createSandbagBattle, arenaOp, arenaBags, keepSandbags, reviveSandbags, hurtOp, keepOp, fillSp, castNow, rangeTiles } from './sandbag.js';
 
 const TICK = 1 / 30;
@@ -30,7 +31,9 @@ const PAD = Object.freeze({ top: 56, bottom: 24, left: 24, right: 24 });
 async function loadSim() {
   const [battleM, simdata, support, dirM] = await Promise.all([
     import('/sim/Battle.js'), import('/sim/simdata.js'), import('/sim/content/support/index.js'), import('/sim/dir.js')]);
-  const get = (n) => fetch(`/data/${n}.json`, { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  // the season the page reads (debug.js ?season=): /data/s/<season>/<file> is its own file, else the default's
+  const dir = data.season() === DEFAULT_SEASON ? '/data/' : `/data/s/${data.season()}/`;
+  const get = (n) => fetch(`${dir}${n}.json`, { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
   const files = await Promise.all(SIM_DATA_FILES.map(get));
   const missing = SIM_DATA_FILES.filter((n, i) => !files[i]);
   if (missing.length) throw new Error(`simulation data unavailable: ${missing.join(', ')}`);

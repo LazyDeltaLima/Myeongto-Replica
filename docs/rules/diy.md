@@ -1227,6 +1227,7 @@
 - `node tools/build-data.mjs --offline --season next`: 지금 시즌에 `tools/assets/next-season-roster.json`의 기물을 더해 `data/seasons/next/`에 쓴다(`tools/next-season.mjs`). 다른 파일은 기본 시즌 것을 그대로 쓴다.
 - 임시 기록에 없는 것: 특질, 이 서버에 아직 없는 맹약(이베리아·우르수스·라이타니엔은 명단의 `newBonds`에만). 맹약·특질 효과는 표가 나온 뒤에 한다.
 - 키트: `ops/op-<코드명>.js`, 키는 charId, `NEXT_KIT_FILES`에 적는다. 선발 후보(`KITTED_CHARS`)에는 들어가지 않는다.
+- 아레나에서 보기: `/debug.html?season=next&op=<charId>`(2026-11-06). 시즌 파일은 화면과 전투가 함께 읽고, 공개 시즌만 고르는 방 목록과 달리 `SP_SEASONS`가 필요 없다.
 - [추정·CN: 티어별 상태·기본 스킬(2번째)·모듈(첫 모듈)은 새 시즌 표로 대조, 표가 나오면 명단과 `next`를 지운다] → `test/seasons-next.test.js`.
 
 ## 새 시즌 바이슨·쥐·타락사쿰·우요우 (2026-11-06, 관리자 결정 2026-11-05)

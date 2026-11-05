@@ -6,7 +6,8 @@
 // back by the limiter / voice gate) and the data that is missing. The side panel keeps the per-operator sound / voice
 // files and every extracted official effect (played on the operator, hits on the sandbag).
 // URL: ?op=<charId>&elite=1&skill=<1-based>&module=<uniEquipId|none>&dir=<UP|RIGHT|DOWN|LEFT>&enemy=<key>&terrain=<flat|high>
-// &attack=1 (the sandbags attack the operator) &fx=<bundle>/<prefab> (played on the operator once it stands).
+// &attack=1 (the sandbags attack the operator) &fx=<bundle>/<prefab> (played on the operator once it stands)
+// &season=<id> (that season's pieces, shared/seasons.js: one not public yet too; the view and the battle read its files).
 
 import { data } from './data.js';
 import { audio, kitHitKey, kitStartKey, normalAttackSfx } from './audio.js';
@@ -41,6 +42,8 @@ const VOICE_SLOTS = { start: '행동 출발', faceEnemy: '행동 개시', select
 // the game does on load (public/js/resources.js reconcile) — else a rebuilt fx/index.json or fx/modes.json stays its old copy
 try { await Promise.race([installResources(), new Promise((r) => setTimeout(r, 4000))]); } catch { /* the page works without it */ }
 const getJson = (u) => fetch(u).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+const season = params.get('season');
+await data.setSeason(season);
 const [, fxIndex, koData, koDiy, fxModes] = await Promise.all([data.loadAll('chess', 'enemies', 'tokens', 'assets', 'local', 'stages', 'backups'), getJson('/assets/local/fx/index.json'),
   getJson('/i18n/ko/data.json'), getJson('/i18n/ko/diy.json'), getJson('/assets/local/fx/modes.json')]);
 const manifest = data.get('assets');
@@ -128,6 +131,7 @@ function battleConfig() {
 }
 function syncUrl() {
   const q = new URLSearchParams();
+  if (season) q.set('season', season);
   if (st.op) q.set('op', st.op.charId);
   if (st.elite) q.set('elite', '1');
   if (Number.isInteger(st.skill)) q.set('skill', String(st.skill + 1));
