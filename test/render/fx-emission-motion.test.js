@@ -214,3 +214,38 @@ test('random position moves the start point by exactly its amount; drag slows by
   inst.dispose();
 });
 
+
+// docs/rules/fx.md 「방출·입자 운동」 모양 두께: these formulas are the official client's own, not the stock engine's
+async function withRandom(v, fn) {
+  const was = Math.random; Math.random = () => v;
+  try { return await fn(); } finally { Math.random = was; }
+}
+
+test('shape: a circle\'s radius is a straight lerp(radius, max(0.01, radius × (1 − thickness)), rand), with no root', async () => {
+  const radiusAt = (rnd, shape) => withRandom(rnd, async () => {
+    const inst = await make([node('t', -1), node('c', 0, { ps: ps({}, { n: 1, shape: ring({ type: 10, ...shape }) }) })]);
+    inst.update(0.001);
+    const s = inst.systems[0], r = Math.hypot(s.pos[0], s.pos[1]);
+    inst.dispose();
+    return r;
+  });
+  near(await radiusAt(0.5, { radius: 2, thick: 1 }), 1.005, 'half way to the 0.01 floor (the square root gave 1.414)');
+  near(await radiusAt(0.5, { radius: 2, thick: 0.5 }), 1.5, 'half way through the ring (the square root gave 1.581)');
+  near(await radiusAt(0, { radius: 2, thick: 1 }), 2, 'rand 0 is the rim');
+  near(await radiusAt(0.5, { radius: 2, thick: 0 }), 2, 'no thickness stays on the rim');
+  near(await radiusAt(0.5, { radius: 0.004, thick: 1 }), 0.007, 'the floor is in units, not a share of the radius');
+});
+
+test('shape: the cone\'s and the donut\'s inner limit is 0.01', async () => {
+  const at = (rnd, shape) => withRandom(rnd, async () => {
+    const inst = await make([node('t', -1), node('c', 0, { ps: ps({}, { n: 1, shape: ring(shape) }) })]);
+    inst.update(0.001);
+    const s = inst.systems[0], o = [s.pos[0], s.pos[1], s.pos[2]];
+    inst.dispose();
+    return o;
+  });
+  const c = await at(0.9999999, { type: 4, radius: 1, thick: 1, angle: 0 });
+  near(Math.hypot(c[0], c[1]), 0.1, 'ρ = √0.01 (the stock 0.001 gives 0.032)');
+  const d = await at(0, { type: 17, radius: 2, donut: 1, thick: 1 });
+  near(Math.hypot(d[0], d[1]), 2.01, 'the tube at 0.01 of its radius (the stock 0.001 gives 2.001)');
+});

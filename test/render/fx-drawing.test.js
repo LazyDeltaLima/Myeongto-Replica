@@ -39,6 +39,41 @@ test('a single-row sheet: rowMode 1 takes a row at random per particle, rowMode 
   inst.dispose();
 });
 
+// docs/rules/fx.md 「그리기 순서·시트」 시작 프레임: the official client's frac(frame + start), start being a share of the sheet
+const frameOf = (s, k, tx, ty) => { const a = s.ib.array, o = k * IV + IV_UV; return Math.round(a[o] * tx) + tx * Math.round((1 - a[o + 1]) * ty - 1); };
+
+test('a sheet\'s start frame is a share of the sheet: 0.5 of 16 is frame 8, 0.9999 the last, a random one reaches all of them', async () => {
+  const uv = (start, frame = K(0), cycles = 1) => ({ tx: 4, ty: 4, frame, start, cycles, anim: 0 });
+  const { inst } = await make([node('t', -1),
+    node('h', 0, { ps: ps({ uv: uv(K(0.5)) }, { n: 1 }) }),
+    node('l', 0, { ps: ps({ uv: uv(K(0.9999)) }, { n: 1 }) }),
+    node('r', 0, { ps: ps({ uv: uv({ m: 3, s: 0.9999, n: 0 }) }, { n: 190 }) }),
+    node('w', 0, { ps: ps({ uv: uv(K(0.5), K(0.75)) }, { n: 1 }) }),
+    node('c', 0, { ps: ps({ uv: uv(K(0), K(0.25), 2) }, { n: 1 }) })]);
+  inst.update(0.02);
+  const [h, l, r, w, c] = inst.systems;
+  assert.equal(frameOf(h, 0, 4, 4), 8);
+  assert.equal(frameOf(l, 0, 4, 4), 15);
+  const seen = new Set(Array.from({ length: r.geometry.instanceCount }, (_, k) => frameOf(r, k, 4, 4)));
+  assert.equal(seen.size, 16, `every frame: ${[...seen]}`);
+  assert.equal(frameOf(w, 0, 4, 4), 3, 'frame + start wraps past the end: frac(0.75 × 0.999999 + 0.5) × 16');
+  assert.equal(frameOf(c, 0, 4, 4), 7, 'a constant frame with a constant start takes the cycles: frac(0.25 × 2 × 0.999999) × 16');
+  inst.dispose();
+});
+
+test('a sheet\'s random start and random frame draw apart from the particle\'s size', async () => {
+  const { inst } = await make([node('t', -1),
+    node('s', 0, { ps: ps({ uv: { tx: 2, ty: 2, frame: K(0), start: { m: 3, s: 0.9999, n: 0 }, cycles: 1, anim: 0 } }, { n: 190 }) }),
+    node('f', 0, { ps: ps({ uv: { tx: 2, ty: 2, frame: { m: 3, s: 0.9999, n: 0 }, start: K(0), cycles: 1, anim: 0 } }, { n: 190 }) })]);
+  inst.update(0.02);
+  for (const s of inst.systems) {
+    const low = new Set();
+    for (let k = 0; k < s.geometry.instanceCount; k++) if (s.rnd[k * 4 + 2] < 0.25) low.add(frameOf(s, k, 2, 2));
+    assert.ok(low.size >= 3, `particles with a low size draw reach most frames: ${[...low]}`);
+  }
+  inst.dispose();
+});
+
 test('sort modes: oldest / youngest in front drawn last, by distance far first; none in emission order', async () => {
   const sys = (sortMode) => ps({}, { n: 0, rate: 20, render: { sortMode } });
   const { inst, THREE } = await make([node('t', -1), node('o', 0, { ps: sys(2) }), node('y', 0, { ps: sys(3) }),

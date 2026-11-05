@@ -2286,7 +2286,12 @@ class ParticleSystem {
       }
       if (m.uv) {
         const tx = m.uv.tx || 1, ty = m.uv.ty || 1, frames = m.uv.anim === 1 ? tx : tx * ty;
-        const f = Math.floor((evalMM(m.uv.frame, (a * (m.uv.cycles || 1)) % 1, r) + evalMM(m.uv.start, 0, r) / frames) * frames) % frames;
+        // (official client UVModule) frac(frame + start) of the sheet: `start` is a share of the sheet (0.25 of 4 is frame 1), not
+        // a frame number; the frame reads the curve at frac(age × cycles × 0.999999), and only a constant frame with a constant
+        // start takes the cycles itself. Each draws its own random: not the size's, nor each other's
+        const uvr = this.rnd[i * 4 + 1], fm = m.uv.frame, cyc = (m.uv.cycles || 1) * 0.999999;
+        const fv = fm?.m === 0 && m.uv.start?.m === 0 ? fm.s * cyc : evalMM(fm, (Math.max(a, 0) * cyc) % 1, (uvr * 37.3) % 1);
+        const ut = fv + evalMM(m.uv.start, 0, (uvr * 61.7) % 1), f = Math.min(frames - 1, Math.floor((ut - Math.floor(ut)) * frames));
         // (2026-10-27, effect bundle V) a single-row sheet's row: `row` (rowMode 0 Custom) or one at random per particle (1 Random)
         const row1 = m.uv.rowMode === 1 ? Math.min(ty - 1, Math.floor(this.rnd[i * 4 + 1] * ty)) : (m.uv.row || 0);
         const col = f % tx, row = m.uv.anim === 1 ? row1 : Math.floor(f / tx);
@@ -2739,11 +2744,12 @@ function shapeSample(sh, p, d, ms = null, ctx = null) {
       break;
     }
     case 4: case 7: case 8: case 9: { // cone along +z
-      // (2026-10-26, official client StartCone / StartConeVolume) the base point at ρ = √lerp(1, max(0.001, 1 − thickness), rand)
+      // (2026-10-26, official client StartCone / StartConeVolume) the base point at ρ = √lerp(1, max(0.01, 1 − thickness), rand)
       // of the radius (the player had ρ = 1 − thickness × rand, its radius / the radius for the direction); the direction
       // (ρ sin a cos θ, ρ sin a sin θ, cos a) normalised; a cone volume (8, 9) then moves it rand × `length` along that
       // direction (it emitted from its base only — 214 prefabs)
-      const th = arcU() * (sh.arc ?? 360) * D2R, rho = Math.sqrt(1 + (Math.max(0.001, keep) - 1) * rand());
+      // (official client) its floor on 1 − thickness is 0.01, where the stock engine has 0.001
+      const th = arcU() * (sh.arc ?? 360) * D2R, rho = Math.sqrt(1 + (Math.max(0.01, keep) - 1) * rand());
       const bx = Math.cos(th) * rho, by = Math.sin(th) * rho, ang = (sh.angle || 0) * D2R;
       p.set(bx * (sh.radius || 0), by * (sh.radius || 0), 0);
       d.set(bx * Math.sin(ang), by * Math.sin(ang), Math.cos(ang)).normalize();
@@ -2758,10 +2764,11 @@ function shapeSample(sh, p, d, ms = null, ctx = null) {
       break;
     }
     case 10: case 11: { // circle in XY, outward
-      // (2026-10-26, official client StartCircle) the radius at √lerp((1 − thickness)², 1, rand): even over the ring's area
-      const th = arcU() * (sh.arc ?? 360) * D2R;
+      // (official client StartCircle) the radius at lerp(radius, max(0.01, radius × (1 − thickness)), rand): a straight line,
+      // so the particles gather toward the middle; the stock engine has √lerp((1 − thickness)², 1, rand), even over the area
+      const th = arcU() * (sh.arc ?? 360) * D2R, R = sh.radius || 0;
       d.set(Math.cos(th), Math.sin(th), 0);
-      p.copy(d).multiplyScalar(sh.type === 11 ? sh.radius : (sh.radius || 0) * Math.sqrt(keep * keep + (1 - keep * keep) * rand()));
+      p.copy(d).multiplyScalar(sh.type === 11 ? sh.radius : R + (Math.max(0.01, R * keep) - R) * rand());
       break;
     }
     case 12: { // edge along x, +y (2026-10-26: in order by `radMode` / `radSpread`)
@@ -2770,9 +2777,9 @@ function shapeSample(sh, p, d, ms = null, ctx = null) {
       break;
     }
     case 17: { // donut: (2026-10-26, effect bundle U; official client StartDonut) its arc and its tube (`donut`, the tube
-      // radius × lerp(max(0.001, 1 − thickness), 1, rand)), out from the tube's centre line; before, every particle sat on the centre ring
+      // radius × lerp(max(0.01, 1 − thickness), 1, rand)), out from the tube's centre line; before, every particle sat on the centre ring
       const th = arcU() * (sh.arc ?? 360) * D2R, ph = rand() * Math.PI * 2;
-      const lo = Math.max(0.001, keep), tr = (sh.donut ?? 0) * (lo + (1 - lo) * rand()), cx = Math.cos(th), cy = Math.sin(th);
+      const lo = Math.max(0.01, keep), tr = (sh.donut ?? 0) * (lo + (1 - lo) * rand()), cx = Math.cos(th), cy = Math.sin(th);
       d.set(cx * Math.cos(ph), cy * Math.cos(ph), Math.sin(ph));
       p.set(cx * sh.radius, cy * sh.radius, 0).addScaledVector(d, tr);
       break;
