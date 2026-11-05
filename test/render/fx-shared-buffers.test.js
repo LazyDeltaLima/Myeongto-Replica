@@ -71,7 +71,7 @@ test('a particle system grows past its first room: the particles kept, the old g
   sys.emit(60);
   assert.equal(sys.n, n0 + 60);
   assert.ok(sys.room >= sys.n && sys.room <= sys.max);
-  for (const k of ['pos', 'vel', 'age', 'life', 'size0', 'rot', 'col0', 'rnd', 'uid', 'hist']) assert.ok(sys[k].length >= sys.room, k);
+  for (const k of ['pos', 'vel', 'age', 'life', 'size0', 'rot', 'col0', 'rnd', 'uid']) assert.ok(sys[k].length >= sys.room, k);
   assert.deepEqual(sys.life.slice(0, n0), life0); assert.deepEqual(sys.rnd.slice(0, n0 * 4), rnd0); assert.deepEqual(sys.uid.slice(0, n0), uid0);
   assert.ok(sys.mesh.geometry === sys.geometry && sys.geometry !== g0, 'the mesh draws the new geometry');
   assert.ok(sys.ib !== ib0 && sys.ib.array.length === sys.room * 28);

@@ -1136,7 +1136,7 @@ function capSphere(g, cap) {
 }
 
 /** A batch of camera-facing strips drawn with one material in one draw call (rebuilt every frame; small counts). Only
- *  what a frame writes goes to the GPU: a ribbon batch holds max + 1 points but draws at most TRAIL_PTS, and the whole
+ *  what a frame writes goes to the GPU: a ribbon batch holds max + 1 points but draws only the live particles, and the whole
  *  buffers were sent every frame before (2.8–3.5 MB per frame in a crowded scene).
  *  2026-10-30: its buffers start with room for STRIP_ROOM0 points and grow when a frame needs more, up to `cap` — a
  *  particle trail's whole cap (up to 4000 points, about 1 MB with the constant attributes) was allocated and sent to the GPU
@@ -1226,7 +1226,17 @@ class StripBatch {
 
 const TRAIL_PTS = 48;
 const TRAIL_KEEP = TRAIL_PTS - 1;   // points a TrailRenderer records (its live head is the last one drawn)
-const trailPts = new Float32Array(TRAIL_PTS * 3), trailW = new Float32Array(TRAIL_PTS), trailC = new Float32Array(TRAIL_PTS * 4), trailU = new Float32Array(TRAIL_PTS);
+// one strip being written: points, width, colour, texture coordinate, and t = the share along the strip (particle trails)
+let trailPts = new Float32Array(TRAIL_PTS * 3), trailW = new Float32Array(TRAIL_PTS), trailC = new Float32Array(TRAIL_PTS * 4), trailU = new Float32Array(TRAIL_PTS), trailT = new Float32Array(TRAIL_PTS);
+/** Room for a strip of `m` points: a ribbon has one point per particle. */
+function trailRoom(m) {
+  if (m <= trailU.length) return;
+  const n = Math.max(m, trailU.length * 2);
+  trailPts = new Float32Array(n * 3); trailW = new Float32Array(n); trailC = new Float32Array(n * 4); trailU = new Float32Array(n); trailT = new Float32Array(n);
+}
+/** The points a batch of particle trails can draw in a frame: its indices are 16 bits, two vertices a point. */
+const PTRAIL_CAP = 32000;
+const trailM = new THREE.Matrix4(), trailV = new THREE.Vector3();
 
 /** A TrailRenderer: a ribbon behind its node's motion (sampled in the effect root's space). */
 class TrailRenderer {
@@ -1541,7 +1551,7 @@ function customMap(r) {
 const whiteVcol = (src) => new THREE.Float32BufferAttribute(new Float32Array(src.getAttribute('position').count * 4).fill(1), 4);
 const sortM = new THREE.Matrix4();
 const velAx = new THREE.Vector3();   // (2026-10-27) ParticleSystem.velFrame
-const tmpC = [0, 0, 0, 0], tmpC2 = [0, 0, 0, 0], tmpCD = new Float32Array(8);
+const tmpC = [0, 0, 0, 0], tmpC2 = [0, 0, 0, 0], tmpC3 = [0, 0, 0, 0], tmpCD = new Float32Array(8);
 const D2R = Math.PI / 180;
 // (2026-10-22) a particle's size multipliers (sizeOf), the emitter velocity's frame change (emitterVelocity)
 const sizeK = [1, 1, 1], tmpM3 = new THREE.Matrix3();
@@ -1677,17 +1687,21 @@ class ParticleSystem {
     }
     this.cmap = customMap(ps.render);
     this.flipK = ps.render.flip?.some((v) => v) ? ps.render.flip : null;
-    // particle trails (TrailModule): a short position history per particle (mode 0) or one ribbon through them (mode 1)
+    // particle trails (TrailModule): a position history per particle (mode 0) or one ribbon through them (mode 1)
     const tm = ps.mods.trail;
     if (tm && typeof tm === 'object' && ps.render.trailMat && def.materials[ps.render.trailMat]) {
       this.tm = tm;
-      this.histK = 10;
+      // the points a trail holds: its whole life at 60 records a second (the official client's store has no limit, it
+      // doubles). Past that it keeps every other point (updateTrails), so a long or fast-recording trail keeps its length
+      this.histK = tm.mode === 1 ? 0 : Math.min(TRAIL_KEEP, Math.ceil(mmMax(ps.life) * mmMax(tm.life) * 60) + 2);
       this.hist = new Float32Array(room * this.histK * 4);  // x, y, z, age at record
       this.histN = new Uint8Array(room);
-      const cap = Math.min(4000, tm.mode === 1 ? max + 1 : max * (this.histK + 1));
+      const cap = Math.min(PTRAIL_CAP, tm.mode === 1 ? max + 1 : max * (this.histK + 1));
       this.trailBatch = new StripBatch(makeMaterial(def.materials[ps.render.trailMat], def.lib), cap);
       this.trailBatch.mesh.renderOrder = this.mesh.renderOrder;
-      (this.world || tm.world ? root : node).add(this.trailBatch.mesh);
+      // (official client) the trail's worldSpace reaches the per-particle trails only: a ribbon runs through the particles where they are
+      this.trailWorld = !this.world && !!tm.world && tm.mode !== 1;   // its points go to the root's frame as they are recorded
+      (this.world || this.trailWorld ? root : node).add(this.trailBatch.mesh);
       this.order = [];                                          // ribbon order, reused
       this.olderFirst = (x, y) => this.age[y] - this.age[x];
       // (2026-10-27, effect bundle V) dieWithParticles off: a dead particle's trail stays until its points expire (ghosts);
@@ -2090,7 +2104,7 @@ class ParticleSystem {
     top.add(f);
     this.frame = f; this.top = top;
     if (!this.world) f.add(this.mesh);
-    if (this.trailBatch && !(this.world || this.tm.world)) f.add(this.trailBatch.mesh);
+    if (this.trailBatch && !(this.world || this.trailWorld)) f.add(this.trailBatch.mesh);
     this.syncFrame();
   }
 
@@ -2494,85 +2508,126 @@ class ParticleSystem {
     return true;
   }
 
-  /** Trail width at u (0 = the particle, 1 = the tail) for particle i. */
-  trailWidth(i, u) {
-    const tm = this.tm;
-    return (tm.width ? evalMM(tm.width, u, this.rnd[i * 4]) : 1) * (tm.sizeWidth ? Math.abs(this.ib.array[i * IV + IV_SIZE]) : 1);
-  }
-
-  /** Trail colour at u for particle i → out. */
-  trailColour(i, u, out) {
-    const tm = this.tm;
-    evalMG(tm.colorOT, u, this.rnd[i * 4 + 1], out);
-    if (tm.colorOL) { evalMG(tm.colorOL, this.age[i] / this.life[i], this.rnd[i * 4 + 2], tmpC2); for (let k = 0; k < 4; k++) out[k] *= tmpC2[k]; }
-    if (tm.inherit) { const D = this.ib.array, o = i * IV + IV_COL; for (let k = 0; k < 4; k++) out[k] *= D[o + k]; }
-    return out;
+  /** (official client) What the size gives a trail's width: the x of a 2D size, √(x·y) of a 3D one, ∛(x·y·z) when the particle is a mesh. */
+  trailSize(x, y, z) {
+    if (x === y && (y === z || this.ps.render.mode !== 4)) return Math.abs(x);
+    return this.ps.render.mode === 4 ? Math.cbrt(Math.abs(x * y * z)) : Math.sqrt(Math.abs(x * y));
   }
 
   /**
-   * (2026-10-27, effect bundle V) The texture coordinate along a trail of m points (trailPts, from its head) by the module's
-   * textureMode (Unity manual): 0 Stretch = once over the whole length, by distance; 1 Tile = once per unit of length from the
-   * head (the material's tiling scales it); 2 DistributePerSegment = once over the length, the points evenly spaced;
-   * 3 RepeatPerSegment = once per segment. Before, every trail was 2.
+   * (official client, TrailModule::CalculateLifetime) How long a point of particle i's trail lasts: the curve read at the particle's
+   * age now — a point's time left changes as the particle ages — × its start lifetime. `sizeAffectsLifetime` is off in every system
+   * (fx_coverage), and it would multiply by the size.
    */
-  trailTex(m) {
-    const mode = this.tm.texMode || 0;
-    if (mode === 2 || mode === 3) { for (let k = 0; k < m; k++) trailU[k] = mode === 3 ? k : m > 1 ? k / (m - 1) : 0; return; }
-    let d = 0;
-    trailU[0] = 0;
-    for (let k = 1; k < m; k++) {
-      d += Math.hypot(trailPts[k * 3] - trailPts[k * 3 - 3], trailPts[k * 3 + 1] - trailPts[k * 3 - 2], trailPts[k * 3 + 2] - trailPts[k * 3 - 1]);
-      trailU[k] = d;
+  trailLife(i) { return evalMM(this.tm.life, Math.min(1, this.age[i] / this.life[i]), this.rnd[i * 4 + 3]) * this.life[i]; }
+
+  /**
+   * (official client, ParticleSystemTrailGeometryJob) Along a strip of m points (trailPts, from its first): t, where the width and the
+   * colour are read (trailT), and the texture coordinate (trailU), by the module's textureMode: 0 Stretch t = the share of the length
+   * walked, once over it; 1 Tile the same t, the texture once per unit from the first point (`tile`: units of length a unit of these
+   * points is, the material's tiling scales it); 2 DistributePerSegment t = k / (m − 1), once over it; 3 RepeatPerSegment the same t,
+   * once per segment. The first point is the particle in a particle's trail and the oldest particle in a ribbon. Before, t was
+   * k / (m − 1) in every mode, so unevenly spaced points (a particle slowing down) put the colours and the width elsewhere.
+   */
+  trailTex(m, tile) {
+    const mode = this.tm.texMode || 0, T = trailT, U = trailU;
+    if (mode === 2 || mode === 3) {
+      const inv = m > 1 ? 1 / (m - 1) : 0;
+      for (let k = 0; k < m; k++) { T[k] = k * inv; U[k] = mode === 3 ? k : T[k]; }
+      return;
     }
-    if (mode === 0) for (let k = 1; k < m; k++) trailU[k] = d > 0 ? trailU[k] / d : k / (m - 1);
+    const P = trailPts;
+    let d = 0;
+    T[0] = 0;
+    for (let k = 1; k < m; k++) {
+      const o = k * 3, dx = P[o] - P[o - 3], dy = P[o + 1] - P[o - 2], dz = P[o + 2] - P[o - 1];
+      d += Math.sqrt(dx * dx + dy * dy + dz * dz);
+      T[k] = d;
+    }
+    const inv = 1 / Math.max(d, 1e-6);
+    for (let k = 0; k < m; k++) { U[k] = mode === 1 ? T[k] * tile : T[k] * inv; T[k] *= inv; }
   }
 
   /** A dead particle's trail kept (dieWithParticles off): its points, the particle's age then and its width / colour. */
   ghost(i) {
     const K = this.histK, cnt = this.histN[i], a = Math.min(1, this.age[i] / this.life[i]);
-    const pts = new Float32Array((cnt + 1) * 4);
-    pts.set(this.hist.subarray(i * K * 4, i * K * 4 + cnt * 4));
-    pts[cnt * 4] = this.pos[i * 3]; pts[cnt * 4 + 1] = this.pos[i * 3 + 1]; pts[cnt * 4 + 2] = this.pos[i * 3 + 2]; pts[cnt * 4 + 3] = this.age[i];
+    const pts = this.hist.slice(i * K * 4, i * K * 4 + cnt * 4);
     const col = new Float32Array(4);
     for (let k = 0; k < 4; k++) col[k] = this.col0[i * 4 + k];
     if (this.ps.mods.colorOL) { evalMG(this.ps.mods.colorOL, a, this.rnd[i * 4 + 3], tmpC2); for (let k = 0; k < 4; k++) col[k] *= tmpC2[k]; }
+    const sk = this.sizeOf(i, a, this.rnd[i * 4 + 2], sizeK);
     this.ghosts.push({
-      pts, cnt: cnt + 1, born: this.time - this.age[i], tl: evalMM(this.tm.life, 0, this.rnd[i * 4 + 3]) * this.life[i],
+      pts, cnt, born: this.time - this.age[i], tl: evalMM(this.tm.life, 1, this.rnd[i * 4 + 3]) * this.life[i],
       r0: this.rnd[i * 4], r1: this.rnd[i * 4 + 1], r2: this.rnd[i * 4 + 2], a, col,
-      size: Math.abs(this.size0[i * 3] * this.sizeOf(i, a, this.rnd[i * 4 + 2], sizeK)[0]),
+      size: this.trailSize(this.size0[i * 3] * sk[0], this.size0[i * 3 + 1] * sk[1], this.size0[i * 3 + 2] * sk[2]),
     });
   }
 
   /** The ghosts' strips: their points age on with the system's clock and go once older than the trail's lifetime. */
-  ghostTrails() {
+  ghostTrails(ts, tile) {
     const tm = this.tm, G = this.ghosts;
     for (let j = G.length - 1; j >= 0; j--) {
       const g = G[j], now = this.time - g.born, P = g.pts;
       let drop = 0;
-      while (drop < g.cnt && now - P[drop * 4 + 3] > g.tl) drop++;
-      if (drop >= g.cnt - 1) { G.splice(j, 1); continue; }
+      while (drop < g.cnt && now - P[(drop + 1 < g.cnt ? drop + 1 : drop) * 4 + 3] > g.tl) drop++;
+      if (drop >= g.cnt) { G.splice(j, 1); continue; }
       const m = Math.min(g.cnt - drop, TRAIL_PTS);
       for (let k = 0; k < m; k++) {
         const h = (g.cnt - 1 - k) * 4;
         trailPts[k * 3] = P[h]; trailPts[k * 3 + 1] = P[h + 1]; trailPts[k * 3 + 2] = P[h + 2];
       }
-      this.trailTex(m);
+      if (m > 1) this.trailTail(m, now - g.tl, P[drop * 4 + 3], P[(drop + 1) * 4 + 3]);
+      this.trailTex(m, tile);
+      for (let q = 0; q < 4; q++) tmpC2[q] = tm.inherit ? g.col[q] : 1;
+      if (tm.colorOL) { evalMG(tm.colorOL, g.a, g.r2, tmpC3); for (let q = 0; q < 4; q++) tmpC2[q] *= tmpC3[q]; }
       for (let k = 0; k < m; k++) {
-        const u = m > 1 ? k / (m - 1) : 0;
-        trailW[k] = (tm.width ? evalMM(tm.width, u, g.r0) : 1) * (tm.sizeWidth ? g.size : 1);
-        evalMG(tm.colorOT, u, g.r1, tmpC);
-        if (tm.colorOL) { evalMG(tm.colorOL, g.a, g.r2, tmpC2); for (let q = 0; q < 4; q++) tmpC[q] *= tmpC2[q]; }
-        if (tm.inherit) for (let q = 0; q < 4; q++) tmpC[q] *= g.col[q];
-        trailC.set(tmpC, k * 4);
+        const t = trailT[k];
+        trailW[k] = (tm.width ? evalMM(tm.width, t, g.r0) : 1) * (tm.sizeWidth ? g.size : 1) * ts;
+        evalMG(tm.colorOT, t, g.r1, tmpC);
+        for (let q = 0; q < 4; q++) trailC[k * 4 + q] = tmpC[q] * tmpC2[q];
       }
       this.trailBatch.strip(trailPts, m, trailW, trailC, trailU);
     }
   }
 
+  /**
+   * (official client) The last of the m points slides towards the one before it, to where the trail's lifetime ends between their two
+   * times (t0 its own, t1 the next one's): the end of a trail moves on smoothly rather than a point at a time. `at` = now − lifetime.
+   */
+  trailTail(m, at, t0, t1) {
+    const f = t1 > t0 ? Math.min(1, Math.max(0, (at - t0) / (t1 - t0))) : 0, P = trailPts, o = (m - 1) * 3;
+    P[o] += (P[o - 3] - P[o]) * f; P[o + 1] += (P[o - 2] - P[o + 1]) * f; P[o + 2] += (P[o - 1] - P[o + 2]) * f;
+  }
+
+  /** Move what is kept in the root's frame by (x, y, z): the root moved and a world-space trail stays where it was made (FxInstance.followWorld). */
+  shiftTrails(x, y, z) {
+    if (!this.tm || this.tm.mode === 1) return;
+    const H = this.hist, K = this.histK * 4;
+    for (let i = 0; i < this.n; i++) {
+      for (let k = 0, o = i * K; k < this.histN[i]; k++, o += 4) { H[o] += x; H[o + 1] += y; H[o + 2] += z; }
+    }
+    if (this.ghosts) for (const g of this.ghosts) for (let k = 0; k < g.cnt; k++) { g.pts[k * 4] += x; g.pts[k * 4 + 1] += y; g.pts[k * 4 + 2] += z; }
+  }
+
+  /**
+   * The official client's TrailModule::Update (the points) and ParticleSystemTrailGeometryJob (the strips). A trail's points are dropped
+   * only once the point after the oldest has expired, and that oldest slides to where the lifetime ends (trailTail); ratio is a choice
+   * made once per particle; a point is recorded when the particle has moved more than minVertexDistance. Records come once per drawn
+   * frame here rather than once per simulation step.
+   */
   updateTrails(sinceStart) {
-    const tm = this.tm, K = this.histK, H = this.hist, n = this.n, b = this.trailBatch;
+    const tm = this.tm, K = this.histK, H = this.hist, n = this.n, b = this.trailBatch, D = this.ib.array;
     setTime(b.material, sinceStart);
     b.begin();
+    // (official client) the width takes ∛|x·y·z| of the system's transform scale, by its scaling mode (FxInstance: trailPath); length
+    // in Tile mode is measured after the transform, so points in a scaled frame count that much more
+    let ts = 1;
+    if (this.trailPath) {
+      let x = 1, y = 1, z = 1;
+      for (const o of this.trailPath) { x *= o.scale.x; y *= o.scale.y; z *= o.scale.z; }
+      ts = Math.cbrt(Math.abs(x * y * z));
+    }
+    const tile = this.world || this.trailWorld ? 1 : ts;
     if (tm.mode === 1) {
       // ribbon: the particles from the oldest to the newest (a stable sort, ties keep their index order); split by the
       // parent particle (splitSubEmitterRibbons) — a strip per parent
@@ -2582,58 +2637,86 @@ class ParticleSystem {
         for (let i = 0; i < n; i++) order[i] = i;
         order.sort(this.par ? this.byParent : this.olderFirst);
       }
+      trailRoom(n);
       for (let s0 = 0; s0 < n;) {
         let s1 = s0 + 1;
         if (this.par) while (s1 < n && this.par[order[s1]] === this.par[order[s0]]) s1++;
         else s1 = n;
-        const m = Math.min(s1 - s0, TRAIL_PTS);
+        const m = s1 - s0;
         for (let k = 0; k < m; k++) {
           const i = order[s0 + k];
           trailPts[k * 3] = this.pos[i * 3]; trailPts[k * 3 + 1] = this.pos[i * 3 + 1]; trailPts[k * 3 + 2] = this.pos[i * 3 + 2];
         }
-        this.trailTex(m);
-        for (let k = 0; k < m; k++) {
-          const i = order[s0 + k], u = m > 1 ? k / (m - 1) : 0;
-          trailW[k] = this.trailWidth(i, u);
-          trailC.set(this.trailColour(i, u, tmpC), k * 4);
+        if (m > 1) {
+          this.trailTex(m, tile);
+          for (let k = 0; k < m; k++) {
+            const i = order[s0 + k], o = i * IV, t = trailT[k];
+            trailW[k] = (tm.width ? evalMM(tm.width, t, this.rnd[i * 4]) : 1) * (tm.sizeWidth ? this.trailSize(D[o + IV_SIZE], D[o + IV_SIZE + 1], D[o + IV_SIZE + 2]) : 1) * ts;
+            evalMG(tm.colorOT, t, this.rnd[i * 4 + 1], tmpC);
+            if (tm.colorOL) { evalMG(tm.colorOL, this.age[i] / this.life[i], this.rnd[i * 4 + 2], tmpC2); for (let q = 0; q < 4; q++) tmpC[q] *= tmpC2[q]; }
+            if (tm.inherit) for (let q = 0; q < 4; q++) tmpC[q] *= D[o + IV_COL + q];
+            for (let q = 0; q < 4; q++) trailC[k * 4 + q] = tmpC[q];
+          }
+          b.strip(trailPts, m, trailW, trailC, trailU);
         }
-        if (m > 1) b.strip(trailPts, m, trailW, trailC, trailU);
         s0 = s1;
       }
     } else {
+      if (this.trailWorld) {   // the points of a world-space trail over a local simulation: to the root's frame
+        this.frame.updateWorldMatrix(true, false); this.root.updateWorldMatrix(true, false);
+        trailM.copy(this.root.matrixWorld).invert().multiply(this.frame.matrixWorld);
+      }
+      const ratio = tm.ratio ?? 1, minD2 = tm.minDist * tm.minDist;
       for (let i = 0; i < n; i++) {
-        if (Math.random() > (tm.ratio ?? 1) && this.histN[i] === 0 && this.age[i] > 0.05) continue;
-        // record a point when the particle moved far enough; forget points older than the trail's lifetime
-        const base = i * K * 4;
+        // (official client) ratio: whether this particle has a trail at all, from a random number of its own
+        if (ratio < 1 && !(ratio >= (this.rnd[i * 4 + 3] * 61.7) % 1)) continue;
+        const base = i * K * 4, age = this.age[i], tl = this.trailLife(i);
         let cnt = this.histN[i];
-        const px = this.pos[i * 3], py = this.pos[i * 3 + 1], pz = this.pos[i * 3 + 2];
-        const lx = cnt ? H[base + (cnt - 1) * 4] : Infinity, ly = cnt ? H[base + (cnt - 1) * 4 + 1] : 0, lz = cnt ? H[base + (cnt - 1) * 4 + 2] : 0;
-        if (!cnt || Math.hypot(px - lx, py - ly, pz - lz) >= tm.minDist) {
-          if (cnt === K) { H.copyWithin(base, base + 4, base + K * 4); cnt--; }
-          H[base + cnt * 4] = px; H[base + cnt * 4 + 1] = py; H[base + cnt * 4 + 2] = pz; H[base + cnt * 4 + 3] = this.age[i];
+        // forget the points older than the trail's lifetime, all but the last one before it
+        let drop = 0;
+        while (drop < cnt && age - H[base + (drop + 1 < cnt ? drop + 1 : drop) * 4 + 3] > tl) drop++;
+        if (drop) { H.copyWithin(base, base + drop * 4, base + cnt * 4); cnt -= drop; }
+        let px = this.pos[i * 3], py = this.pos[i * 3 + 1], pz = this.pos[i * 3 + 2];
+        if (this.trailWorld) { trailV.set(px, py, pz).applyMatrix4(trailM); px = trailV.x; py = trailV.y; pz = trailV.z; }
+        let moved = !cnt;
+        if (cnt) {
+          const o = base + (cnt - 1) * 4, dx = px - H[o], dy = py - H[o + 1], dz = pz - H[o + 2];
+          moved = dx * dx + dy * dy + dz * dz > minD2;
+        }
+        if (moved) {
+          if (cnt === K) {   // full: every other point goes, the oldest stays and its next one keeps its time
+            let w = 1;
+            for (let r = 2; r < cnt; r += 2, w++) { const f = base + r * 4, t = base + w * 4; H[t] = H[f]; H[t + 1] = H[f + 1]; H[t + 2] = H[f + 2]; H[t + 3] = H[f + 3]; }
+            cnt = w;
+          }
+          const o = base + cnt * 4;
+          H[o] = px; H[o + 1] = py; H[o + 2] = pz; H[o + 3] = age;
           cnt++;
         }
-        const tl = evalMM(tm.life, 0, this.rnd[i * 4 + 3]) * this.life[i];
-        let drop = 0;
-        while (drop < cnt && this.age[i] - H[base + drop * 4 + 3] > tl) drop++;
-        if (drop) { H.copyWithin(base, base + drop * 4, base + cnt * 4); cnt -= drop; }
         this.histN[i] = cnt;
+        if (!cnt) continue;
         // newest first: the particle, then its history
-        const m = Math.min(cnt + 1, TRAIL_PTS);
+        const m = cnt + 1;
         trailPts[0] = px; trailPts[1] = py; trailPts[2] = pz;
         for (let k = 1; k < m; k++) {
           const h = base + (cnt - k) * 4;
           trailPts[k * 3] = H[h]; trailPts[k * 3 + 1] = H[h + 1]; trailPts[k * 3 + 2] = H[h + 2];
         }
-        this.trailTex(m);
+        if (m > 2) this.trailTail(m, age - tl, H[base + 3], H[base + 7]);
+        this.trailTex(m, tile);
+        // what does not change along the strip, once: the size, the trail's colour by the particle's age, the particle's colour
+        const o = i * IV, wk = (tm.sizeWidth ? this.trailSize(D[o + IV_SIZE], D[o + IV_SIZE + 1], D[o + IV_SIZE + 2]) : 1) * ts, r0 = this.rnd[i * 4], r1 = this.rnd[i * 4 + 1];
+        for (let q = 0; q < 4; q++) tmpC3[q] = tm.inherit ? D[o + IV_COL + q] : 1;
+        if (tm.colorOL) { evalMG(tm.colorOL, age / this.life[i], this.rnd[i * 4 + 2], tmpC2); for (let q = 0; q < 4; q++) tmpC3[q] *= tmpC2[q]; }
         for (let k = 0; k < m; k++) {
-          const u = m > 1 ? k / (m - 1) : 0;
-          trailW[k] = this.trailWidth(i, u);
-          trailC.set(this.trailColour(i, u, tmpC), k * 4);
+          const t = trailT[k];
+          trailW[k] = (tm.width ? evalMM(tm.width, t, r0) : 1) * wk;
+          evalMG(tm.colorOT, t, r1, tmpC);
+          for (let q = 0; q < 4; q++) trailC[k * 4 + q] = tmpC[q] * tmpC3[q];
         }
         b.strip(trailPts, m, trailW, trailC, trailU);
       }
-      if (this.ghosts?.length) this.ghostTrails();
+      if (this.ghosts?.length) this.ghostTrails(ts, tile);
     }
     b.end();
   }
@@ -3242,6 +3325,7 @@ export class FxInstance {
       if (mode === 0) for (let p = s.node; p && p !== tilt; p = p.parent) path.push(p);
       else if (mode === 1) path.push(s.node);
       if (s.quadScaled && path.some(scaled)) s.scalePath = path;
+      if (s.tm && path.some(scaled)) s.trailPath = path;
     }
     this.clipV = [];
     live.push(this);
@@ -3487,8 +3571,8 @@ export class FxInstance {
     const off = tmpV.set(prev[0], prev[1], prev[2]).applyMatrix4(tmpM.copy(root.matrixWorld).invert());
     prev[0] = e[12]; prev[1] = e[13]; prev[2] = e[14];
     for (const s of this.systems) {
-      if (!s.world) continue;
-      for (let i = 0; i < s.n; i++) { s.pos[i * 3] += off.x; s.pos[i * 3 + 1] += off.y; s.pos[i * 3 + 2] += off.z; }
+      if (s.world) for (let i = 0; i < s.n; i++) { s.pos[i * 3] += off.x; s.pos[i * 3 + 1] += off.y; s.pos[i * 3 + 2] += off.z; }
+      if (s.world || s.trailWorld) s.shiftTrails(off.x, off.y, off.z);
     }
     for (const t of this.trails) t.shift(off.x, off.y, off.z);
   }

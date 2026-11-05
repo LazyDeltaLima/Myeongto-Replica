@@ -3594,10 +3594,18 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - **빌보드 정렬**(`m_RenderAlignment` → `align`, 빌보드만): 3 Facing(9계)은 카메라 평면이 아니라 카메라 위치를 향한다(Unity 매뉴얼). 4 Velocity(94계 /
   82 프리팹)는 아래 「엔진의 사각형」.
 - **뒤집기**(`m_Flip` → `flip`, x 1.0인 3계 — 丰川祥子 S3 타격 `huan_x`): 그 비율의 입자를 그 축으로 거울(크기 부호, Unity 매뉴얼). 꼬리 폭은 절댓값.
-- **입자 꼬리**(TrailModule): 텍스처 방식(`textureMode` → `trail.texMode`, Unity 매뉴얼) 0 Stretch = 길이 비율로 한 번, 1 Tile = 머리에서 단위 길이마다 한 번
-  (재질 타일링이 곱함, 84계) [추정·엔진: Tile의 기점(머리)], 2 = 점 간격을 고르게 보고 한 번(예전엔 모두 이것), 3 = 마디마다 한 번. `dieWithParticles` 꺼짐
-  (`trail.die`, 49계)이면 입자가 죽은 뒤에도 꼬리 점이 꼬리 수명이 지날 때까지 남는다(`ghost`) — 폭·색은 죽을 때 값 [추정·엔진: 죽은 뒤 꼬리의 색·폭].
-  리본 방식의 `splitSubEmitterRibbons`(→ `trail.split`, 13계 — 溯光星源 S3 범위, 至简 평타 꼬리)는 하위 방출 입자를 부모 입자마다 다른 리본으로(부모의 `uid`).
+- **입자 꼬리**(TrailModule; 2026-11-06 공식 클라에서 확인 — `TrailModule.Update`·`CalculateLifetime`, `ParticleSystemTrailGeometryJob`·`ConfigurePerParticleTrailParams`, 화면은 안 봄):
+  - **점**: 입자마다 움직인 거리가 `minVertexDistance`를 **넘을** 때 하나. 공식은 점 수 제한이 없다. 재생기는 수명 × 60 + 2개(최대 47)를 두고, 차면 한 칸 걸러 지워 꼬리 길이를 지킨다(예전엔 10개에서 잘려, 꼬리 305계 중 14계만 수명 전체를 그렸음). 기록은 그리는 프레임마다.
+  - **수명·끝**: 수명 = `lifetime` 곡선(입자의 **지금** 나이 비율, 입자 난수) × 시작 수명. 맨 끝 점은 다음 점까지 지나간 뒤에야 지우고, 끝 점을 수명이 끝나는 자리까지 다음 점 쪽으로 밀어 그린다. 그래서 끝이 점 단위로 뚝뚝 줄지 않는다.
+  - **`ratio`**: 입자마다 한 번 난수로 정한다(예전엔 사실상 모든 입자에 꼬리, `ratio` < 1은 13계).
+  - **폭**: `widthOverTrail`(t, 입자 난수) × (`sizeAffectsWidth`면 입자 크기: 2D x, 3D √(x·y), 메시 ∛(x·y·z)) × ∛|계 변환 크기의 곱|(Hierarchy 자기·부모, Local 자기, Shape 없음).
+  - **t**: 폭과 `colorOverTrail`을 읽는 자리. 텍스처 방식(`textureMode` → `trail.texMode`) 0 Stretch·1 Tile은 **지나온 길이 / 총 길이**, 2·3은 k / (m − 1)(예전엔 모두 뒤의 것이라 입자가 느려지면 색·폭이 다른 데 놓였음). 텍스처 좌표는 0 = t, 1 = 길이(재질 타일링이 곱함, 첫 점부터, 변환 크기 포함), 2 = t, 3 = k.
+  - **첫 점**: 입자 꼬리는 입자 자신, 리본은 가장 오래된 입자.
+  - **색**: `colorOverTrail`(t) × `colorOverLifetime`(입자 나이 비율) × (`inheritParticleColor`면 입자 색).
+  - **`worldSpace`**: 입자 꼬리에만 닿는다. 로컬 모의의 월드 꼬리(18프리팹)는 점을 기록할 때 root 틀로 옮기고, root가 움직여도 남는다(`followWorld`, 월드 공간 계의 꼬리 점도 같이; 예전엔 노드 틀 좌표를 root에 그대로 붙였음). 리본은 입자가 있는 틀 그대로.
+  - **리본**: 살아 있는 입자 전부를 지난다(예전엔 오래된 48개). 부모마다 나누는 `splitSubEmitterRibbons`(→ `trail.split`, 13계 — 溯光星源 S3 범위, 至简 평타 꼬리)는 그대로. `ribbonCount` ≠ 1·`attachRibbonsToTransform`·`sizeAffectsLifetime`은 쓰는 계가 없다(`fx_coverage`가 알림).
+  - **`dieWithParticles` 꺼짐**(`trail.die`, 49계): 입자가 죽은 뒤 꼬리 점이 수명이 지날 때까지 남는다(`ghost`, 끝 처리 같음). 색은 나이 비율 1로 읽는다(공식 클라에서 확인). 크기는 죽을 때 값 [추정·엔진: 죽은 뒤 크기 배열이 더 바뀌는지 안 읽음].
+  - **띠 법선은 옮기지 않음**: 공식은 점마다 앞 마디 방향으로 법선을 구하고 마디가 짧으면 이웃과 섞는다(TrailRenderer·LineRenderer도 같은 함수). 재생기는 양옆 점의 중심 차분이라 폭보다 긴 마디의 꺾인 곳에서만 다르다.
 - **크기 방식 Shape**(`scaling` 2, 3계 — 引星棘刺 S2 범위, 노드 × 0.53): 노드와 부모의 크기가 시작 위치에만 닿고 입자의 크기·움직임에는 안 닿는다(Unity
   매뉴얼) → 크기 없는 대리 틀에서 시작 위치에 크기의 곱을 곱한다(`useLocalScale(…, true)`). 지금 셋은 월드 공간 계라 예전에도 입자는 크기를
   안 받았다(방출 행렬만 크기를 탐) — 보이는 차이 없음, 로컬 공간 Shape 계가 생길 때를 위한 것.
