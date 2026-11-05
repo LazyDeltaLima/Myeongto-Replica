@@ -820,6 +820,34 @@ export function chainHealNext(b, healer, prev, seen, opts = null) {
   return best;
 }
 
+/**
+ * A 链愈师 heal chain with "不会衰减的额外跳跃对象" from `main`, healed first (ChainLightningHitBehaviour.DoSelectTargetToHit,
+ * ChainedSelectorWithFilter; PRTS 分支特性信息 链愈师): `h.free(unit)`: the unit takes no target of `h.count` and the next jump does not
+ * decay; `h.up(unit)`: the rate is × `h.upScale` from that unit on — the rate carries from jump to jump, the unit's own heal decays as usual
+ * (乌啾 T1). `each(unit)`: every unit of the chain as it is healed, whether or not it lost HP.
+ */
+export function chainHealWalk(b, u, main, base, h, hopts, each = null) {
+  const step = 1 - (h.falloff ?? 0.25), n = Math.max(1, h.count || 3);
+  const free = (x) => !!(h.free && h.free(x)), up = (x) => !!(h.up && h.up(x));
+  let rate = up(main) ? h.upScale ?? 1 : 1;
+  b.heal(u, main, base * rate, hopts);
+  if (each) each(main);
+  let calm = free(main), left = free(main) ? n : n - 1, prev = main;
+  const seen = new Set([main.id]);
+  while (left > 0) { // loop-cap: the chain stops when the next ally is missing
+    const next = chainHealNext(b, u, prev, seen);
+    if (!next) break;
+    seen.add(next.id);
+    if (up(next)) rate *= h.upScale ?? 1;
+    if (calm) calm = false; else rate *= step;
+    b._ev(['atk', prev.id, next.id, 'chainHeal', null, u.id, main.id]);
+    b.heal(u, next, base * rate, hopts);
+    if (each) each(next);
+    if (free(next)) calm = true; else left--;
+    prev = next;
+  }
+}
+
 function doHeal(b, u, prof, t, skillOn = !!(u.skill && u.skill.active)) {
   const atk = u.s.atk;
   const scale = (prof.atkScale ?? 1) * (prof.healScale ?? 1) * u.s.atkScaleMul;
@@ -830,8 +858,9 @@ function doHeal(b, u, prof, t, skillOn = !!(u.skill && u.skill.active)) {
   // `isSkill`: a skill's heal (its profile at the attack), for a 'heal' handler that scales by it when the shot lands
   // after the skill (莎草 巧思乍现's next heal: the barrier ×shield_scale_skill)
   const hopts = prof.isSkill ? { isSkill: true } : undefined;
-  b.heal(u, t, amount, hopts);
-  if (h.mode === 'chain') {
+  if (h.mode === 'chain' && h.free) chainHealWalk(b, u, t, amount, h, hopts);
+  else b.heal(u, t, amount, hopts);
+  if (h.mode === 'chain' && !h.free) {
     const seen = new Set([t.id]);
     let prev = t;
     const n = Math.max(1, h.count || 3);

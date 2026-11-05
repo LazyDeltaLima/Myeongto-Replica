@@ -230,18 +230,20 @@ export function keyRoles(op, durations) {
     if (cast?.loop && cast.loop === out.attack?.loop && !c.begin) { c.loop = null; loopAb = null; why.push('cast = attack'); }
     // the modes around the skill's own (`<mode>_TakeOff` before it, `<mode>_End` / `_Landing` after it: 蒂比 S1, 纯烬艾雅法拉 S3)
     // attack once with its opening / closing clip
-    const side = (suffixes) => {
-      for (const suf of suffixes) {
-        const n = m > 0 ? names.indexOf(`${names[m]}_${suf}`) : -1;
+    const side = (suffixes, loopSuffix) => {
+      // (`<stem>Loop` with `<stem>Start` / `<stem>End` beside it: 风絮 S1_FlyLoop, S1_FlyStart, S1_FlyEnd)
+      const stem = m > 0 ? /^(.*)Loop$/.exec(names[m] || '')?.[1] : null;
+      for (const suf of [...suffixes, ...(stem ? [null] : [])]) {
+        const n = m > 0 ? names.indexOf(suf ? `${names[m]}_${suf}` : `${stem}${loopSuffix}`) : -1;
         const abs2 = modes[n]?.abilities || {};
         const a = n > 0 ? abClip(attackAbility(abs2) ?? Object.values(abs2).find((x) => clipKeyOf(x)), n) : null;
         if (a?.loop) return [a.loop, names[n]];
       }
       return [null];
     };
-    const [sb, sbm] = side(['TakeOff']);
+    const [sb, sbm] = side(['TakeOff'], 'Start');
     if (!c.begin && sb) { c.begin = sb; why.push(`begin ${sbm}`); }
-    const [se, sem] = side(['End', 'Landing']);
+    const [se, sem] = side(['End', 'Landing'], 'End');
     if (!c.end && se) { c.end = se; why.push(`end ${sem}`); }
     // a stance (the mode attacks with no clip) or a mode without an attack: its Idle pair is the skill's clip
     if (!c.loop && c.idle && (c.stance || !ma)) { c.loop = c.idle; if (!c.stance) c.idle = null; }

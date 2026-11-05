@@ -47,6 +47,23 @@ test('a ThreePart attack: its first-attack begin and, without an _endAnim, its a
   assert.deepEqual(r.attack, { begin: 'Attack_Begin', loop: 'Attack', end: 'Attack_End', firstBegin: true });
 });
 
+test('skills: the modes around a `<stem>Loop` mode give its opening and closing clips (타락사쿰 S1_FlyStart, S1_FlyLoop, S1_FlyEnd)', () => {
+  const op = {
+    skin: { keys: {}, mix: [] },
+    modes: [
+      { name: 'Default', pairs: {}, abilities: { 'Body/Attack': { key: 'Attack' } } },
+      { name: 'S1_FlyStart', pairs: { Die: 'Skill_Die' }, abilities: { 'Body/Attack': { key: 'Skill_1_Begin' } } },
+      { name: 'S1_FlyLoop', pairs: { Die: 'Skill_Die', Idle: 'Skill_1_Loop' }, abilities: { 'Body/Attack': { key: '' } } },
+      { name: 'S1_FlyEnd', pairs: { Die: 'Skill_Die', Idle: 'Skill_1_Loop' }, abilities: { 'Body/Attack': { key: 'Skill_1_End' } } },
+    ],
+    skills: [{ id: 's1', abilities: {} }, { id: 'common', abilities: {} }],
+  };
+  const r = keyRoles(op, clips('Idle', 'Attack', 'Skill_Die', 'Skill_1_Begin', 'Skill_1_Loop', 'Skill_1_End'));
+  assert.equal(r.skills[0].begin, 'Skill_1_Begin');
+  assert.equal(r.skills[0].end, 'Skill_1_End');
+  assert.equal(r.skills[0].loop, 'Skill_1_Loop');
+});
+
 test('skills: a mode attack with its Idle pair, a channel on the skill, a clip-less skill, the modes around a skill', () => {
   const op = {
     skin: { keys: {}, mix: [['Idle', 'Skill_1_Idle', 'Skill_1_Begin'], ['Skill_1_Idle', 'Idle', 'Skill_1_End']] },

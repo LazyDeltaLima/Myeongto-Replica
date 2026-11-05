@@ -80,4 +80,5 @@ export const PICK_EVENTS = Object.freeze({
   'wisdel|explode': UNJUDGED,
   'wisdel|summon': UNJUDGED,
   'wisdel|bombardShell': UNJUDGED,
+  'turdus|volley': "official: fxgame.js skillShotFx flies her S2's projectile_chr_turdus_s2 (modes.json skills[1].shot) and plays its hit as it lands",
 });

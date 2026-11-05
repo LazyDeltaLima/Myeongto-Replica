@@ -1260,3 +1260,26 @@
 - 재능 出其不意: 공식 클라에서 확인: `AdvancedCompoundToggleChecker`(`_isInitToggled` 꺼짐, `_disableWhenAttack`). 배치 때 꺼져 있고 `delay`초 뒤 켜진다. 그가 피해를 줄 때마다 꺼지고 다음 켜짐이 `delay`초 뒤로 밀린다(꺼져 있을 때도). 켜진 채 준 피해는 공격력 ×`atk_scale` + `stun`초 기절. 켜져 있는 동안 `nothin_t_1`·`nothin_t_1[eff]`의 이펙트.
 - S1 `skchr_nothin_1`(知难而退, AUTO): 가지고 있으면 저지 +1. HP 비율 ≤ `max_hp_ratio`일 때 시전(선택기 `_checkHpRatioCondition`): 공격·저지 없음, 조롱 등급 −1, 생명 회복 속도(%) `hp_recovery_per_sec_by_max_hp_ratio`, 5초.
 - S2 `skchr_nothin_2`(阴晴圆缺, 지속 무한): 토글. 이 모드에서는 저절로 닫지 않아(PRTS 卫戍协议/帮助) 떠날 때까지 간다. 시작 클립(`Skill_2_Begin` 1.1초) 끝에 셋 중 하나: 공식 클라에서 확인, `PassiveOneOfBuffAbility` `_selectMethod` RANDOM_BUT_NOT_LAST — 이번 배치의 직전 것을 뺀 균등(재배치 때 기억 지움). `nothin_s_2[a]` 피해 직전 대상 공격 속도 감소(5초, 연장·중첩 없음), `[b]` 공격 속도, `[c]` 물리 회피 + 저지 +1. 모두 공격력 +N%. 이펙트는 고른 버프의 상태 키, 이름 규칙은 `KIT_OWNED`로 끈다. 시작 소리 `ON_SKILL_SPECIAL_POINT`(프리팹 `_playExtraSignalAtSkillBegin`)는 시전 때, 스파인 이벤트 `lottery`는 클립 재생 때.
+
+## 새 시즌 레토·이스티나·우쿠시크 (2026-11-06, 관리자 결정 2026-11-05)
+공개 전 시즌 `next`의 기물(`chess_char_1_nleto`, `chess_char_2_nglassb`, `chess_char_3_nturdus`). 키트는 `NEXT_KIT_FILES`, 선발 후보 아님. 시험 `test/content/op_leto.test.js`·`op_glassb`·`op_turdus`(두 형태·두 스킬·모듈, 실제 대전 경로). 우쿠시크의 특질과 임시 중첩은 표가 나온 뒤(맹약·특질 묶음)에 한다.
+
+### 레토 `char_194_leto` (T1, 로드)
+- 특성: 프로필 `lord`(근접 100%, 원거리 `atk_scale`). 모듈 LOR-Y(재능 bb `cnt`·`attack_speed`, `leto_e_002_tr`): 0.1초마다 초기 범위 3-12의 칸으로 적 수를 세어 `cnt`명 이상이면 공격 속도 +. 칸 판정이고 선택 가능 여부를 보지 않는다(공식 클라에서 확인, `CheckHasEnemyInRange` `_useAttackRange` 꺼짐; PRTS 비고).
+- 재능(`leto_t_1[attack_speed]`): 스킬이 켜져 있는 동안(`leto_skill_judge`의 스킬 시작·끝) 필드 전체의 소속 태그 `student`(우르수스 학생 자치단) 아군과 자신에게 공격 속도 +N. 스킬 중 배치된 아군도 받고(PRTS), 그가 떠나면 끝난다(`_removeBuffWhenAbilityDetached`). 판정은 맹약이 아니라 소속 태그다(`sim.md` 「진영 판정은 소속 태그」).
+- S1 `skcom_quickattack[3]`: 공격력·공격 속도. S2 `skchr_leto_2`: 공격력 +N%, 대상 `attack@max_target`명, 모드 S2에는 `UpdateAtkScaleByTraitData`가 없어 원거리도 100%.
+- S2 시작에 다른 학생의 스킬을 켠다: 공식 클라에서 확인, `leto_s_2[filter_tag]`가 `TriggerSkill`(`_checkBeforeTrigger` 꺼짐) → `Character.RemoteTrigSkill` → `IsTriggerable`. 이 모드의 자동 조작 조건을 거치지 않는다. 토스카 S2의 같은 노드처럼 수동 스킬만(PRTS 「수동 스킬이라는 성질은 바꾸지 않음」). 침묵·충전 중·스킬 진행 중인 아군은 켜지 않는다.
+
+### 이스티나 `char_195_glassb` (T2, 감속자)
+- 특성: 프로필 `slower`, 정체 시간은 특성 bb `sluggish`(0.8초, 모듈 DEC-Y 1.2초). 재능은 2정예부터라 일반 형태에는 없다: `glassb_t_1` 방어력 −35%, 공격 속도 +N.
+- S1 `skchr_glassb_1`: 기본 공격 간격 + `base_attack_time`초. S2 `skchr_glassb_2`: 공격력 +N%, 범위 x-2, 대상 `attack@max_target`명. S2 모드의 공격은 자기 클립이 없고(`ThreePartChannelingAnimation`이 스킬 내내) `_preDelay` 0.5초에 나간다.
+
+### 우쿠시크 `char_4224_turdus` (T3, 체인 메딕)
+- 재능: 자신이 `turdus[free_jump]`·`turdus[atk_scale_up]`을 지니고, 치료 연쇄가 대상의 그 버프를 본다. 그래서 다른 우쿠시크에게도 듣는다(PRTS). 공식 클라에서 확인(`ChainLightningHitBehaviour.DoSelectTargetToHit`, `ChainedSelectorWithFilter`, `ai.js chainHealWalk`): 배율은 도약마다 이어진다. `atk_scale_up` 대상에서 × `chain.atk_scale_2`(그 대상과 이후 도약 모두, PRTS 「이번 연쇄의 이후 도약 전부」, 주 대상이어도), 앞 대상이 `free_jump`면 이번 도약은 감쇠 없음, `free_jump` 대상은 도약 수를 쓰지 않는다. PRTS의 예 100% → 114.75% → 114.75% → 97.54%(135%, 감쇠 85%)와 같다.
+- S1 `skchr_turdus_1`: 시작 클립 `Skill_1_Begin` 동안 공격 없음, 공격 속도 +N, 연쇄 대상 +`attack@chain.extra_value`.
+- S2 `skchr_turdus_2`(즉발, `Skill_2` 클립): 시전 시작에 현재 HP의 `hp_ratio`를 잃되 죽지 않는다(`ON_CAST_START`, `_isUndeadable`, SP 없음). OnAttack 프레임에 범위 안 HP 비율 최저 > 자신과 가까운 순으로 대상을 고른다(`HP_RATIO_ASC_DIST_TO_SOURCE_ASC_FIRST`, 만피도 대상, 대상 없어도 시전). 투사체(속도 10)가 닿으면 연쇄 치료 100%.
+- 연쇄의 모든 대상이 받는 두 버프(`_activeBuffs`): `turdus_s2[continues_heal]`은 1초마다 `heal_scale` × 버프가 시작될 때의 그녀 공격력(첫 틱은 1초 뒤, 시전자별로 따로, 다시 걸면 다시 시작). `turdus_s2[try_camouflage]`는 0.1초마다 저지 중이면 위장을 풀고 아니면 건다(`turdus_s2[camouflage]`, 버프가 끝나면 함께 끝, 다시 걸면 위장이 바로 풀렸다가 다음 검사에서 돌아옴).
+- [추정·화면: 지속 치료가 주 대상에게만 가는지. PRTS 문구는 「대상」과 「치료의 모든 대상」을 나눠 적지만, 프리팹은 두 버프를 같은 `_activeBuffs`에 두어 조건 없이 함께 건다 — 프리팹대로 구현] → `mix-Q`
+
+### 표 전 기물의 만드는 차례
+`.cache/anim-keys.json`은 키트가 있는 `next` 기물만 읽는다. 키트를 `NEXT_KIT_FILES`에 넣은 뒤 `anim_keys.py`를 다시 돌리고, 그 뒤 `fetch-assets` → `build-data --season next`. 이 차례가 빠지면 클립 역할이 이름 규칙으로 남는다(바이슨·쥐·타락사쿰·우요우가 그랬고 이 묶음에서 바로잡음: 바이슨 S1은 공격 클립, 타락사쿰·우요우의 사망·대기 클립). 타락사쿰의 이착륙 클립은 `S<k>_FlyStart`·`S<k>_FlyEnd` 모드에서 온다(`tools/assets/anim-keys.mjs`, `<stem>Loop` 옆의 `<stem>Start`·`<stem>End`).

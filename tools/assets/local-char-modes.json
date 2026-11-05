@@ -6638,6 +6638,251 @@
    }
   ]
  },
+ "char_194_leto": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_chr_leto"
+   ],
+   [
+    "projectile_chr_leto_s2"
+   ]
+  ],
+  "cast": [
+   [
+    "leto_attack_01_start_01_F",
+    "leto_attack_01_start_02"
+   ],
+   [
+    "leto_skill_02_start_01_F"
+   ]
+  ],
+  "hit": [
+   [
+    "leto_attack_01_hit_02",
+    "leto_attack_01_hit_01"
+   ],
+   [
+    "leto_skill_02_hit_01"
+   ]
+  ],
+  "trail": [
+   [
+    "leto_attack_01_trail_01"
+   ],
+   [
+    "leto_skill_02_trail_01"
+   ]
+  ],
+  "attach": [
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "leto_attack_01_start_01_F": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "leto_attack_01_start_01_Down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "leto_attack_01_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "leto_skill_02_start_01_F": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "leto_skill_02_start_01_Down_2": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "combatSplit": [
+   {
+    "attack": {
+     "cast": [
+      "leto_attack_01_start_01_F"
+     ],
+     "hit": [
+      "leto_attack_01_hit_01"
+     ]
+    },
+    "combat": {
+     "cast": [
+      "leto_attack_01_start_02"
+     ],
+     "hit": [
+      "leto_attack_01_hit_02"
+     ]
+    }
+   },
+   {
+    "attack": {
+     "cast": [
+      "leto_skill_02_start_01_F"
+     ],
+     "hit": [
+      "leto_skill_02_hit_01"
+     ]
+    },
+    "combat": {
+     "cast": [
+      "leto_skill_02_start_01_F"
+     ],
+     "hit": [
+      "leto_skill_02_hit_01"
+     ]
+    }
+   }
+  ],
+  "dirs": [
+   {
+    "t": 3,
+    "s": [
+     "leto_attack_01_start_01_F",
+     "leto_attack_01_start_01_F",
+     "leto_attack_01_start_01_Down",
+     "leto_attack_01_start_01_F"
+    ]
+   },
+   {
+    "t": 3,
+    "s": [
+     "leto_skill_02_start_01_F",
+     "leto_skill_02_start_01_F",
+     "leto_skill_02_start_01_Down_2",
+     "leto_skill_02_start_01_F"
+    ]
+   }
+  ],
+  "skillMode": [
+   null,
+   1
+  ],
+  "switchTo": [
+   [],
+   [
+    1
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "common_ignite_attack"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "leto_skill_02_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_195_glassb": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_glassb"
+   ],
+   [
+    "projectile_glassb_s2"
+   ]
+  ],
+  "cast": [
+   [
+    "glassb_attack_01_start"
+   ],
+   []
+  ],
+  "hit": [
+   [
+    "glassb_attack_01_hit"
+   ],
+   [
+    "glassb_attack_01_hit"
+   ]
+  ],
+  "trail": [
+   [
+    "common_magic_trail_01"
+   ],
+   [
+    "common_magic_trail_01"
+   ]
+  ],
+  "attach": [
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "glassb_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {}
+  ],
+  "skillMode": [
+   null,
+   1
+  ],
+  "switchTo": [
+   [],
+   [
+    1
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "common_ignite_attack"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [
+     "glassb_skill_02_start"
+    ],
+    "buff": [
+     "glassb_skill_02_range"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_196_sunbr": {
   "modes": [
    "Default",
@@ -18749,6 +18994,114 @@
     "buff": [],
     "target": [],
     "targetBuff": []
+   }
+  ]
+ },
+ "char_4224_turdus": {
+  "modes": [
+   "Default",
+   "S1"
+  ],
+  "proj": [
+   [
+    "projectile_chr_turdus"
+   ],
+   [
+    "projectile_chr_turdus"
+   ]
+  ],
+  "cast": [
+   [
+    "turdus_attack_01_start_01"
+   ],
+   [
+    "turdus_attack_01_start_01"
+   ]
+  ],
+  "hit": [
+   [
+    "turdus_attack_01_hit_01"
+   ],
+   [
+    "turdus_attack_01_hit_01"
+   ]
+  ],
+  "trail": [
+   [
+    "turdus_attack_01_trail_01"
+   ],
+   [
+    "turdus_attack_01_trail_01"
+   ]
+  ],
+  "attach": [
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "turdus_attack_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "turdus_attack_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "chain": [
+   [
+    "turdus_heal_line_01"
+   ],
+   [
+    "turdus_heal_line_01"
+   ]
+  ],
+  "chainHit": [
+   1,
+   1
+  ],
+  "skillMode": [
+   1,
+   null
+  ],
+  "switchTo": [
+   [
+    1
+   ],
+   []
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "turdus_skill_01_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [
+     "turdus_skill_02_start_01"
+    ],
+    "buff": [],
+    "target": [
+     "turdus_attack_01_hit_01"
+    ],
+    "targetBuff": [],
+    "shot": [
+     "turdus_skill_02_trail_01"
+    ],
+    "shotHit": [
+     "turdus_attack_01_hit_01"
+    ]
    }
   ]
  },
