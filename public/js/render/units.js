@@ -481,7 +481,8 @@ export const SKIN_FORMS = Object.freeze({ enemy_10159_mntrjn: Object.freeze({ ha
  * pairs (SpineActor.fortressClips; the latest attack's kind picks — the sim's 'swing' / 'atk' projectile 'none' while it
  * blocks). Client prefabs `<id>/Modes/<mode>/Body/Attack/`: MeleeAttack / BlockedMeleeAttack / BlockedRangedAttack play
  * the first, RangedAttack the second (maintainer report 2026-10-10: 号角 played Attack_A for her ranged attacks too, and
- * 灰毫 played her ranged Attack01 while blocking). 号角's Skill_1_A / _B have no ability of their own [추정: same split].
+ * 灰毫 played her ranged Attack01 while blocking). 号角's S1 splits the same way in the skill prefab `skchr_horn_1`:
+ * MeleeAttack / BlockedMeleeAttack Skill_1_A, RangedAttackGroup/RangedAttack Skill_1_B.
  */
 export const FORTRESS_CLIPS = Object.freeze({
   char_4039_horn: Object.freeze([['Attack_A', 'Attack_B'], ['Skill_1_A', 'Skill_1_B'], ['Skill_2_A_Loop', 'Skill_2_B_Loop'], ['Skill_3_A_Loop', 'Skill_3_B_Loop']]),

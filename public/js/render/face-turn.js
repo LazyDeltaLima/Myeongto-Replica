@@ -12,9 +12,11 @@
 //     fourDir is DOWN (an attack) or anything but UP (idle); a LEFT / RIGHT fourDir keeps it.
 // So an operator facing RIGHT mirrors to shoot an enemy behind it, takes its Back model for one clearly above it and
 // keeps whichever model it has for one beside it. A change plays as a turn (`FaceSwitcher._DoSwitchFaceInternal`, battle
-// time): the model turns about its upright axis to 90° in half of `_switchTime` (0.15 s on all 143 operator models,
-// linear), the mirror / model changes edge-on (`onSwitchFace`), and it turns from −90° back in the other half — seen from
-// the front its width goes as cos(angle) (turnWidth). A forced turn (a (re)deployment) and the first one are at once
+// time): the model turns about its upright axis to 90° in half of `_switchTime` (0.15 s on all 143 operator models), the
+// mirror / model changes edge-on (`onSwitchFace`), and it turns from −90° back in the other half — seen from the front its
+// width goes as cos(angle) (turnWidth). This mode is deterministic (`AutoChessUtil._StartBattle`: GameModeMeta
+// `isDeterministic`), so the turn is always played, at any battle speed, by the battle-tween version: `Quaternion.Lerp`
+// on a linear 0→1 tween (the jump to the end at speed ≥ 2 with `BattleOptions.IS_LIMIT_FPS` is only for other modes). A forced turn (a (re)deployment) and the first one are at once
 // (`StartSwitch(immediately)`); a turn begun during another completes that one first (`_KillLastTween` → Kill(true)). Map axes as the sim's: x = column, y = row, UP = +y (row 0 is the
 // bottom). Pure logic (no PIXI); render/units.js UnitView holds the state.
 
@@ -30,14 +32,17 @@ export const NEAR_SQ = 0.04;
 export const SWITCH_TIME = 0.15;
 
 /**
- * The model's width share `t` battle s into a turn of `dur`: cos of its angle about the upright axis — 90° × t / (dur/2)
- * in the first half, 90° × (1 − (t − dur/2) / (dur/2)) in the second (the change happens at dur/2); 1 once it is over.
+ * The model's width share `t` battle s into a turn of `dur`: cos of its angle about the upright axis, at k = t / (dur/2) of
+ * the way to edge-on in the first half and back from it in the second (the change happens at dur/2); 1 once it is over.
+ * The angle comes from `Quaternion.Lerp(identity, 90° about the axis, k)`, the normalised lerp, whose quaternion is
+ * (w, y) = (1 − k + k·√½, k·√½): cos(angle) = (w² − y²) / (w² + y²).
  */
 export function turnWidth(t, dur = SWITCH_TIME) {
   if (!(t < dur) || !(dur > 0)) return 1;
   const h = dur / 2;
-  const k = t < h ? t / h : 1 - (t - h) / h;
-  return Math.cos(Math.max(0, Math.min(1, k)) * Math.PI / 2);
+  const k = Math.max(0, Math.min(1, t < h ? t / h : 1 - (t - h) / h));
+  const y = k * Math.SQRT1_2, w = 1 - k + y;
+  return (w * w - y * y) / (w * w + y * y);
 }
 
 /**

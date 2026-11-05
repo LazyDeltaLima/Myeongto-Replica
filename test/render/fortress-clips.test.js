@@ -67,6 +67,21 @@ test('号角: Attack_A while blocking, Attack_B for her ranged attacks; the skil
   assert.equal(a.current, 'Skill_3_B_Loop');
 });
 
+test('号角 S1: the skill prefab\'s melee Skill_1_A, ranged Skill_1_B, and Skill_Down_1 for a ranged attack facing down', () => {
+  const a = actor(HORN);
+  a.setSkillIndex(0);
+  const role = a.roles.skills[0];
+  assert.deepEqual(role.down?.map, { Skill_1_B: 'Skill_Down_1' }, 'only the ranged clip has a down clip: the pair is really melee / ranged');
+  a.atkRanged = false;
+  assert.equal(a._loopOf(role), 'Skill_1_A');
+  a.atkRanged = true;
+  assert.equal(a._loopOf(role), 'Skill_1_B');
+  a._facesDown = () => true;
+  assert.equal(a._loopOf(role), 'Skill_Down_1');
+  a.atkRanged = false;
+  assert.equal(a._loopOf(role), 'Skill_1_A', 'melee has no down clip');
+});
+
 test('灰毫: her melee Attack02 while blocking (the role clip is her ranged Attack01)', () => {
   const a = actor(ASHLOK);
   assert.equal(a.roles.attack.loop, 'Attack01');

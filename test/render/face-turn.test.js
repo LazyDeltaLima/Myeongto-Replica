@@ -82,6 +82,10 @@ test('turnWidth: the model narrows to edge-on half way through the 0.15 s turn a
   assert.ok(turnWidth(0.075) < 1e-9, 'edge-on half way');
   assert.ok(Math.abs(turnWidth(0.1125) - Math.cos(Math.PI / 4)) < 1e-9);
   assert.equal(turnWidth(0.15), 1, 'over');
+  // the battle-tween version turns by Quaternion.Lerp: an eighth of the way is 21.59°, not 22.5°, on both sides of the change
+  const nlerp = Math.cos(2 * Math.atan2(0.25 * Math.SQRT1_2, 0.75 + 0.25 * Math.SQRT1_2));
+  assert.ok(Math.abs(turnWidth(0.01875) - nlerp) < 1e-9, 'normalised lerp, first half');
+  assert.ok(Math.abs(turnWidth(0.13125) - nlerp) < 1e-9, 'normalised lerp, second half');
 });
 
 let fake, SpineActor, UnitView;

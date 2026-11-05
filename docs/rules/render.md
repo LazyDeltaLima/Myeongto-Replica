@@ -405,7 +405,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   MeleeAttack·BlockedMeleeAttack·BlockedRangedAttack과 RangedAttack은 다른 클립 — 号角 Default `Attack_A`/`Attack_B`, S2 `Skill_2_A_Loop`/`Skill_2_B_Loop`,
   S3 `Skill_3_A_Loop`/`Skill_3_B_Loop`(아래로 배치하면 S3(D) 모드의 원거리 `Skill_Down_3_Loop` — 아래 「아래 방향」), 灰毫 Default `Attack02`/`Attack01`
   (반대로 저지 중에도 원거리 Attack01이었음). 역할 추출(`anim-roles.mjs`)은 첫 클립 하나만 고르므로 `units.js FORTRESS_CLIPS`([근접, 원거리] 쌍)를
-  두고, 'swing'·'atk'의 kind(sim `ai.js`: 저지 중이면 'none')로 `spine.js _loopOf`가 고른다. 시뮬의 타격 시점도 같은 구분을 따른다(2026-11-05, `sim.md` 「일반 공격 타이밍」). 号角 `Skill_1_A`/`_B`는 쓰는 능력이 프리팹에 없음 [추정·자료 없음: 같은 나눔].
+  두고, 'swing'·'atk'의 kind(sim `ai.js`: 저지 중이면 'none')로 `spine.js _loopOf`가 고른다. 시뮬의 타격 시점도 같은 구분을 따른다(2026-11-05, `sim.md` 「일반 공격 타이밍」). 혼 S1도 같은 나눔이다(2026-11-05, 공식 클라에서 확인): 스킬 프리팹 `skchr_horn_1`의 MeleeAttack·BlockedMeleeAttack `Skill_1_A`, `RangedAttackGroup/RangedAttack` `Skill_1_B`(아래를 보면 `Skill_Down_1`).
   테스트 `test/render/fortress-clips.test.js`. [실제 판 이상 없음 2026-10-28]
 
 ## 모바일 3D 보드 복구 (2026-10-10, 관리자 제보 「모바일에서 간헐적으로 3D 렌더링이 안 된다」 → 관리자 요청 「진단 정보에 3D 상태를 넣고 1·2번부터」)
@@ -810,7 +810,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     시전 뒤 자기 클립으로 공격하는 모드면 시전이 begin(余 S3 `CastAnimation`); 모드 Idle 짝을 붙드는 채널 + 클립 있는 다른 능력이면 채널이 자세·그 능력이 공격(望 S3
     `SpawnAnim`); `_defaultModeIndex`가 자기 모드인 스킬은 그 모드가 배치부터의 상태(E `equip`)라 스킬 클립이 아님(望 S2·琳琅诗怀雅 S1/S2·引星棘刺 S3);
     `AnimationEmitBehaviour`가 시작에 트는 클립이 begin(缄默德克萨斯 `Start_n`); 방향별 모드(灰毫 `S2(U)/(D)/(LR)`)는 이 뼈대에 공격 클립이 있는 것 — 앞 `(LR)`·뒤 `(U)`;
-    모드의 `FirstAttack`(折桠 S2, 통째로 다른 첫 공격 — 시뮬에 없음)은 시전 begin으로 [추정]; `_animKey ""`인 공격 능력이 모드에 그것뿐이면 자세(信仰搅拌机 Sk3).
+    모드의 `FirstAttack`(베토치키 S2, 통째로 다른 첫 공격)은 공식이 첫 공격으로 치지만 시뮬이 아직 따로 치지 않아 시전 begin으로 튼다(공식과 다름, `sim.md` 「일반 공격 타이밍」); `_animKey ""`인 공격 능력이 모드에 그것뿐이면 자세(信仰搅拌机 Sk3).
     이걸로 바뀐 것(앞·뒤 각 9~10모델, 클라 기준 — 관리자 결정): 风笛 S2 = `Skill` 한 번·S3 = 모드 공격 `Skill_2_Loop`(그동안 뒤바뀜, `Skill_2_Begin/End`는 어떤 키도
     부르지 않음); 琳琅诗怀雅 S1·S2 시전 클립 없음(치유·소환 때 `Skill_1`·`Skill_2`는 공격 신호 그대로); 送葬人 S2 시전 begin 없음(첫 공격만 `Skill_Right_Begin`);
     어떤 키도 부르지 않는 begin/end를 지움 — 维什戴尔 S2 end·海霓 S2·哈洛德 S2 end·异客 S2·菲莱 S2 begin(뒤)(버프 템플릿 `PlayUnitAnimation` 13개도 Idle·Default뿐);
@@ -849,6 +849,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   - 평타로 싸우는 스킬(`via: 'attack'`)은 시전·끝 클립이 없다(2026-10-23): 역할이 평타 역할에서 물려받은 begin/end(`Attack_Begin`·`Attack_End`)를 `spine.js _castOf`가
     시전·끝 클립으로 치지 않는다 — 耀骑士临光 S2·远牙 S1/S2·凯尔希·思衡托 S1·蕾缪安 S2가 시전 순간 `Attack_Begin`, 끝에 `Attack_End`를 틀었다(넷 다 스킬 프리팹에
     클립을 트는 능력·`_beginAnim`이 없음). 자기 begin이 따로 있는 `via: 'attack'`(歌蕾蒂娅 S3 `Skill_3_Startup`)은 그대로. [화면 미확인]
+  - 데겐블레허 S3 베기 중 모델이 사라지는 것(2026-11-05 확인): 렌더 오류가 아니라 클립 자료다. 클라 능력 `MultiAttack/Damage`·`Pull`이 부르는 `Skill_3_Loop`는 앞·뒤 모델 모두 몸 슬롯을 전부 숨기고 `C_EX_Skill` 슬롯 하나만 남긴다. 디버그 아레나 2배속에서 재생 중 보이는 슬롯을 세면 앞 모델 `Skill_3_Begin` 61~65개, `Skill_3_Loop` 0~1개, `Skill_3_End`에서 다시 65개까지다(뒤 모델 42개 → 0~1개 → 42개). [화면 미확인: 공식 화면과 나란히]
   - **U** 위 방향 `*_Up`: `AbstractAnimatedAbility.GetAnimKey` — 아래·위·기본 순(`_faceToTarget`이면 바라보는 방향, 아니면 배치 방향). 아래 방향 공백과 같은 계열.
     구현(2026-10-14): `*_Up`은 뒷모델에만 있고 렌더는 위를 볼 때만 뒷모델을 쓰므로, `anim-overrides.mjs UP_CLIPS`가 뒷모델 역할에 `up`을 달고 `spine.js _loopOf`
     (즉발 스킬 클립도)가 그것을 튼다 — 送葬人·诗怀雅 `Attack_Up`, 松果 S1 `Skill_1_Up`·S2 `Skill_2_Up`. 아래 방향(`*_Down`, 앞모델)은 위 「아래 방향」(2026-10-23). [화면 미확인]
@@ -870,6 +871,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   - 도는 모습(2차, 같은 날 관리자 요청 「즉시 도는 것·스킬 능력 플래그·공격 대신 스킬의 도는 시점도 공식대로」): `FaceSwitcher._DoSwitchFaceInternal` — 모델을
     세로축으로 `_switchTime`의 절반 동안 0°→±90°(선형, `SetEase` 1), 옆으로 선 그 순간 `onSwitchFace`로 반전·앞/뒤 모델을 바꾸고, ∓90°→0°로 나머지 절반.
     `_switchTime` = 0.15초(클래스 기본값이자 EN 오퍼레이터 모델 143개 `chararts` 전부). 전투 시간 기준(`BattleUtil.Deprecated_PlayTweenInBattle`).
+    이 모드는 결정론 모드라(`AutoChessUtil._StartBattle`의 GameModeMeta `isDeterministic`) 배속과 상관없이 늘 전투 트윈판(`FaceSwitcher.HardCoded_InternalSwitchAnimation_BattleTweenVersion`)으로 돈다: 0→1 직선 트윈 위의 `Quaternion.Lerp`라 각도가 정규화 보간을 따른다(`turnWidth`). 2배속 이상 + `BattleOptions.IS_LIMIT_FPS`에서 끝으로 건너뛰는 분기는 결정론이 아닌 모드에만 있어 여기서는 돌지 않는다(2026-11-05, 공식 클라에서 확인).
     강제(`StartSwitch(immediately)` = `OnFaceChanged(force)`, 배치 때)와 첫 번째는 즉시, 도는 중에 새로 돌면 앞의 것을 끝까지 보낸 뒤(`_KillLastTween` → `Kill(true)`) 새로 돈다.
   - 스킬 능력도 같은 `DealWithFaceDirection`: 공격을 대신하는 스킬(`ReplacementSkill`)은 그 공격이 스킬 능력으로 나가므로 **휘두르기 시작할 때** 그 능력의 플래그로,
     `CastSkill`은 능력을 바로 시전하므로 **발동할 때** 돈다.
@@ -886,16 +888,15 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     다음 공격이 준비됐는데 대상이 없을 때도 같다. 전투 결과에는 영향 없음(골든은 이벤트 수만 바뀜).
     스킬 능력(`ai.js castFace`): 'replace' 시전의 공격이 시작될 때(`startReplacement`, 공격 덮어쓰기 키트는 `swingFace`가 스킬 능력 플래그를 씀)와
     `CastSkill`이 능력을 시전할 때(`skills.js activate`, 능력 없는 버프 시전은 안 돎) `['face', id, 돌 곳]`(값은 'swing'의 여섯째와 같음). 대상은 그 순간
-    공격이 잡을 대상 [추정: 키트가 스킬 효과에서 대상을 따로 고르고, 공식은 스킬 능력이 시전 때 찾음].
+    공격이 잡을 대상 [추정·미조사: 키트가 스킬 효과에서 대상을 따로 고르고, 공식은 스킬 능력이 시전 때 찾음].
   - 렌더 `render/face-turn.js`(위 규칙 그대로), `units.js turnToward/turnTo/faceDeploy`, 상태 `view.face {lr, ud, dir4}`: 반전 = `lr`,
     Back 모델 = `ud === 'UP'`(`_wantsBack`), 재배치 때 배치 방향으로 초기화. `app.js faceEvent`가 이벤트의 **이펙트보다 먼저** 돌린다(시전 이펙트가 돈
     방향을 씀 — `fxgame.js facingDir`이 `face.dir4`). 'swing'·시전 'face' 없이 온 'atk'(키트가 따로 내는 공격)는 타격 때 그 대상으로 돈다
-    [추정: 공식은 그 능력 시전 때, 그 플래그는 안 읽음]. 앞/뒤 모델 교체는 비동기라 휘두르던 클립을 새 모델이 이어 받는다(`spine.js swingElapsed`).
+    [추정·미조사: 공식은 그 능력 시전 때, 그 플래그는 안 읽음]. 앞/뒤 모델 교체는 비동기라 휘두르던 클립을 새 모델이 이어 받는다(`spine.js swingElapsed`).
     도는 모습: `units.js turnTo` → `turnS`, `update`가 전투 시간(`animRate`)으로 진행하며 반전 배율에 `face-turn.js turnWidth`(각도의 cos)를 곱하고 절반에서
     `_showFace`(반전·`faceUd` → `_wantsBack`). 논리 방향 `face`(이펙트의 `dir4`)는 공식 `Entity.faceDirection`처럼 돌기 시작할 때 바뀐다. 모델이 아직 안 그려졌으면 즉시.
-- [추정] 남은 차이: 부유·이상 플래그 13/22 검사 없음, 반전 방향 이펙트 `U_OR_D`는 `faceToBack`이 아니라 4방향으로 고름(뒤 모델로 옆을 칠 때만 다름),
-  도는 모습은 세로축 회전을 2D에서 너비(cos)로만 그림(원근 차이 없음), 공식 옵션(`BattleOptions`)과 2배속 이상에서 트윈을 건너뛰는 분기는 안 따름,
-  키트가 따로 내는 공격(재능·스킬 효과의 추가 타격)은 그 능력 플래그를 안 읽고 타격 때 대상으로 돎.
+- 남은 차이 [추정·미조사: 부유·이상 플래그 13/22 검사 없음, 반전 방향 이펙트 `U_OR_D`는 `faceToBack`이 아니라 4방향으로 고름(뒤 모델로 옆을 칠 때만 다름), 키트가 따로 내는 공격(재능·스킬 효과의 추가 타격)은 그 능력 플래그를 안 읽고 타격 때 대상으로 돎].
+  알고 둔 근사: 도는 모습은 세로축 회전을 2D에서 너비(cos)로만 그린다(원근 차이 없음).
 - 연결된 일: 아래 방향 클립 — `_faceToTarget`인 능력은 돈 방향(`view.face.dir4`), 아니면 배치 방향으로 고른다(「Spine 클립 커버리지」 아래 방향, 2026-10-23).
 - 테스트: `test/render/face-turn.test.js`(도는 너비·절반에서 바뀜·도는 중 새로 돌기), `test/sim/attack-timing.test.js`(대상 id·뒤에 저지된 적·`face` 이벤트·'D'/없음·
   스킬 능력 시전의 `face`). **[화면 미확인]**
@@ -911,7 +912,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   덮어써서, 본 위치에 곱하던 `spine.scale`이 틀릴 수 있었다 → 뷰가 그리는 배율을 `units.js modelSX`·`modelSY`(반전 포함)로 남기고 그것을 쓴다.
 - **무기가 잘림**: 3D 보드는 유닛 캔버스 **아래**라 타일이 모델 위에 그려질 수는 없다. 잘린 것은 임포스터 슬롯 — 상자(`_impBox`)를 첫 자세의 경계로 한 번만 정해서,
   그보다 멀리 뻗는 자세(그녀의 S2 지팡이, `Skill_2_Takeoff_End` 경계 x 275~703 vs 상자 끝 292)가 상자 끝에서 곧은 선으로 잘렸다. 그 선이 타일 모서리와 겹쳐
-  「타일이 위에 그려진다」로 보였다(다른 오퍼레이터에게 보였던 같은 증상도 이것으로 본다 [추정: 그 제보들의 화면은 다시 안 봄]).
+  「타일이 위에 그려진다」로 보였다(다른 오퍼레이터에게 보였던 같은 증상도 이것으로 본다 [추정·화면: 그 제보들의 화면은 다시 안 봄]).
   고침: 클립마다 첫 재생 동안(최대 6초) 임포스터를 다시 그릴 때 경계를 재서 상자를 넓힌다(줄이지 않음, 모델이 바뀌면 처음부터). 낙하 `Start`는 안 잼(낙하 높이는
   `_renderImpostor`의 배치 여유). 비용: 클립당 첫 재생 동안만 `getLocalBounds`.
 - 확인: `test/render/model-point-impostor.test.js`(화면 끝에서도 점이 그 자리로 돌아옴·옛 변환은 0.1칸 넘게 어긋남, 상자가 스킬 자세로 넓어짐·같은 클립은 다시 안 잼·낙하는 안 넓힘),
