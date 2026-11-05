@@ -39,7 +39,8 @@ function yu(bb, chess, def) {
   const isDef = onDefaultSkill(chess), sid = selectedSkill(chess, def);
   const wallProb = isDef ? num(bb.prob) : 0, wallBurn = isDef ? num(bb.ep_damage_ratio) : 0;
   // "将第二天赋效果赋予全场所有干员" belongs to S3 (the default skill) only
-  const s3On = (unit) => isDef && !!unit.skill?.active;
+  // (the client's mode S3 holds it, `Modes/S3/Body/Talents/2/GlobalArua`: entered as the cast ends, however it ends, ...)
+  const s3On = (unit) => isDef && !!unit.skill?.active && !!unit.mem.yuS3Mode;
   const skills = {
     // S1 今日做东 (TAKE_DAMAGE, hurt SP): passive taunt +taunt_level; active: HP / DEF +, every enemy damage instance taken ⇒
     // ep_damage_ratio × ATK 灼燃损伤 on its source (install below)
@@ -100,13 +101,16 @@ function yu(bb, chess, def) {
       },
       // ... and what it does as the clip ends: Aura is the sequence's next ability
       onCastEnd({ unit }) {
+        unit.mem.yuS3Mode = true;
         const vertical = unit.fwd[0] === 0;
         // `front`: the line enemy shots are stopped on — the official Aura/EnemyAura strip (`_isHorizontalInfinite`,
         // `_horizonOffsetFront` 0.5, `_horizonSize` 0.3) runs along his tile's front edge, so a shot at him is stopped too
         unit.mem.yuWall = vertical ? { axis: 'x', v: unit.tileC, front: unit.tileC + unit.fwd[1] * 0.5 }
           : { axis: 'y', v: unit.tileR, front: unit.tileR + unit.fwd[0] * 0.5 };
       },
-      onEnd({ unit }) { unit.mem.yuWall = null; },
+      // (... `yu_s_3[mode_restart]` is `BuffDuringCastingFixed`: its finish switches the mode, a stun in the clip too. The wall is lost then: Aura never comes)
+      onCastCut({ unit }) { unit.mem.yuS3Mode = true; },
+      onEnd({ unit }) { unit.mem.yuWall = null; unit.mem.yuS3Mode = false; },
     },
     talents: [
       { install(battle, unit) { // 礼尚往来: 庇护 while blocking + DoT on blocked enemies

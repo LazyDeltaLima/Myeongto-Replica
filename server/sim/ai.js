@@ -407,7 +407,9 @@ function attackModeOf(u) {
  * for the rest of the interval —, the swing lasts scale × clip (`action`) and plays at 1 / scale; the strike lands at the
  * clip's OnAttack frame × scale (`_waitForAttackEvent` 1; a clip with no OnAttack event: at the end of the swing —
  * `EasyToStartAbility.WaitForNextEvent` waits up to the whole swing), else `_preDelay` × scale (at most the swing).
- * No clip known (a summon, a device, a model the manifest lacks): strike and action 0 — the strike as the swing starts.
+ * No record (a device, a model the manifest lacks): strike and action 0 — the strike as the swing starts. A summon's ability that
+ * plays no clip (`noClip`): the swing lasts the attack time (`UpdatePlaybackSpeed` leaves `m_attackTime` at the cooldown), which is
+ * how long `_waitForAttackEvent` waits for a frame that never comes (`WaitForNextEvent`, `m_cachedDuration`); else `_preDelay`, unscaled.
  * A ThreePart attack (`begin`: the client's `ThreePartOneshotAnimation`) plays its begin clip before the attack clip on a
  * first attack only (`first`: the first swing since the unit entered its attack / combat state — `AttackState.OnEnter`
  * and `CombatState.OnEnter` cast with firstAttack, the following swings without) and scales the two together
@@ -422,6 +424,13 @@ export function attackTiming(u, out = { strike: 0, action: 0, sel: 0, begun: fal
   if (ranged && a?.ranged) a = a.ranged;
   out.begun = false;
   if (!a) { out.strike = 0; out.action = 0; out.sel = 0; return out; }
+  if (a.noClip) {
+    const iv = u.s.interval > 0 ? u.s.interval : 0;
+    out.action = iv;
+    out.strike = a.wait ? iv : Math.min(iv, a.pre);
+    out.sel = a.sel;
+    return out;
+  }
   // (a raw record — content, tests — may leave the ability fields out: no bound beyond 1, the strike on the OnAttack frame)
   const iv = u.s.interval, max = a.max == null ? 1 : a.max < 0 ? Infinity : a.max;
   const lead = first && a.begin > 0 ? a.begin : 0;

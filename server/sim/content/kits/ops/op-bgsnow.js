@@ -127,7 +127,8 @@ function typewriterKit(t, owner, chess) {
     skill = {
       kind: 'instant',
       attack: { atkScale: scale, onHit({ battle, unit, target }) { precisFollowUps(battle, unit, target, scale); } },
-      onStart({ unit }) { unit.atkCd = 0; }, // her 点题's "立即", as hers
+      // her 点题's "立即": sktok_bgsnow_2 is a `CastSkill` (`_switchToState` 1) with its own attack, so the cast cuts what is left of the swing
+      onStart({ unit }) { unit.atkCd = 0; unit.castLeft = 0; unit.swing = null; },
     };
   } else if (sk?.id === TS3) {
     skill = {

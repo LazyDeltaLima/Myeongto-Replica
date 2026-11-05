@@ -19,10 +19,12 @@ tools/assets/local-attack-timing.json, which tools/build-data.mjs folds into dat
   { "ops": { "char_4100_caper": { "modes": ["Default", "S2", "S2[Down]"],
                                   "attack": [ { "anim": "Attack", "max": 1, "pre": 0, "wait": 1, "sel": 0, "dead": 0,
                                                 "time": 0, "face": 1, "det": 0 }, … ] } },   (+ "begin", "esc": a ThreePart attack)
-    "enemies": { "enemy_1001_bigbo": { "combat": { … }, "attack": { … } } } }
+    "enemies": { "enemy_1001_bigbo": { "combat": { … }, "attack": { … } } },
+    "tokens": { "token_10015_dusk_drgn": { "modes": ["Default"], "attack": [ { … } ] } } }
 
 `attack[i]` = the attack ability of mode i (null when the mode has none), its clip renamed by the mode's
-`_replaceAnimPairs`; an enemy's `combat` / `attack` = the abilities of
+`_replaceAnimPairs`; a summon's the same, from its prefab in pkgrps/btl_pfb_tokens_*.ab (data/tokens.json and the summons of
+data/backups.json); an enemy's `combat` / `attack` = the abilities of
 its first mode used while blocked / unblocked (either may be missing).
 
 Usage (from the repo root; --client = an Arknights_Data folder, repeatable: the first client that has an operator's pack
@@ -41,6 +43,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from char_modes import load_tree, pool_char_ids  # noqa: E402
+from char_points import token_files  # noqa: E402
 from client_path import clients, earlier, kept, kept_all  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -148,6 +151,30 @@ def under(tree, base):
 
 def op_entry(path):
     tree, _ = load_tree(path)
+    return modes_entry(tree)
+
+
+def token_entries(files):
+    """{token id: its row as op_entry's} of {token id: its bundle}; one bundle holds many summons."""
+    out, trees = {}, {}
+    for tid, f in files.items():
+        if f not in trees:
+            trees[f] = load_tree(f)[0]
+        e = modes_entry([x for x in trees[f] if x[0] == tid or x[0].startswith(tid + '/')])
+        if e:
+            out[tid] = e
+    return out
+
+
+def all_token_ids():
+    """The summons this server's data names (`token_…`: the map characters and 炎佑 have prefabs of another kind)."""
+    toks = json.loads((ROOT / 'data/tokens.json').read_text(encoding='utf-8'))
+    backups = json.loads((ROOT / 'data/backups.json').read_text(encoding='utf-8')).get('tokens') or {}
+    return sorted(k for k in {*toks.get('tokens', toks), *backups} if k.startswith('token_'))
+
+
+def modes_entry(tree):
+    """{ modes, attack } of a prefab's GameObjects: the attack ability of each of its `_modes`, or None without modes."""
     modes = mode_paths(tree)
     if not modes:
         return None
@@ -283,7 +310,8 @@ def main():
             for f in ('prefabKey', 'spine'):
                 if isinstance(e.get(f), str):
                     wanted.add(e[f])
-    ops, read, enemies = {}, set(), {}
+    ops, read, enemies, tokens = {}, set(), {}, {}
+    token_ids = [] if args.id else all_token_ids()
     for client in clients(args.client):
         n_ops, n_enemies = len(ops), len(enemies)
         for cid in cids:
@@ -297,18 +325,22 @@ def main():
         # an enemy's prefab key is its own: a later client adds only the enemies the earlier ones lack
         for f in ([] if args.id else enemy_bundles(client).values()):
             enemies.update({k: v for k, v in enemy_entries(f, wanted).items() if k not in enemies})
-        print(f'{client}: {len(ops) - n_ops} operators, {len(enemies) - n_enemies} enemies')
+        n_tokens = len(tokens)
+        tokens.update(token_entries(token_files(client, [t for t in token_ids if t not in tokens])))
+        print(f'{client}: {len(ops) - n_ops} operators, {len(enemies) - n_enemies} enemies, {len(tokens) - n_tokens} summons')
     for cid in sorted(set(cids) - read):
         print('missing', cid, file=sys.stderr)
     prev = earlier(args.out)
     old_ops = kept_all(prev.get('ops') or {}, read) if args.id else kept(prev.get('ops') or {}, read, cids)
     old_enemies = kept_all(prev.get('enemies') or {}, enemies) if args.id else kept(prev.get('enemies') or {}, enemies, wanted)
+    old_tokens = kept_all(prev.get('tokens') or {}, tokens) if args.id else kept(prev.get('tokens') or {}, tokens, token_ids)
     ops.update(old_ops)
     enemies.update(old_enemies)
-    out = {'ops': dict(sorted(ops.items())), 'enemies': dict(sorted(enemies.items()))}
+    tokens.update(old_tokens)
+    out = {'ops': dict(sorted(ops.items())), 'enemies': dict(sorted(enemies.items())), 'tokens': dict(sorted(tokens.items()))}
     Path(args.out).write_text(json.dumps(out, ensure_ascii=False, separators=(',', ':'), sort_keys=False) + '\n', encoding='utf-8')
-    old = [*old_ops, *old_enemies]
-    print(f'{len(ops)} operators, {len(enemies)} enemies → {args.out}'
+    old = [*old_ops, *old_enemies, *old_tokens]
+    print(f'{len(ops)} operators, {len(enemies)} enemies, {len(tokens)} summons → {args.out}'
           + (f'; read {", ".join(sorted(read))}, the other {len(old)} rows kept' if args.id else f'; kept from the earlier run: {", ".join(old)}' if old else ''))
 
 

@@ -25,6 +25,7 @@ const REPEATED = Object.freeze({
   'char_4009_irene S3': [10, 'strikes: the skill\'s run of slashes'],
   chess_char_6_19_b: [9, 'strikes: 锏 S3\'s run of slashes'],
   chess_char_3_20_b: [10, 'strikes: one each swing of 耶拉 S2'],
+  chess_char_6_11_b: [12, 'strikes: 缪尔赛思 S3 each swing: her 流形 strikes the same enemy between her shot and its landing, so the shot is no longer the last attacker on it'],
   chess_char_4_03_b: [10, 'strikes: one each swing of 耶拉 S2'],
   // Not judged yet: a periodic skill damage on the skill mode's impact, a hit by the client or a tick that should be silent
   'char_4065_judge S2': [12, 'todo: judge_s_2[aoe] each second'],

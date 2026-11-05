@@ -44,7 +44,9 @@ const ARROW_TILES_PER_PX = 0.4 / 100;
 export function shotSpeedOf(ctx, src, tgt, dist) {
   let def;
   try { def = ctx?.lookupDef?.(src.info) ?? null; } catch { def = null; }
-  const blockedNear = !!(tgt && tgt.isEnemy && (tgt.flags & UF.BLOCKED) && dist <= 1.2);
+  // the swing's own word that its main target is an enemy it blocks (render/fxgame.js `_fxCombat`, the sim's 'swing' 7th field), and
+  // this target blocked within reach: another target of that swing the sim flies at is held by someone else or stands apart
+  const blockedNear = !!(src._fxCombat && tgt && tgt.isEnemy && (tgt.flags & UF.BLOCKED) && dist <= 1.2);
   return opProjSpeed(def, { skillOn: !!src._fxSkillOn, skillIndex: src.info?.skillIndex, blockedNear });
 }
 

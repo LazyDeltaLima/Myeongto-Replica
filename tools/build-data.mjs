@@ -1556,6 +1556,8 @@ function summonRecord(ctx, tokenId, char, variants, produced, ownerTexts = []) {
     deployLimit: first.stats?.deployLimit ?? 1,
     count: first.count,
     abnormal: TOKEN_ABNORMAL[tokenId] ? [...TOKEN_ABNORMAL[tokenId]] : [],
+    // its prefab's attack clip and ability timing (tokenAttackAnim; server/sim/ai.js attackTiming)
+    ...withAttackAnim(tokenAttackAnim(ctx, tokenId)),
     variants,
     assets: { avatar: tokenId, spine: tokenId },
   };
@@ -2529,6 +2531,29 @@ function opAttackAnim(ctx, charId, skillCount) {
     skills.push(ab ? withRanged(ab, clipOf(ab, sp.anims?.skills?.[String(i)]?.loop ?? sp.anims?.skill?.loop)) : null);
   }
   return base || skills.some(Boolean) ? { base, skills } : null;
+}
+
+const withAttackAnim = (attackAnim) => (attackAnim ? { attackAnim } : null);
+
+/**
+ * A summon's attack → tokens.json / backups.json `tokens` `attackAnim` { clip, dur, hit, … } as an enemy's: its prefab's Default
+ * mode (tools/assets/local-attack-timing.json `tokens`), the clip's length and first OnAttack frame from its skeleton
+ * (data/assets.json `tokens[id].spine`, `.spineLocal` for a model of the local client). An ability that plays no clip of the
+ * skeleton waits for no frame: its strike comes when the wait for it runs out, the ability's time — `noClip: 1`, server/sim/ai.js
+ * attackTiming. null when its prefab has no attack ability (it never attacks in the client) or was not read.
+ */
+function tokenAttackAnim(ctx, tokenId) {
+  const t = ctx.attackTiming?.tokens?.[tokenId];
+  const ab = t?.attack?.[t.modes.indexOf('Default')];
+  if (!ab) return null;
+  const m = ctx.manifest?.tokens?.[tokenId];
+  const sp = m?.spine ?? m?.spineLocal;
+  const dur = ab.anim ? sp?.animations?.[ab.anim] : null;
+  const timing = { ...abilityTiming(ab), ...abilityFace(ab), ...(ab.det === 1 ? { det: 1 } : {}) };
+  if (!(typeof dur === 'number' && dur > 0)) return { noClip: 1, ...timing };
+  const h = sp.hits?.[ab.anim];
+  const hit = Array.isArray(h) && Number.isFinite(h[0]) ? Math.min(dur, Math.max(0, h[0])) : null;
+  return { clip: ab.anim, dur, ...(hit != null ? { hit } : {}), ...timing };
 }
 
 /**

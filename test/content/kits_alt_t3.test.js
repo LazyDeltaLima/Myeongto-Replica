@@ -1007,6 +1007,8 @@ test('3_19 伺夜 S2 领袖的馈赠: +DP, its next attack ×atk_scale and the p
     h.run(2);
     const w = u.trait.reinforcement, e = h.enemy('enemy_d');
     assert.equal(e.blockedBy, w);
+    // (the pack holds its bites through the cast: one on its way, or begun while his cast waits for his attack, lands with the gift)
+    h.b.addBuff(w, { key: 'test:hold', flags: { disarm: true } });
     w.hp = w.s.maxHp * 0.5;
     const dp0 = p.dp;
     fill(u);
@@ -1016,6 +1018,7 @@ test('3_19 伺夜 S2 领袖的馈赠: +DP, its next attack ×atk_scale and the p
     // (2026-10-21) the client's vigil_wolf_s_2 heals on its Attack's cast on target: nothing at the cast, the gifted bite heals
     approx(w.hp, w.s.maxHp * 0.5, 1e-6, 'no heal at the cast');
     h.b.addBuff(u, { key: 'test:disarm', flags: { disarm: true } });
+    h.b.removeBuff(w, 'test:hold');
     const n0 = h.hooksOf('attack').length;
     assert.ok(h.runUntil(() => h.hooksOf('attack').slice(n0).some((c) => c.attacker === w), 6));
     approx(w.hp, w.s.maxHp * (0.5 + b['vigil_wolf_s_2.hp_ratio']), 1e-6, 'healed by the gifted bite');
@@ -1035,6 +1038,8 @@ test('3_19 伺夜 S2 领袖的馈赠: +DP, its next attack ×atk_scale and the p
       units: [U(id, 'skchr_vigil_2', 10, 3)], enemies: [{ key: 'enemy_d', pos: [9, 3], time: 0.5 }] });
     const v = g.unit(id), gp = g.b.getPlayer('p1');
     g.run(2);
+    const gw = v.trait.reinforcement;
+    g.b.addBuff(gw, { key: 'test:hold', flags: { disarm: true } });   // (the gifted bite is the one that kills)
     fill(v);
     assert.ok(v.skill.activate('test'));
     out(g, v);   // (缴械 would hold the cast: it goes out as his attack)
@@ -1042,6 +1047,7 @@ test('3_19 伺夜 S2 领袖的馈赠: +DP, its next attack ×atk_scale and the p
     const gdp = gp.dp;
     const ge = g.enemy('enemy_d');
     ge.hp = 1;
+    g.b.removeBuff(gw, 'test:hold');
     assert.ok(g.runUntil(() => !ge.alive, 5));
     approx(gp.dp, gdp + b['vigil_wolf_s_2.cost'], 1e-6, 'kill bonus');
     done(g);

@@ -1123,11 +1123,13 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   이전: 적은 상한 1과 같았고(간격이 클립보다 짧을 때만 빨리), 오퍼레이터는 sim에 휘두름이 없었다.
 - **타격 시점**: 휘두름 시작 뒤 OnAttack 프레임 × 배율. 클립에 OnAttack이 없으면 휘두름이 끝날 때(`EasyToStartAbility.<WaitForNextEvent>`: 이벤트 또는
   휘두름 전체 `m_cachedDuration`까지 기다림 — 이전에는 클립 절반). `_waitForAttackEvent` 0이면 `_preDelay` × 배율(휘두름 길이 이하; `UpdatePlaybackSpeed`의
-  `m_preDelay`) — 오퍼 15개 능력(어스스피릿 0.5 등). 클립을 모르면(소환물, 매니페스트에 없는 모델) 휘두름 시작에 바로 타격(이전 규칙).
-  예외 '염의 가호'(炎佑, 2026-10-23, 관리자 제보 「모션 시작과 끝이 너무 빠름」): 적 기록이라 적 `attackAnim`(`Attack` 1.5 s, OnAttack 0.633 s, 상한 1)이
-  있는데 토큰 기록에 안 넘어가 휘두름 시작에 타격했고, 렌더는 그 짧은 틈에 맞추느라 클립을 빨리 돌렸다 → `build-data.mjs`가 토큰 기록에 넘기고
-  `simdata.js normalizeToken`이 읽음: 간격 2.5 s라 배율 1, 타격 0.633 s 뒤(대상이 그새 죽으면 아래 헛휘두름). 다른 소환물 22개는 클라 소환물 프리팹의
-  타이밍을 아직 안 뽑아 그대로(관리자 메모의 열린 일). 확인: `test/content/playtest4_summons.test.js` 「OnAttack frame」.
+  `m_preDelay`) — 오퍼 15개 능력(어스스피릿 0.5 등). 기록이 없으면(장치, 매니페스트에 없는 모델) 휘두름 시작에 바로 타격(이전 규칙).
+  소환물도 같은 규칙이다(2026-11-05, 공식 클라 프리팹에서 확인): `pkgrps/btl_pfb_tokens_*.ab`의 `Modes/Default` 공격 능력을 `attack_timing.py`가 뽑아(`tokens` 표) `build-data.mjs tokenAttackAnim`이
+  `data/tokens.json`·`backups.json` `tokens`의 `attackAnim`에 넣는다. 전에는 '염의 가호'(적 기록을 쓰는 2026-10-23 제보 건)만 있어, 나머지는 휘두름 시작에 타격했고 렌더는 그 틈에 맞춰 클립을 빨리 돌렸다.
+  소환물 35개 중 공격 능력이 있는 것 21개, 없는 것 14개(기록 없음, 키트가 공격하지 않음). 예: '작은 즈자이'(`Attack` 1초/0.433, 상한 없음, 간격 1.9초면 타격 0.823초), 황금의 맹세(`Attack` 1.267초/0.5, 상한 1).
+  클립을 틀지 않는 능력(`noClip`: 저주인형 등 `_animKey`가 비었거나 골격에 없는 것)은 `UpdatePlaybackSpeed`가 `m_attackTime`을 쿨다운 그대로 두므로 휘두름 길이가 공격 간격이고, `_waitForAttackEvent` 1이면 오지 않는 이벤트를 `GetDuration` = `m_attackTime`까지 기다려 **간격 끝에 타격**한다(0이면 `_preDelay`, 배율 없음).
+  유동체는 `Default` 모드 값만 쓴다: `Melee`·`Range`의 클립은 0.8초로 0.033초 짧고 타격은 0.3으로 같다. `Range_S2`만 `_selectTargetTiming` 1인데 넣지 않았다 [추정·미조사: 모드별 공격 기록을 소환물에 넣지 않음. 타격 순간 다시 고르는지만 다르다].
+  타자기(`token_10026_bgsnow_subbow`, 공식 한국어 이름 없음) S2 복사는 `CastSkill` `_switchToState` 1이라 시전이 휘두름의 남은 시간을 끊는다(키트). 확인: `test/sim/token-attack-timing.test.js`, `test/content/playtest4_summons.test.js` 「OnAttack frame」.
 - **쿨다운은 휘두름 시작에서 다시 건다**: `AbilityStandard.CastToTarget` → `m_cooldownTimer.Reset(true)`. 다음 휘두름은 쿨다운이 끝나고 지난 휘두름(후딜
   포함, `castLeft`)도 끝났을 때(`Character.States.AttackState.OnTick`: 공격 능력이 `isReady`일 때만). HALF_FRAME(`_CheckNeedResetCooldown`, 프리팹
   전부 1): 휘두름 길이 = 간격이면 끝에서 남은 쿨다운 반 프레임을 0으로 — 우리 틱 카운트다운은 두 값이 같은 틱에 시작해 같은 틱에 0이 되므로(1e-9 허용,
@@ -1493,7 +1495,7 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
   20, 新约能天使 30, 惊蛰·异客 15, 寒芒克洛丝 18, 蕾缪安 12; 느림: 初雪·巫恋 6, 灵知 9, PARACURVE 流星 6·缪尔赛思 7·锡人·号角·灰毫 5. 메카 캐스터는 본체 투사체
   (洛洛·至简·耶拉·荒芜拉普兰德 10). 전체 대조 표·측정 도구는 관리자 메모(오퍼레이터 투사체 속도 대조).
 - **렌더** (`render/fx/speeds.js opProjSpeed`, `fx/projectiles.js shotSpeedOf`): 같은 shot으로 절차 투사체·공식 꼬리(`fxgame.js trailShot`)의 비행 시간을 맞추고,
-  날지 않는 shot은 그리지 않는다. 모드는 렌더의 `_fxSkillOn`·`skillIndex`, 저지 대상은 「저지된 적이 1.2칸 안」으로 짐작 [추정]. `FxSystem`에 `lookupDef`를
+  날지 않는 shot은 그리지 않는다. 모드는 렌더의 `_fxSkillOn`·`skillIndex`, 저지 대상은 그 휘두름의 `combat` 칸(주 대상을 자기가 저지 중, 시뮬 'swing' 일곱째)에 그 대상이 저지된 채 1.2칸 안일 때(2026-11-05): 시뮬은 대상별로 `blockedBy`를 보는데 렌더는 누가 막는지 몰라, 저지 중인 휘두름의 다른 대상을 옆 유닛이 1.2칸 안에서 막는 경우만 다르게 그린다. `FxSystem`에 `lookupDef`를
   넘김(`render/app.js`) — 2026-10-10부터 있던 절차 적 오브의 공식 속도(`enemyProjSpeed`)도 그동안 기록을 못 읽어 10으로 그려졌다. 화면 확인(2026-10-16, Windows
   Chrome 디버그 아레나, 샌드백 3칸): 隐现 절차 0.297 s·공식 꼬리 ≈ 0.29 s, 能天使 투사체 없음, 流星 0.50 s, 深靛 0.15 s, 오류 0. 실제 판 [화면 미확인].
 - 로즈몬티스 S2·산탈라 S2의 AttachToTarget(`_immediatelyReach` 0)은 2026-10-31부터 공식 시점에 닿는다 — 아래 「오퍼레이터 시점·차례 묶음 B」 투사체. 시뮬 틱(1/30 s) 때문에 비행은 한 틱 일찍 닿을 수 있다
@@ -1571,7 +1573,7 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
   - **지속 스킬의 효과가 나는 시점**(2026-11-04, 공식 클라 프리팹·버프 템플릿): 스킬 능력은 클립의 `OnAttack`을 기다리고(`_waitForAttackEvent`), 순차 묶음의 다음 능력은 클립 끝에 시작한다 → 키트 `onStrike`·`onCastEnd`(`skills.js _tickCast`). 대상은 `_selectTargetTiming`대로 고른다(0 = 시전 시작, 1 = 그 순간).
     - 벤델라 S2: 대상 고르기·도발·반격은 `OnAttack` 0.167초(`MaxHpMark`의 ON_SPELL_ON → `vendla_s_2[self]`). 그때부터 `duration`이라 스킬 끝보다 약 0.33초 먼저 끝난다.
     - 블레미샤인 S2: 수면은 `OnAttack` 0.5초(대상은 그 순간), 생명 회복은 클립 끝 1초(모드 S2의 `Body/Heal`, `Switch` 뒤).
-    - 위 S2: 피해·이동은 `OnAttack` 0.5초(대상은 그 순간). 위 S3: 화염벽 그림은 시전 시작(`yu_s_3[effect]`, ON_CAST_START), 효과는 클립 끝 1.6초(`Aura`).
+    - 위 S2: 피해·이동은 `OnAttack` 0.5초(대상은 그 순간). 위 S3: 화염벽 그림은 시전 시작(`yu_s_3[effect]`, ON_CAST_START), 효과는 클립 끝 1.6초(`Aura`). 제2재능을 아군 전체에 주는 것은 모드 S3의 `Talents/2/GlobalArua`이고, 그 모드는 `CastAnimation`의 `BuffDuringCastingFixed`(`yu_s_3[mode_restart]`)가 끝날 때 켜진다(2026-11-05) → 클립 끝, 기절로 끊기면 그 순간(벽은 잃고 모드는 들어감, 키트 `onCastCut`). 시험: `test/content/yu_s3_mode.test.js`.
     - 리드 더 플레임 섀도우 S2: 불덩이는 `OnAttack` 0.167초(대상은 그 순간), 수명도 그때부터.
     - 치우바이 S2: 대상은 시전 시작, 피해 + 정지 1.2초(`sword_split` `_activeBuffs`)는 `OnAttack` 0.5초. 지속 정지와 끝의 물리 피해는 클립 끝 1.167초의 `switch_mode`에서 온다.
     - 울피아누스 S3: 닻 칸은 시전 시작, 던지기는 `OnAttack` 0.433초, 피해·기절은 닻이 닿을 때(`projectile_chr_ulpia_s3` 초속 15칸) [추정·엔진: 출발점을 탑재 위치가 아니라 그의 칸으로 셈], 【이동】은 클립 끝 1초(`_extraActionEvent` ON_CAST_END).
@@ -1580,7 +1582,7 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
     - 기절·빙결·수면은 Skill 상태를 끝낸다(`SkillState.OnTick` → `OnExit` → `BasicSkill.InterruptIfNot` → `Ability.InterruptIfNot`) — SP는 돌려받지 않음. 끊겨도 **스킬은 끝나지 않고 제 시간만큼 켜져 있다**(2026-11-05, 공식 클라에서 확인): `BasicSkill.OnTick`은 능력이 효과 중이 아닐 때 스킬을 끝내고, 순차 묶음은 `get_isAffecting`이 묶음 쿨다운 타이머가 도는 동안 참이다. 그 타이머는 시전 때 시작하고(`CastToTarget` → `ResetCooldown`) 끊겨도 건드리지 않는다(`FinishIfNot`은 `resetCd`일 때만). 길이는 자식 쿨다운의 합, `_useLongestAbilityCooldown`이면 가장 긴 것(`_UpdateCooldownFromSubAbilities`) → 끝나는 시각이 끊김으로 앞당겨지지 않는다(`durationAfterCast`는 끊겨도 클립 끝부터 잼). 끊긴 뒤 무엇이 남는지는 묶음 값이 정한다(`AbilitySequenceGroup.OnCastEnd`).
       - 진행 중 능력도 끊음(`_alsoInterruptCurrentSubAbility` 1, 그 순서가 `_interruptableSubAbilityIndice`에 있음): 아직 안 온 단계는 사라진다. 벤델라 S2·블레미샤인 S2·위 S2는 능력치와 공격(`modsAfterCast`)도 클립 뒤 능력의 것이라 잃고 스킬 시간만 흐른다. 위 S2는 묶음 시간이 가장 긴 능력의 것이라 끊기면 시전부터 `duration` 뒤에 끝난다(`durationFromCastWhenCut`). 위 S3·울피아누스 S3·Mon3tr S3은 능력치를 그대로 두고 뒤 단계만 잃는다(울피아누스·Mon3tr은 먼저 시전되는 `BuffAbility`가 능력치를 준다. 위 S3은 `yu_s_3[switch_mode]`가 스킬 시작부터 붙는다).
       - 진행 중 능력을 안 끊음(`_alsoInterruptCurrentSubAbility` 0, `castCarriesOn`): 리드 더 플레임 섀도우 S2·치우바이 S2·유넥티스 S3. `_DoCast`는 주인 상태를 묻지 않으니 단계가 그대로 온다. 기절이 클립을 끊으면 `OnAttack`이 오지 않아, 그 전이었던 타격은 대기 상한(클립 끝)에 나간다. 다음 능력도 클립 끝에 시전된다(`_stopMoveNextWhenNotCasting` 0).
-      - 안 넣음 [추정·미조사: 벤델라 S2의 `MaxHpMark`는 `_timeMode` 0이라 묶음 시간에 클립(0.5초) 대신 공격 간격이 들어간다. 그대로면 스킬이 공격 간격 − 0.5초만큼 더 켜져 있다. 그 값을 묶음이 언제 읽는지(`DoSetData`)를 안 봄]
+      - 안 넣음 [추정·미조사: 묶음 시간은 `AbilitySequenceGroup.DoSetData`가 자식의 `get_cooldown`을 더해 한 번 정하고(`_updateCooldownAfterSubAbilitiesAttached` 0, 22개 묶음 전부), `_timeMode` 1 묶음은 공속 변화에도 다시 안 정한다. 그때 `_timeMode` 0 자식(벤델라 S2 `MaxHpMark`)은 그 순간의 공격 간격이고, `_timeMode` 1 자식은 클립 길이를 `DoAttach`에서야 쓰므로 그보다 앞서 설정되면 0이다. 설정과 붙이기의 순서를 안 봄 → 벤델라 S2와 `durationAfterCast`인 다섯(유넥티스 S3·블레미샤인 S2·위 S2·리드 더 플레임 섀도우 S2·치우바이 S2)의 스킬 길이가 여기 달렸다]
     - 벨로네 S3·Mon3tr S3의 이동은 시전 순간이 아니라 클립 끝이다(2026-11-05, 공식 클라에서 확인): `FlyToTarget`·`Respawn`은 `_waitForAttackEvent` 1이고 클립(`Skill_3_ReStart_Begin` 0.2초·`Skill_3_Begin` 0.667초)에 `OnAttack`이 없으니, 대기는 상한 `m_cachedDuration`에서 끝난다. `_End` 클립을 이어 트는지와 무관하다. 대상은 벨로네는 그 순간(`_selectTargetTiming` 1), Mon3tr은 시전 시작(0). Mon3tr은 끊기면(`_interruptableSubAbilityIndice` 1) 제자리에서 스킬만 흐른다. 유실은 착지부터라 끊기면 없다. 벨로네의 `FlyToTargetSecond`도 같은 클립·대기라 0.2초 뒤 이동한다 [추정·엔진: 그 0.2초 동안 휘두름을 끊는지 안 읽음. 지금은 안 끊고, 이동이 끊는다].
     - `moveRedeploy`는 진행 중 휘두름을 없앤다(새 배치와 같음, 위 벨로네·Mon3tr·울피아누스 S3). 클립 끝 틱에는 공격을 시작하지 않는다: 스킬 틱이 공격 뒤라, 옛 칸에서 시작한 휘두름이 끼어들었다.
     - 시점이 옮겨진 피해의 대상 이펙트는 표시 사건 `['castHit', id, part?]`가 붙인다(render: `fxgame.js` `castHit` → `expect`).
@@ -1588,7 +1590,7 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
     - 대상 0: 블레이즈 디 이그나이팅 스파크 S1·인포서 S2(`knock_back`)·노시스 S2·아이린 S2·레온하르트 S2·루멘 S2·포덴코 S2·토스카 S1·불피스폴리아 S2·위디 S3, 쏜즈 더 로드스타 S2의 적(`Mark`; 적이 없으면 칸은 `Token`이 그 프레임에). 대상 1: 나머지(아르케토 S2·데겐블레허 S2·메테오 S2·프라마닉스 더 프레리타 S1·실버애쉬 더 레인프로스트 S2·에이야퍄들라 더 크비트 아스카 S2·토스카 S2·토가와 사키코 S1 등, 값은 각 키트 주석).
     - 시전 시작에 나는 것(`_runActionOnEvent` 2 ON_CAST_START): 플레임테일 S2의 DP(`flamtl_s_2[cost]`), 탈룰라 S2의 스택과 방어 구간. 텍사스 S2·불피스폴리아 S2의 DP는 ON_SPELL_ON(타격), 실버애쉬 더 레인프로스트 S1의 DP·덱은 ON_SPELL_END(타격 끝)이라 프레임에 난다.
     - 기절·빙결·수면이 그 전에 오면 효과는 사라지고 SP는 돌려받지 않는다(지속 스킬의 끊김과 같음, 스킬 능력이 그룹이 아니라 끊긴다). 화면의 스킬 켜짐(`['skill', id, 0]`)은 프레임까지 유지한다(타격음이 스킬의 것이다, `audio.js`). 프레임 동안 `skill.active`는 참이다(재능이 스킬 중인지 묻는다).
-    - 안 옮김 [추정·미조사: `OnAttack`도 클립도 없는 능력이 언제 닿는지 — 대기 상한 `m_cachedDuration`의 값을 안 읽음]: `_animKey`가 빈 클리프하트 S2(`skchr_slchan_2`)·스노우헌터 S2·울피아누스 S1·모스티마 S2·호시구마 S3·로즈몬티스 S3·비즈왁스 S2, 클립이 골격에 없는 패신저 S3(`Skill_3` — 골격은 `Skill3`)·사리아 S2(`Heal`). 공격 간격으로 세는 시전 잠금은 그대로다.
+    - 안 옮김 [추정·미조사: 클립을 다른 컴포넌트가 트는 능력이 언제 닿는지]: 대기 상한은 읽었다(`m_cachedDuration` = `GetDuration` = `m_attackTime`, 능력이 클립을 못 찾으면 쿨다운 그대로). 그러나 `_animKey`가 빈 스킬 대부분은 클립이 없는 것이 아니라 옆의 `ThreePartChannelingAnimation`(클리프하트 S2 `skchr_slchan_2`·울피아누스 S1·모스티마 S2·호시구마 S3)이나 `ThreePartOneshotAnimation`(스노우헌터 S2)이 튼다. 클립의 `OnAttack`이 타격을 부르고, 호시구마·모스티마는 `ChannelingMeleeAttack`이라 길이도 블랙보드 `duration`이다. 프리팹 클립 이름을 추출에 넣고 키트마다 옮겨야 한다. 로즈몬티스 S3·비즈왁스 S2는 첫 자식이 `SpawnTokenOnTileByIDAbility`, 클립이 골격에 없는 패신저 S3(`Skill_3` — 골격은 `Skill3`)·사리아 S2(`Heal`)도 그대로다. 공격 간격으로 세는 시전 잠금은 그대로다.
     - 안 옮김(이미 맞음): 첸 더 던스트릭 S2(공격 없고 사라지는 동작이 키트에 있음), 지마 더 레이징 타이드 S3(망치 프레임을 키트가 셈). 아이린 S3 첫 타는 `Skill_3_Start`의 `OnAttack` 0.133초로 옮김.
   - 데이터에 `cast`가 없는 스킬(클라 프리팹을 못 읽은 것)은 옛 규칙(틱 시전 뒤 공격 간격 한 번)을 쓴다.
   - 범위 밖: `spec.attack`이 있는 `CastSkill` sw1 4개(솔방울 S1·첼로 S1·머드락 S2·님프 S2)는 지금처럼 「다음 공격에 스킬 공격」.

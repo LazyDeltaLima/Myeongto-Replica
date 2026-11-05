@@ -88,7 +88,7 @@ export function opShot(def, skillOn, skillIndex) {
 /**
  * 2026-10-16: the speed (tiles per game second) the sim flies an operator's shot at (opShot `speed`), 0 when it does
  * not fly — no projectile, an AttachToTarget / NONE one, or a mode whose blocked attack has none (`combat`) aimed at
- * an enemy it holds (`blockedNear`: the renderer's guess — the target blocked and within reach) —, or null (not read, or a
+ * an enemy it holds (`blockedNear`: render/fx/projectiles.js shotSpeedOf) —, or null (not read, or a
  * movement the extract does not know — `move` OTHER: the kind's PROJECTILE_SPEEDS).
  * @param {any} def
  * @param {{ skillOn?: boolean, skillIndex?: number, blockedNear?: boolean }} [o]

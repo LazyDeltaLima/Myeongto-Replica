@@ -294,8 +294,8 @@ export function immuneSet(v, extra = null) {
  * and `_selectTargetTiming` (ai.js attackTiming), and where the swing turns its unit (`face`, ai.js swingFace).
  */
 export function normAttackAnim(a) {
-  const dur = Number(a?.dur);
-  if (!(Number.isFinite(dur) && dur > 0)) return null;
+  const dur = a?.noClip ? 0 : Number(a?.dur);
+  if (!a?.noClip && !(Number.isFinite(dur) && dur > 0)) return null;
   const hit = Number(a.hit);
   const max = Number(a.max);
   const pre = Number(a.pre);
@@ -317,6 +317,8 @@ export function normAttackAnim(a) {
     det: a.det === 1,
     // a 要塞's ranged swing, when its clip times differently from the melee one (ai.js attackTiming)
     ...(a.ranged ? { ranged: normAttackAnim(a.ranged) } : null),
+    // a summon's ability that plays no clip (ai.js attackTiming)
+    ...(a.noClip ? { noClip: true } : null),
   };
 }
 
@@ -457,8 +459,8 @@ export function normalizeToken(id, t0, ownerChessId = null, variantOverride = nu
     trait: desc,
     traitBb: t.trait && typeof t.trait === 'object' ? { ...(t.trait.bb || {}) } : {},
     skill,
-    // its attack clip { dur, hit } (ai.js attackTiming): only the enemy-shaped 炎佑 carries one; null = none known (the
-    // strike lands as the swing starts)
+    // its attack clip { dur, hit } and ability timing (ai.js attackTiming; a prefab's: tools/build-data.mjs tokenAttackAnim,
+    // the enemy-shaped 炎佑 its enemy record's); null = no attack ability known (the strike lands as the swing starts)
     attackAnim: normAttackAnim(t.attackAnim),
     // chess/token records carry a talent array; enemy-shaped records (炎佑 enemy_9012_acloon) one `{ bb, bbStr }` object
     talents: (Array.isArray(t.talents) ? t.talents : t.talents && typeof t.talents === 'object' ? [t.talents] : [])

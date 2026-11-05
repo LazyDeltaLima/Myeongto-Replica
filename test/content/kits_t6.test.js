@@ -1227,6 +1227,9 @@ test('余 (elite): 阻挡 ⇒ element ×1.15 (module, elementHit); S3 gives the 
   const plain = hitOf();
   u.skill.activate('test', { free: true });
   assert.ok(u.skill.active);
+  assert.ok(near(hitOf(), plain, 1e-6), 'not yet: the mode that gives it comes as the 1.6 s clip ends');
+  h.run(1.7);
+  assert.ok(e.findBuff('burnBurst'), 'still burning');
   const boosted = hitOf();
   const ds = u.def.raw.talents.find((t) => t.index === -1 && t.bb.damage_scale).bb.damage_scale;
   assert.ok(near(boosted, plain * ds, 1e-6), `other op ×${ds} vs burning while S3 runs (${plain} → ${boosted})`);

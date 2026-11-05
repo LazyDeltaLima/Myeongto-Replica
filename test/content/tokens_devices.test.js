@@ -1308,7 +1308,7 @@ test('狼群 (generic 伺夜): 伺夜\'s own attacks on pack-blocked enemies ign
   const vigil = h.unit('chess_char_3_19_a');
   const wolf = vigil.trait.reinforcement;
   assert.ok(vigil.skill.active);
-  assert.ok(h.runUntil(() => own.some((x) => x.blocked) && bonus.some((x) => x.src === 'chess_char_3_19_a'), 30), 'owner hits a pack-blocked enemy');
+  assert.ok(h.runUntil(() => own.some((x) => x.blocked) && bonus.some((x) => x.src === 'chess_char_3_19_a') && bonus.some((x) => x.src === TOKEN_IDS.wolfPack), 30), 'owner hits a pack-blocked enemy');
   const hit = own.find((x) => x.blocked);
   assert.equal(hit.type, 'phys');
   // tactician trait ×1.5 vs enemies its 援军 blocks; DEF 300 − 200

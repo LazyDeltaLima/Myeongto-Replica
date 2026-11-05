@@ -55,7 +55,7 @@
 //   the engine does not hold the cast for the next attack), castHolds (bool: a timed skill's 'state' cast holds the unit's
 //   attacks through its skill clip's action), durationAfterCast (bool: its `duration` starts as that action ends), endHolds (bool: that clip comes
 //   last in its sequence group, so its action holds the attacks from the end of the skill's `duration`; a number: those seconds), onStart(ctx), onEnd(ctx), onHit(ctx), onAttack(ctx), onTick(ctx),
-//   onStrike(ctx) / onCastEnd(ctx) (a `castHolds` skill: its skill clip's OnAttack frame and that clip's end; a stun before them loses them; no client cast known: at once;
+//   onStrike(ctx) / onCastEnd(ctx) (a `castHolds` skill: its skill clip's OnAttack frame and that clip's end; a stun before them loses them, calling onCastCut(ctx) instead; no client cast known: at once;
 //   an instant / charge skill's onStrike: the same frame of its 'state' cast, onStart then being what comes as the cast starts, as picking targets for `_selectTargetTiming` 0: skill.castPick),
 //   castCarriesOn (bool: its sequence group does not interrupt the clip's ability, `_alsoInterruptCurrentSubAbility` 0: a stun loses no stage, the OnAttack frame is then the clip's end),
 //   modsAfterCast (bool: mods / attack come from the ability after the clip, so a stun that loses that ability loses them),
@@ -835,6 +835,7 @@ export class SkillRuntime {
     const now = this.battle.time + 1e-9;
     if (!c.cut && (!u.canAct || u.skillStateUntil < c.endAt - 1e-9)) {
       c.cut = true;
+      this._call('onCastCut');
       if (!this.spec.castCarriesOn) {
         this._castStage = null;
         this._sendOff();
