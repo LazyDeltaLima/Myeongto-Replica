@@ -382,6 +382,28 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       // in the mesh's own units, so that y runs along the mesh's z (the 重构体's crystals sit 27 × 0.12 × 0.12 = 0.39 out, their long axis outward)
       vec3 piv = vec3(uPivot.x, -uPivot.z, uPivot.y) * abs(iSize);
       vec3 p = rm * ((transformed + piv) * iSize);
+      if (uAlign != 2) {
+        // (official client: the mesh jobs of the other alignments) the same matrix over another basis, the system's transform
+        // scale inside it: View (0) the camera's right, up and forward; World (1) the Unity world's axes; Velocity (4) z along
+        // velocity + animated velocity, x = normalize(world up × z) (world x along up, z when it stands still), y = z × x.
+        // vb = that basis in view space; this view space has −z ahead, so forward is −z and the Unity frame's handedness comes with it
+        mat3 vb = mat3(1., 0., 0., 0., 1., 0., 0., 0., -1.);
+        if (uAlign == 1) vb = mat3(viewMatrix) * mat3(uSys);
+        else if (uAlign == 4) {
+          mat3 m3 = mat3(modelMatrix), ru = mat3(uSys);
+          float vl = dot(iVel, iVel);
+          vec3 nw = vl > 1e-30 ? normalize(m3 * iVel) : ru[2];
+          vec3 w = cross(ru[1], nw) * uHand;
+          vec3 rt = dot(w, w) > 1e-30 ? normalize(w) : ru[0];
+          vb = mat3(viewMatrix) * mat3(rt, cross(nw, rt) * uHand, nw);
+        }
+        vec3 off = vb * (uSysS * p);
+        vH = (modelMatrix * vec4(iPos, 1.0)).z + hOfView(off);
+        vec4 cv = modelViewMatrix * vec4(iPos, 1.0);
+        if (uRim) { vN = vb * (rm * (normal / max(abs(iSize), vec3(1e-4)))); vVP = cv.xyz + off; }
+        gl_Position = projectionMatrix * vec4(cv.xyz + off, 1.0);
+        return;
+      }
       vH = (modelMatrix * vec4(iPos + p, 1.0)).z;
       if (uRim) { vN = normalMatrix * (rm * (normal / max(abs(iSize), vec3(1e-4)))); vVP = (modelViewMatrix * vec4(iPos + p, 1.0)).xyz; }
       gl_Position = projectionMatrix * modelViewMatrix * vec4(iPos + p, 1.0);
@@ -1388,11 +1410,33 @@ export function perlinD(x, y, z, f) {
   pdOut[0] = gx * f; pdOut[1] = gy * f;
   return pdOut;
 }
-/** (official client: the octave loop round Perlin3D) Σ ampₖ × perlinD(p, f × scaleᵏ) / Σ ampₖ, ampₖ = mulᵏ. */
+// (official client Perlin1D, Perlin2D) the noise module's Low and Medium quality: gradients ±1 along x, and the four axis
+// directions (the permutation's low three bits, the other four empty), the same fade. Perlin1D gives 2f × dN/dx and 0 at x × f;
+// Perlin2D gives √2 f × its x and y derivatives at (x, y) × f (compared with the client's on random points: test/render/fx-emission-motion.test.js)
+const GRAD2 = [1, 0, -1, 0, 0, 1, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0];
+export function perlin1(x, y, z, f) {
+  const px = x * f, X = Math.floor(px), t = px - X, i = X & 255, g0 = PERM[i] & 1 ? -1 : 1, g1 = PERM[(i + 1) & 255] & 1 ? -1 : 1;
+  pdOut[0] = 2 * f * (g0 + (g1 - g0) * fade(t) + (g1 * (t - 1) - g0 * t) * dfade(t)); pdOut[1] = 0;
+  return pdOut;
+}
+export function perlin2(x, y, z, f) {
+  const px = x * f, py = y * f, X = Math.floor(px), Y = Math.floor(py), s = px - X, t = py - Y, xi = X & 255, yi = Y & 255, P = PERM, G = GRAD2;
+  const a0 = P[xi], a1 = P[(xi + 1) & 255];
+  const g0 = (P[(a0 + yi) & 255] & 7) * 2, g1 = (P[(a1 + yi) & 255] & 7) * 2, g2 = (P[(a0 + yi + 1) & 255] & 7) * 2, g3 = (P[(a1 + yi + 1) & 255] & 7) * 2;
+  const n0 = G[g0] * s + G[g0 + 1] * t, n1 = G[g1] * (s - 1) + G[g1 + 1] * t, n2 = G[g2] * s + G[g2 + 1] * (t - 1), n3 = G[g3] * (s - 1) + G[g3 + 1] * (t - 1);
+  const u = fade(s), v = fade(t), k = Math.SQRT2 * f;
+  const n01 = n0 + u * (n1 - n0), n23 = n2 + u * (n3 - n2);
+  const gx0 = G[g0] + u * (G[g1] - G[g0]), gx1 = G[g2] + u * (G[g3] - G[g2]), gy0 = G[g0 + 1] + u * (G[g1 + 1] - G[g0 + 1]), gy1 = G[g2 + 1] + u * (G[g3 + 1] - G[g2 + 1]);
+  const dn0 = n1 - n0, dn1 = n3 - n2;
+  pdOut[0] = k * (gx0 + v * (gx1 - gx0) + dfade(s) * (dn0 + v * (dn1 - dn0)));
+  pdOut[1] = k * (gy0 + v * (gy1 - gy0) + dfade(t) * (n23 - n01));
+  return pdOut;
+}
+/** (official client: the octave loop round Perlin3D) Σ ampₖ × pn(p, f × scaleᵏ) / Σ ampₖ, ampₖ = mulᵏ. */
 const fbOut = [0, 0];
-function perlinOct(x, y, z, f, oct, mul, scale) {
+function perlinOct(x, y, z, f, oct, mul, scale, pn = perlinD) {
   let sa = 0, sb = 0, amp = 1, sum = 0;
-  for (let k = 0; k < oct; k++) { const d = perlinD(x, y, z, f); sa += d[0] * amp; sb += d[1] * amp; sum += amp; amp *= mul; f *= scale; }
+  for (let k = 0; k < oct; k++) { const d = pn(x, y, z, f); sa += d[0] * amp; sb += d[1] * amp; sum += amp; amp *= mul; f *= scale; }
   fbOut[0] = sa / sum; fbOut[1] = sb / sum;
   return fbOut;
 }
@@ -1552,15 +1596,20 @@ class ParticleSystem {
     mat.uniforms.uMode.value = ps.render.mode === 3 ? 0 : ps.render.mode;
     mat.uniforms.uLengthScale.value = ps.render.lengthScale ?? 2;
     mat.uniforms.uVelScale.value = ps.render.velScale ?? 0;
-    mat.uniforms.uAlign.value = ps.render.mode === 0 || ps.render.align < 3 ? ps.render.align ?? 0 : 0;   // Facing, Velocity: billboards only
+    // (official client) a mesh particle's alignment picks its mesh job, Local when `rotOL` turns its separate axes
+    // (PrepareForRender forces it); its Facing job is unread and no extracted system has it (fx_coverage reports one)
+    const meshAlign = ps.render.mode !== 4 ? -1 : ps.mods?.rotOL?.x || ps.render.align === 3 ? 2 : ps.render.align ?? 0;
+    mat.uniforms.uAlign.value = meshAlign >= 0 ? meshAlign : ps.render.mode === 0 || ps.render.align < 3 ? ps.render.align ?? 0 : 0;   // Facing, Velocity: billboards only
     mat.uniforms.uFree.value = !!ps.render.free;
     mat.uniforms.uRotW.value = !!ps.render.rotw;
-    this.velAlign = ps.render.mode === 0 && ps.render.align === 4;
+    this.velAlign = (ps.render.mode === 0 && ps.render.align === 4) || meshAlign === 4;
+    this.rootTurn = meshAlign === 1 || meshAlign === 4;   // its basis needs the root's turn every frame (sysScale)
     // (2026-11-04) the quads that take the system's transform scale (sysScale): View, Velocity and stretched billboards
     // (freeform aside), and a world-space system's World / Local-aligned ones (a local-space system's take it from their
-    // model matrix); horizontal, vertical, Facing and mesh renderers do not here (their dispatchers are not read)
+    // model matrix); so do View, World and Velocity meshes (their matrix helper); horizontal, vertical and Facing renderers
+    // do not here (their dispatchers are not read)
     const r = ps.render;
-    this.quadScaled = (r.mode === 0 && (r.align === 0 || r.align === 4 || (this.world && (r.align === 1 || r.align === 2)))) || (r.mode === 1 && !r.free);
+    this.quadScaled = (r.mode === 0 && (r.align === 0 || r.align === 4 || (this.world && (r.align === 1 || r.align === 2)))) || (r.mode === 1 && !r.free) || meshAlign === 0 || meshAlign === 1 || meshAlign === 4;
     this.scalePath = null;   // the nodes whose scale it takes (FxInstance), null for none
     // (official client) a mesh particle turns by its rotation as it is, by all three axes the other way with `rotOL`'s separate axes
     this.meshRotSign = r.mode === 4 && ps.mods?.rotOL?.x ? -1 : 1;
@@ -1816,7 +1865,8 @@ class ParticleSystem {
     const sb = m.sizeBySpeed;
     if (sb) {
       const lo = sb.range?.[0] ?? 0, hi = sb.range?.[1] ?? 1;
-      const sp = Math.hypot(this.vel[i * 3], this.vel[i * 3 + 1], this.vel[i * 3 + 2]);
+      // (official client SizeBySpeedModule.Update) the speed of velocity + animated velocity
+      const sp = Math.hypot(this.vel[i * 3] + this.avel[i * 3], this.vel[i * 3 + 1] + this.avel[i * 3 + 1], this.vel[i * 3 + 2] + this.avel[i * 3 + 2]);
       const t = hi > lo ? Math.min(1, Math.max(0, (sp - lo) / (hi - lo))) : 0;
       const x = evalMM(sb.x, t, r);
       out[0] *= x; out[1] *= sb.y ? evalMM(sb.y, t, r) : x; out[2] *= sb.z ? evalMM(sb.z, t, r) : x;
@@ -1910,9 +1960,11 @@ class ParticleSystem {
     const pa = nm.posAmt ? evalMM(nm.posAmt, a, r) : 1;
     const x = this.pos[o] + this.nOff[0], y = this.pos[o + 1] + this.nOff[1], z = this.pos[o + 2] + this.nOff[2], sc = this.nScroll;
     const oct = nm.oct || 1, om = nm.octMul ?? 0.5, os = nm.octScale ?? 2;
-    let d = perlinOct(z, y, x + sc, f, oct, om, os); const a1 = d[0], b1 = d[1];
-    d = perlinOct(x + 100, z, y + sc, f, oct, om, os); const a2 = d[0], b2 = d[1];
-    d = perlinOct(y, x + 100, z + sc, f, oct, om, os); const a3 = d[0], b3 = d[1];
+    // (official client: the jobs of each quality) the same three points; the scroll runs along the last axis the quality reads
+    const q = nm.qual ?? 2, s0 = q === 0 ? sc : 0, s1 = q === 1 ? sc : 0, s2 = q === 2 ? sc : 0, pn = q === 0 ? perlin1 : q === 1 ? perlin2 : perlinD;
+    let d = perlinOct(z + s0, y + s1, x + s2, f, oct, om, os, pn); const a1 = d[0], b1 = d[1];
+    d = perlinOct(x + 100 + s0, z + s1, y + s2, f, oct, om, os, pn); const a2 = d[0], b2 = d[1];
+    d = perlinOct(y + s0, x + 100 + s1, z + s2, f, oct, om, os, pn); const a3 = d[0], b3 = d[1];
     const nx = (a3 - b2) * s, ny = (a1 - b3) * sy, nz = (a2 - b1) * sz;
     out.set(nx * pa, ny * pa, nz * pa, nz);
     if (this.nz) this.nz[i] = nx;
@@ -2125,7 +2177,7 @@ class ParticleSystem {
     }
     // simulate
     const grav = evalMM(ps.gravity, 0, 0);
-    const velOn = !!m.velOL && m.velOL.on !== 0 && m.velOL.on !== false, clampAll = velOn && !!m.limit;
+    const velOn = !!m.velOL && m.velOL.on !== 0 && m.velOL.on !== false;
     const orbit = velOn && this.orbit ? this.orbitFrame() : null, vo = m.velOL;
     const nzOn = !!m.noise && this.noiseFrame(dt);
     const P = m.collide ? this.planeFrames() : null;
@@ -2142,29 +2194,12 @@ class ParticleSystem {
       if (this.age[i] >= this.life[i]) { this.kill(i); continue; }
       const a = this.age[i] / this.life[i], r = this.rnd[i * 4];
       let vx = this.vel[i * 3], vy = this.vel[i * 3 + 1], vz = this.vel[i * 3 + 2];
+      // (official client: the modules' order before SimulateParticles) the animated velocity of this step — VelocityOverLifetime,
+      // orbit, radial, then noise — then gravity / force on the particle's own velocity, then the limit on their sum: it stays
+      // under the limit and the particle's own velocity takes the difference (MagnitudeUpdate). 패신저 T2's lightning (start
+      // speed 0, 5 u/s over its life, limit 0.7 → 0) flew 1.5–3 tiles off her weapon while the limit only met `vel`
       let ox = 0, oy = 0, oz = 0;
       if (velOn) { ox = evalMM(m.velOL.x, a, r); oy = evalMM(m.velOL.y, a, r); oz = evalMM(m.velOL.z, a, r); }
-      // 2026-10-24: the limit clamps the whole velocity, VelocityOverLifetime's included (Unity) — `vel` keeps the clamped
-      // total, so last frame's VelocityOverLifetime comes off before this frame's goes on. 패신저 T2's lightning (start
-      // speed 0, 5 u/s over its life, limit 0.7 → 0) flew 1.5–3 tiles off her weapon while the limit only met `vel`
-      if (clampAll && age0 > 0) { const a0 = age0 / this.life[i]; vx -= evalMM(m.velOL.x, a0, r); vy -= evalMM(m.velOL.y, a0, r); vz -= evalMM(m.velOL.z, a0, r); }
-      if (grav) { vx += GRAVITY.x * grav * dt; vy += GRAVITY.y * grav * dt; vz += GRAVITY.z * grav * dt; }
-      if (m.force) { vx += evalMM(m.force.x, a, r) * dt; vy += evalMM(m.force.y, a, r) * dt; vz += evalMM(m.force.z, a, r) * dt; }
-      if (clampAll) { vx += ox; vy += oy; vz += oz; ox = oy = oz = 0; }
-      if (m.limit) {
-        // (official client MagnitudeUpdate) over the limit the speed goes toward it by 1 − (1 − dampen)^(30 dt) a step
-        const lim = evalMM(m.limit.mag, a, r), sp = Math.hypot(vx, vy, vz);
-        if (sp > lim && sp > 0) {
-          const k = 1 - Math.pow(1 - Math.min(1, Math.max(0, m.limit.dampen || 0)), 30 * dt), ns = sp + (lim - sp) * k;
-          vx *= ns / sp; vy *= ns / sp; vz *= ns / sp;
-        }
-        const drag = evalMM(m.limit.drag, a, r);
-        if (drag) {
-          const s0 = Math.hypot(vx, vy, vz);
-          if (s0 > 0) { const k = Math.max(0, s0 - this.dragOf(i, a, drag, s0) * dt) / s0; vx *= k; vy *= k; vz *= k; }
-        }
-      }
-      this.vel[i * 3] = vx; this.vel[i * 3 + 1] = vy; this.vel[i * 3 + 2] = vz;
       // (2026-10-26, effect bundle U; official client SimulateParticles) the velocity module's speed modifier multiplies
       // the particle's velocity and its VelocityOverLifetime / orbit / radial / noise velocity this step
       const sm = this.speedK ? evalMM(vo.speedMul, a, r) : 1;
@@ -2175,18 +2210,38 @@ class ParticleSystem {
           const dx = this.pos[o] - c.x, dy = this.pos[o + 1] - c.y, dz = this.pos[o + 2] - c.z, l = Math.hypot(dx, dy, dz);
           if (l > 1e-6) { ox += dx / l * rad; oy += dy / l * rad; oz += dz / l * rad; }
         }
+        // the engine adds the orbit's move ÷ (dt × the speed modifier) to the animated velocity, from the point before the step
+        const h = sm * dt;
+        if (h) {
+          const q0 = this.pos[o], q1 = this.pos[o + 1], q2 = this.pos[o + 2];
+          this.orbitStep(i, a, r, orbit, h);
+          ox += (this.pos[o] - q0) / h; oy += (this.pos[o + 1] - q1) / h; oz += (this.pos[o + 2] - q2) / h;
+          this.pos[o] = q0; this.pos[o + 1] = q1; this.pos[o + 2] = q2;
+        }
       }
       if (nzOn) {
         const nv = this.noiseAt(i, a, r, noiseV);
         ox += nv.x; oy += nv.y; oz += nv.z;
       }
-      this.pos[i * 3] += (vx + ox) * sm * dt; this.pos[i * 3 + 1] += (vy + oy) * sm * dt; this.pos[i * 3 + 2] += (vz + oz) * sm * dt;
-      if (orbit) {   // the engine adds the orbit's move ÷ (dt × the speed modifier) to the animated velocity
-        const q0 = this.pos[i * 3], q1 = this.pos[i * 3 + 1], q2 = this.pos[i * 3 + 2];
-        this.orbitStep(i, a, r, orbit, sm * dt);
-        const h = sm * dt;
-        if (h) { ox += (this.pos[i * 3] - q0) / h; oy += (this.pos[i * 3 + 1] - q1) / h; oz += (this.pos[i * 3 + 2] - q2) / h; }
+      if (grav) { vx += GRAVITY.x * grav * dt; vy += GRAVITY.y * grav * dt; vz += GRAVITY.z * grav * dt; }
+      if (m.force) { vx += evalMM(m.force.x, a, r) * dt; vy += evalMM(m.force.y, a, r) * dt; vz += evalMM(m.force.z, a, r) * dt; }
+      if (m.limit) {
+        // (official client MagnitudeUpdate) over the limit the speed goes toward it by 1 − (1 − dampen)^(30 dt) a step
+        let tx = vx + ox, ty = vy + oy, tz = vz + oz;
+        const lim = evalMM(m.limit.mag, a, r), sp = Math.hypot(tx, ty, tz);
+        if (sp > lim && sp > 0) {
+          const k = 1 - Math.pow(1 - Math.min(1, Math.max(0, m.limit.dampen || 0)), 30 * dt), ns = sp + (lim - sp) * k;
+          tx *= ns / sp; ty *= ns / sp; tz *= ns / sp;
+        }
+        const drag = evalMM(m.limit.drag, a, r);
+        if (drag) {
+          const s0 = Math.hypot(tx, ty, tz);
+          if (s0 > 0) { const k = Math.max(0, s0 - this.dragOf(i, a, drag, s0) * dt) / s0; tx *= k; ty *= k; tz *= k; }
+        }
+        vx = tx - ox; vy = ty - oy; vz = tz - oz;
       }
+      this.vel[i * 3] = vx; this.vel[i * 3 + 1] = vy; this.vel[i * 3 + 2] = vz;
+      this.pos[i * 3] += (vx + ox) * sm * dt; this.pos[i * 3 + 1] += (vy + oy) * sm * dt; this.pos[i * 3 + 2] += (vz + oz) * sm * dt;
       this.avel[i * 3] = ox; this.avel[i * 3 + 1] = oy; this.avel[i * 3 + 2] = oz;
       if (P && !this.collide(i, a, r, P)) { this.kill(i); continue; }
       if (m.rotOL) {
@@ -2206,7 +2261,7 @@ class ParticleSystem {
   draw(sinceStart) {
     const m = this.ps.mods;
     if (this.velAlign && this.n) this.velFrame();
-    if (this.scalePath && this.n) this.sysScale();
+    if ((this.scalePath || this.rootTurn) && this.n) this.sysScale();
     // instance data, uploaded by the used range in one call
     const n = this.n, D = this.ib.array, rotSign = this.meshRotSign;
     for (let i = 0; i < n; i++) {
@@ -2317,14 +2372,14 @@ class ParticleSystem {
    */
   sysScale() {
     let x = 1, y = 1, z = 1;
-    for (const o of this.scalePath) { x *= Math.abs(o.scale.x); y *= Math.abs(o.scale.y); z *= Math.abs(o.scale.z); }
+    if (this.scalePath) for (const o of this.scalePath) { x *= Math.abs(o.scale.x); y *= Math.abs(o.scale.y); z *= Math.abs(o.scale.z); }
     const u = this.material.uniforms, M = u.uSys.value.elements, S = (this.sysS ||= new THREE.Vector3(NaN, 0, 0));
     if (S.x !== x || S.y !== y || S.z !== z) {
       S.set(x, y, z);
       M[12] = x; M[13] = y; M[14] = z;
       u.uSysOn.value = Math.abs(x - 1) > 1e-4 || Math.abs(y - 1) > 1e-4 || Math.abs(z - 1) > 1e-4;
     }
-    if (!u.uSysOn.value) return;
+    if (!u.uSysOn.value && !this.rootTurn) return;
     // the root's turn, Unity frame → scene (its columns without their length; the facing mirror keeps its sign)
     this.root.updateWorldMatrix(true, false);
     const e = this.root.matrixWorld.elements;
@@ -2669,17 +2724,18 @@ function shapeSample(sh, p, d, ms = null, ctx = null) {
   if (!sh) return;
   const rand = Math.random;
   const arcU = () => (sh.arcMode || sh.arcSpread ? arcPick(sh.arcMode || 0, sh.arcSpread || 0, ctx?.arcLaps || 0, sh.arc ?? 360, ctx) : rand());
-  const r = (sh.radius || 0) * (1 - (sh.thick ?? 1) * rand());
   const keep = 1 - (sh.thick ?? 1);
+  // (official client StartSphere / StartHemiSphere) the radius at ∛lerp((1 − thickness)³, 1, rand): even over the shell's volume
+  const ball = () => (sh.radius || 0) * Math.cbrt(1 + (keep * keep * keep - 1) * rand());
   switch (sh.type) {
-    case 0: case 1: { // sphere
-      const u = rand() * 2 - 1, th = rand() * Math.PI * 2, s = Math.sqrt(1 - u * u);
-      d.set(s * Math.cos(th), s * Math.sin(th), u); p.copy(d).multiplyScalar(r);
+    case 0: case 1: { // sphere: round its arc, in its order like a circle's
+      const u = rand() * 2 - 1, th = arcU() * (sh.arc ?? 360) * D2R, s = Math.sqrt(1 - u * u);
+      d.set(s * Math.cos(th), s * Math.sin(th), u); p.copy(d).multiplyScalar(ball());
       break;
     }
-    case 2: case 3: { // hemisphere (+z)
-      const u = rand(), th = rand() * Math.PI * 2, s = Math.sqrt(1 - u * u);
-      d.set(s * Math.cos(th), s * Math.sin(th), u); p.copy(d).multiplyScalar(r);
+    case 2: case 3: { // hemisphere (+z), the same
+      const u = rand(), th = arcU() * (sh.arc ?? 360) * D2R, s = Math.sqrt(1 - u * u);
+      d.set(s * Math.cos(th), s * Math.sin(th), u); p.copy(d).multiplyScalar(ball());
       break;
     }
     case 4: case 7: case 8: case 9: { // cone along +z

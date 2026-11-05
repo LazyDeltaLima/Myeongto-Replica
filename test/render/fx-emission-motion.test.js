@@ -130,6 +130,60 @@ test('noise: the gradient noise is the official client\'s (its x / y derivatives
   }
 });
 
+test('noise: the Low and Medium qualities are the official client\'s Perlin1D and Perlin2D', async () => {
+  const { perlin1, perlin2 } = await import('../../public/js/render/fxplayer.js');
+  const P1 = [[[-2.8572,3.5863,25.4526],1.0,-2.54931,0.0],[[-2.061,0.4705,5.2431],1.0,2.16457,0.0],[[-18.9204,0.7145,7.793],1.0,2.25294,0.0],[[17.5786,-24.3526,-11.7959],1.0,-1.14058,0.0],[[-24.5598,18.5787,11.6063],0.37,-0.59957,0.0],[[-27.4872,28.9316,27.8855],0.37,-0.97653,0.0],[[9.2354,6.9338,-20.5504],0.37,-0.44345,0.0],[[-29.1,1.7029,-26.4269],0.37,0.99074,0.0],[[-18.5875,-15.4834,-28.195],2.5,4.3019,0.0],[[-2.1639,-3.5681,20.5456],2.5,-3.77407,0.0],[[1.1474,8.4175,-0.0136],2.5,-3.04349,0.0],[[9.747,-2.5602,-13.3102],2.5,-4.5182,0.0]];
+  const P2 = [[[-2.8572,3.5863,25.4526],1.0,-0.12723,-0.95785],[[-2.061,0.4705,5.2431],1.0,-0.07094,-0.00511],[[-18.9204,0.7145,7.793],1.0,-0.10263,-1.04457],[[17.5786,-24.3526,-11.7959],1.0,0.0,0.29638],[[-24.5598,18.5787,11.6063],0.37,0.0,0.15757],[[-27.4872,28.9316,27.8855],0.37,0.0,0.0],[[9.2354,6.9338,-20.5504],0.37,0.0,0.0],[[-29.1,1.7029,-26.4269],0.37,-0.1128,0.00572],[[-18.5875,-15.4834,-28.195],2.5,-0.62356,1.17009],[[-2.1639,-3.5681,20.5456],2.5,-2.49416,0.05774],[[1.1474,8.4175,-0.0136],2.5,3.22518,0.08913],[[9.747,-2.5602,-13.3102],2.5,0.0,0.0]];
+  for (const [fn, list] of [[perlin1, P1], [perlin2, P2]]) {
+    for (const [p, f, a, b] of list) {
+      const d = fn(p[0], p[1], p[2], f);
+      near(d[0], a, `${fn.name} x at ${p} × ${f}`, 2e-3); near(d[1], b, `${fn.name} y at ${p} × ${f}`, 2e-3);
+    }
+  }
+});
+
+test('noise: `qual` picks the quality; the scroll runs along the last axis it reads', async () => {
+  const noise = { str: K(1), freq: 1, scroll: K(3), damping: false };
+  const inst = await make([node('t', -1),
+    node('a', 0, { ps: ps({ noise: { ...noise, qual: 0 } }) }), node('b', 0, { ps: ps({ noise: { ...noise, qual: 1 } }) }), node('c', 0, { ps: ps({ noise }) })]);
+  inst.update(0.05);
+  const [a, b, c] = inst.systems, out = { x: 0, y: 0, z: 0, w: 0, set(x, y, z, w) { this.x = x; this.y = y; this.z = z; this.w = w; return this; } };
+  const fx = await import('../../public/js/render/fxplayer.js');
+  for (const [s, pn, sx, sy, sz] of [[a, fx.perlin1, 1, 0, 0], [b, fx.perlin2, 0, 1, 0], [c, fx.perlinD, 0, 0, 1]]) {
+    s.pos[0] = 1.3; s.pos[1] = -2.1; s.pos[2] = 0.7; s.nOff = [0.25, 0.5, 0.75]; s.nScroll = 0.4;
+    const x = 1.55, y = -1.6, z = 1.45, sc = 0.4;
+    const r1 = [...pn(z + sx * sc, y + sy * sc, x + sz * sc, 1)], r2 = [...pn(x + 100 + sx * sc, z + sy * sc, y + sz * sc, 1)], r3 = [...pn(y + sx * sc, x + 100 + sy * sc, z + sz * sc, 1)];
+    s.noiseAt(0, 0.1, 0.5, out);
+    near(out.x, r3[0] - r2[1], 'x'); near(out.y, r1[0] - r3[1], 'y'); near(out.z, r2[0] - r1[1], 'z');
+  }
+  inst.dispose();
+});
+
+test('shape: a sphere\'s radius is even over the shell\'s volume, round its arc and in its order; a hemisphere\'s the same over +z', async () => {
+  const sph = (extra) => ring({ type: 0, arc: 360, thick: 1, ...extra });
+  const inst = await make([node('t', -1),
+    node('v', 0, { ps: ps({}, { n: 150, shape: sph({}) }) }),
+    node('k', 0, { ps: ps({}, { n: 150, shape: sph({ thick: 0.5 }) }) }),
+    node('a', 0, { ps: ps({}, { n: 150, shape: sph({ arc: 90 }) }) }),
+    node('b', 0, { ps: ps({}, { n: 4, shape: sph({ arcMode: 3 }) }) }),
+    node('h', 0, { ps: ps({}, { n: 150, shape: sph({ type: 2, arc: 90 }) }) })]);
+  inst.update(0.001);
+  const [v, k, a, b, h] = inst.systems;
+  const len = (s, i) => Math.hypot(s.pos[i * 3], s.pos[i * 3 + 1], s.pos[i * 3 + 2]);
+  const radii = (s) => Array.from({ length: s.n }, (_, i) => len(s, i)).sort((x, y) => x - y);
+  // even over the volume: half the points outside ∛½ = 0.794 of the radius (a plain 1 − rand has its median at 0.5)
+  const med = radii(v)[75];
+  assert.ok(med > 0.68 && med < 0.9, `the median radius: ${med}`);
+  assert.ok(radii(k)[0] >= 0.5 - 1e-3, `thickness 0.5 stays in the outer half: ${radii(k)[0]}`);
+  const kMed = radii(k)[75];
+  assert.ok(kMed > 0.76 && kMed < 0.9, `∛lerp(⅛, 1, ½) = 0.825: ${kMed}`);
+  const quad = (s) => Array.from({ length: s.n }, (_, i) => [s.pos[i * 3], s.pos[i * 3 + 1], s.pos[i * 3 + 2]]);
+  assert.ok(quad(a).every(([x, y]) => x >= -1e-6 && y >= -1e-6), 'arc 90°: the first quadrant only');
+  assert.deepEqual(angles(b), [0, 90, 180, 270], 'BurstSpread round the circle');
+  assert.ok(quad(h).every(([x, y, z]) => x >= -1e-6 && y >= -1e-6 && z >= -1e-6), 'the hemisphere: +z, its arc too');
+  inst.dispose();
+});
+
 test('shape order: Loop turns 360° a second whatever the arc and wraps at its end; BurstSpread includes both ends of a part arc / an edge', async () => {
   const inst = await make([node('t', -1),
     node('l', 0, { ps: ps({}, { n: 0, rate: 1, loop: true, dur: 5, shape: ring({ arc: 180, arcMode: 1, arcSpread: 0, arcSpeed: K(1) }) }) }),

@@ -1802,7 +1802,7 @@
     월드 공간 계만 이미터 속도 × k를 더한다(Unity 매뉴얼: 이 모듈은 World 시뮬레이션 공간에서만 작동 — 로컬 계 33개는 아무것도 안 함). 이미터 속도 =
     그 노드의 직전 프레임 대비 월드 이동을 루트 좌표로(날아가는 투사체의 루트 이동 포함).
   - `SizeBySpeedModule` 민트 넷·적 둘(`xingdian` 별 입자) → `mods.sizeBySpeed` { x(y, z), range }: 속도가 `range`에서 차지하는 자리의 곡선 값을
-    크기에 곱한다. 속도는 시뮬레이션 속도(VelocityOverLifetime·노이즈 오프셋 제외 — 속도 제한이 있는 계는 VelocityOverLifetime 포함, 아래 `ClampVelocityModule`) [추정]. 민트 S1·S2 범위의 별은 시작 속도 0.2–0.5 / 범위 0–10이라
+    크기에 곱한다. 속도는 입자 속도 + 애니메이션 속도(VelocityOverLifetime·궤도·방사·노이즈 포함 — 공식 클라 `SizeBySpeedModule.Update`, 2026-11-05). 민트 S1·S2 범위의 별은 시작 속도 0.2–0.5 / 범위 0–10이라
     시작 크기의 0.08–0.15배 — 예전엔 시작 크기(최대 3) 그대로 커다란 검은 조각으로 보였다.
   - `CollisionModule` 운영자 28·적 14 — 전부 type 0(평면), 평면은 프리팹 안 노드(대개 하나), 중력 0이 대부분. → `mods.collide` { planes(노드 번호 —
     `collide_planes`), dampen, bounce, lifeLoss(`m_EnergyLossOnCollision`), minKill, maxKill, radius }; 평면이 없는 계 2개는 모듈을 뺌(충돌할 것 없음).
@@ -1810,14 +1810,16 @@
     × `bounce`로 뒤집은 뒤 속도의 `dampen`만큼 잃고, 수명의 `lifeLoss`를 잃고, 속도가 `minKill` 미만·`maxKill` 초과면 죽는다(`maxKill` 10인 계 14개 —
     부딪히면 사라짐). [추정: Unity 매뉴얼의 설명대로 — 엔진 코드는 못 읽음; 평면 뒤의 입자도 앞으로 밀림(한쪽 면)] 애쉬락·백파이프 탄피·첸 더
     던스트릭 S3 동전·머드락 돌 등.
-  - `ClampVelocityModule`(`mods.limit` { mag, dampen, drag }) — 2026-10-24부터 **VelocityOverLifetime까지 합친 속도 전체**를 제한한다(관리자 제보
+  - `ClampVelocityModule`(`mods.limit` { mag, dampen, drag }) — **입자 속도 + 애니메이션 속도 전체**를 제한한다(2026-10-24부터 VelocityOverLifetime까지, 2026-11-05부터 궤도·방사·노이즈까지; 관리자 제보
     「패신저가 가만히 대기할 때 무기 이펙트가 너무 과해서 하늘로 솟구친다」). 예전엔 시작 속도·중력·힘으로 쌓인 속도(`vel`)에만 걸려, 두 모듈을 같이 쓰는
     계 1031개(584 프리팹) 중 시작 속도 0·힘 없음인 289개는 제한이 아무것도 안 했다. 패신저 2재능 孤卒(주변 4칸에 적이 없을 때) 버프
     `pasngr_beidong_buff_02`의 번개 `shandian_da`(무기 점 `F_Weapon_A_cb`에 붙어 뼈와 함께 돎)는 시작 속도 0, 수명 동안 5 / s, 제한 0.7 → 0(수명 0.5부터
     0.94까지 줄어듦)·dampen 0.2라 공식은 무기 둘레에 머무는데, 우리는 수명(0.3–0.6 s)마다 1.5–3칸을 뻗어 나갔다(헤드리스 측정: 태어난 점에서 최대
-    2.84 → 0.93칸, 남은 것은 노이즈). 구현: `vel`이 제한된 전체 속도를 갖고, 매 프레임 직전 나이의 VelocityOverLifetime을 뺀 뒤 이번 것을 더해 제한
-    → 그린 속도(늘인 빌보드 방향·속도별 크기)도 전체 속도. [추정: Unity 매뉴얼은 두 모듈의 관계를 안 적음 — 근거는 위 289개 계의 짜임(제한이 VelocityOverLifetime에
-    안 걸리면 쓸모없는 모듈)] 노이즈는 제한 밖 그대로. 시험 `test/render/fx-particle-modules.test.js` 「limit velocity」.
+    2.84 → 0.93칸, 남은 것은 노이즈 — 2026-11-05에 노이즈도 제한 안으로).
+    공식 클라에서 확인(2026-11-05, 처음의 추정을 대신함): 시뮬 전 모듈 차례는 모양 → 시작 값 → 외부 힘 → 회전 → **속도(VelocityOverLifetime·궤도·방사) → 노이즈** → 속도 상속 → 힘 → **제한**이고,
+    `MagnitudeUpdate`는 속도 + 애니메이션 속도의 합을 한계 쪽으로 줄인 뒤 입자 속도에 (합 − 애니메이션 속도)를 다시 쓴다. 구현이 그대로다: `vel` = 입자 속도, `avel` = 그 걸음의 애니메이션 속도. 궤도의 이동도
+    걸음 앞 위치에서 재어 애니메이션 속도로 더한다(예전엔 적분 뒤에 위치를 돌렸다). 충돌은 `vel`만 반사한다 [추정·미조사: 충돌 모듈이 애니메이션 속도를 보는지 — 제한·속도 모듈·충돌을 같이 쓰는 계 11개; 위 충돌 항목과 같은 미확인].
+    시험 `test/render/fx-particle-modules.test.js` 「limit velocity」 둘. [화면 미확인: 패신저 孤卒 번개·노이즈와 제한을 같이 쓰는 1782계 — 공식과 나란히]
 - **셰이더 패스 상태**(클라 `[uc]shaders.ab` Shader `m_ParsedForm` — Torappu 입자 셰이더 전부의 패스별 Cull·ZWrite·ZTest·Blend와 그것이 읽는 속성;
   `fxplayer.js renderState`):
   - 컬링(Unity CullMode 0 끔·1 앞면·2 뒷면): `_CullMode`를 읽는 것은 Disturb 계열(GrabPass 제외)·(CustomData) 계열·AlphaBlend(ZWrite)·Common·
@@ -3531,13 +3533,15 @@
   오프셋을 (z, y, x + 스크롤)·(x + 100, z, y + 스크롤)·(y, x + 100, z + 스크롤)에서 R1·R2·R3 → 속도 (R3x − R2y, R1x − R3y, R2x − R1y). 옥타브(`octaves` →
   `oct`)는 진폭(`octaveMultiplier`)·주파수(`octaveScale`)를 곱해 가며 더하고 진폭 합으로 나눈다. 스크롤은 계마다 `scrollSpeed`(계 시간, 위쪽 값) × dt를 쌓는다.
   × 세기(축 분리 `strY`·`strZ`; 감쇠면 ÷ 주파수) × 위치 배율(`posAmt`) → 그 걸음에만 더하는 속도. 회전(`rotAmt`)은 z 노이즈 × 세기 × 배율 × dt × π/360,
-  크기(`sizeAmt`)는 × max(0, 1 + ½ × 배율 × x 노이즈 × 세기). 예전엔 입자마다 나이의 사인으로 흔들어 주파수·감쇠·스크롤과 무관했다. [추정·미조사: 품질
-  1D·2D(`Perlin1D`·`Perlin2D`와 그 잡의 조립, 클라 62계)도 3D와 같이]
+  크기(`sizeAmt`)는 × max(0, 1 + ½ × 배율 × x 노이즈 × 세기). 예전엔 입자마다 나이의 사인으로 흔들어 주파수·감쇠·스크롤과 무관했다.
+  품질(`quality` → `qual`, 2026-11-05 공식 클라에서 확인): 0 Low = `Perlin1D`, 1 Medium = `Perlin2D`, 2 High = 위 3D. 세 점과 조립은 같고 스크롤만 그 품질이 읽는 마지막 축으로 간다(1D 첫째, 2D 둘째). `Perlin1D`는 기울기 ±1(순열 낮은 한 비트)로
+  (2f × dN/dx, 0), `Perlin2D`는 기울기 네 방향(낮은 세 비트, 나머지 넷은 빈 값)으로 √2 f × (∂N/∂x, ∂N/∂y) — 무작위 점에서 공식 클라 값과 시험(`fx-emission-motion` 「Perlin1D and Perlin2D」).
 - **끌림·한계**(공식 클라 `DragUpdate`·`MagnitudeUpdate`·`ClampVelocityModule.Update`): 끌림은 초당 `끌림 × π(크기/2)² × 속력²`만큼 속력을 줄인다
   (`multiplyDragByParticleSize`·`…Velocity` — 끌림이 있는 추출 계는 모두 켜짐, 꺼진 계는 커버리지가 보고). 한계를 넘으면 속력이 걸음마다
   1 − (1 − dampen)^(30·dt)만큼 한계 쪽으로 — 30fps에서 예전 식(프레임마다 dampen)과 같고, 60fps에선 예전이 두 배 빨리 줄였다.
-- 남은 것(§11 ③ 「묶음 U 남은 것」): `alignToDirection`(圣约送葬人 범위 4개), 구·반구의 호와 순서(엔진은 받는데 플레이어는 늘 무작위 — 적 40계, 커버리지
-  todo), 구·반구 두께 분포(안 읽음, 지금은 반지름 × (1 − 두께 × 난수)), 위 1D·2D 노이즈.
+- **구·반구**(공식 클라 `StartSphere`·`StartHemiSphere`, 2026-11-05): 방향 z는 구 2난수 − 1·반구 난수, 둘레는 호와 그 순서(원과 같은 `arcPick` — 예전엔 늘 온 둘레 무작위라 적 40계의 BurstSpread·호 5계가 어긋남), 반지름은 ∛lerp((1 − 두께)³, 1, 난수)로
+  껍질 부피에 고르게(예전 반지름 × (1 − 두께 × 난수)는 가운데에 몰림 — 구·반구 2030계 전부 입자가 바깥쪽으로 옮겨 간다). 방향은 두께와 상관없이 단위 벡터. [화면 미확인: 공식과 나란히]
+- **`alignToDirection`**(공식 클라 `EmitterStoreData`): 시작 방향의 오일러 회전을 입자 회전에 더한다. 추출본에 쓰는 계는 이그제큐터 디 엑스 포에데레 범위 4개뿐이고 모두 늘인 빌보드(freeform 아님)라 회전을 읽지 않으므로 그릴 것이 없다 — 재생기에 넣지 않았고, 다른 렌더러에서 나오면 `fx_coverage`가 알린다.
 - 확인: `test/render/fx-emission-motion.test.js`(Perlin 값은 공식 값 4점). 운영자·적 전체 재추출 전후 JSON은 새 키만 늘었다(776 / 4022 파일). 픽셀 비교와
   이벤트 골든·`--coverage` 수치는 관리자 노트. [화면 미확인: 공식 녹화 대조 — 거리당 방출 꼬리, 미리 데운 범위, 노이즈 흐름]
 
@@ -3730,6 +3734,7 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
   같은 날 전 선발을 다시 봄: 시뮬 공격 클립과 화면이 실제로 트는 클립의 길이·타격이 모두 같다(`test/sim/attack-clip-view.test.js`, 스탠스 스킬은 클립 없음). 왕 S2·토가와 사키코 S2는 이름만 달랐고, 비비아나 S1·유넥티스 S3은 화면 클립이 틀렸다 → `render.md` 「Spine 클립 커버리지」. 2026-11-05 상점 기물·예비와 기본 모드까지 넓힘: 시뮬 쪽이 틀린 넷 → `sim.md` 「일반 공격 타이밍」.
 - 리(`char_322_lmlee`) 재능 1(2026-11-04): 저지하는 동안 `lmlee_t_1[self]` `lmlee_buff_01_start`가 그에게, `lmlee_t_1[enemy]` `lmlee_debuff_01_start`가 저지당한 적에게 — 시뮬
   `talent:lmlee:self`·`talent:lmlee:foe:<그의 id>`를 `visible`로 알리고 `KEY_FX`가 그린다(공격 속도 값은 그대로, 효과만 추가). [화면 미확인: 실제 판]
+- **메시 입자 정렬**(2026-11-05, 공식 클라에서 확인 — 클라 자체 엔진 빌드의 정렬별 메시 잡): `m_RenderAlignment`가 잡을 고르고 잡마다 행렬 도우미에 넘기는 기저만 다르다. Local(2)은 계의 회전, World(1)는 항등(Unity 세계 축), View(0)는 카메라의 오른쪽·위·앞(메시 z가 카메라 앞), Velocity(4)는 z = 입자 속도 + 애니메이션 속도 방향, x = normalize(세계 위 × z)(멈췄으면 z = 세계 z, 위와 나란하면 세계 x), y = z × x. 계의 변환 크기는 기저 안쪽에서 곱한다. 수명 중 회전이 축별이면 Local로 강제(12계). 예전엔 전부 Local로 그려 View 296·Velocity 20·World 8계(추출본)가 노드 회전을 따랐다. Facing(3) 잡은 안 읽음 — 추출본에 없고 나오면 `fx_coverage`가 알린다, Local로 그림. 렌더러의 `m_AllowRoll`이 꺼지면 View 잡에 카메라 롤 보정이 붙는다(안 넣음: 보드 카메라는 안 돈다). `fxplayer.js` `meshAlign`·`uMode == 4`. 확인: `test/render/fx-drawing.test.js` 「a mesh particle's alignment」, Windows Chrome에서 표본 12개 전후 비교(깨지지 않음). [화면 미확인: 공식과 나란히 — Mon3tr S1 시작·토스카 타격 고리(View, `monstr_skill_01_start_01`·`tocka_attack_01_hit_01`), 쉐라 얼음(Velocity, `kjera_attack_start_01`), 위 S3 범위(World, `yu_skill3_range_01_root`)]
 - **메시 입자 pivot**(2026-11-04, 공식 클라에서 확인 — 클라 자체 엔진 빌드의 메시 지오메트리 잡. 같은 판 Unity 기본 플레이어와 다르다): 메시 좌표에 (pivot.x × 크기.x, −pivot.z × 크기.y, pivot.y × 크기.z)를 더한 뒤 입자 크기·회전. 곧 메시 축으로 (x·sx², −z·sy², y·sz²)이고 메시 경계는 안 쓴다(경계 × (x, y, −z)는 기본 플레이어와 GPU 인스턴싱 길의 식 — 앞서 2026-11-04에 이것을 넣었다가 사진과 달라 뺐다). `fxplayer.js` 셰이더 `piv`.
   y가 메시 z로 가므로 재구성체 조각(pivot y 27, 크기 z 0.12)은 27 × 0.12 × 0.12 = 0.39칸 밖에 놓이고 긴 축(메시 z)이 바깥을 향한다: 8계가 노드 요 45°씩이라 `spin` 축을 둘러싼 고리가 되고, 시작 회전·수명 중 회전은 긴 축을 도는 자전이다. 공식 사진(관리자 2026-11-04)과 대조: 고리 폭 0.96칸 같음, 방사형·왼쪽이 높음 같음, 위아래 반지름은 공식 약 0.24칸·우리 약 0.18칸(카메라 차이인지 안 봄).
   pivot 있는 메시 입자 425계(133프리팹)가 움직인다. 메시 중심이 치우친 114계 중 78계에서 이 식이 네 후보(이 식·기본 플레이어 식·크기 단위·pivot 없음) 중 메시 중심을 입자에 가장 가깝게 놓고, 기본 플레이어 식이 만들던 수백 칸 밖 위치가 없어진다. [추정·엔진: 이 모드의 셰이더는 GPU 인스턴싱 길을 안 탄다고 봄 — 재구성체 사진은 안 타는 쪽과 맞지만 조건은 안 읽음] [화면 미확인: 재구성체 외 공식 대조]

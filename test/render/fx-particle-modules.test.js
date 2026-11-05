@@ -216,9 +216,41 @@ test('limit velocity: the limit clamps VelocityOverLifetime too (패신저 T2\'s
   assert.equal(l.n, 4);
   for (let i = 0; i < l.n; i++) {
     assert.ok(Math.abs(l.pos[i * 3] - 0.5) < 1e-3, `0.5 / s for 1 s: ${l.pos[i * 3]}`);
-    assert.ok(Math.abs(l.vel[i * 3] - 0.5) < 1e-4, `the drawn velocity is the clamped total: ${l.vel[i * 3]}`);
+    assert.ok(Math.abs(l.vel[i * 3] + l.avel[i * 3] - 0.5) < 1e-4, `velocity + animated velocity is the clamped total: ${l.vel[i * 3] + l.avel[i * 3]}`);
+    assert.ok(Math.abs(l.avel[i * 3] - 5) < 1e-4, `VelocityOverLifetime stays in the animated velocity: ${l.avel[i * 3]}`);
     assert.ok(Math.abs(f.pos[i * 3] - 5) < 1e-3, `5 / s for 1 s: ${f.pos[i * 3]}`);
   }
+  inst.dispose();
+});
+
+test('limit velocity: the noise is inside the limit too (official order: velocity module, noise, force, then the limit)', async () => {
+  const noise = { str: K(30), freq: 1, scroll: K(0), damping: false };
+  const limit = { mag: K(0.5), dampen: 1, drag: K(0) };
+  const { inst } = await make([node('t', -1), node('l', 0, { ps: ps({ noise, limit }, { speed: 0 }) }), node('f', 0, { ps: ps({ noise }, { speed: 0 }) })]);
+  const at = (s) => Array.from({ length: s.n * 3 }, (_, i) => s.pos[i]);
+  let free = 0, held = 0;
+  inst.update(0.05);
+  for (let k = 0; k < 20; k++) {
+    const [l, f] = inst.systems, a = at(l), b = at(f);
+    inst.update(0.05);
+    for (let i = 0; i < l.n; i++) {
+      held = Math.max(held, Math.hypot(l.pos[i * 3] - a[i * 3], l.pos[i * 3 + 1] - a[i * 3 + 1], l.pos[i * 3 + 2] - a[i * 3 + 2]) / 0.05);
+      free = Math.max(free, Math.hypot(f.pos[i * 3] - b[i * 3], f.pos[i * 3 + 1] - b[i * 3 + 1], f.pos[i * 3 + 2] - b[i * 3 + 2]) / 0.05);
+    }
+  }
+  assert.ok(free > 2, `the free noise runs fast: ${free}`);
+  assert.ok(held <= 0.5 + 1e-3, `the limit holds it: ${held}`);
+  inst.dispose();
+});
+
+test('size by speed: the speed is velocity + animated velocity (official SizeBySpeedModule)', async () => {
+  const sbs = { x: { m: 1, s: 1, c: [[0, 0, 1, 1], [1, 1, 1, 1]] }, range: [0, 10] };
+  const velOL = { x: K(5), y: K(0), z: K(0), world: false, radial: K(0), orbZ: K(0), speedMul: K(1) };
+  const { inst } = await make([node('t', -1), node('p', 0, { ps: ps({ sizeBySpeed: sbs, velOL }, { speed: 0, size: 0.4 }) })]);
+  inst.update(0.05);
+  const p = inst.systems[0], out = [0, 0, 0];
+  p.sizeOf(0, 0.01, 0, out);
+  assert.ok(Math.abs(out[0] - 0.5) < 1e-6, `5 of the range 0–10: ${out[0]}`);
   inst.dispose();
 });
 

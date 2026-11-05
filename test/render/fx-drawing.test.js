@@ -172,6 +172,25 @@ test('freeform stretching and Velocity alignment reach the shader; the Velocity 
   left.dispose();
 });
 
+test('a mesh particle\'s alignment reaches the shader: View, World and Velocity take the basis of their job, Local the node\'s (official mesh jobs)', async () => {
+  const THREE = await import('../../public/vendor/three.module.js');
+  const mesh = (align, mods = {}) => ({ ps: ps(mods, { render: { mode: 4, mesh: 'b', align } }) });
+  const { inst } = await make([node('t', -1), node('v', 0, mesh(0)), node('w', 0, mesh(1)), node('l', 0, mesh(2)), node('f', 0, mesh(3)), node('s', 0, mesh(4)),
+    node('x', 0, mesh(0, { rotOL: { x: K(1), y: K(0), z: K(0) } }))], { b: new THREE.BoxGeometry(1, 1, 1) });
+  inst.update(0.05);
+  const [v, w, l, f, s, x] = inst.systems, al = (o) => o.material.uniforms.uAlign.value;
+  assert.deepEqual([al(v), al(w), al(l), al(s)], [0, 1, 2, 4]);
+  assert.equal(al(f), 2, 'a mesh\'s Facing job is unread: Local (fx_coverage reports one)');
+  assert.equal(al(x), 2, 'separate-axes rotation over life forces Local (PrepareForRender)');
+  assert.ok(s.velAlign && !v.velAlign && s.rootTurn && w.rootTurn && !v.rootTurn && !l.rootTurn);
+  w.draw(0);
+  const M = w.material.uniforms.uSys.value.elements;
+  assert.ok(Math.abs(Math.hypot(M[0], M[1], M[2]) - 1) < 1e-6, 'the root\'s turn reaches a World mesh with no scale on it');
+  const sh = v.material.vertexShader, at = sh.indexOf('uMode == 4');
+  assert.match(sh.slice(at, at + 2400), /vec3 off = vb \* \(uSysS \* p\);/, 'the scale inside the basis (the mesh matrix helper)');
+  inst.dispose();
+});
+
 test('a 3D-rotated Velocity quad turns by -x, -y, -z in the velocity frame (蕾缪安 S3 mark wedges: rotX 90° lays it along the velocity)', async () => {
   const IV_ROT = 6;
   const { inst } = await make([node('t', -1),
@@ -181,7 +200,7 @@ test('a 3D-rotated Velocity quad turns by -x, -y, -z in the velocity frame (蕾�
   assert.ok(rows(v, IV_ROT).every((x) => Math.abs(x - Math.PI / 2) < 1e-6), `iRot.x = rotX: ${rows(v, IV_ROT)}`);
   // the engine's 3D-rotation quad, v = +x, rotX 90°: corners (−1,−1,0) (−1,1,0) (1,1,0) (1,−1,0) for the unit quad — the
   // corner (x, y, 0) turned by Ry(−y)·Rx(−x)·Rz(−z) in the frame (right, up, normal = v̂)
-  const sh = v.material.vertexShader, at = sh.indexOf('uAlign == 4');
+  const sh = v.material.vertexShader, at = sh.indexOf('uMode == 0 && uAlign == 4');
   assert.ok(at > 0 && /vec3 lc = uSysS \* \(rotZXY\(-iRot\) \* vec3\(c, 0\.0\)\);/.test(sh.slice(at, at + 2000)), 'the Velocity branch turns the corner in 3D');
   assert.match(sh.slice(at, at + 2000), /rt \* lc\.x \+ cross\(nw, rt\) \* \(uHand \* lc\.y\) \+ nw \* lc\.z/);
   inst.dispose();

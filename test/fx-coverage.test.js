@@ -81,6 +81,22 @@ print(json.dumps(sorted(r['what'] + ' ' + r['status'] for r in cov.report() if r
     ]);
   });
 
+  test('a start-direction turn is reported where a renderer reads it, a mesh\'s Facing job always, a sphere\'s arc no more', () => {
+    const rep = py(`
+sh = lambda **k: {'enabled': 1, 'arc': {'value': 90.0, 'mode': 3, 'spread': 0.25}, **k}
+def fields(*systems):
+    cov = c.Coverage()
+    cov.begin('x/y')
+    for ps, r in systems: cov.particle({'ShapeModule': ps}, r)
+    return sorted(r['what'] for r in cov.report() if r['kind'] == 'field' and r['status'] not in ('none', 'hand'))
+print(json.dumps({
+    'quiet': fields((sh(type=4, alignToDirection=1), {'m_RenderMode': 1, 'm_FreeformStretching': 0}), (sh(type=0), {'m_RenderMode': 0})),
+    'loud': fields((sh(type=4, alignToDirection=1), {'m_RenderMode': 0}), (sh(type=4), {'m_RenderMode': 4, 'm_RenderAlignment': 3})),
+}))`);
+    assert.deepEqual(rep.quiet, [], 'a stretched billboard never reads its rotation; a sphere\'s arc and order are played');
+    assert.deepEqual(rep.loud, ['ShapeModule.alignToDirection ≠ False', 'renderer.m_RenderAlignment Facing on a mesh']);
+  });
+
   test('component, script and material fields: a random projectile turn, a keyword, the turned nodes', () => {
     // (2026-10-26, effect bundle W1) what the particle check could not see: the other components, the scripts, the materials
     // (effect bundle W2a: a switched-off MeshRenderer / script and a second material are read now, not reported; W2b: the

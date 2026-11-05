@@ -422,6 +422,8 @@ def particle_system(ps, psr, mat_key, mesh_key, trail_mat=None, shape_mesh=None,
         n = ps['NoiseModule']
         mods['noise'] = {'str': minmax(n['strength']), 'freq': r4(n['frequency']), 'scroll': minmax(n.get('scrollSpeed')),
                          'damping': bool(n.get('damping'))}
+        if n.get('quality', 2) != 2:   # (official client) 0 Low = Perlin1D, 1 Medium = Perlin2D, else Perlin3D
+            mods['noise']['qual'] = n['quality']
         # (2026-10-26, effect bundle U) a strength per axis, the octaves, the amounts on position / rotation / size
         if n.get('separateAxes'):
             mods['noise'].update({'strY': minmax(n['strengthY']), 'strZ': minmax(n['strengthZ'])})

@@ -159,7 +159,7 @@ def _flag(m, f):
     return lambda ps, r: bool(_mod(ps, m).get(f))
 
 
-_ARC = (4, 7, 8, 9, 10, 11, 17)   # the shapes with an arc (cones, circles, the donut)
+_ARC = (0, 1, 2, 3, 4, 7, 8, 9, 10, 11, 17)   # the shapes with an arc (spheres, cones, circles, the donut)
 _LIGHTING = 'lighting, shadows, probes, batching: the effects are unlit and cast nothing'
 _SHAPE_KIND = 'the `shape` kind reports it (particle())'
 PS_FIELDS = {
@@ -219,7 +219,10 @@ PS_FIELDS = {
     'ShapeModule.m_Position.x': _K('shape.pos'), 'ShapeModule.m_Position.y': _K('shape.pos'), 'ShapeModule.m_Position.z': _K('shape.pos'),
     'ShapeModule.m_Rotation.x': _K('shape.rotE'), 'ShapeModule.m_Rotation.y': _K('shape.rotE'), 'ShapeModule.m_Rotation.z': _K('shape.rotE'),
     'ShapeModule.m_Scale.x': _K('shape.scale'), 'ShapeModule.m_Scale.y': _K('shape.scale'), 'ShapeModule.m_Scale.z': _K('shape.scale'),
-    'ShapeModule.alignToDirection': _A(False, 'particles turned to their start direction (`shape.align` is carried, not played)'),
+    # (official client EmitterStoreData) adds the Euler turn of the start direction to the rotation; a stretched billboard (not
+    # freeform) never reads its rotation, which is all the client has (圣约送葬人's four range effects)
+    'ShapeModule.alignToDirection': _A(False, 'particles turned to their start direction (`shape.align` is carried, not played)',
+                                       lambda ps, r: not (r and r.get('m_RenderMode') == 1 and not r.get('m_FreeformStretching'))),
     'ShapeModule.randomDirectionAmount': _K('shape.randDir'),
     'ShapeModule.sphericalDirectionAmount': _K('shape.sphDir'),
     'ShapeModule.randomPositionAmount': _K('shape.randPos'),
@@ -272,7 +275,7 @@ PS_FIELDS = {
     'NoiseModule.octaves': _K('mods.noise.oct'),
     'NoiseModule.octaveMultiplier': _K('mods.noise.octMul', lambda ps, r: _mod(ps, 'NoiseModule').get('octaves', 1) > 1),
     'NoiseModule.octaveScale': _K('mods.noise.octScale', lambda ps, r: _mod(ps, 'NoiseModule').get('octaves', 1) > 1),
-    'NoiseModule.quality': _N('[ASSUMED] Unity\'s 1D / 2D noise — the player samples one 3D field for every quality'),
+    'NoiseModule.quality': _K('mods.noise.qual'),
     'NoiseModule.remapEnabled': _A(False, 'the noise value remapped by a curve'),
     'NoiseModule.remap': _N('only with remapEnabled'), 'NoiseModule.remapY': _N('only with remapEnabled'),
     'NoiseModule.remapZ': _N('only with remapEnabled'),
@@ -837,7 +840,6 @@ KNOWN = {
     # (2158 prefabs); the note says which open bundle takes them (docs/rules/fx.md 「추출 누락 보고」 「입자 필드」)
     # (2026-10-26, effect bundle U) what that bundle left: the start direction turn of 4 systems (圣约送葬人's ranges)
     'field:ShapeModule.alignToDirection ≠ False': (_TODO, 'emission and motion (open): particles turned to their start direction'),
-    'field:ShapeModule.arc on a Sphere / Hemisphere': (_TODO, 'emission and motion (open): a sphere\'s arc and its order (the enemies\' 40 systems, BurstSpread)'),
     # (2026-10-26, effect bundle W1) the other components, the read scripts and the materials, from the first field-level run
     # over the operators' prefabs (EN + CN clients) and the enemies' (EN): what the pipeline does not do yet
     **{f'field:{w}': (_TODO, f'components and scripts (open): {n}') for w, n in (
@@ -1114,13 +1116,9 @@ class Coverage:
             if st[:4] != [0, 1, 3, 4] or not set(st) <= STREAMS_PLAYED:
                 self.add('field', f'renderer.m_VertexStreams = {st}',
                          'the player lays out Position, Normal, Color, UV, then the custom streams (fxplayer.js customMap)')
-        # (2026-10-26, effect bundle U) the engine's sphere / hemisphere take an arc and its order too (StartSphere<mode>);
-        # the player's spheres emit all round at random — PS_FIELDS looks at the arc on the cones, circles and donut only
-        sh = ps.get('ShapeModule') or {}
-        arc = sh.get('arc') or {}
-        if sh.get('enabled') and sh.get('type') in (0, 1, 2, 3) and (arc.get('mode', 0) or _val(arc.get('spread', 0))
-                                                                    or not _same(_val(arc.get('value', 360)), 360)):
-            self.add('field', 'ShapeModule.arc on a Sphere / Hemisphere', 'the player\'s spheres emit all round at random')
+        # (official client) a mesh particle's Facing job is unread, no system had it when the others went in; the player draws it as Local
+        if psr and psr.get('m_RenderMode') == 4 and psr.get('m_RenderAlignment') == 3:
+            self.add('field', 'renderer.m_RenderAlignment Facing on a mesh', 'the player draws it as Local (fxplayer.js meshAlign)')
 
     def check_fields(self, table, fs, prefix, args, name):
         """The `field` items of one type tree's fields `fs` ({dotted path: [values]}) by the rules of `table` (PS_FIELDS,
