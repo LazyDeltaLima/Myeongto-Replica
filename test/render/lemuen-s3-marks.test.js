@@ -18,10 +18,13 @@ test('the marks are owned by their targets, so only her own die can end them', (
   assert.match(KIT, /if \(reason !== 'death' && unit\.alive\) bombard\(battle, unit, locks\);/);
 });
 
-test('her die stops every mark of her locks and drops them (a late-loading one stops itself: mark.done)', () => {
+test('her die interrupts the aim projectiles\' beam and ring and ends the marks as their buff ends (a late-loading one stops itself: mark.done)', () => {
   const die = SRC.slice(SRC.indexOf("case 'die': {"), SRC.indexOf("case 'leak':"));
   assert.match(die, /const lm = lemMarks\.get\(e\[1\]\);/);
-  assert.match(die, /lemMarks\.delete\(e\[1\]\); for \(const mark of lm\) \{ mark\.done = true; for \(const l of mark\) l\.inst\.stop\(true\); \}/);
+  assert.match(die, /for \(const s of lemMarkFx\.values\(\)\) if \(s\.src === e\[1\] && !s\.ended\) \{ s\.ended = true; endLemMark\(s\); \}/);
+  assert.match(die, /lemMarks\.delete\(e\[1\]\);\s*for \(const mark of lm\) \{ mark\.done = true; for \(const l of mark\) l\.inst\.stop\(true\); \}/);
+  // the holder a lock leaves in its mark does not cut an ended mark's `_delayToFinish` short
+  assert.match(SRC, /if \(!held\.ended\) held\.l\?\.inst\.stop\(now\);/);
   assert.match(SRC, /if \(mark\.done\) l\.inst\.stop\(\); else mark\.push\(l\);/);
 });
 

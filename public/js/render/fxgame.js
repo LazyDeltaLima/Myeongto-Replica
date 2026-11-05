@@ -3648,7 +3648,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             out = true;
             if (--held.n > 0) return;
             if (lemMarkFx.get(o.id) === held) lemMarkFx.delete(o.id);
-            held.l?.inst.stop(now);
+            if (!held.ended) held.l?.inst.stop(now);   // (an ended mark runs out its `_delayToFinish`: endLemMark)
           } } });
           continue;
         }
@@ -5885,10 +5885,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         }
         case 'die': {
           stopOwned(e[1]); endWolves(e[1], false); for (const l of live) if (l.on === e[1]) l.inst.stop(true); // local patch: marks on it
-          // 蕾缪安 knocked out / withdrawn mid-S3: no shells follow (kit onEnd 'death'), so her locks' marks end with her
-          // (they are owned by their targets)
+          // 蕾缪安 knocked out / withdrawn mid-S3: no shells follow (kit onEnd 'death'). Her skill buff lemuen_s_3 ends with her:
+          // ON_OWNER_FINISH FinishManagedProjectiles interrupts the aim projectiles (`_managedBySource` 1, their beam and ring),
+          // and the mark's derived buff ends as it does at her first shell (endLemMark; they are owned by their targets)
           const lm = lemMarks.get(e[1]);
-          if (lm) { lemMarks.delete(e[1]); for (const mark of lm) { mark.done = true; for (const l of mark) l.inst.stop(true); } }
+          if (lm) {
+            for (const s of lemMarkFx.values()) if (s.src === e[1] && !s.ended) { s.ended = true; endLemMark(s); }
+            lemMarks.delete(e[1]);
+            for (const mark of lm) { mark.done = true; for (const l of mark) l.inst.stop(true); }
+          }
           const v = views.get(e[1]);
           if (v?.info?.side === 'enemy' && e[2] !== 'forcedExit') edeathFx(v); // 2026-10-10: its dead effect
           else if (v) allyDeathFx(v, e[2]); // 2026-10-11: an operator's / token's dead effect
