@@ -1203,6 +1203,18 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   `_minAnimScale` −1(상한 없는 아래쪽)은 안 옮김(전원 −1, 0.1 아래로 갈 간격 없음). 스노우헌터 장전 중 공격(`ReloadAttack` begin `Reload_Break`)도 같은 0.167 s.
   golden 전부가 움직였다(위 오퍼레이터의 첫 타격이 수십~수백 ms 늦어짐 + 'swing' 칸).
 
+### 사냥꾼 장전 (2026-11-05, 공식 클라에서 확인)
+
+사냥꾼(`hunter`, 지금 명단에는 스노우헌터 `char_4211_snhunt`만)의 공격 묶음은 `AbilitySelectableGroup`으로 `Attack` → `ReloadAttack` → `Reload` 차례이고, 묶음이 준비될 때 `HunterBulletTrigger`를 처음 통과한 자식이 시전된다. 대상이 있고 탄이 있으면 공격한다. 그 밖에 탄이 덜 찼으면 `Reload`(`ReloadAnimatedAbility`, 대상 없이 시전)다. 표 문구 「不攻击时」와 같다.
+
+- 주기: `_CalculateCooldown` = 표의 기본 공격 시간(`baseAttackTime`) + 특성 능력 블랙보드 `reload_interval`(없으면 0), 공속 100으로 계산. 공속 버프와 무관하다. 스노우헌터는 1.6초.
+- 탄이 드는 때: `snhunt_tr_add`가 ON_SPELL_END에 붙고 `Reload_Loop`에는 `OnAttack`이 없으므로 대기 상한인 주기 끝이다. 시전마다 1발.
+- 시전 중 나타난 대상은 그 시전이 끝난 뒤 공격한다(묶음의 쿨다운이 자식 쿨다운을 따름, `_updateCooldownBySubAbilityCooldownDuringCasting`).
+- 기절·스킬 시전이 끊으면 그 탄은 없고 쿨다운은 그대로 돈다(`Ability.InterruptIfNot`).
+- 탄이 0이고 대상이 있으면 장전 → 공격이 번갈아 나서 공격 빈도가 절반이 된다. 전에는 공격 사이에도 장전해 간격이 1초 넘으면 탄이 거의 줄지 않았다.
+
+`server/sim/professions.js` `installHunter`, `test/sim/hunter-reload.test.js`. 스노우헌터가 약해지는 쪽의 변경이다. [화면 미확인]
+
 ## 오퍼레이터 키트 — 공식 클라·프리팹대로 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 근거: EN 클라(2026-08) 프리팹 값과 공식 클라(레포에는 클래스·메서드 이름만). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 메서드 없음.
 - **跃跃(케이퍼, `char_4100_caper`) S2 乐趣加倍** (`chess_char_1_09-caper.js`): 공격마다 부메랑 `cnt`개 — 공격의 것(`projectile_chr_caper_s2`) 하나와,
@@ -1582,7 +1594,10 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
     - 기절·빙결·수면은 Skill 상태를 끝낸다(`SkillState.OnTick` → `OnExit` → `BasicSkill.InterruptIfNot` → `Ability.InterruptIfNot`) — SP는 돌려받지 않음. 끊겨도 **스킬은 끝나지 않고 제 시간만큼 켜져 있다**(2026-11-05, 공식 클라에서 확인): `BasicSkill.OnTick`은 능력이 효과 중이 아닐 때 스킬을 끝내고, 순차 묶음은 `get_isAffecting`이 묶음 쿨다운 타이머가 도는 동안 참이다. 그 타이머는 시전 때 시작하고(`CastToTarget` → `ResetCooldown`) 끊겨도 건드리지 않는다(`FinishIfNot`은 `resetCd`일 때만). 길이는 자식 쿨다운의 합, `_useLongestAbilityCooldown`이면 가장 긴 것(`_UpdateCooldownFromSubAbilities`) → 끝나는 시각이 끊김으로 앞당겨지지 않는다(`durationAfterCast`는 끊겨도 클립 끝부터 잼). 끊긴 뒤 무엇이 남는지는 묶음 값이 정한다(`AbilitySequenceGroup.OnCastEnd`).
       - 진행 중 능력도 끊음(`_alsoInterruptCurrentSubAbility` 1, 그 순서가 `_interruptableSubAbilityIndice`에 있음): 아직 안 온 단계는 사라진다. 벤델라 S2·블레미샤인 S2·위 S2는 능력치와 공격(`modsAfterCast`)도 클립 뒤 능력의 것이라 잃고 스킬 시간만 흐른다. 위 S2는 묶음 시간이 가장 긴 능력의 것이라 끊기면 시전부터 `duration` 뒤에 끝난다(`durationFromCastWhenCut`). 위 S3·울피아누스 S3·Mon3tr S3은 능력치를 그대로 두고 뒤 단계만 잃는다(울피아누스·Mon3tr은 먼저 시전되는 `BuffAbility`가 능력치를 준다. 위 S3은 `yu_s_3[switch_mode]`가 스킬 시작부터 붙는다).
       - 진행 중 능력을 안 끊음(`_alsoInterruptCurrentSubAbility` 0, `castCarriesOn`): 리드 더 플레임 섀도우 S2·치우바이 S2·유넥티스 S3. `_DoCast`는 주인 상태를 묻지 않으니 단계가 그대로 온다. 기절이 클립을 끊으면 `OnAttack`이 오지 않아, 그 전이었던 타격은 대기 상한(클립 끝)에 나간다. 다음 능력도 클립 끝에 시전된다(`_stopMoveNextWhenNotCasting` 0).
-      - 안 넣음 [추정·미조사: 묶음 시간은 `AbilitySequenceGroup.DoSetData`가 자식의 `get_cooldown`을 더해 한 번 정하고(`_updateCooldownAfterSubAbilitiesAttached` 0, 22개 묶음 전부), `_timeMode` 1 묶음은 공속 변화에도 다시 안 정한다. 그때 `_timeMode` 0 자식(벤델라 S2 `MaxHpMark`)은 그 순간의 공격 간격이고, `_timeMode` 1 자식은 클립 길이를 `DoAttach`에서야 쓰므로 그보다 앞서 설정되면 0이다. 설정과 붙이기의 순서를 안 봄 → 벤델라 S2와 `durationAfterCast`인 다섯(유넥티스 S3·블레미샤인 S2·위 S2·리드 더 플레임 섀도우 S2·치우바이 S2)의 스킬 길이가 여기 달렸다]
+      - 묶음 시간 (2026-11-05, 공식 클라에서 확인): `AbilitySequenceGroup.DoSetData`가 자식의 `get_cooldown`을 더해 한 번 정하고(`_updateCooldownAfterSubAbilitiesAttached` 0, 22개 묶음 전부), `_timeMode` 1 묶음은 공속 변화에도 다시 안 정한다. 설정은 붙이기보다 앞이다: `BasicSkill.AssignData`가 능력을 설정하며 `m_owner`를 쓰고, `CastSkill.OnInit`이 그 주인으로 붙인다. 그래서 `_timeMode` 1 자식은 클립 길이가 아니라 프리팹의 `_cooldown`이 더해지고(클립 길이는 `DoAttach`에서야 씀), `ActiveBuffAbility`는 버프의 지속시간이 더해진다(`SetLifeTime`; `durationKey`가 비면 `duration`, `Buff.FetchDuration`). 스킬은 묶음 타이머와 자식의 효과 중 늦은 쪽에 끝나고(`get_isAffecting`), 버프 자식은 시전이 시작된 뒤 제 시간만큼 효과 중이다.
+        - 유넥티스 S3·블레미샤인 S2·위 S2·치우바이 S2: 첫 자식 `_cooldown` 0 → 타이머 = 지속시간, 자식이 끝나는 때 = 클립 + 지속시간 → 끝은 클립 + 지속시간. `durationAfterCast` 그대로 맞다.
+        - 벤델라 S2 [추정·화면: `MaxHpMark`가 `_timeMode` 0이라 설정 순간의 공격 시간이 더해진다. 1.6초면 타이머 16.6초, 자식은 15.5초에 끝난다. 설정 순간에 공격 시간이 이미 채워져 있는지 안 봤고 공식 화면과 대조하지 못해 15.5초로 둔다]
+        - 리드 더 플레임 섀도우 S2 [추정·화면: `Skill_2_FireBall` 프리팹의 `_cooldown`이 20이라 코드대로면 타이머 40초인데, 표의 지속시간은 20초이고 자식은 20.5초에 끝난다. 공식 화면과 대조하지 못해 20.5초로 둔다]
     - 벨로네 S3·Mon3tr S3의 이동은 시전 순간이 아니라 클립 끝이다(2026-11-05, 공식 클라에서 확인): `FlyToTarget`·`Respawn`은 `_waitForAttackEvent` 1이고 클립(`Skill_3_ReStart_Begin` 0.2초·`Skill_3_Begin` 0.667초)에 `OnAttack`이 없으니, 대기는 상한 `m_cachedDuration`에서 끝난다. `_End` 클립을 이어 트는지와 무관하다. 대상은 벨로네는 그 순간(`_selectTargetTiming` 1), Mon3tr은 시전 시작(0). Mon3tr은 끊기면(`_interruptableSubAbilityIndice` 1) 제자리에서 스킬만 흐른다. 유실은 착지부터라 끊기면 없다. 벨로네의 `FlyToTargetSecond`도 같은 클립·대기라 0.2초 뒤 이동한다 [추정·엔진: 그 0.2초 동안 휘두름을 끊는지 안 읽음. 지금은 안 끊고, 이동이 끊는다].
     - `moveRedeploy`는 진행 중 휘두름을 없앤다(새 배치와 같음, 위 벨로네·Mon3tr·울피아누스 S3). 클립 끝 틱에는 공격을 시작하지 않는다: 스킬 틱이 공격 뒤라, 옛 칸에서 시작한 휘두름이 끼어들었다.
     - 시점이 옮겨진 피해의 대상 이펙트는 표시 사건 `['castHit', id, part?]`가 붙인다(render: `fxgame.js` `castHit` → `expect`).

@@ -452,7 +452,7 @@
 - 목록 지금 10건(모두 `none`). 근거는 뱅크 이름 대조이고 프리팹까지 읽지는 않았다.
 - 확인: 지마·페페 수정을 각각 되돌리면 `char_1051_headb2 S3`·`chess_char_6_06_b`가 실패하고, 목록에 낡은 항목을 넣어도 실패한다.
 - 스노우헌터 장전음 (2026-11-05, 공식 클라에서 확인, `test/audio-kit-moments.test.js`): 공격 묶음의 셋째 자식 `Reload`의 START `p_atk_sncrbwrld`(`ON_ABILITY_START.char_4211_snhunt.attack.0.3`). `Reload`는 시전마다 탄을 더하므로(`snhunt_tr_add`, 클립 `Reload_Loop`) 탄마다 한 번 난다.
-  `HunterBulletTrigger`(FULL 0·탄 남음 1·ZERO 2)와 자식 순서상 `Attack`이 먼저라 `Reload`는 **탄이 없거나 대상이 없을 때만** 시전된다. sim의 猎手 장전은 공격 사이(마지막 공격 1초 뒤)에도 도는데, 그때는 소리를 내지 않는다: fx `hunterReload`·`hunterRound`의 `cast`. 소리는 sim의 장전 시점(1초에 1발)을 따르며 공식 주기와 대조하지 않았다. [화면 미확인]
+  `HunterBulletTrigger`(FULL 0·탄 남음 1·ZERO 2)와 자식 순서상 `Attack`이 먼저라 `Reload`는 **탄이 없거나 대상이 없을 때만** 시전된다. sim도 같은 조건·주기로 장전하고(sim.md 「사냥꾼 장전」), 시전마다 fx `hunterReload`·`hunterRound`의 `cast`로 소리를 낸다. [화면 미확인]
 - 늦게 들어온 전장 (2026-11-05, `test/audio-late-entry.test.js`): 다른 전장 관전·재접속·탭 복귀처럼 판 시작이 아닌 입장은 `screens/game.js`가 'skill' 사건을 다시 틀지 않아(시작음이 뒤늦게 나면 안 되므로), 이미 도는 스킬이 끝날 때까지 평타 소리가 났다.
   이제 입장 때 쌓인 사건에서 유닛별 마지막 'skill'(`die`는 꺼짐)을 읽고(`resumeSkills`), 그 뒤 첫 스냅숏의 `UF.SKILL`로 나머지를 채운다(`syncRunningSkills`, 전장마다 한 번 — 'off' 직후 한 프레임은 표시가 남을 수 있음). 시작음·대사는 내지 않고 반복 뱅크만 잇는다.
   `passive` 스킬은 `UF.SKILL`이 없어 입장 때 알 수 없지만, 지금 넷(프로방스 S1·스와이어 디 엘리건트 위트 S2·호시구마 S2·유넥티스 S1) 모두 알든 모르든 소리가 같다 — 시험이 전수로 고정하므로, 전용 소리를 가진 패시브가 생기면 실패한다. 공식 게임에는 이 경로가 없어(이 포크의 관전·재접속) 공식 대조 대상이 아니다. [화면 미확인]

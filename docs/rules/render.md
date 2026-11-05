@@ -724,7 +724,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     알림이 있으면 스킬 클립의 `firstAttackBegin`(送葬人 S2 모드 `Skill_Right_Begin`), 공격 역할의 `firstBegin` begin, `attackBegin` 순. 시뮬이 시간을 모르는 공격
     채널(歌蕾蒂娅 S2 `attackBegin`)만 예전처럼 공격 모드가 끝난 지 `FIRST_ATTACK_GAP` 0.35 s 넘은 휘두름에 [추정]. 켈시 에스페란타(CN) Default도 목록에. [화면 미확인]
     雪猎 장전(charpack `Attack/Reload` `Reload_Begin`→`Reload_Loop`, 장전 중 공격은 `ReloadAttack` `Reload_Break`→`Attack_Loop`, 다 차면 스킨 믹스 `Reload_End`):
-    시뮬의 猎手 장전 상태(`professions.js installHunter`: 마지막 공격 1 s 뒤부터 탄 1/s)를 형태 `reload`로(fx 'hunterReload', 공격으로 끊기면 `cut` — 猎手 전원,
+    시뮬의 猎手 장전 상태(`professions.js installHunter`, sim.md 「사냥꾼 장전」)를 형태 `reload`로(fx 'hunterReload', 덜 찬 채 끝나면 `cut` — 猎手 전원,
     골든 fx 개수만 움직임) → `FORMS.char_4211_snhunt`(대기 `Reload_Loop`, 나갈 때 `Reload_End`, 공격 역할의 첫 공격 begin `Reload_Break`). [화면 미확인]
   - **D** 스킬이 켜는 하위 모드의 `_replaceAnimPairs`(크루스 S2_Sub, 위셔델 과부하, 사키코 음색 등). **E** 장착 스킬의 기본 모드: `Character._GetDefaultModeIndex`
     (전투에 든 스킬의 `_defaultModeIndex`가 재능 값을 덮음) → `Unit.OnInit` `SwitchMode` — 배치부터 그 모드(Born→`Start_n`·Idle 짝). 구현(같은 날):

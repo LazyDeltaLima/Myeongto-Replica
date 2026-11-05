@@ -132,7 +132,7 @@ describe('雪猎: her Reload child sounds its START once per round', { skip }, (
     const e = h.spawn('dummy', { pos: [10, 6] });
     u.skill && (u.skill.sp = 0);
     assert.ok(h.runUntil(() => u.trait.ammo <= u.profile.ammoMax - shots, 30), 'she spent her rounds');
-    e.x = 20; // out of range: the reload begins 1 s after her last attack
+    e.x = 20; // out of range: the reload begins as her attack cooldown ends
     const missing = () => u.profile.ammoMax - u.trait.ammo;
     return { h, u, e, missing, listen: () => listen(h, secs) };
   };
@@ -146,24 +146,25 @@ describe('雪猎: her Reload child sounds its START once per round', { skip }, (
     assert.equal(log.filter((x) => x.f === RELOAD).length, n, `${n} rounds`);
   });
 
-  test('an attack cuts it: no START for the rounds it did not load', () => {
+  test('a target coming back stops it after the round under way: no START for the rounds it did not load', () => {
     const { h, u, e, missing } = run('chess_char_3_11_a', 4, 0);
     const n = missing();
-    const log = listen(h, 3.4);   // her reload's start (1 s) and two more rounds
+    const log = listen(h, 5);   // her attack cooldown, then rounds of 1.6 s each
     const heard = log.filter((x) => x.f === RELOAD).length;
     assert.ok(heard >= 2 && heard < n, `${heard} of ${n}`);
     e.x = 6;
-    const after = listen(h, 0.5);
+    const after = listen(h, 1.7);   // the round under way comes first, then she attacks
     assert.ok(u.trait.ammo < u.profile.ammoMax);
-    assert.equal(after.filter((x) => x.f === RELOAD).length, 0, 'the attack cut it');
+    assert.equal(after.filter((x) => x.f === RELOAD).length, 0, 'no new Reload cast');
+    assert.ok(after.some((x) => x.f === 'p_atk_sncrbw_n'), 'she attacks');
   });
 
-  test('with a target and a round she attacks: the sim\'s reload between her attacks sounds nothing (HunterBulletTrigger)', () => {
+  test('with a target and a round she attacks and does not reload between attacks (HunterBulletTrigger)', () => {
     const { h, u } = run('chess_char_3_11_a', 1, 0);
     h.b.enemies[0].x = 6;
     const forms = [];
     const log = listen(h, 6, () => { if (u.form === 'reload') forms.push(1); });
-    assert.ok(forms.length > 0, 'the sim does go through its reload form here');
+    assert.equal(forms.length, 0, 'no reload form');
     assert.equal(log.filter((x) => x.f === RELOAD).length, 0);
     assert.ok(log.some((x) => x.f === 'p_atk_sncrbw_n'), 'she attacks');
   });
@@ -172,7 +173,6 @@ describe('雪猎: her Reload child sounds its START once per round', { skip }, (
     const { h, u } = run('chess_char_3_11_a', 1, 0);
     h.b.enemies[0].x = 6;
     u.trait.ammo = 0;
-    u.lastAttackAt = h.b.time;
     assert.ok(listen(h, 2).some((x) => x.f === RELOAD));
   });
 });

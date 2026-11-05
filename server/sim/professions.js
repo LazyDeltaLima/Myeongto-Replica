@@ -368,33 +368,48 @@ const installStalker = (battle, unit) => {
   battle.addBuff(unit, { key: 'trait:stalker', mods: { dodgePhys: p, dodgeArts: p, taunt: -1 }, persist: true, allowDead: true });
 };
 
+// The client's attack group of a 猎手 (雪猎's charpack `Attack`: Attack → ReloadAttack → Reload, the first whose
+// `HunterBulletTrigger` passes as the group comes ready): with a target and a round it attacks; otherwise, not full, it casts
+// `ReloadAnimatedAbility`, targetless. Its cooldown is the table's base attack time + the trait's `reload_interval`, at attack
+// speed 100 (`_CalculateCooldown`: attack speed buffs do not touch it); `Reload_Loop` has no OnAttack, so the round comes as that
+// time ends (`snhunt_tr_add`, ON_SPELL_END). The group waits for that cooldown, so a target found meanwhile is attacked after
+// it. A stun or a skill cast interrupts the cast, its round lost; its cooldown runs on (`Ability.InterruptIfNot`).
 const installHunter = (battle, unit) => {
   const max = unit.profile.ammoMax ?? 8;
-  unit.trait.ammo = max;
-  unit.trait.reloadAcc = 0;
-  // `cast`: the client's Reload child casts now (HunterBulletTrigger: the Attack child comes first, so only with no round or no
-  // target — this sim also reloads between attacks, which sounds nothing: audio.js).
-  const casts = () => (unit.trait.ammo === 0 || !battle.enemiesInKeys(unit.rangeKeys, unit, unit.profile).length ? { cast: 1 } : null);
+  const period = unit.base.bat + (unit.profile.reloadInterval ?? 0);
+  const t = unit.trait;
+  t.ammo = max;
+  t.reloading = false;
+  t.reloadCd = 0;
+  const free = () => unit.canAct && !unit.s.flags.disarm && !unit.swing && !unit.swingOff && !(unit.atkCd > 0) && !(unit.castLeft > 0)
+    && !(unit.skillStateUntil > battle.time + 1e-9) && !unit.skill?._castStage && battle.time >= (unit.bornUntil ?? -Infinity) - 1e-9;
   battle.on('tick', (ctx) => {
     if (!unit.alive || !unit.deployed) return;
-    const reloading = battle.time - unit.lastAttackAt >= 1 && unit.trait.ammo < max;
-    let round = false;
-    if (reloading) {
-      unit.trait.reloadAcc += ctx.dt;
-      if (unit.trait.reloadAcc >= 1) { unit.trait.reloadAcc -= 1; unit.trait.ammo++; round = true; }
-    } else unit.trait.reloadAcc = 0;
+    if (t.reloading && (!unit.canAct || unit.s.flags.disarm || unit.swing || unit.skillStateUntil > battle.time + 1e-9 || unit.skill?._castStage)) t.reloading = false;
+    if (t.reloadCd > 0) {
+      t.reloadCd -= ctx.dt;
+      if (t.reloadCd <= 1e-9) {
+        t.reloadCd = 0;
+        if (t.reloading) { t.reloading = false; t.ammo = Math.min(max, t.ammo + 1); }
+      }
+    }
+    let cast = false;
+    if (!(t.reloadCd > 0) && t.ammo < max && free() && (t.ammo === 0 || !battle.enemiesInKeys(unit.rangeKeys, unit, unit.profile).length)) {
+      t.reloading = cast = true;
+      t.reloadCd = period;
+    }
     // the reload is a model form (雪猎's Reload ability: render/units.js FORMS) — fx 'hunterReload' { form } on each change;
-    // `cut` 1: an attack ended it (the client's ReloadAttack opens on Reload_Break, no Reload_End). Display only.
-    const form = reloading && unit.trait.ammo < max && !unit.swing ? 'reload' : null;
+    // `cut` 1: not full, so an attack or an interruption follows (the client's ReloadAttack opens on Reload_Break, no Reload_End).
+    // `cast`: the Reload child starts, one for each round (audio.js). Display only.
+    const form = t.reloading ? 'reload' : null;
     if ((unit.form ?? null) !== form) {
       unit.form = form;
-      battle.fx('hunterReload', { x: unit.x, y: unit.y, id: unit.id, form, ...(form == null && unit.trait.ammo < max ? { cut: 1 } : null), ...(form ? casts() : null) });
-    } else if (round && form) { // the reload goes on: its next cast. Display only.
-      const cast = casts();
-      if (cast) battle.fx('hunterRound', { x: unit.x, y: unit.y, id: unit.id, ...cast });
+      battle.fx('hunterReload', { x: unit.x, y: unit.y, id: unit.id, form, ...(form == null && t.ammo < max ? { cut: 1 } : null), ...(cast ? { cast: 1 } : null) });
+    } else if (cast) {
+      battle.fx('hunterRound', { x: unit.x, y: unit.y, id: unit.id, cast: 1 });
     }
   }, { owner: unit });
-  battle.on('deploy', (ctx) => { if (ctx.unit === unit) unit.trait.ammo = max; }, { owner: unit });
+  battle.on('deploy', (ctx) => { if (ctx.unit === unit) { t.ammo = max; t.reloading = false; t.reloadCd = 0; } }, { owner: unit });
 };
 
 /**
@@ -546,7 +561,7 @@ export const SUB = Object.freeze({
       }
     } }),
   hunter: P({ install: installHunter,
-    canAttack: (battle, unit) => (unit.trait.ammo ?? 8) > 0,
+    canAttack: (battle, unit) => (unit.trait.ammo ?? 8) > 0 && !(unit.trait.reloadCd > 0),
     dmgMul: (b, u) => u.profile.ammoScale ?? 1.2,
     afterAttack: (battle, unit) => { unit.trait.ammo = Math.max(0, (unit.trait.ammo ?? 8) - 1); } }),
   loopshooter: P({ projectile: 'boomerang', boomerang: true, install: installLoopshooter,
@@ -661,7 +676,7 @@ const TUNE = {
   bombarder: (tb) => ({ shockScale: num(tb['attack@append_atk_scale'], 0.5), shockTimes: num(tb['attack@times'], 2) }),
   // PRTS 溅射半径一览 特殊: 格雷伊 1.0 (the branch's 1.1 otherwise)
   splashcaster: (tb, def) => ((def.charId ?? def.raw?.charId) === 'char_253_greyy' ? { splashRadius: 1.0 } : {}),
-  hunter: (tb) => ({ ammoMax: num(tb.value, 8), ammoScale: num(tb.atk_scale, 1.2) }),
+  hunter: (tb) => ({ ammoMax: num(tb.value, 8), ammoScale: num(tb.atk_scale, 1.2), reloadInterval: num(tb.reload_interval, 0) }),
   reaperrange: (tb, def) => ({ frontScale: num(tb.atk_scale, 1.5), frontGrid: def.raw?.trait?.rangeGrid ?? null }),
   funnel: (tb) => ({ funnel: { init: num(tb.init_atk_scale, 0.2), delta: num(tb.delta_atk_scale, 0.15), max: num(tb.max_atk_scale, 1.1) } }),
   mystic: (tb) => ({ storeMax: num(tb.times, 3) }),

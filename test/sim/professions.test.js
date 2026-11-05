@@ -236,19 +236,19 @@ test('stalker dodges and hits everything in range; hunter consumes and reloads a
     defs: { chess: { t_hunter: mk('hunter', 'SNIPER', { stats: { atk: 100, bat: 0.5 } }) }, enemies: { enemy_dummy: dummy() } },
     units: [{ chessId: 't_hunter', row: 10, col: 4 }], enemies: [{ key: 'enemy_dummy', pos: [10, 6] }], content: 'none', captureNoisy: true, hooks: ['damaged'],
   });
-  h2.run(5);
   const hu = h2.unit('t_hunter');
+  assert.ok(h2.runUntil(() => hu.trait.ammo === 0, 6), 'she runs out');
   assert.equal(hu.stats.attacks, 8, '8 bullets then empty');
   assert.equal(Math.round(h2.hooksOf('damaged')[0].amount), 120);
   h2.b.enemies[0].x = 20; // out of range → reload
   h2.b.enemies[0].hidden = true;
-  h2.run(4);
-  assert.ok(hu.trait.ammo >= 2);
+  h2.run(2);
+  assert.ok(hu.trait.ammo >= 2 && hu.trait.ammo < 8);
   // the reload is a model form while it runs (render/units.js FORMS: 雪猎's Reload clips): fx 'hunterReload' on each change
   assert.equal(hu.form, 'reload');
   const rl = () => h2.eventsOf('fx').filter((e) => e[1] === 'hunterReload' && e[4]?.id === hu.id).map((e) => e[4].form);
   assert.deepEqual(rl(), ['reload']);
-  h2.b.enemies[0].x = 6; h2.b.enemies[0].hidden = false;   // a target again: an attack cuts the reload
+  h2.b.enemies[0].x = 6; h2.b.enemies[0].hidden = false;   // a target again: not full, the round under way ends the reload
   assert.ok(h2.runUntil(() => hu.form == null, 3));
   const cut = h2.eventsOf('fx').filter((e) => e[1] === 'hunterReload' && e[4]?.id === hu.id).pop()[4];
   assert.ok(cut.form === null && cut.cut === 1, 'ended by the attack: no Reload_End');
