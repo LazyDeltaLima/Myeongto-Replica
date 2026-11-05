@@ -226,6 +226,15 @@ buff holds. `node tools/build-fx-plays.mjs` picks both up from the kit's code. W
 `render/fxstatus.js` only for what the key's rows leave open. Then `node tools/fx-wiring-report.mjs --id <charId>` lists what is
 left: rows nothing plays, prefabs nothing reaches, and a prefab drawn twice by a table and the skill's name rule.
 
+## An operator of a season not out yet
+
+The season `next` of `shared/seasons.js` is the current season's data plus the known operators of the coming one
+(`tools/assets/next-season-roster.json`, built by `node tools/build-data.mjs --offline --season next` with `tools/next-season.mjs`:
+its tier gives a piece its status, the operator tables its numbers; a piece carries no 特质, and only the bonds this server already
+has). Its kit is written as a 自选 kit: `ops/op-<codename>.js`, the key its charId, every skill under `skills`, listed in
+`NEXT_KIT_FILES` of `index.js`, tested on both forms through `test/seasons-next.test.js`. It is not offered as a 自选 pick. Check
+the season locally with `SP_SEASONS=next`. The numbers there are [ASSUMED·CN] until the season's tables replace the roster.
+
 ## Testing a kit
 
 - The harness is `test/helpers/battleHarness.js` (`makeBattle`, `runUntil`, `hooksOf`, `eventsOf`, `checkInvariants`;

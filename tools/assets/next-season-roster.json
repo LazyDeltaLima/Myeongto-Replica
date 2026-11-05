@@ -1,0 +1,24 @@
+{
+ "$comment": "The operators of the 卫戍协议【规程】 preview with no kit here: tier and bonds as announced; bonds this server has under `bonds`, the others under `newBonds` (tools/next-season.mjs).",
+ "ops": [
+  {"charId": "char_185_frncat", "tier": 1, "bonds": ["victoriaShip"]},
+  {"charId": "char_194_leto", "tier": 1, "newBonds": ["ursus"]},
+  {"charId": "char_325_bison", "tier": 1, "bonds": ["yanShip"]},
+  {"charId": "char_129_bluep", "tier": 2, "newBonds": ["iberia"]},
+  {"charId": "char_195_glassb", "tier": 2, "newBonds": ["ursus"]},
+  {"charId": "char_218_cuttle", "tier": 2, "bonds": ["egirShip"]},
+  {"charId": "char_346_aosta", "tier": 2, "bonds": ["siracusaShip"]},
+  {"charId": "char_4031_liesel", "tier": 2, "bonds": ["siracusaShip"], "newBonds": ["leithanien"]},
+  {"charId": "char_4198_christ", "tier": 2, "bonds": ["victoriaShip"]},
+  {"charId": "char_4221_ju", "tier": 2, "bonds": ["yanShip"]},
+  {"charId": "char_499_kaitou", "tier": 2, "newBonds": ["leithanien"]},
+  {"charId": "char_4047_pianst", "tier": 3, "newBonds": ["leithanien"]},
+  {"charId": "char_4066_highmo", "tier": 3, "newBonds": ["iberia"]},
+  {"charId": "char_4177_brigid", "tier": 3, "bonds": ["victoriaShip"]},
+  {"charId": "char_4222_taraxa", "tier": 3, "bonds": ["yanShip"]},
+  {"charId": "char_4224_turdus", "tier": 3, "newBonds": ["ursus"]},
+  {"charId": "char_422_aurora", "tier": 3, "bonds": ["kjeragShip"]},
+  {"charId": "char_4232_hbound", "tier": 3, "newBonds": ["iberia"]},
+  {"charId": "char_455_nothin", "tier": 3, "bonds": ["yanShip"]}
+ ]
+}

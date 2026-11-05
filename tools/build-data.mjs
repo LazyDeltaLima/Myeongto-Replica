@@ -44,6 +44,7 @@ import { LOCAL_DIY_PICKS } from '../shared/local-diy.js';
 import { FULL_RANK, atRank, stripPotential } from '../shared/potential.js';
 import { skillModeIndex, SKILL_SUB_MODES } from '../shared/skill-modes.js';
 import { DEFAULT_SEASON, SEASONS, isSeasonId, seasonDataDir } from '../shared/seasons.js';
+import { nextSeasonAct } from './next-season.mjs';
 
 // ===== CLI & IO ==================================================================================
 
@@ -364,7 +365,11 @@ async function loadContext() {
     loadGamedata('excel/enemy_handbook_table.json'),
     loadGamedata('levels/enemydata/enemy_database.json'),
   ]);
-  const act = activity?.activity?.AUTOCHESS_SEASON?.[SEASON];
+  const season = activity?.activity?.AUTOCHESS_SEASON;
+  // `next` has no section of its own yet: the current season's plus the pieces known so far (tools/next-season.mjs)
+  const act = SEASON === 'next' && season?.[DEFAULT_SEASON]
+    ? nextSeasonAct(season[DEFAULT_SEASON], JSON.parse(await readFile(join(ROOT, 'tools/assets/next-season-roster.json'), 'utf8')), uniequip, battleEquip)
+    : season?.[SEASON];
   const ac = activity?.autoChessData;
   if (!act || !ac) throw new Error(`activity_table has no ${SEASON} / autoChessData section`);
 
@@ -4010,7 +4015,7 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
   return {
     season: SEASON,
     // the current season keeps its name as written; another one takes the activity table's (shared/seasons.js)
-    seasonName: SEASON === DEFAULT_SEASON ? '卫戍协议：盟约' : ctx.seasonTitle ?? SEASON,
+    seasonName: SEASON === DEFAULT_SEASON || SEASON === 'next' ? '卫戍协议：盟约' : ctx.seasonTitle ?? SEASON,
     modes,
     economy: {
       income: Array.from({ length: 16 }, (_, r) => (r === 0 ? 0 : Math.min(3 + r, incomeCap))),
@@ -4256,7 +4261,9 @@ function validateAll(f) {
   const visible = Object.values(chess).filter((c) => !c.isGolden && c.visible);
   if (Object.keys(bonds).length !== 23) err(`expected 23 bonds, got ${Object.keys(bonds).length}`);
   if (Object.keys(bands).length !== 40) err(`expected 40 bands, got ${Object.keys(bands).length}`);
-  if (visible.length !== 112) err(`expected 112 visible non-DIY chess, got ${visible.length}`);
+  // (`next`: the current season's plus its roster, tools/next-season.mjs)
+  const visibleWant = 112 + (SEASON === 'next' ? visible.filter((c) => /^chess_char_\d+_n/.test(c.chessId)).length : 0);
+  if (visible.length !== visibleWant) err(`expected ${visibleWant} visible non-DIY chess, got ${visible.length}`);
   for (const c of Object.values(chess)) {
     if (!chess[c.baseId]) err(`chess ${c.chessId}: baseId missing`);
     if (c.goldenId && !chess[c.goldenId]) err(`chess ${c.chessId}: goldenId missing`);

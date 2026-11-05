@@ -1220,3 +1220,11 @@
 - 키트 `op-ascln.js`의 `interval: 1`(1초마다)은 공식과 같다. 클라 버프 템플릿 `ascln_t_1[debuff]`의 `triggerInterval` 2.0은 기본값일 뿐이다:
   공식 클라 `Buff.Reset`이 틱 타이머 주기를 버프 블랙보드의 `interval`로 읽고(없을 때만 템플릿 값), 재능 블랙보드에 `interval` 1.0이 있다
   (설명 「每秒受到…」과 같음). 이 메서드는 en_US·zh_CN Lua 핫픽스 목록 밖. 다른 키트에서 템플릿 `triggerInterval`을 볼 때도 블랙보드 `interval`을 먼저 확인할 것.
+
+## 새 시즌 기물을 표 전에 만들기 (2026-11-05, 관리자 결정)
+- 새 시즌 「규정」의 표가 나오기 전에 키트 없는 오퍼레이터를 미리 만든다. 임시 기물은 공개 전 시즌 `next`(`shared/seasons.js`)에만 두고 운영 서버 선발에는 넣지 않는다.
+- 근거: 기물의 상태는 티어로 정해진다. 맹약 상반기·하반기에서 티어별 정예화·레벨·스킬 레벨이 같고, 달라진 것은 6티어 정예의 모듈 단계(2→3)뿐이다. 수치는 오퍼레이터 표에서 그 상태로 계산한다. 두 시즌에 다 있는 64명 중 기본 스킬이 바뀐 것은 3명이라, 키트는 스킬을 모두 쓴다.
+- `node tools/build-data.mjs --offline --season next`: 지금 시즌에 `tools/assets/next-season-roster.json`의 기물을 더해 `data/seasons/next/`에 쓴다(`tools/next-season.mjs`). 다른 파일은 기본 시즌 것을 그대로 쓴다.
+- 임시 기록에 없는 것: 특질, 이 서버에 아직 없는 맹약(이베리아·우르수스·라이타니엔은 명단의 `newBonds`에만). 맹약·특질 효과는 표가 나온 뒤에 한다.
+- 키트: `ops/op-<코드명>.js`, 키는 charId, `NEXT_KIT_FILES`에 적는다. 선발 후보(`KITTED_CHARS`)에는 들어가지 않는다.
+- [추정·CN: 티어별 상태·기본 스킬(2번째)·모듈(첫 모듈)은 새 시즌 표로 대조, 표가 나오면 명단과 `next`를 지운다] → `test/seasons-next.test.js`.
