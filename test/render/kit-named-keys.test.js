@@ -4,12 +4,13 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { buildPlays, kitNamedKeys, momentOf, bindingRows } from '../../tools/build-fx-plays.mjs';
+import { buildPlays, kitMomentKeys, kitNamedKeys, momentOf, bindingRows, PLAYS_FILE } from '../../tools/build-fx-plays.mjs';
 import { KIT_OFFICIAL, kitOfficialPlan } from '../../public/js/render/fx/kitofficial.js';
-import { KEY_FX, wantedStatusFx } from '../../public/js/render/fxstatus.js';
+import { KEY_FX, syncStatusFx, wantedStatusFx, wornPrefabs } from '../../public/js/render/fxstatus.js';
+import { createFxLayer } from '../../public/js/render/fxgame.js';
 import { kitOwned, wiringReport } from '../../tools/fx-wiring-report.mjs';
 
 const row = (key, fx, moment, target, conds = []) => ({ key, src: 'template', moment, kind: 'effect', fx, target, life: '', conds });
@@ -130,4 +131,77 @@ test('the wiring report reads KIT_OWNED from fxgame.js', () => {
   const owned = kitOwned();
   assert.ok(owned.has('yu_skill3_range_01') && owned.has('oxi_buff_03') && owned.size > 50);
   assert.ok(!owned.has('2026-10-11'), 'not its comments');
+});
+
+test('kitMomentKeys: a key handed over as a moment, not a buff the unit wears', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'kit-moments-'));
+  try {
+    writeFileSync(path.join(dir, 'op-x.js'), [
+      "battle.heal(u, u, 1, { self: true, moment: 'x_a' });",
+      "const moment = hit ? 'x_b' : 'x_c';",
+      "dmg.moment ||= 'x_d';",
+      "battle.hitFx(e, 'x_e', unit, 3);",
+      "battle.fx('kitHit', { id: u.id, k: 'x_f' });",
+      "battle.fx('stacks', { id: u.id, buff: 'x_g', n: 1 });",
+      "battle.addBuff(u, { key: 'x_h', visible: true }); // moment: 'x_i'",
+      "const KEYS = ['x_j']; battle.removeBuff(u, 'x_k');",
+    ].join('\n'));
+    const rows = 'abcdefghijk'.split('').map((c) => ({ key: `x_${c}` }));
+    assert.deepEqual(kitMomentKeys(rows, dir), ['x_a', 'x_b', 'x_c', 'x_d', 'x_e', 'x_f', 'x_g']);
+    const tables = { template: [{ ...row('x_h', 'x_worn', '_buffs', 'OWNER'), kind: 'buff' }, { ...row('x_a', 'x_not', '_buffs', 'OWNER'), kind: 'buff' }], local: null,
+      index: { bundles: { x: ['x_worn', 'x_not'] } } };
+    const { keys } = buildPlays(tables, dir);
+    assert.equal(keys.x_h.worn, true);
+    assert.equal(keys.x_a.worn, undefined, 'held by the rows, but the kit only sends its moment');
+    assert.deepEqual([...wornPrefabs({ keys })], ['x_worn']);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('wornPrefabs: a held prefab of a worn key, behind conditions too; no plays, none', () => {
+  const plays = { keys: { a: { held: ['a_buff'], b: 'a', worn: true }, c: { held: [], when: [{ role: 'held', n: 'c_buff' }, { role: 'once', n: 'c_hit' }], b: 'c', worn: true }, d: { held: ['d_buff'], b: 'd' } } };
+  assert.deepEqual([...wornPrefabs(plays)].sort(), ['a_buff', 'c_buff']);
+  assert.equal(wornPrefabs(plays), wornPrefabs(plays), 'kept per document');
+  assert.equal(wornPrefabs(null).size, 0);
+});
+
+test('a skill does not start a prefab its kit\'s status draws: the status alone, once (바이슨 S2)', async () => {
+  const files = {
+    '/assets/local/fx/index.json': { bundles: { x: ['x_skill_02_buff', 'x_skill_02_buff_02', 'x_skill_02_range'] } },
+    '/assets/local/fx/modes.json': { char_1_x: { modes: ['Default'], skills: [{}, {}, {}] } },
+    '/assets/local/fx/plays.json': { keys: {
+      'x_s_2[self]': { held: ['x_skill_02_buff_02'], once: [], end: [], b: 'x', worn: true },
+      'x_s_2[ally]': { held: ['x_skill_02_buff'], once: [], end: [], b: 'x', worn: true },
+    } },
+    '/assets/local/fx/enemy-index.json': { bundles: {} },
+    '/assets/local/fx/enemy-modes.json': { $fx: {} },
+  };
+  const fetch0 = globalThis.fetch;
+  globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
+  try {
+    const seen = [];
+    const layer = createFxLayer({ host: null, above: null, quality: () => 'high', dry: true, trace: (p) => seen.push(`${p.kind}:${p.names.join('+')}`) });
+    await new Promise((r) => setTimeout(r, 10));
+    const v = { id: 1, x: 0, y: 0, alive: true, flags: 0, statuses: new Set(['x_s_2[self]']), info: { id: 1, side: 'ally', defId: 'char_1_x', spine: 'char_1_x', skillIndex: 1 } };
+    const views = new Map([[1, v]]);
+    layer.onEvent(['skill', 1, 1], views);
+    syncStatusFx(views, layer, {});
+    await new Promise((r) => setTimeout(r, 10));
+    syncStatusFx(views, layer, {});
+    assert.deepEqual(seen.filter((s) => s.includes('buff')), ['status:x_skill_02_buff_02'], 'its copy of the name rule gone, the ally\'s not on the caster');
+    assert.ok(seen.some((s) => s.includes('x_skill_02_range')), 'the rest of the skill stays');
+  } finally { globalThis.fetch = fetch0; }
+});
+
+test('the wiring report: a named key\'s prefab the name rule also plays', () => {
+  const modes = { char_1_x: { modes: [], skills: [{}, {}, {}] } };
+  const tables = { template: [], local: null, index: { bundles: { x: ['x_skill_01_buff'] } } };
+  const plays = { keys: { x_k: { held: ['x_skill_01_buff'], once: [], end: [], b: 'x' }, other: { held: ['x_skill_01_buff'], once: [], end: [] } } };
+  const r = wiringReport({ tables, modes, plays }).x;
+  assert.deepEqual(r.overlap.map((o) => [o.fx, o.tables]), [['x_skill_01_buff', ['named key x_k']]]);
+});
+
+test('the kits as they are: buffs worn, moments not', { skip: !existsSync(PLAYS_FILE) && 'needs the extracted effects' }, () => {
+  const { keys } = JSON.parse(readFileSync(PLAYS_FILE, 'utf8'));
+  for (const k of ['bison_s_2[self]', 'bison_s_2[ally]', 'nothin_s_2[a]', 'nothin_s_2[b]', 'nothin_s_2[c]', 'nothin_t_1', 'nothin_t_1[eff]', 'oxi_s_2_stack']) assert.equal(keys[k]?.worn, true, k);
+  for (const k of ['gvial2_s_1', 'bubble_t_1[atk_down]', 'excu2_s_3[mark]', 'indigo_s_2[damage]', 'oxi_t_1_arcane_stack', 'vulpis_t_1[vfx]']) assert.equal(keys[k]?.worn, undefined, k);
 });

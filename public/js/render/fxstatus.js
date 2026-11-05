@@ -507,6 +507,28 @@ function namedSpec(status, plays) {
   return spec;
 }
 
+const WORN = new WeakMap();   // plays document → its worn prefabs
+const NOT_WORN = new Set();
+/**
+ * 2026-11-06: the prefabs a kit's buff holds as a status (tools/build-fx-plays.mjs `worn`). namedSpec draws them on whoever wears
+ * the buff, so a skill's name rule does not (fxgame.js ownedNow): 바이슨 S2's own buff started twice, his allies' on him.
+ */
+export function wornPrefabs(plays) {
+  const keys = plays?.keys;
+  if (!keys) return NOT_WORN;
+  let set = WORN.get(plays);
+  if (!set) {
+    set = new Set();
+    for (const k of Object.values(keys)) {
+      if (!k.worn) continue;
+      for (const n of k.held || []) set.add(n);
+      for (const w of k.when || []) if (w.role === 'held') set.add(w.n);
+    }
+    WORN.set(plays, set);
+  }
+  return set;
+}
+
 function put(out, k, spec) { if (spec && !out.has(k)) out.set(k, spec); }
 let playsNow = null;   // wantedStatusFx's `plays` (byName, keyed specs)
 const byName = (out, spec) => {

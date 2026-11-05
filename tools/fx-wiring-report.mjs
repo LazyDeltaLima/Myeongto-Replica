@@ -6,8 +6,9 @@
 //   unplayed  a binding row with an extracted prefab that nothing plays (test/helpers/fxBindings.js unplayed), with the status
 //             test/render/fx-unplayed-local-list.js gives it (a template row: fx-bindings.test.js UNPLAYED), or NEW
 //   nameless  an extracted prefab of its bundle no row, table, mode or name rule reaches
-//   overlap   a prefab a hand table draws that the skill's activation also plays by its name, with the rows that create it:
-//             check whether the name rule draws it a second time on the caster (fxgame.js KIT_OWNED silences it)
+//   overlap   a prefab a hand table or a key a kit names draws that the skill's activation also plays by its name, with the rows
+//             that create it: check whether the name rule draws it a second time on the caster (fxgame.js KIT_OWNED silences it; a
+//             buff the kit wears needs nothing, fxstatus.js wornPrefabs)
 //
 // Usage: node tools/fx-wiring-report.mjs [--id <charId | bundle>]… [--json]   (no --id: every operator with something to report)
 
@@ -15,6 +16,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { activationEffects } from '../public/js/render/fxmap.js';
+import { wornPrefabs } from '../public/js/render/fxstatus.js';
 import { handEntries, loadTables, renderNames, unplayed } from '../test/helpers/fxBindings.js';
 import { UNPLAYED_LOCAL } from '../test/render/fx-unplayed-local-list.js';
 
@@ -40,7 +42,7 @@ const strings = (o, out = new Set()) => {
  * { bundle: { char, unplayed: [{ key, fx, reason, status }], nameless: [prefab], overlap: [{ fx, skill, tables, rows }] } } —
  * pure over its tables. `status`: 'key|prefab' → the list's word.
  */
-export function wiringReport({ tables, modes, status = {}, owned = new Set(), hand = [], names = new Set(), patterns = [] }) {
+export function wiringReport({ tables, modes, plays = null, status = {}, owned = new Set(), hand = [], names = new Set(), patterns = [] }) {
   const bundles = tables.index?.bundles || {};
   const emitted = tables.index?.emitted || {};
   const rows = [...tables.template, ...(tables.local || [])];
@@ -55,6 +57,10 @@ export function wiringReport({ tables, modes, status = {}, owned = new Set(), ha
   const bound = strings(modes);
   const drawnBy = new Map();
   for (const e of hand) for (const p of e.plays) (drawnBy.get(p.n) ?? drawnBy.set(p.n, []).get(p.n)).push(`${e.table} ${e.entry}`);
+  for (const [key, k] of Object.entries(plays?.keys || {})) {
+    if (!k.b) continue;
+    for (const n of [...(k.held || []), ...(k.when || []).filter((w) => w.role === 'held').map((w) => w.n)]) (drawnBy.get(n) ?? drawnBy.set(n, []).get(n)).push(`named key ${key}`);
+  }
   for (const [b, prefabs] of Object.entries(bundles)) {
     const em = new Set(Array.isArray(emitted) ? emitted : emitted[b] || []);
     const char = charOf.get(b);
@@ -64,7 +70,7 @@ export function wiringReport({ tables, modes, status = {}, owned = new Set(), ha
     }
     if (!char) continue;
     for (const skill of [0, 1, 2]) {
-      const a = activationEffects(modes[char], prefabs, skill, new Set([...owned, ...em]));
+      const a = activationEffects(modes[char], prefabs, skill, new Set([...owned, ...wornPrefabs(plays), ...em]));
       for (const fx of new Set([...a.start, ...a.loops])) {
         const by = drawnBy.get(fx);
         if (by) entry(b).overlap.push({ fx, skill: skill + 1, tables: by, rows: (rowFx.get(fx) || []).map((r) => `${r.key} ${r.moment} ${r.target || ''}`.trim()) });
@@ -82,7 +88,7 @@ if (isMain) {
     process.exit(1);
   }
   const { names, patterns } = renderNames();
-  const report = wiringReport({ tables: loadTables(), modes: readJson(join(LOCAL, 'modes.json')), status: UNPLAYED_LOCAL, owned: kitOwned(), hand: handEntries(), names, patterns });
+  const report = wiringReport({ tables: loadTables(), modes: readJson(join(LOCAL, 'modes.json')), plays: existsSync(join(LOCAL, 'plays.json')) ? readJson(join(LOCAL, 'plays.json')) : null, status: UNPLAYED_LOCAL, owned: kitOwned(), hand: handEntries(), names, patterns });
   const wanted = ids.length ? ids : Object.keys(report).sort();
   if (process.argv.includes('--json')) console.log(JSON.stringify(Object.fromEntries(wanted.map((b) => [b, report[b] ?? null])), null, 1));
   else {

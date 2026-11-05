@@ -71,6 +71,7 @@ import { modePart } from './fxmap.js'; // 2026-10-21: a mode talent's attack, a 
 import { defaultModeEffects } from './fxmap.js'; // 2026-10-21: the Default mode's own effects
 import { projSpeed } from './fx.js'; // local patch: the trails' flight time (the sim's projectile speeds)
 import { bodyZ, bodyPoint, liftX } from './fx.js'; // local patch: status effects at a unit's head / body (fxstatus.js)
+import { wornPrefabs } from './fxstatus.js';
 import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
 import { fxSpec } from './fx.js'; // local patch: the stand-in archetype of a kit fx event (standInOff)
 import { SHOT_HEIGHT } from './fx.js'; // local patch: a trail's start without a muzzle point
@@ -3755,8 +3756,6 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const dirPick = (v, names) => dirCopies(bindOf(v)?.dirs, names, ['UP', 'RIGHT', 'DOWN', 'LEFT'].indexOf(facingDir(v)), (v.visFacing ?? v.facing ?? 1) < 0);
   // prefabs a kit event here draws instead (余 S3's wall piece: one per tile along the wall, not one on him)
   const KIT_OWNED = new Set(['yu_skill3_range_01',
-    // 2026-11-05: the buffs of another unit or of the one pick (status keys bison_s_2[ally], nothin_s_2[a|b|c], fxstatus.js namedSpec), not of the cast
-    'bison_skill_02_buff', 'nothin_skill02_buff_01', 'nothin_skill02_buff_02', 'nothin_skill02_buff_03',
     // 2026-10-11 (pickFx): the 선발 picks' kit-event prefabs — the `_range` name rule played 克莱门莎's vortex and 予愿安洁莉娜's glide
     // range on the caster for the whole skill besides
     'clemnt_skill_02_bullet_01', 'clemnt_skill_02_bullet_02', 'clemnt_skill_02_bullet_range_01', 'clemnt_skill_02_mark_enemy',
@@ -3801,11 +3800,17 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // … and 塔露拉's: S2's stacks while they last (fxstatus.js oxi_s_2_stack, not the skill's instant), the footprints, 奥术
     // (kitofficial.js 'zone' / 'stacks'); oxi_skill_02_buff_02, which no client row creates
     'oxi_skill_02_buff_01', 'oxi_skill_02_buff_02', 'oxi_buff_01', 'oxi_buff_02', 'oxi_buff_03']);
+  // 2026-11-06: with the buffs a kit wears as statuses (fxstatus.js wornPrefabs), which those draw on whoever wears them
+  let ownedOf = null, ownedSet = KIT_OWNED;
+  const ownedNow = () => {
+    if (ownedOf !== plays) { ownedOf = plays; ownedSet = new Set([...KIT_OWNED, ...wornPrefabs(plays)]); }
+    return ownedSet;
+  };
   /** What a skill activation plays on the caster (fxmap.js activationEffects: { start, loops }). */
   const activation = (v) => {
     const b = bundleOf(v), em = emittedIn(b.bundle);
     const id = v?.info?.spine || v?.info?.defId;
-    const a = activationEffects(bindOf(v), b.prefabs, skillIdx(v), em.size ? new Set([...KIT_OWNED, ...em]) : KIT_OWNED, subOf(v), variantModes(id, skillIdx(v)));
+    const a = activationEffects(bindOf(v), b.prefabs, skillIdx(v), em.size ? new Set([...ownedNow(), ...em]) : ownedNow(), subOf(v), variantModes(id, skillIdx(v)));
     // 2026-10-24 (묶음 S2): the skill's own template buffs on the operator (fxmap.js SKILL_HELD)
     const held = skillHeld(v?.info?.spine || v?.info?.defId, skillIdx(v), b.prefabs, plays, faceBack(v)).filter((n) => !a.loops.includes(n));
     // 2026-10-24 (묶음 S5): what its template creates once as it starts (fxmap.js SKILL_EDGE `start`)
@@ -5252,7 +5257,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   function alwaysOn(v, id) {
     const b = bundleOf(v);
-    const names = b ? commonEffects(bindOf(v), b.prefabs, KIT_OWNED, v?.info?.spine || v?.info?.defId, plays, skillIdx(v)) : [];
+    const names = b ? commonEffects(bindOf(v), b.prefabs, ownedNow(), v?.info?.spine || v?.info?.defId, plays, skillIdx(v)) : [];
     if (!names.length) return;
     for (const l of live) if (l.tag === 'common' && l.owner === id) l.inst.stop(true);
     for (const n of names) spawn(b.bundle, n, v, { owner: id, buff: false, onCaster: true, until: null, tag: 'common', pinned: true }, { over: false, facing: efacing(v) });
@@ -5269,7 +5274,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function defaultModeFx(v, force = false) {
     const id = ownerOf(v), b = bundleOf(v);
     const m = v._fxSkillOn ? modeNow(v) ?? -1 : 0;
-    const names = b && !failed && q() !== 'low' && v.alive !== false && !(m > 0) ? defaultModeEffects(bindOf(v), b.prefabs, KIT_OWNED) : [];
+    const names = b && !failed && q() !== 'low' && v.alive !== false && !(m > 0) ? defaultModeEffects(bindOf(v), b.prefabs, ownedNow()) : [];
     const key = names.join('|');
     if (!force && (v._fxMode0?.key ?? '') === key) return;
     for (const l of live) if (l.tag === 'mode0' && l.owner === id) l.inst.stop(force);
