@@ -226,6 +226,32 @@ test('a mesh particle\'s alignment reaches the shader: View, World and Velocity 
   inst.dispose();
 });
 
+test('the alignment\'s basis does not depend on the simulation space: world-space Local takes the node\'s turn, local-space World does not (official client)', async () => {
+  const THREE = await import('../../public/vendor/three.module.js');
+  const turn = [0, 0, Math.SQRT1_2, Math.SQRT1_2];   // z 90°
+  const sys = (space, mode, align) => ({ ps: ps({}, { space, render: { mode, mesh: mode === 4 ? 'b' : null, align } }) });
+  const { inst } = await make([node('t', -1, { rot: turn }), node('m', 0, { scale: [2, 2, 2], ...sys(1, 4, 2) }), node('q', 0, sys(1, 0, 2)), node('l', 0, sys(0, 4, 2)),
+    node('lq', 0, sys(0, 0, 2)), node('w', 0, sys(0, 0, 1)), node('ww', 0, sys(1, 0, 1)), node('axes', 0, { ps: ps({ rotOL: { x: K(1), y: K(0), z: K(0) } }, { space: 1, render: { mode: 4, mesh: 'b', align: 0 } }) })],
+  { b: new THREE.BoxGeometry(1, 1, 1) });
+  inst.update(0.05);
+  const [m, q, l, lq, w, ww, axes] = inst.systems, al = (o) => o.material.uniforms.uAlign.value;
+  assert.deepEqual([al(m), al(q), al(axes)], [5, 5, 5], 'Local over a world-space simulation, whatever forced the Local');
+  assert.deepEqual([al(l), al(lq)], [2, 2], 'a local-space Local has the node\'s turn in its model matrix');
+  assert.equal(al(w), 6, 'World over a local-space simulation');
+  assert.equal(al(ww), 1, 'a world-space World is in the root\'s frame already');
+  m.draw(0);
+  const M = m.material.uniforms.uSys.value.elements;
+  assert.ok(Math.abs(M[0]) < 1e-6 && Math.abs(M[1] - 1) < 1e-6 && Math.abs(M[4] + 1) < 1e-6, `the node's turn in the root's frame: ${[M[0], M[1], M[4]]}`);
+  assert.ok(Math.abs(M[12] - 2) < 1e-6, 'the system\'s scale inside the basis');
+  w.draw(0);
+  assert.ok(w.rootTurn && w.quadScaled);
+  const sh = m.material.vertexShader;
+  assert.match(sh, /if \(uAlign == 5\) \{ p = mat3\(uSys\) \* \(uSysS \* p\);/);
+  assert.match(sh, /if \(uAlign == 5\) p = mat3\(uSys\) \* p;/);
+  assert.match(sh, /uMode == 0 && uAlign == 6/);
+  inst.dispose();
+});
+
 test('a MeshRenderer node keeps its node\'s transform: it never takes a mesh particle\'s alignment path (락락\'s and 쉐라\'s drones came out a whole tile wide)', async () => {
   const THREE = await import('../../public/vendor/three.module.js');
   const { inst } = await make([node('t', -1), node('m', 0, { scale: [0.3, 0.2, 0.3], mesh: { mesh: 'b', mat: 'm', order: 0, more: ['m'] } })], { b: new THREE.PlaneGeometry(1, 1) });

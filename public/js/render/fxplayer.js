@@ -9,7 +9,7 @@
 // Subset of Unity's particle system: start values (constant / curve / random two curves / random two constants), rate
 // and bursts, shapes (sphere, hemisphere, cone, box, circle, edge, rectangle, donut), velocity / force / limit velocity /
 // noise (cheap), color / size / rotation over lifetime, texture sheet frames, custom data (two vec4 streams), local or
-// world simulation, Birth sub emitters; renderers billboard / stretched / horizontal / vertical / mesh. Not drawn: collisions. Shaders: one uber shader standing in for the Torappu particle shaders (main texture with UV scroll,
+// world simulation, Birth sub emitters; renderers billboard / stretched / horizontal / vertical / mesh. Shaders: one uber shader standing in for the Torappu particle shaders (main texture with UV scroll,
 // distortion, dissolve with edge, colour ramp, the material's blend factors); the renderers' FxUVTweener scripts move their
 // textures' offsets (uvTween, 2026-10-14).
 //
@@ -382,7 +382,11 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       // in the mesh's own units, so that y runs along the mesh's z (the 重构体's crystals sit 27 × 0.12 × 0.12 = 0.39 out, their long axis outward)
       vec3 piv = vec3(uPivot.x, -uPivot.z, uPivot.y) * abs(iSize);
       vec3 p = rm * ((transformed + piv) * iSize);
-      if (uAlign != 2) {
+      vec3 nl = rm * (normal / max(abs(iSize), vec3(1e-4)));
+      // (official client: the Local mesh job) a world-space system's particles live in the root's frame, and the job's basis is
+      // still the system's rotation × its scale: uSys = the node's turn in that frame (sysScale)
+      if (uAlign == 5) { p = mat3(uSys) * (uSysS * p); nl = mat3(uSys) * nl; }
+      else if (uAlign != 2) {
         // (official client: the mesh jobs of the other alignments) the same matrix over another basis, the system's transform
         // scale inside it: View (0) the camera's right, up and forward; World (1) the Unity world's axes; Velocity (4) z along
         // velocity + animated velocity, x = normalize(world up × z) (world x along up, z when it stands still), y = z × x.
@@ -405,7 +409,7 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
         return;
       }
       vH = (modelMatrix * vec4(iPos + p, 1.0)).z;
-      if (uRim) { vN = normalMatrix * (rm * (normal / max(abs(iSize), vec3(1e-4)))); vVP = (modelViewMatrix * vec4(iPos + p, 1.0)).xyz; }
+      if (uRim) { vN = normalMatrix * nl; vVP = (modelViewMatrix * vec4(iPos + p, 1.0)).xyz; }
       gl_Position = projectionMatrix * modelViewMatrix * vec4(iPos + p, 1.0);
       return;
     }
@@ -481,11 +485,22 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       gl_Position = projectionMatrix * viewMatrix * vec4(wp, 1.0);
       return;
     }
-    if (uMode == 2 || (uMode == 0 && (uAlign == 1 || uAlign == 2))) {
+    if (uMode == 0 && uAlign == 6) {
+      // (official client: the World basis is the identity whatever the simulation space) a local-space system's World quad: placed
+      // by its node, drawn on the Unity world's axes × the system's scale, without the node's turn
+      vec4 cv = modelViewMatrix * vec4(iPos, 1.0);
+      vec3 off = mat3(viewMatrix) * mat3(uSys) * (vec3(rc, 0.0) * uSysS);
+      vH = (modelMatrix * vec4(iPos, 1.0)).z + hOfView(off);
+      gl_Position = projectionMatrix * vec4(cv.xyz + off, 1.0);
+      return;
+    }
+    if (uMode == 2 || (uMode == 0 && (uAlign == 1 || uAlign == 2 || uAlign == 5))) {
       // horizontal billboard (Unity: in the world XZ plane) / world- or local-aligned quad (XY plane of that space). (2026-11-04)
       // An aligned quad takes the system's transform scale (the engine's diag(S) basis): a local-space system's through its
-      // model matrix, a world-space one's here (sysScale leaves uSysS at 1 for the former)
+      // model matrix, a world-space one's here (sysScale leaves uSysS at 1 for the former). Local over a world-space simulation
+      // (uAlign 5): the basis is the system's rotation (official client), uSys = the node's turn in the root's frame
       vec3 p = uMode == 2 ? vec3(rc.x, 0.0, rc.y) : vec3(rc, 0.0) * uSysS;
+      if (uAlign == 5) p = mat3(uSys) * p;
       vH = (modelMatrix * vec4(iPos + p, 1.0)).z;
       gl_Position = projectionMatrix * modelViewMatrix * vec4(iPos + p, 1.0);
       return;
@@ -1599,17 +1614,23 @@ class ParticleSystem {
     // (official client) a mesh particle's alignment picks its mesh job, Local when `rotOL` turns its separate axes
     // (PrepareForRender forces it); its Facing job is unread and no extracted system has it (fx_coverage reports one)
     const meshAlign = ps.render.mode !== 4 ? -1 : ps.mods?.rotOL?.x || ps.render.align === 3 ? 2 : ps.render.align ?? 0;
-    mat.uniforms.uAlign.value = meshAlign >= 0 ? meshAlign : ps.render.mode === 0 || ps.render.align < 3 ? ps.render.align ?? 0 : 0;   // Facing, Velocity: billboards only
+    const billboard = ps.render.mode === 0;
+    // (official client) the job's basis does not depend on the simulation space: Local is the system's rotation (the state's, kept
+    // for a world-space system too), World the identity. So a world-space system's Local (5) and a local-space system's World (6)
+    // are drawn apart from the frame their particles live in
+    this.sysLocal = this.world && (meshAlign === 2 || (billboard && ps.render.align === 2));
+    const worldOverLocal = !this.world && billboard && ps.render.align === 1;
+    mat.uniforms.uAlign.value = this.sysLocal ? 5 : worldOverLocal ? 6 : meshAlign >= 0 ? meshAlign : billboard || ps.render.align < 3 ? ps.render.align ?? 0 : 0;   // Facing, Velocity: billboards only
     mat.uniforms.uFree.value = !!ps.render.free;
     mat.uniforms.uRotW.value = !!ps.render.rotw;
     this.velAlign = (ps.render.mode === 0 && ps.render.align === 4) || meshAlign === 4;
-    this.rootTurn = meshAlign === 1 || meshAlign === 4;   // its basis needs the root's turn every frame (sysScale)
+    this.rootTurn = meshAlign === 1 || meshAlign === 4 || worldOverLocal;   // its basis needs the root's turn every frame (sysScale)
     // (2026-11-04) the quads that take the system's transform scale (sysScale): View, Velocity and stretched billboards
     // (freeform aside), and a world-space system's World / Local-aligned ones (a local-space system's take it from their
     // model matrix); so do View, World and Velocity meshes (their matrix helper); horizontal, vertical and Facing renderers
     // do not here (their dispatchers are not read)
     const r = ps.render;
-    this.quadScaled = (r.mode === 0 && (r.align === 0 || r.align === 4 || (this.world && (r.align === 1 || r.align === 2)))) || (r.mode === 1 && !r.free) || meshAlign === 0 || meshAlign === 1 || meshAlign === 4;
+    this.quadScaled = (r.mode === 0 && (r.align === 0 || r.align === 4 || worldOverLocal || (this.world && (r.align === 1 || r.align === 2)))) || (r.mode === 1 && !r.free) || meshAlign === 0 || meshAlign === 1 || meshAlign === 4 || this.sysLocal;
     this.scalePath = null;   // the nodes whose scale it takes (FxInstance), null for none
     // (official client) a mesh particle turns by its rotation as it is, by all three axes the other way with `rotOL`'s separate axes
     this.meshRotSign = r.mode === 4 && ps.mods?.rotOL?.x ? -1 : 1;
@@ -1992,28 +2013,36 @@ class ParticleSystem {
   }
 
   /**
-   * 2026-10-22 (CollisionModule): particle i (age fraction a) against the planes P — a particle within its radius (size ×
-   * ½ × `radius`) of a plane and moving into it is put back on its surface; the normal part of its velocity turns back ×
-   * `bounce`, then the velocity loses `dampen` of itself, the particle `lifeLoss` of its lifetime, and it dies below
-   * `minKill` / above `maxKill` speed. [ASSUMED: Unity's response by its manual — the engine's own code is not readable;
-   * a particle behind a plane is pushed to its front, planes being one-sided.] Returns false when it died.
+   * CollisionModule, type 0 Planes (official client: PlaneCollision, PerformPlaneCollisions): particle i against the planes P,
+   * the first one it is within reach of. Its velocity here is the particle's + the animated one × the speed modifier (sm); the
+   * radius is its size × `radius` × ½ (the largest axis of a 3D size). No side and no direction count: a particle behind a plane
+   * or moving away from it collides too, unless it moves along the plane. The hit is where its line meets the surface; what lies
+   * past the hit and the velocity are reflected, × (1 − `dampen`), then their normal part keeps only `bounce` of itself. The
+   * particle's velocity takes the result less the animated velocity. `lifeLoss` of its lifetime goes, and it dies by the speed
+   * it came in with (below `minKill`, above `maxKill`). The three curves are read at time 0, not at the particle's age.
+   * Returns false when it died.
    */
-  collide(i, a, r, P) {
-    const co = this.ps.mods.collide, pos = this.pos, vel = this.vel, o = i * 3;
-    const rad = 0.5 * (co.radius ?? 1) * Math.abs(this.size0[o] * this.sizeOf(i, a, this.rnd[i * 4 + 2], sizeK)[0]);   // the drawn size
+  collide(i, a, P, sm) {
+    const co = this.ps.mods.collide, pos = this.pos, vel = this.vel, avel = this.avel, o = i * 3;
+    const sk = this.sizeOf(i, a, this.rnd[i * 4 + 2], sizeK);
+    const rad = 0.5 * (co.radius ?? 1) * Math.max(Math.abs(this.size0[o] * sk[0]), Math.abs(this.size0[o + 1] * sk[1]), Math.abs(this.size0[o + 2] * sk[2]));   // the drawn size
+    const vx = (vel[o] + avel[o]) * sm, vy = (vel[o + 1] + avel[o + 1]) * sm, vz = (vel[o + 2] + avel[o + 2]) * sm;
+    const sp = Math.hypot(vx, vy, vz);
+    if (sp <= 1e-5) return true;
     for (let k = 0; k < P.length; k += 6) {
       const nx = P[k + 3], ny = P[k + 4], nz = P[k + 5];
       const dist = (pos[o] - P[k]) * nx + (pos[o + 1] - P[k + 1]) * ny + (pos[o + 2] - P[k + 2]) * nz;
-      if (dist >= rad) continue;
-      const vn = vel[o] * nx + vel[o + 1] * ny + vel[o + 2] * nz;
-      if (vn >= 0) continue;
-      const push = rad - dist;
-      pos[o] += nx * push; pos[o + 1] += ny * push; pos[o + 2] += nz * push;
-      const b = evalMM(co.bounce, a, r), keep = 1 - evalMM(co.dampen, a, r), back = vn * (1 + b);
-      vel[o] = (vel[o] - nx * back) * keep; vel[o + 1] = (vel[o + 1] - ny * back) * keep; vel[o + 2] = (vel[o + 2] - nz * back) * keep;
-      this.age[i] += evalMM(co.lifeLoss, a, r) * this.life[i];
-      const sp = Math.hypot(vel[o], vel[o + 1], vel[o + 2]);
-      if (sp < (co.minKill ?? 0) || sp > (co.maxKill ?? 1e4) || this.age[i] >= this.life[i]) return false;
+      if (dist > rad) continue;
+      const vn = vx * nx + vy * ny + vz * nz;
+      if (Math.abs(vn) < 1e-4 * sp) continue;
+      const t = (rad - dist) / vn, hx = pos[o] + vx * t, hy = pos[o + 1] + vy * t, hz = pos[o + 2] + vz * t;
+      // w = the velocity reflected × keep, its normal part then × bounce; what lies past the hit (−v t) comes out as −w t
+      const keep = 1 - evalMM(co.dampen, 0, Math.random()), bn = vn * ((1 - evalMM(co.bounce, 0, Math.random())) - 2);
+      const wx = keep * (vx + nx * bn), wy = keep * (vy + ny * bn), wz = keep * (vz + nz * bn);
+      pos[o] = hx - wx * t; pos[o + 1] = hy - wy * t; pos[o + 2] = hz - wz * t;
+      vel[o] = wx / sm - avel[o]; vel[o + 1] = wy / sm - avel[o + 1]; vel[o + 2] = wz / sm - avel[o + 2];
+      this.age[i] += evalMM(co.lifeLoss, 0, Math.random()) * this.life[i];
+      return !(sp < (co.minKill ?? 0) || sp > (co.maxKill ?? 1e4) || this.age[i] >= this.life[i]);
     }
     return true;
   }
@@ -2243,7 +2272,7 @@ class ParticleSystem {
       this.vel[i * 3] = vx; this.vel[i * 3 + 1] = vy; this.vel[i * 3 + 2] = vz;
       this.pos[i * 3] += (vx + ox) * sm * dt; this.pos[i * 3 + 1] += (vy + oy) * sm * dt; this.pos[i * 3 + 2] += (vz + oz) * sm * dt;
       this.avel[i * 3] = ox; this.avel[i * 3 + 1] = oy; this.avel[i * 3 + 2] = oz;
-      if (P && !this.collide(i, a, r, P)) { this.kill(i); continue; }
+      if (P && !this.collide(i, a, P, sm)) { this.kill(i); continue; }
       if (m.rotOL) {
         this.rot[i * 3 + 2] += evalMM(m.rotOL.z, a, r) * dt;
         // 2026-10-22: a separate-axes module turns a mesh particle about x / y too (Unity adds angularVelocity3D to each
@@ -2261,7 +2290,7 @@ class ParticleSystem {
   draw(sinceStart) {
     const m = this.ps.mods;
     if (this.velAlign && this.n) this.velFrame();
-    if ((this.scalePath || this.rootTurn) && this.n) this.sysScale();
+    if ((this.scalePath || this.rootTurn || this.sysLocal) && this.n) this.sysScale();
     // instance data, uploaded by the used range in one call
     const n = this.n, D = this.ib.array, rotSign = this.meshRotSign;
     for (let i = 0; i < n; i++) {
@@ -2383,6 +2412,13 @@ class ParticleSystem {
       S.set(x, y, z);
       M[12] = x; M[13] = y; M[14] = z;
       u.uSysOn.value = Math.abs(x - 1) > 1e-4 || Math.abs(y - 1) > 1e-4 || Math.abs(z - 1) > 1e-4;
+    }
+    if (this.sysLocal) {   // the node's turn in the root's frame: the transforms' rotations alone, whatever their scales
+      frameQ.identity();
+      for (let o = this.node; o && o !== this.root; o = o.parent) frameQ.premultiply(o.quaternion);
+      const R = tmpM.makeRotationFromQuaternion(frameQ).elements;
+      for (let c = 0; c < 3; c++) { M[c * 4] = R[c * 4]; M[c * 4 + 1] = R[c * 4 + 1]; M[c * 4 + 2] = R[c * 4 + 2]; }
+      return;
     }
     if (!u.uSysOn.value && !this.rootTurn) return;
     // the root's turn, Unity frame → scene (its columns without their length; the facing mirror keeps its sign)
@@ -2644,7 +2680,7 @@ function boxSurface(type, size, thick, p) {
  * point on a triangle's edge (by its length), 2 = a point on a triangle (by its area), at random (m_MeshSpawn mode 0, the
  * client's only one); the direction = the surface normal there (three's from the triangles — the mesh files carry none;
  * their winding gives Unity's side). `meshCol` (m_UseMeshColors) tints the particle by the vertex colours there (a mesh
- * without them: white). [추정: the length / area weights — Unity's own sampling is not public]
+ * without them: white). Official client: triangles weighted by area, edges (each triangle's three) by length, vertices evenly.
  */
 function meshShape(sh, g) {
   const pos = g?.getAttribute('position'), index = g?.getIndex();

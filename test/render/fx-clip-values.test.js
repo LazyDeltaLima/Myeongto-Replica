@@ -43,7 +43,10 @@ test('a clip moves the emission rate: nothing until it rises, then particles (th
 });
 
 test('a clip moves the shape radius, the start colour and looping of its own system', async () => {
-  const { inst } = await make([node('p', 0, { ps: sys({ rate: mm(200) }) })], [
+  // thickness 0: every particle starts on the rim, so the wider circle shows in any draw of the random radius (with the
+  // whole disc only 1 particle in 30 reaches past 2.9, and about 66 of them missed it one run in ten)
+  const onRim = { ...sys().shape, thick: 0 };
+  const { inst } = await make([node('p', 0, { ps: sys({ rate: mm(200), shape: onRim }) })], [
     { node: 1, prop: 'ps:ShapeModule.radius.value', type: 198, curves: [step(3)] },
     { node: 1, prop: 'ps:InitialModule.startColor.maxColor.g', type: 198, curves: [step(0.25)] },
     { node: 1, prop: 'ps:looping', type: 198, curves: [step(1)] },
@@ -55,7 +58,7 @@ test('a clip moves the shape radius, the start colour and looping of its own sys
   assert.equal(s.ps.loop, true);
   let far = 0;
   for (let i = 0; i < s.n; i++) far = Math.max(far, Math.hypot(s.pos[i * 3], s.pos[i * 3 + 1]));
-  assert.ok(far > 2.9, 'the later particles leave the wider circle');
+  assert.ok(far > 2.99, `the later particles leave the wider circle (${far})`);
 });
 
 test('a clip on a module the system lacks binds nothing; one on a trail sets its own length', async () => {

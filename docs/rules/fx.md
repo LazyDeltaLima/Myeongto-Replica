@@ -1806,10 +1806,11 @@
     시작 크기의 0.08–0.15배 — 예전엔 시작 크기(최대 3) 그대로 커다란 검은 조각으로 보였다.
   - `CollisionModule` 운영자 28·적 14 — 전부 type 0(평면), 평면은 프리팹 안 노드(대개 하나), 중력 0이 대부분. → `mods.collide` { planes(노드 번호 —
     `collide_planes`), dampen, bounce, lifeLoss(`m_EnergyLossOnCollision`), minKill, maxKill, radius }; 평면이 없는 계 2개는 모듈을 뺌(충돌할 것 없음).
-    평면 = 그 노드 위치·로컬 +y. 입자(반지름 = 그린 크기 × ½ × `radius`)가 평면 쪽으로 움직이며 반지름 안에 들면 표면으로 되돌리고 법선 성분을
-    × `bounce`로 뒤집은 뒤 속도의 `dampen`만큼 잃고, 수명의 `lifeLoss`를 잃고, 속도가 `minKill` 미만·`maxKill` 초과면 죽는다(`maxKill` 10인 계 14개 —
-    부딪히면 사라짐). [추정: Unity 매뉴얼의 설명대로 — 엔진 코드는 못 읽음; 평면 뒤의 입자도 앞으로 밀림(한쪽 면)] 애쉬락·백파이프 탄피·첸 더
-    던스트릭 S3 동전·머드락 돌 등.
+    공식 클라에서 확인(2026-11-06, `PlaneCollision`·`PerformPlaneCollisions`, 처음의 추정을 대신함): 평면 = 그 노드 위치·노드의 +y. 속도는 입자 속도 + 애니메이션 속도(× 속도 배율), 반지름은 크기 × `radius` × ½(3D 크기면 가장 큰 축).
+    입자마다 **닿는 첫 평면 하나만**, 평면까지 거리 ≤ 반지름이면 부딪힌다 — **면도 방향도 안 본다**(평면 뒤 입자, 평면에서 멀어지는 입자도 부딪힘). 평면과 거의 나란한 입자(|법선 · 속도 방향| < 10⁻⁴)와 멈춘 입자만 빠진다.
+    맞은 점 = 속도 선이 반지름 면과 만나는 곳. 맞은 점을 지난 길이와 속도를 반사해 (1 − `dampen`)을 곱하고, 그 법선 성분에 `bounce`를 곱한다. 입자 속도에는 결과에서 애니메이션 속도를 뺀 값을 쓴다.
+    수명의 `lifeLoss`를 잃고, **들어온 속력**이 `minKill` 미만·`maxKill` 초과면 죽는다(`maxKill` 10인 계 14개 — 부딪히면 사라짐). 세 곡선은 입자 나이가 아니라 **시각 0**에서 읽는다(무작위 3계).
+    예전엔 입자 속도만 반사해 속도 모듈로 움직이는 입자는 평면을 지나쳤고, 멀어지는 입자를 건너뛰었으며, 표면으로 밀어 놓았다. 애쉬락·백파이프 탄피·첸 더 던스트릭 S3 동전·머드락 돌 등. 시험 `test/render/fx-particle-modules.test.js` 「collision」 여섯. [화면 미확인: 공식과 나란히 → checks/official.md]
   - `ClampVelocityModule`(`mods.limit` { mag, dampen, drag }) — **입자 속도 + 애니메이션 속도 전체**를 제한한다(2026-10-24부터 VelocityOverLifetime까지, 2026-11-05부터 궤도·방사·노이즈까지; 관리자 제보
     「패신저가 가만히 대기할 때 무기 이펙트가 너무 과해서 하늘로 솟구친다」). 예전엔 시작 속도·중력·힘으로 쌓인 속도(`vel`)에만 걸려, 두 모듈을 같이 쓰는
     계 1031개(584 프리팹) 중 시작 속도 0·힘 없음인 289개는 제한이 아무것도 안 했다. 패신저 2재능 孤卒(주변 4칸에 적이 없을 때) 버프
@@ -1818,7 +1819,7 @@
     2.84 → 0.93칸, 남은 것은 노이즈 — 2026-11-05에 노이즈도 제한 안으로).
     공식 클라에서 확인(2026-11-05, 처음의 추정을 대신함): 시뮬 전 모듈 차례는 모양 → 시작 값 → 외부 힘 → 회전 → **속도(VelocityOverLifetime·궤도·방사) → 노이즈** → 속도 상속 → 힘 → **제한**이고,
     `MagnitudeUpdate`는 속도 + 애니메이션 속도의 합을 한계 쪽으로 줄인 뒤 입자 속도에 (합 − 애니메이션 속도)를 다시 쓴다. 구현이 그대로다: `vel` = 입자 속도, `avel` = 그 걸음의 애니메이션 속도. 궤도의 이동도
-    걸음 앞 위치에서 재어 애니메이션 속도로 더한다(예전엔 적분 뒤에 위치를 돌렸다). 충돌은 `vel`만 반사한다 [추정·미조사: 충돌 모듈이 애니메이션 속도를 보는지 — 제한·속도 모듈·충돌을 같이 쓰는 계 11개; 위 충돌 항목과 같은 미확인].
+    걸음 앞 위치에서 재어 애니메이션 속도로 더한다(예전엔 적분 뒤에 위치를 돌렸다). 충돌도 같은 합을 반사한다(위 충돌 항목).
     시험 `test/render/fx-particle-modules.test.js` 「limit velocity」 둘. [화면 미확인: 패신저 孤卒 번개·노이즈와 제한을 같이 쓰는 1782계 — 공식과 나란히]
 - **셰이더 패스 상태**(클라 `[uc]shaders.ab` Shader `m_ParsedForm` — Torappu 입자 셰이더 전부의 패스별 Cull·ZWrite·ZTest·Blend와 그것이 읽는 속성;
   `fxplayer.js renderState`):
@@ -1878,7 +1879,7 @@
   같은 + 부호로 메시 축의 pivot × 크기를 회전 전에 더함 → 2026-11-04 공식 클라 식으로 바뀜(「메시 입자 pivot」).
 - **메시 방출** (Shape type 6, 클라 79 시스템·운영자 36·적 4 프리팹 — 대부분 범위 윤곽 메시 `general_range_08`·`FX_m_range_03_*`·`lap_s2range02` 위의
   반짝임): 추출 `shape.mesh`(메시 파일)·`place`(placementMode 0 꼭짓점·1 변·2 삼각형)·`meshCol`(m_UseMeshColors); 클라는 모두 m_MeshSpawn mode 0
-  (무작위)·법선 오프셋 0 — 다른 값이면 `fx_coverage`가 알림. 플레이어 `meshShape`/`meshSample`: 꼭짓점 균등, 변은 길이·삼각형은 넓이 가중 [추정],
+  (무작위)·법선 오프셋 0 — 다른 값이면 `fx_coverage`가 알림. 플레이어 `meshShape`/`meshSample`: 꼭짓점 균등, 변은 길이·삼각형은 넓이 가중(공식 클라에서 확인 2026-11-06, `DidModifyMeshData`·`GetPositionMesh`; 잘라내기 기준값을 256배 정수로 바꾸는 것은 모양 텍스처 `m_Texture` 몫이고 쓰는 계가 없다),
   방향 = 그 자리 법선(메시 파일엔 법선이 없어 three가 삼각형으로 계산 — 감은 방향이 Unity 앞면과 같음), 정점 색이 있으면 시작 색에 곱함(없으면 흰색 —
   Unity 매뉴얼의 「재질 색」은 MeshRenderer 모양에만 해당). 예전엔 한 점에서 뿜었다(범위 반짝임이 범위 가운데 한 점).
 - **클립이 움직이는 값** (`fx_extract.py ANIMATED_VALUES` → `fxplayer.js PS_ANIM`/`UVT_ANIM`): Mecanim 바인딩(경로의 crc32)·레거시 곡선(경로 이름)이
@@ -3558,7 +3559,7 @@
 
 ### 메시 입자 정렬 (2026-11-05, 공식 클라에서 확인 — 클라 자체 엔진 빌드의 정렬별 메시 잡)
 
-`m_RenderAlignment`가 잡을 고르고 잡마다 행렬 도우미에 넘기는 기저만 다르다. Local(2)은 계의 회전, World(1)는 항등(Unity 세계 축), View(0)는 카메라의 오른쪽·위·앞(메시 z가 카메라 앞), Velocity(4)는 z = 입자 속도 + 애니메이션 속도 방향, x = normalize(세계 위 × z)(멈췄으면 z = 세계 z, 위와 나란하면 세계 x), y = z × x. 계의 변환 크기는 기저 안쪽에서 곱한다. 수명 중 회전이 축별이면 Local로 강제(12계). 예전엔 전부 Local로 그려 View 296·Velocity 20·World 8계(추출본)가 노드 회전을 따랐다. Facing(3) 잡은 안 읽음 — 추출본에 없고 나오면 `fx_coverage`가 알린다, Local로 그림. 렌더러의 `m_AllowRoll`이 꺼지면 View 잡에 카메라 롤 보정이 붙는다(안 넣음: 보드 카메라는 안 돈다). `fxplayer.js` `meshAlign`·`uMode == 4`. 확인: `test/render/fx-drawing.test.js` 「a mesh particle's alignment」, Windows Chrome에서 표본 12개 전후 비교(깨지지 않음). [화면 미확인: 공식과 나란히 — Mon3tr S1 시작·토스카 타격 고리(View, `monstr_skill_01_start_01`·`tocka_attack_01_hit_01`), 쉐라 얼음(Velocity, `kjera_attack_start_01`), 위 S3 범위(World, `yu_skill3_range_01_root`)]
+`m_RenderAlignment`가 잡을 고르고 잡마다 행렬 도우미에 넘기는 기저만 다르다. Local(2)은 계의 회전, World(1)는 항등(Unity 세계 축), View(0)는 카메라의 오른쪽·위·앞(메시 z가 카메라 앞), Velocity(4)는 z = 입자 속도 + 애니메이션 속도 방향, x = normalize(세계 위 × z)(멈췄으면 z = 세계 z, 위와 나란하면 세계 x), y = z × x. 계의 변환 크기는 기저 안쪽에서 곱한다. 수명 중 회전이 축별이면 Local로 강제(12계). 예전엔 전부 Local로 그려 View 296·Velocity 20·World 8계(추출본)가 노드 회전을 따랐다. Facing(3) 잡은 안 읽음 — 추출본에 없고 나오면 `fx_coverage`가 알린다, Local로 그림. 렌더러의 `m_AllowRoll`이 꺼지면 View 잡에 카메라 롤 보정이 붙는다(안 넣음: 보드 카메라는 안 돈다). `fxplayer.js` `meshAlign`·`uMode == 4`. 기저는 시뮬레이션 공간과 상관없다(공식 클라에서 확인 2026-11-06: 잡의 계 회전은 `UpdateLocalToWorldMatrixAndScales`가 공간과 상관없이 Transform에서 받고, 위치 행렬만 World 공간에서 항등): 세계 공간 계의 Local(메시 43계, 그중 노드가 돌아간 34계. `oxi_skill_03_trail_01`, `token_ironmn_pile1_birth_01`, `enemy_acfort_skill_02_hit`)은 노드 회전 × 계 배율을 따른다(`uAlign` 5, `sysLocal`) — 예전엔 빠져 있었다. 빌보드도 같다: 세계 공간 Local 사각형 299계(돌아간 104계)가 노드 회전을 따르고(`uAlign` 5), 로컬 공간 World 사각형 28계(돌아간 20계. `jesca2_skill_01_hit_01`, `oxi_attack_hit_01`)는 노드 회전을 안 따른다(`uAlign` 6) [화면 미확인]. 음수 스케일 부모가 회전에 주는 부호는 안 넣음(해당 1계). 확인: `test/render/fx-drawing.test.js` 「the alignment's basis」·「a mesh particle's alignment」, Windows Chrome에서 표본 12개 전후 비교(깨지지 않음). [화면 미확인: 공식과 나란히 — Mon3tr S1 시작·토스카 타격 고리(View, `monstr_skill_01_start_01`·`tocka_attack_01_hit_01`), 쉐라 얼음(Velocity, `kjera_attack_start_01`), 위 S3 범위(World, `yu_skill3_range_01_root`)]
 
 이 정렬은 메시 입자에만 쓴다. MeshRenderer·스킨 메시 노드는 같은 셰이더 갈래(`uMode` 4)로 그리지만 자기 노드 행렬로 놓이므로 `uAlign` 2로 고정한다(`FxInstance`의 `draw`). 2026-11-05 관리자 제보 「락락·쉐라 드론이 지나치게 커짐」: 정렬을 넣으면서 이 노드들이 기본값 0(View)으로 입자 갈래에 들어가, 노드 크기·회전을 잃고 카메라를 향한 1칸 크기로 그려졌다. 추출 프리팹 1,561개에 이런 노드가 있고, 드론은 락락·쉐라·미니멀리스트·라플란드 더 데카덴차 모두 해당했다. 확인: `test/render/fx-drawing.test.js` 「a MeshRenderer node keeps its node's transform」. 전체 3,098개 × 2프레임에서 그림이 바뀐 프리팹 1,140개는 모두 메시 노드가 있고, 락락·쉐라·미니멀리스트 드론은 정렬을 넣기 전 그림과 픽셀까지 같다(라플란드 더 데카덴차는 수십 픽셀 차이가 남아 있다). 공식 화면과 나란히 보지는 않았다.
 

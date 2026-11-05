@@ -221,6 +221,52 @@ test('collision: lifetime loss and kill speed end particles at the plane; withou
   inst.dispose();
 });
 
+const PLANE_Z1 = (over = {}) => ({ planes: [1], dampen: K(0), bounce: K(1), lifeLoss: K(0), minKill: 0, maxKill: 10000, radius: 1, ...over });
+const planeAtZ1 = () => node('plane', 0, { pos: [0, 0, 1], rot: [-Math.SQRT1_2, 0, 0, Math.SQRT1_2] });
+
+test('collision reflects the particle\'s velocity + the animated one, the particle\'s keeps the rest (official PerformPlaneCollisions)', async () => {
+  // no start speed, 2 / s of animated velocity into the plane: with only the particle's velocity seen they went straight through
+  const velOL = { x: K(0), y: K(0), z: K(2) };
+  const { inst } = await make([node('t', -1), planeAtZ1(), node('p', 0, { ps: ps({ collide: PLANE_Z1(), velOL }, { speed: 0 }) })]);
+  const s = inst.systems[0];
+  for (let k = 0; k < 11; k++) inst.update(0.05);
+  for (let i = 0; i < s.n; i++) {
+    assert.ok(s.vel[i * 3 + 2] < -3.9, `the sum comes back at −2, so the particle's own is −4: ${s.vel[i * 3 + 2]}`);
+    assert.ok(s.pos[i * 3 + 2] < 1, `it does not pass the plane: ${s.pos[i * 3 + 2]}`);
+  }
+  inst.dispose();
+});
+
+test('collision has no side and no direction: a particle moving away inside the radius is turned back too', async () => {
+  // starts 0.05 before a plane facing it (+y toward +z): the radius 0.1 reaches it, it flies away from the plane at 2 / s
+  const plane = node('plane', 0, { pos: [0, 0, -0.05], rot: [Math.SQRT1_2, 0, 0, Math.SQRT1_2] });
+  const { inst } = await make([node('t', -1), plane, node('p', 0, { ps: ps({ collide: PLANE_Z1() }) })]);
+  const s = inst.systems[0];
+  inst.update(0.001);
+  assert.ok(s.vel[2] < 0, `official: no check of the direction (${s.vel[2]})`);
+  inst.dispose();
+});
+
+test('collision reads its curves at time 0, not at the particle\'s age', async () => {
+  // dampen rises from 0 to 1 over a lifetime: the official client takes 0 whenever the particle hits
+  const dampen = { m: 1, s: 1, c: [[0, 0, 1, 1], [1, 1, 1, 1]] };
+  const { inst } = await make([node('t', -1), node('plane', 0, { pos: [0, 0, 4], rot: [-Math.SQRT1_2, 0, 0, Math.SQRT1_2] }),
+    node('p', 0, { ps: ps({ collide: PLANE_Z1({ dampen }) }) })]);
+  const s = inst.systems[0];
+  for (let k = 0; k < 44; k++) inst.update(0.05);   // reaches z = 3.9 at about 2 s of 5
+  assert.ok(Math.abs(s.vel[2] + 2) < 1e-4, `nothing lost: ${s.vel[2]}`);
+  inst.dispose();
+});
+
+test('collision kills by the speed the particle came in with (minKill), not the speed after dampen', async () => {
+  const { inst } = await make([node('t', -1), planeAtZ1(), node('a', 0, { ps: ps({ collide: PLANE_Z1({ dampen: K(0.9), minKill: 1 }) }) }),
+    node('b', 0, { ps: ps({ collide: PLANE_Z1({ minKill: 3 }) }) })]);
+  for (let k = 0; k < 11; k++) inst.update(0.05);
+  assert.deepEqual(inst.systems.map((x) => x.n), [4, 0], 'came in at 2: over a minKill of 1, under one of 3');
+  assert.ok(Math.abs(inst.systems[0].vel[2] + 0.2) < 1e-4);
+  inst.dispose();
+});
+
 test('inherit velocity: a world-space system\'s particles take the moving emitter\'s velocity × k at birth; a local one does not', async () => {
   const inh = { mode: 0, k: K(0.5) };
   const { inst } = await make([node('t', -1), node('w', 0, { ps: ps({ inherit: inh }, { space: 1, speed: 0, at: 0.1 }) }),
