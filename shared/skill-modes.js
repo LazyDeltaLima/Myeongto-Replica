@@ -51,7 +51,8 @@ export const SKILL_CAST_KIDS = Object.freeze({
 
 /**
  * The mode index of skill `i` (0-based) in a `_modes` name list, or -1: the mode named exactly `S<k>` / `Sk<k>` (any case) first,
- * then a range `S<a>-<b>` holding k, then the first `S<k>…` variant (S2_Overload, S2Respawn, S3(D) …).
+ * then a range `S<a>-<b>` holding k, then a variant `S<k>…Loop` (the one that attacks of a Start / Loop / End chain: 타락사쿰's
+ * S1_FlyStart, S1_FlyLoop, S1_FlyEnd), then the first `S<k>…` variant (S2_Overload, S2Respawn, S3(D) …).
  * `skillMode` (char_modes.py: per skill, the mode its own prefab's switch_mode buff selects, or null) overrides names
  * where they mislead: a mode another skill's prefab claims is never this skill's, and a skill the names leave without a
  * mode takes its prefab's (莫斯提马 [Default, S2]: S3 → 1, S2 → none; 水月 [Default, T1, S1, S2]: S2 → 2, S3 → 3).
@@ -72,7 +73,7 @@ export function skillModeIndex(modes, i, skillMode = null) {
     const a = Number(m[1]), b = Number(m[2] || m[1]);
     if (k < a || k > b) return;
     const up = String(name).toUpperCase();
-    const r = up === `S${k}` || up === `SK${k}` ? 0 : a !== b ? 1 : 2;
+    const r = up === `S${k}` || up === `SK${k}` ? 0 : a !== b ? 1 : up.endsWith('LOOP') ? 2 : 3;
     if (r < rank) { rank = r; best = n; }
   });
   return best >= 0 ? best : own;

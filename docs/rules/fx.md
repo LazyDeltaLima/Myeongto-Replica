@@ -3427,6 +3427,7 @@
     이펙트가 따로 있음. 지금 손 계획이 있는 15개 키는 모두 같은 프리팹을 말한다(`test/render/kit-named-keys.test.js`).
     ② 상태: 상태 키가 클라 키(`:<id>` 제외)면 `fxstatus.js namedSpec`이 `KEY_FX` 줄 없이 그 버프가 쥐는 이펙트를 프리팹 자신의 `_spawnLocation`으로 그린다. 조건 뒤에만 쥐면
     `keyedAll`처럼 조건이 성립한 것으로 본다. 이름 규칙으로 풀 수 없는 것(방향·중첩·적/아군 갈림)은 손 표에 둔다.
+  - 상태 경로를 처음 쓴 키트(2026-11-06, 바이슨·우요우): `test/helpers/fxBindings.js unplayed`가 `b`가 붙은 키의 `held`·`when`·`moment`를 재생으로 친다. 밑줄 없는 키(`cripple`)는 `kitNamedKeys`가 읽지 않으니 `KEY_FX`에 적는다. 이름 규칙이 같은 프리팹을 시전자에게 켜면 `KIT_OWNED`에 넣는다(`bison_skill_02_buff`, `nothin_skill02_buff_*`).
 - 연결 보고(2026-11-05): `node tools/fx-wiring-report.mjs --id <charId>` — 오퍼레이터를 더한 뒤 남은 연결을 읽기만 해서 보여 준다. `unplayed` 아무도 안 트는 행과 목록의 상태(없으면 NEW),
   `nameless` 행·표·모드·이름 규칙 어디에도 안 걸리는 프리팹, `overlap` 손 표가 그리는 프리팹을 스킬 발동의 이름 규칙도 시전자에게 트는 경우. `KIT_OWNED`는 자동으로 만들지 않는다:
   인용 키로 만들면 그 키의 다른 행 프리팹까지 꺼진다(가비알 디 인빈서블 S2 `gvial2_skill_2_buff_02`·페넌스 S2 `judge_skill_02_buff_01` 등 2026-11-05 대조). 그래서 겹침은 보고하고 사람이 판단한다.

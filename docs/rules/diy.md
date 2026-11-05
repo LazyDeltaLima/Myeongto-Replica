@@ -1228,3 +1228,34 @@
 - 임시 기록에 없는 것: 특질, 이 서버에 아직 없는 맹약(이베리아·우르수스·라이타니엔은 명단의 `newBonds`에만). 맹약·특질 효과는 표가 나온 뒤에 한다.
 - 키트: `ops/op-<코드명>.js`, 키는 charId, `NEXT_KIT_FILES`에 적는다. 선발 후보(`KITTED_CHARS`)에는 들어가지 않는다.
 - [추정·CN: 티어별 상태·기본 스킬(2번째)·모듈(첫 모듈)은 새 시즌 표로 대조, 표가 나오면 명단과 `next`를 지운다] → `test/seasons-next.test.js`.
+
+## 새 시즌 바이슨·쥐·타락사쿰·우요우 (2026-11-06, 관리자 결정 2026-11-05)
+공개 전 시즌 `next`의 기물(`chess_char_1_nbison`, `chess_char_2_nju`, `chess_char_3_ntaraxa`, `chess_char_3_nnothin`). 네 키트는 `NEXT_KIT_FILES`에 있고 선발 후보가 아니다. 수치는 기물 기록의 블랙보드를 읽는다. 시험 `test/content/op_bison.test.js`·`op_ju`·`op_taraxa`·`op_nothin`(두 형태·두 스킬·모듈, 실제 대전 경로).
+- 그림·소리: `tools/fetch-assets.mjs`가 `next` 기물 가운데 키트가 있는 오퍼레이터의 황금 기록도 계획에 넣는다(`dataExtras`의 셋째 인자). 표가 나오면 `data/chess.json`이 맡는다. 공격 클립(`attackAnim`)·소리(`audio.sfx.units`)는 이 매니페스트에서 나온다. 기본 시즌 항목은 그대로이고 더해지기만 한다.
+
+### 바이슨 `char_325_bison` (T1, 프로텍터)
+- 재능 交叉掩护: 자신 방어력 +N(ADDITION). 공식 클라에서 확인: 재능 `AuraAbility`가 자신을 넣고(`_selfOption`), 판정기 `professionMask` 513 = 근위 | 선봉이라 자기 뒤 칸의 근위·선봉에게만 간다. 칸 판정은 재능 `rangeGrid`(방향과 함께 돈다).
+- S1 `skcom_def_up[3]`(방어 강화 γ): 방어력 +N%. S2 `skchr_bison_2`(深化阵线): 공격 안 함(PRTS 「자신은 시야를 전부 잃음」, S2 모드의 공격 트리거가 아무도 고르지 않음), 방어력·조롱 등급 `bison_s_2[self]`, 스킬 범위 x-5 안 다른 아군 방어력 `bison_s_2[ally]`. 발동 규칙은 표의 `TAKE_DAMAGE`.
+- 모듈 PRO-X: 저지 중 방어력 +20%(특성 bb `def`). 값은 (기본 + 재능 ADDITION) × 비율.
+- 이펙트: 두 버프의 상태 키로 재생(`fx.md` 「클라 키로 재생」). 이름 규칙이 S2 시전자에게도 `bison_skill_02_buff`를 켜므로 `KIT_OWNED`에 넣었다.
+
+### 쥐 `char_4221_ju` (T2, 공성 저격수)
+- 특성: 공격 선택기 `_postFilter` MASS_DES(우선순위 `heaviest`), `_buffKeyExcluded` cripple(`skipEnemy`). 모듈 SIE-X(재능 변경 bb `atk_scale`, `value`): 무게 등급 3 이상에게 그의 모든 피해의 공격력 ×1.15(`ju_e_002[atk]` ON_CALCULATE_DAMAGE, DEF 앞). 2·3단계의 `ju_e_002_t_scale`은 기록에 값이 있을 때만(이 시즌 기물은 1단계).
+- 재능 墨守: `ju_t_1`이 모든 피해를 치명 불가로 하고(`fatal`), HP ≤ 1이면 `cripple`(重伤): 이동 속도 ×(1 + `move_speed`), 禁疗, 저지 불가, 회복 0, `interval`초 뒤 무출처 사망(消失 중에는 아니고 돌아오는 즉시), 처치자 SP +`sp`. 그는 重伤 적을 공격하지 않는다. [추정·서버: 보스 공유 체력 대상에는 重伤을 걸지 않음 — 공식은 보스 피해를 서버로 보내 처리]
+- S1 `skchr_ju_1`(良弓难张, AUTO, 충전 2): 공식 클라에서 확인: `ReplacementSkill`, 발동 조건은 자기 선택기(HP 비율 ≤ 0.5, cripple 제외)이고 SP를 그 순간 쓴다. `_cancelIfSearchTargetFailed`가 꺼져 있어 그 선택기가 공격 선택기를 대신한다: 조건에 맞는 적이 없어지면 공격하지 않고 기다린다. 키트는 `trigger: 'NEVER'` + 틱 시전. 선택기 `_maxNum` 2라 두 명까지 친다. [추정·화면: 문구·PRTS에 둘째 대상이 없음, 공식 화면 확인 필요]
+- S2 `skchr_ju_2`(良翼难乘): 공격력 +N%, `attack@max_target_s2` 명. 추가 피해(`ju_s_2*`): 범위 안 적마다 0.2초 간격(들어온 때부터) 검사 → 스킬 중·HP 비율 < `hp_ratio`·표지(`ju_s_2[done]`, 모든 쥐 공용, 사라지지 않음) 없음 → 표지 + 0.6초 뒤 대기열 → 쥐마다 0.3초에 하나 시작(`ju_s_2[source]`), 시작 0.3초 뒤 착탄. 스킬이 끝나도 진행하고, 쥐가 떠나면 대기열은 없어진다. 착탄 때 대상이 선택 불가면 없음. 공격력은 착탄 때 값: 공식 클라에서 확인, `AdvancedApplyDamage`의 `_cachedAtkKey`는 `_forceUseProjectileCachedAtk`·`_getCachedAtkFromBlackboard`가 켜질 때만 읽히고 이 노드에서는 꺼져 있다. [추정·엔진: 대기 순서는 먼저 온 순 — 공식은 버프 갱신 순서]
+- 이펙트: 시작 때 `ju_skill_02_hit_01`·`_04`를 번갈아(`ju_s_2[host]` `isFront`, 키트 사건 `juExtra`), 착탄 때 `_hit_02`(moment `ju_s_2[damage]`). 조건 뒤의 프리팹이 둘이라 손 계획. 重伤은 `saga_buff_01_start`만 뽑아 쓴다(키에 밑줄이 없어 `KEY_FX` 한 줄).
+
+### 타락사쿰 `char_4222_taraxa` (T3, 워치맨)
+- 모드: `S1_FlyStart`·`S1_FlyLoop`·`S1_FlyEnd`·`S2_…`. 공격하는 모드는 `Loop`: `skillModeIndex`가 `S<k>…Loop` 변형을 다른 변형보다 앞에 둔다(이 이름의 모드는 지금 그녀뿐). `attackAnim.skills`·`shot.skills`·소리 모드가 여기서 나온다.
+- 起飞(`taraxa_fly_mode`, 플래그 `liftoff` + `blockFly`): 시전부터 끝 클립이 끝날 때까지. 시작·끝 클립(각 1초, `FLY_CLIP`) 동안 치료 없음(`skillStateUntil`). 끝 클립 중에도 공중.
+- 재능 定风絮(`taraxa_t[aura]`): 현재 범위 안 아군(자신 포함) 가운데 차단 모드가 공중인 유닛에게 庇护(공용 `protect`, 같은 효과는 최고값)와 저지 +1(`taraxa_t[block]`). 매 틱 다시 판정(공식은 차단 모드 변경 때 즉시). 실제 비행 유닛은 아니다(PRTS).
+- S1 `skchr_taraxa_1`(何处着): 공격 간격 × `attack@base_attack_time`(FINAL_SCALER), 투사체 없는 `Heal` `attack@heal_scale` × 공격력, 대상은 다친 유닛 무작위(`_postFilter` HP_NOT_FULL_RANDOM).
+- S2 `skchr_taraxa_2`(扶风起): 공격력 +N%. 주 대상: 공식 클라에서 확인, `_Filter_HpRatioNotFullAscFlyFirst`가 `Character.blockMode`를 읽어 공중 차단 먼저, 그다음 HP 비율. 둘째 치료: `taraxa_s2[second_heal]`의 `CheckBlockMode TARGET FLY` — **주 대상이 공중 차단일 때만** 나가고, 대상은 나머지 다친 유닛 중 HP 비율 최저(`SecondSelector`, 차단 모드를 보지 않음). PRTS 비고 「额外治疗条件」이 이것이다. 주 치료가 닿으면 그 대상 3×3의 다른 다친 유닛 최대 `attack@splash_num` 명에게 `attack@heal_scale_2`(`projectile_chr_taraxa_s2_2`, 속도 5). 둘째 치료에는 퍼짐이 없다(`_activeBuffs`는 공격 능력의 것).
+- 높이: `LIFTOFF_HEIGHT` 0.4(`attack@fly_height`). 시작·끝 효과는 키트 사건 `taraxaFly`, 둘째 치료는 `taraxaSecond`. 이륙 소리는 FlyStart 모드 능력의 시작 뱅크(키트 `kitHit`), 착륙 소리는 FlyEnd의 뱅크(`ends`). 퍼짐 투사체의 궤적 `taraxa_skill_02_trail_02`는 그리지 않는다(`fx-unplayed-local-list.js` todo: 계획의 비행은 오퍼레이터에서 출발).
+
+### 우요우 `char_455_nothin` (T3, 상인)
+- 특성: 3초마다 DP −3, 모듈 MER-X −2(직업 `merchant`, 특성 bb). 못 내면 퇴각.
+- 재능 出其不意: 공식 클라에서 확인: `AdvancedCompoundToggleChecker`(`_isInitToggled` 꺼짐, `_disableWhenAttack`). 배치 때 꺼져 있고 `delay`초 뒤 켜진다. 그가 피해를 줄 때마다 꺼지고 다음 켜짐이 `delay`초 뒤로 밀린다(꺼져 있을 때도). 켜진 채 준 피해는 공격력 ×`atk_scale` + `stun`초 기절. 켜져 있는 동안 `nothin_t_1`·`nothin_t_1[eff]`의 이펙트.
+- S1 `skchr_nothin_1`(知难而退, AUTO): 가지고 있으면 저지 +1. HP 비율 ≤ `max_hp_ratio`일 때 시전(선택기 `_checkHpRatioCondition`): 공격·저지 없음, 조롱 등급 −1, 생명 회복 속도(%) `hp_recovery_per_sec_by_max_hp_ratio`, 5초.
+- S2 `skchr_nothin_2`(阴晴圆缺, 지속 무한): 토글. 이 모드에서는 저절로 닫지 않아(PRTS 卫戍协议/帮助) 떠날 때까지 간다. 시작 클립(`Skill_2_Begin` 1.1초) 끝에 셋 중 하나: 공식 클라에서 확인, `PassiveOneOfBuffAbility` `_selectMethod` RANDOM_BUT_NOT_LAST — 이번 배치의 직전 것을 뺀 균등(재배치 때 기억 지움). `nothin_s_2[a]` 피해 직전 대상 공격 속도 감소(5초, 연장·중첩 없음), `[b]` 공격 속도, `[c]` 물리 회피 + 저지 +1. 모두 공격력 +N%. 이펙트는 고른 버프의 상태 키, 이름 규칙은 `KIT_OWNED`로 끈다. 시작 소리 `ON_SKILL_SPECIAL_POINT`(프리팹 `_playExtraSignalAtSkillBegin`)는 시전 때, 스파인 이벤트 `lottery`는 클립 재생 때.

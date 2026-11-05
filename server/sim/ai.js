@@ -493,6 +493,8 @@ export function acquireTargets(b, u, prof) {
     // a heal restricted to allies at or below an HP ratio (塞雷娅 S1 急救 "血量小于等于一半")
     if (prof.heal.hpAtMost > 0) cands = cands.filter((a) => a.hpRatio <= prof.heal.hpAtMost + 1e-9);
     if (!cands.length) return cands;
+    // a skill's own heal selection (`heal.pick(battle, unit, cands)`: 风絮's HP_NOT_FULL_RANDOM, HP_RATIO_NOT_FULL_ASC_FLY_FIRST)
+    if (prof.heal.pick) cands = prof.heal.pick(b, u, cands);
     let n = prof.heal.mode === 'multi' ? Math.max(1, prof.heal.count || 3) : 1;
     if (prof.maxTargets > n) n = Math.floor(prof.maxTargets);   // skill targeting override (e.g. heal 2 targets)
     return cands.slice(0, n + Math.max(0, Math.floor(u.s.maxTargets)));

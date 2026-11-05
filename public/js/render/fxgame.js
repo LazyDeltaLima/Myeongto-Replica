@@ -3755,6 +3755,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const dirPick = (v, names) => dirCopies(bindOf(v)?.dirs, names, ['UP', 'RIGHT', 'DOWN', 'LEFT'].indexOf(facingDir(v)), (v.visFacing ?? v.facing ?? 1) < 0);
   // prefabs a kit event here draws instead (余 S3's wall piece: one per tile along the wall, not one on him)
   const KIT_OWNED = new Set(['yu_skill3_range_01',
+    // 2026-11-05: the buffs of another unit or of the one pick (status keys bison_s_2[ally], nothin_s_2[a|b|c], fxstatus.js namedSpec), not of the cast
+    'bison_skill_02_buff', 'nothin_skill02_buff_01', 'nothin_skill02_buff_02', 'nothin_skill02_buff_03',
     // 2026-10-11 (pickFx): the 선발 picks' kit-event prefabs — the `_range` name rule played 克莱门莎's vortex and 予愿安洁莉娜's glide
     // range on the caster for the whole skill besides
     'clemnt_skill_02_bullet_01', 'clemnt_skill_02_bullet_02', 'clemnt_skill_02_bullet_range_01', 'clemnt_skill_02_mark_enemy',

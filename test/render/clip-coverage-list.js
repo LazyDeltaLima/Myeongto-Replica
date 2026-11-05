@@ -19,6 +19,13 @@
 // client key calls are listed like any other.
 
 export const UNPLAYED = {
+  char_4222_taraxa: {
+    Skill_Die: 'todo: the knock-out in her flight (the Fly modes\' `_replaceAnimPairs` Die → Skill_Die)',
+  },
+  char_455_nothin: {
+    Idle_2: 'none: no mode\'s `_replaceAnimPairs` names it (Idle → Skill_2_Idle in the S2 mode, which the model lacks: it keeps Idle)',
+    Skill_1_die: 'todo: the knock-out during S1 (the S1 mode\'s `_replaceAnimPairs` Die → Skill_1_Die)',
+  },
   char_1015_aglna2: {
     Skill_2_Takeoff_Begin: 'render: render/units.js UnitView.glide → SpineActor.chant',
     Skill_2_Takeoff_End: 'render: render/units.js UnitView.glide → SpineActor.chant',

@@ -33,7 +33,7 @@
 //   --offline never downloads. A separate script, not a build-data step: data/*.json is what the game loads, this table
 //   is for the tests only, and its two sources are ~45 MB.
 
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -96,7 +96,10 @@ const typeOf = (o) => String(o?.$type || '').split(',')[0].split('+').pop();
  */
 function poolCodes() {
   const chars = new Set();
-  const chess = readJson(join(ROOT, 'data/chess.json'));
+  // every season's chess, as the extraction tools (char_modes.py chess_records): a season's own file holds operators the default lacks
+  const seasons = join(ROOT, 'data/seasons');
+  const others = existsSync(seasons) ? readdirSync(seasons).map((id) => join(seasons, id, 'chess.json')).filter((f) => existsSync(f)) : [];
+  const chess = Object.assign({}, ...others.map(readJson), readJson(join(ROOT, 'data/chess.json')));
   for (const c of Object.values(chess.chess || chess)) if (typeof c?.charId === 'string' && c.charId.startsWith('char_')) chars.add(c.charId);
   const backups = readJson(join(ROOT, 'data/backups.json'));
   for (const id of Object.keys(backups.diy?.operators || {})) if (id.startsWith('char_')) chars.add(id);

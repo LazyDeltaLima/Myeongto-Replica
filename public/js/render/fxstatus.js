@@ -289,6 +289,8 @@ export const KEY_FX = Object.freeze({
   'trait:bard': cite('cetsyr_heal', (v, from) => (from?.src === 'cetsyr' ? CETSYR_HEAL : null)),
   'chen3:evade': keyedAll('chen3_t2[evade]', 'chen3', OWN),
   'tippi:evade': keyedAll('tippi_t[evade]', 'tippi', OWN),
+  // 2026-11-05: 重伤 (矩 T1's cripple, overrideEffectKey saga_buff_01_start): a key with no underscore, which tools/build-fx-plays.mjs kitNamedKeys does not read
+  cripple: keyedAll('cripple', 'saga', OWN),
   // 2026-10-24 (묶음 S12): equipment buffs whose effect stays on the carrier — 双模机械臂's global buff gives
   // act1autochess_acarm067_buff (INFINITY, map_act1autochess_chaosbuff_01), 天师古鼎's act1autochess_acarm077_buff creates [attr]
   // on a 炎 carrier (INFINITY, trap_acarm40_buff) — the sim's 'item:dualArm' / 'item:cauldron'

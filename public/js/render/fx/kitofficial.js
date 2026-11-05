@@ -151,6 +151,10 @@ export const KIT_OFFICIAL = {
   // fxField) — `k` the moment's key, `src` its owner (the operator), `id` the unit hit / healed, `by` the attacker / healer,
   // `life` the sim's seconds. Each rule answers only its own keys.
   hit: {
+    // (2026-11-05) 矩 S2's extra damage: ju_s_2[damage] ON_BUFF_FINISH, its AdvancedApplyDamage and hit_02 on the enemy (its start: juExtra)
+    ju: cite('ju_s_2[damage]', (o) => (o.k === 'ju_s_2[damage]' ? { play: [once('ju_skill_02_hit_02', 'id')] } : null)),
+    // (2026-11-05) 风絮 S2's splash heals: projectile_chr_taraxa_s2_2 `_effectsWhenHit` on the unit healed
+    taraxa: cite('projectile_chr_taraxa_s2_2', (o) => (o.k === 'projectile_chr_taraxa_s2_2' ? { play: [once('taraxa_skill_02_hit_01', 'id')] } : null)),
     // 泡泡 T1 尖刺盾: bubble_t_1 ON_TAKE_DAMAGE puts bubble_t_1[atk_down] (overrideEffectKey bubble_talent_buff, its blackboard
     // duration) on the attacker; a later hit extends the one buff (maxStackCnt 1) — one slot per attacker
     bubble: cite('bubble_t_1[atk_down]', (o) => (o.k === 'bubble_t_1[atk_down]'
@@ -301,6 +305,12 @@ export const KIT_OFFICIAL = {
   },
   // 凯尔希·思衡托 S3 (2026-10-21, CN client): kalts2_s_3[withdraw]'s ON_BUFF_START CreateEffect kalts2_skill_03_teleport_02 on
   // each 待投放 operator (`picks`) as the transport starts …
+  // (2026-11-05) 矩 S2: ju_s_2[damage] ON_BUFF_START — hit_01 or hit_04 on the enemy, by turns (the `isFront` of his ju_s_2[host])
+  juExtra: { ju: cite('ju_s_2[damage]', (o) => ({ play: [once(o.front ? 'ju_skill_02_hit_01' : 'ju_skill_02_hit_04', 'id')] })) },
+  // (2026-11-05) 风絮: the FlyStart / FlyEnd modes' cast effects (their attack ability's `_castEffects`), the 'skill' / 'atk' bindings
+  // draw only the mode that attacks; S2's second heal (taraxa_s2[second_heal], projectile_chr_taraxa_s2_1 at speed 10)
+  taraxaFly: { taraxa: cite(['char_4222_taraxa/Modes/S1_FlyStart/Body/Attack', 'char_4222_taraxa/Modes/S1_FlyEnd/Body/Attack'], (o) => ({ play: [{ n: o.up ? 'taraxa_land' : 'taraxa_takeoff', on: 'op', life: 1 }] })) },
+  taraxaSecond: { taraxa: cite('projectile_chr_taraxa_s2_1', () => ({ play: [{ tpl: 'projectile_chr_taraxa_s2_1', fly: 10, to: 'tgt', on: 'op' }] })) },
   kalts2Takeoff: { kalts2: cite('kalts2_s_3[withdraw]', () => ({ play: [{ tpl: 'kalts2_s_3[withdraw]', on: 'picks' }] })) },
   // … and, S3 picked, the head mark kalts2_skill_03_indicator_head_01 on the operators it would pick while she is not
   // flying (skchr_kalts2_3/Indicator → kalts2_s_3[indicator_fx][fx]): `ids` marked now, `off` no longer

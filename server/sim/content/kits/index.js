@@ -80,7 +80,7 @@ export const STANDIN_KIT_FILES = Object.freeze(['standin-acguad.js', 'standin-sh
  * as a 自选 kit (`ops/op-<codename>.js`, registry key = its charId, every skill under `skills`), found by kitKeyOfChar, not offered
  * as a 自选 pick. A new file is appended; when the season's tables arrive they stay as its chess's kits.
  */
-export const NEXT_KIT_FILES = Object.freeze([]);
+export const NEXT_KIT_FILES = Object.freeze(['op-bison.js', 'op-ju.js', 'op-taraxa.js', 'op-nothin.js']);
 
 /**
  * The 自选 operator kit files (`ops/op-<codename>.js`, registry key = the operator's charId, an owned-6★ pick of

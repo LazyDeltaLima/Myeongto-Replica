@@ -5,6 +5,13 @@
 // (public/js/audio.js kitHitKey) and plays `sfx.kit[key]`, limited per key.
 
 export const KIT_HIT_BANKS = Object.freeze({
+  // 乌有 S2: its begin's extra signal (skchr_nothin_2 `_playExtraSignalAtSkillBegin`)
+  'nothin:s2': 'battle.ON_SKILL_SPECIAL_POINT.skchr_nothin_2',
+  // 风絮: her FlyStart modes' attack ability (the take-off clip): its start; the FlyEnd one is the skill's end sound (`ends`)
+  'taraxa:up1': 'battle.ON_ABILITY_START.char_4222_taraxa.attack.1',
+  'taraxa:up2': 'battle.ON_ABILITY_START.char_4222_taraxa.attack.4',
+  // 矩 S2: the extra damage's PlayAudio (ju_s_2[damage] ON_BUFF_FINISH, `_audioSignal`)
+  'ju_s_2[damage]': 'battle.ON_CUSTOM_TRIGGER.ju_s_2[damage][audio]',
   // 望: a stone going off — S1 取势 (wang_stone1_t damage), S2 连星 line blast, S3-equipped diamond; the first link
   'wang:1': 'battle.ON_CUSTOM_TRIGGER.wang_stone1_t[damage_audio]',
   'wang:2': 'battle.ON_ABILITY_HIT.sktok_wang_2.extra.0',

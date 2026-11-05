@@ -892,8 +892,10 @@ test('干员战斗语音 (DESIGN §21.30): the manifest data, the official prior
     else if (Array.isArray(x)) x.forEach(walk);
     else if (x && typeof x === 'object') Object.values(x).forEach(walk);
   };
+  // the official voice table has no fourth 作战中 line for these (charword_table: no CN_028 of 바이슨)
+  const NO_LINE = { char_325_bison: ['skill4'] };
   for (const id of charIds) {
-    for (const s of slots) assert.ok(voice[id][s], `${id}.${s}`);
+    for (const s of slots) assert.ok(voice[id][s] || NO_LINE[id]?.includes(s), `${id}.${s}`);
     for (const s of prepOnly) assert.equal(voice[id][s], undefined, `${id}.${s} is not planned by default`);
     walk(voice[id]);
   }

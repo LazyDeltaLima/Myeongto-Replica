@@ -398,6 +398,12 @@
    "reset": 0,
    "state": 1
   },
+  "skchr_bison_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
   "skchr_blaze2_1": {
    "ability": {
     "anim": "Skill_1",
@@ -1635,6 +1641,25 @@
    "reset": 0,
    "state": 1
   },
+  "skchr_ju_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_ju_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
   "skchr_judge_1": {
    "ability": {
     "anim": "Attack",
@@ -2154,6 +2179,18 @@
    "cls": "cast",
    "reset": 0,
    "state": 0
+  },
+  "skchr_nothin_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_nothin_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
   },
   "skchr_nymph_1": {
    "ability": null,
@@ -3100,6 +3137,18 @@
    "state": 1
   },
   "skchr_swire_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_taraxa_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_taraxa_2": {
    "ability": null,
    "cls": "cast",
    "reset": 0,

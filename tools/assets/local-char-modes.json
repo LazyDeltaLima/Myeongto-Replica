@@ -9689,6 +9689,87 @@
    }
   ]
  },
+ "char_325_bison": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [],
+   []
+  ],
+  "cast": [
+   [
+    "bison_attack_01_start"
+   ],
+   [
+    "moeshd_attack_01_start"
+   ]
+  ],
+  "hit": [
+   [
+    "bison_attack_01_hit"
+   ],
+   [
+    "moeshd_attack_01_hit"
+   ]
+  ],
+  "trail": [
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "bison_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "moeshd_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
+  "skillMode": [
+   null,
+   1
+  ],
+  "switchTo": [
+   [],
+   [
+    1
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "common_ignite_defense"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "bison_skill_02_buff",
+     "bison_skill_02_range"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_332_archet": {
   "modes": [
    "Default",
@@ -18364,6 +18445,313 @@
    }
   ]
  },
+ "char_4221_ju": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_chr_ju"
+   ],
+   [
+    "projectile_chr_ju_s2"
+   ]
+  ],
+  "cast": [
+   [
+    "ju_attack_01_start_02",
+    "ju_attack_01_start_01"
+   ],
+   [
+    "ju_skill_02_start_01"
+   ]
+  ],
+  "hit": [
+   [
+    "ju_attack_01_hit"
+   ],
+   [
+    "ju_skill_02_hit_02"
+   ]
+  ],
+  "trail": [
+   [
+    "ju_attack_01_trail"
+   ],
+   []
+  ],
+  "attach": [
+   [],
+   [
+    "ju_skill_02_buff_02",
+    "ju_skill_02_buff01"
+   ]
+  ],
+  "castOpt": [
+   {
+    "ju_attack_01_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "ju_attack_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "ju_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "tgtStart": [
+   [],
+   [
+    "ju_skill_02_hit_03"
+   ]
+  ],
+  "dirs": [
+   {
+    "t": 2,
+    "s": [
+     "ju_attack_01_start_02",
+     "ju_attack_01_start_01",
+     "ju_attack_01_start_01",
+     "ju_attack_01_start_01"
+    ]
+   },
+   {
+    "t": 2,
+    "s": [
+     "ju_skill_01_start_02",
+     "ju_skill_01_start_01",
+     "ju_skill_01_start_01",
+     "ju_skill_01_start_01"
+    ]
+   }
+  ],
+  "skillMode": [
+   null,
+   1
+  ],
+  "switchTo": [
+   [],
+   [
+    1
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [
+     "ju_skill_01_start_02",
+     "ju_skill_01_start_01",
+     "ju_skill_01_buff_01"
+    ],
+    "buff": [],
+    "target": [
+     "ju_skill_01_hit"
+    ],
+    "targetBuff": [],
+    "shot": [
+     "ju_skill_01_trail_01"
+    ],
+    "shotHit": [
+     "ju_skill_01_hit"
+    ]
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_4222_taraxa": {
+  "modes": [
+   "Default",
+   "S1_FlyStart",
+   "S1_FlyLoop",
+   "S1_FlyEnd",
+   "S2_FlyStart",
+   "S2_FlyLoop",
+   "S2_FlyEnd"
+  ],
+  "proj": [
+   [
+    "projectile_chr_taraxa_a"
+   ],
+   [],
+   [],
+   [],
+   [],
+   [
+    "projectile_chr_taraxa_s2_1"
+   ],
+   []
+  ],
+  "cast": [
+   [
+    "taraxa_attack_01_start_01",
+    "taraxa_attack_01_start_02"
+   ],
+   [
+    "taraxa_land"
+   ],
+   [],
+   [
+    "taraxa_takeoff"
+   ],
+   [
+    "taraxa_land"
+   ],
+   [
+    "taraxa_skill_02_start_01",
+    "taraxa_attack_01_start_01"
+   ],
+   [
+    "taraxa_takeoff"
+   ]
+  ],
+  "hit": [
+   [
+    "taraxa_attack_01_hit_01"
+   ],
+   [],
+   [
+    "taraxa_skill_01_hit_01"
+   ],
+   [],
+   [],
+   [
+    "taraxa_skill_02_hit_01"
+   ],
+   []
+  ],
+  "trail": [
+   [
+    "taraxa_attack_trail_01"
+   ],
+   [],
+   [],
+   [],
+   [],
+   [
+    "taraxa_skill_02_trail_01"
+   ],
+   []
+  ],
+  "attach": [
+   [],
+   [],
+   [
+    "taraxa_skill_01_buff_01",
+    "taraxa_skill_01_weapon_01",
+    "taraxa_skill_01_range_01",
+    "taraxa_idle"
+   ],
+   [],
+   [],
+   [
+    "taraxa_skill_02_buff",
+    "taraxa_skill_02_weapon_01",
+    "taraxa_idle"
+   ],
+   []
+  ],
+  "castOpt": [
+   {
+    "taraxa_attack_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "taraxa_attack_01_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "taraxa_land": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {},
+   {
+    "taraxa_takeoff": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "taraxa_land": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "taraxa_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "taraxa_attack_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "taraxa_takeoff": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "skillEnd": [
+   3,
+   6
+  ],
+  "switchTo": [
+   [
+    1,
+    3
+   ],
+   [
+    4,
+    6
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_4226_veen": {
   "modes": [
    "Default",
@@ -20152,6 +20540,107 @@
     "buff": [
      "aroma_skill_02_range_01",
      "aroma_skill_02_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_455_nothin": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ],
+  "cast": [
+   [
+    "nothin_attack_01_start"
+   ],
+   [
+    "nothin_attack_01_start"
+   ],
+   [
+    "nothin_skill02"
+   ]
+  ],
+  "hit": [
+   [
+    "nothin_attack_01_hit"
+   ],
+   [
+    "nothin_attack_01_hit"
+   ],
+   [
+    "nothin_attack_01_hit"
+   ]
+  ],
+  "trail": [
+   [],
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "nothin_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "nothin_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "nothin_skill02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "skillMode": [
+   1,
+   null
+  ],
+  "switchTo": [
+   [
+    1
+   ],
+   []
+  ],
+  "skills": [
+   {
+    "cast": [
+     "nothin_skill01_start"
+    ],
+    "castLoop": [],
+    "buff": [
+     "nothin_skill01_buff"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "nothin_skill02_buff_01",
+     "nothin_skill02_buff_02",
+     "nothin_skill02_buff_03"
     ],
     "target": [],
     "targetBuff": []

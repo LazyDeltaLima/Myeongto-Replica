@@ -48,7 +48,9 @@ export const HIT_KEYS = Object.freeze(['bubble_t_1[atk_down]', 'skadi2_s_1[prote
   // 冻河 (2026-11-01)
   'tocka_t1[heal_core]',
   // 真言 (2026-11-03)
-  'mantra_t_1']);
+  'mantra_t_1',
+  // 矩, 风絮 (2026-11-06)
+  'ju_s_2[damage]', 'projectile_chr_taraxa_s2_2']);
 
 /** The sample inputs a kit plan is called with (every branch of the plans in KIT_OFFICIAL). */
 const KIT_O = [
@@ -319,6 +321,12 @@ export function unplayed(tables) {
   // a plan's `tpl` key plays every prefab of its plays (an `end` too, which a held prefab only the client-only rows show carries)
   for (const by of Object.values(KIT_OFFICIAL)) for (const fn of Object.values(by)) {
     for (const k of planTpls(fn)) for (const n of Object.values(keyPlays().keys[k] || {}).flat()) if (typeof n === 'string') names.add(n);
+  }
+  // a key a kit names plays by itself (tools/build-fx-plays.mjs `b`: fxstatus.js namedSpec holds its `held`, its rows behind conditions
+  // included; kitofficial.js momentPlan plays its `moment`)
+  for (const k of Object.values(keyPlays().keys)) {
+    if (!k.b) continue;
+    for (const n of [...(k.held || []), ...(k.when || []).map((r) => r.n), k.moment]) if (n) names.add(n);
   }
   const direct = (n) => names.has(n) || bound.has(n) || named.has(n) || patterns.some((r) => r.test(n));
   // the left copy of a left / right pair whose right copy plays (fxgame.js play: the left one plays for it and swaps)

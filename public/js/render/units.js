@@ -302,6 +302,8 @@ const LIFTOFF_HEIGHT = Object.freeze({
   // 蒂比: her skills' `attack@height_offset` 0.8 (skill_table), which tippi_height_ctrl[tween] moves her graphic holder to
   // (no high-ground variant) (maintainer decision 2026-10-12)
   char_4191_tippi: { lift: 0.8 },
+  // 风絮: her skills' `attack@fly_height` 0.4 (skill_table), which taraxa_fly's ModifyGraphicHolderHeight moves her graphic holder to
+  char_4222_taraxa: { lift: 0.4 },
 });
 /**
  * A push / pull slide (推拉, PR #380 by @xcdoge). The sim displaces at once — server/sim/battle/displacement.js walks its

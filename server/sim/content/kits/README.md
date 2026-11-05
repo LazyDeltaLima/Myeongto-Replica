@@ -234,6 +234,8 @@ its tier gives a piece its status, the operator tables its numbers; a piece carr
 has). Its kit is written as a 自选 kit: `ops/op-<codename>.js`, the key its charId, every skill under `skills`, listed in
 `NEXT_KIT_FILES` of `index.js`, tested on both forms through `test/seasons-next.test.js`. It is not offered as a 自选 pick. Check
 the season locally with `SP_SEASONS=next`. The numbers there are [ASSUMED·CN] until the season's tables replace the roster.
+Once its file is listed, `node tools/fetch-assets.mjs` plans its model and sounds (`dataExtras`), and `--season next` rebuilt after that
+gives the piece its clips (`attackAnim`): tests on the swing times need that manifest. `test/helpers/nextSeason.js` fields such a piece.
 
 ## Testing a kit
 

@@ -9,6 +9,12 @@
 // test/render/mode-switch-coverage.test.js checks the list both ways. charId → { 'S<n> <mode name>': status }.
 
 export const MODE_SWITCH_STATUS = Object.freeze({
+  char_4222_taraxa: {
+    'S1 S1_FlyStart': 'ok: no attack in it; its cast effect is the kit\'s taraxaFly event (kitofficial.js)',
+    'S1 S1_FlyEnd': 'ok: no attack in it; its cast effect is the kit\'s taraxaFly event, its START bank the end sound',
+    'S2 S2_FlyStart': 'ok: no attack in it; its cast effect is the kit\'s taraxaFly event (kitofficial.js)',
+    'S2 S2_FlyEnd': 'ok: no attack in it; its cast effect is the kit\'s taraxaFly event, its START bank the end sound',
+  },
   char_1016_agoat2: { 'S3 S3_End': 'ok: the closing mode (`skillEnd`: its START bank is the end sound); no effects of its own' },
   char_1034_jesca2: { 'S3 S3[D]': 'todo: S3 饱和迸射 facing down — its _down start effects (modes.json dirs) not compared yet' },
   char_1023_ghost2: { 'S1 Empty': 'ok: the 替身\'s mode (render/units.js FORMS doll); no attack effects of its own' },

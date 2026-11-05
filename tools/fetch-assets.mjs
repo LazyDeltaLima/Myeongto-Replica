@@ -176,10 +176,13 @@ export function resolveProxyPrefix(source, offline = false, value = process.env.
  * (`{ name, subProfessionId, nationId, skills: [{ index, skillId, iconId }] }`; buildPlan plans those research 07 lacks,
  * the 自选 owned-6★ picks), `tokenIds` — the summons of the 自选 picks (backups.json `tokens`), `moduleTypes` — the type
  * icon of every module a chess or a unit form offers.
+ * A hidden season's piece is planned when its operator has a kit (`seasonPieces`: the records of data/seasons/<id>/chess.json whose
+ * charId is listed in NEXT_KIT_FILES; docs/rules/diy.md 「새 시즌 기물을 표 전에 만들기」): it needs its model for its clips and sounds.
  * @param {any} backups data/backups.json (or null)
  * @param {any} chess data/chess.json (or null)
+ * @param {any[]} [seasonPieces] chess records of a hidden season
  */
-export function dataExtras(backups, chess) {
+export function dataExtras(backups, chess, seasonPieces = []) {
   const extraOperators = {};
   const moduleTypes = new Set();
   // local patch: an owned-6★ 自选 pick this server does not offer (shared/local-diy.js) and no 补位 stand-in plans no art
@@ -194,10 +197,23 @@ export function dataExtras(backups, chess) {
     extraOperators[id] = { name: u.name, subProfessionId: u.subProfessionId, nationId: u.nationId, skills: [...skills.values()].sort((a, b) => a.index - b.index) };
   }
   for (const c of Object.values(chess || {})) for (const m of c?.modules || []) if (m.typeIcon) moduleTypes.add(m.typeIcon);
+  for (const c of seasonPieces) {
+    for (const m of c?.modules || []) if (m.typeIcon) moduleTypes.add(m.typeIcon);
+    if (!c?.charId || extraOperators[c.charId]) continue;
+    const skills = (c.skills || []).map((sk, i) => ({ index: sk.index ?? i, skillId: sk.skillId, iconId: sk.iconId || sk.skillId }));
+    extraOperators[c.charId] = { name: c.name, subProfessionId: c.subProfessionId, nationId: c.nationId, skills };
+  }
   const ownerOf = (key) => String(key).split('@')[0];
   const tokenIds = Object.entries(backups?.tokens || {}) // local patch: no summons of a dropped pick
     .filter(([, t]) => !Array.isArray(t?.owners) || !t.owners.length || t.owners.some((o) => !dropped.has(ownerOf(o)))).map(([id]) => id);
   return { extraOperators, tokenIds: tokenIds.sort(), moduleTypes: [...moduleTypes].sort() };
+}
+
+/** The pieces of the hidden season `next` whose operator has a kit: the golden form of each (it carries the module). */
+async function nextSeasonPieces() {
+  const [chess, kits] = await Promise.all([readJson('data/seasons/next/chess.json').catch(() => null), import('../server/sim/content/kits/index.js')]);
+  const codes = new Set(kits.NEXT_KIT_FILES.map((f) => f.replace(/^op-|\.js$/g, '')));
+  return Object.values(chess || {}).filter((c) => c?.isGolden && c.charId && codes.has(c.charId.replace(/^char_\d+_/, '')));
 }
 
 /**
@@ -404,7 +420,7 @@ async function main() {
   // enemy's skill puts down (enemies.json `devices`: 黄金回响 trap_185_vtlntw) are drawn as tokens
   const deviceIds = [...new Set([...Object.values(dataWaves || {}), ...Object.values(dataEnemies || {})]
     .flatMap((w) => (w?.devices || []).map((d) => d?.key)).filter(Boolean))];
-  const extras = dataExtras(dataBackups, dataChess);
+  const extras = dataExtras(dataBackups, dataChess, await nextSeasonPieces());
   const extraHandbook = {};
   for (const b of Object.values(dataBosses || {})) if (b?.enemyKey && typeof b.handbookId === 'string') extraHandbook[b.enemyKey] = b.handbookId;
   const localEnemySpines = await syncLocalSpines(opts, 'enemy');

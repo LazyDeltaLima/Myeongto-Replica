@@ -1169,7 +1169,7 @@ Element conventions of the kits (user playtest #5 #3; official term dictionary: 
                noRangeExtend /* the skill's range ignores the unit's 攻击距离 (rangeExtend): 信仰搅拌机 S3, PRTS 备注 */,
                showOwnRange /* rangeGrid only selects targets, no official range change: the card keeps the unit's own range */ },
   attack: { dmgType, atkScale, healScale, splashRadius, splashScale, hits, funnelMul, funnelBodyHits, projectile, maxTargets, dmgMul,
-            chain: {count, falloff, radius, sluggish}, heal: {mode, count, falloff, hpAtMost /* targets at or below this HP ratio only */}, onHitStatus: {key, duration, value},
+            chain: {count, falloff, radius, sluggish}, heal: {mode, count, falloff, hpAtMost /* targets at or below this HP ratio only */, pick /* (battle, unit, injured allies by HP ratio) → the ones it selects from, in order: a skill's own selector (风絮) */}, onHitStatus: {key, duration, value},
             onHit(ctx),                           // once per attack (main target; target may be null for a splash landing)
             onEachHit(ctx) },                     // per victim: main, every splash / chain victim — ctx += { dealt, kind:'main'|'splash'|'chain', isSplash, isChain, main, attackId, index }
                                                   // (overrides the profession profile while active; profiles may define onEachHit(b, u, victim, hctx) too)
