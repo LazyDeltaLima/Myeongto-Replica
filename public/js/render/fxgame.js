@@ -79,7 +79,7 @@ import { GRAPHIC_TILT, takesGraphicTurn } from './fxpoints.js'; // 2026-10-22: a
 import { STANDARD_PLACE, modelOffset } from './fxpoints.js'; // 2026-10-22: 望's 棋子 model stands at its prefab's place (the ball)
 import { enemyProjSpeed, enemyShot } from './fx/speeds.js'; // 2026-10-10: an enemy shot's record / flight time (data/enemies.json `proj`)
 import { shotOf, MAX_SLOWED } from './fx/shotslow.js';
-import { shotSpeedOf, shotArcOf, shotKeyOf, lobZ } from './fx/projectiles.js'; // 2026-10-16: an operator shot's flight time (data/chess.json `shot`); 2026-10-27 its key (bodyTurn)
+import { shotSpeedOf, shotArcOf, shotKeyOf, lobZ, flightSink } from './fx/projectiles.js'; // 2026-10-16: an operator shot's flight time (data/chess.json `shot`); 2026-10-27 its key (bodyTurn)
 import { opShot } from './fx/speeds.js'; // 2026-10-21: a skill's own shot record (skillShotOut)
 import { boomerangThrown, boomerangCaught } from './heldWheel.js'; // local patch: a 回环射手's boomerang leaves / is back in her hand
 import { PROJ } from './style.js';
@@ -2223,6 +2223,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const z = lobZ(rec, k, LOB_NO_RAISE)[0];
     if (!rec.inst) return;
     rec.inst.object.position.set(x, y, z);
+    rec.inst.setSink(rec.sink = flightSink(rec, rec.sink));   // 深水区 (docs/rules/fx.md 「심해 구역의 바닥 자르기」)
     bodyTurn(rec.inst, mod.THREE, flightDir(rec, k), undefined, rec.key);
   }
   /**
@@ -2417,7 +2418,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!(await ensure())) return;
     const def = await lib.load(bundle, name);
     if (!def || !mod) return;
-    const inst = new mod.fxp.FxInstance(def, { quality: q() });
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), floor: Math.min(0, at.z || 0) });   // 深水区: a hit on a sunk body
     inst.object.position.set(at.x, at.y, at.z || 0);
     addLive(inst, { view: null, owner: null, buff: false, game: true, until: clockS + (def.duration || 2) + 0.5 }, layers.over);
     trimLive();
@@ -2491,7 +2492,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (aim && !official) facing = aimFacing(null, def, aim, at);
     const d = aim ? { x: Number(at.x) - Number(aim.x), y: Number(at.y) - Number(aim.y) } : dir;
     const sp = playSpeed(def.face, entry.speed ?? 1, gameRate());
-    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing, dir: d, body: unit ? facingDir(unit) : null, speed: sp, split, floor: drop ? null : at.z && !over ? at.z : 0, tilt: drop ? null : tiltOn(unit, def) });
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing, dir: d, body: unit ? facingDir(unit) : null, speed: sp, split, floor: drop ? null : at.z < 0 || !over ? at.z || 0 : 0, tilt: drop ? null : tiltOn(unit, def) });
     if (aim && !official) aimAlong(inst, aim, at);
     if (!drop) at = lifted(at, def, !!entry.buff); // local patch: its _spawnLocation
     if (!drop && Number.isFinite(def.height)) at = overHeight(at, def.height); // 2026-10-10: `_overwriteHeight`
@@ -4951,6 +4952,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (!l) { elines.delete(key); return; }
       if (nrec.ended) { l.inst.stop(); return; }
       nrec.l = l;
+      l.sinkFrom = src;   // 深水区: a line from a sunk shooter is not cut at the road either
       // (a LineEffectEmitter — fx_extract.py `lineEm` — names its start / end effects but leaves the ends to its maker)
       nrec.dyn = l.inst.def?.lineDyn || (l.inst.def?.lineEm ? { ...dyn0, ...l.inst.def.lineEm } : dyn0);
       if (life < 0) nrec.until = clockS + (l.inst.def?.duration || 1);
@@ -5961,7 +5963,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           l.inst.object.scale.set(k, k, 1);
         }
         else if (l.view && l.view.alive !== false && !l.view.remove) {
-          l.inst.object.position.set(l.view.x, l.view.y, l.view.z || 0);
+          const vz = l.view.z || 0;
+          l.inst.object.position.set(l.view.x, l.view.y, vz);
+          // 深水区 (docs/rules/fx.md 「심해 구역의 바닥 자르기」): what follows a body that sank is cut at its feet, not at the road
+          const body = l.view.info ? l.view : l.owner != null ? lastViews?.get(l.on ?? l.owner) : null;
+          l.inst.setSink(Math.min(vz, body?.z || 0, l.sinkFrom?.z || 0));
           const r = l.view.rot;   // local patch: its mount point's turn (lifted)
           if (r != null && l.inst.nodes?.[0]) l.inst.nodes[0].rotation.set(0, 0, r);
         }

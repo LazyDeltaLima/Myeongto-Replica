@@ -3116,15 +3116,8 @@ export class FxInstance {
       // hides it (2026-10-26, maintainer decision after the official recording: 缄默德克萨斯 S3's round smoke `yanwu`, on the
       // ground and sinking, is gone there 0.2 s after the blades land; 酒神's waves 0.095 under the floor never show) —
       // until then only renderers whose node rested 0.25 under were cut [the board's floor = the client's ground: ASSUMED]
-      const cut = (opts.floor || 0) - 0.05;
-      const setFloor = (m) => {
-        if (m.userData.zflat) m.uniforms.uBaseH.value = m.userData.baseH + (opts.floor || 0);
-        else if (m.userData.ztest) m.uniforms.uFloor.value = cut;
-      };
-      this.meshMatList.forEach(setFloor);
-      for (const s of this.systems) { setFloor(s.material); if (s.trailBatch) setFloor(s.trailBatch.material); }
-      for (const t of this.trails) setFloor(t.batch.material);
-      for (const t of this.lines) setFloor(t.batch.material); // local patch
+      this.floor0 = opts.floor || 0;
+      this.applyFloor(this.floor0);
     }
     this.layerN = [0, 0, 0];
     if (opts.split) {
@@ -3601,6 +3594,32 @@ export class FxInstance {
    * updated, finished and removed with it — the module variant a SwitchableWhenContainsEquipment creates on the owner and
    * finishes at its own finish (render/fxgame.js equipVariant).
    */
+  /** The floor on the depth-tested materials: what lies under it is cut, a ZDistort material's depth lies on it. */
+  applyFloor(floor) {
+    this.floor = floor;
+    const cut = floor - 0.05;
+    const setFloor = (m) => {
+      if (m.userData.zflat) m.uniforms.uBaseH.value = m.userData.baseH + floor;
+      else if (m.userData.ztest) m.uniforms.uFloor.value = cut;
+    };
+    this.meshMatList.forEach(setFloor);
+    for (const s of this.systems) { setFloor(s.material); if (s.trailBatch) setFloor(s.trailBatch.material); }
+    for (const t of this.trails) setFloor(t.batch.material);
+    for (const t of this.lines) setFloor(t.batch.material); // local patch
+  }
+
+  /**
+   * 深水区 (docs/rules/fx.md 「심해 구역의 바닥 자르기」): `z` < 0 = how deep what this effect is on or flies at has sunk: the
+   * floor goes down to it, and back to the floor it was made with when `z` is 0 again. Water hides nothing; the road's
+   * height is no ground there. Called per frame: unchanged, it touches nothing. No floor (null): stays uncut.
+   */
+  setSink(z) {
+    if (this.floor0 == null) return;
+    const f = z < 0 ? Math.min(this.floor0, z) : this.floor0;
+    if (f !== this.floor) this.applyFloor(f);
+    if (this.kids) for (const c of this.kids) c.setSink(z);
+  }
+
   adopt(c) {
     if (!c || c.empty) return;
     (this.kids ||= []).push(c);

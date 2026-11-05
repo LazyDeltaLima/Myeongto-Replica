@@ -3775,3 +3775,20 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - 확인: `test/render/kit-event-fx.test.js`(계획 + 층), `status-buff-fx.test.js`(Mon3tr 태그·방향, 표식들), `fx-bindings` `UNPLAYED` 11줄·`VERDICT` pending
   3줄 지움, `clip-coverage-list.js` 비이 `Charge` 넷 지움, `test/content/op_demetr`·`op_monstr`·`op_veen.test.js`(사건·표시). 시뮬 골든: diy-032~035·
   037·038 사건 수만(전투 결과 같음). [화면 미확인: 위 전부 — 특히 Mon3tr 표식의 자리·비이 저장 탄이 한 점에서 겹쳐 나는 모습·저장 구슬 단계]
+
+### 심해 구역의 바닥 자르기 (2026-11-05, 관리자 제보 「인사이더의 투사체가 심해 구역 타일에 가려지고 있다」)
+
+- 증상: 심해 구역에 잠긴 적을 쏘면 탄이 물 위에서 사라졌다. 잠긴 적이 쏜 탄도 쏜 자리부터 도로 높이까지 안 보였다. 잠긴 몸에 붙는 타격·버프 이펙트는 아래쪽이 잘렸다.
+- 원인: 깊이 비교 재질은 바닥 − 0.05 아래 픽셀을 버리는데(위 「바닥 자르기 — 깊이 비교 재질 전부」), 날아가는 탄의 바닥은 늘 도로 높이 0이었다. 잠긴 적의 발은 −0.7이고 명중점은 그보다 조금 위라 탄이 도로 아래로 내려간다. `spawn`도 유닛 위에 그리는 이펙트(기본값)의 바닥을 0으로 두었고, 유닛이 나중에 잠겨도 바닥은 처음 값 그대로였다.
+- 공식 근거:
+  - 잠김은 적의 그림 전체 높이를 옮긴다(`Enemy.HeightController.SetEnemyHeightOffset` → `Enemy.SetHeightDirectly` → `VisualObject.SetHeight`, 공식 클라에서 확인). 그래서 조준점은 그대로 잠긴 몸의 명중점에 둔다.
+  - act2 m04·act1 m05 씬의 물길에서 수면(`MT_AutochessSand_water2`, `Torappu/Scene/StylizedWater`)은 z −0.141에 있고, 그 아래 모래 메시는 물길 안에서 z −0.72 이하다(씬 메시 값). 이 보드는 그 수면을 투명 재질로 그리며 깊이를 쓰지 않는다. z −0.02의 `DynamicWaterTile`은 물때 예고 타일이라 평소에는 꺼 둔다(`board3d/official.js`).
+- 고친 것:
+  - 날아가는 탄: 바닥 = 두 끝점과 대상 발 높이 중 가장 낮은 값(0 이하). 비행 중에는 올라가지 않는다(`fx/projectiles.js flightSink`, `fxgame.js placeTrail`).
+  - `spawn`: 놓는 자리가 도로 아래면 그 높이가 바닥이다. 밧줄·선과 타격 이펙트가 여기로 온다.
+  - 유닛을 따라가는 이펙트: 매 프레임 그 몸의 높이로 바닥을 낮추고, 올라오면 만들 때의 바닥으로 되돌린다(`fxgame.js` 이펙트 갱신 고리, `FxInstance.setSink`). 선은 쏜 쪽 몸도 본다(`sinkFrom`).
+  - 음표 타격(`playNoteHit`): 대상 높이가 바닥이다.
+  - 도로 높이 이상에 있는 탄과 이펙트는 그림이 그대로다. `setSink`는 값이 같으면 아무것도 하지 않는다.
+- 범위: 꼬리가 있는 오퍼레이터 77명 중 36명의 꼬리에 깊이 비교 재질이 켜져 있었다(리드 더 플레임 섀도우, 라플란드, 안젤리나, 글래디아 등). 적 투사체도 같은 경로다. 애쉬락 포탄 본체는 `_ZTest` 0이라 원래 잘리지 않고 연기만 해당된다.
+- [추정·화면: 공식이 도로 칸 위를 지나는 탄을 불투명한 도로로 가리는지 — 우리는 비행 내내 한 바닥을 써서 도로 칸 위에서도 안 가린다. 명중점이 몸과 함께 내려가는지도 공식 화면으로는 안 봄]
+- 확인: `test/render/deep-water-fx.test.js`, `fx-particle-modules.test.js` 「floor cut on deep water」. 디버그 아레나 `stage:act2autochess_m04`(4열 → 6열 물길, Windows Chrome GPU, 전투 속도 0.25배 프레임)에서 고친 부분을 끈 판과 나란히 비교함: 인사이더 탄이 끈 판에서는 물 위에서 사라지고 켠 판에서는 명중까지 보임, 잠긴 은신 캐스터(`enemy_1023_jmage`)의 탄이 끈 판에서는 도로 높이 위로 올라온 뒤에야 보이고 켠 판에서는 총구부터 보임, 인사이더 타격의 아래쪽 빛줄기가 켠 판에서 수면 아래까지 보임. [화면 미확인: 글래디아 S1 밧줄, 애쉬락 포탄(프레임에 못 잡음), 2배속 실제 판]

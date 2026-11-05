@@ -84,6 +84,15 @@ export function lobZ(rec, k, noRaise = 1.3) {
   return [z0 + v * k - 0.5 * G * k * k + miss * k, v - G * k + miss];
 }
 
+/**
+ * 深水区 (docs/rules/fx.md 「심해 구역의 바닥 자르기」): how far under the road a flying shot's floor lies — the lowest of its
+ * two ends and of its target's feet, never rising again in flight (`prev`). 0 on any other ground, where it is cut at the
+ * road as before; only a shot at or from a sunk body goes lower.
+ */
+export function flightSink(rec, prev = 0) {
+  return Math.min(prev, rec.z0 ?? 0, rec.tz ?? 0, rec.tgt?.z ?? 0);
+}
+
 /** 2026-10-24: the key of the projectile an operator's shot flies now (opShot `key`), or null. */
 export function shotKeyOf(ctx, src) {
   let def;

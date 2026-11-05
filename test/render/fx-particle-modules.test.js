@@ -100,6 +100,34 @@ test('floor cut (2026-10-26): every depth-tested material is cut at the floor, w
   assert.equal(none, -1e9, 'floor null: no cut');
 });
 
+test('floor cut on deep water: setSink lowers the floor to a sunk body and back, and leaves an uncut effect uncut', async () => {
+  const mats = { t: { shader: 'Torappu/Particles/AlphaBlend', tex: {}, floats: { _ZTest: 4 }, colors: {} }, o: { shader: 'Torappu/Particles/AlphaBlend', tex: {}, floats: { _ZTest: 0 }, colors: {} },
+    z: { shader: 'Torappu/Particles/ZDistort/AlphaBlend', tex: {}, floats: { _ZTest: 4, _BaselineZ: 0 }, colors: {} } };
+  const THREE = await import('../../public/vendor/three.module.js');
+  const fxp = await import('../../public/js/render/fxplayer.js');
+  const sys = (name, mat) => node(name, 0, { ps: { ...ps({}, { n: 1 }), render: { ...ps({}).render, mat } } });
+  const def = () => ({ name: 't', duration: 0, materials: mats, clips: [], geoms: {}, lib: { texture: () => new THREE.Texture() }, nodes: [node('root', -1), sys('a', 't'), sys('b', 'o'), sys('c', 'z')] });
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const inst = new fxp.FxInstance(def(), { quality: 'high' });
+  const [t, off, flat] = inst.systems.map((x) => x.material.uniforms);
+  assert.ok(near(t.uFloor.value, -0.05), 'the road');
+  inst.setSink(-0.7);
+  assert.ok(near(t.uFloor.value, -0.75), 'the sunk body\'s feet less 0.05');
+  assert.ok(near(flat.uBaseH.value, -0.7), 'a ZDistort depth lies on that floor');
+  assert.equal(off.uFloor.value, -1e9, 'no depth test: never cut');
+  inst.setSink(0);
+  assert.ok(near(t.uFloor.value, -0.05), 'back on the road');
+  const high = new fxp.FxInstance(def(), { quality: 'high', floor: 0.42 });
+  high.setSink(0);
+  assert.ok(near(high.systems[0].material.uniforms.uFloor.value, 0.37), 'a high tile keeps its own floor');
+  const none = new fxp.FxInstance(def(), { quality: 'high', floor: null });
+  none.setSink(-0.7);
+  assert.equal(none.systems[0].material.uniforms.uFloor.value, -1e9, 'floor null stays uncut');
+  const sunk = new fxp.FxInstance(def(), { quality: 'high', floor: -0.7 });
+  sunk.setSink(0);
+  assert.ok(near(sunk.systems[0].material.uniforms.uFloor.value, -0.75), 'made on the sunk body: its floor stays');
+});
+
 test('scaling mode (2026-10-26): a Local system drops its parents\' scale but keeps their place and turn; a Hierarchy one takes it', async () => {
   // 酒神 S2's hit wave: music_wave_* (Local) under ground_01, scaled z ×2.73 and turned
   const turn = [Math.SQRT1_2, 0, 0, Math.SQRT1_2];
