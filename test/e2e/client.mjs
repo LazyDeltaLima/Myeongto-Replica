@@ -7,6 +7,7 @@ import { existsSync, mkdirSync } from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { launchBrowser } from './browser.mjs';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const OUT = path.join(ROOT, 'test/e2e/out');
@@ -130,7 +131,7 @@ export class Client {
 
   async open(query = '') {
     mkdirSync(OUT, { recursive: true });
-    this.browser = await this.puppeteer.launch({ executablePath: CHROME, headless: true, args: CHROME_ARGS, protocolTimeout: PROTOCOL_TIMEOUT_MS });
+    this.browser = await launchBrowser(this.puppeteer, { executablePath: CHROME, headless: true, args: CHROME_ARGS, protocolTimeout: PROTOCOL_TIMEOUT_MS });
     const [first] = await this.browser.pages();
     const page = first || await this.browser.newPage();
     this.page = page;
@@ -141,7 +142,7 @@ export class Client {
     page.on('pageerror', (e) => this.problems.push(`pageerror: ${e.message}`));
     page.on('requestfailed', (r) => {
       const err = r.failure()?.errorText || '';
-      if (err === 'net::ERR_ABORTED' && /\.(mp3|ogg|wav|m4a)(\?|$)/.test(r.url())) return; // media element swaps
+      if (err === 'net::ERR_ABORTED') return; // the page dropped it (a screen changed, a media element swapped); a missing file is an HTTP error
       this.problems.push(`requestfailed: ${r.url()} ${err}`);
     });
     page.on('response', (r) => { if (r.status() >= 400) this.problems.push(`http ${r.status()}: ${r.url()}`); });
@@ -234,6 +235,7 @@ export class Client {
       for (const el of document.querySelectorAll(sel)) {
         if (text && !(el.textContent || '').includes(text)) continue;
         if (!any && (el.disabled || el.getAttribute('aria-disabled') === 'true')) continue;
+        el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); // as a player scrolls a list to reach its row
         const r = el.getBoundingClientRect();
         if (r.width < 2 || r.height < 2) continue;
         const x = r.left + r.width / 2; const y = r.top + r.height / 2;
@@ -272,6 +274,19 @@ export class Client {
     await this.page.keyboard.type(name);
     await this.click('.title-login button', '开始');
     await this.page.waitForSelector('.lobby-screen', { timeout: 20000 });
+  }
+
+  /** Press the room bar's 准备就绪 until this seat is ready. The button toggles: a fixed number of presses can end unready. */
+  async readyInRoom(tries = 6) {
+    const isReady = () => this.page.evaluate(() => {
+      const s = globalThis.__SP__.store.get();
+      return !!s.room?.seats?.find((x) => x && x.playerId === s.me.playerId)?.ready;
+    });
+    for (let i = 0; i < tries && !(await isReady()); i++) {
+      await this.click('.room-bar__right button', '准备就绪', { optional: true, timeout: 3000 });
+      await sleep(600);
+    }
+    if (!(await isReady())) throw new Error(`${this.label}: not ready after ${tries} presses of 准备就绪`);
   }
 
   // ---- field view (render engine debug hooks) -------------------------------------------------------------------
@@ -406,13 +421,25 @@ export class Client {
     return this.page.evaluate((t) => (globalThis.__e2eReq || []).filter((r) => !t || r[0] === t), t);
   }
 
-  /** Geometry of the open direction wheel (client px): centre + half-diagonal, or null. */
+  /**
+   * Geometry of the open direction wheel (client px): centre, half-diagonal and the four vertices, or null. The official
+   * selector (ui/placeArt.js) lies on the ground and its host box has no size (place-art.css), so the vertices come from the
+   * cut-out of its dim layer; the older DOM wheel is the rotated square of `.fwheel__dia`.
+   */
   wheel() {
     return this.page.evaluate(() => {
       const el = document.querySelector('.fwheel__dia');
       if (!el) return null;
+      const dim = document.querySelector('.pwheel__dim')?.getAttribute('d');
+      if (dim) {
+        const n = dim.slice(dim.lastIndexOf('M') + 1).replace('Z', '').split('L').map((p) => p.trim().split(/\s+/).map(Number));
+        const [UP, RIGHT, DOWN, LEFT] = n;
+        const x = (UP[0] + RIGHT[0] + DOWN[0] + LEFT[0]) / 4, y = (UP[1] + RIGHT[1] + DOWN[1] + LEFT[1]) / 4;
+        return { x, y, half: Math.hypot(RIGHT[0] - x, RIGHT[1] - y), verts: { UP, RIGHT, DOWN, LEFT } };
+      }
       const r = el.getBoundingClientRect();
-      return { x: r.left + r.width / 2, y: r.top + r.height / 2, half: r.width / 2 };
+      const x = r.left + r.width / 2, y = r.top + r.height / 2, h = r.width / 2;
+      return { x, y, half: h, verts: { UP: [x, y - h], RIGHT: [x + h, y], DOWN: [x, y + h], LEFT: [x - h, y] } };
     });
   }
 
@@ -426,12 +453,12 @@ export class Client {
     // `dir` is a BOARD direction: on the mirrored right half of the Final Assault prep the screen swipe is RIGHT ↔ LEFT
     const mirror = board && await this.page.evaluate(() => !!globalThis.__SP_VIEW__?.raw?.prepField?.()?.mirror);
     const sdir = mirror ? ({ RIGHT: 'LEFT', LEFT: 'RIGHT' }[dir] || dir) : dir;
-    const v = { UP: [0, -1], RIGHT: [1, 0], DOWN: [0, 1], LEFT: [-1, 0] }[sdir] || [0, 0];
+    const to = w.verts[sdir] || [w.x, w.y];
     const m = this.page.mouse;
     await m.move(w.x, w.y);
     await m.down();
     const steps = 10;
-    for (let i = 1; i <= steps; i++) { await m.move(w.x + (v[0] * w.half * reach * i) / steps + 1, w.y + (v[1] * w.half * reach * i) / steps + 1); await sleep(16); }
+    for (let i = 1; i <= steps; i++) { await m.move(w.x + ((to[0] - w.x) * reach * i) / steps + 1, w.y + ((to[1] - w.y) * reach * i) / steps + 1); await sleep(16); }
     await sleep(200);
     if (midShot) await this.shot(midShot);
     await m.up();

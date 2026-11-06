@@ -23,7 +23,6 @@ const ALLOWED = new Set(['room.spectate', 'room.loadout', 'g.watch', 'g.leave', 
 /** Past the title; the offer to download the game's resources covers the room's bar buttons, so it is declined. */
 const enter = async (c, name) => {
   await c.enter(name);
-  await c.click('button', '以后再说', { optional: true, timeout: 4000 });
 };
 
 /** The spectator's own view of the store: still a spectator, never a private view. */

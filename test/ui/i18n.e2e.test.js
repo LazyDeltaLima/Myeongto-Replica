@@ -20,6 +20,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CHROME, hasChrome, sleep } from '../e2e/client.mjs';
 import { NAME_MAX_LEN } from '../../shared/constants.js';
+import { launchBrowser } from '../e2e/browser.mjs';
 
 const ENABLED = process.env.SP_E2E === '1' && hasChrome();
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -37,7 +38,7 @@ describe('language switch on the title screen', { skip: !ENABLED && 'set SP_E2E=
     const puppeteer = (await import('puppeteer-core')).default;
     srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true });
     base = `http://127.0.0.1:${srv.port}`;
-    browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox', '--force-device-scale-factor=1'] });
+    browser = await launchBrowser(puppeteer, { executablePath: CHROME, headless: true, args: ['--no-sandbox', '--force-device-scale-factor=1'] });
   });
   after(async () => { removePacks(); await browser?.close(); await srv?.close(); });
 

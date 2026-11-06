@@ -794,7 +794,7 @@ async function facingTour(c, did) {
   if (!did.buy) did.buy = await buyOne(c, BUYABLE, { shot: 'buy-confirm' });
   for (let k = 0; k < 2; k++) if (!(await buyOne(c))) break;
   // an item for the 销毁 underframe (when the shop has one and funds allow)
-  if (!did.item && !(await c.handPieces('item')).length) did.itemBought = await buyOne(c, '.shopbar__item .scard:not(.scard--sold):not(.is-disabled)').catch(() => false);
+  if (!did.item && !(await c.handPieces('item')).length) did.itemBought = await buyOne(c, '.shopbar__cards .scard--item:not(.scard--sold):not(.is-disabled)').catch(() => false);
   const units = () => c.handPieces().then((h) => h.filter((p) => p.kind === 'chess'));
   let hand = await units();
   assert.ok(hand.length >= 1, 'bought operators');
@@ -1129,7 +1129,7 @@ describe('browser E2E against the real server', { skip: !ENABLED && 'needs Chrom
             if (c === host && !did.info) did.info = await openInfo(c);
             if (c === guest && !did.emote) did.emote = await sendEmote(c, peer);
             if (c === guest && s.round >= 2 && !did.leveled) did.leveled = await levelUp(c);
-            if (c === host && s.round >= 2 && !did.itemBought) did.itemBought = await buyOne(c, '.shopbar__item .scard:not(.scard--sold):not(.is-disabled)');
+            if (c === host && s.round >= 2 && !did.itemBought) did.itemBought = await buyOne(c, '.shopbar__cards .scard--item:not(.scard--sold):not(.is-disabled)');
             if (c === host && s.round >= 3 && !did.refreshed) did.refreshed = await refreshKey(c);
             if (!did.shopDetail && c === host) did.shopDetail = await inspectShopCard(c);
             for (let k = 0; k < 3; k++) if (!(await buyOne(c))) break;

@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { launchBrowser } from '../e2e/browser.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -104,7 +105,7 @@ test('an old simulator page reconnects safely, then reloads before the next matc
     server = await start(root);
     const port = server.port;
     const puppeteer = (await import('puppeteer-core')).default;
-    browser = await puppeteer.launch({ executablePath: CHROME, headless: true, protocolTimeout: 30000,
+    browser = await launchBrowser(puppeteer, { executablePath: CHROME, headless: true, protocolTimeout: 30000,
       args: ['--no-first-run', '--no-sandbox'] });
     const page = await browser.newPage();
     const problems = [];

@@ -15,6 +15,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { launchBrowser } from '../e2e/browser.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = path.join(ROOT, 'test/e2e/out');
@@ -32,7 +33,7 @@ describe('the local-client summon models on the prep board (headless Chrome)', {
     const puppeteer = (await import('puppeteer-core')).default;
     const { startServer } = await import('../../server/index.js');
     srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true });
-    browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-first-run', '--force-device-scale-factor=1'] });
+    browser = await launchBrowser(puppeteer, { executablePath: CHROME, headless: true, args: ['--no-first-run', '--force-device-scale-factor=1'] });
     mkdirSync(OUT, { recursive: true });
   });
   after(async () => {

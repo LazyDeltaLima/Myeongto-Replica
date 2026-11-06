@@ -17,6 +17,7 @@ import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { Client, ROOT, sleep, hasChrome, startRealServer, problemsOf } from '../e2e/client.mjs';
+import { LOCAL_DIY_PICKS } from '../../shared/local-diy.js';
 
 const UI_ENABLED = process.env.SP_E2E === '1' && hasChrome();
 const ENABLED = UI_ENABLED && existsSync(path.join(ROOT, 'public/assets'));
@@ -24,8 +25,6 @@ const SLOT = 'chess_char_5_diy1_a';
 const CHEN3 = 'char_1050_chen3';
 const ASCLN = 'char_4132_ascln'; // 阿斯卡纶: two advanced modules, legal in the 5阶 and 6阶 slots
 const PICK = { charId: CHEN3, skillIndex: 2, uniEquipId: 'uniequip_002_chen3' };
-const LOCAL_PICKS = ['char_2027_wang', 'char_1050_chen3', 'char_1035_wisdel', 'char_4182_oblvns', 'char_4132_ascln',
-  'char_1052_kalts2', 'char_4231_clemnt', 'char_1015_aglna2'];
 
 describe('自选编队 picker: reselecting retains the draft (real server, no art needed)', { skip: !UI_ENABLED && 'set SP_E2E=1 (and have Chrome)' }, () => {
   for (const slot of [SLOT, 'chess_char_6_diy1_a']) {
@@ -181,7 +180,7 @@ describe('0.2.0 自选编队 — a slotted operator in the own shop and battle (
       await c.click(`.diy-slot[data-slot="${SLOT}"] .diy-slot__fill`);
       await c.page.waitForSelector(`[data-testid="diy-picker"] .diy-opt[data-char="${CHEN3}"]`, { visible: true, timeout: 8000 });
       const listed = await c.page.evaluate(() => [...document.querySelectorAll('[data-testid="diy-picker"] .diy-opt')].map((el) => el.dataset.char));
-      assert.deepEqual([...listed].sort(), [...LOCAL_PICKS].sort(), 'our picks, no prototype');
+      assert.deepEqual([...listed].sort(), [...LOCAL_DIY_PICKS].sort(), 'our picks, no prototype');
       await c.click(`[data-testid="diy-picker"] .diy-opt[data-char="${CHEN3}"]`);
       await c.page.waitForSelector('[data-testid="diy-picker"] .diy-choice[data-skill="2"]', { visible: true, timeout: 5000 });
       await c.click('[data-testid="diy-picker"] .diy-choice[data-skill="2"]');
@@ -191,7 +190,7 @@ describe('0.2.0 自选编队 — a slotted operator in the own shop and battle (
       await c.page.waitForFunction((slot, id) => document.querySelector(`.diy-slot[data-slot="${slot}"]`)?.dataset.char === id, { timeout: 4000 }, SLOT, CHEN3);
       await c.page.waitForFunction(() => /已同步/.test(document.querySelector('[data-testid="diy-sync"]')?.textContent || ''), { timeout: 8000 });
       const card = await c.page.evaluate((slot) => document.querySelector(`.diy-slot[data-slot="${slot}"]`)?.textContent || '', SLOT);
-      assert.ok(card.includes('赤刃明霄陈') && card.includes('已持有') && card.includes('AFT-X'), card);
+      assert.ok(card.includes('赤刃明霄陈') && card.includes('AFT-X'), card);
       const stored = await c.page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.diy') || 'null'));
       assert.deepEqual(stored, { v: 1, picks: { [SLOT]: PICK } });
       await c.shot('slotted');

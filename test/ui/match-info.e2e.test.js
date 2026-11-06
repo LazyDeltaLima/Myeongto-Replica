@@ -21,6 +21,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { launchBrowser } from '../e2e/browser.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = path.join(ROOT, 'test/e2e/out');
@@ -59,7 +60,7 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
 
   /** One player: its own Chrome with one always-visible page, past the title screen, in the lobby. */
   async function player(name, { phone = null } = {}) {
-    const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ARGS, protocolTimeout: 90000 });
+    const browser = await launchBrowser(puppeteer, { executablePath: CHROME, headless: true, args: ARGS, protocolTimeout: 90000 }, { lang: 'ko' }); // this suite reads the Korean strings
     browsers.push(browser);
     const [first] = await browser.pages();
     const page = first || await browser.newPage();

@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { launchBrowser } from '../e2e/browser.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = path.join(ROOT, 'test/e2e/out');
@@ -26,7 +27,7 @@ test('纯烬艾雅法拉\'s eyes with the masks off look as with the stencil: sh
   const srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true });
   let browser;
   try {
-    browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-first-run'] });
+    browser = await launchBrowser(puppeteer, { executablePath: CHROME, headless: true, args: ['--no-first-run'] });
     const page = await browser.newPage();
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));

@@ -144,6 +144,16 @@ async function place(c, chessId) {
 async function coopMatch(P, base, { bots = 1, prefix }) {
   const host = new Client(P, base, 'host', { prefix: `${prefix}-host`, w: 1280, h: 720 });
   const guest = new Client(P, base, 'guest', { prefix: `${prefix}-phone`, w: 756, h: 366 });
+  try {
+    return await coopSetup(host, guest, { bots });
+  } catch (e) {
+    // the caller never gets the clients of a failed setup: left open, their Chromes keep the test process alive
+    await Promise.all([host.close(), guest.close()]);
+    throw e;
+  }
+}
+
+async function coopSetup(host, guest, { bots }) {
   await host.open();
   await host.enter('凯尔希');
   await host.click('.mode-card', '同盟模拟');

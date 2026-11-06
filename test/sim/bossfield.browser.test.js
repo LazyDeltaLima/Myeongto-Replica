@@ -32,6 +32,7 @@ import { GameData } from '../../server/match/gamedata.js';
 import { computeBonds, bondSnapshot } from '../../server/match/bondsMeta.js';
 import { tileKey } from '../../server/match/board.js';
 import { makeMatch, DATA } from '../match/harness.js';
+import { launchBrowser } from '../e2e/browser.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -148,7 +149,7 @@ describe('Final Assault / Hidden Core fields in the browser sim', { skip }, () =
     const puppeteer = (await import('puppeteer-core')).default;
     const { startServer } = await import('../../server/index.js');
     srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true });
-    browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-first-run'] });
+    browser = await launchBrowser(puppeteer, { executablePath: CHROME, headless: true, args: ['--no-first-run'] });
   });
   after(async () => {
     await browser?.close();

@@ -20,6 +20,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client, sleep, startRealServer, hasChrome, OUT } from '../e2e/client.mjs';
 import { buildRecord, buildQuitRecord, createLiveMatch, observeMatch, STATS_VERSION } from '../../public/js/ui/stats.js';
+import { launchBrowser } from '../e2e/browser.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const ENABLED = process.env.SP_E2E === '1' && hasChrome();
@@ -67,7 +68,7 @@ describe('统计数据 page (real server, headless Chrome)', { skip: !ENABLED &&
   async function open({ w = 1920, h = 1080, stored = null, entered = true, base = srv.base, lang = null } = {}) {
     const c = new Client(puppeteer, base, 'stats', { prefix: 'stats', w, h });
     clients.push(c);
-    c.browser = await puppeteer.launch({
+    c.browser = await launchBrowser(puppeteer, {
       executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true,
       args: ['--no-sandbox', '--mute-audio', '--force-device-scale-factor=1'],
     });

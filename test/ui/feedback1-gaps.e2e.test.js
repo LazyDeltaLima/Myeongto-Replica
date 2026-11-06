@@ -17,6 +17,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { launchBrowser } from '../e2e/browser.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = process.env.SP_E2E_OUT ? path.resolve(process.env.SP_E2E_OUT) : path.join(ROOT, 'test/e2e/out');
@@ -47,7 +48,7 @@ describe('0.1.1 gaps: 变形同构体 pairings and 调和\'s +1 (mock harness, h
     const puppeteer = (await import('puppeteer-core')).default;
     srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true });
     base = `http://127.0.0.1:${srv.port}`;
-    browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox'] });
+    browser = await launchBrowser(puppeteer, { executablePath: CHROME, headless: true, args: ['--no-sandbox'] });
     mkdirSync(OUT, { recursive: true });
   });
 
@@ -64,13 +65,13 @@ describe('0.1.1 gaps: 变形同构体 pairings and 调和\'s +1 (mock harness, h
       page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
       page.on('console', (m) => { if (m.type() === 'error') problems.push(`console: ${m.text()}`); });
       await page.goto(`${base}/dev/game-mock.html?shot=1&render=fallback&phase=PREP&variant=funny,morph,harmony`, { waitUntil: 'networkidle0' });
-      await page.waitForSelector('.shopbar__item .scard', { timeout: 20000 });
+      await page.waitForSelector('.shopbar__cards button.scard--item', { timeout: 20000 });
       await sleep(600);
       const minFont = touch ? 9 : 13.5;
       const tap = async (sel) => { const el = await page.$(sel); assert.ok(el, sel); if (touch) await el.tap(); else await el.click(); await sleep(300); };
 
       // 1. the shop's 变形同构体 card: the first tap opens its detail with the 天赋 list
-      await tap('.shopbar__item .scard');
+      await tap('.shopbar__cards button.scard--item');
       await page.waitForSelector('.dpanel .dmorph__row', { timeout: 5000 });
       await page.screenshot({ path: path.join(OUT, `fb1-gaps-morph-shop-${name}.png`) });
       const shop = await measure(page, '.dpanel__scroll', '.dmorph__row');

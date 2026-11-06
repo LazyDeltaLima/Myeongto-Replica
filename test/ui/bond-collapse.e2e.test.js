@@ -4,6 +4,7 @@ import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { launchBrowser } from '../e2e/browser.mjs';
 
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const ENABLED = process.env.SP_E2E === '1' && existsSync(CHROME);
@@ -15,7 +16,7 @@ describe('collapsible bond strip (issue #142)', { skip: !ENABLED && 'set SP_E2E=
     const { startServer } = await import('../../server/index.js');
     const puppeteer = (await import('puppeteer-core')).default;
     srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true });
-    browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox', '--no-proxy-server'] });
+    browser = await launchBrowser(puppeteer, { executablePath: CHROME, headless: true, args: ['--no-sandbox', '--no-proxy-server'] });
     mkdirSync(OUT, { recursive: true });
   });
   after(async () => { await browser?.close(); await srv?.close(); });
@@ -37,7 +38,9 @@ describe('collapsible bond strip (issue #142)', { skip: !ENABLED && 'set SP_E2E=
           const r = el.getBoundingClientRect();
           return { width: r.width, height: r.height, controls: el.getAttribute('aria-controls') };
         });
-        assert.ok(toggle.width >= 44 && toggle.height >= 44, 'visible touch target is at least 44×44');
+        // with the official art the tab's hit box is its picture (docs/rules/ui.md 「맹약 줄 접기 탭」), at least 24 px wide
+        const artTab = await page.$('.gm.has-hud-art.has-hud-fold');
+        assert.ok(artTab ? toggle.width >= 24 && toggle.height >= 10 : toggle.width >= 44 && toggle.height >= 44, `visible touch target ${toggle.width}×${toggle.height}`);
         assert.equal(toggle.controls, 'match-bond-strip');
         const covered = await page.$eval('.bslot .bond', (el) => {
           const r = el.getBoundingClientRect();

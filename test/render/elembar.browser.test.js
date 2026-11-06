@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { makeBattle } from '../helpers/battleHarness.js';
 import { ELEMENT_ORDER } from '../../server/sim/constants.js';
 import { ELEMENT_RING } from '../../public/js/render/textures.js';
+import { launchBrowser } from '../e2e/browser.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = path.join(ROOT, 'test/e2e/out');
@@ -61,7 +62,7 @@ describe('element gauge row in headless Chrome (user playtest #6)', { skip }, ()
     const puppeteer = (await import('puppeteer-core')).default;
     const { startServer } = await import('../../server/index.js');
     srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true });
-    browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-first-run'] });
+    browser = await launchBrowser(puppeteer, { executablePath: CHROME, headless: true, args: ['--no-first-run'] });
     mkdirSync(OUT, { recursive: true });
   });
   after(async () => {

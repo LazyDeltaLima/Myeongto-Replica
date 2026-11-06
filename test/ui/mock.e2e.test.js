@@ -18,6 +18,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { launchBrowser } from '../e2e/browser.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = path.join(ROOT, 'test/e2e/out');
@@ -47,7 +48,7 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     const puppeteer = (await import('puppeteer-core')).default;
     srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true });
     base = `http://127.0.0.1:${srv.port}`;
-    browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox'] });
+    browser = await launchBrowser(puppeteer, { executablePath: CHROME, headless: true, args: ['--no-sandbox'] });
     mkdirSync(OUT, { recursive: true });
   });
 
@@ -62,7 +63,7 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     const problems = [];
     page.on('console', (m) => { if (m.type() === 'error') problems.push(`console: ${m.text()}`); });
     page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
-    page.on('requestfailed', (r) => { if (!/fonts\.(googleapis|gstatic)/.test(r.url())) problems.push(`requestfailed: ${r.url()} ${r.failure()?.errorText}`); });
+    page.on('requestfailed', (r) => { if (!/fonts\.(googleapis|gstatic)/.test(r.url()) && r.failure()?.errorText !== 'net::ERR_ABORTED') problems.push(`requestfailed: ${r.url()} ${r.failure()?.errorText}`); });
     page.on('response', (r) => { if (r.status() >= 400) problems.push(`http ${r.status()}: ${r.url()}`); });
     await page.goto(`${base}/dev/game-mock.html?shot=1&render=${render}&${query}`, { waitUntil: 'networkidle0' });
     await page.waitForFunction(() => !!document.querySelector('.screen:not(.gload)'), { timeout: 15000 });
@@ -199,8 +200,11 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     assert.equal((await mockState(page)).shop.level, lv + 1, 'G levels up');
     await page.keyboard.press('KeyC');
     await sleep(300);
-    // funds are left, so 准备 asks first (剩余资金). Confirm, then the seat is ready.
-    if (await page.$('.modal__title')) {
+    // funds are left, so 准备 asks first (剩余资金; with the extracted art the official dialog, ui/battleArt.js). Confirm, then the seat is ready.
+    if (await page.$('.bcd .bcd__btn.is-ok')) {
+      await page.click('.bcd .bcd__btn.is-ok');
+      await sleep(300);
+    } else if (await page.$('.modal__title')) {
       const title = await page.$eval('.modal__title', (el) => el.textContent || '');
       if (title.includes('剩余资金')) await page.click('.modal__actions .btn--primary');
       await sleep(300);
@@ -512,19 +516,24 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     assert.equal(await page.$eval('.readybtn', (el) => el.disabled), true);
     assert.match(await page.$eval('[data-testid="ready-why"]', (el) => el.textContent), /请先完成教鞭选择/);
     await page.evaluate(async () => { await (await import('/js/ui/lang.js')).loadLangIndex(); });
-    for (const lang of ['en', 'ja', 'ko', 'zh-TW']) {
-      const messages = JSON.parse(readFileSync(path.join(ROOT, `public/i18n/${lang}.json`), 'utf8'));
-      await page.evaluate(async (code) => {
-        await (await import('/js/ui/lang.js')).switchLang(code);
-        globalThis.__MOCK__.pushPublic(); // this harness has no App/useLang root; render again with the active language
-      }, lang);
-      await page.waitForFunction((label) => document.querySelector('.spov')?.getAttribute('aria-label') === label, {}, messages['教鞭选择']);
-      assert.equal(await page.$eval('.spov__title', (el) => el.textContent), `${messages['教鞭 · 战术特训']}|${messages['请选择一项战术特训']}`);
-      assert.match(await page.$eval('.spov__sub', (el) => el.textContent), new RegExp(messages['休整期结束时未选择将自动选定']));
-      assert.equal(await page.$eval('[data-testid="ready-why"]', (el) => el.textContent), messages['请先完成教鞭选择']);
-      assert.equal((await mockState(page)).personalChoice.id, first.id, 'language switch keeps the same pending offer');
+    const backToZh = () => page.evaluate(async () => { await (await import('/js/ui/lang.js')).switchLang('zh'); globalThis.__MOCK__.pushPublic(); });
+    try {
+      for (const lang of ['en', 'ja', 'ko', 'zh-TW']) {
+        const pack = JSON.parse(readFileSync(path.join(ROOT, `public/i18n/${lang}.json`), 'utf8'));
+        const say = (s) => pack[s] ?? s; // a pack without the string falls back to the source text, as t() does
+        await page.evaluate(async (code) => {
+          await (await import('/js/ui/lang.js')).switchLang(code);
+          globalThis.__MOCK__.pushPublic(); // this harness has no App/useLang root; render again with the active language
+        }, lang);
+        await page.waitForFunction((label) => document.querySelector('.spov')?.getAttribute('aria-label') === label, {}, say('教鞭选择'));
+        assert.equal(await page.$eval('.spov__title', (el) => el.textContent), `${say('教鞭 · 战术特训')}|${say('请选择一项战术特训')}`);
+        assert.match(await page.$eval('.spov__sub', (el) => el.textContent), new RegExp(say('休整期结束时未选择将自动选定')));
+        assert.equal(await page.$eval('[data-testid="ready-why"]', (el) => el.textContent), say('请先完成教鞭选择'));
+        assert.equal((await mockState(page)).personalChoice.id, first.id, 'language switch keeps the same pending offer');
+      }
+    } finally {
+      await backToZh(); // the stored language is shared by every page of this browser: a failure here must not reach the next test
     }
-    await page.evaluate(async () => { await (await import('/js/ui/lang.js')).switchLang('zh'); globalThis.__MOCK__.pushPublic(); });
     await page.waitForSelector('.spov[aria-label="教鞭选择"]');
     const requests = await page.evaluate(() => globalThis.__MOCK__.S().requests.length);
     for (const key of ['KeyW', 'KeyR', 'KeyF', 'KeyD', 'KeyQ', 'KeyX']) await page.keyboard.press(key);

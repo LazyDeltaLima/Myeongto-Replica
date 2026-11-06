@@ -23,6 +23,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { launchBrowser } from '../e2e/browser.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = path.join(ROOT, 'test/e2e/out');
@@ -50,7 +51,7 @@ describe('user playtest #6 — UI items 6 / 10 (mock harness, headless Chrome)',
     const puppeteer = (await import('puppeteer-core')).default;
     srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true });
     base = `http://127.0.0.1:${srv.port}`;
-    browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox'] });
+    browser = await launchBrowser(puppeteer, { executablePath: CHROME, headless: true, args: ['--no-sandbox'] });
     mkdirSync(OUT, { recursive: true });
   });
 
@@ -197,15 +198,15 @@ describe('user playtest #6 — UI items 6 / 10 (mock harness, headless Chrome)',
       const { page, problems } = await open('phase=PREP', { w, h, touch });
       await page.evaluate(() => globalThis.__MOCK__.mutate((S) => { S.priv.funds = 99; S.priv.hand = S.priv.hand.map(() => null); }));
       await sleep(200);
-      for (const [kind, sel] of [['operator', '.shopbar__cards .scard:not(.scard--sold):not(.is-disabled)'], ['item', '.shopbar__item .scard:not(.scard--sold):not(.is-disabled)']]) {
+      for (const [kind, sel] of [['operator', '.shopbar__cards .scard:not(.scard--item):not(.scard--sold):not(.is-disabled)'], ['item', '.shopbar__cards .scard--item:not(.scard--sold):not(.is-disabled)']]) {
         for (const spot of SPOTS) {
           // a fresh card for every spot: the next operator card; the item slot comes back with a refresh (R)
           if (!(await page.$(sel))) { await page.keyboard.press('KeyD'); await sleep(350); }
           const slotIdx = await page.evaluate((s) => {
             const el = document.querySelector(s);
             const S = globalThis.__MOCK__.S();
-            const isItem = !!el.closest('.shopbar__item');
-            const cards = [...document.querySelectorAll(isItem ? '.shopbar__item .scard' : '.shopbar__cards .scard')];
+            const isItem = el.classList.contains('scard--item');
+            const cards = [...document.querySelectorAll(isItem ? '.shopbar__cards .scard--item' : '.shopbar__cards .scard:not(.scard--item)')];
             const slots = S.priv.shop.slots.map((x, i) => ({ x, i })).filter(({ x }) => (isItem ? x && x.kind === 'item' : !x || x.kind !== 'item'));
             return slots[cards.indexOf(el)]?.i ?? null;
           }, sel);

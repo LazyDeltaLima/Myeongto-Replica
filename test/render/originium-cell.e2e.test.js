@@ -10,6 +10,7 @@
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
+import { launchBrowser } from '../e2e/browser.mjs';
 
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const ENABLED = process.env.SP_E2E === '1' && existsSync(CHROME);
@@ -26,7 +27,7 @@ describe('活性源石 cell (2D board)', { skip: !ENABLED && 'set SP_E2E=1 (and 
     const puppeteer = (await import('puppeteer-core')).default;
     srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true });
     base = `http://127.0.0.1:${srv.port}`;
-    browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox', '--force-device-scale-factor=1'] });
+    browser = await launchBrowser(puppeteer, { executablePath: CHROME, headless: true, args: ['--no-sandbox', '--force-device-scale-factor=1'] });
     const page = await browser.newPage();
     await page.goto(`${base}/dev/game-mock.html?phase=PREP&render=fallback`, { waitUntil: 'domcontentloaded' });
     await page.addScriptTag({ url: '/vendor/pixi.min.js' });   // textures.js builds its atlas with PIXI

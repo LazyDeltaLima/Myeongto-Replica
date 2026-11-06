@@ -9,6 +9,7 @@
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
+import { launchBrowser } from '../e2e/browser.mjs';
 
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const ENABLED = process.env.SP_E2E === '1' && existsSync(CHROME);
@@ -23,7 +24,7 @@ describe('the shop bar folds on 准备就绪', { skip: !ENABLED && 'set SP_E2E=1
     const puppeteer = (await import('puppeteer-core')).default;
     srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true });
     base = `http://127.0.0.1:${srv.port}`;
-    browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox', '--force-device-scale-factor=1'] });
+    browser = await launchBrowser(puppeteer, { executablePath: CHROME, headless: true, args: ['--no-sandbox', '--force-device-scale-factor=1'] });
   });
   after(async () => {
     await browser?.close();
@@ -37,11 +38,11 @@ describe('the shop bar folds on 准备就绪', { skip: !ENABLED && 'set SP_E2E=1
     label: document.querySelector('.readybtn__label')?.textContent ?? null,
   }));
   const press = (page, sel) => page.evaluate((s) => document.querySelector(s)?.click(), sel);
-  /** 准备就绪 with funds left asks first (gameLogic readyFundsPrompt): answer it; 取消准备 asks nothing. */
+  /** 准备就绪 with funds left asks first (gameLogic readyFundsPrompt; with the extracted art the official dialog): answer it; 取消准备 asks nothing. */
   const ready = async (page) => {
     await press(page, '.readybtn');
     await sleep(250);
-    await page.evaluate(() => [...document.querySelectorAll('.modal button')].find((b) => /准备就绪/.test(b.textContent))?.click());
+    await page.evaluate(() => (document.querySelector('.bcd .bcd__btn.is-ok') || [...document.querySelectorAll('.modal button')].find((b) => /准备就绪/.test(b.textContent)))?.click());
   };
 
   test('ready folds the shop bar, cancelling unfolds it; the tab still unfolds it by hand', async () => {

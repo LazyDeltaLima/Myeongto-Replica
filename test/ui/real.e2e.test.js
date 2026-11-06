@@ -21,6 +21,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { launchBrowser } from '../e2e/browser.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = path.join(ROOT, 'test/e2e/out');
@@ -42,14 +43,14 @@ class Client {
   }
 
   async open(query = '') {
-    this.browser = await this.puppeteer.launch({ executablePath: CHROME, headless: true, args: CHROME_ARGS, protocolTimeout: 60000 });
+    this.browser = await launchBrowser(this.puppeteer, { executablePath: CHROME, headless: true, args: CHROME_ARGS, protocolTimeout: 60000 });
     const [first] = await this.browser.pages();
     const page = first || await this.browser.newPage();
     this.page = page;
     await page.setViewport({ width: this.w, height: this.h });
     page.on('console', (m) => { if (m.type() === 'error') this.problems.push(`console: ${m.text()}`); });
     page.on('pageerror', (e) => this.problems.push(`pageerror: ${e.message}`));
-    page.on('requestfailed', (r) => { if (!/fonts\.(googleapis|gstatic)/.test(r.url())) this.problems.push(`requestfailed: ${r.url()} ${r.failure()?.errorText}`); });
+    page.on('requestfailed', (r) => { if (!/fonts\.(googleapis|gstatic)/.test(r.url()) && r.failure()?.errorText !== 'net::ERR_ABORTED') this.problems.push(`requestfailed: ${r.url()} ${r.failure()?.errorText}`); });
     page.on('response', (r) => { if (r.status() >= 400) this.problems.push(`http ${r.status()}: ${r.url()}`); });
     page.on('dialog', (d) => d.dismiss().catch(() => {}));
     await page.goto(`${this.base}/${query}`, { waitUntil: 'domcontentloaded' });
@@ -243,7 +244,7 @@ class Client {
     return after.funds < before.funds;
   }
 
-  buyItem() { return this.buyOne('.shopbar__item .scard:not(.scard--sold):not(.is-disabled)'); }
+  buyItem() { return this.buyOne('.shopbar__cards .scard--item:not(.scard--sold):not(.is-disabled)'); }
 
   /** Right-click a board unit on the canvas → detail panel with its name. */
   async inspectUnit() {
@@ -482,7 +483,6 @@ describe('real server + real browsers', { skip: !ENABLED && 'set SP_REAL_E2E=1 (
       await guest.waitFor((s) => s.room?.code === room.code, 'guest joined via invite link');
       await guest.click('.room-bar__right button', '准备就绪');
       await host.shot('room');
-      await host.click('button', '以后再说', { optional: true, timeout: 4000 }); // the 资源下载 offer covers the room bar on a first visit
       await host.click('.room-bar__right button', '开始模拟', { timeout: 20000 });
 
       // ---- briefing ---------------------------------------------------------------------------------------------------
@@ -659,7 +659,6 @@ describe('real server + real browsers', { skip: !ENABLED && 'set SP_REAL_E2E=1 (
       await solo.click('.diff-card', '标准模拟');
       await solo.click('.create-box button', '开始独立模拟');
       await solo.waitFor((s) => !!s.room, 'solo room');
-      await solo.click('button', '以后再说', { optional: true, timeout: 4000 }); // the 资源下载 offer covers the room bar on a first visit
       if (!(await solo.st()).phase) await solo.click('.room-bar__right button', '开始模拟', { timeout: 20000 });
       await solo.waitFor((s) => s.phase === 'INFO_CHECK', 'briefing', 30000);
       await solo.click('.brief__foot .btn--primary', '准备就绪');
