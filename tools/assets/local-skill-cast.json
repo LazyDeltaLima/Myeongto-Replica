@@ -1518,6 +1518,21 @@
    "reset": 0,
    "state": 0
   },
+  "skchr_greyy2_2": {
+   "ability": {
+    "anim": "Skill",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": 1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
   "skchr_greyy_2": {
    "ability": null,
    "cls": "cast",
@@ -1581,6 +1596,25 @@
    "cls": "replace"
   },
   "skchr_halo2_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_halo_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_halo_2": {
    "ability": null,
    "cls": "cast",
    "reset": 0,
@@ -2101,6 +2135,18 @@
      "wait": 0
     }
    ]
+  },
+  "skchr_kichi_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_kichi_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
   },
   "skchr_kjera_2": {
    "ability": null,
@@ -3584,6 +3630,25 @@
    "cls": "cast",
    "reset": 0,
    "state": 0
+  },
+  "skchr_swllow_1": {
+   "ability": {
+    "anim": "Skill_Loop",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_swllow_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
   },
   "skchr_taraxa_1": {
    "ability": null,

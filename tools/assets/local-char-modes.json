@@ -1458,6 +1458,79 @@
    }
   ]
  },
+ "char_1027_greyy2": {
+  "modes": [
+   "Default"
+  ],
+  "proj": [
+   [
+    "projectile_chr_greyy2"
+   ]
+  ],
+  "cast": [
+   [
+    "greyy2_attack_start"
+   ]
+  ],
+  "hit": [
+   [
+    "greyy2_attack_hit_01",
+    "greyy2_attack_hit_02"
+   ]
+  ],
+  "trail": [
+   [
+    "greyy2_attack_trail"
+   ]
+  ],
+  "attach": [
+   []
+  ],
+  "castOpt": [
+   {
+    "greyy2_attack_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "common_ignite_attack"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [
+     "greyy2_skill_02_start"
+    ],
+    "buff": [],
+    "target": [
+     "greyy2_skill_02_hit_02"
+    ],
+    "targetBuff": [],
+    "shot": [
+     "greyy2_skill_02_trail"
+    ],
+    "zone": {
+     "fx": [
+      "greyy2_skill_02_range"
+     ],
+     "aura": [],
+     "onProj": 0
+    },
+    "shotHit": [
+     "greyy2_skill_02_hit_02"
+    ]
+   }
+  ]
+ },
  "char_1028_texas2": {
   "modes": [
    "Default",
@@ -5714,6 +5787,114 @@
     "castLoop": [],
     "buff": [
      "common_ignite_attack"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_135_halo": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_chr_halo"
+   ],
+   [
+    "projectile_chr_halo_s2"
+   ]
+  ],
+  "cast": [
+   [
+    "halo_attack_01_start"
+   ],
+   [
+    "halo_skill_02_Begin"
+   ]
+  ],
+  "hit": [
+   [
+    "halo_attack_01_hit"
+   ],
+   [
+    "halo_skill_02_hit"
+   ]
+  ],
+  "trail": [
+   [
+    "halo_attack_01_trail"
+   ],
+   [
+    "halo_skill_02_trail"
+   ]
+  ],
+  "attach": [
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "halo_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "halo_skill_02_Begin": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "chain": [
+   [
+    "halo_skill_02_line"
+   ],
+   [
+    "halo_skill_02_line"
+   ]
+  ],
+  "chainHit": [
+   0,
+   0
+  ],
+  "skillMode": [
+   null,
+   1
+  ],
+  "switchTo": [
+   [],
+   [
+    1
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [
+     "halo_skill_01_start"
+    ],
+    "castLoop": [],
+    "buff": [],
+    "target": [
+     "halo_skill_01_hit"
+    ],
+    "targetBuff": [],
+    "shot": [
+     "halo_skill_01_trail"
+    ],
+    "shotHit": [
+     "halo_skill_01_hit"
+    ]
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "halo_skill_02_buff"
     ],
     "target": [],
     "targetBuff": []
@@ -11683,6 +11864,104 @@
     "cast": [],
     "castLoop": [],
     "buff": [],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_367_swllow": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_swllow"
+   ],
+   [
+    "projectile_swllow_s2"
+   ]
+  ],
+  "cast": [
+   [
+    "swllow_attack_01_start"
+   ],
+   [
+    "swllow_skill_02_start"
+   ]
+  ],
+  "hit": [
+   [
+    "swllow_attack_01_hit"
+   ],
+   [
+    "swllow_skill_02_hit"
+   ]
+  ],
+  "trail": [
+   [
+    "swllow_attack_01_trail"
+   ],
+   [
+    "swllow_skill_02_trail"
+   ]
+  ],
+  "attach": [
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "swllow_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1,
+     "d": 0.167
+    }
+   },
+   {
+    "swllow_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
+  "skillMode": [
+   null,
+   1
+  ],
+  "switchTo": [
+   [],
+   [
+    1
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [
+     "swllow_skill_01_start"
+    ],
+    "castLoop": [],
+    "buff": [],
+    "target": [
+     "swllow_skill_01_hit"
+    ],
+    "targetBuff": [],
+    "shot": [
+     "swllow_skill_01_trail"
+    ],
+    "shotHit": [
+     "swllow_skill_01_hit"
+    ]
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "swllow_skill_02_buff",
+     "swllow_skill_02_buff_02"
+    ],
     "target": [],
     "targetBuff": []
    }
@@ -20357,6 +20636,239 @@
     "castLoop": [],
     "buff": [
      "haruka_skill_03_buff"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_4203_kichi": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ],
+  "cast": [
+   [
+    "kichi_attack_01_range_01",
+    "kichi_attack_01_start_01"
+   ],
+   [
+    "kichi_skill_01_range_01",
+    "kichi_skill_01_start_01"
+   ],
+   [
+    "kichi_skill_02_range_01",
+    "kichi_skill_02_start_01"
+   ]
+  ],
+  "hit": [
+   [
+    "kichi_attack_01_hit_01"
+   ],
+   [
+    "kichi_skill_01_hit_01"
+   ],
+   [
+    "kichi_skill_02_hit_01"
+   ]
+  ],
+  "trail": [
+   [],
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "kichi_attack_01_range_up_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "kichi_attack_01_range_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "kichi_attack_01_range_down_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "kichi_attack_01_start_up_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "kichi_attack_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "kichi_attack_01_start_down_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "kichi_skill_01_range_up_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "kichi_skill_01_range_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "kichi_skill_01_range_down_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "kichi_skill_01_start_up_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "kichi_skill_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "kichi_skill_01_start_down_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "kichi_skill_02_range_up_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "kichi_skill_02_range_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "kichi_skill_02_range_down_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "kichi_skill_02_start_up_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "kichi_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "kichi_skill_02_start_down_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "dirs": [
+   {
+    "t": 5,
+    "s": [
+     "kichi_skill_01_range_up_01",
+     "kichi_skill_01_range_01",
+     "kichi_skill_01_range_down_01",
+     "kichi_skill_01_range_01"
+    ]
+   },
+   {
+    "t": 5,
+    "s": [
+     "kichi_skill_01_start_up_01",
+     "kichi_skill_01_start_01",
+     "kichi_skill_01_start_down_01",
+     "kichi_skill_01_start_01"
+    ]
+   },
+   {
+    "t": 5,
+    "s": [
+     "kichi_attack_01_range_up_01",
+     "kichi_attack_01_range_01",
+     "kichi_attack_01_range_down_01",
+     "kichi_attack_01_range_01"
+    ]
+   },
+   {
+    "t": 5,
+    "s": [
+     "kichi_attack_01_start_up_01",
+     "kichi_attack_01_start_01",
+     "kichi_attack_01_start_down_01",
+     "kichi_attack_01_start_01"
+    ]
+   },
+   {
+    "t": 5,
+    "s": [
+     "kichi_skill_02_range_up_01",
+     "kichi_skill_02_range_01",
+     "kichi_skill_02_range_down_01",
+     "kichi_skill_02_range_01"
+    ]
+   },
+   {
+    "t": 5,
+    "s": [
+     "kichi_skill_02_start_up_01",
+     "kichi_skill_02_start_01",
+     "kichi_skill_02_start_down_01",
+     "kichi_skill_02_start_01"
+    ]
+   }
+  ],
+  "skillMode": [
+   1,
+   2
+  ],
+  "switchTo": [
+   [
+    1
+   ],
+   [
+    2
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "kichi_skill_01_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "kichi_skill_02_buff_01"
     ],
     "target": [],
     "targetBuff": []

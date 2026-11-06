@@ -1426,6 +1426,33 @@
 - S2 동포의 의지 `skchr_varkis_2`(`_switchToState` 1, `_beginAnim` `Skill_2_Begin` 0.333초): 시전이 휘두름을 끊고 시작 클립 동안 공격하지 않으며 지속 시간은 그 뒤부터. 공격 배율 `attack@s2_atk_scale`, 공격마다 한 번 자신 최대 HP의 `attack@hp_ratio` 치료(ON_SPELL_ON, PRTS 「반드시 치료」).
 - 보호막: S2 중 자신에게 들어온 치료의 넘친 양(생명 복원 제외)이 보호막으로(`varkis_s2[shield]` `HEAL_CAN_GENERAL_SHIELD`, `ON_ES_OVER_ZERO`), 상한 최대 HP × `max_hp_ratio`. 다른 보호막 뒤에 소모(우선순위 −1000, PRTS 비고, `shieldLast`). 스킬이 끝나도 남고 스킬 밖에서 1초마다 `dynamic_dec_per_sec`씩 준다.
 
+## 새 시즌 그레이스롯·아스트젠·그레이 더 라이트닝베어러·키치세이 (2026-11-07, 관리자 결정 2026-11-05)
+공개 전 시즌 `next`의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 첫 모듈을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과(정밀·기민·조력)는 표 뒤. 키트 `ops/op-swllow.js`·`op-halo.js`·`op-greyy2.js`·`op-kichi.js`, 시험 `test/content/op_*.test.js`(두 형태·두 스킬, 실제 대전 경로).
+
+### 그레이스롯 `char_367_swllow` (T1, 명사수)
+- 재능 순풍: 공격 속도 +`attack_speed`. 정예에서 피해 하나마다 따로 확률 `prob`로 공격력 ×`atk_scale`(`critical_atkscale`, 방어 앞). 어느 피해든 된다(PRTS 비고). 일반 형태는 `prob` 0.
+- S1 날개깃(충전 `ct`): 다음 공격 2연사, 한 발마다 `atk_scale`. S2 역류: 공격력, 공격마다 3연사. 공식은 화살이 따로 날아가지만(`_additionalTimes`, S1 간격 0.05초) 여기서는 한 도착에 몰린다. 엑시아 S1·S2와 같은 처리.
+- 모듈 MAR-Y(`swllow_equip_1_1_p1`, 재능 10): 범위 안에 지상 적이 있으면 공격 속도 +`attack_speed`. 선택기가 지상 + `ignoreTargetFree`라 은신 적도 센다. 적이 여럿이어도 한 번(파생 버프 하나).
+
+### 아스트젠 `char_135_halo` (T2, 체인 캐스터)
+- 특성: 분기 공통. 일반 형태 3명·감쇠 15%, 정예 CHA-Y 4명·감쇠 없음(`attack@chain.atk_scale`, 문구의 명수).
+- 재능 연구 열정(`halo_t_1`): 배치 뒤 `interval`초마다 공격 속도 +`attack_speed`, 최대 `max_stack_cnt`번. 첫 중첩은 `interval`초 뒤, 새 배치면 처음부터. 다 차면 버프 `halo_t_1[effect]`.
+- S1 양단 유도(충전 `ct`): 다음 공격 `atk_scale`, `max_target`명, 대상마다 사슬 `chain.max_target`명. 투사체가 대상마다 하나라 두 사슬이 같은 적을 칠 수 있다. 감쇠는 특성 것(CHA-Y의 `skill@chain.atk_scale` 1).
+- S2 별무리 집결(범위 3-3): 공격력, `attack@max_target`명, 대상마다 특성의 사슬.
+
+### 그레이 더 라이트닝베어러 `char_1027_greyy2` (T2, 투척수)
+- 특성: 분기 공통 + 여진. 공식 클라에서 확인: `projectile_chr_greyy2`의 둘째·셋째 타격은 둘 다 투사체가 멈출 때(도착 0.15초 뒤) 난다. 그래서 BOM-X의 여진 둘은 같은 순간이다(`shockTogether`, 로즈몬티스의 0.15초 간격과 다름). 셋째 타격은 `enable_third_attack`일 때만.
+- 재능 빛의 사슬(`greey2_t_1`): 일반 공격만. 첫 피해와 여진을 맞은 적마다 따로 굴려(PRTS 비고) 확률 `attack@prob`로 `attack@sluggish`초 정지.
+- S1 신속 공격 γ: 공격력·공격 속도.
+- S2 햇살의 지표(충전 `ct`): 스킬 클립의 타격 프레임에 범위 안 지상 적에게 구체를 쏜다(속도 8, 도착까지 대상을 따라감). 그때 대상이 없으면 SP를 돌려준다(`_recoverSpIfNoTarget`). 도착하면 그 자리에서 `projectile_delay_time`초 동안 바로 한 번, 그 뒤 `interval`초마다(`SelectorHitBehaviour`, `_waitFirstPeriod` 꺼짐) 반경 1칸(PRTS)의 지상 적에게 지금 공격력 × `atk_scale` 법술 피해, 확률 `prob`로 `sluggish`초 정지. 8초면 6번, 10초면 7번이다. 오퍼레이터가 나가도 끝까지 남는다(PRTS 비고). 화면은 사건 `zone`으로 쏠 때 대상 자리로 공식 구체를 날리고(`fxgame.js zoneFx`, 홈바운드와 같은 길), 판정은 대상을 따라간 도착 자리라 대상이 움직이면 조금 어긋날 수 있다.
+- 모듈 BOM-X의 「정지 중인 적에게 주는 피해 증가」는 2단계부터라 이 기물(1단계)에는 없다.
+
+### 키치세이 `char_4203_kichi` (T3, 산탄사수)
+- 특성: 분기 공통(범위 안 적 모두, 앞줄 칸 `atk_scale`, RPR-X 1.6).
+- 재능 행운 연타!(`kichi_t`): 처치한 적의 ID가 새로우면 중첩 +1, 최대 `max_stack_cnt`. 자신의 모든 피해 × (1 + `damage_scale` × 중첩)(`DamageScale` `_isStackable`). 퇴각하면 기록을 지운다(PRTS 비고).
+- S1 어서 오세요!: 공격 간격 +`base_attack_time`초. 공격이 끝날 때마다 공격력 +`atk` 중첩, 최대 `max_stack_cnt`. 스킬이 끝나면 모두 사라진다(`_decCntIfStack` 꺼짐).
+- S2 운수대통!: 공격력, 공격 간격 +`base_attack_time`초. 한 공격에 맞은 적 모두에게 같은 상태를 걸고, 공격이 끝나면 다음으로 바뀐다: 정지 → 속박(`attack@unmoveable`) → 기절. 시전마다 정지부터(PRTS 비고, `kichi_skchr_02[listener]`의 플래그).
+
 ## 새 시즌 아스테시아·콘트레일·에단 (2026-11-07, 관리자 결정 2026-11-05)
 공개 전 시즌 `next`의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 첫 모듈(콘트레일은 모듈 없음)을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과(기적·아케인·기습)는 표 뒤. 키트 `ops/op-astesi.js`·`op-ctrail.js`·`op-ethan.js`, 시험 `test/content/op_*.test.js`(두 형태·두 스킬, 실제 대전 경로). 묶음의 물음이던 「S1이 패시브인 특수 직군」은 둘이 다르다: 콘트레일 S1은 배치마다 켜지는 기간제, 에단 S1은 기간 없이 배치 내내 도는 패시브다.
 

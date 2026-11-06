@@ -546,13 +546,14 @@ export const SUB = Object.freeze({
     afterHit: (battle, unit, target, info) => {
       // aftershocks: (times − 1) extra hits at append_atk_scale × ATK (default one hit at 50 %) — strike i of the attack
       // (the client's MultiRangedAttack `_additionalProjectile`: 迷迭香's projectile_chr_rosmon_after_shock; 'dmg' [7]),
-      // `_triggerDelta` 0.15 s apart in every 迷迭香 mode; the profile the hit was fired with (info.profile: a shot that lands
-      // later carries it) and its `shockTags` on their damage
+      // `_triggerDelta` 0.15 s apart in every 迷迭香 mode; `shockTogether`: all 0.15 s after it reaches, as the shot stops (承曦格雷伊's
+      // hit behaviours on one projectile); the profile the hit was fired with (info.profile: a shot that lands later carries
+      // it) and its `shockTags` on their damage
       const p = info.profile ?? unit.profile;
       const n = Math.max(1, (p.shockTimes ?? 2) - 1);
       const tags = p.shockTags ? ['aftershock', ...p.shockTags] : ['aftershock'];
       for (let i = 1; i <= n; i++) {
-        battle.after(0.15 * i, () => {
+        battle.after(p.shockTogether ? 0.15 : 0.15 * i, () => {
           for (const e of battle.foesInRadius(info.x, info.y, p.splashRadius || 1, true)) { // splash: 中点判定
             if (e.isFlying) continue;
             battle.dealDamage(unit, e, { amount: unit.s.atk * (p.shockScale ?? 0.5), type: 'phys', isSplash: true, tags, strike: i });
