@@ -1282,6 +1282,36 @@
 - 연쇄의 모든 대상이 받는 두 버프(`_activeBuffs`): `turdus_s2[continues_heal]`은 1초마다 `heal_scale` × 버프가 시작될 때의 그녀 공격력(첫 틱은 1초 뒤, 시전자별로 따로, 다시 걸면 다시 시작). `turdus_s2[try_camouflage]`는 0.1초마다 저지 중이면 위장을 풀고 아니면 건다(`turdus_s2[camouflage]`, 버프가 끝나면 함께 끝, 다시 걸면 위장이 바로 풀렸다가 다음 검사에서 돌아옴).
 - [추정·화면: 지속 치료가 주 대상에게만 가는지. PRTS 문구는 「대상」과 「치료의 모든 대상」을 나눠 적지만, 프리팹은 두 버프를 같은 `_activeBuffs`에 두어 조건 없이 함께 건다 — 프리팹대로 구현] → `mix-Q`
 
+## 새 시즌 블루포이즌·하이모어·홈바운드·안드레아나 (2026-11-06, 관리자 결정 2026-11-05)
+공개 전 시즌 `next`의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 특성, 첫 모듈을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과는 표 뒤. 키트 `ops/op-bluep.js`·`op-highmo.js`·`op-hbound.js`·`op-cuttle.js`, 시험 `test/content/op_*.test.js`.
+
+### 블루포이즌 `char_129_bluep` (T2, 속사수)
+- 재능: 공격마다 대상에 `bluep_t_1`(`_additiveActiveBuffs`, 템플릿 `poison`). 지속 `duration`초, 1초마다 `poison_damage` 마법 대미지, 첫 틱은 1초 뒤, 출처 없는 지속 피해(PRTS 비고). 적마다 하나이고 이미 걸린 적을 맞히면 시간만 처음으로 돌아가고 값은 처음 그대로(PRTS).
+- S1 `skchr_bluep_1`(다음 공격 대체): 대상 2명(`_maxNum` 2), `atk_scale`. 독이 없는 적에게 새로 거는 독은 값 × `atk_scale`(PRTS 스킬 비고).
+- S2 `skchr_bluep_2`: 공격력 +N%, 모드 S2 대상 3명. 표의 `attack@times` 1은 추가 사격이 아니다: 공식 클라에서 확인, `MultiRangedAttack.DoSetData`가 `times − 1`을 추가 횟수로 삼는다.
+- MAR-Y: 범위에 지상 적이 있는 동안 공격 속도 +8(공중 적만 있으면 안 켜짐).
+
+### 하이모어 `char_4066_highmo` (T3, 리퍼)
+- 특성은 분과 공통(`professions.js` `reaper`), 값은 기록의 50, REA-X 60. 재능 2 「罹患，浸染」은 `rogue_mizuki` 태그가 있어야 하므로(`_oneOfTags`) 이 모드에서 꺼짐.
+- 재능 1: 공격한 적마다, 저지 수까지 자신의 원소 손상 `value` 회복(`highmo_t_2`, `FixedValueElementHeal`, 특성과 같은 꼴, PRTS 「특성과 같다」).
+- S1 `skchr_highmo_1`(다음 공격 대체): `atk_scale`, 범위 전체를 두 번 친다(`_additionalTimes` 1, 간격 없음).
+- S2 `skchr_highmo_2`: 공격력 +N%, 물리 회피 `prob`. 시작 클립 `Skill_2_Begin`이 프리팹에 있어도 공격을 멈추지 않는다: 공식 클라에서 확인, `CastSkill.UseSkill`은 `_switchToState` 0이면 스킬 상태 없이 바로 시작한다. 켜진 동안 범위 안의 지상 적이나 자신이 저지한 적이 쓰러지면 최대 HP의 `hp_ratio` 회복(`highmo_s_2` `ON_OWNER_KILLED`, PRTS 비고). 누가 쓰러뜨렸든 상관없고, 선택 불가 적도 든다(`ignoreTargetFree`).
+
+### 홈바운드 `char_4232_hbound` (T3, 연금술사, CN 클라)
+- 던지기: `Skill_N` 클립의 OnAttack 프레임에 범위 안 첫 지상 적의 자리로. 지상 적이 없으면(공중 적만 있어 발동한 경우) 정면 가장 먼 칸: 쏜즈 더 로드스타와 같은 선택기(`DIST_DES_FRONT_FIRST`)이고 그쪽 PRTS 비고가 이 결과를 적는다. 연금 유닛은 속도 10으로 그 지점까지 날아가 사람을 따라가지 않으며, 착지부터 `projectile_delay_time`초 작동한다. 공격력은 던질 때 값(`CacheAtkToBBBehaviour`; `_increaseByTime`이 꺼져 있어 S2의 `value`가 범위를 키우지 않는다). 그녀가 쓰러진 뒤에도 작동한다(PRTS 재능 비고).
+- 대상: `projectile_range` 안 지상 적, 10프레임마다 들어오고 나감을 본다(`_tickInterval`). 나가거나 유닛이 멈추면 효과가 끝난다.
+- S1 `skchr_hbound_1`(`hbound_s_1[dot]`): 이동 속도 감소(유닛마다 곱함, PRTS 「중첩」), 첫 틱 0.9초 뒤 1초마다 `atk_scale` 마법 대미지, 출처 없음. 충전 수는 표대로 일반 1, 정예 2.
+- S2 `skchr_hbound_2`(`hbound_s_2[buff]`): `atk_scale` 같은 주기. 0.1초마다 무게 `value` 이상을 확인해(PRTS 3프레임) 이상이면 `hbound_s_2[heavy_damage]`: 이동 속도 감소와 1초마다(첫 틱 1초 뒤) `heavy_atk_scale` 마법 대미지. 무게가 내려가면 풀린다.
+- 재능 `hbound_t_1`: 범위 안 지상 적의 물리·마법 명중률 × (1 + `hitrate`), 무게 `value` 이상이면 `heavy_hitrate`, 0.1초마다 다시 본다. 값은 던질 때 고정. 적마다 하나, 여러 홈바운드면 배율이 가장 높은 쪽(PRTS). 공격 하나에 한 번 굴린다(PRTS 명중률, `standin-acsupo.js`의 재능과 같음).
+- ALC-X: 연금 유닛이 전장에 있으면(날아가는 중 포함) SP 자연 회복 +0.1/초. 출처를 가리지 않으므로(PRTS) 쏜즈 더 로드스타·틴맨의 유닛도 센다.
+- 한국어 이름·문구는 KR 표에 없어 손 번역(`public/i18n/ko/manual.json`, `docs/I18N.md` 「CN-only texts in Korean」). KR 출시 때 바꾼다.
+
+### 안드레아나 `char_218_cuttle` (T2, 신궁)
+- 재능 `cuttle_t_1`(`_deckBuffs`, `filterTag` `abyssal`, `disableOverride`): 자기 플레이어의 어비설 헌터 모두와 자신에게 전투 내내 공격 속도 +N. 배치 여부를 보지 않고, 둘이면 더해진다.
+- S1 `skcom_atk_up[3]`: 공격력 +N%.
+- S2 `skchr_cuttle_2`(`_switchToState` 1): 시작 클립 `Skill2_Begin` 동안 공격 없음, 공격력 +N%, 모드 S2 선택기가 HP 비율 0.5 이상만 고른다(`_filterMinHp`·`_minHpRatio`). 그런 적이 없으면 쏘지 않는다. 맞은 적은 `attack@duration`초 이동 속도 감소(적마다 하나).
+- DEA-X `cuttle_e_trait`: 거리 `min_dist`~`max_dist`에서 피해 × 최대 1 + `damage_scale`, 선형. 표 값이 4.5이고 PRTS 비고는 「4칸 이상」이라 다르지만 표대로 한다.
+
 ### 표 전 기물의 만드는 차례
 `add_operator.py --id …`로 추출하고 키트를 쓴 뒤, `add_operator.py --finish --id …`가 키트를 읽는 재생성을 의존 순서대로 돌리고(`FINISH_ORDER`) 오퍼레이터마다 클립 키·소재 목록·공격 클립이 들어왔는지, 다른 오퍼레이터의 행이 움직였는지 알린다. 키트가 없거나 목록에 없으면 시작하지 않는다.
 `anim_keys.py`는 이제 기물 데이터의 오퍼레이터를 모두 읽는다(2026-11-06). 전에는 소재 목록에 있는 오퍼레이터만 읽어, 키트 등록 전에 돌리면 행이 빠지고 클립 역할이 이름 규칙으로 남았다(바이슨·쥐·타락사쿰·우요우가 그랬고 src ffe4bcd3b에서 바로잡음: 바이슨 S1은 공격 클립, 타락사쿰·우요우의 사망·대기 클립). 타락사쿰의 이착륙 클립은 `S<k>_FlyStart`·`S<k>_FlyEnd` 모드에서 온다(`tools/assets/anim-keys.mjs`, `<stem>Loop` 옆의 `<stem>Start`·`<stem>End`).
