@@ -133,6 +133,22 @@ export function attackMode(bind, skillOn, skillIndex, sub = null) {
  * of a deployment), else to 3 S3_1.
  */
 export const VARIANT_MODES = Object.freeze({ char_4098_vvana: Object.freeze({ 2: Object.freeze({ later: 'S3_2' }) }) });
+/**
+ * (2026-11-06, official client) A skill whose ability group's children have effects of their own, picked by the cast's variant (the 'skill' event's
+ * 4th field; '' none): charId → { skill index → { variant: { cast, hits } } } — what the group's other children hold is not this cast's. 薇薇安娜 S1:
+ * skchr_vvana_1 picks S1_Attack (three strikes) while vvana_s_1_enhance_mark is on (a 蓄力 cast), else S1_Attack2 (two).
+ */
+export const VARIANT_FX = Object.freeze({ char_4098_vvana: Object.freeze({ 0: Object.freeze({
+  '': Object.freeze({ cast: ['vvana_skill_01_L_start_01', 'vvana_skill_01_L_start_02'], hits: [['vvana_skill_01_L_hit_01'], ['vvana_skill_01_L_hit_02']] }),
+  charged: Object.freeze({ cast: ['vvana_skill_01_S_start_01'], hits: [['vvana_skill_01_S_hit_01'], ['vvana_skill_01_S_hit_02'], ['vvana_skill_01_S_hit_03']] }),
+}) }) });
+/** The VARIANT_FX entry of this cast: { cast, hits, others: the cast effects of the other variants }, or null. */
+export function variantFx(charId, skillIndex, variant) {
+  const by = VARIANT_FX[charId]?.[skillIndex];
+  const own = by?.[variant ?? ''];
+  if (!own) return null;
+  return { cast: own.cast, hits: own.hits, others: Object.values(by).filter((x) => x !== own).flatMap((x) => x.cast) };
+}
 /** The mode names VARIANT_MODES gives skill `skillIndex` of `charId` (its casts' other modes), or []. */
 export const variantModes = (charId, skillIndex) => Object.values(VARIANT_MODES[charId]?.[skillIndex] || {});
 
@@ -416,12 +432,14 @@ export const SKILL_HELD = Object.freeze({
 /**
  * 2026-11-06: a skill's ReadySkillEffect (modes.json `skills[i].ready`: { fx, stop }) as status specs: { stop, specs: [[key, [bundle, prefab, 'own']]] }, or
  * null when it has none extracted. A prefab may sit in another operator's bundle (矩 S1 uses totter_skill_01_*): the name's first word says which.
+ * The specs' last field `kept`: the client creates them once (`m_effectsCreated`), so one its own behaviours end (薇薇安娜's L_buff, finished by the attack clip's
+ * pause rule) is not started again as a status's effect would be: that restarted it every frame of the clip.
  */
 export function readySpecs(ready, bundle, bundles) {
   const specs = [];
   for (const n of ready?.fx || []) {
     const b = bundles[bundle]?.includes(n) ? bundle : n.split('_')[0];
-    if (bundles[b]?.includes(n)) specs.push([`${b}/${n}`, Object.freeze([b, n, 'own'])]);
+    if (bundles[b]?.includes(n)) specs.push([`${b}/${n}`, Object.freeze([b, n, 'own', null, true])]);
   }
   return specs.length ? Object.freeze({ stop: !!ready.stop, specs: Object.freeze(specs) }) : null;
 }

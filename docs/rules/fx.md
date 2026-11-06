@@ -3720,8 +3720,8 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
   함께 틀고 공격은 늘 S3_1이었다. 이제 시뮬이 둘째부터의 시전에 'skill' 변형 `later`(`castVariant`, 그 판의 클립 `_B`: `render.md` 「Spine 클립 커버리지」 G)를
   내고, 렌더 `fxmap.js` `VARIANT_MODES`가 그 변형을 모드 S3_2로 — `attackMode`의 새 `sub`(그 시전 동안의 공격·모드 버프), `activationEffects`는 같은 스킬의 다른
   모드 버프를 이름 규칙에서 뺀다. [화면 미확인]
-- 남은 것: S1의 `castLoop`에 섞인 `_L`·`_S`(`vvana_skill_01_L_start_01`·`_02`·`_S_start_01`, 버프 `_L_buff`·`_S_buff`)가 蓄力 여부(소리 신호
-  `vvanaCharged`)로 갈리는지. 렌더는 스킬 도중 바뀌는 모드(`shared/skill-modes.js` `SKILL_SUB_MODES` — 위셔델 S2 과부하·울피아누스 S3·크루스 더 킨 글린트 S2)를 아직 안
+- 비비아나 S1(2026-11-06): `skchr_vvana_1`의 능력 묶음이 蓄力 표식 `vvana_s_1_enhance_mark`가 있으면 `S1_Attack`(3타, 시전 `_S_start_01`, 명중 `_S_hit_01~03`), 없으면 `S1_Attack2`(2타, 시전 `_L_start_01`·`_02`, 명중 `_L_hit_01`·`_02`)를 고른다. 렌더는 시전 변형 `charged`로 고른다(`fxmap.js VARIANT_FX`). `_S_buff`는 표식의 효과라 蓄力 상태 동안(`vvanaCharge`), `_L_buff`는 스킬 준비 이펙트(「스킬 준비 이펙트」).
+- 남은 것: 렌더는 스킬 도중 바뀌는 모드(`shared/skill-modes.js` `SKILL_SUB_MODES` — 위셔델 S2 과부하·울피아누스 S3·크루스 더 킨 글린트 S2)를 아직 안
   따른다(소리만).
 
 ### 선발 벨로네·비이·Mon3tr 키트 순간 이펙트 (2026-11-03, 공식 클라에서 확인)
@@ -3799,6 +3799,7 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - 공식: 스킬 프리팹의 `ReadySkillEffect`(`_effects`, `_stopBeforeCast`)는 스킬을 쓸 수 있을 때(`BasicSkill.IsAvailable`: SP 충분, 주인이 이상 상태 아님) 그 효과를 주인에게 만들고, `_stopBeforeCast`면 스킬 시작 때(`OnSkillStart`), 어느 쪽이든 스킬 끝에(`OnSkillEnd`) `FinishMe`로 끝낸다. 한 번 만들면 이상 상태를 다시 보지 않아 기절이 와도 남고, 충전이 하나 더 있으면 다음 틱에 다시 만든다.
 - 쓰는 스킬: 쥐 S1·페넌스 S1·비비아나 S1·아로마 S1(시작 때 끝남), 아코르트 S1·아스카론 S1·로즈솔트 S1(스킬 끝에 끝남). 쥐 S1의 프리팹은 다른 오퍼레이터의 번들 `totter_skill_01_*`다. 풀 밖의 `skchr_totter_1`·`skchr_provs_1`·`skchr_bryota_1`·`sktok_edd`도 같은 클래스라 그 오퍼레이터를 더하면 저절로 따른다(소환물 `sktok_`은 `modes.json` 스킬 표 밖이라 그때 본다).
 - 구현: `char_modes.py`가 `skills[i].ready`(`fx`, `stop`)를 쓰고, `fxstatus.js readyHolds`가 시뮬 스냅숏의 SP·저장 충전·스킬 표시로 켜고 끈다. 상태 이펙트 경로(`wantedStatusFx`)라 죽음·퇴각·끝 처리를 같이 쓴다. 전에는 이름 규칙(`_buff`·`_start`)이 스킬이 켜진 동안 그렸다 — 공식과 반대 시점이었고, 이제 `activationEffects`가 이 프리팹을 뺀다. 충전이 남은 채 스킬이 켜질 때 공식은 끝내고 다시 만들지만 우리는 끊지 않고 이어 그린다(같은 프리팹, 한 틱 차이).
+- 공식은 한 번 만들면 `m_effectsCreated`로 다시 만들지 않는다. 그래서 프리팹이 스스로 끝낸 것(비비아나 `_L_buff`, 공격 클립에서 끝나는 일시 정지 규칙)은 상태 이펙트처럼 되살리지 않는다(`kept`). 처음엔 되살려서 그 클립 동안 매 프레임 다시 시작했다(아레나에서 SP를 강제로 채울 때 발견).
 - 시험 `test/render/ready-skill-fx.test.js`(새 오퍼레이터가 이 클래스를 쓰면 목록에 넣어야 통과).
 
 ### 심해 구역의 바닥 자르기 (2026-11-05, 관리자 제보 「인사이더의 투사체가 심해 구역 타일에 가려지고 있다」)

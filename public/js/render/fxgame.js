@@ -62,7 +62,7 @@ import { syncThreeCamera, OFFICIAL } from './projection.js';
 import { fxBundleOf, effectsFor } from './fxmap.js';
 import { noteEffects, NOTE_FLIGHT } from './fxmap.js';
 import { attackMode, boundEffects, fortressEffects, KIT_CAST, modelessTrail } from './fxmap.js'; // local patch: the mode bindings (modes.json)
-import { activationEffects, readySpecs, VARIANT_MODES, variantModes } from './fxmap.js'; // local patch: a skill activation's effects (2026-11-03: a cast's mode by its variant)
+import { activationEffects, readySpecs, VARIANT_MODES, variantFx, variantModes } from './fxmap.js'; // local patch: a skill activation's effects (2026-11-03: a cast's mode by its variant)
 import { foeEffects, castTiming, castPhase, CAST_EVENT } from './fxmap.js'; // 2026-10-10: enemy-held mode buffs, cast timings
 import { clipGroup, hitLoopEnd, deployEffect, deadEffect } from './fxmap.js'; // 2026-10-11: clip variants, looping hits, deploy / dead effects
 import { castEnd, commonEffects, skillEdge, skillHeld } from './fxmap.js'; // 2026-10-16: the always-on effects of the common abilities (2026-10-24: a skill's own held buffs, its start / end effects)
@@ -1669,7 +1669,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     };
   }
   const statusFailed = new Set();   // `${bundle}/${name}` that did not load: their units keep the icon (statusReady false)
-  async function playStatus(view, bundle, name, key, frac, hold = null, under = false, once = false) {
+  async function playStatus(view, bundle, name, key, frac, hold = null, under = false, once = false, kept = false) {
     if (!(await ensure())) return;
     const def = await lib.load(bundle, name);
     if (mod && !def) { statusFailed.add(`${bundle}/${name}`); view._fxStatusOn?.delete(key); return; }
@@ -1699,7 +1699,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     inst.object.position.set(anchor.x, anchor.y, anchor.z);
     // (`once`: finished the frame it lands — FxInstance.finish, then gone def.finish s later — and never started again)
     const fin = once ? Math.max(0, Number(def.finish) || 0) : 0;
-    addLive(inst, { view: anchor, owner: ownerOf(view), buff: true, status: key, again: once ? null : () => playStatus(view, bundle, name, key, frac, hold, under), unit: view,
+    addLive(inst, { view: anchor, owner: ownerOf(view), buff: true, status: key, again: once || kept ? null : () => playStatus(view, bundle, name, key, frac, hold, under), unit: view,
       ...(once ? { until: clockS, finishAt: clockS + fin } : null) }, split ? layers.split : under ? layers.under : layers.over);
     trimLive();
   }
@@ -3800,7 +3800,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     'tocka_skill_02_hit_01', 'tocka_heal_01_hit_01', 'tocka_skill_03_buff_trail_01',
     // … and 塔露拉's: S2's stacks while they last (fxstatus.js oxi_s_2_stack, not the skill's instant), the footprints, 奥术
     // (kitofficial.js 'zone' / 'stacks'); oxi_skill_02_buff_02, which no client row creates
-    'oxi_skill_02_buff_01', 'oxi_skill_02_buff_02', 'oxi_buff_01', 'oxi_buff_02', 'oxi_buff_03']);
+    'oxi_skill_02_buff_01', 'oxi_skill_02_buff_02', 'oxi_buff_01', 'oxi_buff_02', 'oxi_buff_03',
+    // 2026-11-06: 薇薇安娜 S1's 蓄力 state (kitofficial.js 'vvanaCharge'), not the skill's: the `_buff` name rule drew it through a plain cast too
+    'vvana_skill_01_S_buff']);
   // 2026-11-06: with the buffs a kit wears as statuses (fxstatus.js wornPrefabs), which those draw on whoever wears them
   let ownedOf = null, ownedSet = KIT_OWNED;
   const ownedNow = () => {
@@ -3813,6 +3815,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const id = v?.info?.spine || v?.info?.defId;
     const a = activationEffects(bindOf(v), b.prefabs, skillIdx(v), em.size ? new Set([...ownedNow(), ...em]) : ownedNow(), subOf(v), variantModes(id, skillIdx(v)));
     // 2026-10-24 (묶음 S2): the skill's own template buffs on the operator (fxmap.js SKILL_HELD)
+    const vf = variantFx(id, skillIdx(v), v._fxCastVariant);   // 2026-11-06: the group child this cast picked (薇薇安娜 S1)
+    if (vf) a.start = a.start.filter((n) => !vf.others.includes(n));
     const held = skillHeld(v?.info?.spine || v?.info?.defId, skillIdx(v), b.prefabs, plays, faceBack(v)).filter((n) => !a.loops.includes(n));
     // 2026-10-24 (묶음 S5): what its template creates once as it starts (fxmap.js SKILL_EDGE `start`)
     const once = skillEdge(v?.info?.spine || v?.info?.defId, skillIdx(v), 'start', b.prefabs, plays).filter((n) => !a.start.includes(n));
@@ -4414,7 +4418,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     let g = null;
     if (shot) g = skillBind(v)?.hitGroups;
     else if (Number.isInteger(mode) && mode >= 0) g = bindOf(v)?.hitGroups?.[mode];
-    else if (mode === -1) { g = skillBind(v)?.hitGroups; if (g?.shots) g = null; } // its strikes' shots are its own shot's (takeShot)
+    else if (mode === -1) {
+      const vf = variantFx(v?.info?.spine || v?.info?.defId, skillIdx(v), v._fxCastVariant);   // 2026-11-06: the group child this cast picked
+      g = vf ? { g: vf.hits } : skillBind(v)?.hitGroups;
+      if (g?.shots) g = null;   // its strikes' shots are its own shot's (takeShot)
+    }
     return g && Array.isArray(g.g) && g.g.length ? g : null;
   }
   const strikeIndex = (sg, n) => (sg.rand ? Math.floor(Math.random() * sg.g.length) : sg.loop ? n % sg.g.length : Math.min(n, sg.g.length - 1));
@@ -5556,13 +5564,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
      * 2026-10-23: `once` — an IMMEDIATELY buff's effect (fxstatus.js ONCE_OF): the client's buff ends as it starts and
      * finishes the effect (Effect.FinishMe), so it is finished at once and gone its `_delayToFinish` later, never looped.
      */
-    statusOn(view, bundle, name, key, frac = 0, hold = null, under = false, once = false) {
+    statusOn(view, bundle, name, key, frac = 0, hold = null, under = false, once = false, kept = false) {
       const on = view._fxStatusOn || (view._fxStatusOn = new Set());
       if (on.has(key)) return;
       on.add(key);
       if (trace) trace({ kind: 'status', names: [name], by: ownerOf(view) ?? null, at: null, ...(once ? { once: true } : null) }); // tests: the status prefab on `view`
       if (dry) dryFollow(bundle, name, ownerOf(view) ?? null, frac === 'own' ? ownerOf(view) ?? null : null);
-      playStatus(view, bundle, name, key, frac, hold, under, once);
+      playStatus(view, bundle, name, key, frac, hold, under, once, kept);   // (`kept`: not started again when it ends by itself, fxmap.js readySpecs)
     },
     /**
      * local patch (⑤): end the status effect `key` on `view`; `now` (render/fxstatus.js): as the client finishes a buff's
@@ -5690,6 +5698,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             // (2026-11-03) the cast's variant may pick another of its modes (fxmap.js VARIANT_MODES: 薇薇安娜 S3's second cast on)
             const vid = v.info.spine || v.info.defId;
             v._fxSub = typeof e[3] === 'string' ? VARIANT_MODES[vid]?.[skillIdx(v)]?.[e[3]] ?? null : null;
+            v._fxCastVariant = typeof e[3] === 'string' && e[3] !== 'flag' ? e[3] : null;
             const fm = attackMode(bindOf(v), true, skillIdx(v), subOf(v)) ?? -1; // 2026-10-10: its mode's enemy-held buff effects
             const foe = foeEffects(bindOf(v), bundleOf(v).prefabs, fm);
             if (foe.length) v._fxFoe = { mode: fm, names: foe, on: new Set() };

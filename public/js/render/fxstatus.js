@@ -657,9 +657,9 @@ export function syncStatusFx(views, fxGame, battle) {
     const want = live ? wantedStatusFx(v, WANT, ebuff, plays, readyOf) : (WANT.clear(), WANT);
     for (const [k, spec] of want) {
       if (on && on.has(k)) continue;
-      const [bundle, name, frac, hold] = spec;
+      const [bundle, name, frac, hold, kept] = spec;
       // (an IMMEDIATELY buff's effect, ONCE_OF: finished as it starts — kept in `on` till the status ends, so not again)
-      if (fxGame.statusReady(bundle, name)) { MINE.add(k); fxGame.statusOn(v, bundle, name, k, frac, hold, false, ONCE_OF.has(k)); }
+      if (fxGame.statusReady(bundle, name)) { MINE.add(k); fxGame.statusOn(v, bundle, name, k, frac, hold, false, ONCE_OF.has(k), !!kept); }
     }
     // local patch: not the prep 'golden' glow (fxgolden.js); local patch (maintainer report 2026-10-08): `now` — an ended
     // status takes its effect's particles with it (buff_stun's mark lives 10 s: it hung on beside the next stun's), after

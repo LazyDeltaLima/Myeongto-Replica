@@ -308,6 +308,8 @@ export const KIT_OFFICIAL = {
   // (2026-11-05) 风絮: the FlyStart / FlyEnd modes' cast effects (their attack ability's `_castEffects`), the 'skill' / 'atk' bindings
   // draw only the mode that attacks; S2's second heal (taraxa_s2[second_heal], projectile_chr_taraxa_s2_1 at speed 10)
   taraxaFly: { taraxa: cite(['char_4222_taraxa/Modes/S1_FlyStart/Body/Attack', 'char_4222_taraxa/Modes/S1_FlyEnd/Body/Attack'], (o) => ({ play: [{ n: o.up ? 'taraxa_land' : 'taraxa_takeoff', on: 'op', life: 1 }] })) },
+  // 2026-11-06: 薇薇安娜 S1's 蓄力 state: vvana_s_1[mode] (the SP full twice) creates vvana_s_1_enhance_mark, which holds vvana_skill_01_S_buff until the skill ends
+  vvanaCharge: { vvana: cite('vvana_s_1_enhance_mark', (o) => ({ stop: ['vvanaS1'], play: o.form === 'charged' ? [{ tpl: 'vvana_s_1_enhance_mark', on: 'op', life: 'tag', tag: 'vvanaS1' }] : [] })) },
   taraxaSecond: { taraxa: cite('projectile_chr_taraxa_s2_1', () => ({ play: [{ tpl: 'projectile_chr_taraxa_s2_1', fly: 10, to: 'tgt', on: 'op' }] })) },
   // 2026-11-06: the splash heals (taraxa_s2[splash], projectile_chr_taraxa_s2_2 at speed 5) fly from the unit her heal reached, its hit on each as it lands
   taraxaSplash: { taraxa: cite('projectile_chr_taraxa_s2_2', () => ({ play: [{ tpl: 'projectile_chr_taraxa_s2_2', fly: 5, to: 'tgt', from: 'from', on: 'op' }] })) },

@@ -4,8 +4,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { activationEffects, readySpecs } from '../../public/js/render/fxmap.js';
-import { readyHolds, wantedStatusFx } from '../../public/js/render/fxstatus.js';
+import { activationEffects, readySpecs, VARIANT_FX, variantFx } from '../../public/js/render/fxmap.js';
+import { readyHolds, syncStatusFx, wantedStatusFx } from '../../public/js/render/fxstatus.js';
 import { KIT_OFFICIAL, tplPlays } from '../../public/js/render/fx/kitofficial.js';
 import { UF } from '../../shared/constants.js';
 
@@ -46,7 +46,7 @@ test('readySpecs: the operator\'s bundle first, another operator\'s by the name,
   const r = readySpecs({ fx: ['ju_a', 'totter_b', 'totter_c', 'nope_d'], stop: 1 }, 'ju', bundles);
   assert.equal(r.stop, true);
   assert.deepEqual(r.specs.map(([k]) => k), ['ju/ju_a', 'totter/totter_b']);
-  assert.deepEqual(r.specs[1][1], ['totter', 'totter_b', 'own']);
+  assert.deepEqual(r.specs[1][1], ['totter', 'totter_b', 'own', null, true]);
   assert.equal(readySpecs({ fx: ['nope_d'], stop: 0 }, 'ju', bundles), null);
   assert.equal(readySpecs(undefined, 'ju', bundles), null);
 });
@@ -96,4 +96,39 @@ test('风絮 S2\'s splash: its projectile\'s trail flies from her target to each
   assert.equal(fly.n, 'trail_02');
   assert.deepEqual([fly.fly, fly.from, fly.to], [5, 'from', 'tgt']);
   assert.deepEqual(fly.hit, ['hit_01']);
+});
+
+test('薇薇安娜 S1: a plain cast and a 蓄力 cast draw their own child\'s cast and strikes (skchr_vvana_1 S1_Attack2 / S1_Attack)', () => {
+  const plain = variantFx('char_4098_vvana', 0, null), charged = variantFx('char_4098_vvana', 0, 'charged');
+  assert.deepEqual(plain.others, ['vvana_skill_01_S_start_01']);
+  assert.deepEqual(charged.others, ['vvana_skill_01_L_start_01', 'vvana_skill_01_L_start_02']);
+  assert.equal(plain.hits.length, 2);
+  assert.equal(charged.hits.length, 3);
+  assert.equal(variantFx('char_4098_vvana', 1, null), null, 'other skills: their own lists');
+  assert.equal(variantFx('char_0_x', 0, 'charged'), null);
+  const p = KIT_OFFICIAL.vvanaCharge.vvana;
+  assert.deepEqual(p({ form: 'charged' }, {}).play.map((x) => [x.tpl, x.life, x.tag]), [['vvana_s_1_enhance_mark', 'tag', 'vvanaS1']], 'on with the state');
+  assert.deepEqual(p({ form: null }, {}), { stop: ['vvanaS1'], play: [] }, 'off with it');
+});
+
+test('VARIANT_FX names the client\'s rows of that child', { skip: !existsSync(new URL('bindings.json', FX)) && 'needs the client-only rows' }, () => {
+  const rows = readFx('bindings.json').rows;
+  const of = (at) => rows.filter((r) => r.key === `skchr_vvana_1/${at}`).map((r) => r.fx).filter((n) => !/_(up|down)$/.test(n)).sort();
+  const v = VARIANT_FX.char_4098_vvana[0];
+  assert.deepEqual([...v[''].cast, ...v[''].hits.flat()].sort(), of('S1_Attack2'));
+  assert.deepEqual([...v.charged.cast, ...v.charged.hits.flat()].sort(), of('S1_Attack'));
+});
+
+test('a ready effect is started `kept`, a status\'s is not: one its own behaviours end does not come back every frame', () => {
+  const calls = [];
+  const fxGame = {
+    statusLayer: () => true, statusReady: () => true,
+    statusOn: (v, b, n, k, frac, hold, under, once, kept) => { calls.push([n, kept]); (v._fxStatusOn ||= new Set()).add(k); },
+    statusOff: () => {},
+    readyFx: () => readySpecs({ fx: ['x_a'], stop: 1 }, 'x', { x: ['x_a'] }),
+  };
+  const v = view({ sp: 10, statuses: new Set(['stun']), flags: UF.STUNNED, statusFrom: new Map(), alive: true });
+  v._fxReady = true;
+  syncStatusFx(new Map([[1, v]]), fxGame, true);
+  assert.deepEqual(calls.sort(), [['buff_stun', false], ['x_a', true]].sort());
 });
