@@ -25,9 +25,9 @@ import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gamedataBase } from './gamedata-url.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const GAMEDATA_URL = 'https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/';
 const SCENE = 'AUTOCHESS_BATTLE';
 
 /** Output dir per theme (tools/local-extract/extract.py EMOTE_THEMES). */
@@ -125,7 +125,7 @@ async function ensureGamedata(cache, rel, { offline, optional = false }) {
   let lastErr;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const res = await fetch(GAMEDATA_URL + rel, { signal: AbortSignal.timeout(180_000) });
+      const res = await fetch(gamedataBase(rel) + rel, { signal: AbortSignal.timeout(180_000) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const text = await res.text();
       JSON.parse(text); // never cache a truncated file

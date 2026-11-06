@@ -23,7 +23,7 @@ Unknown options or a missing option value are errors (exit code 2); `--refresh` 
 
 - **Cache.** Official files live under `.cache/gamedata/<repo path>` (`excel/activity_table.json`,
   `levels/enemydata/enemy_database.json`, `levels/activities/act1autochess/level_*.json`, …) and are fetched from
-  `https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/<path>` when missing.
+  `https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/<path>` when missing. `excel/activity_table.json` is read at a fixed commit, the last with the 卫戍协议 sections (`tools/gamedata-url.mjs`).
   Downloads are validated (must parse as JSON) and written atomically. With `--refresh`, a download that still fails
   after four attempts aborts the build (exit code 1), even if an older cached file exists. Generated files and the
   previous report remain untouched, including with `--force`; successfully downloaded cache entries are not rolled

@@ -18,8 +18,8 @@
 // Unknown options are errors (exit code 2).
 //
 // Official files are cached under <repo>/.cache/gamedata/<repo path> (e.g. excel/activity_table.json)
-// and downloaded from https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/
-// when missing. Research files are optional inputs: when absent, research-only fields fall back to
+// and downloaded from Kengxxiao/ArknightsGameData's master when missing (tools/gamedata-url.mjs: the activity table
+// is pinned to the last commit with the 卫戍协议 sections). Research files are optional inputs: when absent, research-only fields fall back to
 // documented defaults and a warning is printed.
 //
 // Determinism: the output depends only on the input files (object keys are emitted in a stable
@@ -45,12 +45,12 @@ import { FULL_RANK, atRank, stripPotential } from '../shared/potential.js';
 import { skillModeIndex, SKILL_SUB_MODES } from '../shared/skill-modes.js';
 import { DEFAULT_SEASON, SEASONS, isSeasonId, seasonDataDir } from '../shared/seasons.js';
 import { nextSeasonAct } from './next-season.mjs';
+import { gamedataBase } from './gamedata-url.mjs';
 
 // ===== CLI & IO ==================================================================================
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const RESEARCH_DIR = join(ROOT, 'docs', 'research');
-const GAMEDATA_URL = 'https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/';
 const USAGE = 'usage: node tools/build-data.mjs [--refresh | --offline] [--season <id>] [--out <dir>] [--cache <dir>] [--report <file>] [--quiet] [--no-research] [--force]';
 
 /**
@@ -124,7 +124,7 @@ async function ensureGamedata(rel) {
     throw new Error(`missing cached file ${rel} (offline mode)`);
   }
   await mkdir(dirname(abs), { recursive: true });
-  const url = GAMEDATA_URL + rel;
+  const url = gamedataBase(rel) + rel;
   let lastErr;
   for (let attempt = 1; attempt <= 4; attempt++) {
     try {
