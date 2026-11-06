@@ -76,6 +76,17 @@ def bundle(client, rel):
     return None
 
 
+def art_roots(client, ids):
+    """{bundle root: [operators whose chararts/<charId>.ab it holds]}: a client's hot-update copy has a chararts folder of its own
+    without every operator, so a root is chosen per operator and not by the folder alone."""
+    roots = {}
+    for c in ids:
+        root = next((Path(client) / d for d in BUNDLE_DIRS if (Path(client) / d / f'chararts/{c}.ab').is_file()), None)
+        if root:
+            roots.setdefault(root, []).append(c)
+    return roots
+
+
 def which_client(clients, rel):
     """The first (name, folder) of `clients` that has the bundle `rel`, or None."""
     return next(((n, c) for n, c in clients if bundle(c, rel)), None)
@@ -287,9 +298,8 @@ def main():
     step('bindings', [py, TOOL / 'fx_bindings.py', *cnargs])
     step('keys', [py, TOOL / 'anim_keys.py', *cnargs])
     for n, cs in by({c: which_client(clients, f'chararts/{c}.ab') for c in ids}).items():
-        root = next((Path(folder[n]) / d for d in BUNDLE_DIRS if (Path(folder[n]) / d / 'chararts').is_dir()), None)
-        if cs and root:
-            step('art', [py, TOOL / 'chararts_extract.py', '--game', root, *[x for c in cs for x in ('--id', c)]])
+        for root, group in art_roots(folder[n], cs).items():
+            step('art', [py, TOOL / 'chararts_extract.py', '--game', root, *[x for c in group for x in ('--id', c)]])
 
     if not a.dry_run:
         names = set(ids) | {codename(c) for c in ids} | {p for c in ids for p in prefabs.get(c) or [] if p}

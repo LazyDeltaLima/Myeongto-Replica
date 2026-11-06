@@ -475,14 +475,15 @@ describe('add_operator.py and what it drives (no client needed)', { skip: !PY &&
     assert.equal(r.status, 0, r.stderr);
     return JSON.parse(r.stdout);
   };
-  const seasonOnly = 'char_129_bluep';   // a piece of the hidden season with no kit yet: not in the manifest
+  // a piece of the hidden season with no kit yet, not in the manifest: whichever is left (the kits are added in bundles)
+  const manifest = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8'));
+  const roster = JSON.parse(readFileSync(path.join(ROOT, 'tools/assets/next-season-roster.json'), 'utf8')).ops;
+  const seasonOnly = roster.map((o) => o.charId).find((c) => !manifest.chars[c]) ?? null;
 
-  test('anim_keys.py reads every chess operator, in the manifest or not: no order to keep against the kit', () => {
+  test('anim_keys.py reads every chess operator, in the manifest or not: no order to keep against the kit', { skip: !seasonOnly && 'every piece has its kit' }, () => {
     const ids = run('import anim_keys as k\nprint(json.dumps(k.target_ids()))');
     assert.ok(ids.includes(seasonOnly), 'a season piece');
-    const assets = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8'));
-    assert.ok(!assets.chars[seasonOnly], 'the case this guards: the manifest does not have it yet');
-    for (const c of Object.keys(assets.chars)) assert.ok(ids.includes(c), c);
+    for (const c of Object.keys(manifest.chars)) assert.ok(ids.includes(c), c);
     assert.deepEqual(ids, [...new Set(ids)].sort());
   });
 
@@ -502,7 +503,7 @@ print(json.dumps({'order': list(a.FINISH_ORDER), 'cmds': {k: [[str(x) for x in c
     assert.ok(cmds.keys[0].join(' ').endsWith('--cn CN'));
   });
 
-  test('--finish needs the kit written and listed, and says which', () => {
+  test('--finish needs the kit written and listed, and says which', { skip: !seasonOnly && 'every piece has its kit' }, () => {
     const r = run(`import add_operator as a
 print(json.dumps({'kitted': a.kit_problem('char_4224_turdus'), 'none': a.kit_problem('${seasonOnly}'),
   'unlisted': a.kit_problem('char_4224_turdus', index_src=''), 'chess': a.kit_problem('char_1033_swire2')}))`);
@@ -549,5 +550,26 @@ except Exception:
     assert.notEqual(direct.status, 0);
     assert.ok(!direct.stdout.includes('went on'));
     assert.match(direct.stderr, /\.venv-extract/);
+  });
+});
+
+describe('add_operator.py card art', { skip: !PY && 'no python3' }, () => {
+  test('art_roots: each operator from the bundle root that holds its file, though the hot-update copy has a chararts folder too', () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'art-roots-'));
+    try {
+      const hot = path.join(dir, 'PersistentData/Bundles/chararts'), base = path.join(dir, 'StreamingAssets/AB/Windows/chararts');
+      mkdirSync(hot, { recursive: true });
+      mkdirSync(base, { recursive: true });
+      writeFileSync(path.join(hot, 'char_1_a.ab'), '');
+      writeFileSync(path.join(base, 'char_1_a.ab'), '');
+      writeFileSync(path.join(base, 'char_2_b.ab'), '');
+      const src = `import sys, json; sys.path.insert(0, ${JSON.stringify(TOOL)}); import add_operator as a; print(json.dumps({str(k): v for k, v in a.art_roots(${JSON.stringify(dir)}, ['char_1_a', 'char_2_b', 'char_3_none']).items()}))`;
+      const r = spawnSync(PY, ['-c', src], { encoding: 'utf8', env: ENV });
+      assert.equal(r.status, 0, r.stderr);
+      assert.deepEqual(JSON.parse(r.stdout), {
+        [path.join(dir, 'PersistentData/Bundles')]: ['char_1_a'],
+        [path.join(dir, 'StreamingAssets/AB/Windows')]: ['char_2_b'],
+      });
+    } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 });
