@@ -228,7 +228,7 @@
 - 위치 수정(2026-10-06 2차): 라운드 띠 중심을 화면 위에서 34단위로(`player_info_view` 위 고정 156 높이, `group_hud` +44 — 전에는 약 62단위라 위 공백이 컸다),
   🔍 버튼은 띠 중심보다 6.5 위, 맹약 줄은 위에서 55(`bond_list_info_view`, 원 중심 88), matte 96 높이·최소 420 폭, 준비 완료는 틀(161×57) 안에서 판이
   3.1 왼쪽·1.3 아래이고 아이콘·글자는 `panel_content` 기준(글자 중심 판 중심 +17.6, 아이콘은 글자 왼쪽 끝에서 19.7), 플레이어 목록 판은 초상 왼쪽 17(전에는 8.5).
-- 그대로 둔 것: 단축키(원본), 준비 완료 아래 플레이어 준비 칸(`panel_player`: `player_bg` + 사람마다 `player_ready` 막대 — 지금은 「준비 완료 n/4」 글자).
+- 그대로 둔 것: 단축키(원본).
 - 관리자 제보 수정(2026-10-06 3차):
   - 왼쪽 벤치 칸 선택 불가: 정보 카드의 탭 내용(`.dart__pane`, pointer-events auto)이 벤치 줄(y ≈ 620–790, 2000×1125)과 겹쳐 0–2번 칸
     (x ≈ 300–630)을 누르면 카드가 받았다(elementFromPoint = `.dgarrison__head` 등). 이제 탭 내용은 누름을 보드로 넘기고 버튼·링크·`[title]`·
@@ -268,7 +268,7 @@
   동결/갱신 아이콘(중심 −26.5)·글자(+18.5, 1 위)·갱신 판(147 폭, 1 왼쪽).
 - 카드: 오른쪽 위 초상화, 왼쪽 흐린 워터마크 = 기물의 첫 特质의 유형 아이콘(프리팹 `garrison_icon` 65×65·35 %, `garrisons.json eventTypeIcon`
   → `garrisonTypeIcon/icon_*`; 스크린샷의 에스텔·아르케토·锡人과 맞음. 刺玫는 우리 데이터 icon_bond인데 스크린샷은 icon_gold — 2026-10-06 확인:
-  프리팹 `garrison_icon`은 그림이 비어 있고 카드 스크립트 `_garrisonIcon`이 실행 중에 채운다(규칙은 네이티브). CN 표는 두 시즌 모두 icon_bond
+  프리팹 `garrison_icon`은 그림이 비어 있고 카드 스크립트 `_garrisonIcon`이 실행 중에 채운다(채우는 규칙은 아직 안 읽음). CN 표는 두 시즌 모두 icon_bond
   (act1 `garrison_25` 获得时 盟约+2, act2 `garrison_154` 休整期结束时 维多利亚+1)이고, 한국 서버 표는 구할 수 없다(Kengxxiao YoStar 저장소는
   2025-11에서 멈췄고 `act1vautochess`만 있음, 클라이언트 표는 `anon/*.bin` 암호화). **해결(2026-10-06, 관리자 KR 캡처):** 지금 시즌 KR 벤델라(刺玫)
   카드 워터마크는 사슬(icon_bond), 정보 카드 特质 칩은 「지속 중첩」 <휴식 기간 종료 시> 활성화된 [빅토리아] 중첩 수 +1 = 우리 데이터(act2 `garrison_154`)와 같음
@@ -309,7 +309,7 @@
 - 동결 버튼 (2026-10-06 프리팹으로 확인): `btn_frozen`의 3상태 스위치가 `_unselect` = `group_disable`(`bg_lock` + `frozen_icon_lock`),
   `_firstSelect` = `group_lock`(`frozen_bg_normal` 파랑 + `frozen_icon` 눈송이), `_secondSelect` = `group_unlock`(`frozen_bg_unselect` 흰 파랑 + `frozen_icon2`
   빗금 친 눈송이)이다. 그룹 이름은 상태가 아니라 누르면 하는 동작(잠그기·풀기)이고, 원본도 동결 중에 `frozen_icon2`를 쓴다 → 평소 파랑 + 눈송이,
-  동결 중 흰 파랑 + 빗금 눈송이(지금 코드 그대로). 어느 그룹을 켜는지는 네이티브 코드라 아이콘 짝으로 판단했다. 비활성(관전 등)은 `bg_lock` +
+  동결 중 흰 파랑 + 빗금 눈송이(지금 코드 그대로). 어느 그룹을 켜는지는 클라 규칙을 아직 안 읽어 아이콘 짝으로 판단했다. 비활성(관전 등)은 `bg_lock` +
   회색 아이콘(`*_icon_lock`과 같은 그림이라 CSS 회색 필터로 근사, 갱신 버튼도 같음).
 - 아직 없는 것: 접기 상자의 마스코트 Spine(`trap_1096_acshopup`, 텍스처 미추출 — PIXI로 따로 그려야 함), 웹 소재의 `shopPanel/level`이 다른 그림이라
   승급 상자의 "LEVEL"은 글자로 그림.
@@ -389,7 +389,7 @@
   `ui/battlecommon`·`battle/common`. 다시 뽑기: `.venv-extract/bin/python tools/local-extract/extract.py --game <…/StreamingAssets/AB/Windows> --only ui/battlecommon --only battle/common`.
 - 배치 가능 칸(3D 보드, `board3d/tileOverlay.js` tint): 칸 기둥(윗면 + 높은 칸의 옆면)을 초록으로 **곱한다**(2× modulate, src 0.29·0.55·0.29) —
   바닥 무늬가 그대로 비친다. 캡처에서 회색 높은 칸 윗면 128,125,113 → 66,130,66, 모래 칸 → ≈144,230,89를 맞춘 값(우리 렌더 모래 칸 148,240,98).
-  [추정] 방식: 클라이언트의 칸 강조는 네이티브(셰이더 `Torappu/Scene/Special/HighlightTile`만 있고 머티리얼은 실행 중 생성). 테두리 없음, 놓을 칸의
+  [추정·미조사: 클라 값을 아직 안 읽음] 방식: 클라이언트의 칸 강조는 셰이더 `Torappu/Scene/Special/HighlightTile`에 머티리얼을 실행 중에 만든다. 테두리 없음, 놓을 칸의
   흰 표시·출발 칸 표시도 없음(빨간 불가 표시는 유지). 방향을 고르는 동안에도 초록이 남는다(캡처 그대로, `holdPiece`가 다시 켜고 닫힐 때 끔).
 - 공격 범위(3D 보드, stripes: 방향 선택 `facing`, 선택한 기물 `selRange` 등): `range_material`(셰이더 `Torappu/Battle/AttackRange`: 알파 블렌드,
   깊이 쓰기 없음, `_Color.a` 0.749, `_AnimationSpeed` 0.5)대로 `sprite_attack_range`(대각선 흰 줄 3개/칸) × 주황 255,140,0([추정] 실행 중 색 —
@@ -562,7 +562,7 @@
     S2 원거리 공격(`RangedAttackWithConditionalActions`)의 조건부 동작으로, 주인이 `[overload_mark]`를 가졌는지를 포탄이 생길 때
     (`Projectile.ActionController.Init` → `GetProjectileActions`) 정한다. 그래서 10발이면 6~10발째, 시작 때 탄이 늘면(라테라노 맹약) 그 발동의 전체 탄
     기준, 과부하 중 재장전(장비 `chess_item_4_08_e` 등. 혼에게 탄을 주는 다른 출처는 라테라노 오퍼레이터 몫이라 닿지 않음)으로 남은 탄이 절반을 넘어도 과부하는 그대로.
-    그때 HUD도 공식처럼 과부하 탄환 칸을 유지한다: `UIBulletBar.ShowBulletCount`는 칸 수보다 많은 값을 무시하므로 마지막 그림이 남고(칸이 0이 되는 것이 아니다), 다시 절반 아래로 내려오면 그 수를 그린다(`b.snap.ovl` 둘째 칸, 공식 클라에서 확인 2026-11-06). 키트: `chess_char_5_08-horn.js` `ammoUsed`에서 켬 키트: `chess_char_5_08-horn.js` `ammoUsed`에서 켬
+    그때 HUD도 공식처럼 과부하 탄환 칸을 유지한다: `UIBulletBar.ShowBulletCount`는 칸 수보다 많은 값을 무시하므로 마지막 그림이 남고(칸이 0이 되는 것이 아니다), 다시 절반 아래로 내려오면 그 수를 그린다(`b.snap.ovl` 둘째 칸, 공식 클라에서 확인 2026-11-06). 키트: `chess_char_5_08-horn.js` `ammoUsed`에서 켬
     (`test/content/kits_alt_t5.test.js` 「号角 S2 过载 counts」). 프리팹의 `_burstOnOverload`는 수동 종료 `Full Burst`를 과부하 중에만 허용 — 자동 전투엔 없음.
   - [화면 미확인] 실제 판에서 위 다섯의 바를 아직 못 봤다(그림 비교만).
 - 배리어(屏障·护盾, 관리자 요청 2026-10-10 「배리어도 HP 바처럼」): 공식 클라 `UIHudCharHpSlider.UpdatePlugin`이 유닛의 `shieldUIController.shieldToShow`(s)를
@@ -615,13 +615,13 @@
   `panel_enemy_boss_info`를 쓴다 — HP 798×10 × x 배율(胄·管·阿利斯泰尔·萨米的意志 0.35, 昆图斯 0.765; 관 캡처 ≈281 × 9.3단위 ✓) `#ff2b2b` α.8,
   흰 α.7 잔상, 검정 α.39 딱딱한 받침(800×12 — 캡처 14의 SP 바 둘레 검은 테가 이것)과 흰 α.39 테(`sprite_enemy_boss_hp_bg` 9-slice 816×28: 회색 가운데 위아래에
   어두운 선; 테두리도 가로 배율로 눌림), SP(`default_sp_slider` 798×8 `#cab2d4` α.8, 받침 800×12, 테 816×24)는 HP 중심 16.3 아래 [캡처 8], 문양 `sprite_enemy_boss_hud_large` 폭 ≈39단위([캡처 8·10]),
-  맞을 때 빛(`hit_effect` = `sprite_bar_glow` 9-slice 818×31 `#ff0000` α.78 — 관리자 결정, 0.35초 사라짐 [추정]). 중심 = 보스 발 [추정 — 배치는 네이티브 코드,
+  맞을 때 빛(`hit_effect` = `sprite_bar_glow` 9-slice 818×31 `#ff0000` α.78 — 관리자 결정, 0.35초 사라짐 [추정]). 중심 = 보스 발 [추정·미조사: 배치 규칙을 아직 안 읽음,
   캡처에서 발 근처], `_bossHudOffset`만큼 타일 단위로 옮김 [추정 단위](萨米的意志 위 1.4, 昆图斯 위 1.02, 管 II 오른쪽 1.4). 표는 `GIANT_BOSS`(적 프리팹 전수 조사).
 - 圣堂剑士 탄약: HP 바 바로 아래 같은 폭에 아군과 같은 탄환 칸([추정] `enemy_bullet_bar` 105×7).
 - **보스 SP 바와 관·현의 공식 SP** (관리자 결정 2026-10-07 「공식과 같은 a안」): 공식은 쿨다운이 아니라 SP다(`enemy_database` spData: 管 INCREASE_WITH_TIME
   0/50 +1/s, 裂管之奏 spCost 50·cooldown 50·initCooldown 40; PRTS 「技力 0/50 自动回复 1.0 SP/s」; 阿利斯泰尔 maxSp 25; 胄·萨米的意志·昆图斯·铳·卢西恩은 spData 없음
   → SP 바 없음). 시뮬레이션 `content/bosses.js skillSp`: SP는 행동할 수 있을 때(기절 아님) 초당 increment, 스킬은 쿨다운이 끝나고 **SP ≥ 비용**일 때 발동
-  [추정: 둘 다 필요 — 클라 로직은 네이티브], 발동하면 비용만큼 소모. 管 첫 발동 40초 → 50초(테스트). 같은 구조의 弦(엘리트, spData 0/35, 断弦之奏 25·icd 12)도
+  [추정·미조사: 둘 다 필요 — 클라 로직을 아직 안 읽음], 발동하면 비용만큼 소모. 管 첫 발동 40초 → 50초(테스트). 같은 구조의 弦(엘리트, spData 0/35, 断弦之奏 25·icd 12)도
   같은 규칙(첫 발동 12초 → 25초). 阿利斯泰尔은 원래 SP를 세고 있어 값만 노출. 막대는 `b.snap.bsp`(`local-hud.js hudLists` — `ammo`와 한 번에 돈다).
   성능(관리자 요청 점검): SP 틱 0.06µs = 전투 한 스텝(88µs)의 0.07 %, `hudLists` = 스냅샷의 2.2 %(이전 `ammoList`와 같음).
   [추정] 凋亡 폭발 「15秒内无法开启技能，每秒损失1点技力」(적 쪽)은 아직 없음.
@@ -682,7 +682,7 @@
 **⑤ 상태 이펙트** (관리자 요청 「冷氣·冻结·战栗·은신·위장 … 그 외 상태도 확인 후 같이」, 방법 1 = 공식 이펙트 그대로; `render/fxstatus.js` → `fxgame.js statusOn/Off`):
 공식은 상태를 아이콘 줄이 아니라 이펙트 프리팹으로 보인다(캡처 9·10). 프리팹은 `battle/prefabs/effects/buff.ab`·`common.ab`(`fx_extract.py --bundle buff/common`,
 index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_isLoop` 1), 붙는 곳은 `_spawnLocation`(1 발, 2 몸 HIT, 4 머리, 5 바닥 중앙 — 데이터).
-상태 → 프리팹은 이름으로 맞춤(클라 매핑은 네이티브, 메타데이터 `COMMON_EFFECT_PREFIX`) [추정]:
+상태 → 프리팹은 이름으로 맞춤 [추정·미조사: 클라 매핑을 아직 안 읽음, 상수 `COMMON_EFFECT_PREFIX`는 `common_`]:
 晕眩 `buff_stun`(머리) · 冻结은 아래 「클라 버프 표의 이펙트」 · 寒冷 `buff_cold`(머리 눈꽃 — 冻结 중에도) · 沉睡 `buff_sleep`(몸) · 沉默 `buff_silence`(머리) ·
 恐惧 `common_buff_fear` · 战栗 `common_buff_thrill`(머리 주먹 — 캡처 10; 예전엔 공포 아이콘으로 잘못 연결) · 缴械 `common_disarm_icon` · 减速 `buff_slowdown`(발) ·
 迟缓 `buff_sluggish`(발) · 攻速下降 `buff_attack_speed_reduction_01`(발) · 虚弱 `buff_weak` · 防御下降 `buff_defdown` · 法抗下降 `buff_magic_resistance_down` ·
@@ -971,6 +971,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   「복사됨」인데 실제로는 안 되던 것 → textarea를 열린 모달·안내 안에 두고, 포커스와 전체 선택을 확인한 뒤에만 복사, 성공·실패 모두 정리하고 포커스를
   돌려준다. 실패하면 원래의 손 복사 화면. 브라우저 테스트 `test/ui/modal.e2e.test.js`(SP_E2E) [실제 판 이상 없음 2026-10-28].
 - 렌더러를 못 불러온 토스트 문구(`708caf7d`): `sim.md` 「upstream 0.2.3 이식」.
+- 공개 이슈 #1 「AI가 내 진영 피하기」: 팀원 주력 핵심 맹약에 −6을 주는 지금 규칙(`server/match/bot.js`)으로 충분하다(관리자 결정 2026-11-05).
 - AI 팀원 구매 양보(`f3658a0d` 중 `server/match/bot.js`, upstream PR #407, 관리자 결정 2026-10-11): 공식 규칙이 아니라 AI 휴리스틱(`feat`).
   5·6단계 공용 카드(정예·선발 제외)의 맹약이 살아 있는 다른 팀원의 시작 전략(`gd.bandBondIds`, 모드가 끈 맹약 제외)과 겹치면 구매 점수 −18.
   사람·AI 팀원 같게, 여럿이어도 한 번, 재고를 잡아 두지 않고 바로 되는 자기 합성은 그대로. `[ASSUMED]` 점수 크기.

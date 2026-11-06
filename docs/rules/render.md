@@ -24,10 +24,10 @@
   (`GATE_ADD` start 0.2 / end 0.5 [추정 — 캡처에 맞춤]). 캡처의 시작 상자는 경고 삼각형·모서리 점선까지 빨강이라(텍스처 변형은 모두 흰색) 붉은 틴트
   `GATE_START_TINT` (1, .22, .25) [추정]. 이전: 시작 = 분홍빛 흰색 255,180,200, 끝 = 진한 파랑 53,162,254 / 공식 229,63,60 · 136,226,249.
 - **밝기**: 같은 스테이지 영역 비교에서 중간 톤은 같고(모래 0.964) 밝은 모래 윗면이 하얗게 날아감(R ≥ 250 픽셀 13.6 % vs 공식 5 %) →
-  `official.js OFFICIAL_LIGHTING` directGain 0.9·lmGain 0.97 [추정](씬의 `AE_Survivaloasis` 프로필은 네이티브라 못 읽음). 내 캡처 기준 날아간 픽셀 7.9 → 3.9 %.
+  `official.js OFFICIAL_LIGHTING` directGain 0.9·lmGain 0.97 [추정·미조사: 씬의 `AE_Survivaloasis` 프로필을 아직 안 읽음]. 내 캡처 기준 날아간 픽셀 7.9 → 3.9 %.
 - **드래그 중 벤치 틴트**: `screens/game.js`가 드래그 시작 때 필드 칸만으로 하이라이트를 덮어써서 벤치가 빠져 있었다 → 놓을 수 있는 벤치 칸(자기 칸 포함)도 넣는다.
-  벤치는 청록 2× 곱하기 `tileOverlay.js BENCH_TINT` (0.29, 0.55, 0.65) — 클라이언트 상수 `AUTOCHESS_VALID_HANDTILE_CUSTOM_HIGHLIGHT`는 네이티브라
-  값이 없어, 관리자 캡처(아이템 드래그 중 벤치 전체가 청록: 판자 245,198,138 → 140,215,177)에 맞춤. `app.js syncOverlay3d`가 7·8행(일반 정비)을 벤치 틴트로 보낸다.
+  벤치는 청록 2× 곱하기 `tileOverlay.js BENCH_TINT` (0.29, 0.55, 0.65) — 클라이언트 상수 `AUTOCHESS_VALID_HANDTILE_CUSTOM_HIGHLIGHT`의 값을
+  아직 안 읽어 [추정·미조사], 관리자 캡처(아이템 드래그 중 벤치 전체가 청록: 판자 245,198,138 → 140,215,177)에 맞춤. `app.js syncOverlay3d`가 7·8행(일반 정비)을 벤치 틴트로 보낸다.
 - **장비 장착 팝업** (`ui/equipHover.js`, `css/equip-hover.css`): 아이템을 장착 가능한 오퍼레이터 위로 끌면 뜨는 2칸 알약 — 프리팹
   `act1autochess_equip_slot_panel`(UIAutoChessDragEquipPanel) 그대로: 루트 배율 .8, 알약 334×152가 기준점 120단위 위, 칸마다 #1e1e1e 상자·아이템 아이콘·
   흰 테두리(`img_EquipSlot_frame2` 9-slice), 아이템이 들어갈 칸(= 장착 수 번째)은 `frame3` + `SlotGlow` × #55ffeb 가산 맥동(1 ↔ .4, .7초), 두 칸 다
@@ -322,8 +322,8 @@
   (`level_act1autochess_h07_02`·`h08_02` route 6/0, `act2autochess_h07_05` route 8: 출발 (4,10) → 순찰 (3,9) → (2,3) → (5,9), 2인 복제본 (3,11) → (2,17) → (5,11);
   루시안은 같은 세 점 ×5 사이에 MOVE (5,9)), **전장마다 같다**. 칸 사이 길은 그 판 전장의 보스 구역 지형(울타리·벽·늪·상자·토석·나무…) 위에서 클라이언트
   길찾기가 계산한다 — 맵별 경로 표는 클라이언트 표·레벨 파일·PRTS(「卫戍协议：盟约/战场一览」은 전장 그림뿐) 어디에도 없다. 순찰 반복 규칙(PATROL_MOVE)도
-  메타데이터 이름(`PatrolMoveCheckpoint`, `IsValidPatrolCheckPoint`, 「PatrolMoveCheckpoint in dead loop」)뿐, 로직은 네이티브라 못 읽음 →
-  우리 `bosses.js patrolLoop`(마지막 지점 뒤 첫 구간으로)는 [추정]. 원본 커뮤니티 제보 29번(`docs/history/0.2.0.md` §25.18.9)은 걸을 수 있는 칸·순서만 확인했다.
+  메타데이터 이름(`PatrolMoveCheckpoint`, `IsValidPatrolCheckPoint`, 「PatrolMoveCheckpoint in dead loop」)까지만 봤고 로직은 아직 안 읽음 →
+  우리 `bosses.js patrolLoop`(마지막 지점 뒤 첫 구간으로)는 [추정·미조사]. 원본 커뮤니티 제보 29번(`docs/history/0.2.0.md` §25.18.9)은 걸을 수 있는 칸·순서만 확인했다.
 - 경로: `server/match/bossPath.js` — 조작원 없이 그 필드의 지도자 출현만 넣은 헤드리스 보스전을 돌려(2인 필드는 분기 `boss_battle_multi_player`의 복제본도)
   매 틱 위치를 기록, 첫 체크포인트에 두 번째 도착하면 끝(가는 길 + 순찰 한 바퀴, 루시안의 5바퀴는 1바퀴로). Douglas–Peucker 0.02칸. 10초 동안 출발점을 못 벗어나면
   걷지 않는 보스로 보고 제외. 전장 × 템플릿 × 인원 × 장치 덮어쓰기로 캐시(64개). 매치의 전투 팩토리(`Match.newBattle`)가 아니라 시뮬 `Battle`을 직접 만든다
@@ -631,7 +631,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   ModifyGraphicHolderHeight가 없고 `_motionMode` 0(지상) — 재능의 이륙(`kalts2_t_1`)은 저지 모드만 바꾼다 → 클라는 그녀를 칸 위에 그린다(떠 보이는 것은 Spine
   그림 자체). 아레나에서 발이 칸 중심. 티피 = 0.8(관리자 결정 2026-10-12): `tippi_height_ctrl[tween]`이 두 스킬 블랙보드의 `attack@height_offset` 0.8로 그림 높이를
   올림(고지대 분기 없음), 아레나 S1에서 확인. 이 셋 밖의 이륙 오퍼레이터는 1.3 그대로(지금 풀에는 없음 — 이륙 플래그를 쓰는 키트는 안젤리나·켈시·티피뿐).
-- 근거: 클라는 이륙을 비행 단위처럼 다룬다 [추정: 비행 높이 로직은 네이티브라 못 읽음]. 안젤리나 더 멜로우 위시 S3 범위 원(`aglna2_skill_03_range_01`,
+- 근거: 클라는 이륙을 비행 단위처럼 다룬다 [추정·미조사: 비행 높이 로직을 아직 안 읽음]. 안젤리나 더 멜로우 위시 S3 범위 원(`aglna2_skill_03_range_01`,
   발밑 FOOT 마운트)의 `static_offset`이 (0, −0.414, +0.666) — 발밑에서 0.666칸 아래(바닥 밑), 0.414칸 앞 — 으로, 발이 땅에 있으면 원이 한 칸 아래에 보이고
   (관리자 제보 「원형 이펙트가 약 한 칸 아래 타일에」), 비행 높이에서 시작하면 그녀 칸에 온다(디버그 아레나 확인). 다른 발밑 이펙트의 오프셋은 거의 0이다.
 - 코드: 스냅숏 비트 `shared/local.js UF_LIFTOFF`(2048, `server/sim/snapshot.js flagsOf`), `render/units.js` `liftoff` → `hover`, `render/fxgame.js lifted()`의
@@ -949,7 +949,7 @@ ON_BUFF_FINISH에 대상이 살아 있을 때만(`IfTarget _checkTargetAlive`) +
   (`buff_swim` — enemy_database에서 Swim 재능을 가진 적은 잠수원 두 종뿐 [추정: 그 재능이 `buff_swim`을 붙임])은 0.2칸 내려 그린다. 육지로 나오면
   다시 올라오고, 심해에서 쓰러진 적은 잠긴 채 사라진다. 그림자는 잠긴 동안 숨긴다(아래). 코드: `render/units.js deepSink`·`DEEP_SINK`,
   타일 재질은 `render/app.js` ctx `terrainAt`.
-- [추정] 내려가고 올라오는 속도(발 높이 보간과 같게 — 클라 값은 네이티브라 안 읽음), HP 바와 몸에 붙는 이펙트도 함께 내려감(비행 `hover`와 같은 처리).
+- [추정·미조사: 클라 값을 아직 안 읽음] 내려가고 올라오는 속도(발 높이 보간과 같게), HP 바와 몸에 붙는 이펙트도 함께 내려감(비행 `hover`와 같은 처리).
 - 물빛 칠(2026-10-14, 관리자 요청 「물빛 칠까지 넣어」): 심해 씬의 모든 Spine은 `Torappu/Spine/Skeleton-AlphaSplit-Water (Z-Distorted)`로 그려진다
   (씬 `HGSceneWaterEffect`, 프로필 `WE_Static_WEProfiles` — act2 m04·act1 m05 같음). 픽셀 셰이더(클라 셰이더): 픽셀의 월드 깊이 z를 모델 기준선 쪽으로
   `spineHeightTeak` 0.8배 눌러(z' = 기준 + (z − 기준) × 0.8) 수면(`_waterSurfaceTransform` z 0.1409 − `spineHeightOffset` 0)보다 깊으면 색을
