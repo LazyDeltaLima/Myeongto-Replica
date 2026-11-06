@@ -3428,7 +3428,7 @@
     ② 상태: 상태 키가 클라 키(`:<id>` 제외)면 `fxstatus.js namedSpec`이 `KEY_FX` 줄 없이 그 버프가 쥐는 이펙트를 프리팹 자신의 `_spawnLocation`으로 그린다. 조건 뒤에만 쥐면
     `keyedAll`처럼 조건이 성립한 것으로 본다. 이름 규칙으로 풀 수 없는 것(방향·중첩·적/아군 갈림)은 손 표에 둔다.
   - 상태 경로를 처음 쓴 키트(2026-11-06, 바이슨·우요우): `test/helpers/fxBindings.js unplayed`가 `b`가 붙은 키의 `held`·`when`·`moment`를 재생으로 친다. 밑줄 없는 키(`cripple`)는 `kitNamedKeys`가 읽지 않으니 `KEY_FX`에 적는다. 이름 규칙이 같은 프리팹을 시전자에게 켜면 `KIT_OWNED`에 넣는다(`bison_skill_02_buff`, `nothin_skill02_buff_*`).
-- 연결 보고(2026-11-05): `node tools/fx-wiring-report.mjs --id <charId>` — 오퍼레이터를 더한 뒤 남은 연결을 읽기만 해서 보여 준다. `unplayed` 아무도 안 트는 행과 목록의 상태(없으면 NEW),
+- 연결 보고(2026-11-05): `node tools/fx-wiring-report.mjs --id <charId>` — 오퍼레이터를 더한 뒤 남은 연결을 읽기만 해서 보여 준다. `foreign`(2026-11-06) 행이 가리키는데 어디에도 안 뽑힌 프리팹 — 다른 번들·공용 번들에 있어 추출이 놓친 것(`fx_extract.py --bundle <그 번들> --prefab <그것>`), `unplayed` 아무도 안 트는 행과 목록의 상태(없으면 NEW),
   `nameless` 행·표·모드·이름 규칙 어디에도 안 걸리는 프리팹, `overlap` 손 표나 키트가 이름을 쓴 키가 그리는 프리팹을 스킬 발동의 이름 규칙도 시전자에게 트는 경우, `keyless`(`--id`일 때만, 2026-11-06) 버프 템플릿의 프리팹인데 어느 키트도 키를 안 쓰고 손 표도 안 그리는 경우: 틀어져도 이름 규칙으로 시전자에게 시전 때 나온다. 키트가 버프로 입는 키(`worn`, 키트 코드에서 `moment`·`hitFx`·사건의 `k`·`buff`로 넘기지 않는 키)의 프리팹은 이름 규칙이 자동으로 뺀다(`fxstatus.js wornPrefabs`, 2026-11-06: 바이슨 S2 자기 버프가 스킬과 상태로 두 번 시작했음). 그 밖의 `KIT_OWNED`는 자동으로 만들지 않는다:
   인용 키로 만들면 그 키의 다른 행 프리팹까지 꺼진다(가비알 디 인빈서블 S2 `gvial2_skill_2_buff_02`·페넌스 S2 `judge_skill_02_buff_01` 등 2026-11-05 대조). 그래서 겹침은 보고하고 사람이 판단한다.
   - 계획: 투사체 키 `tpl`에 `fly`가 있으면 비행 = 그 투사체의 `_mainEffect` 하나(둘 이상이면 재생 없음), `to`로 유닛에 날면 `_effectsWhenHit`가 `hit`,
@@ -3794,6 +3794,12 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - 확인: `test/render/kit-event-fx.test.js`(계획 + 층), `status-buff-fx.test.js`(Mon3tr 태그·방향, 표식들), `fx-bindings` `UNPLAYED` 11줄·`VERDICT` pending
   3줄 지움, `clip-coverage-list.js` 비이 `Charge` 넷 지움, `test/content/op_demetr`·`op_monstr`·`op_veen.test.js`(사건·표시). 시뮬 골든: diy-032~035·
   037·038 사건 수만(전투 결과 같음). [화면 미확인: 위 전부 — 특히 Mon3tr 표식의 자리·비이 저장 탄이 한 점에서 겹쳐 나는 모습·저장 구슬 단계]
+
+### 스킬 준비 이펙트 (2026-11-06, 공식 클라에서 확인)
+- 공식: 스킬 프리팹의 `ReadySkillEffect`(`_effects`, `_stopBeforeCast`)는 스킬을 쓸 수 있을 때(`BasicSkill.IsAvailable`: SP 충분, 주인이 이상 상태 아님) 그 효과를 주인에게 만들고, `_stopBeforeCast`면 스킬 시작 때(`OnSkillStart`), 어느 쪽이든 스킬 끝에(`OnSkillEnd`) `FinishMe`로 끝낸다. 한 번 만들면 이상 상태를 다시 보지 않아 기절이 와도 남고, 충전이 하나 더 있으면 다음 틱에 다시 만든다.
+- 쓰는 스킬: 쥐 S1·페넌스 S1·비비아나 S1·아로마 S1(시작 때 끝남), 아코르트 S1·아스카론 S1·로즈솔트 S1(스킬 끝에 끝남). 쥐 S1의 프리팹은 다른 오퍼레이터의 번들 `totter_skill_01_*`다. 풀 밖의 `skchr_totter_1`·`skchr_provs_1`·`skchr_bryota_1`·`sktok_edd`도 같은 클래스라 그 오퍼레이터를 더하면 저절로 따른다(소환물 `sktok_`은 `modes.json` 스킬 표 밖이라 그때 본다).
+- 구현: `char_modes.py`가 `skills[i].ready`(`fx`, `stop`)를 쓰고, `fxstatus.js readyHolds`가 시뮬 스냅숏의 SP·저장 충전·스킬 표시로 켜고 끈다. 상태 이펙트 경로(`wantedStatusFx`)라 죽음·퇴각·끝 처리를 같이 쓴다. 전에는 이름 규칙(`_buff`·`_start`)이 스킬이 켜진 동안 그렸다 — 공식과 반대 시점이었고, 이제 `activationEffects`가 이 프리팹을 뺀다. 충전이 남은 채 스킬이 켜질 때 공식은 끝내고 다시 만들지만 우리는 끊지 않고 이어 그린다(같은 프리팹, 한 틱 차이).
+- 시험 `test/render/ready-skill-fx.test.js`(새 오퍼레이터가 이 클래스를 쓰면 목록에 넣어야 통과).
 
 ### 심해 구역의 바닥 자르기 (2026-11-05, 관리자 제보 「인사이더의 투사체가 심해 구역 타일에 가려지고 있다」)
 

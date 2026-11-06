@@ -258,3 +258,14 @@ describe('fx-wiring-report keyless', () => {
     assert.equal(hand.x, undefined);
   });
 });
+
+test('the report names a row\'s prefab extracted nowhere, of an operator whose bundle is (矩 S1\'s totter_skill_01_* went unseen)', () => {
+  const row = (fx, char = 'char_1_x', moment = '_effects') => ({ key: 'skchr_x_1', src: 'ability', moment, kind: 'effect', fx, conds: [], char });
+  const tables = {
+    template: [], index: { bundles: { x: ['x_a'] }, emitted: {} },
+    local: [row('x_a'), row('other_b'), row('common_empty'), row('cnt', 'char_1_x', '_affectedCardCntKey'), row('card_uid_1', 'char_1_x', '_affectedCardUIDKey_1'), row('plugin_c', 'char_1_x', '_cardEffectPluginName'), row('y_d', 'char_2_y')],
+  };
+  const r = wiringReport({ tables, modes: {}, plays: { keys: {} }, names: new Set(['x_a']) });
+  assert.deepEqual(r.x.foreign.map((f) => f.fx), ['other_b']);
+  assert.equal(r.y, undefined, 'an operator not extracted yet is its own bundle\'s job');
+});

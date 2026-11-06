@@ -64,7 +64,7 @@ export const FX_KINDS = Object.freeze({
   // local patch: 赤刃明霄陈 S3 剑气 — render/fxgame.js carries her official trail; this pulse only without official effects
   // (low quality / no bundle) [ASSUMED colour]
   chen3Qi: { a: 'wave', c: 0xff6a4a, r: 0.6 },
-  juExtra: { a: 'none', c: 0xffffff }, taraxaFly: { a: 'none', c: 0xffffff }, taraxaSecond: { a: 'none', c: 0xffffff }, // 2026-11-05: official effects only (kitofficial.js)
+  juExtra: { a: 'none', c: 0xffffff }, taraxaFly: { a: 'none', c: 0xffffff }, taraxaSecond: { a: 'none', c: 0xffffff }, taraxaSplash: { a: 'none', c: 0xffffff }, // 2026-11-05: official effects only (kitofficial.js)
   kitHit: { a: 'none', c: 0xffffff }, // local patch: a kit's skill hit with no effect of its own — its sound only (audio.js kitHitKey)
   whitw2Drones: { a: 'none', c: 0x8fe6ff }, // local patch: 荒芜拉普兰德 S3 drone positions (the wolves, render/fxgame.js; nothing in the fallback)
   // 2026-11-01: 冻河's 触发型效果 put on an ally and its S3 effect moving on, 塔露拉 S3's 簇火 wave — drawn only by their official

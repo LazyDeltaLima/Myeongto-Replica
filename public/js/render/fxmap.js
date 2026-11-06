@@ -413,6 +413,19 @@ export const SKILL_HELD = Object.freeze({
   char_4133_logos: Object.freeze({ 1: heldKeys(['logos_s_2[effect_2]']) }),
 });
 
+/**
+ * 2026-11-06: a skill's ReadySkillEffect (modes.json `skills[i].ready`: { fx, stop }) as status specs: { stop, specs: [[key, [bundle, prefab, 'own']]] }, or
+ * null when it has none extracted. A prefab may sit in another operator's bundle (矩 S1 uses totter_skill_01_*): the name's first word says which.
+ */
+export function readySpecs(ready, bundle, bundles) {
+  const specs = [];
+  for (const n of ready?.fx || []) {
+    const b = bundles[bundle]?.includes(n) ? bundle : n.split('_')[0];
+    if (bundles[b]?.includes(n)) specs.push([`${b}/${n}`, Object.freeze([b, n, 'own'])]);
+  }
+  return specs.length ? Object.freeze({ stop: !!ready.stop, specs: Object.freeze(specs) }) : null;
+}
+
 /** The SKILL_HELD prefabs of `charId`'s skill `skillIndex` that are extracted (`prefabs`), from `plays`; `back`: deployed facing UP. */
 export function skillHeld(charId, skillIndex, prefabs, plays, back = false) {
   const by = charId ? SKILL_HELD[charId] : null;
@@ -528,8 +541,9 @@ export function activationEffects(bind, prefabs, skillIndex, kitOwned = new Set(
   for (const a of n === -1 ? [bind?.altFx?.[0]] : bind?.altFx || []) for (const g of a?.groups || []) for (const x of [...(g.cast || []), ...(g.hit || []), ...(g.start || [])]) modeOwn.add(x);
   // (2026-10-10) the effects of its projectile's lasting reach / aura (`zone`: 쏜즈 더 로드스타's token / range) sit at that
   // projectile — render/fxgame.js zoneFx; 85d83c89's `_range` name rule put thorn2_skill_02_range on her for the whole battle
+  // (2026-11-06) `ready`: shown while the skill can be used (fxstatus.js readyHolds), not from its start by the `_buff` name rule
   const notCaster = new Set([...(sk?.target || []), ...(sk?.targetBuff || []), ...(sk?.end?.cast || []), ...(sk?.end?.hit || []),
-    ...(sk?.zone?.fx || []), ...(sk?.zone?.aura || [])]);
+    ...(sk?.zone?.fx || []), ...(sk?.zone?.aura || []), ...(sk?.ready?.fx || [])]);
   // (2026-10-10) a mode buff whose ability selects enemies (`attachFoe`: 아스트젠 더 라이트체이서 S3's link) is on the enemy, not here
   const foe = new Set(foeEffects(bind, pre, n));
   // (2026-11-03) `others`: the modes another cast of this skill picks (VARIANT_MODES) — their mode buffs are theirs

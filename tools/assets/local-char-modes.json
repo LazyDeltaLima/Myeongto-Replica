@@ -13022,7 +13022,14 @@
     "target": [
      "akkord_attack_hit_01"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "ready": {
+     "fx": [
+      "akkord_skill_01_buff_01",
+      "akkord_skill_01_buff_02"
+     ],
+     "stop": 0
+    }
    },
    {
     "cast": [],
@@ -13854,7 +13861,13 @@
      "judge_skill_01_hit_01",
      "judge_skill_01_hit_02"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "ready": {
+     "fx": [
+      "judge_skill_01_buff_01"
+     ],
+     "stop": 1
+    }
    },
    {
     "cast": [],
@@ -14824,6 +14837,12 @@
        "vvana_skill_01_L_hit_02"
       ]
      ]
+    },
+    "ready": {
+     "fx": [
+      "vvana_skill_01_L_buff"
+     ],
+     "stop": 1
     }
    },
    {
@@ -15444,6 +15463,13 @@
        "ascln_skill_01_hit_02"
       ]
      ]
+    },
+    "ready": {
+     "fx": [
+      "ascln_skill_01_buff_01",
+      "ascln_skill_01_buff_02"
+     ],
+     "stop": 0
     }
    },
    {
@@ -16654,7 +16680,13 @@
     "target": [
      "rosesa_attack_hit_01"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "ready": {
+     "fx": [
+      "rosesa_skill_01_start_01"
+     ],
+     "stop": 0
+    }
    },
    {
     "cast": [],
@@ -18808,7 +18840,14 @@
     ],
     "shotHit": [
      "ju_skill_01_hit"
-    ]
+    ],
+    "ready": {
+     "fx": [
+      "totter_skill_01_weapon_01",
+      "totter_skill_01_buff_01"
+     ],
+     "stop": 1
+    }
    },
    {
     "cast": [],
@@ -20885,7 +20924,13 @@
     "target": [
      "aroma_skill_01_hit_01"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "ready": {
+     "fx": [
+      "aroma_skill_01_buff_01"
+     ],
+     "stop": 1
+    }
    },
    {
     "cast": [],

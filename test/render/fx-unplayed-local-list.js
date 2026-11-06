@@ -7,7 +7,6 @@
 // list both ways, so a new operator's unplayed rows have to be looked at. 'key|prefab' → status.
 
 export const UNPLAYED_LOCAL = Object.freeze({
-  "projectile_chr_taraxa_s2_2|taraxa_skill_02_trail_02": "todo: 风絮 S2's splash shots fly from her main target (a plan's flight starts at its operator): the heal lands after their flight, its hit effect plays, the trail is not drawn",
   "skchr_aglna2_3/Toggle/BlockToggle|aglna2_skill_03_range_line_01": "todo: S3 BlockToggle's edge line (_edgeLineRendererEffectKey)",
   "token_10026_bgsnow_subbow/Modes/Default[D]/Body/Attack|token_bgsnow_subbow_attack_start_01_down": "todo: 打字机's attack effects by facing and skill (a summon's attack bindings: modes.json holds none)",
   "token_10026_bgsnow_subbow/Modes/Default/Body/Attack|token_bgsnow_subbow_attack_start_01_up": "todo: 打字机's attack effects by facing and skill (a summon's attack bindings: modes.json holds none)",

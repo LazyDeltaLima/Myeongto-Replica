@@ -62,7 +62,7 @@ import { syncThreeCamera, OFFICIAL } from './projection.js';
 import { fxBundleOf, effectsFor } from './fxmap.js';
 import { noteEffects, NOTE_FLIGHT } from './fxmap.js';
 import { attackMode, boundEffects, fortressEffects, KIT_CAST, modelessTrail } from './fxmap.js'; // local patch: the mode bindings (modes.json)
-import { activationEffects, VARIANT_MODES, variantModes } from './fxmap.js'; // local patch: a skill activation's effects (2026-11-03: a cast's mode by its variant)
+import { activationEffects, readySpecs, VARIANT_MODES, variantModes } from './fxmap.js'; // local patch: a skill activation's effects (2026-11-03: a cast's mode by its variant)
 import { foeEffects, castTiming, castPhase, CAST_EVENT } from './fxmap.js'; // 2026-10-10: enemy-held mode buffs, cast timings
 import { clipGroup, hitLoopEnd, deployEffect, deadEffect } from './fxmap.js'; // 2026-10-11: clip variants, looping hits, deploy / dead effects
 import { castEnd, commonEffects, skillEdge, skillHeld } from './fxmap.js'; // 2026-10-16: the always-on effects of the common abilities (2026-10-24: a skill's own held buffs, its start / end effects)
@@ -3700,6 +3700,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
 
   const isOp = (v) => v && v.info && v.info.side !== 'enemy';
   const skillIdx = (v) => (Number.isInteger(v?.info?.skillIndex) ? v.info.skillIndex : 0);
+  const readyMemo = new WeakMap();   // modes.json → `charId:skill` → readySpecs
   // local patch: the attack-mode bindings (modes.json). bound(v, n, role) = the extracted prefabs of mode n's role;
   // skillMode(v) = the mode of its equipped skill (> 0) or -1; modeNow(v) = the mode its attacks use now (the running skill's,
   // Default 0) — null when the operator is not listed, -1 for a running skill that switches no mode (the name mapping)
@@ -5474,6 +5475,17 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     plays() { return plays; },
     /** Whether status effects can play at all (index loaded, not 'low', no WebP failure): off, units draw their status icons (fxstatus.js). */
     statusLayer() { return !!(index && !failed && q() !== 'low'); },
+    /** 2026-11-06: the ReadySkillEffect of `v`'s skill for fxstatus.js (fxmap.js readySpecs), or null. Asked per unit per frame: kept by operator and skill. */
+    readyFx(v) {
+      const id = v?.info?.spine || v?.info?.defId;
+      if (!id || !modes || !index?.bundles) return null;
+      let by = readyMemo.get(modes);
+      if (!by) readyMemo.set(modes, (by = new Map()));
+      const i = skillIdx(v), at = `${id}:${i}`;
+      let r = by.get(at);
+      if (r === undefined) by.set(at, (r = readySpecs(modes[id]?.skills?.[i]?.ready, fxBundleOf(id), index.bundles)));
+      return r;
+    },
     /**
      * 2026-10-21 (docs/rules/fx.md 「적 이펙트 바인딩」 「적 상태의 버프 이펙트」): an enemy's own buff effects for
      * render/fxstatus.js — the client draws a status by its buff's effect (Entity.AddBuffEffect), and an enemy's buffs are

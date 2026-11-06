@@ -652,6 +652,10 @@ def skill_effects(tree, projectiles=None):
         # demkni_skill_03_self, 深靛 S2 indigo_skill_02_buff_04, which the `_buff` / `_range` name rule left out
         if isinstance(d.get('_effects'), list) and ('_buffs' in d or '_passiveBuffs' in d):
             add(e['buff'], [x for x in d['_effects'] if isinstance(x, str) and x])
+        # 2026-11-06: ReadySkillEffect, on the operator while the skill can be used (render/fxstatus.js readyHolds); `stop`: `_stopBeforeCast`,
+        # it ends as the skill starts, else as the skill ends
+        if '_stopBeforeCast' in d and isinstance(d.get('_effects'), list) and not end:
+            e['ready'] = {'fx': [x for x in d['_effects'] if isinstance(x, str) and x], 'stop': 1 if d['_stopBeforeCast'] else 0}
         add(e['targetBuff'], own_buff_effects(d, '_activeBuffs'))
         if projectiles and isinstance(d.get('_projectileKey'), str) and d['_projectileKey']:
             p = projectiles.effects(d['_projectileKey'])

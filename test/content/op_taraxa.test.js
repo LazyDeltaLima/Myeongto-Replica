@@ -103,10 +103,17 @@ test('S2 扶风起: ATK +; air block mode first; a second heal only when that ta
     air.s.maxHp = air.base.maxHp = 1e9; air.hp = 1e9;
     y.hp = 1e8;
     h.step();
+    const fx = h.battle.fx, splash = [];
+    h.battle.fx = function spy(k, o) { if (k === 'taraxaSplash') splash.push(o); return fx.call(this, k, o); };
     let n = healsBy(h, u).length;
     h.runUntil(() => healsBy(h, u).length > n, 6);
     h.run(0.8);
+    h.battle.fx = fx;
     const g = healsBy(h, u).slice(n);
+    // the flight the render draws (kitofficial.js taraxaSplash): from the unit her heal reached, to the units the splash heals
+    assert.ok(splash.length >= 1, `${id}: the splash announced`);
+    assert.equal(splash[0].from, y.id, `${id}: the flight starts at her target`);
+    assert.deepEqual([...splash[0].tgt].sort(), g.slice(1, 1 + splash[0].tgt.length).map((c) => c.target.id).sort(), `${id}: to the units it heals`);
     assert.equal(g[0].target, y, `${id}: the lowest ratio`);
     near(g[0].amount ?? u.s.atk * bb['attack@heal_scale'], u.s.atk * bb['attack@heal_scale'], `${id}: main heal`);
     assert.ok(g.length <= 1 + bb['attack@splash_num'], `${id}: no second heal on a grounded target`);

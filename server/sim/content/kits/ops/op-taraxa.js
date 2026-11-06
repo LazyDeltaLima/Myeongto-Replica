@@ -92,6 +92,7 @@ export default {
             if (!target || !(splashN > 0) || !(splashScale > 0)) return;
             const keys = new Set(absoluteRangeKeys(X4, target.tileR, target.tileC, 'RIGHT', 0));
             const near = battle.injuredAlliesInKeys(keys, unit).filter((a) => a !== target).slice(0, splashN);
+            if (near.length) battle.fx('taraxaSplash', { x: target.x, y: target.y, id: unit.id, from: target.id, tgt: near.map((a) => a.id) });
             for (const a of near) battle.after(hypot(a.x - target.x, a.y - target.y) / SPLASH_SPEED, () => healOf(battle, unit, a, splashScale, 'projectile_chr_taraxa_s2_2'), { owner: unit });
           },
         },

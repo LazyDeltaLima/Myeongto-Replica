@@ -1245,7 +1245,7 @@
 - 재능 墨守: `ju_t_1`이 모든 피해를 치명 불가로 하고(`fatal`), HP ≤ 1이면 `cripple`(重伤): 이동 속도 ×(1 + `move_speed`), 禁疗, 저지 불가, 회복 0, `interval`초 뒤 무출처 사망(消失 중에는 아니고 돌아오는 즉시), 처치자 SP +`sp`. 그는 重伤 적을 공격하지 않는다. [추정·서버: 보스 공유 체력 대상에는 重伤을 걸지 않음 — 공식은 보스 피해를 서버로 보내 처리]
 - S1 `skchr_ju_1`(良弓难张, AUTO, 충전 2): 공식 클라에서 확인: `ReplacementSkill`, 발동 조건은 자기 선택기(HP 비율 ≤ 0.5, cripple 제외)이고 SP를 그 순간 쓴다. `_cancelIfSearchTargetFailed`가 꺼져 있어 그 선택기가 공격 선택기를 대신한다: 조건에 맞는 적이 없어지면 공격하지 않고 기다린다. 키트는 `trigger: 'NEVER'` + 틱 시전. 선택기 `_maxNum` 2라 두 명까지 친다. [추정·화면: 문구·PRTS에 둘째 대상이 없음, 공식 화면 확인 필요]
 - S2 `skchr_ju_2`(良翼难乘): 공격력 +N%, `attack@max_target_s2` 명. 추가 피해(`ju_s_2*`): 범위 안 적마다 0.2초 간격(들어온 때부터) 검사 → 스킬 중·HP 비율 < `hp_ratio`·표지(`ju_s_2[done]`, 모든 쥐 공용, 사라지지 않음) 없음 → 표지 + 0.6초 뒤 대기열 → 쥐마다 0.3초에 하나 시작(`ju_s_2[source]`), 시작 0.3초 뒤 착탄. 스킬이 끝나도 진행하고, 쥐가 떠나면 대기열은 없어진다. 착탄 때 대상이 선택 불가면 없음. 공격력은 착탄 때 값: 공식 클라에서 확인, `AdvancedApplyDamage`의 `_cachedAtkKey`는 `_forceUseProjectileCachedAtk`·`_getCachedAtkFromBlackboard`가 켜질 때만 읽히고 이 노드에서는 꺼져 있다. [추정·엔진: 대기 순서는 먼저 온 순 — 공식은 버프 갱신 순서]
-- 이펙트: 시작 때 `ju_skill_02_hit_01`·`_04`를 번갈아(`ju_s_2[host]` `isFront`, 키트 사건 `juExtra`), 착탄 때 `_hit_02`(moment `ju_s_2[damage]`). 조건 뒤의 프리팹이 둘이라 손 계획. 重伤은 `saga_buff_01_start`만 뽑아 쓴다(키에 밑줄이 없어 `KEY_FX` 한 줄).
+- 이펙트: S1 `ReadySkillEffect`의 `totter_skill_01_weapon_01`·`_buff_01`(충전이 있는 동안, `fx.md` 「스킬 준비 이펙트」), `ju_skill_02_start_02`·`_trail_01`은 EN·CN 클라의 어느 프리팹·템플릿도 안 가리켜 그리지 않는다. S2는 시작 때 `ju_skill_02_hit_01`·`_04`를 번갈아(`ju_s_2[host]` `isFront`, 키트 사건 `juExtra`), 착탄 때 `_hit_02`(moment `ju_s_2[damage]`). 조건 뒤의 프리팹이 둘이라 손 계획. 重伤은 `saga_buff_01_start`만 뽑아 쓴다(키에 밑줄이 없어 `KEY_FX` 한 줄).
 
 ### 타락사쿰 `char_4222_taraxa` (T3, 워치맨)
 - 모드: `S1_FlyStart`·`S1_FlyLoop`·`S1_FlyEnd`·`S2_…`. 공격하는 모드는 `Loop`: `skillModeIndex`가 `S<k>…Loop` 변형을 다른 변형보다 앞에 둔다(이 이름의 모드는 지금 그녀뿐). `attackAnim.skills`·`shot.skills`·소리 모드가 여기서 나온다.
@@ -1253,7 +1253,7 @@
 - 재능 定风絮(`taraxa_t[aura]`): 현재 범위 안 아군(자신 포함) 가운데 차단 모드가 공중인 유닛에게 庇护(공용 `protect`, 같은 효과는 최고값)와 저지 +1(`taraxa_t[block]`). 매 틱 다시 판정(공식은 차단 모드 변경 때 즉시). 실제 비행 유닛은 아니다(PRTS).
 - S1 `skchr_taraxa_1`(何处着): 공격 간격 × `attack@base_attack_time`(FINAL_SCALER), 투사체 없는 `Heal` `attack@heal_scale` × 공격력, 대상은 다친 유닛 무작위(`_postFilter` HP_NOT_FULL_RANDOM).
 - S2 `skchr_taraxa_2`(扶风起): 공격력 +N%. 주 대상: 공식 클라에서 확인, `_Filter_HpRatioNotFullAscFlyFirst`가 `Character.blockMode`를 읽어 공중 차단 먼저, 그다음 HP 비율. 둘째 치료: `taraxa_s2[second_heal]`의 `CheckBlockMode TARGET FLY` — **주 대상이 공중 차단일 때만** 나가고, 대상은 나머지 다친 유닛 중 HP 비율 최저(`SecondSelector`, 차단 모드를 보지 않음). PRTS 비고 「额外治疗条件」이 이것이다. 주 치료가 닿으면 그 대상 3×3의 다른 다친 유닛 최대 `attack@splash_num` 명에게 `attack@heal_scale_2`(`projectile_chr_taraxa_s2_2`, 속도 5). 둘째 치료에는 퍼짐이 없다(`_activeBuffs`는 공격 능력의 것).
-- 높이: `LIFTOFF_HEIGHT` 0.4(`attack@fly_height`). 시작·끝 효과는 키트 사건 `taraxaFly`, 둘째 치료는 `taraxaSecond`. 이륙 소리는 FlyStart 모드 능력의 시작 뱅크(키트 `kitHit`), 착륙 소리는 FlyEnd의 뱅크(`ends`). 퍼짐 투사체의 궤적 `taraxa_skill_02_trail_02`는 그리지 않는다(`fx-unplayed-local-list.js` todo: 계획의 비행은 오퍼레이터에서 출발).
+- 높이: `LIFTOFF_HEIGHT` 0.4(`attack@fly_height`). 시작·끝 효과는 키트 사건 `taraxaFly`, 둘째 치료는 `taraxaSecond`, 퍼짐은 `taraxaSplash`(주 치료 대상에서 출발해 궤적 `taraxa_skill_02_trail_02`, 닿으면 `taraxa_skill_02_hit_01`). 이륙 소리는 FlyStart 모드 능력의 시작 뱅크(키트 `kitHit`), 착륙 소리는 FlyEnd의 뱅크(`ends`).
 
 ### 우요우 `char_455_nothin` (T3, 상인)
 - 특성: 3초마다 DP −3, 모듈 MER-X −2(직업 `merchant`, 특성 bb). 못 내면 퇴각.
@@ -1266,6 +1266,7 @@
 
 ### 레토 `char_194_leto` (T1, 로드)
 - 특성: 프로필 `lord`(근접 100%, 원거리 `atk_scale`). 모듈 LOR-Y(재능 bb `cnt`·`attack_speed`, `leto_e_002_tr`): 0.1초마다 초기 범위 3-12의 칸으로 적 수를 세어 `cnt`명 이상이면 공격 속도 +. 칸 판정이고 선택 가능 여부를 보지 않는다(공식 클라에서 확인, `CheckHasEnemyInRange` `_useAttackRange` 꺼짐; PRTS 비고).
+- 이펙트: `leto_skill_01_buff_01`(S1은 공용 스킬 `skcom_quickattack[3]`)·`leto_skill_02_start_01_B`는 EN·CN 클라의 어느 프리팹·템플릿도 안 가리켜 그리지 않는다.
 - 재능(`leto_t_1[attack_speed]`): 스킬이 켜져 있는 동안(`leto_skill_judge`의 스킬 시작·끝) 필드 전체의 소속 태그 `student`(우르수스 학생 자치단) 아군과 자신에게 공격 속도 +N. 스킬 중 배치된 아군도 받고(PRTS), 그가 떠나면 끝난다(`_removeBuffWhenAbilityDetached`). 판정은 맹약이 아니라 소속 태그다(`sim.md` 「진영 판정은 소속 태그」).
 - S1 `skcom_quickattack[3]`: 공격력·공격 속도. S2 `skchr_leto_2`: 공격력 +N%, 대상 `attack@max_target`명, 모드 S2에는 `UpdateAtkScaleByTraitData`가 없어 원거리도 100%.
 - S2 시작에 다른 학생의 스킬을 켠다: 공식 클라에서 확인, `leto_s_2[filter_tag]`가 `TriggerSkill`(`_checkBeforeTrigger` 꺼짐) → `Character.RemoteTrigSkill` → `IsTriggerable`. 이 모드의 자동 조작 조건을 거치지 않는다. 토스카 S2의 같은 노드처럼 수동 스킬만(PRTS 「수동 스킬이라는 성질은 바꾸지 않음」). 침묵·충전 중·스킬 진행 중인 아군은 켜지 않는다.

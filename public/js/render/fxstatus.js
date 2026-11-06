@@ -538,11 +538,26 @@ const byName = (out, spec) => {
 };
 
 /**
+ * 2026-11-06: whether a skill's ReadySkillEffect shows on `v` now (official client: OnTick creates its effects once the skill IsAvailable —
+ * SP enough, the owner in no abnormal state —, OnSkillStart ends them when `_stopBeforeCast`, OnSkillEnd always). Latched in `v._fxReady`: a
+ * stun starting later does not end it, as nothing in the client looks again once they are created. A second stored charge shows on through the
+ * skill: the client ends and recreates it the next tick.
+ */
+const NO_SKILL = UF.STUNNED | UF.FROZEN | UF.SLEEP;
+export function readyHolds(v, stop, f = v.flags | 0) {
+  const active = !!(f & UF.SKILL);
+  const avail = v.charge > 0 || (!active && v.spMax > 0 && v.sp / v.spMax >= 0.999);
+  if (!avail && (stop || !active)) return (v._fxReady = false);
+  if (avail && !v._fxReady && !(f & NO_SKILL)) v._fxReady = true;
+  return !!v._fxReady;
+}
+
+/**
  * The effects `v` should show now: effect key → spec. STATUS_FX keys for the catalogue statuses (`stealth` already
  * resolved to the side's prefab key), `bundle/prefab` for the buff effects (SOURCE_FX / KEY_FX / LAYER_FX / STACK_FX).
  * `v.statusFrom` (UnitView.onStatus): status key → statusSource(). `plays`: the loaded plays.json (`keyed` specs).
  */
-export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null) {
+export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyOf = null) {
   out.clear();
   playsNow = plays;
   const f = v.flags | 0;
@@ -615,6 +630,8 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null) {
       if (s && STATUS_FX[s]) put(out, s, typeof STATUS_FX[s][1] === 'string' ? STATUS_FX[s] : specsOf(STATUS_FX[s], plays)[0]);
     }
   }
+  const ready = readyOf && !v.isEnemy ? readyOf(v) : null;
+  if (ready && readyHolds(v, ready.stop, f)) for (const [k, spec] of ready.specs) put(out, k, spec);
   return out;
 }
 
@@ -631,12 +648,13 @@ export function syncStatusFx(views, fxGame, battle) {
   const icons = !layerOn(fxGame);
   const ebuff = typeof fxGame.enemyBuffFx === 'function' ? fxGame.enemyBuffFx : null;
   const plays = typeof fxGame.plays === 'function' ? fxGame.plays() : null;
+  const readyOf = typeof fxGame.readyFx === 'function' ? fxGame.readyFx : null;
   for (const v of views.values()) {
     if (!v || typeof v.flags !== 'number') continue;
     v._statusIcons = icons;
     const on = v._fxStatusOn;
     const live = battle && v.alive && !v.prep && !v.remove;
-    const want = live ? wantedStatusFx(v, WANT, ebuff, plays) : (WANT.clear(), WANT);
+    const want = live ? wantedStatusFx(v, WANT, ebuff, plays, readyOf) : (WANT.clear(), WANT);
     for (const [k, spec] of want) {
       if (on && on.has(k)) continue;
       const [bundle, name, frac, hold] = spec;
