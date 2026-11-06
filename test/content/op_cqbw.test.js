@@ -241,7 +241,6 @@ test('S3 D12 (MANUAL, data DEFAULT, 42 / 39 SP from 14 / 17): bombs stuck to the
     const fly = h.spawn('enemy_fly', { pos: [11, 8] });   // 1e9 HP: the most of all
     const side = h.spawn('enemy_dummy', { pos: [10, 9.15] });   // outside her range, 1.15 from e4
     u.skill.gainSp(999);
-    const n0 = from(h, u).length;
     // (a swing already past its start strikes unless the cast cuts it: the 'state' cast does)
     assert.ok(h.runUntil(() => u.skill.activations === 1, 4), `T${tier}: cast`);
     const atk = u.s.atk;
