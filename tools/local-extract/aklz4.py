@@ -3,9 +3,12 @@
 # Copyright (c) 2022, Harry Huang (isHarryh/Ark-Unpacker). Unlike the rest of this project (GPL-3.0-or-later), this
 # file is distributed under the BSD 3-Clause License of Ark-Unpacker: tools/local-extract/LICENSE-Ark-Unpacker.txt
 # (UnityPy, which it plugs into, is MIT; see THIRD-PARTY-NOTICES.md).
-import lz4.block
-from UnityPy.helpers import CompressionHelper
-from UnityPy.enums.BundleFile import CompressionFlags
+try:
+    import lz4.block
+    from UnityPy.helpers import CompressionHelper
+    from UnityPy.enums.BundleFile import CompressionFlags
+except ImportError as err:   # SystemExit: a tool's per-item `except Exception` must not go on and report a run that read nothing
+    raise SystemExit(f'{err}: run the extraction tools with .venv-extract/bin/python (tools/local-extract/requirements.txt)')
 
 def _xlen(d, p, m):
     l = 0

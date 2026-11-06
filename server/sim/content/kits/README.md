@@ -218,7 +218,8 @@ scenarios; no other family moves), and commit it with the kit (`test/golden/READ
 skill HUD, the effect bindings, clip keys, card art — only on a machine with the client, docs/ASSETS.md): once the operator
 is in the data, `.venv-extract/bin/python tools/local-extract/add_operator.py --id <charId>` runs every extraction step for
 that operator alone (the EN client first, the CN one for what it lacks), names any other operator's row that moved, and
-prints what is left by hand (summon effects and models, the rebuilds).
+prints what is left by hand (summon effects and models). Once the kit is written and listed, the same tool with `--finish` runs every
+rebuild that reads the kit, in the order they depend on each other, and says what arrived.
 
 What a kit names needs no render row (`docs/rules/fx.md` 「클라 키로 재생」): a `moment` of the client key plays that key's one
 effect on the unit hit, and a buff shown to the renderer whose status key is the client key (`:<id>` aside) draws what that
@@ -234,8 +235,9 @@ its tier gives a piece its status, the operator tables its numbers; a piece carr
 has). Its kit is written as a 自选 kit: `ops/op-<codename>.js`, the key its charId, every skill under `skills`, listed in
 `NEXT_KIT_FILES` of `index.js`, tested on both forms through `test/seasons-next.test.js`. It is not offered as a 自选 pick. Check
 the season locally with `SP_SEASONS=next`. The numbers there are [ASSUMED·CN] until the season's tables replace the roster.
-Once its file is listed, `node tools/fetch-assets.mjs` plans its model and sounds (`dataExtras`), and `--season next` rebuilt after that
-gives the piece its clips (`attackAnim`): tests on the swing times need that manifest. `test/helpers/nextSeason.js` fields such a piece.
+Once its file is listed, `.venv-extract/bin/python tools/local-extract/add_operator.py --finish --id <charId>` runs the rebuilds that read
+the kit, in order, and says what arrived: `fetch-assets` plans its model and sounds (`dataExtras`), `--season next` rebuilt after that gives
+the piece its clips (`attackAnim`), which tests on the swing times need. `test/helpers/nextSeason.js` fields such a piece.
 
 ## Testing a kit
 

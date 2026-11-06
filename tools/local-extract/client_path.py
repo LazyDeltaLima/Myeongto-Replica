@@ -21,6 +21,24 @@ ENV_KEY = 'SP_CLIENT'
 CN_KEY = 'SP_CLIENT_CN'
 
 
+def ensure_extract_env(argv=None):
+    """Run under the extraction environment: with lz4 and UnityPy missing, start over with <repo>/.venv-extract/bin/python, or stop and
+    say what is missing. Without this a driver run under another python gets through a dozen steps, each failing on its own."""
+    try:
+        import lz4.block  # noqa: F401
+        import UnityPy  # noqa: F401
+        return
+    except ImportError as err:
+        missing = err
+    venv = ROOT / '.venv-extract/bin/python'
+    if venv.exists() and os.environ.get('SP_EXTRACT_REEXEC') != '1':
+        print(f'[{missing}] → {venv.relative_to(ROOT)}', file=sys.stderr, flush=True)
+        os.environ['SP_EXTRACT_REEXEC'] = '1'
+        os.execv(str(venv), [str(venv), *(sys.argv if argv is None else argv)])
+    sys.exit(f'{missing}: the extraction tools need lz4 and UnityPy (python -m venv .venv-extract, then '
+             '.venv-extract/bin/pip install -r tools/local-extract/requirements.txt)')
+
+
 def _from_dotenv(path=ROOT / '.env', name=ENV_KEY):
     try:
         lines = path.read_text(encoding='utf-8').splitlines()

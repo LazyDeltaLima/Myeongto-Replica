@@ -1282,4 +1282,5 @@
 - [추정·화면: 지속 치료가 주 대상에게만 가는지. PRTS 문구는 「대상」과 「치료의 모든 대상」을 나눠 적지만, 프리팹은 두 버프를 같은 `_activeBuffs`에 두어 조건 없이 함께 건다 — 프리팹대로 구현] → `mix-Q`
 
 ### 표 전 기물의 만드는 차례
-`.cache/anim-keys.json`은 키트가 있는 `next` 기물만 읽는다. 키트를 `NEXT_KIT_FILES`에 넣은 뒤 `anim_keys.py`를 다시 돌리고, 그 뒤 `fetch-assets` → `build-data --season next`. 이 차례가 빠지면 클립 역할이 이름 규칙으로 남는다(바이슨·쥐·타락사쿰·우요우가 그랬고 이 묶음에서 바로잡음: 바이슨 S1은 공격 클립, 타락사쿰·우요우의 사망·대기 클립). 타락사쿰의 이착륙 클립은 `S<k>_FlyStart`·`S<k>_FlyEnd` 모드에서 온다(`tools/assets/anim-keys.mjs`, `<stem>Loop` 옆의 `<stem>Start`·`<stem>End`).
+`add_operator.py --id …`로 추출하고 키트를 쓴 뒤, `add_operator.py --finish --id …`가 키트를 읽는 재생성을 의존 순서대로 돌리고(`FINISH_ORDER`) 오퍼레이터마다 클립 키·소재 목록·공격 클립이 들어왔는지, 다른 오퍼레이터의 행이 움직였는지 알린다. 키트가 없거나 목록에 없으면 시작하지 않는다.
+`anim_keys.py`는 이제 기물 데이터의 오퍼레이터를 모두 읽는다(2026-11-06). 전에는 소재 목록에 있는 오퍼레이터만 읽어, 키트 등록 전에 돌리면 행이 빠지고 클립 역할이 이름 규칙으로 남았다(바이슨·쥐·타락사쿰·우요우가 그랬고 src ffe4bcd3b에서 바로잡음: 바이슨 S1은 공격 클립, 타락사쿰·우요우의 사망·대기 클립). 타락사쿰의 이착륙 클립은 `S<k>_FlyStart`·`S<k>_FlyEnd` 모드에서 온다(`tools/assets/anim-keys.mjs`, `<stem>Loop` 옆의 `<stem>Start`·`<stem>End`).

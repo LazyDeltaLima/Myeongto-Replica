@@ -3430,7 +3430,7 @@
     `keyedAll`처럼 조건이 성립한 것으로 본다. 이름 규칙으로 풀 수 없는 것(방향·중첩·적/아군 갈림)은 손 표에 둔다.
   - 상태 경로를 처음 쓴 키트(2026-11-06, 바이슨·우요우): `test/helpers/fxBindings.js unplayed`가 `b`가 붙은 키의 `held`·`when`·`moment`를 재생으로 친다. 밑줄 없는 키(`cripple`)는 `kitNamedKeys`가 읽지 않으니 `KEY_FX`에 적는다. 이름 규칙이 같은 프리팹을 시전자에게 켜면 `KIT_OWNED`에 넣는다(`bison_skill_02_buff`, `nothin_skill02_buff_*`).
 - 연결 보고(2026-11-05): `node tools/fx-wiring-report.mjs --id <charId>` — 오퍼레이터를 더한 뒤 남은 연결을 읽기만 해서 보여 준다. `unplayed` 아무도 안 트는 행과 목록의 상태(없으면 NEW),
-  `nameless` 행·표·모드·이름 규칙 어디에도 안 걸리는 프리팹, `overlap` 손 표나 키트가 이름을 쓴 키가 그리는 프리팹을 스킬 발동의 이름 규칙도 시전자에게 트는 경우. 키트가 버프로 입는 키(`worn`, 키트 코드에서 `moment`·`hitFx`·사건의 `k`·`buff`로 넘기지 않는 키)의 프리팹은 이름 규칙이 자동으로 뺀다(`fxstatus.js wornPrefabs`, 2026-11-06: 바이슨 S2 자기 버프가 스킬과 상태로 두 번 시작했음). 그 밖의 `KIT_OWNED`는 자동으로 만들지 않는다:
+  `nameless` 행·표·모드·이름 규칙 어디에도 안 걸리는 프리팹, `overlap` 손 표나 키트가 이름을 쓴 키가 그리는 프리팹을 스킬 발동의 이름 규칙도 시전자에게 트는 경우, `keyless`(`--id`일 때만, 2026-11-06) 버프 템플릿의 프리팹인데 어느 키트도 키를 안 쓰고 손 표도 안 그리는 경우: 틀어져도 이름 규칙으로 시전자에게 시전 때 나온다. 키트가 버프로 입는 키(`worn`, 키트 코드에서 `moment`·`hitFx`·사건의 `k`·`buff`로 넘기지 않는 키)의 프리팹은 이름 규칙이 자동으로 뺀다(`fxstatus.js wornPrefabs`, 2026-11-06: 바이슨 S2 자기 버프가 스킬과 상태로 두 번 시작했음). 그 밖의 `KIT_OWNED`는 자동으로 만들지 않는다:
   인용 키로 만들면 그 키의 다른 행 프리팹까지 꺼진다(가비알 디 인빈서블 S2 `gvial2_skill_2_buff_02`·페넌스 S2 `judge_skill_02_buff_01` 등 2026-11-05 대조). 그래서 겹침은 보고하고 사람이 판단한다.
   - 계획: 투사체 키 `tpl`에 `fly`가 있으면 비행 = 그 투사체의 `_mainEffect` 하나(둘 이상이면 재생 없음), `to`로 유닛에 날면 `_effectsWhenHit`가 `hit`,
     `_effectsWhenReached`는 착지점에 한 번(`after: 'fly'`); `fly`가 없으면 그것들을 `on`에 한 번.

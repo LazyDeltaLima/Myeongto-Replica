@@ -165,13 +165,53 @@ const NOT_A_MOMENT = /^(char_|skchr_|sktok_|token_|projectile_)/;
 const KITS = join(ROOT, 'server/sim/content/kits');
 
 /** Each kit file's code, comments stripped. */
+/**
+ * JavaScript source without its comments; strings, templates and regular expressions stay as they are. A plain pattern for block
+ * comments took a path like `Modes/*\/Body` inside a line comment for an opening and removed the code down to the next closing, with the
+ * keys named there: 우쿠시크's plays went missing and the wiring report said nothing to report.
+ */
+export function stripComments(src) {
+  let out = '', i = 0;
+  const n = src.length;
+  /** A `/` here opens a regular expression, not a division: after an operator, an opening or nothing. */
+  const opensRegex = () => { const p = out.trimEnd().at(-1); return p === undefined || '(,=:[!&|?{};\n'.includes(p); };
+  while (i < n) {
+    const c = src[i], d = src[i + 1];
+    if (c === '/' && d === '/') { while (i < n && src[i] !== '\n') i++; continue; }
+    if (c === '/' && d === '*') { const e = src.indexOf('*/', i + 2); i = e < 0 ? n : e + 2; continue; }
+    if (c === '/' && opensRegex()) {
+      let j = i + 1, inClass = false;
+      for (; j < n && src[j] !== '\n'; j++) {
+        if (src[j] === '\\') j++;
+        else if (src[j] === '[') inClass = true;
+        else if (src[j] === ']') inClass = false;
+        else if (src[j] === '/' && !inClass) break;
+      }
+      if (src[j] === '/') { out += src.slice(i, j + 1); i = j + 1; continue; }
+    }
+    if (c === "'" || c === '"' || c === '`') {
+      let j = i + 1;
+      for (; j < n; j++) {
+        if (src[j] === '\\') j++;
+        else if (src[j] === c || (src[j] === '\n' && c !== '`')) break;
+      }
+      out += src.slice(i, j + 1);
+      i = j + 1;
+      continue;
+    }
+    out += c;
+    i++;
+  }
+  return out;
+}
+
 function kitCode(dir) {
   const out = [];
   const walk = (d) => {
     for (const f of readdirSync(d)) {
       const p = join(d, f);
       if (statSync(p).isDirectory()) walk(p);
-      else if (f.endsWith('.js')) out.push(readFileSync(p, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\s\/\/.*$/gm, ''));
+      else if (f.endsWith('.js')) out.push(stripComments(readFileSync(p, 'utf8')));
     }
   };
   walk(dir);
@@ -197,8 +237,15 @@ export function kitMomentKeys(rows, dir = KITS) {
   const out = new Set();
   const add = (k) => { if (known.has(k)) out.add(k); };
   for (const code of kitCode(dir)) {
-    for (const m of code.matchAll(/\bmoment\s*(?:\|\|=|[:=])\s*([^;,}\n]*)/g)) for (const l of m[1].matchAll(/'([^'\s]+)'/g)) add(l[1]);
-    for (const m of code.matchAll(/(?:\bhitFx\([^,]+,\s*|\bk:\s*|\bbuff:\s*)'([^'\s]+)'/g)) add(m[1]);
+    // a key handed over by name: the file's `NAME = '…'` (a key read wrong here makes its prefab `worn`, off the skill's name rule)
+    const consts = new Map([...code.matchAll(/\b([A-Za-z_$][\w$]*)\s*=\s*'([^'\s]+)'/g)].map((m) => [m[1], m[2]]));
+    for (const m of code.matchAll(/\bmoment\s*(?:\|\|=|[:=])\s*([^;,}\n]*)/g)) {
+      for (const l of m[1].matchAll(/'([^'\s]+)'/g)) add(l[1]);
+      for (const l of m[1].replace(/'[^']*'/g, ' ').matchAll(/[A-Za-z_$][\w$]*/g)) if (consts.has(l[0])) add(consts.get(l[0]));
+    }
+    for (const m of code.matchAll(/(?:\bhitFx\([^,]+,\s*|\bk:\s*|\bbuff:\s*)(?:'([^'\s]+)'|([A-Za-z_$][\w$]*)\b)/g)) {
+      if (m[1]) add(m[1]); else if (consts.has(m[2])) add(consts.get(m[2]));
+    }
   }
   return [...out].sort();
 }

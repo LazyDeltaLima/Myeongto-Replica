@@ -9,6 +9,10 @@
 //   overlap   a prefab a hand table or a key a kit names draws that the skill's activation also plays by its name, with the rows
 //             that create it: check whether the name rule draws it a second time on the caster (fxgame.js KIT_OWNED silences it; a
 //             buff the kit wears needs nothing, fxstatus.js wornPrefabs)
+//   keyless   a template row's prefab of this bundle whose key no kit names and no hand table draws: if the prefab plays at all it is by
+//             the skill's name rule, on the caster, at the cast, whoever the buff is really on (우쿠시크 S2's camouflage). A kit that means
+//             this effect names the key; one that does not has nothing to do. Shown with --id only: the older operators hold 166 such
+//             rows, most of them effects this mode's kits draw another way
 //
 // Usage: node tools/fx-wiring-report.mjs [--id <charId | bundle>]… [--json]   (no --id: every operator with something to report)
 
@@ -50,7 +54,7 @@ export function wiringReport({ tables, modes, plays = null, status = {}, owned =
   for (const r of rows) if (typeof r.fx === 'string') (rowFx.get(r.fx) ?? rowFx.set(r.fx, []).get(r.fx)).push(r);
   const charOf = new Map(Object.keys(modes).map((c) => [c.replace(/^char_\d+_/, ''), c]));
   const out = {};
-  const entry = (b) => (out[b] ||= { char: charOf.get(b) ?? null, unplayed: [], nameless: [], overlap: [] });
+  const entry = (b) => (out[b] ||= { char: charOf.get(b) ?? null, unplayed: [], nameless: [], overlap: [], keyless: [] });
   for (const u of unplayed(tables) || []) {
     entry(u.bundle).unplayed.push({ key: u.key, fx: u.fx, reason: u.reason, status: status[`${u.key}|${u.fx}`] ?? (u.src === 'template' ? 'listed: fx-bindings.test.js UNPLAYED' : 'NEW') });
   }
@@ -60,6 +64,11 @@ export function wiringReport({ tables, modes, plays = null, status = {}, owned =
   for (const [key, k] of Object.entries(plays?.keys || {})) {
     if (!k.b) continue;
     for (const n of [...(k.held || []), ...(k.when || []).filter((w) => w.role === 'held').map((w) => w.n)]) (drawnBy.get(n) ?? drawnBy.set(n, []).get(n)).push(`named key ${key}`);
+  }
+  for (const r of tables.template || []) {
+    if (typeof r.fx !== 'string' || plays?.keys?.[r.key]?.b || drawnBy.has(r.fx)) continue;
+    const b = Object.keys(bundles).find((x) => bundles[x].includes(r.fx));
+    if (b) entry(b).keyless.push({ key: r.key, fx: r.fx, moment: r.moment });
   }
   for (const [b, prefabs] of Object.entries(bundles)) {
     const em = new Set(Array.isArray(emitted) ? emitted : emitted[b] || []);
@@ -89,15 +98,17 @@ if (isMain) {
   }
   const { names, patterns } = renderNames();
   const report = wiringReport({ tables: loadTables(), modes: readJson(join(LOCAL, 'modes.json')), plays: existsSync(join(LOCAL, 'plays.json')) ? readJson(join(LOCAL, 'plays.json')) : null, status: UNPLAYED_LOCAL, owned: kitOwned(), hand: handEntries(), names, patterns });
-  const wanted = ids.length ? ids : Object.keys(report).sort();
+  const quiet = (r) => !r.unplayed.length && !r.nameless.length && !r.overlap.length;
+  const wanted = ids.length ? ids : Object.keys(report).filter((b) => !quiet(report[b])).sort();
   if (process.argv.includes('--json')) console.log(JSON.stringify(Object.fromEntries(wanted.map((b) => [b, report[b] ?? null])), null, 1));
   else {
     for (const b of wanted) {
       const r = report[b];
       if (!r) { console.log(`${b}: nothing to report`); continue; }
-      console.log(`${b}${r.char ? ` (${r.char})` : ''}: unplayed ${r.unplayed.length}, nameless ${r.nameless.length}, overlap ${r.overlap.length}`);
+      console.log(`${b}${r.char ? ` (${r.char})` : ''}: unplayed ${r.unplayed.length}, nameless ${r.nameless.length}, overlap ${r.overlap.length}${ids.length ? `, keyless ${r.keyless.length}` : ''}`);
       for (const u of r.unplayed) console.log(`  unplayed ${u.fx} ← ${u.key} [${u.reason}] ${u.status}`);
       for (const n of r.nameless) console.log(`  nameless ${n}`);
+      if (ids.length) for (const k of r.keyless) console.log(`  keyless  ${k.fx} ← ${k.key} ${k.moment}`);
       for (const o of r.overlap) console.log(`  overlap  S${o.skill} ${o.fx} ← ${o.tables.join(', ')}${o.rows.length ? ` | ${o.rows.join('; ')}` : ''}`);
     }
   }

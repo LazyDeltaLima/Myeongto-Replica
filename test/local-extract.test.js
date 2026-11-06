@@ -467,3 +467,87 @@ print(json.dumps([c.kept_all(old, {'char_a'}), sorted(c.skills_of(['char_a', 'ch
     }
   });
 });
+
+describe('add_operator.py and what it drives (no client needed)', { skip: !PY && 'no python3' }, () => {
+  /** Run python with the tools on the path; returns the parsed JSON it prints. */
+  const run = (code, env = {}) => {
+    const r = spawnSync(PY, ['-c', `import sys, json\nsys.path.insert(0, ${JSON.stringify(TOOL)})\n${code}`], { encoding: 'utf8', env: { ...ENV, ...env } });
+    assert.equal(r.status, 0, r.stderr);
+    return JSON.parse(r.stdout);
+  };
+  const seasonOnly = 'char_129_bluep';   // a piece of the hidden season with no kit yet: not in the manifest
+
+  test('anim_keys.py reads every chess operator, in the manifest or not: no order to keep against the kit', () => {
+    const ids = run('import anim_keys as k\nprint(json.dumps(k.target_ids()))');
+    assert.ok(ids.includes(seasonOnly), 'a season piece');
+    const assets = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8'));
+    assert.ok(!assets.chars[seasonOnly], 'the case this guards: the manifest does not have it yet');
+    for (const c of Object.keys(assets.chars)) assert.ok(ids.includes(c), c);
+    assert.deepEqual(ids, [...new Set(ids)].sort());
+  });
+
+  test('--finish keeps the order the rebuilds depend on', () => {
+    const { order, cmds } = run(`import add_operator as a
+c = a.finish_commands('py', ['--cn', 'CN'], ['char_x'], ['next'])
+print(json.dumps({'order': list(a.FINISH_ORDER), 'cmds': {k: [[str(x) for x in cmd] for cmd in v] for k, v in c.items()}}))`);
+    assert.deepEqual(Object.keys(cmds), order, 'a command for each step, in order');
+    const at = (s) => order.indexOf(s);
+    assert.ok(at('templates') < at('bindings'), 'fx_bindings reads the templates');
+    assert.ok(at('bindings') < at('plays'), 'the plays read the bindings');
+    assert.ok(at('keys') < at('assets'), 'fetch-assets overlays the clip keys');
+    assert.ok(at('assets') < at('data'), 'build-data takes the clips from the manifest');
+    assert.ok(at('data') < at('seasons'));
+    assert.ok(at('plays') < at('report') && at('assets') < at('report'));
+    assert.ok(cmds.seasons[0].join(' ').endsWith('--offline --season next'));
+    assert.ok(cmds.keys[0].join(' ').endsWith('--cn CN'));
+  });
+
+  test('--finish needs the kit written and listed, and says which', () => {
+    const r = run(`import add_operator as a
+print(json.dumps({'kitted': a.kit_problem('char_4224_turdus'), 'none': a.kit_problem('${seasonOnly}'),
+  'unlisted': a.kit_problem('char_4224_turdus', index_src=''), 'chess': a.kit_problem('char_1033_swire2')}))`);
+    assert.equal(r.kitted, null);
+    assert.match(r.none, /no kit file/);
+    assert.match(r.unlisted, /op-turdus\.js is not listed/);
+    assert.equal(r.chess, null, 'a chess kit file counts');
+  });
+
+  test('--finish tells what did not arrive', () => {
+    const r = run(`import add_operator as a
+good = a.arrival('char_1_x', {'chars': {'char_1_x': {'spine': {'front': 1}}}}, {'ops': {'char_1_x': {}}}, [{'charId': 'char_1_x', 'attackAnim': {'base': 1}}])
+bad = a.arrival('char_1_x', {'chars': {}}, {'ops': {}}, [{'charId': 'char_1_x', 'attackAnim': None}])
+print(json.dumps({'good': good, 'bad': bad}))`);
+    assert.deepEqual(r.good, []);
+    assert.equal(r.bad.length, 3);
+    for (const [i, w] of [[0, /anim-keys/], [1, /assets\.json/], [2, /attackAnim/]]) assert.match(r.bad[i], w);
+  });
+
+  test('another python: the driver starts over under the extraction environment, or stops and says so', () => {
+    const noLz4 = "sys.modules['lz4'] = None\nsys.modules['lz4.block'] = None\n";
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'venv-'));
+    mkdirSync(path.join(dir, '.venv-extract/bin'), { recursive: true });
+    writeFileSync(path.join(dir, '.venv-extract/bin/python'), '');
+    try {
+      const re = run(`${noLz4}import os, pathlib, client_path as c
+c.ROOT = pathlib.Path(${JSON.stringify(dir)})
+os.execv = lambda exe, argv: (print(json.dumps({'exe': exe, 'argv': argv})), sys.exit(0))
+c.ensure_extract_env(['tool.py', '--id', 'x'])`, { SP_EXTRACT_REEXEC: '' });
+      assert.equal(re.exe, path.join(dir, '.venv-extract/bin/python'));
+      assert.deepEqual(re.argv.slice(1), ['tool.py', '--id', 'x']);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+    // already started over (or no environment): a message, no loop
+    const stop = spawnSync(PY, ['-c', `import sys\nsys.path.insert(0, ${JSON.stringify(TOOL)})\n${noLz4}import client_path as c\nc.ensure_extract_env(['x'])`],
+      { encoding: 'utf8', env: { ...ENV, SP_EXTRACT_REEXEC: '1' } });
+    assert.notEqual(stop.status, 0);
+    assert.match(stop.stderr, /requirements\.txt/);
+    // a tool run directly: aklz4 stops it, past the tools' per-item `except Exception`
+    const direct = spawnSync(PY, ['-c', `import sys\nsys.path.insert(0, ${JSON.stringify(TOOL)})\n${noLz4}
+try:
+    import aklz4
+except Exception:
+    print('went on')`], { encoding: 'utf8', env: ENV });
+    assert.notEqual(direct.status, 0);
+    assert.ok(!direct.stdout.includes('went on'));
+    assert.match(direct.stderr, /\.venv-extract/);
+  });
+});

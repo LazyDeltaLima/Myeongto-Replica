@@ -2,12 +2,12 @@
 // a 'hit' moment (kitofficial.js momentPlan), a status named after its key (fxstatus.js namedSpec), both from
 // tools/build-fx-plays.mjs (`moment`, `b`).
 
-import { test } from 'node:test';
+import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { buildPlays, kitMomentKeys, kitNamedKeys, momentOf, bindingRows, PLAYS_FILE } from '../../tools/build-fx-plays.mjs';
+import { buildPlays, kitMomentKeys, kitNamedKeys, momentOf, bindingRows, stripComments, PLAYS_FILE } from '../../tools/build-fx-plays.mjs';
 import { KIT_OFFICIAL, kitOfficialPlan } from '../../public/js/render/fx/kitofficial.js';
 import { KEY_FX, syncStatusFx, wantedStatusFx, wornPrefabs } from '../../public/js/render/fxstatus.js';
 import { createFxLayer } from '../../public/js/render/fxgame.js';
@@ -204,4 +204,57 @@ test('the kits as they are: buffs worn, moments not', { skip: !existsSync(PLAYS_
   const { keys } = JSON.parse(readFileSync(PLAYS_FILE, 'utf8'));
   for (const k of ['bison_s_2[self]', 'bison_s_2[ally]', 'nothin_s_2[a]', 'nothin_s_2[b]', 'nothin_s_2[c]', 'nothin_t_1', 'nothin_t_1[eff]', 'oxi_s_2_stack']) assert.equal(keys[k]?.worn, true, k);
   for (const k of ['gvial2_s_1', 'bubble_t_1[atk_down]', 'excu2_s_3[mark]', 'indigo_s_2[damage]', 'oxi_t_1_arcane_stack', 'vulpis_t_1[vfx]']) assert.equal(keys[k]?.worn, undefined, k);
+});
+
+describe('the kit source scanner (build-fx-plays.mjs)', () => {
+  const kitDir = (src) => {
+    const d = mkdtempSync(path.join(tmpdir(), 'kit-scan-'));
+    writeFileSync(path.join(d, 'op-x.js'), src);
+    return d;
+  };
+  const rows = ['x_s2[held]', 'x_s2[hit]', 'x_s2[buff]', 'x_s2[lost]'].map((key) => row(key, 'x_fx', 'ON_BUFF_START', 'OWNER'));
+
+  test('stripComments: a path with a star in a line comment opens nothing; strings and regular expressions stay', () => {
+    assert.equal(stripComments("// Modes/*/Body\nconst A = 'a'; /** doc */ const B = 'b';\n").trim(), "const A = 'a';  const B = 'b';");
+    assert.equal(stripComments("const u = 'http://x'; // gone\n"), "const u = 'http://x'; \n");
+    assert.equal(stripComments('const q = "/* not one */";'), 'const q = "/* not one */";');
+    assert.equal(stripComments('const r = /\\/*x/.test(s); // gone'), 'const r = /\\/*x/.test(s); ');
+    assert.equal(stripComments('const d = a / b; // gone'), 'const d = a / b; ');
+    assert.equal(stripComments('const t = `a//b`;'), 'const t = `a//b`;');
+    assert.equal(stripComments('/* a */ x /* b */'), ' x ');
+  });
+
+  test('a kit whose header comment holds `/*` keeps the keys below it (우쿠시크: its plays went missing)', () => {
+    const d = kitDir("// charpack (Modes/*/Body/Talents/1)\nconst HELD = 'x_s2[held]';\n/** a doc comment closes the old pattern's match */\nconst LATER = 'x_s2[lost]';\n");
+    try {
+      assert.deepEqual(kitNamedKeys(rows, d), ['x_s2[held]', 'x_s2[lost]']);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+
+  test('a moment handed over by a constant counts as a moment, not as a buff it wears', () => {
+    const d = kitDir("const HIT = 'x_s2[hit]', OTHER = 'x_s2[buff]';\nb.heal(u, x, 1, { moment: HIT });\nb.fx('kitHit', { k: OTHER });\nb.addBuff(u, { key: 'x_s2[held]' });\n");
+    try {
+      assert.deepEqual(kitMomentKeys(rows, d), ['x_s2[buff]', 'x_s2[hit]']);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+});
+
+describe('fx-wiring-report keyless', () => {
+  const tables = {
+    template: [{ key: 'x_s2[camo]', src: 'template', moment: 'ON_BUFF_TRIGGER', kind: 'buff', fx: 'x_skill_02_buff_01', target: 'BUFF_OWNER' }],
+    local: [], index: { bundles: { x: ['x_skill_02_buff_01'] }, emitted: {} },
+  };
+
+  test('a template row\'s prefab whose key no kit names is told, though a name rule reaches the prefab', () => {
+    const r = wiringReport({ tables, modes: {}, plays: { keys: {} }, patterns: [/_skill_/] });
+    assert.deepEqual(r.x.keyless, [{ key: 'x_s2[camo]', fx: 'x_skill_02_buff_01', moment: 'ON_BUFF_TRIGGER' }]);
+    assert.deepEqual(r.x.unplayed, []);
+  });
+
+  test('named by a kit, or drawn by a hand table: nothing to tell', () => {
+    const named = wiringReport({ tables, modes: {}, plays: { keys: { 'x_s2[camo]': { b: 'x', held: [], once: [], end: [] } } }, patterns: [/_skill_/] });
+    assert.equal(named.x, undefined);
+    const hand = wiringReport({ tables, modes: {}, plays: { keys: {} }, patterns: [/_skill_/], hand: [{ table: 'T', entry: 'e', plays: [{ n: 'x_skill_02_buff_01' }] }] });
+    assert.equal(hand.x, undefined);
+  });
 });

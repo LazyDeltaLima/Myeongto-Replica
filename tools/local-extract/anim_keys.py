@@ -38,7 +38,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from client_path import client_data  # noqa: E402
-from char_modes import load_tree, char_skill_prefabs, skills_tree, skill_switch_modes  # noqa: E402
+from char_modes import load_tree, char_skill_prefabs, skills_tree, skill_switch_modes, pool_char_ids  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / '.cache/anim-keys.json'
@@ -263,6 +263,13 @@ def skill_of(sid, comps):
     return e
 
 
+def target_ids():
+    """The operators to read: the manifest's and every chess / 선발 operator of the data. Not the manifest alone: a hidden season's
+    piece enters it only once its kit is listed and fetch-assets ran, so a run before that left its row out and its clips kept the
+    roles of the name rule, with nothing to say so."""
+    return sorted(set(json.loads((ROOT / 'data/assets.json').read_text(encoding='utf-8'))['chars']) | set(pool_char_ids()))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     ap.add_argument('--client', default=client_data())
@@ -270,7 +277,7 @@ def main():
     ap.add_argument('--out', default=str(OUT))
     a = ap.parse_args()
     games = [(a.client, False)] + ([(a.cn, True)] if a.cn else [])
-    ids = sorted(json.loads((ROOT / 'data/assets.json').read_text(encoding='utf-8'))['chars'])
+    ids = target_ids()
     prefabs = char_skill_prefabs()
     ops, missing = {}, []
     for cid in ids:
