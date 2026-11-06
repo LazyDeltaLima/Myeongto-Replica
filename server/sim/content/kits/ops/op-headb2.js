@@ -60,6 +60,7 @@
 //   group, `_additionalTimes` 4: SkillState.OnTick interrupts it, and BasicSkill.OnTick ends a skill whose ability stopped casting).
 
 import { num, talentBb, traitBb, skillRec, up, giveSp } from '../shared/tier1.js';
+import { hasPower } from '../shared/powers.js';
 import { COLS } from '../../../constants.js';
 import { sortEnemyTargets } from '../../../targeting.js';
 
@@ -77,9 +78,8 @@ const HIGHLAND_DELAY = 0.1, S3_SPREAD_STEP = 0.125;
 const FPS = 30, SKILL3_FRAMES = 277, HAMMER_FRAMES = Object.freeze([33, 84, 133, 182, 233]);
 /** PRTS 无可抵挡 备注: "每次锤击以正前方1.0距离位置为中心" / "主攻击拥有1.5的溅射半径". */
 const HAMMER_REACH = 1.0, HAMMER_SPLASH = 1.5;
-/** 【乌萨斯学生自治团】: character_table teamId `student` (古米, 凛冬, 烈夏, 苦艾, 真理, 早露, 怒潮凛冬; as op-poca.js). */
-const STUDENTS = new Set(['char_196_sunbr', 'char_115_headbr', 'char_194_leto', 'char_405_absin', 'char_195_glassb',
-  'char_197_poca', 'char_1051_headb2']);
+/** 【乌萨斯学生自治团】: the group tag `student` (character_table teamId; 古米, 凛冬, 烈夏, 苦艾, 真理, 早露, 怒潮凛冬). */
+const isStudent = (u) => hasPower(u, 'student');
 /** 万众巨潮: the renewal of the aura while a skill of hers runs. */
 const TIDE_IV = 0.25;
 const TIDE_KEY = 'talent:headb2:tide';
@@ -249,7 +249,7 @@ export default {
             if (!up(unit) || !inSkill()) return;
             for (const o of battle.alliesFor(unit)) {
               if (!isOp(o)) continue;
-              const k = STUDENTS.has(o.def?.charId) ? x : 1;
+              const k = isStudent(o) ? x : 1;
               const cur = o.findBuff(TIDE_KEY);
               if (cur && cur.source !== unit && (cur.data?.v ?? 0) > a * k && cur.timeLeft > 0.05) continue;
               battle.addBuff(o, { key: TIDE_KEY, duration: TIDE_IV + 0.1, mods: { atkPct: a * k, defPct: d * k }, source: unit, data: { v: a * k }, tags: ['aura'] });

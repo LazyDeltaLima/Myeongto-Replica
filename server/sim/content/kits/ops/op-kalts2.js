@@ -35,7 +35,7 @@
 //   FLY, from a ranged tile too). The 生命修复单元 is her model.
 // - T2 医者丰碑: every other friendly OPERATOR (no summon: professionMask 639; 孤立 ones too) that enters her attack range —
 //   her current one, S2's y-11 included — gets 1 护盾 layer (one damage instance blocked whole, no expiry, at most one from
-//   this talent) and 生命回复速度 +hp_recovery_per_sec (×rhodes_bonus for a 罗德岛 operator, nationId rhodes) for buff_duration
+//   this talent) and 生命回复速度 +hp_recovery_per_sec (×rhodes_bonus for a 罗德岛 operator: kalts2_t_2[hp_recover] CheckCharacterGroupTag rhodes, so the subPower counts) for buff_duration
 //   s (an hpRegen buff: HP_RECOVERY_PER_SEC, never a heal — kits/README.md item 11; 不可叠加: the strongest, a new entry refreshes
 //   it). An entry = not in her range on the tick before: her (re)deployment and her S3 landing (everyone in range), a unit
 //   deployed / redeployed / moved into it, the range growing; S3's flight touches more (below).
@@ -80,6 +80,7 @@
 //   her S3 gives one and its 70 s redeploy time has passed, on its own tile).
 
 import { num, talentBb, skillRec, batMod, up, tellDir } from '../shared/tier1.js';
+import { hasPower } from '../shared/powers.js';
 import { releaseSkillSummon } from '../../tokens.js';
 import { COLS } from '../../../constants.js';
 import { hypot } from '../../../detmath.js';
@@ -118,7 +119,7 @@ const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 const skillOn = (unit, id) => !!(unit.skill && unit.skill.active && unit.skill.id === id);
 const isAnchorOf = (t, unit) => !!t && t.kind === 'token' && t.defId === ANCHOR && t.ownerUnit === unit;
 const anchorsOf = (battle, unit) => battle.allyUnits.filter((t) => isAnchorOf(t, unit));
-const isRhodes = (a) => (a?.def?.raw?.nationId ?? a?.def?.nationId) === 'rhodes';
+const isRhodes = (a) => hasPower(a, 'rhodes');
 /** A friendly operator other than `unit` standing on the field. */
 const otherOp = (a, unit) => a !== unit && a.kind === 'op' && up(a) && !a.hidden;
 /** The anchor stock content/tokens.js releaseSkillSummon keeps on its owner. */

@@ -6,9 +6,10 @@ import {
   pullToward,
 } from '../shared/tier6.js';
 import { holdProtect } from '../shared/tier1.js';
+import { hasPower } from '../shared/powers.js';
 
-/** 莱茵生命 (character_table groupId "rhine") members of this season's pool (checked against the official table). */
-const RHINE = new Set(['char_108_silent', 'char_128_plosis', 'char_202_demkni', 'char_249_mlyss', 'char_1047_halo2']);
+/** 莱茵生命: the group tag `rhine` (mlyss_e_003_t templates CheckCharacterGroupTag). */
+const isRhine = (u) => hasPower(u, 'rhine');
 
 // ------------------------------------------------------------------------------------------------------------------
 // 缪尔赛思 chess_char_6_11 (战术家) — S3 浅层非熵适应; 净水即生命 (流形); 开源节流; module 梳妆流形
@@ -67,7 +68,7 @@ function mlyss(bb, chess, def) {
     // `mode`: the 流形's prefab mode from now on (Melee / Range — the client's mlyss_wtrman_switch_melee / _range; the S3 / S2
     // variants follow her running skill, public/js/audio.js), `by` her id (docs/SIM.md)
     battle.fx('copy', { x: t.x, y: t.y, id: t.id, src: src.id, mode: isRanged(src) ? 'Range' : 'Melee', by: unit.id });
-    if (rhineSp > 0 && RHINE.has(src.def?.charId) && unit.skill) unit.skill.gainSp(rhineSp, 'talent');
+    if (rhineSp > 0 && isRhine(src) && unit.skill) unit.skill.gainSp(rhineSp, 'talent');
   };
   const mineLive = (battle, unit) => battle.allyUnits.filter((x) => isTok(x, tokId, unit) && live(x));
 
@@ -136,7 +137,7 @@ function mlyss(bb, chess, def) {
         }, { owner: unit });
       }
       if (rhineSpOther > 0) battle.on('deploy', ({ unit: u, initial }) => { // the copied 莱茵生命 operator is deployed
-        if (initial || !u || u.kind !== 'op' || u.ownerId !== unit.ownerId || !RHINE.has(u.def?.charId) || !u.skill) return;
+        if (initial || !u || u.kind !== 'op' || u.ownerId !== unit.ownerId || !isRhine(u) || !u.skill) return;
         if (battle.allyUnits.some((t) => isTok(t, tokId, unit) && live(t) && t.mem.mlyss?.from === u.id)) u.skill.gainSp(rhineSpOther, 'talent');
       }, { owner: unit });
     },
@@ -282,7 +283,7 @@ function mlyss(bb, chess, def) {
         S.rhine.add(unit.ownerId);
         const cut = num(t1.cost), first = num(t1.runtime_cost);
         battle.on('battleStart', () => {
-          const rh = battle.allyUnits.filter((a) => a.kind === 'op' && a.ownerId === unit.ownerId && RHINE.has(a.def?.charId)).sort((a, b) => a.deploySeq - b.deploySeq);
+          const rh = battle.allyUnits.filter((a) => a.kind === 'op' && a.ownerId === unit.ownerId && isRhine(a)).sort((a, b) => a.deploySeq - b.deploySeq);
           rh.forEach((a, i) => { a.base.cost = Math.max(0, a.base.cost + cut + (i === 0 ? first : 0)); });
         });
       } },

@@ -37,7 +37,7 @@ const ENEMIES = {
 /** Every 自选 form: [tier, elite] (no module). */
 const FORMS_ALL = [[5, false], [6, false], [5, true], [6, true]];
 const label = ([tier, elite]) => `T${tier} ${elite ? 'elite' : 'normal'}`;
-const YAK = 'chess_char_1_02_a', TEXAS = 'chess_char_1_08_a', PERFUMER = 'chess_char_2_14_a';
+const YAK = 'chess_char_1_02_a', TEXAS = 'chess_char_1_08_a', PERFUMER = 'chess_char_2_14_a', KAZEMARU = 'chess_char_2_11_a';
 
 /** A battle with 凯尔希·思衡托 as uid 1 at (10, 4) facing RIGHT (`anchor`: her piece as uid 2), plus `others`. */
 function field({ tier = 5, elite = false, skill = 0, anchor = null, others = [], seed = 5, dp = 99 } = {}) {
@@ -140,10 +140,13 @@ test('T2 医者丰碑: an operator entering her range gets 1 护盾 layer (one d
     const t1 = talentOf(tier, elite, 1);
     assert.deepEqual([t1.buff_duration, t1.hp_recovery_per_sec, t1.rhodes_bonus], [30, 60, 2], label(f));
     const others = [{ uid: 3, chessId: YAK, row: 10, col: 5 }, { uid: 4, chessId: PERFUMER, row: 9, col: 5 },
-      { uid: 5, chessId: TEXAS, row: 12, col: 8 }];
+      { uid: 5, chessId: TEXAS, row: 12, col: 8 }, { uid: 6, chessId: KAZEMARU, row: 9, col: 4 }];
     const { h, u, a: m } = field({ tier, elite, skill: 0, others, anchor: { row: 11, col: 5 } });   // her anchor: a summon in her range
     const yak = h.unit(3), pf = h.unit(4), tx = h.unit(5);
     assert.equal(pf.def.raw.nationId, 'rhodes');
+    // kalts2_t_2[hp_recover] CheckCharacterGroupTag rhodes: 风丸 is of 东国, with 罗德岛 as a subPower
+    assert.equal(h.unit(6).def.raw.nationId, 'higashi');
+    assert.deepEqual(h.unit(6).findBuff('talent:kalts2:regen')?.mods, { hpRegen: 120 }, `${label(f)}: a subPower counts`);
     assert.ok(yak.findBuff('talent:kalts2:shield') && yak.findBuff('talent:kalts2:shield').shieldHits === 1, `${label(f)}: 角峰 1 护盾 layer`);
     assert.deepEqual([yak.findBuff('talent:kalts2:regen')?.mods, pf.findBuff('talent:kalts2:regen')?.mods], [{ hpRegen: 60 }, { hpRegen: 120 }], `${label(f)}: 60 / 罗德岛 120 HP/s (生命回复速度)`);
     approx(yak.findBuff('talent:kalts2:regen').timeLeft, 30, `${label(f)}: 30 s`, 0.01);

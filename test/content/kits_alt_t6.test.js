@@ -1521,7 +1521,7 @@ test('module 缪尔赛思 落叶四季: copying a 莱茵生命 operator gives he
   const id = ELITE('chess_char_6_11'), M = 'uniequip_003_mlyss';
   const sp = {};
   for (const moduleId of [M, 'none']) {
-    const h = mlyssBattle(id, 'skchr_mlyss_3', { copyId: 'rh', chess: { rh: plain('rh', { charId: 'char_108_silent', profession: 'WARRIOR' }) }, unit: { moduleId, carryState: IDLE }, enemyAt: 60 });
+    const h = mlyssBattle(id, 'skchr_mlyss_3', { copyId: 'rh', chess: { rh: { ...plain('rh', { charId: 'char_108_silent', profession: 'WARRIOR' }), powers: ['columbia', 'rhine'] } }, unit: { moduleId, carryState: IDLE }, enemyAt: 60 });
     const u = h.unit(id);
     const tok = () => h.b.allyUnits.find((x) => x.defId === 'token_10030_mlyss_wtrman' && x.alive);
     assert.ok(h.runUntil(() => tok()?.mem.mlyss, 10), 'copied');

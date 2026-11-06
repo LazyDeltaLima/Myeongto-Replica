@@ -5,14 +5,15 @@ import { aggregateMods } from '../../../buffs.js';
 import { COLS } from '../../../constants.js';
 import { bardRegen } from '../../../professions.js';
 import { startCountdown } from '../../tokens.js';
+import { hasPower } from '../shared/powers.js';
 import {
   num, bv, tbb, tdesc, moduleBb, parseN, live, enemiesIn, isTok, onDefaultSkill, selectedSkill, aura,
 } from '../shared/tier6.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
-/** 深海猎人 (character_table groupId "abyssal" — checked against the official table; data/chess.json has no group id). */
-const ABYSSAL = new Set(['char_143_ghost', 'char_263_skadi', 'char_474_glady', 'char_4145_ulpia', 'char_1023_ghost2']);
+/** 深海猎人: the group tag `abyssal` (skadi2_t_2 CheckCharacterGroupTag). */
+const isAbyssal = (a) => hasPower(a, 'abyssal');
 
 /**
  * 鼓舞 (ba.inspire "获得额外附加的基础属性加成（同类属性取最高）"): +`val` ATK after the target's own multipliers (flat
@@ -180,7 +181,7 @@ function skadi2(bb, chess, def) {
         aura(battle, unit, 0.5, () => {
           const toks = seaborns(battle, unit);
           const ops = covered(battle, unit, toks).filter((a) => a !== unit && a.kind === 'op');
-          const val = ops.some((a) => ABYSSAL.has(a.def?.charId)) ? a2 : ops.length ? a1 : 0;
+          const val = ops.some((a) => isAbyssal(a)) ? a2 : ops.length ? a1 : 0;
           const own = battle.alliesInGrid(unit).filter((a) => a !== unit && a.kind === 'op').length;
           const total = val + (own >= mCnt ? mAtk : 0);
           const dPct = ops.length ? d1 : 0;
@@ -188,7 +189,7 @@ function skadi2(bb, chess, def) {
           // the eye over her (overrideEffectKey skadi2_buff_01_eye): skadi2_t_2 gives it to its [atk][2] only (an abyssal operator
           // covered), the module's skadi2_e_003_t_2 to both of its [atk] buffs — a buff without mods, for the client's effect
           // (render/fxstatus.js KEY_FX)
-          const eye = ops.length > 0 && (modAtk || ops.some((a) => ABYSSAL.has(a.def?.charId)));
+          const eye = ops.length > 0 && (modAtk || ops.some((a) => isAbyssal(a)));
           if (eye) battle.addBuff(unit, { key: 'skadi2:eye', duration: 0.75, refresh: 'replace', visible: true });
         });
         // "我方干员部署于自身或海嗣范围内后，自身立刻获得3点技力"

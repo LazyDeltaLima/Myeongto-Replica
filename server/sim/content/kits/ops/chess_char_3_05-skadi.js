@@ -2,9 +2,8 @@
 // Conventions of the tier-3 kits: ../shared/tier3.js; kit contract and rules: ../README.md.
 
 import { num, defOf, talentBb, traitBb, altSkills, statSkill, fx } from '../shared/tier3.js';
+import { hasPower } from '../shared/powers.js';
 
-/** Abyssal Hunters (character_table groupId `abyssal`, not in data/chess.json): 深海掠食者 targets. */
-const ABYSSAL = new Set(['char_263_skadi', 'char_143_ghost', 'char_218_cuttle', 'char_474_glady', 'char_1023_ghost2', 'char_4145_ulpia']);
 
 export default {
   // ---- 3_05 斯卡蒂 · 无畏者 — S3 涌潮悲歌: ATK/DEF/HP +; 深海掠食者 (Abyssal Hunters ATK); 迅捷出击 (redeploy −10 s)
@@ -27,7 +26,7 @@ export default {
       talents: [
         { install(battle, unit) { // "编入队伍时": every Abyssal Hunter of this player, for the whole battle
           for (const a of battle.allyUnits) {
-            if (a.kind === 'op' && a.ownerId === unit.ownerId && ABYSSAL.has(a.def?.charId)) {
+            if (a.kind === 'op' && a.ownerId === unit.ownerId && hasPower(a, 'abyssal')) {
               battle.addBuff(a, { key: 'talent:skadi_predator', mods: { atkPct: num(t0.atk) }, persist: true, allowDead: true, source: unit });
             }
           }

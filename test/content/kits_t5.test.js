@@ -298,7 +298,7 @@ test('乌尔比安 S3 while he blocks (e.g. after a 突袭 landing): the anchor 
 
 test('乌尔比安 T1 本性的坚守 heals per hit taken; T2 血脉的哺养 +HP/ATK per kill (abyssal allies half); elite healing ×1.2', () => {
   const h = makeBattle({
-    defs: { enemies: { enemy_dummy: dummy() }, chess: { t_abyss: ally('t_abyss', { charId: 'char_143_ghost' }) } },
+    defs: { enemies: { enemy_dummy: dummy() }, chess: { t_abyss: { ...ally('t_abyss', { charId: 'char_143_ghost' }), powers: ['egir', 'abyssal'] } } },
     units: [{ chessId: 'chess_char_5_05_a', row: 9, col: 3 }, { chessId: 't_abyss', row: 12, col: 3 }], autoFinish: false, timeLimit: 20,
   });
   const u = h.unit('chess_char_5_05_a');

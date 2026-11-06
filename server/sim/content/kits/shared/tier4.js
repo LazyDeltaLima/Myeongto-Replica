@@ -14,8 +14,8 @@
 // - Auras refresh short buffs every AURA s so they lapse within a few ticks after the source leaves.
 // - Talents that name a faction test the group tags (shared/powers.js hasPower: 拉特兰 laterano, 卡西米尔 kazimierz,
 //   谢拉格 kjerag — nationId, groupId, teamId and subPower, never the bonds); other talents use data fields:
-//   profession (术师 CASTER, 重装 TANK, 先锋 PIONEER), enemy tags (萨卡兹 sarkaz, 海怪 seamonster); 深海猎人 = research
-//   groupId `abyssal` (data/chess.json has no groupId: charIds from docs/research/03-operators.json).
+//   profession (术师 CASTER, 重装 TANK, 先锋 PIONEER), enemy tags (萨卡兹 sarkaz, 海怪 seamonster). 深海猎人 is the
+//   group tag `abyssal` too.
 // - "友方干员" effects touch operators only (summons/devices excluded); SP gifts skip units whose timed skill runs
 //   (AK: no SP gain during a skill — the engine's gainSp enforces it too; the kits skip such units when picking).
 // - On-hit effects of 卡涅利安's attacks land on every enemy the attack strikes — the 阵法术师 trait strikes every enemy

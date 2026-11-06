@@ -43,12 +43,6 @@ import { hasPower } from './powers.js';
 // ---- text-only constants (the official blackboards carry no key for these) --------------------------------------
 /** 华法琳 S1 "只当目标生命值不满一半时才会触发"; 塞雷娅 S1 "血量小于等于一半"; 山 module "生命值高于50%时". */
 const HALF_HP = 0.5;
-/**
- * Abyssal Hunters (【深海猎人】 = character_table groupId `abyssal`; data/chess.json has no groupId, the charIds come from
- * docs/research/03-operators.json): 幽灵鲨, 斯卡蒂, 歌蕾蒂娅, 乌尔比安, 归溟幽灵鲨. 浊心斯卡蒂 (char_1012_skadi2) has groupId
- * null in the official data — she is NOT an Abyssal Hunter for these talents.
- */
-const ABYSSAL = new Set(['char_143_ghost', 'char_263_skadi', 'char_474_glady', 'char_4145_ulpia', 'char_1023_ghost2']);
 /** Never auto-fires (CUSTOM_RANGE with an empty trigger grid): the kit activates the skill itself. */
 const NEVER = Object.freeze({ rule: 'CUSTOM_RANGE', grid: Object.freeze([]) });
 const AURA_IV = 0.25;
@@ -72,7 +66,8 @@ const batPct = (sec, chess) => { const b = num(chess?.stats?.bat, 1) || 1; const
 /** Drop zero / non-finite entries (a zero mod is noise in the buff list). */
 const mods = (m) => { const o = {}; for (const k of Object.keys(m)) { const v = m[k]; if (typeof v === 'number' && Number.isFinite(v) && v !== 0) o[k] = v; } return o; };
 const dist = (a, b) => hypot(a.x - b.x, a.y - b.y);
-const isAbyssal = (u) => u?.def?.raw?.groupId === 'abyssal' || ABYSSAL.has(u?.def?.charId);
+/** Abyssal Hunters: the group tag `abyssal` (shared/powers.js). 浊心斯卡蒂 (char_1012_skadi2) has groupId null in the official data: not one for these talents. */
+const isAbyssal = (u) => hasPower(u, 'abyssal');
 const isOp = (u) => u && u.kind === 'op';
 
 // ---- operator loadouts (DESIGN §16) -------------------------------------------------------------------------------
