@@ -103,7 +103,9 @@ function poolCodes() {
   for (const c of Object.values(chess.chess || chess)) if (typeof c?.charId === 'string' && c.charId.startsWith('char_')) chars.add(c.charId);
   const backups = readJson(join(ROOT, 'data/backups.json'));
   for (const id of Object.keys(backups.diy?.operators || {})) if (id.startsWith('char_')) chars.add(id);
-  const tokens = new Set([...Object.keys(readJson(join(ROOT, 'data/tokens.json'))), ...Object.keys(backups.tokens || {})]);
+  // (a season's own file holds the summons of its own operators, as its chess file does)
+  const seasonTokens = existsSync(seasons) ? readdirSync(seasons).map((id) => join(seasons, id, 'tokens.json')).filter((f) => existsSync(f)).flatMap((f) => Object.keys(readJson(f))) : [];
+  const tokens = new Set([...Object.keys(readJson(join(ROOT, 'data/tokens.json'))), ...seasonTokens, ...Object.keys(backups.tokens || {})]);
   const codes = new Set();
   for (const id of chars) codes.add(id.replace(/^char_\d+_/, ''));
   for (const id of tokens) {

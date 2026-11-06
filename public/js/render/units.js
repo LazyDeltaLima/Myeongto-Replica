@@ -554,8 +554,31 @@ const BROOD = Object.freeze({
   feed: Object.freeze({ change: 'Attack_Begin', roles: Object.freeze({ ...BROOD_GROWN, idle: 'Attack_Loop', stun: loop('Attack_Loop') }) }),
   fed: Object.freeze({ change: 'Attack_End', roles: BROOD_GROWN }),
 });
+/**
+ * 樱桃三号 (token_10037_mitm_trshrb, her kit server/sim/content/kits/ops/op-mitm.js), the prefab's modes: Reborn its 战术点形态 — Idle →
+ * Idle_2, entered on the skin's mix = Die, the model staying on its tile off the fight (`stands`) —, its trshrb_switch ReBorn
+ * = Start until it is back (`quiet`: that clip is its return), Trash its 残骸 (Idle, Start → Waste; `_excludeAnimKeys` Die:
+ * it just fades), Skill S2's (Idle → Skill_Loop, the skin's mixes Skill_Begin / Skill_End).
+ */
+const OFF_ATTACK = Object.freeze({ attack: null, skill: null });
+const CAR = Object.freeze({
+  tac: Object.freeze({ change: 'Die', stands: true, roles: Object.freeze({ idle: 'Idle_2', deploy: 'Idle_2', die: 'Die', ...OFF_ATTACK }) }),
+  reborn: Object.freeze({ change: 'Start', stands: true, quiet: true, roles: Object.freeze({ idle: 'Idle_1', deploy: 'Idle_1', die: 'Die', ...OFF_ATTACK }) }),
+  waste: Object.freeze({ change: null, roles: Object.freeze({ idle: 'Waste', deploy: 'Waste', die: null, stun: loop('Stun_3'), ...OFF_ATTACK }) }),
+  skill: Object.freeze({ change: 'Skill_Begin', leave: 'Skill_End', roles: Object.freeze({ idle: 'Skill_Loop', deploy: 'Skill_Loop', die: 'Die', ...OFF_ATTACK }) }),
+});
+/**
+ * 全自动造型仪 (token_10018_robrta_mach, op-robrta.js): mode Default Idle → Default, mode Running its Idle while its DEF
+ * buff stands on someone (robrta_mach_t[mode]). Graphic: Die → End, Born → Start.
+ */
+const MACH = Object.freeze({
+  rest: Object.freeze({ change: null, roles: Object.freeze({ idle: 'Default', die: 'End', ...OFF_ATTACK }) }),
+  running: Object.freeze({ change: null, roles: Object.freeze({ idle: 'Idle', die: 'End', ...OFF_ATTACK }) }),
+});
 export const FORMS = Object.freeze({
   trap_039_dstnta: BROOD,
+  token_10037_mitm_trshrb: CAR,
+  token_10018_robrta_mach: MACH,
   // 假想敌：淤困 attached to its blocker (server kitParasite → form 'parasitic', null when the block ends): the client prefab's
   // mode Parasitic — its Anim ability plays Parasitic once, `_replaceAnimPairs` Idle → Idle_2 while attached
   // 假想敌：铳 【最终之罚】 (server kitGun → form 'charge', null as it ends): the client prefab's mode S1, `_replaceAnimPairs`
@@ -975,7 +998,8 @@ export class UnitView {
       const skins = SKIN_FORMS[id];
       if (skins && this.form) this.actor.setSkin(skins[this.form] ?? null);
       // replay current state (a dead model resumes its Die clip where it would be — a knocked-down one holds its end)
-      if (!this.alive) {
+      if (!this.alive && this._formSpec()?.stands) this.actor.stand(this._formSpec().roles);
+      else if (!this.alive) {
         const d = this.actor.die(!!this._dieSkill);
         const at = Math.min(d, this.dieT * (this.ctx.animRate?.() || 1));
         if (at > 0) this.actor.update(at);
@@ -1021,7 +1045,11 @@ export class UnitView {
     this.form = k;
     this.info.form = k;
     const f = this._formSpec();
+    // `stands`: a form the unit is in off the fight: no fade while it lasts, the fade when it ends without a return
+    if (!this.alive && f?.stands) { this.dying = 0; this.remove = false; this.alpha = 1; }
+    else if (!this.alive && prev?.stands) { this.dying = DIE_FADE_TAIL; this.dieDur = DIE_FADE_TAIL; }
     if (!this.actor) return;
+    if (!this.alive && f?.stands) { this.actor.stand(f.roles, fx ? f.change || null : null); return; }
     if (SKIN_FORMS[id]) this.actor.setSkin(SKIN_FORMS[id][k] ?? null);
     const dur = fx && Number(fx.dur);
     let next = f && f.next ? FORMS[this.info.spine || this.info.defId]?.[f.next]?.roles || null : null;
@@ -1540,6 +1568,8 @@ export class UnitView {
     this.bornOfficial = official;
     this.fadeIn = official ? 1 : 0;
     this._deployKey = typeof key === 'string' ? key : null;
+    // `quiet`: its change clip was the return (the 小车's ReBorn): no drop-in, no deploy clip, no deploy effect
+    if (!this.alive && this._formSpec()?.quiet) { this.fadeIn = 0; this.revive(); this._fxQuietDeploy = true; return official; }
     const front = !this.isEnemy && !!this._deployKey && FACE_FRONT_DEPLOYS[this.info.spine || this.info.defId] === this._deployKey;
     if (front !== this._faceFront) { this._faceFront = front; this._modelDirty = true; }
     if (!this.alive) this.revive();
@@ -1634,6 +1664,7 @@ export class UnitView {
   revive() {
     this.alive = true;
     this._modelDirty = true;
+    if (this._formSpec()?.stands) { this.form = null; this.info.form = null; this.actor?.setForm(null); }
     // a model built while it lay in a form's death pose (_dieForm) stands up on the unit's own clips
     if (this._dieForm && this.actor && !this._formSpec()) this.actor.setForm(null);
     this._dieForm = null;
@@ -1825,6 +1856,7 @@ export class UnitView {
     if (!lungeK) this.modelDrop = this.modelPlace && s > 0 ? (by - p.y) / s : 0;
     this.root.position.set(bx, by);
     this.root.alpha = alpha;
+    this.body.rotation = cam.lean || 0; // the side camera: the model stands turned with the board, its HUD does not (projection.js)
     this.root.zIndex = unitDepthKey(cam, this.x, this.y, this.lift);
     // off-screen: nothing to animate or draw (bounds / hit-testing still follow `screen`)
     if (this._cull(bx, by, s, dt)) return;

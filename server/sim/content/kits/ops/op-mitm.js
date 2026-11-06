@@ -24,6 +24,8 @@ export const CAR = 'token_10037_mitm_trshrb';
 /** token prefab SpawnTrash/Selector and mitm_s_1: `_rangeId` x-5. */
 const X5 = Object.freeze([[0, 0], [0, 1], [0, -1], [1, 0], [-1, 0]].map((p) => Object.freeze(p)));
 const RETRY = 0.25;
+/** Modes/Reborn trshrb_switch: `_animKey` ReBorn, `_preDelay` 1 s before its trshrb_t_1[reborn] brings the 小车 back. */
+const REBORN = 1;
 /** Removal reasons that put the 小车 in its 战术点形态 ("撤退或被击倒"); 'expired' = her leaving. */
 const TAC_EXITS = new Set(['killed', 'retreat', FORCED_EXIT]);
 export const SKILL_FORM = 'mitm_s_2[to_token][attribute]';
@@ -54,6 +56,7 @@ export default {
         talents: [],
         install(battle, w) {
           w.mem.mitmWaste = true;
+          w.form = 'waste'; // mode Trash: Idle and Start → Waste, Stun → Stun_3
           battle.addBuff(w, {
             key: WASTE, persist: true, allowDead: true, flags: { noHeal: true },
             mods: {
@@ -74,7 +77,7 @@ export default {
       if (!tiles.length) return;
       const [r, c] = battle.rng.pick(tiles);
       const w = battle.spawnToken(owner, tokenId, r, c, { kit: wasteKit(battle.tokenDef(tokenId, owner)) });
-      if (w) { battle.fx('summon', { x: w.x, y: w.y, id: w.id, src: owner.id, token: tokenId }); }
+      if (w) { battle.fx('summon', { x: w.x, y: w.y, id: w.id, src: owner.id, token: tokenId, waste: 1 }); }
     };
 
     const carKit = (owner, def) => {
@@ -91,12 +94,23 @@ export default {
             const seq = (car.mem.mitmTacSeq ?? 0) + 1;
             car.mem.mitmTacSeq = seq;
             car.mem.mitmTac = seq;
-            battle.fx('disappear', { x: car.x, y: car.y, id: car.id });
+            // trshrb_t_1[dead_listener]: mode Reborn (Idle → Idle_2, entered on the skin's mix = Die), its die effect
+            car.form = 'tac';
+            battle.fx('disappear', { x: car.x, y: car.y, id: car.id, src: owner.id, form: 'tac' });
             battle.after(battle.dt, () => { if (car.mem.mitmTac === seq) spawnWaste(battle, owner, car); }, { owner: car });
             const back = () => {
               if (car.mem.mitmTac !== seq || battle.finished || car.alive || car.removed) return;
               if (!up(owner)) { car.mem.mitmTac = 0; return; }
-              if (battle.redeploy(car, { free: true })) { car.mem.mitmTac = 0; battle.fx('summon', { x: car.x, y: car.y, id: car.id, src: owner.id, token: tokenId }); return; }
+              // trshrb_t_1[trigger] casts trshrb_switch: its clip and birth effect now, the 小车 back when its `_preDelay` ends
+              if (car.form !== 'reborn') {
+                car.form = 'reborn';
+                battle.fx('mitmReborn', { x: car.x, y: car.y, id: car.id, src: owner.id, form: 'reborn' });
+                battle.after(REBORN, back, { owner: car });
+                return;
+              }
+              car.form = null;
+              if (battle.redeploy(car, { free: true })) { car.mem.mitmTac = 0; return; }
+              car.form = 'reborn';
               battle.after(RETRY, back, { owner: car });
             };
             battle.after(refresh, back, { owner: car });
@@ -144,6 +158,8 @@ export default {
               key: SKILL_FORM, source: unit, flags: { disarm: true }, visible: true, tags: ['skill'],
               mods: { blockCnt: num(b2['mitm_s_2[to_token].block_cnt'], 2) - base, defPct: num(b2['mitm_s_2[to_token].def']) },
             });
+            car.form = 'skill'; // mode Skill: Idle → Skill_Loop
+            battle.fx('mitmSkill', { x: car.x, y: car.y, id: car.id, form: 'skill' });
           },
           onTick({ battle, unit }) {
             const c = unit.mem.mitmCost, iv = num(b2['mitm_s_2[cost].interval']), each = num(b2['mitm_s_2[cost].cost'], 1);
@@ -207,6 +223,8 @@ export default {
             if (ctx.unit !== unit) return;
             for (const t of tokensOf(battle, unit)) {
               if (t.alive) battle.retreat(t, { reason: 'expired', permanent: true });
+              // her leaving ends a 战术点形态 too: its model goes with it
+              if (t.mem.mitmTac) { t.form = null; battle.fx('mitmGone', { x: t.x, y: t.y, id: t.id, form: null }); }
               t.mem.mitmTac = 0;
             }
             unit.trait.reinforcement = null;

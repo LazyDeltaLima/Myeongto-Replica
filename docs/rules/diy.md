@@ -1378,7 +1378,7 @@
 
 ### 미틈 `char_4147_mitm` (T2, 전술가) · 체리 3호 `token_10037_mitm_trshrb`
 - 특성: 미틈의 피해는 자기 소환물이 저지한 적에게 공격력 × `atk_scale`(`mitm_tr_1` ON_CALCULATE_DAMAGE, 방어 앞). 공식 클라에서 확인: `CheckBlocked._checkBlockedBySourceToken`은 저지자가 그 주인의 소환물인지 보므로 잔해가 저지한 적도 든다.
-- 체리 3호: 전차 형태는 저지 `block_cnt`, 치료 불가. 쓰러지거나 철수하면 전술 포인트 형태로 `interval`초(1정예 17, 2정예 15, 소환물 재능) 뒤 체력을 채워 그 칸에 돌아온다. 다음 프레임에 x-5의 빈 근접 칸 하나에 잔해가 선다(`SpawnTrash`, 선택기 `_alwaysRandomInTheEnd`). 잔해: 공격력·방어력 −100%, 최대 HP −50%, 저지 1, 공격 안 함, 떠나면 끝(`trshrb_t_1[trash_born]`). 미틈이 떠나면 함께 떠난다(`die_to_kill_token`).
+- 체리 3호: 전차 형태는 저지 `block_cnt`, 치료 불가. 쓰러지거나 철수하면 전술 포인트 형태로 `interval`초(1정예 17, 2정예 15, 소환물 재능)를 기다리고, 복귀 능력 `trshrb_switch`의 클립 `ReBorn` 1초(`_preDelay`, 공식 클라에서 확인) 뒤 체력을 채워 그 칸에 돌아온다. [추정·미조사: 첫 배치도 같은 능력을 거치므로(`Passive` `trshrb_t_1[trigger][imme]`) 공식은 처음 1초 동안 전차가 아닐 수 있는데, 시뮬은 바로 전차다. `bundles/fx-V`] 다음 프레임에 x-5의 빈 근접 칸 하나에 잔해가 선다(`SpawnTrash`, 선택기 `_alwaysRandomInTheEnd`). 잔해: 공격력·방어력 −100%, 최대 HP −50%, 저지 1, 공격 안 함, 떠나면 끝(`trshrb_t_1[trash_born]`). 미틈이 떠나면 함께 떠난다(`die_to_kill_token`).
 - S1 `skchr_mitm_1`: 시작에 코스트 +`cost`. 타격 시점에 전차가 있으면 x-5의 지상 적에게 미틈 공격력 × `aoe_damage_scale` 물리(`mitm_s_1` AOEDamage `targetMotion` WALK_ONLY, 특성 곱함), 그 뒤 철수: 잔해는 피해 뒤(PRTS). 전차가 없으면 코스트만.
 - S2 `skchr_mitm_2`: 공격력 +`atk`, `mitm_s_2[cost].interval`초마다 코스트 1(모두 `display`). 시작에 선 전차만 공격을 멈추고 저지 2·방어력 +`def`, 끝나면 철수(`mitm_s_2[to_token]`). 스킬 중에 돌아온 전차는 보통 전차다. 표의 `mitm_s_2[to_token].hp`는 프리팹 속성에 없어 쓰지 않는다.
 - TAC-Y: 소환물이 저지한 적은 저지 동안 조롱 +`taunt_level`(비질 TAC-Y와 같은 방식). 1단계라 잔해 체력 변화·`mitm_e_002_[sp]`는 없다.

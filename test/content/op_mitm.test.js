@@ -64,7 +64,7 @@ test('Trait: her attack on an enemy her token blocks has ATK × atk_scale, befor
   }
 });
 
-test('Knock-out: 战术点 for `interval` s, tile kept, back at full HP; the next frame a 残骸 on a free tile around it', () => {
+test('Knock-out: 战术点 for `interval` s, then ReBorn for 1 s, tile kept, back at full HP; the next frame a 残骸 on a free tile around it', () => {
   for (const id of FORMS) {
     const iv = carTalent(id).interval;
     assert.equal(iv, id === A ? 17 : 15, `${id}: the talent of its phase`);
@@ -79,8 +79,12 @@ test('Knock-out: 战术点 for `interval` s, tile kept, back at full HP; the nex
     const [w] = wastes(h);
     assert.ok(w?.alive, `${id}: 잔해`);
     assert.equal(Math.abs(w.tileR - r) + Math.abs(w.tileC - c), 1, `${id}: one of the four tiles`);
-    assert.ok(h.runUntil(() => t.alive, iv + 1), `${id}: back`);
+    assert.ok(h.runUntil(() => t.form === 'reborn', iv + 1), `${id}: its ReBorn`);
     near(h.b.time - t0, iv, `${id}: interval`, 0.01);
+    assert.ok(!t.alive, `${id}: still off the fight during the clip`);
+    assert.ok(h.runUntil(() => t.alive, 2), `${id}: back`);
+    near(h.b.time - t0, iv + 1, `${id}: the ability's _preDelay`, 0.01);
+    assert.equal(t.form, null, `${id}: its plain clips again`);
     assert.equal(t.tileR, r);
     assert.equal(t.tileC, c);
     assert.equal(t.hp, t.s.maxHp, 'full HP');
@@ -210,7 +214,7 @@ test('S2 with the car in its 전술 포인트: DP and ATK only; it comes back a 
   const { h, u } = withCar(B, 1);
   const t = carOf(h);
   h.b.kill(t, null);
-  h.step(); h.step();
+  h.run(5); // (the skill runs out before a car knocked out as it starts comes back)
   cast(u);
   assert.ok(!t.findBuff(SKILL_FORM));
   assert.ok(h.runUntil(() => t.alive, 16), 'back');
@@ -219,6 +223,45 @@ test('S2 with the car in its 전술 포인트: DP and ATK only; it comes back a 
   h.runUntil(() => !u.skill.active, 15);
   assert.ok(t.alive, 'it stays');
   done(h);
+});
+
+test('What the model is told: 전술 포인트, ReBorn, 잔해 and S2 each as a form; her leaving ends a 전술 포인트', () => {
+  const { h, u } = withCar(B, 1);
+  u.skill.locked = true;
+  const t = carOf(h);
+  const sent = [];
+  const fx = h.b.fx.bind(h.b);
+  h.b.fx = (n, o) => { sent.push([n, o]); return fx(n, o); };
+  h.b.kill(t, null);
+  const tac = sent.find(([n, o]) => n === 'disappear' && o.id === t.id);
+  assert.equal(tac?.[1].form, 'tac');
+  assert.equal(tac[1].src, u.id, 'her plan draws it');
+  h.step(); h.step();
+  const waste = sent.find(([n, o]) => n === 'summon' && o.waste);
+  assert.ok(waste, '잔해');
+  assert.equal(wastes(h)[0].form, 'waste', 'a view built from it starts on Waste');
+  h.runUntil(() => t.alive, 20);
+  const back = sent.find(([n, o]) => n === 'mitmReborn' && o.id === t.id);
+  assert.equal(back?.[1].form, 'reborn');
+  assert.ok(!sent.some(([n, o]) => n === 'summon' && o.id === t.id), 'the return is no new summon');
+  u.skill.locked = false;
+  cast(u);
+  assert.ok(sent.some(([n, o]) => n === 'mitmSkill' && o.id === t.id && o.form === 'skill'), 'S2');
+  done(h);
+  const k = withCar(B, 1);
+  k.u.skill.locked = true;
+  const c = carOf(k.h);
+  k.h.b.kill(c, null);
+  k.h.step();
+  const out = [];
+  const f2 = k.h.b.fx.bind(k.h.b);
+  k.h.b.fx = (n, o) => { out.push([n, o]); return f2(n, o); };
+  k.h.b.retreat(k.u, { reason: 'retreat' });
+  const gone = out.find(([n, o]) => n === 'mitmGone' && o.id === c.id);
+  assert.ok(gone, 'its model goes');
+  assert.equal(gone[1].form, null);
+  assert.equal(c.form, null);
+  done(k.h);
 });
 
 test('Her leaving takes both with her, no 잔해, no return; her redeployment brings the car', () => {

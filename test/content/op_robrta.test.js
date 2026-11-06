@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
-import { MACH, DEF_KEY, SHIELD_KEY } from '../../server/sim/content/kits/ops/op-robrta.js';
+import { MACH, DEF_KEY, SHIELD_KEY, COUNT_KEYS, RUNNING_KEYS } from '../../server/sim/content/kits/ops/op-robrta.js';
 
 const A = 'chess_char_3_nrobrta_a', B = 'chess_char_3_nrobrta_b';
 const FORMS = [A, B];
@@ -79,6 +79,47 @@ test('Shield: 2 hits blocked whole (E2\'s Talents/1+), each spending the machine
     assert.ok(u.hp < hp, `${id}: the third lands`);
     near(u.s.def, u.base.def * (1 + machTalent(id).def), `${id}: DEF stays`, 1e-3);
     done(h);
+  }
+});
+
+test('What the model is told: rest until its DEF buff stands on someone, a layer effect per layer, its end effect on the unit', () => {
+  for (const id of FORMS) {
+    const { h, u } = facing(id);
+    u.skill.locked = true;
+    const m = h.unit(2);
+    const sent = [];
+    const fx = h.b.fx.bind(h.b);
+    h.b.fx = (n, o) => { sent.push([n, o]); return fx(n, o); };
+    h.step();
+    assert.equal(m.form, 'running', `${id}: mode Running while it serves`);
+    for (const k of RUNNING_KEYS) assert.ok(m.findBuff(k), `${id}: ${k}`);
+    assert.deepEqual(COUNT_KEYS.map((k) => !!m.findBuff(k)), [true, true], `${id}: two layers, both effects`);
+    const e = h.spawn('enemy_dummy', { pos: [10, 5] });
+    h.b.dealDamage(e, u, { amount: 300, type: 'phys', tags: ['test'] });
+    h.step();
+    assert.deepEqual(COUNT_KEYS.map((k) => !!m.findBuff(k)), [true, false], `${id}: [count_2] goes first`);
+    assert.ok(!sent.some(([n]) => n === 'kitHit'), `${id}: no end effect yet`);
+    h.b.dealDamage(e, u, { amount: 300, type: 'phys', tags: ['test'] });
+    h.step();
+    assert.deepEqual(COUNT_KEYS.map((k) => !!m.findBuff(k)), [false, false], `${id}: none left`);
+    const ends = sent.filter(([n, o]) => n === 'kitHit' && o.k === 'robrta:end');
+    assert.equal(ends.length, 1, `${id}: one end effect`);
+    assert.equal(ends[0][1].id, u.id, `${id}: on the unit served`);
+    assert.equal(ends[0][1].src, h.unit(1).id, `${id}: her plan draws it`);
+    done(h);
+    const k = field(id, { skill: 0, others: [
+      { uid: 2, kind: 'token', tokenId: MACH, ownerUid: 1, row: 11, col: 6, dir: 'RIGHT' },
+      { uid: 3, chessId: YAK, row: 11, col: 7 },
+    ] });
+    k.u.skill.locked = true;
+    k.h.step();
+    const n = k.h.unit(2);
+    assert.equal(n.form, 'running', `${id}: it serves the next one`);
+    k.h.b.retreat(k.h.unit(3), { reason: 'retreat' });
+    k.h.step();
+    assert.equal(n.form, 'rest', `${id}: mode Default with nobody on its tile`);
+    for (const key of RUNNING_KEYS) assert.ok(!n.findBuff(key), `${id}: ${key} gone`);
+    done(k.h);
   }
 });
 

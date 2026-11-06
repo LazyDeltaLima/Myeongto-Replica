@@ -426,6 +426,16 @@ export class SpineActor {
   }
 
   /**
+   * A dead model that stands on in a form (render/units.js FORMS `stands`): back on the form's clips, after `change`.
+   */
+  stand(roles, change = null) {
+    this.dead = false;
+    this.frozen = false;
+    this.mode = 'base';
+    this.setForm(roles, change);
+  }
+
+  /**
    * Wear the skeleton's Spine skin `name` over its default skin (null: the default skin alone) — render/units.js
    * SKIN_FORMS. A skin this skeleton lacks changes nothing. The slots go back to their setup attachments through the new
    * skin (Skeleton.setSkin alone only swaps the attachments the old skin had on), and the next update re-poses a held

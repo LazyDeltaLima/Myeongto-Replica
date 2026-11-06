@@ -5282,6 +5282,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       warmShot(v);   // 2026-10-23: its skill's own shot, ready for the skill's first throw
       if (isPack(v)) packDeploy(v, id, t);   // 2026-10-16: 伺夜's wolf pack
       if (!wasMoved) moduleFx(v, id);   // 2026-11-03: its module's deploy effects
+      // (2026-11-07) a return whose own clip and effect already played (units.js onDeploy `quiet`: 체리 3호's ReBorn)
+      if (v._fxQuietDeploy) { v._fxQuietDeploy = false; v._fxReturn = false; continue; }
       const back = v._fxReturn ? returnMode(v) : null;   // (2026-11-04) a skill's 【返回】: its `_Restore` mode
       v._fxReturn = false;
       const fx = deployEffect(bind, v.info.kind === 'token', back ?? (v._fxSkillOn ? modeNow(v) ?? 0 : 0));

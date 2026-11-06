@@ -317,7 +317,18 @@ export const KIT_OFFICIAL = {
   // 圣聆初雪 S2 (2026-10-21): the frozen protection point (token_10058_sbell2_icetgt, pkgrps/btl_pfb_tokens_4.ab): its Effect
   // ability's INFINITY buff icetgt_a[effect] shows sbell2_tile_frozen (`overrideEffectKey`) while it stands, and the
   // template's ON_OWNER_FINISH CreateEffect plays sbell2_tile_defrost on it as it goes
+  // (2026-11-07) 미틈's 체리 3호, the token's own effects in her plans (a summon's view has no bundle of its own)
+  disappear: {
+    // trshrb_t_1[dead_listener] ON_BEFORE_TRY_SET_HP_ZERO, where it fell
+    mitm: cite('trshrb_t_1[dead_listener]', () => ({ play: [{ ...once('token_mitm_trshrb_die_01', 'point'), bundle: 'mitm_token' }] })),
+  },
+  mitmReborn: {
+    // Modes/Reborn trshrb_switch `_castEffects`, as its ReBorn clip starts
+    mitm: cite('token_10037_mitm_trshrb/Modes/Reborn/Body/Talents/1', () => ({ play: [{ n: 'token_mitm_trshrb_birth_01', on: 'point', life: 1, bundle: 'mitm_token' }] })),
+  },
   summon: {
+    // the first deploy casts trshrb_switch too (Passive trshrb_t_1[trigger][imme]); a 残骸 trshrb_t_1[trash_born] ON_BUFF_START
+    mitm: cite(['token_10037_mitm_trshrb/Modes/Reborn/Body/Talents/1', 'trshrb_t_1[trash_born]'], (o) => ({ play: [o.waste ? { ...once('token_mitm_trshrb_waste_01', 'id'), bundle: 'mitm_token' } : { n: 'token_mitm_trshrb_birth_01', on: 'id', life: 1, bundle: 'mitm_token' }] })),
     sbell2: cite('icetgt_a[effect]', (o) => (/icetgt/.test(String(o.token ?? ''))
       ? { play: [{ tpl: 'icetgt_a[effect]', on: 'id', life: 'unit' }] } : null)),
   },
@@ -536,6 +547,8 @@ export const KIT_OFFICIAL = {
   // returns no end): its cast never ends, but the prefab's own `_maxLifetime` 2 s ends it (2026-10-27, official client:
   // ParticleEffect._CheckIfAlive; render/fxgame.js `maxLife`) — a burst with a glow that loops for those 2 s
   kitHit: {
+    // (2026-11-07) 로베르타's 전자동 스타일러: robrta_mach_t ON_TAKE_DAMAGE with its last layer spent, on the unit it served
+    robrta: cite('robrta_mach_t', (o) => (o.k === 'robrta:end' ? { play: [{ ...once('token_robrta_buff_end', 'id'), bundle: 'robrta_token' }] } : null)),
     // (2026-11-06) 클로저 S3: closur_s_3[eff] on the enemy struck (CachedBuffToCastTargetsBehaviour; the kit keeps its mark's second)
     closur: cite('closur_s_3[eff]', (o) => (o.k === 'closur:plane' ? { play: [once('closur_skill_03_airplane_01', 'tgt')] } : null)),
     // (2026-11-06) 크리스틴 T1: the aura ability's `_effects` on her while she stands
@@ -603,6 +616,8 @@ export const KIT_OFFICIAL = {
   // judge_skill_02_weapon_hit_01 on her — enemies hit or not)
   // 折桠 S2's FirstAttack (held by branch_s_2[first], no damage, no target needed: the skill's opening 战栗 blast, the sim's 'aoe')
   aoe: {
+    // (2026-11-07) 미틈 S1: mitm_s_1 ON_BUFF_START on the 체리 3호 in mode Default, where it explodes
+    mitm: cite('mitm_s_1', (o) => (o.skill === 'mitm:s1' ? { play: [once('mitm_skill_01_hit_01', 'point')] } : null)),
     // (2026-11-06) 리프레사 S2: each of her delayed shots projectile_chr_liesel_s2_1 / _2 / _3 `_effectsWhenReached` where it lands
     liesel: cite(['projectile_chr_liesel_s2_1', 'projectile_chr_liesel_s2_2', 'projectile_chr_liesel_s2_3'], () => ({ play: [once('liesel_skill_02_hit_01', 'point')] })),
     judge: cite('judge_s_2[aoe]', (o) => (o.skill === 'judge:atonement' ? { play: [once('judge_skill_02_weapon_hit_01')] } : null)),

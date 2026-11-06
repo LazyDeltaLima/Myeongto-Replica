@@ -290,7 +290,9 @@ def main():
     chars = pool_char_ids()
     skills = char_skill_prefabs()
     data = json.loads((ROOT / 'data/backups.json').read_text(encoding='utf-8'))
-    tokens = sorted(set(json.loads((ROOT / 'data/tokens.json').read_text(encoding='utf-8'))) | set(data.get('tokens') or {}))
+    # (a season's own file holds the summons of its own operators, as its chess file does)
+    season_tokens = {t for f in (ROOT / 'data/seasons').glob('*/tokens.json') for t in json.loads(f.read_text(encoding='utf-8'))}
+    tokens = sorted(set(json.loads((ROOT / 'data/tokens.json').read_text(encoding='utf-8'))) | set(data.get('tokens') or {}) | season_tokens)
     named, named_by = set(), {}   # every string the pool's prefabs hold (projectile keys among them) → the first holder
 
     def note(d, who):

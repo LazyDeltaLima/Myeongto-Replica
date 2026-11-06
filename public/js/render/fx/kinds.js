@@ -117,6 +117,8 @@ export const FX_KINDS = Object.freeze({
   veenBounce: { a: 'counter', c: 0xffd27a }, veenVolley: { a: 'volley', c: 0xffd27a },
   vvanaS3Later: { a: 'none', c: 0xffd27a }, // 薇薇安娜 S3 from her second cast: its sound mode only (shared/skill-modes.js SKILL_SUB_MODES)
   vvanaCharge: { a: 'none', c: 0xffd27a }, // 薇薇安娜 S1 蓄力: its model form only (render/units.js FORMS)
+  // 미틈's 체리 3호 and 로베르타's 전자동 스타일러: their model forms only (their effects: kitofficial.js, the machine's buffs)
+  mitmReborn: { a: 'none', c: 0xffffff }, mitmSkill: { a: 'none', c: 0xffffff }, mitmGone: { a: 'none', c: 0xffffff }, machRun: { a: 'none', c: 0xffffff },
   harpoon: { a: 'beam', c: 0xd0c0a0 }, arrowRain: { a: 'volley', c: 0xfff2d0 }, mark: { a: 'reticle', c: 0xff7b8a },
   bounce: { a: 'counter', c: 0xffd9a0 }, dying: { a: 'mark', c: 0xff5a4a },
   // beams

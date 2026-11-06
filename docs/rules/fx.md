@@ -3855,6 +3855,19 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - 파죰카 모듈 RA-A의 `zumama_equipment_range_01`은 그 버프가 생존 연산 음식 버프를 요구해(`SandboxCheckHasFoodBuff`) 이 모드에서 나오지 않는다 — `UNPLAYED`에 남김.
 - 확인: `test/render/pick-moment-fx.test.js`, 아레나 2배속 사건·프리팹 순서(슈 표식은 샌드백이 안 움직여 칸을 손으로 넣고 옮김). [화면 미확인]
 
+## 미틈 체리 3호·로베르타 전자동 스타일러의 이펙트와 모드 (2026-11-07)
+
+공개 전 시즌 `next`의 기물. 공식 클라에서 확인: 소환물 프리팹의 모드·능력과 버프 템플릿. 클립은 `render.md` 「스킬 끝·대기 클립 추가 판정」.
+
+- **소환물 표**: `tools/build-fx-templates.mjs`·`fx_bindings.py`가 `data/tokens.json`만 읽어 시즌 파일의 소환물(`data/seasons/*/tokens.json`) 행이 표에 없었다. 둘 다 읽게 고쳐 템플릿 행 2개·클라 행 23개가 늘었다(빠진 행 없음).
+- **체리 3호** (`token_10037_mitm_trshrb`, 번들 `mitm_token`, 소환물 뷰에 번들이 없어 미틈의 계획에서 그림):
+  - 쓰러짐·철수: `trshrb_t_1[dead_listener]`의 `token_mitm_trshrb_die_01`을 그 자리에. [추정·미조사: 이 리스너는 `ON_BEFORE_TRY_SET_HP_ZERO`이고, 철수(`Character.Withdraw`)가 이 사건을 지나는지는 안 읽음. 잔해를 만드는 곳이 여기뿐인데 PRTS가 철수 뒤에도 잔해가 난다고 하므로 같은 길로 봄. 공용 사망 이펙트 `common_char_die_01`이 함께 나는지도 안 읽음(지금은 함께 남). `bundles/fx-V`]
+  - 복귀: `trshrb_switch`의 `_castEffects` `token_mitm_trshrb_birth_01`을 클립과 함께 1초. 첫 배치도 같은 능력이라 같은 이펙트를 트는데, 복귀는 공용 배치 이펙트·낙하를 안 그린다(`quiet`). 첫 배치의 공용 이펙트는 그대로(프리팹에 `_startEffect` 없음).
+  - 잔해: `trshrb_t_1[trash_born]`의 `token_mitm_trshrb_waste_01` 한 번.
+  - S1: `mitm_s_1`의 `mitm_skill_01_hit_01`을 터지는 전차 자리에. S2 버프 `token_mitm_trshrb_skill_buff_01`은 키트 버프 `mitm_s_2[to_token][attribute]`로 저절로 그려진다(`worn`).
+- **전자동 스타일러** (`token_10018_robrta_mach`, 번들 `robrta_token`): 층마다 자기 버프 `robrta_mach_t[count_1]`·`[count_2]`(`_passiveBuffs`, `token_robrta_buff_03`·`_04`). 피해는 `[count_2]`부터 없앤다. 대상에게 방어력 버프가 있는 동안 모드 Running(`robrta_mach_t[mode]`)이고 그때만 `robrta_mach[effect_1]`·`[effect_2]`(`token_robrta_buff_01`·`_02`). 마지막 층이 나가면 지키던 유닛에 `token_robrta_buff_end` 한 번.
+- **클릭 `cammou_buff_01_hit_02`·`cammou_buff_01_start_B`**: EN·CN 클라의 캐릭터 프리팹·버프 템플릿, EN의 스킬·투사체 프리팹 어디서도 가리키지 않아 그리지 않는다.
+
 ## W·클로저·브리지드·크리스틴·체르니·리프레사 키트 순간 이펙트 (2026-11-06)
 
 공식 클라에서 확인: 버프 템플릿의 노드·대상과 투사체·능력 프리팹의 필드.

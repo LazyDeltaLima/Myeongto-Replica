@@ -23,6 +23,10 @@ const S2 = 'skchr_robrta_2';
 export const MACH = 'token_10018_robrta_mach';
 export const DEF_KEY = 'robrta_mach_t[def]';
 export const SHIELD_KEY = 'robrta_mach_t';
+/** Its `_passiveBuffs`, one per layer it still holds (overrideEffectKey token_robrta_buff_03 / _04). */
+export const COUNT_KEYS = Object.freeze(['robrta_mach_t[count_1]', 'robrta_mach_t[count_2]']);
+/** Modes/Running/GeneralAbilities/1 (overrideEffectKey token_robrta_buff_01 / _02). */
+export const RUNNING_KEYS = Object.freeze(['robrta_mach[effect_1]', 'robrta_mach[effect_2]']);
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 const tokBb = (def, key) => (def?.talents ?? []).find((t) => t && t.bb && t.bb[key] != null) ?? null;
 /** "获得2层护盾": no blackboard key holds the count (the prefab's Talents/1 and 1+ differ). */
@@ -47,6 +51,25 @@ export default {
         install(battle, m) {
           battle.addBuff(m, { key: 'robrta_mach_invincible', flags: { invulnerable: true, untargetable: true, noHeal: true }, persist: true, allowDead: true });
           const skey = `${SHIELD_KEY}:${m.id}`;
+          m.form = 'rest'; // mode Default: Idle → Default; mode Running from robrta_mach_t[mode], while its DEF buff stands
+          const run = (on) => {
+            const form = on ? 'running' : 'rest';
+            if (m.form === form) return;
+            m.form = form;
+            battle.fx('machRun', { x: m.x, y: m.y, id: m.id, form });
+            for (const key of RUNNING_KEYS) {
+              if (on) battle.addBuff(m, { key, visible: true, tags: ['talent', 'device'] });
+              else battle.removeBuff(m, key);
+            }
+          };
+          /** Its layers' effects: robrta_mach_t ON_TAKE_DAMAGE takes [count_2] first, then [count_1]. */
+          const counts = () => {
+            COUNT_KEYS.forEach((key, i) => {
+              const has = m.findBuff(key);
+              if (m.mem.machLeft > i && !has) battle.addBuff(m, { key, visible: true, tags: ['talent', 'device'] });
+              else if (m.mem.machLeft <= i && has) battle.removeBuff(m, has);
+            });
+          };
           /** The unit it serves now: on a melee tile of its range, an operator or a summon that is no device. */
           const target = () => {
             for (const k of m.rangeKeys || []) {
@@ -71,6 +94,8 @@ export default {
             if (ctx.unit !== m) return;
             m.mem.machLeft = hits;
             m.mem.machTarget = null;
+            run(false);
+            counts();
             const seq = m.deploySeq;
             if (life > 0) battle.after(life, () => { if (m.alive && m.deploySeq === seq) battle.retreat(m, { reason: 'retreat' }); }, { owner: m });
           }, { owner: m });
@@ -79,10 +104,14 @@ export default {
             const a = target();
             const cur = m.mem.machTarget;
             if (cur && cur !== a) release();
-            if (!a) return;
+            counts();
+            if (!a) { run(false); return; }
             if (cur === a) {
-              const s = a.findBuff(skey);
-              m.mem.machLeft = s ? s.shieldHits : 0;
+              const s = a.findBuff(skey), left = s ? s.shieldHits : 0;
+              // robrta_mach_t: its last layer spent, token_robrta_buff_end on the unit it served
+              if (left <= 0 && m.mem.machLeft > 0) battle.fx('kitHit', { x: a.x, y: a.y, k: 'robrta:end', src: m.ownerUnit?.id, id: a.id });
+              m.mem.machLeft = left;
+              counts();
             } else {
               m.mem.machTarget = a;
               if (m.mem.machLeft > 0) battle.addBuff(a, { key: skey, shieldHits: m.mem.machLeft, source: m, visible: true, tags: ['talent', 'device'] });
@@ -90,6 +119,7 @@ export default {
             // 防御加成不叠加: one machine's at a time; the next one takes over when it goes
             const d = a.findBuff(DEF_KEY);
             if (!d) battle.addBuff(a, { key: DEF_KEY, mods: { defPct: defUp }, source: m, visible: true, tags: ['talent', 'device'] });
+            run((d ?? a.findBuff(DEF_KEY))?.source === m);
           }, { owner: m });
           battle.on('death', (ctx) => { if (ctx.unit === m) release(); }, { owner: m, priority: 10 });
         },
