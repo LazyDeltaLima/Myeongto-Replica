@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createFxLayer } from '../../public/js/render/fxgame.js';
-import { fxBundleOf } from '../../public/js/render/fxmap.js';
+import { fxBundleOf, SKILL_END_CAST } from '../../public/js/render/fxmap.js';
 import { isOwnSubMode, skillModeIndex, SKILL_SUB_MODES } from '../../shared/skill-modes.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -18,11 +18,12 @@ const MODES = JSON.parse(readFileSync(path.join(ROOT, 'tools/assets/local-char-m
 const settle = () => new Promise((r) => setTimeout(r, 10));
 
 // (fxgame.js keeps the first index it loads for the module's life: one set of files for every operator here)
-const IDS = Object.keys(SKILL_SUB_MODES);
+const IDS = [...Object.keys(SKILL_SUB_MODES), 'char_1041_angel2', 'char_1032_excu2', 'char_4191_tippi'];
 const prefabsOf = (M) => [...new Set([M.cast, M.hit, M.attach, M.modeStart, M.trail].flat(2).filter((x) => typeof x === 'string'))];
 const FILES = {
   '/assets/local/fx/index.json': { bundles: { ...Object.fromEntries(IDS.map((id) => [fxBundleOf(id), prefabsOf(MODES[id])])), common: ['common_char_birth_01'] } },
-  '/assets/local/fx/modes.json': Object.fromEntries(IDS.map((id) => [id, MODES[id]])),
+  // (the served modes.json, tools/assets → public/assets/local/fx: no `skillEnd`, `switchTo`)
+  '/assets/local/fx/modes.json': Object.fromEntries(IDS.map((id) => [id, (({ skillEnd, switchTo, ...rest }) => rest)(MODES[id])])),
   '/assets/local/fx/enemy-index.json': { bundles: {} },
   '/assets/local/fx/enemy-modes.json': { $fx: {} },
 };
@@ -126,5 +127,47 @@ test('another unit\'s anchor (src: the caster, id: its target) switches nothing 
     take();
     const after = await strike();
     assert.ok(after.includes('ulpia_attack_start_01') && !after.includes('ulpia_skill_03_start_01'), `${after}`);
+  } finally { globalThis.fetch = fetch0; }
+});
+
+test('新约能天使 S3 picks its mode by the way she faces as it starts (angel2_s_3[switch_mode]): facing down S3_Down\'s shots', async () => {
+  const fetch0 = globalThis.fetch;
+  try {
+    for (const [dir4, on, off] of [['DOWN', 'angel2_attack_loop_hit_01', 'angel2_skill_3_loop_hit_01'], ['RIGHT', 'angel2_skill_3_loop_hit_01', 'angel2_attack_loop_hit_01']]) {
+      const { layer, views, take, strike } = await rig('char_1041_angel2', 2);
+      views.get(1).face = { dir4 };
+      layer.onEvent(['skill', 1, 1], views);
+      await settle();
+      take();
+      const after = await strike();
+      assert.ok(after.includes(on) && !after.includes(off), `${dir4}: ${after}`);
+    }
+  } finally { globalThis.fetch = fetch0; }
+});
+
+test('a closing mode\'s cast plays as the skill ends, not before and not for another skill (SKILL_END_CAST)', async () => {
+  const fetch0 = globalThis.fetch;
+  try {
+    for (const [id, i, want] of [['char_1032_excu2', 2, ['excu2_skill_03_end_01', 'excu2_skill_03_end_02']], ['char_4191_tippi', 0, ['tippi_land_F', 'common_land_ground']], ['char_4191_tippi', 1, ['tippi_land_F', 'common_land_ground']]]) {
+      assert.ok(SKILL_END_CAST[id][i].life > 0);
+      assert.equal(MODES[id].modes[MODES[id].skillEnd[i]], SKILL_END_CAST[id][i].mode, 'the mode the client ends the skill in');
+      const { layer, views, take } = await rig(id, i);
+      layer.onEvent(['skill', 1, 1], views);
+      await settle();
+      const on = take();
+      for (const n of want) assert.ok(!on.includes(n), `${id}: not at the start: ${n} (${on})`);
+      layer.onEvent(['skill', 1, 0], views);
+      await settle();
+      const off = take();
+      for (const n of want) assert.equal(off.filter((x) => x === n).length, 1, `${id}: once at the end: ${n} (${off})`);
+      assert.ok(!off.includes('tippi_line_01_1'), `${id}: her lines end with the skill (${off})`);
+    }
+    const { layer, views, take } = await rig('char_1032_excu2', 1);
+    layer.onEvent(['skill', 1, 1], views);
+    await settle();
+    take();
+    layer.onEvent(['skill', 1, 0], views);
+    await settle();
+    assert.ok(!take().some((n) => n.includes('_end_')), 'S2 has no closing mode');
   } finally { globalThis.fetch = fetch0; }
 });

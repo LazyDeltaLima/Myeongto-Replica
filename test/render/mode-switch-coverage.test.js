@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { skillModeIndex, SKILL_SUB_MODES } from '../../shared/skill-modes.js';
-import { VARIANT_MODES } from '../../public/js/render/fxmap.js';
+import { FACE_DOWN_MODES, VARIANT_MODES } from '../../public/js/render/fxmap.js';
 import { MODE_SWITCH_STATUS } from './mode-switch-list.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -23,7 +23,7 @@ function unfollowed() {
     b.switchTo.forEach((list, i) => {
       const pick = skillModeIndex(b.modes, i, b.skillMode);
       // (fxmap.js attackMode `sub`: a mode switched to on the way, a cast's variant; fxgame.js returnMode: the 【返回】's)
-      const followed = new Set([...Object.values(SKILL_SUB_MODES[id] || {}), ...Object.values(VARIANT_MODES[id]?.[i] || {})]);
+      const followed = new Set([...Object.values(SKILL_SUB_MODES[id] || {}), ...Object.values(VARIANT_MODES[id]?.[i] || {}), FACE_DOWN_MODES[id]?.[i]]);
       if (pick > 0) followed.add(`${b.modes[pick]}_Restore`);
       for (const n of list) if (n !== pick && !followed.has(b.modes[n])) (out[id] ||= {})[`S${i + 1} ${b.modes[n]}`] = true;
     });

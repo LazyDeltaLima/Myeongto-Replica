@@ -134,6 +134,34 @@ export function attackMode(bind, skillOn, skillIndex, sub = null) {
  */
 export const VARIANT_MODES = Object.freeze({ char_4098_vvana: Object.freeze({ 2: Object.freeze({ later: 'S3_2' }) }) });
 /**
+ * (2026-11-06, official client) A skill whose own buff picks its mode by the way the unit faces as it starts: charId → { skill
+ * index → the mode when it faces down } — attackMode's `sub` for that cast. 新约能天使 S3: angel2_s_3[switch_mode]
+ * CheckFaceDirection DOWN → mode 4 S3_Down (its shots angel2_attack_loop_hit_01 / _trail_01), else 3 S3. The other facing-down
+ * modes draw the same effects as their skill's mode and only change clips (anim-keys `downMode`; test/render/mode-switch-list.js).
+ */
+export const FACE_DOWN_MODES = Object.freeze({ char_1041_angel2: Object.freeze({ 2: 'S3_Down' }) });
+/**
+ * (2026-11-06, official client) Closing modes the effect layer draws as a skill ends (its buff's ON_BUFF_FINISH SwitchMode; their
+ * attack ability runs at once): charId → { skill index → { mode, life: the seconds its clip lasts, which ends its looping cast
+ * effects (`_oneshot` 0, ON_CAST_END) } }. 圣约送葬人 S3_End (excu2_s_3, Skill_3_End), 蒂比 S1_Landing / S2_Landing
+ * (tippi_s_1[swtich_mode], tippi_s_2[switch_mode]; Skill_End, Skill_2_End). The others are a kit's event: 琳琅诗怀雅 'coin', 逻各斯
+ * 'bulletClear', 风絮 'taraxaFly' …; test/render/mode-switch-list.js says which.
+ */
+export const SKILL_END_CAST = Object.freeze({
+  char_1032_excu2: Object.freeze({ 2: Object.freeze({ mode: 'S3_End', life: 1 }) }),
+  char_4191_tippi: Object.freeze({ 0: Object.freeze({ mode: 'S1_Landing', life: 1 }), 1: Object.freeze({ mode: 'S2_Landing', life: 1 }) }),
+});
+/** What `charId`'s skill `skillIndex` draws as it ends: { names: the closing mode's cast effects and one-shot `attach` that are extracted, life }, or null. */
+export function skillEndCast(charId, skillIndex, bind, prefabs) {
+  const end = SKILL_END_CAST[charId]?.[skillIndex];
+  const n = end && Array.isArray(bind?.modes) ? bind.modes.indexOf(end.mode) : -1;
+  if (n <= 0) return null;
+  const skillAttach = bind.attach?.[skillModeIndex(bind.modes, skillIndex, bind.skillMode)] || [];
+  // (what its attach list adds to the skill's: 蒂比's common_land_ground; her lines end with the skill's)
+  const names = [...new Set([...(bind.cast?.[n] || []), ...(bind.attach?.[n] || []).filter((x) => !skillAttach.includes(x))])];
+  return { names: names.filter((x) => !prefabs || prefabs.includes(x)), life: end.life };
+}
+/**
  * (2026-11-06, official client) A skill whose ability group's children have effects of their own, picked by the cast's variant (the 'skill' event's
  * 4th field; '' none): charId → { skill index → { variant: { cast, hits } } } — what the group's other children hold is not this cast's. 薇薇安娜 S1:
  * skchr_vvana_1 picks S1_Attack (three strikes) while vvana_s_1_enhance_mark is on (a 蓄力 cast), else S1_Attack2 (two).

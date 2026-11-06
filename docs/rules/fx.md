@@ -3779,6 +3779,11 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
   (`char_modes.py skill_switches` → `local-char-modes.json` `switchTo`, 공식 클라 버프 템플릿)를 이펙트 층이 따르는지, 아니면
   `test/render/mode-switch-list.js`에 `ok`/`todo` 사유와 함께 있는지 본다(첫 목록 2026-11-04: 32줄, `todo` 12). [화면 미확인]
 - 스킬 도중 바꾸는 모드 표 전체를 이펙트도 따름 (2026-11-06, 공식 클라에서 확인): `shared/skill-modes.js SKILL_SUB_MODES`를 소리만 따르고 이펙트는 `teleport` 줄만 따랐다. 그래서 위셔델 S2 과부하(`S2_Overload`)의 `wisdel_skill_02_overload_start`, 울피아누스 S3 닻 뒤(`S3_Respawn_A`)의 `ulpia_skill_03_start_01`·`_hit_01`, 크루스 더 킨 글린트 S2 네 발(`S2_Sub`)의 `kroos2_skill_02_start_02`·`_hit_02`·`_trail_02`가 안 나왔는데, `test/render/mode-switch-coverage.test.js`는 표에 있으면 따른다고 쳐서 시험에 안 걸렸다. → `fxgame.js followSubMode`가 표의 모든 사건을 따르고, `test/render/sub-mode-fx.test.js`가 표의 줄마다 실제로 그림이 바뀌는지 본다. 같은 사건 이름을 다른 스킬도 쓰므로(울피아누스 S1의 `anchor`) 그 스킬 자기 모드의 것일 때만 바꾼다(`isOwnSubMode`, 소리 쪽과 같은 규칙). 아레나 2배속 확인, 공식 화면과 나란히는 안 봄.
+- 스킬이 도중에 바꾸는 모드의 나머지 판정 (2026-11-06, 공식 클라에서 확인, `test/render/mode-switch-list.js`):
+  - 엑시아 더 뉴 커버넌트 S3: `angel2_s_3[switch_mode]`가 시작 때 `CheckFaceDirection` DOWN이면 모드 4 `S3_Down`(탄 `angel2_attack_loop_trail_01`·`_hit_01`), 아니면 3 `S3` → `fxmap.js FACE_DOWN_MODES`. 프리팹 블랙보드의 `mode` 2는 이 템플릿이 안 읽으므로 `S2_Down`은 안 쓴다.
+  - 이그제큐터 디 엑스 포에데레 S3·티피 S1·S2 착륙: 스킬 버프의 ON_BUFF_FINISH가 조건 없이 닫는 모드로 바꾸고 그 공격 능력이 바로 돈다 → `fxmap.js SKILL_END_CAST`가 스킬 끝에 그 모드의 시전(`excu2_skill_03_end_01`·`_end_02`, `tippi_land_F`)과 티피 `common_land_ground`를 클립 길이 1초만 튼다(반복형이라 끊음). 티피 이륙은 사건 `takeoff`에 `tippi_takeoff_F`(절차 표시 대신). `common_land_ground`를 1초로 끊는 것은 [추정·화면: 공식은 착륙 모드가 끝날 때까지].
+  - 달라지는 그림이 없어 그대로인 것: 제시카 더 리버레이티드 S3 `S3[D]`(시전·타격·탄 목록이 같음; 비교할 때 `dirs`는 모드별이 아니라 묶음 목록이라 보지 않음), 뮤엘시스 S2·S3의 `mlyss_s_2[token_buff_range_finish]`·`mlyss_s_3[token_buff_melee_finish]`(유동체 쪽 모드), 스테인리스 S2의 `switch_mode` 모드 1(`_selfOption` 0: 장치 쪽. 본인은 `_passiveBuffs` `ironmn_s_2` 모드 2).
+  - 남은 것: 토가와 사키코 S2(`S2_Atk`·`S2_Fever`). 시뮬에서 즉발이고 음색이 배치 내내 유지되어, 스킬 중에만 모드를 보는 이펙트 층으로는 못 그린다.
 - 비이(`char_4226_veen`) 재능 2 전쟁 기술: `veen_t_2[damage]`의 `veen_talent_02_debuff_01` — 시뮬 표식 `veen:war:<그녀 id>`를 `visible`로 → `KEY_FX`.
   S2 '선혈로 정화하라' 상한: `veen_s_2_buff[stack]`이 `max_stack_cnt`에 닿으면 `veen_s_2_buff_full[effect]`(`veen_skill_02_buff_03`)를 스킬이 끝날 때까지
   — 시뮬 `veen:s2full`.

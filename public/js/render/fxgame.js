@@ -62,7 +62,7 @@ import { syncThreeCamera, OFFICIAL } from './projection.js';
 import { fxBundleOf, effectsFor } from './fxmap.js';
 import { noteEffects, NOTE_FLIGHT } from './fxmap.js';
 import { attackMode, boundEffects, fortressEffects, KIT_CAST, KIT_HIT, modelessTrail } from './fxmap.js'; // local patch: the mode bindings (modes.json)
-import { activationEffects, readySpecs, VARIANT_MODES, variantFx, variantModes } from './fxmap.js'; // local patch: a skill activation's effects (2026-11-03: a cast's mode by its variant)
+import { activationEffects, FACE_DOWN_MODES, readySpecs, skillEndCast, VARIANT_MODES, variantFx, variantModes } from './fxmap.js'; // local patch: a skill activation's effects (2026-11-03: a cast's mode by its variant)
 import { foeEffects, castTiming, castPhase, CAST_EVENT } from './fxmap.js'; // 2026-10-10: enemy-held mode buffs, cast timings
 import { clipGroup, hitLoopEnd, deployEffect, deadEffect } from './fxmap.js'; // 2026-10-11: clip variants, looping hits, deploy / dead effects
 import { castEnd, commonEffects, skillEdge, skillHeld } from './fxmap.js'; // 2026-10-16: the always-on effects of the common abilities (2026-10-24: a skill's own held buffs, its start / end effects)
@@ -3833,6 +3833,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     for (const n of skillEdge(v?.info?.spine || v?.info?.defId, skillIdx(v), 'end', b.prefabs, plays, flags)) {
       spawn(b.bundle, n, v, { owner: id, buff: false, onCaster: true, until: null, tag: 'common', pinned: true }, { over: false, facing: efacing(v) });
     }
+    // (2026-11-06) the closing mode's cast (fxmap.js SKILL_END_CAST)
+    const close = skillEndCast(v?.info?.spine || v?.info?.defId, skillIdx(v), bindOf(v), b.prefabs);
+    if (close?.names.length) play(v, 'skillStart', skillIdx(v), { names: close.names, until: clockS + close.life });
   }
   // effects waiting for the damage of this tick: a skill that hits without an attack event (德克萨斯 S2's sword rain on
   // activation, 戴菲恩 S3's slashes / finisher) — the next 'dmg' events of the same moment are its targets
@@ -5702,6 +5705,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             // (2026-11-03) the cast's variant may pick another of its modes (fxmap.js VARIANT_MODES: 薇薇安娜 S3's second cast on)
             const vid = v.info.spine || v.info.defId;
             v._fxSub = typeof e[3] === 'string' ? VARIANT_MODES[vid]?.[skillIdx(v)]?.[e[3]] ?? null : null;
+            // (2026-11-06) or the way it faces as it starts (fxmap.js FACE_DOWN_MODES; the clips' spine.js _facesDown('face'))
+            if (!v._fxSub && v.face?.dir4 === 'DOWN') v._fxSub = FACE_DOWN_MODES[vid]?.[skillIdx(v)] ?? null;
             v._fxCastVariant = typeof e[3] === 'string' && e[3] !== 'flag' ? e[3] : null;
             const fm = attackMode(bindOf(v), true, skillIdx(v), subOf(v)) ?? -1; // 2026-10-10: its mode's enemy-held buff effects
             const foe = foeEffects(bindOf(v), bundleOf(v).prefabs, fm);
