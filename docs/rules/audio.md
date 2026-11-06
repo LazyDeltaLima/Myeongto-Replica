@@ -383,7 +383,7 @@
     키트의 S3 공격 그대로). 그 HIT p_imp_snwlprdg_s를 S3 공격의 착탄마다(`signalAttackKey` 'd' → kit `svash2:s3hit`, 자기 대상만 — 같은 줄의 다른 적은
     소리 없음, 하한). 휘두름의 `attack.1` START는 전부터 남. `projectile_chr_svash2_s3`는 새의 오라(`BirdAura_Self` — 스킬 자기 버프
     `svash2_s_3[self_bird_onuse]`가 시작할 때 한 번 시전)라 그 BORN p_skill_snwfld_s는 S3 시작에 한 번(`audio.js` 'skill' 켜짐)
-    [추정·엔진: 능력 시전을 스킬 시작 순간으로 봄 — 능력의 전딜은 안 읽음]. 2026-10-11부터 그 BORN을 타격마다 냈고 새 HIT는 없었다.
+    [추정·미조사: 능력 시전을 스킬 시작 순간으로 봄 — 능력의 전딜은 안 읽음]. 2026-10-11부터 그 BORN을 타격마다 냈고 새 HIT는 없었다.
     아군 새(`BirdAttack_Ally`·`[bird_on_target]`, 카드 UID로 다음에 배치한 아군에게 옮겨 감 — `[1f_delay_create]`·`[summon_bird]`)는 키트에 없어
     소리도 없다(키트 머리 주석 「风雪之眼变为可部署」 안 만듦과 같은 범위). 조사 보고의 「S3 베기 = aoe」는 틀림 — `aoe` svash2는 S2 베기다.
   - 뮤엘시스의 유동체(流形, `token_10030_mlyss_wtrman`, 모드 Recharge·Default·Melee·Range·Range_S2·Melee_S3): 버프 템플릿 `mlyss_wtrman_switch_melee`/`_range`가

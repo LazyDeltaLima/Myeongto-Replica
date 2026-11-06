@@ -266,7 +266,7 @@
   `Character.SwitchToSkillState`가 상태 기계를 SKILL로 바꾸므로 BORN을 끝낸다(`SkillState`는 끝나면 IDLE) — 엔진은 그 시전 때 `bornUntil`을 지금으로
   당긴다. 다음 공격 대체형(`ReplacementSkill`)은 BORN 동안 켜져도 그 공격이 BORN 뒤에 나간다. 첫 패스는 0.2 s(코루틴이 먼저 기다림)이고 같은
   패스에서 배치(`_TryDeployAvailableCharacter`, 한 패스에 하나) 다음 시전 검사. PRTS 「作战开始时部署的单位将进入冷却」는 이 BORN이다.
-  [추정·엔진: Born 클립을 1 s로 재생한다고 읽음(`_useRealBornTimeFromAnim` 꺼짐) — 재생 함수의 반환값은 안 읽음]. 2026-10-29 같은 날 이 조사 전에는
+  [추정·미조사: Born 클립을 1 s로 재생한다고 읽음(`_useRealBornTimeFromAnim` 꺼짐) — 재생 함수의 반환값은 안 읽음]. 2026-10-29 같은 날 이 조사 전에는
   모든 수동 스킬이 BORN 동안 기다렸다. BORN 동안은 공격도 시작하지 않는다 — `BornState.OnTick`은
   시간이 다 되어야 IDLE로 넘기고 공격은 IDLE부터라서(2026-10-29 공식 클라에서 확인): 엔진 `ai.js updateAlly`가 `bornUntil` 전에는 휘두름을 시작하지
   않고, 공격 쿨다운은 그동안에도 돈다(배치 때 0이라 BORN이 끝나는 틱에 첫 휘두름). 저지는 건드리지 않음. 2026-10-29 전에는 전투 시작 배치만 2 s 블록이었고
@@ -1175,7 +1175,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   (그녀가 있는 golden 13개 시나리오가 움직임: roster 009·011·030, bonds arcane·mira·stead-low·swift, fields boss 2·4·6·hidden 8·10, matches
   coop2-NORMAL-70-diy). 대상이 쏜 뒤 죽으면 그 굴림은 버려진다(클라도 시전 때 고름).
 - [추정·미조사: 모드가 없는 스킬의 켜짐·꺼짐이 진행 중인 공격 능력에 무엇을 하는지 안 읽음] 휘두름 중 스킬 모드가 없는 스킬이 켜지거나 꺼지면(공격 프로필이
-  바뀜) 타격 때 대상을 다시 고른다 — 스킬 모드가 있는 스킬은 위 「모드가 바뀌면」대로 옛 휘두름이 제 프로필로 친다. [추정·엔진: 골격에 없는 클립 키를 클라가 어떻게 푸는지] 클립 이름: `ThreePartOneshotAnimation`의 `_oneshotAnim`(`_beginAnim`은 아래 「첫 공격 begin」), 골격에 없는 `_animKey`는 `<key>_Loop`, 그래도 없으면
+  바뀜) 타격 때 대상을 다시 고른다 — 스킬 모드가 있는 스킬은 위 「모드가 바뀌면」대로 옛 휘두름이 제 프로필로 친다. [추정·미조사: 골격에 없는 클립 키를 클라가 어떻게 푸는지] 클립 이름: `ThreePartOneshotAnimation`의 `_oneshotAnim`(`_beginAnim`은 아래 「첫 공격 begin」), 골격에 없는 `_animKey`는 `<key>_Loop`, 그래도 없으면
   렌더가 그 모드에 쓰는 클립(`anims.attack`/`anims.skills[i]`) — 왕 Default, 마운틴 S2·S3, 시·수르트·민트·플레임테일·파투스 스킬 모드 등 10개 능력. 적은 Default 모드의 능력 하나(형태별 클립은 기존 [ASSUMED]).
 - 아직 공식과 다른 것: 한 모드 안의 Attack/Combat 능력이 따로인 쿨다운(적·오퍼레이터 모두 — 우리는 모드당 하나), 키트가 따로 표시하는 스킬 중간 모드
   전환(`shared/skill-modes.js SKILL_SUB_MODES`: 위셔델 S2 과부하 등 — 엔진이 모르는 전환은 쿨다운을 비우지 않음; 키트가 직접 비우는 것은 첸 더 던스트릭 S3·페넌스 S1), 적의 모드 전환. 저지가 생기면 오퍼레이터의 Attack 상태가 COMBAT으로 바뀌며 휘두름이 끊기는 것(`AttackState.OnTick`)과
@@ -1598,7 +1598,7 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
         - 유넥티스 S3·블레미샤인 S2·위 S2·치우바이 S2: 첫 자식 `_cooldown` 0 → 타이머 = 지속시간, 자식이 끝나는 때 = 클립 + 지속시간 → 끝은 클립 + 지속시간. `durationAfterCast` 그대로 맞다.
         - 벤델라 S2 [추정·화면: `MaxHpMark`가 `_timeMode` 0이라 설정 순간의 공격 시간이 더해진다. 1.6초면 타이머 16.6초, 자식은 15.5초에 끝난다. 설정 순간에 공격 시간이 이미 채워져 있는지 안 봤고 공식 화면과 대조하지 못해 15.5초로 둔다]
         - 리드 더 플레임 섀도우 S2 [추정·화면: `Skill_2_FireBall` 프리팹의 `_cooldown`이 20이라 코드대로면 타이머 40초인데, 표의 지속시간은 20초이고 자식은 20.5초에 끝난다. 공식 화면과 대조하지 못해 20.5초로 둔다]
-    - 벨로네 S3·Mon3tr S3의 이동은 시전 순간이 아니라 클립 끝이다(2026-11-05, 공식 클라에서 확인): `FlyToTarget`·`Respawn`은 `_waitForAttackEvent` 1이고 클립(`Skill_3_ReStart_Begin` 0.2초·`Skill_3_Begin` 0.667초)에 `OnAttack`이 없으니, 대기는 상한 `m_cachedDuration`에서 끝난다. `_End` 클립을 이어 트는지와 무관하다. 대상은 벨로네는 그 순간(`_selectTargetTiming` 1), Mon3tr은 시전 시작(0). Mon3tr은 끊기면(`_interruptableSubAbilityIndice` 1) 제자리에서 스킬만 흐른다. 유실은 착지부터라 끊기면 없다. 벨로네의 `FlyToTargetSecond`도 같은 클립·대기라 0.2초 뒤 이동한다 [추정·엔진: 그 0.2초 동안 휘두름을 끊는지 안 읽음. 지금은 안 끊고, 이동이 끊는다].
+    - 벨로네 S3·Mon3tr S3의 이동은 시전 순간이 아니라 클립 끝이다(2026-11-05, 공식 클라에서 확인): `FlyToTarget`·`Respawn`은 `_waitForAttackEvent` 1이고 클립(`Skill_3_ReStart_Begin` 0.2초·`Skill_3_Begin` 0.667초)에 `OnAttack`이 없으니, 대기는 상한 `m_cachedDuration`에서 끝난다. `_End` 클립을 이어 트는지와 무관하다. 대상은 벨로네는 그 순간(`_selectTargetTiming` 1), Mon3tr은 시전 시작(0). Mon3tr은 끊기면(`_interruptableSubAbilityIndice` 1) 제자리에서 스킬만 흐른다. 유실은 착지부터라 끊기면 없다. 벨로네의 `FlyToTargetSecond`도 같은 클립·대기라 0.2초 뒤 이동한다 [추정·미조사: 그 0.2초 동안 휘두름을 끊는지 안 읽음. 지금은 안 끊고, 이동이 끊는다].
     - `moveRedeploy`는 진행 중 휘두름을 없앤다(새 배치와 같음, 위 벨로네·Mon3tr·울피아누스 S3). 클립 끝 틱에는 공격을 시작하지 않는다: 스킬 틱이 공격 뒤라, 옛 칸에서 시작한 휘두름이 끼어들었다.
     - 시점이 옮겨진 피해의 대상 이펙트는 표시 사건 `['castHit', id, part?]`가 붙인다(render: `fxgame.js` `castHit` → `expect`).
   - **즉발·충전 `state` 스킬의 효과가 나는 시점**(2026-11-05, 공식 클라 프리팹): Skill 상태·SP·다음 시전 간격은 시전 순간 그대로이고, 효과만 스킬 능력이 기다리는 프레임에 난다(키트 `onStrike`, `skills.js _instantStrike`·`_tickCast`). 클립의 `OnAttack`이고, 텍사스 S2처럼 `_waitForAttackEvent` 0이면 `_preDelay`(0.5초)다. 대상은 `_selectTargetTiming`대로: 0이면 시전 시작에 골라 두고(`onStart`, `skill.castPick`) 그사이 범위를 벗어나도 맞으며 죽은 대상만 빠진다, 1이면 그 프레임에 고른다.

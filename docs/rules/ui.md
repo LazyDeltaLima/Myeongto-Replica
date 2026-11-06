@@ -456,7 +456,7 @@
       「0/N」이라 그리지 않는다. `IsAvailable` = 다 안 씀 ∧ 능력 `isReady` ∧ skillType ≠ 0 ∧ `spEnough`(유닛 SP ≥ spCost) ∧
       `ownerCanUseSkill`(이상 상태·침묵·`SKILL_NOT_ACTIVATABLE` — 위수협의 정비에 이 표시를 거는 버프 없음). 남는 것은 정비 중 유닛 SP: 풀의
       충전 스킬 기록 100개 중 initSp ≥ spCost는 비르투오사 정예 S1(12/6)뿐 — 정비 중 SP가 initSp라면 그 하나만 「0」 배지가 나온다
-      [추정·엔진: 정비 중 SP를 처음 넣는 곳을 찾지 못함(`Entity.UpdateSpData`·`Character.OnInit`/`OnBorn`에 없음)].
+      [추정·미조사: 정비 중 SP를 처음 넣는 곳을 찾지 못함(`Entity.UpdateSpData`·`Character.OnInit`/`OnBorn`에 없음)].
   - 대기석·임시 정비 구역 기물 → 마름모 없이 메뉴 버튼(`btn_panel_root`, `AutoChessCharacterMenuButton`): 검은 깃발 `img_btn_bg_all`
     (325×225 × 0.66) + 같은 판을 0.66배로. 아이템은 빨간 파기 판, 소환물은 아무것도 없다. 두 표시 설정 모두 `needRotate`라 `_RotateIfNeed`가
     `bg_offset`을 90° 돌려(왼쪽을 가리키던 깃발 끝이 아래 = 기물 쪽) `rotatedOffsetPos` (0, 60)에 두고, 판은 돌리지 않고

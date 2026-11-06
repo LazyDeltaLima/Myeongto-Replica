@@ -262,7 +262,7 @@ export default {
             const st = unit.mem.demetrS3;
             if (!st) return;
             // FlyToTargetSecond under way: the same clip and wait as FlyToTarget, its target picked as they run out
-            // [ASSUMED·엔진: not read whether this cast, outside the Skill state, cuts his swing meanwhile; here it does not]
+            // [ASSUMED·미조사: not read whether this cast, outside the Skill state, cuts his swing meanwhile; here it does not]
             if (st.flyAt != null) {
               if (battle.time + 1e-9 < st.flyAt) return;
               st.flyAt = null;

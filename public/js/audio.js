@@ -273,7 +273,7 @@ export function kitHitKey(fx, ex, unitOf) {
     // 2026-11-03: a waiting operator's slash as it redeploys (svash2_s_2[build][effect] PlayAudio svash2_s_2[range] at it — the
     // hits: aoeHitKey); 菲莱 S2's blast at her (philae_s_2[cd] audioSignal philae_aoe); 风丸's 折纸生花 as a <替身> appears —
     // the talent ability Talents/1 (ActiveBuffAbility kazema_standin[damage]) of the summoned <替身> (its AppearTalent) or of
-    // her stand-in state [추정·엔진: her own Talents/1 is a plain Talent — what casts it as she switches was not read]
+    // her stand-in state [추정·미조사: her own Talents/1 is a plain Talent — what casts it as she switches was not read]
     case 'aoe': return ex.skill === 'svash2' ? (def(ex.id) === 'char_1045_svash2' ? 'svash2:s2' : 'svash2:range')
       : ex.skill === 'philae_2' && def(ex.id) === 'char_4148_philae' ? 'philae:aoe'
       : ex.skill === 'origami' ? (def(ex.id) === 'char_4016_kazema' ? 'kazema:t1' : def(ex.id) === 'token_10022_kazema_shadow' ? 'kazema:t1token' : null)
@@ -2318,7 +2318,7 @@ export class AudioManager {
             // take-off plays that clip at the cast — the S1 mode turns Born into it]
             if (u.def === 'char_1015_aglna2' && u.skillIndex === 0) this._kitSound('aglna2:born');
             // 2026-11-02: 凛御银灰 S3's own buff svash2_s_3[self_bird_onuse] casts BirdAura_Self as it starts — the aura
-            // projectile_chr_svash2_s3's BORN [추정·엔진: the cast at the skill's start — the ability's own delay is not read]
+            // projectile_chr_svash2_s3's BORN [추정·미조사: the cast at the skill's start — the ability's own delay is not read]
             if (u.def === 'char_1045_svash2' && u.skillIndex === 2) this._kitSound('svash2:s3born');
             // 2026-11-03: 铁钳号·原型机's skill — its sktok_ironmn_pile3 ability START (a summon: no unit entry of its own)
             if (u.def === 'token_10027_ironmn_pile3') this._kitSound('ironmn:pile3s');

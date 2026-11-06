@@ -161,7 +161,7 @@ function angel2(bb, chess, def) {
         // ends, even if the target or she has died meanwhile, with the damage computed when the round is made
         // (「预计算的物理普通伤害」). Until upstream 0.3.2 every success chose its own target with the consumer's sort, in its
         // current range, and hit radius 1 at once. Her 视野遮挡 rule is not modelled (the engine has no line of sight).
-        // [ASSUMED·엔진: once she has died mid-round no further bombing is fired — the client ends the cast after the
+        // [ASSUMED·미조사: once she has died mid-round no further bombing is fired — the client ends the cast after the
         // bombing whose turn finds her dead; whether that turn still comes is not read]
         const hr = num(t0.hp_ratio), prob = num(t0.prob), sc = num(t0.aoe_atk_scale, num(t0.damage_scale));
         const rounds = new Map(); // consumer → { t, target, n, amount }

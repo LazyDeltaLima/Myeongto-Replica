@@ -8,7 +8,7 @@
 // - S1 攻击力强化·β型: ATK +atk (mode S1 only changes the drawings).
 // - S2 同步索敌攻击: range 3-3, ATK +atk. The drone is released on her target and stays locked, inside her range or not, until that enemy dies or the skill ends; meanwhile the unreleased drone's
 //   addition is off. Her attacks and the drone's hits each stun for attack@stun s at attack@prob (cammou_s_2 on both abilities). Her statuses do not stop it (PRTS 备注): the skill's tick runs it.
-//   [ASSUMED·엔진: the locked drone hits at her attack interval, with the trait's ramp; the projectile's own hit timing was not read — as 洛洛 and 耶拉's released drones]
+//   [ASSUMED·미조사: the locked drone hits at her attack interval, with the trait's ramp; the projectile's own hit timing was not read — as 洛洛 and 耶拉's released drones]
 
 import { canTargetEnemy, sortEnemyTargets } from '../../../targeting.js';
 import { num, talentBb, skillRec, up } from '../shared/tier1.js';

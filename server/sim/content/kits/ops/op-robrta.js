@@ -6,12 +6,12 @@
 // prefab token_10018_robrta_mach (Talents/1 and 1+, `_passiveBuffs`, `_tileOptions`), buff_template_data robrta_mach_t, robrta_mach_t[mode], charge_token[refresh], trigger_charge_token,
 // withdraw_target_as_dead_when_buff_finish, and Deck.TokenCard.Recharge (`refreshRemainingCnt`: the holding becomes cnt, at most the cap, instead of adding).
 // - 造型仪调试: each deployment sets her holding to cnt (cap cnt, +1 with CRA-X; the module's cost is in the token's data). CRA-X's trigger_charge_token is on the undeployed card
-//   (`_attachPassiveBuffsOnDummy`). [ASSUMED·엔진: that +1 comes before the deployment's refresh, which overwrites it, so only S2 reaches the cap; the order was not read] A placed machine deploys free at the battle
+//   (`_attachPassiveBuffsOnDummy`). [ASSUMED·미조사: that +1 comes before the deployment's refresh, which overwrites it, so only S2 reaches the cap; the order was not read] A placed machine deploys free at the battle
 //   start, and one that left comes back on its tile as her other <支援装置> do (op-ironmn.js deviceReturn: its redeploy time, one held, its cost, she on the field).
 // - The machine: no attack, 禁疗, 无敌, never targeted; it leaves `duration` s after each deployment (the passive robrta_mach_withdraw, as dead). A unit on a melee tile of its range (the tile it faces)
 //   has DEF +def while there (one machine's: 不叠加), and hit-count shields from the machine's count, which is the machine's own: what one unit used the next one does not get (PRTS 「总次数可分别作用于
 //   先后部署于其作用格的多个单位」). The count is the one the talent's text names (Talents/1+ at E2: 2). Operators and summons (professionMask, PRTS), no other device.
-//   [ASSUMED·엔진: two machines facing one unit keep a shield each; whether the client's same-key buff replaces is not read]
+//   [ASSUMED·미조사: two machines facing one unit keep a shield each; whether the client's same-key buff replaces is not read]
 // - S1 叙拉古式上妆: ATK +atk, DEF +def. S2 全自动造型仪: no attack, block +block_cnt, DEF +def; +robrta_s_2[recharge].cnt held as it ends.
 
 import { num, talentBb, traitBb, skillRec, up } from '../shared/tier1.js';

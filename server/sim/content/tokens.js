@@ -871,7 +871,7 @@ function manifoldPriority(tr, tc, r, c, rows, cols) {
  * manifoldPriority from the 流形's tile, the first in board order on a tie; kept for that tile for the whole battle
  * (`mlyssCopiedChessUid2CopiedChessInstId`: a 流形 on that tile again copies the same one). Null with no operator. The
  * token's skill buff (`mlyss_wtrman_s_begin`, ON_ENTITY_WILL_OVERLAP) copies whatever card is built on it, from the card's
- * snapshot, with no filter — 缪尔赛思 too. [ASSUMED·엔진: the board order on a tie is `allyUnits`' order (where
+ * snapshot, with no filter — 缪尔赛思 too. [ASSUMED·미조사: the board order on a tie is `allyUnits`' order (where
  * `battleChessInsts` is filled is not read); on a shared 联防 field only the 流形 owner's pieces]
  */
 export function manifoldCopyTarget(battle, unit) {

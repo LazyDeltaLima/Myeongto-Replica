@@ -16,7 +16,7 @@
 //     skillButton), the range toggle `toggle_skill_range` (off at first; on → the field shows the skill's range,
 //     GridRangeDrawer TurnOnSkill, off → the attack range, TurnOn). Its AUTO mark and stop sign are inactive objects the
 //     script only enables, so they never show; the charge count `panel_skill_amount` needs a ready skill
-//     (`IsAvailable`) with maxChargeTime > 1, which the prep's "0/N" never is [추정·엔진: IsAvailable in the prep not read].
+//     (`IsAvailable`) with maxChargeTime > 1, which the prep's "0/N" never is [추정·미조사: IsAvailable in the prep not read].
 //   * a bench / temp piece → no diamond: the menu button `btn_panel_root` (AutoChessCharacterMenuButton) — the black
 //     flag `img_btn_bg_all` and the same plate at 0.66 (SELL yellow, DESTROY `btn_bg_red` + `icon_destory` for an
 //     item); a summon gets nothing. Both display settings have `needRotate`: _RotateIfNeed turns `bg_offset` 90° (the
