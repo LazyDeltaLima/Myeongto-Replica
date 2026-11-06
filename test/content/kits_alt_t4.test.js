@@ -99,6 +99,7 @@ test('信仰搅拌机 S1 铳骑主考官 (自动触发 ⇒ DEFAULT: hurt SP, fir
     assert.equal(u.skill.rule, 'DEFAULT', 'an AUTO skill takes no 技能策略 (the 重装 row is for MANUAL skills)');
     assert.ok(ins.skill.activate('test', { free: true }));
     u.skill.gainSp(1000);
+    ins.skill.ammoLeft -= bb.charge;   // fired: only fired bullets come back (RecoverEventCount)
     const ammo0 = ins.skill.ammoLeft;
     h.hooksOf('attack').length = 0;
     h.spawn('enemy_hitter', { pos: [9, 5] });

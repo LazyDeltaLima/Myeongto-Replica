@@ -1000,7 +1000,7 @@
       "hooks": [1,219,6251,726,808,3660,3650,5356,68,211,78,77,16,23566,455,81,183,142,1,85,2,4,23],
       "events": {"atk":1053,"bounty":1,"castHit":13,"deploy":33,"die":69,"dmg":3649,"engage":12,"face":33,"fx":798,"heal":58,"layer":2,"leak":142,"skill":154,"spawn":199,"status":1035,"swing":766,"tplfx":25},
       "fx": {"aoe":15,"burst":4,"charge":3,"crit":23,"dodge":23,"dollEnd":1,"enemySkill":3,"extraAttack":11,"garrison":2,"healAoe":4,"iceSpike":113,"kitHit":265,"roadTiles":1,"shieldBreak":60,"sp":17,"stacks":79,"substitute":2,"summon":1,"swap":1,"weightless":1,"zone":169},
-      "snaps": "19f817e2 488baceb c1b0cc0d 7d981dc5 fdfca0cb 3b00df60 accf5142 56d8ec7d a4342404 421b9346 8f0bea19 0a77b25b 44c7e807 f7fb95c6 432e3e88 27ce28e6 65d3c0ba 936440ec 891a50c9 ce3d3298 18331c9a"
+      "snaps": "19f817e2 7b82a8a5 eb44fdda c777f241 c3b3a36f fa72131c 8e0fa9ee d6c04e39 6b3753f8 cd9311ea b560973d 5e14908f af7d60ab c34d7caa 6e6e153c 2f8d165a 613678d6 73261348 503d1bed 716afe24 05c2819e"
     },
     "roster-015": {
       "about": "pass 0 band 6: chess_char_5_08_b chess_char_5_11_b chess_char_5_05_b chess_char_5_06_b chess_char_5_13_b chess_char_5_14_b chess_char_5_07_b chess_char_5_02_b chess_char_5_03_b chess_char_5_10_b chess_char_5_12_b chess_char_5_15_b",

@@ -180,7 +180,7 @@ export default {
           const sk = unit.skill;
           if (c.element !== 'burn' || !sk?.active || sk.kind !== 'ammo' || !on(unit)) return;
           const n = Math.min(num(bb.ammo_recover), maxAmmo - sk.ammoLeft);
-          if (n > 0) sk.addAmmo(n);
+          if (n > 0) sk.recoverAmmo(n, true);
         }, { owner: unit });
       },
     };

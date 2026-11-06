@@ -696,7 +696,7 @@ const BY_ITEM = {
       if (!chance(battle, num(p.prob))) return;
       n++;
       const max = Math.max(c.skill.ammoMax || 0, c.skill.ammo || 0);
-      c.skill.addAmmo(Math.max(1, Math.ceil(Math.fround(Math.fround(max) * Math.fround(num(p.ammo_percent))))));
+      c.skill.recoverAmmo(Math.max(1, Math.ceil(Math.fround(Math.fround(max) * Math.fround(num(p.ammo_percent))))));
       fxOn(battle, 'buff', u, 'item:chess_item_4_08_e', rec.id);
       tplFx(battle, u, 'bond_laterano_reload_01', u); // act1autochess_acarm057_buff ON_AFTER_ATTACK, after the refill
     });

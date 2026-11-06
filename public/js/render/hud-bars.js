@@ -243,10 +243,10 @@ export class AllyBars {
   /**
    * Draw for feet at (x, y) with `u` px per unit: `hp` / `ghost` (shares 0..1 of the max HP), `sp` (share 0..1 or null: no
    * SP bar), `cast` (the skill runs: the SP bar is its remaining duration), `ammo` ([left, max] or null), `split` (the
-   * barrier's share of the HP fill's length, shieldedBar — 0: none), `overload` (a 过载 skill runs: overloadBar);
+   * barrier's share of the HP fill's length, shieldedBar — 0: none), `overload` (a 过载 skill runs: overloadBar), `overloaded` (it has overloaded);
    * `assets` for the plate sprite. Returns the bottom edge (px) of the bars.
    */
-  update(x, y, u, { hp, ghost, sp = null, cast = false, ammo = null, split = 0, overload = false }, assets = null) {
+  update(x, y, u, { hp, ghost, sp = null, cast = false, ammo = null, split = 0, overload = false, overloaded = false }, assets = null) {
     const B = ALLY_BAR;
     this.root.visible = true;
     const w = B.w * u, h = B.h * u, x0 = x - w / 2;
@@ -278,10 +278,14 @@ export class AllyBars {
       this.sp.position.set(x0, sy); this.sp.width = w * k; this.sp.height = h;
     }
     let bullets = showAmmo ? ammo : null, over = false;
+    if (!ov) this.overShown = null;
     if (bullets && ov) {
-      const half = bullets[1] * OVERLOAD_RATIO, left = bullets[0];
-      over = left <= half + 1e-9;
-      bullets = over ? (left > 0 ? [left, half] : null) : [Math.max(0, left - half), bullets[1] - half];
+      const half = bullets[1] * OVERLOAD_RATIO, left = bullets[0], fits = left <= half + 1e-9;
+      over = overloaded || fits;
+      // refilled above the ratio once overloaded: UIBulletBar.ShowBulletCount ignores a count above its max, so the overload
+      // bar keeps what it last showed (the client's vertex colour)
+      if (over && fits) this.overShown = left;
+      bullets = over ? (left > 0 ? [fits ? left : this.overShown ?? half, half] : null) : [Math.max(0, left - half), bullets[1] - half];
     }
     drawBullets(this, bullets, x0, sy, w, h, u, over);
     this.box = { x0, w, top: hy - h / 2 };

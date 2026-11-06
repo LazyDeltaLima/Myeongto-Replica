@@ -2790,3 +2790,12 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
 - 2026-11-06 손으로 쓴 명단을 같은 태그로 옮김: 심해 사냥꾼 `abyssal`(글래디아·스카디·스카디 더 커럽팅 하트 재능·울피아누스·스펙터 디 언체인드), 라인 생명 `rhine`(뮤엘시스), 우르수스 학생 자치단 `student`(지마 더 레이징 타이드 `op-headb2`), 로도스 `rhodes`(켈시 에스페란타 재능 2). 공식 클라에서 확인: `kalts2_t_2[hp_recover]`·`skadi2_t_2`·`mlyss_e_003_t` 템플릿의 `CheckCharacterGroupTag`, 글래디아·울피아누스 프리팹의 태그.
   - 바뀐 것: 켈시 에스페란타 재능 2의 로도스 배율이 국적만 보던 것에서 복수 소속까지 본다 — 지금 시즌에서 카제마루·프틸롭시스·니어 더 래디언트 나이트(기물)와 첸 더 던스트릭·위셔델(선발)이 새로 받는다. golden 코퍼스는 그대로다. 나머지 셋의 명단은 지금 데이터와 결과가 같고, 숨은 시즌 `next`에서는 안드레아나(`char_218_cuttle`)가 심해 사냥꾼으로 잡힌다.
 - 테스트 `test/content/kit-factions.test.js`(데이터·도우미·하네스·실제 매치 경로).
+## 탄약 스킬의 탄 더하기와 되돌리기 (2026-11-06)
+
+공식 클라에서 확인: 템플릿 노드 `AmmoSkillCountModifier`의 두 길이 다르다.
+
+- `_modifyMaxCount`(`SetMaxAdditionCount`): 최대 탄과 남은 탄이 함께 는다. 라테라노 맹약, 인사이더·르무엔·이그제큐터 디 엑스 포에데레 재능, 엑시아 더 뉴 커버넌트 S2. 모두 스킬 시작 때라 그 순간 남은 탄 = 최대 탄이고, 우리 `SkillRuntime.addAmmo`의 결과와 같다.
+- `_recoverEventCount`(`AbilityEventCounter.RecoverEventCount`): 쏜 탄을 되돌린다. 최대 탄은 그대로, 쏜 탄보다 많이 돌려주지 않고, `_recoverSkipLimitCheck`가 아니면 한 발동에 합쳐 최대 탄까지(`get_recoverCountLimit`, 스킬 프리팹에 `_overrideRecoverCountLimit`을 켠 것 없음). `SkillRuntime.recoverAmmo`: 산크타 믹사파라토 S1·S3, 장비 `chess_item_4_08_e`, 이그제큐터 디 엑스 포에데레 S2(제한 무시), 블레이즈 디 이그나이팅 스파크 S3(제한 무시). 전에는 이 탄도 최대 탄을 넘어 쌓였다.
+- 넣지 않음: 인사이더 `inside_t_1[active]`·이그제큐터 재능·엑시아 S2의 `_restoreMaxCount`(주는 쪽이 사라지면 더한 최대 탄을 거둠) [추정·미조사: 거둘 때 남은 탄이 어떻게 되는지 아직 안 읽음].
+- 테스트 `test/ammo-recover.test.js`.
+

@@ -134,6 +134,7 @@ export class SkillRuntime {
     this.timeLeft = 0;
     this.ammoLeft = 0;
     this.ammoMax = 0;             // ammo kind: the most bullets this activation held (snapshot's draining bar)
+    this.ammoRecovered = 0;       // ammo kind: the bullets recoverAmmo gave back this activation
     this.pending = false;         // instant/charges: next attack uses spec.attack
     this.activations = 0;
     this.lastStart = -Infinity;
@@ -667,6 +668,7 @@ export class SkillRuntime {
       this.timeLeft = this.kind === 'duration' ? Math.max(0.01, this.duration) : (this.kind === 'ammo' && this.duration > 0 ? this.duration : Infinity);
       this.ammoLeft = this.kind === 'ammo' ? Math.max(1, this.ammo) : 0;
       this.ammoMax = this.ammoLeft;
+      this.ammoRecovered = 0;
       this._applyMods();
     } else {
       // instant / charges
@@ -990,6 +992,19 @@ export class SkillRuntime {
     if (!this.active || this.kind !== 'ammo' || !Number.isFinite(n)) return;
     this.ammoLeft += n;
     if (this.ammoLeft > this.ammoMax) this.ammoMax = this.ammoLeft;
+  }
+  /**
+   * Bullets given back (AmmoSkillCountModifier `_recoverEventCount` → AbilityEventCounter.RecoverEventCount): never more than
+   * were fired, and — unless `skipLimit` (`_recoverSkipLimitCheck`) — at most the activation's full count in all. The max stays;
+   * `addAmmo` is the other kind (`_modifyMaxCount`). Returns the bullets given back.
+   */
+  recoverAmmo(n, skipLimit = false) {
+    if (!this.active || this.kind !== 'ammo' || !Number.isFinite(n)) return 0;
+    const limit = skipLimit ? Infinity : this.ammoMax - this.ammoRecovered;
+    const k = Math.max(0, Math.min(n, limit, this.ammoMax - this.ammoLeft));
+    if (!skipLimit) this.ammoRecovered += k;
+    this.ammoLeft += k;
+    return k;
   }
   extend(seconds) { if (this.active && Number.isFinite(this.timeLeft) && Number.isFinite(seconds)) this.timeLeft += seconds; }
   addCharge(n = 1) { if (!Number.isFinite(n)) return; this.charges = Math.max(0, Math.min(this.maxCharges, this.charges + n)); if (this.charges >= this.maxCharges) this.sp = this.spCost; }

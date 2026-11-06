@@ -368,7 +368,7 @@ test('the kits send what the rules read', () => {
   assert.match(src('chess_char_6_14-lumen.js'), /battle\.fx\('healField', \{ x: target\.x, y: target\.y, id: unit\.id, tgt: target\.id, t: life \}\)/);
   assert.match(src('chess_char_6_11-mlyss.js'), /battle\.fx\('copy', \{[^}]*mode: [^}]*by: unit\.id \}\)/);
   assert.match(src('chess_char_5_02-titi.js'), /battle\.fx\('sleepGuard', \{ x: a\.x, y: a\.y, id: a\.id, src: unit\.id \}\)/);
-  assert.match(src('chess_char_4_01-rmixer.js'), /battle\.fx\('reload', \{ x: cand\[0\]\.x, y: cand\[0\]\.y, id: cand\[0\]\.id, n, src: unit\.id \}\)/);
+  assert.match(src('chess_char_4_01-rmixer.js'), /battle\.fx\('reload', \{ x: cand\[0\]\.x, y: cand\[0\]\.y, id: cand\[0\]\.id, n: k, src: unit\.id \}\)/);
   assert.match(src('chess_char_4_19-flamtl.js'), /battle\.fx\('riposte', \{ x: unit\.x, y: unit\.y, id: unit\.id, /);
   assert.match(src('chess_char_2_06-papyrs.js'), /battle\.fx\('buff', \{ x: lock\.x, y: lock\.y, id: lock\.id, kind: 'lock', src: unit\.id \}\)/);
   assert.match(src('chess_char_6_14-lumen.js'), /battle\.fx\('emergency', \{ x: t\.x, y: t\.y, id: t\.id, src: unit\.id \}\)/);

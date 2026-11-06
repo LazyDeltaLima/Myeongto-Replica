@@ -81,6 +81,7 @@ test('信仰搅拌机 S3 start reloads other 拉特兰 operators (Lv4 +2 / elite
     h.step();
     const ins = h.unit('chess_char_1_01_a'), mix = h.unit(id);
     assert.ok(ins.skill.activate('test', { free: true }));
+    ins.skill.ammoLeft -= 5;   // fired: only fired bullets come back (RecoverEventCount)
     const before = ins.skill.ammoLeft;
     assert.ok(mix.skill.activate('test', { free: true }));
     assert.equal(ins.skill.ammoLeft, before + D(id).skill.bb.ammo);

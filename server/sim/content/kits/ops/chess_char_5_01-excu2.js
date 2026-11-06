@@ -122,7 +122,7 @@ export default {
           battle.fx('dodge', { x: unit.x, y: unit.y, id: unit.id });
           // a dodge like the engine's (listeners of the `dodge` hook — items/bonds — see it too)
           if (battle.hasHook('dodge')) battle.emit('dodge', { source: c.source, target: unit, dmg: c.dmg });
-          unit.skill.addAmmo(refill);
+          unit.skill.recoverAmmo(refill, true);
         }, { owner: unit });
       },
     };

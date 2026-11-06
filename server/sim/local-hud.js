@@ -22,10 +22,11 @@
 //         it — shows `auto_skill_ready` with `text_skill_cnt` = BasicSkill.availableCnt while it is above 0; render/hud-bars.js
 //         SkillMark). MANUAL skills show nothing: their mark needs UNIT_HUD_SKILL_CAST_MASK, which 卫戍协议 turns off
 //         (AutoChessUIPlugin.OnGameInit DisableFunction 0xF07B). chargeMark().
-//   ovl:  [[id]] — an allied unit whose running skill is a 过载 skill (data `overload`: the prefab's `_isOverloadSkill`,
+//   ovl:  [[id, 1?]] — an allied unit whose running skill is a 过载 skill (data `overload`: the prefab's `_isOverloadSkill`,
 //         tools/local-extract/skill_hud.py — 号角 S2 / S3, 洛洛 S2, 维什戴尔 S2, 塔露拉 S3). Its HUD splits the SP cast slider
 //         / bullet bar at the client's overload ratio (render/hud-bars.js overloadBar); the share left rides on the unit
-//         tuple's SP and `ammo` as for any skill. overloadMark().
+//         tuple's SP and `ammo` as for any skill. The second field: the skill has overloaded (`BasicSkill.m_isOverloaded`,
+//         one way: 号角 S2's `mem.hornS2Over`), which bullets refilled above the ratio do not undo. overloadMark().
 //   bsp:  [[id, sp, max]] — an enemy's official SP (`e.mem.lpSp`, content/bosses.js: 管 / 弦 skillSp, 阿利斯泰尔) for the
 //         boss SP bar (render/hud-bars.js; only bosses draw it).
 // The sim runs in the browser (public/js/battle/runner.js serves server/sim at /sim/), so this is client-side data.
@@ -48,7 +49,7 @@ export function hudLists(units) {
       if (bar) (out.ammo || (out.ammo = [])).push([u.id, bar[0], bar[1]]);
       const n = chargeMark(u.skill);
       if (n) (out.charge || (out.charge = [])).push([u.id, n]);
-      if (overloadMark(u.skill)) (out.ovl || (out.ovl = [])).push([u.id]);
+      if (overloadMark(u.skill)) (out.ovl || (out.ovl = [])).push(u.mem?.hornS2Over ? [u.id, 1] : [u.id]);
     } else {
       const v = u.mem && u.mem.lpSp;
       if (v && v[1] > 0) (out.bsp || (out.bsp = [])).push([u.id, Math.round(v[0] * 10) / 10, v[1]]);

@@ -561,7 +561,8 @@
     사격 순간에 셈), 과부하 판정은 스킬 틱마다(`BasicSkill.OnTick`) 한 번 켜지면 끝까지(`horn_s_2[overload_mark]`는 `ON_CAST_END`까지). 추가 마법 피해는
     S2 원거리 공격(`RangedAttackWithConditionalActions`)의 조건부 동작으로, 주인이 `[overload_mark]`를 가졌는지를 포탄이 생길 때
     (`Projectile.ActionController.Init` → `GetProjectileActions`) 정한다. 그래서 10발이면 6~10발째, 시작 때 탄이 늘면(라테라노 맹약) 그 발동의 전체 탄
-    기준, 과부하 중 재장전(산크타 믹사파라토 S1·S2 등)으로 남은 탄이 절반을 넘어도 과부하는 그대로. 키트: `chess_char_5_08-horn.js` `ammoUsed`에서 켬
+    기준, 과부하 중 재장전(장비 `chess_item_4_08_e` 등. 혼에게 탄을 주는 다른 출처는 라테라노 오퍼레이터 몫이라 닿지 않음)으로 남은 탄이 절반을 넘어도 과부하는 그대로.
+    그때 HUD도 공식처럼 과부하 탄환 칸을 유지한다: `UIBulletBar.ShowBulletCount`는 칸 수보다 많은 값을 무시하므로 마지막 그림이 남고(칸이 0이 되는 것이 아니다), 다시 절반 아래로 내려오면 그 수를 그린다(`b.snap.ovl` 둘째 칸, 공식 클라에서 확인 2026-11-06). 키트: `chess_char_5_08-horn.js` `ammoUsed`에서 켬 키트: `chess_char_5_08-horn.js` `ammoUsed`에서 켬
     (`test/content/kits_alt_t5.test.js` 「号角 S2 过载 counts」). 프리팹의 `_burstOnOverload`는 수동 종료 `Full Burst`를 과부하 중에만 허용 — 자동 전투엔 없음.
   - [화면 미확인] 실제 판에서 위 다섯의 바를 아직 못 봤다(그림 비교만).
 - 배리어(屏障·护盾, 관리자 요청 2026-10-10 「배리어도 HP 바처럼」): 공식 클라 `UIHudCharHpSlider.UpdatePlugin`이 유닛의 `shieldUIController.shieldToShow`(s)를

@@ -81,6 +81,9 @@ describe('sim: b.snap `ovl` (local-hud.js overloadMark)', () => {
     const n = normalizeSnapshot({ t: 1, units: [[1, 2, 3, 10, 10, 5, 10, 0, 0], [2, 2, 3, 10, 10, 5, 10, 0, 0]], ovl: [...ovl, [9], 'x'] });
     assert.equal(n.units.get(1).ovl, 1);
     assert.equal(n.units.get(2).ovl, undefined);
+    const over = { ...ally(3, 1), mem: { hornS2Over: true } };
+    assert.deepEqual(hudLists([over]).ovl, [[3, 1]], '号角 S2 overloaded');
+    assert.equal(normalizeSnapshot({ t: 1, units: [[3, 2, 3, 10, 10, 5, 10, 0, 0]], ovl: [[3, 1]] }).units.get(3).ovl, 2);
   });
 
   test('overloadMark rules', () => {
@@ -140,6 +143,18 @@ describe('the view: the overload bar', () => {
     assert.equal(shown().length, 6);
     assert.equal(b.ammoTrack.tint, B.ammoTrack); assert.equal(b.ammoTrack.alpha, B.ammoTrackAlpha);
     assert.ok(shown().every((x) => x.tint === B.ammo), 'back to the plain bar');
+    // refilled above ½·max once overloaded: still the overload bar, which ignores a count above its max (ShowBulletCount)
+    b.update(1000, 500, 1, { hp: 1, ghost: 1, sp: 0.4, cast: true, ammo: [4, 10], overload: true, overloaded: true });
+    assert.equal(shown().length, 4);
+    b.update(1000, 500, 1, { hp: 1, ghost: 1, sp: 0.7, cast: true, ammo: [7, 10], overload: true, overloaded: true });
+    assert.equal(shown().length, 4, 'keeps what it last showed');
+    assert.equal(b.ammoTrack.tint, B.overTrack);
+    assert.ok(shown().every((x) => x.tint === B.over), 'not the first half\'s bar');
+    b.update(1000, 500, 1, { hp: 1, ghost: 1, sp: 0.3, cast: true, ammo: [3, 10], overload: true, overloaded: true });
+    assert.equal(shown().length, 3, 'back under the max: the count again');
+    b.update(1000, 500, 1, { hp: 1, ghost: 1, sp: 0.8, cast: true, ammo: [8, 10] });
+    b.update(1000, 500, 1, { hp: 1, ghost: 1, sp: 0.7, cast: true, ammo: [7, 10], overload: true, overloaded: true });
+    assert.equal(shown().length, 5, 'a new activation forgets the old count: nothing shown yet, the full bar');
   });
 
   test('the snapshot flag reaches the bars (units.js sync)', () => {

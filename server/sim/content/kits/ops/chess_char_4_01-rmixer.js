@@ -43,8 +43,8 @@ export default withDefaults({
                 .filter((a) => a !== unit && a.kind === 'op' && hasPower(a, 'laterano') && a.skill && a.skill.active && a.skill.kind === 'ammo')
                 .sort((a, b) => b.deploySeq - a.deploySeq || a.id - b.id);
               if (!cand[0] || !(n > 0)) return;
-              cand[0].skill.addAmmo(n);
-              battle.fx('reload', { x: cand[0].x, y: cand[0].y, id: cand[0].id, n, src: unit.id }); // src: the client's tip is his (render)
+              const k = cand[0].skill.recoverAmmo(n);
+              if (k > 0) battle.fx('reload', { x: cand[0].x, y: cand[0].y, id: cand[0].id, n: k, src: unit.id }); // src: the client's tip is his (render)
             },
           },
         }),
@@ -65,7 +65,7 @@ export default withDefaults({
           unit.mem.counterReady = -Infinity;
           for (const a of battle.allies(unit.ownerId)) {
             if (a === unit || a.kind !== 'op' || !hasPower(a, 'laterano')) continue;
-            if (a.skill && a.skill.active && a.skill.kind === 'ammo') { a.skill.addAmmo(num(bb.ammo, 0)); battle.fx('reload', { x: a.x, y: a.y, id: a.id, n: num(bb.ammo, 0) }); }
+            if (a.skill && a.skill.active && a.skill.kind === 'ammo') { const k = a.skill.recoverAmmo(num(bb.ammo, 0)); if (k > 0) battle.fx('reload', { x: a.x, y: a.y, id: a.id, n: k }); }
           }
           battle.fx('sermon', { x: unit.x, y: unit.y, id: unit.id });
         },
