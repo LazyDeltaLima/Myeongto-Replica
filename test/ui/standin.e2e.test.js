@@ -18,6 +18,7 @@ import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { Client, ROOT, sleep, hasChrome, startRealServer, problemsOf } from '../e2e/client.mjs';
+import { readChessCard } from '../e2e/browser.mjs';
 
 const ENABLED = process.env.SP_E2E === '1' && hasChrome() && existsSync(path.join(ROOT, 'public/assets'));
 const SILVER = 'chess_char_4_22_a'; // 银灰 (NORMAL) → Sharp (char_609_acguad), S2 亮剑
@@ -109,16 +110,11 @@ describe('0.2.0 补位 — a not-owned operator fights as its stand-in (real ser
         const p = await c.piecePoint(piece.uid, at);
         if (!p) continue;
         await c.page.mouse.click(p.x, p.y, { button: 'right' });
-        detail = await c.page.waitForSelector('.dpanel .dtag-standin', { timeout: 2500 }).then(() => c.page.evaluate(() => ({
-          tag: document.querySelector('.dpanel .dtag-standin')?.textContent || '',
-          name: document.querySelector('.dpanel .dhead__name')?.textContent || '',
-          for: document.querySelector('.dpanel .dhead__for')?.textContent || '',
-          skill: document.querySelector('.dpanel .dskill')?.dataset.skill || '',
-        })), () => null);
+        detail = await readChessCard(c.page);
         if (detail) break;
       }
       assert.ok(detail, 'the detail card opens for the deployed piece');
-      assert.deepEqual(detail, { tag: '替补', name: 'Sharp', for: '银灰的替补', skill: 'skchr_acguad_2' });
+      assert.deepEqual([detail.standInTag, detail.name, detail.standInFor, detail.skillId], ['替补', 'Sharp', '银灰的替补', 'skchr_acguad_2']);
       await c.shot('board');
       await c.page.keyboard.press('Escape');
 

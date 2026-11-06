@@ -40,6 +40,18 @@ describe('the settings entry of the lobby and the room', { skip: !ENABLED && 'se
     return !!btn && !!guide && btn.nextElementSibling === guide && /设置/.test(btn.textContent) && btn.querySelector('svg.btn__icon') != null;
   }, screen, guideClass);
   const modalText = (page) => page.evaluate(() => document.querySelector('.modal')?.textContent.replace(/\s+/g, ' ').trim() ?? null);
+  /** The modal's text over all its tabs (ui/settings.js SETTINGS_TABS: each tab shows its own rows); ends on the first tab. */
+  const allTabsText = (page) => page.evaluate(async () => {
+    const tabs = [...document.querySelectorAll('.modal .set-tabs button')];
+    let text = '';
+    for (const b of tabs) {
+      b.click();
+      await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 30)));
+      text += ` ${document.querySelector('.modal')?.textContent ?? ''}`;
+    }
+    tabs[0]?.click();
+    return text.replace(/\s+/g, ' ').trim();
+  });
 
   test('the lobby: 设置 left of 玩法说明 opens the settings modal; Esc closes it; the room has the same entry', async () => {
     const page = await browser.newPage();
@@ -58,7 +70,7 @@ describe('the settings entry of the lobby and the room', { skip: !ENABLED && 'se
     assert.equal(await modalText(page), null, 'closed until asked');
     await page.click('.lobby-screen [data-testid="settings-btn"]');
     await page.waitForSelector('.modal', { timeout: 5000 });
-    const text = await modalText(page);
+    const text = await allTabsText(page);
     assert.match(text, /设置/);
     assert.match(text, /背景音乐/);
     assert.match(text, /快捷键/);
@@ -76,7 +88,7 @@ describe('the settings entry of the lobby and the room', { skip: !ENABLED && 'se
     assert.ok(await settingsBeforeGuide(page, '.room-screen .topbar__left', 'room-guide'), '设置 sits right before 玩法说明 in the room\'s top bar');
     await page.click('.room-screen [data-testid="settings-btn"]');
     await page.waitForSelector('.modal', { timeout: 5000 });
-    assert.match(await modalText(page), /背景音乐/);
+    assert.match(await allTabsText(page), /背景音乐/);
     await page.evaluate(() => [...document.querySelectorAll('.modal button')].find((b) => /完成/.test(b.textContent))?.click());
     await sleep(300);
     assert.equal(await modalText(page), null, '完成 closes it');

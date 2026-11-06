@@ -53,9 +53,9 @@ const stripOf = (c) => c.page.evaluate(() => {
     counts: Object.fromEntries([...el.querySelectorAll('.bslot')].map((s) => [s.getAttribute('data-bond'), s.querySelector('.bslot__count')?.firstChild?.textContent ?? null])),
     tag: tag ? tag.textContent.trim() : null,
     tagFont: tag ? parseFloat(getComputedStyle(tag.querySelector('.micro')).fontSize) : null,
-    pill: document.querySelector('.chud__layers .vswitch__label')?.textContent?.trim() ?? null,
+    pill: document.querySelector('.chud__layers .vswitch__label, .obinfo__bar:has(.obinfo__arrow) .obinfo__text')?.textContent?.trim() ?? null,
     pillBack: !!document.querySelector('.team__back'),
-    observe: document.querySelector('.chud__observe .vswitch__label')?.textContent?.trim() ?? null,
+    observe: document.querySelector('.chud__observe .vswitch__label, .obinfo__bar:not(:has(.obinfo__arrow)) .obinfo__text')?.textContent?.trim() ?? null,
     tagRect: tr ? { left: tr.left, top: tr.top, right: tr.right, bottom: tr.bottom } : null,
     rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom },
     vw: innerWidth, vh: innerHeight,
@@ -326,7 +326,7 @@ describe('DESIGN §20.15 — the bond strip shows the watched teammate\'s bonds 
         if (!(await c.st()).ready) await c.click('.readybtn');
       }
       for (const c of [host, guest]) await c.waitFor((s) => s.phase === 'FINAL_ASSAULT', 'Final Assault', 60000);
-      for (const c of [host, guest]) await c.page.waitForSelector('.chud__layers', { timeout: 20000 });
+      for (const c of [host, guest]) await c.page.waitForSelector('.chud__layers, .obinfo__arrow', { timeout: 20000 });
       await sleep(1200);
       const pair = await host.page.evaluate(() => {
         const f = globalThis.__SP__.store.get().match.field;
@@ -354,10 +354,10 @@ describe('DESIGN §20.15 — the bond strip shows the watched teammate\'s bonds 
       /** Step the ‹ › pill to `key` ('L' | 'ALL' | 'R') from 全景. */
       const toLayer = async (c, key) => {
         const arrow = key === 'L' ? '左侧战场' : '右侧战场';
-        if (key !== 'ALL') await c.click(`.chud__layers .vswitch__arrow[aria-label="${arrow}"]`);
+        if (key !== 'ALL') await c.click(`:is(.chud__layers .vswitch__arrow, .obinfo__arrow)[aria-label="${arrow}"]`);
         await sleep(500);
       };
-      const back = async (c, key) => { if (key !== 'ALL') await c.click(`.chud__layers .vswitch__arrow[aria-label="${key === 'L' ? '右侧战场' : '左侧战场'}"]`); await sleep(400); };
+      const back = async (c, key) => { if (key !== 'ALL') await c.click(`:is(.chud__layers .vswitch__arrow, .obinfo__arrow)[aria-label="${key === 'L' ? '右侧战场' : '左侧战场'}"]`); await sleep(400); };
       const partnerSide = hostSide === 'L' ? 'R' : 'L';
       await toLayer(host, partnerSide);
       await host.page.waitForFunction(() => document.querySelector('.gm__bonds .bstrip')?.getAttribute('data-owner') === '阿米娅', { timeout: 4000 });
@@ -436,7 +436,7 @@ describe('DESIGN §20.15 — the bond strip shows the watched teammate\'s bonds 
         await guest.waitFor((s) => s.phase !== 'UNITE', '联防 over', 300000);
       }
       assert.ok(found && after.phase === 'UNITE', `the guest leaked and two helpers were perfect (${JSON.stringify(after.fields)})`);
-      await guest.page.waitForSelector('.chud__layers', { timeout: 15000 });
+      await guest.page.waitForSelector('.chud__layers, .obinfo__arrow', { timeout: 15000 });
       const mv = await matchView(guest);
       const u = mv.fields.find((f) => f.fieldId === 'u');
       assert.ok(u && u.players.length === 2 && !u.players.includes(mv.me), `a 2-helper 联防 without the guest (${JSON.stringify(mv.fields)})`);
@@ -455,7 +455,7 @@ describe('DESIGN §20.15 — the bond strip shows the watched teammate\'s bonds 
         assert.equal((await guest.st()).phase, 'UNITE', '联防 still running');
         await watchMate(guest, name);
         await ownerIs(guest, name);
-        await guest.page.waitForFunction((name) => (document.querySelector('.chud__layers .vswitch__label')?.textContent || '').includes(name), { timeout: 6000 }, name);
+        await guest.page.waitForFunction((name) => (document.querySelector('.chud__layers .vswitch__label, .obinfo__bar:has(.obinfo__arrow) .obinfo__text')?.textContent || '').includes(name), { timeout: 6000 }, name);
         st = await stripOf(guest);
         assert.deepEqual([st.owner, st.bonds, st.observe], [name, mv.bonds[name], null], `picked ${name}: their bonds, no separate observing pill`);
         assert.ok(st.pill.includes(name) && st.pillBack, `the ‹ › pill names ${name}, the own team row carries 返回战场 (${st.pill})`);
@@ -542,7 +542,7 @@ describe('DESIGN §20.15 — the bond strip shows the watched teammate\'s bonds 
         host.problems.splice(before, Infinity, ...host.problems.slice(before).filter((p) => !/ERR_ABORTED/.test(p)));
         if (resumed.gone) { console.log(`round ${round}: the battles ended during the reload, next round`); continue; }
         await ownerIs(host, name);
-        await host.page.waitForFunction((name) => (document.querySelector('.chud__observe .vswitch__label')?.textContent || '').includes(name), { timeout: 8000 }, name);
+        await host.page.waitForFunction((name) => (document.querySelector('.chud__observe .vswitch__label, .obinfo__bar:not(:has(.obinfo__arrow)) .obinfo__text')?.textContent || '').includes(name), { timeout: 8000 }, name);
         assert.ok(await host.page.$('.team__back'), 'after the reload: 返回战场 again');
         assert.equal(await host.page.$('.chud__wait'), null, 'after the reload: no "等待队友" message in place of the observing pill');
         st = await stripOf(host);
@@ -582,7 +582,7 @@ describe('DESIGN §20.15 — the bond strip shows the watched teammate\'s bonds 
       await sleep(1500);
       await host.click('.readybtn');
       for (const c of [host, guest]) await c.waitFor((s) => s.phase === 'FINAL_ASSAULT', 'Final Assault', 90000);
-      await guest.page.waitForSelector('.chud__layers', { timeout: 20000 });
+      await guest.page.waitForSelector('.chud__layers, .obinfo__arrow', { timeout: 20000 });
       await sleep(1000);
       const mv = await matchView(guest);
       const pair = mv.fields.find((f) => f.players.length === 2);
@@ -611,7 +611,7 @@ describe('DESIGN §20.15 — the bond strip shows the watched teammate\'s bonds 
         const name = mv.names[pid];
         await watchMate(guest, name);
         await ownerIs(guest, name);
-        await guest.page.waitForFunction((name) => (document.querySelector('.chud__layers .vswitch__label')?.textContent || '').includes(name), { timeout: 6000 }, name);
+        await guest.page.waitForFunction((name) => (document.querySelector('.chud__layers .vswitch__label, .obinfo__bar:has(.obinfo__arrow) .obinfo__text')?.textContent || '').includes(name), { timeout: 6000 }, name);
         st = await stripOf(guest);
         assert.deepEqual([st.owner, st.bonds, st.pillBack], [name, mv.bonds[name], false], `picked ${name}: their half and bonds (no 返回战场 when eliminated)`);
       }
@@ -620,7 +620,7 @@ describe('DESIGN §20.15 — the bond strip shows the watched teammate\'s bonds 
       const loneName = mv.names[lone.players[0]];
       await watchMate(guest, loneName);
       await ownerIs(guest, loneName);
-      await guest.page.waitForFunction((name) => (document.querySelector('.chud__observe .vswitch__label')?.textContent || '').includes(name), { timeout: 8000 }, loneName);
+      await guest.page.waitForFunction((name) => (document.querySelector('.chud__observe .vswitch__label, .obinfo__bar:not(:has(.obinfo__arrow)) .obinfo__text')?.textContent || '').includes(name), { timeout: 8000 }, loneName);
       st = await stripOf(guest);
       assert.deepEqual([st.owner, st.bonds, st.observe], [loneName, mv.bonds[loneName], loneName], 'the lone field: its player, the observing pill names them');
       // the host on its pair field, 全景: own

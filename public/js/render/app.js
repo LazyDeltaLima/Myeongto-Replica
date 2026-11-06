@@ -2691,7 +2691,7 @@ export async function createFieldView(host, options = {}) {
     get mode() { return mode; },
     /** Dev hooks (demo / tests). */
     debug: {
-      app, get cam() { return cam; }, get board3d() { return board3d; }, tiles, views, penViews, get leader() { return leader; }, interp, fx, ctx, drag, get camKind() { return viewKind(camKind, camOpts); },
+      app, get cam() { return cam; }, get board3d() { return board3d; }, overlay3d, tiles, views, penViews, get leader() { return leader; }, interp, fx, ctx, drag, get camKind() { return viewKind(camKind, camOpts); },
       promotions,
       // picking (render/pick.js) at canvas px: the prep piece / battle view / pen view there, the ground tile under it
       pick: { pieceAt, battleUnitAt, penUnitAt, groundTile },

@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { launchBrowser } from '../e2e/browser.mjs';
+import { launchBrowser, loadingScreenGone } from '../e2e/browser.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -99,6 +99,7 @@ describe('special terrain tip in the browser', { skip: !ENABLED && 'set SP_E2E=1
   test('the engine canvas: the same tap on a tile\'s own screen position shows the toast', async () => {
     const { page, problems } = await open('/dev/game-mock.html?phase=PREP&render=engine', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!globalThis.__SP_VIEW__?.tileScreen, { timeout: 30000 });
+    await loadingScreenGone(page);
     await sleep(1200); // models / camera
     const at = (row, col) => page.evaluate(([r, c]) => {
       const t = globalThis.__SP_VIEW__.tileScreen(r, c);

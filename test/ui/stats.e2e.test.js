@@ -20,7 +20,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client, sleep, startRealServer, hasChrome, OUT } from '../e2e/client.mjs';
 import { buildRecord, buildQuitRecord, createLiveMatch, observeMatch, STATS_VERSION } from '../../public/js/ui/stats.js';
-import { launchBrowser } from '../e2e/browser.mjs';
+import { launchBrowser, browserFilePath } from '../e2e/browser.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const ENABLED = process.env.SP_E2E === '1' && hasChrome();
@@ -93,6 +93,7 @@ describe('统计数据 page (real server, headless Chrome)', { skip: !ENABLED &&
   const openStats = async (c, from = '.lobby-screen .me-chip') => {
     await c.click(from);
     await c.page.waitForSelector('.st .st-tab', { visible: true, timeout: 15000 });
+    await c.page.waitForFunction(() => !document.querySelector('.st-loading'), { timeout: 15000 }); // the game data behind the tabs
   };
   const toast = (c) => c.page.waitForFunction(() => document.querySelector('.toast')?.textContent || false, { timeout: 8000 }).then((h) => h.jsonValue());
   const noProblems = (c) => assert.deepEqual(c.problems, [], 'no console errors / failed requests');
@@ -193,7 +194,7 @@ describe('统计数据 page (real server, headless Chrome)', { skip: !ENABLED &&
       const file = path.join(dir, name);
       writeFileSync(file, text);
       const input = await c.page.$('.st input[type="file"]');
-      await input.uploadFile(file);
+      await input.uploadFile(browserFilePath(file));
     };
     await c.page.evaluate(() => document.querySelectorAll('.toast').forEach((e) => e.remove()));
     // 导入 the same file: nothing new

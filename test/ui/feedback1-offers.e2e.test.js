@@ -111,6 +111,7 @@ describe('player report #6: 凯瑟琳\'s three free items after a level-up (real
       await c.page.emulate({ viewport: { width: 1920, height: 1080, deviceScaleFactor: 1, isMobile: false, hasTouch: false }, userAgent: browserUa });
       // switching touch emulation reloads the page: the session resumes with the offer still queued (re-hook the intents)
       await c.page.waitForFunction(() => !!globalThis.__SP__?.store.get().match.private?.shop?.rewardOffer && !!document.querySelector('.shopbar__reward'), { timeout: 30000 });
+      await c.answerResume();
       await sleep(900);
       await c.hookRequests();
       // first tap: armed + the item's detail; second tap: taken
@@ -182,6 +183,7 @@ describe('player report #6: 凯瑟琳\'s three free items after a level-up (real
       }
       await c.page.emulate({ viewport: { width: 1920, height: 1080, deviceScaleFactor: 1, isMobile: false, hasTouch: false }, userAgent: browserUa });
       await c.page.waitForFunction(() => !!document.querySelector('.shopbar__reward .scard'), { timeout: 30000 });
+      await c.answerResume();
       await sleep(900);
       await c.hookRequests();
       const first = await offerOf();

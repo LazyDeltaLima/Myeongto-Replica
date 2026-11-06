@@ -95,11 +95,13 @@ describe('user playtest #6: summons placed by hand (real server, headless Chrome
       assert.ok(drone, '赫默\'s 医疗探机 card is in the hand');
       assert.ok(dev && dev.count === 2, `凯瑟琳's 支援装置 card ×2 (${dev && dev.count})`);
       await c.shot('hand-cards');
-      // the drone on a free tile, facing UP
+      // the drone on a free tile: it has no direction, so no wheel (ui/facing.js facingless)
       const dt = await c.freeTileFor(drone.uid, { prefer: 'back' });
-      await place(c, drone.uid, dt, 'UP');
+      await c.drag(await c.piecePoint(drone.uid), await c.tilePoint(dt.row, dt.col));
+      await c.page.waitForFunction((id) => (globalThis.__SP__.store.get().match.private?.board || []).some((p) => p.id === id), { timeout: 4000 }, DRONE);
+      assert.equal(await c.exists('.fwheel__dia'), false, 'no direction wheel for the drone');
       const [dp] = await boardOf(c, DRONE);
-      assert.ok(dp && dp.row === dt.row && dp.col === dt.col && dp.dir === 'UP', `drone placed (${JSON.stringify(dp)})`);
+      assert.ok(dp && dp.row === dt.row && dp.col === dt.col, `drone placed (${JSON.stringify(dp)})`);
       // a device next to an operator, facing it
       const spot = await spotNextToOperator(c);
       assert.ok(spot, 'a free tile next to an operator');

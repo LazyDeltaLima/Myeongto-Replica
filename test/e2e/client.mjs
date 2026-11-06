@@ -48,6 +48,96 @@ export async function waitForFunctionLong(page, fn, { timeout = 30000, polling =
   }
 }
 
+/** The ground spot under client point `p` (world x / y on the tile top there and its height), or null (DOM fallback, off the board). */
+export function groundAnchor(page, p) {
+  if (!p) return Promise.resolve(null);
+  return page.evaluate((p) => {
+    const d = globalThis.__SP_VIEW__?.raw?.debug;
+    if (!d?.pick?.groundTile || !d.app?.view) return null;
+    const r = d.app.view.getBoundingClientRect();
+    const g = d.pick.groundTile(p.x - r.left, p.y - r.top);
+    return g ? { x: g.x, y: g.y, z: d.tiles.heightAt(g.row, g.col) } : null;
+  }, p);
+}
+
+/** The client point of a ground spot (`groundAnchor`) under the camera of the moment, or null. */
+export function anchorPoint(page, a) {
+  if (!a) return Promise.resolve(null);
+  return page.evaluate((a) => {
+    const d = globalThis.__SP_VIEW__?.raw?.debug;
+    if (!d?.cam || !d.app?.view) return null;
+    const r = d.app.view.getBoundingClientRect();
+    const q = d.cam.project(a.x, a.y, a.z);
+    return Number.isFinite(q?.x) && Number.isFinite(q?.y) ? { x: r.left + q.x, y: r.top + q.y } : null;
+  }, a);
+}
+
+/** The render engine's camera as a comparable string, or null without it (`cameraSettled`'s `from`). */
+export function cameraState(page) {
+  return page.evaluate(() => {
+    const cam = globalThis.__SP_VIEW__?.raw?.debug?.cam;
+    return cam ? JSON.stringify(cam.params()) : null;
+  });
+}
+
+/**
+ * Wait until the render engine's camera holds still for a few frames (at most `ms`); resolves at once without it. With
+ * `from`, the camera state before a press that flies it: the flight starts a frame or more after the press, and a page
+ * still loading its models takes longer to get there, so stillness only counts once the camera has left `from`. A press
+ * that moves no camera costs `leave` ms.
+ */
+export function cameraSettled(page, { ms = 3000, from = null, leave = 1200 } = {}) {
+  return page.evaluate((ms, from, leave) => new Promise((resolve) => {
+    const cam = () => globalThis.__SP_VIEW__?.raw?.debug?.cam;
+    if (!cam()) { resolve(false); return; }
+    const t0 = performance.now();
+    let last = '', still = 0;
+    const tick = () => {
+      const now = JSON.stringify(cam()?.params?.() ?? null);
+      still = now === last ? still + 1 : 0;
+      last = now;
+      const elapsed = performance.now() - t0;
+      if (still >= 3 && (from == null || now !== from || elapsed > leave)) resolve(true);
+      else if (elapsed > ms) resolve(false);
+      else requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }), ms, from, leave);
+}
+
+/**
+ * A mouse drag from `from` towards `to` that aims after the pickup. Picking a piece up flies the camera to the official
+ * side camera (docs/rules/ui.md 「기물을 고르고 집을 때의 측면 카메라」), so a point measured before the press is another
+ * tile by the time of the release: the first `lead` of `steps` moves pick the piece up, then the rest of the path ends on
+ * `to`'s ground spot under the settled camera, or on `retarget()`'s point when given (DOM UI that moved). `before()` runs
+ * right before the release (a mid-drag screenshot). Returns the point released on. (Ported from the upstream's test client.)
+ * @param {any} page
+ * @param {{x:number,y:number}} from
+ * @param {{x:number,y:number}} to
+ * @param {{ steps?: number, lead?: number, pause?: number, settle?: number, before?: Function|null, retarget?: Function|null }} [o]
+ */
+export async function aimedDrag(page, from, to, { steps = 14, lead = 3, pause = 14, settle = 160, before = null, retarget = null } = {}) {
+  const m = page.mouse;
+  const anchor = await groundAnchor(page, to);
+  const camera = await cameraState(page);
+  await m.move(from.x, from.y);
+  await m.down();
+  const n0 = Math.max(1, Math.min(lead, steps));
+  const at = (k) => ({ x: from.x + ((to.x - from.x) * k) / steps, y: from.y + ((to.y - from.y) * k) / steps });
+  for (let i = 1; i <= n0; i++) { const p = at(i); await m.move(p.x, p.y); await sleep(pause); }
+  let dest = to;
+  if (anchor || retarget) {
+    await cameraSettled(page, { from: camera });
+    dest = (retarget ? await retarget() : null) || (await anchorPoint(page, anchor)) || to;
+  }
+  const start = at(n0), rest = steps - n0;
+  for (let i = 1; i <= rest; i++) { await m.move(start.x + ((dest.x - start.x) * i) / rest, start.y + ((dest.y - start.y) * i) / rest); await sleep(pause); }
+  await sleep(settle);
+  if (before) await before();
+  await m.up();
+  return dest;
+}
+
 /** A free TCP port on 127.0.0.1. */
 export function freePort() {
   return new Promise((resolve, reject) => {
@@ -215,6 +305,14 @@ export class Client {
     throw new Error(`${this.label}: nothing clickable for ${sel}${text ? ` "${text}"` : ''}`);
   }
 
+  /** A reload of a running solo match asks 「存在进行中的模拟，是否继续？」 with the official art (soloResumeDue): press 确认. No dialog is a no-op. */
+  async answerResume(timeout = 3000) {
+    await this.page.waitForSelector('.bcd__btn.is-ok', { timeout }).catch(() => {});
+    if (!(await this.exists('.bcd__btn.is-ok'))) return false;
+    await sleep(400); // the dialog's entrance
+    return this.click('.bcd__btn.is-ok');
+  }
+
   /** If the 剩余资金 confirm is up, press 准备就绪. No dialog is a no-op. */
   async confirmFundsLeft() {
     await sleep(250);
@@ -294,15 +392,27 @@ export class Client {
   viewKind() { return this.page.evaluate(() => globalThis.__SP_VIEW__?.kind ?? null); }
   viewStats() { return this.page.evaluate(() => { try { return globalThis.__SP_VIEW__?.raw?.stats?.() ?? null; } catch { return null; } }); }
 
-  /** Client point to grab a prep piece (`at` = fraction of the piece rect's height, from the top). Waits (up to 2.5 s)
-   *  until the piece is drawn and holds still: a piece bought this frame has no rect yet, and one still sliding to its
-   *  tile (0.22 s) would be grabbed over a neighbouring tile — picking is by the tile under the pointer. */
+  /** Client point to grab a prep piece (`at` = fraction of the piece rect's height, from the top, the first height to try).
+   *  Waits (up to 2.5 s) until the piece is drawn and holds still: a piece bought this frame has no rect yet, and one still
+   *  sliding to its tile (0.22 s) would be grabbed over a neighbouring tile — picking is by the tile under the pointer. */
   async piecePoint(uid, at = 0.72) {
     const read = () => this.page.evaluate((uid, at) => {
       const r = globalThis.__SP_VIEW__?.pieceScreenRect(uid);
       if (!r || !(r.width >= 4)) return null;
-      const x = r.left + r.width / 2, y = r.top + r.height * at;
-      return x >= 0 && y >= 0 && x <= innerWidth && y <= innerHeight ? { x, y } : null;
+      const x = r.left + r.width / 2;
+      const inView = (y) => x >= 0 && y >= 0 && x <= innerWidth && y <= innerHeight;
+      // picking is by the tile under the pointer, and how far a model's rect reaches over the next tile depends on the
+      // model: of the heights near `at`, the first one the renderer's own pick answers with this piece
+      const d = globalThis.__SP_VIEW__?.raw?.debug;
+      if (d?.pick?.pieceAt && d.app?.view) {
+        const c = d.app.view.getBoundingClientRect();
+        for (const f of [at, at + 0.1, at + 0.2, at - 0.1, at + 0.27, at - 0.2, at - 0.3]) {
+          const y = r.top + r.height * f;
+          if (f > 0 && f < 1 && inView(y) && d.pick.pieceAt(x - c.left, y - c.top)?.uid === uid) return { x, y };
+        }
+      }
+      const y = r.top + r.height * at;
+      return inView(y) ? { x, y } : null;
     }, uid, at);
     let last = null;
     for (const end = Date.now() + 2500; Date.now() < end; await sleep(80)) {
@@ -348,17 +458,8 @@ export class Client {
   }
 
   /** Press at `from`, move in steps to `to`, optionally screenshot mid-drag, release. */
-  async drag(from, to, { steps = 14, midShot = null } = {}) {
-    const m = this.page.mouse;
-    await m.move(from.x, from.y);
-    await m.down();
-    for (let i = 1; i <= steps; i++) {
-      await m.move(from.x + ((to.x - from.x) * i) / steps, from.y + ((to.y - from.y) * i) / steps);
-      await sleep(14);
-    }
-    await sleep(160);
-    if (midShot) await this.shot(midShot);
-    await m.up();
+  async drag(from, to, { steps = 14, midShot = null, retarget = null } = {}) {
+    return aimedDrag(this.page, from, to, { steps, retarget, before: midShot ? () => this.shot(midShot) : null });
   }
 
   /** An empty legal tile for a piece (mirrors the deploy rules: melee on melee tiles, ranged anywhere). */
@@ -448,6 +549,7 @@ export class Client {
    * dead-zone, optionally screenshot while held, release. `dir` null = release in the centre (cancel).
    */
   async swipe(dir, { midShot = null, reach = 0.72, board = true } = {}) {
+    await cameraSettled(this.page); // the wheel lies on the ground: its vertices move with a camera still flying
     const w = await this.wheel();
     if (!w) throw new Error(`${this.label}: no direction wheel open`);
     // `dir` is a BOARD direction: on the mirrored right half of the Final Assault prep the screen swipe is RIGHT ↔ LEFT

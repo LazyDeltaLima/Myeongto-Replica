@@ -157,7 +157,7 @@ describe('client leftovers — mock harness', { skip: !ENABLED && 'set SP_E2E=1 
     assert.match(pend, /DOT/);
     assert.match(pend, /\d+\s*秒后全队生命值开始流失/);
     const secs = Number(pend.match(/(\d+)\s*秒后/)[1]);
-    assert.ok(secs > 10 && secs <= 18, `drain in ${secs} s`);
+    assert.ok(secs > 0 && secs <= 18, `drain in ${secs} s`); // the ~18 s run from the mock's start, the page load included
     assert.equal(await page.$eval('.gtop__right .countdown', (el) => el.getAttribute('aria-label')), '剩余0秒');
     await page.screenshot({ path: path.join(OUT, 'leftover-fa-overtime.png') });
     assert.deepEqual(problems, []);
@@ -187,9 +187,17 @@ describe('client leftovers — mock harness', { skip: !ENABLED && 'set SP_E2E=1 
   test('4. solo battle: pause button → g.pause, paused overlay freezes the clock, Space resumes; hidden in co-op / prep', async () => {
     let { page, problems } = await open('phase=COMBAT&variant=solo');
     await page.waitForSelector('[data-testid="pause"]', { timeout: 3000 });
+    // the official art's 「存在进行中的模拟，是否继续？」 (ui/battleArt.js soloResumeDue) pauses a resumed solo match until 确认
+    const ask = await page.$('.bcd__btn.is-ok');
+    if (ask) {
+      await ask.click();
+      await page.waitForFunction(() => !document.querySelector('.bcd') && !document.querySelector('.pauseov'), { timeout: 3000 });
+    }
+    const asked = (await mockReqs(page, 'g.pause')).length;
+    const pauses = async () => (await mockReqs(page, 'g.pause')).slice(asked);
     await page.click('[data-testid="pause"]');
     await page.waitForSelector('.pauseov', { timeout: 3000 });
-    assert.deepEqual(await mockReqs(page, 'g.pause'), [['g.pause', { on: true }]]);
+    assert.deepEqual(await pauses(), [['g.pause', { on: true }]]);
     const cd = () => page.$eval('.gtop__right .countdown', (el) => el.getAttribute('aria-label'));
     const c1 = await cd();
     await sleep(1600);
@@ -198,13 +206,13 @@ describe('client leftovers — mock harness', { skip: !ENABLED && 'set SP_E2E=1 
     await page.screenshot({ path: path.join(OUT, 'leftover-pause-mock.png') });
     await page.keyboard.press('Space');
     await page.waitForFunction(() => !document.querySelector('.pauseov'), { timeout: 3000 });
-    assert.deepEqual(await mockReqs(page, 'g.pause'), [['g.pause', { on: true }], ['g.pause', { on: false }]]);
+    assert.deepEqual(await pauses(), [['g.pause', { on: true }], ['g.pause', { on: false }]]);
     // the overlay's 继续作战 resumes too
     await page.keyboard.press('Space');
     await page.waitForSelector('.pauseov', { timeout: 3000 });
     await page.click('.pauseov .btn--primary');
     await page.waitForFunction(() => !document.querySelector('.pauseov'), { timeout: 3000 });
-    assert.equal((await mockReqs(page, 'g.pause')).length, 4);
+    assert.equal((await pauses()).length, 4);
     assert.deepEqual(problems, []);
     await page.close();
 
@@ -221,6 +229,16 @@ describe('client leftovers — mock harness', { skip: !ENABLED && 'set SP_E2E=1 
     }
   });
 });
+
+/**
+ * The server is gone: over a running match the official art says so in its dialog, and 确认 goes back to the lobby
+ * (main.js serverLost); without the art, or outside a match, a toast says it.
+ */
+async function serverNotice(c, text, timeout = 30000) {
+  await c.page.waitForFunction((text) => [...document.querySelectorAll('.toast, .bcd')].some((t) => t.textContent.includes(text)), { timeout }, text);
+  await sleep(600); // the dialog's entrance
+  if (await c.exists('.bcd__btn.is-ok')) await c.click('.bcd__btn.is-ok');
+}
 
 describe('client leftovers — real server', { skip: !ENABLED && 'set SP_E2E=1 (Chrome + public/assets)' }, () => {
   test('1+4. solo: equip-replace dialog on the real engine, then pause / resume the real local battle', { timeout: 6 * 60 * 1000 }, async () => {
@@ -368,14 +386,18 @@ describe('client leftovers — real server', { skip: !ENABLED && 'set SP_E2E=1 (
       const before = await c.st();
       await sleep(600);
       // an imperative dialog left open (the app's own module instance) must not survive onto the lobby
-      await c.page.evaluate(() => { import('/js/ui/components.js').then((m) => { globalThis.__e2eDlg = m.confirmDialog({ title: '测试对话框', text: '服务器重启前打开' }); }); });
+      // (a real page loads its modules under the build's path: /js/ui/components.js would be a second instance with no host)
+      await c.page.evaluate(() => {
+        const url = performance.getEntriesByType('resource').map((x) => x.name).find((n) => /\/b\/[^/]+\/r\/js\/ui\/components\.js$/.test(n)) || '/js/ui/components.js';
+        import(url).then((m) => { globalThis.__e2eDlg = m.confirmDialog({ title: '测试对话框', text: '服务器重启前打开' }); });
+      });
       await c.page.waitForSelector('.modal', { timeout: 3000 });
 
       // a crash / kill: no room.closed reaches the client — only the new session's welcome tells
       await srv.stop({ hard: true });
       await sleep(800);
       srv = await startRealServer({ port });
-      await c.page.waitForFunction(() => [...document.querySelectorAll('.toast')].some((t) => t.textContent.includes('服务器会话已重置，上一局模拟已结束')), { timeout: 30000 });
+      await serverNotice(c, '服务器会话已重置，上一局模拟已结束');
       await c.page.waitForSelector('.lobby-screen', { timeout: 10000 });
       const s = await c.st();
       assert.notEqual(s.me, before.me, 'a new server session');
@@ -398,7 +420,7 @@ describe('client leftovers — real server', { skip: !ENABLED && 'set SP_E2E=1 (
       const resetToast = () => c.page.evaluate(() => [...document.querySelectorAll('.toast')].some((t) => t.textContent.includes('服务器会话已重置')));
       await c.page.waitForFunction(() => ![...document.querySelectorAll('.toast')].some((t) => t.textContent.includes('服务器会话已重置')), { timeout: 20000 });
       await srv.stop();
-      await c.page.waitForFunction(() => [...document.querySelectorAll('.toast')].some((t) => t.textContent.includes('服务器维护中')), { timeout: 15000 });
+      await serverNotice(c, '服务器维护中', 15000);
       await c.page.waitForSelector('.lobby-screen', { timeout: 10000 });
       srv = await startRealServer({ port });
       await c.waitFor((x) => x.room == null && x.phase == null, 'lobby after the graceful restart', 30000);
@@ -407,7 +429,7 @@ describe('client leftovers — real server', { skip: !ENABLED && 'set SP_E2E=1 (
       assert.equal(await resetToast(), false, 'the room was already closed by room.closed: no second notice');
       await c.shot('restart-graceful');
       // only the downtime's socket errors are expected
-      const other = c.problems.filter((p) => !/WebSocket|ERR_CONNECTION_REFUSED|\/ws\b|net::ERR_/.test(p));
+      const other = c.problems.filter((p) => !/WebSocket|ERR_CONNECTION_REFUSED|\/ws\b|net::ERR_|Failed to fetch dynamically imported module/.test(p));
       assert.deepEqual(other, []);
     } finally {
       if (c.problems.length) console.log(c.problems.slice(0, 20).join('\n'));

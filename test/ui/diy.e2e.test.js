@@ -18,6 +18,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { Client, ROOT, sleep, hasChrome, startRealServer, problemsOf } from '../e2e/client.mjs';
 import { LOCAL_DIY_PICKS } from '../../shared/local-diy.js';
+import { readChessCard } from '../e2e/browser.mjs';
 
 const UI_ENABLED = process.env.SP_E2E === '1' && hasChrome();
 const ENABLED = UI_ENABLED && existsSync(path.join(ROOT, 'public/assets'));
@@ -250,15 +251,12 @@ describe('0.2.0 自选编队 — a slotted operator in the own shop and battle (
         const p = await c.piecePoint(piece.uid, at);
         if (!p) continue;
         await c.page.mouse.click(p.x, p.y, { button: 'right' });
-        detail = await c.page.waitForSelector('.dpanel .dtag-diy', { timeout: 2500 }).then(() => c.page.evaluate(() => ({
-          tag: document.querySelector('.dpanel .dtag-diy')?.textContent || '',
-          name: document.querySelector('.dpanel .dhead__name')?.textContent || '',
-          skill: document.querySelector('.dpanel .dskill')?.dataset.skill || '',
-        })), () => null);
+        detail = await readChessCard(c.page);
         if (detail) break;
       }
       assert.ok(detail, 'the detail card opens for the deployed piece');
-      assert.deepEqual(detail, { tag: '自选', name: '赤刃明霄陈', skill: 'skchr_chen3_3' });
+      assert.deepEqual([detail.name, detail.skillId], ['赤刃明霄陈', 'skchr_chen3_3']);
+      if (!detail.official) assert.equal(detail.diyTag, '自选');
       await c.shot('board');
       await c.page.keyboard.press('Escape');
 

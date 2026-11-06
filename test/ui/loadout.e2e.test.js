@@ -283,7 +283,7 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
     await ctx.close();
   });
 
-  test('co-op briefing (review fix): the overlay shows the INFO_CHECK time left; an edit that misses the lock is told, not lost silently', async () => {
+  test('co-op briefing (review fix): the overlay shows the INFO_CHECK time left; an edit made as the briefing ends still reaches the match', async () => {
     const { ctx, page, problems } = await open();
     await page.evaluate(() => globalThis.__SP__.net.request('room.create', { mode: 'coop', difficulty: 'NORMAL' }));
     const { room } = await waitSt(page, (s) => !!s.room, 'room');
@@ -335,15 +335,20 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
     await page.click('.lo-card__pick');
     await page.waitForSelector('.lo-detail .lo-skill[data-skill="0"]', { visible: true });
     // edit, and the briefing ends before the debounced send (every human ready: the requests stand in for the timer)
-    await page.click('.lo-detail .lo-skill[data-skill="0"]');
+    // (the teammate first, then the edit and the last ready in one step: the send is only 500 ms behind the edit)
     await mate.page.evaluate(() => globalThis.__SP__.net.request('g.infoReady', {}));
-    await page.evaluate(() => globalThis.__SP__.net.request('g.infoReady', {}));
-    await page.waitForFunction(() => !document.querySelector('.lo'), { timeout: 5000 });
-    await page.waitForFunction(() => [...document.querySelectorAll('.toast__text')].some((e) => /下一局生效/.test(e.textContent)), { timeout: 5000 });
-    const s = await st(page);
-    assert.ok(!s.loadout || !s.loadout[INSIDE], 'the running match kept its locked loadout');
+    await page.evaluate(() => {
+      document.querySelector('.lo-detail .lo-skill[data-skill="0"]').click();
+      return globalThis.__SP__.net.request('g.infoReady', {});
+    });
+    await page.waitForFunction(() => !document.querySelector('.lo'), { timeout: 5000 }).catch(async (err) => {
+      throw new Error(`${err.message}: ${JSON.stringify(await page.evaluate(() => { const m = globalThis.__SP__.store.get().match.public; return { phase: m?.phase, ready: (m?.players || []).map((p) => [p.name, p.ready, p.isBot]), top: document.querySelector('.screen')?.className, shot: !!document.querySelector('.lo') }; }))}`);
+    });
+    // the strategy draft still takes it (Match.setLoadout: INFO_CHECK and BAND_DRAFT, the lock comes with the prep)
+    const s = await waitSt(page, (x) => x.phase === 'BAND_DRAFT' && x.loadout?.[INSIDE]?.skill === 0, 'the edit in the running match');
+    assert.equal(s.loadout[INSIDE].skill, 0);
     const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.loadout')));
-    assert.deepEqual(stored.entries[INSIDE], { skill: 0 }, 'kept for the next match');
+    assert.deepEqual(stored.entries[INSIDE], { skill: 0 }, 'and kept for the next match');
     assert.deepEqual(problems, []);
     assert.deepEqual(mate.problems, []);
     await mate.ctx.close();

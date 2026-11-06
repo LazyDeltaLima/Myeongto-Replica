@@ -17,7 +17,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { launchBrowser } from '../e2e/browser.mjs';
+import { launchBrowser, cardTab } from '../e2e/browser.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = process.env.SP_E2E_OUT ? path.resolve(process.env.SP_E2E_OUT) : path.join(ROOT, 'test/e2e/out');
@@ -26,6 +26,8 @@ const ENABLED = process.env.SP_E2E === '1' && existsSync(CHROME);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** Geometry and text of the rows matching `sel` inside the scroller `box`: every row inside it, font size, overflow. */
+// the official-form card scrolls each tab's own pane, the plain card its whole body
+const CARD_BOX = '.dart__pane, .dpanel__scroll';
 const measure = (page, box, sel) => page.evaluate((box, sel) => {
   const b = document.querySelector(box);
   if (!b) return null;
@@ -72,9 +74,11 @@ describe('0.1.1 gaps: 变形同构体 pairings and 调和\'s +1 (mock harness, h
 
       // 1. the shop's 变形同构体 card: the first tap opens its detail with the 天赋 list
       await tap('.shopbar__cards button.scard--item');
+      await page.waitForSelector('.dpanel', { timeout: 5000 });
+      await cardTab(page, '天赋');
       await page.waitForSelector('.dpanel .dmorph__row', { timeout: 5000 });
       await page.screenshot({ path: path.join(OUT, `fb1-gaps-morph-shop-${name}.png`) });
-      const shop = await measure(page, '.dpanel__scroll', '.dmorph__row');
+      const shop = await measure(page, CARD_BOX, '.dmorph__row');
       assert.equal(shop.rows.length, 14, 'one line per bond');
       assert.deepEqual(shop.rows.filter((r) => r.off).map((r) => r.bond), ['lateranoShip', 'egirShip', 'kazimierzShip', 'arcaneShip', 'raidShip'], '标准: 本局禁用');
       assert.ok(shop.rows.filter((r) => r.off).every((r) => /本局禁用/.test(r.text)));
@@ -97,7 +101,7 @@ describe('0.1.1 gaps: 变形同构体 pairings and 调和\'s +1 (mock harness, h
       await page.evaluate(() => document.querySelector('.dpanel .dmorph__row.is-worn')?.scrollIntoView({ block: 'center' }));
       await sleep(200);
       await page.screenshot({ path: path.join(OUT, `fb1-gaps-morph-wearer-${name}.png`) });
-      const wearer = await measure(page, '.dpanel__scroll', '.dmorph__row');
+      const wearer = await measure(page, CARD_BOX, '.dmorph__row');
       const worn = wearer.rows.filter((r) => r.worn);
       assert.deepEqual(worn.map((r) => r.bond), ['victoriaShip'], 'the pairing it wears');
       assert.match(worn[0].text, /生效中$/);
@@ -127,7 +131,7 @@ describe('0.1.1 gaps: 变形同构体 pairings and 调和\'s +1 (mock harness, h
       assert.ok(row.rows[0].font >= minFont, `font ${row.rows[0].font} px`);
       // the 调和 row opens 缪尔赛思's card
       await tap('.bpop .bpop__harmony');
-      await page.waitForFunction(() => /缪尔赛思/.test(document.querySelector('.dpanel .dhead__name')?.textContent || ''), { timeout: 5000 });
+      await page.waitForFunction(() => /缪尔赛思/.test(document.querySelector('.dpanel :is(.dart__name, .dhead__name)')?.textContent || ''), { timeout: 5000 });
       assert.deepEqual(problems, []);
       await page.close();
     });

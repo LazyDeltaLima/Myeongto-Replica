@@ -353,7 +353,8 @@ describe('multi-device (Chrome device emulation)', { skip: !ENABLED && 'set SP_E
       await page.waitForSelector('.dpanel:not(.dpanel--right)', { timeout: 3000 });
       await sleep(400);
       assert.equal(await page.$('.dpanel.dpanel--right'), null, `${dev}: the card stays in the left slot`);
-      const covered = await page.evaluate(() => [...document.querySelectorAll('.gm__corner .gm__gear')].map((el) => {
+      // (on a phone ⚙ 📖 ⛶ wait behind the corner's ⋯ until it opens: the ones on screen count)
+      const covered = await page.evaluate(() => [...document.querySelectorAll('.gm__corner .gm__gear')].filter((el) => el.getBoundingClientRect().width > 0).map((el) => {
         const r = el.getBoundingClientRect();
         const t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
         return t && el.contains(t) ? null : `${el.getAttribute('aria-label') || el.className} under ${t?.className}`;
@@ -423,8 +424,9 @@ describe('multi-device (Chrome device emulation)', { skip: !ENABLED && 'set SP_E
     const t = await page.evaluate(() => ({
       host: document.querySelector('.toast-host').getBoundingClientRect().top,
       rem: parseFloat(getComputedStyle(document.documentElement).fontSize),
+      official: document.documentElement.classList.contains('sp-ac-toast'), // the official toast sits mid-screen (battle-art.css)
     }));
-    assert.ok(Math.abs(t.host - (1.34 * t.rem + 20)) <= 1.5, `toast host at ${t.host} (expected ${1.34 * t.rem + 20})`);
+    if (!t.official) assert.ok(Math.abs(t.host - (1.34 * t.rem + 20)) <= 1.5, `toast host at ${t.host} (expected ${1.34 * t.rem + 20})`);
     assert.deepEqual(problems, []);
     await page.close();
   });

@@ -22,7 +22,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { launchBrowser } from '../e2e/browser.mjs';
+import { launchBrowser, cardTab } from '../e2e/browser.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = path.join(ROOT, 'test/e2e/out');
@@ -127,7 +127,7 @@ describe('user playtest #2 — UI fixes (mock harness, headless Chrome)', { skip
       const overlap = !!pr && r.left < pr.right && r.right > pr.left && r.top < pr.bottom && r.bottom > pr.top;
       out.push({ cls: b.className, x, y, topmost: !!top && b.contains(top), inView: x > 0 && y > 0 && x < innerWidth && y < innerHeight, overlap });
     }
-    return { buttons: out, side: panel?.dataset.side ?? null };
+    return { buttons: out, side: panel?.dataset.side ?? null, official: !!panel?.querySelector('.dart') };
   });
 
   // ---- 7 -------------------------------------------------------------------------------------------------------------
@@ -199,7 +199,8 @@ describe('user playtest #2 — UI fixes (mock harness, headless Chrome)', { skip
           for (const b of st2.buttons) {
             assert.ok(b.inView, `${name}/${render}: ${pc.where} ${b.cls} inside the viewport`);
             assert.ok(b.topmost, `${name}/${render}: ${pc.where} ${b.cls} is the topmost element (clickable)`);
-            assert.ok(!b.overlap, `${name}/${render}: ${pc.where} ${b.cls} not under the detail card (${st2.side})`);
+            // the official-form card lets presses through (docs/rules/ui.md 「보드에서 연 카드가 벤치를 가림」): `topmost` above is the check there
+            assert.ok(st2.official || !b.overlap, `${name}/${render}: ${pc.where} ${b.cls} not under the detail card (${st2.side})`);
           }
           if (st2.side === 'right') rightDocked++;
           checked++;
@@ -285,27 +286,31 @@ describe('user playtest #2 — UI fixes (mock harness, headless Chrome)', { skip
       assert.ok(await tapPiece(page, uid), 'unit selected');
       await page.waitForSelector('.dpanel .dbonds--top', { timeout: 3000 });
       const r = await page.evaluate(() => {
+        // the official-form card has no header column: its bond tiles sit beside the 攻击范围 tile (ui/detailArt.js)
+        const official = document.querySelector('.dpanel .dart__tiles');
         const panel = document.querySelector('.dpanel__scroll');
-        const pr = panel.getBoundingClientRect();
-        const art = document.querySelector('.dpanel .dhead__art').getBoundingClientRect();
-        const name = document.querySelector('.dpanel .dhead__name').getBoundingClientRect();
+        const pr = (official || panel).getBoundingClientRect();
+        const art = official ? null : document.querySelector('.dpanel .dhead__art').getBoundingClientRect();
+        const name = document.querySelector('.dpanel :is(.dart__name, .dhead__name)').getBoundingClientRect();
         const chips = [...document.querySelectorAll('.dpanel .dbonds--top .dbond')];
-        const kids = [...panel.children].map((el) => el.className);
+        const kids = panel ? [...panel.children].map((el) => el.className) : [];
         return {
-          first: kids[0], inInfo: !!document.querySelector('.dpanel .dhead__info > .dbonds--top'),
-          art: { right: art.right, top: art.top, bottom: art.bottom }, nameBottom: name.bottom,
-          chips: chips.map((el) => { const r = el.getBoundingClientRect(); return { text: el.textContent.trim(), left: r.left, bottom: r.bottom, top: r.top, icon: !!el.querySelector('.bglyph'), count: el.querySelector('.dbond__count')?.textContent.trim() || '' }; }),
-          visibleBottom: pr.bottom, scrollTop: panel.scrollTop,
+          official: !!official,
+          first: kids[0], inInfo: official ? !!official.querySelector('.dbonds--top') : !!document.querySelector('.dpanel .dhead__info > .dbonds--top'),
+          art: art && { right: art.right, top: art.top, bottom: art.bottom }, nameBottom: name.bottom,
+          chips: chips.map((el) => { const r = el.getBoundingClientRect(); return { text: el.textContent.trim(), left: r.left, bottom: r.bottom, top: r.top, icon: !!el.querySelector('.bglyph'), count: el.querySelector('.dbond__count')?.textContent?.trim() ?? '' }; }),
+          visibleBottom: official ? innerHeight : pr.bottom, scrollTop: panel ? panel.scrollTop : 0,
           bonds: (globalThis.__SP__?.store || globalThis.__MOCK__.store).get().match.private.bonds.length,
         };
       });
-      assert.equal(r.first, 'dhead');
-      assert.ok(r.inInfo, 'bonds in the header\'s right column (under name / tier)');
+      if (!r.official) assert.equal(r.first, 'dhead');
+      assert.ok(r.inInfo, 'bonds in the header\'s right column (under name / tier), or on the official card\'s tiles');
       assert.ok(r.chips.length >= 1, 'bond chips');
       for (const c of r.chips) {
         assert.ok(c.icon, `chip ${c.text} has its icon`);
-        assert.match(c.count, /^\d+(\/\d+)?$/, `chip ${c.text} shows count/threshold`);
         assert.ok(c.bottom <= r.visibleBottom && r.scrollTop === 0, `chip ${c.text} visible without scrolling`);
+        if (r.official) continue;
+        assert.match(c.count, /^\d+(\/\d+)?$/, `chip ${c.text} shows count/threshold`);
         assert.ok(c.left >= r.art.right - 1, `chip ${c.text} right of the portrait (top right)`);
         assert.ok(c.top >= r.nameBottom - 1 && c.top < r.art.bottom, `chip ${c.text} under the name, beside the portrait`);
       }
@@ -328,7 +333,8 @@ describe('user playtest #2 — UI fixes (mock harness, headless Chrome)', { skip
         };
       });
       // the playtest's case (a unit left of the board, card docked right) — the popup keeps clear of the underframe
-      assert.equal(pop.coversButtons, false, `the bond popup (${pop.place}) keeps clear of the underframe buttons`);
+      // (the official bond dialog has its own place: there `btnTop` below is the check, the underframe stays above it)
+      if (!r.official) assert.equal(pop.coversButtons, false, `the bond popup (${pop.place}) keeps clear of the underframe buttons`);
       assert.ok(!pop.coversCard || pop.over, `the popup covers the card only when placed over it (${pop.place})`);
       const iNow = pop.secs.findIndex((t) => t.includes('当前效果'));
       const iDesc = pop.secs.findIndex((t) => t.includes('盟约效果'));
@@ -358,6 +364,8 @@ describe('user playtest #2 — UI fixes (mock harness, headless Chrome)', { skip
     await page.screenshot({ path: path.join(OUT, 'fix-loadout-shop.png') });
     const b0 = await page.evaluate(() => globalThis.__MOCK__.S().priv.board[0].uid);
     await tapPiece(page, b0);
+    await page.waitForSelector('.dpanel', { timeout: 3000 });
+    await cardTab(page, '技能');
     await page.waitForSelector('.dpanel .dskill', { timeout: 3000 });
     const d = await page.evaluate(() => ({ name: document.querySelector('.dpanel .dskill__name')?.textContent || '', tag: !!document.querySelector('.dpanel .dskill__name .dtag-loadout') }));
     assert.ok(d.tag, `detail card marks the loadout skill (${d.name})`);
@@ -370,6 +378,8 @@ describe('user playtest #2 — UI fixes (mock harness, headless Chrome)', { skip
     const g = await page.evaluate(() => globalThis.__MOCK__.S().priv.board.find((p) => p.golden)?.uid);
     if (g) {
       assert.ok(await tapPiece(page, g), 'the elite is selected');
+      await page.waitForSelector('.dpanel', { timeout: 3000 });
+      await cardTab(page, '技能');
       await page.waitForSelector('.dpanel .dsec--module', { timeout: 3000 });
       const mod = await page.$eval('.dpanel .dmodule', (el) => ({ none: el.classList.contains('is-none'), text: el.textContent }));
       assert.ok(mod.none && mod.text.includes('未装备模组'), `elite module unequipped (${mod.text})`);

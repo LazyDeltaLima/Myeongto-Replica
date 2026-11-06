@@ -13,7 +13,7 @@
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { launchBrowser } from '../e2e/browser.mjs';
+import { launchBrowser, loadingScreenGone } from '../e2e/browser.mjs';
 
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const ENABLED = process.env.SP_E2E === '1' && existsSync(CHROME);
@@ -93,6 +93,7 @@ describe('stage device tip in the browser', { skip: !ENABLED && 'set SP_E2E=1 (a
   test('the engine canvas: the same tap on a tile\'s own screen position opens the card', async () => {
     const { page, problems } = await open(`/dev/game-mock.html?phase=PREP&stage=${CRATE_STAGE}`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!globalThis.__SP_VIEW__?.tileScreen, { timeout: 30000 });
+    await loadingScreenGone(page);
     await sleep(1200); // models / camera
     const at = (row, col) => page.evaluate(([r, c]) => {
       const t = globalThis.__SP_VIEW__.tileScreen(r, c);

@@ -12,7 +12,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { Client, ROOT, sleep, hasChrome, startRealServer, problemsOf } from '../e2e/client.mjs';
+import { Client, ROOT, sleep, hasChrome, startRealServer, problemsOf, groundAnchor, anchorPoint, cameraSettled, cameraState } from '../e2e/client.mjs';
 import { ownerRangeKeys } from '../../server/match/board.js';
 
 const ENABLED = process.env.SP_E2E === '1' && hasChrome() && existsSync(path.join(ROOT, 'public/assets'));
@@ -41,21 +41,33 @@ async function soloToPrep(c) {
 const handOf = (c, id) => c.page.evaluate((id) => (globalThis.__SP__.store.get().match.private?.hand || []).find((p) => p && p.id === id) || null, id);
 const boardOf = (c, id) => c.page.evaluate((id) => (globalThis.__SP__.store.get().match.private?.board || []).filter((p) => p.id === id), id);
 const legalLit = (c) => c.page.evaluate(() => {
-  const hl = globalThis.__SP_VIEW__?.raw?.debug?.tiles?.highlights?.get('legal');
-  return hl ? hl.tiles.map((t) => (Array.isArray(t) ? `${t[0]},${t[1]}` : `${t.row},${t.col}`)) : [];
+  // on the 3D board the deploy tiles are the board's own overlay (render/app.js drawHighlight), else a highlight group
+  const d = globalThis.__SP_VIEW__?.raw?.debug;
+  const tiles = d?.overlay3d?.get('legal') ?? d?.tiles?.highlights?.get('legal')?.tiles ?? [];
+  return tiles.map((t) => (Array.isArray(t) ? t : [t.row, t.col])).filter(([r]) => r > 8).map(([r, c]) => `${r},${c}`); // the board's, not the bench's
 });
 const wheelOpen = (c) => c.page.evaluate(() => !!document.querySelector('.fwheel__dia'));
 
 /** Press on hand piece `uid`, move over `hover` and read the legal highlights mid-drag, then release on `drop`. */
 async function dragRead(c, uid, hover, drop, shot = null) {
+  await cameraSettled(c.page); // the last refused drop's camera flying back
   const from = await c.piecePoint(uid);
-  const over = await c.tilePoint(hover[0], hover[1]);
-  const to = await c.tilePoint(drop[0], drop[1]);
+  let over = await c.tilePoint(hover[0], hover[1]);
+  let to = await c.tilePoint(drop[0], drop[1]);
   assert.ok(from && over && to, `piece ${uid} and tiles on screen`);
   const m = c.page.mouse;
+  // both tiles as ground spots: the pickup flies the camera to the official side camera (test/e2e/client.mjs aimedDrag)
+  const overSpot = await groundAnchor(c.page, over);
+  const toSpot = await groundAnchor(c.page, to);
+  const camera = await cameraState(c.page);
   await m.move(from.x, from.y);
   await m.down();
-  for (let i = 1; i <= 12; i++) { await m.move(from.x + ((over.x - from.x) * i) / 12, from.y + ((over.y - from.y) * i) / 12); await sleep(14); }
+  for (let i = 1; i <= 3; i++) { await m.move(from.x + ((over.x - from.x) * i) / 12, from.y + ((over.y - from.y) * i) / 12); await sleep(14); }
+  await cameraSettled(c.page, { from: camera });
+  const lead = { x: from.x + ((over.x - from.x) * 3) / 12, y: from.y + ((over.y - from.y) * 3) / 12 };
+  over = (await anchorPoint(c.page, overSpot)) || over;
+  to = (await anchorPoint(c.page, toSpot)) || to;
+  for (let i = 1; i <= 9; i++) { await m.move(lead.x + ((over.x - lead.x) * i) / 9, lead.y + ((over.y - lead.y) * i) / 9); await sleep(14); }
   await sleep(250);
   const lit = (await legalLit(c)).sort();
   if (shot) await c.shot(shot);
@@ -82,7 +94,7 @@ describe('player reports #3 / #9 after 0.1.0: placement highlights (real server,
       assert.ok(vigil, '伺夜 in the hand');
       const lit0 = await dragRead(c, vigil.uid, [9, 3], [10, 4]);
       for (const k of WATER) assert.ok(!lit0.includes(k), `伺夜: ${k} not lit (${lit0.join(' ')})`);
-      assert.ok(lit0.includes('11,5') && lit0.includes('10,7'), 'the dry tiles around the pool are lit');
+      assert.ok(lit0.includes('11,5') && lit0.includes('10,7'), `the dry tiles around the pool are lit (${lit0.join(' ')})`);
       await c.page.waitForSelector('.fwheel__dia', { timeout: 4000 });
       await c.swipe('RIGHT');
       await sleep(600);
@@ -108,7 +120,8 @@ describe('player reports #3 / #9 after 0.1.0: placement highlights (real server,
       assert.equal(await wheelOpen(c), false, 'a drop outside her range opens no wheel');
       assert.ok(await handOf(c, WOLF), 'the pack stays in the hand');
       // inside: the wheel opens and the pack is placed
-      await dragRead(c, wolf.uid, [11, 5], [11, 5]);
+      await cameraSettled(c.page);
+      await c.drag(await c.piecePoint(wolf.uid), await c.tilePoint(11, 5));
       await c.page.waitForSelector('.fwheel__dia', { timeout: 4000 });
       await c.swipe('RIGHT');
       await sleep(600);

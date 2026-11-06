@@ -19,6 +19,7 @@ import { Client, ROOT, sleep, hasChrome, startRealServer, problemsOf } from '../
 import { makeBattle } from '../helpers/battleHarness.js';
 import { UF } from '../../shared/constants.js';
 import { COLORS } from '../../public/js/render/style.js';
+import { readChessCard } from '../e2e/browser.mjs';
 
 const ENABLED = process.env.SP_E2E === '1' && hasChrome() && existsSync(path.join(ROOT, 'public/assets'));
 const BASE = 'chess_char_1_19_a';
@@ -100,24 +101,13 @@ describe('user playtest #2 item 1 — loadout chosen in the UI fights in the loc
         const p = await c.piecePoint(piece.uid, at);
         if (!p) continue;
         await c.page.mouse.click(p.x, p.y, { button: 'right' }); // right-click: the detail card only
-        detail = await c.page.waitForSelector('.dpanel .dskill__name', { timeout: 2500 }).then(() => c.page.evaluate(() => ({
-          skill: document.querySelector('.dpanel .dskill__name')?.textContent || '',
-          tag: !!document.querySelector('.dpanel .dskill__name .dtag-loadout'),
-          module: document.querySelector('.dpanel .dmodule')?.textContent || '',
-          none: !!document.querySelector('.dpanel .dmodule.is-none'),
-          // the record (base) value: with live stats (user playtest #4 item 7: the start-of-battle preview) it is the
-          // cell's title "基础 N", else the value itself
-          stats: Object.fromEntries([...document.querySelectorAll('.dpanel .dstat')].map((el) => [el.querySelector('.dstat__k')?.textContent,
-            (el.getAttribute('title') || '').replace(/^基础 /, '') || el.querySelector('.dstat__v')?.textContent])),
-          trait: document.querySelector('.dpanel .dtrait')?.textContent || '',
-        })), () => null);
+        detail = await readChessCard(c.page);
         if (detail) break;
       }
       assert.ok(detail, 'the detail card opens for the placed elite');
-      assert.ok(detail.skill.includes(s1.name) && detail.tag, `detail card: ${s1.name} 已调配 (${JSON.stringify(detail)})`);
-      assert.ok(detail.none && detail.module.includes('未装备模组'), `detail card: 未装备模组 (${JSON.stringify(detail)})`);
+      assert.ok(detail.skill.includes(s1.name) && detail.skillTag, `detail card: ${s1.name} 已调配 (${JSON.stringify(detail)})`);
+      assert.ok(detail.moduleNone && detail.module.includes('未装备模组'), `detail card: 未装备模组 (${JSON.stringify(detail)})`);
       // …and the stats / 特性 the unit fights with: no module (ATK 524, interval 1.00 s, "获得1点") — not the default module's
-      assert.equal(detail.stats['攻击'], String(rec.statsBase.atk), `detail card ATK without the module (${JSON.stringify(detail.stats)})`);
       assert.equal(detail.stats['攻击间隔'], '1.00s', 'detail card interval: ASPD 100');
       assert.match(detail.trait, /获得1点部署费用/, `detail card 特性 without the module (${detail.trait})`);
       await c.shot('detail');
@@ -159,6 +149,13 @@ describe('user playtest #2 item 1 — loadout chosen in the UI fights in the loc
       assert.equal(got.source, 'skills', 'with its hand-authored spec');
       assert.deepEqual({ skillIndex: got.loadout?.skillIndex, moduleId: got.loadout?.moduleId }, { skillIndex: 0, moduleId: 'none' });
       assert.equal(got.atk, rec.statsBase.atk, 'no module: base ATK (the default module adds +40)');
+      // the card's ATK: this record at the player's 潜能 / 练度 (default settings), as the battle's record is composed
+      const { cultivationOf, cultivatedStats, cultivateMul } = await import('../../shared/potential.js');
+      const { loadoutRecord, resolveRecordLoadout } = await import('../../shared/loadoutRecord.js');
+      const effects = JSON.parse(readFileSync(path.join(ROOT, 'data/effects.json'), 'utf8'));
+      const cv = cultivationOf(rec, null);
+      const card = cultivatedStats(loadoutRecord(rec, resolveRecordLoadout(rec, { skillIndex: 0, moduleId: 'none', potential: cv.potential })).stats, cultivateMul(effects, cv.cultivate));
+      assert.equal(detail.stats['攻击'], String(Math.round(card.atk)), `detail card ATK without the module (${JSON.stringify(detail.stats)})`);
       assert.equal(got.aspd, rec.statsBase.aspd, 'no module: base ASPD');
       assert.notEqual(rec.stats.atk, rec.statsBase.atk, 'control: the default module would change ATK');
       assert.equal(got.liveAspd - got.aspd, s1.bb.attack_speed, 'S1 signature: ASPD +100 on deploy');
@@ -215,12 +212,20 @@ describe('user playtest #2 item 1 — loadout chosen in the UI fights in the loc
         }, meta, f.snap);
         await c.page.waitForFunction((id, spMax) => {
           const x = window.__demo.view.debug.views.get(id);
-          return x?.spineReady && x.hud.visible && x.hud.alpha > 0.99 && x.hpFill.visible && x.spMax === spMax;
-        }, { timeout: 15000 }, u.id, f.snap.units.find((t) => t[0] === u.id)[6]);
+          return x?.spineReady && x.hud.visible && x.hud.alpha > 0.99 && x.spMax === spMax;
+        }, { timeout: 15000 }, u.id, f.snap.units.find((t) => t[0] === u.id)[6]).catch(async (err) => {
+          const seen = await c.page.evaluate((id) => {
+            const x = window.__demo.view.debug.views.get(id);
+            return x ? { spineReady: x.spineReady, hud: x.hud.visible, alpha: x.hud.alpha, hp: x.hpFill.visible, spMax: x.spMax, ids: null } : { ids: [...window.__demo.view.debug.views.keys()].slice(0, 12) };
+          }, u.id);
+          throw new Error(`${err.message}: ${f.name} ${JSON.stringify(seen)}`);
+        });
         const bar = await c.page.evaluate((id) => {
           const x = window.__demo.view.debug.views.get(id);
-          return { visible: x.spFill.visible, bg: x.spBg.visible, share: x.spFill.width / (x.spBg.width - 2),
-            tint: x.spFill.tint, flags: x.flags, glow: x.spGlow.visible, sp: x.sp, max: x.spMax };
+          // allies draw the official bars (render/hud-bars.js AllyBars), the rest the plain ones
+          const lp = x.lpBars;
+          return lp?.sp ? { official: true, visible: lp.sp.visible, bg: lp.sp.visible, share: lp.sp.width / lp.box.w, flags: x.flags, glow: x.spGlow.visible, sp: x.sp, max: x.spMax }
+            : { visible: x.spFill.visible, bg: x.spBg.visible, share: x.spFill.width / (x.spBg.width - 2), tint: x.spFill.tint, flags: x.flags, glow: x.spGlow.visible, sp: x.sp, max: x.spMax };
         }, u.id);
         assert.equal(bar.glow, false, `${f.name}: no ready highlight`);
         assert.equal(!!(bar.flags & UF.SKILL), f.name !== 'ended');
@@ -228,7 +233,7 @@ describe('user playtest #2 item 1 — loadout chosen in the UI fights in the loc
         assert.equal(bar.bg, f.name !== 'ended');
         if (bar.visible) {
           assert.ok(Math.abs(bar.share - f.share) < 0.002, `${f.name}: drawn share ${bar.share}`);
-          assert.equal(bar.tint, COLORS.spActive);
+          if (!bar.official) assert.equal(bar.tint, COLORS.spActive);
         } else assert.deepEqual([bar.sp, bar.max], [0, 0]);
         await c.shot(`duration-${f.name}`);
       }

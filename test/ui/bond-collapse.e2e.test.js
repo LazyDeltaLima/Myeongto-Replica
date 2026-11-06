@@ -48,7 +48,8 @@ describe('collapsible bond strip (issue #142)', { skip: !ENABLED && 'set SP_E2E=
         });
         await activate('.bslot .bond');
         await page.waitForSelector('.bpop');
-        await activate('.bonds-toggle');
+        // the popup can lie over the official art's tab, so this one goes to the button itself (a keyboard reaches it too)
+        await page.$eval('.bonds-toggle', (el) => el.click());
         await page.waitForSelector('#match-bond-strip', { hidden: true });
         assert.equal(await expanded(), 'false');
         assert.equal(await page.$('.bpop'), null, 'collapsing closes the strip popup');
