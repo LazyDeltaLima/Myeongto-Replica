@@ -62,6 +62,8 @@ const KEEP_UPSTREAM = {
  * pack would otherwise take before our dictionaries (data/i18n/ko.json; the UI pack has the same entry in FIXES). */
 const DATA_FIXES = {
   敌方攻击强度到达极限的模拟训练: ['적의 공격 강도가 한계를 뛰어넘은 시뮬레이션', 'typo 강도하 in the official KR table (the 超越 difficulty card in the lobby, 2026-10-09)'],
+  "【叙拉古】干员部署后攻击速度提升，持续一定时间（受层数影响）\n<在场6名不同【叙拉古】干员>【叙拉古】干员部署后进入等时长的隐匿状态，【叙拉古】干员隐匿状态下和脱离隐匿10秒内对敌人攻击时有3%的概率造成一定真实伤害（受层数影响）并恐惧3秒": ["[시라쿠사] 오퍼레이터가 배치 후 공격 속도 증가, 일정 시간 초간 지속 (중첩 수에 따라 변경)\n<전장에 서로 다른 [시라쿠사] 오퍼레이터 6명 배치> [시라쿠사] 오퍼레이터가 배치 후 같은 시간 동안 은신 효과 획득, [시라쿠사] 오퍼레이터가 은신 효과 획득 또는 해제 후 10초간 3% 확률로 적에게 일정량의 트루 대미지를 입히며(중첩 수에 따라 변경), 3초간 공포 효과 부여", "the KR table's 52.4 data puts 에기르's description on 시라쿠사's bond (bondInfoDict.siracusaShip.desc): the KR text of the data before it"],
+  "【叙拉古】干员部署后<@ba.vup>攻击速度</>提升，持续一定时间<@autochess.gray>（受层数影响）</>\n<在场<@autochess.dgreen>6</>名不同【叙拉古】干员>【叙拉古】干员部署后进入等时长的隐匿状态，【叙拉古】干员隐匿状态下和脱离隐匿<@ba.vup>10</>秒内对敌人攻击时有<@ba.vup>3%</>的概率造成一定真实伤害<@autochess.gray>（受层数影响）</>并<@ba.vup>恐惧</>3秒": ["[시라쿠사] 오퍼레이터가 배치 후 <@ba.vup>공격 속도</> 증가, 일정 시간 초간 지속 <@autochess.gray>(중첩 수에 따라 변경)</>\n<전장에 서로 다른 [시라쿠사] 오퍼레이터 <@autochess.dgreen>6</>명 배치> [시라쿠사] 오퍼레이터가 배치 후 같은 시간 동안 은신 효과 획득, [시라쿠사] 오퍼레이터가 은신 효과 획득 또는 해제 후 <@ba.vup>10</>초간 <@ba.vup>3%</> 확률로 적에게 일정량의 트루 대미지를 입히며<@autochess.gray>(중첩 수에 따라 변경)</>, 3초간 <@ba.vup>공포</> 효과 부여", "the KR table's 52.4 data puts 에기르's description on 시라쿠사's bond (bondInfoDict.siracusaShip.desc): the KR text of the data before it"],
 };
 
 /** msgid → our text, fixed (our dictionary has a typo or a wrong sense). */

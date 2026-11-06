@@ -41,18 +41,20 @@
 //   --cache     zh_CN cache (default <repo>/.cache/gamedata, shared with build-data; missing tables are downloaded)
 //   --cache-en  target cache (default <repo>/.cache/gamedata-en for en 'assets', .cache/gamedata-en-yostar for 'yostar',
 //               .cache/gamedata-<code> for the others)
-//   --data      the data/*.json to localize (default <repo>/data);  --out  default <repo>/data/i18n/<code>.json
+//   --data      the data/*.json to localize, with the records of data/seasons/*/ the default files lack (default
+//               <repo>/data);  --out  default <repo>/data/i18n/<code>.json
 //   --report    default <repo>/.cache/build-i18n-report.json (en; build-i18n-report.<code>.json for the others): coverage
 //               per kind, untranslated samples
 //   --check     build in memory and exit 1 when the output differs from --out (nothing written)
 // In the code below "en" names the target side of the walk, whatever the language (the matching is the same).
 // Determinism: the output depends only on the inputs (stable key order, no timestamps).
 
-import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { basename, dirname, join, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildRecordOverlay, applyFileOverlay, OVERLAY_VERSION } from '../shared/i18nData.js';
+import { gamedataBase } from './gamedata-url.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const USAGE = 'usage: node tools/build-i18n.mjs [--lang en|ja|ko|zh-TW | --lang <code> --dict <file.json>] [--dict <file.json>] [--fix <file.json>] [--refresh | --offline] [--source assets|yostar] [--cache <dir>] [--cache-en <dir>] [--data <dir>] [--out <file>] [--report <file>] [--check] [--quiet]';
@@ -80,7 +82,6 @@ export const EN_SOURCES = Object.freeze({
     cache: '.cache/gamedata-en-yostar',
   },
 });
-const ZH_URL = 'https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/';
 
 /**
  * The official clients by target language, each with its table sources. `untranslated`: how a target text that is not
@@ -735,7 +736,7 @@ async function main() {
   const zh = [];
   const en = [];
   for (const t of client ? TABLES : []) {
-    const zj = await loadTable(opts.cache, ZH_URL, t.rel, { refresh: false, offline: opts.offline, log });
+    const zj = await loadTable(opts.cache, gamedataBase(t.rel), t.rel, { refresh: false, offline: opts.offline, log });
     const ej = await loadTable(opts.cacheEn, src.url, t.rel, { refresh: opts.refresh, offline: opts.offline, log });
     zh.push(t.pick ? t.pick(zj) : zj);
     en.push(t.pick ? t.pick(ej) : ej);
@@ -754,6 +755,17 @@ async function main() {
   for (const f of DATA_FILES) {
     const abs = join(opts.data, `${f}.json`);
     if (existsSync(abs)) data[f] = JSON.parse(await readFile(abs, 'utf8'));
+  }
+  // a season's own records (data/seasons/<id>/<file>.json, ids the default file lacks: shared/seasons.js) go in the same
+  // overlay; applyFileOverlay skips an id the file being localized does not have, so the default season never reads them
+  const seasonsDir = join(opts.data, 'seasons');
+  for (const season of existsSync(seasonsDir) ? (await readdir(seasonsDir)).sort() : []) {
+    for (const f of DATA_FILES) {
+      const abs = join(seasonsDir, season, `${f}.json`);
+      if (!data[f] || !existsSync(abs)) continue;
+      const own = Object.entries(JSON.parse(await readFile(abs, 'utf8'))).filter(([id]) => !Object.hasOwn(data[f], id));
+      if (own.length) data[f] = { ...data[f], ...Object.fromEntries(own) };
+    }
   }
   const readDict = async (abs) => (existsSync(abs) ? JSON.parse(await readFile(abs, 'utf8')) : {});
   // the remake's own strings and PR #70's are English; another language falls back to its pack's UI strings only
