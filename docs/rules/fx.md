@@ -3837,3 +3837,13 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - 가비알 디 인빈서블 S3 끝의 나눠 깎기: `gvial2_s_3[bleed]`의 `FixedValueDamage`. 끝날 때의 `gvial2_skill_3_bleed`(`gvial2_s_3[final_bleed]`)는 별개다.
 - 아이언 장치(선발) 1초마다 `ironmn_pile_bleed`, 집게 호 스킬 시작 `ironmn_pile3_bleed`: `DamageViaMaxHpRatio`.
 - 확인: `test/content/hp-loss-silent.test.js`, `op_ironmn.test.js`(고치기 전 키트로 실패 확인). 전투 golden은 `.events.dmg` 수만 움직인다. [공식 화면 미확인]
+
+## 선발 슈·리·에벤홀츠 키트 순간 이펙트 (2026-11-06)
+
+사건은 있고 연결만 없던 템플릿 행을 이었다(공식 클라에서 확인: 버프 템플릿의 노드·대상·수명).
+
+- **슈 S3**: 씨 뿌린 칸에 들어선 적의 표식 `shu_s_3[enemy][mark]` → `shu_talent_buff_03`(적 위, 스킬 끝까지; 사건 `kitHit` `shu:mark`의 `tgt`). 그 적을 되돌릴 때(`teleport`) 있던 자리에 `shu_teleport_hit`, 내려앉는 칸에 `shu_teleport_hit_02`. 적이 숨어 표식이 지워져도 이펙트는 스킬 끝까지 남는다(시뮬이 알리지 않음).
+- **리 재능 2**: 지불로 얻은 방비 `lmlee_t_2[bounce]` → `lmlee_buff_02_start`를 쓸 때까지(`shield` `lmlee`, 슬롯), 기절·빙결을 막으면 끄고(`counter`) 그것을 건 적에게 `lmlee_t_2[stuneff]`의 `lmlee_buff_02_hit`을 기절 시간만큼(`tgt`·`t`; 적이 건 것이 아니면 없음). **S3**: `lmlee_s_3[knockback]`이 주사위를 넘으면 맞은 적에게 `lmlee_skill_03_range_hit`(`kitHit` `lmlee:s3push`의 `tgt`).
+- **에벤홀츠 재능 2**: 대상 곁에 다른 적이 없으면 `ebnhlz_beidong_hit`, 모듈(`ebnhlz_e_003_t_2`)에서 곁에 적이 있어 범위 피해가 나면 대상에 `ebnhlz_mozu_hit`(`kitHit` `ebnhlz:yiyin`·`ebnhlz:yiyinAoe`).
+- 파죰카 모듈 RA-A의 `zumama_equipment_range_01`은 그 버프가 생존 연산 음식 버프를 요구해(`SandboxCheckHasFoodBuff`) 이 모드에서 나오지 않는다 — `UNPLAYED`에 남김.
+- 확인: `test/render/pick-moment-fx.test.js`, 아레나 2배속 사건·프리팹 순서(슈 표식은 샌드백이 안 움직여 칸을 손으로 넣고 옮김). 공식 화면과 나란히는 안 봄.

@@ -74,7 +74,15 @@ export const KIT_OFFICIAL = {
   // (2026-10-23) The effect is the `_effects` of the ability skchr_agoat2_2/Shield/Aura that holds the buff, and the buff's
   // ON_BUFF_TRIGGER interrupts that ability once its `value` is spent: its level follows what the barrier can still absorb,
   // and a spent barrier ends it early (fxgame.js buffProgress)
-  shield: { agoat2: cite(['skchr_agoat2_2/Shield/Aura', 'agoat2_s_2[shield]'], (o) => ({ play: [{ tpl: 'skchr_agoat2_2/Shield/Aura', on: 'op', life: Math.max(0.1, Number(o.duration) || 12) }] })) },
+  shield: {
+    agoat2: cite(['skchr_agoat2_2/Shield/Aura', 'agoat2_s_2[shield]'], (o) => ({ play: [{ tpl: 'skchr_agoat2_2/Shield/Aura', on: 'op', life: Math.max(0.1, Number(o.duration) || 12) }] })),
+    // 老鲤 T2 有备无患: the guard bought (lmlee_t_2[bounce], INFINITY), held on him until it stops a stun or a freeze ('counter')
+    lmlee: cite('lmlee_t_2[bounce]', (o) => (o.kind === 'lmlee' ? { play: [{ n: 'lmlee_buff_02_start', on: 'op', slot: 'lmleeGuard' }] } : null)),
+  },
+  // … and its stun on the one who tried (lmlee_t_2[stuneff], LIMITED by the stun; `tgt`: none when no enemy did)
+  counter: {
+    lmlee: cite(['lmlee_t_2[bounce]', 'lmlee_t_2[stuneff]'], (o) => ({ play: [{ slot: 'lmleeGuard', off: true }, ...(o.tgt != null ? [{ n: 'lmlee_buff_02_hit', on: 'tgt', life: Number(o.t) }] : [])] })),
+  },
   overload: {
     horn: cite(['horn_s_2[overload_switch_effect]', 'horn_s_3[overload_switch_effect]'], (o, c) => {
       const tpl = c.skill === 1 ? 'horn_s_2[overload_switch_effect]' : c.skill === 2 ? 'horn_s_3[overload_switch_effect]' : null;
@@ -524,6 +532,13 @@ export const KIT_OFFICIAL = {
     // (2026-11-03) 白铁 T2 节约经费: a device of his recovered (ironmn_t_2 ON_OWNER_FINISH, a won Dice: RechargeToken) creates
     // ironmn_beidong_buff on him (BUFF_SOURCE)
     ironmn: cite('ironmn_t_2', (o) => (o.k === 'ironmn_t_2' ? { play: [once('ironmn_beidong_buff')] } : null)),
+    // 黍 S3 the mark an enemy holds on a sown tile until the skill ends (shu_s_3[enemy][mark], INFINITY)
+    shu: cite('shu_s_3[enemy][mark]', (o) => (o.k === 'shu:mark' ? { play: [{ n: 'shu_talent_buff_03', on: 'tgt', life: 'skill' }] } : null)),
+    // 老鲤 S3 lmlee_s_3[knockback] past its Dice: on the enemy struck
+    lmlee: cite('lmlee_s_3[knockback]', (o) => (o.k === 'lmlee:s3push' ? { play: [once('lmlee_skill_03_range_hit', 'tgt')] } : null)),
+    // 黑键 T2 倚音 on the target: alone, ebnhlz_beidong_hit; with others round it (the module's AOEDamage), ebnhlz_mozu_hit
+    ebnhlz: cite(['ebnhlz_t_2', 'ebnhlz_e_003_t_2'], (o) => (o.k === 'ebnhlz:yiyin' ? { play: [once('ebnhlz_beidong_hit', 'tgt')] }
+      : o.k === 'ebnhlz:yiyinAoe' ? { play: [once('ebnhlz_mozu_hit', 'tgt')] } : null)),
     // (2026-11-03) 缇缇 T1 凝固的时光: each tick on a sleeping enemy (titi_t_1[enemy_sleeping] ON_BUFF_TRIGGER, CheckAbnormalCombo
     // SLEEPING) creates titi_attack_hit_01 on it with the damage (`ids`); her S3's spread from a sleeper knocked out
     // (titi_s_3[effect_line] on each enemy it puts to sleep: CreateLineEffect titi_skill_03_line_01 from that enemy, BUFF_SOURCE)
@@ -609,6 +624,8 @@ export const KIT_OFFICIAL = {
   // lands on is withdrawn with token_monstr_prosts[eff] token_monstr_prosts_skill_03_start (monstr_s_3_buff[self] ON_BUFF_START)
   teleport: {
     yu: cite('yu_s_2[try_tp]', () => ({ play: [once('yu_skill2_teleport_02', 'id')] })),
+    // 黍 S3: a marked enemy put back (shu_s_3[enemy][mark] ON_BUFF_TRIGGER): one effect where it stood, one where it lands
+    shu: cite('shu_s_3[enemy][mark]', () => ({ play: [once('shu_teleport_hit', 'id'), once('shu_teleport_hit_02', 'point')] })),
     demetr: cite('demetr_s3[effect_1]', () => ({ play: [once('demetr_skill3_restart_begin_01')] })),
     monstr: cite(['monstr_s_3[reborned_passive]', 'prost_s_3[[effect]', 'prosts_s_3[mode]', 'token_monstr_prosts[eff]'], (o) => (Number(o.back)
       ? { play: [once('monstr_skill_03_end_02', 'point')] }

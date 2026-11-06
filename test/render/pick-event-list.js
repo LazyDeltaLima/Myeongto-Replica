@@ -7,7 +7,7 @@
 
 export const UNJUDGED = 'unjudged: older than this check (2026-11-04)';
 /** How many UNJUDGED entries may remain; lower it as they are judged, never raise it. */
-export const UNJUDGED_MAX = 70;
+export const UNJUDGED_MAX = 67;
 
 export const PICK_EVENTS = Object.freeze({
   'aglna2|takeoff': UNJUDGED,
@@ -51,8 +51,6 @@ export const PICK_EVENTS = Object.freeze({
   'kalts2|takeoff': UNJUDGED,
   'lmlee|explode': UNJUDGED,
   'lmlee|mark': UNJUDGED,
-  'lmlee|shield': UNJUDGED,
-  'lmlee|counter': UNJUDGED,
   'lmlee|dodge': UNJUDGED,
   'mantra|mantraArc': UNJUDGED,
   'mantra|mantraGrant': UNJUDGED,
@@ -67,7 +65,6 @@ export const PICK_EVENTS = Object.freeze({
   'phatm2|aoe': UNJUDGED,
   'phatm2|summon': UNJUDGED,
   'shu|healField': UNJUDGED,
-  'shu|teleport': UNJUDGED,
   'thorns|thorns': UNJUDGED,
   'vvana|shield': UNJUDGED,
   'vvana|shieldBreak': UNJUDGED,

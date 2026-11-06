@@ -148,7 +148,7 @@ test("a 'skill' verdict names a skill whose activation draws something", () => {
 });
 
 /** The 'kitHit' moment keys the rules answer (`k`; undefined: 灵知's, which reads none). */
-const KIT_HIT_KEYS = [undefined, 'haruka:break', 'ironmn_t_2', 'titi:t1', 'titi:spread', 'judge:barrier', 'logos:lock', 'logos:t1shot', 'logos:s1shot'];
+const KIT_HIT_KEYS = [undefined, 'haruka:break', 'ironmn_t_2', 'titi:t1', 'titi:spread', 'judge:barrier', 'logos:lock', 'logos:t1shot', 'logos:s1shot', 'shu:mark', 'lmlee:s3push', 'ebnhlz:yiyin', 'ebnhlz:yiyinAoe'];
 test('the rules name prefabs the client binds for that operator', () => {
   // each rule's prefab belongs to its operator's bundle (a typo plays nothing); the names come from the buff templates
   for (const [n, by] of Object.entries(KIT_OFFICIAL)) {
@@ -157,6 +157,8 @@ test('the rules name prefabs the client binds for that operator', () => {
       const o = { left: 0, t: 2, id: 1, of: 2, n: 2, cap: 3, name: 'extradition', cells: [[1, 1, 1], [2, 1, 3], [3, 1, 5], [4, 1, 0]], skill: 'swire2_3', targets: [2], token: 'token_10058_sbell2_icetgt', ids: [2], off: [3], picks: [2], src: 2, cd: 1.5 };
       if (n === 'whitw2Drones') o.t = [[2, 0], [3, 1]];
       if (n === 'tockaFx') Object.assign(o, { s: 2, shot: 1 });
+      if (n === 'shield' && b === 'lmlee') o.kind = 'lmlee';
+      if (n === 'counter') Object.assign(o, { tgt: 2, t: 2 });
       if (n === 'aoe') o.skill = b === 'branch' ? 'resolve' : 'judge:atonement';   // 折桠's opening blast, 斥罪's S2 pulse (the shared 'aoe' event: their skills only)
       // ('hit' rules answer their own moment keys)
       const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((c) => ({ ...c, plays: PLAYS }))

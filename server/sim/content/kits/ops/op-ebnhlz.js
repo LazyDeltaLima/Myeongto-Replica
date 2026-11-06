@@ -190,8 +190,12 @@ export default {
       const others = battle.foesInRadius(t.x, t.y, t2.radius, true).filter((e) => e !== t);
       const atk = unit.s.atk;
       if (others.length <= t2.cnt) {
-        if (t2.scale > 0) battle.dealDamage(unit, t, { amount: atk * t2.scale, type: 'arts', attackId, tags: ['talent', 'ebnhlz:yiyin'] });
+        if (t2.scale > 0) {
+          battle.fx('kitHit', { x: t.x, y: t.y, id: unit.id, tgt: t.id, k: 'ebnhlz:yiyin' });   // ebnhlz_beidong_hit on the target
+          battle.dealDamage(unit, t, { amount: atk * t2.scale, type: 'arts', attackId, tags: ['talent', 'ebnhlz:yiyin'] });
+        }
       } else if (t2.splash > 0) {
+        battle.fx('kitHit', { x: t.x, y: t.y, id: unit.id, tgt: t.id, k: 'ebnhlz:yiyinAoe' });   // ebnhlz_mozu_hit on the target (module's AOEDamage)
         for (const e of others) battle.dealDamage(unit, e, { amount: atk * t2.splash, type: 'arts', isSplash: true, attackId, tags: ['talent', 'ebnhlz:yiyin'] });
       }
       if (t2.elem > 0 && t.alive && t.findBuff('apoptosisBurst')) {

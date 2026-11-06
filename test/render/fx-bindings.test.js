@@ -133,17 +133,8 @@ const UNPLAYED = {
   'pepe_e_003_t[aoe][finish]|pepe_skill_01_hit_01_optimize': 'unconditional',
   // not reached (2026-10-24, 묶음 S5): the 战鹰 on another operator — 风雪之眼 deployed onto its card, which no one does in the auto battle
   'svash2_s_3[target_bird_onuse]|svash2_eagle_fly_01': 'unconditional',
-  // 黍 / 老鲤 / 森蚺 / 黑键 (2026-11-04): their kit moments, not wired yet (the kit events exist)
-  'shu_s_3[enemy][mark]|shu_talent_buff_03': 'unconditional',   // 黍 S3 the mark on the enemy
-  'shu_s_3[enemy][mark]|shu_teleport_hit': 'unconditional',     // 黍 S3 put back (the 'teleport' fx)
-  'shu_s_3[enemy][mark]|shu_teleport_hit_02': 'unconditional',
-  'lmlee_t_2[stuneff]|lmlee_buff_02_hit': 'condOther',          // 老鲤 T2 the guard's stun on its source
-  'lmlee_t_2[bounce]|lmlee_buff_02_start': 'cond',              // 老鲤 T2 the guard taken
-  'lmlee_s_3[knockback]|lmlee_skill_03_range_hit': 'condOther', // 老鲤 S3 an enemy pushed
-  'zumama_e_4|zumama_equipment_range_01': 'unconditional',      // 森蚺 RA-A (生息演算 only: never on a roster here)
-  'ebnhlz_t_2|ebnhlz_beidong_hit': 'condOther',                 // 黑键 T2 装饰音 hit
-  'ebnhlz_e_003_t_2|ebnhlz_beidong_hit': 'condOther',
-  'ebnhlz_e_003_t_2|ebnhlz_mozu_hit': 'condOther',
+  // 森蚺 RA-A's skill range: its buff needs a 生息演算 food buff (SandboxCheckHasFoodBuff), so never on a roster here
+  'zumama_e_4|zumama_equipment_range_01': 'unconditional',
   'jesca2_jckshd_dir_set[effect]|token_jesca2_jckshd_turnaround_01': 'unconditional', // 涤火杰西卡 she turns to her shield
   'bgsnow_s3[eff_up]|token_bgsnow_subbow_skill_03_buff_01_up': 'directional',          // 鸿雪 the typewriter's S3 copy
   'bgsnow_s3[eff_down]|token_bgsnow_subbow_skill_03_buff_01_down': 'directional',
