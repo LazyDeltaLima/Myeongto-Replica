@@ -10646,6 +10646,99 @@
    }
   ]
  },
+ "char_346_aosta": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [],
+   []
+  ],
+  "cast": [
+   [
+    "aosta_attack_01_start",
+    "aosta_attack_01_start_02"
+   ],
+   [
+    "aosta_skill_02_start",
+    "aosta_skill_02_start_02"
+   ]
+  ],
+  "hit": [
+   [
+    "aosta_attack_01_hit",
+    "aosta_attack_01_hit_02"
+   ],
+   [
+    "aosta_skill_02_hit"
+   ]
+  ],
+  "trail": [
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "aosta_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "aosta_attack_01_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "aosta_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "aosta_skill_02_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "skillMode": [
+   null,
+   1
+  ],
+  "switchTo": [
+   [],
+   [
+    1
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "common_ignite_attack"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "aosta_skill_02_buff"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_350_surtr": {
   "modes": [
    "Default",
@@ -12166,6 +12259,97 @@
    }
   ]
  },
+ "char_4031_liesel": {
+  "modes": [
+   "Default"
+  ],
+  "proj": [
+   []
+  ],
+  "cast": [
+   [
+    "liesel_attack_01_start_01"
+   ]
+  ],
+  "hit": [
+   []
+  ],
+  "trail": [
+   []
+  ],
+  "attach": [
+   []
+  ],
+  "castOpt": [
+   {
+    "liesel_attack_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0,
+     "d": 0.06
+    },
+    "liesel_attack_01_hit_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1,
+     "t": 1,
+     "p": 1
+    }
+   }
+  ],
+  "input": [
+   [
+    "liesel_attack_01_hit_01"
+   ]
+  ],
+  "start": "common_char_birth_01_delay_02",
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [
+     "liesel_skill_01_start_01",
+     "liesel_skill_01_start_02"
+    ],
+    "buff": [],
+    "target": [
+     "liesel_skill_01_hit_01"
+    ],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [
+     "liesel_skill_02_start_01"
+    ],
+    "buff": [
+     "liesel_skill_02_buff_01",
+     "liesel_skill_02_buff_02"
+    ],
+    "target": [],
+    "targetBuff": [],
+    "hitGroups": {
+     "g": [
+      [],
+      [],
+      []
+     ],
+     "base": [],
+     "shots": [
+      [],
+      [],
+      []
+     ]
+    },
+    "zone": {
+     "fx": [
+      "liesel_skill_02_hit_01"
+     ],
+     "aura": [],
+     "onProj": 0
+    }
+   }
+  ]
+ },
  "char_4036_forcer": {
   "modes": [
    "Default"
@@ -13140,6 +13324,120 @@
      "ebnhlz_skill_03_buff"
     ],
     "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_4047_pianst": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "Empty"
+  ],
+  "proj": [
+   [],
+   [],
+   [],
+   []
+  ],
+  "cast": [
+   [
+    "pianst_attack_start"
+   ],
+   [
+    "pianst_attack_start"
+   ],
+   [
+    "pianst_skill_02_start"
+   ],
+   []
+  ],
+  "hit": [
+   [
+    "pianst_attack_hit"
+   ],
+   [
+    "pianst_attack_hit"
+   ],
+   [
+    "pianst_skill_02_hit"
+   ],
+   []
+  ],
+  "trail": [
+   [],
+   [],
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   [],
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "pianst_attack_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "pianst_attack_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "pianst_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {}
+  ],
+  "skillMode": [
+   1,
+   2
+  ],
+  "switchTo": [
+   [
+    1
+   ],
+   [
+    2,
+    3
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "pianst_skill_01_buff"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [
+     "pianst_skill_02_end_range"
+    ],
+    "castLoop": [
+     "pianst_skill_02_end"
+    ],
+    "buff": [
+     "pianst_skill_02_buff_01",
+     "pianst_skill_02_buff_03"
+    ],
+    "target": [
+     "pianst_skill_02_end_hit"
+    ],
     "targetBuff": []
    }
   ]
@@ -22425,6 +22723,123 @@
     "castLoop": [],
     "buff": [
      "inside_skill_02_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_499_kaitou": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_chr_kaitou"
+   ],
+   [
+    "projectile_chr_kaitou_s1"
+   ],
+   [
+    "projectile_chr_kaitou_s2"
+   ]
+  ],
+  "cast": [
+   [
+    "kaitou_attack_01_start_01"
+   ],
+   [
+    "kaitou_skill_01_start_01"
+   ],
+   [
+    "kaitou_skill_02_start_02",
+    "kaitou_skill_02_start_01"
+   ]
+  ],
+  "hit": [
+   [
+    "kaitou_attack_01_hit_01"
+   ],
+   [
+    "kaitou_skill_01_hit_01"
+   ],
+   [
+    "kaitou_skill_02_hit_01"
+   ]
+  ],
+  "trail": [
+   [
+    "kaitou_attack_01_trail_01"
+   ],
+   [
+    "kaitou_skill_01_trail_01"
+   ],
+   [
+    "kaitou_skill_02_trail_01"
+   ]
+  ],
+  "attach": [
+   [],
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "kaitou_attack_01_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "kaitou_skill_01_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "kaitou_skill_02_start_02": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    },
+    "kaitou_skill_02_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "skillMode": [
+   1,
+   2
+  ],
+  "switchTo": [
+   [
+    1
+   ],
+   [
+    2
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "kaitou_skill_01_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "kaitou_skill_02_buff_01"
     ],
     "target": [],
     "targetBuff": []

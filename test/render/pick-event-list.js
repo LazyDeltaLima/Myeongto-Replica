@@ -81,6 +81,7 @@ export const PICK_EVENTS = Object.freeze({
   'wisdel|summon': UNJUDGED,
   'wisdel|bombardShell': UNJUDGED,
   'turdus|volley': "official: fxgame.js skillShotFx flies her S2's projectile_chr_turdus_s2 (modes.json skills[1].shot) and plays its hit as it lands",
+  'liesel|aoe': "stand-in: a ring of her shot's splash where it lands; her _effectsWhenReached liesel_skill_02_hit_01 waits for bundle fx-V",
   'hbound|zone': "official: fxgame.js zoneFx flies her skill's projectile_chr_hbound_s1 / _s2 and plays its _effectsWhenReached (modes.json skills[i].zone) as it lands",
   'hbound|dodge': "stand-in: the same miss mark as every other missed attack (T1 hit rate; standin-acsupo.js sends it too); no prefab of hers is named for it",
 });

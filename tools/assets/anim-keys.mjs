@@ -24,7 +24,7 @@ const NESTED = ['Body/Attack/', 'Body/Combat/', 'Attack/'];
 const NOT_ATTACK = /(^|\/)(GeneralAbilities|Talents|Trigger|Skills|CommonAbilities)(\/|$)/;
 // an ability that opens or closes the others (折桠 S2 mode `FirstAttack`, 锏 S3 `EndAttack`, 乌尔比安 S3 `RespawnEnd`)
 const FIRST = /(^|\/)First\w*$/;
-const END = /(^|\/)\w*End\w*$/;
+const END = /(^|\/)(\w*End\w*|FinalAttack)$/;
 // a restart of the operator, not the skill's cast (予愿安洁莉娜 S3 `RestoreAbility`: the flight home, a signal clip)
 const RESTORE = /(^|\/)Restore\w*$/;
 

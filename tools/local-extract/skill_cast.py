@@ -104,6 +104,11 @@ def group_subs(sid, comps):
     return {'group': 'seq' if '_alwaysNext' in grp else 'par', 'subs': subs}
 
 
+# An ability under the skill that its buffs cast later (TriggerAbility), so it is not how the skill is cast: 车尔尼 S2's FinalAttack comes
+# at `interval` s (pianst_s_2_buff_2 ON_BUFF_TRIGGER). Other `_extraAbilities` are still read as the skill's ability.
+LATER_ABILITIES = {'skchr_pianst_2': 'skchr_pianst_2/FinalAttack'}
+
+
 def skill_entry(sid, comps3):
     """{cls, state?, reset?, ability, group?, subs?} of one skill prefab's components [(GameObject path, MonoBehaviour,
     path id)], or None."""
@@ -135,7 +140,8 @@ def skill_entry(sid, comps3):
         # clip-less aura that sorts first by name)
         ab = next((a for a in map(ability, group_children(sid, comps3)[1]) if a is not None and a.get('anim')), None)
     if ab is None:
-        subs = sorted((gp, a) for gp, a in ((gp, ability(d)) for gp, d in comps if gp != sid) if a is not None)
+        later = LATER_ABILITIES.get(sid)
+        subs = sorted((gp, a) for gp, a in ((gp, ability(d)) for gp, d in comps if gp != sid and gp != later) if a is not None)
         ab = subs[0][1] if subs else None
     e['ability'] = ab
     e.update(group_subs(sid, comps3))

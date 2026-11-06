@@ -209,6 +209,12 @@
    "reset": 0,
    "state": 1
   },
+  "skchr_aosta_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
   "skchr_archet_1": {
    "ability": {
     "anim": "Skill_1",
@@ -1771,6 +1777,18 @@
    "reset": 0,
    "state": 1
   },
+  "skchr_kaitou_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_kaitou_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
   "skchr_kalts2_1": {
    "ability": null,
    "cls": "cast",
@@ -1881,6 +1899,34 @@
   },
   "skchr_leto_2": {
    "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_liesel_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_liesel_2": {
+   "ability": {
+    "anim": "Skill_2",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 2,
+    "max": 1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
    "cls": "cast",
    "reset": 0,
    "state": 1
@@ -2538,6 +2584,18 @@
    "cls": "cast",
    "reset": 0,
    "state": 0
+  },
+  "skchr_pianst_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_pianst_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
   },
   "skchr_pinecn_1": {
    "ability": {

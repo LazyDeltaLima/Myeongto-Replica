@@ -1315,3 +1315,36 @@
 ### 표 전 기물의 만드는 차례
 `add_operator.py --id …`로 추출하고 키트를 쓴 뒤, `add_operator.py --finish --id …`가 키트를 읽는 재생성을 의존 순서대로 돌리고(`FINISH_ORDER`) 오퍼레이터마다 클립 키·소재 목록·공격 클립이 들어왔는지, 다른 오퍼레이터의 행이 움직였는지 알린다. 키트가 없거나 목록에 없으면 시작하지 않는다.
 `anim_keys.py`는 이제 기물 데이터의 오퍼레이터를 모두 읽는다(2026-11-06). 전에는 소재 목록에 있는 오퍼레이터만 읽어, 키트 등록 전에 돌리면 행이 빠지고 클립 역할이 이름 규칙으로 남았다(바이슨·쥐·타락사쿰·우요우가 그랬고 src ffe4bcd3b에서 바로잡음: 바이슨 S1은 공격 클립, 타락사쿰·우요우의 사망·대기 클립). 타락사쿰의 이착륙 클립은 `S<k>_FlyStart`·`S<k>_FlyEnd` 모드에서 온다(`tools/assets/anim-keys.mjs`, `<stem>Loop` 옆의 `<stem>Start`·`<stem>End`).
+
+## 새 시즌 디아만테·리프레사·체르니·아오스타 (2026-11-06, 관리자 결정 2026-11-05)
+공개 전 시즌 `next`의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 특성, 첫 모듈을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과(라이타니엔·시라쿠사)는 표 뒤. 키트 `ops/op-kaitou.js`·`op-liesel.js`·`op-pianst.js`·`op-aosta.js`, 시험 `test/content/op_*.test.js`.
+
+### 디아만테 `char_499_kaitou` (T2, 프라이멀 캐스터)
+- 재능 `kaitou_t_1[check_ep]`: 범위 안 적 하나라도 쇠약 손상(凋亡损伤) 폭발 중이면 공격력 +N%, 여럿이어도 하나(`AuraAbility`, `ignoreTargetFree`라 선택 불가 적도 센다).
+- S1 `skchr_kaitou_1`: 공격력 +N%, 모드 S1. 맞을 때마다 그 피해의 `attack@ep_damage_ratio`만큼 쇠약 손상 게이지(`ep_damage_based_on_damage_value`), 폭발 중이면 공격력의 `attack@extra_ep_damage_scale`만큼 원소 대미지(`kaitou_s_1[ep_damage]`, 스킬이 켜진 동안만).
+- S2 `skchr_kaitou_2`: 공격 속도 +N, 모드 S2 대상 2명(`_maxNum` 2), 같은 추가 원소 대미지. 게이지는 쌓지 않는다.
+- 폭발 판정은 그 타격 **전** 상태다. 공식 클라에서 확인: `Projectile.ActionController.OnHitTarget`이 `_activeBuffs`를 먼저 붙이고 피해 행동을 뒤에 돌린다. 그래서 게이지를 채워 막 폭발시킨 타격에는 추가 대미지가 없고 다음 타격부터 붙는다.
+- PRI-X: 원소 폭발 중인 적에게 주는 모든 피해 × `damage_scale`(특성 bb, `kaitou_e_002_tr[dmg_up]`).
+
+### 리프레사 `char_4031_liesel` (T2, 스플래시 캐스터)
+- 재능 `liesel_t`: 스플래시 안 적이 `min_target_cnt`(3) 이상인 공격의 피해 × `damage_scale`. 지속 피해는 안 받는다(수정자 키 `dot`).
+- S1 `skchr_liesel_1`(다음 공격 대체, 충전은 표대로 일반 1·정예 2): `atk_scale`, 스플래시 반경 1.7(PRTS).
+- S2 `skchr_liesel_2`: 클립의 OnAttack 프레임에 세 발(`_additionalTimes` 2, `_triggerDelta` 0). 발마다 주 대상을 새로 고르고, 고른 적은 1.5초 동안 그 리프레사의 주 대상이 못 된다(`liesel_s_2[exclude]`). 적이 셋보다 적으면 그만큼 적게 쏜다(`_allowNoTarget`). 공식 클라에서 확인: 선택기 `_filterBuffSource`가 시전자 자신이 건 버프만 보므로 잠금은 리프레사마다 따로다. PRTS 문구는 「어느 리프레사든」이지만 클라대로 한다.
+- 착탄: 발사 1.2·1.6·2.0초 뒤(PRTS, 프리팹 `_delayToStart` 1.1·1.5·1.9), 대상을 따라간 자리, 반경 1.7. 그 전에 리프레사가 쓰러지면 없다(`CheckUnitAlive`). 피해는 착탄 때 공격력의 `atk_scale`(PRTS: 캐시 안 씀), 맞은 적이 3 이상이면 × `damage_scale`(수정자 키 `damage_up`, 아니면 `ignore_damage_up`).
+- 맞은 적마다 `liesel_s_2[dot]`: 1초마다 발사 때 공격력의 `atk_scale` 마법 대미지, 출처 없음, 재능 배율 없음(PRTS), 시간 연장 + 값 갱신(`EXTEND`, `takeSnapshotWhenExtend`), 리프레사마다 하나(`independentCharacterSource`).
+- SPC-Y 1단계: 재능 변경은 2단계부터라 기물에서는 스탯만.
+
+### 체르니 `char_4047_pianst` (T3, 중장 분과 驭法铁卫, 사전에 한국어 이름 없음)
+- 특성: 스킬이 켜진 동안 공격이 마법(모드 S1·S2 `_damageType` 2).
+- 재능 `pianst_t_1`: 마법 저항 +N, 공격 종류 NORMAL·SPLASH의 마법 피해를 받으면 그 출처에게 그녀 공격력의 `atk_scale` 마법 대미지(PRTS 「普通/溅射」만).
+- S1 `skchr_pianst_1`: 공격력 +N%, 마법 저항 ×(1 + N).
+- S2 `skchr_pianst_2`: 최대 HP +N%, 도발 +1. NORMAL·SPLASH 공격을 받으면 피해 종류와 상관없이 공격력 +N% 한 겹, `max_stack_cnt`까지, 재능 뒤에(PRTS). 프리팹 값은 20이지만 표와 문구대로 10으로 한다.
+- 최종 공격: `interval`(18.6)초에 모드 `Empty`(공격 안 함), 그때 행동할 수 있으면 `_preDelay` 0.5초 뒤 공격력의 `atk_scale` 마법 대미지를 `x-1` 안 모두에게(공중 포함, PRTS). 스턴에 걸려 있거나 그사이 걸리면 없다(`_checkCanUseAblityFlag`).
+- `skill_cast.py`가 이 스킬의 나중 능력을 시전 능력으로 읽어 시작에 1.7초 멈췄다: `LATER_ABILITIES`로 뺌. 같은 꼴(`_extraAbilities`)의 다른 스킬 19개 행은 안 건드렸다. 클립은 `anim-keys.mjs`가 `FinalAttack`을 끝 클립으로 읽는다.
+- AST-X 1단계(`common_damage_on_*`, 수정자 키 `artsprotector_e_002_tr`): 스킬이 켜진 동안 그녀의 공격과 받는 적 피해마다 상대에게 공격력의 `atk_scale` 마법 대미지.
+
+### 아오스타 `char_346_aosta` (T2, 산탄사수)
+- 특성은 분과 공통(`professions.js` `reaperrange`). 값은 표의 1.5, RPR-X 1.6.
+- 재능 `aosta_t_1`: 공격이 맞힌 적 모두에게 걸린다. 적마다 하나(`EXTEND`). 새로 맞으면 시간과 값(그때 공격력)이 새로워진다(`takeSnapshotWhenExtend`). 1초마다 그때 저지되어 있지 않으면 `atk_scale` 마법 대미지(`CheckBlocked`, 출처 있음, PRTS 지속 마법 피해). 저지된 적도 걸려 있고 풀리면 그때부터 받는다. 특성 배율은 안 받는다.
+- S1 `skcom_quickattack[3]`: 공격력 +N%, 공격 속도 +N.
+- S2 `skchr_aosta_2`: 공격 간격 ×(1 + `base_attack_time`)(버프 MULTIPLIER, PRTS +50%), 공격력 +N%, 맞은 적 모두 `attack@frozen_duration`초 속박(`aosta_s_2[unmovable]`), 재능 배율 × `talent_scale`(`_applyTalentScale`).
