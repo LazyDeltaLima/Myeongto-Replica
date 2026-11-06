@@ -1398,6 +1398,34 @@
 - 재능: 범위 안 아군(자신 포함) HP 비율 ≥ `hp_ratio`이면 공통 가호 `damage_resistance`(가장 센 값), 0.1초마다 검사(`damage_resistance_GE[aura]`, PRTS).
 - S1 공격력 +N, 끝 없음(`lifeTimeType` 2, 자동 전투는 안 끔). S2 공격 속도 +N, 치료마다 대상 SP +`sp`(`demkni_t_2`).
 
+## 새 시즌 팽 더 파이어 샤픈드·폰사이러스·프로스트리프·바르카리스 (2026-11-06, 관리자 결정 2026-11-05)
+공개 전 시즌 `next`의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 첫 모듈을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과(카시미어·고수·신속·불굴)는 표 뒤. 키트 `ops/op-fang2.js`·`op-buildr.js`·`op-frostl.js`·`op-varkis.js`, 시험 `test/content/op_*.test.js`(두 형태·두 스킬, 실제 대전 경로). 묶음의 물음이던 「코스트 스킬」은 다른 기물과 같다: 이 모드에도 재배치 비용이 있어 `battle.addDp`로 그대로 준다.
+
+### 팽 더 파이어 샤픈드 `char_1036_fang2` (T3, 차저)
+- 특성: 처치 때 코스트 +`cost`(일반 1, 돈틀리스 CHG-X 2). 분기 공통(`installCharger`).
+- 재능 가벼운 무장·특성의 철수 환급: 효과 없음. 첫 배치는 전투에서 공짜이고(`fang2_t_1`의 값은 첫 배치 비용뿐), 환급과 「다음 오퍼레이터 비용 −1」은 철수(`WITHDRAW`)에서만 나는데 이 모드에는 수동 철수가 없고 그의 맹약에 철수시키는 효과도 없다. 텍사스·그라벨과 같은 판단.
+- S1 적을 뚫는 창 `skchr_fang2_1`(충전 1 / 2회): 다음 공격이 `atk_scale`로 두 번 친다. 공식 클라에서 확인: `MultiMeleeAttack`, `_additionalTimes` 1, `_triggerDelta` 0.25(`_waitAttackEventForAllAttacks` 없음 — 클립 `Skill_1`의 둘째 프레임 0.5가 아니라 첫 타격 0.25초 뒤). 대상이 살아 있고 그가 움직일 수 있을 때만. 이 공격의 처치는 특성과 별도로 `cost`를 더 준다(`fang2_s_1` ON_TARGET_KILLED). PRTS 비고대로 머리 위 숫자는 없다.
+- S2 전선 사수 `skchr_fang2_2`(패시브, `ON_DEPLOY`): 배치마다 처음부터 `duration`(14 / 18초) 동안 공격력·방어력·저지 수 증가, 저지한 적 모두 공격. 끝나면 다음 배치까지 없다. PRTS 「배치 보호 무효」는 이 시뮬에 배치 보호가 없어 할 일이 없다.
+
+### 폰사이러스 `char_488_buildr` (T3, 파이오니어)
+- 재능 철거팀 수칙(`buildr_t_1`): 배치 `interval`초 뒤 한 번, 떠날 때까지 최대 HP ×(1 + `max_hp`). 【이동】도 배치라 기다림과 보너스가 처음으로 돌아간다(공식 이동 = 철수 + 배치, 다른 키트와 같음).
+- S1 돌격 지령 γ: 코스트 `cost`, 텍사스와 같은 무대상 AUTO(`SP_FULL`).
+- S2 공사자의 소원 `skchr_buildr_2`: 공식 클라에서 확인: `ActiveOneOfBuffAbility`가 시전 횟수로 묶음을 고른다. 첫 시전: 코스트 `cost`, 공격력·방어력, `duration`초. 둘째부터: 같은 값에 끝이 없고(`buildr_s_2[b].duration` −1) `buildr_s_2[b].interval`초마다 코스트 `buildr_s_2[b].cost`; 시전 코스트도 다시 준다(`buildr_s_2[c]`). 횟수는 배치마다 새로 센다(PRTS 비고). 쏜즈 S3·헤드브레이커 이격 S2와 같은 꼴(`kind: 'toggle'` + `onTick`).
+- 모듈 SOL-X: 저지 중 공격력·방어력 ×(1 + 특성 `atk`·`def`)(`buildr_trait[e_002]` ON_OWNER_BLOCKEE_CHANGED).
+
+### 프로스트리프 `char_193_frostl` (T1, 로드)
+- 특성: 분기 공통(근접 범위 밖이면 ×`atk_scale`). 재능 엄호 공격은 2정예(정예 형태)만: 공격 간격 +`base_attack_time`, 재능 범위가 기본 범위를 대신한다(`_overrideDefaultRangeId`, PRTS 비고). 범위는 전투 유닛에서 바꾸므로 정비 화면의 카드는 기록의 기본 범위를 보인다(`bundles/loose.md`).
+- 모듈 LOR-X: 타격마다 공격력 × `atk_scale_m` 법술 추가 피해(`frostl_e_002_tr`, PRTS 「예계산 추가 피해」). 쏜즈·화이트위시와 같은 처리. 한기는 모듈 2단계부터라 이 시즌 기물(1단계)에 없다.
+- S1 서리창 `skchr_frostl_1`: 다음 공격이 사거리와 상관없이 `atk_scale`, 특성의 ×0.8 없음(PRTS 비고), `duration`초 이동 속도 ×(1 + `move_speed`). 공식 클라에서 확인: 스킬 능력이 `RangedAttack`이라 저지 중인 적에게도 투사체로 날아간다.
+- S2 빙결창 `skchr_frostl_2`: 공격 속도 +`attack_speed`, 타격마다 `debuff`초 이동 속도 감소(`frostl_s_2[slow]`), 확률 `prob`로 `debuff`초 속박(`frostl_s_2[frozen]`, `UNMOVABLE`). 근접·원거리 공격 모두(`_targetFamilyMask` 3), ×0.8은 그대로. 모드가 바뀔 때 진행 중이던 휘두름은 끊기지 않아(`sim.md` 「모드가 바뀌면」, 그의 `det` 0) 시전 직후 두 번 치는 일이 있다.
+
+### 바르카리스 `char_4166_varkis` (T1, 센추리온)
+- 특성: 분기 공통(저지한 적 모두 공격). 모듈 귀갓길 CEN-Y: HP 비율이 `hp_ratio` 초과면 받는 물리 피해 ×(1 − `damage_resistance`)(`varkis_e_002_trait` ON_TAKE_DAMAGE).
+- 재능 영세불망(`varkis_t1[minos_atk_up]`): 그가 서 있는 동안 미노스 오퍼레이터(그 자신 포함, 소환물 제외)의 모든 피해가, 대상의 HP 비율이 자기 이하일 때 공격력 × `talent_atk_scale`(방어 앞, 피해마다 그 순간 비율, PRTS 비고). 여럿이면 곱하지 않고 가장 높은 값 하나. [추정·엔진: 같은 키 버프 하나만 남는 것은 클라에서 확인, 값이 다른 둘 중 어느 쪽이 남는지는 안 읽음]
+- S1 급류 `skchr_varkis_1`: 다음 공격이 저지한 대상마다 `atk_scale`로 세 번. 공식 클라에서 확인: `_additionalTimes` 2, `_waitAttackEventForAllAttacks`라 간격은 클립 `Skill`의 공격 프레임(0.467·0.5·0.533).
+- S2 동포의 의지 `skchr_varkis_2`(`_switchToState` 1, `_beginAnim` `Skill_2_Begin` 0.333초): 시전이 휘두름을 끊고 시작 클립 동안 공격하지 않으며 지속 시간은 그 뒤부터. 공격 배율 `attack@s2_atk_scale`, 공격마다 한 번 자신 최대 HP의 `attack@hp_ratio` 치료(ON_SPELL_ON, PRTS 「반드시 치료」).
+- 보호막: S2 중 자신에게 들어온 치료의 넘친 양(생명 복원 제외)이 보호막으로(`varkis_s2[shield]` `HEAL_CAN_GENERAL_SHIELD`, `ON_ES_OVER_ZERO`), 상한 최대 HP × `max_hp_ratio`. 다른 보호막 뒤에 소모(우선순위 −1000, PRTS 비고, `shieldLast`). 스킬이 끝나도 남고 스킬 밖에서 1초마다 `dynamic_dec_per_sec`씩 준다.
+
 ## 새 시즌 무스·미스 크리스틴·브리지드·오로라 (2026-11-06, 관리자 결정 2026-11-05)
 공개 전 시즌 `next`의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 특성, 첫 모듈을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과(빅토리아·쉐라그)는 표 뒤. 키트 `ops/op-frncat.js`·`op-christ.js`·`op-brigid.js`·`op-aurora.js`, 시험 `test/content/op_*.test.js`.
 

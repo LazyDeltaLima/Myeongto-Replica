@@ -6,6 +6,8 @@
   {"charId": "char_328_cammou", "tier": 1, "bonds": ["arcaneShip"]},
   {"charId": "char_492_quercu", "tier": 1, "bonds": ["deputShip"]},
   {"charId": "char_325_bison", "tier": 1, "bonds": ["yanShip"]},
+  {"charId": "char_193_frostl", "tier": 1},
+  {"charId": "char_4166_varkis", "tier": 1, "bonds": ["steadShip", "indomShip"]},
   {"charId": "char_129_bluep", "tier": 2, "newBonds": ["iberia"]},
   {"charId": "char_195_glassb", "tier": 2, "newBonds": ["ursus"]},
   {"charId": "char_218_cuttle", "tier": 2, "bonds": ["egirShip"]},
@@ -23,6 +25,8 @@
   {"charId": "char_422_aurora", "tier": 3, "bonds": ["kjeragShip"]},
   {"charId": "char_4232_hbound", "tier": 3, "newBonds": ["iberia"]},
   {"charId": "char_455_nothin", "tier": 3, "bonds": ["yanShip"]},
-  {"charId": "char_484_robrta", "tier": 3, "bonds": ["steadShip", "deputShip"]}
+  {"charId": "char_484_robrta", "tier": 3, "bonds": ["steadShip", "deputShip"]},
+  {"charId": "char_1036_fang2", "tier": 3, "bonds": ["kazimierzShip"]},
+  {"charId": "char_488_buildr", "tier": 3, "bonds": ["steadShip", "swiftShip"]}
  ]
 }

@@ -2722,6 +2722,95 @@
    }
   ]
  },
+ "char_1036_fang2": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [],
+   []
+  ],
+  "cast": [
+   [
+    "fang2_attack_01"
+   ],
+   [
+    "fang2_skill2_attack_01_F",
+    "fang2_skill2_attack_01_FD"
+   ]
+  ],
+  "hit": [
+   [
+    "fang2_hit_01"
+   ],
+   [
+    "fang2_skill2_hit_01"
+   ]
+  ],
+  "trail": [
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "fang2_attack_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "fang2_skill2_attack_01_F": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "fang2_skill2_attack_01_FD": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "dirs": [
+   {
+    "t": 3,
+    "s": [
+     "fang2_skill2_attack_01_F",
+     "fang2_skill2_attack_01_F",
+     "fang2_skill2_attack_01_FD",
+     "fang2_skill2_attack_01_F"
+    ]
+   }
+  ],
+  "skills": [
+   {
+    "cast": [
+     "fang2_skill1_01"
+    ],
+    "castLoop": [],
+    "buff": [],
+    "target": [
+     "fang2_skill1_hit_01"
+    ],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "fang2_skill2_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_1038_whitw2": {
   "modes": [
    "Default",
@@ -6868,6 +6957,139 @@
     "buff": [
      "helage_skill_03_buff",
      "helage_skill_03_buff_02"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_193_frostl": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_frostl"
+   ],
+   [
+    "projectile_frostl_s1"
+   ]
+  ],
+  "cast": [
+   [
+    "frostl_attack_01_start"
+   ],
+   [
+    "frostl_skill_01_start"
+   ]
+  ],
+  "hit": [
+   [
+    "frostl_attack_01_hit"
+   ],
+   [
+    "frostl_attack_01_hit",
+    "frostl_skill_01_hit"
+   ]
+  ],
+  "trail": [
+   [
+    "frostl_attack_01_trail"
+   ],
+   [
+    "frostl_skill_01_trail"
+   ]
+  ],
+  "attach": [
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "frostl_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "frostl_skill_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
+  "combatSplit": [
+   {
+    "attack": {
+     "cast": [
+      "frostl_attack_01_start"
+     ],
+     "hit": [
+      "frostl_attack_01_hit"
+     ]
+    },
+    "combat": {
+     "cast": [],
+     "hit": [
+      "frostl_attack_01_hit"
+     ]
+    }
+   },
+   {
+    "attack": {
+     "cast": [
+      "frostl_skill_01_start"
+     ],
+     "hit": [
+      "frostl_skill_01_hit"
+     ]
+    },
+    "combat": {
+     "cast": [],
+     "hit": [
+      "frostl_attack_01_hit"
+     ]
+    }
+   }
+  ],
+  "skillMode": [
+   null,
+   1
+  ],
+  "switchTo": [
+   [],
+   [
+    1
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [
+     "frostl_skill_01_start"
+    ],
+    "castLoop": [],
+    "buff": [],
+    "target": [
+     "frostl_skill_01_hit"
+    ],
+    "targetBuff": [
+     "frostl_skill_01_buff"
+    ],
+    "shot": [
+     "frostl_skill_01_trail"
+    ],
+    "shotHit": [
+     "frostl_skill_01_hit"
+    ]
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "common_ignite_attack"
     ],
     "target": [],
     "targetBuff": []
@@ -17858,6 +18080,111 @@
    }
   ]
  },
+ "char_4166_varkis": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [],
+   []
+  ],
+  "cast": [
+   [
+    "varkis_attack_start_02",
+    "varkis_attack_start_01",
+    "varkis_attack_start_03"
+   ],
+   [
+    "varkis_skill_02_start_01"
+   ]
+  ],
+  "hit": [
+   [
+    "varkis_attack_hit"
+   ],
+   [
+    "varkis_skill_02_hit"
+   ]
+  ],
+  "trail": [
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "varkis_attack_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "varkis_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "varkis_attack_start_03": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "varkis_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "dirs": [
+   {
+    "t": 5,
+    "s": [
+     "varkis_attack_start_02",
+     "varkis_attack_start_01",
+     "varkis_attack_start_03",
+     "varkis_attack_start_01"
+    ]
+   }
+  ],
+  "skillMode": [
+   null,
+   1
+  ],
+  "switchTo": [
+   [],
+   [
+    1
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [
+     "varkis_skill_01_start_01"
+    ],
+    "buff": [],
+    "target": [
+     "varkis_skill_01_hit"
+    ],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "varkis_skill_02_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_416_zumama": {
   "modes": [
    "Default",
@@ -23511,6 +23838,87 @@
     "castLoop": [],
     "buff": [
      "pallas_skill_03_buff"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_488_buildr": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [],
+   []
+  ],
+  "cast": [
+   [
+    "buildr_attack_start_01"
+   ],
+   [
+    "buildr_skill_02_start_01"
+   ]
+  ],
+  "hit": [
+   [
+    "buildr_attack_hit_01"
+   ],
+   [
+    "buildr_skill_02_hit_01"
+   ]
+  ],
+  "trail": [
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "buildr_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "buildr_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
+  "skillMode": [
+   null,
+   1
+  ],
+  "switchTo": [
+   [],
+   [
+    1
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [
+     "common_charge_cost_start_01"
+    ],
+    "castLoop": [],
+    "buff": [],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "common_charge_cost_start_01",
+     "buildr_skill_02_buff_01"
     ],
     "target": [],
     "targetBuff": []

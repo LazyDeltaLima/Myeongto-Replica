@@ -15,6 +15,7 @@ export const PICK_EVENTS = Object.freeze({
   'closur|summon': 'official: flushDeploys draws the token\'s deploy effect (the prefab has no `_startEffect`: the common one)',
   'closur|shield': 'official: closur_s_1[block] on the unit, the sim\'s buff key plays closur_skill_01_shied_01 (fxmap.js status path)',
   'cammou|drone': "official: fxgame.js droneFx draws her S2 mode's Funnel (modes.json funnels[2]: projectile_chr_cammou_funnel_s2, hit cammou_buff_01_hit) on each locked hit",
+  'buildr|dp': "stand-in: the DP number the sim shows for every DP gain; buildr_s_2[a]'s and [c]'s own common_charge_cost_start_01 are skill buff rows",
   'mitm|dp': "stand-in: the DP number the sim shows for every DP gain; mitm_s_1[cost]'s own common_charge_cost_start_01 is a skill buff row",
   'mitm|disappear': "stand-in: 체리 3호 leaves for its 전술 포인트 형태; token_mitm_trshrb_die_01 is not wired (bundle fx-V)",
   'mitm|summon': "official: flushDeploys draws the token's deploy effect (the prefab has no `_startEffect`: the common one; token_mitm_trshrb_birth_01 is not wired, bundle fx-V)",

@@ -157,4 +157,7 @@ export const UNPLAYED = {
     Skill_2_End: 'none: no client key names it; the skin mix table has only the facing-down row (Skill_Down_2_Idle → Idle)',
     Skill_3_End: 'none: no client key names it; the skin mix table has only the facing-down row (Skill_Down_3_Idle → Idle)',
   },
+  char_193_frostl: {
+    Combat_Up: "todo: U — Modes/Default and S2 Body/Combat `_upAnimKey` (a blocked enemy above her); the roles' `up` reads the attack, not the combat clip",
+  },
 };
