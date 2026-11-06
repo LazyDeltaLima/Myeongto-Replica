@@ -47,7 +47,7 @@ function rolePlayed(anims) {
     // (`deploy`: the skill mode's Born pair, its deploy clip while it runs — spine.js deploy)
     for (const k of ['begin', 'loop', 'end', 'idle', 'die', 'stun', 'deploy', 'attackBegin', 'attackEnd', 'firstAttackBegin', 'up']) for (const n of [c[k]].flat()) if (typeof n === 'string') out.add(n);
     if (Array.isArray(c.alts)) for (const a of c.alts) out.add(a);   // clips taking turns (spine.js _nextAlt)
-    if (c.combat) for (const a of [c.combat.loop, ...(c.combat.alts || [])]) out.add(a);   // on a blocked enemy (_swingClip)
+    if (c.combat) for (const a of [c.combat.loop, c.combat.up, ...(c.combat.alts || [])]) if (a) out.add(a);   // on a blocked enemy (_swingClip)
     for (const v of Object.values(c.variants || {})) for (const n of Object.values(v)) out.add(n);   // a cast's variant (setSkill)
     for (const n of Object.values(c.deploys || {})) out.add(n);   // a 【移动】 by the skill (deploy)
     // facing down (spine.js _dn / setSkill): a role's facing-down clips, a skill's down begin and its facing-down mode

@@ -2712,7 +2712,8 @@
    "enemy_1234_dsubrl_2 spawn:aura enemy_dsubrl_buff_01_02 → self",
    "enemy_1234_dsubrl_2 spawn:aura enemy_dsubrl_buff_01_03 → self",
    "enemy_1234_dsubrl_2 spawn:aura enemy_dsubrl_buff_01_04 → self",
-   "token_10000_silent_healrb spawn:born common_call_start_01 → self"
+   "token_10000_silent_healrb spawn:born common_call_start_01 → self",
+   "token_10000_silent_healrb spawn:tokAura common_heal_range_01 → self"
   ],
   "bond-visiShip-low": [
    "- spawn common_enemy_hit_01 → ally",
@@ -2767,7 +2768,8 @@
    "char_440_pinecn attackStart pinecn_skill_02_start",
    "char_440_pinecn skillBuff pinecn_skill_02_buff",
    "char_440_pinecn spawn:born common_char_birth_01 → self",
-   "token_10000_silent_healrb spawn:born common_call_start_01 → self"
+   "token_10000_silent_healrb spawn:born common_call_start_01 → self",
+   "token_10000_silent_healrb spawn:tokAura common_heal_range_01 → self"
   ],
   "bond-yanShip-high": [
    "- spawn common_enemy_hit_01 → ally",
@@ -6766,6 +6768,7 @@
    "char_180_amgoat attackHit amgoat_skill_02_hit+amgoat_skill_02_range → foe",
    "char_180_amgoat attackHit amgoat_skill_03_hit → foe",
    "char_180_amgoat attackStart amgoat_attack_01_start",
+   "char_180_amgoat skillBuff common_ignite_attack",
    "char_180_amgoat skillStart amgoat_skill_02_start",
    "char_180_amgoat skillStart amgoat_skill_03_buff",
    "char_180_amgoat spawn:born common_char_birth_01 → self",
@@ -6795,6 +6798,7 @@
    "char_180_amgoat attackHit amgoat_skill_02_hit+amgoat_skill_02_range → foe",
    "char_180_amgoat attackHit amgoat_skill_03_hit → foe",
    "char_180_amgoat attackStart amgoat_attack_01_start",
+   "char_180_amgoat skillBuff common_ignite_attack",
    "char_180_amgoat skillStart amgoat_skill_02_start",
    "char_180_amgoat skillStart amgoat_skill_03_buff",
    "char_180_amgoat spawn:born common_char_birth_01 → self",
@@ -6810,6 +6814,7 @@
    "char_180_amgoat attackHit amgoat_skill_02_hit+amgoat_skill_02_range → foe",
    "char_180_amgoat attackHit amgoat_skill_03_hit → foe",
    "char_180_amgoat attackStart amgoat_attack_01_start",
+   "char_180_amgoat skillBuff common_ignite_attack",
    "char_180_amgoat skillStart amgoat_skill_02_start",
    "char_180_amgoat skillStart amgoat_skill_03_buff",
    "char_180_amgoat spawn:born common_char_birth_01 → self",
@@ -6820,6 +6825,7 @@
    "char_293_thorns attackStart thorns_attack_01_start",
    "char_293_thorns attackStart thorns_attack_02_start",
    "char_293_thorns attackStart thorns_skill_03_start",
+   "char_293_thorns skillBuff common_ignite_attack",
    "char_293_thorns skillBuff thorns_skill_02_buff",
    "char_293_thorns skillBuff thorns_skill_03_buff+thorns_skill_03_buff_02",
    "char_293_thorns skillStart thorns_skill_02_start+thorns_skill_02_range",
@@ -6839,6 +6845,7 @@
    "char_293_thorns attackHit thorns_skill_03_hit → foe",
    "char_293_thorns attackStart thorns_attack_02_start",
    "char_293_thorns attackStart thorns_skill_03_start",
+   "char_293_thorns skillBuff common_ignite_attack",
    "char_293_thorns skillBuff thorns_skill_02_buff",
    "char_293_thorns skillBuff thorns_skill_03_buff+thorns_skill_03_buff_02",
    "char_293_thorns skillStart thorns_skill_02_start+thorns_skill_02_range",
@@ -6865,6 +6872,7 @@
    "char_293_thorns attackStart thorns_attack_01_start",
    "char_293_thorns attackStart thorns_attack_02_start",
    "char_293_thorns attackStart thorns_skill_03_start",
+   "char_293_thorns skillBuff common_ignite_attack",
    "char_293_thorns skillBuff thorns_skill_02_buff",
    "char_293_thorns skillBuff thorns_skill_03_buff+thorns_skill_03_buff_02",
    "char_293_thorns skillStart thorns_skill_02_start+thorns_skill_02_range",
@@ -7232,9 +7240,12 @@
    "char_4228_closur attackStart closur_attack_start_02_back",
    "char_4228_closur attackStart closur_skill_02_start_01",
    "char_4228_closur attackStart closur_skill_03_start_01",
-   "char_4228_closur skillBuff closur_skill_02_buff_01",
-   "char_4228_closur skillBuff closur_skill_03_buff_01",
+   "char_4228_closur skillBuff closur_skill_02_buff_01+common_charge_cost_02",
+   "char_4228_closur skillBuff closur_skill_03_buff_01+common_charge_cost_02",
+   "char_4228_closur skillBuff common_charge_cost_02",
+   "char_4228_closur skillStart common_charge_cost_start_01",
    "char_4228_closur spawn:born common_char_birth_01 → self",
+   "char_4228_closur spawn:random common_charge_cost_01",
    "enemy_1166_dusbr_2 spawn:aura enemy_dushdo_2_buff_01 → self",
    "enemy_1169_duphlx_2 spawn:aura enemy_dushdo_2_buff_01 → self",
    "enemy_1172_dugago spawn:castLoop enemy_dugago _2_attack_01_start → self",
@@ -7258,9 +7269,12 @@
    "char_4228_closur attackStart closur_attack_start_02_back",
    "char_4228_closur attackStart closur_skill_02_start_01",
    "char_4228_closur attackStart closur_skill_03_start_01",
-   "char_4228_closur skillBuff closur_skill_02_buff_01",
-   "char_4228_closur skillBuff closur_skill_03_buff_01",
+   "char_4228_closur skillBuff closur_skill_02_buff_01+common_charge_cost_02",
+   "char_4228_closur skillBuff closur_skill_03_buff_01+common_charge_cost_02",
+   "char_4228_closur skillBuff common_charge_cost_02",
+   "char_4228_closur skillStart common_charge_cost_start_01",
    "char_4228_closur spawn:born common_char_birth_01 → self",
+   "char_4228_closur spawn:random common_charge_cost_01",
    "enemy_1119_vofsd spawn:castLoop enemy_vofsd_attack_01_start → self",
    "enemy_1121_lifbos_2 spawn:castLoop enemy_lifbos_attack_01_start → self",
    "token_10066_closur_ourbase spawn:born common_call_start_01 → self"
@@ -7351,7 +7365,7 @@
    "char_4228_closur attackStart closur_attack_start_01",
    "char_4228_closur attackStart closur_attack_start_02",
    "char_4228_closur attackStart closur_skill_03_start_01",
-   "char_4228_closur skillBuff closur_skill_03_buff_01",
+   "char_4228_closur skillBuff closur_skill_03_buff_01+common_charge_cost_02",
    "char_4228_closur spawn:born common_char_birth_01 → self",
    "enemy_1267_nhpbr_2 spawn:cast enemy_nhpbr_attack_start → self",
    "enemy_1270_nhstlk_2 spawn:cast enemy_nhstlk_attack_start → self",
@@ -7763,7 +7777,7 @@
    "char_4228_closur attackStart closur_attack_start_01",
    "char_4228_closur attackStart closur_attack_start_02",
    "char_4228_closur attackStart closur_skill_03_start_01",
-   "char_4228_closur skillBuff closur_skill_03_buff_01",
+   "char_4228_closur skillBuff closur_skill_03_buff_01+common_charge_cost_02",
    "char_4228_closur spawn:born common_char_birth_01 → self",
    "enemy_1267_nhpbr_2 spawn:cast enemy_nhpbr_attack_start → self",
    "enemy_1270_nhstlk_2 spawn:cast enemy_nhstlk_attack_start → self",
@@ -9334,7 +9348,8 @@
    "enemy_2008_flking spawn:aura flking_buff_01_start_04 → self",
    "enemy_2008_flking spawn:cast flking_attack_01_start → self",
    "enemy_9016_acstmr spawn:born common_empty → self",
-   "token_10000_silent_healrb spawn:born common_call_start_01 → self"
+   "token_10000_silent_healrb spawn:born common_call_start_01 → self",
+   "token_10000_silent_healrb spawn:tokAura common_heal_range_01 → self"
   ],
   "roster-004": [
    "- spawn bigbo_attack_01_hit → ally",
@@ -9602,7 +9617,8 @@
    "enemy_1509_mousek spawn:cast mousek_skill_02_start → self",
    "enemy_2010_csdcr spawn:cast enemy_csder_attack_start_01 → self",
    "enemy_2010_csdcr spawn:cast enemy_csder_attack_start_02 → self",
-   "token_10000_silent_healrb spawn:born common_call_start_01 → self"
+   "token_10000_silent_healrb spawn:born common_call_start_01 → self",
+   "token_10000_silent_healrb spawn:tokAura common_heal_range_01 → self"
   ],
   "roster-006": [
    "- spawn branch_talent_01 → ally",

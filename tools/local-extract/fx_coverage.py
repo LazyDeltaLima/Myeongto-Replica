@@ -52,6 +52,7 @@ SCRIPTS = {
     4524653206994915020: 'ProjectileEffect',          # projectile_effect (field names, raw fallback)
     4526430437831129839: 'FxDelay',                   # fx_delay / root_effect (field names, raw fallback)
     8889037078861433556: 'FollowMountPoint',          # mount_point (field names, raw fallback)
+    4270569252138150843: 'FollowMountPoint',          # StableFollowMountPoint: a subclass with no method of its own (云迹's skill buffs)
     568963171123803239: 'FxUVTweener',                # uv_tween
     1369540917083035942: 'FxUVTweenerAdvance',        # uv_tween
     7163214010000414217: 'FxUVRotation',              # uv_rotation

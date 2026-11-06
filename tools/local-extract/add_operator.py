@@ -7,6 +7,8 @@ each with its own flags; this runs them in order for the given operators only, s
   1. effects        fx_extract.py --bundle <codename>   (the client that has battle/prefabs/effects/<codename>.ab, with its
                     CAB index: .cache/fx-cab-index.json for EN, .cache/fx-cab-index-cn.json for CN)
   2. modes          char_modes.py --id                  (the client that has charpack/<charId>.ab)
+     shared effects fx_extract.py --bundle <codename> --pack battle/prefabs/effects/common.ab --prefab …   (the common_*
+                    prefabs its modes name: the renderer finds a prefab by name in the operator's own bundle)
   3. mount points   char_points.py --id                 (same client)
   4. sound cues     char_audio.py --id                  (same client)
   5. attack timing  attack_timing.py --id               (EN, then CN for what EN lacks)
@@ -53,13 +55,17 @@ TABLES = ['tools/assets/local-char-modes.json', 'tools/assets/local-char-points.
           'tools/assets/local-attack-timing.json', 'tools/assets/local-op-projectiles.json', 'tools/assets/local-skill-cast.json',
           'tools/assets/local-skill-hud.json', 'public/assets/local/fx/modes.json', 'public/assets/local/fx/bindings.json',
           '.cache/anim-keys.json', 'data/local-assets.json']
-STEPS = ('fx', 'modes', 'points', 'audio', 'timing', 'projectiles', 'cast', 'hud', 'bindings', 'keys', 'art')
+STEPS = ('fx', 'modes', 'common', 'points', 'audio', 'timing', 'projectiles', 'cast', 'hud', 'bindings', 'keys', 'art')
 # --finish, in this order: fx_bindings reads the templates; build-fx-plays reads the kit and the bindings; fetch-assets overlays the clip
 # keys and plans a hidden season's piece by its kit; build-data takes the attack clips from the manifest
 FINISH_ORDER = ('templates', 'bindings', 'plays', 'keys', 'assets', 'data', 'seasons', 'resources', 'report')
 # what no other operator's row should move in, compared around --finish
 FINISH_TABLES = ['data/assets.json', 'data/chess.json']
 KITS = ROOT / 'server/sim/content/kits'
+COMMON_PACK = 'battle/prefabs/effects/common.ab'
+FX_DIR = ROOT / 'public/assets/local/fx'
+# A copy would be drawn wrongly today: 怒潮凛冬's S3 row lives `unmovable` s, but a skill's `buff` list is held for the whole skill
+COMMON_LEFT_OUT = {'char_1051_headb2': {'common_unmovable_01'}}
 
 
 def codename(cid):
@@ -120,6 +126,73 @@ def moved(before, after, names):
         if paths:
             out[rel] = paths
     return out
+
+
+def common_names(rec):
+    """The common_* prefabs a modes.json record names, anywhere in it (a cast may be a row of its own: { anim, cast })."""
+    out = set()
+
+    def walk(o):
+        if isinstance(o, str):
+            if o.startswith('common_'):
+                out.add(o)
+        elif isinstance(o, dict):
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+    walk(rec)
+    return out
+
+
+def emitted_names(doc):
+    """The prefabs an extracted effect plays by itself (a RandomEmitter's `emit`: common_charge_cost_start_01 → common_charge_cost_01)."""
+    out = set()
+
+    def walk(o):
+        if isinstance(o, dict):
+            e = o.get('emit')
+            for r in e if isinstance(e, list) else [e] if e else []:
+                if isinstance(r, dict) and isinstance(r.get('effect'), str):
+                    out.add(r['effect'])
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+    walk(doc)
+    return out
+
+
+def missing_common(cid, modes, bundles):
+    """The common_* prefabs of this operator's modes its own bundle lacks, sorted."""
+    have = set(bundles.get(codename(cid)) or []) | {'common_empty'}   # (a prefab with nothing to draw)
+    return sorted(common_names(modes.get(cid) or {}) - have - COMMON_LEFT_OUT.get(cid, set()))
+
+
+def extract_common(ids, clients, py, step):
+    """Copy the shared prefabs the modes name into each operator's bundle, then what those emit (read from the written file)."""
+    source = which_client(clients, COMMON_PACK)
+    if not source:
+        print(f'no client has {COMMON_PACK}: shared effects not extracted', file=sys.stderr)
+        return
+    n, folder = source
+    modes = json.loads((FX_DIR / 'modes.json').read_text(encoding='utf-8'))
+    for c in ids:
+        names = missing_common(c, modes, json.loads((FX_DIR / 'index.json').read_text(encoding='utf-8')).get('bundles') or {})
+        tried = set()
+        while names:
+            tried |= set(names)
+            step('common', [py, TOOL / 'fx_extract.py', '--game', folder, '--client', n, '--cab-index', CAB_INDEX[n],
+                            '--bundle', codename(c), '--pack', COMMON_PACK, *[x for f in names for x in ('--prefab', f)]])
+            have = set((json.loads((FX_DIR / 'index.json').read_text(encoding='utf-8')).get('bundles') or {}).get(codename(c)) or [])
+            kids = set()
+            for f in names:
+                p = FX_DIR / codename(c) / f'{f}.json'
+                if p.exists():
+                    kids |= emitted_names(json.loads(p.read_text(encoding='utf-8')))
+            names = sorted(kids - have - tried)
 
 
 def kit_file(cid):
@@ -289,6 +362,8 @@ def main():
         idargs = [x for c in cs for x in ('--id', c)]
         for name, tool in (('modes', 'char_modes.py'), ('points', 'char_points.py'), ('audio', 'char_audio.py')):
             step(name, [py, TOOL / tool, '--client', folder[n], *idargs])
+    if 'common' not in skip and not a.dry_run:
+        extract_common(ids, clients, py, step)
     idargs = [x for c in ids if pack[c] for x in ('--id', c)]
     if idargs:
         for name, tool in (('timing', 'attack_timing.py'), ('projectiles', 'op_projectiles.py'), ('cast', 'skill_cast.py'),

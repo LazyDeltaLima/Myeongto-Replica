@@ -111,6 +111,8 @@ export const SOURCE_FX = Object.freeze({
     glady: keyed('skchr_glady_3/ChantAttack1', 'glady', 0),   // _activeBuffs[0]
     mlyss: keyedAll('mlyss_s_3[unmoveable]', 'mlyss_token', 0),   // the 流形's S3 bind
     phatm2: keyed('phatm2_s_1[unmove]', 'phatm2', 0),   // 酒神 S1 (2026-10-26): skchr_phatm2_1 `_activeBuffs`, spawn 5
+    ethan: keyed('ethan_t_1', 'ethan', OWN),   // 伊桑 T1: `_additiveActiveBuffs` of the attacks
+    frostl: keyed('frostl_s_2[frozen]', 'frostl', OWN),   // 霜叶 S2: skchr_frostl_2 `_additiveActiveBuffs`
     // qiubai_s_1[unmovable_effect]; the talent / module 落英 binds carry none
     qiubai: Object.freeze({ s1: keyedAll('qiubai_s_1[unmovable_effect]', 'qiubai', 0.5) }),
   }),
@@ -163,6 +165,9 @@ export const KEY_FX = Object.freeze({
   // 休谟斯 再回收 (2026-10-24, 묶음 S6): humus_t_1[effect] holds humus_t_1[effect_holder] (humus_buff_03) while her barrier's
   // `dynamic` is above 0 — the sim's barrier buff, gone when spent
   'humus:recycle': keyedAll('humus_t_1[effect_holder]', 'humus', 0),
+  // 摆渡人 S2: varkis_s2[effect] holds varkis_s2[effect_holder] (varkis_skill_02_shield_1) while the 屏障's `dynamic` is
+  // above 0 — the sim's shield buff, gone when spent
+  'varkis_s2[shield_core]': keyedAll('varkis_s2[effect_holder]', 'varkis', OWN),
   // (2026-11-03) 逻各斯 T2 剜魂具辞: logos_t_2 ON_CALCULATE_DAMAGE gives the target logos_t_2[core] (logos_talent_debuff_01 for
   // its `duration`) — the sim's 'logos:soulRend', one per enemy whoever gives it
   'logos:soulRend': keyed('logos_t_2[core]', 'logos', OWN),

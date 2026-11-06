@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { keyRoles, attackAbility, overlayKeyRoles } from '../../tools/assets/anim-keys.mjs';
+import { putCombat } from '../../tools/assets/anim-overrides.mjs';
 import { namesAll } from '../../tools/assets/spine.mjs';
 
 const clips = (...n) => Object.fromEntries(n.map((x) => [x, 1]));
@@ -157,6 +158,16 @@ test('overlayKeyRoles: every skill from the keys but the held ones', () => {
   const guess = () => ({ attack: { begin: null, loop: 'Attack', end: null }, skills: { 0: { loop: 'Skill_1', index: 0 }, 1: { loop: 'Skill_3', index: 1 }, 2: { loop: 'Skill_2', index: 2 } } });
   const a = overlayKeyRoles(guess(), keyRoles(op, dur), 'char_x');
   assert.deepEqual([a.skills[0].via, a.skills[1].loop, a.skills[2].loop], ['attack', 'Skill_2', 'Skill_3']);
+});
+
+test('a Combat ability\'s own `_upAnimKey` goes with its clip (霜叶): the Back model\'s role only, kept by name', () => {
+  const body = { 'Body/Attack': { key: 'Attack' }, 'Body/Combat': { key: 'Combat', up: 'Combat_Up', down: 'Combat_Down' } };
+  const op = { skin: { keys: {}, mix: [] }, modes: [{ name: 'Default', pairs: {}, combat: 'Body/Combat', abilities: body }], skills: [] };
+  const r = keyRoles(op, clips('Idle', 'Die', 'Attack', 'Combat', 'Combat_Up'));
+  assert.deepEqual(r.tables.combat.attack, { loop: 'Combat', up: 'Combat_Up' });
+  const a = overlayKeyRoles({ attack: { begin: null, loop: 'Attack', end: null } }, r, 'char_x');
+  assert.deepEqual(a.attack.combat, { loop: 'Combat', up: 'Combat_Up' });
+  assert.deepEqual(putCombat({ attack: {} }, { attack: { loop: 'Combat', up: 'Combat_Up' } }, ['Combat']).attack.combat, { loop: 'Combat' }, 'a model without the clip');
 });
 
 test('table rows from the keys: turns, the blocked-enemy clip, facing up, the held mode, the skill mode\'s pairs, first begins', () => {

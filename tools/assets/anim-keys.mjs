@@ -346,7 +346,10 @@ function keyTables(op, out, meta, { J, pairs, abClip }) {
       return alts.length === 1 && alts[0] !== than ? alts[0] : null;
     }
     const clip = abClip(ab[cp], m)?.loop;
-    return clip && clip !== than ? clip : null;
+    if (!clip || clip === than) return null;
+    // its own `_upAnimKey` (霜叶's Combat_Up: render/spine.js plays a clip's `up` on the Back model)
+    const up = ab[cp].up ? J(ab[cp].up, m) : null;
+    return up && up !== clip ? { loop: clip, up } : clip;
   };
   modes.forEach((md, n) => addAlts(md.abilities, attackPath(md.abilities), n));
   const a0 = attackAbility(modes[0]?.abilities);

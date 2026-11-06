@@ -42,6 +42,16 @@ test('a clip moves the emission rate: nothing until it rises, then particles (th
   assert.equal(other.systems[0].ps.rate.s, 0);
 });
 
+test('a clip moves the start size, both axes (云迹\'s take-off ray); the definition stays shared', async () => {
+  const { def, inst } = await make([node('p', 0, { ps: sys({ size: mm(0.1), sizeY: mm(0.2) }) })], [
+    { node: 1, prop: 'ps:InitialModule.startSize.scalar', type: 198, curves: [step(3)] },
+    { node: 1, prop: 'ps:InitialModule.startSizeY.scalar', type: 198, curves: [step(4)] }]);
+  for (let i = 0; i < 40; i++) inst.update(1 / 30);
+  assert.equal(inst.systems[0].ps.size.s, 3);
+  assert.equal(inst.systems[0].ps.sizeY.s, 4);
+  assert.equal(def.nodes[1].ps.size.s, 0.1, 'the shared definition is untouched');
+});
+
 test('a clip moves the shape radius, the start colour and looping of its own system', async () => {
   // thickness 0: every particle starts on the rim, so the wider circle shows in any draw of the random radius (with the
   // whole disc only 1 particle in 30 reaches past 2.9, and about 66 of them missed it one run in ten)

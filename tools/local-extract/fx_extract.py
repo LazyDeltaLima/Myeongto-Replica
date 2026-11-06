@@ -58,6 +58,7 @@ ANIMATED_VALUES = {
     198: {p: 'ps:' + p for p in (   # ParticleSystem
         'EmissionModule.rateOverTime.scalar', 'EmissionModule.rateOverTime.minScalar', 'ShapeModule.radius.value',
         'SizeModule.curve.scalar', 'InitialModule.gravityModifier.scalar', 'looping',
+        'InitialModule.startSize.scalar', 'InitialModule.startSizeY.scalar',   # (2026-11-07) 云迹's take-off and landing ray
         'simulationSpeed',   # (2026-10-22, effect bundle J) 纯烬艾雅法拉 S2 range's level clips
         'VelocityModule.enabled',   # (2026-10-23) a clip switching the module on (vel_ol `on`)
         *(f'InitialModule.startColor.maxColor.{c}' for c in 'rgba'), *(f'TrailModule.colorOverLifetime.maxColor.{c}' for c in 'rgba'))},
@@ -79,6 +80,7 @@ BUILTIN_MESHES = {10209: 'Plane', 10210: 'Quad'}
 # local patch: the MonoScript PathID of the effects' FollowMountPoint component (mount_point); 1205
 # default-skin prefabs of the EN client carry one (maintainer's notes 2026-10-08)
 MOUNT_SCRIPT = 0x7b5c342088cfcad4
+STABLE_MOUNT_SCRIPT = 4270569252138150843   # (2026-11-07) StableFollowMountPoint: FollowMountPoint with no method of its own
 # 2026-10-10, official client: the MonoScript PathID of SwitchableBackEffect (switch_back) — 62 default-skin
 # prefabs of the extracted bundles carry one (비르투오사 S3 cello_skill_03_buff_front_02 → _back_02, 로즈몬티스, 휴머스 …)
 BACK_SCRIPT = 7599136815520768295
@@ -2950,7 +2952,7 @@ class Extractor:
         when the root has none. (2026-10-16) Read by its field names when the type tree reads (mount_tree), the raw words
         (mount_raw) the fallback."""
         for sid, raw, t in self.monos(root):
-            if sid != MOUNT_SCRIPT or len(raw) < 32:
+            if sid not in (MOUNT_SCRIPT, STABLE_MOUNT_SCRIPT) or len(raw) < 32:
                 continue
             v = self.mount_tree(t) if t is not None else None
             return v if v is not None else self.mount_raw(raw)

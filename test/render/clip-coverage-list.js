@@ -160,7 +160,4 @@ export const UNPLAYED = {
   char_4165_ctrail: {
     Attack_Down: "none: her Default attack has no `_downAnimKey`; in S1 / S2 the `_downAnimKey` Attack_Down goes through the mode's pair to Skill_Down_Loop / Skill_Down_2_Loop, which the renderer plays",
   },
-  char_193_frostl: {
-    Combat_Up: "todo: U — Modes/Default and S2 Body/Combat `_upAnimKey` (a blocked enemy above her); the roles' `up` reads the attack, not the combat clip",
-  },
 };

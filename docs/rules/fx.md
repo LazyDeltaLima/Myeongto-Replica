@@ -2455,6 +2455,16 @@
   이벤트 기록 골든에 `char_108_silent attackHit myrrh_attack_01_hit → ally`가 생김(3판). 묶음 전체를 다시 뽑는 도구는 이 프리팹을 `silent.ab`에서
   못 찾으니 같은 `--pack`으로. [화면 미확인: 실제 판의 다른 아군, 공식 녹화]
 
+### 공용 프리팹 사본 빠짐, 새 시즌 속박·보호막, 클립의 시작 크기 (2026-11-07, 공식 클라에서 확인)
+
+- 공용 프리팹: 아래 절대로 렌더는 자기 묶음에서만 이름을 찾는데, `add_operator.py`가 자기 묶음만 뽑아 `modes.json`이 부르는 `common_*`이 18개 묶음에서 아무 말 없이 안 나왔다. 스킬 발동 `common_ignite_attack`·`_defense`, 코스트 `common_charge_cost_start_01`(구슬 `common_charge_cost_01`과 함께)·`common_charge_cost_02`, 콘트레일 `common_idle_ground`·`common_land_ground`, 리프레사 `common_char_birth_01_delay_02`, 사일런스 드론 치료 범위 `common_heal_range_01`(주인 묶음 `silent`)이다. 이제 도구의 `common` 단계가 뽑고 `test/render/fx-common-in-bundle.test.js`가 지킨다. `common_empty`는 그릴 것이 없어 뺀다.
+- 일부러 뺀 것: 지마 더 레이징 타이드 S3 `common_unmovable_01`. 행(`headb2_s_3[unmovable]`)의 수명은 `unmovable`초(1~1.5)인데 스킬 `buff` 목록은 스킬 내내 들고, 프리팹이 반복이라 그대로 넣으면 공식보다 길게 나온다.
+- 속박: 에단 재능 `ethan_t_1` → `ethan_attack_01_buff`, 프로스트리프 S2 `frostl_s_2[frozen]` → `frostl_skill_02_buff_02`(`fxstatus.js SOURCE_FX.bind`).
+- 바르카리스 보호막: `varkis_s2[effect]`가 `dynamic` > 0일 때 `varkis_s2[effect_holder]`(`varkis_skill_02_shield_1`)를 만들고 0이면 끝낸다. 보호막이 있는 동안과 같아 시뮬 버프 `varkis_s2[shield_core]`에 걸었다(`KEY_FX`).
+- 프로스트리프 뒷모델: 저지 공격 능력의 `_upAnimKey` `Combat_Up`을 역할 `combat.up`으로 읽는다(`anim-keys.mjs`). 이 값을 가진 저지 공격은 프로스트리프뿐이다.
+- 콘트레일: 이륙·착륙 프리팹 4개의 클립이 `InitialModule.startSize.scalar`·`startSizeY.scalar`를 움직인다(`ANIMATED_VALUES`·`PS_ANIM`). 스킬 버프 2개의 `StableFollowMountPoint`는 `FollowMountPoint`를 상속하고 자기 메서드가 없어 같게 읽는다(`mount`).
+- 확인: 아레나 2배속, 공식 화면과 대조 안 함. 강제한 저지에서 `Combat_Up` 재생, 폰사이러스 S2는 첫째·둘째 시전 모두 `common_charge_cost_start_01`. 보호막이 사라질 때 이펙트가 끝나는지는 화면으로 안 봤다.
+
 ### 다른 번들의 바인딩 프리팹 — 자기 묶음에 `--pack`으로 (2026-10-21)
 
 - 원인: 렌더는 오퍼레이터의 바인딩 이름(`modes.json`의 cast·hit·trail·attach·skills)을 **자기 묶음**(`index.json bundles[codename]`)에서만 찾는다

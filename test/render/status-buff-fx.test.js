@@ -100,6 +100,16 @@ describe('client: status → the official buff effect', () => {
     assert.equal(statusIconKey('trait:bard:12'), null, 'no icon either');
   });
 
+  test('the new season\'s statuses: 伊桑\'s and 霜叶\'s 束缚 by their own buffs, 摆渡人\'s 屏障 while it holds, 霜叶\'s slow', () => {
+    const tpl = (v) => [...F.wantedStatusFx(v, undefined, null, keyPlays()).values()].map((s) => `${s[0]}/${s[1]}`).sort();
+    const bound = (src) => enemy(['bind'], [['bind', { src, fx: null, n: 0 }]]);
+    assert.deepEqual(tpl(bound('ethan')), ['ethan/ethan_attack_01_buff']);
+    assert.deepEqual(tpl(bound('frostl')), ['frostl/frostl_skill_02_buff_02']);
+    assert.deepEqual(tpl(unit('char_4166_varkis', { statuses: new Set(['varkis_s2[shield_core]']) })), ['varkis/varkis_skill_02_shield_1']);
+    assert.deepEqual(tpl(unit('char_4166_varkis')), [], 'no 屏障, no effect');
+    assert.deepEqual(tpl(enemy(['frostl_s_2[slow]'], [])), ['buff/buff_slowdown']);
+  });
+
   test('묶음 S11 (2026-10-24): 余 blocking, 休谟斯\'s peaks, 迷彩 by its buff (维什戴尔\'s shade, 忍冬 only while not blocking)', () => {
     const tpl = (v) => [...F.wantedStatusFx(v, undefined, null, keyPlays()).values()].map((s) => s[1]).sort();
     assert.deepEqual(tpl(unit('char_2026_yu', { statuses: new Set(['yu:guard']) })), ['yu_talent_01']);

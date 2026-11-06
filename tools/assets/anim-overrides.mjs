@@ -326,8 +326,9 @@ export function putAlts(anims, map, names = null) {
 /** A COMBAT_CLIPS row: the role clips' `combat`. */
 export function putCombat(anims, map, names = null) {
   const combatOf = (how) => {
-    const c = typeof how === 'string' ? { loop: how } : { loop: how.alts[0], ...how };
+    const c = typeof how === 'string' ? { loop: how } : { loop: how.alts?.[0], ...how };
     if (c.alts) c.alts = c.alts.filter((n) => !names || names.includes(n));
+    if (c.up && names && !names.includes(c.up)) delete c.up;
     if (c.alts && c.alts.length < 2) { c.loop = c.alts[0] ?? c.loop; delete c.alts; delete c.pick; }
     return !names || names.includes(c.loop) ? c : null;
   };

@@ -2987,7 +2987,7 @@ const CLIP_AXIS = { r: 'x', g: 'y', b: 'z', a: 'w', x: 'x', y: 'y', z: 'z', w: '
 const PS_ANIM = {
   'EmissionModule.rateOverTime.scalar': ['rate', 's'], 'EmissionModule.rateOverTime.minScalar': ['rate', 'n'],
   'ShapeModule.radius.value': ['shape', 'radius'], 'SizeModule.curve.scalar': ['mods', 'sizeOL', 'x', 's'],
-  'InitialModule.gravityModifier.scalar': ['gravity', 's'], looping: ['loop'], simulationSpeed: ['speedMul'],
+  'InitialModule.gravityModifier.scalar': ['gravity', 's'], 'InitialModule.startSize.scalar': ['size', 's'], 'InitialModule.startSizeY.scalar': ['sizeY', 's'], looping: ['loop'], simulationSpeed: ['speedMul'],
   'VelocityModule.enabled': ['mods', 'velOL', 'on'],   // (2026-10-23) a switched-off module a clip turns on (fx_extract.py clip_modules)
   ...Object.fromEntries([...'rgba'].flatMap((c, k) => [[`InitialModule.startColor.maxColor.${c}`, ['color', 'a', k]],
     [`TrailModule.colorOverLifetime.maxColor.${c}`, ['mods', 'trail', 'colorOL', 'a', k]]])),

@@ -488,6 +488,17 @@ describe('add_operator.py and what it drives (no client needed)', { skip: !PY &&
     assert.deepEqual(ids, [...new Set(ids)].sort());
   });
 
+  test('the shared effects: common_* a record names and its bundle lacks; what a written prefab emits', () => {
+    const r = run(`import add_operator as a
+modes = {'char_1_x': {'cast': [['x_start', 'common_hit_01']], 'skills': [{'buff': ['common_ignite_attack']}, {'cast': [{'anim': 'A', 'cast': ['common_empty']}]}]}}
+print(json.dumps({'miss': a.missing_common('char_1_x', modes, {'x': ['common_hit_01']}), 'none': a.missing_common('char_2_y', modes, {}),
+  'emit': sorted(a.emitted_names({'nodes': [{'emit': {'effect': 'common_charge_cost_01', 'count': 3}}, {'name': 'n'}]})), 'order': a.STEPS.index('modes') < a.STEPS.index('common')}))`);
+    assert.deepEqual(r.miss, ['common_ignite_attack'], 'common_empty draws nothing');
+    assert.deepEqual(r.none, []);
+    assert.deepEqual(r.emit, ['common_charge_cost_01']);
+    assert.ok(r.order, 'it reads the modes');
+  });
+
   test('--finish keeps the order the rebuilds depend on', () => {
     const { order, cmds } = run(`import add_operator as a
 c = a.finish_commands('py', ['--cn', 'CN'], ['char_x'], ['next'])

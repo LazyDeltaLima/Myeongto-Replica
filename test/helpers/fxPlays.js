@@ -7,6 +7,10 @@
 export const PLAYS = Object.freeze({ keys: {
   'indigo_t[unmovable]': { held: ['indigo_buff_01_start'] },
   'mizuki_s_2[unmovable]': { held: ['mizuki_skill_02_buff_02'] },
+  'ethan_t_1': { held: ['ethan_attack_01_buff'], b: 'ethan', worn: true },
+  'frostl_s_2[frozen]': { held: ['frostl_skill_02_buff_02'] },
+  'frostl_s_2[slow]': { held: ['buff_slowdown'], b: 'buff', worn: true },
+  'varkis_s2[effect_holder]': { when: [{ role: 'held', n: 'varkis_skill_02_shield_1', b: 'varkis_s2[effect_holder]', if: ['FilterByBlackboardValue'] }] },
   'gnosis_t_2[effect]': { held: ['common_ resistance_01'] },
   'surtr_t_2[withdraw]': { held: ['surtr_buff_01_start'] },
   'sntlla_t_1[atk]': { held: ['common_ resistance_01'] },
