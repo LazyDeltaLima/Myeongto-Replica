@@ -345,3 +345,33 @@ describe('the tile a dragged unit stands on (dragStandTile)', () => {
     }
   });
 });
+
+describe('a camera flight under a held piece', () => {
+  test('refresh re-reads the tile under a pointer that did not move: the deploy zoom flies under it', () => {
+    let shift = 0; // the camera: the same canvas point lands on another tile
+    const events = [];
+    const c = createDragController({
+      emit: (name, payload) => events.push([name, payload]),
+      hitPiece: () => ({ uid: 1, area: 'hand', idx: 0 }),
+      pickTile: (x) => ({ row: 10, col: Math.floor(x / 100) + shift }),
+      isOverCanvas: () => true,
+    });
+    c.setEditable(true);
+    c.refresh();
+    assert.equal(events.length, 0, 'nothing held: nothing to read');
+    c.pointerDown({ pointerId: 1, pointerType: 'mouse', button: 0, x: 300, y: 0, clientX: 300, clientY: 0 });
+    c.refresh();
+    assert.equal(events.length, 0, 'pressed, not dragged yet');
+    c.pointerMove({ pointerId: 1, pointerType: 'mouse', x: 320, y: 0, clientX: 320, clientY: 0 });
+    const moves = () => events.filter(([n]) => n === 'pieceDragMove').map(([, p]) => p);
+    assert.equal(moves().at(-1).target.col, 3);
+    shift = 2;
+    c.refresh();
+    assert.equal(moves().at(-1).target.col, 5, 'the pointer stayed; the tile under it changed');
+    assert.equal(moves().at(-1).x, 320);
+    c.pointerUp({ pointerId: 1, pointerType: 'mouse', x: 320, y: 0, clientX: 320, clientY: 0 });
+    const n = events.length;
+    c.refresh();
+    assert.equal(events.length, n, 'the drag is over');
+  });
+});

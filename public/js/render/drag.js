@@ -162,6 +162,7 @@ export function createDragController(hooks) {
   }
 
   function moveDrag(e) {
+    st.last = e;
     const tile = tileAt(e.x, e.y);
     const over = overCanvas(e.clientX, e.clientY);
     const slot = over && tile ? tileSlot(tile) : null;
@@ -261,6 +262,9 @@ export function createDragController(hooks) {
       setHoverPiece(null, e || {});
       setHoverTile(null);
     },
+
+    /** The camera moved under a held piece (the deploy zoom, screens/game.js): read the tile under the pointer again. */
+    refresh() { if (st && st.mode === 'dragging' && st.last) moveDrag(st.last); },
 
     /** Abort any interaction (piece list replaced, view destroyed…). */
     reset() {

@@ -53,7 +53,7 @@ const isUnitEnd = (u) => isPlain(u) && nullable(isUid)(u.uid) && isNum(u.hpPct, 
 // feed the settlement's per-operator charts (server/match/unitTally.js)
 const isUnitStat = (u) => isPlain(u) && nullable(isUid)(u.uid) && nullable(isId)(u.defId) && optional((v) => isStr(v, 16))(u.kind)
   && isStat(u.dmg) && isStat(u.kills) && isStat(u.heal) && isStat(u.taken) && isStat(u.attacks)
-  && isStat(u.boss) && (u.assist === undefined || isMap(u.assist, RESULT_LIMITS.players, isId, (v) => isInt(v, 0, 1e5)))
+  && isStat(u.boss) && (u.byType === undefined || isList(u.byType, 4, isStat)) && (u.assist === undefined || isMap(u.assist, RESULT_LIMITS.players, isId, (v) => isInt(v, 0, 1e5)))
   && nullable(isUid)(u.ownerUid);
 const isPerPlayer = (p) => isPlain(p) && isInt(p.killed, 0, 1e5) && isInt(p.total, 0, 1e5)
   // `resolved` = the HUD capsule's numerator of this player's own field (the round's own scheduled enemies knocked out

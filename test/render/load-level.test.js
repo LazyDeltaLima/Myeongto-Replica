@@ -2,7 +2,7 @@
 // the same at 60 and 160 Hz, longer waits for each step up, a calm spell that a few long frames do not reset.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LOAD_STEP, loadLevelStepper, meanWindow } from '../../public/js/render/load-level.js';
+import { LOAD_STEP, frameScale, loadLevelStepper, meanWindow } from '../../public/js/render/load-level.js';
 
 /**
  * Feed `secs` of frames from `pattern` (frame intervals in ms, repeated); `work(ms)` = the view's own work of a frame
@@ -108,5 +108,26 @@ test('a slow spell not from the view\'s work restarts the count: 0.9 s of own sl
   run(st, 0.9, [30]);
   run(st, 0.5, [30], true, 0, () => 2);
   assert.deepEqual(run(st, 0.9, [30]), []);
+  assert.equal(st.level, 0);
+});
+
+test('a frame limit under 60 moves the slow and fast lines with it; 60 and above changes nothing', () => {
+  assert.equal(frameScale(0), 1);
+  assert.equal(frameScale(60), 1);
+  assert.equal(frameScale(120), 1);
+  assert.equal(frameScale(30), 2);
+  const frames = (st, secs, dt, scale) => { let to = null; for (let t = 0; t < secs; t += dt) to = st.step(dt, true, dt * 1000, scale) ?? to; return to; };
+  // 30 fps held under a 30 cap with all of the frame the view's own work: no step up …
+  const capped = loadLevelStepper();
+  assert.equal(frames(capped, 30, 1 / 30, 2), null, 'the cap is no slow spell');
+  // … the same frames without the cap are one
+  assert.equal(frames(loadLevelStepper(), 30, 1 / 30, 1), 3);
+  // a device that cannot hold the cap still climbs
+  assert.equal(frames(loadLevelStepper(), 30, 1 / 20, 2), 3);
+  // and a level reached before the cap comes down at 30 fps
+  const st = loadLevelStepper();
+  frames(st, 30, 1 / 30, 1);
+  assert.equal(st.level, 3);
+  frames(st, 60, 1 / 30, 2);
   assert.equal(st.level, 0);
 });

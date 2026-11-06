@@ -18,14 +18,18 @@ export const CHAT_COOLDOWN = Object.freeze({ def: 2, min: 1, max: 5 });
  * notification toasts (showMatchToast below). numberUnits: how large numbers are shortened (fmtNum, ui/gameLogic/format.js
  * NUMBER_UNIT_MODES; null = the language's own style). roundDamage / roundDamageStyle: the match's round damage panel
  * (ui/roundDamage.js) shown at all, and its look — ROUND_DAMAGE_STYLES; 'auto' = full on a desktop, compact on a phone.
+ * frameLimit: the field view's frame rate cap (FRAME_LIMITS; 0 = none). deployFold: a held piece folds the shop
+ * (gameLogic/camera.js deployFoldsShop).
  */
 export const DEFAULT_SETTINGS = Object.freeze({ bgm: 0.6, sfx: 0.8, voice: 0.8, muted: false, damageNumbers: true, quality: 'high', keys: DEFAULT_HOTKEYS,
   chatSound: true, chatVolume: 0.5, chatCooldown: CHAT_COOLDOWN.def, chatFactionAlerts: false, chatPinRecent: false,
-  eliteBadge: false, matchNotices: true, numberUnits: null, roundDamage: true, roundDamageStyle: 'auto' });
+  eliteBadge: false, matchNotices: true, numberUnits: null, roundDamage: true, roundDamageStyle: 'auto', frameLimit: 0, deployFold: true });
 /** 画面质量: 'auto' steps between high and medium by the load (render/auto-quality.js); a touch-only device starts there (ui/settings.js). */
 const QUALITIES = ['auto', 'high', 'medium', 'low'];
 /** The round damage panel's looks (settings → 画面 「伤害统计样式」): automatic, every row's name and share, avatars and bars only. */
 export const ROUND_DAMAGE_STYLES = Object.freeze(['auto', 'full', 'compact']);
+/** Settings → 画面 「帧率上限」: none, then fps. */
+export const FRAME_LIMITS = Object.freeze([0, 30, 60, 120]);
 
 /**
  * Sanitize persisted settings.
@@ -33,7 +37,7 @@ export const ROUND_DAMAGE_STYLES = Object.freeze(['auto', 'full', 'compact']);
  * @returns {{ bgm: number, sfx: number, voice: number, muted: boolean, damageNumbers: boolean, quality: 'auto'|'high'|'medium'|'low',
  *   keys: Record<'refresh'|'freeze'|'levelUp'|'shop'|'ready'|'sell'|'viewEnemy'|'retreat'|'pause', string>, chatSound: boolean, chatVolume: number,
  *   chatCooldown: number, chatFactionAlerts: boolean, chatPinRecent: boolean, eliteBadge: boolean, matchNotices: boolean,
- *   numberUnits: 'myriad'|'thousand'|'full'|null, roundDamage: boolean, roundDamageStyle: 'auto'|'full'|'compact' }}
+ *   numberUnits: 'myriad'|'thousand'|'full'|null, roundDamage: boolean, roundDamageStyle: 'auto'|'full'|'compact', frameLimit: number, deployFold: boolean }}
  */
 export function sanitizeSettings(raw) {
   const r = isObj(raw) ? raw : {};
@@ -56,6 +60,8 @@ export function sanitizeSettings(raw) {
     numberUnits: NUMBER_UNIT_MODES.includes(r.numberUnits) ? r.numberUnits : DEFAULT_SETTINGS.numberUnits,
     roundDamage: typeof r.roundDamage === 'boolean' ? r.roundDamage : DEFAULT_SETTINGS.roundDamage,
     roundDamageStyle: ROUND_DAMAGE_STYLES.includes(r.roundDamageStyle) ? r.roundDamageStyle : DEFAULT_SETTINGS.roundDamageStyle,
+    frameLimit: FRAME_LIMITS.includes(r.frameLimit) ? r.frameLimit : DEFAULT_SETTINGS.frameLimit,
+    deployFold: typeof r.deployFold === 'boolean' ? r.deployFold : DEFAULT_SETTINGS.deployFold,
   };
 }
 

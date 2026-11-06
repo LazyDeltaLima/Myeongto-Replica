@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import { PHASE } from '../../shared/constants.js';
 import { makeMatch } from './harness.js';
 import { foldRoundDamage, liveUnitDamage } from '../../shared/roundDamage.js';
+import { makeBattle } from '../helpers/battleHarness.js';
 
 function runCoop({ seed, clientCombat }) {
   const h = makeMatch({ mode: 'coop', difficulty: 'NORMAL', humans: 2, bots: 2, seed, captureFrames: false, clientCombat, pace: 'instant' });
@@ -58,23 +59,32 @@ function check({ msgs, settled, resynced, bossRound }, label) {
     assert.equal(new Set(rounds).size, rounds.length, `${label} ${pid}: no round twice`);
   }
   assert.ok(msgs.some(([, x]) => x.round === bossRound), `${label}: the Final Assault round sends one too`);
-  let i = 0;
+  let i = 0, parts = 0, heals = 0;
   for (const s of settled) {
     const x = msgs.filter(([id]) => id === s.pid)[settled.filter((o) => o.pid === s.pid).indexOf(s)][1];
     assert.equal(x.round, s.round);
     const uids = x.units.map(([uid]) => uid);
     assert.equal(new Set(uids).size, uids.length, `${label} R${s.round}: each operator once`);
-    for (const [uid, dmg] of x.units) {
+    for (const [uid, dmg, heal, ...parts] of x.units) {
       assert.ok(s.chess.includes(uid), `${label} R${s.round}: ${uid} is a board operator`);
       assert.ok(Number.isInteger(dmg) && dmg >= 0);
+      assert.ok(Number.isInteger(heal) && heal >= 0);
+      assert.equal(parts.length, 4, `${label} R${s.round}: physical, arts, true, elemental`);
+      assert.ok(parts.every((p) => Number.isInteger(p) && p >= 0));
+      // per-row and per-unit rounding: up to one per type of each unit folded into the row
+      assert.ok(Math.abs(parts.reduce((a, p) => a + p, 0) - dmg) <= 4 * 40, `${label} R${s.round}: the parts sum to the damage (${parts} vs ${dmg})`);
     }
     for (let k = 1; k < x.units.length; k++) assert.ok(x.units[k - 1][1] >= x.units[k][1], 'most damage first');
     // the own battle's damage, never more (bond summons count for nobody; per-row rounding)
     const sum = x.units.reduce((a, [, d]) => a + d, 0);
     assert.ok(sum <= (Number(s.r.damageDealt) || 0) + x.units.length + 1, `${label} R${s.round}: Σ ${sum} ≤ ${s.r.damageDealt}`);
     i += sum;
+    parts += x.units.reduce((a, [, , , ...p]) => a + p.reduce((b, v) => b + v, 0), 0);
+    heals += x.units.reduce((a, [, , h]) => a + h, 0);
   }
   assert.ok(i > 0, `${label}: some damage was dealt`);
+  assert.ok(parts > 0, `${label}: the damage came with its types`);
+  assert.ok(heals >= 0);
   assert.ok(resynced, `${label}: a reconnect was tried`);
   assert.deepEqual(resynced.got, [resynced.expect], `${label}: the reconnect got the last message again`);
 }
@@ -105,21 +115,42 @@ test('foldRoundDamage: summons count for their summoner, ownerless units for nob
     { uid: 99, dmg: 5 }, // not on the board
     null,
   ];
-  assert.deepEqual(foldRoundDamage(board, units), [[2, 125], [1, 101]]);
+  assert.deepEqual(foldRoundDamage(board, units), [[2, 125, 0, 0, 0, 0, 0], [1, 101, 0, 0, 0, 0, 0]]);
   assert.deepEqual(foldRoundDamage(board, []), []);
   assert.deepEqual(foldRoundDamage(null, undefined), []);
 });
 
 test('liveUnitDamage: a battle-made unit names the nearest summoner with a board uid', () => {
-  const op = { uid: 7, stats: { dmg: 10 } };
-  const mid = { uid: null, ownerUnit: op, stats: { dmg: 2 } };
-  const leaf = { uid: null, ownerUnit: mid, stats: { dmg: 3 } };
-  const lone = { uid: null, stats: { dmg: 4 } };
+  const op = { uid: 7, stats: { dmg: 10, heal: 6, byType: [4, 6, 0, 0] } };
+  const mid = { uid: null, ownerUnit: op, stats: { dmg: 2, heal: 1, byType: [2, 0, 0, 0] } };
+  const leaf = { uid: null, ownerUnit: mid, stats: { dmg: 3, heal: 0, byType: [0, 0, 3, 0] } };
+  const lone = { uid: null, stats: { dmg: 4, heal: 9, byType: [0, 0, 0, 4] } };
   assert.deepEqual(liveUnitDamage([op, mid, leaf, lone, { uid: 8 }]), [
-    { uid: 7, ownerUid: null, dmg: 10 },
-    { uid: null, ownerUid: 7, dmg: 2 },
-    { uid: null, ownerUid: 7, dmg: 3 },
-    { uid: null, ownerUid: null, dmg: 4 },
+    { uid: 7, ownerUid: null, dmg: 10, heal: 6, byType: [4, 6, 0, 0] },
+    { uid: null, ownerUid: 7, dmg: 2, heal: 1, byType: [2, 0, 0, 0] },
+    { uid: null, ownerUid: 7, dmg: 3, heal: 0, byType: [0, 0, 3, 0] },
+    { uid: null, ownerUid: null, dmg: 4, heal: 9, byType: [0, 0, 0, 4] },
   ]);
-  assert.deepEqual(foldRoundDamage([{ uid: 7, kind: 'chess' }], liveUnitDamage([op, mid, leaf, lone])), [[7, 15]]);
+  assert.deepEqual(foldRoundDamage([{ uid: 7, kind: 'chess' }], liveUnitDamage([op, mid, leaf, lone])), [[7, 15, 7, 6, 6, 3, 0]]);
+});
+
+test('the sim sorts dealt damage by type: physical, arts, true, elemental; 流失 counts as true; healing is what was healed', () => {
+  const h = makeBattle({ units: [{ chessId: 'chess_char_1_01_a', row: 10, col: 5 }], enemies: [{ key: 'enemy_1422_lrsldr', time: 0, route: 0 }], seed: 7 });
+  h.run(0.2);
+  const b = h.b;
+  const a = h.allies()[0];
+  const e = h.enemies()[0];
+  e.s.maxHp = 1e7; e.hp = 1e7;
+  const start = [...a.stats.byType];
+  const hit = (type, amount) => b.dealDamage(a, e, b.makeDamage({ type, amount, canDodge: false }));
+  hit('phys', 5000); hit('arts', 5000); hit('true', 30); hit('elemental', 20);
+  b.loseHp(e, 10, { source: a });
+  assert.equal(a.stats.byType.length, 4);
+  const [p, ar, tr, el] = a.stats.byType.map((v, i) => v - start[i]);
+  assert.ok(p > 0 && ar > 0 && tr >= 40 && el > 0, `${a.stats.byType}`);
+  assert.ok(Math.abs(a.stats.byType.reduce((x, v) => x + v, 0) - a.stats.dmg) < 1e-6, 'the types sum to the unit\'s damage dealt');
+  // own side: no damage dealt, so no type either
+  const before = [...a.stats.byType];
+  b.loseHp(a, 5, { source: a });
+  assert.deepEqual(a.stats.byType, before);
 });

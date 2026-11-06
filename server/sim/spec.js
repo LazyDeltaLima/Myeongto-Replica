@@ -440,6 +440,7 @@ export function compactResult(res) {
         };
         // the settlement charts' fields (server/match/unitTally.js), only when present
         if (fnum(u.boss) > 0) o.boss = Math.round(fnum(u.boss));
+        if (Array.isArray(u.byType) && u.byType.length === 4) o.byType = u.byType.map((v) => Math.max(0, Math.round(fnum(v)))); // the round damage panel
         if (u.assist && typeof u.assist === 'object') {
           const a = {};
           for (const [k, v] of Object.entries(u.assist).slice(0, 4)) if (isKey(k) && fnum(v) > 0) a[k] = Math.min(1e5, Math.trunc(fnum(v)));

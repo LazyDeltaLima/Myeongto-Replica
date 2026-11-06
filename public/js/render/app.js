@@ -56,7 +56,7 @@
 //   view.holdPiece(uid, {row,col} | null)       keep a dropped prep piece standing on a tile while its direction is
 //                                               chosen / the move is in flight (null releases; setPrep then settles it)
 //   view.setPieceDir(uid, dir)                  show a prep piece facing UP|RIGHT|DOWN|LEFT (wheel preview / stored dir)
-//   view.setSettings({ damageNumbers, quality: 'auto'|'high'|'medium'|'low' }) ; view.resize() ; view.destroy()
+//   view.setSettings({ damageNumbers, quality: 'auto'|'high'|'medium'|'low', frameLimit: 0|30|60|120 }) ; view.resize() ; view.destroy()
 //   view.isReady() → false while the first frame is held back (its textures go up behind the loading screen); then
 //        emits ready (no payload) after the first frame that draws the field ("first frame" below)
 //   view.stats() → { fps, frameMs, cpuMs, renderMs, parts, units, particles, impostor, impostorAtlas, boardArt, … } (dev / perf)
@@ -157,7 +157,7 @@ import { boardPreference, switchableBox, bandFor, fieldRows, boardArea, viewKind
 import { renderInfo, FORCED_EXIT, showsDeathFx } from './app/info.js';
 import { resolveAssets, makeData, withTimeout, capWait, QUALITY_RES, BOARD_RES, releaseGl } from './app/host.js';
 import { autoQuality, autoQualityStepper, onAutoQuality } from './auto-quality.js'; // settings 「自动」 (render.md 「자동 화면 품질」)
-import { loadLevelStepper } from './load-level.js'; // 2026-10-30: the adaptive load level's judgement (render.md 「적응 부하 단계」)
+import { frameScale, loadLevelStepper } from './load-level.js'; // 2026-10-30: the adaptive load level's judgement (render.md 「적응 부하 단계」)
 import { t } from '../../../shared/i18n.js';
 import { syncGoldenFx } from './fxgolden.js'; // local patch: the prep elite glow
 import { createRouteCursors, createBattleCursors } from './fxroute.js'; // the boss route preview (LOCAL-PATCH.md 「보스 경로 미리보기」); the battle start's official one (render.md 「적 경로 미리보기」)
@@ -752,6 +752,7 @@ export async function createFieldView(host, options = {}) {
     const e = easeInOutCubic(k);
     if (!cam || cam === camFrom) cam = new Camera();
     lerpCamera(camFrom, camTo, e, cam);
+    drag.refresh(); // a held piece: the tile under a pointer that did not move changes with the camera
     if (k >= 1) {
       cam = camTo; camFrom = camTo = null;
       if (pendingView) {
@@ -2091,16 +2092,26 @@ export async function createFieldView(host, options = {}) {
     lodSec[loadLevel] += dtRaw;
     const busy = views.size + penViews.size > 8;
     const worst = lodStepper.worst;
-    const to = lodStepper.step(dtRaw, busy, lastJs + lastDraw);   // the last frame's work: this one's is not done yet
+    const scale = frameScale(frameLimit);
+    const to = lodStepper.step(dtRaw, busy, lastJs + lastDraw, scale);   // the last frame's work: this one's is not done yet
     if (to != null) {
       const rise = to > loadLevel;
       if (lodSteps.length < 12) lodSteps.push({ wall: Date.now(), from: loadLevel, to, ms: rise ? lodStepper.upMs : lodStepper.downMs, work: rise ? lodStepper.workMs : null, worst: rise ? Math.max(worst, dtRaw) * 1000 : null, views: views.size + penViews.size, mode });
       loadLevel = to;
       impInterval = pickImpostorInterval();
     }
-    if (autoPick) stepAuto(dtRaw, loadLevel, busy, frameMs, cpuMs); // a step reaches applyQuality through onAutoQuality
+    if (autoPick) stepAuto(dtRaw, loadLevel, busy, frameMs, cpuMs, scale); // a step reaches applyQuality through onAutoQuality
   }
   const stepAuto = autoQualityStepper();
+  // settings → 画面 「帧率上限」 (docs/rules/render.md 「프레임 상한」): the whole field view draws on this ticker; the battle
+  // runs on its own clock (battle/runner.js), so a limit changes how often it is drawn, never how it plays
+  let frameLimit = 0;
+  function setFrameLimit(limit) {
+    if (limit === frameLimit) return;
+    frameLimit = limit;
+    app.ticker.maxFPS = limit;
+  }
+  setFrameLimit(opts.settings?.frameLimit || 0);
   function applyQuality(q) {
     if (q === settings.quality) return;
     settings.quality = q;
@@ -2602,6 +2613,7 @@ export async function createFieldView(host, options = {}) {
       if (!s || typeof s !== 'object') return;
       if (typeof s.damageNumbers === 'boolean') settings.damageNumbers = s.damageNumbers;
       if (typeof s.eliteBadge === 'boolean') settings.eliteBadge = s.eliteBadge; // render/elite-mark.js
+      if (Number.isInteger(s.frameLimit)) setFrameLimit(s.frameLimit);
       if (s.quality === 'auto') { autoPick = true; applyQuality(autoQuality()); }
       else if (s.quality === 'high' || s.quality === 'medium' || s.quality === 'low') { autoPick = false; applyQuality(s.quality); }
     },

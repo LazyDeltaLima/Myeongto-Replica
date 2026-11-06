@@ -120,7 +120,8 @@ export class Unit {
     this.trait = {};            // profession runtime state
     // boss: damage to a shared leader pool (damage.js); assist: 联防 knock-outs of other players' enemies, by the leaker
     // (battle/deploy.js, created on the first one) — the settlement's per-operator charts (server/match/unitTally.js)
-    this.stats = { dmg: 0, kills: 0, heal: 0, taken: 0, attacks: 0, boss: 0, assist: null };
+    // byType: `dmg` by damage type (damage.js, the round damage panel)
+    this.stats = { dmg: 0, byType: [0, 0, 0, 0], kills: 0, heal: 0, taken: 0, attacks: 0, boss: 0, assist: null };
     this.hidden = false;        // enemies inside a DISAPPEAR segment
     this.moving = false;        // enemies: walked this tick (drawn on the move clip; ai.js updateEnemy)
     this.form = null;           // the model's current form (content/enemies/helpers.js setForm, a 傀儡师's 替身 'doll' → snapshot.js unitInfo)

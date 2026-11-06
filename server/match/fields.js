@@ -905,6 +905,7 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
         // credited the player): leader damage on boss fields only, 联防 knock-outs only of a leaker of this field, a
         // summoner only on this player's board
         if (bossLike && Number(u.boss) > 0) us.boss = Number(u.boss);
+        if (Array.isArray(u.byType) && u.byType.length === 4) us.byType = u.byType.map((v) => Math.max(0, Number(v) || 0)); // the round damage panel
         if (spec.kind === 'unite' && u.assist && typeof u.assist === 'object') {
           const a = {};
           for (const [src, n] of Object.entries(u.assist)) if (src !== pid && B.sources.has(src) && Number.isInteger(n) && n > 0) a[src] = Math.min(n, B.maxTotal);

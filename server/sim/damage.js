@@ -404,6 +404,9 @@ export function dealDamage(battle, source, target, dmgIn) {
   return applyHpLoss(battle, source, target, final, dmg);
 }
 
+/** A unit's `stats.byType` slot of a damage type (shared/roundDamage.js DAMAGE_TYPES): only the round damage panel reads it. */
+const TYPE_SLOT = Object.freeze({ phys: 0, arts: 1, true: 2, elemental: 3 });
+
 /**
  * Remove HP (after mitigation) and run damaged/fatal/kill bookkeeping. Also used by `battle.loseHp` (流失).
  */
@@ -439,6 +442,8 @@ export function applyHpLoss(battle, source, target, amount, dmg) {
   // 史尔特尔 S3 …), friendly damage; `taken` and the kill credit do
   if (source && source.side !== target.side) {
     source.stats.dmg += dealt;
+    const byType = source.stats.byType; // a Unit's; a stand-in source may have none, and a tally must never cost a hit
+    if (byType) byType[TYPE_SLOT[dmg?.type] ?? TYPE_SLOT.true] += dealt;
     if (source.side === 'ally' && source.ownerId != null) { const pp = battle._pp(source.ownerId); if (pp) pp.damageDealt += dealt; }
   }
   target.stats.taken += dealt;

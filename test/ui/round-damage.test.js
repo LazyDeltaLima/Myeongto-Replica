@@ -16,7 +16,7 @@ test('roundDamageSource: settled this round > live own battle > the previous rou
   // prep of round 6: the last settle
   assert.deepEqual(roundDamageSource({ round: 6, msg: m5, board }), { round: 5, live: false, pairs: [[1, 7]] });
   // round 6's battle: live, folded onto the board (the summon piece counts for 2)
-  assert.deepEqual(roundDamageSource({ round: 6, msg: m5, live: live(false), board, combat: true }), { round: 6, live: true, pairs: [[2, 30], [1, 10]] });
+  assert.deepEqual(roundDamageSource({ round: 6, msg: m5, live: live(false), board, combat: true }), { round: 6, live: true, pairs: [[2, 30, 0, 0, 0, 0, 0], [1, 10, 0, 0, 0, 0, 0]] });
   // the own battle done, 联防 running: the local final, no longer live
   assert.equal(roundDamageSource({ round: 6, msg: m5, live: live(true), board, combat: true }).live, false);
   // settled round 6 wins over the live reading
@@ -32,6 +32,26 @@ test('roundDamageSource: settled this round > live own battle > the previous rou
   assert.equal(roundDamageSource({ round: 1, board }), null);
 });
 
+test('roundDamageRows, damage: the type parts are shares of the own damage of the operator; no breakdown = no parts', () => {
+  // [uid, damage, healing, physical, arts, true, elemental]
+  const { rows } = roundDamageRows([[1, 100, 0, 75, 25, 0, 0], [2, 50, 0, 0, 0, 0, 0], [9, 7]], board, 8);
+  assert.deepEqual(rows[0].parts, [0.75, 0.25, 0, 0]);
+  assert.equal(rows[1].parts, null, 'a battle reported without the breakdown draws the plain bar');
+  assert.equal(rows[0].value, 100);
+  // rounding: parts are shares of their own sum, never of the rounded damage
+  assert.deepEqual(roundDamageRows([[1, 3, 0, 1, 1, 0, 0]], board, 8).rows[0].parts, [0.5, 0.5, 0, 0]);
+});
+
+test('roundDamageRows, healing: the healers only, by healing, a sold healer only in the total, no type parts', () => {
+  const pairs = [[1, 100, 0, 100, 0, 0, 0], [2, 50, 300, 50, 0, 0, 0], [9, 10, 100, 10, 0, 0, 0]];
+  const { rows, rest, total } = roundDamageRows(pairs, board, 8, 'heal');
+  assert.deepEqual(rows.map((r) => [r.uid, r.value, r.share, r.bar, r.parts]), [[2, 300, 0.75, 1, null]]);
+  assert.equal(total, 400);
+  assert.equal(rest, 0, 'an operator who healed nothing is no hidden row');
+  // a message from before healing was sent (a page older than the server, the other way round too)
+  assert.deepEqual(roundDamageRows([[1, 5]], board, 8, 'heal'), { rows: [], rest: 0, total: 0 });
+});
+
 test('roundDamageRows: board operators most first, share of the total, a sold one only in the total, the rest counted', () => {
   const { rows, rest, total } = roundDamageRows([[9, 50], [2, 30], [1, 20], [3, 999]], board, 8);
   assert.equal(total, 50 + 30 + 20 + 999);
@@ -42,7 +62,7 @@ test('roundDamageRows: board operators most first, share of the total, a sold on
   assert.equal(rows[0].share, 30 / total);
   const cut = roundDamageRows([[1, 5], [2, 6]], board, 1);
   assert.deepEqual([cut.rows.map((r) => r.uid), cut.rest], [[2], 1]);
-  assert.deepEqual(roundDamageRows([[1, 0]], board, 5).rows[0], { uid: 1, piece: board[0], dmg: 0, share: 0, bar: 0 });
+  assert.deepEqual(roundDamageRows([[1, 0]], board, 5).rows[0], { uid: 1, piece: board[0], value: 0, share: 0, bar: 0, parts: null });
   assert.deepEqual(roundDamageRows(null, null, 5), { rows: [], rest: 0, total: 0 });
   assert.deepEqual(ROUND_DAMAGE_ROWS, { desktop: 8, phone: 5 });
 });

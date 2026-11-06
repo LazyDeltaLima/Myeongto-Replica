@@ -17,9 +17,16 @@
  * Seconds and thresholds: a step up after the ~1 s mean interval (`upTau`) stays over `slowMs` (~51 fps) on a crowded
  * field, with the ~1 s mean of the view's frame work at least `workShare` of it, for `upAfter[level]` s; a step down
  * after the ~2 s mean (`downTau`) stays under `fastMs` (~57 fps) for `downAfter × level` s, or `quietAfter` s on a field
- * with few units.
+ * with few units. Both lines are for a 60 fps target: a frame limit under it moves them (`frameScale`).
  */
 export const LOAD_STEP = Object.freeze({ slowMs: 19.5, fastMs: 17.6, upTau: 1, downTau: 2, upAfter: Object.freeze([1, 2, 3]), downAfter: 6, quietAfter: 2, workShare: 0.4 });
+
+/**
+ * How much longer a frame may take under settings → 画面 「帧率上限」 (`limit` fps, 0 = none; render/app.js setFrameLimit):
+ * 30 fps held under a 30 cap is not a device out of breath. A limit of 60 or more changes nothing.
+ * @param {number} limit @returns {number}
+ */
+export const frameScale = (limit) => (limit > 0 && limit < 60 ? 60 / limit : 1);
 
 /**
  * A frame-weighted mean of a per-frame value whose frames are forgotten with the time constant `tau` (s): each frame
@@ -45,6 +52,7 @@ export function meanWindow(tau) {
  * One view's stepper: `step(dt, busy, workMs)` each counted frame (its interval in s; render/app.js leaves out hidden
  * pages and frames over 0.25 s) → the new level when it moved, else null. `busy`: more than 8 unit views (a field with
  * few units never steps up). `workMs`: the view's own work of a frame (field JS + PIXI draw; omitted = the whole frame).
+ * `scale`: the frame limit's `frameScale`.
  * `upMs` / `downMs` / `workMs`: the means after the last frame; `worst`: the longest frame (s) of the slow spell under
  * way (the perf report's `lod steps`).
  */
@@ -52,14 +60,14 @@ export function loadLevelStepper() {
   const up = meanWindow(LOAD_STEP.upTau), down = meanWindow(LOAD_STEP.downTau), work = meanOf(LOAD_STEP.upTau);
   const s = { level: 0, upMs: 0, downMs: 0, workMs: 0, worst: 0, step };
   let slowFor = 0, fastFor = 0;
-  function step(dt, busy, workMs = dt * 1000) {
+  function step(dt, busy, workMs = dt * 1000, scale = 1) {
     s.upMs = up(dt);
     s.downMs = down(dt);
     s.workMs = work(dt, workMs);
-    const slow = s.upMs > LOAD_STEP.slowMs && busy;
+    const slow = s.upMs > LOAD_STEP.slowMs * scale && busy;
     if (slow && s.workMs >= LOAD_STEP.workShare * s.upMs) { slowFor += dt; fastFor = 0; if (dt > s.worst) s.worst = dt; }
     else if (slow) { slowFor = 0; fastFor = 0; s.worst = 0; }   // slow, but not from this view's work: a step would not help
-    else if (s.downMs < LOAD_STEP.fastMs) { fastFor += dt; slowFor = 0; s.worst = 0; }
+    else if (s.downMs < LOAD_STEP.fastMs * scale) { fastFor += dt; slowFor = 0; s.worst = 0; }
     let to = s.level;
     if (s.level < 3 && slowFor > LOAD_STEP.upAfter[s.level]) to = s.level + 1;
     else if (s.level > 0 && (fastFor > LOAD_STEP.downAfter * s.level || (!busy && fastFor > LOAD_STEP.quietAfter))) to = s.level - 1;

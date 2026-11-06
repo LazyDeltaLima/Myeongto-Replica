@@ -1,6 +1,8 @@
 // Round damage panel (a feature of this fork, maintainer decision 2026-10-25; docs/rules/ui.md 「라운드 대미지 패널」): a
 // 「伤害」 chip that opens a panel of what each own board operator dealt in the player's own battle — live while it runs
 // (battleRunner.ownDamage, read twice a second), the server's settled m.roundDmg afterwards and through the next prep.
+// Two tabs (maintainer decision 2026-11-06; the choice is remembered, sp.pref.roundDamageTab): 伤害, its bars stacked by
+// damage type under a legend, and 治疗, the operators who healed.
 // Summons count for their summoner; 联防 battles are left out. Folded by default; the open state is remembered
 // (sp.pref.roundDamageOpen). Settings → 画面: 「回合伤害统计」 off hides it; 「伤害统计样式」 'auto' = full rows (name,
 // share) on a desktop, compact (avatar, bar, number) on a phone.
@@ -18,7 +20,7 @@ import { useStore, loadPref, savePref } from '../store.js';
 import { battleRunner } from '../battle/runner.js';
 import { net } from '../net.js';
 import { data } from '../data.js';
-import { t } from '../../../shared/i18n.js';
+import { t, N_ } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -71,6 +73,10 @@ const Swords = () => html`<svg class="icon rdmg__ic" viewBox="0 0 24 24" width="
 
 const pct = (x) => (x > 0 && x < 0.01 ? '<1%' : `${Math.round(x * 100)}%`);
 
+/** The damage types in shared/roundDamage.js's DAMAGE_TYPES order: class and legend word (detailPanel.js DMG; 元素 = 'elemental'). */
+const TYPE_MARKS = [['phys', N_('物理')], ['arts', N_('法术')], ['true', N_('真实')], ['elem', N_('元素')]];
+const TABS = [['dmg', N_('伤害')], ['heal', N_('治疗')]];
+
 /**
  * @param {{ pub: any, priv: any, myId: string, place: 'desktop'|'phone', spectator?: boolean }} props `place`: where this
  *   copy is mounted — only the one matching the layout draws
@@ -81,6 +87,7 @@ export function RoundDamage({ pub, priv, myId, place, spectator = false }) {
   const phone = usePhoneLayout();
   const gd = useGameData();
   const [open, setOpen] = useState(() => loadPref('roundDamageOpen', false) === true);
+  const [tab, setTab] = useState(() => (loadPref('roundDamageTab', 'dmg') === 'heal' ? 'heal' : 'dmg'));
   const msg = useRoundDamageMsg();
   const combat = isCombatPhase(pub?.phase);
   const mine = place === (phone ? 'phone' : 'desktop') && enabled !== false && !spectator && !!priv;
@@ -90,7 +97,9 @@ export function RoundDamage({ pub, priv, myId, place, spectator = false }) {
   if (!src) return null;
   const toggle = (v) => { setOpen(v); savePref('roundDamageOpen', v); };
   const full = (styleSet === 'auto' ? (phone ? 'compact' : 'full') : styleSet) === 'full';
-  const { rows, rest, total } = roundDamageRows(src.pairs, priv.board, phone ? ROUND_DAMAGE_ROWS.phone : ROUND_DAMAGE_ROWS.desktop);
+  const heal = tab === 'heal';
+  const pick = (v) => { setTab(v); savePref('roundDamageTab', v); };
+  const { rows, rest, total } = roundDamageRows(src.pairs, priv.board, phone ? ROUND_DAMAGE_ROWS.phone : ROUND_DAMAGE_ROWS.desktop, tab);
   const m = data.get('assets');
   const recOf = (piece) => {
     const chess = gd.chess(piece.id);
@@ -104,18 +113,22 @@ export function RoundDamage({ pub, priv, myId, place, spectator = false }) {
     </button>
     ${open ? html`<section id="rdmg-panel" class=${cx('rdmg__panel', full ? 'is-full' : 'is-compact')} aria-label=${t('回合伤害统计')}>
       <header class="rdmg__hd">
-        <${Swords} /><b>${t('伤害')}</b>
+        <${Swords} />
+        <span class="rdmg__tabs" role="tablist">${TABS.map(([id, label]) => html`<button key=${id} type="button" role="tab" aria-selected=${tab === id ? 'true' : 'false'}
+          class=${tab === id ? 'is-on' : ''} onClick=${() => pick(id)}>${t(label)}</button>`)}</span>
         ${src.live ? html`<span class="rdmg__tag is-live">${t('实时')}</span>` : html`<span class="rdmg__tag num">${t('回合 {n}', { n: src.round })}</span>`}
         <span class="rdmg__sp"></span>
         <button type="button" class="rdmg__x" aria-label=${t('收起')} title=${t('收起')} onClick=${() => toggle(false)}>–</button>
       </header>
+      ${rows.some((r) => r.parts) ? html`<div class="rdmg__legend">${TYPE_MARKS.map(([id, label]) => html`<span key=${id} class=${`is-${id}`}>${t(label)}</span>`)}</div>` : null}
       <ol class="rdmg__rows">
         ${rows.map((r, i) => {
           const rec = recOf(r.piece);
           const name = rec?.name || r.piece.id;
-          const val = html`<span class="rdmg__val num">${fmtNum(r.dmg)}${full ? html`<small>${pct(r.share)}</small>` : null}</span>`;
-          const bar = html`<span class="rdmg__track"><i style=${`width:${(r.bar * 100).toFixed(1)}%`}></i></span>`;
-          return html`<li key=${r.uid} class=${cx('rdmg__row', i === 0 && r.dmg > 0 && 'is-top')} title=${`${name} · ${fmtNum(r.dmg)}`}>
+          const val = html`<span class="rdmg__val num">${fmtNum(r.value)}${full ? html`<small>${pct(r.share)}</small>` : null}</span>`;
+          const bar = html`<span class="rdmg__track"><i class=${r.parts ? 'is-stack' : heal ? 'is-heal' : ''} style=${`width:${(r.bar * 100).toFixed(1)}%`}>${r.parts
+            ? TYPE_MARKS.map(([id], k) => (r.parts[k] > 0 ? html`<span key=${id} class=${`is-${id}`} style=${`flex-grow:${r.parts[k].toFixed(3)}`}></span>` : null)) : null}</i></span>`;
+          return html`<li key=${r.uid} class=${cx('rdmg__row', !heal && i === 0 && r.value > 0 && 'is-top')} title=${`${name} · ${fmtNum(r.value)}`}>
             <${Img} class="rdmg__av" src=${rec ? chessAvatarUrl(m, rec) : null} alt="" fallback=${html`<b>${[...name][0] || '?'}</b>`} />
             ${full ? html`<span class="rdmg__nm">${name}</span>${val}${bar}` : html`${bar}${val}`}
           </li>`;

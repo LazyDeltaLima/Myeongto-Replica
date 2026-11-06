@@ -12,7 +12,8 @@ export const AUTO_LEVELS = Object.freeze(['high', 'medium']);
  * most `upMax`. A calm frame proves headroom under load (autoQualityStepper): a crowded field at load level 0 whose
  * mean frame interval is under `calmFrameMs` (~57 fps) and whose mean field frame JS is at most `calmJsMs` (half the
  * 60 Hz budget — a phone that heats up runs the same JS several times slower, so a fast frame rate alone at 'medium'
- * does not say 'high' would hold).
+ * does not say 'high' would hold). `calmFrameMs` moves with a frame limit (load-level.js frameScale); `calmJsMs` does not:
+ * the JS of a frame says the same at any limit.
  */
 export const AUTO_STEP = Object.freeze({ downAfter: 20, upAfter: 120, upMax: 600, calmFrameMs: 17.6, calmJsMs: 8 });
 
@@ -38,15 +39,15 @@ function setLevel(q) {
 /**
  * One field view's stepper: called each counted frame with its length (s), the view's load level 0–3, whether the
  * field is crowded (`busy`: more than 8 unit views, render/app.js adaptLoad) and the moving means of the frame interval
- * and the field frame JS (ms); steps the shared level (listeners told) and returns true when it moved. A field with few
+ * and the field frame JS (ms), and the frame limit's `frameScale`; steps the shared level (listeners told) and returns true when it moved. A field with few
  * units says nothing about headroom (its load level drops to 0 even on slow frames — a match's opening rounds on a
  * phone still hot from the last one), so the calm count holds there; a crowded frame that is not calm restarts it.
  */
 export function autoQualityStepper() {
   let heavy = 0, calm = 0;
-  return (dt, loadLevel, busy = true, frameMs = 0, jsMs = 0) => {
+  return (dt, loadLevel, busy = true, frameMs = 0, jsMs = 0, scale = 1) => {
     heavy = loadLevel >= 3 ? heavy + dt : 0;
-    if (busy) calm = loadLevel === 0 && frameMs < AUTO_STEP.calmFrameMs && jsMs <= AUTO_STEP.calmJsMs ? calm + dt : 0;
+    if (busy) calm = loadLevel === 0 && frameMs < AUTO_STEP.calmFrameMs * scale && jsMs <= AUTO_STEP.calmJsMs ? calm + dt : 0;
     if (level === 'high' && heavy > AUTO_STEP.downAfter) {
       heavy = 0; downs++;
       setLevel('medium');

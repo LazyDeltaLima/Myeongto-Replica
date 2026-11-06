@@ -100,6 +100,19 @@ export function foldCamera(s) {
 }
 
 /**
+ * Whether a held piece folds the shop for as long as it is held (docs/rules/ui.md 「기물을 집을 때 상점 접기」, as the
+ * official game does; upstream #602): the viewer edits the own prep board, the camera is not over the enemy pen (it
+ * folds the shop itself), and a piece is dragged or the direction wheel of a legal drop is open. Derived from the
+ * interaction: the player's own 收起 state is never written and comes back afterwards.
+ * @param {{ enabled?: boolean, ownPrep?: boolean, editable?: boolean, pen?: boolean, drag?: boolean, facing?: boolean }|null|undefined} o
+ * @returns {boolean}
+ */
+export function deployFoldsShop(o) {
+  if (!o || !o.enabled) return false;
+  return !!o.ownPrep && !!o.editable && !o.pen && (!!o.drag || !!o.facing);
+}
+
+/**
  * The field the own pieces are deployed on (server/match/Match.js deployFieldOf): 'bossL' / 'bossR' in the prep of a
  * boss round (the same pairing as `prepCamera`), else 'normal'. Placement legality (`placementContext` → `deployMap`
  * with `field`) reads that field's tiles.

@@ -371,6 +371,7 @@ export class BattleLifecycle {
           id: u.id, uid: u.uid, defId: u.defId, name: u.name, kind: u.kind,
           dmg: Math.round(u.stats.dmg), kills: u.stats.kills, heal: Math.round(u.stats.heal), taken: Math.round(u.stats.taken), attacks: u.stats.attacks,
         };
+        if (u.stats.dmg > 0) e.byType = u.stats.byType.map(Math.round);
         if (u.stats.boss > 0) e.boss = Math.round(u.stats.boss);
         if (u.stats.assist) e.assist = { ...u.stats.assist };
         let o = u.ownerUnit;

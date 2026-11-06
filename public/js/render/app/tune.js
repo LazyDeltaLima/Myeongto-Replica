@@ -6,6 +6,12 @@ const CAMERA_MS = 750;
 export const PEN_CAMERA_MS = 250;
 
 /**
+ * The fold flight of a picked-up piece and its way back (screens/game.js): the player is aiming, so far shorter than the
+ * generic flight. [ASSUMED·화면] official timing not measured against a recording.
+ */
+export const FOLD_CAMERA_MS = 350;
+
+/**
  * Tries to bring up the 3D board (a failed GPU check or art load at mount, a lost context): delays of the attempts (ms;
  * used up, they start over when the page is shown again — app/retry3d.js) and how soon a new loss counts as failure.
  */

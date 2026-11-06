@@ -13,7 +13,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from '../../vendor/hooks
 import { html, Modal, Button, Icon, MicroLabel, Tabs } from './components.js';
 import { GIcon } from './gameComponents.js';
 import { createStore, useStore, loadPref, savePref, store } from '../store.js';
-import { sanitizeSettings, setNumberUnitMode, numberUnitMode, CHAT_COOLDOWN, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, hotkeyLabel, rebindHotkey, isDefaultHotkeys, captureHotkey } from './gameLogic.js';
+import { sanitizeSettings, setNumberUnitMode, numberUnitMode, CHAT_COOLDOWN, FRAME_LIMITS, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, hotkeyLabel, rebindHotkey, isDefaultHotkeys, captureHotkey } from './gameLogic.js';
 import { audio } from '../audio.js';
 import { openGuide } from './guide.js';
 import { detectFeatures } from './device.js';
@@ -350,6 +350,14 @@ export function SettingsModal({ open, onClose }) {
           </div>
         </div>
         ${s.quality === 'auto' ? html`<${AutoQualityHint} />` : null}
+        <div class="set-row">
+          <span class="set-row__label">${t('帧率上限')}<${MicroLabel}>FPS LIMIT<//></span>
+          <div class="set-seg" role="radiogroup">
+            ${FRAME_LIMITS.map((v) => html`<button key=${v} type="button" role="radio" aria-checked=${s.frameLimit === v ? 'true' : 'false'}
+              class=${s.frameLimit === v ? 'is-on' : ''} onClick=${() => updateSettings({ frameLimit: v })}>${v ? String(v) : t('无')}</button>`)}
+          </div>
+        </div>
+        <${Toggle} label=${t('拿起棋子时收起商店')} micro="DEPLOY FOLD" value=${s.deployFold} onChange=${(v) => updateSettings({ deployFold: v })} />
         <${NumberUnitsSetting} />
         <${Toggle} label=${t('精锐干员标记')} micro="ELITE BADGE" value=${s.eliteBadge} onChange=${(v) => updateSettings({ eliteBadge: v })} />
         <${Toggle} label=${t('回合伤害统计')} micro="ROUND DAMAGE" value=${s.roundDamage} onChange=${(v) => updateSettings({ roundDamage: v })} />
@@ -360,7 +368,7 @@ export function SettingsModal({ open, onClose }) {
               class=${s.roundDamageStyle === id ? 'is-on' : ''} onClick=${() => updateSettings({ roundDamageStyle: id })}>${t(label)}</button>`)}
           </div>
         </div>` : null}
-        <p class="set-hint">${t('对局中显示每名干员在自己的作战中造成的伤害（作战中实时，整备时为上一场作战），召唤物计入召唤者，不含联防。自动：电脑为详细，手机为简洁。')}</p>
+        <p class="set-hint">${t('对局中显示每名干员在自己的作战中造成的伤害和治疗（作战中实时，整备时为上一场作战），召唤物计入召唤者，不含联防。自动：电脑为详细，手机为简洁。')}</p>
         <${Toggle} label=${t('对局通知')} micro="MATCH NOTICES" value=${s.matchNotices} onChange=${(v) => updateSettings({ matchNotices: v })} />
         <p class="set-hint">${t('关闭后对局中不再弹出任何通知：获得干员、盟约资金等提示，干员退回整备区、淘汰等警告，以及操作无法执行的原因。')}</p>
         <${UiScaleSetting} />${/* local patch */ ''}

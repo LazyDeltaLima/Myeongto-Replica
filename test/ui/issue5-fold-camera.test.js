@@ -17,7 +17,7 @@ import { GEO } from '../../shared/constants.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
 
-const { prepCameraFor, foldCamera, prepCamera } = await import('../../public/js/ui/gameLogic.js');
+const { prepCameraFor, foldCamera, prepCamera, deployFoldsShop } = await import('../../public/js/ui/gameLogic.js');
 const { hudBands, HUD_REM } = await import('../../public/js/ui/fieldHost.js');
 const { presetCamera, tileQuad } = await import('../../public/js/render/projection.js');
 
@@ -37,6 +37,18 @@ describe('the camera choice (gameLogic prepCameraFor / foldCamera)', () => {
       assert.equal(shop, false);
       assert.deepEqual(rest, prepCamera(pub, me).opts);
     }
+  });
+
+  test('deployFoldsShop: a held piece or the direction wheel on the own editable prep board, while the setting is on', () => {
+    const on = { enabled: true, ownPrep: true, editable: true, pen: false };
+    assert.equal(deployFoldsShop({ ...on, drag: true }), true);
+    assert.equal(deployFoldsShop({ ...on, facing: true }), true);
+    assert.equal(deployFoldsShop({ ...on }), false, 'nothing held');
+    assert.equal(deployFoldsShop({ ...on, drag: true, enabled: false }), false, 'the setting off');
+    assert.equal(deployFoldsShop({ ...on, drag: true, editable: false }), false, 'ready, or another phase');
+    assert.equal(deployFoldsShop({ ...on, drag: true, ownPrep: false }), false, 'a teammate\'s board, a battle');
+    assert.equal(deployFoldsShop({ ...on, drag: true, pen: true }), false, 'the enemy pen folds the shop for itself');
+    assert.equal(deployFoldsShop(null), false);
   });
 
   const base = { pub: pubAt(6), myId: 'a', ownPrep: true, pen: false, busy: false };
@@ -204,9 +216,10 @@ describe('wiring', () => {
     assert.match(app, /hud: hudBands\(vk, sz, \{ shop: o\.shop !== false \}\),/);
     assert.match(app, /return opts\.hud\(kind, sz, o\) \|\| null;/);
     const game = read('public/js/screens/game.js');
-    assert.match(game, /const shopFolded = showShop && \(pen \? penRef\.current\.collapsed : collapsed\);/);
+    assert.match(game, /const barCollapsed = collapsed \|\| deployFold;/);
+    assert.match(game, /const shopFolded = showShop && \(pen \? penRef\.current\.collapsed : barCollapsed\);/);
     // entering prep and the boss-prep re-frame take the fold state; a fold / unfold re-frames through foldCamera
     assert.equal((game.match(/const pc = prepCameraFor\(pub, myId, shopFolded\);/g) || []).length, 2);
-    assert.match(game, /const next = foldCamera\(\{\n\s+pub, myId, folded: shopFolded, ownPrep: !!view && viewModeRef\.current === 'prep' && showPrep,\n\s+pen, busy: !!drag \|\| !!facing, current: camRef\.current,\n\s+\}\);\n\s+if \(next\) setCam\(next\.kind, next\.opts\);\n\s+\}, \[view, shopFolded, showPrep, pen, !!drag, !!facing, prepCamKey\]\);/);
+    assert.match(game, /const next = foldCamera\(\{\n\s+pub, myId, folded: shopFolded, ownPrep: !!view && viewModeRef\.current === 'prep' && showPrep,\n\s+pen, busy: \(!!drag \|\| !!facing\) && !deployFold, current: camRef\.current,\n\s+\}\);\n\s+const quick = deployFoldSeen\.current !== deployFold;\n\s+deployFoldSeen\.current = deployFold;\n\s+if \(next\) setCam\(next\.kind, quick \? \{ \.\.\.next\.opts, ms: FOLD_CAMERA_MS \} : next\.opts\);\n\s+\}, \[view, shopFolded, deployFold, showPrep, pen, !!drag, !!facing, prepCamKey\]\);/);
   });
 });

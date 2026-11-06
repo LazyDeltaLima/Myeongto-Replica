@@ -71,6 +71,15 @@ test('the climb counts only crowded frames that are fast and light; a few-unit f
   assert.deepEqual(runFrames(step, 2, true, 16.9, 3), ['high']);
 });
 
+test('a frame limit moves the calm line with it: 30 fps held under a 30 cap is calm, 25 fps is not', () => {
+  const step = autoQualityStepper();
+  run(step, 21, 3);
+  assert.equal(autoQuality(), 'medium');
+  const frames = (secs, ms, scale) => { const seen = []; for (let t = 0; t < secs; t += 1 / 30) if (step(1 / 30, 0, true, ms, 3, scale)) seen.push(autoQuality()); return seen; };
+  assert.deepEqual(frames(300, 40, 2), [], '25 fps under the cap');
+  assert.deepEqual(frames(121, 33.4, 2), ['high'], '30 fps held');
+});
+
 test('the level is shared by the page: a new field view starts where the last one ended', () => {
   run(autoQualityStepper(), 21, 3);
   const next = autoQualityStepper();
