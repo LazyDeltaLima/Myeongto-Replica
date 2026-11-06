@@ -19,6 +19,10 @@ const S1 = 'skchr_frncat_1';
 const S2 = 'skchr_frncat_2';
 const NEXT_ATK = 'frncat_s_1';
 const DEBUFF = 'frncat_s_1[debuff]';
+// What the view draws of frncat_s_1 (`common_next_atk_buff`): the client attaches the skill's ability as the attack starts
+// (NextAttackOrCombatSkill.OnBeforeAttack) and detaches it as that attack ends (NextAtkAdditionSkill.CancelAfterAttack, any
+// reason). NEXT_ATK itself holds the ATK only from the strike
+const NEXT_ATK_FX = 'skill:frncat:nextAtk';
 const TALENT_ATTACK = 'T.1';
 /** Attack_2 (data/assets.json `animations`): its length and OnAttack frames. */
 export const DOUBLE = Object.freeze({ dur: 1.2, first: 0.367, second: 0.633 });
@@ -39,14 +43,16 @@ export default {
                 key: `${DEBUFF}:${unit.id}`, source: unit, duration: num(b1[`${DEBUFF}.duration`]), mods: { atkPct: num(b1[`${DEBUFF}.atk`]) }, visible: true, tags: ['skill'],
               });
             },
-            afterAttack(battle, unit) { if (!unit.mem.frncatSecond) battle.removeBuff(unit, NEXT_ATK); },
+            afterAttack(battle, unit) { if (!unit.mem.frncatSecond) { battle.removeBuff(unit, NEXT_ATK); battle.removeBuff(unit, NEXT_ATK_FX); } },
           },
+          onEnd({ battle, unit }) { if (!unit.mem.frncatSecond) battle.removeBuff(unit, NEXT_ATK_FX); },
         },
         [S2]: { kind: 'duration', mods: { atkPct: num(b2.atk), defPct: num(b2.def) } },
       },
       talents: [{ install(battle, unit) {
         battle.on('swing', (c) => {
           if (c.unit !== unit) return;
+          if (c.isSkill && unit.skill?.id === S1) battle.addBuff(unit, { key: NEXT_ATK_FX, visible: true, tags: ['skill'] });
           unit.mem.frncatDouble = prob > 0 && battle.rng.chance(prob);
           if (!unit.mem.frncatDouble) return;
           c.signal = TALENT_ATTACK;

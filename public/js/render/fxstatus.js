@@ -187,6 +187,8 @@ export const KEY_FX = Object.freeze({
   // (2026-11-04) the 重构体's ATK aura (its Talents/1 AuraAbility prosts[atk_up], overrideEffectKey token_monstr_prosts_buff_03,
   // `_selfOption` EXCLUDE) on each ally it covers — the sim's aura buff
   'talent:monstr:prostsAtk': keyed('prosts[atk_up]', 'monstr_token', OWN),
+  // (2026-11-06) 慕斯 S1's frncat_s_1, overrideEffectKey common_next_atk_buff: on while its attack runs (the kit's NEXT_ATK_FX)
+  'skill:frncat:nextAtk': keyed('frncat_s_1', 'frncat', OWN),
   // 休谟斯 S2 精力充沛 (2026-10-24, 묶음 S11): humus_s_2[peak_1] / [peak_2] each run peak_performance with their blackboard
   // `peak_performance.effect` humus_buff_01 / _02 (CreateBuffWithOverrideEffect peak_performance[effect]) above their HP ratio;
   // the sim's buff is the highest peak (`fxTag` 1 / 2) — above peak_2 both hold [추정: disableOverride keeps both derived buffs]

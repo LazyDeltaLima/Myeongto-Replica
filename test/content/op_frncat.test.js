@@ -9,6 +9,7 @@ const A = 'chess_char_1_nfrncat_a', B = 'chess_char_1_nfrncat_b';
 const FORMS = [A, B];
 const S1 = 'skchr_frncat_1', S2 = 'skchr_frncat_2';
 const DEBUFF = 'frncat_s_1[debuff]';
+const FX = 'skill:frncat:nextAtk';
 const bbOf = (id, sk) => NEXT.chess[id].skills.find((s) => s.skillId === sk).bb;
 const near = (a, b, m, tol = 1e-6) => assert.ok(Math.abs(a - b) < tol * Math.max(1, Math.abs(b)), `${m}: ${a} vs ${b}`);
 const hitsOn = (h, e) => h.hooksOf('damaged').filter((c) => c.target === e && c.dmg?.isAttack);
@@ -110,6 +111,24 @@ test('S1: the ATK is off again once the attack is over, a double attack holding 
   assert.ok(twos.length > 0, 'a skill attack that was double');
   for (const [a, b] of twos) near(a.n, b.n, 'both hits at the skill\'s ATK');
   h.run(3);
+  done(h);
+});
+
+test('S1: the view\'s buff is on from the skill attack\'s swing until it ends, also when the swing loses its target', () => {
+  const { h, u } = field(B, { skill: 0 });
+  const e = h.spawn('enemy_dummy', { pos: [10, 5] });
+  const swings = [];
+  h.b.on('swing', (c) => { if (c.unit === u) swings.push({ skill: c.isSkill, on: !!u.findBuff(FX) }); });
+  h.runUntil(() => swings.filter((s) => s.skill).length >= 3 && !swings.at(-1).skill, 200);
+  assert.ok(swings.some((s) => !s.skill), 'plain attacks ran too');
+  for (const s of swings) assert.equal(s.on, s.skill, 'on for the skill attack\'s swing only');
+  assert.equal(u.findBuff(FX)?.visible ?? false, false);
+  // the target gone before the strike: the skill is called off, and the effect with it
+  let lost = false;
+  h.b.on('swing', (c) => { if (c.unit === u && c.isSkill && !lost) { lost = true; e.hidden = true; } });
+  h.runUntil(() => lost, 200);
+  h.run(3);
+  assert.ok(!u.findBuff(FX), 'off with the cancelled swing');
   done(h);
 });
 
