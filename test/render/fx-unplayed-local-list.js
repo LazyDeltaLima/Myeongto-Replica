@@ -82,8 +82,5 @@ export const UNPLAYED_LOCAL = Object.freeze({
   "char_4226_veen/Trait/ChargeableGroup|veen_telent_01_rank_02_change_4": "todo: 维伊's merged store stages (_mergedChargeEffectGroups)",
   "char_4226_veen/Trait/ChargeableGroup|veen_telent_01_rank_02_change": "todo: 维伊's merged store stages (_mergedChargeEffectGroups)",
   "char_4226_veen/Trait/ChargeableGroup|veen_telent_01_rank_02": "todo: 维伊's merged store stages (_mergedChargeEffectGroups)",
-  "skchr_vvana_1/S1_Attack|vvana_skill_01_S_hit_01": "todo: 薇薇安娜 S1's charged hits (_hitGroups of S1_Attack): the render does not yet tell the 蓄力 cast",
-  "skchr_vvana_1/S1_Attack|vvana_skill_01_S_hit_02": "todo: 薇薇安娜 S1's charged hits (_hitGroups of S1_Attack): the render does not yet tell the 蓄力 cast",
-  "skchr_vvana_1/S1_Attack|vvana_skill_01_S_hit_03": "todo: 薇薇安娜 S1's charged hits (_hitGroups of S1_Attack): the render does not yet tell the 蓄力 cast",
   "projectile_weedy_cannon|token_weedy_attack_01_trail": "todo: 温蒂's 储水炮 shell trail (a summon's attack bindings: modes.json holds none)",
 });
