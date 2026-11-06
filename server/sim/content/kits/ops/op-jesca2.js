@@ -134,7 +134,7 @@ function shieldKit(owner, { s1Ext }) {
           if (owner.mem.jescaOldDir == null) owner.mem.jescaOldDir = owner.dir;
           if (t.dir !== dir) { t.dir = dir; tellDir(battle, t); }
           turnTo(battle, owner, dir);
-          battle.fx('buff', { x: owner.x, y: owner.y, id: owner.id, kind: 'turn' });
+          battle.fx('buff', { x: owner.x, y: owner.y, id: owner.id, kind: 'turn', shield: t.id });
           // S3: a shield taking the field during the skill fires a shell (at most one pending)
           if (skillOn(owner, S3)) owner.mem.jescaBomb = true;
         }

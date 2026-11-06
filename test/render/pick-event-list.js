@@ -7,7 +7,7 @@
 
 export const UNJUDGED = 'unjudged: older than this check (2026-11-04)';
 /** How many UNJUDGED entries may remain; lower it as they are judged, never raise it. */
-export const UNJUDGED_MAX = 67;
+export const UNJUDGED_MAX = 66;
 
 export const PICK_EVENTS = Object.freeze({
   'closur|dp': 'stand-in: the DP number the sim shows for every DP gain; closur_s_1[cost]\'s own common_charge_cost_02 is a skill buff row',
@@ -52,7 +52,6 @@ export const PICK_EVENTS = Object.freeze({
   'ironmn|summon': UNJUDGED,
   'ironmn|spGift': UNJUDGED,
   'ironmn|aoe': UNJUDGED,
-  'jesca2|buff': UNJUDGED,
   'judge|shield': UNJUDGED,
   'judge|crit': UNJUDGED,
   'kalts2|shield': UNJUDGED,

@@ -158,6 +158,7 @@ test('the rules name prefabs the client binds for that operator', () => {
       if (n === 'whitw2Drones') o.t = [[2, 0], [3, 1]];
       if (n === 'tockaFx') Object.assign(o, { s: 2, shot: 1 });
       if (n === 'shield' && b === 'lmlee') o.kind = 'lmlee';
+      if (n === 'buff' && b === 'jesca2') Object.assign(o, { kind: 'turn', shield: 2 });
       if (n === 'counter') Object.assign(o, { tgt: 2, t: 2 });
       if (n === 'aoe') o.skill = b === 'branch' ? 'resolve' : 'judge:atonement';   // 折桠's opening blast, 斥罪's S2 pulse (the shared 'aoe' event: their skills only)
       // ('hit' rules answer their own moment keys)
@@ -855,6 +856,9 @@ test('kitOfficialPlan (2026-11-03): 贝洛内\'s S3 moves and return; Mon3tr\'s 
     [{ ...shot('veen_trail_02', 'veen_attack_rank_02_hit_02'), mount: 5 }, { ...shot('veen_trail_01', 'veen_attack_rank_01_hit_02'), mount: 6 }, { ...shot('veen_trail_01', 'veen_attack_rank_01_hit_02'), mount: 8 }]);
   assert.deepEqual(p('veenVolley', { id: 1, target: 8, stored: 1, merged: 0, s2: 1 }, 'veen'), [{ ...shot('veen_trail_01', 'veen_attack_rank_01_hit_02'), mount: 5 }]);
   assert.equal(p('veenVolley', { id: 1, target: 8, stored: 1, merged: 1, s3: 1 }, 'veen'), undefined, 'under S3 not drawn');
+  // 涤火杰西卡's shield: the turn effect is on the shield, not on her (jesca2_jckshd_dir_set[effect] `_buffOwner` BUFF_SOURCE), for the buff's 1 s
+  assert.deepEqual(p('buff', { id: 1, kind: 'turn', shield: 7 }, 'jesca2'), [{ n: 'token_jesca2_jckshd_turnaround_01', bundle: 'jesca2_token', on: 'shield', life: 1 }]);
+  assert.equal(p('buff', { id: 1, kind: 'turn' }, 'jesca2'), undefined);
   assert.deepEqual(p('veenBounce', { id: 1, target: 9, from: 8 }, 'veen'),
     [{ n: 'veen_skill_03_trail_02', fly: 10, to: 'target', from: 'from', fromDead: true, hit: ['veen_skill_03_hit_02'] }]);
 });

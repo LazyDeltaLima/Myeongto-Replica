@@ -151,7 +151,13 @@ export const KIT_OFFICIAL = {
   },
   // 莎草 S2 临考发挥 (2026-10-24, 묶음 S2): the ally she locks as it starts ('buff' kind 'lock': `src` her, `id` the ally) —
   // papyrs_s_2[switch_mode]'s CreateBuffUseAbilitySelector puts papyrs_s_2[target] (papyrs_skill2_mark_01, ended with the skill) on it
-  buff: { papyrs: cite('papyrs_s_2[target]', () => ({ play: [{ tpl: 'papyrs_s_2[target]', on: 'id', life: 'skill' }] })) },
+  // 涤火杰西卡's shield taking the field beside her (2026-11-06; 'buff' kind 'turn': `id` her, `shield` it): jesca2_jckshd_dir_set
+  // runs on her with the shield as its source, and its CreateBuff jesca2_jckshd_dir_set[effect] has `_buffOwner` BUFF_SOURCE, so
+  // token_jesca2_jckshd_turnaround_01 plays on the shield
+  buff: {
+    papyrs: cite('papyrs_s_2[target]', () => ({ play: [{ tpl: 'papyrs_s_2[target]', on: 'id', life: 'skill' }] })),
+    jesca2: cite('jesca2_jckshd_dir_set[effect]', (o) => (o.kind === 'turn' && o.shield != null ? { play: [{ n: 'token_jesca2_jckshd_turnaround_01', bundle: 'jesca2_token', on: 'shield', life: 1 }] } : null)),
+  },
   // 流明 T2 应急处理 (2026-10-24, 묶음 S2): the emergency heal ('emergency': `src` her, `id` the ally) — lumen_t_2[listener]
   // ON_OTHER_RESISTABLE_BUFF_START creates lumen_buff_01_hit on its BUFF_OWNER, the ally it heals (묶음 S3: S2 had it on her;
   // its HP-ratio and cooldown conditions are the sim's). The mark stays (`pass`). Her ready glow ([enable] after [cooldown])

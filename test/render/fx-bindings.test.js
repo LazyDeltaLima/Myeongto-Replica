@@ -132,7 +132,6 @@ const UNPLAYED = {
   'svash2_s_3[target_bird_onuse]|svash2_eagle_fly_01': 'unconditional',
   // 森蚺 RA-A's skill range: its buff needs a 生息演算 food buff (SandboxCheckHasFoodBuff), so never on a roster here
   'zumama_e_4|zumama_equipment_range_01': 'unconditional',
-  'jesca2_jckshd_dir_set[effect]|token_jesca2_jckshd_turnaround_01': 'unconditional', // 涤火杰西卡 she turns to her shield
   'bgsnow_s3[eff_up]|token_bgsnow_subbow_skill_03_buff_01_up': 'directional',          // 鸿雪 the typewriter's S3 copy
   'bgsnow_s3[eff_down]|token_bgsnow_subbow_skill_03_buff_01_down': 'directional',
 };

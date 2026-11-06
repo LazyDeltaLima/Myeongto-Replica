@@ -142,6 +142,14 @@ test('T1 灵活应变: she turns to face her shield (her range turns with her) a
   done(far.h);
 });
 
+test('T1 灵活应变: the turn names the shield it came from (the view draws its effect there)', () => {
+  const { h, u, t } = field({ shield: ABOVE });
+  const turns = h.events.filter((e) => e[0] === 'fx' && e[1] === 'buff' && e[4]?.kind === 'turn');
+  assert.ok(turns.length >= 1, 'she turned');
+  assert.equal(turns[0][4].id, u.id);
+  assert.equal(turns[0][4].shield, t.id);
+});
+
 test('T1 灵活应变: each mid-battle turn tells the view her deploy direction and her shield\'s, as state (her model and facing ring follow)', () => {
   const { h, u, t } = field({ shield: ABOVE });
   const told = (id) => h.events.filter((e) => fxDir(e) !== undefined && e[4].id === id).map(fxDir);
