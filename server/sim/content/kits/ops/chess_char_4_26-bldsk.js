@@ -13,7 +13,7 @@ export default withDefaults({
     const S1 = isSel(def, 'skchr_bldsk_1');
     const plasma = (battle, unit, a) => battle.addBuff(a, {
       key: 'bldsk:plasma', duration: num(bb.duration, 15) + 1e-6, interval: Math.max(0.1, num(bb.interval, 1)), mods: { atkPct: num(bb.atk) }, visible: true, source: unit,
-      onTick: ({ unit: t }) => battle.loseHp(t, t.s.maxHp * num(bb.hp_ratio, 0.03), { tags: ['skill', 'plasma'] }), // (no source: not damage dealt)
+      onTick: ({ unit: t }) => battle.loseHp(t, t.s.maxHp * num(bb.hp_ratio, 0.03), { silent: true, tags: ['skill', 'plasma'] }), // (no source: not damage dealt; silent: the template's DamageViaMaxHpRatio creates no effect)
     });
     return {
       skills: alt(def, {

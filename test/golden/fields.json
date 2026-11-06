@@ -282,7 +282,7 @@
       ],
       "enemies": {"enemy_1249_lysdb_2":[5,5,0,7440,107495],"enemy_1430_lrrook":[2,0,2,0,142645],"enemy_9017_achunt":[1,0,0,26725,287256]},
       "hooks": [1,20,6000,596,596,1306,1852,4525,7,9,29,28,0,15055,133,5,8,2,1,10,0,8,1],
-      "events": {"atk":646,"deploy":12,"die":7,"dmg":1841,"engage":7,"face":47,"fx":698,"heal":31,"leak":2,"skill":60,"spawn":18,"status":572,"swing":597},
+      "events": {"atk":646,"deploy":12,"die":7,"dmg":1241,"engage":7,"face":47,"fx":698,"heal":31,"leak":2,"skill":60,"spawn":18,"status":572,"swing":597},
       "fx": {
         "appear": 2,
         "bandage": 1,
@@ -617,7 +617,7 @@
       ],
       "enemies": {"enemy_1010_demon_2":[2,2,0,4250,107495],"enemy_1438_dspred":[5,5,0,36929,236490],"enemy_1521_dslily":[1,0,0,52500,432664],"trap_039_dstnta":[4,3,0,0,6000]},
       "hooks": [1,27,6000,560,560,945,1067,6911,14,14,33,32,0,14366,157,17,12,0,1,13,0,27,8],
-      "events": {"atk":747,"deploy":13,"die":14,"dmg":1045,"engage":7,"face":17,"fx":586,"heal":71,"skill":67,"spawn":24,"status":584,"swing":575},
+      "events": {"atk":747,"deploy":13,"die":14,"dmg":998,"engage":7,"face":17,"fx":586,"heal":71,"skill":67,"spawn":24,"status":584,"swing":575},
       "fx": {
         "appear": 2,
         "bandage": 2,
@@ -1541,7 +1541,7 @@
         "enemy_9023_acdums": [10,10,0,72173,360]
       },
       "hooks": [1,34,6000,609,609,2120,2990,3635,24,25,39,39,0,11802,161,16,15,1,1,47,0,16,1],
-      "events": {"atk":912,"deploy":19,"die":24,"dmg":2975,"engage":7,"face":21,"fx":921,"heal":182,"leak":1,"skill":81,"spawn":25,"status":286,"swing":615,"tplfx":1},
+      "events": {"atk":912,"deploy":19,"die":24,"dmg":2440,"engage":7,"face":21,"fx":921,"heal":182,"leak":1,"skill":81,"spawn":25,"status":286,"swing":615,"tplfx":1},
       "fx": {
         "appear": 1,
         "bandage": 10,

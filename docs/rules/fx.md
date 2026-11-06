@@ -3828,3 +3828,12 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - **혼 S2**: 저지한 적을 쏘는 `BlockedRangedAttack`·`SelfRangedAttack`은 `horn_skill_02_start`·`_start_01`(클립 `Skill_2_A_Loop`), 멀리 쏘는 `RangedAttack`은 `_start_02`(`Skill_2_B_Loop`). 다른 모드처럼 `fortress`로 나눈다. `SelfRangedAttack`(범위 `0-1`)을 저지 쪽으로 묶은 것은 시뮬이 저지만 가르기 때문이다. `Full Burst`는 수동으로 스킬을 끌 때만 쏘므로 `horn_skill_02_start_03`은 자동 전투에서 나오지 않는다(`char_modes.py MANUAL_BURST`).
 - **플레임테일 `Attack_T1`·`Attack_T1+`**: 회피 버프 `flamtl_t_1[evade]`가 있을 때의 공격. `char_modes.py mode_parts`가 자식의 `Trigger…`에 `_buffKey`가 있으면 `talentAtk`로 분리하고(전체 운영자 대조에서 이 규칙에 걸리는 것은 플레임테일뿐), 렌더는 시뮬 `swing`의 신호 `Attack_T1`로 고른다. 일반 공격은 `flamtl_attack_01_hit_01`(S3는 `flamtl_skill_03_attack_01_hit_01`) 하나, 회피 뒤 공격은 `_hit_02_1`·`_hit_02_2`와 타격 때 시전 `start_02`.
 - 확인: `test/render/cond-child-fx.test.js`(양쪽을 다 본다; 고치기 전 코드·추출물로 6건 실패 확인), `cond-cast-fx.test.js`, 아레나 2배속 호출 순서. [공식 화면 미확인] 공식과 나란히 보지는 않았다.
+
+## 효과 없는 주기적 유실 (2026-11-06)
+
+재구성체·Mon3tr S3과 같은 규칙을 셋 더 적용했다(`loseHp`의 `silent`: 체력은 그대로 깎이고 `'dmg'`가 없어 진짜 피해의 흰 발광·입자를 그리지 않는다). 공식 클라에서 확인: 이 노드들은 이펙트를 만들지 않는다.
+
+- 와파린 S2 불안정 혈장 1초마다: `periodic_damage_by_hp_ratio[skip_modifier_fix]`의 `DamageViaMaxHpRatio`. 이펙트는 버프의 `bldsk_skill_02_buff`뿐.
+- 가비알 디 인빈서블 S3 끝의 나눠 깎기: `gvial2_s_3[bleed]`의 `FixedValueDamage`. 끝날 때의 `gvial2_skill_3_bleed`(`gvial2_s_3[final_bleed]`)는 별개다.
+- 아이언 장치(선발) 1초마다 `ironmn_pile_bleed`, 집게 호 스킬 시작 `ironmn_pile3_bleed`: `DamageViaMaxHpRatio`.
+- 확인: `test/content/hp-loss-silent.test.js`, `op_ironmn.test.js`(고치기 전 키트로 실패 확인). 전투 golden은 `.events.dmg` 수만 움직인다. [공식 화면 미확인]

@@ -256,6 +256,7 @@ test('S2 高效补给 + 白铁™多功能平台: +1 SP every 3.5 s to the opera
     assert.equal(g.length, 3, `T${tier}: 3 SP gifts in 11 s`);
     approx(g[1] - g[0], 3.5, `T${tier}: every 3.5 s`, 0.02);
     approx(d.hp, d.s.maxHp * (1 - 0.004 * Math.floor(h.b.time)), `T${tier}: 0.4 % / s`, 0.01);
+    assert.equal(h.eventsOf('dmg').filter((e) => e[1] === d.id).length, 0, `T${tier}: the loss draws no hit (ironmn_pile_bleed creates no effect)`);
     // S2: two blocked enemies at once, ATK / DEF, interval and bleed
     const a = h.spawn('enemy_dummy', { pos: [10, 6] });
     const b = h.spawn('enemy_walk', { routeIndex: 0 });

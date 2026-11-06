@@ -47,7 +47,7 @@ export default withDefaults({
           if (reason === 'death' || !unit.alive || !(debt > 0)) return;
           const per = debt * iv / fin;
           battle.addBuff(unit, { key: 'gvial:bleed', refresh: 'independent', maxStacks: 10, duration: fin + 1e-6, interval: iv, visible: true,
-            onTick: ({ unit: u }) => battle.loseHp(u, per) });
+            onTick: ({ unit: u }) => battle.loseHp(u, per, { silent: true }) });   // (gvial2_s_3[bleed]'s FixedValueDamage creates no effect)
         },
       },
       talents: [

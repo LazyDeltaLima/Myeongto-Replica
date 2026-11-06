@@ -275,7 +275,7 @@ export default {
               if (battle.time + 1e-9 >= m.bleedAt) {
                 m.bleedAt += 1;
                 const r = mode === 'S2' ? hpS2 : hpDef;
-                if (r > 0) battle.loseHp(dev, dev.s.maxHp * r, { source: dev, tags: ['device'] });
+                if (r > 0) battle.loseHp(dev, dev.s.maxHp * r, { source: dev, silent: true, tags: ['device'] });   // (ironmn_pile_bleed's DamageViaMaxHpRatio creates no effect)
               }
             }, { owner: dev });
           },
@@ -296,7 +296,7 @@ export default {
             const list = battle.enemiesInKeys(keysNow, unit, { canHitFly: true });
             sortEnemyTargets(battle, unit, list, null);
             const target = list[0] ?? null;
-            if (loss > 0) battle.loseHp(unit, unit.s.maxHp * loss, { source: unit, tags: ['device'] });
+            if (loss > 0) battle.loseHp(unit, unit.s.maxHp * loss, { source: unit, silent: true, tags: ['device'] });   // (ironmn_pile3_bleed: no effect either)
             if (!target || !(atk > 0)) return;
             battle.addProjectile({ from: unit, target, speed: CRAB_SPEED, visual: 'bomb', source: unit, hitDead: true,
               onHit: ({ target: t, x, y }) => {
