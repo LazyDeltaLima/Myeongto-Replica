@@ -507,6 +507,9 @@ function MatchScreen() {
   const selPiece = sel ? placeCtx.pieces.get(sel.uid) : null;
   const selNow = selectedTile({ tile: selPiece ? pieceTile(selPiece) : null, hold: selHold, editable, showPrep, pen, drag: !!drag, facing: !!facing });
   const barCollapsed = collapsed || deployFold || !!selNow;
+  // and as long as they last there is no way to unfold it: no 展开商店 button, no key (the official key sits on that button)
+  const shopLocked = deployFold || !!selNow;
+  live.current.shopLocked = shopLocked;
   // the player's own 收起 or a held piece (the pen folds the bar for itself: the player's own state is the one it returns
   // to) — the own prep board then takes the official shop-collapsed camera (public issue #5, gameLogic prepCameraFor)
   const shopFolded = showShop && (pen ? penRef.current.collapsed : collapsed || deployFold);
@@ -1589,10 +1592,9 @@ function MatchScreen() {
       // 调度中心 (the official autochessShop): folds / unfolds the shop bar, as its 收起 / 展开商店 buttons (the pen keeps
       // the bar folded for itself)
       if (act === 'shop') {
-        if (!L.showShop || L.pen) return;
+        if (!L.showShop || L.pen || L.shopLocked) return;
         e.preventDefault();
-        // a selected piece is what folded the bar: the key lets go of it and shows the shop
-        if (L.sel) { setSel(null); setCollapsed(false); } else setCollapsed((c) => !c);
+        setCollapsed((c) => !c);
         return;
       }
       if (L.pub?.phase !== PHASE.PREP || !L.priv) return;
@@ -1860,7 +1862,7 @@ function MatchScreen() {
         ${spectator ? null : html`<${Button} size="sm" variant="primary" icon="back" onClick=${() => watchPlayer({ playerId: myId })}>${t('返回自己')}<//>`}
       </div>` : null}
 
-      ${showShop ? html`<${ShopBar} priv=${priv} editable=${editable} collapsed=${barCollapsed} onCollapse=${(c) => { if (!c) setSel(null); setCollapsed(c); }}
+      ${showShop ? html`<${ShopBar} priv=${priv} editable=${editable} collapsed=${barCollapsed} canExpand=${!shopLocked} onCollapse=${setCollapsed}
         barRef=${barRef} offBonds=${offBonds}
         onBuy=${buy} onLevel=${() => actions.levelUp()} onRefresh=${() => actions.refresh()} onFreeze=${() => actions.freeze()}
         onDetail=${(id, kind, hint) => setDetail({ kind: kind === 'item' ? 'item' : 'chess', id, hint: hint || null })}
@@ -1870,7 +1872,7 @@ function MatchScreen() {
         onReward=${pickReward} onRewardLater=${() => setRewardMin(true)} onArm=${setArmedCard} />` : null}
 
       ${phase === PHASE.PREP && priv?.shop?.rewardOffer ? html`<${RewardOverlay} priv=${priv} minimized=${rewardMin || barCollapsed}
-        onMinimize=${(m) => { setRewardMin(m); if (!m) { setSel(null); setCollapsed(false); } }} />` : null}
+        onMinimize=${(m) => { setRewardMin(m); if (!m) setCollapsed(false); }} />` : null}
 
       ${combat || mode === 'settle' ? html`<${CombatHud} pub=${pub} myId=${myId} watching=${watchingNow} myDone=${!!myDone && alive} waitBand=${tipType === 'WAIT_FINISH'}
         spectating=${!alive} spectator=${spectator} onWatch=${watchField}

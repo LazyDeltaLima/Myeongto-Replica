@@ -292,13 +292,14 @@ const SPECIAL_ROLL_MS = 1400; // card_whole_refresh_special's particle_ctrl stay
 
 /**
  * The bar.
- * @param {{ priv:any, editable:boolean, collapsed:boolean, onCollapse:(c:boolean)=>void,
+ * `canExpand` false: the folded tab has no 展开商店 button (a piece is selected or held, the official game shows none).
+ * @param {{ priv:any, editable:boolean, collapsed:boolean, canExpand?:boolean, onCollapse:(c:boolean)=>void,
  *   onBuy:(i:number)=>void, onLevel:Function, onRefresh:Function, onFreeze:Function, onDetail:(id:string, kind?:string, hint?:string|null)=>void,
  *   onDetailClose?: => void, onRefuse?: (reason: string) => void, barRef:any,
  *   reward?: any, onReward?: (idx:number)=>void, onRewardLater?: Function, offBonds?: Set<string>|null }} props — offBonds:
  *   the bonds this mode never activates (gameLogic modeOffBonds), struck through on the operator cards
  */
-export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel, onRefresh, onFreeze, onDetail, onDetailClose, onRefuse, barRef,
+export function ShopBar({ priv, editable, collapsed, canExpand = true, onCollapse, onBuy, onLevel, onRefresh, onFreeze, onDetail, onDetailClose, onRefuse, barRef,
   reward = null, onReward, onRewardLater, onArm = null, offBonds = null }) {
   const shop = priv?.shop || {};
   const slots = Array.isArray(shop.slots) ? shop.slots : [];
@@ -391,7 +392,7 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
   if (collapsed) {
     return html`<div class="shopbar-tab" ref=${barRef}>
       <div class="shopbar-tab__funds"><${CoinGlyph} /><b class="num">${funds}</b></div>
-      <button type="button" class="shopbar-tab__btn" title=${`${t('展开商店')} · ${hotkeyLabelOf('shop')}`} aria-keyshortcuts=${hotkeyLabelOf('shop')} onClick=${() => onCollapse(false)}><${Icon} name="chevronLeft" />${t('展开商店')}</button>
+      ${canExpand ? html`<button type="button" class="shopbar-tab__btn" title=${`${t('展开商店')} · ${hotkeyLabelOf('shop')}`} aria-keyshortcuts=${hotkeyLabelOf('shop')} onClick=${() => onCollapse(false)}><${Icon} name="chevronLeft" />${t('展开商店')}</button>` : null}
     </div>`;
   }
 

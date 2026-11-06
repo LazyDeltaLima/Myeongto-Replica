@@ -249,6 +249,10 @@ describe('wiring', () => {
     assert.match(app, /return opts\.hud\(kind, sz, o\) \|\| null;/);
     const game = read('public/js/screens/game.js');
     assert.match(game, /const barCollapsed = collapsed \|\| deployFold \|\| !!selNow;/);
+    // while a piece is selected or held the shop cannot be unfolded: no button, no key
+    assert.match(game, /const shopLocked = deployFold \|\| !!selNow;/);
+    assert.match(game, /collapsed=\$\{barCollapsed\} canExpand=\$\{!shopLocked\}/);
+    assert.match(read('public/js/ui/shopBar.js'), /\$\{canExpand \? html`<button type="button" class="shopbar-tab__btn"/);
     // a selected piece folds the bar, the camera keeps the shop state's height
     assert.match(game, /const shopFolded = showShop && \(pen \? penRef\.current\.collapsed : collapsed \|\| deployFold\);/);
     assert.match(app, /hud: hudBands\(vk, sz, \{ shop: o\.shop !== false && !o\.at \}\),/);
