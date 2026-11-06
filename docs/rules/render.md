@@ -854,6 +854,15 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     구현(2026-10-14): `*_Up`은 뒷모델에만 있고 렌더는 위를 볼 때만 뒷모델을 쓰므로, `anim-overrides.mjs UP_CLIPS`가 뒷모델 역할에 `up`을 달고 `spine.js _loopOf`
     (즉발 스킬 클립도)가 그것을 튼다 — 送葬人·诗怀雅 `Attack_Up`, 松果 S1 `Skill_1_Up`·S2 `Skill_2_Up`. 아래 방향(`*_Down`, 앞모델)은 위 「아래 방향」(2026-10-23). [화면 미확인]
   - 첫 목록의 `todo`는 2026-10-14에 모두 정리됐다(연결 또는 근거 있는 `none`). 아래 방향 공백도 2026-10-23에 닫음. C의 시뮬 첫 타격 지연은 같은 날 들어감.
+- **선발 클립 판정**(2026-11-06): 키트를 더할 때 `todo`로 남긴 18개를 공식 클라의 키(능력·모드 짝·스킬 프리팹·스킨 키 표·믹스·버프 템플릿)로 판정했다. 남은 `todo`는 이네스 `Start_Skill`(보류)뿐이다.
+  - **없는 클립을 찾으면**(공식 클라에서 확인): 클립은 키 표의 이름 그대로 찾는다(`SkeletonData.FindAnimation`은 대소문자까지 같아야 함). 그 모델에 없으면 `SpineAnimator.UpdateAnimationData`가 그 키를 무효로 두고 `PlayAnimation`은 아무것도 안 튼다. 앞·뒷모델은 키 표 하나를 함께 쓴다. 그래서 뒷모델의 다른 철자 `Skill_2_start`(리)·`Skill_3_Restart_Begin`·`_End`(벨로네)는 어느 키도 안 부르고, 그 키를 뒷모델에서 부르면 클립이 안 바뀐다. 렌더의 `has`도 같다.
+  - **연결 5명**:
+    - 쏜즈: 키 `Attack`이 `Attack_2`, 저지한 적의 `Combat`이 `Attack_1`. 이름 규칙이 번호 순서로 `Attack_1`을 골라 원거리에도 저지 클립을 틀었다. 키에 `Combat` 줄이 있고 이름 규칙이 `attackAny`이면 키의 공격을 쓴다(`anim-keys.mjs overlayKeyRoles`; 시간은 둘 다 1.2초·타격 0.5초로 같아 전투는 안 움직임).
+    - 아이린 S3: 순차 묶음 `StartAttack` `Skill_3_Start`(0.267초, 키트의 첫 타격) → `MultiAttack` `Skill_3_Attack`(3.833초). 시뮬의 스킬은 3.5초라 `Skill_3_Attack`은 마지막 타격(3초 프레임) 뒤에 끊긴다.
+    - 에벤홀츠: 모드별 `_chargeAnimKey` `Attack_Charge`·`Skill_1_Charge`·`Skill_3_Charge`를 `mysticStore` 신호로(비이와 같은 길).
+    - 슈 S3: 적이 없을 때의 공격은 `Heal` 능력 `Skill_3_Attack_2`. 키트의 `performAttack`이 `atk` 신호 `Heal`을 보내고, 렌더는 미리 감기(`windUp`)부터 그 클립을 튼다.
+    - 제시카 더 리버레이티드 S3: 포탄 `ExtraBomb` `Skill_3_Skill`(모드 `S3[D]`는 `Skill_Down_3_Skill`). `bombardShell`의 `t`는 비행 시간이라 `attackTurn`을 달아 공격 간격에 맞춘다. 키트가 포탄 뒤 공격 대기를 바로 비우므로 적이 있으면 다음 휘두름이 곧 이 클립을 끊는다. 공식도 그런지는 화면으로 안 봤다. [화면 미확인]
+  - **`none` 8개**: 스킨 키 표에만 있고 아무것도 안 부름 — 지마 더 레이징 타이드 `Skill_2_Die`, Mon3tr `Skill_2_End`, 리 `Skill_2_Attack`·`Skill_3_End`(믹스는 모델에 없는 `Skill_End`를 부르고 S3는 퇴장 때까지 감), 유넥티스 `Attack_Down`. 키 표에도 없음 — 쏜즈 `Skill2_1`, 파죰카 `Skill_1_End`(뒷모델 전용). 믹스만 부름 — 벨로네 `Skill_3_End`(S3는 `RespawnEnd`로 날아가 `S3_Restore`의 `Skill_3_Back`으로 돌아오므로 `Skill_3_Idle`에서 `Idle`로 바로 가지 않음). 쏜즈 S3 `Skill2_2`는 앞모델에만 있으나 공격이 `_faceToFront`라 뒷모델을 안 그린다. 시험 `test/render/pick-signal-clips.test.js`. 아레나 2배속으로 쏜즈 원거리·아이린·에벤홀츠 셋·슈 치유·제시카 포탄을 봄. 쏜즈 저지 `Attack_1`은 아레나에서 못 만들어 실제 사건 재생 시험으로만 봄. [화면 미확인]
 
 ## 공격 방향 (2026-10-12, 관리자 요청 「공격·스킬 범위 안의 적을 향해 돌아서 공격, 최대 저지 수를 넘겨 뒤에 걸린 적은 뒤를 보며 공격 — 공식 로직대로」)
 - 이전: 오퍼레이터는 배치 방향만 봤다(`units.js onAttack` 「operators keep their deploy direction」, research 09 §1.2의 배치 모습을 전투 내내 적용).

@@ -223,13 +223,14 @@ export default {
               // the mark's audioSignal as it starts on the enemy (public/js/audio.js; its put-back sounds with the 'teleport')
               battle.fx('kitHit', { x: e.x, y: e.y, id: unit.id, tgt: e.id, k: 'shu:mark' });
             }
-            // no enemy to attack: her attack heals the most injured allied unit of her range (herself included)
+            // no enemy to attack: her attack heals the most injured allied unit of her range (herself included): the group's
+            // Heal child, its own clip Skill_3_Attack_2 (the 'atk' signal)
             if (unit.atkCd > 0 || !unit.canAct || unit.s.flags.disarm || !unit.profile) return;
             const prof = effectiveProfile(unit);
             if (acquireTargets(battle, unit, prof).length) return;
             const a = healTarget(battle, unit, false);
             if (!a) return;
-            performAttack(battle, unit, { ...prof, dmgType: 'heal', heal: { mode: 'single' }, atkScale: 1, healScale: 1, projectile: 'none', splashRadius: 0, chain: null, hits: 1 }, [a]);
+            performAttack(battle, unit, { ...prof, dmgType: 'heal', heal: { mode: 'single' }, atkScale: 1, healScale: 1, projectile: 'none', splashRadius: 0, chain: null, hits: 1 }, [a], { signal: 'Heal' });
             unit.atkCd = Math.max(unit.atkCd, unit.s.interval);
           },
           onEnd({ battle, unit }) {

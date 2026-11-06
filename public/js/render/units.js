@@ -1506,10 +1506,10 @@ export class UnitView {
    * so the strike frame lines up with the attack. True once started (then stop calling for that attack). `kind` = the
    * 'atk' projKind (a one-off cast winds up at the clip's own speed).
    */
-  windUp(lead, kind) {
+  windUp(lead, kind, signal = null) {
     if (!this.alive || !this.actor || !this.spineReady) return false;
     this._atkKind(kind);
-    const ok = this.actor.windUp(this.atkInterval, lead, !!PROJ[kind]?.once);
+    const ok = this.actor.windUp(this.atkInterval, lead, !!PROJ[kind]?.once, typeof signal === 'string' ? signal : null);
     if (ok && this.imp) this.imp.dirty = true;
     return ok;
   }

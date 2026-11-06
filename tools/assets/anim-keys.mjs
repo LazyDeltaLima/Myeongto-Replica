@@ -432,6 +432,12 @@ export function overlayKeyRoles(anims, kr, charId = '') {
   // the facing-down clips of the Default mode's abilities, on the attack role (a role keyed by clip name: harmless where the
   // attack role stays the guess)
   if (kr.attackDown) anims.attack.down = kr.attackDown;
+  // numbered attack clips the name guess took in order, where the skin's key table says which is which (棘刺: key Attack →
+  // Attack_2, the blocked enemy's Combat → Attack_1)
+  if (kr.attack?.loop && kr.tables?.combat?.attack && anims.attack.via === 'attackAny' && !anims.attack.alts && kr.attack.loop !== anims.attack.loop) {
+    const down = anims.attack.down;
+    anims.attack = { ...kr.attack, ...(down ? { down } : null) };
+  }
   const hold = KEY_ROLE_HOLD[charId] || [];
   for (const [i, k] of Object.entries(anims.skills ? kr.skills || {} : {})) {
     if (!k || hold.includes(Number(i)) || !Object.hasOwn(anims.skills, i)) continue;

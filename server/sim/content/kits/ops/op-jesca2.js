@@ -189,7 +189,7 @@ function fireBomb(battle, unit, b3) {
   // jesca2_s_3[bomb] InterruptCharacterAttack (_resetCD, then _resetAndClearCD): her swing is cut and her attack is ready
   // at once (Ability.ResetCooldown(false): no wait for the first period — confirmed in the official client)
   unit.swing = null; unit.castLeft = 0; unit.atkCd = 0;
-  battle.fx('bombardShell', { x: bomb.tx, y: bomb.ty, id: unit.id, r: bomb.radius, t: hypot(bomb.tx - bomb.x, bomb.ty - bomb.y) / BOMB_SPEED });
+  battle.fx('bombardShell', { x: bomb.tx, y: bomb.ty, id: unit.id, r: bomb.radius, t: hypot(bomb.tx - bomb.x, bomb.ty - bomb.y) / BOMB_SPEED, signal: 'extraBomb', attackTurn: 1 });
 }
 
 /** Move the shells one tick; a shell touching an enemy or reaching its end point explodes. */

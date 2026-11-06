@@ -113,46 +113,31 @@ export const UNPLAYED = {
     Attack_Idle: 'none: no ability, mode pair, buff, mix or code string names it (EN/CN); attack is Attack_Begin/Loop/End',
   },
   char_4037_demetr: {
-    Skill_3_End: 'todo: S3 清算 end (mode S3_Restore)',
-    Skill_3_Restart_Begin: 'todo: S3 清算 a 【移动】 (the Back model\'s spelling of Skill_3_ReStart_Begin)',
-    Skill_3_Restart_End: 'todo: S3 清算 a 【移动】\'s landing (the Back model\'s spelling)',
+    Skill_3_End: 'none: only the skin mix from Skill_3_Idle / _Loop_A / _Loop_B to Idle names it, and S3 never goes there: RespawnEnd flies her off and mode S3_Restore (`_excludeAnimKeys` Idle) comes back on Skill_3_Back',
+    Skill_3_Restart_Begin: 'none: the Back model\'s own spelling: no key names it, and the client looks a clip up by its exact name (SkeletonData.FindAnimation; a key the model lacks is invalid and plays nothing)',
+    Skill_3_Restart_End: 'none: the Back model\'s own spelling: no key names it, and the client looks a clip up by its exact name (SkeletonData.FindAnimation; a key the model lacks is invalid and plays nothing)',
   },
   char_1051_headb2: {
-    Skill_2_Die: 'todo: the knock-out while S2 绝不罢休 runs (mode s2)',
+    Skill_2_Die: 'none: only an entry of the skin key table (SpineAnimator._animations): no ability, mode pair, skill prefab, buff template or mix names it; mode s2 pairs only Idle',
   },
   char_4179_monstr: {
-    Skill_2_End: 'todo: S2 策略：超负荷 end',
+    Skill_2_End: 'none: only an entry of the skin key table (SpineAnimator._animations): no ability, mode pair, skill prefab, buff template or mix names it; her skin has no mixes',
   },
   // 黍 / 老鲤 / 森蚺 / 黑键 (2026-11-04)
-  char_2025_shu: {
-    Skill_3_Attack_2: 'todo: S3 离离枯荣 the heal-only attack with no enemy (mode S3)',
-  },
   char_322_lmlee: {
-    Skill_2_Attack: 'todo: S2 驱凶辟邪 the marking attack',
-    Skill_2_start: 'todo: S2 驱凶辟邪 cast (the Back model\'s spelling of Skill_2_Start)',
-    Skill_3_End: 'todo: S3 贵客盈门 end',
-  },
-  char_4046_ebnhlz: {
-    Attack_Charge: 'todo: an energy stored (default mode)',
-    Skill_1_Charge: 'todo: an energy stored during S1',
-    Skill_3_Charge: 'todo: an energy stored during S3',
+    Skill_2_Attack: 'none: only an entry of the skin key table (SpineAnimator._animations): no ability, mode pair, skill prefab, buff template or mix names it; the S2 RunePaper ability has no clip',
+    Skill_2_start: 'none: the Back model\'s own spelling: no key names it, and the client looks a clip up by its exact name (SkeletonData.FindAnimation; a key the model lacks is invalid and plays nothing)',
+    Skill_3_End: 'none: only an entry of the skin key table (SpineAnimator._animations): no ability, mode pair, skill prefab, buff template or mix names it; his skin mixes name `Skill_End`, which the model lacks, and S3 lasts until he leaves',
   },
   char_416_zumama: {
-    Attack_Down: 'todo: the attack on a target below her (高台下 clip)',
+    Attack_Down: 'none: only an entry of the skin key table (SpineAnimator._animations): no ability, mode pair, skill prefab, buff template or mix names it; only S3 has a facing-down attack (Skill_2_Loop_Down)',
   },
   // 涤火杰西卡 / 鸿雪 (2026-11-04)
-  char_1034_jesca2: {
-    Skill_3_Skill: 'todo: S3 饱和迸射 the shell launch',
-  },
   char_4055_bgsnow: {
-    Skill_1_End: 'todo: S1 抑扬格 end',
+    Skill_1_End: 'none: Back only, no key or mix names it: the skin mixes go to Idle from Attack_Loop and Skill_3 only',
   },
   // 棘刺 / 艾丽妮 (2026-11-04)
   char_293_thorns: {
-    Attack_2: 'todo: his Attack_2 clip (where the client plays it: not checked yet)',
-    Skill2_1: 'todo: S2 护身尖刺 the spikes',
-  },
-  char_4009_irene: {
-    Skill_3_Start: 'todo: S3 判决 start',
+    Skill2_1: 'none: no key names it: key Skill_2 → Skill2_2 is the S3 attack, `_faceToFront` so the Back model that lacks it is not drawn; the S2 Thorn ability has no clip',
   },
 };

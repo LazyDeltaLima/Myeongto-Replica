@@ -40,6 +40,9 @@ export const SKILL_CLIP_OVERRIDES = Object.freeze({
   // game shows no Start_Skill after the deployment (maintainer 2026-10-14) — only her Start drop: the skill has no clip of
   // its own (Start_Skill: test/render/clip-coverage-list.js, on hold), so a cast during the drop never cuts it.
   'op:char_4087_ines:': Object.freeze({ 2: 'attack' }),
+  // 艾丽妮 (char_4009_irene): S3 判决 is a sequence, StartAttack `_animKey "Skill_3_Start"` (the opening strike, the kit's cast
+  // hold) then MultiAttack `_animKey "Skill_3_Attack"` (the bombardments); the keys read the second as its only clip
+  'op:char_4009_irene:': Object.freeze({ 2: clips({ begin: 'Skill_3_Start', loop: 'Skill_3_Attack' }) }),
   // 赤刃明霄陈 (char_1050_chen3): S2 attacks with her plain clips; its Skill_2_Begin → Skill_2_Disappear (she vanishes while
   // she slashes) and Start_2 (back, mode S2Respawn) are a model form (render/units.js FORMS)
   'op:char_1050_chen3:': Object.freeze({ 1: 'attack' }),
@@ -172,6 +175,15 @@ export const SIGNAL_CLIPS = Object.freeze({
   // 维伊 (2026-11-03): every mode's attack ability stores with `_chargeAnimKey` Charge; the S1 / S2 / S3 modes pair it to
   // Skill_n_Charge (the kit's fx 'mysticStore' { signal: 'store' })
   'op:char_4226_veen:': { attack: { store: 'Charge' }, skills: { 0: { store: 'Skill_1_Charge' }, 1: { store: 'Skill_2_Charge' }, 2: { store: 'Skill_3_Charge' } } },
+  // 黑键: every mode's attack ability stores with its `_chargeAnimKey` (the kit's fx 'mysticStore' { signal: 'store' }); S2 is
+  // an instant cast in the Default mode
+  'op:char_4046_ebnhlz:': { attack: { store: 'Attack_Charge' }, skills: { 0: { store: 'Skill_1_Charge' }, 2: { store: 'Skill_3_Charge' } } },
+  // 黍 S3: Modes/S3/Body/Attack tries Attack, then Heal `_animKey "Skill_3_Attack_2"` — her attack with no enemy to strike (the
+  // kit's `performAttack` signal 'Heal', the 'atk' event's)
+  'op:char_2025_shu:': { skills: { 2: { Heal: 'Skill_3_Attack_2' } } },
+  // 涤火杰西卡 S3: Modes/S3/Body/Attack/ExtraBomb `_animKey "Skill_3_Skill"`, the shell (the kit's 'bombardShell' fx { signal:
+  // 'extraBomb' }); the mode S3[D] pairs it to Skill_Down_3_Skill (the role's `downMode.swap`)
+  'op:char_1034_jesca2:': { skills: { 2: { extraBomb: 'Skill_3_Skill' } } },
   // 新约能天使 S3: Modes/S3/Body/Attack trigger group [S3FireToToken `_animKey "Skill_3_Skill"`, Common Skill_3_Loop] — the
   // strike at the 投递坐标 as the skill opens (the kit's 'airstrike' fx { signal: 'fireToToken' })
   'op:char_1041_angel2:': { skills: { 2: { fireToToken: 'Skill_3_Skill' } } },

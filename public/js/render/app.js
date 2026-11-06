@@ -1736,7 +1736,7 @@ export async function createFieldView(host, options = {}) {
     if (at != null && Math.abs(at - t) < 0.1) { woundUp.add(e); return; }
     const v = views.get(e[1]);
     if (!v || !v.windUp) return;
-    if (v.windUp(t - upcomingT, e[3])) woundUp.add(e);
+    if (v.windUp(t - upcomingT, e[3], e[4])) woundUp.add(e);
   }
 
   const EVS = [];
@@ -1903,9 +1903,9 @@ export async function createFieldView(host, options = {}) {
           if (v && v.slideTo) v.slideTo(Number(e[2]), Number(e[3]), { ...(Number(d.dur) > 0 ? { dur: Number(d.dur) } : {}), face: d.face });
         }
         // an attack behaviour that strikes nothing (fx `signal`, over `t` game s when given: 秘术师 'mysticStore', 凯尔希·思衡托's
-        // S3 take-off), a strike just made (`strike`: 焰尾's 前锋剑术) or a channel held while `on` (蕾缪安 S2's aim, `on` 1 / 0)
+        // S3 take-off; `attackTurn`: over the attack interval, the fx's `t` being something else — 涤火杰西卡's shell flight), a strike just made (`strike`: 焰尾's 前锋剑术) or a channel held while `on` (蕾缪安 S2's aim, `on` 1 / 0)
         // → its role's `signals` clip, UnitView.onSignal
-        if (e[4] && typeof e[4] === 'object' && typeof e[4].signal === 'string' && e[4].id != null) views.get(e[4].id)?.onSignal?.(e[4].signal, Number(e[4].t) > 0 ? Number(e[4].t) : null, !!e[4].strike, e[4].on ?? null);
+        if (e[4] && typeof e[4] === 'object' && typeof e[4].signal === 'string' && e[4].id != null) views.get(e[4].id)?.onSignal?.(e[4].signal, !e[4].attackTurn && Number(e[4].t) > 0 ? Number(e[4].t) : null, !!e[4].strike, e[4].on ?? null);
         // a skill's deploy clip without a deployment (fx `redeploy`: 乌尔比安 S3's anchor on his own tile, UnitView.replayDeploy)
         if (e[4] && typeof e[4] === 'object' && typeof e[4].redeploy === 'string' && e[4].id != null) views.get(e[4].id)?.replayDeploy?.(e[4].redeploy);
         // 予愿安洁莉娜 S2's 吟唱: her model glides out along the sweep and back (UnitView.glide; the sim keeps her on her tile)

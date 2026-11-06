@@ -628,7 +628,7 @@ export class SpineActor {
    * clip from its wind-up so the strike frame lands when the attack event is rendered. Returns true once started;
    * false when it is still too early (call again next frame) or there is nothing to wind up.
    */
-  windUp(interval, lead, once = false) {
+  windUp(interval, lead, once = false, signal = null) {
     if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'held' || this.mode === 'chant' || this.mode === 'aim' || !(lead >= 0)) return false;
     if (this._endPlaying()) return false; // local patch
     if (this._swinging()) return false;   // a swing (b.ev 'swing') drives the clip
@@ -636,9 +636,12 @@ export class SpineActor {
     if (!clip) return false;
     const per = this.clipPerAttack || !!clip.strike; // local patch: a strike skill clip plays once per attack
     // one queued attack owns one wind-up; a later attack may begin while the previous one's recovery still plays
-    let name = this._loopOf(clip);
+    // the attack is another ability with its own clip (the 'atk' event's signal: 黍 S3's Heal): its wind-up, not the role's
+    const sig = signal ? clip.signals?.[signal] : null;
+    const own = typeof sig === 'string' && this.has(sig);
+    let name = own ? this._dn(clip, sig) : this._loopOf(clip);
     if (this.mode === 'attack' && this.current === name && (once || this.wound)) return false;
-    if (this._nextAlt(clip)) name = this._loopOf(clip);
+    if (!own && this._nextAlt(clip)) name = this._loopOf(clip);
     const loopDur = this.dur(name);
     // a one-off cast plays at the clip's own speed (one loop per clip length), whatever the attack rhythm
     const iv = once ? loopDur : clampN(Number.isFinite(interval) && interval > 0 ? interval : this.interval, 0.08, 8);
@@ -816,8 +819,10 @@ export class SpineActor {
     // a swing before its strike is left alone; after it, its clip's tail is cut, as the next swing would (the behaviour
     // takes the attack's turn: 琳琅诗怀雅 S2's throw came while her last Attack still played out and showed nothing)
     if (this._swinging() && !(this.swingAt != null && this.clock >= this.swingAt + (this.swingWindup || 0))) return false;
-    const name = this._attackClip()?.signals?.[signal];
-    if (!this.has(name)) return false;
+    const role = this._attackClip();
+    const raw = role?.signals?.[signal];
+    if (!this.has(raw)) return false;
+    const name = this._dn(role, raw);   // (the running mode's pair: 涤火杰西卡's S3[D])
     // the skill's opening clip plays out first (新约能天使 S3: Skill_3_Begin, then the strike at the 投递坐标)
     if (this.mode === 'skillBegin' && this.clock < this.skillBeginUntil) { this.pendingSignal = { signal, interval }; return true; }
     const dur = this.dur(name);
