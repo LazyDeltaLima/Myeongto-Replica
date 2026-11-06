@@ -88,7 +88,7 @@ import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2: when her
 import { bodyTurn, faceSwitchCopy, faceTurn, followDir, playSpeed, upwardMajor } from './fx/face.js'; // 2026-10-11 (maintainer decision 15): `_usePlaybackSpeed` / `_limitedPlaybackSpeed`; 2026-10-22 FollowDirection, SwitchableEffectByFaceDirection; 2026-10-27 a projectile body's turn
 import { kitOfficialPlan, kitOperator } from './fx/kitofficial.js'; // 2026-10-16: kit events the buff templates draw
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
-import { enemyRecordMode, SKILL_SUB_MODES, skillModeIndex } from '../../../shared/skill-modes.js'; // 2026-10-23: an ally from an enemy record (炎佑)
+import { enemyRecordMode, isOwnSubMode, SKILL_SUB_MODES, skillModeIndex } from '../../../shared/skill-modes.js'; // 2026-10-23: an ally from an enemy record (炎佑)
 import { animPause, clipOf, facesBack, idlePause, immuneTo, movePause, pauseIfNow } from './fx/pause.js'; // 2026-10-21: the client's pause / finish behaviours
 
 /**
@@ -3880,16 +3880,19 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     v._fxCast = null;
   }
   /**
-   * (2026-11-04, official client) a running skill's 【移动】 that switches her mode on the way (shared/skill-modes.js
-   * SKILL_SUB_MODES `teleport`: 贝洛内 S3 → S3_Resapwn, Mon3tr S3 → S3_Reborn — monstr_s_3[route] SwitchMode 4 as she lands):
-   * from then until the skill ends her attacks draw that mode's cast / hit / trail (attackMode `sub`) and its buffs
-   * (`attach`) join the skill's loops; the old mode's abilities detach (endCast, its first attack again). Her landing's
+   * (official client) a running skill switches its owner's mode on the way, at the sim fx of shared/skill-modes.js
+   * SKILL_SUB_MODES (贝洛内 S3 → S3_Resapwn and Mon3tr S3 → S3_Reborn at their 【移动】 — monstr_s_3[route] SwitchMode 4 as she
+   * lands —, 维什戴尔's 过载 → S2_Overload, 乌尔比安 S3's anchor → S3_Respawn_A, 寒芒克洛丝 S2's 40 hits → S2_Sub):
+   * from then until the skill ends its attacks draw that mode's cast / hit / trail (attackMode `sub`) and its buffs
+   * (`attach`) join the skill's loops; the old mode's abilities detach (endCast, its first attack again). A landing's
    * deploy effect is that mode's too (flushDeploys runs after the events of the frame: S3_Reborn's `_overrideStartEffect`
    * common_empty, not the S3 mode's monstr_skill_03_start).
    */
-  function teleportMode(v) {
-    const name = v?._fxSkillOn ? SKILL_SUB_MODES[v.info?.spine || v.info?.defId]?.teleport ?? null : null;
+  function followSubMode(v, fx) {
+    const bind = bindOf(v);
+    const name = v?._fxSkillOn && bind ? SKILL_SUB_MODES[v.info?.spine || v.info?.defId]?.[fx] ?? null : null;
     if (!name || v._fxSub === name) return;
+    if (!isOwnSubMode(bind.modes, skillModeIndex(bind.modes, skillIdx(v), bind.skillMode), name)) return;
     const before = activation(v).loops;
     endCast(v); v._fxFirstDone = null;
     v._fxSub = name;
@@ -5821,9 +5824,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         // kit effect moments (5th field)
         case 'heal': healHit(e, views); if (Array.isArray(e[4])) hitMoments(e[4], e[1], e[3] ?? null, views); return;
         case 'fx': { // a kit's moving effect: 赤刃明霄陈 S3 剑气 (kits/ops/op-chen3.js) carries her official trail along its path
-          if (e[1] === 'teleport' && e[4]?.id != null && e[4].src == null) {
+          if (e[4]?.id != null && e[4].src == null) {
             const tv = views.get(e[4].id);
-            if (!e[4].back) teleportMode(tv); else if (tv) tv._fxReturn = true;   // (the 【返回】: flushDeploys, returnMode)
+            if (e[1] === 'teleport' && e[4].back) { if (tv) tv._fxReturn = true; }   // (the 【返回】: flushDeploys, returnMode)
+            else followSubMode(tv, e[1]);
           }
           if (e[1] === 'palsy' && e[4]?.id != null) { // 2026-10-11: 麻痹 cut its cast; 2026-10-31: its official effect, no 2D mark
             const v = views.get(e[4].id);

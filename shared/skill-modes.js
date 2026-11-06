@@ -19,7 +19,7 @@ export const enemyRecordMode = (id) => (typeof id === 'string' && Object.hasOwn(
  * the sim fx that marks that moment — 维什戴尔 S2's 过载 (wisdel_s_2[overload_start] → S2_Overload; fx 'wisdelOverload'),
  * 乌尔比安 S3 once the anchor lands (ulpia_s3_switch_mode[born]: his redeploy there, moved or in place, → S3_Respawn_A;
  * fx 'anchor'). From then until the skill ends its attacks sound that mode's signals (tools/assets/skill-mode-sfx.mjs
- * `modes[i].sub`, public/js/audio.js). A name is a `_modes` entry of the skill's own mode (`<its name>_…`), or a sibling
+ * `modes[i].sub`, public/js/audio.js) and draw its effects (render/fxgame.js followSubMode). A name is a `_modes` entry of the skill's own mode (`<its name>_…`), or a sibling
  * cast mode of the same skill (`S3_1` → `S3_2`).
  */
 export const SKILL_SUB_MODES = Object.freeze({
@@ -37,6 +37,19 @@ export const SKILL_SUB_MODES = Object.freeze({
   // melee mode; kit fx 'teleport')
   char_4179_monstr: Object.freeze({ teleport: 'S3_Reborn' }),
 });
+
+/**
+ * Whether `name` is a mode the skill drawn in mode `n` switches to on the way: its own mode's (`S2` → `S2_Overload`) or a
+ * sibling cast mode of the skill (`S3_1` → `S3_2`). The table's fx kinds are not the skill's alone: 乌尔比安's S1 throws an
+ * 'anchor' too, in no mode of its own.
+ * @param {string[]} modes @param {number} n @param {string} name
+ */
+export function isOwnSubMode(modes, n, name) {
+  const m = Array.isArray(modes) ? modes.indexOf(name) : -1;
+  if (m <= 0 || n <= 0 || m === n) return false;
+  const root = /^(Sk?\d+)_/i.exec(modes[n])?.[1];
+  return name.startsWith(`${modes[n]}_`) || (!!root && name.startsWith(`${root}_`));
+}
 
 /**
  * 2026-11-03, official client: a skill whose own attack ability is a group of casts (`ON_ABILITY_*.<skillId>.<k>`), the

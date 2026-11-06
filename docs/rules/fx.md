@@ -3770,7 +3770,7 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
   `ON_BUFF_FINISH` `monstr_skill_03_end_02`를 그 자리에.
 - Mon3tr·벨로네 S3 공격 이펙트의 모드 (2026-11-04, 관리자 제보 「Mon3tr S3가 치유 이펙트로 공격」): 이펙트 층은 스킬 공격을 이름 규칙의 모드(`S3`)로 그려
   Mon3tr S3가 S3 모드의 치료탄(`monstr_skill_03_heal`)으로 공격했다. 공식은 【이동】 착지 때 `monstr_s_3[route]`가 `SwitchMode` 4 `S3_Reborn`(벨로네는 모드 3
-  `S3_Resapwn`)으로 바꾼다 → `fxgame.js teleportMode`: 사건 `teleport`(복귀 아님)에서 `SKILL_SUB_MODES` `teleport`의 모드를 스킬이 끝날 때까지
+  `S3_Resapwn`)으로 바꾼다 → `fxgame.js followSubMode`: 사건 `teleport`(복귀 아님)에서 `SKILL_SUB_MODES` `teleport`의 모드를 스킬이 끝날 때까지
   `attackMode`의 `sub`로(시전·타격·탄, 그 모드 `attach`는 스킬 루프에 더함, 첫 공격부터 다시). 착지의 배치 이펙트도 그 모드의 `_overrideStartEffect`
   (Mon3tr `common_empty` — 전엔 S3 모드의 `monstr_skill_03_start`). 【복귀】는 같은 버프가 모드 `<스킬 모드>_Restore`로 바꾸며 들어오므로(Mon3tr 3,
   벨로네 `demetr_s3_t[born_sync]` 4, 울피아누스 `ulpia_s3_switch_mode[born]` 4) 그 배치 이펙트는 그 모드 것(`returnMode`: 사건 `teleport` `back` 또는 시뮬
@@ -3778,6 +3778,7 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
   시험 `test/render/teleport-mode-fx.test.js`. 같은 종류가 다시 빠지지 않게 `test/render/mode-switch-coverage.test.js`가 스킬 버프가 바꾸는 모든 모드
   (`char_modes.py skill_switches` → `local-char-modes.json` `switchTo`, 공식 클라 버프 템플릿)를 이펙트 층이 따르는지, 아니면
   `test/render/mode-switch-list.js`에 `ok`/`todo` 사유와 함께 있는지 본다(첫 목록 2026-11-04: 32줄, `todo` 12). [화면 미확인]
+- 스킬 도중 바꾸는 모드 표 전체를 이펙트도 따름 (2026-11-06, 공식 클라에서 확인): `shared/skill-modes.js SKILL_SUB_MODES`를 소리만 따르고 이펙트는 `teleport` 줄만 따랐다. 그래서 위셔델 S2 과부하(`S2_Overload`)의 `wisdel_skill_02_overload_start`, 울피아누스 S3 닻 뒤(`S3_Respawn_A`)의 `ulpia_skill_03_start_01`·`_hit_01`, 크루스 더 킨 글린트 S2 네 발(`S2_Sub`)의 `kroos2_skill_02_start_02`·`_hit_02`·`_trail_02`가 안 나왔는데, `test/render/mode-switch-coverage.test.js`는 표에 있으면 따른다고 쳐서 시험에 안 걸렸다. → `fxgame.js followSubMode`가 표의 모든 사건을 따르고, `test/render/sub-mode-fx.test.js`가 표의 줄마다 실제로 그림이 바뀌는지 본다. 같은 사건 이름을 다른 스킬도 쓰므로(울피아누스 S1의 `anchor`) 그 스킬 자기 모드의 것일 때만 바꾼다(`isOwnSubMode`, 소리 쪽과 같은 규칙). 아레나 2배속 확인, 공식 화면과 나란히는 안 봄.
 - 비이(`char_4226_veen`) 재능 2 전쟁 기술: `veen_t_2[damage]`의 `veen_talent_02_debuff_01` — 시뮬 표식 `veen:war:<그녀 id>`를 `visible`로 → `KEY_FX`.
   S2 '선혈로 정화하라' 상한: `veen_s_2_buff[stack]`이 `max_stack_cnt`에 닿으면 `veen_s_2_buff_full[effect]`(`veen_skill_02_buff_03`)를 스킬이 끝날 때까지
   — 시뮬 `veen:s2full`.

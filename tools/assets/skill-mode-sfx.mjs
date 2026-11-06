@@ -37,7 +37,7 @@ export function loadCharModes(root = process.cwd()) {
 }
 
 export { skillModeIndex } from '../../shared/skill-modes.js'; // the same rule as the effect layer (render/fxgame.js)
-import { skillModeIndex, SKILL_SUB_MODES, SKILL_CAST_KIDS } from '../../shared/skill-modes.js';
+import { isOwnSubMode, skillModeIndex, SKILL_SUB_MODES, SKILL_CAST_KIDS } from '../../shared/skill-modes.js';
 
 /** Sub-ability order: the plain key first, then deeper keys with numeric parts ascending (audio.mjs abilityOrder). */
 const order = (a, b) => (a.split('.').length - b.split('.').length) || a.localeCompare(b, 'en', { numeric: true });
@@ -149,11 +149,8 @@ export function skillModes(audio, charId, skills, info, soundLeaf, startIsFallba
     if (set && n > 0) {
       const sub = {};
       for (const [fx, name] of Object.entries(SKILL_SUB_MODES[charId] || {})) {
-        const m = info.modes.indexOf(name);
-        // its own mode's (`S2` → `S2_Overload`) or a sibling cast mode of the skill (2026-11-03: `S3_1` → `S3_2`)
-        const root = /^(Sk?\d+)_/i.exec(info.modes[n])?.[1];
-        if (m <= 0 || m === n || !(name.startsWith(`${info.modes[n]}_`) || (root && name.startsWith(`${root}_`)))) continue;
-        const ss = soundSet(audio, charId, ca, m, soundLeaf);
+        if (!isOwnSubMode(info.modes, n, name)) continue;
+        const ss = soundSet(audio, charId, ca, info.modes.indexOf(name), soundLeaf);
         sub[fx] = ss.sel ? { cues: ss.cues, sel: ss.sel } : { cues: ss.cues };
       }
       if (Object.keys(sub).length) e.sub = sub;
