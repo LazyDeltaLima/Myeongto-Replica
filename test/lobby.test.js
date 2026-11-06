@@ -24,6 +24,13 @@ import { ERR, MAX_SEATS, MAX_SPECTATORS, PHASE, EMOTES } from '../shared/constan
 const CODE_RE = new RegExp(`^[${CODE_ALPHABET}]{4}$`);
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 
+/** Wait for what a server timer does, not for a guess of how long it takes: a loaded machine runs timers seconds late. */
+async function until(cond, what, ms = 20000) {
+  for (const end = Date.now() + ms; !cond(); await delay(25)) {
+    if (Date.now() > end) assert.fail(`timed out after ${ms} ms waiting for ${what}`);
+  }
+}
+
 // ---------------------------------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------------------------------
@@ -1198,7 +1205,7 @@ describe('websocket lobby', () => {
         continue;
       }
       const msg = gen();
-      const reply = await c.request(msg, 3000);
+      const reply = await c.request(msg, 20000); // a generous limit: this checks the replies, a loaded machine only delays them
       assert.ok(['ok', 'error', 'welcome', 'pong'].includes(reply.t));
       if (reply.t === 'ok') okCounts[msg.t] = (okCounts[msg.t] || 0) + 1;
       if (reply.t === 'error') assert.ok(Object.hasOwn(ERR, reply.code), reply.code);
@@ -1549,7 +1556,7 @@ describe('lobby timers and match interface', () => {
     const m = RecordingMatch.instances[0];
     await guest.terminate();
     await host.waitFor('room.state', (s) => seatOf(s, guest.id)?.connected === false);
-    await delay(WINDOW + 700);
+    await until(() => m.calls.some((c) => c[0] === 'onLeave'), 'the reconnect window to expire');
     assert.deepEqual(m.calls.filter((c) => c[0] === 'onLeave'), [['onLeave', guest.id]]);
     const back = await pool.connect();
     const w = await back.hello('Guest', guest.token);
@@ -1558,8 +1565,7 @@ describe('lobby timers and match interface', () => {
 
     // host drops too and never returns → room disposed after the window
     await host.terminate();
-    await delay(WINDOW + 700);
-    assert.ok(m.calls.some((c) => c[0] === 'dispose'));
+    await until(() => m.calls.some((c) => c[0] === 'dispose'), 'the empty room to be disposed');
     await expectError(back, { t: 'room.join', code: st.code }, ERR.ROOM_NOT_FOUND);
   });
 
@@ -1594,10 +1600,11 @@ describe('lobby timers and match interface', () => {
 
 describe('solo resume window', () => {
   const WINDOW = 300;       // stands in for the 10-minute reconnect window
-  // stands in for singleReconnectTime (24 h); 2 s above the first check, so a loaded machine's event-loop lag does not
-  // expire the solo run before it (with 1500 a full `node --test` run lost the 600 ms margin). The windows run on the
-  // wall clock: a stepped system clock (NTP vs the host fighting) still fails this suite, now without the 30 GB diff.
-  const SOLO_WINDOW = 3000;
+  // stands in for singleReconnectTime (24 h); far above the first check, so a loaded machine's event-loop lag does not
+  // expire the solo run before it (with 1500 a full `node --test` run lost the 600 ms margin, with 3000 the 2 s one). The
+  // windows run on the wall clock: a stepped system clock (NTP vs the host fighting) still fails this suite, now without
+  // the 30 GB diff.
+  const SOLO_WINDOW = 10000;
   let srv;
   let url;
   const open = [];
@@ -1642,9 +1649,10 @@ describe('solo resume window', () => {
 
     // a reconnect re-evaluates the window: the extension is set at every drop, and still ends after the solo window
     await b.terminate();
-    await delay(SOLO_WINDOW + 700);
-    assert.equal(match.ended, true, 'expiry after the solo window → onLeave → abandoned');
-    assert.equal(srv.lobby.getRoom(st.code), null, 'empty room disposed');
+    const dropped = Date.now();
+    await until(() => match.ended, 'the solo window to expire → onLeave → abandoned', SOLO_WINDOW + 30000);
+    assert.ok(Date.now() - dropped >= SOLO_WINDOW - 500, 'not before the solo window');
+    await until(() => srv.lobby.getRoom(st.code) === null, 'the empty room to be disposed');
     const c = await connect();
     const w3 = await c.hello('Solo', w.token);
     assert.equal(w3.resumed, false);
@@ -1661,8 +1669,7 @@ describe('solo resume window', () => {
     await a.waitFor('m.public', (p) => p.phase === PHASE.INFO_CHECK);
     const match = srv.lobby.getRoom(st.code).match;
     await a.terminate();
-    await delay(WINDOW + 600);
-    assert.equal(match.players.get(a.id).left, true, 'co-op: the window expired → onLeave');
+    await until(() => match.players.get(a.id).left, 'co-op: the window to expire → onLeave');
     const b = await connect();
     assert.equal((await b.hello('Coop', w.token)).resumed, false);
 
@@ -1670,8 +1677,9 @@ describe('solo resume window', () => {
     const s = await connect();
     const ws = await s.hello('Idle');
     s.id = ws.playerId;
-    await createRoom(s, 'solo', 'NORMAL');
+    const idle = await createRoom(s, 'solo', 'NORMAL');
     await s.terminate();
+    await until(() => srv.lobby.getRoom(idle.code) === null, 'the lobby grace to free the seat');
     await delay(WINDOW + 600);
     const s2 = await connect();
     assert.equal((await s2.hello('Idle', ws.token)).resumed, false);

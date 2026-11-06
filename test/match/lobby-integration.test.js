@@ -11,7 +11,7 @@ import { Match } from '../../server/match/Match.js';
 import { TestClient } from '../helpers/wsClient.js';
 import { FakeBattle } from './fakeBattle.js';
 import { attachWsSimClient } from './simClient.js';
-import { EMOTES } from '../../shared/constants.js';
+import { EMOTES, ERR } from '../../shared/constants.js';
 
 let serverCombat = false;
 class FastMatch extends Match {
@@ -129,8 +129,12 @@ test('co-op over websockets: two humans + AI, reconnect with the token mid-match
   assert.equal(pub.players.find((p) => p.playerId === b2.id).connected, true);
   const priv = await b2.waitFor('m.private');
   assert.equal(priv.playerId, b2.id);
-  await ok(a, { t: 'g.ready', ready: true });
-  await ok(b2, { t: 'g.ready', ready: true });
+  // timerScale 0.02 leaves this prep under two seconds: on a loaded machine it can end during the reconnect, and the
+  // ready is then refused, not lost: the battle below starts either way
+  for (const c of [a, b2]) {
+    const r = await c.request({ t: 'g.ready', ready: true });
+    if (r.t !== 'ok') assert.equal(r.code, ERR.WRONG_PHASE, JSON.stringify(r));
+  }
   // Instant simulated battles can finish before the throttled public phase is broadcast, as in the solo test.
   const start = await a.waitFor('b.start', (x) => x.authoritative, 10000);
   assert.equal(start.fieldId, `n:${a.id}`);
