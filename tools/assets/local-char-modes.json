@@ -12471,8 +12471,7 @@
    [
     "horn_skill_02_start",
     "horn_skill_02_start_01",
-    "horn_skill_02_start_02",
-    "horn_skill_02_start_03"
+    "horn_skill_02_start_02"
    ],
    [
     "horn_skill_03_start_02",
@@ -12543,11 +12542,6 @@
      "s": 2,
      "e": 3,
      "o": 0
-    },
-    "horn_skill_02_start_03": {
-     "s": 2,
-     "e": 3,
-     "o": 0
     }
    },
    {
@@ -12592,7 +12586,25 @@
      ]
     }
    },
-   null,
+   {
+    "melee": {
+     "cast": [
+      "horn_skill_02_start",
+      "horn_skill_02_start_01"
+     ],
+     "hit": [
+      "horn_skill_02_hit_02"
+     ]
+    },
+    "ranged": {
+     "cast": [
+      "horn_skill_02_start_02"
+     ],
+     "hit": [
+      "horn_skill_02_hit_02"
+     ]
+    }
+   },
    {
     "melee": {
      "cast": [
@@ -18828,25 +18840,18 @@
   ],
   "cast": [
    [
-    "flamtl_attack_01_start_01",
-    "flamtl_attack_01_start_02"
+    "flamtl_attack_01_start_01"
    ],
    [
-    "flamtl_skill_03_attack_start_01",
-    "flamtl_skill_03_attack_start_01_2",
-    "flamtl_skill_03_attack_start_02"
+    "flamtl_skill_03_attack_start_01"
    ]
   ],
   "hit": [
    [
-    "flamtl_attack_01_hit_02_1",
-    "flamtl_attack_01_hit_02_2",
     "flamtl_attack_01_hit_01"
    ],
    [
-    "flamtl_skill_03_attack_01_hit_01",
-    "flamtl_skill_03_attack_01_hit_02_1",
-    "flamtl_skill_03_attack_01_hit_02_2"
+    "flamtl_skill_03_attack_01_hit_01"
    ]
   ],
   "trail": [
@@ -18885,6 +18890,56 @@
      "s": 4,
      "e": 3,
      "o": 1
+    }
+   }
+  ],
+  "talentAtk": [
+   {
+    "Attack_T1": {
+     "cast": [
+      "flamtl_attack_01_start_01",
+      "flamtl_attack_01_start_02"
+     ],
+     "trail": [],
+     "hit": [
+      "flamtl_attack_01_hit_02_1",
+      "flamtl_attack_01_hit_02_2"
+     ]
+    },
+    "Attack_T1+": {
+     "cast": [
+      "flamtl_attack_01_start_01",
+      "flamtl_attack_01_start_02"
+     ],
+     "trail": [],
+     "hit": [
+      "flamtl_attack_01_hit_02_1",
+      "flamtl_attack_01_hit_02_2"
+     ]
+    }
+   },
+   {
+    "Attack_T1": {
+     "cast": [
+      "flamtl_skill_03_attack_start_01_2",
+      "flamtl_skill_03_attack_start_02"
+     ],
+     "trail": [],
+     "hit": [
+      "flamtl_skill_03_attack_01_hit_02_1",
+      "flamtl_skill_03_attack_01_hit_02_2"
+     ]
+    },
+    "Attack_T1+": {
+     "cast": [
+      "flamtl_skill_03_attack_start_01_2",
+      "flamtl_skill_03_attack_start_02"
+     ],
+     "trail": [],
+     "hit": [
+      "flamtl_skill_03_attack_01_hit_02_1",
+      "flamtl_skill_03_attack_01_hit_02_2"
+     ]
     }
    }
   ],

@@ -61,7 +61,7 @@
 import { syncThreeCamera, OFFICIAL } from './projection.js';
 import { fxBundleOf, effectsFor } from './fxmap.js';
 import { noteEffects, NOTE_FLIGHT } from './fxmap.js';
-import { attackMode, boundEffects, fortressEffects, KIT_CAST, modelessTrail } from './fxmap.js'; // local patch: the mode bindings (modes.json)
+import { attackMode, boundEffects, fortressEffects, KIT_CAST, KIT_HIT, modelessTrail } from './fxmap.js'; // local patch: the mode bindings (modes.json)
 import { activationEffects, readySpecs, VARIANT_MODES, variantFx, variantModes } from './fxmap.js'; // local patch: a skill activation's effects (2026-11-03: a cast's mode by its variant)
 import { foeEffects, castTiming, castPhase, CAST_EVENT } from './fxmap.js'; // 2026-10-10: enemy-held mode buffs, cast timings
 import { clipGroup, hitLoopEnd, deployEffect, deadEffect } from './fxmap.js'; // 2026-10-11: clip variants, looping hits, deploy / dead effects
@@ -4142,7 +4142,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const f = fortressEffects(bindOf(v), bundleOf(v)?.prefabs, mode, role, kind);
     if (f) return { names: f, split: true };
     const names = mode != null ? bound(v, mode, role) : [];
-    return { names: role === 'cast' ? names.filter((n) => !KIT_CAST.has(n)) : names, split: false };
+    const kit = role === 'cast' ? KIT_CAST : role === 'hit' ? KIT_HIT : null;
+    return { names: kit ? names.filter((n) => !kit.has(n)) : names, split: false };
   }
   /** A swing starts: the cast effects of ON_CAST_START (the mode's, or the name mapping's attack start without bindings). */
   function swingFx(src, windup, views, kind = null, sig = null, faceId = null) {

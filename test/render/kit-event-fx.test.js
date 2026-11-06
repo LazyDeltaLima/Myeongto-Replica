@@ -157,7 +157,7 @@ test('the rules name prefabs the client binds for that operator', () => {
       const o = { left: 0, t: 2, id: 1, of: 2, n: 2, cap: 3, name: 'extradition', cells: [[1, 1, 1], [2, 1, 3], [3, 1, 5], [4, 1, 0]], skill: 'swire2_3', targets: [2], token: 'token_10058_sbell2_icetgt', ids: [2], off: [3], picks: [2], src: 2, cd: 1.5 };
       if (n === 'whitw2Drones') o.t = [[2, 0], [3, 1]];
       if (n === 'tockaFx') Object.assign(o, { s: 2, shot: 1 });
-      if (n === 'aoe') o.skill = 'judge:atonement';   // 斥罪's S2 pulse (the shared 'aoe' event: her skill only)
+      if (n === 'aoe') o.skill = b === 'branch' ? 'resolve' : 'judge:atonement';   // 折桠's opening blast, 斥罪's S2 pulse (the shared 'aoe' event: their skills only)
       // ('hit' rules answer their own moment keys)
       const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((c) => ({ ...c, plays: PLAYS }))
         .flatMap((ctx) => (n === 'hit' ? HIT_KEYS : n === 'kitHit' ? KIT_HIT_KEYS : [undefined]).map((k) => kitOfficialPlan(n, { ...o, k, heal: 1 }, b, ctx))).filter(Boolean);
@@ -186,7 +186,7 @@ test('涤火杰西卡 S3\'s shell: the bomb\'s cast and flight as it fires, its 
   assert.equal(kitOfficialPlan('bombardShell', { id: 1 }, 'lemuen', ctx), null, '蕾缪安\'s shell stays hers');
   assert.ok(KIT_CAST.has('jesca2_skill_03_start_02'));
   const fxgame = readFileSync(new URL('../../public/js/render/fxgame.js', import.meta.url), 'utf8');
-  assert.ok(fxgame.includes("role === 'cast' ? names.filter((n) => !KIT_CAST.has(n)) : names"), 'a swing skips it (fxgame.js boundFor)');
+  assert.ok(fxgame.includes("const kit = role === 'cast' ? KIT_CAST : role === 'hit' ? KIT_HIT : null;"), 'a swing skips it (fxgame.js boundFor)');
   assert.ok(fxgame.includes('owner: p.tag ? opId : null') && fxgame.includes('...(p.tag ? { tag: p.tag } : {})'), 'a tagged flight can be stopped');
 });
 

@@ -23,8 +23,10 @@ test('char_modes.py: 号角 and 灰毫 carry the melee / ranged split of their �
   const s3 = h.fortress[h.modes.indexOf('S3')];
   assert.deepEqual(s3.melee.hit, ['horn_skill_03_hit']);
   assert.deepEqual(s3.ranged.hit, ['horn_skill_03_hit_02']);
-  // S2 shoots while blocking too (BlockedRangedAttack): no split
-  assert.equal(h.fortress[h.modes.indexOf('S2')], null);
+  // S2 shoots while blocking too, but BlockedRangedAttack / SelfRangedAttack cast their own (Skill_2_A_Loop's) effects
+  const s2 = h.fortress[h.modes.indexOf('S2')];
+  assert.deepEqual(s2.melee.cast, ['horn_skill_02_start', 'horn_skill_02_start_01']);
+  assert.deepEqual(s2.ranged.cast, ['horn_skill_02_start_02']);
   assert.ok(MODES.char_431_ashlok.fortress.some(Boolean));
   // only 要塞 modes are split
   const split = Object.entries(MODES).filter(([id, m]) => !id.startsWith('$') && m.fortress).map(([id]) => id).sort();
@@ -38,7 +40,7 @@ test('fortressEffects: melee lists for kind none, ranged ones otherwise, null wi
   assert.deepEqual(fortressEffects(h, all, 0, 'hit', 'bomb'), ['horn_attack_01_hit_02']);
   assert.deepEqual(fortressEffects(h, all, 0, 'cast', 'none'), []);
   assert.deepEqual(fortressEffects(h, all, 0, 'cast', 'bomb'), ['horn_attack_01_start_02']);
-  assert.equal(fortressEffects(h, all, 1, 'hit', 'none'), null, 'S2: the whole list');
+  assert.equal(fortressEffects({ ...h, fortress: [h.fortress[0], null] }, all, 1, 'hit', 'none'), null, 'a mode with no split: the whole list');
   assert.equal(fortressEffects(h, all, 0, 'hit', null), null, 'kind unknown: the whole list');
   assert.equal(fortressEffects(MODES.char_1040_blaze2, all, 0, 'hit', 'none'), null);
 });

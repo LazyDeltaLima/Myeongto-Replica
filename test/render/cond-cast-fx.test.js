@@ -9,7 +9,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { COND_GROUPS } from '../audio-cond-group-list.js';
-import { KIT_CAST } from '../../public/js/render/fxmap.js';
+import { KIT_CAST, KIT_HIT } from '../../public/js/render/fxmap.js';
+import { kitOfficialPlan } from '../../public/js/render/fx/kitofficial.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const LOCAL = path.join(ROOT, 'public/assets/local/fx');
@@ -19,17 +20,7 @@ const NO_DATA = !existsSync(path.join(LOCAL, 'bindings.json')) && 'no extracted 
  * Cast effects of a conditional child that fxmap.js KIT_CAST does not take off the attacks: 'ok: …' why that is right, or
  * 'todo: …' (STRONGHOLD-side open list). A new operator's entry settles it: KIT_CAST plus a kit moment, or the reason.
  */
-const COND_CASTS = Object.freeze({
-  'char_1033_swire2|S1|swire2_skill_01_start': 'todo: HealAlly\'s, on its coin buff and an injured ally — plays with every S1 attack',
-  'char_1033_swire2|S2|swire2_skill_02_start': 'todo: SpawnToken\'s, on its coin and a free tile — plays with every S2 attack',
-  'char_4039_horn|S2|horn_skill_02_start': 'todo: BlockedRangedAttack / SelfRangedAttack\'s — not RangedAttack\'s',
-  'char_4039_horn|S2|horn_skill_02_start_01': 'todo: BlockedRangedAttack / SelfRangedAttack\'s — not RangedAttack\'s',
-  'char_4207_branch|S2|branch_skill_02_range_01': 'todo: FirstAttack\'s, the mode\'s first attack only',
-  'char_4207_branch|S2|branch_skill_02_start_01': 'todo: FirstAttack\'s, the mode\'s first attack only',
-  'char_420_flamtl|Default|flamtl_attack_01_start_02': 'todo: Attack_T1 / Attack_T1+\'s, after a dodge (flamtl_t_1[evade])',
-  'char_420_flamtl|S3|flamtl_skill_03_attack_start_01_2': 'todo: Attack_T1 / Attack_T1+\'s, after a dodge (flamtl_t_1[evade])',
-  'char_420_flamtl|S3|flamtl_skill_03_attack_start_02': 'todo: Attack_T1 / Attack_T1+\'s, after a dodge (flamtl_t_1[evade])',
-});
+const COND_CASTS = Object.freeze({});
 
 test('a cast effect bound only to a conditional child of an attack group is the kit\'s or is listed', { skip: NO_DATA }, () => {
   const rows = JSON.parse(readFileSync(path.join(LOCAL, 'bindings.json'), 'utf8')).rows;
@@ -41,6 +32,7 @@ test('a cast effect bound only to a conditional child of an attack group is the 
     const m = modes[charId];
     if (!m || !others.length) continue;
     (m.cast || []).forEach((list, i) => {
+      if (m.fortress?.[i]) return;   // the attack's kind picks the list (fxmap.js fortressEffects; 号角 S2's test below)
       for (const n of list) {
         const kids = rows.filter((r) => r.char === charId && r.fx === n && String(r.moment).startsWith('_castEffects') && r.key.includes(`/Modes/${m.modes[i]}/`))
           .map((r) => r.key.split('/').pop());
@@ -55,5 +47,33 @@ test('a cast effect bound only to a conditional child of an attack group is the 
 
 test('KIT_CAST names prefabs a kit plan plays', () => {
   const src = readFileSync(path.join(ROOT, 'public/js/render/fx/kitofficial.js'), 'utf8');
-  for (const n of KIT_CAST) assert.ok(src.includes(`'${n}'`), `${n}: no plan plays it, so it would never show`);
+  // by name, or by the client key whose plays hold it (`tpl`)
+  const keys = existsSync(path.join(LOCAL, 'plays.json')) ? JSON.parse(readFileSync(path.join(LOCAL, 'plays.json'), 'utf8')).keys : null;
+  const byKey = (n) => Object.entries(keys || {}).some(([k, v]) => v.held?.includes(n) && src.includes(`tpl: '${k}'`));
+  for (const n of KIT_CAST) assert.ok(src.includes(`'${n}'`) || !keys || byKey(n), `${n}: no plan plays it, so it would never show`);
+});
+
+test('号角 S2: a blocked shot casts its own effects, an unblocked one its own, and the hand-closed Full Burst\'s never', { skip: NO_DATA }, () => {
+  const m = JSON.parse(readFileSync(path.join(LOCAL, 'modes.json'), 'utf8')).char_4039_horn;
+  const f = m.fortress[m.modes.indexOf('S2')];
+  assert.deepEqual(f.melee.cast, ['horn_skill_02_start', 'horn_skill_02_start_01']);
+  assert.deepEqual(f.ranged.cast, ['horn_skill_02_start_02']);
+  assert.ok(!m.cast.flat().includes('horn_skill_02_start_03'), 'Full Burst fires only as the skill is closed by hand');
+});
+
+test('焰尾: the attack after a dodge is its own child, with the plain attack\'s effects kept apart', { skip: NO_DATA }, () => {
+  const m = JSON.parse(readFileSync(path.join(LOCAL, 'modes.json'), 'utf8')).char_420_flamtl;
+  assert.deepEqual([m.cast[0], m.hit[0]], [['flamtl_attack_01_start_01'], ['flamtl_attack_01_hit_01']]);
+  assert.deepEqual([m.cast[1], m.hit[1]], [['flamtl_skill_03_attack_start_01'], ['flamtl_skill_03_attack_01_hit_01']]);
+  assert.deepEqual(m.talentAtk[0].Attack_T1.hit, ['flamtl_attack_01_hit_02_1', 'flamtl_attack_01_hit_02_2']);
+  assert.deepEqual(m.talentAtk[1].Attack_T1.cast, ['flamtl_skill_03_attack_start_01_2', 'flamtl_skill_03_attack_start_02']);
+  const s = readFileSync(path.join(ROOT, 'server/sim/content/kits/ops/chess_char_4_19-flamtl.js'), 'utf8');
+  assert.match(s, /c\.signal = 'Attack_T1'/, 'the swing names the child the table holds');
+});
+
+test('琳琅诗怀雅 S1: HealAlly\'s hit plays on the ally it heals, not on the enemies she attacks', () => {
+  assert.ok(KIT_HIT.has('swire2_skill_01_hit'));
+  const plan = kitOfficialPlan('coin', { skill: 'swire2_1', heal: 7 }, 'swire2');
+  assert.deepEqual(plan.play, [{ n: 'swire2_skill_01_hit', on: 'heal', life: 'once' }]);
+  assert.equal(kitOfficialPlan('coin', { skill: 'swire2_1', n: 1 }, 'swire2'), null, 'a coin gained is no heal');
 });

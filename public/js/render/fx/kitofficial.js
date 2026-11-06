@@ -288,12 +288,16 @@ export const KIT_OFFICIAL = {
   // (2026-10-21) The skill's end switches her to mode S3_End (swire2_skill_3 ON_BUFF_FINISH SwitchMode), whose Body/Trigger
   // ability (Skill_3_End) casts swire2_skill_03_start_03, _start_03_02 and swire2_skill_03_range (`_useFourDirectionalFace`)
   // from its ON_CAST_START — coins or not [추정: for the prefabs' own duration; the client ends them at its ON_CAST_END]
+  // S1's HealAlly and S2's SpawnToken are children of her attack group that fire on her coins (swire2_can_use_gold), so the
+  // kit sends them apart: their `_castEffects` as the cast starts, HealAlly's `_hitEffects` on the ally it heals ('coin' `heal`)
   coin: {
-    swire2: cite(['projectile_chr_swire2_s_3', 'char_1033_swire2/Modes/S3_End/Body/Trigger'], (o) => (o.skill === 'swire2_3' ? { play: [
+    swire2: cite(['projectile_chr_swire2_s_3', 'char_1033_swire2/Modes/S3_End/Body/Trigger', 'char_1033_swire2/Modes/S1/Body/Trigger/HealAlly'], (o) => (o.skill === 'swire2_3' ? { play: [
       { tpl: 'char_1033_swire2/Modes/S3_End/Body/Trigger', cast: true },
       ...(Array.isArray(o.targets) && o.targets.length ? [{ tpl: 'projectile_chr_swire2_s_3', fly: 8, to: 'targets', gap: 0.07 }] : []),
-    ] } : null)),
+    ] } : o.skill === 'swire2_1' && o.heal != null ? { play: [once('swire2_skill_01_hit', 'heal')] } : null)),
   },
+  swire2Heal: { swire2: cite('char_1033_swire2/Modes/S1/Body/Trigger/HealAlly', () => ({ play: [{ tpl: 'char_1033_swire2/Modes/S1/Body/Trigger/HealAlly', cast: true }] })) },
+  swire2Throw: { swire2: cite('char_1033_swire2/Modes/S2/Body/Trigger/SpawnToken', () => ({ play: [{ tpl: 'char_1033_swire2/Modes/S2/Body/Trigger/SpawnToken', cast: true }] })) },
   // 圣聆初雪 S2 (2026-10-21): the frozen protection point (token_10058_sbell2_icetgt, pkgrps/btl_pfb_tokens_4.ab): its Effect
   // ability's INFINITY buff icetgt_a[effect] shows sbell2_tile_frozen (`overrideEffectKey`) while it stands, and the
   // template's ON_OWNER_FINISH CreateEffect plays sbell2_tile_defrost on it as it goes
@@ -543,7 +547,11 @@ export const KIT_OFFICIAL = {
   thorns: { judge: cite('judge_t_2', () => ({ play: [once('judge_reboun_hit_01', 'target')] })) },
   // (2026-11-03) 斥罪 S2 坚心苦修: each pulse (judge_s_2[aoe] ON_BUFF_TRIGGER: AOEDamage, then CreateEffect
   // judge_skill_02_weapon_hit_01 on her — enemies hit or not)
-  aoe: { judge: cite('judge_s_2[aoe]', (o) => (o.skill === 'judge:atonement' ? { play: [once('judge_skill_02_weapon_hit_01')] } : null)) },
+  // 折桠 S2's FirstAttack (held by branch_s_2[first], no damage, no target needed: the skill's opening 战栗 blast, the sim's 'aoe')
+  aoe: {
+    judge: cite('judge_s_2[aoe]', (o) => (o.skill === 'judge:atonement' ? { play: [once('judge_skill_02_weapon_hit_01')] } : null)),
+    branch: cite('char_4207_branch/Modes/S2/Body/Attack/FirstAttack', (o) => (o.skill === 'resolve' ? { play: [{ tpl: 'char_4207_branch/Modes/S2/Body/Attack/FirstAttack', cast: true }] } : null)),
+  },
   // (2026-11-03) 逻各斯 S1 殁亡: logos_s_1 on the enemy it executes — CreateEffect logos_skill1_hit_03 there (the HP check is the
   // sim's); T1's shot landing: projectile_chr_logos_t `_effectsWhenHit` logos_talent_hit_01; S3 延异视阈's clearing end: the
   // S3_End mode's cast logos_skill3_range_end_01 (logos_s_3 ON_BUFF_FINISH CheckCanUseAtkOrCbt → SwitchMode; the kit sends

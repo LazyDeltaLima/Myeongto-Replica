@@ -300,8 +300,12 @@ HIT_KEYS = ('_hitEffects', '_inputTargetEffects', '_castTargetEffects')
 # are the mode's `input`, not hits
 MODE_HIT_KEYS = ('_hitEffects', '_castTargetEffects')
 # a 要塞's attack abilities (charpack `Modes/<mode>/Body/Attack/`): the melee ones while it blocks, the ranged ones otherwise
-MELEE_ABILITY = re.compile(r'^(Blocked)?MeleeAttack$')
-RANGED_ABILITY = re.compile(r'^(Blocked|Self)?RangedAttack$')
+# (号角 S2's have shots of their own: BlockedRangedAttack / SelfRangedAttack on Skill_2_A_Loop, RangedAttack on Skill_2_B_Loop)
+MELEE_ABILITY = re.compile(r'^((Blocked)?MeleeAttack|BlockedRangedAttack|SelfRangedAttack)$')
+RANGED_ABILITY = re.compile(r'^RangedAttack$')
+# 号角 S2's Full Burst fires what is left as the skill is closed by hand (skill_table skchr_horn_2), which the auto battle never
+# does: its abilities' effects stay out of the mode's attack lists (its projectiles are still listed in `proj`)
+MANUAL_BURST = re.compile(r'^Full Burst$')
 # 2026-10-21: an attack ability fired at a placed coordinate token (新约能天使 S3FireToToken: her S3's opening strike, _animKey
 # Skill_3_Skill, beside its Common attack) is no attack of the mode: the kit sends it as its own event (render/fx/kitofficial.js
 # 'airstrike'), so its casts stay out of the mode's attack lists (its projectile is still listed in `proj`)
@@ -778,6 +782,8 @@ def mode_parts(tree, mode_paths, projectiles=None):
       talent[mode] = { 'T.<n>': { cast, trail, hit } } — a mode talent (charpack `Body/Talents/<n>` with `_isModeTalent` 1):
         寒芒克洛丝's 中的 (`_probKey` prob: the client casts it instead of the attack — its arrow projectile_chr_kroos2_2 and
         kroos2_attack_start_02), 圣约送葬人's 受选之人 shot; the sim marks such a swing and its 'atk' events with 'T.<n>'.
+      2026-11-06: and a child whose own trigger asks for a buff on the operator (`_buffKey` on a GameObject `Trigger…` under
+        it, an `_abilityConfigs` group): 焰尾's Attack_T1 / Attack_T1+ (flamtl_t_1[evade], after a dodge), the sim's swing naming it.
       2026-11-01: talent[mode] also holds { '<child>': … } — a child of the mode's attack (`Body/Attack/<child>`) the attack
         casts first only while its own validator holds (`SelfConditionalValidator` in its subtree, under the attack's
         AbilityFirstSucceedGroup): 冻河's T2Attack (her mark tocka_t2[aoe_mark] — projectile_chr_tocka_t2 and its
@@ -837,6 +843,9 @@ def mode_parts(tree, mode_paths, projectiles=None):
                 # buffs — `_buffs` with `_excludeKey` 0 — is the conditional one)
                 group = any(isinstance(x.get('_abilities'), list) for x in by_go.get(mp + '/Body/Attack', []))
                 if group and any(x.get('_buffs') and not x.get('_excludeKey') and '_targetOptions' in x for x in by_go.get(gp + '/Selector', [])):
+                    tal[parts[2]] = gp
+                configs = any(isinstance(x.get('_abilityConfigs'), list) for x in by_go.get(mp + '/Body/Attack', []))
+                if configs and any(x.get('_buffKey') for q, cs in by_go.items() if q.startswith(gp + '/Trigger') for x in cs):
                     tal[parts[2]] = gp
         if tal:
             talent[i] = {k: collect(i, ap) for k, ap in sorted(tal.items())}
@@ -1028,7 +1037,7 @@ def modes_of(path, projectiles=None):
                 proj[i].append(k)
         if isinstance(d.get('_projectileKey'), str) and d['_projectileKey'] and isinstance(d.get('_mountPointType'), int):
             shot_mp.setdefault((i, d['_projectileKey']), d['_mountPointType'])
-        if skipped(gp) or any(TOKEN_FIRE.search(x) for x in gp.split('/')):
+        if skipped(gp) or any(TOKEN_FIRE.search(x) or MANUAL_BURST.match(x) for x in gp.split('/')):
             continue
         if gp in part_go:
             continue
@@ -1040,7 +1049,7 @@ def modes_of(path, projectiles=None):
             add(part['cast'], effect_names(d.get('_castEffects') or []))
             for k in MODE_HIT_KEYS:
                 add(part['hit'], effect_names(d.get(k) or []))
-            if kind == 'ranged' and projectiles and isinstance(d.get('_projectileKey'), str) and d['_projectileKey']:
+            if projectiles and isinstance(d.get('_projectileKey'), str) and d['_projectileKey']:
                 add(part['hit'], projectiles.effects(d['_projectileKey'])['hit'])
         csub = gp[len(mode_paths[i]):] + '/'
         ck = 'combat' if csub.startswith('/Body/Combat/') else 'attack' if csub.startswith('/Body/Attack/') else None

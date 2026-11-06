@@ -3818,3 +3818,13 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - 범위: 꼬리가 있는 오퍼레이터 77명 중 36명의 꼬리에 깊이 비교 재질이 켜져 있었다(리드 더 플레임 섀도우, 라플란드, 안젤리나, 글래디아 등). 적 투사체도 같은 경로다. 애쉬락 포탄 본체는 `_ZTest` 0이라 원래 잘리지 않고 연기만 해당된다.
 - [추정·화면: 공식이 도로 칸 위를 지나는 탄을 불투명한 도로로 가리는지 — 우리는 비행 내내 한 바닥을 써서 도로 칸 위에서도 안 가린다. 명중점이 몸과 함께 내려가는지도 공식 화면으로는 안 봄]
 - 확인: `test/render/deep-water-fx.test.js`, `fx-particle-modules.test.js` 「floor cut on deep water」. 디버그 아레나 `stage:act2autochess_m04`(4열 → 6열 물길, Windows Chrome GPU, 전투 속도 0.25배 프레임)에서 고친 부분을 끈 판과 나란히 비교함: 인사이더 탄이 끈 판에서는 물 위에서 사라지고 켠 판에서는 명중까지 보임, 잠긴 은신 캐스터(`enemy_1023_jmage`)의 탄이 끈 판에서는 도로 높이 위로 올라온 뒤에야 보이고 켠 판에서는 총구부터 보임, 인사이더 타격의 아래쪽 빛줄기가 켠 판에서 수면 아래까지 보임. [화면 미확인: 글래디아 S1 밧줄, 애쉬락 포탄(프레임에 못 잡음), 2배속 실제 판]
+
+## 공격 묶음의 조건 자식 이펙트 (2026-11-06)
+
+공격 묶음(`_abilityConfigs`)의 자식 가운데 조건이 붙은 능력의 이펙트가 평타마다 나오던 것을 조건 때만 나오게 했다(공식 클라에서 확인: 각 자식의 `_castEffects`·`_hitEffects`, 트리거·선택기 조건). `modes.json`의 모드 목록은 자식들을 합쳐 두기 때문에 생긴 일이다.
+
+- **스와이어 디 엘리건트 위트 S1 `HealAlly`·S2 `SpawnToken`**: 금화 버프 `swire2_can_use_gold`가 있을 때의 능력. 키트 순간으로 튼다: 시전은 `swire2Heal`·`swire2Throw`, `HealAlly`의 타격 `swire2_skill_01_hit`은 치유받는 아군 위에(`coin`의 `heal`). 평타 목록에서는 `fxmap.js KIT_CAST`·`KIT_HIT`로 뺀다.
+- **브랜치 S2 `FirstAttack`**: `branch_s_2[first]`가 있을 때의 시작 동작으로 피해가 없고 대상도 필요 없다. 키트의 시작 전율(`aoe` `resolve`)에 `branch_skill_02_range_01`·`_start_01`을 튼다. 평타는 `branch_skill_02_attack_01`만.
+- **혼 S2**: 저지한 적을 쏘는 `BlockedRangedAttack`·`SelfRangedAttack`은 `horn_skill_02_start`·`_start_01`(클립 `Skill_2_A_Loop`), 멀리 쏘는 `RangedAttack`은 `_start_02`(`Skill_2_B_Loop`). 다른 모드처럼 `fortress`로 나눈다. `SelfRangedAttack`(범위 `0-1`)을 저지 쪽으로 묶은 것은 시뮬이 저지만 가르기 때문이다. `Full Burst`는 수동으로 스킬을 끌 때만 쏘므로 `horn_skill_02_start_03`은 자동 전투에서 나오지 않는다(`char_modes.py MANUAL_BURST`).
+- **플레임테일 `Attack_T1`·`Attack_T1+`**: 회피 버프 `flamtl_t_1[evade]`가 있을 때의 공격. `char_modes.py mode_parts`가 자식의 `Trigger…`에 `_buffKey`가 있으면 `talentAtk`로 분리하고(전체 운영자 대조에서 이 규칙에 걸리는 것은 플레임테일뿐), 렌더는 시뮬 `swing`의 신호 `Attack_T1`로 고른다. 일반 공격은 `flamtl_attack_01_hit_01`(S3는 `flamtl_skill_03_attack_01_hit_01`) 하나, 회피 뒤 공격은 `_hit_02_1`·`_hit_02_2`와 타격 때 시전 `start_02`.
+- 확인: `test/render/cond-child-fx.test.js`(양쪽을 다 본다; 고치기 전 코드·추출물로 6건 실패 확인), `cond-cast-fx.test.js`, 아레나 2배속 호출 순서. [공식 화면 미확인] 공식과 나란히 보지는 않았다.
