@@ -1421,7 +1421,7 @@
 
 ### 바르카리스 `char_4166_varkis` (T1, 센추리온)
 - 특성: 분기 공통(저지한 적 모두 공격). 모듈 귀갓길 CEN-Y: HP 비율이 `hp_ratio` 초과면 받는 물리 피해 ×(1 − `damage_resistance`)(`varkis_e_002_trait` ON_TAKE_DAMAGE).
-- 재능 영세불망(`varkis_t1[minos_atk_up]`): 그가 서 있는 동안 미노스 오퍼레이터(그 자신 포함, 소환물 제외)의 모든 피해가, 대상의 HP 비율이 자기 이하일 때 공격력 × `talent_atk_scale`(방어 앞, 피해마다 그 순간 비율, PRTS 비고). 여럿이면 곱하지 않고 가장 높은 값 하나. [추정·엔진: 같은 키 버프 하나만 남는 것은 클라에서 확인, 값이 다른 둘 중 어느 쪽이 남는지는 안 읽음]
+- 재능 영세불망(`varkis_t1[minos_atk_up]`): 그가 서 있는 동안 미노스 오퍼레이터(그 자신 포함, 소환물 제외)의 모든 피해가, 대상의 HP 비율이 자기 이하일 때 공격력 × `talent_atk_scale`(방어 앞, 피해마다 그 순간 비율, PRTS 비고). 여럿이면 곱하지 않고 먼저 배치한 바르카리스의 값 하나이고, 값이 더 높아도 나중 것은 꺼져 있다가 먼저 것이 떠나면 켜진다: 같은 키 버프는 덮어쓰기 그룹 DEFAULT의 큐에서 끝나지 않은 첫 버프만 켜지고(`Buff.OverrideGroup._DoUpdateInternal`), 이 버프는 `priority` −1에 `priorityBBKeys`와 속성 수정이 없어 우선순위가 같으므로 `instanceUid`가 작은 것, 곧 먼저 붙은 버프가 앞선다(`Buff._CalculatePriority`·`Buff.CompareTo`, 공식 클라에서 확인). [추정·미조사: 둘이 다 선 뒤 배치한 기물과 나중 바르카리스 자신에게 어느 오라가 먼저 붙는지, 여기서는 먼저 배치한 쪽]
 - S1 급류 `skchr_varkis_1`: 다음 공격이 저지한 대상마다 `atk_scale`로 세 번. 공식 클라에서 확인: `_additionalTimes` 2, `_waitAttackEventForAllAttacks`라 간격은 클립 `Skill`의 공격 프레임(0.467·0.5·0.533).
 - S2 동포의 의지 `skchr_varkis_2`(`_switchToState` 1, `_beginAnim` `Skill_2_Begin` 0.333초): 시전이 휘두름을 끊고 시작 클립 동안 공격하지 않으며 지속 시간은 그 뒤부터. 공격 배율 `attack@s2_atk_scale`, 공격마다 한 번 자신 최대 HP의 `attack@hp_ratio` 치료(ON_SPELL_ON, PRTS 「반드시 치료」).
 - 보호막: S2 중 자신에게 들어온 치료의 넘친 양(생명 복원 제외)이 보호막으로(`varkis_s2[shield]` `HEAL_CAN_GENERAL_SHIELD`, `ON_ES_OVER_ZERO`), 상한 최대 HP × `max_hp_ratio`. 다른 보호막 뒤에 소모(우선순위 −1000, PRTS 비고, `shieldLast`). 스킬이 끝나도 남고 스킬 밖에서 1초마다 `dynamic_dec_per_sec`씩 준다.

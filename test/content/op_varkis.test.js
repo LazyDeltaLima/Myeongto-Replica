@@ -45,34 +45,48 @@ test('T1: ATK ×talent_atk_scale when the enemy\'s HP share is not above hers; n
   }
 });
 
-test('T1: it reaches another 米诺斯 operator, the strongest of two counts once; a non-米诺斯 gets nothing', () => {
+test('T1: it reaches another 米诺斯 operator, the first placed of two counts once whatever its value; a non-米诺斯 gets nothing', () => {
   const low = NEXT.chess[A].talents[0].bb.talent_atk_scale, high = NEXT.chess[B].talents[0].bb.talent_atk_scale;
   assert.ok(high > low);
-  const { h } = field(A, { skill: 0, others: [{ uid: 2, chessId: 'chess_char_1_02_a', row: 10, col: 2 }], more: [{ uid: 3, id: B, skill: 0, row: 10, col: 3 }] });
+  // the weaker one placed first (the helper places `more` before the main piece): the stronger one's buff stays off
+  const { h } = field(B, { skill: 0, others: [{ uid: 2, chessId: 'chess_char_1_02_a', row: 10, col: 2 }], more: [{ uid: 3, id: A, skill: 0, row: 10, col: 3 }] });
   const u = h.unit(1), v = h.unit(3), y = h.unit(2);
-  assert.ok(v?.alive && v.deployed, 'the second one stands');
+  assert.ok(v?.alive && v.deployed, 'the other one stands');
+  assert.ok(v.deploySeq < u.deploySeq, 'the weaker one was placed first');
   u.skill.locked = true; v.skill.locked = true;
   const e = h.spawn('enemy_dummy', { pos: FRONT, def: 0 });
   const seen = [], other = [];
   h.b.on('hit', (c) => { if (c.target !== e) return; if (c.source === u) seen.push(c.dmg.amount); if (c.source === y) other.push(c.dmg.amount); }, { priority: -100 });
   assert.ok(h.runUntil(() => seen.length > 0, 4), 'she strikes');
-  near(seen[0], u.s.atk * high, 'the other one\'s higher value, once', 1e-2);
+  near(seen[0], u.s.atk * low, 'the first placed value, not her own higher one', 1e-2);
   h.b.dealDamage(y, e, { amount: 100, type: 'phys', tags: ['test'] });
   near(other.at(-1), 100, 'not 米诺斯: plain', 1e-6);
+  // placement decides, not the order the handlers run in
+  const seqs = [u.deploySeq, v.deploySeq];
+  u.deploySeq = seqs[1]; v.deploySeq = seqs[0];
+  h.b.dealDamage(u, e, { amount: 100, type: 'phys', tags: ['test'] });
+  near(seen.at(-1), 100 * high, 'the stronger one when it is the earlier', 1e-6);
+  u.deploySeq = seqs[0]; v.deploySeq = seqs[1];
   h.b.retreat(v);
   h.step();
   seen.length = 0;
   assert.ok(h.runUntil(() => seen.length > 0, 4), 'strikes on');
-  near(seen[0], u.s.atk * low, 'her own when the other left', 1e-2);
+  near(seen[0], u.s.atk * high, 'her own when the first left', 1e-2);
   done(h);
-  // the other order of the two: the stronger one's handler first
-  const o = field(B, { skill: 0, more: [{ uid: 3, id: A, skill: 0, row: 10, col: 3 }] });
-  o.u.skill.locked = true; o.h.unit(3).skill.locked = true;
+  // the stronger one placed first: it counts for the later one too, whose own value takes over when it leaves
+  const o = field(A, { skill: 0, more: [{ uid: 3, id: B, skill: 0, row: 10, col: 3 }] });
+  const first = o.h.unit(3);
+  assert.ok(first.deploySeq < o.u.deploySeq, 'the stronger one was placed first');
+  o.u.skill.locked = true; first.skill.locked = true;
   const f = o.h.spawn('enemy_dummy', { pos: FRONT, def: 0 });
   const got = [];
   o.h.b.on('hit', (c) => { if (c.target === f && c.source === o.u) got.push(c.dmg.amount); }, { priority: -100 });
-  assert.ok(o.h.runUntil(() => got.length > 0, 4), 'she strikes');
-  near(got[0], o.u.s.atk * high, 'still the higher value', 1e-2);
+  o.h.b.dealDamage(o.u, f, { amount: 100, type: 'phys', tags: ['test'] });
+  near(got.at(-1), 100 * high, 'the first placed value on the later one', 1e-6);
+  o.h.b.retreat(first);
+  o.h.step();
+  o.h.b.dealDamage(o.u, f, { amount: 100, type: 'phys', tags: ['test'] });
+  near(got.at(-1), 100 * low, 'her own when the first left', 1e-6);
   done(o.h);
 });
 

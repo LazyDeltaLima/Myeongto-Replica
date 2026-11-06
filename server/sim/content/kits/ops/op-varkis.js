@@ -5,8 +5,9 @@
 // Sources: the record's tables; PRTS 摆渡人 (备注 of T1, S2); charpack char_4166_varkis (Talents/1, Modes/S2), skill prefabs skchr_varkis_1 / _2 (S2Passive), buff_template_data varkis_t1[minos_atk_up],
 // varkis_s2[shield], varkis_s2[shield_core], varkis_s2[attack_add_hp], varkis_e_002_trait.
 // - T1 永志不忘 (an aura on the allies tagged minos, she too: varkis_t1[minos_atk_up] ON_CALCULATE_DAMAGE, AtkScaleUp `_applyWay` NONE): while she stands, each damage of an operator of 米诺斯 on an
-//   enemy whose HP share is not above the operator's own has its ATK ×talent_atk_scale (before DEF; PRTS 备注: read at each damage). Several of her: one buff of one key, the strongest counts
-//   [추정·엔진: the client keeps the buff of one key; which one of two different values is not read].
+//   enemy whose HP share is not above the operator's own has its ATK ×talent_atk_scale (before DEF; PRTS 备注: read at each damage). Several of her: the buffs of one key queue and only the first runs (Buff.OverrideGroup, overrideType DEFAULT); the
+//   template has no priority of its own, so the queue is by age, not by value: the one placed first counts, whatever its value, and the next one takes over when it leaves
+//   [추정·미조사: which aura enters first on a piece placed after both, or on the later one herself; here the earlier placed].
 // - CEN-Y: above hp_ratio HP, physical damage taken ×(1 − damage_resistance) (varkis_e_002_trait ON_TAKE_DAMAGE).
 // - S1 奔流 (ReplacementSkill, MultiMeleeAttack `_additionalTimes` 2, `_waitAttackEventForAllAttacks`): her next attack at atk_scale strikes three times, at the OnAttack frames of its clip Skill, each
 //   target it picked (her blocked ones) while it lives and she can act.
@@ -66,9 +67,10 @@ export default {
           battle.on('hit', (c) => {
             const s = c.source;
             if (!up(unit) || !s || s.side !== 'ally' || s.kind !== 'op' || !hasPower(s, MINOS) || c.target?.side !== 'enemy') return;
-            if (c.target.hpRatio > s.hpRatio + 1e-9 || (c.dmg.varkisScale ?? 1) >= sc) return;
+            if (c.target.hpRatio > s.hpRatio + 1e-9 || c.dmg.varkisSeq <= unit.deploySeq) return;
             c.dmg.amount *= sc / (c.dmg.varkisScale ?? 1);
             c.dmg.varkisScale = sc;
+            c.dmg.varkisSeq = unit.deploySeq;
           }, { owner: unit });
         } },
         { install(battle, unit) {
