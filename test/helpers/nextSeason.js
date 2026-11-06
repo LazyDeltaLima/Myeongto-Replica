@@ -31,7 +31,7 @@ export function field(id, { skill = 1, row = 10, col = 4, dir, others = [], more
   const chess = { [id]: pieceRec(id, skill) };
   for (const m of more) chess[m.id] = pieceRec(m.id, m.skill ?? 1);
   const h = makeBattle({
-    defs: { enemies: { ...ENEMIES, ...enemies }, chess }, timeLimit: 900, autoFinish: false, seed,
+    defs: { enemies: { ...ENEMIES, ...enemies }, chess, tokens: NEXT.tokens }, timeLimit: 900, autoFinish: false, seed,
     flags: { dpInit: dp, dpPerSec: 0, dpMax: 999 },
     hooks: ['damaged', 'heal', 'skillStart', 'skillEnd', 'statusApplied', 'death', 'kill', 'deploy', ...hooks], captureNoisy: true,
     units: [{ uid: 1, chessId: id, row, col, ...(dir ? { dir } : {}) }, ...more.map((m) => ({ uid: m.uid, chessId: m.id, row: m.row, col: m.col })), ...others],

@@ -1711,9 +1711,9 @@ function liftTokens(ps) {
 
 /**
  * Summons that help the operator on the tile they face (range 1-1: their own tile + the one in front) instead of
- * covering the enemy path: 凯瑟琳's 爬行号·防护单元 (a hand piece since user playtest #6).
+ * covering the enemy path: 凯瑟琳's 爬行号·防护单元 (a hand piece since user playtest #6), 罗比菈塔's 全自动造型仪.
  */
-const FRONT_SUPPORT_TOKENS = new Set(['token_10041_cathy_catsld']);
+const FRONT_SUPPORT_TOKENS = new Set(['token_10041_cathy_catsld', 'token_10018_robrta_mach']);
 /** Device tile offsets around an operator (behind it — enemies come from the gates on the right —, above, below, in front) and the facing that points back at it. */
 const SUPPORT_SPOTS = Object.freeze([[0, -1, 'RIGHT'], [1, 0, 'DOWN'], [-1, 0, 'UP'], [0, 1, 'LEFT']]);
 

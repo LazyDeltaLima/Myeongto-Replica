@@ -177,7 +177,8 @@ export function resolveProxyPrefix(source, offline = false, value = process.env.
  * the 自选 owned-6★ picks), `tokenIds` — the summons of the 自选 picks (backups.json `tokens`), `moduleTypes` — the type
  * icon of every module a chess or a unit form offers.
  * A hidden season's piece is planned when its operator has a kit (`seasonPieces`: the records of data/seasons/<id>/chess.json whose
- * charId is listed in NEXT_KIT_FILES; docs/rules/diy.md 「새 시즌 기물을 표 전에 만들기」): it needs its model for its clips and sounds.
+ * charId is listed in NEXT_KIT_FILES; docs/rules/diy.md 「새 시즌 기물을 표 전에 만들기」): it needs its model for its clips and sounds,
+ * and its summons (the record's `tokens`) their models.
  * @param {any} backups data/backups.json (or null)
  * @param {any} chess data/chess.json (or null)
  * @param {any[]} [seasonPieces] chess records of a hidden season
@@ -206,6 +207,7 @@ export function dataExtras(backups, chess, seasonPieces = []) {
   const ownerOf = (key) => String(key).split('@')[0];
   const tokenIds = Object.entries(backups?.tokens || {}) // local patch: no summons of a dropped pick
     .filter(([, t]) => !Array.isArray(t?.owners) || !t.owners.length || t.owners.some((o) => !dropped.has(ownerOf(o)))).map(([id]) => id);
+  for (const c of seasonPieces) for (const t of c?.tokens || []) if (!tokenIds.includes(t)) tokenIds.push(t);
   return { extraOperators, tokenIds: tokenIds.sort(), moduleTypes: [...moduleTypes].sort() };
 }
 

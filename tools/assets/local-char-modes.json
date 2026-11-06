@@ -10347,6 +10347,189 @@
    }
   ]
  },
+ "char_328_cammou": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_chr_cammou",
+    "projectile_chr_cammou_funnel"
+   ],
+   [
+    "projectile_chr_cammou_s1",
+    "projectile_chr_cammou_funnel_s1"
+   ],
+   [
+    "projectile_chr_cammou_s2",
+    "projectile_chr_cammou_funnel_s2"
+   ]
+  ],
+  "cast": [
+   [
+    "cammou_attack_01_start",
+    "cammou_attack_01_start_02"
+   ],
+   [
+    "cammou_skill_01_start",
+    "cammou_skill_01_start_02"
+   ],
+   [
+    "cammou_skill_02_start"
+   ]
+  ],
+  "hit": [
+   [
+    "cammou_attack_01_hit"
+   ],
+   [
+    "cammou_skill_01_hit"
+   ],
+   [
+    "cammou_skill_01_hit"
+   ]
+  ],
+  "trail": [
+   [
+    "cammou_attack_01_trail"
+   ],
+   [
+    "cammou_skill_01_trail"
+   ],
+   [
+    "cammou_skill_02_trail"
+   ]
+  ],
+  "attach": [
+   [
+    "cammou_buff_01_start_F"
+   ],
+   [
+    "cammou_buff_01_start_F"
+   ],
+   []
+  ],
+  "castOpt": [
+   {
+    "cammou_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "cammou_attack_01_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "cammou_skill_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "cammou_skill_01_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "cammou_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
+  "funnels": [
+   [
+    {
+     "idle": [
+      "cammou_buff_01_start_F"
+     ]
+    },
+    {
+     "proj": "projectile_chr_cammou_funnel",
+     "from": 5,
+     "trail": [
+      "cammou_attack_01_trail_02"
+     ],
+     "hit": [
+      "cammou_attack_01_hit"
+     ],
+     "speed": 10.0
+    }
+   ],
+   [
+    {
+     "proj": "projectile_chr_cammou_funnel_s1",
+     "from": 5,
+     "trail": [
+      "cammou_skill_01_trail_02"
+     ],
+     "hit": [
+      "cammou_skill_01_hit"
+     ],
+     "speed": 10.0
+    }
+   ],
+   [
+    {
+     "idle": [
+      "cammou_buff_01_start_F"
+     ],
+     "hide": [
+      "cammou_buff_01_end"
+     ],
+     "show": [
+      "cammou_buff_01_begin"
+     ],
+     "proj": "projectile_chr_cammou_funnel_s2",
+     "from": 2,
+     "wait": 1,
+     "trail": [],
+     "hit": [
+      "cammou_buff_01_hit"
+     ],
+     "lock": 1,
+     "attach": 1
+    }
+   ]
+  ],
+  "skillMode": [
+   null,
+   2
+  ],
+  "switchTo": [
+   [],
+   [
+    2
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "common_ignite_attack"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "cammou_skill_02_buff"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_332_archet": {
   "modes": [
    "Default",
@@ -17243,6 +17426,92 @@
    }
   ]
  },
+ "char_4147_mitm": {
+  "modes": [
+   "Default",
+   "Skill"
+  ],
+  "proj": [
+   [
+    "projectile_chr_mitm"
+   ],
+   [
+    "projectile_chr_mitm_s2"
+   ]
+  ],
+  "cast": [
+   [
+    "mitm_attack_start_01"
+   ],
+   [
+    "mitm_skill_02_start_01"
+   ]
+  ],
+  "hit": [
+   [
+    "mitm_attack_hit_01"
+   ],
+   [
+    "mitm_attack_hit_01"
+   ]
+  ],
+  "trail": [
+   [
+    "mitm_attack_trail_01"
+   ],
+   [
+    "mitm_attack_trail_01"
+   ]
+  ],
+  "attach": [
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "mitm_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "mitm_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
+  "skillMode": [
+   null,
+   1
+  ],
+  "switchTo": [
+   [],
+   []
+  ],
+  "skills": [
+   {
+    "cast": [
+     "mitm_skill_start_01"
+    ],
+    "castLoop": [],
+    "buff": [],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "mitm_skill_02_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_4148_philae": {
   "modes": [
    "Default",
@@ -23012,6 +23281,76 @@
    }
   ]
  },
+ "char_484_robrta": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [],
+   []
+  ],
+  "cast": [
+   [
+    "robrta_attack_01_start"
+   ],
+   []
+  ],
+  "hit": [
+   [
+    "robrta_attack_01_hit"
+   ],
+   []
+  ],
+  "trail": [
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "robrta_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {}
+  ],
+  "skillMode": [
+   null,
+   1
+  ],
+  "switchTo": [
+   [],
+   [
+    1
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "common_ignite_attack"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "robrta_skill_02_buff"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_485_pallas": {
   "modes": [
    "Default",
@@ -23218,6 +23557,118 @@
     "castLoop": [],
     "buff": [
      "humus_buff_04"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_492_quercu": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_chr_quercu"
+   ],
+   [
+    "projectile_chr_quercu_s1"
+   ],
+   [
+    "projectile_chr_quercu_s2"
+   ]
+  ],
+  "cast": [
+   [
+    "quercu_attack_start_01",
+    "quercu_attack_start_02"
+   ],
+   [
+    "quercu_skill_01_start_01",
+    "quercu_skill_01_start_02"
+   ],
+   [
+    "quercu_skill_02_start_01"
+   ]
+  ],
+  "hit": [
+   [
+    "quercu_attack_hit_01"
+   ],
+   [
+    "quercu_skill_hit_02",
+    "quercu_skill_hit_01"
+   ],
+   [
+    "quercu_skill_hit_02",
+    "quercu_skill_hit_01"
+   ]
+  ],
+  "trail": [
+   [
+    "quercu_attack_trail_01"
+   ],
+   [
+    "quercu_skill_01_trail_01"
+   ],
+   [
+    "quercu_skill_02_trail_01"
+   ]
+  ],
+  "attach": [
+   [],
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "quercu_attack_start_01": {
+     "s": 2,
+     "e": 6,
+     "o": 0
+    },
+    "quercu_attack_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "quercu_skill_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "quercu_skill_01_start_02": {
+     "s": 2,
+     "e": 6,
+     "o": 0
+    }
+   },
+   {
+    "quercu_skill_02_start_01": {
+     "s": 4,
+     "e": 6,
+     "o": 0
+    }
+   }
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "quercu_skill_02_buff_01",
+     "quercu_skill_02_buff_02"
     ],
     "target": [],
     "targetBuff": []

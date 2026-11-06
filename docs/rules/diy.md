@@ -1373,6 +1373,31 @@
 - S1 `skcom_quickattack[3]`: 공격력 +N%, 공격 속도 +N.
 - S2 `skchr_aosta_2`: 공격 간격 ×(1 + `base_attack_time`)(버프 MULTIPLIER, PRTS +50%), 공격력 +N%, 맞은 적 모두 `attack@frozen_duration`초 속박(`aosta_s_2[unmovable]`), 재능 배율 × `talent_scale`(`_applyTalentScale`).
 
+## 새 시즌 미틈·로베르타·클릭·퀘르쿠스 (2026-11-06, 관리자 결정 2026-11-05)
+공개 전 시즌 `next`의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 특성, 첫 모듈과 소환물 둘을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과(예견·아케인·조력·고수)는 표 뒤. 키트 `ops/op-mitm.js`·`op-robrta.js`·`op-cammou.js`·`op-quercu.js`, 시험 `test/content/op_*.test.js`. `next` 소환물은 `data/seasons/next/tokens.json`에 생기고 `test/helpers/nextSeason.js`가 그 표로 세운다.
+
+### 미틈 `char_4147_mitm` (T2, 전술가) · 체리 3호 `token_10037_mitm_trshrb`
+- 특성: 미틈의 피해는 자기 소환물이 저지한 적에게 공격력 × `atk_scale`(`mitm_tr_1` ON_CALCULATE_DAMAGE, 방어 앞). 공식 클라에서 확인: `CheckBlocked._checkBlockedBySourceToken`은 저지자가 그 주인의 소환물인지 보므로 잔해가 저지한 적도 든다.
+- 체리 3호: 전차 형태는 저지 `block_cnt`, 치료 불가. 쓰러지거나 철수하면 전술 포인트 형태로 `interval`초(1정예 17, 2정예 15, 소환물 재능) 뒤 체력을 채워 그 칸에 돌아온다. 다음 프레임에 x-5의 빈 근접 칸 하나에 잔해가 선다(`SpawnTrash`, 선택기 `_alwaysRandomInTheEnd`). 잔해: 공격력·방어력 −100%, 최대 HP −50%, 저지 1, 공격 안 함, 떠나면 끝(`trshrb_t_1[trash_born]`). 미틈이 떠나면 함께 떠난다(`die_to_kill_token`).
+- S1 `skchr_mitm_1`: 시작에 코스트 +`cost`. 타격 시점에 전차가 있으면 x-5의 지상 적에게 미틈 공격력 × `aoe_damage_scale` 물리(`mitm_s_1` AOEDamage `targetMotion` WALK_ONLY, 특성 곱함), 그 뒤 철수: 잔해는 피해 뒤(PRTS). 전차가 없으면 코스트만.
+- S2 `skchr_mitm_2`: 공격력 +`atk`, `mitm_s_2[cost].interval`초마다 코스트 1(모두 `display`). 시작에 선 전차만 공격을 멈추고 저지 2·방어력 +`def`, 끝나면 철수(`mitm_s_2[to_token]`). 스킬 중에 돌아온 전차는 보통 전차다. 표의 `mitm_s_2[to_token].hp`는 프리팹 속성에 없어 쓰지 않는다.
+- TAC-Y: 소환물이 저지한 적은 저지 동안 조롱 +`taunt_level`(비질 TAC-Y와 같은 방식). 1단계라 잔해 체력 변화·`mitm_e_002_[sp]`는 없다.
+
+### 로베르타 `char_484_robrta` (T3, 기능공) · 전자동 스타일러 `token_10018_robrta_mach`
+- 재능: 배치 때 보유 수를 `cnt`로 **맞춘다**. 공식 클라에서 확인: `charge_token[refresh]`의 `_refreshRemainingCnt`면 `Deck.TokenCard.Recharge`가 더하지 않고 cnt로 놓는다(상한 안에서). CRA-X는 상한 +1, 비용 −2(소환물 표). CRA-X의 `trigger_charge_token`은 배치 전 카드에서 돈다(`_attachPassiveBuffsOnDummy`). [추정·엔진: 그 +1이 배치 때 맞추기보다 먼저라 덮이고, 상한은 S2로만 찬다. 순서는 안 읽음] 놓인 기계는 전투 시작에 무료로 서고, 떠난 기계는 재배치 시간 뒤 보유 1·비용을 내고 제자리로(`deviceReturn`, 스테인리스와 같음).
+- 기계: 공격 안 함, 치료 불가·무적, 지정 안 됨. 배치마다 `duration`초 뒤 떠난다(`robrta_mach_withdraw`). 바라보는 칸의 근접 칸 유닛(오퍼레이터·소환물, 장치 아님 — `professionMask`·PRTS)에게 방어력 +`def`(한 기계 것만: 다른 기계가 뒤를 잇는다), 실드 횟수는 **기계의 것**이라 다음 유닛은 남은 만큼만 받는다(PRTS). 횟수는 재능 문구의 것(표 칸 없음, 프리팹 `Talents/1`·`1+`). [추정·엔진: 두 기계가 한 유닛을 볼 때 실드을 각자 둔다. 같은 키 버프가 대체하는지 안 읽음]
+- S1 공격력·방어력. S2 공격 안 함, 저지 +`block_cnt`, 방어력 +`def`, 끝날 때 보유 +1(`trigger_charge_token`).
+- 봇은 캐서린 장치처럼 오퍼레이터를 향해 놓는다(`bot.js FRONT_SUPPORT_TOKENS`).
+
+### 클릭 `char_328_cammou` (T1, 메카 캐스터)
+- 재능: 공격 속도 +N, 드론은 그의 간격으로 친다. 특성 드론 경사 상한은 FUN-Y에서 120%(특성 bb).
+- S1 공격력만(모드 S1은 그림만 다름). S2: 범위 3-3, 공격력 +N. 드론은 그의 대상을 잠가 범위 밖이어도 그 적이 죽거나 스킬이 끝날 때까지 친다. 그동안 붙은 드론 추가 피해는 꺼진다. 자기 공격과 드론 타격이 각각 `attack@prob`로 `attack@stun`초 기절(`cammou_s_2`가 두 능력에 있음). 그의 상태 이상으로 멈추지 않는다(PRTS). [추정·엔진: 잠근 드론은 그의 공격 간격으로 경사를 올리며 친다. 프로젝타일 자체의 타격 간격은 안 읽음, 로로·쉐라의 풀린 드론과 같게]
+
+### 퀘르쿠스 `char_492_quercu` (T1, 비호자)
+- 특성: 스킬 중 공격은 범위에서 HP 비율이 가장 낮은 아군 치료(공격력 × `heal_scale`, BLS-X 1.0, 모드 S1·S2 `_postFilter` 3).
+- 재능: 범위 안 아군(자신 포함) HP 비율 ≥ `hp_ratio`이면 공통 가호 `damage_resistance`(가장 센 값), 0.1초마다 검사(`damage_resistance_GE[aura]`, PRTS).
+- S1 공격력 +N, 끝 없음(`lifeTimeType` 2, 자동 전투는 안 끔). S2 공격 속도 +N, 치료마다 대상 SP +`sp`(`demkni_t_2`).
+
 ## 새 시즌 무스·미스 크리스틴·브리지드·오로라 (2026-11-06, 관리자 결정 2026-11-05)
 공개 전 시즌 `next`의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 특성, 첫 모듈을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과(빅토리아·쉐라그)는 표 뒤. 키트 `ops/op-frncat.js`·`op-christ.js`·`op-brigid.js`·`op-aurora.js`, 시험 `test/content/op_*.test.js`.
 

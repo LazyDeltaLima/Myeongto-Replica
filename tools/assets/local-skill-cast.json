@@ -676,6 +676,12 @@
    "reset": 0,
    "state": 0
   },
+  "skchr_cammou_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
   "skchr_caper_1": {
    "ability": {
     "anim": "Attack",
@@ -2289,6 +2295,28 @@
    "reset": 0,
    "state": 0
   },
+  "skchr_mitm_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "face": 1,
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "cast",
+   "range": 0,
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_mitm_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
   "skchr_mizuki_1": {
    "ability": {
     "anim": "Attack",
@@ -2869,6 +2897,18 @@
    "reset": 0,
    "state": 0
   },
+  "skchr_quercu_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_quercu_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
   "skchr_reckpr_1": {
    "ability": {
     "anim": "Attack",
@@ -2944,6 +2984,18 @@
    "cls": "cast",
    "reset": 0,
    "state": 1
+  },
+  "skchr_robrta_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_robrta_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
   },
   "skchr_rockr_2": {
    "ability": null,

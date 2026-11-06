@@ -281,13 +281,25 @@ def skill_switches(cid, prefabs, stree, templates):
     return out if any(out) else None
 
 
-def skill_modes_of(modes, prefabs, switch):
+def skill_attack_modes(tree):
+    """{skill prefabId: its root's `_attackBlackboardModeIndex`} where that is above 0: the mode its attacks read."""
+    return {gp: d['_attackBlackboardModeIndex'] for gp, d, _pid in tree
+            if '/' not in gp and isinstance(d.get('_attackBlackboardModeIndex'), int) and d['_attackBlackboardModeIndex'] > 0}
+
+
+def skill_modes_of(modes, prefabs, switch, attack=None):
     """[mode index | None] per skill: its prefab's switch_mode value when that names a skill mode (`S…`); 莫斯提马
-    [Default, S2] — S3 switches to mode 1, her S2 none. None = the name rule (shared/skill-modes.js)."""
+    [Default, S2] — S3 switches to mode 1, her S2 none. A mode named plain `Skill` has no skill number for the name rule, so its
+    skill is the one whose attacks read it (`attack`: skill_attack_modes; 미틈 S2, its mode number being in the skill table's
+    blackboard). None = the name rule (shared/skill-modes.js)."""
     res = []
     for pid in prefabs:
         n = switch.get(pid)
-        res.append(n if isinstance(n, int) and 0 < n < len(modes) and SKILL_MODE_NAME.match(modes[n]) else None)
+        a = (attack or {}).get(pid)
+        if isinstance(n, int) and 0 < n < len(modes) and SKILL_MODE_NAME.match(modes[n]):
+            res.append(n)
+        else:
+            res.append(a if isinstance(a, int) and 0 < a < len(modes) and modes[a] == 'Skill' else None)
     return res if any(x is not None for x in res) else None
 
 
@@ -1470,6 +1482,7 @@ def main():
     prefabs = char_skill_prefabs()
     stree = skills_tree(a.client)
     switch = skill_switch_modes(stree)
+    attack_modes = skill_attack_modes(stree)
     templates = buff_templates(a.client)
     end = skill_end_modes(stree, templates)
     sk_fx = skill_effects(stree, projectiles)
@@ -1485,7 +1498,7 @@ def main():
             print(f'FAIL {cid}: {e}', file=sys.stderr)
             continue
         if m:
-            sm = skill_modes_of(m['modes'], prefabs.get(cid) or [], switch)
+            sm = skill_modes_of(m['modes'], prefabs.get(cid) or [], switch, attack_modes)
             if sm:
                 m['skillMode'] = sm
             se = [end.get(pid) if isinstance(end.get(pid), int) and end[pid] < len(m['modes']) else None for pid in prefabs.get(cid) or []]

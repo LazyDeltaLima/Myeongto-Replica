@@ -29,6 +29,15 @@ const LEFT_OUT = ['char_456_ash', 'char_1029_yato2', 'char_1048_orchd2', 'char_4
 const YUAN = 'https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/main/';
 const FEXLI = 'https://raw.githubusercontent.com/fexli/ArknightsResource/main/';
 
+test('dataExtras: a hidden season\'s piece plans its operator and its summons, the others\' stay as they are', () => {
+  const piece = { charId: 'char_x', name: 'x', subProfessionId: 'y', nationId: 'z', skills: [], modules: [], tokens: ['token_x', 'token_10066_closur_ourbase'] };
+  const x = dataExtras(BACKUPS, CHESS, [piece]);
+  assert.ok(x.extraOperators.char_x);
+  assert.ok(x.tokenIds.includes('token_x'), 'its summon');
+  assert.equal(x.tokenIds.filter((t) => t === 'token_10066_closur_ourbase').length, 1, 'once');
+  assert.deepEqual(x.tokenIds.filter((t) => t !== 'token_x'), dataExtras(BACKUPS, CHESS).tokenIds);
+});
+
 test('dataExtras: every backups.json unit (skills by index, once), the 自选 summons, the type icon of every module of chess.json and backups.json', () => {
   const x = dataExtras(BACKUPS, CHESS);
   assert.deepEqual(Object.keys(x.extraOperators), PLANNED, 'the stand-ins and the offered picks');

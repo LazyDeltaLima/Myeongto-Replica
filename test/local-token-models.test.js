@@ -59,7 +59,7 @@ function localManifest(ids, drop = null) {
 
 describe('the 自选 summon models from the local client are an optional overlay', () => {
   test('the committed metadata: the TOKEN_SPINES of extract.py, each a skeleton + same-stem atlas + pages, its roles on its own clips', () => {
-    assert.equal(IDS.length, 22);   // the 20 summons, 子代 (trap_039_dstnta) and 黄金回响 (trap_185_vtlntw)
+    assert.equal(IDS.length, 24);   // the 22 summons, 子代 (trap_039_dstnta) and 黄金回响 (trap_185_vtlntw)
     if (TOKEN_SPINES) assert.deepEqual(IDS, [...TOKEN_SPINES].sort(), 'one entry per extract.py TOKEN_SPINES id');
     for (const id of IDS) {
       const m = COMMITTED[id];

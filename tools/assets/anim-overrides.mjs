@@ -45,6 +45,8 @@ export const SKILL_CLIP_OVERRIDES = Object.freeze({
     1: clips({ begin: 'Skill_2_Startup', loop: 'Skill_2_Loop', end: 'Skill_2_End', idle: 'Skill_2_Idle' }),
     2: Object.freeze({ via: 'attack', begin: 'Skill_3_Startup', idle: 'Skill_3_Chant', end: Object.freeze(['Skill_3_Begin', 'Skill_3_Loop', 'Skill_3_End']) }),
   }),
+  // 미틈 S2 (skchr_mitm_2 `_beginAnim`, mode Skill: Attack `_animKey` Skill_2_Loop, Idle → Skill_2_Idle)
+  'op:char_4147_mitm:': Object.freeze({ 1: clips({ begin: 'Skill_2_Begin', loop: 'Skill_2_Loop', end: 'Skill_2_End', idle: 'Skill_2_Idle' }) }),
   // 伊内丝 (char_4087_ines): S3 独影归途 = an ability group whose first ability (`_animKey "Start_Skill"`) leaves the
   // shadow sentry; her attacks stay the ordinary ones. It is cast only as she deploys (spType ON_DEPLOY), and the official
   // game shows no Start_Skill after the deployment (maintainer 2026-10-14) — only her Start drop: the skill has no clip of
