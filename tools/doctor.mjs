@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // tools/doctor.mjs — diagnose an install (docs/DEPLOY.md「排错」). Read-only: changes nothing.
 //
-//   node tools/doctor.mjs [--port 3000] [--host 0.0.0.0]
+//   node tools/doctor.mjs [--port 3000] [--host 0.0.0.0]   (--port 0 skips the port check)
 //
 // Checks: Node/npm versions, dependencies, public/vendor, data/*.json, downloaded art/audio, optional local-client art,
 // Python (only needed for the optional extraction), the port (free / our server running → /healthz / another
@@ -152,7 +152,10 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     const [k, v] = argv[i].split('=');
     const val = () => (v !== undefined ? v : argv[++i]);
-    if (k === '--port') o.port = Number(val()) || o.port;
+    if (k === '--port') {
+      const n = Number(val());
+      o.port = Number.isInteger(n) && n >= 0 ? n : o.port; // 0 is meaningful: skip the port check
+    }
     else if (k === '--host') o.host = val() || o.host;
     else if (k === '-h' || k === '--help') o.help = true;
     else throw new Error(`unknown option ${argv[i]}`);
@@ -206,8 +209,9 @@ async function main() {
   }
 
   section('服务器');
-  const port = await probePort(opts.port, opts.host);
-  if (port.state === 'ours') {
+  const port = opts.port === 0 ? { state: 'skipped' } : await probePort(opts.port, opts.host);
+  if (port.state === 'skipped') row('skip', '端口', '未检查（--port 0）');
+  else if (port.state === 'ours') {
     const h = port.health;
     row('ok', `端口 ${opts.port}`, `服务器正在运行${h.app ? `（v${h.app}）` : ''}：运行 ${h.uptimeSec}s · 房间 ${h.rooms ?? '?'} · 对局 ${h.matches ?? '?'} · 连接 ${h.sockets ?? '?'}`);
   } else if (port.state === 'free') row('ok', `端口 ${opts.port}`, '空闲（服务器未运行；npm start 启动）');
