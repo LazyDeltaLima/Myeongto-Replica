@@ -10,6 +10,12 @@ export const UNJUDGED = 'unjudged: older than this check (2026-11-04)';
 export const UNJUDGED_MAX = 67;
 
 export const PICK_EVENTS = Object.freeze({
+  'closur|dp': 'stand-in: the DP number the sim shows for every DP gain; closur_s_1[cost]\'s own common_charge_cost_02 is a skill buff row',
+  'closur|disappear': 'stand-in: the 指挥中心 leaves for its 战术点形态; its Recharge mode draws nothing of its own in the prefab',
+  'closur|summon': 'official: flushDeploys draws the token\'s deploy effect (the prefab has no `_startEffect`: the common one)',
+  'closur|shield': 'official: closur_s_1[block] on the unit, the sim\'s buff key plays closur_skill_01_shied_01 (fxmap.js status path)',
+  'cqbw|summon': 'official: flushDeploys draws 此面向敌\'s `_startEffect` cqbw_skill_02_birth',
+  'cqbw|buff': 'official: 设伏 is cqbw_t_1[evade], its row cqbw_buff_01_start is on the fx-V list; no stand-in draws for an operator with official effects',
   'aglna2|takeoff': UNJUDGED,
   'aglna2|dash': UNJUDGED,
   'aglna2|summon': UNJUDGED,

@@ -151,4 +151,14 @@ export const UNPLAYED = {
   char_293_thorns: {
     Skill2_1: 'none: no key names it: key Skill_2 → Skill2_2 is the S3 attack, `_faceToFront` so the Back model that lacks it is not drawn; the S2 Thorn ability has no clip',
   },
+  // W, 클로저 (2026-11-06, the maintainer's to-do list: bundle fx-V)
+  char_113_cqbw: {
+    Attack_Down: 'todo: K — a key of the Front model not read yet: which attack plays it is not settled',
+  },
+  char_4228_closur: {
+    Skill_2_End: 'todo: K — the end of her S2 mode as the skill ends; no role reaches it yet',
+    Skill_3_End: 'todo: K — the end of her S3 mode as the skill ends; no role reaches it yet',
+    Skill_Down_2_End: 'todo: K — the same, her downward copy',
+    Skill_Down_3_End: 'todo: K — the same, her downward copy',
+  },
 };

@@ -3017,11 +3017,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (p.harpoon) { flight = Math.max(flight, planHarpoon(pb, name, op, p.harpoon, x, y)); n++; continue; }
       if (p.fly && (p.to || p.from)) { flight = Math.max(flight, planShots(pb, name, op, p, o, x, y, views)); n++; continue; }
       if (p.fly) { // a projectile's `_mainEffect` from the operator to the event's point at `fly` tiles / s, along its flight
-        const dur = Math.hypot(x - op.x, y - op.y) / p.fly, z = camRef ? bodyZ(camRef, op, SPAWN_FRAC[2]) - (op.z || 0) : 0.5;
+        // (2026-11-06) `start` [x, y]: a shot that leaves from a ground point of its own (오올헤약 S3's lanes), not the operator
+        const fx0 = Array.isArray(p.start) ? Number(p.start[0]) : op.x, fy0 = Array.isArray(p.start) ? Number(p.start[1]) : op.y;
+        const dur = Math.hypot(x - fx0, y - fy0) / p.fly, z = camRef ? bodyZ(camRef, op, SPAWN_FRAC[2]) - (op.z || 0) : 0.5;
         flight = Math.max(flight, dur);
         const z0 = op.z || 0;   // both ends drawn over their points (fx/camera.js liftX)
-        spawn(pb.bundle, name, glider(liftX(camRef, op.x, op.y, z0, z0 + z), op.y, liftX(camRef, x, y, z0, z0 + z), y, dur, z0 + z), { owner: p.tag ? opId : null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur, ...(p.tag ? { tag: p.tag } : {}) })
-          .then((l) => { if (l) bodyTurn(l.inst, mod.THREE, Math.atan2(y - op.y, x - op.x)); });
+        spawn(pb.bundle, name, glider(liftX(camRef, fx0, fy0, z0, z0 + z), fy0, liftX(camRef, x, y, z0, z0 + z), y, dur, z0 + z), { owner: p.tag ? opId : null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur, ...(p.tag ? { tag: p.tag } : {}) })
+          .then((l) => { if (l) bodyTurn(l.inst, mod.THREE, Math.atan2(y - fy0, x - fx0)); });
         n++;
         continue;
       }
@@ -3802,7 +3804,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // (kitofficial.js 'zone' / 'stacks'); oxi_skill_02_buff_02, which no client row creates
     'oxi_skill_02_buff_01', 'oxi_skill_02_buff_02', 'oxi_buff_01', 'oxi_buff_02', 'oxi_buff_03',
     // 2026-11-06: 薇薇安娜 S1's 蓄力 state (kitofficial.js 'vvanaCharge'), not the skill's: the `_buff` name rule drew it through a plain cast too
-    'vvana_skill_01_S_buff']);
+    'vvana_skill_01_S_buff',
+    // 2026-11-06: W's 此面向敌, drawn on the mine (modes.json token row, kitofficial.js 'kitHit'): the `_buff` / `_start` name rules drew them on her too
+    'cqbw_skill_02_buff', 'cqbw_skill_02_buff_02', 'cqbw_skill_02_start']);
   // 2026-11-06: with the buffs a kit wears as statuses (fxstatus.js wornPrefabs), which those draw on whoever wears them
   let ownedOf = null, ownedSet = KIT_OWNED;
   const ownedNow = () => {

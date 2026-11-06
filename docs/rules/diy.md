@@ -1039,6 +1039,29 @@
 - 테스트: `test/content/op_thorns.test.js`(12)·`op_irene.test.js`(10)·`op_weedy.test.js`(10) — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 소환물, 실제 매치 경로 하나씩
   (upstream 테스트에 없어 더함); 선발 수를 세는 테스트 31 → 34명(폼 136 → 145), 소환사 12 → 13, 손패 소환물 검사 142 → 166, 토큰 모델 19 → 20. golden `diy-054`~`diy-059`(새 시나리오; `diy-053`은 덜 찬 마지막 판에 쏜즈가 들어와 바뀜 — 동작 변화 아님), 다른 가족 변화 없음.
 
+
+## 선발 추가 W·오올헤약·클로저 (2026-11-06, 관리자 결정)
+- 관리자 결정 2026-11-02·2026-11-03·2026-11-06(새 시즌 카시미어·핵심 맹약 없음 명단의 upstream 선발 키트 셋을 묶음으로): 선발에 W(`char_113_cqbw`, 6성 스나이퍼 포격수)·오올헤약(霍尔海雅 `char_4027_heyak`, 6성 캐스터 코어)·클로저(可露希尔 `char_4228_closur`, 6성 뱅가드 전술가)를 넣는다(`LOCAL_DIY_PICKS` 끝). 이름·문구는 KR 공식 표 그대로(`tools/i18n/build-ko-diy.mjs`). 소환물은 W 「적 방향」(`token_10008_cqbw_box`)·클로저 「지휘 센터」(`token_10066_closur_ourbase`, 손패 소환물).
+- 맹약: 지금 시즌은 셋 다 협방(`emptyShip`). 오올헤약의 ISW-A(통합 전략 전용)는 편성에서 거부된다.
+- 키트·테스트: 커널 직전 판(`9a3a12ee9^`)의 키트와 테스트에서 가져와 공식 클라에서 확인한 값으로 바꿨다. PRTS 인용은 upstream 키트 머리 주석 그대로이고 이번에 다시 대조하지 않았다.
+- **W**
+  - S1 하트 K·S3 D12는 `CastSkill` `_switchToState` 1: 시전이 휘두름을 끊고 대상은 시전 시작에 고른 뒤(`_selectTargetTiming` 0) 클립의 OnAttack 프레임에 효과가 난다(`onStart` + `onStrike`). upstream은 `_shouldCastLikeAttack`을 「다음 공격이 스킬이 됨」으로 읽었으나, 이 값은 공격 트리거 재능용 표시일 뿐이다.
+  - S1 유탄: `projectile_chr_cqbw_s1` 속도 8, `_alwaysHitTraceTargetInTheEnd`라 대상이 쓰러져도 그 자리에서 터진다. 대상 선택은 `_postFilter` 4 HATRED_DES, 공중 포함.
+  - S2 깜짝 상자: `ReplacementSkill`(`replace`). 지뢰는 다음 공격의 타격 순간에 놓인다.
+  - S3 D12: 폭탄은 날지 않는다(`projectile_chr_cqbw_s3` `_immediatelyReach`·`_delayAfterReached`·`_delayTime` 3). 대상은 `_postFilter` 15 HP_DES, 공격력은 시전 시작에 저장(`_useCachedAtkOnly`). upstream의 포탄 비행 추정을 지웠다.
+  - 적 방향: 프리팹 `_category` 2 TRAP_OR_ITEM이라 적 선택기(`_targetCategory` 1 DEFAULT)에 걸리지 않는다. upstream의 추정을 공식 값으로 바꿨다.
+- **오올헤약**
+  - S2 굽이쳐 흐르는 별들: 모드 `MultiRangedAttack` `_additionalTimes` 8·`_triggerDelta` 0.05 — 9발이 타격부터 0.05초 간격으로 나가고, 각 발이 나갈 때 무작위로 대상을 고른다(`_selectNum` 1, `_selectTargetTiming` 1). 기절하면 남은 발은 없다.
+  - S3 박식한 자의 광언: `DEFAULT` + 스킬 범위 상자 3-10(자기 행 없음). 공격은 공격 클립의 타격에 회오리 셋을 낸다(upstream은 타이머로 직접 냄). 회오리는 속도 1·수명 4초라 **4칸**을 난다: PRTS 「5格远处中心点」은 자기 칸을 세는 값이다. 배율 곡선 `_scaleCurve`가 수명의 0.4428에서 1이 되어 PRTS의 1.77초와 맞는다. 함께 닿은 적은 `_postFilter` 4 HATRED_DES 차례, 공중 포함.
+- **클로저**: S1의 `trigger: 'SP_FULL'`은 그대로 둔다(아군·자신에게만 듣는 AUTO 스킬은 SP가 차면 켠다, kits README 체크리스트 5). S2·S3은 표의 전술가 행(`ALWAYS`). S1 보호막 버프 키를 클라 키 `closur_s_1[block]`으로 지어 상태 경로가 `closur_skill_01_shied_01`을 튼다.
+- 소환물 이펙트 규칙(`fx.md` 「소환물이 서 있는 동안의 버프」): 소환물 재능의 기간제 버프 `token_*_born[withdraw]`가 서 있는 동안의 이펙트로 이어진다. 이 규칙으로 에벤홀츠 소환물 `token_ebnhlz_buff`와 비즈왁스 소환물 `token_beewax_skill_02_buff`도 켜졌다. 끝 이펙트는 이미 있던 `dead`(`_deadEffect`) 경로로 난다.
+- 키트 주석에 남은 추정:
+  - W [추정·엔진: 보호막이 막은 타격도 공격력 층을 지우는지]·[추정·엔진: 지뢰 칸 고르기에서 타일 선택기의 정렬 값을 안 읽음 — 둘]·[추정·엔진: 쓰러질 때도 지뢰를 거두는지, 문구는 철수만 말함]·[추정·자료 없음: 지뢰 수 상한].
+  - 오올헤약 [추정·엔진: 회피와 부양 버프의 차례]·[추정·자료 없음: 「模组加成」을 모듈 특성으로 봄]·[추정·엔진: 아직 나오지 않은 회오리는 그녀가 떠나면 안 나옴].
+  - 클로저 [추정·자료 없음: 배치 비용 하한은 여기에 대응이 없음]·[추정·엔진: 둔화가 적 능력 쿨다운·상태 시간에 주는 영향은 넣지 않음].
+- 이펙트·공격 타이밍·투사체·스킬 시전·모드·HUD: EN 클라에서 뽑음(`add_operator.py --id …` 셋 한 번). 소환물 이펙트는 두 오퍼레이터의 번들에 있어 토큰 팩 추출이 필요 없다. 화면 확인 전이다.
+- 테스트: `test/content/op_cqbw.test.js`(12)·`op_heyak.test.js`(11)·`op_closur.test.js`(10) — 모든 폼, 세 스킬, 두 재능, 특성, 모듈, 소환물, 실제 매치 경로 하나씩(upstream 테스트에 없어 더함). 선발 수 34 → 37명(폼 145 → 154), 소환사 13 → 15, 손패 소환물 검사 166 → 184, 토큰 모델 20 → 22. golden `diy-060`~`diy-065`·`diy-summon-closur`(새 시나리오), 다른 가족 변화 없음. 이펙트 golden은 새 시나리오 외에 `diy-045`~`diy-047`에 `token_ebnhlz_buff` 한 줄씩 더해짐.
+
 ## 안젤리나 더 멜로우 위시 S3 이동 · 「이따 봐!」 표식 (2026-10-11, 관리자 제보)
 - 제보 2건: ① S3로 공중 적에게 갈 때 처음 칸에 남는 「이따 봐!」(“一会儿见！”)가 대체 마름모로 보임, ② 공식은 공중 적에게 **직접 날아가는데** 우리는 그 칸에
   **배치**(낙하)됨.

@@ -5274,6 +5274,93 @@
    }
   ]
  },
+ "char_113_cqbw": {
+  "modes": [
+   "Default"
+  ],
+  "proj": [
+   [
+    "projectile_chr_cqbw"
+   ]
+  ],
+  "cast": [
+   [
+    "cqbw_attack_01_start",
+    "cqbw_attack_01_start_02"
+   ]
+  ],
+  "hit": [
+   [
+    "cqbw_attack_01_hit_01"
+   ]
+  ],
+  "trail": [
+   [
+    "cqbw_attack_01_trail_01"
+   ]
+  ],
+  "attach": [
+   []
+  ],
+  "castOpt": [
+   {
+    "cqbw_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "cqbw_attack_01_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [
+     "cqbw_skill_01_start",
+     "cqbw_skill_01_start_02"
+    ],
+    "buff": [],
+    "target": [
+     "cqbw_skill_01_hit"
+    ],
+    "targetBuff": [],
+    "shot": [
+     "cqbw_skill_01_trail"
+    ],
+    "shotHit": [
+     "cqbw_skill_01_hit"
+    ]
+   },
+   {
+    "cast": [],
+    "castLoop": [
+     "cqbw_skill_02_start_02"
+    ],
+    "buff": [],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [
+     "cqbw_skill_03_start",
+     "cqbw_skill_03_range"
+    ],
+    "buff": [],
+    "target": [
+     "cqbw_skill_03_buff",
+     "cqbw_skill_03_buff_02",
+     "cqbw_skill_03_buff_03",
+     "cqbw_skill_03_hit"
+    ],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_126_shotst": {
   "modes": [
    "Default"
@@ -12306,6 +12393,155 @@
     "castLoop": [],
     "buff": [
      "vulpis_skill_03_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_4027_heyak": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_heyak"
+   ],
+   [
+    "projectile_chr_heyak_s2"
+   ],
+   [
+    "projectile_chr_heyak_s3"
+   ]
+  ],
+  "cast": [
+   [
+    "heyak_attack_01_start_01"
+   ],
+   [
+    "heyak_skill_02_start_01",
+    "heyak_skill_02_start_02"
+   ],
+   [
+    "heyak_skill_03_start_01",
+    "heyak_skill_03_start_02"
+   ]
+  ],
+  "hit": [
+   [
+    "heyak_attack_01_hit_01"
+   ],
+   [
+    "heyak_skill_02_hit_01"
+   ],
+   [
+    "heyak_skill_03_hit_01",
+    "heyak_skill_03_trail_01_end"
+   ]
+  ],
+  "trail": [
+   [
+    "heyak_attack_01_trail_01"
+   ],
+   [
+    "heyak_skill_02_trail_01"
+   ],
+   [
+    "heyak_skill_03_trail_01"
+   ]
+  ],
+  "attach": [
+   [],
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "heyak_attack_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "heyak_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "heyak_skill_02_start_02": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "heyak_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "heyak_skill_03_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "shotFrom": [
+   null,
+   null,
+   8
+  ],
+  "skillMode": [
+   null,
+   1,
+   2
+  ],
+  "switchTo": [
+   [],
+   [
+    1
+   ],
+   [
+    2
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [
+     "heyak_skill_01_start_01"
+    ],
+    "castLoop": [],
+    "buff": [],
+    "target": [
+     "heyak_skill_01_hit_01"
+    ],
+    "targetBuff": [],
+    "shot": [
+     "heyak_skill_01_trail_01"
+    ],
+    "shotHit": [
+     "heyak_skill_01_hit_01"
+    ]
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "heyak_skill_02_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "heyak_skill_03_buff_01",
+     "heyak_skill_03_buff_02"
     ],
     "target": [],
     "targetBuff": []
@@ -20193,6 +20429,202 @@
     "castLoop": [],
     "buff": [
      "veen_skill_03_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_4228_closur": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_closur"
+   ],
+   [
+    "projectile_chr_closur_s2"
+   ],
+   [
+    "projectile_chr_closur_s3"
+   ]
+  ],
+  "cast": [
+   [
+    "closur_attack_start_01",
+    "closur_attack_start_02"
+   ],
+   [
+    "closur_skill_02_start_01"
+   ],
+   [
+    "closur_skill_03_start_01"
+   ]
+  ],
+  "hit": [
+   [
+    "closur_attack_hit_01"
+   ],
+   [
+    "closur_skill_02_hit_01"
+   ],
+   [
+    "closur_skill_03_hit_01"
+   ]
+  ],
+  "trail": [
+   [
+    "closur_attack_trail_01"
+   ],
+   [
+    "closur_skill_02_trail_01"
+   ],
+   []
+  ],
+  "attach": [
+   [],
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "closur_attack_start_01_back": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    },
+    "closur_attack_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    },
+    "closur_attack_start_01_down": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    },
+    "closur_attack_start_02_back": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    },
+    "closur_attack_start_02": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    },
+    "closur_attack_start_02_down": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "closur_skill_02_start_01_back": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    },
+    "closur_skill_02_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    },
+    "closur_skill_02_start_01_down": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "closur_skill_03_start_01_back": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    },
+    "closur_skill_03_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    },
+    "closur_skill_03_start_01_down": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "dirs": [
+   {
+    "t": 5,
+    "s": [
+     "closur_skill_02_start_01_back",
+     "closur_skill_02_start_01",
+     "closur_skill_02_start_01_down",
+     "closur_skill_02_start_01"
+    ]
+   },
+   {
+    "t": 5,
+    "s": [
+     "closur_skill_03_start_01_back",
+     "closur_skill_03_start_01",
+     "closur_skill_03_start_01_down",
+     "closur_skill_03_start_01"
+    ]
+   },
+   {
+    "t": 5,
+    "s": [
+     "closur_attack_start_01_back",
+     "closur_attack_start_01",
+     "closur_attack_start_01_down",
+     "closur_attack_start_01"
+    ]
+   },
+   {
+    "t": 5,
+    "s": [
+     "closur_attack_start_02_back",
+     "closur_attack_start_02",
+     "closur_attack_start_02_down",
+     "closur_attack_start_02"
+    ]
+   }
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "common_charge_cost_02"
+    ],
+    "target": [],
+    "targetBuff": [
+     "closur_skill_01_shied_01"
+    ]
+   },
+   {
+    "cast": [
+     "common_charge_cost_start_01"
+    ],
+    "castLoop": [],
+    "buff": [
+     "closur_skill_02_buff_01",
+     "common_charge_cost_02"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "common_charge_cost_02",
+     "closur_skill_03_buff_01"
     ],
     "target": [],
     "targetBuff": []

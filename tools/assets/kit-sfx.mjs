@@ -5,6 +5,9 @@
 // (public/js/audio.js kitHitKey) and plays `sfx.kit[key]`, limited per key.
 
 export const KIT_HIT_BANKS = Object.freeze({
+  // 오올헤약: S3's whirlwind landing; the 浮空 of her skills (heyak_s_1[levitate], heyak_s_2 / _3[hit_levitate] CreateBuff `audioSignal`)
+  'heyak:windHit': 'battle.ON_PROJECTILE_HIT.projectile_chr_heyak_s3',
+  'heyak:lift': 'battle.ON_BUFF_START.heyak_levitate',
   // 乌有 S2: its begin's extra signal (skchr_nothin_2 `_playExtraSignalAtSkillBegin`)
   'nothin:s2': 'battle.ON_SKILL_SPECIAL_POINT.skchr_nothin_2',
   // 风絮: her FlyStart modes' attack ability (the take-off clip): its start; the FlyEnd one is the skill's end sound (`ends`)

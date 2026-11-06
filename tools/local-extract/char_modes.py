@@ -1373,6 +1373,7 @@ def funnel_entries(abilities, emitters, idle, projectiles):
 
 
 LIFE_INFINITY = 2   # Buff lifeTimeType (fx_bindings.py prints it INFINITY)
+LIFE_DURATION = 1   # a talent's buff with no `durationKey` of its own: as long as its token's talent `duration`, its life
 # Drawn by hand as the summon's look or a kit event: fxgame.js SUMMON_LOOK, kitofficial.js (小火龙's 冰靶子 sbell2_tile_frozen)
 TOKEN_FX_BY_HAND = frozenset({'token_aglna2_agairp_01', 'phatm2_skill_03_prison_01', 'sbell2_tile_frozen'})
 
@@ -1430,7 +1431,9 @@ def token_auras(tree, client):
             # stands in its default mode — the 重构体's monstr[free_jump] token_monstr_prosts_idle (PassiveBuffAbility: no
             # `_selfOption`; an AuraAbility's `_buffs` go on the units it covers, not on the token)
             if gp.startswith(f'{tid}/') and '_selfOption' not in d and isinstance(d.get('_buffs'), list) and token_default_mode_path(gp[len(tid) + 1:]):
-                held.extend(b['overrideEffectKey'] for b in d['_buffs'] if isinstance(b, dict) and b.get('lifeTimeType') == LIFE_INFINITY
+                # 2026-11-06: W's 此面向敌 token_cqbw_born[withdraw] / [effect] (Talents/1, LIFE_DURATION: its 120 s talent `duration`)
+                held.extend(b['overrideEffectKey'] for b in d['_buffs'] if isinstance(b, dict)
+                            and (b.get('lifeTimeType') == LIFE_INFINITY or (b.get('lifeTimeType') == LIFE_DURATION and '/Talents/' in gp and not b.get('durationKey')))
                             and isinstance(b.get('overrideEffectKey'), str) and b['overrideEffectKey'] and b['overrideEffectKey'] not in TOKEN_FX_BY_HAND)
             # 2026-10-26: a talent ability of the token prefab that holds `_attachEffects` while it casts — 酒神's 本能的召唤
             # (Others/Direction/Talents/1, its 诱导: token_encdool_skill_02_range_01) casts for as long as it stands

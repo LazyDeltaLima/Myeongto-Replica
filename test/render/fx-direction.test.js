@@ -23,10 +23,10 @@ test('char_modes.py records the client\'s directional slots (아르케토 S3 sta
   assert.deepEqual(ARCHET, [{ t: 2, s: ['archet_skill_03_start_02', '', 'archet_skill_03_start_02_B', ''] }]);
   // the binding itself still lists both copies — the pick is the player's
   assert.ok(S3_CAST.includes('archet_skill_03_start_02') && S3_CAST.includes('archet_skill_03_start_02_B'));
-  // 24 operators carry such entries (13 of the maintainer's list + 데겐블레허 S2 from skills.ab + 克莱门莎, 予愿安洁莉娜 and
+  // 25 operators carry such entries (13 of the maintainer's list + 데겐블레허 S2 from skills.ab + 克莱门莎, 予愿安洁莉娜 and
   // 冻河's attack start (2026-11-01), CN client; 斥罪, 逻各斯 and 薇薇安娜, 2026-11-03, EN client; 怒潮凛冬's S3 fifth hammer,
-  // 2026-11-03, EN client; 涤火杰西卡's attack and skill starts, 2026-11-04, EN client; 矩's attack and S1 starts, 2026-11-05, EN client; 烈夏's attack and S2 starts, 2026-11-06, EN client)
-  assert.equal(Object.values(MODES).filter((m) => m && Array.isArray(m.dirs)).length, 24);
+  // 2026-11-03, EN client; 涤火杰西卡's attack and skill starts, 2026-11-04, EN client; 矩's attack and S1 starts, 2026-11-05, EN client; 可露希尔's attack and skill starts, 2026-11-06, EN client; 烈夏's attack and S2 starts, 2026-11-06, EN client)
+  assert.equal(Object.values(MODES).filter((m) => m && Array.isArray(m.dirs)).length, 25);
 });
 
 test('U_OR_D: facing up plays the UP copy, every other facing the DOWN one — never both', () => {

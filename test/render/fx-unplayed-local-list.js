@@ -16,7 +16,6 @@ export const UNPLAYED_LOCAL = Object.freeze({
   "token_10026_bgsnow_subbow/Modes/S3/Body/Attack|token_bgsnow_subbow_skill_start_01_up": "todo: 打字机's attack effects by facing and skill (a summon's attack bindings: modes.json holds none)",
   "token_10026_bgsnow_subbow/Modes/S3/Body/Attack|token_bgsnow_subbow_skill_start_01": "todo: 打字机's attack effects by facing and skill (a summon's attack bindings: modes.json holds none)",
   "char_206_gnosis/Others/Direction/Talents/1|buff_frozen_to_enemy": "todo: 灵知 T1's hit on a frozen enemy",
-  "token_ebnhlz_born[withdraw]|token_ebnhlz_buff": "todo: token_ebnhlz_born[withdraw], a LIMITED buff of length 0: when the client shows it is not read",
   "char_4046_ebnhlz/Trait/ChargeAttackGroup/ExChargeAttackDefault|ebnhlz_attack_buff_orange_2": "todo: 黑键's store stages in the elite's colour (_chargeEffectGroups: the render keeps the normal ones)",
   "char_4046_ebnhlz/Trait/ChargeAttackGroup/ExChargeAttackS1|ebnhlz_attack_buff_orange_2": "todo: 黑键's store stages in the elite's colour (_chargeEffectGroups: the render keeps the normal ones)",
   "char_4046_ebnhlz/Trait/ChargeAttackGroup/ExChargeAttackDefault|ebnhlz_attack_buff_orange_3": "todo: 黑键's store stages in the elite's colour (_chargeEffectGroups: the render keeps the normal ones)",

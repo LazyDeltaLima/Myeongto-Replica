@@ -301,7 +301,7 @@ def main():
     ap.add_argument('--out', default=str(OUT))
     ap.add_argument('--id', action='append', default=[], help='only this operator (repeatable): every other row, the enemies too, stays as the earlier run wrote it')
     args = ap.parse_args()
-    cids = args.id or all_char_ids()
+    cids = [i for i in args.id if not i.startswith('token_')] if args.id else all_char_ids()
     enemies_json = json.loads((ROOT / 'data/enemies.json').read_text(encoding='utf-8'))
     recs = enemies_json.get('enemies', enemies_json)
     wanted = set(recs)
@@ -311,7 +311,8 @@ def main():
                 if isinstance(e.get(f), str):
                     wanted.add(e[f])
     ops, read, enemies, tokens = {}, set(), {}, {}
-    token_ids = [] if args.id else all_token_ids()
+    # (--id token_…: that summon's row only; an operator's id reads the operator)
+    token_ids = [i for i in args.id if i.startswith('token_')] if args.id else all_token_ids()
     for client in clients(args.client):
         n_ops, n_enemies = len(ops), len(enemies)
         for cid in cids:

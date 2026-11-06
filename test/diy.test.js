@@ -84,7 +84,7 @@ test('checkDiyPick: an owned 6★ chooses any of its 3 skills and any module of 
 });
 
 test('validateDiyPicks: a roster never carries a module of another game mode — 集成战略 ISW-A / SO-A / SO-B, 生息演算 RA-A [ASSUMED, the owner\'s decision of 2026-10-05 for ISW-A]; the record still composes it', () => {
-  // our picks: every module of theirs is a legal roster pick but 森蚺's RA-A (生息演算) and 艾丽妮's ISW-A (集成战略), which are refused
+  // our picks: every module of theirs is a legal roster pick but 森蚺's RA-A (生息演算) and 艾丽妮's and 霍尔海雅's ISW-A (集成战略), which are refused
   const modeOnly = [];
   for (const charId of ownedPool) {
     for (const [slot, key] of [[T5, '2/60/7/1'], [T6, '2/60/7/3']]) {
@@ -99,7 +99,7 @@ test('validateDiyPicks: a roster never carries a module of another game mode —
       }
     }
   }
-  assert.deepEqual([...new Set(modeOnly)], ['char_416_zumama RA-A', 'char_4009_irene ISW-A']);
+  assert.deepEqual([...new Set(modeOnly)], ['char_416_zumama RA-A', 'char_4009_irene ISW-A', 'char_4027_heyak ISW-A']);
   // the rule on synthetic data: 阿斯卡纶's AMB-Y relabelled as each mode-only type
   for (const [typeName, mode] of [['ISW-A', '集成战略'], ['SO-A', '集成战略'], ['SO-B', '集成战略'], ['RA-A', '生息演算']]) {
     const b2 = structuredClone(backups);

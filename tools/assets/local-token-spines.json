@@ -44,6 +44,57 @@
         "height": 357
       }
     },
+    "token_10008_cqbw_box": {
+      "skel": "token_10008_cqbw_box.skel",
+      "atlas": "token_10008_cqbw_box.atlas",
+      "textures": [
+        "token_10008_cqbw_box.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Idle",
+        "deploy": "Start",
+        "attack": {
+          "begin": null,
+          "loop": "Attack",
+          "end": null
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Attack",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": "Die",
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Attack": 1.5,
+        "Default": 0,
+        "Die": 0.167,
+        "Idle": 0,
+        "Start": 0.5
+      },
+      "events": [
+        "OnAttack",
+        "OnStart"
+      ],
+      "hits": {
+        "Attack": [
+          1.5
+        ]
+      },
+      "bounds": {
+        "x": -44.388,
+        "y": -3.048,
+        "width": 88.2,
+        "height": 92.4
+      }
+    },
     "token_10009_weedy_cannon": {
       "skel": "token_10009_weedy_cannon.skel",
       "atlas": "token_10009_weedy_cannon.atlas",
@@ -813,6 +864,47 @@
           0.167
         ]
       },
+      "bounds": null
+    },
+    "token_10066_closur_ourbase": {
+      "skel": "token_10066_closur_ourbase.skel",
+      "atlas": "token_10066_closur_ourbase.atlas",
+      "textures": [
+        "token_10066_closur_ourbase.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Idle",
+        "deploy": "Start",
+        "attack": {
+          "begin": null,
+          "loop": "Idle",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Idle",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": "Die",
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0,
+        "Die": 1,
+        "Idle": 1.333,
+        "Start": 1
+      },
+      "events": [
+        "OnStart"
+      ],
+      "hits": {},
       "bounds": null
     },
     "token_10068_kalts2_mtship": {

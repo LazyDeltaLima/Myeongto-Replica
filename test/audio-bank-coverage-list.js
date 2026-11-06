@@ -12,6 +12,17 @@
 // after they joined; the 涤火杰西卡 / 鸿雪 and 棘刺 ones (2026-11-04) the same day.
 
 export const UNSOUNDED = {
+  // 클로저 (2026-11-06): the 指挥中心's moments and S1 / S3's buffs — not wired yet (the maintainer's to-do list)
+  char_4228_closur: {
+    'ON_BUFF_SHOW_EFFECT.closur_s_1[block]': 'todo: closur_s_1[block] as a 援军 takes its shield (overrideEffect shown)',
+    'ON_BUFF_START.closur_s3_airplane': 'todo: closur_s_3[eff] ON_BUFF_START, behind the condition its plane is (fx-bindings.test.js UNPLAYED)',
+    'ON_BUFF_START.closur_ourbase[fake_death]': 'todo: the 指挥中心 into its 战术点形态 (Recharge mode)',
+    'ON_CUSTOM_TRIGGER.closur_ourbase_s1': 'todo: closur_ourbase_signal, the 指挥中心\'s S1 range mode',
+    'ON_CUSTOM_TRIGGER.closur_ourbase_s2': 'todo: closur_ourbase_signal, the 指挥中心\'s S2 range mode',
+    'ON_CUSTOM_TRIGGER.closur_ourbase_s3': 'todo: closur_ourbase_signal, the 指挥中心\'s S3 range mode',
+    'ON_BUFF_START.token_closur_ourbase_range_02_loop_start': 'todo: the 指挥中心\'s S2 range loop as it starts',
+    'ON_BUFF_START.token_closur_ourbase_range_03_loop_start': 'todo: the 指挥中心\'s S3 range loop as it starts',
+  },
   char_4202_haruka: {
     // no buff template, prefab node or ability of the EN client plays this signal (S3's levitation ending sounds nothing)
     'ON_CUSTOM_TRIGGER.haruka_shield_break_enemy': 'none: no source plays it — haruka_s_3_debuff carries haruka_shield_start_enemy (START / TRIGGER banks only)',
