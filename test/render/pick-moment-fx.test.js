@@ -98,3 +98,16 @@ test('클로저 S3 and 크리스틴 T1 play their prefabs at their moments', { s
   layer.onEvent(['fx', 'kitHit', 0, 0, { x: 0, y: 0, id: 2, k: 'christ:aura' }], views);
   assert.ok(has(take(), 'christ_buff_01'));
 }));
+
+test('체르니 S2: FinalAttack\'s damage right after an attack draws no attack hit (its castHit claims it)', { skip: NO_DATA }, () => withLayer(async ({ layer, take }) => {
+  const u = on(1, 'ally', 'char_4047_pianst');
+  u[1].info.skillIndex = 1;
+  const views = new Map([u, on(9, 'enemy', 'enemy_x', 2)]);
+  layer.onEvent(['skill', 1, 1], views);
+  layer.onEvent(['atk', 1, 9, 'none'], views);
+  take();
+  layer.onEvent(['castHit', 1], views);
+  layer.onEvent(['dmg', 9, 100, 'arts', 0, 1, 0, null], views);
+  const t = take();
+  assert.ok(!has(t, 'pianst_skill_02_hit'), `${t}`);
+}));

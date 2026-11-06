@@ -5743,7 +5743,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           const v = views.get(e[1]);
           if (!v || !bundleOf(v)) return;
           const sk = skillBind(v);
-          expect(v, e[2] === 'end' ? extracted(v, sk?.end?.hit) : skillTargets(v));
+          // (a row all a kit's own moment plays still claims the damage, no attack hit on it: 체르니 S2's FinalAttack)
+          if (e[2] !== 'end' && !skillTargets(v).length && extracted(v, sk?.target).length) pending.push({ src: v, names: [], buff: false, t: clockS });
+          else expect(v, e[2] === 'end' ? extracted(v, sk?.end?.hit) : skillTargets(v));
           return;
         }
         case 'atk': {

@@ -53,6 +53,7 @@ export default {
               battle.after(FINAL_DELAY, () => {
                 if (!still() || !unit.canAct) return;
                 const keys = absoluteRangeKeys(X1, unit.tileR, unit.tileC, unit.dir, 0);
+                skill.castHit();   // (the damage after it is FinalAttack's, no attack's hit)
                 for (const e of battle.enemiesInKeys(keys, unit, ALL)) {
                   battle.fx('kitHit', { x: e.x, y: e.y, id: unit.id, src: unit.id, tgt: e.id, k: 'pianst:finalHit' });
                   battle.dealDamage(unit, e, { amount: unit.s.atk * num(b2.atk_scale, 1), type: 'arts', isSkill: true, tags: ['skill', 'pianst:final'] });
