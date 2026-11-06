@@ -35,6 +35,7 @@ for a in "$@"; do
       src="${a#--user-data-dir=}"
       [ -d "$src" ] && cp -r "$src/." "$temp_wsl/$name/" 2>/dev/null
       ;;
+    --use-angle=metal) ;; # the suites' Mac backend: on Windows it leaves no GPU, and WebGL falls to software
     *) args+=("$a") ;;
   esac
 done

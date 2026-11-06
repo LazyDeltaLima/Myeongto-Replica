@@ -263,7 +263,7 @@ describe('user playtest #2 item 6 — 前往查看 → 返回战场 in combat (r
           return f ? f.fieldId : 'none';
         }, { timeout: 120000, polling: 200 }).then((h) => h.jsonValue(), () => 'timeout');
         if (!target || ['phase', 'none', 'timeout'].includes(target)) { c.note(`R${s0.round}: no running teammate field after the own battle (${target})`); continue; }
-        await c.page.waitForSelector('.chud__wait', { timeout: 5000 });
+        await c.page.waitForSelector('.chud__wait, .btip', { timeout: 5000 }); // the plain line, or the official bottom tip
         await c.click('.team__row:not(.is-self) .team__btn', null, { nth: 0 });
         if (!(await c.click('.team__ob', '前往查看', { optional: true, timeout: 3000 }))) { c.note(`R${s0.round}: no 前往查看`); continue; }
         const ok = await c.page.waitForFunction((fid) => { const r = globalThis.__SP_RUNNER__?.state?.(); return !!r && r.fieldId === fid && r.watch; }, { timeout: 15000 }, target).then(() => true, () => false);
@@ -450,7 +450,7 @@ describe('user playtest #2 item 10 — boss-round prep on the boss field (real s
       for (const c of [host, guest]) {
         await c.click('.spcard.is-pickable');
         assert.ok(await choiceOf(c), 'first tap only highlights');
-        await c.click('.spov__confirm');
+        await c.click(await c.visible('.spov__confirm') ? '.spov__confirm' : '.spcard.is-armed'); // the official art hides the button
         await c.page.waitForFunction(() => globalThis.__SP__.store.get().match.private.personalChoice === null, { timeout: 6000 });
       }
       for (const c of [host, guest]) await c.click('.readybtn');

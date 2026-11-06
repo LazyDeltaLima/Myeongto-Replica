@@ -138,6 +138,28 @@ export async function aimedDrag(page, from, to, { steps = 14, lead = 3, pause = 
   return dest;
 }
 
+/**
+ * Geometry of the open direction wheel (client px): centre, half-diagonal and the four vertices, or null. The official
+ * selector (ui/placeArt.js) lies on the ground and its host box has no size (place-art.css), so the vertices come from the
+ * cut-out of its dim layer; the older DOM wheel is the rotated square of `.fwheel__dia`.
+ */
+export function wheelGeometry(page) {
+  return page.evaluate(() => {
+    const el = document.querySelector('.fwheel__dia');
+    if (!el) return null;
+    const dim = document.querySelector('.pwheel__dim')?.getAttribute('d');
+    if (dim) {
+      const n = dim.slice(dim.lastIndexOf('M') + 1).replace('Z', '').split('L').map((p) => p.trim().split(/\s+/).map(Number));
+      const [UP, RIGHT, DOWN, LEFT] = n;
+      const x = (UP[0] + RIGHT[0] + DOWN[0] + LEFT[0]) / 4, y = (UP[1] + RIGHT[1] + DOWN[1] + LEFT[1]) / 4;
+      return { x, y, half: Math.hypot(RIGHT[0] - x, RIGHT[1] - y), verts: { UP, RIGHT, DOWN, LEFT } };
+    }
+    const r = el.getBoundingClientRect();
+    const x = r.left + r.width / 2, y = r.top + r.height / 2, h = r.width / 2;
+    return { x, y, half: h, verts: { UP: [x, y - h], RIGHT: [x + h, y], DOWN: [x, y + h], LEFT: [x - h, y] } };
+  });
+}
+
 /** A free TCP port on 127.0.0.1. */
 export function freePort() {
   return new Promise((resolve, reject) => {
@@ -522,27 +544,8 @@ export class Client {
     return this.page.evaluate((t) => (globalThis.__e2eReq || []).filter((r) => !t || r[0] === t), t);
   }
 
-  /**
-   * Geometry of the open direction wheel (client px): centre, half-diagonal and the four vertices, or null. The official
-   * selector (ui/placeArt.js) lies on the ground and its host box has no size (place-art.css), so the vertices come from the
-   * cut-out of its dim layer; the older DOM wheel is the rotated square of `.fwheel__dia`.
-   */
-  wheel() {
-    return this.page.evaluate(() => {
-      const el = document.querySelector('.fwheel__dia');
-      if (!el) return null;
-      const dim = document.querySelector('.pwheel__dim')?.getAttribute('d');
-      if (dim) {
-        const n = dim.slice(dim.lastIndexOf('M') + 1).replace('Z', '').split('L').map((p) => p.trim().split(/\s+/).map(Number));
-        const [UP, RIGHT, DOWN, LEFT] = n;
-        const x = (UP[0] + RIGHT[0] + DOWN[0] + LEFT[0]) / 4, y = (UP[1] + RIGHT[1] + DOWN[1] + LEFT[1]) / 4;
-        return { x, y, half: Math.hypot(RIGHT[0] - x, RIGHT[1] - y), verts: { UP, RIGHT, DOWN, LEFT } };
-      }
-      const r = el.getBoundingClientRect();
-      const x = r.left + r.width / 2, y = r.top + r.height / 2, h = r.width / 2;
-      return { x, y, half: h, verts: { UP: [x, y - h], RIGHT: [x + h, y], DOWN: [x, y + h], LEFT: [x - h, y] } };
-    });
-  }
+  /** Geometry of the open direction wheel (`wheelGeometry`). */
+  wheel() { return wheelGeometry(this.page); }
 
   /**
    * Choose a direction on the open wheel: press at its centre, drag towards `dir` (UP / RIGHT / DOWN / LEFT) past the

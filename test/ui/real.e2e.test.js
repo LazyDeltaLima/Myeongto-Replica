@@ -22,6 +22,7 @@ import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launchBrowser } from '../e2e/browser.mjs';
+import { aimedDrag, cameraSettled, wheelGeometry } from '../e2e/client.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = path.join(ROOT, 'test/e2e/out');
@@ -171,12 +172,7 @@ class Client {
   }
 
   async drag(from, to, steps = 14) {
-    const m = this.page.mouse;
-    await m.move(from.x, from.y);
-    await m.down();
-    for (let i = 1; i <= steps; i++) { await m.move(from.x + ((to.x - from.x) * i) / steps, from.y + ((to.y - from.y) * i) / steps); await sleep(14); }
-    await sleep(120);
-    await m.up();
+    return aimedDrag(this.page, from, to, { steps, settle: 120 });
   }
 
   /** An empty legal tile for a hand piece (mirrors the deploy rules: melee on melee tiles, ranged anywhere). */
@@ -255,7 +251,7 @@ class Client {
     const pt = await this.piecePoint(unit.uid);
     await this.page.mouse.click(pt.x, pt.y, { button: 'right' });
     await this.page.waitForSelector('.dpanel', { timeout: 5000 });
-    const shown = await this.page.$eval('.dpanel .dhead__name', (e) => e.textContent);
+    const shown = await this.page.$eval('.dpanel :is(.dart__name, .dhead__name)', (e) => e.textContent);
     assert.equal(shown, name, `${this.label}: detail panel shows the right-clicked unit`);
     await sleep(300);
     await this.shot(`detail-${this.label}`);
@@ -321,9 +317,10 @@ class Client {
       await this.drag(from, to);
       // the direction wheel (research 09 §1.2): swipe from its centre towards a side, release
       await this.page.waitForSelector('.fwheel__dia', { timeout: 4000 });
-      const w = await this.page.$eval('.fwheel__dia', (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, half: r.width / 2 }; });
-      const up = i % 2 === 1;
-      await this.drag({ x: w.x, y: w.y }, { x: w.x + (up ? 1 : w.half * 0.7), y: w.y - (up ? w.half * 0.7 : 0) }, 10);
+      await cameraSettled(this.page);
+      const w = await wheelGeometry(this.page);
+      const [vx, vy] = w.verts[i % 2 === 1 ? 'UP' : 'RIGHT'];
+      await aimedDrag(this.page, { x: w.x, y: w.y }, { x: w.x + (vx - w.x) * 0.7 + 1, y: w.y + (vy - w.y) * 0.7 + 1 }, { steps: 10, settle: 120 });
       await this.waitFor((x) => x.board !== s.board || x.phase !== 'PREP', 'deploy', 6000).catch(() => null);
       const onBoard = (await this.boardPieces()).find((b) => b.uid === p.uid);
       assert.ok(onBoard, `${this.label}: dragged piece ${p.id} onto the board`);

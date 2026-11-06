@@ -15,10 +15,11 @@
 
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { launchBrowser } from '../e2e/browser.mjs';
+import { launchBrowser, loadingScreenGone } from '../e2e/browser.mjs';
+import { Client, aimedDrag, cameraSettled, wheelGeometry } from '../e2e/client.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = path.join(ROOT, 'test/e2e/out');
@@ -67,10 +68,18 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     page.on('response', (r) => { if (r.status() >= 400) problems.push(`http ${r.status()}: ${r.url()}`); });
     await page.goto(`${base}/dev/game-mock.html?shot=1&render=${render}&${query}`, { waitUntil: 'networkidle0' });
     await page.waitForFunction(() => !!document.querySelector('.screen:not(.gload)'), { timeout: 15000 });
+    await loadingScreenGone(page, 20000).catch(() => {}); // BATTLE_CHECK keeps it up on purpose
     await new Promise((r) => setTimeout(r, 900));
     return { page, problems };
   }
+  /** Where a press picks up piece `uid` (the shared client's: by the renderer's own pick, once the piece holds still). */
+  const pickPoint = (page, uid, at = 0.6) => Client.prototype.piecePoint.call({ page }, uid, at);
   const mockState = (page) => page.evaluate(() => JSON.parse(JSON.stringify(globalThis.__MOCK__.S().priv)));
+  /** 确认选择: the header's button, or a second tap on the armed card (the official art hides the button, phase-art.css). */
+  const pressConfirm = async (page) => {
+    const shown = await page.$eval('.spov__confirm', (el) => el.getBoundingClientRect().width > 0).catch(() => false);
+    await page.click(shown ? '.spov__confirm' : '.spcard.is-armed');
+  };
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const useWhip = (page) => page.evaluate(async () => {
     const { net } = await import('/js/net.js');
@@ -85,11 +94,12 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
   /** Swipe the open direction wheel from its centre towards `dir` and release (research 09 §1.2). */
   const swipeWheel = async (page, dir = 'RIGHT') => {
     await page.waitForSelector('.fwheel__dia', { timeout: 4000 });
-    const w = await page.$eval('.fwheel__dia', (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, h: r.width / 2 }; });
-    const v = { UP: [0, -1], RIGHT: [1, 0], DOWN: [0, 1], LEFT: [-1, 0] }[dir];
+    await cameraSettled(page); // the official wheel lies on the ground: its vertices move with a flying camera
+    const w = await wheelGeometry(page);
+    const [vx, vy] = w.verts[dir];
     await page.mouse.move(w.x, w.y);
     await page.mouse.down();
-    for (let i = 1; i <= 8; i++) { await page.mouse.move(w.x + (v[0] * w.h * 0.7 * i) / 8 + 1, w.y + (v[1] * w.h * 0.7 * i) / 8 + 1); await sleep(16); }
+    for (let i = 1; i <= 8; i++) { await page.mouse.move(w.x + ((vx - w.x) * 0.7 * i) / 8 + 1, w.y + ((vy - w.y) * 0.7 * i) / 8 + 1); await sleep(16); }
     await page.mouse.up();
     await sleep(400);
   };
@@ -345,11 +355,7 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     const { page, problems } = await open('phase=PREP', { render: 'fallback' });
     const center = async (sel) => page.$eval(sel, (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
     const drag = async (from, to) => {
-      await page.mouse.move(from.x, from.y);
-      await page.mouse.down();
-      for (let i = 1; i <= 8; i++) await page.mouse.move(from.x + ((to.x - from.x) * i) / 8, from.y + ((to.y - from.y) * i) / 8);
-      await sleep(80);
-      await page.mouse.up();
+      await aimedDrag(page, from, to, { steps: 8, pause: 0, settle: 80 });
       await sleep(400);
     };
     let s = await mockState(page);
@@ -393,13 +399,9 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     if (RENDER !== 'engine') { t.skip('SP_RENDER=fallback'); return; }
     const { page, problems } = await open('phase=PREP');
     await sleep(1500); // spine models
-    const rect = (uid) => page.evaluate((u) => { const r = globalThis.__SP_VIEW__?.pieceScreenRect(u); return r && { x: r.left + r.width / 2, y: r.top + r.height * 0.65 }; }, uid);
+    const rect = (uid) => pickPoint(page, uid, 0.65);
     const drag = async (from, to) => {
-      await page.mouse.move(from.x, from.y);
-      await page.mouse.down();
-      for (let i = 1; i <= 12; i++) { await page.mouse.move(from.x + ((to.x - from.x) * i) / 12, from.y + ((to.y - from.y) * i) / 12); await sleep(16); }
-      await sleep(100);
-      await page.mouse.up();
+      await aimedDrag(page, from, to, { steps: 8, pause: 0, settle: 80 });
       await sleep(600);
     };
     let s = await mockState(page);
@@ -410,6 +412,7 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     const pt = await rect(unit.uid);
     await page.mouse.click(pt.x, pt.y);
     await page.waitForSelector('.uframe__btn--sell', { timeout: 3000 });
+    await cameraSettled(page); // the menu follows the piece under the selected camera's flight
     await page.click('.uframe__btn--sell');
     await sleep(400);
     const s2 = await mockState(page);
@@ -470,7 +473,7 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     ({ page, problems } = await open('phase=SP_DRAFT&variant=supply'));
     await page.click('.spcard.is-pickable');
     await sleep(150);
-    await page.click('.spov__confirm');
+    await pressConfirm(page);
     await sleep(300);
     assert.ok(await page.$('.spcard.is-mine'), 'confirmed from the header');
     assert.deepEqual(problems, []);
@@ -519,16 +522,16 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     const backToZh = () => page.evaluate(async () => { await (await import('/js/ui/lang.js')).switchLang('zh'); globalThis.__MOCK__.pushPublic(); });
     try {
       for (const lang of ['en', 'ja', 'ko', 'zh-TW']) {
-        const pack = JSON.parse(readFileSync(path.join(ROOT, `public/i18n/${lang}.json`), 'utf8'));
-        const say = (s) => pack[s] ?? s; // a pack without the string falls back to the source text, as t() does
         await page.evaluate(async (code) => {
           await (await import('/js/ui/lang.js')).switchLang(code);
           globalThis.__MOCK__.pushPublic(); // this harness has no App/useLang root; render again with the active language
         }, lang);
-        await page.waitForFunction((label) => document.querySelector('.spov')?.getAttribute('aria-label') === label, {}, say('教鞭选择'));
-        assert.equal(await page.$eval('.spov__title', (el) => el.textContent), `${say('教鞭 · 战术特训')}|${say('请选择一项战术特训')}`);
-        assert.match(await page.$eval('.spov__sub', (el) => el.textContent), new RegExp(say('休整期结束时未选择将自动选定')));
-        assert.equal(await page.$eval('[data-testid="ready-why"]', (el) => el.textContent), say('请先完成教鞭选择'));
+        // the words as the active language has them, its fallbacks included (a pack need not hold every string)
+        const say = (s) => page.evaluate(async (s) => (await import('/shared/i18n.js')).t(s), s);
+        await page.waitForFunction((label) => document.querySelector('.spov')?.getAttribute('aria-label') === label, {}, await say('教鞭选择'));
+        assert.equal(await page.$eval('.spov__title', (el) => el.textContent), `${await say('教鞭 · 战术特训')}|${await say('请选择一项战术特训')}`);
+        assert.match(await page.$eval('.spov__sub', (el) => el.textContent), new RegExp(await say('休整期结束时未选择将自动选定')));
+        assert.equal(await page.$eval('[data-testid="ready-why"]', (el) => el.textContent), await say('请先完成教鞭选择'));
         assert.equal((await mockState(page)).personalChoice.id, first.id, 'language switch keeps the same pending offer');
       }
     } finally {
@@ -578,7 +581,7 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     await page.waitForFunction(() => !document.querySelector('.spcard.is-armed'));
     assert.equal(await page.$('.spov .countdown'), null, 'co-op PREP without a deadline is untimed');
     await page.click('.spcard.is-pickable');
-    await page.click('.spov__confirm');
+    await pressConfirm(page);
     await page.waitForSelector('.spcard.is-busy');
     await page.waitForFunction((id) => !!globalThis.__choiceReplies[id], {}, first.id);
     await page.evaluate((id) => globalThis.__choiceReplies[id](), first.id);
@@ -613,7 +616,7 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     assert.equal(await page.$eval(selector, (el) => el.style.transform), homeStyle, 'cancelFacing released the held bench piece');
     assert.equal(await page.$('.ff-piece.is-draggable'), null);
     await page.click('.spcard.is-pickable');
-    await page.click('.spov__confirm');
+    await pressConfirm(page);
     await page.waitForFunction(() => !document.querySelector('.spov'));
     const current = await center(selector);
     await page.mouse.move(current.x, current.y);
@@ -765,10 +768,7 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
         const tt = v.tileScreen(row, col);
         return { uid: piece.uid, row, col, from: { x: r.left + r.width / 2, y: r.top + r.height * 0.6 }, to: { x: tt.x, y: tt.y } };
       });
-      const m = page.mouse;
-      await m.move(plan.from.x, plan.from.y); await m.down();
-      for (let i = 1; i <= 14; i++) { await m.move(plan.from.x + ((plan.to.x - plan.from.x) * i) / 14, plan.from.y + ((plan.to.y - plan.from.y) * i) / 14); await sleep(16); }
-      await sleep(120); await m.up();
+      await aimedDrag(page, await pickPoint(page, plan.uid), plan.to, { pause: 16, settle: 120 });
       await swipeWheel(page, 'RIGHT');
       await page.waitForFunction((uid) => globalThis.__MOCK__.S().priv.board.some((b) => b.uid === uid), { timeout: 4000 }, plan.uid);
       const sent = await page.evaluate(() => globalThis.__MOCK__.S().requests.filter((r) => r[0] === 'g.move').pop()[1]);
@@ -1061,11 +1061,7 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     const at = (uid, fy) => page.evaluate((u, f) => { const r = globalThis.__SP_VIEW__?.pieceScreenRect(u); return r && { x: r.left + r.width / 2, y: r.top + r.height * f }; }, uid, fy);
     const tileAt = (row, col) => page.evaluate((r, c) => { const x = globalThis.__SP_VIEW__?.raw?.tileScreen?.(r, c); return x && { x: x.x, y: x.y }; }, row, col);
     const drag = async (from, to) => {
-      await page.mouse.move(from.x, from.y);
-      await page.mouse.down();
-      for (let i = 1; i <= 12; i++) { await page.mouse.move(from.x + ((to.x - from.x) * i) / 12, from.y + ((to.y - from.y) * i) / 12); await sleep(16); }
-      await sleep(120);
-      await page.mouse.up();
+      await aimedDrag(page, from, to, { steps: 8, pause: 0, settle: 80 });
       await sleep(600);
     };
     let s = await mockState(page);
@@ -1113,11 +1109,8 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
         }
         assert.ok(to, 'found an empty board tile on screen');
       }
-      await page.mouse.move(from.x, from.y);
-      await page.mouse.down();
-      for (let i = 1; i <= 12; i++) { await page.mouse.move(from.x + ((to.x - from.x) * i) / 12, from.y + ((to.y - from.y) * i) / 12); await sleep(16); }
-      await sleep(120);
-      await page.mouse.up();
+      if (render !== 'fallback') from = await pickPoint(page, hc.uid);
+      await aimedDrag(page, from, to, { steps: 12, pause: 16, settle: 120 });
       await sleep(500);
       const toastText = await page.$eval('.toast', (el) => el.textContent).catch(() => null);
       assert.match(String(toastText), /已达到部署上限|无法部署在该位置|近战单位只能部署在地面/, `${render}: toast explains the refusal`);
@@ -1127,7 +1120,7 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     }
   });
 
-  test('emote, exit → 暂离 → 返回', async () => {
+  test('emote, exit: the dialog has no 暂离 (matchChrome.js AWAY_OPTION), 取消 closes it', async () => {
     const { page, problems } = await open('phase=PREP');
     await page.click('.ewheel__btn');
     await page.click('.ewheel__item');
@@ -1135,10 +1128,10 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     await page.click('.gtop__exit');
     await page.waitForSelector('.modal');
     const buttons = await page.$$('.modal__actions .btn');
-    await buttons[1].click(); // 暂离
-    await page.waitForSelector('.awayov');
-    await page.click('.awayov .btn');
-    await sleep(300);
+    const labels = await page.$$eval('.modal__actions .btn', (els) => els.map((el) => el.textContent));
+    assert.ok(!labels.some((x) => /暂离/.test(x)), `no 暂离 (${labels.join(', ')})`);
+    await buttons[0].click(); // 取消
+    await page.waitForSelector('.modal', { hidden: true });
     assert.equal(await page.$('.awayov'), null);
     assert.deepEqual(problems, []);
     await page.close();

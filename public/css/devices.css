@@ -99,7 +99,7 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
    over 复制链接 (the room's invite box), the 自选 preset slots over 编辑; the strategy draft's 查看禁用 / 技能与模组
    (full-width, between the order list's avatars and the tip) stay as drawn */
 .room-bar__opts > .dpick, .room-bar__stack > :first-child, .invite__btns > :first-child { --tap-top: 100%; --tap-ty: -100%; }
-.room-bar__row, .room-bar__stack > :last-child, .invite__btns > :last-child, .draft-preset__edit { --tap-top: 0%; --tap-ty: 0%; }
+.room-bar__row, .room-bar__stack > :last-child, .invite__btns > :last-child, .draft-preset__edit, .draft-detail__btns { --tap-top: 0%; --tap-ty: 0%; }
 .draft-order__info, .draft-order__loadout { --tap-h: 100%; }
 /* buttons under a block they must not reach into: a dialog's footer (the scrolled body above it), the title's 玩法说明 /
    ⚙ / ⛶ (under 开始) and 服务器信息 (under ⛶) */
