@@ -61,5 +61,5 @@ export const MODE_SWITCH_STATUS = Object.freeze({
     'S1 S1_T1': 'ok: T1\'s upgraded mode — the same effects',
     'S2 S2_T1': 'ok: T1\'s upgraded mode — the same effects',
   },
-  char_4047_pianst: { 'S2 Empty': 'todo: NeverTrigger, no attack in it (the kit holds her attacks); FinalAttack\'s cast effects are read as the S2 cast\'s (modes.json skills[1]), not at this switch' },
+  char_4047_pianst: { 'S2 Empty': 'ok: NeverTrigger, no attack in it (the kit holds her attacks); FinalAttack\'s cast effects come from the kit at this switch (kitofficial.js kitHit pianst:final, fxgame.js KIT_OWNED)' },
 });

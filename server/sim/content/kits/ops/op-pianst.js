@@ -18,8 +18,11 @@ import { absoluteRangeKeys } from '../../../targeting.js';
 const S1 = 'skchr_pianst_1';
 const S2 = 'skchr_pianst_2';
 const STACK = 'pianst_s_2_buff[atk_boost]';
+const STACK_FX = Object.freeze(['pianst_s_2_stkFx_1', 'pianst_s_2_stkFx_2', 'pianst_s_2_stkFx_3']);
 /** FinalAttack `_preDelay`. */
 export const FINAL_DELAY = 0.5;
+/** Its clip Skill_2_End, seconds. */
+const FINAL_CLIP = 1.567;
 /** range_table x-1, FinalAttack's ConstBoxRange. */
 const X1 = Object.freeze([[2, 0], [1, -1], [1, 0], [1, 1], [0, -2], [0, -1], [0, 0], [0, 1], [0, 2], [-1, -1], [-1, 0], [-1, 1], [-2, 0]]);
 const ALL = Object.freeze({ canHitFly: true });
@@ -45,14 +48,19 @@ export default {
               if (!still()) return;
               unit.skillStateUntil = at + skill.duration;
               if (!unit.canAct) return;
+              // FinalAttack's cast: its clip Skill_2_End and `_castEffects` (ON_CAST_START) from here, not from the skill's end
+              battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, src: unit.id, k: 'pianst:final', signal: 'final', t: FINAL_CLIP });
               battle.after(FINAL_DELAY, () => {
                 if (!still() || !unit.canAct) return;
                 const keys = absoluteRangeKeys(X1, unit.tileR, unit.tileC, unit.dir, 0);
-                for (const e of battle.enemiesInKeys(keys, unit, ALL)) battle.dealDamage(unit, e, { amount: unit.s.atk * num(b2.atk_scale, 1), type: 'arts', isSkill: true, tags: ['skill', 'pianst:final'] });
+                for (const e of battle.enemiesInKeys(keys, unit, ALL)) {
+                  battle.fx('kitHit', { x: e.x, y: e.y, id: unit.id, src: unit.id, tgt: e.id, k: 'pianst:finalHit' });
+                  battle.dealDamage(unit, e, { amount: unit.s.atk * num(b2.atk_scale, 1), type: 'arts', isSkill: true, tags: ['skill', 'pianst:final'] });
+                }
               }, { owner: unit });
             }, { owner: unit });
           },
-          onEnd({ battle, unit }) { battle.removeBuff(unit, STACK); },
+          onEnd({ battle, unit }) { battle.removeBuff(unit, STACK); for (const k of STACK_FX) battle.removeBuff(unit, k); },
         },
       },
       talents: [{ install(battle, unit) {
@@ -61,9 +69,15 @@ export default {
         battle.on('damaged', (c) => {
           if (c.target !== unit || !unit.alive || !byEnemyAttack(c)) return;
           const attack = !!(c.dmg.isAttack || c.dmg.isSplash), src = c.source, sk = unit.skill;
-          if (attack && c.type === 'arts' && echo > 0 && src.alive) arts(battle, unit, src, unit.s.atk * echo, ['talent', 'counter'], 'pianst_t_1');
+          if (attack && c.type === 'arts' && echo > 0 && src.alive) {
+            battle.fx('kitHit', { x: src.x, y: src.y, id: unit.id, src: unit.id, tgt: src.id, k: 'pianst:echo' });   // pianst_beidong_hit on the attacker (pianst_t_1)
+            arts(battle, unit, src, unit.s.atk * echo, ['talent', 'counter'], 'pianst_t_1');
+          }
           if (attack && sk?.active && sk.id === S2) {
-            battle.addBuff(unit, { key: STACK, refresh: 'stack', maxStacks: Math.max(1, num(b2.max_stack_cnt, 10)), mods: { atkPct: num(b2.atk) }, tags: ['skill'] });
+            const n = battle.addBuff(unit, { key: STACK, refresh: 'stack', maxStacks: Math.max(1, num(b2.max_stack_cnt, 10)), mods: { atkPct: num(b2.atk) }, tags: ['skill'] })?.stacks;
+            // pianst_s_2_buff_2: at 1 stack, at fxbound_1 and at fxbound_2 a held buff of its own effect, for the rest of the skill
+            const fx = n === 1 ? STACK_FX[0] : n === num(b2.pianst_s_2_fxbound_1) ? STACK_FX[1] : n === num(b2.pianst_s_2_fxbound_2) ? STACK_FX[2] : null;
+            if (fx) battle.addBuff(unit, { key: fx, visible: true, tags: ['skill'] });
           }
           if (extra > 0 && sk?.active && src.alive) arts(battle, unit, src, unit.s.atk * extra, ['counter']);
         }, { owner: unit });

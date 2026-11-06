@@ -175,3 +175,12 @@ test('PRI-X: ×damage_scale on an enemy in a burst on the elite form, not the el
 test('Real match path', async () => {
   for (const id of FORMS) await realMatch(id, 'char_4198_christ');
 });
+
+test('T1: its aura\'s effect is told as she deploys (the view holds christ_buff_01 while she stands)', () => {
+  const { h, u } = field(FORMS[0], { skill: 0 });
+  const seen = [];
+  const fx0 = h.b.fx.bind(h.b);
+  h.b.fx = (kind, o) => { if (kind === 'kitHit' && o?.k === 'christ:aura') seen.push(o.id); return fx0(kind, o); };
+  h.b.emit('deploy', { unit: u });
+  assert.deepEqual(seen, [u.id]);
+});

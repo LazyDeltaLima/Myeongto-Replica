@@ -855,6 +855,11 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     (즉발 스킬 클립도)가 그것을 튼다 — 送葬人·诗怀雅 `Attack_Up`, 松果 S1 `Skill_1_Up`·S2 `Skill_2_Up`. 아래 방향(`*_Down`, 앞모델)은 위 「아래 방향」(2026-10-23). [화면 미확인]
   - 첫 목록의 `todo`는 2026-10-14에 모두 정리됐다(연결 또는 근거 있는 `none`). 아래 방향 공백도 2026-10-23에 닫음. C의 시뮬 첫 타격 지연은 같은 날 들어감.
 - **선발 클립 판정**(2026-11-06): 키트를 더할 때 `todo`로 남긴 18개를 공식 클라의 키(능력·모드 짝·스킬 프리팹·스킨 키 표·믹스·버프 템플릿)로 판정했다. 남은 `todo`는 이네스 `Start_Skill`(보류)뿐이다.
+- **스킬 끝·대기 클립 추가 판정**(2026-11-06, 공식 클라에서 확인):
+  - 체르니 S2 `Skill_2_End`는 스킬 끝이 아니라 `FinalAttack`의 클립이다. `interval`(18.6)초에 키트 신호 `final`(`SIGNAL_CLIPS`)로 튼다. 역할의 `end`는 비운다.
+  - 브리지드 S2 `Skill_2_Idle`은 모드 표가 아니라 버프 `brigid_m2_a[init_animation]`의 교체 쌍이다. 아래 방향 `Skill_Down_2_Idle`은 배치 방향(`CheckCharacterDefaultDirection`)으로 고르고, 공격 클립은 바라보는 방향으로 고른다(`down.deployClips`).
+  - 클로저 S2·S3 끝은 스킨 전환 표에 아래 방향 쌍(`Skill_Down_2_Idle → Idle = Skill_Down_2_End` 등)만 있다. 아래를 볼 때만 튼다(역할 `endDown`, `anim-keys.mjs`). 오른쪽 `Skill_2_End`·`Skill_3_End`는 어느 키에도 없어 `none`이다.
+  - W `Attack_Down`은 어느 키에도 없어 `none`이다.
   - **없는 클립을 찾으면**(공식 클라에서 확인): 클립은 키 표의 이름 그대로 찾는다(`SkeletonData.FindAnimation`은 대소문자까지 같아야 함). 그 모델에 없으면 `SpineAnimator.UpdateAnimationData`가 그 키를 무효로 두고 `PlayAnimation`은 아무것도 안 튼다. 앞·뒷모델은 키 표 하나를 함께 쓴다. 그래서 뒷모델의 다른 철자 `Skill_2_start`(리)·`Skill_3_Restart_Begin`·`_End`(벨로네)는 어느 키도 안 부르고, 그 키를 뒷모델에서 부르면 클립이 안 바뀐다. 렌더의 `has`도 같다.
   - **연결 5명**:
     - 쏜즈: 키 `Attack`이 `Attack_2`, 저지한 적의 `Combat`이 `Attack_1`. 이름 규칙이 번호 순서로 `Attack_1`을 골라 원거리에도 저지 클립을 틀었다. 키에 `Combat` 줄이 있고 이름 규칙이 `attackAny`이면 키의 공격을 쓴다(`anim-keys.mjs overlayKeyRoles`; 시간은 둘 다 1.2초·타격 0.5초로 같아 전투는 안 움직임).

@@ -210,3 +210,40 @@ test('AST-X: the elite form adds atk_scale × ATK of arts on her attacks and on 
 test('a real match fields both forms', async () => {
   for (const id of FORMS) await realMatch(id, 'char_4047_pianst');
 });
+
+test('S2: the stack effects\' buffs come at 1 stack and at the two bounds, and go with the skill', () => {
+  const id = FORMS[0], b2 = bbOf(id, S2);
+  assert.deepEqual([b2.pianst_s_2_fxbound_1, b2.pianst_s_2_fxbound_2], [3, 7]);
+  const { h, u } = field(id, { skill: 1 });
+  const e = h.spawn('enemy_dummy', { pos: [10, 9] });
+  cast(u);
+  h.step();
+  const has = () => [1, 2, 3].map((n) => !!u.findBuff(`pianst_s_2_stkFx_${n}`));
+  assert.deepEqual(has(), [false, false, false]);
+  const upTo = (n) => { while ((u.findBuff(STACK)?.stacks ?? 0) < n) { strike(h, e, u, 'phys'); h.step(); } };
+  upTo(1);
+  assert.deepEqual(has(), [true, false, false]);
+  upTo(3);
+  assert.deepEqual(has(), [true, true, false]);
+  upTo(7);
+  assert.deepEqual(has(), [true, true, true]);
+  u.skill.end();
+  h.step();
+  assert.deepEqual(has(), [false, false, false]);
+});
+
+test('S2: FinalAttack\'s cast is told at the interval (clip and cast effects), its hit on each enemy struck; no cast when stunned', () => {
+  const id = FORMS[0], b2 = bbOf(id, S2);
+  const { h, u } = field(id, { skill: 1 });
+  const e = h.spawn('enemy_dummy', { pos: [10, 6] });
+  const seen = [];
+  const fx0 = h.b.fx.bind(h.b);
+  h.b.fx = (kind, o) => { if (kind === 'kitHit' && /^pianst:final/.test(o?.k)) seen.push({ k: o.k, t: h.b.time, tgt: o.tgt, signal: o.signal }); return fx0(kind, o); };
+  cast(u);
+  const t0 = h.b.time;
+  h.run(b2.interval + FINAL_DELAY + 0.2);
+  assert.deepEqual(seen.map((s) => s.k), ['pianst:final', 'pianst:finalHit']);
+  near(seen[0].t - t0, b2.interval, 'cast', 0.1);
+  assert.equal(seen[0].signal, 'final');
+  assert.equal(seen[1].tgt, e.id);
+});

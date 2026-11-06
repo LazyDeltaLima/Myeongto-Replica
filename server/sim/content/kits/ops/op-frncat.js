@@ -55,7 +55,7 @@ export default {
         battle.on('beforeAttack', (c) => {
           if (c.attacker !== unit || !up(unit)) return;
           // S1's ATK is the attack's own buff, on as it strikes and until its last hit
-          if (c.isSkill && unit.skill?.id === S1) battle.addBuff(unit, { key: NEXT_ATK, mods: { atkPct: num(b1.atk) }, tags: ['skill'] });
+          if (c.isSkill && unit.skill?.id === S1) battle.addBuff(unit, { key: NEXT_ATK, mods: { atkPct: num(b1.atk) }, visible: true, tags: ['skill'] });   // (its overrideEffectKey common_next_atk_buff: the status path)
           if (!unit.mem.frncatDouble) return;
           unit.mem.frncatDouble = false;
           unit.mem.frncatSecond = true;

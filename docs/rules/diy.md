@@ -1363,6 +1363,7 @@
 - S1 `skchr_pianst_1`: 공격력 +N%, 마법 저항 ×(1 + N).
 - S2 `skchr_pianst_2`: 최대 HP +N%, 도발 +1. NORMAL·SPLASH 공격을 받으면 피해 종류와 상관없이 공격력 +N% 한 겹, `max_stack_cnt`까지, 재능 뒤에(PRTS). 프리팹 값은 20이지만 표와 문구대로 10으로 한다.
 - 최종 공격: `interval`(18.6)초에 모드 `Empty`(공격 안 함), 그때 행동할 수 있으면 `_preDelay` 0.5초 뒤 공격력의 `atk_scale` 마법 대미지를 `x-1` 안 모두에게(공중 포함, PRTS). 스턴에 걸려 있거나 그사이 걸리면 없다(`_checkCanUseAblityFlag`).
+- 최종 공격의 이펙트·클립 시점은 `fx.md` 「W·클로저·브리지드·크리스틴·체르니·리프레사 키트 순간 이펙트」, `render.md` 「선발 클립 판정」.
 - `skill_cast.py`가 이 스킬의 나중 능력을 시전 능력으로 읽어 시작에 1.7초 멈췄다: `LATER_ABILITIES`로 뺌. 같은 꼴(`_extraAbilities`)의 다른 스킬 19개 행은 안 건드렸다. 클립은 `anim-keys.mjs`가 `FinalAttack`을 끝 클립으로 읽는다.
 - AST-X 1단계(`common_damage_on_*`, 수정자 키 `artsprotector_e_002_tr`): 스킬이 켜진 동안 그녀의 공격과 받는 적 피해마다 상대에게 공격력의 `atk_scale` 마법 대미지.
 

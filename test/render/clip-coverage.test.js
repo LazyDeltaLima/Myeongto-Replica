@@ -54,6 +54,7 @@ function rolePlayed(anims) {
     const downs = (r) => { for (const n of Object.values(r?.down?.map || {})) out.add(n); for (const n of Object.values(r?.swap || {})) out.add(n); };
     downs(c);
     if (typeof c.beginDown === 'string') out.add(c.beginDown);
+    if (typeof c.endDown === 'string') out.add(c.endDown);
     if (c.downMode) {
       downs(c.downMode);
       for (const k of ['begin', 'loop', 'end', 'idle', 'firstAttackBegin', 'attackBegin', 'attackEnd']) if (typeof c.downMode[k] === 'string') out.add(c.downMode[k]);

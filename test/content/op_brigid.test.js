@@ -163,3 +163,15 @@ test('LPS-X: on the elite form an attack on an enemy on the 8 tiles around her i
 test('Real match path', async () => {
   for (const id of FORMS) await realMatch(id, 'char_4177_brigid');
 });
+
+test('S2: each cut tells its place in the buff\'s count, 1 → 2 → 3 → 1 (the view picks its prefab by it)', () => {
+  const { h, u } = field(FORMS[0], { skill: 1 });
+  const e = h.spawn('enemy_dummy', { pos: FRONT });
+  cast(u);
+  const seen = [];
+  h.b.on('damaged', () => {});
+  const fx0 = h.b.fx.bind(h.b);
+  h.b.fx = (kind, o) => { if (kind === 'kitHit' && o?.k === 'brigid:cut' && o.tgt === e.id && seen.length < 4) seen.push(o.n); return fx0(kind, o); };
+  h.runUntil(() => seen.length >= 4, 15);
+  assert.deepEqual(seen, [1, 2, 3, 1]);
+});

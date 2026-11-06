@@ -374,3 +374,18 @@ test('可露希尔 through the real match path (seats[].diy → Match board → 
   assert.ok(b.allyUnits.some((x) => x.kind === 'token' && x.defId === BASE && x.ownerUnit === u), 'her 指挥中心');
   assert.equal(b.errors.length, 0, JSON.stringify(b.errors[0]));
 });
+
+test('S3: the plane plays on the first hit of an enemy; the hits under a second apart keep its mark, so no other comes', () => {
+  const { h, u } = field({ tier: 6, elite: true, mod: TX, skill: 2 });
+  const e = h.spawn('enemy_dummy', { pos: [10, 5] });
+  const planes = [];
+  const fx0 = h.b.fx.bind(h.b);
+  h.b.fx = (kind, o) => { if (kind === 'kitHit' && o?.k === 'closur:plane') planes.push({ t: h.b.time, tgt: o.tgt }); return fx0(kind, o); };
+  u.skill.gainSp(999);
+  assert.ok(h.runUntil(() => hitsOn(h, u, e).length >= 5, 8), 'five hits');
+  const hits = hitsOn(h, u, e).length;
+  assert.ok(hits >= 5);
+  assert.equal(planes.length, 1, `${hits} hits, each under a second after the last`);
+  assert.equal(planes[0].tgt, e.id);
+  done(h);
+});

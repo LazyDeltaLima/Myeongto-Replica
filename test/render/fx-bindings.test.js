@@ -120,17 +120,6 @@ const KNOWN = {
 
 /** The template rows whose prefab nothing in render/ plays: 'key|prefab' → reason (test/helpers/fxBindings.js unplayed). */
 const UNPLAYED = {
-  // 브리지드 (a piece of the season not out yet): S2's cuts turn through three prefabs by a count on the buff (hit_cnt) — bundle fx-V
-  // W·클로저 (2026-11-06, bundle fx-V): 设伏's dodge burst fires from a trigger not modelled; S3's plane behind a condition on the buff
-  'cqbw_t_1[evade]|cqbw_buff_01_start': 'unconditional',
-  'closur_s_3[eff]|closur_skill_03_airplane_01': 'condOther',
-  'brigid_s2[cut]|brigid_skill_02_hit_02': 'condOther',
-  'brigid_s2[cut]|brigid_skill_02_hit_02_02': 'condOther',
-  'brigid_s2[cut]|brigid_skill_02_hit_02_03': 'condOther',
-  // 체르니 (a piece of the season not out yet): the talent's hit on the attacker is a counter no key names; S2's stack effects by count — bundle fx-V
-  'pianst_t_1|pianst_beidong_hit': 'condOther',
-  'pianst_s_2_stkFx_2|pianst_skill_02_buff_02_02': 'cond',
-  'pianst_s_2_stkFx_3|pianst_skill_02_buff_02_03': 'cond',
   // 묶음 S6 (2026-10-24) — condition rows left: a condition no sim event tells
   'nearl2_s_3[combo_effect]|nearl2_buff_01_start': 'condOther',   // 耀骑士临光 S3: CheckContainsCardBuff (a card's buff nearl2_t_1)
   'ines_t_2[effect2]|ines_range_02': 'cond',   // 伊内丝 T2 by her mode as the talent buff starts (S2's mode 1) [추정: its S2 talent re-creates it]

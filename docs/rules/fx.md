@@ -3854,3 +3854,18 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - **에벤홀츠 재능 2**: 대상 곁에 다른 적이 없으면 `ebnhlz_beidong_hit`, 모듈(`ebnhlz_e_003_t_2`)에서 곁에 적이 있어 범위 피해가 나면 대상에 `ebnhlz_mozu_hit`(`kitHit` `ebnhlz:yiyin`·`ebnhlz:yiyinAoe`).
 - 파죰카 모듈 RA-A의 `zumama_equipment_range_01`은 그 버프가 생존 연산 음식 버프를 요구해(`SandboxCheckHasFoodBuff`) 이 모드에서 나오지 않는다 — `UNPLAYED`에 남김.
 - 확인: `test/render/pick-moment-fx.test.js`, 아레나 2배속 사건·프리팹 순서(슈 표식은 샌드백이 안 움직여 칸을 손으로 넣고 옮김). [화면 미확인]
+
+## W·클로저·브리지드·크리스틴·체르니·리프레사 키트 순간 이펙트 (2026-11-06)
+
+공식 클라에서 확인: 버프 템플릿의 노드·대상과 투사체·능력 프리팹의 필드.
+
+- **스킬 공격의 대상 줄이 키트 순간과 겹치던 것**: 스킬이 켜질 때와 `castHit`에 그 순간의 피해를 대상 줄(`skills[i].target`)로 받는데, W S1 유탄의 `cqbw_skill_01_hit`과 S3 폭탄의 `cqbw_skill_03_buff`·`_02`·`_03`·`_hit`이 그 줄에 있어 다른 탄의 피해에 다시 나왔다. 공식은 유탄이 추적 대상에게 한 번(`_onlyPlayHitEffectOnTraceTarget`), 폭탄은 붙은 대상에만이다. 키트 순간이 트는 프리팹(`KIT_OWNED`)은 대상 줄에서 뺀다(`skillTargets`). 이펙트 골든에서 움직인 것은 W의 다섯 줄뿐이다.
+- **W 재능 1**: 매복 버프를 클라 키 `cqbw_t_1[evade]`로 지어, 상태 경로가 `overrideEffectKey` `cqbw_buff_01_start`를 철수까지 쥔다(수명 `INFINITY`).
+- **브리지드 S2**: `brigid_s2[cut]`의 틱마다 `hit_cnt`가 1 → 2 → 3 → 1로 돌고, 그 값이 `brigid_skill_02_hit_02`·`_02_02`·`_02_03`을 고른다. 적 위에 틀어진다(`kitHit` `brigid:cut`의 `n`).
+- **체르니 재능 1**: `pianst_t_1`의 `CreateEffect`는 대상이 `MODIFIER_SOURCE`, 곧 공격한 적이다(`pianst:echo`).
+- **체르니 S2 중첩**: `pianst_s_2_buff_2`가 중첩 1·`pianst_s_2_fxbound_1`(3)·`_2`(7)일 때 버프 `pianst_s_2_stkFx_1`·`_2`·`_3`(`overrideEffectKey` `pianst_skill_02_buff_02_01`·`_02`·`_03`, 수명 `INFINITY`, 파생 버프)을 하나씩 더한다. 앞 단계를 지우는 노드가 없어 셋이 함께 남고, 스킬 끝에 사라진다. 상태 경로로 그린다.
+- **체르니 S2 최종 공격**: `FinalAttack`은 `interval`(18.6)초에 시전된다. `_castEffects` `pianst_skill_02_end`(시전 동안, 클립 `Skill_2_End` 길이)·`_end_range`가 그때, `_hitEffects` `pianst_skill_02_end_hit`이 `_preDelay` 0.5초 뒤 맞은 적마다 나온다. `modes.json`은 이 능력을 스킬 시전으로 읽어 시작에 틀고 있었으므로 `KIT_OWNED`로 끄고 키트 사건(`pianst:final`·`pianst:finalHit`)으로 튼다. 행동 불가면 사건도 없다.
+- **리프레사 S2**: 세 발 `projectile_chr_liesel_s2_1`·`_2`·`_3`의 `_effectsWhenReached` `liesel_skill_02_hit_01`이 착탄 자리에 나온다(`aoe` `liesel`). 대체 원을 대신한다.
+- **클로저 S3**: `Modes/S3/Body/Attack`의 `CachedBuffToCastTargetsBehaviour`가 시전 대상에게 `closur_s_3[eff_airplane]`(템플릿 `closur_s_3[eff]`, 0.2초)을 건다. 그 템플릿은 표식 `closur_s_3[eff_airplane_mark]`가 없을 때만 `closur_skill_03_airplane_01`을 적 위에 만들고, 표식(1초)은 맞을 때마다 늘린다. 그래서 같은 적을 1초 안쪽 간격으로 계속 때리면 첫 대의 비행기만 나온다(`closur:plane`).
+- **크리스틴 재능 1**: `AuraAbility`의 `_effects` `christ_buff_01`을 붙을 때 주인에게 만든다. 배치된 동안 그녀 위에 쥔다(`christ:aura`). `_createEffectOnDummy`가 켜져 있어 공식은 정비 위치의 더미에도 만들지만, 이펙트 층은 정비 위치를 그리지 않아 안 나온다.
+- 확인: `test/render/pick-moment-fx.test.js`, `test/content/op_brigid.test.js`, `test/content/op_pianst.test.js`. [화면 미확인]

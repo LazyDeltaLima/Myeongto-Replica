@@ -300,9 +300,9 @@ test('T1 设伏: 10 s after each deployment 60 % physical and arts dodge, taunt 
     const iv = y3 ? 8 : 10;
     assert.deepEqual(u.def.raw.talents.find((t) => t.index === 0).bb, { interval: iv, prob: 0.6, taunt_level: -1 }, label(f));
     h.run(iv - 0.3);
-    assert.equal(u.findBuff('talent:cqbw:ambush'), null, `${label(f)}: not before ${iv} s`);
+    assert.equal(u.findBuff('cqbw_t_1[evade]'), null, `${label(f)}: not before ${iv} s`);
     h.run(0.5);
-    assert.deepEqual(u.findBuff('talent:cqbw:ambush')?.mods, { dodgePhys: 0.6, dodgeArts: 0.6, taunt: -1 }, `${label(f)}: after ${iv} s`);
+    assert.deepEqual(u.findBuff('cqbw_t_1[evade]')?.mods, { dodgePhys: 0.6, dodgeArts: 0.6, taunt: -1 }, `${label(f)}: after ${iv} s`);
     assert.deepEqual([u.s.dodgePhys, u.s.dodgeArts, u.s.taunt], [0.6, 0.6, -1], label(f));
     const ramp = u.findBuff('talent:cqbw:ramp');
     if (!y3) assert.equal(ramp, null, `${label(f)}: no ramp`);
@@ -321,7 +321,7 @@ test('T1 设伏: 10 s after each deployment 60 % physical and arts dodge, taunt 
       assert.equal(u.findBuff('talent:cqbw:ramp')?.stacks, 1, `${label(f)}: and it climbs again`);
     }
     h.b.retreat(u);
-    assert.equal(u.findBuff('talent:cqbw:ambush'), null, `${label(f)}: gone when she leaves`);
+    assert.equal(u.findBuff('cqbw_t_1[evade]'), null, `${label(f)}: gone when she leaves`);
     done(h);
   }
   // a dodged hit does not reset the ramp (dodges come from the 60 % of 设伏)

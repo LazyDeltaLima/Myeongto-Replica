@@ -15,7 +15,7 @@ export const PICK_EVENTS = Object.freeze({
   'closur|summon': 'official: flushDeploys draws the token\'s deploy effect (the prefab has no `_startEffect`: the common one)',
   'closur|shield': 'official: closur_s_1[block] on the unit, the sim\'s buff key plays closur_skill_01_shied_01 (fxmap.js status path)',
   'cqbw|summon': 'official: flushDeploys draws 此面向敌\'s `_startEffect` cqbw_skill_02_birth',
-  'cqbw|buff': 'official: 设伏 is cqbw_t_1[evade], its row cqbw_buff_01_start is on the fx-V list; no stand-in draws for an operator with official effects',
+  'cqbw|buff': 'official: 设伏 is the kit buff cqbw_t_1[evade], the status path holds its cqbw_buff_01_start; no stand-in draws for an operator with official effects',
   'aglna2|takeoff': UNJUDGED,
   'aglna2|dash': UNJUDGED,
   'aglna2|summon': UNJUDGED,
@@ -84,7 +84,6 @@ export const PICK_EVENTS = Object.freeze({
   'wisdel|summon': UNJUDGED,
   'wisdel|bombardShell': UNJUDGED,
   'turdus|volley': "official: fxgame.js skillShotFx flies her S2's projectile_chr_turdus_s2 (modes.json skills[1].shot) and plays its hit as it lands",
-  'liesel|aoe': "stand-in: a ring of her shot's splash where it lands; her _effectsWhenReached liesel_skill_02_hit_01 waits for bundle fx-V",
   'hbound|zone': "official: fxgame.js zoneFx flies her skill's projectile_chr_hbound_s1 / _s2 and plays its _effectsWhenReached (modes.json skills[i].zone) as it lands",
   'hbound|dodge': "stand-in: the same miss mark as every other missed attack (T1 hit rate; standin-acsupo.js sends it too); no prefab of hers is named for it",
 });

@@ -266,6 +266,11 @@ export function keyRoles(op, durations) {
     // the skill prefab's begin when the unit was deployed facing down (BasicSkill.get_beginAnim: `_beginAnimDown`)
     const bd = J(s?.beginDown);
     if (bd && bd !== c.begin) c.beginDown = bd;
+    // a facing-down end only the skin's mix table names, from its skill clips back to Idle (클로저 S2 / S3; no such row facing right)
+    if (!c.end && c.down?.map) {
+      const ed = mix(c.down.map[c.idle], idle) ?? mix(c.down.map[c.loop], idle);
+      if (ed) c.endDown = ed;
+    }
     // the mode its buff switches to when the unit faces down (anim_keys.py down_modes: an IfElse on
     // CheckCharacterDefaultDirection / CheckFaceDirection DOWN before SwitchMode): that mode's roles, by `by`
     if (Number.isInteger(s?.downMode) && s.downMode > 0 && s.downMode !== m && modes[s.downMode]) {
@@ -455,7 +460,7 @@ export function overlayKeyRoles(anims, kr, charId = '') {
       if (k.stance) c.stance = true;
     }
     // facing down: the skill prefab's begin, the mode its buff switches to (keyRoles)
-    for (const f of ['beginDown', 'downMode']) if (k[f]) c[f] = k[f];
+    for (const f of ['beginDown', 'endDown', 'downMode']) if (k[f]) c[f] = k[f];
     anims.skills[i] = c;
     if (anims.skill && anims.skill.index === Number(i)) anims.skill = c;
   }

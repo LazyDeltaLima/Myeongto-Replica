@@ -528,6 +528,17 @@ export const KIT_OFFICIAL = {
   // returns no end): its cast never ends, but the prefab's own `_maxLifetime` 2 s ends it (2026-10-27, official client:
   // ParticleEffect._CheckIfAlive; render/fxgame.js `maxLife`) — a burst with a glow that loops for those 2 s
   kitHit: {
+    // (2026-11-06) 클로저 S3: closur_s_3[eff] on the enemy struck (CachedBuffToCastTargetsBehaviour; the kit keeps its mark's second)
+    closur: cite('closur_s_3[eff]', (o) => (o.k === 'closur:plane' ? { play: [once('closur_skill_03_airplane_01', 'tgt')] } : null)),
+    // (2026-11-06) 크리스틴 T1: the aura ability's `_effects` on her while she stands
+    christ: cite('char_4198_christ/Others/Direction/Talents/1', (o) => (o.k === 'christ:aura' ? { play: [{ n: 'christ_buff_01', on: 'op', life: 'deployed' }] } : null)),
+    // (2026-11-06) 브리지드 S2: brigid_s2[cut] ON_BUFF_TRIGGER, on the enemy: the buff's hit_cnt 1 / 2 / 3 picks the prefab
+    brigid: cite('brigid_s2[cut]', (o) => (o.k === 'brigid:cut' ? { play: [once(['brigid_skill_02_hit_02', 'brigid_skill_02_hit_02_02', 'brigid_skill_02_hit_02_03'][o.n - 1] ?? 'brigid_skill_02_hit_02', 'tgt')] } : null)),
+    // (2026-11-06) 체르니 T1: pianst_t_1 ON_TAKE_DAMAGE CreateEffect on MODIFIER_SOURCE, the attacker it answers
+    // … S2's FinalAttack, `interval` s into the skill: its `_castEffects` for the cast's clip, its `_hitEffects` on each enemy struck
+    pianst: cite(['pianst_t_1', 'skchr_pianst_2/FinalAttack'], (o) => (o.k === 'pianst:echo' ? { play: [once('pianst_beidong_hit', 'tgt')] }
+      : o.k === 'pianst:final' ? { play: [{ n: 'pianst_skill_02_end', on: 'op', life: Number(o.t) }, once('pianst_skill_02_end_range')] }
+        : o.k === 'pianst:finalHit' ? { play: [once('pianst_skill_02_end_hit', 'tgt')] } : null)),
     // (2026-11-06) W: S1's grenade projectile_chr_cqbw_s1 (`_speed` 8, `_raiseHeight` 0.3: its `_effectsWhenHit` once, on the target it
     // traces: `_onlyPlayHitEffectOnTraceTarget`); S3's bomb projectile_chr_cqbw_s3 (no flight: `_effectsToTargetWhenStart` on the target
     // until it stops, then `_effectsWhenStop`); 此面向敌's skill sktok_cqbw_token (`_castEffects`: start as it arms, hit as it goes off)
@@ -584,6 +595,8 @@ export const KIT_OFFICIAL = {
   // judge_skill_02_weapon_hit_01 on her — enemies hit or not)
   // 折桠 S2's FirstAttack (held by branch_s_2[first], no damage, no target needed: the skill's opening 战栗 blast, the sim's 'aoe')
   aoe: {
+    // (2026-11-06) 리프레사 S2: each of her delayed shots projectile_chr_liesel_s2_1 / _2 / _3 `_effectsWhenReached` where it lands
+    liesel: cite(['projectile_chr_liesel_s2_1', 'projectile_chr_liesel_s2_2', 'projectile_chr_liesel_s2_3'], () => ({ play: [once('liesel_skill_02_hit_01', 'point')] })),
     judge: cite('judge_s_2[aoe]', (o) => (o.skill === 'judge:atonement' ? { play: [once('judge_skill_02_weapon_hit_01')] } : null)),
     branch: cite('char_4207_branch/Modes/S2/Body/Attack/FirstAttack', (o) => (o.skill === 'resolve' ? { play: [{ tpl: 'char_4207_branch/Modes/S2/Body/Attack/FirstAttack', cast: true }] } : null)),
   },

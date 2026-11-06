@@ -74,10 +74,14 @@ export default {
               const iv = num(b2['attack@interval']), scale = num(b2['attack@cut_scale'], 1), dur = num(b2['attack@cut_duration']);
               if (!(iv > 0 && dur > 0)) return;
               battle.addBuff(target, {
-                key: `${CUT}:${unit.id}`, source: unit, duration: dur + battle.dt, interval: iv, visible: true, tags: ['skill'],
+                key: `${CUT}:${unit.id}`, source: unit, duration: dur + battle.dt, interval: iv, visible: true, data: {}, tags: ['skill'],
                 onTick: ({ battle: b, unit: e, buff }) => {
                   if (!up(unit) || !canTargetEnemy(unit, e, ANY)) { b.removeBuff(e, buff); return; }
                   b.dealDamage(unit, e, { amount: unit.s.atk * scale, type: 'phys', isAttack: true, isSkill: true, tags: ['skill', 'brigid:cut'] });
+                  // the buff's hit_cnt, 1 → 2 → 3 → 1: which of its three prefabs this cut plays (brigid_s2[cut] ON_BUFF_TRIGGER)
+                  const n = ((buff.data.cuts ?? 0) % 3) + 1;
+                  buff.data.cuts = n;
+                  b.fx('kitHit', { x: e.x, y: e.y, id: unit.id, src: unit.id, tgt: e.id, k: 'brigid:cut', n });
                 },
               });
             },

@@ -89,7 +89,7 @@ const BOMB_RADIUS = 1.2;
 const BOMB_DELAY = 3;
 /** 设伏 ART-Y: one ATK stack every second from the deployment (PRTS 备注 "部署后每秒获得一层"). */
 const RAMP_IV = 1;
-const AMBUSH_KEY = 'talent:cqbw:ambush';
+const AMBUSH_KEY = 'cqbw_t_1[evade]';   // (the client key: the status path holds its overrideEffectKey cqbw_buff_01_start)
 const RAMP_KEY = 'talent:cqbw:ramp';
 const MINE_TAG = 'cqbw:mine';
 const D12_TAG = 'cqbw:d12';

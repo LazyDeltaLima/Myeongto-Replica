@@ -273,6 +273,11 @@ export default {
           attack: {
             atkScale: num(b3['attack@atk_scale'], 1),
             onEachHit({ battle, unit, target }) {
+              // closur_s_3[eff] on each cast target: its plane unless this enemy was struck in the last second (the mark
+              // closur_s_3[eff_airplane_mark] is extended on every hit, whether or not a plane came)
+              const planes = (unit.mem.closurPlanes ||= new Map()), last = planes.get(target.id);
+              planes.set(target.id, battle.time);
+              if (last == null || battle.time - last >= 1) battle.fx('kitHit', { x: target.x, y: target.y, id: unit.id, src: unit.id, tgt: target.id, k: 'closur:plane' });
               slowdownStack(battle, unit, target, {
                 step: num(b3['attack@slow_down']), maxStacks: num(b3['attack@max_stack_cnt'], 10),
                 cap: num(b3['attack@slow_down_max']), duration: num(b3['attack@slow_down_time'], 3),

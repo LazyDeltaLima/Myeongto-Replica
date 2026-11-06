@@ -148,7 +148,7 @@ test("a 'skill' verdict names a skill whose activation draws something", () => {
 });
 
 /** The 'kitHit' moment keys the rules answer (`k`; undefined: 灵知's, which reads none). */
-const KIT_HIT_KEYS = [undefined, 'cqbw:grenade', 'heyak:wind', 'haruka:break', 'ironmn_t_2', 'titi:t1', 'titi:spread', 'judge:barrier', 'logos:lock', 'logos:t1shot', 'logos:s1shot', 'shu:mark', 'lmlee:s3push', 'ebnhlz:yiyin', 'ebnhlz:yiyinAoe'];
+const KIT_HIT_KEYS = [undefined, 'closur:plane', 'christ:aura', 'brigid:cut', 'pianst:echo', 'pianst:final', 'pianst:finalHit', 'cqbw:grenade', 'heyak:wind', 'haruka:break', 'ironmn_t_2', 'titi:t1', 'titi:spread', 'judge:barrier', 'logos:lock', 'logos:t1shot', 'logos:s1shot', 'shu:mark', 'lmlee:s3push', 'ebnhlz:yiyin', 'ebnhlz:yiyinAoe'];
 test('the rules name prefabs the client binds for that operator', () => {
   // each rule's prefab belongs to its operator's bundle (a typo plays nothing); the names come from the buff templates
   for (const [n, by] of Object.entries(KIT_OFFICIAL)) {

@@ -918,7 +918,7 @@ export class SpineActor {
     const sw = role.swap?.[name];
     if (sw && this.has(sw)) name = sw;
     const to = role.down?.map?.[name];
-    return to && this.has(to) && this._facesDown(role.down.by) ? to : name;
+    return to && this.has(to) && this._facesDown(role.down.deployClips?.includes(name) ? 'deploy' : role.down.by) ? to : name;   // (`deployClips`: clips of the role that go by the deployed direction)
   }
 
   /**
@@ -1093,7 +1093,8 @@ export class SpineActor {
    * Skill_3_Begin → _Loop → _End) — in mode skillEnd; false when it has none.
    */
   _skillEnd(sk) {
-    const clips = this._changeClips([this._castOf(sk, 'end')].flat().map((n) => this._dn(sk, n)));
+    const down = sk.endDown && this.has(sk.endDown) && this._facesDown(sk.down?.by) ? sk.endDown : null;   // (a mix table row: anim-keys.mjs)
+    const clips = this._changeClips((down ? [down] : [this._castOf(sk, 'end')].flat().map((n) => this._dn(sk, n))));
     if (!clips.length) return false;
     this.mode = 'skillEnd';
     this._play(clips[0], false, { mix: 0.08 });

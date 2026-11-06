@@ -24,8 +24,6 @@ export const UNPLAYED = {
     Skill_2_End: 'none: no client key names it (abilities, mode pairs, skin key table: no mix)',
     Skill_Down_2_Begin: 'none: no client key names it (abilities, mode pairs, skin key table: no mix)',
     Skill_Down_2_End: 'none: no client key names it (abilities, mode pairs, skin key table: no mix)',
-    Skill_2_Idle: 'todo: D — mode S2 InitAnimation brigid_m2_a[init_animation] pairs Idle to it while the skill runs (bundle fx-V)',
-    Skill_Down_2_Idle: 'todo: D — the same buff, deployed facing down (bundle fx-V)',
   },
   char_4198_christ: {
     Skill_2_Idle: 'none: mode S2 `_excludeAnimKeys` Idle, the skill channel is Skill_2_Begin / _Loop / _End; no client key names it',
@@ -153,12 +151,10 @@ export const UNPLAYED = {
   },
   // W, 클로저 (2026-11-06, the maintainer's to-do list: bundle fx-V)
   char_113_cqbw: {
-    Attack_Down: 'todo: K — a key of the Front model not read yet: which attack plays it is not settled',
+    Attack_Down: 'none: no client key names it (Front model abilities, mode pairs, skin key table: no mix; her attack has no down key)',
   },
   char_4228_closur: {
-    Skill_2_End: 'todo: K — the end of her S2 mode as the skill ends; no role reaches it yet',
-    Skill_3_End: 'todo: K — the end of her S3 mode as the skill ends; no role reaches it yet',
-    Skill_Down_2_End: 'todo: K — the same, her downward copy',
-    Skill_Down_3_End: 'todo: K — the same, her downward copy',
+    Skill_2_End: 'none: no client key names it; the skin mix table has only the facing-down row (Skill_Down_2_Idle → Idle)',
+    Skill_3_End: 'none: no client key names it; the skin mix table has only the facing-down row (Skill_Down_3_Idle → Idle)',
   },
 };

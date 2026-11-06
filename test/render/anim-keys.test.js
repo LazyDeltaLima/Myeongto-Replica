@@ -241,6 +241,18 @@ test('facing down: ability down keys and ThreePart / channel `_down` bundles by 
   assert.deepEqual(a.skills[0].down, r.skills[0].down);
 });
 
+test('a facing-down end only the skin\'s mix table names is the role\'s endDown (클로저 S2): no end facing right', () => {
+  const op = {
+    modes: [{ name: 'Default', pairs: {}, abilities: { 'Body/Attack': { key: 'Attack' } } },
+      { name: 'S2', pairs: { Idle: 'Skill_2_Idle' }, abilities: { 'Body/Attack': { key: '', dby: 'face', downEnd: 'Skill_Down_2_Idle', end: 'Idle', three: { begin: null, end: null, first: 0, oneshot: 'Skill_2_Loop', down: { begin: null, end: null, by: 'face', oneshot: 'Skill_Down_2_Loop' } } } } }],
+    skills: [{ id: 's2', mode: 1, begin: 'Skill_2_Begin', abilities: {} }],
+    skin: { keys: {}, mix: [['Skill_Down_2_Idle', 'Idle', 'Skill_Down_2_End'], ['Skill_Down_2_Loop', 'Idle', 'Skill_Down_2_End']] },
+  };
+  const r = keyRoles(op, clips('Idle', 'Attack', 'Skill_2_Begin', 'Skill_2_Loop', 'Skill_2_Idle', 'Skill_2_End', 'Skill_Down_2_Loop', 'Skill_Down_2_Idle', 'Skill_Down_2_End'));
+  assert.equal(r.skills[0].end, null);
+  assert.equal(r.skills[0].endDown, 'Skill_Down_2_End');
+});
+
 test('a respawn mode named `<mode>_Reborn` (Mon3tr S3): the skill attacks, rests, lands and falls in it, the prefab\'s default mode or not', () => {
   const op = {
     skin: { keys: { Born: 'Start' }, mix: [] },

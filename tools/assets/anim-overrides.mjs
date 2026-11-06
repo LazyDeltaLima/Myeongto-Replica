@@ -20,6 +20,16 @@ const clips = (o) => Object.freeze({ begin: null, loop: null, end: null, idle: n
 
 /** model key (tools/assets/plan.mjs `op:<charId>:<dir>`) prefix → { [0-based skill index]: 'attack' | clip object } */
 export const SKILL_CLIP_OVERRIDES = Object.freeze({
+  // 브리지드 S2: the mode's Idle pair is no mode row but its buff's (brigid_m2_a[init_animation] ModifyAnimatorHookerReplacePair), by the
+  // direction she was deployed in (CheckCharacterDefaultDirection); her attack clip goes by where she faces
+  'op:char_4177_brigid:front': Object.freeze({
+    1: clips({ loop: 'Skill_2_Loop', idle: 'Skill_2_Idle', down: Object.freeze({ by: 'face', deployClips: Object.freeze(['Skill_2_Idle']), map: Object.freeze({ Skill_2_Loop: 'Skill_Down_2_Loop', Skill_2_Idle: 'Skill_Down_2_Idle' }) }) }),
+  }),
+  'op:char_4177_brigid:back': Object.freeze({ 1: clips({ loop: 'Skill_2_Loop', idle: 'Skill_2_Idle' }) }),
+  // 체르니 S2: Skill_2_End is FinalAttack's, `interval` s into the skill (the kit's signal 'final', SIGNAL_CLIPS), no end of the skill
+  'op:char_4047_pianst:': Object.freeze({
+    1: clips({ begin: 'Skill_2_Begin', loop: 'Skill_2_Attack', idle: 'Skill_2_Idle' }),
+  }),
   'op:char_311_mudrok:': Object.freeze({
     1: clips({ loop: 'Skill_1', strike: true }),
     2: clips({ begin: 'Skill_2_Begin', loop: 'Skill_2_Attack', end: 'Skill_2_End', idle: 'Skill_2_Idle' }),
@@ -166,6 +176,7 @@ export const COMBAT_CLIPS = Object.freeze({
  * { [0-based skill index]: { [signal]: clip } } } → the role clip's `signals`.
  */
 export const SIGNAL_CLIPS = Object.freeze({
+  'op:char_4047_pianst:': { skills: { 1: { final: 'Skill_2_End' } } },
   // 圣约送葬人: the 受选之人 shot is each mode's talent ability (charpack Modes/*/Body/Talents/1 `_animKey "Attack_B"`, 2
   // shots); the S2 / S3 modes pair Attack_B→Skill_n_Attack_B
   // 慕斯: Talents/1 `_animKey "Attack_2"`, her double attack; neither skill has a mode, so it comes under both too

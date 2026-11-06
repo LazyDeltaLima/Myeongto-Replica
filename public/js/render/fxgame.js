@@ -3806,13 +3806,19 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // 2026-11-06: 薇薇安娜 S1's 蓄力 state (kitofficial.js 'vvanaCharge'), not the skill's: the `_buff` name rule drew it through a plain cast too
     'vvana_skill_01_S_buff',
     // 2026-11-06: W's 此面向敌, drawn on the mine (modes.json token row, kitofficial.js 'kitHit'): the `_buff` / `_start` name rules drew them on her too
-    'cqbw_skill_02_buff', 'cqbw_skill_02_buff_02', 'cqbw_skill_02_start']);
+    'cqbw_skill_02_buff', 'cqbw_skill_02_buff_02', 'cqbw_skill_02_start',
+    // … and her S1 grenade's hit and S3 bombs' (kitofficial.js 'kitHit'): `skillTargets` drew them again on what the damage of the moment struck
+    'cqbw_skill_01_hit', 'cqbw_skill_03_buff', 'cqbw_skill_03_buff_02', 'cqbw_skill_03_buff_03', 'cqbw_skill_03_hit',
+    // … and 체르니 S2's FinalAttack, 18.6 s in (kitofficial.js 'kitHit'): modes.json reads it as the cast's
+    'pianst_skill_02_end', 'pianst_skill_02_end_range', 'pianst_skill_02_end_hit']);
   // 2026-11-06: with the buffs a kit wears as statuses (fxstatus.js wornPrefabs), which those draw on whoever wears them
   let ownedOf = null, ownedSet = KIT_OWNED;
   const ownedNow = () => {
     if (ownedOf !== plays) { ownedOf = plays; ownedSet = new Set([...KIT_OWNED, ...wornPrefabs(plays)]); }
     return ownedSet;
   };
+  /** A skill's effects on what the damage of its moment strikes; a prefab a kit's own moment plays is not one (KIT_OWNED). */
+  const skillTargets = (v) => extracted(v, skillBind(v)?.target).filter((n) => !KIT_OWNED.has(n));
   /** What a skill activation plays on the caster (fxmap.js activationEffects: { start, loops }). */
   const activation = (v) => {
     const b = bundleOf(v), em = emittedIn(b.bundle);
@@ -5719,7 +5725,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             const { start, loops } = activation(v);
             if (start.length) play(v, 'skillStart', skillIdx(v), { names: start });
             if (loops.length) play(v, 'skillBuff', skillIdx(v), { buff: true, names: loops });
-            expect(v, extracted(v, skillBind(v)?.target));   // local patch: its damage this tick (德克萨斯 S2)
+            expect(v, skillTargets(v));   // local patch: its damage this tick (德克萨斯 S2)
           }
           // local patch (maintainer 2026-10-07: the buffs / range stayed ~1 s after the skill): its loops end with it, at once
           // (and the marks it left on its targets: 戴菲恩 S3's hit_1)
@@ -5737,7 +5743,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           const v = views.get(e[1]);
           if (!v || !bundleOf(v)) return;
           const sk = skillBind(v);
-          expect(v, extracted(v, e[2] === 'end' ? sk?.end?.hit : sk?.target));
+          expect(v, e[2] === 'end' ? extracted(v, sk?.end?.hit) : skillTargets(v));
           return;
         }
         case 'atk': {

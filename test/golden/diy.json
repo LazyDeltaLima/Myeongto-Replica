@@ -2798,8 +2798,8 @@
       ],
       "enemies": {"enemy_1166_dusbr_2":[39,2,37,8733,165951],"enemy_1169_duphlx_2":[57,0,57,17191,190806],"enemy_1172_dugago":[21,0,21,26025,312989]},
       "hooks": [1,153,6837,1493,1493,1651,1651,0,26,142,79,83,0,31290,927,44,117,115,1,29,0,0,0],
-      "events": {"atk":1575,"deploy":34,"die":27,"dmg":1651,"engage":12,"face":18,"fx":541,"leak":115,"skill":169,"spawn":134,"status":1077,"swing":950},
-      "fx": {"disappear":6,"dp":19,"kitHit":503,"revive":3,"stone":3,"summon":7},
+      "events": {"atk":1575,"deploy":34,"die":27,"dmg":1651,"engage":12,"face":18,"fx":558,"leak":115,"skill":169,"spawn":134,"status":1077,"swing":950},
+      "fx": {"disappear":6,"dp":19,"kitHit":520,"revive":3,"stone":3,"summon":7},
       "snaps": "39b25661 ddc7b789 5a12a544 0b184c28 7afda656 7e68ff59 1cd69816 3fd69aab 663a235b bf4d0ba8 148cbdc5 737f13d2 ac54a8f7 ee7d8365 3c62dd31 008fdd76 c8769d18 525aa10c 2fea4789 ffd3e5bd 1311cff6 8d531af3 419bfd4b"
     },
     "diy-065": {
@@ -2845,8 +2845,8 @@
       ],
       "enemies": {"enemy_1116_liprr_2":[27,16,11,4531,143616],"enemy_1119_vofsd":[48,23,25,26452,315369],"enemy_1121_lifbos_2":[30,12,18,31221,384791]},
       "hooks": [1,145,6871,2269,2269,3498,3498,7067,76,131,56,68,0,35812,0,90,105,54,1,76,0,0,0],
-      "events": {"atk":3520,"deploy":37,"die":77,"dmg":3480,"engage":12,"face":45,"fx":208,"leak":54,"skill":143,"spawn":125,"status":173,"swing":2324},
-      "fx": {"disappear":13,"dp":63,"liberate":34,"parry":18,"phase":33,"shield":30,"summon":17},
+      "events": {"atk":3520,"deploy":37,"die":77,"dmg":3480,"engage":12,"face":45,"fx":383,"leak":54,"skill":143,"spawn":125,"status":173,"swing":2324},
+      "fx": {"disappear":13,"dp":63,"kitHit":175,"liberate":34,"parry":18,"phase":33,"shield":30,"summon":17},
       "snaps": "df05c52c 9c4c82ac 8a487bfe b24475ac b8c955bb 7a12efce ff803985 66c51529 fdb3c974 38ae85f0 9fc1aa14 9ad3d69a d4f96263 afe6b4c8 5659be3e 706268b1 ab874845 9f1952cf 97eff3d2 68b86983 14ae033c 36d3da68 a02b5ab3"
     },
     "diy-summon-wang": {
@@ -3163,8 +3163,8 @@
       ],
       "enemies": {"enemy_1267_nhpbr_2":[18,8,10,4594,166671],"enemy_1270_nhstlk_2":[24,0,24,4910,141109],"enemy_9006_actoxi":[26,0,26,0,128090]},
       "hooks": [1,76,5301,215,215,692,690,3,11,72,3,4,0,2788,2,3,68,60,1,11,0,0,2],
-      "events": {"atk":599,"deploy":5,"die":12,"dmg":690,"engage":2,"fx":16,"leak":60,"skill":8,"spawn":74,"status":10,"swing":220},
-      "fx": {"dodge":2,"dp":2,"evadeReady":3,"summon":1,"zone":8},
+      "events": {"atk":599,"deploy":5,"die":12,"dmg":690,"engage":2,"fx":74,"leak":60,"skill":8,"spawn":74,"status":10,"swing":220},
+      "fx": {"dodge":2,"dp":2,"evadeReady":3,"kitHit":58,"summon":1,"zone":8},
       "snaps": "ef4f6146 99fe37d6 14540a6e 6d876bf2 6e74bc58 bac26a12 012f4190 68f0b277 bb972205 9724d339 be57c129 a4b25c1a a6579a25 60ba0090 9d20b1ec 1a7b7321 331b6ed7 130344f8"
     }
   }

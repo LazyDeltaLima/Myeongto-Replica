@@ -61,6 +61,8 @@ export default {
         },
       },
       talents: [{ install(battle, unit) {
+        // the aura ability's `_effects` on her from its attach (AuraAbility.DoAttach): christ_buff_01 while she stands
+        battle.on('deploy', (ctx) => { if (ctx.unit === unit) battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, k: 'christ:aura' }); }, { owner: unit });
         if (!(talent > 0)) return;
         battle.on('palsyTrigger', (ctx) => {
           const e = ctx.enemy;
