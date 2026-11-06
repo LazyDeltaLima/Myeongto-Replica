@@ -1348,3 +1348,33 @@
 - 재능 `aosta_t_1`: 공격이 맞힌 적 모두에게 걸린다. 적마다 하나(`EXTEND`). 새로 맞으면 시간과 값(그때 공격력)이 새로워진다(`takeSnapshotWhenExtend`). 1초마다 그때 저지되어 있지 않으면 `atk_scale` 마법 대미지(`CheckBlocked`, 출처 있음, PRTS 지속 마법 피해). 저지된 적도 걸려 있고 풀리면 그때부터 받는다. 특성 배율은 안 받는다.
 - S1 `skcom_quickattack[3]`: 공격력 +N%, 공격 속도 +N.
 - S2 `skchr_aosta_2`: 공격 간격 ×(1 + `base_attack_time`)(버프 MULTIPLIER, PRTS +50%), 공격력 +N%, 맞은 적 모두 `attack@frozen_duration`초 속박(`aosta_s_2[unmovable]`), 재능 배율 × `talent_scale`(`_applyTalentScale`).
+
+## 새 시즌 무스·미스 크리스틴·브리지드·오로라 (2026-11-06, 관리자 결정 2026-11-05)
+공개 전 시즌 `next`의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 특성, 첫 모듈을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과(빅토리아·쉐라그)는 표 뒤. 키트 `ops/op-frncat.js`·`op-christ.js`·`op-brigid.js`·`op-aurora.js`, 시험 `test/content/op_*.test.js`.
+
+### 무스 `char_185_frncat` (T1, 아츠 파이터)
+- 재능 연속 공격(`ProbReplaceNextAtkTalent`, `_probKey`): `prob` 확률로 그 공격이 재능의 `MultiMeleeAttack`(`_additionalTimes` 1)이 된다. 휘두름을 시작할 때 굴린다(`OnBeforeAttack`). 클립 `Attack_2`의 OnAttack 두 프레임(0.367·0.633초)에 한 공격의 두 타격이 나간다.
+- 그 공격은 `_timeMode` 1이라 시간이 클립 길이(1.2초)다. 공격 속도가 올라도 빨라지지 않는다. 그래서 `swing` 훅에 `timing { strike, action, cooldown }`을 더했다(`ai.js`, 다른 키트는 쓰지 않아 움직인 것 없음). 클립은 `SIGNAL_CLIPS`의 `T.1`.
+- S1 할퀴기! `skchr_frncat_1`(`PassiveAttachmentAbility`): PRTS 「특수한 패시브, 자동 발동이 아니고 시작·끝 사건이 없음. 공격 전에 SP를 쓰고 그 공격이 끝나면 사라짐, 그 공격은 SP를 안 줌」. 공격력 +N%는 그 공격의 타격 동안만(두 타격이면 둘 다), 맞은 적은 `frncat_s_1[debuff]` 공격력 −N%, 무스마다 하나(`independentCharacterSource`).
+- S2 고양이의 분노 `skchr_frncat_2`: 공격력·방어력 +N%.
+- AFT-X 1단계: 저지하는 적이 없으면 공격 속도 +8(특성 bb).
+
+### 미스 크리스틴 `char_4198_christ` (T2, 프라이멀 캐스터)
+- 재능 진수성찬(`christ_t_1[damage]`, 사거리 안 적에게 `AuraAbility`): 적이 PALSYING이 되는 순간 그녀 공격력의 `atk_scale` 원소 대미지. PRTS 「마비를 얻을 때가 아니라 마비가 공격을 끊을 때」라 엔진 훅 `palsyTrigger`로 잇는다. 크리스틴마다 따로.
+- S1 식사 에티켓 `skchr_christ_1`: 공격력 +N%, 대상 2, 맞을 때마다 그 피해의 `attack@ep_damage_ratio`만큼 신경 손상 게이지(`ActiveEP`, 원소 SANITY).
+- S2 과음의 연회 `skchr_christ_2`(`ProjectileToTileAbility`, 모드 S2는 공격 없음): `_preDelay` 0.267초 뒤 정령이 대상이 있는 칸으로 날아간다(`PARACURVE`, 속도 8, `_fixOnProjectileReached`). `SelectorHitBehaviour` `_hitPasserby`가 꺼져 있어 도착 전에는 아무도 안 맞는다. 도착부터 `interval`초마다 `projectile_range`(PRTS 1.5) 안 모두에게 공격력의 `atk_scale` 마법 대미지, 신경 폭발 중인 적에게는 그 앞에 `atk_scale_ep` 원소 대미지(`christ_s_2`, `IsTargetInEPBreakRecovery`). 머무는 시간은 `projectile_delay_time`, 대상이 없어져도 그 칸에 남고, 그녀가 쓰러져도 남는다(`_stopWhenSourceInvalid` 꺼짐). 사전 지연 중에 쓰러지면 안 나간다.
+- PRI-X: 원소 폭발 중인 적에게 주는 피해 × `damage_scale`(원소 대미지 제외, `burstDamageUp`).
+
+### 브리지드 `char_4177_brigid` (T3, 루프슈터)
+- 특성은 분과 공통(`professions.js` `loopshooter`).
+- 재능 매듭 고수(`brigid_t[evade_trigger]`): 그녀가 준 피해를 모두 센다(PRTS 「모든 피해」). `trigger_damage_count`에 이르면 물리 회피 `prob`, 그 배치 동안 유지.
+- S1 익숙한 것 `skchr_brigid_1`(`ReplacementSkill`): 다음 공격이 `atk_scale`, 그 뒤 투사체가 `times`번 튕긴다(`BounceHitBehaviour.m_bounceTimes`, 첫 타격 + 그 수). 튕김 속도 6(`_speedAfterFirstReach`), 반경 1.7(선택기 콜라이더), 안 맞은 적 중 가장 가까운 적, 없으면 다시 가장 가까운 적(`_allowRepetitionIfNoTarget`·`_fixAllowRepetitionIfNoTarget`), 타격마다 `atk_scale`(`_atkScaleRatePerBounce` 1). 마지막 타격 자리에서 돌아온다.
+  [추정·화면: 혼자 있는 적에게 되풀이 타격이 바로 이어지는지. 프리팹 `_keepAlreadyHitTime` 0.7이 그 사이를 벌리는지 읽지 않았다]
+- S2 조련 가능한 것 `skchr_brigid_2`: 공격력 +N%. 맞은 적에게 `attack@sluggish`초 정지와 `brigid_s2[cut]`: `attack@cut_duration`초 동안 `attack@interval`초마다 공격력의 `attack@cut_scale` 물리 대미지(첫 틱은 간격 뒤, 4회). 그녀를 선택할 수 없는 적이 되거나 그녀가 쓰러지면 끝(`VertifyTarget`). 투사체는 `attack@projectile_delay_time`초 머문 뒤 돌아오므로 다음 공격도 그만큼 늦다.
+- LPS-X 1단계: 주위 8칸의 적을 공격할 때 공격력 × `atk_scale`(특성 bb, `chess_char_1_09` 키트와 같은 규칙).
+
+### 오로라 `char_422_aurora` (T3, 듀얼리스트)
+- 특성: 저지 중이 아니면 SP 회복 없음(`SP_RECOVER_STOPPED`). HES-X는 대신 SP 회복 ×(1 + `sp_recover_ratio`)(PRTS).
+- 재능 저온 휴식(Default 모드의 `ToggleablePassiveBuffAbility` + `SpRatioToggleChecker`): 스킬이 꺼져 있고 SP가 최대치의 `sp_ratio` 이하(같아도)이면 공격 불가(`DISARMED`)와 최대 HP의 N% 초당 회복. PRTS 「생명 회복 속도 속성, 치료 보너스·치료 불가와 무관」이라 `hpRegenRatio`.
+- S1 터전 고수 `skchr_aurora_1`(`_switchToState` 1, `_beginAnim` `Skill_Begin` 0.5초): 저지 수 +2, 방어력 +N%, 저항(`one_minus_status_resistance`). 시전이 진행 중인 휘두름을 끊고 시작 클립 동안 공격하지 않으며, 지속 시간은 그 뒤부터(`BasicSkill.PlayBeginAnimation`). 끝나면 자신 `stun`초 기절.
+- S2 인공 강설 `skchr_aurora_2`(`Skill_2_Begin` 0.667초, 9회: `_triggerTimeCount`): 공격력 +N%, 공격 간격 ×(1 + `base_attack_time`). 빙결이 아닌 적에게는 그 타격에 `attack@cold`초 한기(`aurora_s_2[freezeattack]`, 두 번째 한기는 엔진 규칙대로 빙결), 빙결 중인 적에게는 그 공격의 공격력 × `atk_scale`(`aurora_s_2[freezeattack2]`, `AtkScaleUp`: 방어력 앞에서).

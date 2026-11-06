@@ -6619,6 +6619,59 @@
    }
   ]
  },
+ "char_185_frncat": {
+  "modes": [
+   "Default"
+  ],
+  "proj": [
+   []
+  ],
+  "cast": [
+   [
+    "frncat_attack_01_start"
+   ]
+  ],
+  "hit": [
+   [
+    "frncat_attack_01_hit"
+   ]
+  ],
+  "trail": [
+   []
+  ],
+  "attach": [
+   []
+  ],
+  "castOpt": [
+   {
+    "frncat_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "common_next_atk_buff"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "common_ignite_attack"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_188_helage": {
   "modes": [
    "Default",
@@ -17417,6 +17470,102 @@
    }
   ]
  },
+ "char_4177_brigid": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_chr_brigid"
+   ],
+   [
+    "projectile_chr_brigid_s2"
+   ]
+  ],
+  "cast": [
+   [
+    "brigid_attack_start_01"
+   ],
+   [
+    "brigid_skill_02_start_01"
+   ]
+  ],
+  "hit": [
+   [
+    "brigid_attack_hit_01"
+   ],
+   [
+    "brigid_skill_02_hit_01"
+   ]
+  ],
+  "trail": [
+   [
+    "brigid_attack_trail_01"
+   ],
+   [
+    "brigid_skill_02_trail_01"
+   ]
+  ],
+  "attach": [
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "brigid_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "brigid_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "skillMode": [
+   null,
+   1
+  ],
+  "switchTo": [
+   [],
+   [
+    1
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [
+     "brigid_skill_01_start_01"
+    ],
+    "buff": [],
+    "target": [
+     "brigid_skill_01_hit_01"
+    ],
+    "targetBuff": [],
+    "shot": [
+     "brigid_skill_01_trail_01"
+    ],
+    "shotHit": [
+     "brigid_skill_01_hit_01"
+    ]
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "brigid_skill_02_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_4179_monstr": {
   "modes": [
    "Default",
@@ -18747,6 +18896,89 @@
    }
   ]
  },
+ "char_4198_christ": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_chr_christ"
+   ],
+   [
+    "projectile_chr_christ_s1"
+   ],
+   []
+  ],
+  "cast": [
+   [],
+   [],
+   []
+  ],
+  "hit": [
+   [
+    "christ_attack_hit_01"
+   ],
+   [
+    "christ_skill_01_hit_01"
+   ],
+   []
+  ],
+  "trail": [
+   [
+    "christ_attack_trail_01"
+   ],
+   [
+    "christ_skill_01_trail_01"
+   ],
+   []
+  ],
+  "attach": [
+   [],
+   [],
+   []
+  ],
+  "skillMode": [
+   null,
+   2
+  ],
+  "switchTo": [
+   [],
+   [
+    2
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "christ_skill_01_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "christ_skill_02_buff_01"
+    ],
+    "target": [
+     "christ_skill_02_hit_02"
+    ],
+    "targetBuff": [],
+    "zone": {
+     "fx": [
+      "christ_skill_02_range"
+     ],
+     "aura": [],
+     "onProj": 0
+    }
+   }
+  ]
+ },
  "char_4202_haruka": {
   "modes": [
    "Default",
@@ -19961,6 +20193,105 @@
     "castLoop": [],
     "buff": [
      "veen_skill_03_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_422_aurora": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ],
+  "cast": [
+   [],
+   [
+    "aurora_skill_01_start"
+   ],
+   [
+    "aurora_skill_02_start",
+    "aurora_skill_02_start_02"
+   ]
+  ],
+  "hit": [
+   [
+    "aurora_attack_01_hit"
+   ],
+   [
+    "aurora_skill_01_hit"
+   ],
+   [
+    "aurora_skill_02_hit"
+   ]
+  ],
+  "trail": [
+   [],
+   [],
+   []
+  ],
+  "attach": [
+   [
+    "aurora_buff_01"
+   ],
+   [],
+   []
+  ],
+  "castOpt": [
+   {},
+   {
+    "aurora_skill_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "aurora_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "aurora_skill_02_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "skillMode": [
+   1,
+   2
+  ],
+  "switchTo": [
+   [
+    1
+   ],
+   [
+    2
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "aurora_skill_01_buff"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "aurora_skill_02_buff"
     ],
     "target": [],
     "targetBuff": []

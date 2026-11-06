@@ -168,6 +168,8 @@ export const COMBAT_CLIPS = Object.freeze({
 export const SIGNAL_CLIPS = Object.freeze({
   // 圣约送葬人: the 受选之人 shot is each mode's talent ability (charpack Modes/*/Body/Talents/1 `_animKey "Attack_B"`, 2
   // shots); the S2 / S3 modes pair Attack_B→Skill_n_Attack_B
+  // 慕斯: Talents/1 `_animKey "Attack_2"`, her double attack; neither skill has a mode, so it comes under both too
+  'op:char_185_frncat:': { attack: { 'T.1': 'Attack_2' }, skills: { 0: { 'T.1': 'Attack_2' }, 1: { 'T.1': 'Attack_2' } } },
   'op:char_1032_excu2:': { attack: { 'T.1': 'Attack_B' }, skills: { 1: { 'T.1': 'Skill_2_Attack_B' }, 2: { 'T.1': 'Skill_3_Attack_B' } } },
   // 深靛: the 秘术师 store (no valid target: one energy instead of an attack) is the Default mode's attack behaviour with
   // Attack_Charge (the sim's fx 'mysticStore' { signal: 'store' }); her skill modes store nothing

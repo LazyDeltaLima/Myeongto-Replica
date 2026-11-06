@@ -19,6 +19,17 @@
 // client key calls are listed like any other.
 
 export const UNPLAYED = {
+  char_4177_brigid: {
+    Skill_2_Begin: 'none: no client key names it (abilities, mode pairs, skin key table: no mix; skchr_brigid_2 `_playSkillBeginAnim` off)',
+    Skill_2_End: 'none: no client key names it (abilities, mode pairs, skin key table: no mix)',
+    Skill_Down_2_Begin: 'none: no client key names it (abilities, mode pairs, skin key table: no mix)',
+    Skill_Down_2_End: 'none: no client key names it (abilities, mode pairs, skin key table: no mix)',
+    Skill_2_Idle: 'todo: D — mode S2 InitAnimation brigid_m2_a[init_animation] pairs Idle to it while the skill runs (bundle fx-V)',
+    Skill_Down_2_Idle: 'todo: D — the same buff, deployed facing down (bundle fx-V)',
+  },
+  char_4198_christ: {
+    Skill_2_Idle: 'none: mode S2 `_excludeAnimKeys` Idle, the skill channel is Skill_2_Begin / _Loop / _End; no client key names it',
+  },
   char_455_nothin: {
     Skill_2_End: 'none: S2 is a toggle this mode never closes (PRTS 卫戍协议/帮助 技能操作): it runs until she leaves, so its end clip does not come',
   },

@@ -194,9 +194,9 @@ export function updateAlly(b, u, dt) {
   // a talent ability the client casts instead of this attack (a mode talent with `_isModeTalent` and `_probKey`: 寒芒克洛丝's
   // 中的 arrow) is chosen as the swing starts: the hook 'swing' sets `signal` — the 9th field, carried by its 'atk' events
   // and its hits' damage (`dmg.signal`)
-  let signal = null;
+  let signal = null, strike = t.strike, action = t.action;
   if (b._hooks.swing) {
-    const c = { unit: u, targets, isSkill: !!prof.isSkill, signal: null };
+    const c = { unit: u, targets, isSkill: !!prof.isSkill, signal: null, timing: null };
     b.emit('swing', c);
     if (typeof c.signal === 'string' && c.signal) {
       signal = c.signal;
@@ -204,11 +204,18 @@ export function updateAlly(b, u, dt) {
       while (swingEv.length < 8) swingEv.push(pad[swingEv.length - 4]);
       swingEv.push(signal);
     }
+    // that ability's own clip when it is not scaled to the attack interval (`_timeMode` FROM_ANIMATION): { strike, action, cooldown }, s
+    if (c.timing) {
+      strike = c.timing.strike; action = c.timing.action;
+      swingEv[2] = roundMs(strike);
+      u.atkCd = c.timing.cooldown;
+      u.atkSpellExit = b.time + action + (attackClipOf(u)?.esc ?? 0);
+    }
   }
   b._ev(swingEv);
-  u.castLeft = t.action;
-  u.swing = { left: t.strike, targets, sel: t.sel, isSkill: !!prof.isSkill, signal, prof };
-  if (!(t.strike > 1e-9)) allyStrike(b, u, prof);
+  u.castLeft = action;
+  u.swing = { left: strike, targets, sel: t.sel, isSkill: !!prof.isSkill, signal, prof };
+  if (!(strike > 1e-9)) allyStrike(b, u, prof);
 }
 
 /**

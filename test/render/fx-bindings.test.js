@@ -120,6 +120,10 @@ const KNOWN = {
 
 /** The template rows whose prefab nothing in render/ plays: 'key|prefab' → reason (test/helpers/fxBindings.js unplayed). */
 const UNPLAYED = {
+  // 브리지드 (a piece of the season not out yet): S2's cuts turn through three prefabs by a count on the buff (hit_cnt) — bundle fx-V
+  'brigid_s2[cut]|brigid_skill_02_hit_02': 'condOther',
+  'brigid_s2[cut]|brigid_skill_02_hit_02_02': 'condOther',
+  'brigid_s2[cut]|brigid_skill_02_hit_02_03': 'condOther',
   // 체르니 (a piece of the season not out yet): the talent's hit on the attacker is a counter no key names; S2's stack effects by count — bundle fx-V
   'pianst_t_1|pianst_beidong_hit': 'condOther',
   'pianst_s_2_stkFx_2|pianst_skill_02_buff_02_02': 'cond',

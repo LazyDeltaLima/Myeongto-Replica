@@ -7,6 +7,7 @@
 // list both ways, so a new operator's unplayed rows have to be looked at. 'key|prefab' → status.
 
 export const UNPLAYED_LOCAL = Object.freeze({
+  "char_4198_christ/Others/Direction/Talents/1|christ_buff_01": "todo: 미스 크리스틴 T1's aura look (`_effects`, `_createEffectOnDummy`): where the client shows it is not read (bundle fx-V)",
   "skchr_aglna2_3/Toggle/BlockToggle|aglna2_skill_03_range_line_01": "todo: S3 BlockToggle's edge line (_edgeLineRendererEffectKey)",
   "token_10026_bgsnow_subbow/Modes/Default[D]/Body/Attack|token_bgsnow_subbow_attack_start_01_down": "todo: 打字机's attack effects by facing and skill (a summon's attack bindings: modes.json holds none)",
   "token_10026_bgsnow_subbow/Modes/Default/Body/Attack|token_bgsnow_subbow_attack_start_01_up": "todo: 打字机's attack effects by facing and skill (a summon's attack bindings: modes.json holds none)",
