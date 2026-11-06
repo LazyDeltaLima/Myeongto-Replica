@@ -80,6 +80,9 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
   transform: translate(var(--tap-tx, -50%), var(--tap-ty, -50%));
   background: transparent; border: 0; box-shadow: none; clip-path: none; pointer-events: auto;
 }
+/* the exit button: upwards only (it stands in the screen's corner). Its area reached over the player list under it, so a
+   press on the own row left the match on a small phone */
+.gtop__exit { --tap-top: 100%; --tap-ty: -100%; }
 /* rows of buttons that touch: no sideways growth (难度 / 规则, 关闭 · 韩语 · 日语, tabs, the corner's ⋯ ⚙ 📖 ⛶); the 交流
    panel inside the corner keeps its own pager areas (below) */
 .set-seg, .dpick, .tabs, .gm__corner { --tap-w: 100%; }

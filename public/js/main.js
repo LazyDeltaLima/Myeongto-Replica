@@ -255,6 +255,7 @@ function serverLostDue(s) {
   return !!battleArt('confirm').cls;
 }
 function serverLost(text) {
+  closeAllDialogs(); // what they ask about is gone, and they would lie over this dialog's 确认
   identity.rememberMatch(null);
   store.patch('ui', { serverLost: { text } });
 }

@@ -1281,7 +1281,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   `AUTO_CHESS_BATTLE_SERVER_LOST_TIP` 또는 비활동 종료 `…_TIP_NEGATIVE_PLAY`, 확인 → `QuitGame`): 진행 중인 판(RESULT 전)에서 `room.closed`가 오거나 새 세션(서버
   재시작)이 되면 바로 로비로 보내지 않고 판 화면 위에 확인 하나짜리 창(`auto_chess_only_confirm_view`: 띠·글은 확인 창과 같고 버튼이 화면 너비 하나, 초록 판
   [추정 — 빨간 판도 있음])에 이유 글(닫힘 이유 문구, 모르면 「与服务器的连接已断开」 KR 「서버와 연결이 끊겼습니다」 — 우리 번역)을 띄우고, 확인해야 로비로
-  (`main.js serverLost`). 그림이 없으면 예전처럼 로비 + 토스트.
+  (`main.js serverLost`). 브리핑·전략 선택 화면에서도 같은 창이 뜬다(`screens/game.js GameScreen`; 판 화면에만 있어서 그 두 화면은 안내 없이 멈춰 있었다, 2026-11-07). 그림이 없으면 예전처럼 로비 + 토스트.
 - 혼자 판 이어하기 창(공식 클라 `EventOnShowSingleResumeDialog` → `tab_single_resume_dialog`, `_GetSingleResumeDialogTabInput`: 확인 버튼 하나,
   `AUTO_CHESS_BATTLE_SINGLE_RESUME_DIALOG`, 확인 → `ReqResumeSingleMode`): 판 화면이 이미 진행 중인 혼자 판으로 열릴 때(새로고침·새 탭; INFO_CHECK·BAND_DRAFT·
   BATTLE_CHECK·RESULT 제외, `battleArt.js soloResumeDue`) 같은 창에 「存在进行中的模拟，是否继续？」 KR 「진행 중인 시뮬레이션이 있습니다. 이어서
@@ -1431,6 +1431,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 - 결정 4(관리자 결정 2026-10-14): **특수 지형은 카드가 아니라 화면 위쪽 토스트**(`ui/tileToast.js TileToast`, `screens/game.js` `tileClick` → `tileTip`).
   지형 카드(`TerrainDetail`, `{ kind: 'terrain' }`)는 없앴다. 토스트 = 지형 이름·태그(이름과 같으면 생략)·설명 줄(그 판 수치)·「这一格」 사실, 위쪽 가운데
   — 라운드 캡슐 아래, 공식 모양 HUD에서는 그 아래 맹약 줄 밑(`.ttoast`, `css/screens/game-panels.css`), **누름을 받지 않음**(`pointer-events: none` — 밑의 보드를 그대로 누를 수 있음).
+  판 화면의 일반 토스트(`.toast`)도 누름을 받지 않는다(`css/components.css`; 거절 토스트 위에 다시 놓으면 조용히 되돌아가고 방향 휠도 눌리지 않던 것, 2026-11-07). 판 밖에서는 예전처럼 탭으로 닫힌다.
   - 공식 근거(EN 공식 클라): 캐릭터 없는 칸은 `_OnTileClicked`가 거짓이고, 일반 경로 `UIController.OnBottomMaskDown` → `TileInfoController._SelectTile`이
     `Tile.isFunctional`이면 `IGameMode.TryShowTileInfoToast`(위수협약 모드는 덮어쓰지 않아 기본 = 거짓) 뒤 `UIToastController.Show(Options{ name: tileName,
     description: tileDescription, lastTime 0 }, needHide: false)`. 같은 칸을 다시 누르면 아무것도 안 함(그대로), 다른 곳을 누르면 `_ClearSelectedTile` →

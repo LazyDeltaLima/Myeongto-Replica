@@ -153,6 +153,7 @@ export function GameScreen() {
   const pub = useStore((s) => s.match.public);
   const hasResult = useStore((s) => !!s.match.result);
   const ended = useStore((s) => !!s.room && !s.room.inMatch && !!s.match.public);
+  const lostBox = useStore((s) => s.ui.serverLost);
   const away = useStore((s) => s.away, Object.is, awayStore);
   const autoplay = useStore((s) => !!(Array.isArray(s.match.public?.players) && s.match.public.players.find((p) => p && p.playerId === s.me.playerId)?.autoplay));
   const gd = useGameData();
@@ -195,7 +196,9 @@ export function GameScreen() {
     ${ending ? html`<${SettleEnding} status=${ending.status} portrait=${ending.portrait} onDone=${() => { endRef.current.ending = null; setEndTick((x) => x + 1); }} />` : null}
     ${coopRoom && !ending && (hasResult || mode === 'result' || mode === 'briefing' || mode === 'draft') ? html`<div class="gchat-float"><${GameChat} open=${chatOpen} onToggle=${setChatOpen} /></div>` : null}
     ${(away || autoplay) && !hasResult && mode !== 'result' && !ended ? html`<${AwayOverlay} />` : null}
-    ${ended && !hasResult && mode !== 'result' ? html`<${MatchEnded} />` : null}`;
+    ${ended && !hasResult && mode !== 'result' ? html`<${MatchEnded} />` : null}
+    ${/* the match screen draws its own: the briefing and the draft would otherwise sit dead with no word */ ''}
+    ${lostBox && body.type !== MatchScreen ? html`<${OnlyConfirmDialog} key=${lostBox.text} text=${lostBox.text} onOk=${() => store.patch('ui', { serverLost: null })} />` : null}`;
 }
 
 // ---- match screen ----------------------------------------------------------------------------------------

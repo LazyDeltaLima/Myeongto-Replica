@@ -994,6 +994,9 @@
 /* (classes set by js: html.sp-in-match — the match screen is mounted; html.sp-conn — the banner shows. No :has(): Firefox
    ESR 115 / Safari < 15.4 lack it) */
 .sp-in-match .toast-host { top: calc(1.34rem + var(--sa-t, 0px)); }
+/* over the board a toast lets presses through (like .ttoast): a refused drop's toast lay right where the next drop and
+   the direction wheel go, and swallowed them */
+.sp-in-match .toast { pointer-events: none; cursor: default; }
 .sp-in-match .conn-banner { top: calc(1.34rem + var(--sa-t, 0px)); bottom: auto; }
 .sp-in-match.sp-conn .toast-host { top: calc(2.0rem + var(--sa-t, 0px)); }
 .conn-banner .icon { width: .22rem; height: .22rem; color: var(--orange-hi); }
