@@ -150,6 +150,7 @@ export const FACE_DOWN_MODES = Object.freeze({ char_1041_angel2: Object.freeze({
 export const SKILL_END_CAST = Object.freeze({
   char_1032_excu2: Object.freeze({ 2: Object.freeze({ mode: 'S3_End', life: 1 }) }),
   char_4191_tippi: Object.freeze({ 0: Object.freeze({ mode: 'S1_Landing', life: 1 }), 1: Object.freeze({ mode: 'S2_Landing', life: 1 }) }),
+  char_4165_ctrail: Object.freeze({ 0: Object.freeze({ mode: 'S1_Landing', life: 1 }), 1: Object.freeze({ mode: 'S2_Landing', life: 1 }) }),
 });
 /** What `charId`'s skill `skillIndex` draws as it ends: { names: the closing mode's cast effects and one-shot `attach` that are extracted, life }, or null. */
 export function skillEndCast(charId, skillIndex, bind, prefabs) {

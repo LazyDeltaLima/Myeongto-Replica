@@ -9380,6 +9380,88 @@
    }
   ]
  },
+ "char_274_astesi": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [],
+   []
+  ],
+  "cast": [
+   [
+    "astesi_attack_01_start"
+   ],
+   [
+    "astesi_skill_02_start"
+   ]
+  ],
+  "hit": [
+   [
+    "astesi_attack_01_hit"
+   ],
+   [
+    "astesi_skill_02_hit"
+   ]
+  ],
+  "trail": [
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "astesi_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "astesi_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
+  "skillMode": [
+   null,
+   1
+  ],
+  "switchTo": [
+   [],
+   [
+    1
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "common_ignite_attack"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "astesi_skill_02_buff",
+     "astesi_skill_02_buff_02",
+     "astesi_skill_02_buff_03"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_279_excu": {
   "modes": [
    "Default",
@@ -11399,6 +11481,101 @@
     "castLoop": [],
     "buff": [
      "surtr_skill_03_buff"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_355_ethan": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ],
+  "cast": [
+   [
+    "ethan_attack_01_start"
+   ],
+   [
+    "ethan_attack_01_start"
+   ],
+   [
+    "ethan_skill_02_start"
+   ]
+  ],
+  "hit": [
+   [
+    "ethan_attack_01_hit"
+   ],
+   [
+    "ethan_attack_01_hit"
+   ],
+   [
+    "ethan_attack_01_hit"
+   ]
+  ],
+  "trail": [
+   [],
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "ethan_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "ethan_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "ethan_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
+  "skillMode": [
+   null,
+   2
+  ],
+  "switchTo": [
+   [],
+   [
+    2
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "ethan_skill_02_buff"
     ],
     "target": [],
     "targetBuff": []
@@ -18074,6 +18251,215 @@
     "castLoop": [],
     "buff": [
      "rosesa_skill_02_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_4165_ctrail": {
+  "modes": [
+   "Default",
+   "S1_TakeOff",
+   "S1",
+   "S1_Landing",
+   "S2_TakeOff",
+   "S2",
+   "S2_Landing",
+   "Default_S1"
+  ],
+  "proj": [
+   [
+    "projectile_chr_ctrail"
+   ],
+   [],
+   [
+    "projectile_chr_ctrail"
+   ],
+   [],
+   [],
+   [
+    "projectile_chr_ctrail_s2"
+   ],
+   [],
+   [
+    "projectile_chr_ctrail"
+   ]
+  ],
+  "cast": [
+   [
+    "ctrail_attack_start_01"
+   ],
+   [
+    "ctrail_takeoff_F"
+   ],
+   [
+    "ctrail_attack_start_01"
+   ],
+   [
+    "ctrail_land_F"
+   ],
+   [
+    "ctrail_takeoff_F"
+   ],
+   [
+    "ctrail_skill_02_start_01"
+   ],
+   [
+    "ctrail_land_F"
+   ],
+   [
+    "ctrail_attack_start_01"
+   ]
+  ],
+  "hit": [
+   [
+    "ctrail_skill_01_hit"
+   ],
+   [],
+   [
+    "ctrail_skill_01_hit"
+   ],
+   [],
+   [],
+   [
+    "ctrail_skill_02_hit"
+   ],
+   [],
+   [
+    "ctrail_skill_01_hit"
+   ]
+  ],
+  "trail": [
+   [
+    "ctrail_attack_trail"
+   ],
+   [],
+   [
+    "ctrail_attack_trail"
+   ],
+   [],
+   [],
+   [
+    "ctrail_skill_02_trail"
+   ],
+   [],
+   [
+    "ctrail_attack_trail"
+   ]
+  ],
+  "attach": [
+   [],
+   [
+    "common_idle_ground"
+   ],
+   [
+    "ctrail_idle_F",
+    "common_idle_ground"
+   ],
+   [
+    "common_land_ground"
+   ],
+   [
+    "common_idle_ground"
+   ],
+   [
+    "ctrail_idle_F",
+    "common_idle_ground"
+   ],
+   [
+    "common_land_ground"
+   ],
+   []
+  ],
+  "castOpt": [
+   {
+    "ctrail_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "ctrail_takeoff_F": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "ctrail_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "ctrail_land_F": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "ctrail_takeoff_F": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "ctrail_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "ctrail_land_F": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "ctrail_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "start": "ctrail_birth_01_F",
+  "skillEnd": [
+   3,
+   6
+  ],
+  "switchTo": [
+   [
+    1,
+    3
+   ],
+   [
+    4,
+    6
+   ]
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "ctrail_skill_01_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "ctrail_skill_02_buff_01"
     ],
     "target": [],
     "targetBuff": []

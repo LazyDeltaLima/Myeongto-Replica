@@ -525,7 +525,7 @@ export function acquireTargets(b, u, prof) {
   if (extra && extra.length) {
     if (prof.allInRange) return cands.concat(extra);
     sortEnemyTargets(b, u, cands, prof.priority);
-    const all = cands.concat(extra);
+    const all = (prof.pickEnemies ? prof.pickEnemies(cands) : cands).concat(extra);
     const n = targetCount(u, prof);
     return n >= all.length ? all : all.slice(0, n);
   }
@@ -533,7 +533,9 @@ export function acquireTargets(b, u, prof) {
   if (prof.allInRange) return cands;
   const n = targetCount(u, prof);
   sortEnemyTargets(b, u, cands, prof.priority);
-  return n >= cands.length ? cands : cands.slice(0, n);
+  // a skill's selector group with a cap per kind (`attack.pickEnemies`: 云迹 S2's ground and air selectors), the order kept
+  const list = prof.pickEnemies ? prof.pickEnemies(cands) : cands;
+  return n >= list.length ? list : list.slice(0, n);
 }
 
 /**

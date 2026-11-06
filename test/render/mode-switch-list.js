@@ -41,6 +41,12 @@ export const MODE_SWITCH_STATUS = Object.freeze({
     'S2 S2_Fever': 'todo: the piano side\'s effects in 狂热 (oblvns_skill_02_start_A, _hit_02, _trail_02, _buff_01)',
     'S2 S2_Fever_Mag': 'ok: the same effects as S2_AttackSpeed',
   },
+  char_4165_ctrail: {
+    'S1 S1_TakeOff': 'ok: no attack in it; its cast effect is the kit\'s takeoff event (kitofficial.js)',
+    'S1 S1_Landing': 'ok: no attack in it; the closing cast (fxmap.js SKILL_END_CAST)',
+    'S2 S2_TakeOff': 'ok: no attack in it; its cast effect is the kit\'s takeoff event (kitofficial.js)',
+    'S2 S2_Landing': 'ok: no attack in it; the closing cast (fxmap.js SKILL_END_CAST)',
+  },
   char_4191_tippi: {
     'S1 S1_TakeOff': 'ok: no attack in it; its cast effect is the kit\'s takeoff event (kitofficial.js)',
     'S1 S1_Landing': 'ok: no attack in it; the closing cast (fxmap.js SKILL_END_CAST)',

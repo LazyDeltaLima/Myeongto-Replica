@@ -299,6 +299,18 @@
    "reset": 0,
    "state": 0
   },
+  "skchr_astesi_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_astesi_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
   "skchr_aurora_1": {
    "ability": null,
    "cls": "cast",
@@ -956,6 +968,18 @@
    "reset": 0,
    "state": 1
   },
+  "skchr_ctrail_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_ctrail_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
   "skchr_cuttle_2": {
    "ability": null,
    "cls": "cast",
@@ -1081,6 +1105,12 @@
    "state": 0
   },
   "skchr_estell_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_ethan_2": {
    "ability": null,
    "cls": "cast",
    "reset": 0,

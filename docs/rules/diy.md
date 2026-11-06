@@ -1426,6 +1426,29 @@
 - S2 동포의 의지 `skchr_varkis_2`(`_switchToState` 1, `_beginAnim` `Skill_2_Begin` 0.333초): 시전이 휘두름을 끊고 시작 클립 동안 공격하지 않으며 지속 시간은 그 뒤부터. 공격 배율 `attack@s2_atk_scale`, 공격마다 한 번 자신 최대 HP의 `attack@hp_ratio` 치료(ON_SPELL_ON, PRTS 「반드시 치료」).
 - 보호막: S2 중 자신에게 들어온 치료의 넘친 양(생명 복원 제외)이 보호막으로(`varkis_s2[shield]` `HEAL_CAN_GENERAL_SHIELD`, `ON_ES_OVER_ZERO`), 상한 최대 HP × `max_hp_ratio`. 다른 보호막 뒤에 소모(우선순위 −1000, PRTS 비고, `shieldLast`). 스킬이 끝나도 남고 스킬 밖에서 1초마다 `dynamic_dec_per_sec`씩 준다.
 
+## 새 시즌 아스테시아·콘트레일·에단 (2026-11-07, 관리자 결정 2026-11-05)
+공개 전 시즌 `next`의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 첫 모듈(콘트레일은 모듈 없음)을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과(기적·아케인·기습)는 표 뒤. 키트 `ops/op-astesi.js`·`op-ctrail.js`·`op-ethan.js`, 시험 `test/content/op_*.test.js`(두 형태·두 스킬, 실제 대전 경로). 묶음의 물음이던 「S1이 패시브인 특수 직군」은 둘이 다르다: 콘트레일 S1은 배치마다 켜지는 기간제, 에단 S1은 기간 없이 배치 내내 도는 패시브다.
+
+### 아스테시아 `char_274_astesi` (T2, 아츠 파이터)
+- 재능 거친 하늘의 몸짓(`astesi_t_1`): 배치 뒤 `interval`초마다 공격 속도 +`attack_speed`, 최대 `max_stack_cnt`번. 첫 중첩은 `interval`초 뒤, 새 배치면 처음부터. 간격은 표의 20초다. 프리팹의 30은 블랙보드 `interval`이 없을 때의 기본값이다(공식 클라에서 확인). 템플릿의 둘째 수정자(방어력)는 표에 키가 없어 0이다.
+- S1 성좌의 수호자: 공격력·방어력. S2 빛나는 별의 검: 공격력·방어력·저지 수 +`block_cnt`, 저지한 적 모두 공격(선택기 `_limitedMaxTargetNumToBlockedCnt`).
+- 모듈 AFT-Y 예측 불가능한 별자리표: 저지한 적에게 마법 취약 `damage_scale` − 1(`astesi_e_002_trait`, 저지가 끝나면 사라짐). 비비아나 AFT-Y와 같은 처리.
+
+### 콘트레일 `char_4165_ctrail` (T2, 스카이레인저)
+- 티피·안젤리나 더 멜로우 위시와 같은 이륙이다: 플래그 `liftoff` + `blockFly`, 사건 `takeoff`, `render/units.js LIFTOFF_HEIGHT`(0.8, `attack@height_offset`), 클립은 `tools/assets/anim-keys.mjs`의 `_TakeOff`·`_Landing`. 모드 구성은 티피와 같고 `Default_S1`이 더 있다.
+- 다른 점은 클립 시간이다. 프리팹에서 이륙·착륙 모드의 공격 능력은 그 클립이라(`_timeMode` 1, `_allowNoTarget`) 그동안 공격하지 않는다. 그래서 타락사쿰처럼 `FLY_CLIP`(네 클립 모두 1초) 동안 공격을 막고, 착륙 클립이 끝날 때 지상으로 돌아온다. 배치 때의 이륙 클립은 배치 직후 상태(`bornUntil`)가 끝난 뒤에 돈다. 티피·안젤리나 키트에는 이 시간이 없다(`bundles/loose.md`에 적은 차이, 지금 시즌 golden이 움직여 건드리지 않음).
+- 지상에서는 지상 적만, 공중에서는 공중 적만 저지한다. 모든 모드의 공격이 투사체다(`projectile_chr_ctrail`, `_s2`).
+- 재능 저공 난류(`ctrail_t_1`): 지상 모드(`Default`·`Default_S1`)에서 방어력 +`def`, 그 밖의 모드에서 모든 피해의 공격력 ×`atk_scale`(방어 앞).
+- S1 긴급 이륙(패시브, `_castOnLocate`): 배치마다 `duration`초 동안 공격력·물리 회피 `prob`(`ctrail_s_1` Evade). 공식 클라에서 확인: `_defaultModeIndex` 7이고 `_extraRangeIdModeIndices`에 7이 있어, S1을 고르면 착륙 뒤 지상(`Default_S1`)에서도 사거리가 스킬 범위 2-3이다. 키트는 `unit.rangeGrid`로 둔다. 정비 화면 카드는 기록의 기본 범위를 보인다(프로스트리프와 같음).
+- S2 하늘을 가르는 비행(범위 3-1): 공격력. 대상은 PRTS 비고대로 공중 최대 3·지상 최대 2를 고른 뒤 그중 3명(자신이 저지한 적 먼저, 그다음 어그로). 엔진에 `attack.pickEnemies`를 더했고 쓰는 키트는 이것뿐이다. 맞은 공중 적은 `attack@sluggish`초 정지(`ctrail_s_2[sluggish]`, 지상 적은 없음).
+
+### 에단 `char_355_ethan` (T3, 매복자)
+- 특성: 분기 공통(범위 안 적 모두, 회피 50%, 어그로 −1).
+- 재능 휘감기(`ethan_t_1`): 맞은 대상마다 확률 `prob`로 `frozen_duration`초 속박. S2 모드에서 확률 ×`talent_scale`(`_applyTalentScale`).
+- S1 요요(패시브, `_defaultModeIndex` 1): 공격에 맞은 대상에게 `attack@duration`초 동안 초당 `attack@poison_damage` 법술 피해, 첫 틱은 1초 뒤, 무출처. 다시 맞으면 시간만 처음으로 돌아가고 값은 그대로다(PRTS 비고). 블루포이즌과 같은 처리.
+- S2 크로스 훅: 공격력. 독은 없다(S2 모드 공격에 `ethan_s_1`이 없음).
+- 모듈 AMB-X 슈퍼 스프레이 페인트 세트: 범위 안 적 이동 속도 ×(1 + `move_speed`). 에단마다 따로 겹친다(PRTS 비고). 미즈키와 같은 처리. 모듈 재능 프리팹은 안 읽었고 표·PRTS 문구대로다.
+
 ## 새 시즌 무스·미스 크리스틴·브리지드·오로라 (2026-11-06, 관리자 결정 2026-11-05)
 공개 전 시즌 `next`의 기물(선발 아님). 형태 둘, 스킬 둘, 재능, 특성, 첫 모듈을 기록의 표·클라 프리팹·버프 템플릿·PRTS로 구현했다. 맹약 효과(빅토리아·쉐라그)는 표 뒤. 키트 `ops/op-frncat.js`·`op-christ.js`·`op-brigid.js`·`op-aurora.js`, 시험 `test/content/op_*.test.js`.
 

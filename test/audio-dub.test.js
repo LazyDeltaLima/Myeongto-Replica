@@ -57,7 +57,8 @@ describe('浊心斯卡蒂: the dubbed deploy / skill-start sounds', () => {
         }
       }
     }
-    assert.equal(Object.values(manifest.audio.sfx.units).filter((u) => u.dub).length, 1, 'only 浊心斯卡蒂 in the roster');
+    // 에단's is the deploy line of the hidden season's piece (ON_UNIT_BORN.char_355_ethan@KR / @JP)
+    assert.deepEqual(Object.entries(manifest.audio.sfx.units).filter(([, u]) => u.dub).map(([id]) => id).sort(), [SKADI, 'char_355_ethan'].sort(), 'only these in the roster');
   });
 
   test('unitDub: the chosen dub\'s line (drawn), none with the voice off or without a dub', () => {

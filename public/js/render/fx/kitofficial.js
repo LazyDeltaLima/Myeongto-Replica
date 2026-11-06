@@ -338,7 +338,11 @@ export const KIT_OFFICIAL = {
   juExtra: { ju: cite('ju_s_2[damage]', (o) => ({ play: [once(o.front ? 'ju_skill_02_hit_01' : 'ju_skill_02_hit_04', 'id')] })) },
   // (2026-11-06) 蒂比: S1_TakeOff / S2_TakeOff's cast effect (tippi_s_1[swtich_mode], tippi_s_2[switch_mode] ON_BUFF_START), a loop
   // ending with its clip Skill_Begin / Skill_2_Begin (1 s); the landing: fxmap.js SKILL_END_CAST
-  takeoff: { tippi: cite(['char_4191_tippi/Modes/S1_TakeOff/Body/Attack', 'char_4191_tippi/Modes/S2_TakeOff/Body/Attack'], () => ({ play: [{ n: 'tippi_takeoff_F', on: 'op', life: 1 }] })) },
+  // (2026-11-07) 云迹: the same modes and prefab names as 蒂比's
+  takeoff: {
+    tippi: cite(['char_4191_tippi/Modes/S1_TakeOff/Body/Attack', 'char_4191_tippi/Modes/S2_TakeOff/Body/Attack'], () => ({ play: [{ n: 'tippi_takeoff_F', on: 'op', life: 1 }] })),
+    ctrail: cite(['char_4165_ctrail/Modes/S1_TakeOff/Body/Attack', 'char_4165_ctrail/Modes/S2_TakeOff/Body/Attack'], () => ({ play: [{ n: 'ctrail_takeoff_F', on: 'op', life: 1 }] })),
+  },
   // (2026-11-05) 风絮: the FlyStart / FlyEnd modes' cast effects (their attack ability's `_castEffects`), the 'skill' / 'atk' bindings
   // draw only the mode that attacks; S2's second heal (taraxa_s2[second_heal], projectile_chr_taraxa_s2_1 at speed 10)
   taraxaFly: { taraxa: cite(['char_4222_taraxa/Modes/S1_FlyStart/Body/Attack', 'char_4222_taraxa/Modes/S1_FlyEnd/Body/Attack'], (o) => ({ play: [{ n: o.up ? 'taraxa_land' : 'taraxa_takeoff', on: 'op', life: 1 }] })) },
