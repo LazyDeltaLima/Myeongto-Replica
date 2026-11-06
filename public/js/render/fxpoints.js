@@ -296,14 +296,16 @@ export function onModelPlane(cam, x, y, z, p, out, tmp = { x: 0, y: 0, s: 0, dep
  * The world point of a model point drawn at screen (gx, gy) on a unit whose model stands at world (x, y, z), projecting to
  * screen y `rootY` — on the model's plane (onModelPlane: the official mount point's place), liftedPoint's arguments.
  * 2026-10-31 (maintainer request after the shots: the cast and hit effects at model points too).
- * @param {{project: Function, tilt: number}} cam
+ * @param {{project: Function, tilt: number, yaw?: number}} cam
  * @param {{x: number, y: number, z: number}} out
  */
 export function planePoint(cam, x, y, z, rootY, gx, gy, out, tmp = { x: 0, y: 0, s: 0, depth: 0 }) {
   const r = cam.project(x, y, z, tmp);
   if (!(r.s > 0)) return liftedPoint(cam, x, y, z, rootY, gx, gy, out, tmp);
   const t = (cam.tilt * Math.PI) / 180, du = (gx - r.x) / r.s, dv = (rootY - gy) / r.s;
-  out.x = x + du; out.y = y + dv * Math.cos(t); out.z = z + dv * Math.sin(t);
+  // on the image plane: the side camera's yaw (render/projection.js) turns its right and up axes about the row axis
+  const a = ((cam.yaw || 0) * Math.PI) / 180, sa = Math.sin(a), ca = Math.cos(a), st = Math.sin(t);
+  out.x = x + du * ca - dv * st * sa; out.y = y + dv * Math.cos(t); out.z = z + du * sa + dv * st * ca;
   return out;
 }
 

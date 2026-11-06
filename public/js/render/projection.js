@@ -37,6 +37,16 @@
 // otherwise panned and, only when the band is taller than the space, zoomed out (844×390: ×0.90, 756×366: ×0.84,
 // 800×360: ×0.83): a 2D pan / zoom of the image (principal point and focal length), so the perspective and the
 // three.js camera stay the official ones.
+//
+// The official side camera (公式 CameraController `Placeholders/SideBy`: AutoChessCameraPlugin takes it while a piece is
+// selected, dragged or its direction is chosen, docs/rules/ui.md 「기물을 고르고 집을 때의 측면 카메라」): `Offset` moves by
+// SIDE_BY.pos and turns SIDE_BY.yaw about the row axis, carrying the camera with it. `Camera.yaw` is that turn, in the
+// Unity sign. With yaw a (ca, sa its cosine and sine) the basis above becomes
+//
+//   f = (c·sa, s, −c·ca)        u = (−s·sa, c, s·ca)        r = (ca, 0, sa)        C = T − dist·f
+//
+// (s, c = sin / cos tilt), so a row of tiles slants on screen and a model plane stands turned by `Camera.lean`. Yaw 0 is
+// the formula above, number for number.
 
 export const DEG = Math.PI / 180;
 
@@ -68,6 +78,13 @@ export const OFFICIAL_PARAMS = Object.freeze({
   right_boss_shop_camera_param: '(5.83,-8.73,-3.77,1)',
   enemy_camera_param: '(0,7.86,0.9,1)',
 });
+
+/**
+ * `Placeholders/SideBy` of the official CameraController: the offset of its `Offset` node in the centred Unity frame and
+ * its turn about the Unity y axis (degrees). `moveMs`: the controller's flight (AutoChessCameraPlugin _moveTween OutQuart
+ * over configBlackBoard move_time 0.25); `turnMs`: `Offset`'s (CameraController _moveTime 0.2, _easeType OutQuart).
+ */
+export const SIDE_BY = Object.freeze({ pos: Object.freeze([-0.75, -0.5, -1]), yaw: -10, moveMs: 250, turnMs: 200 });
 
 /** Default optics of the fitted (non-official) cameras: the official pitch; dist is a moderate lens. */
 export const DEFAULT_OPTICS = Object.freeze({ tilt: OFFICIAL.pitch, dist: 16 });
@@ -126,7 +143,7 @@ const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
  */
 export class Camera {
   /**
-   * @param {{ tx?: number, ty?: number, tz?: number, tilt?: number, dist?: number, scale?: number, cx?: number, cy?: number }} [o]
+   * @param {{ tx?: number, ty?: number, tz?: number, tilt?: number, dist?: number, scale?: number, cx?: number, cy?: number, yaw?: number }} [o]
    */
   constructor(options) {
     const o = options && typeof options === 'object' ? options : {};
@@ -138,6 +155,8 @@ export class Camera {
     this.scale = Math.max(EPS, finite(o.scale, 64));
     this.cx = finite(o.cx, 0);
     this.cy = finite(o.cy, 0);
+    /** turn about the row axis, degrees in the Unity sign (see the header); 0 outside the side camera */
+    this.yaw = finite(o.yaw, 0);
     /** bumped by update(); lets consumers cache projections */
     this.version = 0;
     this.update();
@@ -145,13 +164,17 @@ export class Camera {
 
   /** Recompute derived values (camera position, basis). */
   update() {
-    const t = this.tilt * DEG;
-    this._s = Math.sin(t);
-    this._c = Math.cos(t);
-    this._px = this.tx;
-    this._py = this.ty - this.dist * this._s;
-    this._pz = this.tz + this.dist * this._c;
+    const t = this.tilt * DEG, a = this.yaw * DEG;
+    const s = Math.sin(t), c = Math.cos(t), sa = Math.sin(a), ca = Math.cos(a);
+    this._fx = c * sa; this._fy = s; this._fz = -c * ca;   // forward
+    this._ux = -s * sa; this._uy = c; this._uz = s * ca;   // up
+    this._rx = ca; this._rz = sa;                          // right (no row component)
+    this._px = this.tx - this.dist * this._fx;
+    this._py = this.ty - this.dist * this._fy;
+    this._pz = this.tz - this.dist * this._fz;
     this._k = this.scale * this.dist;
+    /** radians a model plane (the `Graphic`'s X −30°, facing the unturned camera) is turned on screen; Pixi's sign */
+    this.lean = a ? Math.atan2(s * sa, c * c + s * s * ca) : 0;
     this.version++;
     return this;
   }
@@ -159,7 +182,7 @@ export class Camera {
   /** Copy every parameter from another camera. */
   copy(o) {
     this.tx = o.tx; this.ty = o.ty; this.tz = o.tz; this.tilt = o.tilt; this.dist = o.dist;
-    this.scale = o.scale; this.cx = o.cx; this.cy = o.cy;
+    this.scale = o.scale; this.cx = o.cx; this.cy = o.cy; this.yaw = o.yaw || 0;
     return this.update();
   }
 
@@ -167,7 +190,7 @@ export class Camera {
 
   /** Plain parameter object (serialisable). */
   params() {
-    return { tx: this.tx, ty: this.ty, tz: this.tz, tilt: this.tilt, dist: this.dist, scale: this.scale, cx: this.cx, cy: this.cy };
+    return { tx: this.tx, ty: this.ty, tz: this.tz, tilt: this.tilt, dist: this.dist, scale: this.scale, cx: this.cx, cy: this.cy, yaw: this.yaw };
   }
 
   /** World position of the camera (the pinhole). */
@@ -178,7 +201,7 @@ export class Camera {
 
   /** Depth of a world point along the view axis (≥ MIN_DEPTH). */
   depthOf(x, y, z = 0) {
-    const d = (y - this._py) * this._s - (z - this._pz) * this._c;
+    const d = (x - this._px) * this._fx + (y - this._py) * this._fy + (z - this._pz) * this._fz;
     return d > MIN_DEPTH ? d : MIN_DEPTH;
   }
 
@@ -188,11 +211,11 @@ export class Camera {
    */
   project(x, y, z = 0, out = { x: 0, y: 0, s: 0, depth: 0 }) {
     const vx = x - this._px, vy = y - this._py, vz = z - this._pz;
-    let depth = vy * this._s - vz * this._c;
+    let depth = vx * this._fx + vy * this._fy + vz * this._fz;
     if (!(depth > MIN_DEPTH)) depth = MIN_DEPTH;
-    const up = vy * this._c + vz * this._s;
+    const up = vx * this._ux + vy * this._uy + vz * this._uz;
     const k = this._k / depth;
-    out.x = this.cx + vx * k;
+    out.x = this.cx + (vx * this._rx + vz * this._rz) * k;
     out.y = this.cy - up * k;
     out.s = k;
     out.depth = depth;
@@ -209,14 +232,14 @@ export class Camera {
    * about half its length.
    */
   liftFor(x, y, z, px) {
-    const vy = y - this._py, vz = z - this._pz;
-    let depth = vy * this._s - vz * this._c;
+    const vx = x - this._px, vy = y - this._py, vz = z - this._pz;
+    let depth = vx * this._fx + vy * this._fy + vz * this._fz;
     if (!(depth > MIN_DEPTH)) depth = MIN_DEPTH;
-    const up = vy * this._c + vz * this._s;
-    // screen y = cy − k·up/depth; raising z by h: up += h·sin, depth −= h·cos — solve for the wanted up/depth ratio
+    const up = vx * this._ux + vy * this._uy + vz * this._uz;
+    // screen y = cy − k·up/depth; raising z by h: up += h·u.z, depth += h·f.z — solve for the wanted up/depth ratio
     const ratio = up / depth + px / this._k;
-    const den = this._s + ratio * this._c;
-    if (!(den > 1e-6)) return px / Math.max(1e-6, (this._k / depth) * Math.max(this._s, 0.1));
+    const den = this._uz - ratio * this._fz;
+    if (!(den > 1e-6)) return px / Math.max(1e-6, (this._k / depth) * Math.max(this._uz, 0.1));
     return (ratio * depth - up) / den;
   }
 
@@ -228,9 +251,9 @@ export class Camera {
     // Ray direction for screen point: d = f + r·a + u·b with a = (sx−cx)/k, b = −(sy−cy)/k.
     const a = (sx - this.cx) / this._k;
     const b = -(sy - this.cy) / this._k;
-    const dx = a;
-    const dy = this._s + b * this._c;
-    const dz = -this._c + b * this._s;
+    const dx = this._fx + a * this._rx + b * this._ux;
+    const dy = this._fy + b * this._uy;
+    const dz = this._fz + a * this._rz + b * this._uz;
     if (Math.abs(dz) < EPS) return null;
     const t = (z - this._pz) / dz;
     if (!(t > 0) || !Number.isFinite(t)) return null;
@@ -254,13 +277,13 @@ export class Camera {
 export function threeCameraParams(cam, width, height, opts) {
   const o = opts && typeof opts === 'object' ? opts : {};
   const W = Math.max(1, finite(width, 1)), H = Math.max(1, finite(height, 1));
-  const t = cam.tilt * DEG, s = Math.sin(t), c = Math.cos(t);
+  const t = cam.tilt * DEG, s = Math.sin(t), c = Math.cos(t), a = (cam.yaw || 0) * DEG, sa = Math.sin(a), ca = Math.cos(a);
   const fovY = 2 * Math.atan(H / 2 / Math.max(EPS, cam.scale * cam.dist)) / DEG;
-  const pos = [cam.tx, cam.ty - cam.dist * s, cam.tz + cam.dist * c];
+  const pos = [cam.tx - cam.dist * c * sa, cam.ty - cam.dist * s, cam.tz + cam.dist * c * ca];
   return {
     fov: fovY, aspect: W / H,
     near: Math.max(0.01, finite(o.near, cam.dist * 0.05)), far: Math.max(1, finite(o.far, cam.dist + 80)),
-    position: pos, up: [0, c, s], target: [cam.tx, cam.ty, cam.tz],
+    position: pos, up: [-s * sa, c, s * ca], target: [cam.tx, cam.ty, cam.tz],
     view: { fullWidth: W, fullHeight: H, offsetX: W / 2 - cam.cx, offsetY: H / 2 - cam.cy, width: W, height: H },
   };
 }
@@ -288,6 +311,8 @@ export function syncThreeCamera(cam, three, width, height, opts) {
 /** Ease for camera transitions. */
 export const easeInOutCubic = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 export const easeOutCubic = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : 1 - Math.pow(1 - t, 3));
+/** The official camera tweens (Ease 12, SIDE_BY). */
+export const easeOutQuart = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : 1 - Math.pow(1 - t, 4));
 
 /** Interpolate two cameras into `out` (scale in log space so zooms feel linear). */
 export function lerpCamera(a, b, t, out = new Camera()) {
@@ -297,6 +322,37 @@ export function lerpCamera(a, b, t, out = new Camera()) {
   out.tilt = L(a.tilt, b.tilt); out.dist = L(a.dist, b.dist);
   out.scale = Math.exp(L(Math.log(Math.max(EPS, a.scale)), Math.log(Math.max(EPS, b.scale))));
   out.cx = L(a.cx, b.cx); out.cy = L(a.cy, b.cy);
+  out.yaw = L(a.yaw || 0, b.yaw || 0);
+  return out.update();
+}
+
+/** The controller's world position of a camera: its pinhole less what `Offset` and the turned `Camera` node add. */
+function controllerOf(cam, out) {
+  const p = cam.position(), a = (cam.yaw || 0) * DEG, w = (cam.yaw || 0) / SIDE_BY.yaw, b = OFFICIAL.base;
+  out[0] = p.x - w * SIDE_BY.pos[0] - b[2] * Math.sin(a);
+  out[1] = p.y - w * SIDE_BY.pos[1] - b[1];
+  out[2] = p.z + w * SIDE_BY.pos[2] + b[2] * Math.cos(a);
+  return out;
+}
+
+/**
+ * The official flight between two cameras into `out`: the rig's parts on their own clocks — the controller by `move`,
+ * `Offset` (its position and turn, always together: `yaw` tells how far along it is) by `turn` (eased progress 0…1).
+ * The image (focal length, principal point: `clearHud`) follows the controller. `a` may be a camera in mid flight.
+ */
+export function flyRig(a, b, move, turn, out = new Camera()) {
+  const pa = controllerOf(a, [0, 0, 0]), pb = controllerOf(b, [0, 0, 0]);
+  const L = (p, q, u) => p + (q - p) * u;
+  const yaw = L(a.yaw || 0, b.yaw || 0, turn), ar = yaw * DEG, w = yaw / SIDE_BY.yaw, base = OFFICIAL.base;
+  const t = b.tilt * DEG, s = Math.sin(t), c = Math.cos(t), sa = Math.sin(ar), ca = Math.cos(ar);
+  const px = L(pa[0], pb[0], move) + w * SIDE_BY.pos[0] + base[2] * sa;
+  const py = L(pa[1], pb[1], move) + w * SIDE_BY.pos[1] + base[1];
+  const pz = L(pa[2], pb[2], move) - w * SIDE_BY.pos[2] - base[2] * ca;
+  const focal = Math.exp(L(Math.log(Math.max(EPS, a.focal())), Math.log(Math.max(EPS, b.focal())), move));
+  const dist = Math.max(1, pz / (c * ca));
+  out.tilt = b.tilt; out.yaw = yaw; out.dist = dist; out.scale = focal / dist; out.tz = 0;
+  out.tx = px + dist * c * sa; out.ty = py + dist * s;
+  out.cx = L(a.cx, b.cx, move); out.cy = L(a.cy, b.cy, move);
   return out.update();
 }
 
@@ -371,6 +427,7 @@ export function parseCameraParam(v) {
 /**
  * The official camera of a configBlackBoard param on a `width`×`height` viewport (see the header): position =
  * OFFICIAL.base + param (+ the narrow-screen adjustment), pitch 30°, vertical FOV 40°, centred principal point.
+ * `opts.sideBy`: the official side camera (SIDE_BY).
  * @param {string|number[]} param "(x,y,z,w)" or [x,y,z]
  * @param {{ width: number, height: number }} viewport
  */
@@ -385,11 +442,15 @@ export function officialCamera(param, viewport, opts) {
   const k = clamp((9 / 16 - ratio) / (9 / 16 - 3 / 4), 0, 1);
   const adj = OFFICIAL.aspectAdjust;
   const ux = p[0] + base[0] + adj[0] * k, uy = p[1] + base[1] + adj[1] * k, uz = p[2] + base[2] + adj[2] * k;
-  const cx = ux + OFFICIAL.center[0], cy = uy + OFFICIAL.center[1], height = Math.max(0.5, -uz);
+  // the side camera (see the header): `Offset` moves and turns, carrying the `Camera` node at OFFICIAL.base with it
+  const yaw = o.sideBy ? SIDE_BY.yaw : 0, a = yaw * DEG, sa = Math.sin(a), ca = Math.cos(a);
+  const off = o.sideBy ? SIDE_BY.pos : [0, 0, 0];
+  const ox = ux + off[0] + base[2] * sa, oy = uy + off[1], oz = uz + off[2] + base[2] * (ca - 1);
+  const cx = ox + OFFICIAL.center[0], cy = oy + OFFICIAL.center[1], height = Math.max(0.5, -oz);
   const t = clamp(pitch, 1, 80) * DEG;
-  const dist = height / Math.cos(t);
+  const dist = height / (Math.cos(t) * ca);
   const focal = (H / 2) / Math.tan((clamp(fovY, 5, 150) * DEG) / 2);
-  return new Camera({ tx: cx, ty: cy + height * Math.tan(t), tz: 0, tilt: pitch, dist, scale: focal / dist, cx: W / 2, cy: H / 2 });
+  return new Camera({ tx: cx + (height * sa) / ca, ty: cy + (height * Math.tan(t)) / ca, tz: 0, tilt: pitch, dist, scale: focal / dist, cx: W / 2, cy: H / 2, yaw });
 }
 
 /** Overlap (px) between the kept band and a HUD band that still counts as clear (float noise). */
@@ -404,10 +465,11 @@ const HUD_GAP = 1;
  * fits between the HUD bands; else a new camera whose image is panned vertically by the smallest shift that clears
  * the HUD (by up to HUD_GAP where there is room) or — only when the band is taller than the space between — zoomed
  * out about the viewport's centre so it fills that space less HUD_GAP at both ends. The screen y of a horizontal
- * world line is the same at every x (the camera has no roll), so one point per edge decides.
+ * world line is the same at every x when the camera has no yaw, so one point per edge decides: on the view axis, or at
+ * world x `keep.x`. A side camera's rows slant: the view axis stands for the band, whose lower left end has no HUD over it.
  * @param {Camera} cam
  * @param {{ top?: number, bottom?: number }|null} hud
- * @param {{ near: number, zNear?: number, far: number, zFar?: number }|null} keep
+ * @param {{ near: number, zNear?: number, far: number, zFar?: number, x?: number }|null} keep
  * @param {{ width: number, height: number }} viewport CSS px
  * @returns {Camera}
  */
@@ -416,8 +478,9 @@ export function clearHud(cam, hud, keep, viewport) {
   const W = Math.max(1, finite(viewport?.width, 1)), H = Math.max(1, finite(viewport?.height, 1));
   const top = Math.max(0, finite(hud.top, 0)), bottom = H - Math.max(0, finite(hud.bottom, 0));
   if (!(bottom - top > 16)) return cam; // no usable space: keep the official framing
-  const yNear = cam.project(cam.tx, keep.near, finite(keep.zNear, 0)).y;
-  const yFar = cam.project(cam.tx, keep.far, finite(keep.zFar, 0)).y;
+  const x = finite(keep.x, cam.tx);
+  const yNear = cam.project(x, keep.near, finite(keep.zNear, 0)).y;
+  const yFar = cam.project(x, keep.far, finite(keep.zFar, 0)).y;
   if (!Number.isFinite(yNear) || !Number.isFinite(yFar) || !(yNear > yFar)) return cam;
   if (yNear <= bottom + HUD_TOLERANCE && yFar >= top - HUD_TOLERANCE) return cam;
   const spare = bottom - top - (yNear - yFar);
@@ -444,7 +507,10 @@ const sameRect = (a, b) => !!a && !!b && a.r0 === b.r0 && a.r1 === b.r1 && a.c0 
  * A wide 联防 field (the 8-player mode, `opts.rect` past column 20) is fitted as a whole; its half views take the
  * official left half's param moved by the half's column offset (`opts.halfOffset`: 0, 8, 16, 24 — shared/wideField.js).
  * `opts.hud` = { top, bottom } (CSS px of HUD along the top / bottom edge): the official prep / Final Assault prep
- * camera keeps the bench and the field clear of it (`clearHud`, the preset's `keep` band).
+ * camera keeps the bench and the field clear of it (`clearHud`, the preset's `keep` band). `opts.sideBy`: the official
+ * side camera (SIDE_BY); `opts.at` = { row, col } (display tile): the official camera of a selected piece, the controller
+ * over that tile at the height the shop state gives (AutoChessCameraPlugin CUSTOM_CHARACTER) — the band to keep clear is
+ * then that tile.
  */
 export function presetCamera(kind, viewport, options) {
   const opts = options && typeof options === 'object' ? options : {};
@@ -468,8 +534,12 @@ export function presetCamera(kind, viewport, options) {
     const cfg = opts.config && typeof opts.config === 'object' ? opts.config : null;
     let param = (cfg && parseCameraParam(cfg[key])) || parseCameraParam(OFFICIAL_PARAMS[key]);
     if (halfAt != null && param) param = [param[0] + halfAt, ...param.slice(1)];
+    const at = opts.at && Number.isFinite(opts.at.row) && Number.isFinite(opts.at.col) ? opts.at : null;
+    if (at && param) param = [at.col - OFFICIAL.center[0], at.row - OFFICIAL.center[1], param[2], param[3]];
     const cam = officialCamera(param, { width: W, height: H }, opts);
-    return preset.keep && opts.hud ? clearHud(cam, opts.hud, preset.keep, { width: W, height: H }) : cam;
+    if (!preset.keep || !opts.hud) return cam;
+    const keep = at ? { near: at.row - 0.5, zNear: KEEP_Z_BENCH, far: at.row + 0.5, zFar: KEEP_Z_HIGH, x: at.col } : preset.keep;
+    return clearHud(cam, opts.hud, keep, { width: W, height: H });
   }
   if (!rect) {
     rect = { ...preset.rect };

@@ -9,8 +9,9 @@ Part of [DESIGN.md](../DESIGN.md) (the index; section numbers are global).
 ```js
 const view = await createFieldView(canvasHost /* HTMLElement */, { data, assets, audio })
 view.setStage(stage)                         // draw tiles (procedural), devices
-view.setCamera(kind /* 'prep'|'normal'|'unite'|'boss' */, { rect, side, shop })  // animates camera; shop: false = the
-                                             //   folded shop's prep camera (official shop-collapsed framing, §21.27)
+view.setCamera(kind /* 'prep'|'normal'|'unite'|'boss' */, { rect, side, shop, sideBy, at, ms, turnMs })  // animates camera; shop: false = the
+                                             //   folded shop's prep camera (official shop-collapsed framing, §21.27); sideBy: the official
+                                             //   side camera of a held or selected piece, at: over that piece's tile (projection.js SIDE_BY)
 view.setPrep(privateState, { editable })     // render hand/temp/board pieces as chibis (spine or fallback); editable enables drag;
                                              //   a merge's new elite on the board plays fx.promote instead of fx.deploy (render/promote.js, §20.11),
                                              //   also after a battle (a merge between two preps: the last prep state is kept, §20.14)

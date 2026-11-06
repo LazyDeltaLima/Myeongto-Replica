@@ -357,7 +357,9 @@ export function SettingsModal({ open, onClose }) {
               class=${s.frameLimit === v ? 'is-on' : ''} onClick=${() => updateSettings({ frameLimit: v })}>${v ? String(v) : t('无')}</button>`)}
           </div>
         </div>
+        <!-- maintainer decision 2026-11-07: no such choice in the official game; the side camera and the fold always apply.
         <${Toggle} label=${t('拿起棋子时收起商店')} micro="DEPLOY FOLD" value=${s.deployFold} onChange=${(v) => updateSettings({ deployFold: v })} />
+        -->
         <${NumberUnitsSetting} />
         <${Toggle} label=${t('精锐干员标记')} micro="ELITE BADGE" value=${s.eliteBadge} onChange=${(v) => updateSettings({ eliteBadge: v })} />
         <${Toggle} label=${t('回合伤害统计')} micro="ROUND DAMAGE" value=${s.roundDamage} onChange=${(v) => updateSettings({ roundDamage: v })} />

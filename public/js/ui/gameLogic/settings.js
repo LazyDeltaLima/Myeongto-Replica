@@ -18,8 +18,8 @@ export const CHAT_COOLDOWN = Object.freeze({ def: 2, min: 1, max: 5 });
  * notification toasts (showMatchToast below). numberUnits: how large numbers are shortened (fmtNum, ui/gameLogic/format.js
  * NUMBER_UNIT_MODES; null = the language's own style). roundDamage / roundDamageStyle: the match's round damage panel
  * (ui/roundDamage.js) shown at all, and its look — ROUND_DAMAGE_STYLES; 'auto' = full on a desktop, compact on a phone.
- * frameLimit: the field view's frame rate cap (FRAME_LIMITS; 0 = none). deployFold: a held piece folds the shop
- * (gameLogic/camera.js deployFoldsShop).
+ * frameLimit: the field view's frame rate cap (FRAME_LIMITS; 0 = none). deployFold: the old choice of a held piece's
+ * fold; its toggle is commented out and nothing reads it (ui/settings.js, maintainer decision 2026-11-07).
  */
 export const DEFAULT_SETTINGS = Object.freeze({ bgm: 0.6, sfx: 0.8, voice: 0.8, muted: false, damageNumbers: true, quality: 'high', keys: DEFAULT_HOTKEYS,
   chatSound: true, chatVolume: 0.5, chatCooldown: CHAT_COOLDOWN.def, chatFactionAlerts: false, chatPinRecent: false,

@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import {
   Camera, fitCamera, presetCamera, lerpCamera, pickTile, tileQuad, normRect, CAMERA_PRESETS, easeInOutCubic,
   OFFICIAL, OFFICIAL_PARAMS, officialCamera, parseCameraParam, threeCameraParams, syncThreeCamera, clearHud,
+  SIDE_BY, flyRig, easeOutQuart,
 } from '../../public/js/render/projection.js';
 import * as THREE from 'three';
 
@@ -428,5 +429,117 @@ describe('three.js PerspectiveCamera equivalence (the 3D board layer)', () => {
     const pos = cam.position();
     assert.deepEqual(p.position.map((x) => Math.round(x * 1e9) / 1e9), [pos.x, pos.y, pos.z].map((x) => Math.round(x * 1e9) / 1e9));
     assert.ok(p.near > 0 && p.far > p.near);
+  });
+});
+
+// The official side camera of a selected / held piece (docs/rules/ui.md 「기물을 고르고 집을 때의 측면 카메라」): the prefab's
+// `Placeholders/SideBy` and the level's camera params; the sizes are the ones computed from them and measured on an
+// official recording (±0.02).
+describe('the official side camera', () => {
+  const vp = { width: 1920, height: 1080 };
+  const shop = presetCamera('prep', vp);
+  const held = presetCamera('prep', vp, { shop: false, sideBy: true });
+  const sel = presetCamera('prep', vp, { sideBy: true, at: { row: 7, col: 6 } });
+  const size = (c, x, y) => {
+    const a = c.project(x - 0.01, y - 0.01), b = c.project(x + 0.01, y - 0.01), d = c.project(x - 0.01, y + 0.01);
+    return Math.sqrt(Math.abs((b.x - a.x) * (d.y - a.y) - (b.y - a.y) * (d.x - a.x)));
+  };
+
+  test('where it stands: left_prepare + SideBy, the selected tile + SideBy at the shop height', () => {
+    assert.deepEqual([SIDE_BY.yaw, ...SIDE_BY.pos], [-10, -0.75, -0.5, -1]);
+    const p = held.position();
+    assert.ok(near(p.x, 5.9275, 1e-3) && near(p.y, 3.99, 1e-9) && near(p.z, 11.102, 1e-3), JSON.stringify(p));
+    const q = sel.position();
+    assert.ok(near(q.x, 6.5975, 1e-3) && near(q.y, 1.69, 1e-9) && near(q.z, 12.412, 1e-3), JSON.stringify(q));
+    assert.equal(held.yaw, -10);
+    assert.equal(sel.yaw, -10);
+    const folded = presetCamera('prep', vp, { shop: false, sideBy: true, at: { row: 7, col: 6 } }).position();
+    assert.ok(near(folded.z, 11.102, 1e-3), 'a folded shop: the folded height');
+    assert.equal(shop.yaw, 0);
+  });
+
+  test('tile sizes against the shop camera, turned the official way: right bigger than left', () => {
+    for (const [x, y, h, s] of [[5, 10.5, 1.116, 0.916], [1, 9, 1.046, 0.856], [9, 9, 1.214, 0.969], [1, 12, 1.039, 0.872], [9, 12, 1.186, 0.976], [5, 7, 1.138, 0.9]]) {
+      assert.ok(near(size(held, x, y) / size(shop, x, y), h, 1e-3), `held ${x},${y}: ${size(held, x, y) / size(shop, x, y)}`);
+      assert.ok(near(size(sel, x, y) / size(shop, x, y), s, 1e-3), `selected ${x},${y}: ${size(sel, x, y) / size(shop, x, y)}`);
+    }
+  });
+
+  test('rows slant the measured way and the model plane leans 5° to the left', () => {
+    const slope = (r) => (Math.atan2(held.project(10, r).y - held.project(0, r).y, held.project(10, r).x - held.project(0, r).x) * 180) / Math.PI;
+    assert.ok(near(slope(7), -2.7, 0.05) && near(slope(12), -5.9, 0.05), `${slope(7)} ${slope(12)}`);
+    assert.ok(near((held.lean * 180) / Math.PI, -4.98, 0.01), `${held.lean}`);
+    assert.equal(shop.lean, 0);
+  });
+
+  test('project ↔ unproject, liftFor and three.js agree on the turned camera', () => {
+    const hud = { top: 86, bottom: 55 };
+    for (const cam of [held, sel, presetCamera('prep', { width: 844, height: 390 }, { shop: false, sideBy: true, hud })]) {
+      const W = cam.cx * 2 || 1920, H = cam.cy * 2 || 1080;
+      const three = syncThreeCamera(cam, new THREE.PerspectiveCamera(), W, H);
+      const v = new THREE.Vector3();
+      for (let r = 0; r < 19; r++) for (let c = 0; c < 21; c++) for (const z of [0, 0.16, 0.42]) {
+        const p = cam.project(c, r, z);
+        v.set(c, r, z).project(three);
+        assert.ok(near((v.x + 1) / 2 * W, p.x, 1e-6) && near((1 - v.y) / 2 * H, p.y, 1e-6), `three ${c},${r},${z}`);
+        const w = cam.unproject(p.x, p.y, z);
+        assert.ok(near(w.x, c, 1e-6) && near(w.y, r, 1e-6), `unproject ${c},${r},${z}`);
+        if (r < 6) continue; // liftFor: below the view its plane runs away (the fallback's answer, not an exact one)
+        const h = cam.liftFor(c, r, z, 40);
+        assert.ok(near(cam.project(c, r, z + h).y, p.y - 40, 1e-6), `liftFor ${c},${r},${z}`);
+      }
+      assert.ok(near(cam.depthOf(5, 9, 0), cam.project(5, 9, 0).depth, 1e-9));
+      const back = new Camera(cam.params());
+      assert.deepEqual(back.project(3, 9, 0), cam.project(3, 9, 0), 'params() keeps the yaw');
+      assert.equal(cam.clone().yaw, -10);
+      assert.equal(new Camera().copy(cam).yaw, -10);
+    }
+  });
+
+  test('a yaw of 0 is the plain camera, number for number', () => {
+    for (const [x, y, z] of [[0, 7, 0], [9, 12, 0.42], [20, 18, 1.3]]) {
+      const a = shop.project(x, y, z);
+      const vy = y - shop.position().y, vz = z - shop.position().z, t = (shop.tilt * Math.PI) / 180;
+      const depth = vy * Math.sin(t) - vz * Math.cos(t);
+      assert.equal(a.depth, depth);
+      assert.equal(a.y, shop.cy - (vy * Math.cos(t) + vz * Math.sin(t)) * (shop.focal() / depth));
+      assert.equal(a.x, shop.cx + (x - shop.position().x) * (shop.focal() / depth));
+    }
+  });
+
+  test('the flight: the rig\'s two clocks, OutQuart, ends exactly on the target and fits the recording', () => {
+    const start = flyRig(shop, held, 0, 0), end = flyRig(shop, held, 1, 1);
+    for (const k of ['tx', 'ty', 'dist', 'scale', 'cx', 'cy', 'yaw']) {
+      assert.ok(near(start[k], shop[k], 1e-9), `start ${k}`);
+      assert.ok(near(end[k], held[k], 1e-9), `end ${k}`);
+    }
+    assert.equal(easeOutQuart(0.5), 1 - 0.5 ** 4);
+    assert.deepEqual([SIDE_BY.moveMs, SIDE_BY.turnMs], [250, 200]);
+    // 200 ms: `Offset` has arrived, the controller is still moving
+    const m = flyRig(shop, held, easeOutQuart(200 / 250), easeOutQuart(200 / 200));
+    assert.equal(m.yaw, -10);
+    assert.ok(Math.abs(m.position().y - held.position().y) > 1e-3, 'the controller still moves');
+    // the frozen flight of the recording: t_move .74, t_turn .81, the sum of the parts by hand
+    const f = flyRig(shop, held, 0.74, 0.81), p = f.position();
+    const a = (-10 * 0.81 * Math.PI) / 180;
+    const cx = -4.83 + (-4.67 + 4.83) * 0.74, cy = -1.75 + (0.3 + 1.75) * 0.74, cz = -3.77 + (-2.46 + 3.77) * 0.74;
+    assert.ok(near(p.x, cx + 10 - 0.75 * 0.81 - 7.76 * Math.sin(a), 1e-9), `x ${p.x}`);
+    assert.ok(near(p.y, cy + 9 - 0.5 * 0.81 - 4.81, 1e-9), `y ${p.y}`);
+    assert.ok(near(p.z, -(cz - 1 * 0.81 - 7.76 * Math.cos(a)), 1e-9), `z ${p.z}`);
+    // from a camera in mid flight, back to the shop
+    const back = flyRig(f, shop, 1, 1);
+    assert.ok(near(back.tx, shop.tx, 1e-9) && near(back.ty, shop.ty, 1e-9) && back.yaw === 0);
+    // the generic flight turns too
+    assert.equal(lerpCamera(shop, held, 0.5).yaw, -5);
+  });
+
+  test('clearHud: the official framing unless the band needs room; a selected tile only keeps itself clear', () => {
+    const off = presetCamera('prep', vp, { shop: false, sideBy: true });
+    const fit = presetCamera('prep', vp, { shop: false, sideBy: true, hud: { top: 216, bottom: 83 } });
+    assert.equal(fit.scale, off.scale, 'no zoom');
+    assert.ok(off.cy - fit.cy < 8, `a nudge at most: ${off.cy - fit.cy}`);
+    assert.deepEqual(presetCamera('prep', vp, { sideBy: true, at: { row: 7, col: 6 }, hud: { top: 216, bottom: 267 } }).params(), sel.params(), 'row 7 stands clear at 16:9');
+    const low = presetCamera('prep', { width: 756, height: 366 }, { sideBy: true, at: { row: 7, col: 6 }, hud: { top: 86, bottom: 200 } });
+    assert.ok(low.project(6, 6.5, 0.16).y <= 366 - 200 + 0.5 + 1e-6, 'a phone: the tile stays above the bar');
   });
 });

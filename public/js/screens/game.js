@@ -40,8 +40,9 @@
 // gameLogic prepCameraFor / foldCamera — never over the pen, a teammate's board or a battle; deferred while a piece is
 // dragged or its direction is chosen). A held piece is the other way round, as in the official game (upstream #602,
 // PR #646 by @Euqorab): picking one up on the own prep board, and a legal drop's direction wheel, fold the shop bar for
-// as long as they last and fly to that framing at once, and the player's own state comes back after (gameLogic
-// deployFoldsShop; settings 「拿起棋子时收起商店」, on by default).
+// as long as they last and fly to that framing with the official side camera at once, and the player's own state comes
+// back after; a selected piece takes the side camera over its tile (gameLogic deployFoldsShop / sideCamera, render/
+// projection.js SIDE_BY).
 // Equipment dropped on an operator whose two slots are used opens the equip-replace dialog (ui/equipReplace.js): the
 // player picks the equipped item to destroy → g.equip {itemUid, targetUid, replaceUid}; 取消 sends nothing. 销毁 is only
 // offered for loose items (equipped ones are locked, ui/facing.js itemDestroyable).
@@ -107,14 +108,14 @@ import { EquipReplaceDialog, replaceRequest, replaceIntent } from '../ui/equipRe
 import { EquipHoverPanel, equipHoverState } from '../ui/equipHover.js'; // local patch: the official equip-slot popup
 import { pauseAvailable, isPaused, frozenNow } from '../ui/matchStatus.js';
 import { pieceTile } from '../render/drag.js';
-import { FOLD_CAMERA_MS } from '../render/app/tune.js';
+import { SIDE_BY } from '../render/projection.js';
 import {
   phaseMode, phaseBanner, isCombatPhase, showDeadPill, isBossPhase, placementContext, placementRecords, canPlace, boardTargets, dropIntent,
   holdsBattleEnd, settleBattleEnd, roundResultBox,
   snapHud, activeBubbles, shortcutFor, shortcutBlocked, closesOnFieldPress, closesOnOutsidePress, drawerClosesOnPress, openedFromWindow, windowCardGone, phaseTotalSeconds, homeFieldId, ownFieldId, normalizeSp, normalizePersonalChoice, sortedPlayers,
   terrainInfo, deviceInfo, deviceTipAt, noteDeviceUnits, deviceUnitsForEntry,
   shopBlockReason, stageOverrides, effectiveStage, watchTarget, dropFailureReason,
-  previewEnemyKey, prepCamera, prepCameraFor, foldCamera, deployFoldsShop, deployFieldOf, fieldTile, panelSide, panelSlots, bondPopupPlace, unitLoadout, deployedRecord,
+  previewEnemyKey, prepCamera, prepCameraFor, foldCamera, sideCamera, deployFoldsShop, deployFieldOf, fieldTile, panelSide, panelSlots, bondPopupPlace, unitLoadout, deployedRecord,
   mergeTarget, modeOffBonds, readyFundsPrompt, readyOverflowPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, handFull,
 } from '../ui/gameLogic.js';
 import { toast } from '../ui/toasts.js';
@@ -256,7 +257,6 @@ function MatchScreen() {
   const [tileTip, setTileTip] = useState(null);
   const tipAtDown = useRef(null);                        // the toast a field press hid (a press on the same tile brings it back)
   const [collapsed, setCollapsed] = useState(false);
-  const deployFoldOn = useStore((s) => s.deployFold, Object.is, settingsStore);
   const [rewardMin, setRewardMin] = useState(false);
   const [emoteOpen, setEmoteOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false); // room chat (local patch)
@@ -429,7 +429,9 @@ function MatchScreen() {
   }, [phase, pub?.round, priv?.ready, !!priv, alive, watchingOther]);
   const cancelFacingRef = useRef(() => {});
   const setCam = useCallback((kind, opts) => {
-    camRef.current = { kind, opts: opts || {} };
+    // what the camera frames, for the way back from the pen and the next comparison; not how this flight goes
+    const { ms: _ms, turnMs: _turnMs, instant: _instant, ...framing } = opts || {};
+    camRef.current = { kind, opts: framing };
     setCamKind(kind);
     if (penRef.current.on) { penRef.current.on = false; setPen(false); setCollapsed(penRef.current.collapsed); }
     view?.setCamera(kind, opts);
@@ -495,10 +497,10 @@ function MatchScreen() {
   // (last round's battle): combat only enters an m.field pushed after that (a new object), and every new m.field
   // push (watch switch, reconnect) re-enters the battle view.
   const showPrep = (mode === 'prep' || mode === 'boot') && !watchingOther;
-  // a held piece or the direction wheel folds the shop for as long as they last (settings 「拿起棋子时收起商店」, docs/rules/
-  // ui.md 「기물을 집을 때 상점 접기」; gameLogic deployFoldsShop): `collapsed`, the player's own 收起 state, is not touched
+  // a held piece or the direction wheel folds the shop for as long as they last (docs/rules/ui.md 「기물을 고르고 집을 때의
+  // 측면 카메라」; gameLogic deployFoldsShop): `collapsed`, the player's own 收起 state, is not touched
   const deployFold = deployFoldsShop({
-    enabled: deployFoldOn, ownPrep: !!view && viewModeRef.current === 'prep' && showPrep, editable, pen, drag: !!drag, facing: !!facing,
+    ownPrep: !!view && viewModeRef.current === 'prep' && showPrep, editable, pen, drag: !!drag, facing: !!facing,
   });
   const barCollapsed = collapsed || deployFold;
   // the shop bar is shown folded (收起; the pen folds it for itself: the player's own state is the one it returns to) —
@@ -767,17 +769,19 @@ function MatchScreen() {
   // again, flown like any camera change. Never over the pen or a teammate's board or in battle; deferred while a piece
   // is dragged or its direction is chosen (the drop target and the wheel sit on tiles of the camera in use) — this
   // effect runs again when that ends (gameLogic foldCamera). Picking reads the camera of every frame (render/pick.js).
-  // A held piece's fold is the exception: it flies at once, while the piece is in the air (FOLD_CAMERA_MS both ways).
-  const deployFoldSeen = useRef(false);
+  // A held or selected piece is the exception: the official side camera, on the official rig's two clocks both ways
+  // (render/projection.js SIDE_BY, flyRig).
+  const selPiece = sel ? placeCtx.pieces.get(sel.uid) : null;
+  const selTile = selPiece ? pieceTile(selPiece) : null;
+  const side = sideCamera({ held: deployFold, selected: !drag && !facing && editable && showPrep && !pen ? selTile : null });
   useEffect(() => {
+    const cur = camRef.current;
     const next = foldCamera({
       pub, myId, folded: shopFolded, ownPrep: !!view && viewModeRef.current === 'prep' && showPrep,
-      pen, busy: (!!drag || !!facing) && !deployFold, current: camRef.current,
+      pen, busy: (!!drag || !!facing) && !deployFold, sideBy: side.sideBy, at: side.at, current: cur,
     });
-    const quick = deployFoldSeen.current !== deployFold;
-    deployFoldSeen.current = deployFold;
-    if (next) setCam(next.kind, quick ? { ...next.opts, ms: FOLD_CAMERA_MS } : next.opts);
-  }, [view, shopFolded, deployFold, showPrep, pen, !!drag, !!facing, prepCamKey]);
+    if (next) setCam(next.kind, next.opts.sideBy || cur?.opts?.sideBy ? { ...next.opts, ms: SIDE_BY.moveMs, turnMs: SIDE_BY.turnMs } : next.opts);
+  }, [view, shopFolded, deployFold, showPrep, pen, !!drag, !!facing, prepCamKey, side.sideBy, side.at?.row, side.at?.col]);
 
   // 联防 / 最终攻势: the ‹ › pill moves the camera between the field's halves and 全景 (research 09 §3.1)
   useEffect(() => {

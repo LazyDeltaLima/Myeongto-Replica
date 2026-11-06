@@ -86,29 +86,46 @@ export function prepCameraFor(pub, myId, folded = false) {
  * board is on screen (`ownPrep`: prep, not a teammate's scouted board, not a battle), never over the enemy pen (`pen`: it
  * folds the shop itself and returns to the camera it left), deferred while a piece is dragged or its direction is chosen
  * (`busy`: the drop target and the wheel sit on tiles of the camera in use — the caller asks again once that ends), and
- * nothing when the current request (`current` { kind, opts }) already has that shop state.
+ * nothing when the current request (`current` { kind, opts }) already has that state. `sideBy`: the official side camera
+ * (a held or a selected piece, docs/rules/ui.md 「기물을 고르고 집을 때의 측면 카메라」), `at`: the selected piece's board tile.
  * @param {{ pub: any, myId: string|null, ownPrep: boolean, folded: boolean, pen?: boolean, busy?: boolean,
- *   current?: { kind: string, opts?: { shop?: boolean } }|null }} s
+ *   sideBy?: boolean, at?: { row: number, col: number }|null,
+ *   current?: { kind: string, opts?: { shop?: boolean, sideBy?: boolean, at?: { row: number, col: number }|null } }|null }} s
  * @returns {{ kind: 'prep'|'bossPrep', opts: object }|null}
  */
 export function foldCamera(s) {
   if (!s || !s.ownPrep || s.pen || s.busy) return null;
   const want = prepCameraFor(s.pub, s.myId, !!s.folded);
+  if (s.sideBy) want.opts.sideBy = true;
+  if (s.at) want.opts.at = { row: s.at.row, col: s.at.col };
   const cur = s.current;
-  if (cur && cur.kind === want.kind && (cur.opts?.shop !== false) === want.opts.shop) return null;
+  if (cur && cur.kind === want.kind && (cur.opts?.shop !== false) === want.opts.shop && !!cur.opts?.sideBy === !!s.sideBy
+    && cur.opts?.at?.row === s.at?.row && cur.opts?.at?.col === s.at?.col) return null;
   return want;
 }
 
 /**
- * Whether a held piece folds the shop for as long as it is held (docs/rules/ui.md 「기물을 집을 때 상점 접기」, as the
+ * The camera of the own prep board's interaction (official AutoChessUIPlugin / AutoChessCameraPlugin; docs/rules/ui.md
+ * 「기물을 고르고 집을 때의 측면 카메라」): a held piece or the direction wheel (`held`: deployFoldsShop) takes the side camera; a
+ * selected piece the side camera over its tile (`selected`: its board tile), at the height of the shop state.
+ * @param {{ held?: boolean, selected?: { row: number, col: number }|null }} o
+ * @returns {{ sideBy: boolean, at: { row: number, col: number }|null }}
+ */
+export function sideCamera(o) {
+  if (o?.held) return { sideBy: true, at: null };
+  return o?.selected ? { sideBy: true, at: o.selected } : { sideBy: false, at: null };
+}
+
+/**
+ * Whether a held piece folds the shop for as long as it is held (docs/rules/ui.md 「기물을 고르고 집을 때의 측면 카메라」, as the
  * official game does; upstream #602): the viewer edits the own prep board, the camera is not over the enemy pen (it
  * folds the shop itself), and a piece is dragged or the direction wheel of a legal drop is open. Derived from the
  * interaction: the player's own 收起 state is never written and comes back afterwards.
- * @param {{ enabled?: boolean, ownPrep?: boolean, editable?: boolean, pen?: boolean, drag?: boolean, facing?: boolean }|null|undefined} o
+ * @param {{ ownPrep?: boolean, editable?: boolean, pen?: boolean, drag?: boolean, facing?: boolean }|null|undefined} o
  * @returns {boolean}
  */
 export function deployFoldsShop(o) {
-  if (!o || !o.enabled) return false;
+  if (!o) return false;
   return !!o.ownPrep && !!o.editable && !o.pen && (!!o.drag || !!o.facing);
 }
 

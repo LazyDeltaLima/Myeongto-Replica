@@ -3,7 +3,7 @@
 //
 //   const view = await createFieldView(host, { data, assets, audio, settings, padding, hud })
 //   view.setStage(stage)                        procedural tiles + devices (data/stages.json entry)
-//   view.setCamera(kind, { rect, side, padding, instant, shop })   'prep'|'normal'|'unite'|'boss'('hidden'); animated
+//   view.setCamera(kind, { rect, side, padding, instant, shop, sideBy, at, ms, turnMs })   'prep'|'normal'|'unite'|'boss'('hidden'); animated
 //                                               — the prep cameras (own board / Final Assault half) keep the bench
 //                                               and the field clear of `hud(kind, size, { shop })` = { top, bottom } px
 //                                               of DOM HUD along the top / bottom edge (projection.js clearHud; user
@@ -125,7 +125,7 @@
 import { GEO, ANIM } from '../../../shared/constants.js';
 import { wideHalves, widenStageData } from '../../../shared/wideField.js';
 import { fxDir, fxForm } from '../../../shared/protocol.js';
-import { Camera, presetCamera, lerpCamera, easeInOutCubic, pickTile, normRect } from './projection.js';
+import { Camera, presetCamera, lerpCamera, flyRig, easeInOutCubic, easeOutQuart, pickTile, normRect } from './projection.js';
 import { SnapshotBuffer, frameTime } from './interp.js';
 import { TileField } from './tiles.js';
 import { UnitView, ItemView, DeviceView, FORMS, SKIN_FORMS, syncView } from './units.js';
@@ -319,7 +319,7 @@ export async function createFieldView(host, options = {}) {
   let stageBase = null; // the stage as set (stageRec: as shown — widened on a wide 联防 field, showStage)
   let wideMemo = { base: null, halves: 0, out: null };
   let cam = presetCamera('prep', { width: s0.width, height: s0.height, padding: defaultPadding('prep', s0) }, { hud: hudBands('prep', s0) });
-  let camFrom = null, camTo = null, camT0 = 0, camKind = 'prep', camOpts = {}, camMs = CAMERA_MS;
+  let camFrom = null, camTo = null, camT0 = 0, camKind = 'prep', camOpts = {}, camMs = CAMERA_MS, camTurnMs = 0;
   let hudZoom = 1, hudRef = { key: '', stage: null, px: 1 }; // the battle HUD's zoom on a wide 联防 field (updateHudZoom)
   let pendingView = null;     // tile band/focus to apply when the camera transition ends
   const views = new Map();    // key → view (prep: 'p:'+uid; battle: unit id)
@@ -672,8 +672,10 @@ export async function createFieldView(host, options = {}) {
     // — `shop: false` (the folded shop, public issue #5) = the official shop-collapsed camera, clear of the folded
     // shop's HUD band (re-evaluated on resize: camOpts keep the flag)
     const vk = viewKind(kind, o); // (a 'prep' camera on the boss rows = the Final Assault prep)
+    // `sideBy` / `at`: the official side camera of a held or selected piece; `at` is a board tile, the camera's a shown one
     return presetCamera(k, { width: sz.width, height: sz.height, padding: o.padding || defaultPadding(k, sz) }, {
       rect, side: o.side, half: !!o.half, halfOffset: o.halfOffset, shop: o.shop, fit: !!o.fit, config: stageRec?.config || null,
+      sideBy: !!o.sideBy, at: o.at ? prepXf.toDisp(o.at.row, o.at.col) : null,
       hud: hudBands(vk, sz, { shop: o.shop !== false }),
     });
   }
@@ -688,11 +690,11 @@ export async function createFieldView(host, options = {}) {
     const nextKind = typeof kind === 'string' ? kind : 'normal';
     // the enemy pen is a detour of the prep camera: remember where it came from; the same kind asked again without
     // framing options goes back to exactly that camera (Final Assault half, shop state…)
-    const framing = (x) => Object.keys(x).some((k) => k !== 'instant' && k !== 'ms' && x[k] !== undefined);
+    const framing = (x) => Object.keys(x).some((k) => k !== 'instant' && k !== 'ms' && k !== 'turnMs' && x[k] !== undefined);
     if (viewKind(nextKind, o) === 'pen') {
-      if (prevView !== 'pen') camBeforePen = { kind: camKind, opts: { ...camOpts, instant: undefined, ms: undefined } };
+      if (prevView !== 'pen') camBeforePen = { kind: camKind, opts: { ...camOpts, instant: undefined, ms: undefined, turnMs: undefined } };
     } else if (prevView === 'pen' && camBeforePen && nextKind === camBeforePen.kind && !framing(o)) {
-      o = { ...camBeforePen.opts, instant: o.instant, ms: o.ms };
+      o = { ...camBeforePen.opts, instant: o.instant, ms: o.ms, turnMs: o.turnMs };
     }
     camKind = nextKind;
     camOpts = { ...o };
@@ -706,6 +708,7 @@ export async function createFieldView(host, options = {}) {
     const focus = camRect();
     board3d?.setFocus(focus);
     camMs = Number.isFinite(o.ms) && o.ms >= 0 ? o.ms : (vk === 'pen' || prevView === 'pen' ? PEN_CAMERA_MS : CAMERA_MS);
+    camTurnMs = Number.isFinite(o.turnMs) && o.turnMs > 0 ? o.turnMs : 0; // the official rig's two clocks (stepCamera)
     if (o.instant || camMs === 0 || mode === 'idle' && !camTo) {
       board3d?.setArea(boardArea(vk, shownWide()));
       cam = target; camFrom = camTo = null;
@@ -749,9 +752,9 @@ export async function createFieldView(host, options = {}) {
   function stepCamera(now) {
     if (!camTo) return;
     const k = camMs > 0 ? Math.min(1, (now - camT0) / camMs) : 1;
-    const e = easeInOutCubic(k);
     if (!cam || cam === camFrom) cam = new Camera();
-    lerpCamera(camFrom, camTo, e, cam);
+    if (camTurnMs) flyRig(camFrom, camTo, easeOutQuart(k), easeOutQuart((now - camT0) / camTurnMs), cam);
+    else lerpCamera(camFrom, camTo, easeInOutCubic(k), cam);
     drag.refresh(); // a held piece: the tile under a pointer that did not move changes with the camera
     if (k >= 1) {
       cam = camTo; camFrom = camTo = null;
