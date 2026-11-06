@@ -17,7 +17,7 @@ import { GEO } from '../../shared/constants.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
 
-const { prepCameraFor, foldCamera, sideCamera, prepCamera, deployFoldsShop } = await import('../../public/js/ui/gameLogic.js');
+const { prepCameraFor, foldCamera, sideCamera, selectedTile, prepCamera, deployFoldsShop } = await import('../../public/js/ui/gameLogic.js');
 const { hudBands, HUD_REM } = await import('../../public/js/ui/fieldHost.js');
 const { presetCamera, tileQuad } = await import('../../public/js/render/projection.js');
 
@@ -84,6 +84,17 @@ describe('the camera choice (gameLogic prepCameraFor / foldCamera)', () => {
     assert.deepEqual(sideCamera({ selected: at }), { sideBy: true, at });
     assert.deepEqual(sideCamera({}), { sideBy: false, at: null });
     assert.deepEqual(sideCamera(null), { sideBy: false, at: null });
+  });
+
+  test('selectedTile: the piece shown selected, and the one a press let go of until the release', () => {
+    const on = { editable: true, showPrep: true, pen: false, drag: false, facing: false };
+    const a = { row: 7, col: 6 }, b = { row: 9, col: 2 };
+    assert.deepEqual(selectedTile({ ...on, tile: a }), a);
+    assert.deepEqual(selectedTile({ ...on, hold: b }), b, 'pressed: still shown until the release');
+    assert.deepEqual(selectedTile({ ...on, tile: a, hold: b }), a, 'the release selected another piece');
+    assert.equal(selectedTile({ ...on }), null);
+    for (const off of [{ editable: false }, { showPrep: false }, { pen: true }, { drag: true }, { facing: true }]) assert.equal(selectedTile({ ...on, tile: a, ...off }), null, JSON.stringify(off));
+    assert.equal(selectedTile(null), null);
   });
 
   test('foldCamera: the side camera is part of the request, its tile too; releasing goes back', () => {
@@ -235,14 +246,17 @@ describe('the folded board grows and every bench / temp tile stays clear of the 
 describe('wiring', () => {
   test('the view passes the request\'s shop state to the HUD bands; the game asks for the camera of the fold state', () => {
     const app = read('public/js/render/app.js');
-    assert.match(app, /hud: hudBands\(vk, sz, \{ shop: o\.shop !== false \}\),/);
     assert.match(app, /return opts\.hud\(kind, sz, o\) \|\| null;/);
     const game = read('public/js/screens/game.js');
-    assert.match(game, /const barCollapsed = collapsed \|\| deployFold;/);
-    assert.match(game, /const shopFolded = showShop && \(pen \? penRef\.current\.collapsed : barCollapsed\);/);
+    assert.match(game, /const barCollapsed = collapsed \|\| deployFold \|\| !!selNow;/);
+    // a selected piece folds the bar, the camera keeps the shop state's height
+    assert.match(game, /const shopFolded = showShop && \(pen \? penRef\.current\.collapsed : collapsed \|\| deployFold\);/);
+    assert.match(app, /hud: hudBands\(vk, sz, \{ shop: o\.shop !== false && !o\.at \}\),/);
+    // every fold flies the official way, the pen too
+    assert.match(app, /o\.turnMs : vk === 'pen' \|\| prevView === 'pen' \? SIDE_BY\.turnMs : 0;/);
     // entering prep and the boss-prep re-frame take the fold state; a fold / unfold re-frames through foldCamera
     assert.equal((game.match(/const pc = prepCameraFor\(pub, myId, shopFolded\);/g) || []).length, 2);
-    assert.match(game, /const next = foldCamera\(\{\n\s+pub, myId, folded: shopFolded, ownPrep: !!view && viewModeRef\.current === 'prep' && showPrep,\n\s+pen, busy: \(!!drag \|\| !!facing\) && !deployFold, sideBy: side\.sideBy, at: side\.at, current: cur,\n\s+\}\);\n\s+if \(next\) setCam\(next\.kind, next\.opts\.sideBy \|\| cur\?\.opts\?\.sideBy \? \{ \.\.\.next\.opts, ms: SIDE_BY\.moveMs, turnMs: SIDE_BY\.turnMs \} : next\.opts\);/);
+    assert.match(game, /const next = foldCamera\(\{\n\s+pub, myId, folded: shopFolded, ownPrep: !!view && viewModeRef\.current === 'prep' && showPrep,\n\s+pen, busy: \(!!drag \|\| !!facing\) && !deployFold, sideBy: side\.sideBy, at: side\.at, current: cur,\n\s+\}\);\n\s+if \(next\) setCam\(next\.kind, \{ \.\.\.next\.opts, ms: SIDE_BY\.moveMs, turnMs: SIDE_BY\.turnMs \}\);/);
     // how a flight goes is not part of the request the pen returns to (a held piece's quick way back used to stay in it)
     assert.match(game, /const \{ ms: _ms, turnMs: _turnMs, instant: _instant, \.\.\.framing \} = opts \|\| \{\};\n\s+camRef\.current = \{ kind, opts: framing \};/);
     // the toggle is commented out, not removed, and a saved 끔 no longer counts

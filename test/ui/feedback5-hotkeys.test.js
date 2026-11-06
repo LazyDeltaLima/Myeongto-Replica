@@ -123,7 +123,7 @@ describe('the key map: saved before the official defaults, and the actions added
   test('game.js: 调度中心 folds / unfolds the shop bar; the pause key alone pauses a solo battle (the ready key no more)', () => {
     const src = read('public/js/screens/game.js');
     assert.match(src, /live\.current\.showShop = showShop;/);
-    assert.match(src, /if \(act === 'shop'\) \{\n\s+if \(!L\.showShop \|\| L\.pen\) return;\n\s+e\.preventDefault\(\);\n\s+setCollapsed\(\(c\) => !c\);/);
+    assert.match(src, /if \(act === 'shop'\) \{\n\s+if \(!L\.showShop \|\| L\.pen\) return;\n\s+e\.preventDefault\(\);\n(?:\s+\/\/[^\n]*\n)?\s+if \(L\.sel\) \{ setSel\(null\); setCollapsed\(false\); \} else setCollapsed\(\(c\) => !c\);/);
     assert.match(src, /if \(act === 'pause'\) \{[\s\S]{0,400}togglePauseRef\.current\(!L\.paused\);/);
     assert.doesNotMatch(src, /act === 'ready' && \(L\.canPause/);
     assert.match(read('public/js/ui/hud.js'), /const key = hotkeyLabelOf\('pause'\);/);

@@ -2,7 +2,7 @@
 
 const CAMERA_MS = 750;
 
-/** Camera pan to / from the enemy preview pen (configBlackBoard move_time 0.25). */
+/** Camera pan to / from the enemy preview pen (configBlackBoard move_time 0.25, OutQuart: render/projection.js flyRig). */
 export const PEN_CAMERA_MS = 250;
 
 /**

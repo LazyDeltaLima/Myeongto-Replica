@@ -105,6 +105,20 @@ export function foldCamera(s) {
 }
 
 /**
+ * The board tile of the piece the own prep board shows selected, or null: while it can be edited, not over the enemy pen,
+ * not while a piece is held (that is the held camera). `hold`: the tile of the piece a press on the field just let go of,
+ * until the release — a tap on another piece selects that one at the release, and the shop must not open and the camera
+ * not turn back in between.
+ * @param {{ tile?: { row: number, col: number }|null, hold?: { row: number, col: number }|null, editable?: boolean,
+ *   showPrep?: boolean, pen?: boolean, drag?: boolean, facing?: boolean }|null|undefined} o
+ * @returns {{ row: number, col: number }|null}
+ */
+export function selectedTile(o) {
+  if (!o || !o.editable || !o.showPrep || o.pen || o.drag || o.facing) return null;
+  return o.tile || o.hold || null;
+}
+
+/**
  * The camera of the own prep board's interaction (official AutoChessUIPlugin / AutoChessCameraPlugin; docs/rules/ui.md
  * 「기물을 고르고 집을 때의 측면 카메라」): a held piece or the direction wheel (`held`: deployFoldsShop) takes the side camera; a
  * selected piece the side camera over its tile (`selected`: its board tile), at the height of the shop state.

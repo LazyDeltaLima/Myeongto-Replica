@@ -26,7 +26,7 @@
 
 export { clamp, tileKey } from './gameLogic/shared.js';
 export { phaseMode, isCombatPhase, showDeadPill, isBossPhase } from './gameLogic/phases.js';
-export { prepCamera, prepCameraFor, foldCamera, sideCamera, deployFoldsShop, deployFieldOf, fieldTile, boardTileOf, ownerBandId, teamFrameIds } from './gameLogic/camera.js';
+export { prepCamera, prepCameraFor, foldCamera, sideCamera, selectedTile, deployFoldsShop, deployFieldOf, fieldTile, boardTileOf, ownerBandId, teamFrameIds } from './gameLogic/camera.js';
 export { phaseBanner, prepCapsuleLabel, countdownState, countdownWarnAt, phaseTotalSeconds } from './gameLogic/phases.js';
 export { RESULT_BOX_MS, ownRoundLoss, holdsBattleEnd, settleBattleEnd, roundResultBox } from './gameLogic/phases.js';
 export { STATUS_META } from './gameLogic/format.js';
