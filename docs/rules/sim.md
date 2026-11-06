@@ -2543,6 +2543,7 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
   `hurt`의 `canDodge`와 결과 > 0). 근거: 공식 `actrpa_t_1`은 반격을 한 동작 목록(물리 피해 → 이펙트 → 소리 → 침식)으로 돌리고, 피해 노드는 `_ignoreMissFlag`·
   `_ignoreCancelReasonMask` NONE이다. 노드는 앞 노드가 성공했을 때만 돌고(기본 실행 조건 PREVIOUS_SUCCEED), 피해 노드는 조정값이 취소되면 실패한다(공식 클라에서 확인).
   upstream의 「반격이 성공했을 때만」과 같은 결론이다. 테스트 「“碎铳之簧” 法术护盾 (9018): the counter can be dodged…」. golden 이동 없음.
+- 반격의 출처 (2026-11-06): 물리 피해는 무출처, 침식은 출처가 있다. 공식 `actrpa_t_1`의 피해 노드는 `AdvancedApplyDamage` `_noSource` 참·`_attackType` ADDITION이고, 침식 노드는 `ApplyElementDamage` `_noSource` 거짓이다(공식 클라에서 확인). 그래서 공격자를 보는 훅과 '총을 부수는 리드'의 피해 증가는 물리 반격에 닿지 않고, 전과 처치 기록은 그대로 리드에게 간다(`bosses.js kitSpring`, `hurt`의 `sourceless`). 테스트 「“碎铳之簧” 法术护盾 (9018): the counter's physical hit is 无来源…」.
 - 테스트 「“碎铳之簧” 法术护盾 (9018) passes every adjustment to 铳…」.
 
 ### 블러드 앰버는 1초마다 최대 HP 10 %를 잃는다 (upstream `5f3a7492`, upstream #720)

@@ -3482,6 +3482,30 @@ test('“碎铳之簧” 法术护盾 (9018): the counter can be dodged, and a d
   assert.ok(g.stats.taken > 0 && g.elem[EROSION] > 0, 'a counter that lands brings its erosion');
 });
 
+test('“碎铳之簧” 法术护盾 (9018): the counter\'s physical hit is 无来源, its erosion is not (actrpa_t_1: AdvancedApplyDamage _noSource, ApplyElementDamage not)', () => {
+  const counter = (dealtMul) => {
+    const h = bossArena({ captureNoisy: true, units: [{ chessId: 't_gun', row: 12, col: 3 }] });
+    h.step();
+    put(h, 'enemy_9017_achunt_2', [3, 18], { tag: 'boss' }).profile.noAttack = true;
+    const sp = put(h, 'enemy_9018_actrpa', [3, 10], { tag: 'part' });
+    sp.profile.noAttack = true;
+    sp.s.dmgDealtMul = dealtMul;
+    const g = h.unit('t_gun');
+    h.b.dealDamage(g, sp, { amount: 10000, type: 'phys', isAttack: true });
+    return { h, sp, g };
+  };
+  const { h, sp, g } = counter(1);
+  const counterHits = h.hooksOf('damaged').filter((c) => c.target === g && c.dmg?.tags?.includes('springCounter'));
+  const hit = counterHits.find((c) => c.type === 'phys');
+  assert.ok(hit, 'the counter lands');
+  assert.ok(hit.source === null, 'hooks keyed on the attacker do not see the leader part');
+  assert.ok(hit.credit === sp, 'the kill and the stats still trace back to it');
+  assert.ok(g.elem[EROSION] > 0, 'the erosion lands');
+  const e = counterHits.find((c) => c.type === 'element');
+  assert.ok(e && e.source === sp, 'the erosion keeps its source (_noSource false)');
+  approx(counter(3).g.stats.taken, g.stats.taken, 1e-6, 'the source\'s damage-dealt multiplier does not apply');
+});
+
 test('“碎铳之簧” 元素护盾 (9019): phys/arts ×0.1 until its own element burst; full SP makes the next attack the bullet — 4 hits, ATK 100 % phys ×0.8 per bounce + 10 % erosion each, no normal hit; SP restarts with the shield', () => {
   const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 9 }, { chessId: 't_wall2', row: 10, col: 8 }] });
   h.step();

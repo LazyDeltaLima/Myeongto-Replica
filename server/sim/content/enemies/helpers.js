@@ -167,10 +167,11 @@ export function elem(b, src, tgt, el, amount, { ignoreSelect = false, tags = [] 
  * Skill / ability damage (no dodge unless asked). `ignoreSelect` = no selection the target's 无法选择 effects stop
  * (abilities that "无视无法选择", direct picks, a flying unit's blast credited to a ground leader): it also reaches an
  * airborne 起飞 ally, which a ground enemy's damage otherwise skips (damage.js, targeting.js evadesGround).
+ * `sourceless` = 无来源 damage (damage.js): `src` keeps the credit, hooks and the source's damage-dealt stats do not see it.
  */
-export function hurt(b, src, tgt, amount, type = 'phys', { canDodge = false, tags = [], isSkill = true, ignoreSelect = false } = {}) {
+export function hurt(b, src, tgt, amount, type = 'phys', { canDodge = false, tags = [], isSkill = true, ignoreSelect = false, sourceless = false } = {}) {
   if (!tgt || !tgt.alive || !(amount > 0)) return 0;
-  return b.dealDamage(src, tgt, { amount, type, canDodge, isSkill, ignoreSelect, tags: ['enemyAbility', ...tags] });
+  return b.dealDamage(src, tgt, { amount, type, canDodge, isSkill, ignoreSelect, sourceless, tags: ['enemyAbility', ...tags] });
 }
 
 /** Allies whose tile is within `n` of (r, c): 'plus' = Manhattan (周围四格), 'box' = Chebyshev (周围8格). */

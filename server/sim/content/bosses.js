@@ -1008,9 +1008,11 @@ function kitSpring(ab, e) {
             // actrpa_t_1 runs the counter as one action list: the physical hit (`_ignoreMissFlag` / `_ignoreCancelReasonMask`
             // NONE: it can be dodged or blocked), then its effect, sound and erosion. A node runs only when the one before it
             // succeeded (ActionNode PREVIOUS_SUCCEED) and the damage node fails when its modifier is cancelled — so a dodged,
-            // blocked or fully absorbed counter brings no erosion (official client; upstream 0.3.2 reached the same)
+            // blocked or fully absorbed counter brings no erosion (official client; upstream 0.3.2 reached the same).
+            // The physical hit is 无来源 (`AdvancedApplyDamage` `_noSource`, `_attackType` ADDITION), the erosion is not
+            // (`ApplyElementDamage` `_noSource` false)
             const s = c.source, o = { ignoreSelect: true, tags: ['springCounter'] };
-            if (s && s.side === 'ally' && s.alive && hurt(b, e2, s, e2.s.atk * (T(ab, '1.atk_scale') ?? 0), 'phys', { ...o, canDodge: true }) > 0) {
+            if (s && s.side === 'ally' && s.alive && hurt(b, e2, s, e2.s.atk * (T(ab, '1.atk_scale') ?? 0), 'phys', { ...o, canDodge: true, sourceless: true }) > 0) {
               b.fx('kitHit', { x: s.x, y: s.y, id: e2.id, k: 'actrpa:shieldhit' });   // its PlayAudio on the attacker (audio)
               elem(b, e2, s, 'erosion', e2.s.atk * (T(ab, '1.ep_damage_ratio') ?? 0), o);
             }
