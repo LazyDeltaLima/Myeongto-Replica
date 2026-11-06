@@ -73,13 +73,5 @@ export const UNPLAYED_LOCAL = Object.freeze({
   "projectile_chr_svash2_s3_bird|svash2_skill_03_trail_left_01": "todo: 凛御银灰 S3's bird trail by direction (_effectsAlignToProjectileDirection)",
   "projectile_chr_svash2_s3_bird|svash2_skill_03_trail_right_01": "todo: 凛御银灰 S3's bird trail by direction (_effectsAlignToProjectileDirection)",
   "thorns_t_1|thorns_buff_01_start": "todo: 棘刺 T1's hit, a LIMITED buff of length 0",
-  "char_4226_veen/Trait/ChargeableGroup|veen_telent_01_rank_02_2": "todo: 维伊's merged store stages (_mergedChargeEffectGroups)",
-  "char_4226_veen/Trait/ChargeableGroup|veen_telent_01_rank_02_3": "todo: 维伊's merged store stages (_mergedChargeEffectGroups)",
-  "char_4226_veen/Trait/ChargeableGroup|veen_telent_01_rank_02_4": "todo: 维伊's merged store stages (_mergedChargeEffectGroups)",
-  "char_4226_veen/Trait/ChargeableGroup|veen_telent_01_rank_02_change_2": "todo: 维伊's merged store stages (_mergedChargeEffectGroups)",
-  "char_4226_veen/Trait/ChargeableGroup|veen_telent_01_rank_02_change_3": "todo: 维伊's merged store stages (_mergedChargeEffectGroups)",
-  "char_4226_veen/Trait/ChargeableGroup|veen_telent_01_rank_02_change_4": "todo: 维伊's merged store stages (_mergedChargeEffectGroups)",
-  "char_4226_veen/Trait/ChargeableGroup|veen_telent_01_rank_02_change": "todo: 维伊's merged store stages (_mergedChargeEffectGroups)",
-  "char_4226_veen/Trait/ChargeableGroup|veen_telent_01_rank_02": "todo: 维伊's merged store stages (_mergedChargeEffectGroups)",
   "projectile_weedy_cannon|token_weedy_attack_01_trail": "todo: 温蒂's 储水炮 shell trail (a summon's attack bindings: modes.json holds none)",
 });

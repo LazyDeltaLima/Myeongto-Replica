@@ -1296,7 +1296,10 @@ def charge_effects(tree, by_pid):
     (`OnCastOnTarget`, the release) or ON_DETACHED. 深靛: [0] indigo_attack_charge_02 (SPECIAL_1 = mount 6), [1] _03
     (8), [2] _04 (9), [3] _05 (5) — the points the stored projectiles leave from (`_mountPointForProjectiles` [6, 8, 9, 5]).
     Each charge ability's own emitter casts its group's entries with the store (all indigo_attack_charge_01_start).
-    Returns { hold: [[names] per index], cast: [names] } or None."""
+    2026-11-06, official client — a MergeableChargeUberEffectEmitter (维伊) also has `_mergedChargeEffectGroups`,
+    `_mergeSize`, and `_chargeCastGroups` / `_mergedChargeCastGroups`: what each held slot casts as a real attack starts
+    (`DealWithChargeCastEffectsOnEvent`). → `merged`, `mergeSize`, `release`, `mergedRelease` (fxgame.js chargeStore).
+    Returns { hold: [[names] per index], cast: [names], … } or None."""
     groups = [(gp, d) for gp, d, _ in tree if '_maxChargeTimes' in d and isinstance(d.get('_abilities'), list)]
     if not groups:
         return None
@@ -1310,16 +1313,21 @@ def charge_effects(tree, by_pid):
             if isinstance(opt, dict):
                 add(out, [x for x in opt.get('_effects') or [] if isinstance(x, str) and x])
         return out
-    hold, cast = [], []
+    hold, cast, extra = [], [], {}
     for _, g in groups:
         em = emitters.get(go_of(g))
         if em:
             hold = [names(x) for x in em['_chargeEffectGroups']]
+            if em.get('_mergedChargeEffectGroups'):
+                extra['merged'] = [names(x) for x in em['_mergedChargeEffectGroups']]
+                extra['mergeSize'] = em.get('_mergeSize')
+                extra['release'] = [names(x) for x in em.get('_chargeCastGroups') or []]
+                extra['mergedRelease'] = [names(x) for x in em.get('_mergedChargeCastGroups') or []]
         for r in g['_abilities']:
             sub = emitters.get(comp_go.get(r.get('m_PathID'))) if isinstance(r, dict) else None
             for x in (sub or {}).get('_chargeEffectGroups') or []:
                 add(cast, names(x))
-    return {'hold': hold, 'cast': cast} if any(hold) or cast else None
+    return {'hold': hold, 'cast': cast, **extra} if any(hold) or cast else None
 
 
 def funnel_entries(abilities, emitters, idle, projectiles):

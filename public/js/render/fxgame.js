@@ -180,6 +180,19 @@ const webpOk = () => (webpPromise ||= new Promise((resolve) => {
 }));
 const getJson = (url) => fetch(url).then((r) => (r.ok ? r.json() : null)).catch(() => null);
 /**
+ * 2026-11-06, official client (MergeableChargeUberEffectEmitter `_CheckNextNeedMerged`, `_GetNextSlotIndex`): the slot the
+ * n-th store fills, `size` = `_mergeSize`. Every size-th store merges into merged slot n / size − 1; the others sit after
+ * the merged slots. size 3: 0, 1, merged 0, 1, 2, merged 1, 2, 3, merged 2.
+ * @param {number} n the stores so far, this one included (≥ 1)
+ * @param {number} size
+ * @returns {{slot: number, merge: boolean}}
+ */
+export function mergeableSlot(n, size) {
+  const merge = n % size === 0;
+  return { slot: merge ? n / size - 1 : Math.floor(n / size) - 1 + n % size, merge };
+}
+
+/**
  * 2026-10-10: the operators' index.json and the enemies' enemy-index.json as one { bundles } (a bundle in both —
  * `common` — lists the prefabs of both). Exported for the tests.
  */
@@ -2187,8 +2200,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // GROUND = its feet on the ground), the Muzzle when it has not that one; the target's hit point (points.json `hit`, the
   // operators) or half its drawn height (enemies: no table). A shooter without a point starts at fx.js's shot height.
   const shotAt = { x: 0, y: 0, z: 0 }, hitAt = { x: 0, y: 0, z: 0 };
-  function shotFrom(src, mode = null) {
-    const mp = Number.isInteger(mode) ? bindOf(src)?.shotFrom?.[mode] : null;
+  function shotFrom(src, mode = null, mount = null) {
+    const mp = Number.isInteger(mount) ? mount : Number.isInteger(mode) ? bindOf(src)?.shotFrom?.[mode] : null;
     if (mp === 7) return { x: mx(src), y: src.y, z: (src.z || 0) + (src.hover || 0) };   // MountPointType GROUND
     const key = Number.isInteger(mp) ? pointKey(mountSpawn({ type: mp })) : null;
     const p = (key && specialPoint(src, shotAt, key)) || specialPoint(src, shotAt, 'muzzle');
@@ -3075,7 +3088,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * event's field `on` as the head passes it (its projection on the flight). (2026-11-01) `from` naming another field: from
    * that unit's HIT point instead of the operator's muzzle (冻河 S3's effect moving on from the ally it leaves); with
    * `fromDead` that unit may have just fallen (逻各斯 S1's follow-up from the enemy it executed — the event's point when its
-   * view is gone). (2026-11-03) `arc`: a PARACURVE projectile's `_raiseHeight` (tiles). The longest flight's time (s).
+   * view is gone). (2026-11-03) `arc`: a PARACURVE projectile's `_raiseHeight` (tiles). (2026-11-06) `mount`: the
+   * MountPointType it leaves from instead of the muzzle (维伊's stored energies). The longest flight's time (s).
    */
   function planShots(pb, name, op, p, o, x, y, views) {
     const speed = Number(p.fly) > 0 ? Number(p.fly) : 10;
@@ -3091,7 +3105,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     tos.forEach((u, k) => {
       const go = () => {
         if (level() >= 3 || trailFull() || (!back && (u.alive === false || u.remove))) return;
-        const from = back || fromPt ? { x, y, z: shotTo(op).z } : fromU ? shotTo(fromU) : shotFrom(op, null);
+        const from = back || fromPt ? { x, y, z: shotTo(op).z } : fromU ? shotTo(fromU) : shotFrom(op, null, p.mount);
         const ox = back || fromPt ? x : fromU ? fromU.x : op.x, oy = back || fromPt ? y : fromU ? fromU.y : op.y;
         const tx = mx(u), ty = u.y, dur = Math.max(0.04, Math.hypot(tx - ox, ty - oy) / speed);
         const rec = { inst: null, tgt: u, x0: from.x, y0: from.y, z0: from.z, ...aimOf(u), k: 0, dur, arc };
@@ -3159,27 +3173,46 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * `charge` (char_modes.py charge_effects: the ChargableAttackGroup's MultiChargeUberEffectEmitter) — each store (sim fx
    * 'mysticStore', `n` stored now) casts `cast` and keeps `hold[n − 1]` on the unit (深靛: a star at SpecialPoint 1 / 3 / 4,
    * where that energy's projectile leaves from); the next attack cast on a target (the release, `OnCastOnTarget`) finishes
-   * them all, as does its leaving.
+   * them all, as does its leaving. The index is the count before this store: the attack sends ON_SPELL_ON, then `Charge`.
+   * 2026-11-06, official client (MergeableChargeUberEffectEmitter, 维伊): stores fill slots (mergeableSlot); a store that
+   * merges plays `merged[slot]`, and a store clears the slots from its own up (the merge replaces the energies it took). A
+   * real attack's ON_CAST_START casts `release[i]` on each held slot, `mergedRelease[i]` on a merged one
+   * (`DealWithChargeCastEffectsOnEvent`, through the group's `CastToTarget`).
    */
-  const charges = new Map();   // unit id → the spawn promises of its held charge effects
+  const charges = new Map();   // unit id → { n: the stores counted, held: [{ slot, p: spawn promise }] }
   function chargeStore(e, views) {
     const o = e[4], v = views.get(o.id), b = bundleOf(v), ch = bindOf(v)?.charge;
     if (!v || !b || !ch || failed || q() === 'low') return false;
-    const k = Math.max(1, Number(o.n) || 1) - 1, id = ownerOf(v);
+    const n = Math.max(1, Number(o.n) || 1), id = ownerOf(v), size = Number(ch.mergeSize) || 0;
+    const { slot, merge } = size > 1 ? mergeableSlot(n, size) : { slot: n - 1, merge: false };
     const cast = extracted(v, ch.cast);
     if (cast.length) play(v, 'attackStart', 0, { names: cast });
-    const list = charges.get(id) || [];
-    for (const n of extracted(v, Array.isArray(ch.hold) ? ch.hold[k] : null)) {
-      list.push(spawn(b.bundle, n, v, { owner: id, buff: false, onCaster: true, until: null, tag: 'charge' }, { over: false, facing: efacing(v) }));
+    const rec = charges.get(id) || { n, held: [] };
+    rec.n = n;
+    const names = extracted(v, (merge ? ch.merged : ch.hold)?.[slot]);
+    if (size > 1 && names.length) {
+      rec.held = rec.held.filter((h) => { if (h.slot < slot) return true; h.p.then((l) => { if (l) l.inst.stop(); }); return false; });
     }
-    charges.set(id, list);
+    for (const nm of names) {
+      rec.held.push({ slot, p: spawn(b.bundle, nm, v, { owner: id, buff: false, onCaster: true, until: null, tag: 'charge' }, { over: false, facing: efacing(v) }) });
+    }
+    charges.set(id, rec);
     return true;
   }
+  function chargeSwing(v) {
+    const ch = bindOf(v)?.charge, rec = ch?.release ? charges.get(ownerOf(v)) : null;
+    if (!rec || failed || q() === 'low') return;
+    const mergedTop = Math.floor(rec.n / ch.mergeSize) - 1;
+    for (const slot of new Set(rec.held.map((h) => h.slot))) {
+      const names = extracted(v, (slot <= mergedTop ? ch.mergedRelease : ch.release)?.[slot]);
+      if (names.length) play(v, 'attackStart', 0, { names });
+    }
+  }
   function chargeRelease(v) {
-    const id = v ? ownerOf(v) : null, list = id != null ? charges.get(id) : null;
-    if (!list) return;
+    const id = v ? ownerOf(v) : null, rec = id != null ? charges.get(id) : null;
+    if (!rec) return;
     charges.delete(id);
-    for (const p of list) p.then((l) => { if (l) l.inst.stop(); });
+    for (const h of rec.held) h.p.then((l) => { if (l) l.inst.stop(); });
   }
   const SVASH_BIRD = { bundle: 'svash2', name: 'svash2_skill_03_trail_02', life: 0.3 };
   function svashBird(src, tgt) {
@@ -5802,6 +5835,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (src) src._fxCombat = Number(e[6]) === 1;   // 2026-10-21: at an enemy it blocks (combatEffects, altGroup)
           // (2026-10-21) the 9th field: a talent ability cast in place of the attack; the 6th: its target, when it turns to it
           if (src) swingFx(src, Number(e[2]) || 0, views, e[3], typeof e[8] === 'string' && e[8] ? e[8] : null, typeof e[5] === 'number' ? e[5] : null);
+          if (src) chargeSwing(src);   // 2026-11-06: 维伊's held energies as a real attack starts
           return;
         }
         case 'dmg': {

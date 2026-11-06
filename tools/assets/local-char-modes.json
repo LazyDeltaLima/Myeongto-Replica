@@ -20656,7 +20656,57 @@
      "veen_telent_01_rank_01_change_5"
     ]
    ],
-   "cast": []
+   "cast": [],
+   "merged": [
+    [
+     "veen_telent_01_rank_02",
+     "veen_telent_01_rank_02_change"
+    ],
+    [
+     "veen_telent_01_rank_02_2",
+     "veen_telent_01_rank_02_change_2"
+    ],
+    [
+     "veen_telent_01_rank_02_3",
+     "veen_telent_01_rank_02_change_3"
+    ],
+    [
+     "veen_telent_01_rank_02_4",
+     "veen_telent_01_rank_02_change_4"
+    ]
+   ],
+   "mergeSize": 3,
+   "release": [
+    [
+     "veen_telent_01_rank_01_change"
+    ],
+    [
+     "veen_telent_01_rank_01_change_2"
+    ],
+    [
+     "veen_telent_01_rank_01_change_3"
+    ],
+    [
+     "veen_telent_01_rank_01_change_4"
+    ],
+    [
+     "veen_telent_01_rank_01_change_5"
+    ]
+   ],
+   "mergedRelease": [
+    [
+     "veen_telent_01_rank_02_change"
+    ],
+    [
+     "veen_telent_01_rank_02_change_2"
+    ],
+    [
+     "veen_telent_01_rank_02_change_3"
+    ],
+    [
+     "veen_telent_01_rank_02_change_4"
+    ]
+   ]
   },
   "skillMode": [
    1,

@@ -2922,7 +2922,7 @@
   MultiChargeUberEffectEmitter — `OnEvent`가 색인을 `GetChargeTimes()`로 두고 저장 행동 중이면 `CreateChargeEffects`가
   `_chargeEffectGroups[색인]`을 틀며, ChargeEffectOptions(`CreateEffect`)는 만든 것을 들고 있다가 `ClearChargeEffects`: 저장이 아닌 공격이
   대상에 시전할 때(`OnCastOnTarget` — 방출) 또는 ON_DETACHED. 深靛: [0] `indigo_attack_charge_02`(SpecialPoint 1) · [1] `_03` · [2] `_04` · [3] `_05`
-  — 저장 투사체가 나가는 자리 `_mountPointForProjectiles` [6, 8, 9, 5]와 같은 순서 [추정: 색인 = 저장 전 개수]; 저장 능력 각자의 그룹은
+  — 저장 투사체가 나가는 자리 `_mountPointForProjectiles` [6, 8, 9, 5]와 같은 순서. 색인은 저장 전 개수다(2026-11-06, 공식 클라에서 확인: 공격이 ON_SPELL_ON을 보낸 뒤 `Charge`·`AddChargeTimes`). 저장 능력 각자의 그룹은
   `indigo_attack_charge_01_start`(ON_CAST_START). → `char_modes.py charge_effects` → `modes.json charge` { hold, cast }(EN 전체 재추출: 深靛만),
   'mysticStore'에 `n`(지금 개수), `fxgame.js chargeStore`가 `cast` + `hold[n − 1]`을 들고 그 유닛의 다음 'atk'(`chargeRelease`)·'die'에 끝. 정예 4개째는
   `_05`(SPECIAL 0).
@@ -3790,17 +3790,16 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
   — 시뮬 `veen:s2full`.
 - 비이 저장: 모든 모드의 공격 능력이 `_chargeAnimKey` Charge로 저장한다(S1·S2·S3 모드는 짝으로 `Skill_n_Charge`). 그녀 키트의 `storeEnergy`가 공용
   秘术师 사건 `mysticStore` { signal 'store', n }을 보내게 함(전에는 키트가 공용 저장을 갈아 끼우며 사건이 없었음) → 클립은
-  `tools/assets/anim-overrides.mjs` `SIGNAL_CLIPS`, 저장 구슬 `_chargeEffectGroups` 다섯 단계는 공용 규칙(`fxgame.js` `chargeStore`, 색인 = 저장 수 − 1 —
-  위 「秘术师 저장 에너지」와 같은 규칙, 색인의 추정도 그곳 그대로; 전환 에너지 하나는 `merge_cnt`(3)로 셈, 다섯을 넘으면 새 단계 없음).
+  `tools/assets/anim-overrides.mjs` `SIGNAL_CLIPS`, 저장 구슬은 공용 秘术师 규칙이 아니라 `MergeableChargeUberEffectEmitter`다(2026-11-06, 공식 클라에서 확인; 전에는 `_mergedChargeEffectGroups`를 안 뽑아 셋째 저장부터 다른 구슬이 쌓였다).
+  저장 수 n(전환 에너지 하나 = 3)에서 칸은 n이 3의 배수면 전환 칸 n ÷ 3 − 1(`rank_02*`), 아니면 ⌊n ÷ 3⌋ − 1 + n % 3(`rank_01*`) — 차례로 0, 1, 전환 0, 1, 2, 전환 1, 2, 3, 전환 2(`fxgame.js` `mergeableSlot`). 그 칸 이상에 있던 구슬은 지운다: 전환이 앞의 둘을 대신한다. 저장이 아닌 공격의 ON_CAST_START에 든 칸마다 `_chargeCastGroups`·`_mergedChargeCastGroups`의 `change`가 한 번 난다(`chargeSwing`). 아레나 2배속에서 아홉 저장의 순서와 방출 때 `change`를 기록으로 확인(그림 대조는 공식과 안 함).
 - 비이 저장 탄: `ChargeableGroup`의 `ChargeAttackDefault`·`ChargeAttackS2`가 `projectile_chr_veen`/`_merged`(S2 `_s2`/`_s2_merged`, 이펙트 같음; 넷 다
   TRACE `_speed` 10 — 클라 프리팹 표 조회)를 쏜다: `_mainEffect` `veen_trail_01`/`veen_trail_02`, `_effectsWhenHit` `veen_attack_rank_01_hit_02`/
-  `veen_attack_rank_02_hit_02`. 사건 `veenVolley`(새 `s2`·`s3`)로 공격 대상에게 날린다 — 그녀 총구에서(클라는 `_mountPointForProjectiles` 특수점
-  5·6·8·9·10에 나눔, 아직 안 따름). S3(`ChargeAttackS3` `projectile_chr_veen_s3`, 전환 탄 없음)의 저장 탄은 안 그림.
+  `veen_attack_rank_02_hit_02`. 사건 `veenVolley`(새 `s2`·`s3`)로 공격 대상에게 날린다. i번째 탄은 `_mountPointForProjectiles`[i](SPECIAL_0~4, 뼈 `ChargePoint_1`~)에서, 전환 탄이 먼저 나간다(2026-11-06, `MergeableChargeRangeAttack.CreateProjectile`). S3는 저장 탄이 없다(2026-11-06, 공식 클라에서 확인): `ChargeAttackS3`의 `_onlyAssignChargeCntToBaseAbility`가 저장 수를 공격 능력에 넘기고 쏘지 않으므로 저장 수가 튕김 수가 된다.
 - 비이 S3 튕김: `projectile_chr_veen_s3`가 첫 명중 뒤 `_overwritedMainEffectAfterFirstHit` `veen_skill_03_trail_02`로 날고 `_repalceEffectsWhenHit`
   `veen_skill_03_hit_02` — 사건 `veenBounce`의 새 `from`(떠나는 적)에서 다음 적으로(`planShots` `fromDead`). 시뮬은 튕김 피해를 떠날 때 준다.
 - 확인: `test/render/kit-event-fx.test.js`(계획 + 층), `status-buff-fx.test.js`(Mon3tr 태그·방향, 표식들), `fx-bindings` `UNPLAYED` 11줄·`VERDICT` pending
   3줄 지움, `clip-coverage-list.js` 비이 `Charge` 넷 지움, `test/content/op_demetr`·`op_monstr`·`op_veen.test.js`(사건·표시). 시뮬 골든: diy-032~035·
-  037·038 사건 수만(전투 결과 같음). [화면 미확인: 위 전부 — 특히 Mon3tr 표식의 자리·비이 저장 탄이 한 점에서 겹쳐 나는 모습·저장 구슬 단계]
+  037·038 사건 수만(전투 결과 같음). [화면 미확인: 위 전부 — 특히 Mon3tr 표식의 자리·비이 저장 구슬과 저장 탄의 모습]
 
 ### 스킬 준비 이펙트 (2026-11-06, 공식 클라에서 확인)
 - 공식: 스킬 프리팹의 `ReadySkillEffect`(`_effects`, `_stopBeforeCast`)는 스킬을 쓸 수 있을 때(`BasicSkill.IsAvailable`: SP 충분, 주인이 이상 상태 아님) 그 효과를 주인에게 만들고, `_stopBeforeCast`면 스킬 시작 때(`OnSkillStart`), 어느 쪽이든 스킬 끝에(`OnSkillEnd`) `FinishMe`로 끝낸다. 한 번 만들면 이상 상태를 다시 보지 않아 기절이 와도 남고, 충전이 하나 더 있으면 다음 틱에 다시 만든다.

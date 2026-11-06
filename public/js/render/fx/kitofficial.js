@@ -52,6 +52,8 @@ const once = (n, on = 'op') => ({ n, on, life: 'once' });
 const YU_HIT = Object.freeze(['yu_s_1[inverse_damage]', 'yu_t_1[enemy]', 'yu_s_3[ally]']);
 /** The event stands for every condition of the key's rows. */
 const ALL = Object.freeze({ all: true });
+// 维伊's ChargeAttack abilities' `_mountPointForProjectiles`: SPECIAL_0 / 1 / 2 / 3 / 4
+const VEEN_MOUNTS = Object.freeze([5, 6, 8, 9, 10]);
 
 /**
  * event → operator bundle → (o, ctx) → { stop?: tag[], play: plays[], pass?: the event keeps its stand-in } | null.
@@ -610,15 +612,19 @@ export const KIT_OFFICIAL = {
   // (2026-11-03) 维伊: the stored energies and 转置能量 leaving with an attack — her ChargeableGroup's ChargeAttackDefault /
   // ChargeAttackS2 fire projectile_chr_veen / _merged (under S2 projectile_chr_veen_s2 / _s2_merged: the same effects; TRACE,
   // `_speed` 10 all): `_mainEffect` veen_trail_01 / veen_trail_02 to the attack's `target`, `_effectsWhenHit`
-  // veen_attack_rank_01_hit_02 / veen_attack_rank_02_hit_02 — from her muzzle (the client spreads them over its
-  // `_mountPointForProjectiles` SpecialPoints 5 / 6 / 8 / 9 / 10). Under S3 (ChargeAttackS3's projectile_chr_veen_s3) not drawn
+  // veen_attack_rank_01_hit_02 / veen_attack_rank_02_hit_02. (2026-11-06) MergeableChargeRangeAttack.CreateProjectile: the
+  // i-th projectile leaves from `_mountPointForProjectiles`[i], the merged ones first. Under S3 no energy flies:
+  // ChargeAttackS3's `_onlyAssignChargeCntToBaseAbility` hands the count to her attack (its bounces) and fires nothing
   veenVolley: {
-    veen: cite(['projectile_chr_veen', 'projectile_chr_veen_merged', 'projectile_chr_veen_s2', 'projectile_chr_veen_s2_merged'], (o) => (Number(o.s3) ? null : {
-      play: [
-        ...Array.from({ length: Math.min(9, Number(o.merged) || 0) }, () => ({ n: 'veen_trail_02', fly: 10, to: 'target', hit: ['veen_attack_rank_02_hit_02'] })),
-        ...Array.from({ length: Math.min(9, Number(o.stored) || 0) }, () => ({ n: 'veen_trail_01', fly: 10, to: 'target', hit: ['veen_attack_rank_01_hit_02'] })),
-      ],
-    })),
+    veen: cite(['projectile_chr_veen', 'projectile_chr_veen_merged', 'projectile_chr_veen_s2', 'projectile_chr_veen_s2_merged'], (o) => {
+      if (Number(o.s3)) return null;
+      const merged = Math.max(0, Number(o.merged) || 0), total = merged + Math.max(0, Number(o.stored) || 0);
+      return {
+        play: VEEN_MOUNTS.slice(0, total).map((mount, i) => (i < merged
+          ? { n: 'veen_trail_02', fly: 10, to: 'target', mount, hit: ['veen_attack_rank_02_hit_02'] }
+          : { n: 'veen_trail_01', fly: 10, to: 'target', mount, hit: ['veen_attack_rank_01_hit_02'] })),
+      };
+    }),
   },
   // (2026-11-03) 维伊 S3 用赤铁铭记: each bounce of projectile_chr_veen_s3 — after its first hit its
   // `_overwritedMainEffectAfterFirstHit` veen_skill_03_trail_02 flies on from the enemy it leaves (`from`) to the next

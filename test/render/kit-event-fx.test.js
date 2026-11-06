@@ -852,8 +852,8 @@ test('kitOfficialPlan (2026-11-03): 贝洛内\'s S3 moves and return; Mon3tr\'s 
   assert.deepEqual(p('teleport', { id: 1, fromX: 6, fromY: 10, back: 1 }, 'monstr'), [{ n: 'monstr_skill_03_end_02', on: 'point', life: 'once' }]);
   const shot = (n, hit) => ({ n, fly: 10, to: 'target', hit: [hit] });
   assert.deepEqual(p('veenVolley', { id: 1, target: 8, stored: 2, merged: 1 }, 'veen'),
-    [shot('veen_trail_02', 'veen_attack_rank_02_hit_02'), shot('veen_trail_01', 'veen_attack_rank_01_hit_02'), shot('veen_trail_01', 'veen_attack_rank_01_hit_02')]);
-  assert.deepEqual(p('veenVolley', { id: 1, target: 8, stored: 1, merged: 0, s2: 1 }, 'veen'), [shot('veen_trail_01', 'veen_attack_rank_01_hit_02')]);
+    [{ ...shot('veen_trail_02', 'veen_attack_rank_02_hit_02'), mount: 5 }, { ...shot('veen_trail_01', 'veen_attack_rank_01_hit_02'), mount: 6 }, { ...shot('veen_trail_01', 'veen_attack_rank_01_hit_02'), mount: 8 }]);
+  assert.deepEqual(p('veenVolley', { id: 1, target: 8, stored: 1, merged: 0, s2: 1 }, 'veen'), [{ ...shot('veen_trail_01', 'veen_attack_rank_01_hit_02'), mount: 5 }]);
   assert.equal(p('veenVolley', { id: 1, target: 8, stored: 1, merged: 1, s3: 1 }, 'veen'), undefined, 'under S3 not drawn');
   assert.deepEqual(p('veenBounce', { id: 1, target: 9, from: 8 }, 'veen'),
     [{ n: 'veen_skill_03_trail_02', fly: 10, to: 'target', from: 'from', fromDead: true, hit: ['veen_skill_03_hit_02'] }]);
