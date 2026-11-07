@@ -71,11 +71,16 @@ function pasngr(bb, chess, def) {
     skills,
     skill: {
       kind: 'charges',
+      // the target as the cast starts (`_selectTargetTiming` 0), the storm at the OnAttack frame of Skill_3 (the skin's Skill3)
       onStart({ battle, unit }) {
         const keys = skillGrid ? absoluteRangeKeys(skillGrid, unit.tileR, unit.tileC, unit.dir, unit.s.rangeExtend) : unit.rangeKeys;
         const cands = enemiesIn(battle, unit, keys);
-        if (!cands.length) return;
-        const tgt = cands.reduce((a, b) => (b.hp > a.hp ? b : a));
+        unit.mem.pasngrTgt = cands.length ? cands.reduce((a, b) => (b.hp > a.hp ? b : a)) : null;
+      },
+      onStrike({ battle, unit }) {
+        const tgt = unit.mem.pasngrTgt;
+        unit.mem.pasngrTgt = null;
+        if (!tgt) return;
         // 判定中心所在格: the tile of the target's centre (the rounding of body.js posKey); fixed for the storm's 4 s
         const cx = Math.round(tgt.x), cy = Math.round(tgt.y);
         const zoneKeys = absoluteRangeKeys(STORM_GRID, cy, cx, 1, 0);

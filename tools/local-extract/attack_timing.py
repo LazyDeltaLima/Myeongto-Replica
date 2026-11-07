@@ -44,6 +44,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from char_modes import load_tree, pool_char_ids  # noqa: E402
 from char_points import token_files  # noqa: E402
+from client_path import skin_keys  # noqa: E402
 from client_path import clients, earlier, kept, kept_all  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -340,6 +341,13 @@ def main():
     old_enemies = kept_all(prev.get('enemies') or {}, enemies) if args.id else kept(prev.get('enemies') or {}, enemies, wanted)
     old_tokens = kept_all(prev.get('tokens') or {}, tokens) if args.id else kept(prev.get('tokens') or {}, tokens, token_ids)
     ops.update(old_ops)
+    # `clip`: the clip the key plays when it is not the key itself (the skin's key table; docs/rules/sim.md 「일반 공격 타이밍」)
+    table = skin_keys()
+    for cid, row in ops.items():
+        for ab in row.get('attack') or []:
+            for a in (ab, (ab or {}).get('ranged')):
+                if a and a.get('anim') and table.get(cid, {}).get(a['anim'], a['anim']) != a['anim']:
+                    a['clip'] = table[cid][a['anim']]
     enemies.update(old_enemies)
     tokens.update(old_tokens)
     out = {'ops': dict(sorted(ops.items())), 'enemies': dict(sorted(enemies.items())), 'tokens': dict(sorted(tokens.items()))}

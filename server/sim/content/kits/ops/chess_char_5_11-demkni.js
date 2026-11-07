@@ -82,9 +82,12 @@ export default {
       }),
       skill: {
         kind: 'instant', heal: true, trigger: NEVER,
-        onStart({ battle, unit }) {
+        // the allies as the cast starts (`_selectTargetTiming` 0), the heal at the OnAttack frame of Heal (the skin's Attack_2)
+        onStart({ battle, unit }) { unit.mem.demkniPick = zone(battle, unit); },
+        onStrike({ battle, unit }) {
           const amt = unit.s.atk * num(bb.heal_scale, 1);
-          for (const a of zone(battle, unit)) if (a.hp < a.s.maxHp - 1e-6) battle.heal(unit, a, amt);
+          for (const a of unit.mem.demkniPick ?? []) if (a.alive && a.deployed && a.hp < a.s.maxHp - 1e-6) battle.heal(unit, a, amt);
+          unit.mem.demkniPick = null;
           battle.fx('healAoe', { x: unit.x, y: unit.y, id: unit.id, r: 2.5 });
         },
       },

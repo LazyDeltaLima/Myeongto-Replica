@@ -23,9 +23,9 @@ export default {
     return {
       skill: {
         kind: charges > 1 ? 'charges' : 'instant',
-        onStart({ battle, unit }) {
+        // at the first OnAttack frame of the clip its ThreePartOneshotAnimation plays (Skill_2_Begin + Skill_2_Loop), the target taken then
+        onStrike({ battle, unit }) {
           const t = enemiesOn(battle, unit, unit.rangeKeys, 1, unit.profile)[0] ?? null;
-          unit.mem.snTarget = t;
           if (!t) return;
           battle.addProjectile({
             from: unit, target: t, speed: 16, visual: 'arrow', source: unit,
@@ -44,8 +44,8 @@ export default {
       talents: [{ install(battle, unit) {
         battle.on('skillStart', (ctx) => {
           if (ctx.unit !== unit) return;
-          // S2 aims its special bullets itself (mem.snTarget); another skill is cast on the enemy about to be shot
-          const t = sel === S2 || sel == null ? unit.mem.snTarget : (enemiesOn(battle, unit, unit.rangeKeys, 1, unit.profile)[0] ?? null);
+          // cast on the enemy about to be shot (S2's own shots leave a little later, at their frame)
+          const t = enemiesOn(battle, unit, unit.rangeKeys, 1, unit.profile)[0] ?? null;
           if (!t || !t.alive) return;
           battle.dealDamage(unit, t, { amount: unit.s.atk * num(t0.atk_scale, 1), type: 'phys', isSkill: true, tags: ['talent', 'cloudbeast'], moment: 'snhunt_t[effect]' });
           if (t.alive) battle.applyStatus(t, 'cold', { duration: num(t0.cold, 3), source: unit });

@@ -362,6 +362,8 @@ test('乌尔比安 S1 必须促成的接触: the anchor drags up to 2 enemies ar
     const [front, far, side, away] = h.b.enemies;
     h.step();
     cast(h, u);
+    assert.equal(tagged(h, u, 'anchorPull').length, 0, 'the anchor leaves at the OnAttack frame of Skill_1_Begin');
+    h.run(u.skill.castTiming().strike + 0.1);
     const pulled = tagged(h, u, 'anchorPull');
     assert.equal(pulled.length, bb.max_target, 'max_target enemies');
     assert.deepEqual(new Set(pulled.map((c) => c.target)), new Set([far, side]), 'the unblocked target and the one around it');

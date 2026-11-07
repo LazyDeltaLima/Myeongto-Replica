@@ -15,6 +15,9 @@ function shove(battle, e, from, force) {
   return e && e.alive ? battle.push(e, num(force, 0), { from }) : 0;
 }
 
+/** skchr_mostma_2's first pulse after the cast (s): Skill_Begin's OnAttack frame. */
+const FIRST_PULSE = 0.567;
+
 export default withDefaults({
   // ===== 莫斯提马 (splashcaster) S3 序时之匙 — ripple hits all in range, +ATK, talent 2 ×3, small knock-back
   //       S1 攻击力强化·γ型; S2 荒时之锁 (every enemy in range stunned for the rest of the skill, 100 %/120 % ATK arts
@@ -30,7 +33,9 @@ export default withDefaults({
         skchr_mostma_2: () => ({
           kind: 'duration',
           onStart({ battle, unit, skill }) {
-            unit.mem.timeLock = { acc: 0, locked: new Set() };
+            // the first pulse at the OnAttack frame of the clip its ThreePartChannelingAnimation plays, Skill_Begin 0.567 s
+            // (ChannelingMeleeAttack: then every `_triggerDelta` 1 s)
+            unit.mem.timeLock = { acc: 1 - FIRST_PULSE, locked: new Set() };
             battle.fx('zone', { x: unit.x, y: unit.y, id: unit.id, duration: skill.duration });
           },
           onTick({ battle, unit, skill, dt }) {

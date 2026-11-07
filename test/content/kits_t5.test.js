@@ -573,6 +573,8 @@ test('塞雷娅 S2: heals every injured ally in the skill range for 95 % ATK (+1
   h.step();
   a.hp = b.hp = far.hp = 5000;
   assert.ok(h.runUntil(() => u.skill.activations > 0, 12));
+  assert.equal(a.hp, 5000, 'the heal comes at the OnAttack frame of Heal (the skin\'s Attack_2)');
+  h.run(u.skill.castTiming().strike + 0.1);
   approx(a.hp - 5000, u.s.atk * bb.heal_scale, 1e-6);
   approx(b.hp - 5000, u.s.atk * bb.heal_scale, 1e-6);
   assert.equal(far.hp, 5000, 'outside the skill range');

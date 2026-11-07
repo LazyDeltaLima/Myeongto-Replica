@@ -16,8 +16,14 @@ export default {
     return {
       skill: {
         kind: 'instant',
+        // the targets as the cast starts (`_selectTargetTiming` 0), the harpoon at the OnAttack frame of the clip its
+        // ThreePartChannelingAnimation plays (Skill_Begin → the skin's Skill_Start)
         onStart({ battle, unit }) {
-          const foes = enemiesInGrid(battle, unit, def?.skill?.rangeGrid ?? null, { n: Math.max(1, Math.floor(num(bb.max_target, 1))) });
+          unit.mem.slchanFoes = enemiesInGrid(battle, unit, def?.skill?.rangeGrid ?? null, { n: Math.max(1, Math.floor(num(bb.max_target, 1))) });
+        },
+        onStrike({ battle, unit }) {
+          const foes = (unit.mem.slchanFoes ?? []).filter((e) => e.alive);
+          unit.mem.slchanFoes = null;
           for (const e of foes) {
             const sx = e.x, sy = e.y;
             const moved = battle.pullToFront(e, unit, force);

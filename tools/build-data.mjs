@@ -2503,7 +2503,8 @@ function opAttackAnim(ctx, charId, skillCount) {
   const sp = ctx.manifest?.chars?.[charId]?.spine?.front;
   if (!t || !sp?.animations) return null;
   const clipOf = (ab, fallback) => {
-    for (const n of [ab?.anim, ab?.anim ? `${ab.anim}_Loop` : null, fallback]) {
+    // `clip`: the skin's key table; the rest for a key the table does not name (the client plays no other clip then)
+    for (const n of [ab?.clip, ab?.anim, ab?.anim ? `${ab.anim}_Loop` : null, fallback]) {
       const dur = n ? sp.animations[n] : null;
       if (typeof dur === 'number' && dur > 0) {
         const h = sp.hits?.[n];
@@ -2632,12 +2633,23 @@ function skillCast(ctx, charId, s) {
   if (out.time === 2 && a.cd > 0) out.cd = a.cd;
   if (out.time === 3 && Number(s.bb?.[a.cdKey]) > 0) out.cd = Number(s.bb[a.cdKey]);
   const sp = ctx.manifest?.chars?.[charId]?.spine?.front;
-  for (const n of a.anim ? [a.anim, `${a.anim}_Loop`] : []) {
-    const dur = sp?.animations?.[n];
+  for (const n of a.anim ? [a.clip, a.anim, `${a.anim}_Loop`] : []) {
+    const dur = n ? sp?.animations?.[n] : null;
     if (!(typeof dur === 'number' && dur > 0)) continue;
     const h = sp.hits?.[n];
     Object.assign(out, { clip: n, dur, ...(Array.isArray(h) && Number.isFinite(h[0]) ? { hit: Math.min(dur, Math.max(0, h[0])) } : {}) });
     break;
+  }
+  // a ThreePart component plays the clip (no `_animKey`): the begin + end (channel) or begin + oneshot clips scale together in the
+  // ability's time, whose OnAttack frame the ability waits for; `hold` 1: the action lasts the ability's time (a channel's loop fills it)
+  const len = (n) => (n && typeof sp?.animations?.[n] === 'number' ? sp.animations[n] : 0);
+  const frame = (n) => (n && Array.isArray(sp?.hits?.[n]) && Number.isFinite(sp.hits[n][0]) ? sp.hits[n][0] : null);
+  if (a.chan && len(a.chan.begin) > 0 && frame(a.chan.begin) != null) {
+    Object.assign(out, { clip: a.chan.begin, dur: len(a.chan.begin) + len(a.chan.end), hit: frame(a.chan.begin), hold: 1 });
+    return Object.assign(out, abilityTiming({ max: 1, pre: a.pre, wait: a.wait }), abilityFace(a));
+  }
+  if (a.three && len(a.three.oneshot) > 0 && frame(a.three.oneshot) != null) {
+    Object.assign(out, { clip: a.three.oneshot, dur: len(a.three.begin) + len(a.three.oneshot), hit: len(a.three.begin) + frame(a.three.oneshot), hold: 1 });
   }
   return Object.assign(out, abilityTiming({ max: a.max, pre: a.pre, wait: a.wait }), abilityFace(a));
 }

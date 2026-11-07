@@ -178,6 +178,8 @@ export function normSkillCast(c) {
     max: max == null ? 1 : max < 0 ? Infinity : Math.max(0.1, max),
     pre: pre > 0 ? pre : 0,
     wait: c.wait !== 0 && c.wait !== false,
+    // a ThreePart component plays the clip: the action lasts the ability's time (skills.js castTiming)
+    hold: c.hold === 1,
     // where the skill ability turns its unit as it is cast (ai.js castFace): as attackAnim `face`, absent = 1 its target
     face: Number.isInteger(c.face) && c.face >= 0 && c.face <= 4 ? c.face : 1,
   };

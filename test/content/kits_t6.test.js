@@ -445,6 +445,9 @@ test('异客: S3 storm strikes 8 times over 4 s at the highest-HP enemy; 机理�
   const u = h.unit('chess_char_6_05_a');
   const bb = u.def.skill.bb;
   assert.ok(h.runUntil(() => u.skill.activations > 0, 10));
+  assert.ok(!h.eventsOf('fx').some((e) => e[1] === 'storm'), 'no storm as the cast starts');
+  assert.ok(near(u.skill.castTiming().strike, 0.267, 1e-6), 'Skill3 OnAttack');
+  h.run(u.skill.castTiming().strike + 0.1);   // the storm comes at the OnAttack frame of Skill_3 (the skin's Skill3)
   const storm = h.eventsOf('fx').find((e) => e[1] === 'storm');
   const big = enemyAt(h, 'enemy_dummy2');
   assert.ok(storm && near(storm[2], big.x, 1e-2), 'storm on the highest-HP target');
@@ -1457,6 +1460,7 @@ test('异客: the S3 storm is range x-1 — the 13-tile diamond — around the t
     tgt.x = 5.4; tgt.y = 10.4;
     h.step();
     assert.ok(u.skill.activate('test', { free: true }));
+    h.run(u.skill.castTiming().strike + 0.1);   // (at the OnAttack frame of Skill_3)
     const storm = h.eventsOf('fx').find((e) => e[1] === 'storm');
     assert.deepEqual([storm[2], storm[3]], [5, 10], 'the storm sits on the centre of the target\'s tile');
     h.b.dealDamage(null, tgt, { amount: 1e12, type: 'true' });

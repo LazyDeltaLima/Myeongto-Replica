@@ -40,6 +40,8 @@ export default {
       skills: lazySkills({
         skchr_ulpia_1: () => ({
           kind: instantKind(chess, def),
+          // the target as the cast starts (`_selectTargetTiming` 0), the anchor at the OnAttack frame of the clip its
+          // ThreePartChannelingAnimation plays (Skill_1_Begin)
           onStart({ battle, unit }) {
             // "向前方扔出船锚": the anchor goes beyond his own reach first (pulling what he already hits is moot), then
             // unblocked ground enemies, then the usual target order
@@ -47,8 +49,12 @@ export default {
             const reach = (e) => inRange(unit, e);
             // the anchor is a 捕网 (PRTS 备注 "实际效果为捕网而非拖拽"); 雪雉's 捕网 is "不对空" (PRTS 雪雉 备注) — [ASSUMED] the same
             // for this one: it never lands on or catches air units (FLY, 近地悬浮, 浮空)
-            const main = list.find((e) => !reach(e) && !e.blockedBy && !e.isFlying) ?? list.find((e) => !e.blockedBy && !e.isFlying) ?? list.find((e) => !e.isFlying);
-            if (!main) return;
+            unit.mem.ulpiaMain = list.find((e) => !reach(e) && !e.blockedBy && !e.isFlying) ?? list.find((e) => !e.blockedBy && !e.isFlying) ?? list.find((e) => !e.isFlying) ?? null;
+          },
+          onStrike({ battle, unit }) {
+            const main = unit.mem.ulpiaMain;
+            unit.mem.ulpiaMain = null;
+            if (!main?.alive) return;
             const near = battle.foesInRadius(main.x, main.y, RING1).filter((e) => !e.isFlying && !e.s.flags.untargetable && !e.s.flags.sleep)
               .sort((a, b) => (a === main ? -1 : b === main ? 1 : 0) || dist(a, main) - dist(b, main) || a.spawnSeq - b.spawnSeq)
               .slice(0, Math.max(1, num(bb.max_target, 2)));

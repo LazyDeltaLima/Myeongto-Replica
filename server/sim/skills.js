@@ -774,7 +774,7 @@ export class SkillRuntime {
       let scale = t / c.dur;
       if (!(scale >= MIN_ANIM_SCALE)) scale = MIN_ANIM_SCALE;
       if (scale > c.max) scale = c.max;
-      action = scale * c.dur;
+      action = c.hold ? t : scale * c.dur;
       strike = c.wait ? (c.hit != null ? c.hit * scale : action) : Math.min(action, c.pre * scale);
     } else strike = c.wait ? action : Math.min(action, c.pre);
     out.action = action;

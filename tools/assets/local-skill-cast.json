@@ -777,6 +777,7 @@
     "anim": "Attack_B",
     "cd": 0,
     "cdKey": "duration",
+    "clip": "Attack",
     "face": 1,
     "max": 1,
     "pre": 0,
@@ -840,6 +841,11 @@
     "anim": "",
     "cd": 0,
     "cdKey": "duration",
+    "chan": {
+     "begin": "Skill_2_Begin",
+     "end": "Skill_2_End",
+     "loop": "Skill_2_Loop"
+    },
     "face": 1,
     "max": 1,
     "pre": 0.2667,
@@ -1038,6 +1044,7 @@
     "anim": "Heal",
     "cd": 0,
     "cdKey": "duration",
+    "clip": "Attack_2",
     "face": 1,
     "max": -1,
     "pre": 0.533,
@@ -1259,6 +1266,7 @@
     "anim": "Skill_2",
     "cd": 0,
     "cdKey": "duration",
+    "clip": "Skill_1",
     "face": 1,
     "max": -1,
     "pre": 0,
@@ -1383,6 +1391,11 @@
     "anim": "",
     "cd": 0,
     "cdKey": "duration",
+    "chan": {
+     "begin": "Skill_1_Begin",
+     "end": "Skill_1_End",
+     "loop": "Skill_1_Loop"
+    },
     "face": 1,
     "max": 1,
     "pre": 0,
@@ -1477,6 +1490,11 @@
     "anim": "",
     "cd": -1,
     "cdKey": "duration",
+    "chan": {
+     "begin": "Skill_4_Begin",
+     "end": "Skill_4_End",
+     "loop": "Skill_4_Loop"
+    },
     "face": 0,
     "max": 1,
     "pre": 0,
@@ -1826,6 +1844,11 @@
     "anim": "",
     "cd": 0,
     "cdKey": "duration",
+    "chan": {
+     "begin": "Skill_Begin",
+     "end": "Skill_End",
+     "loop": "Skill"
+    },
     "face": 2,
     "max": 1,
     "pre": 0.4,
@@ -2405,6 +2428,11 @@
     "anim": "",
     "cd": 0.62,
     "cdKey": "duration",
+    "chan": {
+     "begin": "Skill_2_Begin",
+     "end": "Skill_2_End",
+     "loop": "Skill_2_Loop"
+    },
     "face": 0,
     "max": -1,
     "pre": 0,
@@ -2549,6 +2577,11 @@
     "anim": "",
     "cd": 0,
     "cdKey": "duration",
+    "chan": {
+     "begin": "Skill_Begin",
+     "end": "Skill_End",
+     "loop": "Skill_Loop"
+    },
     "face": 2,
     "max": -1,
     "pre": 0,
@@ -2810,6 +2843,7 @@
     "anim": "Skill_3",
     "cd": 0,
     "cdKey": "duration",
+    "clip": "Skill3",
     "face": 1,
     "max": 1,
     "pre": 0,
@@ -3363,6 +3397,11 @@
     "anim": "",
     "cd": 0,
     "cdKey": "duration",
+    "chan": {
+     "begin": "Skill_Start",
+     "end": "Skill_End",
+     "loop": "Skill_Loop"
+    },
     "face": 1,
     "max": 1,
     "pre": 0,
@@ -3376,6 +3415,11 @@
     "anim": "",
     "cd": 0,
     "cdKey": "duration",
+    "chan": {
+     "begin": "Skill_Start",
+     "end": "Skill_End",
+     "loop": "Skill_Loop"
+    },
     "face": 1,
     "max": 1,
     "pre": 0,
@@ -3413,6 +3457,10 @@
     "face": 1,
     "max": -1,
     "pre": 0,
+    "three": {
+     "begin": "Skill_2_Begin",
+     "oneshot": "Skill_2_Loop"
+    },
     "time": 0,
     "wait": 1
    },
@@ -3792,6 +3840,11 @@
     "anim": "",
     "cd": 0,
     "cdKey": "cooldown",
+    "chan": {
+     "begin": "Skill1_1",
+     "end": "Skill1_3",
+     "loop": "Skill1_2"
+    },
     "face": 1,
     "max": -1,
     "pre": 0.5,
@@ -3956,6 +4009,11 @@
     "anim": "",
     "cd": 0,
     "cdKey": "duration",
+    "chan": {
+     "begin": "Skill_1_Begin",
+     "end": "Skill_1_End",
+     "loop": "Skill_1_Loop"
+    },
     "face": 1,
     "max": -1,
     "pre": 0,
@@ -4205,6 +4263,11 @@
     "anim": "",
     "cd": 0.25,
     "cdKey": "duration",
+    "chan": {
+     "begin": "Skill_3_Begin",
+     "end": "Skill_3_End",
+     "loop": "Skill_3_Idle"
+    },
     "face": 1,
     "max": -1,
     "pre": 0.25,

@@ -45,7 +45,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from char_modes import char_skill_prefabs, skills_tree  # noqa: E402
-from client_path import clients, earlier, kept, kept_all, skills_of  # noqa: E402
+from client_path import clients, earlier, kept, kept_all, skills_of, skin_keys  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'tools/assets/local-skill-cast.json'
@@ -143,9 +143,30 @@ def skill_entry(sid, comps3):
         later = LATER_ABILITIES.get(sid)
         subs = sorted((gp, a) for gp, a in ((gp, ability(d)) for gp, d in comps if gp != sid and gp != later) if a is not None)
         ab = subs[0][1] if subs else None
+    # the ThreePart component that plays the clip of an ability with no `_animKey` (ThreePartChannelingAnimation `_default`,
+    # ThreePartOneshotAnimation `_beginAnim` / `_oneshotAnim`): the clip's OnAttack frame is what the ability waits for
+    if ab is not None and not ab.get('anim'):
+        for d in root:
+            ch = d.get('_default')
+            if isinstance(ch, dict) and ch.get('beginAnim'):
+                ab['chan'] = {'begin': ch['beginAnim'], 'loop': ch.get('loopAnim') or '', 'end': ch.get('endAnim') or ''}
+            elif d.get('_oneshotAnim'):
+                ab['three'] = {'begin': d.get('_beginAnim') or '', 'oneshot': d['_oneshotAnim']}
     e['ability'] = ab
     e.update(group_subs(sid, comps3))
     return e
+
+
+def resolve_clips(entry, keys):
+    """The clip names of `entry`'s ability through its operator's skin key table: `clip` (when it is not the key), chan / three."""
+    ab = entry.get('ability')
+    if not isinstance(ab, dict):
+        return
+    if ab.get('anim') and keys.get(ab['anim'], ab['anim']) != ab['anim']:
+        ab['clip'] = keys[ab['anim']]
+    for part in ('chan', 'three'):
+        if isinstance(ab.get(part), dict):
+            ab[part] = {k: keys.get(v, v) for k, v in ab[part].items()}
 
 
 def main():
@@ -175,9 +196,12 @@ def main():
     if not comps:
         sys.exit('no skill read')
     out = {}
+    table = skin_keys()
+    owner = {p: cid for cid, prefabs in char_skill_prefabs().items() for p in prefabs if p}
     for sid in sorted(comps):
         e = skill_entry(sid, comps[sid])
         if e:
+            resolve_clips(e, table.get(owner.get(sid), {}))
             out[sid] = e
     prev = earlier(args.out).get('skills') or {}
     old = kept_all(prev, comps) if args.id else kept(prev, comps, want)

@@ -40,6 +40,22 @@ function battle(units, o = {}) {
 // ---------------------------------------------------------------------------------------------------------------
 // coverage + smoke
 
+test('莫斯提马 S2: the first pulse at the OnAttack frame of Skill_Begin (0.567 s), then one every 1 s', () => {
+  const h = battle([U('chess_char_4_02_a', 10, 3, 1)]);
+  h.run(0.3);
+  const u = h.unit('chess_char_4_02_a');
+  h.spawn('enemy_dummy', { pos: [10, 4] });
+  assert.equal(u.skill.id, 'skchr_mostma_2');
+  u.skill.gainSp(1000);
+  assert.ok(h.runUntil(() => u.skill.active, 5), 'cast');
+  const at = h.b.time;
+  h.run(2);
+  const pulses = dmgBy(h, u, tagged('timeLock')).map((c) => c.t - at);
+  assert.ok(pulses.length >= 2, `${pulses}`);
+  assert.ok(Math.abs(pulses[0] - 0.567) < 0.07, `first ${pulses[0]}`);
+  assert.ok(Math.abs(pulses[1] - pulses[0] - 1) < 0.07, `then 1 s (${pulses})`);
+});
+
 test('tier4 loadouts: every selectable skill of every visible chess is hand-authored (normal + elite)', () => {
   const rep = kitCoverage({ tier: 4 });
   assert.equal(rep.summary.chess, 22);

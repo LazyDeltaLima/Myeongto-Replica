@@ -661,6 +661,8 @@ const KIT_SOUND_DEF = /^(char_\d+_(wang|chen3|wisdel|oblvns|whitw2|lemuen|ghost2
  * not per damage tick]. A DoT tick credited to its applier never gets here (2026-10-11: the 'dmg' 7th field, skipped first).
  */
 const SKILL_HIT_GAP_MS = 120;
+/** The kits whose instant skill ends as it fires: what it fired lands a moment later, and its impact is still that skill's (雪猎 S2's arrows). */
+const LANDS_AFTER_SKILL = new Set(['char_4211_snhunt']), SKILL_LANDS_MS = 600;
 /** The attack child of a 猎手 that loads a round (AbilitySelectableGroup `_abilityConfigs`). */
 const RELOAD_CHILD = 'Reload';
 /**
@@ -1727,7 +1729,7 @@ export class AudioManager {
       // 2026-11-07: a cast with a telegraph (검은 뿔의 루울's 8 s charge) lands past those 3 s: its first damage is still that skill's
       if (au.eskill && (au.eskill.held || now - au.eskill.at <= 3000)) c = (ue?.sk?.[au.eskill.name] || []).find((x) => x.at === 'd') ?? null;
       if (au.eskill) au.eskill.held = false;
-    } else if (au.skillOn && Number.isInteger(au.skillIndex)) {
+    } else if ((au.skillOn || (LANDS_AFTER_SKILL.has(au.def) && now - (au.skillOffAt ?? -Infinity) <= SKILL_LANDS_MS)) && Number.isInteger(au.skillIndex)) {
       const sk = skillDamageKey(au.def, au.skillIndex);
       if (sk != null) { au.kdAt = now; return this._kitSound(sk || null); }
       const kd = ue?.kd?.[au.skillIndex];
@@ -2175,6 +2177,7 @@ export class AudioManager {
           this._skillSeen?.add(e[1]);
           const su = this.units.get(e[1]);
           if (su) {
+            if (su.skillOn && !e[2]) su.skillOffAt = now;
             su.skillOn = !!e[2];
             su.sw = null; su.vm = null; // 2026-10-10: a new mode run — its groups start over (a conditional group's first attack)
             su.sub = null; // 2026-10-29: a mode it switched to on the way ends with the skill run (SKILL_SUB_MODES)

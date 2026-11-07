@@ -60,6 +60,17 @@ def _from_dotenv(path=ROOT / '.env', name=ENV_KEY):
     return None
 
 
+def skin_keys():
+    """{ charId: { animKey: clip name } } of the operators' skins (`.cache/anim-keys.json`, anim_keys.py; {} without it): the
+    client plays a clip by key only, through the skin's key table."""
+    import json
+    path = ROOT / '.cache/anim-keys.json'
+    if not path.exists():
+        return {}
+    ops = json.loads(path.read_text(encoding='utf-8')).get('ops') or {}
+    return {c: (v.get('skin') or {}).get('keys') or {} for c, v in ops.items()}
+
+
 def client_data(*sub):
     """The client's Arknights_Data folder (joined with `sub`), as a string."""
     base = os.environ.get(ENV_KEY) or _from_dotenv() or str(ROOT / '.client' / 'Arknights_Data')

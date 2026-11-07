@@ -762,6 +762,9 @@ test('2_03 崖心 (hidden): 束缚链 drags max_target enemies to the front tile
   const h = run({ defs: { enemies: { e: dummy('e') } }, units: [{ chessId: id, row: 10, col: 4, carryState: READY }], enemies: [{ key: 'e', pos: [10, 7] }, { key: 'e', pos: [11, 7] }, { key: 'e', pos: [9, 7] }] });
   const u = h.unit(id);
   h.step();
+  assert.ok(h.runUntil(() => u.skill.activations > 0, 2), 'cast');
+  assert.ok(h.enemies().every((e) => e.x >= 6), 'the harpoon leaves at the OnAttack frame of her clip');
+  assert.ok(h.runUntil(() => h.enemies().some((e) => e.x < 6), u.skill.castTiming().strike + 0.2), 'pulled at the strike');
   const pulled = h.enemies().filter((e) => e.x < 6);
   assert.equal(pulled.length, bb.max_target);
   // her harpoon stopping on a living target makes her search at once (Character.SearchBlockeeImmediate): the pulled
@@ -788,6 +791,7 @@ test('2_03 崖心 (hidden): 束缚链 drags max_target enemies to the front tile
   const idb = 'chess_char_2_03_b', tb = tbOf(idb);
   const h3 = run({ defs: { enemies: { e: dummy('e') } }, units: [{ chessId: idb, row: 10, col: 4, carryState: READY }], enemies: [{ key: 'e', pos: [10, 7] }] });
   h3.step();
+  assert.ok(h3.runUntil(() => dealt(h3, h3.unit(idb), tagged('drag')).length > 0, 3), 'at the strike');
   const drag = dealt(h3, h3.unit(idb), tagged('drag'));
   assert.equal(drag.length, 1);
   approx(drag[0].amount, tb.value * (3 - 0.6708) / tb.dist, 'value per dist tiles', 0.06);
