@@ -6,8 +6,9 @@
 //
 // Rules (maintainer decisions 2026-10-13):
 //   * One queue per difficulty and 규칙 모드 (shared/ruleset.js rulesetKey; maintainer decision 2026-10-15: the players of
-//     a match share the room's rules), co-op only, classic and casual only (QUEUE_PRESETS: a custom room is refused,
-//     BAD_TARGET, maintainer decision 2026-10-18). Its entries are single players or rooms ("parties"):
+//     a match share the room's rules), co-op only, classic and casual for single players (QUEUE_PRESETS); a custom
+//     room waits in a queue of its own, filled by quick players only (see 快速匹配 below). Its entries are single
+//     players or rooms ("parties"):
 //     - room.queue { difficulty, ruleset? } queues the player alone (ruleset absent = the default, classic; switching
 //       either moves the entry to the back of the other queue); a player in a LOBBY room leaves the room (like
 //       room.create), one whose room is in a match is refused (ROOM_STARTED).
@@ -81,9 +82,14 @@
 //     size; its room.queueState `count` is every human waiting in the pool; room.matchFound names the group's ruleset
 //     and size (with `quick: true` for the quick members); lobby.queueCounts adds `quick: { [difficulty]: humans }`
 //     (the quick queues alone; seasons[id].quick for another season). Network limit: `maxQueuedPerAddr`, the 4-seat one.
+//   * A custom room's 빈자리 매칭 (maintainer decisions 2026-11-07, replacing 2026-10-18's "a custom room never
+//     matchmakes"): room.queueRoom of a custom room queues it alone (its settings are its own: the queue key holds the
+//     room code), so only quick players fill it, in the same pool order as every regular queue (longest-waiting
+//     first). Its room.matchFound adds `custom` (the room's settings, shared/ruleset.js rulesetWire) for the quick
+//     players to see what they accept; lobby.queueCounts does not list it (no preset), the quick players' count does.
 
 import { ERR, LARGE_MIN_PLAYERS, LARGE_SEATS, MAX_SEATS, DIFFICULTIES, seatsOf } from '../shared/constants.js';
-import { QUEUE_PRESETS, resolveRuleset, rulesetKey } from '../shared/ruleset.js';
+import { QUEUE_PRESETS, resolveRuleset, rulesetKey, rulesetWire } from '../shared/ruleset.js';
 import { sendSession } from './net.js';
 import { DEFAULT_SEASON } from '../shared/seasons.js';
 
@@ -219,8 +225,6 @@ export class Matchmaker {
     if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
     if (room.match) return fail(ERR.ROOM_STARTED);
     if (room.mode !== 'coop') return fail(ERR.BAD_TARGET, 'co-op rooms only');
-    // the custom 규칙 모드 never matchmakes (maintainer decision 2026-10-18; shared/ruleset.js QUEUE_PRESETS)
-    if (!QUEUE_PRESETS.includes(room.ruleset.preset)) return fail(ERR.BAD_TARGET, 'the custom ruleset has no matchmaking');
     const had = this.entries.get(roomKey(room));
     if (had) { this.sendState(had); return OK; }
     const humans = room.activeHumans();
@@ -235,7 +239,9 @@ export class Matchmaker {
     /** @type {Entry} */
     const ruleset = rulesetKey(room.ruleset);
     const entry = { key: roomKey(room), playerId: null, room, difficulty: room.difficulty, ruleset, cap: room.size, season: room.season,
-      quick: false, pool: poolKey(room.difficulty, room.season), qk: queueKey(room.difficulty, ruleset, room.size, room.season),
+      // a custom room waits alone: its settings are its own, quick players fill it (header)
+      quick: false, pool: poolKey(room.difficulty, room.season),
+      qk: `${queueKey(room.difficulty, ruleset, room.size, room.season)}${QUEUE_PRESETS.includes(ruleset) ? '' : `|${roomKey(room)}`}`,
       joinedAt: lobby.now(), limitKey: session.limitKey || null, group: null, offline: null };
     this.enlist(entry);
     room.matching = true;
@@ -587,6 +593,13 @@ export class Matchmaker {
     this.qkPool.set(entry.qk, entry.pool);
   }
 
+  /** Drop a queue that only one room used (a custom room's, header). @param {string} qk */
+  forgetQueue(qk) {
+    this.queues.delete(qk);
+    this.pools.get(this.qkPool.get(qk) ?? '')?.delete(qk);
+    this.qkPool.delete(qk);
+  }
+
   /** @param {string} qk a queue key (difficulty|ruleset) */
   queueOf(qk) {
     let q = this.queues.get(qk);
@@ -644,6 +657,7 @@ export class Matchmaker {
       const i = q.indexOf(entry);
       if (i >= 0) q.splice(i, 1);
     }
+    if (entry.room && !QUEUE_PRESETS.includes(entry.ruleset ?? '')) this.forgetQueue(entry.qk); // a custom room's own queue
     this.noteCounts();
     entry.group = null;
     if (entry.room) entry.room.matching = false;
@@ -753,9 +767,12 @@ export class Matchmaker {
   sendFound(group, only) {
     const inMs = Math.max(0, group.deadline - this.lobby.now());
     const quick = new Set(group.members.filter((e) => e.quick).map((e) => e.playerId));
+    // a custom room's group (header): its settings, for the quick players to see what they accept
+    const customRoom = QUEUE_PRESETS.includes(group.ruleset) ? null : group.members.find((e) => e.room)?.room;
+    const custom = customRoom ? rulesetWire(customRoom.ruleset).custom : null;
     for (const id of only ? [only] : group.ids) {
       sendSession(this.lobby.registry.byId(id), {
-        t: 'room.matchFound', difficulty: group.difficulty, ruleset: group.ruleset, ...sizeOf(group), ...(quick.has(id) ? { quick: true } : {}), players: group.ids.length,
+        t: 'room.matchFound', difficulty: group.difficulty, ruleset: group.ruleset, ...sizeOf(group), ...(quick.has(id) ? { quick: true } : {}), ...(custom ? { custom } : {}), players: group.ids.length,
         accepted: group.accepted.size, mine: group.accepted.has(id), inMs,
         // a 「바로 시작」 vote (header): the yes it needs, the noes so far, this human's no, the proposer
         ...(group.vote ? { vote: true, need: LARGE_MIN_PLAYERS, declined: group.vote.declined.size, no: group.vote.declined.has(id), by: group.vote.by } : {}),

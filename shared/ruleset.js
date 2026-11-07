@@ -440,8 +440,8 @@ export function rulesetWire(rs) {
 }
 
 /**
- * The key a ruleset is counted under: the matchmaking queues (server/matchmaking.js, classic / casual only — custom
- * never queues) and the stats records (public/js/ui/stats.js: custom matches count apart, maintainer decision 2026-10-18).
+ * The key a ruleset is counted under: the matchmaking queues (server/matchmaking.js, classic / casual — a custom
+ * room queues alone, filled by quick players) and the stats records (public/js/ui/stats.js: custom matches count apart, maintainer decision 2026-10-18).
  */
 export const rulesetKey = (rs) => resolveRuleset(rs).preset;
 

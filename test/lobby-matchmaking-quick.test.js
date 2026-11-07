@@ -164,6 +164,55 @@ describe('快速匹配', () => {
     assert.deepEqual(room.seats.map((s) => s.playerId), [host, guest, ...qs].map((c) => c.id));
   });
 
+  /** A custom co-op room of `host` with `guests` ready, queued for its empty seats (빈자리 매칭). */
+  const customRoom = async (host, guests, custom) => {
+    await ok(host, { t: 'room.create', mode: 'coop', difficulty: 'NORMAL', ruleset: 'custom', custom });
+    const st = await host.waitFor('room.state', (s) => s.hostId === host.id && s.mode === 'coop');
+    for (const [i, g] of guests.entries()) {
+      await ok(g, { t: 'room.join', code: st.code });
+      await host.waitFor('room.state', (s) => s.seats[i + 1]?.playerId === g.id);
+      await ok(g, { t: 'room.ready', ready: true });
+    }
+    if (guests.length) await host.waitFor('room.state', (s) => guests.every((g) => s.seats.find((x) => x?.playerId === g.id)?.ready));
+    await ok(host, { t: 'room.queueRoom' });
+    await host.waitFor('room.queueState', (s) => s.queued && s.ruleset === 'custom');
+    return st;
+  };
+
+  test('a custom room\'s empty seats: quick players fill them and see its settings; a regular player never does', async () => {
+    const [host, guest] = [await player('H'), await player('G')];
+    const st = await customRoom(host, [guest], { enemies: { hp: 200 } });
+    const [k] = await queued(1, 'K', { ruleset: 'classic' });
+    const qs = await quick(1);
+    // the quick player's count is the whole pool: the room's two and the classic one with itself
+    await qs[0].waitFor('room.queueState', (s) => s.queued && s.count === 4);
+    qs.push(...await quick(1, 'R'));
+    const ms = await Promise.all([host, guest, ...qs].map((c) => found(c)));
+    for (const m of ms) { assert.equal(m.ruleset, 'custom'); assert.equal(m.custom?.enemies?.hp, 200, JSON.stringify(m)); }
+    await k.expectNone('room.matchFound');
+    await acceptAll([host, guest, ...qs]);
+    const room = await started(qs[1]);
+    assert.equal(room.code, st.code);
+    assert.equal(room.ruleset.preset, 'custom');
+    assert.equal(room.ruleset.custom.enemies.hp, 200);
+    assert.deepEqual(room.seats.map((s) => s.playerId), [host, guest, ...qs].map((c) => c.id));
+    assert.equal(srv.lobby.queue.queues.size <= 2 && [...srv.lobby.queue.queues.keys()].every((qk) => !qk.includes('room:')), true,
+      'the custom room\'s own queue is forgotten');
+  });
+
+  test('custom rooms wait apart and are filled in the pool order: the longest-waiting first', async () => {
+    const [a, b] = [await player('A'), await player('B')];
+    await customRoom(a, [], { enemies: { hp: 150 } });
+    await customRoom(b, [], { enemies: { hp: 300 } });
+    const qs = await quick(3);
+    const ms = await Promise.all([a, ...qs].map((c) => found(c)));
+    for (const m of ms) assert.equal(m.custom?.enemies?.hp, 150);
+    await b.expectNone('room.matchFound');
+    // lobby.queueCounts lists no custom queue; the room is in the quick players' pool count
+    const counts = srv.lobby.queue.countsMsg();
+    assert.ok(!('custom' in counts.counts), JSON.stringify(counts.counts));
+  });
+
   test('a quick player never joins a 「바로 시작」 vote and cannot propose one', async () => {
     const es = await queued(5, 'E', { size: 8 });
     const qs = await quick(2);

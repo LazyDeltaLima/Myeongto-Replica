@@ -26,8 +26,8 @@
 //   * 규칙 모드 (shared/ruleset.js, maintainer decisions 2026-10-15, 2026-10-18): every room has a ruleset — classic
 //     (the official rules), casual (this remake's conveniences) or custom (the host's settings, `custom`). room.create
 //     { ruleset?, custom? } picks it (default classic), the host changes it before the match with room.setRuleset
-//     { preset, custom? } (refused while the room is matchmaking: ERR.MATCHING; a custom room never matchmakes),
-//     room.state carries it, the drain hand-over keeps it and every match of the room (a briefing reroll's too) gets it.
+//     { preset, custom? } (refused while the room is matchmaking: ERR.MATCHING; a custom room matchmakes alone,
+//     filled by quick players — server/matchmaking.js), room.state carries it, the drain hand-over keeps it and every match of the room (a briefing reroll's too) gets it.
 //     ▸ room.start requires every other human to be connected and ready; the host's start counts as the host's
 //     ready (the host may still toggle room.ready for display).
 //   * room.kick {seat, playerId} (community report #17, owner approved): before the match only, the host removes another

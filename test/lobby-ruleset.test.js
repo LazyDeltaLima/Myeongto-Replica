@@ -1,7 +1,8 @@
 // test/lobby-ruleset.test.js — 규칙 모드 of a room (room.create { ruleset?, custom? }, room.setRuleset { preset, custom? };
 // shared/ruleset.js): classic by default, host-only, before the match only, room.state.ruleset shows it to everybody, a
 // change un-readies the guests like the difficulty, the match gets it as opts.ruleset and the room keeps it for its next
-// match. A custom room carries its sanitized settings everywhere and never matchmakes (maintainer decision 2026-10-18).
+// match. A custom room carries its sanitized settings everywhere; its empty seats matchmake alone, filled by quick
+// players only (maintainer decision 2026-11-07, test/lobby-matchmaking-quick.test.js), and room.queue never takes it.
 import { describe, test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -170,12 +171,15 @@ describe('room ruleset (lobby)', () => {
     assert.equal(started[n].ruleset.custom.enemies.hp, 200, 'opts.ruleset carries the settings');
   });
 
-  test('custom: no matchmaking for the empty seats (room.queueRoom refused), room.queue never takes it', async () => {
+  test('custom: room.queueRoom queues the room (its settings locked meanwhile), room.queue never takes it', async () => {
     const host = await pool.player('Host');
-    const st = await createRoom(host, { ruleset: 'custom' });
-    await err(host, { t: 'room.queueRoom' }, ERR.BAD_TARGET);
-    assert.equal(srv.lobby.rooms.get(st.code).matching, false);
+    const st = await createRoom(host, { ruleset: 'custom', custom: { enemies: { hp: 200 } } });
+    await ok(host, { t: 'room.queueRoom' });
+    assert.equal(srv.lobby.rooms.get(st.code).matching, true);
+    await err(host, { t: 'room.setRuleset', preset: 'custom', custom: { enemies: { hp: 150 } } }, ERR.MATCHING);
     await err(host, { t: 'room.queue', difficulty: 'NORMAL', ruleset: 'custom' }, ERR.BAD_MSG);
+    await ok(host, { t: 'room.unqueue' });
+    assert.equal(srv.lobby.rooms.get(st.code).matching, false);
   });
 
   test('custom: the drain hand-over keeps the settings (roomSnapshot → adoptRoom); an older snapshot with a preset name still reads', async () => {

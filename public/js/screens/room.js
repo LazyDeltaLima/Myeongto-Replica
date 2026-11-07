@@ -21,7 +21,8 @@
 // difficulty, the 「AI 队友最后选择」 switch sits under the ready count (maintainer decision 2026-10-18), and the
 // ruleset tag is beside the title's difficulty. 自定义 takes the host's settings (ui/customRulesStore.js) and its ⚙ opens
 // them (ui/customRules.js: the host edits them — room.setRuleset { preset: 'custom', custom } —, anybody else sees the
-// room's read-only); a custom room has no 匹配补位 (the server refuses room.queueRoom, maintainer decision 2026-10-18).
+// room's read-only); this screen offers a custom room no 匹配补位 — the server queues one alone for quick players
+// (maintainer decision 2026-11-07, server/matchmaking.js), and its button comes with the new room screen.
 // The 8-player mode (maintainer decisions 2026-10-16, 2026-10-19): a room of `size` 8 shows its 8 seats in two rows, has no
 // AI teammates (no add button, no 「AI 队友最后选择」), starts with LARGE_MIN_PLAYERS Doctors or more (SEATS_OPEN: 开始模拟
 // stays locked below that and says so; maintainer decision 2026-11-01) and fills its empty seats from the 8-player queues (匹配补位 under the ready rule alone).
