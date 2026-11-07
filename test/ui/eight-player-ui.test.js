@@ -30,12 +30,15 @@ test('lobby: room.create / room.queue carry size 8 only for an 8-seat alliance (
   assert.match(src, /\.\.\.sizeFields\(roomMode, size\)/);
   assert.match(src, /joinQueue\(difficulty, queueRuleset, big \? LARGE_SEATS : MAX_SEATS, season\)/);
   assert.match(src, /savePref\('lobby\.size', n\)/);
-  // the switch sits at the right end of the 01 label (like 规则 on the 02 label), hidden in place for 独立模拟
-  const label = src.slice(src.indexOf('<span class="section-label__idx num">01</span>'), src.indexOf('<div class="mode-cards">'));
-  assert.match(label, /<\$\{SizeSwitch\} value=\$\{size\} onPick=\$\{pickSize\} hidden=\$\{roomMode === 'solo'\}/);
-  assert.match(src, /lobby-size\$\{hidden \? ' is-hidden' : ''\}/);
-  assert.match(read('public/css/screens/lobby.css'), /\.lobby-size\.is-hidden \{ visibility: hidden; \}/, 'hidden, not removed: the label row keeps its height');
-  assert.match(src, /<\$\{CustomSummary\}[^>]*size=\$\{big \? LARGE_SEATS : MAX_SEATS\}/, 'the summary compares with the 8-player bans');
+  // 人数 (maintainer decisions 2026-11-07): a row of 选择模拟协议's rules in 同盟匹配 only, and in 创建同盟's bar on 选择同盟方式;
+  // 独立模拟 has none
+  const rules = src.slice(src.indexOf('export function ProtoRules('), src.indexOf('export function ProtocolSelect('));
+  assert.match(rules, /\$\{matching \? html`<span class="proto-rules__row">\s*<\$\{RowKey\} text=\$\{t\('人数'\)\} \/>/);
+  assert.match(rules, /<\$\{SizeSwitch\} value=\$\{size\} onPick=\$\{onSize\} disabled=\$\{quick\}/);
+  const ally = src.slice(src.indexOf('export function AllianceSelect('), src.indexOf('function JoinBox('));
+  assert.match(ally, /<\$\{SizeSwitch\} value=\$\{size\} onPick=\$\{onSize\} \/>/);
+  // a custom summary only beside 独立模拟's 自定义 (同盟匹配 has no 自定义): a solo room is never an 8-seat one
+  assert.match(rules, /\$\{!matching && ruleset === 'custom' \? html`<span class="proto-rules__sum"><\$\{CustomSummary\}[^>]*size=\$\{MAX_SEATS\}/);
 });
 
 test('matchQueue: joinQueue adds size only for an 8-player queue; counts8 and size reach the store; the dialog counts to the size', () => {

@@ -57,6 +57,12 @@ export function seasonQueueCounts(s, season, large) {
   return (large ? c?.counts8 : c?.counts) ?? null;
 }
 
+/** The 快速匹配 queue's waiting Doctors of a season, { [difficulty]: n } (lobby.queueCounts `quick` → ui.queueQuick). @param {any} s @param {string} season */
+export function seasonQuickCounts(s, season) {
+  if (seasonOf(season) === DEFAULT_SEASON) return s.ui.queueQuick ?? null;
+  return s.ui.queueCountsBy?.[season]?.quick ?? null;
+}
+
 /** The season's word of the title (卫戍协议：<name>), translated. @param {unknown} id */
 export const seasonName = (id) => t(seasonInfo(id).name);
 

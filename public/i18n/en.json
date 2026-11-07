@@ -1781,5 +1781,22 @@
   "{n}席": "{n} seats",
   "不能少于已入座的观战者": "Cannot be fewer than the spectators already seated",
   "点击进入": "Tap to start",
-  "点击跳过": "Tap to skip"
+  "点击跳过": "Tap to skip",
+  "S.W.E.E.P.报告": "S.W.E.E.P. Report",
+  "S.W.E.E.P.报告即将开放": "The S.W.E.E.P. Report is coming soon",
+  "S.W.E.E.P.报告：盟约、策略与敌方资料": "S.W.E.E.P. Report: covenants, strategies and enemy files",
+  "不限时": "No time limit",
+  "开": "On",
+  "关": "Off",
+  "加入同盟 · 观战": "Join · Spectate",
+  "同难度等待中的博士：{count}": "Doctors waiting at this difficulty: {count}",
+  "开始快速匹配": "Start quick match",
+  "快速匹配": "Quick match",
+  "成就统计": "Achievements",
+  "等待 {n}": "{n} waiting",
+  "自动匹配": "Automatic matchmaking",
+  "规则、人数不限，进入空位": "Any rules and size: fills an open seat",
+  "规则与人数随匹配到的队列而定": "The rules and size are those of the queue you join",
+  "选择同盟方式": "Choose how to ally",
+  "难度、规则在同盟内更改": "Difficulty and rules are set in the room"
 }

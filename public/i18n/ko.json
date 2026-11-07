@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1558 of 1776 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1575 of 1793 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false,
@@ -1795,5 +1795,22 @@
   "{n}席": "{n}석",
   "不能少于已入座的观战者": "이미 앉은 관전자 수보다 적게 할 수 없습니다",
   "点击进入": "탭하여 시작",
-  "点击跳过": "탭하여 건너뛰기"
+  "点击跳过": "탭하여 건너뛰기",
+  "S.W.E.E.P.报告": "S.W.E.E.P. 보고서",
+  "S.W.E.E.P.报告即将开放": "S.W.E.E.P. 보고서는 곧 열립니다",
+  "S.W.E.E.P.报告：盟约、策略与敌方资料": "S.W.E.E.P. 보고서: 맹약·전략·적 자료",
+  "不限时": "시간 제한 없음",
+  "开": "켬",
+  "关": "끔",
+  "加入同盟 · 观战": "방 참가 · 관전",
+  "同难度等待中的博士：{count}": "같은 난이도 대기 중인 박사: {count}",
+  "开始快速匹配": "빠른 매칭 시작",
+  "快速匹配": "빠른 매칭",
+  "成就统计": "업적 통계",
+  "等待 {n}": "대기 {n}명",
+  "自动匹配": "자동 매칭",
+  "规则、人数不限，进入空位": "규칙·인원 상관없이 빈자리로 들어갑니다",
+  "规则与人数随匹配到的队列而定": "규칙과 인원은 매칭된 대기열을 따릅니다",
+  "选择同盟方式": "연합 방식 선택",
+  "难度、规则在同盟内更改": "난이도·규칙은 방에서 변경"
 }

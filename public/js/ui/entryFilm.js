@@ -243,7 +243,9 @@ function run(allowed, mount) {
  */
 export async function playEntryFilm(opts = {}) {
   const { skip = () => false, mount = mountAllianceIntro } = opts;
-  if (reducedMotion()) return;
+  // reduced motion, or a page driven by automation (the browser tests: it waits for a tap and covers the page for
+  // seconds) unless the driver asks for it (a screen check sets __SP_ENTRY_FILM__ before the page loads)
+  if (reducedMotion() || (globalThis.navigator?.webdriver === true && globalThis.__SP_ENTRY_FILM__ !== true)) return;
   // once, as the title is entered — a later rotation does not get a second look
   if (touchDevice() && !phoneReady()) return;
   try { await data.load('assets'); } catch { return; }

@@ -17,7 +17,13 @@
 // 2026-11-02): every waiting Doctor gets the vote (room.matchFound `vote`) in the confirmation's place, a no keeps the
 // place in the queue, and the room.queueState that follows a vote says how it ended (`vote`: 'failed' / 'started').
 //
-// store ui.queue: null, or { difficulty, ruleset, size, count, since, party, found } — since in this page's clock; party = queued with
+// 快速匹配 (maintainer decision 2026-11-07; docs/rules/ui.md 「랜덤 매칭」 「빠른 매칭」): room.queue { difficulty, quick: true }
+// queues alone for any ruleset and room size of the difficulty; its queueState has `quick` and no ruleset / size, its
+// count is the whole difficulty's pool, and room.matchFound names the group's ruleset and size (+ quick: true).
+// lobby.queueCounts `quick` = { [difficulty]: n } of the quick queue alone (store ui.queueQuick; the other seasons' in
+// `seasons[id].quick`).
+//
+// store ui.queue: null, or { difficulty, ruleset, size, quick, count, since, party, found } — since in this page's clock; party = queued with
 // the room; found: null or { players, accepted, mine, deadline, total, vote } (deadline in server time for components.js
 // Countdown, total = the window's seconds for its gauge; vote: null, or { need, declined, no, by } of a 「바로 시작」 vote).
 //
@@ -119,7 +125,7 @@ export function installMatchQueue({ net: n = net } = {}) {
     if (msg.vote === 'started') toast(t('赞成的 {n} 名博士已先行开始，继续匹配', { n: msg.started ?? 0 }), 'info');
     else if (msg.vote === 'failed') toast(t('赞成未满 {n} 名，继续匹配', { n: LARGE_MIN_PLAYERS }), 'info');
     else if (prev?.found) toast(t('有博士未接受，继续匹配'), 'info');
-    setQueue({ difficulty: msg.difficulty, ruleset: msg.ruleset ?? null, size: seatsOf(msg.size), count: msg.count ?? 1, since: Date.now() - (msg.waitedMs ?? 0), party: !!msg.party, found: null });
+    setQueue({ difficulty: msg.difficulty, ruleset: msg.ruleset ?? null, size: seatsOf(msg.size), quick: msg.quick === true, count: msg.count ?? 1, since: Date.now() - (msg.waitedMs ?? 0), party: !!msg.party, found: null });
   });
   n.on('room.matchFound', (msg) => {
     const prev = store.get().ui.queue;
@@ -127,6 +133,8 @@ export function installMatchQueue({ net: n = net } = {}) {
     if (!prev?.found) flashTitle(msg.vote ? t('提前开始投票') : t('匹配成功'));
     setQueue({
       ...(prev || { difficulty: msg.difficulty, ruleset: msg.ruleset ?? null, size: seatsOf(msg.size), count: msg.players, since: Date.now(), party: false }),
+      // a 快速匹配 Doctor's group has the ruleset and size of the queue it filled: the confirmation names them
+      ...(msg.quick === true ? { quick: true, ruleset: msg.ruleset ?? null, size: seatsOf(msg.size) } : {}),
       found: { players: msg.players, accepted: msg.accepted, mine: !!msg.mine, deadline: serverNow() + msg.inMs,
         total: prev?.found?.total ?? Math.max(1, Math.ceil(msg.inMs / 1000)),
         vote: msg.vote ? { need: msg.need ?? LARGE_MIN_PLAYERS, declined: msg.declined ?? 0, no: !!msg.no, by: typeof msg.by === 'string' ? msg.by : null } : null },
@@ -141,7 +149,7 @@ export function installMatchQueue({ net: n = net } = {}) {
   // the waiting Doctors of every queue (the lobby's 同盟匹配 card): { [ruleset]: { [difficulty]: n } }, of the 8-player queues too
   const countsOf = (c) => (c && typeof c === 'object' ? c : null);
   // (the other offered 卫戍协议 seasons' in `seasons`: ui/season.js seasonQueueCounts)
-  n.on('lobby.queueCounts', (msg) => store.patch('ui', { queueCounts: countsOf(msg.counts), queueCounts8: countsOf(msg.counts8), queueCountsBy: countsOf(msg.seasons) }));
+  n.on('lobby.queueCounts', (msg) => store.patch('ui', { queueCounts: countsOf(msg.counts), queueCounts8: countsOf(msg.counts8), queueQuick: countsOf(msg.quick), queueCountsBy: countsOf(msg.seasons) }));
   n.on('welcome', (msg) => { if (!msg.resumed && store.get().ui.queue) setQueue(null); });
   // while queued the page's audio stays up in a hidden tab; the title blink ends with its group
   store.subscribe((s, prev) => {
@@ -159,6 +167,10 @@ export function installMatchQueue({ net: n = net } = {}) {
  */
 export const joinQueue = (difficulty, ruleset, size = MAX_SEATS, season = null) =>
   net.request('room.queue', { difficulty, ...(ruleset ? { ruleset } : {}), ...(size !== MAX_SEATS ? { size } : {}), ...(season ? seasonFields(season) : {}) });
+
+/** room.queue for 快速匹配: the difficulty (and season) alone. @returns {Promise<any>} */
+export const joinQuickQueue = (difficulty, season = null) =>
+  net.request('room.queue', { difficulty, quick: true, ...(season ? seasonFields(season) : {}) });
 
 /** room.queueVote: propose 「바로 시작」 in the 8-player queue the player waits in (header). @returns {Promise<any>} */
 export const proposeStart = () => net.request('room.queueVote', {});
@@ -188,8 +200,11 @@ export function MatchQueueDialog() {
   };
   const cancel = () => run('cancel', { t: 'room.unqueue' });
   const cap = seatsOf(queue.size);
-  const name = t(DIFFICULTY_NAMES[queue.difficulty] || queue.difficulty) + (queue.ruleset ? ` · ${presetName(queue.ruleset)}` : '')
-    + (cap !== MAX_SEATS ? ` · ${t('{n} 人同盟', { n: cap })}` : '');
+  // waiting for 快速匹配: no ruleset or size yet; once a group forms its ruleset and size (「经典 · 4人」)
+  const quickWait = queue.quick && !queue.found;
+  const name = t(DIFFICULTY_NAMES[queue.difficulty] || queue.difficulty) + (quickWait ? ` · ${t('快速匹配')}`
+    : (queue.ruleset ? ` · ${presetName(queue.ruleset)}` : '') + (queue.quick || cap !== MAX_SEATS ? ` · ${t('{n}人', { n: cap })}` : ''))
+    + (queue.quick && queue.found ? ` · ${t('快速匹配')}` : '');
 
   if (queue.found?.vote) {
     const f = queue.found, v = f.vote;
@@ -236,8 +251,10 @@ export function MatchQueueDialog() {
       <div class="queue-dialog__clock num">${mmss(Date.now() - queue.since)}</div>
       <div class="queue-dialog__lines">
         <span class="queue-dialog__mode">${t('同盟模拟')} · ${name}</span>
-        <span>${t('排队中的博士：{count}/{n}', { count: Math.min(cap, queue.count), n: cap })}</span>
-        <span class="t-lo">${t('凑齐 {n} 名博士后开始', { n: cap })}</span>
+        ${quickWait ? html`<span>${t('同难度等待中的博士：{count}', { count: queue.count })}</span>
+          <span class="t-lo">${t('规则、人数不限，进入空位')}</span>`
+        : html`<span>${t('排队中的博士：{count}/{n}', { count: Math.min(cap, queue.count), n: cap })}</span>
+          <span class="t-lo">${t('凑齐 {n} 名博士后开始', { n: cap })}</span>`}
         ${cap > MAX_SEATS ? html`<span class="t-lo">${t('满 {n} 名可投票提前开始', { n: LARGE_MIN_PLAYERS })}</span>` : null}
       </div>
     </div>
