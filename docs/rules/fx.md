@@ -3893,8 +3893,15 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - **크리스틴 재능 1**: `AuraAbility`의 `_effects` `christ_buff_01`을 붙을 때 주인에게 만든다. 배치된 동안 그녀 위에 쥔다(`christ:aura`). `_createEffectOnDummy`가 켜져 있어 공식은 정비 위치의 더미에도 만들지만, 이펙트 층은 정비 위치를 그리지 않아 안 나온다.
 - **무스**: S2 `common_ignite_attack`을 공용 번들에서 뽑아 그녀 묶음에 넣었다(아레나에서 스킬 시작에 나옴). S1 `frncat_s_1`의 `common_next_atk_buff`는 그 공격이 도는 동안 그녀에게 난다(2026-11-06, 공식 클라에서 확인): `NextAttackOrCombatSkill.OnBeforeAttack`이 공격을 시작할 때 스킬 능력을 붙이고(그 패시브 버프가 이 이펙트), `NextAtkAdditionSkill.CancelAfterAttack`이 끝나는 이유를 가리지 않고 뗀다. 시뮬의 공격력 버프는 타격부터라 그대로 두고, 휘두름부터 끝까지 표시용 버프 `skill:frncat:nextAtk`를 둔다(대상을 잃어 스킬이 취소될 때도 꺼짐). 아레나 2배속에서 스킬 공격마다 한 번씩 나오는 것을 확인(그림 대조는 공식과 안 함).
 - 확인: `test/render/pick-moment-fx.test.js`, `test/content/op_brigid.test.js`, `test/content/op_pianst.test.js`, 아레나 2배속 사건·프리팹 순서(W S1·S3·재능, 클로저 S3 오른쪽·아래, 브리지드 S2, 크리스틴, 체르니 S2, 리프레사 S2, 무스 S2). 공식 화면과는 안 나란히 봄. [화면 미확인]
-- 위셔델 키트 사건의 그림 (2026-11-07, 공식 클라에서 확인, `kitofficial.js`·`fxgame.js`, 시험 `test/render/kit-event-fx.test.js`):
-  - S2 과부하 추가 3발(`bombardShell`): 모드 `S2_Overload`의 `MultiRangedAttack`(`_additionalTimes` 3)이 쏘는 것은 본탄과 같은 `projectile_chr_wisdel_s2`다. `_mainEffect`가 없고 `_immediatelyReach`라 날아가는 것이 없다. 르무엔 S3 포탄 대체 그림을 끄고, 타격은 그 순간 `dmg`의 `wisdel_skill_02_hit_02`·`_hit`에 맡긴다. `_hit`이 일제 사격 일부에서 빠지는 것은 공식의 같은 자리 3개 상한이다(「이펙트 개수 상한」).
-  - 혼령의 그림자 공격(`burst`): `sktok_wisdel_wward`의 `_castEffects` `token_wisdel_attack_01_start`, 투사체 `projectile_chr_wisdel_token`(`_speed` 15)의 `token_wisdel_attack_01_line`, `_effectsWhenHit` `token_wisdel_attack_01_hit`. 프리팹은 `btl_pfb_fx_token_2`에 있어 뽑혀 있지 않았고, 소환물 이름에는 자기 번들이 없어 사건에 `src`(그녀)를 넣어 찾는다. 등장(`summon`)도 `src`로 절차 대체를 끈다. 함께 빠져 있던 `token_wisdel_buff_01`(`btl_pfb_fx_token_3`, `token_wisdel_passive[to_host]`)도 뽑았다.
-  - [추정·화면: 시뮬은 그림자의 타격을 한 순간에 처리해, 공식처럼 시전 뒤 공격 프레임을 기다리지 않고 시전·선·타격이 그 순간부터 나온다. 선의 `_throwEffect`·`_extendLenth` 15는 공식 화면과 대조하지 않았다]
-- 키치세이(새 시즌) S2의 상태 이펙트 (2026-11-07, 공식 클라에서 확인): `kichi_skchr_02[debuff]`의 둘째 상태 `skchr_kichi_02[unmovable]`이 `overrideEffectKey` `kichi_skill_02_buff_02`를 대상에게 건다(`fxstatus.js SOURCE_FX.bind`). 이름 규칙이 같은 프리팹을 시전 때 그녀에게도 틀어 `KIT_OWNED`에 넣었다. 셋째 상태 기절은 그 칸이 `overrideEffectKey`가 아니라 `overrideKey`라 공용 `buff_stun` 그대로다. 아레나 2배속에서 정지 → 속박 → 기절 순서를 기록으로 확인, 그림은 공식과 대조 안 함.
+
+## 위셔델 키트 사건의 그림 (2026-11-07, 공식 클라에서 확인)
+
+`kitofficial.js`·`fxgame.js`, 시험 `test/render/kit-event-fx.test.js`.
+
+- S2 과부하 추가 3발(`bombardShell`): 모드 `S2_Overload`의 `MultiRangedAttack`(`_additionalTimes` 3)이 쏘는 것은 본탄과 같은 `projectile_chr_wisdel_s2`다. `_mainEffect`가 없고 `_immediatelyReach`라 날아가는 것이 없다. 르무엔 S3 포탄 대체 그림을 끄고, 타격은 그 순간 `dmg`의 `wisdel_skill_02_hit_02`·`_hit`에 맡긴다. `_hit`이 일제 사격 일부에서 빠지는 것은 공식의 같은 자리 3개 상한이다(「이펙트 개수 상한」).
+- 혼령의 그림자 공격(`burst`): `sktok_wisdel_wward`의 `_castEffects` `token_wisdel_attack_01_start`, 투사체 `projectile_chr_wisdel_token`(`_speed` 15)의 `token_wisdel_attack_01_line`, `_effectsWhenHit` `token_wisdel_attack_01_hit`. 프리팹은 `btl_pfb_fx_token_2`에 있어 뽑혀 있지 않았고, 소환물 이름에는 자기 번들이 없어 사건에 `src`(그녀)를 넣어 찾는다. 등장(`summon`)도 `src`로 절차 대체를 끈다. 함께 빠져 있던 `token_wisdel_buff_01`(`btl_pfb_fx_token_3`, `token_wisdel_passive[to_host]`)도 뽑았다.
+- [추정·화면: 시뮬은 그림자의 타격을 한 순간에 처리해, 공식처럼 시전 뒤 공격 프레임을 기다리지 않고 시전·선·타격이 그 순간부터 나온다. 선의 `_throwEffect`·`_extendLenth` 15는 공식 화면과 대조하지 않았다]
+
+## 키치세이(새 시즌) S2의 상태 이펙트 (2026-11-07, 공식 클라에서 확인)
+
+`kichi_skchr_02[debuff]`의 둘째 상태 `skchr_kichi_02[unmovable]`이 `overrideEffectKey` `kichi_skill_02_buff_02`를 대상에게 건다(`fxstatus.js SOURCE_FX.bind`). 이름 규칙이 같은 프리팹을 시전 때 그녀에게도 틀어 `KIT_OWNED`에 넣었다. 셋째 상태 기절은 그 칸이 `overrideEffectKey`가 아니라 `overrideKey`라 공용 `buff_stun` 그대로다. 아레나 2배속에서 정지 → 속박 → 기절 순서를 기록으로 확인, 그림은 공식과 대조 안 함.
