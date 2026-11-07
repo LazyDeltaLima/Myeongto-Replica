@@ -44,6 +44,7 @@ import { uiUrl } from '../ui/assetUrls.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { GuideButton, openGuide } from '../ui/guide.js';
 import { openStats } from './stats.js';
+import { SweepReport } from './sweep.js';
 import { Emblem } from './title.js';
 import { SettingsButton } from '../ui/settings.js';
 import { LoadoutButton } from './loadout.js';
@@ -814,6 +815,7 @@ export function LobbyScreen() {
   const [quick, setQuick] = useState(() => loadPref('lobby.quick', false) === true);
   // the open dialog: 'solo' | 'match' (选择模拟协议) | 'coop' (创建同盟) | 'join' (加入同盟 · 观战, AllianceSelect's join view)
   const [open, setOpen] = useState(null);
+  const [sweepOpen, setSweepOpen] = useState(false);
   // the picked 卫戍协议 season (ui/season.js): rooms are created and queued in it, its queues' Doctors are shown
   const season = useStore(pickedSeason);
   const queueCounts4 = useStore((s) => seasonQueueCounts(s, pickedSeason(s), false));
@@ -894,7 +896,6 @@ export function LobbyScreen() {
   // the queue's waiting Doctors per difficulty card: its ruleset × size queue, or with 快速匹配 the whole difficulty
   const waiting = matching ? (d) => (quick ? quickWaiting(queueCounts4, queueCounts8, queueQuick, d) : queueCountOf(big ? queueCounts8 : queueCounts4, queueRuleset, d)) : null;
   const totalWaiting = countAll(queueCounts4) + countAll(queueCounts8) + countAll(queueQuick);
-  const sweepSoon = () => toast(t('S.W.E.E.P.报告即将开放'), 'info');
 
   return html`<div class="screen lobby-screen lobby-hub">
     <${HubBackdrop} />
@@ -923,7 +924,7 @@ export function LobbyScreen() {
         <${HubNotes} short=${shortScreen} />
       </aside>
       <aside class="hub-right">
-        <${SweepPlate} onClick=${sweepSoon} />
+        <${SweepPlate} onClick=${() => setSweepOpen(true)} />
         <${LoadoutButton} from="lobby" size="lg" class="hub-plate hub-plate--loadout lobby-loadout" label=${t('干员调配')} />
         <${SidePlate} class="hub-plate--ach" glyph=${html`<${AchBadge} />`} label=${t('成就统计')} onClick=${openStats} />
         <${SidePlate} class="hub-plate--join" glyph=${html`<${Icon} name="key" />`} label=${t('加入同盟 · 观战')} onClick=${() => setOpen('join')} />
@@ -942,6 +943,7 @@ export function LobbyScreen() {
       hint=${matching && quick ? t('规则与人数随匹配到的队列而定') : null}
       rules=${html`<${ProtoRules} roomMode=${roomMode} ruleset=${shownRuleset} onRuleset=${pickRuleset} onGear=${editCustom} customRules=${customRules}
         difficulty=${difficulty} size=${size} onSize=${pickSize} quick=${matching && quick} onQuick=${pickQuick} counts4=${queueCounts4} counts8=${queueCounts8} />`} />` : null}
+    ${sweepOpen ? html`<${SweepReport} onClose=${() => setSweepOpen(false)} />` : null}
     <${MatchQueueDialog} />
     <${CustomRulesDialog} />
   </div>`;
