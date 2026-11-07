@@ -1042,13 +1042,55 @@ export function hasBattleEffect(rec, scope = null) {
  * Install the battle effects of item `itemId` on `u`. `lent` grants use their own buff keys (`@lend`).
  * Returns the grant `{ id, key, lent, dispose() }` or null when the item has no battle part.
  */
+/** One global buff `b` of an item on carrier `u`, registered on the item's scope `S`. */
+function applyItemBuff(battle, u, b, S) {
+  if (STAT_BUFFS.has(b.bbKey)) {
+    const mods = statMods(b.p);
+    if (mods) S.stat(`stat:${b.bbKey}`, mods);
+  } else if (BY_BUFF[b.bbKey]) BY_BUFF[b.bbKey](battle, u, b.p, S);
+}
+
+/**
+ * The item global buffs whose per-unit buff keeps the client's override group (`[uc]globalbuffs.ab`: `disableOverride` 0,
+ * `overrideType` DEFAULT, 공식 클라에서 확인): 萨尔贡浓茶's and 家族徽章's SP regeneration (buff `act1autochess_acarm050_global_buff`)
+ * and 海沟实验体's fixed damage block (`[g]halfidle_block_fixed_damage`). The client's `Buff.OverrideGroup` queues the buffs of
+ * one key on a unit and enables only the first one not finished — so an operator carrying two of them (two copies, or
+ * 萨尔贡浓茶 with 家族徽章) gets the first one's value only, and the next one takes over when the first goes.
+ */
+const OVERRIDE_GROUPED = new Set(['act1autochess_equip_acarm050_global_buff', 'halfidle_block_fixed_damage']);
+
+/** Queue item buff `b` (scope `S`) in carrier `u`'s override group of its key: applied now if first, else when the ones before it go. */
+function joinOverrideGroup(battle, rt, u, b, S) {
+  const groups = rt.override || (rt.override = new Map());
+  let byKey = groups.get(u);
+  if (!byKey) { byKey = new Map(); groups.set(u, byKey); }
+  let q = byKey.get(b.bbKey);
+  if (!q) { q = []; byKey.set(b.bbKey, q); }
+  const entry = { b, S };
+  q.push(entry);
+  if (q.length === 1) applyItemBuff(battle, u, b, S);
+  S.onDispose(() => {
+    const i = q.indexOf(entry);
+    if (i < 0) return;
+    q.splice(i, 1);
+    if (i === 0 && q.length) applyItemBuff(battle, u, q[0].b, q[0].S);
+  });
+}
+
 export function installItem(battle, u, itemId, { lent = false } = {}) {
   const rec = itemRecord(itemId, battle);
   if (!isOp(u) || !hasBattleEffect(rec, battle)) return null;
   const rt = runtime(battle);
   const gm = grantsOf(rt, u);
   const gid = lent ? `lend:${itemId}` : `own:${itemId}:${gm.size}`;
-  const S = new Scope(battle, u, `item:${itemId}${lent ? '@lend' : ''}`);
+  // a further own copy of the same item (two advanced 源石溶剂 on one operator; upstream #902) installs under its own keys,
+  // so every copy counts: the client's per-unit buffs of the item global buffs (battle/prefabs `[uc]globalbuffs.ab`,
+  // 공식 클라에서 확인) all set `disableOverride` — no override group — but the two of OVERRIDE_GROUPED. Until 2026-11-07
+  // the second copy's buffs replaced the first's. The first copy keeps the plain tag; a lent copy keeps `@lend`
+  // (lending the same id again only refreshes it).
+  const copies = lent ? 0 : [...gm.values()].filter((g) => !g.lent && g.id === itemId).length;
+  const tag = lent ? '@lend' : copies ? `#${(rt.copySeq = (rt.copySeq || 0) + 1)}` : '';
+  const S = new Scope(battle, u, `item:${itemId}${tag}`);
   const key = itemKeyOf(itemId);
   const grant = { gid, id: itemId, key, lent, scope: S, timer: null, dispose: null };
   grant.dispose = () => {
@@ -1060,10 +1102,8 @@ export function installItem(battle, u, itemId, { lent = false } = {}) {
   gm.set(gid, grant);
   try {
     for (const b of buffsOf(rec)) {
-      if (STAT_BUFFS.has(b.bbKey)) {
-        const mods = statMods(b.p);
-        if (mods) S.stat(`stat:${b.bbKey}`, mods);
-      } else if (BY_BUFF[b.bbKey]) BY_BUFF[b.bbKey](battle, u, b.p, S);
+      if (OVERRIDE_GROUPED.has(b.bbKey)) joinOverrideGroup(battle, rt, u, b, S);
+      else applyItemBuff(battle, u, b, S);
     }
     const h = hammerInfo(key, battle);
     if (h) {

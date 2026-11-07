@@ -2728,6 +2728,18 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   「늦게 배치한 쪽」을 넣었고, 클라 정렬도 같은 결론에 도발 단계가 먼저 온다.
 - 테스트 `test/content/kits_alt_t5.test.js` 「缇缇 S2 封护: an HP-ratio tie goes to the higher 仇恨值…」.
 
+### 같은 장비 둘은 둘 다 효과가 있다 — 덮어쓰기 묶음인 둘만 하나 (upstream `4505fb6f`, upstream #902)
+
+- 규칙: 한 오퍼레이터가 같은 장비를 둘 가지면 둘 다 효과를 낸다(원암 용제 고급 둘 = 공격력 +60 % + 60 %, 초당 −120; 빅토리아 해머 둘도 겹침; `items/battle.js installItem`의 사본 키
+  `item:<id>#n`). 단 두 효과는 **오퍼레이터마다 하나만** 켜진다: 사르곤 농차·패밀리 배지의 SP 자연 회복(같은 버프 — 둘을 함께 들어도 먼저 단 것 하나)과 해구 실험체의 고정 피해 감소
+  (`OVERRIDE_GROUPED`; 먼저 단 것이 사라지면 다음 것이 켜짐). 해구 실험체의 에기르(맹약) 반격은 사본마다다. 전에는 같은 장비의 둘째가 첫째를 덮어써 하나만, 다른 장비끼리는 SP 회복도 겹쳤다.
+- 근거(공식 클라에서 확인): 장비의 전역 버프 프리팹(`[uc]globalbuffs.ab`, 장비 표 `bbStr.key`)이 오퍼레이터에게 거는 버프는 모두 `disableOverride` 1(덮어쓰기 묶음 밖 — 사본마다
+  따로)인데, `act1autochess_acarm050_global_buff`(SP 회복)과 `[g]halfidle_block_fixed_damage`만 0·`DEFAULT` — 같은 키의 버프는 줄을 서고 끝나지 않은 첫 것만 켜진다
+  (`Buff.OverrideGroup`, 「버프 덮어쓰기 그룹」). `GlobalBuff.TryAddBuff`는 그 프리팹의 `_buffs`를 그대로 건다(장비 하나 = 전역 버프 하나, 횟수 제한은 그 전역 버프 안에서만).
+  upstream은 사본 전부 겹침을 [추정]으로 넣었다.
+- [추정·미조사: 나란투야(전략)가 빌려 준 장비(`lendItemEffects`)가 자기 것과 같은 장비일 때 — 지금은 빌린 것도 따로 겹침, 덮어쓰기 묶음 둘은 같은 줄에 섬; 빌려 주기의 클라 경로를 안 읽음]
+- 테스트 `test/content/items.test.js` 「two advanced 源石溶剂 on one operator…」·「override-grouped item buffs…」.
+
 ## 오퍼레이터 스킬 발동 시점 묶음 B (2026-10-29)
 
 오퍼레이터 스킬이 언제 켜지는지의 남은 추정 가운데 오퍼레이터별 작은 것들. 모두 공식 클라에서 확인(프리팹·버프 템플릿·자동 조작 코드).
