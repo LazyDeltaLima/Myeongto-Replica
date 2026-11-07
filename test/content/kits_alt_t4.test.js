@@ -965,7 +965,7 @@ test('泥岩 S1 防御力强化·γ型 (TAKE_DAMAGE) and S3 秽壤的血脉 (闭
     h.run(b3.sleep - 2.5);
     assert.equal(u.hp >= hp0 - 1e-6, true, `${id}: no damage while dormant`);
     assert.equal(u.blocking.length, 0, `${id}: blocks nobody while dormant`);
-    assert.equal(h.hooksOf('attack').filter((c) => c.attacker === u && c.t > t0).length, 0, 'cannot act');
+    assert.equal(h.hooksOf('attack').filter((c) => c.attacker === u && c.t > t0 + 1.5).length, 0, 'cannot act');   // (a swing its mode switch detached plays on: 1.5 s covers it, ai.js updateAlly `swingOff`)
     const near = [0, 1, 2].map(() => h.spawn('enemy_dummy', { pos: [9, 5] }));   // on her tile before she wakes
     h.step();
     assert.equal(u.blocking.length, 0, `${id}: not blocked before she wakes`);
@@ -975,8 +975,8 @@ test('泥岩 S1 防御力强化·γ型 (TAKE_DAMAGE) and S3 秽壤的血脉 (闭
     for (const e of near) assert.ok(e.s.flags.stun, 'ground enemies around stunned');
     approx(u.s.atk, u.base.atk * (1 + b3.atk) * (u.findBuff('mudrok:module') ? 1 + (u.def.traitBb.atk ?? 0) : 1), 1e-6, 'ATK');
     approx(u.s.interval, (u.base.bat + b3.base_attack_time) * 100 / u.s.aspd, 1e-6, 'BAT −0.3 s');
-    assert.ok(h.runUntil(() => h.hooksOf('attack').some((c) => c.attacker === u && c.t > t0), 5));
-    assert.equal(h.hooksOf('attack').find((c) => c.attacker === u && c.t > t0).targets.length, 3, 'attacks every blocked enemy');
+    assert.ok(h.runUntil(() => h.hooksOf('attack').some((c) => c.attacker === u && c.t > t0 + 1.5), 5));
+    assert.equal(h.hooksOf('attack').find((c) => c.attacker === u && c.t > t0 + 1.5).targets.length, 3, 'attacks every blocked enemy');
     assert.ok(h.runUntil(() => u.blocking.length === 3, 4), `${id}: she blocks again once awake (their stun over)`);
     h.runUntil(() => !u.skill.active, sk.duration);
     assert.ok(!u.findBuff('mudrok:awake'));

@@ -91,7 +91,7 @@ export default {
               unit.mem.extraAttack = true;
               let hit = false;
               // signal 'T.1': the client fires this shot as her talent ability (its 'atk' events say so — docs/SIM.md)
-              try { hit = battle.forceAttack(unit, null, { noAmmo: true, signal: 'T.1' }); } finally { unit.mem.extraAttack = false; }
+              try { hit = battle.forceAttack(unit, null, { noAmmo: true, signal: 'T.1', face: 'D' }); } finally { unit.mem.extraAttack = false; }
               if (hit) battle.fx('extraAttack', { x: unit.x, y: unit.y, id: unit.id });
             }, { owner: unit });
           }, { owner: unit });

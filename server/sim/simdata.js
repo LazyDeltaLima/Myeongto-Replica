@@ -321,6 +321,10 @@ export function normAttackAnim(a) {
     det: a.det === 1,
     // a 要塞's ranged swing, when its clip times differently from the melee one (ai.js attackTiming)
     ...(a.ranged ? { ranged: normAttackAnim(a.ranged) } : null),
+    // a mode's separate `_combat` ability: its own cooldown and clip while the unit blocks or is blocked (ai.js syncCombat)
+    ...(a.combat ? { combat: normAttackAnim(a.combat) } : null),
+    // the mode a running skill switches to on the way (ai.js attackClipOf `atkSub`)
+    ...(a.sub ? { sub: normAttackAnim(a.sub) } : null),
     // a summon's ability that plays no clip (ai.js attackTiming)
     ...(a.noClip ? { noClip: true } : null),
   };

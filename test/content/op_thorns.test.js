@@ -146,7 +146,7 @@ test('S2 护身尖刺 (MANUAL, 技能范围 3-1, DEFAULT on its box): no attack,
     assert.deepEqual(u.liveRangeGrid, formOf(tier, elite).rangeGrid, `T${tier}: the card keeps his 3-12`);
     const n0 = from(h, u).length, cast = h.b.time;
     h.run(6);
-    assert.equal(from(h, u, (c) => c.dmg.isAttack && c.t >= cast).length, 0, `T${tier}: 停止攻击`);
+    assert.equal(from(h, u, (c) => c.dmg.isAttack && c.t >= cast + 1.5).length, 0, `T${tier}: 停止攻击`);   // (a swing its mode switch detached plays on: 1.5 s covers it, ai.js updateAlly `swingOff`)
     const hurt = h.hooksOf('damaged').filter((c) => c.target === u && c.source === shooter);
     const spikes = from(h, u, (c) => tagged(c, 'thorns:spike')).filter((c) => from(h, u).indexOf(c) >= n0);
     assert.ok(hurt.length >= 4, `T${tier}: ${hurt.length} hits from the shooter`);

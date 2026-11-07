@@ -57,7 +57,7 @@ test('data: every enemy with a real attack clip carries it as attackAnim (the cl
   }
   assert.ok(n > 200, `${n} enemies`);
   // the ranged attackers of the report; `max` = their attack ability's _maxAnimScale (tools/assets/local-attack-timing.json)
-  assert.deepEqual(enemies.enemy_1019_jshoot.attackAnim, { clip: 'Attack', dur: 1, hit: 0.533, max: 1 });
+  assert.deepEqual(enemies.enemy_1019_jshoot.attackAnim, { clip: 'Attack', dur: 1, hit: 0.533, max: 1, combat: { clip: 'Attack', dur: 1, hit: 0.533, max: 1.1 } });
   assert.deepEqual(enemies.enemy_1168_dumage.attackAnim, { clip: 'Attack', dur: 1.2, hit: 0.633, max: 1 });
   // the timing fields follow the client's attack ability (the blocked one, Combat, for a melee enemy)
   const timing = readJson('tools/assets/local-attack-timing.json').enemies;

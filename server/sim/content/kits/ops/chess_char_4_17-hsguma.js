@@ -30,7 +30,7 @@ export default withDefaults({
             const { battle, unit } = ctx;
             channel.tick(ctx, () => {
               const targets = battle.enemiesInKeys(unit.rangeKeys, unit, battle.effectiveProfile(unit));
-              if (targets.length) battle.forceAttack(unit, targets);
+              if (targets.length) battle.forceAttack(unit, targets, { face: null });   // ChannelingMeleeAttack turns it nowhere
             });
           },
           onEnd({ unit }) { channel.end(unit); },

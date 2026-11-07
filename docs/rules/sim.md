@@ -1153,7 +1153,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   시전한 스킬이 모드를 바꾼 경우). 데이터: `tools/local-extract/attack_timing.py` `det`(`_interruptAbilityOnDetach`) → `attackAnim.*.det`(1일 때만) —
   풀 오퍼레이터의 Default 공격 163개 중 69개·다른 모드 공격 278개 중 134개가 1(EN·CN 클라; 에벤홀츠 `char_4046_ebnhlz` 전부 0, 왕·첸 더 던스트릭·로고스 1). 예: 에벤홀츠 S1은 시전 순간 돌던 Default
   쿨다운(최대 3 s)과 3 s 클립의 후딜을 기다리지 않고 S1 공격을 바로 휘두른다(이전: 기다렸다), 스킬이 끝나면 Default 공격도 바로.
-  [추정·미조사: 떼어진 능력의 휘두름을 기절·缴械가 끊는지 — 공격 상태를 나갈 때 끊는 것은 지금 모드의 공격뿐(`AttackState.OnExit`); 시뮬은 같이 끊는다]
+  떼어진 능력의 휘두름은 기절·缴械에도 끊기지 않는다(2026-11-07, 공식 클라에서 확인): 상태를 나갈 때 끊는 것은 지금 모드의 공격뿐(`AttackState.OnExit`)이고 `Ability.DoDetach`는 `_interruptAbilityOnDetach`가 1일 때만 끊는다. 쓰러지거나 물러나면 없어진다(`battle/deploy.js`). [추정·엔진: 기절로 클립이 바뀐 뒤 OnAttack이 오는지, 휘두름 길이까지 기다리는지는 애니메이터의 몫이다. 시뮬은 제 시각에 친다]
   확인: `test/sim/attack-timing.test.js` 「a skill that switches the attack mode」·「a mode switch during a swing」·「a new attack interval re-times」.
 - **끊긴 휘두름은 쿨다운을 돌려주지 않는다**: 기절·빙결·수면·浮空·失衡, 숨음(적), 缴械·恐惧·战栗(막힘), 퇴각 — `Ability.InterruptIfNot` =
   `FinishIfNot(INTERRUPTED, false)`, 쿨다운 그대로 → 끊긴 휘두름 시작부터 간격 한 번 뒤 다음 휘두름. 이전: 적은 기절이 풀리면 곧바로 새 휘두름.
@@ -1178,12 +1178,13 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   (ON_CALCULATE_DAMAGE Dice)이라 그대로 착탄 때 굴림(`dmg.isSkill`). 전엔 모든 공격을 착탄 때 굴렸다 — 맞히는 확률·배율은 같고 난수 순서만 바뀐다
   (그녀가 있는 golden 13개 시나리오가 움직임: roster 009·011·030, bonds arcane·mira·stead-low·swift, fields boss 2·4·6·hidden 8·10, matches
   coop2-NORMAL-70-diy). 대상이 쏜 뒤 죽으면 그 굴림은 버려진다(클라도 시전 때 고름).
-- [추정·미조사: 모드가 없는 스킬의 켜짐·꺼짐이 진행 중인 공격 능력에 무엇을 하는지 안 읽음] 휘두름 중 스킬 모드가 없는 스킬이 켜지거나 꺼지면(공격 프로필이
-  바뀜) 타격 때 대상을 다시 고른다 — 스킬 모드가 있는 스킬은 위 「모드가 바뀌면」대로 옛 휘두름이 제 프로필로 친다. 클립 이름: `ThreePartOneshotAnimation`의 `_oneshotAnim`(`_beginAnim`은 아래 「첫 공격 begin」), 스킨 키 표로 푼 `clip`(「즉발 스킬의 시전」), 표에 없으면 `<key>_Loop`, 그래도 없으면
+- 휘두름 중 스킬 모드가 없는 스킬이 켜지거나 꺼져도 대상은 그대로다(2026-11-07, 공식 클라에서 확인): 타격은 능력의 `m_castTargets` 가운데 `ValidAndAlive`인 대상을 친다(`AbilityStandard.DoCastOnTargets`). 전에는 타격 때 다시 골랐다. 스킬 모드가 있는 스킬은 위 「모드가 바뀌면」대로 옛 휘두름이 제 프로필로 친다. 피해 프로필이 치료로, 치료가 피해로 바뀐 경우만(공식 능력이 아니라 키트의 프로필) 옛 대상을 쓸 수 없어 다시 고른다. 다음 공격을 바꾸는 스킬(`Character.RegisterReplacement`: 사리아 S1 치료, 矩 S1)이 휘두름 중에 켜지면 그 휘두름은 일반 공격으로 치고 충전을 쓰지 않는다. 전에는 대상을 다시 골라 그 휘두름이 스킬이 됐다. 클립 이름: `ThreePartOneshotAnimation`의 `_oneshotAnim`(`_beginAnim`은 아래 「첫 공격 begin」), 스킨 키 표로 푼 `clip`(「즉발 스킬의 시전」), 표에 없으면 `<key>_Loop`, 그래도 없으면
   렌더가 그 모드에 쓰는 클립(`anims.attack`/`anims.skills[i]`) — 왕 Default, 마운틴 S2·S3, 시·수르트·민트·플레임테일·파투스 스킬 모드 등 10개 능력. 적은 Default 모드의 능력 하나(형태별 클립은 기존 [ASSUMED]).
-- 아직 공식과 다른 것: 한 모드 안의 Attack/Combat 능력이 따로인 쿨다운(적·오퍼레이터 모두 — 우리는 모드당 하나), 키트가 따로 표시하는 스킬 중간 모드
-  전환(`shared/skill-modes.js SKILL_SUB_MODES`: 위셔델 S2 과부하 등 — 엔진이 모르는 전환은 쿨다운을 비우지 않음; 키트가 직접 비우는 것은 첸 더 던스트릭 S3·페넌스 S1), 적의 모드 전환. 저지가 생기면 오퍼레이터의 Attack 상태가 COMBAT으로 바뀌며 휘두름이 끊기는 것(`AttackState.OnTick`)과
-  르무엔 S2의 `_interuptIfTargetDead` 1 — 모델 안 함. `_timeMode` 1·2(오퍼 9개, 적 7개)도 공격 간격으로 계산. `_escapeTime` = 대상이 없어진 뒤 공격 자세(Attack 상태)에 머무는 시간 — `AttackState.<_StartAttack>b__5_0`이 `fixedPlayTime + escapeTime`을
+- **한 모드의 공격·저지 능력** (2026-11-07, 공식 클라에서 확인): 한 모드에 `_attack`과 `_combat`이 둘 다 있으면 쿨다운·클립이 따로다. 저지 대상을 찾는 `Character._FetchCombatTarget`은 `hasCombat`이 거짓이면 아무도 돌려주지 않으므로, 오퍼레이터 209명 대부분(`_attack`만)은 저지 중에도 공격 상태 그대로다. 둘 다 있는 오퍼레이터는 11명이다: 라플란드·실버애쉬·프로스트리프·레토·쏜즈·에이어스카르페·치우바이·이네스·Mon3tr(S3_Reborn)·토가와 사키코·로드·샤프(`attackAnim…combat`, `tools/local-extract/attack_timing.py`). 적은 공격·저지 능력이 다 있는 243종 중 원거리 27종이다(근접은 공격 상태에 들지 않음). `ai.js syncAllyCombat`·`enemyAttack`.
+  오퍼레이터: 공격 상태에서 저지 대상이 생기면 곧바로 COMBAT으로 가고(`AttackState.OnTick` `_CheckSwitchToCombat`, 교체 스킬이 시전 중이면 안 감), `OnExit`가 돌던 공격을 끊는다(휘두름·후딜 모두, 쿨다운은 돌려주지 않음). COMBAT의 대상은 첫 저지 대상이고(`_GetTarget`) 그 능력의 쿨다운이 끝나 있으면 바로 휘두른다. 저지가 끝나면 그 시전이 끝난 뒤 나간다(`CombatState.OnTick`). 두 쿨다운은 늘 함께 흐른다. 전에는 쿨다운 하나에 공격 클립 시각을 썼다(쏜즈 `Attack_1`, 실버애쉬 `Combat` 타격 0.733초 등을 틀리게 잼).
+  적: 공격 상태는 막혀도 끊기지 않고 시전을 끝낸다(`Enemy.States.AttackState.OnTick`). 그 뒤 `MoveState`가 COMBAT으로 보낸다. 클립은 그 능력의 `_animKey`, 모델에 없으면 공격 역할 클립.
+- **스킬 중간 모드 전환** (2026-11-07, 공식 클라에서 확인): `shared/skill-modes.js SKILL_SUB_MODES`의 모드 가운데 도중에 바뀌는 셋은 제 공격 능력과 클립을 쓴다(`attackAnim.skills[i].sub`, 키트의 `u.atkSub`): 위셔델 S2 `S2_Overload`(`Skill_2_Overload_Loop` 1.4초)·크루스 더 킨 글린트 S2 `S2_Sub`(`Skill_Loop_2` 0.6초)·비비아나 S3 `S3_2`. 바뀌는 순간은 위 「모드가 바뀌면」과 같다: 새 능력은 준비된 채 붙고, 옛 휘두름은 `det`대로 끊기거나 끝까지 친다. 전에는 쿨다운을 그대로 두고 옛 모드 클립으로 쟀다. 【이동】이 내려놓는 모드(`teleport`·`anchor`)는 스킬 내내 그 모드의 능력이다(「어느 자식·어느 모드의 클립인가」). 키트가 직접 비우는 것은 첸 더 던스트릭 S3·페넌스 S1.
+- 아직 공식과 다른 것: 적의 모드 전환(재생·되살아남 일부만 키트가 쿨다운을 비움). 르무엔 S2의 `_interuptIfTargetDead` 1 — 모델 안 함. `_timeMode` 1·2(오퍼 9개, 적 7개)도 공격 간격으로 계산. `_escapeTime` = 대상이 없어진 뒤 공격 자세(Attack 상태)에 머무는 시간 — `AttackState.<_StartAttack>b__5_0`이 `fixedPlayTime + escapeTime`을
   적고 `_NextAttackOrExit`는 대상이 없으면 그 뒤에야 IDLE로; 다음 공격 조건(대상·쿨다운)은 같고, 시뮬은 아래 「첫 공격 begin」의 첫 공격 판정에만 쓴다(그 능력만 `esc`), 스킬 쪽
   `BasicSkill.get_escapeTime`은 `_useEscapeTime`이 1인 스킬만 — 우리 풀 296개에 없음. 소환물(token)은 데이터가
   없어 휘두름 시작에 바로 타격.

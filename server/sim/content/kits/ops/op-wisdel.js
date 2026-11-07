@@ -288,10 +288,12 @@ function wisdel(bb, chess, def) {
           if (!m.olBase) return;
           unit.profile = m.olProfile = { ...m.olBase, atkScale: num(bb['attack@atk_scale_ol'], 0.7) };
           // the overload is a model form (charpack mode S2_Overload: render/units.js FORMS), ending with the skill
+          unit.atkSub = true;   // its attack ability from now: S2_Overload's, ready at once (ai.js updateAlly: `Unit.SwitchMode`)
           if (unit.form !== 'overload') { unit.form = 'overload'; battle.fx('wisdelOverload', { x: unit.x, y: unit.y, id: unit.id, form: 'overload' }); }
         } else if (m.olProfile) {
           if (unit.profile === m.olProfile) unit.profile = m.olBase;
           m.olProfile = m.olBase = null;
+          unit.atkSub = false;
           if (unit.form === 'overload') unit.form = null;   // (the client view ends it with the skill: endsWithSkill)
         }
       }, { owner: unit, immediate: true });

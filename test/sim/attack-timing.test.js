@@ -319,3 +319,153 @@ test('a mode switch during a swing: the old swing\'s recovery is not waited for;
     done(h);
   }
 });
+
+// ---------------------------------------------------------------------------------------------------------------
+// a mode's separate `_combat` ability, a mode switched to on the way (docs/rules/sim.md 「일반 공격 타이밍」)
+
+/** An operator with both abilities: Attack clip 1 s / strike 0.4, Combat clip 1 s / strike 0.2, interval 2 s. */
+function bothField({ swingSub = false } = {}) {
+  const combat = { clip: 'Combat', dur: 1, hit: 0.2, max: 1 };
+  const op = { ...chessRec({ id: 't_op', stats: { atk: 100, bat: BAT }, skill: { duration: 30 }, rangeGrid: [[0, 0], [0, 1], [0, 2]] }),
+    attackAnim: { base: { clip: 'Attack', dur: 1, hit: HIT, max: 1, combat },
+      skills: swingSub ? [null, { clip: 'Skill_1', dur: 1, hit: HIT, max: 1, det: 1, sub: { clip: 'Sub', dur: 0.5, hit: 0.1, max: 1 } }] : [] } };
+  const h = makeBattle({
+    defs: { chess: { t_op: op }, enemies: { e: enemyRec({ key: 'e', hp: 1e9, speed: 0 }) } },
+    units: [{ chessId: 't_op', row: 10, col: 4 }], enemies: [{ key: 'e', pos: [10, 5] }],
+    content: 'generic', kits: { t_op: () => ({ skill: { kind: 'duration', duration: 30, trigger: 'NEVER' } }) },
+    autoFinish: false, timeLimit: 60, hooks: ['attack'], captureNoisy: true,
+  });
+  return { h, u: h.unit('t_op') };
+}
+const blockIt = (h, u) => { h.step(); const e = h.b.enemies[0]; u.blocking.push(e); e.blockedBy = u; return e; };
+
+test('a separate combat ability: a block cuts the running attack, and its own cooldown and clip take over', () => {
+  const { h, u } = bothField();
+  h.run(0.2);
+  assert.ok(u.swing, 'an attack mid wind-up');
+  assert.equal(strikes(h, u).length, 0);
+  const cd = u.atkCd;
+  assert.ok(cd > 1.5, 'its cooldown is running');
+  blockIt(h, u);
+  const t0 = h.b.time;
+  h.step();
+  assert.ok(u.atkCombat, 'in the combat state');
+  h.run(0.2 + 2 * TICK);
+  assert.equal(strikes(h, u).length, 1, 'the wind-up cut, the combat swing ready at once');
+  near(strikes(h, u)[0], t0 + 0.2, 'at the combat clip\'s frame', 2);
+  assert.ok(u.atkCd > 1.5 && u.atkCdAlt < cd, 'each ability on its own cooldown, both running');
+  done(h);
+});
+
+test('a separate combat ability: the unblocked attack waits out its own cooldown, not the combat one\'s', () => {
+  const { h, u } = bothField();
+  h.run(0.5);
+  assert.equal(strikes(h, u).length, 1, 'the attack struck');
+  const e = blockIt(h, u);
+  h.run(0.3);
+  assert.equal(strikes(h, u).length, 2, 'the combat swing');
+  const altLeft = u.atkCdAlt;
+  // the block ends during the combat swing's recovery: it plays out first (`CombatState.OnTick`)
+  u.blocking.length = 0; e.blockedBy = null;
+  h.step();
+  assert.ok(u.atkCombat, 'still its cast');
+  h.runUntil(() => !u.atkCombat, 2);
+  assert.ok(u.atkCd > 0 && u.atkCd < altLeft, 'the attack\'s own cooldown has kept running');
+  done(h);
+});
+
+test('a mode the running skill switches to on the way (atkSub): its attack is ready at once, on its own clip; the old swing cut by `det`', () => {
+  const { h, u } = bothField({ swingSub: true });
+  h.run(1.2);
+  assert.ok(u.skill.activate('manual', { free: true }));
+  h.run(0.2);
+  assert.ok(u.swing, 'a skill-mode swing');
+  const n = strikes(h, u).length, t0 = h.b.time;
+  u.atkSub = true;
+  h.run(0.1 + 2 * TICK);
+  assert.equal(strikes(h, u).length, n + 1, 'the sub mode strikes on its own frame, the old wind-up cut');
+  near(strikes(h, u).at(-1), t0 + 0.1, 'its frame', 2);
+  done(h);
+});
+
+test('a detached swing plays on through a stun: the state\'s exit interrupts only the attached ability', () => {
+  const { h, u } = modeField();
+  h.run(0.1);
+  assert.ok(u.swing, 'a Default swing');
+  assert.ok(u.skill.activate('manual', { free: true }));
+  h.step();
+  assert.ok(u.swingOff, 'it plays on, detached');
+  h.b.applyStatus(u, 'stun', { duration: 2, source: null });
+  h.run(HIT);
+  assert.ok(strikes(h, u).length >= 1, 'it struck under the stun');
+  assert.equal(u.swingOff, null);
+  done(h);
+});
+
+test('a skill without a mode of its own starting during a swing leaves it its targets (`AbilityStandard.DoCastOnTargets`)', () => {
+  const op = { ...chessRec({ id: 't_op', stats: { atk: 100, bat: BAT }, skill: { duration: 30 }, rangeGrid: [[0, 0], [0, 1], [0, 2]] }),
+    attackAnim: { base: { clip: 'Attack', dur: 1, hit: HIT, max: 1 }, skills: [] } };
+  const h = makeBattle({
+    defs: { chess: { t_op: op }, enemies: { e: enemyRec({ key: 'e', hp: 1e9, speed: 0 }) } },
+    units: [{ chessId: 't_op', row: 10, col: 4 }], enemies: [{ key: 'e', pos: [10, 5] }, { key: 'e', pos: [10, 6] }],
+    content: 'generic', kits: { t_op: () => ({ skill: { kind: 'duration', duration: 30, trigger: 'NEVER', attack: { maxTargets: 2 } } }) },
+    autoFinish: false, timeLimit: 60, hooks: ['attack'], captureNoisy: true,
+  });
+  const u = h.unit('t_op');
+  h.run(1.2);
+  h.runUntil(() => u.swing, 2);
+  const swing = u.swing;
+  assert.equal(swing?.targets.length, 1, 'one target at the swing start');
+  assert.ok(u.skill.activate('manual', { free: true }));
+  h.run(HIT);
+  assert.ok(u.swing !== swing, 'the swing struck');
+  const c = h.hooksOf('attack').filter((x) => x.attacker === u).at(-1);
+  assert.equal(c.targets.length, 1, 'the skill\'s second target joins from its next swing');
+  assert.equal(c.isSkill, true, 'the strike is the skill\'s all the same');
+  done(h);
+});
+
+test('a kit\'s attack whose ability turns the unit elsewhere says so before its \'atk\' (Battle.forceAttack `face`)', () => {
+  const { h, u } = field();
+  h.step();
+  const evs = [];
+  const ev = h.b._ev.bind(h.b);
+  h.b._ev = (e) => { if ((e[0] === 'face' || e[0] === 'atk') && e[1] === u.id) evs.push(e); ev(e); };
+  h.b.forceAttack(u, null, { face: 'D' });
+  assert.deepEqual(evs.map((e) => e[0]), ['face', 'atk']);
+  assert.equal(evs[0][2], 'D');
+  evs.length = 0;
+  h.b.forceAttack(u, null, { face: null });
+  assert.deepEqual(evs.map((e) => e[0]), ['face', 'atk'], 'null: nowhere — the view keeps its facing');
+  evs.length = 0;
+  h.b.forceAttack(u, null);
+  assert.deepEqual(evs.map((e) => e[0]), ['atk'], 'left out: the view turns it at the strike');
+});
+
+test('an enemy with both abilities: its attack is not cut by a block; afterwards the combat ability, on its own cooldown', () => {
+  const rec = enemyRec({ key: 'e', hp: 1e9, atk: 100, speed: 0, range: 3, bat: 2 });
+  rec.attackAnim = { clip: 'Attack', dur: 1, hit: HIT, max: 1, combat: { clip: 'Combat', dur: 1, hit: 0.2, max: 1 } };
+  rec.applyWay = 'RANGED';
+  const h = makeBattle({
+    defs: { chess: { t_op: chessRec({ id: 't_op', stats: { atk: 0, maxHp: 1e9, def: 1e6 }, skill: null }) }, enemies: { e: rec } },
+    units: [{ chessId: 't_op', row: 10, col: 4 }], enemies: [{ key: 'e', pos: [10, 6] }],
+    content: 'none', autoFinish: false, timeLimit: 60,
+  });
+  const u = h.unit('t_op');
+  const swings = [];
+  const ev = h.b._ev.bind(h.b);
+  h.step();
+  const e = h.b.enemies[0];
+  h.b._ev = (x) => { if (x[0] === 'swing' && x[1] === e.id) swings.push(x[2]); ev(x); };
+  h.run(0.2);
+  assert.ok(e.swing, 'an attack mid wind-up');
+  e.blockedBy = u; u.blocking.push(e);
+  h.step();
+  assert.ok(e.swing, 'the block does not cut it');
+  assert.equal(e.atkCombat, false, 'its cast plays out first');
+  h.runUntil(() => e.atkCombat, 2);
+  assert.ok(e.atkCombat, 'then the combat ability');
+  h.runUntil(() => swings.length > 0, 1);
+  assert.ok(Math.abs(swings[0] - 0.2) < 1e-6, `on its own clip: ${swings[0]}`);
+  done(h);
+});

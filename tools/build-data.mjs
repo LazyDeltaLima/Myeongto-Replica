@@ -42,7 +42,7 @@ import { bandBondIds } from '../shared/bandBonds.js';
 import { statusKey, composeUnitRecord, standInRecord, unitForm } from '../shared/standIn.js';
 import { LOCAL_DIY_PICKS } from '../shared/local-diy.js';
 import { FULL_RANK, atRank, stripPotential } from '../shared/potential.js';
-import { skillModeIndex, SKILL_SUB_MODES } from '../shared/skill-modes.js';
+import { isOwnSubMode, skillModeIndex, SKILL_SUB_MODES } from '../shared/skill-modes.js';
 import { DEFAULT_SEASON, SEASONS, isSeasonId, seasonDataDir } from '../shared/seasons.js';
 import { nextSeasonAct } from './next-season.mjs';
 import { gamedataBase } from './gamedata-url.mjs';
@@ -2350,15 +2350,17 @@ const MIRRORED_PREFABS = new Set(['enemy_1196_msfyin']);
  * committed data/assets.json (written by tools/fetch-assets.mjs from the Spine skeletons; docs/ASSETS.md), so the sim
  * never reads client files; an enemy whose model the manifest lacks gets none (the sim falls back to ATTACK_PAUSE).
  */
-function enemyAttackAnim(manifest, spineId, timing = null) {
+function enemyAttackAnim(manifest, spineId, timing = null, own = false) {
   const sp = manifest?.enemies?.[spineId]?.spine;
   const a = sp?.anims?.attack;
   if (!a || typeof a.loop !== 'string' || a.via === 'idle') return null;
-  const dur = sp.animations?.[a.loop];
+  // `own`: the clip its ability names (a separate `_combat` ability), when the model has it
+  const clip = own && typeof sp.animations?.[timing?.anim] === 'number' ? timing.anim : a.loop;
+  const dur = sp.animations?.[clip];
   if (!(typeof dur === 'number' && dur > 0)) return null;
-  const h = sp.hits?.[a.loop];
+  const h = sp.hits?.[clip];
   const hit = Array.isArray(h) && Number.isFinite(h[0]) ? Math.min(dur, Math.max(0, h[0])) : null;
-  return { clip: a.loop, dur, ...(hit != null ? { hit } : {}), ...abilityTiming(timing) };
+  return { clip, dur, ...(hit != null ? { hit } : {}), ...abilityTiming(timing) };
 }
 
 /**
@@ -2523,10 +2525,12 @@ function opAttackAnim(ctx, charId, skillCount) {
     const dur = [ab.begin, role?.firstBegin ? role.begin : null].map((n) => (n ? sp.animations[n] : null)).find((d) => typeof d === 'number' && d > 0);
     return dur ? { begin: dur, ...(ab.esc > 0 ? { esc: ab.esc } : {}) } : {};
   };
-  // a 要塞's ranged swing where its clip times differently from the melee one (`ranged`, ai.js attackTiming)
+  // a 要塞's ranged swing where its clip times differently from the melee one (`ranged`, ai.js attackTiming); a mode's
+  // separate `_combat` ability, with its own cooldown and clip while the unit blocks (`combat`, ai.js syncCombat)
   const withRanged = (ab, clip) => {
     const r = clip && ab?.ranged ? clipOf(ab.ranged, null) : null;
-    return r && (r.dur !== clip.dur || r.hit !== clip.hit) ? { ...clip, ranged: r } : clip;
+    const c = clip && ab?.combat ? clipOf(ab.combat, null) : null;
+    return { ...clip, ...(r && (r.dur !== clip.dur || r.hit !== clip.hit) ? { ranged: r } : null), ...(c ? { combat: c } : null) };
   };
   const base = t.attack?.[0] ? withRanged(t.attack[0], clipOf(t.attack[0], sp.anims?.attack?.loop)) : null;
   const skillMode = ctx.charModes?.[charId]?.skillMode ?? null;
@@ -2534,7 +2538,13 @@ function opAttackAnim(ctx, charId, skillCount) {
   for (let i = 0; i < skillCount; i++) {
     const m = attackModeIndex(charId, t.modes, i, skillMode);
     const ab = m > 0 ? t.attack?.[m] : null;
-    skills.push(ab ? withRanged(ab, clipOf(ab, sp.anims?.skills?.[String(i)]?.loop ?? sp.anims?.skill?.loop)) : null);
+    const rec = ab ? withRanged(ab, clipOf(ab, sp.anims?.skills?.[String(i)]?.loop ?? sp.anims?.skill?.loop)) : null;
+    // the mode a running skill switches to on the way, by its kit's `atkSub` (ai.js attackClipOf): its own attack ability
+    // and clip; the modes a 【移动】 lands in are the skill's whole attack mode already (attackModeIndex)
+    const subName = rec && m > 0 ? Object.entries(SKILL_SUB_MODES[charId] ?? {}).find(([k, n]) => k !== 'teleport' && k !== 'anchor' && isOwnSubMode(t.modes, m, n))?.[1] : null;
+    const subAb = subName ? t.attack?.[t.modes.indexOf(subName)] : null;
+    const sub = subAb ? withRanged(subAb, clipOf(subAb, null)) : null;
+    skills.push(rec && sub ? { ...rec, sub } : rec);
   }
   return base || skills.some(Boolean) ? { base, skills } : null;
 }
@@ -2794,6 +2804,9 @@ function buildEnemies(ctx) {
     const modelScale = MODEL_SCALE_BY_PREFAB.get(mv(data.prefabKey) || key) ?? null;
     const modelScaleY = MODEL_STRETCH_Y_BY_PREFAB.get(mv(data.prefabKey) || key) ?? null;
     const attackAnim = enemyAttackAnim(ctx.manifest, mv(data.prefabKey) || key, enemyAbility(ctx, mv(data.prefabKey) || key, key, applyWay));
+    // an enemy that shoots unblocked and has a `_combat` ability too: that ability holds its own cooldown while it is blocked (ai.js syncCombat)
+    const enemyCombat = attackAnim && applyWay !== 'MELEE' ? enemyTiming(ctx, mv(data.prefabKey) || key, key)?.combat : null;
+    if (enemyCombat && enemyTiming(ctx, mv(data.prefabKey) || key, key)?.attack) attackAnim.combat = enemyAttackAnim(ctx.manifest, mv(data.prefabKey) || key, enemyCombat, true);
     const shots = enemyProjectiles(ctx, mv(data.prefabKey) || key, key);
     const skillCast = enemySkillCast(ctx, ctx.manifest, mv(data.prefabKey) || key, key);
     out[key] = {

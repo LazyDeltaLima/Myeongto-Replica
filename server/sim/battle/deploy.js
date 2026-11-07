@@ -44,6 +44,9 @@ export class BattleDeploy {
     u.aggroSeq = u.deploySeq;
     u.deployedAt = this.time;
     u.atkCd = 0;
+    u.atkCdAlt = 0;
+    u.atkCombat = false;
+    u.atkSub = false;
     u.atkMode = undefined;   // (its attack mode is taken as it is on its first tick)
     u.swing = null;     // a new deployment swings anew (ai.js updateAlly)
     u.swingOff = null;

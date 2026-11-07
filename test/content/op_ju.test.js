@@ -88,6 +88,9 @@ test('S1 良弓难张: cast only for an enemy at ≤ half HP; scale × ATK on up
     for (const x of [low, low2, low3]) x.hp = x.s.maxHp * 0.4;
     h.step();
     assert.equal(u.skill.pending, true, `${id}: cast at once`);
+    // (a swing begun before the cast keeps its target: AbilityStandard.DoCastOnTargets)
+    h.runUntil(() => !u.swing, 3);
+    h.run(0.5);   // (its arrow lands)
     const hp0 = high.hp, l0 = low.hp;
     h.runUntil(() => [low, low2, low3].some((x) => x.hp < x.s.maxHp * 0.4), 8);
     h.run(0.5);

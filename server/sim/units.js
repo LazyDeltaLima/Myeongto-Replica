@@ -90,6 +90,9 @@ export class Unit {
     this.kit = null;
     this.atkCd = 0;
     this.atkMode = undefined;   // ai.js: the attack record (its mode's attack ability) `atkCd` counts for; undefined = not seen yet
+    this.atkCombat = false;     // ai.js syncCombat: a mode with a separate `_combat` ability is on it now; `atkCd` is that ability's
+    this.atkCdAlt = 0;          //   and this the other one's, which counts down too
+    this.atkSub = false;        // ai.js attackRecordOf: its kit says the running skill has switched to the mode it goes on to
     this.swing = null;          // a normal attack swung, its strike not reached yet (ai.js startSwing)
     this.swingOff = null;       // ai.js: a swing of a mode's attack a mode switch detached, playing on to its strike
     this.castLeft = 0;          // the rest of the swing after its strike (ai.js: the next swing waits for it)
@@ -217,6 +220,7 @@ export class Unit {
     // docs/rules/sim.md 「일반 공격 타이밍」) — not the seconds left
     const was = this._s ? this._s.interval : 0;
     if (this.atkCd > 0 && was !== s.interval) this.atkCd = was > 0 ? this.atkCd * (s.interval / was) : 0;
+    if (this.atkCdAlt > 0 && was !== s.interval) this.atkCdAlt = was > 0 ? this.atkCdAlt * (s.interval / was) : 0;
     this._s = s;
     this._dirty = false;
     if (this.alive && prevMax > 0 && Math.abs(prevMax - maxHp) > 1e-9) {

@@ -347,7 +347,7 @@ test('真实隐形弩手：刚被阻挡的最新帧不继续滑动，阻挡者�
   let pair;
   for (let i = 0; i < 1200 && !pair; i++) {
     const w = h.b.enemies.find((x) => x.defId === 'enemy_1019_jshoot');
-    if (w && !w.blockedBy) w.atkCd = Math.max(w.atkCd, 1);
+    if (w && !w.blockedBy) { w.atkCd = Math.max(w.atkCd, 1); w.atkCdAlt = Math.max(w.atkCdAlt, 1); }
     h.step();
     const next = h.b.snapshot(), e = h.enemy('enemy_1019_jshoot');
     const prev = frames.length >= 3 ? frames[frames.length - 3] : null;
@@ -362,6 +362,8 @@ test('真实隐形弩手：刚被阻挡的最新帧不继续滑动，阻挡者�
   b.push(snapFrame('test', B), 0.05);
   assert.equal(b.sample(B.t + 0.24).get(e.id).x, z[1]);
   assert.equal(b.sample(B.t + 0.24).get(e.id).vx, 0);
+  // (its attack ability's own cooldown has run out during the block: it would shoot first, standing)
+  e.atkCd = e.atkCdAlt = 1;
   h.b.retreat(h.unit('t_wall'), { permanent: true });
   h.step(3);
   const C = h.b.snapshot();

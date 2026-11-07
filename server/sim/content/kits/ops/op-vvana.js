@@ -172,6 +172,7 @@ export default {
             const later = (unit.mem.vvanaS3Casts ?? 0) >= 1;
             unit.mem.vvanaS3Casts = (unit.mem.vvanaS3Casts ?? 0) + 1;
             unit.mem.vvanaS3Later = later;
+            unit.atkSub = later;   // S3_2's attack ability and clip (ai.js attackRecordOf)
             if (!later) return;
             battle.fx('vvanaS3Later', { x: unit.x, y: unit.y, id: unit.id }); // its attacks sound mode 4 S3_2 (audio)
             skill.timeLeft = Math.max(0.01, num(b3.enhance_duration, skill.duration));

@@ -212,6 +212,7 @@ test('S2: no attack, block +block_cnt, DEF +def; one more held as it ends, at mo
     cast(u);
     assert.equal(u.s.blockCnt, block + b.block_cnt);
     near(u.s.def, d0 * (1 + b.def), `${id}: DEF`, 1e-2);
+    h.run(1.5);   // (a swing its mode switch detached plays on: 1.5 s covers it, ai.js updateAlly `swingOff`)
     const n = h.hooksOf('damaged').filter((c) => c.source === u && c.target === e).length;
     h.run(5);
     assert.equal(h.hooksOf('damaged').filter((c) => c.source === u && c.target === e).length, n, `${id}: no attack`);

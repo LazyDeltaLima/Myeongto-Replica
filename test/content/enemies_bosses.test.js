@@ -1967,7 +1967,7 @@ test(`${nm('enemy_10027_vtsk')}: entrance barrage (${skb('enemy_10027_vtsk', 'Ap
   const e2 = put(h2, 'enemy_10027_vtsk', [10, 7]);
   h2.run(0.6);
   const n0 = h2.hooksOf('damaged').filter((c) => c.source === e2 && !c.dmg.isAttack).length;
-  h2.run(mc.initCooldown + 6);
+  h2.run(mc.initCooldown + 8);
   assert.equal(e2.blockedBy, h2.unit('t_wall'));
   const extra = h2.hooksOf('damaged').filter((c) => c.source === e2 && !c.dmg.isAttack).slice(n0);
   assert.ok(extra.length >= (mc.bb.times ?? 1) - 1 && extra.every((c) => c.target === h2.unit('t_wall')), `the triple attack's extra hits on the blocker (${extra.length})`);

@@ -140,6 +140,8 @@ export class BattleSpawns {
     e.deploySeq = ++this._deploySeq;
     e.deployedAt = this.time;
     e.atkCd = 0;
+    e.atkCdAlt = 0;
+    e.atkCombat = false;
     e.pauseUntil = -Infinity;      // content holds (暴鸰's drop)
     e.atkStandUntil = -Infinity;   // standing for its attack clip (ai.js attackStand)
     e.atkStandCutAt = -Infinity;   // display metadata: when its stand was last cut or ignored (snapshot standCut)

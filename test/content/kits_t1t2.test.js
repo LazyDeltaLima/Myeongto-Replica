@@ -925,7 +925,7 @@ test('2_08 泡泡: “挨打” no attacks, DEF +def, taunt, counter atk_scale �
   approx(u.s.def, u.base.def * (1 + bb.def));
   assert.equal(u.s.taunt, bb.taunt_level);
   const t0 = h.hooksOf('skillStart').find((c) => c.unit === u).t;
-  assert.equal(h.hooksOf('attack').filter((c) => c.attacker === u && c.t > t0).length, 0, 'stops attacking');
+  assert.equal(h.hooksOf('attack').filter((c) => c.attacker === u && c.t > t0 + 1.5).length, 0, 'stops attacking');   // (a swing its mode switch detached plays on: 1.5 s covers it, ai.js updateAlly `swingOff`)
   const counters = dealt(h, u, tagged('counter'));
   assert.ok(counters.length >= 3);
   for (const c of counters) approx(c.amount, u.s.def * bb.atk_scale);

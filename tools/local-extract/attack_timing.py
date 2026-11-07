@@ -18,7 +18,7 @@ tools/assets/local-attack-timing.json, which tools/build-data.mjs folds into dat
 
   { "ops": { "char_4100_caper": { "modes": ["Default", "S2", "S2[Down]"],
                                   "attack": [ { "anim": "Attack", "max": 1, "pre": 0, "wait": 1, "sel": 0, "dead": 0,
-                                                "time": 0, "face": 1, "det": 0 }, … ] } },   (+ "begin", "esc": a ThreePart attack)
+                                                "time": 0, "face": 1, "det": 0 }, … ] } },   (+ "begin", "esc": a ThreePart attack; "combat": the mode's separate Combat ability)
     "enemies": { "enemy_1001_bigbo": { "combat": { … }, "attack": { … } } },
     "tokens": { "token_10015_dusk_drgn": { "modes": ["Default"], "attack": [ { … } ] } } }
 
@@ -193,10 +193,15 @@ def modes_entry(tree):
             a = {**a, 'ranged': ranged}
         # the mode's `_replaceAnimPairs` (维什戴尔 S2: Attack → Skill_2_Loop) rename the clip it plays
         rep = next((d.get('_replaceAnimPairs') for gp, d, _ in tree if gp == p and isinstance(d.get('_replaceAnimPairs'), list)), None)
-        if a and a.get('anim') and rep:
-            to = next((r.get('toAnimKey') for r in rep if isinstance(r, dict) and r.get('fromAnimKey') == a['anim']), None)
-            if isinstance(to, str) and to:
-                a = {**a, 'anim': to}
+        renamed = lambda ab: {**ab, 'anim': next((r['toAnimKey'] for r in rep or [] if isinstance(r, dict) and r.get('fromAnimKey') == ab['anim'] and r.get('toAnimKey')), ab['anim'])} if ab and ab.get('anim') else ab
+        a = renamed(a)
+        # a mode with both a `_attack` and a `_combat` ability (`Body/Attack…` and `Body/Combat…`): the second holds its own
+        # cooldown and clip, used while the unit blocks (Character._FetchCombatTarget; docs/rules/sim.md 「일반 공격 타이밍」).
+        # (`pick` takes a direct Body/Combat over the children of an Attack group with no clip of its own: 丰川祥子 `RangedMulti`)
+        side = lambda name: {r: v for r, v in cands.items() if r == f'Body/{name}' or r.startswith(f'Body/{name}/')}
+        attack_ab, combat_ab = pick(side('Attack')) if side('Attack') else None, pick(side('Combat')) if side('Combat') else None
+        if attack_ab and attack_ab.get('anim') and combat_ab and combat_ab.get('anim'):
+            a = {**renamed(attack_ab), 'combat': renamed(combat_ab)}
         attack.append(a)
     return {'modes': [p.split('/')[-1] if p else '?' for p in modes], 'attack': attack}
 
@@ -345,7 +350,7 @@ def main():
     table = skin_keys()
     for cid, row in ops.items():
         for ab in row.get('attack') or []:
-            for a in (ab, (ab or {}).get('ranged')):
+            for a in (ab, (ab or {}).get('ranged'), (ab or {}).get('combat')):
                 if a and a.get('anim') and table.get(cid, {}).get(a['anim'], a['anim']) != a['anim']:
                     a['clip'] = table[cid][a['anim']]
     enemies.update(old_enemies)

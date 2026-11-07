@@ -907,11 +907,10 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     공격이 잡을 대상 [추정·미조사: 키트가 스킬 효과에서 대상을 따로 고르고, 공식은 스킬 능력이 시전 때 찾음].
   - 렌더 `render/face-turn.js`(위 규칙 그대로), `units.js turnToward/turnTo/faceDeploy`, 상태 `view.face {lr, ud, dir4}`: 반전 = `lr`,
     Back 모델 = `ud === 'UP'`(`_wantsBack`), 재배치 때 배치 방향으로 초기화. `app.js faceEvent`가 이벤트의 **이펙트보다 먼저** 돌린다(시전 이펙트가 돈
-    방향을 씀 — `fxgame.js facingDir`이 `face.dir4`). 'swing'·시전 'face' 없이 온 'atk'(키트가 따로 내는 공격)는 타격 때 그 대상으로 돈다
-    [추정·미조사: 공식은 그 능력 시전 때, 그 플래그는 안 읽음]. 앞/뒤 모델 교체는 비동기라 휘두르던 클립을 새 모델이 이어 받는다(`spine.js swingElapsed`).
+    방향을 씀 — `fxgame.js facingDir`이 `face.dir4`). 'swing'·시전 'face' 없이 온 'atk'(키트가 따로 내는 공격)는 타격 때 그 대상으로 돈다. 키트의 공격은 시전과 타격이 같은 틱이라, `_faceToTarget`인 능력(모든 키트 공격의 대부분)은 공식과 같다(2026-11-07, 공식 클라에서 확인: `forceAttack`의 능력과 풀 전체 재능·`GeneralAbilities`·`Trigger` 능력 플래그를 훑음). 다른 것은 `forceAttack`의 `face`로 알린다: 이그제큐터 디 엑스 포에데레 재능 1 `Body/Talents/1`과 산크타 믹사파라토 S3 반격 `S3Attack`은 배치 방향, 호시구마 S3 `ChannelingMeleeAttack`은 돌지 않음. 재능 능력 중 나머지 하나 카넬리안 `Talents/1`은 플래그가 모두 0이지만 키트가 'atk'을 내지 않는다. 앞/뒤 모델 교체는 비동기라 휘두르던 클립을 새 모델이 이어 받는다(`spine.js swingElapsed`).
     도는 모습: `units.js turnTo` → `turnS`, `update`가 전투 시간(`animRate`)으로 진행하며 반전 배율에 `face-turn.js turnWidth`(각도의 cos)를 곱하고 절반에서
     `_showFace`(반전·`faceUd` → `_wantsBack`). 논리 방향 `face`(이펙트의 `dir4`)는 공식 `Entity.faceDirection`처럼 돌기 시작할 때 바뀐다. 모델이 아직 안 그려졌으면 즉시.
-- 남은 차이 [추정·미조사: 부유·이상 플래그 13/22 검사 없음, 반전 방향 이펙트 `U_OR_D`는 `faceToBack`이 아니라 4방향으로 고름(뒤 모델로 옆을 칠 때만 다름), 키트가 따로 내는 공격(재능·스킬 효과의 추가 타격)은 그 능력 플래그를 안 읽고 타격 때 대상으로 돎].
+- 남은 차이: `Entity.FaceTo`는 `isStunned`·`UNMOVABLE`(13)·`UNMOVABLE_PRIVATE`(22)·`isFrozen`·`isLevitate`면 돌지 않는다(2026-11-07, 공식 클라에서 확인). 기절·빙결은 공격이 끊겨 돌 일이 없고 부유는 적만 받는다. `UNMOVABLE`이 오퍼레이터에 걸리는 경우는 [추정·미조사: 버프 템플릿 83개 중 오퍼레이터에 걸리는 것을 안 가림]. 반전 방향 이펙트 `U_OR_D`는 `faceToBack`이 아니라 4방향으로 고른다(뒤 모델로 옆을 칠 때만 다름). 스킬 시전의 대상은 위 스킬 능력 줄의 표시대로다.
   알고 둔 근사: 도는 모습은 세로축 회전을 2D에서 너비(cos)로만 그린다(원근 차이 없음).
 - 연결된 일: 아래 방향 클립 — `_faceToTarget`인 능력은 돈 방향(`view.face.dir4`), 아니면 배치 방향으로 고른다(「Spine 클립 커버리지」 아래 방향, 2026-10-23).
 - 테스트: `test/render/face-turn.test.js`(도는 너비·절반에서 바뀜·도는 중 새로 돌기), `test/sim/attack-timing.test.js`(대상 id·뒤에 저지된 적·`face` 이벤트·'D'/없음·

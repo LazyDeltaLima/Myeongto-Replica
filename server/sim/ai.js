@@ -117,17 +117,30 @@ export function updateAlly(b, u, dt) {
     const mode = attackModeOf(u);
     if (mode !== u.atkMode) {
       if (u.atkMode !== undefined) {
+        const old = u.atkCombat && u.atkMode?.combat ? u.atkMode.combat : u.atkMode;
         u.atkCd = 0;
+        u.atkCdAlt = 0;
+        u.atkCombat = false;
         u.castLeft = 0;
-        if (u.swing && u.atkMode?.det) cutAllySwing(u);
+        if (u.swing && old?.det) cutAllySwing(u);
         else if (u.swing) { u.swingOff = u.swing; u.swing = null; }
       }
       u.atkMode = mode;
     }
     if (u.atkCd > 0) u.atkCd = attackCountdown(u.atkCd, dt);
+    if (u.atkCdAlt > 0) u.atkCdAlt = attackCountdown(u.atkCdAlt, dt);
     if (u.castLeft > 0) u.castLeft = attackCountdown(u.castLeft, dt);
   }
   if (u.blocking.length) enforceBlockCapacity(b, u);
+  // a detached mode's attack plays on through whatever stops the unit: the state's exit interrupts only the attached
+  // ability (`AttackState.OnExit`, `Ability.DoDetach`). [추정·엔진: under a stun its clip is gone, so whether the OnAttack
+  // event still comes or it waits out the swing (`WaitForNextEvent`) is the animator's; here it lands on time]
+  if (u.swingOff && u.alive && u.deployed && !u.hidden) {
+    const off = u.swingOff;
+    off.left = attackCountdown(off.left, dt);
+    if (!(off.left > 0)) { u.swingOff = null; allyStrike(b, u, off.prof, off); }
+    if (!u.alive) return;
+  }
   // (a stun / freeze / sleep also ends a Skill state — the client's `SkillState.OnTick`: no `canUseAbility` → IDLE)
   if (!u.canAct || !u.profile) { cutAllySwing(u); u.skillStateUntil = 0; u.atkSpell = 0; return; }
   // a rangeExtend change (buff added / expired) rebuilds the range — also for units that never attack (auras)
@@ -139,12 +152,7 @@ export function updateAlly(b, u, dt) {
     u.atkSpell = 0;
     return;
   }
-  if (u.swingOff) {
-    const off = u.swingOff;
-    off.left = attackCountdown(off.left, dt);
-    if (!(off.left > 0)) { u.swingOff = null; allyStrike(b, u, off.prof, off); }
-    if (!u.alive) return;
-  }
+  syncAllyCombat(u);
   if (u.swing) {
     u.swing.left = attackCountdown(u.swing.left, dt);
     if (!(u.swing.left > 0)) allyStrike(b, u, prof);
@@ -178,8 +186,13 @@ export function updateAlly(b, u, dt) {
   }
   // the main target is an enemy this unit blocks: the client's COMBAT state attacks it with the mode's `_combat` ability
   // (Character._FetchCombatTarget — the first blocked enemy), whose clip the renderer plays (docs/rules/render.md
-  // 「Spine 클립 커버리지」 A) — the 7th field, 1
-  const combat = targets[0] && u.blocking?.includes(targets[0]) ? 1 : 0;
+  // 「Spine 클립 커버리지」 A) — the 7th field, 1. A mode with a `_combat` ability of its own is in that state or not
+  // (syncAllyCombat), and its target is that enemy (`CombatState._GetTarget`)
+  if (u.atkCombat) {
+    const ct = combatTargetOf(u);
+    if (ct && targets[0] !== ct) targets = [ct, ...targets.filter((t) => t !== ct)].slice(0, Math.max(1, targets.length));
+  }
+  const combat = attackRecordOf(u)?.combat ? (u.atkCombat ? 1 : 0) : targets[0] && u.blocking?.includes(targets[0]) ? 1 : 0;
   // the first swing since the unit entered its attack (1) or combat (2) state (attackTiming `first`)
   const state = combat ? 2 : 1;
   const t = attackTiming(u, TIMING, u.atkSpell !== state, prof._fortressMelee === false);
@@ -310,15 +323,12 @@ function cutSwing(u) {
 
 /**
  * An operator's / summon's swing is cut (cutSwing): a cast "next attack" it carried is spent with it (dropNextAttack).
- * The swing of a detached mode's attack still playing out (`swingOff`) goes too [추정·미조사: whether a stun interrupts
- * an ability no longer attached — the attack state's exit interrupts only the current mode's attack].
+ * The swing of a detached mode's attack still playing out (`swingOff`) goes on (updateAlly).
  */
 function cutAllySwing(u) {
-  const sw = u.swing, off = u.swingOff;
+  const sw = u.swing;
   cutSwing(u);
-  u.swingOff = null;
   if (sw) dropNextAttack(u, sw, false);
-  if (off) dropNextAttack(u, off, false);
 }
 
 /**
@@ -355,9 +365,9 @@ const strikable = (t) => !!t && t.alive && !t.hidden && (t.side !== 'ally' || t.
  * (`_selectTargetTiming` 1 BEFORE_SPELL_START / 3 BEFORE_FIRST_SPELL_START, or 2 RESELECT_IF_TARGET_DEAD with its main
  * target dead) selects again and, finding nobody, ends with its cooldown refunded (`FinishIfNot(TARGET_DEAD)` before the
  * first spell → `m_cooldownTimer.Reset(false)`): it may swing again at once. A skill without an attack mode of its own
- * started or ended during the swing (its attack profile is not the one the targets were taken with) takes them again too
- * [추정·미조사: what such a skill does to the attack ability's running cast — a skill with a mode of its own detaches
- * it: updateAlly `swingOff`].
+ * starting or ending during the swing changes nothing of it: the strike is on the ability's `m_castTargets`, those still
+ * `ValidAndAlive` (`AbilityStandard.DoCastOnTargets`). Only a profile that now heals instead of hurting, or the other way
+ * round (a kit's, no client ability), cannot use them and takes its own.
  * A cast "next attack" whose swing ends either way without its attack is spent (dropNextAttack).
  * `off`: the swing of a detached mode's attack (updateAlly `swingOff`) — `prof` is the profile it started with, a refund
  * for no target is its ability's, not the attached one's, and it spends no ammo.
@@ -366,11 +376,11 @@ function allyStrike(b, u, prof, off = null) {
   const sw = off ?? u.swing;
   if (!off) u.swing = null;
   if (sw.replace) { sw.replace.fireReplacement(); return; }
-  // an ally-rule heal (塞雷娅 S1) cast during a normal swing replaces the NEXT attack (`Character.RegisterReplacement`):
-  // this swing strikes as the normal attack it started as, the heal keeps waiting
-  if (!sw.isSkill && prof.isSkill && u.skill?.pending && u.skill.triggerAllies && !u.skill.isTimed) prof = u.profile;
+  // a next-attack skill cast during a normal swing (塞雷娅 S1's ally-rule heal, 矩's 良弓难张) replaces the NEXT attack
+  // (`Character.RegisterReplacement`): this swing strikes as the normal attack it started as, the cast keeps waiting
+  if (!sw.isSkill && prof.isSkill && u.skill?.pending && !u.skill.isTimed) prof = sw.prof ?? u.profile;
   let targets = sw.targets;
-  if (sw.sel === 1 || sw.sel === 3 || (sw.sel === 2 && !strikable(targets[0])) || sw.isSkill !== !!prof.isSkill) {
+  if (sw.sel === 1 || sw.sel === 3 || (sw.sel === 2 && !strikable(targets[0])) || (targets[0] && (targets[0].side === 'ally') !== !!prof.heal)) {
     targets = acquireTargets(b, u, prof);
     if (!targets.length) { if (!off) { u.atkCd = 0; u.castLeft = 0; } dropNextAttack(u, sw, true); return; }
   } else {
@@ -390,12 +400,60 @@ const TIMING = { strike: 0, action: 0, sel: 0, begun: false };
  * none does now — 赤刃明霄陈 S3 did until its mode switch moved before her first attack).
  */
 function attackClipOf(u) {
+  const r = attackRecordOf(u);
+  return u.atkCombat && r?.combat ? r.combat : r;
+}
+
+/**
+ * The attack record of `u`'s mode as it stands: attackClipOf before its `_combat` ability. `atkSub`: its kit says the running
+ * skill has switched to the mode it goes on to (shared/skill-modes.js SKILL_SUB_MODES: 维什戴尔 S2's 过载, 寒芒克洛丝 S2's
+ * four shots), whose attack ability and clip are its own (`sub`).
+ */
+function attackRecordOf(u) {
   const a = u.def?.attackAnim;
   if (!a) return null;
   if (!('base' in a)) return a;
   const i = u.def.skill?.index;
-  if (u.skill && u.skill.active && !u.skill.spec?.baseClip && Number.isInteger(i) && a.skills[i]) return a.skills[i];
+  if (u.skill && u.skill.active && !u.skill.spec?.baseClip && Number.isInteger(i) && a.skills[i]) {
+    const r = a.skills[i];
+    return u.atkSub && r.sub ? r.sub : r;
+  }
   return a.base;
+}
+
+/** The enemy a unit in its COMBAT state attacks (`Character._FetchCombatTarget`): the first it blocks, alive and not invincible. */
+function combatTargetOf(u) {
+  for (const e of u.blocking ?? []) if (e.alive && !e.s?.flags?.invulnerable) return e;
+  return null;
+}
+
+/** The other of a mode's two attack abilities takes over: each has its own cooldown, and both run all the time. */
+function swapCombat(u) {
+  const cd = u.atkCd;
+  u.atkCd = u.atkCdAlt;
+  u.atkCdAlt = cd;
+  u.atkCombat = !u.atkCombat;
+}
+
+/**
+ * A mode with both a `_attack` and a `_combat` ability (`attackAnim…combat`, tools/local-extract/attack_timing.py: 쏜즈,
+ * 라플란드, 실버애쉬 and eight more): `AttackState.OnTick` goes to COMBAT as soon as `_FetchCombatTarget` finds a blocked enemy, and
+ * its `OnExit` interrupts the running attack, swing or recovery, unless a replacement's cast is running; the combat ability
+ * is ready or not by its own cooldown. `CombatState.OnTick` leaves with no target only when its cast has played out.
+ */
+function syncAllyCombat(u) {
+  const r = attackRecordOf(u);
+  if (!r?.combat) { if (u.atkCombat) swapCombat(u); return; }
+  const blocked = !!combatTargetOf(u);
+  if (blocked && !u.atkCombat) {
+    if (u.swing?.replace) return;
+    const sw = u.swing;
+    cutSwing(u);
+    if (sw) dropNextAttack(u, sw, false);
+    swapCombat(u);
+  } else if (!blocked && u.atkCombat && !u.swing && !(u.castLeft > 0)) {
+    swapCombat(u);
+  }
 }
 
 /**
@@ -406,7 +464,7 @@ function attackClipOf(u) {
 function attackModeOf(u) {
   const sk = u.skill, a = u.def?.attackAnim;
   if (sk && sk.active && !sk.isTimed && a && 'base' in a) return a.base;
-  return attackClipOf(u);
+  return attackRecordOf(u);
 }
 
 /**
@@ -1019,6 +1077,7 @@ export function updateEnemy(b, e, dt) {
   // `Ability.OnTick`; docs/rules/sim.md 「일반 공격 타이밍」) — not while the enemy is off the field (a DISAPPEAR leg)
   if (!e.hidden) {
     if (e.atkCd > 0) e.atkCd = attackCountdown(e.atkCd, dt);
+    if (e.atkCdAlt > 0) e.atkCdAlt = attackCountdown(e.atkCdAlt, dt);
     if (e.castLeft > 0) e.castLeft = attackCountdown(e.castLeft, dt);
   }
   // a stun / freeze / sleep / 浮空 / 失衡 — or leaving the field — takes the enemy out of its attack: a swing short of its
@@ -1294,6 +1353,10 @@ function attackTargets(b, e, radius, reach, own) {
 function enemyAttack(b, e, dt) {
   const def = e.def;
   if (e.profile && e.profile.noAttack) return cutSwing(e), false;
+  // an enemy with both a `_attack` and a `_combat` ability (enemies.json `attackAnim.combat`): each has its own cooldown and
+  // clip. Unlike an operator's, its attack is not cut by a block: the attack state plays its cast out
+  // (`Enemy.States.AttackState.OnTick`), and `MoveState` goes to COMBAT only then
+  if (def.attackAnim?.combat && !!e.blockedBy !== !!e.atkCombat && !e.swing && !(e.castLeft > 0)) swapCombat(e);
   const dmgType = (e.profile && e.profile.dmgType) || def.dmgType;
   const unarmed = dmgType === 'none' || e.s.atk <= 0;
   // no normal attack — but an Attack ability in its prefab's mode (enemies.json `attackAbility`: the client's

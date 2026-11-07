@@ -138,7 +138,7 @@ export default withDefaults({
           unit.mem.counterReady = battle.time + unit.s.interval * counterRatio;
           unit.mem.inCounter = true;
           try {
-            if (targets.length) battle.forceAttack(unit, targets);
+            if (targets.length) battle.forceAttack(unit, targets, { face: 'D' });   // S3Attack `_faceToDefault`
             else { unit.stats.attacks++; unit.skill.onAttackPerformed([], true); } // a counter into nothing: its bullet goes
           } finally { unit.mem.inCounter = false; }
           battle.fx('counter', { x: unit.x, y: unit.y, id: unit.id, n: targets.length });

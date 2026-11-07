@@ -158,6 +158,7 @@ test('荒芜拉普兰德 S3: every drone picks the enemy nearest to itself; a de
     assert.ok(h.runUntil(() => u.skill.active, 5));
     // her own attack disarmed for the rest (it would fell the weak one before the drones lock it): the drones alone
     h.b.applyStatus(u, 'disarm', { duration: 999, source: null });
+    u.swing = u.swingOff = null;   // (and the swing her mode switch leaves playing on, which disarm does not cut)
     const D = u.mem.drones;
     const weak = h.enemies().find((x) => /weak/.test(x.defId)), far = h.enemies().find((x) => !/weak/.test(x.defId));
     h.step(Math.round(u.def.skill.bb['attack@times'] / TICK));
