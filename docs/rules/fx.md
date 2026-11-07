@@ -3695,7 +3695,7 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 - 페넌스(`char_4065_judge`) 재능 1 장벽: 장벽이 바뀔 때마다 `judge_t_1[effect]` `ON_BUFF_TRIGGER`가 돈다 — 스택 0·1·2(없음 / 최대 체력 ×
   `higher_effect_hp_ratio`(1) 아래 / 그 이상)를 들고, 0이 되면 스택이 있을 때 `judge_shield_break_01`, 그 이상이 되면 스택 2 미만일 때
   `judge_shield_start_01`(→ 2), 아래로 내려오면 스택 2에서 깨짐(→ 0, 다음 변화에서 시작 → 1), 스택 0에서 시작(→ 1). 키트가 같은 계산을 해
-  `kitHit` `judge:barrier` { on 1 시작 / 0 깨짐 }을 보낸다(얻을 때와 맞을 때마다 — 흡수 뒤). 장벽 고리 `judge_shield_all_01`은 전부터.
+  `kitHit` `judge:barrier` { on 1 시작 / 0 깨짐, level 스택 }을 보낸다(얻을 때와 맞을 때마다 — 흡수 뒤). 장벽 고리 `judge_shield_all_01`과 막을 때의 `judge_shield_hit_01`은 아래 「페넌스 장벽 고리와 막기」.
 - 페넌스 재능 2 반사: `judge_t_2` `ON_TAKE_DAMAGE` → `InverseDamage` 뒤 `judge_reboun_hit_01`을 MODIFIER_SOURCE(반사 맞는 적)에 — 사건 `thorns`에
   `target`을 더함. S2 펄스: `judge_s_2[aoe]` 틱마다 `AOEDamage` 뒤 `judge_skill_02_weapon_hit_01`을 그녀에게(맞은 적이 없어도) — 사건 `aoe`.
 - 로고스(`char_4133_logos`) S1 처형: `logos_s_1`이 처형한 적에 `logos_skill1_hit_03`(사건 `logosExecute`). 처형 뒤 후속 탄
@@ -3929,3 +3929,17 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 ## 키치세이(새 시즌) S2의 상태 이펙트 (2026-11-07, 공식 클라에서 확인)
 
 `kichi_skchr_02[debuff]`의 둘째 상태 `skchr_kichi_02[unmovable]`이 `overrideEffectKey` `kichi_skill_02_buff_02`를 대상에게 건다(`fxstatus.js SOURCE_FX.bind`). 이름 규칙이 같은 프리팹을 시전 때 그녀에게도 틀어 `KIT_OWNED`에 넣었다. 셋째 상태 기절은 그 칸이 `overrideEffectKey`가 아니라 `overrideKey`라 공용 `buff_stun` 그대로다. 아레나 2배속에서 정지 → 속박 → 기절 순서를 기록으로 확인, 그림은 공식과 대조 안 함.
+
+## 채널 공격의 이펙트 (2026-11-07, 공식 클라에서 확인)
+
+- 호시구마(오퍼레이터) S3 스킬 능력 옆의 `ChannelingEffectEmitter`: `_playOnEvent` ON_SPELL_ON + `get_firstAttack`일 때 `_effect` `hsguma_skill_03_start`를 주인에게 만들어 들고, `_stopOnEvent` ON_CAST_END·`_stopOnAttackFinished`에 멈춘다. 멈춘 뒤 유지는 능력의 `_escapeTime`만큼인데 이 능력은 0이라 바로 끝난다(`FinishMe`, 프리팹의 `finish` 0.5초). `_hitEffect` `hsguma_skill_03_hit`는 타격마다 대상에게, 주인 방향으로 난다(이름 규칙이 이미 틂).
+- 전에는 `_start` 이름 규칙이 스킬 시작에 한 번 틀어 2.5초 뒤 꺼졌고 나머지 22초는 안 보였다.
+- 구현: `char_modes.py`가 `skills[i].channel`로 뽑고(지금 풀에서 호시구마 하나, 이프리트·`huang`은 이 모드 풀에 없음), `fxmap.js activationEffects`가 시작 이펙트에서 빼고, `fxgame.js channelFx`가 사건 `skill`의 5번째 칸(첫 타격까지의 시간)만큼 기다렸다가 버프처럼 들어 스킬 끝에 함께 끝낸다. 대상이 없어도 난다(`_allowNoTarget`). 공격 사건을 기다리지 않는 이유다.
+- 아레나 2배속 확인: 시전 뒤 약 0.4초에 시작, 전투 13초 지점에도 보임, 타격 25회. 공식 화면과는 대조하지 않음 [화면 미확인].
+
+## 페넌스 장벽 고리와 막기 (2026-11-07, 공식 클라에서 확인)
+
+- 재능 1 `judge_t_1`의 버프가 `overrideEffectKey` `judge_shield_all_01`을 수명 무한으로 든다. 그 프리팹의 `SetAnimatorIntByBuffStackCnt`(`_buffKey` `judge_t_1[effect][stack]`, `_paramName` `level`, `_checkInterval` 0.3초)가 스택 수를 Animator 정수에 넣고(버프가 없거나 끝나면 0), 상태 셋이 0 없음·1 작은 고리·2 큰 고리를 보인다. 이 동작을 쓰는 프리팹은 이것 하나다.
+- 구현: 키트가 세는 스택을 사건 `judge:barrier`의 `level`로 보내고 `fxgame.js judgeShield`가 고리를 들고 0.3초마다 `level`을 넣는다. 전에는 고리를 아무도 안 틀었다. 위 절의 「전부터」는 틀린 말이었다.
+- 막기: `judge_t_1` `ON_TAKE_DAMAGE`의 `BlockDamage`(`_useDynamicVar`)가 `_specifyBlockEffect` `judge_shield_hit_01`을 튼다. 방벽에 `blockFx`를 달아 사건 `parry`로 받고 `BLOCK_FX`에서 고른다. 다 막은 타격에만 난다(「자재」 방벽과 같은 길).
+- 아레나 2배속 확인(아군 부상 켬): `hit` 2회 뒤 깨짐, 깨진 뒤 고리 없음, 안 맞으면 고리 유지. 큰 고리(단계 2)와 공식 화면은 보지 않음 [화면 미확인].

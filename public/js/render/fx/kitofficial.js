@@ -631,7 +631,7 @@ export const KIT_OFFICIAL = {
       : o.k === 'titi:spread' ? { play: [{ n: 'titi_skill_03_line_01', line: ['from', 'to'], life: 'once' }] } : null)),
     // (2026-11-03) 斥罪 T1 律法卫士: judge_t_1[effect] on each change of her barrier — its start judge_shield_start_01 / break
     // judge_shield_break_01 by the stack count the kit keeps (`on` 1 / 0, kits/ops/op-judge.js barrierFx: the conditions
-    // are the sim's). Her barrier's loop is judge_t_1's judge_shield_all_01 (the talent's buff)
+    // are the sim's). Her barrier's loop is judge_t_1's judge_shield_all_01 (the talent's buff; fxgame.js judgeShield takes the event's `level`)
     judge: cite('judge_t_1[effect]', (o) => (o.k === 'judge:barrier' ? { play: [once(Number(o.on) ? 'judge_shield_start_01' : 'judge_shield_break_01')] } : null)),
     // (2026-11-03) 逻各斯: S2 提喻's lock — logos_s_2[lock] on the target, its ON_BUFF_ENABLE line logos_skill2_line_01 from him
     // (BUFF_SOURCE) until the lock ends (`on` 0); T1 语汇演化's shot projectile_chr_logos_t (PARACURVE `_speed` 8,

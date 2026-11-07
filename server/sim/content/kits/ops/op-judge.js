@@ -92,7 +92,7 @@ export default {
       const have = cur ? cur.shield : 0;
       if (!(cap > have + 1e-9)) return 0;
       const next = Math.min(cap, have + amount);
-      if (cur) { cur.shield = next; unit.markDirty(); } else battle.addBuff(unit, { key: BARRIER, shield: next, shieldLast: true, visible: true, tags: ['talent'] });
+      if (cur) { cur.shield = next; unit.markDirty(); } else battle.addBuff(unit, { key: BARRIER, shield: next, shieldLast: true, blockFx: true, visible: true, tags: ['talent'] });
       battle.fx('shield', { x: unit.x, y: unit.y, id: unit.id });
       barrierFx(battle, unit);
       return next - have;
@@ -103,7 +103,7 @@ export default {
       const to = v <= 1e-9 ? 0 : v >= div ? 2 : n > 1 ? 0 : n < 1 ? 1 : n;
       if (to === n) return;
       unit.mem.judgeFxStack = to;
-      battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, src: unit.id, k: 'judge:barrier', on: to > n ? 1 : 0 });
+      battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, src: unit.id, k: 'judge:barrier', on: to > n ? 1 : 0, level: to });
     };
     return {
       skills: {

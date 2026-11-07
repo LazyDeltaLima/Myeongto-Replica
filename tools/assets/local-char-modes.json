@@ -5959,7 +5959,10 @@
      "hsguma_skill_03_buff"
     ],
     "target": [],
-    "targetBuff": []
+    "targetBuff": [],
+    "channel": [
+     "hsguma_skill_03_start"
+    ]
    }
   ]
  },

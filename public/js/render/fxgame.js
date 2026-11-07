@@ -2590,10 +2590,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // and enemy_mdrock_skill_buff_05 (sim layers 'ab:rockPower[1..3]'; its artsBarrier's own 'shieldBreak' follows: SHATTERS).
   // 2026-10-24 (묶음 S11): 凛御银灰 S1's 屏障 card svash2_s_1[build] runs the template `shield` (BlockDamage `_useDynamicVar`) with
   // the deck's blackboard `effect` svash2_skill_01_shieldHit_01 (svash2_s_1[deck] EnsureBlackboardDefaultValue)
+  // 2026-11-07: 斥罪's barrier judge_t_1 ON_TAKE_DAMAGE BlockDamage `_useDynamicVar` `_specifyBlockEffect` judge_shield_hit_01
   const PARRY = 'common_buff_parry_01';
   const XI_HIT = ['pfx_enemy_14', 'enemy_xi_skill_02_buff_hit'], ROCK_HIT = ['pfx_enemy_8', 'enemy_mdrock_skill_01_buff_hit'];
   const BLOCK_FX = { 'mudrok:layers': ['mudrok', 'mudrok_buff_01_hit'], 'ab:xiShield[a]': XI_HIT, 'ab:xiShield[b]': XI_HIT, 'ab:xiShield[c]': XI_HIT,
-    'ab:rockPower[1]': ROCK_HIT, 'ab:rockPower[2]': ROCK_HIT, 'ab:rockPower[3]': ROCK_HIT, 'svash2:barrier': ['svash2', 'svash2_skill_01_shieldHit_01'] };
+    'ab:rockPower[1]': ROCK_HIT, 'ab:rockPower[2]': ROCK_HIT, 'ab:rockPower[3]': ROCK_HIT, 'svash2:barrier': ['svash2', 'svash2_skill_01_shieldHit_01'],
+    'talent:judge:barrier': ['judge', 'judge_shield_hit_01'] };
   const AFTER_FX = { 'mudrok:layers': 'common_heal_hit_01' };
   const BREAK_FX = { 'ab:xiShield[c]': ['pfx_enemy_14', 'enemy_xi_skill_02_buff_03'], 'ab:rockPower[3]': ['pfx_enemy_8', 'enemy_mdrock_skill_buff_05'] };
   const SHATTERS = new Set(['ab:rockPower[3]']);
@@ -2611,6 +2613,32 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
     // the barrier's own 'shieldBreak' of the same hit (content/enemies/archetypes.js artsBarrier) then draws no 2D shatter
     if (e[4].broke) { const br = BREAK_FX[e[4].buff]; if (br && index?.bundles?.[br[0]]?.includes(br[1])) { at(...br); if (SHATTERS.has(e[4].buff)) brokeOwn.add(e[4].id); } }
+  }
+  // 2026-11-07, official client: 斥罪 T1's judge_t_1 holds judge_shield_all_01 on her as long as she stands (a buff's
+  // overrideEffectKey, life INFINITY). The prefab's SetAnimatorIntByBuffStackCnt copies the count of judge_t_1[effect][stack] to
+  // its Animator int `level` every `_checkInterval` 0.3 s, and its states show nothing at 0, the small shield at 1, the large at
+  // 2. The kit counts that stack (kits/ops/op-judge.js barrierFx, the event's `level`). It is the only prefab with this behaviour.
+  const STACK_INT_CHECK_S = 0.3;
+  const stackInts = new Map();   // unit id → { l: its live entry once loaded, level, next }
+  function judgeShield(o, views) {
+    const v = views?.get?.(o.id);
+    if (!v || failed || q() === 'low') return;
+    let s = stackInts.get(o.id);
+    if (!s || s.l?.inst.stopping) {
+      s = { l: null, level: 0, next: clockS };
+      stackInts.set(o.id, s);
+      const mine = s;
+      spawn('judge', 'judge_shield_all_01', v, { owner: o.id, buff: false, onCaster: true, on: o.id, until: Infinity, tag: 'stackInt' }, { over: true, facing: efacing(v) })
+        .then((l) => { if (l) mine.l = l; else if (stackInts.get(o.id) === mine) stackInts.delete(o.id); });
+    }
+    s.level = Number(o.level) || 0;
+  }
+  function stepStackInts() {
+    for (const [id, s] of stackInts) {
+      if (!s.l) continue;
+      if (s.l.inst.stopping || s.l.inst.done) { stackInts.delete(id); continue; }
+      if (clockS >= s.next) { s.next = clockS + STACK_INT_CHECK_S; s.l.inst.setParam('level', s.level); }
+    }
   }
   // 2026-10-23: 远眺's death (sim fx 'explode' kind 'expose', content/enemies/fly.js kitExposeOnDeath — killed, not silenced):
   // its talent enemy_hummbd_t ON_OWNER_KILLED, when not SILENCED, CreateEffect enemy_hummbd_die_02 on it, then the
@@ -3932,6 +3960,26 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (done.has(mode)) return false;
     done.add(mode);
     return true;
+  }
+  /**
+   * 2026-11-07, official client: a skill ability's ChannelingEffectEmitter (modes.json `skills[i].channel`, 星熊 S3
+   * hsguma_skill_03_start). `OnEvent` creates `_effect` on the caster at ON_SPELL_ON of the first attack, also with no target
+   * (`_allowNoTarget`), and holds it until `_stopOnEvent` ON_CAST_END or `_stopOnAttackFinished`: the skill's end here, where
+   * stopBuffs ends it. The first strike is the 'skill' event's 5th field; no 'atk' waits on an enemy still being there.
+   */
+  const channels = new Set();
+  function channelFx(v, strike) {
+    if (!extracted(v, skillBind(v)?.channel).length) return;
+    v._fxChannelAt = clockS + strike;
+    channels.add(v);
+  }
+  function stepChannels() {
+    for (const v of channels) {
+      if (clockS < v._fxChannelAt) continue;
+      channels.delete(v);
+      v._fxChannelAt = null;
+      if (v._fxSkillOn && !v.remove) play(v, 'skillBuff', skillIdx(v), { buff: true, names: extracted(v, skillBind(v)?.channel) });
+    }
   }
   /** The unit's current cast ends: its loop cast effects stop, gracefully (`_ClearEffects` — the one-shots play out). */
   function endCast(v) {
@@ -5776,12 +5824,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             if (start.length) play(v, 'skillStart', skillIdx(v), { names: start });
             if (loops.length) play(v, 'skillBuff', skillIdx(v), { buff: true, names: loops });
             expect(v, skillTargets(v));   // local patch: its damage this tick (德克萨斯 S2)
+            channelFx(v, Array.isArray(e[4]) ? Number(e[4][0]) || 0 : 0);
           }
           // local patch (maintainer 2026-10-07: the buffs / range stayed ~1 s after the skill): its loops end with it, at once
           // (and the marks it left on its targets: 戴菲恩 S3's hit_1)
           else {
             const flags = v._fxSkillFlags?.size ? new Set(v._fxSkillFlags) : null;   // (묶음 S8: SKILL_EDGE `if`)
-            v._fxSkillOn = false; v._fxSub = null; v._fxSkillFlags?.clear(); endWolves(v.id ?? v.info.id); stopBuffs(v.id ?? v.info.id, true); skillEnd(v, flags);
+            v._fxSkillOn = false; v._fxSub = null; v._fxChannelAt = null; channels.delete(v); v._fxSkillFlags?.clear(); endWolves(v.id ?? v.info.id); stopBuffs(v.id ?? v.info.id, true); skillEnd(v, flags);
             for (const l of elines.values()) if (l.skill && l.owner === (v.id ?? v.info.id)) l.until = Math.min(l.until, clockS);   // a plan's `life: 'skill'` lines
           }
           droneIdle(v);   // 2026-10-16: the drones of the mode now
@@ -5938,6 +5987,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'lightning' && chainFx(e, views)) return;
           if (e[1] === 'oblvnsNote' && e[4]) { noteFx(e, views); return; }
           if (e[1] === 'parry' && e[4]) { parryFx(e, views); return; }
+          if (e[1] === 'kitHit' && e[4]?.k === 'judge:barrier') judgeShield(e[4], views);
           if (e[1] === 'shieldBreak' && e[4] && brokeOwn.delete(e[4].id)) { ownFx.add(e); return; } // 2026-10-23: its official break drew it (parryFx)
           if (e[1] === 'explode' && e[4]?.kind === 'expose' && exposeFx(e, views)) { ownFx.add(e); return; }
           // 2026-10-31: 巨大的丑东西's self-destruct — its rebirth ability bomb[reborning] draws the official range and blast
@@ -6017,6 +6067,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (mod && q() === 'low') teardown();   // 2026-10-28: quality 'low' now, not only after a reload
       camRef = cam; // local patch: status effects' heights (playStatus)
       clockS += dt * gameRate(); // local patch: the battle clock (gaps, ends) — the official effects use scaled time
+      // before the returns below: a channel's start waits on the clock with no effect live yet
+      if (channels.size) stepChannels();
+      if (stackInts.size) stepStackInts();
       stepTrails(dt * gameRate()); // local patch
       stepCasts(); // 2026-10-10: delayed first-attack cast effects
       stepZones(dt * gameRate()); // 2026-10-10: moving projectile reach effects

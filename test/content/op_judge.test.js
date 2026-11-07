@@ -160,6 +160,21 @@ test('T2 荆棘环身: while she holds barrier, every damage from an enemy deals
   }
 });
 
+test('T1\'s barrier: a hit it takes whole sends the block effect (BlockDamage _specifyBlockEffect), one that breaks it does not cancel; `level` is the stack count for judge_shield_all_01', () => {
+  const { h, u } = field({ skill: 2 });
+  const fx = (name) => h.eventsOf('fx').filter((x) => x[1] === name).map((x) => x[4]);
+  const max = u.s.maxHp;
+  assert.deepEqual(fx('kitHit').filter((o) => o.k === 'judge:barrier').map((o) => o.level), [1], 'the deployment: stack 1');
+  const e = h.spawn('enemy_dummy', { pos: [12, 9] });
+  h.b.dealDamage(e, u, { amount: max * 0.1, type: 'true' });
+  assert.deepEqual(fx('parry').map((o) => [o.buff, o.whole, o.broke]), [[BARRIER, 1, 0]]);
+  h.b.dealDamage(e, u, { amount: max, type: 'true' });
+  assert.deepEqual(fx('parry').map((o) => [o.buff, o.whole, o.broke]).at(-1), [BARRIER, 0, 1]);
+  assert.equal(fx('kitHit').filter((o) => o.k === 'judge:barrier').at(-1).level, 0, 'broken: stack 0');
+  for (let i = 0; i < 11; i++) killOne(h, u);
+  assert.equal(fx('kitHit').filter((o) => o.k === 'judge:barrier').at(-1).level, 2, 'at 100 %: stack 2');
+});
+
 test('T1 律法卫士\'s effect (judge_t_1[effect]): start below 100 % max HP, start again at 100 % or more, break back below (start on the next change), break at 0; T2\'s reflect names the enemy', () => {
   const { h, u } = field({ skill: 2 });
   const on = () => h.eventsOf('fx').filter((x) => x[1] === 'kitHit' && x[4]?.k === 'judge:barrier').map((x) => x[4].on);

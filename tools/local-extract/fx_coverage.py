@@ -72,6 +72,7 @@ SCRIPTS = {
     2994498389723426252: 'FollowTileHeight', -4364771506185570144: 'SwitchableEffectByFaceDirection',
     5365557655193992920: 'SwitchableThreeFaceEffect', 1228563541688412297: 'SwitchableWhenContainsEquipment',
     -2470488090548023017: 'SwitchableEffectByBuffStackCnt', -3960942007169782850: 'EmitterRandomGroup',
+    6491887936440187146: 'SetAnimatorIntByBuffStackCnt',
     8922258000712749090: 'FunnelHitEffect', 1115230818793786687: 'RandomDirection', 1759359436891135837: 'OnPlayAudioPlayer',
     -7571717170868447701: 'OnFinishAnime', 4957269727245382446: 'TriggerAnimatorWhenFinish',
     -1577373638081991986: 'SwitchAnimatorStateWhenFinish', 295235635984623506: 'SetAnimatorFloatByCondition',
@@ -808,6 +809,8 @@ KNOWN = {
     'script:FinishEffectViaOwnerBuff': (_HAND, 'finishes when the owner\'s buff ends; only on 余 S3, drawn by render/fxgame.js (its tiles)'),
     'script:SwitchableEffectByBuffStackCnt': (_HAND, 'a variant by buff stack count; only 信仰搅拌机\'s rmixer_buff_01 (`_stackCnt` 3, GE): '
                                               'render/fxstatus.js STACK_FX \'rmixer:t1\''),
+    'script:SetAnimatorIntByBuffStackCnt': (_HAND, 'a buff\'s stack count to an Animator int every `_checkInterval`; only 斥罪\'s '
+                                            'judge_shield_all_01: render/fxgame.js judgeShield'),
     'script:OnPlayAudioPlayer': (_NONE, 'a sound, not drawn (audio is separate)'),
     'script:Svash2FlyToPredefinedTokenCard': (_HAND, 'flies 凛御银灰\'s eagle to his 风雪之眼 deploy card, which this HUD does not have: '
                                                       'render/fxgame.js startFly ends it in place after 0.5 s (docs/rules/fx.md 凛御银灰 S3)'),

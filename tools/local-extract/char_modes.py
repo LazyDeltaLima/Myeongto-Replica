@@ -673,6 +673,10 @@ def skill_effects(tree, projectiles=None):
         if '_stopBeforeCast' in d and isinstance(d.get('_effects'), list) and not end:
             e['ready'] = {'fx': [x for x in d['_effects'] if isinstance(x, str) and x], 'stop': 1 if d['_stopBeforeCast'] else 0}
         add(e['targetBuff'], own_buff_effects(d, '_activeBuffs'))
+        # 2026-11-07: ChannelingEffectEmitter with `_playOnEvent` ON_SPELL_ON: `_effect` on the caster from the ability's first strike
+        # until it ends (OnEvent `firstAttack`, `_stopOnEvent` / `_stopOnAttackFinished`), not from the skill's start
+        if d.get('_playOnEvent') == 4 and isinstance(d.get('_effect'), str) and d['_effect'] and not end:
+            add(e.setdefault('channel', []), [d['_effect']])
         if projectiles and isinstance(d.get('_projectileKey'), str) and d['_projectileKey']:
             p = projectiles.effects(d['_projectileKey'])
             add(e['end']['hit'] if end else e['target'], [x for x in p['start'] + p['hit'] if x not in p['zone']])

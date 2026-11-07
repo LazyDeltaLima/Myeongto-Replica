@@ -1122,8 +1122,8 @@
       ],
       "enemies": {"enemy_1249_lysdb_2":[60,0,58,151819,64605],"enemy_1251_lysyta":[51,2,49,75255,74389],"enemy_1254_lypa_2":[54,0,54,34657,58291]},
       "hooks": [1,188,6900,880,880,2577,2568,689,16,177,55,53,0,26224,2,40,165,161,1,16,0,0,0],
-      "events": {"atk":1150,"deploy":20,"die":16,"dmg":2522,"engage":6,"face":24,"fx":162,"heal":574,"leak":161,"skill":108,"spawn":180,"status":126,"swing":893},
-      "fx": {"aoe":6,"crit":2,"kitHit":23,"shield":81,"shieldBreak":9,"thorns":41},
+      "events": {"atk":1150,"deploy":20,"die":16,"dmg":2522,"engage":6,"face":24,"fx":219,"heal":574,"leak":161,"skill":108,"spawn":180,"status":126,"swing":893},
+      "fx": {"aoe":6,"crit":2,"kitHit":23,"parry":57,"shield":81,"shieldBreak":9,"thorns":41},
       "snaps": "96243c1d de848f4c 57958b5f a9be7e7c 9bc05d26 321fbc1c 9a225271 2a8df642 07370cbe 91fc7959 286a0840 4ac4d4d0 571d8a39 051e152d 17c966aa 6eabd602 03c89100 40c44597 87d9d203 d58da371 385e5db2 c57a1ea7 a573dbb3"
     },
     "diy-027": {
@@ -1161,8 +1161,8 @@
       ],
       "enemies": {"enemy_1010_demon":[54,45,7,3177,703862],"enemy_1320_wdrrl_2":[18,6,11,28368,505169],"enemy_1422_lrsldr_2":[39,36,3,79,392058]},
       "hooks": [1,128,6900,961,961,4886,4886,0,94,115,69,69,0,19748,2,88,111,21,1,94,0,0,0],
-      "events": {"atk":961,"deploy":17,"die":94,"dmg":4472,"engage":7,"face":4,"fx":744,"leak":21,"skill":138,"spawn":123,"status":37,"swing":992},
-      "fx": {"aoe":160,"crit":2,"explode":11,"kitHit":43,"shield":102,"thorns":426},
+      "events": {"atk":961,"deploy":17,"die":94,"dmg":4472,"engage":7,"face":4,"fx":1170,"leak":21,"skill":138,"spawn":123,"status":37,"swing":992},
+      "fx": {"aoe":160,"crit":2,"explode":11,"kitHit":43,"parry":426,"shield":102,"thorns":426},
       "snaps": "e1f6ed9a e0befb0d ef46b7e3 72bd682a bb451ac0 77eb936d d7787954 70af603e 65f5de8e e791e2c9 94ef1570 e2652148 dbf6b69a 013d2022 9a26ff4b 517e16f8 aac94e49 002ae980 5d22cca4 ca8f30dd 54e1f12d 110b0abf 537ff339"
     },
     "diy-028": {
@@ -1200,8 +1200,8 @@
       ],
       "enemies": {"enemy_1010_demon_2":[36,0,36,10349,84817],"enemy_1071_dftman":[51,2,49,4394,81563],"enemy_1072_dlancer":[60,1,59,22978,148316]},
       "hooks": [1,170,6462,435,435,864,864,0,22,166,27,27,0,11651,40,32,147,144,1,24,0,0,0],
-      "events": {"atk":439,"deploy":23,"die":22,"dmg":738,"engage":11,"face":1,"fx":222,"leak":144,"skill":54,"spawn":159,"status":471,"swing":445},
-      "fx": {"aoe":20,"crit":1,"kitHit":65,"logosLexicon":39,"shield":11,"thorns":86},
+      "events": {"atk":439,"deploy":23,"die":22,"dmg":738,"engage":11,"face":1,"fx":357,"leak":144,"skill":54,"spawn":159,"status":471,"swing":445},
+      "fx": {"aoe":20,"crit":1,"kitHit":65,"logosLexicon":39,"parry":135,"shield":11,"thorns":86},
       "snaps": "a9228041 f193ce20 6eff3505 a50a02c6 f63719ff ab6f9c57 15c208da 57758df0 662fd67a 5507148f 6ebd676e 8b823192 3233e367 174ceeaa 09c2b154 ae611330 c9fbc67e bca2a931 00cec4a0 fbb0661d ee11ef0f f1cd3e47"
     },
     "diy-029": {

@@ -468,7 +468,7 @@ Object.assign(files['/assets/local/fx/index.json'].bundles, {
   haruka: ['haruka_talent_02_hit'], ironmn: ['ironmn_beidong_buff'], titi: ['titi_attack_hit_01', 'titi_skill_03_line_01'],
   helage: ['helage_attack_01_hit'], uniequip: ['equipment_system_musha_buff_y', 'uniequip_002_musha_02'],
   // 斥罪's and 逻各斯's kit moments
-  judge: ['judge_shield_start_01', 'judge_shield_break_01', 'judge_reboun_hit_01', 'judge_skill_02_weapon_hit_01', 'judge_skill_02_hit_01'],
+  judge: ['judge_shield_all_01', 'judge_shield_start_01', 'judge_shield_break_01', 'judge_reboun_hit_01', 'judge_skill_02_weapon_hit_01', 'judge_skill_02_hit_01'],
   headb2: ['headb2_highground', 'headb2_highground_hit'],
   logos: ['logos_skill1_hit_03', 'logos_talent_start_01', 'logos_talent_trail_01', 'logos_talent_hit_01', 'logos_skill1_trail_02',
     'logos_skill1_hit_02', 'logos_skill2_line_01', 'logos_skill3_range_end_01'],
@@ -872,7 +872,7 @@ test('fxgame.js (2026-11-03): 斥罪\'s and 逻各斯\'s kit moments play on the
     ev('logosExecute', { id: 2, target: 9 });
     ev('bulletClear', { id: 2, n: 0 });
     ev('kitHit', { x: 8, y: 0, id: 2, src: 2, target: 9, from: 8, k: 'logos:s1shot' });
-    assert.deepEqual(got(), ['judge_reboun_hit_01@9', 'judge_shield_break_01@1', 'judge_shield_start_01@1', 'judge_skill_02_weapon_hit_01@1',
+    assert.deepEqual(got(), ['judge_reboun_hit_01@9', 'judge_shield_all_01@1', 'judge_shield_break_01@1', 'judge_shield_start_01@1', 'judge_skill_02_weapon_hit_01@1',
       'logos_skill1_hit_03@9', 'logos_skill1_trail_02@null', 'logos_skill3_range_end_01@2'].sort());
     // the S1 follow-up needs the unit it leaves only while it may be dead (`fromDead`): without its view, the event's point
     views.delete(8);
