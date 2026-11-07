@@ -1292,8 +1292,8 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   - **사리아(塞雷娅) S3 칼슘화(钙质化) 중 적 공격 없음**: S3 모드의 공격 능력은 하나뿐이고 그것이 치료 펄스다 — `Modes/S3/Body/Attack/Trigger._targetSide` 1(아군),
     대상 수 제한 없음(`_limitTargetNum` 0), `_timeMode` 2·`_cooldown` 1초, 명중 `common_heal_hit_01`. 첫 치료는 시작 1초 뒤다(2026-11-07, 공식 클라에서 확인): 모드 전환으로 붙은 공격 능력은 바로 준비되고(`Ability.DoAttach`), 클립이 없으니 `_waitForAttackEvent`가 공격 시간 1초를 다 기다린다(`_preDelay` 0.533은 안 쓴다). `Body/Combat`도 없다. 그래서 S3 동안 그녀는 막은 적도 치지
     않고, 범위 아군 치료(`attack@heal_scale` × 공격력, 1초마다)와 적 석회화(받는 마법 피해·이동 속도)만 한다 → `chess_char_5_11-demkni.js` S3 `attack: { noAttack: true }`.
-    그 전엔 S3 중에도 기본 모드 공격으로 적을 쳤다. 렌더는 S3 중 공격 클립을 원래 안 튼다(render.md 「스킬 중 공격 클립」). 펄스의 첫 치료 시점은 그대로
-    (시작 1초 뒤 — 모드 공격의 `_preDelay` 0.533초·쿨다운 시작값은 안 읽음 [추정·미조사: 치료 횟수가 한 번 다를 수 있음]). 테스트 `test/content/attack-forms.test.js`.
+    그 전엔 S3 중에도 기본 모드 공격으로 적을 쳤다. 렌더는 S3 중 공격 클립을 원래 안 튼다(render.md 「스킬 중 공격 클립」). 펄스의 첫 치료 시점은 그대로 시작 1초 뒤다(위).
+    테스트 `test/content/attack-forms.test.js`.
   - **티피(蒂比) 일반 공격은 원거리**: 모든 모드의 공격이 투사체를 쏜다(`Modes/Default|S1|S2/Body/Attack` `_projectileKey` `projectile_chr_tippi`·`_s1`·`_s2`,
     TRACE 10), `Body/Combat`이 없어 막은 적에게도 쏜다. 시뮬은 특수 직군 기본값(근접, 투사체 없음)으로 쳐 「오퍼레이터 투사체」의 `shot`이 안 들어갔다 →
     키트 trait `attack: 'ranged', projectile: 'arrow'`(생성 데이터 `attackKind`는 그대로 melee — 배치 위치 MELEE). 피해는 투사체가 닿을 때, 'swing'·'atk'의
