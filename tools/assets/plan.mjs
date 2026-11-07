@@ -108,6 +108,17 @@ export const UI_EXTRAS = (() => {
   L.push(['prepReady', 'countdown_arrow', `${pr}countdown_arrow.png`]);
   const si = 'ui/autochess/[uc]autochessouter/stageinfo/auto_chess_stage_info_state/';
   for (const k of ['img_title_mode_abyss', 'img_title_mode_funny', 'img_title_mode_hard', 'img_title_mode_normal', 'btn_confirm', 'btn_confirmed']) L.push(['stageInfo', k, `${si}${k}.png`]);
+  // the room's group_mode bar (auto_chess_room_state: bg_mode, the difficulty's light and icon, btn_switch_mode) and the
+  // seat card's 名片 icon and host tag (player_solt_item_room)
+  const rm = 'ui/autochess/[uc]autochessouter/room/';
+  for (const k of ['bg_mode', 'btn_switch_mode', 'light_mode', 'icon_easy', 'icon_normal', 'icon_hard', 'icon_abyss']) L.push(['room', k, `${rm}auto_chess_room_state/${k}.png`]);
+  for (const k of ['icon_card', 'host_top_tag']) L.push(['room', k, `${rm}playercard/player_solt_item_room/${k}.png`]);
+  // the strategy draft's player list rows (prefab_auto_chess_band_choose_player_card_item; its arrow is the band item's)
+  const bc = 'ui/autochess/[uc]autochessouter/bandchoose/';
+  for (const k of ['player_card_self_frame', 'icon_self_room', 'player_card_waiting', 'player_card_selecting', 'shallow_main', 'player_card_team_frame', 'player_card_ready']) {
+    L.push(['bandChoose', k, `${bc}prefab_auto_chess_band_choose_player_card_item/${k}.png`]);
+  }
+  L.push(['bandChoose', 'team_list_selected_arrow', `${bc}prefab_auto_chess_band_item/team_list_selected_arrow.png`]);
   for (const e of EMOTE_CATALOG) L.push([`emoticon/${e.dir}`, e.picId, `ui/emoticon/theme/[uc]${e.themeId}/icon/${e.picId}.png`]);
   for (const k of GUIDE_PAGES) L.push(['guide', k, `arts/guidebookpages/[pack]autochess/${k}.png`]);
   return Object.freeze(L.map((x) => Object.freeze(x)));
