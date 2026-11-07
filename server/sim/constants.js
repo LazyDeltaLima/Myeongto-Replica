@@ -232,7 +232,8 @@ export const BLOCK_SKILL_TICK = 10;
  * (`SwitchToSkillState`). The trigger itself has no battle-start block: `StartBattle` empties `m_blockSkillTicker` and
  * only a cast fills it (PRTS 卫戍协议/帮助 "…作战开始时部署的单位将进入冷却" is this born state). The Born clip is played at a speed
  * of its own length, so it lasts this 1 s; a prefab with `_useRealBornTimeFromAnim` plays it at speed 1 and lasts the clip: the
- * summons' `attackAnim.born` (the operators with it have a 1 s clip). Until 2026-10-29 the battle-start deployment was blocked 2 s.
+ * summons' `attackAnim.born` (the operators with it have a 1 s clip). A model with no Born clip goes to IDLE at once, `born` 0
+ * (`noBornAnimationFallBack`, the state's `_OnLocate`; among the summons that attack only 赫默's 医疗探机). Until 2026-10-29 the battle-start deployment was blocked 2 s.
  */
 export const BORN_TIME = 1;
 

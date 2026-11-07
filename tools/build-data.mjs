@@ -2555,9 +2555,12 @@ function tokenAttackAnim(ctx, tokenId) {
   const m = ctx.manifest?.tokens?.[tokenId];
   const sp = m?.spine ?? m?.spineLocal;
   const dur = ab.anim ? sp?.animations?.[ab.anim] : null;
-  // `born`: its prefab's `_useRealBornTimeFromAnim` — the born state lasts the Born clip (the skeleton's Start), not 1 s (server/sim/constants.js BORN_TIME)
-  const startClip = t.realBorn ? sp?.animations?.Start : null;
-  const timing = { ...abilityTiming(ab), ...abilityFace(ab), ...(ab.det === 1 ? { det: 1 } : {}), ...(typeof startClip === 'number' && startClip > 0 ? { born: startClip } : {}) };
+  // `born`: its prefab's `_useRealBornTimeFromAnim` — the born state lasts the Born clip (the skeleton's Start), not 1 s; a model with no
+  // Born clip has no born state: `PlayBornAnimationAndEffect` calls its `noBornAnimationFallBack`, the state's `_OnLocate`, at once (server/sim/constants.js BORN_TIME)
+  const startClip = sp?.animations?.Start;
+  const born = t.realBorn && typeof startClip === 'number' && startClip > 0 ? { born: startClip }
+    : sp?.animations && Object.keys(sp.animations).length && startClip == null ? { born: 0 } : {};
+  const timing = { ...abilityTiming(ab), ...abilityFace(ab), ...(ab.det === 1 ? { det: 1 } : {}), ...born };
   if (!(typeof dur === 'number' && dur > 0)) return { noClip: 1, ...timing };
   const h = sp.hits?.[ab.anim];
   const hit = Array.isArray(h) && Number.isFinite(h[0]) ? Math.min(dur, Math.max(0, h[0])) : null;

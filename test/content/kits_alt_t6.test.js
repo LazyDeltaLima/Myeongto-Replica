@@ -1718,3 +1718,26 @@ test('6_02 圣聆初雪 S1: the charges are not dumped on an enemy far outside h
     done(h);
   }
 });
+
+test('缪尔赛思 S3, ranged 流形: a split copy on each free tile of its cross, full HP on those standing; a copy casts nothing', () => {
+  const h = mlyssBattle('chess_char_6_11_a', 'skchr_mlyss_3', { copyId: 'chess_char_1_01_a', enemyAt: 0, unit: { carryState: IDLE } });
+  const u = h.unit('chess_char_6_11_a');
+  const toks = () => h.b.allyUnits.filter((x) => x.defId === 'token_10030_mlyss_wtrman' && x.alive);
+  assert.ok(h.runUntil(() => toks().some((t) => t.mem.mlyss?.ranged), 30), 'a ranged copy');
+  const t = toks().find((x) => x.mem.mlyss?.ranged && !x.mem.mlyssClone);
+  t.hp = 1;
+  const before = toks().length;
+  assert.ok(!u.skill.active, 'not yet');
+  u.skill.gainSp(1000);
+  assert.ok(u.skill.activate('test', { free: true }), 'S3');
+  assert.equal(t.hp, t.s.maxHp, 'the 流形 stands on its own tile: back to full HP');
+  const clones = toks().filter((x) => x.mem.mlyssClone && Math.abs(x.tileR - t.tileR) + Math.abs(x.tileC - t.tileC) === 1);
+  assert.ok(clones.length >= 1 && clones.length <= 4, `split copies around it: ${clones.length}`);
+  assert.ok(toks().length > before, 'more of them now');
+  const dur = t.def.talents.find((x) => x?.bb?.steal_atk != null)?.bb.interval ?? 25;
+  for (const c of clones) approx(c.mem.mlyssCloneTimer.due - h.b.time, dur, 'a copy lasts its talent time');
+  u.skill.noSkill = true;   // (a later S3 would start their time over)
+  h.run(dur + 1);
+  assert.ok(!toks().some((x) => clones.includes(x)), 'the copies are gone when their time is up');
+  done(h);
+});

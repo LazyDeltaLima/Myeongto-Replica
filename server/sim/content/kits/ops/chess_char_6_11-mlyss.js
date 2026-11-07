@@ -45,6 +45,23 @@ function copyInto(battle, t, src, scale, ranged) {
   battle.refreshRange(t); // the copied grid: current + initial range, trigger keys
 }
 
+/** A split copy's time (`mlyss_wtrman_summon[trigger]`: it dies when the time is up); called again, its time starts over. */
+function cloneTime(battle, t, dur) {
+  t.mem.mlyssCloneTimer?.cancel?.();
+  t.mem.mlyssCloneTimer = battle.after(dur, () => { if (t.alive) battle.retreat(t, { reason: 'expired', permanent: true }); }, { owner: t });
+}
+
+/** A split copy of the ranged 流形 `t` on tile (r, c), lasting `dur` s (the 'deploy' listener copies `t` into it). */
+function splitCopy(battle, unit, tokId, t, r, c, dur) {
+  unit.mem.mlyssCloneOf = t;
+  let cl;
+  try { cl = battle.spawnToken(unit, tokId, r, c, { kit: { skill: null } }); } finally { unit.mem.mlyssCloneOf = null; }
+  if (!cl) return null;
+  cloneTime(battle, cl, dur);
+  battle.fx('split', { x: cl.x, y: cl.y, id: cl.id, src: t.id });
+  return cl;
+}
+
 function mlyss(bb, chess, def) {
   const tokId = def?.talents?.[0]?.tokenKey || (chess?.tokens || [])[0] || 'token_10030_mlyss_wtrman';
   const t1 = tbb(def, 1), mod = moduleBb(chess);
@@ -122,6 +139,8 @@ function mlyss(bb, chess, def) {
             if (t.mem.mlyssHits == null) t.mem.mlyssHits = Math.max(1, Math.floor(num(t.profile.hits, 1)));
             const ranged = !!(m && m.ranged);
             t.profile.hits = on && ranged && live(t) ? t.mem.mlyssHits * 2 : t.mem.mlyssHits; // 二连击
+            // its Range_S2 mode's attack looks for its target at the strike (`_selectTargetTiming` 1; the summons' attack record is the Default mode's)
+            t.profile.strikeSel = on && ranged ? 1 : null;
             if (on && m && !ranged && live(t)) {
               battle.addBuff(t, { key: 'mlyss:eco', duration: 0.4, refresh: 'replace', visible: true, mods: { hpRegenRatio: regen } });
               // "获得15%的庇护": the shared 庇护 (holdProtect — 同名效果取最高 with every other source)
@@ -153,9 +172,23 @@ function mlyss(bb, chess, def) {
           buffManifold(battle, t, skill.timeLeft);
           if (t.mem.mlyss?.ranged) ranged = true;
         }
-        if (ranged) { // 刷新所有流形: heal the living ones, respawn the destroyed ones now
-          for (const t of battle.allyUnits.filter((x) => isTok(x, tokId, unit) && live(x))) t.hp = t.s.maxHp;
-          for (const p of (S.mlyssPending || []).splice(0)) { p.timer?.cancel?.(); p.spawn(); }
+        // 刷新所有流形: each ranged 流形 — not a split copy (mlyss_s_3[token_range_trigger]: `mlyss_wtrman_summon[override]`) — casts
+        // the token skill's SpawnTokenS3 on the five tiles of x-5 (`_maxNum` 5): a split copy on every free one, and a 流形 or copy
+        // already there (`_buffsToExistToken` mlyss_wtrman_[summon_refresh]) back to full HP, a copy's time from the start. Its
+        // EmitProjectileS3 only flies at those tiles (no `_atkScale`). A destroyed 流形 is not touched: only a living one casts.
+        if (ranged) {
+          const rangedOnes = battle.allyUnits.filter((x) => isTok(x, tokId, unit) && live(x) && x.mem.mlyss?.ranged && !x.mem.mlyssClone);
+          for (const t of rangedOnes) {
+            const dur = num(tokTal(t, 'steal_atk').interval, 25);
+            for (const [dr, dc] of N4) {
+              const r = t.tileR + dr, c = t.tileC + dc;
+              const there = battle.allyUnits.find((x) => isTok(x, tokId, unit) && live(x) && x.tileR === r && x.tileC === c);
+              if (there) {
+                there.hp = there.s.maxHp;
+                if (there.mem.mlyssClone) cloneTime(battle, there, dur);
+              } else if (battle.grid.inRect(r, c) && !battle.isReservedTile(r, c) && battle.grid.canStand(r, c, { ranged: true })) splitCopy(battle, unit, tokId, t, r, c, dur);
+            }
+          }
         }
         S.mlyssPulse = battle.every(pulseIv, () => { // melee copies: pull the 8 surrounding tiles + stun blocked units
           if (!unit.skill?.active) return;
@@ -247,10 +280,7 @@ function mlyss(bb, chess, def) {
               .filter(([r, c]) => battle.grid.inRect(r, c) && !battle.isReservedTile(r, c) && battle.grid.canStand(r, c, { ranged: true }));
             const tile = bestTile(battle, tiles);
             if (!tile) return;
-            unit.mem.mlyssCloneOf = t;
-            let cl = null;
-            try { cl = battle.spawnToken(unit, tokId, tile[0], tile[1], { duration: num(tal.interval, 25), kit: { skill: null } }); } finally { unit.mem.mlyssCloneOf = null; }
-            if (cl) battle.fx('split', { x: cl.x, y: cl.y, id: cl.id, src: t.id });
+            splitCopy(battle, unit, tokId, t, tile[0], tile[1], num(tal.interval, 25));
           }
         }, { owner: unit });
         battle.on('damaged', (ctx) => { // S3, ranged copies: attacks bind

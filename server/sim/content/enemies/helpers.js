@@ -377,7 +377,7 @@ export function shoot(b, from, t, shot, onHit, opts = {}) {
       tgt: t.id, key: shot.key, move: shot.move, speed: v, t: Math.round(flight * 1000) / 1000, ...(opts.zone ? { zone: 1 } : {}) });
   }
   if (!(v > 0) || !(d > 1e-9)) { onHit(t); return 0; }
-  b.addProjectile({ from, target: t, speed: v, visual: opts.visual ?? 'enemy', source: src, hitDead: !!opts.hitDead, onHit: (c) => onHit(c.target, c) });
+  b.addProjectile({ from, target: t, speed: v, visual: opts.visual ?? 'enemy', source: src, hitDead: !!opts.hitDead, fixed: shot?.adjust === 0, noWipe: shot?.elim === 0, onHit: (c) => onHit(c.target, c) });
   return flight;
 }
 
@@ -428,7 +428,7 @@ export function lineShot(b, unit, aim, shot, onHit, opts = {}) {
     b.fx('enemyShot', { x: from.x, y: from.y, id: src ? src.id : null, tgt: first ? first.id : null, key: shot.key, move: shot.move, speed,
       t: Math.round((at / speed) * 1000) / 1000, dir, range: Math.round(at * 1000) / 1000 });
   }
-  return b.addProjectile({ from: { x: from.x, y: from.y }, dir: { x: dir[0], y: dir[1] }, speed, maxAge: life, visual: opts.visual ?? 'enemy', source: src,
+  return b.addProjectile({ from: { x: from.x, y: from.y }, dir: { x: dir[0], y: dir[1] }, speed, maxAge: life, visual: opts.visual ?? 'enemy', source: src, fixed: shot?.adjust === 0, noWipe: shot?.elim === 0,
     sweep: (p) => touching(p.x, p.y), onHit: (c) => onHit(c.target), onExpire: () => opts.onExpire?.() });
 }
 

@@ -243,6 +243,7 @@ test('莫斯提马 S2 荒时之锁: every enemy in range stunned until the skill
       approx(mine[0].amount, u.s.atk * bb.atk_scale, 1e-6, 'arts tick');
     }
     assert.ok(!lock.some((c) => c.target === far));
+    assert.equal(h.hooksOf('attack').filter((c) => c.attacker === u).length, 0, `${id}: no normal attack while it runs`);
     h.run(0.2);
     for (const e of es) assert.ok(!e.s.flags.stun, 'stun ends with the skill');
     checkInvariants(h.b);
@@ -884,6 +885,39 @@ test('星熊 S1 战意 (TAKE_DAMAGE: DEF/ATK up, no thorns) and S3 力之锯 (AT
     approx(u.s.atk, u.base.atk * (1 + b3.atk), 1e-6, 'S3 ATK');
     assert.ok(h.runUntil(() => h.hooksOf('attack').some((c) => c.attacker === u), 5));
     assert.equal(h.hooksOf('attack').find((c) => c.attacker === u).targets.length, es.length, 'all enemies in front');
+  }
+});
+
+test('星熊 S3 is the official ChannelingMeleeAttack: 0.4 s to the first cut, one a second whatever the attack speed, 25 cuts in 25 s', () => {
+  for (const id of pair('chess_char_4_17_a')) {
+    const h = battle([U(id, 10, 4, 2)]);
+    h.step();
+    const u = h.unit(id);
+    h.spawn('enemy_dummy', { pos: [10, 5] });
+    assert.ok(u.skill.activate('test', { free: true }));
+    const at = h.b.time;
+    h.b.addBuff(u, { key: 'test:aspd', duration: Infinity, mods: { aspd: 200 } });
+    h.runUntil(() => !u.skill.active, 30);
+    const cuts = h.hooksOf('attack').filter((c) => c.attacker === u).map((c) => c.t - at);
+    assert.equal(cuts.length, 25, `${id}: ${cuts}`);
+    assert.ok(Math.abs(cuts[0] - 0.4) < 0.07, `${id}: first ${cuts[0]}`);
+    for (let i = 1; i < cuts.length; i++) assert.ok(Math.abs(cuts[i] - cuts[i - 1] - 1) < 0.07, `${id}: then 1 s (${cuts})`);
+    assert.ok(Math.abs(cuts[24] - 24.4) < 0.07, `${id}: last ${cuts[24]}`);
+  }
+});
+
+test('星熊 S3 and 莫斯提马 S2 end when a stun interrupts their channel, and the stun takes the bonus with it', () => {
+  for (const [id, sk] of [['chess_char_4_17_a', 2], ['chess_char_4_02_a', 1]]) {
+    const h = battle([U(id, 10, 4, sk)]);
+    h.step();
+    const u = h.unit(id);
+    h.spawn('enemy_dummy', { pos: [10, 5] });
+    assert.ok(u.skill.activate('test', { free: true }));
+    h.run(1);
+    assert.ok(u.skill.active, `${id}: running`);
+    h.b.applyStatus(u, 'stun', { duration: 0.5, source: null });
+    h.run(0.1);
+    assert.ok(!u.skill.active, `${id}: the stun ends it`);
   }
 });
 

@@ -69,7 +69,7 @@ const LOCK_IDLE = 0.1;
  *  projectile_chr_logos_s1_2 — the keys the charpack's logos_t_1 / logos_s_1[kill] blackboards name. */
 const T1_SHOT = 8;
 const S1_SHOT = 3;
-/** Enemy projectiles slowed by a running 延异视阈 (projectile → Set of the unit ids holding it). */
+/** Enemy projectiles slowed by a running 延异视阈 (projectile → Map of the unit id holding it → its scale). */
 const SLOWED = new WeakMap();
 
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
@@ -86,26 +86,41 @@ const enemyShot = (p) => p && p.source && p.source.side === 'enemy';
  */
 const shotFx = (battle, unit, p, change) => battle.fx('shotSlow', { x: p.x, y: p.y, id: unit.id, from: p.source.id, tgt: p.target?.id ?? null, ...change });
 
-/** 延异视阈: slow the enemy projectiles on `unit`'s range, restore those that left it. Runs every tick: no allocation. */
+/**
+ * A shot's speed share: the holders' scales multiplied (`BasicMovement._CalculateFinalMoveScale`: every registered modifier),
+ * so two 逻各斯 on one shot hold it at the square of the scale.
+ */
+function holdShot(battle, unit, p, by) {
+  let rate = 1;
+  for (const scale of by.values()) rate *= scale;
+  if (p.moveScale === rate) return;
+  p.moveScale = rate;
+  shotFx(battle, unit, p, { rate });
+}
+
+/**
+ * 延异视阈: slow the enemy projectiles on `unit`'s range, restore those that left it. Runs every tick: no allocation. A shot
+ * that may not be slowed stays out (`Projectile.RegisterMoveScale` does nothing unless `movementAdjustable`: a harpoon, an
+ * attached shot or one with no `_mainEffect`; tools/local-extract/enemy_projectiles.py `adjust`).
+ */
 function slowShots(battle, unit, scale) {
   const set = unit.rangeKeySet, list = battle.projectiles?.list;
   if (!list) return;
   for (const p of list) {
-    if (!enemyShot(p)) continue;
+    if (!enemyShot(p) || p.fixed) continue;
     let by = SLOWED.get(p);
     if (set && set.has(tileOf(p))) {
-      if (!by) { by = new Set(); SLOWED.set(p, by); p.moveScale = scale; shotFx(battle, unit, p, { rate: scale }); }
-      by.add(unit.id);
+      if (!by) { by = new Map(); SLOWED.set(p, by); }
+      if (!by.has(unit.id)) { by.set(unit.id, scale); holdShot(battle, unit, p, by); }
     } else if (by) release(battle, unit, p, by);
   }
 }
 
 /** `unit` stops holding `p`; held by nobody, it flies at its own speed again. */
 function release(battle, unit, p, by) {
-  if (!by.delete(unit.id) || by.size) return;
-  p.moveScale = 1;
-  SLOWED.delete(p);
-  shotFx(battle, unit, p, { rate: 1 });
+  if (!by.delete(unit.id)) return;
+  holdShot(battle, unit, p, by);
+  if (!by.size) SLOWED.delete(p);
 }
 
 /** 延异视阈 ends: clear the enemy projectiles on the range (unless disarmed / knocked out), release the rest. */
@@ -115,7 +130,8 @@ function endShots(battle, unit, clear) {
   if (clear && set && battle.projectiles) {
     const keep = [];
     for (const p of battle.projectiles.list) {
-      if (enemyShot(p) && set.has(tileOf(p))) { n++; SLOWED.delete(p); shotFx(battle, unit, p, { clear: 1 }); } else keep.push(p);
+      // (`Projectile.eliminatable`: tools/local-extract/enemy_projectiles.py `elim`)
+      if (enemyShot(p) && !p.noWipe && set.has(tileOf(p))) { n++; SLOWED.delete(p); shotFx(battle, unit, p, { clear: 1 }); } else keep.push(p);
     }
     battle.projectiles.list = keep;
   }

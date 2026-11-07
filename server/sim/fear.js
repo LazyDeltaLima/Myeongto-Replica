@@ -18,16 +18,15 @@
 // Path steps (the 5-step limit): 4-neighbour steps over the unit's passable, obstacle-free tiles, the checkpoint tile
 // included (ground: walkable, blocks and crates excluded — a crate's move cost 1000 is beyond any 5-step budget and a
 // block has no path; flyers: fly-passable), like the official SPFA's unit edges.
-// The temporary path: ground units walk the grid's smoothed flow-field waypoints to the checkpoint's tile (stepping
-// back to their tile centre first when the straight line from an off-centre position would clip a tile they cannot
-// walk, as ai.js planLeg), flyers fly straight. Like every enemy path it re-plans from where the unit stands when
-// something else moved it (a push / pull — Battle.displace) or an obstacle changed (grid.version): to the same
-// checkpoint while it stays reachable, else to a new pick. Speed = the unit's own (move-speed buffs such as the
-// SelfFear ×1.5 included). Deterministic: every draw is battle.rng().
+// The walk: the official Enemy.FearController holds a DirectionCursor of its own, so a fear walks as a route does (walk.js
+// walkCursor, the client's Enemy._MoveByCursor): the next tile of the flow field each tick, steering, the wall's force; flyers
+// straight. A checkpoint counts as reached within 0.05 (MoveCheckpoint.CheckReached). An obstacle change that cuts the
+// checkpoint off (grid.version) picks a new one. Speed = the unit's own (move-speed buffs such as the SelfFear ×1.5
+// included). Deterministic: every draw is battle.rng().
 
 import { MOVE_SCALE, COLS } from './constants.js';
-import { straightClear } from './grid.js';
 import { hypot } from './detmath.js';
+import { walkCursor, REACH_SQ } from './walk.js';
 
 /** 半径10格 — the fan's radius (tiles). */
 export const FEAR_RADIUS = 10;
@@ -147,29 +146,17 @@ function hereOf(g, e) {
 }
 
 /**
- * The temporary path from where the unit stands to its checkpoint (`m.k` tile, `m.goal` point): ground units follow
- * the smoothed flow-field waypoints (null when an obstacle now cuts the tile off), flyers fly straight. Records the
- * grid version; moveFeared records where each step left the unit and re-plans when either changes behind its back.
+ * Can the unit still walk to its checkpoint (`m.k`)? A flyer and a unit on that tile always; a walker needs a way there over
+ * its passable tiles. Records the grid version: moveFeared asks again when an obstacle changed.
  * @returns {boolean} false when a ground unit can no longer reach the checkpoint tile
  */
-function planPath(b, e, m) {
+function canReach(b, e, m) {
   const g = b.grid, h = hereOf(g, e);
-  const pts = [];
-  if (e.motion !== 'FLY' && m.k !== h.k) {
-    if (!openTile(g, false, m.k)) return false;
-    const r = (m.k / COLS) | 0, c = m.k - r * COLS;
-    const wp = g.waypoints(h.r, h.c, r, c);
-    if (!wp) return false;
-    for (let j = 1; j < wp.length - 1; j++) pts.push({ x: wp[j][1], y: wp[j][0] });
-    // the smoothed chain is line-of-sight clear from the tile CENTRE only (as ai.js planLeg)
-    const first = pts.length ? pts[0] : { x: c, y: r };
-    if ((e.x !== h.c || e.y !== h.r) && !straightClear(g, e.x, e.y, first)) pts.unshift({ x: h.c, y: h.r });
-  }
-  pts.push(m.goal);
-  m.pts = pts;
-  m.i = 0;
   m.ver = g.version;
-  return true;
+  if (e.motion === 'FLY' || m.k === h.k) return true;
+  if (!openTile(g, false, m.k)) return false;
+  const r = (m.k / COLS) | 0, c = m.k - r * COLS;
+  return !!g.waypoints(h.r, h.c, r, c);
 }
 
 /** Choose the next temporary checkpoint (a random reachable tile within 5 path steps, else the own tile) and plan to it. */
@@ -186,8 +173,9 @@ function pickCheckpoint(b, e, m) {
   const aim = (key) => {
     const r = (key / COLS) | 0, c = key - r * COLS;
     m.k = key;
+    m.r = r; m.c = c;
     m.goal = { x: c + ox, y: r + oy };
-    return planPath(b, e, m);
+    return canReach(b, e, m);
   };
   // (a pick within 5 open steps has a path unless the unit itself stands on a block; the own tile needs none)
   if (!aim(k)) aim(here);
@@ -200,11 +188,8 @@ export function moveFeared(b, e, dt) {
   const st = stampOf(e);
   let m = e.mem.fearMove;
   if (!m || (st && m.seq !== st.seq)) {
-    m = e.mem.fearMove = { seq: st ? st.seq : -1, tiles: reachableTiles(b, e, st), pts: null, i: 0 };
+    m = e.mem.fearMove = { seq: st ? st.seq : -1, tiles: reachableTiles(b, e, st), goal: null };
   }
-  // pushed / pulled (Battle.displace) or an obstacle changed since the last tick: re-plan the walk from here — to the
-  // same checkpoint while it stays reachable, else a new pick (a stale path would walk through walls)
-  if (m.pts && (m.ver !== b.grid.version || e.x !== m.px || e.y !== m.py) && !planPath(b, e, m)) m.pts = null;
   // a waiting checkpoint of the route keeps counting down ("停驻时间会相应扣除恐惧生效时间")
   const R = e.route, leg = R && R.legs ? R.legs[R.legIdx] : null;
   if (leg && leg.t === 'wait') {
@@ -216,16 +201,12 @@ export function moveFeared(b, e, dt) {
   const speed = e.s.moveSpeed * MOVE_SCALE;
   let moved = false;
   if (speed > 0) {
-    let dist = speed * dt;
-    for (let guard = 8; dist > 1e-9 && guard > 0; guard--) {
-      if (!m.pts || m.i >= m.pts.length) pickCheckpoint(b, e, m);
-      const p = m.pts[m.i];
-      const dx = p.x - e.x, dy = p.y - e.y, d = hypot(dx, dy);
-      if (d <= dist) { e.x = p.x; e.y = p.y; dist -= d; m.i++; } else { e.x += (dx / d) * dist; e.y += (dy / d) * dist; dist = 0; }
-      moved = moved || d > 1e-9;
-    }
+    const g = m.goal;
+    if (!g || (g.x - e.x) * (g.x - e.x) + (g.y - e.y) * (g.y - e.y) <= REACH_SQ || (m.ver !== b.grid.version && !canReach(b, e, m))) pickCheckpoint(b, e, m);
+    const x0 = e.x, y0 = e.y;
+    walkCursor(b, e, m.r, m.c, m.goal.x, m.goal.y, speed, dt);
+    moved = e.x !== x0 || e.y !== y0;
   }
-  m.px = e.x; m.py = e.y;
   e.moving = moved;
 }
 

@@ -159,11 +159,38 @@ function installLowHpHealBonus(battle, unit, tb, { atOrBelow = false } = {}) {
   battle.on('heal', (c) => { if (c.source === unit && c.target !== unit && low(c.target)) c.amount *= s; }, { owner: unit });
 }
 
+/**
+ * The hits of a skill whose ability is a ChannelingMeleeAttack (official client; docs/rules/sim.md 「즉발 스킬의 시전」), as a
+ * kit's onTick: `start` at the cast (onStart), then `tick` every tick. The first hit comes at the frame the ability waits for
+ * (`skill.castTiming().strike`), the others `delta` s apart whatever the attack speed (`_triggerDelta`; the blackboard's
+ * `interval`), after each hit another comes while the skill's `duration` less the time since the cast exceeds `post`
+ * (`CheckAnotherSpell`, `_postDelayChecker`). `AbilityStandard._DoCast` asks that right after the hit, so the last one comes
+ * after the check. A stun, freeze or sleep interrupts the ability, and a skill whose ability is the channel itself ends with it
+ * (`BasicSkill.OnTick`: the ability no longer affects).
+ */
+const channel = {
+  start(unit, skill, { delta = 1, post = 1 } = {}) {
+    unit.mem.channel = { from: skill.battle.time, next: skill.battle.time + skill.castTiming().strike, delta, post };
+  },
+  tick({ battle, unit, skill }, onHit) {
+    const c = unit.mem.channel;
+    if (!c) return;
+    if (!unit.canAct) { skill.end('interrupted'); return; }
+    while (battle.time + 1e-9 >= c.next) {
+      const hitAt = c.next;
+      c.next = skill.duration - (hitAt - c.from) > c.post ? hitAt + c.delta : Infinity;
+      onHit();
+      if (!skill.active) return;
+    }
+  },
+  end(unit) { unit.mem.channel = null; },
+};
+
 // DESIGN §5.6 documents `(bb, chess)`; content/index.js also passes the normalised def — rebuild it when absent.
 const withDefaults = (kits) => Object.fromEntries(Object.entries(kits).map(([id, f]) => [id, (bb, chess, def) => f(bb || {}, chess, def || normalizeChess(chess))]));
 
 export {
   AURA, AURA_DUR, num, tbb, moduleBb, grid, batFlat, hasPower, enemyHasTag, keySet, enemiesOnRange, targetsInRange,
   targetsInGrid, whileDeployed, pulse, toggleBuff, spAura, resCut, reveal, skillActive, isSel, alt, instantKind, lonely,
-  applyModuleRange, pullToFront, installLowHpHealBonus, withDefaults,
+  applyModuleRange, pullToFront, installLowHpHealBonus, channel, withDefaults,
 };

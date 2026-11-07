@@ -3265,9 +3265,10 @@ test('假想敌：铳 最终之罚: the +move_speed is added before the multipli
     const e = put(h, gun, [3, 10], { tag: 'boss', move: true });
     h.runUntil(() => !!e.findBuff('boss:charge'), 30);
     if (status) h.b.applyStatus(e, status[0], { duration: 30, ...status[1] });
+    h.run(0.5);   // its walk steers up to a new speed (walk.js steerStep)
     let walked = 0;   // along its path (it may first step back to its tile's centre)
-    for (let i = 0; i < 20; i++) { const x0 = e.x, y0 = e.y; h.run(0.1); walked += Math.hypot(e.x - x0, e.y - y0); }
-    return walked / 2;
+    for (let i = 0; i < 15; i++) { const x0 = e.x, y0 = e.y; h.run(0.1); walked += Math.hypot(e.x - x0, e.y - y0); }
+    return walked / 1.5;
   };
   approx(speedOver(null), (base + add) * MOVE_SCALE, 0.02, 'no status');
   approx(speedOver(['slow', { value: 0.5 }]), (base + add) * 0.5 * MOVE_SCALE, 0.02, 'slow 50 %');

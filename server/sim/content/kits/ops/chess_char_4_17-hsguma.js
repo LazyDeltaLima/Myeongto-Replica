@@ -1,12 +1,12 @@
 // server/sim/content/kits/ops/chess_char_4_17-hsguma.js — 星熊 (char_136_hsguma) kit, tier 4.
 // Conventions of the tier-4 kits: ../shared/tier4.js; kit contract and rules: ../README.md.
 
-import { AURA, num, tbb, whileDeployed, pulse, toggleBuff, isSel, alt, withDefaults } from '../shared/tier4.js';
+import { AURA, num, tbb, whileDeployed, pulse, toggleBuff, isSel, alt, channel, withDefaults } from '../shared/tier4.js';
 import { byEnemyAttack } from '../shared/tier1.js';
 
 export default withDefaults({
   // ===== 星熊 (protector) S2 荆棘 (passive) — DEF +13 %, answers every enemy damage instance with 65 % ATK phys on its source; talents
-  //       S1 战意 (TAKE_DAMAGE: DEF/ATK up); S3 力之锯 (ATK/DEF up, cuts every enemy on her front tile — all enemies of her
+  //       S1 战意 (TAKE_DAMAGE: DEF/ATK up); S3 力之锯 (ATK/DEF up, cuts every enemy on her front tile once a second — all enemies of her
   //       range); module PRO-X (护身符): DEF +20 % while blocking
   chess_char_4_17_a: (bb, chess, def) => {
     const t0 = tbb(def, 0), t1 = tbb(def, 1);
@@ -15,11 +15,25 @@ export default withDefaults({
     return {
       skills: alt(def, {
         skchr_hsguma_1: () => ({ kind: 'duration', mods: { defPct: num(bb.def), atkPct: num(bb.atk) } }),
+        // The official ability is a ChannelingMeleeAttack: she stays in its Skill state (no normal attack), `_preDelay` 0.4 s to the
+        // first cut, then one per second whatever her attack speed, `_postDelayChecker` 0.8 s (25 cuts in 25 s). Its selector has
+        // no target limit and looks again at every cut (`_selectTargetTiming` 1), a blocked enemy off her range is not on it.
         skchr_hsguma_3: () => ({
           kind: 'duration',
           mods: { atkPct: num(bb.atk), defPct: num(bb.def) },
-          targeting: { allInRange: true },
-          onStart({ battle, unit }) { battle.fx('overclock', { x: unit.x, y: unit.y, id: unit.id }); },
+          attack: { noAttack: true },
+          onStart({ battle, unit, skill }) {
+            battle.fx('overclock', { x: unit.x, y: unit.y, id: unit.id });
+            channel.start(unit, skill, { post: 0.8 });
+          },
+          onTick(ctx) {
+            const { battle, unit } = ctx;
+            channel.tick(ctx, () => {
+              const targets = battle.enemiesInKeys(unit.rangeKeys, unit, battle.effectiveProfile(unit));
+              if (targets.length) battle.forceAttack(unit, targets);
+            });
+          },
+          onEnd({ unit }) { channel.end(unit); },
         }),
       }),
       skill: { kind: 'passive', mods: { defPct: num(bb.def) } },

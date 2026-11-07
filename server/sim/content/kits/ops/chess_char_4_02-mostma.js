@@ -3,7 +3,7 @@
 
 import {
   AURA, num, tbb, grid, enemiesOnRange, whileDeployed, pulse, spAura, skillActive, isSel, alt, applyModuleRange,
-  withDefaults,
+  channel, withDefaults,
 } from '../shared/tier4.js';
 
 const TICK_EPS = 0.01;     // minimal status duration (s)
@@ -14,9 +14,6 @@ const TICK_EPS = 0.01;     // minimal status duration (s)
 function shove(battle, e, from, force) {
   return e && e.alive ? battle.push(e, num(force, 0), { from }) : 0;
 }
-
-/** skchr_mostma_2's first pulse after the cast (s): Skill_Begin's OnAttack frame. */
-const FIRST_PULSE = 0.567;
 
 export default withDefaults({
   // ===== 莫斯提马 (splashcaster) S3 序时之匙 — ripple hits all in range, +ATK, talent 2 ×3, small knock-back
@@ -30,15 +27,18 @@ export default withDefaults({
     return {
       skills: alt(def, {
         'skcom_atk_up[3]': () => ({ kind: 'duration', mods: { atkPct: num(bb.atk) } }),
+        // The official ability is a ChannelingMeleeAttack: she stays in its Skill state (no normal attack), the first pulse at
+        // the OnAttack frame of the clip its ThreePartChannelingAnimation plays (Skill_Begin 0.567 s), then one per second
         skchr_mostma_2: () => ({
           kind: 'duration',
+          attack: { noAttack: true },
           onStart({ battle, unit, skill }) {
-            // the first pulse at the OnAttack frame of the clip its ThreePartChannelingAnimation plays, Skill_Begin 0.567 s
-            // (ChannelingMeleeAttack: then every `_triggerDelta` 1 s)
-            unit.mem.timeLock = { acc: 1 - FIRST_PULSE, locked: new Set() };
+            unit.mem.timeLock = { locked: new Set() };
+            channel.start(unit, skill);
             battle.fx('zone', { x: unit.x, y: unit.y, id: unit.id, duration: skill.duration });
           },
-          onTick({ battle, unit, skill, dt }) {
+          onTick(ctx) {
+            const { battle, unit, skill } = ctx;
             const L = unit.mem.timeLock;
             if (!L) return;
             // every enemy standing in her range (entering later too) is stunned until the skill ends
@@ -47,15 +47,13 @@ export default withDefaults({
               L.locked.add(e.id);
               battle.applyStatus(e, 'stun', { duration: Math.max(TICK_EPS, skill.timeLeft), source: unit });
             }
-            L.acc += dt;
-            while (L.acc + 1e-9 >= 1) {
-              L.acc -= 1;
+            channel.tick(ctx, () => {
               for (const e of enemiesOnRange(battle, unit)) {
                 battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale, 1), type: 'arts', isSkill: true, tags: ['skill', 'timeLock'] });
               }
-            }
+            });
           },
-          onEnd({ unit }) { unit.mem.timeLock = null; },
+          onEnd({ unit }) { unit.mem.timeLock = null; channel.end(unit); },
         }),
       }),
       install(battle, unit) { applyModuleRange(battle, unit, def); }, // module SPC-X: 攻击范围扩大 (module range grid)

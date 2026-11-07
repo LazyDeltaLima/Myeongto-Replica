@@ -154,10 +154,18 @@ describe('#13 恐惧 / 诱导 walks re-plan when something else moves the enemy 
     h.step();
     return { h, g, e, walk };
   }
-  /** Ticks (over `secs`) the enemy spent on a tile it cannot walk, `when(e)` filtering the ticks counted. */
+  /**
+   * Ticks (over `secs`) the enemy spent well inside a tile it cannot walk, `when(e)` filtering the ticks counted. A walk may graze
+   * an edge: the client's walk (walk.js) bounces its step and the wall's force brings it back, and a push leaves a velocity;
+   * measured 0.08 at most over these runs. Cutting through a wall would go far past that.
+   */
   function offGround(h, g, e, secs, when = () => true) {
     let n = 0;
-    for (let i = 0; i < Math.round(secs * 30); i++) { h.step(); if (when(e) && !g.walkable(Math.round(e.y), Math.round(e.x), true)) n++; }
+    for (let i = 0; i < Math.round(secs * 30); i++) {
+      h.step();
+      const r = Math.round(e.y), c = Math.round(e.x);
+      if (when(e) && !g.walkable(r, c, true) && 0.5 - Math.max(Math.abs(e.x - c), Math.abs(e.y - r)) > 0.1) n++;
+    }
     return n;
   }
 
@@ -188,7 +196,7 @@ describe('#13 恐惧 / 诱导 walks re-plan when something else moves the enemy 
       h.b.applyStatus(e, 'fear', { duration: 6, source: { x: 6, y: 10, side: 'ally' } });   // flee east
       h.step();
       const m = e.mem.fearMove;
-      const p = m && m.pts && m.pts[m.i];
+      const p = m && m.goal;
       if (!p) continue;
       const dx = p.x - e.x, dy = p.y - e.y, d = Math.hypot(dx, dy);
       if (d < 1.2) continue;

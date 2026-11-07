@@ -86,3 +86,10 @@ test('a battle: the strike of a summon lands its wind-up after the swing that an
   assert.ok(Math.abs(strike - swingAt - windup) <= 2 * TICK, `strike ${strike - swingAt} s after the swing, wind-up ${windup}`);
   checkInvariants(h.b);
 });
+
+test('a summon whose model has no Born clip has no born state: 医疗探机 alone among those that attack', () => {
+  const tokens = JSON.parse(readFileSync(new URL('../../data/tokens.json', import.meta.url), 'utf8'));
+  assert.equal(tokens.token_10000_silent_healrb.attackAnim.born, 0);
+  const others = Object.values(tokens).filter((t) => t.attackAnim?.born === 0).map((t) => t.tokenId);
+  assert.deepEqual(others, ['token_10000_silent_healrb'], 'no other summon with an attack ability lacks the clip');
+});

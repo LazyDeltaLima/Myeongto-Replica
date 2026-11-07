@@ -213,3 +213,40 @@ test('every ground route of every stage: the walker arrives and never stands on 
     }
   }
 });
+
+test('恐惧, 诱导 and a trace walk as a route does: the velocity steers up from zero to the speed', () => {
+  const speed = 2 * MOVE_SCALE;
+  for (const [name, start] of [
+    ['诱导', (h, e) => h.b.applyStatus(e, 'attract', { duration: 30, point: [6, 4] })],
+    ['a trace', (h, e) => { e.trace = { r: 6, c: 4, ox: 0, oy: 0 }; }],
+    ['恐惧', (h, e) => h.b.applyStatus(e, 'fear', { duration: 30, source: { x: e.x + 1, y: e.y, side: 'ally' } })],
+  ]) {
+    const h = flatWalker('enemy_walk_plain');
+    let e = null;
+    while (!e) { h.step(1); e = h.b.enemies[0] ?? null; }
+    e.moveVx = 0; e.moveVy = 0;
+    start(h, e);
+    h.step(1);
+    const v0 = Math.hypot(e.moveVx, e.moveVy);
+    assert.ok(v0 > 0 && v0 < speed / 2, `${name}: the first tick's velocity is short of the speed (${v0})`);
+    h.run(1);
+    assert.ok(near(Math.hypot(e.moveVx, e.moveVy), speed, speed * 0.1), `${name}: at the speed (${e.moveVx}, ${e.moveVy})`);
+  }
+});
+
+test('诱导 on a real stage: the steered walk lands on the point and stands there', () => {
+  const h = makeBattle({ stageId: M04, autoFinish: false, timeLimit: 200, units: [],
+    routes: [{ motion: 'WALK', start: [9, 10], end: [9, 2], checkpoints: [] }],
+    defs: { enemies: { enemy_walk_plain: enemyRec({ key: 'enemy_walk_plain', hp: 1e7, speed: 2 }) } },
+    enemies: [{ key: 'enemy_walk_plain', time: 0, routeIndex: 0 }] });
+  let e = null;
+  while (!e) { h.step(1); e = h.b.enemies[0] ?? null; }
+  const g = h.b.grid;
+  let target = null;
+  for (let c = Math.round(e.x) - 3; c >= 1 && !target; c--) for (let r = 7; r <= 11 && !target; r++) if (g.walkable(r, c) && g.waypoints(Math.round(e.y), Math.round(e.x), r, c)) target = [r, c];
+  assert.ok(target, 'a point to walk to');
+  h.b.applyStatus(e, 'attract', { duration: 60, point: target });
+  assert.ok(h.runUntil(() => e.x === target[1] && e.y === target[0], 30), `reaches the point (${e.x}, ${e.y})`);
+  h.step(1);
+  assert.equal(e.moving, false, 'and stands there');
+});

@@ -147,6 +147,21 @@ def projectiles(C):
                     r.setdefault('sub', []).append(d[k])
         r.setdefault('move', 'NONE')
         r.setdefault('speed', 0)
+        # may an aura slow it or an ability wipe it (Projectile._InitOuterAdjustableSettings; 逻各斯 S3): the movement must allow it
+        # (`get_movementAdjustable`: AdvancedMovement and ParacurveMovement yes, HarpoonMovement and AttachToTarget no, no
+        # movement no); then `_movementAdjustableStatus` 0 AUTOMATIC = it has a `_mainEffect`, 1 yes, else no. `_eliminatableStatus`
+        # 0 AUTOMATIC = the same as that, 1 yes, else no. Written only when false: `adjust` 0 / `elim` 0.
+        for gp, d in lst:
+            if gp == key and '_movementAdjustableStatus' in d:
+                adj = bool(moves) and r['move'] not in ('HARPOON', 'ATTACH', 'NONE')
+                st = d['_movementAdjustableStatus']
+                adj = adj and (bool(d.get('_mainEffect')) if st == 0 else st == 1)
+                el = d.get('_eliminatableStatus', 0)
+                elim = adj if el == 0 else el == 1
+                if not adj:
+                    r['adjust'] = 0
+                if not elim:
+                    r['elim'] = 0
         land = attach_land([d for gp, d in lst if gp == key])
         if land is not None:
             r['land'] = land

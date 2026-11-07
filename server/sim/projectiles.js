@@ -54,6 +54,9 @@ export class ProjectileSystem {
       visual: p.visual ?? 'arrow',
       source: p.source ?? (p.from && p.from.id != null ? p.from : null),
       hitDead: !!p.hitDead,
+      // may 逻各斯 S3 slow / wipe it (tools/local-extract/enemy_projectiles.py `adjust` / `elim`; the client's movementAdjustable / eliminatable)
+      fixed: !!p.fixed,
+      noWipe: !!p.noWipe,
       data: p.data ?? null,
       dir: null,
       sweep: typeof p.sweep === 'function' ? p.sweep : null,

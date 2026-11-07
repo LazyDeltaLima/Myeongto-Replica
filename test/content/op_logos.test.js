@@ -549,3 +549,46 @@ test('逻各斯 through the real match path (seats[].diy → Match board → bat
   assert.ok(marked, 'T2: the attacked enemy holds 剜魂具辞');
   assert.equal(b.errors.length, 0, JSON.stringify(b.errors[0]));
 });
+
+test('延异视阈 leaves a shot it may not slow or wipe alone (a harpoon, no main effect): the data and the skill', () => {
+  const data = JSON.parse(readFileSync(new URL('../../tools/assets/local-enemy-projectiles.json', import.meta.url), 'utf8')).projectiles;
+  assert.equal(data.projectile_enemy_achunt_ray.adjust, 0, 'a harpoon');
+  assert.equal(data.projectile_enemy_achunt_ray.elim, 0);
+  assert.equal(data.projectile_enemy_stmgun.adjust, 0, 'a parabola with no main effect');
+  assert.equal(data.projectile_enemy_rockman.adjust, undefined, 'a tracing shot with its main effect');
+  const { h, u } = field({ tier: 6, elite: true, skill: 2 });
+  const g = h.spawn('enemy_gun', { pos: [10, 7] });
+  h.b.applyStatus(g, 'stun', { duration: 99, source: null });
+  cast(u);
+  h.run(0.2);
+  const far = { x: u.x + 1.4, y: u.y };
+  const free = h.b.addProjectile({ from: far, target: u, speed: 0.01, source: g, maxAge: 99 });
+  const fixed = h.b.addProjectile({ from: far, target: u, speed: 0.01, source: g, maxAge: 99, fixed: true, noWipe: true });
+  h.step();
+  approx(free.moveScale, skillOf(6, true, S3).bb.projectile_move_scale, 'an ordinary shot is slowed');
+  approx(fixed.moveScale, 1, 'this one is not');
+  h.runUntil(() => !u.skill.active, 40);
+  h.step();
+  assert.ok(!h.b.projectiles.list.includes(free), 'an ordinary shot is wiped');
+  assert.ok(h.b.projectiles.list.includes(fixed), 'this one stays');
+  done(h);
+});
+
+test('two 延异视阈 on one shot multiply their scales; one ending leaves the other', () => {
+  const scale = skillOf(6, true, S3).bb.projectile_move_scale, scale5 = skillOf(5, false, S3).bb.projectile_move_scale;
+  const { h, u } = field({ tier: 6, elite: true, skill: 2, others: [{ uid: 2, diy: { slot: SLOT[5], charId: LOGOS, skillIndex: 2, uniEquipId: null }, elite: false, row: 10, col: 6 }] });
+  const u2 = h.unit(2);
+  const g = h.spawn('enemy_gun', { pos: [10, 7] });
+  h.b.applyStatus(g, 'stun', { duration: 99, source: null });
+  cast(u);
+  cast(u2);
+  h.run(0.2);
+  const shot = h.b.addProjectile({ from: { x: u.x + 1.2, y: u.y }, target: u, speed: 0.01, source: g, maxAge: 99 });
+  h.step();
+  approx(shot.moveScale, scale * scale5, 'both hold it');
+  h.b.applyStatus(u2, 'disarm', { duration: 9, source: null });   // (no wipe as it ends)
+  u2.skill.end('test');
+  h.step();
+  approx(shot.moveScale, scale, 'the other still does');
+  done(h);
+});
