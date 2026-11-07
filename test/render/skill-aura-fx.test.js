@@ -47,10 +47,10 @@ test('归溟幽灵鲨 back from her 替身 to the 本体: `dollBack` plays once 
   assert.match(GAME, /if \(e\[1\] === 'swap' && v && q\(\) !== 'low'\) \{\n\s+const back = \(bindOf\(v\)\?\.dollBack \|\| \[\]\)/);
 });
 
-test('a summon\'s start effect: its own, \'common_empty\' none, an unextracted one the common', () => {
+test('a summon\'s start effect: its own, \'common_empty\' or \'\' (a `Trap`) none, an unextracted one the common', () => {
   assert.deepEqual(deployEffect({ owner: 'char_1052_kalts2', start: 'kalts2_skill_03_indicator_ground_01' }, true), { name: 'kalts2_skill_03_indicator_ground_01', override: false });
   assert.deepEqual(deployEffect(null, true), { name: 'common_call_start_01', override: false });
-  assert.match(GAME, /const r = fx\.name === 'common_empty' \? null\n\s+: allyFx\(v, fx\.name\) \?\? \(v\.info\.kind === 'token' && !fx\.override \? allyFx\(v, deployEffect\(null, true\)\.name\) : null\);/);
+  assert.match(GAME, /const r = fx\.name === 'common_empty' \|\| fx\.name === '' \? null\n\s+: allyFx\(v, fx\.name\) \?\? \(v\.info\.kind === 'token' && !fx\.override \? allyFx\(v, deployEffect\(null, true\)\.name\) : null\);/);
   // every token's `_startEffect`, a pack this client lacks keeping its earlier entry
   assert.match(EXTRACT, /out\.setdefault\(tid, \{'owner': owners\[tid\]\}\)\['start'\] = d\['_startEffect'\]/);
   assert.match(EXTRACT, /fx\.update\(\{k: v for k, v in old\.items\(\) if k\.startswith\('token_'\)\}\)/);

@@ -6,7 +6,9 @@
 // skchr_mitm_1 / _2, token prefab token_10037_mitm_trshrb (Modes Reborn / Default / Trash / Skill, SpawnTrash on x-5), buff_template_data mitm_s_1, mitm_s_1[cost], mitm_s_2[cost],
 // mitm_s_2[to_token], trshrb_t_1[dead_listener], trshrb_t_1[trash_born], trshrb_t_1[reborn], and CheckBlocked (`_checkBlockedBySourceToken`: the blocker is a token of hers).
 // - Trait: her damage on an enemy one of her tokens blocks, the 残骸 too, has ATK × atk_scale (ON_CALCULATE_DAMAGE, before DEF).
-// - 樱桃三号: blocks block_cnt in 小车形态, 禁疗. A knock-out or a withdrawal puts it in its 战术点形态 for `interval` s, off the fight with its tile kept, then back at full HP; the next
+// - 樱桃三号: every deployment starts in mode Reborn (the prefab's `_category` 2; Passive trshrb_state_1 casts trshrb_switch at once): for its `_preDelay` it blocks nothing, nothing
+//   targets it, it does not attack, and her skills (CheckUnitCurrentMode 1) pass it by. Then blocks block_cnt in 小车形态, 禁疗. A knock-out or a withdrawal (RallyPoint.Withdraw in its
+//   default category sets its HP to 0: the same trshrb_t_1[dead_listener]) puts it in its 战术点形态 for `interval` s, off the fight with its tile kept, then back at full HP; the next
 //   frame a 残骸 stands on a random free melee tile of the x-5 around it: ATK and DEF −100 %, max HP × (1 + max_hp), block_cnt, no attack, gone for good when it leaves.
 // - S1 遥控解体 (AUTO, instant): +cost DP at the start. At the strike a 小车 explodes for her ATK × aoe_damage_scale physical on the ground enemies of its x-5 (the trait counts: they are
 //   still blocked), then withdraws: the 残骸 comes after the damage. No 小车: DP only.
@@ -30,6 +32,8 @@ const REBORN = 1;
 const TAC_EXITS = new Set(['killed', 'retreat', FORCED_EXIT]);
 export const SKILL_FORM = 'mitm_s_2[to_token][attribute]';
 export const WASTE = 'trshrb_t_1[trash_born]';
+/** Passive's buff: at each deployment its [trigger][imme] casts trshrb_switch, so the 小车 is in mode Reborn for REBORN s. */
+export const BORN = 'trshrb_state_1';
 const MARK = 'token:mitm_mark';
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 /** First talent of a normalised token def holding `key`. */
@@ -45,7 +49,8 @@ export default {
     /** Her tokens, 小车 and 残骸, placed or summoned. */
     const tokensOf = (battle, unit) => battle.allyUnits.filter((t) => t.kind === 'token' && t.defId === tokenId && t.ownerUnit === unit);
     const carsOf = (battle, unit) => tokensOf(battle, unit).filter((t) => !isWaste(t));
-    const carUp = (battle, unit) => carsOf(battle, unit).find((t) => up(t)) ?? null;
+    /** A 小车 in mode Default or Skill: mitm_s_1 and mitm_s_2[to_token] check its mode, so one still in Reborn is passed by. */
+    const carUp = (battle, unit) => carsOf(battle, unit).find((t) => up(t) && !t.findBuff(BORN)) ?? null;
     const isMine = (u, t) => !!t && t.kind === 'token' && t.defId === tokenId && t.ownerUnit === u;
 
     const wasteKit = (def) => {
@@ -88,6 +93,12 @@ export default {
         talents: [],
         install(battle, car) {
           battle.addBuff(car, { key: 'trshrb_t_1[block_cnt]', mods: { blockCnt: block }, flags: { noHeal: true }, persist: true, allowDead: true });
+          // a return has already spent its `_preDelay` in the 战术点形态 (back below); any other deployment spends it here
+          battle.on('deploy', (ctx) => {
+            if (ctx.unit !== car || car.mem.mitmTac) return;
+            battle.addBuff(car, { key: BORN, duration: REBORN, flags: { noBlock: true, untargetable: true, invulnerable: true, disarm: true } });
+            battle.fx('mitmReborn', { x: car.x, y: car.y, id: car.id, src: owner.id });
+          }, { owner: car });
           battle.on('death', (ctx) => {
             if (ctx.unit !== car || battle.finished || !TAC_EXITS.has(ctx.reason) || !up(owner)) return;
             car.removed = false;

@@ -239,7 +239,8 @@ test('It serves an operator of hers and a summon, never another device; on a mel
   h.step();
   assert.ok(h.unit(3).findBuff(DEF_KEY), 'an operator');
   assert.ok(!h.unit(6).findBuff(DEF_KEY), 'no device');
-  assert.ok(h.unit(8).findBuff(DEF_KEY), 'a summon');
+  assert.ok(!h.unit(8).findBuff(DEF_KEY), 'a 체리 3호 in its first second is out of the fight');
+  assert.ok(h.runUntil(() => h.unit(8).findBuff(DEF_KEY), 2), 'a summon');
   assert.ok(h.unit(10).alive, 'on its ranged tile');
   assert.ok(!h.unit(10).findBuff(DEF_KEY), 'a ranged tile: none');
   done(h);

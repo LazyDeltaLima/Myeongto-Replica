@@ -89,6 +89,8 @@ test('deployEffect / deadEffect: the mode\'s override, the root\'s, else common_
   assert.deepEqual(deployEffect(u, false, u.modes.indexOf('S3')), { name: 'ulpia_skill_03_bith_01', override: true });
   assert.equal(deadEffect(null), 'common_char_die_01');
   assert.equal(deadEffect({ dead: 'vigil_token_die' }), 'vigil_token_die');
+  assert.equal(deadEffect({ dead: '' }), '', "a `Trap` token: Trap.get_deadEffect has no default");
+  assert.deepEqual(deployEffect({ start: '' }, true), { name: '', override: false }, 'Trap.get_startEffect has no default');
 });
 
 test('fxgame: input effects on the main target, looping hits end with the cast, 麻痹 cuts the cast, debuff marks held', () => {
@@ -121,7 +123,7 @@ test('fxgame: input effects on the main target, looping hits end with the cast, 
 // the layer driven with stub tables (no three.js in node: the decisions only, as test/render/enemy-fx-layer.test.js)
 const files = {
   '/assets/local/fx/index.json': { bundles: { common: ['common_char_birth_01', 'common_char_die_01'], dusk: ['dusk_attack_01_hit', 'dusk_attack_01_hit_02', 'dusk_attack_01_start'] } },
-  '/assets/local/fx/modes.json': { char_2015_dusk: MODES.char_2015_dusk },
+  '/assets/local/fx/modes.json': { char_2015_dusk: MODES.char_2015_dusk, token_trap: { owner: 'char_2015_dusk', dead: '' } },
   '/assets/local/fx/enemy-modes.json': { $fx: { m: ['b', 'm'] }, enemy_x: { modes: [{ name: 'Default', anim: ['Attack'], melee: { cast: [], opt: {}, hit: [], hitBuff: ['m'], hitBuffLife: { m: 5 } } }] } },
 };
 const settle = () => new Promise((r) => setTimeout(r, 5));
@@ -153,7 +155,22 @@ test('fx layer: an operator\'s knock-out dead effect replaces the death puff (no
     assert.equal(layer.ownsDeath(b), false, 'a retreat keeps the puff');
     layer.onEvent(['deploy', 1], views);
     assert.equal(layer.ownsDeath(a), false, 'redeployed');
+    const trap = { id: 3, x: 2, y: 1, alive: true, info: { id: 3, side: 'ally', kind: 'token', defId: 'token_trap', spine: 'token_trap' } };
+    views.set(3, trap);
+    layer.onEvent(['die', 3, 'killed'], views);
+    assert.equal(layer.ownsDeath(trap), true, 'a `Trap` token falls with no dead effect and no puff');
   } finally { globalThis.fetch = saved; }
+});
+
+test('modes.json: the `Trap` summons have no dead effect, and a season\'s summon names its operator', { skip: !existsSync(path.join(ROOT, 'public/assets/local/fx/modes.json')) }, () => {
+  const m = JSON.parse(readFileSync(path.join(ROOT, 'public/assets/local/fx/modes.json'), 'utf8'));
+  for (const id of ['token_10000_silent_healrb', 'token_10006_vodfox_doll', 'token_10028_vigil_wolf', 'token_10030_mlyss_wtrman', 'token_10037_mitm_trshrb', 'token_10066_closur_ourbase']) {
+    assert.equal(m[id]?.dead, '', id);
+    assert.equal(m[id]?.start, '', id);
+    assert.equal(deadEffect(m[id]), '', id);
+  }
+  assert.equal(m.token_10037_mitm_trshrb.owner, 'char_4147_mitm');
+  assert.equal(deadEffect(m.token_10024_ebnhlz_rcube), 'token_ebnhlz_die', 'a token that is no Trap keeps its own');
 });
 
 test('extractors: the root effect component by its shape (any _limitedPlaybackSpeed, _subFXDelayConfigs), hitBuffLife', () => {

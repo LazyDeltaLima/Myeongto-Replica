@@ -1418,10 +1418,17 @@ def token_auras(tree, client):
     toks = toks.get('tokens', toks)
     owners = {tid: a['owner'] for tid, a in assets.items() if isinstance(a, dict) and a.get('owner')}
     backups = json.loads((ROOT / 'data/backups.json').read_text(encoding='utf-8')).get('tokens') or {}
+    # 2026-11-07: a season's own summons (data/seasons/<id>/tokens.json), as tools/build-fx-templates.mjs reads them; their
+    # `owners` are chess ids
+    char_of = {c.get('chessId'): c.get('charId') for c in chess_records() if c.get('chessId') and c.get('charId')}
+    for f in sorted((ROOT / 'data/seasons').glob('*/tokens.json')):
+        for tid, rec in json.loads(f.read_text(encoding='utf-8')).items():
+            backups.setdefault(tid, rec)
     for tid, rec in backups.items():
         o = (rec.get('owners') or [None])[0] if isinstance(rec, dict) else None
         if isinstance(o, str) and o:
-            owners.setdefault(tid, o.split('@')[0])
+            o = o.split('@')[0]
+            owners.setdefault(tid, char_of.get(o, o))
     eff = {}
     for gp, d, *_ in tree:
         if isinstance(d.get('_effects'), list) and ('_buffs' in d or '_passiveBuffs' in d):
@@ -1445,8 +1452,15 @@ def token_auras(tree, client):
         for gp, d, *_ in load_tree(str(f))[0]:
             if gp == tid and isinstance(d.get('_startEffect'), str) and d['_startEffect']:
                 out.setdefault(tid, {'owner': owners[tid]})['start'] = d['_startEffect']
+            # 2026-11-07: a `Trap` root: `Trap.get_startEffect` returns the field as it is, so no common_call_start_01
+            elif gp == tid and ('_withdrawable' in d or '_hitRangeId' in d):
+                out.setdefault(tid, {'owner': owners[tid]})['start'] = ''
             if gp == tid and isinstance(d.get('_deadEffect'), str) and d['_deadEffect']:
                 out.setdefault(tid, {'owner': owners[tid]})['dead'] = d['_deadEffect']
+            # 2026-11-07: a `Trap` root (fields only Trap has, as enemy_bindings.py): `Trap.get_deadEffect` returns the field as
+            # it is, so no common_char_die_01 (사일런스 드론, 저주 인형, 뮤엘시스 분신, 비질 늑대, 클로저 지휘 센터, 체리 3호)
+            elif gp == tid and ('_withdrawable' in d or '_hitRangeId' in d):
+                out.setdefault(tid, {'owner': owners[tid]})['dead'] = ''
             # 2026-11-04: a passive ability's INFINITY buff with its own effect (`overrideEffectKey`), held on the token while it
             # stands in its default mode — the 重构体's monstr[free_jump] token_monstr_prosts_idle (PassiveBuffAbility: no
             # `_selfOption`; an AuraAbility's `_buffs` go on the units it covers, not on the token)

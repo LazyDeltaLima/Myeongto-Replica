@@ -406,10 +406,11 @@ export function deployEffect(bind, token, mode = 0) {
     o = ms.find((x, i) => x && String(bind.modes[i] || '').startsWith(pre)) || null;
   }
   if (o) return { name: o, override: true };
-  return { name: bind?.start || (token ? DEPLOY_FX.token : DEPLOY_FX.op), override: false };
+  // `start` '': a `Trap` token without one of its own (Trap.get_startEffect has no default)
+  return { name: bind?.start ?? (token ? DEPLOY_FX.token : DEPLOY_FX.op), override: false };
 }
-/** The dead effect of an operator / token: the root's `_deadEffect`, else common_char_die_01. */
-export const deadEffect = (bind) => bind?.dead || DEPLOY_FX.dead;
+/** The dead effect of an operator / token: the root's `_deadEffect`, else common_char_die_01; '' none (a `Trap` token: `Trap.get_deadEffect` has no default). */
+export const deadEffect = (bind) => bind?.dead ?? DEPLOY_FX.dead;
 /**
  * 2026-10-16 (이펙트 연결 전수 묶음 3, docs/rules/fx.md 「재능 버프·시전 이펙트」): talents whose effect is on the operator for
  * as long as it is deployed, unconditionally — an INFINITY buff on itself or an aura's `_effects` (EN charpacks). By the

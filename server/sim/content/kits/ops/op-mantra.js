@@ -122,6 +122,7 @@ export default {
       const next = nearestFoe(battle, unit, from.x, from.y, JUMP_RADIUS, hit);
       if (!next) return;
       hit.add(next);
+      battle.fx('kitHit', { x: next.x, y: next.y, id: unit.id, k: 'mantra:s2jump', from: from.id, target: next.id });
       battle.addProjectile({
         from: { x: from.x, y: from.y }, target: next, speed: JUMP_SPEED, visual: 'bolt', source: unit, hitDead: true,
         onHit: ({ target, x, y }) => {
@@ -149,6 +150,7 @@ export default {
         if (!next) return;
         hit.add(next);
         left--;
+        battle.fx('kitHit', { x: next.x, y: next.y, id: unit.id, k: 'mantra:s3jump', from: from.id, target: next.id });
         battle.addProjectile({
           from: { x: from.x, y: from.y }, target: next, speed: JUMP_SPEED, visual: 'bolt', source: unit,
           onHit: ({ target }) => {

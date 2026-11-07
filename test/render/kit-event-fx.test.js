@@ -148,7 +148,7 @@ test("a 'skill' verdict names a skill whose activation draws something", () => {
 });
 
 /** The 'kitHit' moment keys the rules answer (`k`; undefined: 灵知's, which reads none). */
-const KIT_HIT_KEYS = [undefined, 'robrta:end', 'closur:plane', 'christ:aura', 'brigid:cut', 'pianst:echo', 'pianst:final', 'pianst:finalHit', 'cqbw:grenade', 'heyak:wind', 'haruka:break', 'ironmn_t_2', 'titi:t1', 'titi:spread', 'judge:barrier', 'logos:lock', 'logos:t1shot', 'logos:s1shot', 'shu:mark', 'lmlee:s3push', 'ebnhlz:yiyin', 'ebnhlz:yiyinAoe'];
+const KIT_HIT_KEYS = [undefined, 'mantra:s1', 'mantra:s2', 'mantra:s1el', 'mantra:s3', 'mantra:s2jump', 'mantra:s3jump', 'robrta:end', 'closur:plane', 'christ:aura', 'brigid:cut', 'pianst:echo', 'pianst:final', 'pianst:finalHit', 'cqbw:grenade', 'heyak:wind', 'haruka:break', 'ironmn_t_2', 'titi:t1', 'titi:spread', 'judge:barrier', 'logos:lock', 'logos:t1shot', 'logos:s1shot', 'shu:mark', 'lmlee:s3push', 'ebnhlz:yiyin', 'ebnhlz:yiyinAoe'];
 test('the rules name prefabs the client binds for that operator', () => {
   // each rule's prefab belongs to its operator's bundle (a typo plays nothing); the names come from the buff templates
   for (const [n, by] of Object.entries(KIT_OFFICIAL)) {
@@ -160,6 +160,7 @@ test('the rules name prefabs the client binds for that operator', () => {
       if (n === 'shield' && b === 'lmlee') o.kind = 'lmlee';
       if (n === 'buff' && b === 'jesca2') Object.assign(o, { kind: 'turn', shield: 2 });
       if (n === 'counter') Object.assign(o, { tgt: 2, t: 2 });
+      if (n === 'summon' && b === 'mitm') o.waste = 1;
       if (n === 'aoe') o.skill = b === 'branch' ? 'resolve' : b === 'mitm' ? 'mitm:s1' : 'judge:atonement';   // 折桠's opening blast, 斥罪's S2 pulse (the shared 'aoe' event: their skills only)
       // ('hit' rules answer their own moment keys)
       const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((c) => ({ ...c, plays: PLAYS }))
@@ -873,6 +874,23 @@ test('fxgame.js (2026-11-03): 斥罪\'s and 逻各斯\'s kit moments play on the
     ev('kitHit', { x: 8, y: 0, id: 2, src: 2, target: 9, from: 8, k: 'logos:s1shot' });
     assert.deepEqual(got(), ['logos_skill1_trail_02@null']);
   } finally { globalThis.fetch = fetch0; }
+});
+
+test('kitOfficialPlan (2026-11-07): 真言\'s hit by the target\'s state, her jumps\' trail, S3\'s 溢出 and T2\'s tile mark; no stand-in for them', () => {
+  const p = (ev, o) => kitOfficialPlan(ev, o, 'mantra')?.play;
+  const once = (n) => [{ n, on: 'point', life: 'once' }];
+  assert.deepEqual(p('kitHit', { k: 'mantra:s1' }), once('mantra_skill_01_hit_01'));
+  assert.deepEqual(p('kitHit', { k: 'mantra:s2' }), once('mantra_skill_02_hit_01'));
+  for (const k of ['mantra:s1el', 'mantra:s2el', 'mantra:s3']) assert.deepEqual(p('kitHit', { k }), once('mantra_bounce_hit_01'), k);
+  for (const k of ['mantra:s2jump', 'mantra:s3jump']) assert.deepEqual(p('kitHit', { k }), [{ n: 'mantra_bounce_trail_01', fly: 3.2, from: 'from', to: 'target' }], k);
+  assert.deepEqual(p('hit', { k: 'mantra_t_1' }), [{ n: 'mantra_bounce_hit_01', on: 'id', life: 'once' }]);
+  assert.deepEqual(p('mantraArc', {}), once('mantra_bounce_hit_01'));
+  assert.deepEqual(p('mantraGate', {}), once('mantra_mark_01'));
+  for (const k of ['mantraArc', 'mantraGrant', 'mantraGate']) assert.equal(fxSpec(k).a, 'none', k);
+  // one hit per shot, not the plan's and the `_hit` name rule's (attackHit's fallback through play)
+  const owned = GAME.slice(GAME.indexOf('const KIT_OWNED = new Set(['), GAME.indexOf('let ownedOf = null'));
+  for (const n of ['mantra_skill_01_hit_01', 'mantra_skill_02_hit_01']) assert.ok(owned.includes(`'${n}'`), n);
+  assert.match(GAME, /!\(kind === 'skillHit' && KIT_OWNED\.has\(n\)\)/);
 });
 
 test('kitOfficialPlan (2026-11-03): 贝洛内\'s S3 moves and return; Mon3tr\'s S3 move, its marker and return; 维伊\'s volley by skill mode and S3 bounces', () => {

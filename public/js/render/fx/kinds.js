@@ -113,7 +113,8 @@ export const FX_KINDS = Object.freeze({
   // 自选 operator kits (0.2.0): 逻各斯, 真言, 维伊 (O3); 早露, 提丰, 娜仁图亚 (O7); 嵯峨's 重伤 (O8)
   shotSlow: { a: 'none', c: 0xd8b0ff }, // a flying shot's speed changed or it was cleared: changes the flights already drawn (render/fx/shotslow.js)
   bulletClear: { a: 'wave', c: 0xd8b0ff }, logosLexicon: { a: 'mark', c: 0xc9a2ff }, logosExecute: { a: 'strike', c: 0xb07dff },
-  mantraArc: { a: 'bolt', c: 0xc77dff }, mantraGrant: { a: 'mark', c: 0xc77dff }, mantraGate: { a: 'reticle', c: 0xc77dff },
+  // 만트라: official effects (render/fx/kitofficial.js); mantra_t_2[make_palsy] creates none of its own, the 마비 draws
+  mantraArc: { a: 'none', c: 0xc77dff }, mantraGrant: { a: 'none', c: 0xc77dff }, mantraGate: { a: 'none', c: 0xc77dff },
   veenBounce: { a: 'counter', c: 0xffd27a }, veenVolley: { a: 'volley', c: 0xffd27a },
   vvanaS3Later: { a: 'none', c: 0xffd27a }, // 薇薇安娜 S3 from her second cast: its sound mode only (shared/skill-modes.js SKILL_SUB_MODES)
   vvanaCharge: { a: 'none', c: 0xffd27a }, // 薇薇安娜 S1 蓄力: its model form only (render/units.js FORMS)

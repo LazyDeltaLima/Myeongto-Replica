@@ -131,6 +131,8 @@ test('S2 意识联协 (MANUAL, data DEFAULT): 25 s, attack interval 1.6 − 0.6 
     const j2 = h.spawn('enemy_fly', { pos: [10, 10] });
     const j3 = h.spawn('enemy_dummy', { pos: [11.5, 10] });
     const out = h.spawn('enemy_dummy', { pos: [11.5, 12.1] });
+    const sent = [], fx0 = h.b.fx.bind(h.b);
+    h.b.fx = (k, o) => { if (k === 'kitHit') sent.push(o); return fx0(k, o); };
     cast(u);
     approx(u.s.interval, 1.6 + b.base_attack_time, `T${tier}: interval`);
     const a0 = h.hooksOf('attack').filter((c) => c.attacker === u).length;
@@ -149,6 +151,11 @@ test('S2 意识联协 (MANUAL, data DEFAULT): 25 s, attack interval 1.6 − 0.6 
       assert.ok(c.dmg.tags.includes('chain') && c.dmg.isSkill);
     }
     approx(chainHits[2].t - chainHits[1].t, 1.5 / 3.2, `T${tier}: 3.2 tiles/s`, 0.1);
+    // the view flies each jump from the unit it left to the next (render/fx/kitofficial.js 'mantra:s2jump')
+    for (let i = 0; i + 1 < order.length; i++) {
+      assert.ok(sent.some((o) => o.k === 'mantra:s2jump' && o.from === order[i].id && o.target === order[i + 1].id), `T${tier}: jump ${i}'s two ends`);
+    }
+    assert.ok(sent.some((o) => o.k === 'mantra:s2' && o.x === main.x), `T${tier}: the hit of the skill on what it strikes`);
     for (const [i, c] of chainHits.entries()) {
       const fill = h.hooksOf('damaged').find((x) => x.source === u && x.type === 'element' && x.target === c.target && Math.abs(x.t - c.t) < 1e-9);
       assert.ok(fill, `T${tier}: a 神经 fill with hit ${i}`);

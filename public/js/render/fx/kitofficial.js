@@ -322,13 +322,16 @@ export const KIT_OFFICIAL = {
     // trshrb_t_1[dead_listener] ON_BEFORE_TRY_SET_HP_ZERO, where it fell
     mitm: cite('trshrb_t_1[dead_listener]', () => ({ play: [{ ...once('token_mitm_trshrb_die_01', 'point'), bundle: 'mitm_token' }] })),
   },
+  // (2026-11-07) 만트라: S3's 溢出 on its holder (projectile_chr_mantra_s3_2's hit); T2's mark on the tile it listens to (`_effectSettings` castedTimeThreshold 1)
+  mantraArc: { mantra: cite('projectile_chr_mantra_s3_2', () => ({ play: [once('mantra_bounce_hit_01', 'point')] })) },
+  mantraGate: { mantra: cite('char_4204_mantra/Others/Direction/Talents/2/TileListener', () => ({ play: [once('mantra_mark_01', 'point')] })) },
   mitmReborn: {
     // Modes/Reborn trshrb_switch `_castEffects`, as its ReBorn clip starts
     mitm: cite('token_10037_mitm_trshrb/Modes/Reborn/Body/Talents/1', () => ({ play: [{ n: 'token_mitm_trshrb_birth_01', on: 'point', life: 1, bundle: 'mitm_token' }] })),
   },
   summon: {
-    // the first deploy casts trshrb_switch too (Passive trshrb_t_1[trigger][imme]); a 残骸 trshrb_t_1[trash_born] ON_BUFF_START
-    mitm: cite(['token_10037_mitm_trshrb/Modes/Reborn/Body/Talents/1', 'trshrb_t_1[trash_born]'], (o) => ({ play: [o.waste ? { ...once('token_mitm_trshrb_waste_01', 'id'), bundle: 'mitm_token' } : { n: 'token_mitm_trshrb_birth_01', on: 'id', life: 1, bundle: 'mitm_token' }] })),
+    // a 残骸: trshrb_t_1[trash_born] ON_BUFF_START (a 小车's trshrb_switch is the kit's 'mitmReborn' at each deployment)
+    mitm: cite('trshrb_t_1[trash_born]', (o) => (o.waste ? { play: [{ ...once('token_mitm_trshrb_waste_01', 'id'), bundle: 'mitm_token' }] } : null)),
     sbell2: cite('icetgt_a[effect]', (o) => (/icetgt/.test(String(o.token ?? ''))
       ? { play: [{ tpl: 'icetgt_a[effect]', on: 'id', life: 'unit' }] } : null)),
   },
@@ -575,6 +578,13 @@ export const KIT_OFFICIAL = {
     pianst: cite(['pianst_t_1', 'skchr_pianst_2/FinalAttack'], (o) => (o.k === 'pianst:echo' ? { play: [once('pianst_beidong_hit', 'tgt')] }
       : o.k === 'pianst:final' ? { play: [{ n: 'pianst_skill_02_end', on: 'op', life: Number(o.t) }, once('pianst_skill_02_end_range')] }
         : o.k === 'pianst:finalHit' ? { play: [once('pianst_skill_02_end_hit', 'tgt')] } : null)),
+    // (2026-11-07) 만트라: S1 / S2's hit (skchr_mantra_1 and Modes/S2/Body/Attack `_actions`: IsTargetInEPBreakRecovery → mantra_bounce_hit_01, else the skill's
+    // own); each 溢出 jump of S3 (projectile_chr_mantra_s3_2 `_effectsWhenHit`, `_mainEffect`); S2's chain flies projectile_chr_mantra_s2's
+    // `_overwritedMainEffectAfterFirstHit`, the same trail. Speed: the sim's jump (op-mantra.js)
+    mantra: cite(['skchr_mantra_1', 'char_4204_mantra/Modes/S2/Body/Attack', 'projectile_chr_mantra_s2', 'projectile_chr_mantra_s3_2'], (o) => (o.k === 'mantra:s1' ? { play: [once('mantra_skill_01_hit_01', 'point')] }
+      : o.k === 'mantra:s2' ? { play: [once('mantra_skill_02_hit_01', 'point')] }
+        : o.k === 'mantra:s1el' || o.k === 'mantra:s2el' || o.k === 'mantra:s3' ? { play: [once('mantra_bounce_hit_01', 'point')] }
+          : o.k === 'mantra:s2jump' || o.k === 'mantra:s3jump' ? { play: [{ n: 'mantra_bounce_trail_01', fly: 3.2, from: 'from', to: 'target' }] } : null)),
     // (2026-11-06) W: S1's grenade projectile_chr_cqbw_s1 (`_speed` 8, `_raiseHeight` 0.3: its `_effectsWhenHit` once, on the target it
     // traces: `_onlyPlayHitEffectOnTraceTarget`); S3's bomb projectile_chr_cqbw_s3 (no flight: `_effectsToTargetWhenStart` on the target
     // until it stops, then `_effectsWhenStop`); 此面向敌's skill sktok_cqbw_token (`_castEffects`: start as it arms, hit as it goes off)

@@ -7,12 +7,12 @@
 
 export const UNJUDGED = 'unjudged: older than this check (2026-11-04)';
 /** How many UNJUDGED entries may remain; lower it as they are judged, never raise it. */
-export const UNJUDGED_MAX = 62;
+export const UNJUDGED_MAX = 59;
 
 export const PICK_EVENTS = Object.freeze({
   'closur|dp': 'stand-in: the DP number the sim shows for every DP gain; closur_s_1[cost]\'s own common_charge_cost_02 is a skill buff row',
   'closur|disappear': 'stand-in: the 指挥中心 leaves for its 战术点形态; its Recharge mode draws nothing of its own in the prefab',
-  'closur|summon': 'official: flushDeploys draws the token\'s deploy effect (the prefab has no `_startEffect`: the common one)',
+  'closur|summon': 'official: nothing: the 指挥中心 is a `Trap`, Trap.get_startEffect has no default and the prefab has no `_startEffect` (modes.json start \'\')',
   'closur|shield': 'official: closur_s_1[block] on the unit, the sim\'s buff key plays closur_skill_01_shied_01 (fxmap.js status path)',
   'cammou|drone': "official: fxgame.js droneFx draws her S2 mode's Funnel (modes.json funnels[2]: projectile_chr_cammou_funnel_s2, hit cammou_buff_01_hit) on each locked hit",
   'buildr|dp': "stand-in: the DP number the sim shows for every DP gain; buildr_s_2[a]'s and [c]'s own common_charge_cost_start_01 are skill buff rows",
@@ -60,9 +60,6 @@ export const PICK_EVENTS = Object.freeze({
   'lmlee|explode': UNJUDGED,
   'lmlee|mark': UNJUDGED,
   'lmlee|dodge': UNJUDGED,
-  'mantra|mantraArc': UNJUDGED,
-  'mantra|mantraGrant': UNJUDGED,
-  'mantra|mantraGate': UNJUDGED,
   'monstr|undying': UNJUDGED,
   'oblvns|sunBurst': UNJUDGED,
   'oblvns|burst': UNJUDGED,

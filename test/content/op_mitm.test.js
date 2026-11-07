@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { NEXT, field, done, cast, realMatch } from '../helpers/nextSeason.js';
-import { CAR, SKILL_FORM, WASTE } from '../../server/sim/content/kits/ops/op-mitm.js';
+import { BORN, CAR, SKILL_FORM, WASTE } from '../../server/sim/content/kits/ops/op-mitm.js';
 import { COLS } from '../../server/sim/constants.js';
 
 const A = 'chess_char_2_nmitm_a', B = 'chess_char_2_nmitm_b';
@@ -34,6 +34,29 @@ test('체리 3호: the placed piece stands with block_cnt, no heal, its form\'s 
   }
 });
 
+test('Each deployment starts in mode Reborn for 1 s: no block, not a target, no attack, her S1 passes it by; a return has spent it already', () => {
+  for (const id of FORMS) {
+    const { h, u } = withCar(id, 0);
+    const t = carOf(h), t0 = h.b.time;
+    assert.ok(t.findBuff(BORN), `${id}: trshrb_state_1 casts trshrb_switch at once`);
+    for (const f of ['noBlock', 'untargetable', 'invulnerable', 'disarm']) assert.ok(t.s.flags[f], `${id}: ${f}`);
+    const onIt = h.spawn('enemy_dummy', { pos: TILE });
+    h.step();
+    assert.notEqual(onIt.blockedBy, t, `${id}: blocks nothing yet`);
+    cast(u);
+    h.runUntil(() => !u.skill.active, 0.5);
+    assert.ok(t.alive && !h.hooksOf('damaged').some((c) => c.dmg?.tags?.includes('mitm:s1')), `${id}: mitm_s_1 checks mode 1: no blast, no withdrawal`);
+    assert.ok(h.runUntil(() => !t.findBuff(BORN), 2), `${id}: mode Default`);
+    near(h.b.time - t0, 1, `${id}: the ability's _preDelay (field() has stepped past the deployment)`, 0.05);
+    assert.ok(!t.s.flags.noBlock && !t.s.flags.untargetable && !t.s.flags.invulnerable && !t.s.flags.disarm, `${id}: a plain 小车`);
+    h.b.kill(t, null);
+    const back = carTalent(id).interval + 2;
+    assert.ok(h.runUntil(() => t.alive, back), `${id}: back`);
+    assert.ok(!t.findBuff(BORN), `${id}: its ReBorn ran off the fight, it fights as it returns`);
+    done(h);
+  }
+});
+
 test('No piece placed: she summons it on a tactical point of her range at her deployment', () => {
   for (const id of FORMS) {
     const { h, u } = field(id, { skill: 1 });
@@ -51,6 +74,7 @@ test('Trait: her attack on an enemy her token blocks has ATK × atk_scale, befor
     const scale = NEXT.chess[id].trait.bb.atk_scale;
     const { h, u } = withCar(id, 1);
     u.skill.locked = true;
+    assert.ok(h.runUntil(() => !carOf(h).findBuff(BORN), 2), `${id}: out of mode Reborn`);
     const blocked = h.spawn('enemy_dummy', { pos: TILE });
     assert.ok(h.runUntil(() => blocked.blockedBy === carOf(h) && hitsOn(h, u, blocked).length > 0, 10), `${id}: hit while blocked`);
     near(hitsOn(h, u, blocked)[0].dmg.amount, u.s.atk * scale, `${id}: ×atk_scale`, 1e-3);

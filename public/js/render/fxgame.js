@@ -767,7 +767,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const b = bundleOf(view);
     if (!b) return;
     // local patch (maintainer report): a directional emitter entry plays the copy for the facing (dirPick)
-    const { names: picked, unflip } = dirPick(view, given || effectsFor(b.prefabs, kind, skillIndex).filter((n) => !emittedIn(b.bundle).has(n) && !packedIn(b.bundle).has(n)));
+    // (2026-11-07) a skill's hit a kit's moment plays is not the name rule's as well (KIT_OWNED: attackHit falls back here on a mode with no bound hit)
+    const { names: picked, unflip } = dirPick(view, given || effectsFor(b.prefabs, kind, skillIndex).filter((n) => !emittedIn(b.bundle).has(n) && !packedIn(b.bundle).has(n) && !(kind === 'skillHit' && KIT_OWNED.has(n))));
     const names = [...picked];
     if (names.length && trace) trace({ kind, names, by: ownerOf(view), at: at ? ownerOf(at) ?? null : null }); // tests: what it plays
     if (dry) for (const n of names) dryFollow(b.bundle, n, ownerOf(view) ?? null, (at || view).info ? ownerOf(at || view) ?? null : null);
@@ -3848,7 +3849,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // … and her S1 grenade's hit and S3 bombs' (kitofficial.js 'kitHit'): `skillTargets` drew them again on what the damage of the moment struck
     'cqbw_skill_01_hit', 'cqbw_skill_03_buff', 'cqbw_skill_03_buff_02', 'cqbw_skill_03_buff_03', 'cqbw_skill_03_hit',
     // … and 체르니 S2's FinalAttack, 18.6 s in (kitofficial.js 'kitHit'): modes.json reads it as the cast's
-    'pianst_skill_02_end', 'pianst_skill_02_end_range', 'pianst_skill_02_end_hit']);
+    'pianst_skill_02_end', 'pianst_skill_02_end_range', 'pianst_skill_02_end_hit',
+    // 2026-11-07: 真言's S1 / S2 hits, by the target's state (kitofficial.js 'kitHit'): the `_hit` name rule (play) drew S2's on every hit, under them
+    'mantra_skill_01_hit_01', 'mantra_skill_02_hit_01']);
   // 2026-11-06: with the buffs a kit wears as statuses (fxstatus.js wornPrefabs), which those draw on whoever wears them
   let ownedOf = null, ownedSet = KIT_OWNED;
   const ownedNow = () => {
@@ -5296,7 +5299,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (bind?.startOnce && !fx.override) { if (startedOnce.has(id)) continue; startedOnce.add(id); }
       // 2026-10-24 (묶음 S4): a summon's own start effect (modes.json `start`: 凯尔希·思衡托's 战术锚点) — 'common_empty' is
       // nothing (乌尔比安's block); one not extracted keeps the token's common one, as before
-      const r = fx.name === 'common_empty' ? null
+      const r = fx.name === 'common_empty' || fx.name === '' ? null
         : allyFx(v, fx.name) ?? (v.info.kind === 'token' && !fx.override ? allyFx(v, deployEffect(null, true).name) : null);
       if (r) spawn(r[0], r[1], v, { owner: id, buff: false, onCaster: true, tag: 'born' }, { over: false, facing: efacing(v) });
     }
@@ -5706,7 +5709,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // 2026-10-11: operators / tokens too (allyDeathFx); 2026-10-15: an enemy-side token bound with no dead effect (子代) owns
     // its death too — the client shows nothing, so no procedural puff either
     ownsDeath(v) {
-      if (v?.info?.side !== 'enemy') return !!(v && opDead.has(ownerOf(v)));
+      // a `Trap` token with no dead effect (modes.json `dead` ''): nothing where it falls, no puff either
+      if (v?.info?.side !== 'enemy') return !!(v && (opDead.has(ownerOf(v)) || bindOf(v)?.dead === ''));
       if (!eOn(v)) return false;
       const d = edeadOf(v);
       return d ? !!efx(d) : true;

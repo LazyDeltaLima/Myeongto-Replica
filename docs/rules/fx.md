@@ -3871,12 +3871,24 @@ ParticleSystem`(`orderRows`·`trailTex`·`ghost`·`ghostTrails`, 정점 셰이�
 
 - **소환물 표**: `tools/build-fx-templates.mjs`·`fx_bindings.py`가 `data/tokens.json`만 읽어 시즌 파일의 소환물(`data/seasons/*/tokens.json`) 행이 표에 없었다. 둘 다 읽게 고쳐 템플릿 행 2개·클라 행 23개가 늘었다(빠진 행 없음).
 - **체리 3호** (`token_10037_mitm_trshrb`, 번들 `mitm_token`, 소환물 뷰에 번들이 없어 미틈의 계획에서 그림):
-  - 쓰러짐·철수: `trshrb_t_1[dead_listener]`의 `token_mitm_trshrb_die_01`을 그 자리에. [추정·미조사: 이 리스너는 `ON_BEFORE_TRY_SET_HP_ZERO`이고, 철수(`Character.Withdraw`)가 이 사건을 지나는지는 안 읽음. 잔해를 만드는 곳이 여기뿐인데 PRTS가 철수 뒤에도 잔해가 난다고 하므로 같은 길로 봄. 공용 사망 이펙트 `common_char_die_01`이 함께 나는지도 안 읽음(지금은 함께 남). `bundles/fx-V`]
-  - 복귀: `trshrb_switch`의 `_castEffects` `token_mitm_trshrb_birth_01`을 클립과 함께 1초. 첫 배치도 같은 능력이라 같은 이펙트를 트는데, 복귀는 공용 배치 이펙트·낙하를 안 그린다(`quiet`). 첫 배치의 공용 이펙트는 그대로(프리팹에 `_startEffect` 없음).
+  - 쓰러짐·철수: `trshrb_t_1[dead_listener]`의 `token_mitm_trshrb_die_01`을 그 자리에. 공식 클라에서 확인: 프리팹 루트는 `RallyPoint`(`_retainedBuffsWhenDead`)이고, `RallyPoint.Withdraw`는 기본 범주(`m_category` 1)일 때 `FinishMe` 대신 체력을 0으로 놓는다. 그래서 철수(S1의 `Withdraw` 노드 포함)도 쓰러짐과 같이 `ON_BEFORE_TRY_SET_HP_ZERO`를 지나 잔해·이펙트가 난다. 공용 사망 이펙트는 안 난다(아래 `Trap` 소환물).
+  - 복귀·배치: `trshrb_switch`의 `_castEffects` `token_mitm_trshrb_birth_01`을 클립과 함께 1초. 배치도 같은 능력이라 같은 이펙트와 소리를 낸다(키트 사건 `mitmReborn`). 복귀는 낙하를 안 그린다(`quiet`). 공용 배치 이펙트는 어느 쪽도 없다(아래 `Trap` 소환물).
   - 잔해: `trshrb_t_1[trash_born]`의 `token_mitm_trshrb_waste_01` 한 번.
   - S1: `mitm_s_1`의 `mitm_skill_01_hit_01`을 터지는 전차 자리에. S2 버프 `token_mitm_trshrb_skill_buff_01`은 키트 버프 `mitm_s_2[to_token][attribute]`로 저절로 그려진다(`worn`).
 - **전자동 스타일러** (`token_10018_robrta_mach`, 번들 `robrta_token`): 층마다 자기 버프 `robrta_mach_t[count_1]`·`[count_2]`(`_passiveBuffs`, `token_robrta_buff_03`·`_04`). 피해는 `[count_2]`부터 없앤다. 대상에게 방어력 버프가 있는 동안 모드 Running(`robrta_mach_t[mode]`)이고 그때만 `robrta_mach[effect_1]`·`[effect_2]`(`token_robrta_buff_01`·`_02`). 마지막 층이 나가면 지키던 유닛에 `token_robrta_buff_end` 한 번.
 - **클릭 `cammou_buff_01_hit_02`·`cammou_buff_01_start_B`**: EN·CN 클라의 캐릭터 프리팹·버프 템플릿, EN의 스킬·투사체 프리팹 어디서도 가리키지 않아 그리지 않는다.
+- **아스트젠 `halo_skill_02_buff_02`**: EN·CN 클라의 캐릭터 프리팹·스킬·투사체 프리팹·버프 템플릿과 같은 묶음의 이펙트 프리팹(자식·방향 짝) 어디서도 가리키지 않아 그리지 않는다.
+- **`Trap` 소환물의 배치·사망 이펙트** (2026-11-07): `Trap.get_startEffect`·`get_deadEffect`는 `_startEffect`·`_deadEffect`를 그대로 돌려줘 기본값이 없다(`Character`의 `common_call_start_01`·`common_char_die_01`을 안 탐, 적 쪽 子代와 같음). 오퍼레이터 쪽에서 루트가 `Trap`인 소환물 여섯, 사일런스 드론 `token_10000_silent_healrb`·저주 인형 `token_10006_vodfox_doll`·늑대 `token_10028_vigil_wolf`·물 분신 `token_10030_mlyss_wtrman`·체리 3호·지휘 센터 `token_10066_closur_ourbase`는 두 필드가 비어 있어 배치·쓰러짐에 공용 이펙트를 안 그린다. `char_modes.py token_auras`가 `start: ''`·`dead: ''`를 쓰고, `ownsDeath`가 참이라 2D 사망 연기도 안 그린다. 같은 함수가 시즌 파일의 소환물도 읽는다(`owners`의 기물 ID는 오퍼레이터 ID로 바꿈).
+
+## 선발 만트라 키트 순간 이펙트 (2026-11-07)
+
+공식 클라에서 확인: 스킬·캐릭터 프리팹의 투사체 행동, 투사체 필드. 선발 만트라 `char_4204_mantra`.
+
+- **S1·S2 타격**: 투사체 행동 `IfElse` `IsTargetInEPBreakRecovery`. 대상이 공명붕괴 중이면 `mantra_bounce_hit_01`(+ 원소 피해), 아니면 스킬 자기 것 `mantra_skill_01_hit_01`·`mantra_skill_02_hit_01`. 전에는 S1은 안 그렸고, S2는 이름 규칙 `_hit`이 대상 상태와 상관없이 그렸다. 시뮬의 `riders`가 같은 조건으로 `mantra:s1`·`s1el`·`s2`·`s2el`을 보내고, 이름 규칙은 `KIT_OWNED`로 막는다(`attackHit`이 묶인 타격이 없는 모드에서 `play`의 `skillHit`으로 넘어가는 길).
+- **`mantra_skill_03_buff_01`**: `mantra_skill_03_buff_02`의 오른쪽 짝(`_rightEffect`, 추출 `right`)이다. 오른쪽을 볼 때 이 프리팹으로 바뀌는 것이 정상이다. `fx-wiring-report`의 `nameless`는 이 짝을 세지 않아 목록에 뜬다.
+- **튕김 탄**: S2 `projectile_chr_mantra_s2`는 첫 타격 뒤 `_overwritedMainEffectAfterFirstHit` `mantra_bounce_trail_01`, S3 넘친 마비 `projectile_chr_mantra_s3_2`는 `_mainEffect`가 같은 프리팹이고 `_effectsWhenHit` `mantra_bounce_hit_01`. 튕김마다 `kitHit` `mantra:s2jump`·`s3jump`(`from`·`target`). 날아가는 속도는 시뮬의 튕김 속도 3.2칸/초로, 프리팹의 `_speed`(S2 10, S3 튕김 30)와 다르다. PRTS 비고 「速度3.2」를 따른 시뮬 값이고 착탄과 맞추려고 그대로 쓴다.
+- **S3 넘친 마비**: 보유자에게 `mantra_bounce_hit_01`(`mantraArc`), 대체 그림 없음.
+- **재능 2**: 관문 칸 표식 `mantra_mark_01`(`TileListener._effectSettings`, `castedTimeThreshold` 1)을 한 번(`mantraGate`). 마비 부여 `mantra_t_2[make_palsy]`는 자기 이펙트가 없어 `mantraGrant`는 아무것도 안 그린다(마비는 상태 경로).
 
 ## W·클로저·브리지드·크리스틴·체르니·리프레사 키트 순간 이펙트 (2026-11-06)
 

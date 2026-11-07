@@ -832,8 +832,8 @@
       ],
       "enemies": {"enemy_1019_jshoot_2":[57,57,0,9909,441161],"enemy_1299_ymkilr_2":[27,27,0,13943,851364],"enemy_1422_lrsldr_2":[39,39,0,0,614874]},
       "hooks": [1,137,6098,676,676,1545,1650,2316,127,127,35,33,0,24500,5709,75,123,0,1,128,0,1,14],
-      "events": {"atk":744,"deploy":14,"die":127,"dmg":1650,"engage":12,"face":91,"fx":1080,"heal":141,"skill":68,"spawn":135,"status":212,"swing":953},
-      "fx": {"burst":1,"dodge":14,"kitHit":239,"mantraArc":146,"mantraGate":8,"mantraGrant":13,"palsy":172,"stacks":486,"undying":1},
+      "events": {"atk":744,"deploy":14,"die":127,"dmg":1650,"engage":12,"face":91,"fx":1304,"heal":141,"skill":68,"spawn":135,"status":212,"swing":953},
+      "fx": {"burst":1,"dodge":14,"kitHit":463,"mantraArc":146,"mantraGate":8,"mantraGrant":13,"palsy":172,"stacks":486,"undying":1},
       "snaps": "8dc8b4cc 125938af 61d96573 a0b782a5 f907fb1a 747b6392 0d75b924 d5c2426c d906b7a4 0ae75124 027833bb 75d54748 f935c386 19b44b75 a3e1e00d 6729536a 6f17a53b fa6eeb97 b21127e0 4fc554a1 8cffd24b"
     },
     "diy-020": {
@@ -873,8 +873,8 @@
       ],
       "enemies": {"enemy_1019_jshoot_2":[57,16,41,9906,155475],"enemy_1381_winman":[27,10,17,0,230923],"enemy_1389_winbab_2":[48,16,32,23374,421833]},
       "hooks": [1,157,6384,261,261,554,631,0,65,155,17,17,0,7636,3405,11,132,90,1,65,0,2,0],
-      "events": {"atk":288,"deploy":23,"die":65,"dmg":631,"engage":12,"face":40,"fx":562,"leak":90,"skill":34,"spawn":146,"status":133,"swing":442},
-      "fx": {"burst":2,"kitHit":109,"mantraArc":36,"mantraGate":23,"mantraGrant":4,"palsy":108,"stacks":280},
+      "events": {"atk":288,"deploy":23,"die":65,"dmg":631,"engage":12,"face":40,"fx":632,"leak":90,"skill":34,"spawn":146,"status":133,"swing":442},
+      "fx": {"burst":2,"kitHit":179,"mantraArc":36,"mantraGate":23,"mantraGrant":4,"palsy":108,"stacks":280},
       "snaps": "3dd5611d 3a5ae4fa e8299aa5 de3a82c6 2d00d718 b251e132 cebbb119 66c3b6fb 8b5093b0 9fc42fe3 80cfa409 6985e1ce 6d51cc23 f5cdbbe2 342716ed 8919cb19 2d3f26db 96bd814a f89e9f58 feb9f921 c3e45777 055a1808"
     },
     "diy-021": {
