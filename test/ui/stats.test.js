@@ -387,7 +387,9 @@ describe('local stats: bounded storage', () => {
     const coop = (i) => baseResult({ seed: i, modeId: 'mode_multi_hard', players: [row(1), row(2), row(3), row(4)].map((r, k) => (k === 0 ? { ...r, playerId: 'p1' } : r)) });
     const stats = manyRecords(MAX_RECORDS, coop);
     const fit = fitToBudget(stats.records);
-    assert.ok(fit.length >= 900 && fit.length <= MAX_RECORDS, `kept ${fit.length}`);
+    // a compacted record keeps its active bond ids, trophies and reward (成就统计 and the level read them), so a worst case
+    // of 12 active bonds a match keeps fewer: about three quarters
+    assert.ok(fit.length >= 700 && fit.length <= MAX_RECORDS, `kept ${fit.length}`);
     assert.equal(fit[0].t, MAX_RECORDS - 1, 'the newest first');
     assert.ok(JSON.stringify({ v: 1, records: fit }).length <= MAX_CHARS);
     withStorage((ls) => { assert.equal(saveStats(stats), true); assert.ok(ls.raw.length <= MAX_CHARS); });

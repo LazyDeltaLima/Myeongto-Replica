@@ -358,7 +358,7 @@ export function collectEnemyIds({ assets07, enemies05, maps05, ops03 }) {
 export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsData, charword = null, voiceLang = 'cn',
   voiceSlots = VOICE_BATTLE_SLOTS,
   extraEnemyIds = [], extraTokenIds = [], extraHandbook = {}, localEnemySpines = {}, localTokenSpines = {}, extraOperators = {},
-  moduleTypes = [], charModes = loadCharModes(), charAudio = loadCharAudio(), tokenSkills = loadTokenSkills(), skillCast = loadSkillCast() }) { // local patch: charModes, charAudio (2026-10-10)
+  moduleTypes = [], statsTemplate = [], charModes = loadCharModes(), charAudio = loadCharAudio(), tokenSkills = loadTokenSkills(), skillCast = loadSkillCast() }) { // local patch: charModes, charAudio (2026-10-10)
   const notes = [];
   /** @type {Map<string, any>} */
   const models = new Map();
@@ -683,6 +683,9 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     }
   }
   for (const [group, key, path] of UI_EXTRAS) addUi(group, key, joinUrl(RAW.aa2, path));
+  // the official statistics template (tools/assets/stats-template.mjs): one file per job, CDN files and the pictures
+  // embedded in its stylesheet (data URLs); a job without a URL keeps a file already on disk
+  for (const { name, ...job } of statsTemplate) ui[`statistics/${name}`] = { alts: [job] };
 
   // --- audio ----------------------------------------------------------------
   const bgmLeaf = (bankName) => {

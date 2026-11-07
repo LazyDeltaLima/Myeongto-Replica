@@ -55,6 +55,9 @@ export function openStats() {
 }
 export const closeStats = () => statsStore.set({ open: false });
 
+/** Whether 统计数据 is open (the lobby's 成就统计 card reads the records again when it closes). */
+export const useStatsOpen = () => useStore((st) => st.open, Object.is, statsStore);
+
 const TABS = [
   { id: 'overview', name: N_('总览'), micro: 'OVERVIEW' },
   { id: 'bands', name: N_('策略'), micro: 'STRATEGIES' },

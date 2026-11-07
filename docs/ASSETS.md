@@ -122,6 +122,7 @@ The research JSONs in `docs/research/` (03, 05, 07) define **which** ids are nee
 | SFX (UI, battle, per unit) | AA2 `voice` `audio/sound_beta_2/**`, mapped from `audio_data.json` banks | `audio/sfx/{same sub-path}.mp3` |
 | 干员战斗语音 | AA2 `voice` `audio/sound_beta_2/voice_cn/{charId}/cn_nn.mp3` — the lines `charword_table.json` lists (`placeType` = when the game plays one, `voiceAsset` = the path); `--voice-lang=jp|en|kr` takes the same file names from `voice/`, `voice_en/`, `voice_kr/` | `audio/voice/{lang}/{charId}/{cn_nn}.mp3` |
 | Fonts: Bender Regular and Light, Novecento Wide | TimWangZi/The-font-of-Arknights | `public/fonts/*.{otf,ttf,woff2}`, `public/fonts/fonts.css` |
+| The 成就统计 window's artwork and its two fonts (the official statistics template) | the event's public 战绩 webview: the pictures embedded in its stylesheet (`web.hycdn.cn/arknights/webview/act1autochess.41668e.css`, cached in `.cache/`, checked as PNG / SVG) and the files on its CDN (`tools/assets/stats-template.mjs`); also fetched alone with `node tools/fetch-stats-assets.mjs` | `ui/statistics/*` |
 
 The `stem` of a Spine model is the upstream file name. Two examples: `char_107_liskam` has the stem `char_107_liskarm`, and `enemy_9032_aclionk` uses `enemy_1559_vtlionk`. The skel and atlas of a model always share one stem. pixi-spine locates the atlas by swapping the extension, so this matters.
 

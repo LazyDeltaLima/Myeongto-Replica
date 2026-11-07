@@ -21,6 +21,7 @@
 // history only.
 //
 // Bounded storage: at most MAX_RECORDS matches and MAX_CHARS characters of JSON. Only the newest FULL_KEEP records
+// and the record of the highest bond layers (成就统计's 卫戍成就, highestBondRecord)
 // keep their full rows (lineups, bonds, teammates' names — what the settlement replay needs); older ones are compacted
 // to the player's own summary row, which is all the aggregates read. The oldest records go first when a budget is hit,
 // and a write the browser refuses shrinks the list further instead of failing. Teammates' display names are part of
@@ -192,6 +193,7 @@ function normalizePlayerRow(raw, quit = false) {
     reward: int(p.reward, 0),
     lineup,
     bonds,
+    ...(Array.isArray(p.usedBondIds) ? { usedBondIds: usedBondIdsOf(p) } : {}),
     stats: normalizeStatBlock(p.stats),
     units,
     unite: isObj(p.unite) ? { sent: pos(p.unite.sent), through: pos(p.unite.through) } : null,
@@ -333,6 +335,31 @@ export function loadStats() {
   return { ...stats, newer, dropped, damaged: false };
 }
 
+/**
+ * The stored records for a glance (the lobby's 成就统计 card and window): read and migrated in memory only — nothing is
+ * written back and an unreadable or newer value reads as no records, so 统计数据 still finds it and says so.
+ * @returns {any[]}
+ */
+export function peekStatsRecords() {
+  const raw = readRaw();
+  if (raw == null) return [];
+  let parsed;
+  try { parsed = JSON.parse(raw); } catch { return []; }
+  if (!isObj(parsed) || !Array.isArray(parsed.records)) return [];
+  const { stats, newer } = migrateStats(parsed);
+  return newer ? [] : stats.records;
+}
+
+/**
+ * The records of one season (recordSeason; every record when `season` is null): each season has its own 卫戍认证 levels
+ * and its own achievements, as 统计数据 shows the season on screen.
+ * @param {any[]} records @param {string|null} season
+ */
+export function recordsOfSeason(records, season) {
+  const list = Array.isArray(records) ? records : [];
+  return season ? list.filter((r) => recordSeason(r) === season) : list;
+}
+
 // ---- compaction + the storage budget ---------------------------------------------------------------------------
 
 const COMPACT_FRAME = ['id', 'v', 't', 'end', 'victory', 'roundsPassed', 'lastRound', 'hiddenReached', 'hiddenCleared', 'reason', 'modeId',
@@ -340,25 +367,30 @@ const COMPACT_FRAME = ['id', 'v', 't', 'end', 'victory', 'roundsPassed', 'lastRo
 
 /**
  * The compact form of a record: the frame and the player's OWN row without lineup, bonds and name — everything the
- * aggregates and the history list read, nothing a replay needs. Teammates are gone. Idempotent.
+ * aggregates, the history list, 成就统计 and the level read (the active bonds as their ids), nothing a replay needs.
+ * Teammates are gone. Idempotent.
  * @param {any} rec a normalized record
  * @returns {any}
  */
 export function compactRecord(rec) {
   const self = selfRowOf(rec);
+  const usedBondIds = usedBondIdsOf(self);
   const out = {};
   for (const k of COMPACT_FRAME) if (rec[k] != null) out[k] = rec[k];
   out.compact = true;
   out.players = self ? [{
     playerId: self.playerId, seat: self.seat, alive: self.alive, victory: self.victory, roundsPassed: self.roundsPassed,
     eliminatedRound: self.eliminatedRound, bandId: self.bandId, title: self.title, left: self.left, stats: self.stats,
+    // what 成就统计 and the level read (trophies, the 卫戍认证 reward, the bonds that were active)
+    trophies: self.trophies, reward: self.reward,
+    ...(usedBondIds.length ? { usedBondIds } : {}),
   }] : [];
   return out;
 }
 
 /**
- * What goes to storage: the newest FULL_KEEP records as they are, older ones compacted, then the oldest dropped until
- * the JSON fits `maxChars` (the newest record is always kept).
+ * What goes to storage: the newest FULL_KEEP records and the record of the highest bond layers as they are, older ones
+ * compacted, then the oldest dropped until the JSON fits `maxChars` (the newest record is always kept).
  * @param {any[]} records newest first
  * @param {number} [maxChars]
  * @returns {any[]}
@@ -366,8 +398,9 @@ export function compactRecord(rec) {
 export function fitToBudget(records, maxChars = MAX_CHARS) {
   const kept = [];
   let used = 40; // the envelope itself
+  const peakId = highestBondRecord(records.slice(0, MAX_RECORDS))?.record.id;
   records.slice(0, MAX_RECORDS).forEach((r, i) => {
-    const rec = i < FULL_KEEP ? r : compactRecord(r);
+    const rec = i < FULL_KEEP || r.id === peakId ? r : compactRecord(r);
     const n = JSON.stringify(rec).length + 1;
     if (kept.length && used + n > maxChars) return;
     used += n;
@@ -762,6 +795,10 @@ export function aggregateStats(records) {
     hidden: { reached: 0, cleared: 0 },
     byDifficulty: {}, byMode: { solo: 0, coop: 0 },
     titles: {}, bands: {}, sums: {},
+    trophies: 0,
+    modes: { solo: { games: 0, wins: 0, hiddenCleared: 0 }, coop: { games: 0, wins: 0, hiddenCleared: 0 } },
+    bonds: Object.create(null),
+    maxima: { gold: null, merges: null, kills: null },
   };
   for (const rec of rs) {
     const self = selfRowOf(rec);
@@ -801,6 +838,90 @@ export function aggregateStats(records) {
         if (Number.isFinite(v)) out.sums[k] = (out.sums[k] || 0) + v;
       }
     }
+
+    // 成就统计 (after upstream 0.3.3): the trophies of the settled 联合模拟 matches, per mode games / wins / hidden-core
+    // clears, the single-match records and how often each bond was active at the settlement
+    if (rec.end !== 'quit' && self) {
+      if (rec.roomMode === 'coop' && Number.isFinite(self.trophies)) out.trophies += Math.max(0, self.trophies);
+      const values = { gold: self.stats?.gold, merges: self.stats?.merges, kills: self.stats?.kills };
+      for (const [key, value] of Object.entries(values)) {
+        if (Number.isFinite(value) && value >= 0) out.maxima[key] = Math.max(out.maxima[key] ?? 0, value);
+      }
+      for (const id of usedBondIdsOf(self)) (out.bonds[id] ||= { games: 0 }).games++;
+    }
+    if (rec.roomMode === 'solo' || rec.roomMode === 'coop') {
+      const m = out.modes[rec.roomMode];
+      m.games++;
+      if (won) m.wins++;
+      if (won && rec.hiddenCleared) m.hiddenCleared++;
+    }
   }
   return out;
+}
+
+/** The bonds a row had active at the settlement (a compacted row keeps only their ids). */
+function usedBondIdsOf(player) {
+  const ids = Array.isArray(player?.usedBondIds) ? player.usedBondIds
+    : (Array.isArray(player?.bonds) ? player.bonds : []).filter((b) => b?.active === true).map((b) => b.bondId);
+  return [...new Set(ids.filter((id) => typeof id === 'string' && id.length).map((id) => id.slice(0, 64)))].slice(0, MAX_BONDS);
+}
+
+/**
+ * 卫戍成就's peak: the settled record whose own row had the active bond of the most layers (a full record: the lineup is
+ * drawn). [ASSUMED·자료 없음: upstream's reading of the event's achievement window — the official peak is kept on the
+ * account; the settlement's active bonds are the nearest this project records]
+ * @param {any[]} records
+ * @returns {{ record: any, player: any, bond: { bondId: string, layers: number, active: boolean } }|null}
+ */
+export function highestBondRecord(records) {
+  let best = null;
+  for (const record of Array.isArray(records) ? records : []) {
+    if (!isObj(record) || record.end === 'quit' || record.compact) continue;
+    const player = selfRowOf(record);
+    for (const bond of player?.bonds || []) {
+      if (!bond.active || !Number.isFinite(bond.layers) || bond.layers <= 0) continue;
+      if (!best || bond.layers > best.bond.layers) best = { record, player, bond };
+    }
+  }
+  return best;
+}
+
+/**
+ * 策略记录's special marks: the strategies the player won with at least their `victorCount` times (bands.json, the
+ * official threshold); 入门协议 counts nothing.
+ * @param {any[]} records @param {Record<string, any>|any[]} bands
+ * @returns {string[]} band ids, by sortId
+ */
+export function strategyBadgeIds(records, bands) {
+  const clears = new Map();
+  for (const rec of Array.isArray(records) ? records : []) {
+    if (!isObj(rec) || rec.end === 'quit' || rec.difficulty === 'TRAINING' || rec.modeId === 'mode_training_1') continue;
+    const self = selfRowOf(rec);
+    if (!self?.bandId || !selfWon(rec, self)) continue;
+    clears.set(self.bandId, (clears.get(self.bandId) || 0) + 1);
+  }
+  return Object.values(bands || {}).filter((band) => Number.isInteger(band?.victorCount) && band.victorCount > 0
+    && (clears.get(band.bandId) || 0) >= band.victorCount)
+    .sort((a, b) => (a.sortId || 0) - (b.sortId || 0) || a.bandId.localeCompare(b.bandId))
+    .map((band) => band.bandId);
+}
+
+/** The highest trophy medal reached (config.trophies.medals, whatever their order). */
+export function trophyMedalOf(total, medals) {
+  const count = Number.isFinite(total) ? Math.max(0, total) : 0;
+  return (Array.isArray(medals) ? medals : []).reduce((best, medal) =>
+    Number.isFinite(medal?.count) && medal.count >= 0 && medal.count <= count && (!best || medal.count > best.count) ? medal : best, null);
+}
+
+/** The season's operators of a bond (one per operator and tier, no golden / hidden / 自选 records), by tier. */
+export function bondMemberChess(chess, bondId) {
+  if (!bondId) return [];
+  const seen = new Set();
+  return (Array.isArray(chess) ? chess : []).filter((c) => {
+    if (!c || c.isGolden || c.isHidden || c.isDiy || c.visible === false || !c.bonds?.includes(bondId)) return false;
+    const key = `${c.charId}#${c.tier}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).sort((a, b) => a.tier - b.tier || (a.shopSortId || 0) - (b.shopSortId || 0) || a.chessId.localeCompare(b.chessId));
 }

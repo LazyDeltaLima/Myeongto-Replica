@@ -36,15 +36,18 @@
 // Texts go through t() (docs/I18N.md); the module-level tables hold msgids (N_) translated where they are shown, the
 // config.json mode texts come localized from data.js.
 
-import { useEffect, useLayoutEffect, useRef, useState } from '../../vendor/hooks.module.js';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, LARGE_SEATS, LARGE_MIN_PLAYERS, ROOM_SIZES, MAX_SPECTATORS, modeIdFor, ERR } from '../../../shared/constants.js';
 import { html, Button, Icon, MicroLabel, Modal, TextField, PingPill, OnlinePill, Tooltip, Spinner, DifficultyIcon, doctorNo } from '../ui/components.js';
-import { Sprite } from '../ui/gameComponents.js';
+import { Sprite, Img } from '../ui/gameComponents.js';
 import { uiUrl } from '../ui/assetUrls.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { GuideButton, openGuide } from '../ui/guide.js';
-import { openStats } from './stats.js';
+import { useStatsOpen } from './stats.js';
 import { SweepReport } from './sweep.js';
+import { AchievementDialog } from './achievements.js';
+import { peekStatsRecords, recordsOfSeason, aggregateStats, trophyMedalOf, selfRowOf } from '../ui/stats.js';
+import { levelOf, certTotal } from '../ui/level.js';
 import { Emblem } from './title.js';
 import { SettingsButton } from '../ui/settings.js';
 import { LoadoutButton } from './loadout.js';
@@ -467,13 +470,24 @@ function AchBadge({ class: cls }) {
 }
 
 /**
- * The hub's top-left 成就统计 card (upstream's, from the event video): a dusk scene with the emblem, and the label strip
- * with the Doctor's name and number (the top bar's 博士 chip of the earlier lobby, maintainer decision 2026-11-07). Opens
- * 统计数据 (screens/stats.js) until the 成就统计 window comes (bundle ui-E).
+ * The hub's top-left 成就统计 card (upstream's, from the event video): a dusk scene with the emblem, the trophy medal and
+ * count, and the label strip with the LV and the Doctor's name and number (the top bar's 博士 chip of the earlier lobby,
+ * maintainer decision 2026-11-07) — the LV and the trophies from this browser's records of the season on screen
+ * (ui/level.js, ui/stats.js aggregateStats: the 成就统计 window's numbers). Read again whenever the window or 统计数据
+ * closes (an import or 清空 there changes them). Opens the 成就统计 window (screens/achievements.js).
  */
-function AchievementCard({ onOpen }) {
+function AchievementCard({ onOpen, openTick }) {
   const me = useStore((s) => s.me, shallowEqual);
-  return html`<button type="button" class="hub-ach" onClick=${onOpen} title=${t('统计数据')}>
+  useData('config'); useData('assets');
+  const cfg = data.get('config');
+  const season = data.season();
+  const statsOpen = useStatsOpen();
+  const { lv, trophies } = useMemo(() => {
+    const records = recordsOfSeason(peekStatsRecords(), season);
+    return { lv: levelOf(certTotal(records, cfg?.rewards, selfRowOf), cfg?.rewards?.milestones).lv, trophies: aggregateStats(records).trophies };
+  }, [cfg, season, statsOpen, openTick]);
+  const medal = trophyMedalOf(trophies, cfg?.trophies?.medals);
+  return html`<button type="button" class="hub-ach" onClick=${onOpen} title=${t('成就统计（本机记录）')}>
     <span class="hub-ach__scene" aria-hidden="true">
       <svg class="hub-ach__land" viewBox="0 0 320 110" preserveAspectRatio="none">
         <defs><linearGradient id="hubAchSky" x1="0" y1="0" x2="0" y2="1">
@@ -484,10 +498,14 @@ function AchievementCard({ onOpen }) {
         <path d="M262 110V70M262 80l-9-8M262 76l8-7M262 86l10-6" stroke="#18120b" stroke-width="2.5" fill="none" />
       </svg>
       <span class="hub-ach__mark"><${Emblem} /></span>
+      <span class="hub-ach__rank">
+        <${Img} src=${medal ? uiUrl(data.get('assets'), `medalIcon/${medal.iconId}`) : null} class="hub-ach__medal" fallback=${html`<${Icon} name="rook" />`} />
+        <small><${Icon} name="crown" /><b class="num">${trophies}</b></small>
+      </span>
     </span>
     <span class="hub-ach__label">
       <${AchBadge} class="hub-ach__badge" />
-      <span>${t('成就统计')}</span>
+      <span>${t('成就统计')}</span><b class="hub-ach__lv num">LV.${lv}</b>
       <span class="hub-ach__who"><span class="hub-ach__name">${me.name || t('博士')}</span><${MicroLabel}>${me.playerId != null ? `DOCTOR #${doctorNo(me.playerId)}` : 'DOCTOR'}<//></span>
     </span>
   </button>`;
@@ -816,6 +834,9 @@ export function LobbyScreen() {
   // the open dialog: 'solo' | 'match' (选择模拟协议) | 'coop' (创建同盟) | 'join' (加入同盟 · 观战, AllianceSelect's join view)
   const [open, setOpen] = useState(null);
   const [sweepOpen, setSweepOpen] = useState(false);
+  const [achOpen, setAchOpen] = useState(false);
+  const [achTick, setAchTick] = useState(0);
+  const closeAch = () => { setAchOpen(false); setAchTick((n) => n + 1); };
   // the picked 卫戍协议 season (ui/season.js): rooms are created and queued in it, its queues' Doctors are shown
   const season = useStore(pickedSeason);
   const queueCounts4 = useStore((s) => seasonQueueCounts(s, pickedSeason(s), false));
@@ -919,14 +940,14 @@ export function LobbyScreen() {
     <main class="hub-stage">
       <${HubTitle} />
       <aside class="hub-side">
-        <${AchievementCard} onOpen=${openStats} />
+        <${AchievementCard} onOpen=${() => setAchOpen(true)} openTick=${achTick} />
         <${JoinBox} code=${code} onCode=${onCode} codeOk=${codeOk} online=${online} busy=${busy} onJoin=${join} onSpectate=${spectate} recent=${recent} />
         <${HubNotes} short=${shortScreen} />
       </aside>
       <aside class="hub-right">
         <${SweepPlate} onClick=${() => setSweepOpen(true)} />
         <${LoadoutButton} from="lobby" size="lg" class="hub-plate hub-plate--loadout lobby-loadout" label=${t('干员调配')} />
-        <${SidePlate} class="hub-plate--ach" glyph=${html`<${AchBadge} />`} label=${t('成就统计')} onClick=${openStats} />
+        <${SidePlate} class="hub-plate--ach" glyph=${html`<${AchBadge} />`} label=${t('成就统计')} onClick=${() => setAchOpen(true)} />
         <${SidePlate} class="hub-plate--join" glyph=${html`<${Icon} name="key" />`} label=${t('加入同盟 · 观战')} onClick=${() => setOpen('join')} />
       </aside>
       <section class="hub-entries" aria-label=${t('模拟方式')}>
@@ -944,6 +965,7 @@ export function LobbyScreen() {
       rules=${html`<${ProtoRules} roomMode=${roomMode} ruleset=${shownRuleset} onRuleset=${pickRuleset} onGear=${editCustom} customRules=${customRules}
         difficulty=${difficulty} size=${size} onSize=${pickSize} quick=${matching && quick} onQuick=${pickQuick} counts4=${queueCounts4} counts8=${queueCounts8} />`} />` : null}
     ${sweepOpen ? html`<${SweepReport} onClose=${() => setSweepOpen(false)} />` : null}
+    ${achOpen ? html`<${AchievementDialog} onClose=${closeAch} />` : null}
     <${MatchQueueDialog} />
     <${CustomRulesDialog} />
   </div>`;
