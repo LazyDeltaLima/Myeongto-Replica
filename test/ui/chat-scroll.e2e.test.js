@@ -22,8 +22,7 @@ describe('room chat auto-scroll (real server)', { skip: !ENABLED && 'set SP_E2E=
       await host.open('?lang=zh');
       await host.enter('凯尔希');
       await host.click('.mode-card', '同盟模拟');
-      await host.click('.diff-card', '标准模拟');
-      await host.click('.create-box button', '创建同盟');
+      await host.click('.ally-create__go', '创建同盟');
       const room = (await host.waitFor((s) => !!s.room?.code, 'room created')).room;
       other = await TestClient.connect(`ws://127.0.0.1:${srv.port}/ws`);
       await other.hello('华法琳');

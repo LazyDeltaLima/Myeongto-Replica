@@ -83,9 +83,10 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
 /* the exit button: upwards only (it stands in the screen's corner). Its area reached over the player list under it, so a
    press on the own row left the match on a small phone */
 .gtop__exit { --tap-top: 100%; --tap-ty: -100%; }
-/* rows of buttons that touch: no sideways growth (难度 / 规则, 关闭 · 韩语 · 日语, tabs, the corner's ⋯ ⚙ 📖 ⛶); the 交流
+/* rows of buttons that touch: no sideways growth (难度 / 规则, 关闭 · 韩语 · 日语, tabs, the corner's ⋯ ⚙ 📖 ⛶, the room's
+   统计 · 设置 · 玩法说明 and its pill 赛季 · 难度 · 规则 · 人数 · ⚙); the 交流
    panel inside the corner keeps its own pager areas (below) */
-.set-seg, .dpick, .tabs, .gm__corner { --tap-w: 100%; }
+.set-seg, .dpick, .tabs, .gm__corner, .rs-tools, .rs-pill { --tap-w: 100%; }
 /* the corner sits on the bottom edge: its buttons grow downwards only — opened, ⚙ 📖 ⛶ reach the shop's 调度中心 card
    and first card (or, on a narrow phone where they wrap above 交流, the left player list) */
 .gm__corner { --tap-top: 0%; --tap-ty: 0%; }
@@ -95,11 +96,9 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
 .gtop__iconbtn, .enemybtn { --tap-top: 100%; --tap-ty: calc(-100% + 5px); }
 /* the 设置 tabs: 8 px over the 语言 select on a phone, with only the dialog's title above them — the same */
 .set-tabs { --tap-top: 100%; --tap-ty: calc(-100% + 5px); }
-/* stacked pairs: the upper one grows up, the lower one down — 难度 over 规则 and 干员调配 over 匹配补位 (room bar), 复制密钥
-   over 复制链接 (the room's invite box), the 自选 preset slots over 编辑; the strategy draft's 查看禁用 / 技能与模组
-   (full-width, between the order list's avatars and the tip) stay as drawn */
-.room-bar__opts > .dpick, .room-bar__stack > :first-child, .invite__btns > :first-child { --tap-top: 100%; --tap-ty: -100%; }
-.room-bar__row, .room-bar__stack > :last-child, .invite__btns > :last-child, .draft-preset__edit, .draft-detail__btns { --tap-top: 0%; --tap-ty: 0%; }
+/* stacked pairs: the lower one grows down — an empty seat card's 添加 AI 队友 under its 邀请, the 自选 preset slots over
+   编辑; the strategy draft's 查看禁用 / 技能与模组 (full-width, between the order list's avatars and the tip) stay as drawn */
+.rseat__add, .draft-preset__edit, .draft-detail__btns { --tap-top: 0%; --tap-ty: 0%; }
 .draft-order__info, .draft-order__loadout { --tap-h: 100%; }
 /* buttons under a block they must not reach into: a dialog's footer (the scrolled body above it), the title's 玩法说明 /
    ⚙ / ⛶ (under 开始) and 服务器信息 (under ⛶) */

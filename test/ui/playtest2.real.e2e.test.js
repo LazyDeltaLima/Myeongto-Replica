@@ -221,8 +221,7 @@ describe('user playtest #2 item 6 — 前往查看 → 返回战场 in combat (r
       await c.open();
       await c.enter('煌');
       await c.click('.mode-card', '同盟模拟');
-      await c.click('.diff-card', '标准模拟');
-      await c.click('.create-box button', '创建同盟');
+      await c.click('.ally-create__go', '创建同盟');
       await c.waitFor((s) => !!s.room?.code, 'room created');
       await c.click('button', '添加 AI 队友');
       await sleep(500);
@@ -353,8 +352,12 @@ describe('user playtest #2 item 10 — boss-round prep on the boss field (real s
       await host.open();
       await host.enter('凯尔希');
       await host.click('.mode-card', '同盟模拟');
+      await host.click('.ally-create__go', '创建同盟');
+      // the room is made at the remembered difficulty; its pill opens 选择模拟协议 (screens/room.js)
+      await host.click('[data-testid="room-difficulty"]');
       await host.click('.diff-card', '险境模拟');
-      await host.click('.create-box button', '创建同盟');
+      await host.click('[data-testid="proto-start"]', '确认');
+      await host.waitFor((s) => s.room?.difficulty === 'NORMAL', 'difficulty set');
       const room = (await host.waitFor((s) => !!s.room?.code, 'room created')).room;
       await guest.open(`?room=${room.code}`);
       await guest.enter('阿米娅');

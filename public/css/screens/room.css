@@ -392,8 +392,13 @@
   padding: .1rem .3rem .2rem .22rem;
   z-index: 2;
 }
-.rs-foot__left { min-width: 0; align-self: end; }
-.rs-foot__center { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: .08rem; }
+/* the status line (ready count, status, 观战席) spans the whole bar above the pill row, so six long spectator names fit
+   on a desktop; the pill sits under it in the middle column, 匹配补位 and the big button at the right */
+.rs-foot__center { display: contents; }
+.rs-foot > .rs-foot__left { grid-row: 2; grid-column: 1; min-width: 0; align-self: end; }
+.rs-foot .rs-hint { grid-row: 1; grid-column: 1 / -1; min-width: 0; }
+.rs-foot .rs-pill { grid-row: 2; grid-column: 2; justify-self: center; }
+.rs-foot > .rs-foot__right { grid-row: 2; grid-column: 3; }
 .rs-hint { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .06rem .16rem; margin: 0; font-size: calc(.18 * var(--t)); color: #d6dad8; text-align: center; }
 .room-bar__status .icon { width: 1.1em; height: 1.1em; margin-right: 4px; vertical-align: -2px; }
 .room-bar__match b { color: var(--text-hi); }
@@ -689,9 +694,10 @@
 }
 @media (max-width: 900px) {
   .rs-foot { grid-template-columns: minmax(0, 1fr) auto; }
-  .rs-foot__left { display: none; }
-  .rs-foot__center { justify-self: start; max-width: 100%; align-items: flex-start; }
-  .rs-hint { justify-content: flex-start; text-align: left; }
+  .rs-foot > .rs-foot__left { display: none; }
+  .rs-foot .rs-hint { justify-content: flex-start; text-align: left; }
+  .rs-foot .rs-pill { grid-column: 1; justify-self: start; }
+  .rs-foot > .rs-foot__right { grid-column: 2; }
 }
 @media (max-aspect-ratio: 1/1) {
   .rs-seats { justify-content: flex-start; }

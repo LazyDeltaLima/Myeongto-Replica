@@ -471,8 +471,12 @@ describe('real server + real browsers', { skip: !ENABLED && 'set SP_REAL_E2E=1 (
       await host.open('?lang=zh');
       await host.enter('凯尔希');
       await host.click('.mode-card', '同盟模拟');
+      await host.click('.ally-create__go', '创建同盟');
+      // the room is made at the remembered difficulty; its pill opens 选择模拟协议 (screens/room.js)
+      await host.click('[data-testid="room-difficulty"]');
       await host.click('.diff-card', '险境模拟');
-      await host.click('.create-box button', '创建同盟');
+      await host.click('[data-testid="proto-start"]', '确认');
+      await host.waitFor((s) => s.room?.difficulty === 'NORMAL', 'difficulty set');
       const room = (await host.waitFor((s) => !!s.room?.code, 'room created')).room;
       await host.click('button', '添加 AI 队友');
       await guest.open(`?room=${room.code}&lang=zh`);

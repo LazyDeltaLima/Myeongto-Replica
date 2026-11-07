@@ -47,8 +47,7 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
       await host.open('?lang=zh');
       await enter(host, '凯尔希');
       await host.click('.mode-card', '同盟模拟');
-      await host.click('.diff-card', '标准模拟');
-      await host.click('.create-box button', '创建同盟');
+      await host.click('.ally-create__go', '创建同盟');
       const room = (await host.waitFor((s) => !!s.room?.code, 'room created')).room;
       await host.click('.seat--empty button', '添加 AI 队友');
 
@@ -61,8 +60,8 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
       await spec.click('.join-row button', '观战');
       await spec.page.waitForSelector('.room-screen .specbar__who.is-me', { timeout: 10000 });
       const roomView = await spec.page.evaluate(() => ({
-        bar: document.querySelector('.room-bar__right .btn--xl')?.textContent || '',
-        barDisabled: !!document.querySelector('.room-bar__right .btn--xl')?.disabled,
+        bar: document.querySelector('.room-bar__right .rs-go')?.textContent || '',
+        barDisabled: !!document.querySelector('.room-bar__right .rs-go')?.disabled,
         status: document.querySelector('.room-bar__status')?.textContent || '',
         seats: [...document.querySelectorAll('.seat__name')].map((e) => e.textContent),
       }));
@@ -178,8 +177,7 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
     await host.open('?lang=zh');
     await enter(host, '凯尔希');
     await host.click('.mode-card', '同盟模拟');
-    await host.click('.diff-card', '标准模拟');
-    await host.click('.create-box button', '创建同盟');
+    await host.click('.ally-create__go', '创建同盟');
     const room = (await host.waitFor((s) => !!s.room?.code, 'room created')).room;
     await host.click('.seat--empty button', '添加 AI 队友');
     await host.click('.seat--empty button', '添加 AI 队友');
@@ -293,8 +291,7 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
       await host.open('?lang=zh');
       await enter(host, '凯尔希');
       await host.click('.mode-card', '同盟模拟');
-      await host.click('.diff-card', '标准模拟');
-      await host.click('.create-box button', '创建同盟');
+      await host.click('.ally-create__go', '创建同盟');
       const room = (await host.waitFor((s) => !!s.room?.code, 'room created')).room;
       for (let i = 0; i < 3; i++) await host.click('.seat--empty button', '添加 AI 队友');
       await host.click('.specseats__btn');
@@ -317,8 +314,11 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
         const v = await host.page.evaluate(() => {
           const mid = (e) => { const r = e.getBoundingClientRect(); return r.top + r.height / 2; };
           const parts = [...document.querySelectorAll('.specbar__label, .specseats, .specbar__who')];
-          const chat = document.querySelector('.chat--room').getBoundingClientRect();
-          const clear = [...document.querySelectorAll('.specbar__label, .specseats, .specbar__list')].every((e) => e.getBoundingClientRect().left >= chat.right);
+          // the room chat's column (a short screen has the 聊天 button in the top bar instead): nothing of the strip under it
+          // (the strip sits in the bottom bar, under the column's end on a desktop)
+          const chatBox = document.querySelector('.room-screen.has-chat > .chat--room');
+          const chat = chatBox ? chatBox.getBoundingClientRect() : null;
+          const clear = !chat || [...document.querySelectorAll('.specbar__label, .specseats, .specbar__list')].every((e) => { const r = e.getBoundingClientRect(); return r.left >= chat.right || r.top >= chat.bottom; });
           const list = document.querySelector('.specbar__list');
           const end = list?.getBoundingClientRect().right ?? Infinity;
           let reach = false;
@@ -378,7 +378,7 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
       const view = await spec.page.evaluate(() => ({
         specbar: !!document.querySelector('.specbar__who.is-me'),
         seats: [...document.querySelectorAll('.seat__name')].map((e) => e.textContent),
-        bar: document.querySelector('.room-bar__right .btn--xl')?.textContent || '',
+        bar: document.querySelector('.room-bar__right .rs-go')?.textContent || '',
       }));
       assert.equal(view.specbar, false);
       assert.ok(view.seats.includes('阿米娅'), view.seats.join());
@@ -387,7 +387,7 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
       // the host waits for the new player's ready, like any seated Doctor's
       await host.click('button', '返回同盟', { timeout: 60000 });
       await host.page.waitForSelector('.room-screen', { timeout: 10000 });
-      assert.equal(await host.page.evaluate(() => [...document.querySelectorAll('.room-bar__right .btn--xl')].some((b) => b.textContent.includes('开始模拟') && b.disabled)), true);
+      assert.equal(await host.page.evaluate(() => [...document.querySelectorAll('.room-bar__right .rs-go')].some((b) => b.textContent.includes('开始模拟') && b.disabled)), true);
       // (at a quarter of the timers the screens change while their images still load: those are dropped, not faults)
       assert.deepEqual(problemsOf([host, spec]).filter((p) => !p.includes('net::ERR_ABORTED')), []);
     } finally {

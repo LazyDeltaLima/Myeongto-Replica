@@ -151,7 +151,8 @@ describe('统计数据 page (real server, headless Chrome)', { skip: !ENABLED &&
   test('phone in landscape (844×390): the page and the re-view fit; no console errors', async () => {
     const c = await open({ w: 844, h: 390, stored: JSON.stringify(seed()) });
     await c.page.waitForSelector('.lobby-screen');
-    await openStats(c);
+    // a short screen hides the hub's left column: 成就统计 is a plate of the right column (screens/lobby.js SidePlate)
+    await openStats(c, '.lobby-screen .hub-plate--ach');
     const fits = () => c.page.evaluate(() => {
       const st = document.querySelector('.st').getBoundingClientRect();
       const top = document.querySelector('.st-top').getBoundingClientRect();
