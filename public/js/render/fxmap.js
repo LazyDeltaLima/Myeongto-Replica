@@ -113,7 +113,7 @@ export function noteEffects(mode, fan = 0, plays = null) {
 // (tools/local-extract/char_modes.py: the character prefab's attack modes and the effects their attacks bind).
 
 /**
- * The attack mode an operator's attack uses: the running skill's mode (shared/skill-modes.js) or Default 0; -1 for a
+ * The attack mode an operator's attack uses: the running skill's mode (shared/skill-modes.js) or Default 0 (a summon's `base`); -1 for a
  * running skill that switches no mode; null without bindings.
  * @param {any} bind modes.json entry
  * @param {boolean} skillOn
@@ -121,7 +121,8 @@ export function noteEffects(mode, fan = 0, plays = null) {
  */
 export function attackMode(bind, skillOn, skillIndex, sub = null) {
   if (!bind || !Array.isArray(bind.modes)) return null;
-  if (!skillOn) return 0;
+  // (2026-11-07) a summon whose mode 0 is not its attacking one (char_modes.py token_modes `base`: 樱桃三号 Reborn, 流形 Recharge)
+  if (!skillOn) return Number.isInteger(bind.base) ? bind.base : 0;
   const k = typeof sub === 'string' ? bind.modes.indexOf(sub) : -1;
   return k > 0 ? k : skillModeIndex(bind.modes, skillIndex, bind.skillMode);
 }
@@ -602,8 +603,10 @@ export function defaultModeEffects(bind, prefabs, kitOwned = null) {
  * @param {number} skillIndex 0-based
  * @param {Set<string>} [kitOwned]
  */
-export function activationEffects(bind, prefabs, skillIndex, kitOwned = new Set(), sub = null, others = []) {
+export function activationEffects(bind, prefabs, skillIndex, kitOwned = new Set(), sub = null, others = [], nameRules = true) {
   const pre = prefabs || [];
+  // (2026-11-07) `nameRules` false: a summon's bundle (fxgame.js summonBundle) — only what its bindings name
+  const named = (kind) => (nameRules ? effectsFor(pre, kind, skillIndex) : []);
   const n = attackMode(bind, true, skillIndex, sub) ?? -1;
   const sk = bind?.skills?.[skillIndex] || null;
   const has = (list) => (Array.isArray(list) ? list.filter((x) => pre.includes(x)) : []);
@@ -634,10 +637,10 @@ export function activationEffects(bind, prefabs, skillIndex, kitOwned = new Set(
   // a prefab the skill casts (`_castEffects`, ending with its cast) is not a loop for the whole skill even if named _buff / _range
   const cast = new Set([...(sk?.cast || []), ...(sk?.castLoop || [])]);
   // (2026-10-24, 묶음 S4: its `buff` holds its aura abilities' `_effects` too — 纯烬艾雅法拉 S2's barrier is the kit's)
-  const loops = [...new Set([...effectsFor(pre, 'skillBuff', skillIndex).filter((x) => keep(x) && !cast.has(x)), ...has(sk?.buff).filter((x) => !kitOwned.has(x)),
+  const loops = [...new Set([...named('skillBuff').filter((x) => keep(x) && !cast.has(x)), ...has(sk?.buff).filter((x) => !kitOwned.has(x)),
     ...boundEffects(bind, pre, n, 'attach').filter((x) => !foe.has(x) && !kitOwned.has(x))])];
   const modeCast = boundEffects(bind, pre, n, 'cast');
-  const start = [...new Set([...(modeCast.length ? [] : effectsFor(pre, 'skillStart', skillIndex)), ...has(sk?.cast), ...has(sk?.castLoop)])]
+  const start = [...new Set([...(modeCast.length ? [] : named('skillStart')), ...has(sk?.cast), ...has(sk?.castLoop)])]
     .filter((x) => keep(x) && !loops.includes(x));
   return { start, loops };
 }

@@ -903,7 +903,7 @@ def cast_target_timing(d, out):
                     out.setdefault(x, {**cast_timing(c), 't': 2})
 
 
-def modes_of(path, projectiles=None):
+def modes_of(path, projectiles=None, tree=None):
     """{ modes, proj, cast, hit, trail } of a charpack (per mode, in `_modes` order), or None:
     modes = the mode GameObject names; proj = the projectile keys under each mode; cast = the effects its attacks cast on
     the attacker; hit = those on the target (the emitters' hit lists + its own projectile's WhenHit / WhenReached); trail =
@@ -914,7 +914,9 @@ def modes_of(path, projectiles=None):
     defaultModeEffects, 2026-10-21). proj lists the mode's own shot first. Directional copies (_down_ …) are left out; of alternative attack abilities (Attack_A/B/C)
     only the first counts — an ability group's (ability_groups, 2026-10-21) go to altFx with each child's own effects, and a
     mode with a Body/Combat ability splits its casts / hits into combatSplit."""
-    tree, go_name = load_tree(path)
+    # 2026-11-07: `tree` — one summon's part of a token bundle (token_modes), `path` its token id
+    if tree is None:
+        tree, _ = load_tree(path)
     root = next((d for _, d, _ in tree if isinstance(d.get('_modes'), list) and d['_modes']), None)
     if root is None:
         return None
@@ -1163,7 +1165,7 @@ def modes_of(path, projectiles=None):
                 mode_buffs(i, mb[pid])
     # the mode's own shot first (projectile_chr_<name>[_default|_s<n>|_<X>]) — drones / talent shots after it; only that
     # projectile's hit / trail effects are the mode's (whitw2's funnels hit with their own when they fire)
-    short = re.sub(r'^char_\d+_', '', Path(path).stem)
+    short = re.sub(r'^(char|token)_\d+_', '', Path(path).stem)
     main = re.compile(rf'^projectile_chr_{re.escape(short)}(_default|_s\d+|_[a-z])?$', re.I)
     for i in range(n):
         proj[i].sort(key=lambda k: 0 if main.match(k) else 1)
@@ -1413,15 +1415,9 @@ def token_default_mode_path(rel):
     return not rel.startswith('Modes/') or rel.startswith('Modes/Default/')
 
 
-def token_auras(tree, client):
-    """2026-10-22 (upstream 5209873f's symptom, docs/rules/fx.md 「소환물 스킬 오라」): the effects a summon's skill keeps on it
-    while it stands — the `_effects` of its skill prefab's auras (battle/prefabs/[uc]skills.ab AuraAbility: sktok_vodfox_token/Aura
-    vodfox_skill_02_buff, sktok_skadi2_<n>/Aura token_skadi2_skill_0<n>_buff) — and its prefab root's `_startEffect`
-    (pkgrps/btl_pfb_tokens_*.ab). A summon's skill follows its owner's skill choice: data/tokens.json `variants[…].skill` /
-    `bySkill[i].skill` (its `index` = the owner's skill index, which the unit's snapshot `skillIndex` carries). → { token id:
-    { owner, aura?: { owner skill index: [prefab, …] }, start? } } for the tokens with an aura or a start effect.
-    2026-10-24 (묶음 S4): every summon's `_startEffect`, not only an aura holder's — 凯尔希·思衡托's 战术锚点
-    kalts2_skill_03_indicator_ground_01 (a 自选 summon: data/backups.json tokens, its pack in the CN client only)."""
+def token_records():
+    """(data/assets.json tokens, data/tokens.json tokens, the other summons' records — data/backups.json tokens and every
+    season's data/seasons/<id>/tokens.json —, { token id: its owner's charId })."""
     assets = json.loads((ROOT / 'data/assets.json').read_text(encoding='utf-8')).get('tokens') or {}
     toks = json.loads((ROOT / 'data/tokens.json').read_text(encoding='utf-8'))
     toks = toks.get('tokens', toks)
@@ -1438,6 +1434,19 @@ def token_auras(tree, client):
         if isinstance(o, str) and o:
             o = o.split('@')[0]
             owners.setdefault(tid, char_of.get(o, o))
+    return assets, toks, backups, owners
+
+
+def token_auras(tree, client):
+    """2026-10-22 (upstream 5209873f's symptom, docs/rules/fx.md 「소환물 스킬 오라」): the effects a summon's skill keeps on it
+    while it stands — the `_effects` of its skill prefab's auras (battle/prefabs/[uc]skills.ab AuraAbility: sktok_vodfox_token/Aura
+    vodfox_skill_02_buff, sktok_skadi2_<n>/Aura token_skadi2_skill_0<n>_buff) — and its prefab root's `_startEffect`
+    (pkgrps/btl_pfb_tokens_*.ab). A summon's skill follows its owner's skill choice: data/tokens.json `variants[…].skill` /
+    `bySkill[i].skill` (its `index` = the owner's skill index, which the unit's snapshot `skillIndex` carries). → { token id:
+    { owner, aura?: { owner skill index: [prefab, …] }, start? } } for the tokens with an aura or a start effect.
+    2026-10-24 (묶음 S4): every summon's `_startEffect`, not only an aura holder's — 凯尔希·思衡托's 战术锚点
+    kalts2_skill_03_indicator_ground_01 (a 自选 summon: data/backups.json tokens, its pack in the CN client only)."""
+    assets, toks, backups, owners = token_records()
     eff = {}
     for gp, d, *_ in tree:
         if isinstance(d.get('_effects'), list) and ('_buffs' in d or '_passiveBuffs' in d):
@@ -1497,6 +1506,106 @@ def token_auras(tree, client):
                 aura[str(i)] = list(dict.fromkeys((aura.get(str(i)) or []) + held))
             out[tid]['aura'] = dict(sorted(aura.items()))
     return {k: out[k] for k in sorted(out)}
+
+
+# 2026-11-07: the attack parts of a summon's modes.json row (token_modes); its deploy / dead / held effects stay token_auras'
+TOKEN_ATTACK_FIELDS = ('modes', 'skillMode', 'base', 'downMode', 'attach', 'cast', 'castOpt', 'input', 'hit', 'hitGroups', 'tgtStart', 'hitLoop',
+                       'castTgt', 'clipFx', 'altFx', 'talentAtk', 'sideFx', 'combatSplit', 'trail', 'chain', 'chainHit', 'shotFrom',
+                       'hitAim', 'fortress', 'skills', 'turn', 'dirs')
+
+
+def down_switches(o, acc):
+    """2026-11-07, official client: the mode switches of a template's `CheckCharacterDefaultDirection` DOWN IfElse —
+    { the mode it switches to otherwise (0 without a fail branch: the mode the unit started in): the mode when the unit was
+    deployed facing down }. 打字机's bgsnow_subbow_direction (ON_BUFF_START: 0 → 1 Default[D]) and bgsnow_subbow_s3[switch]
+    (its S3: 2 S3 / 3 S3[D], and back 0 / 1)."""
+    if isinstance(o, dict):
+        c = o.get('_conditionNode')
+        if isinstance(c, dict) and str(c.get('$type', '')).endswith('CheckCharacterDefaultDirection') and c.get('_direction') == 'DOWN':
+            pick = lambda nodes: next((x['_modeIndex'] for x in nodes or [] if isinstance(x, dict) and str(x.get('$type', '')).endswith('+SwitchMode')
+                                       and isinstance(x.get('_modeIndex'), int) and not x.get('_loadModeFromBlackboard')), None)
+            a, b = pick(o.get('_succeedNodes')), pick(o.get('_failNodes'))
+            if a is not None:
+                acc[b if b is not None else 0] = a
+        for v in o.values():
+            down_switches(v, acc)
+    elif isinstance(o, list):
+        for v in o:
+            down_switches(v, acc)
+    return acc
+
+
+def token_modes(client, projectiles, stree, templates, sk_fx, switch, attack_modes):
+    """2026-11-07 (docs/rules/fx.md 「소환물의 공격 이펙트」): a summon's attack bindings, read from its token prefab
+    (pkgrps/btl_pfb_tokens_*.ab) as an operator's from its charpack (modes_of), and its skill prefabs' effects (sktok_*,
+    skill_effects) by its owner's skill index — the attack path of render/fxgame.js plays them as an operator's (工程蓄水炮's
+    shell, 打字机's shots by facing and skill). `base`: the mode its attacks use outside a skill when mode 0 is not `Default`
+    (樱桃三号 Reborn, 流形 Recharge: a template switches it on); `downMode`: per mode, the mode it is in when deployed facing
+    down (down_switches). → { token id: fields } for the summons whose modes cast, hit or fire effects of their own."""
+    _assets, toks, backups, owners = token_records()
+    from char_points import token_files
+    trees, out = {}, {}
+    for tid, f in sorted(token_files(client, sorted(owners)).items()):
+        if f not in trees:
+            trees[f] = load_tree(str(f))[0]
+        sub = [x for x in trees[f] if x[0] == tid or x[0].startswith(tid + '/')]
+        m = modes_of(Path(tid), projectiles, sub)
+        if not m:
+            continue
+        n = len(m['modes'])
+        rec = toks.get(tid) or backups.get(tid)
+        by_idx = {}   # owner skill index → the summon's skill prefab
+        for v in ((rec or {}).get('variants') or {}).values() if isinstance(rec, dict) else []:
+            sk = v.get('skill') or {}
+            if isinstance(sk.get('index'), int) and (sk.get('prefabId') or sk.get('skillId')):
+                by_idx.setdefault(sk['index'], sk.get('prefabId') or sk.get('skillId'))
+            for k, b in (v.get('bySkill') or {}).items():
+                sk = b.get('skill') or {}
+                if sk.get('prefabId') or sk.get('skillId'):
+                    by_idx.setdefault(int(k), sk.get('prefabId') or sk.get('skillId'))
+        pids = [by_idx.get(i) for i in range(max(by_idx) + 1)] if by_idx else []
+        sm = skill_modes_of(m['modes'], [p or '' for p in pids], switch, attack_modes) or [None] * len(pids)
+        # (a summon's mode its skill prefab switches to, whatever its name: 琳琅诗怀雅's 金币陷阱 sktok_swire2_gdtrap → 1 M2)
+        sm = [x if x is not None else (switch.get(p) if p and isinstance(switch.get(p), int) and 0 < switch[p] < n else None) for x, p in zip(sm, pids)]
+        if any(x is not None for x in sm):
+            m['skillMode'] = sm
+        sks = [{k: v for k, v in (sk_fx.get(p) or {}).items() if k not in ('turn', 'dirs')} if p else {} for p in pids]
+        if any(any(x.values()) for x in sks):
+            m['skills'] = sks
+            for p in pids:
+                add(m.setdefault('turn', []), (sk_fx.get(p) or {}).get('turn') or [])
+                m.setdefault('dirs', []).extend(g for g in (sk_fx.get(p) or {}).get('dirs') or [] if g not in m['dirs'])
+        # an entry of `_directionType` 0 NONE plays its slot 0 whatever the facing (TryGetEffect): 打字机's Default[D] / S3[D] name
+        # their `_down` copy there and a placeholder no bundle holds (token_10026_bgsnow_subbow_attack_start_01) in the others; the
+        # mode's own groups are the ones whose names its castOpt lists
+        for i in range(n):
+            opt = set((m.get('castOpt') or [{}] * n)[i] or {})
+            for g in m.get('dirs') or []:
+                slots = [x for x in g['s'] if x]
+                if g['t'] == 0 and g['s'][0] and slots and set(slots) <= opt:
+                    m['cast'][i] = list(dict.fromkeys(g['s'][0] if x in slots else x for x in m['cast'][i]))
+        if 'Default' in m['modes'] and m['modes'].index('Default') > 0:
+            m['base'] = m['modes'].index('Default')
+        # the buffs a skill's mode holds (`attach`, looped through the skill: the trap's M2 token_gdtrap_passive[eff]
+        # token_swire2_buff_01_start); the others' held effects are token_auras'
+        own = {x for x in m.get('skillMode') or [] if isinstance(x, int)}
+        m['attach'] = [lst if i in own else [] for i, lst in enumerate(m.get('attach') or [])]
+        keys = set()
+        for gp, d, _ in sub + [x for x in stree if x[0].split('/')[0] in pids]:
+            for b in d.get('_buffs') or [] if isinstance(d.get('_buffs'), list) else []:
+                if isinstance(b, dict) and isinstance(b.get('templateKey'), str):
+                    keys.add(b['templateKey'])
+        down = {}
+        for k in sorted(keys):
+            down_switches(templates.get(k) or {}, down)
+        if down:
+            m['downMode'] = [down.get(i, i) if i not in down.values() else i for i in range(n)]
+        # (only a summon that attacks with effects of its own: the skill effects of the others are their auras — token_auras — or
+        # a kit's events, 斯卡蒂的海嗣 · 诅咒娃娃 · 望's 棋子 …)
+        if any(m['cast']) or any(m['hit']) or any(m['trail']):
+            out[tid] = {k: m[k] for k in TOKEN_ATTACK_FIELDS if m.get(k) and (k != 'attach' or any(m[k]))}
+            out[tid]['owner'] = owners[tid]
+    return out
 
 
 def main():
@@ -1569,7 +1678,11 @@ def main():
         # whose pack this client lacks keeps the entry an earlier run wrote (凯尔希·思衡托's, from the CN client)
         old = json.loads(FX_OUT.read_text(encoding='utf-8')) if FX_OUT.exists() else {}
         fx.update({k: v for k, v in old.items() if k.startswith('token_')})
-        fx.update(token_auras(stree, a.client))
+        for tid, row in token_auras(stree, a.client).items():
+            fx[tid] = row
+        # 2026-11-07: and their attack bindings (an earlier run's attack fields are replaced: token_modes reads every summon)
+        for tid, row in token_modes(a.client, projectiles, stree, templates, sk_fx, switch, attack_modes).items():
+            fx[tid] = {**{k: v for k, v in (fx.get(tid) or {}).items() if k not in TOKEN_ATTACK_FIELDS}, **row}
         FX_OUT.write_text(json.dumps(dict(sorted(fx.items())), ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     print(f'{len(out)} operator(s) → {OUT.relative_to(ROOT)}' + (f' + {FX_OUT.relative_to(ROOT)}' if FX_OUT.parent.exists() else '')
           + f'; no charpack: {", ".join(missing) or "none"}')

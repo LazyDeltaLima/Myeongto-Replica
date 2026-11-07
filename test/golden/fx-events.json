@@ -958,7 +958,11 @@
    "char_4211_snhunt spawn:born equipment_system_hunter_buff_x → self",
    "enemy_1267_nhpbr_2 spawn:cast enemy_nhpbr_attack_start → self",
    "enemy_1272_nhtank_2 spawn:castLoop enemy_nhtank_attack_start_01 → self",
-   "token_10015_dusk_drgn spawn:born token_dusk_birth_01_start → self"
+   "token_10015_dusk_drgn attackHit token_dusk_attack_01_hit → foe",
+   "token_10015_dusk_drgn attackStart token_dusk_attack_01_start",
+   "token_10015_dusk_drgn spawn:born token_dusk_birth_01_start → self",
+   "token_10015_dusk_drgn spawn:tokAura token_dusk_buff_01_start → self",
+   "token_10015_dusk_drgn spawn:tokAura token_dusk_buff_02_start → self"
   ],
   "bond-kjeragShip-low": [
    "- spawn snhunt_skill_02_hit → enemy",
@@ -1211,7 +1215,12 @@
    "char_4122_grabds spawn:born common_char_birth_01 → self",
    "enemy_1288_duskls spawn:castLoop enemy_duskls_attack_start → self",
    "enemy_1292_duskld spawn:castLoop enemy_duskld_attack_start_01 → self",
-   "enemy_1292_duskld spawn:castLoop enemy_duskld_attack_start_02 → self"
+   "enemy_1292_duskld spawn:castLoop enemy_duskld_attack_start_02 → self",
+   "token_10030_mlyss_wtrman attackHit token_10030_mlyss_wtrman_c1c2c3_combat_hit_01 → foe",
+   "token_10030_mlyss_wtrman attackHit token_10030_mlyss_wtrman_c2c3_attack_hit_01 → foe",
+   "token_10030_mlyss_wtrman attackStart token_10030_mlyss_wtrman_c3_attack_start_01",
+   "token_10030_mlyss_wtrman attackStart token_10030_mlyss_wtrman_c3_combat_start_01",
+   "token_10030_mlyss_wtrman spawn:tokAura token_10030_mlyss_wtrman_buff_01 → self"
   ],
   "bond-maniShip-low": [
    "- spawn leizi_attack_02_line",
@@ -1267,7 +1276,11 @@
    "char_423_blemsh attackHit blemsh_attack_01_hit → foe",
    "char_423_blemsh attackStart blemsh_attack_01_start",
    "char_423_blemsh spawn:born common_char_birth_01 → self",
-   "char_423_blemsh spawn:common blemsh_buff_01_start → self"
+   "char_423_blemsh spawn:common blemsh_buff_01_start → self",
+   "token_10030_mlyss_wtrman attackHit token_10030_mlyss_wtrman_c2c3_attack_hit_01+token_10030_mlyss_wtrman_c1c2c3_combat_hit_01 → foe",
+   "token_10030_mlyss_wtrman attackStart token_10030_mlyss_wtrman_c2_attack_start_01",
+   "token_10030_mlyss_wtrman attackStart token_10030_mlyss_wtrman_c2_combat_start_01",
+   "token_10030_mlyss_wtrman spawn:tokAura token_10030_mlyss_wtrman_buff_01 → self"
   ],
   "bond-miraShip-high": [
    "- spawn bpipe_attack_02_hit → enemy",
@@ -2838,7 +2851,11 @@
    "enemy_1389_winbab_2 spawn:castLoop enemy_winbab_attack_01_start → self",
    "enemy_9012_acloon spawn:born common_call_start_01 → self",
    "enemy_9012_acloon spawn:cast enemy_acloon_attack_start → self",
+   "token_10015_dusk_drgn attackHit token_dusk_attack_01_hit → foe",
+   "token_10015_dusk_drgn attackStart token_dusk_attack_01_start",
    "token_10015_dusk_drgn spawn:born token_dusk_birth_01_start → self",
+   "token_10015_dusk_drgn spawn:tokAura token_dusk_buff_01_start → self",
+   "token_10015_dusk_drgn spawn:tokAura token_dusk_buff_02_start → self",
    "token_10031_swire2_gdtrap spawn:born token_swire2_birth_01_start → self"
   ],
   "bond-yanShip-low": [
@@ -3107,7 +3124,12 @@
    "enemy_9016_acstmr spawn:ride enemy_acstmr_move",
    "token_10017_skadi2_dedant spawn:born token_skadi2_birth_01_start → self",
    "token_10017_skadi2_dedant spawn:tokAura token_skadi2_skill_03_buff → self",
-   "token_10019_nearl2_sword spawn:born token_nearl2_birth_01_start → self"
+   "token_10019_nearl2_sword spawn:born token_nearl2_birth_01_start → self",
+   "token_10030_mlyss_wtrman attackHit token_10030_mlyss_wtrman_c1c2c3_combat_hit_01 → foe",
+   "token_10030_mlyss_wtrman attackHit token_10030_mlyss_wtrman_c2c3_attack_hit_01 → foe",
+   "token_10030_mlyss_wtrman attackStart token_10030_mlyss_wtrman_c3_attack_start_01",
+   "token_10030_mlyss_wtrman attackStart token_10030_mlyss_wtrman_c3_combat_start_01",
+   "token_10030_mlyss_wtrman spawn:tokAura token_10030_mlyss_wtrman_buff_01 → self"
   ],
   "boss-boss_1-solo": [
    "- spawn common_enemy_hit_01 → ally",
@@ -3748,7 +3770,13 @@
    "token_10017_skadi2_dedant spawn:born token_skadi2_birth_01_start → self",
    "token_10017_skadi2_dedant spawn:tokAura token_skadi2_skill_03_buff → self",
    "token_10019_nearl2_sword spawn:born token_nearl2_birth_01_start → self",
-   "token_10040_siege2_vlion spawn:born token_siege2_vlion_birth_01 → self"
+   "token_10030_mlyss_wtrman attackHit token_10030_mlyss_wtrman_c2c3_attack_hit_01 → foe",
+   "token_10030_mlyss_wtrman attackStart token_10030_mlyss_wtrman_c3_attack_start_01",
+   "token_10030_mlyss_wtrman spawn:tokAura token_10030_mlyss_wtrman_buff_01 → self",
+   "token_10040_siege2_vlion attackHit token_siege2_vlion_attack_hit_01 → foe",
+   "token_10040_siege2_vlion attackStart token_siege2_vlion_attack_start_01",
+   "token_10040_siege2_vlion spawn:born token_siege2_vlion_birth_01 → self",
+   "token_10040_siege2_vlion spawn:tokAura token_siege2_vlion_buff_01 → self"
   ],
   "boss-boss_3-solo": [
    "- spawn common_enemy_hit_01 → ally",
@@ -4423,7 +4451,14 @@
    "token_10017_skadi2_dedant spawn:born token_skadi2_birth_01_start → self",
    "token_10017_skadi2_dedant spawn:tokAura token_skadi2_skill_03_buff → self",
    "token_10019_nearl2_sword spawn:born token_nearl2_birth_01_start → self",
-   "token_10040_siege2_vlion spawn:born token_siege2_vlion_birth_01 → self"
+   "token_10030_mlyss_wtrman attackHit token_10030_mlyss_wtrman_c1c2c3_combat_hit_01 → foe",
+   "token_10030_mlyss_wtrman attackHit token_10030_mlyss_wtrman_c2c3_attack_hit_01 → foe",
+   "token_10030_mlyss_wtrman attackStart token_10030_mlyss_wtrman_c3_attack_start_01",
+   "token_10030_mlyss_wtrman spawn:tokAura token_10030_mlyss_wtrman_buff_01 → self",
+   "token_10040_siege2_vlion attackHit token_siege2_vlion_attack_hit_01 → foe",
+   "token_10040_siege2_vlion attackStart token_siege2_vlion_attack_start_01",
+   "token_10040_siege2_vlion spawn:born token_siege2_vlion_birth_01 → self",
+   "token_10040_siege2_vlion spawn:tokAura token_siege2_vlion_buff_01 → self"
   ],
   "boss-boss_5-solo": [
    "- spawn csaudc_attack_01_hit → ally",
@@ -4535,7 +4570,11 @@
    "enemy_2017_csphts spawn:born enemy_csphts_skill_01_start → self",
    "enemy_2017_csphts spawn:cast enemy_csphts_attack_01_start → self",
    "enemy_2017_csphts spawn:cast enemy_csphts_skill_02_range → self",
-   "token_10015_dusk_drgn spawn:born token_dusk_birth_01_start → self"
+   "token_10015_dusk_drgn attackHit token_dusk_attack_01_hit → foe",
+   "token_10015_dusk_drgn attackStart token_dusk_attack_01_start",
+   "token_10015_dusk_drgn spawn:born token_dusk_birth_01_start → self",
+   "token_10015_dusk_drgn spawn:tokAura token_dusk_buff_01_start → self",
+   "token_10015_dusk_drgn spawn:tokAura token_dusk_buff_02_start → self"
   ],
   "boss-boss_6-pair": [
    "- spawn common_enemy_hit_01 → ally",
@@ -5044,7 +5083,11 @@
    "enemy_9033_acdeer spawn:cast enemy_smdeer_skill_01_start_03 → self",
    "enemy_9033_acdeer spawn:cast enemy_smdeer_skill_01_start_04 → self",
    "token_10017_skadi2_dedant spawn:born token_skadi2_birth_01_start → self",
-   "token_10017_skadi2_dedant spawn:tokAura token_skadi2_skill_03_buff → self"
+   "token_10017_skadi2_dedant spawn:tokAura token_skadi2_skill_03_buff → self",
+   "token_10030_mlyss_wtrman attackHit token_10030_mlyss_wtrman_c2c3_attack_hit_01+token_10030_mlyss_wtrman_c1c2c3_combat_hit_01 → foe",
+   "token_10030_mlyss_wtrman attackStart token_10030_mlyss_wtrman_c2_attack_start_01",
+   "token_10030_mlyss_wtrman attackStart token_10030_mlyss_wtrman_c2_combat_start_01",
+   "token_10030_mlyss_wtrman spawn:tokAura token_10030_mlyss_wtrman_buff_01 → self"
   ],
   "boss-boss_7-solo": [
    "- spawn common_enemy_hit_01 → ally",
@@ -7379,6 +7422,10 @@
    "char_4055_bgsnow spawn:emit bgsnow_skill_03_buff_weapon_01 → self",
    "enemy_1267_nhpbr_2 spawn:cast enemy_nhpbr_attack_start → self",
    "enemy_1270_nhstlk_2 spawn:cast enemy_nhstlk_attack_start → self",
+   "token_10026_bgsnow_subbow attackHit token_bgsnow_subbow_attack_hit_01 → foe",
+   "token_10026_bgsnow_subbow attackHit token_bgsnow_subbow_skill_03_hit_01 → foe",
+   "token_10026_bgsnow_subbow attackStart token_bgsnow_subbow_attack_start_01",
+   "token_10026_bgsnow_subbow attackStart token_bgsnow_subbow_skill_start_01",
    "token_10026_bgsnow_subbow spawn:born token_bgsnow_subbow_birth_01 → self"
   ],
   "diy-summon-cgbird": [
@@ -7645,6 +7692,8 @@
    "char_400_weedy spawn:born common_char_birth_01 → self",
    "enemy_1402_tgshd_2 spawn:cast enemy_tgshd_attack_start_01 → self",
    "enemy_1402_tgshd_2 spawn:cast enemy_tgshd_attack_start_02 → self",
+   "token_10009_weedy_cannon attackHit token_weedy_attack_01_hit → foe",
+   "token_10009_weedy_cannon attackStart token_weedy_attack_01_start",
    "token_10009_weedy_cannon spawn:born common_call_start_01 → self"
   ],
   "fxpath-aglna2-s2": [
@@ -7794,6 +7843,10 @@
    "char_4055_bgsnow spawn:emit bgsnow_skill_03_buff_weapon_01 → self",
    "enemy_1267_nhpbr_2 spawn:cast enemy_nhpbr_attack_start → self",
    "enemy_1270_nhstlk_2 spawn:cast enemy_nhstlk_attack_start → self",
+   "token_10026_bgsnow_subbow attackHit token_bgsnow_subbow_attack_hit_01 → foe",
+   "token_10026_bgsnow_subbow attackHit token_bgsnow_subbow_skill_03_hit_01 → foe",
+   "token_10026_bgsnow_subbow attackStart token_bgsnow_subbow_attack_start_01",
+   "token_10026_bgsnow_subbow attackStart token_bgsnow_subbow_skill_start_01",
    "token_10026_bgsnow_subbow spawn:born token_bgsnow_subbow_birth_01 → self"
   ],
   "fxpath-summon-cgbird": [
@@ -8060,6 +8113,8 @@
    "char_400_weedy spawn:born common_char_birth_01 → self",
    "enemy_1402_tgshd_2 spawn:cast enemy_tgshd_attack_start_01 → self",
    "enemy_1402_tgshd_2 spawn:cast enemy_tgshd_attack_start_02 → self",
+   "token_10009_weedy_cannon attackHit token_weedy_attack_01_hit → foe",
+   "token_10009_weedy_cannon attackStart token_weedy_attack_01_start",
    "token_10009_weedy_cannon spawn:born common_call_start_01 → self"
   ],
   "hidden-boss_10-pair": [
@@ -8991,7 +9046,14 @@
    "token_10017_skadi2_dedant spawn:born token_skadi2_birth_01_start → self",
    "token_10017_skadi2_dedant spawn:tokAura token_skadi2_skill_03_buff → self",
    "token_10019_nearl2_sword spawn:born token_nearl2_birth_01_start → self",
-   "token_10040_siege2_vlion spawn:born token_siege2_vlion_birth_01 → self"
+   "token_10030_mlyss_wtrman attackHit token_10030_mlyss_wtrman_c1c2c3_combat_hit_01 → foe",
+   "token_10030_mlyss_wtrman attackHit token_10030_mlyss_wtrman_c2c3_attack_hit_01 → foe",
+   "token_10030_mlyss_wtrman attackStart token_10030_mlyss_wtrman_c3_attack_start_01",
+   "token_10030_mlyss_wtrman spawn:tokAura token_10030_mlyss_wtrman_buff_01 → self",
+   "token_10040_siege2_vlion attackHit token_siege2_vlion_attack_hit_01 → foe",
+   "token_10040_siege2_vlion attackStart token_siege2_vlion_attack_start_01",
+   "token_10040_siege2_vlion spawn:born token_siege2_vlion_birth_01 → self",
+   "token_10040_siege2_vlion spawn:tokAura token_siege2_vlion_buff_01 → self"
   ],
   "hidden-boss_9-solo": [
    "- spawn blaze2_revive_end_start → ally",
@@ -9532,6 +9594,8 @@
    "enemy_1249_lysdb_2 spawn:castLoop enemy_lysdb_attack_start → self",
    "enemy_1299_ymkilr spawn:cast enemy_ymkilr_attack_start_01 → self",
    "enemy_1389_winbab_2 spawn:castLoop enemy_winbab_attack_01_start → self",
+   "token_10022_kazema_shadow attackHit kazema_attack_01_hit_b → foe",
+   "token_10022_kazema_shadow attackStart kazema_attack_01_start_b",
    "token_10022_kazema_shadow spawn:born common_call_start_01 → self"
   ],
   "roster-005": [
@@ -10921,7 +10985,11 @@
    "enemy_1430_lrrook spawn:aura enemy_irrook_range_01 → self",
    "enemy_1539_reid spawn:cast enemy_reid_skill_01 → self",
    "enemy_2085_skzjxd spawn:aura enemy_skzjxd_buff_03 → self",
-   "token_10015_dusk_drgn spawn:born token_dusk_birth_01_start → self"
+   "token_10015_dusk_drgn attackHit token_dusk_attack_01_hit → foe",
+   "token_10015_dusk_drgn attackStart token_dusk_attack_01_start",
+   "token_10015_dusk_drgn spawn:born token_dusk_birth_01_start → self",
+   "token_10015_dusk_drgn spawn:tokAura token_dusk_buff_01_start → self",
+   "token_10015_dusk_drgn spawn:tokAura token_dusk_buff_02_start → self"
   ],
   "roster-015": [
    "- spawn common_enemy_hit_01 → ally",
@@ -11057,7 +11125,11 @@
    "enemy_1329_cbshld_2 spawn:cast enemy_cbshld_attack_start_02 → self",
    "enemy_2001_duckmi spawn:aura duckmi_buff_02_start → self",
    "enemy_2085_skzjxd_2 spawn:aura enemy_skzjxd_buff_03 → self",
-   "token_10015_dusk_drgn spawn:born token_dusk_birth_01_start → self"
+   "token_10015_dusk_drgn attackHit token_dusk_attack_01_hit → foe",
+   "token_10015_dusk_drgn attackStart token_dusk_attack_01_start",
+   "token_10015_dusk_drgn spawn:born token_dusk_birth_01_start → self",
+   "token_10015_dusk_drgn spawn:tokAura token_dusk_buff_01_start → self",
+   "token_10015_dusk_drgn spawn:tokAura token_dusk_buff_02_start → self"
   ],
   "roster-016": [
    "- spawn common_enemy_hit_01 → ally",
@@ -11364,7 +11436,8 @@
    "enemy_2002_bearmi spawn:aura bearmi_buff_01_start → self",
    "enemy_2002_bearmi spawn:cast bearmi_attack_01_start → self",
    "enemy_2002_bearmi spawn:cast bearmi_attack_01_start_02 → self",
-   "token_10040_siege2_vlion spawn:born token_siege2_vlion_birth_01 → self"
+   "token_10040_siege2_vlion spawn:born token_siege2_vlion_birth_01 → self",
+   "token_10040_siege2_vlion spawn:tokAura token_siege2_vlion_buff_01 → self"
   ],
   "roster-018": [
    "- spawn cello_skill_01_hit_01 → enemy",
@@ -11534,7 +11607,12 @@
    "enemy_2002_bearmi_2 spawn:aura bearmi_buff_01_start → self",
    "enemy_9008_acbunn spawn:cast enemy_acbunn_attack_1_start → self",
    "token_10017_skadi2_dedant spawn:born token_skadi2_birth_01_start → self",
-   "token_10017_skadi2_dedant spawn:tokAura token_skadi2_skill_03_buff → self"
+   "token_10017_skadi2_dedant spawn:tokAura token_skadi2_skill_03_buff → self",
+   "token_10030_mlyss_wtrman attackHit token_10030_mlyss_wtrman_c1c2c3_combat_hit_01 → foe",
+   "token_10030_mlyss_wtrman attackHit token_10030_mlyss_wtrman_c2c3_attack_hit_01 → foe",
+   "token_10030_mlyss_wtrman attackStart token_10030_mlyss_wtrman_c3_attack_start_01",
+   "token_10030_mlyss_wtrman attackStart token_10030_mlyss_wtrman_c3_combat_start_01",
+   "token_10030_mlyss_wtrman spawn:tokAura token_10030_mlyss_wtrman_buff_01 → self"
   ],
   "roster-019": [
    "- spawn angel2_buff_01_trail_01 → enemy",
@@ -13091,7 +13169,11 @@
    "enemy_1516_jakill spawn:castLoop enemy_jakill_attack_01_start_02 → self",
    "enemy_9011_acrefr spawn:aura enemy_dushdo_2_buff_03 → self",
    "enemy_9011_acrefr spawn:cast enemy_acrefr_attack_A → self",
-   "token_10015_dusk_drgn spawn:born token_dusk_birth_01_start → self"
+   "token_10015_dusk_drgn attackHit token_dusk_attack_01_hit → foe",
+   "token_10015_dusk_drgn attackStart token_dusk_attack_01_start",
+   "token_10015_dusk_drgn spawn:born token_dusk_birth_01_start → self",
+   "token_10015_dusk_drgn spawn:tokAura token_dusk_buff_01_start → self",
+   "token_10015_dusk_drgn spawn:tokAura token_dusk_buff_02_start → self"
   ],
   "roster-034": [
    "- spawn common_enemy_hit_01 → ally",
@@ -13309,7 +13391,10 @@
    "enemy_1402_tgshd_2 spawn:cast enemy_tgshd_attack_start_01 → self",
    "enemy_1402_tgshd_2 spawn:cast enemy_tgshd_attack_start_02 → self",
    "token_10017_skadi2_dedant spawn:born token_skadi2_birth_01_start → self",
-   "token_10017_skadi2_dedant spawn:tokAura token_skadi2_skill_01_buff → self"
+   "token_10017_skadi2_dedant spawn:tokAura token_skadi2_skill_01_buff → self",
+   "token_10030_mlyss_wtrman attackHit token_10030_mlyss_wtrman_c2c3_attack_hit_01 → foe",
+   "token_10030_mlyss_wtrman attackStart token_10030_mlyss_wtrman_c3_attack_start_01",
+   "token_10030_mlyss_wtrman spawn:tokAura token_10030_mlyss_wtrman_buff_01 → self"
   ],
   "roster-036": [
    "- spawn angel2_buff_01_trail_01 → enemy",
@@ -13593,7 +13678,12 @@
    "enemy_1501_demonk spawn:cast demonk_attack_01_start → self",
    "enemy_2052_smgia spawn:aura enemy_smgia_idle → self",
    "token_10017_skadi2_dedant spawn:born token_skadi2_birth_01_start → self",
-   "token_10017_skadi2_dedant spawn:tokAura token_skadi2_skill_01_buff → self"
+   "token_10017_skadi2_dedant spawn:tokAura token_skadi2_skill_01_buff → self",
+   "token_10030_mlyss_wtrman attackHit token_10030_mlyss_wtrman_c1c2c3_combat_hit_01 → foe",
+   "token_10030_mlyss_wtrman attackHit token_10030_mlyss_wtrman_c2c3_attack_hit_01 → foe",
+   "token_10030_mlyss_wtrman attackStart token_10030_mlyss_wtrman_c3_attack_start_01",
+   "token_10030_mlyss_wtrman attackStart token_10030_mlyss_wtrman_c3_combat_start_01",
+   "token_10030_mlyss_wtrman spawn:tokAura token_10030_mlyss_wtrman_buff_01 → self"
   ],
   "roster-038": [
    "- spawn bslime_die_01_start",
@@ -14383,7 +14473,11 @@
    "enemy_1275_dwlock_2 spawn:cast enemy_dwlock_attack_start_01 → self",
    "enemy_1275_dwlock_2 spawn:cast enemy_dwlock_skill_start_01 → self",
    "enemy_2004_balloon spawn:cast enemy_balloon_attack_01_start → self",
-   "token_10015_dusk_drgn spawn:born token_dusk_birth_01_start → self"
+   "token_10015_dusk_drgn attackHit token_dusk_attack_01_hit → foe",
+   "token_10015_dusk_drgn attackStart token_dusk_attack_01_start",
+   "token_10015_dusk_drgn spawn:born token_dusk_birth_01_start → self",
+   "token_10015_dusk_drgn spawn:tokAura token_dusk_buff_01_start → self",
+   "token_10015_dusk_drgn spawn:tokAura token_dusk_buff_02_start → self"
   ],
   "roster-044": [
    "- spawn common_enemy_hit_01 → ally",
@@ -14501,7 +14595,11 @@
    "enemy_1425_lrcmra_2 spawn:castLoop enemy_ircmra_attack_start_01 → self",
    "enemy_1502_crowns spawn:castLoop crowns_attack_01_start_left → self",
    "enemy_2085_skzjxd spawn:aura enemy_skzjxd_buff_03 → self",
-   "token_10015_dusk_drgn spawn:born token_dusk_birth_01_start → self"
+   "token_10015_dusk_drgn attackHit token_dusk_attack_01_hit → foe",
+   "token_10015_dusk_drgn attackStart token_dusk_attack_01_start",
+   "token_10015_dusk_drgn spawn:born token_dusk_birth_01_start → self",
+   "token_10015_dusk_drgn spawn:tokAura token_dusk_buff_01_start → self",
+   "token_10015_dusk_drgn spawn:tokAura token_dusk_buff_02_start → self"
   ],
   "roster-045": [
    "- spawn angel2_skill_3_begin_range_01",
@@ -14877,6 +14975,9 @@
    "enemy_1525_blkswb spawn:cast enemy_blkswb_skill_02_A_start_02 → self",
    "enemy_1525_blkswb spawn:cast enemy_blkswb_skill_02_A_weapon_01 → self",
    "token_10012_rosmon_shield spawn:born token_rosmon_skill_03_start → self",
+   "token_10030_mlyss_wtrman attackHit token_10030_mlyss_wtrman_c2c3_attack_hit_01 → foe",
+   "token_10030_mlyss_wtrman attackStart token_10030_mlyss_wtrman_c3_attack_start_01",
+   "token_10030_mlyss_wtrman spawn:tokAura token_10030_mlyss_wtrman_buff_01 → self",
    "token_10056_angel2_target spawn:born common_call_start_01 → self"
   ],
   "roster-048": [
@@ -14953,7 +15054,11 @@
    "enemy_1430_lrrook spawn:aura enemy_irrook_range_01 → self",
    "enemy_2017_csphts spawn:born enemy_csphts_skill_01_start → self",
    "enemy_2017_csphts spawn:cast enemy_csphts_skill_02_range → self",
-   "token_10015_dusk_drgn spawn:born token_dusk_birth_01_start → self"
+   "token_10015_dusk_drgn attackHit token_dusk_attack_01_hit → foe",
+   "token_10015_dusk_drgn attackStart token_dusk_attack_01_start",
+   "token_10015_dusk_drgn spawn:born token_dusk_birth_01_start → self",
+   "token_10015_dusk_drgn spawn:tokAura token_dusk_buff_01_start → self",
+   "token_10015_dusk_drgn spawn:tokAura token_dusk_buff_02_start → self"
   ],
   "roster-049": [
    "- spawn dekght_attack_01_hit → ally",
@@ -15482,7 +15587,8 @@
    "enemy_10029_vtshld spawn:born enemy_vtshld_buff_birth_01 → self",
    "enemy_1249_lysdb_2 spawn:castLoop enemy_lysdb_attack_start → self",
    "enemy_1329_cbshld spawn:cast enemy_cbshld_attack_start_01 → self",
-   "enemy_1329_cbshld spawn:cast enemy_cbshld_attack_start_02 → self"
+   "enemy_1329_cbshld spawn:cast enemy_cbshld_attack_start_02 → self",
+   "token_10030_mlyss_wtrman spawn:tokAura token_10030_mlyss_wtrman_buff_01 → self"
   ],
   "unite-3-wide": [
    "- spawn angel2_buff_01_trail_01 → enemy",
@@ -15638,7 +15744,8 @@
    "enemy_1329_cbshld_2 spawn:cast enemy_cbshld_attack_start_02 → self",
    "token_10017_skadi2_dedant spawn:born token_skadi2_birth_01_start → self",
    "token_10017_skadi2_dedant spawn:tokAura token_skadi2_skill_03_buff → self",
-   "token_10019_nearl2_sword spawn:born token_nearl2_birth_01_start → self"
+   "token_10019_nearl2_sword spawn:born token_nearl2_birth_01_start → self",
+   "token_10030_mlyss_wtrman spawn:tokAura token_10030_mlyss_wtrman_buff_01 → self"
   ],
   "unite-4-wide": [
    "- spawn common_enemy_hit_01 → ally",

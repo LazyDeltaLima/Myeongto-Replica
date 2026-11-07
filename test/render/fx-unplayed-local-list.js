@@ -8,12 +8,10 @@
 
 export const UNPLAYED_LOCAL = Object.freeze({
   "skchr_aglna2_3/Toggle/BlockToggle|aglna2_skill_03_range_line_01": "todo: S3 BlockToggle's edge line (_edgeLineRendererEffectKey)",
-  "token_10026_bgsnow_subbow/Modes/Default[D]/Body/Attack|token_bgsnow_subbow_attack_start_01_down": "todo: 打字机's attack effects by facing and skill (a summon's attack bindings: modes.json holds none)",
-  "token_10026_bgsnow_subbow/Modes/Default/Body/Attack|token_bgsnow_subbow_attack_start_01_up": "todo: 打字机's attack effects by facing and skill (a summon's attack bindings: modes.json holds none)",
-  "projectile_chr_bgsnow_subbow|token_bgsnow_subbow_attack_trail_01": "todo: 打字机's attack effects by facing and skill (a summon's attack bindings: modes.json holds none)",
-  "token_10026_bgsnow_subbow/Modes/S3[D]/Body/Attack|token_bgsnow_subbow_skill_start_01_down": "todo: 打字机's attack effects by facing and skill (a summon's attack bindings: modes.json holds none)",
-  "token_10026_bgsnow_subbow/Modes/S3/Body/Attack|token_bgsnow_subbow_skill_start_01_up": "todo: 打字机's attack effects by facing and skill (a summon's attack bindings: modes.json holds none)",
-  "token_10026_bgsnow_subbow/Modes/S3/Body/Attack|token_bgsnow_subbow_skill_start_01": "todo: 打字机's attack effects by facing and skill (a summon's attack bindings: modes.json holds none)",
+  "mlyss_wtrman_t_1[trigger]|token_10030_mlyss_wtrman_c0": "todo: 流形's Recharge look (c0) while it waits to stand up again (its mode 0's buff)",
+  "mlyss_wtrman_t_1[listener]|token_10030_mlyss_wtrman_c1_to_c0": "todo: 流形 back to c0 as it falls (its form by mode)",
+  "mlyss_wtrman_t_1[listener]|token_10030_mlyss_wtrman_c2_to_c0": "todo: 流形 back to c0 as it falls (its form by mode)",
+  "mlyss_wtrman_t_1[listener]|token_10030_mlyss_wtrman_c3_to_c0": "todo: 流形 back to c0 as it falls (its form by mode)",
   "char_206_gnosis/Others/Direction/Talents/1|buff_frozen_to_enemy": "todo: 灵知 T1's hit on a frozen enemy",
   "char_4046_ebnhlz/Trait/ChargeAttackGroup/ExChargeAttackDefault|ebnhlz_attack_buff_orange_2": "todo: 黑键's store stages in the elite's colour (_chargeEffectGroups: the render keeps the normal ones)",
   "char_4046_ebnhlz/Trait/ChargeAttackGroup/ExChargeAttackS1|ebnhlz_attack_buff_orange_2": "todo: 黑键's store stages in the elite's colour (_chargeEffectGroups: the render keeps the normal ones)",
@@ -60,5 +58,4 @@ export const UNPLAYED_LOCAL = Object.freeze({
   "projectile_chr_svash2_s3_bird|svash2_skill_03_trail_left_01": "todo: 凛御银灰 S3's bird trail by direction (_effectsAlignToProjectileDirection)",
   "projectile_chr_svash2_s3_bird|svash2_skill_03_trail_right_01": "todo: 凛御银灰 S3's bird trail by direction (_effectsAlignToProjectileDirection)",
   "thorns_t_1|thorns_buff_01_start": "todo: 棘刺 T1's hit, a LIMITED buff of length 0",
-  "projectile_weedy_cannon|token_weedy_attack_01_trail": "todo: 温蒂's 储水炮 shell trail (a summon's attack bindings: modes.json holds none)",
 });

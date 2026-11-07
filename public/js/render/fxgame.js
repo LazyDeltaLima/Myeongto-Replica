@@ -507,8 +507,26 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const bundleOf = (v) => {
     const id = v && v.info && (v.info.spine || v.info.defId);
     const b = id ? fxBundleOf(id) : null;
-    return b && index && index.bundles && index.bundles[b] ? { bundle: b, prefabs: index.bundles[b] } : null;
+    if (b && index && index.bundles && index.bundles[b]) return { bundle: b, prefabs: index.bundles[b] };
+    const tb = id ? summonBundle(id) : null;
+    return tb ? { bundle: tb, prefabs: index.bundles[tb], summon: true } : null;
   };
+  // 2026-11-07 (docs/rules/fx.md 「소환물의 공격 이펙트」): a summon whose modes.json row holds attack bindings of its own
+  // (char_modes.py token_modes: 工程蓄水炮, 打字机, 小自在 …) plays them on the operators' attack path, from the bundle that holds
+  // them — its owner's `<code>_token` (pkgrps/btl_pfb_fx_token_*.ab) or the owner's own (风笛's 影子: kazema). Such a bundle (`summon`)
+  // plays only the names a binding gives: the name rules would start its owner's effects (伺夜's attack starts on her wolves)
+  const summonMemo = new Map();
+  function summonBundle(id) {
+    const row = modes?.[id];
+    if (!row || !row.owner || !Array.isArray(row.modes) || !index?.bundles) return null;
+    const memo = summonMemo.get(id);
+    if (memo && memo.row === row && memo.index === index) return memo.b;
+    const names = new Set([...(row.cast || []), ...(row.hit || []), ...(row.trail || [])].flat().filter((n) => typeof n === 'string'));
+    const ob = fxBundleOf(row.owner);
+    const b = [`${ob}_token`, ob].find((x) => index.bundles[x]?.some((n) => names.has(n))) ?? null;
+    summonMemo.set(id, { row, index, b });
+    return b;
+  }
   // (2026-10-21) the bundle's prefabs another of its prefabs creates (index.json `emitted`, fx_extract.py set_emitted: OnPlayEmitter /
   // OnFinishEmitter — stepOnEmit): the name rules leave them to it (they started 歌蕾蒂娅 S2's buff_02_front, 苏尔特 S3's buff_02,
   // 望 S3's range … with the skill besides, and 华法琳 S2's buff_end for the whole skill); a client binding naming one still plays it
@@ -771,7 +789,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // FOUR_DIRECTION. A prefab without the record (no ParticleEffect root) keeps the old mirror / turn.
   async function play(view, kind, skillIndex = 0, { at = null, buff = false, names: given = null, tag = null, until: endAt = null, speed = 1, aim = null, cast = null } = {}) {
     const b = bundleOf(view);
-    if (!b) return;
+    if (!b || (b.summon && !given)) return;
     // local patch (maintainer report): a directional emitter entry plays the copy for the facing (dirPick)
     // (2026-11-07) a skill's hit a kit's moment plays is not the name rule's as well (KIT_OWNED: attackHit falls back here on a mode with no bound hit)
     const { names: picked, unflip } = dirPick(view, given || effectsFor(b.prefabs, kind, skillIndex).filter((n) => !emittedIn(b.bundle).has(n) && !packedIn(b.bundle).has(n) && !(kind === 'skillHit' && KIT_OWNED.has(n))));
@@ -3784,7 +3802,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const bound = (v, n, role) => boundEffects(bindOf(v), bundleOf(v)?.prefabs, n, role);
   // (2026-11-03) the mode the running cast's variant picked (fxmap.js VARIANT_MODES; set by its 'skill' event), or null
   const subOf = (v) => (v?._fxSkillOn ? v._fxSub ?? null : null);
-  const skillMode = (v) => attackMode(bindOf(v), true, skillIdx(v), subOf(v)) ?? -1;
+  // (2026-11-07) a mode the unit holds instead while it was deployed facing down (modes.json `downMode`, char_modes.py
+  // down_switches: 打字机's Default[D] / S3[D], whose cast effects are the `_down` copies)
+  const downOf = (v, n) => { const d = bindOf(v)?.downMode; return Array.isArray(d) && n >= 0 && v?.dir === 'DOWN' && Number.isInteger(d[n]) ? d[n] : n; };
+  const skillMode = (v) => downOf(v, attackMode(bindOf(v), true, skillIdx(v), subOf(v)) ?? -1);
   /**
    * local patch (maintainer report 2026-10-07: 缄默德克萨斯 S2 / S3 drew her normal attacks): a deploy-time passive with a duration
    * runs with no 'skill' event (server/sim/skills.js) — its view's UF.SKILL flag is the only sign. Its start / loops / mode
@@ -3801,7 +3822,26 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // (2026-11-07) the mode an equipped skill holds by the sim form (fxmap.js FORM_HELD_MODES: 丰川祥子 S2), or −1; `form`: a form
   // the event just announced (app.js hands the event to this layer before it sets the view's form)
   const heldOf = (v, form = v?.form) => heldMode(bindOf(v), v?.info?.spine || v?.info?.defId, skillIdx(v), form);
-  const modeNow = (v) => { const h = heldOf(v); return h > 0 ? h : attackMode(bindOf(v), !!v._fxSkillOn, skillIdx(v), subOf(v)); };
+  const modeNow = (v) => { const h = heldOf(v); if (h > 0) return h; const t = tmodeOf(v); return t >= 0 ? t : downOf(v, attackMode(bindOf(v), !!v._fxSkillOn, skillIdx(v), subOf(v))); };
+  /**
+   * 2026-11-07, official client: the mode a summon's copy put it in — 缪尔赛思's 流形 after the kit's 'copy' (`mode` Melee /
+   * Range: mlyss_wtrman_switch_melee / _range), and `<mode>_S<n>` while its owner's skill n runs (mlyss_wtrman_switch_*: SwitchMode
+   * 5 Melee_S3 / 4 Range_S2 while she holds mlyss_s_3[buff] / mlyss_s_2[buff]; the skill's end switches back) — the rule audio.js
+   * tokenModeName sounds; −1 without one.
+   */
+  function tmodeOf(v) {
+    const m = v?._fxTmode, bind = m ? bindOf(v) : null;
+    if (!bind || !Array.isArray(bind.modes)) return -1;
+    const o = v._fxTowner;
+    const sk = o && o._fxSkillOn && o.alive !== false ? bind.modes.indexOf(`${m}_S${skillIdx(o) + 1}`) : -1;
+    return sk > 0 ? sk : bind.modes.indexOf(m);
+  }
+  function copyMode(v, o, views) {
+    if (!v || (o.mode !== 'Melee' && o.mode !== 'Range')) return;
+    if (v._fxTmode !== o.mode) { endCast(v); v._fxFirstDone = null; }
+    v._fxTmode = o.mode;
+    v._fxTowner = views.get(o.by) ?? null;
+  }
   // local patch (maintainer report 2026-10-07, 11 items): the skill's own effects (modes.json `skills[i]`, char_modes.py from
   // [uc]skills.ab: cast / castLoop / buff on the caster, target / targetBuff on its targets, end = a finishing ability's)
   const skillBind = (v) => bindOf(v)?.skills?.[skillIdx(v)] || null;
@@ -3839,6 +3879,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     typeof v?._wantsBack === 'function' ? v._wantsBack() : facesBack(v));
   // prefabs a kit event here draws instead (余 S3's wall piece: one per tile along the wall, not one on him)
   const KIT_OWNED = new Set(['yu_skill3_range_01',
+    // 2026-11-07: 뮤엘시스's 流形 S3 cast (kitofficial.js 'refresh'), which its sktok_mlyss_wtrman_3 row (char_modes.py token_modes) names too
+    'token_10030_mlyss_wtrman_split_start_01',
     // 2026-11-07: 탈룰라 S2's hit on its centre (kitofficial.js 'blast'): `skillTargets` drew it on what the damage of the moment struck
     'oxi_skill_02_hit_01',
     // 2026-11-07: 키치세이 S2's bind on the enemy (fxstatus.js SOURCE_FX): the `_buff` name rule played it on her at the cast too
@@ -3912,7 +3954,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const activation = (v) => {
     const b = bundleOf(v), em = emittedIn(b.bundle);
     const id = v?.info?.spine || v?.info?.defId;
-    const a = activationEffects(bindOf(v), b.prefabs, skillIdx(v), em.size ? new Set([...ownedNow(), ...em]) : ownedNow(), subOf(v), variantModes(id, skillIdx(v)));
+    const a = activationEffects(bindOf(v), b.prefabs, skillIdx(v), em.size ? new Set([...ownedNow(), ...em]) : ownedNow(), subOf(v), variantModes(id, skillIdx(v)), !b.summon);
     // 2026-10-24 (묶음 S2): the skill's own template buffs on the operator (fxmap.js SKILL_HELD)
     const vf = variantFx(id, skillIdx(v), v._fxCastVariant);   // 2026-11-06: the group child this cast picked (薇薇安娜 S1)
     if (vf) a.start = a.start.filter((n) => !vf.others.includes(n));
@@ -5979,6 +6021,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             if (v) cutCast(v);
             if (palsyFx(e, views)) { ownFx.add(e); return; }
           }
+          if (e[1] === 'copy' && e[4]?.id != null) copyMode(views.get(e[4].id), e[4], views);   // 2026-11-07: 缪尔赛思's 流形
           if (stoneFx(e, views)) return;
           if (e[1] === 'caperBoomerang2' && e[4]) { caperSecond(e, views); return; } // 2026-10-10: 跃跃 S2's second boomerang
           // 2026-10-10: an enemy content skill's official projectile (eshotFx), and no stand-in beam for a shot drawn so
