@@ -48,6 +48,9 @@ describe('干员调配 卡片视图 (real server, headless Chrome)', { skip: !EN
     page.on('response', (r) => { if (r.status() >= 400) problems.push(`http ${r.status()}: ${r.url()}`); });
     await page.evaluateOnNewDocument(() => {
       localStorage.setItem('sp.name', '卡片测试');
+      localStorage.setItem('sp.pref.lang', '"zh"'); // the assertions read the Chinese names, whatever the browser's language
+      // the 预先下载游戏资源 prompt (public/js/resources.js) would cover the bottom right: answered 以后再说
+      localStorage.setItem('sp.pref.resources', JSON.stringify({ consent: 'later', at: Date.now() }));
       sessionStorage.setItem('sp.entered', '1');
     });
     await page.goto(`${base}/`, { waitUntil: 'domcontentloaded' });
@@ -185,7 +188,7 @@ describe('干员调配 卡片视图 (real server, headless Chrome)', { skip: !EN
       }).map((el) => (el.closest('[data-testid="loadout-deck-locked"]') ? 'chip' : el.closest('[class]')?.className || el.tagName)));
       assert.deepEqual(await lockSays(), [], 'not locked: nothing said');
       const unlockedNote = await page.$eval('.lo-top__note', (el) => el.textContent);
-      await page.evaluate(async () => { (await import('/js/ui/loadoutSync.js')).loadoutStore.set({ sync: 'locked' }); });
+      await page.evaluate(async () => { (await globalThis.__SP__.import('./ui/loadoutSync.js')).loadoutStore.set({ sync: 'locked' }); });
       await page.waitForSelector('[data-testid="loadout-deck-locked"]', { visible: true, timeout: 5000 });
       assert.deepEqual(await lockSays(), ['chip'], 'locked: once, in the bottom bar');
       assert.equal(await page.$('.lo-top__note'), null, 'the top bar drops its note');
@@ -203,7 +206,7 @@ describe('干员调配 卡片视图 (real server, headless Chrome)', { skip: !EN
       await page.waitForSelector('.lo-op__quick', { visible: true });
       assert.deepEqual(await lockSays(), ['chip'], '快速配置: still once');
       await escape(page);
-      await page.evaluate(async () => { (await import('/js/ui/loadoutSync.js')).loadoutStore.set({ sync: 'idle' }); });
+      await page.evaluate(async () => { (await globalThis.__SP__.import('./ui/loadoutSync.js')).loadoutStore.set({ sync: 'idle' }); });
       await page.waitForSelector('[data-testid="loadout-deck-locked"]', { hidden: true, timeout: 5000 });
 
       // ⓘ 卡片视图说明 (not the official chapter's name), then 筛选 → 列表: back to the rows, stored
@@ -252,7 +255,7 @@ describe('干员调配 卡片视图 (real server, headless Chrome)', { skip: !EN
       // a locked loadout (the server's 'locked'): the top bar's note is hidden at this width, the bottom bar says it —
       // with 快速配置 open too
       assert.equal(await page.$('[data-testid="loadout-deck-locked"]'), null);
-      await page.evaluate(async () => { (await import('/js/ui/loadoutSync.js')).loadoutStore.set({ sync: 'locked' }); });
+      await page.evaluate(async () => { (await globalThis.__SP__.import('./ui/loadoutSync.js')).loadoutStore.set({ sync: 'locked' }); });
       await page.waitForSelector('[data-testid="loadout-deck-locked"]', { visible: true, timeout: 5000 });
       await page.tap('[data-testid="loadout-quick"]');
       await page.waitForSelector('[data-testid="loadout-quick-done"]', { visible: true });
