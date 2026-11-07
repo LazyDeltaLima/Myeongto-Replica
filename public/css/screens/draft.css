@@ -73,13 +73,14 @@
   animation: dorder-mark 1.2s ease-in-out infinite; }
 @keyframes dorder-mark { 50% { transform: translate(-.05rem, -50%); } }
 /* the 8-player mode (more than four in the order): compact rows so eight fit above the buttons; the rows scroll on a short screen */
-.draft-order.is-8 .draft-order__rows { gap: .1rem; }
-.draft-order.is-8 .dorder { height: .8rem; grid-template-columns: minmax(0, 1fr) .7rem .3rem; }
-.draft-order.is-8 .dorder .pavatar { --pa: .48rem; }
+.draft-order.is-8 .draft-order__rows { gap: .06rem; }
+.draft-order.is-8 .dorder { height: .62rem; grid-template-columns: minmax(0, 1fr) .58rem .3rem; }
+.draft-order.is-8 .dorder .pavatar { --pa: .42rem; }
 .draft-order.is-8 .dorder__name { font-size: calc(.17 * var(--t)); }
 .draft-order.is-8 .dorder__state { font-size: calc(.12 * var(--t)); }
-.draft-order.is-8 .dorder__box { width: .7rem; height: .7rem; font-size: calc(.13 * var(--t)); }
-.draft-order.is-8 .dorder__box .icon, .draft-order.is-8 .dorder__finger { width: .3rem; height: .3rem; }
+.draft-order.is-8 .dorder__box { width: .58rem; height: .58rem; font-size: calc(.12 * var(--t)); }
+.draft-order.is-8 .dorder__box .icon, .draft-order.is-8 .dorder__finger { width: .26rem; height: .26rem; }
+.draft-order.is-8 .dorder__me { width: .22rem; height: .22rem; left: -.1rem; top: -.1rem; }
 .draft-order.is-8 .dorder__check { width: .3rem; height: .3rem; }
 
 /* ---- the wall of strategies ---- */
