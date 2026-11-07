@@ -167,6 +167,7 @@ export function ensureInstalled(b) {
   b.on('elementBurst', (c) => onBurst(b, c), { priority: 50 });
   b.on('tick', (c) => onTick(b, c.dt), { priority: 50 });
   b.on('enemySkillSlot', (c) => onSkillSlot(b, c), { priority: 50 });
+  b.on('enemySkillCut', (c) => onSkillCut(b, c), { priority: 50 });
   b.on('battleEnd', ({ result }) => { if (st.lpLoss > 0 && result) result.lpLoss = (result.lpLoss ?? 0) + st.lpLoss; });
   return st;
 }
@@ -312,20 +313,33 @@ function slotSkill(e, ab, a) {
 }
 
 /**
- * The length of a skill's cast, from the attack time its animated ability plays to — the client's
- * `AbstractAnimatedAbility.get_cooldown` by `_timeMode` (`skillCast.time`): 0 the enemy's attack interval, 1 its clip
- * (`DoAttach` writes the clip's length into `_cooldown`), 2 its `_cooldown` (`cd`), 3 the skill blackboard's
- * `_cooldownKey` (`cdKey`, read at attach). With a clip the cast is the clip × clamp(attack time / clip, 0.1, `max`),
- * `max` −1 = no bound (`UpdatePlaybackSpeed`, as ai.js attackTiming) — so `_timeMode` 1 plays the clip as it is. 0 for a
- * skill whose ability plays no clip [ASSUMED·미조사: its length is the ability class's — an EasyToStartAbility waits out
- * the attack time (`m_cachedDuration`), a channel its own duration; the classes were not read one by one].
+ * The length of a skill's cast (docs/rules/sim.md 「적 스킬 = 일반 공격 차례」 시전 길이), by the class of its ability
+ * (`skillCast.kind`, tools/local-extract/attack_timing.py cast_fields):
+ * - an animated ability: the attack time it plays to — the client's `AbstractAnimatedAbility.get_cooldown` by `_timeMode`
+ *   (`time`): 0 the enemy's attack interval, 1 its clip (`DoAttach` writes the clip's length into `_cooldown`; without a
+ *   clip the prefab's `_cooldown`, 0 in this mode), 2 its `_cooldown` (`cd`), 3 the skill blackboard's `_cooldownKey`
+ *   (`cdKey`, read at attach). With a clip the cast is the clip × clamp(attack time / clip, 0.1, `max`), `max` −1 = no
+ *   bound (`UpdatePlaybackSpeed`, as ai.js attackTiming) — so `_timeMode` 1 plays the clip as it is. Without one
+ *   (`UpdatePlaybackSpeed`: `GetAnimationTime` fails → `m_attackTime` = that attack time, scale 1) it casts the attack time
+ *   itself (`EasyToStartAbility.OnCastStart`: `m_cachedDuration` = `GetDuration` = `m_attackTime`; the post-delay waits out
+ *   the rest) — the channels' ThreePartChannelingAnimation stretches its loop to the same total;
+ * - `buff` (ActiveBuffAbility, none of this mode's with `_waitForCasting`): one fixed update before its spell and one after
+ *   (`<OnWaitForPreDelay>` / `<OnWaitForPostDelay>` yield `sharedWaitForFixedUpdate`) — two ticks;
+ * - `seq` (AbilitySequenceGroup): its children one after another (`_MoveToNextActiveAbility` as each finishes), the sum;
+ * - 0 [ASSUMED·미조사] for a parallel / selectable group (`par`, `sel`: their finish was not read — no kit casts one at the
+ *   slot), for a clip the data lacks (`miss`), and the projectile wait of a RangedAttack with `_waitForProjectileInvalid`
+ *   (`proj`: the cast lasts until its projectile is gone — not counted, a clip of its own is cast as above).
  */
-function castLength(e, cast, bb) {
-  const dur = cast && cast.dur > 0 ? cast.dur : 0;
-  if (!dur) return 0;
+export function castLength(e, cast, bb) {
+  if (!cast) return 0;
+  if (cast.kind === 'buff') return 2 * TICK;
+  if (cast.kind === 'seq') return (cast.subs || []).reduce((t, c) => t + castLength(e, c, bb), 0);
+  if (cast.kind || cast.miss) return 0;
+  const dur = cast.dur > 0 ? cast.dur : 0;
   const time = cast.time ?? 0;
   const at = time === 1 ? dur : time === 2 ? (cast.cd > 0 ? cast.cd : 0)
     : time === 3 ? Math.max(0, Number((bb && bb[cast.cdKey || 'duration']) ?? 0) || 0) : e.s.interval;
+  if (!dur) return cast.proj ? 0 : at;
   const hi = cast.max > 0 ? cast.max : cast.max < 0 ? Infinity : 1;
   const k = Math.min(hi, Math.max(0.1, at / dur));
   return dur * k;
@@ -367,7 +381,27 @@ function onSkillSlot(b, c) {
   const dur = castLength(e, cast, ab.sk[a.name].bb);
   a.left = Math.max(TICK, a.cd + dur);
   c.cast = { dur, atkCd: cast.resetMain ? dur + (cast.waitFirst ? e.s.interval : 0) : e.s.interval };
+  ab.casting = dur > 0 ? { a, cast, until: b.time + dur } : null;
   castSkill(b, e, a);
+}
+
+/**
+ * Enemy `e`'s skill cast was cut short (the `enemySkillCut` hook: ai.js cutEnemySwing — a stun, freeze, sleep, 浮空, 失衡,
+ * fear, leaving the field, or its kit's interruptEnemyCast). The client finishes the ability INTERRUPTED and
+ * `EnemySkill._OnCastFinish` runs for any reason: the skill's cooldown restarts now (`m_cooldownTimer.Reset`, paused while
+ * it cast), the main attack's too with `resetMain` (`ResetCooldown(_resetCdWaitFirstPeriod)`); the ability's `onCut` ends
+ * what lasted only while it cast (BuffDuringCasting's buffs).
+ */
+function onSkillCut(b, c) {
+  const e = c.enemy;
+  const ab = e && e.mem && e.mem.ab;
+  const k = ab && ab.casting;
+  if (!k) return;
+  ab.casting = null;
+  if (!(b.time < k.until - 1e-9)) return;
+  k.a.left = Math.max(TICK, k.a.cd);
+  if (k.cast.resetMain) e.atkCd = k.cast.waitFirst ? e.s.interval : 0;
+  if (k.a.onCut) safe(b, e, () => k.a.onCut(b, e, k.a));
 }
 
 // ---------------------------------------------------------------------------------------------------------------

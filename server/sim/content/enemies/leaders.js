@@ -13,6 +13,7 @@ import {
   freeAllPrisoners, reborn, frontGuard, faceCrowd, unbalanced, artsBarrier, skill, blinkForward,
 } from './archetypes.js';
 import { hypot, powi } from '../../detmath.js';
+import { interruptEnemyCast } from '../../ai.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -534,11 +535,15 @@ function kitXi(ab) {
     // its client barrier: BuffDuringCasting adds the three layers enemy_xi_s2[shield][a] / [b] / [c], each a copy of the
     // skill's blackboard with the whole `dynamic`, absorbing physical and arts damage (BlockDamage PHYSICAL_AND_MAGICAL) in
     // the order they were added — 3 × 2500 = PRTS 「可吸收7500物理/法术伤害的屏障」 (docs/rules/sim.md 「리더 방벽 층 셋」).
-    // Only the last layer's break (enemy_xi_s2[shield_last] → InterruptEnemyAbility) stops the burst.
+    // Only the last layer's break (enemy_xi_s2[shield_last] → InterruptEnemyAbility) stops the burst — and the cast: “自在”
+    // channels the skill the barrier's duration (its MeleeAttack `_timeMode` 3 `duration` with a ThreePartChannelingAnimation,
+    // content/enemies.js castLength), standing without a normal attack, until it bursts or the cast is cut.
     // Each layer's ON_TAKE_DAMAGE BlockDamage has `_specifyBlockEffect` enemy_xi_skill_02_buff_hit, and the last one's
     // (enemy_xi_s2[shield_last]) break plays enemy_xi_skill_02_buff_03 (`blockFx`: fx 'parry', damage.js absorbShields).
     for (const l of XI_LAYERS) b.addBuff(e, { key: `ab:xiShield[${l}]`, duration: dur, shield: s.bb.dynamic ?? 0, shieldType: ['phys', 'arts'],
       visible: true, fxTag: `buff:enemy_xi_s2[shield][${l}]`, blockFx: true,
+      // (removed before it expires — the last layer broken, or the barrier cleared by its knock-out: the cast ends)
+      onRemove: l !== 'c' ? null : ({ battle }) => interruptEnemyCast(battle, e),
       // expiry (not breaking: a broken layer is removed without onExpire) of the last layer = the barrier held
       onExpire: l !== 'c' ? null : ({ battle }) => {
         if (!e.alive) return;
@@ -561,6 +566,11 @@ function kitXi(ab) {
   });
   const s1 = skill(sb, burst(sb), { cond: () => !P.form2 });
   const s2 = skill(sb2, sb2 ? burst(sb2) : null, { cond: () => P.form2 });
+  // a cut cast (a stun, freeze …: content/enemies.js onSkillCut) takes the barrier with it, without the burst — its layers
+  // are the skill's BuffDuringCasting, cleared as the cast finishes for any reason (`OnCastFinish` → `_ClearBuffs`)
+  const dropBarrier = (b, e) => { for (const l of XI_LAYERS) b.removeBuff(e, `ab:xiShield[${l}]`); };
+  if (s1) s1.onCut = dropBarrier;
+  if (s2) s2.onCut = dropBarrier;
   return [re, s1, s2, doubleHit(() => P.form2),                   // 普通攻击进行两次
     skill(cross, (b, e) => {
       const l = byDist(b, e);

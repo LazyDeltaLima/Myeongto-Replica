@@ -2487,15 +2487,26 @@ function enemySkillCast(ctx, manifest, spineId, key) {
   const e = ctx.attackTiming?.enemies?.[spineId] ?? ctx.attackTiming?.enemies?.[key];
   if (!e || !e.skills) return null;
   const anims = manifest?.enemies?.[spineId]?.spine?.animations || {};
-  const out = {};
-  for (const [name, s] of Object.entries(e.skills)) {
+  // one ability's cast (attack_timing.py cast_fields): its clip and the attack time it plays to, or its class (`kind`: an
+  // ActiveBuffAbility, a group with its children's casts); `miss` = it names a clip data/assets.json lacks
+  const castOf = (name, s) => {
     const dur = s.anim ? anims[s.anim] : null;
     if (s.anim && !(dur > 0)) warn(`enemy ${key} skill ${name}: clip ${s.anim} not in data/assets.json`);
-    out[name.toLowerCase()] = {
-      family: s.family,
-      ...(dur > 0 ? { clip: s.anim, dur, ...(Number.isFinite(s.max) ? { max: s.max } : {}) } : {}),
+    return {
+      ...(s.kind ? { kind: s.kind } : {}),
+      ...(s.kind === 'buff' && s.wfc ? { wfc: 1 } : {}),
+      ...(Array.isArray(s.subs) ? { subs: s.subs.map((c) => castOf(name, c)) } : {}),
+      ...(dur > 0 ? { clip: s.anim, dur, ...(Number.isFinite(s.max) ? { max: s.max } : {}) } : s.anim ? { miss: 1 } : {}),
       ...(Number.isFinite(s.time) ? { time: s.time } : {}),
       ...(s.time === 2 ? { cd: s.cd || 0 } : s.time === 3 ? { cdKey: s.cdKey || 'duration' } : {}),
+      ...(s.proj ? { proj: 1 } : {}),
+    };
+  };
+  const out = {};
+  for (const [name, s] of Object.entries(e.skills)) {
+    out[name.toLowerCase()] = {
+      family: s.family,
+      ...castOf(name, s),
       ...(s.resetMain ? { resetMain: 1, waitFirst: s.waitFirst ? 1 : 0 } : {}),
     };
   }

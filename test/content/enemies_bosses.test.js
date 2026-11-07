@@ -143,7 +143,8 @@ test(`${nm('enemy_1404_msnip')}: 直击 — 1.4 s after the cast a unit in line 
   const s = skb('enemy_1404_msnip', 'CrossAttack');
   const w = h.unit('t_wall');
   h.run(s.initCooldown + 0.1);
-  assert.ok(e.findBuff('ab:revealed') && e.s.flags.noMove, 'cast: revealed, standing');
+  // standing: the engine's stand through the cast (content/enemies.js castLength — the ability's `_cooldown` 2.5)
+  assert.ok(e.findBuff('ab:revealed') && e.atkStandUntil > h.b.time && e.castLeft > 0, 'cast: revealed, standing');
   h.run(1.2);                                               // 1.3 s into the skill: still charging
   assert.equal(w.stats.taken, 0, 'no bolt before the 1.4 s charge');
   h.run(0.6);                                               // 1.9 s in: the bolt (from its muzzle 0.574 ahead: 2.88 tiles to the
@@ -154,7 +155,7 @@ test(`${nm('enemy_1404_msnip')}: 直击 — 1.4 s after the cast a unit in line 
   approx(w.stats.taken, e.s.atk * s.bb.atk_scale * (1 - 0 / 100));
   assert.ok(e.findBuff('ab:revealed'), 'still revealed at 2.3 s');
   h.run(0.3);                                               // 2.6 s in: the skill is over
-  assert.ok(!e.findBuff('ab:revealed') && !e.s.flags.noMove, 'skill over after 2.5 s');
+  assert.ok(!e.findBuff('ab:revealed') && !(e.atkStandUntil > h.b.time) && !(e.castLeft > 0), 'skill over after 2.5 s');
   // stunned during the charge: no bolt
   const h2 = arena({ units: [{ chessId: 't_wall', row: 9, col: 4 }] });
   h2.step();
@@ -174,7 +175,7 @@ test(`${nm('enemy_1404_msnip')}: 直击's bolt flies straight — the aimed unit
   const e = put(h, 'enemy_1404_msnip', [9, 8]);
   const s = skb('enemy_1404_msnip', 'CrossAttack');
   h.run(s.initCooldown + 0.1);
-  assert.ok(e.findBuff('ab:aim'), 'cast at the nearest unit in line (t_wall, 2 tiles)');
+  assert.ok(e.findBuff('ab:revealed') && e.castLeft > 0, 'cast at the nearest unit in line (t_wall, 2 tiles)');
   const front = h.unit('t_wall'), back = h.unit('t_wall2');
   h.b.kill(front, null);                                    // the aimed unit dies during the charge
   let shotAt = null, hitAt = null;

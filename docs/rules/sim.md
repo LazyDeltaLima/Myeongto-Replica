@@ -1358,12 +1358,33 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   3 = 붙을 때 스킬 블랙보드의 `_cooldownKey`) → 시전 길이 = 클립 × clamp(공격 시간 ÷ 클립, 0.1, `_maxAnimScale`, −1이면 상한 없음; `UpdatePlaybackSpeed`).
   모드 적 스킬 능력은 1이 53개·0이 39개·2가 6개·3이 10개라, 대부분(1)은 **클립 그대로** 시전한다(이전: 모두 0으로 보고 적의 공격 간격에 맞춰 늘이거나 줄였음
   (가정이었음) — 살비엔토 주교 퀸투스 【末日】 3.5 → 4.467 s, '래트킹' 沙暴 3.4 → 1.333 s, 루시안, '블러드 다이아몬드' aoe 3.0 → 1.8 s 등 약 30개가 바뀜).
-  클립이 없는 스킬은 시전 길이 0 그대로 [ASSUMED·미조사: 클립 없는 능력의 길이는 능력 클래스가 정한다 — `EasyToStartAbility` 계열은 공격 시간을 기다리지만
-  (`m_cachedDuration`), 채널 계열은 제 길이 — 클래스별로 읽지 않음; 해당 `_timeMode` 2·3 스킬: 重弩突袭者 直击 `_cooldown` 2.5 등]. 적에게는 시간 늦추기
+  **클립이 없는 스킬**(2026-11-07, 공식 클라에서 확인 — 이전: 모두 시전 길이 0 [가정이었음])은 능력 클래스가 길이를 정한다(`content/enemies.js castLength`):
+  - 애니메이션 능력(근접·원거리 공격, `AnimatedActionTo*`, `GloballUniqueBuffAbility`)은 `_timeMode`의 공격 시간 그대로다: `UpdatePlaybackSpeed`는 클립이
+    없으면(`GetAnimationTime` 실패) `m_attackTime` = 그 시간·배율 1로 두고, `EasyToStartAbility.OnCastStart`가 `m_cachedDuration` = `GetDuration` =
+    `m_attackTime`, 후딜이 그 나머지를 기다린다. 채널(`ThreePartChannelingAnimation`)은 루프를 늘여 같은 길이를 채운다. 실제 판에서 공격 차례로 시전되는 것:
+    강화 석궁 기습자 `CrossAttack` 2.5초(`_cooldown`), '즈자이' 방벽 `ShieldBurst` 15초·부패한 기사 `ChargeAttack` 4초·자로, '늑대 군주' `FearCage` 5초(`duration_s`)·
+    가상적: 흑운 `KillOthers` 4초·검은 뿔의 루울 돌진 `skill` 8초(블랙보드). 그동안 서 있고 일반 공격이 없다 — 강화 석궁 기습자의 키트가 따로 붙이던 2.5초 정지·缴械 버프는 뺐다.
+  - `ActiveBuffAbility`(크라운슬레이어·루시안, '블러드 다이아몬드'·데겐블레허의 순간이동 `Blink`, 제트맨 이륙 `TakeOff`, 가상적: 총 돌진 `1` — 이 모드엔 `_waitForCasting`인 것이 없음)는
+    스펠 앞뒤로 고정 업데이트 한 번씩(`<OnWaitForPreDelay>`·`<OnWaitForPostDelay>`가 `sharedWaitForFixedUpdate`), 2틱.
+  - 순차 묶음(`AbilitySequenceGroup`)은 자식을 차례로(`_MoveToNextActiveAbility`), 합: 가상적: 흑운 `FireWeapon` = 탄약 되돌리기 `ResetAmmoCount` 2틱 + `Fire`(클립 `Skill_2`) 2초.
+  - **[ASSUMED·미조사]** 0으로 남긴 것: 병렬·선택 묶음(`AbilityParallelGroup`·`AbilitySelectableGroup` — 끝나는 조건을 안 읽음; 공격 차례로 시전하는 키트 없음:
+    살카즈 부패의 전차 `PollutedRangedAtk`·'제국의 갑옷' `Appear`·래트킹 `Mark`·'즈자이' `CrossAttackMarkReborn`·알리스테어, 제국의 여광 `store`), 그리고 투사체가 사라질 때까지
+    기다리는 원거리 능력(`_waitForProjectileInvalid`)의 그 기다림(축제 재즈 연주가 `fire`·'사미의 의지' `Lasso`·'염의 가호' `Skill`·살카즈 왕정군 정예 캐스터 `DeathEye`의 `LineAttack`
+    — 클립이 없으면 0, 있으면 W `C4`·함락의 제사장 `ChainBuff`처럼 클립대로).
+  - **끊긴 시전**: 기절·빙결·수면·공중 띄우기·강제 이동(失衡)·공포·필드 이탈이 시전을 끊으면(`ai.js cutEnemySwing` → 훅 `enemySkillCut`) 그 스킬의 쿨이 그때 다시 돈다 — 클라의
+    `AttackState.OnExit` → `InterruptIfNot` → `FinishIfNot(1)`이고 `EnemySkill._OnCastFinish`는 이유와 상관없이 `m_cooldownTimer.Reset`·(`resetMain`이면) 주 공격
+    `ResetCooldown`을 한다(이전: 끊겨도 쿨 + 시전 길이 그대로). '즈자이' `ShieldBurst`는 방벽 마지막 층이 깨지면(`InterruptEnemyAbility`) 시전이 끝나고, 시전이 끊기면
+    방벽(`BuffDuringCasting`)도 폭발 없이 사라진다. 무장 해제(缴械)·전율(战栗)은 일반 휘두름만 끊고 스킬 시전은 이어진다 [ASSUMED·미조사: 클라의 缴械가 스킬 능력의 시전을 끊는지 —
+    키트가 제 채널 동안 缴械를 붙여 「그동안 일반 공격 없음」으로 쓴다: 부패한 기사 `ChargeAttack`·검은 뿔의 루울 `skill`].
+  - 효과가 나는 때는 키트대로 시전 시작이다(클립이 있는 스킬도 같음): 공식은 능력이 기다리는 프레임(채널 클립의 `OnAttack`, 없으면 공격 시간 끝)이다 — 자로, '늑대 군주'
+    `FearCage`는 끝 클립 `A_Skill_End`의 `OnAttack`(시전 4.37초째) [ASSUMED·미조사: 적 스킬 효과의 프레임은 키트마다 따로 옮겨야 함].
+  적에게는 시간 늦추기
   (`SLOW_DOWN` 속성)가 이 모드에 없어(버프 템플릿·스킬 프리팹 어디에도 없음) `animSlowDown` 갈래는 해당 없음.
   데이터: `tools/local-extract/attack_timing.py`가 적 프리팹 `EnemySkill`(`_familyMask` 있는 MonoBehaviour)과 같은 GameObject의 애니메이션 능력(`_animKey`·`_maxAnimScale`·`_timeMode`
   ·`_cooldown`·`_cooldownKey`)을 `tools/assets/local-attack-timing.json` `enemies[…].skills`에 쓰고, `tools/build-data.mjs` `enemySkillCast`가 `data/enemies.json`
   `skillCast`(스킬 이름 소문자 → `family`·`clip`·`dur`·`max`·`time`·`cd`·`cdKey`·`resetMain`·`waitFirst`, 클립 길이는 `data/assets.json`)로 싣는다(`content/enemies.js castLength`).
+  능력 클래스는 직렬화 필드로 가린다(`attack_timing.py cast_fields`): `kind` `buff`(`_waitForCasting`·`_buffs`, `wfc`)·`seq`/`par`/`sel`(`_alwaysNext`·`_finishAllAbilitiesIfOneFinish`·
+  `_abilityConfigs`, 자식은 `subs`에 `_abilities` 차례로), `proj`(`_waitForProjectileInvalid`), `miss`(이름 붙은 클립이 매니페스트에 없음).
   템플릿 `overrides.skills`도 같은 이름으로 찾는다.
   자기 공격 루프로 일반 공격을 하는 키트(가상적: 관·현, '사미의 의지' — `ab.ownAttack`)는 그 루프의 공격 차례에 같은 훅을 낸다(2026-10-29, 아래 「upstream 0.3.2–0.3.4
   대조 이식 — 적·보스」).

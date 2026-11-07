@@ -263,6 +263,58 @@ def enemy_entries(path, wanted):
 SKILL_FIELDS = {'_familyMask': 'family', '_resetMainAbilityCdWhenCastEnd': 'resetMain', '_resetCdWaitFirstPeriod': 'waitFirst'}
 
 
+def group_kind(d):
+    """'seq' / 'par' / 'sel' for an AbilitySequenceGroup / AbilityParallelGroup / AbilitySelectableGroup MonoBehaviour, else None
+    (told apart by a serialized field of each class)."""
+    if '_alwaysNext' in d and isinstance(d.get('_abilities'), list):
+        return 'seq'
+    if '_finishAllAbilitiesIfOneFinish' in d and isinstance(d.get('_abilities'), list):
+        return 'par'
+    if isinstance(d.get('_abilityConfigs'), list) and '_selectAbilitySequentially' in d:
+        return 'sel'
+    return None
+
+
+def is_buff_ability(d):
+    """An ActiveBuffAbility MonoBehaviour (its `_waitForCasting` beside `_buffs`, no `_timeMode`)."""
+    return '_waitForCasting' in d and '_buffs' in d and '_timeMode' not in d
+
+
+def cast_fields(d, by_pid, depth=0):
+    """How long ability MonoBehaviour `d` casts, as data/enemies.json `skillCast` reads it (docs/rules/sim.md 「적 스킬 =
+    일반 공격 차례」 시전 길이):
+      an animated ability — its clip (`anim`, `max`, `wait`, `pre`), `time` = `_timeMode` (the attack time it plays to, the
+        client's `AbstractAnimatedAbility.get_cooldown`: 0 the enemy's attack time, 1 the clip, 2 `_cooldown` → `cd`, 3 the
+        blackboard's `_cooldownKey` → `cdKey`), `proj` 1 when it waits for its projectile to vanish (RangedAttack
+        `_waitForProjectileInvalid`);
+      `kind` 'buff' — an ActiveBuffAbility (`wfc` 1 with `_waitForCasting`: it waits out its life time, else one tick before
+        and one after its spell);
+      `kind` 'seq' / 'par' / 'sel' — a group, `subs` = its children's records in `_abilities` order (a selectable group's
+        are not read: `subs` empty)."""
+    kind = group_kind(d)
+    if kind:
+        rec = {'kind': kind}
+        if kind != 'sel' and depth < 4:
+            rec['subs'] = [cast_fields(by_pid[r['m_PathID']], by_pid, depth + 1) for r in d['_abilities']
+                           if isinstance(r, dict) and r.get('m_PathID') in by_pid]
+        return rec
+    if is_buff_ability(d):
+        return {'kind': 'buff', **({'wfc': 1} if d.get('_waitForCasting') else {})}
+    rec = {}
+    a = ability(d)
+    if a and a.get('anim'):
+        rec.update({k: a[k] for k in ('anim', 'max', 'wait', 'pre') if k in a})
+    if '_timeMode' in d:
+        rec['time'] = num(d['_timeMode'])
+        if rec['time'] == 2:
+            rec['cd'] = num(d.get('_cooldown') or 0)
+        elif rec['time'] == 3:
+            rec['cdKey'] = d.get('_cooldownKey') or 'duration'
+    if d.get('_waitForProjectileInvalid'):
+        rec['proj'] = 1
+    return rec
+
+
 def enemy_skills(sub, modes):
     """{skill GameObject name: fields} of an enemy prefab's EnemySkill components (the MonoBehaviour with `_familyMask`,
     `<root>/Modes/<mode>/Skills/<name>`): its family mask and main-attack reset flags, and the clip of the animated ability
@@ -276,23 +328,17 @@ def enemy_skills(sub, modes):
     by_gp = {}
     for gp, d, _ in sub:
         by_gp.setdefault(gp, []).append(d)
+    by_pid = {pid: d for _, d, pid in sub}
     out = {}
     for gp in sorted((gp for gp, ds in by_gp.items() if any('_familyMask' in d for d in ds)), key=lambda g: (rank(g), g)):
         ds = by_gp[gp]
         s = next(d for d in ds if '_familyMask' in d)
         rec = {o: num(s[k]) if isinstance(s.get(k), (int, float)) else 0 for k, o in SKILL_FIELDS.items()}
-        a = next((x for x in (ability(d) for d in ds) if x is not None), None)
-        if a and a.get('anim'):
-            rec.update({k: a[k] for k in ('anim', 'max', 'wait', 'pre') if k in a})
-        # the attack time the cast plays to (the client's `AbstractAnimatedAbility.get_cooldown` by `_timeMode`: 0 the
-        # enemy's attack time, 1 the clip, 2 `_cooldown`, 3 the blackboard's `_cooldownKey`)
-        raw = next((d for d in ds if isinstance(d, dict) and '_timeMode' in d), None)
+        # the skill's ability: a group, an ActiveBuffAbility or an animated ability (cast_fields)
+        raw = next((d for d in ds if isinstance(d, dict) and (group_kind(d) or is_buff_ability(d))), None) \
+            or next((d for d in ds if isinstance(d, dict) and '_timeMode' in d), None)
         if raw is not None:
-            rec['time'] = num(raw['_timeMode'])
-            if rec['time'] == 2:
-                rec['cd'] = num(raw.get('_cooldown') or 0)
-            elif rec['time'] == 3:
-                rec['cdKey'] = raw.get('_cooldownKey') or 'duration'
+            rec.update(cast_fields(raw, by_pid))
         name = gp.rsplit('/', 1)[-1]
         if name not in out:
             out[name] = rec

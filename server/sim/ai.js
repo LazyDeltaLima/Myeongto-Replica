@@ -322,6 +322,28 @@ function cutSwing(u) {
 }
 
 /**
+ * An enemy's swing or skill cast is cut (cutSwing). A skill cast cut short is an interrupted cast: content hears it
+ * (`enemySkillCut` { enemy }, content/enemies.js — the client's `AttackState.OnExit` → `InterruptIfNot` →
+ * `FinishIfNot(INTERRUPTED)`, whose finish callback `EnemySkill._OnCastFinish` restarts the skill's cooldown then).
+ */
+function cutEnemySwing(b, e) {
+  const skill = e.castLeft > 0 && !e.castSwing;
+  cutSwing(e);
+  if (skill && b._hooks.enemySkillCut) b.emit('enemySkillCut', { enemy: e });
+}
+
+/**
+ * Enemy `e`'s skill cast is interrupted by its kit (an ability's `InterruptEnemyAbility`, “自在” 破桎而出's last barrier
+ * layer broken): it stops casting and standing at once (cutEnemySwing). Nothing when no skill cast plays.
+ */
+export function interruptEnemyCast(b, e) {
+  if (!(e.castLeft > 0) || e.castSwing) return;
+  b._cutAttackStand(e);
+  e.atkStandUntil = -Infinity;
+  cutEnemySwing(b, e);
+}
+
+/**
  * An operator's / summon's swing is cut (cutSwing): a cast "next attack" it carried is spent with it (dropNextAttack).
  * The swing of a detached mode's attack still playing out (`swingOff`) goes on (updateAlly).
  */
@@ -1083,7 +1105,7 @@ export function updateEnemy(b, e, dt) {
   }
   // a stun / freeze / sleep / 浮空 / 失衡 — or leaving the field — takes the enemy out of its attack: a swing short of its
   // damage frame does not land, and its cooldown runs on from the cut swing's start (enemyAttack)
-  if (stunned || e.hidden || unbalanced) cutSwing(e);
+  if (stunned || e.hidden || unbalanced) cutEnemySwing(b, e);
   // (a stun / freeze / sleep / 浮空 takes the enemy out of its 麻痹震颤 — `PalsyState.OnTick` switches to that state)
   if (stunned || e.s.flags.levitate) e.palsyUntil = -Infinity;
   // true: an enemy in a swing (it stands; a 「不停止移动」 one walks on)
@@ -1364,8 +1386,14 @@ function enemyAttack(b, e, dt) {
   // no normal attack — but an Attack ability in its prefab's mode (enemies.json `attackAbility`: the client's
   // `Unit.hasAttack`) still brings its attack slot round for its skills; it never swings
   if (unarmed && !(def.raw && def.raw.attackAbility)) return cutSwing(e), false;
-  // 恐惧 / 缴械 / 战栗 (被阻挡后无法进行普通攻击): no normal attack, and the one swung is interrupted
-  if (e.s.flags.fear || e.s.flags.disarm || (e.s.flags.tremble && e.blockedBy)) return cutSwing(e), false;
+  // 恐惧 / 缴械 / 战栗 (被阻挡后无法进行普通攻击): no normal attack, and the one swung is interrupted; 恐惧 cuts a skill's cast
+  // too, 缴械 / 战栗 only the normal swing — the kits' own channels hold 缴械 for "no normal attack meanwhile" (直击 aside:
+  // 蓄力攻击, 角力对决) [ASSUMED·미조사: whether the client's 缴械 interrupts a skill ability's cast]
+  if (e.s.flags.fear) return cutEnemySwing(b, e), false;
+  if (e.s.flags.disarm || (e.s.flags.tremble && e.blockedBy)) {
+    if (e.swing || e.castSwing) cutSwing(e);
+    return false;
+  }
   const moves = !!(e.profile?.attackMoves ?? def.attackMoves);
   // the attack slot: the main attack ready (its cooldown over, the last swing or cast played out, no 麻痹震颤) — a ready
   // skill of the enemy is cast in its place before any normal attack is looked for (enemySkillSlot)

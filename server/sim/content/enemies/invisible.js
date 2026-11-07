@@ -43,8 +43,11 @@ function kitCrossbow(ab) {
   const nearest = (b, e, l) => l.sort((p, q) => hypot(p.x - e.x, p.y - e.y) - hypot(q.x - e.x, q.y - e.y))[0];
   // PRTS 重弩突袭者: 天赋 "隐匿（被阻挡，主动攻击期间均可解除）"; 直击 "蓄力1.4s后向目标方向发射1支弩箭，对击中的首个目标造成攻击力100%
   // 的法术伤害与5s晕眩 ※技能持续2.5s": revealed for the whole skill, the bolt leaves CROSS_CHARGE s in the way of the unit it
-  // aimed at; it stands meanwhile [ASSUMED], and a stun / silence or its death before the release cancels the shot
-  // [ASSUMED]. The blackboard's duration (2) is not the skill's length PRTS gives. Until 0.1.3: revealed 2 s, the bolt at once.
+  // aimed at, and a stun / silence or its death before the release cancels the shot [ASSUMED]. The skill's length is its
+  // ability's (RangedAttack `_timeMode` 2, `_cooldown` 2.5, a ThreePartChannelingAnimation: content/enemies.js castLength):
+  // it stands without a normal attack through the cast, which a stun cuts (until 2026-11-07 a buff of this kit held it 2.5 s
+  // whatever happened [ASSUMED]). The blackboard's duration (2) is not the skill's length. Until 0.1.3: revealed 2 s, the
+  // bolt at once.
   // Never begun while blocked: its `_familyMask` is ATTACK only (content/enemies.js onSkillSlot; until 2026-10-22 it shot
   // its blocker too); a shot begun before the block still leaves.
   return [stealth(), skill(s, (b, e) => {
@@ -53,7 +56,6 @@ function kitCrossbow(ab) {
     const bb = s.bb;
     const aim = { x: t.x, y: t.y };
     b.addBuff(e, { key: 'ab:revealed', duration: CROSS_SKILL, flags: { reveal: true } });
-    b.addBuff(e, { key: 'ab:aim', duration: CROSS_SKILL, flags: { noMove: true, disarm: true } });
     b.after(CROSS_CHARGE, () => {
       if (!e.alive || e.hidden || e.s.flags.stun || e.s.flags.silence) return;
       // the bolt: its official projectile (data/enemies.json skills CrossAttack.proj — projectile_enemy_msnip, FIXED_DIRECTION

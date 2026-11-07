@@ -1155,7 +1155,9 @@ describe('enemy skills with a ground-only client selector skip a flying ally', (
     const r = field(extra, XI, 'enemy_1517_xi', [10, 9], { atkMul: 1 });
     r.h.run(0.5);
     fireSkills(r.e);
-    r.h.run(18);                                                          // the 15 s barrier holds (no ally attacks) ⇒ burst
+    // the 15 s barrier holds (no ally attacks) ⇒ burst; “自在” channels it standing, so the cross waits for a slot after it
+    // (content/enemies.js castLength: ShieldBurst `_timeMode` 3 = its `duration`)
+    r.h.run(18 + 2 * slotsFor(r.e));
     return r;
   };
   test('“自在” upstream: 纬地经天 centres on the nearest flyer (drop NO_AIR_PICKS when this fails)', () => {
